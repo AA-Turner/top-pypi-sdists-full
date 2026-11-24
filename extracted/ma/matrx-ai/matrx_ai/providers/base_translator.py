@@ -41,6 +41,12 @@ class BaseTranslator(ABC):
     #: ``tests/test_turn_context_rides_after_the_cache_line_on_every_provider.py``.
     PROVIDER: str = ""
 
+    #: LATE TOOLS (``providers/late_tools.py``): this translator delivers a tool added
+    #: mid-conversation as text in its trailing channel (after its last cache mark) instead of in
+    #: the wire ``tools`` list. A translator left False keeps such tools in its tools list and the
+    #: knob being on is said once per process.
+    SUPPORTS_LATE_TOOLS: bool = False
+
     @property
     def turn_context_after_cache_line(self) -> bool:
         return bool(TURN_CONTEXT_AFTER_CACHE_LINE.get(self.PROVIDER, False))
@@ -190,8 +196,9 @@ class BaseTranslator(ABC):
         re-written, per turn). Never persisted: the next turn's history is
         byte-identical to what this turn cached.
 
-        Followed by the tail channel (live plan) when the last message is a
-        tool result. Guard:
+        Followed by the tail channel (live plan, live roster, the current copy
+        of turn slots changed since the turn's first send) when the last message
+        is a tool result or a server-written turn. Guard:
         ``tests/test_nothing_behind_the_cache_line_changes_between_turns.py``.
         """
         parts: list[str] = []
@@ -205,18 +212,53 @@ class BaseTranslator(ABC):
         # text when the list it handed over carries the platform's host turn. Only a send it
         # left without one (no person turn at all, or a model the catalog declares
         # ``strict_role_alternation``) keeps this trailing block.
+        # A catalog-declared strict-alternation model keeps the block at the end of its system
+        # message (never after a tool result), so it rides every send of the turn there too.
+        strict = bool(
+            getattr(getattr(profile, "capabilities", None), "requires_strict_role_alternation", False)
+        )
         if (
             self.turn_context_after_cache_line
-            and not self._newest_is_tool_result(config)
+            and (strict or not self._newest_is_tool_result(config))
             and not self._boundary_placed_block(config)
         ):
             turn_context = self.get_turn_context_text(config)
             if turn_context:
                 parts.append(turn_context)
-        tail = self.get_tail_context_text(config)
+        tail = self.get_tail_context_text(config, already_said="\n".join(parts))
         if tail:
             parts.append(tail)
+        # LATE TOOLS ride EVERY send while they are late: here, after the cache line, only when
+        # the send boundary did not already place them in this turn's block BEFORE the person's
+        # typed text (``LATE_TOOLS_SLOT``; THE REQUEST ENDS WITH WHAT THE PERSON TYPED) — a send
+        # with no person turn to order, or a strict-alternation model.
+        late = self.get_late_tools_text(config)
+        if late:
+            parts.append(late)
         return "\n\n".join(parts) or None
+
+    def _late_tool_names(self, config: UnifiedConfig) -> list[str]:
+        from matrx_ai.providers.late_tools import late_tool_names
+
+        return late_tool_names(
+            config,
+            provider=str(self.PROVIDER or self._provider_label()),
+            supported=self.SUPPORTS_LATE_TOOLS,
+        )
+
+    def get_late_tools_text(self, config: UnifiedConfig) -> str | None:
+        """The late-tools block this translator still has to place (``providers/late_tools.py``), or
+        None — also None when the send boundary carries it in the turn-context slot already
+        (``late_tools.boundary_carries_late_tools``), so it is never sent twice."""
+        from matrx_ai.providers.late_tools import boundary_carries_late_tools, late_tools_text
+
+        if boundary_carries_late_tools(config):
+            return None
+        return late_tools_text(
+            config,
+            provider=str(self.PROVIDER or self._provider_label()),
+            supported=self.SUPPORTS_LATE_TOOLS,
+        )
 
     def messages_for_wire(self, config: UnifiedConfig, profile: Any = None) -> list[Any]:
         """The message list a CHAT send renders — exactly what the send boundary handed over.
@@ -239,7 +281,22 @@ class BaseTranslator(ABC):
                 text = "".join(getattr(c, "text", "") or "" for c in getattr(message, "content", None) or [])
                 record_platform_text_placement(self._provider_label(), "before_typed_text", text)
                 break
-        return out
+        # MEDIA ON AN ASSISTANT TURN — the backstop behind the send boundary's carry step: a
+        # picture or file this wire style refuses on an assistant turn is named, never sent
+        # into a 400 (``config/assistant_turn_media.py``). Gemini's style refuses nothing.
+        from matrx_ai.config.assistant_turn_media import name_assistant_media
+
+        provider = str(getattr(self, "PROVIDER", "") or self._provider_label())
+        wire_format = str(getattr(profile, "wire_format", "") or "") or f"{provider}_chat"
+        wired = name_assistant_media(out, wire_format, provider=provider)
+        # The residual check's source: a reference, one ContextVar set; read only in the seal's worker.
+        try:
+            from matrx_ai.providers.residual_check import note_wire_source
+
+            note_wire_source(config, wired, provider=provider)
+        except Exception:  # noqa: BLE001 — an observer never breaks a send
+            pass
+        return wired
 
     @staticmethod
     def _boundary_placed_block(config: UnifiedConfig) -> bool:
@@ -259,30 +316,49 @@ class BaseTranslator(ABC):
         role = getattr(last, "role", None)
         return str(getattr(role, "value", role) or "").lower() == "tool"
 
-    def get_tail_context_text(self, config: UnifiedConfig) -> str | None:
+    def get_tail_context_text(self, config: UnifiedConfig, *, already_said: str = "") -> str | None:
         """This send's TAIL-CHANNEL block, or None.
 
         Rendered by each translator AFTER the conversation's last block (and
         after Anthropic's rolling cache breakpoint), only when the last message
-        is a tool result: mid-loop, where the model is deciding its next step.
-        A turn that ends with the person's own message gets nothing appended —
-        the person's turn is theirs alone.
+        is a tool result or a server-written turn (a notice: iteration-ceiling
+        wrap-up, loop guard, answer check, change-claim correction, a woken
+        turn's note): wherever the model decides its next step on a send its
+        person turn's block was frozen for (``send_boundary._turn_block``), it
+        sees the live roster and the current copy of what changed since. A turn
+        that ends with the person's own message gets nothing appended — the
+        person's turn is theirs alone.
         """
         messages = getattr(config, "messages", None)
-        render = getattr(messages, "render_tail_context", None)
-        if render is None:
+        staged = getattr(messages, "tail_context_blocks", None)
+        if staged is None:
             return None
-        text = render()
+        # SAID ONCE: a tail block whose exact text this send already carries (the block placed on
+        # her turn, or the strict-alternation system copy) is not repeated — an unchanged roster
+        # on a woken turn's first send rode twice (review of 1804266da0b9).
+        said = [already_said] if already_said else []
+        for message in messages or []:
+            metadata = getattr(message, "metadata", None)
+            if isinstance(metadata, dict) and metadata.get(HOST_TURN_KEY):
+                said.append("".join(getattr(c, "text", "") or "" for c in getattr(message, "content", None) or []))
+        text = "\n\n".join(
+            block for block in staged().values() if block and not any(block in s for s in said)
+        )
         if not text:
             return None
         try:
             last = messages[-1]
         except (IndexError, TypeError):
             return None
-        role = getattr(last, "role", None)
-        if str(getattr(role, "value", role) or "").lower() != "tool":
-            return None
-        return text
+        role = str(getattr(getattr(last, "role", None), "value", getattr(last, "role", None)) or "").lower()
+        if role == "tool":
+            return text
+        if role == "user":
+            from matrx_ai.config.typed_text_last import is_host_authored
+
+            if is_host_authored(last):
+                return text
+        return None
 
     def place_trailing_on_chat_messages(
         self,
@@ -410,7 +486,9 @@ class BaseTranslator(ABC):
             name="capture_provider_tool_name_unserializable",
         )
 
-    def build_provider_tools(self, config: UnifiedConfig, provider: str) -> list[dict[str, Any]]:
+    def build_provider_tools(
+        self, config: UnifiedConfig, provider: str, *, tracked: bool = True
+    ) -> list[dict[str, Any]]:
         """Assemble the full tool-declaration list for a provider request —
         registered tools (``config.tools``) followed by inline custom tools
         (``config.custom_tools``) — DEDUPED BY NAME.
@@ -525,19 +603,41 @@ class BaseTranslator(ABC):
                 color="yellow",
                 verbose=True,
             )
+        # LATE TOOLS (knob agents.prompt_cache.late_tools_enabled, providers/late_tools.py): a tool
+        # that joined mid-conversation leaves the wire list and rides the trailing channel as text,
+        # so the cached prefix (tools first) never changes when one arrives. Authored order kept.
+        late_names = self._late_tool_names(config)
+        if late_names:
+            late_wire = {to_wire_name(name) for name in late_names}
+            kept = [d for d in deduped if self._declaration_name(d) not in late_wire]
+            moved = [self._declaration_name(d) for d in deduped if self._declaration_name(d) in late_wire]
+            if moved:
+                from matrx_ai.providers.late_tools import record_split
+
+                record_split(provider, [m for m in moved if m])
+            deduped = kept
         # THE TOOL LIST IS STABLE FOR THE LIFE OF A CONVERSATION: a declaration
         # once sent stays (first bytes, first position); new ones are appended.
         # Every upstream path that withdraws or re-merges tools mid-conversation
         # is absorbed here, because tools head the provider cache prefix
         # (matrx_ai/tools/declaration_ledger.py).
         from matrx_ai.providers.tool_count_limits import provider_tool_ceiling
-        from matrx_ai.tools.declaration_ledger import stabilize_declarations
+        from matrx_ai.tools.declaration_ledger import canonical_tool_array, stabilize_declarations
+
+        if not tracked:
+            # A READ of declarations that is not a send (the late-tools text block renders names
+            # a conversation has NOT put in its tools list): the one order and wire names, but it
+            # never writes the conversation's ledger, which would mark them as held.
+            return canonical_tool_array(
+                deduped, name_of=self._declaration_name, authored=authored_wire_names(config)
+            )
 
         return stabilize_declarations(
             provider,
             deduped,
             name_of=self._declaration_name,
             max_tools=provider_tool_ceiling(provider),
+            authored=authored_wire_names(config),
         ).declarations
 
     @staticmethod
@@ -897,6 +997,66 @@ class BaseTranslator(ABC):
         return {"type": "json_schema", "json_schema": json_schema_block}
 
 
+class RenderedStructuredPart(str):
+    """Marks a text part ``append_structured_input_text`` rendered, so ``finish_message_text`` trims only
+    those and never the person's own (or an assistant's) trailing newlines."""
+
+    __slots__ = ()
+
+
+def append_structured_input_text(text_parts: list[str], content: Any) -> bool:
+    """Render a structured input part (``input_remarks``, ``input_notes``, ``input_table`` ...)
+    into a Chat Completions message's text, in place; True when ``content`` was one.
+
+    Anthropic, Google and OpenAI Responses delegate to the part's own ``to_<provider>()``; the
+    Chat Completions translators (Groq, Cerebras, Together, generic OpenAI, xAI) build text from
+    ``TextContent`` alone and used to DROP every structured input without a trace — a filled
+    questionnaire's answers never reached GPT OSS on Groq (LEGACY-3a fix round 1, 2026-10-30).
+    The part keeps its own blank-line boundary so it never glues onto the person's words. A part
+    with no resolved text is announced by its own ``to_openai()`` and contributes nothing.
+    Guard: ``tests/test_structured_inputs_reach_every_provider.py``."""
+    from matrx_ai.config.speech_script_config import SpeechScriptContent
+    from matrx_ai.config.structured_input_config import _StructuredInputBase
+
+    # A speech script handed to a text model reads as its transcript (``to_openai`` is that text).
+    if not isinstance(content, (_StructuredInputBase, SpeechScriptContent)):
+        return False
+    block = content.to_openai()
+    text = block.get("text") if isinstance(block, dict) else None
+    if text:
+        lead = "\n\n" if text_parts and not text_parts[-1].endswith("\n") else ""
+        text_parts.append(RenderedStructuredPart(f"{lead}{text}\n\n"))
+    return True
+
+
+def finish_message_text(text_parts: list[str]) -> str:
+    """Join a Chat Completions message's text parts. A structured input that is the LAST part leaves
+    its blank-line boundary dangling, so the message would end in ``"\\n\\n"``; trim it (the boundary
+    only exists to keep the part off the person's words that follow)."""
+    joined = "".join(text_parts)
+    return joined.rstrip("\n") if text_parts and isinstance(text_parts[-1], RenderedStructuredPart) else joined
+
+
+def record_unsupported_media_drop(content: Any, style: str) -> bool:
+    """A document, audio, video or YouTube part reached a Chat Completions translator that has no wire
+    form for it: record the drop on the request snapshot like Anthropic, OpenAI and Google do
+    (``_record_serializer_drop``) instead of skipping it silently. True when ``content`` was one.
+    The media-fallback seam converts these before dispatch, so reaching here is itself a defect.
+    Guard: ``tests/test_structured_inputs_reach_every_provider.py``."""
+    from matrx_ai.config.message_config import _record_serializer_drop
+    from matrx_ai.providers.provider_io_capabilities import MediaContainer, container_for_content
+
+    if container_for_content(content) not in (
+        MediaContainer.DOCUMENT,
+        MediaContainer.AUDIO,
+        MediaContainer.VIDEO,
+        MediaContainer.YOUTUBE,
+    ):
+        return False
+    _record_serializer_drop(content, style)
+    return True
+
+
 def record_platform_text_placement(provider: str, where: str, text: str) -> None:
     """Say where this send put the platform's per-turn text, in the stored snapshot and the
     Model view (owner decision 23 + 35: the placement is recorded, never left to be spotted).
@@ -944,6 +1104,21 @@ TOOL_FORMAT_BY_WIRE_FORMAT: dict[str, str] = {
     "moonshot_chat": "generic_openai",
     "device_chat": "generic_openai",
 }
+
+
+def authored_wire_names(config: Any) -> list[str]:
+    """The WIRE names of the agent's own tools (``authored_tools`` + ``authored_custom_tools``), in
+    authored order. They lead the provider ``tools`` array (``declaration_ledger.order_key``) so a
+    platform-added tool never moves them, and ``prompt_warm`` marks the end of their run."""
+    from matrx_ai.config.wire_names import to_wire_name
+    from matrx_ai.providers.late_tools import _resolved
+
+    names: list[str] = [to_wire_name(n) for n in _resolved(getattr(config, "authored_tools", None))]
+    for tool in getattr(config, "authored_custom_tools", None) or []:
+        name = tool.get("name") if isinstance(tool, dict) else getattr(tool, "name", None)
+        if isinstance(name, str) and name:
+            names.append(to_wire_name(name))
+    return list(dict.fromkeys(names))
 
 
 def tool_format_for_wire_format(wire_format: str | None) -> str | None:

@@ -43,6 +43,54 @@ class ModelRetiredError(CatalogRoutingError):
     """The provider no longer serves this model — refuse, naming the replacement."""
 
 
+#: The caller-refusal code of :class:`DeprecatedModelUnservedError`.
+DEPRECATED_MODEL_UNSERVED = "deprecated_model_unserved"
+
+
+class DeprecatedModelUnservedError(CatalogRoutingError):
+    """A DEPRECATED model with no available offering, asked for by name — a CALLER REFUSAL.
+
+    Deprecated models still run (ruled 2026-09-09) — but only while an offering serves them.
+    One with none left cannot run anywhere; the caller (a person's pick, a client env var, a
+    saved agent) named a model the platform moved off. That is the caller's to change, named
+    with the replacement — never a ``system_error`` (live 2026-11-12: matrx-android chat sent
+    ``google/veo-3.1-fast``, deprecated since July with zero offerings, and filed a crash).
+    A NON-deprecated model with no offering stays a plain :class:`CatalogRoutingError`: that
+    is a catalog defect someone must fix.
+    """
+
+    is_caller_refusal = True
+    http_status = 400
+
+    def __init__(self, *, model_id: str, model_name: str, replacement: str) -> None:
+        from matrx_ai.providers.errors import RetryableError
+
+        self.code = DEPRECATED_MODEL_UNSERVED
+        self.model_id = model_id
+        self.model_name = model_name
+        super().__init__(
+            f"resolve_call_profile: model '{model_name}' ({model_id}) is deprecated and has no "
+            f"available ai.offering — it cannot run; {replacement}"
+        )
+        self.user_message = (
+            "This model is no longer offered. Pick another model and try again."
+        )
+        self.error_info = RetryableError(
+            error_type=self.code,
+            message=str(self),
+            status_code=self.http_status,
+            is_retryable=False,
+            user_message=self.user_message,
+            details={
+                "error": self.code,
+                "message": self.user_message,
+                "model_id": model_id,
+                "model_name": model_name,
+                "replacement": replacement,
+            },
+        )
+
+
 def _outputs(state: dict[str, Any]) -> frozenset[str]:
     caps = state.get("capabilities")
     raw = caps.get("output") if isinstance(caps, dict) else None
@@ -283,6 +331,8 @@ __all__ = [
     "AUTHORING_SUCCESSOR_HOP_LIMIT",
     "AuthoringModelResolution",
     "ModelNotAuthorableError",
+    "DEPRECATED_MODEL_UNSERVED",
+    "DeprecatedModelUnservedError",
     "ModelRetiredError",
     "describe_replacement",
     "gate_model_lifecycle",

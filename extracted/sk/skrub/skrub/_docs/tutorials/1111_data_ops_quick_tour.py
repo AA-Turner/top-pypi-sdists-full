@@ -75,6 +75,13 @@ learner.fit({"employee_data": train_dataset.X, "salary": train_dataset.y})
 # keys correspond to the names of the variables we used to define our learner,
 # here ``"employee_data"`` and ``"salary"``.
 #
+# If needed, it *is* possible to obtain an estimator that follows the standard
+# ``fit(X, y)`` interface by calling
+# :meth:`SkrubLearner.with_sklearn_interface` on the returned learner. In this
+# case any additional inputs beyond X and y are passed to fit, predict, etc.
+# through kwargs. See the examples in this function's API reference page or
+# :ref:`this example <example_with_sklearn_interface>`.
+#
 # Finally, we can use our fitted learner to make a prediction:
 
 # %%
@@ -237,7 +244,7 @@ salary = full_data["current_annual_salary"].skb.mark_as_y()
 
 from sklearn.preprocessing import TargetEncoder
 
-n_components = skrub.choose_int(10, 80, name="n_components")  # choose int in [10, 80[
+n_components = skrub.choose_int(10, 80, name="n_components")  # choose int in [10, 80]
 
 encoder = skrub.choose_from(  # choosing between 2 different estimators
     {

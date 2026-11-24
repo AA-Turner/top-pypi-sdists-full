@@ -37,6 +37,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from collections.abc import AsyncIterator
+from contextvars import ContextVar
 
 import pytest
 
@@ -207,6 +208,8 @@ def _make_fake_model(table: str, backend: FakeSchedulerBackend) -> type:
                     and existing.get("status") in {"queued", "claimed", "running"}
                     for existing in cls._backend.rows[cls._table]
                 ):
+                    # What Postgres writes to its log as an ERROR line on every such insert.
+                    cls._backend.unique_violations += 1
                     raise RuntimeError("23505 duplicate key sch_run_unique_active_per_task")
             now = datetime.now(UTC)
             row.setdefault("created_at", now)
@@ -215,7 +218,40 @@ def _make_fake_model(table: str, backend: FakeSchedulerBackend) -> type:
             return _FakeInstance(row)
 
         @classmethod
+        async def bulk_insert_ignore(
+            cls, objects_data: list[dict[str, Any]], *, on_conflict: Any, returning: Any = False
+        ) -> Any:
+            """matrx-orm ``ON CONFLICT (<target>) DO NOTHING``. Only the arbiter the real
+            ``sch_run_unique_active_per_task`` index accepts is honored; anything else is a
+            statement Postgres would refuse, so the fake refuses it too."""
+            assert cls._table == "sch_run", "fake bulk_insert_ignore models sch_run only"
+            assert tuple(on_conflict.expressions) == ("task_id",), on_conflict
+            assert on_conflict.where == "status IN ('queued', 'claimed', 'running')", on_conflict
+            landed: list[dict[str, Any]] = []
+            for data in objects_data:
+                row = dict(data)
+                if row.get("status") in {"queued", "claimed", "running"} and any(
+                    existing.get("task_id") == row.get("task_id")
+                    and existing.get("status") in {"queued", "claimed", "running"}
+                    for existing in cls._backend.rows[cls._table]
+                ):
+                    continue  # DO NOTHING: no row, no error
+                now = datetime.now(UTC)
+                row.setdefault("created_at", now)
+                row.setdefault("updated_at", now)
+                cls._backend.rows[cls._table].append(row)
+                landed.append(dict(row))
+            if returning is True:
+                return landed
+            return len(landed)
+
+        @classmethod
         async def update_where(cls, filters: dict[str, Any], **updates: Any) -> SimpleNamespace:
+            if _AS_PERSON.get() and updates.get("deleted_at") is not None:
+                # The strict world: where a table's SELECT policy hides archived rows, Postgres
+                # refuses a person's archive UPDATE (2026-11-13) — so the routes must archive
+                # through MatrxEntity.archive_where, which works on every table.
+                raise RuntimeError(f'new row violates row-level security policy for table "{cls._table}"')
             matched = [r for r in cls._backend.rows[cls._table] if _match(r, filters)]
             for r in matched:
                 r.update(updates)
@@ -223,6 +259,14 @@ def _make_fake_model(table: str, backend: FakeSchedulerBackend) -> type:
             return SimpleNamespace(
                 rows_affected=len(matched), updated_rows=[dict(r) for r in matched]
             )
+
+        @classmethod
+        async def archive_where(cls, filters: dict[str, Any]) -> int:
+            """matrx-orm ``MatrxEntity.archive_where``: live rows only, through the platform door."""
+            live = [r for r in cls._backend.rows[cls._table] if _match(r, filters) and r.get("deleted_at") is None]
+            for r in live:
+                r["deleted_at"] = datetime.now(UTC)
+            return len(live)
 
         @classmethod
         async def delete_where(cls, **filters: Any) -> int:
@@ -259,10 +303,20 @@ def _make_fake_model(table: str, backend: FakeSchedulerBackend) -> type:
 async def _fake_rls_session(
     claims: dict[str, Any], *, role: str, database: str | None = None
 ) -> AsyncIterator[None]:
-    """No-op stand-in for ``matrx_orm.rls_session`` -- RLS itself is the
-    live database's job (see module docstring); this only has to satisfy
-    the async-context-manager shape ``api.user_queries`` calls it with."""
-    yield
+    """Stand-in for ``matrx_orm.rls_session`` -- RLS itself is the live
+    database's job (see module docstring); this satisfies the
+    async-context-manager shape ``api.user_queries`` calls it with, and marks
+    the block as the person so the fake keeps the one live rule an archive
+    depends on (see ``_FakeModel.update_where``)."""
+    token = _AS_PERSON.set(True)
+    try:
+        yield
+    finally:
+        _AS_PERSON.reset(token)
+
+
+#: True inside the fake ``rls_session`` (the caller acts as the person).
+_AS_PERSON: ContextVar[bool] = ContextVar("fake_scheduler_as_person", default=False)
 
 
 class FakeSchedulerBackend:
@@ -291,6 +345,7 @@ class FakeSchedulerBackend:
         }
         self.rpc_calls: list[tuple[str, dict[str, Any]]] = []
         self.fail_next_run_create = False
+        self.unique_violations = 0
         self.lock_events: list[str] = []
         jwt_lib = pytest.importorskip("jwt")
         token = jwt_lib.encode(
@@ -426,6 +481,12 @@ def _build_app(
     # (which carries the bearer JWT api.user_queries decodes).
     app.dependency_overrides[user_client_dep] = lambda: fake_supabase
 
+    async def _agent_access_check(user_id: str, agent_id: str) -> bool:
+        # The host's answer. ``fake_supabase.usable_agents`` (a set) narrows it for a test;
+        # unset, every well-formed id is one the caller may use.
+        allowed = getattr(fake_supabase, "usable_agents", None)
+        return allowed is None or agent_id in allowed
+
     matrx_scheduler.configure_db(models=fake_supabase.db_models())
     matrx_scheduler.configure(
         supabase_client=fake_supabase,
@@ -434,6 +495,7 @@ def _build_app(
         rls_session=_fake_rls_session,
         call_function=fake_supabase.call_function,
         retry_on_transient=_retry_read_once,
+        agent_access_check=_agent_access_check,
     )
 
     include_routers(app, prefix="/scheduler")

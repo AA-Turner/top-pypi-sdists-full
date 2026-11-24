@@ -90,6 +90,39 @@ class DaemonHealth(BaseModel):
     open_breakers: list[str] = Field(default_factory=list)
 
 
+#: NodeActivity.signals caps (experiment: agent-monitoring-spec 2a).
+MAX_ACTIVITY_SIGNALS = 16
+MAX_ACTIVITY_SIGNAL_CHARS = 160
+
+
+class NodeActivity(BaseModel):
+    """Machine-level use beyond GPU processes (experiment, agent-monitoring-spec 2a): a node whose GPUs are
+    empty is idle capacity only when all of this is quiet. Rates are over the last report interval;
+    `cpu_busy_percent` is None on a daemon's first report."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cpu_busy_percent: float | None = Field(default=None, ge=0, le=100)
+    #: Logged-in users (utmp) or sshd session processes, whichever is larger.
+    interactive_sessions: int = Field(default=0, ge=0)
+    tmux_servers: int = Field(default=0, ge=0)
+    #: Jupyter/IPython (and IJulia, IRkernel) kernels.
+    notebook_kernels: int = Field(default=0, ge=0)
+    #: rsync/scp/rclone/aws/gsutil/curl/wget/... processes moving more than 64 KB/s.
+    transfers: int = Field(default=0, ge=0)
+    #: Probe SDK writes not yet delivered on this machine; None when no outbox was found.
+    outbox_pending: int | None = Field(default=None, ge=0)
+    #: Human-readable evidence ("ssh session: ubuntu@pts/0 (pid 812)"), at most 16.
+    signals: list[str] = Field(default_factory=list, max_length=MAX_ACTIVITY_SIGNALS)
+
+    @field_validator("signals")
+    @classmethod
+    def check_signal_length(cls, value: list[str]) -> list[str]:
+        if any(len(s) > MAX_ACTIVITY_SIGNAL_CHARS for s in value):
+            raise ValueError(f"each signal is at most {MAX_ACTIVITY_SIGNAL_CHARS} characters")
+        return value
+
+
 class NodeReportIn(BaseModel):
     """`POST /v1/nodes/{node_id}/report`, authorized by the node credential."""
 
@@ -111,6 +144,8 @@ class NodeReportIn(BaseModel):
     gpu_inventory: list[GpuInventory] | None = None
     inventory: NodeInventory | None = None
     health: DaemonHealth = Field(default_factory=DaemonHealth)
+    #: Experiment (agent-monitoring-spec 2a): absent from daemons that do not read it.
+    activity: NodeActivity | None = None
 
 
 class NodeReportAck(BaseModel):

@@ -36,12 +36,8 @@ __lazy_modules__ = (
     "nab_index.urllib3_async_transport",
     "nab_project._build.errors",
     "nab_project.download",
-    "nab_project.inputs",
     "nab_project.lockfile",
-    "nab_provider._vendor.packaging.requirements",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.utils",
-    "nab_provider._vendor.packaging.version",
+    "nab_project.toml_writer",
     "nab_provider.errors",
     "nab_provider.marker_holds",
     "nab_provider.metadata",
@@ -53,11 +49,14 @@ __lazy_modules__ = (
     "nab_provider.vcs_admission",
     "nab_resolver.diagnostics",
     "os",
+    "packaging.requirements",
+    "packaging.specifiers",
+    "packaging.utils",
+    "packaging.version",
     "pathlib",
     "subprocess",
     "sys",
     "tempfile",
-    "nab_project.toml_writer",
     "venv",
 )
 
@@ -80,18 +79,18 @@ from installer import install as installer_install
 from installer.destinations import SchemeDictionaryDestination
 from installer.sources import WheelFile
 from installer.utils import get_launcher_kind
+from packaging.ranges import VersionRange
+from packaging.requirements import InvalidRequirement
+from packaging.specifiers import SpecifierSet
+from packaging.utils import (
+    canonicalize_name,
+    parse_wheel_filename,
+)
+from packaging.version import Version
 
 from nab_index.client import extract_sdist_archive
 from nab_index.local_index import UnreadableLocalIndexError, read_wheel_metadata
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.requirements import InvalidRequirement
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.utils import (
-    canonicalize_name,
-    parse_wheel_filename,
-)
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.errors import MissingExtraError, UnsupportedWheelError
 from nab_provider.marker_holds import (
     IntractableMarkerError,
@@ -293,7 +292,7 @@ def _build_tempdir(prefix: str) -> tempfile.TemporaryDirectory[str]:
 BuildChain = tuple[str, ...]
 """The builds already in progress beneath the first one, outermost first.
 
-Each entry is a ``chain_label`` for a build requirement nab is building so
+Each entry is a ``_chain_label`` for a build requirement nab is building so
 that some other build can run.  The chain is empty for the build a resolve
 asks for directly, and gains an entry every time a build requirement has to
 be built to populate an env.  Its length is how deep the recursion has gone,
@@ -301,7 +300,7 @@ and a repeated entry is a cycle.
 """
 
 
-def chain_label(name: str, version: str) -> str:
+def _chain_label(name: str, version: str) -> str:
     """Return a build's chain entry with a canonical package name."""
     return f"{canonicalize_name(name)} {version}"
 
@@ -323,7 +322,7 @@ class _PendingBuild(Record):
     @property
     def label(self) -> str:
         """The chain entry naming this build."""
-        return chain_label(self.name, self.version)
+        return _chain_label(self.name, self.version)
 
 
 class _WheelRequiresPythonError(BuildEnvError):
@@ -406,13 +405,16 @@ class NabBuildEnv:
 
     def __enter__(self) -> Self:
         """Build the venv, run the inner resolve, install build requirements."""
+        if self._tmpdir is not None:
+            msg = "NabBuildEnv is already active"
+            raise BuildEnvError(msg)
+
         self._tmpdir = _build_tempdir("nab-build-env-")
         try:
             with _as_build_env_error("could not populate the build env"):
                 self._provision(Path(self._tmpdir.name))
         except BaseException:
-            self._tmpdir.cleanup()
-            self._tmpdir = None
+            self._cleanup()
             raise
         return self
 
@@ -437,11 +439,10 @@ class NabBuildEnv:
         self._python_executable = _venv_python(self._venv_path)
         self._scripts_dir = self._python_executable.parent
 
-        scheme_paths = _venv_scheme_paths(self._python_executable)
-
         if not self._requires:
             return
 
+        scheme_paths = _venv_scheme_paths(self._python_executable)
         self._install_wheels(self._resolve_and_download(wheel_dir), scheme_paths)
 
     def _install_wheels(
@@ -488,6 +489,15 @@ class NabBuildEnv:
 
     def __exit__(self, *args: object) -> None:
         """Clean up the temp tree that holds the venv and downloaded wheels."""
+        self._cleanup()
+
+    def _cleanup(self) -> None:
+        """Retire the paths and file records belonging to this environment."""
+        self._venv_path = None
+        self._python_executable = None
+        self._scripts_dir = None
+        self._installed_files.clear()
+
         if self._tmpdir is not None:
             self._tmpdir.cleanup()
             self._tmpdir = None
@@ -716,7 +726,7 @@ class NabBuildEnv:
             # the build with it.
             return pin.replace(wheels=(preferred,), sdist=None)
 
-        label = chain_label(pin.name, pin.version)
+        label = _chain_label(pin.name, pin.version)
         chain = self._chain
 
         if pin.sdist is None:
@@ -829,7 +839,7 @@ def _check_wheel_requires_python(
     name: str, version: str, wheel: Path, overrides: tuple[PackageOverride, ...]
 ) -> None:
     """Check host Python compatibility using wheel metadata and package overrides."""
-    label = chain_label(name, version)
+    label = _chain_label(name, version)
     try:
         text = read_wheel_metadata(wheel)
     except (UnreadableLocalIndexError, UnsupportedWheelError) as exc:
@@ -966,6 +976,13 @@ def _without_build_permission(
     return override.replace(build_policy=None)
 
 
+class _BuildRequirementInputs(ResolveInputs):
+    """Tentative pins checked by _check_built_requires_python before installation."""
+
+    __slots__ = ()
+    defer_sdist_python_to_install = True
+
+
 def _inner_resolve_inputs(inputs: ResolveInputs) -> ResolveInputs:
     """Return the settings the build-requires resolve runs under.
 
@@ -975,7 +992,7 @@ def _inner_resolve_inputs(inputs: ResolveInputs) -> ResolveInputs:
     this resolve picks the backend that writes the metadata the outer
     resolve reads, and a lock reproduces only if this search does too.
     """
-    return ResolveInputs(
+    return _BuildRequirementInputs(
         allow_zip_sdists=inputs.allow_zip_sdists,
         indexes=inputs.indexes,
         package_overrides=tuple(

@@ -1,17 +1,29 @@
 from __future__ import annotations
 
-from typing import Any, ClassVar, Literal
+from matrx_graph.content_ir.envelope import KIND_KEY
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from typing import Any, ClassVar
+
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, RootModel, field_validator
 
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
+from matrx_graph.input_declaration import VariableDefinition
 from matrx_graph.types.input_surface import (
-    EntityTypePicks,
-    InputHints,
-    UserInputFieldType,
     apply_kind_value_schema,
     apply_picks_schema,
+    check_input_name,
+    compiled_kind_and_variant,
+    declared_inputs,
+    input_binding_dict,
+    input_is_bound,
+    input_label,
+    input_multiple,
+    input_option_labels,
+    input_options,
+    input_picks,
+    input_picks_type_into,
+    input_type,
     structured_input_kind,
 )
 from matrx_graph.types.node_spec import NodeSpec
@@ -19,163 +31,96 @@ from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, success
 from matrx_graph.types.usl import field_extras
 
-# Field kinds the author can pick: ``UserInputFieldType`` (types/input_surface.py),
-# shared with declared workflow variables so both doors speak one vocabulary.
+#: THE INPUT-SOURCE STEP TYPES: every step whose ``config.fields`` compile into the workflow's ONE
+#: input surface. ``io.trigger`` (the Trigger step) is a second registration of the SAME executor
+#: and config as ``io.user_input`` (Collect Inputs); everything that means "an input source" reads
+#: this set, never one of the two names.
+TRIGGER_STEP_TYPE = "io.trigger"
+INPUT_SOURCE_TYPES: frozenset[str] = frozenset({"io.user_input", TRIGGER_STEP_TYPE})
 
 
-class UserInputField(InputHints):
-    """One field the person running the workflow fills in. Carries the input
-    hints (primary box, Tools reveal, chips…) the run form arranges by."""
+def input_source_label(spec_type: str, node_id: str) -> str:
+    """How an error names an input-source step: the Trigger step or an input node, by id."""
+    return f"the Trigger step '{node_id}'" if spec_type == TRIGGER_STEP_TYPE else f"input node '{node_id}'"
 
-    model_config = ConfigDict(extra="forbid")
 
-    label: str = Field(
-        default="",
-        title="Label",
-        description="Human label shown above the field.",
-        json_schema_extra=field_extras(
-            order=1, placeholder="e.g. Topic", help="Shown above the field"
-        ),
-    )
-    type: UserInputFieldType = Field(
-        default="text",
-        title="Type",
-        description="What kind of value to collect.",
-        json_schema_extra=field_extras(order=2, help="The kind of value to collect"),
-    )
-    required: bool = Field(
-        default=False,
-        title="Required",
-        description="Whether the person must fill this in before the run can start.",
-        json_schema_extra=field_extras(order=3, widget="toggle"),
-    )
-    options: list[str] = Field(
-        default_factory=list,
-        title="Choices",
-        description="Choices for type='choice'.",
-        json_schema_extra=field_extras(order=4, help="Used when Type is Choice"),
-    )
-    key: str = Field(
-        min_length=1,
-        pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
-        title="Field ID",
-        description="The output key this value is stored under (and routed downstream as).",
-        json_schema_extra=field_extras(
-            order=5,
-            help=("Short id used to connect this value to a step — letters, numbers, underscore"),
-        ),
-    )
-    help: str = Field(
-        default="",
-        title="Help text",
-        description="Helper text shown under the field.",
-        json_schema_extra=field_extras(order=6),
-    )
-    placeholder: str = Field(
-        default="",
-        title="Placeholder",
-        description="Faint example text shown inside the empty field.",
-        json_schema_extra=field_extras(order=7),
-    )
-    default: JsonValue = Field(
-        default=None,
-        title="Default",
-        description="Pre-filled value, if any.",
-        json_schema_extra=field_extras(order=8),
-    )
-    # --- Input-surface declarations (INPUT-SURFACE.md, 2026-08-27) ---------
-    kind: str = Field(
-        default="",
-        title="Kind",
-        description=(
-            "content_ir kind slug this input carries. Empty = derived from "
-            "`type` (text/long_text/choice/file → 'text', number → 'number', "
-            "yes_no → 'boolean'). A declared slug passes through to the "
-            "compiled surface as-is."
-        ),
-        json_schema_extra=field_extras(order=9, help="Advanced: the platform kind of this value"),
-    )
-    sourcing: Literal["", "ask", "require", "optional"] = Field(
-        default="",
-        title="Sourcing rule",
-        description=(
-            "How this input is sourced: 'ask' (a human answers every time — "
-            "even on a programmatic trigger), 'require' (must be present at "
-            "start from any source), 'optional' (never blocks). Empty = "
-            "derived from `required` (required → require, else optional)."
-        ),
-        json_schema_extra=field_extras(order=10, help="When a person must answer"),
-    )
-    # FILLED FROM MY DATA (W1.1, 2026-10-02). The SAME merge-field declaration an agent
-    # variable carries when bound with the agent builder's "From my data" picker
-    # (`{"kind": "merge_field", "source": "record", "semantic_type": …, "table_id": …}`).
-    # A bound field is not asked for: its value is read from the table at run start by the
-    # host's one merge-field resolver (`matrx_graph.input_bindings`).
-    binding: dict[str, JsonValue] | None = Field(
-        default=None,
-        title="Fill from my data",
-        description="Read this value from one of your tables when the run starts, instead of asking.",
-        json_schema_extra=field_extras(order=12, widget="custom_data_binding"),
-    )
-    # A LIST and a RECORD PICKER, the same two words a declared variable carries
-    # (types/variables.py ``VariableSpec``), so every value a workflow uses can sit on a
-    # visible input step instead of a hidden variable (Rule 18, Arman 2026-10-28).
-    multiple: bool = Field(
-        default=False,
-        title="Several values",
-        description="The value is a list (several files, organizations, words...).",
-        json_schema_extra=field_extras(order=13, widget="toggle"),
-    )
-    picks: EntityTypePicks | None = Field(
-        default=None,
-        title="Pick from",
-        description="The platform record type(s) this value names (e.g. organization, or [note, file]): a picker instead of a raw id box.",
-        json_schema_extra=field_extras(order=14, help="Advanced: a record type, e.g. organization"),
-    )
-    picks_type_into: str = Field(
-        default="",
-        title="Picked type goes to",
-        description="With several record types: the field that receives the type of the record picked.",
-        json_schema_extra=field_extras(order=15, help="Advanced: another field's key"),
-    )
-    variant: str = Field(
-        default="",
-        title="Presentation variant",
-        description=(
-            "Named presentation variant registered ON the kind, selected by "
-            "name (never an ad-hoc component). Empty = derived from `type` "
-            "(long_text → textarea, choice → dropdown), else the kind's "
-            "default component. Every name must be seeded on the kind in the "
-            "registry — an unregistered name degrades silently."
-        ),
-        json_schema_extra=field_extras(order=11, help="Advanced: named variant on the kind"),
+# A field is ONE input declaration (``VariableDefinition``, matrx_graph.input_declaration) — the
+# same shape a declared workflow variable and an agent variable take. What it means to the engine
+# (type, several values, record picks, options, hints) is read through the reader API in
+# ``types/input_surface.py``; nothing here re-declares it.
+
+
+def field_kind_and_variant(d: VariableDefinition) -> tuple[str, str | None]:
+    """The (kind, variant) a field compiles to on the input surface."""
+    return compiled_kind_and_variant(
+        input_type(d) or "text",
+        multiple=input_multiple(d),
+        kind=d.valueKind or "",
+        variant=d.valueVariant or "",
     )
 
-    def effective_kind(self) -> str:
-        """The kind slug this field carries on the compiled surface."""
-        from matrx_graph.types.input_surface import compiled_kind_and_variant
 
-        return compiled_kind_and_variant(self.type, multiple=self.multiple, kind=self.kind)[0]
+def field_sourcing(d: VariableDefinition) -> str:
+    """The sourcing rule: explicit wins; else required -> require, else optional. A field filled
+    from table data is never asked for — the run fills it."""
+    if input_is_bound(d):
+        return "optional"
+    return d.sourcing or ("require" if d.required else "optional")
 
-    def is_bound(self) -> bool:
-        """True when this field is filled from table data (a merge-field binding)."""
-        return isinstance(self.binding, dict) and self.binding.get("kind") == "merge_field"
 
-    def effective_sourcing(self) -> str:
-        """The sourcing rule: explicit wins; else required → require, else optional.
-
-        A field filled from table data is never asked for — the run fills it."""
-        if self.is_bound():
-            return "optional"
-        return self.sourcing or ("require" if self.required else "optional")
-
-    def effective_variant(self) -> str | None:
-        """The named presentation variant, or None for the kind's default."""
-        from matrx_graph.types.input_surface import compiled_kind_and_variant
-
-        return compiled_kind_and_variant(
-            self.type, multiple=self.multiple, kind=self.kind, variant=self.variant
-        )[1]
+def field_json_schema(d: VariableDefinition, index: int = 0) -> dict[str, Any]:
+    """The value contract of one ``io.user_input`` field — the run form renders from it."""
+    ftype = input_type(d) or "text"
+    multiple = input_multiple(d)
+    prop: dict[str, Any] = {"title": input_label(d), "ui:order": index}
+    if d.helpText:
+        prop["description"] = d.helpText
+    if ftype == "number":
+        prop["type"] = "number"
+    elif ftype == "yes_no":
+        prop["type"] = "boolean"
+    elif ftype == "choice":
+        prop["type"] = "string"
+        options = input_options(d)
+        if options:
+            prop["enum"] = options
+        labels = input_option_labels(d)
+        if labels:
+            prop["ui:option_labels"] = labels
+    else:  # text, long_text, file
+        prop["type"] = "string"
+    if ftype == "long_text":
+        prop["ui:widget"] = "textarea"
+    elif ftype == "file":
+        prop["ui:widget"] = "file"
+    if multiple:
+        prop["type"] = "array"
+        prop["items"] = {"type": "number" if ftype == "number" else "string"}
+        # Each item is one of the choices; an enum on the array would refuse every list.
+        if "enum" in prop:
+            prop["items"]["enum"] = prop.pop("enum")
+        prop["ui:multiple"] = True
+    picks = input_picks(d)
+    if picks and ftype != "file":
+        apply_picks_schema(prop, picks, input_picks_type_into(d))
+    # A field naming a structured kind takes its value contract from the kind (gap 8).
+    apply_kind_value_schema(prop, d.valueKind, ftype, multiple=multiple, name=d.name)
+    # A field of kind ``json`` carries any data a caller hands over (a list of records, an
+    # object), the same open contract an untyped run variable has; the run form edits it as JSON.
+    if (d.valueKind or "").strip() == "json":
+        for key in ("type", "items", "ui:multiple"):
+            prop.pop(key, None)
+        prop["ui:widget"] = "json"
+    placeholder = d.hints.placeholder if d.hints is not None else None
+    if placeholder:
+        prop["ui:placeholder"] = placeholder
+    if d.defaultValue is not None:
+        prop["default"] = d.defaultValue
+    if input_is_bound(d):
+        # Filled from table data at run start: never a box on the run form.
+        prop["ui:hidden"] = True
+        prop["ui:filled_from_data"] = True
+    return prop
 
 
 class UserInputConfig(BaseModel):
@@ -184,13 +129,15 @@ class UserInputConfig(BaseModel):
     title: str = Field(
         default="Your inputs",
         description="Section heading shown in the run form.",
-        json_schema_extra=field_extras(help="What this group of inputs is for"),
+        # The label says it all: no help icon, one line.
+        json_schema_extra=field_extras(help="", single_line=True),
     )
     description: str = Field(
         default="",
         description="Optional one-line explanation shown under the title.",
+        json_schema_extra=field_extras(help="", single_line=True),
     )
-    fields: list[UserInputField] = Field(
+    fields: list[VariableDefinition] = Field(
         default_factory=list,
         description="The fields the user fills in to start the run.",
         # minItems lives as a real JSON Schema keyword (NOT via field_extras —
@@ -200,11 +147,24 @@ class UserInputConfig(BaseModel):
         json_schema_extra={
             **field_extras(
                 widget="user_input_fields",
-                help="Add one entry per input the user fills in to start the run",
+                help="",
             ),
             "minItems": 1,
         },
     )
+
+    @field_validator("fields", mode="before")
+    @classmethod
+    def _declared_fields(cls, value: Any) -> Any:
+        # Old stored fields (key/type/picks/...) are read ONLY through the converter.
+        return declared_inputs(value) if isinstance(value, list | tuple) else value
+
+    @field_validator("fields", mode="after")
+    @classmethod
+    def _field_names(cls, value: list[VariableDefinition]) -> list[VariableDefinition]:
+        for fld in value:
+            check_input_name(fld.name)
+        return value
 
     def effective_output_json_schema(self) -> dict[str, Any]:
         """Compile the author-defined fields into a JSON Schema.
@@ -217,53 +177,9 @@ class UserInputConfig(BaseModel):
         props: dict[str, Any] = {}
         required: list[str] = []
         for index, fld in enumerate(self.fields):
-            prop: dict[str, Any] = {"title": fld.label or fld.key, "ui:order": index}
-            if fld.help:
-                prop["description"] = fld.help
-            if fld.type == "number":
-                prop["type"] = "number"
-            elif fld.type == "yes_no":
-                prop["type"] = "boolean"
-            elif fld.type == "choice":
-                prop["type"] = "string"
-                if fld.options:
-                    prop["enum"] = list(fld.options)
-                if fld.option_labels:
-                    prop["ui:option_labels"] = dict(fld.option_labels)
-            else:  # text, long_text, file
-                prop["type"] = "string"
-            if fld.type == "long_text":
-                prop["ui:widget"] = "textarea"
-            elif fld.type == "file":
-                prop["ui:widget"] = "file"
-            if fld.multiple:
-                prop["type"] = "array"
-                prop["items"] = {"type": "number" if fld.type == "number" else "string"}
-                # Each item is one of the choices; an enum on the array would refuse every list.
-                if "enum" in prop:
-                    prop["items"]["enum"] = prop.pop("enum")
-                prop["ui:multiple"] = True
-            if fld.picks and fld.type != "file":
-                apply_picks_schema(prop, fld.picks, fld.picks_type_into)
-            # A field naming a structured kind takes its value contract from the kind (gap 8).
-            apply_kind_value_schema(prop, fld.kind, fld.type, multiple=fld.multiple, name=fld.key)
-            # A field of kind ``json`` carries any data a caller hands over (a list of records, an
-            # object), the same open contract an untyped run variable has; the run form edits it as JSON.
-            if fld.kind.strip() == "json":
-                for key in ("type", "items", "ui:multiple"):
-                    prop.pop(key, None)
-                prop["ui:widget"] = "json"
-            if fld.placeholder:
-                prop["ui:placeholder"] = fld.placeholder
-            if fld.default is not None:
-                prop["default"] = fld.default
-            if fld.is_bound():
-                # Filled from table data at run start: never a box on the run form.
-                prop["ui:hidden"] = True
-                prop["ui:filled_from_data"] = True
-            props[fld.key] = prop
-            if fld.required and not fld.is_bound():
-                required.append(fld.key)
+            props[fld.name] = field_json_schema(fld, index)
+            if fld.required and not input_is_bound(fld):
+                required.append(fld.name)
         schema: dict[str, Any] = {"type": "object", "properties": props}
         if required:
             schema["required"] = required
@@ -332,11 +248,19 @@ class UserInputExecutor:
         config: UserInputConfig,
     ) -> NodeResult[UserInputOutput]:
         payload = inputs.model_dump(mode="json")
+        # A run started with a KIND-declared input (a ``relation``, a record …) arrives as that
+        # kind's instance: its top-level ``__kind`` names the whole run input — which keeps it
+        # (``workflow.run.input``) — not a field of this step's output, whose own kind is
+        # ``user_inputs``. Carried through, it collided with that kind and failed the run as
+        # "something went wrong on our side" (run a02a0b62, 2026-11-02). The fields pass
+        # through as they are; a field that IS a kind value keeps its own marker.
+        if payload.get(KIND_KEY) not in (None, self.spec.output_kind):
+            payload.pop(KIND_KEY)
         await _fill_bound_fields(ctx, config, payload)
         # A missing required field parks the run on THIS node (recoverable)
         # with a clear message — never silently pass an empty value downstream.
         missing = [
-            fld.key for fld in config.fields if fld.required and payload.get(fld.key) in (None, "")
+            fld.name for fld in config.fields if fld.required and payload.get(fld.name) in (None, "")
         ]
         if missing:
             raise ValueError(
@@ -348,20 +272,22 @@ class UserInputExecutor:
         # of resolving to an empty value. The scheduler only delivers keys the
         # user actually touched, so backfill the rest from the field's default.
         for fld in config.fields:
-            if fld.key in payload:
+            if fld.name in payload:
                 continue
-            if fld.default is not None:
-                payload[fld.key] = fld.default
-            elif structured_input_kind(fld.kind, fld.type) is not None:
+            ftype = input_type(fld) or "text"
+            if fld.defaultValue is not None:
+                payload[fld.name] = fld.defaultValue
+            elif structured_input_kind(fld.valueKind, ftype) is not None:
                 # A structured value left blank is no value — never an empty string.
-                payload[fld.key] = [] if fld.multiple else None
-            elif fld.type == "yes_no":
-                payload[fld.key] = False
-            elif fld.type == "number":
-                payload[fld.key] = None
+                payload[fld.name] = [] if input_multiple(fld) else None
+            elif ftype == "yes_no":
+                payload[fld.name] = False
+            elif ftype == "number":
+                payload[fld.name] = None
             else:  # text, long_text, choice, file
-                payload[fld.key] = ""
-        return success(UserInputOutput(**payload))
+                payload[fld.name] = ""
+        # The output model is the spec's: this step's open-keys model, or the Trigger step's typed JSON map.
+        return success(self.spec.output_schema.model_validate(payload))
 
 
 async def _fill_bound_fields(
@@ -372,7 +298,7 @@ async def _fill_bound_fields(
     An absent binding delivers the resolver's named absence as the value and SAYS so in the
     run (a progress line) — never a silent empty. ``missing: "block"`` parks the run here.
     """
-    bindings = {fld.key: dict(fld.binding or {}) for fld in config.fields if fld.is_bound()}
+    bindings = {fld.name: input_binding_dict(fld) for fld in config.fields if input_is_bound(fld)}
     if not bindings:
         return
     from matrx_graph.input_bindings import InputBindingBlocked, get_input_binding_resolver
@@ -387,7 +313,7 @@ async def _fill_bound_fields(
         resolved = await resolver(bindings, ctx.user_id or None, ctx.organization_id)
     except InputBindingBlocked as blocked:
         raise ValueError(blocked.user_message) from blocked
-    labels = {fld.key: (fld.label or fld.key) for fld in config.fields}
+    labels = {fld.name: input_label(fld) for fld in config.fields}
     for key in bindings:
         bound = resolved.get(key)
         if bound is None:
@@ -417,9 +343,38 @@ async def user_input_kind_problems(
     judged: set[str] = set()
     problems: list[str] = []
     for fld in config.fields:
-        slug = structured_input_kind(fld.kind, fld.type)
+        slug = structured_input_kind(fld.valueKind, input_type(fld) or "text")
         if slug is None or await structured_kind_schema(slug) is None:
             continue
-        judged.add(fld.key)
-        problems.extend(await input_kind_problems(fld.key, values.get(fld.key), slug, multiple=fld.multiple))
+        judged.add(fld.name)
+        problems.extend(
+            await input_kind_problems(fld.name, values.get(fld.name), slug, multiple=input_multiple(fld))
+        )
     return judged, problems
+
+
+class TriggerOutput(RootModel[dict[str, JsonValue]]):
+    """The Trigger step's output: the fire's values keyed by the author's field names, every value
+    typed JSON. A fully declared contract (the keys are author-defined; the values are JSON)."""
+
+
+class TriggerStepExecutor(UserInputExecutor):
+    """THE TRIGGER STEP (``io.trigger``): a workflow's first step when something outside starts it —
+    the SAME executor and config as ``io.user_input`` (a second registration, nothing else). Its
+    fields are the values a fire fills; the triggers that start the workflow are the host's
+    ``workflow.trigger`` rows (this package knows nothing about them). At most one per workflow,
+    always a source (``validate_definition``)."""
+
+    spec: ClassVar[NodeSpec] = UserInputExecutor.spec.model_copy(
+        update={
+            "node_type": TRIGGER_STEP_TYPE,
+            "display_name": "Trigger",
+            "description": (
+                "Start this workflow from outside: a schedule, a web address, a data change or a "
+                "connected app. Its fields are what each trigger fills in. Not a mid-run data subscription."
+            ),
+            "icon": "zap",
+            "output_schema": TriggerOutput,
+        }
+    )
+

@@ -224,14 +224,15 @@ class HumanInputConfig(BaseModel):
     escalation: EscalationPolicy | None = Field(
         default=None,
         description=(
-            "Optional deadline. Left empty, the run waits for the person "
-            "indefinitely (the historical behavior). Set, the run continues "
-            "without them once the deadline passes — an AI agent decides, or "
-            "the default answer is applied — and the output records who "
-            "decided. The person is always notified first and always wins if "
-            "they answer in time."
+            "What happens when nobody answers in time. Every question has a "
+            "deadline. Left empty, the question waits the standard time (an "
+            "admin setting) and then the run ends, saying nobody answered. "
+            "Set it to choose the wait and the outcome: continue with the "
+            "default answer, end the run with your own reason, or let an AI "
+            "agent decide. The output records who decided. The person is "
+            "always notified first and always wins if they answer in time."
         ),
-        json_schema_extra=field_extras(widget="json", help="Timed hand-off to AI"),
+        json_schema_extra=field_extras(widget="json", help="When nobody answers"),
     )
 
     # ── THE PRESENTATION BLOCK (SPEC-workflow-ui-contract §4.1) ─────────────

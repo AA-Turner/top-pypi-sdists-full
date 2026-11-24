@@ -323,6 +323,10 @@ FLUX_SAFETY_TOLERANCE_PROVIDER_DEFAULT = 2
 OPENAI_IMAGE_DEFAULT_MODERATION = "low"
 
 
+#: The word that means a depth key's "none" off wherever it arrives.
+OFF_WORD = "off"
+
+
 def is_off_value(key: str, value: Any) -> bool:
     """Does ``value`` mean OFF for ``key``? (K6 ``off`` acts only then.)"""
     if value is None:
@@ -335,6 +339,12 @@ def is_off_value(key: str, value: Any) -> bool:
             if value is off:
                 return True
         elif not isinstance(value, bool) and value == off:
+            return True
+        elif off == "none" and isinstance(value, str) and value.strip().lower() == OFF_WORD:
+            # "off" is the spoken form of a depth key's "none" (the same alias
+            # llm_params maps for thinking_level). Unrecognised, it fell through to
+            # the processor, was dropped, and the PROVIDER's default ran instead of
+            # the cell's declared off (gemini-3.8-flash, 2026-11-08).
             return True
     return False
 
@@ -362,3 +372,19 @@ __all__ = [name for name in dir() if name.isupper()] + [
     "is_unset_posture",
     "step_lookup",
 ]
+
+
+# ── depth precedence (PB-03 U6; Arman 2026-11-09: no saved agent's depth changes silently) ────────
+# Per thinking processor, which depth key wins when the caller named depth more than one way, most
+# preferred first. Exactly the order each processor had before C73, plus one declared exception:
+# on Gemini 3 a named thinking_level beats a reasoning_effort tier (specific-beats-general).
+DEPTH_ORDER_GEMINI_3 = ("thinking_level", "reasoning_effort", "thinking_budget")
+DEPTH_ORDER_GEMINI_LEGACY = ("thinking_budget", "reasoning_effort")
+DEPTH_ORDER_ANTHROPIC_ADAPTIVE = ("reasoning_effort", "thinking_budget", "thinking_level")
+DEPTH_ORDER_ANTHROPIC_BUDGET = ("thinking_budget", "reasoning_effort")
+# The short names a law is spelled with ("effort-beats-budget (adaptive)").
+DEPTH_SHORT_NAME = {"thinking_level": "level", "thinking_budget": "budget", "reasoning_effort": "effort"}
+DEPTH_SPECIFIC_OVER_GENERAL = ("thinking_level", "reasoning_effort")
+# A saved agent that stores BOTH a thinking_level and a reasoning_effort keeps what Gemini 3 did before C73
+# (effort won); the level beats the effort only when both were sent together for one run.
+DEPTH_ORDER_GEMINI_3_STORED = ("reasoning_effort", "thinking_level", "thinking_budget")

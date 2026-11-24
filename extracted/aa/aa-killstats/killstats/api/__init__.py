@@ -12,7 +12,7 @@ from killstats.api import admin, general, killboard, stats
 api = NinjaAPI(
     title="Killstats API",
     version="0.2.0",
-    urls_namespace="killstats:new_api",
+    urls_namespace="killstats:api",
     auth=django_auth,
     openapi_url=settings.DEBUG and "/openapi.json" or "",
 )

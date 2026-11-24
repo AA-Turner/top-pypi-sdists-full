@@ -38,7 +38,7 @@ from matrx_graph.content_ir.accessor import resolve_path
 from matrx_graph.content_ir.model import KindModel, KindSubModel
 from matrx_graph.errors import ExecutionError
 from matrx_graph.text_match import fold as _shared_fold
-from matrx_graph.nodes._sandbox import bind_item, safe_eval, validate_expression
+from matrx_graph.nodes._sandbox import ExpressionFailure, bind_item, safe_eval, validate_expression
 from matrx_graph.nodes.data.filter import (
     DedupeMatch,
     FilterOutput,
@@ -51,6 +51,7 @@ from matrx_graph.safe_regex import UnsafePatternError, compile_safe
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
+from matrx_graph.types.usl import field_extras
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, failure, success
 
@@ -129,7 +130,6 @@ class DedupeMerge(BaseModel):
         ),
     )
 
-
     fill_empty: list[str] = Field(
         default_factory=list,
         description=(
@@ -198,7 +198,12 @@ def _merge_duplicates(group: list[JsonValue], survivor: JsonValue, merge: Dedupe
 
 def _is_empty(value: JsonValue) -> bool:
     """Missing, null, blank text, [] or {} — what ``fill_empty`` fills."""
-    return value is None or (isinstance(value, str) and not value.strip()) or value == [] or value == {}
+    return (
+        value is None
+        or (isinstance(value, str) and not value.strip())
+        or value == []
+        or value == {}
+    )
 
 
 #: Small joining words that never make two texts "about the same thing".
@@ -334,7 +339,9 @@ class DedupeConfig(BaseModel):
                 "To match within a group, use similar.within."
             )
         if self.similar is not None and self.normalize != "none":
-            raise ValueError("data.dedupe: `normalize` applies to an exact `key`; similar already folds case and spaces.")
+            raise ValueError(
+                "data.dedupe: `normalize` applies to an exact `key`; similar already folds case and spaces."
+            )
         return self
 
 
@@ -365,7 +372,9 @@ def word_set(
 
 
 def word_overlap(
-    a: frozenset[str] | set[str], b: frozenset[str] | set[str], measure: Literal["jaccard", "containment"]
+    a: frozenset[str] | set[str],
+    b: frozenset[str] | set[str],
+    measure: Literal["jaccard", "containment"],
 ) -> tuple[float, int]:
     """(score, shared words) of two word sets. ``jaccard`` = |A∩B| / |A∪B|;
     ``containment`` = |A∩B| / min(|A|,|B|). An empty set scores 0."""
@@ -380,7 +389,9 @@ def _similar_words(item: JsonValue, similar: DedupeSimilar) -> frozenset[str]:
     value, found = _key_of(item, similar.text)
     if not found or value is None:
         return frozenset()
-    return word_set(value, stop_words=frozenset() if similar.keep_stop_words else SIMILAR_STOP_WORDS)
+    return word_set(
+        value, stop_words=frozenset() if similar.keep_stop_words else SIMILAR_STOP_WORDS
+    )
 
 
 def _is_near(a: frozenset[str], b: frozenset[str], similar: DedupeSimilar) -> bool:
@@ -480,7 +491,9 @@ class DedupeExecutor:
         else:
             buckets: dict[str, list[int]] = {}
             for position, item in enumerate(pool):
-                buckets.setdefault(dedupe_identity(item, config.key, config.normalize), []).append(position)
+                buckets.setdefault(dedupe_identity(item, config.key, config.normalize), []).append(
+                    position
+                )
             index_groups = list(buckets.values())
 
         def id_of(item: JsonValue) -> JsonValue:
@@ -495,7 +508,9 @@ class DedupeExecutor:
             if held:
                 for p in mine:
                     matches.append(
-                        DedupeMatch(index=p, against_index=held[0], survivor_id=id_of(against[held[0]]))
+                        DedupeMatch(
+                            index=p, against_index=held[0], survivor_id=id_of(against[held[0]])
+                        )
                     )
                 continue
             copies = [inputs.items[p] for p in mine]
@@ -507,12 +522,19 @@ class DedupeExecutor:
             for p in mine:
                 if p != survivor_at:
                     matches.append(
-                        DedupeMatch(index=p, survivor_index=survivor_at, survivor_id=id_of(inputs.items[survivor_at]))
+                        DedupeMatch(
+                            index=p,
+                            survivor_index=survivor_at,
+                            survivor_id=id_of(inputs.items[survivor_at]),
+                        )
                     )
         matches.sort(key=lambda m: m.index)
         return success(
             KeptListOutput(
-                items=items, kept=len(items), dropped=len(inputs.items) - len(items), matches=matches
+                items=items,
+                kept=len(items),
+                dropped=len(inputs.items) - len(items),
+                matches=matches,
             )
         )
 
@@ -534,7 +556,10 @@ class SortKey(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    key: str = Field(default="", description="Path to the value (e.g. 'score'); empty with `expression` unset = the item itself.")
+    key: str = Field(
+        default="",
+        description="Path to the value (e.g. 'score'); empty with `expression` unset = the item itself.",
+    )
     expression: str | None = Field(
         default=None,
         description=(
@@ -550,14 +575,31 @@ class SortKey(BaseModel):
             "listed values first in list order, unlisted ones count as missing."
         ),
     )
-    order: Literal["asc", "desc"] = Field(default="asc", description="Ascending (smallest first) or descending.")
+    order: Literal["asc", "desc"] = Field(
+        default="asc",
+        description="Ascending (smallest first) or descending.",
+        json_schema_extra=field_extras(
+            enum_labels={"asc": "Smallest first", "desc": "Largest first"}
+        ),
+    )
+    label: str | None = Field(
+        default=None,
+        description="What this key means, in words (e.g. 'Score, highest first'); shown on the key's row. Never read by the sort.",
+    )
 
     @model_validator(mode="after")
     def _one_source(self) -> SortKey:
         if self.expression is not None and (self.key or self.position_in):
-            raise ValueError("A sort key is an `expression`, or a `key` (optionally with `position_in`), not both.")
+            raise ValueError(
+                "A sort key is an `expression`, or a `key` (optionally with `position_in`), not both."
+            )
         if self.expression is not None:
-            validate_expression(self.expression)
+            # A validator must raise ValueError: the sandbox's ExecutionError escapes pydantic
+            # and crashed POST /workflows/validate with a 500 (live 2026-11-02).
+            try:
+                validate_expression(self.expression)
+            except ExecutionError as e:
+                raise ValueError(f"sort expression {self.expression!r}: {e}") from e
         return self
 
 
@@ -570,13 +612,22 @@ class SortConfig(BaseModel):
             "Path to the value to sort by (e.g. 'score' or 'author.name'). "
             "Leave empty to sort the items themselves."
         ),
+        json_schema_extra=field_extras(hidden_when_filled="order_by"),
     )
     order: Literal["asc", "desc"] = Field(
-        default="asc", description="Ascending (smallest first) or descending."
+        default="asc",
+        description="Ascending (smallest first) or descending.",
+        json_schema_extra=field_extras(
+            enum_labels={"asc": "Smallest first", "desc": "Largest first"},
+            hidden_when_filled="order_by",
+        ),
     )
     missing: Literal["last", "first"] = Field(
         default="last",
         description="Where items whose sort value is absent should land.",
+        json_schema_extra=field_extras(
+            enum_labels={"last": "Missing values last", "first": "Missing values first"}
+        ),
     )
     order_by: list[SortKey] = Field(
         default_factory=list,
@@ -650,7 +701,9 @@ class SortExecutor:
         return success(SortOutput(items=items, count=len(items)))
 
 
-def _sort_value(item: JsonValue, index: int, sort: SortKey, others: dict[str, Any]) -> tuple[Any, bool]:
+def _sort_value(
+    item: JsonValue, index: int, sort: SortKey, others: dict[str, Any]
+) -> tuple[Any, bool]:
     if sort.expression is not None:
         bound = bind_item(sort.expression, item, where=f"data.sort: item {index}")
         if others:
@@ -660,6 +713,20 @@ def _sort_value(item: JsonValue, index: int, sort: SortKey, others: dict[str, An
         except KeyError:
             # The item lacks a field the expression reads: a hole, placed per `missing` (as a key path would be).
             return None, False
+        except ExpressionFailure as e:
+            # A refused value (zero divisor, mixed kinds) keeps its NAMED failure, and still names the step,
+            # expression and item like every other failure here.
+            from matrx_graph.types.result import failure
+
+            err = e.failure.error
+            raise ExpressionFailure(
+                failure(
+                    err.code,
+                    f"data.sort: the expression {sort.expression!r} failed on item {index}: {err.message}",
+                    details=err.details,
+                    technical=err.technical,
+                )
+            ) from e
         except ExecutionError:
             raise
         except Exception as e:  # noqa: BLE001 - name the step, expression and item
@@ -681,7 +748,10 @@ def _sort_value(item: JsonValue, index: int, sort: SortKey, others: dict[str, An
 
 def _multi_key_sort(inputs: SortInput, config: SortConfig) -> list[JsonValue]:
     others = {k: v for k, v in inputs.model_dump(mode="json").items() if k != "items"}
-    return [inputs.items[i] for i in multi_key_order(inputs.items, config.order_by, config.missing, others)]
+    return [
+        inputs.items[i]
+        for i in multi_key_order(inputs.items, config.order_by, config.missing, others)
+    ]
 
 
 def multi_key_order(
@@ -718,8 +788,13 @@ class LimitInput(BaseModel):
 class RoundRobinSort(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    key: str = Field(min_length=1, description="Path to the value that ranks items inside a group (e.g. 'score').")
-    order: Literal["asc", "desc"] = Field(default="desc", description="desc: the largest value is best.")
+    key: str = Field(
+        min_length=1,
+        description="Path to the value that ranks items inside a group (e.g. 'score').",
+    )
+    order: Literal["asc", "desc"] = Field(
+        default="desc", description="desc: the largest value is best."
+    )
 
 
 class RoundRobin(BaseModel):
@@ -727,7 +802,9 @@ class RoundRobin(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    by: str = Field(min_length=1, description="Path to the value that defines a group (e.g. 'product_line').")
+    by: str = Field(
+        min_length=1, description="Path to the value that defines a group (e.g. 'product_line')."
+    )
     order_by: list[RoundRobinSort] = Field(
         default_factory=list,
         description="Best-first order inside each group, most important key first; empty keeps the list's order. Items missing a value come last.",
@@ -782,7 +859,9 @@ class LimitConfig(LeftOutOptions):
     @model_validator(mode="after")
     def _round_robin_alone(self) -> LimitConfig:
         if self.round_robin is not None and (self.offset or self.from_end):
-            raise ValueError("data.limit: round_robin picks across groups; it cannot combine with offset or from_end.")
+            raise ValueError(
+                "data.limit: round_robin picks across groups; it cannot combine with offset or from_end."
+            )
         return self
 
 
@@ -790,7 +869,9 @@ def _round_robin_pick(items: list[JsonValue], count: int, spec: RoundRobin) -> l
     return [item for _, item in _round_robin_positions(items, count, spec)]
 
 
-def _round_robin_positions(items: list[JsonValue], count: int, spec: RoundRobin) -> list[tuple[int, JsonValue]]:
+def _round_robin_positions(
+    items: list[JsonValue], count: int, spec: RoundRobin
+) -> list[tuple[int, JsonValue]]:
     buckets: dict[str, list[tuple[int, JsonValue]]] = {}
     labels: dict[str, str] = {}
     for position, item in enumerate(items):
@@ -818,7 +899,9 @@ def _round_robin_positions(items: list[JsonValue], count: int, spec: RoundRobin)
             if g != "\x00missing":
                 by_label.setdefault(labels[g], []).append(g)
         listed = [g for name in spec.groups for g in by_label.get(name, [])]
-        rest = sorted((g for g in first_seen if g not in listed), key=lambda g: (-len(buckets[g]), seen_at[g]))
+        rest = sorted(
+            (g for g in first_seen if g not in listed), key=lambda g: (-len(buckets[g]), seen_at[g])
+        )
         order = listed + rest
     else:
         order = first_seen
@@ -881,13 +964,18 @@ class LimitExecutor:
             elif config.offset and not config.round_robin:
                 reason = f"outside items {config.offset + 1}-{config.offset + config.count}"
             left_out = [
-                left_out_entry(item, index, config, default_reason=reason, others={}, step=step_id(ctx))
+                left_out_entry(
+                    item, index, config, default_reason=reason, others={}, step=step_id(ctx)
+                )
                 for index, item in enumerate(inputs.items)
                 if index not in positions
             ]
         return success(
             KeptListOutput(
-                items=items, kept=len(items), dropped=total - len(items), left_out=left_out if config.left_out else None
+                items=items,
+                kept=len(items),
+                dropped=total - len(items),
+                left_out=left_out if config.left_out else None,
             )
         )
 
@@ -902,6 +990,15 @@ BatchMeasure = Literal["count", "chars", "tokens"]
 class BatchInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     items: list[JsonValue] = Field(description="The list to split into chunks.")
+    size: int | None = Field(
+        default=None,
+        ge=1,
+        le=50_000_000,
+        description=(
+            "The budget per batch when it is data (a row's own limit, a value an earlier step "
+            "worked out): it wins over the `size` setting. Empty: the setting decides."
+        ),
+    )
 
 
 class BatchConfig(BaseModel):
@@ -961,8 +1058,7 @@ class BatchConfig(BaseModel):
     prefer_cut_at_headings: bool = Field(
         default=False,
         description=(
-            "Treat an item whose text opens with a heading, chapter or page line as "
-            "a natural cut."
+            "Treat an item whose text opens with a heading, chapter or page line as a natural cut."
         ),
     )
     prefer_cut_pattern: str | None = Field(
@@ -1108,7 +1204,9 @@ class BatchOutput(KindModel, kind="batched_list_result"):
     count: int = Field(description="How many batches were produced.")
     total_items: int = Field(description="How many items went in.")
     size: int = Field(description="The requested batch size.")
-    measure: str = Field(default="count", description="What `size` counted: count, chars or tokens.")
+    measure: str = Field(
+        default="count", description="What `size` counted: count, chars or tokens."
+    )
     parts: list[BatchPart] = Field(
         default_factory=list,
         description=(
@@ -1208,6 +1306,8 @@ class BatchExecutor:
         try:
             # Off the event loop: measuring 200k items by tokens is seconds of CPU, and
             # one step must never stall every other run on this process.
+            if inputs.size is not None:
+                config = config.model_copy(update={"size": inputs.size})
             planned = await asyncio.to_thread(plan_batches, inputs.items, config)
             for entry in planned.left_out or ():
                 entry.step = step_id(ctx)
@@ -1269,9 +1369,7 @@ def plan_batches(items: list[JsonValue], config: BatchConfig) -> BatchOutput:
             flag, found = _key_of(unit.item, config.continues_path)
             if found and flag is True:
                 return False
-        return any(
-            _value_identity(prev.item, p) != _value_identity(unit.item, p) for p in paths
-        )
+        return any(_value_identity(prev.item, p) != _value_identity(unit.item, p) for p in paths)
 
     def must_cut(prev: _BatchUnit, unit: _BatchUnit) -> bool:
         return key_changed(prev, unit, config.never_cross)
@@ -1314,7 +1412,11 @@ def plan_batches(items: list[JsonValue], config: BatchConfig) -> BatchOutput:
             notes.append(fold_note)
 
     merged: list[tuple[list[_BatchUnit], int, str]] = [e for g in groups for e in g]
-    over = sum(1 for units_, _, _ in merged if len(units_) > 1 and sum(u.size for u in units_) > config.size)
+    over = sum(
+        1
+        for units_, _, _ in merged
+        if len(units_) > 1 and sum(u.size for u in units_) > config.size
+    )
     if config.max_batches is not None and over:
         notes.append(
             f"max_batches={config.max_batches} merged neighbouring batches, so {over} "
@@ -1344,10 +1446,7 @@ def plan_batches(items: list[JsonValue], config: BatchConfig) -> BatchOutput:
 
     if config.id_path:
         missing = sum(
-            1
-            for units_, _, _ in merged
-            for u in units_
-            if not _key_of(u.item, config.id_path)[1]
+            1 for units_, _, _ in merged for u in units_ if not _key_of(u.item, config.id_path)[1]
         )
         if missing:
             notes.append(

@@ -119,6 +119,54 @@ def _ambient_app_context() -> Any:
         return None
 
 
+#: chat tables the server writes on a person's behalf; each carries ``updated_by`` and ``platform._stamp_actor``.
+#: ``chat.message`` has its own per-row rule (``_with_sender``) and is not listed.
+ACTOR_STAMPED_TABLES: frozenset[str] = frozenset(
+    {
+        "chat.conversation",
+        "chat.request",
+        "chat.user_request",
+        "chat.tool_call",
+        "chat.tool_trace",
+        "chat.request_snapshot",
+        "chat.agent_memory",
+        "chat.media",
+        "chat.observational_memory",
+        "chat.observational_memory_event",
+    }
+)
+
+
+def _person_uuid(value: Any) -> str | None:
+    from uuid import UUID
+
+    if not value:
+        return None
+    try:
+        return str(UUID(str(value)))
+    except (ValueError, TypeError):
+        return None
+
+
+def with_actor(table: str, payload: dict[str, Any], user_id: Any = None) -> dict[str, Any]:
+    """Name the person a write is for as ``updated_by`` unless the caller already named one.
+
+    ``platform._stamp_actor`` reads only ``app.user_id`` / ``auth.uid()`` (empty on the server's
+    privileged connection), so an UPDATE naming no ``updated_by`` is stamped SYSTEM. The person is the
+    coordinator's own carried ``user_id`` (a standalone coordinator has no ambient request), else the
+    ambient request's.
+    """
+    if table not in ACTOR_STAMPED_TABLES or _person_uuid(payload.get("updated_by")):
+        return payload
+    actor = _person_uuid(user_id)
+    if actor is None:
+        ctx = _ambient_app_context()
+        actor = _person_uuid(getattr(ctx, "user_id", None) if ctx is not None else None)
+    if actor is None:
+        return payload
+    return {**payload, "updated_by": actor}
+
+
 class CoordinatorPhase(Enum):
     OPEN = "open"
     FLUSHING = "flushing"
@@ -146,12 +194,35 @@ class FlushReport:
     error: str | None = None
     by_table: dict[str, int] = field(default_factory=dict)
     tier_summary: list[dict[str, int]] = field(default_factory=list)
+    #: The database's own refusal, set only when EVERY failure in this report is
+    #: a row the database answered and refused (``_is_database_refusal``). It is
+    #: how an ERRORED Coordinator knows the database is healthy and later writes
+    #: may still land (``queue``); None for timeouts, drops and unreachable DBs.
+    cause: BaseException | None = field(default=None, repr=False, compare=False)
 
     @property
     def duration_secs(self) -> float | None:
         if self.started_at is None or self.finished_at is None:
             return None
         return (self.finished_at - self.started_at).total_seconds()
+
+
+#: SQLSTATE classes that mean the database could NOT answer (connection,
+#: resources, operator intervention incl. statement timeout, system, internal).
+#: Every other class is the database answering a statement and refusing it.
+_DATABASE_UNAVAILABLE_SQLSTATE_CLASSES: frozenset[str] = frozenset({"08", "53", "57", "58", "XX"})
+
+
+def _is_database_refusal(exc: BaseException | None) -> bool:
+    """True when ``exc`` is the database answering and refusing a row (a CHECK,
+    a constraint, a bad value, an aborted transaction) — never a timeout or an
+    unreachable database. Branches on the SQLSTATE only, never error text."""
+    if exc is None or isinstance(exc, (TimeoutError, OSError)):
+        return False
+    from matrx_orm.exceptions import db_sqlstate
+
+    sqlstate = db_sqlstate(exc)
+    return bool(sqlstate) and sqlstate[:2] not in _DATABASE_UNAVAILABLE_SQLSTATE_CLASSES
 
 
 # OpType is a string literal carrier in this layer — Session has its own
@@ -294,6 +365,28 @@ _SYNC_POINT_BUDGET_SECONDS: float = (
 )
 
 
+#: Rows that describe a turn and are never part of it. Losing one costs the record of what happened, never the
+#: person's turn: 2026-11-06 a ``chat.tool_trace`` event the CHECK did not list stopped three chat requests.
+_TELEMETRY_TABLES: frozenset[str] = frozenset({"chat.tool_trace"})
+
+
+def _excuse_telemetry_loss(report: Any, *, reason: str) -> Any:
+    """A flush that lost ONLY telemetry rows is not a failed commit: clear its error so no barrier stops the turn.
+
+    Session.flush has already filed each lost row to ``system_write_failure`` (and landed everything else), so the
+    loss stays visible. Any other table among the losses leaves the report failed."""
+    lost = getattr(report, "lost_ops", None) or []
+    if getattr(report, "error", None) is None or not lost or any(op.table not in _TELEMETRY_TABLES for op in lost):
+        return report
+    vcprint(
+        f"[Coordinator] flush({reason}) lost {len(lost)} telemetry row(s), the turn goes on "
+        f"(captured={report.lost_captured}): {report.error}",
+        color="red",
+    )
+    report.error = None
+    return report
+
+
 async def _bounded_session_flush(
     session: Any, *, reason: str, database: str | None
 ) -> tuple[Any | None, bool]:
@@ -309,7 +402,7 @@ async def _bounded_session_flush(
     flush_task = asyncio.ensure_future(session.flush(reason=reason))
     done, _ = await asyncio.wait({flush_task}, timeout=_COMMIT_HARD_DEADLINE_SECONDS)
     if flush_task in done:
-        return flush_task.result(), False
+        return _excuse_telemetry_loss(flush_task.result(), reason=reason), False
 
     flush_task.cancel()
     await asyncio.wait({flush_task}, timeout=_CANCEL_SETTLE_SECONDS)
@@ -460,8 +553,17 @@ class Coordinator:
         "_late_one_shots",
         "_write_tail",
         "_late_boundary_captured",
+        "_message_roles",
+        "_canvas_candidates",
         "_owner_lane",
         "_atomic",
+        "_errored_by_refusal",
+        # The gate's ensured-row memo keys a queued row on a weak reference to the
+        # coordinator it was queued into; ``id(coord)`` was reused by the next
+        # coordinator after GC, so a row queued into a DEAD coordinator read as queued
+        # into the live one and was never re-queued (chat.request FK on
+        # cx_request_user_request_id_fkey + "UPDATE matched no row", 2026-11-02).
+        "__weakref__",
     )
 
     def __init__(
@@ -480,6 +582,10 @@ class Coordinator:
         from matrx_orm.session.session import _session_stack
 
         self._atomic = atomic
+        # True when the ERRORED verdict came from rows the database itself
+        # refused: the database is healthy, so a later write still lands on its
+        # own one-shot instead of being dropped (``queue``). Sticky with ERRORED.
+        self._errored_by_refusal = False
         self._session: Any = _coordinator_session(
             database=database, recover_individually=not atomic
         )
@@ -500,6 +606,10 @@ class Coordinator:
         self._user_id = user_id
         self._conversation_id = conversation_id
         self._late_boundary_captured = False
+        # chat.message id → role for rows this request INSERTed (saved reply blocks, PF-1).
+        self._message_roles: dict[str, str] = {}
+        # Assistant rows saved with blocks, for the host's canvas step after the next synchronous commit (PF-1 D7).
+        self._canvas_candidates: list[str] = []
         # The RequestLane whose finalizer owns this Coordinator's last flush, or
         # None for an owned scope (standalone / a child agent run) that commits
         # at its own exit. Only a lane-owned Coordinator can receive a write
@@ -657,6 +767,10 @@ class Coordinator:
                 paths=sanitization.paths,
             )
 
+        # WHO WROTE IT — carried at the one funnel every writer reaches (the label writer, the tool ledger and
+        # the standalone coordinators queue here directly, never through ``queue_helpers``).
+        payload = with_actor(table, payload, self._user_id)
+
         if primary_key is None:
             pk_value = payload.get("id")
             if pk_value is None:
@@ -677,6 +791,21 @@ class Coordinator:
         # fresh Session — the row's INSERT is already committed by the terminal
         # drain, so a late UPDATE matches it. (See _finalize/seal in queue_helpers.)
         if self._phase in (CoordinatorPhase.FLUSHED, CoordinatorPhase.FLUSHING):
+            return self._fire_one_shot(table, payload, op_type, primary_key)
+
+        if (
+            self._phase is CoordinatorPhase.ERRORED
+            and self._errored_by_refusal
+            and not self._atomic
+        ):
+            # ERRORED because the database REFUSED some rows — it answered, it is
+            # not wedged. The request still stops (the verdict is sticky), but a
+            # write queued after the failure (the error path's assistant message,
+            # the request's terminal status, a tool's completion) is its own row
+            # and must land: one refused row never takes the rest of the turn
+            # down with it (2026-11-04: a sealed-content refusal on
+            # chat.user_request dropped the turn's chat.message to a redacted,
+            # unreplayable capture). The one-shot captures its own failure.
             return self._fire_one_shot(table, payload, op_type, primary_key)
 
         if self._phase is not CoordinatorPhase.OPEN:
@@ -1368,6 +1497,7 @@ class Coordinator:
                         error=rep.error,
                         started_at=rep.started_at,
                         finished_at=rep.finished_at,
+                        cause=getattr(rep, "cause", None),
                     ),
                     conversation_id=cid,
                     request_id=rid,
@@ -1446,10 +1576,14 @@ class Coordinator:
         self, pending: list[_PendingCommit], *, grace_seconds: float
     ) -> PersistenceBarrierError | None:
         err: PersistenceBarrierError | None = None
+        # The verdict is the database's refusal only when EVERY failed commit was
+        # one: an overdue or crashed sibling means it may not be answering.
+        all_refusals = True
         for pc in pending:
             try:
                 await asyncio.wait_for(asyncio.shield(pc.task), timeout=grace_seconds)
             except TimeoutError:
+                all_refusals = False
                 # Overdue → blow up loudly (bounded at grace_seconds; no
                 # indefinite hang). Do NOT cancel the orphan: a CancelledError
                 # would bypass Session.flush's record_failures and LOSE the data.
@@ -1467,7 +1601,9 @@ class Coordinator:
                 )
             except PersistenceBarrierError as e:
                 err = err or e
+                all_refusals = all_refusals and _is_database_refusal(getattr(e.report, "cause", None))
             except Exception as e:  # noqa: BLE001
+                all_refusals = False
                 err = err or PersistenceBarrierError(
                     reason=pc.reason,
                     report=FlushReport(
@@ -1478,6 +1614,8 @@ class Coordinator:
                     conversation_id=self._conversation_id,
                     request_id=self._request_id,
                 )
+        if err is not None and not all_refusals:
+            err.report.cause = None
         return err
 
     async def _apply_verdict(self, report: FlushReport, *, errored: bool) -> None:
@@ -1499,6 +1637,7 @@ class Coordinator:
             self._report = report
             if errored:
                 self._phase = CoordinatorPhase.ERRORED
+                self._errored_by_refusal = _is_database_refusal(getattr(report, "cause", None))
 
     # ════════════ synchronous commit points (deliberate blocks) ══════════
 
@@ -1538,7 +1677,39 @@ class Coordinator:
                 conversation_id=self._conversation_id,
                 request_id=self._request_id,
             )
+        await self._run_canvas_step(reason)
         return report
+
+    def note_canvas_candidate(self, message_id: str) -> None:
+        """Remember an assistant row saved with blocks: the host's canvas step reads it once it is committed."""
+        if message_id not in self._canvas_candidates:
+            self._canvas_candidates.append(message_id)
+
+    async def _run_canvas_step(self, reason: str) -> None:
+        """PF-1 D7: hand the committed assistant rows to the host's canvas step (awaited, so a client that
+        reads the row at stream end finds its canvas refs). A failure is captured, never raised into the run."""
+        if not self._canvas_candidates:
+            return
+        from matrx_ai.processing.blocks.saved_blocks import canvas_materializer
+
+        materialize = canvas_materializer()
+        ids, self._canvas_candidates = self._canvas_candidates, []
+        if materialize is None:
+            return
+        try:
+            await materialize(ids)
+        except Exception as exc:  # noqa: BLE001 — the reply is saved; its canvas step failing never fails the run
+            logger.error("[Coordinator] canvas step failed after %s for %d message(s): %r", reason, len(ids), exc)
+            from matrx_connect.streaming.error_capture import capture_error
+
+            await capture_error(
+                exc,
+                kind="saved_reply_canvas_step_failed",
+                request_id=self._request_id,
+                conversation_id=self._conversation_id,
+                route="matrx_ai.persistence.coordinator",
+                context={"message_ids": ids, "reason": reason},
+            )
 
     async def seal(self) -> None:
         """TERMINAL SEAL — call exactly once AFTER the lane's final drain.
@@ -1559,15 +1730,21 @@ class Coordinator:
         an ERRORED verdict (the STOP-EVERYTHING signal must survive).
         """
         async with self._lock:
-            if self._phase is CoordinatorPhase.ERRORED:
-                return
-            residual = self._session
-            had_ops = residual.ops_count > 0
-            # Seal FIRST: with phase=FLUSHED, any write arriving DURING the
-            # residual flush below one-shots on its own Session — and, holding a
-            # later place in the write order, waits for this flush to land.
-            self._phase = CoordinatorPhase.FLUSHED
-            previous, my_turn = self._take_write_turn() if had_ops else (None, None)
+            errored = self._phase is CoordinatorPhase.ERRORED
+            if not errored:
+                residual = self._session
+                had_ops = residual.ops_count > 0
+                # Seal FIRST: with phase=FLUSHED, any write arriving DURING the
+                # residual flush below one-shots on its own Session — and, holding a
+                # later place in the write order, waits for this flush to land.
+                self._phase = CoordinatorPhase.FLUSHED
+                previous, my_turn = self._take_write_turn() if had_ops else (None, None)
+        if errored:
+            # The verdict stays ERRORED, but the writes an ERRORED-by-refusal
+            # Coordinator one-shot after the failure must finish before teardown
+            # cancels them (``queue``) — the same last chance FLUSHED gets below.
+            await self.drain_late_writes()
+            return
 
         if had_ops:
             try:
@@ -1602,6 +1779,47 @@ class Coordinator:
         async with self._lock:
             self._session.abort()
             self._phase = CoordinatorPhase.ERRORED
+
+    async def commit_queued_now(
+        self,
+        *,
+        reason: str = "child_needs_parent_row",
+        grace_seconds: float = _COMMIT_GRACE_SECONDS,
+    ) -> bool:
+        """Commit what this coordinator has queued SO FAR, now, and wait for it to land.
+
+        For another coordinator that is about to write a row naming one of ours (a
+        child request's ``parent_request_id`` → this request's row, which is only
+        QUEUED here until our own turn commits). The child commits first otherwise and
+        dies on the FK (live 2026-11-03: ``user_request_parent_request_id_fkey`` on every
+        ``rag.pdf_page_cleaner`` child; the replay landed them ``pending`` after their
+        completion had already run → abandoned).
+
+        Uses the ordinary per-turn commit (``commit_async``); the fired commit stays in
+        ``_pending_commits`` so OUR next barrier still accounts for it. Never raises:
+        ``True`` when everything queued before the call is durable, ``False`` when it
+        could not be made so (the caller then links nothing it cannot prove)."""
+        if self._phase == CoordinatorPhase.FLUSHED:
+            return True
+        if self._phase != CoordinatorPhase.OPEN or self._dropped_ops_count > 0:
+            return False
+        if self._session.ops_count > 0:
+            if not await self.acquire_commit_slot():
+                return False
+            try:
+                self.commit_async(reason=reason)
+            except PersistenceBarrierError:
+                return False
+        for pending in list(self._pending_commits):
+            try:
+                await asyncio.wait_for(asyncio.shield(pending.task), timeout=grace_seconds)
+            except BaseException as exc:  # noqa: BLE001 — a failed/overdue commit means "not durable"
+                if isinstance(exc, asyncio.CancelledError) and not pending.task.done():
+                    raise
+                return False
+            if pending.task.cancelled() or pending.task.exception() is not None:
+                return False
+        return True
 
     async def drain_and_confirm(self, *, reason: str = "degrade") -> list[str]:
         """DEGRADE to synchronous — DATA FIRST, never raises. On ANY anomaly the
@@ -1727,6 +1945,9 @@ class Coordinator:
             self._slot_reserved = False
             _release_commit_slot()
         failures: list[str] = []
+        # The database's refusals among the failures: when they are ALL of them,
+        # the report carries the first as its cause (the database answered).
+        refusals: list[BaseException] = []
         report = FlushReport(reason=reason, started_at=datetime.now(UTC))  # type: ignore[arg-type]
 
         # Snapshot under the lock (no await → atomic): take the pending commits
@@ -1763,7 +1984,10 @@ class Coordinator:
                 report.ops_lost += pc.ops
             except PersistenceBarrierError as e:
                 failures.append(f"{pc.reason}:{e.report.error}")
-                report.ops_lost += pc.ops
+                # The commit's own count: a refused row loses that row, the rest of its turn landed.
+                report.ops_lost += e.report.ops_lost or pc.ops
+                if _is_database_refusal(getattr(e.report, "cause", None)):
+                    refusals.append(e.report.cause)  # type: ignore[arg-type]
             except Exception as e:  # noqa: BLE001
                 failures.append(f"{pc.reason}:{type(e).__name__}:{e}")
                 report.ops_lost += pc.ops
@@ -1798,6 +2022,8 @@ class Coordinator:
             if srep.error is not None:
                 failures.append(f"current:{srep.error}")
                 report.ops_lost += srep.ops_lost
+                if _is_database_refusal(getattr(srep, "cause", None)):
+                    refusals.append(srep.cause)
 
         # 3) Await every late one-shot this coordinator fired. They are detached
         # tasks, so a drain that returns without them is a drain that lies: the
@@ -1810,6 +2036,8 @@ class Coordinator:
 
         report.finished_at = datetime.now(UTC)
         report.error = "; ".join(failures) if failures else None
+        if failures and len(refusals) == len(failures):
+            report.cause = refusals[0]
         return report, failures
 
     def _roll_session(self) -> None:

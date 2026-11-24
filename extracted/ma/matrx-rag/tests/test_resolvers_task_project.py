@@ -40,7 +40,7 @@ class _FakeTasksModel:
     def filter(self, *, id=None, created_by=None, deleted_at__isnull=None, **kwargs):
         row = self._tasks.get(id)
         rows = []
-        if row is not None and row["owner_id"] == created_by:
+        if row is not None:
             rows.append(
                 {
                     "id": row["id"],
@@ -64,7 +64,7 @@ class _FakeProjectsModel:
     def filter(self, *, id=None, created_by=None, **kwargs):
         row = self._projects.get(id)
         rows = []
-        if row is not None and row["owner_id"] == created_by:
+        if row is not None:
             rows.append(
                 {
                     "id": row["id"],
@@ -177,3 +177,15 @@ async def test_resolve_project_owned(patched_pool):
 async def test_resolve_project_not_owned_returns_none(patched_pool):
     res = await sources.resolve("project", "proj-1", user_id=OTHER)
     assert res is None
+
+
+@pytest.fixture(autouse=True)
+def _the_access_check_lets_the_reader_in(monkeypatch):
+    """Indexing follows ``iam.has_access_for`` (matrx_orm.platform_access_check), not ``created_by``;
+    the policy itself is proved in test_resolvers_follow_the_access_check.py."""
+    import matrx_orm
+
+    async def _allowed(actor, *_a, **_k):
+        return actor == OWNER
+
+    monkeypatch.setattr(matrx_orm, "platform_access_check", _allowed)

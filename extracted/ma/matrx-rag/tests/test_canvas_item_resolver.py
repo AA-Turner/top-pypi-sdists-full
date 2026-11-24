@@ -28,8 +28,8 @@ class _Canvas:
     def __init__(self, rows):
         self._rows = rows
 
-    def filter(self, *, id, created_by, deleted_at__isnull):
-        return _Q([r for r in self._rows if r["id"] == id and r["created_by"] == created_by and r["deleted_at"] is None])
+    def filter(self, *, id, deleted_at__isnull):
+        return _Q([r for r in self._rows if r["id"] == id and r["deleted_at"] is None])
 
 
 def _row(**kw):
@@ -72,8 +72,20 @@ async def test_canvas_content_stored_as_a_json_string_is_decoded(wire):
 
 @pytest.mark.asyncio
 async def test_someone_elses_or_trashed_canvas_is_absent(wire):
-    wire([_row(created_by="other")])
-    assert await sources.resolve("canvas_item", CANVAS, None, user_id=OWNER) is None
+    wire([_row()])
+    assert await sources.resolve("canvas_item", CANVAS, None, user_id="a-stranger") is None
     wire([_row(deleted_at="2026-10-01")])
     assert await sources.resolve("canvas_item", CANVAS, None, user_id=OWNER) is None
     assert await sources.resolve("canvas_item", CANVAS, None, user_id=None) is None
+
+
+@pytest.fixture(autouse=True)
+def _the_access_check_lets_the_reader_in(monkeypatch):
+    """Indexing follows ``iam.has_access_for`` (matrx_orm.platform_access_check), not ``created_by``;
+    the policy itself is proved in test_resolvers_follow_the_access_check.py."""
+    import matrx_orm
+
+    async def _allowed(actor, *_a, **_k):
+        return actor == OWNER
+
+    monkeypatch.setattr(matrx_orm, "platform_access_check", _allowed)

@@ -78,13 +78,9 @@ class CuratedModel(_message.Message):
         task: _Optional[str] = ...,
         model_image: _Optional[str] = ...,
         handler: _Optional[str] = ...,
-        default_signature: _Optional[
-            _Union[_model_artifact_pb2.ModelSignature, _Mapping]
-        ] = ...,
+        default_signature: _Optional[_Union[_model_artifact_pb2.ModelSignature, _Mapping]] = ...,
         default_scaling: _Optional[_Union[_service_pb2_1.ScalingSpec, _Mapping]] = ...,
-        default_resources: _Optional[
-            _Union[_service_pb2.ResourceLimits, _Mapping]
-        ] = ...,
+        default_resources: _Optional[_Union[_service_pb2.ResourceLimits, _Mapping]] = ...,
     ) -> None: ...
 
 class ListCuratedModelsRequest(_message.Message):
@@ -95,9 +91,7 @@ class ListCuratedModelsResponse(_message.Message):
     __slots__ = ("models",)
     MODELS_FIELD_NUMBER: _ClassVar[int]
     models: _containers.RepeatedCompositeFieldContainer[CuratedModel]
-    def __init__(
-        self, models: _Optional[_Iterable[_Union[CuratedModel, _Mapping]]] = ...
-    ) -> None: ...
+    def __init__(self, models: _Optional[_Iterable[_Union[CuratedModel, _Mapping]]] = ...) -> None: ...
 
 class DeployCuratedModelRequest(_message.Message):
     __slots__ = (
@@ -152,13 +146,9 @@ class DeployCuratedModelResponse(_message.Message):
     scaling_group: _service_pb2_1.ScalingGroupResponse
     def __init__(
         self,
-        model_artifact: _Optional[
-            _Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]
-        ] = ...,
+        model_artifact: _Optional[_Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]] = ...,
         model_version: _Optional[int] = ...,
-        scaling_group: _Optional[
-            _Union[_service_pb2_1.ScalingGroupResponse, _Mapping]
-        ] = ...,
+        scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...,
     ) -> None: ...
 
 class ResolveServingRuntimeImageRequest(_message.Message):

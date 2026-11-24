@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: matrx-connect
-Version: 0.1.257
+Version: 0.1.258
 Summary: FastAPI middleware, auth, streaming infrastructure, and context management for the Matrx ecosystem
 Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
 Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
@@ -18,9 +18,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.12
-Requires-Dist: fastapi>=0.115
+Requires-Dist: fastapi>=0.162.0
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: matrx-utils>=2.0.101
+Requires-Dist: matrx-utils>=2.0.114
 Requires-Dist: orjson>=3.10
 Requires-Dist: pydantic-settings>=2.0
 Requires-Dist: pydantic>=2.12

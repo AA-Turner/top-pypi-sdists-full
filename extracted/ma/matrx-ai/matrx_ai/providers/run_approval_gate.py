@@ -7,18 +7,18 @@ Same seam and the same shape as the usage gate (``providers/usage_gate.py``):
 * it runs at ``UnifiedAIClient._dispatch_with_billing_net`` — the one place every paid
   provider call passes — right after the usage gate, BEFORE any money is spent;
 * the decision is made from the host's MEMORY (a synchronous resolver; never a database read),
-  ONCE per request tree (``tree_request_id``) for the subjects the tree's first paid call runs as.
-  The host names those subjects with the SAME derivation its resolver judges (the ``subjects``
-  reader of :func:`set_run_approval_resolver`: mandate, agent, trigger, schedule, workflow,
-  factory door, coding session). Every later paid call of the tree whose subjects were all
-  admitted rides that admission — sub-agents, workflow steps, tool loops — so a running run is
-  never cut in half: a subject the tree already runs as that crosses its threshold mid-run is
-  held for its NEXT run, never stopped in this one. A subject NEW to the tree (a workflow step
-  running another mandate, a sub-agent with its own agent id) is refused only when the host
-  already holds that subject (``refusal_among``: a person's rejection, a waiting approval, an
-  expired one); otherwise it joins the tree's admission. Before 2026-10-27 the memo was the tree
-  alone, so the code-built News monitor's first paid call (a search API, no held subject)
-  admitted every later mandate of the run, Arman's rejections included;
+  ONCE PER LAUNCH — one request (``request_id``): one agent run with its whole tool loop. A launch
+  admitted at its first paid call finishes its loop: a hold that opens while it is going (its own
+  subject crossing its threshold, a volume pause, an administrator's decline) never cuts it in
+  half — what it already spent would be wasted. Every NEW launch asks again: a sub-agent or a
+  mandate child (its own ``request_id``), a workflow step's request, and — before each paid step
+  it launches — the workflow engine itself (the host's spend gate, :func:`refusal_for`). ONE rule
+  for the code path and the workflow path. The memo is the launch and NOTHING wider: before
+  2026-10-27 it was the request tree, so the code-built News monitor's first paid call (a search
+  API, no held subject) admitted every later mandate of the run, Arman's rejections included; on
+  2026-11-10 it was a whole workflow run tree for the life of the process, so a hold or decline
+  placed mid-run stopped no later launch and a fan-out's siblings kept spending after one child
+  opened a hold. Never widen it past one request;
 * a refusal is a CALLER refusal (``is_caller_refusal``): never retried, rerouted or
   filed as a provider failure, and its message names the approval and links to it.
 
@@ -56,9 +56,6 @@ FIX_ACTION_APPROVE_RUN = "approve_run"
 #: Origins a person drives directly — their own turns are never held.
 EXEMPT_ORIGIN_CLASSES: frozenset[str] = frozenset({"human", "delegated_member"})
 
-_ADMITTED_MEMO_MAX = 50_000
-
-
 #: Why a subject is held (``billing.run_approval_holds().hold_reason``) -> the one sentence a person reads.
 #: Plain words, no ids, no admin links (members never see the approvals console).
 REFUSAL_SENTENCES: dict[str, str] = {
@@ -71,9 +68,67 @@ REFUSAL_SENTENCES: dict[str, str] = {
 }
 
 
+#: A held SIGN-IN SESSION (subject ``coding_session``: on an account only agents use, the login's session is the
+#: subject) is never "this agent": a run of one agent over the limit holds every later run from that login, and the
+#: person reading the refusal of an unrelated, cheap agent must be told what is actually held (L12b, 2026-11-03).
+SESSION_REFUSAL_SENTENCES: dict[str, str] = {
+    "volume": "This sign-in session made many paid calls in the last hour, so its runs are paused until that hour's "
+    "volume drops. An administrator can also approve it.",
+    "over_threshold": "A run in this sign-in session cost more than its approval limit, so its runs wait for an "
+    "administrator to approve them.",
+    "expired": "This sign-in session's temporary approval ran out, so it was not run. An administrator can approve it again.",
+    "declined": "An administrator declined this sign-in session's spending, so it was not run.",
+    "waiting": "This sign-in session is waiting for an administrator to approve its spending, so it was not run.",
+}
+
+#: What every other held subject is called in the sentence (an agent, a mandate, a factory door: "this agent").
+_SUBJECT_NOUN: dict[str, str] = {
+    "workflow": "automation",
+    "workflow_trigger": "automation",
+    "sch_task": "scheduled task",
+    "agent_schedule": "scheduled task",
+}
+
+
+#: Who decides a hold (``RunApprovalRequiredError(decided_by=...)``): the platform's approvers (a system-owned subject)
+#: or the admins of the organization that owns it (every other subject: ``billing.run_approval_decide`` lets that
+#: organization's admins approve it on its own Spend approvals page).
+DECIDED_BY_PLATFORM = "platform"
+DECIDED_BY_ORGANIZATION = "organization"
+
+#: The door an organization-owned hold names (P8-RUNS, 2026-11-14: a business owner's chat read "wait for an
+#: administrator" while that owner WAS the administrator who could approve it; the page existed, the sentence hid it).
+ORGANIZATION_DOOR_SENTENCE = "This organization's admins can approve it on its Spend approvals page."
+
+#: Reasons a decider can still lift with an approval (a decline is final: it names no door).
+_DOOR_REASONS: frozenset[str] = frozenset({"volume", "over_threshold", "expired", "waiting"})
+
+
+def refusal_sentence(subject_kind: str, reason: str, decided_by: str = DECIDED_BY_PLATFORM) -> str:
+    """The one sentence a person reads for this held subject and reason (``reason`` from :func:`hold_reason`),
+    plus the organization's own door when its admins decide."""
+    if subject_kind == "coding_session":
+        sentence = SESSION_REFUSAL_SENTENCES[reason]
+    else:
+        sentence = REFUSAL_SENTENCES[reason]
+        noun = _SUBJECT_NOUN.get(subject_kind)
+        if noun:
+            sentence = sentence.replace("This agent", f"This {noun}").replace("this agent", f"this {noun}")
+    if decided_by == DECIDED_BY_ORGANIZATION and reason in _DOOR_REASONS:
+        sentence = f"{sentence} {ORGANIZATION_DOOR_SENTENCE}"
+    return sentence
+
+
+#: Host reasons that read as one of the sentences above. ``test_accounts_only_other_caller``: a caller outside the
+#: agents-only seats held under a test-accounts-only approval (spend rule 16) waits for a person.
+_REASON_SENTENCE: dict[str, str] = {"test_accounts_only_other_caller": "waiting"}
+
+
 def hold_reason(status: str, reason: str | None) -> str:
     """The hold's reason as the refusal reports it: the host's when it names a known one, else from the status
     alone (a rejection with no reason is reported as declined; anything else as waiting)."""
+    if reason in _REASON_SENTENCE:
+        return _REASON_SENTENCE[reason]
     if reason in REFUSAL_SENTENCES:
         return str(reason)
     return "declined" if status == "rejected" else "waiting"
@@ -94,8 +149,14 @@ class RunApprovalRequiredError(Exception):
         status: str,
         approval_url: str,
         reason: str | None = None,
+        decided_by: str = DECIDED_BY_PLATFORM,
+        agent_note_hint: str | None = None,
     ) -> None:
         self.approval_id = approval_id
+        #: The host's instruction to a held coding agent (how it tells the approver what it is doing). The
+        #: package only carries it: in the technical message and the envelope, never in what a person reads.
+        self.agent_note_hint = agent_note_hint
+        self.decided_by = decided_by
         self.subject_kind = subject_kind
         self.subject_id = subject_id
         self.status = status
@@ -108,11 +169,13 @@ class RunApprovalRequiredError(Exception):
         # WHY it is held decides the sentence (review 4, F4): never "spent more than its limit" for a volume
         # pause, never "an administrator declined it" for a temporary approval that simply ran out.
         self.reason = hold_reason(status, reason)
-        self.message = REFUSAL_SENTENCES[self.reason]
+        self.message = refusal_sentence(subject_kind, self.reason, decided_by)
         self.technical_message = (
             f"Not run: this {what} ({subject_id}) is held (reason: {self.reason}) "
             f"and {verdict}. Approve it here: {approval_url}"
         )
+        if agent_note_hint:
+            self.technical_message = f"{self.technical_message} {agent_note_hint}"
         self.code = RUN_APPROVAL_REQUIRED
         self.error_info = RetryableError(
             error_type=self.code,
@@ -136,42 +199,30 @@ class RunApprovalRequiredError(Exception):
             "subject_id": self.subject_id,
             "status": self.status,
             "reason": self.reason,
+            "decided_by": getattr(self, "decided_by", DECIDED_BY_PLATFORM),
+            "agent_note_hint": getattr(self, "agent_note_hint", None),
         }
 
 
 Resolver = Callable[[Any], "RunApprovalRequiredError | None"]
-#: ``ctx -> [(subject_kind, subject_id), ...]``: the subjects the resolver judges this call as.
-SubjectsReader = Callable[[Any], "list[tuple[str, str]]"]
-#: ``(ctx, subjects) -> refusal | None``: the host's hold among exactly ``subjects`` (a new subject
-#: inside an admitted tree; the run-level checks already passed at the tree's first paid call).
-RefusalAmong = Callable[[Any, "list[tuple[str, str]]"], "RunApprovalRequiredError | None"]
 AgentDrivenPredicate = Callable[[Any], bool]
 
 #: Route prefix of every AI Dream MCP tool call (``mcp:agent_run``, ``mcp:coding_session_bridge``…).
 AGENT_ROUTE_PREFIX = "mcp:"
 
 _resolver: Resolver | None = None
-_subjects_reader: SubjectsReader | None = None
-_refusal_among: RefusalAmong | None = None
 _agent_driven: AgentDrivenPredicate | None = None
 _unwired_announced = False
-#: tree key -> the subjects that tree was admitted for (empty when the host names none).
-_admitted: OrderedDict[str, set[tuple[str, str]]] = OrderedDict()
+#: Launches (request ids) admitted at their first paid call. Bounded; a request is short-lived.
+_ADMITTED_MEMO_MAX = 50_000
+_admitted: OrderedDict[str, None] = OrderedDict()
 
 
-def set_run_approval_resolver(
-    resolver: Resolver | None,
-    *,
-    subjects: SubjectsReader | None = None,
-    refusal_among: RefusalAmong | None = None,
-) -> None:
-    """Host wiring: a SYNCHRONOUS ``ctx -> RunApprovalRequiredError | None`` memory read, plus the
-    subjects reader and the per-subject refusal it is built from (one derivation). Without a
-    subjects reader a tree is admitted as a whole at its first paid call."""
-    global _resolver, _subjects_reader, _refusal_among
+def set_run_approval_resolver(resolver: Resolver | None) -> None:
+    """Host wiring: a SYNCHRONOUS ``ctx -> RunApprovalRequiredError | None`` memory read, asked at the first
+    paid call of every launch (request) and before every paid workflow step."""
+    global _resolver
     _resolver = resolver
-    _subjects_reader = subjects if resolver is not None else None
-    _refusal_among = refusal_among if resolver is not None else None
 
 
 def set_agent_driven_predicate(predicate: AgentDrivenPredicate | None) -> None:
@@ -204,19 +255,16 @@ def is_person_driven(ctx: Any) -> bool:
 
 
 def reset_run_approval_gate_state() -> None:
-    """Tests: forget which requests were already admitted."""
+    """Tests: forget which launches were admitted (and the one-time "no resolver wired" announcement)."""
+    global _unwired_announced
+    _unwired_announced = False
     _admitted.clear()
 
 
-def _remember(tree_key: str, subjects: list[tuple[str, str]]) -> None:
-    _admitted.setdefault(tree_key, set()).update(subjects)
-    _admitted.move_to_end(tree_key)
-    while len(_admitted) > _ADMITTED_MEMO_MAX:
-        _admitted.popitem(last=False)
-
-
 def refusal_for(ctx: Any) -> RunApprovalRequiredError | None:
-    """The refusal this context's run would get right now, or None. No memo, no side effect."""
+    """THE ONE ADMISSION RULE: the refusal the paid call (or paid workflow step) about to be made under ``ctx``
+    gets right now, or None. No memo, no side effect: every new launch on both paths asks it; a real person's
+    own turn is never asked."""
     global _unwired_announced
     if ctx is None:
         return None
@@ -243,22 +291,6 @@ def refusal_for(ctx: Any) -> RunApprovalRequiredError | None:
         return None
 
 
-def _read_subjects(ctx: Any) -> list[tuple[str, str]]:
-    """The host's subjects for this call (its resolver's own derivation), or [] when none is wired."""
-    if _subjects_reader is None:
-        return []
-    try:
-        return [(str(k), str(i)) for k, i in (_subjects_reader(ctx) or [])]
-    except Exception as exc:  # noqa: BLE001 — a broken read admits like a broken resolver, loudly
-        vcprint(
-            f"[RunApprovalGate] subjects reader raised ({type(exc).__name__}: {exc}) — "
-            "judging the tree as a whole.",
-            color="red",
-            log_level="ERROR",
-        )
-        return []
-
-
 def _refuse(refusal: RunApprovalRequiredError, request_id: str) -> None:
     vcprint(
         f"[RunApprovalGate] refused request={request_id[:8]}… {refusal.subject_kind}="
@@ -270,41 +302,23 @@ def _refuse(refusal: RunApprovalRequiredError, request_id: str) -> None:
 
 
 def admit_run_approval() -> None:
-    """Admit or refuse the paid call about to be made (see the module docstring for the memo)."""
+    """Admit or refuse the paid call about to be made: asked at a launch's first paid call, and that launch
+    (its ``request_id``, never its tree) then finishes its loop (see the module docstring)."""
     from matrx_ai.context.app_context import try_get_app_context
 
     ctx = try_get_app_context()
     if ctx is None:
         return
     request_id = str(getattr(ctx, "request_id", "") or "")
-    from matrx_connect.context.app_context import tree_request_id_of
-
-    tree_key = tree_request_id_of(ctx)
-    subjects = _read_subjects(ctx)
-    admitted = _admitted.get(tree_key) if tree_key else None
-    if admitted is not None:
-        new = [s for s in subjects if s not in admitted]
-        if not new:
-            return  # a running run is never stopped
-        if _refusal_among is not None and not is_person_driven(ctx):
-            try:
-                refusal = _refusal_among(ctx, new)
-            except Exception as exc:  # noqa: BLE001 — a broken memory read never blocks a run
-                vcprint(
-                    f"[RunApprovalGate] refusal_among raised ({type(exc).__name__}: {exc}) — admitted.",
-                    color="red",
-                    log_level="ERROR",
-                )
-                refusal = None
-            if refusal is not None:
-                _refuse(refusal, request_id)
-        _remember(tree_key, new)
-        return
+    if request_id and request_id in _admitted:
+        return  # a running launch is never cut in half
     refusal = refusal_for(ctx)
     if refusal is not None:
         _refuse(refusal, request_id)
-    if tree_key:
-        _remember(tree_key, subjects)
+    if request_id:
+        _admitted[request_id] = None
+        while len(_admitted) > _ADMITTED_MEMO_MAX:
+            _admitted.popitem(last=False)
 
 
 def run_approval_refusal_in(source: Any, *, _max_depth: int = 16) -> RunApprovalRequiredError | None:
@@ -333,8 +347,11 @@ def run_approval_refusal_in(source: Any, *, _max_depth: int = 16) -> RunApproval
 
 __all__ = [
     "AGENT_ROUTE_PREFIX",
+    "DECIDED_BY_ORGANIZATION",
+    "DECIDED_BY_PLATFORM",
     "EXEMPT_ORIGIN_CLASSES",
     "FIX_ACTION_APPROVE_RUN",
+    "ORGANIZATION_DOOR_SENTENCE",
     "RUN_APPROVAL_REQUIRED",
     "RunApprovalRequiredError",
     "admit_run_approval",

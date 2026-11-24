@@ -6,7 +6,7 @@ import dateutil
 import dateutil.parser
 from collections import OrderedDict
 from functools import lru_cache
-from mastodon.compat import PurePath
+from mastodon.compat import PurePath, StringEnum
 import sys
 import json
 import copy
@@ -269,38 +269,15 @@ class MaybeSnowflakeIdType(str):
 # Forward reference resolution for < 3.9
 if sys.version_info < (3, 9):
     def resolve_type(t):
-        # I'm sorry about this, but I cannot think of another way to make this work properly in versions below 3.9 that
-        # cannot resolve forward references in a sane way
-        from mastodon.return_types import Account, AccountField, Role, CredentialAccountSource, CredentialAccountState, \
-            Status, Quote, ShallowQuote, QuoteApproval, StatusEdit, FilterResult, \
-            StatusMention, ScheduledStatus, ScheduledStatusParams, Poll, PollOption, Conversation, \
-            Tag, TagHistory, CustomEmoji, Application, Relationship, Filter, \
-            FilterV2, Notification, Context, UserList, MediaAttachment, MediaAttachmentMetadataContainer, \
-            MediaAttachmentImageMetadata, MediaAttachmentVideoMetadata, MediaAttachmentAudioMetadata, MediaAttachmentFocusPoint, MediaAttachmentColors, PreviewCard, \
-            TrendingLinkHistory, PreviewCardAuthor, Search, SearchV2, Collection, CollectionItem, \
-            Instance, InstanceConfiguration, InstanceURLs, InstanceV2, InstanceIcon, InstanceConfigurationV2, \
-            InstanceVapidKey, InstanceURLsV2, InstanceThumbnail, InstanceThumbnailVersions, InstanceStatistics, InstanceUsage, \
-            InstanceUsageUsers, RuleTranslation, Rule, InstanceRegistrations, InstanceContact, InstanceAccountConfiguration, \
-            InstanceStatusConfiguration, InstanceTranslationConfiguration, InstanceMediaConfiguration, InstancePollConfiguration, InstanceTimelinesAccessConfiguration, InstanceTimelinesAccessFeedConfiguration, \
-            Nodeinfo, NodeinfoSoftware, NodeinfoServices, NodeinfoUsage, NodeinfoUsageUsers, NodeinfoMetadata, \
-            Activity, Report, AdminReport, WebPushSubscription, WebPushSubscriptionAlerts, PushNotification, \
-            Preferences, FeaturedTag, Marker, Announcement, Reaction, StreamReaction, \
-            FamiliarFollowers, AdminAccount, AdminIp, AdminMeasure, AdminMeasureData, AdminDimension, \
-            AdminDimensionData, AdminRetention, AdminCohort, AdminDomainBlock, AdminCanonicalEmailBlock, AdminDomainAllow, \
-            AdminEmailDomainBlock, AdminEmailDomainBlockHistory, AdminIpBlock, DomainBlock, ExtendedDescription, FilterKeyword, \
-            FilterStatus, IdentityProof, StatusSource, Suggestion, Translation, AccountCreationError, \
-            AccountCreationErrorDetails, AccountCreationErrorDetailsField, NotificationPolicy, NotificationPolicySummary, RelationshipSeveranceEvent, GroupedNotificationsResults, \
-            PartialAccountWithAvatar, NotificationGroup, AccountWarning, UnreadNotificationsCount, Appeal, NotificationRequest, \
-            SupportedLocale, OAuthServerInfo, OAuthUserInfo, TermsOfService, AsyncRefresh, Profile, \
-            ProfileField, ShallowTag, FeatureApproval, WrappedCollection, Collections, CollectionWithAccounts, \
-            WrappedCollectionItem, NotificationFallback, AnnualReportEvent, AnnualReportState, AnnualReport, WrappedAnnualReports, \
-            AnnualReportDataV2, AnnualReportDataV1, AnnualReportTopStatusesV2, AnnualReportTopStatusesV1, AnnualReportTimeSeriesEntryV2, AnnualReportTimeSeriesEntryV1, \
-            AnnualReportTypeDistribution, AnnualReportNameAndCount, AnnualReportAccountAndCount, AnnualReportPercentiles
         if isinstance(t, ForwardRef):
+            from mastodon import enums, return_types
+            namespace = dict(globals())
+            namespace.update(vars(enums))
+            namespace.update(vars(return_types))
             try:
-                t = t._evaluate(globals(), locals(), frozenset())
+                t = t._evaluate(globals(), namespace, frozenset())
             except:
-                t = t._evaluate(globals(), locals())
+                t = t._evaluate(globals(), namespace)
         return t
 else:
     def resolve_type(t):
@@ -402,6 +379,7 @@ def try_cast(t, value, retry = True, union_specializer = None):
     Base case casting function. Handles:
     * Casting to any AttribAccessDict subclass (directly, no special handling)
     * Casting to bool (with possible conversion from json bool strings)
+    * Casting known enum strings to members, preserving unknown strings unchanged
     * Casting to datetime (with possible conversion from all kinds of funny date formats because unfortunately this is the world we live in)
     * Casting to whatever t is
     * Trying once again to AttribAccessDict as a fallback
@@ -427,9 +405,22 @@ def try_cast(t, value, retry = True, union_specializer = None):
             # This will not work in 3.7 and 3.8, which is unfortunate, but them's the breaks of using
             # very old versions.
             if hasattr(t, '__args__') and len(t.__args__) > 1:
+                key_cast_type = t.__args__[0]
                 value_cast_type = t.__args__[1]
-                for key, val in value.items():
-                    value[key] = try_cast_recurse(value_cast_type, val, union_specializer)
+                entries = [
+                    (try_cast_recurse(key_cast_type, key, union_specializer),
+                     try_cast_recurse(value_cast_type, val, union_specializer))
+                    for key, val in value.items()
+                ]
+                value.clear()
+                for key, val in entries:
+                    value[key] = val
+        elif real_issubclass(t, StringEnum):
+            if isinstance(value, str):
+                try:
+                    value = t(value)
+                except ValueError:
+                    pass  # Servers may return values this library does not know yet.
         elif real_issubclass(t, bool):
             if isinstance(value, str):
                 if value.lower() == 'true':

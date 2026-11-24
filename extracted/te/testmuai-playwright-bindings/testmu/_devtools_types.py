@@ -57,6 +57,9 @@ class CoreWebVitals:
     inp_ms: float | None = None
     fcp_ms: float | None = None
     ttfb_ms: float | None = None
+    # Metrics the engine cannot measure ("CLS", "LCP", "FCP", "INP", "TTFB").
+    # Only non-Chromium engines populate it (Firefox: no layout-shift).
+    unsupported: list[str] = field(default_factory=list, repr=False, compare=False)
 
 
 @dataclass

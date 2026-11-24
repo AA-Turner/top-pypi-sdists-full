@@ -24,6 +24,9 @@ from tornado.websocket import WebSocketHandler
 
 from .config import config
 from .entry_points import entry_points_for
+from .io.proxy import (
+    external_path, external_url, normalize_root_path, server_path,
+)
 from .io.resources import (
     BASIC_LOGIN_TEMPLATE, CDN_DIST, ERROR_TEMPLATE, LOGOUT_TEMPLATE, _env,
 )
@@ -116,25 +119,40 @@ def _deserialize_state(b64_state):
 
 
 @t.overload
-def _validate_next_url(next_url: str) -> str: ...
+def _validate_next_url(next_url: str, handler: RequestHandler | None = None) -> str: ...
 @t.overload
-def _validate_next_url(next_url: None) -> None: ...
-def _validate_next_url(next_url: str | None) -> str | None:
+def _validate_next_url(next_url: None, handler: RequestHandler | None = None) -> None: ...
+def _validate_next_url(next_url: str | None, handler: RequestHandler | None = None) -> str | None:
     """
     Validate that next_url is a same-origin path. Raises HTTPError(400)
-    if it carries a scheme, netloc, or backslash (which some browsers
-    treat as '/'). Returns the (possibly base_url-prefixed) value, or
-    None when the input is empty.
+    if it carries a scheme, netloc, backslash (which some browsers
+    treat as '/'), control characters, or starts with two or more
+    slashes. Returns the value, prefixed with the root path the server
+    is proxied on if it does not include it yet, or None when the input
+    is empty. The root path a proxy declares in its headers is only
+    known if the request ``handler`` is given.
     """
     if not next_url:
         return None
     urlinfo = urlparse.urlparse(next_url)
-    if urlinfo.scheme or urlinfo.netloc or '\\' in next_url:
+    # urlparse only finds a netloc after exactly two slashes, while browsers
+    # skip any run of slashes, resolving '///evil.com' to https://evil.com.
+    if (
+        urlinfo.scheme or urlinfo.netloc or '\\' in next_url
+        or not next_url.isprintable() or next_url.lstrip(' ').startswith('//')
+    ):
         log.warning("Rejecting tampered next_url: %r", next_url)
         raise HTTPError(400, "Invalid next url")
-    if state.base_url and not next_url.startswith(state.base_url):
-        next_url = next_url.replace('/', state.base_url, 1)
+    if handler is not None:
+        return external_path(handler, next_url)
+    root = normalize_root_path(state.base_url)
+    if root and next_url != root and not next_url.startswith((f'{root}/', f'{root}?')):
+        next_url = root + next_url
     return next_url
+
+
+def _default_next_url(handler: RequestHandler) -> str:
+    return f'{server_path(handler)}/'
 
 
 class OAuthLoginHandler(tornado.web.RequestHandler, OAuth2Mixin):
@@ -170,7 +188,7 @@ class OAuthLoginHandler(tornado.web.RequestHandler, OAuth2Mixin):
     def _redirect_uri(self):
         if config.oauth_redirect_uri:
             return config.oauth_redirect_uri
-        return f"{self.request.protocol}://{self.request.host}{state.base_url[:-1]}"
+        return external_url(self)
 
     async def get_authenticated_user(self, redirect_uri, client_id, state,
                                      client_secret=None, code=None):
@@ -372,9 +390,9 @@ class OAuthLoginHandler(tornado.web.RequestHandler, OAuth2Mixin):
         root_url = self.request.uri.replace(self._login_endpoint, '').split('?')[0]
         if not root_url.endswith('/'):
             root_url += '/'
-        next_url = _validate_next_url(self.get_argument('next', root_url))
+        next_url = _validate_next_url(self.get_argument('next', root_url), self)
         return _serialize_state(
-            {'state_id': uuid.uuid4().hex, 'next_url': next_url or state.base_url}
+            {'state_id': uuid.uuid4().hex, 'next_url': next_url or _default_next_url(self)}
         )
 
     def get_code(self):
@@ -441,7 +459,7 @@ class OAuthLoginHandler(tornado.web.RequestHandler, OAuth2Mixin):
             if user is None:
                 raise HTTPError(403, "Permissions unknown.")
             log.debug("%s authorized user, redirecting to app.", type(self).__name__)
-            self.redirect(decoded_state.get('next_url', state.base_url))
+            self.redirect(decoded_state.get('next_url', _default_next_url(self)))
         else:
             # Redirect for user authentication
             params['state'] = decoded_state = self.get_state()
@@ -579,7 +597,7 @@ class PasswordLoginHandler(GenericLoginHandler):
         except Exception:
             errormessage = ""
 
-        next_url = _validate_next_url(self.get_argument('next', None))
+        next_url = _validate_next_url(self.get_argument('next', None), self)
         if next_url:
             self.set_cookie("next_url", next_url)
         html = self._login_template.render(
@@ -597,7 +615,7 @@ class PasswordLoginHandler(GenericLoginHandler):
             username=username,
             password=password
         )
-        next_url = _validate_next_url(self.get_cookie("next_url", state.base_url))
+        next_url = _validate_next_url(self.get_cookie("next_url", _default_next_url(self)), self)
         self.redirect(next_url)
 
 
@@ -621,7 +639,7 @@ class CodeChallengeLoginHandler(GenericLoginHandler):
         if user is None:
             raise HTTPError(403)
         log.debug("%s authorized user, redirecting to app.", type(self).__name__)
-        self.redirect(decoded_state.get('next_url', state.base_url))
+        self.redirect(decoded_state.get('next_url', _default_next_url(self)))
 
     def _authorize_redirect(self, redirect_uri):
         state = self.get_state()
@@ -704,7 +722,7 @@ class Auth0Handler(OAuthLoginHandler):
     def _OAUTH_LOGOUT_URL(self):
         subdomain = config.oauth_extra_params.get('subdomain', 'example')
         client_id = config.oauth_key
-        return_to = f'{self.request.protocol}://{self.request.host}/logout'
+        return_to = f'{external_url(self)}/logout'
         return self._OAUTH_LOGOUT_URL_.format(subdomain, client_id, return_to)
 
 
@@ -896,7 +914,7 @@ class BasicLoginHandler(RequestHandler):
             errormessage = self.get_argument("error")
         except Exception:
             errormessage = ""
-        next_url = _validate_next_url(self.get_argument('next', state.base_url))
+        next_url = _validate_next_url(self.get_argument('next', _default_next_url(self)), self)
         if next_url:
             self.set_cookie("next_url", next_url)
         html = self._login_template.render(
@@ -928,11 +946,12 @@ class BasicLoginHandler(RequestHandler):
         auth = self._validate(username, password)
         if auth:
             self.set_current_user(username)
-            next_url = _validate_next_url(self.get_cookie("next_url", state.base_url))
+            next_url = _validate_next_url(self.get_cookie("next_url", _default_next_url(self)), self)
             self.redirect(next_url)
         else:
-            error_msg = "?error=" + tornado.escape.url_escape("Invalid username or password!")
-            self.redirect(self.request.uri + error_msg)
+            # A query-only reference resolves against the login page the
+            # browser is on, whatever path the proxy serves it under.
+            self.redirect("?error=" + tornado.escape.url_escape("Invalid username or password!"))
 
     def set_current_user(self, user):
         if not user:
@@ -980,17 +999,17 @@ class BasicAuthProvider(AuthProvider):
         if error_template is None:
             self._error_template = ERROR_TEMPLATE
         else:
-            with open(error_template) as f:
+            with open(error_template, encoding='utf-8') as f:
                 self._error_template = _env.from_string(f.read())
         if logout_template is None:
             self._logout_template = LOGOUT_TEMPLATE
         else:
-            with open(logout_template) as f:
+            with open(logout_template, encoding='utf-8') as f:
                 self._logout_template = _env.from_string(f.read())
         if login_template is None:
             self._login_template = BASIC_LOGIN_TEMPLATE
         else:
-            with open(login_template) as f:
+            with open(login_template, encoding='utf-8') as f:
                 self._login_template = _env.from_string(f.read())
         self._login_endpoint = login_endpoint or '/login'
         self._logout_endpoint = logout_endpoint or '/logout'
@@ -1021,10 +1040,20 @@ class BasicAuthProvider(AuthProvider):
     def _allow_guest(self, uri):
         if config.oauth_optional and not (uri == self._login_endpoint or '?code=' in uri):
             return True
-        for gep in self._guest_endpoints:
-            if uri == gep or uri == gep.rstrip('/') + '/ws':
-                return True
-        return False
+        path = uri.split('?', 1)[0]
+        return any(self._guest_endpoint_covers(gep, path) for gep in self._guest_endpoints)
+
+    @staticmethod
+    def _guest_endpoint_covers(gep, path):
+        # Only a trailing `/*` opts the endpoint into covering the paths below it,
+        # because a guest endpoint is an entry on an auth bypass list.
+        gep = gep.split('?', 1)[0]
+        subtree = gep.endswith('/*')
+        gep = gep.rstrip('*').rstrip('/')
+        if not gep:
+            # The root endpoint covers the root app and its websocket only
+            return path in ('/', '/ws')
+        return path == gep or path == gep + '/ws' or (subtree and path.startswith(gep + '/'))
 
     @property
     def get_user(self):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typing
 
+from .action_menu import ActionMenu, MenuItem
 from .ansi_text import ANSIText
 from .attr_map import AttrMap, AttrMapError
 from .attr_wrap import AttrWrap
@@ -54,13 +55,14 @@ from .overlay import Overlay, OverlayError, OverlayWarning
 from .overlay_stack import OverlayStack
 from .padding import Padding, PaddingError, PaddingWarning, calculate_left_right_padding
 from .pile import Pile, PileError, PileWarning
-from .popup import PopUpLauncher, PopUpTarget
+from .popup import PopUpLauncher, PopUpPlacement, PopUpTarget
 from .progress_bar import ProgressBar
 from .scrollable import Scrollable, ScrollableError, ScrollBar
 from .solid_fill import SolidFill
 from .spinner import Spinner
 from .table import Table, TableColumn, TableError, TableLayout, TableRow
 from .tabs import Tabs, TabsError
+from .terminal_output import TerminalOutput
 from .text import Text, TextError
 from .treetools import ParentNode, TreeListBox, TreeNode, TreeWalker, TreeWidget, TreeWidgetError
 from .widget import (
@@ -107,6 +109,7 @@ __all__ = (
     "AbstractFixedWidget",
     "AbstractFlowWidget",
     "AbstractWidget",
+    "ActionMenu",
     "Align",
     "AttrMap",
     "AttrMapError",
@@ -143,6 +146,7 @@ __all__ = (
     "ListBoxError",
     "ListWalker",
     "ListWalkerError",
+    "MenuItem",
     "MonitoredDeque",
     "MonitoredFocusDeque",
     "MonitoredFocusList",
@@ -162,6 +166,7 @@ __all__ = (
     "PileError",
     "PileWarning",
     "PopUpLauncher",
+    "PopUpPlacement",
     "PopUpTarget",
     "ProgressBar",
     "RadioButton",
@@ -186,6 +191,7 @@ __all__ = (
     "TableRow",
     "Tabs",
     "TabsError",
+    "TerminalOutput",
     "Text",
     "TextError",
     "TreeListBox",

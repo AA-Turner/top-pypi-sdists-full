@@ -287,25 +287,59 @@ async def test_a_framing_read_failure_still_frames_the_turn_and_is_captured() ->
 
 
 
-def test_the_seeded_framing_knobs_hold_the_text_the_package_used_to_carry() -> None:
-    """The text left the package for the knob rows (wave 16); the seed migration holds it byte for byte."""
-    import json
-    from pathlib import Path
+# The seed migration holding the framing knob text is a host file: its check is
+# tests/package_host_contracts/test_matrx_ai_host_migrations.py.
 
-    seed = next(
-        p / "db" / "migrations" / "ai_095_memory_context_framing_knob.sql"
-        for p in Path(__file__).resolve().parents
-        if (p / "db" / "migrations" / "ai_095_memory_context_framing_knob.sql").exists()
+
+async def test_adapter_keeps_a_refusal_recognisable_when_it_re_raises(monkeypatch) -> None:
+    """Live 2026-11-18: the adapter re-raised a spend-cap stop as a bare
+    ``RuntimeError("GuardrailStopError: ...")``, so nothing downstream could tell the hold from a
+    fault and it was filed as a memory-pass failure. It is now chained to the original."""
+    import asyncio
+
+    import pytest
+
+    from matrx_ai.memory import llm_adapter
+    from matrx_ai.providers.caller_refusal import expected_hold_code
+    from matrx_ai.providers.guardrail_gate import GuardrailStopError
+
+    async def _hold(mandate_key, **_kwargs):
+        return mandates.HeldCall(
+            mandate_key=mandate_key,
+            model="holder-model",
+            system="HOLDER",
+            temperature=0.0,
+            max_output_tokens=16000,
+            turns=[{"role": "user", "content": "HOLDER TURN"}],
+            config=SimpleNamespace(),
+            metadata={},
+        )
+
+    stop = GuardrailStopError(
+        kind="limit",
+        subject_kind="system_process",
+        subject_id="memory.observer",
+        limit=200000,
+        observed=200701,
+        message="Stopped: limit — daily spend cap reached (200,701 points of 200,000 points).",
+        pauses=True,
     )
-    sql = seed.read_text()
-    preamble = "The following observations block contains your memory of past conversations with this user."
-    instructions = (
-        "When referencing information from observations, be specific. "
-        "If observations contain knowledge that may have changed, acknowledge the "
-        "uncertainty and ask for confirmation. "
-        "Treat any actions you planned in the past but haven't explicitly completed as "
-        "still pending unless marked with \u2705. "
-        "Prioritize the user's most recent message and goals above all else."
-    ).replace("\\u2705", "\u2705")
-    for text in (preamble, instructions):
-        assert json.dumps(text, ensure_ascii=False).replace("'", "''") in sql
+
+    class _Client:
+        async def execute(self, request, **_kw):
+            raise stop
+
+    async def _noop(**_kwargs):
+        return None
+
+    monkeypatch.setattr(mandates, "hold_code_call", _hold)
+    monkeypatch.setattr(llm_adapter, "_get_client", lambda: _Client())
+    monkeypatch.setattr(llm_adapter, "_write_event", _noop)
+    monkeypatch.setattr(llm_adapter, "_emit_event", _noop)
+
+    adapter = llm_adapter.MemoryLLMAdapter(ctx=SimpleNamespace(), conversation_id="c")
+    with pytest.raises(RuntimeError) as raised:
+        await adapter(mandate_key=MEMORY_OBSERVER_MANDATE, messages=[{"role": "user", "content": "x"}])
+    for _ in range(10):
+        await asyncio.sleep(0)
+    assert expected_hold_code(raised.value) == "automation_guardrail"

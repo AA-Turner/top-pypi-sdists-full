@@ -245,17 +245,33 @@ async def _finalize_handler_error(run: SchRun, claim_token: str, exc: BaseExcept
 
 
 async def _finalize_stopped_run(
-    run: SchRun, task: Any, claim_token: str, lease: RunLease, *, reason: str
+    run: SchRun, task: Any, claim_token: str, lease: RunLease, *, reason: str,
+    guardrail: dict[str, Any] | None = None,
 ) -> bool:
     """Terminal write for a run the RUNNER stopped (deadline, lost lease,
     shutdown cancel) — never the handler's own return. The verdict follows
     the bounded-work rule the handlers themselves use: work landed means the
-    run is not failed, and the stop is named in the summary and the metadata;
-    nothing landed means failed with the reason as the error. Progress the
-    handler reported through the lease is carried either way."""
+    run is not failed, and the stop is named in the summary and the metadata.
+    Nothing landed: a BUDGET stop (``guardrail`` — the run reached its runtime
+    limit) is ``stopped``, never ``failed``: a limit is a hold, not a failure,
+    and a failure would count toward the task's failure-rate pause (budget
+    holds review B4). Any other stop with nothing landed is failed with the
+    reason as the error. Progress the handler reported through the lease is
+    carried either way."""
     units = lease.units_done
     stop = f"{reason} after committing {units} unit(s)"
     metadata = lease.snapshot_metadata(stopped_early=stop)
+    if units <= 0 and guardrail is not None:
+        persisted = await queries.finalize_run(
+            run.id,
+            claim_token,
+            status="stopped",
+            error_message=str(guardrail.get("message") or reason)[:2000],
+            result_metadata={**metadata, "guardrail": guardrail},
+        )
+        if not persisted:
+            await queries.update_last_run_at(task.id)
+        return persisted
     if units > 0:
         persisted = await queries.finalize_run(
             run.id,
@@ -550,6 +566,7 @@ async def _dispatch_under_lease(
     except Exception:  # noqa: BLE001 -- the handler's own error while being canceled
         log.exception("run %s: handler raised while being stopped for %s", run.id, stop)
 
+    guardrail: dict[str, Any] | None = None
     if stop == "deadline":
         reason = (
             f"run ceiling reached: max_runtime_seconds={lease.max_runtime_seconds} elapsed; "
@@ -564,16 +581,18 @@ async def _dispatch_under_lease(
             lease.max_runtime_seconds,
             lease.units_done,
         )
+        guardrail = {
+            "kind": "guardrail.max_runtime",
+            "limit": lease.max_runtime_seconds,
+            "observed": lease.max_runtime_seconds,
+            "message": f"Stopped: limit — the run reached its {lease.max_runtime_seconds}s time limit.",
+            "paused": False,
+        }
         await _guardrail_breach(
             "guardrail.max_runtime",
             str(task.id),
             str(run.id),
-            {
-                "limit": lease.max_runtime_seconds,
-                "observed": lease.max_runtime_seconds,
-                "message": f"Stopped: limit — the run reached its {lease.max_runtime_seconds}s time limit.",
-                "paused": False,
-            },
+            {k: v for k, v in guardrail.items() if k != "kind"},
         )
     else:
         reason = f"lease lost mid-run: {lease.lost_reason or 'another worker owns this run'}"
@@ -584,7 +603,7 @@ async def _dispatch_under_lease(
             task.id,
             lease.units_done,
         )
-    await _finalize_stopped_run(run, task, claim_token, lease, reason=reason)
+    await _finalize_stopped_run(run, task, claim_token, lease, reason=reason, guardrail=guardrail)
     return None
 
 
@@ -718,6 +737,7 @@ async def _run_agent_kind(
         run_metadata=dict(run.metadata or {}),
         task_metadata=dict(getattr(task, "metadata", None) or {}),
         task_created_by=getattr(task, "created_by", None),
+        task_test_run_id=(str(getattr(task, "test_run_id", "") or "") or None),
     )
 
     try:

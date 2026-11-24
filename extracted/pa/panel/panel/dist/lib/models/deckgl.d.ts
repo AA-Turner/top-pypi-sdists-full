@@ -25,6 +25,8 @@ export declare class DeckGLPlotView extends LayoutDOMView {
     get child_models(): LayoutDOM[];
     getData(): any;
     _sync_viewstate(event: any): void;
+    _map_camera(view_state: any): any;
+    _jump_map(view_state: any): void;
     rerender_(): void;
     updateDeck(): void;
     createDeck({ mapboxApiKey, container, jsonInput, tooltip }: any): void;

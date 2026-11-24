@@ -14,19 +14,45 @@ type-safety at the node boundary.
 
 from __future__ import annotations
 
+import re
+
 from collections.abc import Awaitable, Callable
 from typing import Any, Generic, TypeVar
 
 from matrx_utils.text_case import humanize_identifier
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
-from matrx_graph.types.node_spec import EmptyConfig, NodeSpec
+from matrx_graph.types.node_spec import EmptyConfig, NodeSpec, model_json_schema_once
 from matrx_graph.types.primitives import ActionTier, EdgeKind, NodeCategory
 
 InputT = TypeVar("InputT", bound=BaseModel)
 OutputT = TypeVar("OutputT", bound=BaseModel)
+
+
+#: Namespaces of platform machinery: an Action named under one is hidden from a person's picker by
+#: default (``ActionSpec.person_facing``). A namespace ending ``_test`` / starting ``test_`` counts too.
+INTERNAL_ACTION_NAMESPACES: frozenset[str] = frozenset({"admin", "dev", "sql", "builder", "build", "test"})
+
+
+#: The agent factory's own steps (``agent.build.*``, ``agent.proof.*``, ``agent.spec.*`` …): machinery that builds an
+#: agent, never something a person picks. A person's own agents (``agent.id_<hex>``, ``agent.run``) stay.
+AGENT_FACTORY_SEGMENTS: frozenset[str] = frozenset(
+    {"build", "builder", "proof", "spec", "definition", "model", "foundry", "exemplar"}
+)
+
+
+def is_internal_action_name(name: str) -> bool:
+    """True when ``name`` is machinery: its first segment is an internal namespace, any segment is a build step
+    (``records.build.x``), or it is one of the agent factory's steps."""
+    parts = name.split(".")
+    head = parts[0]
+    if head in INTERNAL_ACTION_NAMESPACES or head.endswith("_test") or head.startswith("test_"):
+        return True
+    if any(p in {"build", "builder"} for p in parts[1:]):
+        return True
+    return head == "agent" and len(parts) > 1 and (parts[1] in AGENT_FACTORY_SEGMENTS or parts[1].startswith("test"))
 
 
 class ActionSpec(BaseModel, Generic[InputT, OutputT]):
@@ -86,6 +112,16 @@ class ActionSpec(BaseModel, Generic[InputT, OutputT]):
         ),
     )
     takes_idempotency_key: bool = False
+    takes_node_context: bool = False
+    owns_idempotency: bool = Field(
+        default=False,
+        description=(
+            "The work runs its OWN idempotency ledger on the door's key (it takes "
+            "``idempotency_key`` and claims it itself, e.g. the table API's body-checked "
+            "claim): the router hands the key through and does not claim it a second time."
+        ),
+    )
+    requires_action_claim: bool = False
     output_exclude_none: bool = Field(
         default=False,
         description="Drop None fields when a door hands the output on as JSON (tool, mcp).",
@@ -93,6 +129,13 @@ class ActionSpec(BaseModel, Generic[InputT, OutputT]):
     former_step_names: tuple[str, ...] = Field(
         default=(),
         description="Step types this Action was stored under before; they resolve to it.",
+    )
+    former_names: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Action names this Action was registered under before (two Actions collapsed into "
+            "one); every door resolving a former name runs this Action."
+        ),
     )
     engine: str = Field(
         default="code",
@@ -128,6 +171,52 @@ class ActionSpec(BaseModel, Generic[InputT, OutputT]):
             "decides for itself; a person's or organization's explicit ``off`` still wins."
         ),
     )
+    apply_rule_resolver: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$",
+        description=(
+            "The name of a host-registered rule resolver that decides THIS call's apply rule "
+            "(auto / ask / off) from the organization's own settings — the registered rule "
+            "computed per call instead of one fixed word. The host's apply gate runs it for "
+            "every authority (an organization's setting is not the caller's to waive); only a "
+            "recorded approval of the exact call (authority ``approved``) skips it."
+        ),
+    )
+    consent_step: bool = Field(
+        default=False,
+        description=(
+            "The Action's own step IS the person's confirmation: it puts something in front of "
+            "the person (a private form they fill in and submit, a proposal they confirm on their "
+            "own screen) and nothing is written until they do. The host's apply gate then lets an "
+            "``ask`` go straight to that step instead of asking a second time; an explicit "
+            "``off`` (the person's, the agent author's, the surface's) still refuses."
+        ),
+    )
+    person_facing: bool | None = Field(
+        default=None,
+        description=(
+            "Whether a person picks this Action in a product picker (a trigger's target, a "
+            "binding). None = the default: hidden when admin-only, schedule-only, or in an "
+            "internal namespace (INTERNAL_ACTION_NAMESPACES — admin, dev, sql, builder, build, "
+            "test), else shown. Declare True/False only to overrule the default."
+        ),
+    )
+    bring_in: bool = Field(
+        default=False,
+        description=(
+            "A person may bring this Action's answer into a table: it READS (never writes or spends) and its "
+            "answer is a list of rows (contacts, templates, places, search results). Declared, never guessed "
+            "from the output schema; ``GET /actions?bring_in=true`` lists exactly these."
+        ),
+    )
+    beside_kind: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Top-level output keys that ride BESIDE ``node_spec.output_kind`` (run facts a later step "
+            "reads). The step door declares them (``ctx.declare_beside_kind``); every check of the "
+            "output against its kind leaves them out."
+        ),
+    )
     directive_slug: str | None = Field(
         default=None,
         description=(
@@ -135,6 +224,16 @@ class ActionSpec(BaseModel, Generic[InputT, OutputT]):
             "``directive_v1_action_<noun>`` (a record write keeps its create/update/delete slug)."
         ),
     )
+
+    @model_validator(mode="after")
+    def _validate_claim_requirement(self) -> ActionSpec:
+        if self.requires_action_claim and (
+            self.doors != frozenset({"step"}) or self.engine != "code"
+            or self.work is None or not self.writes_or_spends or self.owns_idempotency
+            or self.apply_rule_resolver is not None
+        ):
+            raise ValueError("A durable Action claim requires a gated code step using the host ledger without an approval resolver.")
+        return self
 
     @property
     def gated(self) -> bool:
@@ -149,9 +248,27 @@ class ActionSpec(BaseModel, Generic[InputT, OutputT]):
         return self.apply_rule or ("ask" if self.gated else "auto")
 
     @property
+    def is_person_facing(self) -> bool:
+        """Shown in a person's Action picker (see ``person_facing``). Never an Action with nothing to run (a
+        trigger would refuse it at save: "runs only as a workflow step"), even when declared person-facing."""
+        if not self.runnable:
+            return False
+        if self.person_facing is not None:
+            return self.person_facing
+        return not (self.admin_only or self.schedule_only or is_internal_action_name(self.name))
+
+    @property
     def runnable(self) -> bool:
         """It has something to run: a work function, or a host engine."""
         return self.engine != "code" or self.work is not None
+
+    @property
+    def schedule_only(self) -> bool:
+        """It declared only the ``schedule`` door: no door opens for it by construction and
+        ``run_action`` refuses every other door (``matrx_graph.actions.doors``)."""
+        from matrx_graph.actions.doors import SCHEDULE_ONLY_DOORS
+
+        return frozenset(self.doors) == SCHEDULE_ONLY_DOORS
 
     def dump_output(self, out: BaseModel) -> dict[str, Any]:
         """The output as a door hands it on as JSON — one dump for every door."""
@@ -168,8 +285,10 @@ class ActionSpec(BaseModel, Generic[InputT, OutputT]):
             "tags": list(self.tags),
             "icon": self.icon,
             "admin_only": self.admin_only,
-            "input_schema": self.input_schema.model_json_schema(),
-            "output_schema": self.output_schema.model_json_schema(),
+            # Built once per class (node_spec.model_json_schema_once): every generated Action shares the same
+            # two classes, and /actions rebuilt them per mandate on the loop (event_loop_stall, 2026-11-13).
+            "input_schema": model_json_schema_once(self.input_schema),
+            "output_schema": model_json_schema_once(self.output_schema),
             "spec_type": self.node_spec.node_type,
             "source_module": self.source_module,
             "source_function": self.source_function,
@@ -178,8 +297,12 @@ class ActionSpec(BaseModel, Generic[InputT, OutputT]):
             "engine": self.engine,
             "writes_or_spends": self.gated,
             "apply_rule": self.declared_apply_rule,
+            "apply_rule_resolver": self.apply_rule_resolver,
+            "consent_step": self.consent_step,
             "input_kind": self.node_spec.input_kind,
             "output_kind": self.node_spec.output_kind,
+            "person_facing": self.is_person_facing,
+            "bring_in": self.bring_in,
         }
 
     def door_names(self) -> dict[str, str]:
@@ -188,12 +311,25 @@ class ActionSpec(BaseModel, Generic[InputT, OutputT]):
         full slug."""
         from matrx_graph.actions.doors import api_path_for, directive_noun_of, tool_name_for
 
-        names = {"step": self.node_spec.node_type, "mcp": self.name, "api": api_path_for(self.name)}
+        names = {
+            "step": self.node_spec.node_type,
+            "mcp": self.name,
+            "api": api_path_for(self.name),
+            "binding": self.name,
+            "schedule": self.name,
+            "service": f"/actions/service/{self.name}/run",
+            "trigger": self.name,
+            "visitor": f"/actions/visitor/{self.name}/run",
+        }
         names["tool"] = tool_name_for(self.name)
         out = {door: names[door] for door in sorted(self.doors) if door != "directive"}
-        if self.runnable:
+        if self.runnable and not self.schedule_only:
             # Every runnable Action is wrapped in the API, by construction (Arman, 2026-10-29).
             out["api"] = names["api"]
+            # ...and can fill an agent variable or context item (the binding door, 2026-10-30).
+            out["binding"] = names["binding"]
+            # ...and can be fired by a workflow.trigger row (the trigger door, Triggers Phase 2).
+            out["trigger"] = names["trigger"]
         noun = directive_noun_of(self)
         if self.directive_slug:
             out["directive"] = self.directive_slug
@@ -208,6 +344,14 @@ class ActionFailed(Exception):  # noqa: N818 — the name says what the caller r
     The step door turns it into ``failure(code, message)``; the tool and mcp doors into
     an error the agent reads, with ``suggested_action`` (the next call to make, or what
     to tell the person). ``error_type`` is ``validation`` when the caller can fix it.
+
+    A code that NAMES a refusal is one: left unset, ``error_type`` follows the code —
+    ``refused`` stays ``refused`` and ``not_found`` / ``*_not_found`` become ``not_found`` —
+    and everything else is ``execution``. Before 2026-11-05 every unset refusal read
+    ``execution``, so the tool executor filed each "That placement was not found" /
+    "There is no job called …" an agent had already read and corrected as a
+    ``tool_execution_failed`` platform error (31 ``code="refused"`` call sites).
+    An explicit ``error_type`` always wins.
     """
 
     def __init__(
@@ -216,15 +360,34 @@ class ActionFailed(Exception):  # noqa: N818 — the name says what the caller r
         message: str,
         *,
         suggested_action: str = "",
-        error_type: str = "execution",
+        error_type: str | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.suggested_action = suggested_action
-        self.error_type = error_type
+        self.error_type = error_type if error_type is not None else _error_type_of_code(code)
         self.details = details or {}
+
+
+def _error_type_of_code(code: str) -> str:
+    """The error type a code with no explicit one carries (``ActionFailed``)."""
+    c = (code or "").strip().lower()
+    if c == "refused":
+        return "refused"
+    if c == "not_found" or c.endswith("_not_found"):
+        return "not_found"
+    if _NAMES_BAD_INPUT.search(c):
+        return "validation"
+    return "execution"
+
+
+#: A code that names the CALLER's input as the problem (``invalid_input``, ``place_needed``,
+#: ``organization_required``, ``bad_room``, ``cerbo_request_invalid``) is ``validation``: the
+#: caller fixes it. Before 2026-11-14 these read ``execution``, so a connected-app preview that
+#: left out a place id answered 502 and was filed as a server crash.
+_NAMES_BAD_INPUT = re.compile(r"^(invalid|bad)_|_(invalid|needed|required)$")
 
 
 ActionCallable = Callable[[NodeExecutionContext, BaseModel], Awaitable[BaseModel]]
@@ -265,6 +428,7 @@ def build_action_node_spec(
     extra_output_handles: tuple[str, ...] = (),
     values_are: str = "ai",
     output_in_run_row: bool = True,
+    spends: bool | None = None,
 ) -> NodeSpec:
     """Build the NodeSpec that represents this action in the graph engine.
 
@@ -321,6 +485,7 @@ def build_action_node_spec(
         launches_nodes=launches_nodes,
         values_are=values_are,
         output_in_run_row=output_in_run_row,
+        spends=spends,
     )
 
 

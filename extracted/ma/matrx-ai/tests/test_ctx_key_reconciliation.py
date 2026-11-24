@@ -523,7 +523,7 @@ async def test_batch_children_get_alias_reconciliation_too() -> None:
 
 
 # --------------------------------------------------------------------------
-# A value that reaches the manifest as its JSON TEXT (a binding's context slot:
+# A value that reaches the manifest as its JSON TEXT (a binding's context policy:
 # the Studio's studio_workspace, 2026-10-21) must come back native, or the
 # output gate fails every `get` (live: chat.tool_call 65a55bda, conv 7aa4b17e).
 # --------------------------------------------------------------------------

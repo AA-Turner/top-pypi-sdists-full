@@ -2,6 +2,7 @@ import asyncio
 import datetime as dt
 import random
 import string
+import warnings
 
 from zoneinfo import ZoneInfo
 
@@ -26,7 +27,7 @@ from panel.tests.util import (
     async_wait_until, mpl_available, serve_and_request, wait_until,
 )
 from panel.widgets import Button, TextInput
-from panel.widgets.tables import DataFrame, Tabulator
+from panel.widgets.tables import DataFrame, Tabulator, _values_equal
 
 pd_old = pytest.mark.skipif(Version(pd.__version__) < Version('1.3'),
                             reason="Requires latest pandas")
@@ -1025,12 +1026,33 @@ def test_tabulator_header_filters_config_boolean(document, comm):
     model = table.get_root(document, comm)
 
     assert model.configuration['columns'] == [
-        {'field': 'index', 'sorter': 'number', 'headerFilter': 'number'},
-        {'field': 'A', 'sorter': 'number', 'headerFilter': True},
-        {'field': 'B', 'sorter': 'number', 'headerFilter': True},
-        {'field': 'C', 'headerFilter': True},
+        {'field': 'index', 'sorter': 'number', 'headerFilter': 'number', 'headerFilterPlaceholder': 'Filter by index...'},
+        {'field': 'A', 'sorter': 'number', 'headerFilter': True, 'headerFilterPlaceholder': 'Filter by A...'},
+        {'field': 'B', 'sorter': 'number', 'headerFilter': True, 'headerFilterPlaceholder': 'Filter by B...'},
+        {'field': 'C', 'headerFilter': True, 'headerFilterPlaceholder': 'Filter by C...'},
         {'field': 'D', 'headerFilter': False, 'sorter': 'timestamp'} # Datetime header filtering not supported
     ]
+
+def test_tabulator_header_filters_placeholder_uses_title(document, comm):
+    df = makeMixedDataFrame()
+    table = Tabulator(df, header_filters=True, titles={'A': 'Alpha'})
+
+    model = table.get_root(document, comm)
+
+    columns = {col['field']: col for col in model.configuration['columns']}
+    assert columns['A']['headerFilterPlaceholder'] == 'Filter by Alpha...'
+    assert columns['B']['headerFilterPlaceholder'] == 'Filter by B...'
+
+
+def test_tabulator_header_filters_dict_config_has_no_default_placeholder(document, comm):
+    df = makeMixedDataFrame()
+    table = Tabulator(df, header_filters={'A': {'type': 'input', 'func': 'like'}})
+
+    model = table.get_root(document, comm)
+
+    columns = {col['field']: col for col in model.configuration['columns']}
+    assert 'headerFilterPlaceholder' not in columns['A']
+
 
 def test_tabulator_header_filters_column_config_list(document, comm):
     df = makeMixedDataFrame()
@@ -1115,6 +1137,57 @@ def test_tabulator_keywords_match_all_filter_config(document, comm):
         },
         {'field': 'D', 'sorter': 'timestamp'}
     ]
+
+
+@pytest.mark.parametrize('with_na', [False, True])
+def test_tabulator_masked_int_column_clear_cell(document, comm, with_na):
+    values = [1, pd.NA, 3, 4] if with_na else [1, 2, 3, 4]
+    df = pd.DataFrame({'A': pd.array(values, dtype='Int64')})
+    table = Tabulator(df)
+    model = table.get_root(document, comm)
+
+    assert model.source.data['A'].dtype.kind == 'f'
+
+    new = np.array(model.source.data['A'], dtype='float64')
+    new[2] = np.nan
+    table._process_events({'data': {'A': new}})
+
+    assert table.value['A'].dtype == pd.Int64Dtype()
+    assert table.value['A'].iloc[2] is pd.NA
+    assert table.value['A'].iloc[0] == 1
+
+
+@pytest.mark.parametrize('with_na', [False, True])
+def test_tabulator_masked_int_column_large_values_survive_other_edit(document, comm, with_na):
+    big = 2**60 + 1
+    df = pd.DataFrame({
+        'A': pd.array([big, pd.NA if with_na else 2, 3], dtype='Int64'),
+        'B': [1, 2, 3],
+    })
+    table = Tabulator(df)
+    model = table.get_root(document, comm)
+
+    table._process_events({'data': {
+        'A': np.array(model.source.data['A'], dtype='float64'),
+        'B': np.array([1, 5, 3]),
+    }})
+
+    assert table.value['B'].tolist() == [1, 5, 3]
+    assert table.value['A'].iloc[0] == big
+    assert table.value['A'].dtype == pd.Int64Dtype()
+
+
+def test_tabulator_masked_int_column_edit_keeps_large_values(document, comm):
+    big = 2**60 + 1
+    df = pd.DataFrame({'A': pd.array([big, 2, 3], dtype='Int64')})
+    table = Tabulator(df)
+    model = table.get_root(document, comm)
+
+    new = np.array(model.source.data['A'], dtype='float64')
+    new[1] = 7
+    table._process_events({'data': {'A': new}})
+
+    assert table.value['A'].tolist() == [big, 7, 3]
 
 
 def test_tabulator_editors_default(document, comm):
@@ -1444,11 +1517,11 @@ def test_tabulator_styling(document, comm):
     model = table.get_root(document, comm)
 
     assert model.cell_styles['data'] == {
-        0: {2: [('color', 'black')]},
-        1: {2: [('color', 'black')]},
-        2: {2: [('color', 'black')]},
-        3: {2: [('color', 'red')]},
-        4: {2: [('color', 'red')]}
+        0: {'A': [('color', 'black')]},
+        1: {'A': [('color', 'black')]},
+        2: {'A': [('color', 'black')]},
+        3: {'A': [('color', 'red')]},
+        4: {'A': [('color', 'red')]}
     }
 
 def test_tabulator_empty_table(document, comm):
@@ -1472,10 +1545,10 @@ def test_tabulator_sorters_unnamed_index(document, comm):
     table.sorters = [{'field': 'index', 'sorter': 'number', 'dir': 'desc'}]
     res = table.current_view
     exp = df.sort_index(ascending=False)
-    exp.columns = exp.columns.astype(object)
 
     pd.testing.assert_frame_equal(res, exp)
     assert df.columns.dtype == np.int64
+    assert df.index.name is None
 
 def test_tabulator_sorters_int_name_column(document, comm):
     df = pd.DataFrame(np.random.rand(10, 4))
@@ -1485,10 +1558,27 @@ def test_tabulator_sorters_int_name_column(document, comm):
     table.sorters = [{'field': '0', 'dir': 'desc'}]
     res = table.current_view
     exp = df.sort_values([0], ascending=False)
-    exp.columns = exp.columns.astype(object)
 
     pd.testing.assert_frame_equal(res, exp)
     assert df.columns.dtype == np.int64
+
+
+@pytest.mark.parametrize('columns', [
+    ['2027', '2028'],
+    [2027, 2028],
+    pd.MultiIndex.from_tuples([('a', '2027'), ('a', '2028')]),
+], ids=['str', 'int', 'multi_index'])
+def test_tabulator_edit_does_not_rebuild_columns(document, comm, columns):
+    df = pd.DataFrame([[1.0, 3.0], [2.0, 4.0]], columns=columns)
+    table = Tabulator(df)
+    model = table.get_root(document, comm)
+    column_ids = [c.id for c in model.columns]
+    field = model.columns[1].field
+
+    table._process_events({'data': {field: [5.0, 2.0]}})
+
+    assert table.value.iloc[:, 0].tolist() == [5.0, 2.0]
+    assert [c.id for c in model.columns] == column_ids
 
 
 def test_tabulator_stream_series(document, comm):
@@ -2009,6 +2099,61 @@ def test_tabulator_patch_with_timestamp(document, comm):
         if col != 'index':
             np.testing.assert_array_equal(table.value[col].values, expected[col])
 
+@pytest.mark.parametrize('patch_value', [
+    dt.datetime(2021, 1, 1),
+    pd.Timestamp('2021-01-01'),
+    np.datetime64('2021-01-01T00:00:00'),
+], ids=['datetime', 'Timestamp', 'datetime64'])
+@pytest.mark.parametrize('form', ['dict', 'dataframe', 'series'])
+def test_tabulator_patch_datetime_column(document, comm, patch_value, form):
+    # https://github.com/holoviz/panel/issues/4144
+    df = pd.DataFrame(dict(A=pd.to_datetime(['1980-01-01', '1980-01-02'])))
+    table = Tabulator(df)
+
+    model = table.get_root(document, comm)
+
+    if form == 'dict':
+        table.patch({'A': [(0, patch_value)]})
+    elif form == 'dataframe':
+        table.patch(pd.DataFrame({'A': [patch_value]}, index=[0]))
+    else:
+        table.patch(pd.Series([patch_value], index=[0], name='A', dtype=object))
+
+    expected = np.array(['2021-01-01T00:00:00', '1980-01-02T00:00:00'], dtype='datetime64[ns]')
+    np.testing.assert_array_equal(table.value['A'].values, expected)
+    np.testing.assert_array_equal(model.source.data['A'], expected.astype(np.int64) / 10e5)
+
+@pytest.mark.parametrize('form', ['dict', 'series'])
+def test_tabulator_patch_tz_aware_datetime_column(document, comm, form):
+    index = pd.to_datetime(['2021-01-01', '2022-01-01']).tz_localize('US/Eastern')
+    table = Tabulator(pd.DataFrame(dict(A=index)))
+
+    model = table.get_root(document, comm)
+
+    new = pd.Timestamp('2016-02-01', tz='US/Eastern')
+    if form == 'dict':
+        table.patch({'A': [(0, new)]})
+    else:
+        table.patch(pd.Series([new], index=[0], name='A'))
+
+    assert model.source.data['A'][0] == new.value / 1e6
+    assert model.source.data['A'][1] == index[1].value / 1e6
+
+@pytest.mark.parametrize('form', ['dict', 'series'])
+def test_tabulator_patch_date_column(document, comm, form):
+    df = pd.DataFrame(dict(A=[dt.date(2021, 1, 1), dt.date(2022, 1, 1)]))
+    table = Tabulator(df)
+
+    model = table.get_root(document, comm)
+
+    if form == 'dict':
+        table.patch({'A': [(0, dt.date(2016, 2, 1))]})
+    else:
+        table.patch(pd.Series([dt.date(2016, 2, 1)], index=[0], name='A'))
+
+    assert table.value['A'].iloc[0] == dt.date(2016, 2, 1)
+    assert model.source.data['A'][0] == pd.Timestamp('2016-02-01').value / 1e6
+
 def test_tabulator_patch_with_NaT(document, comm):
     df = pd.DataFrame(dict(A=pd.to_datetime(['1980-01-01', np.nan])))
     assert df.loc[1, 'A'] is pd.NaT
@@ -2121,6 +2266,62 @@ def test_tabulator_paginated_sorted_selection(document, comm):
     table.sorters = [{'field': 'A', 'sorter': 'number', 'dir': 'asc'}]
     table._process_events({'indices': [1]})
     assert table.selection == [1]
+
+
+@pytest.mark.parametrize('reset_index', [True, False])
+def test_tabulator_stream_datetime_index(document, comm, reset_index):
+    # https://github.com/holoviz/panel/issues/4504
+    index = pd.date_range('2023-01-01', periods=9, freq='8h')
+    df = pd.DataFrame({'j': range(9)}, index=index)
+    table = Tabulator(df.iloc[:3].copy())
+    model = table.get_root(document, comm)
+
+    table.stream(df.iloc[3:6], reset_index=reset_index)
+    table.stream(df.iloc[6:], reset_index=reset_index)
+
+    pd.testing.assert_index_equal(table.value.index, index)
+    assert table.value.index.dtype == index.dtype
+    assert list(table.value['j']) == list(range(9))
+    np.testing.assert_array_equal(model.source.data['j'], np.arange(9))
+
+    table.patch({'j': [(index[7], 70)]})
+
+    assert table.value.loc[index[7], 'j'] == 70
+    assert model.source.data['j'][7] == 70
+
+
+def test_tabulator_stream_series_datetime_index(document, comm):
+    index = pd.date_range('2023-01-01', periods=5, freq='8h')
+    df = pd.DataFrame({'j': range(5)}, index=index)
+    table = Tabulator(df.iloc[:3].copy())
+    model = table.get_root(document, comm)
+
+    table.stream(df.iloc[3])
+    table.stream(df.iloc[4])
+
+    assert list(table.value.index) == list(index)
+    assert table.value.index.dtype == index.dtype
+    assert list(table.value['j']) == list(range(5))
+    np.testing.assert_array_equal(model.source.data['j'], np.arange(5))
+
+    table.patch({'j': [(index[4], 40)]})
+
+    assert table.value.loc[index[4], 'j'] == 40
+    assert model.source.data['j'][4] == 40
+
+
+def test_tabulator_stream_series_datetime_index_unnamed_error():
+    index = pd.date_range('2023-01-01', periods=3, freq='8h')
+    table = Tabulator(pd.DataFrame({'j': range(3)}, index=index))
+
+    with pytest.raises(ValueError, match='unnamed Series'):
+        table.stream(pd.Series({'j': 3}))
+    with pytest.raises(ValueError, match='already exists'):
+        table.stream(pd.Series({'j': 3}, name=index[0]))
+    with pytest.raises(ValueError, match='dict'):
+        table.stream({'j': [3]})
+
+    pd.testing.assert_index_equal(table.value.index, index)
 
 
 def test_tabulator_stream_dataframe(document, comm):
@@ -2794,6 +2995,34 @@ def test_tabulator_value_event_old_with_filter(dataframe):
     assert list(events[0].new['int']) == [5, 2, 3]
 
 
+@pytest.mark.parametrize('pagination', [None, 'local', 'remote'])
+@pytest.mark.parametrize('filter_kind', ['function', 'widget'])
+def test_tabulator_edit_with_selection_and_filter(document, comm, pagination, filter_kind):
+    # issue https://github.com/holoviz/panel/issues/7525
+    df = pd.DataFrame({'col': ['a', 'a', 'b', 'b', 'b'], 'num': [0, 1, 2, 3, 4]})
+    table = Tabulator(df, selectable=1, pagination=pagination, page_size=2)
+    if filter_kind == 'function':
+        table.add_filter(bind(lambda df, pattern: df[df.col == pattern], pattern=TextInput(value='b')))
+    else:
+        table.add_filter(TextInput(value='b'), 'col')
+    model = table.get_root(document, comm)
+    if pagination == 'remote':
+        table.page = 2
+    table.selection = [4]
+
+    events = []
+    table.param.watch(events.append, 'value')
+    data = {k: list(v) for k, v in model.source.data.items()}
+    data['num'][0] = 10
+    table._process_events({'data': data})
+
+    assert table.selection == [4]
+    assert len(table.value) == 5
+    assert table.value.num.max() == 10
+    assert len(events) == 1
+    assert len(events[0].old) == 5
+
+
 def test_tabulator_patch_event():
     df = makeMixedDataFrame()
     table = Tabulator(df)
@@ -2840,6 +3069,86 @@ def test_server_edit_event():
     wait_until(lambda: len(events) == 1)
     assert events[0].value == 3.14
     assert events[0].old == 1
+
+
+@pytest.mark.parametrize('value', [3.14, np.nan])
+def test_tabulator_edit_event_after_patch(document, comm, value):
+    # An edit event deferred while the document is busy is processed after the patch.
+    table = Tabulator(makeMixedDataFrame())
+    model = table.get_root(document, comm)
+
+    events = []
+    table.on_edit(lambda e: events.append(e))
+
+    new_data = dict(model.source.data)
+    new_data['B'] = new_data['B'].copy()
+    new_data['B'][1] = value
+    table._process_events({'data': new_data})
+    assert events == []
+
+    table._process_event(TableEditEvent(model, 'B', 1, value=value, old=1))
+
+    assert len(events) == 1
+    assert events[0].old == 1
+    np.testing.assert_equal(events[0].value, value)
+
+    table._process_events({'data': new_data})
+    assert len(events) == 1
+    assert table._pending_edits == {}
+
+
+@pytest.mark.parametrize('dtype', ['Float64', 'Int64'])
+def test_tabulator_edit_event_after_patch_masked_na(document, comm, dtype):
+    table = Tabulator(pd.DataFrame({'A': pd.array([1, 2, 3], dtype=dtype)}))
+    model = table.get_root(document, comm)
+    events = []
+    table.on_edit(events.append)
+
+    table._process_events({'data': dict(model.source.data, A=np.array([1, np.nan, 3]))})
+    table._process_event(TableEditEvent(model, 'A', 1, value=np.nan, old=2))
+
+    assert len(events) == 1
+    assert table._pending_edits == {}
+
+
+def test_tabulator_edit_event_revert_before_patch(document, comm):
+    # The cell holds the reverted value only because the first patch has not
+    # landed, so the second edit must wait instead of firing first.
+    table = Tabulator(pd.DataFrame({'A': [1, 2, 3]}))
+    model = table.get_root(document, comm)
+    events = []
+    table.on_edit(events.append)
+
+    table._process_event(TableEditEvent(model, 'A', 1, value=5, old=2))
+    table._process_event(TableEditEvent(model, 'A', 1, value=2, old=5))
+    assert events == []
+
+    table._process_events({'data': dict(model.source.data, A=np.array([1, 5, 3]))})
+    assert [e.value for e in events] == [5, 2]
+    assert table._pending_edits == {}
+
+
+@pytest.mark.parametrize('a, b, expected', [
+    (1.5, 1.5, True),
+    (1.5, 2.5, False),
+    ('a', 'a', True),
+    ('a', 'b', False),
+    (np.nan, np.nan, True),
+    (np.nan, None, True),
+    (pd.NA, np.nan, True),
+    (pd.NA, pd.NA, True),
+    (pd.NaT, np.datetime64('NaT', 'ns'), True),
+    (pd.NA, 1, False),
+    (np.nan, 0.0, False),
+    (None, 'a', False),
+    (pd.Timestamp('2020-01-01'), np.datetime64('2020-01-01'), True),
+    (dt.datetime(2020, 1, 1), pd.Timestamp('2020-01-01'), True),
+    (pd.Timestamp('2020-01-01'), pd.NaT, False),
+    (np.array([1, 2]), np.array([1, 2]), False),
+    ([1, 2], np.nan, False),
+])
+def test_tabulator_values_equal(a, b, expected):
+    assert _values_equal(a, b) is expected
 
 
 def test_server_edit_event_from_param():
@@ -3013,9 +3322,9 @@ def test_tabulator_styling_empty_dataframe(document, comm):
 
     assert model.cell_styles['data'] == {
         0: {
-            2: [('border-color', '#dc3545'), ('border-style', 'solid')],
-            3: [('border-color', '#dc3545'), ('border-style', 'solid')],
-            4: [('border-color', '#dc3545'), ('border-style', 'solid')]
+            'A': [('border-color', '#dc3545'), ('border-style', 'solid')],
+            'B': [('border-color', '#dc3545'), ('border-style', 'solid')],
+            'C': [('border-color', '#dc3545'), ('border-style', 'solid')]
         }
     }
 
@@ -3039,11 +3348,38 @@ def test_tabulator_style_multi_index_dataframe(document, comm):
     model = tabulator.get_root(document, comm)
 
     assert model.cell_styles['data'] == {
-        0: {4: [('background-color', '#ff0000')]},
-        1: {4: [('background-color', '#ff0000')]},
-        2: {4: [('background-color', '#ff0000')]},
-        3: {4: [('background-color', '#ff0000')]}
+        0: {'X': [('background-color', '#ff0000')]},
+        1: {'X': [('background-color', '#ff0000')]},
+        2: {'X': [('background-color', '#ff0000')]},
+        3: {'X': [('background-color', '#ff0000')]}
     }
+
+
+def test_tabulator_style_multi_index_columns_keyed_by_field(document, comm):
+    df = pd.DataFrame(
+        np.ones((2, 2)), columns=pd.MultiIndex.from_tuples([('a', 'b'), ('a', 'c')])
+    )
+    table = Tabulator(df)
+    table.style.map(lambda v: 'color: red', subset=[('a', 'b')])
+
+    model = table.get_root(document, comm)
+
+    assert 'a_b' in [col.field for col in model.columns]
+    assert model.cell_styles['data'] == {
+        0: {'a_b': [('color', 'red')]},
+        1: {'a_b': [('color', 'red')]},
+    }
+
+
+def test_tabulator_style_non_string_column_names_keyed_by_field(document, comm):
+    df = pd.DataFrame(np.ones((2, 2)), columns=[1, 2])
+    table = Tabulator(df)
+    table.style.map(lambda v: 'color: red', subset=[2])
+
+    model = table.get_root(document, comm)
+
+    assert '2' in [col.field for col in model.columns]
+    assert set(model.cell_styles['data'][0]) == {'2'}
 
 
 @mpl_available
@@ -3056,7 +3392,7 @@ def test_tabulator_style_background_gradient_with_frozen_columns(document, comm)
 
     model = table.get_root(document, comm)
 
-    assert list(model.cell_styles['data'][0]) == [1, 4, 5]
+    assert list(model.cell_styles['data'][0]) == ['A', 'C', 'D']
 
 @mpl_available
 def test_tabulator_style_background_gradient_with_frozen_columns_left_and_right(document, comm):
@@ -3068,7 +3404,7 @@ def test_tabulator_style_background_gradient_with_frozen_columns_left_and_right(
 
     model = table.get_root(document, comm)
 
-    assert list(model.cell_styles['data'][0]) == [1, 6, 4]
+    assert list(model.cell_styles['data'][0]) == ['A', 'C', 'D']
 
 @mpl_available
 def test_tabulator_style_background_with_frozen_index(document, comm):
@@ -3078,7 +3414,7 @@ def test_tabulator_style_background_with_frozen_index(document, comm):
 
     model = table.get_root(document, comm)
 
-    assert list(model.cell_styles['data'][0]) == [3]
+    assert list(model.cell_styles['data'][0]) == ['c']
 
 
 @mpl_available
@@ -3089,7 +3425,7 @@ def test_tabulator_style_background_with_frozen_indexes(document, comm):
 
     model = table.get_root(document, comm)
 
-    assert list(model.cell_styles['data'][0]) == [3]
+    assert list(model.cell_styles['data'][0]) == ['c']
 
 
 @mpl_available
@@ -3100,7 +3436,7 @@ def test_tabulator_style_background_with_frozen_index_and_column(document, comm)
 
     model = table.get_root(document, comm)
 
-    assert list(model.cell_styles['data'][0]) == [4]
+    assert list(model.cell_styles['data'][0]) == ['c']
 
 
 @mpl_available
@@ -3113,7 +3449,7 @@ def test_tabulator_style_background_gradient(document, comm):
 
     model = table.get_root(document, comm)
 
-    assert list(model.cell_styles['data'][0]) == [2, 4, 5]
+    assert list(model.cell_styles['data'][0]) == ['A', 'C', 'D']
 
 @mpl_available
 def test_tabulator_styled_df_with_background_gradient(document, comm):
@@ -3124,7 +3460,21 @@ def test_tabulator_styled_df_with_background_gradient(document, comm):
 
     model = table.get_root(document, comm)
 
-    assert list(model.cell_styles['data'][0]) == [2, 4, 5]
+    assert list(model.cell_styles['data'][0]) == ['A', 'C', 'D']
+
+def test_tabulator_style_bar_drops_width(document, comm):
+    df = pd.DataFrame({'A': [1., 2., 3.], 'B': [1, 2, 3]})
+    table = Tabulator(df)
+    table.style.bar(subset=['A'], color='#d65f5f').set_properties(
+        subset=['B'], width='5em', color='red'
+    )
+
+    model = table.get_root(document, comm)
+
+    for row in model.cell_styles['data'].values():
+        assert all(prop != 'width' for prop, _ in row['A'])
+        assert any(prop == 'background' for prop, _ in row['A'])
+        assert ('color', 'red') in row['B']
 
 def test_tabulator_editor_property_change(dataframe, document, comm):
     editor = SelectEditor(options=['A', 'B', 'C'])
@@ -3338,7 +3688,370 @@ def test_header_filter_comparison_operators(op, value, expected):
 
     assert list(widget.current_view['n']) == expected
 
+
+@pytest.mark.parametrize('pagination', ['local', 'remote', None])
+def test_header_filter_like_on_datetime_matches_that_day(pagination):
+    # https://github.com/holoviz/panel/issues/4543
+    df = pd.DataFrame({
+        'dt': pd.date_range('2023-01-01', periods=6, freq='8h'),
+        'j': range(6),
+    })
+    widget = Tabulator(
+        df,
+        header_filters={'dt': {'type': 'date', 'func': 'like'}},
+        pagination=pagination,
+    )
+
+    widget.filters = [{'field': 'dt', 'type': 'like', 'value': '2023-01-01'}]
+
+    assert list(widget.current_view['j']) == [0, 1, 2]
+
+
+def test_header_filter_like_on_number_matches_the_digits():
+    widget = Tabulator(pd.DataFrame({'n': [1, 12, 20]}), header_filters=True)
+
+    widget.filters = [{'field': 'n', 'type': 'like', 'value': '1'}]
+
+    assert list(widget.current_view['n']) == [1, 12]
+
+
+def test_header_filter_like_stringifies_a_non_string_value():
+    widget = Tabulator(pd.DataFrame({'n': [1, 12, 20]}), header_filters=True)
+
+    widget.filters = [{'field': 'n', 'type': 'like', 'value': 1}]
+
+    assert list(widget.current_view['n']) == [1, 12]
+
+
+def test_header_filter_datetime_equals_keeps_that_timestamp():
+    df = pd.DataFrame({'dt': pd.date_range('2023-01-01', periods=6, freq='8h')})
+    widget = Tabulator(df, header_filters={'dt': {'type': 'date', 'func': '='}})
+
+    widget.filters = [{'field': 'dt', 'type': '=', 'value': '2023-01-01'}]
+
+    assert list(widget.current_view['dt']) == [pd.Timestamp('2023-01-01')]
+
+
 @pytest.mark.parametrize('aggs', [{}, {'Country': 'sum'}, {'Country': {'Int': 'sum', 'Float': 'mean'}}])
 def test_tabulator_aggregators(document, comm, df_agg, aggs):
     tabulator = Tabulator(df_agg, hierarchical=True, aggregators=aggs)
     tabulator.get_root(document, comm)
+
+
+def _assert_cds_data_equal(actual, expected):
+    assert list(actual) == list(expected)
+    for col in expected:
+        a, e = actual[col], expected[col]
+        assert isinstance(a, np.ndarray)
+        assert a.dtype == e.dtype, col
+        assert a.shape == e.shape, col
+        if a.dtype.kind == 'O':
+            for av, ev in zip(a, e):
+                if ev is pd.NA or (isinstance(ev, float) and np.isnan(ev)):
+                    assert av is ev or (isinstance(av, float) and np.isnan(av)), col
+                else:
+                    assert av == ev, col
+        else:
+            np.testing.assert_array_equal(a, e, err_msg=col)
+
+
+def _cds_frames():
+    rng = pd.date_range('2020-01-01', periods=3, freq='D')
+    return {
+        'plain': pd.DataFrame({'a': [1, 2, 3], 'b': [1.5, np.nan, 3.0]}),
+        'named_index': pd.DataFrame({'a': [1, 2, 3]}, index=pd.Index([5, 6, 7], name='idx')),
+        'index_column': pd.DataFrame({'index': ['A', 'B', 'C'], 'a': [1, 2, 3]}, index=[1, 2, 3]),
+        'int_columns': pd.DataFrame(np.arange(6).reshape(3, 2)),
+        'multiindex_rows': pd.DataFrame({'a': [1, 2, 3]}, index=pd.MultiIndex.from_tuples(
+            [('x', 1), ('x', 2), ('y', 1)], names=['l0', 'l1'])),
+        'multiindex_rows_unnamed': pd.DataFrame({'a': [1, 2, 3]}, index=pd.MultiIndex.from_tuples(
+            [('x', 1), ('x', 2), ('y', 1)])),
+        'multiindex_columns': pd.DataFrame(
+            np.arange(6).reshape(3, 2), columns=pd.MultiIndex.from_tuples([('A', 'x'), ('A', 'y')])),
+        'categorical': pd.DataFrame({'c': pd.Categorical(['u', 'v', 'u']), 'n': [1, 2, 3]}),
+        'categorical_index': pd.DataFrame({'a': [1, 2, 3]}, index=pd.CategoricalIndex(['u', 'v', 'w'])),
+        'categorical_columns': pd.DataFrame(
+            np.arange(6).reshape(3, 2), columns=pd.CategoricalIndex(['p', 'q'])),
+        'datetime_naive': pd.DataFrame({'d': rng, 'a': [1, 2, 3]}),
+        'datetime_tz': pd.DataFrame({'d': rng.tz_localize('UTC').tz_convert('Europe/Berlin'), 'a': [1, 2, 3]}),
+        'datetime_index': pd.DataFrame({'a': [1, 2, 3]}, index=rng),
+        'datetime_tz_index': pd.DataFrame({'a': [1, 2, 3]}, index=rng.tz_localize('US/Eastern')),
+        'object': pd.DataFrame({'o': ['a', 1, None], 'a': [1, 2, 3]}),
+        'bool': pd.DataFrame({'b': [True, False, True]}),
+        'nullable_int': pd.DataFrame({'i': pd.array([1, None, 3], dtype='Int64')}),
+        'string_dtype': pd.DataFrame({'s': pd.array(['a', None, 'c'], dtype='string')}),
+        'empty': pd.DataFrame({'a': pd.Series([], dtype=float), 's': pd.Series([], dtype=object)}),
+        'empty_no_columns': pd.DataFrame(),
+    }
+
+
+@pytest.mark.filterwarnings("ignore:The inplace keyword in DataFrame.reset_index is deprecated")
+@pytest.mark.parametrize('name', list(_cds_frames()))
+def test_indexed_column_data_matches_bokeh_from_df(name):
+    from bokeh.models import ColumnDataSource
+
+    from panel.util.dataframe import indexed_column_data
+
+    df = _cds_frames()[name]
+    # bokeh's from_df uses DatetimeIndex.values, deprecated for tz-aware indexes in pandas 3.1
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', message='DatetimeIndex.values returning an ndarray')
+        expected = ColumnDataSource.from_df(df)
+    _assert_cds_data_equal(indexed_column_data(df), expected)
+
+
+def test_indexed_column_data_multiindex_columns_non_string_raises():
+    from panel.util.dataframe import indexed_column_data
+
+    df = pd.DataFrame(np.arange(4).reshape(2, 2), columns=pd.MultiIndex.from_tuples([(1, 'x'), (1, 'y')]))
+    with pytest.raises(TypeError, match='flatten'):
+        indexed_column_data(df)
+
+
+def test_tabulator_string_dtype_na_does_not_mutate_value(document, comm):
+    df = pd.DataFrame({'s': pd.array(['a', None, 'c'], dtype='string')})
+    table = Tabulator(df)
+    model = table.get_root(document, comm)
+
+    assert model.source.data['s'][1] is None
+    assert df['s'].isna().tolist() == [False, True, False]
+    assert df['s'][0] == 'a'
+
+
+def test_tabulator_sort_int_ties_keep_original_order():
+    df = pd.DataFrame({'a': [1, 0, 1, 0, 1] * 3, 'b': range(15)})
+    table = Tabulator(df, sorters=[{'field': 'a', 'dir': 'asc'}])
+    view = table.current_view
+    assert list(view['a']) == [0] * 6 + [1] * 9
+    assert list(view.loc[view['a'] == 0, 'b']) == sorted(view.loc[view['a'] == 0, 'b'])
+    assert list(view.loc[view['a'] == 1, 'b']) == sorted(view.loc[view['a'] == 1, 'b'])
+
+    table.sorters = [{'field': 'a', 'dir': 'desc'}]
+    view = table.current_view
+    assert list(view['a']) == [1] * 9 + [0] * 6
+    assert list(view.loc[view['a'] == 0, 'b']) == sorted(view.loc[view['a'] == 0, 'b'])
+    assert list(view.loc[view['a'] == 1, 'b']) == sorted(view.loc[view['a'] == 1, 'b'])
+
+
+def test_tabulator_sort_tie_order_is_numeric_not_lexical():
+    # 12 ties: a lexical _index tie-break would order "10", "11" before "2"
+    df = pd.DataFrame({'a': [0] * 12, 'b': range(12)})
+    table = Tabulator(df, sorters=[{'field': 'a', 'dir': 'asc'}])
+    assert list(table.current_view['b']) == list(range(12))
+    table.sorters = [{'field': 'a', 'dir': 'desc'}]
+    assert list(table.current_view['b']) == list(range(12))
+
+
+def test_tabulator_sort_floats_with_nans():
+    df = pd.DataFrame({'a': [2.0, np.nan, 1.0, np.nan, 2.0, 0.5], 'b': range(6)})
+    table = Tabulator(df, sorters=[{'field': 'a', 'dir': 'asc'}])
+    assert list(table.current_view['b']) == [5, 2, 0, 4, 1, 3]
+    table.sorters = [{'field': 'a', 'dir': 'desc'}]
+    assert list(table.current_view['b']) == [0, 4, 2, 5, 1, 3]
+
+
+def test_tabulator_sort_strings_case_insensitive_with_ties():
+    df = pd.DataFrame({'s': ['b', 'A', 'a', None, 'B', 'a'], 'n': range(6)})
+    table = Tabulator(df, sorters=[{'field': 's', 'dir': 'asc'}])
+    assert list(table.current_view['n']) == [3, 1, 2, 5, 0, 4]
+    table.sorters = [{'field': 's', 'dir': 'desc'}]
+    assert list(table.current_view['n']) == [0, 4, 1, 2, 5, 3]
+
+
+def test_tabulator_sort_multiple_columns():
+    df = pd.DataFrame({'a': [1, 0, 1, 0], 'b': ['x', 'y', 'w', 'z'], 'n': range(4)})
+    table = Tabulator(df, sorters=[{'field': 'a', 'dir': 'asc'}, {'field': 'b', 'dir': 'desc'}])
+    assert list(table.current_view['n']) == [3, 1, 0, 2]
+
+
+def test_tabulator_sort_named_index_and_hidden_index():
+    df = pd.DataFrame({'a': [1, 2, 3]}, index=pd.Index([3, 1, 2], name='idx'))
+    table = Tabulator(df, sorters=[{'field': 'idx', 'dir': 'asc'}])
+    assert list(table.current_view['a']) == [2, 3, 1]
+    table.show_index = False
+    assert list(table.current_view['a']) == [2, 3, 1]
+
+
+def test_tabulator_sort_does_not_copy_or_mutate_without_sorters():
+    df = pd.DataFrame({'a': [3, 1, 2]})
+    table = Tabulator(df)
+    assert table.current_view is df
+    table.sorters = [{'field': 'a', 'dir': 'asc'}]
+    assert list(table.current_view['a']) == [1, 2, 3]
+    assert list(df['a']) == [3, 1, 2]
+    assert df.index.name is None
+
+
+def test_tabulator_unknown_sorter_field_raises():
+    table = Tabulator(pd.DataFrame({'a': [1]}), sorters=[{'field': 'missing', 'dir': 'asc'}])
+    with pytest.raises(KeyError):
+        _ = table.current_view
+
+
+def test_tabulator_click_event_maps_row_through_processed_data(document, comm):
+    df = pd.DataFrame({'a': [10, 20, 30, 40]}, index=['w', 'x', 'y', 'z'])
+    table = Tabulator(df)
+    table.get_root(document, comm)
+    table.add_filter([20, 40], 'a')
+
+    clicks = []
+    table.on_click(clicks.append)
+    table._process_event(CellClickEvent(model=None, column='a', row=1))
+
+    assert clicks[0].row == 3
+    assert clicks[0].value == 40
+
+
+def test_tabulator_click_event_out_of_bounds_row_falls_back(document, comm):
+    df = pd.DataFrame({'a': [10, 20]})
+    table = Tabulator(df)
+    table.get_root(document, comm)
+    clicks = []
+    table.on_click(clicks.append)
+    table._process_event(CellClickEvent(model=None, column='a', row=1))
+    assert clicks[0].row == 1
+    with pytest.raises(KeyError):
+        table._process_event(CellClickEvent(model=None, column='a', row=5))
+
+
+@pytest.mark.parametrize('pagination', [None, 'local', 'remote'])
+def test_tabulator_identical_data_resend_is_not_processed_as_edit(document, comm, dataframe, pagination):
+    table = Tabulator(dataframe.copy(), pagination=pagination, page_size=2)
+    model = table.get_root(document, comm)
+    calls = []
+    process_data = table._process_data
+    table._process_data = lambda data: (calls.append(data), process_data(data))  # type: ignore[method-assign]
+    edits = []
+    table.on_edit(edits.append)
+
+    table.param.trigger('value')
+    table.filters = []
+    assert calls == []
+    assert edits == []
+
+    # A genuine frontend edit afterwards is still processed
+    data = {k: (v.copy() if isinstance(v, np.ndarray) else list(v)) for k, v in model.source.data.items()}
+    data['int'] = np.array(data['int'], dtype=float)
+    data['int'][0] = 99
+    table._process_events({'data': data})
+    assert len(calls) == 1
+    assert table.value['int'].iloc[0] == 99
+
+
+def test_tabulator_patch_with_local_sorter_patches_in_place(document, comm):
+    df = makeMixedDataFrame()
+    table = Tabulator(df, sorters=[{'field': 'A', 'dir': 'desc'}])
+    model = table.get_root(document, comm)
+    resends = []
+    table._update_cds = lambda *events: resends.append(events)  # type: ignore[method-assign]
+
+    table.patch({'A': [(0, 7.0), (4, 1.0)], 'C': [(0, 'foo0')]})
+
+    assert resends == []
+    np.testing.assert_array_equal(model.source.data['A'], [7., 1., 2., 3., 1.])
+    np.testing.assert_array_equal(model.source.data['C'], ['foo0', 'foo2', 'foo3', 'foo4', 'foo5'])
+    assert list(table.value['A']) == [7., 1., 2., 3., 1.]
+    assert list(table.current_view['A']) == [7., 3., 2., 1., 1.]
+
+
+def test_tabulator_patch_with_local_header_filter_patches_in_place(document, comm):
+    df = makeMixedDataFrame()
+    table = Tabulator(df, header_filters=True, filters=[{'field': 'A', 'type': '>', 'value': '2'}])
+    model = table.get_root(document, comm)
+    resends = []
+    table._update_cds = lambda *events: resends.append(events)  # type: ignore[method-assign]
+
+    table.patch({'A': [(0, 7.0)], 'C': [(4, 'foo9')]})
+
+    assert resends == []
+    np.testing.assert_array_equal(model.source.data['A'], [7., 1., 2., 3., 4.])
+    np.testing.assert_array_equal(model.source.data['C'], ['foo1', 'foo2', 'foo3', 'foo4', 'foo9'])
+    assert list(table.current_view['A']) == [7., 3., 4.]
+
+
+def test_tabulator_patch_with_python_filter_resends(document, comm):
+    df = makeMixedDataFrame()
+    table = Tabulator(df)
+    model = table.get_root(document, comm)
+    table.add_filter((2, 4), 'A')
+    np.testing.assert_array_equal(model.source.data['A'], [2., 3., 4.])
+
+    table.patch({'A': [(0, 7.0)]})
+
+    np.testing.assert_array_equal(model.source.data['A'], [2., 3., 4.])
+    assert list(table.value['A']) == [7., 1., 2., 3., 4.]
+
+
+def test_tabulator_patch_remote_pagination_off_first_page(document, comm):
+    df = pd.DataFrame({'a': np.arange(100, dtype=float), 'b': [str(i) for i in range(100)]})
+    table = Tabulator(df, pagination='remote', page_size=50, page=2)
+    model = table.get_root(document, comm)
+
+    table.patch({'a': [(60, -1.0)], 'b': [(60, 'patched')]})
+
+    assert model.source.data['a'][10] == -1.0
+    assert model.source.data['b'][10] == 'patched'
+    assert table.value.loc[60, 'a'] == -1.0
+    assert len(model.source.data['a']) == 50
+
+
+def test_tabulator_patch_remote_pagination_drops_rows_off_page(document, comm):
+    df = pd.DataFrame({'a': np.arange(100, dtype=float)})
+    table = Tabulator(df, pagination='remote', page_size=50, page=2)
+    model = table.get_root(document, comm)
+
+    table.patch({'a': [(5, -1.0), (99, -2.0)]})
+
+    np.testing.assert_array_equal(model.source.data['a'], list(range(50, 99)) + [-2.0])
+    assert table.value.loc[5, 'a'] == -1.0
+
+
+def test_tabulator_patch_remote_pagination_slice_not_as_index(document, comm):
+    df = pd.DataFrame({'a': np.arange(100, dtype=float)})
+    table = Tabulator(df, pagination='remote', page_size=50, page=2)
+    model = table.get_root(document, comm)
+
+    table.patch({'a': [(slice(48, 52), [-1.0, -2.0, -3.0, -4.0])]}, as_index=False)
+
+    assert model.source.data['a'][0] == -3.0
+    assert model.source.data['a'][1] == -4.0
+    assert model.source.data['a'][2] == 52.0
+    assert list(table.value['a'].iloc[48:52]) == [-1.0, -2.0, -3.0, -4.0]
+
+
+def test_tabulator_patch_remote_pagination_with_sorter_lands_on_sorted_page(document, comm):
+    df = pd.DataFrame({'a': np.arange(100, dtype=float)})
+    table = Tabulator(df, pagination='remote', page_size=10, sorters=[{'field': 'a', 'dir': 'desc'}])
+    model = table.get_root(document, comm)
+    np.testing.assert_array_equal(model.source.data['a'], np.arange(99, 89, -1))
+
+    table.patch({'a': [(3, 1000.0)]})
+
+    assert model.source.data['a'][0] == 1000.0
+    assert model.source.data['index'][0] == 3
+    assert table.value.loc[3, 'a'] == 1000.0
+
+
+def test_tabulator_patch_remote_pagination_with_python_filter(document, comm):
+    df = pd.DataFrame({'a': np.arange(100, dtype=float)})
+    table = Tabulator(df, pagination='remote', page_size=10, page=2)
+    model = table.get_root(document, comm)
+    table.add_filter(lambda df: df[df.a % 2 == 0])
+    np.testing.assert_array_equal(model.source.data['a'], np.arange(20, 40, 2))
+
+    table.patch({'a': [(22, -2.0)]})
+
+    assert model.source.data['a'][1] == -2.0
+    assert table.value.loc[22, 'a'] == -2.0
+
+
+def test_tabulator_cell_styles_accepts_nested_styles(document, comm):
+    df = pd.DataFrame({'a': [1.0, -1.0], 'b': [2.0, -2.0]})
+    table = Tabulator(df)
+    table.style.apply(lambda s: np.where(s > 0, 'color: red', 'color: blue'), subset=['a', 'b'])
+    model = table.get_root(document, comm)
+
+    assert model.cell_styles['data'] == {
+        0: {'a': [('color', 'red')], 'b': [('color', 'red')]},
+        1: {'a': [('color', 'blue')], 'b': [('color', 'blue')]},
+    }

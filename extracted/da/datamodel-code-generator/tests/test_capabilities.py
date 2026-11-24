@@ -15,8 +15,9 @@ FACTS = {
     "isort": "",
     "platform": "linux",
     "pydantic": "2.0.3",
+    "heki": "0.2.4",
 }
-"""A lane with black 24.1 and Pydantic 2.0.3 on Linux, without isort; set explicitly, never read from here."""
+"""A lane with black 24.1, Pydantic 2.0.3 and heki 0.2.4 on Linux, without isort; set explicitly, never read here."""
 CLAUSES = (
     "platform!=win32",
     "platform==win32",
@@ -31,12 +32,19 @@ CLAUSES = (
     "black!=22",
     "pydantic>=2.5",
     "pydantic==2.0",
+    "black==24.1.0.0",
+    "python==3.1",
     "isort>=6",
     "isort==6",
     "isort!=6",
+    "heki>=0",
+    "heki>=0.3",
     "formatter==builtin|black>=24",
     "formatter==builtin|black<24",
 )
+SHORT_PIN = {**FACTS, "pydantic": "2"}
+"""A lane that pins ``pydantic==2``, which installs Pydantic 2.0: the lane reader takes the pin as written."""
+SHORT_PIN_CLAUSES = ("pydantic==2.0", "pydantic!=2.0", "pydantic>=2.0", "pydantic<2.0", "pydantic<2.5", "pydantic>2")
 MALFORMED = (
     "platform>=win32",
     "python>=3.x",
@@ -48,8 +56,13 @@ MALFORMED = (
 
 
 def test_clauses_hold_by_release_series() -> None:
-    """``==`` matches leading components, an order compares the release cut to the value's length, empty is absent."""
+    """``==`` matches leading components, zero-padded; an order compares the release cut to the value's length."""
     assert_output("".join(f"{clause}: {condition_holds(clause, FACTS)}\n" for clause in CLAUSES))
+
+
+def test_clauses_read_a_short_pin_padded_with_zeros() -> None:
+    """Every operator reads the pin ``2`` as the release 2.0, as PEP 440 pads releases, and as the lane installs it."""
+    assert_output("".join(f"{clause}: {condition_holds(clause, SHORT_PIN)}\n" for clause in SHORT_PIN_CLAUSES))
 
 
 def test_malformed_clauses_say_why() -> None:

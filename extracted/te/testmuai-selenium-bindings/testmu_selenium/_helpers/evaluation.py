@@ -54,7 +54,7 @@ def apply_transforms(value: str, transforms: list[str], json_path: str | None) -
         elif t == "extract_number":
             cleaned = _re_mod.sub(r"[^\d,.\-]", "", value)
             cleaned = cleaned.replace(",", "")
-            match = _re_mod.search(r"-?\d+", cleaned)
+            match = _re_mod.search(r"-?\d+(?:\.\d+)?", cleaned)
             if match:
                 value = match.group()
         elif t == "json_path" and json_path:

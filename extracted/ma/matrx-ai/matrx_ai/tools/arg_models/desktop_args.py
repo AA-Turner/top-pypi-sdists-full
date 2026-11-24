@@ -35,8 +35,8 @@ class DesktopTranscribeArgs(ToolArgs):
 
 
 class DesktopProcessArgs(ToolArgs):
-    action: Literal["list", "ports", "kill"] = Field(
-        description="list: running processes; ports: listening ports and the process on each; kill: stop one by pid.",
+    action: Literal["list", "ports", "kill", "signal", "sample"] = Field(
+        description="list: running processes; ports: listening ports and the process on each; kill: stop one by pid; signal: send one a named signal (suspend, resume, quit...); sample: record where a process spends its time (macOS).",
     )
     name: str | None = Field(
         default=None,
@@ -48,11 +48,44 @@ class DesktopProcessArgs(ToolArgs):
     limit: int = Field(default=25, ge=1, le=200, description="list: at most this many processes.")
     port: int | None = Field(default=None, ge=1, le=65535, description="ports: only this port.")
     pid: int | None = Field(
-        default=None, ge=1, description="kill: the process id, from list or ports."
+        default=None, ge=1, description="kill, signal, sample: the process id, from list or ports."
     )
     force: bool = Field(
         default=False,
         description="kill: end it at once instead of asking it to quit (it cannot save its work).",
+    )
+    signal: (
+        Literal[
+            "SIGTERM",
+            "SIGKILL",
+            "SIGSTOP",
+            "SIGCONT",
+            "SIGHUP",
+            "SIGINT",
+            "SIGQUIT",
+            "SIGUSR1",
+            "SIGUSR2",
+        ]
+        | None
+    ) = Field(
+        default=None,
+        description="signal: which signal to send (SIGSTOP suspends, SIGCONT resumes, SIGTERM asks it to quit).",
+    )
+    tree: bool = Field(
+        default=False,
+        description="signal: also signal everything the process started (children first).",
+    )
+    seconds: int = Field(
+        default=3, ge=1, le=30, description="sample: how long to sample its call stacks."
+    )
+    seen: dict[str, Any] | None = Field(
+        default=None,
+        description="signal: the process as list showed it ({pid, started_at_ms, command}); the signal is refused if the pid now belongs to another process.",
+    )
+    tree_seen: list[dict[str, Any]] | None = Field(
+        default=None,
+        max_length=20000,
+        description="signal with tree: every child as list showed it, each {pid, started_at_ms, command}.",
     )
 
 
@@ -233,9 +266,19 @@ class DesktopPowerArgs(ToolArgs):
 
 
 class DesktopResourcesArgs(ToolArgs):
-    action: Literal["snapshot"] = Field(
+    action: Literal["snapshot", "processes"] = Field(
         default="snapshot",
-        description="snapshot: CPU use, memory, swap and disk space now (the busiest processes are desktop_process list).",
+        description="snapshot: CPU use, memory, swap and disk space now (the busiest processes are desktop_process list); processes: every process with its CPU, memory and disk use, per reading.",
+    )
+    include: list[Literal["network", "gpu", "energy"]] = Field(
+        default_factory=list,
+        max_length=3,
+        description="processes: extra readings, each costing about a second (network, gpu, energy).",
+    )
+    detail_pid: int | None = Field(
+        default=None,
+        ge=1,
+        description="processes: also this process's CPU and memory history and its threads.",
     )
 
 
@@ -770,6 +813,38 @@ class DesktopNotesArgs(ToolArgs):
     )
 
 
+class DesktopStackArgs(ToolArgs):
+    action: Literal["list", "start", "stop", "restart", "logs"] = Field(
+        description="The local AI Matrx servers on the user's computer. list: every server and whether it is up; start or stop: one server by name, or all of them when no name is given; restart: one server by name; logs: the last lines of one server's log."
+    )
+    name: str | None = Field(
+        default=None,
+        description="start, stop: one server's name from list (without it, the whole stack); restart, logs: the server's name from list.",
+    )
+    lines: int = Field(
+        default=100,
+        ge=1,
+        le=500,
+        description="logs: how many of the last lines to read.",
+    )
+    offset: int | None = Field(
+        default=None,
+        ge=0,
+        description="logs: the offset a previous read returned; answers only what was written after it (follow the log).",
+    )
+    since_offset: int | None = Field(
+        default=None,
+        ge=0,
+        description="logs: a cleared point (an offset from a previous read): only lines written after it.",
+    )
+    wait_ms: int = Field(
+        default=0,
+        ge=0,
+        le=25000,
+        description="logs, with offset: wait up to this long for a new line when none is waiting.",
+    )
+
+
 class DesktopDocumentsArgs(ToolArgs):
     action: Literal["pdf_text", "ocr", "image_resize", "office_generate"] = Field(
         description="pdf_text: a PDF's text by page; ocr: the text in an image; image_resize: make an image smaller or convert it; office_generate: write a Word (.docx) or Excel (.xlsx) file. All on the user's computer."
@@ -835,3 +910,155 @@ class DesktopEntitiesArgs(ToolArgs):
         default=None,
         description="private_data: also return the text with each finding replaced by its kind.",
     )
+
+
+class DesktopSemanticFindArgs(ToolArgs):
+    action: Literal["search", "status"] = Field(
+        description="search: find files by meaning among the folders this computer has indexed; status: where the index stands (indexing, model missing, paused, idle)."
+    )
+    query: str | None = Field(
+        default=None, description="search: what the file is about, in plain words."
+    )
+    scope: str | None = Field(default=None, description="search: only files under this absolute folder.")
+    max_results: int | None = Field(
+        default=None, ge=1, le=100, description="search: at most this many hits (default 10, up to 100)."
+    )
+
+
+class DesktopActionNeededArgs(ToolArgs):
+    action: Literal["raise", "wait", "get", "cancel", "list"] = Field(
+        description="raise: ask the person for an answer, a pick, an approval, a sign-in, a file or a permission; wait: wait up to 45 s for it to be answered, then poll again; get: read one request; cancel: withdraw a request; list: the open requests."
+    )
+    fingerprint: str | None = Field(
+        default=None,
+        description="raise, cancel: a stable key; raising the same key again refreshes the open request.",
+    )
+    source: str | None = Field(default=None, description="raise, list: who is asking.")
+    feature: str | None = Field(default=None, description="raise: the feature asking.")
+    kind: str | None = Field(
+        default=None, description="raise: answer, choice, approval, sign_in, file or permission."
+    )
+    title: str | None = Field(default=None, description="raise: the one-line ask.")
+    message: str | None = Field(default=None, description="raise: the longer text.")
+    choices: list[dict[str, Any]] | None = Field(
+        default=None, description="raise: the options, each {id, label}."
+    )
+    allow_text: bool | None = Field(default=None, description="raise: also accept typed text.")
+    remedy: dict[str, Any] | None = Field(
+        default=None,
+        description="raise: a button that fixes it, {kind: open_url|open_route|open_os_settings, label, url, route, permission_key}.",
+    )
+    details: dict[str, str] | None = Field(
+        default=None, description="raise: extra facts shown with the request, name to short text."
+    )
+    expires_in_s: int | None = Field(
+        default=None, ge=1, description="raise: stop waiting after this many seconds."
+    )
+    id: str | None = Field(
+        default=None, description="wait, get, cancel: the request's id (from raise or list)."
+    )
+    timeout_s: int | None = Field(
+        default=None, ge=0, le=45, description="wait: seconds to wait, up to 45 (default 30)."
+    )
+    reason: str | None = Field(default=None, description="cancel: why it is withdrawn.")
+    include_closed: bool | None = Field(
+        default=None, description="list: also the closed requests, newest first."
+    )
+    limit: int | None = Field(default=None, ge=1, le=500, description="list: at most this many.")
+
+
+class CodingSessionsReadArgs(ToolArgs):
+    action: Literal[
+        "providers", "sessions", "discover", "runs", "history", "transcript", "item_full",
+        "activity", "folders_recent", "folders_check", "agents_access", "titles_status", "prefs",
+        "search", "assets_list", "assets_get", "recent_seen", "session_watch",
+    ] = Field(
+        description="providers: which coding agents are installed; sessions: the sessions Matrx 2 tracks; discover: sessions found on disk; runs: one session's runs; history/transcript: a session's transcript; item_full: the whole of one tool output; activity: what a session is doing now; folders_recent/folders_check: recent folders, or whether one exists; agents_access: which agent logins work; titles_status: title generation; prefs: saved preferences; search: find a chat by words; assets_list/assets_get: the agents' memories and instructions; recent_seen: mark a recent chat seen; session_watch: one chat's live items since a sequence number."
+    )
+    provider: Literal["claude", "codex"] | None = Field(
+        default=None, description="transcript, item_full, activity: which coding agent."
+    )
+    session_id: str | None = Field(default=None, description="runs, history: the session's id.")
+    provider_session_id: str | None = Field(
+        default=None, description="transcript, item_full, activity: the agent's own session id."
+    )
+    item_id: str | None = Field(default=None, description="item_full: the transcript item.")
+    path: str | None = Field(
+        default=None, description="folders_check, assets_get: the folder or asset path."
+    )
+    query: str | None = Field(default=None, description="search: the words to look for.")
+    limit: int | None = Field(default=None, ge=1, le=1000, description="discover, search: at most this many.")
+    cursor: int | None = Field(default=None, ge=0, description="search: where the last page ended.")
+    since_seq: int | None = Field(
+        default=None, ge=0, description="session_watch: only items after this sequence number."
+    )
+    fresh: bool | None = Field(
+        default=None, description="assets_list: read from disk again instead of the saved list."
+    )
+    id: str | None = Field(default=None, description="assets_get: the asset's id, from assets_list.")
+    target: str | None = Field(
+        default=None, description="recent_seen: the recent chat to mark seen, as recent rows name it."
+    )
+    max_bytes: int | None = Field(
+        default=None, ge=1024, description="history, transcript: at most this many bytes."
+    )
+
+
+class CodingSessionsDriveArgs(ToolArgs):
+    action: Literal[
+        "start", "takeover", "send", "queue_change", "stop", "stop_elsewhere", "options_set",
+        "account_continue", "agent_set", "folders_create", "prefs_set", "reconcile",
+    ] = Field(
+        description="start: begin a session in a folder; takeover: continue a chat from another app here; send: send a message to a session; queue_change: send now, edit or remove a queued message; stop: stop a run; stop_elsewhere: stop it where it runs live; options_set: model or effort; account_continue: continue under another login; agent_set: pick the session's agent; folders_create: make a folder; prefs_set: a saved preference; reconcile: re-read a session from disk."
+    )
+    provider: Literal["claude", "codex"] | None = Field(
+        default=None,
+        description="start, takeover, stop_elsewhere, options_set, reconcile: which coding agent.",
+    )
+    cwd: str | None = Field(
+        default=None, description="start, takeover, folders_create: the absolute folder."
+    )
+    prompt: str | None = Field(default=None, description="start, send: the message.")
+    session_id: str | None = Field(
+        default=None,
+        description="send, queue_change, options_set, account_continue, agent_set: the session.",
+    )
+    provider_session_id: str | None = Field(
+        default=None,
+        description="takeover, stop_elsewhere, reconcile: the agent's own session id.",
+    )
+    run_id: str | None = Field(default=None, description="stop: the run.")
+    pid: int | None = Field(
+        default=None, ge=1, description="stop_elsewhere: the process id of the live chat."
+    )
+    model: str | None = Field(default=None, description="start, options_set: the model.")
+    effort: str | None = Field(default=None, description="start, options_set: the effort level.")
+    account_profile_id: str | None = Field(
+        default=None,
+        description="start, account_continue: one of the person's coding accounts on this computer; omit for the default login.",
+    )
+    agent_id: str | None = Field(
+        default=None,
+        description="start, takeover, agent_set: an AI Matrx agent to load into the session; omit on agent_set to remove it.",
+    )
+    deliver: Literal["now", "queue"] | None = Field(
+        default=None,
+        description="send: now hands it to the running agent; queue (default) waits for the run to finish.",
+    )
+    queue_index: int | None = Field(
+        default=None, ge=0, description="queue_change: the message's place in the session's queue."
+    )
+    change: Literal["sendNow", "remove", "edit"] | None = Field(
+        default=None, description="queue_change: what to do with the queued message."
+    )
+    expected: str | None = Field(
+        default=None, description="queue_change: the text the queued message holds now."
+    )
+    text: str | None = Field(default=None, description="queue_change edit: the new text.")
+    confirm_elsewhere: bool | None = Field(
+        default=None, description="takeover: true when the person saw the chat is live in another app."
+    )
+    key: str | None = Field(default=None, description="prefs_set: the chat's key.")
+    title: str | None = Field(default=None, description="prefs_set: a new title for the chat.")
+    pinned: bool | None = Field(default=None, description="prefs_set: pin or unpin the chat.")
+    hidden: bool | None = Field(default=None, description="prefs_set: hide or show the chat.")

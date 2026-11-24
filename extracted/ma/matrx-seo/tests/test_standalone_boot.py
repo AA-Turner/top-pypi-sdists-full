@@ -8,9 +8,7 @@ CREDENTIALS_ENCRYPTION_KEY) is not met.
 
 from __future__ import annotations
 
-import re
 from importlib.metadata import version as distribution_version
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -293,40 +291,6 @@ def test_deployment_names_its_own_browser_origins(bare_env: pytest.MonkeyPatch) 
         assert response.headers["access-control-allow-origin"] == origin
 
 
-def test_tag_deployment_injects_and_verifies_every_browser_origin() -> None:
-    """The automatic tag deploy must preserve the manual deploy's CORS contract."""
-    repository_root = Path(__file__).resolve().parents[3]
-    deploy_script = (repository_root / "packages/matrx-seo/deploy.sh").read_text()
-    workflow = (repository_root / ".github/workflows/publish-package.yml").read_text()
-
-    deploy_origins = re.search(r'^PRODUCTION_CORS_ORIGINS="([^"]+)"$', deploy_script, re.MULTILINE)
-    workflow_origins = re.search(r"^      PRODUCTION_CORS_ORIGINS: (.+)$", workflow, re.MULTILINE)
-    assert deploy_origins is not None
-    assert workflow_origins is not None
-    assert workflow_origins.group(1) == deploy_origins.group(1)
-    assert "https://demos.aimatrx.com" in workflow_origins.group(1).split(",")
-    assert workflow.count('-e "MATRX_SEO_ALLOWED_ORIGINS=$PRODUCTION_CORS_ORIGINS"') == 2
-    assert workflow.count("done < <(printf '%s' \"$PRODUCTION_CORS_ORIGINS\" | tr ',' '\\n')") == 2
-    assert "exec 9>/var/tmp/matrx-seo-deploy.lock" in workflow
-    assert "flock -w 900 9" in workflow
-    assert "flock -w 900 /var/tmp/matrx-seo-deploy.lock" in deploy_script
-    assert workflow.count('grep -Fqi "access-control-allow-origin: $origin"') == 2
-
-
-def test_shared_actor_stamp_runs_as_its_trusted_owner() -> None:
-    """Service-owned entity tables must stamp actors without auth schema reach."""
-    repository_root = Path(__file__).resolve().parents[3]
-    migration = (
-        repository_root / "db/migrations/0530_stamp_actor_trusted_execution_context.sql"
-    ).read_text()
-
-    assert "alter function platform._stamp_actor() security definer" in migration.lower()
-    assert (
-        "alter function platform._stamp_actor() set search_path = pg_catalog" in migration.lower()
-    )
-    assert "grant select on platform.feature_knob to svc_seo" in migration.lower()
-    assert "iam.has_access_for(uuid, text, uuid, permission_level)" in migration.lower()
-
 
 def test_package_default_ships_no_matrx_domain(bare_env: pytest.MonkeyPatch) -> None:
     """The shipped default is local development ONLY — never our production domains."""
@@ -358,3 +322,18 @@ async def test_dataforseo_catalog_exposes_endpoint_scoped_examples() -> None:
     )
     assert instant.workflow == "live"
     assert instant.task == {"url": "https://dataforseo.com/"}
+
+
+def test_the_broad_local_role_follows_the_declared_stage_not_a_separate_switch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import matrx_seo.standalone.app as app_module
+
+    # The retired switch changes nothing; only a process that declares itself local qualifies.
+    monkeypatch.setenv("MATRX_SEO_LOCAL_DEV", "1")
+    assert "MATRX_SEO_LOCAL_DEV" not in open(app_module.__file__).read()
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("MATRX_STAGE", "production")
+    assert (app_module.declared_stage() is app_module.MatrxStage.LOCAL) is False
+    monkeypatch.setenv("MATRX_STAGE", "local")
+    assert (app_module.declared_stage() is app_module.MatrxStage.LOCAL) is True

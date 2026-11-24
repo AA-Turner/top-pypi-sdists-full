@@ -24,8 +24,9 @@ UPSTREAM_SHA256 = {
 PACKAGE_UPSTREAM_SHA256 = {
     "__main__.py": "714b3b2204d486ec26af882150c8631412d9d92091d14a2d4594f2d12f750843",
     "signalling_web.py": "ee9a448ab1746d18f8aeb2388fb23f829868c563d0f652a3d217b4843d646791",
+    "gstwebrtc_app.py": "5d638d004666cf2745cfcc4841a8fda1412aec6def42423070774081892db5c0",
 }
-VERSION = "6"
+VERSION = "8"
 
 # Upstream waits for the browser's peer with ``time.sleep(2)`` inside an async
 # error handler, once per media peer (video 0, audio 2). That loop is the same
@@ -195,8 +196,26 @@ HUB_EDITS = [
     ("                await self.remove_peer(peer_id)\n", "                await self._matrx_remove_peer(peer_id, ws)\n"),
 ]
 
+# Upstream opens the input channel (every key, mouse and clipboard message)
+# ordered but with ``max-retransmits`` 0: a message lost on the network is never
+# sent again. Over a relayed connection that drops packets a lost key-down is a
+# key that was never typed and a lost key-up is a key held down on the machine,
+# which then auto-repeats it or leaves Control stuck (2026-11-19: a correct
+# authenticator code was refused and shortcuts did nothing while the picture
+# lagged). Without the limit the channel is reliable: every message arrives,
+# once, in order.
+UPSTREAM_INPUT_CHANNEL = (
+    '            options.set_value("priority", "high")\n'
+    '            options.set_value("max-retransmits", 0)\n'
+)
+MATRX_INPUT_CHANNEL = (
+    '            options.set_value("priority", "high")\n'
+    "            # Matrx: reliable input channel (no max-retransmits): a lost key is resent.\n"
+)
+
 PACKAGE_EDITS = {
     "signalling_web.py": HUB_EDITS,
+    "gstwebrtc_app.py": [(UPSTREAM_INPUT_CHANNEL, MATRX_INPUT_CHANNEL)],
     "__main__.py": [
         ("    # Handle errors from the signalling server\n", WAIT_FOR_PEER),
         _peer_wait("signalling"),
@@ -269,8 +288,9 @@ def main(web: Path, client: Path, package: Path) -> None:
     _apply(web, EDITS)
     _apply(package, PACKAGE_EDITS)
     # A stale bytecode cache must never run in place of the patched source.
-    for stale in (package / "__pycache__").glob("__main__.*.pyc"):
-        stale.unlink()
+    for edited in PACKAGE_EDITS:
+        for stale in (package / "__pycache__").glob(f"{Path(edited).stem}.*.pyc"):
+            stale.unlink()
     for name in ("matrx-stream.js", "matrx-stream.css"):
         shutil.copyfile(client / name, web / name)
         (web / name).chmod(0o644)

@@ -206,6 +206,9 @@ class TrajectoryMapper:
             part["turns_source"] = TurnsSource.AS_SENT  # ART keeps the messages its rollout built (`messages_and_choices`)
             part["turn_count"] = len(turns)
             part["tool_call_count"] = sum(len(turn.get("tool_calls", ())) for turn in turns)
+        tools = getattr(trajectory, "tools", None)
+        if tools:
+            part["tools"] = list(tools)  # the tools the rollout offered the model (`Trajectory.tools`)
         arrays = _get_token_arrays(choices)
         if arrays is not None:
             part["token_arrays"] = arrays

@@ -27,6 +27,7 @@ import logging
 import re
 import time
 import traceback
+from contextvars import ContextVar
 from types import SimpleNamespace
 from typing import Any
 
@@ -42,7 +43,9 @@ from matrx_ai.tools.models import (
     ToolError,
     ToolOutputContractError,
     ToolResult,
+    to_lean_json,
 )
+from matrx_ai.utils.carried_failure import FailureText, carried_exception
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +82,12 @@ def _budget_note(total: int, shown: int, next_offset: int | None, key: str, budg
         f"before answering: context(action='get', key='{key}', mode='page', "
         f"offset={next_offset}, chars={next_chars})."
     )
+
+
+#: True only while the ``context`` tool reads a lazy source FOR the running agent — never for a viewer, never during
+#: turn assembly (both go through the same resolver). A host resolver may treat that read as the agent's own act:
+#: aidream's Agent Understanding settles the conversation on the subject whose entry the agent opened.
+AGENT_READING: ContextVar[bool] = ContextVar("matrx_ctx_agent_reading", default=False)
 
 
 async def _materialize_window(
@@ -255,6 +264,27 @@ def _did_you_mean(key: str, available: list[str]) -> list[str]:
     return difflib.get_close_matches(key, available, n=_SUGGEST_MAX, cutoff=_SUGGEST_CUTOFF)
 
 
+def _shown_label(obj: Any) -> str:
+    """The name the model reads for a context object: the SAME one the manifest renders.
+
+    A host object exposing ``shown_label()`` (aidream's ContextObject) replaces a label made of
+    the key ("Resource File 0495ccdb 8c25 ...") with the record's own name from its descriptor
+    (the file name). Reading ``obj.label`` raw handed the agent the key-derived title for
+    attached files (conversation d1e4226e, 2026-11-12). Never raises: it runs on error paths.
+    Guard: tests/test_ctx_reports_the_shown_label.py.
+    """
+    shown = getattr(obj, "shown_label", None)
+    if callable(shown):
+        try:
+            label = shown()
+            label = label[0] if isinstance(label, tuple) else label
+            if isinstance(label, str) and label.strip():
+                return label.strip()
+        except Exception:  # noqa: BLE001 - a label is never worth failing a read
+            pass
+    return str(getattr(obj, "label", "") or "")
+
+
 def _describe_object(obj: Any) -> str:
     """One-line inventory entry: ``key (type, label)`` — prose, never JSON.
 
@@ -266,7 +296,7 @@ def _describe_object(obj: Any) -> str:
     # thing that raises. A non-str `type`/`label` (any object with a .value)
     # previously turned a clean context_not_attached into an `execution` error.
     type_ = str(getattr(getattr(obj, "type", None), "value", "") or "")
-    label = str(getattr(obj, "label", "") or "")
+    label = _shown_label(obj)
     bits = [b for b in (type_, label if label and label != key else "") if b]
     return f"{key} ({', '.join(bits)})" if bits else key
 
@@ -301,7 +331,7 @@ def _whole_value_native(raw: Any, content_str: str) -> Any:
     """The whole value as a native container whenever it is one.
 
     A context value can arrive as its JSON TEXT (a value delivered through a
-    binding's context slot — the Studio's ``studio_workspace`` on 2026-10-21 —
+    binding's context policy — the Studio's ``studio_workspace`` on 2026-10-21 —
     reaches the manifest already serialized). Returning that text trips the
     ``ToolResult.output`` gate, so every ``get`` cost the model a failed call.
     A complete JSON object/array is decoded; anything else stays text.
@@ -518,6 +548,7 @@ async def _known_missing_key_result(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="context_not_attached",
                 message=message,
                 is_retryable=False,
@@ -552,6 +583,7 @@ async def _known_missing_key_result(
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="context_not_attached",
             message=message,
             is_retryable=False,
@@ -673,6 +705,7 @@ async def _ctx_get_body(
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message="key is required.",
                     suggested_action="Provide the key of the context object to retrieve.",
@@ -684,6 +717,7 @@ async def _ctx_get_body(
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Invalid mode '{mode}'.",
                     suggested_action=f"Use one of: {sorted(_VALID_MODES)}",
@@ -707,6 +741,7 @@ async def _ctx_get_body(
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=_EXCLUDED_KEY_MESSAGE,
                     is_retryable=False,
@@ -768,6 +803,7 @@ async def _ctx_get_body(
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="validation",
                         message=(
                             f"'{key}' matches more than one attached context "
@@ -804,7 +840,7 @@ async def _ctx_get_body(
                         output={
                             "key": key,
                             "type": obj.type.value,
-                            "label": obj.label,
+                            "label": _shown_label(obj),
                             "mode": "summary",
                             "summary_kind": "descriptor",
                             "summary": desc.summary,
@@ -826,6 +862,7 @@ async def _ctx_get_body(
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="validation",
                         message=(
                             f"mode '{mode}' is not valid for '{key}' "
@@ -848,6 +885,7 @@ async def _ctx_get_body(
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="execution",
                         message="Source materialization is not available in this environment.",
                         suggested_action="This deployment cannot resolve source-backed context objects.",
@@ -857,18 +895,23 @@ async def _ctx_get_body(
             # Never unbounded: mode=full asks for the budget, a page is clamped
             # to it. The resolver's has_more / next_offset carry the rest.
             page_chars = min(chars, budget) if (mode == "page" and chars > 0) else budget
-            slice_ = await _materialize_window(
-                materialize,
-                obj.source,
-                mode=mode,
-                offset=page_offset,
-                chars=page_chars,
-                user_id=getattr(app_ctx, "user_id", None) or "",
-            )
+            reading = AGENT_READING.set(True)
+            try:
+                slice_ = await _materialize_window(
+                    materialize,
+                    obj.source,
+                    mode=mode,
+                    offset=page_offset,
+                    chars=page_chars,
+                    user_id=getattr(app_ctx, "user_id", None) or "",
+                )
+            finally:
+                AGENT_READING.reset(reading)
             if slice_ is None:
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="not_found",
                         message=f"No resolver is registered for the source of '{key}'.",
                     ),
@@ -876,7 +919,7 @@ async def _ctx_get_body(
             output: dict[str, Any] = {
                 "key": key,
                 "type": obj.type.value,
-                "label": obj.label,
+                "label": _shown_label(obj),
                 "representation": slice_.representation,
                 "content": _materialized_slice_value(slice_),
                 "offset": slice_.offset,
@@ -934,7 +977,7 @@ async def _ctx_get_body(
                     output={
                         "key": key,
                         "type": obj.type.value,
-                        "label": obj.label,
+                        "label": _shown_label(obj),
                         "mode": "page",
                         "fell_back_from": "full",
                         "content": head,
@@ -954,7 +997,7 @@ async def _ctx_get_body(
                 output={
                     "key": key,
                     "type": obj.type.value,
-                    "label": obj.label,
+                    "label": _shown_label(obj),
                     "content": content_value,
                     "total_chars": total,
                     **_document_source_continuation(obj),
@@ -977,7 +1020,7 @@ async def _ctx_get_body(
             page_out: dict[str, Any] = {
                 "key": key,
                 "type": obj.type.value,
-                "label": obj.label,
+                "label": _shown_label(obj),
                 "content": _slice_value(obj, content_str, slice_content),
                 "offset": offset,
                 "chars_returned": len(slice_content),
@@ -1012,9 +1055,11 @@ async def _ctx_get_body(
                 if summary_error is not None:
                     return ToolResult(
                         success=False,
-                        error=ToolError(
-                            error_type="execution",
-                            message=summary_error,
+                        error=ToolError.declared(
+                            "execution",
+                            summary_error,
+                            exc=carried_exception(summary_error),
+                            reported_failure="the summary agent",
                             is_retryable=True,
                             suggested_action=(
                                 "Re-read the object with mode='full' or "
@@ -1029,7 +1074,7 @@ async def _ctx_get_body(
                     output={
                         "key": key,
                         "type": obj.type.value,
-                        "label": obj.label,
+                        "label": _shown_label(obj),
                         "mode": "summary",
                         "summary_kind": "agent",
                         "summary": summary,
@@ -1048,7 +1093,7 @@ async def _ctx_get_body(
                 output={
                     "key": key,
                     "type": obj.type.value,
-                    "label": obj.label,
+                    "label": _shown_label(obj),
                     "mode": "page",
                     "fell_back_from": "summary",
                     "content": _slice_value(obj, content_str, slice_content),
@@ -1071,7 +1116,7 @@ async def _ctx_get_body(
         # unreachable — kept for safety
         return ToolResult(
             success=False,
-            error=ToolError(error_type="execution", message=f"Unhandled mode: {mode}"),
+            error=ToolError(refusal=True, error_type="execution", message=f"Unhandled mode: {mode}"),
         )
 
     except Exception as e:
@@ -1082,7 +1127,7 @@ async def _ctx_get_body(
         if gate_msg is not None:
             return ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=e, 
                     error_type="matrx_validation_gate",
                     message=gate_msg,
                     is_retryable=False,
@@ -1151,10 +1196,10 @@ async def _run_summary_agent(
             suppress_stream=True,
         )
         if not result.success:
-            return None, f"Summary agent failed: {result.error}"
+            return None, FailureText(f"Summary agent failed: {result.error}", getattr(result, "exception", None))
         return result.output, None
     except Exception as e:
-        return None, f"Summary agent failed: {e}"
+        return None, FailureText(f"Summary agent failed: {e}", e)
 
 
 async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
@@ -1170,6 +1215,7 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message="requests must be a non-empty list of {key, mode?, offset?, chars?} objects.",
                     suggested_action=(
@@ -1182,6 +1228,7 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Batch size {len(requests)} exceeds the limit of {_BATCH_MAX}.",
                     suggested_action=f"Split into chunks of {_BATCH_MAX} or fewer.",
@@ -1249,14 +1296,14 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 from pydantic import BaseModel
 
                 entry["output"] = (
-                    sub_result.output.model_dump(mode="json")
+                    to_lean_json(sub_result.output)
                     if isinstance(sub_result.output, BaseModel)
                     else sub_result.output
                 )
             else:
                 any_failed = True
                 entry["error"] = (
-                    sub_result.error.model_dump(exclude_none=True)
+                    sub_result.error.model_view(exclude_none=True)
                     if sub_result.error
                     else {"error_type": "execution", "message": "ctx_get failed."}
                 )
@@ -1326,7 +1373,18 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 for r in results
                 if not r.get("success")
             )
+            # Every sub-failure of ONE type (all validation refusals, all missing keys…) keeps
+            # that type at the executor boundary, so a domain refusal stays a refusal and a real
+            # defect stays a defect. Live 2026-11-10: two "[validation] key is required." subs
+            # became batch_all_failed and filed a system_error for the model's own omission.
+            failed_types = {
+                (r.get("error") or {}).get("error_type") or "unknown"
+                for r in results
+                if not r.get("success")
+            }
+            shared_type = next(iter(failed_types)) if len(failed_types) == 1 else None
             top_error = ToolError(
+                reported_failure="the ctx_batch sub-requests",
                 # Preserve the actionable domain refusal at the executor
                 # boundary. Renaming an all-missing batch to batch_*_failed
                 # made the executor treat the expected absence as an
@@ -1334,7 +1392,11 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 error_type=(
                     "context_not_attached"
                     if all_missing
-                    else ("batch_partial_failure" if any_succeeded else "batch_all_failed")
+                    else (
+                        shared_type
+                        if shared_type not in (None, "unknown")
+                        else ("batch_partial_failure" if any_succeeded else "batch_all_failed")
+                    )
                 ),
                 message=(
                     f"{len(failed_summaries)} of {len(results)} ctx_batch "
@@ -1376,7 +1438,7 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if gate_msg is not None:
             return ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=e, 
                     error_type="matrx_validation_gate",
                     message=gate_msg,
                     is_retryable=False,
@@ -1417,11 +1479,11 @@ def _context_validation_error(
     started_at: float,
     ctx: ToolContext,
     *,
-    error_type: str = "validation",
+    error_type: str = "validation", exc: BaseException | None = None,
 ) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type=error_type, message=message),
+        error=ToolError.declared(error_type, message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="context",
@@ -1469,7 +1531,7 @@ async def context(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         parsed = ContextArgs.model_validate(args).root
     except ValidationError as exc:
-        return _context_validation_error(format_args_error(exc), started_at, ctx)
+        return _context_validation_error(format_args_error(exc), started_at, ctx, exc=exc)
 
     action = parsed.action
     inner_args = parsed.model_dump(exclude={"action"}, exclude_unset=True)

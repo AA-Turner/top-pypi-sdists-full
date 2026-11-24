@@ -40,7 +40,7 @@ from datetime import date as date_type, timedelta
 from typing import Any
 from urllib.parse import quote, urlparse
 
-import httpx
+from matrx_utils.http_client import shared_client
 from matrx_api import MatrxApi, MatrxApiError, ServiceCredential
 from matrx_api.generated import integrations as google_integrations
 from matrx_orm import transaction
@@ -532,7 +532,7 @@ async def fetch_search_analytics_page(
 
     endpoint = _SEARCH_ANALYTICS_ENDPOINT.format(site=quote(property_ref, safe=""))
     access_token = await client.access_token()
-    async with httpx.AsyncClient(timeout=client.timeout) as http:
+    async with shared_client(timeout=client.timeout) as http:
         response = await http.post(
             endpoint,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -568,7 +568,7 @@ async def fetch_submitted_sitemaps(
 ) -> list[dict[str, Any]]:
     endpoint = _SITEMAPS_ENDPOINT.format(site=quote(property_ref, safe=""))
     access_token = await client.access_token()
-    async with httpx.AsyncClient(timeout=client.timeout) as http:
+    async with shared_client(timeout=client.timeout) as http:
         response = await http.get(endpoint, headers={"Authorization": f"Bearer {access_token}"})
     if response.status_code >= 400:
         raise RuntimeError(

@@ -11,8 +11,10 @@ import pytest
 from scripts._change_records import (
     CellSelector,
     Facts,
+    owner_of,
     parse_entry,
     read_records,
+    resolved_record,
     rule_problems,
     selector_surface,
     stamp_pending,
@@ -106,6 +108,20 @@ SELECTOR_CASES: dict[str, dict[str, object]] = {
     "empty aspects": _entry("decided-change", SELECTOR | {"aspects": []}),
     "match that does not compile": _entry("decided-change", SELECTOR | {"match": "(float"}),
     "match of no string": _entry("decided-change", SELECTOR | {"match": 1}),
+    "payload cells with their input file type": _entry(
+        "output-text", SELECTOR | {"input": ["payload:jsonschema/*.json"], "input_file_type": "jsonschema"}
+    ),
+    "payload cells without an input file type": _entry("output-text", SELECTOR | {"input": ["payload:jsonschema/*"]}),
+    "project and family cells": _entry(
+        "output-text",
+        SELECTOR | {"input": ["project:a/*"], "input_file_type": "openapi"},
+        SELECTOR | {"input": ["family:*"], "input_file_type": "jsonschema"},
+    ),
+    "cells of two label spaces": _entry(
+        "output-text",
+        SELECTOR | {"input": ["tests/data/jsonschema/plain.json", "payload:jsonschema/plain.json"]},
+    ),
+    "a glob outside every label space is a path": _entry("output-text", SELECTOR | {"input": ["**/plain.json"]}),
 }
 
 
@@ -218,6 +234,76 @@ def test_rule_problems_cells(case: str) -> None:
     assert_output(json.dumps(found, indent=1) + "\n")
 
 
+def _extending(entry_id: str, *cells: dict[str, object], extends: str = "y", **keys: object) -> dict[str, object]:
+    """Return a record that extends another by id, with `[[change.cells]]` tables."""
+    return {"id": entry_id, "extends": extends, "refs": ["#2"]} | ({"cells": list(cells)} if cells else {}) | keys
+
+
+RESOLVE_CASES: dict[str, tuple[list[dict[str, object]], str, bool]] = {
+    "a crash-fix target needs cells, added": ([_entry("crash-fix", id="y"), _extending("x")], "x", True),
+    "a crash-fix target needs cells, older": ([_entry("crash-fix", id="y"), _extending("x")], "x", False),
+    "a crash-fix target with the cells": ([_entry("crash-fix", id="y"), _extending("x", SELECTOR)], "x", True),
+    "a default-fix target may name none": (
+        [_entry("default-fix", id="y", decision=["#1"]), _extending("x")],
+        "x",
+        True,
+    ),
+    "an output-text target needs cells, added": ([_entry("output-text", id="y"), _extending("x")], "x", True),
+    "a notice target needs cells, added": (
+        [_entry("notice", id="y", kind="warning", action="warn", source="run"), _extending("x")],
+        "x",
+        True,
+    ),
+    "a decided-change target may name none": (
+        [_entry("decided-change", id="y", decision=["#1"], keep={"note": "n"}), _extending("x")],
+        "x",
+        True,
+    ),
+    "a harness target names none": ([_entry("harness", id="y"), _extending("x", SELECTOR)], "x", True),
+    "a selector missing its keys": (
+        [_entry("notice", id="y", kind="warning", action="warn", source="run"), _extending("x", SELECTOR)],
+        "x",
+        True,
+    ),
+    "a target that does not exist": ([_extending("x")], "x", True),
+    "a chain of extends": (
+        [_entry("crash-fix", id="z"), _extending("y", SELECTOR, extends="z"), _extending("x", SELECTOR, extends="y")],
+        "x",
+        True,
+    ),
+    "a derived target": (
+        [_entry(None, id="option:--new-flag", refs=[]), _extending("x", extends="option:--new-flag")],
+        "x",
+        True,
+    ),
+    "a target without a category": ([_entry(None, id="y"), _extending("x")], "x", True),
+    "an extending record with a title": (
+        [_entry("crash-fix", id="y"), _extending("x", SELECTOR, title="t")],
+        "x",
+        True,
+    ),
+    "a record that extends nothing": ([_entry("crash-fix", id="y")], "y", True),
+}
+
+
+@pytest.mark.parametrize("case", sorted(RESOLVE_CASES))
+def test_resolved_record_and_its_rule(case: str) -> None:
+    """An extending record takes its target's category: its own covers and cells follow that category's rule.
+
+    The target must be an unreleased record of its own with a category: a chain, a derived entry, a missing or an
+    uncategorized one is refused with one message, wherever the record is read.
+    """
+    entries, name, added = RESOLVE_CASES[case]
+    records = {record.id: record for entry in entries if (record := parse_entry(entry, "x.toml")[0])}
+    record = records[name]
+    resolved, why = resolved_record(record, records)
+    found = rule_problems(record, fragment=True, added=added, records=records)
+    shown = (
+        None if resolved is None else {"id": resolved.id, "category": resolved.category, "cells": len(resolved.cells)}
+    )
+    assert_output(json.dumps({"resolved": shown, "why": why, "problems": found}, indent=1, default=str) + "\n")
+
+
 CELLS_TABLE = '\n[[change.cells]]\ninput = ["a.json"]\nbackends = "*"\noptions = "*"\n'
 STAMPED_CASES = {
     "no cells": FRAGMENT,
@@ -290,3 +376,27 @@ def test_read_records(case: str, tmp_path: Path) -> None:
     except ValueError as error:
         output = f"ValueError: {error}"
     assert_output(output + "\n")
+
+
+PAYLOAD_NODE = "tests/main/test_payload_validation.py::"
+OWNER_CASES: dict[str, tuple[str, str]] = {
+    "the count of the discovered schema files is a listing": (
+        PAYLOAD_NODE + "test_payload_validation_cases_cover_discovered_schema_files",
+        "main/payload_validation/cases_cover_discovered_schema_files.txt",
+    ),
+    "the other payload outputs stay model output": (
+        PAYLOAD_NODE + "test_generated_models_decide_value_neighbours_like_the_schema[a.json]",
+        "main/payload_validation/generated_models_decide_value_neighbours_like_the_schema.txt",
+    ),
+    "a payload classification stays model output": (
+        PAYLOAD_NODE + "test_allof_payload_strategy_classification",
+        "main/payload_validation/allof_payload_strategy_classification.txt",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(OWNER_CASES))
+def test_owner_of(case: str) -> None:
+    """A stored output is told from model output by its test node and label."""
+    nodeid, label = OWNER_CASES[case]
+    assert_output(f"{owner_of(nodeid, label).value}\n")

@@ -80,3 +80,69 @@ async def test_phrases_feed_spread_rank() -> None:
     ranked = await _run_single_node("data.spread_rank", {"items": phrased["items"]},
                                     {"min_homes": 2, "date_path": "", "top_n": 10})
     assert ranked["terms"][0]["key"].startswith("sensory garden")
+
+
+async def test_mining_never_holds_the_event_loop(monkeypatch) -> None:
+    """A big corpus mines off the loop: a concurrent DB round trip keeps getting turns.
+
+    Run 40a1144a (2026-10-31): this step held the loop 82 s over 20,000 records, and the
+    work queue's statement — Parsed, its Bind never sent — hit the server's statement
+    timeout. The heartbeat stands in for that awaited round trip.
+    """
+    import asyncio
+    import time
+
+    words = ("riverside community greenhouse volunteer schedule draft budget tile quote "
+             "bathroom remodel sensory garden raised beds shade planting").split()
+    items = [
+        {"id": f"n{i}", "text": " and ".join(" ".join(words[(i + k) % len(words)] for k in range(3))
+                                            for _ in range(60))}
+        for i in range(3_000)
+    ]
+    solo_started = time.perf_counter()
+    for item in items:
+        mine_phrases(item["text"], max_chars=40_000, min_words=2, max_words=4, stop_words=STOP_WORDS)
+    solo = time.perf_counter() - solo_started
+    assert solo > 0.5, f"corpus too small to prove anything (mining took {solo:.2f}s)"
+
+    # The window the mining itself runs in, read off the thread that does it. The scheduler's
+    # own validation of 3,000 inputs and outputs (and the helper's graph build) sit outside it
+    # and pause the loop on any machine; they are not the mining and are not measured here.
+    from matrx_graph.nodes.text import key_phrases
+
+    window: list[float] = []
+    real_mine_items = key_phrases._mine_items
+
+    def timed_mine_items(*args, **kwargs):
+        window.append(time.perf_counter())
+        try:
+            return real_mine_items(*args, **kwargs)
+        finally:
+            window.append(time.perf_counter())
+
+    monkeypatch.setattr(key_phrases, "_mine_items", timed_mine_items)
+
+    ticks: list[float] = []
+    stop = asyncio.Event()
+
+    async def heartbeat() -> None:
+        while not stop.is_set():
+            await asyncio.sleep(0.005)
+            ticks.append(time.perf_counter())
+
+    beat = asyncio.create_task(heartbeat())
+    await asyncio.sleep(0.02)
+    out = await _run_single_node(NODE, {"items": items})
+    stop.set()
+    await beat
+    assert out["item_count"] == 3_000
+    assert len(window) == 2, "the node never ran its mining through the timed hook"
+    began, ended = window
+    # Held on the loop, no tick lands between the first record and the last: the longest
+    # pause inside the window is the whole mining time. Off it, ticks keep arriving.
+    inside = [t for t in ticks if began <= t <= ended]
+    longest = max(b - a for a, b in zip([began, *inside], [*inside, ended]))
+    # The bar is 3/4 of the solo time, measured over the mining window only (runs 43736... and 43805837892, 2026-11-15/16,
+    # failed on pauses OUTSIDE the mining: input/output validation and the helper's graph build). Mining ON the
+    # loop leaves the window with no tick at all, so its longest pause is the full mining time.
+    assert longest < solo * 0.75, f"the loop was held {longest:.2f}s; mining alone takes {solo:.2f}s"

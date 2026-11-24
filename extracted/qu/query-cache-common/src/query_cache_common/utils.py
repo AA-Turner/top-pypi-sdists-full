@@ -11,6 +11,9 @@ if t.TYPE_CHECKING:
         Create as CreateStatement,
     )
     from sqlglot.expressions import (
+        Expr as SqlglotExpr,
+    )
+    from sqlglot.expressions import (
         Expression as SqlglotExpression,
     )
 
@@ -92,6 +95,33 @@ def unwrap_subquery(query: SqlglotExpression) -> SqlglotExpression:
     while isinstance(query, exp.Subquery) and query.is_wrapper:
         query = query.this
     return query
+
+
+def is_udtf_argument_query(query: SqlglotExpr) -> bool:
+    """True for a query passed directly to a UDTF other than UNNEST / LATERAL, e.g. EXPLODE((SELECT ...)).
+
+    sqlglot's scope builder treats these as scope boundaries but only traverses the arguments of
+    UNNEST and LATERAL, so their tables are invisible to `traverse_scope` and `qualify`.
+    """
+    from sqlglot import exp
+
+    return isinstance(query.parent, exp.UDTF) and not isinstance(
+        query.parent, (exp.Unnest, exp.Lateral)
+    )
+
+
+def expose_udtf_argument_subqueries(expression: SqlglotExpr) -> None:
+    """Wrap every `is_udtf_argument_query` query in parentheses, in place, so sqlglot scopes it
+    like any other subquery."""
+    from sqlglot import exp
+
+    for query in list(expression.find_all(exp.Query)):
+        if is_udtf_argument_query(query):
+            # Re-parent the original node rather than a copy, so nested matches still found by this loop stay in
+            # the tree
+            paren = exp.Paren()
+            query.replace(paren)
+            paren.set("this", query)
 
 
 def extract_fqn_parts(fqn: str, dialect: str) -> t.Tuple[str, str, str]:

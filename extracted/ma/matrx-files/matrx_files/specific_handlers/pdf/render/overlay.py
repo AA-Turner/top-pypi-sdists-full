@@ -14,13 +14,13 @@ the requested DPI.
 from __future__ import annotations
 
 import base64
-import io
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from ..concurrency import run_in_cpu_executor
 from ..internal import load_pymupdf
+from ..render_budget import bounded_render_dpi
 
 
 class OverlayBbox(BaseModel):
@@ -140,6 +140,7 @@ def render_page_with_overlay(
                 except Exception:
                     pass
 
+        dpi = bounded_render_dpi(rect.width, rect.height, dpi)
         pix = page.get_pixmap(dpi=dpi, alpha=False)
         png = bytes(pix.tobytes(return_format))
         return RenderedPage(

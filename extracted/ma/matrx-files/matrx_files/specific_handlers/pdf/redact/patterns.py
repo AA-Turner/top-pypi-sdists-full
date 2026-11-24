@@ -26,6 +26,9 @@ from .engine import (
 from .models import RedactionRegion, RedactionResult
 
 
+# A phone number's optional extension ("x123", "ext. 45"), part of the number that goes.
+_PHONE_EXT = r"(?:\s*(?:[xX]|[Ee]xt\.?|[Ee]xtension)\s*\d{1,6}(?!\d))?"
+
 # Rich pattern catalog — feeds the analysis pipeline.
 PATTERN_CATALOG: list[dict[str, Any]] = [
     # ── identifiers ───────────────────────────────────────────────────────
@@ -69,11 +72,11 @@ PATTERN_CATALOG: list[dict[str, Any]] = [
         "category": "pii",
         "tiers": ("low", "medium", "high"),
         "tier_regex": {
-            "low":    r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b",
-            "medium": r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
+            "low":    r"(?<!\d)\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)" + _PHONE_EXT,
+            "medium": r"(?<![\d+])(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)" + _PHONE_EXT,
             "high":   r"\+1\d{10}\b",
         },
-        "regex": r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
+        "regex": r"(?<![\d+])(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)" + _PHONE_EXT,
     },
     {
         "id": "phone_intl",
@@ -213,6 +216,8 @@ PATTERN_CATALOG: list[dict[str, Any]] = [
         "category": "pii",
         "tiers": ("low", "medium"),
         "regex": r"\b[A-Z][a-z]+(?:\s+[A-Z]\.?)?(?:\s+[A-Z][a-z]+){1,2}\b",
+        # The finder narrows the heuristic: capitalised common phrases are not names (see ``person_name_spans``).
+        "finder": "person_name_spans",
     },
     # ── other ─────────────────────────────────────────────────────────────
     {
@@ -260,6 +265,58 @@ PATTERN_CATALOG: list[dict[str, Any]] = [
         "flags": re.IGNORECASE,
     },
 ]
+
+
+# Capitalised words that are not part of a person's name: they split a run of capitalised words, so
+# "Social Security Dana Reyes" yields "Dana Reyes" and "Social Security number" yields nothing.
+_NOT_NAME_WORDS = frozenset(
+    """
+    social security united states kingdom nations america american bank account credit card debit driver license licence
+    passport dear sir madam sirs mesdames hello hi regards sincerely signed signature date name address phone telephone
+    email mobile fax contact customer service support department office company corporation inc llc ltd invoice receipt
+    statement summary report total subtotal amount balance payment payments due paid tax number no page pages section
+    article chapter table figure appendix schedule exhibit attachment notes note terms conditions policy agreement
+    contract application form certificate confirmation order item description quantity price unit details information
+    health insurance medical record patient personal private confidential copy original reference id the and for of
+    january february march april may june july august september october november december
+    monday tuesday wednesday thursday friday saturday sunday mon tue wed thu fri sat sun
+    jan feb mar apr jun jul aug sep sept oct nov dec
+    """.split()
+)
+
+_NAME_WORD = re.compile(r"[A-Z][a-z]+(?:['-][A-Z][a-z]+)?|[A-Z]\.")
+
+
+def person_name_spans(text: str) -> list[tuple[int, int]]:
+    """Spans of capitalised-word runs that read as a person's name.
+
+    Runs of capitalised words separated by one space; common words and phrases ("Social Security", "Dear",
+    months, headings: ``_NOT_NAME_WORDS``) split a run and are never part of a name. A run needs a first and a
+    last name (two or more words, an initial counting as one); a real name beside those words still goes.
+    """
+    words = list(_NAME_WORD.finditer(text))
+    spans: list[tuple[int, int]] = []
+    run: list[re.Match[str]] = []
+
+    def flush() -> None:
+        if len(run) >= 2 and any(len(w.group(0)) > 2 for w in run):
+            spans.append((run[0].start(), run[-1].end()))
+        run.clear()
+
+    prev: re.Match[str] | None = None
+    for w in words:
+        # a word glued to lowercase/digits is part of something else, not a name word
+        glued = (w.start() > 0 and text[w.start() - 1].isalnum()) or (w.end() < len(text) and text[w.end()].isalnum())
+        if glued or w.group(0).lower().rstrip(".") in _NOT_NAME_WORDS:
+            flush()
+            prev = None
+            continue
+        if prev is not None and text[prev.end():w.start()] != " ":
+            flush()
+        run.append(w)
+        prev = w
+    flush()
+    return spans
 
 
 def get_pattern_catalog() -> list[dict[str, Any]]:

@@ -12,6 +12,8 @@ import base64
 import hashlib
 import re
 from types import SimpleNamespace
+
+from matrx_connect.context.run_scope import RunScope
 from typing import Any
 from uuid import uuid4
 
@@ -54,7 +56,7 @@ async def _write(monkeypatch, request_payload=None, unified_payload=None) -> dic
         "matrx_ai.persistence.queue_helpers.queue_request_snapshot_create",
         lambda **kwargs: queued.append(kwargs) or "op",
     )
-    exec_ctx = SimpleNamespace(
+    exec_ctx = SimpleNamespace(run=RunScope(), 
         store=True, conversation_id=str(uuid4()), request_id=str(uuid4()),
         user_id="user-1", organization_id="org-1",
     )

@@ -1,5 +1,5 @@
 """The run-approval gate: a waiting/rejected agent, mandate or automation is refused at the
-paid-call seam BEFORE money is spent — once per request, from memory, never a person's own turn.
+paid-call seam BEFORE money is spent — once per launch (request), from memory, never a person's own turn.
 
 SUT: ``UnifiedAIClient._dispatch_with_billing_net`` (the one seam every paid provider call
 passes) and ``matrx_ai.providers.run_approval_gate``.
@@ -11,7 +11,9 @@ Breaks named:
 * a held subject reaches the provider (money spent with no approval);
 * the refusal is silent or carries no link to its approval;
 * a person's own interactive turn (human / delegated_member) is held;
-* a run admitted at its first paid call is cut off at a later one (a run is a request);
+* a launch admitted at its first paid call is cut off inside its own tool loop (what it spent is wasted);
+* a NEW launch of the same tree rides an earlier launch's admission after a hold or decline was placed
+  (the 2026-11-10 regression: an admission remembered per run tree);
 * no resolver / a raising resolver blocks work.
 """
 
@@ -129,16 +131,29 @@ def test_every_machine_origin_is_gated(memory: _Memory, origin: str) -> None:
     assert spent == []
 
 
-def test_a_running_run_is_never_cut_in_half(memory: _Memory) -> None:
+def test_a_run_in_its_tool_loop_finishes_it_and_its_next_launch_is_refused(memory: _Memory) -> None:
     spent: list[str] = []
     ctx = _ctx(_rid(5))
     assert asyncio.run(_paid_call(ctx, spent)) is None
-    memory.held.add(HELD_AGENT)  # the run crossed the line and was flagged mid-flight
+    memory.held.add(HELD_AGENT)  # a hold opens (volume, a decline, its own limit) while the agent is in its loop
     assert asyncio.run(_paid_call(ctx, spent)) is None
-    assert spent == [_rid(5), _rid(5)]
-    assert memory.asked == [_rid(5)]  # decided once per request
-    # the NEXT run waits
+    assert asyncio.run(_paid_call(ctx, spent)) is None
+    assert spent == [_rid(5)] * 3, "the launch already running finishes its loop"
+    assert memory.asked == [_rid(5)]  # decided once per launch
+    # Its NEXT launch is refused — a new request of the SAME tree (a sub-agent, the next page) included.
+    child = dataclasses.replace(_ctx(_rid(14)), root_request_id=_rid(5))
+    assert isinstance(asyncio.run(_paid_call(child, spent)), gate.RunApprovalRequiredError)
     assert isinstance(asyncio.run(_paid_call(_ctx(_rid(6)), spent)), gate.RunApprovalRequiredError)
+    assert spent == [_rid(5)] * 3
+
+
+def test_a_persons_own_run_is_never_stopped_mid_run(memory: _Memory) -> None:
+    spent: list[str] = []
+    ctx = _ctx(_rid(13), origin_class="human")
+    assert asyncio.run(_paid_call(ctx, spent)) is None
+    memory.held.add(HELD_AGENT)
+    assert asyncio.run(_paid_call(ctx, spent)) is None
+    assert spent == [_rid(13), _rid(13)] and memory.asked == []
 
 
 def test_no_resolver_gates_nothing() -> None:
@@ -177,30 +192,20 @@ def test_the_refusal_is_found_through_wrapping_layers() -> None:
     assert "declined" in str(inner) and "was rejected" in inner.technical_message
 
 
-def test_a_held_subject_entering_an_admitted_tree_is_judged(memory: _Memory) -> None:
+def test_a_held_subject_entering_a_running_tree_is_judged(memory: _Memory) -> None:
     """2026-10-27: the code-built News monitor run (workflow run 1e391c11) admitted its whole tree at
     its first paid call — a news-search external API call with no held subject — and every later
     call of the tree rode that admission, so news.coarse_relevance and news.story_origin (both
-    REJECTED by Arman) ran 41 paid calls for $0.80. The memo is per tree AND the subjects the host
-    names: a subject new to an admitted tree is refused by a hold already on it."""
+    REJECTED by Arman) ran 41 paid calls for $0.80. Every paid call of a tree is asked on its own."""
     memory.held.add(HELD_AGENT)
-
-    def subjects(ctx: Any) -> list[tuple[str, str]]:
-        return [("agent", str(ctx.agent_id))]
-
-    def among(ctx: Any, new: list[tuple[str, str]]) -> gate.RunApprovalRequiredError | None:
-        return memory(ctx) if ("agent", str(ctx.agent_id)) in new else None
-
-    gate.set_run_approval_resolver(memory, subjects=subjects, refusal_among=among)
     spent: list[str] = []
     root = _rid(9)
     collect = dataclasses.replace(_ctx(_rid(10), agent_id=FREE_AGENT, origin_class="workflow"), root_request_id=root)
-    assert asyncio.run(_paid_call(collect, spent)) is None  # the tree is admitted for its unheld step
+    assert asyncio.run(_paid_call(collect, spent)) is None
     held_step = dataclasses.replace(_ctx(_rid(11), agent_id=HELD_AGENT, origin_class="workflow"), root_request_id=root)
     exc = asyncio.run(_paid_call(held_step, spent))
     assert isinstance(exc, gate.RunApprovalRequiredError)
     assert spent == [_rid(10)]
-    # The unheld subject's later calls in the same tree still ride its admission (never cut in half).
     again = dataclasses.replace(_ctx(_rid(12), agent_id=FREE_AGENT, origin_class="workflow"), root_request_id=root)
-    assert asyncio.run(_paid_call(again, spent)) is None
-    assert memory.asked == [_rid(10), _rid(11)]
+    assert asyncio.run(_paid_call(again, spent)) is None  # the unheld subject keeps running
+    assert memory.asked == [_rid(10), _rid(11), _rid(12)]

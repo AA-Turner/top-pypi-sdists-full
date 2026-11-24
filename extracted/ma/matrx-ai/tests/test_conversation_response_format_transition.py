@@ -309,3 +309,21 @@ async def test_a_standing_declaration_does_not_block_the_relaxation(monkeypatch)
         "an acting run must still be able to answer in prose — forcing its schema "
         "back on turns a plain question into an empty directive with a live Approve"
     )
+
+
+@pytest.mark.asyncio
+async def test_held_contract_stays_bound_on_a_person_follow_up(monkeypatch) -> None:
+    """A conversation whose host declares its contract HELD (a mandate started it under a
+    typed output kind) keeps the schema on a person's follow-up turn — the applet builder
+    sends every change as a new person turn and reads a typed result back (live
+    2026-11-14, conversation ade9ed97: the follow-up went out with no output format,
+    the model answered in prose, the builder reported 'no usable structured result')."""
+    from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
+
+    token = set_app_context(AppContext(emitter=None, metadata={"response_format_holds": True}))
+    try:
+        resolved = await _resolve(monkeypatch, _config(_assistant('{"answer":"generated result"}')))
+    finally:
+        clear_app_context(token)
+
+    assert resolved.response_format == SCHEMA_FORMAT

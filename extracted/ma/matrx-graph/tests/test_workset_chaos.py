@@ -18,14 +18,16 @@ probabilistic:
   happened;
 - the queue's next wave has already CLAIMED item "d" (in_progress in
   Postgres) but its dispatch dies with the killed step — "d" is the
-  claimed-by-a-dead-holder orphan only lease reclaim can save.
+  claimed-by-a-dead-holder orphan only the store can save.
 
 Recovery therefore has to come from BOTH durability layers, each proven by
 an observable only that layer can produce:
 
 - the checkpoint frontier replays worker("c")  → "c" settles at attempts=1;
-- reclaim_expired rescues orphaned "d" after its lease lapses → "d"
-  re-claims at attempts=2.
+- the resumed queue wave is the SAME firing that claimed "d", so
+  release_firing_claims frees it with its attempt given back → "d"
+  re-claims at attempts=1 (reclaim_expired, had it got there first, would
+  have charged the attempt: attempts=2).
 
 Zero dropped: all five side effects present. Zero duplicated: each present
 exactly once. Neither is reachable if any recovery layer drops or replays
@@ -320,7 +322,9 @@ async def test_hard_kill_mid_drain_recovers_to_exactly_once_side_effects():
         worker.block_c = False  # the replayed "c" runs to completion
         # Every item the dead executor still held lapses EXCEPT "c": "c" is
         # recovered by the checkpoint frontier replay (its lease is live),
-        # the others only by reclaim_expired. Both layers must fire.
+        # the others by the resumed wave releasing its own firing's claims —
+        # even with their leases lapsed, the release must win over
+        # reclaim_expired so the attempt is given back.
         for key in killed_in_progress - {"c"}:
             await _expire_lease(run_id, key)
 
@@ -342,10 +346,13 @@ async def test_hard_kill_mid_drain_recovers_to_exactly_once_side_effects():
         # "c" settled via the checkpoint-frontier replay of its original
         # claim — one claim, one attempt.
         assert rows["c"]["attempts"] == 1
-        # Every lease-lapsed orphan needed a SECOND claim — the observable
-        # only reclaim_expired (in_progress → pending → re-claim) produces.
+        # Every orphan was claimed by the queue wave that died before its
+        # checkpoint; the resumed wave is that same firing, so it RELEASES the
+        # claim (release_firing_claims, ahead of reclaim_expired) and gives the
+        # attempt back — a deploy never costs an item an attempt. One attempt
+        # each, re-claimed once: exactly-once side effects above prove it ran.
         for key in killed_in_progress - {"c"}:
-            assert rows[key]["attempts"] == 2, f"{key} was not lease-reclaimed"
+            assert rows[key]["attempts"] == 1, f"{key} was charged an attempt by the release"
 
         counts_probe = PostgresWorkSetStore()
         counts = await counts_probe.counts(run_id, "default")

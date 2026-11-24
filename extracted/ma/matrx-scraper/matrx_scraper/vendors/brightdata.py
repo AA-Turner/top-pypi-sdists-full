@@ -41,6 +41,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 import httpx
+from matrx_utils.http_client import shared_client
 from matrx_utils import vcprint
 
 from matrx_scraper.utils.proxy import redact_url_secrets
@@ -307,11 +308,16 @@ class BrightDataClient:
         api_root: str = BRIGHTDATA_API_ROOT,
         poll_interval_s: float = POLL_INTERVAL_S,
         unlocker_zone: str = UNLOCKER_ZONE,
+        key_source: Callable[[], str | None] | None = None,
     ) -> None:
-        if not api_key:
-            raise ValueError("BrightDataClient needs an api_key")
+        """``key_source`` (optional, sync): the key as of now, asked on every request so a host-rotated key
+        takes effect without rebuilding the client; ``api_key`` is then the value at construction (may be empty
+        when a ``key_source`` is given: "configured?" is then answered per request by the source)."""
+        if not api_key and key_source is None:
+            raise ValueError("BrightDataClient needs an api_key or a key_source")
         self._unlocker_zone = unlocker_zone
         self._api_key = api_key
+        self._key_source = key_source
         self._transport = transport
         self._root = api_root.rstrip("/")
         self._poll_interval_s = poll_interval_s
@@ -319,11 +325,20 @@ class BrightDataClient:
     def __repr__(self) -> str:  # never leak the key into a log line
         return f"BrightDataClient(root={self._root!r})"
 
+    def _current_key(self) -> str:
+        if self._key_source is None:
+            return self._api_key
+        key = self._key_source()
+        if not key:
+            raise BrightDataError("Bright Data is not configured: the host's key source has no key")
+        return key
+
     def _client(self, timeout_s: float) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
+        key = self._current_key()
+        return shared_client(
             transport=self._transport,
             timeout=httpx.Timeout(timeout_s, connect=15.0),
-            headers={"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"},
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         )
 
     async def scrape(

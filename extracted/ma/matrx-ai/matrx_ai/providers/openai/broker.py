@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 #: The OpenAI organization API root -- admin usage and COST REPORTS
@@ -44,7 +45,7 @@ async def open_broker_stream(
     On setup failure this function closes the client before propagating the
     provider transport error.
     """
-    client = httpx.AsyncClient(timeout=request_timeout)
+    client = shared_client(timeout=request_timeout)
     try:
         upstream_request = client.build_request("POST", _BROKER_ENDPOINTS[endpoint], json=body, headers=headers)
         return client, await client.send(upstream_request, stream=True)

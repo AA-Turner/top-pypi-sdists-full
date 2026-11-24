@@ -38,6 +38,33 @@ _configure_stubs()
 _PRISTINE_HOST_SEAMS = capture_baseline()
 
 
+def _package_test_runner_cls():
+    from matrx_ai.testing.holders import HolderBackedRunner
+
+    class _PackageTestRunner(HolderBackedRunner):
+        """The package test runner plus the agent-as-tool verbs (runner-boundary wave 4), served over the real
+        load and the real execution funnel, imported at call time so a test's monkeypatch of either still holds.
+        The host's twin is ``aidream.services.mandate_runner`` ``prepare_own_agent`` / ``run_agent_as_tool``."""
+
+        async def prepare_own_agent(self, holder, variables, *, who, opts):
+            from matrx_ai.agents.definition import Agent
+
+            return await Agent.from_agent(
+                holder.version_id or holder.id,
+                is_version=bool(holder.version_id),
+                variables=dict(variables),
+                config_overrides=dict(holder.config_overrides) if holder.config_overrides is not None else None,
+            )
+
+        async def run_agent_as_tool(self, agent, *, who, opts, **run):
+            from matrx_ai.agents import executor
+
+            run.setdefault("source_feature", opts.door)
+            return await executor.run_agent(agent, **run)
+
+    return _PackageTestRunner
+
+
 @pytest.fixture(autouse=True)
 def _pristine_matrx_ai_host_seams():
     """Run every matrx-ai test against the package's own configuration.
@@ -55,9 +82,8 @@ def _pristine_matrx_ai_host_seams():
     # no host runner, so it gets the package's test runner: ``prepare`` is the real ``hold_code_call`` over
     # whatever resolver the test installs (``run`` refuses — a NamedAgent test installs ``install_named_runner``).
     import matrx_ai.mandates as _mandates
-    from matrx_ai.testing.holders import HolderBackedRunner
 
-    _mandates._MANDATE_RUNNER = HolderBackedRunner()
+    _mandates._MANDATE_RUNNER = _package_test_runner_cls()()
     # The conversation tool-declaration ledger is process memory keyed by
     # conversation id; tests reuse ids, so each test starts with none.
     _reset_tool_ledger()
@@ -103,6 +129,7 @@ def _a_declared_system_job_context():
 collect_ignore = [
     "matrx_ai/tests/openai/openai_translation_test.py",
     "matrx_ai/tests/openai/conversation_id_test.py",
+    "matrx_ai/tests/openai/openai_function_test.py",
     "matrx_ai/tests/test_translations.py",
     # Manual smoke/integration scripts (run by hand: `python <file>`), NOT unit
     # tests. They either import `initialize_testing` at MODULE level — which fires

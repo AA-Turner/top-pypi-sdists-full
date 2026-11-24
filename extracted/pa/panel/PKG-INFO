@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: panel
-Version: 1.10.1
+Version: 1.11.0
 Summary: The powerful data exploration & web app framework for Python.
 Project-URL: Homepage, https://panel.holoviz.org
 Project-URL: Source, https://github.com/holoviz/panel
@@ -40,8 +40,7 @@ Requires-Dist: mdit-py-plugins
 Requires-Dist: narwhals>=2
 Requires-Dist: nh3
 Requires-Dist: packaging
-Requires-Dist: pandas>=1.2
-Requires-Dist: panel-material-ui<0.17.0a0,>=0.16.6
+Requires-Dist: panel-material-ui<0.18,>=0.16.6
 Requires-Dist: param<3.0,>=2.1.0
 Requires-Dist: pyviz-comms>=2.0.0
 Requires-Dist: requests
@@ -70,14 +69,16 @@ Provides-Extra: recommended
 Requires-Dist: holoviews>=1.18.0; extra == 'recommended'
 Requires-Dist: jupyterlab; extra == 'recommended'
 Requires-Dist: matplotlib; extra == 'recommended'
+Requires-Dist: pandas>=1.2; extra == 'recommended'
 Requires-Dist: pillow; extra == 'recommended'
 Requires-Dist: plotly; extra == 'recommended'
 Provides-Extra: tests
 Requires-Dist: psutil; extra == 'tests'
-Requires-Dist: pytest; extra == 'tests'
 Requires-Dist: pytest-asyncio; extra == 'tests'
 Requires-Dist: pytest-rerunfailures<16.0; extra == 'tests'
+Requires-Dist: pytest-timeout; extra == 'tests'
 Requires-Dist: pytest-xdist; extra == 'tests'
+Requires-Dist: pytest<9.2; extra == 'tests'
 Description-Content-Type: text/markdown
 
 <a href="https://panel.holoviz.org/">

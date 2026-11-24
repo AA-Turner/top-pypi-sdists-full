@@ -862,6 +862,16 @@ OPTIONS: Final[tuple[Option, ...]] = (
         "instead of repeating the configuration in each model. Keeps code DRY.",
     ),
     toggle(
+        (Section.MODEL, _G.MODEL_SHAPE),
+        "--keep-bases-beside-generic-base-class",
+        help="Keep the base classes a model is configured to inherit beside the generated base class of "
+        "--use-generic-base-class (`class Tag(TagBase, BaseModel)`): the class --base-class-map, customBasePath or "
+        "--base-class names, and the class --external-ref-mapping or x-python-import imports for a schema the model "
+        "extends, as the model keeps a generated base (the generated base class is named `BaseModelModel` where a "
+        "kept class is named `BaseModel`); without it the model inherits only the generated base class and the "
+        "import of the class stays unused, as in 0.100.0.",
+    ),
+    toggle(
         (Section.MODEL, _C.FIELD), "--use-schema-description", help="Use schema description to populate class docstring"
     ),
     toggle((Section.MODEL, _C.FIELD), "--use-title-as-name", help="use titles as class names of models"),
@@ -908,6 +918,15 @@ OPTIONS: Final[tuple[Option, ...]] = (
         help="Use Python standard library types for string formats (UUID, IPv4Address, etc.) "
         "instead of str. Affects dataclass, msgspec, TypedDict output. "
         "Pydantic already uses these types by default.",
+    ),
+    toggle(
+        (Section.MODEL, _C.TYPING, _G.TYPE_MAPPING),
+        "--use-str-for-formats-msgspec-cannot-decode",
+        help="Write str for the formats whose standard library class msgspec has no decoder for (ipv4, ipv6, "
+        "ipv4-network, ipv6-network, path) under --use-standard-primitive-types, so msgspec.Struct output decodes a "
+        "document that holds them; without it the Struct holds IPv4Address, IPv6Address, IPv4Network, IPv6Network "
+        "and Path, as in 0.100.0, which msgspec decodes only with a dec_hook. Other output model types keep the "
+        "classes.",
     ),
     flag(
         (Section.MODEL, _C.TEMPLATE, _G.IMPORTS),
@@ -1121,6 +1140,29 @@ OPTIONS: Final[tuple[Option, ...]] = (
     ),
     toggle(
         Section.TYPING,
+        "--intersect-merged-allof-members",
+        help="Read the `allOf` members that are merged into one schema keyword by keyword, as JSON Schema validates "
+        "them: a property that several merged object members declare takes the `type`, null and `multipleOf` every "
+        "declaration admits (a `true` declaration adds nothing) and the members' own `allOf` members are merged too; a "
+        "named `allOf` of a `$ref` and value members keeps the `enum` and `type` every member admits; a `$ref` to a "
+        "map beside members that add only property counts or `propertyNames` stays that map with them; and a length or "
+        "`pattern` beside a `$ref` to base64 text is checked on the text where the output checks base64 constraints "
+        "on the text. Without it the later member's keyword wins, another member's `enum` is dropped, the map becomes "
+        "a model without fields and the keyword is checked on the decoded value, as in 0.100.0",
+    ),
+    toggle(
+        Section.TYPING,
+        "--read-allof-parents-as-their-models",
+        help="Read each allOf parent as its model holds it: a parent written as a $ref beside sibling keywords with "
+        "the schema its $ref names, so a model written before that parent types and requires an inherited property as "
+        "it does when written after it; every property some parent requires stays required where a parent the model "
+        "also inherits it from declares it optional (allOf: [PetBase, Named] with only Named requiring name); and an "
+        "allOf of a $ref alias and a member that adds only a type or required names reads the alias as "
+        "--intersect-combined-schema-keywords reads alias members; without it such properties can be Any or optional "
+        "and such a model a dict, as in 0.100.0",
+    ),
+    toggle(
+        Section.TYPING,
         "--read-allof-parents-in-mro-order",
         help="Read the allOf parents of every inherited schema in the order of the class bases (the MRO), so a "
         "property that several bases declare takes the nearer base's constraints and description, as the class does, "
@@ -1152,6 +1194,17 @@ OPTIONS: Final[tuple[Option, ...]] = (
         "only, as JSON Schema does, so a maxLength beside an array leaves the list unbounded and a maxItems beside a "
         "string leaves the string unbounded; without it a declared array writes minLength/maxLength and a declared "
         "string minItems/maxItems as their length bounds, as in 0.88.0",
+    ),
+    toggle(
+        (Section.TYPING, _C.FIELD),
+        "--keep-string-keywords-beside-formats",
+        help="Keep the minLength, maxLength and pattern beside a string format that Pydantic output writes as a class "
+        "no constr call constrains: a `format: email` takes them in `Annotated[EmailStr, Field(...)]`, "
+        "a `format: byte` writes them in front of the base64 decoding, so Pydantic 2.10 or later checks them on the "
+        "text, also in the field forms (--field-constraints, --use-annotated), and a `format: uri` is the plain "
+        "string they check, as AnyUrl takes no pattern; an output that writes a date or UUID format as `str`, as "
+        "msgspec does, also keeps the keywords an `allOf` member adds beside a `$ref` to it. Without it these "
+        "keywords are left out, silently or with a warning, as in 0.100.0",
     ),
     toggle(
         (Section.TYPING, _C.FIELD),
@@ -1289,6 +1342,24 @@ OPTIONS: Final[tuple[Option, ...]] = (
         "in 0.97.0). A msgspec Struct keeps its one tag.",
     ),
     toggle(
+        (Section.TYPING, _C.FIELD),
+        "--read-mapping-keys-by-schema-tag-type",
+        help="Read the keys of a discriminator mapping as values of the type the schema declares for the tag property "
+        "(an integer enum's key '2' is the integer 2), also where an earlier discriminated union already wrote the tag "
+        "field of the variant or of the base it inherits it from, so a key reads alike whichever union comes first; "
+        "without it such a key is read against the Literal the earlier union wrote, or stays text (as in 0.100.0).",
+    ),
+    toggle(
+        (Section.TYPING, _C.FIELD),
+        "--use-root-types-for-mixed-union-map-keys",
+        help="Type the RootModel members of a map key that is a union with a non-RootModel member (`propertyNames` "
+        "`anyOf` of an enum, or of a `str` with a `maxLength`, and a RootModel) by their root types, as the key of a "
+        "RootModel is typed (`dict[str | UUID, int]`); without it such a key keeps the RootModel class, which "
+        "Pydantic cannot hash, so a key only the RootModel matches raises `TypeError`, and the other member reads "
+        "the keys it matches, as in 0.100.0. A key whose members are all RootModels is typed by the root types "
+        "with or without the option",
+    ),
+    toggle(
         (Section.TYPING, _G.COLLECTION_TYPES),
         "--use-standard-collections",
         help="Use standard collections for type hinting (list, dict). Default: enabled",
@@ -1391,6 +1462,15 @@ OPTIONS: Final[tuple[Option, ...]] = (
         "that hash only by identity, of Any or of containers stays a list. Deduplication and --reuse-model also keep "
         "apart models whose arrays differ in uniqueItems; without it the sets are decided before root models collapse, "
         "set item models hash by identity and such models merge, as in 0.89.0",
+    ),
+    toggle(
+        (Section.TYPING, _G.COLLECTION_TYPES),
+        "--read-set-item-fields-in-class-order",
+        help="Under --use-unique-items-as-set-by-value, also read the fields a set item model takes in the order of "
+        "its class bases (C3) when deciding whether its instances hash: where a base two levels up and a later direct "
+        "base both declare a field and the class takes the one that does not hash, the uniqueItems array stays a "
+        "list; without it only the field the nearest base declares is read and such an array is a set whose items "
+        "fail to hash, as in 0.100.0",
     ),
     toggle(
         (Section.TYPING, _G.COLLECTION_TYPES),
@@ -1670,6 +1750,14 @@ OPTIONS: Final[tuple[Option, ...]] = (
     ),
     toggle(
         (Section.FIELD, _C.MODEL),
+        "--keep-null-of-nullable-items",
+        help="Write the null that `nullable: true` declares under --strict-nullable on an array item, a tuple item or "
+        "a map value of any form (a nested array, a map, an `allOf` of one `$ref`), as it is written for a scalar or "
+        "an object (`list[list[float] | None]`); without it those items reject null, as in 0.100.0. The option adds no "
+        "null to an enum or a `const`; an enum that lists null admits it with or without the option",
+    ),
+    toggle(
+        (Section.FIELD, _C.MODEL),
         "--keep-field-defaults-off-branch-roots",
         help="Leave the default of a property off the root models extracted from the branches of its `anyOf` or "
         "`oneOf`, which then require their value; without it each such root takes the property's default",
@@ -1735,6 +1823,25 @@ OPTIONS: Final[tuple[Option, ...]] = (
         "'rename-field': rename field with suffix and add alias (default). "
         "'rename-type': rename type class with suffix to preserve field name.",
         choices=_values(FieldTypeCollisionStrategy),
+    ),
+    toggle(
+        Section.FIELD,
+        "--rename-redeclared-fields-hiding-types",
+        help="Give a field that a subclass redeclares the name its base's field was given where that field is "
+        "renamed because it is named like its type (`Pet_1` with `alias='Pet'`), so the subclass holds one field for "
+        "the wire key; without it the redeclared field keeps its name beside the inherited renamed one, so two "
+        "fields read the key, as in 0.100.0",
+    ),
+    toggle(
+        Section.FIELD,
+        "--rename-fields-hiding-types-from-type-checkers",
+        help="Tell a field that the class body assigns (a default or `field(...)`) and that is named like the type "
+        "it is annotated with from that type for type checkers, which read the annotation as the field: msgspec.Struct "
+        "renames the field and keeps the wire name in `name=`, dataclasses.dataclass, which has no alias, renames "
+        "the type, as --field-type-collision-strategy rename-type does for Pydantic; it also gives a field "
+        "that a subclass redeclares the name of the renamed field, as --rename-redeclared-fields-hiding-types "
+        "does. Without it these outputs keep the field and the type names, as in 0.100.0, and type checkers "
+        "report the annotation",
     ),
     # Options for templating output
     value(
@@ -2071,6 +2178,17 @@ OPTIONS: Final[tuple[Option, ...]] = (
         "it, which names the same resource, so a $ref to https://example.com/item.json# or "
         "https://example.com/item.json#/definitions/Tag in the document that declares it resolves inside that "
         "document; without it such a $ref loads the document at that URL, from the network, as in 0.96.0.",
+    ),
+    toggle(
+        Section.BASE,
+        "--read-refs-in-their-resources",
+        help="Read every $id, $anchor and $dynamicAnchor wherever a document holds schemas, and read each $ref in the "
+        "schema resource that encloses it: a $defs member that declares a $id is the resource its own $defs pointers "
+        "name, a schema an OpenAPI operation, webhook or component holds inline is a resource of its own, a plain-name "
+        "anchor of another document names the schema that declares it, and a $ref to a resource the run holds is never "
+        "fetched. Without it a $defs member without schema keywords is read for its entries alone, only "
+        "components/schemas are OpenAPI resources, an anchor of another document is found by the released search, and "
+        "a URL another document of the run declares is fetched where that succeeds, as in 0.100.0.",
     ),
     toggle(
         Section.BASE,

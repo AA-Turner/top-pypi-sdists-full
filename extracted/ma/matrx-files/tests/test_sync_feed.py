@@ -16,12 +16,12 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
 from matrx_files.api.router_files import (
     _decode_sync_cursor,
     _encode_sync_cursor,
     build_file_router,
 )
+from matrx_utils.source_guard import stable_source
 
 T0 = datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC)
 ORG_ID = "11111111-1111-1111-1111-111111111111"
@@ -58,6 +58,9 @@ class _StubEngine:
         self.rows = rows
         self.folders = folders or []
         self.calls: list[dict[str, Any]] = []
+        # Relocation-ledger marks: (entry, (feed_at, ledger_id)).
+        self.moves: list[tuple[dict[str, Any], tuple[datetime, str]]] = []
+        self.move_calls: list[dict[str, Any]] = []
 
     async def list_sync_changes_async(self, **kwargs: Any) -> list[dict[str, Any]]:
         self.calls.append(kwargs)
@@ -66,6 +69,13 @@ class _StubEngine:
     async def list_all_folders_async(self, **kwargs: Any) -> list[dict[str, Any]]:
         self.calls.append(kwargs)
         return self.folders
+
+    async def list_sync_relocations_async(self, **kwargs: Any) -> tuple[list[dict[str, Any]], Any]:
+        self.move_calls.append(kwargs)
+        if not self.moves:
+            return [], None
+        page = self.moves[: kwargs["limit"]]
+        return [{**r, "_move_pos": pos} for r, pos in page], page[-1][1]
 
 
 def _client(engine: _StubEngine) -> TestClient:
@@ -240,3 +250,117 @@ def test_an_entry_without_an_organization_is_a_loud_failure() -> None:
     del row["organization_id"]
     with pytest.raises(KeyError):
         _client(_StubEngine([row])).get("/files/sync/changes")
+
+
+def test_folder_feed_and_file_feed_use_one_path_rule():
+    """/files/sync/folders and /files/sync/changes leave out the same roots (.matrx-tmp/ included).
+
+    Red before (2026-10-30): the folder feed used files.is_user_visible_folder_path, which keeps
+    .matrx-tmp folders, so devices received hidden staging folders the file feed never filled.
+    """
+
+    from matrx_files.cloud_sync import db as cdb
+    from matrx_files.user_visible import PATH_PREDICATE_FUNCTION
+
+    src = stable_source(cdb.CloudDb.list_all_folders_async) if hasattr(cdb, "CloudDb") else stable_source(cdb)
+    body = src[src.index("async def list_all_folders_async"):]
+    body = body[: body.index("async def ", 10)]
+    assert "PATH_PREDICATE_FUNCTION" in body and "FOLDER_PREDICATE_FUNCTION" not in body
+    assert PATH_PREDICATE_FUNCTION == "files.is_user_visible_path"
+
+
+# ---------------------------------------------------------------------------
+# Source 2 — the relocation ledger (placement registry § 7, attack finding 3).
+# The mover keeps updated_at, so a moved row never re-enters the (updated_at, id)
+# keyset; the ledger marks deliver it (or its tombstone) once, after the cursor.
+# ---------------------------------------------------------------------------
+
+from matrx_files.api.router_files import _decode_sync_cursor_moves  # noqa: E402
+
+MOVED_AT = T0 + timedelta(days=30)
+
+
+def _moved(i: int, *, left: bool) -> dict[str, Any]:
+    row = _row(i, ts=T0 - timedelta(days=200))  # an OLD updated_at the keyset passed long ago
+    row["file_path"] = f"Images/Generated/img-{i}.png"
+    if left:
+        row["deleted_at"] = MOVED_AT  # the db layer marks a row that left the visible set
+    return row
+
+
+def test_a_moved_row_with_an_old_date_reaches_a_device_past_that_date() -> None:
+    engine = _StubEngine([])
+    engine.moves = [(_moved(7, left=False), (MOVED_AT, "ledger-7"))]
+    client = _client(engine)
+    cur = _encode_sync_cursor(T0, "row-9", True)  # a v1 cursor already far past the row's updated_at
+    body = client.get("/files/sync/changes", params={"cursor": cur}).json()
+    assert [f["file_id"] for f in body["files"]] == [_row(7)["id"]]
+    assert body["files"][0]["file_path"] == "Images/Generated/img-7.png"
+    assert body["files"][0]["deleted_at"] is None
+    # the person's date is unchanged on the wire
+    assert body["files"][0]["updated_at"].startswith((T0 - timedelta(days=200)).date().isoformat())
+    # a pre-ledger cursor replays the ledger from the start…
+    assert engine.move_calls[0]["after_ts"] is None
+    # …and the next cursor carries the ledger position; the main keyset is untouched
+    assert _decode_sync_cursor_moves(body["next_cursor"]) == (MOVED_AT, "ledger-7")
+    assert _decode_sync_cursor(body["next_cursor"])[:2] == (T0, "row-9")
+
+
+def test_a_row_that_left_the_visible_set_arrives_as_a_tombstone() -> None:
+    engine = _StubEngine([])
+    engine.moves = [(_moved(8, left=True), (MOVED_AT, "ledger-8"))]
+    body = _client(engine).get(
+        "/files/sync/changes", params={"cursor": _encode_sync_cursor(T0, "x", True)}
+    ).json()
+    assert body["files"][0]["deleted_at"] is not None
+
+
+def test_the_ledger_position_is_passed_back_on_the_next_poll() -> None:
+    engine = _StubEngine([])
+    cur = _encode_sync_cursor(T0, "row-9", True, (MOVED_AT, "ledger-7"))
+    body = _client(engine).get("/files/sync/changes", params={"cursor": cur}).json()
+    assert engine.move_calls[0]["after_ts"] == MOVED_AT
+    assert engine.move_calls[0]["after_id"] == "ledger-7"
+    assert body["next_cursor"] == cur  # nothing new: position kept exactly
+
+
+def test_bootstrap_never_serves_marks_but_anchors_the_ledger_position() -> None:
+    engine = _StubEngine([_row(1)])
+    engine.moves = [(_moved(7, left=False), (MOVED_AT, "ledger-7"))]
+    body = _client(engine).get("/files/sync/changes").json()
+    assert engine.move_calls == []  # alive-only bootstrap reads current state
+    pos = _decode_sync_cursor_moves(body["next_cursor"])
+    assert pos is not None and pos[0] > T0  # moves during the bootstrap arrive after it
+
+
+def test_marks_and_keyset_rows_share_one_page_in_time_order() -> None:
+    """The page is the merge of both sources by time; each cursor half moves only past what
+    the page emitted (the first version served every mark first: review defect 1)."""
+    engine = _StubEngine([_row(1), _row(2)])
+    engine.moves = [(_moved(i, left=False), (MOVED_AT, f"ledger-{i}")) for i in range(10, 13)]
+    cur = _encode_sync_cursor(T0, "row-0", True)
+    body = _client(engine).get("/files/sync/changes", params={"cursor": cur, "limit": 3}).json()
+    assert [f["file_id"] for f in body["files"]] == [_row(1)["id"], _row(2)["id"], _row(10)["id"]]
+    assert body["has_more"] is True
+    assert _decode_sync_cursor(body["next_cursor"])[:2] == (_row(2)["updated_at"], _row(2)["id"])
+    assert _decode_sync_cursor_moves(body["next_cursor"]) == (MOVED_AT, "ledger-10")
+
+
+def test_a_tombstone_is_served_before_a_later_move_onto_its_path() -> None:
+    """Asleep: X at a path deleted (tombstone at t1), then Y moved onto that path (mark at t2).
+    A device must see X leave before Y arrives, or it turns X into a conflict copy and then
+    deletes Y by path."""
+    x_gone = _row(3, deleted=True, ts=MOVED_AT - timedelta(minutes=5))
+    x_gone["file_path"] = "Docs/report.txt"
+    y = _moved(4, left=False)
+    y["file_path"] = "Docs/report.txt"
+    y["_move_pos"] = (MOVED_AT, "ledger-4")
+    engine = _StubEngine([x_gone])
+    engine.moves = [(y, (MOVED_AT, "ledger-4"))]
+    body = _client(engine).get(
+        "/files/sync/changes", params={"cursor": _encode_sync_cursor(T0, "row-0", True)}
+    ).json()
+    assert [(f["file_id"], f["deleted_at"] is not None) for f in body["files"]] == [
+        (_row(3)["id"], True), (_row(4)["id"], False)]
+    assert all("_move_pos" not in f for f in body["files"])
+

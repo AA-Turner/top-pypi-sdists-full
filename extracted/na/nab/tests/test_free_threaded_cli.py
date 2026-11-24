@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from packaging.pylock import Pylock
+from packaging.tags import Tag
 
 from nab.cli import run
 from nab_project.resolve import ResolveResult, resolve_for_targets
 from nab_project.toml_io import loads
-from nab_provider._vendor.packaging.pylock import Pylock
-from nab_provider._vendor.packaging.tags import Tag
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
 
@@ -441,7 +441,7 @@ def test_inputs_changing_during_resolution_do_not_receive_validation_evidence(
     assert not project.with_name("pylock.toml").exists()
 
 
-@pytest.mark.parametrize("declaration", ["pyproject", "nab.toml"])
+@pytest.mark.parametrize("declaration", ["pyproject", "nab.toml", "cli"])
 def test_specific_free_threaded_target_excludes_newer_standard_wheel(
     tmp_path: Path, declaration: str
 ) -> None:

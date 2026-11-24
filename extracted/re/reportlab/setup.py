@@ -1,6 +1,6 @@
 #Copyright ReportLab Europe Ltd. 2000-2025
 #see LICENSE for license details
-__version__='5.1.0'
+__version__='5.1.1'
 import os, sys, glob, shutil, re, sysconfig, traceback, io, subprocess
 from urllib.parse import quote as urlquote
 platform = sys.platform
@@ -72,8 +72,11 @@ try:
 except:
     showTraceback('warning could not change directory to %r' % pkgDir)
 
-def get_version():
-    #determine Version
+reportlabVersion=None
+minPythonVersion=None
+def getVersions():
+    #determine Versions
+    global reportlabVersion, minPythonVersion
 
     #first try source
     FN = pjoin(pkgDir,'src','reportlab','__init__')
@@ -82,9 +85,14 @@ def get_version():
             if l.startswith('Version'):
                 D = {}
                 exec(l.strip(),D)
-                return D['Version']
+                reportlabVersion = D['Version']
+            if l.startswith('__min_python_version__'):
+                D = {}
+                exec(l.strip(),D)
+                minPythonVersion = D['__min_python_version__']
     except:
         pass
+    if reportlabVersion: return
 
     #don't have source, try import
     import imp
@@ -93,10 +101,12 @@ def get_version():
             fn = FN+desc[0]
             f = open(fn,desc[1])
             m = imp.load_module('reportlab',f,fn,desc)
-            return m.Version
+            reportlabVersion = getattr(m,'Version',None)
+            minPythonVersion = getattr(m,'__min_python_version__',None)
         except:
             pass
-    raise ValueError('Cannot determine ReportLab Version')
+    if not reportlabVersion:
+        raise ValueError('Cannot determine ReportLab Version')
 
 #this code from /FBot's PIL setup.py
 def aDir(P, d, x=None):
@@ -288,9 +298,10 @@ def main():
     get_glyphlist_module(PACKAGE_DIR)
 
     from setuptools import setup
+    getVersions()
     setup(
         name="reportlab",
-        version=get_version(),
+        version=reportlabVersion,
         license="BSD license (see license.txt for details), Copyright (c) 2000-2025, ReportLab Inc.",
         description="The Reportlab Toolkit",
         long_description="""The ReportLab Toolkit. An Open Source Python library for generating PDFs and graphics.""",
@@ -324,12 +335,13 @@ def main():
             'Programming Language :: Python :: 3.12',
             'Programming Language :: Python :: 3.13',
             'Programming Language :: Python :: 3.14',
+            'Programming Language :: Python :: 3.15',
             ],
         
         # this probably only works for setuptools, but distutils seems to ignore it
-        install_requires=['pillow>=9.0.0','charset-normalizer'],
+        install_requires=['pillow>=13.0.0','charset-normalizer'],
         # moved to pyproject.toml
-        python_requires='>=3.9,<4',
+        python_requires='>=%s.%s,<4' % minPythonVersion,
         extras_require={
             'accel': ['rl_accel>=0.9.0,<1.1'],
             'pycairo': ['rlPyCairo>=0.2.0,<1', 'freetype-py>=2.3.0,<2.4'],

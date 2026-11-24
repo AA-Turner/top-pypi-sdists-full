@@ -31,7 +31,7 @@ from typing import Any
 import pytest
 from aiohttp import web
 
-from conftest import FAST_CRAWL_KNOBS, bind_crawl_knobs
+from matrx_scraper.testing_knobs import FAST_CRAWL_KNOBS, bind_crawl_knobs
 from matrx_scraper.crawler import RENDER_HTTP_ONLY, SiteCrawler, SiteCrawlerConfig
 from matrx_scraper.events import (
     CrawlCompletedEvent,

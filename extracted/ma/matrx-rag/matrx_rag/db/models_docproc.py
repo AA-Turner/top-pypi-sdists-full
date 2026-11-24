@@ -113,6 +113,8 @@ class ProcessedDocumentPages(MatrxEntity):
     locator = JSONBField(null=False, default={})
     speaker = TextField()
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "processed_document_pages"

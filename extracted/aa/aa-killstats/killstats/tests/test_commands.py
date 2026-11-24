@@ -186,12 +186,11 @@ class TestKillstatsUpdateSolarSystems(AuthTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        cache.clear()
         cache.set("esi:bucket:killmail", 1200, 900)
 
     def tearDown(self) -> None:
         super().tearDown()
-        cache.clear()
+        cache.delete("esi:bucket:killmail")
 
     def test_update_solar_systems_none_matching(self):
         # Test Data

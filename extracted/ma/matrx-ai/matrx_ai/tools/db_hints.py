@@ -151,6 +151,127 @@ def sqlstate_of(exc: BaseException | None) -> str | None:
     return None
 
 
+#: A statement the database refused because the CALLER's values break a rule: integrity
+#: violations (class 23: check / foreign key / unique / not-null) and data exceptions
+#: (class 22: bad enum label, bad uuid text, out-of-range). The model corrects them on its next
+#: step; they are never a platform fault (2026-11-11: ``legal_entity_person_roles_check``,
+#: ``..._identifier_kind_check`` and ``..._document_type_id_fkey`` filed as system_error).
+CONSTRAINT_REFUSAL_ERROR_TYPE = "constraint_violation"
+_CONSTRAINT_MESSAGE_RE = re.compile(
+    r'violates (check|foreign key|unique|not-null) constraint|null value in column|'
+    r'invalid input (?:value for enum|syntax for type)'
+)
+_CHECK_CONSTRAINT_RE = re.compile(r'violates check constraint "([^"]+)"')
+_QUOTED_LITERAL_RE = re.compile(r"'((?:[^']|'')*)'(?:::[\w\s\[\]]+)?")
+
+
+def is_constraint_refusal(exc: BaseException | None) -> bool:
+    """True when the database refused the caller's own values (SQLSTATE class 22/23, or
+    the exception text says so when the driver wrapper hides the code)."""
+    state = sqlstate_of(exc)
+    if state and state[:2] in ("22", "23"):
+        return True
+    if state:
+        return False
+    for item in exception_chain(exc):
+        if "IntegrityError" in type(item).__name__ or "CheckViolation" in type(item).__name__:
+            return True
+        if _CONSTRAINT_MESSAGE_RE.search(strip_ansi(str(item))):
+            return True
+    return False
+
+
+def check_constraint_name(exc: BaseException | None) -> str | None:
+    """The CHECK constraint a refusal names, or None."""
+    for item in exception_chain(exc):
+        m = _CHECK_CONSTRAINT_RE.search(strip_ansi(str(item)))
+        if m:
+            return m.group(1)
+    return None
+
+
+_SQL_LITERAL = r"'((?:[^']|'')*)'(?:::[\w\s\".\[\]]+?)?"
+
+
+def _pick_list_pattern() -> re.Pattern[str]:
+    """ONE compiled pattern for every column's pick-list CHECK.
+
+    The column is captured (group 1 in the ``IS NULL OR`` arm, 2-4 in the list) and compared
+    afterwards, so nothing is compiled per column: a pattern holding the column name compiled
+    a fresh regex per (column, CHECK) pair, more than ``re``'s cache holds, and froze aidream's
+    catalog rebuild ~1 s (event_loop_stall aidream-api:59bc42dd96262433).
+    """
+
+    def col_ref(n: int) -> str:
+        return rf'\(*(?:"(?P<q{n}>[^"]+)"|(?P<u{n}>\w+))\)*(?:::[\w\s]+)?'
+
+    null_or = rf"(?:\(*{col_ref(1)}\s+IS\s+NULL\)*\s+OR\s+)?"
+    items = rf"{_SQL_LITERAL}(?:\s*,\s*{_SQL_LITERAL})*"
+    any_array = rf"\(*{col_ref(2)}\s*=\s*ANY\s*\(+ARRAY\[(?P<a>{items})\](?:\)::[\w\s]+\[\])?\)+"
+    in_list = rf"\(*{col_ref(3)}\s+IN\s*\((?P<i>{items})\)\)*"
+    # An ARRAY column whose every element comes from the list (``roles <@ ARRAY[...]``).
+    subset = rf"\(*{col_ref(4)}\s*<@\s*\(*ARRAY\[(?P<s>{items})\](?:\)?::[\w\s]+\[\])?\)*"
+    return re.compile(rf"{null_or}(?:{any_array}|{in_list}|{subset})", flags=re.IGNORECASE)
+
+
+_PICK_LIST = _pick_list_pattern()
+_PICK_LITERAL = re.compile(_SQL_LITERAL)
+
+
+def _balanced(text: str) -> bool:
+    depth = 0
+    in_str = False
+    for ch in text:
+        if ch == "'":
+            in_str = not in_str
+        elif not in_str:
+            depth += ch == "("
+            depth -= ch == ")"
+            if depth < 0:
+                return False
+    return depth == 0
+
+
+def allowed_values_from_check(
+    definition: str, *, column: str | None = None, cap: int | None = 40
+) -> list[str]:
+    """The allowed values of a CHECK that is EXACTLY a pick-list on one column, else ``[]``.
+
+    The ONE parser (the sql tool's schema action and refusal note, aidream's data catalog).
+    Accepts what ``pg_get_constraintdef`` prints for ``col = ANY (ARRAY[...])`` (Postgres
+    rewrites ``col IN (...)`` to it), its ``col IS NULL OR …`` form, the varchar
+    ``(col)::text = ANY ((ARRAY[...])::text[])`` form, a literal ``IN (...)``, and an array
+    column's ``col <@ ARRAY[...]``. Anything else — ``NOT``, ``<>``, a regex, a range, a list
+    joined by AND/OR with any further condition, two different columns — is not a pick-list:
+    a literal there is a forbidden or partial value, never the allowed set. ``column`` given:
+    the CHECK must be on that column. ``cap`` bounds the list (``None``: every value)."""
+    body = (definition or "").strip()
+    if not body.upper().startswith("CHECK"):
+        return []
+    body = body[5:].strip()
+    while body.startswith("(") and body.endswith(")") and _balanced(body[1:-1]):
+        body = body[1:-1].strip()
+    m = _PICK_LIST.fullmatch(body)
+    if m is None:
+        return []
+    named = {
+        name.lower()
+        for n in (1, 2, 3, 4)
+        if (name := m.group(f"q{n}") or m.group(f"u{n}")) is not None
+    }
+    if len(named) != 1 or (column is not None and named != {column.lower()}):
+        return []
+    listed = m.group("a") or m.group("i") or m.group("s") or ""
+    seen: list[str] = []
+    for raw in _PICK_LITERAL.findall(listed):
+        value = raw.replace("''", "'")
+        if value not in seen:
+            seen.append(value)
+        if cap is not None and len(seen) >= cap:
+            break
+    return seen
+
+
 def _exc_type_names(exc: BaseException | None) -> set[str]:
     return {type(item).__name__ for item in exception_chain(exc)}
 
@@ -160,6 +281,35 @@ def is_permission_error(exc: BaseException | None) -> bool:
     if sqlstate_of(exc) == SQLSTATE_INSUFFICIENT_PRIVILEGE:
         return True
     return bool(_exc_type_names(exc) & _PERMISSION_EXC_NAMES)
+
+
+#: How Postgres itself words a privilege or row-level-security denial. Any OTHER 42501 text was
+#: written by a guard (a RAISE in a trigger or function) and names the rule and the right door.
+_PRIVILEGE_DENIAL_PREFIXES = (
+    "permission denied", "new row violates row-level security", "must be owner", "must be superuser",
+    "must be member", "must have",
+)
+
+
+def guard_refusal_text(exc: BaseException | None) -> str | None:
+    """The database's own words when a 42501 came from a GUARD (a trigger / function RAISE that
+    names the rule, e.g. "parent_folder_id ... is written ONLY by public.move_file"), else None.
+
+    A guard refusal is the caller's correctable mistake: the generic "your access level doesn't
+    permit ... requires super_admin" sends the model chasing access instead of the named door
+    (system_error a6e69644, 2026-11-13)."""
+    for item in exception_chain(exc):
+        for cand in (item, getattr(item, "original_error", None)):
+            if cand is None or getattr(cand, "sqlstate", None) != SQLSTATE_INSUFFICIENT_PRIVILEGE:
+                continue
+            text = getattr(cand, "message", None)
+            if not isinstance(text, str) or not text.strip():
+                text = str(cand.args[0]) if getattr(cand, "args", None) else ""
+            text = strip_ansi(text).strip()
+            if not text or text.lower().startswith(_PRIVILEGE_DENIAL_PREFIXES):
+                return None
+            return text
+    return None
 
 
 def is_read_only_error(exc: BaseException | None) -> bool:

@@ -24,7 +24,7 @@ from urllib.parse import urlencode, urljoin
 
 from bokeh.server.auth import AuthPolicy
 from bokeh.server.request import Cookie
-from tornado.httputil import HTTPHeaders, HTTPServerRequest
+from tornado.httputil import HTTPHeaders, HTTPServerRequest, RequestStartLine
 from tornado.web import (
     Application as TornadoApplication, HTTPError, RequestHandler,
 )
@@ -177,13 +177,28 @@ class PanelAuthPolicy(AuthPolicy):
     prefix: str
         The URL prefix the server, and therefore the login and logout
         endpoints, are served under.
+    use_xheaders: bool
+        Whether to trust the ``X-Forwarded-Host`` header of a proxy when
+        building the OAuth redirect URI.
     """
+
+    @property
+    def prefix(self) -> str:
+        return self._prefix
+
+    @prefix.setter
+    def prefix(self, prefix: str) -> None:
+        self._prefix = prefix
+        if hasattr(self, 'application'):
+            self.application.prefix = prefix  # type: ignore[attr-defined]
+
 
     def __init__(
         self,
         provider: AuthProvider,
         server_config: dict[str, t.Any] | None = None,
         prefix: str = '',
+        use_xheaders: bool = False,
     ) -> None:
         self.provider = provider
         self.prefix = f'/{prefix.strip("/")}' if prefix.strip('/') else ''
@@ -194,6 +209,8 @@ class PanelAuthPolicy(AuthPolicy):
             xsrf_cookies=False,
         )
         self.application.auth_provider = provider  # type: ignore[attr-defined]
+        self.application.use_xheaders = use_xheaders  # type: ignore[attr-defined]
+        self.application.prefix = self.prefix  # type: ignore[attr-defined]
         if server_config is not None:
             state._server_config[self.application] = server_config
         super().__init__(
@@ -221,14 +238,14 @@ class PanelAuthPolicy(AuthPolicy):
         headers = HTTPHeaders()
         for name, value in request.headers.items():
             headers.add(name, value)
+        headers['Host'] = request.host or '127.0.0.1'
         tornado_request = HTTPServerRequest(
-            method=request.method,
-            uri=request.uri,
+            start_line=RequestStartLine(request.method, request.uri, 'HTTP/1.0'),
             headers=headers,
             body=body,
-            host=request.host or '127.0.0.1',
             connection=t.cast('t.Any', _AuthConnection(request)),
         )
+        tornado_request.root_path = request.root_path  # type: ignore[attr-defined]
         if body:
             tornado_request._parse_body()
         handler = handler_cls(self.application, tornado_request)

@@ -337,6 +337,10 @@ def _read(
         payload = call(arguments)
     if delivery.snapshot is not None:
         state["source_snapshot"] = delivery.snapshot
+    else:
+        # The source cleared it (only the decisions view does, past its first page; with no snapshot in, this
+        # is a no-op): later cursors stop carrying it.
+        state.pop("source_snapshot", None)
     return payload
 
 

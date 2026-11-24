@@ -24,7 +24,6 @@ from pathlib import Path
 
 from matrx_ai.agents.variable_schema import (
     variable_definition_to_parameter,
-    variable_definitions_to_parameters,
 )
 from matrx_ai.tools.agent_projection import (
     AUTO_INPUT_DESCRIPTION,

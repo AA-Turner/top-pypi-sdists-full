@@ -251,3 +251,88 @@ def test_an_ungated_action_never_asks(regs, monkeypatch):
     monkeypatch.setattr(engines_mod, "_GATE", [])
     spec = _code_action(regs, writes=False)
     assert asyncio.run(run_action(spec, {"text": "x"}, app=None, door="tool")) == Out(echoed="x")
+
+
+def _queueing_gate(asked: list[str]):
+    from matrx_graph.actions import ActionQueued
+
+    async def gate(spec, app, data, *, door, authority):
+        asked.append(door)
+        return ActionQueued(action=spec.name, approval_id=f"approval-{len(asked)}", output={"preview": data.text})
+
+    return gate
+
+
+def test_a_queued_call_is_a_result_and_the_engine_never_runs(regs, monkeypatch):
+    """The gate put the call in front of a person: run_action returns ActionQueued (typed,
+    dumped with awaiting_approval + approval_id), and the work function never runs."""
+    from matrx_graph.actions import ActionQueued, dump_result
+
+    ran: list[str] = []
+    spec = _code_action(regs, writes=True)
+    original = spec.work
+
+    async def counting(app, item):
+        ran.append(item.text)
+        return await original(app, item)
+
+    object.__setattr__(spec, "work", counting)
+    asked: list[str] = []
+    monkeypatch.setattr(engines_mod, "_GATE", [_queueing_gate(asked)])
+    out = asyncio.run(run_action(spec, {"text": "x"}, app=None, door="tool"))
+    assert isinstance(out, ActionQueued) and out.approval_id == "approval-1"
+    assert dump_result(spec, out) == {"preview": "x", "awaiting_approval": True, "approval_id": "approval-1"}
+    assert ran == [] and asked == ["tool"]
+
+
+def test_the_step_door_succeeds_with_a_queued_call(regs, monkeypatch):
+    """A step whose call was queued SUCCEEDS (never a failure envelope) carrying the queued answer."""
+    from matrx_graph.actions import ActionQueued
+    from matrx_graph.actions.decorator import _step_result
+
+    spec = _code_action(regs, writes=True)
+    monkeypatch.setattr(engines_mod, "_GATE", [_queueing_gate([])])
+    result = asyncio.run(_step_result(spec, None, In(text="s"), None))
+    assert result.status == "success", result
+    assert isinstance(result.result, ActionQueued)
+    assert result.result.output == {"preview": "s"}
+
+
+def test_a_retried_queued_call_replays_the_one_approval_item(regs, monkeypatch):
+    """The gate runs inside the ledger claim: a retry of the same door key returns the FIRST
+    ActionQueued from the stored receipt (store_result → restore_result) and queues nothing new."""
+    from matrx_graph.actions import ActionQueued, restore_result, store_result
+
+    spec = _code_action(regs, writes=True)
+    asked: list[str] = []
+    monkeypatch.setattr(engines_mod, "_GATE", [_queueing_gate(asked)])
+    stored: dict[str, Any] = {}
+
+    async def ledger(spec, app, data, *, door, idempotency_key, run):
+        if idempotency_key in stored:
+            return restore_result(spec, stored[idempotency_key])
+        out = await run()
+        stored[idempotency_key] = store_result(spec, out)
+        return out
+
+    monkeypatch.setattr(engines_mod, "_LEDGER", [ledger])
+
+    async def scenario():
+        first = await run_action(spec, {"text": "x"}, app=None, idempotency_key="k", door="tool")
+        again = await run_action(spec, {"text": "x"}, app=None, idempotency_key="k", door="tool")
+        return first, again, last_run_replayed()
+
+    first, again, replayed = asyncio.run(scenario())
+    assert isinstance(again, ActionQueued) and again == first and replayed
+    assert asked == ["tool"]
+
+
+def test_a_gate_returning_anything_but_actionqueued_is_a_loud_defect(regs, monkeypatch):
+    spec = _code_action(regs, writes=True)
+
+    async def bad_gate(spec, app, data, *, door, authority):
+        return {"approval_id": "x"}
+
+    monkeypatch.setattr(engines_mod, "_GATE", [bad_gate])
+    with pytest.raises(TypeError, match="ActionQueued"):
+        asyncio.run(run_action(spec, {"text": "x"}, app=None, door="tool"))

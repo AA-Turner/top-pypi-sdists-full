@@ -5,15 +5,17 @@ running, which finished and whether their reports reached it, which failed and w
 person (Arman, 2026-10-28). The host knows its helpers; this package only places the block, rebuilt
 on every loop send, never persisted, in BOTH per-send channels under the same slot name:
 
-- the per-turn context channel (``MessageList.attach_turn_context``), which a translator renders only
-  on a send whose newest message is NOT a tool result (the 2026-10-18 once-per-person-turn ruling);
-- the tail channel (``MessageList.attach_tail_context``), which a translator renders only on a send
-  whose newest message IS a tool result, after the conversation's last block.
+- the per-turn context channel (``MessageList.attach_turn_context``), placed before her words on the
+  turn's FIRST send and frozen there for the rest of the turn (``send_boundary._turn_block``), so a
+  helper that starts, stops or ages never rewrites her turn behind the cache line (PB-08, 2026-11-09);
+- the tail channel (``MessageList.attach_tail_context``), which a translator renders after the
+  conversation's last block on every send whose newest message is a tool result or a server-written
+  turn (a notice, a woken turn's note): the LIVE roster, after the cache line.
 
-Each channel renders in exactly the case the other does not, so the block reaches every send once.
-The turn-context slot alone left it off every send right after a tool call — the send that follows
-starting or stopping a helper (HL-PB-02 run 1, 2026-10-30: lead requests 49ad2f97 and 869bee96).
-A send with no helpers clears both slots.
+So the turn-start copy and the live copy can differ; the roster text says a later copy replaces an
+earlier one. The turn-context policy alone left it off every send right after a tool call — the send
+that follows starting or stopping a helper (HL-PB-02 run 1, 2026-10-30: lead requests 49ad2f97 and
+869bee96). A send with no helpers clears both slots.
 
 The host installs ONE async source at boot (``set_helper_roster_source``) that returns the block
 text for a conversation, or None. No source → no block (standalone posture).
@@ -24,7 +26,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-#: The turn-context slot the roster rides in.
+#: The turn-context policy the roster rides in.
 HELPER_ROSTER_SLOT = "helpers"
 
 #: ``async (conversation_id, organization_id) -> str | None``.

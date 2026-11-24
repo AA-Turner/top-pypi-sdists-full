@@ -151,7 +151,9 @@ async def test_the_residual_names_reach_rename_file_and_are_refused(name: str) -
             seed = await conn.fetchrow(
                 "SELECT user_id::text AS owner, organization_id::text AS org "
                 "FROM public.app_instances WHERE deleted_at IS NULL "
-                "AND organization_id IS NOT NULL LIMIT 1"
+                "AND organization_id IS NOT NULL "
+                # An archived organization's rows are hidden by the restrictive org gate.
+                "AND organization_id NOT IN (SELECT iam.archived_org_ids()) LIMIT 1"
             )
             if seed is None:
                 pytest.skip("no seed identity available")

@@ -173,6 +173,10 @@ class FileSearchResults(KindModel):
     #: Whether this searched file CONTENTS or file NAMES — which of
     #: ``FileSearchMatch.matches`` / ``.size`` is populated depends on it.
     content_search: bool | None = None
+    #: The search stopped before it finished (it ran out of its dispatch room); ``results`` are what was
+    #: found so far and ``stopped_reason`` says why in plain words.
+    truncated: bool | None = None
+    stopped_reason: str | None = None
 
 
 @kind(

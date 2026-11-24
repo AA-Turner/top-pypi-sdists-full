@@ -17,7 +17,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_do
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n%chalk/server/v1/catalog_routing.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto"\x1f\n\x1dGetCatalogRoutingTableRequest"]\n\x1eGetCatalogRoutingTableResponse\x12;\n\x1amodel_endpoint_config_json\x18\x01 \x01(\tR\x17modelEndpointConfigJson2\x97\x01\n\x15\x43\x61talogRoutingService\x12~\n\x16GetCatalogRoutingTable\x12..chalk.server.v1.GetCatalogRoutingTableRequest\x1a/.chalk.server.v1.GetCatalogRoutingTableResponse"\x03\x80}\x0b\x42\x9c\x01\n\x13\x63om.chalk.server.v1B\x13\x43\x61talogRoutingProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n%chalk/server/v1/catalog_routing.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto"Q\n\x1dGetCatalogRoutingTableRequest\x12\x30\n\x14\x66unction_version_ids\x18\x01 \x03(\tR\x12\x66unctionVersionIds"]\n\x1eGetCatalogRoutingTableResponse\x12;\n\x1amodel_endpoint_config_json\x18\x01 \x01(\tR\x17modelEndpointConfigJson2\x97\x01\n\x15\x43\x61talogRoutingService\x12~\n\x16GetCatalogRoutingTable\x12..chalk.server.v1.GetCatalogRoutingTableRequest\x1a/.chalk.server.v1.GetCatalogRoutingTableResponse"\x03\x80}\x0b\x42\x9c\x01\n\x13\x63om.chalk.server.v1B\x13\x43\x61talogRoutingProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -31,9 +31,9 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CATALOGROUTINGSERVICE"].methods_by_name["GetCatalogRoutingTable"]._options = None
     _globals["_CATALOGROUTINGSERVICE"].methods_by_name["GetCatalogRoutingTable"]._serialized_options = b"\200}\013"
     _globals["_GETCATALOGROUTINGTABLEREQUEST"]._serialized_start = 91
-    _globals["_GETCATALOGROUTINGTABLEREQUEST"]._serialized_end = 122
-    _globals["_GETCATALOGROUTINGTABLERESPONSE"]._serialized_start = 124
-    _globals["_GETCATALOGROUTINGTABLERESPONSE"]._serialized_end = 217
-    _globals["_CATALOGROUTINGSERVICE"]._serialized_start = 220
-    _globals["_CATALOGROUTINGSERVICE"]._serialized_end = 371
+    _globals["_GETCATALOGROUTINGTABLEREQUEST"]._serialized_end = 172
+    _globals["_GETCATALOGROUTINGTABLERESPONSE"]._serialized_start = 174
+    _globals["_GETCATALOGROUTINGTABLERESPONSE"]._serialized_end = 267
+    _globals["_CATALOGROUTINGSERVICE"]._serialized_start = 270
+    _globals["_CATALOGROUTINGSERVICE"]._serialized_end = 421
 # @@protoc_insertion_point(module_scope)

@@ -1071,9 +1071,11 @@ def register_generated_tools(mcp, _get_client):
 
         Disconnects and removes a connected account, and fires account.disconnected with disconnectionType intentional.
 
-        The account is kept for a 1h grace window. Reconnecting the same account within it restores it with the same accountId and its scheduled posts. After that it is deleted permanently.
+        The account is kept for a 1h grace window, 7 days for a WhatsApp Business app number that Meta had already disconnected (after a phone move, for example). After that it is deleted permanently and its remaining scheduled posts are cancelled.
 
-        Repeating the call for an account already disconnected returns 404, the account stays in its 1h grace window and the disconnect is not re-run.
+        Reconnecting the same account within the grace window restores it with the same accountId and its scheduled posts. Posts that came due in the meantime then publish late, if their scheduled time is less than 7 days past.
+
+        Repeating the call for an account already disconnected returns 404, the account stays in its grace window and the disconnect is not re-run.
 
         Args:
             account_id: (required)"""
@@ -1127,6 +1129,7 @@ def register_generated_tools(mcp, _get_client):
             "applovinads",
             "snapchatads",
             "taboolaads",
+            "outbrainads",
             "klaviyo",
             "attentive",
             "impact",
@@ -1152,6 +1155,8 @@ def register_generated_tools(mcp, _get_client):
         """Check accounts health
 
         Returns health status of all connected accounts including token validity, permissions, and issues needing attention. A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least warning.
+
+        An X account whose analytics is off has `analyticsOff` with the reason. It never changes `status`: `analyticsSync` then keeps the date of the last read.
 
         An account the platform has restricted or banned (for example a WhatsApp number Meta reports as BANNED) is `error`, with the platform's reason in `issues`. `needsReconnect` stays false, since reconnecting does not lift it.
 
@@ -1183,6 +1188,8 @@ def register_generated_tools(mcp, _get_client):
 
         A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least `warning`.
 
+        An X account whose analytics is off has `analyticsOff` with the reason. It never changes `status`: `analyticsSync` then keeps the date of the last read.
+
         An account the platform has restricted or banned is `error`, with the platform's reason in `issues` and a recommendation that says reconnecting does not lift it.
 
         ### Facebook, Instagram and Threads
@@ -1191,11 +1198,7 @@ def register_generated_tools(mcp, _get_client):
 
         The exception: if an analytics sync succeeded with that token in the last six hours, the token stays `valid` and `issues` reports the probe as inconclusive, since Meta answers a transient 190 to live tokens now and then.
 
-        Neither verdict disconnects the account. That happens only when a real operation fails, and `account.disconnected` is sent.
-
-        ### WhatsApp
-
-        The response also includes `platformConnection`, a ...
+        Neither verdict disconnects the ...
 
         Args:
             account_id: The account ID to check (required)"""
@@ -1301,7 +1304,7 @@ def register_generated_tools(mcp, _get_client):
             title="List trending commercial music",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def accounts_list_tik_tok_commercial_music(
@@ -2003,9 +2006,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Batch get reviews",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def accounts_batch_get_google_business_reviews(
@@ -5880,7 +5883,7 @@ def register_generated_tools(mcp, _get_client):
 
             Responds `429` when Google's API quota is ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin, snapchat
 
             Args:
                 account_id: Account ID (required)
@@ -6176,6 +6179,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "xads",
             "redditads",
+            "snapchatads",
         ]
         | None = None,
         type: Literal[
@@ -6199,7 +6203,7 @@ def register_generated_tools(mcp, _get_client):
         On Reddit, `size` is the lower bound of Reddit's matched-users range, and `status` is `too_small`
         while the list has matched fewer than 1,000 people.
 
-        Platforms (the platform parameter takes): facebook, instagram, googleads, tiktok, tiktokads, pinterest, linkedin, linkedinads, twitter, xads, redditads
+        Platforms (the platform parameter takes): facebook, instagram, googleads, tiktok, tiktokads, pinterest, linkedin, linkedinads, twitter, xads, redditads, snapchatads
 
         Args:
             account_id: Account ID (required)
@@ -6248,7 +6252,7 @@ def register_generated_tools(mcp, _get_client):
         - Meta: `pixelId` required, `retentionDays` 1-180, optional `urlContains` or raw `rule`. `event` is not accepted.
         - TikTok: `pixelId` required, `retentionDays` one of 7, 14, 30, 60, 90, 180. `event` is a TikTok pixel event (see below), optional ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, snapchat
 
         Args:
             body: Full request body as documented in the API reference. (required)"""
@@ -6274,7 +6278,7 @@ def register_generated_tools(mcp, _get_client):
 
         Returns the local audience record and fresh data from Meta (if available).
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, snapchat
 
         Args:
             audience_id: The Zernio audience id (the id field of GET /v1/ads/audiences), not the platform segment id. (required)"""
@@ -6358,7 +6362,7 @@ def register_generated_tools(mcp, _get_client):
 
         If the platform refuses, the error is returned and the Zernio record is kept, so a retry is safe. An audience the platform no longer has counts as removed.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, snapchat
 
         Args:
             audience_id: (required)"""
@@ -6397,7 +6401,7 @@ def register_generated_tools(mcp, _get_client):
         | Meta | every key |
         | Google | `email`, `phone`, and the address (`firstName`, `lastName`, `country`, `zip`) when all four are present with ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, snapchat
 
         Args:
             audience_id: The Zernio audience id (the id field of GET /v1/ads/audiences), not the platform segment id. (required)
@@ -6424,16 +6428,17 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove users from audience
 
-        Removes people from a Meta, Reddit or LinkedIn customer list audience. Same body as
+        Removes people from a customer list audience on Meta, Google Ads, TikTok, LinkedIn, Pinterest, X or Reddit. Same body as
         `POST /v1/ads/audiences/{audienceId}/users`: plaintext keys are normalized and SHA-256 hashed
         exactly like an upload and hashed keys are sent as is, so a row removes the person it added.
 
-        - Meta, Reddit and LinkedIn customer_list audiences only. Every other platform returns 422 with code `feature_not_available`, and every other audience type returns 422.
+        - customer_list audiences only. Every other audience type returns 422, and a network without audiences returns 422 with code `feature_not_available`.
         - Max 10,000 users per request. The platform applies the removal asynchronously, so the audience size does not drop immediately.
-        - LinkedIn removes them from the list Zernio keeps and uploads what is left about a minute later.
-        - On Reddit `invalidEntrySamples` is always empty.
+        - TikTok, LinkedIn, Pinterest and X match on email only: a row without an email counts in `invalid`, and a request with no email at all returns 400. Google matches on email, phone and name with address, like the upload.
+        - TikTok refuses a removal that would leave the audience under 1,000 people.
+        - LinkedIn removes them right away. On a list created before 2026-11-24, Zernio removes them from the list it ...
 
-        Platforms: meta, reddit, linkedin
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, snapchat
 
         Args:
             audience_id: The Zernio audience id (the id field of GET /v1/ads/audiences), not the platform segment id. (required)
@@ -6916,6 +6921,7 @@ def register_generated_tools(mcp, _get_client):
             "microsoft",
             "amazon",
             "tradedesk",
+            "snapchat",
         ]
         | None = None,
         account_id: str | None = None,
@@ -6953,7 +6959,7 @@ def register_generated_tools(mcp, _get_client):
 
             1. Filter by platformAdId (the Meta ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk, snapchat
 
             Args:
                 page: Page number (1-based)
@@ -7611,6 +7617,7 @@ def register_generated_tools(mcp, _get_client):
             "microsoft",
             "amazon",
             "tradedesk",
+            "snapchat",
         ]
         | None = None,
         status: Literal[
@@ -7651,7 +7658,7 @@ def register_generated_tools(mcp, _get_client):
 
             Zernio's own status writes re-read the switches they change. A change made in the ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk, snapchat
 
             Args:
                 include_empty: Meta only. Set true to also list campaigns with ZERO ads, with `adCount: 0` and zeroed metrics.
@@ -7737,6 +7744,7 @@ def register_generated_tools(mcp, _get_client):
             "page_likes",
             "page_visits",
         ],
+        stage: bool | None = None,
         is_skadnetwork_attribution: bool | None = None,
         promoted_object: dict[str, Any] | None = None,
         buying_type: Literal["AUCTION", "RESERVED"] | None = None,
@@ -7787,21 +7795,18 @@ def register_generated_tools(mcp, _get_client):
 
             **Idempotency:** send an `Idempotency-Key` header to make retries safe.
 
+            **Staging:** send `stage: true` to store the create as an ad change instead of sending it. The response is `202`, and POST /v1/ads/changes/{changeId}/confirm creates the campaign later. Meta and Google only. The network is not called at staging and checks the campaign at confirm.
+
             ### Field support
 
             - `specialAdCategories`: Meta-only (400 elsewhere).
             - `bidStrategy`: Meta and Google (400 elsewhere). Google also accepts `portfolioBidStrategyId` instead.
-            - Budget: Google, X and OpenAI require one (422 without one). OpenAI accepts daily or lifetime, Google only `budgetType: daily`.
+            - Budget: Google, X and OpenAI require one (422 without one). OpenAI accepts daily or lifetime, Google only `budgetType: ...
 
-            ### Platform notes
-
-            - Meta: a budget here is campaign-level (CBO) by definition. Omit it for ABO (each ad set carries its own budget).
-            - OpenAI: `goal` sets the campaign objective, and `conversions` needs an active standard conversion event on the account.
-            - Reddit: see below. ...
-
-            Platforms: meta, google, linkedin, tiktok, x, pinterest, openai, reddit, amazon, tradedesk, applovin
+            Platforms: meta, google, linkedin, tiktok, x, pinterest, openai, reddit, amazon, tradedesk, applovin, snapchat
 
             Args:
+                stage: Send true to stage this create instead of sending it. Nothing is created on the ad network; the response is `202` with the staged change. Create it with POST /v1/ads/changes/{changeId}/confirm. Meta and Google only; cannot be combined with `validateOnly`.
                 account_id: Zernio SocialAccount id (posting or ads variant); its platform decides where the campaign is created. (required)
                 ad_account_id: Platform ad account id (Meta act_<n>, Google customer id, LinkedIn account id, ...). (required)
                 name: (required)
@@ -7848,6 +7853,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_campaigns.create_ad_campaign(
+                stage=stage,
                 account_id=account_id,
                 ad_account_id=ad_account_id,
                 name=name,
@@ -7903,7 +7909,9 @@ def register_generated_tools(mcp, _get_client):
             "microsoft",
             "amazon",
             "tradedesk",
+            "snapchat",
         ],
+        stage: bool | None = None,
     ) -> str:
         """Pause or resume a campaign
 
@@ -7926,16 +7934,17 @@ def register_generated_tools(mcp, _get_client):
 
         - ...
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk, snapchat
 
         Args:
             campaign_id: Platform campaign ID (required)
             status: (required)
-            platform: (required)"""
+            platform: (required)
+            stage: Send true to stage this change instead of applying it. Nothing is written to the ad network; the response is `202` with the staged change and its diff. Apply it with POST /v1/ads/changes/{changeId}/confirm. Meta and Google only; cannot be combined with `validateOnly` or `dryRun`."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_campaign_status(
-                campaign_id=campaign_id, status=status, platform=platform
+                campaign_id=campaign_id, status=status, platform=platform, stage=stage
             )
             return _format_response(response)
         except Exception as e:
@@ -8167,7 +8176,9 @@ def register_generated_tools(mcp, _get_client):
             "microsoft",
             "amazon",
             "tradedesk",
+            "snapchat",
         ],
+        stage: bool | None = None,
         account_id: str | None = None,
         bid_strategy: Literal[
             "LOWEST_COST_WITHOUT_CAP",
@@ -8208,10 +8219,11 @@ def register_generated_tools(mcp, _get_client):
             | `sharedBudgetId` | 400 | Yes | 400 |
             | `budget` (CBO; ABO returns 409) | Yes | Daily only | OpenAI and Reddit: daily or lifetime; Amazon: daily, or the lifetime type a Sponsored Brands campaign was ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk, snapchat
 
             Args:
                 campaign_id: Platform campaign ID (required)
+                stage: Send true to stage this change instead of applying it. Nothing is written to the ad network; the response is `202` with the staged change and its diff. Apply it with POST /v1/ads/changes/{changeId}/confirm. Meta and Google only; cannot be combined with `validateOnly` or `dryRun`.
                 platform: Required: platform campaign IDs are not globally unique. (required)
                 account_id: **Meta only.** Zernio SocialAccount id owning the ad account. Needed only for an EMPTY campaign (zero ads); ignored otherwise.
                 bid_strategy: **Meta, Google and AppLovin.**
@@ -8239,6 +8251,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_campaigns.update_ad_campaign(
                 campaign_id=campaign_id,
+                stage=stage,
                 platform=platform,
                 account_id=account_id,
                 bid_strategy=bid_strategy,
@@ -8283,6 +8296,7 @@ def register_generated_tools(mcp, _get_client):
             "microsoft",
             "amazon",
             "tradedesk",
+            "snapchat",
         ],
         account_id: str | None = None,
         ad_account_id: str | None = None,
@@ -8307,7 +8321,7 @@ def register_generated_tools(mcp, _get_client):
 
         To delete such a shell, send `accountId` in the body or the query string. We skip the local lookup entirely and forward the delete to the platform of that connection. `accountId` is ...
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk, snapchat
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -8519,11 +8533,11 @@ def register_generated_tools(mcp, _get_client):
 
         `updated` / `skipped` count campaigns.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin, snapchat
 
         Args:
             status: (required)
-            campaigns: Each item is an object with keys: platformCampaignId (string, required) - The campaign id on the ad platform (e.g. the numeric Google campaign id), not a Zernio id.; platform (one of: facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, googleads, tiktokads, linkedinads, pinterestads, xads, openaiads, redditads, microsoftads; required) - The ad platform, e.g. `google` for Google Ads. The ads connection slug (`googleads`, `tiktokads`, ...) is accepted as an alias. `metaads` is not: send ... (required)"""
+            campaigns: Each item is an object with keys: platformCampaignId (string, required) - The campaign id on the ad platform (e.g. the numeric Google campaign id), not a Zernio id.; platform (one of: facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, googleads, tiktokads, linkedinads, pinterestads, xads, openaiads, redditads, microsoftads, snapchat, snapchatads; required) - The ad platform, e.g. `google` for Google Ads. The ads connection slug (`googleads`, `tiktokads`, ...) is accepted as an alias. `metaads` is not: send ... (required)"""
         client = _get_client()
         try:
             response = client.ad_campaigns.bulk_update_ad_campaign_status(
@@ -8730,6 +8744,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "snapchat",
         ]
         | None = None,
         status: Literal[
@@ -8765,7 +8780,7 @@ def register_generated_tools(mcp, _get_client):
 
             So ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, snapchat
 
             Args:
                 account_id: Account ID
@@ -8827,9 +8842,11 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "snapchat",
         ],
         campaign_id: str,
         name: str,
+        stage: bool | None = None,
         status: Literal["ACTIVE", "PAUSED"] = "PAUSED",
         max_cpc: float | None = None,
         ad_account_id: str | None = None,
@@ -8860,11 +8877,12 @@ def register_generated_tools(mcp, _get_client):
         - `targeting` sets a Demand Gen ad group's locations and languages (`countries`, `regions`, `cities`, `zips`, `metros`, `languages`), created atomically with the ad group. Without it the ad group serves worldwide.
         - `targeting` returns 400 for any other targeting field, and on campaigns that keep geo on the campaign: Search, Display, and Demand Gen campaigns migrated from ...
 
-        Platforms: google, reddit
+        Platforms: google, reddit, snapchat
 
         Args:
+            stage: Send true to stage this create instead of sending it. Nothing is created on the ad network; the response is `202` with the staged change. Create it with POST /v1/ads/changes/{changeId}/confirm. Google only: `platform: reddit` or `snapchat` returns 400 `staging_not_supported`.
             account_id: Zernio SocialAccount id owning the Google Ads or Reddit Ads connection. (required)
-            platform: "google" and "reddit" are implemented; every other value returns 501. (required)
+            platform: "google", "reddit" and "snapchat" are implemented; every other value returns 501. (required)
             campaign_id: Platform campaign ID the ad group is created under (numeric on Google). (required)
             name: (required)
             status
@@ -8883,6 +8901,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_campaigns.create_ad_set(
+                stage=stage,
                 account_id=account_id,
                 platform=platform,
                 campaign_id=campaign_id,
@@ -8941,8 +8960,7 @@ def register_generated_tools(mcp, _get_client):
             - So an ad set with any number of ads copies: Meta refuses a single deep copy of 3 or more objects.
             - `statusOption` applies to the ad set and every ad.
             - If an ad copy fails, the partial ad set copy is deleted and the request fails with Meta's error.
-            - A sync discovery starts automatically and runs after the response (`syncAfter: false` to skip). The copy is readable through Zernio once it finishes, usually within a few minutes. Until then, calls that take a copied id return 404, so retry them.
-            - ...
+            - The copy keeps the source's placements. Meta refuses a source whose `instagram_positions` include `explore_home` without `explore`, and its copy takes no placements. That is a 400 with nothing copied: edit the source's `targeting.placements` with PUT ...
 
             Platforms (the platform parameter takes): facebook, instagram, tiktok
 
@@ -9116,7 +9134,9 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "snapchat",
         ],
+        stage: bool | None = None,
         budget: dict[str, Any] | None = None,
         status: Literal["active", "paused"] | None = None,
         name: str | None = None,
@@ -9164,10 +9184,11 @@ def register_generated_tools(mcp, _get_client):
             - Sending `valueRulesApplied: false` TOGETHER with `valueRuleSetId` returns 400 `mutually_exclusive_fields`.
             - Eligibility: only ad sets on ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, snapchat
 
             Args:
                 ad_set_id: Platform ad set ID (required)
+                stage: Send true to stage this change instead of applying it. Nothing is written to the ad network; the response is `202` with the staged change and its diff. Apply it with POST /v1/ads/changes/{changeId}/confirm. Meta and Google only; cannot be combined with `validateOnly` or `dryRun`.
                 platform: (required)
                 budget: Omit if not updating budget Object with keys: amount (number); type (one of: daily, lifetime)
                 status: Writes the ad set's own on/off switch (Meta: `configured_status`; X: the line item's `entity_status` ACTIVE / PAUSED), whatever delivery status its ads report. Omit if not toggling delivery state.
@@ -9245,6 +9266,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_campaigns.update_ad_set(
                 ad_set_id=ad_set_id,
+                stage=stage,
                 platform=platform,
                 budget=budget,
                 status=status,
@@ -9290,7 +9312,7 @@ def register_generated_tools(mcp, _get_client):
         soft-flags the line item. Google removes the ad group. All remain readable
         for reporting.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, amazon, tradedesk
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, amazon, tradedesk, snapchat
 
         Args:
             ad_set_id: Platform ad set ID (required)"""
@@ -9310,7 +9332,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_campaigns_get_ad_set_targeting(
-        ad_set_id: str, platform: Literal["reddit", "amazon"] | None = None
+        ad_set_id: str, platform: Literal["reddit", "amazon", "snapchat"] | None = None
     ) -> str:
         """Read an ad group's targeting and schedule
 
@@ -9329,7 +9351,7 @@ def register_generated_tools(mcp, _get_client):
 
         On Amazon it reads the ad group's live targets and negative targets in Amazon's own expression shape: `targeting` is `{ product, targets, negativeTargets }`, each target with `targetId`, `state`, `expressionType`, ...
 
-        Platforms: reddit, amazon
+        Platforms: reddit, amazon, snapchat
 
         Args:
             ad_set_id: Reddit ad group ID (required)
@@ -9367,7 +9389,9 @@ def register_generated_tools(mcp, _get_client):
             "microsoft",
             "amazon",
             "tradedesk",
+            "snapchat",
         ],
+        stage: bool | None = None,
     ) -> str:
         """Pause or resume a single ad set
 
@@ -9398,16 +9422,17 @@ def register_generated_tools(mcp, _get_client):
 
         - When that live read ...
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk, snapchat
 
         Args:
             ad_set_id: Platform ad set ID (required)
             status: (required)
-            platform: (required)"""
+            platform: (required)
+            stage: Send true to stage this change instead of applying it. Nothing is written to the ad network; the response is `202` with the staged change and its diff. Apply it with POST /v1/ads/changes/{changeId}/confirm. Meta and Google only; cannot be combined with `validateOnly` or `dryRun`."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_set_status(
-                ad_set_id=ad_set_id, status=status, platform=platform
+                ad_set_id=ad_set_id, status=status, platform=platform, stage=stage
             )
             return _format_response(response)
         except Exception as e:
@@ -9438,6 +9463,7 @@ def register_generated_tools(mcp, _get_client):
             "microsoft",
             "amazon",
             "tradedesk",
+            "snapchat",
         ]
         | None = None,
         status: Literal[
@@ -9498,7 +9524,7 @@ def register_generated_tools(mcp, _get_client):
 
             The older days (up to 730 days back) are imported in the background; repeat the request until it returns 200. A request scoped to no Meta ...
 
-            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, tradedesk, snapchat
 
             Args:
                 page: Page number (1-based)
@@ -9609,6 +9635,7 @@ def register_generated_tools(mcp, _get_client):
             "microsoft",
             "amazon",
             "applovin",
+            "snapchat",
         ]
         | None = None,
         sort_by: Literal[
@@ -9626,7 +9653,7 @@ def register_generated_tools(mcp, _get_client):
 
         A Meta range older than the imported history answers `202` with `backfillPending: true` and the covered part; repeat the request until it returns 200.
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, applovin
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, applovin, snapchat
 
         Args:
             account_id: Account ID. Sibling-expanded to its linked posting and ads pair. An id the API key cannot reach answers 404. (required)
@@ -9676,8 +9703,10 @@ def register_generated_tools(mcp, _get_client):
             "reddit",
             "microsoft",
             "amazon",
+            "snapchat",
         ]
         | None = None,
+        breakdown: Literal["adAccount"] | None = None,
         compare: Literal["previous"] | None = None,
     ) -> str:
         """Get daily account metrics
@@ -9695,7 +9724,7 @@ def register_generated_tools(mcp, _get_client):
         - Date range defaults to the last 90 days. Capped at 730 days.
         - With adAccountId set to a Google customer id ...
 
-        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, amazon, snapchat
 
         Args:
             account_id: Account ID. Sibling-expanded to its linked posting↔ads pair. An id that does not exist or sits on a profile the API key cannot reach answers 404 (code: account_not_found). (required)
@@ -9703,6 +9732,7 @@ def register_generated_tools(mcp, _get_client):
             from_date: Inclusive start of metrics range (YYYY-MM-DD). Defaults to 90 days ago.
             to_date: Inclusive end of metrics range (YYYY-MM-DD). Defaults to today. Max 730-day range.
             platform: Restrict to one platform.
+            breakdown: Set to `adAccount` to keep one row per day and platform ad account, each carrying its `adAccountId`, instead of one row per day and currency. Two connections that reach the same ad account both return it: add their timelines per `adAccountId` to count it once.
             compare: Set to `previous` to also return `previousRows` for the period of the same length that ends the day before `fromDate`, with that period as `previousRange`. Needs a `fromDate` (sent or defaulted); `toDate` alone answers 400."""
         client = _get_client()
         try:
@@ -9712,6 +9742,7 @@ def register_generated_tools(mcp, _get_client):
                 from_date=from_date,
                 to_date=to_date,
                 platform=platform,
+                breakdown=breakdown,
                 compare=compare,
             )
             return _format_response(response)
@@ -9748,7 +9779,7 @@ def register_generated_tools(mcp, _get_client):
             - the creative's `effective_object_story_id` (`{pageId}_{postId}` shape, Facebook side)
             - the creative's `effective_instagram_media_id` ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin, snapchat
 
             Args:
                 ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. See description for details.
@@ -9796,6 +9827,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_campaigns_update_ad(
         ad_id: str,
+        stage: bool | None = None,
         headlines: list[dict[str, Any]] | None = None,
         descriptions: list[dict[str, Any]] | None = None,
         final_urls: list[str] | None = None,
@@ -9830,10 +9862,11 @@ def register_generated_tools(mcp, _get_client):
 
         - KEYWORD ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin, snapchat
 
         Args:
             ad_id: (required)
+            stage: Send true to stage this change instead of applying it. Nothing is written to the ad network; the response is `202` with the staged change and its diff. Apply it with POST /v1/ads/changes/{changeId}/confirm. Meta and Google only; cannot be combined with `validateOnly` or `dryRun`.
             headlines: Google Search and Display only. Replaces the complete headline list. Search takes 3-15, Display 1-5 and rejects pinnedField; the count is checked once the ad's channel is known. No padding or truncation on update. Each item is an object with keys: text (string, required); pinnedField (one of: HEADLINE_1, HEADLINE_2, HEADLINE_3) - Optional fixed headline position. Omit to leave the asset unpinned.
             descriptions: Google Search and Display only. Replaces the complete description list. Search takes 2-4, Display 1-5 and rejects pinnedField. No padding or truncation on update. Each item is an object with keys: text (string, required); pinnedField (one of: DESCRIPTION_1, DESCRIPTION_2) - Optional fixed description position. Omit to leave the asset unpinned.
             final_urls: Google Search and Display only. Replaces final URLs. Omitted lists stay unchanged. For Performance Max use assetGroup.finalUrl.
@@ -9844,12 +9877,13 @@ def register_generated_tools(mcp, _get_client):
             status
             budget: Object with keys: amount (number) - Minimum varies by platform: TikTok=$20, Pinterest=$5, others=$1; type (one of: daily, lifetime) - OpenAI Ads accepts both and sets the campaign's single spend cap, replacing the previous daily or lifetime cap. A daily cap cannot go back to lifetime (422).
             targeting: Targeting update. - Meta + TikTok: demographics/interests. - Google: keyword and device bid adjustment edits only. - LinkedIn: locations, B2B facets, audiences. - Pinterest / X: return 501. **Partial update** on Meta, TikTok and LinkedIn: every targeting setting you do not send is preserved. - Meta: Advantage+ audience, placements, custom audiences, exclusions, interests, languages. - TikTok: languages, interest keywords, devices, behaviours. - LinkedIn: skills, member traits, interface locales, and any facet set in Campaign Manager. A field you send replaces its platform counterpart, and an empty or null value (for example `audienceInclude: []`, `industries: []` or `gender: "all"`) clears only that field. Any location field (countries, regions, cities, zips, ...) replaces the whole included location set; an update with no location keeps the current locations. Object with keys: keywords (list of any) - Google only. The FULL desired set of positive keywords for the entire ad group. Omit to leave positives unchanged; [] removes all positives. Negatives are ...; negativeKeywords (list of any) - Google only. The FULL desired set of negative keywords for the entire ad group, independent of positives. - Omit to leave negatives unchanged; [] removes all ...; devices (list of any) - Google only. The FULL new set of device bid modifiers for the campaign. Entries are a device name alone (targeted, bid modifier reset to 1) or { device, ...; ageMin (integer); ageMax (integer); countries (list of string) - ISO 3166-1 alpha-2 codes. On Google this is the FULL new country set for the campaign (same contract as `locations`); on LinkedIn it replaces the campaign's ...; locations (any) - Google and LinkedIn. The FULL new location set for the campaign. Bare country-code array, or an object with countries/regions/cities/zips/metros key lists ...; languages (list of string) - Google only. The FULL new language set for the campaign, as Google language codes (ISO 639-1, plus variants such as `zh_CN`). An unknown code returns 400.; interests (list of objects with keys id, name) - Interest objects from /v1/ads/interests. Each must include id and name.; advantage_audience (one of: 0, 1) - Meta only. Omit to preserve the existing setting on update. 0 = disabled, 1 = enabled.
-            creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn. **Meta**: patch-style. - Pass any subset: omitted fields are preserved from the live creative, including media (`image_hash`/`video_id` reused, no re-upload) and `url_tags`. Sending the full set (`headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`) rebuilds the creative from scratch. - On lead ads, the instant form is kept through every edit, and `linkUrl` is ignored: Meta requires a lead ad's links to stay on its instant-form link. An edit that changes only `linkUrl` leaves the ad's creative as it is. - Partial patching reads the live `object_story_spec`, which Meta strips on SHARE / page-post / dark post creatives; those return 422 asking for the full set. A `videoUrl`/`videoId` on an image creative is a type change and also needs the full set. - Creatives with an `asset_feed_spec` (several text options, placement or language rules) take text, link, tracking and enhancement edits in place. The new creative is built from the live asset feed with the edited text, and every video, image, label and rule is kept. - On those, `body`, `headline` and `description` replace the one option of that kind. When the feed has several, send `bodies`, `headlines` or `descriptions` with one text per option, in order. `linkUrl` replaces the feed's only destination link. - Image, video and call-to-action changes on asset_feed creatives apply to the story spec (Multiple Text Options creatives). They return 422 when the feed itself holds the images, videos or call-to-action options. - The live creative's deprecated `standard_enhancements` setting (Meta subcode 3858504) is never sent back; every other enhancement setting is kept. - `existingCreativeId` repoints the ad at a creative from GET /v1/ads/creatives and ignores every other field. - `leadGenFormId` moves a lead ad to another instant form. `caption` sets the display link of a link ad. - In a dynamic creative ad set (`is_dynamic_creative`), only asset feed creatives run: a full rebuild, or `existingCreativeId` pointing at a creative without an asset feed, returns 422. Text edits update the feed. - Meta creatives are immutable: any change creates a new creative and repoints the ad. The old creative stays on the ad account for historical reporting. - `creativeFeatures` is Meta-only. Omitted settings are preserved from the live creative, including on full rebuilds; a supplied creativeFeatures map overrides individual existing keys. - A `creative` object with no recognised field (`promotion` alone does not count) is a 400 `missing_required_field` when it is the only update, and is ignored (no creative rebuild) next to another updatable field. **TikTok**: patch-style. Pass any subset. - `headline` is ignored (no headline slot). - `body` becomes the in-feed `ad_text`; `linkUrl` becomes `landing_page_url`; `videoUrl` triggers a fresh upload. - `description`, `videoId` and `existingCreativeId` are Meta-only and return 400. **LinkedIn**: requires new media (image via `imageUrl` or video via `videoUrl`); a text-only update returns 400. - Uploads the media, creates a new inline media creative on the same campaign, and removes the old creative. `platformAdId` and `creative.creativeId` move to the new one. - The new creative keeps the old one's state. A `DRAFT` or `PAUSED` creative is re-created `DRAFT`, because LinkedIn refuses `PAUSED` before review is `APPROVED`. - If the old creative cannot be removed, the new one is deleted and the LinkedIn error is returned. - `videoId` and `existingCreativeId` are Meta-only and return 400. Object with keys: promotion (object) - Not supported. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Any object is rejected with 400 invalid_field_value. Meta ...; creativeFeatures (object); catalogFormat (one of: single_image, carousel_images_multi_items, carousel_images_single_item, carousel_slideshows) - Meta catalog template ads only. Rebuilds the creative with this `template_data.format_option` (same mapping as on create) and repoints the ad at the new ...; headline (string) - Meta and LinkedIn (TikTok has no headline slot); longHeadline (string) - Google Display only. Replaces the responsive display ad's long headline.; businessName (string) - Google Display only. Replaces the responsive display ad's business name.; squareImageUrl (string) - Google Display only. Uploaded as a new square (1:1) marketing image asset that replaces the current one.; body (string) - Primary text. On a Meta asset_feed creative it replaces the feed's only body option and the story text (422 when it has several: send `bodies`). Sent with ...; bodies (list of string) - Meta only. The primary text options of an asset_feed creative, one text per option in the order GET /v1/ads/{adId} returns them. Each replaces the option in ...; headlines (list of string) - Meta only. Same as `bodies`, for the headline options (Meta `asset_feed_spec.titles`). Add `headline` to set the story's fallback title. Not the top-level ...; description (string) - Link description slot (Meta `link_data.description` / `video_data.link_description`, LinkedIn creative description).; descriptions (list of string) - Meta only. Same as `bodies`, for the description options. Add `description` to set the story's fallback description. Not the top-level Google `descriptions`.; callToAction (string); linkUrl (string); imageUrl (string); videoUrl (string); videoId (string) - Meta only. Reuse an already-uploaded ad video (from POST /v1/ads/videos or GET /v1/ads/videos) instead of re-uploading via videoUrl.; existingCreativeId (string) - Meta only. Repoint the ad at an existing library creative (from GET /v1/ads/creatives); all other creative fields are ignored.; leadGenFormId (string) - Meta only. Moves a lead ad to another instant form (from GET /v1/ads/lead-forms), keeping the rest of the creative. Returns 422 on an ad that does not open an ...; caption (string) - Meta only. The display link shown on link (image) ads, Meta link_data.caption. Returns 422 on video creatives and on asset feeds without a link.
+            creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn. **Meta**: patch-style. - Pass any subset: omitted fields are preserved from the live creative, including media (`image_hash`/`video_id` reused, no re-upload) and `url_tags`. Sending the full set (`headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`) rebuilds the creative from scratch. - On lead ads, the instant form is kept through every edit, and `linkUrl` is ignored: Meta requires a lead ad's links to stay on its instant-form link. An edit that changes only `linkUrl` leaves the ad's creative as it is. - Partial patching reads the live `object_story_spec`, which Meta strips on SHARE / page-post / dark post creatives; those return 422 asking for the full set. A `videoUrl`/`videoId` on an image creative is a type change and also needs the full set. - Creatives with an `asset_feed_spec` (several text options, placement or language rules) take text, link, tracking and enhancement edits in place. The new creative is built from the live asset feed with the edited text, and every video, image, label and rule is kept. - On those, `body`, `headline` and `description` replace the one option of that kind. When the feed has several, send `bodies`, `headlines` or `descriptions` with one text per option, in order. `linkUrl` replaces the feed's only destination link. - Image, video and call-to-action changes on asset_feed creatives apply to the story spec (Multiple Text Options creatives). They return 422 when the feed itself holds the images, videos or call-to-action options. - The live creative's deprecated `standard_enhancements` setting (Meta subcode 3858504) is never sent back; every other enhancement setting is kept. - `existingCreativeId` repoints the ad at a creative from GET /v1/ads/creatives and ignores every other field. - `leadGenFormId` moves a lead ad to another instant form. `caption` sets the display link of a link ad. - In a dynamic creative ad set (`is_dynamic_creative`), only asset feed creatives run: a full rebuild, or `existingCreativeId` pointing at a creative without an asset feed, returns 422. Text edits update the feed. - Meta creatives are immutable: any change creates a new creative and repoints the ad. The old creative stays on the ad account for historical reporting. - `creativeFeatures` is Meta-only. Omitted settings are preserved from the live creative, including on full rebuilds; a supplied creativeFeatures map overrides individual existing keys. - A `creative` object with no recognised field (`promotion` alone does not count) is a 400 `missing_required_field` when it is the only update, and is ignored (no creative rebuild) next to another updatable field. **TikTok**: patch-style. Pass any subset. - `headline` is ignored (no headline slot). - `body` becomes the in-feed `ad_text`; `linkUrl` becomes `landing_page_url`; `videoUrl` triggers a fresh upload. - `description`, `videoId` and `existingCreativeId` are Meta-only and return 400. **LinkedIn**: requires new media (image via `imageUrl` or video via `videoUrl`); a text-only update returns 400. - Uploads the media, creates a new inline media creative on the same campaign, and removes the old creative. `platformAdId` and `creative.creativeId` move to the new one. - The new creative keeps the old one's state. A `DRAFT` or `PAUSED` creative is re-created `DRAFT`, because LinkedIn refuses `PAUSED` before review is `APPROVED`. - If the old creative cannot be removed, the new one is deleted and the LinkedIn error is returned. - `videoId` and `existingCreativeId` are Meta-only and return 400. Object with keys: promotion (object) - Not supported. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Any object is rejected with 400 invalid_field_value. Meta ...; creativeFeatures (object); catalogFormat (one of: single_image, carousel_images_multi_items, carousel_images_single_item, carousel_slideshows) - Meta catalog template ads only. Rebuilds the creative with this `template_data.format_option` (same mapping as on create) and repoints the ad at the new ...; headline (string) - Meta and LinkedIn (TikTok has no headline slot); longHeadline (string) - Google Display only. Replaces the responsive display ad's long headline.; businessName (string) - Google Display only. Replaces the responsive display ad's business name.; squareImageUrl (string) - Google Display only. Uploaded as a new square (1:1) marketing image asset that replaces the current one.; body (string) - Primary text. On a Meta asset_feed creative it replaces the feed's only body option and the story text (422 when it has several: send `bodies`). Sent with ...; bodies (list of string) - Meta only. The primary text options of an asset_feed creative, one text per option in the order GET /v1/ads/{adId} returns them. Each replaces the option in ...; headlines (list of string) - Meta only. Same as `bodies`, for the headline options (Meta `asset_feed_spec.titles`). Add `headline` to set the story's fallback title. Not the top-level ...; description (string) - Link description slot (Meta `link_data.description` / `video_data.link_description`, LinkedIn creative description).; descriptions (list of string) - Meta only. Same as `bodies`, for the description options. Add `description` to set the story's fallback description. Not the top-level Google `descriptions`.; callToAction (string); linkUrl (string); imageUrl (string); videoUrl (string); videoId (string) - Meta only. Reuse an already-uploaded ad video (from POST /v1/ads/videos or GET /v1/ads/videos) instead of re-uploading via videoUrl.; existingCreativeId (string) - Meta only. Repoint the ad at an existing library creative (from GET /v1/ads/creatives); all other creative fields are ignored.; leadGenFormId (string) - Meta only. Moves a lead ad to another instant form (from GET /v1/ads/lead-forms), keeping the rest of the creative. Returns 422 on an ad that does not open an ...; caption (string) - Meta only. The display link shown on link (image) ads, Meta link_data.caption. Returns 422 on video creatives and on asset feeds without a link.; callToActionLink (string) - Meta only. The map location the `GET_DIRECTIONS` button opens, while the ad link stays as it is. Send it with `callToAction: GET_DIRECTIONS`. - 400 with any ...
             name: Rename the ad. Now propagated to Meta (POST /{ad-id}); non-Meta platforms return 501."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad(
                 ad_id=ad_id,
+                stage=stage,
                 headlines=headlines,
                 descriptions=descriptions,
                 final_urls=final_urls,
@@ -9898,7 +9932,7 @@ def register_generated_tools(mcp, _get_client):
 
         When the ad set and campaign were ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, tradedesk, applovin, snapchat
 
         Args:
             ad_id: (required)"""
@@ -9918,7 +9952,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_campaigns_update_ad_status(
-        ad_id: str, status: Literal["active", "paused"]
+        ad_id: str, status: Literal["active", "paused"], stage: bool | None = None
     ) -> str:
         """Pause or resume a single ad
 
@@ -9948,14 +9982,17 @@ def register_generated_tools(mcp, _get_client):
 
         After the write the switch is read back from ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin, snapchat
 
         Args:
             ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. (required)
-            status: (required)"""
+            status: (required)
+            stage: Send true to stage this change instead of applying it. Nothing is written to the ad network; the response is `202` with the staged change and its diff. Apply it with POST /v1/ads/changes/{changeId}/confirm. Meta and Google only; cannot be combined with `validateOnly` or `dryRun`."""
         client = _get_client()
         try:
-            response = client.ad_campaigns.update_ad_status(ad_id=ad_id, status=status)
+            response = client.ad_campaigns.update_ad_status(
+                ad_id=ad_id, status=status, stage=stage
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -10919,6 +10956,10 @@ def register_generated_tools(mcp, _get_client):
         and `INSTAGRAM_MESSAGE`. VIEW_INSTAGRAM_PROFILE requires linkUrl;
         the messaging CTAs select their destination automatically.
 
+        **Meta** `GET_DIRECTIONS` is a 400: Meta opens that button on a map location,
+        and a boost's only button link is `linkUrl`, a website. Create the ad
+        with POST /v1/ads/create and `callToActionLink` instead.
+
         **TikTok**: pass-through to `call_to_action` on the Spark Ad creative; the
         platform validates the value. See TikTok's "Enumeration - Call-to-Action".
                 spark_auth_code: TikTok-only. Spark Code (the creator's `auth_code`) authorizing cross-creator Spark Ads: the advertiser can boost a video owned by a DIFFERENT TikTok account. Maps to `auth_code` on the creative entry of /v2/ad/create/.
@@ -11413,6 +11454,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_create_standalone_ad(
         account_id: str,
         ad_account_id: str,
+        stage: bool | None = None,
         name: str | None = None,
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
@@ -11596,6 +11638,7 @@ def register_generated_tools(mcp, _get_client):
         ]
         | None = None,
         link_url: str | None = None,
+        call_to_action_link: str | None = None,
         lead_gen_form_id: str | None = None,
         image_url: str | None = None,
         images: dict[str, Any] | None = None,
@@ -11727,7 +11770,7 @@ def register_generated_tools(mcp, _get_client):
 
             Creates a paid ad with your own creative, building the campaign and ad set it needs or adding it to existing ones.
 
-            Works across Meta, Google Ads, Pinterest, TikTok, X, LinkedIn, OpenAI Ads (ChatGPT Ads), Reddit Ads, Microsoft Ads and Amazon Ads (Sponsored Products, Sponsored Brands and Sponsored Display, see `AmazonAdsPlatformData`). Per-platform required fields, budget minimums, and video-ad rules are documented on each property below.
+            Works across Meta, Google Ads, Pinterest, TikTok, X, LinkedIn, OpenAI Ads (ChatGPT Ads), Reddit Ads, Microsoft Ads, Snapchat Ads and Amazon Ads (Sponsored Products, Sponsored Brands and Sponsored Display, see `AmazonAdsPlatformData`). Per-platform required fields, budget minimums, and video-ad rules are documented on each property below.
 
             ### Request shapes
 
@@ -11737,13 +11780,14 @@ def register_generated_tools(mcp, _get_client):
             - Meta-only multi-creative shape via the creatives array: one ad set with N ads sharing budget and targeting.
             - Attach shape via adSetId: adds one new ad to an existing ad set, inheriting its budget, targeting, and schedule (Meta, Google Ads, TikTok, and LinkedIn).
 
-            On LinkedIn, adSetId in the attach shape is the existing Campaign id, and the budget, schedule, targeting and bidding fields must be omitted. `goal` ...
+            On LinkedIn, adSetId in the attach shape is the existing Campaign id, and the budget, schedule, targeting and bidding fields must be ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft, amazon, applovin
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft, amazon, applovin, snapchat
 
             Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
 
             Args:
+                stage: Send true to stage this create instead of sending it. Nothing is created on the ad network; the response is `202` with the staged change. Create it with POST /v1/ads/changes/{changeId}/confirm. Meta and Google only; not with `validateOnly` or a presigned media URL.
                 account_id: (required)
                 ad_account_id: (required)
                 name: Omitted, the ad is named `Ad <YYYY-MM-DD HH:MM:SS>` (UTC) and the response reports it in `appliedDefaults.name`.
@@ -11973,6 +12017,12 @@ def register_generated_tools(mcp, _get_client):
         - **LinkedIn:** required for `traffic` ads, optional for `engagement` / `awareness`. `imageUrl` + `linkUrl` publishes an ARTICLE-content creative (LinkedIn's article ad format), with the image as thumbnail and `longHeadline` as description.
         - **OpenAI Ads:** required (the chat card's target_url).
         - **Reddit:** required on image and video ads (the post's destination and the ad's click URL), the fallback for carousel cards without their own, and refused with 400 on text ads.
+        - **TikTok:** not required with goal `engagement` or `app_promotion`. With `smartPlus: true` and `adSetId`, required unless that ad group's campaign promotes an app.
+                call_to_action_link: Meta only. The map location a `GET_DIRECTIONS` button opens, while `linkUrl` stays the ad's website link.
+
+        - Single image ads, with or without `bodies` / `headlines`, also on the adSetId attach shape and with `validateOnly`. Required on a `GET_DIRECTIONS` image ad (400 without it).
+        - 400 with any other `callToAction`, with `video`, `carouselCards`, `creatives[]`, `dynamicCreative`, `placementAssets`, `translations`, catalog ads, `leadGenFormId`, goal `page_likes` or `existingCreativeId`, and on other networks.
+        - Stored on the ad and returned as `creative.callToActionLink`.
                 lead_gen_form_id: Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms.
 
         - Meta (facebook/instagram): the leadgen_forms ID. The ad set's promoted_object.page_id, LEAD_GENERATION optimization and destination_type ON_AD are derived automatically from the goal.
@@ -12008,7 +12058,7 @@ def register_generated_tools(mcp, _get_client):
 
         **Platforms.** Supported on Meta (facebook, instagram), Google Ads, TikTok, LinkedIn and Reddit Ads.
 
-        - TikTok: `adSetId` is the ad group ID; the new ad inherits the ad group's bid, budget and targeting.
+        - TikTok: `adSetId` is the ad group ID; the new ad inherits the ad group's bid, budget and targeting. For an ad group of an Upgraded Smart+ campaign, also send `smartPlus: true` (see `smartPlus`).
         - LinkedIn: `adSetId` is the LinkedIn Campaign ID (numeric). We attach a new Creative to that Campaign, so its `platformSpecificData` bidding, targeting, budget and schedule are inherited (passing those fields returns 400).
         - Reddit Ads: `adSetId` is the AD GROUP id. Only the post and the ad are created; the ad group keeps its budget, schedule, targeting, bid and optimization. `goal` is not required. An ad group of another ad account returns 404.
         - Reddit Ads, rejected with 400: `budgetAmount`, `budgetType`, `startDate`, `endDate`, targeting fields, `promotedObject`, `tracking.pixelId` and `optimizationGoal`.
@@ -12271,7 +12321,11 @@ def register_generated_tools(mcp, _get_client):
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
                 brand_identity: TikTok only; non-TikTok platforms ignore this field. Synthetic Brand Identity used when the ad attributes to a CUSTOMIZED_USER (instead of a real TT_USER @username). Required on the FIRST CUSTOMIZED_USER ad on a `tiktokads` SocialAccount with no cached identity. Omit it on later ads: the identity is cached on the account after first creation. Alternative: configure once via `PATCH /v1/connect/tiktok-ads`, then create ads without this field. Object with keys: displayName (string, required) - Brand name shown above the ad on TikTok.; imageUrl (string, required) - Public URL of a square brand image (≥98×98 px, JPG/PNG). Used as the brand avatar on the ad.
-                identity_id: TikTok: the identity the ad runs as, from GET /v1/ads/tiktok-identities. Overrides the connected account's own identity; must be authorized on the advertiser.
+                identity_id: The profile the ad runs as.
+
+        - TikTok: the identity from GET /v1/ads/tiktok-identities. Overrides the connected account's own identity; must be authorized on the advertiser.
+        - Snapchat: the Public Profile ID (a UUID), required on most organizations. Without it the create answers 422 on identityId and uploads nothing.
+        - To find a Snapchat Public Profile ID: in Snapchat Business Manager, open Public Profiles, select the profile and copy its ID.
                 identity_type: TikTok only. Forces the identity attribution on the ad:
 
           - `TT_USER`: the posting account's open_id (real @username
@@ -12298,14 +12352,22 @@ def register_generated_tools(mcp, _get_client):
 
         Targeting works like on any TikTok ad (defaults to `countries: ["US"]` when omitted), and TikTok automates delivery within it.
 
-        The budget lives on the Smart+ campaign (Campaign Budget Optimization). A `lifetime` budget without `endDate` ends 7 days after it starts. Smart+ needs `goal` sent; it is never inferred. Cannot be combined with `adSetId`.
+        The budget lives on the Smart+ campaign (Campaign Budget Optimization). A `lifetime` budget without `endDate` ends 7 days after it starts. Smart+ needs `goal` sent; it is never inferred.
+
+        **Adding a creative to an existing Smart+ ad group.** With `adSetId` (an ad group of an Upgraded Smart+ campaign), the uploaded video (`imageUrl`) and `body` become one more Smart+ ad in that ad group, under `identityType` / `identityId`.
+
+        - The campaign keeps its goal, budget and bid, so `goal`, `promotedObject` and the budget fields are not needed. Targeting stays the ad group's (`smartTargeting` returns 400).
+        - `linkUrl` is required unless the campaign is `app_promotion`, where the app is the destination and `linkUrl` is not used. Ad groups that use a TikTok Instant Form are not supported.
+        - An ad group outside a Smart+ campaign returns 400 on `adSetId`.
+        - `status: PAUSED` leaves the new ad paused. `validateOnly` is not supported with `adSetId`.
                 user_os: Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.
                 user_device: Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.
                 is_skadnetwork_attribution: Meta app promotion only. Immutable campaign flag. Set true for iOS 14+ SKAdNetwork campaigns and supply promotedObject.applicationId plus promotedObject.objectStoreUrl. The campaign receives promotedObject only when this flag is true. Cannot be changed on an existing campaign.
-                campaign_attribution: Meta ad-set attribution. Required as SKADNETWORK for iOS 14+ app promotion or a SKAdNetwork campaign. Requires AUCTION buying. Standalone Meta ad-set creation is not supported; use this field on /v1/ads/create.
+                campaign_attribution: Meta ad-set attribution. SKADNETWORK for a SKAdNetwork campaign, AEM for an iOS 14+ AEM campaign without isSkadnetworkAttribution. With existingCampaignId, omit it to follow the campaign; a value that conflicts with the campaign is rejected. Requires AUCTION buying. Use this field on /v1/ads/create.
                 promoted_object: Object with keys: pixelId (string) - Pixel ID. - **Meta:** Facebook Pixel ID, required for `goal: conversions`. Requires `customEventType` alongside it: Meta rejects any promoted_object carrying ...; customEventType (string) - The event the campaign/ad group optimises against. **Meta:** a standard event like `PURCHASE`, `LEAD`, `COMPLETE_REGISTRATION`, `ADD_TO_CART`. Uppercased ...; customEventStr (string) - Meta only. Pixel custom-event name to optimise against (Meta's `custom_event_str`), exactly as it appears in Events Manager and your CAPI payloads ...; pageId (string) - Facebook Page ID. Used by `goal: lead_generation`. Auto-filled from the connected Page when omitted.; applicationId (string) - App ID. Required for `goal: app_promotion`.; objectStoreUrl (string) - App Store / Play Store listing URL. Required for `goal: app_promotion`.; customConversionId (string) - Custom Conversion ID, when optimising against one instead of a standard event. Accepted alone by this API, without `pixelId` or `customEventType`. If ...; productCatalogId (string) - Optional catalog ID. If supplied with productSetId, the set must belong to this catalog (checked by Zernio when the Meta login carries catalog_management, by ...; productSetId (string) - Meta product SET ID, for example from GET /v1/ads/catalogs/{catalogId}/product-sets. Creating catalog ads needs only ads_management on the Meta login, not ...; offlineConversionDataSetId (string) - Meta only. Offline event set (dataset) to optimise toward. Post-merger these are datasets: the id is the dataset id (for pixel-backed datasets, the pixel id).; whatsappPhoneNumber (string) - Meta only. WhatsApp number on messaging-destination ad sets."""
         client = _get_client()
         same_arguments: dict[str, Any] = {
+            "stage": stage,
             "account_id": account_id,
             "ad_account_id": ad_account_id,
             "name": name,
@@ -12345,6 +12407,7 @@ def register_generated_tools(mcp, _get_client):
             "descriptions": descriptions,
             "call_to_action": call_to_action,
             "link_url": link_url,
+            "call_to_action_link": call_to_action_link,
             "lead_gen_form_id": lead_gen_form_id,
             "image_url": image_url,
             "images": images,
@@ -12432,6 +12495,7 @@ def register_generated_tools(mcp, _get_client):
         }
         try:
             response = client.ad_campaigns.create_standalone_ad(
+                stage=stage,
                 account_id=account_id,
                 ad_account_id=ad_account_id,
                 name=name,
@@ -12471,6 +12535,7 @@ def register_generated_tools(mcp, _get_client):
                 descriptions=descriptions,
                 call_to_action=call_to_action,
                 link_url=link_url,
+                call_to_action_link=call_to_action_link,
                 lead_gen_form_id=lead_gen_form_id,
                 image_url=image_url,
                 images=images,
@@ -12641,14 +12706,133 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
 
+    # AD_CHANGES
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List staged ad changes",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_changes_list_ad_changes(limit: int = 50, cursor: str | None = None) -> str:
+        """List staged ad changes
+
+        Lists the ad changes waiting to be confirmed or discarded, newest first. A confirmed or failed change is not listed; read it by id.
+
+        Each item is a summary without the diff. Read one change to get its before/after values.
+
+        Platforms: meta, google
+
+        Args:
+            limit: How many changes to return.
+            cursor: The `nextCursor` of the previous page, unchanged."""
+        client = _get_client()
+        try:
+            response = client.ad_changes.list_ad_changes(limit=limit, cursor=cursor)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a staged ad change",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_changes_get_ad_change(change_id: str) -> str:
+        """Get a staged ad change
+
+        Returns one ad change with its before/after diff. A change is created by sending a supported ad write with `stage: true`.
+
+        A staged change does not expire. A confirmed or failed change stays readable for 7 days.
+
+        Platforms: meta, google
+
+        Args:
+            change_id: The id of the staged change. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_changes.get_ad_change(change_id=change_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Discard a staged ad change",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_changes_discard_ad_change(change_id: str) -> str:
+        """Discard a staged ad change
+
+        Deletes a change that is still staged. Nothing was written to the ad network, so there is nothing to undo.
+
+        A change that was already confirmed or has failed cannot be discarded.
+
+        Platforms: meta, google
+
+        Args:
+            change_id: The id of the staged change. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_changes.discard_ad_change(change_id=change_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Confirm a staged ad change",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_changes_confirm_ad_change(change_id: str) -> str:
+        """Confirm a staged ad change
+
+        Applies a staged change and returns what the direct write returns: the response body of the route the change was staged on.
+
+        The caller needs the same access to the object as for the direct write, and the checks of that write run here, including the live ads allowance.
+
+        ### Changed since staging
+
+        Before writing, the object is read from the ad network again and compared with what it held when the change was staged.
+
+        If it changed in between, nothing is written, the change ends as `failed` and the answer is `409` `change_target_changed` with the current values in `details.current`. Stage the change again from those values.
+
+        ### Retrying
+
+        A change is applied at most once. Confirming a change that is already `confirmed` returns its stored result again. A change that failed answers `409` `change_not_staged`: stage a new one.
+
+        A refusal before anything is written leaves the change `staged`, so the confirm can be sent again: `403` `ads_allowance_exceeded`, or on a one-field change a `429` ...
+
+        Platforms: meta, google
+
+        Args:
+            change_id: The id of the staged change. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_changes.confirm_ad_change(change_id=change_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
     # AD_CREATIVES
 
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Render pre-create ad previews",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def ad_creatives_generate_ad_previews(
@@ -12662,8 +12846,9 @@ def register_generated_tools(mcp, _get_client):
 
         Shows how a Meta creative will look in each placement before you create the ad, as embeddable previews.
 
-        Renders how a creative would look per placement BEFORE any ad exists, via Meta's
-        `/generatepreviews`. Provide exactly one creative source: `existingCreativeId` or `creativeSpec`.
+        Renders how a creative would look per placement BEFORE any ad exists. Provide exactly one
+        creative source: `creativeSpec` renders via Meta's `/generatepreviews`, `existingCreativeId`
+        via Meta's `/{creative_id}/previews`.
         Each preview is an HTML `<iframe>` snippet embeddable directly. Unknown `formats` values
         return Meta's 400 verbatim.
 
@@ -12891,6 +13076,7 @@ def register_generated_tools(mcp, _get_client):
         link_url: str,
         description: str | None = None,
         call_to_action: str = "LEARN_MORE",
+        call_to_action_link: str | None = None,
         image_url: str | None = None,
         image_hash: str | None = None,
         carousel_cards: list[dict[str, Any]] | None = None,
@@ -12932,6 +13118,7 @@ def register_generated_tools(mcp, _get_client):
                 description: Link description below the headline; omitted = Meta scrapes the destination's OG description.
                 call_to_action: CTA type (same whitelist as POST /v1/ads/create).
                 link_url: (required)
+                call_to_action_link: The map location a `GET_DIRECTIONS` button opens, while `linkUrl` stays the creative's website link. Requires `callToAction: GET_DIRECTIONS` and an image creative (`imageUrl` or `imageHash`), 400 otherwise; a `GET_DIRECTIONS` image creative without it is a 400 too.
                 image_url: Publicly reachable image; uploaded to the account's library server-side.
                 image_hash: Existing library image hash (POST /v1/ads/images or GET /v1/ads/images).
                 carousel_cards: Each item is an object with keys: imageUrl (string, required); linkUrl (string, required); headline (string); description (string); callToAction (string)
@@ -12967,6 +13154,7 @@ def register_generated_tools(mcp, _get_client):
                 description=description,
                 call_to_action=call_to_action,
                 link_url=link_url,
+                call_to_action_link=call_to_action_link,
                 image_url=image_url,
                 image_hash=image_hash,
                 carousel_cards=carousel_cards,
@@ -13678,7 +13866,7 @@ def register_generated_tools(mcp, _get_client):
 
             Breakdowns and Google's impression ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin, snapchat
 
             Args:
                 campaign_id: Platform campaign id (platformCampaignId). (required)
@@ -13713,9 +13901,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Generate keyword ideas",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def ad_insights_generate_keyword_ideas(
@@ -13778,9 +13966,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Get historical keyword metrics",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def ad_insights_generate_keyword_historical_metrics(
@@ -14099,7 +14287,7 @@ def register_generated_tools(mcp, _get_client):
 
             The newer way to read this is `GET ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft, amazon, applovin, snapchat
 
             Args:
                 ad_id: (required)
@@ -14206,7 +14394,7 @@ def register_generated_tools(mcp, _get_client):
             title="Search the public Ad Library",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def ad_library_search_ad_library(
@@ -14690,9 +14878,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Preview an ad rule",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def ad_rules_preview_ad_rule(rule_id: str) -> str:
@@ -14818,7 +15006,7 @@ def register_generated_tools(mcp, _get_client):
             title="Search targeting interests",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def ad_targeting_search_ad_interests(q: str, account_id: str) -> str:
@@ -14848,7 +15036,7 @@ def register_generated_tools(mcp, _get_client):
             title="Search targeting options",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def ad_targeting_search_ad_targeting(
@@ -14908,7 +15096,7 @@ def register_generated_tools(mcp, _get_client):
             - `behavior`: Meta, TikTok and LinkedIn, matched by name; ids feed `TargetingSpec.behaviors` (details below)
             - `interestKeyword`: TikTok only. The \"Additional interests\" of TikTok Ads Manager (e.g. `folk` returns `Folk Music`), from TikTok's keyword recommendations for the seed `q` ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, reddit, snapchat
 
             Args:
                 account_id: Account ID (a connected account on the target ad platform). (required)
@@ -15004,9 +15192,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Estimate audience reach",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def ad_targeting_estimate_ad_reach(
@@ -15029,7 +15217,7 @@ def register_generated_tools(mcp, _get_client):
             return `available: false` with no bounds, so clients can hide or grey out the
             estimate rather than treat the absence as an error.
 
-            Platforms: meta, linkedin, pinterest, x
+            Platforms: meta, linkedin, pinterest, x, snapchat
 
             Args:
                 account_id: Zernio account ID on the target ad platform (the estimate runs against its platform). (required)
@@ -15065,9 +15253,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Suggested bid and budget bounds",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def ad_targeting_get_linked_in_bid_pricing(
@@ -15128,9 +15316,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Forecast ad delivery",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def ad_targeting_get_linked_in_supply_forecast(
@@ -16511,9 +16699,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Run a Google Analytics (GA4) report",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def analytics_run_google_analytics_report(
@@ -16575,9 +16763,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Run a Google Analytics (GA4) realtime report",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def analytics_run_google_analytics_realtime_report(
@@ -16649,9 +16837,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Query Google Search Console search analytics",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def analytics_query_google_search_console_search_analytics(
@@ -16758,9 +16946,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Inspect a URL in Google Search Console",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def analytics_inspect_google_search_console_url(
@@ -17731,10 +17919,139 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Preview an unsaved automation",
+            title="List an automation's runs",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_list_automation_runs(
+        automation_id: str,
+        status: Literal["live", "paused", "completed", "exited", "failed"]
+        | None = None,
+        since: str | None = None,
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> str:
+        """List an automation's runs
+
+        Every run of any kind of automation, newest first, in one shape. Flows read both their run stores, comment to DM reads its engine runs and its older trigger logs, and ad rules, event and scheduled automations list their checks that acted or tried to (`/checks` lists every check).
+
+        Args:
+            automation_id: (required)
+            status
+            since: Only runs started at or after this time.
+            limit
+            cursor: `nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.automations.list_automation_runs(
+                automation_id=automation_id,
+                status=status,
+                since=since,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get one run of an automation",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_automation_run(automation_id: str, run_id: str) -> str:
+        """Get one run of an automation
+
+        The run with each step it took, where its store keeps them: a flow run's nodes, a comment to DM log's DM and public reply, an ad rule, event or scheduled check's actions.
+
+        Args:
+            automation_id: (required)
+            run_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.get_automation_run(
+                automation_id=automation_id, run_id=run_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Test an automation on a sample event",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
+        )
+    )
+    def automations_test_automation(
+        automation_id: str,
+        event: dict[str, Any] | None = None,
+        subject_id: str | None = None,
+    ) -> str:
+        """Test an automation on a sample event
+
+        Runs one sample through the automation's own decision code and says whether it would run, what it matched and the steps it would take. Nothing is claimed, sent or written, whatever the automation does.
+
+        What each kind reads:
+
+        - Comment to DM: a comment (`event.text`, `event.platformPostId`).
+        - Flow: an inbound event (`event.trigger`, `event.text`, `event.firstMessage`).
+        - Event automation: the event's webhook payload, or the sample payload when `event` is left out.
+        - Ad rule: the ad account as it is now, like a preview. `subjectId` narrows to one object.
+        - Scheduled automation: the posts it would check now, and its next check. `subjectId` narrows to one post.
+        - Sequence: the contact in `subjectId`.
+
+        A paused or draft automation is tested as if it were live, and answers `wouldRun: false` with its status as `reason`. Cooldowns, daily caps and a conversation's live run read history and are left out. `GET /v1/automations/{automationId}/test/sample` returns a body to start from.
+
+        Args:
+            automation_id: (required)
+            event: The sample event, shaped by the automation's kind.
+            subject_id: A sequence's contact, a scheduled automation's post or an ad rule's object."""
+        client = _get_client()
+        try:
+            response = client.automations.test_automation(
+                automation_id=automation_id, event=event, subject_id=subject_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a sample test body for an automation",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_automation_test_sample(automation_id: str) -> str:
+        """Get a sample test body for an automation
+
+        A body `POST /v1/automations/{automationId}/test` accepts for this automation: a comment with its first keyword, an inbound event its flow's trigger takes, its event's webhook payload with sample values, or the contact a sequence enrolled last. Kinds that read live data instead take no event.
+
+        Args:
+            automation_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.get_automation_test_sample(
+                automation_id=automation_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Preview an unsaved automation",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def automations_preview_automation_draft(
@@ -17941,9 +18258,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Preview a saved automation",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def automations_preview_automation(automation_id: str, limit: int = 100) -> str:
@@ -22887,8 +23204,17 @@ def register_generated_tools(mcp, _get_client):
                 post_id: Zernio post ID or platform-specific post ID. On LinkedIn, pass the post id exactly as the feed returns it (urn:li:share:<id> or urn:li:ugcPost:<id>); a bare number is read as an activity id (urn:li:activity:<n>). (required)
                 account_id: (required)
                 message: Reply text. On LinkedIn, mention with @[https://www.linkedin.com/in/vanity] (resolved to LinkedIn's live name, same rules and errors as post content) or @[Name](urn:li:person|organization:ID); a hand-written name must match LinkedIn's exactly or it renders as plain text. (required)
-                attachment_url: (Facebook, Bluesky and LinkedIn) URL of an image to attach to the comment or reply. The URL must be publicly fetchable. Returns 400 for other platforms.
-                attachment_type: (Facebook only) How Facebook publishes `attachmentUrl`: `image` (default) as a photo comment, `gif` as an animated GIF comment. A GIF sent as `image` is stored as a still photo. Requires `attachmentUrl`. Returns 400 on other platforms.
+                attachment_url: (Facebook, Bluesky, LinkedIn, Threads and X) URL of an image to attach to the comment or reply. The URL must be publicly fetchable. Returns 400 for other platforms.
+                attachment_type: (Facebook, Threads and X, optional) How `attachmentUrl` is published. Requires `attachmentUrl`; returns 400 on other platforms.
+
+        - Omitted: a GIF is detected and posted animated. Detection uses GIPHY links (page, media, embed, sticker; `gph.is` on Threads and X), `.gif` paths, and an `image/gif` response on Threads and X.
+        - `image`: forces a still photo. Threads converts a GIF or WebP to JPEG or PNG.
+        - `gif`: forces an animated GIF.
+        - Threads GIFs must come from GIPHY, otherwise the request returns 400 `invalid_field_value`.
+        - Facebook and X get a GIPHY link as their direct GIF.
+        - X takes one image or GIF from any host, and returns 400 for video or HTML URLs.
+        - On X, images over 5 MB are compressed and a GIF over 15 MB posts as a still image.
+        - On X, a GIF always posts animated, even with `attachmentType: image`.
                 comment_id: Reply to specific comment (optional)
                 mention_author: (LinkedIn only) When true, the reply starts with an @mention of the author of `commentId` (a member or a page), tagged with their URN and the name LinkedIn returns for them. Requires `commentId`.
 
@@ -26666,6 +26992,8 @@ def register_generated_tools(mcp, _get_client):
 
         - Standard mode: connected={platform}&profileId=X&accountId=Y&username=Z.
         - X on prepaid-balance billing at a $0 balance: `billingNotice=x_balance_required` is added. The account is connected, but X posts wait or are refused (402 `insufficient_balance`) until the balance is funded.
+        - The login landed on an account the profile already had connected, on a connect that named none (no `reconnectAccountId`, `expectedUsername` or `expectedPlatformUserId`): `accountNotice=already_connected` is added. No new account was added: `accountId` is that account, with its connection refreshed.
+        - Platforms sign in whoever is logged in on the device, so to connect a different account the user logs out of the platform first, or uses a private window. On Instagram Login, `forceReauth=true` asks for the credentials of the account to connect instead.
         - Headless mode: OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
         **Failure params:** the browser goes to the same redirect_url with `error` and `platform` appended (always present). `error_message`, `is_user_fixable`, `reason`, `dashboard_url`, `missing_scopes`, `error_reason` and the `platform_error*` params are conditional: treat them as optional.
@@ -26709,12 +27037,13 @@ def register_generated_tools(mcp, _get_client):
         - X Ads (platform=xads): `x_ads_denied`, `x_ads_auth_failed`, `x_ads_config_error`, `x_ads_account_not_found`, `x_ads_state_error`, `x_ads_token_failed`, `x_ads_token_missing`, `x_ads_callback_error`.
         - Reddit Ads (platform=redditads): `reddit_ads_auth_failed`, `reddit_ads_invalid_state`, `reddit_ads_access_denied`, `reddit_ads_scope_not_granted`, `reddit_ads_no_ad_accounts`, `reddit_ads_callback_error`.
         - Microsoft Ads (platform=microsoftads): `microsoft_ads_auth_failed`, `microsoft_ads_invalid_state`, `microsoft_ads_access_denied`, `microsoft_ads_scope_not_granted`, `microsoft_ads_unknown_user`, `microsoft_ads_no_ad_accounts`, `microsoft_ads_callback_error`.
+        - Snapchat Ads (platform=snapchatads): `snapchat_ads_auth_failed`, `snapchat_ads_invalid_state`, `snapchat_ads_access_denied`, `snapchat_ads_no_ad_accounts`, `snapchat_ads_callback_error`.
         - Shopify (platform=shopify): `shopify_auth_failed`, `shopify_config_error`, `shopify_invalid_state`, `shopify_invalid_hmac`, `shopify_invalid_shop`, `shopify_missing_scopes`, `shopify_callback_error`.
 
         Notes:
 
         1. On this endpoint every upstream OAuth error collapses into `oauth_denied`, with the provider's values in the `platform_error*` params. The dedicated ads flows differ: they use their own denial slugs, and `google_ads_auth_failed` and `tiktok_ads_auth_failed` may carry the provider's raw error string in `error_message`.
-        2. On the tiktok and twitter ads flows `platform` carries the ads platform id (`tiktokads`, `xads`), not the value in the request path. The googleads, redditads, microsoftads and shopify flows report `googleads`, `redditads`, `microsoftads` and `shopify`.
+        2. On the tiktok and twitter ads flows `platform` carries the ads platform id (`tiktokads`, `xads`), not the value in the request path. The googleads, redditads, microsoftads, snapchatads and shopify flows report `googleads`, `redditads`, `microsoftads`, `snapchatads` and `shopify`.
         3. `missing_tiktok_permissions`: the TikTok authorization left out a permission the already-connected account needs, so nothing changed and it keeps working as before. User-fixable: connect again and accept every permission on TikTok's screen.
         4. `instagram_login_method_mismatch`: an Instagram Login authorization landed on a profile whose Instagram account is connected through Facebook Login, so nothing changed. To refresh it, connect again with `loginMethod=facebook_login`. To move it to Instagram Login, disconnect it first.
                 scopes: Comma-separated permission areas to request instead of the platform's full permission set.
@@ -26953,6 +27282,7 @@ def register_generated_tools(mcp, _get_client):
             "googleads",
             "redditads",
             "microsoftads",
+            "snapchatads",
         ],
         profile_id: str,
         identity_provider: Literal["microsoft", "google"] = "microsoft",
@@ -26989,7 +27319,7 @@ def register_generated_tools(mcp, _get_client):
 
             A reconnect is accepted when the new grant shares at least one ad ...
 
-            Platforms (the platform parameter takes): facebook, instagram, linkedin, tiktok, twitter, pinterest, googleads, redditads, microsoftads
+            Platforms (the platform parameter takes): facebook, instagram, linkedin, tiktok, twitter, pinterest, googleads, redditads, microsoftads, snapchatads
 
             Args:
                 identity_provider: Microsoft Ads only. How the user signs in to Microsoft Advertising: `google` for a Microsoft Advertising login that is a Google account. `google` on any other platform returns 400 `invalid_field_value`.
@@ -27013,7 +27343,7 @@ def register_generated_tools(mcp, _get_client):
         - `twitter` (X Ads): required.
         - `tiktok`: optional. Omit it for ads-only mode (no TikTok posting account linked; ad creation uses a Brand Identity instead of a TT_USER).
         - Same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`): picks which posting account the ads connection uses when the profile holds several of that platform. With one, it can be omitted.
-        - Standalone platforms (`googleads`, `redditads`, `microsoftads`): ignored.
+        - Standalone platforms (`googleads`, `redditads`, `microsoftads`, `snapchatads`): ignored.
 
         On same-token platforms, an id that names no active account of the platform on the profile is ignored. Exception: with `force=true`, when it names the posting account the profile's ads connection hangs off, that account is no longer connected.
 
@@ -27025,12 +27355,12 @@ def register_generated_tools(mcp, _get_client):
         On success:
 
         - `tiktok`: lands on the URL unchanged.
-        - `twitter`, `googleads`, `redditads` and `microsoftads`: append `connected` (the ads platform id: `xads`, `googleads`, `redditads` or `microsoftads`), `profileId`, `accountId` (the ads connection) and `username`.
+        - `twitter`, `googleads`, `redditads`, `microsoftads` and `snapchatads`: append `connected` (the ads platform id: `xads`, `googleads`, `redditads`, `microsoftads` or `snapchatads`), `profileId`, `accountId` (the ads connection) and `username`.
         - Same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`): append `connected`, `profileId`, `accountId`, `username` and, on API-key calls, `connect_token`.
 
         On failure the same error contract applies as on GET /v1/connect/{platform}: `error` and `platform` are always appended, other params are optional, and the value list there is not exhaustive.
 
-        On the tiktok, twitter, googleads, redditads and microsoftads flows, `platform` carries the ads platform id (`tiktokads`, `xads`, `googleads`, `redditads`, `microsoftads`), not the value used in the request path.
+        On the tiktok, twitter, googleads, redditads, microsoftads and snapchatads flows, `platform` carries the ads platform id (`tiktokads`, `xads`, `googleads`, `redditads`, `microsoftads`, `snapchatads`), not the value used in the request path.
                 headless: Enable headless mode (same-token platforms only)
                 force: Force a fresh OAuth even when an account already exists.
 
@@ -27048,6 +27378,7 @@ def register_generated_tools(mcp, _get_client):
         - `googleads`: bare customer id digits.
         - `redditads`: Reddit ad account id, `a2_<id>` or `t2_<id>`.
         - `microsoftads`: bare numeric account id (the Id, not the account number).
+        - `snapchatads`: Snapchat ad account UUID.
         - `twitter` (X Ads): base36 account id.
         - `tiktok` (TikTok Ads): numeric advertiser id.
 
@@ -27063,7 +27394,7 @@ def register_generated_tools(mcp, _get_client):
 
         **Through OAuth**: on Meta the scope is kept when this call returns an `authUrl`, so the Meta Ads account created after OAuth is scoped (only its scoped ad accounts synced and subscribed) from the start.
 
-        On `googleads`, `redditads` and `microsoftads` it is kept through OAuth when `redirect_url` is set, so the new connection syncs only scoped ad accounts from the first sync.
+        On `googleads`, `redditads`, `microsoftads` and `snapchatads` it is kept through OAuth when `redirect_url` is set, so the new connection syncs only scoped ad accounts from the first sync.
 
         On `tiktok` it is kept through OAuth with or without `redirect_url`. The TikTok Ads connection holds only the scoped advertisers from the first sync, and is named after the first of them. Its `platformUserId` and cached Brand Identity follow that advertiser too.
 
@@ -29535,6 +29866,50 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Connect an Outbrain marketer",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_outbrain_ads_credentials(
+        outbrain_marketer_id: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect an Outbrain marketer
+
+        Connect an Outbrain marketer by its marketer id from Outbrain Amplify. Outbrain's server-to-server pixel takes no credential, so nothing secret is stored and nothing is checked with Outbrain.
+
+        The account then receives the conversion events you forward to it (`POST /v1/events`, forwarding rules). Each event needs the Outbrain click ID (`clickIds.ob_click_id`), which the campaign's Track box passes with `ob_click_id={{ob_click_id}}`.
+
+        Outbrain counts an event only when its name equals the name of an Event-Based Conversion in Amplify, case included. Rename events in the forwarding rule when they differ.
+
+        Requires the Ads add-on.
+
+        Args:
+            outbrain_marketer_id: Outbrain marketer id from Amplify, letters and digits. (required)
+            name: Optional display name for the marketer.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_outbrain_ads_credentials(
+                outbrain_marketer_id=outbrain_marketer_id,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Connect a Whop account",
             readOnlyHint=False,
             destructiveHint=True,
@@ -30693,9 +31068,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Search existing Google listings",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def connect_search_google_business_locations(
@@ -32063,26 +32438,25 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Adjust uploaded conversions
 
-        Retracts, restates the value of, or enhances conversions you already sent to Google Ads, for refunds or late customer data. To change Zernio's stored event too, and every platform at once, use `PATCH` or `DELETE /v1/events/{eventId}`.
+        Retracts, restates the value of, or enhances conversions you already sent to Google Ads, Impact or a Microsoft Ads offline conversion goal, for refunds or late customer data. To change Zernio's stored event too, and every platform at once, use `PATCH` or `DELETE /v1/events/{eventId}`.
 
         It adjusts conversions previously uploaded via `POST /v1/ads/conversions`: retract them, restate their value, or enhance them with first-party data. Requires the Ads add-on.
 
-        ### Google Ads only
+        ### Google Ads, Impact and Microsoft Ads only
 
-        Google handles adjustments through the classic Google Ads API (`ConversionAdjustmentUploadService`). The Data Manager `ingestEvents` path used for sending conversions is ingest-only. Meta and LinkedIn have no equivalent, so this endpoint returns `405` for those platforms.
+        Google handles adjustments through the classic Google Ads API (`ConversionAdjustmentUploadService`). The Data Manager `ingestEvents` path used for sending conversions is ingest-only.
 
-        ### Adjustment types
+        On Impact, the partner's commission follows the refund:
 
-        - `RETRACTION`: remove the conversion entirely (refund, chargeback, cancelled order, churn).
-        - `RESTATEMENT`: change the conversion's value (upgrade / downgrade / partial refund). Send the corrected **total** value in `restatementValue` (not a delta).
-        - `ENHANCEMENT`: ...
+        - `RETRACTION` reverses the action and `RESTATEMENT` sets its sale amount. Impact has no `ENHANCEMENT`.
+        - The action is found by the `destinationId` event type and `orderId`: the `platformData.order_id` the conversion was sent with, or its ...
 
-        Platforms: google
+        Platforms: google, impact, microsoft
 
         Args:
-            account_id: SocialAccount ID. Must be a `googleads` account. (required)
-            destination_id: Conversion action resource name, e.g. `customers/1234567890/conversionActions/987654321`. (required)
-            adjustments: Each item is an object with keys: adjustmentType (one of: RETRACTION, RESTATEMENT, ENHANCEMENT; required); adjustmentTime (number, required) - When the adjustment occurred, unix seconds.; orderId (string) - Transaction ID of the original conversion (the `eventId` you sent). Recommended; required for ENHANCEMENT.; gclid (string) - Alternative key. The original click ID. Pair with `conversionTime`. Not valid for ENHANCEMENT.; conversionTime (number) - The original conversion's time, unix seconds. Required when identifying by `gclid`.; restatementValue (number) - RESTATEMENT only. The corrected TOTAL conversion value.; currency (string) - RESTATEMENT only. ISO 4217 currency for `restatementValue`.; user (object with keys email, phone) - ENHANCEMENT only. First-party identifiers (hashed server-side). At least one of email/phone required.; userAgent (string) - ENHANCEMENT only. The original conversion's user agent (improves match quality). (required)"""
+            account_id: SocialAccount ID. Must be a `googleads`, `impact` or `microsoftads` account. (required)
+            destination_id: Conversion action resource name on Google, e.g. `customers/1234567890/conversionActions/987654321`; `<program id>:<event type id>` on Impact; `accounts/{adAccountId}/conversionGoals/{goalId}` on Microsoft Ads. (required)
+            adjustments: Each item is an object with keys: adjustmentType (one of: RETRACTION, RESTATEMENT, ENHANCEMENT; required); adjustmentTime (number, required) - When the adjustment occurred, unix seconds.; orderId (string) - Transaction ID of the original conversion (the `eventId` you sent). Recommended; required for ENHANCEMENT.; gclid (string) - Alternative key. The original click ID. Pair with `conversionTime`. Not valid for ENHANCEMENT.; conversionTime (number) - The original conversion's time, unix seconds. Required when identifying by `gclid` or `msclkid`.; msclkid (string) - Microsoft Ads only, and required there. The click ID the conversion was sent with. Pair with `conversionTime`.; restatementValue (number) - RESTATEMENT only. The corrected TOTAL conversion value.; currency (string) - RESTATEMENT only. ISO 4217 currency for `restatementValue`.; user (object with keys email, phone) - ENHANCEMENT only. First-party identifiers (hashed server-side). At least one of email/phone required.; userAgent (string) - ENHANCEMENT only. The original conversion's user agent (improves match quality). (required)"""
         client = _get_client()
         try:
             response = client.conversions.adjust_conversions(
@@ -32637,7 +33011,7 @@ def register_generated_tools(mcp, _get_client):
 
         Paginate with `cursor`: pass the `nextCursor` of the previous page until it comes back `null`.
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, stripe, hubspot, salesforce, gohighlevel
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, outbrainads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, stripe, hubspot, salesforce, gohighlevel
 
         Args:
             profile_id: The profile to list. Omit to cover every profile you can access.
@@ -32702,12 +33076,12 @@ def register_generated_tools(mcp, _get_client):
 
         - A signal left out counts as `DENIED`. Zernio has no ...
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, gohighlevel
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, outbrainads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, gohighlevel
 
         Args:
             profile_id: Profile the events belong to. Its saved destinations receive the events. (required)
             events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, visitorId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; campaign (object with keys id, name) - The ad campaign behind the event, when you know it. Read only by `POST /v1/events`, which ties the event to the campaign named by `campaign.id`, then by the ...; consent (object with keys adStorage, adUserData, adPersonalization, analyticsStorage) - This event's consent. Each signal given here wins over the request's `consent`.; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
-            destinations: Send to these destinations instead of the saved ones (every event goes to each). Each item is an object with keys: accountId (string, required) - Connected ads account ID (metaads, googleads, linkedinads, tiktokads, openaiads, pinterestads or redditads).; destinationId (string, required) - Platform destination, as listed by GET /v1/ads/conversions/destinations.
+            destinations: Send to these destinations instead of the saved ones (every event goes to each). A Google Analytics stream is sent to with the Measurement Protocol API secret saved on a forwarding rule for the same account and stream: the rule of this `profileId`, else the most recently changed one in your other profiles. With none saved, the destination's `error` says how to save one. Each item is an object with keys: accountId (string, required) - ID of the connected account that owns the destination (metaads, googleads, googleanalytics or any other account POST /v1/events sends to).; destinationId (string, required) - Platform destination, as listed by GET /v1/ads/conversions/destinations.
             consent: Every event's consent, unless the event sets its own (see Consent above). Object with keys: adStorage (one of: GRANTED, DENIED) - Ad cookies and click ids (`ad_storage`).; adUserData (one of: GRANTED, DENIED) - Sending personal data to ad platforms (`ad_user_data`).; adPersonalization (one of: GRANTED, DENIED) - Personalized advertising and remarketing (`ad_personalization`).; analyticsStorage (one of: GRANTED, DENIED) - Analytics cookies (`analytics_storage`): Google Analytics only.
             test_code: Forwarded as each platform test code (see POST /v1/ads/conversions). A root-level `test_event_code` is accepted as an alias. Test events are not stored.
             mode: `sync` sends to every destination before answering (200, per-destination results). `async` stores and queues the sends, then answers 202 at once; each send is retried while the platform fails for now, and its outcome shows on GET /v1/events/{eventId}. Requests with `testCode` always send now."""
@@ -33160,6 +33534,7 @@ def register_generated_tools(mcp, _get_client):
         event_name_map: dict[str, Any] | None = None,
         value_override: dict[str, Any] | None = None,
         value_condition: dict[str, Any] | None = None,
+        event_values: dict[str, Any] | None = None,
         api_secret: str | None = None,
     ) -> str:
         """Add a forwarding rule
@@ -33171,10 +33546,11 @@ def register_generated_tools(mcp, _get_client):
         - `eventNameMap` renames events for this destination (send your `Lead` as its `Purchase`).
         - `valueOverride` changes the value it gets (a fixed amount or a percent of the event's value).
         - `valueCondition` forwards only events above, below or equal to a value.
+        - `eventValues` sets the value of each event name (a `Lead` worth 20 EUR, a `QualifiedLead` worth 150 EUR) and wins over `valueOverride` for the names it lists.
 
         Each applies to this rule only: the event is stored, and sent to other rules, as received.
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, hubspot, salesforce, gohighlevel
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, taboolaads, outbrainads, klaviyo, attentive, impact, awin, campaignmanager360, tradedeskads, amazonads, googleanalytics, hubspot, salesforce, gohighlevel
 
         Args:
             profile_id: (required)
@@ -33185,6 +33561,7 @@ def register_generated_tools(mcp, _get_client):
             event_name_map
             value_override: Object with keys: mode (one of: original, fixed, percent; required); amount (number) - Required for `fixed` and `percent` (at most 1000 for `percent`); null for `original`.
             value_condition: Object with keys: operator (one of: gt, lt, eq; required); amount (number, required)
+            event_values
             api_secret: Google Analytics streams only: the stream's Measurement Protocol API secret (GA4 Admin › Data streams). Optional when the connection has edit access, since Zernio then creates it. Checked against Google's validation server, stored encrypted, never returned. Change it with `PATCH /v1/events/forwarding-rules/{ruleId}`."""
         client = _get_client()
         try:
@@ -33197,6 +33574,7 @@ def register_generated_tools(mcp, _get_client):
                 event_name_map=event_name_map,
                 value_override=value_override,
                 value_condition=value_condition,
+                event_values=event_values,
                 api_secret=api_secret,
             )
             return _format_response(response)
@@ -33217,19 +33595,23 @@ def register_generated_tools(mcp, _get_client):
         event_name_map: dict[str, Any] | None = None,
         value_override: dict[str, Any] | None = None,
         value_condition: dict[str, Any] | None = None,
+        event_values: dict[str, Any] | None = None,
     ) -> str:
         """Update a forwarding rule
 
-        Changes the fields you send and keeps the others. Send `eventNameMap: null` to stop renaming, `valueOverride: { \"mode\": \"original\" }` to send the event's own value again, and `valueCondition: null` to forward whatever the value.
+        Changes the fields you send and keeps the others. Send `eventNameMap: null` to stop renaming, `valueOverride: { \"mode\": \"original\" }` to send the event's own value again, and `valueCondition: null` to forward whatever the value. `eventValues` replaces the whole map; `null` or `{}` clears it.
 
-        `apiSecret` replaces the secret of a rule whose destination needs one, such as a Google Analytics data stream's Measurement Protocol API secret. Before saving, Zernio sends one hit to Google's validation server; Google does not confirm the secret itself, so check GA4 Realtime after the next events.
+        `apiSecret` replaces the secret of a rule whose destination needs one, such as a Google Analytics data stream's Measurement Protocol API secret. Events that name the stream in `destinations` on `POST /v1/events` use it too.
+
+        Before saving, Zernio sends one hit to Google's validation server; Google does not confirm the secret itself, so check GA4 Realtime after the next events.
 
         Args:
             rule_id: The rule `id`. (required)
             api_secret
             event_name_map
             value_override: Object with keys: mode (one of: original, fixed, percent; required); amount (number) - Required for `fixed` and `percent` (at most 1000 for `percent`); null for `original`.
-            value_condition: Object with keys: operator (one of: gt, lt, eq; required); amount (number, required)"""
+            value_condition: Object with keys: operator (one of: gt, lt, eq; required); amount (number, required)
+            event_values"""
         client = _get_client()
         try:
             response = client.conversions.update_forwarding_rule(
@@ -33238,6 +33620,7 @@ def register_generated_tools(mcp, _get_client):
                 event_name_map=event_name_map,
                 value_override=value_override,
                 value_condition=value_condition,
+                event_values=event_values,
             )
             return _format_response(response)
         except Exception as e:
@@ -35233,9 +35616,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Preview a payout batch",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def creator_campaigns_preview_campaign_payout_batch(
@@ -40045,9 +40428,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Fetch verification options",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def gmb_verifications_fetch_google_business_verification_options(
@@ -41181,7 +41564,7 @@ def register_generated_tools(mcp, _get_client):
             title="Search Instagram audio",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def instagram_search_instagram_audio(
@@ -41253,7 +41636,7 @@ def register_generated_tools(mcp, _get_client):
             title="Look up a public Instagram Business account",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def instagram_get_instagram_business_discovery(
@@ -43858,6 +44241,7 @@ def register_generated_tools(mcp, _get_client):
         destination: Literal["whatsapp", "messenger", "instagram_direct"] | None = None,
         destinations: list[Literal["whatsapp", "messenger", "instagram_direct"]]
         | None = None,
+        optimization_goal: Literal["CONVERSATIONS", "LEAD_GENERATION"] | None = None,
         placement_assets: dict[str, Any] | None = None,
         workflow_id: str | None = None,
         validate_only: bool | None = None,
@@ -43876,7 +44260,7 @@ def register_generated_tools(mcp, _get_client):
 
             `destinations` puts two or three of them on one ad set and lets Meta pick the app per viewer.
 
-            The ad set is created with the matching destination_type and CONVERSATIONS optimization. The campaign objective defaults to OUTCOME_ENGAGEMENT.
+            The ad set is created with the matching destination_type and CONVERSATIONS optimization by default (see `optimizationGoal` for LEAD_GENERATION). The campaign objective defaults to OUTCOME_ENGAGEMENT (OUTCOME_LEADS with LEAD_GENERATION).
 
             This endpoint supersedes POST /v1/ads/ctwa (deprecated, equivalent to `destination: whatsapp`).
 
@@ -43885,7 +44269,7 @@ def register_generated_tools(mcp, _get_client):
             Supports single-creative and multi-creative shapes.
 
             - Existing posts and reels are supported through `platformPostId` (alias `existingPostId`) or `objectStoryId`, either per creative or at the top level. Omit fresh media and copy for that creative.
-            - Optional `whatsappPhoneNumber` selects a number already paired with the Page (WhatsApp ...
+            - ...
 
             Platforms: meta
 
@@ -44019,7 +44403,10 @@ def register_generated_tools(mcp, _get_client):
         targeting strict; `1` lets Meta expand beyond the supplied
         targeting when its delivery system finds better matches.
         Always sent on CREATE (Meta requires it).
-                objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
+                objective: Defaults to `OUTCOME_ENGAGEMENT` on POST /v1/ads/ctwa and POST /v1/ads/messaging,
+        and to `OUTCOME_LEADS` on POST /v1/ads/call and on POST /v1/ads/messaging with
+        `optimizationGoal: LEAD_GENERATION` (which accepts only `OUTCOME_LEADS`).
+        `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
                 status: Defaults to `ACTIVE`. `PAUSED` pauses only the top-most object this
@@ -44044,8 +44431,9 @@ def register_generated_tools(mcp, _get_client):
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
         `bidAmount`. `LOWEST_COST_WITH_MIN_ROAS` requires
-        `roasAverageFloor`. CTWA's `optimization_goal` is fixed to
-        `CONVERSATIONS`, but the bid strategy is independent.
+        `roasAverageFloor`. The ad set `optimization_goal` comes from the endpoint
+        (`CONVERSATIONS` on POST /v1/ads/ctwa, `QUALITY_CALL` on POST /v1/ads/call, the
+        `optimizationGoal` field on POST /v1/ads/messaging); the bid strategy is independent.
                 bid_amount: Whole currency units (e.g. `5` = $5.00 on a USD account).
         Required when `bidStrategy` is `LOWEST_COST_WITH_BID_CAP`
         or `COST_CAP`; rejected otherwise.
@@ -44087,6 +44475,11 @@ def register_generated_tools(mcp, _get_client):
 
         - WhatsApp in the list still needs the Page paired with a WhatsApp Business number.
         - With `adSetId`, the existing ad set must already use that combined destination_type.
+                optimization_goal: What the ad set optimizes for. Defaults to `CONVERSATIONS`. Cannot be combined with `adSetId` (the existing ad set owns its goal).
+
+        - `LEAD_GENERATION` needs a single `destination: whatsapp` (a 400 with `destinations` or another destination) and runs the campaign under `OUTCOME_LEADS`.
+        - `objective`, when sent with `LEAD_GENERATION`, must be `OUTCOME_LEADS`.
+        - With `existingCampaignId` the campaign must be `OUTCOME_LEADS` (a 400 otherwise).
                 placement_assets: A different image or video per placement on one messaging ad, e.g. a 4:5 image on Feed and a 9:16 image on Stories/Reels. Works on the single-creative shape and on attach (`adSetId`). Replaces top-level `imageUrl` / `video` (sending either alongside is a 400). `headline` and `body` stay required as the default copy. The CTA, `welcomeMessage` and `whatsappPhoneNumber` apply to every placement. Single `destination` only. Meta cannot combine per-placement media with `destinations`: it drops the placement rules from a multi-destination creative, or refuses more than one call to action per placement rule with error 1885878. So that combination is a 400. Also a 400 with `creatives[]`, `platformPostId`, `existingPostId` or `objectStoryId`, and on POST /v1/ads/call. Object with keys: defaultImageUrl (string) - Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule).; defaultVideoUrl (string) - Video mode. Catch-all video for any placement no rule matches. Video mode requires this or `defaultVideoId`.; defaultVideoId (string) - Video mode. ID of a video already on the ad account, used as the catch-all instead of uploading `defaultVideoUrl`. Wins over `defaultVideoUrl`. A video still ...; defaultThumbnailUrl (string) - Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted.; rules (list of objects with keys imageUrl, videoUrl, videoId, thumbnailUrl, headline, body, description, placements, required) - One entry per placement group you want to pin a specific asset to.
                 workflow_id: A workflow in the ad account's profile, stored on the ad. 404 when no such workflow exists in the profile.
 
@@ -44175,6 +44568,7 @@ def register_generated_tools(mcp, _get_client):
             "regional_regulation_identities": regional_regulation_identities,
             "destination": destination,
             "destinations": destinations,
+            "optimization_goal": optimization_goal,
             "placement_assets": placement_assets,
             "workflow_id": workflow_id,
             "validate_only": validate_only,
@@ -44257,6 +44651,7 @@ def register_generated_tools(mcp, _get_client):
                 regional_regulation_identities=regional_regulation_identities,
                 destination=destination,
                 destinations=destinations,
+                optimization_goal=optimization_goal,
                 placement_assets=placement_assets,
                 workflow_id=workflow_id,
                 validate_only=validate_only,
@@ -44546,7 +44941,10 @@ def register_generated_tools(mcp, _get_client):
         targeting strict; `1` lets Meta expand beyond the supplied
         targeting when its delivery system finds better matches.
         Always sent on CREATE (Meta requires it).
-                objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
+                objective: Defaults to `OUTCOME_ENGAGEMENT` on POST /v1/ads/ctwa and POST /v1/ads/messaging,
+        and to `OUTCOME_LEADS` on POST /v1/ads/call and on POST /v1/ads/messaging with
+        `optimizationGoal: LEAD_GENERATION` (which accepts only `OUTCOME_LEADS`).
+        `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
                 status: Defaults to `ACTIVE`. `PAUSED` pauses only the top-most object this
@@ -44571,8 +44969,9 @@ def register_generated_tools(mcp, _get_client):
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
         `bidAmount`. `LOWEST_COST_WITH_MIN_ROAS` requires
-        `roasAverageFloor`. CTWA's `optimization_goal` is fixed to
-        `CONVERSATIONS`, but the bid strategy is independent.
+        `roasAverageFloor`. The ad set `optimization_goal` comes from the endpoint
+        (`CONVERSATIONS` on POST /v1/ads/ctwa, `QUALITY_CALL` on POST /v1/ads/call, the
+        `optimizationGoal` field on POST /v1/ads/messaging); the bid strategy is independent.
                 bid_amount: Whole currency units (e.g. `5` = $5.00 on a USD account).
         Required when `bidStrategy` is `LOWEST_COST_WITH_BID_CAP`
         or `COST_CAP`; rejected otherwise.
@@ -45046,7 +45445,10 @@ def register_generated_tools(mcp, _get_client):
         targeting strict; `1` lets Meta expand beyond the supplied
         targeting when its delivery system finds better matches.
         Always sent on CREATE (Meta requires it).
-                objective: Defaults to `OUTCOME_ENGAGEMENT`. `OUTCOME_SALES` and `OUTCOME_LEADS` require
+                objective: Defaults to `OUTCOME_ENGAGEMENT` on POST /v1/ads/ctwa and POST /v1/ads/messaging,
+        and to `OUTCOME_LEADS` on POST /v1/ads/call and on POST /v1/ads/messaging with
+        `optimizationGoal: LEAD_GENERATION` (which accepts only `OUTCOME_LEADS`).
+        `OUTCOME_SALES` and `OUTCOME_LEADS` require
         additional account configuration (Dataset linked to the WABA
         for sales) and may be rejected by Meta if missing.
                 status: Defaults to `ACTIVE`. `PAUSED` pauses only the top-most object this
@@ -45071,8 +45473,9 @@ def register_generated_tools(mcp, _get_client):
         `LOWEST_COST_WITHOUT_CAP` (auto-bid) when omitted.
         `LOWEST_COST_WITH_BID_CAP` and `COST_CAP` require
         `bidAmount`. `LOWEST_COST_WITH_MIN_ROAS` requires
-        `roasAverageFloor`. CTWA's `optimization_goal` is fixed to
-        `CONVERSATIONS`, but the bid strategy is independent.
+        `roasAverageFloor`. The ad set `optimization_goal` comes from the endpoint
+        (`CONVERSATIONS` on POST /v1/ads/ctwa, `QUALITY_CALL` on POST /v1/ads/call, the
+        `optimizationGoal` field on POST /v1/ads/messaging); the bid strategy is independent.
                 bid_amount: Whole currency units (e.g. `5` = $5.00 on a USD account).
         Required when `bidStrategy` is `LOWEST_COST_WITH_BID_CAP`
         or `COST_CAP`; rejected otherwise.
@@ -45820,9 +46223,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Run a Meta Marketing API insights query on one ad account",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def metrics_query_meta_ads(
@@ -45903,9 +46306,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Run a Google Ads Query Language search on one customer",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def metrics_query_google_ads(
@@ -45950,9 +46353,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Run a TikTok Marketing API report on one advertiser",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def metrics_query_tik_tok_ads(
@@ -46020,9 +46423,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Run a GA4 standard or realtime report on one property",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def metrics_query_google_analytics(body: dict[str, Any]) -> str:
@@ -46594,9 +46997,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Pre-validate KYC address",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def phone_numbers_validate_phone_number_kyc_address(
@@ -46788,9 +47191,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Check portability",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def phone_numbers_check_phone_number_portability(
@@ -49999,7 +50402,7 @@ def register_generated_tools(mcp, _get_client):
             title="Search posts",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def reddit_search_reddit(
@@ -50045,7 +50448,7 @@ def register_generated_tools(mcp, _get_client):
             title="Get subreddit feed",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def reddit_get_reddit_feed(
@@ -50088,7 +50491,7 @@ def register_generated_tools(mcp, _get_client):
             title="Get the comments of a Reddit post",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def reddit_get_reddit_post_comments(
@@ -50286,7 +50689,7 @@ def register_generated_tools(mcp, _get_client):
 
         Returns sequences with enrollment stats. Filter by status, platform, or profile.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             profile_id: Filter by profile. Omit to list across all profiles
@@ -50322,6 +50725,8 @@ def register_generated_tools(mcp, _get_client):
             "reddit",
             "whatsapp",
             "slack",
+            "sms",
+            "rcs",
             "imessage",
             "line",
             "wechat",
@@ -50336,7 +50741,7 @@ def register_generated_tools(mcp, _get_client):
 
         Create a multi-step messaging sequence. Each step has a delay and a message or WhatsApp template.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             profile_id: (required)
@@ -50376,7 +50781,7 @@ def register_generated_tools(mcp, _get_client):
 
         Returns a sequence with all its steps and enrollment stats.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             sequence_id: (required)"""
@@ -50407,7 +50812,7 @@ def register_generated_tools(mcp, _get_client):
 
         Update a sequence's name, steps, or exit conditions. Steps can only be modified while the sequence is draft or paused.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             sequence_id: (required)
@@ -50443,7 +50848,7 @@ def register_generated_tools(mcp, _get_client):
 
         Permanently delete a sequence. Active enrollments are stopped.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             sequence_id: (required)"""
@@ -50467,7 +50872,7 @@ def register_generated_tools(mcp, _get_client):
 
         Start a draft or paused sequence. The sequence must have at least one step.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             sequence_id: (required)"""
@@ -50491,7 +50896,7 @@ def register_generated_tools(mcp, _get_client):
 
         Pause an active sequence. Enrolled contacts stop receiving messages until the sequence is reactivated.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             sequence_id: (required)"""
@@ -50519,7 +50924,7 @@ def register_generated_tools(mcp, _get_client):
 
         Enroll one or more contacts into a sequence. Contacts already enrolled are skipped.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             sequence_id: (required)
@@ -50549,7 +50954,7 @@ def register_generated_tools(mcp, _get_client):
 
         Remove a contact from a sequence. No further messages will be sent to this contact.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             sequence_id: (required)
@@ -50581,7 +50986,7 @@ def register_generated_tools(mcp, _get_client):
 
         Returns enrolled contacts with their progress, status, and next scheduled step.
 
-        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, sms, rcs, imessage, line, wechat
 
         Args:
             sequence_id: (required)
@@ -51724,7 +52129,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             ad_id: (required)
             url_tags: Meta only. Click-URL params appended to a freshly-rebuilt creative. Meta dynamic macros ({{ad.id}}, {{campaign.id}}, {{placement}}, ...) are sent through unescaped so Meta expands them; every other character is percent-encoded. Each item is an object with keys: key (string, required); value (string, required)
-            creative: Meta only. OPTIONAL: omit to preserve the existing creative verbatim (default). Provide it only to rebuild the creative explicitly, or for creatives whose object_story_spec Meta strips. Object with keys: headline (string, required); body (string, required); callToAction (string, required); linkUrl (string, required); imageUrl (string, required); videoUrl (string)
+            creative: Meta only. OPTIONAL: omit to preserve the existing creative verbatim (default). Provide it only to rebuild the creative explicitly, or for creatives whose object_story_spec Meta strips. Object with keys: headline (string, required); body (string, required); callToAction (string, required); linkUrl (string, required); imageUrl (string, required); videoUrl (string); callToActionLink (string) - The Get Directions button location, required to rebuild a `GET_DIRECTIONS` image creative (400 without it). Only with `callToAction: GET_DIRECTIONS`.
             tracking_url_template: Google only. Full tracking template (must contain {lpurl}).
             final_url_suffix: Google only. Parse-only key=value params.
             dynamic_value_parameters: LinkedIn only. key -> dynamic value enum (CAMPAIGN_ID, CAMPAIGN_NAME, CREATIVE_ID, ...).
@@ -53034,9 +53439,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Preview a top-up's tax",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def treasury_preview_topup(amount_cents: int) -> str:
@@ -53551,7 +53956,7 @@ def register_generated_tools(mcp, _get_client):
             title="Search recent tweets",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def twitter_engagement_search_tweets(
@@ -53615,7 +54020,7 @@ def register_generated_tools(mcp, _get_client):
             title="Look up a tweet",
             readOnlyHint=True,
             destructiveHint=False,
-            openWorldHint=False,
+            openWorldHint=True,
         )
     )
     def twitter_engagement_get_tweet(
@@ -53733,7 +54138,7 @@ def register_generated_tools(mcp, _get_client):
 
             ### With `range`, `granularity`, `from`, or `to`
 
-            Returns usage METERING: billed spend (USD) by product family over the window, at `day` / `month` / `total` granularity. Product families: `accounts`, `numbers`, `imessage`, `calls`, `sms`, `messages`, `verify`, `dlc`, `xApi`, `ads`, `credits`, `other`.
+            Returns usage METERING: billed spend (USD) by product family over the window, at `day` / `month` / `total` granularity. Product families: `accounts`, `numbers`, `imessage`, `rcs`, `calls`, `sms`, `messages`, `verify`, `dlc`, `xApi`, `ads`, `automations`, `websiteEvents`, `credits`, `other`.
 
             Data comes from the usage-based invoice breakdown (the CHARGE view, which always reconciles with what gets billed). Also served at `GET /v1/usage/daily`.
 
@@ -53741,7 +54146,7 @@ def register_generated_tools(mcp, _get_client):
 
             ### Attribution (metering mode)
 
-            `groupBy=profile|account` adds an `attribution` breakdown of the window's spend per profile or account. ...
+            `groupBy=profile|account` adds an `attribution` breakdown of the ...
 
             Args:
                 reconcile: Snapshot mode only. For Stripe subscription users, `true` forces a
@@ -53799,6 +54204,7 @@ def register_generated_tools(mcp, _get_client):
             ### Related endpoints
 
             - Billed spend by product: call `GET /v1/usage` with `range` / `granularity` params.
+            - Billed spend per profile, by your own `externalId`: `GET /v1/usage?range=cycle&groupBy=profile` ([what each customer costs you](/multi-tenant)).
             - The statement view (balance, credits, caps, payment status) lives at `GET /v1/billing`.
 
             ### Response shape
@@ -53808,7 +54214,7 @@ def register_generated_tools(mcp, _get_client):
             - Stripe users: per-period `usage.uploads` / `usage.profiles` counters.
             - Usage-based billing users: `usage.connectedAccounts`, `usage.xApiCallsByOperation` (per-operation X API call counts; resolve keys via `GET /v1/billing/x-pricing`), plus a `spend` block with `currentPeriodCents`, `xSpendCents`, and `xSpendLimitCents`.
 
-            The legacy `usage.xApiCalls` 3-tier aggregate is still emitted for back-compat. It excludes the $0.200 URL tier and any future tiers, so new clients should consume `xApiCallsByOperation` ...
+            The legacy `usage.xApiCalls` 3-tier ...
 
             Args:
                 reconcile: For Stripe subscription users, `true` forces a subscription
@@ -54043,9 +54449,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Validate character count",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def validate_post_length(text: str) -> str:
@@ -54085,9 +54491,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Validate post content",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def validate_post(
@@ -54123,9 +54529,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Validate media URL",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def validate_media(url: str) -> str:
@@ -54510,19 +54916,24 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def voice_transfer_voice_call(id: str, to: str) -> str:
+    def voice_transfer_voice_call(
+        id: str, to: str, caller_id: Literal["business", "caller"] = "business"
+    ) -> str:
         """Blind-transfer a live call
 
         Moves the call's current leg to a new destination (a phone number or a SIP endpoint).
 
-        This is a BLIND transfer: control of the leg is handed off and the call ends normally when the transferred leg hangs up. The caller ID presented on the transfer leg is always your own number.
+        This is a BLIND transfer: control of the leg is handed off and the call ends normally when the transferred leg hangs up. The caller ID presented on the transfer leg is your own number unless you pass `callerId: \"caller\"` on an inbound call, which presents the original caller's number.
 
         Args:
             id: (required)
-            to: +E164 phone number (tel: prefix optional) or a sip: URI. wss:// is not a valid transfer target. (required)"""
+            to: +E164 phone number (tel: prefix optional) or a sip: URI. wss:// is not a valid transfer target. (required)
+            caller_id: Caller ID shown on the transfer leg. `business` is your own number. `caller` is the original caller's number, for inbound calls only. The carrier may refuse `caller` on some routes: you get a 422, then retry with `business`."""
         client = _get_client()
         try:
-            response = client.voice.transfer_voice_call(id=id, to=to)
+            response = client.voice.transfer_voice_call(
+                id=id, to=to, caller_id=caller_id
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -54871,8 +55282,9 @@ def register_generated_tools(mcp, _get_client):
     def voice_delete_sip_trunk(id: str) -> str:
         """Delete a SIP trunk
 
-        Tears down the trunk and its carrier-side objects. Refused while any
-        number is still attached: detach them first.
+        Detaches every number still attached to the trunk (their inbound calls
+        go back to Zernio calling), then tears down the trunk and its
+        carrier-side objects. Its credentials stop working immediately.
 
         Args:
             id: (required)"""
@@ -59176,9 +59588,9 @@ def register_generated_tools(mcp, _get_client):
     @mcp.tool(
         annotations=ToolAnnotations(
             title="Pre-validate KYC address",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
     def whatsapp_phone_numbers_validate_whats_app_number_kyc_address(
@@ -59641,6 +60053,9 @@ def register_generated_tools(mcp, _get_client):
             "tiktok",
             "line",
             "wechat",
+            "sms",
+            "rcs",
+            "imessage",
         ] = "whatsapp",
         description: str | None = None,
         nodes: list[dict[str, Any]] | None = None,
@@ -59651,7 +60066,7 @@ def register_generated_tools(mcp, _get_client):
 
         Create a branching conversation workflow (draft) from a node/edge graph. Created in `draft` status; activate it to start matching inbound messages. The graph is validated structurally; completeness (a trigger node + reachable entry) is required at activation.
 
-        Platforms (the platform parameter takes): whatsapp, instagram, facebook, telegram, twitter, bluesky, reddit, tiktok, line, wechat
+        Platforms (the platform parameter takes): whatsapp, instagram, facebook, telegram, twitter, bluesky, reddit, tiktok, line, wechat, sms, rcs, imessage
 
         Args:
             profile_id: (required)
@@ -59659,7 +60074,7 @@ def register_generated_tools(mcp, _get_client):
             platform
             name: (required)
             description
-            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, gohighlevel_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 19 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
+            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, gohighlevel_upsert_contact, crm_upsert_deal, crm_add_note, crm_create_task, ai, agent, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 23 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
             edges: Each item is an object with keys: id (string, required); source (string, required) - Source node id; target (string, required) - Target node id; sourceHandle (string) - Selects a branch output of a multi-output node. Null (or omitted) = the node's single/default output. Known handles per node type: - **condition**: a rule's ...
             entry_node_id: The trigger node id; derived from the single trigger node if omitted"""
         client = _get_client()
@@ -59742,7 +60157,7 @@ def register_generated_tools(mcp, _get_client):
                 workflow_id: (required)
                 name
                 description
-                nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, gohighlevel_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 19 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
+                nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, gohighlevel_upsert_contact, crm_upsert_deal, crm_add_note, crm_create_task, ai, agent, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 23 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
                 edges: Each item is an object with keys: id (string, required); source (string, required) - Source node id; target (string, required) - Target node id; sourceHandle (string) - Selects a branch output of a multi-output node. Null (or omitted) = the node's single/default output. Known handles per node type: - **condition**: a rule's ...
                 entry_node_id
                 account_id: Reassign the workflow to a different `SocialAccount`. Changing this triggers a graph revalidation against the new platform.
@@ -60296,3 +60711,2774 @@ def register_generated_tools(mcp, _get_client):
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
+
+
+# The OAuth scopes any one of which reaches each tool, from the spec's x-oauth-scopes;
+# the first is the one the tool declares (securitySchemes).
+TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
+    "account_groups_create_account_group": ("accounts:write",),
+    "account_groups_delete_account_group": ("accounts:write",),
+    "account_groups_list_account_groups": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_groups_update_account_group": ("accounts:write",),
+    "account_settings_delete_instagram_ice_breakers": ("accounts:write",),
+    "account_settings_delete_messenger_get_started": ("accounts:write",),
+    "account_settings_delete_messenger_greeting": ("accounts:write",),
+    "account_settings_delete_messenger_ice_breakers": ("accounts:write",),
+    "account_settings_delete_messenger_menu": ("accounts:write",),
+    "account_settings_delete_telegram_commands": ("accounts:write",),
+    "account_settings_get_facebook_page_info": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_settings_get_instagram_ice_breakers": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_settings_get_messenger_get_started": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_settings_get_messenger_greeting": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_settings_get_messenger_ice_breakers": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_settings_get_messenger_menu": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_settings_get_telegram_commands": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_settings_get_wechat_server_config": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "account_settings_set_instagram_ice_breakers": ("accounts:write",),
+    "account_settings_set_messenger_get_started": ("accounts:write",),
+    "account_settings_set_messenger_greeting": ("accounts:write",),
+    "account_settings_set_messenger_ice_breakers": ("accounts:write",),
+    "account_settings_set_messenger_menu": ("accounts:write",),
+    "account_settings_set_telegram_commands": ("accounts:write",),
+    "account_settings_update_facebook_page_info": ("accounts:write",),
+    "accounts_batch_get_google_business_reviews": ("messaging:write",),
+    "accounts_create_google_business_media": ("accounts:write",),
+    "accounts_create_google_business_place_action": ("accounts:write",),
+    "accounts_delete_account": ("accounts:write",),
+    "accounts_delete_google_business_media": ("accounts:write",),
+    "accounts_delete_google_business_place_action": ("accounts:write",),
+    "accounts_delete_google_business_review_reply": ("messaging:write",),
+    "accounts_get_account": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_account_health": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_account_posts": (
+        "posts:read",
+        "posts:write",
+    ),
+    "accounts_get_all_accounts_health": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_bluesky_settings": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_follower_stats": ("analytics:read",),
+    "accounts_get_gmb_attribute_metadata": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_gohighlevel_funnel_tracking": (
+        "ads:read",
+        "ads:write",
+    ),
+    "accounts_get_gohighlevel_settings": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_google_business_attributes": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_google_business_food_menus": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_google_business_location_details": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_google_business_review": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "accounts_get_google_business_reviews": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "accounts_get_hub_spot_settings": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_instagram_follow_status": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_linked_in_mentions": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_salesforce_settings": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_slack_settings": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_stripe_settings": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_get_tik_tok_creator_info": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_grant_business_partner": ("accounts:write",),
+    "accounts_list_accounts": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_list_business_partners": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_list_gohighlevel_audience_syncs": (
+        "ads:read",
+        "ads:write",
+    ),
+    "accounts_list_google_business_media": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_list_google_business_place_actions": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_list_hub_spot_contact_properties": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_list_tik_tok_commercial_music": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_move_account_to_profile": ("accounts:write",),
+    "accounts_reply_to_google_business_review": ("messaging:write",),
+    "accounts_revoke_business_partner": ("accounts:write",),
+    "accounts_search_tik_tok_locations": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "accounts_send_gohighlevel_past_won_deals": ("ads:write",),
+    "accounts_start_gohighlevel_audience_sync": ("ads:write",),
+    "accounts_stop_gohighlevel_audience_sync": ("ads:write",),
+    "accounts_update_account": ("accounts:write",),
+    "accounts_update_bluesky_settings": ("accounts:write",),
+    "accounts_update_gohighlevel_settings": ("accounts:write",),
+    "accounts_update_google_business_attributes": ("accounts:write",),
+    "accounts_update_google_business_food_menus": ("accounts:write",),
+    "accounts_update_google_business_location_details": ("accounts:write",),
+    "accounts_update_google_business_place_action": ("accounts:write",),
+    "accounts_update_hub_spot_settings": ("accounts:write",),
+    "accounts_update_salesforce_settings": ("accounts:write",),
+    "accounts_update_slack_settings": ("accounts:write",),
+    "accounts_update_stripe_settings": ("accounts:write",),
+    "accounts_verify_gohighlevel_funnel_tracking": ("ads:write",),
+    "ad_accounts_add_account_callouts": ("ads:write",),
+    "ad_accounts_add_account_sitelinks": ("ads:write",),
+    "ad_accounts_add_account_structured_snippets": ("ads:write",),
+    "ad_accounts_assign_ad_account_user": ("ads:write",),
+    "ad_accounts_assign_page_user": ("ads:write",),
+    "ad_accounts_attach_ad_label": ("ads:write",),
+    "ad_accounts_create_ad_account": ("ads:write",),
+    "ad_accounts_create_ad_label": ("ads:write",),
+    "ad_accounts_create_ad_negative_keyword_list": ("ads:write",),
+    "ad_accounts_create_custom_conversion": ("accounts:write",),
+    "ad_accounts_create_high_demand_period": ("ads:write",),
+    "ad_accounts_create_value_rule_set": ("ads:write",),
+    "ad_accounts_delete_ad_comment": ("messaging:write",),
+    "ad_accounts_delete_ad_negative_keyword_list": ("ads:write",),
+    "ad_accounts_delete_value_rule_set": ("ads:write",),
+    "ad_accounts_detach_ad_label": ("ads:write",),
+    "ad_accounts_edit_ad_negative_keyword_list_keywords": ("ads:write",),
+    "ad_accounts_get_ad_account_billing": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_ad_account_finance": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_ad_account_health": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_ad_account_hierarchy": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_ad_account_live_entities": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_ad_comments": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "ad_accounts_get_ad_negative_keyword_list": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_ads_activity_log": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_dsa_defaults": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_dsa_recommendations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_ios_fourteen_campaign_limits": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_get_value_rule_set": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_hide_ad_comment": ("messaging:write",),
+    "ad_accounts_invite_ad_account_to_manager": ("ads:write",),
+    "ad_accounts_invite_ad_account_user": ("ads:write",),
+    "ad_accounts_list_account_callouts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_account_sitelinks": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_account_structured_snippets": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ad_account_user_invitation_approvals": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ad_account_user_invitations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ad_account_users": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ad_accounts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ad_labels": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ad_negative_keyword_lists": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ad_studies": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ads_business_centers": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ads_instagram_accounts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_ads_instagram_posts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_advertisable_applications": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_custom_conversions": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "ad_accounts_list_high_demand_periods": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_meta_business_users": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_meta_businesses": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_page_users": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_tik_tok_ad_pixels": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_list_value_rule_sets": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_accounts_remove_account_callout": ("ads:write",),
+    "ad_accounts_remove_account_sitelink": ("ads:write",),
+    "ad_accounts_remove_account_structured_snippet": ("ads:write",),
+    "ad_accounts_remove_ad_account_user": ("ads:write",),
+    "ad_accounts_remove_ad_label": ("ads:write",),
+    "ad_accounts_remove_page_user": ("ads:write",),
+    "ad_accounts_replace_ad_negative_keyword_list_keywords": ("ads:write",),
+    "ad_accounts_reply_to_ad_comment": ("messaging:write",),
+    "ad_accounts_revoke_ad_account_user_invitation": ("ads:write",),
+    "ad_accounts_set_up_ad_account_billing": ("ads:write",),
+    "ad_accounts_update_account_callouts": ("ads:write",),
+    "ad_accounts_update_account_sitelinks": ("ads:write",),
+    "ad_accounts_update_account_structured_snippets": ("ads:write",),
+    "ad_accounts_update_ad_account": ("ads:write",),
+    "ad_accounts_update_ad_account_manager_link": ("ads:write",),
+    "ad_accounts_update_ad_label": ("ads:write",),
+    "ad_accounts_update_ad_negative_keyword_list": ("ads:write",),
+    "ad_accounts_update_value_rule_set": ("ads:write",),
+    "ad_accounts_withdraw_ad_account_user_invitation_approval": ("ads:write",),
+    "ad_audiences_add_users_to_ad_audience": ("ads:write",),
+    "ad_audiences_create_ad_audience": ("ads:write",),
+    "ad_audiences_delete_ad_audience": ("ads:write",),
+    "ad_audiences_get_ad_audience": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_audiences_list_ad_audiences": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_audiences_remove_users_from_ad_audience": ("ads:write",),
+    "ad_audiences_replace_ad_audience_companies": ("ads:write",),
+    "ad_audiences_update_ad_audience": ("ads:write",),
+    "ad_campaign_results_get_campaign_result_events": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaign_results_get_campaign_result_profit": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaign_results_get_campaign_results_totals": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaign_results_get_campaign_results_upload": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaign_results_get_tag_new_ads": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaign_results_list_campaign_result_metrics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaign_results_list_campaign_results": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaign_results_set_campaign_result_events": ("ads:write",),
+    "ad_campaign_results_set_campaign_result_metric": ("ads:write",),
+    "ad_campaign_results_set_campaign_result_profit": ("ads:write",),
+    "ad_campaign_results_set_tag_new_ads": ("ads:write",),
+    "ad_campaign_results_upload_campaign_results": ("ads:write",),
+    "ad_campaigns_add_ad_keywords": ("ads:write",),
+    "ad_campaigns_apply_google_recommendations": ("ads:write",),
+    "ad_campaigns_attach_ad_group_assets": ("ads:write",),
+    "ad_campaigns_attach_campaign_assets": ("ads:write",),
+    "ad_campaigns_boost_post": ("ads:write",),
+    "ad_campaigns_bulk_update_ad_campaign_status": ("ads:write",),
+    "ad_campaigns_create_ad_campaign": ("ads:write",),
+    "ad_campaigns_create_ad_set": ("ads:write",),
+    "ad_campaigns_create_bid_strategy": ("ads:write",),
+    "ad_campaigns_create_google_asset_group": ("ads:write",),
+    "ad_campaigns_create_shared_budget": ("ads:write",),
+    "ad_campaigns_create_standalone_ad": ("ads:write",),
+    "ad_campaigns_delete_ad": ("ads:write",),
+    "ad_campaigns_delete_ad_campaign": ("ads:write",),
+    "ad_campaigns_delete_ad_set": ("ads:write",),
+    "ad_campaigns_dismiss_ads_alert": ("ads:write",),
+    "ad_campaigns_dismiss_google_recommendations": ("ads:write",),
+    "ad_campaigns_duplicate_ad": ("ads:write",),
+    "ad_campaigns_duplicate_ad_campaign": ("ads:write",),
+    "ad_campaigns_duplicate_ad_set": ("ads:write",),
+    "ad_campaigns_edit_campaign_negative_keyword_lists": ("ads:write",),
+    "ad_campaigns_edit_campaign_negative_keywords": ("ads:write",),
+    "ad_campaigns_edit_google_asset_group_assets": ("ads:write",),
+    "ad_campaigns_get_ad": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_ad_campaign_details": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_ad_review": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_ad_set_details": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_ad_set_targeting": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_ad_tree": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_ads_timeline": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_campaign_ad_schedule": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_campaign_bidding": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_campaign_conversion_goals": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_campaign_targeting": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_google_asset_group": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_get_tik_tok_smart_plus_ad_review": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_ad_campaigns": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_ad_group_assets": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_ad_keywords": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_ad_sets": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_ads": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_ads_alerts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_ads_by_performance": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_bid_strategies": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_campaign_assets": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_campaign_negative_keyword_lists": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_campaign_negative_keywords": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_google_asset_groups": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_google_recommendations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_shared_budgets": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_list_tik_tok_smart_plus_reviews": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_campaigns_remove_ad_group_assets": ("ads:write",),
+    "ad_campaigns_remove_ad_keyword": ("ads:write",),
+    "ad_campaigns_remove_campaign_assets": ("ads:write",),
+    "ad_campaigns_remove_google_asset_group": ("ads:write",),
+    "ad_campaigns_replace_campaign_negative_keyword_lists": ("ads:write",),
+    "ad_campaigns_replace_campaign_negative_keywords": ("ads:write",),
+    "ad_campaigns_replace_google_listing_group_filters": ("ads:write",),
+    "ad_campaigns_update_ad": ("ads:write",),
+    "ad_campaigns_update_ad_campaign": ("ads:write",),
+    "ad_campaigns_update_ad_campaign_status": ("ads:write",),
+    "ad_campaigns_update_ad_group_assets": ("ads:write",),
+    "ad_campaigns_update_ad_keyword": ("ads:write",),
+    "ad_campaigns_update_ad_set": ("ads:write",),
+    "ad_campaigns_update_ad_set_status": ("ads:write",),
+    "ad_campaigns_update_ad_status": ("ads:write",),
+    "ad_campaigns_update_bid_strategy": ("ads:write",),
+    "ad_campaigns_update_campaign_ad_schedule": ("ads:write",),
+    "ad_campaigns_update_campaign_assets": ("ads:write",),
+    "ad_campaigns_update_campaign_conversion_goals": ("ads:write",),
+    "ad_campaigns_update_campaign_targeting": ("ads:write",),
+    "ad_campaigns_update_google_asset_group": ("ads:write",),
+    "ad_changes_confirm_ad_change": ("ads:write",),
+    "ad_changes_discard_ad_change": ("ads:write",),
+    "ad_changes_get_ad_change": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_changes_list_ad_changes": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_create_ad_creative": ("ads:write",),
+    "ad_creatives_delete_ad_creative": ("ads:write",),
+    "ad_creatives_delete_ad_video": ("ads:write",),
+    "ad_creatives_generate_ad_previews": ("ads:write",),
+    "ad_creatives_get_ad_creative": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_get_ad_media": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_get_ad_previews": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_get_ad_video_status": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_list_ad_creatives": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_list_ad_images": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_list_ad_videos": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_list_ads_tik_tok_identities": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_list_partnership_ad_content": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_list_partnership_ad_permissions": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_creatives_set_partnership_ad_permission": ("ads:write",),
+    "ad_creatives_update_ad_creative": ("ads:write",),
+    "ad_creatives_upload_ad_image": ("ads:write",),
+    "ad_creatives_upload_ad_video": ("ads:write",),
+    "ad_insights_create_ad_insights_report": ("ads:write",),
+    "ad_insights_generate_keyword_historical_metrics": ("ads:write",),
+    "ad_insights_generate_keyword_ideas": ("ads:write",),
+    "ad_insights_get_ad_analytics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_insights_get_ad_insights_report": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_insights_get_ads_search_terms": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_insights_get_campaign_analytics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_insights_get_tik_tok_smart_plus_material_report": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_insights_list_local_services_lead_conversations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_insights_list_local_services_leads": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_insights_query_ad_insights": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_library_search_ad_library": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_create_ad_rule": ("ads:write",),
+    "ad_rules_delete_ad_rule": ("ads:write",),
+    "ad_rules_get_ad_rule": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_get_ad_rule_hourly_windows": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_list_ad_account_rule_alerts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_list_ad_rule_activity": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_list_ad_rule_alerts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_list_ad_rule_runs": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_list_ad_rule_templates": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_list_ad_rules": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_rules_preview_ad_rule": ("ads:write",),
+    "ad_rules_undo_ad_rule_activity": ("ads:write",),
+    "ad_rules_update_ad_rule": ("ads:write",),
+    "ad_targeting_browse_ad_targeting": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_targeting_estimate_ad_reach": ("ads:write",),
+    "ad_targeting_get_linked_in_bid_pricing": ("ads:write",),
+    "ad_targeting_get_linked_in_supply_forecast": ("ads:write",),
+    "ad_targeting_search_ad_interests": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_targeting_search_ad_targeting": (
+        "ads:read",
+        "ads:write",
+    ),
+    "analytics_cancel_tracking_window": ("analytics:read",),
+    "analytics_get_analytics": ("analytics:read",),
+    "analytics_get_analytics_dashboard": ("analytics:read",),
+    "analytics_get_analytics_delta": ("analytics:read",),
+    "analytics_get_best_time_to_post": ("analytics:read",),
+    "analytics_get_content_decay": ("analytics:read",),
+    "analytics_get_daily_metrics": ("analytics:read",),
+    "analytics_get_facebook_demographics": ("analytics:read",),
+    "analytics_get_facebook_page_insights": ("analytics:read",),
+    "analytics_get_facebook_post_earnings": ("analytics:read",),
+    "analytics_get_facebook_post_reactions": ("analytics:read",),
+    "analytics_get_google_analytics_metadata": ("analytics:read",),
+    "analytics_get_google_business_performance": ("analytics:read",),
+    "analytics_get_google_business_search_keywords": ("analytics:read",),
+    "analytics_get_instagram_account_insights": ("analytics:read",),
+    "analytics_get_instagram_demographics": ("analytics:read",),
+    "analytics_get_instagram_follower_history": ("analytics:read",),
+    "analytics_get_instagram_online_followers": ("analytics:read",),
+    "analytics_get_linked_in_aggregate_analytics": ("analytics:read",),
+    "analytics_get_linked_in_demographics": ("analytics:read",),
+    "analytics_get_linked_in_org_aggregate_analytics": ("analytics:read",),
+    "analytics_get_linked_in_post_analytics": ("analytics:read",),
+    "analytics_get_linked_in_post_reactions": ("analytics:read",),
+    "analytics_get_pinterest_account_insights": ("analytics:read",),
+    "analytics_get_post_authenticity": (
+        "posts:read",
+        "posts:write",
+    ),
+    "analytics_get_post_samples": ("analytics:read",),
+    "analytics_get_post_timeline": ("analytics:read",),
+    "analytics_get_posting_frequency": ("analytics:read",),
+    "analytics_get_tik_tok_account_insights": ("analytics:read",),
+    "analytics_get_tik_tok_demographics": ("analytics:read",),
+    "analytics_get_tracking_window": ("analytics:read",),
+    "analytics_get_you_tube_channel_insights": ("analytics:read",),
+    "analytics_get_you_tube_daily_views": ("analytics:read",),
+    "analytics_get_you_tube_demographics": ("analytics:read",),
+    "analytics_get_you_tube_video_retention": ("analytics:read",),
+    "analytics_inspect_google_search_console_url": ("analytics:read",),
+    "analytics_list_facebook_tagged_posts": ("analytics:read",),
+    "analytics_list_facebook_visitor_posts": ("analytics:read",),
+    "analytics_list_google_search_console_sitemaps": ("analytics:read",),
+    "analytics_list_post_authenticity": ("analytics:read",),
+    "analytics_list_tracking_windows": ("analytics:read",),
+    "analytics_open_tracking_window": ("analytics:read",),
+    "analytics_query_google_search_console_search_analytics": ("analytics:read",),
+    "analytics_run_google_analytics_realtime_report": ("analytics:read",),
+    "analytics_run_google_analytics_report": ("analytics:read",),
+    "analytics_sync_external_posts": ("posts:write",),
+    "automations_activate_automation": ("ads:write",),
+    "automations_approve_automation_approval": ("ads:write",),
+    "automations_backtest_automation": (
+        "ads:write",
+        "ads:read",
+    ),
+    "automations_backtest_automation_draft": (
+        "ads:write",
+        "ads:read",
+    ),
+    "automations_create_automation": ("ads:write",),
+    "automations_create_automation_template": ("ads:write",),
+    "automations_delete_automation": ("ads:write",),
+    "automations_delete_automation_template": ("ads:write",),
+    "automations_get_automation": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_get_automation_approval": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_get_automation_catalog": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_get_automation_controls": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_get_automation_run": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_get_automation_template": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_get_automation_test_sample": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_get_shared_automation_template": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_get_zernio_automation_template": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_install_automation_template": ("ads:write",),
+    "automations_install_shared_automation_template": ("ads:write",),
+    "automations_install_zernio_automation_template": ("ads:write",),
+    "automations_list_automation_actions": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_list_automation_approvals": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_list_automation_checks": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_list_automation_runs": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_list_automation_templates": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_list_automations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_pause_automation": ("ads:write",),
+    "automations_preview_automation": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_preview_automation_draft": (
+        "ads:read",
+        "ads:write",
+    ),
+    "automations_reject_automation_approval": ("ads:write",),
+    "automations_take_over_automation": ("ads:write",),
+    "automations_test_automation": ("ads:write",),
+    "automations_update_automation": ("ads:write",),
+    "automations_update_automation_ad_account_controls": ("ads:write",),
+    "automations_update_automation_controls": ("ads:write",),
+    "automations_update_automation_template": ("ads:write",),
+    "blogs_create_blog": ("posts:write",),
+    "blogs_create_blog_article": ("posts:write",),
+    "blogs_delete_blog": ("posts:write",),
+    "blogs_delete_blog_article": ("posts:write",),
+    "blogs_get_blog": (
+        "posts:read",
+        "posts:write",
+    ),
+    "blogs_get_blog_article": (
+        "posts:read",
+        "posts:write",
+    ),
+    "blogs_list_blog_articles": (
+        "posts:read",
+        "posts:write",
+    ),
+    "blogs_list_blogs": (
+        "posts:read",
+        "posts:write",
+    ),
+    "blogs_update_blog": ("posts:write",),
+    "blogs_update_blog_article": ("posts:write",),
+    "branded_calling_attach_branded_calling_numbers": ("messaging:write",),
+    "branded_calling_confirm_branded_calling_authorizer_email": ("messaging:write",),
+    "branded_calling_create_branded_calling_enterprise": ("messaging:write",),
+    "branded_calling_create_branded_calling_identity": ("messaging:write",),
+    "branded_calling_delete_branded_calling_enterprise": ("messaging:write",),
+    "branded_calling_delete_branded_calling_identity": ("messaging:write",),
+    "branded_calling_detach_branded_calling_numbers": ("messaging:write",),
+    "branded_calling_get_branded_calling_enterprise": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "branded_calling_get_branded_calling_identity": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "branded_calling_list_branded_calling_call_reasons": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "branded_calling_list_branded_calling_enterprises": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "branded_calling_list_branded_calling_identities": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "branded_calling_list_branded_calling_identity_numbers": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "branded_calling_preflight_branded_calling_identity": ("messaging:write",),
+    "branded_calling_resend_branded_calling_authorizer_code": ("messaging:write",),
+    "branded_calling_share_branded_calling_identity_form": ("messaging:write",),
+    "branded_calling_update_branded_calling_identity": ("messaging:write",),
+    "broadcasts_add_broadcast_recipients": ("messaging:write",),
+    "broadcasts_cancel_broadcast": ("messaging:write",),
+    "broadcasts_create_broadcast": ("messaging:write",),
+    "broadcasts_delete_broadcast": ("messaging:write",),
+    "broadcasts_get_broadcast": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "broadcasts_list_broadcast_recipients": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "broadcasts_list_broadcasts": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "broadcasts_schedule_broadcast": ("messaging:write",),
+    "broadcasts_send_broadcast": ("messaging:write",),
+    "broadcasts_update_broadcast": ("messaging:write",),
+    "business_agent_add_business_agent_allowlist_entry": ("messaging:write",),
+    "business_agent_add_business_agent_website": ("messaging:write",),
+    "business_agent_create_business_agent_connector": ("messaging:write",),
+    "business_agent_create_business_agent_connector_tool": ("messaging:write",),
+    "business_agent_create_business_agent_faq": ("messaging:write",),
+    "business_agent_create_business_agent_skill": ("messaging:write",),
+    "business_agent_create_business_agent_ui_skill": ("messaging:write",),
+    "business_agent_delete_business_agent_connector": ("messaging:write",),
+    "business_agent_delete_business_agent_connector_tool": ("messaging:write",),
+    "business_agent_delete_business_agent_faq": ("messaging:write",),
+    "business_agent_delete_business_agent_file": ("messaging:write",),
+    "business_agent_delete_business_agent_skill": ("messaging:write",),
+    "business_agent_delete_business_agent_ui_skill": ("messaging:write",),
+    "business_agent_delete_business_agent_website": ("messaging:write",),
+    "business_agent_get_business_agent_budget": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_business_information": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_connector": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_connector_logs": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_connector_tool": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_event": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_faq": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_file": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_skill": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_status": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_ui_skill": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_get_business_agent_website": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_allowlist": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_connector_tools": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_connectors": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_faqs": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_files": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_settings": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_skills": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_ui_skills": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_list_business_agent_websites": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_onboard_business_agent": ("messaging:write",),
+    "business_agent_read_business_agent_evals": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "business_agent_refresh_business_agent_connector_tools": ("messaging:write",),
+    "business_agent_remove_business_agent_allowlist_entry": ("messaging:write",),
+    "business_agent_replace_business_agent_budget": ("messaging:write",),
+    "business_agent_replace_business_agent_business_information": ("messaging:write",),
+    "business_agent_reset_business_agent_business_information": ("messaging:write",),
+    "business_agent_run_business_agent_connector_tool": ("messaging:write",),
+    "business_agent_send_business_agent_event": ("messaging:write",),
+    "business_agent_send_business_agent_test_message": ("messaging:write",),
+    "business_agent_set_business_agent_connector_credentials": ("messaging:write",),
+    "business_agent_start_business_agent_eval_run": ("messaging:write",),
+    "business_agent_update_business_agent_connector": ("messaging:write",),
+    "business_agent_update_business_agent_connector_tool": ("messaging:write",),
+    "business_agent_update_business_agent_faq": ("messaging:write",),
+    "business_agent_update_business_agent_settings": ("messaging:write",),
+    "business_agent_update_business_agent_skill": ("messaging:write",),
+    "business_agent_update_business_agent_ui_skill": ("messaging:write",),
+    "business_agent_update_business_agent_website": ("messaging:write",),
+    "business_agent_upload_business_agent_file": ("messaging:write",),
+    "calendar_availability": ("calendar:write",),
+    "calendar_create_calendar_event": ("calendar:write",),
+    "calendar_delete_calendar_event": ("calendar:write",),
+    "calendar_free_busy": ("calendar:write",),
+    "calendar_get_calendar_event": ("calendar:write",),
+    "calendar_list_calendar_event_instances": ("calendar:write",),
+    "calendar_list_calendar_events": ("calendar:write",),
+    "calendar_list_calendars": ("calendar:write",),
+    "calendar_rsvp_calendar_event": ("calendar:write",),
+    "calendar_update_calendar_event": ("calendar:write",),
+    "calls_get_call": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "calls_get_call_recording": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "calls_list_calls": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "comment_automations_create_comment_automation": ("messaging:write",),
+    "comment_automations_delete_comment_automation": ("messaging:write",),
+    "comment_automations_get_comment_automation": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "comment_automations_list_comment_automation_logs": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "comment_automations_list_comment_automations": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "comment_automations_update_comment_automation": ("messaging:write",),
+    "comments_delete_inbox_comment": ("messaging:write",),
+    "comments_edit_inbox_comment": ("messaging:write",),
+    "comments_get_inbox_post_comments": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "comments_hide_inbox_comment": ("messaging:write",),
+    "comments_like_inbox_comment": ("messaging:write",),
+    "comments_like_post": ("messaging:write",),
+    "comments_list_inbox_comments": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "comments_pin_inbox_comment": ("messaging:write",),
+    "comments_reply_to_inbox_post": ("messaging:write",),
+    "comments_send_private_reply_to_comment": ("messaging:write",),
+    "comments_set_comment_moderation": ("messaging:write",),
+    "comments_unhide_inbox_comment": ("messaging:write",),
+    "comments_unlike_inbox_comment": ("messaging:write",),
+    "comments_unlike_post": ("messaging:write",),
+    "comments_unpin_inbox_comment": ("messaging:write",),
+    "commerce_add_commerce_discount_codes": ("commerce:write",),
+    "commerce_add_commerce_marketing_engagement": ("commerce:write",),
+    "commerce_add_commerce_product_images": ("commerce:write",),
+    "commerce_cancel_commerce_order": ("commerce:write",),
+    "commerce_change_commerce_collection_channels": ("commerce:write",),
+    "commerce_change_commerce_collection_products": ("commerce:write",),
+    "commerce_change_commerce_inventory": ("commerce:write",),
+    "commerce_change_commerce_product_channels": ("commerce:write",),
+    "commerce_change_commerce_product_state": ("commerce:write",),
+    "commerce_change_commerce_product_tags": ("commerce:write",),
+    "commerce_create_commerce_catalog_sync": ("commerce:write",),
+    "commerce_create_commerce_collection": ("commerce:write",),
+    "commerce_create_commerce_discount": ("commerce:write",),
+    "commerce_create_commerce_draft_order": ("commerce:write",),
+    "commerce_create_commerce_menu": ("commerce:write",),
+    "commerce_create_commerce_metaobject": ("commerce:write",),
+    "commerce_create_commerce_order_edit": ("commerce:write",),
+    "commerce_create_commerce_page": ("commerce:write",),
+    "commerce_create_commerce_product": ("commerce:write",),
+    "commerce_create_commerce_product_options": ("commerce:write",),
+    "commerce_create_commerce_product_variants": ("commerce:write",),
+    "commerce_create_commerce_redirect": ("commerce:write",),
+    "commerce_create_commerce_refund": ("commerce:write",),
+    "commerce_delete_commerce_catalog_sync": ("commerce:write",),
+    "commerce_delete_commerce_collection": ("commerce:write",),
+    "commerce_delete_commerce_collection_metafields": ("commerce:write",),
+    "commerce_delete_commerce_discount": ("commerce:write",),
+    "commerce_delete_commerce_marketing_activity": ("commerce:write",),
+    "commerce_delete_commerce_menu": ("commerce:write",),
+    "commerce_delete_commerce_metaobject": ("commerce:write",),
+    "commerce_delete_commerce_page": ("commerce:write",),
+    "commerce_delete_commerce_price_list_prices": ("commerce:write",),
+    "commerce_delete_commerce_product_metafields": ("commerce:write",),
+    "commerce_delete_commerce_product_options": ("commerce:write",),
+    "commerce_delete_commerce_product_variants": ("commerce:write",),
+    "commerce_delete_commerce_redirect": ("commerce:write",),
+    "commerce_duplicate_commerce_product": ("commerce:write",),
+    "commerce_get_commerce_catalog_sync": ("commerce:write",),
+    "commerce_get_commerce_collection": ("commerce:write",),
+    "commerce_get_commerce_customer": ("commerce:write",),
+    "commerce_get_commerce_discount": ("commerce:write",),
+    "commerce_get_commerce_draft_order": ("commerce:write",),
+    "commerce_get_commerce_menu": ("commerce:write",),
+    "commerce_get_commerce_metaobject": ("commerce:write",),
+    "commerce_get_commerce_order": ("commerce:write",),
+    "commerce_get_commerce_page": ("commerce:write",),
+    "commerce_get_commerce_product": ("commerce:write",),
+    "commerce_get_commerce_store": ("commerce:write",),
+    "commerce_list_commerce_catalog_syncs": ("commerce:write",),
+    "commerce_list_commerce_channels": ("commerce:write",),
+    "commerce_list_commerce_collection_metafields": ("commerce:write",),
+    "commerce_list_commerce_collections": ("commerce:write",),
+    "commerce_list_commerce_customers": ("commerce:write",),
+    "commerce_list_commerce_discounts": ("commerce:write",),
+    "commerce_list_commerce_inventory": ("commerce:write",),
+    "commerce_list_commerce_locations": ("commerce:write",),
+    "commerce_list_commerce_markets": ("commerce:write",),
+    "commerce_list_commerce_menus": ("commerce:write",),
+    "commerce_list_commerce_metaobject_definitions": ("commerce:write",),
+    "commerce_list_commerce_metaobjects": ("commerce:write",),
+    "commerce_list_commerce_orders": ("commerce:write",),
+    "commerce_list_commerce_pages": ("commerce:write",),
+    "commerce_list_commerce_price_lists": ("commerce:write",),
+    "commerce_list_commerce_product_metafields": ("commerce:write",),
+    "commerce_list_commerce_products": ("commerce:write",),
+    "commerce_list_commerce_redirects": ("commerce:write",),
+    "commerce_remove_commerce_product_images": ("commerce:write",),
+    "commerce_reorder_commerce_collection_products": ("commerce:write",),
+    "commerce_reorder_commerce_product_images": ("commerce:write",),
+    "commerce_run_commerce_catalog_sync": ("commerce:write",),
+    "commerce_send_commerce_draft_order_invoice": ("commerce:write",),
+    "commerce_set_commerce_collection_metafields": ("commerce:write",),
+    "commerce_set_commerce_discount_active": ("commerce:write",),
+    "commerce_set_commerce_price_list_prices": ("commerce:write",),
+    "commerce_set_commerce_product_metafields": ("commerce:write",),
+    "commerce_update_commerce_collection": ("commerce:write",),
+    "commerce_update_commerce_discount": ("commerce:write",),
+    "commerce_update_commerce_menu": ("commerce:write",),
+    "commerce_update_commerce_metaobject": ("commerce:write",),
+    "commerce_update_commerce_order": ("commerce:write",),
+    "commerce_update_commerce_page": ("commerce:write",),
+    "commerce_update_commerce_product": ("commerce:write",),
+    "commerce_update_commerce_product_prices": ("commerce:write",),
+    "commerce_update_commerce_redirect": ("commerce:write",),
+    "commerce_upsert_commerce_marketing_activity": ("commerce:write",),
+    "connect_add_org_connection_mailbox": ("accounts:write",),
+    "connect_ads": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_app_lovin_ads_credentials": ("accounts:write",),
+    "connect_assign_google_business_location": ("accounts:write",),
+    "connect_attentive_credentials": ("accounts:write",),
+    "connect_awin_credentials": ("accounts:write",),
+    "connect_bluesky_credentials": ("accounts:write",),
+    "connect_complete_telegram_connect": ("accounts:write",),
+    "connect_complete_whats_app_phone_selection": ("accounts:write",),
+    "connect_configure_tik_tok_ads_brand_identity": ("accounts:write",),
+    "connect_create_google_business_location": ("accounts:write",),
+    "connect_create_google_org_connection": ("accounts:write",),
+    "connect_create_microsoft_org_connection": ("accounts:write",),
+    "connect_create_o_auth_app": ("accounts:write",),
+    "connect_create_pinterest_board": ("accounts:write",),
+    "connect_create_platform_invite": ("accounts:write",),
+    "connect_create_youtube_playlist": ("accounts:write",),
+    "connect_delete_o_auth_app": ("accounts:write",),
+    "connect_delete_org_connection": ("accounts:write",),
+    "connect_discord_channel": ("accounts:write",),
+    "connect_get_amazon_ads_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_campaign_manager_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_connect_handoff": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_connect_welcome_screen": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_email_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_facebook_pages": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_gmb_locations": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_gohighlevel_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_google_analytics_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_google_search_console_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_hub_spot_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_linked_in_organizations": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_o_auth_app": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_org_connection": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_page_webhook_subscription": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_pinterest_boards": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_reddit_flairs": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_reddit_subreddits": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_salesforce_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_shopify_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_stripe_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_subreddit_rules": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_telegram_connect_status": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_webflow_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_wechat_ip_whitelist": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_whats_app_sdk_config": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_wix_connect_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_word_press_auth_url": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_youtube_captions": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_get_youtube_playlists": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_handle_o_auth_callback": ("accounts:write",),
+    "connect_impact_credentials": ("accounts:write",),
+    "connect_initiate_telegram_connect": ("accounts:write",),
+    "connect_klaviyo_credentials": ("accounts:write",),
+    "connect_line_credentials": ("accounts:write",),
+    "connect_list_campaign_manager_profiles": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_facebook_pages": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_google_analytics_properties": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_google_business_categories": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_google_business_locations": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_google_search_console_sites": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_instagram_pages": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_o_auth_apps": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_org_connection_users": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_org_connections": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_pinterest_boards_for_selection": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_slack_channels": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_snapchat_profiles": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_list_whats_app_phone_numbers": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_open_ai_ads_credentials": ("accounts:write",),
+    "connect_outbrain_ads_credentials": ("accounts:write",),
+    "connect_resync_page_webhook_subscription": ("accounts:write",),
+    "connect_search_google_business_locations": ("accounts:write",),
+    "connect_select_campaign_manager_profile": ("accounts:write",),
+    "connect_select_facebook_page": ("accounts:write",),
+    "connect_select_google_analytics_property": ("accounts:write",),
+    "connect_select_google_business_location": ("accounts:write",),
+    "connect_select_google_search_console_site": ("accounts:write",),
+    "connect_select_instagram_account": ("accounts:write",),
+    "connect_select_linked_in_organization": ("accounts:write",),
+    "connect_select_pinterest_board": ("accounts:write",),
+    "connect_select_snapchat_profile": ("accounts:write",),
+    "connect_set_reddit_post_flair": ("accounts:write",),
+    "connect_shopify_with_token": ("accounts:write",),
+    "connect_slack_channel": ("accounts:write",),
+    "connect_snapchat_ads_credentials": ("accounts:write",),
+    "connect_start_microsoft_admin_consent": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "connect_taboola_ads_credentials": ("accounts:write",),
+    "connect_test_o_auth_app": ("accounts:write",),
+    "connect_trade_desk_ads_credentials": ("accounts:write",),
+    "connect_trade_desk_ads_partner": ("accounts:write",),
+    "connect_update_connect_welcome_screen": ("accounts:write",),
+    "connect_update_facebook_page": ("accounts:write",),
+    "connect_update_gmb_location": ("accounts:write",),
+    "connect_update_linked_in_organization": ("accounts:write",),
+    "connect_update_o_auth_app": ("accounts:write",),
+    "connect_update_org_connection": ("accounts:write",),
+    "connect_update_pinterest_boards": ("accounts:write",),
+    "connect_update_reddit_subreddits": ("accounts:write",),
+    "connect_update_youtube_default_playlist": ("accounts:write",),
+    "connect_verify_org_connection": ("accounts:write",),
+    "connect_vote_reddit_thing": ("messaging:write",),
+    "connect_webflow_with_site_token": ("accounts:write",),
+    "connect_wechat_credentials": ("accounts:write",),
+    "connect_whats_app_credentials": ("accounts:write",),
+    "connect_whats_app_embedded_signup": ("accounts:write",),
+    "connect_whop_ads_credentials": ("accounts:write",),
+    "connect_word_press_with_application_password": ("accounts:write",),
+    "contacts_autocomplete_contacts": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "contacts_bulk_create_contacts": ("automations:write",),
+    "contacts_create_contact": ("automations:write",),
+    "contacts_delete_contact": ("automations:write",),
+    "contacts_get_contact": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "contacts_get_contact_channels": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "contacts_list_contact_groups": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "contacts_list_contacts": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "contacts_update_contact": ("automations:write",),
+    "content_retention_get_content_retention": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "content_retention_update_content_retention": ("accounts:write",),
+    "conversion_audit_create_conversion_audit_monitor": ("accounts:write",),
+    "conversion_audit_delete_conversion_audit_monitor": ("accounts:write",),
+    "conversion_audit_get_meta_conversion_audit": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversion_audit_list_conversion_audit_monitors": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "conversions_add_ad_conversion_associations": ("ads:write",),
+    "conversions_add_conversion_associations": ("ads:write",),
+    "conversions_adjust_conversions": ("ads:write",),
+    "conversions_check_tracking_site_proxy": ("ads:write",),
+    "conversions_create_ad_conversion_destination": ("ads:write",),
+    "conversions_create_ad_custom_conversion": ("ads:write",),
+    "conversions_create_conversion_action": ("ads:write",),
+    "conversions_create_conversion_destination": ("ads:write",),
+    "conversions_create_custom_conversion_goal": ("ads:write",),
+    "conversions_create_event_destination": ("ads:write",),
+    "conversions_create_forwarding_rule": ("ads:write",),
+    "conversions_create_tracking_site": ("ads:write",),
+    "conversions_delete_ad_conversion_destination": ("ads:write",),
+    "conversions_delete_conversion_destination": ("ads:write",),
+    "conversions_delete_event_destination": ("ads:write",),
+    "conversions_delete_forwarding_rule": ("ads:write",),
+    "conversions_delete_tracking_site": ("ads:write",),
+    "conversions_get_ad_conversion_destination": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_ad_conversion_metrics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_conversion_destination": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_conversion_metrics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_conversion_paths": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_conversions_quality": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_event": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_events_accuracy": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_events_overview": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_events_overview_daily": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_ltv_cohorts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_survey_answers": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_get_tracking_site": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_ad_conversion_associations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_ad_conversion_destinations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_ad_conversion_goals": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_ad_custom_conversions": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_conversion_actions": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_conversion_associations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_conversion_destinations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_custom_conversion_goals": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_event_destinations": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_event_names": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_events": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_forwarding_rules": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_list_tracking_sites": (
+        "ads:read",
+        "ads:write",
+    ),
+    "conversions_remove_ad_conversion_associations": ("ads:write",),
+    "conversions_remove_conversion_associations": ("ads:write",),
+    "conversions_remove_custom_conversion_goal": ("ads:write",),
+    "conversions_restate_event": ("ads:write",),
+    "conversions_retract_event": ("ads:write",),
+    "conversions_rotate_tracking_site_key": ("ads:write",),
+    "conversions_send_conversions": ("ads:write",),
+    "conversions_send_events": ("ads:write",),
+    "conversions_update_ad_conversion_destination": ("ads:write",),
+    "conversions_update_ad_conversion_goals": ("ads:write",),
+    "conversions_update_conversion_action": ("ads:write",),
+    "conversions_update_conversion_destination": ("ads:write",),
+    "conversions_update_custom_conversion_goal": ("ads:write",),
+    "conversions_update_forwarding_rule": ("ads:write",),
+    "conversions_update_tracking_site": ("ads:write",),
+    "creator_campaigns_activate_creator_campaign": ("campaigns:write",),
+    "creator_campaigns_approve_campaign_draft": ("campaigns:write",),
+    "creator_campaigns_approve_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_approve_campaign_sample": ("campaigns:write",),
+    "creator_campaigns_approve_campaign_submission": ("campaigns:write",),
+    "creator_campaigns_close_creator_campaign": ("campaigns:write",),
+    "creator_campaigns_create_campaign_adjustment": ("campaigns:write",),
+    "creator_campaigns_create_campaign_invite_link": ("campaigns:write",),
+    "creator_campaigns_create_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_create_campaign_payout_batch": ("campaigns:write",),
+    "creator_campaigns_create_creator_campaign": ("campaigns:write",),
+    "creator_campaigns_decline_campaign_sample": ("campaigns:write",),
+    "creator_campaigns_deny_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_get_campaign_ad_results": ("campaigns:write",),
+    "creator_campaigns_get_campaign_draft": ("campaigns:write",),
+    "creator_campaigns_get_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_get_campaign_report": ("campaigns:write",),
+    "creator_campaigns_get_campaign_submission": ("campaigns:write",),
+    "creator_campaigns_get_creator_campaign": ("campaigns:write",),
+    "creator_campaigns_launch_campaign_ads": ("campaigns:write",),
+    "creator_campaigns_list_campaign_drafts": ("campaigns:write",),
+    "creator_campaigns_list_campaign_ledger": ("campaigns:write",),
+    "creator_campaigns_list_campaign_orders": ("campaigns:write",),
+    "creator_campaigns_list_campaign_participants": ("campaigns:write",),
+    "creator_campaigns_list_campaign_payables": ("campaigns:write",),
+    "creator_campaigns_list_campaign_payout_batches": ("campaigns:write",),
+    "creator_campaigns_list_campaign_samples": ("campaigns:write",),
+    "creator_campaigns_list_campaign_submissions": ("campaigns:write",),
+    "creator_campaigns_list_creator_campaigns": ("campaigns:write",),
+    "creator_campaigns_move_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_pause_creator_campaign": ("campaigns:write",),
+    "creator_campaigns_preview_campaign_payout_batch": ("campaigns:write",),
+    "creator_campaigns_raise_creator_campaign_budget": ("campaigns:write",),
+    "creator_campaigns_reinstate_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_reject_campaign_draft": ("campaigns:write",),
+    "creator_campaigns_reject_campaign_submission": ("campaigns:write",),
+    "creator_campaigns_remove_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_reopen_campaign_submission": ("campaigns:write",),
+    "creator_campaigns_request_campaign_draft_revision": ("campaigns:write",),
+    "creator_campaigns_resend_campaign_participant_invite": ("campaigns:write",),
+    "creator_campaigns_settle_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_ship_campaign_sample": ("campaigns:write",),
+    "creator_campaigns_suspend_campaign_participant": ("campaigns:write",),
+    "creator_campaigns_update_creator_campaign": ("campaigns:write",),
+    "crm_create_crm_activity": ("automations:write",),
+    "crm_create_crm_contact": ("automations:write",),
+    "crm_get_crm_contact": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "crm_get_crm_deal": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "crm_list_crm_deals": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "crm_list_crm_owners": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "crm_search_crm_contacts": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "crm_update_crm_contact": ("automations:write",),
+    "crm_update_crm_deal": ("automations:write",),
+    "custom_fields_clear_contact_field_value": ("automations:write",),
+    "custom_fields_create_custom_field": ("accounts:write",),
+    "custom_fields_delete_custom_field": ("accounts:write",),
+    "custom_fields_list_custom_fields": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "custom_fields_set_contact_field_value": ("automations:write",),
+    "custom_fields_update_custom_field": ("accounts:write",),
+    "discord_add_discord_member_role": ("automations:write",),
+    "discord_create_discord_guild_role": ("messaging:write",),
+    "discord_create_discord_scheduled_event": ("messaging:write",),
+    "discord_create_discord_thread": ("messaging:write",),
+    "discord_crosspost_discord_message": ("messaging:write",),
+    "discord_delete_discord_guild_role": ("messaging:write",),
+    "discord_delete_discord_message": ("messaging:write",),
+    "discord_delete_discord_scheduled_event": ("messaging:write",),
+    "discord_edit_discord_guild_role": ("messaging:write",),
+    "discord_get_discord_channels": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "discord_get_discord_guild_member": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "discord_get_discord_scheduled_event": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "discord_get_discord_settings": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "discord_list_discord_guild_members": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "discord_list_discord_guild_roles": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "discord_list_discord_pinned_messages": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "discord_list_discord_scheduled_events": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "discord_pin_discord_message": ("messaging:write",),
+    "discord_remove_discord_member_role": ("automations:write",),
+    "discord_search_discord_guild_members": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "discord_send_discord_direct_message": ("messaging:write",),
+    "discord_unpin_discord_message": ("messaging:write",),
+    "discord_update_discord_scheduled_event": ("messaging:write",),
+    "discord_update_discord_settings": ("accounts:write",),
+    "email_add_email_shared_mailbox": ("messaging:write",),
+    "email_cancel_scheduled_email": ("messaging:write",),
+    "email_create_email_draft": ("messaging:write",),
+    "email_create_email_label": ("messaging:write",),
+    "email_create_email_signature": ("messaging:write",),
+    "email_create_imap_account": ("messaging:write",),
+    "email_declare_email_send_as": ("messaging:write",),
+    "email_delete_email_draft": ("messaging:write",),
+    "email_delete_email_label": ("messaging:write",),
+    "email_delete_email_send_as": ("messaging:write",),
+    "email_delete_email_signature": ("messaging:write",),
+    "email_discover_imap_settings": ("messaging:write",),
+    "email_download_email_attachment": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_forward_email_message": ("messaging:write",),
+    "email_get_email_draft": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_get_email_message": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_get_email_signature": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_get_email_thread": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_get_scheduled_email": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_import_email_signatures": ("messaging:write",),
+    "email_list_email_drafts": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_list_email_folders": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_list_email_labels": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_list_email_messages": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_list_email_send_as": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_list_email_shared_mailboxes": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_list_email_signatures": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_list_email_threads": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_list_scheduled_emails": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "email_reply_email_message": ("messaging:write",),
+    "email_send_email_draft": ("messaging:write",),
+    "email_send_email_message": ("messaging:write",),
+    "email_trash_email_message": ("messaging:write",),
+    "email_update_email_draft": ("messaging:write",),
+    "email_update_email_message": ("messaging:write",),
+    "email_update_email_signature": ("messaging:write",),
+    "email_update_email_thread": ("messaging:write",),
+    "feedback_submit_feedback": ("accounts:write",),
+    "files_create_file_picker_session": ("files:write",),
+    "files_create_folder": ("files:write",),
+    "files_download_file": ("files:write",),
+    "files_get_file": ("files:write",),
+    "files_get_file_share_link": ("files:write",),
+    "files_list_files": ("files:write",),
+    "files_trash_file": ("files:write",),
+    "files_update_file": ("files:write",),
+    "files_upload_file": ("files:write",),
+    "gmb_services_get_google_business_services": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "gmb_services_update_google_business_services": ("accounts:write",),
+    "gmb_verifications_complete_google_business_verification": ("accounts:write",),
+    "gmb_verifications_fetch_google_business_verification_options": ("accounts:write",),
+    "gmb_verifications_get_google_business_verifications": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "gmb_verifications_start_google_business_verification": ("accounts:write",),
+    "imessage_get_imessage_group": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "imessage_get_imessage_sender": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "imessage_list_imessage_audience": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "imessage_list_imessage_available_numbers": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "imessage_list_imessage_sandbox_contacts": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "imessage_list_imessage_sender_orders": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "imessage_list_imessage_senders": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "inbox_analytics_get_inbox_conversation_analytics": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "inbox_analytics_get_inbox_heatmap": ("analytics:read",),
+    "inbox_analytics_get_inbox_response_time": ("analytics:read",),
+    "inbox_analytics_get_inbox_source_breakdown": ("analytics:read",),
+    "inbox_analytics_get_inbox_top_accounts": ("analytics:read",),
+    "inbox_analytics_get_inbox_volume": ("analytics:read",),
+    "inbox_analytics_list_inbox_conversation_analytics": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "instagram_get_instagram_audio": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "instagram_get_instagram_business_discovery": ("analytics:read",),
+    "instagram_get_instagram_mentioned_comment": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "instagram_get_instagram_mentioned_media": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "instagram_get_instagram_publishing_limit": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "instagram_get_instagram_story_insights": ("analytics:read",),
+    "instagram_list_instagram_live_media": ("analytics:read",),
+    "instagram_list_instagram_media_collaborators": (
+        "posts:read",
+        "posts:write",
+    ),
+    "instagram_list_instagram_stories": ("analytics:read",),
+    "instagram_list_instagram_tagged_media": ("analytics:read",),
+    "instagram_search_instagram_audio": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "lead_gen_archive_lead_form": ("ads:write",),
+    "lead_gen_count_leads": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "lead_gen_create_lead": ("automations:write",),
+    "lead_gen_create_lead_form": ("ads:write",),
+    "lead_gen_create_test_lead": ("automations:write",),
+    "lead_gen_delete_test_lead": ("automations:write",),
+    "lead_gen_get_lead_form": (
+        "ads:read",
+        "ads:write",
+    ),
+    "lead_gen_list_form_leads": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "lead_gen_list_lead_forms": (
+        "ads:read",
+        "ads:write",
+    ),
+    "lead_gen_list_leads": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "lead_gen_update_lead": ("automations:write",),
+    "ledger_get_ledger_balances": ("money:write",),
+    "ledger_list_ledger_entries": ("money:write",),
+    "logs_list_logs": (
+        "posts:read",
+        "posts:write",
+    ),
+    "media_get_media_presigned_url": ("posts:write",),
+    "media_prepare_media": ("posts:write",),
+    "mentions_list_inbox_mentions": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "mentions_reply_to_mention": ("messaging:write",),
+    "messages_accept_conversation_request": ("messaging:write",),
+    "messages_add_conversation_label": ("messaging:write",),
+    "messages_add_message_reaction": ("messaging:write",),
+    "messages_create_inbox_conversation": ("messaging:write",),
+    "messages_create_inbox_label": ("messaging:write",),
+    "messages_delete_inbox_conversation": ("messaging:write",),
+    "messages_delete_inbox_label": ("messaging:write",),
+    "messages_delete_inbox_message": ("messaging:write",),
+    "messages_edit_inbox_message": ("messaging:write",),
+    "messages_get_inbox_conversation": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "messages_get_inbox_conversation_messages": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "messages_get_message_attachment": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "messages_list_conversation_labels": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "messages_list_inbox_conversations": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "messages_list_inbox_labels": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "messages_mark_conversation_read": ("messaging:write",),
+    "messages_remove_conversation_label": ("messaging:write",),
+    "messages_remove_message_reaction": ("messaging:write",),
+    "messages_search_inbox_conversations": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "messages_send_inbox_message": ("messaging:write",),
+    "messages_send_typing_indicator": ("messaging:write",),
+    "messages_set_conversation_thread_control": ("messaging:write",),
+    "messages_update_inbox_conversation": ("messaging:write",),
+    "messages_upload_media_direct": ("posts:write",),
+    "messaging_ads_create_call_ad": ("ads:write",),
+    "messaging_ads_create_ctwa_ad": ("ads:write",),
+    "messaging_ads_create_messaging_ad": ("ads:write",),
+    "metrics_get_account_metrics": ("analytics:read",),
+    "metrics_get_ad_account_metrics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "metrics_get_ad_metrics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "metrics_get_ad_set_metrics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "metrics_get_campaign_metrics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "metrics_get_inbox_metrics": ("analytics:read",),
+    "metrics_get_insight_metrics": ("analytics:read",),
+    "metrics_get_metrics_catalog": ("analytics:read",),
+    "metrics_get_post_metrics": ("analytics:read",),
+    "metrics_query_google_ads": ("ads:write",),
+    "metrics_query_google_analytics": ("analytics:read",),
+    "metrics_query_meta_ads": ("ads:write",),
+    "metrics_query_tik_tok_ads": ("ads:write",),
+    "phone_numbers_cancel_phone_number_port_in": ("messaging:write",),
+    "phone_numbers_check_phone_number_availability": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_check_phone_number_portability": ("messaging:write",),
+    "phone_numbers_create_phone_number_kyc_link": ("messaging:write",),
+    "phone_numbers_create_phone_number_port_in": ("messaging:write",),
+    "phone_numbers_create_phone_number_stock_watch": ("messaging:write",),
+    "phone_numbers_delete_phone_number_stock_watch": ("messaging:write",),
+    "phone_numbers_get_phone_number": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_get_phone_number_claim": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_get_phone_number_kyc_form": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_get_phone_number_port_claim": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_get_phone_number_port_in_order_requirements": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_get_phone_number_port_in_requirements": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_get_phone_number_remediation": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_list_phone_number_countries": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_list_phone_number_port_ins": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_list_phone_number_stock_watches": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_list_phone_numbers": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_purchase_phone_number": ("messaging:write",),
+    "phone_numbers_release_phone_number": ("messaging:write",),
+    "phone_numbers_remediate_phone_number": ("messaging:write",),
+    "phone_numbers_reply_to_phone_number_reviewer": ("messaging:write",),
+    "phone_numbers_request_phone_number_whats_app_code": ("messaging:write",),
+    "phone_numbers_respond_to_phone_number_reviewer": ("messaging:write",),
+    "phone_numbers_review_phone_number_kyc_packet": ("messaging:write",),
+    "phone_numbers_search_available_phone_numbers": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "phone_numbers_submit_phone_number_kyc": ("messaging:write",),
+    "phone_numbers_upload_phone_number_kyc_document": ("messaging:write",),
+    "phone_numbers_upload_phone_number_port_in_document": ("messaging:write",),
+    "phone_numbers_validate_phone_number_kyc_address": ("messaging:write",),
+    "phone_numbers_view_phone_number_kyc_document": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "posts_bulk_upload_posts": ("posts:write",),
+    "posts_create_post": ("posts:write",),
+    "posts_delete_post": ("posts:write",),
+    "posts_edit_post": ("posts:write",),
+    "posts_get_post": (
+        "posts:read",
+        "posts:write",
+    ),
+    "posts_list_posts": (
+        "posts:read",
+        "posts:write",
+    ),
+    "posts_pin_post": ("posts:write",),
+    "posts_review_post": ("posts:write",),
+    "posts_unpin_post": ("posts:write",),
+    "posts_unpublish_post": ("posts:write",),
+    "posts_update_post": ("posts:write",),
+    "posts_update_post_metadata": ("posts:write",),
+    "product_catalogs_batch_ad_catalog_products": ("ads:write",),
+    "product_catalogs_create_ad_catalog": ("ads:write",),
+    "product_catalogs_create_ad_catalog_feed": ("ads:write",),
+    "product_catalogs_create_ad_catalog_feed_upload": ("ads:write",),
+    "product_catalogs_create_ad_catalog_product": ("ads:write",),
+    "product_catalogs_create_ad_catalog_product_set": ("ads:write",),
+    "product_catalogs_delete_ad_catalog": ("ads:write",),
+    "product_catalogs_delete_ad_catalog_product": ("ads:write",),
+    "product_catalogs_delete_ad_catalog_product_set": ("ads:write",),
+    "product_catalogs_get_ad_catalog": (
+        "ads:read",
+        "ads:write",
+    ),
+    "product_catalogs_get_ad_catalog_batch": (
+        "ads:read",
+        "ads:write",
+    ),
+    "product_catalogs_get_ad_catalog_product": (
+        "ads:read",
+        "ads:write",
+    ),
+    "product_catalogs_list_ad_catalog_feed_uploads": (
+        "ads:read",
+        "ads:write",
+    ),
+    "product_catalogs_list_ad_catalog_feeds": (
+        "ads:read",
+        "ads:write",
+    ),
+    "product_catalogs_list_ad_catalog_product_sets": (
+        "ads:read",
+        "ads:write",
+    ),
+    "product_catalogs_list_ad_catalog_products": (
+        "ads:read",
+        "ads:write",
+    ),
+    "product_catalogs_list_ad_catalogs": (
+        "ads:read",
+        "ads:write",
+    ),
+    "product_catalogs_update_ad_catalog_product": ("ads:write",),
+    "product_catalogs_update_ad_catalog_product_set": ("ads:write",),
+    "products_get_product": ("commerce:write",),
+    "products_list_products": ("commerce:write",),
+    "products_update_product": ("commerce:write",),
+    "profiles_create_profile": ("accounts:write",),
+    "profiles_delete_profile": ("accounts:write",),
+    "profiles_get_profile": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "profiles_get_profile_limits": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "profiles_list_profiles": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "profiles_update_profile": ("accounts:write",),
+    "queue_create_queue_slot": ("posts:write",),
+    "queue_delete_queue_slot": ("posts:write",),
+    "queue_get_next_queue_slot": (
+        "posts:read",
+        "posts:write",
+    ),
+    "queue_list_queue_slots": (
+        "posts:read",
+        "posts:write",
+    ),
+    "queue_preview_queue": (
+        "posts:read",
+        "posts:write",
+    ),
+    "queue_update_queue_slot": ("posts:write",),
+    "rcs_add_rcs_test_device": ("messaging:write",),
+    "rcs_create_rcs_agent": ("messaging:write",),
+    "rcs_deactivate_rcs_agent": ("messaging:write",),
+    "rcs_get_rcs_agent": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "rcs_get_rcs_capabilities": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "rcs_list_rcs_agents": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "rcs_list_rcs_brands": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "rcs_list_rcs_test_devices": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "rcs_remove_rcs_test_device": ("messaging:write",),
+    "rcs_request_rcs_agent_launch": ("messaging:write",),
+    "rcs_send_rcs_message": ("messaging:write",),
+    "rcs_update_rcs_agent": ("messaging:write",),
+    "rcs_upload_rcs_asset": ("messaging:write",),
+    "reach_and_frequency_cancel_rf_reservation": ("ads:write",),
+    "reach_and_frequency_create_rf_prediction": ("ads:write",),
+    "reach_and_frequency_get_rf_prediction": (
+        "ads:read",
+        "ads:write",
+    ),
+    "reach_and_frequency_reserve_rf_prediction": ("ads:write",),
+    "reddit_get_reddit_feed": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "reddit_get_reddit_post_comments": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "reddit_search_reddit": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "reviews_delete_inbox_review_reply": ("messaging:write",),
+    "reviews_list_inbox_reviews": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "reviews_reply_to_inbox_review": ("messaging:write",),
+    "sequences_activate_sequence": ("messaging:write",),
+    "sequences_create_sequence": ("messaging:write",),
+    "sequences_delete_sequence": ("messaging:write",),
+    "sequences_enroll_contacts": ("messaging:write",),
+    "sequences_get_sequence": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "sequences_list_sequence_enrollments": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "sequences_list_sequences": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "sequences_pause_sequence": ("messaging:write",),
+    "sequences_unenroll_contact": ("messaging:write",),
+    "sequences_update_sequence": ("messaging:write",),
+    "slack_list_slack_members": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "sms_appeal_sms_registration": ("messaging:write",),
+    "sms_create_sms_opt_out": ("automations:write",),
+    "sms_create_sms_sender_id": ("messaging:write",),
+    "sms_deactivate_sms_registration": ("messaging:write",),
+    "sms_delete_sms_opt_out": ("automations:write",),
+    "sms_delete_sms_sender_id": ("messaging:write",),
+    "sms_disable_sms_on_number": ("messaging:write",),
+    "sms_enable_sms_on_number": ("messaging:write",),
+    "sms_get_sms_registration": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "sms_list_sms_opt_outs": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "sms_list_sms_registrations": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "sms_list_sms_sender_ids": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "sms_lookup_sms_number": ("messaging:write",),
+    "sms_preflight_sms_registration": ("messaging:write",),
+    "sms_request_sms_sender_id_limit_increase": ("messaging:write",),
+    "sms_resend_sms_registration_otp": ("messaging:write",),
+    "sms_respond_to_sms_registration_review": ("messaging:write",),
+    "sms_reuse_sms_registration_for_number": ("messaging:write",),
+    "sms_send_sms": ("messaging:write",),
+    "sms_share_sms_registration": ("messaging:write",),
+    "sms_start_sms_registration": ("messaging:write",),
+    "sms_upload_sms_opt_in_proof": ("automations:write",),
+    "sms_upload_sms_opt_in_proof_file": ("automations:write",),
+    "sms_verify_sms_registration_otp": ("messaging:write",),
+    "tracking_links_create_tracking_link": ("ads:write",),
+    "tracking_links_delete_tracking_link": ("ads:write",),
+    "tracking_links_get_tracking_link": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_links_get_tracking_link_stats": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_links_list_tracking_links": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_links_rotate_tracking_link_postback_token": ("ads:write",),
+    "tracking_links_update_tracking_link": ("ads:write",),
+    "tracking_tags_add_tracking_tag_shared_account": ("ads:write",),
+    "tracking_tags_assign_tracking_tag_user": ("ads:write",),
+    "tracking_tags_create_tracking_tag": ("ads:write",),
+    "tracking_tags_create_tracking_tag_event": ("ads:write",),
+    "tracking_tags_delete_tracking_tag_event": ("ads:write",),
+    "tracking_tags_get_ad_tracking_tags": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_get_tracking_tag": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_get_tracking_tag_diagnostics": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_get_tracking_tag_stats": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_get_tracking_tag_store_install": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_install_tracking_tag_on_store": ("ads:write",),
+    "tracking_tags_list_tracking_tag_events": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_list_tracking_tag_partners": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_list_tracking_tag_shared_accounts": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_list_tracking_tag_users": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_list_tracking_tags": (
+        "ads:read",
+        "ads:write",
+    ),
+    "tracking_tags_remove_tracking_tag_from_store": ("ads:write",),
+    "tracking_tags_remove_tracking_tag_shared_account": ("ads:write",),
+    "tracking_tags_remove_tracking_tag_user": ("ads:write",),
+    "tracking_tags_update_ad_tracking_tags": ("ads:write",),
+    "tracking_tags_update_tracking_tag": ("ads:write",),
+    "tracking_tags_update_tracking_tag_event": ("ads:write",),
+    "treasury_cancel_payout_batch": ("money:write",),
+    "treasury_cancel_topup": ("money:write",),
+    "treasury_confirm_payout_batch": ("money:write",),
+    "treasury_confirm_topup": ("money:write",),
+    "treasury_create_payee_onboarding_link": ("money:write",),
+    "treasury_create_topup": ("money:write",),
+    "treasury_create_transfer": ("money:write",),
+    "treasury_get_auto_recharge": ("money:write",),
+    "treasury_get_balance": ("money:write",),
+    "treasury_get_payout_batch": ("money:write",),
+    "treasury_get_topup_invoice": ("money:write",),
+    "treasury_get_topup_receipt": ("money:write",),
+    "treasury_get_topup_statement": ("money:write",),
+    "treasury_get_transfer": ("money:write",),
+    "treasury_list_payees": ("money:write",),
+    "treasury_list_topups": ("money:write",),
+    "treasury_list_transfers": ("money:write",),
+    "treasury_preview_topup": ("money:write",),
+    "treasury_update_auto_recharge": ("money:write",),
+    "twitter_engagement_bookmark_post": ("messaging:write",),
+    "twitter_engagement_follow_user": ("messaging:write",),
+    "twitter_engagement_get_tweet": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "twitter_engagement_remove_bookmark": ("messaging:write",),
+    "twitter_engagement_retweet_post": ("messaging:write",),
+    "twitter_engagement_search_tweets": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "twitter_engagement_undo_retweet": ("messaging:write",),
+    "twitter_engagement_unfollow_user": ("messaging:write",),
+    "usage_get_billing": ("accounts:read",),
+    "usage_get_calls_usage": ("accounts:read",),
+    "usage_get_sms_usage": ("accounts:read",),
+    "usage_get_usage": ("accounts:read",),
+    "usage_get_usage_stats": ("accounts:read",),
+    "usage_get_x_api_pricing": ("accounts:read",),
+    "users_get_current_user": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "users_get_user": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "users_list_users": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "validate_media": (
+        "posts:read",
+        "posts:write",
+    ),
+    "validate_post": (
+        "posts:read",
+        "posts:write",
+    ),
+    "validate_post_length": (
+        "posts:read",
+        "posts:write",
+    ),
+    "validate_subreddit": (
+        "posts:read",
+        "posts:write",
+    ),
+    "verify_check_verification": ("messaging:write",),
+    "verify_create_verification": ("messaging:write",),
+    "verify_get_verification": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "voice_attach_number_to_sip_trunk": ("messaging:write",),
+    "voice_create_sip_trunk": ("messaging:write",),
+    "voice_create_voice_call": ("messaging:write",),
+    "voice_create_voice_web_inbound_session": ("messaging:write",),
+    "voice_create_voice_web_session": ("messaging:write",),
+    "voice_delete_sip_trunk": ("messaging:write",),
+    "voice_detach_number_from_sip_trunk": ("messaging:write",),
+    "voice_dial_voice_web_call": ("messaging:write",),
+    "voice_disable_voice_on_number": ("messaging:write",),
+    "voice_enable_voice_on_number": ("messaging:write",),
+    "voice_end_voice_call": ("messaging:write",),
+    "voice_get_sip_trunk": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "voice_get_voice_call": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "voice_get_voice_call_estimate": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "voice_get_voice_call_recording": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "voice_list_sip_trunks": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "voice_list_voice_calls": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "voice_rotate_sip_trunk_credentials": ("messaging:write",),
+    "voice_transfer_voice_call": ("messaging:write",),
+    "webhooks_create_webhook_settings": ("automations:write",),
+    "webhooks_delete_webhook_settings": ("automations:write",),
+    "webhooks_get_webhook_logs": ("automations:write",),
+    "webhooks_get_webhook_settings": ("automations:write",),
+    "webhooks_redeliver_webhook_event": ("automations:write",),
+    "webhooks_test_webhook": ("automations:write",),
+    "webhooks_update_webhook_settings": ("automations:write",),
+    "whatsapp_add_whats_app_group_participants": ("messaging:write",),
+    "whatsapp_approve_whats_app_group_join_requests": ("messaging:write",),
+    "whatsapp_block_whats_app_users": ("automations:write",),
+    "whatsapp_calling_disable_whats_app_calling": ("messaging:write",),
+    "whatsapp_calling_disable_whats_app_calling_legacy": ("messaging:write",),
+    "whatsapp_calling_enable_whats_app_calling": ("messaging:write",),
+    "whatsapp_calling_enable_whats_app_calling_legacy": ("messaging:write",),
+    "whatsapp_calling_get_whats_app_call": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_calling_get_whats_app_call_estimate": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_calling_get_whats_app_call_permissions": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "whatsapp_calling_get_whats_app_call_recording": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_calling_get_whats_app_calling": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_calling_get_whats_app_calling_config": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_calling_initiate_whats_app_call": ("messaging:write",),
+    "whatsapp_calling_list_whats_app_calls": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_calling_start_whats_app_caller_id_verification": ("messaging:write",),
+    "whatsapp_calling_update_whats_app_calling": ("messaging:write",),
+    "whatsapp_calling_update_whats_app_calling_legacy": ("messaging:write",),
+    "whatsapp_calling_verify_whats_app_caller_id": ("messaging:write",),
+    "whatsapp_create_whats_app_dataset": ("accounts:write",),
+    "whatsapp_create_whats_app_group_chat": ("messaging:write",),
+    "whatsapp_create_whats_app_group_invite_link": ("messaging:write",),
+    "whatsapp_create_whats_app_template": ("accounts:write",),
+    "whatsapp_delete_whats_app_conversational_automation": ("messaging:write",),
+    "whatsapp_delete_whats_app_group_chat": ("messaging:write",),
+    "whatsapp_delete_whats_app_template": ("accounts:write",),
+    "whatsapp_delete_whats_app_template_by_id": ("accounts:write",),
+    "whatsapp_delete_whatsapp_business_username": ("accounts:write",),
+    "whatsapp_flows_create_whats_app_flow": ("accounts:write",),
+    "whatsapp_flows_delete_whats_app_flow": ("accounts:write",),
+    "whatsapp_flows_deprecate_whats_app_flow": ("accounts:write",),
+    "whatsapp_flows_get_whats_app_flow": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_flows_get_whats_app_flow_json": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_flows_get_whats_app_flow_preview": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_flows_get_whats_app_flows_encryption_key": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_flows_list_whats_app_flow_responses": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_flows_list_whats_app_flow_versions": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_flows_list_whats_app_flows": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_flows_publish_whats_app_flow": ("accounts:write",),
+    "whatsapp_flows_send_whats_app_flow_message": ("messaging:write",),
+    "whatsapp_flows_set_whats_app_flows_encryption_key": ("accounts:write",),
+    "whatsapp_flows_update_whats_app_flow": ("accounts:write",),
+    "whatsapp_flows_upload_whats_app_flow_json": ("accounts:write",),
+    "whatsapp_get_whats_app_block_status": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "whatsapp_get_whats_app_blocked_users": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "whatsapp_get_whats_app_business_profile": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_get_whats_app_commerce_settings": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_get_whats_app_conversational_automation": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_get_whats_app_dataset": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_get_whats_app_display_name": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_get_whats_app_group_chat": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_get_whats_app_media": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_get_whats_app_template": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_get_whats_app_template_by_id": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_get_whats_app_templates": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_get_whatsapp_business_username": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_get_whatsapp_business_username_suggestions": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_link_whats_app_catalog": ("messaging:write",),
+    "whatsapp_list_whats_app_account_events": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_list_whats_app_catalogs": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_list_whats_app_conversions": (
+        "ads:read",
+        "ads:write",
+    ),
+    "whatsapp_list_whats_app_group_chats": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_list_whats_app_group_join_requests": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_phone_numbers_check_whats_app_number_availability": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_phone_numbers_create_whats_app_number_kyc_link": ("messaging:write",),
+    "whatsapp_phone_numbers_get_whats_app_number_info": (
+        "contacts:read",
+        "automations:write",
+    ),
+    "whatsapp_phone_numbers_get_whats_app_number_kyc_form": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_phone_numbers_get_whats_app_number_remediation": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_phone_numbers_get_whats_app_phone_number": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_phone_numbers_get_whats_app_phone_numbers": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_phone_numbers_get_whats_app_pricing_analytics": ("analytics:read",),
+    "whatsapp_phone_numbers_list_whats_app_number_countries": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_phone_numbers_move_whats_app_number_to_profile": ("messaging:write",),
+    "whatsapp_phone_numbers_purchase_whats_app_phone_number": ("messaging:write",),
+    "whatsapp_phone_numbers_release_whats_app_phone_number": ("messaging:write",),
+    "whatsapp_phone_numbers_remediate_whats_app_number": ("messaging:write",),
+    "whatsapp_phone_numbers_search_available_whats_app_numbers": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_phone_numbers_submit_whats_app_number_kyc": ("messaging:write",),
+    "whatsapp_phone_numbers_upload_whats_app_number_kyc_document": ("messaging:write",),
+    "whatsapp_phone_numbers_validate_whats_app_number_kyc_address": (
+        "messaging:write",
+    ),
+    "whatsapp_register_whats_app_number": ("accounts:write",),
+    "whatsapp_reject_whats_app_group_join_requests": ("messaging:write",),
+    "whatsapp_remove_whats_app_group_participants": ("messaging:write",),
+    "whatsapp_request_whats_app_verification_code": ("accounts:write",),
+    "whatsapp_sandbox_create_whats_app_sandbox_session": ("messaging:write",),
+    "whatsapp_sandbox_delete_whats_app_sandbox_session": ("messaging:write",),
+    "whatsapp_sandbox_list_whats_app_sandbox_sessions": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "whatsapp_send_whats_app_conversion": ("ads:write",),
+    "whatsapp_set_whats_app_conversational_automation": ("messaging:write",),
+    "whatsapp_set_whatsapp_business_username": ("accounts:write",),
+    "whatsapp_templates_get_whats_app_library_template": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "whatsapp_unblock_whats_app_users": ("automations:write",),
+    "whatsapp_unlink_whats_app_catalog": ("messaging:write",),
+    "whatsapp_update_whats_app_business_profile": ("accounts:write",),
+    "whatsapp_update_whats_app_commerce_settings": ("messaging:write",),
+    "whatsapp_update_whats_app_display_name": ("accounts:write",),
+    "whatsapp_update_whats_app_group_chat": ("messaging:write",),
+    "whatsapp_update_whats_app_template": ("accounts:write",),
+    "whatsapp_update_whats_app_template_by_id": ("accounts:write",),
+    "whatsapp_upload_whats_app_profile_photo": ("accounts:write",),
+    "whatsapp_verify_whats_app_number": ("accounts:write",),
+    "workflows_activate_workflow": ("accounts:write",),
+    "workflows_create_workflow": ("accounts:write",),
+    "workflows_delete_workflow": ("accounts:write",),
+    "workflows_duplicate_workflow": ("accounts:write",),
+    "workflows_get_workflow": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "workflows_get_workflow_version": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "workflows_list_workflow_execution_events": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "workflows_list_workflow_executions": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "workflows_list_workflow_versions": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "workflows_list_workflows": (
+        "accounts:read",
+        "accounts:write",
+    ),
+    "workflows_pause_workflow": ("accounts:write",),
+    "workflows_restore_workflow_version": ("accounts:write",),
+    "workflows_take_over_workflow": ("accounts:write",),
+    "workflows_trigger_api_call_workflow": ("messaging:write",),
+    "workflows_trigger_workflow": ("messaging:write",),
+    "workflows_update_workflow": ("accounts:write",),
+}

@@ -29,25 +29,26 @@ class DeepLAdminClient(BaseClient):
     :param admin_key: Admin API key as found in your DeepL account. Developer
         keys cannot access the Admin API.
     :param server_url: (Optional) Base URL of DeepL API, can be overridden e.g.
-        for testing purposes.
+        for testing purposes. Must be an absolute http or https URL with a
+        host, otherwise ValueError is raised.
     :param proxy: (Optional) Proxy server URL string or dictionary containing
         URL strings for the 'http' and 'https' keys. This is passed to the
         underlying requests session, see the requests proxy documentation for
-        more information.
+        more information. Raises ValueError if a proxy URL has no host or a
+        scheme other than http, https, socks4, socks4a, socks5 or socks5h; a
+        URL without a scheme is used as an http:// URL.
     :param send_platform_info: (Optional) boolean that indicates if the client
         library can send basic platform info (python version, OS) to the
         DeepL API. True = send info, False = only send client
-        library version
+        library version. None uses the default (True).
     :param verify_ssl: (Optional) Controls how requests verifies SSL
         certificates. This is passed to the underlying requests session, see
         the requests verify documentation for more information.
     :param max_retries: (Optional) Maximum number of times a failed request
-        is retried, for failures that may be transient (e.g. HTTP 429). If
-        None, the deprecated deepl.http_client.max_network_retries is used
-        (default 5).
+        is retried, for failures that may be transient (e.g. HTTP 429).
+        Default 5; 0 disables retries. None uses the default.
     :param timeout_s: (Optional) Minimum timeout in seconds for each attempt
-        of a request. If None, the deprecated
-        deepl.http_client.min_connection_timeout is used (default 10.0).
+        of a request. Default 10.0; None uses the default.
     :param headers: (Optional) Additional HTTP headers sent with every
         request to the DeepL API. A header replaces the library's header of
         the same name (compared case-insensitively), including User-Agent
@@ -67,10 +68,10 @@ class DeepLAdminClient(BaseClient):
         *,
         server_url: Optional[str] = None,
         proxy: Union[Dict, str, None] = None,
-        send_platform_info: bool = True,
+        send_platform_info: Optional[bool] = True,
         verify_ssl: Union[bool, str, None] = None,
-        max_retries: Optional[int] = None,
-        timeout_s: Optional[float] = None,
+        max_retries: Optional[int] = 5,
+        timeout_s: Optional[float] = 10.0,
         headers: Optional[Dict[str, str]] = None,
         app_info: Optional[AppInfo] = None,
     ):
@@ -179,9 +180,12 @@ class DeepLAdminClient(BaseClient):
         extra_body_parameters: Optional[dict] = None,
     ) -> DeveloperKey:
         """Creates a developer key in the organization. The request is only
-        retried if it was not sent (HTTP 429, a DNS resolution failure, a
-        refused connection or a connect timeout): a retry after a server
-        error, read timeout or lost connection could create a second key.
+        retried if it was not sent (HTTP 429 or a network failure while
+        connecting, such as a DNS resolution failure, a refused connection, a
+        connect timeout, or a reset or timeout in the TLS or proxy handshake):
+        a retry after a server error, read timeout or lost connection could
+        create a second key. The raised exception has should_retry True only
+        after those failures or a response body cut off mid-read.
 
         :param label: (Optional) Label for the new key. The API uses
             "DeepL API Key" if no label is given.

@@ -151,6 +151,9 @@ class ToFrontendExecutor:
         dynamic_output=True,
         determinism=ActionTier.SIDE_EFFECT,
         emits_stream=True,
+        # Its emission is its only effect and never load-bearing: it may ride a chain.
+        emits_only=True,
+        spends=False,
         icon="monitor-up",
     )
 
@@ -290,9 +293,9 @@ async def _verify_emitted_kind(
             return kind, None, None
         if check.errors:
             return kind, False, None
-        from matrx_graph.content_ir.envelope import ir_metadata_for_verified_output
+        from matrx_graph.content_ir.envelope import ir_metadata_for_verified_output_async
 
-        return kind, True, ir_metadata_for_verified_output(emitted, kind)
+        return kind, True, await ir_metadata_for_verified_output_async(emitted, kind)
     except Exception:  # noqa: BLE001 — a verdict is never load-bearing
         logger.warning("to_frontend kind verdict failed — emission ships neutral", exc_info=True)
         return None, None, None

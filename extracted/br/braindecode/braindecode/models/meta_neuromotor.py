@@ -339,6 +339,9 @@ class MetaNeuromotorHand(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         https://doi.org/10.5281/zenodo.593816
     """
 
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: rotation_invariant_mlp.fully_connected_layers.0.weight is sized by n_chans
+
     mapping = {
         "featurizer.window": "featurizer.stft.window",
         "featurizer.window_normalization_factor": "featurizer.stft.window_norm",
@@ -464,6 +467,17 @@ class MetaNeuromotorHand(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         # ``reset_head`` and braindecode's "last child is final_layer" convention
         # work uniformly).
         self.final_layer = nn.Linear(conformer_input_dim, self.n_outputs)
+        lo = max(1, mpf_window_length, mpf_n_fft)
+        hi = max(lo, self._signal_param("n_times") or 64000)
+        while int(self.compute_output_lengths(torch.tensor([hi]))[0]) < 1:
+            hi *= 2
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if int(self.compute_output_lengths(torch.tensor([mid]))[0]) >= 1:
+                hi = mid
+            else:
+                lo = mid + 1
+        self._min_n_times = lo
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Run the full pipeline.
@@ -514,29 +528,26 @@ class MetaNeuromotorHand(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         """
         lengths = self.featurizer.compute_time_downsampling(input_lengths)
         slc = self.output_slice
+        # ``floor`` (not ``trunc``): an input shorter than the first emission
+        # must map to 0 emissions, not 1.
         lengths = (
-            torch.div(lengths - slc.start - 1, slc.step, rounding_mode="trunc") + 1
+            torch.div(lengths - slc.start - 1, slc.step, rounding_mode="floor") + 1
         )
         return lengths.clamp_min(0)
 
     def get_output_shape(self) -> tuple[int, ...]:
-        """Shape of ``forward`` output for a batch of size 1.
+        """Shape of the ``forward`` output for one window, ``(1, T_out, n_outputs)``.
 
-        Overrides the base implementation to explicitly construct an input with
-        the requested ``n_times`` (the default dummy may be too short for the
-        MPF featurizer's left-context window).
+        ``T_out`` is :meth:`compute_output_lengths` of ``n_times``: the
+        featurizer's frames, then the output slice.
         """
-        min_n_times = (
-            self.featurizer.window_length
-            - self.featurizer.fft_stride
-            + self.featurizer.n_fft
-        )
-        n_times = max(self.n_times, min_n_times)
-        with torch.inference_mode():
-            dtype = next(self.parameters()).dtype
-            device = next(self.parameters()).device
-            x = torch.zeros(1, self.n_chans, n_times, dtype=dtype, device=device)
-            return tuple(self.forward(x).shape)
+        n_emissions = int(self.compute_output_lengths(torch.tensor([self.n_times]))[0])
+        if n_emissions < 1:
+            raise ValueError(
+                f"n_times={self.n_times} is too short: the featurizer and the "
+                "output slice leave no emission. Use longer windows."
+            )
+        return (1, n_emissions, self.final_layer.out_features)
 
 
 # ---------------------------------------------------------------------------
@@ -1551,6 +1562,7 @@ class _MultiHeadAttention(nn.Module):
             key=key,
             value=value,
             attn_mask=self.add_mask_axis(attn_mask),
+            need_weights=False,
         )
         # Un-merge (batch * time) back to (batch, time) while keeping the
         # singleton query axis the downstream conformer block expects.

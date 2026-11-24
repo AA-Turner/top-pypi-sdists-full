@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 
-project (ZXing VERSION "3.1.1")
+project (ZXing VERSION "3.2.0")
 set (ZXING_VERSION_SUFFIX "") # e.g. "-rc1"
 set (ZXING_SONAME 4) # see https://github.com/zxing-cpp/zxing-cpp/issues/333
 
 option (ZXING_USE_BUNDLED_ZINT "Use the bundled libzint for barcode creation/writing" ON)
+option (ZXING_ENABLE_UNICODE "Enable UTF-8 to/from ECI character-set conversion" ON)
 foreach(format 1D AZTEC DATAMATRIX MAXICODE PDF417 QRCODE)
     option ("ZXING_ENABLE_${format}" "Enable support for ${format} barcodes" ON)
 endforeach()
@@ -162,7 +163,7 @@ if (ZXING_READERS)
         src/GlobalHistogramBinarizer.cpp
         src/GridSampler.h
         src/GridSampler.cpp
-        src/LogMatrix.h
+        src/Log.h
         src/LocalGrid.h
         src/LocalGrid.cpp
         src/HybridBinarizer.h
@@ -485,7 +486,6 @@ source_group (Sources\\qrcode FILES ${QRCODE_FILES})
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads REQUIRED)
 
 add_library (ZXing
     ${COMMON_FILES}
@@ -509,8 +509,6 @@ target_compile_options (ZXing
 
 target_compile_features(ZXing PUBLIC cxx_std_17)
 
-target_link_libraries (ZXing PRIVATE Threads::Threads)
-
 if (ZXING_READERS OR ZXING_WRITERS_OLD)
     set (LIBZUECI_FILES
         src/libzueci/zueci.c
@@ -520,7 +518,9 @@ if (ZXING_READERS OR ZXING_WRITERS_OLD)
         COMPILE_FLAGS "$<$<NOT:$<BOOL:${ZXING_READERS}>>:-DZUECI_EMBED_NO_TO_UTF> $<$<NOT:$<BOOL:${ZXING_WRITERS_OLD}>>:-DZUECI_EMBED_NO_TO_ECI>"
         SKIP_PRECOMPILE_HEADERS ON
     )
-    target_sources(ZXing PRIVATE ${LIBZUECI_FILES})
+    if (ZXING_ENABLE_UNICODE)
+        target_sources(ZXing PRIVATE ${LIBZUECI_FILES})
+    endif()
     source_group (Sources\\libzueci FILES ${LIBZUECI_FILES})
 
     set (LIBRSCPP_FILES

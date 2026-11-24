@@ -188,6 +188,16 @@ def _announce_degradation(feature: str, reason: str) -> None:
     )
 
 
+def _coerce_float(raw: Any, fallback: float, low: float, high: float) -> float:
+    try:
+        value = float(str(raw).strip().strip('"'))
+    except (TypeError, ValueError):
+        return fallback
+    if value != value:  # NaN
+        return fallback
+    return max(low, min(high, value))
+
+
 def _coerce_int(raw: Any, fallback: int, low: int, high: int) -> int:
     try:
         value = int(str(raw).strip().strip('"'))
@@ -277,6 +287,17 @@ async def event_inline_value_max_bytes() -> int:
     )
 
 
+async def interning_grain() -> int:
+    """THE ONE INTERNING GRAIN (L-SPEED round 6a): the size over which ANY stored value — an event's,
+    an outcome's, a checkpoint's, the run output's — goes into the run's value store by reference.
+    One grain means a value interns to the same digest wherever it is written, so it is stored once;
+    two grains (events/outcomes 32 KB, checkpoints/run output 4 KB) split the same multi-MB list into
+    different children and stored it twice (2,236 value rows / 53 MB per Brand run tree). The grain is
+    the ``workflow.event_payload.inline_value_max_bytes`` knob; ``workflow.checkpoint_write``'s
+    ``inline_value_max_bytes`` row is no longer read."""
+    return await event_inline_value_max_bytes()
+
+
 #: 2026-10-29 — the most left-out values one step report (or run record) lists before it gives only a count of the
 #: rest (``checkpoint.value_store`` ``withheld`` / ``withheld_more``). Row: ``workflow.event_payload.withheld_list_max``.
 WITHHELD_LIST_MAX_KEY = "withheld_list_max"
@@ -341,6 +362,45 @@ async def regex_max_input_chars() -> int:
     return _coerce_int(
         values[REGEX_MAX_INPUT_CHARS_KEY], STARTING_REGEX_MAX_INPUT_CHARS, 1_000, 10_000_000
     )
+
+#: PF-WF E8 review: a main-loop boundary's checkpoint is written BESIDE the next step (1) or before it (0).
+#: Seeded by aidream db/migrations/wf_252_write_beside_next_step_knob.sql; ON until an admin turns it off.
+WRITE_BESIDE_NEXT_STEP_KEY = "write_beside_next_step"
+STARTING_WRITE_BESIDE_NEXT_STEP = True
+
+
+async def write_beside_next_step() -> bool:
+    """Whether a boundary's checkpoint is written beside the next step. Never raises; a missing row is
+    loud once and filed, and the starting value (on) applies."""
+    values = await _feature_values(CHECKPOINT_WRITE_FEATURE)
+    if values is None:
+        return STARTING_WRITE_BESIDE_NEXT_STEP
+    if WRITE_BESIDE_NEXT_STEP_KEY not in values:
+        _file_missing_rows(CHECKPOINT_WRITE_FEATURE, [WRITE_BESIDE_NEXT_STEP_KEY])
+        return STARTING_WRITE_BESIDE_NEXT_STEP
+    return _coerce_int(values[WRITE_BESIDE_NEXT_STEP_KEY], 1, 0, 1) == 1
+
+
+LEG_OVERHEAD_FEATURE = "workflow.leg_overhead"
+LEG_OVERHEAD_WARN_SECONDS_KEY = "warn_seconds"
+#: KNOB MIRROR of platform.feature_knob "workflow.leg_overhead" "warn_seconds" (seeded live 2026-11-10 through
+#: the Supabase MCP): a leg at least this long logs its timing line at WARNING; 0 = every line at INFO.
+#: SUB-SECOND (2026-11-13): the value is seconds as a decimal (``0.005`` = a 5 ms leg), so the per-hook timing of a
+#: milliseconds-long run of pure steps can be switched on in production; a whole number reads as before.
+STARTING_LEG_OVERHEAD_WARN_SECONDS = 0.0  # protocol-constant: the declared mirror of the live workflow.leg_overhead.warn_seconds knob row, read through the knob reader
+
+
+async def leg_overhead_warn_seconds() -> float:
+    """The live threshold, in seconds (decimal), for a leg's timing line to be a WARNING (0 = never). Never raises."""
+    values = await _feature_values(LEG_OVERHEAD_FEATURE)
+    if values is None:
+        return STARTING_LEG_OVERHEAD_WARN_SECONDS
+    if LEG_OVERHEAD_WARN_SECONDS_KEY not in values:
+        _file_missing_rows(LEG_OVERHEAD_FEATURE, [LEG_OVERHEAD_WARN_SECONDS_KEY])
+        _announce_degradation(LEG_OVERHEAD_FEATURE, f"row missing: {LEG_OVERHEAD_WARN_SECONDS_KEY}")
+        return STARTING_LEG_OVERHEAD_WARN_SECONDS
+    return _coerce_float(values[LEG_OVERHEAD_WARN_SECONDS_KEY], STARTING_LEG_OVERHEAD_WARN_SECONDS, 0.0, 3600.0)
+
 
 #: How many runs' organizations the checkpointer remembers (a run's organization never changes, so
 #: the per-write read of the run row is skipped for a remembered run). Seeded by aidream
@@ -473,20 +533,28 @@ def dry_run_knob(key: str, mirror: Any) -> Any:
 # read-level timeout in the stack kept resetting. Only a WALL CLOCK over the whole
 # step catches that shape.
 #
-# So the clock is now always on: an authored ``NodeSpec.timeout_ms`` still wins,
-# and every node that declares none gets the platform ceiling below.
+# So the clock is now always on. Precedence (``step_timeout_seconds``): the node's own
+# ``data.step_clock`` → a spec's ``timeout_knob`` row (its ``timeout_ms`` is that row's
+# mirror) → a spec's bare ``timeout_ms`` → the platform ceiling below.
 #
-# ======================== ========= ========================================
-# key                      start     meaning
-# ======================== ========= ========================================
-# default_step_seconds     600       wall-clock ceiling for ONE attempt of one
-#                                    node that declares no timeout of its own.
-# ======================== ========= ========================================
+# ========================== ========= ======================================
+# key                        start     meaning
+# ========================== ========= ======================================
+# default_step_seconds       600       wall-clock ceiling for ONE attempt of one
+#                                      node that declares no timeout of its own.
+# run_workflow_wait_seconds  86400     how long a Run Workflow step
+#                                      (``subgraph.call``) waits for the workflow
+#                                      it called; the child's own steps keep their
+#                                      own limits. ``data.step_clock`` on the step
+#                                      still sets its own.
+# ========================== ========= ======================================
 #
-# Seeded by ``db/migrations/0710_workflow_step_clock_knobs.sql``.
+# Seeded by ``db/migrations/0710_workflow_step_clock_knobs.sql`` and
+# ``db/migrations/wf_212_run_workflow_limits_knobs.sql``.
 STEP_CLOCK_FEATURE = "workflow.step_clock"
 
 DEFAULT_STEP_SECONDS_KEY = "default_step_seconds"
+RUN_WORKFLOW_WAIT_SECONDS_KEY = "run_workflow_wait_seconds"
 
 #: KNOB MIRROR of platform.feature_knob "workflow.step_clock"
 #: "default_step_seconds". Used ONLY when the row cannot be resolved, and never
@@ -543,20 +611,53 @@ async def default_step_seconds() -> int:
     )
 
 
+async def _organization_value(feature: str, key: str, organization_id: str | None) -> Any:
+    """One setting as ``organization_id`` sees it (no person's override), through the host's setting reader
+    (``matrx_graph.settings.set_setting_reader``); None when there is no organization, no reader, or the read fails."""
+    if not organization_id:
+        return None
+    from matrx_graph.settings import get_setting_reader
+
+    reader = get_setting_reader()
+    if reader is None:
+        return None
+    try:
+        value, _source = await reader(feature, key, str(organization_id), None)
+    except Exception as exc:  # noqa: BLE001 — a clock read never fails the step; the platform row stands in
+        logger.warning("[matrx_graph] step clock %s.%s for organization %s unreadable (%s); the platform row decides.",
+                       feature, key, organization_id, exc)
+        return None
+    return value
+
+
 async def step_timeout_seconds(
-    declared_timeout_ms: int | None, *, node_clock: Any = None
+    declared_timeout_ms: int | None,
+    *,
+    node_clock: Any = None,
+    timeout_knob: str | None = None,
+    organization_id: str | None = None,
 ) -> tuple[float, str]:
     """``(seconds, source)`` for one node attempt.
 
     Precedence: the node's own ``data.step_clock`` (its knob row when it
-    resolves, else its declared seconds) → the NodeSpec's ``timeout_ms`` → the
-    platform ceiling. ``source`` is the word the failure message uses, so a
-    person reading a timed-out run can tell a ceiling the workflow's own author
-    set from the platform's.
+    resolves, else its declared seconds) → the NodeSpec's ``timeout_knob`` (a
+    ``workflow.step_clock`` row an admin turns; ``timeout_ms`` is its mirror when
+    the row cannot be read) → the NodeSpec's bare ``timeout_ms`` → the platform
+    ceiling. ``source`` is the word the failure message uses, so a person reading
+    a timed-out run can tell a ceiling the workflow's own author set
+    (``declared``) from one the engine sets for that kind of step (``engine``)
+    and the one every step gets (``platform``).
     """
     if node_clock is not None:
         seconds = int(node_clock.seconds)
         if node_clock.knob_feature and node_clock.knob_key:
+            # THE RUN'S ORGANIZATION'S VALUE FIRST (gaps round 7): a step clock on a setting an organization can
+            # override (research.triage call_timeout_seconds) is read as that organization sees it — the value
+            # the code path reads (``scoped_knob_raw(feature, key, organization_id)``), never the platform row
+            # alone. The host's setting reader decides the rung; unreadable falls through to the platform row.
+            scoped = await _organization_value(node_clock.knob_feature, node_clock.knob_key, organization_id)
+            if scoped is not None:
+                return float(_coerce_int(scoped, seconds, MIN_STEP_SECONDS, MAX_STEP_SECONDS)), "declared"
             values = await _feature_values(node_clock.knob_feature)
             if values is not None and node_clock.knob_key in values:
                 seconds = _coerce_int(
@@ -571,9 +672,66 @@ async def step_timeout_seconds(
                     seconds,
                 )
         return float(max(MIN_STEP_SECONDS, min(MAX_STEP_SECONDS, seconds))), "declared"
+    if timeout_knob:
+        mirror = int((declared_timeout_ms or STARTING_DEFAULT_STEP_SECONDS * 1000) / 1000)
+        values = await _feature_values(STEP_CLOCK_FEATURE)
+        if values is not None and timeout_knob in values:
+            return float(_coerce_int(values[timeout_knob], mirror, MIN_STEP_SECONDS, MAX_STEP_SECONDS)), "engine"
+        if values is not None:
+            _file_missing_rows(STEP_CLOCK_FEATURE, [timeout_knob])
+        logger.error(
+            "[matrx_graph] step clock knob %s.%s unresolved — that kind of step keeps its "
+            "mirrored %ss. REMEDY: seed that platform.feature_knob row.",
+            STEP_CLOCK_FEATURE,
+            timeout_knob,
+            mirror,
+        )
+        return float(max(MIN_STEP_SECONDS, min(MAX_STEP_SECONDS, mirror))), "engine"
     if declared_timeout_ms is not None and declared_timeout_ms > 0:
         return declared_timeout_ms / 1000.0, "declared"
     return float(await default_step_seconds()), "platform"
+
+
+# ---------------------------------------------------------------------------
+# RUN WORKFLOW NESTING — feature ``workflow.run_workflow``
+# ---------------------------------------------------------------------------
+#
+# A Run Workflow step (``subgraph.call``) can call a workflow that calls itself,
+# by name or by a name read from data (``workflow_key_input``), and a pure-data
+# workflow spends nothing, so no spend gate ever stops it. Once the wait limit
+# became a day long, nothing did. ``max_depth`` is how many workflows deep one
+# chain of calls may go (inline children count like durable ones); the host
+# refuses the call past it, naming the chain.
+#
+# ============ ======= =========================================================
+# key          start   meaning
+# ============ ======= =========================================================
+# max_depth    10      deepest a chain of Run Workflow calls may nest.
+# ============ ======= =========================================================
+#
+# Seeded by ``db/migrations/wf_212_run_workflow_limits_knobs.sql``.
+RUN_WORKFLOW_FEATURE = "workflow.run_workflow"
+RUN_WORKFLOW_MAX_DEPTH_KEY = "max_depth"
+#: KNOB MIRROR of platform.feature_knob "workflow.run_workflow" "max_depth".
+STARTING_RUN_WORKFLOW_MAX_DEPTH = 10
+
+
+async def run_workflow_max_depth() -> int:
+    """The live nesting limit for Run Workflow calls. Never raises, never unbounded: an
+    unreadable row falls back LOUDLY to the mirror."""
+    values = await _feature_values(RUN_WORKFLOW_FEATURE)
+    if values is None or RUN_WORKFLOW_MAX_DEPTH_KEY not in values:
+        if values is not None:
+            _file_missing_rows(RUN_WORKFLOW_FEATURE, [RUN_WORKFLOW_MAX_DEPTH_KEY])
+        logger.error(
+            "[matrx_graph] knob %s.%s unresolved — Run Workflow calls nest at most %s deep. "
+            "REMEDY: seed that platform.feature_knob row.",
+            RUN_WORKFLOW_FEATURE,
+            RUN_WORKFLOW_MAX_DEPTH_KEY,
+            STARTING_RUN_WORKFLOW_MAX_DEPTH,
+        )
+        return STARTING_RUN_WORKFLOW_MAX_DEPTH
+    return _coerce_int(values[RUN_WORKFLOW_MAX_DEPTH_KEY], STARTING_RUN_WORKFLOW_MAX_DEPTH, 1, 1000)
 
 
 # Backward-compatible public name used by existing dry-run callers.
@@ -586,14 +744,20 @@ __all__ = [
     "FEATURE",
     "MAX_STEP_SECONDS",
     "MIN_STEP_SECONDS",
+    "RUN_WORKFLOW_FEATURE",
+    "RUN_WORKFLOW_MAX_DEPTH_KEY",
+    "RUN_WORKFLOW_WAIT_SECONDS_KEY",
+    "STARTING_RUN_WORKFLOW_MAX_DEPTH",
     "STARTING_DEFAULT_STEP_SECONDS",
     "STEP_CLOCK_FEATURE",
     "CheckpointWritePolicy",
     "checkpoint_write_policy",
+    "write_beside_next_step",
     "clear_knob_cache",
     "configure_dry_run_knobs",
     "default_step_seconds",
     "dry_run_knob",
+    "run_workflow_max_depth",
     "step_timeout_seconds",
 ]
 
@@ -787,6 +951,29 @@ async def fan_out_policy() -> FanOutPolicy:
     return FanOutPolicy(
         default_item_concurrency=default, max_item_concurrency=ceiling, paid_first_wave=first_wave
     )
+
+
+#: FOR EACH CAP (G7, packages/matrx-graph/matrx_graph/executor/FEATURE.md § For each: `until`, `wave_size` and the item cap, 2026-11-02): the most items one For each
+#: (``control.map`` / ``data.for_each``) may dispatch. A step's own ``max_dispatches`` (a number or
+#: an expression; default the list's length) is never above it, and a list over it fails the step
+#: loudly. Row ``workflow.for_each/max_items``, seeded by migration
+#: ``20261102230000_research_journey_engine_knobs`` (agent-set 5,000, review due 2027-01-02). A
+#: missing row is loud once, then the starting value applies — never unbounded.
+FOR_EACH_FEATURE = "workflow.for_each"
+FOR_EACH_MAX_ITEMS_KEY = "max_items"
+STARTING_FOR_EACH_MAX_ITEMS = 5_000
+
+
+async def for_each_max_items() -> int:
+    """The live ``workflow.for_each/max_items`` cap. Never raises; never unbounded."""
+    values = await _feature_values(FOR_EACH_FEATURE)
+    if values is None:
+        return STARTING_FOR_EACH_MAX_ITEMS
+    if FOR_EACH_MAX_ITEMS_KEY not in values:
+        _file_missing_rows(FOR_EACH_FEATURE, [FOR_EACH_MAX_ITEMS_KEY])
+        _announce_degradation(FOR_EACH_FEATURE, f"row missing: {FOR_EACH_MAX_ITEMS_KEY}")
+        return STARTING_FOR_EACH_MAX_ITEMS
+    return _coerce_int(values[FOR_EACH_MAX_ITEMS_KEY], STARTING_FOR_EACH_MAX_ITEMS, 1, 1_000_000)
 
 
 #: RANK TERMS BY SPREAD (``data.spread_rank``, nodes/data/spread_rank.py). Seeded live 2026-10-27

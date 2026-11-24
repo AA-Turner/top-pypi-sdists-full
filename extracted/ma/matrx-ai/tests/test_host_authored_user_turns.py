@@ -121,6 +121,8 @@ def test_the_drain_path_stamps_authorship_on_both_halves():
         "the queued HUMAN message lost its authorship stamp — it will read as a "
         "row predating the contract"
     )
-    assert "host_authored_user_turn(text, reason=f\"injection:{kind}\")" in source, (
+    # Host steers are delivered as ONE batched turn; whatever its text, it is built by
+    # host_authored_user_turn with an ``injection:<kind>`` reason.
+    assert re.search(r'host_authored_user_turn\(.{0,200}?reason=f"injection:\{', source, re.S), (
         "a host steer delivered as a user turn is no longer stamped host-authored"
     )

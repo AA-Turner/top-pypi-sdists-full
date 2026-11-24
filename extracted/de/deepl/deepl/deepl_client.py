@@ -5,49 +5,55 @@
 from deepl.api_data import (
     AppInfo,
     CustomInstruction,
+    DocumentHandle,
+    DocumentStatus,
+    Formality,
     GlossaryInfo,
-    MultilingualGlossaryDictionaryEntries,
-    MultilingualGlossaryDictionaryEntriesResponse,
-    MultilingualGlossaryDictionaryInfo,
-    MultilingualGlossaryInfo,
+    GlossaryLanguagePair,
     Language,
     LanguageInclude,
     LanguageResource,
     LanguageResourceName,
     LanguageSupport,
+    ModelType,
+    MultilingualGlossaryDictionaryEntries,
+    MultilingualGlossaryDictionaryInfo,
+    MultilingualGlossaryInfo,
+    SplitSentences,
     SpokenTerms,
     SpokenTermsEntries,
     SpokenTermsList,
-    WriteResult,
-    WritingStyle,
-    WritingTone,
     StyleProfile,
     StyleRuleInfo,
+    TagHandlingMode,
+    TagHandlingVersion,
+    TextResult,
     TranslationMemoryExport,
     TranslationMemoryImport,
     TranslationMemoryInfo,
     TranslationMemoryJob,
     TranslationMemorySegments,
+    Usage,
+    WriteResult,
+    WritingStyle,
+    WritingTone,
+    _malformed_response,
 )
 from deepl.exceptions import (
     ConnectionException,
     DeepLException,
-    GlossaryNotFoundException,
+    DocumentTranslationException,
+    NotFoundException,
+    TranslationMemoryJobException,
 )
-from deepl.translator import (
-    Translator,
-    _DOWNLOAD_CHUNK_SIZE,
-    _warn_download_without_output_file,
-    _warn_skip_language_check,
-)
-from deepl import http_client, util
-import errno
+from deepl import _http_client, util
+from deepl._base_client import BaseClient
+import json as json_module
 import os
 import pathlib
 import requests  # type: ignore
 import time
 import urllib.parse
-import warnings
 from typing import (
     Any,
     BinaryIO,
@@ -61,6 +67,73 @@ from typing import (
     Union,
 )
 
+
+def _quote_path(value: str) -> str:
+    """URL-encodes a value for use as a single URL path segment."""
+    return urllib.parse.quote(value, safe="")
+
+
+def _check_target_lang_given(
+    method: str, target_lang: Union[str, Language, None]
+) -> Union[str, Language]:
+    if target_lang is None:
+        raise TypeError(f"{method}() missing required argument: 'target_lang'")
+    return target_lang
+
+
+def _check_language(name: str, value: Union[str, Language, None]) -> None:
+    """Raises ValueError for an empty language code."""
+    if value is not None and not str(value):
+        raise ValueError(f"{name} must not be empty")
+
+
+def _resource_id(value: str, name: str) -> str:
+    if not value:
+        raise ValueError(f"{name} must not be empty")
+    return value
+
+
+# Default chunk size for writing downloads into output_file.
+_DOWNLOAD_CHUNK_SIZE = 64 * 1024
+
+
+def _required_str(json: dict, key: str) -> str:
+    value = json[key]
+    if not isinstance(value, str):
+        raise TypeError(f"{key!r} is not a string")
+    return value
+
+
+def _document_translation_exception(
+    cause: Exception, handle: Optional[DocumentHandle]
+) -> DocumentTranslationException:
+    if isinstance(cause, DeepLException):
+        return DocumentTranslationException(
+            str(cause),
+            handle,
+            should_retry=cause.should_retry,
+            http_status_code=cause.http_status_code,
+        )
+    return DocumentTranslationException(str(cause), handle)
+
+
+def _tm_job_exception(
+    cause: Exception,
+    job_id: Optional[str],
+    job: Optional[TranslationMemoryJob],
+    message: Optional[str] = None,
+) -> TranslationMemoryJobException:
+    if isinstance(cause, DeepLException):
+        return TranslationMemoryJobException(
+            message or str(cause),
+            job_id,
+            job,
+            should_retry=cause.should_retry,
+            http_status_code=cause.http_status_code,
+        )
+    return TranslationMemoryJobException(message or str(cause), job_id, job)
+
+
 _T = TypeVar("_T")
 
 
@@ -70,18 +143,12 @@ def _tm_job_error_message(job: TranslationMemoryJob) -> str:
     ) or "unknown error"
 
 
-def _raise_for_failed_tm_job(job: TranslationMemoryJob, action: str) -> None:
-    if not job.ok:
-        raise DeepLException(
-            f"Error occurred while {action} translation memory: "
-            f"{_tm_job_error_message(job)}",
-            should_retry=False,
-        )
-
-
-def _open_error(path: pathlib.Path, err: int) -> OSError:
-    """Builds the OSError that open() raises for the given errno."""
-    return OSError(err, os.strerror(err), str(path))
+def _tm_job_action(job: TranslationMemoryJob) -> str:
+    if job.operation == TranslationMemoryJob.OPERATION_IMPORT:
+        return "importing"
+    if job.operation == TranslationMemoryJob.OPERATION_EXPORT:
+        return "exporting"
+    return "processing"
 
 
 def _parse_improvements(json: Any, text_count: int) -> List[WriteResult]:
@@ -109,45 +176,70 @@ def _parse_improvements(json: Any, text_count: int) -> List[WriteResult]:
     return output
 
 
-def _renamed_argument(
-    method: str, name: str, value: Any, old_name: str, old_value: Any
-) -> Any:
-    """Returns the value of a renamed parameter, accepting its deprecated
-    keyword with a DeprecationWarning."""
-    if old_value is not None:
-        if value is not None:
-            raise TypeError(
-                f"{method}() got values for both {name} and {old_name}"
-            )
-        warnings.warn(
-            f"the {old_name} argument of {method}() is deprecated, "
-            f"use {name}",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return old_value
-    if value is None:
-        raise TypeError(f"{method}() missing required argument: {name}")
-    return value
+class DeepLClient(BaseClient):
+    """Client for the DeepL API.
 
+    :param auth_key: Authentication key as found in your DeepL API account.
+    :param server_url: (Optional) Base URL of DeepL API, can be overridden e.g.
+        for testing purposes. Must be an absolute http or https URL with a
+        host, otherwise ValueError is raised.
+    :param proxy: (Optional) Proxy server URL string or dictionary containing
+        URL strings for the 'http' and 'https' keys. This is passed to the
+        underlying requests session, see the requests proxy documentation for
+        more information. Raises ValueError if a proxy URL has no host or a
+        scheme other than http, https, socks4, socks4a, socks5 or socks5h; a
+        URL without a scheme is used as an http:// URL.
+    :param send_platform_info: (Optional) boolean that indicates if the client
+        library can send basic platform info (python version, OS) to the
+        DeepL API. True = send info, False = only send client
+        library version. None uses the default (True).
+    :param verify_ssl: (Optional) Controls how requests verifies SSL
+        certificates. This is passed to the underlying requests session, see
+        the requests verify documentation for more information.
+    :param max_retries: (Optional) Maximum number of times a failed request
+        is retried, for failures that may be transient (e.g. HTTP 429).
+        Default 5; 0 disables retries. None uses the default.
+    :param timeout_s: (Optional) Minimum timeout in seconds for each attempt
+        of a request. Default 10.0; None uses the default.
+    :param headers: (Optional) Additional HTTP headers sent with every
+        request to the DeepL API. A header replaces the library's header of
+        the same name (compared case-insensitively), including User-Agent
+        and Authorization; Content-Type, Content-Length, Transfer-Encoding,
+        Host and an Accept the library sets for a call keep the library's
+        value.
+    :param app_info: (Optional) AppInfo identifying your application in the
+        User-Agent header, same as set_app_info().
 
-class DeepLClient(Translator):
+    All functions may raise DeepLException or a subclass if a connection error
+    occurs.
+    """
+
+    _DEEPL_SERVER_URL_FREE = "https://api-free.deepl.com"
+
     def __init__(
         self,
         auth_key: str,
         *,
         server_url: Optional[str] = None,
         proxy: Union[Dict, str, None] = None,
-        send_platform_info: bool = True,
+        send_platform_info: Optional[bool] = True,
         verify_ssl: Union[bool, str, None] = None,
-        max_retries: Optional[int] = None,
-        timeout_s: Optional[float] = None,
+        max_retries: Optional[int] = 5,
+        timeout_s: Optional[float] = 10.0,
         headers: Optional[Dict[str, str]] = None,
         app_info: Optional[AppInfo] = None,
-        skip_language_check: Optional[bool] = None,
     ):
-        if skip_language_check is not None:
-            _warn_skip_language_check()
+        if not auth_key or not auth_key.strip():
+            raise ValueError("auth_key must not be empty")
+        auth_key = auth_key.strip()
+
+        if server_url is None:
+            server_url = (
+                self._DEEPL_SERVER_URL_FREE
+                if util.is_free_account_auth_key(auth_key)
+                else self._DEEPL_SERVER_URL
+            )
+
         super().__init__(
             auth_key,
             server_url=server_url,
@@ -160,12 +252,1220 @@ class DeepLClient(Translator):
             app_info=app_info,
         )
 
+    def _check_language_and_formality(
+        self,
+        source_lang: Union[str, Language, None],
+        target_lang: Union[str, Language],
+        formality: Union[str, Formality, None],
+        glossary: Union[
+            str, GlossaryInfo, MultilingualGlossaryInfo, None
+        ] = None,
+        style_rule: Union[str, StyleRuleInfo, None] = None,
+        translation_memory: Union[str, TranslationMemoryInfo, None] = None,
+        translation_memory_threshold: Optional[int] = None,
+        glossary_ids: Optional[
+            List[Union[str, GlossaryInfo, MultilingualGlossaryInfo]]
+        ] = None,
+        style_profile: Union[str, StyleProfile, None] = None,
+        glossary_requires_source_lang: bool = False,
+    ) -> dict:
+        # target_lang and source_lang are case insensitive
+        target_lang = str(target_lang).upper()
+        if not target_lang:
+            raise ValueError("target_lang must not be empty")
+        if source_lang is not None:
+            source_lang = str(source_lang).upper()
+            if not source_lang:
+                raise ValueError("source_lang must not be empty")
+
+        if (
+            glossary_requires_source_lang
+            and glossary is not None
+            and source_lang is None
+        ):
+            raise ValueError("source_lang is required if using a glossary")
+
+        if glossary_ids is not None:
+            if glossary is not None:
+                raise ValueError(
+                    "glossary_ids cannot be used together with the glossary "
+                    "parameter"
+                )
+            if glossary_requires_source_lang and source_lang is None:
+                raise ValueError(
+                    "source_lang is required if using glossary_ids"
+                )
+            if len(glossary_ids) > 5:
+                raise ValueError(
+                    "glossary_ids must not contain more than 5 glossary IDs"
+                )
+
+        if isinstance(glossary, GlossaryInfo):
+            target_lang_code = Language.remove_regional_variant(target_lang)
+            if (
+                target_lang_code != glossary.target_lang
+                or source_lang not in (None, glossary.source_lang)
+            ):
+                raise ValueError(
+                    "source_lang and target_lang must match glossary"
+                )
+
+        if isinstance(glossary, MultilingualGlossaryInfo):
+            target_lang_code = Language.remove_regional_variant(target_lang)
+            if not any(
+                glossary_dict.target_lang == target_lang_code
+                and source_lang in (None, glossary_dict.source_lang)
+                for glossary_dict in glossary.dictionaries
+            ):
+                raise ValueError(
+                    "must have a glossary with a dictionary for the given "
+                    "source_lang and target_lang"
+                )
+
+        if isinstance(style_rule, StyleRuleInfo):
+            if (
+                Language.remove_regional_variant(target_lang)
+                != style_rule.language.upper()
+            ):
+                raise ValueError("target_lang must match style rule language")
+
+        request_data: dict = {"target_lang": target_lang}
+        if source_lang is not None:
+            request_data["source_lang"] = source_lang
+        if formality is not None:
+            request_data["formality"] = str(formality).lower()
+        if isinstance(glossary, GlossaryInfo) or isinstance(
+            glossary, MultilingualGlossaryInfo
+        ):
+            request_data["glossary_id"] = _resource_id(
+                glossary.glossary_id, "glossary"
+            )
+        elif glossary is not None:
+            request_data["glossary_id"] = _resource_id(glossary, "glossary")
+        if glossary_ids is not None:
+            resolved_ids = [
+                (
+                    entry.glossary_id
+                    if isinstance(
+                        entry, (GlossaryInfo, MultilingualGlossaryInfo)
+                    )
+                    else entry
+                )
+                for entry in glossary_ids
+            ]
+            # The API expects glossary_ids as an array. For text translation
+            # this is JSON-encoded as an array; for document translation
+            # (form/multipart) translate_document_upload joins it into a
+            # single comma-separated glossary_ids field.
+            for resolved_id in resolved_ids:
+                _resource_id(resolved_id, "glossary_ids entry")
+            request_data["glossary_ids"] = resolved_ids
+        if isinstance(style_rule, StyleRuleInfo):
+            request_data["style_id"] = _resource_id(
+                style_rule.style_id, "style_rule"
+            )
+        elif style_rule is not None:
+            request_data["style_id"] = _resource_id(style_rule, "style_rule")
+        if isinstance(style_profile, StyleProfile):
+            request_data["style_profile_id"] = _resource_id(
+                style_profile.style_profile_id, "style_profile"
+            )
+        elif style_profile is not None:
+            request_data["style_profile_id"] = _resource_id(
+                style_profile, "style_profile"
+            )
+        if isinstance(translation_memory, TranslationMemoryInfo):
+            request_data["translation_memory_id"] = _resource_id(
+                translation_memory.translation_memory_id, "translation_memory"
+            )
+        elif translation_memory is not None:
+            request_data["translation_memory_id"] = _resource_id(
+                translation_memory, "translation_memory"
+            )
+        if translation_memory_threshold is not None:
+            if translation_memory is None:
+                raise ValueError(
+                    "translation_memory_threshold requires"
+                    " translation_memory"
+                )
+            if not (0 <= translation_memory_threshold <= 100):
+                raise ValueError(
+                    "translation_memory_threshold must be between 0 and 100"
+                )
+            request_data["translation_memory_threshold"] = (
+                translation_memory_threshold
+            )
+        return request_data
+
+    def _create_glossary(
+        self,
+        name: str,
+        source_lang: Union[str, Language],
+        target_lang: Union[str, Language],
+        entries_format: str,
+        entries: Union[str, bytes],
+    ) -> GlossaryInfo:
+        # glossaries are only supported for base language types
+        source_lang = Language.remove_regional_variant(source_lang)
+        target_lang = Language.remove_regional_variant(target_lang)
+
+        if not name:
+            raise ValueError("glossary name must not be empty")
+
+        request_data = {
+            "name": name,
+            "source_lang": source_lang,
+            "target_lang": target_lang,
+            "entries_format": entries_format,
+            "entries": entries,
+        }
+
+        status, content, json = self._api_call(
+            "v2/glossaries", json=request_data, retry_only_unprocessed=True
+        )
+        self._raise_for_status(status, content, json)
+        return GlossaryInfo.from_json(json)
+
+    def translate_text(
+        self,
+        text: Union[str, Iterable[str]],
+        source_lang: Union[str, Language, None] = None,
+        target_lang: Union[str, Language, None] = None,
+        *,
+        context: Optional[str] = None,
+        split_sentences: Union[str, SplitSentences, None] = None,
+        preserve_formatting: Optional[bool] = None,
+        formality: Union[str, Formality, None] = None,
+        glossary: Union[
+            str, GlossaryInfo, MultilingualGlossaryInfo, None
+        ] = None,
+        glossary_ids: Optional[
+            List[Union[str, GlossaryInfo, MultilingualGlossaryInfo]]
+        ] = None,
+        tag_handling: Union[str, TagHandlingMode, None] = None,
+        tag_handling_version: Union[str, TagHandlingVersion, None] = None,
+        outline_detection: Optional[bool] = None,
+        non_splitting_tags: Union[str, List[str], None] = None,
+        splitting_tags: Union[str, List[str], None] = None,
+        ignore_tags: Union[str, List[str], None] = None,
+        model_type: Union[str, ModelType, None] = None,
+        style_rule: Union[str, StyleRuleInfo, None] = None,
+        style_profile: Union[str, StyleProfile, None] = None,
+        translation_memory: Union[str, TranslationMemoryInfo, None] = None,
+        translation_memory_threshold: Optional[int] = None,
+        custom_instructions: Optional[List[str]] = None,
+        extra_body_parameters: Optional[dict] = None,
+    ) -> Union[TextResult, List[TextResult]]:
+        """Translate text(s) into the target language.
+
+        :param text: Text to translate.
+        :type text: UTF-8 :class:`str`; string sequence (list, tuple, iterator,
+            generator)
+        :param source_lang: (Optional) Language code of input text, for example
+            "DE", "EN", "FR". If omitted or None, DeepL will auto-detect the
+            input language. May be passed positionally after text.
+        :param target_lang: Required. Language code to translate text into,
+            for example "DE", "EN-US", "FR". May be passed positionally after
+            source_lang.
+        :param context: (Optional) Additional contextual text to influence
+            translations, that is not translated itself. Characters in the
+            `context` parameter are not counted toward billing. See the API
+            documentation for more information and example usage.
+        :param split_sentences: (Optional) Controls how the translation engine
+            should split input into sentences before translation, see
+            :class:`SplitSentences`.
+        :param preserve_formatting: (Optional) Set to True to prevent the
+            translation engine from correcting some formatting aspects, and
+            instead leave the formatting unchanged.
+        :param formality: (Optional) Desired formality for translation, as
+            Formality enum, "less", "more", "prefer_less", "prefer_more", or
+            "default".
+        :param glossary: (Optional) glossary or glossary ID to use for
+            translation. Must match target_lang, and source_lang if specified.
+            If source_lang is omitted, DeepL uses the glossary dictionary for
+            the detected source language.
+        :param glossary_ids: (Optional) list of up to 5 glossaries or glossary
+            IDs to use for translation, applied in order. Cannot be combined
+            with the glossary parameter.
+        :param style_rule: (Optional) style rule or style rule ID to use for
+            translation.
+        :param style_profile: (Optional) style profile or style profile ID to
+            use for the translation.
+        :param translation_memory: (Optional) translation memory or translation
+            memory ID to use for translation.
+        :param translation_memory_threshold: (Optional) minimum matching
+            percentage for fuzzy matches from the translation memory (0-100).
+            Recommended minimum is 75%.
+        :param tag_handling: (Optional) Type of tags to parse before
+            translation, as TagHandlingMode enum, "xml" or "html".
+        :param tag_handling_version: (Optional) Version of tag handling
+            algorithm to use, as TagHandlingVersion enum, "v1" or "v2".
+        :param outline_detection: (Optional) Set to False to disable automatic
+            tag detection.
+        :param non_splitting_tags: (Optional) XML tags that should not split a
+            sentence.
+        :type non_splitting_tags: List of XML tags or comma-separated-list of
+            tags.
+        :param splitting_tags: (Optional) XML tags that should split a
+            sentence.
+        :type splitting_tags: List of XML tags or comma-separated-list of tags.
+        :param ignore_tags: (Optional) XML tags containing text that should not
+            be translated.
+        :type ignore_tags: List of XML tags or comma-separated-list of tags.
+        :param model_type: (Optional) Controls whether the translation engine
+            should use a potentially slower model to achieve higher quality.
+        :param custom_instructions: (Optional) List of custom instructions to
+            guide the translation. Maximum of 10 instructions, each with a
+            maximum length of 300 characters.
+        :param extra_body_parameters: (Optional) Additional key/value pairs to
+            include in the JSON request body sent to the API. If provided,
+            keys in this dict will be added to the request body, and replace
+            keys of the same name that the client sets.
+        :return: List of TextResult objects containing results, unless input
+            text was one string, then a single TextResult object is returned.
+        """
+        if target_lang is None:
+            raise TypeError(
+                "translate_text() missing required argument: 'target_lang'"
+            )
+        if isinstance(text, str):
+            if len(text) == 0:
+                raise ValueError("text must not be empty")
+            text = [text]
+            multi_input = False
+        else:
+            multi_input = True
+            text = list(text)
+            if any(t == "" for t in text):
+                raise ValueError("text must not be empty")
+        text_count = len(text)
+
+        request_data = self._check_language_and_formality(
+            source_lang,
+            target_lang,
+            formality,
+            glossary,
+            style_rule,
+            translation_memory,
+            translation_memory_threshold,
+            glossary_ids,
+            style_profile=style_profile,
+        )
+        request_data["text"] = text
+
+        # Always send show_billed_characters=true, remove when the API default
+        # is changed to true
+        request_data["show_billed_characters"] = True
+
+        if context is not None:
+            request_data["context"] = context
+        if split_sentences is not None:
+            request_data["split_sentences"] = str(split_sentences)
+        if preserve_formatting is not None:
+            request_data["preserve_formatting"] = bool(preserve_formatting)
+        if tag_handling is not None:
+            request_data["tag_handling"] = str(tag_handling)
+        if tag_handling_version is not None:
+            request_data["tag_handling_version"] = str(tag_handling_version)
+        if outline_detection is not None:
+            request_data["outline_detection"] = bool(outline_detection)
+        if model_type is not None:
+            request_data["model_type"] = str(model_type)
+
+        def join_tags(tag_argument: Union[str, Iterable[str]]) -> List[str]:
+            if isinstance(tag_argument, str):
+                tag_argument = [tag_argument]
+            return [
+                tag
+                for arg_string in tag_argument
+                for tag in arg_string.split(",")
+            ]
+
+        if non_splitting_tags is not None:
+            request_data["non_splitting_tags"] = join_tags(non_splitting_tags)
+        if splitting_tags is not None:
+            request_data["splitting_tags"] = join_tags(splitting_tags)
+        if ignore_tags is not None:
+            request_data["ignore_tags"] = join_tags(ignore_tags)
+        if custom_instructions is not None:
+            request_data["custom_instructions"] = custom_instructions
+
+        util._add_extra_body_parameters(request_data, extra_body_parameters)
+
+        status, content, json = self._api_call(
+            "v2/translate", json=request_data
+        )
+
+        self._raise_for_status(status, content, json)
+
+        translations = (
+            json.get("translations", [])
+            if (json and isinstance(json, dict))
+            else []
+        )
+        output = []
+        for translation in translations:
+            text = translation.get("text", "") if translation else ""
+            detected_source_language = (
+                translation.get("detected_source_language", "")
+                if translation
+                else ""
+            )
+            billed_characters = util.get_int_safe(
+                translation, "billed_characters"
+            )
+            model_type_used = translation.get("model_type_used")
+            output.append(
+                TextResult(
+                    text,
+                    detected_source_language,
+                    billed_characters,
+                    model_type_used,
+                    translation.get("tag_handling_version"),
+                )
+            )
+
+        if len(output) < text_count:
+            raise DeepLException(
+                f"Expected {text_count} translations in the response, "
+                f"received {len(output)}"
+            )
+
+        return output if multi_input else output[0]
+
+    def translate_document_from_filepath(
+        self,
+        input_path: Union[str, pathlib.PurePath],
+        output_path: Union[str, pathlib.PurePath],
+        source_lang: Union[str, Language, None] = None,
+        target_lang: Union[str, Language, None] = None,
+        *,
+        formality: Union[str, Formality, None] = None,
+        glossary: Union[
+            str, GlossaryInfo, MultilingualGlossaryInfo, None
+        ] = None,
+        glossary_ids: Optional[
+            List[Union[str, GlossaryInfo, MultilingualGlossaryInfo]]
+        ] = None,
+        style_rule: Union[str, StyleRuleInfo, None] = None,
+        style_profile: Union[str, StyleProfile, None] = None,
+        translation_memory: Union[str, TranslationMemoryInfo, None] = None,
+        translation_memory_threshold: Optional[int] = None,
+        enable_watermark: Optional[bool] = None,
+        timeout_s: Optional[float] = None,
+        extra_body_parameters: Optional[dict] = None,
+    ) -> DocumentStatus:
+        """Upload document at given input path, translate it into the target
+        language, and download result to given output path.
+
+        The upload request is only retried if it was not sent (HTTP 429 or a
+        network failure while connecting, such as a DNS resolution failure, a
+        refused connection, a connect timeout, or a reset or timeout in the TLS
+        or proxy handshake): a retry after a server error, read timeout or lost
+        connection could translate the document twice. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
+
+        :param input_path: Path to document to be translated.
+        :param output_path: Path to store translated document.
+        :param source_lang: (Optional) Language code of input document, for
+            example "DE", "EN", "FR". If omitted, DeepL will auto-detect the
+            input language.
+        :param target_lang: Language code to translate document into, for
+            example "DE", "EN-US", "FR".
+        :param formality: (Optional) Desired formality for translation, as
+            Formality enum, "less", "more", "prefer_less", or "prefer_more".
+        :param glossary: (Optional) glossary or glossary ID to use for
+            translation. Must match specified source_lang and target_lang.
+        :param glossary_ids: (Optional) list of up to 5 glossaries or glossary
+            IDs to use for translation, applied in order. Requires source_lang
+            to be set and cannot be combined with the glossary parameter.
+        :param style_rule: (Optional) style rule or style rule ID to use for
+            translation.
+        :param style_profile: (Optional) style profile or style profile ID to
+            use for the translation.
+        :param translation_memory: (Optional) translation memory or translation
+            memory ID to use for translation.
+        :param translation_memory_threshold: (Optional) minimum matching
+            percentage for fuzzy matches from the translation memory (0-100).
+            Recommended minimum is 75%.
+        :param enable_watermark: (Optional) Set to True to add a "Translated
+            by DeepL" watermark to the translated document. Only supported for
+            docx and pdf output; ignored by the API for other formats.
+        :param timeout_s: (beta) (Optional) Maximum time to wait before
+            the call raises an error. The status is polled every 5 seconds;
+            the last wait is shortened so the call does not run past it.
+        :param extra_body_parameters: (Optional) Additional key/value pairs to
+            include in the JSON request body sent to the API. If provided,
+            keys in this dict will be added to the request body, and replace
+            keys of the same name that the client sets.
+        :return: DocumentStatus when document translation completed, this
+            allows the number of billed characters to be queried.
+
+        :raises ValueError: If the input file does not exist, before any
+            request is sent.
+        :raises DocumentTranslationException: If an argument is invalid
+            (TypeError or ValueError as the cause), the output file already
+            exists, opening the input or output file fails, or an error occurs
+            during upload, translation or download, or the translation fails.
+            The exception includes the document handle if the document was
+            already uploaded, otherwise the handle is None. An existing output
+            file is never overwritten.
+        """
+        # Determine output_format from output path
+        in_ext = pathlib.PurePath(input_path).suffix.lower()
+        out_ext = pathlib.PurePath(output_path).suffix.lower()
+        output_format = (
+            None if in_ext == out_ext or not out_ext else out_ext[1:]
+        )
+
+        if not pathlib.Path(input_path).exists():
+            raise ValueError(f"file does not exist: {input_path}")
+        try:
+            _check_target_lang_given(
+                "translate_document_from_filepath", target_lang
+            )
+        except TypeError as e:
+            raise _document_translation_exception(e, None) from e
+        if pathlib.Path(output_path).exists():
+            raise DocumentTranslationException(
+                f"Output file already exists: {output_path}", None
+            )
+
+        try:
+            in_file = open(input_path, "rb")
+        except OSError as e:
+            raise DocumentTranslationException(str(e), None) from e
+        with in_file:
+            try:
+                # "x" fails if the file was created after the check above.
+                out_file = open(output_path, "xb")
+            except OSError as e:
+                raise DocumentTranslationException(str(e), None) from e
+            with out_file:
+                try:
+                    return self.translate_document(
+                        in_file,
+                        out_file,
+                        target_lang=target_lang,
+                        source_lang=source_lang,
+                        formality=formality,
+                        glossary=glossary,
+                        glossary_ids=glossary_ids,
+                        style_rule=style_rule,
+                        style_profile=style_profile,
+                        translation_memory=translation_memory,
+                        translation_memory_threshold=(
+                            translation_memory_threshold
+                        ),
+                        output_format=output_format,
+                        enable_watermark=enable_watermark,
+                        timeout_s=timeout_s,
+                        extra_body_parameters=extra_body_parameters,
+                    )
+                except Exception as e:
+                    out_file.close()
+                    os.unlink(output_path)
+                    raise e
+
+    def translate_document(
+        self,
+        input_document: Union[TextIO, BinaryIO, Any],
+        output_document: Union[TextIO, BinaryIO, Any],
+        source_lang: Union[str, Language, None] = None,
+        target_lang: Union[str, Language, None] = None,
+        *,
+        formality: Union[str, Formality, None] = None,
+        glossary: Union[
+            str, GlossaryInfo, MultilingualGlossaryInfo, None
+        ] = None,
+        glossary_ids: Optional[
+            List[Union[str, GlossaryInfo, MultilingualGlossaryInfo]]
+        ] = None,
+        style_rule: Union[str, StyleRuleInfo, None] = None,
+        style_profile: Union[str, StyleProfile, None] = None,
+        translation_memory: Union[str, TranslationMemoryInfo, None] = None,
+        translation_memory_threshold: Optional[int] = None,
+        filename: Optional[str] = None,
+        output_format: Optional[str] = None,
+        enable_watermark: Optional[bool] = None,
+        timeout_s: Optional[float] = None,
+        extra_body_parameters: Optional[dict] = None,
+    ) -> DocumentStatus:
+        """Upload document, translate it into the target language, and download
+        result.
+
+        The upload request is only retried if it was not sent (HTTP 429 or a
+        network failure while connecting, such as a DNS resolution failure, a
+        refused connection, a connect timeout, or a reset or timeout in the TLS
+        or proxy handshake): a retry after a server error, read timeout or lost
+        connection could translate the document twice. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
+
+        :param input_document: Document to translate as a file-like object. It
+            is recommended to open files in binary mode.
+        :param output_document: File-like object to receive translated
+            document.
+        :param source_lang: (Optional) Language code of input document, for
+            example "DE", "EN", "FR". If omitted, DeepL will auto-detect the
+            input language.
+        :param target_lang: Language code to translate document into, for
+            example "DE", "EN-US", "FR".
+        :param formality: (Optional) Desired formality for translation, as
+            Formality enum, "less", "more", "prefer_less", or "prefer_more".
+        :param glossary: (Optional) glossary or glossary ID to use for
+            translation. Must match specified source_lang and target_lang.
+        :param glossary_ids: (Optional) list of up to 5 glossaries or glossary
+            IDs to use for translation, applied in order. Requires source_lang
+            to be set and cannot be combined with the glossary parameter.
+        :param style_rule: (Optional) style rule or style rule ID to use for
+            translation.
+        :param style_profile: (Optional) style profile or style profile ID to
+            use for the translation.
+        :param translation_memory: (Optional) translation memory or translation
+            memory ID to use for translation.
+        :param translation_memory_threshold: (Optional) minimum matching
+            percentage for fuzzy matches from the translation memory (0-100).
+            Recommended minimum is 75%.
+        :param filename: (Optional) Filename including extension, sent with
+            the upload instead of the file object's own name; the API detects
+            the input format from its extension. Required if uploading string
+            or bytes containing file content.
+        :param output_format: (Optional) Desired output file extension, if
+            it differs from the input file format.
+        :param enable_watermark: (Optional) Set to True to add a "Translated
+            by DeepL" watermark to the translated document. Only supported for
+            docx and pdf output; ignored by the API for other formats.
+        :param timeout_s: (beta) (Optional) Maximum time to wait before
+            the call raises an error. The status is polled every 5 seconds;
+            the last wait is shortened so the call does not run past it.
+        :param extra_body_parameters: (Optional) Additional key/value pairs to
+            include in the JSON request body sent to the API. If provided,
+            keys in this dict will be added to the request body, and replace
+            keys of the same name that the client sets.
+        :return: DocumentStatus when document translation completed, this
+            allows the number of billed characters to be queried.
+
+        :raises DocumentTranslationException: If an argument is invalid
+            (TypeError or ValueError as the cause), or an error occurs during
+            upload, translation or download, or the translation fails. The
+            exception includes the document handle if the document was
+            already uploaded, otherwise the handle is None.
+        """
+        try:
+            _check_target_lang_given("translate_document", target_lang)
+            handle = self.translate_document_upload(
+                input_document,
+                target_lang=target_lang,
+                source_lang=source_lang,
+                formality=formality,
+                glossary=glossary,
+                glossary_ids=glossary_ids,
+                style_rule=style_rule,
+                style_profile=style_profile,
+                translation_memory=translation_memory,
+                translation_memory_threshold=translation_memory_threshold,
+                filename=filename,
+                output_format=output_format,
+                enable_watermark=enable_watermark,
+                extra_body_parameters=extra_body_parameters,
+            )
+        except Exception as e:
+            raise _document_translation_exception(e, None) from e
+
+        try:
+            status = self.translate_document_wait_until_done(handle, timeout_s)
+            self.translate_document_download(handle, output_document)
+        except Exception as e:
+            raise _document_translation_exception(e, handle) from e
+        return status
+
+    def translate_document_upload(
+        self,
+        input_document: Union[TextIO, BinaryIO, str, bytes, Any],
+        source_lang: Union[str, Language, None] = None,
+        target_lang: Union[str, Language, None] = None,
+        *,
+        formality: Union[str, Formality, None] = None,
+        glossary: Union[
+            str, GlossaryInfo, MultilingualGlossaryInfo, None
+        ] = None,
+        glossary_ids: Optional[
+            List[Union[str, GlossaryInfo, MultilingualGlossaryInfo]]
+        ] = None,
+        style_rule: Union[str, StyleRuleInfo, None] = None,
+        style_profile: Union[str, StyleProfile, None] = None,
+        translation_memory: Union[str, TranslationMemoryInfo, None] = None,
+        translation_memory_threshold: Optional[int] = None,
+        filename: Optional[str] = None,
+        output_format: Optional[str] = None,
+        enable_watermark: Optional[bool] = None,
+        extra_body_parameters: Optional[dict] = None,
+    ) -> DocumentHandle:
+        """Upload document to be translated and return handle associated with
+        request.
+
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could translate the document twice. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
+
+        :param input_document: Document to translate as a file-like object, or
+            string or bytes containing file content.
+        :param source_lang: (Optional) Language code of input document, for
+            example "DE", "EN", "FR". If omitted, DeepL will auto-detect the
+            input language.
+        :param target_lang: Language code to translate document into, for
+            example "DE", "EN-US", "FR".
+        :param formality: (Optional) Desired formality for translation, as
+            Formality enum, "less", "more", "prefer_less", or "prefer_more".
+        :param glossary: (Optional) glossary or glossary ID to use for
+            translation. Must match specified source_lang and target_lang.
+        :param glossary_ids: (Optional) list of up to 5 glossaries or glossary
+            IDs to use for translation, applied in order. Requires source_lang
+            to be set and cannot be combined with the glossary parameter.
+        :param style_rule: (Optional) style rule or style rule ID to use for
+            translation.
+        :param style_profile: (Optional) style profile or style profile ID to
+            use for the translation.
+        :param translation_memory: (Optional) translation memory or translation
+            memory ID to use for translation.
+        :param translation_memory_threshold: (Optional) minimum matching
+            percentage for fuzzy matches from the translation memory (0-100).
+            Recommended minimum is 75%.
+        :param filename: (Optional) Filename including extension, sent with
+            the upload instead of the file object's own name; the API detects
+            the input format from its extension. Required if uploading string
+            or bytes containing file content.
+        :param output_format: (Optional) Desired output file extension, if
+            it differs from the input file format.
+        :param enable_watermark: (Optional) Set to True to add a "Translated
+            by DeepL" watermark to the translated document. Only supported for
+            docx and pdf output; ignored by the API for other formats.
+        :param extra_body_parameters: (Optional) Additional key/value pairs to
+            include in the JSON request body sent to the API. If provided,
+            keys in this dict will be added to the request body, and replace
+            keys of the same name that the client sets.
+        :return: DocumentHandle with ID and key identifying document.
+
+        :raises DeepLException: If the upload fails, or the response does not
+            contain the document ID and key.
+        """
+        target_lang = _check_target_lang_given(
+            "translate_document_upload", target_lang
+        )
+
+        request_data = self._check_language_and_formality(
+            source_lang,
+            target_lang,
+            formality,
+            glossary,
+            style_rule,
+            translation_memory,
+            translation_memory_threshold,
+            glossary_ids=glossary_ids,
+            style_profile=style_profile,
+            glossary_requires_source_lang=True,
+        )
+        if output_format is not None:
+            request_data["output_format"] = output_format
+        if enable_watermark is not None:
+            # Multipart form field: send "true"/"false", not Python's "True".
+            request_data["enable_watermark"] = (
+                "true" if enable_watermark else "false"
+            )
+
+        # The document endpoint uses multipart/form-data. Send glossary_ids as
+        # a single comma-separated field (the form form of the array), matching
+        # the other SDKs, instead of repeated multipart fields.
+        if isinstance(request_data.get("glossary_ids"), list):
+            request_data["glossary_ids"] = ",".join(
+                request_data["glossary_ids"]
+            )
+
+        if filename is None and isinstance(input_document, (str, bytes)):
+            raise ValueError(
+                "filename is required if uploading file content as string "
+                "or bytes"
+            )
+        files: Dict[str, Any] = {
+            "file": (
+                input_document
+                if filename is None
+                else (filename, input_document)
+            )
+        }
+        util._add_extra_body_parameters(request_data, extra_body_parameters)
+
+        status, content, json = self._api_call(
+            "v2/document",
+            data=request_data,
+            files=files,
+            retry_only_unprocessed=True,
+        )
+        self._raise_for_status(status, content, json)
+
+        document_id = (
+            json.get("document_id") if isinstance(json, dict) else None
+        )
+        document_key = (
+            json.get("document_key") if isinstance(json, dict) else None
+        )
+        if not (
+            isinstance(document_id, str)
+            and document_id
+            and isinstance(document_key, str)
+            and document_key
+        ):
+            raise DeepLException(
+                "Document upload response did not contain a document_id and "
+                f"document_key, content: {content}"
+            )
+        return DocumentHandle(document_id, document_key)
+
+    def translate_document_get_status(
+        self, handle: DocumentHandle
+    ) -> DocumentStatus:
+        """Gets the status of the document translation request associated with
+         given handle.
+
+        :param handle: DocumentHandle to the request to check.
+        :return: DocumentStatus containing the request status.
+
+        :raises DocumentTranslationException: If an error occurs during
+            querying the document, the exception includes the document handle.
+        """
+
+        data = {"document_key": handle.document_key}
+        url = f"v2/document/{_quote_path(handle.document_id)}"
+
+        status_code, content, json = self._api_call(url, json=data)
+
+        self._raise_for_status(status_code, content, json)
+
+        status = (
+            json.get("status", None)
+            if (json and isinstance(json, dict))
+            else None
+        )
+        if not status:
+            raise DocumentTranslationException(
+                "Querying document status gave an empty response", handle
+            )
+        seconds_remaining = (
+            json.get("seconds_remaining", None)
+            if (json and isinstance(json, dict))
+            else None
+        )
+        billed_characters = (
+            json.get("billed_characters", None)
+            if (json and isinstance(json, dict))
+            else None
+        )
+        error_message = (
+            json.get("error_message", None)
+            if (json and isinstance(json, dict))
+            else None
+        )
+        document_id = json.get("document_id")
+        if not isinstance(document_id, str) or not document_id:
+            document_id = handle.document_id
+        return DocumentStatus(
+            status,
+            seconds_remaining,
+            billed_characters,
+            error_message,
+            document_id=document_id,
+        )
+
+    def translate_document_wait_until_done(
+        self,
+        handle: DocumentHandle,
+        timeout_s: Optional[float] = None,
+    ) -> DocumentStatus:
+        """
+        Continually polls the status of the document translation associated
+        with the given handle, sleeping in between requests, and returns the
+        final status when the translation completes successfully. An unknown
+        status keeps polling, so pass timeout_s to bound the wait.
+        :param handle: DocumentHandle to the document translation to wait on.
+        :param timeout_s: (beta) (Optional) Maximum time to wait before
+            the call raises an error. The status is polled every 5 seconds;
+            the last wait is shortened so the call does not run past it.
+        :return: DocumentStatus containing the status when done.
+
+        :raises DeepLException: If the document translation fails, with the
+            API's error message, or if timeout_s is exceeded.
+        """
+        deadline_s = None if timeout_s is None else time.time() + timeout_s
+        status = self.translate_document_get_status(handle)
+        while status.ok and not status.done:
+            remaining_s = (
+                None if deadline_s is None else deadline_s - time.time()
+            )
+            if remaining_s is not None and remaining_s <= 0:
+                raise DeepLException(
+                    f"Manual timeout of {timeout_s}s exceeded for"
+                    + " document translation",
+                    should_retry=False,
+                )
+            else:
+                # seconds_remaining is unreliable, so poll every 5 seconds;
+                # the last sleep is cut to the deadline.
+                secs = 5.0 if remaining_s is None else min(5.0, remaining_s)
+                util.log_info(
+                    f"Rechecking document translation status "
+                    f"after sleeping for {secs:.3f} seconds."
+                )
+                time.sleep(secs)
+                status = self.translate_document_get_status(handle)
+        if not status.ok:
+            error_message = status.error_message or "unknown error"
+            raise DeepLException(
+                f"Error occurred while translating document: {error_message}",
+                should_retry=False,
+            )
+        return status
+
+    def translate_document_download(
+        self,
+        handle: DocumentHandle,
+        output_file: Union[TextIO, BinaryIO, Any],
+        chunk_size: int = _DOWNLOAD_CHUNK_SIZE,
+    ) -> None:
+        """Downloads the translated document for the request associated with
+        given handle and writes it to the file-like object output_file.
+
+        :param handle: DocumentHandle associated with request.
+        :param output_file: File-like object to store downloaded document.
+        :param chunk_size: (Optional) Size of chunk in bytes for streaming,
+            default 64 KiB.
+
+        :raises ConnectionException: If the connection fails while the
+            document is downloaded into output_file.
+        """
+
+        data = {"document_key": handle.document_key}
+        url = f"v2/document/{_quote_path(handle.document_id)}/result"
+
+        status_code, response, json = self._api_call(
+            url, json=data, stream=True
+        )
+        # TODO: once we drop py3.6 support, replace this with @overload
+        # annotations in `_api_call` and chained private functions.
+        # See for example https://stackoverflow.com/a/74070166/4926599
+        # In addition, drop the type: ignore annotation on the
+        # `import requests` / `from requests`
+        assert isinstance(response, requests.Response)
+
+        if not 200 <= status_code < 300:
+            # The streamed body is not parsed by _api_call; read the error.
+            content = _http_client.read_response_text(response)
+            try:
+                json = json_module.loads(content)
+            except ValueError:
+                json = None
+            self._raise_for_status(
+                status_code, content, json, downloading_document=True
+            )
+
+        # output_file is annotated to accept TextIO too; it receives bytes.
+        output: Any = output_file
+        chunks = _http_client.iter_response_content(response, chunk_size)
+        for chunk in chunks:
+            output.write(chunk)
+
+    def get_source_languages(self) -> List[Language]:
+        """Request the list of available source languages.
+
+        :return: List of supported source languages.
+        """
+        status, content, json = self._api_call(
+            "v3/languages",
+            method="GET",
+            params={"resource": "translate_text"},
+        )
+        self._raise_for_status(status, content, json)
+        if not isinstance(json, list):
+            raise DeepLException("Languages response is not a list")
+        languages = json
+        try:
+            return [
+                Language(
+                    language["lang"].upper(),
+                    _required_str(language, "name"),
+                )
+                for language in languages
+                if language.get("usable_as_source")
+            ]
+        except (AttributeError, KeyError, TypeError) as e:
+            raise DeepLException(
+                f"Malformed language in response: {e!r}"
+            ) from e
+
+    def get_target_languages(self) -> List[Language]:
+        """Request the list of available target languages.
+
+        :return: List of supported target languages.
+        """
+        status, content, json = self._api_call(
+            "v3/languages",
+            method="GET",
+            params={"resource": "translate_text"},
+        )
+        self._raise_for_status(status, content, json)
+        if not isinstance(json, list):
+            raise DeepLException("Languages response is not a list")
+        languages = json
+        try:
+            return [
+                Language(
+                    language["lang"].upper(),
+                    _required_str(language, "name"),
+                    "formality" in (language.get("features") or {}),
+                )
+                for language in languages
+                if language.get("usable_as_target")
+            ]
+        except (AttributeError, KeyError, TypeError) as e:
+            raise DeepLException(
+                f"Malformed language in response: {e!r}"
+            ) from e
+
+    def get_glossary_languages(self) -> List[GlossaryLanguagePair]:
+        """Request the list of language pairs supported for glossaries.
+
+        Note: the v3 API reports per-language usability rather than an
+        explicit pair list, so pairs here are the cross product of
+        usable_as_source x usable_as_target languages (excluding
+        self-pairs). This assumes glossary support is a full symmetric
+        cross product, which holds today (verified against production)
+        but is not guaranteed by the API contract.
+        """
+        status, content, json = self._api_call(
+            "v3/languages",
+            method="GET",
+            params={"resource": "glossary"},
+        )
+
+        self._raise_for_status(status, content, json)
+
+        languages = json if (json and isinstance(json, list)) else []
+        source_langs = [
+            language["lang"]
+            for language in languages
+            if language.get("usable_as_source")
+        ]
+        target_langs = [
+            language["lang"]
+            for language in languages
+            if language.get("usable_as_target")
+        ]
+        return [
+            GlossaryLanguagePair(source_lang, target_lang)
+            for source_lang in source_langs
+            for target_lang in target_langs
+            if source_lang != target_lang
+        ]
+
+    def get_usage(self) -> Usage:
+        """Requests the current API usage."""
+        status, content, json = self._api_call("v2/usage", method="GET")
+
+        self._raise_for_status(status, content, json)
+
+        if not isinstance(json, dict):
+            raise DeepLException("Usage response is not a JSON object")
+        return Usage(json)
+
+    def create_glossary(
+        self,
+        name: str,
+        source_lang: Union[str, Language],
+        target_lang: Union[str, Language],
+        entries: Dict[str, str],
+    ) -> GlossaryInfo:
+        """Creates a glossary with given name for the source and target
+        languages, containing the entries in dictionary. The glossary may be
+        used in the translate_text functions.
+
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second glossary. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
+
+        Only certain language pairs are supported. The available language pairs
+        can be queried using get_glossary_languages(). Glossaries are not
+        regional specific: a glossary with target language EN may be used to
+        translate texts into both EN-US and EN-GB.
+
+        This function requires the glossary entries to be provided as a
+        dictionary of source-target terms. To create a glossary from a CSV file
+        downloaded from the DeepL website, see create_glossary_from_csv().
+
+        :param name: user-defined name to attach to glossary.
+        :param source_lang: Language of source terms.
+        :param target_lang: Language of target terms.
+        :param entries: dictionary of terms to insert in glossary, with the
+            keys and values representing source and target terms respectively.
+        :return: GlossaryInfo containing information about created glossary.
+
+        :raises ValueError: If the glossary name is empty, or entries are
+            empty or invalid.
+        :raises DeepLException: If source and target language pair are not
+            supported for glossaries.
+        """
+        if not entries:
+            raise ValueError("glossary entries must not be empty")
+
+        return self._create_glossary(
+            name,
+            source_lang,
+            target_lang,
+            "tsv",
+            util.convert_dict_to_tsv(entries),
+        )
+
+    def create_glossary_from_csv(
+        self,
+        name: str,
+        source_lang: Union[str, Language],
+        target_lang: Union[str, Language],
+        csv_data: Union[TextIO, BinaryIO, str, bytes, Any],
+    ) -> GlossaryInfo:
+        """Creates a glossary with given name for the source and target
+        languages, containing the entries in the given CSV data.
+        The glossary may be used in the translate_text functions.
+
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second glossary. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
+
+        Only certain language pairs are supported. The available language pairs
+        can be queried using get_glossary_languages(). Glossaries are not
+        regional specific: a glossary with target language EN may be used to
+        translate texts into both EN-US and EN-GB.
+
+        This function allows you to upload a glossary CSV file that you have
+        downloaded from the DeepL website.
+
+        Information about the expected CSV format can be found in the API
+        documentation: https://www.deepl.com/docs-api/managing-glossaries/supported-glossary-formats/  # noqa
+
+        :param name: user-defined name to attach to glossary.
+        :param source_lang: Language of source terms.
+        :param target_lang: Language of target terms.
+        :param csv_data: CSV data containing glossary entries, either as a
+            file-like object or string or bytes containing file content.
+        :return: GlossaryInfo containing information about created glossary.
+
+        :raises ValueError: If the glossary name is empty.
+        :raises DeepLException: If source and target language pair are not
+            supported for glossaries.
+        """
+
+        entries = (
+            csv_data if isinstance(csv_data, (str, bytes)) else csv_data.read()
+        )
+
+        # The request body is JSON, which cannot carry bytes.
+        if isinstance(entries, bytes):
+            entries = entries.decode("utf-8")
+        return self._create_glossary(
+            name, source_lang, target_lang, "csv", entries
+        )
+
+    def get_glossary(self, glossary_id: str) -> GlossaryInfo:
+        """Retrieves GlossaryInfo for the glossary with specified ID.
+
+        :param glossary_id: ID of glossary to retrieve.
+        :return: GlossaryInfo with information about specified glossary.
+        :raises NotFoundException: If no glossary with given ID is
+            found.
+        """
+        status, content, json = self._api_call(
+            f"v2/glossaries/{glossary_id}", method="GET"
+        )
+        self._raise_for_status(status, content, json)
+        return GlossaryInfo.from_json(json)
+
+    def list_glossaries(self) -> List[GlossaryInfo]:
+        """Retrieves GlossaryInfo for all available glossaries.
+
+        :return: list of GlossaryInfo for all available glossaries.
+        """
+        status, content, json = self._api_call("v2/glossaries", method="GET")
+        self._raise_for_status(status, content, json)
+        glossaries = (
+            json.get("glossaries", [])
+            if (json and isinstance(json, dict))
+            else []
+        )
+        return [GlossaryInfo.from_json(glossary) for glossary in glossaries]
+
+    def get_glossary_entries(self, glossary: Union[str, GlossaryInfo]) -> dict:
+        """Retrieves the entries of the specified glossary and returns them as
+        a dictionary.
+
+        :param glossary: GlossaryInfo or ID of glossary to retrieve.
+        :return: dictionary of glossary entries.
+        :raises NotFoundException: If no glossary with given ID is
+            found.
+        :raises DeepLException: If the glossary could not be retrieved
+            in the right format.
+        """
+        if isinstance(glossary, GlossaryInfo):
+            glossary_id = glossary.glossary_id
+        else:
+            glossary_id = glossary
+
+        status, content, json = self._api_call(
+            f"v2/glossaries/{glossary_id}/entries",
+            method="GET",
+            headers={"Accept": "text/tab-separated-values"},
+        )
+        self._raise_for_status(status, content, json)
+        if not isinstance(content, str):
+            raise DeepLException(
+                "Could not get the glossary content as a string",
+                http_status_code=status,
+            )
+        return util.convert_tsv_to_dict(content)
+
+    def delete_glossary(self, glossary: Union[str, GlossaryInfo]) -> None:
+        """Deletes specified glossary.
+
+        :param glossary: GlossaryInfo or ID of glossary to delete.
+        :raises NotFoundException: If no glossary with given ID is
+            found.
+        """
+        if isinstance(glossary, GlossaryInfo):
+            glossary_id = glossary.glossary_id
+        else:
+            glossary_id = glossary
+
+        status, content, json = self._api_call(
+            f"v2/glossaries/{glossary_id}",
+            method="DELETE",
+        )
+        self._raise_for_status(status, content, json)
+
     def rephrase_text(
         self,
         text: Union[str, Iterable[str]],
         *,
         target_lang: Union[None, str, Language] = None,
-        style: Union[str, WritingStyle, None] = None,
         tone: Union[str, WritingTone, None] = None,
         writing_style: Union[str, WritingStyle, None] = None,
         extra_body_parameters: Optional[dict] = None,
@@ -179,50 +1479,39 @@ class DeepLClient(Translator):
             generator)
         :param target_lang: language code the final text should be in, for
             example "DE", "EN-US", "FR".
-        :param style: Deprecated alias of `writing_style`.
-
-            .. deprecated:: 1.33.0
-                Use `writing_style` instead.
         :param tone: Tone to be used for the improvement, as a WritingTone or
             string. Either writing_style OR tone can be used.
         :param writing_style: Writing style to be used for the improvement, as
             a WritingStyle or string. Either writing_style OR tone can be
-            used. Takes precedence over the deprecated `style`.
+            used.
         :param extra_body_parameters: (Optional) Additional key/value pairs to
             include in the JSON request body sent to the API. If provided,
             keys in this dict will be added to the request body, and replace
             keys of the same name that the client sets.
         :return: List of WriteResult objects containing results, unless input
             text was one string, then a single WriteResult object is returned.
+        :raises ValueError: If a text or target_lang is empty.
         """
-        if style is not None:
-            warnings.warn(
-                "style is deprecated, use writing_style",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            if writing_style is None:
-                writing_style = style
-
         if isinstance(text, str):
             if len(text) == 0:
                 raise ValueError("text must not be empty")
             text = [text]
             multi_input = False
-        elif hasattr(text, "__iter__"):
+        else:
             multi_input = True
             text = list(text)
-        else:
-            raise TypeError(
-                "text parameter must be a string or an iterable of strings"
-            )
+            if any(t == "" for t in text):
+                raise ValueError("text must not be empty")
+
+        if target_lang is not None and str(target_lang) == "":
+            raise ValueError("target_lang must not be empty")
 
         request_data: dict = {"text": text}
-        if target_lang:
+        if target_lang is not None:
             request_data["target_lang"] = str(target_lang)
-        if writing_style:
+        if writing_style is not None:
             request_data["writing_style"] = str(writing_style)
-        if tone:
+        if tone is not None:
             request_data["tone"] = str(tone)
         util._add_extra_body_parameters(request_data, extra_body_parameters)
 
@@ -257,6 +1546,7 @@ class DeepLClient(Translator):
             keys of the same name that the client sets.
         :return: List of WriteResult objects containing results, unless input
             text was one string, then a single WriteResult object is returned.
+        :raises ValueError: If a text or target_lang is empty.
         """
 
         if isinstance(text, str):
@@ -264,16 +1554,17 @@ class DeepLClient(Translator):
                 raise ValueError("text must not be empty")
             text = [text]
             multi_input = False
-        elif hasattr(text, "__iter__"):
+        else:
             multi_input = True
             text = list(text)
-        else:
-            raise TypeError(
-                "text parameter must be a string or an iterable of strings"
-            )
+            if any(t == "" for t in text):
+                raise ValueError("text must not be empty")
+
+        if target_lang is not None and str(target_lang) == "":
+            raise ValueError("target_lang must not be empty")
 
         request_data: dict = {"text": text}
-        if target_lang:
+        if target_lang is not None:
             request_data["target_lang"] = str(target_lang)
         util._add_extra_body_parameters(request_data, extra_body_parameters)
 
@@ -289,18 +1580,21 @@ class DeepLClient(Translator):
     def create_multilingual_glossary(
         self,
         name: str,
-        dictionaries: Optional[
-            List[MultilingualGlossaryDictionaryEntries]
-        ] = None,
+        dictionaries: List[MultilingualGlossaryDictionaryEntries],
         *,
-        glossary_dicts: Optional[
-            List[MultilingualGlossaryDictionaryEntries]
-        ] = None,
         extra_body_parameters: Optional[dict] = None,
     ) -> MultilingualGlossaryInfo:
         """Creates a glossary with given name with all of the specified
         dictionaries, each with their own language pair and entries. The
         glossary may be used in the translate_text functions.
+
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second glossary. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
 
         The available glossary language pairs can be queried using
         get_glossary_languages(). Glossaries apply to languages, not specific
@@ -316,29 +1610,20 @@ class DeepLClient(Translator):
         :param name: user-defined name to attach to glossary.
         :param dictionaries: a list of MultilingualGlossaryDictionaryEntries
             which each contains entries for a particular language pair
-        :param glossary_dicts: Deprecated alias of dictionaries.
-
-            .. deprecated:: 1.33.0
-                Use ``dictionaries`` instead.
         :param extra_body_parameters: (Optional) Additional key/value pairs to
             include in the JSON request body sent to the API. They are added
             last and replace fields with the same key.
         :return: MultilingualGlossaryInfo containing information about the
             created glossary.
 
-        :raises ValueError: If the glossary name is empty, or entries are
-            empty or invalid.
+        :raises ValueError: If the glossary name or dictionaries list is
+            empty, or entries are empty or invalid.
         :raises DeepLException: If source and target language pair are not
             supported for glossaries.
         """
-        dictionaries = _renamed_argument(
-            "create_multilingual_glossary",
-            "dictionaries",
-            dictionaries,
-            "glossary_dicts",
-            glossary_dicts,
-        )
-        if any(map(lambda d: not d.entries, dictionaries)):
+        if not dictionaries:
+            raise ValueError("dictionaries must not be empty")
+        if any(not self._has_entries(d) for d in dictionaries):
             raise ValueError("glossary entries must not be empty")
 
         return self._create_multilingual_glossary(
@@ -350,14 +1635,21 @@ class DeepLClient(Translator):
         name: str,
         source_lang: str,
         target_lang: str,
-        csv: Union[TextIO, BinaryIO, str, bytes, Any] = None,
+        csv: Union[TextIO, BinaryIO, str, bytes, Any],
         *,
-        csv_data: Union[TextIO, BinaryIO, str, bytes, Any] = None,
         extra_body_parameters: Optional[dict] = None,
     ) -> MultilingualGlossaryInfo:
         """Creates a glossary with given name for the source and target
         languages, containing the entries in the given CSV data.
         The glossary may be used in the translate_text functions.
+
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second glossary. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
 
         The available glossary language pairs can be queried using
         get_glossary_languages(). Glossaries apply to languages, not specific
@@ -376,10 +1668,6 @@ class DeepLClient(Translator):
         :param target_lang: Language of target entries.
         :param csv: CSV data containing glossary entries, either as a
             file-like object or string or bytes containing file content.
-        :param csv_data: Deprecated alias of csv.
-
-            .. deprecated:: 1.33.0
-                Use ``csv`` instead.
         :param extra_body_parameters: (Optional) Additional key/value pairs to
             include in the JSON request body sent to the API. They are added
             last and replace fields with the same key.
@@ -391,13 +1679,6 @@ class DeepLClient(Translator):
         :raises DeepLException: If source and target language pair are not
             supported for glossaries.
         """
-        csv = _renamed_argument(
-            "create_multilingual_glossary_from_csv",
-            "csv",
-            csv,
-            "csv_data",
-            csv_data,
-        )
         entries = util.convert_csv_to_dict(csv)
 
         dictionaries = [
@@ -425,9 +1706,9 @@ class DeepLClient(Translator):
         util._add_extra_body_parameters(request_data, extra_body_parameters)
 
         status, content, json = self._api_call(
-            "v3/glossaries", json=request_data
+            "v3/glossaries", json=request_data, retry_only_unprocessed=True
         )
-        self._raise_for_status(status, content, json, glossary=True)
+        self._raise_for_status(status, content, json)
         return MultilingualGlossaryInfo.from_json(json)
 
     def update_multilingual_glossary(
@@ -456,7 +1737,7 @@ class DeepLClient(Translator):
             last and replace fields with the same key.
         :return: MultilingualGlossaryInfo containing information about the
             updated glossary.
-        :raises GlossaryNotFoundException: If no glossary with given ID is
+        :raises NotFoundException: If no glossary with given ID is
             found.
         """
         return self._update_multilingual_glossary(
@@ -496,9 +1777,8 @@ class DeepLClient(Translator):
     def update_multilingual_glossary_dictionary(
         self,
         glossary: Union[str, MultilingualGlossaryInfo],
-        dictionary: Optional[MultilingualGlossaryDictionaryEntries] = None,
+        dictionary: MultilingualGlossaryDictionaryEntries,
         *,
-        glossary_dict: Optional[MultilingualGlossaryDictionaryEntries] = None,
         extra_body_parameters: Optional[dict] = None,
     ) -> MultilingualGlossaryInfo:
         """Updates or creates a glossary dictionary with given glossary
@@ -518,10 +1798,6 @@ class DeepLClient(Translator):
 
         :param glossary: MultilingualGlossaryInfo or ID of glossary to update.
         :param dictionary: The new or updated glossary dictionary
-        :param glossary_dict: Deprecated alias of dictionary.
-
-            .. deprecated:: 1.33.0
-                Use ``dictionary`` instead.
         :param extra_body_parameters: (Optional) Additional key/value pairs to
             include in the JSON request body sent to the API. They are added
             last and replace fields with the same key.
@@ -532,14 +1808,7 @@ class DeepLClient(Translator):
         :raises DeepLException: If source and target language pair are not
             supported for glossaries.
         """
-        dictionary = _renamed_argument(
-            "update_multilingual_glossary_dictionary",
-            "dictionary",
-            dictionary,
-            "glossary_dict",
-            glossary_dict,
-        )
-        if not dictionary or not dictionary.entries:
+        if not self._has_entries(dictionary):
             raise ValueError("glossary entries must not be empty")
 
         return self._update_multilingual_glossary(
@@ -553,9 +1822,8 @@ class DeepLClient(Translator):
         glossary: Union[str, MultilingualGlossaryInfo],
         source_lang: str,
         target_lang: str,
-        csv: Union[TextIO, BinaryIO, str, bytes, Any] = None,
+        csv: Union[TextIO, BinaryIO, str, bytes, Any],
         *,
-        csv_data: Union[TextIO, BinaryIO, str, bytes, Any] = None,
         extra_body_parameters: Optional[dict] = None,
     ) -> MultilingualGlossaryInfo:
         """Updates or creates a glossary dictionary with given entries in
@@ -580,10 +1848,6 @@ class DeepLClient(Translator):
         :param target_lang: Language of target entries.
         :param csv: CSV data containing glossary entries, either as a
             file-like object or string or bytes containing file content.
-        :param csv_data: Deprecated alias of csv.
-
-            .. deprecated:: 1.33.0
-                Use ``csv`` instead.
         :param extra_body_parameters: (Optional) Additional key/value pairs to
             include in the JSON request body sent to the API. They are added
             last and replace fields with the same key.
@@ -594,14 +1858,9 @@ class DeepLClient(Translator):
         :raises DeepLException: If source and target language pair are not
             supported for glossaries.
         """
-        csv = _renamed_argument(
-            "update_multilingual_glossary_dictionary_from_csv",
-            "csv",
-            csv,
-            "csv_data",
-            csv_data,
-        )
         entries = util.convert_csv_to_dict(csv)
+        if not entries:
+            raise ValueError("glossary entries must not be empty")
 
         dictionaries = [
             MultilingualGlossaryDictionaryEntries(
@@ -638,16 +1897,15 @@ class DeepLClient(Translator):
         status, content, json = self._api_call(
             f"v3/glossaries/{glossary_id}", method="PATCH", json=request_data
         )
-        self._raise_for_status(status, content, json, glossary=True)
+        self._raise_for_status(status, content, json)
 
         return MultilingualGlossaryInfo.from_json(json)
 
     def replace_multilingual_glossary_dictionary(
         self,
         glossary: Union[str, MultilingualGlossaryInfo],
-        dictionary: Optional[MultilingualGlossaryDictionaryEntries] = None,
+        dictionary: MultilingualGlossaryDictionaryEntries,
         *,
-        glossary_dict: Optional[MultilingualGlossaryDictionaryEntries] = None,
         extra_body_parameters: Optional[dict] = None,
     ) -> MultilingualGlossaryDictionaryInfo:
         """Replaces a glossary dictionary with given entries for the
@@ -665,10 +1923,6 @@ class DeepLClient(Translator):
 
         :param glossary: MultilingualGlossaryInfo or ID of glossary to update.
         :param dictionary: The new glossary dictionary
-        :param glossary_dict: Deprecated alias of dictionary.
-
-            .. deprecated:: 1.33.0
-                Use ``dictionary`` instead.
         :param extra_body_parameters: (Optional) Additional key/value pairs to
             include in the JSON request body sent to the API. They are added
             last and replace fields with the same key.
@@ -679,14 +1933,7 @@ class DeepLClient(Translator):
         :raises DeepLException: If source and target language pair are not
             supported for glossaries.
         """
-        dictionary = _renamed_argument(
-            "replace_multilingual_glossary_dictionary",
-            "dictionary",
-            dictionary,
-            "glossary_dict",
-            glossary_dict,
-        )
-        if not dictionary or not dictionary.entries:
+        if not self._has_entries(dictionary):
             raise ValueError("glossary entries must not be empty")
 
         return self._replace_multilingual_glossary_dictionary(
@@ -702,9 +1949,8 @@ class DeepLClient(Translator):
         glossary: Union[str, MultilingualGlossaryInfo],
         source_lang: str,
         target_lang: str,
-        csv: Union[TextIO, BinaryIO, str, bytes, Any] = None,
+        csv: Union[TextIO, BinaryIO, str, bytes, Any],
         *,
-        csv_data: Union[TextIO, BinaryIO, str, bytes, Any] = None,
         extra_body_parameters: Optional[dict] = None,
     ) -> MultilingualGlossaryDictionaryInfo:
         """Replaces a glossary dictionary with given CSV formatted entries
@@ -727,10 +1973,6 @@ class DeepLClient(Translator):
         :param target_lang: Language of target entries.
         :param csv: CSV data containing glossary entries, either as a
             file-like object or string or bytes containing file content.
-        :param csv_data: Deprecated alias of csv.
-
-            .. deprecated:: 1.33.0
-                Use ``csv`` instead.
         :param extra_body_parameters: (Optional) Additional key/value pairs to
             include in the JSON request body sent to the API. They are added
             last and replace fields with the same key.
@@ -741,14 +1983,9 @@ class DeepLClient(Translator):
         :raises DeepLException: If source and target language pair are not
             supported for glossaries.
         """
-        csv = _renamed_argument(
-            "replace_multilingual_glossary_dictionary_from_csv",
-            "csv",
-            csv,
-            "csv_data",
-            csv_data,
-        )
         entries = util.convert_csv_to_dict(csv)
+        if not entries:
+            raise ValueError("glossary entries must not be empty")
 
         return self._replace_multilingual_glossary_dictionary(
             glossary, source_lang, target_lang, entries, extra_body_parameters
@@ -776,40 +2013,27 @@ class DeepLClient(Translator):
             method="PUT",
             json=request_data,
         )
-        self._raise_for_status(status, content, json, glossary=True)
+        self._raise_for_status(status, content, json)
         return MultilingualGlossaryDictionaryInfo.from_json(json)
 
     def get_multilingual_glossary(
         self,
-        glossary: Union[str, MultilingualGlossaryInfo, None] = None,
-        *,
-        glossary_id: Optional[str] = None,
+        glossary: Union[str, MultilingualGlossaryInfo],
     ) -> MultilingualGlossaryInfo:
         """Retrieves MultilingualGlossaryInfo for the specified glossary.
 
         :param glossary: MultilingualGlossaryInfo or ID of glossary to
             retrieve.
-        :param glossary_id: Deprecated alias of glossary.
-
-            .. deprecated:: 1.33.0
-                Use ``glossary`` instead.
         :return: MultilingualGlossaryInfo with information about specified
             glossary.
-        :raises GlossaryNotFoundException: If no glossary with given ID is
+        :raises NotFoundException: If no glossary with given ID is
             found.
         """
-        glossary = _renamed_argument(
-            "get_multilingual_glossary",
-            "glossary",
-            glossary,
-            "glossary_id",
-            glossary_id,
-        )
         status, content, json = self._api_call(
             f"v3/glossaries/{self._multilingual_glossary_id(glossary)}",
             method="GET",
         )
-        self._raise_for_status(status, content, json, glossary=True)
+        self._raise_for_status(status, content, json)
         return MultilingualGlossaryInfo.from_json(json)
 
     def list_multilingual_glossaries(self) -> List[MultilingualGlossaryInfo]:
@@ -820,7 +2044,7 @@ class DeepLClient(Translator):
             glossaries.
         """
         status, content, json = self._api_call("v3/glossaries", method="GET")
-        self._raise_for_status(status, content, json, glossary=True)
+        self._raise_for_status(status, content, json)
         glossaries = (
             json.get("glossaries", [])
             if (json and isinstance(json, dict))
@@ -844,62 +2068,11 @@ class DeepLClient(Translator):
             retrieve.
         :param source_lang: Language of source terms.
         :param target_lang: Language of target terms.
-        :return: MultilingualGlossaryDictionaryEntries whose entries are the
-            TSV string the API returns; use deepl.util.convert_tsv_to_dict()
-            to get a dictionary of source-target terms.
-        :raises GlossaryNotFoundException: If the glossary or the dictionary
+        :return: MultilingualGlossaryDictionaryEntries whose entries are a
+            dictionary of source-target terms.
+        :raises NotFoundException: If the glossary or the dictionary
             is not found.
         """
-        dictionaries = self._get_multilingual_glossary_entries(
-            glossary, source_lang, target_lang
-        ).dictionaries
-        if not dictionaries:
-            raise GlossaryNotFoundException(
-                "Glossary not found, message: no dictionary for "
-                f"{source_lang}->{target_lang}"
-            )
-        return dictionaries[0]
-
-    def get_multilingual_glossary_entries(
-        self,
-        glossary: Union[str, MultilingualGlossaryInfo],
-        source_lang: str,
-        target_lang: str,
-    ) -> MultilingualGlossaryDictionaryEntriesResponse:
-        """Retrieves the entries for a given source and target language in the
-        specified glossary.
-
-        .. deprecated:: 1.33.0
-            Use get_multilingual_glossary_dictionary_entries() instead, which
-            returns the dictionary entries directly.
-
-        :param glossary: MultilingualGlossaryInfo or ID of glossary to
-            retrieve.
-        :param source_lang: Language of source terms.
-        :param target_lang: Language of target terms.
-        :return: MultilingualGlossaryDictionaryEntriesResponse object
-            containing the entries.
-        :raises GlossaryNotFoundException: If no glossary with given ID is
-            found.
-        :raises DeepLException: If the glossary could not be retrieved
-            in the right format.
-        """
-        warnings.warn(
-            "get_multilingual_glossary_entries() is deprecated, use "
-            "get_multilingual_glossary_dictionary_entries()",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._get_multilingual_glossary_entries(
-            glossary, source_lang, target_lang
-        )
-
-    def _get_multilingual_glossary_entries(
-        self,
-        glossary: Union[str, MultilingualGlossaryInfo],
-        source_lang: str,
-        target_lang: str,
-    ) -> MultilingualGlossaryDictionaryEntriesResponse:
         glossary_id = self._multilingual_glossary_id(glossary)
         query = self._language_pair_query(source_lang, target_lang)
 
@@ -907,8 +2080,19 @@ class DeepLClient(Translator):
             f"v3/glossaries/{glossary_id}/entries?{query}",
             method="GET",
         )
-        self._raise_for_status(status, content, json, glossary=True)
-        return MultilingualGlossaryDictionaryEntriesResponse.from_json(json)
+        self._raise_for_status(status, content, json)
+        try:
+            dictionaries = list(json["dictionaries"])
+        except (KeyError, TypeError) as error:
+            raise _malformed_response(
+                "MultilingualGlossaryDictionaryEntries", error
+            ) from error
+        if not dictionaries:
+            raise NotFoundException(
+                "Not found, message: no dictionary for "
+                f"{source_lang}->{target_lang}"
+            )
+        return MultilingualGlossaryDictionaryEntries.from_json(dictionaries[0])
 
     def delete_multilingual_glossary(
         self, glossary: Union[str, MultilingualGlossaryInfo]
@@ -916,39 +2100,38 @@ class DeepLClient(Translator):
         """Deletes specified glossary.
 
         :param glossary: MultilingualGlossaryInfo or ID of glossary to delete.
-        :raises GlossaryNotFoundException: If no glossary with given ID is
+        :raises NotFoundException: If no glossary with given ID is
             found.
         """
         status, content, json = self._api_call(
             f"v3/glossaries/{self._multilingual_glossary_id(glossary)}",
             method="DELETE",
         )
-        self._raise_for_status(status, content, json, glossary=True)
+        self._raise_for_status(status, content, json)
 
     def delete_multilingual_glossary_dictionary(
         self,
         glossary: Union[str, MultilingualGlossaryInfo],
-        dictionary: Optional[MultilingualGlossaryDictionaryInfo] = None,
         source_lang: Optional[str] = None,
         target_lang: Optional[str] = None,
+        *,
+        dictionary: Optional[MultilingualGlossaryDictionaryInfo] = None,
     ) -> None:
-        """Deletes specified glossary dictionary.
+        """Deletes the dictionary for the given language pair from the
+        specified glossary.
 
         :param glossary: MultilingualGlossaryInfo or ID of glossary
-            containing the dictionary to delete
-        :param dictionary: The dictionary to delete. Either the
-            MultilingualGlossaryDictionaryInfo or both the source_lang and
-            target_lang can be provided to identify the dictionary. However,
-            if both are provided, the dictionary takes precendence over
+            containing the dictionary to delete.
+        :param source_lang: Source language of the dictionary.
+        :param target_lang: Target language of the dictionary.
+        :param dictionary: (Optional, keyword-only) The
+            MultilingualGlossaryDictionaryInfo to delete, instead of
+            source_lang and target_lang. If given, it takes precedence over
             source_lang and target_lang.
-        :param source_lang: Optional parameter representing the source language
-            of the dictionary
-        :param target_lang: Optional parameter representing the target language
-            of the dictionary
-        :raises GlossaryNotFoundException: If no glossary with given ID is
+        :raises NotFoundException: If no glossary with given ID is
             found.
-        :raises ValueError: If the dictionary or both the source_lang and
-            target_lang were not provided
+        :raises ValueError: If neither the dictionary nor both source_lang and
+            target_lang were provided.
         """
         glossary_id = self._multilingual_glossary_id(glossary)
 
@@ -968,7 +2151,7 @@ class DeepLClient(Translator):
             f"v3/glossaries/{glossary_id}/dictionaries?{query}",
             method="DELETE",
         )
-        self._raise_for_status(status, content, json, glossary=True)
+        self._raise_for_status(status, content, json)
 
     @staticmethod
     def _multilingual_glossary_id(
@@ -982,6 +2165,8 @@ class DeepLClient(Translator):
 
     @staticmethod
     def _language_pair_query(source_lang: str, target_lang: str) -> str:
+        _check_language("source_lang", source_lang)
+        _check_language("target_lang", target_lang)
         # glossaries are only supported for base language types
         return util.encode_query(
             {
@@ -991,9 +2176,25 @@ class DeepLClient(Translator):
         )
 
     @staticmethod
+    def _has_entries(
+        dictionary: MultilingualGlossaryDictionaryEntries,
+    ) -> bool:
+        entries = dictionary.entries
+        if isinstance(entries, str):
+            # Empty lines are skipped when parsing, so "\n" holds no entries.
+            entries = util.convert_tsv_to_dict(entries)
+        return bool(entries)
+
+    @staticmethod
     def _dictionary_json(
         dictionary: MultilingualGlossaryDictionaryEntries,
     ) -> Dict[str, Any]:
+        _check_language("source_lang", dictionary.source_lang)
+        _check_language("target_lang", dictionary.target_lang)
+        entries: Union[Dict[str, str], str] = dictionary.entries
+        if isinstance(entries, str):
+            # Trimmed and validated like a dict.
+            entries = util.convert_tsv_to_dict(entries)
         # glossaries are only supported for base language types
         return {
             "source_lang": Language.remove_regional_variant(
@@ -1002,7 +2203,7 @@ class DeepLClient(Translator):
             "target_lang": Language.remove_regional_variant(
                 dictionary.target_lang
             ),
-            "entries": util.convert_dict_to_tsv(dictionary.entries),
+            "entries": util.convert_dict_to_tsv(entries),
             "entries_format": "tsv",
         }
 
@@ -1022,6 +2223,14 @@ class DeepLClient(Translator):
         """Creates a spoken-terms collection with the given name and term
         lists, one per language. Spoken terms improve the transcription of
         the given terms.
+
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second collection. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
 
         :param name: User-defined name to attach to the collection.
         :param term_lists: List of SpokenTermsEntries, each containing the
@@ -1043,7 +2252,7 @@ class DeepLClient(Translator):
         }
         util._add_extra_body_parameters(request_data, extra_body_parameters)
         status, content, json = self._api_call(
-            "v3/spoken-terms", json=request_data
+            "v3/spoken-terms", json=request_data, retry_only_unprocessed=True
         )
         self._raise_for_status(status, content, json)
         return self._parse_spoken_terms_response(SpokenTerms.from_json, json)
@@ -1132,6 +2341,7 @@ class DeepLClient(Translator):
         :return: SpokenTermsEntries containing the terms.
         """
         spoken_terms_id = self._spoken_terms_id(spoken_terms)
+        _check_language("lang", lang)
         query = util.encode_query({"lang": lang})
         status, content, json = self._api_call(
             f"v3/spoken-terms/{spoken_terms_id}/entries?{query}",
@@ -1199,6 +2409,7 @@ class DeepLClient(Translator):
         :param lang: Language of the term list to delete, e.g. "de".
         """
         spoken_terms_id = self._spoken_terms_id(spoken_terms)
+        _check_language("lang", lang)
         query = util.encode_query({"lang": lang})
         status, content, json = self._api_call(
             f"v3/spoken-terms/{spoken_terms_id}/term-lists?{query}",
@@ -1219,6 +2430,7 @@ class DeepLClient(Translator):
 
     @staticmethod
     def _spoken_terms_json(entries: SpokenTermsEntries) -> dict:
+        _check_language("lang", entries.lang)
         # Terms are sent newline-separated: a term with a newline would
         # silently become several terms.
         terms = [term.strip() for term in entries.entries]
@@ -1230,6 +2442,8 @@ class DeepLClient(Translator):
     def _spoken_terms_id(spoken_terms: Union[str, SpokenTerms]) -> str:
         if isinstance(spoken_terms, SpokenTerms):
             spoken_terms = spoken_terms.spoken_terms_id
+        if not spoken_terms:
+            raise ValueError("spoken_terms must not be empty")
         return urllib.parse.quote(spoken_terms, safe="")
 
     def get_languages_for_resource(
@@ -1343,6 +2557,14 @@ class DeepLClient(Translator):
     ) -> StyleRuleInfo:
         """Creates a new style rule.
 
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second style rule. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
+
         :param name: Name for the style rule.
         :param language: Language code for the style rule.
         :param configured_rules: Optional dict of configured rules.
@@ -1362,12 +2584,17 @@ class DeepLClient(Translator):
         if configured_rules is not None:
             request_data["configured_rules"] = configured_rules
         if custom_instructions is not None:
+            for instruction in custom_instructions:
+                _check_language(
+                    "source_language", instruction.get("source_language")
+                )
             request_data["custom_instructions"] = custom_instructions
 
         util._add_extra_body_parameters(request_data, extra_body_parameters)
         status, content, json = self._api_call(
             "v3/style_rules",
             json=request_data,
+            retry_only_unprocessed=True,
         )
         self._raise_for_status(status, content, json)
         return self._parse_style_rule_response(StyleRuleInfo.from_json, json)
@@ -1472,6 +2699,14 @@ class DeepLClient(Translator):
     ) -> CustomInstruction:
         """Creates a custom instruction for a style rule.
 
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second custom instruction. The raised
+        exception has should_retry True only after those failures or a response
+        body cut off mid-read.
+
         :param style_rule: Style rule ID string or StyleRuleInfo object.
         :param label: Label for the custom instruction.
         :param prompt: Prompt text for the custom instruction.
@@ -1487,6 +2722,7 @@ class DeepLClient(Translator):
             raise ValueError("label must not be empty")
         if not prompt:
             raise ValueError("prompt must not be empty")
+        _check_language("source_language", source_language)
         request_data = {"label": label, "prompt": prompt}
         if source_language is not None:
             request_data["source_language"] = source_language
@@ -1494,6 +2730,7 @@ class DeepLClient(Translator):
         status, content, json = self._api_call(
             f"v3/style_rules/{style_id}/custom_instructions",
             json=request_data,
+            retry_only_unprocessed=True,
         )
         self._raise_for_status(status, content, json)
         return self._parse_style_rule_response(
@@ -1554,6 +2791,7 @@ class DeepLClient(Translator):
             raise ValueError("label must not be empty")
         if not prompt:
             raise ValueError("prompt must not be empty")
+        _check_language("source_language", source_language)
         request_data = {"label": label, "prompt": prompt}
         if source_language is not None:
             request_data["source_language"] = source_language
@@ -1647,6 +2885,14 @@ class DeepLClient(Translator):
         component IDs cannot be used, the request fails and no style profile
         is created.
 
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second style profile. The raised exception
+        has should_retry True only after those failures or a response body cut
+        off mid-read.
+
         :param name: Name for the style profile.
         :param description: (Optional) Free-text description.
         :param industry: (Optional) Industry the style profile is written for.
@@ -1676,7 +2922,9 @@ class DeepLClient(Translator):
             extra_body_parameters=extra_body_parameters,
         )
         status, content, json = self._api_call(
-            "v3/style_profiles", json=request_data
+            "v3/style_profiles",
+            json=request_data,
+            retry_only_unprocessed=True,
         )
         self._raise_for_status(status, content, json)
         return StyleProfile.from_json(json)
@@ -2020,6 +3268,14 @@ class DeepLClient(Translator):
     ) -> TranslationMemoryImport:
         """Creates an import job for a new translation memory.
 
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second import job. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
+
         The job only declares the file; upload the TMX file itself to the
         returned upload URL with upload_translation_memory_file(), then poll
         get_translation_memory_job() for the outcome. Use
@@ -2058,7 +3314,9 @@ class DeepLClient(Translator):
         util._add_extra_body_parameters(request_data, extra_body_parameters)
 
         status, content, json = self._api_call(
-            "v3/translation_memories/import", json=request_data
+            "v3/translation_memories/import",
+            json=request_data,
+            retry_only_unprocessed=True,
         )
         self._raise_for_status(status, content, json)
         return self._parse_translation_memory_response(
@@ -2068,10 +3326,8 @@ class DeepLClient(Translator):
     def upload_translation_memory_file(
         self,
         translation_memory_import: Union[str, TranslationMemoryImport],
-        content: Union[BinaryIO, bytes, Any] = None,
-        content_type: str = "application/xml",
-        *,
-        input_file: Union[BinaryIO, bytes, Any] = None,
+        content: Union[BinaryIO, bytes, Any],
+        content_type: Optional[str] = "application/xml",
     ) -> None:
         """Uploads a TMX file to the upload URL of an import job, which starts
         processing.
@@ -2081,32 +3337,14 @@ class DeepLClient(Translator):
         :param content: TMX file content as bytes or a file-like object
             opened in binary mode.
         :param content_type: (Optional) MIME type of the file. Must match the
-            content_type declared when the import job was created.
-        :param input_file: Deprecated alias of content.
-
-            .. deprecated::
-                Use content instead. input_file will be removed in the next
-                major version.
+            content_type declared when the import job was created. None uses
+            the default application/xml.
 
         :raises DeepLException: If the storage URL returns an error status,
             with http_status_code set; should_retry is True for 429 and 5xx.
         :raises ConnectionException: If the connection fails while the file
             is downloaded into output_file.
         """
-        if input_file is not None:
-            if content is not None:
-                raise ValueError("pass either content or input_file, not both")
-            warnings.warn(
-                "input_file is deprecated, use content",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            content = input_file
-        if content is None:
-            raise TypeError(
-                "upload_translation_memory_file() missing required argument: "
-                "'content'"
-            )
         if isinstance(translation_memory_import, TranslationMemoryImport):
             upload_url = translation_memory_import.upload_url
         else:
@@ -2124,7 +3362,11 @@ class DeepLClient(Translator):
             "PUT",
             upload_url,
             data=content,
-            headers={"Content-Type": content_type},
+            headers={
+                "Content-Type": (
+                    "application/xml" if content_type is None else content_type
+                )
+            },
         )
         self._raise_for_asset_status(
             status_code, response_content, "uploading translation memory file"
@@ -2136,6 +3378,14 @@ class DeepLClient(Translator):
     ) -> TranslationMemoryExport:
         """Creates an export job for a translation memory.
 
+        The request is only retried if it was not sent (HTTP 429 or a network
+        failure while connecting, such as a DNS resolution failure, a refused
+        connection, a connect timeout, or a reset or timeout in the TLS or
+        proxy handshake): a retry after a server error, read timeout or lost
+        connection could create a second export job. The raised exception has
+        should_retry True only after those failures or a response body cut off
+        mid-read.
+
         Poll get_translation_memory_job() for the download URL of the
         exported TMX file. Use export_translation_memory_to_filepath() to do
         both steps and write the file at once.
@@ -2146,7 +3396,8 @@ class DeepLClient(Translator):
         """
         tm_id = self._translation_memory_id(translation_memory)
         status, content, json = self._api_call(
-            f"v3/translation_memories/{tm_id}/export"
+            f"v3/translation_memories/{tm_id}/export",
+            retry_only_unprocessed=True,
         )
         self._raise_for_status(status, content, json)
         # 200 means the API reused a previously completed export, 202 that it
@@ -2179,11 +3430,11 @@ class DeepLClient(Translator):
     def wait_until_translation_memory_job_done(
         self,
         job: Union[str, TranslationMemoryJob],
-        timeout_s: Optional[int] = None,
+        timeout_s: Optional[float] = None,
     ) -> TranslationMemoryJob:
-        """Polls a translation memory job until it is done, sleeping 5 seconds
-        between requests, and returns the job when it is completed, failed or
-        expired. Check TranslationMemoryJob.ok on the result.
+        """Polls a translation memory job until it completes, sleeping 5
+        seconds between requests, and returns the completed job. An unknown
+        status keeps polling.
 
         Note that an import job keeps reporting "awaiting_input" for a while
         after its file has been uploaded, because the API detects the upload
@@ -2195,16 +3446,33 @@ class DeepLClient(Translator):
         :param timeout_s: (Optional) Maximum time in seconds to wait before
             raising an error. The last sleep is cut short so that the wait
             does not run past the timeout.
-        :return: TranslationMemoryJob containing the final status; ok is
-            False if the job failed or expired.
+        :return: TranslationMemoryJob containing the completed status.
 
-        :raises DeepLException: If timeout_s is exceeded.
+        :raises DeepLException: If the job fails or expires, with the API's
+            error message, or if timeout_s is exceeded.
         """
         # Validates the reference; get_translation_memory_job() encodes it.
         self._job_id(job)
+        return self._wait_until_translation_memory_job_done(
+            job, timeout_s, lambda status: None
+        )
+
+    def _wait_until_translation_memory_job_done(
+        self,
+        job: Union[str, TranslationMemoryJob],
+        timeout_s: Optional[float],
+        on_status: Callable[[TranslationMemoryJob], None],
+    ) -> TranslationMemoryJob:
         start_time_s = time.time()
         status = self.get_translation_memory_job(job)
+        on_status(status)
         while True:
+            if not status.ok:
+                raise DeepLException(
+                    f"Error occurred while {_tm_job_action(status)} "
+                    f"translation memory: {_tm_job_error_message(status)}",
+                    should_retry=False,
+                )
             if status.done:
                 return status
             secs = 5.0
@@ -2223,32 +3491,31 @@ class DeepLClient(Translator):
             )
             time.sleep(secs)
             status = self.get_translation_memory_job(job)
+            on_status(status)
 
     def download_translation_memory_export(
         self,
         job: TranslationMemoryJob,
-        output_file: Union[BinaryIO, Any, None] = None,
+        output_file: Union[BinaryIO, Any],
         chunk_size: int = _DOWNLOAD_CHUNK_SIZE,
-    ) -> Optional[requests.Response]:
+    ) -> None:
         """Downloads the TMX file of a completed export job.
 
         :param job: Completed export TranslationMemoryJob carrying the
             download URL.
         :param output_file: File-like object to store the downloaded TMX
-            file. Omitting it is deprecated: the requests.Response is then
-            returned instead, and iter_content() reads the streamed file data.
-            In the next major version output_file will be required.
+            file.
         :param chunk_size: (Optional) Size of chunk in bytes for streaming,
-            default 64 KiB. Only used if output_file is specified.
-        :return: None if output_file is specified, otherwise the
-            requests.Response.
+            default 64 KiB.
 
-        :raises DeepLException: If the storage URL returns an error status,
-            with http_status_code set; should_retry is True for 429 and 5xx.
+        :raises DeepLException: If the job has no download URL (it has not
+            completed, or is not an export), or the storage URL returns an
+            error status, with http_status_code set; should_retry is True for
+            429 and 5xx.
         """
         download_url = job.result.download_url if job.result else None
         if not download_url:
-            raise ValueError(
+            raise DeepLException(
                 "translation memory export job has no download URL; it may "
                 "not have completed yet"
             )
@@ -2261,25 +3528,29 @@ class DeepLClient(Translator):
         )
         assert isinstance(content, requests.Response)
 
-        if output_file:
-            chunks = http_client.iter_response_content(content, chunk_size)
-            for chunk in chunks:
-                output_file.write(chunk)
-            return None
-        _warn_download_without_output_file()
-        return content
+        chunks = _http_client.iter_response_content(content, chunk_size)
+        for chunk in chunks:
+            output_file.write(chunk)
 
     def import_translation_memory_from_filepath(
         self,
         input_path: Union[os.PathLike, str],
         *,
         display_name: Optional[str] = None,
-        timeout_s: Optional[int] = None,
+        timeout_s: Optional[float] = None,
         content_type: Optional[str] = None,
         extra_body_parameters: Optional[dict] = None,
     ) -> TranslationMemoryJob:
         """Imports a TMX file as a new translation memory: creates the import
         job, uploads the file, and waits for processing to finish.
+
+        The request that creates the import job is only retried if it was not
+        sent (HTTP 429 or a network failure while connecting, such as a DNS
+        resolution failure, a refused connection, a connect timeout, or a reset
+        or timeout in the TLS or proxy handshake): a retry after a server
+        error, read timeout or lost connection could create a second import
+        job. The raised exception has should_retry True only after those
+        failures or a response body cut off mid-read.
 
         :param input_path: Path to the TMX file to import.
         :param display_name: (Optional) Name for the resulting translation
@@ -2297,47 +3568,67 @@ class DeepLClient(Translator):
             carries the new translation memory ID.
 
         :raises ValueError: If input_path does not exist.
-        :raises OSError: If the file cannot be read, before the import job is
-            created, for example PermissionError or IsADirectoryError.
-        :raises DeepLException: If the upload is rejected, the import job
-            fails or expires, or timeout_s is exceeded.
+        :raises TranslationMemoryJobException: For every other failure: the
+            file cannot be read or is empty (checked before the import job is
+            created), creating the job fails, the upload is rejected, the
+            import job fails or expires, or timeout_s is exceeded. The
+            underlying exception is its __cause__; job_id is set once the job
+            was created, and job holds the last status retrieved.
         """
         file_path = pathlib.Path(input_path)
         if not file_path.exists():
             raise ValueError(f"file does not exist: {input_path}")
         # Read the file before creating the job, so an unreadable file fails
         # without leaving an import job waiting for its upload.
-        with open(file_path, "rb") as input_file:
-            content = input_file.read()
+        try:
+            with open(file_path, "rb") as input_file:
+                content = input_file.read()
+        except OSError as e:
+            raise TranslationMemoryJobException(
+                f"Error reading translation memory file {input_path}: {e}"
+            ) from e
 
-        created = self.create_translation_memory_import(
-            file_name=file_path.name,
-            content_length=len(content),
-            content_type=content_type,
-            display_name=display_name,
-            extra_body_parameters=extra_body_parameters,
-        )
-        self.upload_translation_memory_file(
-            created,
-            content,
-            content_type=content_type or "application/xml",
-        )
-
-        job = self.wait_until_translation_memory_job_done(
-            created.job_id, timeout_s
-        )
-        _raise_for_failed_tm_job(job, "importing")
-        return job
+        job_id: Optional[str] = None
+        statuses: List[TranslationMemoryJob] = []
+        try:
+            created = self.create_translation_memory_import(
+                file_name=file_path.name,
+                content_length=len(content),
+                content_type=content_type,
+                display_name=display_name,
+                extra_body_parameters=extra_body_parameters,
+            )
+            job_id = created.job_id
+            self.upload_translation_memory_file(
+                created,
+                content,
+                content_type=content_type or "application/xml",
+            )
+            return self._wait_until_translation_memory_job_done(
+                job_id, timeout_s, statuses.append
+            )
+        except Exception as e:
+            raise _tm_job_exception(
+                e, job_id, statuses[-1] if statuses else None
+            ) from e
 
     def export_translation_memory_to_filepath(
         self,
         translation_memory: Union[str, TranslationMemoryInfo],
         output_path: Union[os.PathLike, str],
         *,
-        timeout_s: Optional[int] = None,
+        timeout_s: Optional[float] = None,
     ) -> TranslationMemoryJob:
         """Exports a translation memory to a TMX file: creates the export job,
         waits for it to finish, and writes the result to output_path.
+
+        The request that creates the export job is only retried if it was not
+        sent (HTTP 429 or a network failure while connecting, such as a DNS
+        resolution failure, a refused connection, a connect timeout, or a reset
+        or timeout in the TLS or proxy handshake): a retry after a server
+        error, read timeout or lost connection could create a second export
+        job. The raised exception has should_retry True only after those
+        failures or a response body cut off mid-read.
 
         :param translation_memory: Translation memory ID string or
             TranslationMemoryInfo object.
@@ -2347,47 +3638,81 @@ class DeepLClient(Translator):
             cut short so that the wait does not run past the timeout.
         :return: TranslationMemoryJob for the completed export.
 
-        :raises OSError: If output_path cannot be written, checked before the
-            export job is created: FileNotFoundError if its directory does
-            not exist, IsADirectoryError if it is a directory, PermissionError
-            if it is not writable. An OSError while writing the file is
-            raised as is.
-        :raises DeepLException: If the export job fails or expires, the
-            download fails, or timeout_s is exceeded.
-
-        A partially written output file is removed.
+        :raises TranslationMemoryJobException: For every failure: output_path
+            already exists or cannot be written (checked before the export job
+            is created), creating the job fails, the export job fails or
+            expires, timeout_s is exceeded, the download fails or writing the
+            file fails. The underlying exception is its __cause__; job_id is
+            set once the job was created, and job holds the last status
+            retrieved. An existing file is never overwritten, and a partially
+            written output file is removed.
         """
         path = pathlib.Path(output_path)
         # Check the output path before creating the job, so a path that
         # cannot be written fails without exporting first.
-        # Raises the OSError subclass that open(path, "wb") would raise.
         directory = path.parent
         if not directory.is_dir():
-            raise _open_error(path, errno.ENOENT)
+            raise TranslationMemoryJobException(
+                f"Output directory does not exist: {directory}"
+            )
         if path.is_dir():
-            raise _open_error(path, errno.EISDIR)
-        if not os.access(path if path.exists() else directory, os.W_OK):
-            raise _open_error(path, errno.EACCES)
+            raise TranslationMemoryJobException(
+                f"Output path is a directory: {output_path}"
+            )
+        if path.exists():
+            raise TranslationMemoryJobException(
+                f"Output path already exists: {output_path}"
+            )
+        if not os.access(directory, os.W_OK):
+            raise TranslationMemoryJobException(
+                f"Output path is not writable: {output_path}"
+            )
 
-        created = self.create_translation_memory_export(translation_memory)
-        job = self.wait_until_translation_memory_job_done(
-            created.job_id, timeout_s
-        )
-        # Raised before the output file is opened, so none is created.
-        _raise_for_failed_tm_job(job, "exporting")
+        job_id: Optional[str] = None
+        statuses: List[TranslationMemoryJob] = []
+        try:
+            created = self.create_translation_memory_export(translation_memory)
+            job_id = created.job_id
+            # Raises before the output file is opened, so none is created.
+            job = self._wait_until_translation_memory_job_done(
+                job_id, timeout_s, statuses.append
+            )
+        except Exception as e:
+            raise _tm_job_exception(
+                e, job_id, statuses[-1] if statuses else None
+            ) from e
 
         try:
-            with open(path, "wb") as output_file:
+            # "x" fails if the file was created after the check above.
+            output_file = open(path, "xb")
+        except OSError as e:
+            raise _tm_job_exception(
+                e,
+                job_id,
+                job,
+                "Error writing translation memory export to "
+                f"{output_path}: {e}",
+            ) from e
+        try:
+            with output_file:
                 self.download_translation_memory_export(
                     job, output_file, chunk_size=8192
                 )
-        except BaseException:
+        except BaseException as e:
             # Do not leave a partial file behind.
             try:
                 path.unlink()
             except OSError:
                 pass
-            raise
+            if not isinstance(e, Exception):
+                raise
+            message = (
+                "Error writing translation memory export to "
+                f"{output_path}: {e}"
+                if isinstance(e, OSError)
+                else None
+            )
+            raise _tm_job_exception(e, job_id, job, message) from e
         return job
 
     def _asset_call(
@@ -2435,7 +3760,7 @@ class DeepLClient(Translator):
         if isinstance(content, requests.Response):
             # A streamed download: read the error body for the message.
             try:
-                detail = http_client.read_response_text(content)
+                detail = _http_client.read_response_text(content)
             except ConnectionException:
                 detail = ""
         else:

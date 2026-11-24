@@ -52,6 +52,7 @@ driven through ``tool_bundle.metadata``.
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Any
 
@@ -61,6 +62,13 @@ from matrx_ai.tools.declared import NoArgs, tool_family
 from matrx_ai.tools.kinds.tooling import ToolBundleListing
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 from matrx_ai.tools.specs import RegisteredToolSpec
+
+_CREDENTIAL_REFUSAL = re.compile(r"(?<!\d)40[13](?!\d)|\bunauthori[sz]ed\b|\bforbidden\b", re.IGNORECASE)
+
+
+def _is_credential_refusal(reason: str) -> bool:
+    """True when discovery failed because the server refused the person's credential (401/403)."""
+    return bool(_CREDENTIAL_REFUSAL.search(reason or ""))
 
 
 @tool_family(
@@ -84,6 +92,7 @@ async def list_bundle_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="invalid_lister",
                 message=(
                     f"list_bundle_tools invoked from a non-lister tool "
@@ -105,6 +114,7 @@ async def list_bundle_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="bundle_not_found",
                 message=(
                     f"No bundle named {bundle_name!r} in tool_bundle. The "
@@ -165,12 +175,22 @@ async def list_bundle_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
             f"produced NO tools: {reason}",
             color="red",
         )
+        # A 401/403 on discovery is the PERSON's own connection credential (expired, revoked or
+        # never granted): the model is told to tell them to reconnect — a user-facing condition,
+        # not a platform fault, so the executor does not file it. A 5xx / network failure stays
+        # ``mcp_no_tools`` (filed).
+        unauthorized = _is_credential_refusal(reason)
         return ToolResult(
             success=False,
             error=ToolError(
-                error_type="mcp_no_tools",
+                reported_failure="the MCP server",
+                error_type="mcp_unauthorized" if unauthorized else "mcp_no_tools",
                 message=(
-                    f"The {server_slug} MCP is attached but produced no tools: {reason}. "
+                    f"The {server_slug} MCP is attached but the person's {server_slug} connection "
+                    f"was refused ({reason}). Tell the user to reconnect {server_slug} in their "
+                    "connections; do not retry this lister."
+                    if unauthorized
+                    else f"The {server_slug} MCP is attached but produced no tools: {reason}. "
                     "Tell the user; do not retry this lister."
                 ),
             ),
@@ -216,6 +236,7 @@ async def list_bundle_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                reported_failure="the bundle loader",
                 error_type="bundle_empty",
                 message=f"The {bundle_name} bundle produced no tools: {reason}. "
                 "Tell the user; do not retry this tool.",
@@ -310,6 +331,20 @@ async def _resolve_user_discovery_auth(server_slug: str, ctx: ToolContext) -> di
             color="yellow",
         )
         return None
+
+
+async def bundle_member_names(lister_name: str) -> list[str]:
+    """The canonical member tool names behind one ``bundle:list_<name>`` lister - the SAME resolution the
+    lister runs (MCP-managed bundle -> the server's tool rows; else the membership edges). For a toolset that
+    cannot change mid-session (a realtime voice session): declare the members, never the lister. Read only;
+    an MCP bundle's members are whatever its last catalog sync stored. Unknown bundle -> []."""
+    bundle_name = lister_name[len("bundle:list_") :] if lister_name.startswith("bundle:list_") else lister_name
+    bundle = await _fetch_bundle_by_name(bundle_name)
+    if bundle is None:
+        return []
+    server_slug = (bundle.get("metadata") or {}).get("server_slug")
+    members = await (_resolve_mcp_bundle_members(server_slug) if server_slug else _resolve_bundle_members(bundle_name))
+    return [canonical for canonical, _alias in members]
 
 
 async def _resolve_mcp_bundle_members(server_slug: str) -> list[tuple[str, str]]:

@@ -31,13 +31,14 @@ from matrx_ai.config import (
     UnifiedConfig,
     UnifiedMessage,
     UnifiedResponse,
-    YouTubeVideoContent,
     serialize_provider_usage,
+    xai_server_side_tool_components,
 )
 from matrx_ai.config.citations import normalize_xai_citations
 from matrx_ai.config.media_config import ImageContent
-from matrx_ai.providers.base_translator import BaseTranslator, record_platform_text_placement
+from matrx_ai.providers.base_translator import BaseTranslator, record_platform_text_placement, append_structured_input_text, finish_message_text, record_unsupported_media_drop
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
+from matrx_ai.providers.final_outbound_snapshot import SHAPE_XAI, SealLocator
 
 
 def provider_charge_from_xai_usage(usage: Any) -> ProviderCharge | None:
@@ -213,7 +214,12 @@ class XAITranslator(BaseTranslator):
         if system_text:
             messages.append(system(text(system_text)))
 
-        for msg in self.messages_for_wire(config):
+        # THE STATIC SEAL LINE: stamped in THIS wire list for the final outbound snapshot
+        # (``providers/final_outbound_snapshot.py``). Observes only.
+        wire_list = self.messages_for_wire(config)
+        seal = SealLocator(SHAPE_XAI, wire_list)
+        for position, msg in enumerate(wire_list):
+            seal.before(position, messages)
             if msg.role == "system":
                 sys_text = "".join(
                     c.text for c in msg.content if isinstance(c, TextContent)
@@ -252,6 +258,8 @@ class XAITranslator(BaseTranslator):
             for content in msg.content:
                 if isinstance(content, TextContent):
                     text_parts.append(content.text)
+                elif append_structured_input_text(text_parts, content):
+                    pass  # input_remarks / input_notes / ...: rendered in place
                 elif isinstance(content, ImageContent):
                     img = self._image_content(content)
                     if img is not None:
@@ -266,15 +274,10 @@ class XAITranslator(BaseTranslator):
                             ),
                         )
                     )
-                elif isinstance(content, YouTubeVideoContent):
-                    vcprint(
-                        f"YouTube URL '{content.youtube_url}' is not supported by xAI "
-                        "models and will be skipped.",
-                        "YouTube URL Warning",
-                        color="yellow",
-                    )
+                elif record_unsupported_media_drop(content, "xai"):
+                    pass  # document / audio / video / YouTube: recorded, never silent
 
-            combined_text = "".join(text_parts)
+            combined_text = finish_message_text(text_parts)
 
             if msg.role == "assistant" and tool_calls:
                 # Assistant turns that carried tool calls need the tool_calls
@@ -303,6 +306,8 @@ class XAITranslator(BaseTranslator):
                 messages.append(assistant(*parts))
             else:
                 messages.append(user(*parts))
+
+        seal.finish(messages)
 
         # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
         # block plus the tail channel (config/live_plan.py) ride AFTER the
@@ -483,6 +488,7 @@ class XAITranslator(BaseTranslator):
                 response_id=response.id,
                 raw_usage=serialize_provider_usage(usage),
                 provider_charge=provider_charge,
+                billing_components=xai_server_side_tool_components(usage),
             )
         else:
             vcprint(

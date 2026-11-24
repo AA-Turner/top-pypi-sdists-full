@@ -10,7 +10,7 @@ class ErrorResponseData(UniversalBaseModel):
     message: str
     code: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Optional error code for programmatic error handling
+    Error code for programmatic handling. Invalid messages and settings usually return 422. Settings rejected by the model, such as a sample rate above 24000, return 400. An idle connection returns 408 before it closes, and unexpected failures return 500.
     """
 
     details: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)

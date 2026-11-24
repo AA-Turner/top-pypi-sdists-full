@@ -146,3 +146,16 @@ def test_file_paths_are_not_slash_probed():
     _, record, verifier = _recheck({}, url="https://example.com/doc.pdf")
     assert "slash_variant" not in record
     assert verifier.asked == ["https://example.com/doc.pdf"]
+
+
+def test_a_stale_sitemap_is_past_life_not_a_current_listing():
+    from datetime import datetime, UTC
+
+    site = _site(0, sitemap=False)
+    site.ever_worked_page_ids = set()
+    site.former_sitemap_page_ids = {PAGE: datetime(2026, 7, 21, tzinfo=UTC)}
+    outcome = _run(site)
+    assert outcome.status == "fail" and outcome.score == 40
+    assert "your old sitemap listed it (21 Jul 2026)" in outcome.reasoning
+    assert "your sitemap lists it" not in outcome.reasoning
+    assert outcome.evidence["formerly_in_sitemap"] is True

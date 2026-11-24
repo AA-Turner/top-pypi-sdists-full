@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.externalfunctioncatalog.v1.service_pb2 import (
+    CallExternalFunctionJsonRequest,
+    CallExternalFunctionJsonResponse,
     CallExternalFunctionRequest,
     CallExternalFunctionResponse,
     CreateExternalFunctionRequest,
@@ -18,6 +20,8 @@ from chalk._gen.chalk.externalfunctioncatalog.v1.service_pb2 import (
     DeleteExternalFunctionResponse,
     DeleteExternalFunctionVersionRequest,
     DeleteExternalFunctionVersionResponse,
+    DescribeExternalFunctionJsonRequest,
+    DescribeExternalFunctionJsonResponse,
     EnsureExternalFunctionRequest,
     EnsureExternalFunctionResponse,
     GetExternalFunctionRequest,
@@ -80,6 +84,20 @@ class ExternalFunctionCatalogServiceStub:
         CallExternalFunctionRequest,
         CallExternalFunctionResponse,
     ]
+    DescribeExternalFunctionJson: UnaryUnaryMultiCallable[
+        DescribeExternalFunctionJsonRequest,
+        DescribeExternalFunctionJsonResponse,
+    ]
+    """JSON-shaped counterpart of GetExternalFunctionVersion for callers that
+    expose functions as JSON tools (e.g. the MCP gateway).
+    """
+    CallExternalFunctionJson: UnaryUnaryMultiCallable[
+        CallExternalFunctionJsonRequest,
+        CallExternalFunctionJsonResponse,
+    ]
+    """JSON-shaped counterpart of CallExternalFunction: encodes `args` into the
+    version's input Arrow schema and decodes the output feather stream.
+    """
     CreateExternalFunctionVersion: UnaryUnaryMultiCallable[
         CreateExternalFunctionVersionRequest,
         CreateExternalFunctionVersionResponse,
@@ -97,7 +115,7 @@ class ExternalFunctionCatalogServiceStub:
         GetExternalFunctionVersionSourceResponse,
     ]
     """Resolves the source files for one immutable function version. The browser
-    calls this lazily and reads the selected file directly from the pinned
+    calls this lazily and reads the selected file directly from the returned
     volume version; source is intentionally absent from list responses.
     """
     ListExternalFunctionVersions: UnaryUnaryMultiCallable[
@@ -163,6 +181,24 @@ class ExternalFunctionCatalogServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> CallExternalFunctionResponse: ...
     @abstractmethod
+    def DescribeExternalFunctionJson(
+        self,
+        request: DescribeExternalFunctionJsonRequest,
+        context: ServicerContext,
+    ) -> DescribeExternalFunctionJsonResponse:
+        """JSON-shaped counterpart of GetExternalFunctionVersion for callers that
+        expose functions as JSON tools (e.g. the MCP gateway).
+        """
+    @abstractmethod
+    def CallExternalFunctionJson(
+        self,
+        request: CallExternalFunctionJsonRequest,
+        context: ServicerContext,
+    ) -> CallExternalFunctionJsonResponse:
+        """JSON-shaped counterpart of CallExternalFunction: encodes `args` into the
+        version's input Arrow schema and decodes the output feather stream.
+        """
+    @abstractmethod
     def CreateExternalFunctionVersion(
         self,
         request: CreateExternalFunctionVersionRequest,
@@ -185,7 +221,7 @@ class ExternalFunctionCatalogServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetExternalFunctionVersionSourceResponse:
         """Resolves the source files for one immutable function version. The browser
-        calls this lazily and reads the selected file directly from the pinned
+        calls this lazily and reads the selected file directly from the returned
         volume version; source is intentionally absent from list responses.
         """
     @abstractmethod

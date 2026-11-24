@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, JsonValue
 from probe.foundation.compat.compat import StrEnum
 from probe.generated.records import Artifact
 from .outcome import SampleSplit
-from .samples import Sample, TrialFile
+from .samples import EPISODE_FIELDS, Sample, TrialFile
 from .task import Task
 from .weights import WeightVersion
 
@@ -74,7 +74,8 @@ SUMMARY_FIELDS = (
 )
 
 
-class SampleOut(Sample.project(*Sample.model_fields)):
+# The episode labels are the episode reads' alone: today's sample routes keep their shape (dashboard-redesign D13).
+class SampleOut(Sample.project(*(name for name in Sample.model_fields if name not in EPISODE_FIELDS))):
     """`GET /v1/samples/{id}`: the whole merged sample, text uncut."""
 
 

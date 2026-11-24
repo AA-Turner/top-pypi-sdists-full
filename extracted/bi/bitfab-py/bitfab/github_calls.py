@@ -6,6 +6,7 @@ import datetime
 import functools
 import http.client
 import json
+import os
 import re
 import sys
 import threading
@@ -16,14 +17,24 @@ from urllib.parse import parse_qs, urlsplit
 import requests
 from requests.structures import CaseInsensitiveDict
 
-from bitfab import service_calls
+from bitfab import service_calls, whole_objects
 from bitfab.client_patching import PatchingFinder
 from bitfab.github_sandbox import (
     GITHUB_SANDBOX_NAME,
+    READ_WHOLE_OBJECT,
     REF_READ_TIMEOUT_SECONDS,
+    TOKEN_ENV,
+    PullSource,
+    make_upstream,
+    pull_target,
+    read_pull_at_head,
+    read_whole_pull,
     record_github_refs,
 )
-from bitfab.integration_fixture import has_integration_fixture
+from bitfab.integration_fixture import (
+    extract_integration_fixtures,
+    has_integration_fixture,
+)
 from bitfab.sandbox import SANDBOX_FIXTURE_PREFIX
 
 SESSIONS_MODULE = "requests.sessions"
@@ -34,6 +45,9 @@ MAX_RECORDED_BODY_BYTES = 1024 * 1024
 RESULT_HEADERS = ("Content-Type", "Link")
 SNAPSHOT_FIXTURE = f"{SANDBOX_FIXTURE_PREFIX}{GITHUB_SANDBOX_NAME}"
 MAX_REMEMBERED_TRACES = 10_000
+ANY_ACCEPT = "*/*"
+PULL_HEAD = "pullHead"
+WHOLE_PULL = "pull"
 REPO_PREFIX = re.compile(r"^/repos/(?P<owner>[^/]+)/(?P<name>[^/]+)(?P<rest>/.*)?$")
 REPO_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("GET", r"", "github.repos.get"),
@@ -89,6 +103,7 @@ OTHER_OPERATION = "github.other"
 
 _lock = threading.Lock()
 _snapshot_tried: set[str] = set()
+_recorded_states: dict[str, dict[str, Any]] = {}
 
 
 def operation_name(method: str, path: str) -> str:
@@ -262,6 +277,64 @@ def capture_snapshot(repo: str | None, request: Any) -> None:
             )
 
 
+def _read_whole_pull_for(params: dict[str, Any], request: Any) -> Any:
+    repo = params.get("repo")
+    found = REPO_PREFIX.match(str(params.get("path") or ""))
+    if params.get("method") != "GET" or not isinstance(repo, str) or found is None:
+        return None
+    target = pull_target(
+        found.group("rest") or "", request.headers.get("Accept") or ANY_ACCEPT
+    )
+    if target is None:
+        return None
+    source = PullSource(
+        upstream=make_upstream(
+            request_token(request) or os.environ.get(TOKEN_ENV), None, None
+        ),
+        name=repo,
+        base=f"/repos/{repo}",
+    )
+    number, sha, _ = target
+    if number is None:
+        if not whole_objects.claim(PULL_HEAD, f"{repo}@{sha}"):
+            return None
+        number = read_pull_at_head(source, sha or "")
+        if number is None:
+            return None
+    if not whole_objects.claim(WHOLE_PULL, f"{repo}#{number}"):
+        return None
+    return repo, number, read_whole_pull(source, number)
+
+
+def save_whole_pull(params: dict[str, Any], request: Any) -> None:
+    with contextlib.suppress(Exception):
+        client = sys.modules.get("bitfab.client")
+        root = client._trace_root_span_context() if client is not None else None
+        if (
+            root is None
+            or service_calls.recording_mode(INTEGRATION) != READ_WHOLE_OBJECT
+        ):
+            return
+        read = _read_whole_pull_for(params, request)
+        if read is None:
+            return
+        repo, number, pull = read
+        trace_id = str(root.get("traceId"))
+        with _lock:
+            if (
+                trace_id not in _recorded_states
+                and len(_recorded_states) >= MAX_REMEMBERED_TRACES
+            ):
+                _recorded_states.clear()
+            state = _recorded_states.setdefault(trace_id, {"wholePulls": {}})
+            state["wholePulls"].setdefault(repo, {})[number] = pull
+            snapshot = (extract_integration_fixtures(root) or {}).get(SNAPSHOT_FIXTURE)
+            saved = {**(snapshot if isinstance(snapshot, dict) else {}), **state}
+        service_calls.save_recorded_sandbox_state(
+            INTEGRATION, GITHUB_SANDBOX_NAME, trace_id, json.loads(json.dumps(saved))
+        )
+
+
 def _patched_send(original: Any) -> Any:
     @functools.wraps(original)
     def send(self: Any, request: Any, **kwargs: Any) -> Any:
@@ -272,6 +345,7 @@ def _patched_send(original: Any) -> Any:
             return original(self, request, **kwargs)
         params = request_params(request)
         capture_snapshot(params["repo"], request)
+        save_whole_pull(params, request)
         held: list[Any] = []
 
         def send_to_github() -> dict[str, Any]:

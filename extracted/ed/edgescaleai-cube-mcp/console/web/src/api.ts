@@ -278,6 +278,84 @@ export type ProductCatalog = { products: Product[]; count: number; truncated: bo
 export const fetchProducts = (fresh = false) =>
   getJson<ProductCatalog>(`/api/manage/products${fresh ? '?fresh=1' : ''}`)
 
+/** One release of a product, newest version first as Apollo lists them. `created_by` is
+ *  the Apollo account that created it (a service account or a person's token), null
+ *  where Apollo did not record one. */
+export type ProductRelease = {
+  version: string
+  created: string | null
+  created_by: string | null
+  channels: string[]
+  recalled: boolean
+}
+
+/** One cube a product is installed on, as the caller's Apollo profile sees it. The
+ *  status fields are Apollo's raw enum values (or null); `module` is the coordinate of
+ *  the module that installed it, null for a direct install. */
+export type ProductInstall = {
+  cube: string
+  /** Apollo's label for the cube, or "" (none, or an echo of the cube name). */
+  display_name: string
+  /** The entity's name on that cube. A cube can hold two installs of one product,
+   *  so a row is (cube, entity). */
+  entity: string
+  version: string | null
+  health: string | null
+  rollout: string | null
+  lifecycle: string | null
+  module: string | null
+}
+
+/** One source in the details panel. `unavailable` is "could not look", never "none";
+ *  `partial` means the read stopped before the end and the items are a part. */
+export type DetailsSection<T> = {
+  state: 'ok' | 'none' | 'unavailable'
+  partial: boolean
+  items: T[]
+}
+
+export type ProductDetails = {
+  productId: string
+  releases: DetailsSection<ProductRelease>
+  installs: DetailsSection<ProductInstall>
+}
+
+/** One product's details, read when a person opens it (docs/console-spec.md §4.30).
+ *  404s for anyone who is not staff and for a product Apollo does not have. */
+export const fetchProductDetails = (productId: string) =>
+  getJson<ProductDetails>(`/api/manage/products/details?product=${encodeURIComponent(productId)}`)
+
+/** The last change of one of the installs Apollo lists as most recently updated.
+ *  `state` as the cube page's Last changed (§4.15): `changed` (the newest successful
+ *  plan), `unsuccessful` (plans ran, none succeeded; the newest one's time), `none`
+ *  (no completed plan) or `unknown` (the plan page may hide a newer one). */
+export type InstallChange = {
+  cube: string
+  entity: string
+  last_changed: string | null
+  state: 'changed' | 'unsuccessful' | 'none' | 'unknown'
+}
+
+/** Inventory's customer for one cube: a hint, not an authority. `company` is "" when
+ *  inventory has none; `resolved` is false when two records claim the cube. */
+export type InstallCompany = { cube: string; company: string; resolved: boolean }
+
+export type ProductInstallFacts = {
+  productId: string
+  /** The 10 installs Apollo lists as most recently updated, in that order. */
+  changes: DetailsSection<InstallChange>
+  /** The cubes of the first 25 installs. `off` when this stack has no inventory join. */
+  companies: Omit<DetailsSection<InstallCompany>, 'state'> & {
+    state: DetailsSection<InstallCompany>['state'] | 'off'
+    simulated: boolean
+  }
+}
+
+/** The details panel's second request, made once the panel draws: slower reads that
+ *  fill in last change and company. Refused exactly as `fetchProductDetails` is. */
+export const fetchProductInstallFacts = (productId: string) =>
+  getJson<ProductInstallFacts>(`/api/manage/products/install-facts?product=${encodeURIComponent(productId)}`)
+
 /** A share's two roles: `read` lets the customer see and install the product,
  *  `developer` also lets them publish to it. */
 export type ShareRole = 'read' | 'developer'
@@ -289,7 +367,23 @@ export type ShareRole = 'read' | 'developer'
  *  view was out of date (the owner changed since it loaded): then the current list. */
 export type TagEdit = { ok: boolean; message: string } & Partial<ProductCatalog>
 
-async function postTagEdit(action: 'owner' | 'share' | 'unshare', body: object, csrfToken: string): Promise<TagEdit> {
+/** One product's outcome in a bulk edit. `done`: changed. `refused`: the RBAC service
+ *  turned it down, its words in `message`. `stale`: the owner changed since the page
+ *  read it, so nothing was written. `unknown`: the service did not answer, so it may
+ *  have changed. `not_attempted`: the edit stopped before this product. */
+export type BulkStatus = 'done' | 'refused' | 'stale' | 'unknown' | 'not_attempted'
+export type BulkResult = { productId: string; status: BulkStatus; message: string }
+
+/** A bulk edit's answer: one result per product, in the order asked, and the list when
+ *  anything may have changed (as for a single edit). `ok` only when every one is done. */
+export type BulkTagEdit = TagEdit & { results: BulkResult[]; summary: Record<BulkStatus, number> }
+
+/** The most products one bulk edit takes (`manage.BULK_MAX_PRODUCTS`). */
+export const BULK_MAX_PRODUCTS = 100
+
+async function postTagEdit<T = TagEdit>(
+  action: 'owner' | 'share' | 'unshare' | 'bulk', body: object, csrfToken: string,
+): Promise<T> {
   const res = await fetch(`${CONSOLE_BASE}/api/manage/products/${action}`, {
     method: 'POST',
     credentials: 'same-origin',
@@ -303,7 +397,7 @@ async function postTagEdit(action: 'owner' | 'share' | 'unshare', body: object, 
     const detail = await res.json().catch(() => null)
     throw new Error(detail?.error ?? `Request failed (${res.status})`)
   }
-  return res.json() as Promise<TagEdit>
+  return res.json() as Promise<T>
 }
 
 /** A company a tag edit can name: one of the RBAC service's enabled customers. */
@@ -327,6 +421,20 @@ export const shareProduct = (productId: string, company: string, role: ShareRole
 
 export const unshareProduct = (productId: string, company: string, csrfToken: string) =>
   postTagEdit('unshare', { productId, company }, csrfToken)
+
+/** One tag edit on several products, each made as the signed-in person and decided by
+ *  the RBAC service on its own; not all-or-nothing. For `owner`, `expected` maps each
+ *  product to the owner the page showed, and a product whose owner moved is left alone. */
+export function bulkEditProducts(
+  edit:
+    | { action: 'owner'; company: string; expected: Record<string, string> }
+    | { action: 'share'; company: string; role: ShareRole }
+    | { action: 'unshare'; company: string },
+  productIds: string[],
+  csrfToken: string,
+) {
+  return postTagEdit<BulkTagEdit>('bulk', { ...edit, productIds }, csrfToken)
+}
 
 export type App = {
   id: string

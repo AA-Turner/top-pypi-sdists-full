@@ -17,7 +17,7 @@ The canonical lists live ONCE, as data, in
 moment this host's copies stop being byte-identical to it — which is the only
 thing that makes "one rule" true rather than aspirational.
 
-The file is in this repository, so the test never skips.
+The package carries its own copy, so the test never skips.
 """
 
 from __future__ import annotations
@@ -25,7 +25,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from matrx_ai.tools.implementations.kind_shared import (
     COMPONENT_ALLOWED_IMPORTS,
@@ -36,13 +35,17 @@ from matrx_ai.tools.implementations.kind_shared import (
     COMPONENT_BANNED_MEMBER_CALLS,
     COMPONENT_BANNED_SYNTAX,
     COMPONENT_BANNED_BARE_CALLS,
+    COMPONENT_BANNED_REFLECTION,
+    COMPONENT_BANNED_STRING_TIMERS,
     COMPONENT_BANNED_WINDOW_CALLS,
     component_globals_lint,
     component_import_lint,
 )
 
-AIDREAM_ROOT = Path(__file__).resolve().parents[3]
-GATE_JSON = AIDREAM_ROOT / "apps/shared/code-runtime/src/gate-lists.json"
+# matrx-ai's copy of apps/shared/code-runtime/src/gate-lists.json. A package test never reads the
+# host's files; tests/package_host_contracts/test_matrx_ai_fixture_copies.py keeps this copy
+# byte-identical to the canonical lists, so a drift on either side still fails.
+GATE_JSON = Path(__file__).resolve().parent / "fixtures" / "code_runtime_gate_lists.json"
 
 
 def _load_canonical_lists() -> dict[str, list[str]]:
@@ -70,6 +73,22 @@ def test_banned_global_lists_are_byte_identical_to_the_canonical_json() -> None:
     assert list(COMPONENT_BANNED_SYNTAX) == canonical["bannedSyntax"]
     assert list(COMPONENT_BANNED_WINDOW_CALLS) == canonical["bannedWindowCalls"]
     assert list(COMPONENT_BANNED_BARE_CALLS) == canonical["bannedBareCalls"]
+    assert list(COMPONENT_BANNED_REFLECTION) == canonical["bannedReflection"]
+    assert list(COMPONENT_BANNED_STRING_TIMERS) == canonical["bannedStringTimers"]
+
+
+def test_reflection_and_string_timers_are_refused() -> None:
+    for snippet in (
+        'Reflect.get(globalThis, "fetch")("https://x");',
+        'const t = Reflect.get(globalThis, "localStorage");',
+        'Reflect.construct(Reflect.get(Reflect.get([], "at"), "constructor"), ["return document.cookie"])();',
+        'const R = globalThis.Reflect;',
+        "setTimeout(\"fetch('x')\", 0);",
+        "setInterval(`go()`, 10);",
+    ):
+        assert component_globals_lint(f"export default function C() {{ {snippet} return null; }}") is not None, snippet
+    for honest in ("setTimeout(() => go(), 0);", "setInterval(tick, 10);", "const reflection = 1;"):
+        assert component_globals_lint(f"export default function C() {{ {honest} return null; }}") is None, honest
 
 
 def test_dialog_calls_are_refused_with_a_sentence_pointing_to_the_kit() -> None:

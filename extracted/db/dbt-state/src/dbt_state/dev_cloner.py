@@ -34,8 +34,13 @@ class DevCloner:
 
     def get_clone_source(
         self, node: ModelOrSnapshotNode
-    ) -> t.Optional[t.Tuple[str, t.Optional[str]]]:
-        """Returns the clone source table name and type."""
+    ) -> t.Optional[t.Tuple[str, t.Optional[str], bool]]:
+        """Returns the clone source table name and type, and whether the clone should be skipped if
+        the clone source hasn't changed since the target's most recent clone.
+
+        The latter is only set with IF_CHANGED when the target table already exists; the service then
+        decides whether the existing target is stale.
+        """
         profiles = self._profiles
         clone_incremental_in_dev = self._run_cache_config.resolve_clone_incremental_in_dev(
             node.config
@@ -55,17 +60,20 @@ class DevCloner:
             )
             return None
 
+        skip_if_unchanged = False
         if clone_incremental_in_dev != CloneIncrementalInDev.ALWAYS:
             if self._adapter_ext.adapter.get_relation(
                 database=node.database,
                 schema=node.schema,
                 identifier=node.identifier,
             ):
-                events.fire_debug_event(
-                    "Target table '{}' already exists, skipping clone",
-                    node.relation_name,
-                )
-                return None
+                if clone_incremental_in_dev != CloneIncrementalInDev.IF_CHANGED:
+                    events.fire_debug_event(
+                        "Target table '{}' already exists, skipping clone",
+                        node.relation_name,
+                    )
+                    return None
+                skip_if_unchanged = True
 
         defer_to_schema = self._deferred_relation_resolver.get_deferred_schema(node)
         defer_to_database = self._deferred_relation_resolver.get_deferred_database(node)
@@ -85,7 +93,7 @@ class DevCloner:
             source_table_type = self._adapter_ext.get_relation_table_type(
                 node=node, relation=defer_to_relation
             )
-            return defer_to_relation_sql, source_table_type
+            return defer_to_relation_sql, source_table_type, skip_if_unchanged
         except Exception as e:
             events.fire_warn_event(
                 "Failed to clone table {} into table {}: {}",
@@ -102,7 +110,12 @@ class DevCloner:
         clone_sqls: t.Iterable[str],
         clone_source: str,
         clone_target: str,
-    ) -> None:
+    ) -> bool:
+        """Clones the clone source into the clone target.
+
+        Returns:
+            Whether the clone replaced an existing relation.
+        """
         with events.downgrade_adapter_error_events():
             # drop the clone target before attempting the clone, otherwise we can run into a problem where we try to clone
             # a table on top of a view
@@ -125,3 +138,4 @@ class DevCloner:
             clone_source,
             clone_target,
         )
+        return existing_relation is not None

@@ -68,7 +68,15 @@ from .live import (
     LiveTurnOut,
     SlowAgainst,
 )
-from .outcome import DropReason, SampleOutcome, SampleSplit, derive_outcome, validate_drop_reason
+from .outcome import (
+    SFT_EVAL_KEY_PREFIX,
+    DropReason,
+    SampleOutcome,
+    SampleSplit,
+    derive_outcome,
+    is_sft_example,
+    validate_drop_reason,
+)
 from .part import (
     ATTEMPT_KIND_FIELDS,
     ATTEMPT_KIND_SELECTION,
@@ -137,6 +145,8 @@ from .result import (
     get_error_type,
 )
 from .samples import (
+    EPISODE_FIELDS,
+    BranchCause,
     BundleRef,
     EngineStats,
     EnvironmentLink,
@@ -147,7 +157,10 @@ from .samples import (
     Timing,
     TokenStats,
     TrialFile,
+    derive_branch_started_by,
     derive_duration_s,
+    derive_episode_key,
+    derive_is_trained,
     measure_turn_text,
 )
 from .task import (
@@ -167,9 +180,11 @@ from .turns import (
     MessageToolCall,
     SampleEvent,
     SampleEventKind,
+    ToolDefinition,
     Turn,
     TurnsSource,
     TurnToolCall,
+    TurnUsage,
 )
 from .weights import WeightVersion
 
@@ -179,6 +194,7 @@ __all__ = [
     "CONVERSATION_FIELDS",
     "DEFAULT_POLICY_ID",
     "DEFAULT_REWARD_MAX",
+    "EPISODE_FIELDS",
     "FAILING_WINDOW_SECONDS",
     "FIELD_OWNERS",
     "HUNG_AFTER_SECONDS",
@@ -200,6 +216,7 @@ __all__ = [
     "PAST_LIMIT_GRACE_SECONDS",
     "ROLE_SELECTION",
     "SAMPLE_COMMAND_KINDS",
+    "SFT_EVAL_KEY_PREFIX",
     "SLOW_MIN_TASK_ATTEMPTS",
     "SLOW_STEP_MEDIAN_FACTOR",
     "TASK_NAMESPACE",
@@ -214,6 +231,7 @@ __all__ = [
     "AttemptStateReason",
     "BestCheckpoint",
     "BlobRef",
+    "BranchCause",
     "BundleKind",
     "BundleRef",
     "Capture",
@@ -302,18 +320,23 @@ __all__ = [
     "Timing",
     "TokenArrays",
     "TokenStats",
+    "ToolDefinition",
     "TrialFile",
     "Turn",
     "TurnToolCall",
+    "TurnUsage",
     "TurnsSource",
     "WeightList",
     "WeightVersion",
     "WeightVersionIn",
     "WeightVersionOut",
     "derive_attempt_id",
+    "derive_branch_started_by",
     "derive_duration_s",
+    "derive_episode_key",
     "derive_failure_reason",
     "derive_group_id",
+    "derive_is_trained",
     "derive_outcome",
     "derive_result",
     "derive_sample_failure_reason",
@@ -321,6 +344,7 @@ __all__ = [
     "derive_task_id",
     "encode_scenario",
     "get_error_type",
+    "is_sft_example",
     "measure_turn_text",
     "validate_drop_reason",
     "validate_producer",

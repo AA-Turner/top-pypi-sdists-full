@@ -8,6 +8,7 @@ description = "Unified logging for SCAI processes"
 [dependencies]
 serde.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
+fs2.workspace = true
 
 [dev-dependencies]
 tempfile = "3"

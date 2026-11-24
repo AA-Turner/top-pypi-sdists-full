@@ -41,7 +41,7 @@ class _StubResult:
         self.usage = _StubResult._Usage()
         self.duration_ms = 10
 
-    def model_copy(self, *, update: dict | None = None) -> "_StubResult":
+    def model_copy(self, *, update: dict | None = None) -> _StubResult:
         clone = _StubResult(self.final_text, self.finish_reason)
         for key, value in (update or {}).items():
             setattr(clone, key, value)

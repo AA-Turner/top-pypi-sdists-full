@@ -18,6 +18,7 @@ from matrx_graph.db.trigger_store import (
     event_run_organization_id,
     event_source_json,
 )
+from matrx_graph.db.trigger_store import FireOutcome, TriggerFireHeld, TriggerFireRefused, TriggerStore
 from matrx_graph.workers.event_watcher import EventWatcher
 from pydantic import ValidationError
 
@@ -233,20 +234,26 @@ class _FakeEventStore:
         self.fired: list[tuple[str, str]] = []
         self.failed: list[tuple[str, str]] = []
         self.dead: list[tuple[str, str]] = []
+        self.outcomes: list[tuple[str, FireOutcome]] = []
+        self.held: list[tuple[str, Any, str]] = []
 
     async def claim_due(self, **_kw: Any) -> list[TriggerEventRow]:
         if not self._batches:
             return []
         return self._batches.pop(0)
 
-    async def mark_fired(self, event_id: str, run_id: str) -> None:
-        self.fired.append((event_id, run_id))
+    async def mark_fired(self, event_id: str, outcome: FireOutcome) -> None:
+        self.fired.append((event_id, outcome.run_id))
+        self.outcomes.append((event_id, outcome))
 
     async def mark_failed(self, event_id: str, *, error: str, **_kw: Any) -> None:
         self.failed.append((event_id, error))
 
     async def mark_dead(self, event_id: str, *, error: str) -> None:
         self.dead.append((event_id, error))
+
+    async def release_held(self, event_id: str, *, claim_at: Any, reason: str) -> None:
+        self.held.append((event_id, claim_at, reason))
 
 
 class _FakeTriggerStore:
@@ -259,8 +266,11 @@ class _FakeTriggerStore:
         self.loads.append(trigger_id)
         return self._triggers.get(trigger_id)
 
-    async def record_fire(self, trigger_id: str, run_id: str) -> None:
+    async def record_fire(self, trigger_id: str, run_id: str | None) -> None:
         self.fires.append((trigger_id, run_id))
+
+    # The real skip rule (a skipped fire bumps nothing) over the fake bump above.
+    record_outcome = TriggerStore.record_outcome
 
 
 def _trigger(trigger_id: str = "t1", **overrides: Any) -> TriggerRow:
@@ -285,9 +295,9 @@ async def test_event_watcher_fires_claimed_events_and_records():
 
     fired: list[tuple[str, str]] = []
 
-    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> str:
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> FireOutcome:
         fired.append((trig.id, ev.id))
-        return f"run-{ev.id}"
+        return FireOutcome.for_run(f"run-{ev.id}")
 
     watcher = EventWatcher(fire_event=_fire, store=store, trigger_store=trig_store)  # type: ignore[arg-type]
     count = await watcher.tick_once()
@@ -308,10 +318,10 @@ async def test_event_watcher_failure_marks_failed_and_continues():
     store = _FakeEventStore([events])
     trig_store = _FakeTriggerStore({"t1": _trigger("t1")})
 
-    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> str:
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> FireOutcome:
         if ev.id == "e1":
             raise RuntimeError("simulated fire failure")
-        return f"run-{ev.id}"
+        return FireOutcome.for_run(f"run-{ev.id}")
 
     watcher = EventWatcher(fire_event=_fire, store=store, trigger_store=trig_store)  # type: ignore[arg-type]
     count = await watcher.tick_once()
@@ -340,7 +350,7 @@ async def test_event_watcher_dead_letters_orphaned_and_inactive():
         }
     )
 
-    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> str:
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> FireOutcome:
         raise AssertionError("fire must not be called for orphaned events")
 
     watcher = EventWatcher(fire_event=_fire, store=store, trigger_store=trig_store)  # type: ignore[arg-type]
@@ -351,11 +361,137 @@ async def test_event_watcher_dead_letters_orphaned_and_inactive():
     assert store.fired == [] and store.failed == []
 
 
+async def test_an_action_fire_records_the_action_and_its_link_with_no_run():
+    """Triggers Phase 2: an Action-target fire starts no workflow run. The watcher records what the
+    host's fire returned — the Action and its link — and a null run id; it never asks for a run."""
+    store = _FakeEventStore([[_event(id="e1", trigger_id="t1")]])
+    trig_store = _FakeTriggerStore({"t1": _trigger("t1", definition_id=None, target_action="record.update")})
+
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> FireOutcome:
+        return FireOutcome(action="record.update", link_kind="record", link_id="rec-9")
+
+    watcher = EventWatcher(fire_event=_fire, store=store, trigger_store=trig_store)  # type: ignore[arg-type]
+    assert await watcher.tick_once() == 1
+
+    [(event_id, outcome)] = store.outcomes
+    assert event_id == "e1" and outcome.run_id is None
+    assert (outcome.action, outcome.link_kind, outcome.link_id) == ("record.update", "record", "rec-9")
+    assert trig_store.fires == [("t1", None)]
+
+
+async def test_a_fire_that_returns_a_bare_run_id_is_a_failed_fire_not_a_record():
+    store = _FakeEventStore([[_event(id="e1", trigger_id="t1")]])
+    trig_store = _FakeTriggerStore({"t1": _trigger("t1")})
+
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> str:
+        return "run-e1"
+
+    watcher = EventWatcher(fire_event=_fire, store=store, trigger_store=trig_store)  # type: ignore[arg-type]
+    await watcher.tick_once()
+    assert store.fired == [] and store.failed and "FireOutcome" in store.failed[0][1]
+
+
+async def test_a_refused_fire_dead_letters_with_its_sentence_and_is_never_retried():
+    store = _FakeEventStore([[_event(id="e1", trigger_id="t1")]])
+    trig_store = _FakeTriggerStore({"t1": _trigger("t1")})
+
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> FireOutcome:
+        raise TriggerFireRefused("The person this trigger runs as left the organization.")
+
+    watcher = EventWatcher(fire_event=_fire, store=store, trigger_store=trig_store)  # type: ignore[arg-type]
+    await watcher.tick_once()
+    assert store.dead == [("e1", "The person this trigger runs as left the organization.")]
+    assert store.failed == [] and store.fired == []
+
+
+async def test_a_held_fire_is_released_at_the_next_window_never_failed_or_dead_lettered(monkeypatch):
+    """A rate-limit HOLD (``TriggerFireHeld``, raised by the host) goes back to pending when its
+    window clears, the attempt given back — however many times it is held it never dead-letters,
+    never counts as a failure and never files an error."""
+    from datetime import UTC, datetime, timedelta
+
+    import matrx_graph.workers.event_watcher as ew
+
+    captured: list[Any] = []
+
+    async def capture(exc: BaseException, **_kw: Any) -> None:
+        captured.append(exc)
+
+    monkeypatch.setattr(ew, "capture_error", capture)
+    holds = 8  # past max_attempts (5): a hold must never bring the dead-letter closer
+    store = _FakeEventStore([[_event(id="e1", trigger_id="t1")] for _ in range(holds)])
+    trig_store = _FakeTriggerStore({"t1": _trigger("t1")})
+
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> FireOutcome:
+        raise TriggerFireHeld("This trigger already fired 60 times this minute.", retry_after_seconds=37)
+
+    watcher = EventWatcher(fire_event=_fire, store=store, trigger_store=trig_store)  # type: ignore[arg-type]
+    before = datetime.now(UTC)
+    for _ in range(holds):
+        await watcher.tick_once()
+    assert len(store.held) == holds
+    event_id, claim_at, reason = store.held[0]
+    assert event_id == "e1" and "60 times" in reason
+    assert before + timedelta(seconds=36) <= claim_at <= datetime.now(UTC) + timedelta(seconds=38)
+    assert store.failed == [] and store.dead == [] and store.fired == [] and captured == []
+
+
+async def test_the_doorbell_wakes_the_watcher_before_its_poll_interval():
+    """Rule 5: a ring claims now; without it the watcher would wait the whole (here: one hour) poll."""
+    import asyncio
+
+    claims: list[int] = []
+
+    class _Counting(_FakeEventStore):
+        async def claim_due(self, **_kw: Any) -> list[TriggerEventRow]:
+            claims.append(1)
+            return []
+
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> FireOutcome:
+        raise AssertionError("nothing is due")
+
+    watcher = EventWatcher(
+        fire_event=_fire, store=_Counting([]), trigger_store=_FakeTriggerStore({}),  # type: ignore[arg-type]
+        poll_interval_seconds=3600,
+    )
+    task = asyncio.create_task(watcher.run_forever())
+    for _ in range(50):
+        if claims:
+            break
+        await asyncio.sleep(0.01)
+    assert len(claims) == 1
+    watcher.wake()
+    for _ in range(50):
+        if len(claims) >= 2:
+            break
+        await asyncio.sleep(0.01)
+    assert len(claims) == 2
+    watcher.stop()
+    await asyncio.wait_for(task, timeout=2)
+
+
+def test_the_watcher_never_imports_the_action_registry():
+    """The package boundary: the host's injected fire runs the Action; the watcher never does."""
+    import ast
+    from pathlib import Path
+
+    import matrx_graph.workers.event_watcher as mod
+
+    tree = ast.parse(Path(mod.__file__).read_text())
+    imported = {
+        (node.module or "") if isinstance(node, ast.ImportFrom) else alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        for alias in node.names
+    }
+    assert not any(name.startswith("matrx_graph.actions") for name in imported), imported
+
+
 async def test_event_watcher_tick_returns_zero_on_empty():
     store = _FakeEventStore([])
     trig_store = _FakeTriggerStore({})
 
-    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> str:
+    async def _fire(trig: TriggerRow, ev: TriggerEventRow) -> FireOutcome:
         raise AssertionError("fire should not be called when no due events")
 
     watcher = EventWatcher(fire_event=_fire, store=store, trigger_store=trig_store)  # type: ignore[arg-type]

@@ -220,7 +220,7 @@ _BOT_WALL_STRONG_MARKERS: tuple[str, ...] = (
 )
 
 #: Tools that open a page in a real browser, in the order we recommend them.
-_BROWSER_TOOLS: tuple[str, ...] = ("cloud_browser", "desktop_browser", "load_browser_tools")
+_BROWSER_TOOLS: tuple[str, ...] = ("cloud_browser", "desktop_browser", "load_chrome_tools")
 
 #: A challenge page's title is the phrase plus a vendor suffix at most.
 _WALL_TITLE_MAX_CHARS = 60
@@ -264,8 +264,8 @@ def _browser_next_step(active_tools: frozenset[str] | None) -> str:
     if active_tools is None:
         return "Open the page with cloud_browser — a real browser that passes these checks."
     tool = next((t for t in _BROWSER_TOOLS if t in active_tools), None)
-    if tool == "load_browser_tools":
-        return "Call load_browser_tools, then open the page in that real browser."
+    if tool == "load_chrome_tools":
+        return "Call load_chrome_tools, then open the page in that real browser."
     if tool:
         return f"Open the page with {tool} — a real browser that passes these checks."
     return (

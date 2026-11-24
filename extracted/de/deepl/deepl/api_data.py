@@ -12,10 +12,10 @@ from typing import (
     Optional,
     Tuple,
     Union,
-    cast,
 )
 
 from deepl.util import (
+    convert_tsv_to_dict,
     get_float_safe,
     get_int_safe,
     parse_timestamp,
@@ -110,7 +110,6 @@ class DocumentStatus:
         QUEUED = "queued"
         TRANSLATING = "translating"
         DONE = "done"
-        DOWNLOADED = "downloaded"
         ERROR = "error"
 
     def __init__(
@@ -172,57 +171,38 @@ class DocumentStatus:
 class Usage:
     """Holds the result of a usage request.
 
-    The character, document and team_document properties provide details about
-    each corresponding usage type. These properties allow each usage type to be
-    checked individually.
+    The character property provides the account's character usage, or None
+    if the response does not contain it.
     For API Pro accounts, api_key_character, speech_to_text_minutes,
     speech_to_speech_minutes, products, start_time and end_time provide
     further details; for other accounts they are None.
-    The any_limit_reached property checks if for any usage type the amount used
-    has reached the allowed amount.
+    The any_character_limit_reached property checks the account's and this
+    API key's character limits; the speech minutes have their own details.
     """
 
     class Detail:
-        def __init__(self, json: Optional[dict], prefix: str):
-            self._count = get_int_safe(json, f"{prefix}_count")
-            self._limit = get_int_safe(json, f"{prefix}_limit")
+        def __init__(self, count: int, limit: int):
+            self._count = count
+            self._limit = limit
 
         @property
-        def count(self) -> Optional[int]:
-            """Returns the amount used for this usage type, may be None."""
+        def count(self) -> int:
+            """Returns the amount used for this usage type."""
             return self._count
 
         @property
-        def limit(self) -> Optional[int]:
-            """Returns the maximum amount for this usage type, may be None."""
+        def limit(self) -> int:
+            """Returns the maximum amount for this usage type."""
             return self._limit
 
         @property
-        def valid(self) -> bool:
-            """True iff both the count and limit are set for this usage
-            type."""
-            return self._count is not None and self._limit is not None
-
-        @property
         def limit_reached(self) -> bool:
-            """True if this limit is valid and the amount used is greater than
-            or equal to the amount allowed, otherwise False."""
-            return self.valid and self.count >= self.limit  # type: ignore[operator] # noqa: E501
-
-        @property
-        def limit_exceeded(self) -> bool:
-            """Deprecated, use limit_reached instead."""
-            import warnings
-
-            warnings.warn(
-                "limit_exceeded is deprecated, use limit_reached",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            return self.limit_reached
+            """True if the amount used is greater than or equal to the amount
+            allowed, otherwise False."""
+            return self.count >= self.limit
 
         def __str__(self) -> str:
-            return f"{self.count} of {self.limit}" if self.valid else "Unknown"
+            return f"{self.count} of {self.limit}"
 
     class Product:
         """Usage of one product (e.g. "translate", "write") in the current
@@ -284,9 +264,7 @@ class Usage:
             )
 
     def __init__(self, json: Optional[dict]):
-        self._character = self.Detail(json, "character")
-        self._document = self.Detail(json, "document")
-        self._team_document = self.Detail(json, "team_document")
+        self._character = self._optional_detail(json, "character")
         self._api_key_character = self._optional_detail(
             json, "api_key_character"
         )
@@ -317,53 +295,30 @@ class Usage:
     def _optional_detail(
         json: Optional[dict], prefix: str
     ) -> Optional["Usage.Detail"]:
-        """Returns the Detail for prefix, or None if the response contains
-        neither its count nor its limit."""
-        if not json or (
-            f"{prefix}_count" not in json and f"{prefix}_limit" not in json
-        ):
+        """Returns the Detail for prefix, or None if the response does not
+        contain both its count and its limit."""
+        count = get_int_safe(json, f"{prefix}_count")
+        limit = get_int_safe(json, f"{prefix}_limit")
+        if count is None or limit is None:
             return None
-        return Usage.Detail(json, prefix)
+        return Usage.Detail(count, limit)
 
     @property
-    def any_limit_reached(self) -> bool:
-        """True if for the character, document or team document usage, the
-        amount used is greater than or equal to the amount allowed, otherwise
-        False. The API Pro usage types (api_key_character and the speech
-        minutes) are not considered; check their limit_reached directly."""
-        return (
-            self.character.limit_reached
-            or self.document.limit_reached
-            or self.team_document.limit_reached
+    def any_character_limit_reached(self) -> bool:
+        """True if the account's character limit or this API key's character
+        limit is reached; the speech minutes have their own details. A usage
+        type absent from the response counts as not reached."""
+        return any(
+            detail is not None and detail.limit_reached
+            for detail in (self.character, self.api_key_character)
         )
 
     @property
-    def any_limit_exceeded(self) -> bool:
-        """Deprecated, use any_limit_reached instead."""
-        import warnings
-
-        warnings.warn(
-            "any_limit_exceeded is deprecated, use any_limit_reached",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.any_limit_reached
-
-    @property
-    def character(self) -> Detail:
+    def character(self) -> Optional[Detail]:
         """Returns usage details for characters, primarily associated with the
-        translate_text (/translate) function."""
+        translate_text (/translate) function, or None if the response does
+        not contain them."""
         return self._character
-
-    @property
-    def document(self) -> Detail:
-        """Returns usage details for documents."""
-        return self._document
-
-    @property
-    def team_document(self) -> Detail:
-        """Returns usage details for documents shared among your team."""
-        return self._team_document
 
     @property
     def api_key_character(self) -> Optional[Detail]:
@@ -405,13 +360,15 @@ class Usage:
         return self._end_time
 
     def __str__(self) -> str:
-        details: List[Tuple[str, Usage.Detail]] = [
+        details: List[Tuple[str, Optional[Usage.Detail]]] = [
             ("Characters", self.character),
-            ("Documents", self.document),
-            ("Team documents", self.team_document),
         ]
         return "Usage this billing period:\n" + "\n".join(
-            [f"{label}: {detail}" for label, detail in details if detail.valid]
+            [
+                f"{label}: {detail}"
+                for label, detail in details
+                if detail is not None
+            ]
         )
 
 
@@ -425,10 +382,9 @@ class Language:
     :param supports_formality: (Optional) Specifies whether the formality
         option is available for this language; target languages only.
 
-    Deprecated: the language code constants of this class, for example
-    Language.GERMAN, will be removed in the next major version. Use language
-    code strings instead, for example "de", or the languages returned by
-    get_source_languages() and get_target_languages().
+    Pass language codes as strings, for example "de", and use
+    get_source_languages() and get_target_languages() for the languages DeepL
+    supports.
     """
 
     def __init__(
@@ -449,135 +405,6 @@ class Language:
             return str(language).upper()[0:dash_index]
         else:
             return str(language).upper()
-
-    # Deprecated: these constants will be removed in the next major version.
-    # Use language code strings instead, for example "de".
-    ACEHNESE = "ace"
-    AFRIKAANS = "af"
-    ARAGONESE = "an"
-    ARABIC = "ar"
-    ASSAMESE = "as"
-    AYMARA = "ay"
-    AZERBAIJANI = "az"
-    BASHKIR = "ba"
-    BELARUSIAN = "be"
-    BULGARIAN = "bg"
-    BHOJPURI = "bho"
-    BENGALI = "bn"
-    BRETON = "br"
-    BOSNIAN = "bs"
-    CATALAN = "ca"
-    CEBUANO = "ceb"
-    KURDISH_SORANI = "ckb"
-    CZECH = "cs"
-    WELSH = "cy"
-    DANISH = "da"
-    GERMAN = "de"
-    GERMAN_SWISS = "de-CH"  # Only usable as a target language
-    GERMAN_GERMANY = "de-DE"  # Only usable as a target language
-    GREEK = "el"
-    ENGLISH = "en"  # Source or target; as target, translates to en-US
-    ENGLISH_BRITISH = "en-GB"  # Only usable as a target language
-    ENGLISH_AMERICAN = "en-US"  # Only usable as a target language
-    ESPERANTO = "eo"
-    SPANISH = "es"
-    SPANISH_LATIN_AMERICAN = "es-419"  # Only usable as a target language
-    SPANISH_EUROPEAN = "es-ES"  # Only usable as a target language
-    ESTONIAN = "et"
-    BASQUE = "eu"
-    PERSIAN = "fa"
-    FINNISH = "fi"
-    FRENCH = "fr"
-    FRENCH_CANADIAN = "fr-CA"  # Only usable as a target language
-    FRENCH_EUROPEAN = "fr-FR"  # Only usable as a target language
-    IRISH = "ga"
-    GALICIAN = "gl"
-    GUARANI = "gn"
-    KONKANI = "gom"
-    GUJARATI = "gu"
-    HAUSA = "ha"
-    HEBREW = "he"
-    HINDI = "hi"
-    CROATIAN = "hr"
-    HAITIAN_CREOLE = "ht"
-    HUNGARIAN = "hu"
-    ARMENIAN = "hy"
-    INDONESIAN = "id"
-    IGBO = "ig"
-    ICELANDIC = "is"
-    ITALIAN = "it"
-    JAPANESE = "ja"
-    JAVANESE = "jv"
-    GEORGIAN = "ka"
-    KAZAKH = "kk"
-    KURDISH_KURMANJI = "kmr"
-    KOREAN = "ko"
-    KYRGYZ = "ky"
-    LATIN = "la"
-    LUXEMBOURGISH = "lb"
-    LOMBARD = "lmo"
-    LINGALA = "ln"
-    LITHUANIAN = "lt"
-    LATVIAN = "lv"
-    MAITHILI = "mai"
-    MALAGASY = "mg"
-    MAORI = "mi"
-    MACEDONIAN = "mk"
-    MALAYALAM = "ml"
-    MONGOLIAN = "mn"
-    MARATHI = "mr"
-    MALAY = "ms"
-    MALTESE = "mt"
-    BURMESE = "my"
-    NORWEGIAN = "nb"
-    NEPALI = "ne"
-    DUTCH = "nl"
-    OCCITAN = "oc"
-    OROMO = "om"
-    PUNJABI = "pa"
-    PANGASINAN = "pag"
-    KAPAMPANGAN = "pam"
-    POLISH = "pl"
-    DARI = "prs"
-    PASHTO = "ps"
-    PORTUGUESE = "pt"  # Source or target; as target, translates to pt-PT
-    PORTUGUESE_BRAZILIAN = "pt-BR"  # Only usable as a target language
-    PORTUGUESE_EUROPEAN = "pt-PT"  # Only usable as a target language
-    QUECHUA = "qu"
-    ROMANIAN = "ro"
-    RUSSIAN = "ru"
-    SANSKRIT = "sa"
-    SICILIAN = "scn"
-    SLOVAK = "sk"
-    SLOVENIAN = "sl"
-    ALBANIAN = "sq"
-    SERBIAN = "sr"
-    SESOTHO = "st"
-    SUNDANESE = "su"
-    SWEDISH = "sv"
-    SWAHILI = "sw"
-    TAMIL = "ta"
-    TELUGU = "te"
-    TAJIK = "tg"
-    THAI = "th"
-    TURKMEN = "tk"
-    TAGALOG = "tl"
-    TSWANA = "tn"
-    TURKISH = "tr"
-    TSONGA = "ts"
-    TATAR = "tt"
-    UKRAINIAN = "uk"
-    URDU = "ur"
-    UZBEK = "uz"
-    VIETNAMESE = "vi"
-    WOLOF = "wo"
-    XHOSA = "xh"
-    YIDDISH = "yi"
-    CANTONESE = "yue"
-    CHINESE = "zh"
-    CHINESE_SIMPLIFIED = "zh-Hans"  # Only usable as a target language
-    CHINESE_TRADITIONAL = "zh-Hant"  # Only usable as a target language
-    ZULU = "zu"
 
 
 class GlossaryLanguagePair:
@@ -736,8 +563,7 @@ class MultilingualGlossaryDictionaryEntries:
     def from_json(json) -> "MultilingualGlossaryDictionaryEntries":
         """Create MultilingualGlossaryDictionaryEntries from the given
         API JSON object. Entries in TSV format, as the API returns them, are
-        kept as the TSV string; use deepl.util.convert_tsv_to_dict() to parse
-        them.
+        parsed into a dictionary of source-target terms.
         """
         try:
             entries = json["entries"]
@@ -746,8 +572,11 @@ class MultilingualGlossaryDictionaryEntries:
             return MultilingualGlossaryDictionaryEntries(
                 str(json["source_lang"]),
                 str(json["target_lang"]),
-                # Released behaviour: API entries stay the raw TSV string.
-                cast(Dict[str, str], entries),
+                (
+                    convert_tsv_to_dict(entries, skip_checks=True)
+                    if isinstance(entries, str)
+                    else entries
+                ),
             )
         except (KeyError, TypeError, ValueError) as error:
             raise _malformed_response(
@@ -775,44 +604,6 @@ class MultilingualGlossaryDictionaryEntries:
     @property
     def entries(self) -> Dict[str, str]:
         return self._entries
-
-
-class MultilingualGlossaryDictionaryEntriesResponse:
-    def __init__(
-        self, dictionaries: List[MultilingualGlossaryDictionaryEntries]
-    ):
-        self._dictionaries = dictionaries
-
-    def __str__(self) -> str:
-        return (
-            "MultilingualGlossaryDictionaryEntriesResponse: "
-            f"Contents {self._dictionaries}"
-        )
-
-    @staticmethod
-    def from_json(json) -> "MultilingualGlossaryDictionaryEntriesResponse":
-        """Create MultilingualGlossaryDictionaryEntriesResponse from the given
-        API JSON object.
-        """
-        try:
-            glossary_dicts = list(json["dictionaries"])
-        except (KeyError, TypeError) as error:
-            raise _malformed_response(
-                "MultilingualGlossaryDictionaryEntriesResponse", error
-            ) from error
-        serialized_dicts = list(
-            map(
-                lambda glossary_dict: MultilingualGlossaryDictionaryEntries.from_json(  # noqa: E501
-                    glossary_dict
-                ),
-                glossary_dicts,
-            )
-        )
-        return MultilingualGlossaryDictionaryEntriesResponse(serialized_dicts)
-
-    @property
-    def dictionaries(self) -> List[MultilingualGlossaryDictionaryEntries]:
-        return self._dictionaries
 
 
 class MultilingualGlossaryDictionaryInfo:
@@ -1164,14 +955,11 @@ class SplitSentences(Enum):
         prevent the engine from splitting the sentence unintentionally.
     - ALL: (default) splits on punctuation and on newlines.
     - NO_NEWLINES: splits on punctuation only, ignoring newlines.
-    - DEFAULT: deprecated alias of ALL, use ALL instead.
     """
 
     OFF = "0"
     ALL = "1"
     NO_NEWLINES = "nonewlines"
-    DEFAULT = ALL
-    """Deprecated alias of ALL, use ALL instead."""
 
     def __str__(self):
         return self.value
@@ -1260,88 +1048,6 @@ class WritingTone(Enum):
         return self.value
 
 
-class ConfiguredRules:
-    """Configuration rules for a style rule list.
-
-    :param dates_and_times: Date and time formatting rules.
-    :param formatting: Text formatting rules.
-    :param numbers: Number formatting rules.
-    :param punctuation: Punctuation rules.
-    :param spelling_and_grammar: Spelling and grammar rules.
-    :param style_and_tone: Style and tone rules.
-    :param vocabulary: Vocabulary rules.
-    """
-
-    def __init__(
-        self,
-        dates_and_times: Optional[Dict[str, str]] = None,
-        formatting: Optional[Dict[str, str]] = None,
-        numbers: Optional[Dict[str, str]] = None,
-        punctuation: Optional[Dict[str, str]] = None,
-        spelling_and_grammar: Optional[Dict[str, str]] = None,
-        style_and_tone: Optional[Dict[str, str]] = None,
-        vocabulary: Optional[Dict[str, str]] = None,
-    ):
-        self._dates_and_times = dates_and_times or {}
-        self._formatting = formatting or {}
-        self._numbers = numbers or {}
-        self._punctuation = punctuation or {}
-        self._spelling_and_grammar = spelling_and_grammar or {}
-        self._style_and_tone = style_and_tone or {}
-        self._vocabulary = vocabulary or {}
-
-    @staticmethod
-    def from_json(json) -> "ConfiguredRules":
-        """Create ConfiguredRules from the given API JSON object."""
-        if not json:
-            return ConfiguredRules()
-
-        return ConfiguredRules(
-            dates_and_times=json.get("dates_and_times"),
-            formatting=json.get("formatting"),
-            numbers=json.get("numbers"),
-            punctuation=json.get("punctuation"),
-            spelling_and_grammar=json.get("spelling_and_grammar"),
-            style_and_tone=json.get("style_and_tone"),
-            vocabulary=json.get("vocabulary"),
-        )
-
-    @property
-    def dates_and_times(self) -> Dict[str, str]:
-        """Returns date and time formatting rules."""
-        return self._dates_and_times
-
-    @property
-    def formatting(self) -> Dict[str, str]:
-        """Returns text formatting rules."""
-        return self._formatting
-
-    @property
-    def numbers(self) -> Dict[str, str]:
-        """Returns number formatting rules."""
-        return self._numbers
-
-    @property
-    def punctuation(self) -> Dict[str, str]:
-        """Returns punctuation rules."""
-        return self._punctuation
-
-    @property
-    def spelling_and_grammar(self) -> Dict[str, str]:
-        """Returns spelling and grammar rules."""
-        return self._spelling_and_grammar
-
-    @property
-    def style_and_tone(self) -> Dict[str, str]:
-        """Returns style and tone rules."""
-        return self._style_and_tone
-
-    @property
-    def vocabulary(self) -> Dict[str, str]:
-        """Returns vocabulary rules."""
-        return self._vocabulary
-
-
 class CustomInstruction:
     """Custom instruction for a style rule.
 
@@ -1349,6 +1055,7 @@ class CustomInstruction:
     :param prompt: Prompt text for the custom instruction.
     :param source_language: Optional source language code for the custom
         instruction.
+    :param id: Unique ID of the custom instruction.
     """
 
     def __init__(
@@ -1356,7 +1063,8 @@ class CustomInstruction:
         label: str,
         prompt: str,
         source_language: Optional[str] = None,
-        id: Optional[str] = None,
+        *,
+        id: str,
     ):
         self._label = label
         self._prompt = prompt
@@ -1370,11 +1078,11 @@ class CustomInstruction:
             label=json["label"],
             prompt=json["prompt"],
             source_language=json.get("source_language"),
-            id=json.get("id"),
+            id=json["id"],
         )
 
     @property
-    def id(self) -> Optional[str]:
+    def id(self) -> str:
         """Returns the unique ID of the custom instruction."""
         return self._id
 
@@ -1403,7 +1111,8 @@ class StyleRuleInfo:
     :param updated_time: Timestamp when the style rule list was last updated.
     :param language: Language code for the style rule list.
     :param version: Version number of the style rule list.
-    :param configured_rules: The predefined rules that have been enabled.
+    :param configured_rules: The predefined rules that have been enabled, as
+        returned by the API: category name -> rule name -> value.
     :param custom_instructions: Optional list of custom instructions.
     """
 
@@ -1415,7 +1124,7 @@ class StyleRuleInfo:
         updated_time: datetime.datetime,
         language: str,
         version: int,
-        configured_rules: Optional[ConfiguredRules] = None,
+        configured_rules: Optional[Dict[str, Dict[str, str]]] = None,
         custom_instructions: Optional[List[CustomInstruction]] = None,
     ):
         self._style_id = style_id
@@ -1433,14 +1142,9 @@ class StyleRuleInfo:
     @staticmethod
     def from_json(json) -> "StyleRuleInfo":
         """Create StyleRuleInfo from the given API JSON object."""
-        configured_rules_data = json.get("configured_rules")
-        configured_rules = None
-        if configured_rules_data:
-            configured_rules = ConfiguredRules.from_json(configured_rules_data)
-
         custom_instructions_data = json.get("custom_instructions")
         custom_instructions = None
-        if custom_instructions_data:
+        if custom_instructions_data is not None:
             custom_instructions = [
                 CustomInstruction.from_json(instruction)
                 for instruction in custom_instructions_data
@@ -1453,7 +1157,7 @@ class StyleRuleInfo:
             updated_time=parse_timestamp(json["updated_time"]),
             language=json["language"],
             version=json["version"],
-            configured_rules=configured_rules,
+            configured_rules=json.get("configured_rules"),
             custom_instructions=custom_instructions,
         )
 
@@ -1488,14 +1192,17 @@ class StyleRuleInfo:
         return self._version
 
     @property
-    def configured_rules(self) -> Optional[ConfiguredRules]:
-        """Returns the detailed configuration rules."""
+    def configured_rules(self) -> Optional[Dict[str, Dict[str, str]]]:
+        """Returns the configured rules as returned by the API, mapping
+        category names to rule names to values, or None if omitted."""
         return self._configured_rules
 
     @property
-    def custom_instructions(self) -> List[CustomInstruction]:
-        """Returns the list of custom instructions."""
-        return self._custom_instructions or []
+    def custom_instructions(self) -> Optional[List[CustomInstruction]]:
+        """Returns the list of custom instructions, or None if the response
+        omits them (for example get_all_style_rules() without
+        detailed=True)."""
+        return self._custom_instructions
 
 
 def parse_optional_timestamp(
@@ -2113,7 +1820,6 @@ class TranslationMemoryJobResult:
     STATUS_AWAITING_INPUT = "awaiting_input"
     STATUS_PROCESSING = "processing"
     STATUS_COMPLETED = "completed"
-    STATUS_DOWNLOADED = "downloaded"
     STATUS_FAILED = "failed"
     STATUS_EXPIRED = "expired"
 
@@ -2162,13 +1868,8 @@ class TranslationMemoryJobResult:
 
     @property
     def done(self) -> bool:
-        """True if the job has finished, successfully or not."""
-        return self._status in (
-            self.STATUS_COMPLETED,
-            self.STATUS_DOWNLOADED,
-            self.STATUS_FAILED,
-            self.STATUS_EXPIRED,
-        )
+        """True if the job has completed successfully."""
+        return self._status == self.STATUS_COMPLETED
 
     @property
     def ok(self) -> bool:
@@ -2233,9 +1934,9 @@ class TranslationMemoryJob:
         job_id: str,
         operation: str,
         results: List[TranslationMemoryJobResult],
+        creation_time: datetime.datetime,
+        updated_time: datetime.datetime,
         product: str = "translation_memory",
-        creation_time: Optional[datetime.datetime] = None,
-        updated_time: Optional[datetime.datetime] = None,
         translation_memory_id: Optional[str] = None,
         display_name: Optional[str] = None,
         source_content_type: Optional[str] = None,
@@ -2270,9 +1971,9 @@ class TranslationMemoryJob:
                 TranslationMemoryJobResult.from_json(result)
                 for result in json.get("results", [])
             ],
+            creation_time=parse_timestamp(json["creation_time"]),
+            updated_time=parse_timestamp(json["updated_time"]),
             product=json.get("product", "translation_memory"),
-            creation_time=parse_optional_timestamp(json.get("creation_time")),
-            updated_time=parse_optional_timestamp(json.get("updated_time")),
             translation_memory_id=parameters.get("translation_memory_id"),
             display_name=parameters.get("display_name"),
             source_content_type=source_file.get("content_type"),
@@ -2312,7 +2013,7 @@ class TranslationMemoryJob:
 
     @property
     def done(self) -> bool:
-        """True if the job has finished, successfully or not."""
+        """True if the job has completed successfully."""
         return self.result.done if self.result else False
 
     @property
@@ -2321,12 +2022,12 @@ class TranslationMemoryJob:
         return self.result.ok if self.result else True
 
     @property
-    def creation_time(self) -> Optional[datetime.datetime]:
+    def creation_time(self) -> datetime.datetime:
         """Returns the creation timestamp."""
         return self._creation_time
 
     @property
-    def updated_time(self) -> Optional[datetime.datetime]:
+    def updated_time(self) -> datetime.datetime:
         """Returns the last update timestamp."""
         return self._updated_time
 

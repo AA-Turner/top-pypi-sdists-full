@@ -95,13 +95,16 @@ class LlmChatInput(BaseModel):
     offering_id: str | None = offering_id_field()
     prompt: str = Field(
         min_length=1,
-        description="The user prompt. Sent as a single user message.",
-        json_schema_extra=field_extras(widget="textarea", multiline_rows=5),
+        description=(
+            "The user prompt. Sent as a single user message. {{name}} is filled from "
+            "an input a connected step delivers under that name."
+        ),
+        json_schema_extra=field_extras(widget="textarea", multiline_rows=5, renders_template=True),
     )
     system_instruction: str | None = Field(
         default=None,
-        description="Optional system prompt.",
-        json_schema_extra=field_extras(widget="textarea", multiline_rows=3),
+        description="Optional system prompt. {{name}} is filled the same way as in the prompt.",
+        json_schema_extra=field_extras(widget="textarea", multiline_rows=3, renders_template=True),
     )
     temperature: float | None = Field(
         default=None, ge=0.0, le=2.0, json_schema_extra=field_extras(widget="slider")
@@ -165,14 +168,25 @@ async def llm_chat(
         overrides["response_format"] = _build_response_format(inputs.output_schema)
 
     _ = ctx  # scheduler has already set AppContext on the ContextVar
+    # THE VARIABLE RULE: {{name}} is filled from the inputs the step was handed (the
+    # connected steps' values arrive as extras); any other {{...}} stays as written.
+    from matrx_graph.nodes._template import render_declared_placeholders
+
+    handed = dict(inputs.model_extra or {})
+    prompt = render_declared_placeholders(inputs.prompt, handed)
+    system_instruction = (
+        render_declared_placeholders(inputs.system_instruction, handed)
+        if inputs.system_instruction is not None
+        else None
+    )
     # The Holder of workflow.step_intelligence is resolved on EVERY run and
     # fills only what the author left unset; an unbound mandate REFUSES here.
     held = await hold_step(
         {
             "model": inputs.model,
             "offering_id": inputs.offering_id,
-            "messages": [{"role": "user", "content": inputs.prompt}],
-            "system_instruction": inputs.system_instruction,
+            "messages": [{"role": "user", "content": prompt}],
+            "system_instruction": system_instruction,
             **overrides,
         },
         spec_type="ai.llm",

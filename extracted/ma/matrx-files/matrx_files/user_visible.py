@@ -157,9 +157,11 @@ FOLDER_CONJUNCTS: Final[tuple[VisibilityConjunct, ...]] = (
 #: recent activity. Relocated here from matrx-frontend's former client-side
 #: ``isGeneratedContentPath`` / ``isSystemManagedContentPath`` so Recents has ONE
 #: declaration (2026-09-24). Exact root or anything beneath it; case-sensitive.
+#:
+#: NOT ``Images/Generated`` / ``Generated`` (removed 2026-10-30): an image, audio,
+#: video or document the person asked an AI to make is the person's own activity
+#: and belongs in Recents (system_paths "person" audience; Arman 2026-10-30).
 RECENT_EXCLUDED_ROOTS: Final[tuple[str, ...]] = (
-    "Images/Generated",
-    "Generated",
     "Agent Apps/blocks",
     "Images/agent-blocks",
     "Transcripts/Recordings",

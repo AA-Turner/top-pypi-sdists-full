@@ -35,6 +35,11 @@ class WorksheetsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetNodesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetNodesResponse.FromString,
         )
+        self.ListWorksheetExecutionTimes = channel.unary_unary(
+            "/chalk.server.v1.WorksheetsService/ListWorksheetExecutionTimes",
+            request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetExecutionTimesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetExecutionTimesResponse.FromString,
+        )
         self.CreateWorksheetNode = channel.unary_unary(
             "/chalk.server.v1.WorksheetsService/CreateWorksheetNode",
             request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.CreateWorksheetNodeRequest.SerializeToString,
@@ -134,6 +139,12 @@ class WorksheetsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ListWorksheetNodes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListWorksheetExecutionTimes(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -251,6 +262,11 @@ def add_WorksheetsServiceServicer_to_server(servicer, server):
             servicer.ListWorksheetNodes,
             request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetNodesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetNodesResponse.SerializeToString,
+        ),
+        "ListWorksheetExecutionTimes": grpc.unary_unary_rpc_method_handler(
+            servicer.ListWorksheetExecutionTimes,
+            request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetExecutionTimesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetExecutionTimesResponse.SerializeToString,
         ),
         "CreateWorksheetNode": grpc.unary_unary_rpc_method_handler(
             servicer.CreateWorksheetNode,
@@ -442,6 +458,35 @@ class WorksheetsService(object):
             "/chalk.server.v1.WorksheetsService/ListWorksheetNodes",
             chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetNodesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetNodesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListWorksheetExecutionTimes(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorksheetsService/ListWorksheetExecutionTimes",
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetExecutionTimesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetExecutionTimesResponse.FromString,
             options,
             channel_credentials,
             insecure,

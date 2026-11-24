@@ -416,7 +416,8 @@ class FilesDB:
             from asyncpg.exceptions import UndefinedFunctionError
 
             raise UndefinedFunctionError(f"function {schema}.{function}(unknown) does not exist")
-        if (schema, function) == ("public", "bump_version"):
+        # Lives in platform (69011d91f73 moved callers off the public forwarder).
+        if function == "bump_version" and schema in ("platform", "public"):
             return self._bump_version(str(args[0]))
         if (schema, function) == ("iam", "has_org_access_for"):
             user_id, org_id = args
@@ -434,6 +435,8 @@ class FilesDB:
             return self._move_file(str(args[0]), args[1])
         if (schema, function) == ("public", "rename_file"):
             return self._rename_file(str(args[0]), str(args[1]))
+        if (schema, function) == ("public", "restore_file"):
+            return self._restore_file(str(args[0]))
         if (schema, function) == ("files", "ensure_folder_chain"):
             if len(args) != 3:
                 # AD240: the org-less 2-argument form is being retired (package sql 043);
@@ -446,6 +449,30 @@ class FilesDB:
                 )
             return self._ensure_folder_chain(str(args[0]), args[1], args[2])
         raise NotImplementedError(f"files double has no RPC {schema}.{function}")
+
+    def _restore_file(self, file_id: str) -> bool:
+        """``public.restore_file`` (package sql 063): clear deleted_at; when the path slot is taken by
+        another live row, restore at the first free ``name (n).ext`` beside it. Never touches the occupant."""
+        row = self.files.rows.get(file_id)
+        if row is None or row.get("deleted_at") is None:
+            return False
+        path = row["file_path"]
+        d, _, base = path.rpartition("/")
+        stem, ext = (base.rsplit(".", 1)[0], "." + base.rsplit(".", 1)[1]) if base.rfind(".") > 0 else (base, "")
+        n, cand_path, cand_name = 1, path, base
+        while True:
+            try:
+                values: dict[str, Any] = {"deleted_at": None}
+                if cand_path != path:
+                    values.update(file_name=cand_name, file_path=cand_path, updated_at=_ts())
+                self.files.update_where_sync({"id": file_id}, **values)
+                return True
+            except UniqueViolation as exc:
+                if "file_path_key" not in str(exc) or n > 1000:
+                    raise
+                n += 1
+                cand_name = f"{stem} ({n}){ext}"
+                cand_path = f"{d}/{cand_name}" if d else cand_name
 
     def _rename_file(self, file_id: str, new_name: str) -> dict[str, Any]:
         """``public.rename_file`` as read from ``pg_proc`` on Matrx Main 2026-09-15, for a
@@ -499,6 +526,13 @@ class FilesDB:
             )
             if live is not None:
                 self.folders.update_where_sync({"id": live["id"]}, updated_at=_ts())
+                # 062 (2026-11-18): a live folder whose recorded parent is trashed or gone is
+                # re-homed under the chain's live parent; a different live parent is left alone.
+                recorded = self.folders.rows.get(live.get("parent_id")) if live.get("parent_id") else None
+                if parent is not None and live.get("parent_id") != parent and (
+                    recorded is None or recorded.get("deleted_at") is not None
+                ):
+                    self.folders.update_where_sync({"id": live["id"]}, parent_id=parent)
                 parent = live["id"]
             else:
                 parent = self.folders.create_sync(

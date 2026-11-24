@@ -17,7 +17,6 @@ import torchaudio as ta
 from torch import nn
 from torch.nn import functional as F
 
-from braindecode.functional.attention import _hpu_lazy
 from braindecode.models.base import EEGModuleMixin
 from braindecode.models.util import has_valid_locations, positions_from_chs_info
 from braindecode.modules import ChannelMerger
@@ -289,6 +288,10 @@ class BrainModule(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
 
     """
 
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: input_projection.weight
+    _feature_axis = 1
+
     def __init__(
         self,
         # braindecode EEGModuleMixin parameters
@@ -507,6 +510,7 @@ class BrainModule(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
             nn.Flatten(start_dim=1),
             nn.Linear(final_hidden_dim, self.n_outputs),
         )
+        self._min_n_times = 1
 
     def forward(
         self, x: torch.Tensor, subject_index: torch.Tensor | None = None
@@ -531,8 +535,6 @@ class BrainModule(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
             raise ValueError(
                 f"Expected 3D input (batch, channels, time), got shape {x.shape}"
             )
-        if x.shape[1] != self.n_chans:
-            raise ValueError(f"Expected {self.n_chans} channels, got {x.shape[1]}")
 
         # Apply the spatial channel merger first (if enabled): remaps the channel
         # axis n_chans -> n_virtual_channels before every other transform.
@@ -713,7 +715,7 @@ class _ConvSequence(nn.Module):
                         nn.Conv1d(
                             chout, 2 * chout, 1 + 2 * glu_context, padding=glu_context
                         ),
-                        _GLU(dim=1),
+                        nn.GLU(dim=1),
                     )
                 )
             else:
@@ -726,17 +728,6 @@ class _ConvSequence(nn.Module):
             x = skip_proj(x) + module(x)
             x = glu(x)
         return x
-
-
-class _GLU(nn.GLU):
-    """``nn.GLU`` that Intel Gaudi's lazy mode can compile."""
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if not torch.jit.is_scripting() and x.device.type == "hpu" and _hpu_lazy():
-            # Its graph compiler fails on ``aten.glu`` after a convolution.
-            a, b = x.chunk(2, dim=self.dim)
-            return a * torch.sigmoid(b)
-        return F.glu(x, self.dim)
 
 
 def _pad_multiple(x: torch.Tensor, base: int) -> torch.Tensor:

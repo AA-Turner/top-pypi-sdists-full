@@ -11,22 +11,23 @@ from typing import Annotated, Any, Generic, Literal
 
 from typing_extensions import TypeVar
 
-from pydantic import BaseModel, BeforeValidator, Field, JsonValue, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, JsonValue, field_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from matrx_utils import client_error_text
 
 from matrx_connect.context.media_block import UnifiedMediaBlock
+from matrx_connect.context.reply_blocks import RegionKind, SavedBlock, SavedTextPartBlocks
 
 
 #: The ``__kind`` slot of a stream payload that is NOT a kind (Content IR rule 28): its ``type``
-#: discriminates it. A value an older journal row carries is read as ``""``, never written back,
+#: discriminates it. A value an older journal row carries is dropped (absent), never written back,
 #: and the slot is absent from the published schema.
-_NoKindMarker = SkipJsonSchema[Annotated[str, BeforeValidator(lambda _value: "")]]
+_NoKindMarker = SkipJsonSchema[Annotated[str | None, BeforeValidator(lambda _value: None)]]
 
 
 def _no_kind_marker() -> Any:
-    return Field(default="", alias="__kind", serialization_alias="__kind", exclude=True)
+    return Field(default=None, alias="__kind", serialization_alias="__kind", exclude=True)
 
 
 PayloadType = TypeVar("PayloadType", bound=str, default=str)
@@ -212,6 +213,17 @@ class MediaBlockData(DataPayload[Literal["media_block"]]):
     block: UnifiedMediaBlock
 
 
+class DecisionBoxBlock(BaseModel):
+    """Where something is: four edges as fractions of the picture, from its top-left."""
+
+    model_config = {"extra": "forbid"}
+
+    top: float
+    bottom: float
+    left: float
+    right: float
+
+
 class DecisionAnswerBlock(BaseModel):
     """ONE answer inside a ``decision_answers`` part, on the wire.
 
@@ -240,18 +252,33 @@ class DecisionAnswerBlock(BaseModel):
     kind_: Literal["decision_answer"] = Field(
         default="decision_answer", alias="__kind", serialization_alias="__kind"
     )
-    type: Literal["noul", "choice", "score"]
+    type: Literal["noul", "choice", "score", "box"]
     #: noul → bool · choice → the chosen option name · score → the
-    #: probability-weighted level (a float; "3.4" carries what "3" throws away).
-    answer: bool | float | str
-    #: noul only — P(true).
+    #: probability-weighted level (a float; "3.4" carries what "3" throws away)
+    #: · box → the four edges (fractions of the picture).
+    answer: DecisionBoxBlock | bool | float | str
+    #: noul — P(true) · box — P(the thing is in the picture at all).
     probability: float | None = None
     #: choice/score — the full distribution, never a single winner.
     probabilities: dict[str, float] | None = None
-    confidence: float
+    #: ``None`` only for a box the holder gave no confidence for.
+    confidence: float | None = None
     #: score only — level key → what that level means, echoed so a renderer
     #: never has to hold the question to draw the answer.
     legend: dict[str, str] | None = None
+    #: box only — which image, by position among the images beside the questions.
+    image: int | None = None
+
+
+class DecisionImageBlock(BaseModel):
+    """A picture an answer is about: a durable handle, never bytes."""
+
+    model_config = {"extra": "forbid"}
+
+    file_id: str | None = None
+    url: str | None = None
+    width: int | None = None
+    height: int | None = None
 
 
 class DecisionUsageBlock(BaseModel):
@@ -301,6 +328,8 @@ class DecisionAnswersData(DataPayload[Literal["decision_answers"]]):
     unanswerable: dict[str, str] = Field(default_factory=dict)
     usage: DecisionUsageBlock
     cost_usd: float
+    #: The images the questions were asked about, by position.
+    images: list[DecisionImageBlock] = Field(default_factory=list)
 
 
 class ConversationLabeledData(DataPayload[Literal["conversation_labeled"]]):
@@ -515,6 +544,74 @@ class ExtractionIndexProgressData(DataPayload[Literal["extraction_index_progress
     total_to_embed: int = 0
 
 
+# ---------------------------------------------------------------------------
+# Education deck maker — POST /education/decks/make (aidream services/education/deck_maker.py)
+# ---------------------------------------------------------------------------
+
+
+class DeckMakeProgressData(DataPayload[Literal["deck_make_progress"]]):
+    """Progress while a deck is made from Sources or a topic."""
+
+    type: Literal["deck_make_progress"] = "deck_make_progress"
+    stage: str  # "reading" | "writing" | "topping_up" | "saving"
+    message: str = ""
+    sections_done: int = 0
+    sections_total: int = 0
+    cards: int = 0
+    failed: int = 0
+
+
+class SkippedImportLine(BaseModel):
+    """One line (a delimited import) or note (an Anki import) the deck importer skipped, with its text."""
+
+    line: int | None = None
+    note_id: str | None = None
+    text: str
+
+
+class DeckMadeData(DataPayload[Literal["deck_made"]]):
+    """The saved deck: open it by ``set_id`` (education.fc_set) — a new deck, or one cards were added to."""
+
+    type: Literal["deck_made"] = "deck_made"
+    set_id: str
+    name: str
+    card_count: int
+    asked_count: int | None = None
+    organization_id: str
+    gap_note: str | None = None
+    notes: list[str] = Field(default_factory=list)
+    #: True when the items were ADDED to an existing deck/quiz ("Add more"); the counts are then the new items only.
+    added_to_existing: bool = False
+    #: The ``metadata.batch_id`` every item of this run carries ("Undo last add" removes exactly them).
+    batch_id: str | None = None
+    #: Where the new items start in the deck/quiz order (after its last item).
+    start_position: int | None = None
+    #: The saved cards' ids in input order (the deck importer: lets a caller act on the rows it just made).
+    card_ids: list[str] = Field(default_factory=list)
+    #: The deck importer: every skipped line/note counted, and the first of them listed with their text.
+    skipped_count: int = 0
+    skipped_lines: list[SkippedImportLine] = Field(default_factory=list)
+
+
+class QuizMadeData(DataPayload[Literal["quiz_made"]]):
+    """The saved quiz: open it by ``assessment_id`` (education.assessment) — a new quiz, or one questions were added to."""
+
+    type: Literal["quiz_made"] = "quiz_made"
+    assessment_id: str
+    title: str
+    question_count: int
+    asked_count: int
+    organization_id: str
+    gap_note: str | None = None
+    notes: list[str] = Field(default_factory=list)
+    #: True when the items were ADDED to an existing deck/quiz ("Add more"); the counts are then the new items only.
+    added_to_existing: bool = False
+    #: The ``metadata.batch_id`` every item of this run carries ("Undo last add" removes exactly them).
+    batch_id: str | None = None
+    #: Where the new items start in the deck/quiz order (after its last item).
+    start_position: int | None = None
+
+
 class ExtractionIndexCompleteData(DataPayload[Literal["extraction_index_complete"]]):
     """Terminal indexing result — same fields the legacy blocking JSON body
     of ``POST /page-extraction/runs/{run_id}/index`` carried."""
@@ -665,6 +762,29 @@ class AgentTestProgressEvent(DataPayload[Literal["agent_test_progress"]]):
     type: Literal["agent_test_progress"] = "agent_test_progress"
     run_id: str
     counts: dict[str, Any] = Field(default_factory=dict)
+
+
+class EbayPublishStepEvent(DataPayload[Literal["ebay_publish_step"]]):
+    """One eBay publish-saga step changed state (persisted first, then sent)."""
+
+    type: Literal["ebay_publish_step"] = "ebay_publish_step"
+    step: str
+    status: Literal["pending", "done", "failed", "compensated", "retained"]
+    error: dict[str, JsonValue] | None = None
+
+
+class EbayPublishResultEvent(DataPayload[Literal["ebay_publish_result"]]):
+    """The publish saga's outcome; the stream ends after this frame."""
+
+    type: Literal["ebay_publish_result"] = "ebay_publish_result"
+    offer_row_id: str
+    sync_run_id: str
+    published: bool
+    listing_id: str | None = None
+    failed_step: str | None = None
+    ebay_errors: list[dict[str, JsonValue]] = Field(default_factory=list)
+    ebay_warnings: list[dict[str, JsonValue]] = Field(default_factory=list)
+    compensated: list[str] = Field(default_factory=list)
 
 
 class AgentTestRunStatusEvent(DataPayload[Literal["agent_test_run_status"]]):
@@ -905,6 +1025,59 @@ class YouTubeTranscriptSourceData(DataPayload[Literal["youtube_transcript_source
     reused_existing: bool
 
 
+SourceLandUrlStage = Literal["fetching", "scraping", "transcribing", "landing"]
+
+
+class SourceLandUrlStageData(DataPayload[Literal["source_land_url_stage"]]):
+    """``POST /sources/land-url``: the stage the link is in (each stage is announced once, when it
+    starts). ``detail`` is a short line a person reads ("Reading the page at example.com")."""
+
+    type: Literal["source_land_url_stage"] = "source_land_url_stage"
+    stage: SourceLandUrlStage
+    url: str
+    detail: str = ""
+
+
+class LandedSourceRefData(BaseModel):
+    """The ready pointer — the ``resource_ref`` envelope a ``source_set`` carries."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    envelope: Literal["resource_ref"] = "resource_ref"
+    resource_type: Literal["file", "processed_document"]
+    resource_id: str
+    label: str | None = None
+
+
+class LandingNoticeData(BaseModel):
+    """Something the door did on the caller's behalf, said out loud."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    message: str
+    remedy: str = ""
+
+
+class SourceLandUrlResultData(DataPayload[Literal["source_land_url_result"]]):
+    """``POST /sources/land-url``'s terminal result: what landed and its ready ``ref``.
+
+    ``kind`` is ``file`` (``file_id``), ``web_page`` or ``youtube`` (``processed_document_id``).
+    ``reused_existing`` is true when the same file / page / video was already there."""
+
+    type: Literal["source_land_url_result"] = "source_land_url_result"
+    kind: Literal["file", "web_page", "youtube"]
+    url: str
+    canonical_url: str | None = None
+    file_id: str | None = None
+    processed_document_id: str | None = None
+    reused_existing: bool = False
+    mime_type: str | None = None
+    name: str
+    ref: LandedSourceRefData
+    notices: list[LandingNoticeData] = Field(default_factory=list)
+
+
 class FetchResultItem(BaseModel):
     model_config = {"extra": "allow"}
     url: str = ""
@@ -1106,7 +1279,7 @@ class ContextReceiptBlock(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    #: Stable id — the per-turn context slot it rode in, or the system-prompt addition's name.
+    #: Stable id — the per-turn context policy it rode in, or the system-prompt addition's name.
     id: str
     #: The id in words (``humanize_context_key``).
     label: str
@@ -1208,7 +1381,13 @@ class ContextReceiptRow(BaseModel):
     include: bool
     #: The effective limit, after the cap clamp.
     max_inline_chars: int
-    delivery: Literal["inline", "on_request", "off"]
+    #: ``held_copy`` = the value rides its own homed block in the person's message (written to the
+    #: prompt cache once); the per-turn block carries only a note (and a change list) about it.
+    delivery: Literal["inline", "on_request", "off", "held_copy"]
+    #: The held-copy tier's state for a value whose page asks for it (absent otherwise):
+    #: ``first`` | ``held`` | ``changed`` | ``rebased`` | ``over_ceiling`` | ``withdrawn`` |
+    #: ``fell_back:<reason>`` (the rule that sent it to today's delivery instead).
+    held_copy_state: str | None = Field(default=None, exclude_if=lambda v: v is None)
     decided_by: ContextDecidedBy
     user_rule: ContextRule | None = None
     clamped: bool = False
@@ -1238,6 +1417,34 @@ class ContextReceiptRow(BaseModel):
     on_request: ContextDeliveredRef | None = None
 
 
+class ContextReceiptPick(BaseModel):
+    """One thing the person picked in the context picker for this turn, as the server resolved it:
+    a scope (``label`` = "<type>: <name>") or a whole scope type (``label`` = its label). The
+    ``active_scopes`` row states the selection to the model in words; this keeps each pick's id,
+    so a copied message can name it and a paste can pick it again."""
+
+    model_config = {"extra": "forbid"}
+
+    kind: Literal["scope", "scope_type"]
+    id: str
+    label: str
+
+
+class ContextReceiptSystemNote(BaseModel):
+    """One platform note the turn's surface declares (``system_notes``), whether it was sent, and the
+    rung that decided it — ``platform`` (the default), ``organization`` or ``agent`` (its author's
+    switch in the agent builder); ``missing`` when the switch has no register row."""
+
+    model_config = {"extra": "forbid"}
+
+    #: The System Context item key (``interactive_blocks_note``).
+    key: str
+    #: The item's display name.
+    label: str
+    on: bool
+    decided_by: str
+
+
 class ContextReceiptData(DataPayload[Literal["context_receipt"]]):
     """The per-turn context receipt, streamed before any model output.
 
@@ -1262,6 +1469,10 @@ class ContextReceiptData(DataPayload[Literal["context_receipt"]]):
     room_view: ContextReceiptRoomView | None = None
     #: Set when this run is an Orchestra member: what its connection passed from the Conductor.
     passthrough: ContextReceiptPassthrough | None = None
+    #: The person's picker selection this turn, each pick with its id (scopes, then scope types).
+    picks: list[ContextReceiptPick] = Field(default_factory=list)
+    #: Every platform note the surface declares: sent or not, and the rung that decided.
+    system_notes: list[ContextReceiptSystemNote] = Field(default_factory=list)
 
 
 class FirstTurnFilledData(DataPayload[Literal["first_turn_filled"]]):
@@ -2843,6 +3054,30 @@ class PdfPageExtractedData(DataPayload[Literal["pdf_page_extracted"]]):
     preview: str = ""
 
 
+class ScanPdfResultData(DataPayload[Literal["scan_pdf_result"]]):
+    """The scan save's result (``POST /utilities/pdf/from-images``), sent BEFORE the slow stages.
+
+    ``status="done"``: the master PDF is saved (``file_id``) and its raw text persisted
+    (``doc_id``); clean/chunk/embed follow on the same stream. ``status="error"`` with a
+    ``file_id``: saved, processing failed — never save again, retry processing instead.
+    """
+
+    type: Literal["scan_pdf_result"] = "scan_pdf_result"
+    file_id: str | None = None
+    doc_id: str | None = None
+    filename: str
+    page_count: int | None = None
+    status: Literal["done", "error"]
+    error: str | None = None
+    #: The file version this save wrote (a new scan is version 1; an edit the version it became).
+    version: int | None = None
+    #: On a refused edit (``scan_edit_conflict``): the scan's version now, so the phone can reopen it.
+    current_version: int | None = None
+    #: Per page, in order, how this version got the page's text: ``carried`` (kept from the previous
+    #: version, nothing read), ``phone`` (the phone's recognised words) or ``server`` (read by the server).
+    page_text_sources: list[Literal["carried", "phone", "server"]] | None = None
+
+
 class PdfExtractCompleteData(DataPayload[Literal["pdf_extract_complete"]]):
     """Terminal extraction result — the full text plus summary counters.
 
@@ -3642,48 +3877,6 @@ class CutoverCopyAgainReportData(DataPayload[Literal["cutover_copy_again_report"
     says: str
 
 
-
-class CutoverFinalSwitchStageData(DataPayload[Literal["cutover_final_switch_stage"]]):
-    """One stage of the final switch (lane FINAL-SWITCH): copying again, pressing, undoing."""
-
-    type: Literal["cutover_final_switch_stage"] = "cutover_final_switch_stage"
-    stage: str
-    says: str
-
-
-class CutoverFinalSwitchResultData(DataPayload[Literal["cutover_final_switch_result"]]):
-    """What the final switch (or its undo) did, in the database's own sentence, with its counts."""
-
-    type: Literal["cutover_final_switch_result"] = "cutover_final_switch_result"
-    direction: Literal["new", "old"]
-    ok: bool
-    #: The database's refusal key when it refused (not_ready, not_a_platform_admin, confirm_not_carried…).
-    reason: str | None = None
-    says: str
-    press_id: str | None = None
-    counts: dict[str, Any] = Field(default_factory=dict)
-    timings_ms: dict[str, int] = Field(default_factory=dict)
-    #: The Copy again reports the press ran first, one sentence per organization.
-    copied_again: list[str] = Field(default_factory=list)
-    #: On an undo refused as confirm_not_carried: what would stay in the new system.
-    not_carried: list[str] = Field(default_factory=list)
-
-
-class CutoverFinalSwitchCopyAgainResultData(DataPayload[Literal["cutover_final_switch_copy_again_result"]]):
-    """What a Copy again run before the final switch did (lane FINAL-SWITCH): resumable, per organization."""
-
-    type: Literal["cutover_final_switch_copy_again_result"] = "cutover_final_switch_copy_again_result"
-    run_id: str
-    resumed: bool = False
-    #: Green only when every organization copied without a refusal and nothing still needs copying.
-    ok: bool
-    says: str
-    #: One entry per organization copied in this pass: organization_id, organization_name, ok, says, ms.
-    organizations: list[dict[str, Any]] = Field(default_factory=list)
-    still_needs: list[str] = Field(default_factory=list)
-    timings_ms: dict[str, int] = Field(default_factory=dict)
-
-
 # ---------------------------------------------------------------------------
 # Media-list research (aidream crm/media_list_research.py, Brief 3)
 # ---------------------------------------------------------------------------
@@ -3915,8 +4108,9 @@ class DecisionReferenceItemData(DataPayload[Literal["decision_reference_item"]])
     item_id: str
     question: str
     reference_id: str | None = None
-    #: The reference model's own answer (noul → bool, choice → key, score → weighted level).
-    reference_answer: bool | float | str
+    #: The reference model's own answer (noul → bool, choice → key, score → weighted level,
+    #: box → its four edges).
+    reference_answer: dict[str, float] | bool | float | str
     #: The reference verdict in the item's label vocabulary.
     reference_verdict: str
     #: The reference model's probability of its own verdict.
@@ -4088,7 +4282,8 @@ class KnowledgeBucketsFollowUpProgressData(DataPayload[Literal["knowledge_bucket
     """A split or merge of the person's buckets moved (PLAN §11): what it is doing and how far it is."""
 
     type: Literal["knowledge_buckets_follow_up_progress"] = "knowledge_buckets_follow_up_progress"
-    kind: Literal["split", "merge"]
+    #: ``picture``: the account picture rewritten from what the person typed about it.
+    kind: Literal["split", "merge", "picture"]
     stage: Literal["read", "entities", "search", "agent", "write"]
     detail: str
     done: int = 0
@@ -4100,7 +4295,7 @@ class KnowledgeBucketsFollowUpDoneData(DataPayload[Literal["knowledge_buckets_fo
     a split's children, or a merge's one combined bucket."""
 
     type: Literal["knowledge_buckets_follow_up_done"] = "knowledge_buckets_follow_up_done"
-    kind: Literal["split", "merge"]
+    kind: Literal["split", "merge", "picture"]
     #: ``made`` (new rows) · ``existing`` (made before; nothing ran) · ``none`` (the agent found nothing honest).
     outcome: Literal["made", "existing", "none"]
     ids: list[str] = []
@@ -4152,7 +4347,276 @@ class VaultPasswordHealthProgressData(DataPayload[Literal["vault_password_health
     skipped: int = Field(ge=0, strict=True)
 
 
+# ---------------------------------------------------------------------------
+# Saved reply blocks (PF-1 saved equals streamed)
+# ---------------------------------------------------------------------------
+
+
+class MessageBlocksData(DataPayload[Literal["message_blocks"]]):
+    """One assistant message's text parts exactly as saved, with their blocks.
+
+    Sent when the server writes the row, from the same split the save uses. A client REPLACES the
+    named message's text parts (text included: what streamed may differ — inline reasoning, for one)
+    with these, so the reply it shows is the saved reply, and a reload shows the same.
+    """
+
+    type: Literal["message_blocks"] = "message_blocks"
+    message_id: str
+    parts: list[SavedTextPartBlocks]
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]
+        """KEY FOR KEY with the saved row (P1-CHAT T1 v2 item 6): a field the row does not carry is absent,
+        never a ``null`` / ``false`` default (``canvas: null``, ``interim: false``)."""
+        kwargs.setdefault("exclude_unset", True)
+        out = super().model_dump(**kwargs)
+        out["type"] = self.type
+        return out
+
+
+# ---------------------------------------------------------------------------
+# Live block events (P1-CHAT T1 / PF-1 D5) — sent ONLY to a client whose ``client.reads`` names
+# ``blocks-v1``. Provisional drawing instructions: the ``message_blocks`` event that ends each
+# assistant message REPLACES whatever they drew. Every event is addressed by
+# ``(message_id, part, index)``: ``message_id`` is the assistant row the text is saved on,
+# ``part`` the 0-based ordinal of the text part among that row's TEXT parts (reasoning and tool
+# calls are never inside a text part), ``index`` the block's position inside the part.
+# Offsets (``start`` / ``end``) are UTF-8 bytes into the part's text as the stream wrote it.
+# Contract: packages/matrx-ai/matrx_ai/processing/blocks/FEATURE.md "Live block events".
+# ---------------------------------------------------------------------------
+
+
+class PartOpenData(DataPayload[Literal["part.open"]]):
+    """A new text part of ``message_id`` begins; its blocks follow, addressed by ``part``."""
+
+    type: Literal["part.open"] = "part.open"
+    message_id: str
+    part: int = Field(ge=0)
+
+
+class BlockOpenData(DataPayload[Literal["block.open"]]):
+    """A block opens at byte ``start`` of the part. ``block_type`` is one of the saved block types."""
+
+    type: Literal["block.open"] = "block.open"
+    message_id: str
+    part: int = Field(ge=0)
+    index: int = Field(ge=0)
+    block_type: Literal["markdown", "reasoning", "kind", "data", "artifact", "decision", "protocol"]
+    start: int = Field(ge=0)
+
+
+class BlockPartialData(DataPayload[Literal["block.partial"]]):
+    """The value so far of an OPEN ``kind`` block: valid, closed JSON (``close_partial_json``), keeps ``__kind``.
+
+    Sent at most once per line the block grows by, only when the value changed; ``seq`` rises per block.
+    A partial may be incomplete, never wrong: values only grow. The block's ``block.close`` is its terminal.
+    """
+
+    type: Literal["block.partial"] = "block.partial"
+    message_id: str
+    part: int = Field(ge=0)
+    index: int = Field(ge=0)
+    kind: str
+    seq: int = Field(ge=1)
+    value: JsonValue = None
+
+
+class BlockCloseData(DataPayload[Literal["block.close"]]):
+    """The block ends at byte ``end``. ``block`` is its saved shape (``regions`` are read only at save time).
+
+    ``complete`` is False when the text ended inside the block (a stopped or cut-off reply) — for a
+    markdown block, when the text ended inside an open code fence.
+    """
+
+    type: Literal["block.close"] = "block.close"
+    message_id: str
+    part: int = Field(ge=0)
+    index: int = Field(ge=0)
+    end: int = Field(ge=0)
+    complete: bool = True
+    block: SavedBlock
+
+
+class BlockRetractData(DataPayload[Literal["block.retract"]]):
+    """RESERVED — blocks v1 never sends it. A client that gets one reverts blocks ``index`` onward of the part."""
+
+    type: Literal["block.retract"] = "block.retract"
+    message_id: str
+    part: int = Field(ge=0)
+    index: int = Field(ge=0)
+
+
+#: The live block event types, in the order a part's events can arrive.
+LIVE_BLOCK_EVENT_TYPES: tuple[str, ...] = ("part.open", "block.open", "block.partial", "block.close", "block.retract")
+
+
+# ---------------------------------------------------------------------------
+# Live block events v2 (P1-CHAT T1 v2.1) — sent ONLY to a client whose ``client.reads`` names
+# ``blocks-v2`` (it may name ``blocks-v1`` too; v2 is a superset). The server decides every block's
+# and region's state; the client draws ONLY from these events, never from raw ``chunk`` text.
+# ``block.grow`` carries the part's own text (control tokens removed, reasoning excluded) — the
+# concatenation of a part's grow ``text`` IS the part's text up to the watermark ``end``.
+# Region offsets are UTF-8 bytes into the part's text, like every block offset.
+# Contract: packages/matrx-ai/matrx_ai/processing/blocks/FEATURE.md "Live block events".
+# ---------------------------------------------------------------------------
+
+# ``RegionKind`` (reply_blocks): ``table`` and ``code`` are the saved region types; the rest are code fences
+# the server names by their language (``mermaid``/``mmd``, ``svg``, ``html``, ``math``/``latex``/``tex``/``katex``).
+
+
+class BlocksAckData(DataPayload[Literal["blocks.ack"]]):
+    """The FIRST live event of every assistant message for a ``blocks-v2`` client: the server reads v2.
+
+    A client draws in v2 mode (grow text, regions) only for a ``message_id`` it saw acknowledged;
+    without it (an older server) it keeps its v1 path."""
+
+    type: Literal["blocks.ack"] = "blocks.ack"
+    message_id: str
+    reads: Literal["blocks-v2"] = "blocks-v2"
+
+
+class BlockGrowData(DataPayload[Literal["block.grow"]]):
+    """The next slice of the part's text, belonging to block ``index``; ``end`` is the new watermark.
+
+    A line is released word by word unless its first characters could open a structure (a fence,
+    ``{``, ``[``, ``<tag``, ``|``, ``$$``); such a line is held until it ends (a ``|`` line until the
+    next one does). Nothing past the watermark is drawn: the open block shows its "writing" mark."""
+
+    type: Literal["block.grow"] = "block.grow"
+    message_id: str
+    part: int = Field(ge=0)
+    index: int = Field(ge=0)
+    end: int = Field(ge=0)
+    text: str
+
+
+class RegionOpenData(DataPayload[Literal["region.open"]]):
+    """A region (a fenced block or a GFM table) opens inside markdown block ``index`` at byte ``start``.
+
+    ``region`` is its 0-based ordinal inside the block; ``display`` names the drawer (``code``,
+    ``table``, ``mermaid``, ``svg``, ``html``, ``math``, ``react``, ``chart``, ``map``, ``stats``, ``diff``).
+    ``container`` is the path of the containers it sits in, outermost first (``list_item`` /
+    ``blockquote``), absent at top level: the client draws it inside its container, never cutting it."""
+
+    type: Literal["region.open"] = "region.open"
+    message_id: str
+    part: int = Field(ge=0)
+    index: int = Field(ge=0)
+    region: int = Field(ge=0)
+    region_kind: RegionKind
+    display: str
+    language: str | None = None
+    start: int = Field(ge=0)
+    container: list[Literal["list_item", "blockquote"]] | None = None
+
+
+class RegionPartialData(DataPayload[Literal["region.partial"]]):
+    """An open table region's completed body rows so far (header and delimiter rows not counted)."""
+
+    type: Literal["region.partial"] = "region.partial"
+    message_id: str
+    part: int = Field(ge=0)
+    index: int = Field(ge=0)
+    region: int = Field(ge=0)
+    rows: int = Field(ge=0)
+
+
+class RegionCloseData(DataPayload[Literal["region.close"]]):
+    """The region ends at byte ``end``. ``complete`` is False when the text ended (or was stopped) inside it;
+    ``language`` is repeated so a cut-off fence keeps it. A close ``complete: false`` with ``end`` at or before the
+    region's own ``start`` WITHDRAWS it: a Stop cut fell before it, so it is not in the saved row."""
+
+    type: Literal["region.close"] = "region.close"
+    message_id: str
+    part: int = Field(ge=0)
+    index: int = Field(ge=0)
+    region: int = Field(ge=0)
+    end: int = Field(ge=0)
+    complete: bool = True
+    language: str | None = None
+
+
+class ReasoningOpenData(DataPayload[Literal["reasoning.open"]]):
+    """Inline reasoning (``<think>`` / ``<thinking>`` / ``<reasoning>``) opened on its tag.
+
+    Never inside a text part (the row saves it as a ``thinking`` part), so it has its own address:
+    ``reasoning`` is its 0-based ordinal in the message, ``position`` the number of text parts before it."""
+
+    type: Literal["reasoning.open"] = "reasoning.open"
+    message_id: str
+    reasoning: int = Field(ge=0)
+    position: int = Field(ge=0)
+    tag: str
+    # What the client titles the block when the server names one (the grounded digest: "Research notes").
+    # Absent for a model's own thought; never guessed by the client.
+    label: str | None = None
+
+
+class ReasoningGrowData(DataPayload[Literal["reasoning.grow"]]):
+    """The next slice of the open reasoning's body text."""
+
+    type: Literal["reasoning.grow"] = "reasoning.grow"
+    message_id: str
+    reasoning: int = Field(ge=0)
+    text: str
+
+
+class ReasoningCloseData(DataPayload[Literal["reasoning.close"]]):
+    """The reasoning ended; ``complete`` is False when the text ended (or was stopped) inside it."""
+
+    type: Literal["reasoning.close"] = "reasoning.close"
+    message_id: str
+    reasoning: int = Field(ge=0)
+    complete: bool = True
+    withdrawn: bool | None = None  # True: this thought was a note to the person, now sent as reply text; draw no row
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]
+        """Absent (never ``null``) unless withdrawn: every frame recorded before the field existed stays byte-identical."""
+        out = super().model_dump(**kwargs)
+        if out.get("withdrawn") is None:
+            out.pop("withdrawn", None)
+        return out
+
+
+class BlocksDegradedData(DataPayload[Literal["blocks.degraded"]]):
+    """Live events failed for ``message_id``: the rest of the reply streams as plain ``block.grow`` into one
+    markdown block with no regions, and ``message_blocks`` still replaces it at the end. The client shows
+    its "plain view" mark. Never silent."""
+
+    type: Literal["blocks.degraded"] = "blocks.degraded"
+    message_id: str
+    reason: str
+
+
+#: The blocks-v2 event types (in addition to every v1 type).
+LIVE_BLOCKS_V2_EVENT_TYPES: tuple[str, ...] = (
+    "blocks.ack",
+    "block.grow",
+    "region.open",
+    "region.partial",
+    "region.close",
+    "reasoning.open",
+    "reasoning.grow",
+    "reasoning.close",
+    "blocks.degraded",
+)
+
+
 DATA_TYPE_REGISTRY: dict[str, type[DataPayload]] = {
+    "message_blocks": MessageBlocksData,
+    "part.open": PartOpenData,
+    "block.open": BlockOpenData,
+    "block.partial": BlockPartialData,
+    "block.close": BlockCloseData,
+    "block.retract": BlockRetractData,
+    "blocks.ack": BlocksAckData,
+    "block.grow": BlockGrowData,
+    "region.open": RegionOpenData,
+    "region.partial": RegionPartialData,
+    "region.close": RegionCloseData,
+    "reasoning.open": ReasoningOpenData,
+    "reasoning.grow": ReasoningGrowData,
+    "reasoning.close": ReasoningCloseData,
+    "blocks.degraded": BlocksDegradedData,
     "vault_password_health_discovery_page": VaultPasswordHealthDiscoveryPageData,
     "vault_password_health_scan_reference": VaultPasswordHealthScanReferenceData,
     "vault_password_health_progress": VaultPasswordHealthProgressData,
@@ -4188,6 +4652,9 @@ DATA_TYPE_REGISTRY: dict[str, type[DataPayload]] = {
     "file_detector_completed": FileDetectorCompletedData,
     "file_analysis_complete": FileAnalysisCompleteData,
     "extraction_index_progress": ExtractionIndexProgressData,
+    "deck_make_progress": DeckMakeProgressData,
+    "deck_made": DeckMadeData,
+    "quiz_made": QuizMadeData,
     "extraction_index_complete": ExtractionIndexCompleteData,
     "podcast_stage": PodcastStageEvent,
     "podcast_complete": PodcastCompleteEvent,
@@ -4204,6 +4671,8 @@ DATA_TYPE_REGISTRY: dict[str, type[DataPayload]] = {
     "display_questionnaire": QuestionnaireDisplayData,
     "scrape_batch_complete": ScrapeBatchCompleteData,
     "youtube_transcript_source": YouTubeTranscriptSourceData,
+    "source_land_url_stage": SourceLandUrlStageData,
+    "source_land_url_result": SourceLandUrlResultData,
     "fetch_results": FetchResultsData,
     "search_results": SearchResultsData,
     "search_error": SearchErrorData,
@@ -4243,6 +4712,8 @@ DATA_TYPE_REGISTRY: dict[str, type[DataPayload]] = {
     "agent_test_result": AgentTestResultEvent,
     "agent_test_progress": AgentTestProgressEvent,
     "agent_test_run_status": AgentTestRunStatusEvent,
+    "ebay_publish_step": EbayPublishStepEvent,
+    "ebay_publish_result": EbayPublishResultEvent,
     "masterwork_agent_build": MasterworkAgentBuildData,
     "masterwork_build_complete": MasterworkBuildCompleteData,
     "masterwork_ingest_progress": MasterworkIngestProgressData,
@@ -4271,6 +4742,7 @@ DATA_TYPE_REGISTRY: dict[str, type[DataPayload]] = {
     "masterwork_checkup_complete": MasterworkCheckupCompleteData,
     "pdf_extract_started": PdfExtractStartedData,
     "pdf_page_extracted": PdfPageExtractedData,
+    "scan_pdf_result": ScanPdfResultData,
     "pdf_extract_complete": PdfExtractCompleteData,
     "pdf_clean_started": PdfCleanStartedData,
     "pdf_tables_started": PdfTablesStartedData,
@@ -4317,9 +4789,6 @@ DATA_TYPE_REGISTRY: dict[str, type[DataPayload]] = {
     "job.progress": MediaSelectionJobProgressData,
     "cutover_copy_again_progress": CutoverCopyAgainProgressData,
     "cutover_copy_again_report": CutoverCopyAgainReportData,
-    "cutover_final_switch_stage": CutoverFinalSwitchStageData,
-    "cutover_final_switch_result": CutoverFinalSwitchResultData,
-    "cutover_final_switch_copy_again_result": CutoverFinalSwitchCopyAgainResultData,
     "media_research_progress": MediaResearchProgressData,
     "media_research_result": MediaResearchResultData,
     "agent_studio_from_chat_progress": AgentStudioFromChatProgressData,
@@ -4361,3 +4830,362 @@ class BrandOfferingsRefreshedData(DataPayload[Literal["brand_offerings_refreshed
     gap_errors: list[str] = []
     follow_up_run_id: str | None = None
     points: int = 0
+
+
+class EsignBulkSendRowProblem(BaseModel):
+    """One problem on one row of a bulk send (nothing is sent while any stands)."""
+
+    row_no: int
+    role_key: str | None = None
+    code: str
+    message: str
+
+
+class EsignBulkSendCreatedData(DataPayload[Literal["bulk_send_created"]]):
+    """A bulk send was made from a template; its rows are enrolled and sending starts."""
+
+    type: Literal["bulk_send_created"] = "bulk_send_created"
+    campaign_id: str
+    rows: int
+
+
+class EsignBulkSendRowsInvalidData(DataPayload[Literal["bulk_send_rows_invalid"]]):
+    """The rows were refused before anything was made: every problem, by row and role."""
+
+    type: Literal["bulk_send_rows_invalid"] = "bulk_send_rows_invalid"
+    problems: list[EsignBulkSendRowProblem]
+
+
+class EsignBulkSendRowData(DataPayload[Literal["bulk_send_row"]]):
+    """One row's outcome: ``notified`` | ``failed`` (sending) or ``reminded`` | ``not_reminded``."""
+
+    type: Literal["bulk_send_row"] = "bulk_send_row"
+    done: int
+    total: int
+    member_id: str | None = None
+    row_no: int | None = None
+    full_name: str | None = None
+    email: str | None = None
+    status: str
+    envelope_id: str | None = None
+    reason: str | None = None
+
+
+class EsignBulkSendResultData(DataPayload[Literal["bulk_send_result"]]):
+    """The pass finished: how many rows went out, failed or were reminded, and the campaign's state."""
+
+    type: Literal["bulk_send_result"] = "bulk_send_result"
+    campaign_id: str
+    total: int
+    sent: int = 0
+    failed: int = 0
+    reminded: int = 0
+    status: str | None = None
+
+
+DATA_TYPE_REGISTRY.update({
+    "bulk_send_created": EsignBulkSendCreatedData,
+    "bulk_send_rows_invalid": EsignBulkSendRowsInvalidData,
+    "bulk_send_row": EsignBulkSendRowData,
+    "bulk_send_result": EsignBulkSendResultData,
+})
+
+
+class ConversationDigestData(DataPayload[Literal["conversation_digest"]]):
+    """The stored digest of one conversation, sent as the LAST data event of
+    ``POST /conversations/{id}/digest`` — exactly the live ``chat.conversation_digest`` row
+    (``result`` is the ``conversation_digest`` kind object, ``__kind`` included)."""
+
+    type: Literal["conversation_digest"] = "conversation_digest"
+    conversation_id: str
+    result: dict[str, JsonValue]
+    summary: str | None = None
+    outcome: str | None = None
+    digested_at: str | None = None
+    through_position: int | None = None
+    message_count: int | None = None
+    trigger: str | None = None
+    dropped: dict[str, int] = Field(default_factory=dict)
+    version: int = 1
+
+
+DATA_TYPE_REGISTRY.update({
+    "conversation_digest": ConversationDigestData,
+})
+
+
+class ConversationJobVerdictData(DataPayload[Literal["conversation_job_verdict"]]):
+    """Whether the agent did the job in one conversation, sent as the LAST data event of
+    ``POST /conversations/{id}/verdict`` — the stored judge ledger row (``platform.judge_verdict``,
+    judge ``conversation.job_verdict``) as clients read it; ``result`` is the
+    ``conversation_job_verdict`` kind object, ``__kind`` included."""
+
+    type: Literal["conversation_job_verdict"] = "conversation_job_verdict"
+    id: str | None = None
+    conversation_id: str
+    verdict: str
+    confidence: float | None = None
+    reasoning: str | None = None
+    result: dict[str, JsonValue]
+    judged_at: str | None = None
+    judge_version: int = 1
+
+
+DATA_TYPE_REGISTRY.update({
+    "conversation_job_verdict": ConversationJobVerdictData,
+})
+
+
+class UnderstandingChangedData(DataPayload[Literal["understanding_changed"]]):
+    """The conversation's entry changed: it was bound (``open``, ``start``, the single-entry auto-bind), a field
+    was saved, or a table update was applied. ``overall`` is ``agent.understanding_status``'s number for the bound
+    record (the one home of completeness), so the composer's gauge moves without a read of its own."""
+
+    type: Literal["understanding_changed"] = "understanding_changed"
+    conversation_id: str | None = None
+    record_id: str | None = None
+    table_id: str | None = None
+    overall: int
+    # The v1 keys. The v2 emitter (``agent_understanding/service.py::announce``) never sends them, so they are
+    # optional: required here refused every v2 event on the live server (2026-11-20: start, open, save and the
+    # per-turn block all failed with "profile_id Field required"). They stay declared only because removing a key
+    # is a breaking stream change against clients built before v2; they go with the next breaking stream version.
+    profile_id: str | None = None
+    agent_id: str | None = None
+    item_key: str | None = None
+    depth: int | None = None
+    update_available: bool = False
+
+
+DATA_TYPE_REGISTRY.update({
+    "understanding_changed": UnderstandingChangedData,
+})
+
+
+class AgentModeChangedData(DataPayload[Literal["agent_mode_changed"]]):
+    """The conversation's agent mode changed (the ``set_mode`` tool): ``mode`` is the mode's key, now stored as
+    the conversation's ``agent_mode`` override. A client sets the same override so its next send agrees."""
+
+    type: Literal["agent_mode_changed"] = "agent_mode_changed"
+    conversation_id: str
+    mode: str
+
+
+DATA_TYPE_REGISTRY.update({
+    "agent_mode_changed": AgentModeChangedData,
+})
+
+
+class AccountExportProgressData(DataPayload[Literal["account_export_progress"]]):
+    """``POST /account/export``: tables packed so far, out of all the person's tables, and rows read."""
+
+    type: Literal["account_export_progress"] = "account_export_progress"
+    tables_done: int
+    tables_total: int
+    rows: int
+
+
+class AccountExportUnread(BaseModel):
+    """A table the export could not read, named (never dropped silently)."""
+
+    table: str
+    reason: str
+
+
+class AccountExportResultData(DataPayload[Literal["account_export_result"]]):
+    """``POST /account/export``'s last data event: the zip saved in the person's files."""
+
+    type: Literal["account_export_result"] = "account_export_result"
+    file_id: str
+    file_name: str
+    #: Authenticated download address (``/files/{id}/download``); the app opens it with the person's token.
+    download_url: str | None
+    url: str | None
+    size_bytes: int
+    tables: int
+    rows: int
+    unread: list[AccountExportUnread] = Field(default_factory=list)
+    #: Files whose contents are in the zip (``files/...``), and files past the size limit listed with their link.
+    files_included: int = 0
+    files_linked: int = 0
+
+
+class AccountDeleteStepData(DataPayload[Literal["account_delete_step"]]):
+    """``POST /account/delete``: one step the server finished, in its order."""
+
+    type: Literal["account_delete_step"] = "account_delete_step"
+    step: Literal[
+        "subscriptions_cancelled",
+        "erased",
+        "personal_records_archived",
+        "organization_records",
+        "organizations_archived",
+        "unlinked",
+        "sign_in_removed",
+    ]
+    detail: dict[str, int] = Field(default_factory=dict)
+
+
+class AccountDeleteResultData(DataPayload[Literal["account_delete_result"]]):
+    """``POST /account/delete``'s last data event. ``unfinished``: tables an archive step could not finish (named)."""
+
+    type: Literal["account_delete_result"] = "account_delete_result"
+    deleted: bool
+    personal_rows_archived: int
+    organization_rows_archived: int
+    memberships_departed: int
+    unfinished: list[str] = Field(default_factory=list)
+    #: The person's own plans cancelled before anything else ran.
+    subscriptions_cancelled: int = 0
+    #: Organizations the person was the only member of, archived with them.
+    organizations_archived: int = 0
+
+
+DATA_TYPE_REGISTRY.update({
+    "account_export_progress": AccountExportProgressData,
+    "account_export_result": AccountExportResultData,
+    "account_delete_step": AccountDeleteStepData,
+    "account_delete_result": AccountDeleteResultData,
+})
+
+
+# ---------------------------------------------------------------------------
+# Workflow run events on the one rejoin door (PF-5 step 3 W4)
+# ---------------------------------------------------------------------------
+
+
+class WorkflowEventData(DataPayload[Literal["workflow_event"]]):
+    """One workflow run event, journaled by the run's tap and followed through
+    ``POST /runtime/operations/{request_id}/rejoin``.
+
+    ``event`` is byte-for-byte what ``GET /runs/{id}/events/stream`` carries on its ``data:``
+    line (the screen view of the ``wf_node_events`` row, or a ``node_stream`` token frame).
+    ``wf_seq`` is the row's per-run ``seq`` (``None`` for a token frame, which has no row).
+    ``root_run_id`` names the run whose tap journaled it (a child run's frame carries its own
+    ``run_id``). A follower unwraps ``event`` and de-duplicates on ``(run_id, wf_seq)``.
+    """
+
+    type: Literal["workflow_event"] = "workflow_event"
+    run_id: str
+    root_run_id: str | None = None
+    wf_seq: int | None = None
+    event: dict[str, Any]
+
+
+DATA_TYPE_REGISTRY.update({
+    "workflow_event": WorkflowEventData,
+})
+
+
+# ---------------------------------------------------------------------------
+# Skill offer replay (chat-agent-skills lane E): what a chat agent would be offered for a message
+# ---------------------------------------------------------------------------
+
+
+class SkillOfferCovered(BaseModel):
+    """A tool or shape a skill teaches (the skill is offered in its place, never both)."""
+
+    type: Literal["tool", "shape"]
+    id: str
+    name: str
+
+
+class SkillOfferHit(BaseModel):
+    """One entry of the short list an agent would be shown, best first."""
+
+    type: Literal["skill", "tool", "shape", "combination"]
+    id: str  # skill uuid, tool id, or kind slug
+    key: str  # skill_id, tool name, or kind slug
+    name: str
+    description: str
+    score: float  # the blend score (cosine + 0.15 x keyword coverage), 0-1.15
+    meaning: float  # cosine similarity of the message to the item's stored vector
+    signals: list[Literal["meaning", "keyword"]] = Field(default_factory=list)
+    source: Literal["native", "catalog"] | None = None  # tools only
+    covers: list[SkillOfferCovered] = Field(default_factory=list)
+    siblings: int = 0  # how many near-duplicates of the same family this entry stands for (one slot per family)
+    asked_as: str | None = None  # the people's-words phrase the message said that put this entry on the list
+
+
+class SkillOfferTiming(BaseModel):
+    embed_ms: float  # the message's query embedding
+    compare_ms: float  # the one comparison statement in Postgres
+    total_ms: float  # the whole function, pool assembly and ranking included
+    items: int  # how many skills, tools and shapes were compared
+    query_reused: bool = False  # the query vector was already held by this process (embed_ms ~0)
+    unstored: int = 0  # items with no stored vector yet (compared by keywords only; filled in the background)
+
+
+class SkillOfferResult(BaseModel):
+    """``what_would_be_offered``'s answer."""
+
+    hits: list[SkillOfferHit] = Field(default_factory=list)
+    above_floor: int = 0  # how many cleared the floor before the max-count cut
+    floor: float  # the meaning floor applied (knob agents/skill_offer.score_floor, as a share)
+    background: float = 0.0  # this message's own noise: a high percentile of its meaning score over every item
+    dropped: dict[str, int] = Field(default_factory=dict)  # candidates held back, by rule (skill_offer/rules.py)
+    max_count: int  # the cut (knob agents/skill_offer.max_count, or the caller's limit)
+    timing: SkillOfferTiming
+    failure: str | None = None  # the meaning search could not answer (keywords only)
+
+
+class SkillOfferReplayMessage(BaseModel):
+    """One real person-typed message the replay will run (read at view time, stored nowhere)."""
+
+    row_id: str  # the message id, or "typed:<n>" for a message typed on the page
+    message_id: str | None = None
+    conversation_id: str | None = None
+    person_id: str | None = None
+    person_label: str  # email, or "guest"
+    organization_id: str | None = None
+    organization_name: str | None = None
+    agent_id: str | None = None
+    agent_name: str | None = None
+    created_at: str | None = None
+    turn: int  # 1 = the conversation's first person message
+    text: str
+
+
+class SkillOfferReplaySampleData(DataPayload[Literal["skill_offer_replay_sample"]]):
+    """The sample, sent first: every row the replay will fill in."""
+
+    type: Literal["skill_offer_replay_sample"] = "skill_offer_replay_sample"
+    seed: int
+    mode: Literal["first", "all", "typed"]
+    conversations_seen: int
+    excluded_test_people: int
+    excluded_test_organizations: int
+    excluded_guests: int = 0
+    #: Never searched live (the offer's confidential and HIPAA refusals), so never sampled.
+    excluded_confidential: int = 0
+    excluded_hipaa: int = 0
+    messages: list[SkillOfferReplayMessage] = Field(default_factory=list)
+
+
+class SkillOfferReplayRowData(DataPayload[Literal["skill_offer_replay_row"]]):
+    """One message's offer, as soon as it is known."""
+
+    type: Literal["skill_offer_replay_row"] = "skill_offer_replay_row"
+    row_id: str
+    result: SkillOfferResult | None = None
+    error: str | None = None
+
+
+class SkillOfferReplayDoneData(DataPayload[Literal["skill_offer_replay_done"]]):
+    type: Literal["skill_offer_replay_done"] = "skill_offer_replay_done"
+    replayed: int
+    with_hit: int
+    failed: int
+    total_ms_p50: float | None = None
+    total_ms_p95: float | None = None
+    embed_ms_p50: float | None = None
+    embed_ms_p95: float | None = None
+    compare_ms_p50: float | None = None
+    compare_ms_p95: float | None = None
+
+
+DATA_TYPE_REGISTRY.update({
+    "skill_offer_replay_sample": SkillOfferReplaySampleData,
+    "skill_offer_replay_row": SkillOfferReplayRowData,
+    "skill_offer_replay_done": SkillOfferReplayDoneData,
+})

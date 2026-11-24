@@ -1,6 +1,6 @@
 """Replicate image generation — thin transport + per-model descriptors.
 
-Calls ``replicate.async_run(slug, input=...)`` with the model's slug
+Creates a prediction (``client.create_prediction``) then polls it (``client.await_prediction``) with the model's slug
 exactly as registered in ``MODEL_DESCRIPTORS``. The descriptor's
 ``to_input(config)`` builds the model-specific input dict.
 """
@@ -8,8 +8,6 @@ exactly as registered in ``MODEL_DESCRIPTORS``. The descriptor's
 from __future__ import annotations
 
 from typing import Any
-
-import replicate
 
 from matrx_ai.config import UnifiedConfig
 from matrx_ai.providers.base_media import (
@@ -98,9 +96,16 @@ class ReplicateImageGeneration(BaseMediaGeneration):
         from matrx_ai.providers.replicate.rate_limit import acquire_replicate_slot
 
         await acquire_replicate_slot()
-        return await replicate.async_run(
-            kwargs["ref"], input=kwargs["input"], use_file_output=True
-        )
+        from matrx_ai.providers.replicate.client import create_prediction, get_replicate_client
+
+        # Create only (no ``Prefer: wait``): the POST returns once queued. The wait
+        # happens in ``_poll_if_long_running`` under the image deadline knob.
+        return await create_prediction(get_replicate_client(), kwargs["ref"], kwargs["input"])
+
+    async def _poll_if_long_running(self, raw: Any) -> Any:
+        from matrx_ai.providers.replicate.client import await_prediction
+
+        return await await_prediction(raw, modality="image", ref=str(getattr(raw, "model", "") or ""))
 
     def _extract_assets(self, raw: Any) -> list[GeneratedAsset]:
         descriptor = self._descriptor_for_kwargs() or _UnknownDescriptor("image")
@@ -136,7 +141,8 @@ class ReplicateImageGeneration(BaseMediaGeneration):
         MediaGenerationMetadata. Everything else lives under
         ``provider_extras.input`` so per-model knobs survive."""
         from matrx_ai.media.generation_metadata import (
-            build_default_metadata, map_replicate_image_response,
+            build_default_metadata,
+            map_replicate_image_response,
         )
 
         try:

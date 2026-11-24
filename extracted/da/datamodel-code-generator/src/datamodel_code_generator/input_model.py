@@ -30,6 +30,7 @@ from contextvars import ContextVar
 from copy import deepcopy
 from dataclasses import is_dataclass
 from enum import Enum as PyEnum
+from functools import partial
 from hashlib import sha256
 from operator import itemgetter, methodcaller
 from pathlib import Path
@@ -75,7 +76,7 @@ from datamodel_code_generator.input_model_result import PythonModelBases
 from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable, Iterator, Sequence
+    from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 
     from datamodel_code_generator.enums import DataModelType
     from datamodel_code_generator.input_model_result import LoadedInputModelSchema
@@ -86,7 +87,7 @@ class Error(Exception):
 
 
 _ModuleRestoreState = tuple[str, object]
-_ParentSchema = tuple[dict[str, object], dict[str, object], frozenset[str]]
+_ParentSchema = tuple[dict[str, object], dict[str, object], frozenset[str], dict[str, object]]
 
 
 def _path_is_within(path: str | Path, directory: Path) -> bool:
@@ -519,7 +520,13 @@ def _get_input_model_json_schema_class(
     class IdentifiedInputModelJsonSchema(
         cast("Any", GenerateJsonSchema if use_standard_schema else InputModelJsonSchema)
     ):
-        """Retain Pydantic's definition-to-runtime-type correspondence when merging."""
+        """Retain Pydantic's definition-to-runtime-type correspondence when merging.
+
+        ``merged_definition_names`` are the definitions of the last schema that Pydantic merged from distinct types,
+        which name no one class.
+        """
+
+        merged_definition_names: frozenset[str] = frozenset()
 
         def generate_inner(self, schema: Any) -> dict[str, Any]:
             if (ref := schema.get("ref")) and (cls := schema.get("cls")):
@@ -560,9 +567,14 @@ def _get_input_model_json_schema_class(
                             ]
             remapping = super()._build_definitions_remapping()
             definition_types.clear()
+            merged: set[str] = set()
             for defs_ref in self.definitions:
                 core_ref, _mode = self.defs_to_core_refs[defs_ref]
-                definition_types[remapping.remap_defs_ref(defs_ref)] = core_types.get(core_ref, core_ref)
+                name, model = remapping.remap_defs_ref(defs_ref), core_types.get(core_ref, core_ref)
+                if definition_types.setdefault(name, model) is not model:
+                    merged.add(name)
+                definition_types[name] = model
+            type(self).merged_definition_names = frozenset(merged)
             return remapping
 
     core_types: dict[str, type] = {}
@@ -723,7 +735,7 @@ def _remove_unserializable_markers(value: Any) -> None:
 
 def _process_unserializable_property(
     prop: dict[str, Any],
-    annotation: type,
+    annotation: object,
     expression_collector: PythonTypeExpressionCollector | None = None,
     *,
     in_union: bool = False,
@@ -786,34 +798,35 @@ def _iter_owned_properties(
 def _add_python_type_for_unserializable(
     schema: dict[str, Any],
     model: type,
-    visited_defs: set[str] | None = None,
+    schema_types: ABCMapping[str, type | str],
     expression_collector: PythonTypeExpressionCollector | None = None,
 ) -> dict[str, Any]:
-    """Add x-python-type to ALL fields marked as unserializable."""
-    if visited_defs is None:
-        visited_defs = set()
+    """Add x-python-type to ALL fields marked as unserializable.
 
-    if "properties" in schema:
-        for field_info, prop in _iter_owned_properties(schema["properties"], _pydantic_fields(model) or {}):
-            _process_unserializable_property(prop, field_info.annotation, expression_collector)
-
-    if "$defs" in schema:
-        nested_models = _collect_nested_models(model)
-        model_name = getattr(model, "__name__", None)
-        if model_name:  # pragma: no branch
-            nested_models[model_name] = model
-        for def_name, def_schema in schema["$defs"].items():
-            if def_name in visited_defs:  # pragma: no cover - not proven unreachable
-                continue
-            visited_defs.add(def_name)
-            if def_name in nested_models:  # pragma: no branch
-                _add_python_type_for_unserializable(
-                    def_schema,
-                    nested_models[def_name],
-                    visited_defs,
-                    expression_collector,
-                )
-
+    The root is ``model``; a definition is the class the schema generation recorded for its name in ``schema_types``
+    (``_get_input_model_json_schema_class``), whatever its kind and whatever other class shares its name. A marker no
+    field is paired with is removed: it never leaves the schema. Those are the fields of a Pydantic dataclass read by
+    name, not by alias, and of a generic dataclass or TypedDict, whose recorded class is the unspecialised one, with
+    type variables in its annotations.
+    """
+    definitions = schema.get("$defs", {})
+    classes = [
+        (definition, definition_type)
+        for name, definition in definitions.items()
+        if isinstance(definition_type := schema_types.get(name), type)
+        and (_model_class(definition_type) or not getattr(definition_type, "__parameters__", ()))
+    ]
+    for definition, definition_type in [(schema, model), *classes]:
+        if properties := definition.get("properties"):
+            for annotation, prop in _model_properties(properties, definition_type):
+                _process_unserializable_property(prop, annotation, expression_collector)
+        elif _model_class(definition_type) and definition_type.__pydantic_root_model__:
+            _process_unserializable_property(
+                definition, definition_type.model_fields["root"].annotation, expression_collector
+            )
+    for definition in (schema, *definitions.values()):
+        for node in (definition, *definition.get("properties", {}).values()):
+            _remove_unserializable_markers(node)
     return schema
 
 
@@ -967,16 +980,19 @@ def _model_field_annotations(model: type, *, raw: bool = False) -> dict[str, Any
     return getattr(model, "__annotations__", {}) if raw else _get_type_hints_safe(model)
 
 
-def _add_python_type_to_properties(
-    properties: dict[str, Any],
-    model_fields: dict[str, Any],
-    expression_collector: PythonTypeExpressionCollector | None = None,
-    generic_names: dict[type, str] | None = None,
-) -> None:
-    """Add x-python-type to properties dict for given model fields."""
-    for field_info, prop in _iter_owned_properties(properties, model_fields):
-        if serialized := _serialize_python_type(field_info.annotation, expression_collector, generic_names):
-            prop["x-python-type"] = serialized
+def _model_properties(properties: dict[str, Any], model: type) -> Iterator[tuple[type, dict[str, Any]]]:
+    """Pair each field of a class with the property its schema writes, yielding the annotation and the property.
+
+    A Pydantic model is read by its fields, a Pydantic dataclass too when the load reads dataclass fields by alias;
+    any other class by its type hints, keyed by field name.
+    """
+    if (model_fields := _pydantic_fields(model, dataclass_fields=_READ_DATACLASS_FIELDS_BY_ALIAS.get())) is not None:
+        for field_info, prop in _iter_owned_properties(properties, model_fields):
+            yield field_info.annotation, prop
+        return
+    for field_name, annotation in _get_type_hints_safe(model).items():
+        if (prop := properties.get(field_name)) is not None:
+            yield annotation, prop
 
 
 def _clear_field_schema_names(schema: dict[str, Any]) -> None:
@@ -1006,18 +1022,9 @@ def _add_python_type_to_model_properties(
     expression_collector: PythonTypeExpressionCollector | None,
     generic_names: dict[type, str] | None,
 ) -> None:
-    """Supplement one definition using the fields of its actual Python model.
-
-    A Pydantic dataclass is read by its annotations, keyed by field name, unless the load reads its fields by alias.
-    """
-    model_fields = _pydantic_fields(model, dataclass_fields=_READ_DATACLASS_FIELDS_BY_ALIAS.get())
-    if model_fields is not None:
-        _add_python_type_to_properties(properties, model_fields, expression_collector, generic_names)
-        return
-    for field_name, field_type in _get_type_hints_safe(model).items():
-        if (prop := properties.get(field_name)) is not None and (
-            serialized := _serialize_python_type(field_type, expression_collector, generic_names)
-        ):
+    """Supplement one definition using the fields of its actual Python model."""
+    for annotation, prop in _model_properties(properties, model):
+        if serialized := _serialize_python_type(annotation, expression_collector, generic_names):
             prop["x-python-type"] = serialized
 
 
@@ -1158,6 +1165,72 @@ def _add_reused_definitions(
     )
     if identify and (identified_types := _colliding_definition_types(definition_types)):
         nested_models.update(identified_types)
+
+
+def _identify_reused_definitions(
+    nested_models: dict[str, type] | None,
+    schema_types: ABCMapping[str, type | str],
+    merged_names: AbstractSet[str],
+    renames: ABCMapping[str, str] | None = None,
+) -> None:
+    """Make each definition of the last schema that reuse finds by name the class the generation recorded for it.
+
+    ``schema_types`` holds that class by identity, where the names hold the last class of a name the fields reach. A
+    definition that Pydantic merged from distinct classes (``merged_names``) names no one class and keeps the name's.
+    A definition renamed by its class (``renames``) is found by its new name.
+    """
+    if nested_models is not None:
+        renames = renames or {}
+        nested_models.update(
+            (renames.get(name, name), model)
+            for name, model in schema_types.items()
+            if (name in nested_models or name in renames) and name not in merged_names and isinstance(model, type)
+        )
+
+
+def _reuses_type(
+    nested_type: type, strategy: InputModelRefStrategy | None, output_family: _OutputModelFamily | None
+) -> bool:
+    """Return whether a reuse strategy imports a reached type instead of generating it.
+
+    ReuseForeign reuses enums and the types of the output family, and under --reuse-every-reached-input-model-type
+    also a type the Python type of a field names by its import.
+    """
+    return (
+        strategy is InputModelRefStrategy.ReuseAll
+        or _get_type_family(nested_type) in {_TYPE_FAMILY_ENUM, output_family}
+        or ((imported := _IMPORTED_TYPES.get()) is not None and nested_type in imported)
+    )
+
+
+def _allocate_reused_definitions(
+    schema: dict[str, object],
+    *,
+    definitions: _InputModelDefinitions,
+    nested_models: dict[str, type],
+    schema_generator: type[GenerateJsonSchema],
+    reuses: Callable[[type], bool],
+) -> dict[str, object]:
+    """Name the imported definitions of one schema of a model and its parents by their class, then identify them.
+
+    Two classes of one name that reuse imports get distinct definition names across the schemas
+    (``_InputModelDefinitions``), so equal references name one class and an inherited field is one of the same class.
+    A generated definition keeps its name, which is a class name of the output. ``reuses`` says whether reuse imports
+    a class (``_reuses_type``).
+    """
+    merged_names = getattr(schema_generator, "merged_definition_names", frozenset())
+
+    def imported(name: str, model: type | str) -> bool:
+        return name in nested_models and isinstance(model, type) and reuses(model)
+
+    schema, renames = definitions.identify(
+        schema,
+        lambda name, model: (
+            name not in merged_names and imported(name, model) and imported(name, definitions.owners.get(name, model))
+        ),
+    )
+    _identify_reused_definitions(nested_models, definitions.current_types, merged_names, renames)
+    return schema
 
 
 def _reused_python_type_expression(tp: object) -> PythonTypeExpr:
@@ -1339,13 +1412,8 @@ def _filter_defs_by_strategy(  # ruff: ignore[too-many-positional-arguments]
             continue
 
         nested_type = nested_models[def_name]
-        type_family = _get_type_family(nested_type)
 
-        if (
-            strategy is InputModelRefStrategy.ReuseAll
-            or type_family in {_TYPE_FAMILY_ENUM, output_family}
-            or ((imported := _IMPORTED_TYPES.get()) is not None and nested_type in imported)
-        ):
+        if _reuses_type(nested_type, strategy, output_family):
             if metadata := _pydantic_generic_metadata(nested_type):
                 if (expression := _exported_generic_expression(nested_type, None)) is None:
                     if native_paths is None:
@@ -1404,11 +1472,11 @@ def _model_schema_with_python_types(
     schema_generator: type[GenerateJsonSchema],
     expression_collector: PythonTypeExpressionCollector | None,
     generic_definitions: dict[str, type | str] | None,
-    schema_types: dict[str, type | str] | None,
+    schema_types: dict[str, type | str],
 ) -> dict[str, Any]:
     """Generate a model's JSON Schema and add the Python types it cannot express."""
     schema = _add_python_type_for_unserializable(
-        model.model_json_schema(schema_generator=schema_generator), model, expression_collector=expression_collector
+        model.model_json_schema(schema_generator=schema_generator), model, schema_types, expression_collector
     )
     return _add_python_type_info(
         schema,
@@ -1429,11 +1497,21 @@ def _partition_inherited_fields(
     schema: dict[str, object],
     model_class: type[BaseModel],
     parent_fields: dict[str, Any],
-    parent_properties: dict[str, object],
-    parent_required: frozenset[str],
+    parent: _ParentSchema,
+    released_schema: dict[str, object],
 ) -> tuple[dict[str, object], list[str], dict[str, str]]:
-    """Keep effective replacements separate from unchanged inherited properties."""
-    original_props = cast("dict[str, object]", schema.get("properties", {}))
+    """Keep effective replacements separate from unchanged inherited properties.
+
+    ``released_schema`` and the last item of ``parent`` are the schemas of the model and of the parent as 0.100.0
+    named their definitions, before reuse named them by class (``_allocate_reused_definitions``). A field they name by
+    different definitions, which Pydantic does where the model reaches another class of the name, stays redeclared as
+    in 0.100.0, so the module reaches the classes in the same order and binds each plain import name to the same class.
+    """
+    _, parent_properties, parent_required, released_parent_schema = parent
+    original_props, released_props, released_parent_props = (
+        cast("dict[str, object]", properties.get("properties", {}))
+        for properties in (schema, released_schema, released_parent_schema)
+    )
     original_required = cast("list[str]", schema.get("required", []))
     required_names = frozenset(original_required)
     inherited_names: set[str] = set()
@@ -1445,6 +1523,7 @@ def _partition_inherited_fields(
         if child_wire in original_props and (
             parent_wire != child_wire
             or original_props[child_wire] != parent_properties.get(parent_wire)
+            or released_props.get(child_wire) != released_parent_props.get(parent_wire)
             or (child_wire in required_names) != (parent_wire in parent_required)
         ):
             overrides[child_wire] = parent_wire
@@ -1466,9 +1545,16 @@ def _transform_single_model_to_inheritance(  # noqa: PLR0917
     expression_collector: PythonTypeExpressionCollector | None = None,
     definitions: _InputModelDefinitions | None = None,
     generic_definitions: dict[str, type | str] | None = None,
-    schema_types: dict[str, type | str] | None = None,
+    *,
+    schema_types: dict[str, type | str],
+    identify_definitions: Callable[[dict[str, object]], dict[str, object]] | None = None,
+    released_schema: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    """Transform a single model's schema to use allOf inheritance structure."""
+    """Transform a single model's schema to use allOf inheritance structure.
+
+    ``identify_definitions`` names the definitions of each parent's schema as the root's are named;
+    ``released_schema`` is ``schema`` before that (``_partition_inherited_fields``), ``schema`` when it is not given.
+    """
     if getattr(model_class, "__pydantic_root_model__", False):
         return schema
     if processed_parents is None:
@@ -1489,8 +1575,11 @@ def _transform_single_model_to_inheritance(  # noqa: PLR0917
         parent_schema = _model_schema_with_python_types(
             parent, schema_generator, expression_collector, generic_definitions, schema_types
         )
+        released_parent_schema = parent_schema
+        if identify_definitions is not None:
+            parent_schema = identify_definitions(parent_schema)
         if definitions is not None:
-            parent_schema = definitions.normalize(parent_schema, parent)
+            parent_schema = released_parent_schema = definitions.normalize(parent_schema, parent)
         parent_properties = cast("dict[str, object]", parent_schema.get("properties", {}))
         parent_required = frozenset(cast("list[str]", parent_schema.get("required", [])))
         parent_schema = _transform_single_model_to_inheritance(
@@ -1501,10 +1590,12 @@ def _transform_single_model_to_inheritance(  # noqa: PLR0917
             expression_collector,
             definitions,
             generic_definitions,
-            schema_types,
+            schema_types=schema_types,
+            identify_definitions=identify_definitions,
+            released_schema=released_parent_schema,
         )
-        processed_parents[parent] = parent_schema, parent_properties, parent_required
-    parent_schema, parent_properties, parent_required = processed_parents[parent]
+        processed_parents[parent] = parent_schema, parent_properties, parent_required, released_parent_schema
+    parent_schema = processed_parents[parent][0]
 
     if "$defs" in parent_schema:
         parent_defs = cast("dict[str, object]", parent_schema["$defs"])
@@ -1515,7 +1606,11 @@ def _transform_single_model_to_inheritance(  # noqa: PLR0917
     defs[parent_name] = parent_def
 
     child_props, child_required, overrides = _partition_inherited_fields(
-        schema, model_class, parent.model_fields, parent_properties, parent_required
+        schema,
+        model_class,
+        parent.model_fields,
+        processed_parents[parent],
+        schema if released_schema is None else released_schema,
     )
 
     new_schema: dict[str, object] = {"$defs": defs, "allOf": [{"$ref": definition_ref("$defs", parent_name)}]}
@@ -1540,8 +1635,8 @@ def _transform_single_model_to_inheritance(  # noqa: PLR0917
 class _InputModelDefinitions:
     """Allocate merged definition names by runtime identity, preserving ordinary names."""
 
-    def __init__(self, models: list[type[BaseModel]]) -> None:
-        self.current_types: dict[str, type | str] = {}
+    def __init__(self, models: list[type[BaseModel]], current_types: dict[str, type | str] | None = None) -> None:
+        self.current_types: dict[str, type | str] = {} if current_types is None else current_types
         self.nested_types: dict[str, type] = {}
         self.names: dict[type | str, str] = {}
         self.owners: dict[str, type | str] = {}
@@ -1570,13 +1665,20 @@ class _InputModelDefinitions:
         self.owners[name] = model
         return name
 
-    def normalize(self, schema: dict[str, Any], model_class: type) -> dict[str, Any]:
-        if not (defs := schema.get("$defs")):
-            return schema
+    def identify(
+        self, schema: dict[str, object], allocates: Callable[[str, type | str], bool] | None = None
+    ) -> tuple[dict[str, object], dict[str, str]]:
+        """Name the definitions of a schema by their runtime type and rewrite the references of the renamed ones.
+
+        ``allocates`` picks the definitions named so (all by default); the others keep their name. Returns the schema
+        and the renames.
+        """
+        if not (isinstance(defs := schema.get("$defs"), dict) and defs):
+            return schema, {}
         self.reserved.update(defs)
         renames: dict[str, str] = {}
         for old_name in defs:
-            if model := self.current_types.get(old_name):
+            if (model := self.current_types.get(old_name)) and (allocates is None or allocates(old_name, model)):
                 name = self.name(old_name, model)
                 if (
                     isinstance(model, type)
@@ -1589,15 +1691,22 @@ class _InputModelDefinitions:
         if renames:
             # Only schema positions contain references: defaults/examples are user data.
 
-            schema = _rewrite_schema_refs(schema, renames, set())
-            schema["$defs"] = {renames.get(name, name): value for name, value in schema["$defs"].items()}
+            rewritten = _rewrite_schema_refs(schema, renames, set())
+            rewritten["$defs"] = {renames.get(name, name): value for name, value in rewritten["$defs"].items()}
+            return rewritten, renames
+        return schema, renames
+
+    def normalize(self, schema: dict[str, Any], model_class: type) -> dict[str, Any]:
+        if not schema.get("$defs"):
+            return schema
+        schema, _ = self.identify(schema)
         if "$ref" in schema or "allOf" in schema:
             name = self.name(model_class.__name__, model_class)
             root_ref = {"$ref": definition_ref("$defs", name)}
             wrapper = {key: value for key, value in schema.items() if key != "$defs"}
-            if wrapper in (root_ref, {"allOf": [root_ref]}):
+            if wrapper in (root_ref, {"allOf": [root_ref]}) and isinstance(defs := schema["$defs"], dict):
                 # A recursive root's wrapper must not overwrite its real definition.
-                schema = {**schema["$defs"][name], "$defs": schema["$defs"]}
+                schema = {**defs[name], "$defs": defs}
         return schema
 
 
@@ -1732,7 +1841,7 @@ def _load_model_schema(  # noqa: PLR0914
                 expression_collector,
                 definitions,
                 generic_definitions,
-                definitions.current_types,
+                schema_types=definitions.current_types,
             )
 
             if "$defs" in schema:
@@ -1801,6 +1910,20 @@ def _load_single_model_schema(
                 obj, schema_generator, expression_collector, definition_types, schema_types
             )
             _add_reused_definitions(nested_models, definition_types, identify=True)
+            released_schema = schema
+            identify_definitions = (
+                None
+                if nested_models is None
+                else partial(
+                    _allocate_reused_definitions,
+                    definitions=_InputModelDefinitions([obj], schema_types),
+                    nested_models=nested_models,
+                    schema_generator=schema_generator,
+                    reuses=partial(_reuses_type, strategy=ref_strategy, output_family=output_family),
+                )
+            )
+            if identify_definitions is not None:
+                schema = identify_definitions(schema)
             schema = _transform_single_model_to_inheritance(
                 schema,
                 obj,
@@ -1808,6 +1931,8 @@ def _load_single_model_schema(
                 expression_collector=expression_collector,
                 generic_definitions=definition_types,
                 schema_types=schema_types,
+                identify_definitions=identify_definitions,
+                released_schema=released_schema,
             )
         elif _typed_fields_family(obj) not in {None, _OutputModelFamily.MSGSPEC}:
             _require_json_schema_input(input_file_type, "a dataclass or TypedDict")
@@ -1815,16 +1940,18 @@ def _load_single_model_schema(
 
             nested_models, definition_types = _prepare_reused_model_types(model, ref_strategy, output_family)
             schema_types = definition_types if definition_types is not None else {}
-            schema = TypeAdapter(model).json_schema(
-                schema_generator=_get_input_model_json_schema_class(
-                    schema_types,
-                    [model],
-                    use_standard_schema=definition_types is None,
-                    preserve_generic_identity=definition_types is not None,
-                )
+            schema_generator = _get_input_model_json_schema_class(
+                schema_types,
+                [model],
+                use_standard_schema=definition_types is None,
+                preserve_generic_identity=definition_types is not None,
             )
+            schema = TypeAdapter(model).json_schema(schema_generator=schema_generator)
             schema = _add_python_type_info(schema, model, expression_collector, definition_types, schema_types)
             _add_reused_definitions(nested_models, definition_types)
+            _identify_reused_definitions(
+                nested_models, schema_types, getattr(schema_generator, "merged_definition_names", frozenset())
+            )
         else:
             msg = (
                 f"{stable_repr(qualname)} is not a supported type. "

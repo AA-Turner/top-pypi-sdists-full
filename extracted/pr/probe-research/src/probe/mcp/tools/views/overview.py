@@ -164,8 +164,11 @@ class OverviewViewsMixin:
     def _build_experiment_panes_view(self, entity: dict, request: _Req) -> _ViewData:
         return self._list_panes(EntityType.EXPERIMENT, entity)
 
+    def _build_run_panes_view(self, entity: dict, request: _Req) -> _ViewData:
+        return self._list_panes(EntityType.RUN, entity)
+
     def _list_panes(self, kind: str, entity: dict) -> _ViewData:
-        """The panes on a project's or experiment's page, first to last: slug, title, place, what each
+        """The panes on a project's, experiment's or run's page, first to last: slug, title, place, what each
         recipe reads and the page it is on; a project's canvas preview (`preview`: its state and who
         chose it, and `is_preview` on the chosen row). No HTML: `probe pane get <scope> <slug> --out DIR`
         writes it."""

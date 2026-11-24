@@ -212,6 +212,18 @@ class TestNamespaceDispatch:
         monkeypatch.delenv("TOTALLY_UNKNOWN_KEY_ZZZ99", raising=False)
         assert var("{{secrets.cat.TOTALLY_UNKNOWN_KEY_ZZZ99}}") == ""
 
+    def test_env_secret_reads_the_environment_key(self, monkeypatch):
+        monkeypatch.setenv("ENVIRONMENT_ID", "12")
+        monkeypatch.setenv("KANE_ENV_12__PASSWORD", "abc")
+        monkeypatch.setenv("PASSWORD", "user-value")
+        assert var("{{secrets.env.PASSWORD}}") == "abc"
+        assert var("{{secrets.user.PASSWORD}}") == "user-value"
+
+    def test_env_secret_without_environment_id_returns_empty(self, monkeypatch):
+        monkeypatch.delenv("ENVIRONMENT_ID", raising=False)
+        monkeypatch.setenv("PASSWORD", "user-value")
+        assert var("{{secrets.env.PASSWORD}}") == ""
+
     # ------------------------------------------------------------------
     # 5. global env-fallback (lt_auth=False)
     # ------------------------------------------------------------------

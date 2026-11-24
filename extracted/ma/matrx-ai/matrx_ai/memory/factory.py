@@ -9,7 +9,7 @@ lets the caller use the returned value as a boolean gate::
         return  # memory disabled
 
 The Observer and Reflector run on their mandates' Holders (memory.observer /
-memory.reflector) — model, instructions, sampling. ``ctx.memory_model`` is a
+memory.reflector) — model, instructions, sampling. ``ctx.run.memory_model`` is a
 run-scope override only when a request explicitly names one.
 """
 from __future__ import annotations
@@ -71,10 +71,15 @@ def _make_token_counter():
 
 def build_observational_memory(ctx: Any, conversation_id: str) -> ObservationalMemory | None:
     """Return a configured OM orchestrator, or ``None`` if memory is off."""
-    if not getattr(ctx, "memory_enabled", False):
+    run = ctx.run
+    if not run.memory_enabled:
         return None
-    if not getattr(ctx, "store", True):
-        logger.debug("OM disabled: ctx.store=False (ephemeral conversation)")
+    # What the REAL send carries decides whether the model sees memory: a dry run (store=False so it
+    # writes nothing) answers as the real run would, so the preview shows the observations (PB-07).
+    from matrx_ai.config.person_context import wire_store
+
+    if not wire_store(ctx):
+        logger.debug("OM disabled: ephemeral conversation (store=False)")
         return None
     user_id = str(getattr(ctx, "user_id", "") or "")
     if not user_id:
@@ -88,14 +93,14 @@ def build_observational_memory(ctx: Any, conversation_id: str) -> ObservationalM
         return None
 
     # An explicitly requested model is run scope; otherwise the Holder decides.
-    override = str(getattr(ctx, "memory_model", None) or "").strip() or None
+    override = str(run.memory_model or "").strip() or None
     # Its chosen class rides only with it (dropped loudly otherwise).
     from matrx_ai.graph_nodes.class_pin import node_class_pin
 
     override_class = node_class_pin(
-        override, getattr(ctx, "memory_offering_id", None), where="observational memory"
+        override, run.memory_offering_id, where="observational memory"
     )
-    scope = _resolve_scope(getattr(ctx, "memory_scope", "thread"))
+    scope = _resolve_scope(run.memory_scope)
 
     observer_model = ModelConfig(
         mandate_key=MEMORY_OBSERVER_MANDATE, model=override, offering_id=override_class

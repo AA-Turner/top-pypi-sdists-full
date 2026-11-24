@@ -35,7 +35,7 @@ from matrx_graph.executor.scheduler import RUN_AHEAD_ENABLED
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
-from matrx_graph.types.primitives import ActionTier, NodeCategory
+from matrx_graph.types.primitives import ActionTier, NodeCategory, RetryPolicy
 from matrx_graph.types.result import NodeResult, success
 from pydantic import BaseModel, ConfigDict
 
@@ -966,3 +966,66 @@ async def test_a_crash_while_the_join_ran_ahead_resumes_without_rerunning_it():
     assert first is not None and first.inputs is not None
     assert first.inputs["value"].endswith(">page") and first.inputs["web"].endswith(">web"), first.inputs
     assert resumed.last_outputs["facts"]["value"].endswith(">facts")
+
+
+class _RetryingSleeper(_Sleeper):
+    """A sleeper whose node type retries a failed attempt once (no delay)."""
+
+    spec: ClassVar[NodeSpec] = NodeSpec(
+        type="test.retrying_sleeper",
+        category=NodeCategory.DATA,
+        display_name="Retrying sleeper",
+        description="Sleeps, then passes its input through; retries a failure once.",
+        input_schema=_In,
+        output_schema=_Out,
+        config_schema=_Cfg,
+        handles=_Sleeper.spec.handles,
+        determinism=ActionTier.PURE,
+        retry=RetryPolicy(max_attempts=2, initial_delay_ms=0),
+    )
+
+
+@pytest.mark.skipif(not RUN_AHEAD_ENABLED, reason="run-ahead kill switch is off")
+@pytest.mark.parametrize("depth", [1, 2])
+async def test_a_launch_that_retried_inside_itself_is_still_the_same_firing(depth: int):
+    """Live run 7a8fd24c (2026-11-14, Smart Add Identify on mozilla.org):
+    ``whats_new_3`` ran ahead, its first attempt's structured output did not
+    validate, its OWN retry loop ran attempt 2 and succeeded — then the barrier
+    failed the run with "run-ahead invariant broken … launched early … (attempt
+    2) but the barrier schedules it with … (attempt 1)". The retry loop bumps
+    the launch's invocation in place; the invariant must compare the attempt
+    the launch STARTED at (the firing's identity), not the one it ended on.
+
+    ``depth`` 1: the retried launch is adopted by its own step (the adoption
+    check). ``depth`` 2: it sits a step further ahead, so the barrier's
+    verification sees it first (the live failure's path)."""
+    hops = [f"hop{i}" for i in range(1, depth + 1)]
+    nodes = [_node("start"), _node("audio", SLOW_S), *(_node(h) for h in hops), _node("compose")]
+    nodes.append(
+        {"id": "flaky", "type": "test.retrying_sleeper", "position": {"x": 0, "y": 0},
+         "data": {"config": {"seconds": 0.0}}}
+    )
+    chain = ["start", *hops, "flaky"]
+    edges = [_edge("start", "audio"), *(_edge(a, b) for a, b in zip(chain, chain[1:]))]
+    edges += [_edge("audio", "compose", "audio"), _edge("flaky", "compose", "flaky")]
+    definition = Definition.model_validate(
+        {"nodes": nodes, "edges": edges, "entry_nodes": ["start"]}
+    )
+    sleeper = _Sleeper()
+    flaky = _RetryingSleeper(fail_once={"flaky"})
+    registry = NodeRegistry()
+    register_builtin_nodes(registry)
+    registry.register(sleeper)
+    registry.register(flaky)
+    graph = compile_graph(definition, registry=registry)
+    checkpointer = MemoryCheckpointer()
+    scheduler = Scheduler(graph, checkpointer, make_app_context(FakeEmitter()), registry=registry)
+
+    result = await scheduler.run(run_id=f"retried-ahead-{depth}")
+
+    assert result.status is RunStatus.COMPLETED, result.error
+    assert flaky.runs["flaky"] == 2, flaky.runs
+    # It really ran ahead: it finished long before the slow sibling.
+    assert flaky.finished["flaky"] < sleeper.finished["audio"] - SLOW_S / 2
+    assert sleeper.runs["compose"] == 1
+    assert result.last_outputs["flaky"]["value"].endswith(">flaky")

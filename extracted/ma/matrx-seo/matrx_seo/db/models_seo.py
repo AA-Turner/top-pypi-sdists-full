@@ -78,6 +78,8 @@ class AiVisibilityBrandCheck(MatrxEntity):
     updated_at = DateTimeField(null=False)
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_brand_check"
@@ -113,6 +115,8 @@ class ChangeSet(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'change_assessment': {'from_model': 'ChangeAssessment', 'from_field': 'change_set_id', 'referenced_field': 'id', 'related_name': 'change_assessment', 'from_schema': 'seo'}, 'change_event': {'from_model': 'ChangeEvent', 'from_field': 'change_set_id', 'referenced_field': 'id', 'related_name': 'change_event', 'from_schema': 'seo'}, 'change_item': {'from_model': 'ChangeItem', 'from_field': 'change_set_id', 'referenced_field': 'id', 'related_name': 'change_item', 'from_schema': 'seo'}, 'change_metric': {'from_model': 'ChangeMetric', 'from_field': 'change_set_id', 'referenced_field': 'id', 'related_name': 'change_metric', 'from_schema': 'seo'}, 'change_theory': {'from_model': 'ChangeTheory', 'from_field': 'change_set_id', 'referenced_field': 'id', 'related_name': 'change_theory', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "change_set"
@@ -241,7 +245,7 @@ class CoverageTracker(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', )
     lenses = TextArrayField(null=False, default=['coverage'])
     topics = TextArrayField(null=False, default=[])
     search_terms = TextArrayField(null=False, default=[])
@@ -259,6 +263,8 @@ class CoverageTracker(MatrxEntity):
     workflow_trigger_id = UUIDField()
     parent_organization_id = UUIDField()
     term_meanings = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_panel': {'from_model': 'AiVisibilityPanel', 'from_field': 'coverage_tracker_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_panel', 'from_schema': 'seo'}, 'coverage_mention': {'from_model': 'CoverageMention', 'from_field': 'tracker_id', 'referenced_field': 'id', 'related_name': 'coverage_mention', 'from_schema': 'seo'}, 'tracker_story': {'from_model': 'TrackerStory', 'from_field': 'tracker_id', 'referenced_field': 'id', 'related_name': 'tracker_story', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "coverage_tracker"
@@ -417,6 +423,8 @@ class GscDigRule(MatrxEntity):
     version = IntegerField(null=False, default=1)
     level = TextField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'dimension_value_matcher': {'from_model': 'DimensionValueMatcher', 'from_field': 'condition_rule_id', 'referenced_field': 'id', 'related_name': 'dimension_value_matcher', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "gsc_dig_rule"
@@ -492,6 +500,8 @@ class KeywordSavedView(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "keyword_saved_view"
@@ -527,7 +537,7 @@ class LandscapeBrief(MatrxEntity):
     updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     deleted_at = DateTimeField()
     scope = TextField(null=False, default='site')
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', null=False)
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', null=False)
     inputs = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
     test_run_id = UUIDField()
@@ -628,6 +638,7 @@ class PageMappingQueue(MatrxEntity):
     completed_at = DateTimeField()
     enqueued_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
+    lease_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "page_mapping_queue"
@@ -667,6 +678,8 @@ class PageMeasurementHealth(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "page_measurement_health"
@@ -679,7 +692,7 @@ class PageMeasurementHealth(MatrxEntity):
 
 class PrMoment(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', null=False)
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', null=False)
     title = TextField(null=False)
     type = TextField(null=False)
     starts_on = DateField(null=False)
@@ -701,6 +714,8 @@ class PrMoment(MatrxEntity):
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "pr_moment"
@@ -737,6 +752,8 @@ class ReferringDomainProfile(MatrxEntity):
     updated_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_citation': {'from_model': 'AiVisibilityCitation', 'from_field': 'referring_domain_profile_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_citation', 'from_schema': 'seo'}, 'backlink': {'from_model': 'Backlink', 'from_field': 'referring_domain_profile_id', 'referenced_field': 'id', 'related_name': 'backlink', 'from_schema': 'seo'}, 'reputation_case': {'from_model': 'ReputationCase', 'from_field': 'referring_domain_profile_id', 'referenced_field': 'id', 'related_name': 'reputation_case', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "referring_domain_profile"
@@ -766,6 +783,8 @@ class SiteGeoArea(MatrxEntity):
     place_ids = UUIDArrayField(null=False, default=[])
     location_ids = UUIDArrayField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "site_geo_area"
@@ -795,6 +814,8 @@ class SiteValueCombo(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "site_value_combo"
@@ -823,6 +844,8 @@ class SiteValueWorth(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "site_value_worth"
@@ -852,6 +875,8 @@ class SiteVocabulary(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "site_vocabulary"
@@ -1065,7 +1090,7 @@ class ShownTo(StrEnum):
 
 class TopicalMap(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', null=False)
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', null=False)
     name = TextField(null=False)
     description = TextField()
     status = TextField(null=False, default='draft')
@@ -1146,6 +1171,8 @@ class Backlink(MatrxEntity):
     assessment_risk_verdict = TextField()
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'backlink_change_event': {'from_model': 'BacklinkChangeEvent', 'from_field': 'backlink_id', 'referenced_field': 'id', 'related_name': 'backlink_change_event', 'from_schema': 'seo'}, 'backlink_observation': {'from_model': 'BacklinkObservation', 'from_field': 'backlink_id', 'referenced_field': 'id', 'related_name': 'backlink_observation', 'from_schema': 'seo'}, 'reputation_case': {'from_model': 'ReputationCase', 'from_field': 'backlink_id', 'referenced_field': 'id', 'related_name': 'reputation_case', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "backlink"
@@ -1181,6 +1208,8 @@ class ChangeItem(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'change_event': {'from_model': 'ChangeEvent', 'from_field': 'change_item_id', 'referenced_field': 'id', 'related_name': 'change_event', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "change_item"
@@ -1216,6 +1245,8 @@ class ChangeTheory(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'change_assessment': {'from_model': 'ChangeAssessment', 'from_field': 'theory_id', 'referenced_field': 'id', 'related_name': 'change_assessment', 'from_schema': 'seo'}, 'change_event': {'from_model': 'ChangeEvent', 'from_field': 'theory_id', 'referenced_field': 'id', 'related_name': 'change_event', 'from_schema': 'seo'}, 'change_metric': {'from_model': 'ChangeMetric', 'from_field': 'theory_id', 'referenced_field': 'id', 'related_name': 'change_metric', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "change_theory"
@@ -1268,6 +1299,8 @@ class Competitor(MatrxEntity):
     peer_scale = TextField()
     custom_fields = JSONBField(null=False, default={})
     version = IntegerField(null=False, default=1)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'competitor_observation': {'from_model': 'CompetitorObservation', 'from_field': 'competitor_id', 'referenced_field': 'id', 'related_name': 'competitor_observation', 'from_schema': 'seo'}, 'competitor_opportunity': {'from_model': 'CompetitorOpportunity', 'from_field': 'competitor_id', 'referenced_field': 'id', 'related_name': 'competitor_opportunity', 'from_schema': 'seo'}, 'link_gap_match': {'from_model': 'LinkGapMatch', 'from_field': 'competitor_id', 'referenced_field': 'id', 'related_name': 'link_gap_match', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "competitor"
@@ -1328,6 +1361,8 @@ class CoverageMention(MatrxEntity):
     news_item_id = ForeignKey(to_model='NewsItem', to_column='id', to_schema='web', )
     verdict = TextField()
     verdict_reason = TextField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "coverage_mention"
@@ -1363,6 +1398,8 @@ class DimensionValueMatcher(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     exclusions = TextArrayField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'keyword_facet': {'from_model': 'KeywordFacet', 'from_field': 'matcher_id', 'referenced_field': 'id', 'related_name': 'keyword_facet', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "dimension_value_matcher"
@@ -1452,6 +1489,7 @@ class KeywordClassificationQueue(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     id = UUIDField(null=False)
+    lease_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "keyword_classification_queue"
@@ -1592,7 +1630,7 @@ class KeywordTopic(MatrxEntity):
     notes = TextField()
     scope_tier = TextField(null=False, default='system')
     scope_site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', )
-    scope_brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    scope_brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', )
     shown_to = EnumField(enum_class=ShownTo, )
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
@@ -1642,6 +1680,8 @@ class LinkGapDomain(MatrxEntity):
     enriched_at = DateTimeField()
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'link_gap_match': {'from_model': 'LinkGapMatch', 'from_field': 'link_gap_domain_id', 'referenced_field': 'id', 'related_name': 'link_gap_match', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "link_gap_domain"
@@ -1669,7 +1709,7 @@ class ShownTo(StrEnum):
 class MapFacetValue(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     facet_id = ForeignKey(to_model=MapFacet, to_column='id', to_schema='seo', null=False)
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', )
     parent_id = ForeignKey(to_model='MapFacetValue', to_column='id', to_schema='seo', )
     slug = TextField(null=False)
     name = TextField(null=False)
@@ -1747,6 +1787,8 @@ class ProviderCall(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "provider_call"
@@ -1778,6 +1820,8 @@ class ProviderTask(MatrxEntity):
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "provider_task"
@@ -1857,6 +1901,8 @@ class RawPayload(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'backlink_dimension_snapshot': {'from_model': 'BacklinkDimensionSnapshot', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'backlink_dimension_snapshot', 'from_schema': 'seo'}, 'backlink_observation': {'from_model': 'BacklinkObservation', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'backlink_observation', 'from_schema': 'seo'}, 'backlink_snapshot': {'from_model': 'BacklinkSnapshot', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'backlink_snapshot', 'from_schema': 'seo'}, 'competitor_observation': {'from_model': 'CompetitorObservation', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'competitor_observation', 'from_schema': 'seo'}, 'keyword_market_observation': {'from_model': 'KeywordMarketObservation', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'keyword_market_observation', 'from_schema': 'seo'}, 'page_performance': {'from_model': 'PagePerformance', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'page_performance', 'from_schema': 'seo'}, 'rank_observation': {'from_model': 'RankObservation', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'rank_observation', 'from_schema': 'seo'}, 'search_performance_daily': {'from_model': 'SearchPerformanceDaily', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'search_performance_daily', 'from_schema': 'seo'}, 'serp_snapshot': {'from_model': 'SerpSnapshot', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'serp_snapshot', 'from_schema': 'seo'}, 'web_analytics_daily': {'from_model': 'WebAnalyticsDaily', 'from_field': 'raw_payload_id', 'referenced_field': 'id', 'related_name': 'web_analytics_daily', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "raw_payload"
@@ -1902,6 +1948,8 @@ class SerpOpportunity(MatrxEntity):
     link_checked_at = DateTimeField()
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'serp_mention': {'from_model': 'SerpMention', 'from_field': 'serp_opportunity_id', 'referenced_field': 'id', 'related_name': 'serp_mention', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "serp_opportunity"
@@ -1916,7 +1964,7 @@ class SiteKeywordOffering(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', null=False)
     keyword_id = ForeignKey(to_model=Keyword, to_column='id', to_schema='seo', null=False)
-    brand_offering_id = ForeignKey(to_model='BrandOffering', to_column='id', to_schema='web', null=False)
+    brand_offering_id = ForeignKey(to_model='BrandOffering', to_column='id', to_schema='brand', null=False)
     is_primary = BooleanField(null=False, default=False)
     confidence = SmallIntegerField()
     assigned_by = TextField()
@@ -1930,6 +1978,8 @@ class SiteKeywordOffering(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "site_keyword_offering"
@@ -1960,6 +2010,8 @@ class SiteTopicValue(MatrxEntity):
     weight = DecimalField()
     notes = TextField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "site_topic_value"
@@ -2063,7 +2115,9 @@ class StarterPackItem(MatrxEntity):
     worth_effect = TextField()
     worth_amount = DecimalField()
     matchers = JSONBField(null=False, default=[])
-    offering_template_id = ForeignKey(to_model='OfferingTemplate', to_column='id', to_schema='web', )
+    offering_template_id = ForeignKey(to_model='BrandOfferingTemplate', to_column='id', to_schema='brand', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "starter_pack_item"
@@ -2093,6 +2147,7 @@ class TopicPlacementQueue(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     id = UUIDField(null=False)
+    lease_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "topic_placement_queue"
@@ -2186,6 +2241,8 @@ class BacklinkSnapshot(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'backlink_dimension_snapshot': {'from_model': 'BacklinkDimensionSnapshot', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'backlink_dimension_snapshot', 'from_schema': 'seo'}, 'backlink_observation': {'from_model': 'BacklinkObservation', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'backlink_observation', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "backlink_snapshot"
@@ -2216,6 +2273,8 @@ class ChangeEvent(MatrxEntity):
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "change_event"
@@ -2251,6 +2310,8 @@ class ChangeMetric(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'change_assessment': {'from_model': 'ChangeAssessment', 'from_field': 'metric_id', 'referenced_field': 'id', 'related_name': 'change_assessment', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "change_metric"
@@ -2285,6 +2346,8 @@ class CompetitorObservation(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "competitor_observation"
@@ -2330,6 +2393,8 @@ class CompetitorOpportunity(MatrxEntity):
     updated_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'link_gap_match': {'from_model': 'LinkGapMatch', 'from_field': 'competitor_opportunity_id', 'referenced_field': 'id', 'related_name': 'link_gap_match', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "competitor_opportunity"
@@ -2414,6 +2479,8 @@ class KeywordMarketObservation(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'keyword_market': {'from_model': 'KeywordMarket', 'from_field': 'source_observation_id', 'referenced_field': 'id', 'related_name': 'keyword_market', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "keyword_market_observation"
@@ -2442,6 +2509,7 @@ class PageIntentQueue(MatrxEntity):
     completed_at = DateTimeField()
     enqueued_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
+    lease_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "page_intent_queue"
@@ -2474,6 +2542,8 @@ class PagePerformance(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "page_performance"
@@ -2514,6 +2584,8 @@ class RankObservation(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "rank_observation"
@@ -2576,6 +2648,8 @@ class ReputationCase(MatrxEntity):
     updated_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "reputation_case"
@@ -2611,6 +2685,8 @@ class SearchPerformanceDaily(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "search_performance_daily"
@@ -2644,6 +2720,8 @@ class SerpMention(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "serp_mention"
@@ -2675,6 +2753,8 @@ class SerpSnapshot(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'serp_result': {'from_model': 'SerpResult', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'serp_result', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "serp_snapshot"
@@ -2716,6 +2796,8 @@ class SiteKeywordValue(MatrxEntity):
     value_computed_at = DateTimeField()
     topic_id = ForeignKey(to_model=MapTopic, to_column='id', to_schema='seo', )
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "site_keyword_value"
@@ -2729,7 +2811,7 @@ class SiteKeywordValue(MatrxEntity):
 class SiteOfferingValue(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', null=False)
-    brand_offering_id = ForeignKey(to_model='BrandOffering', to_column='id', to_schema='web', null=False)
+    brand_offering_id = ForeignKey(to_model='BrandOffering', to_column='id', to_schema='brand', null=False)
     offering_match = TextField()
     lead_quality = TextField()
     audience_fit = TextField()
@@ -2747,6 +2829,8 @@ class SiteOfferingValue(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
     topic_id = ForeignKey(to_model=MapTopic, to_column='id', to_schema='seo', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "site_offering_value"
@@ -2788,6 +2872,8 @@ class WebAnalyticsDaily(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "web_analytics_daily"
@@ -2822,6 +2908,8 @@ class BacklinkDimensionSnapshot(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "backlink_dimension_snapshot"
@@ -2861,6 +2949,8 @@ class BacklinkObservation(MatrxEntity):
     backlink_id = ForeignKey(to_model=Backlink, to_column='id', to_schema='seo', )
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'backlink_change_event': {'from_model': 'BacklinkChangeEvent', 'from_field': 'previous_observation_id', 'referenced_field': 'id', 'related_name': 'backlink_change_event', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "backlink_observation"
@@ -2895,6 +2985,8 @@ class ChangeAssessment(MatrxEntity):
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "change_assessment"
@@ -2993,6 +3085,8 @@ class LinkGapMatch(MatrxEntity):
     competitor_opportunity_id = ForeignKey(to_model=CompetitorOpportunity, to_column='id', to_schema='seo', )
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "link_gap_match"
@@ -3018,6 +3112,8 @@ class SerpResult(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "serp_result"
@@ -3054,6 +3150,8 @@ class BacklinkChangeEvent(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "backlink_change_event"
@@ -3088,7 +3186,9 @@ class AiVisibilityCitation(MatrxEntity):
     updated_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_citation"
@@ -3118,7 +3218,9 @@ class AiVisibilityClaim(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_claim"
@@ -3193,7 +3295,7 @@ class AiVisibilityPanel(MatrxEntity):
     tier = TextField(null=False, default='diagnostic')
     repeats = IntegerField(null=False, default=1)
     lanes = TextArrayField(null=False, default=['retrieval'])
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', )
     test_run_id = UUIDField()
     test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_design_artifact': {'from_model': 'AiVisibilityDesignArtifact', 'from_field': 'panel_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_design_artifact', 'from_schema': 'seo'}, 'ai_visibility_panel_version': {'from_model': 'AiVisibilityPanelVersion', 'from_field': 'panel_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_panel_version', 'from_schema': 'seo'}}
@@ -3288,7 +3390,9 @@ class AiVisibilityResponse(MatrxEntity):
     validity_status = TextField()
     parser_version = TextField()
     entities_mentioned = JSONBField()
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_citation': {'from_model': 'AiVisibilityCitation', 'from_field': 'response_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_citation', 'from_schema': 'seo'}, 'ai_visibility_claim': {'from_model': 'AiVisibilityClaim', 'from_field': 'response_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_claim', 'from_schema': 'seo'}, 'ai_visibility_signal': {'from_model': 'AiVisibilitySignal', 'from_field': 'response_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_signal', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "ai_visibility_response"
@@ -3314,7 +3418,9 @@ class AiVisibilitySignal(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
-    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='brand', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_signal"

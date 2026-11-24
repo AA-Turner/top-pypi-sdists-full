@@ -52,11 +52,22 @@ class DeviceOwnFile:
     model_key: str | None = None
 
 
-#: ``async (served_via, *, model_id) -> None | True | False | DeviceOwnFile | DevicePlacementRefusal``
+@dataclass(frozen=True)
+class DeviceCatalogModel:
+    """Admitted: a catalog model the device holds, plus what the device's own file report says
+    about vision. ``vision_projector`` is True only when a usable vision-projector file (the
+    ``mmproj`` artifact) is present on that device — the catalog saying "can see images" is not
+    enough, because llama-server refuses an image without one. Unreported hosts return ``None``
+    / ``True`` (unknown: the catalog's capability stands)."""
+
+    vision_projector: bool
+
+
+#: ``async (served_via, *, model_id) -> None | True | False | DeviceOwnFile | DeviceCatalogModel | DevicePlacementRefusal``
 #: — ``None``/``True`` admits a catalog model; a :class:`DeviceOwnFile` admits the person's own
 #: file; ``False`` is ``not_on_device``; a refusal names its code.
 DevicePlacementCheck = Callable[
-    ..., Awaitable["bool | DeviceOwnFile | DevicePlacementRefusal | None"]
+    ..., Awaitable["bool | DeviceOwnFile | DeviceCatalogModel | DevicePlacementRefusal | None"]
 ]
 
 _check: DevicePlacementCheck | None = None
@@ -75,9 +86,10 @@ def device_placement_check() -> DevicePlacementCheck | None:
 
 async def assert_model_on_device(
     served_via: ServedVia, *, model_id: str, model_name: str
-) -> DeviceOwnFile | None:
+) -> DeviceOwnFile | DeviceCatalogModel | None:
     """Raise ``ModelNotOnDeviceError`` unless the device can run ``model_id``; returns the
-    :class:`DeviceOwnFile` when the admitted model is the person's own file."""
+    :class:`DeviceOwnFile` when the admitted model is the person's own file, the
+    :class:`DeviceCatalogModel` when the host reported what the device holds of a catalog model."""
     from matrx_ai.providers.device.errors import ModelNotOnDeviceError
 
     if _check is None:
@@ -90,7 +102,7 @@ async def assert_model_on_device(
     verdict = await _check(served_via, model_id=model_id)
     if verdict is None or verdict is True:
         return None
-    if isinstance(verdict, DeviceOwnFile):
+    if isinstance(verdict, DeviceOwnFile | DeviceCatalogModel):
         return verdict
     if isinstance(verdict, DevicePlacementRefusal):
         code, reason = verdict.code, verdict.message
@@ -100,7 +112,7 @@ async def assert_model_on_device(
         f"model {model_name!r} ({model_id}, local id {served_via.local_model_id!r}, variant "
         f"{served_via.variant_id!r}) cannot run on device {served_via.app_instance_id}: "
         f"{code}: {reason}",
-        user_message=f"{model_name} isn't on that computer.",
+        user_message="This model isn't on that computer.",
         details={
             "code": code,
             "app_instance_id": served_via.app_instance_id,
@@ -112,6 +124,7 @@ async def assert_model_on_device(
 
 
 __all__ = [
+    "DeviceCatalogModel",
     "DEVICE_PLACEMENT_REFUSAL_CODES",
     "DeviceOwnFile",
     "DevicePlacementCheck",

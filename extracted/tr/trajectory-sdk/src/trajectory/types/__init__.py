@@ -6,8 +6,15 @@ from trajectory.types._internal import ToolResponse as ToolResponse
 from trajectory.types._internal import ToolResponseMetadata as ToolResponseMetadata
 from trajectory.types.agent_list_response import AgentListItem as AgentListItem
 from trajectory.types.agent_list_response import AgentListResponse as AgentListResponse
-from trajectory.types.agents.agent_response import AgentResponse as AgentResponse
 from trajectory.types.aperture_reward_point import ApertureRewardPoint as ApertureRewardPoint
+from trajectory.types.artemis_sessions.artemis_session import ArtemisFrozenFile as ArtemisFrozenFile
+from trajectory.types.artemis_sessions.artemis_session import (
+  ArtemisPendingRequest as ArtemisPendingRequest,
+)
+from trajectory.types.artemis_sessions.artemis_session import ArtemisProposal as ArtemisProposal
+from trajectory.types.artemis_sessions.artemis_session import ArtemisSession as ArtemisSession
+from trajectory.types.artemis_sessions.artemis_session import ArtemisTurn as ArtemisTurn
+from trajectory.types.artemis_sessions.artemis_session import TurnStatus as TurnStatus
 from trajectory.types.artifact_upload import ArtifactUpload as ArtifactUpload
 from trajectory.types.artifacts.artifact import Artifact as Artifact
 from trajectory.types.artifacts.artifact_download import ArtifactDownload as ArtifactDownload
@@ -63,31 +70,6 @@ from trajectory.types.benchmark_task_env_resources import (
 from trajectory.types.benchmark_tools_page import BenchmarkToolsPage as BenchmarkToolsPage
 from trajectory.types.benchmark_type import BenchmarkType as BenchmarkType
 from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl as BenchmarkUploadUrl
-from trajectory.types.benchmarks.benchmark_list_item import BenchmarkListItem as BenchmarkListItem
-from trajectory.types.benchmarks.benchmark_readiness import BenchmarkReadiness as BenchmarkReadiness
-from trajectory.types.benchmarks.benchmark_spec import BenchmarkSpec as BenchmarkSpec
-from trajectory.types.benchmarks.image_spec import ImageSpec as ImageSpec
-from trajectory.types.benchmarks.ingestion.benchmark_ingestion_failure import (
-  BenchmarkIngestionFailure as BenchmarkIngestionFailure,
-)
-from trajectory.types.benchmarks.ingestion.benchmark_ingestion_operation_status import (
-  BenchmarkIngestionOperationStatus as BenchmarkIngestionOperationStatus,
-)
-from trajectory.types.benchmarks.runtime_spec import RuntimeSpec as RuntimeSpec
-from trajectory.types.benchmarks.secret_ref import SecretRef as SecretRef
-from trajectory.types.benchmarks.specs.benchmark_details import BenchmarkDetails as BenchmarkDetails
-from trajectory.types.benchmarks.specs.benchmark_details import (
-  BenchmarkUploadProgress as BenchmarkUploadProgress,
-)
-from trajectory.types.benchmarks.task_spec import EnvResources as EnvResources
-from trajectory.types.benchmarks.task_spec import McpServerSpec as McpServerSpec
-from trajectory.types.benchmarks.task_spec import TaskSpec as TaskSpec
-from trajectory.types.benchmarks.tasks.benchmark_spec_task import (
-  BenchmarkSpecTask as BenchmarkSpecTask,
-)
-from trajectory.types.benchmarks.tasks.benchmark_spec_task import (
-  BenchmarkTaskCategory as BenchmarkTaskCategory,
-)
 from trajectory.types.beta.checkpoint_exports.checkpoint_export import (
   CheckpointExport as CheckpointExport,
 )
@@ -136,6 +118,20 @@ from trajectory.types.create_training_run_response import (
 from trajectory.types.create_trajectory_response import (
   CreateTrajectoryResponse as CreateTrajectoryResponse,
 )
+from trajectory.types.data_qc_finding_counts import DataQcFindingCount as DataQcFindingCount
+from trajectory.types.data_qc_finding_counts import DataQcFindingCounts as DataQcFindingCounts
+from trajectory.types.data_qc_finding_list import DataQcFindingList as DataQcFindingList
+from trajectory.types.dataset_member_page import DatasetMemberPage as DatasetMemberPage
+from trajectory.types.dataset_version_list_response import (
+  DatasetVersionListResponse as DatasetVersionListResponse,
+)
+from trajectory.types.datasets.dataset_version import DatasetVersion as DatasetVersion
+from trajectory.types.datasets.members.dataset_member import DatasetMember as DatasetMember
+from trajectory.types.datasets.operations.dataset_operation import (
+  DatasetOperation as DatasetOperation,
+)
+from trajectory.types.decide_artemis_response import ArtemisDecision as ArtemisDecision
+from trajectory.types.decide_artemis_response import DecideArtemisResponse as DecideArtemisResponse
 from trajectory.types.decisions.create_decision_response import (
   ChoiceProbabilityResponse as ChoiceProbabilityResponse,
 )
@@ -181,6 +177,10 @@ from trajectory.types.eval_trajectory_rewards_page import (
 from trajectory.types.evals.eval_run import EvalRun as EvalRun
 from trajectory.types.evals.eval_run_lifecycle_status import (
   EvalRunLifecycleStatus as EvalRunLifecycleStatus,
+)
+from trajectory.types.held_out_losses_by_step_page import HeldOutLoss as HeldOutLoss
+from trajectory.types.held_out_losses_by_step_page import (
+  HeldOutLossesByStepPage as HeldOutLossesByStepPage,
 )
 from trajectory.types.held_out_rewards_by_step_page import HeldOutReward as HeldOutReward
 from trajectory.types.held_out_rewards_by_step_page import (
@@ -279,6 +279,7 @@ from trajectory.types.priority_trait import PriorityTrait as PriorityTrait
 from trajectory.types.production_model_slug_response import (
   ProductionModelSlugResponse as ProductionModelSlugResponse,
 )
+from trajectory.types.projects.agent_response import AgentResponse as AgentResponse
 from trajectory.types.promote_response import PromoteResponse as PromoteResponse
 from trajectory.types.recorded_run_options import RecordedRunOptions as RecordedRunOptions
 from trajectory.types.response_function_tool_call import (
@@ -322,14 +323,59 @@ from trajectory.types.responses.response_stream_event import (
   ResponseStreamEvent as ResponseStreamEvent,
 )
 from trajectory.types.revoke_secret_response import RevokeSecretResponse as RevokeSecretResponse
+from trajectory.types.rl.checkpoints.training_checkpoint_response import (
+  TrainingCheckpointResponse as TrainingCheckpointResponse,
+)
+from trajectory.types.rl.training_run_lifecycle_status import (
+  TrainingRunLifecycleStatus as TrainingRunLifecycleStatus,
+)
+from trajectory.types.rl.training_run_response import SftRecordedRunOptions as SftRecordedRunOptions
+from trajectory.types.rl.training_run_response import TrainingRunResponse as TrainingRunResponse
+from trajectory.types.run_option_metadata import RunOptionMetadata as RunOptionMetadata
 from trajectory.types.run_options import RunOptions as RunOptions
 from trajectory.types.run_options import TrainingAlgorithm as TrainingAlgorithm
 from trajectory.types.run_options_response import ModelRunOptions as ModelRunOptions
-from trajectory.types.run_options_response import RunOptionMetadata as RunOptionMetadata
 from trajectory.types.run_options_response import RunOptionsResponse as RunOptionsResponse
 from trajectory.types.run_options_response import TrainingOptionKey as TrainingOptionKey
 from trajectory.types.secret_list_response import SecretListResponse as SecretListResponse
 from trajectory.types.secrets.secret import Secret as Secret
+from trajectory.types.send_artemis_message_response import (
+  SendArtemisMessageResponse as SendArtemisMessageResponse,
+)
+from trajectory.types.sft_run_options_response import SftModelRunOptions as SftModelRunOptions
+from trajectory.types.sft_run_options_response import SftRunOptionsResponse as SftRunOptionsResponse
+from trajectory.types.sft_run_options_response import SftTrainingOptionKey as SftTrainingOptionKey
+from trajectory.types.specs.benchmark_list_item import BenchmarkListItem as BenchmarkListItem
+from trajectory.types.specs.benchmark_readiness import BenchmarkReadiness as BenchmarkReadiness
+from trajectory.types.specs.benchmark_spec import BenchmarkSpec as BenchmarkSpec
+from trajectory.types.specs.details.benchmark_details import BenchmarkDetails as BenchmarkDetails
+from trajectory.types.specs.details.benchmark_details import (
+  BenchmarkUploadProgress as BenchmarkUploadProgress,
+)
+from trajectory.types.specs.diagnostics.findings.data_qc_finding import (
+  DataQcFinding as DataQcFinding,
+)
+from trajectory.types.specs.diagnostics.findings.data_qc_finding import SpecEvidence as SpecEvidence
+from trajectory.types.specs.diagnostics.findings.data_qc_finding import TaskEvidence as TaskEvidence
+from trajectory.types.specs.diagnostics.findings.data_qc_finding import (
+  TrajectoryEvidence as TrajectoryEvidence,
+)
+from trajectory.types.specs.image_spec import ImageSpec as ImageSpec
+from trajectory.types.specs.ingestion.benchmark_ingestion_failure import (
+  BenchmarkIngestionFailure as BenchmarkIngestionFailure,
+)
+from trajectory.types.specs.ingestion.benchmark_ingestion_operation_status import (
+  BenchmarkIngestionOperationStatus as BenchmarkIngestionOperationStatus,
+)
+from trajectory.types.specs.runtime_spec import RuntimeSpec as RuntimeSpec
+from trajectory.types.specs.secret_ref import SecretRef as SecretRef
+from trajectory.types.specs.task_spec import EnvResources as EnvResources
+from trajectory.types.specs.task_spec import McpServerSpec as McpServerSpec
+from trajectory.types.specs.task_spec import TaskSpec as TaskSpec
+from trajectory.types.specs.tasks.benchmark_spec_task import BenchmarkSpecTask as BenchmarkSpecTask
+from trajectory.types.specs.tasks.benchmark_spec_task import (
+  BenchmarkTaskCategory as BenchmarkTaskCategory,
+)
 from trajectory.types.start_benchmark_diagnostics_response import (
   StartBenchmarkDiagnosticsResponse as StartBenchmarkDiagnosticsResponse,
 )
@@ -342,17 +388,13 @@ from trajectory.types.telemetry_events_ingest_response import (
 )
 from trajectory.types.tool_call import ToolCall as ToolCall
 from trajectory.types.tool_definition import ToolDefinition as ToolDefinition
-from trajectory.types.training.checkpoints.training_checkpoint_response import (
-  TrainingCheckpointResponse as TrainingCheckpointResponse,
-)
-from trajectory.types.training.training_run_lifecycle_status import (
-  TrainingRunLifecycleStatus as TrainingRunLifecycleStatus,
-)
-from trajectory.types.training.training_run_response import (
-  TrainingRunResponse as TrainingRunResponse,
-)
 from trajectory.types.training_progress_response import (
   TrainingProgressResponse as TrainingProgressResponse,
+)
+from trajectory.types.training_step_metrics_page import StalenessKlPart as StalenessKlPart
+from trajectory.types.training_step_metrics_page import TrainingStepMetrics as TrainingStepMetrics
+from trajectory.types.training_step_metrics_page import (
+  TrainingStepMetricsPage as TrainingStepMetricsPage,
 )
 from trajectory.types.training_step_summaries_page import (
   TrainingStepSummariesPage as TrainingStepSummariesPage,
@@ -366,6 +408,10 @@ from trajectory.types.trajectories.steps.step import ImagePart as ImagePart
 from trajectory.types.trajectories.steps.step import Message as Message
 from trajectory.types.trajectories.steps.step import Step as Step
 from trajectory.types.trajectories.steps.step import TextPart as TextPart
+from trajectory.types.trajectories.steps.step import TrajectoryDecision as TrajectoryDecision
+from trajectory.types.trajectories.steps.step import (
+  TrajectoryDecisionChoice as TrajectoryDecisionChoice,
+)
 from trajectory.types.trajectories.trajectory import RewardComponent as TrajectoryRewardComponent
 from trajectory.types.trajectories.trajectory import Trajectory as Trajectory
 from trajectory.types.trajectory_event import TrajectoryEvent as TrajectoryEvent
@@ -388,6 +434,12 @@ __all__ = [
   "AgentListResponse",
   "AgentResponse",
   "ApertureRewardPoint",
+  "ArtemisDecision",
+  "ArtemisFrozenFile",
+  "ArtemisPendingRequest",
+  "ArtemisProposal",
+  "ArtemisSession",
+  "ArtemisTurn",
   "Artifact",
   "ArtifactDownload",
   "ArtifactUpload",
@@ -458,6 +510,16 @@ __all__ = [
   "CreateSecretResponse",
   "CreateTrainingRunResponse",
   "CreateTrajectoryResponse",
+  "DataQcFinding",
+  "DataQcFindingCount",
+  "DataQcFindingCounts",
+  "DataQcFindingList",
+  "DatasetMember",
+  "DatasetMemberPage",
+  "DatasetOperation",
+  "DatasetVersion",
+  "DatasetVersionListResponse",
+  "DecideArtemisResponse",
   "DecisionAnswerResponse",
   "DecisionUsageResponse",
   "DeleteAgentResponse",
@@ -481,6 +543,8 @@ __all__ = [
   "EvalTrajectoryRewardsPage",
   "GeneratedToolInfo",
   "HarnessDiagnostic",
+  "HeldOutLoss",
+  "HeldOutLossesByStepPage",
   "HeldOutReward",
   "HeldOutRewardsByStepPage",
   "ImagePart",
@@ -546,11 +610,19 @@ __all__ = [
   "Secret",
   "SecretListResponse",
   "SecretRef",
+  "SendArtemisMessageResponse",
+  "SftModelRunOptions",
+  "SftRecordedRunOptions",
+  "SftRunOptionsResponse",
+  "SftTrainingOptionKey",
+  "SpecEvidence",
+  "StalenessKlPart",
   "StartBenchmarkDiagnosticsResponse",
   "StartDeployResponse",
   "StartEvalResponse",
   "Step",
   "SupportedModelInfo",
+  "TaskEvidence",
   "TaskSpec",
   "TaskSplit",
   "TelemetryEventsIngestResponse",
@@ -566,16 +638,22 @@ __all__ = [
   "TrainingProgressResponse",
   "TrainingRunLifecycleStatus",
   "TrainingRunResponse",
+  "TrainingStepMetrics",
+  "TrainingStepMetricsPage",
   "TrainingStepSummariesPage",
   "TrainingStepSummary",
   "TrainingTrajectoryRewardsPage",
   "Trajectory",
+  "TrajectoryDecision",
+  "TrajectoryDecisionChoice",
   "TrajectoryEvent",
+  "TrajectoryEvidence",
   "TrajectoryMetadata",
   "TrajectoryReward",
   "TrajectoryRewardComponent",
   "TrajectoryRolloutStatus",
   "TrajectoryTerminationSubreason",
+  "TurnStatus",
   "UndeployResponse",
   "Usage",
 ]

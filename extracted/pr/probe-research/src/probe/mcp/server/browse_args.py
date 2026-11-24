@@ -88,6 +88,9 @@ _MODE_OWN_ARGS: dict[BrowseMode, frozenset[str]] = {
     BrowseMode.PEOPLE: frozenset({"query", "limit"}),
     # `project` narrows to one project's sessions (resolved into `ref`).
     BrowseMode.SESSIONS: frozenset({"query", "ref", "project", "limit"}),
+    # `query` is the route's `words` (ANY of them, in the title or reason); `since` / `until` window the
+    # decision date. Not a people mode: the route has no `owner`.
+    BrowseMode.DECISIONS: frozenset({"query", "since", "until", "limit"}),
 }
 
 #: The modes whose `query` an older server would ignore (and answer unfiltered): refused there.

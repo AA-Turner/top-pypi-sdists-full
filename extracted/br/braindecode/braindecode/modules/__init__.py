@@ -33,6 +33,7 @@ from .channels import ChannelLayer, resolve_channel_positions
 from .convolution import (
     AvgPool2dWithConv,
     CausalConv1d,
+    ChebyshevGraphConv,
     CombinedConv,
     Conv1dWithConstraint,
     Conv2dWithConstraint,
@@ -60,6 +61,15 @@ from .layers import (
 from .linear import LinearWithConstraint, MaxNormLinear
 from .parametrization import MaxNorm, MaxNormParametrize
 from .quantization import EMACodebook, ResidualVectorQuantizer, VectorQuantizer
+from .seanet import (
+    SEANetConv1d,
+    SEANetConvTranspose1d,
+    SEANetDecoder,
+    SEANetEncoder,
+    SEANetLSTM,
+    SEANetResBlock,
+)
+from .spatial_temporal import SpatialTemporalBlock
 from .stats import (
     LogPowerLayer,
     LogVarLayer,
@@ -105,6 +115,7 @@ __all__ = [
     "TDSConvEncoder",
     "AvgPool2dWithConv",
     "CausalConv1d",
+    "ChebyshevGraphConv",
     "CombinedConv",
     "Conv1dWithConstraint",
     "Conv2dWithConstraint",
@@ -132,6 +143,13 @@ __all__ = [
     "MaxNormLinear",
     "MaxNorm",
     "MaxNormParametrize",
+    "SEANetConv1d",
+    "SEANetConvTranspose1d",
+    "SEANetDecoder",
+    "SEANetEncoder",
+    "SEANetLSTM",
+    "SEANetResBlock",
+    "SpatialTemporalBlock",
     "LogPowerLayer",
     "LogVarLayer",
     "MaxLayer",

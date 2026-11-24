@@ -718,3 +718,13 @@ def test_the_probe_and_the_record_agree_on_the_fingerprint() -> None:
         shape="above_max",
     )
     assert record["fingerprint"] == probe_print
+
+
+def test_an_unnamed_rejection_lists_the_suspect_settings():
+    """Red before: the error text said "(unnamed)" even though the diagnosis had the suspect request fields."""
+    from matrx_ai.providers.failure_report import _rejected_setting_name
+
+    assert _rejected_setting_name({"provider_param": "temperature", "suspect_params": ["x"]}) == "temperature"
+    named = _rejected_setting_name({"provider_param": None, "suspect_params": ["config.response_mime_type"]})
+    assert "config.response_mime_type" in named
+    assert _rejected_setting_name({"provider_param": None, "suspect_params": []}) == "(unnamed)"

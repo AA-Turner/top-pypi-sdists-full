@@ -131,3 +131,121 @@ def merge_builtin_tool_use(parts: list[dict[str, Any]]) -> dict[str, Any] | None
                 else:
                     into[key] = into.get(key, 0) + val
     return merged or None
+
+
+#: What a person reads on the working block for each provider-side tool.
+_BUILTIN_LABELS = {"web_search": "Searched the web", "url_context": "Read pages"}
+
+
+#: The stored content-block type (and the assistant message's metadata key) that keeps a provider-side
+#: tool's working card after a reload. DISPLAY ONLY: the DB-load funnel (``UnifiedMessage``
+#: ``_reconstruct_stored_content`` / ``parse_content``) drops it, so it never reaches a provider.
+PROVIDER_TOOL_ACTIVITY = "provider_tool_activity"
+
+
+def builtin_tool_activity(builtin: dict[str, Any], *, call_key: str) -> list[dict[str, Any]]:
+    """One record per provider-side tool: what the live frames say and what a reload draws (pure)."""
+    records: list[dict[str, Any]] = []
+    for tool, rec in builtin.items():
+        if not isinstance(rec, dict):
+            continue
+        queries = _strs(rec.get("queries")) or _strs(rec.get("urls"))
+        label = _BUILTIN_LABELS.get(tool, tool.replace("_", " ").capitalize())
+        records.append({
+            "call_id": f"builtin-{tool}-{call_key}",
+            "name": f"provider_{tool}",
+            "message": f"{label}: {', '.join(queries[:3])}" if queries else label,
+            "arguments": {"queries": queries} if tool == "web_search" else {"urls": queries},
+            "result": dict(rec),
+        })
+    return records
+
+
+def builtin_tool_events(builtin: dict[str, Any], *, call_key: str) -> list[dict[str, Any]]:
+    """The tool_started / tool_completed frames that put a provider-side tool on the working block.
+
+    A built-in search runs inside the provider call, so no tool call event existed and the turn showed
+    citations with no "Searched ..." card (feedback 017807f4). One started + completed pair per tool,
+    under ``provider_<tool>`` (never our own ``web_search`` tool's name, whose card expects its result).
+    Pure; the caller sends them.
+    """
+    frames: list[dict[str, Any]] = []
+    for rec in builtin_tool_activity(builtin, call_key=call_key):
+        base = {"call_id": rec["call_id"], "tool_name": rec["name"], "message": rec["message"], "show_spinner": False}
+        frames.append({**base, "event": "tool_started", "data": {"arguments": rec["arguments"], "builtin": True}})
+        frames.append({**base, "event": "tool_completed", "data": {"result": rec["result"], "builtin": True}})
+    return frames
+
+
+def provider_tool_activity_blocks(records: Any) -> list[dict[str, Any]]:
+    """The stored content blocks for an assistant row's provider-side tool activity (pure)."""
+    blocks: list[dict[str, Any]] = []
+    for rec in records if isinstance(records, list) else []:
+        if isinstance(rec, dict) and rec.get("call_id") and rec.get("name"):
+            blocks.append({
+                "type": PROVIDER_TOOL_ACTIVITY,
+                "call_id": str(rec["call_id"]),
+                "name": str(rec["name"]),
+                "message": str(rec.get("message") or ""),
+                "arguments": dict(rec.get("arguments") or {}),
+                "result": dict(rec.get("result") or {}),
+            })
+    return blocks
+
+
+def queue_provider_tool_activity_rows(
+    blocks: list[dict[str, Any]],
+    *,
+    message_id: str,
+    conversation_id: str,
+    user_request_id: str | None,
+    iteration: int,
+    user_id: str | None,
+) -> list[str]:
+    """Queue one completed ``chat.tool_call`` per block, linked to the answer row, on the request's
+    Coordinator (the same row shape every engine call stores). Never replayed: the rebuild consults
+    tool_call rows only for role='tool' messages and tool_call blocks, and these have neither."""
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from matrx_ai.persistence.queue_helpers import queue_tool_call_create
+    from matrx_ai.tools.logger import build_tool_call_finished_fields, build_tool_call_started_row
+
+    now = datetime.now(UTC)
+    row_ids: list[str] = []
+    for block in blocks:
+        row_id = str(uuid4())
+        row = build_tool_call_started_row(
+            row_id=row_id,
+            conversation_id=conversation_id,
+            user_request_id=user_request_id,
+            tool_name=block["name"],
+            tool_type="provider",
+            call_id=block["call_id"],
+            arguments=block["arguments"],
+            iteration=iteration,
+            started_at=now,
+            message_id=message_id,
+            turn_actor_user_id=user_id,
+            metadata={PROVIDER_TOOL_ACTIVITY: True},
+        )
+        row.update(build_tool_call_finished_fields(block["result"], is_error=False, completed_at=now, duration_ms=0))
+        row.pop("id", None)
+        row.pop("conversation_id", None)
+        queue_tool_call_create(id=row_id, conversation_id=conversation_id, **row)
+        row_ids.append(row_id)
+    return row_ids
+
+
+async def announce_builtin_tool_use(emitter: Any, builtin: dict[str, Any] | None, *, call_key: str) -> None:
+    """Send the frames for one provider call. NEVER raises: the answer already exists; this narrates it."""
+    if not builtin or emitter is None:
+        return
+    import logging
+
+    for frame in builtin_tool_events(builtin, call_key=call_key):
+        try:
+            await emitter.send_tool_event(frame)
+        except Exception:  # noqa: BLE001 - a display frame never fails the turn
+            logging.getLogger(__name__).exception("could not stream the built-in tool frame %s", frame.get("call_id"))
+            return

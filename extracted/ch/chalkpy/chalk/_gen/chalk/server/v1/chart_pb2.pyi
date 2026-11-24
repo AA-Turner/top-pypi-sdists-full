@@ -749,17 +749,19 @@ class WindowFunctionOption(_message.Message):
     ) -> None: ...
 
 class MetricOptions(_message.Message):
-    __slots__ = ("kind", "filters", "groups", "window_functions", "metric_kind_group")
+    __slots__ = ("kind", "filters", "groups", "window_functions", "metric_kind_group", "default_window_function")
     KIND_FIELD_NUMBER: _ClassVar[int]
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     GROUPS_FIELD_NUMBER: _ClassVar[int]
     WINDOW_FUNCTIONS_FIELD_NUMBER: _ClassVar[int]
     METRIC_KIND_GROUP_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_WINDOW_FUNCTION_FIELD_NUMBER: _ClassVar[int]
     kind: _chart_pb2.MetricKind
     filters: _containers.RepeatedCompositeFieldContainer[FilterOption]
     groups: _containers.RepeatedCompositeFieldContainer[GroupOption]
     window_functions: _containers.RepeatedCompositeFieldContainer[WindowFunctionOption]
     metric_kind_group: MetricKindGroup
+    default_window_function: _chart_pb2.WindowFunctionKind
     def __init__(
         self,
         kind: _Optional[_Union[_chart_pb2.MetricKind, str]] = ...,
@@ -767,6 +769,7 @@ class MetricOptions(_message.Message):
         groups: _Optional[_Iterable[_Union[GroupOption, _Mapping]]] = ...,
         window_functions: _Optional[_Iterable[_Union[WindowFunctionOption, _Mapping]]] = ...,
         metric_kind_group: _Optional[_Union[MetricKindGroup, str]] = ...,
+        default_window_function: _Optional[_Union[_chart_pb2.WindowFunctionKind, str]] = ...,
     ) -> None: ...
 
 class MetricFormulaFeatureOperandInput(_message.Message):
@@ -1095,3 +1098,15 @@ class QueryRawMetricsResponse(_message.Message):
     SERIES_FIELD_NUMBER: _ClassVar[int]
     series: _containers.RepeatedCompositeFieldContainer[RawMetricsQuerySeries]
     def __init__(self, series: _Optional[_Iterable[_Union[RawMetricsQuerySeries, _Mapping]]] = ...) -> None: ...
+
+class GetOfflineStorageHistoryRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetOfflineStorageHistoryResponse(_message.Message):
+    __slots__ = ("chart",)
+    CHART_FIELD_NUMBER: _ClassVar[int]
+    chart: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    def __init__(
+        self, chart: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...
+    ) -> None: ...

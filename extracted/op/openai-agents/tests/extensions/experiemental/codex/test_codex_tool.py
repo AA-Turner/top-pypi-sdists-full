@@ -7,12 +7,14 @@ import importlib
 import inspect
 import json
 from dataclasses import dataclass, fields
+from enum import Enum
+from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import pytest
 from openai.types.responses import ResponseFunctionToolCall
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError, ValidationInfo, field_validator
 
 import agents._debug as _debug
 from agents import Agent, Runner, function_tool
@@ -46,6 +48,7 @@ class CodexMockState:
         self.events: list[dict[str, Any]] = []
         self.thread_id: str | None = "thread-1"
         self.last_turn_options: Any = None
+        self.last_input: Any = None
         self.start_calls = 0
         self.resume_calls = 0
         self.last_resumed_thread_id: str | None = None
@@ -57,7 +60,8 @@ class FakeThread:
         self._state = state
         self.id: str | None = None
 
-    async def run_streamed(self, _input: Any, turn_options: Any = None) -> Any:
+    async def run_streamed(self, input: Any, turn_options: Any = None) -> Any:
+        self._state.last_input = input
         self._state.last_turn_options = turn_options
         self.id = self._state.thread_id
 
@@ -99,6 +103,99 @@ def test_codex_tool_kw_matches_codex_tool_options() -> None:
     ]
     option_fields = [field.name for field in fields(CodexToolOptions)]
     assert kw_only == option_fields
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("thread_id", [None, "existing-thread"])
+async def test_codex_tool_denies_ungranted_local_image(
+    tmp_path: Path, thread_id: str | None
+) -> None:
+    state = CodexMockState()
+    tool = codex_tool(codex=cast(Codex, FakeCodex(state)), failure_error_function=None)
+    image_path = str(tmp_path / "image.png")
+    input_json = json.dumps(
+        {"inputs": [{"type": "local_image", "path": image_path}], "thread_id": thread_id}
+    )
+    context = ToolContext(None, tool_name=tool.name, tool_call_id="1", tool_arguments=input_json)
+
+    with pytest.raises(ModelBehaviorError, match="Image attachment is not authorized") as exc_info:
+        await tool.on_invoke_tool(context, input_json)
+
+    assert image_path not in str(exc_info.value)
+    assert state.start_calls == state.resume_calls == 0
+    assert state.last_input is None
+
+
+@pytest.mark.asyncio
+async def test_codex_tool_resolves_image_attachment_references(tmp_path: Path) -> None:
+    state = CodexMockState()
+    image_path = str(tmp_path / "image.png")
+    attachments = {"image-1": image_path}
+    options = CodexToolOptions(
+        codex=cast(Codex, FakeCodex(state)), image_attachments=MappingProxyType(attachments)
+    )
+    tool = codex_tool(options)
+    attachments["image-1"] = str(tmp_path / "replaced.png")
+    options.image_attachments = {}
+    inputs = [
+        {"type": "text", "text": "Describe the attachment"},
+        {"type": "local_image", "path": "image-1"},
+    ]
+    input_json = json.dumps({"inputs": inputs})
+    context = ToolContext(None, tool_name=tool.name, tool_call_id="1", tool_arguments=input_json)
+
+    await tool.on_invoke_tool(context, input_json)
+
+    assert state.start_calls == 1
+    assert state.last_input == [inputs[0], {"type": "local_image", "path": image_path}]
+    assert image_path not in json.dumps(tool.params_json_schema)
+    assert image_path not in tool.description
+
+
+@pytest.mark.parametrize("invalid_kind", ["relative", "comma"])
+def test_codex_tool_rejects_invalid_image_attachment_grants(
+    tmp_path: Path, invalid_kind: str
+) -> None:
+    image_path = "image.png" if invalid_kind == "relative" else str(tmp_path / "image,other.png")
+    with pytest.raises(UserError, match="absolute host paths without commas") as exc_info:
+        codex_tool(image_attachments={"image-1": image_path})
+    assert image_path not in str(exc_info.value)
+    assert "image-1" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_codex_tool_checks_all_custom_schema_image_references(tmp_path: Path) -> None:
+    class CustomParameters(BaseModel):
+        inputs: list[CodexToolInputItem]
+        thread_id: str | None = None
+
+    state = CodexMockState()
+    image_path = str(tmp_path / "image.png")
+    tool = codex_tool(
+        codex=cast(Codex, FakeCodex(state)),
+        parameters=CustomParameters,
+        image_attachments={"image-1": image_path},
+        failure_error_function=None,
+        persist_session=True,
+    )
+    input_json = json.dumps(
+        {
+            "inputs": [
+                {"type": "local_image", "path": "image-1"},
+                {"type": "local_image", "path": image_path},
+            ],
+            "thread_id": "existing-thread",
+        }
+    )
+    context = ToolContext(None, tool_name=tool.name, tool_call_id="1", tool_arguments=input_json)
+
+    with pytest.raises(ModelBehaviorError, match="Image attachment is not authorized") as exc_info:
+        await tool.on_invoke_tool(context, input_json)
+
+    assert image_path not in str(exc_info.value)
+    assert "image-1" not in str(exc_info.value)
+    assert state.start_calls == state.resume_calls == 0
+    assert state.last_input is None
 
 
 @pytest.mark.asyncio
@@ -1480,7 +1577,7 @@ def test_codex_tool_result_stringifies() -> None:
 
 def test_codex_tool_parse_input_rejects_invalid_json() -> None:
     with pytest.raises(ModelBehaviorError, match="Invalid JSON input for codex tool"):
-        codex_tool_module._parse_tool_input(codex_tool_module.CodexToolParameters, "{bad")
+        codex_tool_module._parse_tool_input(codex_tool_module.CodexToolParameters, "{bad", "python")
 
 
 def test_codex_tool_normalize_parameters_requires_inputs() -> None:
@@ -1488,12 +1585,17 @@ def test_codex_tool_normalize_parameters_requires_inputs() -> None:
         model_config = ConfigDict(extra="forbid")
 
     with pytest.raises(UserError, match="must include an inputs field"):
-        codex_tool_module._normalize_parameters(Dummy())
+        codex_tool_module._normalize_parameters(Dummy(), {})
 
 
 def test_codex_tool_coerce_options_rejects_unknown_fields() -> None:
     with pytest.raises(UserError, match="Unknown Codex tool option"):
         codex_tool_module._coerce_tool_options({"unknown": "value"})
+
+
+def test_codex_tool_rejects_unknown_parameter_validation_mode() -> None:
+    with pytest.raises(UserError, match="parameter_validation_mode"):
+        codex_tool({"parameter_validation_mode": "invalid"})
 
 
 def test_codex_tool_keyword_rejects_empty_run_context_key() -> None:
@@ -1641,21 +1743,6 @@ def test_codex_tool_input_item_accepts_local_image() -> None:
     item = codex_tool_module.CodexToolInputItem(type="local_image", path=" /tmp/img.png ")
     assert item.path == "/tmp/img.png"
     assert item.text is None
-
-
-def test_codex_tool_normalize_parameters_handles_local_image() -> None:
-    params = codex_tool_module.CodexToolParameters(
-        inputs=[
-            codex_tool_module.CodexToolInputItem(type="text", text="hello"),
-            codex_tool_module.CodexToolInputItem(type="local_image", path="/tmp/img.png"),
-        ]
-    )
-    normalized = codex_tool_module._normalize_parameters(params)
-    assert normalized["inputs"] == [
-        {"type": "text", "text": "hello"},
-        {"type": "local_image", "path": "/tmp/img.png"},
-    ]
-    assert normalized["thread_id"] is None
 
 
 def test_codex_tool_input_thread_id_validation_errors() -> None:
@@ -2014,6 +2101,91 @@ def test_codex_tool_resolve_codex_options_reads_env(monkeypatch: pytest.MonkeyPa
     assert resolved.api_key == "env-key"
 
 
+class _RegisteredThread(str, Enum):
+    SUMMARIES = "thread-7"
+
+
+class _StrictTupleParameters(BaseModel):
+    model_config = ConfigDict(strict=True)
+    inputs: tuple[CodexToolInputItem, ...]
+    thread_id: _RegisteredThread | Literal["thread-archive"]
+
+
+class _UnionParameters(BaseModel):
+    inputs: list[CodexToolInputItem]
+    thread_id: Path | str
+
+
+@pytest.mark.parametrize(
+    "parameters, options",
+    [
+        pytest.param(
+            _StrictTupleParameters, {"parameter_validation_mode": "json"}, id="strict-json"
+        ),
+        pytest.param(_UnionParameters, None, id="default-python-union"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_codex_tool_invokes_thread_with_custom_parameters(
+    parameters: type[BaseModel],
+    options: dict[str, str] | None,
+) -> None:
+    state = CodexMockState()
+    tool = codex_tool(
+        options,
+        parameters=parameters,
+        codex=cast(Codex, FakeCodex(state)),
+        failure_error_function=None,
+    )
+    input_json = (
+        '{"inputs":[{"type":"text","text":"Summarize","path":null}],"thread_id":"thread-7"}'
+    )
+    context = ToolContext(
+        None, tool_name=tool.name, tool_call_id="call-1", tool_arguments=input_json
+    )
+
+    await tool.on_invoke_tool(context, input_json)
+
+    assert state.last_input == [{"type": "text", "text": "Summarize"}]
+    assert state.last_resumed_thread_id == "thread-7"
+
+
+@pytest.mark.parametrize("mode", ["python", "json"])
+@pytest.mark.asyncio
+async def test_codex_tool_does_not_retry_a_rejected_thread_id(
+    mode: Literal["python", "json"],
+) -> None:
+    thread_lookups: list[tuple[str, str]] = []
+
+    class RegisteredThreadParameters(BaseModel):
+        inputs: list[CodexToolInputItem]
+        thread_id: str
+
+        @field_validator("thread_id")
+        @classmethod
+        def require_registered_thread(cls, value: str, info: ValidationInfo) -> str:
+            thread_lookups.append((info.mode, value))
+            raise ValueError("Unknown thread")
+
+    state = CodexMockState()
+    tool = codex_tool(
+        parameters=RegisteredThreadParameters,
+        parameter_validation_mode=mode,
+        codex=cast(Codex, FakeCodex(state)),
+        failure_error_function=None,
+    )
+    input_json = '{"inputs":[{"type":"text","text":"Summarize"}],"thread_id":"unknown"}'
+    context = ToolContext(
+        None, tool_name=tool.name, tool_call_id="call-1", tool_arguments=input_json
+    )
+
+    with pytest.raises(ModelBehaviorError):
+        await tool.on_invoke_tool(context, input_json)
+
+    assert thread_lookups == [(mode, "unknown")]
+    assert state.start_calls == state.resume_calls == 0
+
+
 def test_codex_tool_accepts_all_keyword_overrides() -> None:
     state = CodexMockState()
 
@@ -2076,18 +2248,21 @@ _CODEX_TOOL_ARGUMENT_SECRET = "SECRET_CODEX_TOOL_ARGUMENT_123"
     ids=["validation", "json_decode"],
 )
 @pytest.mark.parametrize("redact", [True, False], ids=["redacted", "diagnostic"])
+@pytest.mark.parametrize("mode", ["python", "json"])
 @pytest.mark.asyncio
 async def test_codex_tool_argument_errors_respect_tool_data_redaction(
     monkeypatch: pytest.MonkeyPatch,
     input_json: str,
     cause_type: type[Exception],
     redact: bool,
+    mode: Literal["python", "json"],
 ) -> None:
     monkeypatch.setattr(_debug, "DONT_LOG_TOOL_DATA", redact)
     tool = codex_tool(
         CodexToolOptions(
             codex=cast(Codex, FakeCodex(CodexMockState())),
             failure_error_function=None,
+            parameter_validation_mode=mode,
         )
     )
     context = ToolContext(

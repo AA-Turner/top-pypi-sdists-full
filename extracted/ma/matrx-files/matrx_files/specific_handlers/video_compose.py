@@ -53,39 +53,10 @@ class SlideSegment:
     duration: float | None = None
 
 
-# Sentinel for "no usable ffmpeg found" so the error is raised lazily at call
-# time (keeps `import matrx_utils` working in minimal environments).
-class FfmpegNotAvailableError(RuntimeError):
-    pass
-
-
-def _resolve_ffmpeg_binary() -> str:
-    """Locate an ffmpeg executable.
-
-    Order: imageio-ffmpeg's bundled static build (most portable — works in a
-    bare Docker image), then ``$FFMPEG_BINARY``, then ``ffmpeg`` on PATH.
-    """
-    try:
-        import imageio_ffmpeg
-
-        exe = imageio_ffmpeg.get_ffmpeg_exe()
-        if exe and os.path.exists(exe):
-            return exe
-    except Exception:
-        pass
-
-    env_bin = os.environ.get("FFMPEG_BINARY")
-    if env_bin and (os.path.exists(env_bin) or shutil.which(env_bin)):
-        return env_bin
-
-    which = shutil.which("ffmpeg")
-    if which:
-        return which
-
-    raise FfmpegNotAvailableError(
-        "No ffmpeg binary found. Install the bundled build with the matrx-files[media] extra "
-        "(pip install 'matrx-files[media]'), set $FFMPEG_BINARY, or put ffmpeg on PATH."
-    )
+# The ONE ffmpeg resolver and its error live in ``matrx_files.ffmpeg``; these names keep the
+# public export (``matrx_files.FfmpegNotAvailableError``) and in-package callers on that one copy.
+from ..ffmpeg import FfmpegNotAvailableError  # noqa: F401 — re-exported (matrx_files.__init__)
+from ..ffmpeg import resolve_ffmpeg_binary as _resolve_ffmpeg_binary
 
 
 def _probe_video_duration(path: str) -> float | None:

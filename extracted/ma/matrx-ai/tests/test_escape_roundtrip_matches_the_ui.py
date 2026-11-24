@@ -11,10 +11,10 @@ import pytest
 
 from matrx_ai.config.template_substitution import substitute_authored
 
-TABLE = Path(__file__).resolve().parents[3] / "apps/shared/rich-content/src/editor/core/__fixtures__/escape-roundtrip.json"
-# Standalone (the package outside this monorepo): the UI's table is not there, so nothing to agree with.
-SAMPLES = json.loads(TABLE.read_text())["samples"] if TABLE.exists() else []
-pytestmark = pytest.mark.skipif(not TABLE.exists(), reason="the UI's escape table lives in the aidream monorepo")
+# matrx-ai's copy of the UI's table (apps/shared/rich-content/src/editor/core/__fixtures__/escape-roundtrip.json);
+# tests/package_host_contracts/test_matrx_ai_fixture_copies.py keeps it byte-identical.
+TABLE = Path(__file__).resolve().parent / "fixtures" / "escape_roundtrip.json"
+SAMPLES = json.loads(TABLE.read_text())["samples"]
 
 
 @pytest.mark.parametrize(("token", "escapable"), SAMPLES)

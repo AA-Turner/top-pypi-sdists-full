@@ -238,6 +238,76 @@ def _explicit_effort(canonical: dict[str, Any]) -> str | None:
     return effort
 
 
+DEPTH_LAW = "specific-beats-general"
+_DEPTH_SHORT = D.DEPTH_SHORT_NAME
+
+
+def _named_level(canonical: dict[str, Any]) -> str | None:
+    level = canonical.get("thinking_level")
+    if level is None or level == "auto":
+        return None
+    return str(level)
+
+
+def _apply_depth_law(
+    canonical: dict[str, Any],
+    ctx: ProcessorContext,
+    *,
+    order: tuple[str, ...],
+    label: str,
+) -> dict[str, Any]:
+    """THE DEPTH ORDER of one thinking processor, every loser recorded (PB-03 U6; Arman's ruling
+    2026-11-09: no saved agent's depth changes silently).
+
+    The caller named depth more than one way. ``order`` is that processor's precedence, most
+    preferred first, and it is EXACTLY what the processor did before C73 (effort beat budget on
+    adaptive Claude and Gemini 3; budget beat effort on Gemini legacy and Claude budget mode) with
+    one declared exception: on Gemini 3 a named ``thinking_level`` (the provider's own word)
+    beats a ``reasoning_effort`` tier (``specific-beats-general``, the original U6 fix). The
+    caller's key order never matters. A value set for THIS run already beat a stored agent
+    setting upstream (``CompiledControlsMap.run_value_beats_stored``), so only one source competes here.
+
+    Every loser is ``overridden`` with the law that decided it named (``effort-beats-budget
+    (adaptive)``) and the KEPT value in ``sent_value`` (the ``to`` of the stored row): announced,
+    never silent. Returns the canonical dict the processor then reads (losers removed)."""
+    candidates: list[tuple[str, Any]] = []
+    for key in order:
+        value = _named_level(canonical) if key == "thinking_level" else (
+            _explicit_effort(canonical) if key == "reasoning_effort" else canonical.get(key)
+        )
+        if value is not None:
+            candidates.append((key, value))
+    if not candidates[1:]:
+        return canonical
+    winner_key, winner_value = candidates[0]
+    out = dict(canonical)
+    for key, value in candidates[1:]:
+        out.pop(key, None)
+        if str(value) == str(winner_value):
+            continue  # the same word twice loses nothing
+        law = (
+            DEPTH_LAW
+            if (winner_key, key) == D.DEPTH_SPECIFIC_OVER_GENERAL
+            else f"{_DEPTH_SHORT[winner_key]}-beats-{_DEPTH_SHORT[key]} ({label})"
+        )
+        ctx.adjustments.append(
+            Adjustment(
+                key=key,
+                action="overridden",
+                canonical_value=value,
+                sent_value=winner_value,
+                expected=True,
+                provenance="computed",
+                law=law,
+                reason=(
+                    f"{winner_key} {winner_value!r} was also given: on this model it takes "
+                    f"precedence ({law}), so {key} {value!r} was not used"
+                ),
+            )
+        )
+    return out
+
+
 # ── anthropic_thinking ───────────────────────────────────────────────────────
 # Exact port of ThinkingConfig.to_anthropic_thinking (mode "budget", default)
 # and to_anthropic_adaptive_thinking (mode "adaptive"), PLUS the translator's
@@ -373,8 +443,11 @@ def _anthropic_budget_thinking(
     min_budget = int(ctx.table("min_budget_tokens", D.ANTHROPIC_MIN_BUDGET_TOKENS))
     headroom = int(ctx.table("max_tokens_headroom", D.ANTHROPIC_MAX_TOKENS_HEADROOM))
 
-    # Budget resolution — thinking_budget WINS over effort (legacy contract).
+    # Budget resolution — one law, ``specific-beats-general`` (_apply_depth_law).
     thinking_budget: int | None = None
+    canonical = _apply_depth_law(
+        canonical, ctx, order=D.DEPTH_ORDER_ANTHROPIC_BUDGET, label="budget mode"
+    )
     if canonical.get("thinking_budget") is not None:
         thinking_budget = int(canonical["thinking_budget"])
     else:
@@ -566,6 +639,10 @@ def _anthropic_adaptive_thinking(
     # then converts to the nearest accepted equivalent instead of omitting the
     # block (which would silently run the model's DEFAULT, deeper, effort).
     always_on = bool(ctx.config.get("thinking_always_on"))
+
+    canonical = _apply_depth_law(
+        canonical, ctx, order=D.DEPTH_ORDER_ANTHROPIC_ADAPTIVE, label="adaptive"
+    )
 
     # Priority 1: reasoning_effort ("none" is an explicit off switch).
     explicit = _explicit_effort(canonical)
@@ -846,6 +923,9 @@ def _google_thinking_legacy_fragment(
         fragment["include_thoughts"] = include_thoughts
 
     thinking_budget: int | None = None
+    canonical = _apply_depth_law(
+        canonical, ctx, order=D.DEPTH_ORDER_GEMINI_LEGACY, label="gemini legacy"
+    )
     if canonical.get("thinking_budget") is not None:
         thinking_budget = int(canonical["thinking_budget"])
     else:
@@ -880,6 +960,16 @@ def _google_thinking_3_fragment(
     thinking_level: str | None = None
     include_thoughts: bool | None = None
 
+    # A named level beats an effort tier only when both came with THIS run; both from the agent's
+    # stored settings keep the pre-C73 order (effort won), so no saved agent's depth moves silently.
+    stored = set(canonical.get("_depth_stored") or ())
+    both_stored = set(D.DEPTH_SPECIFIC_OVER_GENERAL) <= stored
+    canonical = _apply_depth_law(
+        canonical,
+        ctx,
+        order=D.DEPTH_ORDER_GEMINI_3_STORED if both_stored else D.DEPTH_ORDER_GEMINI_3,
+        label="gemini 3",
+    )
     effort = _explicit_effort(canonical)
     default_map = D.GOOGLE_3_EFFORT_TO_LEVEL.get(
         family, D.GOOGLE_3_EFFORT_TO_LEVEL[D.GOOGLE_3_DEFAULT_FAMILY]
@@ -1037,12 +1127,14 @@ def _derive_wh_table(
 
 def _derive_wh_anchor1024(
     canonical: dict[str, Any], ctx: ProcessorContext | None = None
-) -> tuple[int, int]:
+) -> tuple[int | None, int | None]:
     """Port of TogetherImageGeneration._derive_wh: NO table — every ratio is
-    computed off the anchor short edge; unparseable/missing ratios fall back to
-    the declared fallback ratio (1:1)."""
+    computed off the anchor short edge; unparseable ratios fall back to the
+    fallback ratio (1:1), while an unset ratio sends no dimensions."""
     fa, fb = D.MEDIA_ANCHOR_FALLBACK_RATIO
-    aspect = canonical.get("aspect_ratio") or f"{fa}:{fb}"
+    aspect = canonical.get("aspect_ratio")
+    if aspect is None:
+        return None, None
     try:
         a, b = (int(x) for x in str(aspect).split(":", 1))
     except (ValueError, TypeError):
@@ -1076,7 +1168,7 @@ def media_dims(
         "size"         -> "WxH" string via the table derivation
                           (openai image, recraft, seedream)
         "wh"           -> width+height ints; arithmetic: "table" | "anchor1024"
-                          (together image always sends both)
+                          (sends both only when dimensions or a ratio are set)
         "aspect_ratio" -> ratio string, optionally derived from width/height
                           (derive, default True), gated by ``allowed`` with
                           ``fallback`` (send fallback on miss/unset) or dropped

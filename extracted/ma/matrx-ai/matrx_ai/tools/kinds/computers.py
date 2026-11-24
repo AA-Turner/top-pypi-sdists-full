@@ -41,6 +41,11 @@ class ComputersResult(KindModel):
     provider: str | None = None
     folder: str | None = None
     link: str | None = None
+    # start_coding filing: the run is filed once its chat reaches AI Matrx.
+    filed: bool | None = None
+    filing: str | None = None
+    filing_homes: int | None = None
+    note: str | None = None
 
 
 COMPUTERS_TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {"computers": ComputersResult}

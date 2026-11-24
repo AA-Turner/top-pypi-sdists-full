@@ -152,14 +152,14 @@ class StateRequestSubmitter:
                 )
                 view_traversal_duration_ms = int((perf_counter() - view_traversal_start) * 1000)
 
-                # Non-table references (e.g. Snowflake Stages) were skipped during traversal, so
+                # Non-table references (e.g. Snowflake Stages, table-valued functions) were skipped, so
                 # nothing can check their freshness. A source with a freshness override is never expanded,
                 # so reaching one here means no override covers it. Run without state rather than risk
                 # reusing a model whose upstream data changed
                 if traversal_result.unsupported_references:
                     events.fire_warn_event_with_cache_bypass(
-                        "Model {} reads from {}, table reference(s) that dbt State does not currently support,"
-                        " so they cannot be checked for updates."
+                        "Model {} reads from {}, stage(s) or table-valued function(s) that dbt State does not"
+                        " currently support, so they cannot be checked for updates."
                         " To let dbt State check for updates, read them through a view declared as a dbt source"
                         " with loaded_at_field or loaded_at_query. See {}",
                         node.unique_id,
@@ -307,9 +307,9 @@ class StateRequestSubmitter:
         result = dev_cloner.get_clone_source(node)
         if not result:
             return None
-        clone_source, clone_source_table_type = result
+        clone_source, clone_source_table_type, skip_if_unchanged = result
         clone_request = self._request_builder.build_clone_request(
-            node, clone_source, clone_source_table_type
+            node, clone_source, clone_source_table_type, skip_if_unchanged=skip_if_unchanged
         )
         return self._query_cache_client.register_clone(clone_request)
 

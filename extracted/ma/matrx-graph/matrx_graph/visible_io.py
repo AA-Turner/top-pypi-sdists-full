@@ -13,7 +13,8 @@ fields ARE the run form), and every result leaves through a visible output step
 * ``hidden_input`` — a run-level value a step reads that no input step shows: a ``{"$input": name}``
   / ``{"$var": name}`` reference whose name is not an input-step field, a declared variable
   (``definition.variables`` — set in a toolbar dialog, never drawn on the canvas) no input step
-  shows, a ``{"$run": …}`` / ``{run.…}`` read, a ``{{trigger.…}}`` placeholder, or an entry step
+  shows (a workflow setting, a variable in the ``Settings`` group, is shown by the Settings panel and is never
+  hidden), a ``{"$run": …}`` / ``{run.…}`` read, a ``{{trigger.…}}`` placeholder, or an entry step
   that reads the caller's values straight from ``inputs``;
 * ``hidden_write`` — a step that saves a record, changes a setting or calls an outside service
   (its registered ``determinism`` is ``side_effect``) with no path to an output step.
@@ -25,6 +26,8 @@ or for a type the registry does not know, a write is recognised by its name.
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 import re
 from collections import defaultdict, deque
 from dataclasses import dataclass
@@ -34,7 +37,7 @@ if TYPE_CHECKING:
     from matrx_graph.executor.registry import NodeRegistry
     from matrx_graph.types.definition import Definition, NodeDef
 
-INPUT_STEP_TYPES = frozenset({"io.user_input"})
+INPUT_STEP_TYPES = frozenset({"io.user_input", "io.trigger"})
 OUTPUT_STEP_TYPES = frozenset({"output.to_frontend"})
 #: Side-effect steps that are not "secret writes": the output pack itself (it shows), and the run log.
 _NOT_A_WRITE_PREFIXES = ("output.", "log.")
@@ -47,6 +50,12 @@ _WRITE_NAME = re.compile(
 _TRIGGER_PLACEHOLDER = re.compile(r"\{\{\s*trigger[.\]\[]")
 _RUN_PLACEHOLDER = re.compile(r"\{run[.}]")
 _ENTRY_READS_INPUTS = re.compile(r"\binputs\s*(\[|\.get\()|get\(\s*inputs\s*,")
+
+#: ``Definition.metadata["runs_as"]`` (set with the ``set_workflow_setting`` patch op): ``step`` = the workflow
+#: runs as a step of other workflows (Run Workflow), whose canvas and run page show its result — it needs no
+#: screen step of its own (a Show on Screen inside a called workflow is seen by nobody). ``inline`` = the same, and
+#: Run Workflow runs it INSIDE the calling step, no run of its own (``nodes/subgraph/inline.py``). Default ``standalone``.
+RUNS_AS = ("standalone", "step", "inline")
 
 CODES = ("no_input_step", "unlabelled_input_field", "no_output_step", "hidden_input", "hidden_write")
 
@@ -97,13 +106,15 @@ def _reads_run(value: Any) -> bool:
 
 def input_fields(definition: Definition) -> dict[str, dict[str, Any]]:
     """Every field shown on an input step, by key."""
+    definition = _information.executable_of(definition)  # a note is not a step
     fields: dict[str, dict[str, Any]] = {}
     for node in definition.nodes:
         if node.spec_type not in INPUT_STEP_TYPES:
             continue
         for fld in (node.config or {}).get("fields") or []:
-            if isinstance(fld, dict) and fld.get("key"):
-                fields.setdefault(str(fld["key"]), {**fld, "_node_id": node.id})
+            name = fld.get("key") or fld.get("name") if isinstance(fld, dict) else None
+            if name:
+                fields.setdefault(str(name), {**fld, "_node_id": node.id})
     return fields
 
 
@@ -133,9 +144,15 @@ def _reaches_output(definition: Definition) -> set[str]:
 
 
 def visible_io_findings(definition: Definition, registry: NodeRegistry | None = None) -> list[VisibleIoFinding]:
+    definition = _information.executable_of(definition)  # a note is not a step
     findings: list[VisibleIoFinding] = []
     fields = input_fields(definition)
     shown = set(fields)
+    # A workflow setting (workflow_settings.py) is shown too: the canvas's Settings panel draws it, labelled and
+    # typed, and a run's override passes the same type check. It is a visible input, never a hidden one.
+    from matrx_graph.workflow_settings import declared_settings
+
+    shown |= {s.name for s in declared_settings(list(definition.variables or []))}
     has_input = any(n.spec_type in INPUT_STEP_TYPES for n in definition.nodes)
     has_output = any(n.spec_type in OUTPUT_STEP_TYPES for n in definition.nodes)
 
@@ -152,7 +169,8 @@ def visible_io_findings(definition: Definition, registry: NodeRegistry | None = 
                 f"Input field '{key}' has no label. Give it one so a person can say what it asks for.",
                 node_id=fld["_node_id"], subject=key,
             ))
-    if not has_output:
+    runs_as_step = (definition.metadata or {}).get("runs_as") in ("step", "inline")
+    if not has_output and not runs_as_step:
         findings.append(VisibleIoFinding(
             "no_output_step",
             "This workflow has no output step, so nobody opening it can see what it produces. End it "

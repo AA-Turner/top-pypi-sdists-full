@@ -284,7 +284,10 @@ def from_organized_data(items: Any, *, method: str = "native") -> list[dict[str,
             rows = [r for r in item.get("rows") or [] if isinstance(r, dict)]
             if not rows:
                 continue
-            columns = list(dict.fromkeys(col for row in rows for col in row))
+            # The table's own column list when it names one: a stored parse (jsonb) re-sorts each
+            # row's keys, so the rows' key order is not the page's column order.
+            named = [str(c) for c in item.get("columns") or [] if isinstance(c, str)]
+            columns = list(dict.fromkeys([*named, *(col for row in rows for col in row)]))
             drafts[-1][1].extend(line for col in columns if not _is_generic_column(col) for line in _tidy_lines(col))
             for row in rows:
                 for col in columns:

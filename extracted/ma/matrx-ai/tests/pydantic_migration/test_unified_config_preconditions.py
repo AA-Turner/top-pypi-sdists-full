@@ -125,5 +125,32 @@ def test_the_declared_field_count_the_plan_rests_on():
     after the agent's by the send boundary — L3 one-chat G1), twinned.
 
     119 since 2026-10-24: authored_settings (the agent's own settings layer a removed override
-    falls back to — model default < agent < the person's override, L5), twinned."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 119
+    falls back to — model default < agent < the person's override, L5), twinned.
+
+    121 since 2026-11-05: understanding_mode (a conversation's Understanding mode, stored like
+    conversation_instructions) + understanding_discovery_text, twinned.
+
+    120 since 2026-11-08: understanding_discovery_text removed — each mode's guidance rides the
+    per-turn understanding context block, never the system prompt.
+
+    121 since 2026-11-11: tools_turn_only_restore (CGU-10 IMG7 #2 — a turn-only tool strip, in
+    memory, never stored), twinned.
+
+    122 since 2026-11-11: stored_route_baseline (CGU-10 IMG9 #2 — the route the row holds; a move
+    outside the sanctioned doors is announced and never stored), twinned.
+
+    123 since 2026-11-11: model_swaps_this_turn (CGU-10 AND-IMG12 #3 — the turn's stand-in trace,
+    in memory, never stored; it lands on the chat.request row), twinned.
+
+    124 since 2026-11-14 (c3f6b0576b9): agent_tool_arg_limits (C.12 — the agent's per-tool argument
+    limit from tool_config.arg_limits, stored with the agent fields), twinned.
+
+    125 since 2026-11-19: understanding_mode became agent_mode (a key of the agent's modes), and
+    agent_modes (the agent's modes, stored with the agent fields — config/agent_modes.py), twinned.
+
+    128 since 2026-11-21: agent_mode_known, agent_mode_person_set, agent_mode_settled_request (the mode the agent
+    last knew and the person's flip this turn, D17; in memory, never stored), twinned.
+
+    130 since 2026-11-21: model_picked_by_person (did the person pick the model; in memory), twinned, plus one
+    more field main added the same day."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 130

@@ -197,7 +197,7 @@ def resolve_compat_mode(raw: Any) -> CompatMode:
 
 def prefill_refusal_sentence(model_label: str) -> str:
     return (
-        f"{model_label} cannot continue a reply from a prefill — the provider rejects a "
+        "This model cannot continue a reply from a prefill — the provider rejects a "
         "conversation that ends on an assistant message, and this organization's message-flag "
         "compatibility is set to refuse. Remove the Prefill flag, pick a model that supports "
         "prefill, or set message-flag compatibility to convert."
@@ -247,12 +247,12 @@ def plan_message_flags(
                     f"(do not repeat or quote it separately):\n{text}"
                 )
                 plan.notes.append(
-                    f"{model_label} cannot take a prefill, so it was asked to begin its reply with "
+                    "This model cannot take a prefill, so it was asked to begin its reply with "
                     "the prefill text — asked for, not forced."
                 )
             else:
                 plan.notes.append(
-                    f"{model_label} cannot take a prefill, so the prefill was not sent "
+                    "This model cannot take a prefill, so the prefill was not sent "
                     "(organization setting: drop)."
                 )
             continue
@@ -311,7 +311,6 @@ def apply_prefill_to_reply(response_messages: Sequence[Any], plan: FlagPlan) -> 
 
 
 __all__ = [
-    "CACHE_BOUNDARY_BY_WIRE",
     "COMPAT_MODES",
     "COMPAT_MODE_KNOB",
     "COMPAT_MODE_METADATA_KEY",

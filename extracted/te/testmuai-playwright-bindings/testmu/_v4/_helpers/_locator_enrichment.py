@@ -216,6 +216,25 @@ async def _generate_with_playwright(cdp, object_id: str, page) -> dict[str, Any]
             await _remove_tag(page, tag, frame)
 
 
+async def _enrich_portable(page, element: dict[str, Any]) -> dict[str, Any] | None:
+    """Portable-handle arm: Playwright's generator via the aria-ref locator.
+    Returns the leaf selector only, same shape as the CDP path."""
+    from testmu._aria_perception._snapshot import PlaywrightInternalsError
+    from testmu._v4._helpers.aria_perception import enrich_ref_locator
+    try:
+        enriched = await enrich_ref_locator(
+            page, {"backend_dom_node_id": element["backend_dom_node_id"]},
+        )
+    except PlaywrightInternalsError:
+        raise
+    except Exception as e:
+        _log.warning("[autoheal] portable enrichment failed: %s", e)
+        return None
+    if not enriched or not enriched.get("locator"):
+        return None
+    return {"locator": enriched["locator"], "locator_type": enriched.get("locator_type", "playwright")}
+
+
 async def enrich_element_locator(
     cdp, element: dict[str, Any], page: Any = None,
 ) -> dict[str, Any] | None:

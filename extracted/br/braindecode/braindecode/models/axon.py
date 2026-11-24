@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from braindecode.functional import (
+    check_n_chans,
     scaled_dot_product_attention,
     sinusoidal_positional_encoding,
 )
@@ -24,6 +25,15 @@ class AXON(EEGModuleMixin, nn.Module, license="apache-2.0"):
     r"""AXON, an axis-factorized EEG foundation model from Jain et al. (2026) [axon2026]_.
 
     :bdg-danger:`Foundation Model` :bdg-info:`Attention/Transformer` :bdg-dark-line:`Channel`
+
+    .. figure:: ../_static/model/axon_arch.png
+       :align: center
+       :alt: AXON token grid and AXON block
+       :width: 1000px
+
+       (a) The channel-time token grid with the temporal and spatial neighbourhoods
+       of a token; (b) an AXON block, which mixes the two paths with a token gate.
+       Reproduced from Fig. 1 of [axon2026]_ (CC BY-NC-ND 4.0).
 
     AXON (**AX**\ is-factorized **O**\ perator **N**\ etwork) is a transformer
     encoder pretrained with masked autoencoding on clinical and research EEG.
@@ -135,6 +145,9 @@ class AXON(EEGModuleMixin, nn.Module, license="apache-2.0"):
        https://arxiv.org/abs/2609.08788
     """
 
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: encoder.channel_positions is sized by n_chans
+
     def __init__(
         self,
         # signal parameters
@@ -216,6 +229,10 @@ class AXON(EEGModuleMixin, nn.Module, license="apache-2.0"):
             att_drop_prob=att_drop_prob,
         )
         self.final_layer = self._build_head(self.n_outputs)
+        self._min_n_times = patch_size
+        self._n_times_step = patch_stride
+        self._n_times_offset = patch_size
+        self._snaps_in_prepare_inputs = "pad_only"
 
     def _build_head(self, n_outputs: int) -> nn.Module:
         return nn.Sequential(
@@ -254,6 +271,7 @@ class AXON(EEGModuleMixin, nn.Module, license="apache-2.0"):
         torch.Tensor
             Tokens of shape (batch, n_chans, n_patches, embed_dim).
         """
+        check_n_chans(x, self.n_chans, "AXON")
         return self.encoder(x)
 
     def forward(self, x: torch.Tensor, return_features: bool = False):
@@ -277,7 +295,7 @@ class AXON(EEGModuleMixin, nn.Module, license="apache-2.0"):
             Logits of shape (batch, n_outputs), or the feature dict when
             ``return_features`` is True.
         """
-        tokens = self.encoder(x)
+        tokens = self.encode(x)
         features = tokens.mean(dim=(1, 2))
         logits = self.final_layer(features)
 

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: sqlbuild
-Version: 0.259.0
+Version: 0.260.0
 Requires-Dist: duckdb>=2.0.0
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: orjson>=3.11.7
 Requires-Dist: polyglot-sql-chio==0.13.10
 Requires-Dist: pydantic-settings>=2,<3
 Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: sqlbuild-cli==0.259.0
+Requires-Dist: sqlbuild-cli==0.260.0
 Requires-Dist: google-cloud-bigquery>=3.37.0 ; extra == 'bigquery'
 Requires-Dist: clickhouse-connect>=0.15 ; extra == 'clickhouse'
 Requires-Dist: dagster>=1.13.0 ; extra == 'dagster'
@@ -158,7 +158,7 @@ from sqlbuild.rules import Finding, Model, RuleContext, rule
     remediation="Reference a staging model with __ref() instead.",
 )
 def marts_use_staging(*, model: Model, ctx: RuleContext) -> list[Finding]:
-    layer = ctx.project.tree.relative_parts(path=model.path, under="models")[0]
+    layer = ctx.project.tree.relative_parts(path=model.path, under="sql/models")[0]
     sql = ctx.sql.for_model(model).authored.source
     if layer != "marts" or "__source(" not in sql:
         return []

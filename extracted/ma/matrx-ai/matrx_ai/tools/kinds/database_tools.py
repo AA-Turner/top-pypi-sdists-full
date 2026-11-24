@@ -52,6 +52,10 @@ class DataToolResult(KindModel):
     total: int | None = None
     truncated: bool | None = None
     truncation_notice: str | None = None
+    #: `query` with no filter — a plain listing, labelled so it is never shown
+    #: as search results (``aidream.tools.data_tool.unfiltered_listing_label``).
+    unfiltered: bool | None = None
+    unfiltered_notice: str | None = None
     #: `get` / `create` / `update`.
     record: dict | None = None
     created: bool | None = None
@@ -151,6 +155,9 @@ class SqlToolResult(KindModel):
     foreign_keys: list[str] | None = None
     referenced_by: list[str] | None = None
     fk_lookup_error: dict | None = None
+    #: `schema` (one table) — per column, the allowed values of its enum-style CHECK constraints.
+    allowed_values: dict[str, list[str]] | None = None
+    allowed_values_lookup_error: dict | None = None
     #: write receipts — the verb key carries the affected-row count.
     inserted: int | None = None
     updated: int | None = None

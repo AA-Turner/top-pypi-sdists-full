@@ -14,9 +14,9 @@ from __future__ import annotations
 
 __lazy_modules__ = (
     "functools",
-    "nab_resolver.diagnostics",
     "nab_markersets.errors",
     "nab_markersets.python_versions",
+    "nab_resolver.diagnostics",
 )
 
 from functools import wraps
@@ -34,7 +34,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
     from collections.abc import Set as AbstractSet
 
-    from ._markersets import Formula, MarkerLike
+    from packaging.markers import Marker
+
+    from ._markersets import Formula
 
 # Resource caps, not semantic parameters: no answer depends on their value, so
 # neither reaches the public surface. `_MAX_CELLS` bounds one decision and
@@ -53,11 +55,13 @@ def __dir__() -> list[str]:
     return __all__
 
 
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
+_MethodParameters = ParamSpec("_MethodParameters")
+_MethodResult = TypeVar("_MethodResult")
 
 
-def _bounded(method: Callable[_P, _R]) -> Callable[_P, _R]:
+def _bounded(
+    method: Callable[_MethodParameters, _MethodResult],
+) -> Callable[_MethodParameters, _MethodResult]:
     """Report a walk's :class:`RecursionError` as the algebra's bounded failure.
 
     A tree walk recurses as deep as the marker nests, so pathological input
@@ -65,7 +69,9 @@ def _bounded(method: Callable[_P, _R]) -> Callable[_P, _R]:
     """
 
     @wraps(method)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+    def wrapper(
+        *args: _MethodParameters.args, **kwargs: _MethodParameters.kwargs
+    ) -> _MethodResult:
         try:
             return method(*args, **kwargs)
         except RecursionError as exc:
@@ -87,7 +93,7 @@ class DecisionStore(_markersets.Memo):
     __slots__ = ()
 
 
-def factor_membership_marker(marker: str | MarkerLike) -> str:
+def factor_membership_marker(marker: str | Marker) -> str:
     """Return equivalent text with certified membership factoring.
 
     Other shapes and bounded refusals keep the original text.
@@ -175,10 +181,10 @@ class MarkerSet:
 
     @classmethod
     @_bounded
-    def from_marker(cls, marker: str | MarkerLike) -> MarkerSet:
+    def from_marker(cls, marker: str | Marker) -> MarkerSet:
         """Return the set of environments a marker denotes.
 
-        A ``Marker`` from either copy of packaging is read through ``str()``. A
+        A ``Marker`` is read through ``str()``. A
         blank string is the absent marker and gives the full set, where
         packaging refuses it.
 
@@ -194,7 +200,7 @@ class MarkerSet:
     @classmethod
     @_bounded
     def from_marker_with_variables(
-        cls, marker: str | MarkerLike
+        cls, marker: str | Marker
     ) -> tuple[MarkerSet, frozenset[str]]:
         """Return a marker set and the variable names from the same parsed syntax.
 
@@ -418,6 +424,15 @@ class MarkerSet:
         _markersets.reject_oversized_literals(self._tree, prepared)
         validate_python_environment(prepared)
         return self._wrap(_markersets.restrict_tree(self._tree, prepared))
+
+    @_bounded
+    def with_cpython_implementation_version(self) -> MarkerSet:
+        """Read ``implementation_version`` from ``python_full_version`` on CPython.
+
+        The caller supplies the interpreter choice. Other marker variables keep
+        their original meaning.
+        """
+        return self._wrap(_markersets.with_cpython_implementation_version(self._tree))
 
     @_bounded
     def set_memberships(self) -> frozenset[tuple[str, str]]:

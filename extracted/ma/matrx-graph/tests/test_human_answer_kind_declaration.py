@@ -21,8 +21,6 @@ def test_human_answer_schema_keeps_the_live_open_map_marker_contract() -> None:
         "type": "string",
         "description": "The registered kind this payload is an instance of, when it is one.",
     }
-    # A closed sub-object has no identity: its marker is pinned ``const ""``
-    # (KindSubModel), never a free string an agent can fill with junk. The
-    # compatibility gate accepts free -> const "" (readers normalize).
-    marker = schema["$defs"]["DecisionProvenance"]["properties"]["__kind"]
-    assert marker["const"] == "" and marker["type"] == "string"
+    # A closed sub-object has no identity and declares NO marker (rule 31: never a
+    # blank ``const ""``). The compatibility gate accepts removing the live blank.
+    assert "__kind" not in schema["$defs"]["DecisionProvenance"]["properties"]

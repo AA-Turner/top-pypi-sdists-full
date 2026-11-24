@@ -12,10 +12,12 @@
 #     RIPGREP_BINARY: Path to ripgrep binary (default: rg)
 #     RIPGREP_ARGS: Default ripgrep arguments (JSON array)
 #     RIPGREP_ARGS_EXTRA: Extra arguments to append (JSON array)
-#     RIPGREP_TIMEOUT: Search timeout in seconds (default: 90)
+#     RIPGREP_TIMEOUT: Search timeout in seconds (default and hard maximum: 2)
 
 import os
+import signal
 import subprocess
+import time
 import threading
 import stat
 from fnmatch import fnmatchcase
@@ -34,6 +36,7 @@ from abx_plugins.plugins.base.search_candidates import (
 from abx_plugins.plugins.base.search_command import run_search_command
 
 
+MAX_SCAN_SECONDS = 2
 LEGACY_TIMESTAMP_RE = re.compile(r"^\d{10}(?:\.\d+)?$")
 DEFAULT_CONTENT_EXCLUDES = ("*.json", "*.jsonl", "*.log", "*.pid", "*.css", "*.js")
 DEEP_EXCLUDES = ("*.pid", "*.css", "*.js")
@@ -126,7 +129,7 @@ def _build_cmd(
             "ripgrep binary not found. Install with: apt install ripgrep",
         )
 
-    timeout = int(config.RIPGREP_TIMEOUT)
+    timeout = min(MAX_SCAN_SECONDS, max(1, int(config.RIPGREP_TIMEOUT)))
     ripgrep_args = [arg for arg in config.RIPGREP_ARGS if arg not in {"--follow", "-L"}]
     ripgrep_args_extra = [
         arg for arg in config.RIPGREP_ARGS_EXTRA if arg not in {"--follow", "-L"}
@@ -142,6 +145,7 @@ def _build_cmd(
         resolved_rg,
         *ripgrep_args,
         *ripgrep_args_extra,
+        "--threads=1",
         "--files-with-matches",
         "--line-buffered",
         "--no-messages",
@@ -229,20 +233,6 @@ def _scan_candidate(candidate, terms, budget, rg_binary):
                 incomplete.update(active)
                 return
             observed.update(active)
-            if budget.streaming:
-                complete = budget.match_stream(
-                    stream.read,
-                    info.st_size,
-                    active,
-                    found.matches,
-                )
-                current = os.fstat(fd)
-                if not complete or (current.st_size, current.st_mtime_ns) != (
-                    info.st_size,
-                    info.st_mtime_ns,
-                ):
-                    incomplete.update(active)
-                return
             count = min(info.st_size, budget.bytes, budget.per_file)
             data = stream.read(count)
             budget.bytes -= len(data)
@@ -363,6 +353,10 @@ def search_candidates(
         Path(__file__).with_name("config.json"),
         hydrate_binaries=False,
     )
+    budget.deadline = min(
+        budget.deadline,
+        time.monotonic() + min(MAX_SCAN_SECONDS, max(1, int(config.RIPGREP_TIMEOUT))),
+    )
     for candidate in candidates:
         if not budget.remaining():
             return
@@ -380,6 +374,24 @@ def flush(snapshot_ids: Iterable[str]) -> None:
 
 
 if __name__ == "__main__":
-    raise SystemExit(
-        run_search_command(iter_search, flush, search_candidates=search_candidates),
-    )
+    # The wall clock covers root discovery and stalled filesystem calls too.
+    # The host also reaps the entire process group if storage stops responding.
+    class ScanDeadline(Exception):
+        pass
+
+    def expired(signum, frame):
+        raise ScanDeadline("Ripgrep search reached its wall-clock budget")
+
+    signal.signal(signal.SIGALRM, expired)
+    signal.setitimer(signal.ITIMER_REAL, MAX_SCAN_SECONDS)
+    try:
+        raise SystemExit(
+            run_search_command(
+                iter_search,
+                flush,
+                search_candidates=search_candidates,
+                allow_streaming=False,
+            ),
+        )
+    except ScanDeadline:
+        raise SystemExit(0)

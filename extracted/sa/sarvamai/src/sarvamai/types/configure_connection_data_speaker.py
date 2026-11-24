@@ -4,13 +4,6 @@ import typing
 
 ConfigureConnectionDataSpeaker = typing.Union[
     typing.Literal[
-        "anushka",
-        "abhilash",
-        "manisha",
-        "vidya",
-        "arya",
-        "karun",
-        "hitesh",
         "aditya",
         "ritu",
         "priya",

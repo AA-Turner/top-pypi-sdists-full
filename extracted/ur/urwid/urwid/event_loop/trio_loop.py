@@ -229,15 +229,14 @@ class TrioEventLoop(EventLoop):
         """Remove an alarm.
 
         :param handle: the handle of the alarm to remove
-        :returns: True if the alarm was still pending, False if it has fired or was removed already
+        :returns: True if the alarm was still pending, False if it has fired, was removed already,
+            or was cancelled directly with handle.cancel()
         """
-        try:
-            self._pending_alarms.remove(handle)
-        except KeyError:
-            return False
-        finally:
-            handle.cancel()
-        return True
+        # A directly cancelled scope stays in _pending_alarms until its task unwinds.
+        existed = handle in self._pending_alarms and not self._cancel_called(handle)
+        self._pending_alarms.discard(handle)
+        handle.cancel()
+        return existed
 
     def remove_enter_idle(self, handle: int) -> bool:
         """Remove an idle callback.
@@ -259,13 +258,27 @@ class TrioEventLoop(EventLoop):
         """
         return self._cancel_scope(handle)
 
+    @staticmethod
+    def _cancel_called(scope: trio.CancelScope) -> bool:
+        """Read cancellation state before or during a Trio run.
+
+        :raises RuntimeError: when reading the property fails inside a Trio run
+        """
+        try:
+            return scope.cancel_called
+        except RuntimeError:
+            if trio.lowlevel.in_trio_run():
+                raise
+            # Trio reads its clock for a scope not yet cancelled, which needs a running loop.
+            return False
+
     def _cancel_scope(self, scope: trio.CancelScope) -> bool:
         """Cancel the given Trio cancellation scope.
 
         :param scope: the Trio cancellation scope to cancel
         :returns: True if the scope was cancelled, False if it was cancelled already before invoking this function
         """
-        existed = not scope.cancel_called
+        existed = not self._cancel_called(scope)
         scope.cancel()
         return existed
 
@@ -301,6 +314,15 @@ class TrioEventLoop(EventLoop):
             trio.run(self._main_task, instruments=[emulate_idle_callbacks])
         except BaseException as exc:  # noqa: BLE001  # would be handled
             self._handle_main_loop_exception(exc)
+
+    def _check_run(self) -> None:
+        """Raise the error :func:`trio.run` raises inside a Trio run.
+
+        :raises RuntimeError: this thread is inside a Trio run.
+        """
+        if trio.lowlevel.in_trio_run():
+            msg = "Attempted to call run() from inside a run()"
+            raise RuntimeError(msg)
 
     async def run_async(self) -> None:
         """Start the main loop and block asynchronously until the main loop exits.

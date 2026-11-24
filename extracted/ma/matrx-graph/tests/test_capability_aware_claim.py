@@ -99,6 +99,7 @@ async def _live_contained(required: Any, caps: list[str]) -> bool:
         return bool(await conn.fetchval(f"SELECT {clause} FROM (SELECT $1::jsonb AS metadata) x", *params))
 
 
+@pytest.mark.integration  # evaluates the real jsonb `<@` predicate in live Postgres by design
 async def test_capability_semantics_in_postgres() -> None:
     try:
         from matrx_graph.db.pool import acquire
@@ -156,7 +157,7 @@ def test_required_node_types_canonicalises_and_skips_removed() -> None:
 
     removed = next(iter(REMOVED_NODE_TYPES))
     nodes = [
-        SimpleNamespace(spec_type="action.ai.agent.start"),
+        SimpleNamespace(spec_type="ai.agent.start"),
         SimpleNamespace(spec_type="ai.agent.start"),
         SimpleNamespace(spec_type="brand.setup.land_logo"),
         SimpleNamespace(spec_type=removed),

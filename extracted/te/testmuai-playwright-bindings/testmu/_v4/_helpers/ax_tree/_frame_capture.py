@@ -532,6 +532,21 @@ async def capture_frame_forest(
     viewport_width: float = 1280,
     viewport_height: float = 800,
 ) -> FrameForest:
+    """Capture the main frame plus every eligible iframe, merge-ready, with
+    the page's perception backend (``_capture_frame_forest_cdp`` on Chromium,
+    the portable aria-snapshot capture on Firefox — same shape)."""
+    from testmu._v4._helpers._perception import perception_for
+    return await perception_for(page).capture_forest(
+        viewport_width=viewport_width, viewport_height=viewport_height,
+    )
+
+
+async def _capture_frame_forest_cdp(
+    page: Page,
+    *,
+    viewport_width: float = 1280,
+    viewport_height: float = 800,
+) -> FrameForest:
     """Capture the main frame plus every eligible iframe, merge-ready.
 
     Actionable annotation (``_actionable.py``): after capture, one

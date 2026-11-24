@@ -41,7 +41,7 @@ class FieldSpec(BaseModel):
     clear_first: bool = True
 
     @model_validator(mode="after")
-    def _exactly_one_source(self) -> "FieldSpec":
+    def _exactly_one_source(self) -> FieldSpec:
         has_key = self.field_key is not None and self.field_key != ""
         has_literal = self.literal is not None
         if has_key and has_literal:
@@ -67,7 +67,7 @@ class SubmitSpec(BaseModel):
     selector: str | None = None
 
     @model_validator(mode="after")
-    def _selector_required_for_targeted(self) -> "SubmitSpec":
+    def _selector_required_for_targeted(self) -> SubmitSpec:
         if self.kind in ("click", "press_enter") and not self.selector:
             raise ValueError(f"submit kind {self.kind!r} requires a selector")
         return self
@@ -119,7 +119,7 @@ class AttemptSpec(BaseModel):
     reason: str | None = None
 
     @model_validator(mode="after")
-    def _fields_xor_steps(self) -> "AttemptSpec":
+    def _fields_xor_steps(self) -> AttemptSpec:
         if self.steps is not None and self.steps:
             if self.submit is not None:
                 raise ValueError(

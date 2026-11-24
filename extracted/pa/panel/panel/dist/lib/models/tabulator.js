@@ -1,16 +1,17 @@
 import { display, undisplay } from "@bokehjs/core/dom";
 import { sum } from "@bokehjs/core/util/arrayable";
-import { defer } from "@bokehjs/core/util/defer";
+import { delay, paint } from "@bokehjs/core/util/defer";
 import { isArray, isBoolean, isFunction, isString, isNumber } from "@bokehjs/core/util/types";
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
 import { Enum } from "@bokehjs/core/kinds";
 import { Model } from "@bokehjs/model";
 import { ColumnDataSource } from "@bokehjs/models/sources/column_data_source";
+import { ColumnsStreamedEvent } from "@bokehjs/document/events";
 import { debounce } from "debounce";
 import { cell_formatter } from "./cell_formatters";
 import { comm_settings } from "./comm_manager";
-import { transform_cds_to_records } from "./data";
+import { transform_cds_rows_to_records, transform_cds_to_records } from "./data";
 import { HTMLBox, HTMLBoxView } from "./layout";
 import { schedule_when, transformJsPlaceholders } from "./util";
 import tabulator_css from "styles/models/tabulator.css";
@@ -124,7 +125,7 @@ function summarize(grouped, columns, aggregators, depth = 0) {
                     }
                 }
             }
-            else {
+            else if (agg) {
                 summary[column.field] = val;
             }
         }
@@ -171,7 +172,7 @@ function group_data(records, columns, indexes, aggregators) {
             }
         }
         else {
-            aggs.push("sum");
+            aggs.push("");
         }
     }
     summarize(grouped, columns, aggs);
@@ -382,6 +383,30 @@ function clone_column(group) {
     }
     return { ...group, columns: group_columns };
 }
+const set_cache = new WeakMap();
+/** Tabulator queries membership once per row, so index arrays are looked up as sets. */
+function as_set(indices) {
+    let indices_set = set_cache.get(indices);
+    if (indices_set === undefined) {
+        indices_set = new Set(indices);
+        set_cache.set(indices, indices_set);
+    }
+    return indices_set;
+}
+/** Dicts with numeric keys deserialize as Maps, empty ones as plain objects. */
+function lookup(mapping, key) {
+    if (mapping == null) {
+        return null;
+    }
+    return mapping instanceof Map ? (mapping.get(key) ?? null) : (mapping[key] ?? null);
+}
+function stream_length(data) {
+    const columns = data instanceof Map ? [...data.values()] : Object.values(data);
+    for (const column of columns) {
+        return column.shape != null ? column.shape[0] : column.length;
+    }
+    return null;
+}
 /** Ignore Tabulator redraw after `after_resize` when `this.el` client size changes by at most this many pixels per axis. */
 const EL_CLIENT_RESIZE_EPSILON_PX = 3;
 /**
@@ -390,6 +415,7 @@ const EL_CLIENT_RESIZE_EPSILON_PX = 3;
  * ready chain pending forever, which would otherwise block every later redraw.
  */
 const ROOT_READY_TIMEOUT_MS = 250;
+const RESIZE_BLOCKED_FRAMES = 10;
 export class DataTabulatorView extends HTMLBoxView {
     tabulator;
     columns = new Map();
@@ -403,13 +429,18 @@ export class DataTabulatorView extends HTMLBoxView {
     _selection_updating = false;
     _selection_pending = true;
     _last_selected_row = null;
-    _initializing;
+    _initializing = true;
     _lastVerticalScrollbarTopPosition = 0;
     _lastHorizontalScrollbarLeftPosition = 0;
-    _applied_styles = false;
+    /** Bumped when `cell_styles` changes; cells styled with an older version are restyled when visible. */
+    _styles_version = 0;
+    _styled_cells = new WeakMap();
     _building = false;
     _pending_data = false;
+    /** A data update in flight; its `renderComplete` must not run `postUpdate` a second time. */
+    _updating_data = false;
     _redrawing = false;
+    _resized_columns = new Map();
     /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
     _resize_pending = false;
     _resize_flush = null;
@@ -445,19 +476,13 @@ export class DataTabulatorView extends HTMLBoxView {
             if (this.tabulator == null) {
                 return;
             }
-            // The first cell is the cell of the frozen _index column.
+            const expanded = as_set(this.model.expanded);
+            // The first cell is the cell of the frozen _index column, the second
+            // holds the expand icon, which must follow changes made from Python.
             for (const row of this.tabulator.rowManager.getRows()) {
-                if (row.cells.length > 0) {
+                if (row.cells.length > 1) {
                     row.cells[0].layoutElement();
-                }
-            }
-            // Make sure the expand icon is changed when expanded is
-            // changed from Python.
-            for (const row of this.tabulator.rowManager.getRows()) {
-                if (row.cells.length > 0) {
-                    const index = row.data._index;
-                    const icon = this.model.expanded.includes(index) ? "▼" : "►";
-                    row.cells[1].element.innerText = icon;
+                    row.cells[1].element.innerText = expanded.has(row.data._index) ? "▼" : "►";
                 }
             }
             // If content is embedded, views may not have been
@@ -468,18 +493,12 @@ export class DataTabulatorView extends HTMLBoxView {
             }
         });
         this.on_change(cell_styles, () => {
-            if (this._applied_styles) {
-                this.record_scroll();
-                this._updating_scroll = true;
-                this.tabulator.redraw(true);
-                this._updating_scroll = false;
-            }
-            this.restore_scroll();
+            this._styles_version += 1;
             this.setStyles();
         });
         this.on_change(hidden_columns, () => {
             this.setHidden();
-            this.tabulator.redraw(true);
+            this.tabulator.columnManager.redraw(false);
         });
         this.on_change(page_size, () => this.setPageSize());
         this.on_change(page, () => {
@@ -493,7 +512,7 @@ export class DataTabulatorView extends HTMLBoxView {
         this.on_change(sorters, () => this.setSorters());
         this.on_change(theme_classes, () => this.setCSSClasses(this.tabulator.element));
         this.on_change(this.model.source.properties.data, () => {
-            if (this.tabulator === undefined) {
+            if (this.tabulator == null) {
                 return;
             }
             this._restore_scroll = "horizontal";
@@ -501,26 +520,38 @@ export class DataTabulatorView extends HTMLBoxView {
             // The scroll event of a scroll just before may not have been handled yet.
             this.record_scroll();
             this._updating_scroll = true;
-            void this.setData().then(() => {
+            this._updating_data = true;
+            void this.setData().finally(() => {
+                this._updating_data = false;
+            }).then(() => {
                 this._selection_updating = false;
+                this.refitColumns();
                 this.postUpdate();
                 this.restore_scroll();
             });
         });
-        this.connect(this.model.source.streaming, () => this.addData());
-        this.connect(this.model.source.patching, () => {
-            const inds = this.model.source.selected.indices;
-            this.record_scroll();
-            this._updating_scroll = true;
-            this.updateOrAddData();
-            this._updating_scroll = false;
-            // Restore indices since updating data may have reset checkbox column
-            this.model.source.selected.indices = inds;
-            this.restore_scroll();
-        });
+        // The streaming signal carries no payload; the document event also tells how
+        // many rows were streamed and the rollover, which decide whether rows can be appended.
+        const doc = this.model.document;
+        if (doc != null) {
+            doc.on_change(this._on_document_change);
+        }
+        else {
+            this.connect(this.model.source.streaming, () => this.addData(null, null));
+        }
+        this.connect(this.model.source.patching, (indices) => this.updateOrAddData(indices));
         this.connect(this.model.source.selected.change, () => this.setSelection());
         this.connect(this.model.source.selected.properties.indices.change, () => this.setSelection());
     }
+    disconnect_signals() {
+        this.model.document?.remove_on_change(this._on_document_change);
+        super.disconnect_signals();
+    }
+    _on_document_change = (event) => {
+        if (event instanceof ColumnsStreamedEvent && event.model === this.model.source && event.attr === "data") {
+            this.addData(event.data, event.rollover ?? null);
+        }
+    };
     get groupBy() {
         const groupby = (data) => {
             const groups = [];
@@ -537,18 +568,35 @@ export class DataTabulatorView extends HTMLBoxView {
         if (this.model.sorters.length > 0) {
             sorters.push({ column: "_index", dir: "asc" });
         }
-        for (const sort of this.model.sorters.reverse()) {
-            if (sort.column === undefined) {
-                sort.column = sort.field;
-            }
-            sorters.push(sort);
+        // Copy, the model array must not be reversed in place.
+        for (const sort of [...this.model.sorters].reverse()) {
+            sorters.push(sort.column === undefined ? { ...sort, column: sort.field } : sort);
         }
         return sorters;
     }
     invalidate_render() {
         this.tabulator?.destroy();
         this.tabulator = null;
+        this._resized_columns.clear();
         this.rerender_();
+    }
+    refitColumns(field) {
+        if (this._building || this.tabulator == null || !this.model.layout.startsWith("fit_data")) {
+            return;
+        }
+        if (field != null && this.model.layout !== "fit_data_stretch") {
+            // Measuring a single column costs a fraction of re-measuring them all.
+            const column = this.tabulator.getColumn(field);
+            if (column != null && !this._resized_columns.has(field) && column.getDefinition().width == null) {
+                column.setWidth(true);
+            }
+            return;
+        }
+        this.tabulator.columnManager.layoutRefresh(true);
+        // The refit discards the widths of columns the user has dragged.
+        for (const [name, width] of this._resized_columns) {
+            this.tabulator.getColumn(name)?.setWidth(width);
+        }
     }
     redraw(columns = true, rows = true) {
         if (this._building || this.tabulator == null || this._redrawing) {
@@ -614,6 +662,7 @@ export class DataTabulatorView extends HTMLBoxView {
         });
     }
     async _flush_resize_when_root_ready() {
+        let blocked = 0;
         while (true) {
             if (!this._resize_pending) {
                 return;
@@ -633,7 +682,9 @@ export class DataTabulatorView extends HTMLBoxView {
                 this.is_drawing ||
                 this._has_active_editor() ||
                 !this.stylesheets_settled) {
-                await defer();
+                // `root.ready` is usually already resolved, so a blocking condition that persists
+                // would otherwise spin this loop; back off once it outlasts a few frames.
+                await (blocked++ < RESIZE_BLOCKED_FRAMES ? paint() : delay(ROOT_READY_TIMEOUT_MS));
                 continue;
             }
             this._resize_pending = false;
@@ -653,11 +704,14 @@ export class DataTabulatorView extends HTMLBoxView {
         this.record_scroll();
         this._updating_scroll = true;
         this.redraw(true, true);
+        this._updating_scroll = false;
+        this._pending_scroll_restores += 1;
         requestAnimationFrame(() => {
             this._initializing = false;
             if (this._selection_pending) {
                 this.setSelection();
             }
+            this._pending_scroll_restores -= 1;
             this.restore_scroll();
             this.recompute_page_size();
         });
@@ -762,20 +816,20 @@ export class DataTabulatorView extends HTMLBoxView {
         // Rendering callbacks
         this.tabulator.on("selectableRowsCheck", (row) => {
             const selectable = this.model.selectable_rows;
-            return (selectable == null) || selectable.includes(row._row.data._index);
+            return (selectable == null) || as_set(selectable).has(row._row.data._index);
         });
         this.tabulator.on("tooltips", (cell) => {
             return `${cell.getColumn().getField()}: ${cell.getValue()}`;
         });
-        this.tabulator.on("scrollVertical", debounce(() => {
-            this.setStyles();
-        }, 50, false));
+        // Rows scrolled back into view reuse their elements, so restyle them when `cell_styles` changed since.
+        this.tabulator.on("scrollVertical", () => this.setStyles());
         // Sync state with model
         this.tabulator.on("rowSelectionChanged", (data, rows, selected, deselected) => {
             this.rowSelectionChanged(data, rows, selected, deselected);
         });
         this.tabulator.on("rowClick", (e, row) => this.rowClicked(e, row));
         this.tabulator.on("cellEdited", (cell) => this.cellEdited(cell));
+        this.tabulator.on("columnResized", (column) => this._resized_columns.set(column.getField(), column.getWidth()));
         this.tabulator.on("dataFiltering", (filters) => {
             this.record_scroll();
             this.model.filters = filters;
@@ -797,7 +851,7 @@ export class DataTabulatorView extends HTMLBoxView {
             this.updatePage(pageno);
         });
         this.tabulator.on("renderComplete", () => {
-            if (this._building) {
+            if (this._building || this._updating_data) {
                 return;
             }
             this.postUpdate();
@@ -840,7 +894,10 @@ export class DataTabulatorView extends HTMLBoxView {
         this._initializing = this._building = false;
         this.setVisibility();
         if (this._pending_data) {
-            void this.setData().then(() => this.postUpdate());
+            this._updating_data = true;
+            void this.setData().finally(() => {
+                this._updating_data = false;
+            }).then(() => this.postUpdate());
         }
         this._request_resize_redraw();
     }
@@ -942,7 +999,8 @@ export class DataTabulatorView extends HTMLBoxView {
     }
     getConfiguration() {
         // Only use selectable mode if explicitly requested otherwise manually handle selections
-        const selectableRows = this.model.select_mode === "toggle" ? true : NaN;
+        // Tabulator only skips marking rows as selectable (class and hover styling) for exactly false
+        const selectableRows = this.model.select_mode === "toggle" ? true : (this.model.select_mode === false ? false : NaN);
         const configuration = {
             ...transformJsPlaceholders(this.model.configuration),
             index: "_index",
@@ -959,9 +1017,12 @@ export class DataTabulatorView extends HTMLBoxView {
             popupContainer: this.model.container_popup && this.container,
             groupBy: this.groupBy,
             frozenRows: (row) => {
-                return (this.model.frozen_rows.length > 0) ? this.model.frozen_rows.includes(row._row.data._index) : false;
+                return (this.model.frozen_rows.length > 0) ? as_set(this.model.frozen_rows).has(row._row.data._index) : false;
             },
-            rowFormatter: (row) => this._render_row(row, false),
+            rowFormatter: (row) => {
+                this._style_row(row);
+                this._render_row(row, false);
+            },
         };
         if (this.model.max_height != null) {
             configuration.maxHeight = this.model.max_height;
@@ -1020,7 +1081,7 @@ export class DataTabulatorView extends HTMLBoxView {
     }
     _render_row(row, resize = true) {
         const index = row._row?.data._index;
-        if (!this.model.expanded.includes(index)) {
+        if (!as_set(this.model.expanded).has(index)) {
             return;
         }
         const model = this.get_child(index);
@@ -1030,8 +1091,6 @@ export class DataTabulatorView extends HTMLBoxView {
         }
         schedule_when(() => {
             const rowEl = row.getElement();
-            const style = getComputedStyle(this.tabulator.element.children[1].children[0]);
-            const bg = style.backgroundColor;
             const neg_margin = rowEl.style.paddingLeft ? `-${rowEl.style.paddingLeft}` : "0";
             const prev_child = rowEl.children[rowEl.children.length - 1];
             let viewEl;
@@ -1042,6 +1101,7 @@ export class DataTabulatorView extends HTMLBoxView {
                 }
             }
             else {
+                const bg = getComputedStyle(this.tabulator.element.children[1].children[0]).backgroundColor;
                 viewEl = div({ class: "row-content", style: { background_color: bg, margin_left: neg_margin, max_width: "100%", overflow_x: "hidden" } });
                 rowEl.appendChild(viewEl);
             }
@@ -1067,8 +1127,7 @@ export class DataTabulatorView extends HTMLBoxView {
     }
     _expand_render(cell) {
         const index = cell._cell.row.data._index;
-        const icon = this.model.expanded.indexOf(index) < 0 ? "►" : "▼";
-        return icon;
+        return as_set(this.model.expanded).has(index) ? "▼" : "►";
     }
     _update_expand(cell) {
         const index = cell._cell.row.data._index;
@@ -1318,22 +1377,100 @@ export class DataTabulatorView extends HTMLBoxView {
             return this.tabulator.setData(data);
         }
     }
-    addData() {
+    /** Whether rows can be added or updated in place rather than rebuilding the whole table. */
+    get can_update_in_place() {
+        return (this.tabulator != null &&
+            this.tabulator.initialized &&
+            !this._initializing &&
+            !this._building &&
+            !this._pending_data &&
+            !this.model.configuration.dataTree);
+    }
+    /**
+     * Appends the streamed rows. Rolling over drops leading rows and shifts every
+     * `_index`, so that case (and anything out of sync) rebuilds the table.
+     */
+    addData(streamed, rollover) {
+        if (this.tabulator == null) {
+            return;
+        }
         const rows = this.tabulator.rowManager.getRows();
         const last_row = rows[rows.length - 1];
         const start = ((last_row?.data._index) || 0);
+        const total = this.model.source.get_length() ?? 0;
+        const n_streamed = streamed == null ? null : stream_length(streamed);
+        const append = (n_streamed != null &&
+            this.can_update_in_place &&
+            rows.length + n_streamed === total &&
+            (rollover == null || total <= rollover));
         this._updating_page = true;
-        void this.setData().then(() => {
-            if (this.model.follow) {
-                if (this.model.pagination) {
-                    this.tabulator.setPage(Math.ceil(this.tabulator.rowManager.getDataCount() / (this.model.page_size || 20)));
+        let update;
+        if (append) {
+            this._updating_data = true;
+            try {
+                this._append_rows(transform_cds_to_records(this.model.source, true, rows.length));
+            }
+            finally {
+                this._updating_data = false;
+            }
+            update = Promise.resolve();
+        }
+        else {
+            update = this.setData();
+        }
+        void update.then(async () => {
+            try {
+                if (!this.model.follow) {
+                    return;
                 }
-                if (last_row) {
-                    this.tabulator.scrollToRow(start, "top", false);
+                if (this.model.pagination) {
+                    await this.tabulator.setPage(Math.max(1, Math.ceil(this.tabulator.rowManager.getDataCount() / (this.model.page_size || 20))));
+                }
+                // With pagination the previous last row is often on an earlier page than
+                // the one now shown, and Tabulator rejects scrolling to a row not displayed.
+                const row = last_row ? this.tabulator.rowManager.findRow(start) : false;
+                if (row && this.tabulator.rowManager.getDisplayRows().includes(row)) {
+                    await this.tabulator.scrollToRow(start, "top", false);
                 }
             }
-            this._updating_page = false;
+            finally {
+                this._updating_page = false;
+            }
         });
+    }
+    /**
+     * Tabulator's `addData` copies the active rows array and, with pagination,
+     * refreshes the whole data pipeline once per added row, which makes appending
+     * a batch slower than rebuilding the table. This appends rows the way
+     * `RowManager.addRows` does but refreshes once.
+     */
+    _append_rows(records) {
+        const manager = this.tabulator.rowManager;
+        // With pagination Tabulator places new rows on the current page unless the
+        // preceding row is given explicitly.
+        let after = this.model.pagination == null ? undefined : manager.rows[manager.rows.length - 1];
+        const { setActiveRows, refreshActiveData } = manager;
+        manager.setActiveRows = () => { };
+        manager.refreshActiveData = () => { };
+        try {
+            for (const record of records) {
+                const row = manager.addRow(record, false, after, true);
+                manager.dispatch("row-added", row, record, false, after);
+                if (after !== undefined) {
+                    after = row;
+                }
+            }
+        }
+        finally {
+            manager.setActiveRows = setActiveRows;
+            manager.refreshActiveData = refreshActiveData;
+        }
+        manager.setActiveRows(manager.activeRows);
+        manager.refreshActiveData(false, false, true);
+        manager.regenerateRowPositions();
+        if (manager.displayRowsCount) {
+            manager._clearPlaceholder();
+        }
     }
     postUpdate() {
         this.setSelection();
@@ -1343,20 +1480,52 @@ export class DataTabulatorView extends HTMLBoxView {
         this.restore_scroll(restore !== "vertical", restore !== "horizontal");
         this._restore_scroll = false;
     }
-    updateOrAddData() {
+    /** Updates the patched rows in place; patches touching most rows rebuild the table instead. */
+    updateOrAddData(indices) {
         // To avoid double updating the tabulator data
-        if (this._tabulator_cell_updating) {
+        if (this._tabulator_cell_updating || this.tabulator == null) {
             return;
         }
+        const rows = this.tabulator.rowManager.getRows().length;
+        if (this.can_update_in_place &&
+            // Tabulator does not regroup rows whose data is updated in place.
+            !this.tabulator.options.groupBy &&
+            isArray(indices) &&
+            indices.length > 0 &&
+            indices.length * 2 < rows &&
+            indices.every(isNumber)) {
+            const records = transform_cds_rows_to_records(this.model.source, indices, true);
+            if (records.length === indices.length) {
+                // Rows updated in place are not re-sorted or re-filtered, refreshing
+                // the filter re-runs the filter and sort stages of the data pipeline.
+                const refresh = this.tabulator.getSorters().length > 0 || this.tabulator.getFilters(true).length > 0;
+                this.tabulator.updateData(records).then(() => {
+                    if (refresh) {
+                        this.tabulator.refreshFilter();
+                    }
+                }).catch(() => this.replaceData());
+                return;
+            }
+        }
+        this.replaceData();
+    }
+    replaceData() {
+        const inds = this.model.source.selected.indices;
+        this.record_scroll();
+        this._updating_scroll = true;
         // Temporarily set minHeight to avoid "scroll-to-top" issues caused
         // by Tabulator JS entirely destroying the table when .setData is called.
         // Inspired by https://github.com/olifolkerd/tabulator/issues/4155
         const prev_minheight = this.tabulator.element.style.minHeight;
         this.tabulator.element.style.minHeight = `${this.tabulator.element.offsetHeight}px`;
-        const data = transform_cds_to_records(this.model.source, true);
+        const data = this.getData();
         this.tabulator.setData(data).then(() => {
             this.tabulator.element.style.minHeight = prev_minheight;
         });
+        this._updating_scroll = false;
+        // Restore indices since updating data may have reset checkbox column
+        this.model.source.selected.indices = inds;
+        this.restore_scroll();
     }
     setFrozen() {
         for (const row of this.model.frozen_rows) {
@@ -1380,41 +1549,54 @@ export class DataTabulatorView extends HTMLBoxView {
         }
         this.tabulator.setSort(this.sorters);
     }
+    /** Styles the rendered rows; rows rendered later are styled by the `rowFormatter`. */
     setStyles() {
-        const style_data = this.model.cell_styles.data;
-        if (this.tabulator == null || this.tabulator.getDataCount() == 0 || style_data == null || !style_data.size) {
+        if (this.tabulator == null || this.tabulator.rowManager.renderer == null) {
             return;
         }
-        this._applied_styles = false;
-        for (const r of style_data.keys()) {
-            const row_style = style_data.get(r);
-            const row = this.tabulator.getRow(r);
-            if (!row) {
+        // Chained so frozen rows, which sit outside the scrolled rows, are included.
+        for (const row of this.tabulator.rowManager.getVisibleRows(true, true)) {
+            if (row.type === "row") {
+                this._style_row(row.getComponent());
+            }
+        }
+    }
+    _style_row(row) {
+        const version = this._styles_version;
+        const index = row._row?.data._index;
+        const row_style = index == null ? null : lookup(this.model.cell_styles.data, index);
+        for (const cell of row._row?.cells ?? []) {
+            const element = cell.element;
+            if (element == null) {
                 continue;
             }
-            const cells = row._row.cells;
-            for (const c of row_style.keys()) {
-                const style = row_style.get(c);
-                const cell = cells[c];
-                if (cell == null || !style.length) {
+            const styled = this._styled_cells.get(element);
+            if (styled != null && styled.version === version) {
+                continue;
+            }
+            if (styled != null) {
+                for (const prop of styled.props) {
+                    element.style.removeProperty(prop);
+                }
+                this._styled_cells.delete(element);
+            }
+            const style = lookup(row_style, cell.column.field);
+            const props = [];
+            for (const s of style ?? []) {
+                let prop, value;
+                if (isArray(s)) {
+                    [prop, value] = s;
+                }
+                else if (!s.includes(":")) {
                     continue;
                 }
-                const element = cell.element;
-                for (const s of style) {
-                    let prop, value;
-                    if (isArray(s)) {
-                        [prop, value] = s;
-                    }
-                    else if (!s.includes(":")) {
-                        continue;
-                    }
-                    else {
-                        [prop, value] = s.split(":");
-                    }
-                    element.style.setProperty(prop, value.trimLeft());
-                    this._applied_styles = true;
+                else {
+                    [prop, value] = s.split(":");
                 }
+                element.style.setProperty(prop, value.trimLeft());
+                props.push(prop);
             }
+            this._styled_cells.set(element, { version, props });
         }
     }
     setHidden() {
@@ -1466,10 +1648,13 @@ export class DataTabulatorView extends HTMLBoxView {
         this._selection_updating = true;
         this.tabulator.deselectRow();
         this.tabulator.selectRow(indices);
-        for (const index of indices) {
-            const row = this.tabulator.rowManager.findRow(index);
-            if (row) {
-                this.tabulator.scrollToRow(index, "center", false).catch(() => { });
+        // Scroll once, to the last selected row that is displayed (e.g. on the current page).
+        const displayed = new Set(this.tabulator.rowManager.getDisplayRows());
+        for (let i = indices.length - 1; i >= 0; i--) {
+            const row = this.tabulator.rowManager.findRow(indices[i]);
+            if (row && displayed.has(row)) {
+                this.tabulator.scrollToRow(indices[i], "center", false).catch(() => { });
+                break;
             }
         }
         this._selection_updating = false;
@@ -1591,14 +1776,12 @@ export class DataTabulatorView extends HTMLBoxView {
         this._selection_updating = false;
     }
     _filter_selected(indices) {
-        const filtered = [];
-        for (const ind of indices) {
-            if (this.model.selectable_rows == null ||
-                this.model.selectable_rows.indexOf(ind) >= 0) {
-                filtered.push(ind);
-            }
+        const selectable = this.model.selectable_rows;
+        if (selectable == null) {
+            return [...indices];
         }
-        return filtered;
+        const selectable_set = as_set(selectable);
+        return indices.filter((ind) => selectable_set.has(ind));
     }
     rowSelectionChanged(data, _row, selected, deselected) {
         if (this._selection_updating ||
@@ -1634,7 +1817,9 @@ export class DataTabulatorView extends HTMLBoxView {
         const index = cell.getData()._index;
         const value = cell._cell.value;
         const key = `${field}:${index}`;
-        if (column_def.validator === "numeric" && value === "") {
+        const column = this.model.source.get_column(field);
+        const nullable = Array.isArray(column) || column instanceof Float64Array || column instanceof Float32Array;
+        if (nullable && (column_def.validator === "numeric" || column_def.validator === "integer") && value === "") {
             // setValue below re-triggers cellEdited recursively for the actual
             // (NaN) edit. By then cell._cell.oldValue has already been overwritten
             // with this now-discarded "" attempt, so the true pre-edit value is
@@ -1658,6 +1843,7 @@ export class DataTabulatorView extends HTMLBoxView {
             comm_settings.debounce = true;
             this._tabulator_cell_updating = false;
         }
+        this.refitColumns(field);
         this.tabulator.scrollToRow(index, "top", false);
     }
 }

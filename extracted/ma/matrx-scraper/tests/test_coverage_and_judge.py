@@ -21,7 +21,6 @@ from matrx_scraper.read_judge import (
     HTTP_ERROR,
     JS_SHELL,
     NOT_FOUND,
-    SIGN_IN_WALL,
     judge_read,
 )
 
@@ -60,10 +59,6 @@ def _clean_ext():
         ({"text": "You need to enable JavaScript to run this app."}, JS_SHELL),
         ({"text": "Loading", "html": '<html><body><div id="root"></div><script src="/app.js"></script></body></html>'},
          JS_SHELL),
-        ({"title": "Log in • Instagram", "text": "Log in to see photos and videos from friends."}, SIGN_IN_WALL),
-        ({"title": "Sign in to your account", "text": "Email, phone, or Skype. Can't access your account?"},
-         SIGN_IN_WALL),
-        ({"text": "Join LinkedIn. Sign in to view the full profile of this member."}, SIGN_IN_WALL),
     ],
 )
 def test_strong_signals_fail(kwargs: dict[str, Any], reason: str):
@@ -112,8 +107,6 @@ _LINKEDIN_WALL = (
 @pytest.mark.parametrize(
     ("kwargs", "reason"),
     [
-        ({"status": 200, "title": "LinkedIn Login, Sign in | LinkedIn", "text": _LINKEDIN_WALL}, SIGN_IN_WALL),
-        ({"status": 200, "text": _LINKEDIN_WALL}, SIGN_IN_WALL),
         ({"status": 200, "title": "Please Wait",
           "text": "# Please wait\nWe are optimizing your request for the best experience.\n\nPlease Wait"}, CHALLENGE),
         ({"status": 200, "title": "TikTok - Make Your Day",
@@ -327,7 +320,7 @@ async def test_fast_retries_stop_at_the_per_run_ceiling_and_keep_the_coverage_no
     assert outs[3]["coverage"][0]["service"] == "unlocker" and "advanced_read" not in outs[3]
 
 
-async def test_a_failing_run_slot_hook_spends_nothing(monkeypatch):
+async def test_a_failing_per_run_hook_spends_nothing(monkeypatch):
     calls: list[Any] = []
 
     async def reader(urls, allow):
@@ -487,10 +480,16 @@ def test_a_browser_rendered_soft_404_is_a_failed_read():
     assert r.success is False and r.failure_reason == NOT_FOUND
 
 
-def test_a_browser_rendered_login_wall_is_a_failed_read():
+def test_a_short_sign_in_page_with_no_password_form_is_read_not_failed():
+    """Closing pass 2026-11-17: length plus a sign-in phrase or title never fails a page (it may be marked unsure)."""
     r = _build(200, _PAGE.format(t="Sign in | LinkedIn", h="Sign in", p="Sign in to view the full profile."),
                "Sign in | LinkedIn")
-    assert r.success is False and r.failure_reason == SIGN_IN_WALL
+    assert r.success is True and r.failure_reason is None
+    for kwargs in ({"title": "Log in • Instagram", "text": "Log in to see photos and videos from friends."},
+                   {"title": "Sign in to your account", "text": "Email, phone, or Skype. Can't access your account?"},
+                   {"text": "Join LinkedIn. Sign in to view the full profile of this member."},
+                   {"status": 200, "text": _LINKEDIN_WALL}):
+        assert not judge_read(**{"status": 200, **kwargs}).failed, kwargs
 
 
 def test_a_good_page_still_reads_fine():

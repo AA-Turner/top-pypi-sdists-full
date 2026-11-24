@@ -3,13 +3,14 @@
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
 
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 import numpy as np
 import torch
 from torch import nn
 
-from doctr.io.elements import Document
+from doctr.io.elements import Document, KIEDocument
 from doctr.models._utils import get_language, invert_data_structure
 from doctr.models.detection.predictor import DetectionPredictor
 from doctr.models.layout.predictor import LayoutPredictor
@@ -39,6 +40,9 @@ class KIEPredictor(nn.Module, _KIEPredictor):
         preserve_original_coords: if True and straighten_pages is True, bounding boxes are mapped back to the
             original page coordinates. Useful for redaction and annotation.
         layout_predictor: optional layout detection module
+        page_chunk_size: the maximum number of pages processed at once (32 by default) for lazy page sources
+            (cf. `DocumentFile.from_pdf(..., lazy=True)`), iterators and :meth:`stream`, with a memory footprint that
+            does not grow with the number of pages. Lists and tuples of pages are processed in a single pass.
         **kwargs: keyword args of `DocumentBuilder`
     """
 
@@ -76,9 +80,32 @@ class KIEPredictor(nn.Module, _KIEPredictor):
     @torch.inference_mode()
     def forward(
         self,
+        pages: Sequence[np.ndarray] | Iterable[np.ndarray],
+        **kwargs: Any,
+    ) -> Document:
+        """Predict on a document
+
+        Args:
+            pages: a list of pages (numpy arrays of shape H x W x C), processed in a single pass, or a lazy page
+                source (cf. `DocumentFile.from_pdf(..., lazy=True)`) or any iterable of pages, processed chunk by
+                chunk (`page_chunk_size` pages at a time) with a bounded memory footprint
+            **kwargs: keyword arguments forwarded to the sub-predictors, and `on_error` for lazy page sources
+                (cf. :meth:`stream`): "skip" leaves out the pages that cannot be read instead of raising an error
+
+        Returns:
+            the predicted document
+        """
+        return self._run(pages, **kwargs)
+
+    @torch.inference_mode()
+    def _predict_pages(
+        self,
         pages: list[np.ndarray],
         **kwargs: Any,
     ) -> Document:
+        if len(pages) == 0:
+            return KIEDocument(pages=[])
+
         # Dimension check
         if any(page.ndim != 3 for page in pages):
             raise ValueError("incorrect input shape: all pages are expected to be multi-channel 2D images.")
@@ -128,7 +155,7 @@ class KIEPredictor(nn.Module, _KIEPredictor):
             det_pages = self._mask_regions(pages, regions)
 
             # Forward again to get predictions on straight pages
-            loc_preds = self.det_predictor(det_pages, **kwargs)
+            loc_preds = self._detect_straightened(loc_preds, _orig_pages, pages, det_pages, **kwargs)
 
         dict_loc_preds: dict[str, list[np.ndarray]] = invert_data_structure(loc_preds)  # type: ignore[assignment]
 
@@ -139,19 +166,33 @@ class KIEPredictor(nn.Module, _KIEPredictor):
             dict_loc_preds[class_name] = _loc_preds
             objectness_scores[class_name] = _scores
 
-        # Apply hooks to loc_preds if any
-        for hook in self.hooks:
-            dict_loc_preds = hook(dict_loc_preds)
+        # Apply hooks to loc_preds if any, before the crops are extracted so that the hooked boxes are read
+        if self.hooks:
+            # Pass a copy, so that a hook modifying its input in place does not alter the reference
+            hooked_preds: Any = {class_name: list(preds) for class_name, preds in dict_loc_preds.items()}
+            for hook in self.hooks:
+                hooked_preds = hook(hooked_preds)
+            if not isinstance(hooked_preds, dict) or set(hooked_preds) != set(dict_loc_preds):
+                raise ValueError(
+                    "hooks of the KIE predictor must return a dict with the same classes as their input: "
+                    f"{sorted(dict_loc_preds)}"
+                )
+            for class_name in dict_loc_preds.keys():
+                dict_loc_preds[class_name], objectness_scores[class_name] = self._align_hook_output(
+                    dict_loc_preds[class_name], hooked_preds[class_name], objectness_scores[class_name]
+                )
 
         # Crop images
         crops = {}
         for class_name in dict_loc_preds.keys():
-            crops[class_name], dict_loc_preds[class_name] = self._prepare_crops(
+            crops[class_name], dict_loc_preds[class_name], objectness_scores[class_name] = self._prepare_crops(
                 pages,
                 dict_loc_preds[class_name],
+                objectness_scores[class_name],
                 assume_straight_pages=self.assume_straight_pages,
                 assume_horizontal=self._page_orientation_disabled,
             )
+
         # Rectify crop orientation
         crop_orientations: Any = {}
         if not self.assume_straight_pages:

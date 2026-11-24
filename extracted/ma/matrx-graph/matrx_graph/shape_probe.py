@@ -26,6 +26,8 @@ NOTHING where the schema stops describing (an open object, an untyped value, a
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 from typing import Any
 
 from pydantic import BaseModel
@@ -298,6 +300,7 @@ def upstream_shape_notes(definition: Any, registry: Any = None) -> list[dict[str
     tool, a REST route, the Studio) can hand it straight back to whoever is
     wiring. Returns ``[]`` when nothing can be said.
     """
+    definition = _information.executable_of(definition)  # a note is not a step
     from matrx_graph.executor.registry import default_registry
     from matrx_graph.types.definition import Definition
 

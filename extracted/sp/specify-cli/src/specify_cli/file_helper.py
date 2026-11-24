@@ -3,11 +3,12 @@
 import codecs
 import errno
 import os
+import secrets
 import stat
 import sys
 import tempfile
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import ExitStack, contextmanager
 from copy import copy
 from dataclasses import dataclass, field
@@ -18,7 +19,7 @@ from weakref import finalize
 from specify_cli._file_handles import (
     _WindowsFileIdentity, _windows_delete, _windows_directory_names, _windows_entry,
     _windows_file_id, _windows_handle, _windows_mode, _windows_overwrite_fd,
-    _windows_readlink, _windows_stat, windows_read_fd,
+    _windows_readlink, _windows_stat, rename_noreplace, windows_read_fd,
 )
 
 
@@ -43,6 +44,15 @@ def _strip_extended_length_prefix(path: _PathType) -> _PathType:
     return path
 
 
+def _windows_extended_path(path: _PathType) -> _PathType:
+    raw = str(path)
+    if raw.startswith("\\\\?\\"):
+        return path
+    if raw.startswith("\\\\"):
+        return type(path)("\\\\?\\UNC\\" + raw[2:])
+    return type(path)("\\\\?\\" + raw)
+
+
 class FileHelperError(ValueError):
     """An operation violates the scoped filesystem contract."""
 
@@ -57,6 +67,10 @@ class PathEscapeError(FileHelperError):
 
 class UnsupportedPathError(FileHelperError):
     """An accessed object cannot be used by the requested operation."""
+
+
+class _SpecialFileError(UnsupportedPathError):
+    """An entry is neither a directory, regular file, nor symlink."""
 
 
 @dataclass(frozen=True)
@@ -343,7 +357,7 @@ class FileHelper:
             elif stat.S_ISDIR(mode) or stat.S_ISREG(mode):
                 current = candidate
             else:
-                raise UnsupportedPathError(f"Unsupported filesystem object: {candidate}")
+                raise _SpecialFileError(f"Unsupported filesystem object: {candidate}")
         return current
 
     def _path(
@@ -372,12 +386,106 @@ class FileHelper:
         if not stat.S_ISREG(path.stat().st_mode):
             raise UnsupportedPathError(f"Expected a regular file: {path}")
 
+    @staticmethod
+    def _require_directory(path: Path) -> None:
+        if not stat.S_ISDIR(path.stat().st_mode):
+            raise NotADirectoryError(path)
+
+    def directory_exists(self, path: Path | str) -> bool:
+        """Return False for absence only; reject wrong types and forbidden paths."""
+        try:
+            directory = self._path(path)
+        except FileNotFoundError:
+            return False
+        except _SpecialFileError as exc:
+            raise NotADirectoryError(str(exc)) from exc
+        self._require_directory(directory)
+        return True
+
     def mkdir(
         self, path: Path | str, *, parents: bool = False, exist_ok: bool = False
     ) -> None:
         """Create a directory, preflighting the entire requested hierarchy."""
         destination = self._path(path, allow_missing=True)
         destination.mkdir(parents=parents, exist_ok=exist_ok)
+
+    def iterdir(
+        self, path: Path | str, *, select: Callable[[str], bool] | None = None,
+    ) -> tuple[Path, ...]:
+        """Enumerate immediate entries, validating only names selected by the caller."""
+        requested = Path(path)
+        destination = self._path(requested)
+        self._require_directory(destination)
+        returned_parent = requested if requested.is_absolute() else self.root / requested
+        entries = []
+        with os.scandir(destination) as iterator:
+            names = sorted(entry.name for entry in iterator)
+        for name in names:
+            if select is not None and not select(name):
+                continue
+            candidate = destination / name
+            mode = self._entry_mode(candidate)
+            if stat.S_ISLNK(mode):
+                if not self.allow_symlinks:
+                    raise SymlinkDeniedError(f"Refusing to enumerate symlink: {candidate}")
+                self._path(candidate)
+            elif not (stat.S_ISDIR(mode) or stat.S_ISREG(mode)):
+                raise UnsupportedPathError(f"Unsupported filesystem object: {candidate}")
+            entries.append(returned_parent / name)
+        return tuple(entries)
+
+    def move_noreplace(self, source: Path | str, destination: Path | str) -> None:
+        """Atomically move a staged file or directory without clobbering a destination."""
+        source_path = self._path(source, follow_leaf=False)
+        source_mode = self._entry_mode(source_path)
+        if not (stat.S_ISREG(source_mode) or stat.S_ISDIR(source_mode)):
+            raise UnsupportedPathError(
+                f"Unsupported filesystem object: {source_path}"
+            )
+
+        destination_path = self._path(
+            destination, allow_missing=True, follow_leaf=False
+        )
+        try:
+            self._entry_mode(destination_path)
+        except FileNotFoundError:
+            pass
+        else:
+            raise FileExistsError(
+                errno.EEXIST, os.strerror(errno.EEXIST), str(destination_path)
+            )
+        rename_noreplace(source_path, destination_path)
+
+    @contextmanager
+    def temporary_directory(
+        self, parent: Path | str, *, prefix: str = "speckit-"
+    ) -> Iterator[Path]:
+        """Create and clean up a staging directory beneath an existing in-root parent."""
+        if any(character in prefix for character in "/\\:\0"):
+            raise PathEscapeError(f"Temporary directory prefix must be a name prefix: {prefix!r}")
+        requested = Path(parent)
+        parent_path = self._path(requested)
+        self._require_directory(parent_path)
+        staging = Path(tempfile.mkdtemp(prefix=prefix, dir=parent_path))
+        returned_parent = requested if requested.is_absolute() else self.root / requested
+
+        def cleanup() -> None:
+            try:
+                self._entry_mode(staging)
+            except FileNotFoundError:
+                return
+            self.delete(staging, recursive=True)
+
+        try:
+            yield returned_parent / staging.name
+        except BaseException as body_error:
+            try:
+                cleanup()
+            except BaseException as cleanup_error:
+                body_error.add_note(f"Could not clean up staging directory {staging}: {cleanup_error}")
+            raise
+        else:
+            cleanup()
 
     def read_bytes(self, path: Path | str) -> bytes:
         destination = self._path(path)
@@ -489,17 +597,112 @@ class FileHelper:
         destination = self._path(path, allow_missing=True)
         if destination.exists():
             self._require_file(destination)
-        fd, temporary = tempfile.mkstemp(prefix=f".{destination.name}.", dir=destination.parent)
-        temporary_path = Path(temporary)
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        flags |= getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        with ExitStack() as staging:
+            fd, stage, parent_fd = self._open_atomic_stage(destination, flags, mode, staging)
+            published = False
+            try:
+                try:
+                    with os.fdopen(fd, "wb", closefd=False) as stream:
+                        stream.write(content)
+                    if parent_fd is not None:
+                        os.fchmod(fd, mode)
+                finally:
+                    os.close(fd)
+                if parent_fd is None:
+                    stage.chmod(mode)
+                if self._path(path, allow_missing=True) != destination:
+                    raise FileHelperError(f"Destination changed during write: {path}")
+                if parent_fd is None:
+                    os.replace(stage, destination)
+                else:
+                    os.replace(stage, destination, src_dir_fd=parent_fd)
+                published = True
+            finally:
+                if not published:
+                    self._unlink_atomic_stage(stage, parent_fd)
+
+    def _open_atomic_stage(
+        self, destination: Path, flags: int, mode: int, staging: ExitStack,
+    ) -> tuple[int, Path, int | None]:
+        mode &= 0o600
+        extended_parent = None
+        for _ in range(10):
+            name = f".{secrets.token_hex(8)}.tmp"
+            if name == destination.name.rstrip(" .").casefold():
+                continue
+            stage = (extended_parent or destination.parent) / name
+            try:
+                return os.open(stage, flags, mode), stage, None
+            except FileExistsError:
+                continue
+            except OSError as exc:
+                # The Windows CRT can report an overlong path as ENOENT.
+                length_error = exc.errno == errno.ENAMETOOLONG or (
+                    os.name == "nt" and exc.errno == errno.ENOENT
+                )
+                if not length_error or len(name) <= len(destination.name):
+                    raise
+                if os.name == "nt":
+                    if extended_parent is not None or not destination.parent.is_dir():
+                        raise
+                    parent_info = destination.parent.stat()
+                    # Keep file-only ACL inheritance and avoid requiring directory creation rights.
+                    extended_parent = _windows_extended_path(destination.parent)
+                    # The extended spelling bypasses Win32 name normalization.
+                    if not os.path.samestat(parent_info, extended_parent.stat()):
+                        raise FileHelperError(
+                            f"Extended staging path does not match destination parent: {destination.parent}"
+                        )
+                    continue
+                if not {os.rename, os.unlink} <= os.supports_dir_fd:
+                    raise
+            break
+        else:
+            raise FileExistsError(errno.EEXIST, "Could not allocate a staging file", str(destination))
+
+        # A parent-relative sibling keeps direct inheritance and avoids the
+        # absolute path limit without shrinking the name to the leaf budget.
+        parent = staging.enter_context(self._posix_directory(
+            destination.parent, unsupported_message="Directory-relative staging is unsupported",
+        ))
+        for _ in range(10):
+            name = "." + secrets.token_hex(7)[:13]  # POSIX minimum NAME_MAX is 14.
+            if name == destination.name.rstrip(" .").casefold():
+                continue
+            stage = Path(name)
+            try:
+                return os.open(stage, flags, mode, dir_fd=parent), stage, parent
+            except FileExistsError:
+                continue
+        raise FileExistsError(errno.EEXIST, "Could not allocate a staging file", str(destination))
+
+    @staticmethod
+    def _unlink_atomic_stage(stage: Path, parent: int | None) -> None:
+        if parent is not None:
+            try:
+                os.unlink(stage, dir_fd=parent)
+            except FileNotFoundError:
+                pass
+            return
         try:
-            with os.fdopen(fd, "wb") as stream:
-                stream.write(content)
-            temporary_path.chmod(mode)
-            if self._path(path, allow_missing=True) != destination:
-                raise FileHelperError(f"Destination changed during write: {path}")
-            os.replace(temporary_path, destination)
-        finally:
-            temporary_path.unlink(missing_ok=True)
+            stage.unlink(missing_ok=True)
+        except PermissionError:
+            if os.name != "nt":
+                raise
+            mode = stat.S_IMODE(stage.stat().st_mode)
+            if mode & stat.S_IWRITE:
+                raise
+            stage.chmod(mode | stat.S_IWRITE)
+            try:
+                stage.unlink(missing_ok=True)
+            except OSError as exc:
+                try:
+                    stage.chmod(mode)
+                except OSError as restore_error:
+                    exc.add_note(f"Could not restore atomic stage permissions: {restore_error}")
+                raise
 
     def write_text(
         self, path: Path | str, content: str, *, encoding: str = "utf-8", mode: int = 0o644

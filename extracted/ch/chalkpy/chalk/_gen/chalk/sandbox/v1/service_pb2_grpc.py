@@ -301,6 +301,11 @@ class CustomImageServiceStub(object):
             request_serializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.ListCustomImageBuildsRequest.SerializeToString,
             response_deserializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.ListCustomImageBuildsResponse.FromString,
         )
+        self.ListImageFacets = channel.unary_unary(
+            "/chalk.sandbox.v1.CustomImageService/ListImageFacets",
+            request_serializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.ListImageFacetsRequest.SerializeToString,
+            response_deserializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.ListImageFacetsResponse.FromString,
+        )
         self.GetCustomImageBuild = channel.unary_unary(
             "/chalk.sandbox.v1.CustomImageService/GetCustomImageBuild",
             request_serializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.GetCustomImageBuildRequest.SerializeToString,
@@ -364,6 +369,12 @@ class CustomImageServiceServicer(object):
         """ListCustomImageBuilds lists the custom images the calling environment
         references (from the per-environment custom_image_refs index), newest first.
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListImageFacets(self, request, context):
+        """ListImageFacets lists the available filters for the calling environment's images."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -437,6 +448,11 @@ def add_CustomImageServiceServicer_to_server(servicer, server):
             servicer.ListCustomImageBuilds,
             request_deserializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.ListCustomImageBuildsRequest.FromString,
             response_serializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.ListCustomImageBuildsResponse.SerializeToString,
+        ),
+        "ListImageFacets": grpc.unary_unary_rpc_method_handler(
+            servicer.ListImageFacets,
+            request_deserializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.ListImageFacetsRequest.FromString,
+            response_serializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.ListImageFacetsResponse.SerializeToString,
         ),
         "GetCustomImageBuild": grpc.unary_unary_rpc_method_handler(
             servicer.GetCustomImageBuild,
@@ -631,6 +647,35 @@ class CustomImageService(object):
             "/chalk.sandbox.v1.CustomImageService/ListCustomImageBuilds",
             chalk_dot_sandbox_dot_v1_dot_service__pb2.ListCustomImageBuildsRequest.SerializeToString,
             chalk_dot_sandbox_dot_v1_dot_service__pb2.ListCustomImageBuildsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListImageFacets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.sandbox.v1.CustomImageService/ListImageFacets",
+            chalk_dot_sandbox_dot_v1_dot_service__pb2.ListImageFacetsRequest.SerializeToString,
+            chalk_dot_sandbox_dot_v1_dot_service__pb2.ListImageFacetsResponse.FromString,
             options,
             channel_credentials,
             insecure,

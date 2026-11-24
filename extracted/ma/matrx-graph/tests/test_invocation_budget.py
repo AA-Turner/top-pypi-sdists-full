@@ -12,7 +12,7 @@ with the NAMED ExecutionError (never a hang, never a silent truncation).
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
@@ -123,12 +123,19 @@ def test_documented_headroom_relationship_holds() -> None:
     assert DEFAULT_MAX_TOTAL_INVOCATIONS == 25_000
 
 
-async def test_max_size_map_completes_inside_default_budget() -> None:
-    """A REAL 10_000-item map (the node's own le=10_000 ceiling) under the
-    default 25k run budget: every one of the 10_000 children must actually
-    execute — the recorded item multiset is exactly 0..9999 — and the run
-    COMPLETES. Only genuine dispatch + execution of all ten thousand
-    invocations can produce that multiset."""
+async def test_max_size_map_completes_inside_default_budget(monkeypatch) -> None:
+    """A REAL 10_000-item map under the default 25k run budget: every one of the
+    10_000 children must actually execute — the recorded item multiset is exactly
+    0..9999 — and the run COMPLETES. Only genuine dispatch + execution of all ten
+    thousand invocations can produce that multiset. The platform For each cap
+    (knob ``workflow.for_each.max_items``, 5,000 live since G7) is raised to
+    10,000 here: this guards the run budget, not the cap."""
+    from matrx_graph import knobs as graph_knobs
+
+    async def _cap() -> int:
+        return 10_000
+
+    monkeypatch.setattr(graph_knobs, "for_each_max_items", _cap)
     scheduler, worker = _make_scheduler(_map_definition(10_000, max_dispatches=10_000))
 
     result = await scheduler.run(run_id="run-map-10k", max_steps=50)

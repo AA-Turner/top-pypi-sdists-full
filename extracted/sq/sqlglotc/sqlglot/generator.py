@@ -332,6 +332,9 @@ class Generator:
     # Whether MERGE ... WHEN MATCHED/NOT MATCHED THEN UPDATE/INSERT ... WHERE is supported
     SUPPORTS_MERGE_WHERE = False
 
+    # First version supporting MERGE WITH SCHEMA EVOLUTION
+    MERGE_SCHEMA_EVOLUTION_MIN_VERSION: t.ClassVar[tuple[int, ...] | None] = None
+
     # Whether MERGE uses ALL BY NAME instead of a star to update or insert all columns
     MERGE_ALL_BY_NAME = False
 
@@ -499,6 +502,8 @@ class Generator:
 
     # Whether the SELECT .. INTO syntax is used instead of CTAS
     SUPPORTS_SELECT_INTO = False
+
+    SUPPORTS_OPTIMIZE = False
 
     # Whether UNLOGGED tables can be created
     SUPPORTS_UNLOGGED_TABLES = False
@@ -1353,16 +1358,20 @@ class Generator:
         return f"PERIOD FOR SYSTEM_TIME ({self.sql(expression, 'this')}, {self.sql(expression, 'expression')})"
 
     def notnullcolumnconstraint_sql(self, expression: exp.NotNullColumnConstraint) -> str:
-        return f"{'' if expression.args.get('allow_null') else 'NOT '}NULL"
+        on_conflict = self.sql(expression, "on_conflict")
+        on_conflict = f" {on_conflict}" if on_conflict else ""
+        return f"{'' if expression.args.get('allow_null') else 'NOT '}NULL{on_conflict}"
 
     def primarykeycolumnconstraint_sql(self, expression: exp.PrimaryKeyColumnConstraint) -> str:
+        on_conflict = self.sql(expression, "on_conflict")
+        on_conflict = f" {on_conflict}" if on_conflict else ""
         desc = expression.args.get("desc")
         if desc is not None:
-            return f"PRIMARY KEY{' DESC' if desc else ' ASC'}"
+            return f"PRIMARY KEY{' DESC' if desc else ' ASC'}{on_conflict}"
         options = self.expressions(expression, key="options", flat=True, sep=" ")
         options = f" {options}" if options else ""
         include = self.sql(expression, "include")
-        return f"PRIMARY KEY{include}{options}"
+        return f"PRIMARY KEY{on_conflict}{include}{options}"
 
     def uniquecolumnconstraint_sql(self, expression: exp.UniqueColumnConstraint) -> str:
         this = self.sql(expression, "this")
@@ -2063,13 +2072,7 @@ class Generator:
                     and node.args.get("limit")
                 ):
                     node = node.subquery(copy=False)
-                    if not self.SET_OP_PARENTHESIZED_OPERANDS:
-                        node = exp.select("*").from_(node, copy=False)
-                elif (
-                    not self.SET_OP_PARENTHESIZED_OPERANDS
-                    and isinstance(node, exp.Subquery)
-                    and isinstance(node.unnest(), exp.SetOperation)
-                ):
+                if not self.SET_OP_PARENTHESIZED_OPERANDS and isinstance(node, exp.Subquery):
                     node = exp.select("*").from_(node, copy=False)
                 sqls.append(open_parens + self.indent(self.sql(node), level=depth, pad=0))
                 open_parens = ""
@@ -2874,6 +2877,13 @@ class Generator:
 
     def update_sql(self, expression: exp.Update) -> str:
         hint = self.sql(expression, "hint")
+        alternative = self.sql(expression, "alternative")
+        if alternative:
+            if self.dialect.SUPPORTS_UPDATE_OR or self.dialect == "":
+                alternative = f" OR {alternative}"
+            else:
+                self.unsupported(f"UPDATE OR {alternative} is not supported")
+                alternative = ""
         this = self.sql(expression, "this")
         join_sql, from_sql = self._update_from_joins_sql(expression)
         set_sql = self.expressions(expression, flat=True)
@@ -2887,7 +2897,7 @@ class Generator:
             expression_sql = f"{returning}{from_sql}{where_sql}"
         options = self.expressions(expression, key="options")
         options = f" OPTION({options})" if options else ""
-        sql = f"UPDATE{hint} {this}{join_sql} SET {set_sql}{expression_sql}{order}{limit}{options}"
+        sql = f"UPDATE{hint}{alternative} {this}{join_sql} SET {set_sql}{expression_sql}{order}{limit}{options}"
         return self.prepend_ctes(expression, sql)
 
     def values_sql(self, expression: exp.Values, values_as_table: bool = True) -> str:
@@ -4138,6 +4148,10 @@ class Generator:
         fmt = self.sql(expression, "format")
         return f"{this} (FORMAT {fmt})"
 
+    def teradataconversion_sql(self, expression: exp.TeradataConversion) -> str:
+        self.unsupported("Teradata postfix conversion semantics are not supported")
+        return self.sql(exp.cast(expression.this, expression.args["to"]))
+
     def teradatatitle_sql(self, expression: exp.TeradataTitle) -> str:
         self.unsupported("Teradata TITLE display headings are not supported")
         return self.sql(expression, "this")
@@ -4487,8 +4501,13 @@ class Generator:
         return f"{self.sql(expression, 'this')} {expression.text('expression').strip()}"
 
     def optimize_sql(self, expression: exp.Optimize) -> str:
-        self.unsupported("OPTIMIZE is only supported in Databricks")
-        return f"OPTIMIZE {self.sql(expression, 'this')}"
+        if not self.SUPPORTS_OPTIMIZE:
+            self.unsupported("OPTIMIZE is only supported in Databricks")
+        full = " FULL" if expression.args.get("full") else ""
+        where = self.sql(expression, "where")
+        columns = self.expressions(expression, key="zorder", flat=True)
+        zorder = self.seg(f"ZORDER BY ({columns})") if columns else ""
+        return f"OPTIMIZE {self.sql(expression, 'this')}{full}{where}{zorder}"
 
     def comment_sql(self, expression: exp.Comment) -> str:
         this = self.sql(expression, "this")
@@ -5235,6 +5254,14 @@ class Generator:
         return self.expressions(expression, sep=" ", indent=False)
 
     def merge_sql(self, expression: exp.Merge) -> str:
+        schema_evolution = ""
+        if expression.args.get("schema_evolution"):
+            min_version = self.MERGE_SCHEMA_EVOLUTION_MIN_VERSION
+            if min_version and self.dialect.version >= min_version:
+                schema_evolution = " WITH SCHEMA EVOLUTION"
+            else:
+                self.unsupported("MERGE WITH SCHEMA EVOLUTION is not supported")
+
         table = expression.this
         table_alias = ""
 
@@ -5262,7 +5289,7 @@ class Generator:
 
         return self.prepend_ctes(
             expression,
-            f"MERGE INTO {this}{table_alias}{sep}{using}{sep}{on}{sep}{whens}",
+            f"MERGE{schema_evolution} INTO {this}{table_alias}{sep}{using}{sep}{on}{sep}{whens}",
         )
 
     @unsupported_args("format")

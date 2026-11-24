@@ -429,6 +429,17 @@ async def load_offering_ladder(
             and o.id not in offerings_tried
             and str(o.endpoint_id) == str(class_endpoint_id)
         ]
+        # THE BAA GATE (providers/baa_gate.py): under HIPAA mode a sibling route on a vendor with
+        # no Business Associate Agreement is never offered (the seam would refuse it anyway; here
+        # the ladder never plans the hop).
+        # The policy is asked first: outside HIPAA mode the endpoint is never read.
+        if siblings:
+            from matrx_ai.providers.baa_gate import baa_policy, covered_sibling_filter
+
+            if await baa_policy() is not None:
+                endpoint = manager.endpoint(str(class_endpoint_id))
+                if not await covered_sibling_filter(str(getattr(endpoint, "vendor", "") or "")):
+                    siblings = []
         return OfferingLadder(
             canonical_model_id=model_id,
             current_offering_id=current,

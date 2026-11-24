@@ -31,6 +31,8 @@ def test_bad_name(name):
         skrub.choose_int(0, 10, name=name)
     with pytest.raises(TypeError, match=".*must be a `str`"):
         skrub.choose_int(0, 10, n_steps=5, name=name)
+    with pytest.raises(ValueError, match="names starting with 'skrub' or '_skrub'"):
+        skrub.choose_int(0, 10, name="skrub.c")
 
 
 def test_choose_from_numpy_array():
@@ -81,6 +83,14 @@ def test_bad_bounds():
         skrub.choose_int(20, 10, name="c")
     with pytest.raises(ValueError, match=".*'low' must be > 0"):
         skrub.choose_float(0.0, 10.0, log=True, name="c")
+    # non-regression: `low == high` used to pass the bounds check and only
+    # fail later, deep inside scipy, when `log=True` and `.rvs()` is called.
+    with pytest.raises(ValueError, match="'high' must be greater"):
+        skrub.choose_float(5.0, 5.0, log=True, name="c")
+    with pytest.raises(ValueError, match="'high' must be greater"):
+        skrub.choose_float(5.0, 5.0, name="c")
+    with pytest.raises(ValueError, match="'high' must be greater"):
+        skrub.choose_int(5, 5, name="c")
 
 
 def test_bad_numeric_default():
@@ -252,7 +262,9 @@ def test_choice_repr():
     <Value list>
     Result:
     ―――――――
-    [choose_from([1, 2]), optional(ndarray(...))]
+    [1, array([[1., 0., 0.],
+           [0., 1., 0.],
+           [0., 0., 1.]])]
 
     >>> skrub.optional(0, name='a')
     optional(0, name='a')

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: reflex-hosting-cli
-Version: 0.2.2
+Version: 0.2.2.post1
 Summary: Reflex Hosting CLI
 Author-email: Nikhil Rao <nikhil@reflex.dev>, Alek Petuskey <alek@reflex.dev>
 Maintainer-email: Simon Young <simon@reflex.dev>, Khaleel Al-Adhami <khaleel@reflex.dev>
@@ -16,7 +16,7 @@ Requires-Dist: click>=8.2
 Requires-Dist: httpx<1.0,>=0.25.1
 Requires-Dist: packaging>=24.2
 Requires-Dist: platformdirs<5.0,>=3.10.0
-Requires-Dist: reflex-build-sdk[httpx]!=0.1.2,<0.1.2.post,>=0.1.1
+Requires-Dist: reflex-build-sdk[httpx]!=0.1.3,<0.1.3.post,>=0.1.1
 Requires-Dist: rich<16,>=13
 Description-Content-Type: text/markdown
 

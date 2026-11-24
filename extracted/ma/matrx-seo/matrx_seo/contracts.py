@@ -44,6 +44,11 @@ class CollectionRequest(BaseModel):
     site_id: str | None = None
     page_id: str | None = None
     source_crawl_session_id: str | None = None
+    #: The BRAND this collection is for, when it has no site (a brand-level check).
+    #: Out of band like ``spend_approval_id``: never in ``settings``, never part of the
+    #: reuse identity. A host's authorize hook uses it so access follows the brand,
+    #: exactly as ``site_id`` lets access follow the site.
+    brand_id: str | None = None
     observation_period: str
     settings: dict[str, Any] = Field(default_factory=dict)
     trigger: CollectionTrigger = CollectionTrigger.ON_DEMAND

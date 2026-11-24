@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 COUNT_TOKENS_URL = "https://api.anthropic.com/v1/messages/count_tokens"
@@ -21,8 +22,9 @@ COUNT_TOKENS_URL = "https://api.anthropic.com/v1/messages/count_tokens"
 #: is indistinguishable from one. Named separately so a reader can see at a
 #: glance that reaching it spends nothing.
 ADMIN_API_BASE_URL = "https://api.anthropic.com"
-#: The Messages API version header every one of these endpoints expects.
-ANTHROPIC_API_VERSION = "2023-06-01"
+#: The API version header every one of these endpoints sends — the same one anthropic>=2.0
+#: sends (2026-10-21: no sampling parameters; renamed Admin API fields we do not read).
+ANTHROPIC_API_VERSION = "2026-10-21"
 
 
 #: The relay names the OPERATION; the endpoint stays inside the provider layer
@@ -44,7 +46,7 @@ async def open_broker_stream(
     On setup failure this function closes the client before propagating the
     provider transport error.
     """
-    client = httpx.AsyncClient(timeout=request_timeout)
+    client = shared_client(timeout=request_timeout)
     try:
         upstream_request = client.build_request(
             "POST", _BROKER_ENDPOINTS[endpoint], json=body, headers=headers

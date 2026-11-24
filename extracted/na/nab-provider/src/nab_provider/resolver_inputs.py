@@ -10,12 +10,12 @@ from __future__ import annotations
 
 __lazy_modules__ = (
     "collections",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.errors",
     "nab_provider.extra_keys",
     "nab_provider.vcs_admission",
     "nab_resolver.errors",
     "nab_resolver.types",
+    "packaging.utils",
 )
 
 import logging
@@ -23,28 +23,27 @@ from collections import defaultdict
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, NamedTuple
 
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.utils import canonicalize_name
+from packaging.ranges import VersionRange
+from packaging.utils import canonicalize_name
+
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 from nab_resolver.errors import ResolutionError
 from nab_resolver.types import RootRequirement
 
 from ._compat import override
-from .conflict_kind import (
-    KIND_EXTRA,
-    MARKER_VARIABLE_FOR_KIND,
-    membership_set_in_marker,
-)
+from .conflict_kind import EMPTY_MEMBERSHIP_SETS, KIND_EXTRA, MARKER_VARIABLE_FOR_KIND
 from .errors import ConfigError
 from .extra_keys import join_extra, split_extra
+from .pep508 import MARKER_COMPARISON
 from .vcs_admission import admit_vcs_url
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
 
-    from nab_provider._vendor.packaging.markers import Marker
-    from nab_provider._vendor.packaging.requirements import Requirement
-    from nab_provider._vendor.packaging.version import Version
+    from packaging.markers import Marker
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+
     from nab_resolver.types import RangeProtocol
 
     from .vcs_admission import VcsConfig
@@ -103,20 +102,36 @@ def _repair_advice(*, kind: str, tests_extra: bool) -> Suggestion:
     return Suggestion("use pkg[extra] to select an extra")
 
 
+def _membership_variables(marker_text: str) -> set[str]:
+    """Find lockfile-only set variables and equality tests on a root extra."""
+    variables: set[str] = set()
+    if "extra" not in marker_text and "dependency_groups" not in marker_text:
+        return variables
+
+    for comparison in MARKER_COMPARISON.finditer(marker_text):
+        lhs, operator, rhs = comparison.group("lhs", "op", "rhs")
+        # Packaging reads the right operand as the variable when the left is a literal.
+        variable = lhs
+        if lhs.startswith(('"', "'")):
+            variable = rhs[1:-1] if rhs.startswith(('"', "'")) else rhs
+        if variable in EMPTY_MEMBERSHIP_SETS or (
+            variable == "extra" and operator == "=="
+        ):
+            variables.add(variable)
+    return variables
+
+
 def _warn_dropped_membership_marker(
     req: Requirement, warned: set[tuple[str, str]], *, kind: str
 ) -> None:
     """Warn when a dropped top-level entry tests an extra or group membership.
 
-    A selected extra or group is folded into the requirements rather than the
-    environment, so ``extra``, ``extras`` and ``dependency_groups`` are empty
-    whatever the run selects and a membership test never holds.  ``kind`` names
-    the entry in the message and picks the repair.  ``warned`` holds the
-    ``(kind, text)`` pairs already reported, so one mistake warns once per kind.
+    Selected extras and groups add requirements directly. The root marker
+    environment leaves these variables empty. Report each entry once per kind,
+    so a constraint can receive different advice from a root requirement.
     """
-    marker_text = str(req.marker)
-    membership_set = membership_set_in_marker(marker_text)
-    if "extra ==" not in marker_text and membership_set is None:
+    membership = _membership_variables(str(req.marker))
+    if not membership:
         return
 
     text = str(req)
@@ -124,15 +139,13 @@ def _warn_dropped_membership_marker(
         return
     warned.add((kind, text))
 
-    tests_extra = "extra ==" in marker_text or membership_set == _EXTRAS_VARIABLE
+    tests_extra = "extra" in membership or _EXTRAS_VARIABLE in membership
     _logger.warning(
         DiagnosticMessage(
             (
                 f"{_DROPPED_MARKER_SUBJECT.get(kind, kind.capitalize())} {text!r} "
-                "tests an extra or dependency-group membership marker; it is dropped "
-                "because a selected extra or group is folded into the requirements "
-                "rather than the environment, so extra, extras and dependency_groups "
-                "are empty at resolve time."
+                "was dropped. Its membership marker sees no extras or dependency "
+                "groups. Selecting an extra or group adds its requirements directly."
             ),
             suggestions=(_repair_advice(kind=kind, tests_extra=tests_extra),),
         )
@@ -190,6 +203,9 @@ def build_resolver_inputs(
     roots: list[RootRequirement[str, Version]] = []
     resolver_requirements: dict[str, VersionRange] = {}
     root_extras: set[tuple[str, str]] = set()
+    constraint_sources: defaultdict[str, list[str]] | None = (
+        defaultdict(list) if kind == "constraint" else None
+    )
     already_warned: set[tuple[str, str]] = set() if warned is None else warned
 
     for req in requirements:
@@ -204,8 +220,8 @@ def build_resolver_inputs(
         if req.url is not None:
             admit_vcs_url(req.url, vcs)
             msg = (
-                f"VCS {kind} admitted by policy but resolver path is not"
-                f" implemented: {req.name} @ {req.url}"
+                f"move the Git URL for {req.name} to vcs-sources "
+                f"and keep the rest of the {kind}"
             )
             raise NotImplementedError(msg)
 
@@ -217,7 +233,10 @@ def build_resolver_inputs(
             else VersionRange.full(admit_arbitrary=False)
         )
         resolver_requirements[name] = previous & term
-        roots.append(_root(name, term, str(req)))
+        origin = str(req)
+        roots.append(_root(name, term, origin))
+        if constraint_sources is not None:
+            constraint_sources[name].append(origin)
 
         for extra in sorted(req.extras):
             extra_key = join_extra(name, extra)
@@ -227,17 +246,12 @@ def build_resolver_inputs(
             if extra_key not in resolver_requirements:
                 proxy = VersionRange.full(admit_arbitrary=False)
                 resolver_requirements[extra_key] = proxy
-                roots.append(_root(extra_key, proxy, str(req)))
+                roots.append(_root(extra_key, proxy, origin))
 
-            _, normalized_extra = split_extra(extra_key)
-            assert normalized_extra is not None  # join_extra always sets one
-            root_extras.add((name, normalized_extra))
+            root_extras.add((name, canonicalize_name(extra)))
 
-    if kind == "constraint":
-        sources: defaultdict[str, list[str]] = defaultdict(list)
-        for root in roots:
-            sources[root.package].append(root.origin)
-        raise_for_unsatisfiable(resolver_requirements, sources, kind=kind)
+    if constraint_sources is not None:
+        raise_for_unsatisfiable(resolver_requirements, constraint_sources, kind=kind)
 
     return _ResolverInputs(roots, resolver_requirements, root_extras)
 

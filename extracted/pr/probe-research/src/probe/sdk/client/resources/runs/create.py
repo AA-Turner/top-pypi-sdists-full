@@ -9,6 +9,7 @@ from typing import Any
 from ....values import values as _coerce
 from ....values.times import to_iso_time
 from ....values.run_type import to_run_type
+from ....values.total_steps import to_total_steps
 
 from .... import agent_session, errors
 from ....errors import CapabilityUnavailable
@@ -47,6 +48,7 @@ class RunCreateMixin:
         parent_provenance: str | None = None,
         started_at: str | datetime | None = None,
         run_type: str | None = None,
+        total_steps: int | None = None,
     ) -> dict[str, Any]:
         # 0268 (plan 2.5): a fresh key per create, so the SAME body can be sent
         # again when its response is lost and the server hands back the run it
@@ -140,6 +142,9 @@ class RunCreateMixin:
         if run_type is not None:
             # Omitted = undeclared: the server reads it as `general`, and an RL writer may still mark it `rl`.
             body["run_type"] = to_run_type(run_type)
+        if total_steps is not None:
+            # Omitted = unknown: a trainer integration may still fill it with its own count (0515).
+            body["total_steps"] = to_total_steps(total_steps)
         if started_at is not None:
             # A re-logged past run keeps its real start (0269; the server needs the
             # creation_key above and stores a future time as its own now).
@@ -171,6 +176,7 @@ class RunCreateMixin:
         project_id: str | None = None,
         started_at: str | datetime | None = None,
         run_type: str | None = None,
+        total_steps: int | None = None,
     ) -> Run:
         """Create an experiment-attached run
         (``POST /v1/projects/{P}/experiments/{E}/runs``; ``project_id`` saves the
@@ -200,6 +206,7 @@ class RunCreateMixin:
             authored_by=authored_by,
             started_at=started_at,
             run_type=run_type,
+            total_steps=total_steps,
         )
         session_id, lease = self._lease_for_create(
             body, heartbeat=heartbeat, awaiting_attach=awaiting_attach, launcher=launcher
@@ -343,6 +350,7 @@ class RunCreateMixin:
         authored_by: str | None = None,
         started_at: str | datetime | None = None,
         run_type: str | None = None,
+        total_steps: int | None = None,
     ) -> Run:
         """POST /v1/projects/{id}/runs — open a PROJECT-DIRECT run (W&B shape).
 
@@ -374,6 +382,7 @@ class RunCreateMixin:
             authored_by=authored_by,
             started_at=started_at,
             run_type=run_type,
+            total_steps=total_steps,
         )
         session_id, lease = self._lease_for_create(
             body, heartbeat=heartbeat, awaiting_attach=awaiting_attach, launcher=launcher

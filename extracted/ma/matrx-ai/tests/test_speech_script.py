@@ -402,7 +402,10 @@ def test_a_refused_script_is_never_retried_and_names_the_remedy(provider):
         "google": errors.classify_google_error,
         "openai": errors.classify_openai_error,
     }[provider]
-    refusal = SpeechScriptRefusal("This speech script has 3 speakers but X performs at most 2.")
+    refusal = SpeechScriptRefusal(
+        "This speech script has 3 speakers but X performs at most 2.",
+        user_message="This speech script has 3 speakers, but the selected model performs at most 2 speakers.",
+    )
     info = classify(refusal)
     assert info.is_retryable is False
     assert info.error_type == "speech_script_refused"

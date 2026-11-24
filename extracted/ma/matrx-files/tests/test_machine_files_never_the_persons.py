@@ -73,6 +73,7 @@ async def test_machine_and_device_rows_never_reach_the_persons_tree_or_recents()
 
         tag = f"zz-machine-guard-{uuid.uuid4().hex[:10]}"
         try:
+            # holds-one-transaction: the seeded rows must be visible to the reads and leave by rollback
             async with conn.transaction():
                 await conn.execute("SET LOCAL lock_timeout = '3s'")
                 await conn.execute("SET LOCAL statement_timeout = '60s'")

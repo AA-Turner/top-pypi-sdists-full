@@ -20,12 +20,11 @@ message.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
     "nab_project",
-    "nab_project._toml",
     "nab_project.paths",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.policy",
+    "nab_resolver.diagnostics",
+    "packaging.utils",
     "tomli",
 )
 
@@ -33,14 +32,13 @@ import logging
 from typing import TYPE_CHECKING, Any, Final
 
 import tomli
+from packaging.utils import InvalidName, canonicalize_name
 
-from nab_provider._vendor.packaging.utils import InvalidName, canonicalize_name
 from nab_provider.policy import LocalSource
 from nab_provider.value import HashableRecord
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 
 from . import toml_io
-from ._toml import tool_nab_section
 from .paths import PathState, path_state, realpath, resolve_path
 
 if TYPE_CHECKING:
@@ -97,7 +95,7 @@ def _workspace_declaration(data: dict[str, Any], project_file: Path) -> tuple[An
     """
     if project_file.name == _PROJECT_TOML:
         return data.get("workspace"), "[workspace]"
-    nab = tool_nab_section(data)
+    nab = toml_io.tool_nab_section(data)
     label = "[tool.nab.workspace]"
     if not isinstance(nab, dict):
         return None, label
@@ -134,9 +132,14 @@ def discover_workspace_root(member_pyproject: Path) -> Path | None:
     errors during the walk are swallowed: a malformed sibling should not
     prevent discovery from finding a valid root above it.
     """
-    start_dir = realpath(member_pyproject).parent
+    # A symlinked project file uses the configuration beside the link.
+    start_dir = realpath(member_pyproject.parent)
     for parent in (start_dir, *start_dir.parents):
         for candidate in (parent / "pyproject.toml", parent / _PROJECT_TOML):
+            # Opening a named pipe during discovery would wait for a writer.
+            if path_state(candidate) is not PathState.FILE:
+                continue
+
             try:
                 with candidate.open("rb") as f:
                     data = toml_io.load(f)

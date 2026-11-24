@@ -60,7 +60,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.errors import ExecutionError
-from matrx_graph.nodes._sandbox import safe_eval, validate_expression
+from matrx_graph.nodes._sandbox import ExpressionFailure, safe_eval, validate_expression
 from matrx_graph.nodes._template import render_template_string, resolve_path
 from matrx_graph.nodes.data.filter import LeftOutEntry, left_out_label, step_id
 from matrx_graph.types.context import NodeExecutionContext
@@ -362,6 +362,8 @@ def _decide(config: RulesConfig, bound: dict[str, Any], *, where: str) -> RuleDe
     for index, rule in enumerate(config.rules):
         try:
             passed = safe_eval(rule.when, bound)
+        except ExpressionFailure:
+            raise  # named by the sandbox; the node returns it as the step's Failure
         except ExecutionError as e:
             raise ExecutionError(f"data.rules: rule {index} ({rule.when!r}){where}: {e}") from e
         except KeyError as e:
@@ -435,6 +437,21 @@ class RulesExecutor:
     )
 
     async def execute(
+        self,
+        ctx: NodeExecutionContext,
+        inputs: RulesInput,
+        config: RulesConfig,
+    ) -> NodeResult[RulesOutput]:
+        # Every rule compiles and evaluates per item: a long list held the loop 2.2 s
+        # (event_loop_stall 410e60402d73ead7), so a large input is decided in a thread.
+        from matrx_graph.checkpoint.values import run_pure_off_loop
+
+        try:
+            return await run_pure_off_loop(self._decide_all, ctx, inputs, config, values=(inputs,))
+        except ExpressionFailure as e:  # zero divisor / mixed-kind operands: the sandbox named it
+            return e.failure
+
+    def _decide_all(
         self,
         ctx: NodeExecutionContext,
         inputs: RulesInput,

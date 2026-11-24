@@ -65,9 +65,9 @@ async def source_audio_bytes(part: AudioContent) -> bytes:
             + (f" ({part.resolver_error})" if part.resolver_error else "")
             + "; give a file id the run can open, a URL, or base64 audio."
         )
-    from matrx_ai.media import fetch_media
+    from matrx_ai.media import fetch_media_async
 
-    data = await asyncio.to_thread(fetch_media, url, target_format="bytes")
+    data = await fetch_media_async(url, target_format="bytes")
     if not isinstance(data, bytes) or not data:
         raise ValueError("[ElevenLabs Voice Changer] the audio location returned no bytes.")
     return data

@@ -3,7 +3,9 @@ from chalk._gen.chalk.auth.v1 import featurepermission_pb2 as _featurepermission
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import snapshot_compatibility_pb2 as _snapshot_compatibility_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -18,6 +20,13 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class Runtime(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RUNTIME_UNSPECIFIED: _ClassVar[Runtime]
+    RUNTIME_GVISOR: _ClassVar[Runtime]
+    RUNTIME_VM: _ClassVar[Runtime]
+    RUNTIME_RUNC: _ClassVar[Runtime]
 
 class ExecutionBackend(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -48,6 +57,11 @@ class KernelPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     KERNEL_POLICY_RESTRICTED: _ClassVar[KernelPolicy]
     KERNEL_POLICY_OPEN: _ClassVar[KernelPolicy]
 
+class ContainerStatusReason(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CONTAINER_STATUS_REASON_UNSPECIFIED: _ClassVar[ContainerStatusReason]
+    CONTAINER_STATUS_REASON_OOM_KILLED: _ClassVar[ContainerStatusReason]
+
 class ProcessState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     PROCESS_STATE_UNSPECIFIED: _ClassVar[ProcessState]
@@ -62,6 +76,10 @@ class IdentityMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     IDENTITY_MODE_CREATOR_IDENTITY: _ClassVar[IdentityMode]
     IDENTITY_MODE_WORKLOAD_PRINCIPAL: _ClassVar[IdentityMode]
 
+RUNTIME_UNSPECIFIED: Runtime
+RUNTIME_GVISOR: Runtime
+RUNTIME_VM: Runtime
+RUNTIME_RUNC: Runtime
 EXECUTION_BACKEND_UNSPECIFIED: ExecutionBackend
 EXECUTION_BACKEND_ENVIRONMENT: ExecutionBackend
 EXECUTION_BACKEND_SERVERLESS: ExecutionBackend
@@ -76,6 +94,8 @@ RESTART_POLICY_ALWAYS: RestartPolicy
 KERNEL_POLICY_UNSPECIFIED: KernelPolicy
 KERNEL_POLICY_RESTRICTED: KernelPolicy
 KERNEL_POLICY_OPEN: KernelPolicy
+CONTAINER_STATUS_REASON_UNSPECIFIED: ContainerStatusReason
+CONTAINER_STATUS_REASON_OOM_KILLED: ContainerStatusReason
 PROCESS_STATE_UNSPECIFIED: ProcessState
 PROCESS_STATE_RUNNING: ProcessState
 PROCESS_STATE_EXITED: ProcessState
@@ -198,6 +218,8 @@ class ChalkContainerSpec(_message.Message):
         "host_placement",
         "execution_target",
         "resource_detection",
+        "runtime",
+        "group_limits",
     )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -252,6 +274,8 @@ class ChalkContainerSpec(_message.Message):
     HOST_PLACEMENT_FIELD_NUMBER: _ClassVar[int]
     EXECUTION_TARGET_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_DETECTION_FIELD_NUMBER: _ClassVar[int]
+    RUNTIME_FIELD_NUMBER: _ClassVar[int]
+    GROUP_LIMITS_FIELD_NUMBER: _ClassVar[int]
     name: str
     image: str
     entrypoint: _containers.RepeatedScalarFieldContainer[str]
@@ -279,6 +303,8 @@ class ChalkContainerSpec(_message.Message):
     host_placement: HostPlacementOptions
     execution_target: ExecutionTarget
     resource_detection: ResourceDetectionConfig
+    runtime: Runtime
+    group_limits: SandboxGroupLimits
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -310,6 +336,8 @@ class ChalkContainerSpec(_message.Message):
         host_placement: _Optional[_Union[HostPlacementOptions, _Mapping]] = ...,
         execution_target: _Optional[_Union[ExecutionTarget, _Mapping]] = ...,
         resource_detection: _Optional[_Union[ResourceDetectionConfig, _Mapping]] = ...,
+        runtime: _Optional[_Union[Runtime, str]] = ...,
+        group_limits: _Optional[_Union[SandboxGroupLimits, _Mapping]] = ...,
     ) -> None: ...
 
 class ResourceDetectionConfig(_message.Message):
@@ -547,6 +575,8 @@ class ContainerResponse(_message.Message):
         "created_by",
         "status_details",
         "cluster_id",
+        "status_reason",
+        "started_at",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -566,6 +596,8 @@ class ContainerResponse(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_REASON_FIELD_NUMBER: _ClassVar[int]
+    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     status: str
@@ -584,6 +616,8 @@ class ContainerResponse(_message.Message):
     created_by: str
     status_details: str
     cluster_id: str
+    status_reason: ContainerStatusReason
+    started_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -604,6 +638,8 @@ class ContainerResponse(_message.Message):
         created_by: _Optional[str] = ...,
         status_details: _Optional[str] = ...,
         cluster_id: _Optional[str] = ...,
+        status_reason: _Optional[_Union[ContainerStatusReason, str]] = ...,
+        started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class RunContainerRequest(_message.Message):
@@ -1019,6 +1055,9 @@ class UpdateContainerStatusRequest(_message.Message):
         "status_details",
         "execution_started_at",
         "execution_stopped_at",
+        "status_reason",
+        "sandbox_group_reservation_id",
+        "termination_confirmed",
     )
     CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
@@ -1028,6 +1067,9 @@ class UpdateContainerStatusRequest(_message.Message):
     STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
     EXECUTION_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     EXECUTION_STOPPED_AT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_REASON_FIELD_NUMBER: _ClassVar[int]
+    SANDBOX_GROUP_RESERVATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TERMINATION_CONFIRMED_FIELD_NUMBER: _ClassVar[int]
     container_id: str
     status: str
     status_message: str
@@ -1036,6 +1078,9 @@ class UpdateContainerStatusRequest(_message.Message):
     status_details: str
     execution_started_at: _timestamp_pb2.Timestamp
     execution_stopped_at: _timestamp_pb2.Timestamp
+    status_reason: ContainerStatusReason
+    sandbox_group_reservation_id: str
+    termination_confirmed: bool
     def __init__(
         self,
         container_id: _Optional[str] = ...,
@@ -1046,6 +1091,9 @@ class UpdateContainerStatusRequest(_message.Message):
         status_details: _Optional[str] = ...,
         execution_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         execution_stopped_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status_reason: _Optional[_Union[ContainerStatusReason, str]] = ...,
+        sandbox_group_reservation_id: _Optional[str] = ...,
+        termination_confirmed: bool = ...,
     ) -> None: ...
 
 class UpdateContainerStatusResponse(_message.Message):
@@ -1238,19 +1286,69 @@ class WorkloadPrincipalIdentity(_message.Message):
         customer_claims: _Optional[_Iterable[_Union[_agent_pb2.CustomClaim, _Mapping]]] = ...,
     ) -> None: ...
 
+class SandboxGroupLimits(_message.Message):
+    __slots__ = ("max_active_descendants", "resources", "expires_at", "oidc_audience_policy")
+    MAX_ACTIVE_DESCENDANTS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    OIDC_AUDIENCE_POLICY_FIELD_NUMBER: _ClassVar[int]
+    max_active_descendants: int
+    resources: ResourceLimits
+    expires_at: _timestamp_pb2.Timestamp
+    oidc_audience_policy: OIDCAudiencePolicy
+    def __init__(
+        self,
+        max_active_descendants: _Optional[int] = ...,
+        resources: _Optional[_Union[ResourceLimits, _Mapping]] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        oidc_audience_policy: _Optional[_Union[OIDCAudiencePolicy, _Mapping]] = ...,
+    ) -> None: ...
+
+class OIDCAudiencePolicy(_message.Message):
+    __slots__ = ("any", "only")
+    ANY_FIELD_NUMBER: _ClassVar[int]
+    ONLY_FIELD_NUMBER: _ClassVar[int]
+    any: _empty_pb2.Empty
+    only: OIDCAudienceSet
+    def __init__(
+        self,
+        any: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...,
+        only: _Optional[_Union[OIDCAudienceSet, _Mapping]] = ...,
+    ) -> None: ...
+
+class OIDCAudienceSet(_message.Message):
+    __slots__ = ("audiences",)
+    AUDIENCES_FIELD_NUMBER: _ClassVar[int]
+    audiences: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, audiences: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class ChalkWorkloadIdentity(_message.Message):
-    __slots__ = ("mode", "workload_principal", "oidc_token_files")
+    __slots__ = ("mode", "workload_principal", "oidc_token_files", "oidc_audience_policy", "user_provided_claims")
+    class UserProvidedClaimsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     MODE_FIELD_NUMBER: _ClassVar[int]
     WORKLOAD_PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
     OIDC_TOKEN_FILES_FIELD_NUMBER: _ClassVar[int]
+    OIDC_AUDIENCE_POLICY_FIELD_NUMBER: _ClassVar[int]
+    USER_PROVIDED_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     mode: IdentityMode
     workload_principal: WorkloadPrincipalIdentity
     oidc_token_files: _containers.RepeatedCompositeFieldContainer[OIDCTokenFile]
+    oidc_audience_policy: OIDCAudiencePolicy
+    user_provided_claims: _containers.ScalarMap[str, str]
     def __init__(
         self,
         mode: _Optional[_Union[IdentityMode, str]] = ...,
         workload_principal: _Optional[_Union[WorkloadPrincipalIdentity, _Mapping]] = ...,
         oidc_token_files: _Optional[_Iterable[_Union[OIDCTokenFile, _Mapping]]] = ...,
+        oidc_audience_policy: _Optional[_Union[OIDCAudiencePolicy, _Mapping]] = ...,
+        user_provided_claims: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class OIDCTokenFile(_message.Message):

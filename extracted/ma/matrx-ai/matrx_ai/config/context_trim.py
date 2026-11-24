@@ -98,8 +98,18 @@ from typing import Any
 from matrx_ai.config.message_config import UnifiedMessage
 
 _DEFAULT_SUBSTITUTE = (
-    "[tool result cleared] Replaced with keys and chars -- Fetch again when necessary"
+    "[tool result cleared] Removed from your context to save space: its values "
+    "(ids, numbers, text) are no longer visible to you, so never write them from "
+    "memory. To read them again, follow `refetch`."
 )
+
+# A cleared result names the exact call that brings it back (conversation
+# d1e4226e, 2026-11-12: a 26 KB ``sql`` lookup of ``company.legal_document_type``
+# was cleared six iterations later; the agent wrote document_type_id values from
+# memory, they were wrong, and an FK refusal caught it). The call's own
+# arguments are repeated only up to this size, and never once they were trimmed
+# (a trimmed value is not the value the call ran with).
+REFETCH_ARGUMENTS_MAX_CHARS = 600
 
 # A stale call keeps its REAL shape: every key and every short value stays,
 # and only a long string (or a long list) is cut, with this note in place of
@@ -784,6 +794,7 @@ def trim_messages_context(
                 return report
 
     distances = _iteration_distances(messages)
+    calls = call_index(messages)  # before any argument is trimmed below
     for msg, (positions_back, iterations_back) in zip(messages, distances, strict=True):
         effective_position = effective_positions[id(msg)]
         tier_rule = _tier_for(policy, positions_back, iterations_back)
@@ -840,7 +851,8 @@ def trim_messages_context(
             except (TypeError, ValueError):
                 before_len = block_chars_before
 
-            _rewrite_block_content(block, policy.substitute_message)
+            if not _rewrite_block_content(block, policy.substitute_message, refetch_for(block, calls)):
+                continue  # the stub would not be smaller
 
             content_after = _get_content(block)
             try:
@@ -858,6 +870,9 @@ def trim_messages_context(
                         int(msg.position) if msg.position is not None else effective_position
                     ),
                     "call_id": _get_block_attr(block, "call_id"),
+                    # The result's join key on Anthropic-shaped wires (``call_id`` is the
+                    # OpenAI one and is often empty): the cache guard places the rewrite by it.
+                    "tool_use_id": _get_block_attr(block, "tool_use_id"),
                     "tool_name": _get_block_attr(block, "name"),
                     "before_chars": before_len,
                     "after_chars": after_len,
@@ -915,6 +930,21 @@ def _is_cache_likely_alive(cache_state: dict[str, Any]) -> bool:
     return age < (float(_cache_ttl_secs(cache_state)) * CACHE_GATE_TTL_RATIO)
 
 
+def cache_is_warm(cache_state: dict[str, Any] | None) -> bool:
+    """THE warm/cold test of the provider's prompt cache: warm while the age since the last response is under the
+    FULL TTL (``_cache_ttl_secs``); unknown age is cold.
+
+    One test for every step that decides whether to move the cached prefix — the payback trim gate, the history
+    window, the stale markers and the held/moved verdict (2026-11-19 review: the window used ``RATIO x TTL`` while
+    the gate used the full TTL, so between 240 and 300 s the window moved the prefix on a cache that was still
+    live). Treating a live cache as cold costs a full rewrite; treating an expired one as warm only delays a move.
+    ``_is_cache_likely_alive`` (the ratio margin) is the LEGACY trim gate's test only."""
+    if not cache_state:
+        return False
+    age = _cache_age_secs(cache_state)
+    return age is not None and age < float(_cache_ttl_secs(cache_state))
+
+
 def _cache_ttl_secs(cache_state: dict[str, Any]) -> int:
     """The lifetime of the cache that covers the history a trim would rewrite:
     ``est_cache_ttl_secs`` when the state carries it (the send boundary sets it
@@ -948,8 +978,9 @@ def _estimate_savings_tokens(
     return estimate_budget_tokens(total_chars, "prose")
 
 
-# Rough size of the stub a rewritten block leaves behind (marker + keys + size).
-_STUB_CHARS_ESTIMATE = 300
+# Rough size of the stub a rewritten block leaves behind (marker + refetch + preview keys;
+# measured 2026-11-12 on a typical sql read stub: ~600 chars).
+_STUB_CHARS_ESTIMATE = 650
 
 
 def _is_assistant(msg: UnifiedMessage) -> bool:
@@ -1083,7 +1114,7 @@ def _decide_cache_gate(
         # a full rewrite (Cora 2026-10-18: 263 s of a 300 s TTL, 70 ¢), treating an
         # expired one as warm only delays a trim. Between RATIO x TTL and TTL the
         # cache counts as warm; only age >= TTL (or unknown) is cold.
-        cold = age is None or age >= float(ttl)
+        cold = not cache_is_warm(cache_state)
     else:
         cold = not _is_cache_likely_alive(cache_state)
     if cold:
@@ -1364,25 +1395,280 @@ def _already_trimmed(block: Any) -> bool:
     return content.startswith('{"result": "[tool result cleared]')
 
 
-def _rewrite_block_content(block: Any, marker: str) -> None:
-    """Replace the block's content with an augmented preview JSON.
+def call_index(messages: list[Any]) -> dict[str, tuple[str, Any]]:
+    """``call id -> (tool name, arguments)`` for every tool_call block, read BEFORE
+    any rewrite so a cleared result's ``refetch`` is the same bytes on every send."""
+    index: dict[str, tuple[str, Any]] = {}
+    for msg in messages:
+        content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not _is_tool_call_block(block):
+                continue
+            call_id = _get_call_identifier(block)
+            if call_id:
+                index[call_id] = (_get_block_attr(block, "name"), _get_arguments(block))
+    return index
 
-    The shape mirrors the user's spec:
-      {
-        "result": "<marker>",
-        ...all original output_preview keys preserved...
-      }
 
-    If no output_preview exists we still produce a minimal substitution
-    so the model sees the marker. The block's call_id / tool_use_id /
-    name / is_error / output_chars are intentionally untouched.
-    """
+#: ``sql``-family actions that only read (the trimmer is pure: it reads no
+#: registry row, so a call it cannot classify as a read is treated as a write).
+_READ_ACTIONS: dict[str, frozenset[str]] = {
+    "sql": frozenset({"query", "schema", "count"}),
+    "db_read": frozenset({"query", "schema", "count"}),
+}
+
+
+def _is_read_call(name: str, arguments: Any) -> bool:
+    """True only when this call is known to change nothing (so re-running it is safe)."""
+    from matrx_ai.config.wire_names import WIRE_SEP
+    from matrx_ai.tools.side_effect_class import (
+        PAID_READ,
+        READ_ONLY,
+        effective_invocation_side_effect_class,
+    )
+
+    # A rebuilt call carries the internal name, a live one the wire name.
+    for candidate in (name, name.replace(WIRE_SEP, ":", 1)):
+        actions = _READ_ACTIONS.get(candidate)
+        if actions is not None:
+            action = arguments.get("action") if isinstance(arguments, dict) else None
+            return isinstance(action, str) and action.strip().lower() in actions
+        effect = effective_invocation_side_effect_class(None, arguments, tool_name=candidate)
+        if effect in (READ_ONLY, PAID_READ):
+            return True
+    return False
+
+
+def refetch_for(block: Any, calls: dict[str, tuple[str, Any]] | None) -> dict[str, Any] | None:
+    """How to read a cleared result again: the tool's WIRE name (live and rebuilt
+    calls spell it differently; the wire form is the same bytes for both and is
+    what the model calls), plus the call's own arguments only when the call is a
+    read and its arguments are intact and short (``REFETCH_ARGUMENTS_MAX_CHARS``)."""
+    if not calls:
+        return None
+    found = None
+    for attr in ("tool_use_id", "call_id"):
+        key = _get_block_attr(block, attr)
+        if key and key in calls:
+            found = calls[key]
+            break
+    if found is None:
+        return None
+    name, arguments = found
+    if not name:
+        return None
+    from matrx_ai.config.wire_names import to_wire_name
+
+    refetch: dict[str, Any] = {"tool": to_wire_name(name)}
+    if not _is_read_call(name, arguments):
+        refetch["how"] = "this call changed data: never re-run it; look the values up with a read call"
+        return refetch
+    if not isinstance(arguments, dict) or arguments_carry_trim_marker(arguments) is not None:
+        refetch["how"] = "its arguments were trimmed from context: query again with a fresh read call"
+        return refetch
+    try:
+        args_text = json.dumps(arguments, default=str)
+    except (TypeError, ValueError):
+        args_text = ""
+    if args_text and len(args_text) <= REFETCH_ARGUMENTS_MAX_CHARS:
+        refetch["arguments"] = arguments
+    else:
+        refetch["how"] = "repeat the original call above with the same arguments"
+    return refetch
+
+
+def _content_chars(content: Any) -> int:
+    """A result body's size as it rides the wire (text as-is, anything else as JSON)."""
+    if isinstance(content, str):
+        return len(content)
+    try:
+        return len(json.dumps(content, default=str))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _stub_text(block: Any, marker: str, refetch: dict[str, Any] | None) -> str:
     preview = _get_output_preview(block) or {}
     augmented: dict[str, Any] = {"result": marker}
+    if refetch:
+        augmented["refetch"] = refetch
     # Preserve preview keys verbatim AFTER ``result`` so renderers that
     # display the first-key always see the marker.
     for key, value in preview.items():
-        if key == "result":
+        if key in ("result", "refetch"):
             continue
         augmented[key] = value
-    _set_content(block, json.dumps(augmented))
+    return json.dumps(augmented, default=str)
+
+
+def _rewrite_block_content(block: Any, marker: str, refetch: dict[str, Any] | None = None) -> bool:
+    """Replace the block's content with the cleared stub; ``False`` (nothing
+    changed) when the stub would not be SMALLER than what it replaces — a
+    clearing that grows the prompt is never made. Pure function of the block and
+    its call, so a warm-cache replay decides the same way, byte for byte.
+
+    The stub: ``{"result": "<marker>", "refetch": {...}, ...output_preview keys}``.
+    The block's call_id / tool_use_id / name / is_error / output_chars are
+    intentionally untouched.
+    """
+    stub = _stub_text(block, marker, refetch)
+    if len(stub) >= _content_chars(_get_content(block)):
+        return False
+    _set_content(block, stub)
+    return True
+
+
+# --------------------------------------------------------------------------- #
+# Replay — a rewrite made by an earlier send is made again, byte for byte     #
+# --------------------------------------------------------------------------- #
+
+
+def _result_keys(block: Any) -> tuple[str, ...]:
+    """A tool result's join keys (``tool_use_id`` on Anthropic-shaped wires, ``call_id`` on OpenAI's), each ONCE.
+
+    A rebuilt result carries BOTH, equal (``_conversation_rebuild_impl._rebuild_tool_result_content``). Listed twice,
+    one block counted as two and the replay's repeated-id guard called every recorded key ambiguous, dropped it and
+    pruned it from the record: no trim was ever replayed on a stored conversation (2026-11-19, staff thread 3af9e95c:
+    the warm ask sent a cleared 18k ``fs_list`` result whole and read only system + tools from the cache)."""
+    return tuple(dict.fromkeys(k for k in (_get_block_attr(block, "tool_use_id"), _get_block_attr(block, "call_id")) if k))
+
+
+def _record_key(entry: dict[str, Any]) -> str:
+    return str(entry.get("tool_use_id") or entry.get("call_id") or "")
+
+
+#: The replay record's key lists (``trim_rewrite_record``). Persisted as JSON lists; handled as ordered sets.
+TRIM_RECORD_FIELDS: tuple[str, ...] = ("results", "results_after_arguments", "arguments")
+
+
+def trim_rewrite_record(
+    report: TrimReport, prior: dict[str, Any] | None = None, *, present: tuple[set[str], set[str]] | None = None
+) -> dict[str, Any]:
+    """``prior`` plus every rewrite ``report`` made: the replay record of a conversation's trims.
+
+    ``results`` — the results cleared; ``results_after_arguments`` — those cleared when their call's arguments were
+    ALREADY trimmed (their ``refetch`` read the trimmed arguments, so the replay must too); ``arguments`` — the calls
+    whose arguments were trimmed. Keys only, never text; each list ordered and unique.
+
+    ``present`` (``record_keys_present(messages)``): ``prior`` is first pruned to the blocks still in the messages
+    the trim ran on, so a record made on a path that never replays (a loop-stage or wire trim) cannot grow without
+    limit — a key whose block left the history names nothing."""
+    record = {k: dict.fromkeys(str(v) for v in (prior or {}).get(k) or [] if v) for k in TRIM_RECORD_FIELDS}
+    if present is not None:
+        result_keys, call_keys = present
+        record["results"] = {k: None for k in record["results"] if k in result_keys or k in call_keys}
+        record["results_after_arguments"] = {k: None for k in record["results_after_arguments"] if k in record["results"]}
+        record["arguments"] = {k: None for k in record["arguments"] if k in call_keys}
+    trimmed_before = set(record["arguments"])
+    for entry in report.rewritten_blocks or []:
+        if entry.get("block") == "tool_call":
+            key = str(entry.get("call_id") or "")
+            if key:
+                record["arguments"][key] = None
+            continue
+        key = _record_key(entry)
+        if not key or key in record["results"]:
+            continue
+        record["results"][key] = None
+        if key in trimmed_before or str(entry.get("call_id") or "") in trimmed_before:
+            record["results_after_arguments"][key] = None
+    return {k: list(v) for k, v in record.items()}
+
+
+def record_keys_present(messages: list[Any]) -> tuple[set[str], set[str]]:
+    """``(tool-result keys, tool-call ids)`` in ``messages`` — what a replay record may still name."""
+    results: set[str] = set()
+    calls: set[str] = set()
+    for msg in messages:
+        for block in getattr(msg, "content", None) or []:
+            if _is_tool_result_block(block):
+                results.update(_result_keys(block))
+            elif _is_tool_call_block(block):
+                key = _get_call_identifier(block)
+                if key:
+                    calls.add(str(key))
+    return results, calls
+
+
+def replay_trim_rewrites(
+    messages: list[Any], record: dict[str, Any] | None, policy: TrimPolicy | None = None
+) -> dict[str, Any]:
+    """Make again, in place, exactly the rewrites ``record`` names (``trim_rewrite_record``) — never a new one.
+
+    THE WARM SEND ONLY APPENDS (2026-11-19, staff thread 3af9e95c): a trim's rewrites live in memory, so a send
+    whose trim the cache gate HELD rebuilt every result the last send had cleared — in full, behind the cache line.
+    A rewrite made once is made on every later send, whether or not that send's own trim runs: the stub is a pure
+    function of the block and its call (``_rewrite_block_content``), and the call index is read the way the
+    original pass read it (pristine, or after the argument rewrites for ``results_after_arguments``).
+
+    Returns ``{"results", "arguments", "present"}``: what was rewritten now and the record pruned to the blocks
+    still in ``messages`` (a block the history window cut is forgotten)."""
+    policy = policy or TrimPolicy()
+    record = record or {}
+    results = {str(k) for k in record.get("results") or [] if k}
+    after = {str(k) for k in record.get("results_after_arguments") or [] if k} & results
+    arguments = {str(k) for k in record.get("arguments") or [] if k}
+    done = {"results": 0, "arguments": 0}
+    present: dict[str, dict[str, None]] = {k: {} for k in TRIM_RECORD_FIELDS}
+    if not (results or arguments):
+        return {**done, "present": {k: [] for k in TRIM_RECORD_FIELDS}}
+
+    # A KEY THAT NAMES TWO BLOCKS NAMES NEITHER (review of bcb7018dd5a, 2026-11-19): tool-call ids are not unique
+    # on every wire (OpenAI-compatible providers number per response; old Gemini rows share one id per tool), and a
+    # replay keyed on a repeated id would clear a result the trim never chose — the newest one the model just read.
+    # Such a key is never replayed and leaves the record; that conversation's sends are honestly cold, never wrong.
+    result_seen: dict[str, int] = {}
+    call_seen: dict[str, int] = {}
+    for msg in messages:
+        for block in getattr(msg, "content", None) or []:
+            if _is_tool_result_block(block):
+                for k in _result_keys(block):
+                    result_seen[k] = result_seen.get(k, 0) + 1
+            elif _is_tool_call_block(block):
+                k = _get_call_identifier(block)
+                if k:
+                    call_seen[k] = call_seen.get(k, 0) + 1
+    ambiguous = {k for k in results if result_seen.get(k, 0) > 1 or call_seen.get(k, 0) > 1}
+    ambiguous |= {k for k in arguments if call_seen.get(k, 0) > 1}
+    if ambiguous:
+        results -= ambiguous
+        after -= ambiguous
+        arguments -= ambiguous
+        from matrx_utils import vcprint
+
+        vcprint(
+            f"trim replay: {len(ambiguous)} recorded key(s) name more than one block in this history and are "
+            f"not replayed: {sorted(ambiguous)[:8]}",
+            color="yellow",
+        )
+
+    def _results(wanted: set[str], calls: dict[str, tuple[str, Any]]) -> None:
+        for msg in messages:
+            for block in getattr(msg, "content", None) or []:
+                if not _is_tool_result_block(block):
+                    continue
+                keys = [k for k in _result_keys(block) if k in wanted]
+                if not keys:
+                    continue
+                present["results"][keys[0]] = None
+                if keys[0] in after:
+                    present["results_after_arguments"][keys[0]] = None
+                if _already_trimmed(block) or _is_media_bearing(block):
+                    continue
+                if _rewrite_block_content(block, policy.substitute_message, refetch_for(block, calls)):
+                    done["results"] += 1
+
+    _results(results - after, call_index(messages))
+    for msg in messages:
+        for block in getattr(msg, "content", None) or []:
+            if not _is_tool_call_block(block) or _get_call_identifier(block) not in arguments:
+                continue
+            present["arguments"][str(_get_call_identifier(block))] = None
+            if not _already_trimmed_arguments(block):
+                _rewrite_tool_call_arguments(block, policy.substitute_arguments_message)
+                done["arguments"] += 1
+    if after:
+        _results(after, call_index(messages))
+    return {**done, "present": {k: list(v) for k, v in present.items()}}

@@ -1,0 +1,33 @@
+clouds:
+  devstack:
+    auth:
+      auth_url: http://xxx.xxx.xxx.xxx/identity
+      password: password
+      project_domain_id: default
+      project_name: demo
+      user_domain_id: default
+      username: demo
+    identity_api_version: '3'
+    region_name: RegionOne
+    volume_api_version: '3'
+  devstack-admin:
+    auth:
+      auth_url: http://xxx.xxx.xxx.xxx/identity
+      password: password
+      project_domain_id: default
+      project_name: admin
+      user_domain_id: default
+      username: admin
+    region_name: RegionOne
+  devstack-alt:
+    auth:
+      auth_url: http://xxx.xxx.xxx.xxx/identity
+      password: password
+      project_domain_id: default
+      project_name: alt_demo
+      user_domain_id: default
+      username: alt_demo
+    region_name: RegionOne
+example:
+  image_name: cirros-0.5.2-x86_64-disk
+  flavor_name: m1.small

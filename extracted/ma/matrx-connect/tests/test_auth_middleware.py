@@ -27,6 +27,7 @@ import asyncio
 import time
 
 import jwt
+from matrx_connect.middleware.session_authority import JwksUnavailable
 import pytest
 from matrx_connect.context.app_context import AppContext
 from matrx_connect.emitters.stream_emitter import StreamEmitter
@@ -413,7 +414,9 @@ async def test_failed_forced_jwks_refresh_starts_cooldown() -> None:
         return_exceptions=True,
     )
 
-    assert all(isinstance(result, jwt.PyJWKClientError) for result in results)
+    # The failed refresh is a JWKS outage (retryable 503), not a verdict on the token.
+    assert any(isinstance(result, JwksUnavailable) for result in results)
+    assert all(isinstance(result, (JwksUnavailable, jwt.PyJWKClientError)) for result in results)
     assert client.calls == 1
 
 
@@ -606,13 +609,13 @@ async def test_jwks_lookup_failure_is_rejected_without_application_error(
     )
 
     with caplog.at_level(logging.WARNING, logger="matrx_connect.middleware.auth"):
-        ctx = await mw._validate_token(
-            f"Bearer {token}",
-            fingerprint_id=None,
-            ctx=_empty_ctx(),
-        )
-    assert ctx is None
-    assert any("JWKS key lookup rejected token" in record.message for record in caplog.records)
+        # A fetch failure is an outage, not a rejection: retryable 503, never a 401.
+        with pytest.raises(JwksUnavailable):
+            await mw._validate_token(
+                f"Bearer {token}",
+                fingerprint_id=None,
+                ctx=_empty_ctx(),
+            )
     assert not any(record.levelno >= logging.ERROR for record in caplog.records)
 
 
@@ -692,6 +695,59 @@ async def test_hs256_token_rejected_without_secret_is_warning(
     assert ctx is None
     assert any("HS256 token rejected" in record.message for record in caplog.records)
     assert not any(record.levelno >= logging.ERROR for record in caplog.records)
+
+
+def _forge(header: dict, payload: dict, signature: str = "") -> str:
+    import base64
+    import json as _json
+
+    def _b64(d: bytes) -> str:
+        return base64.urlsafe_b64encode(d).rstrip(b"=").decode()
+
+    return f"{_b64(_json.dumps(header).encode())}.{_b64(_json.dumps(payload).encode())}.{signature}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("token_kind", "reason"),
+    [
+        ("alg_none", "alg_not_allowed"),
+        ("header_garbage", "header_unreadable"),
+        ("kid_missing", "kid_missing"),
+    ],
+)
+async def test_a_callers_bad_token_is_a_named_warning_never_a_server_error(
+    caplog: pytest.LogCaptureFixture, token_kind: str, reason: str
+) -> None:
+    """Every token the CALLER sent that we refuse is a 401 with a named reason at WARNING.
+
+    On 2026-11-12 production filed 86 ``alg='none'`` rejections as ERROR — the repair queue
+    is for server failures, and a refused credential is the verifier working.
+    """
+    payload = {"sub": USER_ID, "aud": "authenticated"}
+    jwt_algorithms: tuple[str, ...] = ("HS256",)
+    jwks_url = None
+    secret = JWT_SECRET
+    if token_kind == "alg_none":
+        token = _forge({"alg": "none", "typ": "JWT"}, payload)
+    elif token_kind == "header_garbage":
+        token = "not-base64!.e30.sig"
+    elif token_kind == "kid_missing":
+        token = _forge({"alg": "ES256", "typ": "JWT"}, payload, "c2ln")
+        jwt_algorithms, jwks_url, secret = ("ES256",), "https://example.invalid/jwks.json", ""
+
+    mw = AuthMiddleware(
+        app=lambda *a, **kw: None,
+        jwt_secret=secret,
+        jwks_url=jwks_url,
+        jwt_algorithms=jwt_algorithms,
+    )
+    with caplog.at_level(logging.WARNING, logger="matrx_connect.middleware.auth"):
+        ctx = await mw._validate_token(f"Bearer {token}", fingerprint_id=None, ctx=_empty_ctx())
+
+    assert ctx is None or ctx.is_authenticated is False
+    assert any(f"reason={reason}" in r.message for r in caplog.records), [r.message for r in caplog.records]
+    assert not any(r.levelno >= logging.ERROR for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------

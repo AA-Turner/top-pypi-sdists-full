@@ -493,7 +493,10 @@ DAEMON_PROFILE_ALLOWED = frozenset(
      "access-group list", "notes sync", "agent-rules refresh", "draft edit",
      "file preview", "feedback flush", "feedback install", "capy sync", "capy disconnect", "session owed", "session home show",
      "pin add", "pin list", "pin rm", "client check",
-     "compute nodes", "compute node", "compute clusters"}
+     "compute nodes", "compute node", "compute clusters",
+     # EXPERIMENT (research-os compute_messages.py): the guarded last step a Probe compute
+     # directive allows -- frees a GPU held by a job of THIS session, nothing else.
+     "compute job stop", "compute job show", "compute job save", "compute reply"}
 )
 
 #: Reads of ONE run, named by its id: the agent looks at the runs it launched

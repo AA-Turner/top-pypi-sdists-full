@@ -16,6 +16,7 @@ from google.genai.types import (
 from matrx_connect.context.events import InfoPayload
 from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
+from matrx_utils.fancy_prints.truncation import content_logging_enabled
 
 from matrx_ai.config import (
     UnifiedConfig,
@@ -1221,7 +1222,7 @@ class GoogleChat:
                         await emitter.send_chunk("\n<reasoning>\n")
                     await emitter.send_chunk(part.text)
                 await asyncio.sleep(0)
-            else:
+            elif content_logging_enabled():  # CASA 6.5.1: model output reaches stdout only on a local machine
                 print(part.text)
 
         elif part.text:
@@ -1231,7 +1232,7 @@ class GoogleChat:
             if emitter:
                 await emitter.send_chunk(part.text)
                 await asyncio.sleep(0)
-            else:
+            elif content_logging_enabled():  # CASA 6.5.1: model output reaches stdout only on a local machine
                 print(part.text)
 
         elif part.inline_data:

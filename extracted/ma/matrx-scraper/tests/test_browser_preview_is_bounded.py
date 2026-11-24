@@ -160,7 +160,7 @@ async def test_a_readiness_probe_never_costs_more_than_the_timeout_it_was_given(
     original_locator = slow_page.locator
 
     def _glacial_locator(selector: str, **kwargs):  # noqa: ANN202
-        handle = original_locator(selector, **kwargs)
+        original_locator(selector, **kwargs)
 
         class _Glacial:
             first = None

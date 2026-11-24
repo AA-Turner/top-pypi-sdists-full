@@ -59,6 +59,7 @@ from matrx_rag._ext import (
     get_document_writer,
 )
 from matrx_rag.db import PACKAGE_DB_NAME
+from matrx_rag.ingestion import delete_chunks_in_lock_order
 from matrx_rag.embeddings import default_text_model, embed, spec_for
 
 log = logging.getLogger(__name__)
@@ -264,8 +265,8 @@ async def derive_chunk_set(
     # batches already persisted in this run.
     if not chunks:
         if replace:
-            await get_db_model("KgChunks").delete_where(
-                processed_document_id=derivative_id, derivation_kind=derivation_kind
+            await delete_chunks_in_lock_order(
+                get_db_model("KgChunks"), processed_document_id=derivative_id, derivation_kind=derivation_kind
             )
         log.info(
             "[derive] parent=%s kind=%s -> derivative=%s (no chunks, replace=%s)",
@@ -447,8 +448,8 @@ async def _write_chunks(
         # must NOT delete — that is the whole point of incremental writing.
         if replace:
             # hard-delete-ok: derived search chunks, rebuilt on re-ingest of their source
-            await KgChunks.delete_where(
-                processed_document_id=derivative_id, derivation_kind=derivation_kind
+            await delete_chunks_in_lock_order(
+                KgChunks, processed_document_id=derivative_id, derivation_kind=derivation_kind
             )
 
         # One set-based INSERT; ON CONFLICT DO NOTHING + RETURNING gives us

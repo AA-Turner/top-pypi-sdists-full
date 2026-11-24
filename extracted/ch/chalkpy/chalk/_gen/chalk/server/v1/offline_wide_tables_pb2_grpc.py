@@ -55,6 +55,11 @@ class OfflineWideTablesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionResponse.FromString,
         )
+        self.TriggerOfflineStoreMigration = channel.unary_unary(
+            "/chalk.server.v1.OfflineWideTablesService/TriggerOfflineStoreMigration",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineStoreMigrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineStoreMigrationResponse.FromString,
+        )
         self.GetOfflineWideTableFeatureWatermarks = channel.unary_unary(
             "/chalk.server.v1.OfflineWideTablesService/GetOfflineWideTableFeatureWatermarks",
             request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableFeatureWatermarksRequest.SerializeToString,
@@ -125,6 +130,12 @@ class OfflineWideTablesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def TriggerOfflineStoreMigration(self, request, context):
+        """Launch a one-off offline-store migration Job against the active deployment."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetOfflineWideTableFeatureWatermarks(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -185,6 +196,11 @@ def add_OfflineWideTablesServiceServicer_to_server(servicer, server):
             servicer.TriggerOfflineWideTableCompaction,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionResponse.SerializeToString,
+        ),
+        "TriggerOfflineStoreMigration": grpc.unary_unary_rpc_method_handler(
+            servicer.TriggerOfflineStoreMigration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineStoreMigrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineStoreMigrationResponse.SerializeToString,
         ),
         "GetOfflineWideTableFeatureWatermarks": grpc.unary_unary_rpc_method_handler(
             servicer.GetOfflineWideTableFeatureWatermarks,
@@ -434,6 +450,35 @@ class OfflineWideTablesService(object):
             "/chalk.server.v1.OfflineWideTablesService/TriggerOfflineWideTableCompaction",
             chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def TriggerOfflineStoreMigration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineWideTablesService/TriggerOfflineStoreMigration",
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineStoreMigrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineStoreMigrationResponse.FromString,
             options,
             channel_credentials,
             insecure,

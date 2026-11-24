@@ -86,8 +86,7 @@ class DeepResearchFailed(RuntimeError):
             message=message,
             is_retryable=False,
             user_message=(
-                "The research run ended without a report "
-                f"(status: {status}). Nothing was retried, because a retry would "
+                "The research run ended without a report. Nothing was retried, because a retry would "
                 "start and bill a new research run. Try again with a narrower question."
             ),
             details={"provider": "google", "interaction_id": interaction_id, "status": status},
@@ -261,6 +260,7 @@ async def research_content(interaction: Any) -> list[Any]:
         normalize_google_interaction_annotations,
         normalize_markdown_link_citations,
         unfence_code_span_links,
+        utf16_offset,
     )
 
     report = ""
@@ -283,12 +283,13 @@ async def research_content(interaction: Any) -> list[Any]:
                 text = str(_get(item, "text") or "")
                 if report and text and not report.endswith("\n"):
                     report += "\n\n"
-                offset = len(report)
+                # Citation offsets are UTF-16 units (the client contract): the part's position too.
+                offset = utf16_offset(report, len(report))
                 report += text
                 citations.extend(
                     c.model_dump(exclude_none=True)
                     for c in normalize_google_interaction_annotations(
-                        _get(item, "annotations"), offset=offset
+                        _get(item, "annotations"), text=text, offset=offset
                     )
                 )
             elif item_type == "image":
@@ -710,25 +711,28 @@ class GoogleDeepResearchAgent:
 
     @staticmethod
     async def _emit_images(response: UnifiedResponse, emitter: Any) -> None:
-        if not emitter:
-            return
-        from matrx_connect.context.data_types import MediaBlockData
-        from matrx_connect.context.media_block import cloud_file_to_media_block
+        try:
+            if not emitter:
+                return
+            from matrx_connect.context.data_types import MediaBlockData
+            from matrx_connect.context.media_block import cloud_file_to_media_block
 
-        for message in response.messages:
-            for item in message.content:
-                if isinstance(item, ImageContent) and item.file_id:
-                    block = cloud_file_to_media_block(
-                        {
-                            "id": item.file_id,
-                            "storage_uri": item.file_uri,
-                            "mime_type": item.mime_type,
-                            "size_bytes": item.file_size,
-                            "metadata": dict(item.metadata or {}),
-                        },
-                        kind_override="image",
-                    )
-                    await emitter.send_data(MediaBlockData(block=block))
+            for message in response.messages:
+                for item in message.content:
+                    if isinstance(item, ImageContent) and item.file_id:
+                        block = cloud_file_to_media_block(
+                            {
+                                "id": item.file_id,
+                                "storage_uri": item.file_uri,
+                                "mime_type": item.mime_type,
+                                "size_bytes": item.file_size,
+                                "metadata": dict(item.metadata or {}),
+                            },
+                            kind_override="image",
+                        )
+                        await emitter.send_data(MediaBlockData(block=block))
+        except Exception as exc:  # display failure must not discard paid research
+            vcprint(f"[google research] image notification failed: {exc!r}", color="red")
 
 
 class _RunState:

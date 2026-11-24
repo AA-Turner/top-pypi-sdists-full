@@ -382,3 +382,48 @@ async def test_a_warming_model_is_waited_for_never_dropped(monkeypatch):
         await FastinoExtraction(client=client).extract("Ada wrote it", ["person"])
     assert calls["n"] == 2, "the 425 must be retried once, then succeed"
     assert 30.0 in waits, f"the stated 30 s warm-up wait must be honored, waited {waits}"
+
+
+async def test_a_long_cold_start_outlasts_the_attempt_budget(monkeypatch):
+    """Feedback 0b9196bd: a cold start past the 4-attempt budget used to drop the chunk. 425s must
+    not consume attempts; 8 consecutive 425s (> _MAX_ATTEMPTS) still end in success."""
+    monkeypatch.setenv("PIONEER_API_KEY", "k")
+    monkeypatch.setattr(fastino_api, "_permanent_refusal", None, raising=False)
+
+    async def _no_sleep(secs: float) -> None:
+        return None
+
+    monkeypatch.setattr(fastino_api.asyncio, "sleep", _no_sleep)
+    calls = {"n": 0}
+    good = {"choices": [{"message": {"content": json.dumps({"entities": {"person": ["Ada"]}})}}]}
+
+    def _handle(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] <= 8:
+            return httpx.Response(425, json={"code": "model_warming", "message": "warming up. Please retry in about 30 seconds."})
+        return httpx.Response(200, json=good)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_handle)) as client:
+        await FastinoExtraction(client=client).extract("Ada wrote it", ["person"])
+    assert calls["n"] == 9
+
+
+async def test_warmup_budget_zero_restores_bounded_retry(monkeypatch):
+    monkeypatch.setenv("PIONEER_API_KEY", "k")
+    monkeypatch.setattr(fastino_api, "_warmup_budget_s", lambda: 0.0)
+    monkeypatch.setattr(fastino_api, "_permanent_refusal", None, raising=False)
+
+    async def _no_sleep(secs: float) -> None:
+        return None
+
+    monkeypatch.setattr(fastino_api.asyncio, "sleep", _no_sleep)
+    calls = {"n": 0}
+
+    def _handle(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(425, json={"code": "model_warming", "message": "warming up."})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_handle)) as client:
+        with pytest.raises(fastino_api.FastinoError):
+            await FastinoExtraction(client=client).extract("x", ["person"])
+    assert calls["n"] == fastino_api._MAX_ATTEMPTS

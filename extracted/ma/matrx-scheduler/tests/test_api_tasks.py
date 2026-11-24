@@ -23,7 +23,7 @@ async def test_create_task_minimal(client, fake_supabase, authed_user_id):
         "kind": "agent",
         "title": "Test task",
         "agent_task": {
-            "agent_id": "agent-1",
+            "agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001",
             "prompt": "Do the thing",
         },
     }
@@ -49,7 +49,7 @@ async def test_agent_task_row_carries_its_task_organization(client, fake_supabas
     payload = {
         "kind": "agent",
         "title": "Org carried to the child",
-        "agent_task": {"agent_id": "agent-1", "prompt": "Do the thing"},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Do the thing"},
     }
     async with client:
         res = await client.post("/scheduler/tasks", json=payload)
@@ -102,7 +102,7 @@ async def test_double_submit_returns_the_existing_schedule(client, fake_supabase
     payload = {
         "kind": "agent",
         "title": "Human Baseline Schedule",
-        "agent_task": {"agent_id": "agent-1", "prompt": "Summarize the week."},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Summarize the week."},
         "trigger": {"type": "cron", "config": {"expression": "0 * * * *"}, "enabled": True},
     }
     async with client:
@@ -126,7 +126,7 @@ async def test_a_renamed_duplicate_is_still_a_duplicate(client, fake_supabase):
     payload = {
         "kind": "agent",
         "title": "Morning Brief",
-        "agent_task": {"agent_id": "agent-1", "prompt": "Summarize the week."},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Summarize the week."},
         "trigger": {"type": "cron", "config": {"expression": "0 * * * *"}, "enabled": True},
     }
     async with client:
@@ -143,7 +143,7 @@ async def test_force_creates_the_second_schedule_anyway(client, fake_supabase):
     payload = {
         "kind": "agent",
         "title": "Human Baseline Schedule",
-        "agent_task": {"agent_id": "agent-1", "prompt": "Summarize the week."},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Summarize the week."},
         "trigger": {"type": "cron", "config": {"expression": "0 * * * *"}, "enabled": True},
     }
     async with client:
@@ -161,12 +161,12 @@ async def test_a_genuinely_different_schedule_is_never_blocked(client, fake_supa
     base = {
         "kind": "agent",
         "title": "Weekly Marketing Recap",
-        "agent_task": {"agent_id": "agent-1", "prompt": "Summarize the week."},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Summarize the week."},
         "trigger": {"type": "cron", "config": {"expression": "0 * * * *"}, "enabled": True},
     }
     other = {
         **base,
-        "agent_task": {"agent_id": "agent-1", "prompt": "Recap the marketing numbers."},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Recap the marketing numbers."},
     }
     async with client:
         await client.post("/scheduler/tasks", json=base)
@@ -181,7 +181,7 @@ async def test_duplicates_endpoint_reports_a_forced_pair(client):
     payload = {
         "kind": "agent",
         "title": "Human Baseline Schedule",
-        "agent_task": {"agent_id": "agent-1", "prompt": "Summarize the week."},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Summarize the week."},
         "trigger": {"type": "cron", "config": {"expression": "0 * * * *"}, "enabled": True},
     }
     async with client:
@@ -241,7 +241,7 @@ async def test_create_task_with_cron_trigger(client, fake_supabase):
     payload = {
         "kind": "agent",
         "title": "Weekly digest",
-        "agent_task": {"agent_id": "agent-1", "prompt": "Generate weekly digest"},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Generate weekly digest"},
         "trigger": {
             "type": "cron",
             "config": {"expression": "0 9 * * 1", "tz": "UTC"},
@@ -342,7 +342,7 @@ async def test_list_tasks_after_create(client):
             json={
                 "kind": "agent",
                 "title": "second",
-                "agent_task": {"agent_id": "agent-1", "prompt": "x"},
+                "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "x"},
             },
         )
         res = await client.get("/scheduler/tasks")
@@ -363,7 +363,7 @@ async def test_list_tasks_filter_by_kind(client):
             json={
                 "kind": "agent",
                 "title": "a1",
-                "agent_task": {"agent_id": "agent-1", "prompt": "x"},
+                "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "x"},
             },
         )
         res = await client.get("/scheduler/tasks?kind=ping")
@@ -404,7 +404,7 @@ async def test_get_task_with_hydration(client):
             json={
                 "kind": "agent",
                 "title": "T",
-                "agent_task": {"agent_id": "agent-1", "prompt": "P"},
+                "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "P"},
                 "trigger": {
                     "type": "interval",
                     "config": {"every_seconds": 300},

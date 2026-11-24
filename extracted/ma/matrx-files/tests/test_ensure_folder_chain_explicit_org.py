@@ -42,6 +42,9 @@ SQL_FILE = (
     / "sql"
     / "041_ensure_folder_chain_explicit_organization.sql"
 )
+# The current definition (live 2026-11-18): a live folder reached through the chain whose parent is
+# trashed or gone is re-homed under the chain's live parent.
+SQL_062 = SQL_FILE.parent / "062_folder_chain_never_resolves_through_a_trashed_parent.sql"
 
 
 @dataclass(frozen=True)
@@ -181,7 +184,7 @@ def pg_dsn(tmp_path_factory: pytest.TempPathFactory):
         )
     root = tmp_path_factory.mktemp("folder_chain_pg")
     data = root / "data"
-    env = {**os.environ, "LC_ALL": "C", "LANG": "C"}
+    env = {**os.environ, "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8"}
     subprocess.run(
         [str(bindir / "initdb"), "-D", str(data), "-U", "postgres", "--auth=trust", "-E", "UTF8", "--locale=C"],
         check=True,
@@ -215,6 +218,7 @@ def pg_dsn(tmp_path_factory: pytest.TempPathFactory):
             await conn.execute(FIXTURE_DDL)
             await conn.execute(SQL_FILE.read_text())
             await conn.execute(LIVE_BODY_2026_10_12)
+            await conn.execute(SQL_062.read_text())
         finally:
             await conn.close()
 
@@ -305,3 +309,107 @@ async def test_every_folder_the_chain_creates_carries_the_named_organization(
     assert sqlstate == sc.sqlstate, f"{executor}: refusal for org={sc.org!r}"
     assert folders == sc.folders, f"{executor}: folders after ensure_folder_chain({sc.path!r}, {sc.org!r})"
     assert leaf == sc.leaf, f"{executor}: returned leaf"
+
+
+# ---------------------------------------------------------------------------
+# A chain never resolves through a trashed parent (062, 2026-11-18)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Stranded:
+    id: str
+    # (path, parent path or None, trashed) in creation order; a parent path names the row created
+    # just before at that path (so a trashed twin can be a parent)
+    existing: tuple[tuple[str, str | None, bool], ...]
+    path: str
+    # every LIVE folder after the call: (folder_path, parent folder_path, parent is live)
+    live: frozenset[tuple[str, str | None, bool]]
+
+
+STRANDED = [
+    Stranded(
+        "a-live-child-of-a-trashed-parent-is-rehomed-under-the-recreated-parent",
+        existing=(("Plant logs", None, True), ("Plant logs/Inbox", "Plant logs", False)),
+        path="Plant logs/Inbox",
+        live=frozenset({("Plant logs", None, True), ("Plant logs/Inbox", "Plant logs", True)}),
+    ),
+    Stranded(
+        "a-live-child-with-no-parent-below-the-root-is-rehomed",
+        existing=(("Plant logs/Inbox", None, False),),
+        path="Plant logs/Inbox",
+        live=frozenset({("Plant logs", None, True), ("Plant logs/Inbox", "Plant logs", True)}),
+    ),
+    Stranded(
+        "a-different-live-parent-is-never-overridden",
+        existing=(("Shared", None, False), ("Plant logs/Inbox", "Shared", False)),
+        path="Plant logs/Inbox",
+        live=frozenset(
+            {("Shared", None, True), ("Plant logs", None, True), ("Plant logs/Inbox", "Shared", True)}
+        ),
+    ),
+]
+
+
+async def _run_stranded_sql(dsn: str, sc: Stranded):
+    import asyncpg
+
+    conn = await asyncpg.connect(dsn)
+    tx = conn.transaction()
+    await tx.start()
+    try:
+        ids: dict[str, uuid.UUID] = {}
+        for path, parent, trashed in sc.existing:
+            ids[path] = await conn.fetchval(
+                "INSERT INTO files.folders (created_by, organization_id, folder_path, folder_name, parent_id,"
+                " deleted_at) VALUES ($1, $2, $3, $4, $5, CASE WHEN $6 THEN now() END) RETURNING id",
+                uuid.UUID(OWNER),
+                uuid.UUID(TEAM),
+                path,
+                path.rsplit("/", 1)[-1],
+                ids.get(parent) if parent else None,
+                trashed,
+            )
+        await conn.fetchval(
+            "SELECT files.ensure_folder_chain($1::uuid, $2::text, $3::uuid)", uuid.UUID(OWNER), sc.path, uuid.UUID(TEAM)
+        )
+        rows = await conn.fetch(
+            "SELECT f.folder_path, p.folder_path AS parent_path, (p.id IS NOT NULL AND p.deleted_at IS NULL) AS live"
+            " FROM files.folders f LEFT JOIN files.folders p ON p.id = f.parent_id WHERE f.deleted_at IS NULL"
+        )
+    finally:
+        await tx.rollback()
+        await conn.close()
+    return frozenset(
+        (r["folder_path"], r["parent_path"], bool(r["live"]) or r["parent_path"] is None) for r in rows
+    )
+
+
+def _run_stranded_double(sc: Stranded):
+    db = FilesDB()
+    ids: dict[str, str] = {}
+    for path, parent, trashed in sc.existing:
+        ids[path] = db.folders.create_sync(
+            created_by=OWNER,
+            organization_id=TEAM,
+            folder_path=path,
+            folder_name=path.rsplit("/", 1)[-1],
+            parent_id=ids.get(parent) if parent else None,
+            deleted_at="2026-11-18T00:00:00Z" if trashed else None,
+        ).to_dict()["id"]
+    db.rpc("files", "ensure_folder_chain", OWNER, sc.path, TEAM)
+    rows = db.folders.rows
+    out = set()
+    for r in rows.values():
+        if r.get("deleted_at") is not None:
+            continue
+        p = rows.get(r.get("parent_id")) if r.get("parent_id") else None
+        out.add((r["folder_path"], p["folder_path"] if p else None, p is None or p.get("deleted_at") is None))
+    return frozenset(out)
+
+
+@pytest.mark.parametrize("executor", ["sql", "double"])
+@pytest.mark.parametrize("sc", STRANDED, ids=[s.id for s in STRANDED])
+async def test_a_chain_never_resolves_through_a_trashed_parent(pg_dsn: str, sc: Stranded, executor: str):
+    live = await _run_stranded_sql(pg_dsn, sc) if executor == "sql" else _run_stranded_double(sc)
+    assert live == sc.live, f"{executor}: live folders after ensure_folder_chain({sc.path!r})"

@@ -37,6 +37,7 @@ class World:
         self.org = str(uuid4())
         self.members: set[tuple[str, str]] = set()  # (person, org)
         self.admins: set[tuple[str, str]] = set()
+        self.registered_anywhere = True  # most tests: a definition exists somewhere
 
 
 def org_row_visible(w: World, row: Any) -> bool:
@@ -159,6 +160,11 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         return None, SimpleNamespace(error=SimpleNamespace(error_type="not_found"))
 
     monkeypatch.setattr(kind_layer, "resolve_kind", no_definition)
+
+    async def registered_elsewhere(_slug):  # registered, but not readable by this person
+        return w.registered_anywhere
+
+    monkeypatch.setattr(kind_layer, "_kind_registered_anywhere", registered_elsewhere)
 
     async def ok_source(_s):
         return None, True
@@ -463,3 +469,161 @@ async def test_an_org_admin_can_update_the_org_view(world: World) -> None:
     )  # fmt: skip
     assert r.success, r.error
     assert world.rows[0].component_source.endswith("//ok")
+
+
+# --------------------------------------------------------------- a view never orphans a shape
+
+
+def _fake_kind_create(world: World, calls: list, *, final: str | None = None):
+    from matrx_ai.tools.models import ToolResult
+
+    async def _create(args, c):
+        calls.append(args)
+        return ToolResult(success=True, output=SimpleNamespace(kind=final or args["name"]))
+
+    return _create
+
+
+@pytest.mark.asyncio
+async def test_a_view_of_a_name_registered_nowhere_without_a_sample_writes_nothing(
+    world: World,
+) -> None:
+    """2026-11-10 demo: an org view was built for a shape emitted in chat but never registered,
+    so it rendered in that chat and was absent from the Shapes page and the Output picker."""
+    world.registered_anywhere = False
+    r = await kind_component.kindcomp_create_component(
+        {"kind": "med_quick_label", "component_key": "c", "component_source": GOOD_SRC, "target": "mine"},
+        ctx(),
+    )
+    assert not r.success and r.error.error_type == "validation"
+    assert "sample" in (r.error.message + " " + (getattr(r.error, "suggested_action", "") or "") + str(r.error))
+    assert world.rows == []
+
+
+@pytest.mark.asyncio
+async def test_a_view_of_a_name_registered_nowhere_registers_the_shape_first(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from matrx_ai.tools.implementations import kind_authoring
+
+    world.registered_anywhere = False
+    calls: list = []
+    monkeypatch.setattr(kind_authoring, "kind_create", _fake_kind_create(world, calls))
+    sample = {"__kind": "med_quick_label", "medication": "Pantoprazole", "warnings": ["a", "b"]}
+    world.admins.add((world.person, world.org))
+    r = await kind_component.kindcomp_create_component(
+        {
+            "kind": "med_quick_label", "component_key": "c", "component_source": GOOD_SRC,
+            "target": "organization", "organization_id": world.org, "sample": sample,
+        },
+        ctx(),
+    )  # fmt: skip
+    assert r.success, r.error
+    assert len(calls) == 1
+    assert calls[0]["name"] == "med_quick_label"
+    assert calls[0]["sample_data"] == sample and calls[0]["disposition"] == "record"
+    assert "registered first" in r.output.message
+    assert world.rows[0].kind == "med_quick_label"
+
+
+@pytest.mark.asyncio
+async def test_a_name_whose_fields_already_belong_to_another_shape_makes_no_orphan(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from matrx_ai.tools.implementations import kind_authoring
+
+    world.registered_anywhere = False
+    monkeypatch.setattr(
+        kind_authoring, "kind_create", _fake_kind_create(world, [], final="pharmacy_label")
+    )
+    r = await kind_component.kindcomp_create_component(
+        {
+            "kind": "med_quick_label", "component_key": "c", "component_source": GOOD_SRC,
+            "target": "mine", "sample": {"medication": "x"},
+        },
+        ctx(),
+    )  # fmt: skip
+    assert not r.success and "pharmacy_label" in r.error.message
+    assert world.rows == []
+
+
+@pytest.mark.asyncio
+async def test_an_org_view_for_another_organization_never_registers_a_shape(world: World) -> None:
+    world.registered_anywhere = False
+    other = str(uuid4())
+    world.admins.add((world.person, other))
+    r = await kind_component.kindcomp_create_component(
+        {
+            "kind": "med_quick_label", "component_key": "c", "component_source": GOOD_SRC,
+            "target": "organization", "organization_id": other, "sample": {"medication": "x"},
+        },
+        ctx(),
+    )  # fmt: skip
+    assert not r.success and world.rows == []
+
+
+# ------------------------------------------- an orphan view made before the rule heals on edit
+
+
+@pytest.mark.parametrize("tool", ["update", "patch"])
+@pytest.mark.asyncio
+async def test_editing_an_orphan_view_without_a_sample_writes_nothing(world: World, tool: str) -> None:
+    """2026-11-11 (B2): a view made before 2026-11-10 (the demo's med_quick_label) was never
+    registered, because only create registered. Editing it now applies the same rule."""
+    cid = await make_mine("med_quick_label")  # made while the name still counted as registered
+    world.registered_anywhere = False  # ...and it is registered nowhere: an orphan
+    before = world.rows[0].component_source
+    r = await _edit(tool, cid, sample=None)
+    assert not r.success and r.error.error_type == "validation"
+    assert "sample" in str(r.error)
+    assert world.rows[0].component_source == before
+
+
+@pytest.mark.parametrize("tool", ["update", "patch"])
+@pytest.mark.asyncio
+async def test_editing_an_orphan_view_with_a_sample_registers_the_shape_first(
+    world: World, monkeypatch: pytest.MonkeyPatch, tool: str
+) -> None:
+    from matrx_ai.tools.implementations import kind_authoring
+
+    cid = await make_mine("med_quick_label")
+    world.registered_anywhere = False
+    calls: list = []
+    monkeypatch.setattr(kind_authoring, "kind_create", _fake_kind_create(world, calls))
+    sample = {"__kind": "med_quick_label", "medication": "Pantoprazole"}
+    r = await _edit(tool, cid, sample=sample)
+    assert r.success, r.error
+    assert len(calls) == 1 and calls[0]["name"] == "med_quick_label" and calls[0]["sample_data"] == sample
+    said = (r.output.message or "") if tool == "update" else " ".join(r.model_notices or [])
+    assert "registered first" in said
+    assert world.rows[0].component_source.endswith("//ok")
+
+
+@pytest.mark.asyncio
+async def test_editing_a_registered_view_never_registers_or_needs_a_sample(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from matrx_ai.tools.implementations import kind_authoring
+
+    cid = await make_mine("med_quick_label")
+    calls: list = []
+    monkeypatch.setattr(kind_authoring, "kind_create", _fake_kind_create(world, calls))
+    for tool in ("update", "patch"):
+        r = await _edit(tool, cid, sample=None)
+        assert r.success, r.error
+    assert calls == []
+
+
+async def _edit(tool: str, cid: str, *, sample: dict | None):
+    extra = {"sample": sample} if sample is not None else {}
+    if tool == "update":
+        return await kind_component.kindcomp_update_code(
+            {"component_id": cid, "target": "mine",
+             "updates": {"component_source": GOOD_SRC + "//ok"}, **extra},
+            ctx(),
+        )  # fmt: skip
+    return await kind_component.kindcomp_patch_code(
+        {"component_id": cid, "target": "mine",
+         "patches": [{"old_string": "</p>; }", "new_string": "</p>; }//ok"}], **extra},
+        ctx(),
+    )  # fmt: skip

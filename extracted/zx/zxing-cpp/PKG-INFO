@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zxing-cpp
-Version: 3.1.1
+Version: 3.2.0
 Summary: Python bindings for the zxing-cpp barcode library
 Keywords: barcode
 Author-Email: zxing-cpp community <zxingcpp@gmail.com>
@@ -13,7 +13,7 @@ Classifier: Topic :: Multimedia :: Graphics
 Project-URL: Homepage, https://github.com/zxing-cpp/zxing-cpp
 Project-URL: Repository, https://github.com/zxing-cpp/zxing-cpp.git
 Project-URL: Issues, https://github.com/zxing-cpp/zxing-cpp/issues
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 # Python bindings for zxing-cpp
@@ -52,6 +52,17 @@ for barcode in barcodes:
 		f'\n Position: {barcode.position}')
 if len(barcodes) == 0:
 	print("Could not find any barcode.")
+```
+
+The `read_barcodes` function can accept images in various formats, including OpenCV, Pillow, and Qt images,
+as well as NumPy arrays with dtype `uint8`. Grayscale arrays can have shape `(height, width)` or
+`(height, width, 1)`. Three-channel arrays are interpreted as BGR, matching OpenCV's default `imread` output.
+To explicitly specify the image buffer memory layout including the number of channels, the shape and the stride
+of any given memory view / array, you can use the `ImageView` class:
+
+```python
+view = zxingcpp.ImageView(memoryview(img), width, height, zxingcpp.ImageFormat.RGBA, row_stride, pix_stride)
+barcodes = zxingcpp.read_barcodes(view)
 ```
 
 ### Writing barcodes

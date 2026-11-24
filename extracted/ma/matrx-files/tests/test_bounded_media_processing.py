@@ -328,7 +328,6 @@ async def test_different_files_run_independently(monkeypatch):
 
 
 def test_audio_probe_and_waveform_from_path(tmp_path):
-    pytest.importorskip("pydub")
     if _ffmpeg() is None:
         pytest.skip("ffmpeg not available")
     wav = str(tmp_path / "tone.wav")

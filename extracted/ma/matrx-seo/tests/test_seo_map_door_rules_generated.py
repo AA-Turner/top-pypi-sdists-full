@@ -51,7 +51,7 @@ CONTRACT: dict[str, Any] = json.loads(
   "args": [
    {
     "access": "editor",
-    "entity": "web_brand",
+    "entity": "brand",
     "foreign": {
      "same_as_invented": true,
      "sqlstate": "42501"

@@ -61,3 +61,12 @@ def test_client_automation_keeps_auto_placeholder() -> None:
     ctx = _Ctx(source_feature="chat", origin_class=ORIGIN_CLASS_CLIENT_AUTO)
 
     assert _resolve_initial_conversation_title(title=None, ctx=ctx) == "Auto: New conversation"
+
+
+def test_a_helper_conversation_is_named_by_its_agent_not_its_label() -> None:
+    """CGU-M3 W3 (W4's walk 2026-11-04): helper rows read "Auto: agent_call:Chief of Staff" in the sidebar — the
+    space in the agent's name made the raw ``agent_call:`` label pass as a human title."""
+    assert resolve_step_label_for_title("agent_call:Chief of Staff", "Chief of Staff") == "Chief of Staff"
+    assert resolve_step_label_for_title("agent_call:Chief of Staff") == "Chief of Staff"
+    assert resolve_step_label_for_title("agent_call:research_bot") == "Research Bot"
+    assert resolve_step_label_for_title("Podcast Image 1: cover", None) == "Podcast Image 1: cover"

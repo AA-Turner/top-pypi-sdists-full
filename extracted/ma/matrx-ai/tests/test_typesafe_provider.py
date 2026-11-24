@@ -360,3 +360,137 @@ async def test_a_distribution_off_by_more_than_rounding_is_still_refused() -> No
             await call_system_one(_thirteen_option_request(), api_key="test-key", http=http)
     finally:
         await http.aclose()
+
+
+# ---------------------------------------------------------------------------
+# Jev 1.14: images (assets) and Box questions
+# ---------------------------------------------------------------------------
+
+_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+
+
+def _image_request() -> SystemOneRequest:
+    from matrx_ai.providers.typesafe import BoxQuestion, ImageAsset
+
+    return SystemOneRequest(
+        state={"images": ["img-ref-1"]},
+        model="jev-1.14.0",
+        assets={"img-ref-1": ImageAsset(format="png", data_base64=_PNG_B64)},
+        questions={
+            "mug_present": NoulQuestion(instructions="Is there a mug in `images[0]`?"),
+            "mug": BoxQuestion(instructions="the mug in `images[0]`"),
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_image_request_sends_assets_and_the_images_opt_in_header() -> None:
+    """Without the header TypeSafe answers 400; without assets the model sees no image."""
+    seen: dict[str, object] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["header"] = request.headers.get("typesafe-danger-zone-images")
+        seen["json"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "model": "jev-1.14.0",
+                "usage": {"input_tokens": 290, "output_tokens": 21},
+                "answers": {
+                    "mug_present": {"type": "noul", "noul": 0.97},
+                    "mug": {
+                        "type": "box",
+                        "box": {"top": 0.25, "bottom": 0.82, "left": 0.44, "right": 0.84},
+                        "confidence": None,
+                    },
+                },
+            },
+        )
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        result = await call_system_one(_image_request(), api_key="k", http=http)
+    finally:
+        await http.aclose()
+    assert seen["header"] == "true"
+    body = seen["json"]
+    assert body["assets"] == {"img-ref-1": {"type": "image", "format": "png", "data_base64": _PNG_B64}}  # type: ignore[index]
+    assert body["questions"]["mug"] == {"type": "box", "instructions": "the mug in `images[0]`"}  # type: ignore[index]
+    box = result.answers["mug"]
+    assert box.type == "box" and box.box.left == 0.44 and box.confidence is None  # type: ignore[union-attr]
+
+
+@pytest.mark.asyncio
+async def test_text_only_request_sends_no_assets_key_and_no_images_header() -> None:
+    seen: dict[str, object] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["header"] = request.headers.get("typesafe-danger-zone-images")
+        seen["json"] = json.loads(request.content)
+        return httpx.Response(200, json=_result())
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        await call_system_one(_request(), api_key="k", http=http)
+    finally:
+        await http.aclose()
+    assert seen["header"] is None
+    assert "assets" not in seen["json"]  # type: ignore[operator]
+
+
+def test_an_attached_image_nobody_references_is_refused_locally() -> None:
+    from matrx_ai.providers.typesafe import ImageAsset
+
+    with pytest.raises(ValidationError, match="never referenced"):
+        SystemOneRequest(
+            state="a photo",
+            model="jev-1.14.0",
+            assets={"unplaced-ref": ImageAsset(format="png", data_base64=_PNG_B64)},
+            questions={"q": NoulQuestion(instructions="Is it red?")},
+        )
+
+
+def test_a_box_question_without_an_image_is_refused_locally() -> None:
+    from matrx_ai.providers.typesafe import BoxQuestion
+
+    with pytest.raises(ValidationError, match="needs an image"):
+        SystemOneRequest(state="x", model="jev-1.14.0", questions={"b": BoxQuestion(instructions="the mug")})
+
+
+@pytest.mark.asyncio
+async def test_a_box_with_crossed_edges_is_an_invalid_response() -> None:
+    body = {
+        "model": "jev-1.14.0",
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+        "answers": {
+            "mug_present": {"type": "noul", "noul": 0.9},
+            "mug": {"type": "box", "box": {"top": 0.8, "bottom": 0.2, "left": 0.1, "right": 0.5}, "confidence": 0.5},
+        },
+    }
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body)))
+    try:
+        with pytest.raises(TypeSafeProviderError) as caught:
+            await call_system_one(_image_request(), api_key="k", http=http)
+    finally:
+        await http.aclose()
+    assert caught.value.error_type == "invalid_response"
+    assert get_billed_usage(caught.value) is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("status", "error_type"), [(400, "image_rejected"), (413, "request_too_large")])
+async def test_image_refusals_are_named_and_never_retried(status: int, error_type: str) -> None:
+    calls = {"n": 0}
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(status, json={"detail": "nope"})
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        with pytest.raises(TypeSafeProviderError) as caught:
+            await call_system_one(_image_request(), api_key="k", http=http)
+    finally:
+        await http.aclose()
+    assert caught.value.error_type == error_type
+    assert calls["n"] == 1

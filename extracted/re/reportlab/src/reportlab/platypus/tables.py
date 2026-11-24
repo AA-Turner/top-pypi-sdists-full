@@ -1843,11 +1843,11 @@ only rows may be strings with values in {_SPECIALROWS!r}''')
                             newStyle.valign = "TOP"
                         else:
                             # Adjust the margins to push it towards the true middle
-                            h = self._listCellGeom(v[0] or v[1], width, oldStyle)[1]
+                            h = self._listCellGeom(res[0] or res[1], width, oldStyle)[1]
                             margin = (curRowHeight - h) / 2
-                            if v[0]:
+                            if res[0]:
                                 oldStyle.topPadding += margin
-                            elif v[1]:
+                            elif res[1]:
                                 newStyle.bottomPadding += margin
                     newCellStyles[n][span_sc] = newStyle
 
@@ -2394,12 +2394,12 @@ only rows may be strings with values in {_SPECIALROWS!r}''')
                             self._drawCell(cellval, cellstyle, (x, y), (width, height))
         if renderCB: renderCB(self,'startLines')
         self._drawLines()
+        if self._roundingRectDef:
+            self._restoreRoundingObscuredLines()
         if renderCB:
             renderCB(self,'endLines')
             renderCB(self,'endTable')
         c.restoreState()
-        if self._roundingRectDef:
-            self._restoreRoundingObscuredLines()
 
     def _drawBkgrnd(self):
         nrows = self._nrows

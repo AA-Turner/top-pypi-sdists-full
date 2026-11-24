@@ -196,7 +196,11 @@ def read_machine_activity(
     work: dict[str, Any] | None = None,
     clock: Any = time.monotonic,
     sample: dict[str, float] | None = None,
+    platform_roots: set[int] | None = None,
 ) -> dict[str, object]:
+    """``platform_roots``: pids whose whole process tree is the platform's own (the
+    supervised host app, ``machine_app``) — left out of every foreign reading, so an
+    idle server never keeps a machine awake."""
     root = Path(proc_root)
     if not root.is_dir():
         return {"available": False, "reason": "no /proc on this host"}
@@ -208,6 +212,7 @@ def read_machine_activity(
     io_known = False
     names: set[str] = set()
     parents: dict[int, int] = {}
+    stats: list[tuple[Path, str, list[str]]] = []
     for entry in root.iterdir():
         if not entry.name.isdigit():
             continue
@@ -218,7 +223,19 @@ def read_machine_activity(
         fields = stat[stat.rindex(")") + 2 :].split()
         if len(fields) >= 2 and fields[1].isdigit():
             parents[int(entry.name)] = int(fields[1])
-        if int(entry.name) in own:
+        stats.append((entry, stat, fields))
+    quiet = set(platform_roots or ())
+
+    def _under_platform_root(pid: int) -> bool:
+        node, hops = pid, 0
+        while node is not None and node > 1 and hops < 64:
+            if node in quiet:
+                return True
+            node, hops = parents.get(node), hops + 1
+        return False
+
+    for entry, stat, fields in stats:
+        if int(entry.name) in own or (quiet and _under_platform_root(int(entry.name))):
             continue
         comm = stat[stat.index("(") + 1 : stat.rindex(")")]
         if comm in PLATFORM_PROCESSES:

@@ -1,12 +1,14 @@
-"""The sandbox proxy's HTTP transport is the matrx-api client; the policy around it is unchanged.
+"""The sandbox proxy's raw HTTP transport to a machine's agent door; the policy around it is unchanged.
+
+The old orchestrators' generated ``/sandboxes/{id}/fs|search`` operations are no longer used
+(old tiers retired, cloud-computer W6): every call goes to ``{binding.base_url}{path}``.
 
 Breaks each test names (production change in ``matrx_ai.tools._sandbox_proxy``):
 
-1. Drop ``RawPath`` around the in-box path (slashes become ``%2F``), lose a header,
-   the query or the JSON body -> the first test fails.
-2. Stop passing ``raw_errors=True`` (the client raises before the module sees the
-   answer) or stop mapping the client's wrapped transport error back to the original
-   ``httpx`` error -> the second and third tests fail.
+1. Encode the in-box path (slashes become ``%2F``), lose a header, the query or the
+   JSON body -> the first test fails.
+2. Raise before the module sees a >=400 answer, or wrap a transport failure instead of
+   surfacing the original ``httpx`` error -> the second and third tests fail.
 
 Only the network is faked (``httpx.MockTransport``); the SUT owns URL building,
 headers, status classification and every message asserted here.

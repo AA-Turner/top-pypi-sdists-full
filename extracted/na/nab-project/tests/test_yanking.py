@@ -3,29 +3,26 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from cProfile import Profile
 from functools import partial
 from itertools import permutations
 from typing import TYPE_CHECKING, Any
+from unittest.mock import ANY, patch
 
 if TYPE_CHECKING:
     from nab_project.resolve import TargetResult
     from nab_provider.resolver_inputs import MarkerHolds
-    from nab_provider.testing import FakeFetchPort
 
 import sys
 
 import pytest
+from packaging.ranges import VersionRange
+from packaging.requirements import Requirement
+from packaging.version import Version
 
-from nab_project._testing.coordinator_fake import make_coordinator
-from nab_project._testing.yanking import Extras, ReleaseRow, graph_port
 from nab_project.inputs import ResolveInputs
 from nab_project.lockfile import IndexPin, build_pylock
 from nab_project.resolve import build_lock_input, resolve_with_coordinator
 from nab_provider import yanked_resolution
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.marker_holds import dependency_marker_holds
 from nab_provider.overrides import PackageOverride
 from nab_provider.policy import BuildPolicy, DistPolicy, ExtrasMode, MetadataPolicy
@@ -35,7 +32,7 @@ from nab_provider.records import SdistFile
 from nab_provider.resolver_inputs import ProxyConstraints, build_resolver_inputs
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import Matrix, ResolveTarget
-from nab_provider.testing import make_sdist, pkg_override
+from nab_provider.testing import FakeFetchPort, make_sdist, pkg_override
 from nab_provider.vcs_admission import VcsConfig
 from nab_provider.yank_preference import IncompletePreferenceError
 from nab_provider.yanked_resolution import MetadataProxy, YankProxyProvider
@@ -51,6 +48,9 @@ from nab_resolver.errors import (
 from nab_resolver.ranges import Range
 from nab_resolver.resolver import Resolver
 from nab_resolver.types import Incompatibility, IncompatibilityCause
+from nab_test_support.coordinator import make_coordinator
+
+from .yanked_releases import ReleaseExtras, ReleaseRow, make_release_coordinator
 
 
 def run_graph(
@@ -59,14 +59,14 @@ def run_graph(
     *,
     targets: Sequence[ResolveTarget] | None = None,
     constraints: Sequence[str] = (),
-    provided_extras: Extras | None = None,
+    provided_extras: ReleaseExtras | None = None,
     resolution: ResolutionStrategy | None = None,
     overrides: Sequence[PackageOverride] = (),
     marker_holds: MarkerHolds | None = None,
     include_dependency_requirements: bool = False,
 ) -> tuple[list[TargetResult], FakeFetchPort]:
     """Resolve the fixture through the same entry point as the CLI."""
-    port = graph_port(releases, provided_extras)
+    port = make_release_coordinator(releases, provided_extras)
     result = resolve_with_coordinator(
         port,
         [ResolveTarget.for_host()] if targets is None else targets,
@@ -79,6 +79,52 @@ def run_graph(
         include_dependency_requirements=include_dependency_requirements,
     )
     return result.target_results, port
+
+
+def _requested_metadata(port: FakeFetchPort, package: str, version: str) -> bool:
+    """Check individual requests and every item submitted in a metadata batch."""
+    requests = port.calls_to("request_metadata")
+    for (items,) in port.calls_to("request_metadata_batch"):
+        assert isinstance(items, list)
+        requests.extend(items)
+    return any(call[:2] == (package, version) for call in requests)
+
+
+@pytest.mark.parametrize("parents", [("early", "late"), ("late", "early")])
+@pytest.mark.parametrize("withdrawn", [False, True])
+def test_withdrawn_side_dependency_keeps_prerelease_order(
+    parents: tuple[str, str], *, withdrawn: bool
+) -> None:
+    (result,), _ = run_graph(
+        [
+            ("app", "1", False, [*parents, "side==1"]),
+            ("early", "1", False, ["lib>=1rc1"]),
+            ("late", "1", False, ["lib>=1"]),
+            ("side", "1", withdrawn, []),
+            ("lib", "1", False, []),
+            ("lib", "2rc1", False, []),
+        ],
+        ["app"],
+    )
+    assert result.success, result.error
+    assert result.pins["lib"] == Version("2rc1")
+
+
+def test_rejected_parent_does_not_keep_prereleases_enabled() -> None:
+    (result,), _ = run_graph(
+        [
+            ("app", "1", False, ["parent", "side==1"]),
+            ("parent", "2", False, ["lib>=1rc1", "missing"]),
+            ("parent", "1", False, ["lib>=1"]),
+            ("side", "1", True, []),
+            ("lib", "1", False, []),
+            ("lib", "2rc1", False, []),
+        ],
+        ["app"],
+    )
+    assert result.success, result.error
+    assert result.pins["parent"] == Version("1")
+    assert result.pins["lib"] == Version("1")
 
 
 @pytest.mark.parametrize(
@@ -202,6 +248,7 @@ def test_unused_constraint_does_not_start_a_yanked_cycle() -> None:
     )
     assert not results[0].success
     assert not port.calls_to("request_metadata")
+    assert not port.calls_to("request_metadata_batch")
 
 
 def test_inactive_marker_does_not_admit_a_yank() -> None:
@@ -370,12 +417,7 @@ def test_search_limit_does_not_authorize_fallback(
     )
     assert not results[0].success
     assert isinstance(results[0].error, ResolutionLimitError)
-    assert all(
-        "True.whl" not in str(call) for call in port.calls_to("request_metadata")
-    )
-    assert all(
-        "True.whl" not in str(call) for call in port.calls_to("request_metadata_batch")
-    )
+    assert not _requested_metadata(port, "dep", "2+z")
 
 
 @pytest.mark.parametrize(
@@ -404,9 +446,9 @@ def test_termination_is_not_retried_as_a_yank_conflict(
         calls += 1
         if isinstance(self.provider, Provider):
             self.provider.fetch_versions("dep")
-            self.provider.yank_admissions = frozenset({("dep", Version("2"))})
+            self.provider.yank_admissions = {("dep", Version("2")): ()}
             self.provider.get_dependencies("dep", Version("2"))
-            self.provider.yank_admissions = frozenset()
+            self.provider.yank_admissions = {}
             assert self.provider.has_withdrawn_alternative()
         raise error
 
@@ -446,16 +488,16 @@ def test_proxy_error_without_a_conflict_report_is_incomplete(
 
 
 def test_unknown_offline_listing_does_not_certify_fallback() -> None:
-    port = graph_port([("dep", "2+live", False, ["missing"]), ("dep", "2", True, [])])
+    port = make_release_coordinator(
+        [("dep", "2+live", False, ["missing"]), ("dep", "2", True, [])]
+    )
     port.index.store_listing("missing", [], offline_miss=True)
     result = resolve_with_coordinator(
         port, [ResolveTarget.for_host()], [Requirement("dep==2")]
     )
     assert not result.success
     assert "missing offline" in str(result.target_results[0].error)
-    assert all(
-        "True.whl" not in str(call) for call in port.calls_to("request_metadata")
-    )
+    assert not _requested_metadata(port, "dep", "2")
 
 
 def test_deep_admission_uses_no_recursive_solver_stack() -> None:
@@ -464,7 +506,7 @@ def test_deep_admission_uses_no_recursive_solver_stack() -> None:
         (f"p{i}", "1", i == count - 1, [f"p{i + 1}==1"] if i + 1 < count else [])
         for i in range(count)
     ]
-    port = graph_port(releases)
+    port = make_release_coordinator(releases)
     target = ResolveTarget.for_host()
     roots = [Requirement("p0")]
     prepared = build_resolver_inputs(
@@ -552,7 +594,7 @@ def test_unpinned_sdist_is_never_downloaded_or_built() -> None:
         port, [ResolveTarget.for_host()], [Requirement("dep")]
     )
     assert not result.success
-    for request in ("request_sdist", "request_sdist_archive", "request_built_metadata"):
+    for request in ("request_sdist", "request_sdist_archive", "build_sdist_metadata"):
         assert not port.calls_to(request)
 
 
@@ -561,7 +603,7 @@ def test_source_install_requires_permission_for_the_install_artifact(
     root: str,
     succeeds: bool,
 ) -> None:
-    wheel_port = graph_port([("dep", "2", False, [])])
+    wheel_port = make_release_coordinator([("dep", "2", False, [])])
     live = wheel_port.index.get_listing("dep")
     assert live is not None
     port = make_coordinator(
@@ -593,7 +635,9 @@ def test_source_install_requires_permission_for_the_install_artifact(
 
 
 def test_yanked_fallback_keeps_equivalent_wheel_metadata_for_source_install() -> None:
-    port = graph_port([("pkg", "1", False, []), ("helper", "1", True, [])])
+    port = make_release_coordinator(
+        [("pkg", "1", False, []), ("helper", "1", True, [])]
+    )
     files = port.index.get_listing("pkg")
     assert files is not None
     port.index.store_listing("pkg", [*files, make_sdist("1.0", package="pkg")])
@@ -631,7 +675,7 @@ def test_yanked_fallback_keeps_equivalent_wheel_metadata_for_source_install() ->
 def test_yanked_source_uses_preferred_wheel_metadata_without_building(
     wheel_yanked: bool, universal: bool
 ) -> None:
-    port = graph_port(
+    port = make_release_coordinator(
         [("dep", "2", wheel_yanked, ["leaf==1"]), ("leaf", "1", False, [])]
     )
     files = port.index.get_listing("dep")
@@ -674,11 +718,11 @@ def test_yanked_source_uses_preferred_wheel_metadata_without_building(
         assert pin.sdist.url == "https://example.test/dep-2.tar.gz"
         assert not pin.wheels
 
-    assert not port.calls_to("request_built_metadata")
+    assert not port.calls_to("build_sdist_metadata")
 
 
 def test_rejected_live_metadata_still_splits_the_universal_lock() -> None:
-    port = graph_port(
+    port = make_release_coordinator(
         [
             ("dep", "2+live", False, ['missing; python_full_version < "3.12.4"']),
             ("dep", "2", True, []),
@@ -722,7 +766,7 @@ def graph_search(
     extras_mode: ExtrasMode = ExtrasMode.BACKTRACK,
 ) -> YankProxyProvider:
     """Create a real provider search for admission-proof and metadata-boundary tests."""
-    port = graph_port(releases)
+    port = make_release_coordinator(releases)
     target = ResolveTarget.for_host()
     requirements = [Requirement(root) for root in roots]
     prepared = build_resolver_inputs(
@@ -747,6 +791,54 @@ def graph_search(
         ProxyConstraints({}),
         preferences={},
     )
+
+
+def test_requested_metadata_proxy_requires_a_prepared_candidate() -> None:
+    search = graph_search([("dep", "2", True, [])], ["dep==2"])
+    candidate = search.catalogue.choices("dep")[0]
+    proxy = MetadataProxy(search.identify(candidate))
+    with pytest.raises(
+        ResolutionInvariantError, match="dep==2 without prepared metadata"
+    ):
+        search.get_dependencies(proxy, 0)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ResolutionError("host could not read the package listing"),
+        ResolutionError(""),
+        ResolutionError(
+            "host dependency conflict",
+            Incompatibility([], cause=IncompatibilityCause.NO_VERSIONS),
+        ),
+        ResolutionLimitError("host work limit"),
+    ],
+    ids=["listing-error", "empty-message", "unrelated-proof", "work-limit"],
+)
+def test_root_listing_failure_cannot_certify_that_no_solution_exists(
+    failure: ResolutionError,
+) -> None:
+    search = graph_search([], ["missing"])
+    port = search.catalogue.provider.coordinator
+    assert isinstance(port, FakeFetchPort)
+
+    def fail_listing(package: str, _speculative: bool) -> None:
+        assert package == "missing"
+        raise failure
+
+    port.override("request_listing", fail_listing)
+    with pytest.raises(ResolutionError) as caught:
+        search.resolve()
+    if isinstance(failure, ResolutionTerminatedError):
+        assert caught.value is failure
+    else:
+        assert isinstance(caught.value, IncompletePreferenceError)
+        expected = "yanked dependency resolution is incomplete"
+        assert str(caught.value) == (
+            f"{expected}: {failure}" if str(failure) else expected
+        )
+        assert caught.value.__cause__ is failure
 
 
 @pytest.mark.parametrize("roots", list(permutations(("leaf", "app", "plugin"))))
@@ -1014,17 +1106,12 @@ def test_live_trial_preserves_a_complete_alternative_after_an_offline_miss() -> 
     )
     mark_offline_metadata(search, "dep", "1")
 
-    with Profile() as profile:
+    with patch.object(search, "run_query", wraps=search.run_query) as query:
         pins, _ = search.resolve()
 
     assert pins == {"app": Version("1")}
     assert search.catalogue.unavailable
-    query_calls = sum(
-        entry.callcount
-        for entry in profile.getstats()
-        if entry.code is YankProxyProvider.run_query.__code__
-    )
-    assert query_calls == 1
+    query.assert_called_once_with(ANY, live_trial=True)
 
 
 @pytest.mark.parametrize("offline", [False, True])
@@ -1038,18 +1125,16 @@ def test_live_trial_failure_does_not_retry_admission(offline: bool) -> None:
             "dep", [], offline_miss=True
         )
 
-    with Profile() as profile, pytest.raises(ResolutionError) as caught:
+    with (
+        patch.object(search, "run_query", wraps=search.run_query) as query,
+        pytest.raises(ResolutionError) as caught,
+    ):
         search.resolve()
 
     assert isinstance(caught.value, IncompletePreferenceError) is offline
     if offline:
         assert "missing offline" in str(caught.value)
-    query_calls = sum(
-        entry.callcount
-        for entry in profile.getstats()
-        if entry.code is YankProxyProvider.run_query.__code__
-    )
-    assert query_calls == 1
+    query.assert_called_once_with(ANY, live_trial=True)
     assert not any(candidate.withdrawn for candidate in search.catalogue.facts)
 
 

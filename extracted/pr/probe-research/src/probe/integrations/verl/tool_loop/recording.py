@@ -117,6 +117,7 @@ class LoopRecording:
         if self.agent_data is not None:
             turns, failed = await run_in_executor(self._build_turns)
             self.capture.set_turns(turns)
+            self.capture.set_tools(getattr(self.loop, "tool_schemas", None) or ())  # `ToolAgentLoop.init_class`
             for call_id, name, error in failed:
                 self.capture.record_tool_run(call_id, name, is_ok=False, error=error)
         payload = await run_in_executor(self.capture.export)
@@ -159,11 +160,13 @@ class LoopRecording:
         replies = {id(turn.message): turn for turn in self.turns if turn.message is not None}
         messages: list[Any] = []
         dropped: list[tuple[int, str, str]] = []
+        generated: dict[int, int] = {}  # turn index -> the tokens its model call generated
         turn_index = 0
         for message in list(getattr(self.agent_data, "messages", None) or []):
             reply = replies.get(id(message)) if _is_assistant(message) else None
             if reply is not None:
                 messages.append(self._to_assistant(message.get("content"), reply, turn_index, dropped))
+                generated[turn_index] = len(reply.response_ids)
             else:
                 messages.append(message)
             turn_index += _is_assistant(message)
@@ -173,8 +176,12 @@ class LoopRecording:
                 message = self._to_assistant(reply.content, reply, turn_index, dropped)
                 messages.append(message)
                 failed += [(call["id"], call["function"]["name"], NOT_RUN_ERROR) for call in message.get("tool_calls", [])]
+                generated[turn_index] = len(reply.response_ids)
                 turn_index += 1
         turns = build_turns(messages, should_number_ids=True)
+        for place, count in generated.items():
+            if place < len(turns):
+                turns[place]["usage"] = {"response_tokens": count}
         for place, call_id, block in dropped:
             if place < len(turns) and turns[place]["messages"] and _is_assistant(turns[place]["messages"][-1]):
                 turns[place]["messages"][-1].setdefault("tool_calls", []).append(

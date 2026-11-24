@@ -843,6 +843,22 @@ namespace sogen::fex
 
             return memory_operation::write;
         }
+
+        // Arm ARM, ESR_EL1 ISS for data aborts: DFSC 0b0011xx is a permission fault, 0b100001 an alignment fault. Darwin
+        // reports a store to a read-only page that is not resident as a translation fault (DFSC 0b0001xx) instead.
+        bool is_permission_fault(const uint64_t esr)
+        {
+            constexpr uint64_t fault_status_mask = 0x3C;
+            constexpr uint64_t permission_fault = 0x0C;
+            return (esr & fault_status_mask) == permission_fault;
+        }
+
+        bool is_alignment_fault(const uint64_t esr)
+        {
+            constexpr uint64_t fault_status_mask = 0x3F;
+            constexpr uint64_t alignment_fault = 0x21;
+            return (esr & fault_status_mask) == alignment_fault;
+        }
 #endif
 
         // Bit-for-bit reimplementation of FEXCore::Context::ContextImpl::ReconstructCompactedEFLAGS /
@@ -2355,7 +2371,12 @@ namespace sogen::fex
             // this backend's guest VA == host VA is backed by real host mprotect state, so the write
             // needs a temporary permission bump. Every page must be checked, not just the first: a write
             // straddling into a read-only region would otherwise fault mid-memmove.
+#ifdef __APPLE__
+            const bool needs_temporary_write =
+                !this->range_is_writable(address, size) || !this->range_is_host_writable_apple(address, size);
+#else
             const bool needs_temporary_write = !this->range_is_writable(address, size);
+#endif
 
             if (needs_temporary_write)
             {
@@ -3777,7 +3798,7 @@ namespace sogen::fex
             for (uint64_t host_page = start; host_page < end; host_page += host_page_size_apple)
             {
                 // The page stays claimed while it is accessible, so only its protection changes.
-                const auto declared = this->shadow_permission_apple(host_page).value_or(memory_permission::none);
+                const auto declared = this->host_permission_apple(host_page).value_or(memory_permission::none);
                 ::mprotect(reinterpret_cast<void*>(this->to_host_address(host_page)), host_page_size_apple,
                            to_prot_apple(enable ? declared | added : declared));
             }
@@ -3995,7 +4016,7 @@ namespace sogen::fex
             }
 
             if (::mprotect(reinterpret_cast<void*>(this->to_host_address(host_page_addr)), host_page_size_apple,
-                           to_prot_apple(*effective)) != 0)
+                           to_prot_apple(this->host_permission_apple(host_page_addr).value_or(memory_permission::none))) != 0)
             {
                 throw std::runtime_error("FEX backend failed to change memory protection");
             }
@@ -4014,6 +4035,113 @@ namespace sogen::fex
             }
 
             return effective;
+        }
+
+        // FEXCore's default SMCChecks=mtrack only reports translated pages; the frontend has to write-protect them
+        // and invalidate on the first store.
+        bool is_code_write_trapped_apple(const uint64_t host_page_addr) const
+        {
+            if (this->hypervisor_)
+            {
+                return false;
+            }
+
+            for (uint64_t page = host_page_addr; page < host_page_addr + host_page_size_apple; page += page_size)
+            {
+                const auto shadow = this->page_shadow_apple_.find(page);
+                if (shadow != this->page_shadow_apple_.end() && (shadow->second & memory_permission::write) != memory_permission::none &&
+                    this->code_pages_.contains(page))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        std::optional<memory_permission> host_permission_apple(const uint64_t host_page_addr) const
+        {
+            auto permission = this->shadow_permission_apple(host_page_addr);
+            if (permission && this->is_code_write_trapped_apple(host_page_addr))
+            {
+                *permission &= ~(memory_permission::write | memory_permission::exec);
+            }
+
+            return permission;
+        }
+
+        bool range_is_host_writable_apple(const uint64_t address, const size_t size) const
+        {
+            const uint64_t start = host_page_align_down_apple(address);
+            const uint64_t end = host_page_align_up_apple(address + size);
+            const auto first_code_page = this->code_pages_.lower_bound(start);
+            if (first_code_page == this->code_pages_.end() || *first_code_page >= end)
+            {
+                return true;
+            }
+
+            for (uint64_t host_page = start; host_page < end; host_page += host_page_size_apple)
+            {
+                if (this->is_code_write_trapped_apple(host_page))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        bool any_code_write_trapped_apple(const uint64_t first_host_page, const uint64_t last_host_page) const
+        {
+            for (uint64_t host_page = first_host_page; host_page <= last_host_page; host_page += host_page_size_apple)
+            {
+                if (this->is_code_write_trapped_apple(host_page))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool handle_code_write_fault_apple(const uint64_t host_fault_address, const ucontext_t* uctx)
+        {
+            const uint64_t esr = uctx->uc_mcontext->__es.__esr;
+            const auto operation = memory_access_operation(esr);
+
+            // A misaligned read-modify-write atomic (SWPAL) reports an alignment fault with WnR clear, and its emulation
+            // stores to both aligned 16-byte halves of the operand with the tables lock held, so every host page the
+            // operand reaches has to be untrapped beforehand.
+            if (t_tables_access != tables_access::none || !operation || (*operation != memory_operation::write && !is_alignment_fault(esr)))
+            {
+                return false;
+            }
+
+            constexpr uint64_t atomic_operand_reach = 15;
+            const uint64_t fault_address = this->to_guest_address(host_fault_address);
+            const uint64_t first_host_page = host_page_align_down_apple(fault_address);
+            const uint64_t last_host_page =
+                is_alignment_fault(esr) ? host_page_align_down_apple(fault_address + atomic_operand_reach) : first_host_page;
+            {
+                const shared_tables_lock lock(this->tables_mutex_);
+                if (!this->any_code_write_trapped_apple(first_host_page, last_host_page))
+                {
+                    const auto permission = this->host_permission_apple(first_host_page).value_or(memory_permission::none);
+                    return is_permission_fault(esr) && (permission & memory_permission::write) != memory_permission::none;
+                }
+            }
+
+            const auto invalidation = this->lock_code_invalidation();
+            const exclusive_tables_lock lock(this->tables_mutex_);
+            for (uint64_t host_page = first_host_page; host_page <= last_host_page; host_page += host_page_size_apple)
+            {
+                if (this->is_code_write_trapped_apple(host_page))
+                {
+                    this->invalidate_code_range(host_page, host_page_size_apple);
+                }
+            }
+
+            return !is_alignment_fault(esr);
         }
 
         void sync_host_pages_covering_apple(uint64_t address, size_t size)
@@ -4056,7 +4184,7 @@ namespace sogen::fex
 
                 const uint64_t zero_start = std::max(address, host_page);
                 const size_t zero_size = static_cast<size_t>(std::min(end, host_page + host_page_size_apple) - zero_start);
-                const auto host_permission = this->shadow_permission_apple(host_page).value_or(memory_permission::none);
+                const auto host_permission = this->host_permission_apple(host_page).value_or(memory_permission::none);
                 const bool needs_temporary_write = (host_permission & memory_permission::write) == memory_permission::none;
 
                 if (needs_temporary_write)
@@ -4438,6 +4566,20 @@ namespace sogen::fex
             return callbacks;
         }
 
+        std::vector<instruction_hook_callback> copy_instruction_hooks(const x86_hookable_instructions type) const
+        {
+            const shared_tables_lock lock(this->tables_mutex_);
+            std::vector<instruction_hook_callback> callbacks{};
+            for (const auto& [_, hook] : this->instruction_hooks_)
+            {
+                if (hook.type == type && hook.callback)
+                {
+                    callbacks.push_back(hook.callback);
+                }
+            }
+            return callbacks;
+        }
+
         // Called only from run(), in normal call context, right after ExecuteThread returns. The
         // return value tells run()'s loop whether ExecuteThread came back because a hook was deferred
         // or because of a genuine stop.
@@ -4455,7 +4597,8 @@ namespace sogen::fex
                 }
                 return true;
             case pending_fault_kind::interrupt:
-                if (dispatch.vector == invalid_opcode_vector && (this->run_trapped_instruction() || this->run_invalid_instruction_hooks()))
+                if (dispatch.vector == invalid_opcode_vector &&
+                    (this->run_trapped_instruction(vcpu) || this->run_invalid_instruction_hooks(vcpu)))
                 {
                     return true;
                 }
@@ -4626,9 +4769,9 @@ namespace sogen::fex
 
         // A trapped RDTSC, RDTSCP or CPUID: its hooks run, and unless one skips it, its native result is produced
         // here, since the compiled code no longer computes it.
-        bool run_trapped_instruction()
+        bool run_trapped_instruction(fex_vcpu& vcpu)
         {
-            const auto rip = this->reg(x86_register::rip);
+            const auto rip = vcpu.reg(x86_register::rip);
             std::array<uint8_t, 3> code{};
             if (!this->try_read_memory(rip, code.data(), code.size()) || code[0] != 0x0F)
             {
@@ -4656,9 +4799,9 @@ namespace sogen::fex
             }
 
             bool skip = false;
-            for (auto& [_, hook] : this->instruction_hooks_)
+            for (const auto& hook : this->copy_instruction_hooks(type))
             {
-                if (hook.type == type && hook.callback && hook.callback(*this, 0) == instruction_hook_continuation::skip_instruction)
+                if (hook(vcpu, 0) == instruction_hook_continuation::skip_instruction)
                 {
                     skip = true;
                 }
@@ -4666,54 +4809,53 @@ namespace sogen::fex
 
             if (!skip)
             {
-                this->run_native_instruction(type);
+                this->run_native_instruction(vcpu, type);
             }
 
-            this->reg(x86_register::rip, this->reg(x86_register::rip) + length);
+            vcpu.reg(x86_register::rip, vcpu.reg(x86_register::rip) + length);
             return true;
         }
 
-        bool run_invalid_instruction_hooks()
+        bool run_invalid_instruction_hooks(fex_vcpu& vcpu)
         {
-            const auto rip = this->reg(x86_register::rip);
+            const auto rip = vcpu.reg(x86_register::rip);
             bool consumed = false;
-            for (auto& [_, hook] : this->instruction_hooks_)
+            for (const auto& hook : this->copy_instruction_hooks(x86_hookable_instructions::invalid))
             {
-                if (hook.type == x86_hookable_instructions::invalid && hook.callback &&
-                    hook.callback(*this, 0) == instruction_hook_continuation::skip_instruction)
+                if (hook(vcpu, 0) == instruction_hook_continuation::skip_instruction)
                 {
                     consumed = true;
                 }
             }
 
-            if (consumed && this->reg(x86_register::rip) == rip)
+            if (consumed && vcpu.reg(x86_register::rip) == rip)
             {
-                this->reg(x86_register::rip, rip + 2);
+                vcpu.reg(x86_register::rip, rip + 2);
             }
 
             return consumed;
         }
 
-        void run_native_instruction(const x86_hookable_instructions type)
+        void run_native_instruction(fex_vcpu& vcpu, const x86_hookable_instructions type)
         {
             if (type == x86_hookable_instructions::cpuid)
             {
                 const auto result =
-                    this->context_->RunCPUIDFunction(this->reg<uint32_t>(x86_register::eax), this->reg<uint32_t>(x86_register::ecx));
-                this->reg(x86_register::rax, uint64_t{result.eax});
-                this->reg(x86_register::rbx, uint64_t{result.ebx});
-                this->reg(x86_register::rcx, uint64_t{result.ecx});
-                this->reg(x86_register::rdx, uint64_t{result.edx});
+                    this->context_->RunCPUIDFunction(vcpu.reg<uint32_t>(x86_register::eax), vcpu.reg<uint32_t>(x86_register::ecx));
+                vcpu.reg(x86_register::rax, uint64_t{result.eax});
+                vcpu.reg(x86_register::rbx, uint64_t{result.ebx});
+                vcpu.reg(x86_register::rcx, uint64_t{result.ecx});
+                vcpu.reg(x86_register::rdx, uint64_t{result.edx});
                 return;
             }
 
             const auto ticks = static_cast<uint64_t>(
                 std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
-            this->reg(x86_register::rax, ticks & 0xFFFFFFFF);
-            this->reg(x86_register::rdx, ticks >> 32);
+            vcpu.reg(x86_register::rax, ticks & 0xFFFFFFFF);
+            vcpu.reg(x86_register::rdx, ticks >> 32);
             if (type == x86_hookable_instructions::rdtscp)
             {
-                this->reg(x86_register::rcx, uint64_t{0});
+                vcpu.reg(x86_register::rcx, uint64_t{0});
             }
         }
 
@@ -4795,6 +4937,7 @@ namespace sogen::fex
         void create_vm()
         {
             this->vm_ = hvf::create_arm64_emulator(1);
+            this->context_->SetHardwareTSOSupport(hvf::enable_hardware_tso(*this->vm_));
             hvf::set_el0_exception_handler(*this->vm_, [this](arm64_cpu& cpu, const hvf::el0_exception& exception) {
                 return this->handle_vm_exception(cpu, exception);
             });
@@ -4931,7 +5074,7 @@ namespace sogen::fex
                 return false;
             }
 
-            return this->deliver_host_signal(cpu, signal, code, address);
+            return this->deliver_host_signal(cpu, signal, code, address, exception.syndrome);
         }
 
         void perform_host_call(arm64_cpu& cpu, const size_t index)
@@ -4963,7 +5106,7 @@ namespace sogen::fex
             cpu.reg(arm64_register::pc, cpu.reg(arm64_register::x30));
         }
 
-        bool deliver_host_signal(arm64_cpu& cpu, const int signal, const int code, const uint64_t address)
+        bool deliver_host_signal(arm64_cpu& cpu, const int signal, const int code, const uint64_t address, const uint64_t syndrome)
         {
             __darwin_mcontext64 machine{};
             ucontext_t context{};
@@ -4985,6 +5128,7 @@ namespace sogen::fex
             machine.__ns.__fpsr = cpu.reg<uint32_t>(arm64_register::fpsr);
             machine.__ns.__fpcr = cpu.reg<uint32_t>(arm64_register::fpcr);
             machine.__es.__far = address;
+            machine.__es.__esr = static_cast<uint32_t>(syndrome);
 
             siginfo_t info{};
             info.si_signo = signal;
@@ -5413,6 +5557,13 @@ namespace sogen::fex
             {
                 return false;
             }
+
+#ifdef __APPLE__
+            if ((sig == SIGSEGV || sig == SIGBUS) && this->handle_code_write_fault_apple(reinterpret_cast<uint64_t>(info->si_addr), uctx))
+            {
+                return true;
+            }
+#endif
 
             const shared_tables_lock lock(this->tables_mutex_);
             return this->handle_vcpu_fault_signal(*t_running_vcpu, sig, info, uctx);
@@ -5977,8 +6128,47 @@ namespace sogen::fex
 #endif
             }
 
+#ifdef __APPLE__
+            std::vector<uint64_t> trapped_host_pages{};
+            for (auto page = this->code_pages_.lower_bound(address & ~(page_size - 1));
+                 page != this->code_pages_.end() && *page < address + size; ++page)
+            {
+                const auto host_page = host_page_align_down_apple(*page);
+                if ((trapped_host_pages.empty() || trapped_host_pages.back() != host_page) && this->is_code_write_trapped_apple(host_page))
+                {
+                    trapped_host_pages.push_back(host_page);
+                }
+            }
+#endif
+
             this->code_pages_.erase(this->code_pages_.lower_bound(address & ~(page_size - 1)),
                                     this->code_pages_.lower_bound(address + size));
+
+#ifdef __APPLE__
+            for (const auto host_page : trapped_host_pages)
+            {
+                if (this->shadow_permission_apple(host_page) && this->host_range_is_claimed(host_page, host_page_size_apple))
+                {
+                    this->sync_host_page_apple(host_page);
+                }
+            }
+#endif
+        }
+
+        void add_code_page(const uint64_t page)
+        {
+            if (!this->code_pages_.insert(page).second)
+            {
+                return;
+            }
+
+#ifdef __APPLE__
+            const auto host_page = host_page_align_down_apple(page);
+            if (this->is_code_write_trapped_apple(host_page))
+            {
+                this->sync_host_page_apple(host_page);
+            }
+#endif
         }
 
         bool range_has_code(uint64_t address, size_t size) const
@@ -6572,7 +6762,7 @@ namespace sogen::fex
         const exclusive_tables_lock lock(this->emulator_.tables_mutex_);
         for (uint64_t page = start & ~(page_size - 1); page < start + length; page += page_size)
         {
-            this->emulator_.code_pages_.insert(page);
+            this->emulator_.add_code_page(page);
         }
     }
 

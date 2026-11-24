@@ -2071,6 +2071,31 @@ def test_main_openapi_allof_with_anyof_ref(output_file: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param(["--output-model-type", "msgspec.Struct", "--disable-warnings"], id="msgspec"),
+        pytest.param(
+            ["--output-model-type", "pydantic_v2.BaseModel", "--infer-union-discriminators"],
+            id="inferred-discriminators",
+        ),
+    ],
+)
+def test_main_openapi_allof_with_anyof_ref_inferred_tags(extra_args: list[str], output_file: Path) -> None:
+    """Infer the discriminator of an anyOf that an allOf member names by ``$ref`` without writing it into that schema.
+
+    The inferred discriminator was written into the schema object the ``$ref`` names, which every reader of the
+    target shares, so the schema graph check of the suite failed (#7249); the output stays the same. msgspec warns
+    that it cannot decode the untagged union of ``ItemPostRequest``, as it did before.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "allof_with_anyof_ref.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=extra_args,
+    )
+
+
 @pytest.mark.cli_doc(
     options=["--base-class"],
     option_description="""Specify a custom base class for generated models.
@@ -2248,6 +2273,29 @@ def test_main_invalid_dotted_schema_name_stdout_model_name_map_warnings(capsys: 
         )
     assert_output(
         "".join(f"{record.message}\n" for record in recorded if record.category is UserWarning),
+    )
+
+
+@pytest.mark.isolate_builtin_formatter_config
+def test_main_invalid_dotted_schema_name_stdout_late_pass_warnings(capsys: pytest.CaptureFixture[str]) -> None:
+    """Report the warnings of the last passes once, though stdout output parses the input again (#6926)."""
+    with freeze_time(TIMESTAMP), warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / "invalid_dotted_schema_name_late_warnings.yaml",
+            output_path=None,
+            input_file_type="openapi",
+            extra_args=["--field-constraints"],
+            stdout_suffix=".py",
+            capsys=capsys,
+            assert_no_stderr=True,
+        )
+    assert_output(
+        "".join(
+            f"{record.category.__name__}: {record.message}\n"
+            for record in recorded
+            if issubclass(record.category, UserWarning)
+        )
     )
 
 
@@ -10309,9 +10357,10 @@ def test_main_openapi_discriminator_lone_variant_tags(
     Up to 0.86.0 the output kept ``discriminator`` there, which Pydantic rejects when the module is imported (a
     Pydantic dataclass failed when its type alias was first used) as the variant has no tag field, or one that is
     not a ``Literal``, or one that is optional. A variant that has a tag keeps it: its own or an inherited
-    ``Literal``, a root model of one, and a tag that another union of the schema writes into it, wherever that
-    union is. The verdicts of each payload are the generated models', and the schema's decides whether the payload
-    is valid.
+    ``Literal``, a type alias of one, and a tag that another union of the schema writes into it, wherever that
+    union is. A RootModel of one is a tag only from Pydantic 2.13, so the union of such a variant is written without
+    ``discriminator=`` unless ``--target-pydantic-version`` is 2.14 (#7327). The verdicts of each payload are the
+    generated models', and the schema's decides whether the payload is valid.
     """
     input_name = "discriminator_lone_variant_tags"
     run_main_and_assert(
@@ -14959,6 +15008,161 @@ def test_main_openapi_component_embedded_remote_ids(output_file: Path) -> None:
         input_file_type="openapi",
         extra_args=["--no-allow-remote-refs", "--output-model-type", "pydantic_v2.BaseModel"],
     )
+
+
+@pytest.mark.parametrize(
+    ("case", "status", "extra_args"),
+    [
+        ("not-found", 404, []),
+        ("allowed-not-found", 404, ["--allow-remote-refs"]),
+        ("served", 200, ["--allow-remote-refs"]),
+        ("option", None, ["--read-refs-in-their-resources"]),
+    ],
+    ids=["not-found", "allowed-not-found", "served", "option"],
+)
+def test_main_openapi_component_embedded_id_absolute_ref(
+    case: str, status: int | None, extra_args: list[str], mock_httpx_get: HttpxGetMockFactory, output_file: Path
+) -> None:
+    """Read the component schema a reference names by its absolute `$id` where the URL serves no document (#7159).
+
+    The document's `Pet` declares `$id: https://example.com/schemas/pet.json`, and `Owner.pet` refers to that URL. The
+    URL is still read first, as in 0.100.0 (a served document is used, with the warning that JSON Schema reads the
+    component), but where it answers 404 the component is read instead of the run failing. Under
+    --read-refs-in-their-resources the URL is never requested.
+    """
+    url = "https://example.com/schemas/pet.json"
+    responses = (
+        () if status is None else (MockHttpxResponse(url, JSON_SCHEMA_DATA_PATH / "served_pet" / "pet.json", status),)
+    )
+    httpx_get_mock = mock_httpx_get(*responses)
+    with (
+        pytest.warns(SchemaResourceRefWarning, match="loads the referenced document for compatibility")
+        if case == "served"
+        else contextlib.nullcontext(),
+        pytest.warns(FutureWarning, match="Remote \\$ref fetching")
+        if case == "not-found"
+        else contextlib.nullcontext(),
+    ):
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / "component_embedded_ids" / "remote.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+            extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", *extra_args],
+        )
+    assert_httpx_get_kwargs(httpx_get_mock, call_count=0 if status is None else 1)
+
+
+@pytest.mark.parametrize("route", ["url", "ref"])
+def test_main_openapi_component_embedded_id_own_url_ref(
+    route: str, mock_httpx_get: HttpxGetMockFactory, output_file: Path
+) -> None:
+    """Read a fetched document whose reference names its own URL once, as 0.100.0 does.
+
+    The document at `https://example.com/api.yaml` declares an `$id` on its component `Pet`, and `Owner.pet` refers
+    to `Pet` by the document's own URL. Whether loading that URL finds a document is answered by the document being
+    read, so the run neither fetches it again nor reads it again while it is prepared, whether the document is the
+    input (`url`) or one another document refers to (`ref`).
+    """
+    api = (
+        "openapi: 3.1.0\ninfo: {title: api, version: '1'}\npaths: {}\ncomponents:\n  schemas:\n    Owner:\n"
+        "      type: object\n      properties:\n        pet:\n"
+        "          $ref: 'https://example.com/api.yaml#/components/schemas/Pet'\n"
+        "    Pet:\n      $id: https://example.com/schemas/pet.json\n      type: object\n"
+        "      properties:\n        name: {type: string}\n"
+    )
+    home = (
+        "openapi: 3.1.0\ninfo: {title: home, version: '1'}\npaths: {}\ncomponents:\n  schemas:\n    Home:\n"
+        "      type: object\n      properties:\n        owner:\n"
+        "          $ref: 'https://example.com/api.yaml#/components/schemas/Owner'\n"
+    )
+    responses = [MockHttpxResponse("https://example.com/api.yaml", api)]
+    if route == "ref":
+        responses.insert(0, MockHttpxResponse("https://example.com/home.yaml", home))
+    httpx_get_mock = mock_httpx_get(*responses)
+    with pytest.warns(SchemaResourceRefWarning, match="loads the referenced document for compatibility"):
+        run_main_url_and_assert(
+            url=f"https://example.com/{'api' if route == 'url' else 'home'}.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+            extra_args=[
+                "--allow-remote-refs",
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--formatters",
+                "builtin",
+            ],
+        )
+    assert_httpx_get_kwargs(httpx_get_mock, call_count=len(responses))
+
+
+def test_main_openapi_component_embedded_urn_id(output_file: Path) -> None:
+    """Read the component schema a reference names by its `urn:` `$id`, which names no document to load."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "component_embedded_urn_id.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("option", "model_type"),
+    [
+        ("default", "pydantic_v2.BaseModel"),
+        ("option", "pydantic_v2.BaseModel"),
+        ("option", "dataclasses.dataclass"),
+    ],
+    ids=["default", "option", "option-dataclass"],
+)
+def test_main_openapi_operation_schema_resources(option: str, model_type: str, output_file: Path) -> None:
+    """Read a pointer below the `$id` of a schema an operation or webhook holds inline in that schema (#7179).
+
+    A parameter, a response, a request body and a webhook request body each hold a schema with its own `$id` and
+    `$defs`; without the option only `components/schemas` are resources, so each `#/$defs/...` names nothing in the
+    document and becomes an `Any` model, and under --read-refs-in-their-resources it names the schema's own `$defs`.
+    """
+    with pytest.warns(DanglingRefWarning) if option == "default" else contextlib.nullcontext():
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / "operation_schema_resources.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+            extra_args=[
+                "--openapi-scopes",
+                "schemas",
+                "paths",
+                "parameters",
+                "webhooks",
+                "--output-model-type",
+                model_type,
+                "--formatters",
+                "builtin",
+                *(["--read-refs-in-their-resources"] if option == "option" else []),
+            ],
+        )
+
+
+@pytest.mark.parametrize("option", ["default", "option"])
+@pytest.mark.parametrize("document", ["external_anchor_component/api.yaml", "self_anchor_ref.yaml"])
+def test_main_openapi_anchor_of_component_by_document_url(document: str, option: str, output_file: Path) -> None:
+    """Name the component schema an `$anchor` declares through a reference that names its document (#7158).
+
+    `common.yaml#Pet` names the `$anchor` of a component of another document, and in OpenAPI 3.2
+    `https://example.com/api/openapi.yaml#owner` names one of the document itself by its `$self`; the released
+    search finds neither and writes an `Any` model, and under --read-refs-in-their-resources each names its schema.
+    """
+    with pytest.warns(DanglingRefWarning) if option == "default" else contextlib.nullcontext():
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / document,
+            output_path=output_file,
+            input_file_type="openapi",
+            extra_args=[
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--formatters",
+                "builtin",
+                *(["--read-refs-in-their-resources"] if option == "option" else []),
+            ],
+        )
 
 
 def test_main_openapi_anchor_refs(output_file: Path) -> None:

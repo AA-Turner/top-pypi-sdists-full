@@ -10,6 +10,8 @@ from any_llm.types.completion import (
     ChatCompletionMessageToolCall,
     Choice,
     ChoiceDelta,
+    ChoiceDeltaToolCall,
+    ChoiceDeltaToolCallFunction,
     ChunkChoice,
     CompletionParams,
     CompletionUsage,
@@ -24,18 +26,9 @@ def _convert_params(params: CompletionParams, kwargs: dict[str, Any]) -> dict[st
     """Convert CompletionParams to kwargs for SageMaker API."""
     result_kwargs: dict[str, Any] = kwargs.copy()
 
-    messages = []
-    system_message = None
-
-    for message in params.messages:
-        if message["role"] == "system":
-            system_message = message["content"]
-        else:
-            messages.append(message)
-
-    result_kwargs["messages"] = messages
-    if system_message:
-        result_kwargs["system"] = system_message
+    # SageMaker LLM containers (TGI, vLLM, LMI) serve the OpenAI chat schema, which reads system
+    # prompts from messages; TGI and vLLM ignore a top-level "system" field.
+    result_kwargs["messages"] = list(params.messages)
 
     if params.max_tokens:
         result_kwargs["max_tokens"] = params.max_tokens
@@ -144,7 +137,8 @@ def _create_openai_chunk_from_sagemaker_chunk(event: dict[str, Any], model: str)
         return None
 
     content: str | None = None
-    finish_reason: Literal["stop", "length"] | None = None
+    finish_reason: Literal["stop", "length", "tool_calls"] | None = None
+    tool_calls: list[ChoiceDeltaToolCall] | None = None
 
     if "token" in payload:
         content = payload["token"]["text"]
@@ -158,21 +152,40 @@ def _create_openai_chunk_from_sagemaker_chunk(event: dict[str, Any], model: str)
     elif payload.get("choices"):
         delta = payload["choices"][0].get("delta", {})
         content = delta.get("content")
+        if delta.get("tool_calls"):
+            tool_calls = [
+                ChoiceDeltaToolCall(
+                    index=tc.get("index", i),
+                    id=tc.get("id"),
+                    type="function" if tc.get("type") == "function" or tc.get("function") else None,
+                    function=ChoiceDeltaToolCallFunction(
+                        name=tc["function"].get("name"),
+                        arguments=tc["function"].get("arguments"),
+                    )
+                    if tc.get("function")
+                    else None,
+                )
+                for i, tc in enumerate(delta["tool_calls"])
+            ]
         finish_reason_raw = payload["choices"][0].get("finish_reason")
-        if finish_reason_raw:
-            finish_reason = "length" if finish_reason_raw == "length" else "stop"
+        if finish_reason_raw == "length":
+            finish_reason = "length"
+        elif finish_reason_raw == "tool_calls":
+            finish_reason = "tool_calls"
+        elif finish_reason_raw:
+            finish_reason = "stop"
 
-    if payload.get("is_finished"):
+    if payload.get("is_finished") and finish_reason is None:
         finish_reason = "stop"
 
-    delta = ChoiceDelta(content=content, role="assistant")
+    delta = ChoiceDelta(content=content, role="assistant", tool_calls=tool_calls)
     choice = ChunkChoice(delta=delta, finish_reason=finish_reason, index=0)
 
     return ChatCompletionChunk(
-        id=f"chatcmpl-{int(time())}",
+        id=payload.get("id") or f"chatcmpl-{int(time())}",
         choices=[choice],
         model=model,
-        created=int(time()),
+        created=payload.get("created") or int(time()),
         object="chat.completion.chunk",
     )
 

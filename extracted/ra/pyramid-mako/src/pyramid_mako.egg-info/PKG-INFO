@@ -1,0 +1,140 @@
+Metadata-Version: 2.4
+Name: pyramid_mako
+Version: 1.2
+Summary: Mako template bindings for the Pyramid web framework
+Author-email: Delta Regeer <pylons-discuss@googlegroups.com>
+Maintainer-email: Pylons Project <pylons-discuss@googlegroups.com>
+License-Expression: LicenseRef-Repoze-BSD-derived
+Project-URL: Changelog, https://docs.pylonsproject.org/projects/pyramid_mako/en/latest/changes.html
+Project-URL: Documentation, https://docs.pylonsproject.org/projects/pyramid_mako/en/latest/
+Project-URL: Homepage, https://github.com/Pylons/pyramid_mako
+Project-URL: Issue Tracker, https://github.com/Pylons/pyramid_mako/issues
+Keywords: mako,pylons,pyramid,web,wsgi
+Classifier: Development Status :: 6 - Mature
+Classifier: Framework :: Pyramid
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+Requires-Dist: Mako>=1.1.0
+Requires-Dist: pyramid>=1.3
+Dynamic: license-file
+
+`Mako <http://www.makotemplates.org/>`_ bindings for Pyramid
+============================================================
+
+These are bindings for the `Mako templating system <https://www.makotemplates.org/>`_ for the `Pyramid <https://trypyramid.com/>`_ web framework.
+
+Documentation for `pyramid_mako <https://docs.pylonsproject.org/projects/pyramid_mako/en/latest/>`_.
+
+1.2 (2026-11-23)
+================
+
+- Drop support for Python 2.7 and 3.4 through 3.10.
+
+- Add support for Python 3.11, 3.12, 3.13, 3.14, and 3.15.
+
+- Require ``pyramid >= 1.3``, the first release with
+  ``pyramid.path.AssetResolver``.
+
+- Add support for setting cache arguments as well as the cache implementation
+  to use in the configuration passed to `pyramid_mako`
+
+- Stop using the deprecated ``pkg_resources`` api in the docs.
+
+- Switch packaging metadata from ``setup.cfg`` to ``pyproject.toml`` and use
+  an SPDX license expression. The ``testing`` and ``docs`` extras are replaced
+  by dependency groups.
+
+1.1.0 (2019-08-18)
+==================
+
+- Add support for Python 3.5, 3.6, 3.7.
+
+- Require ``mako >= 1.1.0``.
+
+- Add a config option for ``preprocessor_wants_settings``. If set to ``true``,
+  the ``preprocessor`` will be wrapped in a function that invokes the 
+  preprocessor with pyramid's config settings as the second argument.
+
+1.0.2 (2014-04-22)
+==================
+
+- Fix mako.imports so that aslist() does not flatten. See issue #23
+  (https://github.com/Pylons/pyramid_mako/issues/23)
+  
+1.0.1 (2014-04-16)
+==================
+
+- Bump the required version of Mako to 0.8 or newer for issue #22 (add
+  future_imports). If you would like to use an older version of Mako, please
+  pin your dependency to version 0.3.1 of pyramid_mako.
+
+1.0 (2014-04-15)
+================
+
+- Add new configuration variable for future_imports. See issue #22
+  (https://github.com/Pylons/pyramid_mako/issues/22)
+- Fix issue #19, whereby pyramid.reload_templates stopped functioning due to
+  changes in pyramid_mako. The lookup is now completed at template render,
+  instead of when the factory returns the renderer. See:
+  (https://github.com/Pylons/pyramid_mako/issues/19)
+- Tuple return values in the form of ('defname', {}) are no longer supported,
+  and will result in a ValueError being raised.
+- Fix an packaging issue whereby \*.foo files were not included in the MANIFEST.
+- Caller-relative template lookup is now supported. Any template that fails
+  to be found in the default search paths will be searched relative to the
+  caller package.
+- Allow overriding the ``pyramid.reload_templates`` using
+  ``mako.reload_templates``.
+- Change the way that custom user values passed to the renderer are merged with
+  the system provided variables. This allows the user to pass in a variable
+  named 'context' and have it correctly override the system provided context,
+  and THEN get correctly renamed so that Mako doesn't complain about a variable
+  being passed in that isn't allowed due to it being reserved.
+- Drop testing dependency on ``nose-selecttests``.
+
+0.3.1 (2013-10-22)
+==================
+
+- Re-enable lazy loading of the mako renderer, allowing the settings
+  to be configured after pyramid_mako has been included, as long as everything
+  happens in the same commit.
+
+0.3 (2013-10-20)
+================
+
+- Add a new Configurator directive, ``config.add_mako_renderer`` which
+  can be used to add a new mako renderer for a given extension. This
+  directive accepts an optional ``settings_prefix`` to load settings and
+  configuration differently per-renderer as well.
+
+- Removed the private APIs, ``IMakoLookup``, ``MakoRendererFactoryHelper``,
+  and ``renderer_factory``. See the new ``config.add_mako_renderer`` API
+  for updating offending code.
+
+- Remove dependency on ``pyramid.interfaces.ITemplateRenderer`` from
+  Pyramid 1.5.
+
+0.2 (2013-09-07)
+================
+
+- Docs up-to-date
+- Latest changes pulled from Pyramid
+- Latest tests pulled from Pyramid
+- All tests updated to refer to fixtures in pyramid_mako
+
+0.1 (2012-03-12)
+================
+
+- First release. Extracted from Pyramid core.
+

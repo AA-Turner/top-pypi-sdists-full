@@ -14,8 +14,8 @@ The behavior verification contract (core#2269) is layered on top:
 
 * :mod:`dcc_mcp_core.verification.schemas` — versioned state-export schemas
   (``dcc-mcp/anim-curves@1``, ``dcc-mcp/rig-state@1``, ``dcc-mcp/sim-status@1``,
-  ``dcc-mcp/graph-state@1``), a dependency-free structural validator, and
-  animation-curve sampling helpers.
+  ``dcc-mcp/graph-state@1``, ``dcc-mcp/model-state@1``), a dependency-free
+  structural validator, and animation-curve sampling helpers.
 * :mod:`dcc_mcp_core.verification.assertions` — the dual-layer assertion
   library (exact structural counts, tolerance-band numerics, existence and
   resolution checks) with both fail-fast helpers and a collecting
@@ -68,6 +68,19 @@ from dcc_mcp_core.verification.assertions import assert_in_band
 from dcc_mcp_core.verification.assertions import assert_resolution
 from dcc_mcp_core.verification.assertions import assert_state_schema
 from dcc_mcp_core.verification.assertions import assert_within
+from dcc_mcp_core.verification.benchmark import DEFAULT_PIPELINE_STAGES
+from dcc_mcp_core.verification.benchmark import PIPELINE_BASELINE_ID
+from dcc_mcp_core.verification.benchmark import PIPELINE_BENCHMARK_SCHEMA_VERSION
+from dcc_mcp_core.verification.benchmark import STAGE_DEGRADED
+from dcc_mcp_core.verification.benchmark import STAGE_FAILED
+from dcc_mcp_core.verification.benchmark import STAGE_PASS
+from dcc_mcp_core.verification.benchmark import STAGE_SKIPPED
+from dcc_mcp_core.verification.benchmark import STAGE_STATUSES
+from dcc_mcp_core.verification.benchmark import PipelineBenchmarkReport
+from dcc_mcp_core.verification.benchmark import PipelineStage
+from dcc_mcp_core.verification.benchmark import StageObservation
+from dcc_mcp_core.verification.benchmark import StageResult
+from dcc_mcp_core.verification.benchmark import run_pipeline_benchmark
 from dcc_mcp_core.verification.image_stats import ImageStats
 from dcc_mcp_core.verification.image_stats import ImageStatsFlags
 from dcc_mcp_core.verification.image_stats import ImageStatsThresholds
@@ -89,8 +102,10 @@ from dcc_mcp_core.verification.pixel_metrics import ssim
 from dcc_mcp_core.verification.scene_spec import SceneSpecFailure
 from dcc_mcp_core.verification.scene_spec import SceneSpecResult
 from dcc_mcp_core.verification.scene_spec import validate_scene_vs_spec
+from dcc_mcp_core.verification.scene_spec import validate_spec_document
 from dcc_mcp_core.verification.schemas import SCHEMA_ANIM_CURVES
 from dcc_mcp_core.verification.schemas import SCHEMA_GRAPH_STATE
+from dcc_mcp_core.verification.schemas import SCHEMA_MODEL_STATE
 from dcc_mcp_core.verification.schemas import SCHEMA_RIG_STATE
 from dcc_mcp_core.verification.schemas import SCHEMA_SIM_STATUS
 from dcc_mcp_core.verification.schemas import SCHEMA_VERSIONS
@@ -102,6 +117,7 @@ from dcc_mcp_core.verification.schemas import validate_state_export
 from dcc_mcp_core.verification.schemas import value_at
 
 __all__ = [
+    "DEFAULT_PIPELINE_STAGES",
     "EVIDENCE_SOURCES",
     "LEVELS",
     "MAX_GODOT_CONFIG_VERSION",
@@ -109,12 +125,20 @@ __all__ = [
     "MIN_TUANJIE_EDITOR_MAJOR",
     "MIN_UNITY_EDITOR_MAJOR",
     "MIN_UNREAL_ENGINE_MAJOR",
+    "PIPELINE_BASELINE_ID",
+    "PIPELINE_BENCHMARK_SCHEMA_VERSION",
     "PRODUCTION_ACCEPTANCE_V1_SCHEMA_VERSION",
     "SCHEMA_ANIM_CURVES",
     "SCHEMA_GRAPH_STATE",
+    "SCHEMA_MODEL_STATE",
     "SCHEMA_RIG_STATE",
     "SCHEMA_SIM_STATUS",
     "SCHEMA_VERSIONS",
+    "STAGE_DEGRADED",
+    "STAGE_FAILED",
+    "STAGE_PASS",
+    "STAGE_SKIPPED",
+    "STAGE_STATUSES",
     "STATUSES",
     "TRANSITION_CHAIN",
     "AcceptanceEvaluation",
@@ -128,9 +152,13 @@ __all__ = [
     "ImageStats",
     "ImageStatsFlags",
     "ImageStatsThresholds",
+    "PipelineBenchmarkReport",
+    "PipelineStage",
     "SceneSpecFailure",
     "SceneSpecResult",
     "SchemaValidationError",
+    "StageObservation",
+    "StageResult",
     "ahash_64",
     "assert_exact",
     "assert_exists",
@@ -159,6 +187,7 @@ __all__ = [
     "production_acceptance_v1_json_schema",
     "recompute_sha256",
     "record_from_catalog_entry",
+    "run_pipeline_benchmark",
     "sample_curve",
     "sanitize_evidence_link",
     "schema_document",
@@ -170,6 +199,7 @@ __all__ = [
     "unreal_project",
     "validate_acceptance_schema",
     "validate_scene_vs_spec",
+    "validate_spec_document",
     "validate_state_export",
     "value_at",
     "verify_release_sha256",

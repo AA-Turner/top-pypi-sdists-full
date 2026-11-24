@@ -375,7 +375,9 @@ class _config(_base_config):
         The key in the ID JWT token to consider the user.""")
 
     _oauth_redirect_uri = param.String(default=None, doc="""
-        A redirect URI to provide to the OAuth provider.""")
+        A redirect URI to provide to the OAuth provider. Defaults to
+        the public URL of the server, including the root path it is
+        proxied on and its prefix.""")
 
     _oauth_encryption_key = param.ClassSelector(default=None, class_=bytes, doc="""
         A random string used to encode OAuth related user information.""")
@@ -384,7 +386,9 @@ class _config(_base_config):
         Additional parameters required for OAuth provider.""")
 
     _oauth_guest_endpoints = param.List(default=None, item_type=str, doc="""
-        List of endpoints that can be accessed as a guest without authenticating.""")
+        List of endpoints that can be accessed as a guest without
+        authenticating. End an endpoint with `/*` to also cover the paths
+        below it.""")
 
     _oauth_optional = param.Boolean(default=False, doc="""
         Whether the user will be forced to go through login flow or if
@@ -516,6 +520,8 @@ class _config(_base_config):
             new = {p: getattr(self, p) for p in self.param}
             restore = {k: v for k, v in values if v is not new.get(k)}
             self.param.update(**restore)
+            # Restoring a non-empty notification message re-enables notifications
+            self.notifications = dict(values)['notifications']
             for k, v in overrides:
                 setattr(self, k+'_', v)
 
@@ -575,7 +581,8 @@ class _config(_base_config):
         ensure that even on first access mutable parameters do not
         end up being modified.
         """
-        if _config_uninitialized or attr in ('_param__private', '_globals', '_parameter_set', '__class__', 'param'):
+        if (_config_uninitialized or attr in ('_param__private', '_globals', '_parameter_set', '__class__', 'param')
+            or attr in _config._globals):
             return super().__getattribute__(attr)
 
         from .io.state import state
@@ -588,7 +595,7 @@ class _config(_base_config):
             curdoc and attr not in session_config[curdoc]):
             new_obj = copy.copy(super().__getattribute__(attr))
             setattr(self, attr, new_obj)
-        if attr in _config._globals or attr == 'theme':
+        if attr == 'theme':
             return super().__getattribute__(attr)
         elif curdoc and curdoc in session_config and attr in session_config[curdoc]:
             return session_config[curdoc][attr]
@@ -629,6 +636,13 @@ class _config(_base_config):
     @property
     def admin_endpoint(self):
         return os.environ.get('PANEL_ADMIN_ENDPOINT', self._admin_endpoint)
+
+    @property
+    def _admin_path(self):
+        endpoint = self.admin_endpoint
+        if not endpoint:
+            return '/admin'
+        return endpoint if endpoint.startswith('/') else f'/{endpoint}'
 
     @property
     def admin_password(self):

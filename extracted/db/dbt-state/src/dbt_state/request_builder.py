@@ -490,6 +490,7 @@ class RequestBuilder:
         node: ModelOrSnapshotOrTestNode,
         clone_source: str,
         clone_source_table_type: t.Optional[str],
+        skip_if_unchanged: bool = False,
     ) -> clone_service_models.CloneRequest:
         clone_source_last_modified_epoch = self._freshness.get_last_modified_epoch(
             exp.to_table(clone_source, dialect=self._node_resolution.dialect)
@@ -506,6 +507,7 @@ class RequestBuilder:
             table_properties=self.get_table_properties(node),
             clone_chain_depth_limit=self.clone_chain_depth_limit,
             table_namespace=self.table_namespace,
+            skip_if_unchanged=skip_if_unchanged,
         )
 
     @staticmethod

@@ -386,3 +386,158 @@ class SendWorkflowMessageRequest(_message.Message):
 class SendWorkflowMessageResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class WorkflowOrchestratorLineageEdge(_message.Message):
+    __slots__ = ("kind", "from_workflow_id", "from_run_id", "to_workflow_id", "to_run_id", "label", "count")
+    class Kind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        KIND_UNSPECIFIED: _ClassVar[WorkflowOrchestratorLineageEdge.Kind]
+        KIND_CHILD: _ClassVar[WorkflowOrchestratorLineageEdge.Kind]
+        KIND_MESSAGE: _ClassVar[WorkflowOrchestratorLineageEdge.Kind]
+
+    KIND_UNSPECIFIED: WorkflowOrchestratorLineageEdge.Kind
+    KIND_CHILD: WorkflowOrchestratorLineageEdge.Kind
+    KIND_MESSAGE: WorkflowOrchestratorLineageEdge.Kind
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    FROM_WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    FROM_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    TO_WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    TO_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    kind: WorkflowOrchestratorLineageEdge.Kind
+    from_workflow_id: str
+    from_run_id: str
+    to_workflow_id: str
+    to_run_id: str
+    label: str
+    count: int
+    def __init__(
+        self,
+        kind: _Optional[_Union[WorkflowOrchestratorLineageEdge.Kind, str]] = ...,
+        from_workflow_id: _Optional[str] = ...,
+        from_run_id: _Optional[str] = ...,
+        to_workflow_id: _Optional[str] = ...,
+        to_run_id: _Optional[str] = ...,
+        label: _Optional[str] = ...,
+        count: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetWorkflowOrchestratorWorkflowLineageRequest(_message.Message):
+    __slots__ = ("namespace", "workflow_id", "run_id")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    workflow_id: str
+    run_id: str
+    def __init__(
+        self, namespace: _Optional[str] = ..., workflow_id: _Optional[str] = ..., run_id: _Optional[str] = ...
+    ) -> None: ...
+
+class GetWorkflowOrchestratorWorkflowLineageResponse(_message.Message):
+    __slots__ = ("root_workflow_id", "root_run_id", "workflows", "edges", "truncated", "messages_incomplete")
+    ROOT_WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    ROOT_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
+    EDGES_FIELD_NUMBER: _ClassVar[int]
+    TRUNCATED_FIELD_NUMBER: _ClassVar[int]
+    MESSAGES_INCOMPLETE_FIELD_NUMBER: _ClassVar[int]
+    root_workflow_id: str
+    root_run_id: str
+    workflows: _containers.RepeatedCompositeFieldContainer[WorkflowOrchestratorExecutionSummary]
+    edges: _containers.RepeatedCompositeFieldContainer[WorkflowOrchestratorLineageEdge]
+    truncated: bool
+    messages_incomplete: bool
+    def __init__(
+        self,
+        root_workflow_id: _Optional[str] = ...,
+        root_run_id: _Optional[str] = ...,
+        workflows: _Optional[_Iterable[_Union[WorkflowOrchestratorExecutionSummary, _Mapping]]] = ...,
+        edges: _Optional[_Iterable[_Union[WorkflowOrchestratorLineageEdge, _Mapping]]] = ...,
+        truncated: bool = ...,
+        messages_incomplete: bool = ...,
+    ) -> None: ...
+
+class StartWorkflowRunRequest(_message.Message):
+    __slots__ = ("workflow_name", "input", "workflow_id", "task_queue")
+    WORKFLOW_NAME_FIELD_NUMBER: _ClassVar[int]
+    INPUT_FIELD_NUMBER: _ClassVar[int]
+    WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    TASK_QUEUE_FIELD_NUMBER: _ClassVar[int]
+    workflow_name: str
+    input: _struct_pb2.Struct
+    workflow_id: str
+    task_queue: str
+    def __init__(
+        self,
+        workflow_name: _Optional[str] = ...,
+        input: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...,
+        workflow_id: _Optional[str] = ...,
+        task_queue: _Optional[str] = ...,
+    ) -> None: ...
+
+class StartWorkflowRunResponse(_message.Message):
+    __slots__ = ("workflow_id", "run_id")
+    WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    workflow_id: str
+    run_id: str
+    def __init__(self, workflow_id: _Optional[str] = ..., run_id: _Optional[str] = ...) -> None: ...
+
+class ListWorkflowMessagesRequest(_message.Message):
+    __slots__ = ("workflow_id", "run_id", "name", "after_sequence")
+    WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    AFTER_SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    workflow_id: str
+    run_id: str
+    name: str
+    after_sequence: int
+    def __init__(
+        self,
+        workflow_id: _Optional[str] = ...,
+        run_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        after_sequence: _Optional[int] = ...,
+    ) -> None: ...
+
+class WorkflowMessageSender(_message.Message):
+    __slots__ = ("kind", "id")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    id: str
+    def __init__(self, kind: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
+
+class WorkflowMessage(_message.Message):
+    __slots__ = ("sequence", "name", "payload", "sender", "sent_at")
+    SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
+    SENDER_FIELD_NUMBER: _ClassVar[int]
+    SENT_AT_FIELD_NUMBER: _ClassVar[int]
+    sequence: int
+    name: str
+    payload: _struct_pb2.Value
+    sender: WorkflowMessageSender
+    sent_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        sequence: _Optional[int] = ...,
+        name: _Optional[str] = ...,
+        payload: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+        sender: _Optional[_Union[WorkflowMessageSender, _Mapping]] = ...,
+        sent_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListWorkflowMessagesResponse(_message.Message):
+    __slots__ = ("messages", "truncated")
+    MESSAGES_FIELD_NUMBER: _ClassVar[int]
+    TRUNCATED_FIELD_NUMBER: _ClassVar[int]
+    messages: _containers.RepeatedCompositeFieldContainer[WorkflowMessage]
+    truncated: bool
+    def __init__(
+        self, messages: _Optional[_Iterable[_Union[WorkflowMessage, _Mapping]]] = ..., truncated: bool = ...
+    ) -> None: ...

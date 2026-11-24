@@ -130,6 +130,12 @@ class ServerMandateRunner:
     ) -> ClientPrepared:
         if opts.holder is not None:
             raise MandateDoorError("a run-scope Holder override runs on the server (the try door), never on a client")
+        if opts.config_overrides is not None:
+            raise MandateDoorError(
+                "per-run config overrides apply to a run (mandate_runner.run), never to a held call's prepare"
+            )
+        if opts.host_turn is not None or opts.context is not None:
+            raise MandateDoorError("a per-run host_turn/context applies to a server run, never to a held call's prepare")
         # Looked up on the module at call time: the installed resolver (ServerMandateSource) answers which
         # Holder runs; the held call is built here from that answer.
         held = await _mandates.hold_code_call(
@@ -174,12 +180,18 @@ class ServerMandateRunner:
             raise MandateDoorError(
                 f"{named.agent_cls.__name__} runs its own runner, which the server's mandate door cannot run"
             )
+        if opts.host_turn is not None or opts.context is not None:
+            # Refused, never dropped: the server's mandate door body carries no host turn or server context.
+            raise MandateDoorError("a per-run host_turn/context runs on the server; the client mandate door cannot carry it")
         user_input = opts.user_input
         if named is not None and user_input is None:
             user_input = named.kwargs.get("user_input")
         body: dict[str, Any] = {"variables": await _plain_values(offer), "stream": True}
         if isinstance(user_input, str) and user_input:
             body["user_input"] = user_input
+        if opts.config_overrides is not None:
+            # THIS run's overrides ride the server door's own ``config_overrides`` (AgentStartRequest).
+            body["config_overrides"] = dict(opts.config_overrides)
         url = self.door_url(key)
         chunks: list[str] = []
         error: str | None = None

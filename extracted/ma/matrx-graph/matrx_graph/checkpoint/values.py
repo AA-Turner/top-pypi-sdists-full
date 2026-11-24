@@ -25,9 +25,19 @@ real round's rows through the same :func:`checkpoint_row`.
 
 from __future__ import annotations
 
+import asyncio
+import time
 import hashlib
 import json
-from typing import Any
+import logging
+import threading
+from collections import OrderedDict
+from collections.abc import Callable
+from typing import Any, TypeVar
+
+_T = TypeVar("_T")
+
+logger = logging.getLogger(__name__)
 
 #: The key that marks a reference. Namespaced so a person's own data can never be
 #: mistaken for one (a plain ``$ref`` is a real JSON-Schema key).
@@ -41,6 +51,44 @@ def _dumps(value: Any) -> str:
     return json.dumps(value, default=str, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+#: The most serialized bytes one ``json.dumps`` C call may produce in :func:`_dumps_in_pieces`.
+DUMP_PIECE_BYTES = 64 * 1024
+
+
+def _dumps_in_pieces(value: Any, size: int) -> str:
+    """Exactly ``_dumps(value)`` (same bytes, same digest), built from pieces of ~``DUMP_PIECE_BYTES``.
+
+    ``json.dumps`` is ONE C call that holds the GIL for its whole run: a 4.7 MB value held it 40-150 ms,
+    and a worker thread holding the GIL stalls the event loop just as surely as running on it (PF-WF,
+    2026-11-14). Pieces leave a bytecode boundary every few hundred microseconds, so the interpreter's
+    switch interval hands the GIL back to the loop. ``size``: the walk's estimate of the serialized size
+    (it sets how many children go in one piece). A dict with a non-``str`` key is dumped whole (JSON
+    turns such keys to strings, which this does not re-implement)."""
+    if size <= DUMP_PIECE_BYTES:
+        return _dumps(value)
+    if isinstance(value, str):
+        step = DUMP_PIECE_BYTES
+        # Escaping is per code point, so the pieces' bodies join into the whole's body.
+        return '"' + "".join(_dumps(value[i : i + step])[1:-1] for i in range(0, len(value), step)) + '"'
+    if isinstance(value, (list, tuple)):
+        items: list[Any] = list(value)
+        open_, close = "[", "]"
+    elif isinstance(value, dict) and all(type(k) is str for k in value):
+        # sort_keys sorts the whole mapping; sorted first, each piece keeps that order when it re-sorts.
+        items = sorted(value.items())
+        open_, close = "{", "}"
+    else:
+        return _dumps(value)
+    if not items:
+        return _dumps(value)
+    per_piece = max(1, len(items) * DUMP_PIECE_BYTES // size)
+    parts: list[str] = []
+    for i in range(0, len(items), per_piece):
+        chunk = items[i : i + per_piece]
+        parts.append(_dumps(chunk if open_ == "[" else dict(chunk))[1:-1])
+    return open_ + ",".join(parts) + close
+
+
 def _leaf_bytes(value: Any) -> int:
     if isinstance(value, str):
         return len(value.encode()) + 2
@@ -51,43 +99,270 @@ def _leaf_bytes(value: Any) -> int:
     return len(_dumps(value).encode())
 
 
-def intern_values(value: Any, store: dict[str, Any], max_inline_bytes: int) -> Any:
+def _small_leaf_bytes(value: Any, limit: int) -> int:
+    """``_leaf_bytes(value)`` for a leaf that can never be a reference at ``limit``; -1 for anything else."""
+    kind = type(value)
+    if kind is str:
+        return len(value.encode()) + 2 if len(value) * 4 + 2 <= limit else -1
+    if value is None or kind is bool:
+        return 5
+    if kind is int or kind is float:
+        return len(repr(value))
+    return -1
+
+
+class InternMemo:
+    """One batch of checkpoint rows interned together: every value is walked and hashed ONCE.
+
+    A chain of pure steps lands as one save of up to ``CHAIN_MAX_STEPS`` checkpoints, and each
+    checkpoint names the same settled outputs — in its channels, in the join targets' waiting
+    bindings, in the next step's inputs (2026-11-02: the research pick child's 9 chained
+    checkpoints each re-walked and re-hashed ~10 MB of join bindings, 3.9 s on the server). The
+    memo is keyed on the live object: a settled large output interned once stays ONE reference
+    marker in every later row of the batch. Sound because a batch's checkpoints are serialized
+    together after their steps ran, and a delivered payload or channel value is never edited in
+    place (``Scheduler._snapshot_bindings``), so the same object is the same value. ``store``
+    holds every value the batch references; each row of the batch is written with it.
+    """
+
+    __slots__ = ("_seen", "store", "committed")
+
+    def __init__(self, committed: set[str] | frozenset[str] | None = None) -> None:
+        # id(value) -> (value, interned form, its serialized size, the value's own size). The value
+        # itself is kept so its id is never reused by another object while the memo lives.
+        self._seen: dict[int, tuple[Any, Any, int, int]] = {}
+        self.store: dict[str, Any] = {}
+        # The hashes already COMMITTED to the run's store (``postgres._stored_value_hashes[run_id]``).
+        # Given, the memo also uses the process's interned-value cache (:func:`_cached_digest`): a large
+        # value this process already interned at this limit, whose hash the run has committed, becomes
+        # its reference with no walk and no hash. ``None``: this batch only (no cache).
+        self.committed = committed
+
+
+# ── ONE INTERNING PER VALUE (L-SPEED round 3, 2026-11-09) ────────────────────────────────────────────
+# A large value is named by a run's events (node_started inputs, node_completed output, run_completed
+# last_outputs), its outcome rows, every checkpoint and the run's output — each interned on its own, so the
+# research pick child walked and hashed each multi-MB value ~7 times a run. A value interned once (by live
+# object and limit) is remembered here with its digest; a later save of the SAME object at the same limit
+# whose run has COMMITTED that digest uses the reference without walking it. Committed means the value and
+# every value it names landed together (a store write is one statement in one transaction), so a hit needs
+# nothing in the caller's store. Sound only while a delivered value is never edited in place:
+# ``len`` is re-checked on every hit (an append or a new key is a miss, loud), and the full proof is
+# :data:`VERIFY_INTERNED_VALUES` — on in the test suites, where every hit is re-hashed and every step's
+# delivered inputs are compared before and after it runs (``Scheduler`` → :func:`delivered_fingerprint`).
+
+#: Serialized bytes of interned values this process remembers (least recently used dropped first). Each
+#: entry pins its live value; a run's large values are alive while it runs anyway.
+INTERNED_CACHE_MAX_BYTES = 64 * 1024 * 1024
+
+#: Test-suite proof switch (conftest sets it): every cache hit is re-hashed, and every step's delivered
+#: inputs are fingerprinted before and after the step — a value changed in place raises
+#: :class:`DeliveredValueChangedInPlaceError` instead of being stored under a stale reference.
+VERIFY_INTERNED_VALUES = False
+
+
+class DeliveredValueChangedInPlaceError(AssertionError):
+    """A value the engine already delivered (or interned) was edited in place afterwards."""
+
+
+#: (id(value), limit) -> (value, digest, serialized bytes of its interned form, shape, the value's own bytes).
+_interned: OrderedDict[tuple[int, int], tuple[Any, str, int, int, int]] = OrderedDict()
+_interned_bytes = 0
+_interned_lock = threading.Lock()
+
+#: The interned-value cache's answers, process-wide: [hits, large values walked and hashed (a miss that
+#: interned), misses because the run had not committed the remembered digest, misses because the value
+#: changed size]. Read twice and subtract (the leg line, L-SPEED 6e).
+INTERN_CACHE_TOTALS: list[int] = [0, 0, 0, 0]
+
+
+def _shape(value: Any) -> int:
+    return len(value) if isinstance(value, (dict, list, tuple, str)) else -1
+
+
+def _cached_digest(value: Any, limit: int, committed: set[str] | frozenset[str]) -> tuple[str, int] | None:
+    """``(digest, the value's own bytes)`` when ``value`` was interned at ``limit`` and the run has committed
+    that digest, else None."""
+    key = (id(value), limit)
+    entry = _interned.get(key)
+    if entry is None or entry[0] is not value:
+        return None
+    if entry[3] != _shape(value):
+        INTERN_CACHE_TOTALS[3] += 1
+        _forget_interned(key)
+        logger.warning(
+            "[matrx_graph] an interned value changed size in place (%s -> %s items) — interned again; "
+            "a delivered value must be replaced, never edited", entry[3], _shape(value),
+        )
+        return None
+    digest = entry[1]
+    if digest not in committed:
+        INTERN_CACHE_TOTALS[2] += 1
+        return None
+    if VERIFY_INTERNED_VALUES:
+        fresh, _size = _intern(value, {}, limit, None)
+        if fresh != {REF_KEY: digest}:
+            raise DeliveredValueChangedInPlaceError(
+                f"a value interned as {digest[:12]}… was edited in place afterwards (now {fresh}) — "
+                "a delivered value must be replaced, never edited"
+            )
+    with _interned_lock:
+        if key in _interned:
+            _interned.move_to_end(key)
+    INTERN_CACHE_TOTALS[0] += 1
+    return digest, entry[4]
+
+
+def _remember_interned(value: Any, limit: int, digest: str, size: int, raw: int) -> None:
+    global _interned_bytes
+    key = (id(value), limit)
+    with _interned_lock:
+        old = _interned.pop(key, None)
+        if old is not None:
+            _interned_bytes -= old[2]
+        # The ceiling counts what the entry PINS: the live value whole (``raw``), never its interned form
+        # (``size``, a few KB of references when its large children went by reference). Counting the
+        # interned form let parents pinning whole pages fill the cache after their children's entries were
+        # dropped: a 64 MB ceiling held ~105 MB of Python heap after a research read (lane M1, 2026-11-19).
+        counted = max(size, raw)
+        _interned[key] = (value, digest, counted, _shape(value), raw)
+        _interned_bytes += counted
+        while _interned_bytes > INTERNED_CACHE_MAX_BYTES and _interned:
+            _key, dropped = _interned.popitem(last=False)
+            _interned_bytes -= dropped[2]
+
+
+def _forget_interned(key: tuple[int, int]) -> None:
+    global _interned_bytes
+    with _interned_lock:
+        old = _interned.pop(key, None)
+        if old is not None:
+            _interned_bytes -= old[2]
+
+
+def clear_interned_cache() -> None:
+    """Forget every remembered interned value (tests)."""
+    global _interned_bytes
+    with _interned_lock:
+        _interned.clear()
+        _interned_bytes = 0
+
+
+def delivered_fingerprint(value: Any) -> str | None:
+    """With :data:`VERIFY_INTERNED_VALUES` on, a digest of ``value`` to compare after a step ran; else None."""
+    if not VERIFY_INTERNED_VALUES:
+        return None
+    return hashlib.sha256(_dumps(value).encode()).hexdigest()
+
+
+def check_delivered_unchanged(fingerprint: str | None, value: Any, node_id: str) -> None:
+    """Raise :class:`DeliveredValueChangedInPlaceError` when ``value`` no longer matches ``fingerprint``."""
+    if fingerprint is None:
+        return
+    if hashlib.sha256(_dumps(value).encode()).hexdigest() != fingerprint:
+        raise DeliveredValueChangedInPlaceError(
+            f"step {node_id} edited its delivered inputs in place — a step must build new values, never "
+            "edit what it was handed (the same objects are other steps' inputs and the run's stored values)"
+        )
+
+
+def intern_values(value: Any, store: dict[str, Any], max_inline_bytes: int, memo: InternMemo | None = None) -> Any:
     """``value`` with every subtree over ``max_inline_bytes`` replaced by a reference.
 
     The replaced subtrees are added to ``store`` (hash → value, itself interned).
     ``max_inline_bytes <= 0`` disables interning (returns ``value`` unchanged).
+    ``memo``: a batch's shared memo (its ``store`` is the store) — see :class:`InternMemo`.
     """
     if max_inline_bytes <= 0:
         return value
-    return _intern(value, store, max_inline_bytes)[0]
+    return _intern(value, memo.store if memo is not None else store, max_inline_bytes, memo)[0]
 
 
-def _intern(value: Any, store: dict[str, Any], limit: int) -> tuple[Any, int]:
-    if isinstance(value, dict):
-        out: dict[str, Any] = {}
-        size = 2
-        for key, child in value.items():
-            new_child, child_size = _intern(child, store, limit)
-            out[key] = new_child
-            size += len(str(key).encode()) + 4 + child_size
-    elif isinstance(value, (list, tuple)):
-        out_list: list[Any] = []
-        size = 2
-        for child in value:
-            new_child, child_size = _intern(child, store, limit)
-            out_list.append(new_child)
-            size += child_size + 1
-        out = out_list  # type: ignore[assignment]
-    else:
-        size = _leaf_bytes(value)
+def _intern(value: Any, store: dict[str, Any], limit: int, memo: InternMemo | None = None) -> tuple[Any, int]:
+    out, size, _raw = _intern_raw(value, store, limit, memo)
+    return out, size
+
+
+def _intern_raw(
+    value: Any, store: dict[str, Any], limit: int, memo: InternMemo | None = None
+) -> tuple[Any, int, int]:
+    """``(interned form, its serialized size, the value's own serialized size)`` — one walk.
+
+    The third is the size of ``value`` itself (what a whole-value dump would measure, modulo key
+    order), so a caller deciding what fits never serializes a multi-MB value just to measure it."""
+    container = isinstance(value, (dict, list, tuple))
+    if memo is not None and container:
+        hit = memo._seen.get(id(value))
+        if hit is not None and hit[0] is value:
+            return hit[1], hit[2], hit[3]
+    cached = memo is not None and memo.committed is not None
+    if not container:
+        # A leaf: only a string over the limit can be a reference (one cache look, never for every short string).
+        size = raw = _leaf_bytes(value)
         if size <= limit:
-            return value, size
-        out = value  # a long string goes by reference too
+            return value, size, raw
+        if cached and isinstance(value, str):
+            found = _cached_digest(value, limit, memo.committed)  # type: ignore[union-attr,arg-type]
+            if found is not None:
+                return {REF_KEY: found[0]}, _REF_BYTES, found[1]
+    elif cached:
+        found = _cached_digest(value, limit, memo.committed)  # type: ignore[union-attr,arg-type]
+        if found is not None:
+            digest, raw_size = found
+            if container:
+                memo._seen[id(value)] = (value, {REF_KEY: digest}, _REF_BYTES, raw_size)  # type: ignore[union-attr]
+            return {REF_KEY: digest}, _REF_BYTES, raw_size
+    # Few allocations (PF-WF, 2026-11-14): a small leaf is sized here (no call, no result tuple), and a
+    # container none of whose children changed IS its interned form (no copy). Every container the walk
+    # allocates counts toward a cyclic-GC pass, and a pass stops every thread, the event loop's included.
+    if isinstance(value, dict):
+        out: Any = value
+        size = raw = 2
+        for key, child in value.items():
+            child_size = _small_leaf_bytes(child, limit)
+            if child_size >= 0:
+                child_raw = child_size
+                new_child = child
+            else:
+                new_child, child_size, child_raw = _intern_raw(child, store, limit, memo)
+            if new_child is not child:
+                if out is value:
+                    out = dict(value)
+                out[key] = new_child
+            key_bytes = len(str(key).encode()) + 4
+            size += key_bytes + child_size
+            raw += key_bytes + child_raw
+    elif isinstance(value, (list, tuple)):
+        out = value if isinstance(value, list) else list(value)
+        size = raw = 2
+        for index, child in enumerate(value):
+            child_size = _small_leaf_bytes(child, limit)
+            if child_size >= 0:
+                child_raw = child_size
+                new_child = child
+            else:
+                new_child, child_size, child_raw = _intern_raw(child, store, limit, memo)
+            if new_child is not child:
+                if out is value:
+                    out = list(value)
+                out[index] = new_child
+            size += child_size + 1
+            raw += child_raw + 1
+    else:
+        out = value  # a long string goes by reference too (sized above)
     if size <= limit:
-        return out, size
-    digest = hashlib.sha256(_dumps(out).encode()).hexdigest()
-    store.setdefault(digest, out)
-    return {REF_KEY: digest}, _REF_BYTES
+        result: tuple[Any, int, int] = (out, size, raw)
+    else:
+        text = _dumps_in_pieces(out, size)
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        store.setdefault(digest, out)
+        result = ({REF_KEY: digest}, _REF_BYTES, raw)
+        if cached:
+            INTERN_CACHE_TOTALS[1] += 1
+            _remember_interned(value, limit, digest, len(text), raw)
+    if memo is not None and container:
+        memo._seen[id(value)] = (value, *result)
+    return result
 
 
 def referenced_hashes(value: Any) -> set[str]:
@@ -158,10 +433,10 @@ def resolve_values(value: Any, store: dict[str, Any]) -> Any:
     return value
 
 
-def _intern_each(mapping: Any, store: dict[str, Any], limit: int) -> Any:
+def _intern_each(mapping: Any, store: dict[str, Any], limit: int, memo: InternMemo | None = None) -> Any:
     if not isinstance(mapping, dict):
-        return intern_values(mapping, store, limit)
-    return {k: intern_values(v, store, limit) for k, v in mapping.items()}
+        return intern_values(mapping, store, limit, memo)
+    return {k: intern_values(v, store, limit, memo) for k, v in mapping.items()}
 
 
 def _force_ref(value: Any, store: dict[str, Any]) -> dict[str, str]:
@@ -234,6 +509,7 @@ def checkpoint_row(
     next_invocations: Any,
     interrupt_payload: Any,
     max_inline_bytes: int,
+    memo: InternMemo | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """The stored JSON columns of a checkpoint row, interned, plus the new values.
 
@@ -246,8 +522,10 @@ def checkpoint_row(
     Returns ``(columns, store)``: ``store`` is hash → value for every referenced
     value, deduplicated across all columns. The caller persists ``store`` for
     the run (idempotently — a hash already stored for the run is the same value).
+    With ``memo`` (one batch of rows), ``store`` is the batch's: every value any
+    row of the batch references.
     """
-    store: dict[str, Any] = {}
+    store: dict[str, Any] = memo.store if memo is not None else {}
     limit = max_inline_bytes
     bindings = pending_bindings
     if limit > 0 and isinstance(pending_bindings, dict):
@@ -257,7 +535,7 @@ def checkpoint_row(
                 binding = {
                     **binding,
                     "edges": {
-                        edge_id: {**edge, "payload": _intern_each(edge.get("payload"), store, limit)}
+                        edge_id: {**edge, "payload": _intern_each(edge.get("payload"), store, limit, memo)}
                         if isinstance(edge, dict) and "payload" in edge
                         else edge
                         for edge_id, edge in binding["edges"].items()
@@ -269,13 +547,13 @@ def checkpoint_row(
     invocations = next_invocations
     if limit > 0 and isinstance(next_invocations, list):
         invocations = [
-            {**inv, "inputs": _intern_each(inv.get("inputs"), store, limit)}
+            {**inv, "inputs": _intern_each(inv.get("inputs"), store, limit, memo)}
             if isinstance(inv, dict) and "inputs" in inv
             else inv
             for inv in next_invocations
         ]
     columns = {
-        "channel_values": _intern_each(channel_values, store, limit) if limit > 0 else channel_values,
+        "channel_values": _intern_each(channel_values, store, limit, memo) if limit > 0 else channel_values,
         "pending_bindings": bindings,
         "next_invocations": invocations,
         "interrupt_payload": interrupt_payload,
@@ -283,20 +561,43 @@ def checkpoint_row(
     return columns, store
 
 
-def checkpoint_columns(checkpoint: Any, max_inline_bytes: int) -> tuple[dict[str, Any], dict[str, Any]]:
+def _binding_row(binding: Any) -> dict[str, Any]:
+    """A pending binding as a row, its delivered payloads NOT copied: the payload values stay the
+    live objects, so a batch's memo sees the same settled value in every checkpoint (a
+    ``model_dump`` deep-copied ~10 MB per checkpoint and made each copy a stranger)."""
+    row = binding.model_dump(mode="json", exclude={"edges"})
+    row["edges"] = {
+        edge_id: {**edge.model_dump(mode="json", exclude={"payload"}), "payload": edge.payload}
+        for edge_id, edge in binding.edges.items()
+    }
+    return row
+
+
+def _invocation_row(invocation: Any) -> dict[str, Any]:
+    return {**invocation.model_dump(mode="json", exclude={"inputs"}), "inputs": invocation.inputs}
+
+
+def checkpoint_columns(
+    checkpoint: Any, max_inline_bytes: int, memo: InternMemo | None = None
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """What the Postgres checkpointer stores for ``checkpoint``: its JSON columns, interned, and the values.
 
-    One function so the guard test measures exactly the bytes production writes.
+    One function so the guard test measures exactly the bytes production writes. ``memo``: the
+    batch this checkpoint is saved with (:class:`InternMemo`).
     """
+    interning = max_inline_bytes > 0
     return checkpoint_row(
         channel_values=checkpoint.channel_values,
         pending_bindings={
-            node_id: binding.model_dump(mode="json")
+            node_id: _binding_row(binding) if interning else binding.model_dump(mode="json")
             for node_id, binding in checkpoint.pending_bindings.items()
         },
-        next_invocations=[ni.model_dump(mode="json") for ni in checkpoint.next_invocations],
+        next_invocations=[
+            _invocation_row(ni) if interning else ni.model_dump(mode="json") for ni in checkpoint.next_invocations
+        ],
         interrupt_payload=checkpoint.interrupt_payload,
         max_inline_bytes=max_inline_bytes,
+        memo=memo,
     )
 
 
@@ -330,7 +631,9 @@ def _fit_mapping(mapping: dict[str, Any], store: dict[str, Any], limit: int) -> 
     return out
 
 
-def event_payload_row(payload: dict[str, Any], max_inline_bytes: int) -> tuple[dict[str, Any], dict[str, Any]]:
+def event_payload_row(
+    payload: dict[str, Any], max_inline_bytes: int, committed: set[str] | frozenset[str] | None = None
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """A workflow event's payload with its large DATA values by reference (MKT-167).
 
     The same rule and the same store as a checkpoint: one Smart Add run wrote 49.7 MB
@@ -340,7 +643,8 @@ def event_payload_row(payload: dict[str, Any], max_inline_bytes: int) -> tuple[d
     while the field is still over it, the largest remaining children) is replaced by
     ``{REF_KEY: <sha256>}``, its value returned in ``store`` for the run's
     ``workflow.checkpoint_value`` rows. A payload already interned is unchanged.
-    ``max_inline_bytes <= 0`` returns the payload untouched.
+    ``max_inline_bytes <= 0`` returns the payload untouched. ``committed``: the run's committed hashes —
+    a value this process already interned (an outcome, an earlier event) is not walked again (:class:`InternMemo`).
     """
     store: dict[str, Any] = {}
     if max_inline_bytes <= 0 or not isinstance(payload, dict):
@@ -348,30 +652,60 @@ def event_payload_row(payload: dict[str, Any], max_inline_bytes: int) -> tuple[d
     out = payload
     for field in EVENT_VALUE_FIELDS:
         value = payload.get(field)
-        if value is None or _leaf_bytes(value) <= max_inline_bytes:
+        if value is None:
             continue
-        if isinstance(value, dict) and not _is_ref(value):
-            interned = _fit_mapping(_intern_each(value, store, max_inline_bytes), store, max_inline_bytes)
-        else:
-            interned = intern_values(value, store, max_inline_bytes)
+        # The outcome rule, one walk: sized by the interning walk itself. Measuring the whole value first
+        # (``_leaf_bytes`` = a sorted dump of every multi-MB step input/output) was a second full pass on
+        # every large event — ~1.5x the interning cost (L-SPEED round 2, 2026-11-09).
+        interned, _ = outcome_input_row(value, max_inline_bytes, _batch_of(store, committed))
+        if interned is value:
+            continue
         if out is payload:
             out = dict(payload)
         out[field] = interned
     return out, store
 
 
-def outcome_input_row(inputs: Any, max_inline_bytes: int) -> tuple[Any, dict[str, Any]]:
+def _batch_of(store: dict[str, Any], committed: set[str] | frozenset[str] | None = None) -> InternMemo:
+    """A one-call memo whose store IS ``store`` (``outcome_input_row`` writes its values there)."""
+    memo = InternMemo(committed)
+    memo.store = store
+    return memo
+
+
+def outcome_input_row(
+    inputs: Any, max_inline_bytes: int, memo: InternMemo | None = None
+) -> tuple[Any, dict[str, Any]]:
     """A node outcome's ``input`` or ``output`` with its large values by reference (MKT-170/171).
 
     The same rule and the same store as an event's ``inputs``: each child over
     ``max_inline_bytes`` becomes ``{REF_KEY: <sha256>}`` (value returned in ``store``).
+    ``memo``: the outcomes saved together share one (:class:`InternMemo`, this limit only) — a
+    step's output is the next step's input, so each is walked and hashed once per save; the
+    returned ``store`` is then the batch's (every value any of its outcomes references).
     """
-    store: dict[str, Any] = {}
-    if max_inline_bytes <= 0 or inputs is None or _leaf_bytes(inputs) <= max_inline_bytes:
+    store: dict[str, Any] = memo.store if memo is not None else {}
+    limit = max_inline_bytes
+    if limit <= 0 or inputs is None:
         return inputs, store
+    # Sized by the interning walk itself — never serialized whole first just to measure it (that was a
+    # second full pass over every multi-MB output).
     if isinstance(inputs, dict) and not _is_ref(inputs):
-        return _fit_mapping(_intern_each(inputs, store, max_inline_bytes), store, max_inline_bytes), store
-    return intern_values(inputs, store, max_inline_bytes), store
+        sized = {key: _intern(value, store, limit, memo) for key, value in inputs.items()}
+        total = 2 + sum(len(str(key).encode()) + 4 + size for key, (_value, size) in sized.items())
+        if total <= limit and not any(referenced_hashes(value) for value, _size in sized.values()):
+            return inputs, store
+        # Keys stay readable; the heaviest inline children move out until the mapping fits (_fit_mapping).
+        out = {key: value for key, (value, _size) in sized.items()}
+        for size, key in sorted(((size, key) for key, (value, size) in sized.items() if not _is_ref(value)), reverse=True):
+            if total <= limit or size <= _REF_BYTES:
+                break
+            out[key] = _force_ref(out[key], store)
+            total -= size - _REF_BYTES
+        return out, store
+    out, _size = _intern(inputs, store, limit, memo)
+    # A value whose interned form names no reference was under the limit everywhere: kept as given.
+    return (out if referenced_hashes(out) else inputs), store
 
 
 def row_bytes(columns: dict[str, Any]) -> int:
@@ -385,6 +719,11 @@ __all__ = [
     "EVENT_VALUE_FIELDS",
     "REF_KEY",
     "MissingCheckpointValueError",
+    "DeliveredValueChangedInPlaceError",
+    "InternMemo",
+    "check_delivered_unchanged",
+    "clear_interned_cache",
+    "delivered_fingerprint",
     "checkpoint_columns",
     "checkpoint_row",
     "event_payload_row",
@@ -393,3 +732,116 @@ __all__ = [
     "resolve_values",
     "row_bytes",
 ]
+
+
+# ── Off the event loop (PF-WF, 2026-11-02) ────────────────────────────────────────────
+# Interning, sizing and screening walk every leaf of a value in Python and hash its JSON.
+# On the event loop a large step value froze EVERY run on the server (live, 7 days: _intern
+# 111 s of stalls, max 61.8 s; event screening 36 s, max 13.5 s). The functions are pure, so
+# a large value runs them in a worker thread; a small one stays inline (a thread hop costs
+# more than the work). The answer is identical either way.
+
+#: A value with more nodes than this (dicts, lists and leaves counted) goes to a thread.
+OFF_LOOP_MIN_NODES: int = 4096
+#: …or with more characters of string content than this.
+OFF_LOOP_MIN_CHARS: int = 128 * 1024
+
+
+def is_large_value(value: Any, *, max_nodes: int = OFF_LOOP_MIN_NODES, max_chars: int = OFF_LOOP_MIN_CHARS) -> bool:
+    """Whether ``value`` is big enough that walking it belongs off the event loop.
+
+    Bounded: stops at the first line crossed, so a huge value costs at most
+    ``max_nodes`` steps to classify."""
+    nodes = 0
+    chars = 0
+    stack: list[Any] = [value]
+    while stack:
+        item = stack.pop()
+        nodes += 1
+        if nodes > max_nodes:
+            return True
+        if isinstance(item, str):
+            chars += len(item)
+            if chars > max_chars:
+                return True
+        elif isinstance(item, dict):
+            stack.extend(item.values())
+        elif isinstance(item, (list, tuple)):
+            stack.extend(item)
+        elif hasattr(item, "__pydantic_fields__"):
+            # A model (a checkpoint's next_invocations / pending_bindings) is its fields.
+            stack.extend(vars(item).values())
+            # ``extra="allow"`` keeps the undeclared fields out of ``vars`` (a step's inputs).
+            stack.extend((getattr(item, "__pydantic_extra__", None) or {}).values())
+    return False
+
+
+#: Every worker-thread hop of :func:`run_pure_off_loop`: [seconds queued for a thread, hops, seconds
+#: of work in the thread]. Read twice and subtract (the step-gap report, L-SPEED 6c part 2).
+OFF_LOOP_TOTALS: list[float] = [0.0, 0, 0.0]
+#: The same thread work by function: qualname -> [hops, seconds].
+OFF_LOOP_BY_FN: dict[str, list[float]] = {}
+
+
+#: The engine's OWN worker threads for its bookkeeping (dumping, interning, hashing a step's values). The process's
+#: default executor is shared with every ``asyncio.to_thread`` caller — the scraper parses pages there — and the
+#: engine's dumps queued behind 8 parallel page reads: a 10 KB ``run_completed`` was written 4.8 s after it was
+#: emitted (P8-RUNS 2026-11-15, Smart Add backlinks fan-out). An engine pacing constant, not an organization's
+#: choice: the work is pure and short, so a few threads keep it off the loop without competing for many cores.
+ENGINE_OFF_LOOP_THREADS = 4
+_engine_executor: Any = None
+_engine_executor_lock = threading.Lock()
+
+
+def engine_executor() -> Any:
+    """The engine's own thread pool (created on first use)."""
+    global _engine_executor
+    if _engine_executor is None:
+        with _engine_executor_lock:
+            if _engine_executor is None:
+                from concurrent.futures import ThreadPoolExecutor
+
+                _engine_executor = ThreadPoolExecutor(
+                    max_workers=ENGINE_OFF_LOOP_THREADS, thread_name_prefix="matrx-graph-values"
+                )
+    return _engine_executor
+
+
+async def run_pure_off_loop(fn: Callable[..., _T], *args: Any, values: tuple[Any, ...] | None = None) -> _T:
+    """``fn(*args)`` — in a worker thread when any of ``values`` (default: ``args``) is large.
+
+    ``fn`` must be pure (reads its arguments, builds new values). If another task mutates
+    a value while the thread walks it (``RuntimeError: dictionary changed size``), the call
+    runs again on the loop, where nothing can interleave — the answer is never skipped. Only that
+    error reruns (a ``RecursionError`` or any other failure propagates as it would inline), so
+    ``fn`` must not write into an argument it was handed before it can raise it."""
+    probe = args if values is None else values
+    if not any(is_large_value(v) for v in probe):
+        return fn(*args)
+    submitted = time.perf_counter()
+
+    def timed() -> _T:
+        OFF_LOOP_TOTALS[0] += time.perf_counter() - submitted  # waited for a worker thread
+        OFF_LOOP_TOTALS[1] += 1
+        started = time.perf_counter()
+        try:
+            return fn(*args)
+        finally:
+            took = time.perf_counter() - started
+            OFF_LOOP_TOTALS[2] += took
+            name = getattr(fn, "__qualname__", None) or getattr(getattr(fn, "func", None), "__qualname__", "?")
+            entry = OFF_LOOP_BY_FN.setdefault(name, [0, 0.0])
+            entry[0] += 1
+            entry[1] += took
+
+    try:
+        import contextvars
+
+        # The engine's own threads, never the shared default executor (see ENGINE_OFF_LOOP_THREADS); the
+        # caller's context rides along exactly as ``asyncio.to_thread`` carried it.
+        call = contextvars.copy_context().run
+        return await asyncio.get_running_loop().run_in_executor(engine_executor(), call, timed)
+    except RuntimeError as err:
+        if isinstance(err, RecursionError) or "changed size during iteration" not in str(err):
+            raise
+        return fn(*args)

@@ -74,19 +74,8 @@ def test_a_other_presets_keep_the_verbatim_shape() -> None:
     assert default_answer_resume_value({"default_answer": ""}) is None
 
 
-def test_a_the_sweeper_uses_the_shared_helper() -> None:
-    from aidream.services.human_decisions import sweeper
-
-    payload = {
-        "default_answer": "keep_going",
-        "decision": DecisionSpec.model_validate(OFFER).model_dump(mode="json"),
-    }
-    from datetime import UTC, datetime
-
-    answer, provenance, failure, _ = sweeper._decide_by_default(payload, datetime.now(UTC))
-    assert failure is None and provenance is not None
-    assert answer == {"answer": {"answers": {"fit": {"verdict": "pick_one", "value": "keep_going"}}}}
-
+# test_a_the_sweeper_uses_the_shared_helper drives the host's sweeper: it is a host check,
+# tests/package_host_contracts/test_matrx_graph_host.py.
 
 def _branch_def(edge_extra: dict) -> dict:
     return {

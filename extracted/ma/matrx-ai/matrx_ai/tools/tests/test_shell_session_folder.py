@@ -20,7 +20,8 @@ from matrx_ai.tools.implementations import shell
 
 pytestmark = pytest.mark.asyncio
 
-BINDING = SimpleNamespace(root_path="/Users/pat", target_kind="local_machine")
+# The real binding type: a hand-rolled stub drifted when the binding grew working_dir (2026-11).
+BINDING = sp.SandboxBinding("dev", "https://x/api/local-proxy/1", "t", "/Users/pat", "local_machine")
 CTX = SimpleNamespace(
     call_id="call-1", tool_name="shell_execute", conversation_id="conv-1", user_id="u-1"
 )

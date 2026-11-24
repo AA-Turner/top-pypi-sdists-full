@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from packaging.markers import Marker
 
 from nab_markersets import _markersets as engine
-from nab_markersets._packaging import Marker
 from nab_markersets.errors import IntractableMarkerSet, UnserializableMarkerSet
 from nab_markersets.markersets import _MAX_CELLS, _MAX_WORK, DecisionStore, MarkerSet
 
@@ -234,9 +234,9 @@ def test_corpus_operator_sound_minimal_and_reproduces_tiers() -> None:
             ca_oracle = corpus.achievable_min_marker(
                 original_selection, universe, marker_vars
             )
-            cf_oracle = corpus.achievable_min_marker(
-                corpus.selects(marker, grid), grid, marker_vars
-            )
+            grid_selection = corpus.selects(marker, grid)
+            assert corpus.selects(cf_text, grid) == grid_selection
+            cf_oracle = corpus.achievable_min_marker(grid_selection, grid, marker_vars)
             assert len(ca_text or "") <= len(ca_oracle)
             assert len(cf_text or "") <= len(cf_oracle)
 
@@ -675,19 +675,14 @@ _SPREAD = ' and extra == "gpu" and "arm" in platform_machine'
 def test_one_operation_partitions_each_axis_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A within-universe decision partitions each axis once, not once per row.
-
-    The row walk issues two emptiness decisions for each of the six rows, so the
-    count is exact rather than bounded: 5 partitions here, against 36 with the store
-    ignored and 27 with a store that serves value axes only.
-    """
+    """The six rows share one machine partition and three Python version partitions."""
     left = ms('python_version < "3.12"' + _SPREAD)
     right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
 
     partitions = _partition_counter(monkeypatch)
     assert left.equivalent_within(right, _row_universe()) is True
 
-    assert partitions() == 5
+    assert partitions() == 4
 
 
 def test_simplify_keeps_its_partitions_to_one_call(
@@ -815,12 +810,7 @@ def test_partitions_do_not_outlive_one_operation(
 def test_a_shared_store_serves_the_next_decision(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A decision handed the previous one's store partitions no axis again.
-
-    The mirror of :func:`test_partitions_do_not_outlive_one_operation`: without a
-    store the repeat pays 5 partitions again, with one it pays none. An ignored
-    ``store`` argument leaves the two counts equal to that test's.
-    """
+    """A second comparison reuses all four scalar partitions from the first."""
     universe = _row_universe()
     left = ms('python_version < "3.12"' + _SPREAD)
     right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
@@ -831,8 +821,26 @@ def test_a_shared_store_serves_the_next_decision(
     first = partitions()
     assert left.equivalent_within(right, universe, store=store) is True
 
-    assert first == 5
+    assert first == 4
     assert partitions() == first
+
+
+def test_shared_decisions_follow_the_current_parser_setting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(engine, "get_int_max_str_digits", lambda: 1000)
+    marker = ms('python_full_version == "3.13.4"')
+    store = DecisionStore()
+    decisions = _decision_counter(monkeypatch)
+
+    assert not marker.is_empty(store=store)
+    assert not marker.is_empty(store=store)
+    assert decisions() == 1
+
+    monkeypatch.setattr(engine, "get_int_max_str_digits", lambda: 900)
+    assert not marker.is_empty(store=store)
+    assert not marker.is_empty(store=store)
+    assert decisions() == 2
 
 
 def test_a_shared_store_serves_the_next_decision_its_truths(

@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from matrx_graph.contracts import (
-    RULESET_V1,
     ConformanceState,
     LeakRule,
     audit_model,
@@ -48,7 +47,7 @@ class _Open(BaseModel):
 class _Cyclic(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
-    parent: "_Cyclic | None" = None
+    parent: _Cyclic | None = None
 
 
 def test_fully_conformant_recursive():
@@ -136,7 +135,7 @@ def test_registry_audit_totals_and_model_blast_radius():
 class _CycleA(BaseModel):
     model_config = ConfigDict(extra="forbid")
     leaky: dict
-    b: "_CycleB | None" = None
+    b: _CycleB | None = None
 
 
 class _CycleB(BaseModel):

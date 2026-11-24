@@ -254,8 +254,8 @@ _WAVEFORM_FG = "#38bdf8"  # sky-400 — high-contrast, clear at small sizes
 _WAVEFORM_CENTER = "#0ea5e9"  # sky-500 — accent for the centreline
 
 
-# Shared audio-subtype → pydub/ffmpeg format-name hints. ``from_file``
-# autodetects from the bytes when possible, but some formats need the hint.
+# Shared audio-subtype → ffmpeg format-name hints. ffmpeg autodetects from the
+# bytes when possible, but some formats need the hint.
 _AUDIO_FMT_HINTS: dict[str, str] = {
     "mpeg": "mp3",
     "mp3": "mp3",
@@ -287,70 +287,29 @@ def _audio_fmt_hint(mime_type: str | None) -> str | None:
 
 def _decode_audio_bounded_from_path(path: str, mime_type: str | None):
     """Decode an on-disk audio (or video) file WITHOUT the original object
-    bytes ever entering Python memory.
-
-    We invoke ffmpeg directly (NOT ``AudioSegment.from_file`` — pydub takes
-    a native full-file-read shortcut for WAV input that would load the whole
-    object, measured at +761 MB RSS for a 303 MB WAV). ffmpeg reads the
-    source from *path* and writes a mono @ 4 kHz temp WAV; only that WAV is
-    loaded into Python. Decoded size is bounded by DURATION, not by source
-    size — ~29 MB of PCM per hour regardless of the original bitrate.
-    Fidelity is irrelevant here: waveform peaks and ``len(audio)``
-    (duration_ms, exact across resampling) are the only consumers.
+    bytes ever entering Python memory: ffmpeg reads *path* and emits mono
+    PCM at 4 kHz, so decoded size is bounded by DURATION, not source size
+    (~29 MB per hour). Waveform peaks and ``duration_ms`` (exact across
+    resampling) are the only consumers.
     """
-    import os
-    import subprocess
-    import tempfile
+    from matrx_files.ffmpeg import decode_mono_pcm
 
-    from pydub import AudioSegment
-    from pydub.utils import get_encoder_name
-
-    fd, tmp_wav = tempfile.mkstemp(suffix=".wav", prefix="mtx-audio-bounded-")
-    os.close(fd)
-    try:
-        cmd = [
-            get_encoder_name(),
-            "-y",
-            "-i",
-            path,
-            "-vn",
-            "-ac",
-            "1",
-            "-ar",
-            str(_BOUNDED_AUDIO_SAMPLE_RATE),
-            "-f",
-            "wav",
-            tmp_wav,
-        ]
-        proc = subprocess.run(cmd, capture_output=True)
-        if proc.returncode != 0:
-            raise RuntimeError(
-                f"bounded audio decode failed (ffmpeg rc={proc.returncode}): {proc.stderr[-500:]!r}"
-            )
-        return AudioSegment.from_wav(tmp_wav)
-    finally:
-        try:
-            os.unlink(tmp_wav)
-        except OSError:
-            pass
+    return decode_mono_pcm(path, sample_rate=_BOUNDED_AUDIO_SAMPLE_RATE)
 
 
 def _render_audio_waveform(audio_bytes: bytes, mime_type: str | None) -> tuple[bytes, str]:
     """Render an audio waveform as a PNG from in-memory bytes.
 
-    Decodes via pydub (which uses ffmpeg under the hood for arbitrary
-    formats), computes ``_WAVEFORM_PEAKS`` evenly-spaced peak amplitudes
+    Decodes any format via ffmpeg (``matrx_files.ffmpeg``), computes ``_WAVEFORM_PEAKS`` evenly-spaced peak amplitudes
     across the file's duration, and draws them as a centred-axis wave
     using Pillow. Returns ``(png_bytes, "image/png")``.
 
     Raises on any decode/render failure — the caller's try/except in
     the dispatcher catches and falls back to a mime-family icon.
     """
-    from io import BytesIO
+    from matrx_files.ffmpeg import decode_mono_pcm
 
-    from pydub import AudioSegment
-
-    audio = AudioSegment.from_file(BytesIO(audio_bytes), format=_audio_fmt_hint(mime_type))
+    audio = decode_mono_pcm(audio_bytes, sample_rate=_BOUNDED_AUDIO_SAMPLE_RATE, fmt_hint=_audio_fmt_hint(mime_type))
     return _waveform_png_from_segment(audio)
 
 
@@ -365,13 +324,13 @@ def _render_audio_waveform_from_path(path: str, mime_type: str | None) -> tuple[
 
 
 def _waveform_png_from_segment(audio) -> tuple[bytes, str]:
-    """Shared waveform renderer: AudioSegment → (png_bytes, 'image/png')."""
+    """Shared waveform renderer: ``MonoPcm`` → (png_bytes, 'image/png')."""
     from io import BytesIO
 
     from PIL import Image, ImageDraw
 
-    # Mono-mix for a single waveform trace; sample array is signed int.
-    samples = audio.set_channels(1).get_array_of_samples()
+    # Already mono; the sample array is signed int.
+    samples = audio.samples
     total = len(samples)
     if total == 0:
         raise RuntimeError("audio decoded to zero samples")
@@ -469,9 +428,8 @@ def render_thumbnail_source_bytes_sync(
             )
             return render_mime_icon_bytes(mime_type=mime_type), "image/png"
 
-    # Audio: render a waveform PNG via pydub + Pillow. pydub uses
-    # ffmpeg under the hood for arbitrary formats. Falls back to the
-    # mime-family icon when pydub / ffmpeg are unavailable or the file
+    # Audio: render a waveform PNG via ffmpeg + Pillow. Falls back to the
+    # mime-family icon when ffmpeg is unavailable or the file
     # can't be decoded.
     if family == "audio":
         try:
@@ -801,13 +759,12 @@ def probe_source_metadata_sync(
 
     elif family == "audio":
         try:
-            from io import BytesIO
-            from pydub import AudioSegment
+            from matrx_files.ffmpeg import decode_mono_pcm
 
-            audio = AudioSegment.from_file(
-                BytesIO(content_bytes), format=_audio_fmt_hint(mime_type)
+            audio = decode_mono_pcm(
+                content_bytes, sample_rate=_BOUNDED_AUDIO_SAMPLE_RATE, fmt_hint=_audio_fmt_hint(mime_type)
             )
-            out["duration_ms"] = int(len(audio))  # pydub: len() is duration_ms
+            out["duration_ms"] = audio.duration_ms
         except Exception as exc:
             logger.debug("probe: audio metadata failed for %s (%s)", file_name, exc)
 
@@ -860,7 +817,7 @@ async def probe_source_metadata(
 # functions above. The original object bytes never enter Python memory:
 #
 #   video/*  → OpenCV reads the path directly (probe + frame extraction).
-#   audio/*  → pydub/ffmpeg decodes from the path at bounded mono/4 kHz
+#   audio/*  → ffmpeg decodes from the path at bounded mono/4 kHz
 #              (~29 MB decoded PCM per hour, independent of source size).
 #   image / pdf / document at this size → generic rasterization is SKIPPED
 #              (loud log) and the mime-family icon is used; nothing today
@@ -887,7 +844,7 @@ def probe_source_metadata_from_path_sync(
     elif family == "audio":
         try:
             audio = _decode_audio_bounded_from_path(path, mime_type)
-            out["duration_ms"] = int(len(audio))
+            out["duration_ms"] = audio.duration_ms
         except Exception as exc:
             logger.debug("probe(path): audio metadata failed for %s (%s)", file_name, exc)
     else:
@@ -926,7 +883,7 @@ def render_thumbnail_source_from_path_sync(
     """Bounded-memory rasterisation of an on-disk source.
 
     video/* → frame at 10% via OpenCV by path; audio/* → waveform via
-    bounded pydub decode; every other family → mime icon with a LOUD skip
+    bounded ffmpeg decode; every other family → mime icon with a LOUD skip
     log (rasterizing a 64 MB+ image/PDF/Office doc requires materializing
     it — deliberately not done on this path).
     """

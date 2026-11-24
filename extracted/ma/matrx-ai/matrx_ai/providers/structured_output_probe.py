@@ -42,7 +42,6 @@ why this module takes an already-translated body and sends nothing else.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -93,7 +92,12 @@ class ProbeResult:
 
 
 def _key(name: str) -> str:
-    value = os.environ.get(name)
+    # Through the ONE resolver, so a host's platform key source (the vault) answers too.
+    from matrx_ai.providers.keys import platform_keys_only, resolve_api_key
+
+    # The probe is platform work: it never spends a person's own key found in the request context.
+    with platform_keys_only():
+        value = resolve_api_key(name)
     if not value:
         raise RuntimeError(
             f"{name} is not set; the structured-output probe asks the real provider "

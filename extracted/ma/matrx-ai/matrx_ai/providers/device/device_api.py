@@ -3,7 +3,8 @@
 A model on a person's Matrx 2 computer speaks the OpenAI Chat Completions dialect (llama-server),
 so this client is ``GenericOpenAIChat`` with the same translator and streaming parser (the
 Moonshot precedent). Only the TRANSPORT differs: ``AsyncOpenAI`` sends through
-:class:`~matrx_ai.providers.device.relay_transport.RelayStreamTransport`, which turns the call into
+``relay_transport.relay_stream_transport(openai_sdk)`` — built on the SDK's own httpx flavor
+(httpx2 since openai 3.0; an httpx stream is refused by its client) — which turns the call into
 the relay's ``POST /v1/devices/{D}/stream`` (never an internet endpoint, never retried by the SDK).
 
 PER CALL: :meth:`execute` reads the device and its ModelKey from ``profile.served_via`` /
@@ -25,11 +26,11 @@ import re
 import uuid
 from typing import Any
 
-import httpx
 import openai as openai_sdk
 from openai import AsyncOpenAI
 
 from matrx_ai.providers.generic_openai.generic_openai_api import GenericOpenAIChat
+from matrx_ai.providers.http_flavors import transport_classes
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,10 @@ def device_thinking(reasoning_effort: Any) -> bool | None:
 class DeviceChat(GenericOpenAIChat):
     """OpenAI-compatible chat on a person's own device (``wire_format == "device_chat"``)."""
 
+    #: ``chat_template_kwargs`` (the thinking switch) is a llama.cpp field the
+    #: OpenAI SDK never declares; it rides extra_body on every turn by design.
+    body_extras_expected = True
+
     def __init__(self) -> None:
         super().__init__(
             base_url=DEVICE_BASE_URL,
@@ -88,7 +93,7 @@ class DeviceChat(GenericOpenAIChat):
     def client(self) -> AsyncOpenAI:
         if self._client_pinned or self._client is not None:
             return self._client  # type: ignore[return-value]
-        from matrx_ai.providers.device.relay_transport import RelayStreamTransport
+        from matrx_ai.providers.device.relay_transport import relay_stream_transport
         from matrx_ai.providers.keys import NO_SDK_RETRIES
         from matrx_ai.providers.outbound_capture import make_capture_http_client
 
@@ -97,7 +102,7 @@ class DeviceChat(GenericOpenAIChat):
             max_retries=NO_SDK_RETRIES,
             base_url=self._base_url,
             http_client=make_capture_http_client(
-                sdk=openai_sdk, transport=RelayStreamTransport()
+                sdk=openai_sdk, transport=relay_stream_transport(openai_sdk)
             ),
         )
         return self._client
@@ -193,8 +198,9 @@ class DeviceChat(GenericOpenAIChat):
         bound = set_device_call(target)
         try:
             response = await super().execute(unified_config, profile, debug=debug)
-        except (openai_sdk.OpenAIError, httpx.HTTPError, DeviceRouteError) as exc:
-            # A relay/device answer (or the transport's own typed refusal). Anything else is a
+        except (openai_sdk.OpenAIError, DeviceRouteError, *transport_classes("HTTPError")) as exc:
+            # A relay/device answer (or the transport's own typed refusal, from whichever
+            # httpx flavor the openai SDK is built on). Anything else is a
             # bug on our side and propagates as itself.
             typed = device_error_for(exc)
             # A device call bills nobody: nothing to capture, and the billing net is told so.

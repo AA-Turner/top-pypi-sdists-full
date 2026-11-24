@@ -4,27 +4,27 @@ Authors: Jonathan Lys (jonathan.lys@imt-atlantique.org)
 License: BSD 3 clause
 """
 
-import json
+import contextlib
 import logging
 import math
-import os
 import warnings
 from typing import Dict, List, Optional, Union
 
-import pooch
+import numpy as np
 import torch
 import torch.nn.functional as F
-from mne.datasets.utils import _get_path
 from torch import nn
 
 from braindecode.functional import (
+    check_ch_mask,
+    check_n_chans,
     pad_or_crop_to_patches,
     patch_count,
     scaled_dot_product_attention,
 )
 from braindecode.functional.patches import _check_on_non_divisible
-from braindecode.models.base import EEGModuleMixin
-from braindecode.modules.channels import resolve_channel_positions
+from braindecode.models.base import EEGModuleMixin, deprecated_forward_kwargs
+from braindecode.modules.channels import _reve_position_bank, resolve_channel_positions
 from braindecode.modules.layers import RMSNorm
 
 logger = logging.getLogger(__name__)
@@ -176,7 +176,7 @@ class REVE(EEGModuleMixin, nn.Module):
                repo_id="username/my-reve-model", commit_message="Upload trained REVE model"
            )
 
-       Requires installing ``braindecode[hug]`` for Hub integration.
+       Requires installing ``braindecode[hub]`` for Hub integration.
 
     .. rubric:: Usage
 
@@ -262,11 +262,14 @@ class REVE(EEGModuleMixin, nn.Module):
 
     Notes
     -----
-    The position bank is downloaded from HuggingFace on first initialization, mapping
-    standard 10-20/10-10/10-05 electrode names to 3D coordinates. This enables the
+    The position bank maps 10-20/10-10/10-05, BioSemi-128 and EGI HydroCel-129
+    electrode names to 3D coordinates, rebuilt from MNE's montages. This enables the
     4D positional encoding to generalize across electrode configurations without
     requiring matched layouts between pretraining and downstream tasks.
     """
+
+    _time_axis = "fixed"  # fixed: final_layer.1.weight is sized by n_times
+    _channel_axis = "fixed"  # fixed: final_layer.1.weight is sized by n_chans
 
     # Constant, so TorchScript compiles only the head in use (``cls_query_token``
     # exists only with attention pooling).
@@ -328,10 +331,7 @@ class REVE(EEGModuleMixin, nn.Module):
         mode = "crop" if on_non_divisible is None else on_non_divisible
         _check_on_non_divisible(mode)
         self.on_non_divisible = mode
-        try:
-            known_n_times = self.n_times
-        except ValueError:  # unknown length: nothing to check at construction
-            known_n_times = None
+        known_n_times = self._signal_param("n_times")
         if known_n_times is not None:
             step = patch_size - patch_overlap
             # Raises for "crop" below one patch and for "error" on an untiled window.
@@ -364,21 +364,23 @@ class REVE(EEGModuleMixin, nn.Module):
         self.on_missing = on_missing
 
         self._position_bank = RevePositionBank()
-        self.default_pos = None
-        self.channel_index = None  # input channels kept by on_missing (None: all)
+        default_pos = None  # (n_kept, 3) positions of the chs_info montage
+        channel_index = None  # input channels kept by on_missing (None: all)
         self._n_pos_chans: Optional[int] = None
         if self._chs_info is not None:
-            bank = self._position_bank
             pos, kept = resolve_channel_positions(
                 self._chs_info,
-                dict(zip(bank.position_names, bank.embedding.numpy())),
+                _reve_position_bank(),
                 montage,
                 on_missing,
             )
-            self.default_pos = torch.as_tensor(pos, dtype=torch.float32)
+            default_pos = torch.as_tensor(pos, dtype=torch.float32)
             self._n_pos_chans = len(kept)
             if len(kept) < len(self._chs_info):
-                self.channel_index = torch.as_tensor(kept)
+                channel_index = torch.as_tensor(kept)
+        # Buffers, so that .to() moves them; not saved, as they are not weights.
+        self.register_buffer("channel_index", channel_index, persistent=False)
+        self.register_buffer("default_pos", default_pos, persistent=False)
 
         self.to_patch_embedding = nn.Sequential(
             nn.Linear(in_features=self.patch_size, out_features=self.embed_dim)
@@ -407,6 +409,23 @@ class REVE(EEGModuleMixin, nn.Module):
 
         if self.use_attention_pooling:
             self.cls_query_token = nn.Parameter(torch.randn(1, 1, self.embed_dim))
+        self._n_times_step = self.patch_size - self.patch_overlap
+        self._n_times_offset = self.patch_size
+        self._snaps_in_prepare_inputs = False
+        self._min_n_times = 1 if self.on_non_divisible == "pad" else self.patch_size
+        if self.use_attention_pooling:
+            self._time_axis = "free"
+
+    def _accepts_any_n_chans(self, args: tuple, kwargs: dict) -> bool:
+        if super()._accepts_any_n_chans(args, kwargs):
+            return True
+        pos = self._call_arg(args, kwargs, "pos")
+        return pos is not None and self._accepts_any_n_times(args, kwargs)
+
+    def _accepts_any_n_times(self, args: tuple, kwargs: dict) -> bool:
+        ret_out = self._call_arg(args, kwargs, "return_output", False)
+        ret_feat = self._call_arg(args, kwargs, "return_features", False)
+        return bool(self.use_attention_pooling or ret_out or ret_feat)
 
     def _get_flattened_output_dim(self) -> int:
         """Helper function to compute the flattened output dimension after the transformer."""
@@ -446,7 +465,7 @@ class REVE(EEGModuleMixin, nn.Module):
         self._build_head(n_outputs)
 
     def get_positions(self, channel_names: list[str]) -> torch.Tensor:
-        """Fetch channel positions from the position bank. The position bank is downloaded when the model is instantiated.
+        """Fetch channel positions from the position bank.
 
         Parameters
         ----------
@@ -461,12 +480,14 @@ class REVE(EEGModuleMixin, nn.Module):
 
         return self._position_bank.forward(channel_names)
 
+    @deprecated_forward_kwargs(eeg="x")
     def forward(
         self,
-        eeg: torch.Tensor,
+        x: torch.Tensor,
         pos: Optional[torch.Tensor] = None,
         return_output: bool = False,
         return_features: bool = False,
+        ch_mask: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, Optional[torch.Tensor]]]:
         """
         Forward pass of the model.
@@ -479,18 +500,26 @@ class REVE(EEGModuleMixin, nn.Module):
 
         Parameters
         ----------
-        eeg : torch.Tensor
+        x : torch.Tensor
             Input EEG tensor of shape (batch_size, channels, sequence_length).
         pos : torch.Tensor
             Position tensor of shape (batch_size, channels, 3) representing (x, y, z) coordinates.
             If omitted, the positions resolved from ``chs_info`` are used (and only
             the kept channels are read when ``on_missing="drop"`` removed some).
         return_output : bool, optional
-            If True, returns the output from the transformer directly.
+            If True, returns the output from the transformer directly, zero for the
+            tokens of padded channels.
             If False, applies the final layer and returns the processed output. Default is False.
         return_features : bool, optional
-            If True, returns a dict ``{"features": Tensor, "cls_token": None}``
-            with encoder features before the final layer. Default is False.
+            If True, returns a dict ``{"features": Tensor, "cls_token": None,
+            "tokens": Tensor}`` with the encoder tokens before the final layer,
+            ``(batch, n_chans, n_patches, embed_dim)`` in both, zero for padded
+            channels. Default is False.
+        ch_mask : torch.Tensor, optional
+            ``(batch, n_chans)`` mask of real channels, see
+            :func:`~braindecode.functional.check_ch_mask`. Padded channels affect no
+            pooled output; their positions only need to be finite (e.g. 0). The
+            classification head needs ``attention_pooling=True``.
 
         Returns
         -------
@@ -505,14 +534,49 @@ class REVE(EEGModuleMixin, nn.Module):
                 "return_output and return_features are mutually exclusive."
             )
 
+        mask = check_ch_mask(ch_mask, x)
+        if (
+            mask is not None
+            and not self.use_attention_pooling
+            and not (return_output or return_features)
+        ):
+            raise ValueError(
+                "ch_mask needs attention_pooling=True: the flattened head is tied "
+                "to the channels."
+            )
+        if pos is None and self.default_pos is not None:  # the chs_info montage
+            check_n_chans(
+                x,
+                self.n_chans,
+                "REVE",
+                "pass pos for these channels, or use a channel_strategy.",
+            )
+        elif pos is not None and not (
+            self.use_attention_pooling or return_output or return_features
+        ):
+            head_channels = self._n_pos_chans
+            check_n_chans(
+                x,
+                self.n_chans if head_channels is None else head_channels,
+                "REVE",
+                "use attention_pooling=True or return_features=True for another montage.",
+            )
         channel_index = self.channel_index
         if pos is None and channel_index is not None:
-            eeg = eeg.index_select(1, channel_index.to(eeg.device))
+            x = x.index_select(1, channel_index.to(x.device))
+            if mask is not None:
+                # A sample whose real channels were all dropped has none left.
+                mask = check_ch_mask(
+                    mask.index_select(1, channel_index.to(x.device)), x
+                )
+        if mask is not None:
+            # Padding may hold NaN, which the patch embedding would spread.
+            x = x.masked_fill(~mask[:, :, None], 0.0)
         step = self.patch_size - self.patch_overlap
         # Right zero-pad (or crop) so the overlapping patches tile the window;
         # a tiled window is passed through untouched.
-        eeg = pad_or_crop_to_patches(eeg, self.patch_size, self.on_non_divisible, step)
-        patches = eeg.unfold(dimension=2, size=self.patch_size, step=step)
+        x = pad_or_crop_to_patches(x, self.patch_size, self.on_non_divisible, step)
+        patches = x.unfold(dimension=2, size=self.patch_size, step=step)
         batch_size, channel, n_patches, _ = patches.shape
 
         if pos is None:
@@ -521,13 +585,20 @@ class REVE(EEGModuleMixin, nn.Module):
                     "No positions provided and no default positions available. Please provide channel positions."
                 )
             # One copy for the whole batch: the embedding below broadcasts.
-            pos = self.default_pos.unsqueeze(0).to(eeg.device)
+            pos = self.default_pos.unsqueeze(0).to(x.device)
+        token_mask: Optional[torch.Tensor] = None
+        attn_mask: Optional[torch.Tensor] = None
+        if mask is not None:
+            pos = pos.masked_fill(~mask[:, :, None], 0.0)
+            # Tokens are (channel, patch), channel outermost.
+            token_mask = mask.repeat_interleave(n_patches, dim=1)
+            attn_mask = token_mask[:, None, None, :]
 
         pos = FourierEmb4D.add_time_patch(pos, n_patches)
         # Positions stay in float32 for the Fourier features; the embedding
         # follows the signal's dtype.
         pos_embed = self.ln(
-            self.fourier4d(pos).to(eeg.dtype) + self.mlp4d(pos.to(eeg.dtype))
+            self.fourier4d(pos).to(x.dtype) + self.mlp4d(pos.to(x.dtype))
         )
 
         # Patch embedding: (batch, channels, n_patches, patch_size) -> (batch, channels, n_patches, embed_dim)
@@ -537,27 +608,37 @@ class REVE(EEGModuleMixin, nn.Module):
         # (batch, channels, n_patches, embed_dim) -> (batch, channels * n_patches, embed_dim)
         # This creates a sequence of tokens where each token represents one patch from one channel
         x = patch_embeddings.flatten(1, 2) + pos_embed
-        encoded = self.transformer(x, return_output)
+        encoded = self.transformer(x, return_output, attn_mask)
 
         if not isinstance(encoded, torch.Tensor):  # return_output: one per layer
+            if token_mask is not None:
+                encoded = [h.masked_fill(~token_mask[:, :, None], 0.0) for h in encoded]
             return encoded
 
         # Reshape back from flattened sequence to separate channel and temporal dimensions
         # (batch, channels * n_patches, embed_dim) -> (batch, channels, n_patches, embed_dim)
         # This recovers the spatio-temporal structure for downstream processing
         x = encoded.reshape(batch_size, channel, n_patches, self.embed_dim)
+        if mask is not None:
+            x = x.masked_fill(~mask[:, :, None, None], 0.0)
 
         if return_features:
-            out: Dict[str, Optional[torch.Tensor]] = {"features": x, "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {
+                "features": x,
+                "cls_token": None,
+                "tokens": x,
+            }
             return out
 
         if self.use_attention_pooling:
-            x = self._attention_pooling(x)
+            x = self._attention_pooling(x, token_mask)
 
         x = self.final_layer(x)
         return x
 
-    def _attention_pooling(self, x: torch.Tensor) -> torch.Tensor:
+    def _attention_pooling(
+        self, x: torch.Tensor, token_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """Apply attention pooling on the sequence dimension of x.
 
         Parameters
@@ -566,6 +647,9 @@ class REVE(EEGModuleMixin, nn.Module):
             Input tensor of shape (B, C, S, E), where B is the batch size,
             C is the number of channels, S is the sequence length,
             and E is the embedding dimension. Typically the output from the transformer.
+        token_mask : torch.Tensor, optional
+            ``(B, C*S)`` boolean mask of the tokens that take part, ``True`` for
+            real ones.
 
         Returns
         -------
@@ -581,6 +665,10 @@ class REVE(EEGModuleMixin, nn.Module):
         attention_scores = torch.matmul(query_output, x.transpose(-1, -2)) / (
             self.embed_dim**0.5
         )  # (B, 1, C*S)
+        if token_mask is not None:
+            attention_scores = attention_scores.masked_fill(
+                ~token_mask[:, None, :], float("-inf")
+            )
         attention_weights = torch.softmax(attention_scores, dim=-1)  # (B, 1, C*S)
         out = torch.matmul(attention_weights, x).squeeze(1)  # (B, E)
         return out
@@ -638,15 +726,14 @@ class Attention(nn.Module):
         self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
         self.to_out = nn.Linear(inner_dim, dim, bias=False)
 
-    def forward(self, x):
+    def forward(self, x, attn_mask: Optional[torch.Tensor] = None):
         x = self.norm(x)
         q, k, v = self.to_qkv(x).chunk(3, dim=-1)
         # (batch, seq, heads * dim) -> (batch, heads, seq, dim), and back
         q = q.unflatten(-1, (self.heads, -1)).transpose(1, 2)
         k = k.unflatten(-1, (self.heads, -1)).transpose(1, 2)
         v = v.unflatten(-1, (self.heads, -1)).transpose(1, 2)
-        # ~700-token sequences: the fused kernel also beats lazy mode's graph.
-        out = scaled_dot_product_attention(q, k, v, fused_in_lazy=True)
+        out = scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
         return self.to_out(out.transpose(1, 2).flatten(2))
 
 
@@ -679,11 +766,14 @@ class TransformerBackbone(nn.Module):
             )
 
     def forward(
-        self, x, return_out_layers: bool = False
+        self,
+        x,
+        return_out_layers: bool = False,
+        attn_mask: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         out_layers = [x] if return_out_layers else []
         for layer in self.layers:  # (attention, feed-forward)
-            x = layer[0](x) + x
+            x = layer[0](x, attn_mask) + x
             x = layer[1](x) + x
             if return_out_layers:
                 out_layers.append(x)
@@ -731,7 +821,14 @@ class FourierEmb4D(nn.Module):
         if torch.jit.is_scripting():  # TorchScript needs a constant autocast device
             emb = self._embed(positions_.float()).to(positions_.dtype)
         else:
-            with torch.autocast(device_type=positions_.device.type, enabled=False):
+            device_type = positions_.device.type
+            # Meta tensors have no autocast state to switch off.
+            autocast_off = (
+                contextlib.nullcontext()
+                if device_type == "meta"
+                else torch.autocast(device_type=device_type, enabled=False)
+            )
+            with autocast_off:
                 emb = self._embed(positions_.float()).to(positions_.dtype)
         return emb
 
@@ -741,7 +838,7 @@ class FourierEmb4D(nn.Module):
         input_shape = positions.shape
         batch_dims = list(input_shape[:-1])
 
-        freqs_w = torch.arange(self.freqs).to(positions)
+        freqs_w = torch.arange(self.freqs, device=positions.device).to(positions)
         freqs_z = freqs_w[:, None]
         freqs_y = freqs_z[:, None]
         freqs_x = freqs_y[:, None]
@@ -816,104 +913,64 @@ class FourierEmb4D(nn.Module):
 
 
 class RevePositionBank(torch.nn.Module):
-    """Position bank for REVE model that maps standard EEG channel names to 3D coordinates.
+    """REVE's electrode positions (m) by channel name.
 
-    The coordinates come from the 92 datasets used during REVE pretraining.
-
-    The bank is cached in the MNE data directory after the first download, so it
-    works offline afterwards. On restricted nodes (e.g. HPC compute nodes without
-    a proxy), drop a prefetched ``reve_positions.json`` in that directory and no
-    download is attempted.
+    The 543 names and positions of REVE's pretraining bank, rebuilt from MNE's
+    montages without a download: the 10-05 family, BioSemi-128 (also as
+    ``biosemi128_<name>``) and EGI HydroCel-129 aligned on 10-05 ``Cz``.
 
     Parameters
     ----------
     url : str, optional
-        URL to download the position bank JSON file. Default is the HuggingFace URL.
+        Ignored, the bank is no longer downloaded; passing it warns.
     timeout : int, optional
-        Timeout in seconds for the HTTP request. Default is 5 seconds.
+        Ignored, like ``url``.
     cache_dir : str, optional
-        Directory to cache the position bank. If ``None``, resolved like other
-        braindecode datasets via the ``REVE_POSITIONS_PATH`` config key, falling
-        back to the MNE data directory (usually ``~/mne_data``).
+        Ignored, like ``url``.
     """
 
     def __init__(
         self,
-        url: str = "https://huggingface.co/brain-bzh/reve-positions/resolve/main/positions.json",
-        timeout: int = 5,
+        url: Optional[str] = None,
+        timeout: Optional[int] = None,
         cache_dir: Optional[str] = None,
     ):
         super().__init__()
-
-        cache_dir = _get_path(cache_dir, "REVE_POSITIONS_PATH", "REVE positions")
-        cache_file = os.path.join(cache_dir, "reve_positions.json")
-
-        # Offline path: reuse the cached/prefetched file. Download only on a miss
-        # or if the cached copy is unreadable (e.g. an interrupted download).
-        try:
-            with open(cache_file) as f:
-                config = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            try:
-                if os.path.exists(cache_file):
-                    os.remove(cache_file)  # corrupt/partial; force a fresh copy
-                # pooch ships with mne and writes straight into the cache dir.
-                pooch.retrieve(
-                    url,
-                    known_hash=None,
-                    fname="reve_positions.json",
-                    path=cache_dir,
-                    downloader=pooch.HTTPDownloader(timeout=timeout),
-                )
-                with open(cache_file) as f:
-                    config = json.load(f)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Failed to download the position bank from {url}. On an "
-                    f"offline node, prefetch it to {cache_file} first: {e}"
-                ) from e
-
-        try:
-            self.position_names = list(config.keys())
-            self.mapping = {name: i for i, name in enumerate(self.position_names)}
-            positions_data = list(config.values())
-            positions = torch.tensor(positions_data, dtype=torch.float32)
-            self.register_buffer("embedding", positions, persistent=False)
-
-            # Validate shape (N, 3)
-            if self.embedding.dim() != 2 or self.embedding.shape[1] != 3:
-                raise ValueError(
-                    f"Position data must have shape (N, 3), but got {self.embedding.shape}"
-                )
-
-            assert self.embedding.shape == (len(self.mapping), 3), (
-                f"Expected embedding shape ({len(self.mapping)}, 3), but got {self.embedding.shape}"
+        if url is not None or timeout is not None or cache_dir is not None:
+            warnings.warn(
+                "RevePositionBank no longer downloads its positions: url, timeout "
+                "and cache_dir are ignored and will be removed.",
+                FutureWarning,
+                stacklevel=2,
             )
-
-        except (ValueError, TypeError, AssertionError) as e:
-            raise RuntimeError(
-                f"Invalid position data format in the downloaded config: {e}"
-            ) from e
+        bank = _reve_position_bank()
+        self.position_names = list(bank)
+        self.mapping = {name: i for i, name in enumerate(bank)}
+        positions = torch.as_tensor(np.stack(list(bank.values())), dtype=torch.float32)
+        self.register_buffer("embedding", positions, persistent=False)
 
     @torch.jit.unused  # name lookup at construction; never part of a scripted forward
     def forward(self, channel_names: list[str]) -> torch.Tensor:
-        """Positions ``(len(channel_names), 3)`` of bank names (exact match).
+        """Positions ``(len(channel_names), 3)`` of bank names.
 
-        Raises a :class:`ValueError` for a name the bank does not hold, so the
-        rows always match ``channel_names``; to place other names (case,
-        aliases, ``loc``, bipolar pairs) use
-        :func:`~braindecode.modules.resolve_channel_positions`.
+        A name matches exactly, else ignoring case. Raises a
+        :class:`ValueError` for a name the bank does not hold, so the rows
+        always match ``channel_names``; to place other names (aliases, ``loc``,
+        bipolar pairs) use :func:`~braindecode.modules.resolve_channel_positions`.
         """
-        missing = [q for q in channel_names if q not in self.mapping]
+        # Built from the mapping at call time, so a bank pickled before this fold
+        # existed still matches ignoring case.
+        fold = {name.upper(): i for name, i in self.mapping.items()}
+        indices = [self.mapping.get(q, fold.get(q.upper())) for q in channel_names]
+        missing = [q for q, i in zip(channel_names, indices) if i is None]
         if missing:
             raise ValueError(
                 f"The REVE position bank has no position for {missing}; use "
                 "braindecode.modules.resolve_channel_positions to place them "
-                "(case, aliases, 'loc', bipolar pairs) or pass pos to forward."
+                "(aliases, 'loc', bipolar pairs) or pass pos to forward."
             )
-        indices = [self.mapping[q] for q in channel_names]
-        indices = torch.tensor(indices, dtype=torch.long, device=self.embedding.device)
-        return self.embedding[indices]
+        index = torch.tensor(indices, dtype=torch.long, device=self.embedding.device)
+        return self.embedding[index]
 
     def get_all_positions(self):
         return self.position_names

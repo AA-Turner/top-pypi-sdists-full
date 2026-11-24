@@ -10,16 +10,16 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
-
-from nab_markersets._compat import get_int_max_str_digits
-from nab_provider._vendor.packaging.markers import (
+from packaging.markers import (
     InvalidMarker,
     Marker,
     default_environment,
 )
-from nab_provider._vendor.packaging.specifiers import Specifier, SpecifierSet
-from nab_provider._vendor.packaging.tags import Tag
-from nab_provider._vendor.packaging.version import InvalidVersion, Version
+from packaging.specifiers import Specifier, SpecifierSet
+from packaging.tags import Tag
+from packaging.version import InvalidVersion, Version
+
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import (
     IMPLEMENTATION_MARKERS,
@@ -36,6 +36,7 @@ from nab_provider.target import (
     environment_declaration,
     host_environment,
     marker_variables,
+    micro_boundaries,
     micro_boundary_points,
     python_axis_environment,
     slices_from_points,
@@ -85,6 +86,15 @@ class TestRequiresPythonCoverage:
         ).with_micro_slice("3.12.4", ('python_full_version >= "3.12.4"',))
         assert target.covered_by_requires_python([SpecifierSet(">=3.12.4")])
         assert not target.covered_by_requires_python([SpecifierSet(">=3.12.5")])
+
+    def test_prerelease_slice_needs_wheels_that_support_prereleases(self) -> None:
+        minor = ResolveTarget.for_declared(
+            python_version="3.12", spec=PlatformSpec("linux_x86_64")
+        )
+        before_final, _ = slices_from_points(minor, [Version("3.12.0")])
+
+        assert not before_final.covered_by_requires_python([SpecifierSet(">=3.12")])
+        assert before_final.covered_by_requires_python([SpecifierSet(">=3.12.0.dev0")])
 
     def test_exact_patch(self) -> None:
         target = ResolveTarget.for_declared(
@@ -244,7 +254,7 @@ class TestForHostPython:
         target = ResolveTarget.for_host_python(
             "3.10.5", env_source=_host_env, tags_source=_host_tags
         )
-        assert target.label == "py310-host"
+        assert target.label == "py310-patch3.10.5-host"
 
     def test_tags_keep_the_host_platforms(self) -> None:
         """The host's platform tags carry over, in the host's own order."""
@@ -300,6 +310,19 @@ class TestForHostPython:
         assert not target.is_minor_interval
         assert 'python_full_version == "3.13.0"' in declared_range_marker(target)
 
+    @pytest.mark.parametrize("python", ["3.14rc1", "3.14.dev1", "3.14+acme"])
+    def test_qualified_release_declares_one_interpreter(self, python: str) -> None:
+        target = ResolveTarget.for_host_python(
+            python, env_source=_host_env, tags_source=_host_tags
+        )
+        row = Marker(environment_declaration(target, ()))
+        later = ResolveTarget.for_host_python(
+            "3.14.1", env_source=_host_env, tags_source=_host_tags
+        )
+
+        assert row.evaluate(target.marker_env)
+        assert not row.evaluate(later.marker_env)
+
     def test_bare_minor_is_an_interval(self) -> None:
         """A bare ``3.13`` target is a micro interval off its ``.0`` floor."""
         target = ResolveTarget.for_host_python(
@@ -335,6 +358,15 @@ class TestForDeclared:
         }
         assert target.marker_env["sys_platform"] == "darwin"
         assert target.python_full_version == "3.12.0"
+
+    @pytest.mark.parametrize("patch", ["", "3.12.4"])
+    def test_invalid_patch_cannot_define_a_target(self, patch: str) -> None:
+        with pytest.raises(ValueError, match="python-patches"):
+            ResolveTarget.for_declared(
+                python_version="3.11",
+                spec=PlatformSpec("linux_x86_64"),
+                python_full_version=patch,
+            )
 
     def test_patch_release_overrides_the_default(self) -> None:
         target = ResolveTarget.for_declared(
@@ -481,7 +513,9 @@ class TestAdmitsRequiresPython:
         row still stands for every interpreter above the boundary, so the whole
         minor is the admission granularity.
         """
-        floor, upper = slices_from_points(_a_bare_minor_target(), [Version("3.13.4")])
+        floor, upper = slices_from_points(
+            _a_bare_minor_target(), [Version("3.13.4.dev0")]
+        )
         assert floor.is_minor_interval
         assert upper.is_minor_interval
         spec = SpecifierSet(">=3.13.6")
@@ -496,6 +530,17 @@ class TestLabels:
             python_version="3.11", spec=PlatformSpec("linux_x86_64")
         )
         assert target.label == "py311-linux_x86_64"
+
+    def test_distinct_patch_versions_do_not_share_target_keys(self) -> None:
+        spec = PlatformSpec("linux_x86_64")
+        patches = (None, "3.13.0", "3.13.4", "3.13.4+a.b", "3.13.4+ab")
+        targets = {
+            ResolveTarget.for_declared(
+                python_version="3.13", spec=spec, python_full_version=patch
+            )
+            for patch in patches
+        }
+        assert len(targets) == len(patches)
 
     def test_pypy_label_uses_pp_prefix(self) -> None:
         target = ResolveTarget.for_declared(
@@ -625,6 +670,18 @@ class TestMarkerStrings:
             'and "cpu" in extras and "isort5" in dependency_groups'
         )
 
+    def test_explicit_patch_marker_excludes_other_patches(self) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.13",
+            python_full_version="3.13.4",
+            spec=PlatformSpec("linux_x86_64"),
+        )
+        marker = Marker(target.environment_marker_string)
+        assert marker.evaluate(target.marker_env)
+        assert not marker.evaluate(
+            {**target.marker_env, "python_full_version": "3.13.3"}
+        )
+
     def test_environment_marker_string_omits_selection(self) -> None:
         target = self._linux_311().with_selection((("group", "black22"),))
         assert "in dependency_groups" not in target.environment_marker_string
@@ -670,6 +727,29 @@ class TestEnvWithMembership:
 
 
 class TestWithMarkerOverrides:
+    @pytest.mark.parametrize(
+        ("language", "expected"),
+        [({}, "3.10.8"), ({"python_version": "3.11"}, "3.11.0")],
+    )
+    def test_switch_to_cpython_uses_its_language_version(
+        self, language: dict[str, str], expected: str
+    ) -> None:
+        base = ResolveTarget.for_declared(
+            python_version="3.10",
+            python_full_version="3.10.8",
+            implementation="pypy",
+            spec=PlatformSpec("linux_x86_64"),
+        ).with_marker_overrides({"implementation_version": "7.3.15"})
+        target = base.with_marker_overrides(
+            {"implementation_name": "cpython", **language}
+        )
+        assert (
+            target.marker_env["implementation_version"]
+            == target.python_full_version
+            == expected
+        )
+        assert base.marker_env["implementation_version"] == "7.3.15"
+
     def test_empty_overrides_keep_the_target(self) -> None:
         target = ResolveTarget.for_host(env_source=_host_env, tags_source=_host_tags)
         assert target.with_marker_overrides({}) is target
@@ -854,6 +934,28 @@ class TestApplyPythonAxisOverlay:
         assert env["sys_platform"] == "win32"
         assert env["python_full_version"] == "3.11.5"
 
+    def test_switch_away_from_cpython_keeps_an_independent_version(self) -> None:
+        env = {"implementation_name": "cpython", "implementation_version": "3.10.8"}
+        apply_python_axis_overlay(
+            env, {"implementation_name": "pypy", "python_version": "3.11"}
+        )
+        assert env["implementation_version"] == "3.10.8"
+        assert env["python_full_version"] == "3.11.0"
+
+    def test_partial_environment_without_a_language_version(self) -> None:
+        env: dict[str, str] = {}
+        apply_python_axis_overlay(env, {"implementation_name": "cpython"})
+        assert env == {"implementation_name": "cpython"}
+
+    def test_invalid_full_version_leaves_the_environment_untouched(self) -> None:
+        env = {"python_full_version": "3.10.8", "python_version": "3.10"}
+        before = env.copy()
+        with pytest.raises(InvalidVersion):
+            apply_python_axis_overlay(
+                env, {"python_full_version": "", "python_version": "3.11"}
+            )
+        assert env == before
+
     def test_explicit_implementation_version_override_wins(self) -> None:
         """An explicit implementation_version override is kept verbatim."""
         env = {
@@ -963,17 +1065,18 @@ class TestEnvironmentDeclaration:
         assert declaration.endswith('and platform_system == "Linux"')
         assert Marker(declaration).evaluate(_HOST_ENV)
 
-    def test_an_arbitrary_equality_marker_adds_no_full_version_clause(self) -> None:
-        """A consulted ``===`` on the version axis names the axis (the scrape
-        collects it) but the algebra rejects the ``===`` atom, so it yields no
-        boundary: a whole target adds no ``python_full_version`` clause and the
-        declaration still holds on the target.
-        """
-        declaration = environment_declaration(
-            self._target(), [Marker('python_full_version === "3.13.5"')]
+    def test_host_uses_its_patch_when_a_marker_cannot_be_split(self) -> None:
+        target = self._target()
+        row = Marker(
+            environment_declaration(
+                target, [Marker('python_full_version === "3.13.5"')]
+            )
         )
-        assert "python_full_version" not in declaration
-        assert Marker(declaration).evaluate(self._target().marker_env)
+        assert row.evaluate(target.marker_env)
+        assert not row.evaluate({**target.marker_env, "python_full_version": "3.13.5"})
+        assert not row.evaluate(
+            {**target.marker_env, "python_full_version": "3.13.2+local"}
+        )
 
     def test_consulted_variables_are_declared_in_sorted_order(self) -> None:
         declaration = environment_declaration(
@@ -1054,11 +1157,7 @@ class TestEnvironmentDeclaration:
 
 
 class TestVersionEmission:
-    """``python_full_version`` is never declared by value.  A minor target is a
-    micro interval and a consulted marker splits it at its boundary, so each
-    slice carries its own ``python_full_version`` bounds; a whole target and an
-    unsplit minor emit no ``python_full_version`` clause at all.
-    """
+    """Compare the declared ranges of hosts, exact patches and minor intervals."""
 
     def _minor(self) -> ResolveTarget:
         return ResolveTarget.for_declared(
@@ -1071,6 +1170,37 @@ class TestVersionEmission:
 
         return ResolveTarget.for_host(env_source=env_source, tags_source=_host_tags)
 
+    @pytest.mark.parametrize(
+        "expression",
+        [
+            'python_full_version in "3.13.4+vendor"',
+            '"vendor" not in python_full_version',
+            'implementation_version not in "3.13.4+vendor"',
+            '"vendor" in implementation_version',
+            (
+                'python_full_version in "3.13.4+vendor" and sys_platform in "linux win32" '
+                'and python_full_version >= "3.12"'
+            ),
+        ],
+    )
+    def test_exact_build_preserves_string_membership(self, expression: str) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.13",
+            python_full_version="3.13.4+vendor",
+            spec=PlatformSpec("linux_x86_64"),
+        )
+        consulted = Marker(expression)
+        row = Marker(environment_declaration(target, [consulted]))
+        resolved = consulted.evaluate(target.marker_env)
+
+        for version in ("3.13.4+vendor", "3.13.4+VENDOR", "03.13.4+vendor"):
+            env = {
+                **target.marker_env,
+                "python_full_version": version,
+                "implementation_version": version,
+            }
+            assert row.evaluate(env) == (consulted.evaluate(env) == resolved)
+
     def test_an_unsplit_minor_emits_a_plain_row(self) -> None:
         """A minor no marker split reverts to a plain ``python_version`` row."""
         declaration = environment_declaration(self._minor(), ())
@@ -1078,6 +1208,42 @@ class TestVersionEmission:
             'python_version == "3.12" and sys_platform == "linux"'
             ' and platform_machine == "x86_64"'
         )
+
+    def test_patch_pin_refuses_other_patch_releases(self) -> None:
+        target = _a_patch_pinned_target()
+        row = Marker(environment_declaration(target, ()))
+        assert row.evaluate(target.marker_env)
+        assert not row.evaluate({**target.marker_env, "python_full_version": "3.13.3"})
+
+    @pytest.mark.parametrize(
+        "variable", ["python_full_version", "implementation_version"]
+    )
+    def test_patch_pin_with_a_version_marker_refuses_unresolved_builds(
+        self, variable: str
+    ) -> None:
+        target = _a_patch_pinned_target()
+        consulted = Marker(f'{variable} == "3.13.4+vendor"')
+        row = Marker(environment_declaration(target, [consulted]))
+
+        assert row.evaluate(target.marker_env)
+        local = dict(
+            target.marker_env,
+            python_full_version="3.13.4+vendor",
+            implementation_version="3.13.4+vendor",
+        )
+        assert consulted.evaluate(local)
+        assert not row.evaluate(local)
+
+    def test_explicit_local_patch_pin_accepts_its_build(self) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.13",
+            python_full_version="3.13.4+vendor",
+            spec=PlatformSpec("linux_x86_64"),
+        )
+        consulted = Marker('python_full_version == "3.13.4+vendor"')
+        row = Marker(environment_declaration(target, [consulted]))
+        assert row.evaluate(target.marker_env)
+        assert not row.evaluate({**target.marker_env, "python_full_version": "3.13.4"})
 
     def test_a_uniform_marker_leaves_the_minor_plain(self) -> None:
         """A consulted marker whose boundary falls outside the minor is uniform,
@@ -1087,22 +1253,56 @@ class TestVersionEmission:
         )
         assert "python_full_version" not in declaration
 
-    def test_a_whole_target_emits_no_full_version_clause(self) -> None:
-        """A host names a real micro and is whole, so a consulted marker on the
-        micro is not lifted onto the row: the row is its plain minor."""
+    @pytest.mark.parametrize(
+        "variable", ["python_full_version", "implementation_version"]
+    )
+    def test_host_declares_the_patch_interval_it_resolved(self, variable: str) -> None:
+        host = self._host()
+        consulted = Marker(f'{variable} >= "3.13.4"')
+        row = Marker(environment_declaration(host, [consulted]))
+        for version in ("3.13.1", "3.13.2", "3.13.4rc1", "3.13.4", "3.13.5"):
+            env = {
+                **host.marker_env,
+                "python_full_version": version,
+                "implementation_version": version,
+            }
+            assert row.evaluate(env) is (not consulted.evaluate(env))
+
+    def test_host_at_the_boundary_uses_the_upper_patch_interval(self) -> None:
+        host = self._host("3.13.4")
+        row = Marker(
+            environment_declaration(host, [Marker('python_full_version >= "3.13.4"')])
+        )
+        assert row.evaluate(host.marker_env)
+        assert row.evaluate({**host.marker_env, "python_full_version": "3.13.5"})
+        assert not row.evaluate({**host.marker_env, "python_full_version": "3.13.3"})
+
+    def test_host_leaves_uniform_minor_open(self) -> None:
         declaration = environment_declaration(
-            self._host(), [Marker('python_full_version >= "3.13.4"')]
+            self._host(),
+            [Marker('python_full_version >= "3.0" and "linux" == sys_platform')],
         )
         assert "python_full_version" not in declaration
-        assert declaration == (
-            'python_version == "3.13" and sys_platform == "linux"'
-            ' and platform_machine == "x86_64"'
-        )
+
+    @pytest.mark.parametrize(
+        "operand", ["python_full_version", '"python_full_version"']
+    )
+    def test_reversed_comparison_stays_on_the_observed_host_build(
+        self, operand: str
+    ) -> None:
+        host = self._host()
+        consulted = Marker(f'"3.13.2" == {operand}')
+        local = {**host.marker_env, "python_full_version": "3.13.2+vendor"}
+        row = Marker(environment_declaration(host, [consulted]))
+        assert consulted.evaluate(host.marker_env)
+        assert not consulted.evaluate(local)
+        assert row.evaluate(host.marker_env)
+        assert not row.evaluate(local)
 
     def test_a_split_slice_emits_dev0_lower_and_release_upper(self) -> None:
         """The above slice's lower bound is snapped to ``.dev0``; the below
         slice's upper bound stays release form."""
-        below, above = slices_from_points(self._minor(), [Version("3.12.4")])
+        below, above = slices_from_points(self._minor(), [Version("3.12.4.dev0")])
         consulted = [Marker('python_full_version >= "3.12.4"')]
         assert 'python_full_version < "3.12.4"' in environment_declaration(
             below, consulted
@@ -1115,7 +1315,7 @@ class TestVersionEmission:
         """A consulted marker that never reads ``python_full_version`` does not
         disturb the slice bounds; only the markers that read the axis split it,
         so an off-axis ``os_name`` clause leaves the split untouched."""
-        below, above = slices_from_points(self._minor(), [Version("3.12.4")])
+        below, above = slices_from_points(self._minor(), [Version("3.12.4.dev0")])
         consulted = [
             Marker('python_full_version >= "3.12.4"'),
             Marker('os_name == "posix"'),
@@ -1131,7 +1331,7 @@ class TestVersionEmission:
         """On CPython ``implementation_version`` tracks ``python_full_version``,
         so a marker that consulted it gets the slice's bounds mirrored onto its
         own name alongside the ``python_full_version`` ones."""
-        _below, above = slices_from_points(self._minor(), [Version("3.12.4")])
+        _below, above = slices_from_points(self._minor(), [Version("3.12.4.dev0")])
         declaration = environment_declaration(
             above, [Marker('implementation_version >= "3.12.4"')]
         )
@@ -1141,7 +1341,7 @@ class TestVersionEmission:
     def test_implementation_version_is_not_mirrored_when_not_consulted(self) -> None:
         """No marker consulted ``implementation_version``, so only the
         ``python_full_version`` bound is emitted."""
-        _below, above = slices_from_points(self._minor(), [Version("3.12.4")])
+        _below, above = slices_from_points(self._minor(), [Version("3.12.4.dev0")])
         declaration = environment_declaration(
             above, [Marker('python_full_version >= "3.12.4"')]
         )
@@ -1268,26 +1468,21 @@ class TestMicroBoundarySplitting:
     @pytest.mark.parametrize(
         ("marker", "points"),
         [
-            ('python_full_version < "3.12.4"', ["3.12.4"]),
+            ('python_full_version < "3.12.4"', ["3.12.4.dev0"]),
             ('python_full_version >= "3.12.4"', ["3.12.4"]),
-            ('python_full_version <= "3.12.4"', ["3.12.5"]),
-            ('python_full_version > "3.12.4"', ["3.12.5"]),
-            ('python_full_version == "3.12.4"', ["3.12.4", "3.12.5"]),
-            ('python_full_version != "3.12.4"', ["3.12.4", "3.12.5"]),
+            ('python_full_version <= "3.12.4"', ["3.12.5.dev0"]),
+            ('python_full_version > "3.12.4"', ["3.12.5.dev0"]),
+            ('python_full_version == "3.12.4"', ["3.12.4", "3.12.5.dev0"]),
+            ('python_full_version != "3.12.4"', ["3.12.4", "3.12.5.dev0"]),
             ('python_full_version ~= "3.12.4"', ["3.12.4"]),
             ('python_full_version == "3.12.*"', []),
-            ('python_full_version == "3.12.4.*"', ["3.12.4", "3.12.5"]),
+            ('python_full_version == "3.12.4.*"', ["3.12.4.dev0", "3.12.5.dev0"]),
         ],
     )
     def test_each_operator_maps_to_its_boundaries(
         self, marker: str, points: list[str]
     ) -> None:
-        """``<``/``>=`` cut at the literal, ``<=``/``>`` at the release after
-        it, and ``==``/``!=``/``~=``/``== V.*`` at each edge of the region they
-        name.  A boundary outside the minor or at its floor cuts nothing, so
-        ``~= "3.12.4"`` cuts only its lower edge and ``== "3.12.*"`` cuts
-        nothing.
-        """
+        """The operator determines whether the cut begins at a dev or final release."""
         found = micro_boundary_points(self._target(), [Marker(marker)])
         assert [str(point) for point in found] == points
 
@@ -1296,70 +1491,92 @@ class TestMicroBoundarySplitting:
         [
             ('"3.12.4" > python_full_version', ["3.12.4"]),
             ('"3.12.4" <= python_full_version', ["3.12.4"]),
-            ('"3.12.4" >= python_full_version', ["3.12.5"]),
-            ('"3.12.4" < python_full_version', ["3.12.5"]),
-            ('"3.12.4" == python_full_version', ["3.12.4", "3.12.5"]),
-            ('"3.12.4" != python_full_version', ["3.12.4", "3.12.5"]),
+            ('"3.12.4" >= python_full_version', ["3.12.5.dev0"]),
+            ('"3.12.4" < python_full_version', ["3.12.5.dev0"]),
+            ('"3.12.4" == python_full_version', ["3.12.4", "3.12.5.dev0"]),
+            ('"3.12.4" != python_full_version', ["3.12.4", "3.12.5.dev0"]),
         ],
     )
-    def test_a_literal_on_the_left_mirrors_the_operator(
+    def test_literal_first_boundaries_follow_packaging(
         self, marker: str, points: list[str]
     ) -> None:
-        """PEP 508 allows the literal first, and packaging keeps that order.
-        An ordered or symmetric operator is mirrored back to variable-on-left
-        form, so each literal-first clause cuts at the same release as its
-        variable-first equivalent: ``"3.12.4" > python_full_version`` reads
-        like ``< "3.12.4"``.
-        """
+        """Packaging compares the literal to each interpreter's specifier."""
         found = micro_boundary_points(self._target(), [Marker(marker)])
         assert [str(point) for point in found] == points
+
+    @pytest.mark.parametrize("axis", ["python_full_version", "implementation_version"])
+    @pytest.mark.parametrize("quoted", [False, True])
+    def test_local_build_distinction_covers_the_minor(
+        self, axis: str, *, quoted: bool
+    ) -> None:
+        target = self._target()
+        operand = f'"{axis}"' if quoted else axis
+        consulted = Marker(f'"3.12.4" == {operand}')
+        slices = micro_boundaries(target, [consulted]).slices(target)
+        rows = [Marker(environment_declaration(part, [consulted])) for part in slices]
+
+        for version in ("3.12.3", "3.12.4rc1", "3.12.4", "3.12.4+vendor", "3.12.5"):
+            env = dict(
+                target.marker_env,
+                python_full_version=version,
+                implementation_version=version,
+            )
+            [part] = [
+                s for s, row in zip(slices, rows, strict=True) if row.evaluate(env)
+            ]
+            assert consulted.evaluate(part.marker_env) is consulted.evaluate(env)
+
+    def test_local_selector_preserves_the_release_bounds_for_artifacts(self) -> None:
+        target = self._target()
+        markers = [
+            Marker('python_full_version >= "3.12.4" and "+" in python_full_version')
+        ]
+        slices = micro_boundaries(target, markers).slices(target)
+        local = next(
+            part for part in slices if part.python_full_version == "3.12.4+local"
+        )
+        assert local.covered_by_requires_python([SpecifierSet(">=3.12.4")])
+        assert not local.covered_by_requires_python([SpecifierSet(">=3.12.5")])
 
     @pytest.mark.parametrize(
         ("marker", "points"),
         [
             ('python_full_version < "3.12.0"', []),
-            ('python_full_version >= "3.12.0"', []),
-            ('python_full_version <= "3.12.0"', ["3.12.1"]),
-            ('python_full_version > "3.12.0"', ["3.12.1"]),
+            ('python_full_version >= "3.12.0"', ["3.12.0"]),
+            ('python_full_version <= "3.12.0"', ["3.12.1.dev0"]),
+            ('python_full_version > "3.12.0"', ["3.12.1.dev0"]),
             ('python_full_version < "3.12"', []),
-            ('python_full_version >= "3.12"', []),
-            ('python_full_version <= "3.12"', ["3.12.1"]),
-            ('python_full_version > "3.12"', ["3.12.1"]),
+            ('python_full_version >= "3.12"', ["3.12.0"]),
+            ('python_full_version <= "3.12"', ["3.12.1.dev0"]),
+            ('python_full_version > "3.12"', ["3.12.1.dev0"]),
         ],
     )
-    def test_a_boundary_at_the_floor_splits_only_after_the_literal(
+    def test_a_boundary_at_the_first_patch(
         self, marker: str, points: list[str]
     ) -> None:
-        """``.0`` is the minor's floor. ``<``/``>=`` flip there and cut
-        nothing, but ``<=``/``>`` flip at ``.1``, so they still split. The
-        two-component literal ``3.12`` equals ``3.12.0`` and behaves the same.
-        """
+        """The first patch's prereleases precede its final version."""
         found = micro_boundary_points(self._target(), [Marker(marker)])
         assert [str(point) for point in found] == points
 
-    def test_an_after_literal_prerelease_below_the_floor_does_not_split(
+    def test_an_after_literal_prerelease_at_the_first_patch_splits(
         self,
     ) -> None:
-        """``<= "3.11.0a6"`` flips at ``3.11.0``, the minor's floor, so the
-        whole real minor reads it False. Bumping to ``3.11.1`` would split it
-        spuriously; the flip is the boundary's own final release, not the next
-        micro."""
+        """The next alpha starts after every build of alpha 6."""
         target = self._target(python_version="3.11")
         markers = [
             Marker('python_full_version <= "3.11.0a6"'),
             Marker('python_full_version > "3.11.0a6"'),
         ]
-        assert micro_boundary_points(target, markers) == []
+        assert micro_boundary_points(target, markers) == [Version("3.11.0a7.dev0")]
 
-    def test_an_after_literal_prerelease_above_the_floor_splits_at_its_final(
+    def test_an_after_literal_prerelease_splits_after_the_alpha(
         self,
     ) -> None:
-        """``<= "3.12.2a1"`` flips at ``3.12.2``, its own final release, so a
-        real 3.12.1 and 3.12.2 land on opposite slices."""
+        """The interval above alpha 1 begins at the first build of alpha 2."""
         found = micro_boundary_points(
             self._target(), [Marker('python_full_version <= "3.12.2a1"')]
         )
-        assert [str(point) for point in found] == ["3.12.2"]
+        assert [str(point) for point in found] == ["3.12.2a2.dev0"]
 
     def test_an_after_literal_post_release_splits_at_the_next_micro(self) -> None:
         """A post release sorts above its final, so ``<= "3.11.0.post1"`` still
@@ -1368,7 +1585,7 @@ class TestMicroBoundarySplitting:
             self._target(python_version="3.11"),
             [Marker('python_full_version <= "3.11.0.post1"')],
         )
-        assert [str(point) for point in found] == ["3.11.1"]
+        assert [str(point) for point in found] == ["3.11.1.dev0"]
 
     def test_a_boundary_outside_the_minor_does_not_split(self) -> None:
         """An earlier or later minor is the whole-minor declaration's business."""
@@ -1411,16 +1628,11 @@ class TestMicroBoundarySplitting:
         assert not marker.evaluate(self._probe("3.12.4"))
         assert not marker.evaluate(self._probe("3.12.19"))
 
-    def test_a_prerelease_literal_below_the_floor_does_not_split(self) -> None:
-        """``>= "3.12.0a1"`` names a prerelease of the floor, so it is uniform
-        across the real minor under the rides-with-X convention and crashes
-        nothing: its release form ``3.12.0`` is not above the floor."""
-        assert (
-            micro_boundary_points(
-                self._target(), [Marker('python_full_version >= "3.12.0a1"')]
-            )
-            == []
-        )
+    def test_a_prerelease_literal_at_the_first_patch_splits(self) -> None:
+        """The minor includes prereleases of its first final patch."""
+        assert micro_boundary_points(
+            self._target(), [Marker('python_full_version >= "3.12.0a1"')]
+        ) == [Version("3.12.0a1")]
 
     def test_a_prerelease_literal_outside_the_minor_does_not_split(self) -> None:
         """A prerelease of another minor is uniform here, so no crash."""
@@ -1432,14 +1644,27 @@ class TestMicroBoundarySplitting:
         )
 
     def test_a_post_release_literal_of_the_floor_crashes(self) -> None:
-        """A post release sorts above its release, so ``>= "3.12.0.post1"``
-        splits 3.12.0 (False) off 3.12.1 (True) at a boundary no micro sits on.
-        Unlike the prerelease of the floor ``>= "3.12.0a1"``, which is uniform,
-        the post-release of the floor is a loud crash."""
+        """A post-release bound above the first final patch is still unsupported."""
         with pytest.raises(NonIntervalMarkerError):
             micro_boundary_points(
                 self._target(), [Marker('python_full_version >= "3.12.0.post1"')]
             )
+
+    @pytest.mark.parametrize(
+        "marker",
+        [
+            'python_full_version == "3.12.4+vendor"',
+            'implementation_version != "3.12.4+vendor"',
+            '"3.12.0rc1+vendor" != implementation_version',
+        ],
+    )
+    def test_local_build_in_minor_cannot_be_split(self, marker: str) -> None:
+        with pytest.raises(NonIntervalMarkerError, match="local Python builds"):
+            micro_boundary_points(self._target(), [Marker(marker)])
+
+    def test_local_build_outside_minor_does_not_split(self) -> None:
+        marker = Marker('python_full_version == "3.13.4+vendor"')
+        assert micro_boundary_points(self._target(), [marker]) == []
 
     def test_a_post_release_literal_outside_the_minor_does_not_split(self) -> None:
         """A post release of another minor is uniform across this one, so it
@@ -1458,21 +1683,19 @@ class TestMicroBoundarySplitting:
         found = micro_boundary_points(
             self._target(), [Marker('python_full_version < "3.12.4.post1"')]
         )
-        assert [str(point) for point in found] == ["3.12.5"]
+        assert [str(point) for point in found] == ["3.12.5.dev0"]
 
     @pytest.mark.parametrize(
         ("marker", "points"),
         [
-            ('python_full_version > "3.12.4rc1"', ["3.12.4"]),
-            ('python_full_version > "3.12.4.post1"', ["3.12.5"]),
+            ('python_full_version > "3.12.4rc1"', ["3.12.4rc2.dev0"]),
+            ('python_full_version > "3.12.4.post1"', ["3.12.5.dev0"]),
         ],
     )
     def test_an_after_literal_pre_or_post_release_splits_above_the_literal(
         self, marker: str, points: list[str]
     ) -> None:
-        """``>`` puts its boundary past the literal, so it lands on a real
-        micro either way: a prerelease cuts at its own release, 3.12.4, and a
-        post release at the one after it, 3.12.5."""
+        """The first version past the bound differs for pre- and post-releases."""
         found = micro_boundary_points(self._target(), [Marker(marker)])
         assert [str(point) for point in found] == points
 
@@ -1561,7 +1784,7 @@ class TestMicroBoundarySplitting:
             self._target(),
             [Marker('python_full_version < "3.12.4" and os_name == "posix"')],
         )
-        assert [str(point) for point in found] == ["3.12.4"]
+        assert [str(point) for point in found] == ["3.12.4.dev0"]
 
     def test_many_boundaries_in_one_minor_all_split(self) -> None:
         found = micro_boundary_points(
@@ -1572,7 +1795,11 @@ class TestMicroBoundarySplitting:
                 Marker('python_full_version <= "3.12.8"'),
             ],
         )
-        assert [str(point) for point in found] == ["3.12.2", "3.12.6", "3.12.9"]
+        assert [str(point) for point in found] == [
+            "3.12.2.dev0",
+            "3.12.6",
+            "3.12.9.dev0",
+        ]
 
     def test_a_host_target_is_never_split(self) -> None:
         """A host target names a real micro, so nothing is synthesized to cut."""
@@ -1603,7 +1830,7 @@ class TestMicroBoundarySplitting:
         found = micro_boundary_points(
             target, [Marker('python_full_version < "3.11.4"')]
         )
-        assert [str(point) for point in found] == ["3.11.4"]
+        assert [str(point) for point in found] == ["3.11.4.dev0"]
 
     def test_a_host_target_at_a_zero_micro_is_never_split(self) -> None:
         """A host reporting ``3.13.0`` names a real interpreter, so it stays
@@ -1622,7 +1849,7 @@ class TestMicroBoundarySplitting:
         assert slices_from_points(target, []) == [target]
 
     def test_one_point_makes_two_slices(self) -> None:
-        below, above = slices_from_points(self._target(), [Version("3.12.4")])
+        below, above = slices_from_points(self._target(), [Version("3.12.4.dev0")])
         assert below.label == "py312-linux_x86_64-pf3120"
         assert below.python_full_version == "3.12.0"
         assert below.micro_clauses == ('python_full_version < "3.12.4"',)
@@ -1631,7 +1858,7 @@ class TestMicroBoundarySplitting:
         assert above.micro_clauses == ('python_full_version >= "3.12.4.dev0"',)
 
     def test_a_middle_slice_carries_both_bounds(self) -> None:
-        points = [Version("3.12.4"), Version("3.12.8")]
+        points = [Version("3.12.4.dev0"), Version("3.12.8.dev0")]
         _low, mid, _high = slices_from_points(self._target(), points)
         assert mid.python_full_version == "3.12.4"
         assert mid.micro_clauses == (
@@ -1640,7 +1867,7 @@ class TestMicroBoundarySplitting:
         )
 
     def test_slice_rows_are_disjoint_and_cover_the_minor(self) -> None:
-        below, above = slices_from_points(self._target(), [Version("3.12.4")])
+        below, above = slices_from_points(self._target(), [Version("3.12.4.dev0")])
         consulted = [Marker('python_full_version >= "3.12.4"')]
         below_row = environment_declaration(below, consulted)
         above_row = environment_declaration(above, consulted)
@@ -1656,7 +1883,7 @@ class TestMicroBoundarySplitting:
         the consulted clause: a ``<=`` boundary flips one release past the
         literal, so the slice's upper bound ``< "3.12.5"`` is what fences it,
         and the raw ``<= "3.12.4"`` clause is not lifted onto the row."""
-        below, _above = slices_from_points(self._target(), [Version("3.12.5")])
+        below, _above = slices_from_points(self._target(), [Version("3.12.5.dev0")])
         row = environment_declaration(
             below, [Marker('python_full_version <= "3.12.4"')]
         )
@@ -1664,7 +1891,7 @@ class TestMicroBoundarySplitting:
         assert 'python_full_version <= "3.12.4"' not in row
 
     def test_a_slice_marker_string_carries_its_micro_bounds(self) -> None:
-        below, above = slices_from_points(self._target(), [Version("3.12.4")])
+        below, above = slices_from_points(self._target(), [Version("3.12.4.dev0")])
         assert below.environment_marker_string.endswith(
             'and python_full_version < "3.12.4"'
         )
@@ -1672,38 +1899,36 @@ class TestMicroBoundarySplitting:
 
 
 class TestMicroBoundaryMembership:
-    """Python slices change exactly where a specifier changes on final releases."""
+    """Check patch boundaries against packaging membership."""
 
     @pytest.mark.parametrize(
         ("specifier", "points"),
         [
-            (">=3.12.4.1", ["3.12.5"]),
-            (">3.12.4.1", ["3.12.5"]),
-            ("<=3.12.4.1", ["3.12.5"]),
-            ("<3.12.4.1", ["3.12.5"]),
+            (">=3.12.4.1", ["3.12.5.dev0"]),
+            (">3.12.4.1", ["3.12.5.dev0"]),
+            ("<=3.12.4.1", ["3.12.5.dev0"]),
+            ("<3.12.4.1", ["3.12.5.dev0"]),
             ("==3.12.4.1", []),
             ("!=3.12.4.1", []),
             ("~=3.12.4.1", []),
-            ("~=3.12.4.0", ["3.12.4", "3.12.5"]),
-            ("==3.12.4.0", ["3.12.4", "3.12.5"]),
-            ("!=3.12.4.0", ["3.12.4", "3.12.5"]),
-            ("==3.12.4.0.*", ["3.12.4", "3.12.5"]),
+            ("~=3.12.4.0", ["3.12.4", "3.12.5.dev0"]),
+            ("==3.12.4.0", ["3.12.4", "3.12.5.dev0"]),
+            ("!=3.12.4.0", ["3.12.4", "3.12.5.dev0"]),
+            ("==3.12.4.0.*", ["3.12.4.dev0", "3.12.5.dev0"]),
             ("==3.12.4.1.*", []),
-            ("!=3.12.4.*", ["3.12.4", "3.12.5"]),
+            ("!=3.12.4.*", ["3.12.4.dev0", "3.12.5.dev0"]),
             ("!=3.12.4.1.*", []),
-            ("<=3.12.4.dev0", ["3.12.4"]),
-            (">3.12.4.dev0", ["3.12.4"]),
-            ("<=3.12.4.post1.dev0", ["3.12.5"]),
-            (">3.12.4.post1.dev0", ["3.12.5"]),
-            ("<3.12.4.post0", ["3.12.5"]),
-            ("==3.12.4+local", []),
-            ("!=3.12.4+local", []),
+            ("<=3.12.4.dev0", ["3.12.4.dev1"]),
+            (">3.12.4.dev0", ["3.12.4.dev1"]),
+            ("<=3.12.4.post1.dev0", ["3.12.5.dev0"]),
+            (">3.12.4.post1.dev0", ["3.12.5.dev0"]),
+            ("<3.12.4.post0", ["3.12.5.dev0"]),
             ("==1!3.12.4.0.*", []),
             ("~=1!3.12.4.1", []),
             ("==3.11.999", []),
             ("==3.*", []),
             ("!=3.*", []),
-            ("~=3.12", []),
+            ("~=3.12", ["3.12.0"]),
         ],
     )
     def test_only_membership_changes_split_the_minor(
@@ -1718,28 +1943,29 @@ class TestMicroBoundaryMembership:
         found = micro_boundary_points(target, [marker])
         assert [str(point) for point in found] == points
 
-        # A representative must keep the clause's answer throughout its slice.
+        # Each slice must make the same dependency decision as the interpreter.
         slices = slices_from_points(target, found)
+        rows = [Marker(item.environment_marker_string) for item in slices]
         for micro in range(7):
-            version = Version(f"3.12.{micro}")
-            matching = [
-                item
-                for item in slices
-                if Marker(item.environment_marker_string).evaluate(
-                    {**target.marker_env, "python_full_version": str(version)}
+            for suffix in (".dev0", ".dev1", "a1", "rc1", ""):
+                version = Version(f"3.12.{micro}{suffix}")
+                env = {**target.marker_env, "python_full_version": str(version)}
+                matches = [
+                    item
+                    for item, row in zip(slices, rows, strict=True)
+                    if row.evaluate(env)
+                ]
+                assert len(matches) == 1
+                assert spec.contains(version, prereleases=True) == spec.contains(
+                    matches[0].python_full_version, prereleases=True
                 )
-            ]
-            assert len(matching) == 1
-            assert spec.contains(version, prereleases=True) == spec.contains(
-                matching[0].python_full_version, prereleases=True
-            )
 
     def test_a_major_only_literal_uses_a_zero_minor(self) -> None:
         target = ResolveTarget.for_declared(
             python_version="3.0", spec=PlatformSpec("linux_x86_64")
         )
         marker = Marker('python_full_version <= "3"')
-        assert micro_boundary_points(target, [marker]) == [Version("3.0.1")]
+        assert micro_boundary_points(target, [marker]) == [Version("3.0.1.dev0")]
 
 
 class TestCheckFreeThreaded:

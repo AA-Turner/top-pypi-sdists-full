@@ -1,1 +1,0 @@
-import{t as e}from"./WidgetLegacy-BQDlCtI0.js";export{e as default};

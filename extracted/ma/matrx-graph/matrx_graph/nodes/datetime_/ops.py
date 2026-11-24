@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import ClassVar, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -22,6 +23,24 @@ from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, failure, success
+
+
+_TZ_FIELD = Field(
+    default=None,
+    description=(
+        "A time zone name such as America/Denver. Leave empty to keep UTC (the original behavior)."
+    ),
+)
+
+
+def _zone_or_none(name: str | None) -> tuple[ZoneInfo | None, str | None]:
+    """(zone, problem). An empty name is no zone; an unknown one is a problem to say plainly."""
+    if not name or not name.strip():
+        return None, None
+    try:
+        return ZoneInfo(name.strip()), None
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        return None, f"'{name}' is not a time zone name. Use one like America/Denver."
 
 
 def _tz_facts(dt: datetime) -> tuple[bool, int | None]:
@@ -237,6 +256,7 @@ class FormatConfig(BaseModel):
         default="%Y-%m-%d %H:%M:%S",
         description="strftime format string.",
     )
+    time_zone: str | None = _TZ_FIELD
 
 
 class FormatOutput(KindModel, kind="formatted_datetime"):
@@ -289,6 +309,12 @@ class DatetimeFormatExecutor:
         except (ValueError, TypeError) as e:
             return failure("parse_failed", f"invalid ISO date: {e}")
 
+        tz, problem = _zone_or_none(config.time_zone)
+        if problem:
+            return failure("invalid_time_zone", problem)
+        if tz is not None:
+            dt = _resolve_naive_as_utc(dt)[0].astimezone(tz)
+
         try:
             return success(
                 FormatOutput(
@@ -319,6 +345,13 @@ class AddConfig(BaseModel):
     minutes: int = Field(default=0, description="Minutes to add (negative subtracts).")
     seconds: int = Field(default=0, description="Seconds to add (negative subtracts).")
     weeks: int = Field(default=0, description="Weeks to add (negative subtracts).")
+    time_zone: str | None = Field(
+        default=None,
+        description=(
+            "A time zone name such as America/Denver. When set, days and weeks move by the "
+            "calendar there (a daylight-saving change keeps the same clock time). Leave empty for UTC."
+        ),
+    )
 
 
 class AddOutput(KindModel, kind="shifted_datetime"):
@@ -371,6 +404,12 @@ class DatetimeAddExecutor:
             dt = datetime.fromisoformat(inputs.iso)
         except (ValueError, TypeError) as e:
             return failure("parse_failed", f"invalid ISO date: {e}")
+
+        tz, problem = _zone_or_none(config.time_zone)
+        if problem:
+            return failure("invalid_time_zone", problem)
+        if tz is not None:
+            dt = _resolve_naive_as_utc(dt)[0].astimezone(tz)
 
         delta = timedelta(
             days=config.days,

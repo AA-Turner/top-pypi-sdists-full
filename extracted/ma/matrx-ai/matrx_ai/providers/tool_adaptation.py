@@ -15,7 +15,9 @@ The reasons a tool is removed, each with its stable code:
 * ``tools_removed_search_json_mode`` — OpenAI hosted web search refused beside JSON mode;
 * ``tools_removed_schema_conflict`` — an endpoint that refuses tools combined with
   structured output (Cerebras / Groq);
-* ``tools_removed_grammar_budget`` — Anthropic's compiled grammar (schema + tools) over budget.
+* ``tools_removed_grammar_budget`` — Anthropic's compiled grammar (schema + tools) over budget;
+* ``tools_removed_small_model`` — a small model (catalog cost rating at or below the knob) does
+  not get the surface-added bundles marked ``small_model: off`` (``small_model_tools.py``).
 
 The gates that decide are sync (``unified_client.apply_capability_gates``); they return
 :class:`ToolAdaptation` records and the async dispatch calls :func:`announce_tool_adaptations`.
@@ -34,6 +36,11 @@ SEARCH_UNSUPPORTED = "tools_removed_search_unsupported"
 SEARCH_JSON_MODE = "tools_removed_search_json_mode"
 SCHEMA_CONFLICT = "tools_removed_schema_conflict"
 GRAMMAR_BUDGET = "tools_removed_grammar_budget"
+SMALL_MODEL_TOOLS_REMOVED = "tools_removed_small_model"
+#: ``AppContext.metadata`` key: the surface-added bundle listers whose bundle row says
+#: ``metadata.small_model = "off"``, NAMED by the host's tool funnel (it never reads the model).
+#: The call-time layer removes them for a small model (``small_model_tools.py``).
+SMALL_MODEL_OPTIONAL_TOOLS_KEY = "small_model_optional_tools"
 #: A TRANSLATION, not a removal (TOOL-SOURCES.md "the request is never denied"): the
 #: provider's built-in web search became our ``web`` tool for a model that has none.
 WEB_SEARCH_TRANSLATED = "tools_translated_web_search"
@@ -53,6 +60,7 @@ TOOL_ADAPTATION_CODES = frozenset(
         SEARCH_JSON_MODE,
         SCHEMA_CONFLICT,
         GRAMMAR_BUDGET,
+        SMALL_MODEL_TOOLS_REMOVED,
         WEB_SEARCH_TRANSLATED,
     }
 )
@@ -91,6 +99,7 @@ _USER_MESSAGES = {
     SEARCH_JSON_MODE: "Web search was off for this reply so the structured answer could run.",
     SCHEMA_CONFLICT: "Tools were off for this reply so the structured answer could run.",
     GRAMMAR_BUDGET: "Tools were off for this reply so the structured answer could fit.",
+    SMALL_MODEL_TOOLS_REMOVED: "This is a small model, so some tool bundles were off for this reply.",
     WEB_SEARCH_TRANSLATED: "This model has no built-in search, so it searched with our web tool.",
 }
 
@@ -380,6 +389,8 @@ __all__ = [
     "SCHEMA_CONFLICT",
     "SEARCH_JSON_MODE",
     "SEARCH_UNSUPPORTED",
+    "SMALL_MODEL_OPTIONAL_TOOLS_KEY",
+    "SMALL_MODEL_TOOLS_REMOVED",
     "SNAPSHOT_FIELD",
     "TOOL_ADAPTATION_CODES",
     "ToolAdaptation",

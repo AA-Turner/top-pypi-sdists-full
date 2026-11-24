@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 import traceback
 from collections.abc import Awaitable, Callable
@@ -27,17 +28,21 @@ from matrx_ai.tools.implementations._web_read_caps import (
     resolve_chars,
     window_page_content,
 )
-from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
-from matrx_ai.tools.output_caps import TOOL_RESULT_SOFT_CAP_CHARS, cap_text
+from matrx_ai.tools.models import ToolContext, ToolError, ToolResult, tool_output_text
+from matrx_ai.utils.carried_failure import carried_exception
+from matrx_ai.tools.output_caps import (
+    TOOL_RESULT_ABSOLUTE_CEILING_CHARS,
+    TOOL_RESULT_SOFT_CAP_CHARS,
+    cap_text,
+)
 from matrx_ai.tools.streaming import ToolStreamManager
 
-_RESEARCH_REPORT_CHAR_BUDGET = 32_000
-_RESEARCH_FINAL_CHAR_BUDGET = 45_000
+# summarize=true reads the WHOLE page up to this knob (agents.web_read / summarize_max_input_chars),
+# not the offset/chars window — see web_read. Re-exported for callers that import it from here.
+from matrx_ai.tools.tool_knobs import SUMMARIZE_MAX_INPUT_CHARS  # noqa: F401
+
 _SEARCH_RESULT_CHAR_BUDGET = TOOL_RESULT_SOFT_CAP_CHARS - 1_000
 
-#: summarize=true reads the WHOLE page up to this many characters (the mandate
-#: agent's content cap), not the offset/chars window — see web_read.
-SUMMARIZE_MAX_INPUT_CHARS = 100_000
 #: Knob (Arman, 2026-09-09: "opinions become knobs"): below this size the raw
 #: page is returned instead of paying for a summary that is often larger.
 SUMMARIZE_MIN_INPUT_CHARS = 4_000
@@ -81,17 +86,55 @@ async def summarize_min_input_chars(organization_id: str | None) -> int:
         return SUMMARIZE_MIN_INPUT_CHARS
 
 
-def _cap_research_section(text: str, *, limit: int, label: str) -> tuple[str, bool]:
-    capped, info = cap_text(text, limit=limit)
-    if not info.truncated:
-        return capped, False
-    notice = (
-        f"\n\n[Research output section '{label}' was shortened from "
-        f"{info.total_chars:,} to {info.shown_chars:,} characters. Use web "
-        "action='read' on the cited URLs or run research_web with narrower "
-        "queries for more detail.]"
-    )
-    return capped + notice, True
+#: research_web's size knobs (feature ``agents.research_web``), org-overridable; the package
+#: defaults (``matrx_scraper.features.research_budget``) are only the standalone posture.
+RESEARCH_WEB_KNOB_FEATURE = "agents.research_web"
+RESEARCH_WEB_KNOB_KEYS = (
+    "page_max_chars",
+    "condense_max_chars",
+    "listings_max_chars",
+    "fallback_max_chars",
+    "page_floor_chars",
+    "listings_detail",
+    "page_char_counts",
+)
+#: Knob keys that may be 0 (off); every other research_web knob is at least 1.
+_RESEARCH_WEB_ZERO_OK = frozenset({"listings_detail", "page_char_counts"})
+
+#: ``async (organization_id) -> {knob key: int}``.
+_RESEARCH_BUDGETS_RESOLVER: Callable[[str | None], Awaitable[dict[str, int]]] | None = None
+
+
+def set_research_budgets_resolver(
+    resolver: Callable[[str | None], Awaitable[dict[str, int]]] | None,
+) -> None:
+    """Install the host's per-organization research_web size knob reader (``None`` = standalone)."""
+    global _RESEARCH_BUDGETS_RESOLVER
+    _RESEARCH_BUDGETS_RESOLVER = resolver
+
+
+async def research_budgets(organization_id: str | None) -> Any:
+    """This organization's research_web budgets. A resolver failure is announced in red and the
+    package defaults hold; the research never fails over it."""
+    from matrx_scraper.features.research_budget import Budgets
+
+    budgets = Budgets()
+    resolver = _RESEARCH_BUDGETS_RESOLVER
+    if resolver is None:
+        return budgets
+    try:
+        got = await resolver(organization_id) or {}
+        for key in RESEARCH_WEB_KNOB_KEYS:
+            if got.get(key) is not None:
+                setattr(budgets, key, max(0 if key in _RESEARCH_WEB_ZERO_OK else 1, int(got[key])))
+    except Exception as exc:  # noqa: BLE001 — one failure shape, said out loud
+        vcprint(
+            f"[research_web] {RESEARCH_WEB_KNOB_FEATURE} knobs could not be resolved for organization "
+            f"{organization_id!r} ({type(exc).__name__}: {exc}); using the package defaults. Fix the "
+            "knob rows or the host resolver.",
+            color="red",
+        )
+    return budgets
 
 
 def _resolve_read_chars(args: dict[str, Any], fields_set: set[str] | None = None) -> int:
@@ -126,6 +169,14 @@ except ImportError:
 
 async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
+    from matrx_ai.tools.arg_models.web_args import MAX_SEARCH_QUERIES, one_query_is_a_list
+
+    queries = one_query_is_a_list(args.get("queries"))
+    skipped: list[str] = []
+    if isinstance(queries, list) and len(queries) > MAX_SEARCH_QUERIES:
+        # Run the first five and say which were not run, instead of refusing the whole search.
+        skipped = [str(q) for q in queries[MAX_SEARCH_QUERIES:]]
+        args = {**args, "queries": queries[:MAX_SEARCH_QUERIES]}
     parsed = WebSearchArgs(**args)
     stream = ToolStreamManager(ctx.emitter, ctx.call_id, "web_search")
 
@@ -158,6 +209,7 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    reported_failure="the web search provider",
                     error_type="execution",
                     message="No search results found for the given queries.",
                     is_retryable=True,
@@ -178,6 +230,11 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 f"\n\n[Search results shortened from {info.total_chars:,} to "
                 f"{info.shown_chars:,} characters. Narrow queries or use web "
                 "action='read' on specific URLs for more detail.]"
+            )
+        if skipped:
+            capped += (
+                f"\n\n[Not searched: one search runs at most {MAX_SEARCH_QUERIES} queries, so these "
+                f"{len(skipped)} were skipped: {json.dumps(skipped)}. Search them in another call if you need them.]"
             )
 
         return ToolResult(
@@ -261,6 +318,35 @@ def coverage_hint(pages: list[dict[str, Any]]) -> str | None:
                       if not p.get("success") and not (p.get("advanced_read") or {}).get("ok")])
 
 
+def all_pages_failed(
+    pages: list[dict[str, Any]], output: Any, *, tool_name: str, started_at: float, ctx: ToolContext
+) -> ToolResult | None:
+    """A read where EVERY page failed is a failed call naming each page's reason (``None`` otherwise).
+
+    Work that produced nothing is never success (agent-tools VISION, "Research tool results"); the
+    pages stay on ``output`` so the verdict/coverage facts still reach the model and the UI."""
+    if not pages or any(p.get("success") for p in pages):
+        return None
+    reasons = "; ".join(
+        f"{p.get('url') or '(no url)'}: {p.get('error') or 'the reader gave no reason'}" for p in pages
+    )
+    return ToolResult(
+        success=False,
+        output=output,
+        error=ToolError.declared(
+            "all_pages_failed",
+            f"None of the {len(pages)} page{'s' if len(pages) != 1 else ''} could be read. {reasons}",
+            reported_failure="the page reader",
+            suggested_action="Try other sources, or the advanced reader when the hint names one.",
+        ),
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name=tool_name,
+        call_id=ctx.call_id,
+        output_self_capped=True,
+    )
+
+
 def _with_hint(result: ToolResult, pages: list[dict[str, Any]]) -> ToolResult:
     line = coverage_hint(pages)
     if line:
@@ -335,13 +421,20 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # 87% of it never reached the summarizer). It now reads the whole page,
         # capped at SUMMARIZE_MAX_INPUT_CHARS and honest about the cut.
         full_texts: list[tuple[str, str, bool]] = []  # (url, text, truncated)
+        summarize_cap = SUMMARIZE_MAX_INPUT_CHARS
+        if parsed.summarize and parsed.instructions:
+            from matrx_ai.tools.tool_knobs import tool_knob_int
+
+            summarize_cap = await tool_knob_int(
+                "summarize_max_input_chars", SUMMARIZE_MAX_INPUT_CHARS, ctx.organization_id
+            )
         for url in parsed.urls:
             await stream.progress(f"Reading: {url[:60]}...")
             result = await read_page_mcp_quick(url=url)
             text = extract_page_text(result)
             if not (isinstance(result, dict) and result.get("status") == "error"):
                 full_texts.append(
-                    (url, text[:SUMMARIZE_MAX_INPUT_CHARS], len(text) > SUMMARIZE_MAX_INPUT_CHARS)
+                    (url, text[:summarize_cap], len(text) > summarize_cap)
                 )
             if isinstance(result, dict) and result.get("status") == "error":
                 pages.append(_failed_page(result, text, url=url, chars=chars))
@@ -394,7 +487,7 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             combined = "\n\n---\n\n".join(
                 f"URL: {u}\n{t}"
                 + (
-                    f"\n\n[Source truncated at {SUMMARIZE_MAX_INPUT_CHARS:,} characters — "
+                    f"\n\n[Source truncated at {summarize_cap:,} characters — "
                     "facts beyond this point are NOT in this content; say so if asked about them.]"
                     if cut
                     else ""
@@ -412,9 +505,11 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 # an apology. The model must see the error and the remedy.
                 return ToolResult(
                     success=False,
-                    error=ToolError(
-                        error_type="execution",
-                        message=summary,
+                    error=ToolError.declared(
+                        "execution",
+                        summary,
+                        exc=carried_exception(summary),
+                        reported_failure="the summarize_content agent",
                         is_retryable=True,
                         suggested_action=(
                             "Re-read the page with summarize=false (raw text, "
@@ -454,6 +549,9 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             },
             budget=RESULT_BUDGET_CHARS,
         )
+        failed = all_pages_failed(pages, output, tool_name="web_read", started_at=started_at, ctx=ctx)
+        if failed is not None:
+            return _with_hint(failed, pages)
         return _with_hint(ToolResult(
             success=True,
             output=output,
@@ -493,6 +591,228 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
+def _sources_text(read_failures: list[dict[str, Any]]) -> str:
+    """The sources block for a run that read nothing: what failed to load and why, appended to the plain error."""
+    from matrx_scraper.features.research_budget import sources_block, unique_failed
+
+    return "\n\n" + sources_block([], unique_failed([(f.get("url") or "", _failure_reason(f)) for f in read_failures]))
+
+
+def _failure_reason(failure: dict[str, Any]) -> str:
+    verdict = failure.get("verdict") or {}
+    return str(verdict.get("detail") or verdict.get("reason") or "the page could not be read")
+
+
+RESEARCH_NEXT_STEPS = (
+    "Each report covers its group's queries. Every page in run.pages names how to read its full text; "
+    "a listing marked 'not read: search snippet only' was never opened, so never cite it as read. "
+    "If gaps remain, read pages with web action='read' or run research_web with narrower queries."
+)
+
+
+#: research_web's declared result: what :func:`research_output` returns, as the stored
+#: ``tool.definition.output_schema`` must say. The rebuild changed the result from one markdown string
+#: to ``{run, reports, listings}``, the stored schema kept saying ``string``, and every successful
+#: call filed a ToolOutputContractDrift (2026-11-17). The live row is written from THIS constant;
+#: ``tests/test_research_web_rebuild.py`` proves every outcome (success, partial, failed) fits it.
+RESEARCH_WEB_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": (
+        "Research run: run facts (status, queries, groups, pages read and how to read each in full, "
+        "scrape failures, budgets, timing, next steps), one condensed report per query group "
+        "(or its failure reason and fallback page text), and the search listings."
+    ),
+    "required": ["run", "reports", "listings", "sources"],
+    "properties": {
+        "run": {
+            "type": "object",
+            "required": ["status", "partial", "queries", "research_depth", "groups", "pages"],
+            "properties": {
+                "status": {"type": "string", "enum": ["success", "partial", "failed"]},
+                "partial": {"type": "boolean"},
+                "queries": {"type": "array", "items": {"type": "string"}},
+                "research_depth": {"type": "string"},
+                "results_per_query": {"type": "object", "additionalProperties": {"type": "integer"}},
+                "groups": {"type": "array", "items": {"type": "object"}},
+                "pages": {"type": "array", "items": {"type": "object"}},
+                "scrape_failures": {"type": "array", "items": {"type": "object"}},
+                "budgets": {"type": "object"},
+                "timing": {"type": "object"},
+                "next_steps": {"type": "string"},
+                "listings_trimmed": {"type": "object"},
+            },
+        },
+        "reports": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["group", "queries", "status"],
+                "properties": {
+                    "group": {"type": "integer"},
+                    "queries": {"type": "array", "items": {"type": "string"}},
+                    "status": {"type": "string", "enum": ["reported", "failed"]},
+                    "report": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "citations": {
+                        "type": "object",
+                        "description": "Plain counts: how many distinct pages read in this run the report cites, and how many pages were read. 0 cited means the report opens with an uncited notice.",
+                        "properties": {
+                            "read_pages_cited": {"type": "integer"},
+                            "pages_read": {"type": "integer"},
+                        },
+                    },
+                    "fallback_pages": {"type": "array", "items": {"type": "object"}},
+                },
+            },
+        },
+        "listings": {"type": "array", "items": {"type": "object"}},
+        "sources": {"type": "string"},
+    },
+}
+
+
+def research_output(
+    *,
+    queries: list[str],
+    research_depth: str,
+    groups: list[Any],
+    page_plans: list[Any],
+    outcomes: list[Any],
+    listings: list[dict[str, Any]],
+    read_failures: list[dict[str, Any]],
+    budgets: Any,
+    timing: dict[str, Any],
+    result_limit: int,
+    instructions: str = "",
+) -> tuple[dict[str, Any], list[Any], str]:
+    """research_web's result — ``(output, child_usages, outcome)``, outcome ``success|partial|failed``.
+
+    ``run`` and ``reports`` are never cut. A failed group says its real reason and carries its
+    top-ranked page text (``budgets.fallback_max_chars``). When the whole result is over
+    ``result_limit`` the listings — and only the listings — are trimmed, lowest rank first.
+    """
+    from matrx_scraper.features.research_budget import (
+        citation_notice,
+        compact_listings,
+        fallback_pages,
+        is_vendor_source,
+        listings_chars,
+        sources_block,
+        trim_listings,
+        unique_failed,
+        verify_report,
+    )
+
+    counts = bool(budgets.page_char_counts)
+    terms_text = " ".join([*queries, instructions])
+    # Pages this run actually read (a duplicate copy was read too); the ones that failed to load.
+    run_read = [p.url for p in page_plans if not p.dropped or p.dropped == "duplicate"]
+    failed_sources = [(f.get("url") or "", _failure_reason(f)) for f in read_failures]
+
+    reports: list[dict[str, Any]] = []
+    group_records: list[dict[str, Any]] = []
+    child_usages: list[Any] = []
+    for group, outcome in zip(groups, outcomes, strict=True):
+        record = group.record(counts=counts)
+        entry: dict[str, Any] = {"group": group.index, "queries": group.queries}
+        reason: str | None = None
+        if isinstance(outcome, BaseException):
+            reason = f"{type(outcome).__name__}: {outcome}"
+        elif outcome is None:
+            reason = "nothing to condense: no pages and no search listings for these queries"
+        else:
+            child_usages.extend(getattr(outcome, "usage_history", None) or [])
+            text = getattr(outcome, "output", "") or ""
+            if getattr(outcome, "success", False) and text.strip():
+                # Every citation an inline URL, checked against the pages this run read (lane D, 2026-11-17).
+                checked, citation_check = verify_report(
+                    text,
+                    read_pages=group.pages,
+                    terms_text=terms_text,
+                    run_read_urls=run_read,
+                )
+                record["citation_check"] = citation_check
+                # A report citing none of the pages read says so at its top, and a consumer can test the field.
+                coverage = citation_check["coverage"]
+                notice = citation_notice(coverage)
+                entry.update(status="reported", report=f"{notice}\n\n{checked}" if notice else checked, citations=coverage)
+            else:
+                reason = getattr(outcome, "error", None) or "the condenser returned no report text"
+        if reason is not None:
+            fallback = fallback_pages(group, budgets.fallback_max_chars)
+            entry.update(status="failed", reason=reason, fallback_pages=fallback)
+            record["condenser"] = "failed"
+            record["reason"] = reason
+        else:
+            record["condenser"] = "reported"
+        reports.append(entry)
+        group_records.append(record)
+
+    reported = sum(1 for r in reports if r["status"] == "reported")
+    fallback_count = sum(len(r.get("fallback_pages") or []) for r in reports)
+    if reported == len(reports) and reports:
+        outcome_name = "success"
+    elif reported or fallback_count:
+        outcome_name = "partial"
+    else:
+        outcome_name = "failed"
+
+    query_results = {e["query"]: e["result_count"] for e in listings}
+    run: dict[str, Any] = {
+        "status": outcome_name,
+        "partial": outcome_name == "partial",
+        "queries": queries,
+        "research_depth": research_depth,
+        "results_per_query": {q: query_results.get(q, 0) for q in queries},
+        "groups": group_records,
+        "pages": [
+            {**p.record(counts=counts), **({"vendor_authored": True} if is_vendor_source(p.url, terms_text) else {})}
+            for p in sorted(page_plans, key=lambda p: (p.group, p.rank or 999))
+        ],
+        "scrape_failures": [
+            {"url": f.get("url"), "reason": _failure_reason(f)}
+            for f in read_failures
+        ],
+        "budgets": budgets.record(),
+        "timing": timing,
+        "next_steps": RESEARCH_NEXT_STEPS,
+        "listings_detail": {0: "none", 1: "compact", 2: "full"}.get(budgets.listings_detail, "full"),
+    }
+    # The result's listings: none, compact (rank, title, link, read label) or full, per the knob.
+    full_listings = listings
+    listings = [] if budgets.listings_detail <= 0 else full_listings if budgets.listings_detail >= 2 else compact_listings(full_listings)
+    # The sources block is stated ONCE per tool result, on every outcome (reported, fallback or failed).
+    output: dict[str, Any] = {
+        "run": run,
+        "reports": reports,
+        "listings": listings,
+        "sources": sources_block(
+            [(p.url, is_vendor_source(p.url, terms_text), p.unsure) for p in page_plans if not p.dropped],
+            unique_failed(failed_sources),
+        ),
+    }
+    total = len(tool_output_text(output)[0])
+    if total >= result_limit:
+        all_results = sum(len(e["results"]) for e in listings)
+        # The note is part of the result: it is written BEFORE the room is measured, at its widest
+        # value, so adding it can never push a trimmed result back over the limit (it did, by 155
+        # characters, on 2026-11-17: a 50,155-character result against the 50,000 limit).
+        run["listings_trimmed"] = {
+            "results_removed": all_results,
+            "why": f"the result was {total:,} characters (limit {result_limit:,}); listings go first",
+        }
+        fixed = len(tool_output_text(output)[0]) - len(tool_output_text(listings)[0])
+        room = max(result_limit - 1 - fixed, 0)
+        trimmed, removed = trim_listings(listings, room)
+        output["listings"] = trimmed
+        # Judged on the WHOLE result as it will be measured, never on the listings alone.
+        while removed < all_results and len(tool_output_text(output)[0]) >= result_limit:
+            trimmed, removed = trim_listings(listings, max(listings_chars(trimmed) - 2_000, 0))
+            output["listings"] = trimmed
+        run["listings_trimmed"]["results_removed"] = removed
+    return output, child_usages, outcome_name
+
+
 async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     from matrx_ai.tools._generated_declarations import ResearchWebArgs
@@ -515,13 +835,10 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         _brave = get_ext("brave_search")
         async_brave_search = _brave["async_brave_search"]
-        generate_search_text_summary = _brave["generate_search_text_summary"]
         from matrx_scraper.features.mcp_tool_helpers import (
             scrape_urls_from_search_result,
         )
-        from matrx_scraper.features.utils import (
-            format_scraped_pages_section,
-        )
+        from matrx_scraper.features.research_budget import build_listings, plan_groups
         from matrx_scraper.search.search import brave_failure_reason
 
         # ------------------------------------------------------------------
@@ -548,7 +865,7 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         seen_urls: set[str] = set()
         #: Pages judged failed (bot wall, HTTP error, empty, JS shell, sign-in wall) with their coverage.
         read_failures: list[dict[str, Any]] = []
-        scraping_tasks: list[asyncio.Task[list[dict[str, Any]]]] = []
+        scraping_tasks: list[tuple[str, asyncio.Task[list[dict[str, Any]]]]] = []
         scraping_start_time: float | None = None
 
         for search_coro in asyncio.as_completed(search_tasks):
@@ -598,12 +915,13 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     failures=read_failures,
                 )
             )
-            scraping_tasks.append(scraping_task)
+            scraping_tasks.append((query, scraping_task))
 
         if not queries_with_results:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    reported_failure="the web search provider",
                     error_type="execution",
                     # The search helper returns None on failure; name its recorded cause, never just "failed".
                     message="All search queries failed to return results."
@@ -622,8 +940,12 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # ------------------------------------------------------------------
         # Phase 2: Wait for all scraping to complete
         # ------------------------------------------------------------------
-        all_scraped_results = await asyncio.gather(*scraping_tasks)
-        all_scraped_pages = [page for result in all_scraped_results for page in result]
+        all_scraped_results = await asyncio.gather(*(task for _, task in scraping_tasks))
+        all_scraped_pages = [
+            {**page, "query": query}
+            for (query, _), result in zip(scraping_tasks, all_scraped_results, strict=True)
+            for page in result
+        ]
 
         # ------------------------------------------------------------------
         # Zero-evidence guard — NEVER run the condenser on an empty corpus.
@@ -647,11 +969,13 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    reported_failure="the web search provider",
                     error_type="execution",
                     message=(
                         f"Research produced zero evidence: {len(parsed.queries)} "
                         f"queries returned no usable search results and no pages were "
                         f"scraped. Refusing to synthesize a report from an empty corpus."
+                        + _sources_text(read_failures)
                     ),
                     is_retryable=True,
                     suggested_action=(
@@ -671,131 +995,116 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         good_scrapes = [s for s in all_scraped_pages if s.get("is_good_scrape", False)]
         thin_scrapes = [s for s in all_scraped_pages if not s.get("is_good_scrape", False)]
-        limited_good_scrapes = good_scrapes[: target_good_per_query * len(parsed.queries)]
-
-        total_attempted = len(seen_urls)
-        failed_count = total_attempted - len(all_scraped_pages)
-
+        failed_count = len(seen_urls) - len(all_scraped_pages)
         await stream.step(
             "scraping_complete",
             f"Scraped {len(all_scraped_pages)} pages ({len(good_scrapes)} good, {len(thin_scrapes)} thin, {failed_count} failed)",
         )
 
         # ------------------------------------------------------------------
-        # Phase 3: Format context for the condensation agent
+        # Phase 3: Plan every group's condenser input (pure: research_budget)
         # ------------------------------------------------------------------
-        scraped_pages_content = format_scraped_pages_section(
-            limited_good_scrapes=limited_good_scrapes,
-            thin_scrapes=thin_scrapes,
+        budgets = await research_budgets(ctx.organization_id)
+        # A per-call ask beats the organization knob; a caller that needs full listings asks for them here.
+        if parsed.listings is not None:
+            budgets.listings_detail = {"none": 0, "compact": 1, "full": 2}[parsed.listings]
+        if parsed.page_char_counts is not None:
+            budgets.page_char_counts = int(parsed.page_char_counts)
+        # Search order is the caller's query order, so "the first query that found a page" is stable.
+        order = {q: i for i, q in enumerate(parsed.queries)}
+        queries_with_results.sort(key=lambda qr: order.get(qr[0], len(order)))
+        listings = build_listings(queries_with_results, {p.get("url") or "" for p in all_scraped_pages})
+        groups, page_plans = plan_groups(
+            queries=list(parsed.queries),
+            instructions=parsed.instructions,
+            listings=listings,
+            pages=all_scraped_pages,
+            budgets=budgets,
+            max_pages_per_query=target_good_per_query,
         )
+        # The writer is told, in its own input, which pages failed to load (run facts), so it cannot attribute to them.
+        for group in groups:
+            group.failed_sources = [(f.get("url") or "", _failure_reason(f)) for f in read_failures]
 
-        search_previews_raw = generate_search_text_summary(queries_with_results)
-        search_previews_content = (
-            f"=== SEARCH RESULT PREVIEWS (Not Fully Scraped) ===\n\n{search_previews_raw}"
+        # ------------------------------------------------------------------
+        # Phase 4: Condense every group concurrently
+        # ------------------------------------------------------------------
+        await stream.step(
+            "condensing",
+            f"Condensing {len(groups)} report{'s' if len(groups) != 1 else ''} from the scraped pages",
         )
+        from matrx_ai.agent_runners.research import scrape_research_condenser_agent_1
 
-        full_context_for_agent = scraped_pages_content + "\n" + search_previews_content
-
-        # ------------------------------------------------------------------
-        # Phase 4: Run the research condensation agent
-        # ------------------------------------------------------------------
-        research_report = ""
-        agent_child_usages: list = []
-
-        if full_context_for_agent.strip():
-            await stream.step(
-                "condensing", "Conducting in-depth research analysis on scraped content"
-            )
-
-            from matrx_ai.agent_runners.research import scrape_research_condenser_agent_1
-
-            queries_str = ", ".join(parsed.queries)
-
-            agent_result = await scrape_research_condenser_agent_1(
+        async def _condense(group: Any) -> Any:
+            if not any(not p.dropped for p in group.pages) and not group.listings:
+                return None
+            return await scrape_research_condenser_agent_1(
                 instructions=parsed.instructions,
-                scraped_content=full_context_for_agent,
-                queries=queries_str,
-                search_results=search_previews_raw,
+                scraped_content=group.scraped_content(),
+                queries=", ".join(group.queries),
+                search_results=group.search_results(),
                 ctx=ctx,
             )
 
-            if agent_result.success and agent_result.output:
-                capped_report, report_truncated = _cap_research_section(
-                    agent_result.output,
-                    limit=_RESEARCH_REPORT_CHAR_BUDGET,
-                    label="curated_report",
-                )
-                research_report = (
-                    f"\n# Curated Research Results\n\n"
-                    f"The following is the result of successfully scraping {len(good_scrapes)} pages "
-                    f"and an agent conducting a full review of the top results:\n\n"
-                    f"{capped_report}\n---\n"
-                )
-                if report_truncated:
-                    timing["research_report_truncated"] = True
-                agent_child_usages = agent_result.usage_history
-            else:
-                research_report = (
-                    "\n# Research Condensation\n\n"
-                    "The research agent was unable to produce a condensed report. "
-                    "Raw search results and scraped content are provided below.\n---\n"
-                )
-
-        # ------------------------------------------------------------------
-        # Phase 5: Assemble final output
-        # ------------------------------------------------------------------
-        all_search_results_text = f"\n# All Search Results:\n\n{search_previews_raw}\n---\n"
-
-        next_steps = (
-            "\n## Next steps:\n\n"
-            "Assess if this context answers the user's query. If gaps remain or more detail is needed, take action:\n"
-            "- Use `web_read` to get complete content from any of the URLs shown in the search results above\n"
-            "- Use `web_read` on any specific URLs the user mentioned that seem relevant\n"
-            "- Use `web_search` with different or more specific terms if these results miss the mark\n"
-            "- Do a new research, just like this one, but with new queries and more specific instructions.\n\n"
-            "If the context above sufficiently answers the query, respond directly to the user."
-        )
-
-        final_text = (
-            f"Comprehensive research using the following queries: {', '.join(parsed.queries)}.\n"
-            + all_search_results_text
-            + research_report
-            + next_steps
-        )
-        final_text, final_truncated = _cap_research_section(
-            final_text,
-            limit=_RESEARCH_FINAL_CHAR_BUDGET,
-            label="final_result",
-        )
-
-        end_time = time.perf_counter()
-        timing["condensation_time"] = round(end_time - search_and_scrape_end, 2)
-        timing["total_execution_time"] = round(
-            end_time - (started_at if isinstance(started_at, float) else search_start),
-            2,
-        )
-        timing["queries_count"] = len(parsed.queries)
-        timing["urls_attempted"] = total_attempted
+        condense_start = time.perf_counter()
+        outcomes = await asyncio.gather(*(_condense(g) for g in groups), return_exceptions=True)
+        timing["condensation_time"] = round(time.perf_counter() - condense_start, 2)
+        timing["urls_attempted"] = len(seen_urls)
         timing["urls_scraped"] = len(all_scraped_pages)
         timing["good_scrapes"] = len(good_scrapes)
         timing["thin_scrapes"] = len(thin_scrapes)
         timing["failed_scrapes"] = failed_count
-        timing["research_depth"] = parsed.research_depth
-        if final_truncated:
-            timing["final_result_truncated"] = True
+        timing["total_execution_time"] = round(time.time() - started_at, 2)
+
+        output, child_usages, outcome = research_output(
+            queries=list(parsed.queries),
+            research_depth=parsed.research_depth,
+            groups=groups,
+            page_plans=page_plans,
+            outcomes=list(outcomes),
+            listings=listings,
+            read_failures=read_failures,
+            budgets=budgets,
+            timing=timing,
+            result_limit=TOOL_RESULT_SOFT_CAP_CHARS,
+            instructions=parsed.instructions,
+        )
 
         from matrx_scraper.search.search import site_icons_from_search_results
 
+        coverage = [{"url": f["url"], "success": False, "coverage": f.get("coverage") or [],
+                     "advanced_read": f.get("advanced_read")} for f in read_failures]
+        if outcome == "failed":
+            return _with_hint(ToolResult(
+                success=False,
+                error=ToolError.declared(
+                    "execution",
+                    "Every research report failed and no page text could be delivered: "
+                    + "; ".join(
+                        f"group {g['group']}: {g.get('reason') or g['condenser']}" for g in output["run"]["groups"]
+                    )
+                    + "\n\n" + output["sources"],
+                    exc=carried_exception(str(output["run"]["groups"])),
+                    reported_failure="the research condenser",
+                    is_retryable=True,
+                    suggested_action="Read the listed URLs with web action='read', or retry with fewer queries.",
+                ),
+                child_usages=child_usages,
+                started_at=started_at,
+                completed_at=time.time(),
+            ), coverage)
+        serialized = len(tool_output_text(output)[0])
         return _with_hint(ToolResult(
             success=True,
-            output=final_text,
-            child_usages=agent_child_usages,
+            output=output,
+            child_usages=child_usages,
             started_at=started_at,
             completed_at=time.time(),
             output_self_capped=True,
+            # run + reports always arrive whole: past the absolute ceiling this result authorizes itself.
+            approved_max_chars=serialized if serialized > TOOL_RESULT_ABSOLUTE_CEILING_CHARS else None,
             site_icons=site_icons_from_search_results(queries_with_results) or None,
-        ), [{"url": f["url"], "success": False, "coverage": f.get("coverage") or [],
-             "advanced_read": f.get("advanced_read")} for f in read_failures])
+        ), coverage)
 
     except ImportError as exc:
         return ToolResult(
@@ -848,10 +1157,10 @@ def _web_stamp(result: ToolResult, started_at: float, ctx: ToolContext) -> ToolR
     return result
 
 
-def _web_validation_error(message: str, started_at: float, ctx: ToolContext) -> ToolResult:
+def _web_validation_error(message: str, started_at: float, ctx: ToolContext, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="validation", message=message),
+        error=ToolError.declared("validation", message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="web",
@@ -922,6 +1231,9 @@ async def _web_batch_read(args: dict[str, Any], ctx: ToolContext, started_at: fl
             },
             budget=RESULT_BUDGET_CHARS,
         )
+        failed = all_pages_failed(pages, output, tool_name="web", started_at=started_at, ctx=ctx)
+        if failed is not None:
+            return _with_hint(failed, pages)
         return _with_hint(ToolResult(
             success=True,
             output=output,
@@ -974,7 +1286,7 @@ async def web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         return _web_validation_error(
             f"Invalid web arguments: {format_args_error(exc)}", started_at, ctx
-        )
+        , exc=exc)
 
     if isinstance(parsed, WebSearchWire):
         return _web_stamp(

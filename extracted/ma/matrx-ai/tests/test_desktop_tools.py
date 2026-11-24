@@ -571,6 +571,20 @@ def _sent(seen: list[httpx.Request]) -> list[tuple[str, dict[str, Any]]]:
             "notes.read",
             {"path": "Work/Plan.md"},
         ),
+        ("desktop_stack", {"action": "list"}, "stack.state", {}),
+        (
+            "desktop_stack",
+            {"action": "start", "name": "aidream"},
+            "stack.server.action",
+            {"name": "aidream", "verb": "start"},
+        ),
+        ("desktop_stack", {"action": "stop"}, "stack.stop", {}),
+        (
+            "desktop_stack",
+            {"action": "logs", "name": "aidream", "lines": 20},
+            "stack.logs",
+            {"name": "aidream", "lines": 20, "wait_ms": 0},
+        ),
         (
             "desktop_documents",
             {"action": "pdf_text", "path": "Documents/report.pdf", "last_page": 3},
@@ -1043,3 +1057,163 @@ async def test_process_and_clipboard_success_results_use_the_exact_action_kind(
     assert len(seen) == 1
     assert result.output_kind == slug
     assert result.output == {"__kind": slug, **legacy}
+
+
+# ── coding_sessions_read / coding_sessions_drive / desktop_semantic_find / desktop_action_needed ───
+
+
+@pytest.mark.parametrize(
+    ("tool", "args", "op", "params"),
+    [
+        ("coding_sessions_read", {"action": "providers"}, "coding.providers", {}),
+        (
+            "coding_sessions_read",
+            {"action": "transcript", "provider": "claude", "provider_session_id": "abc12345"},
+            "coding.transcript.read",
+            {"provider": "claude", "provider_session_id": "abc12345"},
+        ),
+        (
+            "coding_sessions_read",
+            {"action": "search", "query": "billing", "limit": 5},
+            "coding.search",
+            {"query": "billing", "limit": 5},
+        ),
+        (
+            "coding_sessions_read",
+            {"action": "assets_get", "path": "asset-1"},
+            "coding.assets.get",
+            {"id": "asset-1"},
+        ),
+        (
+            "coding_sessions_drive",
+            {"action": "stop", "run_id": "run1"},
+            "coding.stop",
+            {"run_id": "run1"},
+        ),
+        (
+            "coding_sessions_drive",
+            {"action": "queue_change", "session_id": "s1", "queue_index": 0, "change": "edit",
+             "expected": "old", "text": "new"},
+            "coding.queue.change",
+            {"session_id": "s1", "queue_index": 0,
+             "change": {"action": "edit", "expected": "old", "text": "new"}},
+        ),
+        (
+            "desktop_semantic_find",
+            {"action": "search", "query": "tax return", "scope": "Documents", "max_results": 5},
+            "fs.search_semantic",
+            {"query": "tax return", "scope": "/Users/person/Documents", "max_results": 5},
+        ),
+        ("desktop_semantic_find", {"action": "status"}, "fs.semantic_status", {}),
+        (
+            "desktop_action_needed",
+            {"action": "raise", "fingerprint": "fp-1", "source": "agent", "feature": "files",
+             "kind": "approval", "title": "Allow?"},
+            "action_needed.raise",
+            {"fingerprint": "fp-1", "source": "agent", "feature": "files", "kind": "approval",
+             "title": "Allow?"},
+        ),
+        (
+            "desktop_action_needed",
+            {"action": "wait", "id": "r1", "timeout_s": 10},
+            "action_needed.wait",
+            {"id": "r1", "timeout_s": 10},
+        ),
+        ("desktop_action_needed", {"action": "list"}, "action_needed.list", {}),
+    ],
+)
+async def test_the_coding_find_and_action_needed_tools_are_delegated_to_the_computer(
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    args: dict[str, Any],
+    op: str,
+    params: dict[str, Any],
+) -> None:
+    seen = _aidream(monkeypatch, 200, {"ok": True})
+    _bind(DESKTOP)
+    r = await getattr(desktop, tool)(args, ToolContext(call_id="c1", tool_name=tool))
+    assert r.success, r.error
+    assert _sent(seen) == [(op, params)]
+
+
+async def test_coding_start_and_send_mint_a_client_request_id_and_resolve_the_folder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _aidream(monkeypatch, 200, {"ok": True})
+    _bind(DESKTOP)
+    r = await desktop.coding_sessions_drive(
+        {"action": "start", "provider": "codex", "cwd": "code/app", "prompt": "fix it"},
+        ToolContext(call_id="c2", tool_name="coding_sessions_drive"),
+    )
+    assert r.success, r.error
+    ((op, params),) = _sent(seen)
+    assert op == "coding.start"
+    assert params.pop("client_request_id") == "c2"
+    assert params == {"provider": "codex", "cwd": "/Users/person/code/app", "prompt": "fix it"}
+
+
+async def test_a_retried_coding_start_carries_the_same_client_request_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _aidream(monkeypatch, 200, {"ok": True})
+    _bind(DESKTOP)
+    for _ in range(2):
+        r = await desktop.coding_sessions_drive(
+            {"action": "start", "provider": "codex", "cwd": "code/app", "prompt": "fix it"},
+            ToolContext(call_id="retry-1", tool_name="coding_sessions_drive"),
+        )
+        assert r.success, r.error
+    first, second = _sent(seen)
+    assert first[1]["client_request_id"] == second[1]["client_request_id"] == "retry-1"
+
+
+@pytest.mark.parametrize(
+    ("tool", "args", "needs"),
+    [
+        ("coding_sessions_read", {"action": "runs"}, "session_id"),
+        ("coding_sessions_drive", {"action": "send", "session_id": "s1"}, "prompt"),
+        ("coding_sessions_drive", {"action": "queue_change", "session_id": "s1",
+                                    "queue_index": 0, "change": "remove"}, "expected"),
+        ("desktop_semantic_find", {"action": "search"}, "query"),
+        ("desktop_action_needed", {"action": "wait"}, "id"),
+    ],
+)
+async def test_the_new_tools_say_what_an_action_lacks_and_send_nothing(
+    monkeypatch: pytest.MonkeyPatch, tool: str, args: dict[str, Any], needs: str
+) -> None:
+    seen = _aidream(monkeypatch, 200, {})
+    _bind(DESKTOP)
+    r = await getattr(desktop, tool)(args, ToolContext(call_id="c3", tool_name=tool))
+    assert not r.success and r.error is not None
+    assert needs in r.error.message
+    assert seen == []
+
+
+def test_the_new_tools_args_validate_and_refuse_strangers() -> None:
+    from matrx_ai.tools.arg_models.desktop_args import (
+        CodingSessionsDriveArgs,
+        CodingSessionsReadArgs,
+        DesktopActionNeededArgs,
+        DesktopSemanticFindArgs,
+    )
+    import matrx_ai.tools._generated_declarations  # noqa: F401
+    from matrx_ai.tools.declared import get_declared_tool as get_declared
+    from pydantic import ValidationError
+
+    CodingSessionsReadArgs(action="providers")
+    CodingSessionsDriveArgs(action="stop", run_id="r")
+    DesktopSemanticFindArgs(action="status")
+    DesktopActionNeededArgs(action="list")
+    for model, bad in (
+        (CodingSessionsReadArgs, {"action": "nope"}),
+        (CodingSessionsDriveArgs, {"action": "stop", "surprise": 1}),
+        (DesktopSemanticFindArgs, {"action": "search", "max_results": 1000}),
+        (DesktopActionNeededArgs, {"action": "wait", "timeout_s": 99}),
+    ):
+        with pytest.raises(ValidationError):
+            model(**bad)
+    for name in (
+        "coding_sessions_read", "coding_sessions_drive", "desktop_semantic_find",
+        "desktop_action_needed",
+    ):
+        assert get_declared(name) is not None

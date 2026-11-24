@@ -25,6 +25,42 @@ class _CallRecord:
     #: judge ONE request: identical calls in different requests are a person
     #: asking again, not a loop (Lane AU3, 2026-09-26).
     request_id: str | None = None
+    #: True when the call only LOOKED at the world (see ``is_observation_call``).
+    #: Anything unclassified is False: an unknown call is assumed to act.
+    observation: bool = False
+
+
+#: The tier the extension registry gives a tool that only reads the page.
+OBSERVATION_TIER = "read"
+#: ``parameters[<param>]["x-observation-values"]`` — on a multi-action tool's
+#: enum parameter (``computer.action``), the values that only look
+#: (screenshot, zoom, wait). The tier of such a tool is that of its most
+#: consequential action, so the tool-level tier alone cannot tell them apart.
+OBSERVATION_VALUES_KEY = "x-observation-values"
+
+
+def is_observation_call(tool_def: ToolDefinition | None, arguments: dict | None) -> bool:
+    """Does THIS call only observe the world (screenshot, page text, tab info,
+    console/network read, wait)? Decided by the registry's own classification,
+    never by a name list: the tool's tier is ``read``, or its side-effect class
+    is ``read_only``, or an enum argument carries ``x-observation-values`` that
+    include the value this call passed."""
+    if tool_def is None:
+        return False
+    if getattr(tool_def, "tier", None) == OBSERVATION_TIER:
+        return True
+    if getattr(tool_def, "side_effect_class", None) == "read_only":
+        return True
+    params = getattr(tool_def, "parameters", None)
+    if isinstance(params, dict) and arguments:
+        props = params.get("properties") if isinstance(params.get("properties"), dict) else params
+        for pname, spec in props.items():
+            if not isinstance(spec, dict):
+                continue
+            values = spec.get(OBSERVATION_VALUES_KEY)
+            if isinstance(values, list) and arguments.get(pname) in values:
+                return True
+    return False
 
 
 class GuardrailEngine:
@@ -92,8 +128,15 @@ class GuardrailEngine:
                 return check
         return GuardrailResult(blocked=False)
 
-    def record_call(self, tool_name: str, arguments: dict, ctx: ToolContext) -> None:
+    def record_call(
+        self,
+        tool_name: str,
+        arguments: dict,
+        ctx: ToolContext,
+        tool_def: ToolDefinition | None = None,
+    ) -> None:
         record = _CallRecord(
+            observation=is_observation_call(tool_def, arguments),
             tool_name=tool_name,
             args_hash=self._hash_args(arguments),
             timestamp=time.time(),
@@ -132,6 +175,25 @@ class GuardrailEngine:
             r for r in self._history.get(self.scope_key(ctx), []) if r.request_id == request_id
         ]
 
+    def _since_last_action(
+        self, records: list[_CallRecord], tool_def: ToolDefinition, arguments: dict
+    ) -> list[_CallRecord]:
+        """The records an OBSERVATION call's repeat count is judged over.
+
+        An observation (screenshot, page read, console read, wait) legitimately
+        repeats with identical arguments because the world changed in between,
+        above all after an action. So its repeats count only since the last
+        call this request that was NOT an observation (a click, a navigation,
+        an unclassified tool). Two identical screenshots with nothing in
+        between still stack up, so a model re-reading a page that cannot change
+        is stopped. Any other call is judged over every record, as before."""
+        if not is_observation_call(tool_def, arguments):
+            return records
+        for i in range(len(records) - 1, -1, -1):
+            if not records[i].observation:
+                return records[i + 1 :]
+        return records
+
     def clear_conversation(self, conversation_id: str) -> None:
         self._history.pop(conversation_id, None)
 
@@ -155,7 +217,7 @@ class GuardrailEngine:
         if tool_def.dedupe_exempt:
             return GuardrailResult(blocked=False)
 
-        records = self._this_request(ctx)
+        records = self._since_last_action(self._this_request(ctx), tool_def, arguments)
         current_hash = self._hash_args(arguments)
 
         is_no_args = not arguments
@@ -184,7 +246,13 @@ class GuardrailEngine:
                 blocked=True,
                 reason=reason,
                 error_type="duplicate",
-                suggested_action="Use different parameters or try a different approach.",
+                suggested_action=(
+                    "Use different parameters or try a different approach."
+                    if not is_observation_call(tool_def, arguments)
+                    else "Nothing has changed since this identical look. Act on what you "
+                    "already have, change something first (click, scroll, navigate, wait), "
+                    "or look at a different thing (another tool, a region, the page text)."
+                ),
             )
         return GuardrailResult(blocked=False)
 
@@ -349,7 +417,7 @@ class GuardrailEngine:
         # loop). A tool over external MUTABLE state whose identical-args calls
         # return DIFFERENT results (a status poller) must be dedupe_exempt —
         # that flag is exactly its intended use, and it short-circuits above.
-        records = self._this_request(ctx)
+        records = self._since_last_action(self._this_request(ctx), tool_def, arguments)
         recent_same = [r for r in records if r.tool_name == tool_name][-recency_window:]
 
         if len(recent_same) < loop_threshold:
@@ -378,6 +446,10 @@ class GuardrailEngine:
                 suggested_action=(
                     "You seem to be calling this tool repeatedly with similar parameters. "
                     "Please try a fundamentally different approach or provide a final answer."
+                    if not is_observation_call(tool_def, arguments)
+                    else "You have looked this same way repeatedly and no action ran in between, "
+                    "so the result cannot differ. Act on what you already have, change something "
+                    "first (click, scroll, navigate), or look at a different thing."
                 ),
             )
         return GuardrailResult(blocked=False)

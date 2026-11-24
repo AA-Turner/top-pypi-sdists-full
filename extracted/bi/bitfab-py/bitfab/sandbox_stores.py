@@ -1,147 +1,106 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from typing import Any, TypedDict
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 from bitfab.http import HttpClient
 
 SANDBOX_STORES_PATH = "/api/sdk/sandboxStores"
 
 
-class SandboxStoreEntry(TypedDict):
-    """One sandbox's state in a sandbox store.
+class SandboxStore(TypedDict):
+    """One sandbox's saved state for one trace.
+
+    A replay of that trace starts the sandbox from it.
 
     Attributes:
         sandbox: The sandbox's name, such as ``"Gmail"``.
-        state: The sandbox's state for the trace: for a replay trace, the
-            state its replay saved, or the seed when it has none.
+        traceId: The trace the state belongs to.
+        state: The sandbox's state, in the shape its ``start`` returns.
+        createdAt: When it was first saved (ISO 8601).
         updatedAt: When it last changed (ISO 8601).
-        traceId: The trace this state belongs to, or ``None`` for a seed.
     """
 
     sandbox: str
+    traceId: str
     state: Any
-    updatedAt: str
-    traceId: str | None
-
-
-class SandboxStore(TypedDict):
-    """A named, saved state for an organization's sandboxes, kept apart from traces.
-
-    Attributes:
-        id: The store's id.
-        name: The name it is addressed by.
-        entries: One entry per sandbox, by sandbox name: the seeds, or, when
-            read for a trace, that trace's own state with the seeds filling
-            in the sandboxes it has none for.
-        recentTraceIds: The 100 traces most recently linked to it, newest
-            first.
-    """
-
-    id: str
-    name: str
     createdAt: str
     updatedAt: str
-    entries: list[SandboxStoreEntry]
-    recentTraceIds: list[str]
-
-
-class SandboxStoreSummary(TypedDict):
-    id: str
-    name: str
-
-
-class SandboxStoreLink(TypedDict):
-    """What ``link_traces`` linked.
-
-    Attributes:
-        sandboxStore: The store, created if it did not exist.
-        linkedTraceIds: The traces now linked to it. A trace outside the API
-            key's organization is left out.
-    """
-
-    sandboxStore: SandboxStoreSummary
-    linkedTraceIds: list[str]
 
 
 class SandboxStoresClient:
-    """Sandbox stores: named state that sandboxes read from and write to across replays.
+    """Sandbox state saved per trace, one row per sandbox and trace.
 
-    Each trace has its own state in a store. A replay run with
-    ``sandbox_store=name`` starts each sandbox from the replayed trace's state
-    for it, else from the store's seed, else from the trace as usual, and
-    saves each sandbox's state to the new replay trace, after each write and
-    when the item finishes. Every replay trace keeps its own state, so
-    two replays of one trace never share state. Replay traces are linked to the store they
-    used.
+    When a replay runs with a sandbox on, that sandbox starts from the state
+    saved for the replayed trace, or from the trace as usual when none is
+    saved, and its state is saved to the new replay trace after each write
+    and when the item finishes. Sandboxes that are off are neither read nor
+    saved.
     """
 
     def __init__(self, http_client: HttpClient) -> None:
         self._http_client = http_client
 
-    def get(self, name: str, trace_id: str | None = None) -> SandboxStore | None:
-        """Read a sandbox store by name, or ``None`` when it does not exist.
+    def get(self, sandbox: str, trace_id: str) -> SandboxStore | None:
+        """The state saved for one sandbox and trace, or ``None`` when there is none.
 
         Args:
-            name: The store to read.
-            trace_id: Read the state this trace starts from: its own entries,
-                with the seeds for any sandbox it has none for. ``None``
-                (default) reads the seeds.
+            sandbox: The sandbox's name, such as ``"Gmail"``.
+            trace_id: The trace the state belongs to.
         """
-        params = {"name": name}
-        if trace_id is not None:
-            params["traceId"] = trace_id
-        query = urlencode(params)
+        query = urlencode({"sandbox": sandbox, "traceId": trace_id})
         return self._http_client.get(f"{SANDBOX_STORES_PATH}?{query}")["sandboxStore"]
 
-    def seed(self, name: str, sandboxes: Mapping[str, Any]) -> SandboxStore:
-        """Put starting state into a sandbox store before any replay uses it.
+    def list_for_trace(self, trace_id: str) -> list[SandboxStore]:
+        """Every sandbox's saved state for a trace, by sandbox name."""
+        query = urlencode({"traceId": trace_id})
+        return self._http_client.get(f"{SANDBOX_STORES_PATH}?{query}")["sandboxStores"]
+
+    def seed(self, sandbox: str, trace_id: str, state: Any) -> SandboxStore:
+        """Save the state one sandbox starts from when this trace is replayed.
+
+        Replaces any state saved for that sandbox and trace. Other sandboxes'
+        state for the trace is untouched.
 
         Args:
-            name: The store to seed, created if it does not exist.
-            sandboxes: State by sandbox name, such as
-                ``{"Gmail": {"emailAddress": "ceo@acme.com", "messages": [...]}}``.
-                Each value takes the shape that sandbox's ``start`` returns
-                (for Gmail, a list of messages, one mailbox, or
+            sandbox: The sandbox's name, such as ``"Gmail"``.
+            trace_id: The trace whose replays start from it.
+            state: The starting state, in the shape that sandbox's ``start``
+                returns (for Gmail, a list of messages, one mailbox, or
                 ``{"mailboxes": [...]}``; for GitHub, a snapshot). It must be
-                JSON. Every trace without its own state for a sandbox starts
-                from its seed. A sandbox named here replaces its seed; a
-                sandbox left out keeps its seed. State replays already wrote
-                for a trace is kept.
+                JSON.
         """
-        if not sandboxes:
-            raise ValueError("sandboxes must name at least one sandbox to seed.")
-        return self._http_client.request(
-            f"{SANDBOX_STORES_PATH}/seed",
-            {"name": name, "sandboxes": dict(sandboxes)},
-        )["sandboxStore"]
+        written = write_sandbox_stores(self._http_client, trace_id, {sandbox: state})
+        if not written:
+            raise RuntimeError(
+                f"The server did not return the {sandbox} state it saved for "
+                f"trace {trace_id}."
+            )
+        return written[0]
 
-    def link_traces(self, name: str, trace_ids: Sequence[str]) -> SandboxStoreLink:
-        """Link traces to a sandbox store without storing its state on them.
+    def reset(self, sandbox: str, trace_id: str) -> bool:
+        """Delete the state saved for one sandbox and trace.
 
-        A replay run with ``sandbox_store`` links its replay traces itself.
-        Use this for any other trace that belongs with the store, such as
-        the production trace a store was seeded from.
+        A replay of the trace then starts that sandbox from the trace again.
+        Returns whether there was state to delete. Other sandboxes' state is
+        untouched.
         """
-        if not trace_ids:
-            raise ValueError("trace_ids must name at least one trace to link.")
         return self._http_client.request(
-            f"{SANDBOX_STORES_PATH}/traces",
-            {"name": name, "traceIds": list(trace_ids)},
-        )
-
-    def list_for_trace(self, trace_id: str) -> list[SandboxStoreSummary]:
-        """The sandbox stores a trace is linked to, by name."""
-        return self._http_client.get(
-            f"/api/sdk/traces/{quote(trace_id, safe='')}/sandboxStores"
-        )["sandboxStores"]
+            f"{SANDBOX_STORES_PATH}/reset", {"sandbox": sandbox, "traceId": trace_id}
+        )["deleted"]
 
 
-def write_sandbox_store(
-    http_client: HttpClient, name: str, trace_id: str, sandboxes: dict[str, Any]
-) -> list[SandboxStoreEntry]:
+def read_sandbox_store_state(
+    http_client: HttpClient, sandbox: str, trace_id: str
+) -> dict[str, Any] | None:
+    query = urlencode({"sandbox": sandbox, "traceId": trace_id})
+    found = http_client.get(f"{SANDBOX_STORES_PATH}?{query}").get("sandboxStore")
+    return None if found is None else {"state": found.get("state")}
+
+
+def write_sandbox_stores(
+    http_client: HttpClient, trace_id: str, sandboxes: dict[str, Any]
+) -> list[SandboxStore]:
     return http_client.request(
-        f"{SANDBOX_STORES_PATH}/write",
-        {"name": name, "traceId": trace_id, "sandboxes": sandboxes},
-    )["entries"]
+        f"{SANDBOX_STORES_PATH}/write", {"traceId": trace_id, "sandboxes": sandboxes}
+    ).get("sandboxStores", [])

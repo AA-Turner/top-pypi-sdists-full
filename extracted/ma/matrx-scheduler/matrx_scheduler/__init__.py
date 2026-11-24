@@ -31,6 +31,7 @@ from .backlog import BacklogRearmOutcome, BacklogRearmRequest, finalize_and_rear
 from .lease import RUN_PROGRESS_AT_KEY, NoLease, RunLease, current_run_lease
 from .models import (
     RUN_CONTINUATION_KEY,
+    RUN_FRESH_UNITS_KEY,
     RUN_INTERRUPTED_STATUS,
     RUN_STOPPED_EARLY_KEY,
     RUN_UNITS_DONE_KEY,
@@ -50,11 +51,23 @@ from .models import (
 
 
 __version__ = "0.3.0"
-from .next_due import compute_next_due_at
+from .next_due import (
+    InvalidCronExpression,
+    InvalidCronTimezone,
+    InvalidTriggerTiming,
+    compute_next_due_at,
+    require_valid_cron,
+    validate_trigger_timing,
+)
 from .scanner import (
     ScannerStatus,
+    TickHook,
     is_running,
+    register_tick_hook,
+    run_tick_hooks,
     start_scanner,
+    tick_hook_names,
+    unregister_tick_hook,
     status,
     stop_scanner,
 )
@@ -74,6 +87,11 @@ __all__ = [
     # scanner
     "start_scanner",
     "stop_scanner",
+    "TickHook",
+    "register_tick_hook",
+    "unregister_tick_hook",
+    "run_tick_hooks",
+    "tick_hook_names",
     "status",
     "is_running",
     "ScannerStatus",
@@ -82,6 +100,11 @@ __all__ = [
     "next_n_fires",
     "fire_count_in_window",
     "compute_next_due_at",
+    "InvalidCronExpression",
+    "InvalidCronTimezone",
+    "InvalidTriggerTiming",
+    "require_valid_cron",
+    "validate_trigger_timing",
     # the run lease every handler inherits
     "RunLease",
     "NoLease",
@@ -101,6 +124,7 @@ __all__ = [
     "AgentRunResult",
     "BacklogRearmResult",
     "RUN_UNITS_DONE_KEY",
+    "RUN_FRESH_UNITS_KEY",
     "RUN_STOPPED_EARLY_KEY",
     "ToolRunInput",
     "TriggerType",

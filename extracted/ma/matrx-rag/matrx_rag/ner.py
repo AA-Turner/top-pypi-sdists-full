@@ -23,7 +23,7 @@ classic lock-ordering cycle). The shape now is:
   Tier B — resolve entities  (SERIAL coordinator, sorted, race-tolerant)
             Build the distinct ``(kind, lower(name))`` set across every
             chunk of this source. Sort it. Resolve the whole set in ONE
-            ``KgEntities.bulk_upsert`` whose ``ConflictTarget`` renders the
+            ``KgEntities.bulk_insert_ignore`` whose ``ConflictTarget`` renders the
             ``kg_entities_ner_canonical_idx`` partial expression unique
             index. No advisory locks: the index is the storage-layer source
             of truth — if a parallel coordinator wins the race for a bucket,
@@ -79,6 +79,8 @@ from matrx_orm import (
     LockContentionError,
     PoolAcquireTimeoutError,
     QueryTimeoutError,
+    db_constraint,
+    db_sqlstate,
     retry_on_transient,
     transaction,
 )
@@ -119,6 +121,12 @@ _NER_FAILURE_ALERT_PCT = 25.0
 #    range and only trips on genuinely pathological fan-out. A larger batch
 #    backfill still raises it explicitly.
 NER_PERSIST_CONCURRENCY: int = 8
+# Tier A (extraction) chunks IN FLIGHT at once. Each extraction is an agent run that
+# does its own database work (request rows, COPPA gate, error capture) before the
+# provider gate paces it; an unbounded gather over up to NER_MAX_CHUNKS_PER_SOURCE
+# chunks drained the 10-slot pool (database_pool_saturation census, 2026-11-02:
+# every holder sat in ``_extract_one``). Same class as ``clean_pdf_pages``.
+NER_EXTRACT_CONCURRENCY: int = 8
 NER_MAX_CHUNKS_PER_SOURCE: int = 12000
 # Whole-transaction attempts for one chunk's tier-C write when Postgres breaks
 # a lock collision (40P01/40001/55P03) or a timeout fires. The lock order below
@@ -128,6 +136,28 @@ NER_PERSIST_ATTEMPTS: int = 4
 
 def _ner_persist_concurrency() -> int:
     return NER_PERSIST_CONCURRENCY
+
+
+#: Share of the pool ALL tier-C chunk writes in this process may hold at once. The
+#: per-call cap alone let two NER jobs take 16 connections of a 10-slot pool
+#: (database_pool_saturation census, 2026-11-01: 9 holders in ``_write_chunk_once``).
+NER_PERSIST_POOL_SHARE: float = 0.3
+
+
+def _ner_persist_slots() -> asyncio.Semaphore:
+    """The ONE process-wide slot pool for tier-C writes, sized from the DB pool."""
+    from matrx_orm import fanout_slots
+
+    return fanout_slots(
+        "matrx_rag.ner.persist",
+        PACKAGE_DB_NAME,
+        share=NER_PERSIST_POOL_SHARE,
+        ceiling=_ner_persist_concurrency(),
+    )
+
+
+def _ner_extract_concurrency() -> int:
+    return max(1, int(NER_EXTRACT_CONCURRENCY))
 
 
 def _ner_max_chunks_per_source() -> int:
@@ -199,9 +229,18 @@ class NerResult:
     # chunk_ids whose NER pass fully SUCCEEDED this run — extractor returned AND
     # (no entities OR persist landed). A chunk that found zero entities counts as
     # succeeded (a valid completed outcome). The caller stamps the completion
-    # marker (rag.kg_chunks.ner_extracted_at) for exactly these so they are never
+    # marker (the kg_chunks ner_extracted_at column) for exactly these so they are never
     # re-NER'd, while a chunk that errored stays unmarked and retries next run.
     succeeded_chunk_ids: set[str] = field(default_factory=set)
+    # chunk_ids deleted (replaced by a re-ingest) while their pass was in flight: nothing to
+    # write onto and nothing to re-extract — never an error.
+    superseded_chunk_ids: list[str] = field(default_factory=list)
+
+
+#: The foreign keys whose 23503 means "this chunk no longer exists", not a bad write.
+_CHUNK_GONE_CONSTRAINTS: frozenset[str] = frozenset(
+    {"kg_chunk_entities_chunk_id_fkey", "kg_edges_source_chunk_id_fkey"}
+)
 
 
 def _coerce_int(value: Any, default: int = 0) -> int:
@@ -539,7 +578,13 @@ async def extract_entities(
     # return_exceptions=True is belt-and-suspenders: every coroutine already
     # catches its own failures, but this guarantees one unexpected raise can
     # never cancel its siblings mid-flight.
-    await asyncio.gather(*(_extract_one(c) for c in visible), return_exceptions=True)
+    extract_slots = asyncio.Semaphore(_ner_extract_concurrency())
+
+    async def _bounded_extract(chunk: NerChunkInput) -> None:
+        async with extract_slots:
+            await _extract_one(chunk)
+
+    await asyncio.gather(*(_bounded_extract(c) for c in visible), return_exceptions=True)
 
     # Surface the aggregate extractor failure rate LOUDLY. A handful of dropped
     # chunks is normal; a large fraction means the extraction provider is
@@ -733,7 +778,7 @@ async def persist_chunk_entities(
 
     # ─── Tier B: bulk entity resolution against the partial expression index ─
     # Collect distinct dedup buckets across every chunk in this batch and
-    # resolve them in ONE ``KgEntities.bulk_upsert`` whose ``ConflictTarget``
+    # resolve them in ONE ``KgEntities.bulk_insert_ignore`` whose ``ConflictTarget``
     # renders the ``kg_entities_ner_canonical_idx`` partial expression unique
     # index (see ``_resolve_entities_via_orm``). Sorting buckets
     # deterministically keeps tier-B writes lock-ordered across parallel
@@ -771,8 +816,8 @@ async def persist_chunk_entities(
     # order, so cross-chunk transactions can't form a lock cycle.
     #
     # CONCURRENCY CAP: bounds the number of connections held simultaneously
-    # (the 2026-06-03 pool-saturation incident; see _ner_persist_concurrency).
-    persist_semaphore = asyncio.Semaphore(_ner_persist_concurrency())
+    # across EVERY NER job in the process, sized from the pool (_ner_persist_slots).
+    persist_semaphore = _ner_persist_slots()
     mention_meta = {"engine": engine.name, "engine_version": engine.version}
     displaced_entity_ids: set[str] = set()
     landed: set[str] = set()
@@ -837,6 +882,18 @@ async def persist_chunk_entities(
                 label=f"ner.persist chunk {chunk_id}",
             )
         except Exception as exc:  # noqa: BLE001
+            if db_sqlstate(exc) == "23503" and db_constraint(exc) in _CHUNK_GONE_CONSTRAINTS:
+                # The chunk was deleted while its extraction was in flight (a re-ingest of the
+                # same source replaced its chunks — live 2026-11-02 17:04Z, 50 in one minute).
+                # There is nothing to write onto and nothing left to re-extract: the new
+                # chunks carry their own NER pass. Not an error, never a retry.
+                logger.info(
+                    "ner.persist_chunk_entities: chunk %s was replaced before its entities "
+                    "landed; its work is dropped (the replacing chunks run their own NER)",
+                    chunk_id,
+                )
+                result.superseded_chunk_ids.append(chunk_id)
+                return
             # Loud, and the chunk stays OUT of succeeded_chunk_ids, so its
             # ner_extracted_at stays NULL and the next run re-extracts it.
             logger.exception(
@@ -900,9 +957,18 @@ async def persist_chunk_entities(
 async def _replace_chunk_writes(chunk_id: str) -> set[str]:
     """Delete one chunk's previous mentions and the co-occurrence edges it
     produced, inside the caller's transaction. Returns the entity ids those
-    mentions pointed at (tier D recomputes them)."""
+    mentions pointed at (tier D recomputes them).
+
+    LOCK ORDER (live 40P01, rag.kg_edges / kg_chunk_entities / kg_chunks, 2026-10-30..11-06):
+    a re-ingest deletes the chunk and cascades into these rows, parent first; this transaction
+    used to take these rows and only then the FK's lock on the chunk, child first. Parent first
+    here too: a re-ingest of this chunk now waits for this write, or this write waits and finds
+    the chunk gone. KEY SHARE is the FK's own lock, so it blocks nothing but that delete.
+    """
+    KgChunks = get_db_model("KgChunks")
     KgChunkEntities = get_db_model("KgChunkEntities")
     KgEdges = get_db_model("KgEdges")
+    await KgChunks.filter(id=chunk_id).select_for_update(mode="KEY SHARE").values("id")
     rows = await KgChunkEntities.filter(chunk_id=chunk_id).values("entity_id")
     previous = {str(r["entity_id"]) for r in rows if r.get("entity_id") is not None}
     if previous:
@@ -914,7 +980,14 @@ async def _replace_chunk_writes(chunk_id: str) -> set[str]:
 async def _stamp_chunks(chunk_ids: list[str], engine: NerEngineStamp) -> None:
     """``ner_extracted_at`` + ``metadata.ner = {engine, version, at}`` on every
     landed chunk — one atomic shallow merge (``JsonbMerge``), sibling metadata
-    keys untouched."""
+    keys untouched.
+
+    LOCK ORDER (live 40P01 on the chunks table, 2026-11-15 22:24Z, three in one second): two NER
+    passes stamping overlapping chunks, and a re-ingest deleting stale chunks of the same
+    source, each lock many rows in one statement. Sorting the id list does not decide the
+    order — the plan's scan does (a bitmap scan locks in heap order) — so the three took the
+    same rows in different orders. The stamp takes its locks ascending by id through the
+    ORM's ordered sub-select, the same order the re-ingest delete now locks in."""
     from datetime import UTC, datetime
 
     from matrx_orm import JsonbMerge
@@ -923,6 +996,8 @@ async def _stamp_chunks(chunk_ids: list[str], engine: NerEngineStamp) -> None:
     KgChunks = get_db_model("KgChunks")
     await KgChunks.update_where(
         {"id__in": chunk_ids},
+        lock_rows_in_pk_order=True,
+        returning=["id"],
         ner_extracted_at=now,
         metadata=JsonbMerge(
             "metadata",
@@ -1002,71 +1077,73 @@ async def _resolve_entities_via_orm(
             }
         )
 
-    # Pre-query: which buckets already exist? One round-trip per distinct kind
-    # lets us report ``entities_written`` / ``entities_reused`` accurately
-    # (the old code tracked this via the INSERT-vs-23505-fallback branch).
-    # Postgres's ``xmax = 0`` discriminator on RETURNING would let us avoid
-    # the pre-query but matrx-orm's bulk_upsert doesn't expose system columns
-    # yet; that extension is tracked as a follow-up.
-    pre_existing_keys: set[tuple[str, str]] = set()
-    try:
-        kind_to_lnames: dict[str, list[str]] = {}
-        for kind, lname in sorted_keys:
-            kind_to_lnames.setdefault(kind, []).append(lname)
-        # Per-kind queries keep the SQL simple and let Postgres use the partial
-        # index efficiently. Each query is small (one kind per round-trip).
-        for kind, lnames in kind_to_lnames.items():
-            qb = KgEntities.filter(kind=kind)
-            if organization_id is None:
-                qb = qb.filter(organization_id__isnull=True)
-            else:
-                qb = qb.filter(organization_id=organization_id)
-            rows = await qb.values("name")
-            existing_lowers = {str(r["name"]).lower() for r in rows}
-            for lname in lnames:
-                if lname in existing_lowers:
-                    pre_existing_keys.add((kind, lname))
-    except Exception as exc:  # noqa: BLE001
-        # Pre-query failed but it's not fatal — the bulk_upsert below is still
-        # correct, we just lose accurate written/reused split. Log + continue.
-        logger.warning(
-            "ner.extract_entities: tier-B preflight count failed (%s); "
-            "entities_written counter will approximate",
-            exc,
-        )
-
     target = ConflictTarget.partial(
         ["organization_id", "kind", "name"],
         coalesce={"organization_id": UUID(_ORG_SENTINEL)},
         lower=("name",),
         where_in={"kind": tuple(sorted(NER_KINDS))},
     )
+    # INSERT ... ON CONFLICT DO NOTHING, never DO UPDATE (live 40P01, 2026-11-16 17:52-17:56Z, six rows):
+    # ``DO UPDATE SET kind = EXCLUDED.kind`` was a no-op in value but ``kind`` sits in the plain unique index
+    # (organization_id, kind, canonical_id), so Postgres took FOR UPDATE on every EXISTING entity row. That
+    # conflicts with the FOR KEY SHARE every tier-C chunk transaction takes on the same entities through the
+    # mention/edge foreign keys, and two tier-B upserts plus one tier-C edge write closed a cycle. DO NOTHING
+    # locks no existing row; the ids of the keys that already existed are read afterwards (committed rows).
     try:
-        # ``update_fields=["kind"]`` is a true no-op: ``kind`` is part of the
-        # conflict target so EXCLUDED.kind ≡ kg_entities.kind for any conflict.
-        # We need DO UPDATE (not DO NOTHING) so RETURNING gives us the row.
-        upserted = await KgEntities.bulk_upsert(
-            objects_data=bucket_rows,
-            update_fields=["kind"],
+        landed = await KgEntities.bulk_insert_ignore(
+            bucket_rows,
             on_conflict=target,
+            returning=True,
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception(
-            "ner.extract_entities: ORM tier-B bulk_upsert failed: %s",
+            "ner.extract_entities: ORM tier-B bulk insert failed: %s",
             exc,
         )
         result.errors.append(f"resolve_tier_error: {exc}")
         return False
 
-    # Map upserted rows back to the bucket keys we sent in. PostgreSQL
-    # preserves VALUES order in RETURNING, so a positional zip is correct.
-    for key, row in zip(sorted_keys, upserted):
-        if row is None:
-            continue
-        # Model attribute access — ``id`` is hydrated from RETURNING *.
-        resolved[key] = str(getattr(row, "id"))
-        if key not in pre_existing_keys:
+    wanted = set(sorted_keys)
+    for row in landed or []:
+        key = (str(row["kind"]), str(row["name"]).lower())
+        if key in wanted and key not in resolved:
+            resolved[key] = str(row["id"])
             result.entities_written += 1
+
+    # The keys that already existed (or a concurrent writer committed first): one read per kind, of that
+    # kind's rows in this organization, matched on lower(name) exactly as the index is.
+    missing_by_kind: dict[str, set[str]] = {}
+    for kind, lname in sorted_keys:
+        if (kind, lname) not in resolved:
+            missing_by_kind.setdefault(kind, set()).add(lname)
+    try:
+        for kind, lnames in missing_by_kind.items():
+            qb = KgEntities.filter(kind=kind)
+            if organization_id is None:
+                qb = qb.filter(organization_id__isnull=True)
+            else:
+                qb = qb.filter(organization_id=organization_id)
+            for r in await qb.values("id", "name"):
+                lname = str(r["name"]).lower()
+                if lname in lnames and (kind, lname) not in resolved:
+                    resolved[(kind, lname)] = str(r["id"])
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "ner.extract_entities: ORM tier-B read of existing entities failed: %s",
+            exc,
+        )
+        result.errors.append(f"resolve_tier_error: {exc}")
+        return False
+
+    unresolved = [k for k in sorted_keys if k not in resolved]
+    if unresolved:
+        # Neither inserted nor found: never silent. The chunk writes below skip these entities.
+        logger.error(
+            "ner.extract_entities: %d tier-B bucket(s) neither inserted nor found: %s",
+            len(unresolved),
+            unresolved[:10],
+        )
+        result.errors.append(f"resolve_tier_unresolved: {len(unresolved)} bucket(s)")
     return True
 
 

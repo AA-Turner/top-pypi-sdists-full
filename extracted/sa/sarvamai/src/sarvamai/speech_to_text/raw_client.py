@@ -68,12 +68,12 @@ class RawSpeechToTextClient:
         model : typing.Optional[SpeechToTextModel]
             Specifies the model to use for speech-to-text conversion.
 
-            - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+            - **saaras:v4** (default, recommended, latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
-            - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
+            - **saaras:v3** (legacy; use saaras:v4): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
         mode : typing.Optional[Mode]
-            Mode of operation. **Only applicable when using saaras:v3 model.**
+            Mode of operation. **Only applicable when using saaras:v3 (legacy) or saaras:v4 models.**
 
             Example audio: 'मेरा फोन नंबर है 9840950950'
 
@@ -275,10 +275,10 @@ class RawSpeechToTextClient:
         model : typing.Optional[SpeechToTextTranslateModel]
             Model to be used for speech to text translation.
 
-            - **saaras:v2.5** (default): Translation model that translates audio from any spoken Indic language to English.
+            - **saaras:v3** (default; legacy): Translation model that translates audio from any spoken Indic language to English.
               - Example: Hindi audio → English text output
 
-            For the latest model (saaras:v3), use the `/speech-to-text` endpoint with `mode="translate"`.
+            `saaras:v4` is not supported on this endpoint. For the latest model (saaras:v4), use the `/speech-to-text` endpoint with `mode="translate"`.
 
         input_audio_codec : typing.Optional[InputAudioCodec]
             Audio codec/format of the input file. Our API automatically detects all codec formats, but for PCM files specifically (pcm_s16le, pcm_l16, pcm_raw), you must pass this parameter. PCM files are supported only at 16kHz sample rate.
@@ -428,12 +428,12 @@ class AsyncRawSpeechToTextClient:
         model : typing.Optional[SpeechToTextModel]
             Specifies the model to use for speech-to-text conversion.
 
-            - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+            - **saaras:v4** (default, recommended, latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
-            - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
+            - **saaras:v3** (legacy; use saaras:v4): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
         mode : typing.Optional[Mode]
-            Mode of operation. **Only applicable when using saaras:v3 model.**
+            Mode of operation. **Only applicable when using saaras:v3 (legacy) or saaras:v4 models.**
 
             Example audio: 'मेरा फोन नंबर है 9840950950'
 
@@ -635,10 +635,10 @@ class AsyncRawSpeechToTextClient:
         model : typing.Optional[SpeechToTextTranslateModel]
             Model to be used for speech to text translation.
 
-            - **saaras:v2.5** (default): Translation model that translates audio from any spoken Indic language to English.
+            - **saaras:v3** (default; legacy): Translation model that translates audio from any spoken Indic language to English.
               - Example: Hindi audio → English text output
 
-            For the latest model (saaras:v3), use the `/speech-to-text` endpoint with `mode="translate"`.
+            `saaras:v4` is not supported on this endpoint. For the latest model (saaras:v4), use the `/speech-to-text` endpoint with `mode="translate"`.
 
         input_audio_codec : typing.Optional[InputAudioCodec]
             Audio codec/format of the input file. Our API automatically detects all codec formats, but for PCM files specifically (pcm_s16le, pcm_l16, pcm_raw), you must pass this parameter. PCM files are supported only at 16kHz sample rate.

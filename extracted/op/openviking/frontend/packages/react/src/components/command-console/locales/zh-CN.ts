@@ -1,6 +1,9 @@
+import type { renderErrors as EnglishRenderErrors } from './en-US.js';
 import type { ResolvedCommandConsoleLabels } from '../command-console-labels.js';
 
 const messages = {
+  quoteArguments:
+    '路径或文案含空格时，用引号包住整个值，例如 "release notes"。',
   placeholder: '>_ 输入 CLI 命令，如 ov find OpenViking',
   unavailableMessage: '当前无法执行命令。',
   send: '发送',
@@ -18,6 +21,7 @@ const messages = {
   emptyDescription: 'CLI 直接操作上下文',
   quickStart: '快速体验：',
   noResult: '暂无返回结果',
+  codeOutput: '命令输出',
   justNow: '刚刚',
   formatMinutesAgo: (minutes) => `${minutes} 分钟前`,
   formatHoursAgo: (hours) => `${hours} 小时前`,
@@ -37,3 +41,8 @@ const messages = {
 } satisfies ResolvedCommandConsoleLabels;
 
 export default messages;
+
+export const renderErrors = {
+  console: '命令控制台显示失败',
+  result: '命令结果显示失败',
+} satisfies Record<keyof typeof EnglishRenderErrors, string>;

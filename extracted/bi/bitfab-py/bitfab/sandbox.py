@@ -110,16 +110,22 @@ class Sandbox:
         mode: The mode the sandbox runs in, such as ``"recorded"`` or
             ``"read-real-write-fake"``, shown on the replay trace. ``None``
             (default) shows none.
-        load: ``load(ctx, value)`` builds the starting state from this
-            sandbox's entry in the replay's sandbox store (the replayed
-            trace's own entry, or the store's seed). When the store
-            has an entry, it is used instead of ``start``. ``None`` (default)
-            starts from the entry as it is.
-        is_write: ``is_write(call)`` says whether a call writes. With a
-            sandbox store, the sandbox's state is saved to the store right
-            after each call it returns ``True`` for, in the background, as
-            well as when the replay item ends. ``None`` (default) saves only
-            when the item ends.
+        load: ``load(ctx, value)`` builds the starting state from the state
+            saved for this sandbox and the replayed trace (see
+            :class:`~bitfab.sandbox_stores.SandboxStoresClient`). When there
+            is saved state, it is used instead of ``start``. ``None``
+            (default) starts from the saved state as it is.
+        is_write: ``is_write(call)`` says whether a call writes. The
+            sandbox's state is saved to the replay trace right after each
+            call it returns ``True`` for, in the background, as well as when
+            the replay item ends. ``None`` (default) saves only when the item
+            ends. Also marks each call's access on the replay trace as a read
+            or a write.
+        accessed_object: ``accessed_object(call)`` names the object one call
+            reads or writes, such as a channel and message timestamp or a
+            repository path, shown on that call's access in the replay trace.
+            Return ``None`` when the call touches no one object. ``None``
+            (default) shows no object.
     """
 
     name: str
@@ -130,6 +136,7 @@ class Sandbox:
     mode: str | None = None
     load: Callable[[SandboxStartCtx, Any], Any] | None = None
     is_write: Callable[[MockOverrideCtx], bool] | None = None
+    accessed_object: Callable[[MockOverrideCtx], str | None] | None = None
 
 
 def _as_stored(_start_ctx: SandboxStartCtx, value: Any) -> Any:
@@ -138,9 +145,12 @@ def _as_stored(_start_ctx: SandboxStartCtx, value: Any) -> Any:
 
 @dataclass(frozen=True)
 class SandboxStoreBinding:
-    name: str
-    read: Callable[[], dict[str, dict[str, Any]]]
+    read: Callable[[str], dict[str, Any] | None]
     write: Callable[[dict[str, Any]], Any]
+
+    def write_states(self, states: dict[str, Any]) -> None:
+        if states:
+            self.write(states)
 
 
 def _ensure_json(name: str, state: Any) -> None:
@@ -151,6 +161,14 @@ def _ensure_json(name: str, state: Any) -> None:
             f"The {name} sandbox's state must be JSON ({error}); return dicts, "
             "lists, strings, numbers, booleans and None from start."
         ) from error
+
+
+def _iso(moment: datetime.datetime) -> str:
+    return (
+        moment.astimezone(datetime.timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def recorded_state(start_ctx: SandboxStartCtx) -> Any:
@@ -166,7 +184,7 @@ class SandboxSession:
     store: SandboxStoreBinding | None = None
     started: float = field(default_factory=time.monotonic)
     _states: dict[str, Any] = field(default_factory=dict)
-    _stored_entries: dict[str, dict[str, Any]] | None = None
+    _stored_entries: dict[str, dict[str, Any] | None] = field(default_factory=dict)
     _reports: dict[str, dict[str, Any]] = field(default_factory=dict)
     _failures: list[BaseException] = field(default_factory=list)
     _lock: threading.RLock = field(default_factory=threading.RLock)
@@ -198,14 +216,49 @@ class SandboxSession:
         sandbox: Sandbox,
         call: MockOverrideCtx,
         attach_report: Callable[[dict[str, Any]], None],
+        attach_access: Callable[[dict[str, Any]], None] = lambda _access: None,
     ) -> Any:
         with self._lock:
-            state = self._state_for(sandbox, attach_report)
-            result = sandbox.handle(state, call)
-            self._reports[sandbox.name]["calls"] += 1
-            if sandbox.is_write is not None and sandbox.is_write(call):
-                self._save_soon()
-            return result
+            access = self._access_of(sandbox, call)
+            try:
+                state = self._state_for(sandbox, attach_report)
+                result = sandbox.handle(state, call)
+                self._reports[sandbox.name]["calls"] += 1
+                if access["access"] == "write":
+                    self._save_soon()
+                return result
+            except BaseException:
+                access["failed"] = True
+                raise
+            finally:
+                attach_access(access)
+
+    def _access_of(self, sandbox: Sandbox, call: MockOverrideCtx) -> dict[str, Any]:
+        writes = None if sandbox.is_write is None else bool(sandbox.is_write(call))
+        withheld = sandbox.integration in getattr(
+            self.client, "_disabled_integrations", ()
+        )
+        accessed = None
+        if not withheld and sandbox.accessed_object is not None:
+            accessed = sandbox.accessed_object(call)
+        now = self.now()
+        access: dict[str, Any] = {
+            "sandbox": sandbox.name,
+            "call": call.node.trace_function_key,
+            "access": None if writes is None else ("write" if writes else "read"),
+            "object": accessed,
+            "at": _iso(datetime.datetime.now(datetime.timezone.utc)),
+            "sandboxTime": None if now is None else _iso(now),
+        }
+        if withheld and sandbox.accessed_object is not None:
+            access["objectWithheldBecauseOff"] = sandbox.integration
+        return access
+
+    def now(self) -> datetime.datetime | None:
+        started_at = parse_timestamp(self.trace_started_at)
+        if started_at is None:
+            return None
+        return started_at + datetime.timedelta(milliseconds=self.elapsed_ms())
 
     def _saved_condition(self) -> threading.Condition:
         if self._saved is None:
@@ -232,7 +285,7 @@ class SandboxSession:
                 snapshot = copy.deepcopy(self._states)
                 store = self.store
             try:
-                store.write(snapshot)
+                store.write_states(snapshot)
             except Exception:
                 continue
 
@@ -273,13 +326,7 @@ class SandboxSession:
             "calls": 0,
         }
         if self.store is not None:
-            started_from = None
-            if entry is not None:
-                started_from = "seed" if entry.get("traceId") is None else "trace"
-            report["sandboxStore"] = {
-                "name": self.store.name,
-                "startedFrom": started_from,
-            }
+            report["startedFromSavedState"] = entry is not None
         if sandbox.mode is not None:
             report["mode"] = sandbox.mode
         if sandbox.integration in getattr(self.client, "_disabled_integrations", ()):
@@ -294,9 +341,9 @@ class SandboxSession:
     def _stored_entry(self, name: str) -> dict[str, Any] | None:
         if self.store is None:
             return None
-        if self._stored_entries is None:
-            self._stored_entries = self.store.read()
-        return self._stored_entries.get(name)
+        if name not in self._stored_entries:
+            self._stored_entries[name] = self.store.read(name)
+        return self._stored_entries[name]
 
     def save_to_store(self) -> None:
         if self.store is None:
@@ -305,8 +352,7 @@ class SandboxSession:
             while self._saving:
                 self._saved_condition().wait()
             states = dict(self._states)
-        if states:
-            self.store.write(states)
+        self.store.write_states(states)
 
 
 def _never(_node: SpanNodeMeta) -> bool:
@@ -315,6 +361,13 @@ def _never(_node: SpanNodeMeta) -> bool:
 
 def _unreachable(_state: Any, _call: MockOverrideCtx) -> Any:
     raise RuntimeError("A sandbox turned off answers no calls.")
+
+
+POSTGRES_SANDBOX_NAME = "postgres"
+
+
+def is_sandbox_off(sandbox: Sandbox) -> bool:
+    return sandbox.match is _never
 
 
 def without_sandbox(name: str) -> Sandbox:
@@ -361,10 +414,16 @@ def sandbox_active(name: str) -> bool:
     True only inside a replay item whose replay has that sandbox on, so code
     that refuses to reach a service during its own simulations can let the
     call through to the sandbox instead. False in production and outside a
-    replay.
+    replay. ``"postgres"`` is true when the item has its own copy of your
+    database to run against.
     """
     session = current_session()
-    return session is not None and session.find_named(name) is not None
+    if session is not None and session.find_named(name) is not None:
+        return True
+    if name != POSTGRES_SANDBOX_NAME:
+        return False
+    ctx = _replay_context.get()
+    return bool(ctx and ctx.get("db_branch_lease"))
 
 
 def sandbox_state(name: str) -> Any:
@@ -414,7 +473,4 @@ def sandbox_now() -> datetime.datetime | None:
     original start time is not known. ``datetime.now()`` is not changed.
     """
     session = current_session()
-    started_at = parse_timestamp(session.trace_started_at) if session else None
-    if session is None or started_at is None:
-        return None
-    return started_at + datetime.timedelta(milliseconds=session.elapsed_ms())
+    return None if session is None else session.now()

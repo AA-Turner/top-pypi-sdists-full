@@ -33,7 +33,7 @@ engine's cancelled-run path owns what happens next. Task cancellation
 canonical config is back on the request on EVERY exit path. Anything raised by the
 send boundary itself propagates unchanged and is NOT a provider failure.
 
-Guard: ``packages/matrx-ai/tests/test_send_once_guard.py`` fails if any other
+Guard: ``tests/package_host_contracts/test_send_once_guard.py`` fails if any other
 code calls the provider client's ``execute`` directly.
 """
 
@@ -103,6 +103,10 @@ async def send_once(
     # SAME seam for the live run and its candidate — before the send boundary.
     # Sync, never raises, never touches the request.
     observe_first_send(request, iteration)
+    # ONE ANSWERED SEND (CGU-10 IMG7 #5): the one-call settings are spent only when the provider
+    # answered. Cleared before the send, an overload on the retry's send lost them, and the next
+    # attempt went out with reasoning back on.
+    one_call = getattr(state, "one_call_settings", None) if state is not None else None
     prep = await prepare_for_send(
         request.config,
         stage=STAGE_LOOP,
@@ -110,6 +114,7 @@ async def send_once(
         request_id=request.request_id,
         iteration=iteration,
         organization_id=getattr(request, "organization_id", None),
+        one_call=one_call,
     )
 
     wire_config = prep.wire_config
@@ -124,35 +129,62 @@ async def send_once(
     _call_ctx = try_get_app_context()
     mark_first_provider_call(getattr(_call_ctx, "emitter", None) if _call_ctx is not None else None)
     from matrx_ai.orchestrator.first_output import watching_first_output
+    from matrx_ai.processing.blocks.blocks_shadow import shadowing_blocks
+    from matrx_ai.processing.blocks.live_blocks import streaming_live_blocks
 
-    try:
-        with watching_first_output(state):
-            call = (
-                client.execute(request, transient_retries=transient_retries)
-                if transient_retries
-                else client.execute(request)
-            )
-            response = await (around(call) if around is not None else call)
-    except stop_exceptions:
-        if wire_config is not None:
-            request.config = canonical_config
-        raise
-    except Exception as exc:
-        if wire_config is not None:
-            request.config = canonical_config
-            _redact_captured(state)
-        if on_provider_error is not None:
-            await on_provider_error(exc)
-        raise
-    except BaseException:
-        # Task cancellation (``asyncio.CancelledError``) or interpreter exit:
-        # not a provider failure, so no error hook — but the wire clone still
-        # never outlives the call. A cancel handler downstream persists the
-        # partial turn from ``request``; it must see placeholders, not values.
-        if wire_config is not None:
-            request.config = canonical_config
-            _redact_captured(state)
-        raise
+    if state is not None:
+        # Whatever is on the state after this call was captured BY this call: a provider that
+        # never captures (cohere, moonshot, mock) must not leave the previous round's body
+        # behind for the cache guard to compare with itself and call "stable".
+        state.snapshot_payload = None
+        state.snapshot_provider = None  # stamped by the same capture call as the payload
+    # LIVE BLOCKS (P1-CHAT T1): a blocks-v1 client gets typed block events for this call, addressed
+    # from the canonical message list (the wire clone may be trimmed). Off for every other client.
+    async with streaming_live_blocks(state, canonical_config) as live:
+        try:
+            try:
+                with watching_first_output(state), shadowing_blocks(state) as finish_blocks_shadow:
+                    call = (
+                        client.execute(request, transient_retries=transient_retries)
+                        if transient_retries
+                        else client.execute(request)
+                    )
+                    response = await (around(call) if around is not None else call)
+                    if one_call is not None and getattr(state, "one_call_settings", None) is one_call:
+                        state.one_call_settings = None  # spent: the provider answered this send
+                    from matrx_ai.orchestrator.first_output import settle_answer_start
+
+                    settle_answer_start(state, response)
+                    # The reply is saved with validated kind blocks (PF-1): warm the kind registry
+                    # after the provider answered (never on the time-to-first-token path) and before
+                    # anything splits or saves it. A cache hit after the first call.
+                    from matrx_ai.processing.blocks.saved_blocks import warm_kind_registry
+
+                    await warm_kind_registry()
+                    await finish_blocks_shadow(response)
+            except stop_exceptions:
+                if wire_config is not None:
+                    request.config = canonical_config
+                raise
+            except Exception as exc:
+                if wire_config is not None:
+                    request.config = canonical_config
+                    _redact_captured(state)
+                if on_provider_error is not None:
+                    await on_provider_error(exc)
+                raise
+            except BaseException:
+                # Task cancellation (``asyncio.CancelledError``) or interpreter exit:
+                # not a provider failure, so no error hook — but the wire clone still
+                # never outlives the call. A cancel handler downstream persists the
+                # partial turn from ``request``; it must see placeholders, not values.
+                if wire_config is not None:
+                    request.config = canonical_config
+                    _redact_captured(state)
+                raise
+        finally:
+            # The call's last open blocks close (complete=False when the text was cut).
+            await live.finish()
     if wire_config is not None:
         request.config = canonical_config
         _redact_captured(state)

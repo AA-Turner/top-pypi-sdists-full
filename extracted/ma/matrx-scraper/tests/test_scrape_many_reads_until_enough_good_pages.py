@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 import matrx_scraper
+import pytest
+from matrx_graph.actions import run_as_step
 from matrx_scraper.graph_nodes import scrape_actions
 from matrx_scraper.graph_nodes.scrape_actions import (
     ScrapedPageItem,
@@ -43,7 +43,7 @@ def waves(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
 @pytest.mark.asyncio
 async def test_reads_in_waves_until_the_target_then_stops(waves: list[list[str]]) -> None:
-    res = await scraper_scrape_many(
+    res = await run_as_step(scraper_scrape_many, 
         None,  # type: ignore[arg-type]
         ScrapeManyInput(urls=list("abcdef"), stop_after_good=3, good_min_chars=1000),
     )
@@ -57,7 +57,7 @@ async def test_reads_in_waves_until_the_target_then_stops(waves: list[list[str]]
 
 @pytest.mark.asyncio
 async def test_runs_dry_honestly_when_the_list_cannot_meet_the_target(waves: list[list[str]]) -> None:
-    res = await scraper_scrape_many(
+    res = await run_as_step(scraper_scrape_many, 
         None,  # type: ignore[arg-type]
         ScrapeManyInput(urls=list("abc"), stop_after_good=3, good_min_chars=1000),
     )
@@ -68,7 +68,7 @@ async def test_runs_dry_honestly_when_the_list_cannot_meet_the_target(waves: lis
 
 @pytest.mark.asyncio
 async def test_without_a_target_reads_everything_once(waves: list[list[str]]) -> None:
-    res = await scraper_scrape_many(None, ScrapeManyInput(urls=list("abcdef")))  # type: ignore[arg-type]
+    res = await run_as_step(scraper_scrape_many, None, ScrapeManyInput(urls=list("abcdef")))  # type: ignore[arg-type]
     assert waves == [list("abcdef")]
     assert res.result.good == 5  # every successful read; no length floor
 
@@ -77,7 +77,7 @@ async def test_without_a_target_reads_everything_once(waves: list[list[str]]) ->
 async def test_each_page_says_whether_it_is_good_and_how_long_it_is(waves: list[list[str]]) -> None:
     """A workflow saving every page (research.rs_content is_good_scrape and
     char_count) reads the verdict off the page itself, not by re-deriving it."""
-    res = await scraper_scrape_many(
+    res = await run_as_step(scraper_scrape_many, 
         None,  # type: ignore[arg-type]
         ScrapeManyInput(urls=list("abc"), good_min_chars=1000),
     )

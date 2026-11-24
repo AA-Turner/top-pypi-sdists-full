@@ -12,6 +12,9 @@ def _register_models() -> None:
     if _models_registered:
         return
     from matrx_scraper.db import models_web  # noqa: F401
+    from matrx_scraper.db import models_brand  # noqa: F401
+    from matrx_scraper.db import models_local  # noqa: F401
+    from matrx_scraper.db import models_social  # noqa: F401
 
     # `platform.acquisition_block` rides the same config: the Block Ledger is written by
     # whichever process hits the wall, and this package runs in more than one of them.

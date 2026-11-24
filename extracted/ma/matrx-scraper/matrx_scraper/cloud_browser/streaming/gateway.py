@@ -14,13 +14,12 @@ from __future__ import annotations
 import secrets
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .config import (
     CONTROL_LEASE_RENEW_INTERVAL_SECONDS,
     STREAM_COOKIE_NAME,
     STREAM_COOKIE_MAX_AGE_SECONDS,
-    StreamingConfig,
 )
 from .errors import (
     STREAM_ALREADY_CONNECTED,
@@ -28,12 +27,10 @@ from .errors import (
     STREAM_TICKET_ORIGIN_MISMATCH,
     STREAM_TICKET_USER_MISMATCH,
     CONTROL_LEASE_LOST,
-    GRANT_EXPIRED,
     GRANT_REVOKED,
     HANDOFF_EXPIRED,
     HANDOFF_NOT_CLAIMABLE,
     MEMBERSHIP_LOST,
-    RUN_NOT_LIVE,
     WORKER_UNAVAILABLE,
     StreamError,
 )

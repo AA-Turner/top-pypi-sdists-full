@@ -76,3 +76,28 @@ def test_the_answers_survive_the_round_trip_intact():
     # The nested answer carries its own marker and always did — the bug was the
     # OUTER part only, which is exactly what made it survive review.
     assert stored["answers"]["is_defect"]["__kind"] == "decision_answer"
+
+
+def test_a_decision_answers_part_with_images_validates():
+    """DecisionAnswers.to_part() dumps `images` (always, empty or not); the stored part must accept it.
+
+    Production: 62 "[CX PERSISTENCE] ... DecisionAnswersPart images Extra inputs are not permitted"
+    on 2026-11-02 for the scraper page-fetch verdict.
+    """
+    from matrx_ai.decisions.kinds import DecisionAnswers
+
+    answers = DecisionAnswers.model_validate(
+        {
+            "model": "jev-1.14.0",
+            "method": "native",
+            "answers": {"a": {"type": "noul", "answer": True, "probability": 0.9, "confidence": 0.9}},
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+            "cost_usd": 0.0,
+            "images": [{"file_id": "f1", "width": 10, "height": 10}],
+        }
+    )
+    base = {"type": "decision_answers", **answers.to_part()}
+    for part in (base, {**base, "images": []}):
+        stored = validate_message_content([part])[0]
+        assert stored["__kind"] == "decision_answers"
+        assert "images" in stored

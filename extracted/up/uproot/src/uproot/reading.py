@@ -1,4 +1,4 @@
-# BSD 3-Clause License; see https://github.com/scikit-hep/uproot5/blob/main/LICENSE
+# BSD 3-Clause License; see https://github.com/scikit-hep/uproot/blob/main/LICENSE
 
 """
 This module defines the entry-point for opening a file, :doc:`uproot.reading.open`,
@@ -146,13 +146,20 @@ def open(
     # universal-pathlib). Extract before regularize_path so that if the object
     # ever gains __fspath__ the options aren't lost when it is converted to str.
     # Caller-provided kwargs take precedence over path-embedded options.
+    # Only sources that forward them to fsspec can use these options.
     if hasattr(file_path, "storage_options") and not isinstance(
         file_path, (str, bytes)
     ):
-        options = {**file_path.storage_options, **options}
+        handler = options.get("handler")
+        if handler is None or (
+            isinstance(handler, type)
+            and issubclass(handler, uproot.source.fsspec.FSSpecSource)
+        ):
+            options = {**file_path.storage_options, **options}
         file_path = str(file_path)
 
     file_path = uproot._util.regularize_path(file_path)
+    uproot._util._check_unknown_options(options, file_path)
 
     if not isinstance(file_path, str) and not (
         hasattr(file_path, "read") and hasattr(file_path, "seek")
@@ -181,6 +188,7 @@ def open(
 
 open.defaults = {
     "handler": None,
+    "timeout": None,
     "max_num_elements": None,
     "num_workers": 1,
     "use_threads": sys.platform != "emscripten",
@@ -844,12 +852,10 @@ in file {file_path}""")
             names = self.streamer_dependencies(classname, version=version)
         first = True
         for name, version in names:
-            streamer = self.streamers[name].get(version)
-            if streamer is not None:
-                if not first:
-                    stream.write("\n")
-                streamer.show(stream=stream)
-                first = False
+            if not first:
+                stream.write("\n")
+            self.streamers[name][version].show(stream=stream)
+            first = False
 
     @property
     def streamers(self):
@@ -873,6 +879,7 @@ in file {file_path}""")
         if self._streamers is None:
             if self._fSeekInfo == 0:
                 self._streamers = {}
+                self._streamer_rules = []
 
             else:
                 key_cursor = uproot.source.cursor.Cursor(self._fSeekInfo)
@@ -1026,7 +1033,7 @@ in file {self._file_path}"""
                     if x not in out:
                         for i in range(-1, -len(out) - 1, -1):
                             if out[i][0] == x[0]:
-                                out.insert(i + 1, x)
+                                out.insert(len(out) + i + 1, x)
                                 break
                         else:
                             out.append(x)
@@ -1775,8 +1782,17 @@ class ReadOnlyDirectory(Mapping):
         """
         filter_name = uproot._util.regularize_filter(filter_name)
         filter_classname = uproot._util.regularize_filter(filter_classname)
+        keys = self._keys
+        if not cycle:
+            # without cycle numbers, a name stands for its highest cycle, as in
+            # self[name], so the cycles of each name are visited from the highest
+            order = {}
+            for key in keys:
+                order.setdefault(key.fName, len(order))
+            keys = sorted(keys, key=lambda key: (order[key.fName], -key.fCycle))
+
         seen = set()
-        for key in self._keys:
+        for key in keys:
             if (filter_name is no_filter or filter_name(key.fName)) and (
                 filter_classname is no_filter or filter_classname(key.fClassName)
             ):
@@ -2103,7 +2119,13 @@ class ReadOnlyDirectory(Mapping):
                             head, tail = item[:index], item[index + 1 :]
                             last = step
                             step = step[head]
-                            if isinstance(step, uproot.behaviors.TBranch.HasBranches):
+                            if isinstance(
+                                step,
+                                (
+                                    uproot.behaviors.TBranch.HasBranches,
+                                    uproot.behaviors.RNTuple.HasFields,
+                                ),
+                            ):
                                 return step["/".join([tail, *items[i + 1 :]])]
                             else:
                                 raise uproot.KeyInFileError(

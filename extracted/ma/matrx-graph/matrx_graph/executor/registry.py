@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 
 from typing import Protocol, runtime_checkable
@@ -98,8 +99,11 @@ class NodeRegistry:
 
     def __init__(self) -> None:
         self._executors: dict[str, NodeExecutor] = {}
+        # Bumped on every (un)registration: a graph compiled against an older generation is stale.
+        self.generation = 0
         self._bootstrap: Callable[[], None] | None = None
         self._bootstrapping = False
+        self._bootstrap_lock = threading.RLock()
 
     def set_bootstrap(self, fn: Callable[[], None] | None) -> None:
         """Install the host's one-shot "register every node type" call.
@@ -113,13 +117,19 @@ class NodeRegistry:
 
     def ensure_bootstrapped(self) -> None:
         fn = self._bootstrap
-        if fn is None or self._bootstrapping:
+        if fn is None:
             return
-        self._bootstrapping = True  # re-entrancy guard: the bootstrap may compile
-        try:
-            fn()
-        finally:
-            self._bootstrapping = False
+        # A host may run the (slow, import-heavy) bootstrap on a worker thread to keep its event loop
+        # free; another thread compiling meanwhile WAITS for it instead of skipping it and refusing
+        # every node type. Re-entry on the bootstrapping thread (the bootstrap may compile) returns.
+        with self._bootstrap_lock:
+            if self._bootstrapping:
+                return
+            self._bootstrapping = True
+            try:
+                fn()
+            finally:
+                self._bootstrapping = False
 
     @staticmethod
     def _contract_family(executor: NodeExecutor) -> ContractFamily:
@@ -157,9 +167,11 @@ class NodeRegistry:
                 f"{existing}; pass overwrite=True to replace (was: {new})."
             )
         self._executors[node_type] = executor
+        self.generation += 1
 
     def unregister(self, node_type: str) -> None:
         self._executors.pop(canonical_spec_type(node_type), None)
+        self.generation += 1
 
     def get(self, node_type: str) -> NodeExecutor:
         # Exact match first; then the legacy "action." alias so stored
@@ -215,6 +227,7 @@ class NodeRegistry:
 
     def clear(self) -> None:
         self._executors.clear()
+        self.generation += 1
 
     def assert_types_present(self, expected: set[str] | list[str] | tuple[str, ...]) -> None:
         """Raise if any expected node type isn't registered.

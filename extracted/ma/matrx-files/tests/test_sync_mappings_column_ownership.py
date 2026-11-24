@@ -59,7 +59,10 @@ async def _seed() -> tuple[str, str]:
         row = await conn.fetchrow(
             "SELECT id::text AS device, user_id::text AS owner, organization_id::text AS org "
             "FROM public.app_instances "
-            "WHERE deleted_at IS NULL AND organization_id IS NOT NULL LIMIT 1"
+            "WHERE deleted_at IS NULL AND organization_id IS NOT NULL "
+            # The restrictive org gate hides a row of an archived organization from every user lane:
+            # a probe seeded there updates 0 rows and the trigger never runs.
+            "AND organization_id NOT IN (SELECT iam.archived_org_ids()) LIMIT 1"
         )
         if row is None:
             pytest.skip("no registered devices on this database")

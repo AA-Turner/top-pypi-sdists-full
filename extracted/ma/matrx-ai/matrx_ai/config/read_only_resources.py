@@ -30,6 +30,12 @@ from collections.abc import Iterable
 # for the current request. Mirrors the PROJECTED_AGENT_TOOLS_KEY convention.
 READ_ONLY_RESOURCE_IDS_KEY = "read_only_resource_ids"
 
+# Key under AppContext.metadata holding the ids a HOST locked read-only from refs it attached
+# outside the messages (aidream's chat context refs with ``editable: false``, one-input contract).
+# The per-turn collector starts from these before applying the message decisions, so a context
+# lock survives every iteration's rebuild.
+CONTEXT_READ_ONLY_RESOURCE_IDS_KEY = "context_read_only_resource_ids"
+
 # Uniform, model-readable refusal returned by every write tool that hits a locked
 # resource. Short and actionable — the user, not the agent, holds the unlock.
 READ_ONLY_TOOL_MESSAGE = (

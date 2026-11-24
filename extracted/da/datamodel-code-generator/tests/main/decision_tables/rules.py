@@ -32,10 +32,11 @@ CONSTRAINTS: Final[tuple[Kept, ...]] = (
         "#7198",
         constraints.TABLE,
         "accepts-invalid",
-        BOTH,
+        DEFAULT,
         ({"type": ("uri",), "backend": (PYDANTIC_V2,)},),
         "a URL is written AnyUrl and every string keyword beside it is left out without a warning (row "
-        "legacy-anyurl-keeps-string-keywords)",
+        "legacy-anyurl-keeps-string-keywords, written as the plain string they check under "
+        "--keep-string-keywords-beside-formats)",
     ),
     Kept(
         LIBRARY_LIMIT,
@@ -104,16 +105,8 @@ CONSTRAINTS: Final[tuple[Kept, ...]] = (
         DEFAULT,
         ({"type": _FORMAT_TYPES, "position": ("all-of-member",), "site": ("root",), "backend": (MSGSPEC,)},),
         "an allOf definition over a date, a time, a UUID or an IP address keeps no string keyword of its member, "
-        "though msgspec keeps the value a str (row legacy-all-of-root-format-kinds)",
-    ),
-    Kept(
-        ISSUE,
-        "#7181",
-        constraints.TABLE,
-        "accepts-invalid",
-        PRESET,
-        ({"type": ("date", "date-time"), "position": ("all-of-member",), "site": ("root",), "backend": (MSGSPEC,)},),
-        "the same under the preset, where a UUID and an IP address are decoded by their own types",
+        "though msgspec keeps the value a str (row legacy-all-of-root-format-kinds, kept under "
+        "--keep-string-keywords-beside-formats where msgspec writes the format as str)",
     ),
     Kept(
         LIBRARY_LIMIT,
@@ -138,64 +131,10 @@ CONSTRAINTS: Final[tuple[Kept, ...]] = (
         "#7340",
         constraints.TABLE,
         "accepts-invalid",
-        BOTH,
+        DEFAULT,
         ({"type": ("map",), "position": ("all-of-member",), "site": ("root", "item")},),
         "the property counts an allOf member adds to a referenced map are left out at a definition and in array "
-        "items, also with --use-site-models-for-constrained-refs",
-    ),
-    Kept(
-        ISSUE,
-        "#7342",
-        constraints.TABLE,
-        "rejects-valid",
-        PRESET,
-        ({"type": ("ipv4",), "position": ("direct", "all-of-member", "ref-sibling"), "backend": (MSGSPEC,)},),
-        "with --use-standard-primitive-types (in the preset) msgspec gets IPv4Address, which msgspec cannot decode",
-    ),
-    Kept(
-        ISSUE,
-        "#7342",
-        constraints.TABLE,
-        "model-raises",
-        PRESET,
-        ({"type": ("ipv4",), "position": ("union-member",), "backend": (MSGSPEC,)},),
-        "the same in a union, where msgspec refuses the type outright",
-    ),
-    Kept(
-        ISSUE,
-        "#7341",
-        constraints.TABLE,
-        "accepts-invalid",
-        PRESET,
-        (
-            {"type": ("byte",), "position": ("all-of-member",), "site": ("item",), "backend": (PYDANTIC_V2,)},
-            {
-                "type": ("byte",),
-                "position": ("all-of-member",),
-                "site": ("property",),
-                "keyword": ("maxLength",),
-                "backend": (PYDANTIC_V2,),
-            },
-        ),
-        "an allOf member's string keywords beside a base64 reference are checked on the decoded value at a property "
-        "and left out in array items, where --use-encoded-str-for-constrained-base64 checks them on the text",
-    ),
-    Kept(
-        ISSUE,
-        "#7341",
-        constraints.TABLE,
-        "rejects-valid",
-        PRESET,
-        (
-            {
-                "type": ("byte",),
-                "position": ("all-of-member",),
-                "site": ("property",),
-                "keyword": ("minLength", "pattern"),
-                "backend": (PYDANTIC_V2,),
-            },
-        ),
-        "the same: a lower length or a pattern of the text is checked on the decoded value and rejects valid text",
+        "items, also with --use-site-models-for-constrained-refs (row legacy-all-of-map-counts-dropped)",
     ),
 )
 """The known differences of the constraint applicability table."""
@@ -308,8 +247,9 @@ NULLS: Final[tuple[Kept, ...]] = (
         nulls.TABLE,
         "accepts-invalid",
         PRESET,
-        ({"source": ("nullable",), "kind": ("ref",), "position": ("property", "root")},),
-        "the same wherever --strict-nullable reads the nullable",
+        ({"source": ("nullable",), "kind": ("ref",), "position": ("property", "root", "item", "value")},),
+        "the same wherever --strict-nullable reads the nullable, an array item and a map value included under "
+        "--keep-null-of-nullable-items",
     ),
     Kept(
         ISSUE,
@@ -346,16 +286,6 @@ NULLS: Final[tuple[Kept, ...]] = (
     ),
     Kept(
         ISSUE,
-        "#7343",
-        nulls.TABLE,
-        "rejects-valid",
-        PRESET,
-        ({"source": ("nullable",), "kind": ("array",), "position": ("item", "value")},),
-        "a nullable array that is an array item or a map value loses its null also under --strict-nullable, where a "
-        "nullable string there keeps it",
-    ),
-    Kept(
-        ISSUE,
         "#4677",
         nulls.TABLE,
         "model-raises",
@@ -375,7 +305,7 @@ _SEVERAL_TAGS_RAISE: Final = (
     {"form": ("enum2-int",), "count": (3,), "backend": (MSGSPEC,)},
     {"form": _ENUM2, "shared": (False,), "backend": (MSGSPEC,)},
     {"form": _ENUM2, **_SHARED_PAIR, "mapping": (True,), "backend": (MSGSPEC,)},
-    {"form": ("enum2-int",), **_SHARED_PAIR, "nullable": (False,), "backend": (MSGSPEC,)},
+    {"form": ("enum2-int",), **_SHARED_PAIR, "backend": (MSGSPEC,)},
 )
 """The rows whose msgspec union of a variant with several tags raises under both contracts."""
 
@@ -384,19 +314,16 @@ TAGS: Final[tuple[Kept, ...]] = (
         ISSUE,
         "#7102",
         tags.TABLE,
-        "import-fails",
-        DEFAULT,
-        ({"nullable": (True,), "backend": (PYDANTIC_V2,)},),
-        "a discriminator whose tag also admits null fails the import of the Pydantic v2 model",
-    ),
-    Kept(
-        ISSUE,
-        "#7102",
-        tags.TABLE,
         "rejects-valid",
         PRESET,
         (
-            {"form": ("enum1-str", *_ENUM2), "nullable": (True,), "mapping": (False,), "backend": (PYDANTIC_V2,)},
+            {
+                "form": ("enum1-str", *_ENUM2),
+                "count": (3,),
+                "nullable": (True,),
+                "mapping": (False,),
+                "backend": (PYDANTIC_V2,),
+            },
             {"nullable": (True,), "kind": ("anyOf",), "backend": (PYDANTIC_V2,)},
         ),
         "a discriminator whose tag also admits null: the model imports and rejects a tag or the null tag",
@@ -430,11 +357,13 @@ TAGS: Final[tuple[Kept, ...]] = (
         "rejects-valid",
         BOTH,
         (
+            {"form": ("enum2-str",), **_SHARED_PAIR, "nullable": (True,), "mapping": (False,), "backend": (MSGSPEC,)},
             {
-                "form": ("enum1-str", *_ENUM2),
+                "form": ("enum2-int",),
                 **_SHARED_PAIR,
                 "nullable": (True,),
                 "mapping": (False,),
+                "kind": ("anyOf",),
                 "backend": (MSGSPEC,),
             },
             {
@@ -502,7 +431,7 @@ TAGS: Final[tuple[Kept, ...]] = (
         tags.TABLE,
         "rejects-valid",
         DEFAULT,
-        ({"form": _ENUM2, "nullable": (False,), "mapping": (True,), "shared": (True,), "backend": (PYDANTIC_V2,)},),
+        ({"form": _ENUM2, "mapping": (True,), "shared": (True,), "backend": (PYDANTIC_V2,)},),
         "a variant keeps the tags of the first union that tags it, so a later union's own tag of it is refused "
         "(fixed by --merge-shared-variant-tags)",
     ),

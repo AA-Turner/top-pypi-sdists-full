@@ -26,7 +26,7 @@ from sentry_protos.billing.v1.services.spend_allocation.v1 import spend_allocati
 from sentry_protos.billing.v1.services.usage.v1 import endpoint_usage_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_usage_dot_v1_dot_endpoint__usage__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n_sentry_protos/billing/v1/services/spend_allocation/v1/endpoint_get_spend_allocation_state.proto\x12\x35sentry_protos.billing.v1.services.spend_allocation.v1\x1aRsentry_protos/billing/v1/services/spend_allocation/v1/spend_allocation_usage.proto\x1a?sentry_protos/billing/v1/services/usage/v1/endpoint_usage.proto\"5\n\x1eGetSpendAllocationStateRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\"\xd5\x01\n\x1fGetSpendAllocationStateResponse\x12[\n\x06usages\x18\x01 \x03(\x0b\x32K.sentry_protos.billing.v1.services.spend_allocation.v1.SpendAllocationUsage\x12U\n\x0fsimulated_usage\x18\x02 \x01(\x0b\x32<.sentry_protos.billing.v1.services.usage.v1.GetUsageResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n_sentry_protos/billing/v1/services/spend_allocation/v1/endpoint_get_spend_allocation_state.proto\x12\x35sentry_protos.billing.v1.services.spend_allocation.v1\x1aRsentry_protos/billing/v1/services/spend_allocation/v1/spend_allocation_usage.proto\x1a?sentry_protos/billing/v1/services/usage/v1/endpoint_usage.proto\"_\n\x1eGetSpendAllocationStateRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12\x18\n\x0bsnapshot_id\x18\x02 \x01(\x04H\x00\x88\x01\x01\x42\x0e\n\x0c_snapshot_id\"\xd5\x01\n\x1fGetSpendAllocationStateResponse\x12[\n\x06usages\x18\x01 \x03(\x0b\x32K.sentry_protos.billing.v1.services.spend_allocation.v1.SpendAllocationUsage\x12U\n\x0fsimulated_usage\x18\x02 \x01(\x0b\x32<.sentry_protos.billing.v1.services.usage.v1.GetUsageResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,7 +34,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_GETSPENDALLOCATIONSTATEREQUEST']._serialized_start=303
-  _globals['_GETSPENDALLOCATIONSTATEREQUEST']._serialized_end=356
-  _globals['_GETSPENDALLOCATIONSTATERESPONSE']._serialized_start=359
-  _globals['_GETSPENDALLOCATIONSTATERESPONSE']._serialized_end=572
+  _globals['_GETSPENDALLOCATIONSTATEREQUEST']._serialized_end=398
+  _globals['_GETSPENDALLOCATIONSTATERESPONSE']._serialized_start=401
+  _globals['_GETSPENDALLOCATIONSTATERESPONSE']._serialized_end=614
 # @@protoc_insertion_point(module_scope)

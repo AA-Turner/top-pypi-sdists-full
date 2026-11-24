@@ -18,7 +18,6 @@ when it needs typed access (e.g. "Regenerate with same settings").
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue

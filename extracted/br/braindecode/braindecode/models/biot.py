@@ -1,11 +1,11 @@
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 from warnings import warn
 
 import torch
 import torch.nn as nn
 
-from braindecode.functional import spectral_input
-from braindecode.models.base import EEGModuleMixin
+from braindecode.functional import check_ch_mask, masked_mean, spectral_input
+from braindecode.models.base import EEGModuleMixin, deprecated_init_flags
 from braindecode.models.util import warn_if_sfreq_differs
 from braindecode.modules import SinusoidalPositionalEncoding
 from braindecode.modules.linear_attention import LinearAttentionTransformer
@@ -40,6 +40,9 @@ BIOT_CHANNEL_ORDER = [
 ]
 
 
+@deprecated_init_flags(
+    return_feature=("logits", "features"),
+)
 class BIOT(EEGModuleMixin, nn.Module):
     r"""BIOT from Yang et al (2023) [Yang2023]_
 
@@ -100,7 +103,7 @@ class BIOT(EEGModuleMixin, nn.Module):
                repo_id="username/my-biot-model", commit_message="Upload trained BIOT model"
            )
 
-       Requires installing ``braindecode[hug]`` for Hub integration.
+       Requires installing ``braindecode[hub]`` for Hub integration.
 
     .. versionadded:: 0.9
 
@@ -112,17 +115,18 @@ class BIOT(EEGModuleMixin, nn.Module):
         The number of attention heads, by default 8
     num_layers : int, optional
         The number of transformer layers, by default 4
-    activation: nn.Module, default=nn.ELU
+    activation : nn.Module, default=nn.ELU
         Activation function class to apply. Should be a PyTorch activation
         module class like ``nn.ReLU`` or ``nn.ELU``. Default is ``nn.ELU``.
-    return_feature: bool, optional
+    hop_length : int, optional
+        The hop length for the torch.stft transformation in the
+        encoder. The default is 100.
+    return_feature : bool, optional
+        Deprecated, removed in 2.3: call ``model(x, return_features=True)`` instead.
         Changing the output for the neural network. Default is single tensor
         when return_feature is True, return embedding space too.
         Default is False.
-    hop_length: int, optional
-        The hop length for the torch.stft transformation in the
-        encoder. The default is 100.
-    sfreq: int, optional
+    sfreq : int, optional
         The sfreq parameter for the encoder. The default is 200, unless
         ``n_times`` and ``input_window_seconds`` are both given, in which
         case it is inferred from them.
@@ -136,6 +140,9 @@ class BIOT(EEGModuleMixin, nn.Module):
        Biosignal Transformer for Cross-data Learning in the Wild.
        GitHub https://github.com/ycq091044/BIOT (accessed 2024-02-13)
     """
+
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: encoder.channel_tokens.weight is sized by n_chans
 
     _channel_target = BIOT_CHANNEL_ORDER
 
@@ -178,7 +185,6 @@ class BIOT(EEGModuleMixin, nn.Module):
         self.hop_length = hop_length
         self.num_heads = num_heads
         self.num_layers = num_layers
-        self.return_feature = return_feature
         warn_if_sfreq_differs("BIOT", self.sfreq, 200)
         if self.n_chans > embed_dim:
             warn(
@@ -228,6 +234,13 @@ class BIOT(EEGModuleMixin, nn.Module):
             n_outputs=self.n_outputs,
             activation=activation,
         )
+        self._min_n_times = max(1, self.n_fft)
+
+    def _accepts_any_n_chans(self, args: tuple, kwargs: dict) -> bool:
+        if super()._accepts_any_n_chans(args, kwargs):
+            return True
+        x = self._first_input(args, kwargs)
+        return x is not None and x.ndim >= 2 and 1 <= x.shape[1] <= self.n_chans
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
@@ -239,12 +252,11 @@ class BIOT(EEGModuleMixin, nn.Module):
         )
 
     def forward(
-        self, x: torch.Tensor, return_features: bool = False
-    ) -> Union[
-        torch.Tensor,
-        Tuple[torch.Tensor, torch.Tensor],
-        Dict[str, Optional[torch.Tensor]],
-    ]:
+        self,
+        x: torch.Tensor,
+        return_features: bool = False,
+        ch_mask: Optional[torch.Tensor] = None,
+    ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
         """
         Pass the input through the BIOT encoder, and then through the
         classification head.
@@ -254,33 +266,39 @@ class BIOT(EEGModuleMixin, nn.Module):
         x: Tensor
             (batch_size, n_channels, n_times)
         return_features : bool
-            If True, return a dict with ``"features"`` and ``"cls_token"``
-            instead of the classification output.
+            If True, return a dict with ``"features"``, ``"cls_token"`` and
+            ``"tokens"`` instead of the classification output.
+        ch_mask : torch.Tensor, optional
+            ``(batch, n_chans)`` mask of real channels, see
+            :func:`~braindecode.functional.check_ch_mask`. Padded channels are
+            never attended to nor pooled; channel tokens follow the position.
 
         Returns
         -------
-        torch.Tensor or tuple or dict
+        torch.Tensor or dict
             Default: ``torch.Tensor`` of shape ``(batch_size, n_outputs)``.
             If ``return_features=True``: ``dict`` with ``"features"``
-            ``(batch_size, emb_size)`` and ``"cls_token"`` (``None``).
-            If legacy ``return_feature=True`` (init param):
-            ``(out, emb)`` tuple (ignored when ``return_features=True``).
+            ``(batch_size, emb_size)``, the mean of the tokens, ``"cls_token"``
+            (``None``) and ``"tokens"`` ``(batch_size, n_channels, n_patches,
+            emb_size)``, the transformer output, zero for padded channels.
         """
-        emb = self.encoder(x)
+        ch_mask = check_ch_mask(ch_mask, x)
+        tokens, token_mask = self.encoder(x, ch_mask=ch_mask)
+        emb = masked_mean(tokens, token_mask, [1])
 
         if return_features:
+            tokens = tokens.unflatten(1, (x.shape[1], -1))
+            if ch_mask is not None:
+                tokens = tokens.masked_fill(~ch_mask[:, :, None, None], 0.0)
             out: Dict[str, Optional[torch.Tensor]] = {
                 "features": emb,
                 "cls_token": None,
+                "tokens": tokens,
+                "logits": self.final_layer(emb),
             }
             return out
 
-        x = self.final_layer(emb)
-
-        if self.return_feature:
-            return x, emb
-        else:
-            return x
+        return self.final_layer(emb)
 
 
 class _PatchFrequencyEmbedding(nn.Module):
@@ -462,7 +480,13 @@ class _BIOTEncoder(nn.Module):
         )
         return torch.abs(spectral).to(sample)
 
-    def forward(self, x, n_channel_offset: int = 0, perturb: bool = False):
+    def forward(
+        self,
+        x,
+        n_channel_offset: int = 0,
+        perturb: bool = False,
+        ch_mask: Optional[torch.Tensor] = None,
+    ):
         """
         Forward pass of the BIOT encoder.
 
@@ -470,8 +494,7 @@ class _BIOTEncoder(nn.Module):
         and then embedded using a patch embedding. The channel token
         is added to the patch embedding, and then positional encoding
         is applied. The resulting embeddings are concatenated and
-        passed through a transformer layer. The mean of the resulting
-        embeddings is returned.
+        passed through a transformer layer, whose tokens are returned.
 
         For each channel in channels, the channels are transformed into a
         spectrogram with STFT; The spectrogram representation is permuted
@@ -482,7 +505,7 @@ class _BIOTEncoder(nn.Module):
         the patch embedding, and then positional encoding is applied.
 
         The resulting embeddings are concatenated and passed through a
-        transformer layer. The mean of the resulting embeddings is returned.
+        transformer layer.
 
         Parameters
         ----------
@@ -493,18 +516,34 @@ class _BIOTEncoder(nn.Module):
         perturb: bool (default False)
             Randomly select a number of time steps and reduce the
             channel embedding to those time steps.
+        ch_mask: Tensor, optional
+            (batch_size, n_channels) boolean mask of real channels, already
+            checked.
 
         Returns
         -------
-        emb: Tensor
-            (batch_size, emb_size)
+        tokens: Tensor
+            (batch_size, n_channels * n_patches, emb_size), channel-major
+            (with ``perturb``, channels keep different numbers of patches).
+        token_mask: Tensor or None
+            (batch_size, n_channels * n_patches) mask of the tokens of real
+            channels; None without ``ch_mask``.
         """
         batch_size, n_chans, n_times = x.shape
+        if ch_mask is not None:
+            # Padding may hold NaN, which the STFT would spread.
+            x = x.masked_fill(~ch_mask[:, :, None], 0.0)
         # One spectrogram for all channels, channel-major so that each
         # channel's (batch, freq, ts) block is contiguous
         spec = self.stft(x.transpose(0, 1).reshape(n_chans * batch_size, 1, n_times))
         spec = spec.unflatten(0, [n_chans, batch_size])
+        # One lookup for the tokens of all channels, not one call per channel:
+        # (n_chans, emb_size)
+        channel_tokens = self.channel_tokens(
+            self.index[n_channel_offset : n_channel_offset + n_chans]
+        )
         emb_seq = []
+        token_masks = []
         for i in range(n_chans):
             # Getting the spectrogram
             channel_spec_emb = spec[i]
@@ -513,22 +552,10 @@ class _BIOTEncoder(nn.Module):
             channel_spec_emb = self.patch_embedding(channel_spec_emb)
             batch_size, ts, _ = channel_spec_emb.shape
             # (batch_size, ts, emb)
-            # Step by step the following lines do the following operations:
-            #    - self.channel_tokens(self.index[i + n_channel_offset]):
-            #    Fetches the embedding for a channel specified by i + n_channel_offset,
-            #    where i is the current index and n_channel_offset adjusts
-            #    which channel's embedding is retrieved.
-            #    - .unsqueeze(0).unsqueeze(0):
-            #    Adds two singleton dimensions to the embedding tensor.
-            #    [emb_size] to [1, 1, emb_size] .
-            #    - Repeat(batch_size, ts, 1):
-            #    Replicates the embedding tensor to match the batch size and
-            #    time steps (ts),
+            # The token of channel i + n_channel_offset, repeated over the
+            # batch and the time steps.
             channel_token_emb = (
-                self.channel_tokens(self.index[i + n_channel_offset])
-                .unsqueeze(0)
-                .unsqueeze(0)
-                .repeat(batch_size, ts, 1)
+                channel_tokens[i].unsqueeze(0).unsqueeze(0).repeat(batch_size, ts, 1)
             )
             # (batch_size, ts, emb)
             # The positional embedding is explaining with more
@@ -543,10 +570,13 @@ class _BIOTEncoder(nn.Module):
                 selected_ts = torch.randperm(ts)[:ts_new]
                 channel_emb = channel_emb[:, selected_ts]
             emb_seq.append(channel_emb)
+            if ch_mask is not None:
+                token_masks.append(ch_mask[:, i, None].expand(-1, channel_emb.shape[1]))
 
         # Concat and transformer
         # (batch_size, 16 * ts, emb)
         emb = torch.cat(emb_seq, dim=1)
-        # (batch_size, emb)
-        emb = self.transformer(emb).mean(dim=1)
-        return emb
+        token_mask: Optional[torch.Tensor] = None
+        if ch_mask is not None:
+            token_mask = torch.cat(token_masks, dim=1)
+        return self.transformer(emb, token_mask), token_mask

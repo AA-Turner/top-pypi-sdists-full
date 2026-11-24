@@ -323,6 +323,7 @@ class Client(BaseClient):
               entitlementsV2 {
                 ...EntitlementUnionFragment
               }
+              entitlementsUpdatedAt
             }
 
             fragment ResetPeriodConfigurationFragment on ResetPeriodConfiguration {
@@ -817,6 +818,7 @@ class Client(BaseClient):
               entitlementsV2 {
                 ...EntitlementUnionFragment
               }
+              entitlementsUpdatedAt
             }
 
             fragment ResetPeriodConfigurationFragment on ResetPeriodConfiguration {
@@ -984,6 +986,7 @@ class Client(BaseClient):
               entitlementsV2 {
                 ...EntitlementUnionFragment
               }
+              entitlementsUpdatedAt
             }
 
             fragment CreditEntitlementFragment on CreditEntitlement {
@@ -6354,6 +6357,7 @@ class Client(BaseClient):
                   ...EntitlementUnionFragment
                 }
                 accessDeniedReason
+                entitlementsUpdatedAt
               }
             }
 

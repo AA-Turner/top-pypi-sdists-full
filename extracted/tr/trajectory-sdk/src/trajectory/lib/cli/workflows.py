@@ -32,8 +32,8 @@ from trajectory.types.diagnostics.start_benchmark_diagnostics_params import (
   StartBenchmarkDiagnosticsParams,
 )
 from trajectory.types.evals.evals_create_params import EvalsCreateParams
+from trajectory.types.rl.rl_train_params import RlTrainParams
 from trajectory.types.run_options import RunOptions
-from trajectory.types.training.training_create_params import TrainingCreateParams
 
 DIAGNOSTIC_SAMPLE_OPTIONS = frozenset({"val_num_tasks", "val_trajectories_per_task"})
 
@@ -146,7 +146,7 @@ class WorkflowService:
 
   @staticmethod
   def run_schema(kind: str) -> dict[str, Any]:
-    fields = get_type_hints(TrainingCreateParams if kind == "training" else EvalsCreateParams)
+    fields = get_type_hints(RlTrainParams if kind == "training" else EvalsCreateParams)
     properties = {
       name: TypeAdapter(annotation).json_schema()
       for name, annotation in fields.items()
@@ -173,7 +173,7 @@ class WorkflowService:
   def validate_run(kind: str, config: dict[str, Any]) -> dict[str, Any]:
     if kind not in {"evals", "training"}:
       raise ValueError("Run kind must be evals or training")
-    fields = get_type_hints(TrainingCreateParams if kind == "training" else EvalsCreateParams)
+    fields = get_type_hints(RlTrainParams if kind == "training" else EvalsCreateParams)
     unknown = config.keys() - fields.keys()
     if unknown:
       raise ValueError(f"Unsupported run fields: {', '.join(sorted(unknown))}")
@@ -204,27 +204,31 @@ class WorkflowService:
   ) -> object:
     if not 1 <= limit <= 100:
       raise ValueError("limit must be between 1 and 100")
-    if kind == "agents":
-      return self.client.agents.list(
+    if kind == "projects":
+      return self.client.projects.list(
         agent_id=[agent_id] if agent_id else omit, limit=limit, cursor=cursor or omit
       )
-    if kind == "benchmarks":
+    if kind == "specs":
       if agent_id:
-        raise ValueError("The benchmark list API does not support agent filtering; omit --agent-id")
-      return self.client.benchmarks.list(limit=limit, cursor=cursor or omit)
+        raise ValueError("The spec list API does not support project filtering; omit --agent-id")
+      return self.client.specs.list(limit=limit, cursor=cursor or omit)
     if kind == "operations":
       return self.list_operations()
     if kind in {"evals", "training"}:
       if not bench_id:
-        raise ValueError("Run lists require --bench-id (select a benchmark first)")
-      return getattr(self.client, kind).runs.list(bench_id, limit=limit, cursor=cursor or omit)
+        raise ValueError("Run lists require --bench-id (select a spec first)")
+      return (self.client.rl if kind == "training" else self.client.evals).runs.list(
+        bench_id, limit=limit, cursor=cursor or omit
+      )
     raise ValueError(f"Unknown resource: {kind}")
 
   def get_resource(self, kind: str, resource_id: str) -> object:
-    if kind in {"agents", "benchmarks"}:
+    if kind in {"projects", "specs"}:
       return getattr(self.client, kind).retrieve(resource_id)
     if kind in {"evals", "training"}:
-      return getattr(self.client, kind).runs.retrieve(resource_id)
+      return (self.client.rl if kind == "training" else self.client.evals).runs.retrieve(
+        resource_id
+      )
     if kind == "operations":
       return self.get_operation(resource_id)
     if kind == "diagnostics":
@@ -234,7 +238,7 @@ class WorkflowService:
   def progress(self, kind: str, resource_id: str) -> object:
     if kind not in {"evals", "training"}:
       return self.get_resource(kind, resource_id)
-    return getattr(self.client, kind).runs.progress(resource_id)
+    return (self.client.rl if kind == "training" else self.client.evals).runs.progress(resource_id)
 
   def create_run(self, kind: str, config: dict[str, Any], request_id: str | None = None) -> object:
     self.validate_run(kind, config)
@@ -244,14 +248,15 @@ class WorkflowService:
     )
     if receipt["state"] == "submitted":
       return receipt["response"]
-    result = getattr(self.client, kind).create(**config, idempotency_key=receipt["request_id"])
+    launch = self.client.rl.train if kind == "training" else self.client.evals.create
+    result = launch(**config, idempotency_key=receipt["request_id"])
     self.receipts.complete(path, receipt, result)
     return result
 
   def cancel_run(self, kind: str, resource_id: str) -> object:
     if kind not in {"evals", "training"}:
       raise ValueError("Only evals and training support cancellation")
-    return getattr(self.client, kind).runs.cancel(resource_id)
+    return (self.client.rl if kind == "training" else self.client.evals).runs.cancel(resource_id)
 
   def push_benchmark(
     self, manifest_path: Path, agent_id: str, request_id: str | None = None
@@ -386,8 +391,8 @@ class WorkflowService:
       "progress": self.progress(kind, resource_id),
     }
     if kind == "training":
-      result["checkpoints"] = self.client.training.checkpoints.list(resource_id, limit=20)
-      result["rewards"] = self.client.training.rewards.list_history(resource_id, mode="training")
+      result["checkpoints"] = self.client.rl.checkpoints.list(resource_id, limit=20)
+      result["rewards"] = self.client.rl.rewards.list_history(resource_id, mode="training")
     elif kind == "evals":
       result["rewards"] = self.client.evals.rewards.list_trajectory_rewards(resource_id, limit=20)
     return self.serialize(result)

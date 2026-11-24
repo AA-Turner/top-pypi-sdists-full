@@ -15,21 +15,15 @@ def test_marker_contract_is_exact() -> None:
 
 def test_binding_comes_from_trusted_variable_definition() -> None:
     variables = {
-        "tone": AgentVariable(
-            name="tone",
-            custom_component={
+        "tone": AgentVariable(declaration={"name": "tone", "customComponent": {
                 "type": "select",
                 "options": ["warm", "direct"],
                 "assignment": {"random": True},
-            },
-        ),
-        "disabled": AgentVariable(
-            name="disabled",
-            custom_component={
+            }}),
+        "disabled": AgentVariable(declaration={"name": "disabled", "customComponent": {
                 "type": "select",
                 "options": ["one", "two"],
-            },
-        ),
+            }}),
     }
 
     assert random_assignment_bindings_from_variables(variables) == {
@@ -39,14 +33,11 @@ def test_binding_comes_from_trusted_variable_definition() -> None:
 
 def test_structured_list_binding_is_authoritative() -> None:
     variables = {
-        "item": AgentVariable(
-            name="item",
-            custom_component={
+        "item": AgentVariable(declaration={"name": "item", "customComponent": {
                 "type": "radio",
                 "structured_list": {"listId": "list-1", "groupName": "A"},
                 "assignment": {"random": True},
-            },
-        )
+            }})
     }
 
     assert random_assignment_bindings_from_variables(variables) == {
@@ -65,16 +56,16 @@ def test_agent_variable_preserves_structured_default() -> None:
 
 
 def test_agent_variable_keeps_existing_scalar_string_coercion() -> None:
-    assert AgentVariable(name="count", default_value=3).get_value() == "3"
-    assert AgentVariable(name="enabled", default_value=False).get_value() == "false"  # JSON, never Python
+    assert AgentVariable(declaration={"name": "count", "defaultValue": 3}).get_value() == "3"
+    assert AgentVariable(declaration={"name": "enabled", "defaultValue": False}).get_value() == "false"  # JSON, never Python
 
 
 def test_agent_variable_serializes_containers_as_json_not_python_repr() -> None:
     # Dicts/lists must enter prompts as canonical JSON — str() produced
     # Python repr ("{'a': 1}") which no downstream JSON contract can parse.
-    assert AgentVariable(name="cfg", value={"a": 1, "b": ["x", "ü"]}).get_value() == (
+    assert AgentVariable(declaration={"name": "cfg"}, value={"a": 1, "b": ["x", "ü"]}).get_value() == (
         '{"a": 1, "b": ["x", "ü"]}'
     )
-    assert AgentVariable(name="items", default_value=[1, {"k": None}]).get_value() == (
+    assert AgentVariable(declaration={"name": "items", "defaultValue": [1, {"k": None}]}).get_value() == (
         '[1, {"k": null}]'
     )

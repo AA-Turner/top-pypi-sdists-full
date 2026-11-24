@@ -175,13 +175,17 @@ class Notifications(WidgetWrap[Pile]):
         """Return *timeout* unchanged.
 
         :raises TypeError: it is not an int, a float or ``None``.
-        :raises ValueError: it is not finite and > 0.
+        :raises ValueError: it is not finite and > 0, or it is an int too large for a float.
         """
         if timeout is None:
             return None
         if not isinstance(timeout, (int, float)) or isinstance(timeout, bool):
             raise TypeError(f"timeout must be a number of seconds or None, not {timeout!r}")
-        if not math.isfinite(timeout) or timeout <= 0:
+        try:
+            finite = math.isfinite(timeout)
+        except OverflowError as exc:
+            raise ValueError(f"timeout must be finite and > 0, not {timeout!r}") from exc
+        if not finite or timeout <= 0:
             raise ValueError(f"timeout must be finite and > 0, not {timeout!r}")
         return timeout
 
@@ -241,7 +245,7 @@ class Notifications(WidgetWrap[Pile]):
         ]
         if not widgets and self._default_markup is not None:
             widgets.append(self._default if self._default_attr is None else AttrMap(self._default, self._default_attr))
-        self._w.contents[:] = [(widget, self._w.options(WHSettings.PACK)) for widget in widgets]
+        self._w.contents.replace([(widget, self._w.options(WHSettings.PACK)) for widget in widgets])
 
     def sizing(self) -> frozenset[Sizing]:
         """Return flow sizing, whatever is showing."""

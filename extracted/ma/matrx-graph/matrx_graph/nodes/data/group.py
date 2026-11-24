@@ -16,6 +16,11 @@ Ways two items join (any that is set may join them — any-match):
   ``min_shared`` words. ``compare: any_member`` joins an item to a group when
   it matches any member; ``first_member`` only when it matches the group's
   first item (stricter, no chains of near-matches).
+* ``meaning`` — the items' vectors (``inputs.vectors``, one per item, e.g. from Embed Texts)
+  point the same way: cosine similarity at least ``threshold``. ``any_member`` joins each item to
+  its nearest ``neighbors`` above the bar (so a dense set does not chain into one blob — the
+  lesson of ``services/kg_clustering``); ``first_member`` joins an item only to the most similar
+  group's first item. A blank (all-zero or empty) vector never joins by meaning (``no_vector``).
 * ``ids_from`` — a decision list (``inputs.decisions``) naming ids under a lead
   id, as an agent answers "these say the same thing" (the lead joins even when
   absent from its own ids). NOT transitive: an id already in an earlier
@@ -53,10 +58,12 @@ with ``data.dedupe`` / ``data.sort``. It GROUPS; it never routes or drops
 from __future__ import annotations
 
 import functools
+import math
 from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
+from matrx_graph.checkpoint.values import run_pure_off_loop
 from matrx_graph.content_ir.accessor import resolve_path
 from matrx_graph.content_ir.model import KindModel, KindSubModel
 from matrx_graph.errors import ExecutionError
@@ -65,10 +72,10 @@ from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
 from matrx_graph.types.primitives import ActionTier, NodeCategory
-from matrx_graph.types.result import NodeResult, success
+from matrx_graph.types.result import NodeResult, failure, success
 
-GroupMode = Literal["key", "shared_values", "token_overlap", "ids_from", "existing"]
-_MODE_ORDER: tuple[str, ...] = ("key", "shared_values", "token_overlap", "ids_from", "existing")
+GroupMode = Literal["key", "shared_values", "token_overlap", "meaning", "ids_from", "existing"]
+_MODE_ORDER: tuple[str, ...] = ("key", "shared_values", "token_overlap", "meaning", "ids_from", "existing")
 
 
 class GroupInput(BaseModel):
@@ -86,6 +93,10 @@ class GroupInput(BaseModel):
     order: list[JsonValue] = Field(
         default_factory=list,
         description="Ids in the order groups should come out; groups not named follow in input order.",
+    )
+    vectors: list[list[float]] = Field(
+        default_factory=list,
+        description="For `meaning`: one vector per item, in item order (e.g. Embed Texts' vectors).",
     )
 
 
@@ -115,6 +126,27 @@ class TokenOverlap(BaseModel):
     stop_words: list[str] | None = Field(
         default=None,
         description="Words ignored. Unset = the shared small joining-word list; [] = ignore none.",
+    )
+
+
+class MeaningJoin(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    threshold: float = Field(
+        default=0.8,
+        ge=-1.0,
+        le=1.0,
+        description="Least cosine similarity of two items' vectors for them to join.",
+    )
+    neighbors: int = Field(
+        default=8,
+        ge=1,
+        le=1000,
+        description="any_member: an item joins at most its this-many nearest items above the threshold.",
+    )
+    compare: Literal["any_member", "first_member"] = Field(
+        default="any_member",
+        description="Join through the nearest members (chains), or only to the most similar group's first item.",
     )
 
 
@@ -198,6 +230,9 @@ class GroupConfig(BaseModel):
     token_overlap: TokenOverlap | None = Field(
         default=None, description="Items whose chosen text shares enough words join."
     )
+    meaning: MeaningJoin | None = Field(
+        default=None, description="Items whose vectors (`inputs.vectors`) are similar enough join."
+    )
     ids_from: IdsFrom | None = Field(
         default=None, description="Join items as `inputs.decisions` says (lead id + member ids)."
     )
@@ -233,10 +268,10 @@ class GroupConfig(BaseModel):
 
     @model_validator(mode="after")
     def _has_a_way_to_join(self) -> GroupConfig:
-        if not (self.key or self.shared_values or self.token_overlap or self.ids_from):
+        if not (self.key or self.shared_values or self.token_overlap or self.meaning or self.ids_from):
             raise ValueError(
                 "data.group needs at least one way to join items: key, shared_values, "
-                "token_overlap or ids_from."
+                "token_overlap, meaning or ids_from."
             )
         if self.existing and self.existing.text_paths and self.token_overlap is None:
             raise ValueError("existing.text_paths compares words, so token_overlap must be set.")
@@ -277,7 +312,8 @@ class GroupOutput(KindModel, kind="grouped_list_result"):
         default_factory=dict,
         description=(
             "What `ids_from` dropped, by reason: unknown_id, id_in_two_groups, group_lead_missing, "
-            "group_not_an_object, duplicate_item_id. Empty without ids_from."
+            "group_not_an_object, duplicate_item_id; with `meaning`, `no_vector` = items with a blank "
+            "vector (never joined by meaning). Empty without ids_from or meaning."
         ),
     )
     leads_changed: int = Field(
@@ -376,6 +412,48 @@ def _compare_values(a: Any, b: Any) -> int:
     return (ka > kb) - (ka < kb)
 
 
+def _unit_vectors(vectors: list[list[float]]) -> tuple[list[list[float] | None], int]:
+    """Each vector scaled to length 1; a blank one (empty or all zeros) is None. Refuses mixed lengths."""
+    unit: list[list[float] | None] = []
+    width: int | None = None
+    for position, vector in enumerate(vectors):
+        norm = math.sqrt(math.sumprod(vector, vector)) if vector else 0.0
+        if norm == 0.0:
+            unit.append(None)
+            continue
+        if width is None:
+            width = len(vector)
+        elif len(vector) != width:
+            raise ValueError(f"vector {position} has {len(vector)} numbers, the first had {width}")
+        unit.append([x / norm for x in vector])
+    return unit, sum(1 for u in unit if u is None)
+
+
+def _meaning_pairs(unit: list[list[float] | None], spec: MeaningJoin) -> list[tuple[int, int]]:
+    """Pure: the pairs ``any_member`` joins — each item with its ``neighbors`` most similar items at or
+    above ``threshold`` (ties by position), each pair once, in order."""
+    n = len(unit)
+    near: list[list[tuple[float, int]]] = [[] for _ in range(n)]
+    for i in range(n):
+        a = unit[i]
+        if a is None:
+            continue
+        for j in range(i + 1, n):
+            b = unit[j]
+            if b is None:
+                continue
+            score = math.sumprod(a, b)
+            if score >= spec.threshold:
+                near[i].append((-score, j))
+                near[j].append((-score, i))
+    pairs: set[tuple[int, int]] = set()
+    for i, found in enumerate(near):
+        found.sort()
+        for _score, j in found[: spec.neighbors]:
+            pairs.add((min(i, j), max(i, j)))
+    return sorted(pairs)
+
+
 class _Components:
     """Union-find over item positions; the root is always the smallest position (the first item)."""
 
@@ -389,7 +467,7 @@ class _Components:
             i = self.parent[i]
         return i
 
-    def join(self, a: int, b: int, mode: str) -> None:
+    def union(self, a: int, b: int, mode: str) -> None:
         ra, rb = self.find(a), self.find(b)
         if ra != rb:
             keep, gone = min(ra, rb), max(ra, rb)
@@ -404,7 +482,7 @@ class _Components:
 
 
 class GroupExecutor:
-    """Group a list by key, shared values, word overlap or decisions by id; pick a lead per group."""
+    """Group a list by key, shared values, word overlap, meaning or decisions by id; pick a lead per group."""
 
     spec: ClassVar[NodeSpec] = NodeSpec(
         type="data.group",
@@ -504,7 +582,7 @@ class GroupExecutor:
                         if text == lead_text:
                             decision_leads.add(position[text])
                 for other in known[1:]:
-                    comps.join(known[0], other, "ids_from")
+                    comps.union(known[0], other, "ids_from")
 
         # key / shared values: index each value to the first item that carries it.
         first_with_key: dict[str, int] = {}
@@ -513,12 +591,12 @@ class GroupExecutor:
         for i in range(n):
             if keys[i] is not None:
                 if keys[i] in first_with_key:
-                    comps.join(first_with_key[keys[i]], i, "key")
+                    comps.union(first_with_key[keys[i]], i, "key")
                 else:
                     first_with_key[keys[i]] = i
             for value in shared[i]:
                 if value in first_with_value:
-                    comps.join(first_with_value[value], i, "shared_values")
+                    comps.union(first_with_value[value], i, "shared_values")
                 else:
                     first_with_value[value] = i
             if spec is not None and toks[i]:
@@ -534,9 +612,42 @@ class GroupExecutor:
                     if comps.find(j) == comps.find(i) and spec.compare == "any_member":
                         continue
                     if _similar(toks[i], toks[j], spec):
-                        comps.join(j, i, "token_overlap")
+                        comps.union(j, i, "token_overlap")
                 for word in toks[i]:
                     word_index.setdefault(word, []).append(i)
+
+        # meaning: vectors that point the same way join (after the exact ways, so first_member sees their groups).
+        no_vector = 0
+        if config.meaning is not None:
+            if len(inputs.vectors) != n:
+                return failure(
+                    "vectors_do_not_match_items",
+                    f"Group by meaning needs one vector per item: {n} items, {len(inputs.vectors)} vectors.",
+                )
+            try:
+                unit, no_vector = await run_pure_off_loop(_unit_vectors, inputs.vectors)
+            except ValueError as exc:
+                return failure("vectors_of_different_lengths", f"Group by meaning: {exc}.")
+            if config.meaning.compare == "any_member":
+                for a, b in await run_pure_off_loop(_meaning_pairs, unit, config.meaning):
+                    comps.union(a, b, "meaning")
+            else:
+                for i in range(n):
+                    if unit[i] is None or comps.find(i) != i:
+                        continue
+                    best: tuple[float, int] | None = None
+                    for j in range(i):
+                        if comps.find(j) != j or unit[j] is None:
+                            continue
+                        score = math.sumprod(unit[i], unit[j])  # type: ignore[arg-type]
+                        if score >= config.meaning.threshold and (best is None or score > best[0]):
+                            best = (score, j)
+                    if best is not None:
+                            comps.union(best[1], i, "meaning")
+
+        if config.meaning is not None:
+            # Reported inside `dropped` so the output's declared shape stays the same for every caller.
+            dropped["no_vector"] = no_vector
 
         # existing: a group matching an earlier one takes its key; groups matching the same one merge.
         matched: dict[int, str] = {}
@@ -722,7 +833,7 @@ class GroupExecutor:
         for root in sorted(best):
             key = best[root]
             if key in first_root:
-                comps.join(first_root[key], root, "existing")
+                comps.union(first_root[key], root, "existing")
             else:
                 first_root[key] = root
         return {comps.find(root): key for key, root in first_root.items()}

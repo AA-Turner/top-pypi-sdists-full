@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.server.v1 import model_registry_pb2 as _model_registry_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from chalk._gen.chalk.volume.v2 import volume_pb2 as _volume_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -36,15 +37,21 @@ TRAINING_RUN_STATUS_FAILED: TrainingRunStatus
 TRAINING_RUN_STATUS_CANCELED: TrainingRunStatus
 
 class TrainingRunDataSource(_message.Message):
-    __slots__ = ("dataset_name", "s3_uri", "input_sql")
+    __slots__ = ("dataset_name", "s3_uri", "input_sql", "dataset_revision_id")
     DATASET_NAME_FIELD_NUMBER: _ClassVar[int]
     S3_URI_FIELD_NUMBER: _ClassVar[int]
     INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
+    DATASET_REVISION_ID_FIELD_NUMBER: _ClassVar[int]
     dataset_name: str
     s3_uri: str
     input_sql: str
+    dataset_revision_id: str
     def __init__(
-        self, dataset_name: _Optional[str] = ..., s3_uri: _Optional[str] = ..., input_sql: _Optional[str] = ...
+        self,
+        dataset_name: _Optional[str] = ...,
+        s3_uri: _Optional[str] = ...,
+        input_sql: _Optional[str] = ...,
+        dataset_revision_id: _Optional[str] = ...,
     ) -> None: ...
 
 class TrainingRun(_message.Message):

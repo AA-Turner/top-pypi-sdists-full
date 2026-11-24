@@ -58,6 +58,8 @@ async def _seed_owned_by_someone_else() -> tuple[str, str, str]:
               JOIN iam.organization_member om ON om.organization_id = ai.organization_id
              WHERE ai.deleted_at IS NULL AND ai.organization_id IS NOT NULL
                AND om.role IN ('admin','owner') AND om.user_id <> ai.user_id
+               -- an archived organization's rows are hidden by the restrictive org gate
+               AND ai.organization_id NOT IN (SELECT iam.archived_org_ids())
              LIMIT 1
             """
         )

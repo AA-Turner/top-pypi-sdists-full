@@ -1,4 +1,4 @@
-"""Management operations over the rbac-service: product tags (read and edit) now; customers, partners and users later.
+"""Management operations over the rbac-service: product tags (read and edit) and one product's details now; customers, partners and users later.
 
 One module underneath every surface that manages access (AGENTS.md rule 3). The
 console's Manage section (docs/console-spec.md §4.30) calls it today; MCP tools for
@@ -23,9 +23,24 @@ from __future__ import annotations
 
 from cube_cloud.manage.access import NotPermitted, is_offered, offer, require_staff
 from cube_cloud.manage.companies import COMPANY_FIELDS, list_companies
+from cube_cloud.manage.details import (
+    CHANGE_FIELDS,
+    CatalogIncomplete,
+    INSTALL_COMPANY_FIELDS,
+    INSTALL_FIELDS,
+    RELEASE_FIELDS,
+    UnknownProduct,
+    install_facts,
+    product_details,
+)
 from cube_cloud.manage.products import PRODUCT_FIELDS, list_products
 from cube_cloud.manage.tags import (
+    BULK_ACTIONS,
+    BULK_MAX_PRODUCTS,
+    BULK_RESULT_FIELDS,
+    BULK_STATUSES,
     SHARE_ROLES,
+    bulk_edit,
     InvalidInput,
     set_owner,
     share,
@@ -34,6 +49,7 @@ from cube_cloud.manage.tags import (
 )
 
 __all__ = [
-    "COMPANY_FIELDS", "InvalidInput", "NotPermitted", "PRODUCT_FIELDS", "SHARE_ROLES", "is_offered",
+    "BULK_ACTIONS", "BULK_MAX_PRODUCTS", "BULK_RESULT_FIELDS", "BULK_STATUSES", "bulk_edit",
+    "CHANGE_FIELDS", "COMPANY_FIELDS", "CatalogIncomplete", "INSTALL_COMPANY_FIELDS", "INSTALL_FIELDS", "InvalidInput", "RELEASE_FIELDS", "UnknownProduct", "install_facts", "product_details", "NotPermitted", "PRODUCT_FIELDS", "SHARE_ROLES", "is_offered",
     "list_companies", "list_products", "offer", "require_staff", "set_owner", "share", "unshare", "writes_offered",
 ]

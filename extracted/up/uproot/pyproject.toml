@@ -7,8 +7,8 @@ requires = [
 
 [dependency-groups]
 dev = [
-  {include-group = "extra"},
-  {include-group = "test"}
+  { include-group = "extra" },
+  { include-group = "test" }
 ]
 extra = [
   "boost_histogram>=0.13",
@@ -16,12 +16,13 @@ extra = [
   "dask[array,distributed]",
   "hist>=1.2",
   "pandas",
-  "awkward-pandas"
+  "awkward-pandas",
+  "scipy"
 ]
 test = [
   "aiohttp",
   "deflate",
-  "graphed[awkward,parquet]>=0.0.5; python_version >= '3.11'",
+  "graphed[awkward,parquet]>=0.0.9; python_version >= '3.11'",
   "graphed-executors>=0.0.3; python_version >= '3.11'",
   "isal",
   "moto[s3,server]",
@@ -29,39 +30,39 @@ test = [
   "pytest-cov",
   "pytest-rerunfailures",
   "pytest-xdist",
-  "rangehttpserver",
-  "requests",
-  "s3fs",
+  "s3fs>=2023.1.0",
   "vector; python_version >= '3.11'",
-  {include-group = "test-core"}
+  { include-group = "test-core" }
 ]
 test-core = [
   "pytest-timeout",
   "pytest>=6",
-  "scikit-hep-testdata"
+  "rangehttpserver",
+  "requests",
+  "scikit-hep-testdata>=0.6.9"
 ]
 test-gpu-cu12 = [
   "kvikio-cu12",
   "nvidia-nvcomp-cu12",
-  {include-group = "test-core"}
+  { include-group = "test-core" }
 ]
 test-gpu-cu13 = [
   "kvikio-cu13",
   "nvidia-nvcomp-cu13",
-  {include-group = "test-core"}
+  { include-group = "test-core" }
 ]
 test-pyodide = [
   "pytest-pyodide; python_version >='3.11'",
-  {include-group = "test-core"}
+  { include-group = "test-core" }
 ]
 test-xrootd = [
   "fsspec-xrootd>=0.5.0",
-  {include-group = "test-core"}
+  { include-group = "test-core" }
 ]
 
 [project]
 authors = [
-  {name = "Jim Pivarski", email = "jpivarski@gmail.com"}
+  { name = "Jim Pivarski", email = "jpivarski@gmail.com" }
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -79,6 +80,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Information Analysis",
   "Topic :: Scientific/Engineering :: Mathematics",
@@ -117,8 +119,17 @@ s3 = ["s3fs"]
 xrootd = ["fsspec-xrootd>=0.5.0"]
 
 [project.urls]
-Download = "https://github.com/scikit-hep/uproot5/releases"
-Homepage = "https://github.com/scikit-hep/uproot5"
+Download = "https://github.com/scikit-hep/uproot/releases"
+Homepage = "https://github.com/scikit-hep/uproot"
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise AssertionError"
+]
+
+[tool.coverage.run]
+branch = true
 
 [tool.hatch.build.hooks.vcs]
 version-file = "src/uproot/version.py"
@@ -127,11 +138,13 @@ version-file = "src/uproot/version.py"
 source = "vcs"
 
 [tool.pytest.ini_options]
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-p", "no:anyio"]  # no test uses anyio's plugin, which breaks pytest >= 9.2 with anyio < 4.15
 filterwarnings = [
   "error",
+  "ignore:Uproot 5.8 will stop using awkward-pandas:FutureWarning",
   "default:module 'sre_.*' is deprecated:DeprecationWarning",
-  "ignore:unclosed transport <asyncio.sslproto._SSLProtocolTransport"  # https://github.com/aio-libs/aiohttp/issues/1115
+  "ignore:unclosed transport <asyncio.sslproto._SSLProtocolTransport",  # https://github.com/aio-libs/aiohttp/issues/1115
+  "ignore:Implicitly cleaning up <HTTPError 405:ResourceWarning"  # Selenium leaves geckodriver's /shutdown response unclosed (Pyodide tests)
 ]
 log_level = "INFO"
 markers = [
@@ -190,6 +203,7 @@ ignore = [
   "SIM114",  # combine `if` branches using logical `or` operator
   "SIM118"  # key in dict, broken since uproot doesn't behave like a dict
 ]
+isort.required-imports = ["from __future__ import annotations"]
 # Ruff 0.16 greatly expanded the implicit default rule set; pin it to the previous
 # default so that the rules we opt into are the ones listed in extend-select above.
 # Deliberately not adopted from the 0.16 defaults:
@@ -199,7 +213,6 @@ ignore = [
 # S102: exec is how models are generated from TStreamerInfo
 # TRY002/TRY004: changing which exception types are raised is a user-visible change
 select = ["E4", "E7", "E9", "F"]
-isort.required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T20", "T201"]
@@ -210,4 +223,4 @@ write_to = "src/uproot/_version.py"
 
 [tool.uv]
 exclude-newer = "7 days"
-exclude-newer-package = {awkward = false, awkward-cpp = false, scikit-hep-testdata = false, graphed = false, graphed-executors = false}
+exclude-newer-package = { awkward = false, awkward-cpp = false, scikit-hep-testdata = false, graphed = false, graphed-executors = false }

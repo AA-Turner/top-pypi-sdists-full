@@ -35,7 +35,7 @@ from .compiler import (
     CrateIdentifierPreparer,
     CrateTypeCompiler,
 )
-from .sa_version import SA_1_4, SA_2_0, SA_VERSION
+from .sa_version import SA_2_0, SA_VERSION
 from .type import IP, FloatVector, Geopoint, Geoshape, ObjectArray, ObjectType, UnresolvedType
 from .util import SSLMode
 
@@ -238,14 +238,24 @@ if SA_VERSION >= SA_2_0:
     from .compat.core20 import CrateCompilerSA20
 
     statement_compiler = CrateCompilerSA20
-elif SA_VERSION >= SA_1_4:
+else:
     from .compat.core14 import CrateCompilerSA14
 
     statement_compiler = CrateCompilerSA14
-else:
-    from .compat.core10 import CrateCompilerSA10
 
-    statement_compiler = CrateCompilerSA10
+
+def _is_read_timeout(error):
+    """
+    Whether the driver raised ``error`` because a request exceeded its read timeout.
+    """
+    from urllib3.exceptions import MaxRetryError, ReadTimeoutError
+
+    for inner in (error.__cause__, error.__context__):
+        if isinstance(inner, MaxRetryError):
+            inner = inner.reason
+        if isinstance(inner, ReadTimeoutError):
+            return True
+    return False
 
 
 class CrateDialect(default.DefaultDialect):
@@ -300,6 +310,14 @@ class CrateDialect(default.DefaultDialect):
         # implementing this as noop seems to cause sqlalchemy to propagate the
         # original exception to the user
         pass
+
+    def is_disconnect(self, e, connection, cursor):
+        exceptions = self.dbapi.exceptions
+        if isinstance(e, exceptions.ConnectionError):
+            return not _is_read_timeout(e)
+        if isinstance(e, exceptions.ProgrammingError):
+            return str(e) == "Connection closed"
+        return False
 
     def connect(self, host=None, port=None, *args, **kwargs):
         server = None
@@ -421,8 +439,11 @@ class CrateDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
+        if schema is None:
+            schema = self._get_effective_schema_name(connection)
         cursor = connection.exec_driver_sql(
             "SELECT table_name FROM information_schema.views "
+            "WHERE {0} = ? "
             "ORDER BY table_name ASC, {0} ASC".format(self.schema_column),
             (schema or self.default_schema_name,),
         )

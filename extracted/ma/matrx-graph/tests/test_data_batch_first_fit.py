@@ -74,3 +74,16 @@ async def test_first_fit_refuses_settings_it_cannot_honour():
         await _run("data.batch", {"items": []}, {"size": 10, "fit": "first_fit", "overlap": 1})
     with pytest.raises(CompilationError, match="max_batches"):
         await _run("data.batch", {"items": []}, {"size": 10, "overflow": "left_out", "max_batches": 2})
+
+
+async def test_a_size_given_as_an_input_wins_over_the_setting():
+    """A budget that is DATA (a recipe row's reading budget) arrives as the `size` input; the setting is the default."""
+    items = [{"text": "a" * 60}, {"text": "b" * 70}, {"text": "c" * 30}]
+    cfg = {"size": 100, "measure": "chars", "text_path": "text", "fit": "first_fit", "overflow": "left_out", "split_oversized": False}
+    by_setting = await _out("data.batch", {"items": items}, cfg)
+    assert [len(i["text"]) for i in by_setting["batches"][0]] == [60, 30] and by_setting["size"] == 100
+    by_input = await _out("data.batch", {"items": items, "size": 130}, cfg)
+    assert [len(i["text"]) for i in by_input["batches"][0]] == [60, 70], "the input's 130 was not the budget"
+    assert by_input["size"] == 130 and [row["item"] for row in by_input["left_out"]] == [2]
+    unset = await _out("data.batch", {"items": items, "size": None}, cfg)
+    assert unset["batches"] == by_setting["batches"], "an empty size input must leave the setting in charge"

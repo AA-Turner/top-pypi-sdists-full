@@ -17,7 +17,7 @@ hard-deleted. The ORM fallback cascade nulled every alias explicitly — same
 
 ONE scenario table with literal expected outcomes runs through three executors:
 
-* ``sql`` — the package's LATEST migration defining ``public.hard_delete_file``,
+* ``sql`` — the package's LATEST migration defining ``files.hard_delete_file``,
   executed verbatim on a throwaway local PostgreSQL whose tables carry the
   unique indexes and self-FKs captured live from Matrx Main (2026-09-10). This
   IS the production function; nothing about it is doubled.
@@ -355,10 +355,38 @@ CREATE TABLE iam.permissions (
 
 def _latest_hard_delete_migration() -> Path:
     defining = [
-        p for p in SQL_DIR.glob("*.sql") if "FUNCTION public.hard_delete_file" in p.read_text()
+        p
+        for p in SQL_DIR.glob("*.sql")
+        # The BODY's definition; 061's one-line public forwarder is a plain CREATE FUNCTION.
+        if "CREATE OR REPLACE FUNCTION public.hard_delete_file" in p.read_text()
     ]
     assert defining, f"no package migration under {SQL_DIR} defines public.hard_delete_file"
-    return max(defining, key=lambda p: (int(p.name.split("_", 1)[0]), p.name))
+    return max(defining, key=_migration_order)
+
+
+def _migration_order(p: Path) -> tuple[int, str]:
+    return (int(p.name.split("_", 1)[0]), p.name)
+
+
+def _hard_delete_install_sql() -> str:
+    """The latest defining migration, then every later one that touches the function.
+
+    The body is defined in ``public`` (042) and a later record (061) moves it into
+    ``files`` behind a public forwarder — the name the package calls. Both run, in
+    order, so the executor installs exactly what a bare database booted from this
+    package's migrations would hold.
+    """
+    defining = _latest_hard_delete_migration()
+    later = sorted(
+        (
+            p
+            for p in SQL_DIR.glob("*.sql")
+            if _migration_order(p) > _migration_order(defining)
+            and "hard_delete_file" in p.read_text()
+        ),
+        key=_migration_order,
+    )
+    return "\n".join(p.read_text() for p in (defining, *later))
 
 
 def _pg_major(bindir: Path) -> int:
@@ -419,7 +447,7 @@ def pg_dsn(tmp_path_factory: pytest.TempPathFactory):
         )
     root = tmp_path_factory.mktemp("hard_delete_pg")
     data = root / "data"
-    env = {**os.environ, "LC_ALL": "C", "LANG": "C"}
+    env = {**os.environ, "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8"}
     subprocess.run(
         [str(bindir / "initdb"), "-D", str(data), "-U", "postgres", "--auth=trust", "-E", "UTF8", "--locale=C"],
         check=True,
@@ -445,7 +473,7 @@ def pg_dsn(tmp_path_factory: pytest.TempPathFactory):
     )
     dsn = f"postgresql://postgres@127.0.0.1:{port}/postgres"
     try:
-        asyncio.run(_install(dsn, _latest_hard_delete_migration().read_text()))
+        asyncio.run(_install(dsn, _hard_delete_install_sql()))
         yield dsn
     finally:
         subprocess.run(

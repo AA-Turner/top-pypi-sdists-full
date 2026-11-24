@@ -279,6 +279,11 @@ def _readiness_snapshot() -> tuple[dict[str, object], int]:
     degraded: dict[str, object] = {}
     if not ocr.available:
         degraded["ocr"] = ocr.reason
+    from matrx_scraper.parser.utils import filter_list_status
+
+    empty_lists = {k: v for k, v in filter_list_status().items() if v.startswith("EMPTY")}
+    if empty_lists:
+        degraded["ad_block_lists"] = empty_lists
     return (
         {
             "status": "ok" if not failed else "not_ready",
@@ -464,16 +469,9 @@ class _FeatureKnobSnapshot:
         self._refresh_task: asyncio.Task | None = None
 
     async def _load_from_db(self) -> dict[str, object]:
-        import json
+        from matrx_scraper.db.knobs import feature_knob_values
 
-        from matrx_orm.core.async_db_manager import AsyncDatabaseManager
-
-        rows = await AsyncDatabaseManager.execute_query(
-            WEB_DB_NAME,
-            "SELECT key, value::text AS value_json FROM platform.feature_knob WHERE feature = $1",
-            self.feature,
-        )
-        return {str(r["key"]): json.loads(r["value_json"]) for r in rows}
+        return await feature_knob_values(self.feature)
 
     async def refresh(self) -> dict[str, object]:
         import time
@@ -528,22 +526,15 @@ def _scoped_knob_reader(feature: str):
     """
 
     async def read(keys: list[str], scope) -> dict[str, object]:
-        import json
+        from matrx_scraper.db.knobs import resolve_knobs
 
-        from matrx_orm.core.async_db_manager import AsyncDatabaseManager
-
-        scopes = json.dumps([{"kind": "site", "id": str(scope.site_id)}]) if scope.site_id else None
-        rows = await AsyncDatabaseManager.execute_query(
-            WEB_DB_NAME,
-            "SELECT k AS key, platform.knob_resolve($1, k, $2::uuid, $3::uuid, $4::jsonb)::text "
-            "AS value_json FROM unnest($5::text[]) AS k",
+        return await resolve_knobs(
             feature,
-            str(scope.organization_id),
-            str(scope.user_id) if scope.user_id else None,
-            scopes,
             list(keys),
+            organization_id=str(scope.organization_id),
+            user_id=str(scope.user_id) if scope.user_id else None,
+            scopes=[{"kind": "site", "id": str(scope.site_id)}] if scope.site_id else None,
         )
-        return {str(r["key"]): json.loads(r["value_json"]) for r in rows}
 
     return read
 
@@ -889,8 +880,18 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # orphaned queued/running sessions failed. This loop cannot be starved.
     stale_session_reaper = asyncio.create_task(_run_stale_session_reaper())
 
+    # Pre-warm the ad-block lists: the ONE per-process step (parser/utils.py
+    # ensure_filter_lists) runs now, off the loop, so the first page parse finds
+    # them ready; a parse that arrives first waits on the same step.
+    from matrx_scraper.parser.utils import prewarm_filter_lists
+
+    filter_list_prewarm = asyncio.create_task(prewarm_filter_lists())
+
     print("[scraper-server] Ready", file=sys.stderr, flush=True)
     yield
+
+    filter_list_prewarm.cancel()
+    await asyncio.gather(filter_list_prewarm, return_exceptions=True)
 
     crash_resume.cancel()
     await asyncio.gather(crash_resume, return_exceptions=True)

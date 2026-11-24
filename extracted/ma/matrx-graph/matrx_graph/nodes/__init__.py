@@ -44,6 +44,7 @@ from matrx_graph.nodes.data.pick_omit import OmitExecutor, PickExecutor
 from matrx_graph.nodes.data.read_record import ReadRecordExecutor
 from matrx_graph.nodes.data.group import GroupExecutor
 from matrx_graph.nodes.data.rules import RulesExecutor
+from matrx_graph.nodes.data.score import ScoreExecutor
 from matrx_graph.nodes.data.shuffle import ShuffleExecutor
 from matrx_graph.nodes.data.spread_rank import SpreadRankExecutor
 from matrx_graph.nodes.data.tabular import ParseCsvExecutor, ParseYamlExecutor
@@ -60,6 +61,7 @@ from matrx_graph.nodes.flow import (
     ThrottleExecutor,
     WaitUntilExecutor,
 )
+from matrx_graph.nodes.info import INFO_EXECUTORS
 from matrx_graph.nodes.http import (
     CustomApiExecutor,
     HttpGetExecutor,
@@ -67,7 +69,7 @@ from matrx_graph.nodes.http import (
     HttpPostExecutor,
 )
 from matrx_graph.nodes.content_ir import ValidateKindExecutor
-from matrx_graph.nodes.io.user_input import UserInputExecutor
+from matrx_graph.nodes.io.user_input import TriggerStepExecutor, UserInputExecutor
 from matrx_graph.nodes.log import RecordIssueExecutor
 from matrx_graph.nodes.math_ import MathEvaluateExecutor
 from matrx_graph.nodes.settings import SettingReadExecutor
@@ -135,6 +137,7 @@ def register_builtin_nodes(
         SortExecutor(),
         LimitExecutor(),
         ChooseExecutor(),
+        ScoreExecutor(),
         ShuffleExecutor(),
         SpreadRankExecutor(),
         BatchExecutor(),
@@ -149,6 +152,8 @@ def register_builtin_nodes(
         WaitUntilExecutor(),
         ThrottleExecutor(),
         NoopExecutor(),
+        # Information nodes — notes, frames, media, kinds, records, reference cards; never run
+        *(executor() for executor in INFO_EXECUTORS),
         # Diagnostics — the workflow's own record of what went wrong
         RecordIssueExecutor(),
         # Shapes — ask whether a value really matches a registered kind
@@ -199,6 +204,7 @@ def register_builtin_nodes(
         PipeStepExecutor(),
         # I/O — collect user input at the start, send results back mid-run
         UserInputExecutor(),
+        TriggerStepExecutor(),
         ToFrontendExecutor(),
     ):
         declared = BUILTIN_VALUES_ARE.get(executor.spec.node_type)
@@ -227,10 +233,12 @@ BUILTIN_VALUES_ARE: dict[str, str] = {
         "crypto.hash", "crypto.random_string", "crypto.uuid",
         "data.aggregate", "data.apportion", "data.assert", "data.batch", "data.check_items", "data.criteria_gate", "data.dedupe",
         "data.choose", "data.filter", "data.flatten", "data.group", "data.join", "data.limit", "data.map_template", "data.merge",
-        "data.omit", "data.parse_csv", "data.parse_json", "data.parse_yaml", "data.pick", "data.rules",
+        "data.omit", "data.parse_csv", "data.parse_json", "data.parse_yaml", "data.pick", "data.rules", "data.score",
         "data.shuffle", "data.sort", "data.spread_rank", "data.stringify_json", "data.transform",
         "datetime.add", "datetime.format", "datetime.now", "datetime.parse",
         "flow.noop", "flow.sleep", "flow.throttle", "flow.wait_until",
+        "info.agent", "info.frame", "info.kind", "info.media", "info.note", "info.position", "info.record",
+        "info.topic", "info.workflow",
         "log.record", "math.evaluate", "output.to_frontend", "settings.read", "speech.budget",
         "text.case", "text.custom_extract", "text.join", "text.json_path", "text.regex_extract",
         "text.regex_replace", "text.similarity", "text.term_scan", "text.key_phrases", "text.remove_repeated_lines", "text.render_list", "text.sections.patch", "text.slug", "text.split", "text.template",
@@ -312,6 +320,7 @@ __all__ = [
     "ToFrontendExecutor",
     "ToolCallExecutor",
     "TransformExecutor",
+    "TriggerStepExecutor",
     "UserInputExecutor",
     "UuidExecutor",
     "WordCountExecutor",

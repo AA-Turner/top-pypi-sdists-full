@@ -14,7 +14,7 @@ module exposes:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from lightrag.constants import DEFAULT_SUMMARY_LANGUAGE
 from lightrag.utils import get_env_value, logger
@@ -94,13 +94,16 @@ def normalize_addon_params(addon_params: Mapping[str, Any] | None) -> dict[str, 
         from lightrag.parser.routing import normalize_chunker_r_separators
 
         # Copy semantics on purpose: this runs on a caller-supplied mapping
-        # (``LightRAG(addon_params=...)``), which must not be mutated. The
-        # in-place mode belongs to the live config owned by the instance.
-        normalized_chunker, corrected = normalize_chunker_r_separators(
+        # (``LightRAG(addon_params=...)``), which must not be mutated. Detach
+        # both the chunker mapping and its strategy mappings because the runtime
+        # overlay fills defaults into both levels.
+        normalized_chunker, _ = normalize_chunker_r_separators(
             normalized["chunker"], context="addon_params['chunker']"
         )
-        if corrected:
-            normalized["chunker"] = dict(normalized_chunker)
+        normalized["chunker"] = {
+            key: dict(value) if isinstance(value, Mapping) else value
+            for key, value in normalized_chunker.items()
+        }
     return normalized
 
 
@@ -157,10 +160,19 @@ class ObservableAddonParams(dict[str, Any]):
     def update(self, *args: Any, **kwargs: Any) -> None:
         if not args and not kwargs:
             return
-        super().update(*args, **kwargs)
+        # Materialize first because dict.update() can apply valid iterable
+        # entries before a later malformed entry raises. Live configuration and
+        # its derived cache must change together or not at all.
+        pending = dict(*args, **kwargs)
+        super().update(pending)
         self._changed()
 
-    def __ior__(self, other: Mapping[str, Any]):
-        super().__ior__(other)
+    def __ior__(self, other: Mapping[str, Any] | Iterable[tuple[str, Any]]):
+        # ``dict.__ior__`` accepts any iterable of key/value pairs (PEP 584),
+        # not just the Mapping this signature advertises, so ``|=`` carries the
+        # same partial-application hazard as ``update``. Materialize first for
+        # the same reason.
+        pending = dict(other)
+        super().__ior__(pending)
         self._changed()
         return self

@@ -13,13 +13,14 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.artifacts.v1 import contentgrant_pb2 as chalk_dot_artifacts_dot_v1_dot_contentgrant__pb2
 from chalk._gen.chalk.artifacts.v1 import dashboard_pb2 as chalk_dot_artifacts_dot_v1_dot_dashboard__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\'chalk/server/v1/dashboard_service.proto\x12\x0f\x63halk.server.v1\x1a"chalk/artifacts/v1/dashboard.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/field_mask.proto"\x92\x01\n\x11\x44\x61shboardControls\x12\x35\n\x17\x64\x65\x66\x61ult_range_preset_id\x18\x01 \x01(\tR\x14\x64\x65\x66\x61ultRangePresetId\x12\x46\n\x0b\x61nnotations\x18\x02 \x03(\x0e\x32$.chalk.server.v1.DashboardAnnotationR\x0b\x61nnotations"\xa7\x01\n\x16\x43reateDashboardRequest\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12\x43\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsH\x00R\x08\x63ontrols\x88\x01\x01\x42\x0b\n\t_controls"\x96\x01\n\x17\x43reateDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols"\x84\x01\n\x13GetDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId\x12<\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x00R\x08readMask\x88\x01\x01\x42\x0c\n\n_read_mask"\x93\x01\n\x14GetDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols"\xb1\x03\n\x15ListDashboardsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12<\n\tread_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x02R\x08readMask\x88\x01\x01\x12\x1b\n\x06search\x18\x04 \x01(\tH\x03R\x06search\x88\x01\x01\x12\x1d\n\ncreated_by\x18\x05 \x03(\tR\tcreatedBy\x12J\n\x0bsort_column\x18\x06 \x01(\x0e\x32$.chalk.server.v1.DashboardSortColumnH\x04R\nsortColumn\x88\x01\x01\x12G\n\nsort_order\x18\x07 \x01(\x0e\x32#.chalk.server.v1.DashboardSortOrderH\x05R\tsortOrder\x88\x01\x01\x42\x08\n\x06_limitB\t\n\x07_cursorB\x0c\n\n_read_maskB\t\n\x07_searchB\x0e\n\x0c_sort_columnB\r\n\x0b_sort_orderJ\x04\x08\x08\x10\t"\x8d\x01\n\x16ListDashboardsResponse\x12=\n\ndashboards\x18\x01 \x03(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\ndashboards\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xe4\x01\n\x16UpdateDashboardRequest\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12\x43\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsH\x00R\x08\x63ontrols\x88\x01\x01\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMaskB\x0b\n\t_controls"\x96\x01\n\x17UpdateDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols";\n\x16\x44\x65leteDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId"\x19\n\x17\x44\x65leteDashboardResponse"\\\n\x16\x45xportDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId\x12\x1f\n\x0binclude_ids\x18\x02 \x01(\x08R\nincludeIds"M\n\x17\x45xportDashboardResponse\x12\x32\n\x15\x64\x61shboard_json_string\x18\x01 \x01(\tR\x13\x64\x61shboardJsonString"\x98\x01\n\x16ImportDashboardRequest\x12\x32\n\x15\x64\x61shboard_json_string\x18\x01 \x01(\tR\x13\x64\x61shboardJsonString\x12\x17\n\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x1c\n\x07\x64ry_run\x18\x03 \x01(\x08H\x01R\x06\x64ryRun\x88\x01\x01\x42\x07\n\x05_nameB\n\n\x08_dry_run"V\n\x17ImportDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard"i\n\x1dGetContextualDashboardRequest\x12H\n\x08location\x18\x01 \x01(\x0e\x32,.chalk.server.v1.ContextualDashboardLocationR\x08location"p\n\x1eGetContextualDashboardResponse\x12@\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardH\x00R\tdashboard\x88\x01\x01\x42\x0c\n\n_dashboard"\xab\x01\n UpsertContextualDashboardRequest\x12H\n\x08location\x18\x01 \x01(\x0e\x32,.chalk.server.v1.ContextualDashboardLocationR\x08location\x12=\n\x07widgets\x18\x02 \x03(\x0b\x32#.chalk.artifacts.v1.DashboardWidgetR\x07widgets"`\n!UpsertContextualDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard"k\n\x1fResetContextualDashboardRequest\x12H\n\x08location\x18\x01 \x01(\x0e\x32,.chalk.server.v1.ContextualDashboardLocationR\x08location""\n ResetContextualDashboardResponse*\xbd\x01\n\x13\x44\x61shboardAnnotation\x12$\n DASHBOARD_ANNOTATION_UNSPECIFIED\x10\x00\x12)\n%DASHBOARD_ANNOTATION_INCIDENT_MARKERS\x10\x01\x12(\n$DASHBOARD_ANNOTATION_INCIDENT_RANGES\x10\x02\x12+\n\'DASHBOARD_ANNOTATION_DEPLOYMENT_MARKERS\x10\x03*\xa8\x01\n\x13\x44\x61shboardSortColumn\x12%\n!DASHBOARD_SORT_COLUMN_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x44\x41SHBOARD_SORT_COLUMN_NAME\x10\x01\x12$\n DASHBOARD_SORT_COLUMN_CREATED_AT\x10\x02\x12$\n DASHBOARD_SORT_COLUMN_UPDATED_AT\x10\x03*w\n\x12\x44\x61shboardSortOrder\x12$\n DASHBOARD_SORT_ORDER_UNSPECIFIED\x10\x00\x12\x1d\n\x19\x44\x41SHBOARD_SORT_ORDER_DESC\x10\x01\x12\x1c\n\x18\x44\x41SHBOARD_SORT_ORDER_ASC\x10\x02*t\n\x1b\x43ontextualDashboardLocation\x12-\n)CONTEXTUAL_DASHBOARD_LOCATION_UNSPECIFIED\x10\x00\x12&\n"CONTEXTUAL_DASHBOARD_LOCATION_HOME\x10\x01\x32\x84\t\n\x10\x44\x61shboardService\x12i\n\x0f\x43reateDashboard\x12\'.chalk.server.v1.CreateDashboardRequest\x1a(.chalk.server.v1.CreateDashboardResponse"\x03\x80}\x05\x12`\n\x0cGetDashboard\x12$.chalk.server.v1.GetDashboardRequest\x1a%.chalk.server.v1.GetDashboardResponse"\x03\x80}\x06\x12\x66\n\x0eListDashboards\x12&.chalk.server.v1.ListDashboardsRequest\x1a\'.chalk.server.v1.ListDashboardsResponse"\x03\x80}\x06\x12i\n\x0fUpdateDashboard\x12\'.chalk.server.v1.UpdateDashboardRequest\x1a(.chalk.server.v1.UpdateDashboardResponse"\x03\x80}\x05\x12i\n\x0f\x44\x65leteDashboard\x12\'.chalk.server.v1.DeleteDashboardRequest\x1a(.chalk.server.v1.DeleteDashboardResponse"\x03\x80}\x05\x12i\n\x0f\x45xportDashboard\x12\'.chalk.server.v1.ExportDashboardRequest\x1a(.chalk.server.v1.ExportDashboardResponse"\x03\x80}\x06\x12i\n\x0fImportDashboard\x12\'.chalk.server.v1.ImportDashboardRequest\x1a(.chalk.server.v1.ImportDashboardResponse"\x03\x80}\x05\x12~\n\x16GetContextualDashboard\x12..chalk.server.v1.GetContextualDashboardRequest\x1a/.chalk.server.v1.GetContextualDashboardResponse"\x03\x80}\x06\x12\x87\x01\n\x19UpsertContextualDashboard\x12\x31.chalk.server.v1.UpsertContextualDashboardRequest\x1a\x32.chalk.server.v1.UpsertContextualDashboardResponse"\x03\x80}\n\x12\x84\x01\n\x18ResetContextualDashboard\x12\x30.chalk.server.v1.ResetContextualDashboardRequest\x1a\x31.chalk.server.v1.ResetContextualDashboardResponse"\x03\x80}\nB\x9e\x01\n\x13\x63om.chalk.server.v1B\x15\x44\x61shboardServiceProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\'chalk/server/v1/dashboard_service.proto\x12\x0f\x63halk.server.v1\x1a%chalk/artifacts/v1/contentgrant.proto\x1a"chalk/artifacts/v1/dashboard.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/field_mask.proto"\x92\x01\n\x11\x44\x61shboardControls\x12\x35\n\x17\x64\x65\x66\x61ult_range_preset_id\x18\x01 \x01(\tR\x14\x64\x65\x66\x61ultRangePresetId\x12\x46\n\x0b\x61nnotations\x18\x02 \x03(\x0e\x32$.chalk.server.v1.DashboardAnnotationR\x0b\x61nnotations"\xf6\x01\n\x16\x43reateDashboardRequest\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12\x43\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsH\x00R\x08\x63ontrols\x88\x01\x01\x12\x41\n\x07sharing\x18\x03 \x01(\x0b\x32".chalk.artifacts.v1.ContentSharingH\x01R\x07sharing\x88\x01\x01\x42\x0b\n\t_controlsB\n\n\x08_sharing"\xd4\x01\n\x17\x43reateDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols\x12<\n\x07sharing\x18\x03 \x01(\x0b\x32".chalk.artifacts.v1.ContentSharingR\x07sharing"\x84\x01\n\x13GetDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId\x12<\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x00R\x08readMask\x88\x01\x01\x42\x0c\n\n_read_mask"\xd1\x01\n\x14GetDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols\x12<\n\x07sharing\x18\x03 \x01(\x0b\x32".chalk.artifacts.v1.ContentSharingR\x07sharing"\xfb\x03\n\x15ListDashboardsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12<\n\tread_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x02R\x08readMask\x88\x01\x01\x12\x1f\n\x06search\x18\x04 \x01(\tB\x02\x18\x01H\x03R\x06search\x88\x01\x01\x12!\n\ncreated_by\x18\x05 \x03(\tB\x02\x18\x01R\tcreatedBy\x12J\n\x0bsort_column\x18\x06 \x01(\x0e\x32$.chalk.server.v1.DashboardSortColumnH\x04R\nsortColumn\x88\x01\x01\x12G\n\nsort_order\x18\x07 \x01(\x0e\x32#.chalk.server.v1.DashboardSortOrderH\x05R\tsortOrder\x88\x01\x01\x12@\n\x07\x66ilters\x18\t \x01(\x0b\x32&.chalk.server.v1.ListDashboardsFiltersR\x07\x66iltersB\x08\n\x06_limitB\t\n\x07_cursorB\x0c\n\n_read_maskB\t\n\x07_searchB\x0e\n\x0c_sort_columnB\r\n\x0b_sort_orderJ\x04\x08\x08\x10\t"\x9d\x01\n\x15ListDashboardsFilters\x12*\n\x0e\x66\x61vorites_only\x18\x01 \x01(\x08H\x00R\rfavoritesOnly\x88\x01\x01\x12\x1b\n\x06search\x18\x02 \x01(\tH\x01R\x06search\x88\x01\x01\x12\x1d\n\ncreated_by\x18\x03 \x03(\tR\tcreatedByB\x11\n\x0f_favorites_onlyB\t\n\x07_search"\x8d\x01\n\x16ListDashboardsResponse\x12=\n\ndashboards\x18\x01 \x03(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\ndashboards\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xe4\x01\n\x16UpdateDashboardRequest\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12\x43\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsH\x00R\x08\x63ontrols\x88\x01\x01\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMaskB\x0b\n\t_controls"\xd4\x01\n\x17UpdateDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols\x12<\n\x07sharing\x18\x03 \x01(\x0b\x32".chalk.artifacts.v1.ContentSharingR\x07sharing"\xdb\x01\n\x1dUpdateDashboardSharingRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId\x12J\n\nvisibility\x18\x02 \x01(\x0e\x32%.chalk.artifacts.v1.ContentVisibilityH\x00R\nvisibility\x88\x01\x01\x12<\n\x06grants\x18\x03 \x01(\x0b\x32$.chalk.artifacts.v1.ContentGrantListR\x06grantsB\r\n\x0b_visibility"^\n\x1eUpdateDashboardSharingResponse\x12<\n\x07sharing\x18\x01 \x01(\x0b\x32".chalk.artifacts.v1.ContentSharingR\x07sharing"d\n\x16\x44\x65leteDashboardRequest\x12%\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tB\x02\x18\x01R\x0b\x64\x61shboardId\x12#\n\rdashboard_ids\x18\x02 \x03(\tR\x0c\x64\x61shboardIds"\x19\n\x17\x44\x65leteDashboardResponse"\\\n\x16\x45xportDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId\x12\x1f\n\x0binclude_ids\x18\x02 \x01(\x08R\nincludeIds"M\n\x17\x45xportDashboardResponse\x12\x32\n\x15\x64\x61shboard_json_string\x18\x01 \x01(\tR\x13\x64\x61shboardJsonString"\xf3\x01\n\x16ImportDashboardRequest\x12\x32\n\x15\x64\x61shboard_json_string\x18\x01 \x01(\tR\x13\x64\x61shboardJsonString\x12\x17\n\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x1c\n\x07\x64ry_run\x18\x03 \x01(\x08H\x01R\x06\x64ryRun\x88\x01\x01\x12J\n\nvisibility\x18\x04 \x01(\x0e\x32%.chalk.artifacts.v1.ContentVisibilityH\x02R\nvisibility\x88\x01\x01\x42\x07\n\x05_nameB\n\n\x08_dry_runB\r\n\x0b_visibility"V\n\x17ImportDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard"i\n\x1dGetContextualDashboardRequest\x12H\n\x08location\x18\x01 \x01(\x0e\x32,.chalk.server.v1.ContextualDashboardLocationR\x08location"p\n\x1eGetContextualDashboardResponse\x12@\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardH\x00R\tdashboard\x88\x01\x01\x42\x0c\n\n_dashboard"\xab\x01\n UpsertContextualDashboardRequest\x12H\n\x08location\x18\x01 \x01(\x0e\x32,.chalk.server.v1.ContextualDashboardLocationR\x08location\x12=\n\x07widgets\x18\x02 \x03(\x0b\x32#.chalk.artifacts.v1.DashboardWidgetR\x07widgets"`\n!UpsertContextualDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard"k\n\x1fResetContextualDashboardRequest\x12H\n\x08location\x18\x01 \x01(\x0e\x32,.chalk.server.v1.ContextualDashboardLocationR\x08location""\n ResetContextualDashboardResponse*\xbd\x01\n\x13\x44\x61shboardAnnotation\x12$\n DASHBOARD_ANNOTATION_UNSPECIFIED\x10\x00\x12)\n%DASHBOARD_ANNOTATION_INCIDENT_MARKERS\x10\x01\x12(\n$DASHBOARD_ANNOTATION_INCIDENT_RANGES\x10\x02\x12+\n\'DASHBOARD_ANNOTATION_DEPLOYMENT_MARKERS\x10\x03*\xa8\x01\n\x13\x44\x61shboardSortColumn\x12%\n!DASHBOARD_SORT_COLUMN_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x44\x41SHBOARD_SORT_COLUMN_NAME\x10\x01\x12$\n DASHBOARD_SORT_COLUMN_CREATED_AT\x10\x02\x12$\n DASHBOARD_SORT_COLUMN_UPDATED_AT\x10\x03*w\n\x12\x44\x61shboardSortOrder\x12$\n DASHBOARD_SORT_ORDER_UNSPECIFIED\x10\x00\x12\x1d\n\x19\x44\x41SHBOARD_SORT_ORDER_DESC\x10\x01\x12\x1c\n\x18\x44\x41SHBOARD_SORT_ORDER_ASC\x10\x02*t\n\x1b\x43ontextualDashboardLocation\x12-\n)CONTEXTUAL_DASHBOARD_LOCATION_UNSPECIFIED\x10\x00\x12&\n"CONTEXTUAL_DASHBOARD_LOCATION_HOME\x10\x01\x32\x84\n\n\x10\x44\x61shboardService\x12i\n\x0f\x43reateDashboard\x12\'.chalk.server.v1.CreateDashboardRequest\x1a(.chalk.server.v1.CreateDashboardResponse"\x03\x80}\x05\x12`\n\x0cGetDashboard\x12$.chalk.server.v1.GetDashboardRequest\x1a%.chalk.server.v1.GetDashboardResponse"\x03\x80}\x06\x12\x66\n\x0eListDashboards\x12&.chalk.server.v1.ListDashboardsRequest\x1a\'.chalk.server.v1.ListDashboardsResponse"\x03\x80}\x06\x12i\n\x0fUpdateDashboard\x12\'.chalk.server.v1.UpdateDashboardRequest\x1a(.chalk.server.v1.UpdateDashboardResponse"\x03\x80}\x05\x12~\n\x16UpdateDashboardSharing\x12..chalk.server.v1.UpdateDashboardSharingRequest\x1a/.chalk.server.v1.UpdateDashboardSharingResponse"\x03\x80}\x05\x12i\n\x0f\x44\x65leteDashboard\x12\'.chalk.server.v1.DeleteDashboardRequest\x1a(.chalk.server.v1.DeleteDashboardResponse"\x03\x80}\x05\x12i\n\x0f\x45xportDashboard\x12\'.chalk.server.v1.ExportDashboardRequest\x1a(.chalk.server.v1.ExportDashboardResponse"\x03\x80}\x06\x12i\n\x0fImportDashboard\x12\'.chalk.server.v1.ImportDashboardRequest\x1a(.chalk.server.v1.ImportDashboardResponse"\x03\x80}\x05\x12~\n\x16GetContextualDashboard\x12..chalk.server.v1.GetContextualDashboardRequest\x1a/.chalk.server.v1.GetContextualDashboardResponse"\x03\x80}\x06\x12\x87\x01\n\x19UpsertContextualDashboard\x12\x31.chalk.server.v1.UpsertContextualDashboardRequest\x1a\x32.chalk.server.v1.UpsertContextualDashboardResponse"\x03\x80}\n\x12\x84\x01\n\x18ResetContextualDashboard\x12\x30.chalk.server.v1.ResetContextualDashboardRequest\x1a\x31.chalk.server.v1.ResetContextualDashboardResponse"\x03\x80}\nB\x9e\x01\n\x13\x63om.chalk.server.v1B\x15\x44\x61shboardServiceProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -30,6 +31,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\025DashboardServiceProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_LISTDASHBOARDSREQUEST"].fields_by_name["search"]._options = None
+    _globals["_LISTDASHBOARDSREQUEST"].fields_by_name["search"]._serialized_options = b"\030\001"
+    _globals["_LISTDASHBOARDSREQUEST"].fields_by_name["created_by"]._options = None
+    _globals["_LISTDASHBOARDSREQUEST"].fields_by_name["created_by"]._serialized_options = b"\030\001"
+    _globals["_DELETEDASHBOARDREQUEST"].fields_by_name["dashboard_id"]._options = None
+    _globals["_DELETEDASHBOARDREQUEST"].fields_by_name["dashboard_id"]._serialized_options = b"\030\001"
     _globals["_DASHBOARDSERVICE"].methods_by_name["CreateDashboard"]._options = None
     _globals["_DASHBOARDSERVICE"].methods_by_name["CreateDashboard"]._serialized_options = b"\200}\005"
     _globals["_DASHBOARDSERVICE"].methods_by_name["GetDashboard"]._options = None
@@ -38,6 +45,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_DASHBOARDSERVICE"].methods_by_name["ListDashboards"]._serialized_options = b"\200}\006"
     _globals["_DASHBOARDSERVICE"].methods_by_name["UpdateDashboard"]._options = None
     _globals["_DASHBOARDSERVICE"].methods_by_name["UpdateDashboard"]._serialized_options = b"\200}\005"
+    _globals["_DASHBOARDSERVICE"].methods_by_name["UpdateDashboardSharing"]._options = None
+    _globals["_DASHBOARDSERVICE"].methods_by_name["UpdateDashboardSharing"]._serialized_options = b"\200}\005"
     _globals["_DASHBOARDSERVICE"].methods_by_name["DeleteDashboard"]._options = None
     _globals["_DASHBOARDSERVICE"].methods_by_name["DeleteDashboard"]._serialized_options = b"\200}\005"
     _globals["_DASHBOARDSERVICE"].methods_by_name["ExportDashboard"]._options = None
@@ -50,56 +59,62 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_DASHBOARDSERVICE"].methods_by_name["UpsertContextualDashboard"]._serialized_options = b"\200}\n"
     _globals["_DASHBOARDSERVICE"].methods_by_name["ResetContextualDashboard"]._options = None
     _globals["_DASHBOARDSERVICE"].methods_by_name["ResetContextualDashboard"]._serialized_options = b"\200}\n"
-    _globals["_DASHBOARDANNOTATION"]._serialized_start = 3027
-    _globals["_DASHBOARDANNOTATION"]._serialized_end = 3216
-    _globals["_DASHBOARDSORTCOLUMN"]._serialized_start = 3219
-    _globals["_DASHBOARDSORTCOLUMN"]._serialized_end = 3387
-    _globals["_DASHBOARDSORTORDER"]._serialized_start = 3389
-    _globals["_DASHBOARDSORTORDER"]._serialized_end = 3508
-    _globals["_CONTEXTUALDASHBOARDLOCATION"]._serialized_start = 3510
-    _globals["_CONTEXTUALDASHBOARDLOCATION"]._serialized_end = 3626
-    _globals["_DASHBOARDCONTROLS"]._serialized_start = 164
-    _globals["_DASHBOARDCONTROLS"]._serialized_end = 310
-    _globals["_CREATEDASHBOARDREQUEST"]._serialized_start = 313
-    _globals["_CREATEDASHBOARDREQUEST"]._serialized_end = 480
-    _globals["_CREATEDASHBOARDRESPONSE"]._serialized_start = 483
-    _globals["_CREATEDASHBOARDRESPONSE"]._serialized_end = 633
-    _globals["_GETDASHBOARDREQUEST"]._serialized_start = 636
-    _globals["_GETDASHBOARDREQUEST"]._serialized_end = 768
-    _globals["_GETDASHBOARDRESPONSE"]._serialized_start = 771
-    _globals["_GETDASHBOARDRESPONSE"]._serialized_end = 918
-    _globals["_LISTDASHBOARDSREQUEST"]._serialized_start = 921
-    _globals["_LISTDASHBOARDSREQUEST"]._serialized_end = 1354
-    _globals["_LISTDASHBOARDSRESPONSE"]._serialized_start = 1357
-    _globals["_LISTDASHBOARDSRESPONSE"]._serialized_end = 1498
-    _globals["_UPDATEDASHBOARDREQUEST"]._serialized_start = 1501
-    _globals["_UPDATEDASHBOARDREQUEST"]._serialized_end = 1729
-    _globals["_UPDATEDASHBOARDRESPONSE"]._serialized_start = 1732
-    _globals["_UPDATEDASHBOARDRESPONSE"]._serialized_end = 1882
-    _globals["_DELETEDASHBOARDREQUEST"]._serialized_start = 1884
-    _globals["_DELETEDASHBOARDREQUEST"]._serialized_end = 1943
-    _globals["_DELETEDASHBOARDRESPONSE"]._serialized_start = 1945
-    _globals["_DELETEDASHBOARDRESPONSE"]._serialized_end = 1970
-    _globals["_EXPORTDASHBOARDREQUEST"]._serialized_start = 1972
-    _globals["_EXPORTDASHBOARDREQUEST"]._serialized_end = 2064
-    _globals["_EXPORTDASHBOARDRESPONSE"]._serialized_start = 2066
-    _globals["_EXPORTDASHBOARDRESPONSE"]._serialized_end = 2143
-    _globals["_IMPORTDASHBOARDREQUEST"]._serialized_start = 2146
-    _globals["_IMPORTDASHBOARDREQUEST"]._serialized_end = 2298
-    _globals["_IMPORTDASHBOARDRESPONSE"]._serialized_start = 2300
-    _globals["_IMPORTDASHBOARDRESPONSE"]._serialized_end = 2386
-    _globals["_GETCONTEXTUALDASHBOARDREQUEST"]._serialized_start = 2388
-    _globals["_GETCONTEXTUALDASHBOARDREQUEST"]._serialized_end = 2493
-    _globals["_GETCONTEXTUALDASHBOARDRESPONSE"]._serialized_start = 2495
-    _globals["_GETCONTEXTUALDASHBOARDRESPONSE"]._serialized_end = 2607
-    _globals["_UPSERTCONTEXTUALDASHBOARDREQUEST"]._serialized_start = 2610
-    _globals["_UPSERTCONTEXTUALDASHBOARDREQUEST"]._serialized_end = 2781
-    _globals["_UPSERTCONTEXTUALDASHBOARDRESPONSE"]._serialized_start = 2783
-    _globals["_UPSERTCONTEXTUALDASHBOARDRESPONSE"]._serialized_end = 2879
-    _globals["_RESETCONTEXTUALDASHBOARDREQUEST"]._serialized_start = 2881
-    _globals["_RESETCONTEXTUALDASHBOARDREQUEST"]._serialized_end = 2988
-    _globals["_RESETCONTEXTUALDASHBOARDRESPONSE"]._serialized_start = 2990
-    _globals["_RESETCONTEXTUALDASHBOARDRESPONSE"]._serialized_end = 3024
-    _globals["_DASHBOARDSERVICE"]._serialized_start = 3629
-    _globals["_DASHBOARDSERVICE"]._serialized_end = 4785
+    _globals["_DASHBOARDANNOTATION"]._serialized_start = 4015
+    _globals["_DASHBOARDANNOTATION"]._serialized_end = 4204
+    _globals["_DASHBOARDSORTCOLUMN"]._serialized_start = 4207
+    _globals["_DASHBOARDSORTCOLUMN"]._serialized_end = 4375
+    _globals["_DASHBOARDSORTORDER"]._serialized_start = 4377
+    _globals["_DASHBOARDSORTORDER"]._serialized_end = 4496
+    _globals["_CONTEXTUALDASHBOARDLOCATION"]._serialized_start = 4498
+    _globals["_CONTEXTUALDASHBOARDLOCATION"]._serialized_end = 4614
+    _globals["_DASHBOARDCONTROLS"]._serialized_start = 203
+    _globals["_DASHBOARDCONTROLS"]._serialized_end = 349
+    _globals["_CREATEDASHBOARDREQUEST"]._serialized_start = 352
+    _globals["_CREATEDASHBOARDREQUEST"]._serialized_end = 598
+    _globals["_CREATEDASHBOARDRESPONSE"]._serialized_start = 601
+    _globals["_CREATEDASHBOARDRESPONSE"]._serialized_end = 813
+    _globals["_GETDASHBOARDREQUEST"]._serialized_start = 816
+    _globals["_GETDASHBOARDREQUEST"]._serialized_end = 948
+    _globals["_GETDASHBOARDRESPONSE"]._serialized_start = 951
+    _globals["_GETDASHBOARDRESPONSE"]._serialized_end = 1160
+    _globals["_LISTDASHBOARDSREQUEST"]._serialized_start = 1163
+    _globals["_LISTDASHBOARDSREQUEST"]._serialized_end = 1670
+    _globals["_LISTDASHBOARDSFILTERS"]._serialized_start = 1673
+    _globals["_LISTDASHBOARDSFILTERS"]._serialized_end = 1830
+    _globals["_LISTDASHBOARDSRESPONSE"]._serialized_start = 1833
+    _globals["_LISTDASHBOARDSRESPONSE"]._serialized_end = 1974
+    _globals["_UPDATEDASHBOARDREQUEST"]._serialized_start = 1977
+    _globals["_UPDATEDASHBOARDREQUEST"]._serialized_end = 2205
+    _globals["_UPDATEDASHBOARDRESPONSE"]._serialized_start = 2208
+    _globals["_UPDATEDASHBOARDRESPONSE"]._serialized_end = 2420
+    _globals["_UPDATEDASHBOARDSHARINGREQUEST"]._serialized_start = 2423
+    _globals["_UPDATEDASHBOARDSHARINGREQUEST"]._serialized_end = 2642
+    _globals["_UPDATEDASHBOARDSHARINGRESPONSE"]._serialized_start = 2644
+    _globals["_UPDATEDASHBOARDSHARINGRESPONSE"]._serialized_end = 2738
+    _globals["_DELETEDASHBOARDREQUEST"]._serialized_start = 2740
+    _globals["_DELETEDASHBOARDREQUEST"]._serialized_end = 2840
+    _globals["_DELETEDASHBOARDRESPONSE"]._serialized_start = 2842
+    _globals["_DELETEDASHBOARDRESPONSE"]._serialized_end = 2867
+    _globals["_EXPORTDASHBOARDREQUEST"]._serialized_start = 2869
+    _globals["_EXPORTDASHBOARDREQUEST"]._serialized_end = 2961
+    _globals["_EXPORTDASHBOARDRESPONSE"]._serialized_start = 2963
+    _globals["_EXPORTDASHBOARDRESPONSE"]._serialized_end = 3040
+    _globals["_IMPORTDASHBOARDREQUEST"]._serialized_start = 3043
+    _globals["_IMPORTDASHBOARDREQUEST"]._serialized_end = 3286
+    _globals["_IMPORTDASHBOARDRESPONSE"]._serialized_start = 3288
+    _globals["_IMPORTDASHBOARDRESPONSE"]._serialized_end = 3374
+    _globals["_GETCONTEXTUALDASHBOARDREQUEST"]._serialized_start = 3376
+    _globals["_GETCONTEXTUALDASHBOARDREQUEST"]._serialized_end = 3481
+    _globals["_GETCONTEXTUALDASHBOARDRESPONSE"]._serialized_start = 3483
+    _globals["_GETCONTEXTUALDASHBOARDRESPONSE"]._serialized_end = 3595
+    _globals["_UPSERTCONTEXTUALDASHBOARDREQUEST"]._serialized_start = 3598
+    _globals["_UPSERTCONTEXTUALDASHBOARDREQUEST"]._serialized_end = 3769
+    _globals["_UPSERTCONTEXTUALDASHBOARDRESPONSE"]._serialized_start = 3771
+    _globals["_UPSERTCONTEXTUALDASHBOARDRESPONSE"]._serialized_end = 3867
+    _globals["_RESETCONTEXTUALDASHBOARDREQUEST"]._serialized_start = 3869
+    _globals["_RESETCONTEXTUALDASHBOARDREQUEST"]._serialized_end = 3976
+    _globals["_RESETCONTEXTUALDASHBOARDRESPONSE"]._serialized_start = 3978
+    _globals["_RESETCONTEXTUALDASHBOARDRESPONSE"]._serialized_end = 4012
+    _globals["_DASHBOARDSERVICE"]._serialized_start = 4617
+    _globals["_DASHBOARDSERVICE"]._serialized_end = 5901
 # @@protoc_insertion_point(module_scope)

@@ -52,6 +52,40 @@ def check_ch_mask(
     return ch_mask
 
 
+def check_n_chans(
+    x: torch.Tensor,
+    n_chans: int,
+    model: str,
+    hint: str = "build the model with the chs_info of this montage, or use a "
+    "channel_strategy.",
+) -> None:
+    """Check that the input has the channels a model was built for.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        Input of shape ``(batch, n_chans, ...)``.
+    n_chans : int
+        Number of channels the model was built for.
+    model : str
+        Name of the model, for the error message.
+    hint : str
+        How to run the model on this input, ending the error message. The
+        default is for models that take a ``channel_strategy``.
+
+    Raises
+    ------
+    ValueError
+        If ``x`` does not have ``n_chans`` channels, instead of a shape error
+        deep in the network.
+    """
+    if x.shape[1] != n_chans:
+        raise ValueError(
+            f"{model} was built for {n_chans} channels but got input with "
+            f"{x.shape[1]}; {hint}"
+        )
+
+
 def pack_channels(
     x: torch.Tensor, ch_mask: Optional[torch.Tensor] = None
 ) -> torch.Tensor:
@@ -192,20 +226,28 @@ def masked_group_norm(
     # Remove NaNs before subtraction, squaring and affine multiplication;
     # masking only the resulting statistics does not protect backward.
     x = x.masked_fill(padding, 0.0)
-    # (batch, ..., group, channel): the mask covers the leading axes.
-    grouped = x.movedim(1, -1).unflatten(-1, [num_groups, -1])
+    # (batch, group, channel, ...): a view of the channel axis, no permute.
     # At least float32 statistics, as group_norm accumulates reduced precision.
-    grouped = grouped.to(torch.promote_types(x.dtype, torch.float32))
+    grouped = x.unflatten(1, [num_groups, -1]).to(
+        torch.promote_types(x.dtype, torch.float32)
+    )
     dims: List[int] = []
-    for dim in range(1, grouped.dim() - 2):
+    for dim in range(2, grouped.dim()):
         dims.append(dim)
-    dims.append(grouped.dim() - 1)
-    stats_shape = [grouped.shape[0]] + [1] * (grouped.dim() - 3) + [num_groups, 1]
-    mean = masked_mean(grouped, mask, dims).reshape(stats_shape)
-    centred = grouped - mean
+    stats_shape = [x.shape[0]] + [1] * (grouped.dim() - 1)
+    # Real entries per sample and group, from the small mask rather than a
+    # full-size masked count: channels per group times the axes past the mask.
+    per_position = x.shape[1] // num_groups
+    for size in x.shape[mask.dim() + 1 :]:
+        per_position *= size
+    count = (mask.reshape(mask.shape[0], -1).sum(1) * per_position).to(grouped.dtype)
+    count = count.reshape(stats_shape)
+    # Padded entries are zero, so plain sums are the masked sums.
+    mean = grouped.sum(dims, keepdim=True) / count
+    centred = (grouped - mean).masked_fill(padding.unsqueeze(1), 0.0)
     # Biased variance, as group_norm.
-    var = masked_mean(centred.square(), mask, dims).reshape(stats_shape)
-    out = (centred * torch.rsqrt(var + eps)).flatten(-2).movedim(-1, 1)
+    var = centred.square().sum(dims, keepdim=True) / count
+    out = (centred * torch.rsqrt(var + eps)).flatten(1, 2)
     affine_shape = [1, x.shape[1]] + [1] * (x.dim() - 2)
     if weight is not None:
         out = out * weight.reshape(affine_shape)

@@ -34,9 +34,9 @@ from matrx_seo.providers.dataforseo.contracts import (
     DataForSeoWorkflow,
 )
 from matrx_seo.providers.dataforseo.operations import (
-    GET_LIST_ENDPOINTS,
     APPROVED_OPERATIONS,
     DATAFORSEO_ENDPOINT_EXAMPLE_TASKS,
+    GET_LIST_ENDPOINTS,
     get_operation,
 )
 from matrx_seo.providers.dataforseo.transport import AdaptiveRateLimiter, ReplayTransport
@@ -137,15 +137,16 @@ def _provider_task_rows(repository: InMemorySeoRepository) -> list[dict[str, obj
 
 
 def test_approved_operations_match_reviewed_matrix() -> None:
-    matrix_path = Path(__file__).parents[3] / "docs/seo/dataforseo_capability_matrix.json"
-    if matrix_path.exists():
-        matrix = json.loads(matrix_path.read_text())
-        approved = {
-            item["id"]: item for item in matrix["operations"] if item["decision"] == "approved"
-        }
-        assert {operation.name.value for operation in APPROVED_OPERATIONS} == set(approved)
-        for operation in APPROVED_OPERATIONS:
-            assert set(operation.endpoints) == set(approved[operation.name.value]["endpoints"])
+    # A byte-identical copy of docs/seo/dataforseo_capability_matrix.json; the host checks the
+    # copy (tests/package_host_contracts/test_matrx_seo_host.py).
+    matrix_path = Path(__file__).parent / "fixtures/dataforseo_capability_matrix.json"
+    matrix = json.loads(matrix_path.read_text())
+    approved = {
+        item["id"]: item for item in matrix["operations"] if item["decision"] == "approved"
+    }
+    assert {operation.name.value for operation in APPROVED_OPERATIONS} == set(approved)
+    for operation in APPROVED_OPERATIONS:
+        assert set(operation.endpoints) == set(approved[operation.name.value]["endpoints"])
     assert len(APPROVED_OPERATIONS) == 49
     with pytest.raises(ValueError, match="not approved"):
         get_operation("ai_optimization.llm_responses")
@@ -1273,3 +1274,52 @@ async def test_unnormalizable_competitors_request_is_refused_before_any_run() ->
     # The working path — the same endpoint as raw_provider evidence — is untouched.
     raw_request = request.model_copy(update={"capability": SeoCapability.RAW_PROVIDER})
     assert adapter.unsupported_request_reason(raw_request) is None
+
+
+def test_a_bare_keywords_string_becomes_a_one_item_list_for_a_list_endpoint() -> None:
+    from matrx_seo.providers.dataforseo.contracts import (
+        DataForSeoOperationName,
+        DataForSeoOperationRequest,
+    )
+
+    request = DataForSeoOperationRequest(
+        operation=DataForSeoOperationName.LABS_GOOGLE_SERP_COMPETITORS,
+        tasks=[{"keywords": "trail running shoes", "location_code": 2840, "language_code": "en"}],
+    )
+    assert request.tasks[0]["keywords"] == ["trail running shoes"]
+
+
+@pytest.mark.asyncio
+async def test_live_post_is_retried_when_the_provider_reports_an_internal_task_error(monkeypatch) -> None:
+    from matrx_seo.providers.dataforseo import client as client_module
+    from matrx_seo.providers.dataforseo.transport import JsonResponse
+
+    class ScriptedTransport:
+        def __init__(self, outcomes):
+            self.outcomes = list(outcomes)
+            self.posts = 0
+
+        async def request(self, _method, _path, *, json_body=None):
+            self.posts += 1
+            return JsonResponse(self.outcomes.pop(0), {})
+
+    monkeypatch.setattr(client_module, "_TRANSIENT_TASK_RETRY_SECONDS", 0)
+    broken = _envelope([_task("t", status_code=50000, cost="0")])
+    good = _envelope([_task("t", status_code=20000, cost="0", result=[{}])])
+    request = DataForSeoOperationRequest(
+        operation=DataForSeoOperationName.SERP_GOOGLE_ORGANIC_ADVANCED,
+        workflow=DataForSeoWorkflow.LIVE,
+        tasks=[{"keyword": "x"}],
+    )
+
+    transport = ScriptedTransport([broken, good])
+    response = await DataForSeoClient(transport).execute(request)
+    assert transport.posts == 2
+    assert response.error is None
+    assert response.call_records[0].request_count == 2
+
+    stuck = ScriptedTransport([broken, broken, broken])
+    response = await DataForSeoClient(stuck).execute(request)
+    assert stuck.posts == 3
+    assert response.error is not None
+    assert response.call_records[0].request_count == 3

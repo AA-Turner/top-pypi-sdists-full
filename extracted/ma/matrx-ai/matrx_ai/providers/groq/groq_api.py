@@ -28,8 +28,9 @@ from matrx_ai.providers.outbound_capture import (
     stamp_call_meta,
 )
 from matrx_ai.providers.reasoning import (
-    emit_complete_reasoning_block,
+    emit_settled_content,
     openai_compatible_reasoning_text,
+    reasoning_opener,
 )
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
@@ -144,7 +145,7 @@ class GroqChat:
         """Execute Groq Orpheus TTS via client.audio.speech.create."""
         from matrx_ai.catalog.resolve import resolve_tts_voice
         from matrx_ai.config.dictionary_config import apply_tts_dictionary
-        from matrx_ai.config.tts_config import GroqTTSRegistry
+        from matrx_ai.config.tts_config import capture_spoken_text_cut, GroqTTSRegistry
 
         tts = unified_config.tts_voice_config
         model = profile.provider_model_id
@@ -176,16 +177,25 @@ class GroqChat:
             unified_config.dictionary, raw_text, provider="groq", model=model
         )
 
-        input_text = GroqTTSRegistry.validate_input_length(raw_text)
+        # Over Orpheus's maximum the text is cut LOUDLY: recorded, captured, and stated on the
+        # audio's metadata (``speech_input``) — never a silent chop.
+        input_fit = GroqTTSRegistry.fit_input(raw_text)
+        input_text = input_fit.text
+        await capture_spoken_text_cut(input_fit, provider="groq", model=model)
 
         vcprint(f"[Groq TTS] model={model} voice={voice} format={audio_format}", color="blue")
 
         stamp_call_meta(provider="groq", model=matrx_model_name, is_streaming=False)
+        speech_kwargs: dict[str, Any] = {
+            "model": model,
+            "voice": voice,
+            "input": input_text,
+            "response_format": audio_format,
+        }
+        # The speech request's snapshot (the chat seam's). "Request sent" is stamped by the transport (wire_sent.py).
+        capture_request_payload(speech_kwargs, provider="groq")
         response = await self.client.audio.speech.create(
-            model=model,
-            voice=voice,
-            input=input_text,
-            response_format=audio_format,
+            **route_undeclared_params(self.client.audio.speech.create, speech_kwargs, provider="groq", model=model)
         )
 
         # groq-sdk >=1 returns AsyncBinaryAPIResponse. Its bytes are exposed by
@@ -249,7 +259,10 @@ class GroqChat:
                 mime_type=mime_type,
                 file_size=envelope.size_bytes,
                 duration_ms=envelope.duration_ms,
-                metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+                metadata={
+                    "generation": gen_meta.model_dump(exclude_none=True),
+                    **({"speech_input": input_fit.record()} if input_fit.truncated else {}),
+                },
             )
             msg = UnifiedMessage(role="assistant", content=[audio_content])
 
@@ -315,14 +328,8 @@ class GroqChat:
 
         # Send content through emitter
         vcprint("[Groq] Sending content to stream handler...", color="cyan")
-        for message in converted_response.messages:
-            for content in message.content:
-                if isinstance(content, ThinkingContent):
-                    await emit_complete_reasoning_block(emitter, content.text)
-                elif isinstance(content, TextContent):
-                    await emitter.send_chunk(content.text)
-                elif isinstance(content, ToolCallContent):
-                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        await emit_settled_content(emitter, converted_response)
 
         # Citations captured by the translator onto text blocks — emit the
         # typed events at settle.
@@ -387,7 +394,7 @@ class GroqChat:
                 accumulated_reasoning += reasoning_chunk
                 if not in_think_block:
                     await emitter.send_reasoning_state("started")
-                    await emitter.send_chunk("<reasoning>")
+                    await emitter.send_chunk(reasoning_opener(accumulated_content))
                     in_think_block = True
                 await emitter.send_chunk(reasoning_chunk)
                 await asyncio.sleep(0)

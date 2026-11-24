@@ -132,11 +132,9 @@ def _to_utf16_units(text: str) -> tuple[str, list[int]]:
 # constants.ts
 # ─────────────────────────────────────────────────────────────────────────
 
-XML_TAG_BLOCK_NAMES: tuple[str, ...] = (
-    "thinking", "think", "reasoning", "info", "task", "database", "private", "plan", "event",
-    "tool", "questionnaire", "flashcards", "cooking_recipe", "timeline", "progress_tracker",
-    "troubleshooting", "resources", "research",
-)
+# The pre-kind display tags and the no-kind tags left with the splitter's readers in
+# legacy-shapes step 5 (LEGACY-5) — the twin of constants.ts.
+XML_TAG_BLOCK_NAMES: tuple[str, ...] = ("thinking", "think", "reasoning")
 THINKING_FAMILY: tuple[str, ...] = ("thinking", "think", "reasoning")
 ATTRIBUTE_XML_NAMES: tuple[str, ...] = ("decision", "artifact", "editor_error", "editor_code_snippet", "audiocite")
 KNOWN_XML_TAG_NAMES: frozenset[str] = frozenset(XML_TAG_BLOCK_NAMES + ATTRIBUTE_XML_NAMES)
@@ -153,17 +151,6 @@ HTML_BLOCK_LEVEL_TAGS: frozenset[str] = frozenset(
         "p", "hr", "ul", "ol", "li", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6", "table",
         "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col", "figure",
         "figcaption", "details", "summary",
-    }
-)
-TYPED_JSON_ROOT_KEYS: frozenset[str] = frozenset(
-    {"quiz_title", "presentation", "decision_tree", "comparison", "diagram", "math_problem", "item_presentation", "name"}
-)
-#: ``key in TYPED_JSON_ROOT_KEYS`` in JavaScript also finds Object.prototype's members.
-_OBJECT_PROTOTYPE_KEYS: frozenset[str] = frozenset(
-    {
-        "constructor", "__defineGetter__", "__defineSetter__", "hasOwnProperty", "__lookupGetter__",
-        "__lookupSetter__", "isPrototypeOf", "propertyIsEnumerable", "toString", "valueOf",
-        "__proto__", "toLocaleString",
     }
 )
 CALLOUT_NAMES: frozenset[str] = frozenset(
@@ -1018,7 +1005,7 @@ def _is_recognized_json_head(content: str) -> bool:
     key = _first_json_key(content)
     if not key:
         return False
-    return key in ("__kind", "matrx_version") or key in TYPED_JSON_ROOT_KEYS or key in _OBJECT_PROTOTYPE_KEYS
+    return key in ("__kind", "matrx_version")
 
 
 def _matching_json_object_end(source: str, start: int, limit: int) -> int | None:

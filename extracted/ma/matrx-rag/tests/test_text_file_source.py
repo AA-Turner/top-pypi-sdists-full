@@ -52,17 +52,23 @@ def _row(*, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     }
 
 
+def _stub_file_rows(monkeypatch, row: dict[str, Any]) -> None:
+    """The resolver reads the row through the gate's door (needs a database); state it."""
+    import matrx_files.gated_reads as gated_reads
+
+    async def _read_file_rows(columns, **_filters):
+        return [{c: row[c] for c in ("id", *columns)}]
+
+    monkeypatch.setattr(gated_reads, "read_file_rows", _read_file_rows)
+
+
 def test_uploaded_text_file_reads_canonical_bytes(monkeypatch) -> None:
     import matrx_rag.sources as sources
 
     row = _row()
     body = b"Scientific advertising is salesmanship in print.\n"
     fm = _FileManager(body)
-    monkeypatch.setattr(
-        sources,
-        "get_db_model",
-        lambda name: _Files(row) if name == "Files" else None,
-    )
+    _stub_file_rows(monkeypatch, row)
     monkeypatch.setattr(sources, "get_cloud_file_manager", lambda: fm)
 
     resolved = asyncio.run(
@@ -79,11 +85,7 @@ def test_pre_extracted_text_keeps_zero_io_fast_path(monkeypatch) -> None:
     import matrx_rag.sources as sources
 
     row = _row(metadata={"text": "already extracted"})
-    monkeypatch.setattr(
-        sources,
-        "get_db_model",
-        lambda name: _Files(row) if name == "Files" else None,
-    )
+    _stub_file_rows(monkeypatch, row)
     monkeypatch.setattr(
         sources,
         "get_cloud_file_manager",

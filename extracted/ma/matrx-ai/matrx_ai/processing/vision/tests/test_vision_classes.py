@@ -27,8 +27,10 @@ from matrx_ai.processing.vision import (
 @pytest.mark.parametrize(
     ("model", "expected"),
     [
+        ("claude-opus-4-8", "anthropic_opus_hires"),
+        ("claude-opus-4-8-20260101", "anthropic_opus_hires"),
         ("claude-opus-4-7", "anthropic_opus_hires"),
-        ("claude-opus-4-5", "anthropic_opus_hires"),
+        ("claude-opus-4-5", "anthropic_sonnet_default"),  # the 1.2 MP tier (AND-V IMG17 c)
         ("claude-sonnet-4-6", "anthropic_sonnet_default"),
         ("claude-haiku-4-5", "anthropic_haiku_default"),
         ("gpt-5.5", "openai_original"),
@@ -154,3 +156,11 @@ def test_registry_invariants() -> None:
 
     assert "unknown_default" in VISION_API_CLASSES
     assert "text_only" not in VISION_API_CLASSES  # capability, not a re-encode profile
+
+
+@pytest.mark.parametrize("wire", [None, "anthropic", "anthropic_chat", "bedrock"])
+def test_an_unlisted_claude_is_a_claude_on_every_wire(wire) -> None:
+    """AND-V IMG17 (c): an unlisted Claude on wire ``anthropic`` or none fell to ``unknown_default`` and skipped
+    Claude's own picture rule."""
+    assert resolve_vision_class("claude-opus-4-6", wire).name == "anthropic_sonnet_default"
+    assert resolve_vision_class("claude-sonnet-5-5", wire).name == "anthropic_sonnet_default"

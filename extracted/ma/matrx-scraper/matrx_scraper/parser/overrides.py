@@ -99,6 +99,9 @@ overrides = [
             "recommendations",
             "icons",
             "mw-editsection",
+            # Wikipedia's language menu ends with "Edit links" (a Wikidata edit door), never page content.
+            "wb-langlinks-edit",
+            "after-portlet-lang",
             "button",
             "ch-code-line-number",
             "article__read-next",

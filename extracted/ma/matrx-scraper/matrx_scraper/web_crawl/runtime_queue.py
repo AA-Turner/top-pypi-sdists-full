@@ -26,7 +26,7 @@ import socket
 import uuid
 from collections import defaultdict
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from collections.abc import Awaitable, Callable
 
 from matrx_runtime import (
@@ -672,6 +672,34 @@ async def _start_reconciling(engine: ExecutionEngine, execution_id: str) -> None
         raise
 
 
+#: A crawl session in one of these is still live or will be resumed by the crash-resume sweep.
+_LIVE_SESSION_STATUSES = frozenset({"queued", "running"})
+
+
+async def crawl_session_outcome(execution: Any) -> str | None:
+    """What a crawl execution's own session says happened, for a host reconciliation.
+
+    The crawl settles its session, THEN its execution (``finalize``); a process that dies between
+    the two leaves the execution ``running`` and unleased with its frontier pending, and nothing
+    else ever settles it (live 2026-11-01: three sessions ended 2026-10-28, 599 items stranded).
+    ``None`` while the session is live or resumable; ``completed`` for ``complete``/``partial``;
+    ``failed`` for ``failed``; ``cancelled`` for anything else ended, and for a session deleted
+    while it still read live (nobody will resume a deleted crawl)."""
+    if getattr(execution, "link_kind", None) != CRAWL_SESSION_LINK_KIND or not execution.link_id:
+        return None
+    from matrx_scraper.db.models_web import CrawlSession as WebCrawlSession
+
+    session = await WebCrawlSession.get_or_none(id=execution.link_id)
+    if session is None:
+        return "cancelled"
+    status = str(getattr(session, "status", "") or "")
+    if status in _LIVE_SESSION_STATUSES:
+        return "cancelled" if getattr(session, "deleted_at", None) else None
+    if status in ("complete", "partial"):
+        return "completed"
+    return "failed" if status == "failed" else "cancelled"
+
+
 def make_work_queue_factory(
     engine: ExecutionEngine,
 ) -> Callable[[object], Awaitable[RuntimeWorkQueueBackend]]:
@@ -728,6 +756,7 @@ __all__ = [
     "DEFAULT_ITEM_LEASE_SECONDS",
     "DEFAULT_ITEM_MAX_ATTEMPTS",
     "CRAWL_SESSION_LINK_KIND",
+    "crawl_session_outcome",
     "get_or_create_batch_execution",
     "get_or_create_crawl_execution",
     "make_work_queue_factory",

@@ -38,11 +38,37 @@ from pydantic import BaseModel, Field
 # values can be hundreds of thousands of characters, but a label needs only a
 # compact identifying sample. Keep the complete request comfortably below the
 # provider's token-per-minute admission boundary.
+#
+# Each bound is a knob (``agents.conversations``), read live through the ONE package knob
+# seam (``matrx_ai.knobs``); the constants are the KNOB MIRRORS, used only with no host bound.
+LABEL_LIMITS_FEATURE = "agents.conversations"
+#: KNOB MIRROR of platform.feature_knob "agents.conversations" "label_recent_titles_max_chars"
 RECENT_TITLES_MAX_CHARS = 2000
+#: KNOB MIRROR of platform.feature_knob "agents.conversations" "label_agent_name_max_chars"
 AGENT_NAME_MAX_CHARS = 500
+#: KNOB MIRROR of platform.feature_knob "agents.conversations" "label_agent_description_max_chars"
 AGENT_DESCRIPTION_MAX_CHARS = 3000
+#: KNOB MIRROR of platform.feature_knob "agents.conversations" "label_user_variables_max_chars"
 USER_VARIABLES_MAX_CHARS = 6000
+#: KNOB MIRROR of platform.feature_knob "agents.conversations" "label_user_prompt_max_chars"
 USER_PROMPT_MAX_CHARS = 3000
+
+#: limit name -> (knob key, mirror).
+LABEL_LIMIT_KNOBS: dict[str, tuple[str, int]] = {
+    "recent_titles": ("label_recent_titles_max_chars", RECENT_TITLES_MAX_CHARS),
+    "agent_name": ("label_agent_name_max_chars", AGENT_NAME_MAX_CHARS),
+    "agent_description": ("label_agent_description_max_chars", AGENT_DESCRIPTION_MAX_CHARS),
+    "user_variables": ("label_user_variables_max_chars", USER_VARIABLES_MAX_CHARS),
+    "user_prompt": ("label_user_prompt_max_chars", USER_PROMPT_MAX_CHARS),
+}
+
+
+def label_limit(name: str) -> int:
+    """The live character bound for one labeler input (a knob; the mirror with no host)."""
+    from matrx_ai.knobs import package_knob_number
+
+    key, mirror = LABEL_LIMIT_KNOBS[name]
+    return int(package_knob_number(LABEL_LIMITS_FEATURE, key, mirror, low=100, high=200_000))
 
 
 class ConversationLabelResult(BaseModel):
@@ -60,7 +86,7 @@ NONE_PROVIDED = "None provided"
 def _chat_variables(conversation_content: str, recent_titles: str) -> dict[str, str]:
     return {
         "conversation_content": conversation_content,
-        "recent_titles": _trim_content(recent_titles, RECENT_TITLES_MAX_CHARS)
+        "recent_titles": _trim_content(recent_titles, label_limit("recent_titles"))
         if recent_titles and recent_titles.strip()
         else NONE_VALUE,
     }
@@ -77,10 +103,11 @@ def _bounded_user_variables(values: dict[str, Any] | str) -> dict[str, Any] | st
     each value that would blow the budget is trimmed. A string (a caller that
     already holds text) is trimmed as a whole.
     """
+    budget = label_limit("user_variables")
     if isinstance(values, str):
-        return _trim_content(values, USER_VARIABLES_MAX_CHARS)
+        return _trim_content(values, budget)
     kept = list(values.items())[:USER_VARIABLES_MAX_COUNT]
-    per_value = max(200, USER_VARIABLES_MAX_CHARS // max(1, len(kept)))
+    per_value = max(200, budget // max(1, len(kept)))
     bounded: dict[str, Any] = {}
     for name, value in kept:
         text = value if isinstance(value, str) else str(value)
@@ -98,14 +125,14 @@ def _agent_variables(
     user_prompt: str,
 ) -> dict[str, Any]:
     return {
-        "agent_name": _trim_content(agent_name, AGENT_NAME_MAX_CHARS),
-        "agent_description": _trim_content(agent_description, AGENT_DESCRIPTION_MAX_CHARS)
+        "agent_name": _trim_content(agent_name, label_limit("agent_name")),
+        "agent_description": _trim_content(agent_description, label_limit("agent_description"))
         if agent_description
         else NOT_AVAILABLE,
         "user_variables": _bounded_user_variables(user_variables)
         if user_variables
         else NONE_PROVIDED,
-        "user_prompt": _trim_content(user_prompt, USER_PROMPT_MAX_CHARS)
+        "user_prompt": _trim_content(user_prompt, label_limit("user_prompt"))
         if user_prompt
         else NONE_PROVIDED,
     }
@@ -151,13 +178,9 @@ def _format_messages_for_labeling(
             continue
         content = msg.get("content", "")
         if isinstance(content, list):
-            text_parts = []
-            for item in content:
-                if isinstance(item, dict) and item.get("type") == "text":
-                    text_parts.append(item.get("text", ""))
-                elif isinstance(item, str):
-                    text_parts.append(item)
-            content = "\n".join(text_parts)
+            from matrx_ai.config.message_config import content_text
+
+            content = content_text(content)  # the one projection: a stand-in is never words
         if not isinstance(content, str):
             content = str(content)
         content = _strip_artifact_markup(content)
@@ -252,13 +275,30 @@ async def _run_labeler(
             # THE ONE UNSAVED RUN (owner ruling 2026-10-23): the labeler is the only call that is
             # not recorded; the executor admits store=False for these mandate keys alone.
             result = await held.send(store=False)
-        return LabelResult(success=True, output=result.final_text or "")
+        output = result.final_text or ""
+        if not output.strip():
+            # A paid call that came back with nothing is a failed label, never a success with an
+            # empty string (E2): the caller's inline retry and the durable retry key on failure.
+            empty = RuntimeError(f"{mandate_key} returned an empty label")
+            await _capture_labeler_failure(empty, mandate_key=mandate_key, model=model, variables=variables)
+            vcprint(f"[ConversationLabeler] {mandate_key} returned an empty label", color="red")
+            return LabelResult(success=False, output="", error="empty_output")
+        return LabelResult(success=True, output=output)
     except asyncio.CancelledError as exc:
         await _capture_labeler_failure(
             exc, mandate_key=mandate_key, model=model, variables=variables
         )
         raise
     except Exception as e:
+        from matrx_ai.providers.caller_refusal import expected_hold_code
+
+        hold = expected_hold_code(e)
+        if hold:
+            # A spend cap / approval / usage limit held the call: an expected refusal the gate
+            # already recorded with its own human path — never a labeler failure.
+            reason = str(getattr(e, "person_message", None) or e)
+            vcprint(f"[ConversationLabeler] {mandate_key} held ({hold}): {reason}", color="yellow")
+            return LabelResult(success=False, output="", error=f"held ({hold}): {reason}")
         await _capture_labeler_failure(e, mandate_key=mandate_key, model=model, variables=variables)
         vcprint(f"[ConversationLabeler] {mandate_key} call failed: {e}", color="red")
         return LabelResult(success=False, output="", error=str(e))

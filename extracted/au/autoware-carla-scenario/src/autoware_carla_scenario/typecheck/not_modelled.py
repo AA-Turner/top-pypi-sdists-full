@@ -206,7 +206,13 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
             "policy's step, a LiDAR's sweep, the T4 and T4Scene steps) when the "
             "runner builds it, not a scenario; the library check compiles it "
             "from its source"
-        )
+        ),
+        **_each(
+            "tick_seconds tick_seconds_or_fixed",
+            "reads how long the world's last tick was for the framework's own "
+            "actions, entities and traffic backend, not a scenario; the library "
+            "check compiles it from its source",
+        ),
     },
     f"{_PACKAGE}.entity": {
         **_each("AutowareEgoEntity BridgedEgoEntity ExternallyDrivenEgo", _EGO_STACK),
@@ -609,7 +615,8 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
         "ego_type": _EGO_TYPE,
     },
     "CarlaDriverEntity": _members(
-        "actor attaches_to_existing_actor carried_actor_ids change_lane client "
+        "actor attaches_to_existing_actor cancel_lane_change carried_actor_ids "
+        "change_lane client "
         "config debug_markers debug_state destroy drive_count end_route finish_at follow_route "
         "forget_lane_change "
         "handshake is_initialized lane_change_finished on_scenario_end "
@@ -680,7 +687,8 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
         _HILS_CONFIG,
     ),
     "HilsEgoEntity": _members(
-        "actor attaches_to_existing_actor carried_actor_ids change_lane command "
+        "actor attaches_to_existing_actor cancel_lane_change carried_actor_ids "
+        "change_lane command "
         "config debug_markers destroy end_route finish_at follow_route forget_lane_change "
         "is_initialized lane_change_finished on_scenario_end on_scenario_start "
         "on_tick release_from_traffic require_microscopic requires_goal "

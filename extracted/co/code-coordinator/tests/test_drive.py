@@ -148,6 +148,23 @@ class FakeVerifier:
         # preserved byte-for-byte; the #3933 tests below pass a real
         # `EntryTruth` to exercise it.
         entry_truth: "EntryTruth | None" = None,
+        # #4093: the triage bucket this fake returns from
+        # `triage_test_failure`. `None` (the default) is "no verdict
+        # available" — every pre-#4093 test never touched this, so
+        # `_decide_test`'s retry-gate degrades to the unconditional
+        # #3714 retry and every existing assertion is preserved
+        # byte-for-byte; the #4093 tests below pass an explicit bucket.
+        # Wrapped into a stub `TriageVerdict` by `triage_test_failure`
+        # below — pass `triage_verdict` instead when a test needs to
+        # control the diagnosis/confidence/`via`/repro-capability/
+        # proposed-scope fields #4095 added call sites for.
+        triage_bucket: str | None = None,
+        # #4095: the full verdict this fake returns from
+        # `triage_test_failure`, overriding `triage_bucket` above when
+        # given. `None` (the default) falls back to `triage_bucket`'s
+        # stub-wrapping behaviour, so every pre-#4095 test that only sets
+        # `triage_bucket` is unaffected.
+        triage_verdict: "TriageVerdict | None" = None,
     ) -> None:
         self._has_commits = has_commits
         self._merged = merged
@@ -155,12 +172,15 @@ class FakeVerifier:
         self._epic_snapshot = epic_snapshot
         self._github_backoff = github_backoff
         self._entry_truth = entry_truth
+        self._triage_bucket = triage_bucket
+        self._triage_verdict = triage_verdict
         self.commits_calls = 0
         self.merged_calls = 0
         self.head_sha_calls = 0
         self.epic_snapshot_calls = 0
         self.github_backoff_calls = 0
         self.entry_truth_calls = 0
+        self.triage_test_failure_calls = 0
         self.config = None
         self.set_config_calls = 0
 
@@ -191,6 +211,23 @@ class FakeVerifier:
     def set_config(self, config) -> None:
         self.set_config_calls += 1
         self.config = config
+
+    def triage_test_failure(self, s: IssueState) -> "TriageVerdict | None":
+        self.triage_test_failure_calls += 1
+        if self._triage_verdict is not None:
+            return self._triage_verdict
+        if self._triage_bucket is None:
+            return None
+        from coord.failure_triage import ProposedScope, TriageVerdict
+
+        return TriageVerdict(
+            bucket=self._triage_bucket,
+            diagnosis=f"stub diagnosis for bucket={self._triage_bucket}",
+            repro_capability=None,
+            proposed_scope=ProposedScope(),
+            confidence=0.9,
+            via="stub",
+        )
 
 
 def step(s: IssueState, opts: DriveOptions | None = None, **kw) -> Action:
@@ -3475,6 +3512,491 @@ def test_a_failed_test_retries_once_before_fix_round():
     assert counters.fix_rounds == 1
     assert "smoke_test" in fix.error_message
     assert fix.on_error == "die"
+
+
+# ── #4093: gate the #3714 retry on the triage classifier's verdict ─────────
+
+
+def test_a_flaky_triage_verdict_retries_once_before_fix_round():
+    """#4093: an explicit ``flaky`` verdict behaves exactly like the
+    no-verdict default — one retry, no fix round spent."""
+    counters = DriveCounters()
+    v = FakeVerifier(head_sha="aaa", triage_bucket="flaky")
+    s = done_work(work_test_state="failed", work_test_reason="3 failed")
+
+    retry = step(s, counters=counters, verifier=v)
+    assert retry.command[0] == "diagnose"
+    assert "--reset" in retry.command
+    assert counters.fix_rounds == 0
+    assert counters.test_retry_sha == "aaa"
+    assert v.triage_test_failure_calls == 1
+
+
+def test_a_substantive_triage_verdict_skips_the_retry():
+    """#4093/#4095: quadraui#2992's shape — a compile error (or any other
+    verdict that cannot change on an unmodified re-run) must not spend the
+    #3714 retry; it goes straight to the fix round on the FIRST failure.
+
+    #4096: the fix round itself now carries the SAME verdict into `coord
+    fix --diagnosis ...`, mirroring the `mechanic-dispatch` arm's own
+    verdict-to-CLI-options mapping."""
+    counters = DriveCounters()
+    v = FakeVerifier(head_sha="aaa", triage_bucket="substantive")
+    s = done_work(work_test_state="failed", work_test_reason="error[E0063]: missing field")
+
+    fix = step(s, counters=counters, verifier=v)
+    assert fix.command == (
+        "fix", "w1",
+        "--diagnosis", "stub diagnosis for bucket=substantive",
+        "--triage-confidence", "0.9",
+    )
+    assert counters.fix_rounds == 1
+    # The one-shot latch is still recorded (at this SHA) even though no
+    # retry Action was returned — a repeat `decide()` call before the fix
+    # dispatch executes must not re-run the classifier.
+    assert counters.test_retry_sha == "aaa"
+    assert v.triage_test_failure_calls == 1
+    assert "triage=substantive" in fix.label
+
+
+def test_a_substantive_triage_verdict_carries_its_proposed_scope_into_the_fix_round():
+    """#4096: `--proposed-file`/`--proposed-line-delta` are forwarded onto
+    `coord fix` too, exactly like the `mechanic-dispatch` arm, when the
+    verdict's own `proposed_scope` actually estimated one."""
+    import coord.failure_triage as failure_triage
+
+    counters = DriveCounters()
+    verdict = failure_triage.TriageVerdict(
+        bucket=failure_triage.BUCKET_SUBSTANTIVE,
+        diagnosis="missing field on the Widget struct",
+        repro_capability=None,
+        proposed_scope=failure_triage.ProposedScope(
+            files=("coord/widget.py",), estimated_line_delta=12,
+        ),
+        confidence=0.88,
+        via="model",
+    )
+    v = FakeVerifier(head_sha="aaa", triage_verdict=verdict)
+    s = done_work(work_test_state="failed", work_test_reason="error[E0063]: missing field")
+
+    fix = step(s, counters=counters, verifier=v)
+    assert fix.command == (
+        "fix", "w1",
+        "--diagnosis", "missing field on the Widget struct",
+        "--triage-confidence", "0.88",
+        "--proposed-file", "coord/widget.py",
+        "--proposed-line-delta", "12",
+    )
+    assert counters.fix_rounds == 1
+
+
+def test_no_triage_verdict_leaves_the_fix_round_command_unchanged():
+    """No verdict available (the #4093 default) must not add anything onto
+    `coord fix` — the pre-#4096 behaviour is preserved byte-for-byte."""
+    counters = DriveCounters()
+    s = done_work(work_test_state="failed", work_test_reason="3 failed")
+
+    # First failure at this SHA spends the #3714 retry (no verdict at all).
+    step(s, counters=counters)
+    # Second failure at the same SHA proceeds to the fix round.
+    fix = step(s, counters=counters)
+    assert fix.command == ("fix", "w1")
+    assert counters.fix_rounds == 1
+
+
+# ── #4095: route the Test-failure edge on the triage verdict ───────────────
+
+
+def test_a_mechanical_triage_verdict_dispatches_the_mechanic_leg():
+    """#4095: `mechanical` routes to `coord mechanic-dispatch`, carrying the
+    verdict's own diagnosis/confidence/via/repro-capability/proposed-scope —
+    never a plain `coord fix`, and never spending the #3714 retry latch or
+    a fix round on the FIRST failure at this SHA."""
+    import coord.failure_triage as failure_triage
+
+    counters = DriveCounters()
+    verdict = failure_triage.TriageVerdict(
+        bucket=failure_triage.BUCKET_MECHANICAL,
+        diagnosis="ratchet off by one in tests/test_foo.py",
+        repro_capability="windows",
+        proposed_scope=failure_triage.ProposedScope(
+            files=("tests/test_foo.py",), estimated_line_delta=1,
+        ),
+        confidence=0.95,
+        via="model",
+    )
+    v = FakeVerifier(head_sha="aaa", triage_verdict=verdict)
+    s = done_work(work_test_state="failed", work_test_reason="ratchet off by one")
+
+    action = step(s, counters=counters, verifier=v)
+    assert action.kind == RUN
+    assert action.command == (
+        "mechanic-dispatch", REPO, str(ISSUE), "aaa",
+        "--diagnosis", "ratchet off by one in tests/test_foo.py",
+        "--confidence", "0.95",
+        "--via", "model",
+        "--repro-capability", "windows",
+        "--proposed-file", "tests/test_foo.py",
+        "--proposed-line-delta", "1",
+        "--evidence", "ratchet off by one",
+    )
+    assert action.on_error == "warn"
+    assert counters.fix_rounds == 0
+    assert counters.test_retry_sha == "aaa"
+    assert "triage=mechanical" in action.label
+    assert "ratchet off by one in tests/test_foo.py" in action.label
+
+
+def test_a_mechanical_dispatch_carries_evidence_and_the_repo_test_command():
+    """#4095 fix review: the mechanic leg's briefing is self-contradictory
+    without BOTH the failure evidence and a bounded reproduce command — so
+    `_decide_test` must forward `state.work_test_reason` as `--evidence` and
+    `state.repo_test_command` (when configured) as `--failed-stage-command`,
+    never drop either."""
+    import coord.failure_triage as failure_triage
+
+    counters = DriveCounters()
+    verdict = failure_triage.TriageVerdict(
+        bucket=failure_triage.BUCKET_MECHANICAL,
+        diagnosis="off-by-one",
+        repro_capability=None,
+        proposed_scope=failure_triage.ProposedScope(),
+        confidence=0.8,
+        via="model",
+    )
+    v = FakeVerifier(head_sha="aaa", triage_verdict=verdict)
+    s = done_work(
+        work_test_state="failed",
+        work_test_reason="FAILED tests/test_foo.py::test_bar - AssertionError",
+        repo_test_command="pytest tests/test_foo.py",
+    )
+
+    action = step(s, counters=counters, verifier=v)
+    assert action.kind == RUN
+    assert "--evidence" in action.command
+    idx = action.command.index("--evidence")
+    assert action.command[idx + 1] == (
+        "FAILED tests/test_foo.py::test_bar - AssertionError"
+    )
+    assert "--failed-stage-command" in action.command
+    idx = action.command.index("--failed-stage-command")
+    assert action.command[idx + 1] == "pytest tests/test_foo.py"
+
+
+def test_a_declined_mechanic_leg_falls_back_to_an_ordinary_fix_round():
+    """#4095: a decline (the CLI exits non-zero — tier off, no capable
+    machine, budget already spent at this SHA, ...) is NOT fatal
+    (`on_error="warn"`) — the next poll re-enters with the retry latch
+    already set, so it falls straight through to an ordinary fix round."""
+    counters = DriveCounters()
+    v = FakeVerifier(head_sha="aaa", triage_bucket="mechanical")
+    s = done_work(work_test_state="failed", work_test_reason="ratchet off by one")
+
+    dispatch = step(s, counters=counters, verifier=v)
+    assert dispatch.command[0] == "mechanic-dispatch"
+    assert counters.fix_rounds == 0
+
+    # Simulate the Driver warning on the decline (on_error="warn") and
+    # polling again — nothing on the board changed, so `test_state` is
+    # still "failed" at the same SHA.
+    fix = step(s, counters=counters, verifier=v)
+    assert fix.command == ("fix", "w1")
+    assert counters.fix_rounds == 1
+    # The classifier is not re-run a second time for the same SHA.
+    assert v.triage_test_failure_calls == 1
+
+
+def test_a_human_triage_verdict_stops_and_alerts_once():
+    """#4095: `human` stops the row with the triage diagnosis as the
+    reason (an `EXIT_ESCALATED` exit, same mechanism `_escalate_merge`
+    uses to alert exactly once) — never a fix round re-briefing a worker on
+    something only a human can decide."""
+    import coord.failure_triage as failure_triage
+
+    counters = DriveCounters()
+    verdict = failure_triage.TriageVerdict(
+        bucket=failure_triage.BUCKET_HUMAN,
+        diagnosis="design disagreement: the spec itself is ambiguous",
+        repro_capability=None,
+        proposed_scope=failure_triage.ProposedScope(),
+        confidence=0.9,
+        via="model",
+    )
+    v = FakeVerifier(head_sha="aaa", triage_verdict=verdict)
+    s = done_work(work_test_state="failed", work_test_reason="spec ambiguous")
+
+    action = step(s, counters=counters, verifier=v)
+    assert action.is_exit
+    assert action.exit_code == EXIT_ESCALATED
+    assert action.command[:4] == ("escalate", "record", REPO, str(ISSUE))
+    assert "--stage" in action.command
+    idx = action.command.index("--stage")
+    assert action.command[idx + 1] == "test"
+    assert "design disagreement: the spec itself is ambiguous" in " ".join(action.command)
+    assert "design disagreement: the spec itself is ambiguous" in action.message
+    assert "triage=human" in action.message
+    assert counters.fix_rounds == 0
+    # #4095: the SAME diagnosis is also carried as `--annotate-test-reason`
+    # so `escalate record` stamps it onto the work row's own `test_reason`
+    # — `coord gates` then shows WHY without a second lookup.
+    assert "--annotate-test-reason" in action.command
+    idx = action.command.index("--annotate-test-reason")
+    assert "design disagreement: the spec itself is ambiguous" in action.command[idx + 1]
+
+
+def test_replay_quadraui_2992_reaches_review_with_one_mechanic_leg_no_fix_rounds():
+    """#4095 acceptance: a replay of the quadraui#2992 sequence (an E0063
+    compile error in macOS-only files plus a ratchet off-by-one, on a
+    Windows-authored branch) — one triage-first Test failure, routed
+    `mechanical`, reaches Review with zero fix rounds and zero #3714
+    retries spent. The one Test fan-out and the one mechanic leg are each a
+    single dispatch (the ORIGINAL Test run that produced this failure, and
+    this `mechanic-dispatch` Action) — nothing here re-dispatches either."""
+    import coord.failure_triage as failure_triage
+
+    counters = DriveCounters()
+    verdict = failure_triage.TriageVerdict(
+        bucket=failure_triage.BUCKET_MECHANICAL,
+        diagnosis="E0063 missing field in a macOS-only file, plus a ratchet off by one",
+        repro_capability="mac",
+        proposed_scope=failure_triage.ProposedScope(
+            files=("tests/test_mac_native_driver.py",), estimated_line_delta=1,
+        ),
+        confidence=0.92,
+        via="model",
+    )
+    v = FakeVerifier(head_sha="windows-sha", triage_verdict=verdict)
+    s = done_work(
+        work_test_state="failed",
+        work_test_reason="error[E0063]: missing field `foo` — ratchet is off by one",
+    )
+
+    # The Test-stage fan-out that produced this failure already happened
+    # (it's what populated `work_test_state="failed"` above) — this poll is
+    # the triage-first REACTION to it, not a second fan-out.
+    mechanic = step(s, counters=counters, verifier=v)
+    assert mechanic.command[0] == "mechanic-dispatch"
+    assert counters.fix_rounds == 0
+    assert counters.test_retry_sha == "windows-sha"
+    # One classifier call for this SHA, reused by the route above — never a
+    # second, independent `triage_test_failure` run (#2096).
+    assert v.triage_test_failure_calls == 1
+
+    # The mechanic leg lands (a confirmed, scoped Test PASS on ITS OWN
+    # work row — #4094's `mechanic_leg_verdict`) — from `coord drive`'s own
+    # polling perspective, the board's winning work row now reads
+    # `test_state="passed"` as a plain, ordinary green Test stage; nothing
+    # in `coord.drive` needs to know it was mechanic-leg-scoped rather than
+    # full-suite.
+    s2 = done_work(work_test_state="passed")
+    after = decide(s2, DriveOptions(machine="precision"), counters, v, machine="precision")
+    # Same shape `test_a_passed_or_skipped_test_falls_through_to_the_review_
+    # gate` asserts for a plain, non-triaged passed Test with no review row
+    # yet: `WAIT` with an EMPTY command. A drive still parked at the Test
+    # gate would have returned a RUN (another mechanic-dispatch/fix/retry)
+    # here instead, so this is "Review, nothing to dispatch yet" — never
+    # "Test, still failing".
+    assert after.kind == WAIT
+    assert after.command == ()
+    assert counters.fix_rounds == 0
+
+
+def test_no_triage_verdict_preserves_todays_unconditional_retry():
+    """#4093: when the classifier has nothing to say (``None``), behaviour
+    is byte-for-byte the pre-#4093 #3714 retry."""
+    counters = DriveCounters()
+    v = FakeVerifier(head_sha="aaa", triage_bucket=None)
+    s = done_work(work_test_state="failed", work_test_reason="3 failed")
+
+    retry = step(s, counters=counters, verifier=v)
+    assert retry.command[0] == "diagnose"
+    assert "--reset" in retry.command
+    assert counters.fix_rounds == 0
+    assert counters.test_retry_sha == "aaa"
+    assert v.triage_test_failure_calls == 1
+
+
+def test_an_infra_triage_verdict_retries_without_spending_the_latch():
+    """#4093: an ``infra`` verdict retries like ``flaky``, but must NOT set
+    ``test_retry_sha`` — an environmental hit deserves another retest, not
+    a verdict charged against this SHA's one free #3714 retry. Uses a
+    2-retry budget so the second retry (still within budget) is visibly
+    distinct from the review-finding-2 exhaustion case below."""
+    counters = DriveCounters()
+    opts = DriveOptions(machine="precision", max_work_retries=2)
+    v = FakeVerifier(head_sha="aaa", triage_bucket="infra")
+    s = done_work(work_test_state="failed", work_test_reason="usage limit reached")
+
+    retry = step(s, opts, counters=counters, verifier=v)
+    assert retry.command[0] == "diagnose"
+    assert "--reset" in retry.command
+    assert counters.fix_rounds == 0
+    assert counters.test_retry_sha == ""
+
+    # A second failure at the SAME SHA retries AGAIN rather than proceeding
+    # to the fix round, as long as triage keeps saying infra AND the
+    # per-SHA infra budget (`opts.max_work_retries`) is not yet spent.
+    retry_again = step(s, opts, counters=counters, verifier=v)
+    assert retry_again.command[0] == "diagnose"
+    assert counters.fix_rounds == 0
+    assert counters.test_retry_sha == ""
+
+
+def test_an_infra_triage_verdict_eventually_falls_through_to_fix_round():
+    """#4093 review (blocking finding 2): the ``infra`` lane is NOT an
+    unbounded re-test loop. Once its own per-SHA budget
+    (``opts.max_work_retries``) is spent, a REPEATING ``infra`` verdict at
+    the same SHA (a real multi-hour usage limit, a persistently UNMET
+    capability, a model misclassification that keeps reproducing) falls
+    through to the ordinary fix round instead of re-testing forever —
+    making the `max_fix_rounds` `_die()` reachable again."""
+    counters = DriveCounters()
+    opts = DriveOptions(machine="precision", max_work_retries=1)
+    v = FakeVerifier(head_sha="aaa", triage_bucket="infra")
+    s = done_work(work_test_state="failed", work_test_reason="usage limit reached")
+
+    retry = step(s, opts, counters=counters, verifier=v)
+    assert retry.command[0] == "diagnose"
+    assert counters.fix_rounds == 0
+    assert counters.test_retry_sha == ""
+
+    # Budget (1 retry) is now spent at this SHA. The SAME failure, still
+    # classified `infra`, must stop re-testing and dispatch the fix round.
+    fix = step(s, opts, counters=counters, verifier=v)
+    assert fix.command == ("fix", "w1")
+    assert counters.fix_rounds == 1
+    assert counters.test_retry_sha == "aaa"
+
+    # And a THIRD poll at the same SHA does not re-run the classifier or
+    # re-enter the infra lane at all — `test_retry_sha` already matches this
+    # SHA, so it goes straight back to dispatching a fix round (#3713's own
+    # empty-fix-round undo fires first, since the branch still hasn't
+    # advanced — net `fix_rounds` stays at 1, exactly like
+    # `test_empty_fix_round_does_not_spend_the_budget` below).
+    calls_before = v.triage_test_failure_calls
+    fix_again = step(s, opts, counters=counters, verifier=v)
+    assert fix_again.command == ("fix", "w1")
+    assert counters.fix_rounds == 1
+    assert v.triage_test_failure_calls == calls_before
+
+
+# ── #4093 review (blocking finding 1): `GitMergeVerifier.triage_test_failure`
+# itself, not just `FakeVerifier` — this is the seam the real fleet drives.
+
+
+def test_git_merge_verifier_triage_test_failure_blank_reason_is_none(tmp_path):
+    verifier = GitMergeVerifier(repo_path=str(tmp_path))
+    s = state(work_test_reason="   ")
+    assert verifier.triage_test_failure(s) is None
+
+
+def test_git_merge_verifier_triage_test_failure_classifier_exception_is_none(
+    tmp_path, monkeypatch
+):
+    """Classifier trouble (a raised exception from `triage_failure` itself)
+    must never block drive — degrades to `None`, same as "nothing to
+    classify"."""
+    import coord.failure_triage as failure_triage
+
+    def boom(**_kw):
+        raise RuntimeError("claude binary not found")
+
+    monkeypatch.setattr(failure_triage, "triage_failure", boom)
+    verifier = GitMergeVerifier(repo_path=str(tmp_path))
+    s = state(work_test_reason="3 failed")
+    assert verifier.triage_test_failure(s) is None
+
+
+@pytest.mark.parametrize("via", ["model:call_failed", "model:schema_error", "model:low_confidence"])
+def test_git_merge_verifier_triage_test_failure_maps_degraded_verdict_to_none(
+    tmp_path, monkeypatch, via
+):
+    """#4093 review (blocking finding 1): a classifier that is UNUSABLE
+    (no ``claude`` on PATH, a timeout, a malformed reply, a low-confidence
+    guess) returns `_fallback_substantive`'s sentinel — `bucket=
+    "substantive"`, `confidence=0.0`. That sentinel is NOT a real verdict
+    about the code and must map to `None` here, so `_decide_test` takes
+    the "no verdict available" unconditional-retry arm instead of silently
+    disabling #3714's retry on every usage-limit window / missing binary /
+    low-confidence reply."""
+    import coord.failure_triage as failure_triage
+
+    def fake_triage_failure(**_kw):
+        return failure_triage.TriageVerdict(
+            bucket=failure_triage.BUCKET_SUBSTANTIVE,
+            diagnosis="classifier unusable",
+            repro_capability=None,
+            proposed_scope=failure_triage.ProposedScope(),
+            confidence=0.0,
+            via=via,
+        )
+
+    monkeypatch.setattr(failure_triage, "triage_failure", fake_triage_failure)
+    verifier = GitMergeVerifier(repo_path=str(tmp_path))
+    s = state(work_test_reason="3 failed")
+    assert verifier.triage_test_failure(s) is None
+
+
+def test_git_merge_verifier_triage_test_failure_returns_a_real_substantive_verdict(
+    tmp_path, monkeypatch
+):
+    """A REAL `substantive` verdict (full confidence, not a degraded
+    fallback) must still come back as `"substantive"` — only the degraded
+    sentinel maps to `None`, never every `substantive` bucket."""
+    import coord.failure_triage as failure_triage
+
+    def fake_triage_failure(**_kw):
+        return failure_triage.TriageVerdict(
+            bucket=failure_triage.BUCKET_SUBSTANTIVE,
+            diagnosis="a real bug",
+            repro_capability=None,
+            proposed_scope=failure_triage.ProposedScope(),
+            confidence=0.9,
+            via="model",
+        )
+
+    monkeypatch.setattr(failure_triage, "triage_failure", fake_triage_failure)
+    verifier = GitMergeVerifier(repo_path=str(tmp_path))
+    s = state(work_test_reason="3 failed")
+    assert verifier.triage_test_failure(s).bucket == "substantive"
+
+
+def test_git_merge_verifier_triage_test_failure_compile_error_guard_is_not_degraded(
+    tmp_path, monkeypatch
+):
+    """`"model:compile_error_guard"` is a confident, evidence-backed
+    override (a compile error can never be flaky), not a "classifier is
+    unusable" sentinel — it must be returned as `"substantive"`, not
+    collapsed to `None`. Collapsing it would retry the exact
+    quadraui#2992 compile-error shape #3714's rescope exists to stop
+    retrying."""
+    import coord.failure_triage as failure_triage
+
+    assert not failure_triage.is_degraded_verdict(
+        failure_triage.TriageVerdict(
+            bucket=failure_triage.BUCKET_SUBSTANTIVE,
+            diagnosis="guarded",
+            repro_capability=None,
+            proposed_scope=failure_triage.ProposedScope(),
+            confidence=0.0,
+            via="model:compile_error_guard",
+        )
+    )
+
+    def fake_triage_failure(**_kw):
+        return failure_triage.TriageVerdict(
+            bucket=failure_triage.BUCKET_SUBSTANTIVE,
+            diagnosis="guarded",
+            repro_capability=None,
+            proposed_scope=failure_triage.ProposedScope(),
+            confidence=0.0,
+            via="model:compile_error_guard",
+        )
+
+    monkeypatch.setattr(failure_triage, "triage_failure", fake_triage_failure)
+    verifier = GitMergeVerifier(repo_path=str(tmp_path))
+    s = state(work_test_reason="error[E0063]: missing field")
+    assert verifier.triage_test_failure(s).bucket == "substantive"
 
 
 def test_empty_fix_round_does_not_spend_the_budget():

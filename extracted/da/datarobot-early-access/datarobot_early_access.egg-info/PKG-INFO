@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: datarobot_early_access
-Version: 3.21.0.2026.11.16.172244
-Summary: This client library is designed to support the DataRobot API.
+Version: 3.22.0.2026.11.23.172120
+Summary: This SDK is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
 Author-email: api-maintainer@datarobot.com
@@ -248,7 +248,7 @@ About datarobot_early_access
 .. image:: https://img.shields.io/pypi/pyversions/datarobot_early_access.svg
 .. image:: https://img.shields.io/pypi/status/datarobot_early_access.svg
 
-DataRobot is a client library for working with the `DataRobot`_ platform API. This package is the "early access" version of the client. **Do NOT use this package in production--you will expose yourself to risk of breaking changes and bugs.** For the most stable version, see the quarterly release on PyPI at https://pypi.org/project/datarobot/.
+The DataRobot Python SDK is a library for working with the `DataRobot`_ platform API. This package is the "early access" version of the client. **Do NOT use this package in production--you will expose yourself to risk of breaking changes and bugs.** For the most stable version, see the quarterly release on PyPI at https://pypi.org/project/datarobot/.
 
 This package is released under the terms of the DataRobot Tool and Utility Agreement, which
 can be found on our `Legal`_ page, along with our privacy policy and more.

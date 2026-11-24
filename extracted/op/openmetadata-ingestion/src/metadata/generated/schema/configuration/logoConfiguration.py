@@ -16,9 +16,21 @@ class LogoConfiguration(BaseModel):
     customLogoUrlPath: Annotated[
         str | None, Field(description="Login Page Logo Image Url")
     ] = None
+    customLogoDarkUrlPath: Annotated[
+        str | None,
+        Field(
+            description="Logo Image Url used when the dark theme is active. Falls back to customLogoUrlPath."
+        ),
+    ] = None
     customFaviconUrlPath: Annotated[
         str | None, Field(description="Favicon Page Logo Image Url")
     ] = None
     customMonogramUrlPath: Annotated[
         str | None, Field(description="Navigation Bar Logo Image Url")
+    ] = None
+    customMonogramDarkUrlPath: Annotated[
+        str | None,
+        Field(
+            description="Navigation Bar Logo Image Url used when the dark theme is active. Falls back to customMonogramUrlPath."
+        ),
     ] = None

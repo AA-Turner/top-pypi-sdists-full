@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import signal
+import subprocess
 import sys
 import weakref
 from typing import Any
@@ -70,25 +71,37 @@ def _signal_name(code: int) -> str:
         return f"signal {-code}"
 
 
+def _spawn(target: str, args: tuple[Any, ...]) -> tuple[subprocess.Popen[bytes], bytes]:
+    """Encode the payload and fork/exec the child — both synchronous and heavy, so both run on a thread.
+
+    ``Popen`` forks a (large) server process and waits for the exec to be reported; encoding a big page to JSON
+    allocates the whole payload. Done on the event loop either one froze it (live ``event_loop_stall``, 2026-11-14:
+    1.2 s, of which 277 ms garbage collection, in ``web_identity.read``). Every caller of :func:`run_isolated`
+    inherits the fix because it is here.
+    """
+    payload = json.dumps(list(args)).encode()
+    proc = subprocess.Popen(  # noqa: S603 — fixed argv: our own interpreter and our own child script
+        [sys.executable, "-c", _CHILD, target],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    return proc, payload
+
+
 async def run_isolated(target: str, *args: Any, limit_seconds: float = 60.0) -> Any:
     """``module:function(*args)`` in a child process; its JSON result, or :class:`IsolatedCallFailed`."""
-    payload = json.dumps(list(args)).encode()
     async with _slot():
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-c", _CHILD, target,
-            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        )
+        proc, payload = await asyncio.to_thread(_spawn, target, args)
         try:
-            out, err = await asyncio.wait_for(proc.communicate(payload), timeout=limit_seconds)
+            out, err = await asyncio.wait_for(asyncio.to_thread(proc.communicate, payload), timeout=limit_seconds)
         except TimeoutError:
             proc.kill()
-            await proc.wait()
+            await asyncio.to_thread(proc.wait)
             raise IsolatedCallFailed(target, f"no answer within {limit_seconds:g}s; the child was killed") from None
         except BaseException:
             # Our caller was canceled: never leave the child running behind it.
             if proc.returncode is None:
                 proc.kill()
-                await proc.wait()
+                await asyncio.shield(asyncio.to_thread(proc.wait))
             raise
     code = proc.returncode or 0
     if code < 0:
@@ -97,7 +110,7 @@ async def run_isolated(target: str, *args: Any, limit_seconds: float = 60.0) -> 
         raise IsolatedCallFailed(target, f"the child process died ({name}){': ' + tail if tail else ''}",
                                  signal_name=name, exit_code=code)
     try:
-        answer = json.loads(out or b"{}")
+        answer = await asyncio.to_thread(json.loads, out or b"{}")
     except ValueError:
         answer = {}
     if code != 0 or "result" not in answer:

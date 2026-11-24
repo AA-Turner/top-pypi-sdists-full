@@ -4,7 +4,7 @@ import asyncio
 import base64
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal, TypedDict, Union
+from typing import Literal, TypedDict, Union
 
 from PIL import Image, ImageEnhance, ImageOps, ImageStat
 
@@ -671,7 +671,7 @@ class ImageHandler(FileHandler):
             print(f"[ImageHandler] base64_to_cloud_async failed for {dest_uri}: {e}")
             return False
 
-    def read_image_from_cloud(self, uri_or_url: str) -> "Image.Image | None":
+    def read_image_from_cloud(self, uri_or_url: str) -> Image.Image | None:
         """Read an image from any cloud URI or URL and return a PIL Image.
 
         Accepts native URIs (``s3://``), public HTTPS URLs,
@@ -695,7 +695,7 @@ class ImageHandler(FileHandler):
             print(f"[ImageHandler] read_image_from_cloud failed for {uri_or_url}: {e}")
             return None
 
-    async def read_image_from_cloud_async(self, uri_or_url: str) -> "Image.Image | None":
+    async def read_image_from_cloud_async(self, uri_or_url: str) -> Image.Image | None:
         """Async version of read_image_from_cloud(). Use this in FastAPI routes."""
         try:
             raw = await self.cloud_read_url_async(uri_or_url)
@@ -704,7 +704,7 @@ class ImageHandler(FileHandler):
             print(f"[ImageHandler] read_image_from_cloud_async failed for {uri_or_url}: {e}")
             return None
 
-    def write_image_to_cloud(self, image: "Image.Image", dest_uri: str, fmt: str = "PNG") -> bool:
+    def write_image_to_cloud(self, image: Image.Image, dest_uri: str, fmt: str = "PNG") -> bool:
         """Encode a PIL Image and write it to cloud storage.
 
         Parameters
@@ -729,7 +729,7 @@ class ImageHandler(FileHandler):
             print(f"[ImageHandler] write_image_to_cloud failed for {dest_uri}: {e}")
             return False
 
-    async def write_image_to_cloud_async(self, image: "Image.Image", dest_uri: str, fmt: str = "PNG") -> bool:
+    async def write_image_to_cloud_async(self, image: Image.Image, dest_uri: str, fmt: str = "PNG") -> bool:
         """Async version of write_image_to_cloud(). Use this in FastAPI routes."""
         try:
             buf = BytesIO()

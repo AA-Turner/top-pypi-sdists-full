@@ -97,3 +97,35 @@ def test_distinct_canonical_problems_never_merge():
     relative = [_row(10 + i, "canonical_presence", metadata_reason="Canonical is relative — resolve it") for i in range(2)]
     [plan] = plan_rollups(missing + relative, URLS)
     assert plan.covered == {f"p{i}" for i in range(6)}
+
+
+def test_unlinked_dead_addresses_roll_up_with_their_own_story():
+    # northgate, 2026-10-14: a rebuilt site; 84 old addresses from its July sitemap
+    # 404 and nothing links to them — one site finding, not 84 Critical pages.
+    rows = [_row(i, "broken_page_4xx", status="fail", score=40,
+                 evidence={"inlink_pages": 0, "formerly_in_sitemap": True}) for i in range(84)]
+    rows.append(_row(500, "broken_page_4xx", status="fail", score=15, evidence={"inlink_pages": 3}))
+    [plan] = plan_rollups(rows, URLS)
+    assert len(plan.covered) == 84 and "p500" not in plan.covered
+    assert "old sitemap" in plan.outcome.reasoning
+    assert "before the site was rebuilt" in plan.outcome.reasoning
+    assert "theme" not in plan.outcome.reasoning
+
+
+def test_one_broken_menu_link_is_one_finding():
+    # mountainkhakis, 2026-10-30: the same broken collection links on every page.
+    menu = ["https://www.mountainkhakis.com/collections/dog"]
+    rows = [_row(i, "broken_internal_links", status="fail", score=65,
+                 evidence={"broken_targets": menu}) for i in range(40)]
+    for r in rows:
+        r["issue_count"] = 1
+    [plan] = plan_rollups(rows, URLS)
+    assert len(plan.covered) == 40 and "menu or footer" in plan.outcome.reasoning
+
+
+def test_a_slow_server_is_one_finding():
+    rows = [_row(i, "ttfb_server_response", status="fail", score=40,
+                 evidence={"ttfb_ms": 5000 + i}) for i in range(30)]
+    [plan] = plan_rollups(rows, URLS)
+    assert "server or hosting plan" in plan.outcome.reasoning
+    assert plan.outcome.evidence["typical_value"].endswith("s")

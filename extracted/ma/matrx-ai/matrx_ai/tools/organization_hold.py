@@ -53,6 +53,7 @@ def organization_required_result(
         success=False,
         output={"hold": detail},
         error=ToolError(
+            refusal=True,
             error_type=detail["code"],
             message=(
                 f"Nothing was saved: this conversation is not working in an organization, "

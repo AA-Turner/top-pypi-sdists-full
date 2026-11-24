@@ -210,6 +210,8 @@ class PostNormResidual(nn.Module):
         self.layernorm = nn.LayerNorm(dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Every operation preserves (*, dim): module(x), dropout, residual sum,
+        # then LayerNorm over dim (e.g. NICE uses (batch, embed_dim)).
         return self.layernorm(self.drop(self.module(x)) + x)
 
 
@@ -351,25 +353,57 @@ class PreNormTransformerBlock(nn.Sequential):
     ``Residual(LayerNorm -> attn -> Dropout)`` then
     ``Residual(LayerNorm -> ffn -> Dropout)``; the children are indexed
     (``0.fn.0``, ``0.fn.1``, ...), as in EEGConformer's released layout.
-    EEGConformer and MIRepNet use it.
+    EEGConformer, MIRepNet, fNIRS-T, STEEGFormer and CORTEG use it.
 
     Parameters
     ----------
     dim : int
         Token width, normalized before each sub-layer.
     attn : torch.nn.Module
-        Token-mixing sub-layer, ``(batch, seq, dim) -> (batch, seq, dim)``.
+        Token-mixing sub-layer, ``(batch, seq, dim) -> (batch, seq, dim)``. To
+        call the block with an ``attn_mask`` it takes the mask as a second
+        argument, like :class:`~braindecode.modules.MultiHeadAttention`.
     ffn : torch.nn.Module
         Feed-forward sub-layer, same shape.
     drop_prob : float
         Dropout after each sub-layer.
+    eps : float, default=1e-5
+        Epsilon of the two layer norms.
+    drop_path : float, default=0.0
+        Stochastic depth rate of each residual branch (:class:`DropPath`).
     """
 
-    def __init__(self, dim: int, attn: nn.Module, ffn: nn.Module, drop_prob: float):
+    def __init__(
+        self,
+        dim: int,
+        attn: nn.Module,
+        ffn: nn.Module,
+        drop_prob: float,
+        *,
+        eps: float = 1e-5,
+        drop_path: float = 0.0,
+    ):
         super().__init__(
-            Residual(nn.Sequential(nn.LayerNorm(dim), attn, nn.Dropout(drop_prob))),
-            Residual(nn.Sequential(nn.LayerNorm(dim), ffn, nn.Dropout(drop_prob))),
+            Residual(
+                nn.Sequential(nn.LayerNorm(dim, eps=eps), attn, nn.Dropout(drop_prob)),
+                drop_path,
+            ),
+            Residual(
+                nn.Sequential(nn.LayerNorm(dim, eps=eps), ffn, nn.Dropout(drop_prob)),
+                drop_path,
+            ),
         )
+
+    def forward_masked(self, x: Tensor, attn_mask: Tensor) -> Tensor:
+        """``forward`` with ``attn_mask`` passed to the attention sub-layer, see
+        :class:`~braindecode.modules.MultiHeadAttention`; ``(batch, seq, dim)`` in
+        and out. ``forward`` stays the plain sequential call, so any one-argument
+        ``attn`` still scripts.
+        """
+        attention = self[0]
+        sublayer = attention.fn  # LayerNorm, attn, Dropout
+        x = x + attention.drop_path(sublayer[2](sublayer[1](sublayer[0](x), attn_mask)))
+        return self[1](x)
 
 
 class PostNormTransformerBlock(nn.Module):
@@ -564,15 +598,13 @@ class ChannelMerger(nn.Module):
         # (B, out, n_chans)
         scores = torch.einsum("bcd,bod->boc", [embedding, heads])
         scores = scores + score_offset[:, None]
-        weights = torch.softmax(scores, dim=2).nan_to_num()  # over n_chans
-        # (B, out, n_chans) @ (B, n_chans, T) -> (B, out, T). On HPU as
-        # (x^T @ weights^T)^T: Gaudi's lazy-mode graph compiler fails on
-        # ``weights @ x`` feeding a convolution's backward.
-        if x.device.type == "hpu":
-            out = (x.transpose(1, 2) @ weights.transpose(1, 2)).transpose(1, 2)
-        else:
-            out = weights @ x
-        return out  # (B, out_channels, T)
+        # Softmax over an entirely excluded montage has NaN gradients.
+        excluded = torch.isneginf(score_offset)
+        empty = excluded.all(dim=1)[:, None, None]
+        scores = scores.masked_fill(empty, 0.0)
+        weights = torch.softmax(scores, dim=2).nan_to_num().masked_fill(empty, 0.0)
+        # (B, out, n_chans) @ (B, n_chans, T) -> (B, out, T)
+        return weights @ x.masked_fill(excluded[:, :, None], 0.0)
 
 
 @torch.jit.unused

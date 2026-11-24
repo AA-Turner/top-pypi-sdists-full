@@ -1298,6 +1298,31 @@ def resolve_identifier_read_only(vault_root: Path, value: str) -> str:
     return raw
 
 
+def identifier_resolver_read_only(
+    vault_root: Path, values: Iterable[Any]
+) -> Callable[[str], str]:
+    """`resolve_identifier_read_only` for each of `values`, over one identity census.
+
+    The memory refs among `values` resolve together (`paths_for_ids_read_only`), so naming many
+    pages by ref costs one census instead of one per ref. Any other value resolves as before.
+    """
+    root = Path(vault_root)
+    ids = {
+        memory_id
+        for value in values
+        if (memory_id := parse_memory_ref(str(value or "").strip())) is not None
+    }
+    owners = paths_for_ids_read_only(root, sorted(ids)) if ids else {}
+
+    def resolve(value: str) -> str:
+        memory_id = parse_memory_ref(str(value or "").strip())
+        if memory_id is not None and memory_id in owners:
+            return _one_owner(memory_id, list(owners[memory_id]))
+        return resolve_identifier_read_only(root, value)
+
+    return resolve
+
+
 def add_id_to_markdown(markdown: str, exomem_id: str | None = None) -> tuple[str, str]:
     """Add an identity without reserializing or reordering existing frontmatter."""
     fm, _body, fm_text = vault_module.parse_frontmatter(markdown)
@@ -1683,21 +1708,34 @@ def _from_store_identities(
 def _store_identity_owners(
     vault_root: Path, ids: Iterable[str]
 ) -> dict[str, tuple[str, ...]] | None:
-    """Every page that holds each normalized id, from the store; None outside store mode."""
+    """Every page that holds each normalized id, from the store; None outside store mode.
+
+    A page whose derivation trails its stored bytes (``derivation.underived``) answers from those
+    bytes, by the rule that its drain applies (``identity_row``): a page that a failed delete left
+    with its row is not an owner, and one that a failed write gave an id is.
+    """
+    from .vault_store import derivation
+
     wanted = list(dict.fromkeys(ids))
+    root = Path(vault_root)
 
     def owners(conn: sqlite3.Connection) -> dict[str, tuple[str, ...]]:
+        underived = derivation.underived(conn)
         found: dict[str, list[str]] = {identifier: [] for identifier in wanted}
         for start in range(0, len(wanted), REFS_QUERY_CHUNK):
             chunk = wanted[start : start + REFS_QUERY_CHUNK]
             for exomem_id, path in conn.execute(
                 "SELECT exomem_id, path FROM identities "  # noqa: S608 - placeholders only
-                f"WHERE status = 'valid' AND exomem_id IN ({','.join('?' for _ in chunk)}) "
-                "ORDER BY exomem_id, path",
+                f"WHERE status = 'valid' AND exomem_id IN ({','.join('?' for _ in chunk)})",
                 chunk,
             ):
-                found[str(exomem_id)].append(str(path))
-        return {identifier: tuple(paths) for identifier, paths in found.items()}
+                if path not in underived:
+                    found[str(exomem_id)].append(str(path))
+        for path, raw in underived.items():
+            row = None if raw is None else identity_row(root, path, raw)
+            if row is not None and row[4] == "valid" and row[1] in found:
+                found[row[1]].append(path)
+        return {identifier: tuple(sorted(paths)) for identifier, paths in found.items()}
 
     return _from_store_identities(vault_root, owners)
 

@@ -34,8 +34,9 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
-from matrx_graph.errors import FORWARDS_ANSWER_KEY, ExecutionError, GraphInterrupt
+from matrx_graph.errors import FORWARDS_ANSWER_KEY, ChildRunPaused, ChildRunStopped, ExecutionError, GraphInterrupt
 from matrx_graph.failure import GATE_CAUSES, OUR_GATE_CAUSES
+from matrx_graph.knobs import MAX_STEP_SECONDS, RUN_WORKFLOW_WAIT_SECONDS_KEY
 from matrx_graph.spend_gate import CALLER_REFUSAL_KEY
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
@@ -89,7 +90,10 @@ class SubgraphChildFailed(ExecutionError):
     @property
     def code(self) -> str:
         cause = self.failure.get("cause")
-        return cause if isinstance(cause, str) and cause in GATE_CAUSES else CHILD_RUN_FAILED_CODE
+        # A gate the child stopped on, or a stop (``cancelled``: the run was stopped), is this step's cause too.
+        if isinstance(cause, str) and (cause in GATE_CAUSES or cause == "cancelled"):
+            return cause
+        return CHILD_RUN_FAILED_CODE
 
     def details(self) -> dict[str, Any]:
         details: dict[str, Any] = {"error": self.message, "child_run_id": self.child_run_id}
@@ -152,14 +156,22 @@ def get_subgraph_target_resolver() -> SubgraphTargetResolver | None:
     return _target_resolver
 
 
-def set_subgraph_resolver(resolver: SubgraphRunner | None) -> None:
+_reruns_by_reattach = False
+
+
+def set_subgraph_resolver(resolver: SubgraphRunner | None, *, reruns_by_reattach: bool = False) -> None:
     """Register the host-app resolver that knows how to execute a child workflow.
 
     The host typically wires this to a DefinitionStore → compile_graph →
     Scheduler.run pipeline. Passing None unregisters (for tests).
+
+    ``reruns_by_reattach``: the host declares that running the same Run Workflow invocation again (a resume after a
+    crash) finds its child by a deterministic id and hands back the finished child's saved answer — never runs or
+    charges it twice. The step's outcome may then ride its checkpoint (``scheduler.rerun_returns_saved_result``).
     """
-    global _resolver
+    global _resolver, _reruns_by_reattach
     _resolver = resolver
+    _reruns_by_reattach = bool(reruns_by_reattach) and resolver is not None
 
 
 class SubgraphCallInput(BaseModel):
@@ -254,6 +266,21 @@ class SubgraphCallConfig(BaseModel):
         "(when it has no stable name).",
         json_schema_extra=field_extras(widget="workflow_picker"),
     )
+    workflow_key_input: str | None = Field(
+        default=None,
+        description="Name the workflow from data: the name of one of this step's inputs "
+        "whose value is the stable name of the workflow to run (so a list of names can be "
+        "walked). Runs that workflow's latest published version; a name that is missing, "
+        "unknown, unpublished or not yours to run fails the step. That input names the "
+        "workflow and is not passed to it. Needs allowed_workflow_keys.",
+    )
+    allowed_workflow_keys: list[str] = Field(
+        default_factory=list,
+        description="With workflow_key_input: the stable names the input may name. A name "
+        "not on this list fails the step and starts nothing, so data can only pick among "
+        "the workflows the author chose.",
+        json_schema_extra=field_extras(widget="workflow_key_list"),
+    )
     version_number: int | None = Field(
         default=None,
         description="Specific published version to run. Blank: the latest published "
@@ -268,7 +295,7 @@ class SubgraphCallConfig(BaseModel):
         json_schema_extra=field_extras(widget="number"),
     )
 
-    @field_validator("workflow_key", "definition_id", mode="before")
+    @field_validator("workflow_key", "definition_id", "workflow_key_input", mode="before")
     @classmethod
     def _blank_is_none(cls, value: Any) -> Any:
         if isinstance(value, str) and not value.strip():
@@ -284,13 +311,89 @@ class SubgraphCallConfig(BaseModel):
             return value[len(PLATFORM_TAG_PREFIX) :].strip() or None
         return value
 
+    @field_validator("allowed_workflow_keys", mode="after")
+    @classmethod
+    def _allowed_names(cls, value: list[str]) -> list[str]:
+        # Written both ways like workflow_key: the tag ``platform:<key>`` and the bare ``<key>``.
+        names = []
+        for raw in value:
+            name = raw.strip() if isinstance(raw, str) else ""
+            if name.startswith(PLATFORM_TAG_PREFIX):
+                name = name[len(PLATFORM_TAG_PREFIX) :].strip()
+            if name and name not in names:
+                names.append(name)
+        return names
+
     @model_validator(mode="after")
     def _one_target(self) -> SubgraphCallConfig:
+        if self.allowed_workflow_keys and not self.workflow_key_input:
+            raise ValueError(
+                "allowed_workflow_keys limits a workflow named from an input; set workflow_key_input too."
+            )
+        if self.workflow_key_input:
+            if not self.allowed_workflow_keys:
+                raise ValueError(
+                    "A workflow named from an input must be one the author allowed: list the names "
+                    "it may name in allowed_workflow_keys."
+                )
+            if self.workflow_key or self.definition_id:
+                raise ValueError(
+                    "Name the workflow to run once: fixed (workflow_key or definition_id) or from "
+                    "an input (workflow_key_input), not both."
+                )
+            if self.workflow_key_input == "inputs":
+                raise ValueError("workflow_key_input cannot be 'inputs': that input is the called workflow's inputs.")
+            if self.version_number is not None:
+                raise ValueError(
+                    "A workflow named from an input runs its latest published version; leave version_number blank."
+                )
+            return self
         if not self.workflow_key and not self.definition_id:
             raise ValueError("Choose the workflow to run: its name (workflow_key) or its id.")
         if self.workflow_key and self.definition_id:
             raise ValueError("Name the workflow to run once: by workflow_key or by definition_id, not both.")
         return self
+
+
+def named_call(
+    config: SubgraphCallConfig, inputs: SubgraphCallInput
+) -> tuple[SubgraphCallConfig, SubgraphCallInput]:
+    """The call a step makes once its workflow is known: a step that names its workflow from an
+    input (``workflow_key_input``) becomes an ordinary call by name, and that input is taken out of
+    what the called workflow is given. Every other call is returned as it is.
+
+    The host's by-name resolution then decides it like any named call: a workflow this caller may
+    run, at its latest published version, or a refusal. Raises :class:`SubgraphCallRefused` when
+    the input carries no name."""
+    field = config.workflow_key_input
+    if not field:
+        return config, inputs
+    given = dict(inputs.model_extra or {})
+    raw = given.pop(field, None)
+    name = raw.strip() if isinstance(raw, str) else ""
+    if not name:
+        raise SubgraphCallRefused(
+            "workflow_name_missing",
+            f"This step runs the workflow named by its input '{field}', and that input "
+            + ("is empty." if raw is None or raw == "" else f"is not a workflow name (got {type(raw).__name__})."),
+            {"workflow_key_input": field},
+        )
+    try:
+        named = SubgraphCallConfig(workflow_key=name, max_steps=config.max_steps)
+    except ValueError:
+        raise SubgraphCallRefused(
+            "workflow_name_missing",
+            f"This step runs the workflow named by its input '{field}', and '{name}' is not a workflow name.",
+            {"workflow_key_input": field, "workflow_key": name},
+        ) from None
+    if named.workflow_key not in config.allowed_workflow_keys:
+        raise SubgraphCallRefused(
+            "workflow_name_not_allowed",
+            f"This step runs the workflow named by its input '{field}', and '{named.workflow_key}' is not "
+            "one it is allowed to run (allowed_workflow_keys: " + ", ".join(config.allowed_workflow_keys) + ").",
+            {"workflow_key_input": field, "workflow_key": named.workflow_key, "allowed": list(config.allowed_workflow_keys)},
+        )
+    return named, SubgraphCallInput(**given, inputs=dict(inputs.inputs or {}))
 
 
 class SubgraphCallExecutor:
@@ -310,7 +413,18 @@ class SubgraphCallExecutor:
         determinism=ActionTier.NON_DETERMINISTIC,
         can_interrupt=True,
         icon="workflow",
+        # The called workflow's own steps each run under their own time limit; this step only waits
+        # for them. So it is not held to the ten-minute limit every single step gets (a pass whose
+        # read step took longer was cut off at 600 s, 2026-11-10): its limit is the knob
+        # ``workflow.step_clock.run_workflow_wait_seconds`` (an admin turns it; the 24 h below is only
+        # its mirror), and an author sets the step's own on it (``data.step_clock``).
+        timeout_ms=MAX_STEP_SECONDS * 1000,
+        timeout_knob=RUN_WORKFLOW_WAIT_SECONDS_KEY,
     )
+
+    def rerun_returns_saved_result(self) -> bool:
+        """True when the host's resolver reattaches a finished child on a re-run (``set_subgraph_resolver``)."""
+        return _reruns_by_reattach
 
     async def result_version(
         self,
@@ -323,6 +437,7 @@ class SubgraphCallExecutor:
         is a miss). Raises when the host cannot say; the step then runs."""
         if _target_resolver is None:
             raise RuntimeError("no subgraph target resolver registered")
+        config, inputs = named_call(config, inputs)
         target = await _target_resolver(ctx, config)
         return target.answer_version()
 
@@ -340,6 +455,7 @@ class SubgraphCallExecutor:
                 "app startup to enable subgraph.call.",
             )
         try:
+            config, inputs = named_call(config, inputs)
             result = await _resolver(ctx, config, inputs)
         except GraphInterrupt as asked:
             # A question deep inside the child (a Pause & Ask, a durable wait)
@@ -352,6 +468,14 @@ class SubgraphCallExecutor:
                 node_id=getattr(ctx, "node_id", None) or asked.node_id,
                 payload={**asked.payload, FORWARDS_ANSWER_KEY: True},
             ) from asked
+        except ChildRunPaused:
+            # A person paused the child: this run pauses at this step (the scheduler parks it), and
+            # Resume runs the step again, which continues the child — never this step's failure.
+            raise
+        except ChildRunStopped:
+            # A Stop ended the child cancelled: this run stops at this step (the scheduler latches the
+            # cancel and ends the run cancelled) — never this step's failure.
+            raise
         except SubgraphCallRefused as refused:
             return failure(refused.code, refused.message, details=refused.details)
         except SubgraphChildFailed as child:

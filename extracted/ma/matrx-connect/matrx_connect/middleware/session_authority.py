@@ -66,6 +66,13 @@ class ApiKeyAuthorityUnavailable(CredentialAuthorityUnavailable):
     public_message = "Could not verify your API key. Please retry."
 
 
+class JwksUnavailable(CredentialAuthorityUnavailable):
+    """The signing-key endpoint could not be read; the token itself was not judged."""
+
+    code = "token_keys_unavailable"
+    public_message = "Could not verify your session. Please retry."
+
+
 def credential_unavailable_response(error: CredentialAuthorityUnavailable) -> JSONResponse:
     return JSONResponse(
         {

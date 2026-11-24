@@ -175,6 +175,7 @@ class ArtTracker:
         async def call_train(model: Any, trajectory_groups: Iterable[Any], *args: Any, **kwargs: Any) -> Any:
             if model is not self._model or self.is_finished:
                 return await original(model, trajectory_groups, *args, **kwargs)
+            await _rl_owner.hold_while_paused(self.run, self.guard)  # D23: a pause holds the next step, not the loop
             groups = list(trajectory_groups)
             started = datetime.now(timezone.utc)
             planned = await self.guard.call_async("backend.train", self._record_consumption, groups)
@@ -378,6 +379,7 @@ class ArtTracker:
         self._samples.plan(**plan)
         refuse_commands(self._samples, COMMAND_REFUSAL)
         self.guard.call("base model", self._record_base_model, run)
+        _rl_owner.setup_async_pause(run, self.guard)  # held before each `backend.train` (`watch_backend`)
         _rl_owner.close_at_exit(self)
 
     def _get_config(self) -> dict:

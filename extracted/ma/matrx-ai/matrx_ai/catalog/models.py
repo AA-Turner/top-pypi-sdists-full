@@ -243,7 +243,9 @@ class ControlRule(KindSubModel):
             if not isinstance(payload, dict):
                 continue
             mapped = _RuleMap.model_validate(payload).model_dump()
-            if "__kind" in payload and not mapped:
+            # A marker-only map carries no data: it is "not set", never a one-key map
+            # (to_number would also refuse the str marker as a non-int value).
+            if "__kind" in payload and set(payload) == {"__kind"}:
                 normalized.pop(field, None)
             else:
                 normalized[field] = mapped

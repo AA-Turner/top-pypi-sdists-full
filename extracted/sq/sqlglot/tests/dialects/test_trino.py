@@ -7,6 +7,27 @@ from tests.dialects.test_dialect import Validator
 class TestTrino(Validator):
     dialect = "trino"
 
+    def test_array_remove(self):
+        self.validate_all(
+            "ARRAY_REMOVE(ARRAY[1, 2, NULL, 2], 2)",
+            write={"clickhouse": "arrayFilter(_u -> NOT has([2], _u), [1, 2, NULL, 2])"},
+        )
+        for target in ("-1", "((2))", "-(1)"):
+            with self.subTest(target=target):
+                expr = self.parse_one(f"ARRAY_REMOVE(ARRAY[-1, 2], {target})")
+                self.assertEqual(
+                    expr.sql("clickhouse", unsupported_level=ErrorLevel.RAISE),
+                    f"arrayFilter(_u -> NOT has([{target}], _u), [-1, 2])",
+                )
+                self.assertEqual(
+                    expr.sql("duckdb"),
+                    f"LIST_FILTER([-1, 2], LAMBDA _u : _u IS DISTINCT FROM {target})",
+                )
+        self.validate_all(
+            "SELECT ARRAY_REMOVE(ARRAY[1, 2, NULL, 2], -target) FROM (VALUES (2), (NULL)) AS t(target)",
+            write={"clickhouse": UnsupportedError},
+        )
+
     def test_table_query_function(self):
         self.validate_identity(
             "SELECT * FROM TABLE(sequence(start => 1, stop => 2))",
@@ -519,6 +540,43 @@ class TestTrino(Validator):
             'CREATE TABLE "foo" ("a" VARCHAR, "b" INTEGER, "c" DATE) WITH (PARTITIONING=ARRAY[\'a\', \'bucket(4, b)\', \'month(c)\'])',
             identify=True,
         )
+
+    def test_add_months(self):
+        self.validate_all(
+            "SELECT DATE_ADD('MONTH', 1, d)",
+            read={"": "SELECT ADD_MONTHS(d, 1)"},
+        )
+
+        source = "FROM (SELECT '2019-02-28' AS d) AS t"
+        for arg in ("'2019-02-28'", "t.d"):
+            with self.subTest(arg=arg):
+                expression = annotate_types(
+                    parse_one(f"SELECT ADD_MONTHS({arg}, 1) {source}", read="snowflake"),
+                    dialect="snowflake",
+                )
+                timestamp = f"CAST({arg} AS TIMESTAMP)"
+                added = f"DATE_ADD('MONTH', 1, {timestamp})"
+                self.assertEqual(
+                    expression.sql(self.dialect),
+                    f"SELECT CASE WHEN DAY({timestamp}) = DAY(LAST_DAY_OF_MONTH({timestamp})) "
+                    f"THEN DATE_ADD('DAY', DATE_DIFF('DAY', CAST({timestamp} AS DATE), "
+                    f"LAST_DAY_OF_MONTH({added})), {timestamp}) ELSE {added} END {source}",
+                )
+
+        for dialect, arg, expected in (
+            ("spark", "DATE '2019-02-28'", "CAST('2019-02-28' AS DATE)"),
+            (
+                "spark",
+                "TIMESTAMP '2019-02-15 12:34:56'",
+                "CAST(CAST('2019-02-15 12:34:56' AS TIMESTAMP WITH TIME ZONE) AS DATE)",
+            ),
+            ("databricks", "'2019-02-28'", "CAST(CAST('2019-02-28' AS TIMESTAMP) AS DATE)"),
+        ):
+            with self.subTest(dialect=dialect, arg=arg):
+                expression = annotate_types(
+                    parse_one(f"ADD_MONTHS({arg}, 1)", read=dialect), dialect=dialect
+                )
+                self.assertEqual(expression.sql(self.dialect), f"DATE_ADD('MONTH', 1, {expected})")
 
     def test_analyze(self):
         self.validate_identity("ANALYZE tbl")

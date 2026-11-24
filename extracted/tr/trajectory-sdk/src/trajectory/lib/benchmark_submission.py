@@ -267,7 +267,7 @@ class SubmissionUpload:
     if agent_name is not None:
       body["agent_name"] = agent_name
     self._require_bounded(body)
-    session = client.benchmarks.ingestion.create_session(
+    session = client.specs.ingestion.create_session(
       idempotency_key=idempotency_key or uuid4().hex,
       **body,
     )
@@ -349,7 +349,7 @@ class SubmissionUpload:
               pool.add_with_policy(files, policy)
         pool.finish()
     reporter.set_stage("finalizing")
-    status = client.benchmarks.ingestion.finalize(
+    status = client.specs.ingestion.finalize(
       operation_id, object_count=total_files, part_count=self.part_count
     )
     reporter.set_stage("completed")
@@ -366,7 +366,7 @@ class SubmissionUpload:
     budget = RetryBudget(max_retries, allocator._parse_retry_after)
     while True:
       try:
-        return allocator.benchmarks.ingestion.allocate_uploads(
+        return allocator.specs.ingestion.allocate_uploads(
           operation_id, files=declarations, extra_body=extra_body
         )
       except APIStatusError as error:

@@ -287,6 +287,20 @@ _MAX_ATTEMPTS = 4  # 1 initial + 3 retries
 _BACKOFF_BASE_S = 1.0
 _BACKOFF_MAX_S = 30.0
 _BACKOFF_JITTER_S = 0.75
+# A cold-start model (HTTP 425 model_warming) "can take up to 10 minutes", far past the 4-attempt
+# budget above (feedback 0b9196bd: ~410 chunks dropped at 1m35s of warming). 425 therefore does NOT
+# consume an attempt; it keeps waiting until this many seconds have been waited, then hands over.
+# Knob: platform.feature_knob "agents.tool_dispatch" "fastino_warmup_budget_seconds" (0 = old bounded retry).
+FASTINO_WARMUP_BUDGET_KEY = "fastino_warmup_budget_seconds"
+#: KNOB MIRROR of platform.feature_knob "agents.tool_dispatch" "fastino_warmup_budget_seconds"
+FASTINO_WARMUP_BUDGET_MIRROR = 660
+
+
+def _warmup_budget_s() -> float:
+    from matrx_ai.knobs import package_knob_number
+
+    return float(package_knob_number("agents.tool_dispatch", FASTINO_WARMUP_BUDGET_KEY,
+                                     FASTINO_WARMUP_BUDGET_MIRROR, low=0, high=3600))
 
 
 def _parse_retry_after(value: str | None) -> float | None:
@@ -425,8 +439,11 @@ class FastinoExtraction:
             vendor="fastino",
             model_name=model_id,
             endpoint_id="fastino-direct",
+            provider_model_id=model_id,
             base_url=gliner2_url(),
             offering_metadata={},
+            # The call shape every gate reads (free-tier ceiling, BAA): an extraction, never a chat turn.
+            capabilities=SimpleNamespace(interaction="extraction"),
         )
         async def _dispatch() -> SpanExtractionResult:
             try:
@@ -439,7 +456,11 @@ class FastinoExtraction:
                 mark_billing_checked(exc)
                 raise
 
-        return await UnifiedAIClient._dispatch_with_billing_net(_dispatch, profile=route)
+        from matrx_ai.providers.guardrail_gate import quote_tokens
+
+        return await UnifiedAIClient._dispatch_with_billing_net(
+            _dispatch, profile=route, quote=quote_tokens(route, max(1, len(text or "") // 2), 0)
+        )
 
     async def _extract(
         self,
@@ -570,7 +591,13 @@ class FastinoExtraction:
         # executor run). Chunked fan-outs keep the most recent chunk's body.
         capture_request_payload(payload, provider="fastino")
         last_exc: Exception | None = None
-        for attempt in range(_MAX_ATTEMPTS):
+        warmup_budget = _warmup_budget_s()
+        warmed_for = 0.0  # seconds already waited on a warming (425) model
+        attempt = -1
+        while True:
+            attempt += 1
+            if attempt >= _MAX_ATTEMPTS:
+                break
             is_last = attempt == _MAX_ATTEMPTS - 1
             retry_after: float | None = None
             # Client-side rate gate: acquire a token from the shared token
@@ -592,6 +619,14 @@ class FastinoExtraction:
                 # On the last attempt, OR for a non-retryable status, hand the
                 # response to _handle_response: it returns parsed data on success
                 # and raises the precise typed error otherwise.
+                if resp.status_code == 425 and warmed_for < warmup_budget and not _is_billing_refusal(resp):
+                    # Warming model: wait (does not consume an attempt) until the warm-up budget is spent.
+                    wait = _backoff_delay(0, _stated_wait(resp) or 30.0)
+                    warmed_for += wait
+                    attempt -= 1
+                    logger.warning("Fastino model warming (HTTP 425); waited %.0fs of %.0fs budget", warmed_for, warmup_budget)
+                    await asyncio.sleep(wait)
+                    continue
                 if (
                     is_last
                     or resp.status_code not in _RETRYABLE_STATUS

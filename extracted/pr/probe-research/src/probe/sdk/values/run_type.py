@@ -1,4 +1,4 @@
-"""A run's declared type (`general` or `rl`) as the text the server takes, checked before any request."""
+"""A run's declared type (`general`, `sft` or `rl`) as the text the server takes, checked before any request."""
 
 from __future__ import annotations
 
@@ -16,5 +16,5 @@ def to_run_type(value: str | RunType, *, label: str = "run_type") -> str:
         choices = ", ".join(member.value for member in RunType)
         raise errors.ValidationError(
             f"{label} {value!r} is not a run type. Use one of: {choices} "
-            "(rl for RL training or agent evals)."
+            "(sft for supervised fine-tuning, rl for RL training or agent evals)."
         ) from None

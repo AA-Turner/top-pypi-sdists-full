@@ -30,6 +30,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import tomli
+from packaging import markers as packaging_markers
+from packaging.pylock import Pylock
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from nab import _version as nab_version
 from nab import output as nab_output
@@ -65,7 +69,6 @@ from nab_index.local_index import LocalIndexClient, UnreadableLocalIndexError
 from nab_index.transport import HttpError, IdleClosableTransport
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
 from nab_markersets._compat import get_int_max_str_digits
-from nab_project._testing.coordinator_fake import FakeFetchPort, make_coordinator
 from nab_project.download import DownloadError, DownloadResult
 from nab_project.fetch import DEFAULT_MAX_CONCURRENCY, FetchCoordinator
 from nab_project.lockfile import (
@@ -88,10 +91,6 @@ from nab_project.resolve import (
     env_signature,
     resolve_for_targets,
 )
-from nab_provider._vendor.packaging import markers as packaging_markers
-from nab_provider._vendor.packaging.pylock import Pylock
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.errors import ConfigError
 from nab_provider.provider import (
     InvalidUploadTimeError,
@@ -104,8 +103,9 @@ from nab_provider.records import WheelFile
 from nab_provider.requirements_file import InvalidProjectRequirementError
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import IntractableMarkerError, ResolveTarget, host_environment
-from nab_provider.testing import make_metadata, make_wheel
+from nab_provider.testing import FakeFetchPort, make_metadata, make_wheel
 from nab_resolver.errors import ResolutionError
+from nab_test_support.coordinator import make_coordinator
 
 requires_int_limit = pytest.mark.skipif(
     get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
@@ -394,6 +394,26 @@ def _make_pyproject(tmp_path: Path, body: str = "") -> Path:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(body or '[project]\ndependencies = ["foo"]\n')
     return pyproject
+
+
+@pytest.mark.parametrize("command", [lock, download])
+@pytest.mark.parametrize("key", ["sys_platform", "project"])
+def test_resolver_lookup_error_keeps_its_key(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    command: Callable[..., object],
+    key: str,
+) -> None:
+    pyproject = _make_pyproject(tmp_path)
+    with (
+        patch("nab._resolve.resolve_for_targets", side_effect=KeyError(key)),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        command(pyproject, offline=True, cache=False)
+    err = capsys.readouterr().err
+    assert key in err
+    assert "has no [project] table" not in err
+    assert "has no [project].dependencies" not in err
 
 
 @pytest.mark.parametrize("full", ["3.13.2+", "3.15.0a8+", "3.15.0a8+dev"])
@@ -1337,18 +1357,13 @@ class TestLockCommandSpecific:
             lock(pyproject)
         assert "Constraints cannot have extras" in capsys.readouterr().err
 
-    def test_missing_dependencies_exits(
+    def test_missing_project_table_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        pyproject = _make_pyproject(tmp_path)
-        with (
-            patch(
-                "nab._resolve.resolve_for_targets", side_effect=KeyError("dependencies")
-            ),
-            pytest.raises(SystemExit, match="1"),
-        ):
-            lock(pyproject)
-        assert "no [project].dependencies" in capsys.readouterr().err
+        pyproject = _make_pyproject(tmp_path, "[build-system]\nrequires = []\n")
+        with pytest.raises(SystemExit, match="1"):
+            lock(pyproject, offline=True, cache=False)
+        assert "has no [project] table" in capsys.readouterr().err
 
     def test_string_project_table_exits_cleanly(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -1913,13 +1928,7 @@ class TestLockCommandSpecific:
     def test_local_source_constants_only_marker_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """A marker with two constant operands exits 1, naming the marker.
-
-        Packaging reads the right-hand literal as a variable name and raises
-        ``UndefinedEnvironmentName``, a ``KeyError``.  The CLI's ``KeyError``
-        clause blames a missing ``[project].dependencies``, so the error must
-        not reach it.
-        """
+        """A marker with two constant operands exits 1, naming the marker."""
         member = tmp_path / "mylocal"
         member.mkdir()
         (member / "pyproject.toml").write_text(
@@ -3959,20 +3968,22 @@ class TestLockCommandUniversal:
         assert "resolution failed: conflict" in err
         assert "FAILED" not in err
 
-    def test_missing_dependencies_exits(
+    def test_missing_project_table_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """KeyError surfaces as the standard missing-deps message."""
         pyproject = _universal_pyproject(tmp_path)
-        with (
-            patch(
-                "nab._resolve.resolve_for_targets",
-                side_effect=KeyError("dependencies"),
-            ),
-            pytest.raises(SystemExit, match="1"),
-        ):
-            lock(pyproject, format="requirements-without-hashes")
-        assert "no [project].dependencies" in capsys.readouterr().err
+        pyproject.write_text(
+            '[tool.nab]\nmode = "universal"\n[tool.nab.matrix]\n'
+            'python = ">=3.13,<3.14"\nplatforms = ["linux_x86_64"]\n'
+        )
+        with pytest.raises(SystemExit, match="1"):
+            lock(
+                pyproject,
+                format="requirements-without-hashes",
+                offline=True,
+                cache=False,
+            )
+        assert "has no [project] table" in capsys.readouterr().err
 
     def test_lookup_error_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -4289,7 +4300,7 @@ class TestLockCommandUniversal:
 
         err = capsys.readouterr().err
         assert f"Wrote {py311} (2 packages, tuple py311-linux_x86_64)" in err
-        assert f"Wrote {py312} (1 packages, tuple py312-linux_x86_64)" in err
+        assert f"Wrote {py312} (1 package, tuple py312-linux_x86_64)" in err
 
     def test_template_with_platform_id(self, tmp_path: Path) -> None:
         """``{platform_id}`` is also a valid template variable."""
@@ -4372,6 +4383,32 @@ class TestLockCommandUniversal:
         assert "both map to" in err
         assert "{platform_id}" in err
         assert not (tmp_path / "constraints-3.11.txt").exists()
+
+    def test_platform_directories_leading_to_one_file_are_refused(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        project = _make_pyproject(
+            tmp_path,
+            '[project]\ndependencies = []\n[tool.nab]\nmode = "universal"\n'
+            '[tool.nab.matrix]\npython = "==3.12"\n'
+            'platforms = ["linux_x86_64", "windows_amd64"]\n',
+        )
+        for directory in ("linux_x86_64", "windows_amd64"):
+            (tmp_path / directory).mkdir()
+        destination = tmp_path / "requirements.txt"
+        destination.write_text("previous pins\n", encoding="utf-8")
+        template = tmp_path / "{platform_id}" / ".." / destination.name
+
+        with pytest.raises(SystemExit, match="1"):
+            lock(
+                project,
+                offline=True,
+                format="requirements-without-hashes",
+                output=template,
+            )
+
+        assert destination.read_text(encoding="utf-8") == "previous pins\n"
+        assert "put {platform_id} in the filename" in capsys.readouterr().err
 
     def test_template_unknown_placeholder_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -4471,7 +4508,7 @@ class TestLockCommandUniversal:
 
         err = capsys.readouterr().err
         assert f"Wrote {cpu} (2 packages, tuple py311-linux_x86_64-extra-cpu)" in err
-        assert f"Wrote {gpu} (1 packages, tuple py311-linux_x86_64-extra-gpu)" in err
+        assert f"Wrote {gpu} (1 package, tuple py311-linux_x86_64-extra-gpu)" in err
 
     def test_forked_collision_points_at_selection(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -4643,6 +4680,25 @@ class TestLockCommandUniversal:
         assert first.read_text() == "stale==0.1\n"
         assert not (tmp_path / "req-3.12.txt").exists()
 
+    @pytest.mark.skipif(os.name == "nt", reason="POSIX filename limits")
+    def test_template_accepts_filenames_at_the_filesystem_limit(
+        self, tmp_path: Path
+    ) -> None:
+        pyproject = _universal_pyproject(tmp_path)
+        maximum = os.pathconf(tmp_path, "PC_NAME_MAX")
+        if maximum == -1:
+            pytest.skip("filesystem has no fixed filename limit")
+        prefix = "x" * (maximum - len("3.11.txt"))
+        template = tmp_path / (prefix + "{python_version}.txt")
+        with patch(
+            "nab._resolve.resolve_for_targets",
+            return_value=_multi_tuple_universal_result(),
+        ):
+            lock(pyproject, format="requirements-without-hashes", output=template)
+
+        for python in ("3.11", "3.12"):
+            assert (tmp_path / f"{prefix}{python}.txt").is_file()
+
     def test_template_unwritable_path_writes_no_file(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -4777,6 +4833,42 @@ class TestLockCommandUniversal:
         ]
         assert not list(tmp_path.glob("*.tmp"))
 
+    @pytest.mark.parametrize("error", [PermissionError, KeyboardInterrupt])
+    def test_failed_replacement_discards_unpublished_stages(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        error: type[BaseException],
+    ) -> None:
+        paths = [tmp_path / f"req-{number}.txt" for number in range(3)]
+        for path in paths:
+            path.write_text("previous\n")
+        files = [
+            _RenderedFile(path, str(number), f"pkg=={number}\n", 1)
+            for number, path in enumerate(paths)
+        ]
+        replace = Path.replace
+
+        def refuse_middle(source: Path, target: Path) -> Path:
+            if target == paths[1]:
+                raise error
+            return replace(source, target)
+
+        with monkeypatch.context() as patcher:
+            patcher.setattr(Path, "replace", refuse_middle)
+            with pytest.raises(error):
+                _write_requirements_files(files)
+
+        assert [path.read_text() for path in paths] == [
+            "pkg==0\n",
+            "previous\n",
+            "previous\n",
+        ]
+        assert not list(tmp_path.glob("*.tmp"))
+
+        _write_requirements_files(files)
+        assert [path.read_text() for path in paths] == [item.text for item in files]
+
     def test_template_files_keep_the_permissions_a_write_would_give(
         self, tmp_path: Path
     ) -> None:
@@ -4874,7 +4966,7 @@ class TestNoEmitWorkspace:
             return_value=self._alpha_and_foo_result(),
         ):
             lock(pyproject, output=out, no_emit_workspace=True)
-        assert "(1 packages)" in capsys.readouterr().err
+        assert "(1 package)" in capsys.readouterr().err
 
     def test_specific_requirements_drops_workspace_pin(self, tmp_path: Path) -> None:
         """Requirements format also honours --no-emit-workspace."""
@@ -5009,9 +5101,9 @@ class TestRelockDiffSummary:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         out = tmp_path / "pylock.toml"
-        _emit(_stub_lock_input({"foo": V("1.0")}), format="pylock", output=out)
+        _emit(_stub_lock_input({"foo": V("1.0")}), output_format="pylock", output=out)
         err = capsys.readouterr().err
-        assert err.strip().endswith("(1 packages)")
+        assert err.strip().endswith("(1 package)")
 
     def test_relock_reports_added_upgraded_removed(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -5024,14 +5116,14 @@ class TestRelockDiffSummary:
             "removed2": V("1.0"),
             "removed3": V("1.0"),
         }
-        _emit(_stub_lock_input(prior), format="pylock", output=out)
+        _emit(_stub_lock_input(prior), output_format="pylock", output=out)
         capsys.readouterr()
 
         _emit(
             _stub_lock_input(
                 {"upgraded": V("2.0"), "added1": V("1.0"), "added2": V("1.0")}
             ),
-            format="pylock",
+            output_format="pylock",
             output=out,
         )
 
@@ -5042,10 +5134,10 @@ class TestRelockDiffSummary:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         out = tmp_path / "pylock.toml"
-        _emit(_stub_lock_input({"foo": V("2.0")}), format="pylock", output=out)
+        _emit(_stub_lock_input({"foo": V("2.0")}), output_format="pylock", output=out)
         capsys.readouterr()
-        _emit(_stub_lock_input({"foo": V("1.0")}), format="pylock", output=out)
-        assert capsys.readouterr().err.strip().endswith("(1 packages: 1 downgraded)")
+        _emit(_stub_lock_input({"foo": V("1.0")}), output_format="pylock", output=out)
+        assert capsys.readouterr().err.strip().endswith("(1 package: 1 downgraded)")
 
     def test_relock_unchanged_prints_plain_line(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -5053,8 +5145,10 @@ class TestRelockDiffSummary:
         """A re-lock with identical pins prints no diff suffix."""
         out = tmp_path / "pylock.toml"
         for _ in range(2):
-            _emit(_stub_lock_input({"foo": V("1.0")}), format="pylock", output=out)
-        assert capsys.readouterr().err.strip().endswith("(1 packages)")
+            _emit(
+                _stub_lock_input({"foo": V("1.0")}), output_format="pylock", output=out
+            )
+        assert capsys.readouterr().err.strip().endswith("(1 package)")
 
     def test_relock_unchanged_with_local_pin_prints_plain_line(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -5071,7 +5165,7 @@ class TestRelockDiffSummary:
             }
         )
         for _ in range(2):
-            _emit(lock_input, format="pylock", output=out)
+            _emit(lock_input, output_format="pylock", output=out)
         assert capsys.readouterr().err.strip().endswith("(2 packages)")
 
     def test_relock_unchanged_with_archive_pin_prints_plain_line(
@@ -5091,19 +5185,23 @@ class TestRelockDiffSummary:
             }
         )
         for _ in range(2):
-            _emit(lock_input, format="pylock", output=out)
-        assert capsys.readouterr().err.strip().endswith("(1 packages)")
+            _emit(lock_input, output_format="pylock", output=out)
+        assert capsys.readouterr().err.strip().endswith("(1 package)")
 
     def test_unparseable_prior_falls_back_to_plain_line(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         out = tmp_path / "pylock.toml"
         out.write_text("this is not valid toml === {[\n")
-        _emit(_stub_lock_input({"foo": V("1.0")}), format="pylock", output=out)
-        assert capsys.readouterr().err.strip().endswith("(1 packages)")
+        _emit(_stub_lock_input({"foo": V("1.0")}), output_format="pylock", output=out)
+        assert capsys.readouterr().err.strip().endswith("(1 package)")
 
     def test_stdout_emits_no_diff(self, capsys: pytest.CaptureFixture[str]) -> None:
-        _emit(_stub_lock_input({"foo": V("1.0")}), format="pylock", output=Path("-"))
+        _emit(
+            _stub_lock_input({"foo": V("1.0")}),
+            output_format="pylock",
+            output=Path("-"),
+        )
         captured = capsys.readouterr()
         assert "added" not in captured.err
         assert "packages" not in captured.err
@@ -5115,9 +5213,11 @@ class TestRelockDiffSummary:
         out = tmp_path / "requirements.txt"
         for _ in range(2):
             _emit(
-                _stub_lock_input({"foo": V("1.0")}), format="requirements", output=out
+                _stub_lock_input({"foo": V("1.0")}),
+                output_format="requirements",
+                output=out,
             )
-        assert capsys.readouterr().err.strip().endswith("(1 packages)")
+        assert capsys.readouterr().err.strip().endswith("(1 package)")
 
 
 class TestPylockOutputNameValidation:
@@ -5317,7 +5417,7 @@ class TestDetermineLockAnchor:
         self._write_prior(target)
         pyproject = _make_pyproject(tmp_path)
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=target, format="pylock", upgrade=True
+            _ladder(pyproject), output=target, output_format="pylock", upgrade=True
         )
         assert anchor != self._RECORDED
         assert (datetime.now(timezone.utc) - anchor).total_seconds() < 60
@@ -5331,7 +5431,7 @@ class TestDetermineLockAnchor:
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
             _determine_lock_anchor(
-                _ladder(pyproject), output=target, format="pylock", upgrade=True
+                _ladder(pyproject), output=target, output_format="pylock", upgrade=True
             )
         notice = err.getvalue()
         assert "--upgrade re-anchored" in notice
@@ -5346,7 +5446,7 @@ class TestDetermineLockAnchor:
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
             _determine_lock_anchor(
-                _ladder(pyproject), output=None, format="pylock", upgrade=True
+                _ladder(pyproject), output=None, output_format="pylock", upgrade=True
             )
         assert err.getvalue() == ""
 
@@ -5363,7 +5463,7 @@ class TestDetermineLockAnchor:
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
             anchor = _determine_lock_anchor(
-                _ladder(pyproject), output=target, format="pylock", upgrade=True
+                _ladder(pyproject), output=target, output_format="pylock", upgrade=True
             )
         assert err.getvalue() == ""
         assert (datetime.now(timezone.utc) - anchor).total_seconds() < 60
@@ -5371,7 +5471,7 @@ class TestDetermineLockAnchor:
     def test_stdout_returns_fresh(self, tmp_path: Path) -> None:
         pyproject = _make_pyproject(tmp_path)
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=Path("-"), format="pylock", upgrade=False
+            _ladder(pyproject), output=Path("-"), output_format="pylock", upgrade=False
         )
         assert (datetime.now(timezone.utc) - anchor).total_seconds() < 60
 
@@ -5381,7 +5481,7 @@ class TestDetermineLockAnchor:
         anchor = _determine_lock_anchor(
             _ladder(pyproject),
             output=tmp_path / "requirements.txt",
-            format="requirements",
+            output_format="requirements",
             upgrade=False,
         )
         assert (datetime.now(timezone.utc) - anchor).total_seconds() < 60
@@ -5392,7 +5492,7 @@ class TestDetermineLockAnchor:
         monkeypatch.chdir(tmp_path)
         pyproject = _make_pyproject(tmp_path)
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=None, format="pylock", upgrade=False
+            _ladder(pyproject), output=None, output_format="pylock", upgrade=False
         )
         assert (datetime.now(timezone.utc) - anchor).total_seconds() < 60
 
@@ -5401,7 +5501,7 @@ class TestDetermineLockAnchor:
         self._write_prior(target)
         pyproject = _make_pyproject(tmp_path)
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=target, format="pylock", upgrade=False
+            _ladder(pyproject), output=target, output_format="pylock", upgrade=False
         )
         assert anchor == self._RECORDED
 
@@ -5413,7 +5513,7 @@ class TestDetermineLockAnchor:
         self._write_prior(tmp_path / "pylock.toml")
         pyproject = _make_pyproject(tmp_path)
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=None, format="pylock", upgrade=False
+            _ladder(pyproject), output=None, output_format="pylock", upgrade=False
         )
         assert anchor == self._RECORDED
 
@@ -5427,7 +5527,7 @@ class TestDetermineLockAnchor:
             f'[tool.nab]\nuploaded-prior-to = "{self._ABSOLUTE.isoformat()}"\n',
         )
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=target, format="pylock", upgrade=False
+            _ladder(pyproject), output=target, output_format="pylock", upgrade=False
         )
         assert anchor == self._ABSOLUTE
 
@@ -5443,7 +5543,7 @@ class TestDetermineLockAnchor:
             f'uploaded-prior-to = "{self._ABSOLUTE.isoformat()}"\n'
         )
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=target, format="pylock", upgrade=False
+            _ladder(pyproject), output=target, output_format="pylock", upgrade=False
         )
         assert anchor == self._ABSOLUTE
 
@@ -5468,7 +5568,7 @@ class TestDetermineLockAnchor:
 
         monkeypatch.setattr("nab._run.config_search_roots", fake_roots)
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=target, format="pylock", upgrade=False
+            _ladder(pyproject), output=target, output_format="pylock", upgrade=False
         )
         assert anchor == self._RECORDED
 
@@ -5479,7 +5579,7 @@ class TestDetermineLockAnchor:
             f'[tool.nab]\nuploaded-prior-to = "{self._ABSOLUTE.isoformat()}"\n',
         )
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=None, format="pylock", upgrade=True
+            _ladder(pyproject), output=None, output_format="pylock", upgrade=True
         )
         assert anchor != self._ABSOLUTE
         assert (datetime.now(timezone.utc) - anchor).total_seconds() < 60
@@ -5492,7 +5592,7 @@ class TestDetermineLockAnchor:
             '[project]\ndependencies = ["foo"]\n[tool.nab]\nuploaded-prior-to = "P4D"\n',
         )
         anchor = _determine_lock_anchor(
-            _ladder(pyproject), output=target, format="pylock", upgrade=False
+            _ladder(pyproject), output=target, output_format="pylock", upgrade=False
         )
         assert anchor == self._RECORDED
 
@@ -6203,6 +6303,26 @@ class TestGroupAndExtraSelection:
             )
         assert "not found" in capsys.readouterr().err
 
+    @pytest.mark.parametrize("command", ["lock", "download"])
+    def test_all_extras_refuses_a_backend_defined_table(
+        self,
+        hermetic_roots: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        command: str,
+    ) -> None:
+        monkeypatch.chdir(hermetic_roots)
+        project = hermetic_roots / "pyproject.toml"
+        project.write_text(
+            '[project]\nname="demo"\nversion="1"\ndynamic=["optional-dependencies"]\n',
+            encoding="utf-8",
+        )
+        assert run((command, str(project), "--all-extras", "--offline")) == 1
+        assert (
+            "[project.optional-dependencies] is declared dynamic"
+            in capsys.readouterr().err
+        )
+
     def test_all_extras_missing_file_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -6443,7 +6563,7 @@ class TestEmitHelpers:
 
     def test_emit_without_provenance(self, tmp_path: Path) -> None:
         out = tmp_path / "pylock.toml"
-        _emit(_stub_lock_input(), format="pylock", output=out)
+        _emit(_stub_lock_input(), output_format="pylock", output=out)
         # The output is a valid pylock without [tool.nab] provenance.
         text = out.read_text()
         assert 'lock-version = "1.0"' in text
@@ -7017,7 +7137,30 @@ class TestMain:
             )
         assert result.success
 
+    @pytest.fixture
+    def standalone_collector(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Exercise the collector policy used by the process entry point."""
+        monkeypatch.setattr("nab._entry.process_owns_collector", True)
+
+    @pytest.mark.parametrize("enabled", [True, False])
     @pytest.mark.usefixtures("restored_gc_state")
+    def test_embedded_lock_preserves_collector_policy(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, enabled: bool
+    ) -> None:
+        path = _make_pyproject(tmp_path, '[project]\nname="example"\nversion="1"\n')
+        if enabled:
+            gc.enable()
+        else:
+            gc.disable()
+
+        def unexpected_freeze() -> None:
+            pytest.fail("an embedded lock froze the host's objects")
+
+        monkeypatch.setattr(gc, "freeze", unexpected_freeze, raising=False)
+        assert run(("lock", str(path), "--no-cache", "--offline", "--output", "-")) == 0
+        assert gc.isenabled() is enabled
+
+    @pytest.mark.usefixtures("restored_gc_state", "standalone_collector")
     def test_resolve_pauses_the_collector(self, tmp_path: Path) -> None:
         """The cyclic collector is off while the resolver runs, back on after."""
         pyproject = _make_pyproject(tmp_path)
@@ -7045,7 +7188,7 @@ class TestMain:
         sysconfig.get_config_var("Py_GIL_DISABLED") == 1,
         reason="requires generational garbage collection",
     )
-    @pytest.mark.usefixtures("restored_gc_state")
+    @pytest.mark.usefixtures("restored_gc_state", "standalone_collector")
     def test_resolve_promotes_what_it_allocated(self, tmp_path: Path) -> None:
         """Objects the resolve allocated end in generation 2, not generation 0."""
         pyproject = _make_pyproject(tmp_path)
@@ -7082,7 +7225,7 @@ class TestMain:
         assert not any(obj is graph for obj in gc.get_objects(generation=0))
         assert any(obj is graph for obj in gc.get_objects(generation=2))
 
-    @pytest.mark.usefixtures("restored_gc_state")
+    @pytest.mark.usefixtures("restored_gc_state", "standalone_collector")
     def test_resolve_without_gc_freeze_still_reenables_the_collector(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -7113,7 +7256,7 @@ class TestMain:
             )
         assert gc.isenabled()
 
-    @pytest.mark.usefixtures("restored_gc_state")
+    @pytest.mark.usefixtures("restored_gc_state", "standalone_collector")
     def test_resolve_reenables_the_collector_on_failure(self, tmp_path: Path) -> None:
         """A resolve that exits on an error still leaves the collector enabled."""
         pyproject = _make_pyproject(tmp_path)
@@ -7261,6 +7404,55 @@ class TestClosedStandardStreams:
     process outright, so every test here patches it.
     """
 
+    def test_lost_diagnostics_only_affect_the_current_call(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(sys, "stderr", None)
+        with pytest.raises(SystemExit) as error:
+            main(["unknown-command"])
+        assert error.value.code == 120
+        assert sys.stderr is None
+
+        main(["--version"])
+        assert capsys.readouterr().out == f"nab {nab_version.__version__}\n"
+        assert sys.stderr is None
+
+    @pytest.mark.parametrize("detached", [False, True], ids=["closed", "detached"])
+    def test_run_with_an_unavailable_stdout_returns_write_failure(
+        self, monkeypatch: pytest.MonkeyPatch, *, detached: bool
+    ) -> None:
+        stream = io.TextIOWrapper(io.BytesIO(), encoding="utf-8")
+        if detached:
+            stream.detach().close()
+        else:
+            stream.close()
+        monkeypatch.setattr(sys, "stdout", stream)
+        assert run(("--help",)) == 120
+        assert sys.stdout is stream
+
+    def test_empty_write_to_missing_stderr_keeps_success(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(sys, "stderr", None)
+
+        def empty_write() -> None:
+            sys.stderr.write("")
+
+        assert run(("cache", "dir", "--cache-dir", str(tmp_path)), empty_write) == 0
+        assert sys.stderr is None
+
+    def test_redirected_stderr_is_restored_after_an_exception(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(sys, "stderr", None)
+
+        def interrupted() -> None:
+            raise RuntimeError("callback failed")
+
+        with pytest.raises(RuntimeError, match="callback failed"):
+            run(("cache", "dir", "--cache-dir", str(tmp_path)), interrupted)
+        assert sys.stderr is None
+
     def test_closed_stdout_exits_120(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """``--version`` with no stdout exits 120 instead of crashing."""
         monkeypatch.setattr(sys, "argv", ["nab", "--version"])
@@ -7354,6 +7546,19 @@ class TestClosedStandardStreams:
 class TestSystemExitStatus:
     """Tests for mapping a ``SystemExit`` code to a process status."""
 
+    def test_text_exit_without_stderr_reports_lost_output(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(sys, "stderr", None)
+        assert _system_exit_status("boom") == 120
+
+    def test_text_exit_with_unencodable_stderr_reports_lost_output(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        stream = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+        monkeypatch.setattr(sys, "stderr", stream)
+        assert _system_exit_status("café") == 120
+
     def test_bare_exit_is_zero(self) -> None:
         """``sys.exit()`` raises ``SystemExit(None)``, which means success."""
         assert _system_exit_status(None) == 0
@@ -7406,17 +7611,24 @@ class TestMainWiresOutputOptions:
         stderr = _TtyStderr()
         monkeypatch.setattr(sys, "stderr", stderr)
 
+        printers: list[Printer] = []
+
+        def resolve(*_args: object, **_kwargs: object) -> ResolveResult:
+            printers.append(nab_output.printer())
+            logger = logging.getLogger("nab_project")
+            logger.debug("engine debug")
+            logger.info("engine detail")
+            logger.warning("engine note")
+            return _stub_resolve_result(pins={})
+
         with (
-            patch(
-                "nab._resolve.resolve_for_targets",
-                return_value=_stub_resolve_result(pins={}),
-            ),
+            patch("nab._resolve.resolve_for_targets", side_effect=resolve),
             patch("nab._lock.write_lock"),
         ):
             main()
 
-        assert nab_output._printer is not None
-        return nab_output._printer, stderr
+        (printer,) = printers
+        return printer, stderr
 
     def test_default_run_reports_the_written_lockfile(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -7439,9 +7651,6 @@ class TestMainWiresOutputOptions:
     ) -> None:
         """Without ``-v`` an engine INFO record is dropped and a WARNING shows."""
         _printer, stderr = self._run_lock(tmp_path, monkeypatch)
-        logger = logging.getLogger("nab_project")
-        logger.info("engine detail")
-        logger.warning("engine note")
         assert "engine detail" not in stderr.getvalue()
         assert "warning: engine note" in stderr.getvalue()
 
@@ -7449,9 +7658,9 @@ class TestMainWiresOutputOptions:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """``-vv`` reaches both the log handler and printer."""
-        printer, _stderr = self._run_lock(tmp_path, monkeypatch, "-vv")
+        printer, stderr = self._run_lock(tmp_path, monkeypatch, "-vv")
         assert printer.verbosity is Verbosity.DEBUG
-        assert logging.getLogger("nab_project").getEffectiveLevel() == logging.DEBUG
+        assert "engine debug" in stderr.getvalue()
 
     def test_color_always_paints_the_run_summary(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -7466,7 +7675,6 @@ class TestMainWiresOutputOptions:
     ) -> None:
         """The handler is installed with the printer's colour decision."""
         _printer, stderr = self._run_lock(tmp_path, monkeypatch, "--color", "always")
-        logging.getLogger("nab_project").warning("engine note")
         assert f"{YELLOW}warning:{RESET} engine note" in stderr.getvalue()
 
     def test_log_records_stay_plain_with_color_off(
@@ -7474,7 +7682,6 @@ class TestMainWiresOutputOptions:
     ) -> None:
         """With colour off the handler emits a plain ``warning:`` token."""
         _printer, stderr = self._run_lock(tmp_path, monkeypatch)
-        logging.getLogger("nab_project").warning("engine note")
         assert "warning: engine note" in stderr.getvalue()
         assert "\033[" not in stderr.getvalue()
 
@@ -7511,9 +7718,9 @@ class TestMainWiresOutputOptions:
     ) -> None:
         """``NAB_VERBOSITY`` applies, so ``main`` reads the real environment."""
         monkeypatch.setenv("NAB_VERBOSITY", "debug")
-        printer, _stderr = self._run_lock(tmp_path, monkeypatch)
+        printer, stderr = self._run_lock(tmp_path, monkeypatch)
         assert printer.verbosity is Verbosity.DEBUG
-        assert logging.getLogger("nab_project").getEffectiveLevel() == logging.DEBUG
+        assert "engine debug" in stderr.getvalue()
 
     def test_env_no_progress_blocks_progress(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -7759,25 +7966,27 @@ class TestMakeTransport:
         assert f"{backend} is not installed" in capsys.readouterr().err
 
     @pytest.mark.parametrize("backend", ["httpx", "httpx2"])
-    def test_optional_backend_missing_exits_with_hint(
+    def test_optional_transport_import_failure_names_the_cause(
         self,
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
         backend: str,
     ) -> None:
-        """A missing optional backend exits with an installation hint."""
+        """A broken adapter reports the original import error."""
         original_import = builtins.__import__
 
         def fake_import(name: str, *args: object, **kwargs: object) -> object:
             if name == f"nab_index.{backend}_async_transport":
-                raise ImportError(name)
+                raise ImportError("incompatible dependency")
             return original_import(name, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "__import__", fake_import)
         with pytest.raises(SystemExit) as info:
             _make_transport(backend)
         assert info.value.code == 1
-        assert f"nab[{backend}]" in capsys.readouterr().err
+        assert f"cannot initialize {backend} transport: incompatible dependency" in (
+            capsys.readouterr().err
+        )
 
     @pytest.mark.parametrize("backend", ["httpx", "httpx2"])
     def test_optional_backend_without_h2_exits_with_hint(
@@ -8017,14 +8226,8 @@ class TestResolveTransport:
         pyproject = _make_pyproject(
             tmp_path, '[project]\nname = "root"\nversion = "0"\ndependencies = []\n'
         )
-        original_import = builtins.__import__
+        monkeypatch.setitem(sys.modules, "httpx", None)
 
-        def fake_import(name: str, *args: object, **kwargs: object) -> object:
-            if name == "nab_index.httpx_async_transport":
-                raise ImportError(name)
-            return original_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(builtins, "__import__", fake_import)
         with pytest.raises(SystemExit) as info:
             lock(
                 pyproject,
@@ -8478,18 +8681,13 @@ class TestDownloadCommand:
         assert "does not provide extra 'nonexistent'" in err
         assert "Traceback" not in err
 
-    def test_missing_dependencies_exits(
+    def test_missing_project_table_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        pyproject = _make_pyproject(tmp_path)
-        with (
-            patch(
-                "nab._resolve.resolve_for_targets", side_effect=KeyError("dependencies")
-            ),
-            pytest.raises(SystemExit, match="1"),
-        ):
-            download(pyproject)
-        assert "no [project].dependencies" in capsys.readouterr().err
+        pyproject = _make_pyproject(tmp_path, "[build-system]\nrequires = []\n")
+        with pytest.raises(SystemExit, match="1"):
+            download(pyproject, offline=True, cache=False)
+        assert "has no [project] table" in capsys.readouterr().err
 
     def test_missing_hash_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]

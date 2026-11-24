@@ -4443,6 +4443,50 @@ candidates:
     per-person grant. If neither adult is actually claimed and the filing exception restores their child, the
     three-person household receives $465. The separate items record individual eligibility from 2023 and the
     earlier regulation.
+- id: us-id:liheap-fy2027-size-nine-limit
+  program: liheap
+  years:
+    from: 2027
+    to: 2027
+    type: federal-fiscal
+  question: Is Idaho's FY2027 income limit for nine people 60% of state median income, as the accepted plan lists, or
+    150% of the poverty guideline, as the income charts of the agencies that take applications print?
+  sources:
+  - kind: plan
+    citation: Idaho FY2027 LIHEAP State Plan, item 2.1, PDF page 8
+    url: https://liheapch.acf.gov/docs/2027/state-plans/ID_Plan_2027.pdf#page=8
+  - kind: guidance
+    citation: Community Action Partnership, Income Guidelines by Program, effective October 1, 2026 to September 30,
+      2027
+    url: https://www.cap4action.org/wp-content/uploads/2026/10/Income-guidelines-for-2027.pdf
+  - kind: guidance
+    citation: SEICAA Community Services, Income Guidelines for LIHEAP
+    url: https://seicaa.org/communityservices/
+  - kind: regulation
+    citation: IDAPA 16.03.08.200.03, effective July 1, 2026
+    url: https://adminrules.idaho.gov/rules/current/16/160308.pdf#page=5
+  readings:
+    statute: No statute is supplied; 42 U.S.C. 8624(b)(2)(B) allows the greater of 150% of the poverty guideline and 60%
+      of state median income, and 16.03.08.200.03 says only "Meet income eligibility requirements". Plan item 2.1 lists
+      "State Median Income 60.00%" for sizes 1 to 9 and "HHS Poverty Guidelines 150.00%" from size 10, which gives
+      $92,274 for nine people.
+    other: Both charts print "60% of the State Median Income" for sizes 1 to 8 and "150% of the Poverty Income
+      Guidelines" from size 9, with $7,675.00 a month ($92,100 a year) for nine people.
+  example: Nine people with wages of $92,160 ($7,680 a month) and natural gas heat in Ada County pass the plan's
+    $92,274, exceed the charts' $92,100 and receive $0.
+  pe_us:
+    follows: gap-fill
+    code:
+    - policyengine_us/parameters/gov/states/id/dhw/liheap/eligibility/smi_max_household_size.yaml
+    - policyengine_us/variables/gov/states/id/dhw/liheap/eligibility/id_liheap_income_limit.py
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11233
+  state: ruled
+  note: 'Ruled 2026-11-23 by the project lead: follow the agency charts and switch at size nine. The two charts agree on
+    every figure, and the Community Action Partnership chart is dated September 30, 2026, after the plan was submitted
+    (August 21, 2026). They repeat the FY2026 pattern, where the plan and DHW''s page both switched one size before the
+    poverty guideline overtakes state median income. PE-US equals the charts'' monthly figures at every size. DHW''s
+    own page still showed the October 1, 2025 limits on 2026-11-23; revisit when it prints FY2027 limits.'
 - id: us-id:liheap-heat-in-rent-fy2026
   program: liheap
   years:
@@ -4485,7 +4529,7 @@ candidates:
   program: liheap
   years:
     from: 2026
-    to: 2026
+    to: 2027
     type: federal-fiscal
   question: Can Idaho's monthly income limits in cents pay a household whose annual income exceeds HHS's 60% state median
     income amount?
@@ -4499,6 +4543,10 @@ candidates:
   - kind: guidance
     citation: Idaho DHW Apply for Heating Assistance, monthly income limits effective October 1, 2025
     url: https://healthandwelfare.idaho.gov/services-programs/financial-assistance/home-heating-and-utility-assistance/apply-heating-assistance
+  - kind: guidance
+    citation: Community Action Partnership, Income Guidelines by Program, effective October 1, 2026 to September 30,
+      2027
+    url: https://www.cap4action.org/wp-content/uploads/2026/10/Income-guidelines-for-2027.pdf
   readings:
     statute: Payments go only to households whose income does not exceed the greater of 150% of the poverty guideline and
       60% of the state median income, which HHS publishes as $42,938 for two people and $83,351 for six.
@@ -4511,9 +4559,12 @@ candidates:
     - policyengine_us/variables/gov/states/id/dhw/liheap/eligibility/id_liheap_income_limit.py
     prs:
     - https://github.com/PolicyEngine/policyengine-us/pull/10613
+    - https://github.com/PolicyEngine/policyengine-us/pull/11233
   state: unreviewed
   note: The PR caps the annualized monthly limit at HHS's amount. DHW's lower annualized figures at sizes 3 and 4 ($53,040.96
-    and $63,144.96) stay, since a lower limit is allowed.
+    and $63,144.96) stay, since a lower limit is allowed. For FY2027 the agency charts print $3,708.42, $7,198.67 and
+    $7,525.92 for two, six and eight people, which annualize to $44,501.04, $86,384.04 and $90,311.04, 4 cents above the
+    amounts PE-US computes with the same flooring ($44,501, $86,384 and $90,311); the cap applies there too.
 - id: us-id:liheap-plan-income-checklist
   program: liheap
   years:
@@ -6566,6 +6617,66 @@ candidates:
     invariant test's statutory oracle (test_me_childless_eitc_age_gate.py). Captures of the worksheet and the
     instructions page are in source_conflicts/sources/us-me/. Worksheets for 2020 to 2023 are unchecked, so the
     conflict may start earlier.
+- id: us-me:fairness-credit-loss-add-backs
+  program: income-tax
+  years:
+    from: 2021
+    to: 2025
+    type: tax
+  question: Does Maine's fairness credit income add back trade or business, capital and farm losses in full, or only
+    the net loss on each federal line, as Schedule PTFC/STFC line 2d does?
+  sources:
+  - kind: statute
+    citation: 36 M.R.S. 5213-A(1)(B)(1) ("Trade or business losses; capital losses; any net loss resulting from
+      combining the income or loss from rental real estate and royalties, the income or loss from partnerships and
+      S corporations, the income or loss from estates and trusts, the income or loss from real estate mortgage
+      investment conduits and the net farm rental income or loss; any loss associated with the sale of business
+      property; and farm losses included in federal adjusted gross income")
+    url: https://legislature.maine.gov/statutes/36/title36sec5213-A.html
+  - kind: statute
+    citation: 36 M.R.S. 5219-KK(1)(D)(1) (the same words, for the property tax fairness credit)
+    url: https://legislature.maine.gov/statutes/36/title36sec5219-KK.html
+  - kind: instructions
+    citation: 2021 Form 1040ME Schedule PTFC/STFC instructions, line 2d ("Enter on line 2d the amount of any negative
+      amount (net loss) shown on federal Form 1040 or Form 1040-SR, line 7 and federal Schedule 1, lines 3, 4, 5, 6,
+      and 8")
+    url: https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/21_1040me_sched_pstfc_dwnldff.pdf#page=4
+  - kind: instructions
+    citation: 2025 Form 1040ME Schedule PTFC/STFC instructions, line 2d ("Enter on line 2d the amount of any negative
+      amount (net loss) included on federal Form 1040 or Form 1040-SR, line 7 and federal Schedule 1, lines 3, 4, 5,
+      6, and 8a through 8z")
+    url: https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/25_1040me_sch_ptfc_fillable.pdf#page=4
+  readings:
+    statute: Trade or business losses, capital losses, losses on the sale of business property and farm losses included
+      in federal adjusted gross income are added back in full. Only the Schedule E items (Schedule 1 line 5) are
+      combined first, so only their net loss is added back.
+    other: Line 2d adds back only a net loss on Form 1040 line 7 or Schedule 1 lines 3, 4, 5, 6 and 8, so every loss
+      first offsets income on its own line, the other spouse's included on a joint return.
+  example: In 2025, $10,000 of Schedule C income and a $3,000 Schedule C loss from a specified service trade or business
+    give fairness credit income of $10,000 under the statute and $7,000 under line 2d. A $10,000 long-term capital gain
+    and a $4,000 short-term capital loss give $10,000 and $6,000, whether one filer has both or they are split between
+    spouses on a joint return.
+  pe_us:
+    follows: statute
+    code:
+    - policyengine_us/variables/gov/states/me/tax/income/credits/fairness/me_fairness_credit_federal_income.py
+    - policyengine_us/variables/gov/states/me/tax/income/credits/fairness/me_fairness_credit_netted_capital_loss.py
+    - policyengine_us/parameters/gov/states/me/tax/income/credits/fairness/federal_lines/schedule_1_line_5.yaml
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11185
+  state: ruled
+  note: Statute first. irs_gross_income counts each filer's income from each source and leaves out its losses, so
+    Schedule C and Schedule F losses, and each filer's net capital loss as far as AGI deducts it, are added back in
+    full. capital_gains first nets a filer's short-term and long-term results, with capital gain distributions on
+    Schedule D line 13 and the prior-year long-term carryover on line 14, which 26 U.S.C. 1212(b)(1)(B) treats as a
+    long-term capital loss of the year; me_fairness_credit_netted_capital_loss adds back the losses that netting
+    absorbs, the head's and the spouse's, so every capital loss included in AGI is added back once. A loss carried to
+    a later year is not in AGI and is not added back. me_fairness_credit_federal_income nets only the Schedule 1 line 5
+    sources, the head's and the spouse's together. A loss inside one input, such as two sales in the same holding
+    period netted in one filer's short-term or long-term capital gains, or two businesses netted in one filer's
+    self_employment_income, cannot be separated; neither can a short-term carryover, which has no input of its own.
+    YAML cases in me_fairness_credit_federal_income.yaml and me_sales_and_property_tax_fairness_credit_income.yaml pin
+    the statute reading. The 2021, 2022, 2023, 2024 and 2025 instructions have the line 2d text.
 - id: us-me:liheap-size-ten-income-limit
   program: liheap
   years:
@@ -14015,6 +14126,75 @@ candidates:
   state: open
   note: 'PE-US follows the regulation; resolve the pending conflict with the information letter. Code not yet on
     main: tx_ssi_state_supplement.'
+- id: us-ut:ctc-modified-agi-other-state-bond-interest
+  program: income-tax
+  years:
+    from: 2024
+    type: tax
+  question: Does Utah's child tax credit count interest on another state's municipal bonds in modified adjusted gross
+    income once, as the TC-40 worksheet does, or twice, under both Utah Code 59-10-1047(1)(d)(ii) and (iii)?
+  sources:
+  - kind: statute
+    citation: Utah Code 59-10-1047(1)(d), edition effective January 1, 2024
+    url: https://le.utah.gov/xcode/Title59/Chapter10/C59-10-S1047_2023050320240101.html
+  - kind: statute
+    citation: Utah Code 59-10-1047(1)(d), edition effective January 1, 2025
+    url: https://le.utah.gov/xcode/Title59/Chapter10/C59-10-S1047_2025010120240501.html
+  - kind: statute
+    citation: Utah Code 59-10-1047(1)(d), edition effective January 1, 2026
+    url: https://le.utah.gov/xcode/Title59/Chapter10/C59-10-S1047_2026050620260506.html
+  - kind: statute
+    citation: Utah Code 59-10-114(1)(e) and (5), edition effective May 3, 2023
+    url: https://le.utah.gov/xcode/Title59/Chapter10/C59-10-S114_2023050320230503.html
+  - kind: statute
+    citation: Utah Code 59-10-114(1)(e) and (5), edition effective October 14, 2025
+    url: https://le.utah.gov/xcode/Title59/Chapter10/C59-10-S114_2025101420251206.html
+  - kind: worksheet
+    citation: 2024 TC-40 instructions, Child Tax Credit Worksheet (code AT), lines 3-7, printed p.22, PDF p.24
+    url: https://files.tax.utah.gov/tax/forms/2024/tc-40inst.pdf#page=24
+  - kind: worksheet
+    citation: 2025 TC-40 instructions, Child Tax Credit Worksheet (code AT), lines 3-7, printed p.22, PDF p.24
+    url: https://files.tax.utah.gov/tax/forms/2025/tc-40inst.pdf#page=24
+  - kind: instructions
+    citation: 2025 TC-40 instructions, lines 5 (Additions to Income) and 6 (Total Income), printed p.8, PDF p.10
+    url: https://files.tax.utah.gov/tax/forms/2025/tc-40inst.pdf#page=10
+  - kind: instructions
+    citation: 2025 TC-40 instructions, TC-40A Part 1, code 57 (Municipal Bond Interest), printed p.16, PDF p.18
+    url: https://files.tax.utah.gov/tax/forms/2025/tc-40inst.pdf#page=18
+  readings:
+    statute: 'Read literally, 59-10-1047(1)(d) sums (i) "adjusted gross income for the taxable year for which a tax
+      credit is claimed", (ii) "any interest income that is not included in adjusted gross income" and (iii) "any
+      addition to adjusted gross income required by Section 59-10-114". Section 59-10-114(1)(e) adds interest on
+      bonds issued by "a state other than this state" or its political subdivisions "to the extent the interest is
+      not included in adjusted gross income", so the same interest falls under both (ii) and (iii) and is counted
+      twice.'
+    other: 'The worksheet enters "the amount from TC-40, line 6 (Total Income)", which includes the code 57 addition,
+      on line 3; takes out "municipal bond interest from TC-40, Schedule A, Part 1, code 57" on line 4; subtracts
+      line 4 from line 3 on line 5; and enters "tax exempt interest from federal form 1040 or 1040-SR, line 2a" on
+      line 6. Line 7 adds lines 5 and 6, so the interest is counted once.'
+  example: A 2025 joint filer with one child aged 3, $50,000 of federal adjusted gross income and $3,000 of interest
+    on another state's municipal bonds that TC-40A code 57 adds back has $53,000 of modified adjusted gross income
+    under the worksheet, below the $54,000 threshold, and a $1,000 credit before the nonrefundable liability limit
+    (ut_ctc_potential). Counting the interest under both (ii) and (iii) gives $56,000 and $800 before the limit. After
+    the limit both readings allow the same credit. With the $50,000 as wages and no code 57 addition, PE-US leaves
+    $409.80 of Utah tax after the taxpayer credit, the Utah earned income tax credit takes $241.42 of it first, and
+    ut_ctc is $168.38.
+  pe_us:
+    follows: gap-fill
+    code:
+    - policyengine_us/variables/gov/states/ut/tax/income/credits/child_tax_credit/ut_ctc_potential.py
+    - policyengine_us/reforms/states/ut/ctc/ut_ctc_reform.py
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11182
+  state: ruled
+  note: Section 59-10-1047(1)(d) does not say how (ii) and (iii) coordinate when the same interest meets both. PE-US
+    counts the interest once, following the canon against counting a dollar twice and the Tax Commission's worksheet,
+    the agency practice in 2024 and 2025. ut_ctc_potential.py and the contributed reform (ut_ctc_reform.py) add
+    ut_total_income (federal adjusted gross income plus ut_additions) and tax_exempt_interest_income for the head and
+    spouse. The model computes no code 57 addition (ut_additions is the ut_other_additions input alone), so the
+    interest is counted once, through tax_exempt_interest_income, unless the code 57 amount is also entered in
+    ut_other_additions. The 2026 draft instructions move the worksheet to form TC-150, which this entry has not
+    reviewed.
 - id: us-ut:heat-child-unearned-income
   program: liheap
   years:
@@ -14752,6 +14932,65 @@ candidates:
   state: open
   note: 'PE-US looks up the income limits by tax_unit_size, capped at the tables'' eight people, and the fair market
     rent by exemptions_count (vt_renter_credit.py). Axiom issue 1678 in rulespec-us pursues exemption-sized limits.'
+- id: us-vt:renter-credit-loss-add-back-netting
+  program: renter-credit
+  years:
+    from: 2021
+    type: tax
+  question: Does Vermont renter credit income add back each kind of loss that 32 V.S.A. 6061(18)(A) lists, or only
+    a negative total on a Form 1040 or Schedule 1 line, after other income on the same line has offset the loss, as
+    Form RCC-146 line 13 does?
+  sources:
+  - kind: statute
+    citation: 32 V.S.A. § 6061(18)(A)
+    url: https://legislature.vermont.gov/statutes/section/32/154/06061
+  - kind: form
+    citation: 2025 Form RCC-146, Vermont Renter Credit Claim, line 13
+    url: https://tax.vermont.gov/sites/tax/files/documents/RCC-146-2025.pdf#page=1
+  - kind: instructions
+    citation: 2025 Vermont Income Tax Return Booklet, Form RCC-146 line 13 (PDF page 39)
+    url: https://tax.vermont.gov/sites/tax/files/documents/Income-Booklet-2025.pdf#page=39
+  readings:
+    statute: 'For the renter credit, income is federal adjusted gross income increased by "trade or business loss from
+      a sole proprietorship, loss from a partnership, loss from a limited liability company or "subchapter S"
+      corporation, loss from a rental property, capital loss, loss from an estate or trust, loss from a real estate
+      mortgage investment conduit, farm rental loss, any loss associated with the sale of business property, and farm
+      losses included in adjusted gross income".'
+    other: 'Line 13 reads "Add back any negative amounts from federal Form 1040, Line 7 and Schedule 1, Lines 3, 4, 5,
+      6, and 8a." The booklet: "Enter the amount of any negative amount (net loss) shown on federal Form 1040 or Form
+      1040-SR, Line 7, and federal Schedule 1, Lines 3, 4, 5, 6, and 8a." Schedule 1 line 3 combines every Schedule C
+      on the return, and line 5 combines rental real estate, royalties, partnerships, S corporations, estates and
+      trusts.'
+  example: 'In 2025 a claimant with $30,000 of wages, $10,000 of rental income and a $4,000 partnership loss has
+    federal AGI of $36,000. The statute adds back the partnership loss, for income of $40,000. Schedule 1 line 5 is
+    $6,000, so line 13 adds nothing and income is $36,000. A claimant with $30,000 of wages, a $4,000 long-term capital
+    loss and $2,000 of capital gain distributions has federal AGI of $28,000: the loss offsets the $2,000 of gains and
+    the other $2,000 is deducted as a net capital loss. The statute adds back the $4,000 capital loss, for income of
+    $32,000. Form 1040 line 7 is -$2,000, so line 13 adds back $2,000 and income is $30,000.'
+  pe_us:
+    follows: statute
+    code:
+    - policyengine_us/variables/gov/states/vt/tax/income/credits/renter/vt_renter_credit_income.py
+    - policyengine_us/variables/gov/states/vt/tax/income/credits/renter/vt_renter_credit_capital_loss_add_back.py
+    prs:
+    - https://github.com/PolicyEngine/policyengine-us/pull/11178
+  state: unreviewed
+  note: 'PolicyEngine adds back limited_business_loss, which holds each head''s and spouse''s loss in each income input
+    (self-employment, farm, rental, farm rental, estate or trust, partnership or S corporation, and Form 4797 gains),
+    and vt_renter_credit_capital_loss_add_back, each capital loss of the head and spouse that AGI deducted. That
+    add-back has three parts: a loss that offset the same person''s gain in the other holding period or capital gain
+    distributions on Schedule D line 13; capital_losses_allowed_against_gains, the losses allowed against another
+    filer''s gains and distributions reported without Schedule D; and limited_capital_loss, the net capital loss up to
+    the 26 U.S.C. 1211(b) limit. A loss carried to a later year is not added back. The prior-year long-term carryover,
+    which 26 U.S.C. 1212(b)(1)(B) treats as a capital loss of the year, is added back to the extent AGI deducted it.
+    (18)(A) does not define "capital loss"; the model reads it as each loss from a sale or exchange (26 U.S.C. 1222(2)
+    and (4)), not the "net capital loss" of 1222(10), so every capital loss included in AGI is added back. RCC-146 line
+    13 and the 2025 booklet add back only the net figure on Form 1040 line 7. A loss inside one input, such as one
+    rental property netted against another in rental_income, or two sales in the same holding period netted in one
+    person''s short-term or long-term capital gains, cannot be separated; neither can a short-term carryover, which has
+    no input of its own. Line 13 also adds back a net operating loss deduction (Schedule 1 line 8a), which (18)(A) does
+    not list; this model has no federal net operating loss deduction. Cases 6, 7 and 11 to 16 in
+    vt_renter_credit_income.yaml pin the statute reading. PolicyEngine has recorded no ruling.'
 - id: us-vt:renter-credit-statewide-average-fmr
   program: renter-credit
   years:

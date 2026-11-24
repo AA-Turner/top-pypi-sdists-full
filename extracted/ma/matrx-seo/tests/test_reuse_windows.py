@@ -88,7 +88,7 @@ def scoped_hours():
 
 
 def test_every_family_has_a_registered_knob_and_no_constant_remains() -> None:
-    from conftest import SEO_KNOB_VALUES
+    from matrx_seo.testing_knobs import SEO_KNOB_VALUES
 
     import matrx_seo.keyword_plane as keyword_plane
     import matrx_seo.providers.dataforseo.operations as dfs_ops
@@ -257,7 +257,7 @@ async def test_scheduled_reading_never_reuses_another_period(scoped_hours) -> No
 
 @pytest.mark.asyncio
 async def test_missing_family_knob_raises_never_defaults(scoped_hours, monkeypatch) -> None:
-    from conftest import SEO_KNOB_VALUES
+    from matrx_seo.testing_knobs import SEO_KNOB_VALUES
 
     monkeypatch.delitem(SEO_KNOB_VALUES["seo"], "reuse_hours.serp")
     knobs.clear_knob_cache()

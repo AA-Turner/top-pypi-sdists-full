@@ -14,6 +14,8 @@ import h5py
 import mne
 import numpy as np
 
+from braindecode.util import _warn_orphaned_api
+
 log = logging.getLogger(__name__)
 
 
@@ -42,7 +44,9 @@ class BBCIDataset(object):
         load_sensor_names: list[str] | None = None,
         check_class_names: bool = False,
     ):
-        self.__dict__.update(locals())
+        self.filename = filename
+        self.load_sensor_names = load_sensor_names
+        self.check_class_names = check_class_names
 
     def load(self) -> mne.io.RawArray:
         cnt = self._load_continuous_signal()
@@ -311,7 +315,7 @@ def _check_class_names(all_class_names, event_times_in_ms, event_classes):
         event_classes[left_mask] = 2
         event_classes[rest_mask] = 3
         event_classes[feet_mask] = 4
-        log.warn(
+        log.warning(
             "Swapped  class names {:s}... might cause problems...".format(
                 all_class_names
             )
@@ -654,7 +658,7 @@ def _check_class_names(all_class_names, event_times_in_ms, event_classes):
         pass
     else:
         # remove this whole if else stuffs?
-        log.warn("Unknown class names {:s}".format(all_class_names))
+        log.warning("Unknown class names {:s}".format(all_class_names))
 
 
 def load_bbci_sets_from_folder(
@@ -662,6 +666,9 @@ def load_bbci_sets_from_folder(
 ) -> list[mne.io.RawArray]:
     """
     Load bbci datasets from files in given folder.
+
+    .. deprecated:: 2.1
+        It has no user in braindecode and will be removed in 2.2.
 
     Parameters
     ----------
@@ -675,6 +682,7 @@ def load_bbci_sets_from_folder(
     Returns
     -------
     """
+    _warn_orphaned_api("load_bbci_sets_from_folder")
     bbci_mat_files = sorted(glob(os.path.join(folder, "*.BBCI.mat")))
     if runs != "all":
         assert isinstance(runs, list), "runs should be list[int] or 'all'"

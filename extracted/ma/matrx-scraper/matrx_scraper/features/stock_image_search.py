@@ -13,10 +13,10 @@ This is the single source of the Unsplash HTTP + parse logic. The matrx-graph
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 UNSPLASH_SEARCH_URL = "https://api.unsplash.com/search/photos"
 
@@ -25,7 +25,9 @@ def resolve_unsplash_key(explicit: str | None = None) -> str | None:
     """Explicit override first, then the host process ``UNSPLASH_ACCESS_KEY``."""
     if explicit:
         return explicit
-    return os.environ.get("UNSPLASH_ACCESS_KEY")
+    from matrx_scraper._ext import provider_secret
+
+    return provider_secret("UNSPLASH_ACCESS_KEY")
 
 
 def parse_stock_image_item(item: dict[str, Any]) -> dict[str, Any]:
@@ -96,7 +98,7 @@ async def search_stock_images(
     headers = {"Authorization": f"Client-ID {key}", "Accept-Version": "v1"}
 
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with shared_client(timeout=timeout) as client:
             response = await client.get(UNSPLASH_SEARCH_URL, params=params, headers=headers)
         if response.status_code >= 400:
             return {

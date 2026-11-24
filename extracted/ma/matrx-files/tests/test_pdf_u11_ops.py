@@ -12,7 +12,7 @@ import pytest
 pikepdf = pytest.importorskip("pikepdf")
 pdfium = pytest.importorskip("pypdfium2")
 
-from _pdf_corpus import build_corpus, decrypted_bytes  # noqa: E402
+from _pdf_corpus import build_corpus  # noqa: E402
 
 from matrx_files.specific_handlers.pdf.handler import PDFHandler  # noqa: E402
 from matrx_files.specific_handlers.pdf.ops.outline import read_outline_bytes, set_outline_bytes  # noqa: E402

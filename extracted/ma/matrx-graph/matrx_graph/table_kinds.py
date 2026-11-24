@@ -32,6 +32,7 @@ import copy
 import json
 import re
 from collections.abc import Mapping
+from contextvars import ContextVar
 from functools import cache
 from pathlib import Path
 from typing import Any, Literal
@@ -44,6 +45,9 @@ __all__ = [
     "TABLE_KIND_PREFIX",
     "TableKindFacts",
     "TableKindRefused",
+    "TableKindUnbuilt",
+    "read_table_kind",
+    "resolve_table_kind",
     "authored_schema",
     "field_kind_of",
     "is_table_kind",
@@ -535,3 +539,163 @@ def authored_schema(
 def render_schema(facts: TableKindFacts | Mapping[str, Any]) -> dict[str, Any]:
     """The web's ``KindSchema`` with the control keys as optional render fields."""
     return with_control_key_fields(render_schema_for(facts))
+
+
+# --------------------------------------------------------------------------- the one resolver
+#
+# Wave 3 §1.2–1.3 slice 2. ``matrx_graph.kinds.resolve_kind("table:<uuid>")`` answers here, before
+# the registry cache: a Table's kind is read LIVE, through the host's reader (``get_extra(
+# "table_kind_reader")``, matrx-records' ``agent.table_kind.read_table_kind_facts`` in aidream), as
+# the asking person. NOTHING IS CACHED ACROSS PEOPLE: the only memo is per request — a
+# ``ContextVar`` keyed ``(request id, user, organization, slug, mode)`` — the person the read runs as; with no request id there is no memo and
+# every call reads. A refusal is the store's own sentence on the entry (``refusal``), never a pass.
+
+TableKindMode = Literal["stored", "authored"]
+
+
+class TableKindUnbuilt(Exception):
+    """The store described the Table, but its schema could not be built from those facts."""
+
+
+_memo: ContextVar[tuple[str, dict[tuple[str, str, str, str, str], Any]] | None] = ContextVar(
+    "matrx_graph_table_kind_memo", default=None
+)
+
+
+def _read_identity(user_id: str | None, organization_id: str | None) -> tuple[str, str, str]:
+    """``(request id, user, organization)`` — the person the read ACTUALLY runs as.
+
+    The host reader's contract (matrx-records ``agent.table_kind.read_table_kind_facts``): an
+    explicit person is BOTH ``user_id`` and ``organization_id``; otherwise it reads as the carried
+    app context's person, in ``organization_id`` when that alone is given (a background run whose
+    context carries the organization apart). The memo key names exactly that person and that
+    organization, so two people (or one person in two organizations) in one request never share
+    an answer.
+    """
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    except ImportError:  # pragma: no cover — matrx-connect is a hard dependency
+        ctx = None
+
+    def carried(name: str) -> str:
+        return str(getattr(ctx, name, "") or "") if ctx is not None else ""
+
+    request_id = carried("request_id")
+    if user_id and organization_id:
+        return request_id, str(user_id), str(organization_id)
+    return request_id, carried("user_id"), str(organization_id or "") or carried("organization_id")
+
+
+def _memo_for(request_id: str) -> dict[tuple[str, str, str, str, str], Any] | None:
+    if not request_id:
+        return None
+    held = _memo.get()
+    if held is None or held[0] != request_id:
+        held = (request_id, {})
+        _memo.set(held)
+    return held[1]
+
+
+async def read_table_kind(
+    slug: str,
+    mode: TableKindMode = "stored",
+    *,
+    user_id: str | None = None,
+    organization_id: str | None = None,
+) -> Any:
+    """The ``KindEntry`` of ``table:<uuid>`` for the asking person — RAISES what went wrong.
+
+    :class:`TableKindRefused` is the store's sentence; :class:`TableKindUnbuilt` a schema that
+    could not be built; anything else is the reader's own error (an outage, or a defect). The
+    person is the carried app context's, unless ``user_id`` / ``organization_id`` name the person
+    explicitly (a replay reading as the turn's person). Refusals are memoized like answers.
+
+    ``user_id`` without ``organization_id`` is refused (ValueError): the reader would read as the
+    carried person instead, so the answer would belong to someone the caller did not name.
+    """
+    from matrx_graph.db._registry import get_extra
+    from matrx_graph.executor.schema_validation import schema_validity_errors
+    from matrx_graph.kinds import KindEntry
+
+    if user_id and not organization_id:
+        raise ValueError(
+            "read_table_kind was handed a user_id without an organization_id; a person is read as in "
+            "one organization, so name both (or neither, to read as the carried request's person)."
+        )
+    table_id = table_id_of(slug)
+    request_id, user, org = _read_identity(user_id, organization_id)
+    memo = _memo_for(request_id)
+    key = (request_id, user, org, slug, mode)
+    if memo is not None and key in memo:
+        held = memo[key]
+        if isinstance(held, BaseException):
+            raise held
+        return held
+    reader = get_extra("table_kind_reader")
+    try:
+        if user_id or organization_id:
+            facts = await reader(table_id, user_id=user_id, organization_id=organization_id)
+        else:
+            facts = await reader(table_id)
+    except TableKindRefused as refused:
+        if memo is not None:
+            memo[key] = refused
+        raise
+    try:
+        schema = stored_schema(facts) if mode == "stored" else authored_schema(facts)
+    except Exception as exc:  # noqa: BLE001 — named, raised whole, never a silent pass
+        raise TableKindUnbuilt(f"{type(exc).__name__}: {exc}") from exc
+    get = facts.get if isinstance(facts, Mapping) else (lambda k, d=None: getattr(facts, k, d))
+    entry = KindEntry(
+        slug=slug,
+        version=int(get("version", 1) or 1),
+        label=str(get("name", "") or ""),
+        json_schema=schema,
+        schema_errors=tuple(schema_validity_errors(schema)),
+        disposition="record",
+        stamp=str(get("stamp", "") or "") or None,
+    )
+    if memo is not None:
+        memo[key] = entry
+    return entry
+
+
+async def resolve_table_kind(slug: str, mode: TableKindMode = "stored") -> tuple[Any, Any]:
+    """``(entry, degraded_reason)`` for ``table:<uuid>`` — ``resolve_kind``'s table branch.
+
+    A refusal answers an entry carrying the store's sentence (``refusal``) with
+    ``kind_not_readable``; an unreachable reader is ``catalog_unreachable`` (never a pass); a
+    defect in the code re-raises (THE STRICTNESS LAW clause 6).
+    """
+    from matrx_graph.kinds import (
+        KindDegradedReason,
+        KindEntry,
+        _raise_if_programmer_error,  # pyright: ignore[reportPrivateUsage]
+        _warn_once,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    try:
+        entry = await read_table_kind(slug, mode)
+    except TableKindRefused as refused:
+        return (
+            KindEntry(slug=slug, version=0, disposition="record", refusal=refused.sentence),
+            KindDegradedReason.KIND_NOT_READABLE,
+        )
+    except TableKindUnbuilt as unbuilt:
+        _warn_once(slug, f"kind catalog: table kind '{slug}' could not be built from its facts: {unbuilt}")
+        return (
+            KindEntry(slug=slug, version=0, disposition="record", schema_errors=(str(unbuilt),)),
+            KindDegradedReason.SCHEMA_INVALID,
+        )
+    except Exception as exc:  # noqa: BLE001 — an outage is named; a code defect re-raises
+        _raise_if_programmer_error(exc, what=f"table kind read for '{slug}'")
+        _warn_once(
+            slug,
+            f"kind catalog: table kind '{slug}' could not be read (the record store did not answer, "
+            f"not an access refusal) — validation SKIPPED "
+            f"(degraded_reason={KindDegradedReason.CATALOG_UNREACHABLE.value}). err={exc}",
+        )
+        return None, KindDegradedReason.CATALOG_UNREACHABLE
+    return entry, (KindDegradedReason.SCHEMA_INVALID if entry.schema_errors else None)

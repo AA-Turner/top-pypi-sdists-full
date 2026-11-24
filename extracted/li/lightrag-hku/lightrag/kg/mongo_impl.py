@@ -1,6 +1,8 @@
 import os
 import re
+import sys
 import json
+import math
 import time
 import hashlib
 from dataclasses import dataclass, field
@@ -8,7 +10,7 @@ import numpy as np
 import configparser
 import asyncio
 
-from typing import Any, ClassVar, Sequence, Union, final
+from typing import Any, AsyncIterator, ClassVar, Sequence, Union, final
 
 from ..base import (
     CURSOR_END,
@@ -38,7 +40,10 @@ from ..utils import (
     merge_source_ids,
     validate_interpreted_attribute_names,
     validate_workspace,
+    validate_workspace_override,
 )
+from ..namespace import CONFIG_CONTAINER_TAG, NameSpace
+from ..utils_graph import relation_evidence_count
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
 from ..constants import (
     CUSTOM_CHUNK_PATCH_METADATA_KEY,
@@ -47,11 +52,20 @@ from ..constants import (
 )
 from ..exceptions import (
     SourceConflictRepairCASError,
+    StorageCapabilityError,
     StorageControlPlaneError,
+    StorageNotInitializedError,
     StorageRecordNotFoundError,
+    VectorSpaceMismatchError,
 )
 from .._version import __version__
 from ..kg.shared_storage import get_data_init_lock, get_namespace_lock
+from ..kg.vector_space import (
+    assert_vector_space_matches,
+    declared_model_name,
+    read_vector_space_marker,
+    vector_space_marker,
+)
 
 import pipmaster as pm
 
@@ -89,6 +103,28 @@ DEFAULT_MONGO_UPSERT_MAX_PAYLOAD_BYTES = 16 * 1024 * 1024  # 16MB
 DEFAULT_MONGO_UPSERT_MAX_RECORDS_PER_BATCH = 128
 DEFAULT_MONGO_DELETE_MAX_RECORDS_PER_BATCH = 1000
 
+# get_edges_batch's own $or chunk size, matching postgres_impl.get_edges_batch's
+# batch_size default -- a fixed safety cap for query size, not an operator-tuned
+# knob like the env-var-driven limits above, so it isn't one.
+_GET_EDGES_BATCH_CHUNK_SIZE = 500
+
+# node_degrees_batch's own $in chunk size -- kept as its own constant rather
+# than sharing _GET_EDGES_BATCH_CHUNK_SIZE since the two methods' per-entry
+# BSON size differs enough to matter: a bare id string costs far less than
+# get_edges_batch's two-field edge_lo/edge_hi dict, so the same query-size
+# budget affords a much larger chunk here. Matched to
+# _GRAPH_DEGREE_RANK_MAX_CANDIDATES (this module's already-accepted safe
+# candidate-set size for a BFS level) rather than picked independently, so
+# that already-bounded caller stays at 2 round trips (one chunk) instead of
+# being re-split by an unrelated, smaller cap.
+_NODE_DEGREES_BATCH_CHUNK_SIZE = 8192
+
+# Shared query payload budget for node-degree ``$in`` and edge ``$or`` lookups.
+# Count-only caps cannot bound BSON size because entity IDs are caller-controlled.
+# Reserve 1 MiB for query wrappers and BSON metadata; count caps remain secondary
+# guards on round-trip volume.
+_GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024  # 15 MiB + 1 MiB headroom
+
 # MongoDB duplicate-key error code, raised when an upsert insert races the
 # unique edge-endpoint index (another writer inserted the same edge first).
 _DUPLICATE_KEY_CODE = 11000
@@ -98,14 +134,28 @@ _DUPLICATE_KEY_CODE = 11000
 # migration's progress cadence).
 _EDGE_MIGRATION_PROGRESS_INTERVAL = 50_000
 
+# Atlas Vector Search rejects a $vectorSearch stage whose limit exceeds
+# numCandidates ("limit should be less than or equal to numCandidates") and
+# one whose numCandidates is outside [1..10000]; the query fails rather than
+# returning fewer rows. numCandidates therefore only widens to top_k: a top_k
+# at or below the floor keeps the previous fixed pool of 100, so the default
+# query is unchanged. top_k above the ceiling (core API only; the REST
+# endpoints cap it at MAX_QUERY_TOP_K) is clamped to the ceiling too.
+_VECTOR_SEARCH_MIN_NUM_CANDIDATES = 100
+_VECTOR_SEARCH_MAX_NUM_CANDIDATES = 10_000
+
 # Ceiling on how many same-depth candidates get a degree lookup before the
-# max_nodes cap in the bidirectional BFS. node_degrees_batch binds the whole
-# list into two `$in` arrays, and one hub can put 100k neighbours in a single
-# level -- an array that size inflates the command document and forces the
-# planner through a huge index-bounds list for a ranking that only decides the
-# order of candidates max_nodes will mostly discard anyway. (Deliberately not
-# shared with the OpenSearch constant of the same value: that one is derived
-# from index.max_terms_count / search.max_buckets, this one from $in size.)
+# max_nodes cap in the bidirectional BFS. node_degrees_batch itself chunks
+# its $in queries at this same size (see _NODE_DEGREES_BATCH_CHUNK_SIZE), so
+# this call site fits in exactly one chunk -- 2 round trips, same as before
+# chunking existed -- when ids are short enough to stay under
+# _GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES; long ids can still re-split it (see
+# that constant's comment), the count cap alone is not a hard guarantee. The
+# ceiling itself still earns its keep: one hub can put 100k+ neighbours in a
+# single level, and without it every one of them would get degree-ranked (in
+# several chunks) for an outcome max_nodes will mostly discard anyway.
+# (Deliberately not shared with the OpenSearch constant of the same value:
+# that one is derived from index.max_terms_count / search.max_buckets.)
 _GRAPH_DEGREE_RANK_MAX_CANDIDATES = 8192
 
 
@@ -135,13 +185,23 @@ def _edge_source_id_list(doc: dict[str, Any]) -> list[str]:
 
 
 def _coerce_weight(weight: Any) -> float | None:
-    """Coerce a (possibly string) edge weight to float, or None if non-numeric."""
+    """Coerce a (possibly string) edge weight to float, or None if the value
+    is missing, non-numeric, or not finite.
+
+    NaN/+-inf pass ``float()`` (including via strings like "nan"), but none of
+    them is a storable graph attribute (see ``graph_attribute_value_rejection``
+    -- the rule is the portability intersection across the backends, not a
+    per-backend impossibility) and a NaN poisons every ``sum``/``max`` it later
+    reaches. A non-finite legacy weight is therefore unusable in exactly the
+    way a non-numeric one is, and is skipped the same way.
+    """
     if weight is None:
         return None
     try:
-        return float(weight)
+        coerced = float(weight)
     except (TypeError, ValueError):
         return None
+    return coerced if math.isfinite(coerced) else None
 
 
 def _estimate_doc_bytes(doc: Any) -> int:
@@ -373,13 +433,34 @@ class MongoKVStorage(BaseKVStorage):
         self.__post_init__()
 
     def __post_init__(self):
+        # Before the configuration branch below, not after it: that branch
+        # returns early, and ``upsert`` reads both of these on the very first
+        # baseline claim. Skipping them left a Mongo-backed configuration
+        # storage raising ``AttributeError`` during startup.
+        (
+            self._max_upsert_payload_bytes,
+            self._max_upsert_records_per_batch,
+        ) = _resolve_upsert_batch_limits()
+        if self.namespace == NameSpace.KV_STORE_CONFIG:
+            # The configuration container is named in CODE: one fixed
+            # collection, no workspace prefix to choose and no
+            # MONGODB_WORKSPACE remap. Two deployments sharing one database
+            # share this collection and are kept apart by the row KEY, whose
+            # scope is the business workspace the row is about.
+            # See docs/design/ConfigurationStorageContract.md.
+            self.workspace = CONFIG_CONTAINER_TAG
+            self.final_namespace = f"{CONFIG_CONTAINER_TAG}_{self.namespace}"
+            self._collection_name = self.final_namespace
+            return
         validate_workspace(self.workspace)
         # Check for MONGODB_WORKSPACE environment variable first (higher priority)
         # This allows administrators to force a specific workspace for all MongoDB storage instances
         mongodb_workspace = os.environ.get("MONGODB_WORKSPACE")
         if mongodb_workspace and mongodb_workspace.strip():
             # Use environment variable value, overriding the passed workspace parameter
-            effective_workspace = mongodb_workspace.strip()
+            effective_workspace = validate_workspace_override(
+                "MONGODB_WORKSPACE", mongodb_workspace
+            )
             logger.info(
                 f"Using MONGODB_WORKSPACE environment variable: '{effective_workspace}' (overriding '{self.workspace}/{self.namespace}')"
             )
@@ -408,10 +489,6 @@ class MongoKVStorage(BaseKVStorage):
             )
 
         self._collection_name = self.final_namespace
-        (
-            self._max_upsert_payload_bytes,
-            self._max_upsert_records_per_batch,
-        ) = _resolve_upsert_batch_limits()
 
     async def initialize(self):
         async with get_data_init_lock():
@@ -544,6 +621,20 @@ class MongoKVStorage(BaseKVStorage):
             logger.error(f"[{self.workspace}] Error checking if storage is empty: {e}")
             return True
 
+    async def iter_rows(self, *, page_size: int = 200) -> AsyncIterator[dict[str, Any]]:
+        """Stream every row (base contract) through a server cursor whose
+        batch size bounds what is in memory at once. ``_id`` is the document
+        key already; the time defaults match ``get_by_ids``."""
+        if self._data is None:
+            raise StorageNotInitializedError("MongoKVStorage")
+        cursor = self._data.find({}, batch_size=max(1, int(page_size)))
+        async for doc in cursor:
+            if not doc:
+                continue
+            doc.setdefault("create_time", 0)
+            doc.setdefault("update_time", 0)
+            yield doc
+
     async def delete(self, ids: list[str]) -> None:
         """Delete documents with specified IDs
 
@@ -566,6 +657,7 @@ class MongoKVStorage(BaseKVStorage):
             logger.error(
                 f"[{self.workspace}] Error deleting documents from {self.namespace}: {e}"
             )
+            raise
 
     async def drop(self) -> dict[str, str]:
         """Drop the storage by removing all documents in the collection.
@@ -659,7 +751,9 @@ class MongoDocStatusStorage(DocStatusStorage):
         mongodb_workspace = os.environ.get("MONGODB_WORKSPACE")
         if mongodb_workspace and mongodb_workspace.strip():
             # Use environment variable value, overriding the passed workspace parameter
-            effective_workspace = mongodb_workspace.strip()
+            effective_workspace = validate_workspace_override(
+                "MONGODB_WORKSPACE", mongodb_workspace
+            )
             logger.info(
                 f"Using MONGODB_WORKSPACE environment variable: '{effective_workspace}' (overriding '{self.workspace}/{self.namespace}')"
             )
@@ -883,30 +977,40 @@ class MongoDocStatusStorage(DocStatusStorage):
             # Use workspace-specific index names to avoid cross-workspace conflicts
             workspace_prefix = f"{self.workspace}_" if self.workspace != "" else ""
 
-            # 1. Define all indexes needed with workspace-specific names
+            # 1. Define all indexes needed with workspace-specific names.
+            #
+            # get_docs_paginated sorts by (field, _id) with _id in the SAME
+            # direction as the field, so each (field, _id) index below
+            # serves both asc and desc (MongoDB walks it backwards), and the
+            # status-prefixed variants serve a status $in filter through a
+            # SORT_MERGE. A sort with no matching index is a COLLSCAN plus an
+            # in-memory sort on every page request, so keep these in step
+            # with the sort fields get_docs_paginated accepts.
             all_indexes = [
-                # Original pagination indexes
                 {
-                    "name": f"{workspace_prefix}status_updated_at",
-                    "keys": [("status", 1), ("updated_at", -1)],
+                    "name": f"{workspace_prefix}updated_at_id",
+                    "keys": [("updated_at", -1), ("_id", -1)],
                 },
                 {
-                    "name": f"{workspace_prefix}status_created_at",
-                    "keys": [("status", 1), ("created_at", -1)],
+                    "name": f"{workspace_prefix}status_updated_at_id",
+                    "keys": [("status", 1), ("updated_at", -1), ("_id", -1)],
                 },
-                {"name": f"{workspace_prefix}updated_at", "keys": [("updated_at", -1)]},
-                {"name": f"{workspace_prefix}created_at", "keys": [("created_at", -1)]},
+                {
+                    "name": f"{workspace_prefix}created_at_id",
+                    "keys": [("created_at", -1), ("_id", -1)],
+                },
                 {"name": f"{workspace_prefix}id", "keys": [("_id", 1)]},
                 {"name": f"{workspace_prefix}track_id", "keys": [("track_id", 1)]},
-                # New file_path indexes with Chinese collation and workspace-specific names
+                # file_path sorts use the Chinese pinyin collation; an index
+                # serves a sort only when its collation matches the query's.
                 {
-                    "name": f"{workspace_prefix}file_path_zh_collation",
-                    "keys": [("file_path", 1)],
+                    "name": f"{workspace_prefix}file_path_id_zh_collation",
+                    "keys": [("file_path", 1), ("_id", 1)],
                     "collation": collation_config,
                 },
                 {
-                    "name": f"{workspace_prefix}status_file_path_zh_collation",
-                    "keys": [("status", 1), ("file_path", 1)],
+                    "name": f"{workspace_prefix}status_file_path_id_zh_collation",
+                    "keys": [("status", 1), ("file_path", 1), ("_id", 1)],
                     "collation": collation_config,
                 },
                 # Partial index on content_hash for content-based dedup lookups.
@@ -923,11 +1027,27 @@ class MongoDocStatusStorage(DocStatusStorage):
                 # matches the MUST sort of get_docs_by_statuses_page
                 # ((created_at ASC, _id ASC) within each status branch of a
                 # status $in — the server merges the per-status keysets).
+                # It also serves get_docs_paginated's status-filtered
+                # created_at sort in either direction.
                 {
                     "name": f"{workspace_prefix}status_created_at_id_asc",
                     "keys": [("status", 1), ("created_at", 1), ("_id", 1)],
                 },
             ]
+
+            # Indexes from earlier versions whose keys are a prefix of an
+            # index above, mapped to that replacement. They are dropped only
+            # once the replacement exists, so no sort is ever left without
+            # an index; an older version started on the same collection
+            # simply recreates them.
+            superseded_indexes = {
+                f"{workspace_prefix}updated_at": f"{workspace_prefix}updated_at_id",
+                f"{workspace_prefix}status_updated_at": f"{workspace_prefix}status_updated_at_id",
+                f"{workspace_prefix}created_at": f"{workspace_prefix}created_at_id",
+                f"{workspace_prefix}status_created_at": f"{workspace_prefix}status_created_at_id_asc",
+                f"{workspace_prefix}file_path_zh_collation": f"{workspace_prefix}file_path_id_zh_collation",
+                f"{workspace_prefix}status_file_path_zh_collation": f"{workspace_prefix}status_file_path_id_zh_collation",
+            }
 
             # 2. Handle legacy index cleanup: only drop old indexes that exist in THIS collection
             legacy_index_names = [
@@ -975,6 +1095,7 @@ class MongoDocStatusStorage(DocStatusStorage):
                         await self._data.create_index(
                             index_info["keys"], **create_kwargs
                         )
+                        existing_index_names.add(index_name)
                         logger.debug(
                             f"[{self.workspace}] Created index '{index_name}' for collection {self._collection_name}"
                         )
@@ -986,6 +1107,24 @@ class MongoDocStatusStorage(DocStatusStorage):
                 else:
                     logger.debug(
                         f"[{self.workspace}] Index '{index_name}' already exists for collection {self._collection_name}"
+                    )
+
+            # 4. Drop superseded indexes whose replacement now exists
+            for old_name, replacement in superseded_indexes.items():
+                if (
+                    old_name not in existing_index_names
+                    or replacement not in existing_index_names
+                ):
+                    continue
+                try:
+                    await self._data.drop_index(old_name)
+                    existing_index_names.discard(old_name)
+                    logger.info(
+                        f"[{self.workspace}] Dropped index '{old_name}' from collection {self._collection_name}: superseded by '{replacement}'"
+                    )
+                except PyMongoError as drop_error:
+                    logger.warning(
+                        f"[{self.workspace}] Failed to drop superseded index '{old_name}' from collection {self._collection_name}: {drop_error}"
                     )
 
         except PyMongoError as e:
@@ -1008,7 +1147,8 @@ class MongoDocStatusStorage(DocStatusStorage):
             status_filter: Filter by document status, None for all statuses
             page: Page number (1-based)
             page_size: Number of documents per page (10-200)
-            sort_field: Field to sort by ('created_at', 'updated_at', '_id')
+            sort_field: Field to sort by ('created_at', 'updated_at', 'id', 'file_path').
+                The legacy '_id' alias is also accepted.
             sort_direction: Sort direction ('asc' or 'desc')
 
         Returns:
@@ -1027,6 +1167,9 @@ class MongoDocStatusStorage(DocStatusStorage):
         elif page_size > 200:
             page_size = 200
 
+        if sort_field == "id":
+            sort_field = "_id"
+
         if sort_field not in ["created_at", "updated_at", "_id", "file_path"]:
             sort_field = "updated_at"
 
@@ -1044,9 +1187,17 @@ class MongoDocStatusStorage(DocStatusStorage):
         # Calculate skip value
         skip = (page - 1) * page_size
 
-        # Build sort criteria
+        # Build sort criteria. created_at/updated_at/file_path are not unique,
+        # and MongoDB returns tied documents in an unspecified order that can
+        # differ between two page queries, skipping or repeating a document.
+        # Append _id as a tie-breaker in the SAME direction as the primary
+        # field: the (field, _id) indexes from
+        # create_and_migrate_indexes_if_not_exists then serve both directions,
+        # while a mismatched direction falls back to a COLLSCAN + SORT.
         sort_direction_value = 1 if sort_direction.lower() == "asc" else -1
         sort_criteria = [(sort_field, sort_direction_value)]
+        if sort_field != "_id":
+            sort_criteria.append(("_id", sort_direction_value))
 
         # Query for paginated data with Chinese collation for file_path sorting
         if sort_field == "file_path":
@@ -1247,8 +1398,17 @@ class MongoDocStatusStorage(DocStatusStorage):
 
     @staticmethod
     def _decode_cursor(opaque: str) -> tuple[str | None, str]:
+        """Decode an opaque scheduling cursor into its ``(created_at, id)`` key.
+
+        Only this backend's own ``[created_at | null, id]`` list is a cursor.
+        Any other payload -- including a two-entry object or a two-character
+        string, which would unpack to two strings and mis-position the sweep --
+        raises :class:`~lightrag.exceptions.StorageControlPlaneError`.
+        """
         try:
             decoded = json.loads(opaque)
+            if not isinstance(decoded, list) or len(decoded) != 2:
+                raise ValueError("cursor must be a two-element list")
             created, doc_id = decoded
             if not isinstance(doc_id, str):
                 raise ValueError("cursor id must be a string")
@@ -1737,7 +1897,9 @@ class MongoGraphStorage(BaseGraphStorage):
         mongodb_workspace = os.environ.get("MONGODB_WORKSPACE")
         if mongodb_workspace and mongodb_workspace.strip():
             # Use environment variable value, overriding the passed workspace parameter
-            effective_workspace = mongodb_workspace.strip()
+            effective_workspace = validate_workspace_override(
+                "MONGODB_WORKSPACE", mongodb_workspace
+            )
             logger.info(
                 f"Using MONGODB_WORKSPACE environment variable: '{effective_workspace}' (overriding '{self.workspace}/{self.namespace}')"
             )
@@ -1805,6 +1967,13 @@ class MongoGraphStorage(BaseGraphStorage):
     async def create_edge_indexes_and_migrate_if_not_exists(self) -> None:
         """Create the compound unique edge-endpoint index, migrating legacy edges first.
 
+        Also ensures the ``source_node_id``/``target_node_id`` single-field
+        indexes that back ``node_degree``/``node_degrees_batch``/
+        ``get_node_edges``/``get_nodes_edges_batch`` exist, independently of
+        the migration below and on every call (idempotent) — so an
+        already-migrated deployment still picks them up. Best-effort: unlike
+        the migration, a failure there is logged and does not abort startup.
+
         Fail-fast one-time migration (mirrors the OpenSearch canonical-id work):
 
           1. dedupe legacy reciprocal duplicate docs, **merging the full relation
@@ -1836,7 +2005,69 @@ class MongoGraphStorage(BaseGraphStorage):
 
         indexes_cursor = await self.edge_collection.list_indexes()
         existing_indexes = await indexes_cursor.to_list(length=None)
-        if any(idx.get("name") == index_name for idx in existing_indexes):
+        existing_index_names = {idx.get("name", "") for idx in existing_indexes}
+        # Fields already covered by a single-field index. Index options are not
+        # inspected: a hand-added collation or partial index the planner can't
+        # use for these lookups would still skip creation below.
+        single_field_indexed = {
+            next(iter(idx["key"]))
+            for idx in existing_indexes
+            if isinstance(idx.get("key"), dict) and len(idx["key"]) == 1
+        }
+
+        # Best-effort only -- these two indexes are a performance optimization,
+        # not required for correctness (unlike the compound migration below).
+        # Check by field, not by our own name: an index on the same field can
+        # already exist under a different name (e.g. Mongo's own default
+        # "source_node_id_1", from a DBA-added index), and creating a
+        # same-field index under a new name raises IndexKeySpecsConflict.
+        # Catch PyMongoError too (e.g. a restricted service account without
+        # createIndex privilege) so a failure here logs and moves on instead
+        # of aborting initialize()/startup, mirroring the doc-status index
+        # creation above.
+        source_index_name = f"{workspace_prefix}source_node_id"
+        target_index_name = f"{workspace_prefix}target_node_id"
+        if (
+            "source_node_id" not in single_field_indexed
+            or "target_node_id" not in single_field_indexed
+        ):
+            # create_index() awaits the build's commit, and this runs inside
+            # get_data_init_lock, so the first startup after upgrading onto
+            # this code blocks here until the build finishes -- on a
+            # collection with tens of millions of edges that can look like a
+            # hang rather than a one-time index build. Logged unconditionally
+            # (not just on a slow-build heuristic) since there's no cheap way
+            # to know the collection size in advance.
+            logger.info(
+                f"[{self.workspace}] Creating source_node_id/target_node_id "
+                f"indexes on {self._edge_collection_name}; this may take a "
+                "while on large collections and blocks startup until it "
+                "completes"
+            )
+        if "source_node_id" not in single_field_indexed:
+            try:
+                await self.edge_collection.create_index(
+                    [("source_node_id", 1)], name=source_index_name
+                )
+            except PyMongoError as e:
+                logger.warning(
+                    f"[{self.workspace}] Could not create source_node_id index on "
+                    f"{self._edge_collection_name}: {e}. Queries filtering by "
+                    "source_node_id will fall back to a collection scan."
+                )
+        if "target_node_id" not in single_field_indexed:
+            try:
+                await self.edge_collection.create_index(
+                    [("target_node_id", 1)], name=target_index_name
+                )
+            except PyMongoError as e:
+                logger.warning(
+                    f"[{self.workspace}] Could not create target_node_id index on "
+                    f"{self._edge_collection_name}: {e}. Queries filtering by "
+                    "target_node_id will fall back to a collection scan."
+                )
+
+        if index_name in existing_index_names:
             logger.info(
                 f"[{self.workspace}] Edge collection {self._edge_collection_name} "
                 f"already on canonical edge endpoints; skipping migration"
@@ -1886,7 +2117,9 @@ class MongoGraphStorage(BaseGraphStorage):
         ``description`` are unioned over their ``GRAPH_FIELD_SEP`` components,
         ``keywords`` are comma-set-unioned, and ``weight`` is **summed** (like
         ``_merge_edges_then_upsert`` — duplicate docs carry separate accumulated
-        weight).
+        weight) then floored to the merged evidence count, so a duplicate with
+        new source_ids but a missing/non-numeric legacy weight cannot leave the
+        result under its own evidence count.
 
         The merge is **idempotent across retries**: if a transient error aborts
         startup after the survivor update but before the delete, the next run
@@ -1998,8 +2231,32 @@ class MongoGraphStorage(BaseGraphStorage):
                 set_fields["description"] = GRAPH_FIELD_SEP.join(all_descriptions)
             if all_keywords:
                 set_fields["keywords"] = ",".join(sorted(all_keywords))
-            if weights:
-                set_fields["weight"] = sum(weights)
+            # A duplicate can contribute new source_ids while carrying a
+            # missing/non-numeric weight (skipped above), which would otherwise
+            # let the summed weight fall below the merged evidence count -- or,
+            # if every doc lacked a coercible weight, leave "weight" unset even
+            # though source_ids just grew. Floor the sum to the evidence count,
+            # per the relation weight contract, whichever a plain sum misses.
+            #
+            # The floor is computed from `relation_evidence_count` rather than
+            # through `apply_relation_weight_floor`, which validates the whole
+            # relation the way a caller ingress does: a legacy `source_id` no
+            # backend can store (an XML-incompatible character, say) would abort
+            # this one-time migration over a row it is supposed to carry
+            # through. Counting evidence needs no such validation.
+            evidence_count = relation_evidence_count(set_fields.get("source_id", ""))
+            if weights or evidence_count:
+                summed_weight = sum(weights) if weights else 0.0
+                if summed_weight == math.inf:
+                    # Each weight was individually finite (_coerce_weight
+                    # rejects nan/inf inputs), but their sum can still overflow
+                    # past what a graph attribute may hold. Keep the largest
+                    # representable weight instead of collapsing an absurd but
+                    # real magnitude down to the evidence count. Only +inf is
+                    # clamped: a sum of finite floats is never NaN, and -inf is
+                    # absorbed by the evidence floor below.
+                    summed_weight = sys.float_info.max
+                set_fields["weight"] = max(summed_weight, float(evidence_count))
             if set_fields:
                 await self.edge_collection.update_one(
                     {"_id": survivor["_id"]}, {"$set": set_fields}
@@ -2116,6 +2373,12 @@ class MongoGraphStorage(BaseGraphStorage):
     async def node_degree(self, node_id: str) -> int:
         """
         Returns the total number of edges connected to node_id (both inbound and outbound).
+
+        One count, not two. A self-loop would be counted once here and twice
+        by ``node_degrees_batch`` below, but the graph is not allowed to hold
+        one (``BaseGraphStorage.node_degree``), so no caller can observe the
+        difference on data the contract admits. Excluding it at the query was
+        measured and rejected -- see the contract for what it cost.
         """
         return await self.edge_collection.count_documents(
             {"$or": [{"source_node_id": node_id}, {"target_node_id": node_id}]}
@@ -2227,35 +2490,194 @@ class MongoGraphStorage(BaseGraphStorage):
 
     async def node_degrees_batch(self, node_ids: list[str]) -> dict[str, int]:
         # merge the outbound and inbound results with the same "_id" and sum the "degree"
-        merged_results = {}
+        # Seeded with zeros so every requested id gets an answer: a node with no
+        # edges contributes no row to either aggregation, and the batch must
+        # still report the 0 node_degree reports rather than omitting the key.
+        merged_results = {nid: 0 for nid in node_ids}
 
-        # Outbound degrees
-        outbound_pipeline = [
-            {"$match": {"source_node_id": {"$in": node_ids}}},
-            {"$group": {"_id": "$source_node_id", "degree": {"$sum": 1}}},
-        ]
-
-        cursor = await self.edge_collection.aggregate(
-            outbound_pipeline, allowDiskUse=True
+        # Chunk the $in list so one hub with a huge neighbor set (an unbounded
+        # caller, e.g. edge_degrees_batch below) can't inflate a single command
+        # document past MongoDB's 16MB limit or force the planner through a
+        # huge index-bounds list -- the same hazard
+        # _GRAPH_DEGREE_RANK_MAX_CANDIDATES caps at the BFS call site, fixed
+        # here at the shared primitive so every caller is covered. Byte budget
+        # (_GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES) is the primary limiter,
+        # _NODE_DEGREES_BATCH_CHUNK_SIZE stays as a secondary record-count cap
+        # so the already-bounded BFS call site still fits in one chunk. Each
+        # chunk merges into merged_results as a whole, via a fresh local dict,
+        # so it's correct regardless of dedupe or how ids are split across chunks.
+        unique_node_ids = list(dict.fromkeys(node_ids))
+        id_batches = _chunk_by_budget(
+            unique_node_ids,
+            _estimate_doc_bytes,
+            _GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES,
+            _NODE_DEGREES_BATCH_CHUNK_SIZE,
         )
-        async for doc in cursor:
-            merged_results[doc.get("_id")] = doc.get("degree")
+        if len(id_batches) > 1:
+            logger.info(
+                f"[{self.workspace}] node_degrees_batch: $in split into "
+                f"{len(id_batches)} batches for {len(unique_node_ids)} ids"
+            )
 
-        # Inbound degrees
-        inbound_pipeline = [
-            {"$match": {"target_node_id": {"$in": node_ids}}},
-            {"$group": {"_id": "$target_node_id", "degree": {"$sum": 1}}},
-        ]
+        async def _outbound_degrees(chunk: list[str]) -> dict[str, int]:
+            outbound_pipeline = [
+                {"$match": {"source_node_id": {"$in": chunk}}},
+                {"$group": {"_id": "$source_node_id", "degree": {"$sum": 1}}},
+            ]
+            cursor = await self.edge_collection.aggregate(
+                outbound_pipeline, allowDiskUse=True
+            )
+            return {doc.get("_id"): doc.get("degree") async for doc in cursor}
 
-        cursor = await self.edge_collection.aggregate(
-            inbound_pipeline, allowDiskUse=True
-        )
-        async for doc in cursor:
-            merged_results[doc.get("_id")] = merged_results.get(
-                doc.get("_id"), 0
-            ) + doc.get("degree")
+        async def _inbound_degrees(chunk: list[str]) -> dict[str, int]:
+            inbound_pipeline = [
+                {"$match": {"target_node_id": {"$in": chunk}}},
+                {"$group": {"_id": "$target_node_id", "degree": {"$sum": 1}}},
+            ]
+            cursor = await self.edge_collection.aggregate(
+                inbound_pipeline, allowDiskUse=True
+            )
+            inbound: dict[str, int] = {}
+            async for doc in cursor:
+                inbound[doc.get("_id")] = inbound.get(doc.get("_id"), 0) + doc.get(
+                    "degree"
+                )
+            return inbound
+
+        async def _chunk_degrees(
+            chunk: list[str], estimated_bytes: int
+        ) -> dict[str, int]:
+            if (
+                len(chunk) == 1
+                and estimated_bytes > _GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES
+            ):
+                logger.warning(
+                    f"[{self.workspace}] node_degrees_batch: single id "
+                    f"{chunk[0]!r} estimated {estimated_bytes} bytes exceeds "
+                    f"{_GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES}"
+                )
+
+            outbound = await _outbound_degrees(chunk)
+            inbound = await _inbound_degrees(chunk)
+            chunk_degrees = dict(outbound)
+            for node_id, degree in inbound.items():
+                chunk_degrees[node_id] = chunk_degrees.get(node_id, 0) + degree
+            return chunk_degrees
+
+        for chunk, estimated_bytes in id_batches:
+            chunk_degrees = await _chunk_degrees(chunk, estimated_bytes)
+            merged_results.update(chunk_degrees)
 
         return merged_results
+
+    async def edge_degrees_batch(
+        self, edge_pairs: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], int]:
+        """
+        Calculate the combined degree for each edge (sum of the source and target node degrees)
+        in batch using the already implemented node_degrees_batch.
+
+        Args:
+            edge_pairs: List of (source_node_id, target_node_id) tuples
+
+        Returns:
+            Dictionary mapping edge tuples to their combined degrees
+        """
+        if not edge_pairs:
+            return {}
+
+        # Node degrees are already batched; sum them locally instead of
+        # issuing one edge_degree() round-trip per pair.
+        node_ids = {node_id for pair in edge_pairs for node_id in pair}
+        degrees = await self.node_degrees_batch(list(node_ids))
+
+        result = {}
+        for src_id, tgt_id in edge_pairs:
+            result[(src_id, tgt_id)] = degrees.get(src_id, 0) + degrees.get(tgt_id, 0)
+        return result
+
+    async def get_edges_batch(
+        self, pairs: list[dict[str, str]]
+    ) -> dict[tuple[str, str], dict]:
+        """
+        Retrieve edge properties for multiple (src, tgt) pairs in one query.
+
+        Args:
+            pairs: List of dictionaries, e.g. [{"src": "node1", "tgt": "node2"}, ...]
+
+        Returns:
+            A dictionary mapping existing (src, tgt) tuples to their edge
+            properties. Missing pairs are omitted.
+        """
+        if not pairs:
+            return {}
+
+        # Map canonical (edge_lo, edge_hi) back to the requested (src, tgt)
+        # direction, since multiple requested pairs can share one canonical edge.
+        canonical_to_requested: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        for pair in pairs:
+            src_id = pair["src"]
+            tgt_id = pair["tgt"]
+            canonical = _canonical_edge_endpoints(src_id, tgt_id)
+            canonical_to_requested.setdefault(canonical, []).append((src_id, tgt_id))
+
+        # Chunk the $or so a large batch (e.g. purging a document with many
+        # relations) stays under the 16MB query limit instead of building one
+        # unbounded $or. Byte budget (_GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES) is
+        # the primary limiter -- endpoint strings are not length-bounded (see
+        # that constant's comment), so a pure item-count cap alone can't
+        # bound BSON size. _GET_EDGES_BATCH_CHUNK_SIZE (matching
+        # postgres_impl.get_edges_batch's own batch_size default) stays as a
+        # secondary record-count cap.
+        canonical_pairs = list(canonical_to_requested)
+
+        result = {}
+        pair_batches = _chunk_by_budget(
+            canonical_pairs,
+            lambda pair: _estimate_doc_bytes({"edge_lo": pair[0], "edge_hi": pair[1]}),
+            _GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES,
+            _GET_EDGES_BATCH_CHUNK_SIZE,
+        )
+        if len(pair_batches) > 1:
+            logger.info(
+                f"[{self.workspace}] get_edges_batch: $or split into "
+                f"{len(pair_batches)} batches for {len(canonical_pairs)} pairs"
+            )
+
+        async def _fetch_batch(
+            batch: list[tuple[str, str]], estimated_bytes: int
+        ) -> list[dict]:
+            if (
+                len(batch) == 1
+                and estimated_bytes > _GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES
+            ):
+                logger.warning(
+                    f"[{self.workspace}] get_edges_batch: single pair "
+                    f"edge_lo={batch[0][0]!r} edge_hi={batch[0][1]!r} "
+                    f"estimated {estimated_bytes} bytes exceeds "
+                    f"{_GRAPH_BATCH_QUERY_MAX_PAYLOAD_BYTES}"
+                )
+            cursor = self.edge_collection.find(
+                {
+                    "$or": [
+                        {"edge_lo": edge_lo, "edge_hi": edge_hi}
+                        for edge_lo, edge_hi in batch
+                    ]
+                }
+            )
+            return [doc async for doc in cursor]
+
+        for batch, estimated_bytes in pair_batches:
+            docs = await _fetch_batch(batch, estimated_bytes)
+            for doc in docs:
+                doc.pop("_id", None)
+                canonical = (doc["edge_lo"], doc["edge_hi"])
+                # Independent dict per requested direction: two requested pairs
+                # can share one canonical edge, and callers (e.g. purge) mutate
+                # the per-pair dict in place, so it must not be the same object.
+                for src_id, tgt_id in canonical_to_requested.get(canonical, []):
+                    result[(src_id, tgt_id)] = dict(doc)
+        return result
 
     async def get_nodes_edges_batch(
         self, node_ids: list[str]
@@ -2273,6 +2695,11 @@ class MongoGraphStorage(BaseGraphStorage):
             For each node, the list includes both:
             - Outgoing edges: (queried_node, connected_node)
             - Incoming edges: (connected_node, queried_node)
+
+        A self-loop appears ONCE: it matches both the outbound and the inbound
+        query, and listing it from each would report one edge as two
+        (``BaseGraphStorage.get_node_edges``, and this class's own
+        ``get_node_edges``, which returns it once).
         """
         result = {node_id: [] for node_id in node_ids}
 
@@ -2294,7 +2721,11 @@ class MongoGraphStorage(BaseGraphStorage):
         async for edge in incoming_cursor:
             source = edge["source_node_id"]
             target = edge["target_node_id"]
-            result[target].append((source, target))
+            # A self-loop was already listed by the outbound pass above (its
+            # source is the same requested id), so skip it here -- one edge,
+            # one tuple. Same guard as pgtable_impl.get_nodes_edges_batch.
+            if target != source:
+                result[target].append((source, target))
 
         return result
 
@@ -2649,6 +3080,20 @@ class MongoGraphStorage(BaseGraphStorage):
         async for doc in cursor:
             labels.append(doc["_id"])
         return labels
+
+    async def iter_labels(self, batch_size: int):
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        pipeline = [{"$project": {"_id": 1}}, {"$sort": {"_id": 1}}]
+        cursor = await self.collection.aggregate(pipeline, allowDiskUse=True)
+        batch: list[str] = []
+        async for doc in cursor:
+            batch.append(doc["_id"])
+            if len(batch) == batch_size:
+                yield batch
+                batch = []
+        if batch:
+            yield batch
 
     def _construct_graph_node(
         self, node_id, node_data: dict[str, str]
@@ -3318,6 +3763,22 @@ class MongoGraphStorage(BaseGraphStorage):
             edges.append(edge_dict)
         return edges
 
+    async def iter_edges(self, batch_size: int):
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        cursor = self.edge_collection.find({})
+        batch: list[dict] = []
+        async for edge in cursor:
+            item = dict(edge)
+            item["source"] = item.get("source_node_id")
+            item["target"] = item.get("target_node_id")
+            batch.append(item)
+            if len(batch) == batch_size:
+                yield batch
+                batch = []
+        if batch:
+            yield batch
+
     async def get_popular_labels(self, limit: int = 300) -> list[str]:
         """Get popular labels(entity names) by node degree (most connected entities)
 
@@ -3340,8 +3801,9 @@ class MongoGraphStorage(BaseGraphStorage):
         every call — on a large graph, to produce a result phase 1 already had.
         """
         try:
-            # Self-loops count twice (the source and target groups each see the
-            # document), matching the other backends.
+            # No self-loop guard: the graph is not allowed to hold one
+            # (BaseGraphStorage.node_degree), and filtering for it here was
+            # measured and rejected.
             pipeline = [
                 # Count outbound edges
                 {"$group": {"_id": "$source_node_id", "out_degree": {"$sum": 1}}},
@@ -3787,6 +4249,76 @@ class MongoGraphStorage(BaseGraphStorage):
             return {"status": "error", "message": str(e)}
 
 
+# The embedding-space marker lives in the vector collection's JSON Schema
+# validator ``description``, never in a document. A marker document would be a
+# row in the data collection that every future full-collection scan owes an
+# exclusion; the validator is metadata and owes nothing, and no read path --
+# ``$vectorSearch`` or the ``_id`` / ``src_id`` / ``tgt_id`` finds -- can reach
+# it. See ``docs/design/VectorSpaceProvenance.md``.
+#
+# The prefix is what makes a foreign description unambiguously "not ours"
+# rather than something to be parsed and possibly misread, and it makes the
+# marker legible to an operator running ``db.getCollectionInfos()``.
+_VECTOR_SPACE_DESCRIPTION_PREFIX = "LightRAG embedding space: "
+
+
+def _vector_space_validator(embedding_func, existing: Any = None) -> dict:
+    """``existing`` with this instance's embedding space recorded in it.
+
+    MERGED, never replaced. ``collMod`` takes the whole validator, so writing a
+    bare marker schema would drop every rule an operator put on the collection
+    -- their ``required`` list, their ``properties`` -- from all future writes,
+    silently, on an ordinary ``/documents/clear``. That is the same hazard
+    OpenSearch's ``put_mapping`` has with ``_meta``, and it is answered the same
+    way: read what is there and add to it.
+
+    Only ``$jsonSchema.description`` is taken over, because that is the field
+    the marker lives in. An operator who used it for prose loses that prose;
+    that is the documented cost of this marker home, and it is a far smaller
+    one than losing validation rules. A validator with no ``$jsonSchema`` (a
+    plain query expression) keeps its operators: a validator is an implicit
+    AND, so the added ``$jsonSchema`` sits beside them, and ``bsonType:
+    object`` matches every document, so it rejects nothing on its own.
+    """
+    payload = json.dumps(vector_space_marker(embedding_func), sort_keys=True)
+    merged = dict(existing) if isinstance(existing, dict) else {}
+    schema = merged.get("$jsonSchema")
+    schema = dict(schema) if isinstance(schema, dict) else {}
+    schema.setdefault("bsonType", "object")
+    schema["description"] = _VECTOR_SPACE_DESCRIPTION_PREFIX + payload
+    merged["$jsonSchema"] = schema
+    return merged
+
+
+def _read_validator_vector_space(validator: Any) -> tuple[str | None, int | None]:
+    """Extract ``(model, dim)`` from a stored validator, or ``(None, None)``.
+
+    Every way this can fail reads as "not recorded": no validator, a validator
+    written by something other than LightRAG, a truncated or hand-edited
+    payload. A marker we cannot read is not evidence of a mismatch.
+    """
+    if not isinstance(validator, dict):
+        return None, None
+    description = (validator.get("$jsonSchema") or {}).get("description")
+    if not isinstance(description, str) or not description.startswith(
+        _VECTOR_SPACE_DESCRIPTION_PREFIX
+    ):
+        return None, None
+    try:
+        payload = json.loads(description[len(_VECTOR_SPACE_DESCRIPTION_PREFIX) :])
+    except ValueError:
+        return None, None
+    return read_vector_space_marker(payload)
+
+
+async def _read_collection_validator(db: AsyncDatabase, name: str) -> Any:
+    """The validator currently stored on ``name``, or ``None``."""
+    cursor = await db.list_collections(filter={"name": name})
+    for info in await cursor.to_list(length=1):
+        return (info.get("options") or {}).get("validator")
+    return None
+
+
 @dataclass
 class _PendingVectorDoc:
     """Buffered vector upsert waiting for embedding and/or bulk flush."""
@@ -3824,7 +4356,9 @@ class MongoVectorDBStorage(BaseVectorStorage):
         mongodb_workspace = os.environ.get("MONGODB_WORKSPACE")
         if mongodb_workspace and mongodb_workspace.strip():
             # Use environment variable value, overriding the passed workspace parameter
-            effective_workspace = mongodb_workspace.strip()
+            effective_workspace = validate_workspace_override(
+                "MONGODB_WORKSPACE", mongodb_workspace
+            )
             logger.info(
                 f"Using MONGODB_WORKSPACE environment variable: '{effective_workspace}' (overriding '{self.workspace}/{self.namespace}')"
             )
@@ -3867,6 +4401,12 @@ class MongoVectorDBStorage(BaseVectorStorage):
         self.cosine_better_than_threshold = cosine_threshold
         self._collection_name = self.final_namespace
         self._max_batch_size = self.global_config["embedding_batch_num"]
+        # Whether the collection records an embedding model: True / False once
+        # ``_assert_collection_is_usable`` has read the validator, None while
+        # this is still unknown -- which includes a collection THIS instance
+        # created, whose marker went in with the create. Only an explicit False
+        # means there is something to adopt.
+        self._vector_space_marked: bool | None = None
 
         # Flush-time batching limits (see module-level DEFAULT_MONGO_* constants).
         # A non-positive value disables that splitting dimension. The upsert and
@@ -3888,11 +4428,34 @@ class MongoVectorDBStorage(BaseVectorStorage):
         self._flush_lock = None
 
     async def initialize(self):
+        """Attach to the vector collection, refusing a foreign embedding space.
+
+        The flush lock is taken FIRST, before anything that can refuse. A
+        storage that raises ``VectorSpaceMismatchError`` below must stay able to
+        serve ``drop()``, because dropping and re-provisioning the collection is
+        how ``lightrag-rebuild-vdb`` clears that refusal; taking the lock after
+        the gate would leave ``_flush_lock`` at ``None`` on the refusal path and
+        ``drop()`` would die on ``async with None``. See
+        ``docs/design/VectorSpaceProvenance.md``.
+        """
+        if self._flush_lock is None:
+            self._flush_lock = get_namespace_lock(
+                namespace=self.final_namespace, workspace=""
+            )
         async with get_data_init_lock():
             if self.db is None:
                 self.db = await ClientManager.get_client()
 
-            self._data = await get_or_create_collection(self.db, self._collection_name)
+            # A collection created here carries this instance's embedding-space
+            # marker; an existing one keeps whatever it has, and is judged by
+            # the gate below rather than silently re-stamped.
+            self._data = await get_or_create_collection(
+                self.db,
+                self._collection_name,
+                validator=_vector_space_validator(self.embedding_func),
+            )
+
+            await self._assert_collection_is_usable()
 
             # Ensure vector index exists
             await self.create_vector_index_if_not_exists()
@@ -3901,10 +4464,128 @@ class MongoVectorDBStorage(BaseVectorStorage):
                 f"[{self.workspace}] Use MongoDB as VDB {self._collection_name}"
             )
 
-        if self._flush_lock is None:
-            self._flush_lock = get_namespace_lock(
-                namespace=self.final_namespace, workspace=""
+    async def _assert_collection_is_usable(self) -> None:
+        """Refuse a collection this instance cannot read. THE choke point.
+
+        Two facts, from two different places, because neither alone is enough:
+
+        * **Model**, from the validator marker. The collection name carries no
+          model on this backend, so a same-dimension model swap is invisible
+          without it -- the swap reuses this very collection and every query
+          then returns a previous model's neighbours.
+        * **Dimension**, from the Atlas search index definition. That is the
+          physical truth the index enforces, so it outranks the marker's copy;
+          the marker's dimension is only a fallback for a collection whose
+          index has not been built yet.
+
+        Absent evidence never refuses -- a collection recording neither
+        predates the marker and stays servable.
+        """
+        stored_model, marker_dim = _read_validator_vector_space(
+            await _read_collection_validator(self.db, self._collection_name)
+        )
+        index_dim = await self._read_search_index_dimension()
+        assert_vector_space_matches(
+            backend=type(self).__name__,
+            container=self._collection_name,
+            embedding_func=self.embedding_func,
+            stored_model=stored_model,
+            stored_dim=index_dim if index_dim is not None else marker_dim,
+        )
+        # Remembered from the validator already read, so
+        # ``vector_space_adoption_pending`` costs no round trip of its own.
+        self._vector_space_marked = stored_model is not None
+
+    async def vector_space_adoption_pending(self) -> bool:
+        """Whether this collection holds documents whose model is unrecorded.
+
+        ``_assert_collection_is_usable`` records the answer from the validator
+        it already read at attach, so this asks Mongo nothing.
+
+        Unlike the file backends, an *empty* unmarked collection also reports
+        pending: nothing here writes the marker outside collection creation and
+        ``drop()``, so emptiness cannot mark itself. The probe then finds no
+        sample and lands inconclusive, which leaves the collection exactly
+        where it was. Accepted rather than special-cased -- an unmarked
+        collection that is also empty only exists where a pre-marker
+        deployment created one and never wrote to it.
+        """
+        return (
+            self._vector_space_marked is False
+            and declared_model_name(self.embedding_func) is not None
+        )
+
+    async def adopt_vector_space(self) -> bool:
+        """Record this process's embedding model in the collection validator.
+
+        Never raises, per the base contract. ``_record_vector_space_marker``
+        already reports a denied ``collMod`` rather than raising it, and here
+        that denial is unambiguously benign: this path runs only over a
+        collection recording NO model, so a failed write leaves it unmarked --
+        where every collection was before this feature existed. (The drop path
+        cannot say that, which is why it inspects the result instead.)
+        """
+        if declared_model_name(self.embedding_func) is None:
+            return False
+        if not await self._record_vector_space_marker():
+            return False
+        self._vector_space_marked = True
+        logger.info(
+            f"[{self.workspace}] Adopted pre-existing collection "
+            f"'{self._collection_name}' for embedding model "
+            f"'{declared_model_name(self.embedding_func)}'"
+        )
+        return True
+
+    async def _read_search_index_dimension(self) -> int | None:
+        """``numDimensions`` of the Atlas vector index, or ``None``.
+
+        ``None`` covers "no index yet" as well as "the definition could not be
+        parsed", and both mean the same thing to every caller: this is not
+        evidence of a mismatch.
+        """
+        indexes_cursor = await self._data.list_search_indexes()
+        for index in await indexes_cursor.to_list(length=None):
+            if index.get("name") != self._index_name:
+                continue
+            for spec in (index.get("latestDefinition") or {}).get("fields", []):
+                if spec.get("type") == "vector" and spec.get("path") == "vector":
+                    dim = spec.get("numDimensions")
+                    return dim if isinstance(dim, int) else None
+        return None
+
+    async def _record_vector_space_marker(self) -> bool:
+        """Stamp this instance's embedding space onto the collection.
+
+        Called only where the marker is trivially TRUE: right after ``drop()``
+        emptied the collection. Never on attach -- an operator who upgrades and
+        swaps to a same-dimension model in one step would otherwise get the new
+        model's name recorded over the old model's vectors, permanently, after
+        which the gate can never fire.
+
+        Returns whether the write landed. A denial is NOT automatically benign,
+        and the caller has to decide: it leaves whatever marker is already
+        there, which on a collection previously marked for another model is the
+        PREVIOUS model's name -- see ``_reprovision_vector_space``. Only when
+        nothing conflicting is recorded does a denial reduce to "unmarked",
+        which is where every collection was before this feature existed.
+        """
+        try:
+            await self.db.command(
+                "collMod",
+                self._collection_name,
+                validator=_vector_space_validator(
+                    self.embedding_func,
+                    await _read_collection_validator(self.db, self._collection_name),
+                ),
             )
+            return True
+        except PyMongoError as e:
+            logger.warning(
+                f"[{self.workspace}] Could not record the embedding-space marker on "
+                f"collection '{self._collection_name}': {e}"
+            )
+            return False
 
     async def finalize(self):
         """Flush pending vector ops, release the Mongo client, surface unflushed data."""
@@ -3974,9 +4655,11 @@ class MongoVectorDBStorage(BaseVectorStorage):
         Two guards run *before* the rebuild: (1) a FAILED index that is still
         ``queryable`` (a background rebuild/update failed but the previously
         built index keeps serving) is left in place to avoid taking a
-        still-serving index offline; (2) a FAILED index built under a
-        different embedding model raises rather than being auto-rebuilt
-        against incompatible stored vectors. Transitional states
+        still-serving index offline; (2) a FAILED index built for a different
+        DIMENSION raises rather than being auto-rebuilt against incompatible
+        stored vectors. A same-dimension model change is invisible here --
+        the index definition records no model -- and is caught by
+        ``_assert_collection_is_usable`` before this runs. Transitional states
         (``PENDING``/``BUILDING``) are left alone -- they become queryable
         without intervention.
         """
@@ -4004,15 +4687,18 @@ class MongoVectorDBStorage(BaseVectorStorage):
 
                 expected_dim = self.embedding_func.embedding_dim
 
-                if existing_dim is not None and existing_dim != expected_dim:
-                    error_msg = (
-                        f"Vector dimension mismatch! Index '{self._index_name}' has "
-                        f"dimension {existing_dim}, but current embedding model expects "
-                        f"dimension {expected_dim}. Please drop the existing index or "
-                        f"use an embedding model with matching dimensions."
-                    )
-                    logger.error(f"[{self.workspace}] {error_msg}")
-                    raise ValueError(error_msg)
+                # Typed, because lightrag-rebuild-vdb answers this condition by
+                # dropping the collection: an untyped refusal would force it to
+                # catch Exception and destroy data on a cluster outage. The
+                # model side is judged by _assert_collection_is_usable; here
+                # only the index's own dimension is in hand.
+                assert_vector_space_matches(
+                    backend=type(self).__name__,
+                    container=self._collection_name,
+                    embedding_func=self.embedding_func,
+                    stored_model=None,
+                    stored_dim=existing_dim,
+                )
 
                 # Self-heal a FAILED index, but ONLY when it is actually
                 # non-queryable. Atlas can report status="FAILED" while
@@ -4140,6 +4826,12 @@ class MongoVectorDBStorage(BaseVectorStorage):
             # Convert numpy array to a list to ensure compatibility with MongoDB
             query_vector = embedding[0].tolist()
 
+        # Atlas rejects limit > numCandidates and numCandidates > 10000 (see
+        # _VECTOR_SEARCH_MIN_NUM_CANDIDATES above): widen the candidate pool
+        # to top_k, never below the previous fixed 100.
+        limit = min(top_k, _VECTOR_SEARCH_MAX_NUM_CANDIDATES)
+        num_candidates = max(limit, _VECTOR_SEARCH_MIN_NUM_CANDIDATES)
+
         # Define the aggregation pipeline with the converted query vector
         pipeline = [
             {
@@ -4147,12 +4839,23 @@ class MongoVectorDBStorage(BaseVectorStorage):
                     "index": self._index_name,  # Use stored index name for consistency
                     "path": "vector",
                     "queryVector": query_vector,
-                    "numCandidates": 100,  # Adjust for performance
-                    "limit": top_k,
+                    "numCandidates": num_candidates,
+                    "limit": limit,
                 }
             },
             {"$addFields": {"score": {"$meta": "vectorSearchScore"}}},
-            {"$match": {"score": {"$gte": self.cosine_better_than_threshold}}},
+            # Atlas Vector Search normalizes a cosine-similarity index's
+            # vectorSearchScore to (1 + cosine_similarity) / 2, in [0, 1] --
+            # not raw cosine similarity, which every other backend compares
+            # cosine_better_than_threshold against. Rescale the threshold the
+            # same way for the server-side filter; the raw score is
+            # converted back below so "distance" matches the other
+            # backends' raw-cosine convention.
+            {
+                "$match": {
+                    "score": {"$gte": (1 + self.cosine_better_than_threshold) / 2}
+                }
+            },
             {"$project": {"vector": 0}},
         ]
 
@@ -4165,7 +4868,9 @@ class MongoVectorDBStorage(BaseVectorStorage):
             {
                 **doc,
                 "id": doc["_id"],
-                "distance": doc.get("score", None),
+                "distance": 2 * doc["score"] - 1
+                if doc.get("score") is not None
+                else None,
                 "created_at": doc.get("created_at"),  # Include created_at field
             }
             for doc in results
@@ -4415,6 +5120,49 @@ class MongoVectorDBStorage(BaseVectorStorage):
                 f"[{self.workspace}] Deleted {len(relation_ids)} relations for {entity_name}"
             )
 
+    async def is_empty(self) -> bool:
+        """Whether this container holds no vectors. See ``BaseVectorStorage``.
+
+        **No ``except`` here, on purpose.** Every other read on this class
+        catches its transport errors and answers with a miss, which is why the
+        startup gate could not use them: an outage and an empty container
+        arrive as the same value. This method is the one that must tell them
+        apart, so a failed read propagates and the gate treats it as "no
+        evidence" rather than as emptiness.
+
+        A pending upsert counts as non-empty; ``_pending_vector_deletes`` is
+        not subtracted, because ``True`` is the only answer here that can
+        refuse a deployment.
+        """
+        async with self._flush_lock:
+            if self._pending_vector_docs:
+                return False
+            if self._data is None:
+                raise StorageCapabilityError(
+                    f"[{self.workspace}] MongoDB collection is not connected, "
+                    f"so {self.namespace} cannot be read for emptiness"
+                )
+            collection = self._data
+
+        return await collection.count_documents({}, limit=1) == 0
+
+    async def get_exact_count(self) -> int:
+        """Exact document count of this collection. See ``BaseVectorStorage``.
+
+        No ``except``: a failed read propagates.
+        """
+        async with self._flush_lock:
+            if self._pending_vector_docs or self._pending_vector_deletes:
+                raise StorageCapabilityError("pending_writes_not_flushed")
+            if self._data is None:
+                raise StorageCapabilityError(
+                    f"[{self.workspace}] MongoDB collection is not connected, "
+                    f"so {self.namespace} cannot be counted"
+                )
+            collection = self._data
+
+        return int(await collection.count_documents({}))
+
     async def get_by_id(self, id: str) -> dict[str, Any] | None:
         """Get vector data by its ID, with read-your-writes against the buffer.
 
@@ -4448,6 +5196,16 @@ class MongoVectorDBStorage(BaseVectorStorage):
 
     async def get_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Get multiple vector data by their IDs (read-your-writes), preserving order."""
+        return await self._read_by_ids(ids, strict=False)
+
+    async def get_by_ids_strict(self, ids: list[str]) -> list[dict[str, Any] | None]:
+        """``get_by_ids`` that raises instead of reporting a failed read as a
+        miss. See ``BaseVectorStorage.get_by_ids_strict``."""
+        return await self._read_by_ids(ids, strict=True)
+
+    async def _read_by_ids(
+        self, ids: list[str], *, strict: bool
+    ) -> list[dict[str, Any] | None]:
         if not ids:
             return []
 
@@ -4479,6 +5237,8 @@ class MongoVectorDBStorage(BaseVectorStorage):
                     key = str(result_dict.get("id", result_dict.get("_id")))
                     formatted_map[key] = result_dict
             except Exception as e:
+                if strict:
+                    raise
                 logger.error(
                     f"[{self.workspace}] Error retrieving vector data for IDs {remaining}: {e}"
                 )
@@ -4573,11 +5333,73 @@ class MongoVectorDBStorage(BaseVectorStorage):
             logger.error(f"[{self.workspace}] Error getting vectors: {e}")
             return result
 
+    async def _reprovision_vector_space(self) -> None:
+        """Rebuild the emptied collection for THIS instance's embedding space.
+
+        The step that makes a refusal recoverable on this backend. ``drop()``
+        used to go straight to ``create_vector_index_if_not_exists()``, which
+        re-read the SURVIVING Atlas search index definition and raised the same
+        dimension mismatch again -- ``delete_many({})`` removes documents, not
+        the index, and not the validator either. ``except PyMongoError`` did not
+        catch that raise, so the drop failed and the operator was left deleting
+        the index out of band. Three things have to happen here, in this order:
+
+        1. **Drop the search index when its dimension is wrong.** Only then:
+           the definition records a dimension and nothing else, so a
+           same-dimension MODEL change leaves a perfectly good index, and
+           rebuilding it would cost an Atlas index build for nothing.
+        2. **Rewrite the validator marker.** The collection is empty, so this
+           process's embedding space is now trivially the true one. Skipping it
+           would leave the previous model recorded and make the NEXT
+           ``initialize()`` refuse again -- the recovery would not converge.
+        3. **Recreate the index**, which is now either absent or compatible, so
+           the guard inside it cannot fire.
+        """
+        index_dim = await self._read_search_index_dimension()
+        expected_dim = self.embedding_func.embedding_dim
+        if index_dim is not None and index_dim != expected_dim:
+            logger.warning(
+                f"[{self.workspace}] Dropping vector index {self._index_name}: it was "
+                f"built for dimension {index_dim} and this instance embeds at "
+                f"{expected_dim}"
+            )
+            await self._data.drop_search_index(self._index_name)
+            await self._wait_for_search_index_absent(self._index_name)
+        if not await self._record_vector_space_marker():
+            # A denied write does not leave the collection unmarked -- it
+            # leaves whatever was there. On a collection previously marked for
+            # another model that is the PREVIOUS model's name, and the attach
+            # that ``clear_vector_space_refusal`` runs straight after this drop
+            # is refused all over again. Every vector is already gone by then,
+            # so the one thing this must not do is report success: that would
+            # send the tool off to rebuild into a collection it cannot attach
+            # to. Fail loud instead, naming the permission that is missing.
+            #
+            # When nothing conflicting is recorded the denial really does
+            # reduce to "unmarked", and that is not a failure -- it is where
+            # every collection was before this feature existed.
+            try:
+                await self._assert_collection_is_usable()
+            except VectorSpaceMismatchError as e:
+                raise StorageControlPlaneError(
+                    f"[{self.workspace}] Dropped every vector in "
+                    f"'{self._collection_name}', but could not rewrite its "
+                    f"embedding-space marker: the collection still records the "
+                    f"previous model, so the rebuild would be refused. Grant "
+                    f"collMod on this collection and run lightrag-rebuild-vdb "
+                    f"again."
+                ) from e
+        await self.create_vector_index_if_not_exists()
+
     async def drop(self) -> dict[str, str]:
-        """Drop all documents and recreate the vector index. Destructive.
+        """Drop all documents and re-provision the collection. Destructive.
+
+        Also the recovery path for an embedding-space refusal: the collection
+        comes back empty and marked for THIS instance's model, so the next
+        ``initialize()`` attaches normally. See ``_reprovision_vector_space``.
 
         MUST only be called when ``pipeline_status`` is idle (see the
-        Pipeline concurrency contract in ``AGENTS.md``); the only
+        Pipeline concurrency contract in ``docs/design/PipelineConcurrencyContract.md``); the only
         in-tree caller ``clear_documents`` enforces this.
 
         Caveat — only this instance's buffers are cleared. Other
@@ -4603,8 +5425,9 @@ class MongoVectorDBStorage(BaseVectorStorage):
                 result = await self._data.delete_many({})
                 deleted_count = result.deleted_count
 
-                # Recreate vector index
-                await self.create_vector_index_if_not_exists()
+                # Re-provision in the CURRENT embedding space, not the one the
+                # collection used to hold.
+                await self._reprovision_vector_space()
 
             logger.info(
                 f"[{self.workspace}] Dropped {deleted_count} documents from vector storage {self._collection_name} and recreated vector index"
@@ -4618,13 +5441,30 @@ class MongoVectorDBStorage(BaseVectorStorage):
                 f"[{self.workspace}] Error dropping vector storage {self._collection_name}: {e}"
             )
             return {"status": "error", "message": str(e)}
+        except StorageControlPlaneError as e:
+            # Re-provisioning failed after the documents were already deleted.
+            # The deletion is real and irreversible; what is NOT true is that
+            # the collection is ready to be rebuilt, so this must not be
+            # reported as a success. See _reprovision_vector_space.
+            logger.error(f"[{self.workspace}] {e}")
+            return {"status": "error", "message": str(e)}
 
 
-async def get_or_create_collection(db: AsyncDatabase, collection_name: str):
+async def get_or_create_collection(
+    db: AsyncDatabase, collection_name: str, validator: dict | None = None
+):
+    """Return the collection, creating it with ``validator`` if it is absent.
+
+    ``validator`` is applied ONLY at creation. An existing collection keeps
+    whatever it has: overwriting a validator on attach would stamp this
+    process's embedding-space marker onto vectors it did not write. See
+    ``docs/design/VectorSpaceProvenance.md``.
+    """
     collection_names = await db.list_collection_names()
 
     if collection_name not in collection_names:
-        collection = await db.create_collection(collection_name)
+        kwargs = {"validator": validator} if validator else {}
+        collection = await db.create_collection(collection_name, **kwargs)
         logger.info(f"Created collection: {collection_name}")
         return collection
     else:

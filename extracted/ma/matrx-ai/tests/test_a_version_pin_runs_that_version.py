@@ -108,7 +108,7 @@ async def _call(args: dict[str, Any], **kw: Any) -> Any:
     from matrx_ai.tools.implementations.agent_call import agent_call
     from matrx_ai.tools.models import ToolContext
 
-    token = set_app_context(AppContext(emitter=None, user_id=_USER_ID))
+    token = set_app_context(AppContext(emitter=None, user_id=_USER_ID, organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         return await agent_call(args, ToolContext(call_id="call-pin"), **kw)
     finally:

@@ -91,6 +91,17 @@ def restart_point(part: Any, current: Any, label: str) -> None:
 _ANY_ESCAPE_NAME = r"[^\s{}<>!#^/\-][^\s{}<>]*"
 
 
+def first_declared_slot(text: str, declared: Any = ()) -> int | None:
+    """Offset of the first DECLARED slot (``{{name}}``, ``{{#name}}``, ``{{^name}}``, ``{{<name>}}``) in ``text``,
+    or None. Only declared names are looked for; every other ``{{...}}`` is invisible here (THE VARIABLE RULE)."""
+    names = sorted({str(n) for n in declared if str(n)}, key=len, reverse=True)
+    if not names:
+        return None
+    alternatives = "|".join(re.escape(n) for n in names)
+    slot = re.search(r"\{\{(?:[#^]?(?:" + alternatives + r")|<(?:" + alternatives + r")>)\}\}", text)
+    return slot.start() if slot is not None else None
+
+
 def escape_pattern(declared: Any = ()) -> str:
     """Rule 6, exactly: ``{{!`` + optional ``#``/``^``/``/`` + NAME + ``}}``, or ``{{!<`` + NAME +
     ``>}}`` — NAME is any space-free name, or a ``declared`` name verbatim (a declared name may hold

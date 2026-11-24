@@ -72,7 +72,6 @@ def test_catalog_routing_failure_is_explicit_and_never_retried() -> None:
     assert classified.error_type == "matrx_catalog_error"
     assert classified.is_retryable is False
     assert "retired-model" in classified.message
-    assert "retired-model" in classified.user_message
 
 
 def test_database_failure_is_never_laundered_as_a_provider_error() -> None:
@@ -97,7 +96,7 @@ def test_database_failure_is_never_laundered_as_a_provider_error() -> None:
         assert classified.is_retryable is False
         # The real message is the only diagnosable thing — never drop it.
         assert "row_versions" in classified.message
-        assert "row_versions" in classified.user_message
+        assert "row_versions" not in classified.user_message  # raw table names stay in ``message``
         assert classified.details["infrastructure"] == "matrx_orm"
 
 
@@ -167,5 +166,5 @@ def test_tool_id_boundary_leak_is_our_bug_and_never_retried() -> None:
         assert classified.error_type == "matrx_tool_boundary_error"
         assert classified.is_retryable is False
         assert "55bc14b4-a166-4a33-a0bc-a2b0dcf66de0" in classified.message
-        assert "registry_loaded=False" in classified.user_message
+        assert "registry_loaded=False" in classified.message
         assert "unexpected" not in classified.user_message.lower()

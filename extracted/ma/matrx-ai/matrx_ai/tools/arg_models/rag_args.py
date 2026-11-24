@@ -51,6 +51,10 @@ class RagSearchArgs(BaseModel):
             "inline",
             "workbook",
             "udt_document",
+            # Stored kinds the search page's File and Web page filters send
+            # (features/sources/sourceRows.ts SOURCE_KIND_GROUP_KINDS).
+            "legacy",
+            "external_url",
         ]
     ] | None = None
     data_store_id: str | None = None
@@ -74,7 +78,7 @@ class RagSearchArgs(BaseModel):
     # organization, which only attributes the call.
     organizations: list[str] | None = Field(
         default=None,
-        description="Organization ids to search. Omit (null) to search every organization you belong to.",
+        description="Organization ids; omit for every organization the user belongs to.",
     )
     sort: Literal["relevance", "recent", "title"] = "relevance"
     cursors: dict[str, str] | None = None

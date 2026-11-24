@@ -17,7 +17,7 @@ from matrx_ai.config.enums import Role
 from matrx_ai.config.message_config import UnifiedMessage
 from matrx_ai.config.tools_config import ToolCallContent
 from matrx_ai.config.unified_content import TextContent
-from matrx_ai.tools.implementations.agent_call import relayable_answer
+from matrx_ai.tools.implementations.agent_call import relayable_answer, stopped_mid_tool_call_reason
 
 PLAIN_AGENT = SimpleNamespace(name="helper", output_schema=None, config=None)
 
@@ -89,10 +89,13 @@ def test_a_run_cut_off_mid_tool_call_says_so_plainly() -> None:
     call = ToolCallContent(id="toolu_01", name="shell_execute", arguments={"command": "git log -1"})
     stopped = unanswered_tool_calls(_assistant(call))
     assert stopped == [{"name": "shell_execute", "arguments": {"command": "git log -1"}}]
-    answer = relayable_answer("", PLAIN_AGENT, stopped_on_tool_calls=stopped)
-    assert answer.startswith("The helper stopped before writing an answer")
-    assert "last action: shell_execute(command='git log -1')" in answer
-    assert "tool_call" not in answer
+    # The empty answer stays empty — never a sentence dressed as a successful answer;
+    # the reason rides child_end (agent_call then fails the call on it).
+    assert relayable_answer("", PLAIN_AGENT, stopped_on_tool_calls=stopped) == ""
+    reason = stopped_mid_tool_call_reason(stopped)
+    assert reason.startswith("The helper stopped before writing an answer")
+    assert "last action: shell_execute(command='git log -1')" in reason
+    assert "tool_call" not in reason
 
 
 def test_a_turn_with_answer_text_is_not_reported_as_stopped() -> None:

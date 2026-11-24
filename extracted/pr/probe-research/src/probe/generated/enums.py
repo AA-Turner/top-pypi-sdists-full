@@ -81,6 +81,11 @@ class AddressKind(StrEnum):
     experiment = 'experiment'
 
 
+class Action1(StrEnum):
+    stop = 'stop'
+    save = 'save'
+
+
 class AnchorLevel(StrEnum):
     """
     The three re-fileable artifact anchors (a Shared or paper file never moves
@@ -243,6 +248,17 @@ class Fn(StrEnum):
     max = 'max'
     hypot = 'hypot'
     atan2 = 'atan2'
+
+
+class BranchCause(StrEnum):
+    """
+    What started a branch (one unbroken stretch of a rollout the model read; `segment` i of n).
+    """
+
+    first = 'first'
+    compaction = 'compaction'
+    sub_agent = 'sub_agent'
+    history_mismatch = 'history_mismatch'
 
 
 class BranchState(StrEnum):
@@ -580,6 +596,8 @@ class CommandKind(StrEnum):
     checkpoint = 'checkpoint'
     config = 'config'
     stop = 'stop'
+    pause = 'pause'
+    resume = 'resume'
     custom = 'custom'
 
 
@@ -807,6 +825,11 @@ class Status3(StrEnum):
     confirmed = 'confirmed'
 
 
+class Kind1(StrEnum):
+    reply = 'reply'
+    action = 'action'
+
+
 class DisconnectReason(StrEnum):
     """
     Why a capture device's credential was revoked (`client.device_disconnected`).
@@ -962,6 +985,42 @@ class EntityType(StrEnum):
     paper = 'paper'
 
 
+class EpisodeGrouping(StrEnum):
+    """
+    How the Episodes tab piles its rows: one row an episode, grouped by environment, or rollouts newest first.
+    """
+
+    episode = 'episode'
+    environment = 'environment'
+    recent_rollouts = 'recent_rollouts'
+
+
+class EpisodeState(StrEnum):
+    """
+    How a rollout (or its episode) stands: live `queued`, `running`, `scoring`; ended the other five.
+    """
+
+    queued = 'queued'
+    running = 'running'
+    scoring = 'scoring'
+    completed = 'completed'
+    cut_off = 'cut_off'
+    timed_out = 'timed_out'
+    error = 'error'
+    cancelled = 'cancelled'
+
+
+class EpisodeStatus(StrEnum):
+    """
+    The four the Episodes tab draws (a dot and a word); the exact state and reason stay in Details.
+    """
+
+    queued = 'queued'
+    running = 'running'
+    completed = 'completed'
+    error = 'error'
+
+
 class ExampleProfile(StrEnum):
     """
     The install profile the example was started under (D27): `runs` has no chat stages.
@@ -989,7 +1048,7 @@ class ExampleStage(StrEnum):
     finish = 'finish'
 
 
-class Kind1(StrEnum):
+class Kind2(StrEnum):
     files = 'files'
     runs = 'runs'
 
@@ -1063,7 +1122,7 @@ class Key(StrEnum):
     metrics = 'metrics'
 
 
-class FinishReason1(StrEnum):
+class FinishReasonModel(StrEnum):
     """
     Why generation stopped. `length` feeds a group's truncated fraction.
     """
@@ -1760,11 +1819,13 @@ class Source1(StrEnum):
 
 class PaneAnchorKind(StrEnum):
     """
-    What a pane is filed under: a project, or one experiment (served at `/v1/projects/{id}`).
+    What a pane is filed under: a project, one experiment or one run, each served at
+    `/v1/projects/{id}`. The pins contract's anchor kinds (`PinAnchorKind`), value for value.
     """
 
     project = 'project'
     experiment = 'experiment'
+    run = 'run'
 
 
 class PaneCheckErrorKind(StrEnum):
@@ -1982,11 +2043,12 @@ class PickEvent(StrEnum):
 
 class PinAnchorKind(StrEnum):
     """
-    Where a view lives: the project or one of its experiments.
+    Where a view lives: the project, one of its experiments or one of its runs.
     """
 
     project = 'project'
     experiment = 'experiment'
+    run = 'run'
 
 
 class PinKind(StrEnum):
@@ -2067,7 +2129,6 @@ class ProjectKind(StrEnum):
 
     training = 'training'
     evaluation = 'evaluation'
-    research = 'research'
     general = 'general'
     experiment = 'experiment'
 
@@ -2342,6 +2403,17 @@ class LivenessProtocolEnum(StrEnum):
     leases = 'leases'
 
 
+class RunListOrder(StrEnum):
+    """
+    `<ordering>_<direction>`, the dashboard picker's words (`RunListOrdering`, `RunListDirection`).
+    """
+
+    created_desc = 'created_desc'
+    created_asc = 'created_asc'
+    updated_desc = 'updated_desc'
+    updated_asc = 'updated_asc'
+
+
 class RunListView(StrEnum):
     """
     How much of each run `GET /v1/runs` sends: `full` rows, or `light` ones (W&B's `lazy=True`).
@@ -2353,21 +2425,25 @@ class RunListView(StrEnum):
 
 class RunStatus(StrEnum):
     created = 'created'
+    pending = 'pending'
     running = 'running'
     completed = 'completed'
     failed = 'failed'
     crashed = 'crashed'
     canceled = 'canceled'
+    paused = 'paused'
     untracked = 'untracked'
 
 
 class RunType(StrEnum):
     """
     What a run is, as its creator declares it. Training and evaluation are phases inside a run, not types.
-    The RL views (RL workspace, Rollouts, Compute timeline, Trials) follow `rl`.
+    The RL views (Rollouts summaries, Compute timeline, Trials) follow `rl`; recorded samples show on any type.
+    Never guessed from metric names: an undeclared run reads `general` ("Other").
     """
 
     general = 'general'
+    sft = 'sft'
     rl = 'rl'
 
 
@@ -2560,6 +2636,7 @@ class SenderKind(StrEnum):
 
     person = 'person'
     agent = 'agent'
+    compute = 'compute'
 
 
 class Smoothing(StrEnum):
@@ -2630,6 +2707,7 @@ class SourceKind(StrEnum):
     dataset = 'dataset'
     model = 'model'
     other = 'other'
+    environment = 'environment'
 
 
 class SourceProvider(StrEnum):
@@ -2646,6 +2724,11 @@ class SourceProvider(StrEnum):
     database = 'database'
     local = 'local'
     other = 'other'
+    prime_hub = 'prime_hub'
+    verifiers = 'verifiers'
+    harbor = 'harbor'
+    verl = 'verl'
+    skyrl = 'skyrl'
 
 
 class StageState(StrEnum):
@@ -2830,6 +2913,16 @@ class TriggerClass(StrEnum):
     search = 'search'
     command = 'command'
     window = 'window'
+
+
+class TurnState(StrEnum):
+    """
+    A turn's colour on the timeline: ended normally, a tool call in it failed, or it ended the rollout with an error.
+    """
+
+    ok = 'ok'
+    tool_failed = 'tool_failed'
+    ended_with_error = 'ended_with_error'
 
 
 class TurnsSource(StrEnum):

@@ -6,20 +6,21 @@ import hashlib
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
-from nab_index.file_urls import is_file_url, parse_file_url
-from nab_provider._vendor.packaging.markers import Marker, prepare_environment
-from nab_provider._vendor.packaging.pylock import (
+from packaging.markers import Marker, prepare_environment
+from packaging.pylock import (
     Pylock,
     PylockSelectError,
     PylockValidationError,
 )
-from nab_provider._vendor.packaging.utils import canonicalize_name
+from packaging.utils import canonicalize_name
+
+from nab_index.file_urls import is_file_url, parse_file_url
 from nab_provider.conflict_kind import EMPTY_MEMBERSHIP_SETS
 from nab_provider.environment import classify_dependency, marker_environment
 from nab_provider.marker_holds import dependency_marker_holds
 from nab_provider.pep508 import parse_requirement
 from nab_provider.records import select_artifact_hash
-from nab_provider.target import micro_boundary_points, slices_from_points
+from nab_provider.target import micro_boundaries
 
 from . import toml_io
 from .build_backend import project_metadata
@@ -37,17 +38,19 @@ if TYPE_CHECKING:
     from collections.abc import Set as AbstractSet
     from pathlib import Path
 
-    from nab_provider._vendor.packaging.pylock import (
+    from packaging.pylock import (
         PackageArchive,
         PackageSdist,
         PackageWheel,
     )
-    from nab_provider._vendor.packaging.requirements import Requirement
-    from nab_provider._vendor.packaging.version import Version
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+
     from nab_provider.metadata import WheelMetadata
     from nab_provider.target import ResolveTarget
 
     from .inputs import ResolveInputs
+    from .prepared_input import PreparedProjectInput
     from .resolve import ResolveFork
 
 __all__ = ["LockConsistencyError", "can_reuse_saved_lock", "check_saved_lock"]
@@ -175,12 +178,7 @@ def _check_target_slices(
                 )
             )
         )
-    slices = (
-        [target]
-        if target.concrete_micro
-        else slices_from_points(target, sorted(micro_boundary_points(target, markers)))
-    )
-    for sliced in slices:
+    for sliced in micro_boundaries(target, markers).slices(target):
         if lock.requires_python is not None and not lock.requires_python.contains(
             sliced.marker_env["python_full_version"], prereleases=True
         ):
@@ -287,7 +285,22 @@ def _check_constraints(
             raise LockConsistencyError(message)
 
 
-def _check_changed_bounds(  # noqa: PLR0913 - explicit saved-lock input and selector keywords
+def _inputs_unchanged(document: Mapping[str, Any], current: Mapping[str, Any]) -> bool:
+    """Reject changed selections and check whether all inputs match."""
+    record = _record(document)
+    if any(project.get("dynamic") for project in current["local"].values()):
+        message = "dynamic local metadata requires a lock update"
+        raise LockConsistencyError(message)
+    if record["all-inputs-sha256"] == validation_digest(current):
+        return True
+    if record["selection-inputs-sha256"] != selection_inputs_digest(current):
+        message = "dependency selections or policy changed; update the lock"
+        raise LockConsistencyError(message)
+    return False
+
+
+def _check_saved_inputs(  # noqa: PLR0913 - explicit saved-lock input and selector keywords
+    document: Mapping[str, Any],
     lock: Pylock,
     path: Path,
     current: Mapping[str, Any],
@@ -298,8 +311,12 @@ def _check_changed_bounds(  # noqa: PLR0913 - explicit saved-lock input and sele
     extras: Sequence[str],
     build_requirements: bool,
     input_format: InputFormat,
+    project_input: PreparedProjectInput | None = None,
 ) -> None:
-    """Validate compatible input edits using the standard package selections."""
+    """Check input fingerprints and validate changed bounds against the saved pins."""
+    if _inputs_unchanged(document, current):
+        return
+
     local = _current_local_metadata(current, inputs)
     forks, _ = plan_project_inputs(
         path,
@@ -309,6 +326,7 @@ def _check_changed_bounds(  # noqa: PLR0913 - explicit saved-lock input and sele
         extras=extras,
         build_requirements=build_requirements,
         input_format=input_format,
+        project_input=project_input,
     )
     constraints = [parse_requirement(text) for text in current["constraints"]]
     local_requirements = [
@@ -352,6 +370,7 @@ def check_saved_lock(  # noqa: PLR0913 - public keyword API for independent lock
     extras: Sequence[str] = (),
     build_requirements: bool = False,
     input_format: InputFormat = InputFormat.PROJECT,
+    project_input: PreparedProjectInput | None = None,
 ) -> None:
     """Validate saved pins without version discovery or a resolver transport."""
     if not lockfile.exists():
@@ -361,16 +380,8 @@ def check_saved_lock(  # noqa: PLR0913 - public keyword API for independent lock
     try:
         lock = Pylock.from_dict(document)
         _check_local_artifacts(lock, lockfile.resolve().parent)
-        record = _record(document)
-        if any(project.get("dynamic") for project in current["local"].values()):
-            message = "dynamic local metadata requires a lock update"
-            raise LockConsistencyError(message)
-        if record["all-inputs-sha256"] == validation_digest(current):
-            return
-        if record["selection-inputs-sha256"] != selection_inputs_digest(current):
-            message = "dependency selections or policy changed; update the lock"
-            raise LockConsistencyError(message)
-        _check_changed_bounds(
+        _check_saved_inputs(
+            document,
             lock,
             path,
             current,
@@ -380,6 +391,7 @@ def check_saved_lock(  # noqa: PLR0913 - public keyword API for independent lock
             extras=extras,
             build_requirements=build_requirements,
             input_format=input_format,
+            project_input=project_input,
         )
     except (
         PylockValidationError,
@@ -458,6 +470,7 @@ def can_reuse_saved_lock(  # noqa: PLR0913 - mirror the saved checker inputs and
     extras: Sequence[str] = (),
     build_requirements: bool = False,
     input_format: InputFormat = InputFormat.PROJECT,
+    project_input: PreparedProjectInput | None = None,
 ) -> bool:
     """Check a saved solution without remote discovery or changing its file."""
     try:
@@ -465,12 +478,14 @@ def can_reuse_saved_lock(  # noqa: PLR0913 - mirror the saved checker inputs and
             return False
 
         # Validation format 1 cannot distinguish every file-URL source identity.
-        saved = Pylock.from_dict(toml_io.load_path(lockfile))
+        document = toml_io.load_path(lockfile)
+        saved = Pylock.from_dict(document)
         if not _reuse_artifacts_supported(saved):
             return False
 
-        check_saved_lock(
-            lockfile,
+        _check_saved_inputs(
+            document,
+            saved,
             path,
             current,
             inputs,
@@ -479,6 +494,7 @@ def can_reuse_saved_lock(  # noqa: PLR0913 - mirror the saved checker inputs and
             extras=extras,
             build_requirements=build_requirements,
             input_format=input_format,
+            project_input=project_input,
         )
     except (
         OSError,
@@ -486,6 +502,7 @@ def can_reuse_saved_lock(  # noqa: PLR0913 - mirror the saved checker inputs and
         LookupError,
         TypeError,
         RecursionError,
+        PylockSelectError,
         PylockValidationError,
     ):
         return False

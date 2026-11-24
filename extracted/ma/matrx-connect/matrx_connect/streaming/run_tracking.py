@@ -164,18 +164,28 @@ def opens_own_root(fn: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def task_opens_own_root(task_fn: object) -> bool:
-    """True when ``task_fn`` (looking through partials and ``functools.wraps``
-    wrappers) was declared with :func:`opens_own_root`."""
-    seen = 0
-    cur: object = task_fn
-    while cur is not None and seen < 8:
+    """True when ``task_fn`` was declared with :func:`opens_own_root`, however it was composed.
+
+    Looks through every layer a run function can be wrapped in: ``functools.wraps`` chains
+    (``__wrapped__``), ``functools.partial`` / ``partialmethod`` (``.func``), bound methods
+    (``__func__``), and callable objects (the mark on the instance's class ``__call__``)."""
+    seen: set[int] = set()
+    cur: object | None = task_fn
+    while cur is not None and id(cur) not in seen and len(seen) < 32:
+        seen.add(id(cur))
         if getattr(cur, OPENS_OWN_ROOT_ATTR, False):
             return True
-        if isinstance(cur, functools.partial):
+        if isinstance(cur, (functools.partial, functools.partialmethod)):
             cur = cur.func
-        else:
-            cur = getattr(cur, "__wrapped__", None)
-        seen += 1
+            continue
+        nxt = getattr(cur, "__wrapped__", None)
+        if nxt is None:
+            nxt = getattr(cur, "__func__", None)  # bound method
+        if nxt is None and not hasattr(cur, "__code__") and not isinstance(cur, type):
+            call = getattr(type(cur), "__call__", None)  # callable object
+            if call is not None:
+                nxt = call
+        cur = nxt
     return False
 
 

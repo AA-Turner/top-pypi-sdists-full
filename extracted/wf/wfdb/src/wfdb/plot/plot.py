@@ -225,14 +225,15 @@ def plot_items(
 
     Examples
     --------
-    >>> record = wfdb.rdrecord('sample-data/100', sampto=3000)
-    >>> ann = wfdb.rdann('sample-data/100', 'atr', sampto=3000)
+    >>> import wfdb
+    >>> record = wfdb.rdrecord('100', pn_dir='mitdb', sampto=3000)
+    >>> ann = wfdb.rdann('100', 'atr', pn_dir='mitdb', sampto=3000)
 
     >>> wfdb.plot_items(signal=record.p_signal,
-                        ann_samp=[ann.sample, ann.sample],
-                        fs=record.fs, sig_units=record.units,
-                        title='MIT-BIH Record 100', time_units='seconds',
-                        figsize=(10,4), ecg_grids='all')
+    ...                 ann_samp=[ann.sample, ann.sample],
+    ...                 fs=record.fs, sig_units=record.units,
+    ...                 title='MIT-BIH Record 100', time_units='seconds',
+    ...                 figsize=(10, 4), ecg_grids='all')
 
     """
     import matplotlib.pyplot as plt
@@ -290,10 +291,10 @@ def plot_items(
         # Add title and axis labels.
         # First, make sure that xlabel and ylabel inputs are valid
         if xlabel:
-            if len(xlabel) != signal.shape[1]:
+            if len(xlabel) != n_subplots:
                 raise Exception(
                     "The length of the xlabel must be the same as the "
-                    f"signal: {signal.shape[1]} values"
+                    f"signal: {n_subplots} values"
                 )
 
         if ylabel:
@@ -846,6 +847,8 @@ def plot_wfdb(
     figsize=None,
     return_fig=False,
     sharex="auto",
+    xlabel=None,
+    ylabel=None,
 ):
     """Subplot individual channels of a WFDB record and/or annotation.
 
@@ -905,6 +908,12 @@ def plot_wfdb(
         to False, then each subplot can be panned/zoomed independently.  If
         set to 'auto' (default), then the X axis will be shared unless
         record is multi-frequency and the time units are set to 'samples'.
+    xlabel : list, optional
+        A list of strings with the x label of each channel. By default, only
+        the bottom channel is labelled, with 'time/' and the time unit.
+    ylabel : list, optional
+        A list of strings with the y label of each channel. By default, the
+        labels are the signal names and units, such as 'MLII/mV'.
 
     Returns
     -------
@@ -914,12 +923,13 @@ def plot_wfdb(
 
     Examples
     --------
-    >>> record = wfdb.rdrecord('sample-data/100', sampto=3000)
-    >>> annotation = wfdb.rdann('sample-data/100', 'atr', sampto=3000)
+    >>> import wfdb
+    >>> record = wfdb.rdrecord('100', pn_dir='mitdb', sampto=3000)
+    >>> annotation = wfdb.rdann('100', 'atr', pn_dir='mitdb', sampto=3000)
 
-    >>> wfdb.plot_wfdb(record=record, annotation=annotation, plot_sym=True
-                       time_units='seconds', title='MIT-BIH Record 100',
-                       figsize=(10,4), ecg_grids='all')
+    >>> wfdb.plot_wfdb(record=record, annotation=annotation, plot_sym=True,
+    ...                time_units='seconds', title='MIT-BIH Record 100',
+    ...                figsize=(10, 4), ecg_grids='all')
 
     """
     (
@@ -927,7 +937,7 @@ def plot_wfdb(
         ann_samp,
         ann_sym,
         fs,
-        ylabel,
+        default_ylabel,
         record_name,
         sig_units,
     ) = _get_wfdb_plot_items(record=record, annotation=annotation, plot_sym=plot_sym)
@@ -968,7 +978,8 @@ def plot_wfdb(
         ann_sym=ann_sym,
         fs=fs,
         time_units=time_units,
-        ylabel=ylabel,
+        xlabel=xlabel,
+        ylabel=(ylabel or default_ylabel),
         title=(title or record_name),
         sig_style=sig_style,
         sig_units=sig_units,

@@ -11,49 +11,50 @@ settings a resolve runs under.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
     "nab_project",
     "nab_project._build.errors",
     "nab_project.paths",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.utils",
-    "nab_provider._vendor.packaging.version",
     "nab_provider.metadata",
-    "nab_provider.requirements_file",
+    "nab_provider.project_requirements",
+    "nab_resolver.diagnostics",
+    "packaging.utils",
+    "packaging.version",
     "tomli",
 )
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import tomli
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.metadata import (
     WheelMetadata,
     static_project_from_table,
-    validate_specifier_versions,
 )
-from nab_provider.requirements_file import (
+from nab_provider.project_requirements import (
     InvalidProjectRequirementError,
+    normalize_project_extra,
     parse_project_requirement,
+    parse_project_requires_python,
+    parse_requirements,
     require_string_list,
 )
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 
 from . import toml_io
 from ._build.errors import (
-    BuildBackendError as BuildBackendError,  # noqa: PLC0414  (public re-export)
+    BuildBackendError,
 )
 from .paths import PathState, is_absent_error, path_state
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
+    from packaging.requirements import Requirement
+
     from nab_index.transport import AsyncHttpTransport
-    from nab_provider._vendor.packaging.requirements import Requirement
 
     from .inputs import ResolveInputs
 
@@ -104,7 +105,7 @@ def extract_static_metadata(source_dir: Path) -> WheelMetadata | None:
     return project_metadata(project)
 
 
-def project_metadata(project: dict[str, Any]) -> WheelMetadata | None:
+def project_metadata(project: Mapping[str, object]) -> WheelMetadata | None:
     """Convert a static ``[project]`` table to :class:`WheelMetadata`."""
     name = project.get("name")
     version_raw = project.get("version")
@@ -128,91 +129,41 @@ def project_metadata(project: dict[str, Any]) -> WheelMetadata | None:
         msg = f"invalid [project].version {version_raw!r}: {exc}"
         raise InvalidProjectRequirementError(msg) from exc
 
-    requires_python = _static_requires_python(project.get("requires-python"))
+    requires_python = parse_project_requires_python(project.get("requires-python"))
+    requires_dist, provides_extra = _project_dependencies(project)
 
     return WheelMetadata(
         name=canonicalize_name(name),
         version=version,
         requires_python=requires_python,
-        requires_dist=_collect_requires_dist(project),
-        provides_extra=sorted(_collect_provides_extra(project)),
+        requires_dist=requires_dist,
+        provides_extra=provides_extra,
     )
 
 
-def _static_requires_python(raw: object) -> SpecifierSet | None:
-    """Parse a static ``requires-python``, raising when it is corrupt.
-
-    Absent is a valid "no constraint". A non-string or an unparseable
-    specifier is corrupt: it raises rather than silently dropping the
-    Python bound, which would admit candidates the bound excludes.
-    """
-    if raw is None:
-        return None
-    if not isinstance(raw, str):
-        msg = f"[project].requires-python must be a string, got {type(raw).__name__}"
-        raise InvalidProjectRequirementError(msg)
-    try:
-        specifier_set = SpecifierSet(raw)
-        validate_specifier_versions(specifier_set)
-    except ValueError as exc:
-        msg = f"invalid [project].requires-python {raw!r}: {exc}"
-        raise InvalidProjectRequirementError(msg) from exc
-    return specifier_set
-
-
-def _collect_requires_dist(project: dict[str, Any]) -> list[Requirement]:
-    """Concatenate PEP 631 ``dependencies`` + ``optional-dependencies``.
-
-    Optional-dependencies entries get an ``; extra == "name"`` marker
-    appended (combined with any existing marker via ``and``).
-
-    Invalid shapes or PEP 508 entries raise
-    :class:`InvalidProjectRequirementError`.
-    """
-    out: list[Requirement] = []
-    _extend_with_dep_strings(
-        out,
-        project.get("dependencies", []),
-        source="[project].dependencies",
+def _project_dependencies(
+    project: Mapping[str, object],
+) -> tuple[list[Requirement], list[str]]:
+    """Read the requirements and declared extras from a static project table."""
+    source = "[project].dependencies"
+    requires_dist = parse_requirements(
+        require_string_list(project.get("dependencies", []), source), source
     )
-    for raw_extra, deps in sorted(_require_optional_dependencies(project).items()):
-        extra = canonicalize_name(str(raw_extra))
-        _extend_with_dep_strings(
-            out,
-            deps,
-            source=f"[project].optional-dependencies extra {raw_extra!r}",
-            extra=extra,
-        )
-    return out
-
-
-def _extend_with_dep_strings(
-    out: list[Requirement],
-    raw: object,
-    *,
-    source: str,
-    extra: str | None = None,
-) -> None:
-    out.extend(
-        parse_project_requirement(dep, source, extra=extra)
-        for dep in require_string_list(raw, source)
-    )
-
-
-def _require_optional_dependencies(project: dict[str, Any]) -> dict[str, Any]:
-    """Return ``[project.optional-dependencies]`` as a table, or raise."""
     optional = project.get("optional-dependencies", {})
     if not isinstance(optional, dict):
         msg = "[project].optional-dependencies must be a table"
         raise InvalidProjectRequirementError(msg)
-    return optional
 
-
-def _collect_provides_extra(project: dict[str, Any]) -> set[str]:
-    return {
-        canonicalize_name(str(extra))
-        for extra in _require_optional_dependencies(project)
-    }
+    extras = set()
+    for raw_extra, deps in sorted(optional.items()):
+        extra = normalize_project_extra(raw_extra)
+        extras.add(extra)
+        source = f"[project].optional-dependencies extra {raw_extra!r}"
+        requires_dist.extend(
+            parse_project_requirement(dep, source, extra=extra)
+            for dep in require_string_list(deps, source)
+        )
+    return requires_dist, sorted(extras)
 
 
 def extract_metadata(
@@ -242,14 +193,11 @@ def extract_metadata(
         return static
     if config is None:
         report = DiagnosticMessage(
-            (
-                "dynamic-metadata path requires a ResolveInputs; the static reader "
-                f"returned None for {source_dir}"
-            ),
+            f"Reading package metadata from {source_dir} requires a build backend.",
             suggestions=(
                 Suggestion(
-                    "pass one through ``extract_metadata`` or use a build-policy "
-                    "that does not enter the dynamic path."
+                    "Pass the project's build settings (ResolveInputs) "
+                    "as the config argument to extract_metadata()."
                 ),
             ),
         )

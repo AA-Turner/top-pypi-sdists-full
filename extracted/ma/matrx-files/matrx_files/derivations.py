@@ -158,6 +158,16 @@ SYSTEM_POLICY_METADATA_KEYS: frozenset[str] = frozenset(
 )
 
 
+def reserved_upload_metadata_keys(metadata: dict | None) -> list[str]:
+    """Client upload metadata keys that start with ``_`` — server-stamped, never client-sent.
+
+    ONE rule for every upload door (buffered on both hosts, TUS): ``_idempotency_key``,
+    ``_sync_*`` and friends are written by the server; a client supplying one could
+    impersonate that state. Callers refuse a non-empty answer with 400 invalid_metadata.
+    """
+    return sorted(k for k in (metadata or {}) if isinstance(k, str) and k.startswith("_"))
+
+
 class ClientPolicyMetadataError(PermissionError):
     """A client-supplied metadata write tried to set/change a policy key."""
 

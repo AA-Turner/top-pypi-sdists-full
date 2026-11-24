@@ -75,6 +75,52 @@ async def test_queue_helper_sanitizes_message_before_coordinator(
 
 
 @pytest.mark.asyncio
+async def test_the_persons_own_invalid_characters_are_sanitized_without_a_system_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A NUL the person typed is replaced and saved; that is the correct outcome, not a defect
+    (2026-11-03: 24 rows from one fixture persona's "reply with a null byte" battery)."""
+    from matrx_ai.persistence import queue_helpers
+
+    queued: list[dict[str, object]] = []
+    captures: list[dict[str, object]] = []
+
+    class FakeCoordinator:
+        _late_boundary_captured = False
+
+        def queue(self, table: str, payload: dict[str, object], **kwargs: object) -> str:
+            queued.append({"table": table, "payload": payload, "kwargs": kwargs})
+            return "op-1"
+
+    async def fake_capture_error(exc: BaseException, **kwargs: object) -> None:
+        captures.append({"exc": exc, **kwargs})
+
+    monkeypatch.setattr(queue_helpers, "get_coordinator", lambda: FakeCoordinator())
+    monkeypatch.setattr(queue_helpers, "get_current_lane", lambda: None)
+    monkeypatch.setattr(
+        queue_helpers,
+        "_resolve_app_context",
+        lambda: SimpleNamespace(
+            request_id="r-1",
+            user_id="u-1",
+            conversation_id="c-1",
+            organization_id="77777777-7777-4777-8777-777777777777",
+        ),
+    )
+    monkeypatch.setattr("matrx_connect.streaming.error_capture.capture_error", fake_capture_error)
+    queue_helpers.queue_message_create(
+        id="m-1",
+        conversation_id="c-1",
+        role="user",
+        content=[{"type": "text", "text": "reply\x00ok"}],
+        user_content=[{"type": "text", "text": "reply\x00ok"}],
+    )
+    await asyncio.sleep(0)
+    assert queued[0]["payload"]["user_content"][0]["text"] == "reply\ufffdok"
+    assert captures == []
+
+
+@pytest.mark.asyncio
 async def test_coordinator_backstop_sanitizes_direct_queue(
     monkeypatch: pytest.MonkeyPatch,
     capture_sink: tuple[list[dict[str, object]], list[dict[str, object]]],

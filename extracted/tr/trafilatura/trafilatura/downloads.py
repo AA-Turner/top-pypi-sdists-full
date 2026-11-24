@@ -12,11 +12,13 @@ from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from configparser import ConfigParser
 from functools import partial
+from http.cookiejar import LoadError, MozillaCookieJar
 from importlib.metadata import version
 from io import BytesIO
 from time import sleep
 from typing import Any
 from urllib.parse import urljoin
+from urllib.request import Request
 
 import certifi
 import urllib3
@@ -28,6 +30,7 @@ from .utils import (
     Response,
     _capped,
     is_acceptable_length,
+    lru_cache,
     make_chunks,
 )
 
@@ -166,15 +169,41 @@ class _SafePoolManager(urllib3.PoolManager):
         self.pool_classes_by_scheme = {"http": _SafeHTTPConnectionPool, "https": _SafeHTTPSConnectionPool}
 
 
-def _determine_headers(config: ConfigParser) -> dict[str, str]:
-    "Overlay user-agent and cookie from the config file on the default headers."
+@lru_cache(maxsize=4)
+def _load_cookie_file(filename: str) -> MozillaCookieJar:
+    "Load a Netscape-format cookie file once, keeping session cookies."
+    jar = MozillaCookieJar()
+    try:
+        # expired cookies are left out when requests are sent
+        jar.load(filename, ignore_discard=True, ignore_expires=True)
+    except (OSError, LoadError) as err:
+        LOGGER.error("cannot load cookie file: %s %s", filename, err)
+    # an expiry of 0 marks a session cookie, Python < 3.13 reads it as expired
+    for cookie in jar:
+        if cookie.expires == 0:  # pragma: no cover
+            cookie.expires, cookie.discard = None, True
+    return jar
+
+
+def _determine_headers(config: ConfigParser, url: str | None = None) -> dict[str, str]:
+    "Overlay user-agent and cookies from the config file on the default headers."
     headers = dict(DEFAULT_HEADERS)
     # rotate over a series of user-agents
     if myagents := config.get("DEFAULT", "USER_AGENTS", fallback="").strip():
         headers["User-Agent"] = random.choice(myagents.splitlines())
     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies
-    # todo: support for several cookies?
-    if mycookie := config.get("DEFAULT", "COOKIE", fallback=None):
+    # a cookie file takes precedence, only cookies matching the URL are sent
+    if cookiefile := config.get("DEFAULT", "COOKIE_FILE", fallback="").strip():
+        if url:
+            try:
+                request = Request(url)
+                _load_cookie_file(cookiefile).add_cookie_header(request)
+            except ValueError:  # malformed URL, the request is sent without cookies
+                pass
+            else:
+                if mycookie := request.get_header("Cookie"):
+                    headers["Cookie"] = mycookie
+    elif mycookie := config.get("DEFAULT", "COOKIE", fallback=None):
         headers["Cookie"] = mycookie
     return headers
 
@@ -186,6 +215,11 @@ def _get_retry_strategy(config: ConfigParser) -> urllib3.util.Retry:
         total=max_redirects,
         redirect=max_redirects,  # raise_on_redirect=False,
         connect=0,
+        # SSL errors count as "other": fail at once, the caller handles them
+        other=0,
+        # one read retry, without backoff: covers a dropped keep-alive connection
+        # while a read timeout costs DOWNLOAD_TIMEOUT twice instead of three times
+        read=1,
         backoff_factor=config.getint("DEFAULT", "DOWNLOAD_TIMEOUT") / 2,
         backoff_max=MAX_BACKOFF,
         retry_after_max=MAX_BACKOFF,
@@ -214,6 +248,19 @@ def _initiate_pool(config: ConfigParser, no_ssl: bool = False) -> urllib3.PoolMa
     return pool
 
 
+def _final_url(response: urllib3.BaseHTTPResponse, url: str) -> str:
+    "Return the absolute URL of the page a urllib3 response comes from."
+    # a Location header can be relative to the hop that sent it, which is not
+    # the original URL after a cross-host redirect, and geturl() is empty when
+    # the last hop was retried, so resolve the last redirect from the history
+    history = response.retries.history if response.retries else ()
+    for hop in reversed(history):
+        if hop.redirect_location:
+            return urljoin(hop.url or url, hop.redirect_location)
+    # without a redirect, geturl() returns the request URI, which can be relative
+    return urljoin(url, response.geturl() or url)
+
+
 def _send_urllib_request(url: str, no_ssl: bool, config: ConfigParser) -> Response | None:
     "Internal function to robustly send a request (SSL or not) and return its result."
     try:
@@ -223,21 +270,21 @@ def _send_urllib_request(url: str, no_ssl: bool, config: ConfigParser) -> Respon
         response = pool_manager.request(
             "GET",
             url,
-            headers=_determine_headers(config),
+            headers=_determine_headers(config, url),
             retries=_get_retry_strategy(config),
             timeout=config.getint("DEFAULT", "DOWNLOAD_TIMEOUT"),
             preload_content=False,
         )
         try:
-            # stream() yields decoded chunks: the cap applies to decompressed bytes
-            data = _capped(response.stream(2**17), config.getint("DEFAULT", "MAX_FILE_SIZE"))
+            # decoded chunks, the cap applies to decompressed bytes: read_chunked()
+            # leaves them compressed unless decode_content is explicitly set
+            data = _capped(response.stream(2**17, decode_content=True), config.getint("DEFAULT", "MAX_FILE_SIZE"))
         finally:
+            response.close()
             response.release_conn()
 
         # necessary for standardization
-        # geturl() returns the raw Location header after a redirect and the request
-        # URI otherwise, both of which can be relative
-        resp = Response(data, response.status, urljoin(url, response.geturl() or url))
+        resp = Response(data, response.status, _final_url(response, url))
         resp.store_headers(response.headers)
         return resp
 
@@ -258,7 +305,7 @@ def _is_suitable_response(url: str, response: Response, options: Extractor) -> b
     if response.status != 200:
         LOGGER.error("not a 200 response: %s for URL %s", response.status, url)
         return False
-    return is_acceptable_length(len(response.html or response.data or ""), options)
+    return is_acceptable_length(len(response.html or response.data or ""), options, url)
 
 
 def fetch_url(
@@ -361,11 +408,12 @@ def _urllib3_is_live_page(url: str, config: ConfigParser = DEFAULT_CONFIG) -> bo
         response = _initiate_pool(config, no_ssl=True).request(
             "HEAD",
             url,
-            headers=_determine_headers(config),
+            headers=_determine_headers(config, url),
             # exhausted redirects return the last 3xx, counted as live
             retries=urllib3.util.Retry(
                 total=config.getint("DEFAULT", "MAX_REDIRECTS"),
                 connect=0,
+                read=1,
                 raise_on_redirect=False,
                 status_forcelist=FORCE_STATUS,
                 backoff_factor=1,
@@ -387,6 +435,14 @@ def is_live_page(url: str, config: ConfigParser = DEFAULT_CONFIG) -> bool:
     return result or _urllib3_is_live_page(url, config)
 
 
+def filter_blacklist(urls: list[str], blacklist: set[str] | None) -> list[str]:
+    "Remove the URLs found in the blacklist, compared without protocol and trailing slashes."
+    if not blacklist:
+        return urls
+    keys = {URL_BLACKLIST_REGEX.sub("", b) for b in blacklist}
+    return [u for u in urls if URL_BLACKLIST_REGEX.sub("", u) not in keys]
+
+
 def add_to_compressed_dict(
     inputlist: list[str],
     blacklist: set[str] | None = None,
@@ -401,8 +457,7 @@ def add_to_compressed_dict(
 
     inputlist = list(dict.fromkeys(inputlist))
 
-    if blacklist:
-        inputlist = [u for u in inputlist if URL_BLACKLIST_REGEX.sub("", u) not in blacklist]
+    inputlist = filter_blacklist(inputlist, blacklist)
 
     if url_filter:
         inputlist = [u for u in inputlist if any(f in u for f in url_filter)]
@@ -480,7 +535,9 @@ def _send_pycurl_request(url: str, no_ssl: bool, config: ConfigParser) -> Respon
 
     # init, let libcurl advertise and decompress the encodings it supports
     headerlist = [
-        f"{header}: {content}" for header, content in _determine_headers(config).items() if header.lower() != "accept-encoding"
+        f"{header}: {content}"
+        for header, content in _determine_headers(config, url).items()
+        if header.lower() != "accept-encoding"
     ]
 
     # prepare curl request

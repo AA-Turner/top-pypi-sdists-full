@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -20,7 +18,13 @@ from matrx_graph.executor.schema_validation import schema_validity_errors
 from matrx_graph.executor.registry import NodeRegistry, default_registry
 from matrx_graph.types.channel import ChannelSpec
 from matrx_graph.types.compiled import CompiledEdge, CompiledGraph, CompiledNode, StepClock
-from matrx_graph.types.input_surface import InputSpec, compiled_kind_and_variant, hint_values
+from matrx_graph.types.input_surface import (
+    InputSpec,
+    compiled_kind_and_variant,
+    input_multiple,
+    input_type,
+    variable_sourcing,
+)
 from matrx_graph.types.definition import Definition
 from matrx_graph.types.primitives import EdgeKind, RetryPolicy
 from matrx_graph.validation import declared_input_defaults, split_setting_refs, validate_definition
@@ -28,15 +32,20 @@ from matrx_graph.validation import declared_input_defaults, split_setting_refs, 
 logger = logging.getLogger(__name__)
 
 
-# ``Definition.metadata[START_WHEN_READY_KEY] = True`` opts a workflow into START WHEN READY
-# scheduling (executor/FEATURE.md).
+# START WHEN READY (executor/FEATURE.md) is the DEFAULT since 2026-11-02 (PF-WF): a step starts
+# the moment its last input lands. ``Definition.metadata[START_WHEN_READY_KEY] = False`` opts ONE
+# workflow back to plain run-ahead; ``START_WHEN_READY_DEFAULT = False`` turns it off everywhere.
 START_WHEN_READY_KEY = "start_when_ready"
+START_WHEN_READY_DEFAULT = True
 
 
 def _hash_definition(definition: Definition) -> str:
-    payload = definition.model_dump(mode="json")
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:32]
+    # The hash covers the EXECUTABLE projection only (matrx_graph.information.hash_projection):
+    # a note edit never changes it, and a definition with no information content hashes exactly
+    # as it always did.
+    from matrx_graph.information import definition_hash
+
+    return definition_hash(definition)
 
 
 def _resolve_config(
@@ -76,12 +85,19 @@ def _resolve_config(
 # join-count nor route.
 _ROUTABLE_KINDS = (EdgeKind.DATA, EdgeKind.CONDITIONAL, EdgeKind.CONTROL, EdgeKind.ERROR)
 
+#: Dispatchers whose body's edge back into them is carried by the run's own loop frame (ENGINE_SPEC §9;
+#: the scheduler pushes a frame only for ``control.loop``) — that edge is the loop's return, not a back-edge.
+_LOOP_RETURN_DISPATCHERS = frozenset({"control.loop"})
+
 
 def _detect_back_edges(
     entry_ids: tuple[str, ...],
     edges: dict[str, CompiledEdge],
     outgoing: dict[str, list[str]],
     all_node_ids: list[str],
+    dispatch_arcs: dict[str, str] | None = None,
+    labels: dict[str, str] | None = None,
+    loop_returns: frozenset[str] = frozenset(),
 ) -> set[str]:
     """Classify cycle back-edges by iterative DFS from the entry nodes
     (ENGINE_SPEC §3.2 / F13 compat).
@@ -95,28 +111,51 @@ def _detect_back_edges(
     A cycle UNREACHABLE from the entry nodes is ambiguous (no deterministic
     back-edge orientation, and its nodes could never fire anyway) — that is
     a LOUD CompilationError naming the cycle, never a silent deadlock.
+
+    ``dispatch_arcs`` (dispatcher id -> the node it dispatches, from
+    ``_dispatch_arcs``) are walked like edges: a For each / send / loop /
+    work-queue reaches its body by dispatch, with NO connection in between, so
+    without the arc a cycle that runs THROUGH a For each (``pages -> read~each
+    => read -> read~gather -> after -> pages``) was invisible — its closing
+    edge stayed in ``pages``'s join and the run deadlocked on lap 1 (G1,
+    2026-11-18). An arc is never itself a back-edge (it has no edge to mark;
+    the run's own Sends drive it), it only lets the walk see the loop.
+
+    ``loop_returns`` are the dispatchers whose return edge the run carries
+    itself (``control.loop``: its §9 frame pops on the edge back into it). An
+    edge closing a cycle onto one of them, while the walk is inside the body
+    it dispatched, is that loop's return — never a back-edge (a back-edge would
+    stop a failed iteration from looping on).
     """
+    arcs = dispatch_arcs or {}
+
+    def _steps(node_id: str) -> Any:
+        for eid in outgoing.get(node_id, []):
+            edge = edges[eid]
+            if edge.kind in _ROUTABLE_KINDS:
+                yield eid, edge.target_node_id
+        if node_id in arcs:
+            yield None, arcs[node_id]
+
     color: dict[str, int] = {}  # missing=white, 1=on stack, 2=done
     back: set[str] = set()
     for root in entry_ids:
         if color.get(root):
             continue
         color[root] = 1
-        stack: list[tuple[str, Any]] = [(root, iter(outgoing.get(root, [])))]
+        stack: list[tuple[str, Any]] = [(root, _steps(root))]
         while stack:
             _node_id, edge_iter = stack[-1]
             descended = False
-            for eid in edge_iter:
-                edge = edges[eid]
-                if edge.kind not in _ROUTABLE_KINDS:
-                    continue
-                tgt = edge.target_node_id
+            for eid, tgt in edge_iter:
                 state = color.get(tgt, 0)
                 if state == 1:
-                    back.add(eid)
+                    is_loop_return = tgt in loop_returns and color.get(arcs.get(tgt, "")) == 1
+                    if eid is not None and not is_loop_return:
+                        back.add(eid)
                 elif state == 0:
                     color[tgt] = 1
-                    stack.append((tgt, iter(outgoing.get(tgt, []))))
+                    stack.append((tgt, _steps(tgt)))
                     descended = True
                     break
             if not descended:
@@ -137,6 +176,10 @@ def _detect_back_edges(
             if edge.source_node_id in unreachable_set and edge.target_node_id in unreachable_set:
                 in_degree[edge.target_node_id] += 1
                 local_out[edge.source_node_id].append(edge.target_node_id)
+        for src, tgt in arcs.items():
+            if src in unreachable_set and tgt in unreachable_set:
+                in_degree[tgt] += 1
+                local_out[src].append(tgt)
         frontier = [nid for nid in unreachable if in_degree[nid] == 0]
         while frontier:
             nid = frontier.pop()
@@ -158,9 +201,37 @@ def _detect_back_edges(
                 "orient its feedback edge, so the cycle would deadlock the "
                 "join accumulator silently (ENGINE_SPEC §3.4/§12.8). Give "
                 "the cycle an entry path (an inbound edge from the entry "
-                "subgraph) or declare one of its nodes in entry_nodes."
+                "subgraph) or declare one of its nodes in entry_nodes.",
+                issues=[_loop_never_starts_issue(cycle_nodes, cycle_edges, labels or {})],
             )
     return back
+
+
+def _loop_never_starts_issue(cycle_nodes: list[str], cycle_edges: list[str], labels: dict[str, str]) -> Any:
+    """The un-runnable loop in words, for every reader of ``CompilationError.issues`` (Publish, the run form):
+    the steps by the names a person sees (a For each's hidden helpers named as the step they belong to), never
+    ids. ``code="loop_never_starts"``."""
+    from matrx_graph.step_settings import owner_of
+    from matrx_graph.validation import ValidationIssue
+
+    names: list[str] = []
+    for nid in cycle_nodes:
+        owner = owner_of(nid) or nid
+        name = labels.get(owner) or owner
+        if name not in names:
+            names.append(name)
+    shown = ", ".join(f"'{n}'" for n in names[:4]) + (f" and {len(names) - 4} more" if len(names) > 4 else "")
+    first = owner_of(cycle_nodes[0]) or cycle_nodes[0]
+    return ValidationIssue(
+        path=f"nodes[{first}]",
+        node_id=first,
+        edge_id=cycle_edges[0] if cycle_edges else None,
+        code="loop_never_starts",
+        message=(
+            f"The loop through {shown} never starts: no step that runs first leads into it. "
+            "Connect an earlier step into one of these steps."
+        ),
+    )
 
 
 def _topological_layers(
@@ -196,19 +267,64 @@ def _topological_layers(
 
 
 
-def _dispatch_target_ids(nodes: dict[str, CompiledNode]) -> set[str]:
-    """Every node a dispatcher (``validation.DISPATCHER_NODE_TYPES``) names as its
-    ``config.target_node_id`` — reached by dispatch only, never an entry candidate."""
+def _dispatch_arcs(nodes: dict[str, CompiledNode]) -> dict[str, str]:
+    """Dispatcher id -> the node it names as ``config.target_node_id`` (every
+    ``validation.DISPATCHER_NODE_TYPES`` step): the hop a run takes by Send, with no edge."""
     from matrx_graph.validation import DISPATCHER_NODE_TYPES
 
-    targets: set[str] = set()
+    arcs: dict[str, str] = {}
     for nid, node in nodes.items():
         if node.spec_type not in DISPATCHER_NODE_TYPES:
             continue
         target = getattr(node.config, "target_node_id", None)
         if isinstance(target, str) and target in nodes and target != nid:
-            targets.add(target)
-    return targets
+            arcs[nid] = target
+    return arcs
+
+
+def _dispatch_target_ids(nodes: dict[str, CompiledNode]) -> set[str]:
+    """Every node a dispatcher names as its target — reached by dispatch only, never an entry candidate."""
+    return set(_dispatch_arcs(nodes).values())
+
+#: Compiled published versions kept per process (a version's definition never changes).
+COMPILED_VERSIONS_MAX = 128  # protocol-constant: memory bound on an in-process compiled-definition cache, not an admin behavior
+_COMPILED_VERSIONS: OrderedDict[tuple[int, int, str], CompiledGraph] = OrderedDict()
+
+
+def compile_version(
+    definition: Definition,
+    *,
+    version_id: str | None,
+    registry: NodeRegistry | None = None,
+) -> CompiledGraph:
+    """``compile`` for a stored definition, remembered by its PUBLISHED version id.
+
+    A published version is immutable, so its compiled graph (frozen) is computed once per process
+    and registry generation — a mandate call, its route preflight and a later read of the run no
+    longer compile the same workflow two or three times. ``version_id=None`` (a draft, which can
+    change) compiles every time."""
+    registry = registry or default_registry()
+    registry.ensure_bootstrapped()
+    if not version_id:
+        return compile(definition, registry=registry)
+    key = (id(registry), registry.generation, str(version_id))
+    hit = _COMPILED_VERSIONS.get(key)
+    if hit is not None:
+        _COMPILED_VERSIONS.move_to_end(key)
+        return hit
+    graph = compile(definition, registry=registry)
+    _COMPILED_VERSIONS[key] = graph
+    while len(_COMPILED_VERSIONS) > COMPILED_VERSIONS_MAX:
+        _COMPILED_VERSIONS.popitem(last=False)
+    return graph
+
+
+def compile_stored(row: Any, registry: NodeRegistry | None = None) -> CompiledGraph:
+    """Compile a stored definition row (``DefinitionStore`` load): a published version row is
+    remembered by its id (``compile_version``); a draft row compiles every time."""
+    version_id = str(row.id) if getattr(row, "is_version", False) else None
+    return compile_version(row.definition, version_id=version_id, registry=registry)
+
 
 def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
     definition: Definition,
@@ -228,9 +344,12 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
         # EVERY issue travels with the error, not just the first. A host
         # that can only repeat "the first of six problems"
         # cannot tell the person in front of it what to fix.
+        # The sentence quotes an ERROR: a warning that sorts first (an unknown key) never stands in
+        # for the problem that actually refused the definition.
+        first = next((i for i in result.issues if i.severity == "error"), result.issues[0])
         raise CompilationError(
             f"Definition has {len(result.issues)} validation issue(s); "
-            f"first: {result.issues[0].message} at {result.issues[0].path}",
+            f"first: {first.message} at {first.path}",
             issues=list(result.issues),
         )
     # Built-in step settings become the real steps they stand for (matrx_graph/step_settings.py);
@@ -238,6 +357,10 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
     from matrx_graph.step_settings import expand_step_settings
 
     definition = expand_step_settings(definition)
+    # Information nodes and relation edges never reach the graph (matrx_graph/information.py).
+    from matrx_graph.information import split_information
+
+    definition = split_information(definition, registry).executable
 
     incoming: dict[str, list[str]] = defaultdict(list)
     outgoing: dict[str, list[str]] = defaultdict(list)
@@ -338,6 +461,15 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
             raise CompilationError(
                 f"node '{node.id}' has an invalid one_at_a_time setting: {e}"
             ) from e
+
+        # What the step says (matrx_graph/says.py). Authored as data.says; a bad row fails
+        # compilation (loud, at publish), never a run.
+        from matrx_graph.says import parse_says
+
+        try:
+            says = parse_says(node.data.get("says"))
+        except ValueError as e:
+            raise CompilationError(f"node '{node.id}' has an invalid says setting: {e}") from e
 
         # Run in another organization (matrx_graph/in_organization.py). Authored as
         # data.in_organization; a bad value fails compilation (loud), never a run.
@@ -461,6 +593,7 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
             step_clock=step_clock,
             once=once,
             one_at_a_time=one_at_a_time,
+            says=says,
             in_organization=in_organization,
             effective_output_schema=effective_output_schema,
             output_channel=output_channel,
@@ -484,6 +617,7 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
             ),
             on_skipped_upstream=node.on_skipped_upstream,  # type: ignore[arg-type]
             skip_defaults=node.skip_defaults,
+            when_input_skipped=node.when_input_skipped,  # type: ignore[arg-type]
             arg_merge=node.arg_merge,
             on_item_failure=node.on_item_failure,  # type: ignore[arg-type]
             optional=node.optional,
@@ -525,7 +659,11 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
     # every reachable cycle's feedback edge so the scheduler excludes it from
     # join required sets and re-fires the target per delivery. Raises loudly
     # for a cycle no entry node can reach (never a silent join deadlock).
-    back_edge_ids = _detect_back_edges(entry, edges, outgoing, list(nodes))
+    back_edge_ids = _detect_back_edges(
+        entry, edges, outgoing, list(nodes), _dispatch_arcs(nodes),
+        {nid: n.label for nid, n in nodes.items() if n.label},
+        frozenset(nid for nid, n in nodes.items() if n.spec_type in _LOOP_RETURN_DISPATCHERS),
+    )
     for eid in back_edge_ids:
         edges[eid] = edges[eid].model_copy(update={"is_back_edge": True})
 
@@ -534,7 +672,7 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
 
     input_surface = _build_input_surface(definition, nodes)
 
-    return CompiledGraph(
+    compiled = CompiledGraph(
         definition_hash=_hash_definition(definition),
         nodes=nodes,
         edges=edges,
@@ -545,10 +683,15 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
         # A published workflow's media must be born public; the scheduler
         # enters `public_media_scope()` for the whole run.
         public_media=definition.public_media,
-        # START WHEN READY is opted into per workflow while it is proven: ``metadata`` is the
-        # definition-level bag every save path already stores and the Studio round-trips.
-        start_when_ready=definition.metadata.get(START_WHEN_READY_KEY) is True,
+        # START WHEN READY is the default; ``metadata`` (the bag every save path stores and the
+        # Studio round-trips) carries a per-workflow ``false`` opt-out.
+        start_when_ready=(
+            START_WHEN_READY_DEFAULT and definition.metadata.get(START_WHEN_READY_KEY) is not False
+        ),
         source_metadata={},
+        # How often the run is written down (executor/scheduler.py § DURABILITY LEVELS): the
+        # workflow's own ``metadata.durability``; an unknown word is the default.
+        durability=str(definition.metadata.get("durability") or "every_step"),
         # Declared run variables — validate_definition already rejected any
         # {'$var': name} reference in static inputs that isn't declared here,
         # so at run time every reference resolves against this dict + the
@@ -557,6 +700,12 @@ def compile(  # noqa: A001 — mirrors matplotlib-style top-level compile()
         variables={v.name: v for v in definition.variables},
         input_surface=input_surface,
     )
+    # THE RUN ROW KEEPS ONLY THE ANSWER (L-SPEED round 6a, item 2): the steps a finished run's row
+    # holds — every deliverable, the declared result, every terminal step. The rest stay in their
+    # node_outcome rows (the per-step record).
+    from matrx_graph.types.deliverables import row_output_ids
+
+    return compiled.model_copy(update={"row_output_ids": row_output_ids(compiled, definition)})
 
 
 def _build_input_surface(
@@ -565,7 +714,8 @@ def _build_input_surface(
 ) -> dict[str, InputSpec]:
     """Compile THE workflow input surface (INPUT-SURFACE.md).
 
-    Union of every ``io.user_input`` node's fields + the declared variables
+    Union of every input-source step's fields (``io.user_input`` and the
+    Trigger step ``io.trigger``, ``INPUT_SOURCE_TYPES``) + the declared variables
     (folded in — no separate species), flattened to ONE name-unique map. A
     collision — two input nodes declaring the same field name, or a declared
     variable shadowing a field — is a NAMED compile refusal: the surface is
@@ -573,7 +723,13 @@ def _build_input_surface(
     (Live census 2026-08-27: zero collisions across all stored definitions
     and versions, so this refusal only ever bites NEW authoring.)
     """
-    from matrx_graph.nodes.io.user_input import UserInputConfig
+    from matrx_graph.nodes.io.user_input import (
+        INPUT_SOURCE_TYPES,
+        UserInputConfig,
+        field_kind_and_variant,
+        field_sourcing,
+        input_source_label,
+    )
     from matrx_graph.types.variables import iter_input_refs, iter_var_refs, variable_json_schema
 
     surface: dict[str, InputSpec] = {}
@@ -588,7 +744,7 @@ def _build_input_surface(
         referenced_names.update(name for _, name in iter_input_refs(node.data))
 
     for node in definition.nodes:
-        if node.spec_type != "io.user_input":
+        if node.spec_type not in INPUT_SOURCE_TYPES:
             continue
         compiled = nodes.get(node.id)
         if compiled is None:
@@ -598,31 +754,28 @@ def _build_input_surface(
             continue
         schema_props = (compiled.effective_output_schema or {}).get("properties", {}) or {}
         for fld in config.fields:
-            owner = f"input node '{node.id}'"
-            if fld.key in surface:
+            owner = input_source_label(node.spec_type, node.id)
+            if fld.name in surface:
                 raise CompilationError(
-                    f"Workflow input name collision: '{fld.key}' is declared by "
-                    f"both {declared_by[fld.key]} and {owner}. The input surface "
+                    f"Workflow input name collision: '{fld.name}' is declared by "
+                    f"both {declared_by[fld.name]} and {owner}. The input surface "
                     f"is one flat namespace — rename one of them."
                 )
-            surface[fld.key] = InputSpec(
-                name=fld.key,
-                kind=fld.effective_kind(),
-                sourcing=fld.effective_sourcing(),  # type: ignore[arg-type]
-                variant=fld.effective_variant(),
-                default=fld.default,
-                label=fld.label or fld.key,
-                help=fld.help,
-                placeholder=fld.placeholder,
-                options=list(fld.options),
+            field_kind, field_variant = field_kind_and_variant(fld)
+            surface[fld.name] = InputSpec(
+                name=fld.name,
+                kind=field_kind,
+                sourcing=field_sourcing(fld),  # type: ignore[arg-type]
+                variant=field_variant,
+                default=fld.defaultValue,
                 origin="field",
                 node_id=node.id,
-                field_key=fld.key,
-                json_schema=dict(schema_props.get(fld.key, {})),
+                field_key=fld.name,
+                json_schema=dict(schema_props.get(fld.name, {})),
                 edge_fed=bool(compiled.incoming_edge_ids),
-                **hint_values(fld),
+                declaration=fld,
             )
-            declared_by[fld.key] = owner
+            declared_by[fld.name] = owner
 
     for var in definition.variables:
         if var.name in surface:
@@ -631,23 +784,19 @@ def _build_input_surface(
                 f"the input declared by {declared_by[var.name]}. Variables fold "
                 f"into the one input surface — rename one of them."
             )
-        var_type = var.effective_type()
-        kind, variant = compiled_kind_and_variant(var_type, multiple=var.multiple, kind=var.kind)
+        kind, variant = compiled_kind_and_variant(
+            input_type(var), multiple=input_multiple(var), kind=var.valueKind or "", variant=var.valueVariant or ""
+        )
         surface[var.name] = InputSpec(
             name=var.name,
             kind=kind,
-            sourcing="require" if var.default is None else "optional",
+            sourcing=variable_sourcing(var),  # type: ignore[arg-type]
             variant=variant,
-            default=var.default,
-            # Empty when undeclared: every client shows the name in words, never snake_case.
-            label=var.label,
-            help=var.help or var.description,
-            placeholder=var.placeholder,
-            options=list(var.options),
+            default=var.defaultValue,
             origin="variable",
             json_schema=variable_json_schema(var),
             referenced=var.name in referenced_names,
-            **hint_values(var),
+            declaration=var,
         )
         declared_by[var.name] = "the workflow's declared variables"
 

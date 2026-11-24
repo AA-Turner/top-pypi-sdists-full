@@ -6,15 +6,10 @@ from django.db import models, transaction
 
 # Alliance Auth
 from allianceauth.eveonline.models import EveCorporationInfo
-from allianceauth.services.hooks import get_extension_logger
 
 # AA Killstats
-from killstats import __title__
 from killstats.models.killboard import Attacker, Killmail
 from killstats.models.killstatsaudit import AlliancesAudit, CorporationsAudit
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
 
 
 class Command(BaseCommand):

@@ -170,7 +170,7 @@ def test_declared_parameters_cache_is_keyed_by_the_underlying_function():
     )
 
 
-@pytest.mark.parametrize("provider", ["openai", "groq", "cerebras", "together"])
+@pytest.mark.parametrize("provider", ["openai", "groq", "cerebras"])
 def test_openai_family_signatures_still_declare_the_sampling_knobs(provider: str):
     """Today these SDKs declare temperature; the guard is a no-op there. If one
     of them drifts, this test documents the moment and the guard carries on."""
@@ -178,7 +178,6 @@ def test_openai_family_signatures_still_declare_the_sampling_knobs(provider: str
         "openai": ("openai.resources.chat.completions", "AsyncCompletions"),
         "groq": ("groq.resources.chat.completions", "AsyncCompletions"),
         "cerebras": ("cerebras.cloud.sdk.resources.chat.completions", "AsyncCompletionsResource"),
-        "together": ("together.resources.chat.completions", None),
     }[provider]
     module = __import__(mod[0], fromlist=["*"])
     cls = (

@@ -22,6 +22,7 @@ already held); with the change, all 23 pass.
 
 from __future__ import annotations
 
+import matrx_orm
 import pytest
 from matrx_rag import _ext, sources
 from matrx_rag.chat_authorship import TypedChatPolicy
@@ -48,6 +49,8 @@ POLICY = TypedChatPolicy(
     automation_title_markers=("Automation:", "<heartbeat>"),
     template_repeat_runs=5,
     template_scan_runs=50,
+    max_message_chars=6000,
+    max_conversation_chars=40000,
 )
 
 
@@ -129,6 +132,13 @@ def _msg(**kw) -> dict:
 @pytest.fixture
 def wire(monkeypatch):
     def _wire(messages: list[dict], *, convs: list[dict] | None = None, defs: list[dict] | None = None):
+        # The kernel's answer, stated: a person reaches the conversations they created.
+        owners = {c["id"]: c["created_by"] for c in (convs if convs is not None else [_conv()])}
+
+        async def _reach(person, _type, entity_id, *_a, **_k):
+            return owners.get(str(entity_id)) == str(person)
+
+        monkeypatch.setattr(matrx_orm, "platform_access_check", _reach)
         models = {
             "Conversation": _Model(convs if convs is not None else [_conv()]),
             "Message": _Model(messages),
@@ -184,7 +194,11 @@ async def test_assistant_replies_are_never_indexed(wire):
     assert "assistant:" not in resolved.text and "user:" not in resolved.text
 
     wire([_msg(role="assistant", content=_text(REPLY))])
-    assert await sources._resolve_cx_message(CONV, user_id=OWNER) is None
+    with pytest.raises(sources.NoTextByRule, match="nothing_typed"):
+        await sources._resolve_cx_message(CONV, user_id=OWNER)
+    # The public door keeps its contract (None) and names why for a reader that asks.
+    assert await sources.resolve("cx_message", CONV, "typed", user_id=OWNER) is None
+    assert await sources.resolve_explained("cx_message", CONV, "typed", user_id=OWNER) == (None, "nothing_typed")
 
 
 @pytest.mark.asyncio
@@ -251,7 +265,11 @@ async def test_a_line_repeated_across_runs_of_one_agent_is_a_template(wire):
 @pytest.mark.asyncio
 async def test_a_machine_chat_resolves_to_nothing(wire, conv):
     wire([_msg(content=_text(HER_WORDS), user_content=_text(HER_WORDS))], convs=[conv])
-    assert await sources._resolve_cx_message(CONV, user_id=OWNER) is None
+    with pytest.raises(sources.NoTextByRule, match="not_typed_by_the_person:"):
+        await sources._resolve_cx_message(CONV, user_id=OWNER)
+    assert await sources.resolve("cx_message", CONV, "typed", user_id=OWNER) is None
+    resolved, why = await sources.resolve_explained("cx_message", CONV, "typed", user_id=OWNER)
+    assert resolved is None and why is not None and why.startswith("not_typed_by_the_person:")
 
 
 @pytest.mark.asyncio
@@ -313,3 +331,89 @@ def test_the_raw_payload_reader_is_gone():
     defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)}
     assert "_extract_message_text" not in defined
     assert "_human_authored_message_text" in defined
+
+
+# ── Chat indexing on arrival (D-3, 2026-11-20): tool output and pastes never reach a chunk ──
+
+TOOL_RESULT = "SELECT * FROM billing.invoices returned 4,212 rows"
+PASTE = "x" * (POLICY.max_message_chars + 1)
+
+
+@pytest.mark.asyncio
+async def test_tool_and_system_rows_never_reach_the_text(wire):
+    """Every non-person role (assistant, tool, system) and an invisible person row stay out."""
+    wire([
+        _msg(id="m1", content=_text(HER_WORDS), user_content=_text(HER_WORDS)),
+        _msg(id="m2", role="assistant", content=_text(REPLY)),
+        _msg(id="m3", role="tool", content=_text(TOOL_RESULT)),
+        _msg(id="m4", role="system", content=_text(SEEDED_TEMPLATE)),
+        _msg(id="m5", content=_text(TOOL_RESULT), user_content=_text(TOOL_RESULT), is_visible_to_model=False),
+    ])
+    resolved = await sources._resolve_cx_message(CONV, user_id=OWNER)
+    assert resolved is not None
+    assert resolved.text == HER_WORDS
+
+
+@pytest.mark.asyncio
+async def test_an_oversize_paste_is_dropped_whole(wire):
+    wire([
+        _msg(id="m1", content=_text(HER_WORDS), user_content=_text(HER_WORDS)),
+        _msg(id="m2", content=_text(PASTE), user_content=_text(PASTE)),
+    ])
+    resolved = await sources._resolve_cx_message(CONV, user_id=OWNER)
+    assert resolved is not None and resolved.text == HER_WORDS
+    assert resolved.metadata["dropped_oversize_messages"] == 1
+
+
+@pytest.mark.asyncio
+async def test_the_conversation_cap_keeps_the_oldest_lines_so_later_turns_never_re_embed(wire):
+    line = "y" * 900
+    turns = [_msg(id=f"m{i}", content=_text(f"{i}{line}"), user_content=_text(f"{i}{line}")) for i in range(60)]
+    wire(turns)
+    first = await sources._resolve_cx_message(CONV, user_id=OWNER)
+    assert first is not None
+    assert len(first.text) <= POLICY.max_conversation_chars
+    assert first.metadata["dropped_over_conversation_cap"] > 0
+    wire([*turns, _msg(id="late", content=_text("a later turn"), user_content=_text("a later turn"))])
+    later = await sources._resolve_cx_message(CONV, user_id=OWNER)
+    assert later is not None and later.source_hash == first.source_hash
+
+
+# ── Review 2026-11-20: a deleted turn leaves the index; another participant's words never enter it ──
+
+PARTICIPANT = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+THEIR_WORDS = "My salary is listed on the shared drive under HR."
+
+
+@pytest.mark.asyncio
+async def test_a_deleted_turn_leaves_the_index(wire):
+    from datetime import UTC, datetime
+
+    wire([
+        _msg(id="m1", content=_text(HER_WORDS), user_content=_text(HER_WORDS), created_by=OWNER),
+        _msg(id="m2", content=_text(THEIR_WORDS), user_content=_text(THEIR_WORDS), created_by=OWNER,
+             deleted_at=datetime.now(UTC)),
+    ])
+    resolved = await sources._resolve_cx_message(CONV, user_id=OWNER)
+    assert resolved is not None and THEIR_WORDS not in resolved.text and HER_WORDS in resolved.text
+
+
+@pytest.mark.asyncio
+async def test_another_participants_turn_never_enters_the_owners_index(wire):
+    wire([
+        _msg(id="m1", content=_text(HER_WORDS), user_content=_text(HER_WORDS), created_by=OWNER),
+        _msg(id="m2", content=_text(THEIR_WORDS), user_content=_text(THEIR_WORDS), created_by=PARTICIPANT),
+        # an unstamped turn in a chat someone else wrote in can't be proved to be the owner's
+        _msg(id="m3", content=_text(SHORTCUT_LINE), user_content=_text(SHORTCUT_LINE), created_by=None),
+    ])
+    resolved = await sources._resolve_cx_message(CONV, user_id=OWNER)
+    assert resolved is not None
+    assert THEIR_WORDS not in resolved.text and SHORTCUT_LINE not in resolved.text
+    assert HER_WORDS in resolved.text
+
+
+@pytest.mark.asyncio
+async def test_an_unstamped_turn_in_a_solo_chat_is_the_owners(wire):
+    wire([_msg(content=_text(HER_WORDS), user_content=_text(HER_WORDS), created_by=None)])
+    resolved = await sources._resolve_cx_message(CONV, user_id=OWNER)
+    assert resolved is not None and resolved.text == HER_WORDS

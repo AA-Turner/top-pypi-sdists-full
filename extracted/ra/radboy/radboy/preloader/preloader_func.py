@@ -25386,3 +25386,57 @@ def batch_to_doc():
         print(f"Successfully created {output_pdf}")
     except Exception as e:
         print(e)
+
+def countdown():
+    try:
+        fields={
+            'shift end':{
+                'type':'datetime',
+                'default':None,
+                'help':'the shift ends when',
+                'ptext':'Shift End'
+            },
+            'shift start':{
+                'type':'datetime',
+                'default':None,
+                'help':'the shift starts when',
+                'ptext':'Shift Start'
+            },
+            'refresh':{
+                'type':'integer',
+                'default':10,
+                'help':'seconds to update',
+                'ptext':'Refresh',
+            }
+        }
+        fb=FormBuilder(data=fields,passThruText="Count Down For Shift")
+        if fb in BooleanAnswers.NONE:
+            return
+
+        shift_end=fb['shift end']
+        shift_start=fb['shift start']
+        refresh=fb['refresh']
+
+        if shift_end in BooleanAnswers.NONE:
+            return
+        if shift_start in BooleanAnswers.NONE:
+            return
+        if refresh in BooleanAnswers.NONE:
+            return
+
+        while True:
+            now=datetime.now()
+            if now >= shift_end:
+                break
+            remainder=shift_end-now
+            msg=f"""{'-'*os.get_terminal_size().columns}{Fore.light_red}Shift Start:{Fore.light_green} {shift_start}{Style.reset}
+{Fore.light_red}Shift End:{Fore.light_green} {shift_end}{Style.reset}
+{Fore.light_red}Shift Duration:{Fore.light_green} {shift_end-shift_start}{Style.reset}
+{Fore.light_red}Remaining Duration (DateTime/Base60):{Fore.light_green} {remainder}{Style.reset}
+{Fore.light_red}Ramaining Duration (Hours Decimal):{Fore.light_green}{remainder.total_seconds()/60/60:.3f}{Style.reset}
+{Fore.light_red}Remaining as Percent:{Fore.light_green} {((remainder.total_seconds()/60/60)/((shift_end-shift_start).total_seconds()/60/60))*100:.3f}{Style.reset}"""
+            print(msg)
+            sleep(refresh)
+
+    except Exception as e:
+        print(e)

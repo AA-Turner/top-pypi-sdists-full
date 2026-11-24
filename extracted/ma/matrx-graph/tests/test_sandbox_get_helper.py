@@ -51,3 +51,38 @@ def test_odd_paths_fall_back_never_crash(path: str) -> None:
 
 def test_get_reads_tuples() -> None:
     assert safe_eval("get(inputs['t'], '1')", {"t": ("a", "b")}) == "b"
+
+
+# --- 2026-11-07: a key that holds a dot is a KEY, not a path (research plan run, L7a) -----------
+GOALS = {"goals": {"acquisition.com": "find the founder", "v1.2": "release", "a": {"b": "nested"}, "a.b": "exact"}}
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected"),
+    [
+        ("get(inputs['goals'], 'acquisition.com', '')", "find the founder"),
+        ("get(inputs['goals'], 'v1.2', '')", "release"),
+        ("get(inputs['goals'], 'a.b', '')", "exact"),
+        ("get(inputs['goals'], 'missing.com', 'd')", "d"),
+        ("get(inputs, 'goals.acquisition.com', 'd')", "d"),
+        ("get(inputs, 'goals.a.b', 'd')", "nested"),
+        ("get_key(inputs['goals'], 'acquisition.com', '')", "find the founder"),
+        ("get_key(inputs, 'goals.a.b', 'd')", "d"),
+        ("get_key(inputs['goals'], 'a')", {"b": "nested"}),
+        ("get_key(inputs['goals'], 'nope', 'd')", "d"),
+        ("get_key(None, 'a', 'd')", "d"),
+        ("get_key([10, 20], 1)", 20),
+        ("get_key([10, 20], 5, 'd')", "d"),
+    ],
+)
+def test_a_key_with_a_dot_is_read_as_a_key(expr: str, expected: object) -> None:
+    assert safe_eval(expr, GOALS) == expected
+
+
+def test_a_path_still_reads_when_no_key_has_that_name() -> None:
+    assert safe_eval("get(inputs, 'goals.a.b', 'd')", {"goals": {"a": {"b": "nested"}}}) == "nested"
+
+
+def test_get_key_needs_a_key() -> None:
+    with pytest.raises(ExecutionError, match="get_key\\(\\)"):
+        safe_eval("get_key(inputs, None)", GOALS)

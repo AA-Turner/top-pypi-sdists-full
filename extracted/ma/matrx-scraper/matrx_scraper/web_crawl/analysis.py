@@ -55,6 +55,7 @@ from matrx_scraper.db.models_web import (
     LinkEdge as WebLinkEdge,
     Page as WebPage,
     PageSitemap as WebPageSitemap,
+    Sitemap as WebSitemap,
     Provider as WebProvider,
     Site as WebSite,
     Snapshot as WebSnapshot,
@@ -291,7 +292,9 @@ LINK_GRAPH_MIN_CAPTURE_RATIO = 0.8
 
 # `internal_link_equity` — percentile rank of the canonical `web.page.link_score`
 # PageRank. The catalog contract adds one deliberate override: a prioritized
-# page (`target_keyword` set) in the bottom quartile can score no higher than 40.
+# page (its SEO plan names a primary keyword: `web.page.desired_values.keyword_plan.
+# primary_keyword_id`, the target keyword's one home) in the bottom quartile can
+# score no higher than 40.
 LINK_EQUITY_PRIORITY_QUARTILE = 25
 LINK_EQUITY_PRIORITY_SCORE_CAP = 40
 LINK_EQUITY_PASS_SCORE = 80
@@ -485,7 +488,9 @@ class PageFacts(PageEvidence):
     exact_sha256: str | None = None
     simhash64: str | None = None
     link_score: float | None = None
-    target_keyword: str | None = None
+    #: The page's SEO-plan primary (`desired_values.keyword_plan.primary_keyword_id`,
+    #: a seo.keyword id). Set = a prioritized page for `internal_link_equity`.
+    primary_keyword_id: str | None = None
 
 
 @dataclass
@@ -514,6 +519,15 @@ class SiteAggregates:
     # Page ids listed in any of the site's sitemaps (`web.page_sitemap`).
     # `None` = membership was not loaded, which no check may read as "absent".
     sitemap_page_ids: set[str] | None = None
+    # Pages only a STALE sitemap listed -> when it last listed them. Past-life
+    # evidence ("it existed"), never a current "your sitemap lists it".
+    former_sitemap_page_ids: dict[str, Any] = field(default_factory=dict)
+    # What a canonical names -> that page's facts. Exact identity first
+    # (`normalize_url`, scheme and host kept — http:// and https:// are
+    # different rows); the looser `normalized_url_key` only as a fallback and
+    # never overwritten, so an http:// 301 twin cannot stand in for the page.
+    facts_by_exact_url: dict[str, PageFacts] = field(default_factory=dict)
+    facts_by_url: dict[str, PageFacts] = field(default_factory=dict)
     # Failing pages that answered 2xx in ANY stored capture. `None` = not loaded.
     ever_worked_page_ids: set[str] | None = None
     orphans: OrphanCensus = field(default_factory=lambda: OrphanCensus())
@@ -1248,7 +1262,8 @@ def _weigh_broken_page(
     ever_worked = (
         site.ever_worked_page_ids is not None and facts.page_id in site.ever_worked_page_ids
     )
-    if not (inlinks or in_sitemap or google_shows or ever_worked):
+    formerly_listed = site.former_sitemap_page_ids.get(facts.page_id)
+    if not (inlinks or in_sitemap or google_shows or ever_worked or formerly_listed):
         # THE EVIDENCE RULE (Arman, 2026-10-14): an address is only a broken
         # page when something says it should exist — your links, your sitemap,
         # Google, or a past life. Otherwise anyone could "find" /any/made-up/url
@@ -1272,7 +1287,18 @@ def _weigh_broken_page(
         who = f"{inlinks:,} of your own page{'s' if inlinks != 1 else ''} still link{'' if inlinks != 1 else 's'} to it"
     else:
         who = "none of your crawled pages link to it"
-    sitemap_words = "; your sitemap lists it" if in_sitemap else ""
+    if in_sitemap:
+        sitemap_words = "; your sitemap lists it"
+    elif formerly_listed:
+        listed_on = (
+            formerly_listed.strftime("%-d %b %Y") if hasattr(formerly_listed, "strftime") else "earlier"
+        )
+        sitemap_words = (
+            f"; your old sitemap listed it ({listed_on}) — the site has changed since, "
+            "so redirect it only if people still arrive there"
+        )
+    else:
+        sitemap_words = ""
     return CheckOutcome(
         "fail",
         score,
@@ -1282,7 +1308,104 @@ def _weigh_broken_page(
             **(outcome.evidence or {}),
             "inlink_pages": inlinks,
             "in_sitemap": in_sitemap,
+            "formerly_in_sitemap": bool(formerly_listed),
+            "google_shows": google_shows,
+            "ever_worked": ever_worked,
         },
+    )
+
+
+def _judge_canonical_target(
+    outcome: CheckOutcome, facts: PageFacts, site: SiteAggregates
+) -> CheckOutcome:
+    """A same-site canonical naming another URL is the site doing its job —
+    `canonical_conflicts.score_contract` calls it "No conflicts" (100) unless the
+    TARGET is broken or noindexed (10), redirects or canonicalizes elsewhere (30),
+    or the sitemap lists THIS variant (55: it contradicts the sitemap URL form).
+
+    The page-only check cannot see the target, so it answered every
+    `?sort=`, `?add-to-cart=` and `/collections/x/products/y` variant with a
+    flat warn — 2,837 High findings on 34 sites by 2026-10-30, every one of
+    them a site correctly naming its clean address.
+    """
+
+    evidence = outcome.evidence or {}
+    canonical = evidence.get("canonical_url")
+    if outcome.status != "warn" or outcome.score != 55 or not canonical:
+        return outcome
+    target = site.facts_by_exact_url.get(_normalise_url(canonical)) or site.facts_by_url.get(
+        normalized_url_key(canonical)
+    )
+    if target is not None:
+        status = target.http_status
+        if status is not None and (status == 0 or status >= 400):
+            return CheckOutcome(
+                "fail",
+                10,
+                f"Canonical names {canonical[:160]}, which answers HTTP {status} — this "
+                "page hands its ranking to an address that doesn't work.",
+                issue_count=1,
+                evidence={**evidence, "target_status": status},
+            )
+        if target.noindex:
+            return CheckOutcome(
+                "fail",
+                10,
+                f"Canonical names {canonical[:160]}, which is noindexed — neither "
+                "address can rank.",
+                issue_count=1,
+                evidence={**evidence, "target_noindex": True},
+            )
+        if target.redirect_chain or (status is not None and 300 <= status < 400):
+            return CheckOutcome(
+                "fail",
+                30,
+                f"Canonical names {canonical[:160]}, which redirects — name the final "
+                "address instead.",
+                issue_count=1,
+                evidence={**evidence, "target_redirects": True},
+            )
+        if target.canonical_matches is False and target.canonical_url:
+            return CheckOutcome(
+                "fail",
+                30,
+                f"Canonical names {canonical[:160]}, which itself points to "
+                f"{target.canonical_url[:160]} — a chain Google may not follow.",
+                issue_count=1,
+                evidence={**evidence, "target_canonical": target.canonical_url},
+            )
+    # A real content page (no query string) handing its ranking to the HOMEPAGE
+    # is almost always a plugin or template mistake: the page can never rank.
+    page_parts, canon_parts = urlsplit(str(facts.url)), urlsplit(canonical)
+    if (
+        canon_parts.path in ("", "/")
+        and page_parts.path not in ("", "/")
+        and not page_parts.query
+    ):
+        return CheckOutcome(
+            "warn",
+            45,
+            f"This page says its real address is the homepage ({canonical[:160]}), so "
+            "Google drops it in favor of the homepage — it can never rank on its own. "
+            "Point the canonical at this page itself unless it is a duplicate.",
+            issue_count=1,
+            evidence={**evidence, "canonical_is_homepage": True},
+        )
+    if site.sitemap_page_ids is not None and facts.page_id in site.sitemap_page_ids:
+        return CheckOutcome(
+            "warn",
+            55,
+            f"Your sitemap lists this address, but the page says its real address is "
+            f"{canonical[:160]} — list the real address in the sitemap instead.",
+            issue_count=1,
+            evidence={**evidence, "in_sitemap": True},
+        )
+    return CheckOutcome(
+        "pass",
+        100,
+        f"This address hands its ranking to {canonical[:160]}, the site's chosen "
+        "version" + ("" if target is not None else " (not crawled yet)") + ". Nothing to fix.",
+        evidence=evidence,
     )
 
 
@@ -1402,7 +1525,7 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
             remediation=RECRAWL_SITE,
         )
 
-    prioritized = bool(facts.target_keyword and facts.target_keyword.strip())
+    prioritized = bool(facts.primary_keyword_id)
     score = percentile
     priority_penalty = prioritized and percentile < LINK_EQUITY_PRIORITY_QUARTILE
     if priority_penalty:
@@ -1441,6 +1564,7 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
         "pages_scored": len(site.link_equity_percentile_by_page),
         "prioritized": prioritized,
         "priority_penalty_applied": priority_penalty,
+        "primary_keyword_id": facts.primary_keyword_id,
     }
     if status == "pass":
         return CheckOutcome(
@@ -1451,7 +1575,7 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
             evidence=evidence,
         )
     priority_note = (
-        f' It is prioritized for "{facts.target_keyword}", so its bottom-quartile '
+        " It is prioritized (its SEO plan names a target keyword), so its bottom-quartile "
         "position is capped at 40 by the catalog contract."
         if priority_penalty
         else ""
@@ -1886,6 +2010,16 @@ def index_page_facts(facts_list: list[PageFacts], aggregates: SiteAggregates) ->
     lookalike that can silently disagree with it.
     """
     for facts in facts_list:
+        if facts.url:
+            aggregates.facts_by_exact_url[_normalise_url(str(facts.url))] = facts
+            loose = normalized_url_key(facts.url)
+            prior = aggregates.facts_by_url.get(loose)
+            if prior is None or (
+                not (prior.http_status and 200 <= prior.http_status < 300)
+                and facts.http_status
+                and 200 <= facts.http_status < 300
+            ):
+                aggregates.facts_by_url[loose] = facts
         # Duplicate groups hold only pages that can still be duplicates
         # (`is_duplicate_candidate`): not noindexed, not canonicalized elsewhere,
         # 2xx, and not an unrendered app shell.
@@ -2747,6 +2881,8 @@ def _adapt(key: str) -> Callable[[PageFacts, SiteAggregates], CheckOutcome]:
         return lambda facts, site: _weigh_broken_page(check(facts), facts, site)
     if key == "meta_robots_conflicts":
         return lambda facts, site: _weigh_noindex_page(check(facts), facts, site)
+    if key == "canonical_conflicts":
+        return lambda facts, site: _judge_canonical_target(check(facts), facts, site)
     return lambda facts, _site: check(facts)
 
 
@@ -2791,18 +2927,30 @@ def _uncatalogued_page_checks() -> list[str]:
 # Evidence loading
 
 
+def _plan_primary_keyword_id(page: WebPage) -> str | None:
+    """The page's target keyword: its SEO plan's ``primary_keyword_id``, or None.
+
+    The one home is ``desired_values.keyword_plan.primary_keyword_id`` (a
+    ``seo.keyword`` id). A missing, malformed or blank plan means "not
+    prioritized", never an error.
+    """
+    desired = getattr(page, "desired_values", None)
+    plan = desired.get("keyword_plan") if isinstance(desired, dict) else None
+    raw = plan.get("primary_keyword_id") if isinstance(plan, dict) else None
+    return raw.strip() if isinstance(raw, str) and raw.strip() else None
+
+
 def _page_link_facts(page: WebPage) -> tuple[float | None, str | None]:
     """Normalize optional page-ranking evidence at the model boundary.
 
-    These columns are nullable and older/narrow projections may omit them
-    entirely. Both states mean "not captured", never a score of zero or an
-    empty target keyword.
+    ``link_score`` is nullable and older/narrow projections may omit it; both
+    mean "not captured", never a score of zero. The second value is the plan
+    primary's keyword id (``_plan_primary_keyword_id``).
     """
     raw_score = getattr(page, "link_score", None)
-    raw_keyword = getattr(page, "target_keyword", None)
     return (
         float(raw_score) if raw_score is not None else None,
-        raw_keyword.strip() if isinstance(raw_keyword, str) and raw_keyword.strip() else None,
+        _plan_primary_keyword_id(page),
     )
 
 
@@ -2859,7 +3007,7 @@ def _extract_page_facts(page: WebPage, snap: WebSnapshot) -> PageFacts:
     # Visible-text bytes — the numerator of `text_html_ratio`. Absent on
     # snapshots captured before the field existed, which is an honest n_a.
     text_bytes = extracted.get("text_bytes")
-    link_score, target_keyword = _page_link_facts(page)
+    link_score, primary_keyword_id = _page_link_facts(page)
     # A stored "points elsewhere" verdict from before canonicals were resolved
     # against the page URL (`/p`, `//host/p` read as another page) is re-judged
     # with the ONE resolver; a stored True/None is kept.
@@ -2959,7 +3107,7 @@ def _extract_page_facts(page: WebPage, snap: WebSnapshot) -> PageFacts:
         exact_sha256=exact_sha if isinstance(exact_sha, str) else None,
         simhash64=simhash64 if isinstance(simhash64, str) else None,
         link_score=link_score,
-        target_keyword=target_keyword,
+        primary_keyword_id=primary_keyword_id,
         http_status=int(snap.http_status) if snap.http_status is not None else None,
         redirect_chain=[h for h in redirect_chain if isinstance(h, dict)]
         if isinstance(redirect_chain, list)
@@ -3022,14 +3170,14 @@ def _extract_transport_facts(page: WebPage, crawl_url: dict[str, Any]) -> PageFa
 
     metadata = crawl_url.get("metadata") or {}
     chain = metadata.get("redirect_chain") if isinstance(metadata, dict) else None
-    link_score, target_keyword = _page_link_facts(page)
+    link_score, primary_keyword_id = _page_link_facts(page)
     http_status = crawl_url.get("http_status")
     reason_code = crawl_url.get("reason_code")
     return PageFacts(
         page_id=str(page.id),
         url=str(page.url),
         link_score=link_score,
-        target_keyword=target_keyword,
+        primary_keyword_id=primary_keyword_id,
         http_status=int(http_status) if http_status is not None else None,
         fetch_blocked_reason=(
             str(reason_code) if reason_code in BLOCKED_TARGET_REASON_CODES else None
@@ -3274,13 +3422,43 @@ async def _load_ever_worked(facts_list: list[PageFacts], aggregates: SiteAggrega
         aggregates.ever_worked_page_ids.update(str(r["page_id"]) for r in rows if r["page_id"])
 
 
-async def _load_sitemap_membership(site_id: str, aggregates: SiteAggregates) -> None:
-    """Which pages the site's own sitemaps list — one query, ids only."""
+#: A sitemap read longer ago than this is history, not a current claim: the
+#: site may have been rebuilt since (2026-10-14: a client site's July sitemap of the
+#: OLD site was still cited as "your sitemap lists it" in October; the live site
+#: had no sitemap at all).
+#: KNOB MIRROR of platform.feature_knob "knowledge.scraper" "analysis.sitemap_fresh_days"
+SITEMAP_FRESH_KNOB = "analysis.sitemap_fresh_days"
+SITEMAP_FRESH_MIRROR = 30
 
-    rows = await WebPageSitemap.filter(site_id=site_id, deleted_at__isnull=True).values(
-        "page_id"
+
+async def _load_sitemap_membership(site_id: str, aggregates: SiteAggregates) -> None:
+    """Which pages the site's sitemaps list NOW, and which only USED to be listed."""
+
+    from matrx_scraper.parser.knobs import parser_knob
+
+    fresh_days = int(parser_knob(SITEMAP_FRESH_KNOB, SITEMAP_FRESH_MIRROR))
+    fresh_after = datetime.now(UTC) - timedelta(days=fresh_days)
+    sitemaps = await WebSitemap.filter(site_id=site_id, deleted_at__isnull=True).values(
+        "id", "is_active", "last_fetched_at"
     )
-    aggregates.sitemap_page_ids = {str(row["page_id"]) for row in rows if row["page_id"]}
+    fresh_ids = {
+        str(sm["id"])
+        for sm in sitemaps
+        if sm["is_active"] and sm["last_fetched_at"] and sm["last_fetched_at"] >= fresh_after
+    }
+    rows = await WebPageSitemap.filter(site_id=site_id, deleted_at__isnull=True).values(
+        "page_id", "sitemap_id", "last_seen"
+    )
+    aggregates.sitemap_page_ids = set()
+    aggregates.former_sitemap_page_ids = {}
+    for row in rows:
+        page_id = str(row["page_id"]) if row["page_id"] else None
+        if page_id is None:
+            continue
+        if str(row["sitemap_id"]) in fresh_ids:
+            aggregates.sitemap_page_ids.add(page_id)
+        else:
+            aggregates.former_sitemap_page_ids[page_id] = row["last_seen"]
 
 
 async def _load_lab_performance(facts_list: list[PageFacts]) -> None:

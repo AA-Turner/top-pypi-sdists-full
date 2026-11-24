@@ -33,6 +33,24 @@ from testmu._v4._reporter import reporter
 
 _log = logging.getLogger("testmu")
 
+# Local Firefox launch prefs (non-Chromium only): no permission/notification
+# prompts, no autofill or password popups, fake media devices.
+FIREFOX_USER_PREFS = {
+    "dom.webnotifications.enabled": False, "dom.push.enabled": False,
+    "permissions.default.desktop-notification": 2,
+    "browser.tabs.warnOnClose": False, "browser.shell.checkDefaultBrowser": False,
+    "signon.rememberSignons": False,
+    "extensions.formautofill.addresses.enabled": False,
+    "extensions.formautofill.creditCards.enabled": False,
+    "media.navigator.permission.disabled": True, "media.navigator.streams.fake": True,
+}
+
+# Local launch options per engine (configure(browser=...) / TESTMU_BROWSER).
+_LOCAL_LAUNCH_OPTIONS = {
+    "chromium": {},
+    "firefox": {"firefox_user_prefs": FIREFOX_USER_PREFS},
+}
+
 # Session-wide mutable state accessible to helpers.
 state = SimpleNamespace(pw=None, relay=None, relay_task=None, relay_url=None)
 
@@ -60,17 +78,8 @@ def _assert_sse_browser_supported(page) -> None:
     cfg = _configure.get("devtools") or {}
     if not cfg.get("sse"):
         return
-    try:
-        name = page.context.browser.browser_type.name
-        name = name() if callable(name) else name
-    except Exception:
-        name = None
-    if name and name != "chromium":
-        from testmu._errors import TestmuConfigError
-        _log.warning("SSE capture is Chromium-only; got %s. Failing the run.", name)
-        raise TestmuConfigError(
-            f"SSE network assertions require Chromium; this run targets {name}."
-        )
+    from testmu._v4._helpers._perception import perception_for
+    perception_for(page).ensure_sse_supported()
 
 
 def _apply_page_timeouts(page) -> None:
@@ -177,7 +186,14 @@ async def _create_page():
         # Local: direct chromium.launch, no relay proxy.
         headless = os.getenv("TESTMU_HEADLESS", "true").lower() == "true"
         _log.info("Launching local browser (headless=%s)...", headless)
-        browser = await pw.chromium.launch(headless=headless)
+        engine = (_configure.get("browser") or os.getenv("TESTMU_BROWSER") or "chromium").lower()
+        if engine not in _LOCAL_LAUNCH_OPTIONS:
+            from testmu._errors import TestmuConfigError
+            raise TestmuConfigError(
+                f"Unsupported browser {engine!r}; expected chromium or firefox."
+            )
+        _log.info("Local engine: %s", engine)
+        browser = await getattr(pw, engine).launch(headless=headless, **_LOCAL_LAUNCH_OPTIONS[engine])
         _export_smart_env_from_session(browser, {})
         context_kwargs = {"viewport": None}
         context = await browser.new_context(**context_kwargs)

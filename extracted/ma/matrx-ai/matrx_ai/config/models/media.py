@@ -71,6 +71,7 @@ class ImageContentModel(BaseModel):
     is_ours: bool = False
     is_resolved: bool = False
     resolver_error: str | None = None
+    stored_mime_type: str | None = None
 
 
 class AudioContentModel(BaseModel):

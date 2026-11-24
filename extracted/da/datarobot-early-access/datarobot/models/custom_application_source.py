@@ -288,7 +288,7 @@ class CustomApplicationSource(APIObject):
 
         resources = self.latest_version["resources"]
 
-        # Resources are already in snake_case format from the API client conversion
+        # Resources are already in snake_case format from the Python SDK's response conversion
         return {
             "replicas": resources.get("replicas"),
             "resource_label": resources.get("resource_label"),

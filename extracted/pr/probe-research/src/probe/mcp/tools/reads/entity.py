@@ -252,8 +252,11 @@ class GetEntityMixin:
                 else:
                     route_after = request.after
                 next_cursor = _join_get_cursor(view, 0, after=route_after)
+            elif not budget_cut and result.more_beyond and result.next_page_after:
+                # Sent the whole route page: the next one, from the route's own cursor.
+                next_cursor = _join_get_cursor(view, 0, after=result.next_page_after)
             elif budget_cut or result.more_beyond:
-                next_cursor = _join_get_cursor(view, request.offset + len(emitted))
+                next_cursor = _join_get_cursor(view, request.offset + len(emitted), after=result.page_after)
             if budget_cut:
                 # Only a BUDGET cut is "partial". Reaching the end of a fetch
                 # window is ordinary pagination — research_search returns a cursor

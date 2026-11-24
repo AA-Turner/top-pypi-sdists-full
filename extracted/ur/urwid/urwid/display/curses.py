@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import curses
 import errno
+import math
 import os
 import sys
+import time
 import typing
 from contextlib import suppress
 
@@ -47,8 +49,20 @@ if typing.TYPE_CHECKING:
     _ModifyKeysReport = tuple[typing.Literal["modify keys report"], int, int | None]
     _DeviceAttributesReport = tuple[typing.Literal["device attributes"], tuple[int, ...]]
     _WindowSizeReport = tuple[typing.Literal["window size report"], int, int]
+    _TerminalVersionReport = tuple[typing.Literal["terminal version"], str]
+    _TerminalCapabilitiesReport = tuple[typing.Literal["terminal capabilities"], tuple[tuple[str, str | None], ...]]
+    _DefaultColorReport = tuple[typing.Literal["default color"], int, str]
+    _SettingReport = tuple[typing.Literal["setting report"], bool, str]
     _TerminalReport = (
-        _PrivateModeReport | _KeyboardProtocolReport | _ModifyKeysReport | _DeviceAttributesReport | _WindowSizeReport
+        _PrivateModeReport
+        | _KeyboardProtocolReport
+        | _ModifyKeysReport
+        | _DeviceAttributesReport
+        | _WindowSizeReport
+        | _TerminalVersionReport
+        | _TerminalCapabilitiesReport
+        | _DefaultColorReport
+        | _SettingReport
     )
     _DecodedInput = list[str | _MouseInput | _CursorPosition]
 
@@ -151,6 +165,15 @@ class Screen(BaseScreen, RealTerminal):
         self.s: curses.window | None = None
         self.cursor_state: typing.Literal["fixed"] | int | None = None
         self.prev_input_resize = 0
+        # keys of a sequence cut short, kept for the next get_input()
+        self._partial_keys: list[int] = []
+        # per kept key, the raw codes it was read as, reported with the call that decodes it
+        self._partial_raw: list[tuple[int, ...]] = []
+        # time.monotonic() of the read that left them: get_input() decodes them as they are once no more of the sequence
+        # arrived for complete_wait after it
+        self._partial_read_time = 0.0
+        # a resize read while keys were kept, reported after them once they are decoded
+        self._resize_held = False
         self.set_input_timeouts()
         self.last_bstate = 0
         self._mouse_tracking_enabled = False
@@ -209,66 +232,61 @@ class Screen(BaseScreen, RealTerminal):
     def _start(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         """Initialize the screen and input mode."""
         self.s = curses.initscr()
-        try:
-            self.has_color = curses.has_colors()
-            if self.has_color:
-                curses.start_color()
-                if curses.COLORS < 8:
-                    # not colourful enough
-                    self.has_color = False
-            if self.has_color:
-                try:
-                    curses.use_default_colors()
-                    self.has_default_colors = True
-                except curses.error:
-                    self.has_default_colors = False
-            self._setup_colour_pairs()
-            self._curses_attr_cache.clear()
-            curses.noecho()
-            curses.meta(True)
-            curses.halfdelay(10)  # use set_input_timeouts to adjust
-            self.s.keypad(False)
+        self.has_color = curses.has_colors()
+        if self.has_color:
+            curses.start_color()
+            if curses.COLORS < 8:
+                # not colourful enough
+                self.has_color = False
+        if self.has_color:
+            try:
+                curses.use_default_colors()
+                self.has_default_colors = True
+            except curses.error:
+                self.has_default_colors = False
+        self._setup_colour_pairs()
+        self._curses_attr_cache.clear()
+        curses.noecho()
+        curses.meta(True)
+        curses.halfdelay(10)  # use set_input_timeouts to adjust
+        self.s.keypad(False)
 
-            if not IS_WINDOWS and os.isatty(fd := sys.stdin.fileno()):
-                import termios
-                import tty
+        if not IS_WINDOWS and os.isatty(fd := sys.stdin.fileno()):
+            import termios
+            import tty
 
-                # cbreak mode leaves IEXTEN on, and with it the macOS and BSD drivers still act on ctrl v (VLNEXT),
-                # ctrl o (VDISCARD, which toggles FLUSHO, and the driver drops every write while FLUSHO is set)
-                # and ctrl y (VDSUSP).
-                # FLUSHO is cleared too, because with IEXTEN off no ctrl o can clear it.
-                mode = termios.tcgetattr(fd)
-                self._cleared_lflag = mode[tty.LFLAG] & (termios.IEXTEN | termios.FLUSHO)
-                mode[tty.LFLAG] &= ~self._cleared_lflag
-                termios.tcsetattr(fd, termios.TCSANOW, mode)
-                # cbreak() and halfdelay() in _getch() apply the mode curses saved last.
-                # Curses has no mode to save when its output is no terminal, and then never changes stdin's.
-                with suppress(curses.error):
-                    curses.def_prog_mode()
+            # cbreak mode leaves IEXTEN on, and with it the macOS and BSD drivers still act on ctrl v (VLNEXT),
+            # ctrl o (VDISCARD, which toggles FLUSHO, and the driver drops every write while FLUSHO is set)
+            # and ctrl y (VDSUSP).
+            # FLUSHO is cleared too, because with IEXTEN off no ctrl o can clear it.
+            mode = termios.tcgetattr(fd)
+            self._cleared_lflag = mode[tty.LFLAG] & (termios.IEXTEN | termios.FLUSHO)
+            mode[tty.LFLAG] &= ~self._cleared_lflag
+            termios.tcsetattr(fd, termios.TCSANOW, mode)
+            # cbreak() and halfdelay() in _getch() apply the mode curses saved last.
+            # Curses has no mode to save when its output is no terminal, and then never changes stdin's.
+            with suppress(curses.error):
+                curses.def_prog_mode()
 
-            # the reports arrive in the input, so both ends have to be the terminal
-            if (
-                self._in_band_resize_requested
-                and not IS_WINDOWS
-                and os.isatty(sys.stdin.fileno())
-                and os.isatty(_CURSES_OUTPUT_FD)
-            ):
-                self._set_in_band_resize(True)
+        # the reports arrive in the input, so both ends have to be the terminal
+        if (
+            self._in_band_resize_requested
+            and not IS_WINDOWS
+            and os.isatty(sys.stdin.fileno())
+            and os.isatty(_CURSES_OUTPUT_FD)
+        ):
+            self._set_in_band_resize(True)
 
-            if not self._signal_keys_set:
-                self._old_signal_keys = self.tty_signal_keys()
+        if not self._signal_keys_set:
+            self._old_signal_keys = self.tty_signal_keys()
 
-            super()._start()
+        super()._start()
 
-            if IS_WINDOWS:
-                # halfdelay() seems unnecessary and causes everything to slow down a lot.
-                curses.nocbreak()  # exits halfdelay mode
-                # keypad(1) is needed, or we get no special keys (cursor keys, etc.)
-                self.s.keypad(True)
-        except BaseException:
-            # leave the terminal as it was found; a stop() after the failed start has nothing left to undo
-            self._stop()
-            raise
+        if IS_WINDOWS:
+            # halfdelay() seems unnecessary and causes everything to slow down a lot.
+            curses.nocbreak()  # exits halfdelay mode
+            # keypad(1) is needed, or we get no special keys (cursor keys, etc.)
+            self.s.keypad(True)
 
     def _stop(self) -> None:
         """Restore the screen."""
@@ -285,11 +303,12 @@ class Screen(BaseScreen, RealTerminal):
 
     def _stop_curses(self) -> None:
         """Leave curses mode and restore the terminal settings and signal keys start() changed."""
-        curses.echo()
-        self._curs_set(1)
+        # A start that failed in initscr() left nothing to undo here, and these calls then raise "must call initscr()
+        # first"; that error must not replace the one that ended the start.
         with suppress(curses.error):
+            curses.echo()
+            self._curs_set(1)
             curses.endwin()
-            # don't block original error with curses error
 
         try:
             # endwin() restores the terminal curses writes to, which need not be stdin's.
@@ -349,7 +368,7 @@ class Screen(BaseScreen, RealTerminal):
                             # resize_term(), unlike resizeterm(), queues no KEY_RESIZE of its own
                             curses.resize_term(rows, cols)
                         except curses.error:
-                            # a size too large to allocate, which only a forged report carries
+                            # a size too large for curses to allocate
                             logger.debug(f"Dropped a window size report curses could not apply: {item!r}")
                             continue
                     elif not resize:
@@ -360,7 +379,14 @@ class Screen(BaseScreen, RealTerminal):
                 case ("window size report", *_):
                     logger.debug(f"Dropped a window size report this screen did not ask for: {item!r}")
                 case (
-                    "private mode report" | "keyboard protocol report" | "modify keys report" | "device attributes",
+                    "private mode report"
+                    | "keyboard protocol report"
+                    | "modify keys report"
+                    | "device attributes"
+                    | "terminal version"
+                    | "terminal capabilities"
+                    | "setting report"
+                    | "default color",
                     *_,
                 ):
                     logger.debug(f"Dropped a reply to a query this screen did not send: {item!r}")
@@ -443,10 +469,12 @@ class Screen(BaseScreen, RealTerminal):
 
         :param max_wait: amount of time in seconds to wait for input when there is no input pending, wait forever if
             None
-        :param complete_wait: amount of time in seconds to wait when get_input detects an incomplete escape sequence at
-            the end of the available input
+        :param complete_wait: amount of time in seconds to wait for the rest of an escape sequence cut short at the end
+            of the available input, before get_input returns it decoded as it is.
+            The wait never lasts past the end of *max_wait*: the sequence is then kept for the next get_input.
         :param resize_wait: amount of time in seconds to wait for more input after receiving two screen resize requests
-            in a row to stop urwid from consuming 100% cpu during a gradual window resize operation
+            in a row to stop urwid from consuming 100% cpu during a gradual window resize operation.
+            The wait never lasts past the end of *max_wait*.
         """
 
         def convert_to_tenths(s: float | None) -> int | None:
@@ -474,6 +502,9 @@ class Screen(BaseScreen, RealTerminal):
         last time it was called.  If there is no input pending it will
         wait before returning an empty list.  The wait time may be
         configured with the set_input_timeouts function.
+
+        A key that can begin a longer sequence, such as Esc, is kept until the rest of the sequence arrives
+        or *complete_wait* is over, so the list can be empty before *max_wait* is over.
 
         If raw_keys is False (default) this function will return a list
         of keys pressed.  If raw_keys is True this function will return
@@ -503,14 +534,49 @@ class Screen(BaseScreen, RealTerminal):
         if not self._started:
             raise RuntimeError
 
-        keys, raw = self._get_input(self.max_tenths)
+        now = time.monotonic()
+        # counted with the complete_wait in effect now, which set_input_timeouts() may have changed since the read;
+        # None waits forever
+        complete_wait = math.inf if self.complete_tenths is None else self.complete_tenths / 10
+        partial_deadline = self._partial_read_time + complete_wait
+        # The waits for more input after a resize end by the time max_wait would have ended.
+        deadline = None if self.max_tenths is None else now + self.max_tenths / 10
+        partial = self._partial_keys
+        expired_keys: _DecodedInput = []
+        expired_raw: list[int] = []
+        wait_tenths = self.max_tenths
+        if partial and now >= partial_deadline:
+            # Its deadline passed before this call: it is decoded alone, ahead of the keys that came since.
+            self._partial_keys = []
+            expired_raw = [code for codes in self._partial_raw for code in codes]
+            self._partial_raw = []
+            decoded = escape.decode_input(partial, more_available=False)[0]
+            expired_keys, held = self._apply_terminal_reports(decoded, self._resize_held)
+            self._resize_held = False
+            if held:
+                expired_keys.append("window resize")
+            wait_tenths = 0
+        elif partial and math.isfinite(partial_deadline):
+            # The rest of a sequence cut short is waited for only until its deadline.
+            # Rounded up, as a wait of 0 tenths would return before it and the caller would poll until then.
+            left_tenths = max(0, math.ceil((partial_deadline - now) * 10))
+            wait_tenths = left_tenths if wait_tenths is None else min(wait_tenths, left_tenths)
+        keys, raw = self._get_input(wait_tenths)
+        keys = [*expired_keys, *keys]
+        raw = [*expired_raw, *raw]
 
         # Avoid pegging CPU at 100% when slowly resizing, and work
         # around a bug with some braindead curses implementations that
-        # return "no key" between "window resize" commands
-        if keys == ["window resize"] and self.prev_input_resize:
+        # return "no key" between "window resize" commands;
+        # not while a sequence cut short waits for its rest
+        if keys == ["window resize"] and self.prev_input_resize and not self._partial_keys:
             for _ in range(2):
-                new_keys, new_raw = self._get_input(self.resize_tenths)
+                wait_tenths = self.resize_tenths
+                if deadline is not None:
+                    # rounded to the nearest tenth, as set_input_timeouts() rounds max_wait
+                    left_tenths = max(0, int((deadline - time.monotonic() + 0.05) * 10))
+                    wait_tenths = left_tenths if wait_tenths is None else min(wait_tenths, left_tenths)
+                new_keys, new_raw = self._get_input(wait_tenths)
                 raw += new_raw
                 if new_keys and new_keys != ["window resize"]:
                     if "window resize" in new_keys:
@@ -538,34 +604,53 @@ class Screen(BaseScreen, RealTerminal):
 
         key = self._getch(wait_tenths)
         resize = False
-        raw = []
-        keys: list[int] = []
+        partial = self._partial_keys
+        keys = [*partial]
+        # per key, the raw codes it was read as: a mouse report's code goes with its first key
+        keys_raw = [*self._partial_raw]
+        # raw codes that are no key, such as a resize, are reported with this call
+        other_raw: list[int] = []
 
         while key >= 0:
-            raw.append(key)
             if key == KEY_RESIZE:
                 resize = True
+                other_raw.append(key)
             elif key == KEY_MOUSE:
-                keys += self._encode_mouse_event()
+                if mouse_keys := self._encode_mouse_event():
+                    keys += mouse_keys
+                    keys_raw += [(key,), *[()] * (len(mouse_keys) - 1)]
+                else:
+                    other_raw.append(key)
             else:
                 keys.append(key)
+                keys_raw.append((key,))
             key = self._getch_nodelay()
 
-        processed, consumed = escape.decode_input(keys, more_available=True)
+        read_new = len(keys) > len(partial)
+        # a sequence cut short, with no more of it by its deadline, is decoded as it is
+        complete_wait = math.inf if self.complete_tenths is None else self.complete_tenths / 10
+        expired = bool(partial) and not read_new and time.monotonic() >= self._partial_read_time + complete_wait
+        processed, consumed = escape.decode_input(keys, more_available=not expired)
+        self._partial_keys = keys[consumed:]
+        # each read that leaves a sequence cut short gives it complete_wait to arrive whole
+        if self._partial_keys and read_new:
+            self._partial_read_time = time.monotonic()
 
-        if consumed < len(keys):
-            keys = keys[consumed:]
-            key = self._getch(self.complete_tenths)
-            while key >= 0:
-                raw.append(key)
-                if key == KEY_RESIZE:
-                    resize = True
-                elif key == KEY_MOUSE:
-                    keys += self._encode_mouse_event()
-                else:
-                    keys.append(key)
-                key = self._getch_nodelay()
-            processed += escape.decode_input(keys, more_available=False)[0]
+        if self._partial_keys and (resize or self._resize_held) and self.complete_tenths is None:
+            # With no deadline for the rest of the sequence, a resize ends the wait, so it is not held for good.
+            processed += escape.decode_input(self._partial_keys, more_available=False)[0]
+            self._partial_keys = []
+            consumed = len(keys)
+        self._partial_raw = keys_raw[consumed:]
+        raw = [*(code for codes in keys_raw[:consumed] for code in codes), *other_raw]
+
+        if self._partial_keys:
+            # a resize read after keys still kept is reported once they are decoded, after them
+            self._resize_held = self._resize_held or resize
+            resize = False
+        elif self._resize_held:
+            resize = True
+            self._resize_held = False
 
         result, resize = self._apply_terminal_reports(processed, resize)
 
@@ -663,8 +748,9 @@ class Screen(BaseScreen, RealTerminal):
         return cols, rows
 
     def _setattr(self, a: Hashable) -> None:
-        # curses cannot draw hyperlinks, so attributes differing only by one share a cache entry
-        a = self.resolve_attr(a, 0).style_only()
+        # curses cannot draw hyperlinks, so attributes differing only by one share a cache entry;
+        # it draws the 8 colors of the pairs _setup_colour_pairs() initialised
+        a = self._drawn_attr(a, 0, 8 if self.has_color else 1).style_only()
 
         try:
             attr = self._curses_attr_cache[a]
@@ -675,18 +761,9 @@ class Screen(BaseScreen, RealTerminal):
 
     def _compute_curses_attr(self, a: AttrSpec) -> int:
         if self.has_color:
-            if a.foreground_basic:
-                if a.foreground_number >= 8:
-                    fg = a.foreground_number - 8
-                else:
-                    fg = a.foreground_number
-            else:
-                fg = 7
-
-            if a.background_basic:
-                bg = a.background_number
-            else:
-                bg = 0
+            # a converted attribute holds the basic colors 0-7 only
+            fg = a.foreground_number if a.foreground_basic else 7
+            bg = a.background_number if a.background_basic else 0
 
             attr = curses.color_pair(bg * 8 + 7 - fg)
         else:

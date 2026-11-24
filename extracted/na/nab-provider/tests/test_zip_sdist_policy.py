@@ -6,10 +6,10 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import pytest
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 from nab_provider._provider import metadata_resolver
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.errors import OverrideConflictError, UnsupportedSdistError
 from nab_provider.overrides import IndexOverride
 from nab_provider.policy import DistPolicy
@@ -338,7 +338,7 @@ def test_zip_admission_and_foreign_dependency_metadata_require_separate_opt_ins(
         assert provider.choose_version("pkg", SpecifierSet().to_range()) is None
         assert coordinator.calls_to("request_metadata") == []
 
-    assert coordinator.calls_to("request_built_metadata") == []
+    assert coordinator.calls_to("build_sdist_metadata") == []
 
 
 def test_zip_siblings_keep_the_first_metadata_source() -> None:

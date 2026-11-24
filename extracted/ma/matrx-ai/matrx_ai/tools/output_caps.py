@@ -41,7 +41,9 @@ from pydantic import BaseModel
 TOOL_RESULT_SOFT_CAP_CHARS = 50_000
 """Layer 1 — the soft cap applied at production. A result over this that did NOT
 self-manage (``output_self_capped``) is truncated for the model and recorded as a
-tool defect. ~12K tokens — a generous single result; a normal big web page passes."""
+tool defect. ~12K tokens — a generous single result; a normal big web page passes.
+Already a knob at the gate: ``tools.result_gate / soft_cap_chars`` (``result_gate_limits``);
+this constant is its standalone default and the import-time base of tool budgets."""
 
 TOOL_RESULT_CANARY_CHARS = 25_000
 """Shadow / what-if tier. A result that lands in [CANARY, SOFT) passed the real
@@ -111,19 +113,34 @@ class ListCapInfo(BaseModel):
     limit: int
 
 
-def cap_list(rows: list, *, limit: int = TOOL_LIST_DEFAULT_LIMIT) -> tuple[list, ListCapInfo]:
-    """Cap a list-shaped result to ``limit`` rows and report the true total.
+TOOL_LIST_MAX_CHARS = 40_000
+"""Character budget a ``cap_list`` result also keeps, under the size gate's 50K
+soft cap with room for the envelope. A row COUNT alone does not bound a list whose
+rows carry user-typed text: live 2026-11-15 the ``task`` list (200 compact rows)
+came to 62,241 chars while claiming ``output_self_capped`` (ops
+``tool_result_overflow:task``)."""
+
+
+def cap_list(
+    rows: list, *, limit: int = TOOL_LIST_DEFAULT_LIMIT, max_chars: int = TOOL_LIST_MAX_CHARS
+) -> tuple[list, ListCapInfo]:
+    """Cap a list-shaped result to ``limit`` rows AND ``max_chars`` and report the true total.
 
     The count-side counterpart to ``cap_text``: a ``*_list`` tool projects each
     row to a compact shape itself (domain knowledge), then calls this to bound the
-    ROW COUNT and get honest ``total`` / ``truncated`` siblings. When the projected
-    rows are small and the count is capped, the whole result is bounded — so the
-    tool can honestly set ``ToolResult.output_self_capped=True``. Keeps ordering.
+    ROW COUNT and the serialized size, and get honest ``total`` / ``truncated``
+    siblings — so the tool can honestly set ``ToolResult.output_self_capped=True``.
+    Keeps ordering. Rows that are not JSON-serializable are bounded by count only.
     """
     if limit < 0:
         limit = 0
     total = len(rows)
     shown = rows[:limit]
+    if max_chars is not None:
+        try:
+            shown, _ = cap_json_list(shown, max_chars=max_chars)
+        except (TypeError, ValueError):
+            pass  # not plain JSON: the count cap is the only bound we can measure
     record_cut(where="tool self-cap", before=total, after=len(shown), limit_name="cap_list", limit=limit,
                unit="rows", original=rows if total > len(shown) else None)
     return shown, ListCapInfo(
@@ -386,3 +403,66 @@ def without_fetch_pointer(content: str, *, tool_name: str) -> str:
     return content.replace(
         "Use `fetch_tool_result` to read further.", f"To see more, {instead}."
     )
+
+
+# ── Owned-tool self-bounding (the ONE helper every owned tool uses) ──────────────────
+
+#: Headroom under the soft cap so the size note and the envelope still fit.
+OWNED_RESULT_BUDGET_CHARS = 40_000
+
+#: The keys ``bound_owned_output`` adds to a cut result. Every closed result kind of a tool wrapped
+#: in ``self_bounded_result`` inherits these through ``tools.kinds.bounded.SelfBoundedFields``
+#: (a test pins that the two never disagree), so a new bounded tool cannot drift.
+SELF_BOUNDED_KEYS = ("truncated", "more_available", "size_note")
+
+
+def bound_owned_output(output: object, *, budget: int = OWNED_RESULT_BUDGET_CHARS) -> tuple[object, bool]:
+    """Keep one owned tool's ``dict`` output under the size gate's cap by ITS OWN cut, announced.
+
+    Whole trailing rows go (the JSON stays valid; when no row list fits, the longest strings are
+    shortened with a marker) and the result says so. Returns ``(output, bounded)``; ``bounded`` is
+    what lets the caller declare ``ToolResult.output_self_capped``. Output under the budget, a
+    non-dict, or one that cannot be cut cleanly is returned untouched with ``bounded=False`` — the
+    platform gate stays the backstop for those.
+    """
+    if not isinstance(output, dict):
+        return output, False
+    text = json.dumps(output, ensure_ascii=False, default=str)
+    if len(text) <= budget:
+        return output, False
+    cut = truncate_json_structurally(text, limit=budget)
+    if cut is None:
+        return output, False
+    bounded = json.loads(cut[0])
+    if not isinstance(bounded, dict):
+        return output, False
+    bounded[SELF_BOUNDED_KEYS[0]] = True
+    bounded[SELF_BOUNDED_KEYS[1]] = True
+    bounded[SELF_BOUNDED_KEYS[2]] = (
+        f"CUT TO FIT: {'; '.join(cut[1])}. The rest exists and was not shown. Ask for less at a "
+        "time (a smaller limit, a narrower query, one id or one section). "
+        "Never describe what is shown as the whole."
+    )
+    return bounded, True
+
+
+def self_bounded_result(fn):
+    """Decorator for an owned tool entry point ``async (args, ctx) -> ToolResult``.
+
+    Applies :func:`bound_owned_output` to the returned result's ``output`` and declares
+    ``output_self_capped`` only when a cut was made, so the platform gate stands down for a tool
+    that managed its own size and still alarms for one that could not.
+    """
+    import functools
+
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        result = await fn(*args, **kwargs)
+        output = getattr(result, "output", None)
+        bounded, was_cut = bound_owned_output(output)
+        if was_cut:
+            result.output = bounded
+            result.output_self_capped = True
+        return result
+
+    return wrapper

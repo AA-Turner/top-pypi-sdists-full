@@ -12,6 +12,7 @@ from matrx_connect import (
     AppContext,
     AuthorizedResourceAdmission,
     OrganizationFreeAppContext,
+    RunScope,
     TenantAppContext,
     authorized_guest_resource_operation,
     authorized_resource_operation,
@@ -63,13 +64,15 @@ def _parent(**overrides: object) -> AppContext:
         "initial_overrides": {"unsafe": "overrides"},
         "agent_id": "agent-a",
         "agent_version_id": "agent-version-a",
-        "workflow_definition_version_id": "workflow-version-a",
         "client_tools": ["tool-a"],
-        "block_mode": True,
         "snapshot": True,
-        "memory_enabled": True,
-        "memory_model": "memory-model",
-        "memory_scope": "organization",
+        "run": RunScope(
+            block_mode=True,
+            workflow_definition_version_id="workflow-version-a",
+            memory_enabled=True,
+            memory_model="memory-model",
+            memory_scope="organization",
+        ),
         "origin_class": "human",
         "store": False,
         "system_run": True,
@@ -118,7 +121,7 @@ async def test_operation_uses_only_the_identity_allowlist_and_fresh_tenant() -> 
             assert resource.execution_kind is None and resource.execution_id is None
             assert resource.conversation_id is None and resource.parent_conversation_id is None
             assert resource.parent_request_id is None and resource.agent_id is None
-            assert resource.agent_version_id is None and resource.workflow_definition_version_id is None
+            assert resource.agent_version_id is None and resource.run == RunScope()
             assert resource.api_keys == {} and resource.initial_variables == {} and resource.initial_overrides == {}
             assert resource.client_tools == [] and resource.origin_class == ""
             assert resource.api_keys is not parent.api_keys
@@ -134,8 +137,7 @@ async def test_operation_uses_only_the_identity_allowlist_and_fresh_tenant() -> 
             assert parent.initial_overrides == {"unsafe": "overrides"}
             assert parent.client_tools == ["tool-a"]
             assert resource.store is True and resource.system_run is False
-            assert resource.snapshot is None and resource.memory_enabled is False and resource.memory_model is None
-            assert resource.memory_scope == "thread" and resource.block_mode is False and resource.debug is False
+            assert resource.snapshot is None and resource.run == RunScope() and resource.debug is False
             resource.metadata["changed"] = True
             assert "changed" not in parent.metadata
     finally:

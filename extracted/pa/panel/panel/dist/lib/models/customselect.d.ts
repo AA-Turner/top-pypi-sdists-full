@@ -5,6 +5,7 @@ export declare class CustomSelectView extends SelectView {
     connect_signals(): void;
     protected options_el(): HTMLOptionElement[] | HTMLOptGroupElement[];
     protected _update_disabled_options(): void;
+    private _set_disabled_options;
 }
 export declare namespace CustomSelect {
     type Attrs = p.AttrsOf<Props>;

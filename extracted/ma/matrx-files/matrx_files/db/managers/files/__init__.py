@@ -1,5 +1,7 @@
 # File: matrx_files/db/managers/files/__init__.py
 from .account_tiers import AccountTiersView, AccountTiersDTO, AccountTiersBase
+from .file_pathway import FilePathwayView, FilePathwayDTO, FilePathwayBase
+from .file_pathway_move import FilePathwayMoveView, FilePathwayMoveDTO, FilePathwayMoveBase
 from .folders import FoldersView, FoldersDTO, FoldersBase
 from .idempotency import IdempotencyView, IdempotencyDTO, IdempotencyBase
 from .machine_written_prefixes import MachineWrittenPrefixesView, MachineWrittenPrefixesDTO, MachineWrittenPrefixesBase
@@ -26,6 +28,12 @@ __all__ = [
     "AccountTiersView",
     "AccountTiersDTO",
     "AccountTiersBase",
+    "FilePathwayView",
+    "FilePathwayDTO",
+    "FilePathwayBase",
+    "FilePathwayMoveView",
+    "FilePathwayMoveDTO",
+    "FilePathwayMoveBase",
     "FoldersView",
     "FoldersDTO",
     "FoldersBase",

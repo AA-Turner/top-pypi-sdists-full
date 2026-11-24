@@ -516,9 +516,10 @@ typedef struct {
                               or 1024 when they set none. A finite data
                               source sets its frames, a lone dsss burst one
                               burst, and a stream runs to its end. A count beside a finite
-                              data source or a lone dsss burst is refused,
-                              since they set the length; give repeats for
-                              more. */
+                              data source or a lone dsss burst is refused
+                              unless it is the length they set, which is
+                              what a Composer's segments read back; give
+                              repeats for more. */
     size_t off_samples;  /**< Trailing gap after the on-time, in samples. It
                               carries the noise floor or hard zeros, per
                               gap_noise. */
@@ -1056,6 +1057,78 @@ const char *dp_wfm_ofdm_fs_error(const wfm_source_t *src, double fs);
 size_t dp_wfm_source_window(const wfm_source_t *src, double fs);
 
 /**
+ * @brief The bits a source's sequence field reads as: a literal's own, or the
+ *        run its generator renders.
+ *
+ * A `wfm_seq_t` field is a literal (`bits` non-NULL) or a generated one (a PN,
+ * Gold or dotted description with `bits` NULL and `len` its output length).
+ * These five are the Python read of `acq_code`, `data_code`, `data`, `fill`
+ * and `mac_header`: they write the field's bits through dp_wfm_seq_bits(), so a
+ * generated field reads as the bits it renders and not as nothing. A field
+ * that is absent (`len` 0) or draws its bits from the frame's data source
+ * (`WFM_SEQ_DATA`) has none and returns 0. What is stored, set and written
+ * to a record is unchanged.
+ *
+ * @param src  The source.
+ * @param fs   The segment's sample rate, Hz; unused, a read of bits has no
+ *             rate.
+ * @param out  Receives the bits, one per byte; NULL with @p max 0 only asks
+ *             how many there are.
+ * @param max  Capacity of @p out.
+ * @return The bits the field holds, or 0.
+ *
+ * @code
+ * #include <doppler/wfm/wfm_defaults.h>   // WFM_SOURCE_DEFAULTS
+ *
+ * wfm_source_t s = WFM_SOURCE_DEFAULTS;
+ * s.mac_header = (wfm_seq_t){ .kind = WFM_SEQ_PN, .len = 192, .reg_bits = 15 };
+ * printf ("%zu\n", dp_wfm_source_mac_header_bits (&s, 20e6, NULL, 0)); // 192
+ * @endcode
+ */
+size_t dp_wfm_source_acq_code_bits(const wfm_source_t *src, double fs,
+                                   uint8_t *out, size_t max);
+/**
+ * @brief As dp_wfm_source_acq_code_bits(), for `data_code`.
+ * @param src  The source.
+ * @param fs   Unused.
+ * @param out  Receives the bits, or NULL to count.
+ * @param max  Capacity of @p out.
+ * @return The bits the field holds, or 0.
+ */
+size_t dp_wfm_source_data_code_bits(const wfm_source_t *src, double fs,
+                                    uint8_t *out, size_t max);
+/**
+ * @brief As dp_wfm_source_acq_code_bits(), for `data`.
+ * @param src  The source.
+ * @param fs   Unused.
+ * @param out  Receives the bits, or NULL to count.
+ * @param max  Capacity of @p out.
+ * @return The bits the field holds, or 0.
+ */
+size_t dp_wfm_source_data_bits(const wfm_source_t *src, double fs,
+                               uint8_t *out, size_t max);
+/**
+ * @brief As dp_wfm_source_acq_code_bits(), for `fill`.
+ * @param src  The source.
+ * @param fs   Unused.
+ * @param out  Receives the bits, or NULL to count.
+ * @param max  Capacity of @p out.
+ * @return The bits the field holds, or 0.
+ */
+size_t dp_wfm_source_fill_bits(const wfm_source_t *src, double fs,
+                               uint8_t *out, size_t max);
+/**
+ * @brief As dp_wfm_source_acq_code_bits(), for `mac_header`.
+ * @param src  The source.
+ * @param fs   Unused.
+ * @param out  Receives the bits, or NULL to count.
+ * @param max  Capacity of @p out.
+ * @return The bits the field holds, or 0.
+ */
+size_t dp_wfm_source_mac_header_bits(const wfm_source_t *src, double fs,
+                                     uint8_t *out, size_t max);
+
+/**
  * @brief The channel bandwidth of an ofdm source, Hz: its `bandwidth`, or the
  *        preset's 20e6 when that is 0 (a C source that skipped the defaults).
  *
@@ -1211,7 +1284,8 @@ void dp_wfm_synth_set_data_pacing(dp_wfm_synth_state_t *syn,
  * - A count (`num_samples`, non-zero or ranged) beside sources that set
  *   the segment's length (dp_wfm_segment_sets_length()) is refused with
  *   dp_wfm_why_count_derived: the length is theirs, so it would be dropped
- *   (doppler#1729).
+ *   (doppler#1729). A count equal to the length they derive is not: it is
+ *   what a composer's segments read back, and it composes the same.
  * - A data STREAM (`--data-from-file -`) has no end to repeat, so
  *   `repeat`, `continuous` and a segment's `repeats > 1` are refused, and
  *   stdin feeds at most one source.

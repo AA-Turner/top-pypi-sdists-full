@@ -66,6 +66,15 @@ def test_strip_html_returns_text_and_the_links_it_removed() -> None:
     assert links == ["https://x.com/a"]
 
 
+def test_strip_html_keeps_words_apart_across_line_breaks_and_blocks() -> None:
+    """A live infobox read "China (powdered tea)Japan (modern matcha)" (2026-10-30)."""
+    assert strip_html("China (powdered tea)<br>Japan (modern matcha)")[0] == (
+        "China (powdered tea) Japan (modern matcha)"
+    )
+    assert strip_html("<p>one</p><p>two</p><li>three</li>")[0] == "one two three"
+    assert strip_html("from <strong>Camellia</strong> sinensis")[0] == "from Camellia sinensis"
+
+
 def test_plain_text_decodes_the_entities_a_reader_actually_saw() -> None:
     """A literal ``I&#x27;m`` reached a reader on /search before this existed."""
     assert plain_text("<strong>I&#x27;m</strong> here") == "I'm here"

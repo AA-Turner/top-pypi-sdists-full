@@ -12,7 +12,7 @@ key ``"active_sandbox"`` for any request that should target a sandbox::
 
     metadata["active_sandbox"] = {
         "sandbox_id":  "sbx-abc123",          # informational
-        "base_url":    "https://orchestrator.dev.codematrx.com/sandboxes/sbx-abc123",
+        "base_url":    "https://<machine-endpoint>/agent",   # a Cloud Computer's agent door
         "access_token": "xxx",                 # X-Sandbox-Access-Token (HMAC-bound)
         "root_path":   "/home/agent",          # advertised workspace root
     }
@@ -30,13 +30,12 @@ That's the rule that keeps non-sandbox chats working unchanged.
 
 Design notes
 ------------
-- HTTP transport is the ``matrx_api`` client (``fs/*`` and ``search/*`` calls to a
-  cloud sandbox ride the orchestrator's generated proxy operations); no aidream
-  imports — package independence preserved. The migration / outage / token-remint /
-  device-offline retry policy is this module's own code in ``_request``.
-- ``/exec`` and every ``local_machine`` binding (aidream's local-proxy, not the
-  orchestrator) have no generated operation, so they keep the raw ``httpx`` call
-  (``_send_raw``) until the client models them.
+- HTTP transport is a raw ``httpx`` call (``_send_raw``) to the binding's ``base_url``
+  (a Cloud Computer's ``/agent`` door, or aidream's local-proxy for a ``local_machine``);
+  no aidream imports — package independence preserved. The old orchestrators' generated
+  ``/sandboxes/{id}/fs|search`` proxy operations are no longer used (old tiers retired,
+  cloud-computer W6). The migration / outage / token-remint / device-offline retry
+  policy is this module's own code in ``_request``.
 - One ``httpx.AsyncClient`` per call; we don't hold a long-lived client
   here because the binding can change between turns.
 - Errors translate to the ``ToolError`` shape the rest of the package
@@ -51,7 +50,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
-import dataclasses
 import logging
 import time
 from contextvars import ContextVar
@@ -59,8 +57,9 @@ from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 import httpx
-from matrx_api import CallOptions, MatrxApi, MatrxApiError, RawPath
-from matrx_api.generated import architecture
+from matrx_utils.http_client import shared_client
+
+from .knobs import exec_http_grace_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +173,20 @@ class SandboxBinding:
     target_kind: Literal["sandbox", "local_machine"] = "sandbox"
     #: local_machine: the computer's app_instances id, carried on the binding (never parsed from base_url).
     device_id: str | None = None
+    #: This conversation's own working folder on the target (Cloud Computer zone 2, ruling 18).
+    #: Relative paths, a command with no folder and a search with no path start here; ``~/``
+    #: still means the home (``root_path``), where the shared ``Cloud`` folder lives. ``None``
+    #: = the home is the working folder (a run with no conversation, a desktop).
+    working_dir: str | None = None
+    #: A PARKED machine (sandbox only): the run is armed without waking it, so ``base_url`` and
+    #: ``access_token`` are empty until the first proxied call wakes it through the host's waker
+    #: (``matrx_ai._ext.get_sandbox_binding_waker``); see ``_ready_binding``.
+    wake_on_first_use: bool = False
+
+    @property
+    def default_dir(self) -> str:
+        """Where a relative path or a command with no folder starts."""
+        return self.working_dir or self.root_path
 
 
 @dataclass(frozen=True)
@@ -201,20 +214,32 @@ def get_active_sandbox() -> SandboxBinding | None:
     except Exception:
         return None
 
-    ctx = try_get_app_context()
+    return sandbox_binding_of(try_get_app_context())
+
+
+def sandbox_binding_of(ctx: Any) -> SandboxBinding | None:
+    """The sandbox binding a given AppContext carries (``None`` when it carries none).
+
+    ``get_active_sandbox`` reads the request's own context; a caller holding a context it is
+    building (the tool merge, before the run starts) reads that one.
+    """
     if ctx is None:
         return None
 
-    raw = ctx.metadata.get("active_sandbox") if ctx.metadata else None
+    metadata = getattr(ctx, "metadata", None)
+    raw = metadata.get("active_sandbox") if metadata else None
     if not raw or not isinstance(raw, dict):
         return None
 
     sandbox_id = raw.get("sandbox_id") or ""
     base_url = (raw.get("base_url") or "").rstrip("/")
     access_token = raw.get("access_token") or ""
-    if not sandbox_id or not base_url or not access_token:
-        return None
     target_kind = "local_machine" if raw.get("target_kind") == "local_machine" else "sandbox"
+    # A parked machine is a real binding with no endpoint yet (it wakes at first use); only a
+    # sandbox can be parked — a person's own computer is reached as it is, never woken.
+    wake_on_first_use = bool(raw.get("wake_on_first_use")) and target_kind == "sandbox"
+    if not sandbox_id or (not wake_on_first_use and (not base_url or not access_token)):
+        return None
     root_path = raw.get("root_path")
     if target_kind == "local_machine" and (not isinstance(root_path, str) or not root_path.strip()):
         # Never reinterpret a Windows/Linux/macOS desktop through the cloud
@@ -230,6 +255,10 @@ def get_active_sandbox() -> SandboxBinding | None:
         else "/home/agent",
         target_kind=target_kind,
         device_id=str(raw.get("device_id") or "") or None,
+        working_dir=working_dir.strip()
+        if isinstance(working_dir := raw.get("working_dir"), str) and working_dir.strip()
+        else None,
+        wake_on_first_use=wake_on_first_use,
     )
 
 
@@ -450,43 +479,131 @@ def _unavailable_error(
     )
 
 
-#: Orchestrator route families the generated ``matrx_api`` operations model
-#: (``/sandboxes/{sandbox_id}/fs/{path}`` and ``.../search/{path}``). An operation is found by
-#: its METHOD and PATH TEMPLATE, never by its generated name: the generator decides which verb
-#: gets the bare name (``orchestrator_proxy_fs`` moved from PUT to DELETE on a regeneration, so
-#: a name table silently sent every write as a delete).
-_API_FAMILIES = ("fs", "search")
+# ── A parked machine wakes at its first use ───────────────────────────────
+
+#: One wake per (actor, run, machine): concurrent first calls await the same task, and the woken
+#: binding serves the rest of the run. A failed wake is dropped so the next call tries again.
+#: A call with NO run identity (no request_id, no execution_id) shares only a wake still in
+#: flight: once it settles it is dropped, because nothing proves the next such call belongs to
+#: the same run — a cached endpoint reused across runs would outlive a machine that slept since.
+_WAKES: dict[tuple[str, ...], tuple[float, asyncio.Task[SandboxBinding]]] = {}
+#: A run's woken endpoint is forgotten after this long (the next call wakes — or finds — it again).
+_WAKE_KEEP_SECONDS = 1800.0
+
+WAKING_MESSAGE = "Waking your Cloud Computer… the first command after a sleep takes up to a minute."
 
 
-def _api_operation(family: str, method: str) -> Any:
-    template = f"/sandboxes/{{sandbox_id}}/{family}/{{path}}"
-    wanted = method.upper()
-    for op in architecture.OPERATIONS.values():
-        if op.path == template and str(op.method).upper() == wanted:
-            return op
-    return None
+def _wake_key(binding: SandboxBinding) -> tuple[str, ...]:
+    """(actor, run, machine). ``run`` is ``""`` when the context names no run — see ``_WAKES``."""
+    from matrx_connect import try_get_app_context
+
+    ctx = try_get_app_context()
+    user = str(getattr(ctx, "user_id", "") or "")
+    run = str(getattr(ctx, "request_id", "") or getattr(ctx, "execution_id", "") or "")
+    return (user, run, binding.sandbox_id)
 
 
-def _api_target(
-    binding: SandboxBinding, method: str, path: str
-) -> tuple[str, str, Any, str] | None:
-    """``(orchestrator origin, sandbox_id, operation, in-box path)`` or None for the raw path.
+def _key_names_a_run(key: tuple[str, ...]) -> bool:
+    return bool(key[1])
 
-    Only a cloud sandbox whose ``base_url`` is exactly ``{orchestrator}/sandboxes/{id}`` and
-    whose call is an ``fs/*`` or ``search/*`` one maps onto a generated operation.
-    """
-    if binding.target_kind != "sandbox":
-        return None
-    origin, sep, sandbox_id = binding.base_url.rstrip("/").rpartition("/sandboxes/")
-    if not sep or not origin or not sandbox_id or "/" in sandbox_id:
-        return None
-    family, _, rest = path.lstrip("/").partition("/")
-    if family not in _API_FAMILIES or not rest:
-        return None
-    op = _api_operation(family, method)
-    if op is None:
-        return None
-    return origin, sandbox_id, dataclasses.replace(op, stream="none"), rest
+
+async def _announce_wake() -> None:
+    """Tell the person (on this call's own stream) why the call is taking a while. Never raises."""
+    try:
+        from matrx_ai.tools.streaming import CURRENT_TOOL_STREAM
+
+        stream = CURRENT_TOOL_STREAM.get()
+        if stream is not None:
+            await stream.progress(WAKING_MESSAGE)
+    except Exception as exc:  # noqa: BLE001 - an announcement never fails the call
+        logger.debug("wake announcement not sent: %s", exc)
+
+
+async def _wake(binding: SandboxBinding) -> SandboxBinding:
+    from matrx_connect import try_get_app_context
+
+    from matrx_ai._ext import get_sandbox_binding_waker
+
+    waker = get_sandbox_binding_waker()
+    if waker is None:
+        raise SandboxProxyError(
+            f"This run's computer ({binding.sandbox_id}) is asleep and this server cannot wake "
+            "it. Tell the user to open their Cloud Computer and send again.",
+            status=503,
+            error_type="sandbox_unavailable",
+        )
+    ctx = try_get_app_context()
+    started = _now()
+    try:
+        live = await waker(
+            sandbox_id=binding.sandbox_id,
+            user_id=getattr(ctx, "user_id", None),
+            organization_id=getattr(ctx, "organization_id", None),
+            conversation_id=getattr(ctx, "conversation_id", None),
+            working_dir=binding.working_dir,
+        )
+    except SandboxProxyError:
+        raise
+    except Exception as exc:
+        raise SandboxProxyError(
+            f"Your Cloud Computer could not be woken for this call ({type(exc).__name__}: {exc}). "
+            "Its files are intact. Do not retry in a loop: tell the user, who can open Computer "
+            "to see why it did not start.",
+            status=503,
+            error_type="sandbox_unavailable",
+            is_retryable=True,
+            suggested_action="Tell the user the Cloud Computer did not start; retry once later.",
+        ) from exc
+    base_url = str((live or {}).get("base_url") or "").rstrip("/")
+    token = str((live or {}).get("access_token") or "")
+    if not base_url or not token:
+        raise SandboxProxyError(
+            "Your Cloud Computer woke without a usable address for this call. Tell the user.",
+            status=503,
+            error_type="sandbox_unavailable",
+        )
+    logger.info("sandbox %s woken at first use in %.1fs", binding.sandbox_id, _now() - started)
+    root = live.get("root_path")
+    folder = live.get("working_dir")
+    return replace(
+        binding,
+        base_url=base_url,
+        access_token=token,
+        root_path=root if isinstance(root, str) and root.strip() else binding.root_path,
+        working_dir=folder if isinstance(folder, str) and folder.strip() else binding.working_dir,
+        wake_on_first_use=False,
+    )
+
+
+async def _ready_binding(binding: SandboxBinding) -> SandboxBinding:
+    """The binding with a live endpoint: as given, or — for a parked machine — woken now.
+
+    Concurrent first calls of one run share ONE wake; the woken binding serves the rest of the
+    run. The wake runs as its own task, so a call cancelled mid-wake never cancels the others."""
+    if not binding.wake_on_first_use:
+        return binding
+    key = _wake_key(binding)
+    now = _now()
+    for stale in [k for k, (at, _) in _WAKES.items() if now - at > _WAKE_KEEP_SECONDS]:
+        _WAKES.pop(stale, None)
+    entry = _WAKES.get(key)
+    if entry is None or entry[1].cancelled() or (entry[1].done() and entry[1].exception() is not None):
+        task = asyncio.ensure_future(_wake(binding))
+        _WAKES[key] = (now, task)
+
+        def _forget(done: asyncio.Task[SandboxBinding], key: tuple[str, ...] = key) -> None:
+            # A failed wake is always dropped; a woken endpoint is kept only for a named run.
+            failed = done.cancelled() or done.exception() is not None
+            if failed or not _key_names_a_run(key):
+                if _WAKES.get(key, (0.0, None))[1] is done:
+                    _WAKES.pop(key, None)
+
+        task.add_done_callback(_forget)
+    else:
+        task = entry[1]
+    if not task.done():
+        await _announce_wake()
+    return await asyncio.shield(task)
 
 
 async def _send_raw(
@@ -498,7 +615,7 @@ async def _send_raw(
     call_timeout: float,
     headers: dict[str, str],
 ) -> httpx.Response:
-    async with httpx.AsyncClient(timeout=call_timeout) as client:
+    async with shared_client(timeout=call_timeout) as client:
         return await client.request(method, url, params=params, json=json, headers=headers)
 
 
@@ -514,43 +631,14 @@ async def _send_once(
 ) -> httpx.Response:
     """ONE transport attempt. A >=400 answer comes back untouched; a transport failure raises
     the original ``httpx.RequestError`` (so the caller's classification is unchanged)."""
-    target = _api_target(binding, method, path)
-    if target is None:
-        return await _send_raw(
-            method,
-            f"{binding.base_url}{path}",
-            params=params,
-            json=json,
-            call_timeout=call_timeout,
-            headers=headers,
-        )
-    origin, sandbox_id, op, rest = target
-    async with httpx.AsyncClient(timeout=call_timeout) as client:
-        api = MatrxApi(
-            base_urls={op.deployment: origin},
-            http_client=client,
-            credentials=None,
-            retry_attempts=1,
-        )
-        try:
-            response, _ = await api.send(
-                op,
-                path={"sandbox_id": sandbox_id, "path": RawPath(rest)},
-                query=params,
-                body=json,
-                options=CallOptions(
-                    headers=headers,
-                    raw_errors=True,
-                    connect_timeout=call_timeout,
-                    total_timeout=call_timeout,
-                ),
-            )
-        except MatrxApiError as exc:
-            cause = exc.__cause__
-            if exc.status == 0 and isinstance(cause, httpx.RequestError):
-                raise cause from None
-            raise
-    return response
+    return await _send_raw(
+        method,
+        f"{binding.base_url}{path}",
+        params=params,
+        json=json,
+        call_timeout=call_timeout,
+        headers=headers,
+    )
 
 
 async def _request(
@@ -566,6 +654,8 @@ async def _request(
 ) -> httpx.Response:
     """``answer_errors``: hand a 4xx/5xx answer back to the caller (``device_op`` reads its typed
     error body) instead of flattening it into a generic SandboxProxyError."""
+    # A parked machine wakes HERE, at the first call that needs it (never when the run is armed).
+    binding = await _ready_binding(binding)
     attempt = 0
     reminted = False
     # ONE retry loop is the chokepoint for every proxied call (fs_*, exec,
@@ -979,7 +1069,7 @@ async def fs_search(
     ``content_search=True``) or fd-backed ``/search/paths`` (default).
     Returns the matrx_agent response verbatim — ``{results: [...]}``.
     """
-    cwd = path or binding.root_path
+    cwd = path or binding.default_dir
     if content_search:
         body: dict[str, Any] = {
             "query": pattern,
@@ -1011,6 +1101,12 @@ async def fs_search(
 
 # ── Shell ──────────────────────────────────────────────────────────────────
 
+#: Seconds the ``/exec`` HTTP call waits past the command's own timeout, so the box's
+#: graceful timeout answer (exit code, output so far) arrives before our transport gives up.
+#: The tool executor's deadline for a caller-bounded process tool sits ABOVE this
+#: (``knobs.process_tool_deadline_grace_seconds``). The value is the knob
+#: ``agents.tool_dispatch.exec_http_grace_seconds`` (``knobs.exec_http_grace_seconds``).
+
 
 async def exec_command(
     binding: SandboxBinding,
@@ -1036,7 +1132,7 @@ async def exec_command(
         body["stdin"] = stdin
     # Give the HTTP layer a few extra seconds beyond the command timeout so
     # graceful timeouts surface as ExecResponse, not as our own HTTP timeout.
-    resp = await _request(binding, "POST", "/exec", json=body, timeout=float(timeout) + 10.0)
+    resp = await _request(binding, "POST", "/exec", json=body, timeout=float(timeout) + exec_http_grace_seconds())
     data = resp.json()
     # Stamp a recovered route outage onto the call's metadata so the ledger
     # shows the seconds this call silently spent waiting out an orchestrator

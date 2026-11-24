@@ -499,3 +499,19 @@ async def test_declared_false_unpublishes_and_a_non_boolean_is_refused(tmp_path,
     bad = _write_skill(tmp_path, "published_to_web: maybe\n")
     rep = await ingest_filesystem([tmp_path], admin_user_id=str(uuid4()), dry_run=False)
     assert bad.exists() and rep["parsed"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_rewrite_updates_the_active_row_never_an_inactive_duplicate(monkeypatch):
+    """2026-11-19: with an inactive copy listed first, the write path updated (and so reactivated)
+    the copy, leaving two active rows of one generated skill."""
+    p = _parsed("tools-family-x", None)
+    stale = _Row(id=uuid4(), skill_id=p.skill_id, body="old", is_active=False, published_to_web=True,
+                 config={"ingested_from": "platform_library", "source_hash": "old"})
+    live = _Row(id=uuid4(), skill_id=p.skill_id, body="old", is_active=True, published_to_web=True,
+                config={"ingested_from": "platform_library", "source_hash": "old"})
+    defs, cats = _Defs([stale, live]), _Cats()
+    _patch(monkeypatch, defs, cats)
+    await upsert_parsed_skills([p], admin_user_id=uuid4(), dry_run=False, is_system=True, adopt=False, owns=_owns)
+    assert stale.is_active is False
+    assert [r.id for r in defs.rows if r.is_active] == [live.id]

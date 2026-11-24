@@ -26,7 +26,7 @@ _INTERRUPT_SIGNAL: Final[int] = signal.CTRL_C_EVENT if sys.platform == "win32" e
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
-    from tox.pytest import ToxProjectCreator
+    from tox.pytest import ToxProject, ToxProjectCreator
 
 
 @pytest.mark.parametrize("prefix", [pytest.param("-", id="dash"), pytest.param("- ", id="dash-space")])
@@ -702,6 +702,57 @@ def test_fail_fast_respects_ignore_outcome(tox_project: ToxProjectCreator) -> No
     assert "IGNORED FAIL" in result.out
 
 
+@pytest.fixture
+def unwritable_result_json(tmp_path: Path) -> Path:
+    blocker = tmp_path / "blocker"
+    blocker.touch()
+    return blocker / "out.json"
+
+
+def test_result_json_parent_is_a_file(tox_project: ToxProjectCreator, unwritable_result_json: Path) -> None:
+    project = tox_project({"tox.ini": "[testenv]\npackage=skip\ncommands=python --version"})
+    result = project.run("r", "--result-json", str(unwritable_result_json))
+    result.assert_failed(code=-2)
+    assert "py: OK" in result.out
+    assert "evaluation failed :(" in result.out
+    assert f"HandledError| could not write --result-json to {unwritable_result_json}:" in result.out
+
+
+@pytest.mark.parametrize(
+    ("config", "run_error"),
+    [
+        pytest.param(
+            """
+            env_list = ["a", "b"]
+            [env.a]
+            depends = ["b"]
+            [env.b]
+            depends = ["a"]
+            """,
+            "circular dependency detected",
+            id="scheduler-error",
+        ),
+        pytest.param(
+            """
+            venv_redirect_env = 5
+            [env_run_base]
+            package = "skip"
+            commands = [["python", "--version"]]
+            """,
+            "failed to load core.venv_redirect_env",
+            id="redirect-error",
+        ),
+    ],
+)
+def test_result_json_write_error_keeps_run_error(
+    tox_project: ToxProjectCreator, unwritable_result_json: Path, config: str, run_error: str
+) -> None:
+    result = tox_project({"tox.toml": dedent(config)}).run("r", "--result-json", str(unwritable_result_json))
+    result.assert_failed()
+    assert f"could not write --result-json to {unwritable_result_json}:" in result.out
+    assert run_error in result.out
+
+
 def test_no_capture_with_result_json_fails(tox_project: ToxProjectCreator) -> None:
     ini = "[testenv]\npackage=skip\ncommands=python --version"
     tox_project({"tox.ini": ini}).run("r", "-e", "py", "--no-capture", "--result-json", "result.json").assert_failed()
@@ -899,18 +950,18 @@ def test_result_json_creates_missing_parent_dir(tox_project: ToxProjectCreator) 
 
 
 def test_result_json_masks_secret_flag_value(tox_project: ToxProjectCreator) -> None:
-    project: Final = tox_project({
+    project: Final[ToxProject] = tox_project({
         "tox.toml": """\
 [env_run_base]
 package = "skip"
 commands = [["python", "-c", "pass", "--token=hunter2", "--cov=tox"]]
 """
     })
-    result: Final = project.path / "out.json"
+    result: Final[Path] = project.path / "out.json"
 
     project.run("r", "-e", "py", "--result-json", str(result)).assert_success()
 
-    content: Final = result.read_text()
+    content: Final[str] = result.read_text()
     assert "hunter2" not in content
-    command: Final = json.loads(content)["testenvs"]["py"]["test"][0]["command"]
+    command: Final[list[str]] = json.loads(content)["testenvs"]["py"]["test"][0]["command"]
     assert command[1:] == ["-c", "pass", "--token=*******", "--cov=tox"]

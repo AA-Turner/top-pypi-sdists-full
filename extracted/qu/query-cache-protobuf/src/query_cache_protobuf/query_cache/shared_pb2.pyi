@@ -71,6 +71,7 @@ class _RejectionReasonEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper
     LATEST_QUERY_HASH_NOT_MATCH: _RejectionReason.ValueType  # 8
     OUTSIDE_TIME_TRAVEL_WINDOW: _RejectionReason.ValueType  # 9
     CLONE_CHAIN_LIMIT_EXCEEDED: _RejectionReason.ValueType  # 10
+    CLONE_SOURCE_UNCHANGED: _RejectionReason.ValueType  # 11
 
 class RejectionReason(_RejectionReason, metaclass=_RejectionReasonEnumTypeWrapper): ...
 
@@ -85,6 +86,7 @@ TARGET_TABLE_MATCH: RejectionReason.ValueType  # 7
 LATEST_QUERY_HASH_NOT_MATCH: RejectionReason.ValueType  # 8
 OUTSIDE_TIME_TRAVEL_WINDOW: RejectionReason.ValueType  # 9
 CLONE_CHAIN_LIMIT_EXCEEDED: RejectionReason.ValueType  # 10
+CLONE_SOURCE_UNCHANGED: RejectionReason.ValueType  # 11
 global___RejectionReason = RejectionReason
 
 class _SubmitSQLResultType:

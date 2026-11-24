@@ -8,9 +8,6 @@ from cerebras.cloud.sdk import AsyncCerebras
 from matrx_utils import vcprint
 
 from matrx_ai.config import (
-    TextContent,
-    ThinkingContent,
-    ToolCallContent,
     UnifiedConfig,
     UnifiedResponse,
 )
@@ -20,6 +17,7 @@ from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
 )
+from matrx_ai.providers.reasoning import emit_settled_content
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
@@ -191,15 +189,8 @@ class CerebrasChat:
 
         # Send content through emitter
         vcprint("[Cerebras] Sending content to stream handler...", color="cyan")
-        for message in converted_response.messages:
-            for content in message.content:
-                if isinstance(content, ThinkingContent):
-                    # Wrap reasoning in XML tags
-                    await emitter.send_chunk(f"\n<reasoning>\n{content.text}\n</reasoning>\n")
-                elif isinstance(content, TextContent):
-                    await emitter.send_chunk(content.text)
-                elif isinstance(content, ToolCallContent):
-                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        await emit_settled_content(emitter, converted_response)
 
         vcprint("[Cerebras] Non-streaming execution completed successfully", color="green")
         return converted_response

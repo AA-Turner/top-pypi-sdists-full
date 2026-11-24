@@ -134,7 +134,7 @@ class TestOutboundSeam:
     def test_plain_names_untouched(self, translator):
         config = _FakeConfig(custom_tools=[_InlineTool("web_search"), _InlineTool("note")])
         decls = translator.build_provider_tools(config, "openai")
-        assert [d["name"] for d in decls] == ["web_search", "note"]
+        assert sorted(d["name"] for d in decls) == ["note", "web_search"]  # names untouched; order is the one name order (P0.2)
 
     def test_every_emitted_name_is_wire_safe(self, translator):
         config = _FakeConfig(
@@ -156,13 +156,17 @@ class TestOutboundSeam:
         decls = translator.build_provider_tools(config, "openai")
         assert [d["name"] for d in decls] == ["a__b"]
 
-    def test_unserializable_after_conversion_is_dropped(self, translator):
-        # 63-char name + colon → 64 internal, 65 on the wire → cannot be
-        # declared; the request must survive without it.
+    def test_overlong_wire_name_is_digested_not_dropped(self, translator):
+        # 64 internal chars → 65 on the wire: to_wire_name keeps the start and ends
+        # in a digest, so the tool is declared under a provider-legal name.
+        from matrx_ai.config.wire_names import is_wire_safe, to_wire_name
+
         long_name = "n" * 62 + ":x"
         config = _FakeConfig(custom_tools=[_InlineTool(long_name), _InlineTool("ok_tool")])
         decls = translator.build_provider_tools(config, "openai")
-        assert [d["name"] for d in decls] == ["ok_tool"]
+        names = [d["name"] for d in decls]
+        assert names == [to_wire_name(long_name), "ok_tool"]
+        assert is_wire_safe(names[0]) and len(names[0]) <= 64
 
     def test_registered_lister_full_round_trip(self, translator, registry_with_lister):
         """The exact /ai/manual failure shape: a registered colon-named
@@ -540,12 +544,17 @@ class TestDelegationCheckpoint:
 
 
 class TestUndeliverableNameGate:
-    def test_wire_overflow_rejected_at_validation(self):
+    def test_wire_overflow_accepted_and_digested(self):
         from matrx_ai.config.custom_tool import CustomTool
+        from matrx_ai.config.wire_names import is_wire_safe, to_wire_name
 
-        # 64 internal chars, 65 on the wire — can never be declared.
-        with pytest.raises(ValueError, match="64-char"):
-            CustomTool(name="x" * 62 + ":y")
+        # 64 internal chars, 65 on the wire: no longer undeliverable, the wire form
+        # is digested to fit. Names past 64 internal chars still fail the name regex.
+        name = "x" * 62 + ":y"
+        CustomTool(name=name)
+        assert is_wire_safe(to_wire_name(name))
+        with pytest.raises(ValueError):
+            CustomTool(name="x" * 65)
 
     def test_boundary_name_accepted(self):
         from matrx_ai.config.custom_tool import CustomTool

@@ -13,7 +13,7 @@ routing produces the SAME occurrence keys the writer dedupes on.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from typing import Any, ClassVar
+from typing import Any
 
 import pytest
 from pydantic import BaseModel, ConfigDict

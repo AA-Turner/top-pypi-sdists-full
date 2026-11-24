@@ -13,6 +13,7 @@ from django_tenants.clone import CloneSchema
 from django_tenants.signals import post_schema_sync, schema_migrated, schema_migrate_message, schema_pre_migration
 from dts_test_app.models import DummyModel, ModelWithFkToPublicUser
 
+from django_tenants.management.commands import InteractiveTenantOption
 from django_tenants.migration_executors import get_executor
 from django_tenants.test.cases import TenantTestCase
 from django_tenants.tests.testcases import BaseTestCase
@@ -1031,6 +1032,86 @@ class CloneSchemaTest(BaseTestCase):
         self.assertIsNotNone(row)
         self.assertIn('WHERE flag', row[0])
 
+    def test_clone_schema_keeps_unique_constraint_names(self):
+        """A clone's unique constraints carry their source's names.
+
+        ``CREATE TABLE ... (LIKE ... INCLUDING ALL)`` names a copied index after the default rules, and
+        clone_schema() put the source's names back on every index except a unique constraint's. A clone's
+        unique constraints were therefore all named differently from its source's, and a later migration
+        dropping one by name -- Django's ``RemoveConstraint`` -- failed on the clone alone with
+        ``constraint ... does not exist``.
+
+        Every index must also keep its own name: indexes are paired with the source's by definition, and
+        a definition does not say whether an index backs a constraint.
+        """
+        Client = get_tenant_model()
+        tenant = Client(schema_name='s7')
+        tenant.save()
+        get_tenant_domain_model()(tenant=tenant, domain='s7.test.com').save()
+
+        table = DummyModel._meta.db_table
+        with connection.cursor() as cursor:
+            cursor.execute('ALTER TABLE s7.%s ADD CONSTRAINT dummy_named_unique UNIQUE (name)' % table)
+            # Indexes on the same column that the comparison of index definitions cannot tell from the
+            # constraint's: a plain index differs only in UNIQUE, and a standalone unique index not at all.
+            # The constraint's name sorts first, the order in which the two used to swap names
+            # (pg-clone-schema Issue#133).
+            cursor.execute('CREATE INDEX dummy_plain_name ON s7.%s (name)' % table)
+            cursor.execute('CREATE UNIQUE INDEX zz_unique_name ON s7.%s (name)' % table)
+            # A primary key left with a name its table no longer gives it (as after a table rename), and a
+            # unique constraint on the same column, named to sort after it, the order in which they swap.
+            cursor.execute('ALTER INDEX s7.%s_pkey RENAME TO legacy_dummy_pkey' % table)
+            cursor.execute('ALTER TABLE s7.%s ADD CONSTRAINT zz_dummy_id_unique UNIQUE (id)' % table)
+
+        CloneSchema().clone_schema(base_schema_name='s7', new_schema_name='d7')
+
+        def indexes(schema):
+            """Each index's name, whether it is unique, and the kind of constraint it backs."""
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT ic.relname, x.indisunique, co.conname, co.contype::text FROM pg_index x "
+                    "JOIN pg_class ic ON ic.oid = x.indexrelid JOIN pg_namespace n ON n.oid = ic.relnamespace "
+                    "LEFT JOIN pg_constraint co ON co.conindid = x.indexrelid AND co.contype IN ('p', 'u', 'x') "
+                    "WHERE n.nspname = %s ORDER BY 1", [schema]
+                )
+                return cursor.fetchall()
+
+        source = indexes('s7')
+        self.assertIn(('dummy_named_unique', True, 'dummy_named_unique', 'u'), source)
+        self.assertIn(('zz_unique_name', True, None, None), source)
+        self.assertIn(('legacy_dummy_pkey', True, 'legacy_dummy_pkey', 'p'), source)
+        self.assertEqual(indexes('d7'), source)
+
+    def test_clone_schema_restores_index_names_when_other_schemas_have_the_same_table(self):
+        """The cloned indexes get the source's names, matched only against the source schema.
+
+        CREATE TABLE ... LIKE ... INCLUDING ALL gives the copied indexes generated names, and
+        clone_schema() renames them back by pairing the source and destination indexes of each table.
+        With many schemas holding a table of the same name (one per tenant), that pairing has to be
+        narrowed to the two schemas before it compares index definitions.
+        """
+        Client = get_tenant_model()
+        tenant = Client(schema_name='s6')
+        tenant.save()
+        get_tenant_domain_model()(tenant=tenant, domain='s6.test.com').save()
+
+        with connection.cursor() as cursor:
+            for schema, prefix in (('s6', 'src'), ('other6', 'other')):
+                cursor.execute('CREATE SCHEMA IF NOT EXISTS %s' % schema)
+                cursor.execute('CREATE TABLE %s.widget (id serial PRIMARY KEY, a int, b text)' % schema)
+                cursor.execute('CREATE INDEX %s_widget_a ON %s.widget (a)' % (prefix, schema))
+                cursor.execute('CREATE UNIQUE INDEX %s_widget_ab ON %s.widget (a, b)' % (prefix, schema))
+
+        CloneSchema().clone_schema(base_schema_name='s6', new_schema_name='d6')
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT indexname FROM pg_indexes WHERE schemaname = 'd6' AND tablename = 'widget' ORDER BY 1"
+            )
+            names = [row[0] for row in cursor.fetchall()]
+            cursor.execute('DROP SCHEMA other6 CASCADE')
+        self.assertEqual(names, ['src_widget_a', 'src_widget_ab', 'widget_pkey'])
+
     @staticmethod
     def _drop_role(role):
         connection.set_schema_to_public()
@@ -1540,6 +1621,81 @@ class SchemaAdoptionTest(BaseTestCase):
             call_command('delete_tenant', schema_name=get_public_schema_name(), interactive=False)
         self.assertTrue(get_tenant_model().objects.filter(pk=tenant.pk).exists())
         self.assertTrue(schema_exists(get_public_schema_name()))
+
+    def test_dash_names_are_rejected_for_new_tenants(self):
+        for name in ('-1', '-x', '--schema'):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValidationError, "start with '-'"):
+                    get_tenant_model()(schema_name=name).save()
+                self.assertFalse(get_tenant_model().objects.filter(schema_name=name).exists())
+                self.assertFalse(schema_exists(name))
+        # Numbers, and names that merely contain a dash, are fine.
+        for name in ('1', '42', 't1', 'a-b', 'x1-2'):
+            with self.subTest(name=name):
+                tenant = get_tenant_model()(schema_name=name)
+                tenant.auto_create_schema = False
+                tenant.save()
+                self._drop(tenant)
+
+    def test_existing_dash_tenant_keeps_working(self):
+        tenant = get_tenant_model()(schema_name='was_dash')
+        tenant.auto_create_schema = False
+        tenant.save()
+        self.addCleanup(self._drop, tenant)
+        get_tenant_model().objects.filter(pk=tenant.pk).update(schema_name='-old')
+        tenant.refresh_from_db()
+        tenant.save()  # unchanged name: no new-name checks
+        tenant.schema_name = '-new'
+        with self.assertRaisesRegex(ValidationError, "start with '-'"):
+            tenant.save()
+        tenant.schema_name = '-old'
+        with self.assertRaisesRegex(ValidationError, "start with '-'"):
+            schema_rename(tenant, '-x', save=False)
+
+    def _command_tenants(self, names):
+        tenants = []
+        for name in names:
+            t = get_tenant_model()(schema_name=name)
+            t.auto_create_schema = False
+            t.save()
+            tenants.append(t)
+            self.addCleanup(self._drop, t)
+        command = InteractiveTenantOption()
+        command.stdout = mock.Mock()
+        command.style = mock.Mock()
+        return tenants, command
+
+    def test_commands_select_tenant_by_position_when_no_name_is_a_number(self):
+        tenants, command = self._command_tenants(['cmd_first', 'cmd_second'])
+        listed = list(get_tenant_model().objects.order_by('pk'))
+        self.assertFalse(any(t.schema_name.isdigit() for t in listed))
+        with mock.patch('builtins.input', return_value='0'):
+            self.assertEqual(command.get_tenant_from_options_or_interactive().pk, listed[0].pk)
+        with mock.patch('builtins.input', return_value='cmd_second'):
+            self.assertEqual(command.get_tenant_from_options_or_interactive().pk, tenants[1].pk)
+        with mock.patch('builtins.input', return_value='999'):
+            with self.assertRaises(CommandError):
+                command.get_tenant_from_options_or_interactive()
+        # --schema is always an exact name, never a position.
+        with self.assertRaises(CommandError):
+            command.get_tenant_from_options_or_interactive(schema_name='0')
+
+    def test_commands_select_only_by_exact_name_when_a_name_is_a_number(self):
+        tenants, command = self._command_tenants(['cmd_first', '1'])
+        self.assertEqual(command.get_tenant_from_options_or_interactive(schema_name='1').pk, tenants[1].pk)
+        with mock.patch('builtins.input', return_value='1'):
+            self.assertEqual(command.get_tenant_from_options_or_interactive().pk, tenants[1].pk)
+        # Positions are switched off, so '0' is just an unknown name...
+        with mock.patch('builtins.input', return_value='0'):
+            with self.assertRaises(CommandError):
+                command.get_tenant_from_options_or_interactive()
+        # ...and the '?' list doesn't number the tenants.
+        with mock.patch('builtins.input', side_effect=['?', 'cmd_first']), \
+                mock.patch('builtins.print') as printed:
+            self.assertEqual(command.get_tenant_from_options_or_interactive().pk, tenants[0].pk)
+        listing = printed.call_args_list[0].args[0]
+        self.assertIn('cmd_first - ', listing)
+        self.assertNotIn(') cmd_first', listing)
 
     def test_schema_rename_from_reserved_name_is_rejected(self):
         self._create_plain_schema('shared_ext2')

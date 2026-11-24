@@ -12,6 +12,8 @@ from typing import Any
 
 from probe.sdk.run.samples.points import TrainingGuard
 
+from probe.sdk.run import trainer_facts
+
 from .. import _rl_owner
 from .harbor import HarborJoin, is_harbor_generator
 from .live import SkyrlLive
@@ -219,6 +221,8 @@ class ProbeCallback:
         version = getattr(client, "weight_version", None)
         hooks.guard.call("train start", hooks.recorder.start, int(callback_input.global_step),
                          version if isinstance(version, int) else None)
+        # Set before this event (`trainer.py`: epochs x batches, capped by `max_training_steps`).
+        trainer_facts.send_total_steps(hooks.run, getattr(trainer, "total_training_steps", None))
 
     def on_step_end(self, trainer: Any, callback_input: Any, control: Any) -> None:
         self._hooks.guard.call("a commit", self._hooks.recorder.commit, int(callback_input.global_step))

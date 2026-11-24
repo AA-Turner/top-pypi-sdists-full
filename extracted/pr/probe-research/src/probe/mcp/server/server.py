@@ -320,16 +320,17 @@ def _register_browse_and_search(mcp, svc):
         `entity` opens any row in full.
 
         ### `mode`:
-        1. `projects` (default) - projects -> experiments -> runs; `project` or `experiment` (slug or uuid) opens one, `depth` 2 expands children
+        1. `projects` (default) - projects -> experiments -> runs; `project` or `experiment` opens one, `depth` 2 expands children
         2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `project` / `experiment` narrows; `filter`, `order` (top N) and `latest_metrics` (final values) find the best runs
-        3. `workspaces` - the team's filing locations, by NAME (what a `workspace_id` is)
-        4. `notes` - every note the team wrote, team-wide; `query` matches note text literally (search ranks by meaning)
+        3. `workspaces` - the team's filing locations, by NAME
+        4. `notes` - every note the team wrote, team-wide; `query` matches note text literally
         5. `files` - the team's Shared folder, or one workspace's files with `workspace_id`; `prefix` narrows to a folder. A run's or project's own files are `entity(view="artifacts")`
         6. `datasets` - team datasets (`dataset:<name>`) and unregistered run-logged dataset files; `registered`, `project`, `query` narrow
         7. `checkpoints` - every checkpoint team-wide (step, best, stored state, run); `project`/`experiment`/`run`, `best`, `stored` narrow
-        8. `sources` - external sources (Hub ids, buckets, URLs) with how many runs use each; `provider`, `kind`, `query` narrow
+        8. `sources` - external sources (Hub ids, buckets, URLs); `provider`, `kind`, `query` narrow
         9. `people` - teammates and their user ids
         10. `sessions` - agent sessions team-wide, newest first: title, whose, when, the work touched; `project` narrows
+        11. `decisions` - why work changed, oldest first; `query` (any word), `since`, `until` narrow
 
         `owner` (who), `since` / `until` (when) and `order="recent"` (newest first) narrow every mode that lists work. Each mode REFUSES arguments it does not read.
 

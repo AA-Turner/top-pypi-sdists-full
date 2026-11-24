@@ -9,9 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from matrx_graph.nodes.http._shared import (
     _DEFAULT_MAX_BYTES,
+    DestinationHopRefused,
     HttpResponse,
     TextOrSecret,
     build_response_from_httpx,
+    destination_hop_failure,
     outbound_client,
     refused_failure,
     resolve_request_secrets,
@@ -91,6 +93,11 @@ class HttpGetExecutor:
     ) -> NodeResult[HttpResponse]:
         from matrx_utils.outbound_guard import OutboundUrlRefused
 
+        from matrx_graph.nodes.http._shared import destination_refused
+
+        if (refused := await destination_refused(inputs.url)) is not None:
+            return refused
+
         prepared = await resolve_request_secrets(
             ctx, {"query": inputs.query, "headers": inputs.headers}
         )
@@ -113,9 +120,11 @@ class HttpGetExecutor:
                     build_response_from_httpx(resp, str(resp.url), elapsed, config.max_bytes)
                 )
             )
+        except DestinationHopRefused:
+            return destination_hop_failure()
         except OutboundUrlRefused as e:
             elapsed = int((time.monotonic() - started) * 1000)
-            return found.redact(refused_failure(inputs.url, e, elapsed))
+            return found.redact(refused_failure(e, elapsed))
         except Exception as e:
             elapsed = int((time.monotonic() - started) * 1000)
-            return found.redact(transport_failure(inputs.url, f"{type(e).__name__}: {e}", elapsed))
+            return found.redact(transport_failure(e, elapsed))

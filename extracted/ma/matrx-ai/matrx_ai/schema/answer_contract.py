@@ -47,10 +47,28 @@ from typing import Any
 
 from matrx_utils import vcprint
 
+#: The heading a grounded Gemini JSON reply STARTS with (the grounded text contract,
+#: ``providers/google/translator.py`` ``_grounded_json_text_contract``). The ONE token: the translator
+#: asks the model for it and the blocks splitter reads only this exact heading (any ``#`` level or
+#: ``**bold**`` form) as the reply's working text — a ``reasoning`` block, never the answer.
+GROUNDED_DIGEST_HEADING = "GROUNDED RESEARCH DIGEST"
+
+#: The first line of the grounded Gemini JSON text contract (the Google translator writes it as the
+#: system text; the registry's ``grounded_json_contract`` frame finds it by this line, so the
+#: residual check accounts for it).
+GROUNDED_JSON_CONTRACT_OPEN = "GEMINI GROUNDED-JSON STREAM CONTRACT:"
+#: The line that opens the compact schema the contract ends with (one line, after it).
+GROUNDED_JSON_CONTRACT_SCHEMA_LABEL = "JSON Schema:"
+
 #: One issue class for the outcome this module exists to make visible: the answer
 #: did not satisfy the contract the caller declared. HIGH — a machine consumer
 #: downstream is about to read a shape it was promised and did not get.
 ANSWER_OFF_CONTRACT = "structured_output.answer_off_contract"
+
+#: Prefix of a :func:`conform_answer_to_contract` note that RESTORED a pinned
+#: ``__kind`` — the model wrote the wrong value there, so it is recorded as a
+#: recovered ``answer_off_contract`` finding, never passed over in silence.
+KIND_RESTORED_PREFIX = "kind restored: "
 
 #: How many individual validation failures travel in a finding. The point is to
 #: name the shape that broke, not to ship the whole diff.
@@ -83,7 +101,40 @@ def declared_schema_of(response_format: Any) -> tuple[dict[str, Any] | None, str
     return None, None
 
 
-def bind_declared_output_contract(response_format: Any) -> Token:
+def is_audio_only_output(caps: Any) -> bool:
+    """THE one modality test: the model speaks (audio out) and writes no text (TTS).
+
+    The Google translator skips the response schema on this signal; the contract
+    binding reads the same function, so a spoken answer is never judged as JSON.
+    """
+    return bool(getattr(caps, "produces_audio", False)) and not bool(
+        getattr(caps, "produces_text", False)
+    )
+
+
+def is_media_generator_output(caps: Any) -> bool:
+    """A model whose answer IS media (audio, image, video) and that cannot hold a JSON
+    structure: the declared JSON contract cannot apply to what it returns.
+
+    Media agents (podcast audio / video / feature image) declare the ``media_asset``
+    kind, but the answer is the generated asset, never a JSON text. Judging it
+    produced false ``enforcement_dropped`` and ``answer_off_contract`` findings on
+    every media call. A model that DOES declare json_schema / json_object keeps its
+    contract, whatever else it emits. Reads the capability flags only, never a name.
+    """
+    if is_audio_only_output(caps):
+        return True
+    media = any(
+        bool(getattr(caps, flag, False))
+        for flag in ("produces_audio", "produces_image", "produces_video")
+    )
+    mode = getattr(getattr(caps, "structured_output_mode", None), "value", None) or getattr(
+        caps, "structured_output_mode", None
+    )
+    return media and mode not in ("schema", "json")
+
+
+def bind_declared_output_contract(response_format: Any, caps: Any = None) -> Token:
     """Record the contract THIS call declared, before anything can downgrade it.
 
     ALWAYS sets — to ``None`` when there is no schema — because a ContextVar set
@@ -93,6 +144,9 @@ def bind_declared_output_contract(response_format: Any) -> Token:
     Must run before the capability gates: ``_downgrade_response_format`` replaces
     ``config.response_format`` outright and takes the schema with it.
     """
+    if caps is not None and is_media_generator_output(caps):
+        # An audio answer is not text: no JSON contract applies (answer_off_contract f257f0c5).
+        return _DECLARED.set(None)
     schema, name = declared_schema_of(response_format)
     if not isinstance(schema, dict):
         return _DECLARED.set(None)
@@ -387,6 +441,67 @@ def _turn_is_final(response: Any) -> bool:
     return True
 
 
+#: Why a provider stopped an answer before it was finished, in words a reader can act on. A schema
+#: change fixes none of these, so an off-contract finding on a cut-short answer must never prescribe one.
+_CUT_SHORT_REMEDY: dict[str, str] = {
+    "max_tokens": (
+        "the output cap was reached mid-answer — raise the agent's max output tokens or ask for a "
+        "shorter answer; the schema is not the cause"
+    ),
+    "recitation": (
+        "the provider stopped the answer because it was reproducing source text verbatim "
+        "(RECITATION) — ask the agent to paraphrase instead of copying long passages (transcripts, "
+        "articles); the schema is not the cause"
+    ),
+    "model_context_window_exceeded": (
+        "the context window filled mid-answer — send less input or bind a larger-context model; "
+        "the schema is not the cause"
+    ),
+    "refusal": "the model refused to answer — the request, not the schema, is what it declined",
+}
+_CUT_SHORT_FILTERED = (
+    "the provider's content filter stopped the answer ({reason}) — the input or the request "
+    "tripped it; the schema is not the cause"
+)
+#: Tool-call stops are a turn that is not the answer (``_turn_is_final``), never a cut-short answer.
+_NOT_CUT_SHORT = frozenset({"malformed_function_call", "unexpected_tool_call"})
+
+
+def answer_cut_short_by(response: Any) -> str | None:
+    """The finish reason that STOPPED this answer before it was complete, or ``None``.
+
+    A provider that stops a structured answer mid-way (output cap, RECITATION, a content filter,
+    a refusal) leaves a JSON fragment. Judged as a finished answer, that fragment was reported as
+    "reduce the schema" — and the schema-less fallback extraction then picked an inner array out
+    of the broken object and filed "[...] is not of type 'object'" (2026-11-17: the YouTube
+    analyzer stopped on ``recitation`` after ~16k tokens, twice, both filed as schema failures).
+    Read off the unified :class:`FinishReason`, so every provider shares one answer.
+    """
+    from matrx_ai.config.finish_reason import FinishReason
+
+    raw = getattr(response, "finish_reason", None)
+    value = str(getattr(raw, "value", raw) or "").strip().lower()
+    if not value or value in _NOT_CUT_SHORT:
+        return None
+    try:
+        reason = FinishReason(value)
+    except ValueError:
+        return None
+    if reason.is_truncated() or reason.is_error():
+        return reason.value
+    return None
+
+
+def _finish_reason_text(response: Any) -> str:
+    raw = getattr(response, "finish_reason", None)
+    return str(getattr(raw, "value", raw) or "unknown").strip().lower()
+
+
+def cut_short_remedy(reason: str) -> str:
+    """What to change when ``reason`` stopped the answer (never "reduce the schema")."""
+    return _CUT_SHORT_REMEDY.get(reason) or _CUT_SHORT_FILTERED.format(reason=reason)
+
+
 def _final_assistant_message(response: Any) -> Any:
     for message in reversed(list(getattr(response, "messages", None) or [])):
         if str(getattr(message, "role", "")) in ("assistant", "Role.ASSISTANT"):
@@ -415,7 +530,8 @@ def conform_answer_to_contract(response: Any) -> list[str]:
     validator rejected 4 of 4 live kinds tested and Pydantic output models with a
     defaulted field failed to parse (SCHEMA-TRANSLATION-VERIFY.md, R1).
 
-    Only a JSON answer is touched, and only when pruning changes it: an answer
+    Only a JSON answer is touched, and only when pruning (or restoring a
+    ``__kind`` the schema pins to one value) changes it: an answer
     that is the whole text (provider-enforced), or one fenced ```json block
     (prompt-guided). Anything it cannot locate exactly is left alone — the
     contract check then reports it; nothing is ever rewritten on a guess.
@@ -428,7 +544,7 @@ def conform_answer_to_contract(response: Any) -> list[str]:
     if message is None or not isinstance(schema, dict):
         return []
     from matrx_ai.config.unified_content import TextContent
-    from matrx_ai.schema.rules import prune_optional_nulls
+    from matrx_ai.schema.rules import prune_optional_nulls, restore_declared_kinds
 
     blocks = [
         (index, block)
@@ -438,39 +554,81 @@ def conform_answer_to_contract(response: Any) -> list[str]:
     if not blocks:
         return []
 
-    def _pruned_json(raw: str) -> str | None:
-        try:
-            parsed = json.loads(raw)
-        except (TypeError, ValueError):
-            return None
+    def _conformed_json(raw: str) -> tuple[str, list[str]] | None:
+        # Read through the ONE parse funnel, exactly as every consumer downstream reads it (strict,
+        # then the faithful near-miss repair; a cut-off document is refused). Strict `json.loads`
+        # alone skipped a block holding LaTeX `\(` (an illegal JSON escape) and pruned nothing, while
+        # the mandate's reader repaired the same text and judged the boundary's nulls as drift
+        # (system_error c9559cdf, 2026-11-18).
+        from matrx_ai.agents.response_parser import parse_json_document
+
+        parsed = parse_json_document(raw)
         if not isinstance(parsed, (dict, list)):
             return None
         pruned = prune_optional_nulls(parsed, schema)
-        if pruned == parsed:
+        notes: list[str] = []
+        if pruned != parsed:
+            notes.append("$: optional fields answered null were removed, and empty placeholders at fields narrowed to non-null read as the null the author allows")
+        # A `__kind` the schema pins to ONE value is restored to it — the slot
+        # carries no information from the model (rules.restore_declared_kinds).
+        restored, kind_notes = restore_declared_kinds(pruned, schema)
+        notes.extend(f"{KIND_RESTORED_PREFIX}{note}" for note in kind_notes)
+        if not notes:
             return None
-        return json.dumps(pruned, ensure_ascii=False)
+        return json.dumps(restored, ensure_ascii=False), notes
 
     whole = "".join(block.text for _, block in blocks)
-    replacement = _pruned_json(whole.strip())
-    if replacement is not None:
+    conformed = _conformed_json(whole.strip())
+    if conformed is not None:
+        replacement, notes = conformed
         first_index, first = blocks[0]
         first.text = replacement
         drop = {index for index, _ in blocks[1:]}
         if drop:
             message.content = [b for i, b in enumerate(message.content) if i not in drop]
-        return ["$: optional fields answered null were removed (the author's contract says absent)"]
+        return notes
 
     for _, block in blocks:
         spans = _json_fences(block.text)
         for start, end in reversed(spans):
-            replacement = _pruned_json(block.text[start:end].strip())
-            if replacement is not None:
+            conformed = _conformed_json(block.text[start:end].strip())
+            if conformed is not None:
+                replacement, notes = conformed
                 block.text = block.text[:start] + replacement + block.text[end:]
-                return [
-                    "$: optional fields answered null were removed from the fenced answer "
-                    "(the author's contract says absent)"
-                ]
+                return notes
     return []
+
+
+def bounds_the_provider_cannot_carry(answer: Any, schema: Any, provider: str) -> list[str]:
+    """The stripped keywords that ALONE put ``answer`` off contract, sorted.
+
+    The request boundary strips the bounds a provider's engine refuses
+    (``maxLength``, ``pattern``, ``minItems``…, ``unsupported_structured_output_keywords``)
+    while ``verify_answer`` keeps judging them. An answer that passes the schema the
+    provider actually received and fails only the declared one broke a bound the
+    provider never held — not a translator divergence. Empty when the answer also
+    fails the provider's copy (the shape itself is off) or nothing was stripped."""
+    from matrx_ai.schema.rules import strip_unsupported_keywords, unsupported_structured_output_keywords
+
+    unsupported = unsupported_structured_output_keywords(provider)
+    if not unsupported or not isinstance(schema, dict):
+        return []
+    if verify_answer(answer, strip_unsupported_keywords(schema, unsupported)):
+        return []
+    present: set[str] = set()
+
+    def walk(node: Any, *, name_map: bool = False) -> None:
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+        elif isinstance(node, dict):
+            for key, value in node.items():
+                if not name_map and key in unsupported:
+                    present.add(key)
+                walk(value, name_map=key in ("properties", "$defs", "definitions") and not name_map)
+
+    walk(schema)
+    return sorted(present)
 
 
 async def verify_answer_and_record(
@@ -480,6 +638,7 @@ async def verify_answer_and_record(
     model: str | None,
     was_enforced: bool | None = None,
     identity: dict[str, Any] | None = None,
+    conformed: list[str] | None = None,
 ) -> list[str]:
     """Judge the answer against the declared contract and, on a mismatch, RECORD
     it. Never raises into the caller's request; returns the problems it found.
@@ -495,6 +654,7 @@ async def verify_answer_and_record(
     contract = declared_output_contract()
     if not contract or not _turn_is_final(response):
         return []
+    restored = [n[len(KIND_RESTORED_PREFIX):] for n in conformed or () if n.startswith(KIND_RESTORED_PREFIX)]
     if was_enforced is None:
         was_enforced = bool(contract.get("enforced", True))
     schema = contract["schema"]
@@ -509,18 +669,34 @@ async def verify_answer_and_record(
     # when the answer misses a required key it returns nothing, which used to be
     # reported as "no JSON could be recovered". Fall back to the plain extraction
     # so the finding names the key that is actually missing.
-    parsed = extract_json(text, schema=schema)
-    if parsed is None:
-        parsed = extract_json(text)
-    if parsed is None:
+    extraction = extract_json(text, schema=schema, detailed=True)
+    parsed = extraction.data if extraction.success else None
+    cut_short = answer_cut_short_by(response)
+    if parsed is None and not cut_short:
+        # A finished answer only: on a cut-short one the plain extraction picks a complete INNER
+        # value out of the broken object and the finding then blames its type, not the stop.
+        extraction = extract_json(text, detailed=True)
+        parsed = extraction.data if extraction.success else None
+    # A document the text left OPEN that json-repair closed is cut-off data, whatever the stop
+    # reason says: every required key may have been written before the cut, so it can satisfy the
+    # schema while the tail (the half-written item, everything after it) is gone. Never on contract.
+    truncated_json = parsed is not None and extraction.truncated
+    if truncated_json:
         problems = [
-            "$: no JSON object could be recovered from the answer at all — "
+            f"$: the answer's JSON was cut off before it closed (finish_reason={cut_short or _finish_reason_text(response)}) "
+            "— json-repair closed it, so everything after the cut is lost; an incomplete answer is "
+            "never judged on contract"
+        ]
+    elif parsed is None:
+        problems = [
+            f"$: the provider stopped the answer (finish_reason={cut_short}) before its JSON "
+            "was complete — no answer object exists to judge"
+            if cut_short
+            else "$: no JSON object could be recovered from the answer at all — "
             "the declared contract describes an object"
         ]
     else:
         problems = verify_answer(parsed, schema)
-    if not problems:
-        return []
 
     from matrx_ai.providers.structured_output_findings import (
         record_structured_output_finding,
@@ -528,11 +704,54 @@ async def verify_answer_and_record(
         schema_name_from_schema,
     )
 
+    if not problems:
+        if restored:
+            # The model missed the contract and the pinned `__kind` slots were
+            # restored before any consumer read the answer: on contract now, and
+            # recorded as RECOVERED so the slip stays visible.
+            vcprint(
+                f"⚠️  [answer_contract] {provider}/{model}: restored {len(restored)} pinned "
+                f"__kind slot(s) the model got wrong: {restored}",
+                color="yellow",
+            )
+            await record_structured_output_finding(
+                ANSWER_OFF_CONTRACT,
+                provider=provider,
+                model=model,
+                detail={
+                    "schema_name": contract.get("name") or schema_name_from_schema(schema),
+                    "schema_fingerprint": schema_fingerprint(schema),
+                    "provider_enforced": was_enforced,
+                    "dropped_because": contract.get("dropped_because"),
+                    "failures": restored,
+                    "remedy": "restored: each slot is a schema-pinned __kind, so the declared value is the only legal one",
+                    **(identity or {}),
+                },
+                was_recovered=True,
+            )
+        return []
+
+    unenforced_bounds = (
+        bounds_the_provider_cannot_carry(parsed, schema, provider)
+        if was_enforced and parsed is not None and not cut_short and not truncated_json
+        else []
+    )
     remedy = (
-        "the provider was NOT enforcing this contract on this call, so nothing held it — "
+        cut_short_remedy(cut_short)
+        if cut_short
+        else "the answer text ended mid-JSON although the provider reported a normal stop — the "
+        "stream or the model ended early; rerun it, and if it repeats raise the output cap or ask "
+        "for a shorter answer; the schema is not the cause"
+        if truncated_json
+        else "the provider was NOT enforcing this contract on this call, so nothing held it — "
         "reduce the schema (fewer properties / union fields) until the provider can enforce "
         "it, or bind the run to a model that can"
         if not was_enforced
+        else f"the answer breaks only bound(s) {provider} cannot enforce ({', '.join(unenforced_bounds)}) — "
+        "the request boundary strips them, so this check is the only thing holding them; state "
+        "the bound in the field's description or the prompt, relax it, or bind the run to a "
+        "provider that enforces it"
+        if unenforced_bounds
         else "the provider accepted the request as enforced and the answer still misses the "
         "contract — the translated wire schema and the declared schema have diverged; "
         "the divergence is the bug, not the model"
@@ -560,6 +779,10 @@ async def verify_answer_and_record(
             "provider_enforced": was_enforced,
             "dropped_because": contract.get("dropped_because"),
             "failures": problems,
+            **({"cut_short_by": cut_short} if cut_short else {}),
+            **({"truncated_json": True} if truncated_json else {}),
+            **({"kinds_restored": restored} if restored else {}),
+            **({"unenforced_bounds": unenforced_bounds} if unenforced_bounds else {}),
             "remedy": remedy,
             **(identity or {}),
         },
@@ -570,10 +793,16 @@ async def verify_answer_and_record(
 
 __all__ = [
     "ANSWER_OFF_CONTRACT",
+    "KIND_RESTORED_PREFIX",
+    "GROUNDED_DIGEST_HEADING",
     "conform_answer_to_contract",
+    "answer_cut_short_by",
     "append_json_text_contract_to_system",
     "attach_json_text_contract",
     "bind_declared_output_contract",
+    "is_audio_only_output",
+    "is_media_generator_output",
+    "cut_short_remedy",
     "declared_output_contract",
     "declared_schema_of",
     "json_text_contract",

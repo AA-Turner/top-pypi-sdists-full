@@ -9,6 +9,8 @@ Routers here are the package's public HTTP surface. Rules:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Request, Response, status
 
 from matrx_files._config import get_config
@@ -18,6 +20,21 @@ from matrx_files.db.readiness import probe_database_readiness
 # /files-service, NOT /files — build_file_router owns /files; this is the
 # service-level health/identity router the independence gate probes.
 router = APIRouter(prefix="/files-service", tags=["files-service"])
+
+
+# Written by the image build (Dockerfile): line 1 the aidream commit, line 2 the
+# source id. Build identity, not a setting. Absent in PyPI-mode/local builds.
+_BUILD_IDENTITY = Path("/etc/matrx-build-identity")
+
+
+def _build_identity() -> tuple[str, str]:
+    try:
+        lines = _BUILD_IDENTITY.read_text().splitlines()
+    except OSError:
+        return "unknown", "unknown"
+    commit = lines[0].strip() if lines else ""
+    source_id = lines[1].strip() if len(lines) > 1 else ""
+    return commit or "unknown", source_id or "unknown"
 
 
 def _installed_version() -> str:
@@ -38,10 +55,16 @@ async def health() -> dict[str, str]:
     # That exact state ran undetected on files.matrxserver.com (2026-07-29);
     # one curl now exposes it. `version` makes deploy verification external —
     # the FastAPI version string alone is invisible with docs disabled.
+    commit, source_id = _build_identity()
     return {
         "status": "ok",
         "package": "matrx-files",
         "version": _installed_version(),
+        # The aidream commit + source id this image was built from (the Server
+        # Manager deploys from the release commit, not PyPI). "unknown" = a
+        # PyPI-mode or local build.
+        "commit": commit,
+        "source_id": source_id,
         "access_policy": "db" if get_access_checker() is not None else "python-subset-fallback",
     }
 

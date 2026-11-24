@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable
+from typing import TYPE_CHECKING, Any
 
 # Content-Type / disposition policy lives in the stdlib-only leaf module so the
 # write path + re-stamp backfill share the exact same decision. Re-exported
@@ -136,7 +136,7 @@ class DownloadStreamer:
     operates on bytes only.
     """
 
-    def __init__(self, engine: "SyncEngine") -> None:
+    def __init__(self, engine: SyncEngine) -> None:
         self._engine = engine
 
     async def open_stream(

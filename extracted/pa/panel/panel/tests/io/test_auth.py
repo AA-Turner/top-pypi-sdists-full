@@ -15,7 +15,9 @@ import requests
 from starlette.testclient import TestClient
 from tornado.web import create_signed_value, decode_signed_value
 
-from panel.auth import AUTH_PROVIDERS, OAuthLoginHandler, OAuthProvider
+from panel.auth import (
+    AUTH_PROVIDERS, BasicAuthProvider, OAuthLoginHandler, OAuthProvider,
+)
 from panel.config import config
 from panel.io.asgi import build_asgi_app
 from panel.io.state import state
@@ -153,6 +155,31 @@ def test_basic_auth_invalid_credentials(basic_auth_client):
         assert r.status_code == 302
         assert 'error=Invalid' in r.headers['location']
         assert 'user' not in r.cookies
+
+
+OFFSITE_NEXT_URLS = [
+    'https://evil.com', '//evil.com', '///evil.com', '////evil.com',
+    ' ///evil.com', '/\\evil.com', '/\t//evil.com',
+]
+
+
+@pytest.mark.parametrize('next_url', OFFSITE_NEXT_URLS)
+def test_basic_auth_rejects_offsite_next_url(basic_auth_client, next_url):
+    with basic_auth_client() as client:
+        r = client.get('/login', params={'next': next_url}, follow_redirects=False)
+        assert r.status_code == 400
+        assert 'next_url' not in client.cookies
+
+
+@pytest.mark.parametrize('next_url', [url for url in OFFSITE_NEXT_URLS if url.isprintable()])
+def test_basic_auth_rejects_offsite_next_url_cookie(basic_auth_client, next_url):
+    with basic_auth_client() as client:
+        client.cookies.set('next_url', next_url)
+        r = client.post(
+            '/login', data={'username': 'user', 'password': PASSWORD},
+            follow_redirects=False
+        )
+    assert r.status_code == 400
 
 
 def test_basic_auth_custom_endpoints(basic_auth_client):
@@ -331,6 +358,71 @@ def test_guest_endpoints_allow_unauthenticated_access(basic_auth_client):
     assert users == ['guest']
 
 
+def test_guest_endpoint_matches_query_string(basic_auth_client):
+    apps = {'/app': lambda: Markdown('# Test app')}
+    with basic_auth_client(apps, oauth_guest_endpoints=['/app']) as client:
+        assert client.get('/app?foo=1').status_code == 200
+
+
+def test_guest_endpoint_matches_static_sub_path(basic_auth_client, tmp_path):
+    (tmp_path / 'logo.png').write_bytes(b'\x89PNG\r\n\x1a\n')
+    apps = {'/app': lambda: Markdown('# Test app')}
+    with basic_auth_client(
+        apps, oauth_guest_endpoints=['/assets/*'], static_dirs={'assets': str(tmp_path)}
+    ) as client:
+        r = client.get('/assets/logo.png')
+        assert r.status_code == 200
+        assert r.content.startswith(b'\x89PNG')
+
+
+def test_guest_endpoint_requires_segment_boundary(basic_auth_client):
+    apps = {'/app': lambda: Markdown('# Test app'), '/app-private': lambda: Markdown('# Private')}
+    with basic_auth_client(apps, oauth_guest_endpoints=['/app/*']) as client:
+        assert client.get('/app-private', follow_redirects=False).status_code == 302
+
+
+def test_guest_endpoint_plain_entry_covers_no_sub_path(basic_auth_client, tmp_path):
+    (tmp_path / 'logo.png').write_bytes(b'\x89PNG\r\n\x1a\n')
+    apps = {'/app': lambda: Markdown('# Test app')}
+    with basic_auth_client(
+        apps, oauth_guest_endpoints=['/assets'], static_dirs={'assets': str(tmp_path)}
+    ) as client:
+        assert client.get('/assets/logo.png', follow_redirects=False).status_code == 302
+
+
+def test_guest_endpoint_root_allows_websocket_only():
+    provider = BasicAuthProvider(guest_endpoints=['/'])
+    assert provider._allow_guest('/')
+    assert provider._allow_guest('/ws')
+    assert provider._allow_guest('/?foo=1')
+    assert not provider._allow_guest('/app')
+    assert not provider._allow_guest('//app')
+
+
+def test_guest_endpoint_sub_path_opt_in():
+    provider = BasicAuthProvider(guest_endpoints=['/assets/*'])
+    assert provider._allow_guest('/assets')
+    assert provider._allow_guest('/assets/logo.png')
+    assert provider._allow_guest('/assets?version=1')
+    assert not provider._allow_guest('/assets-private')
+    assert not provider._allow_guest('/')
+
+
+def test_guest_endpoint_trailing_slash_is_exact():
+    provider = BasicAuthProvider(guest_endpoints=['/assets/'])
+    assert provider._allow_guest('/assets')
+    assert provider._allow_guest('/assets/ws')
+    assert not provider._allow_guest('/assets/logo.png')
+
+
+def test_guest_endpoint_plain_entry_is_exact():
+    provider = BasicAuthProvider(guest_endpoints=['/assets'])
+    assert provider._allow_guest('/assets')
+    assert provider._allow_guest('/assets/ws')
+    assert not provider._allow_guest('/assets/logo.png')
+    assert not provider._allow_guest('/assets-private')
+
+
 def test_oauth_optional_allows_unauthenticated_access(basic_auth_client):
     with basic_auth_client(oauth_optional=True) as client:
         assert client.get('/app').status_code == 200
@@ -483,6 +575,13 @@ def test_oauth_state_mismatch_is_rejected(oauth_client):
         r = client.get('/login?code=code&state=tampered', follow_redirects=False)
     assert r.status_code == 401
     assert 'user' not in r.cookies
+
+
+@pytest.mark.parametrize('next_url', OFFSITE_NEXT_URLS)
+def test_oauth_rejects_offsite_next_url(oauth_client, next_url):
+    with oauth_client() as client:
+        r = client.get('/login', params={'next': next_url}, follow_redirects=False)
+    assert r.status_code == 400
 
 
 def test_oauth_error_is_reported(oauth_client):

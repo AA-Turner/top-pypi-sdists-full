@@ -1,26 +1,22 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-//! The routed-call server trait and its shared error types.
+//! Routed-call client contracts and shared error types.
 //!
-//! [`RoutedLlmClient`] is the one piece of I/O the protocol does not own: a host
-//! implements it to actually perform a model call. It lives here — rather than in
-//! libsy's orchestration crate — so a client crate that depends only on the protocol
-//! can serve routed calls without pulling in the orchestrator.
+//! Hosts implement these traits to perform model calls. Keeping the contracts here
+//! lets clients depend on the protocol without pulling in libsy's orchestration.
 
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::{ModelId, Request, Response};
+use crate::{DecisionRequest, DecisionResponse, ModelId, Request, Response};
 
 /// A boxed client-specific error preserved as the source of a routed call failure.
 pub type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 /// Failures a routed LLM client can surface to its caller.
 ///
-/// The variants classify failures that routing hosts commonly need to handle,
-/// while boxed sources preserve implementation-specific detail. `General` is the
-/// escape hatch for failures that do not fit a shared category.
+/// Boxed sources preserve client-specific errors; `General` keeps only a message.
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum LlmClientError {
@@ -63,6 +59,10 @@ pub enum LlmClientError {
     #[error("Responses state ID is already recorded for another model; its owner was not changed")]
     ResponseStateConflict,
 
+    /// The selected backend is temporarily unavailable. Another candidate may serve the request.
+    #[error("backend temporarily unavailable")]
+    TemporarilyUnavailable,
+
     /// The upstream could not be reached or the request could not be sent.
     #[error("upstream transport error: {source}")]
     Transport {
@@ -95,12 +95,25 @@ pub enum LlmClientError {
         status: http::StatusCode,
         /// Raw upstream error body.
         body: String,
+        /// Upstream HTTP response headers from the last attempt. Consumers such as
+        /// switchyard-server may forward an allowed subset to the downstream client.
+        /// Boxed to keep the error type small.
+        headers: Box<http::HeaderMap>,
     },
 
     /// The upstream returned a response the client could not decode.
     #[error("invalid upstream response: {source}")]
     InvalidResponse {
         /// Client-specific decoding or validation failure.
+        #[source]
+        source: BoxError,
+    },
+
+    /// A native host failure that does not fit another category.
+    /// The default completion runner treats it as terminal.
+    #[error("host client error: {source}")]
+    Host {
+        /// Original error, retained for the host.
         #[source]
         source: BoxError,
     },
@@ -114,9 +127,52 @@ pub enum LlmClientError {
         source: BoxError,
     },
 
-    /// A string message. Useful in testing, but prefer adding variants over using this.
+    /// A string-only failure. Useful in testing; prefer a typed variant when possible.
     #[error("{0}")]
     General(String),
+}
+
+impl LlmClientError {
+    /// Whether the provider reports unreadable or unsupported input media.
+    ///
+    /// Some providers report these deterministic request failures as HTTP 500.
+    /// They must not make a healthy backend unavailable to other requests.
+    pub fn is_attachment_rejection(&self) -> bool {
+        let Self::UpstreamHttp { status, body, .. } = self else {
+            return false;
+        };
+        if !matches!(status.as_u16(), 400 | 422 | 500) {
+            return false;
+        }
+        let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
+        let error = parsed.as_ref().and_then(|value| value.get("error"));
+        if error
+            .and_then(|error| error.get("code"))
+            .and_then(|code| code.as_str())
+            == Some("content_policy_violation")
+        {
+            return false;
+        }
+        let message = error
+            .and_then(|error| error.get("message"))
+            .and_then(|message| message.as_str())
+            .unwrap_or(body)
+            .to_ascii_lowercase();
+        [
+            "unsupported content[].type",
+            "image input is not supported",
+            "does not support image input",
+            "failed to load image or audio file",
+            "cannot make get request",
+            "failed to download file",
+            "invalid image",
+            "does not represent a valid image",
+            "unsupported image format",
+            "unsupported file format",
+        ]
+        .iter()
+        .any(|pattern| message.contains(pattern))
+    }
 }
 
 /// Why routing replaced a selected target with another eligible target.
@@ -150,6 +206,19 @@ impl RoutingFallbackReason {
 /// not serialize requests unless their transport requires it.
 #[async_trait]
 pub trait RoutedLlmClient: Send + Sync {
+    /// Resolves a routing key for telemetry. Direct model clients keep the key unchanged.
+    fn provider_model<'a>(&'a self, target: &'a ModelId) -> &'a ModelId {
+        target
+    }
+
     /// Make a request
     async fn call(&self, request: Request) -> Result<Response, LlmClientError>;
+}
+
+/// Serves typed decision calls over a host-owned transport.
+/// Implementations may be shared across targets and called concurrently.
+#[async_trait]
+pub trait RoutedDecisionClient: Send + Sync {
+    /// Evaluate the request using its selected model.
+    async fn call(&self, request: DecisionRequest) -> Result<DecisionResponse, LlmClientError>;
 }

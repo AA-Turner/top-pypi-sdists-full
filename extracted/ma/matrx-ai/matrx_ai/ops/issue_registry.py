@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -99,3 +99,47 @@ async def auto_register_class(
             color="yellow",
         )
         return None
+
+
+def is_settled(issue_class: dict[str, Any]) -> bool:
+    """Settled = a person verified the class resolved (``is_active=false`` / ``disposition='suppress'``)."""
+    return (not issue_class.get("is_active", True)) or issue_class.get("disposition") == "suppress"
+
+
+async def reopen_settled_class(
+    issue_class: dict[str, Any], *, message: str, disposition: str = "monitor"
+) -> bool:
+    """A recurrence reopens a settled class, through the package's own ``OpsIssueClass`` model.
+
+    The event is recorded either way (a settled class must never hide its recurrences); this makes the
+    triage surfaces read the class as open again. The previous resolution note is kept under the new one.
+    Returns True when it reopened; never raises (a failed reopen is announced, the event still lands)."""
+    if not is_settled(issue_class):
+        return False
+    try:
+        OpsIssueClass = get_model("OpsIssueClass")
+        now = datetime.now(UTC)
+        previous = str(issue_class.get("resolution_notes") or "").strip()
+        note = f"REOPENED {now.isoformat()}: recurred after being settled - {message[:300]}"
+        await OpsIssueClass.filter(id=issue_class["id"]).update(
+            disposition=disposition,
+            is_active=True,
+            resolution_notes=f"{note}\n\nPrevious: {previous}" if previous else note,
+            updated_at=now,
+        )
+        issue_class["is_active"] = True
+        issue_class["disposition"] = disposition
+        cached = _cached_classes.get(str(issue_class.get("key")))
+        if cached is not None:
+            cached.update(is_active=True, disposition=disposition)
+        vcprint(
+            f"[OpsIssueRegistry] Reopened settled issue class: {issue_class.get('key')}",
+            color="yellow",
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001 - announced, and the event is still recorded
+        vcprint(
+            f"[OpsIssueRegistry] Failed to reopen settled class '{issue_class.get('key')}': {exc}",
+            color="red",
+        )
+        return False

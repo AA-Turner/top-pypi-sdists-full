@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from matrx_orm import JsonbMerge, Q
+from matrx_orm import ArrayAny, F, JsonbMerge, JsonPath, Projection, Q
 
 from matrx_graph.checkpoint.values import (  # noqa: F401 — re-exported for callers of load()
     RunInputValueMissingError,
@@ -21,12 +24,57 @@ from matrx_graph.types.primitives import RunControlStatus, RunStatus
 logger = logging.getLogger(__name__)
 
 
+class RunReattachRefused(ValueError):
+    """A saved run cannot be read by the caller trying to reattach."""
+
+
+class RunResumeClaimLost(RunReattachRefused):
+    """The owner still matches, but the parked run is no longer claimable."""
+
+
+def _reattach_owner_filters(reattach_as: tuple[str | None, str | None]) -> dict[str, Any]:
+    actor_id, organization_id = reattach_as
+    try:
+        organization_id = str(UUID(str(organization_id)))
+        actor_id = str(UUID(str(actor_id))) if actor_id else None
+    except ValueError as exc:
+        raise RunReattachRefused("This retry does not carry a valid caller and organization.") from exc
+    actor = {"created_by__isnull": True} if actor_id is None else {"created_by": actor_id}
+    return {"organization_id": organization_id, "deleted_at__isnull": True, **actor}
+
+
 #: The only columns a ``workflow.run`` UPDATE hands back. A plain ``update_where`` says
 #: ``RETURNING *``: the WHOLE row — and a child run seeded with a large input carries it twice
 #: (``input`` + ``metadata._settings.input_values``, ~6 MB each on Smart Add's offerings units,
 #: 2026-10-28). Every event, checkpoint and status write then shipped and decoded ~12 MB it never
 #: read: ~1 s per write, 1–3 s per step. A caller that needs a column names it here explicitly.
 RUN_UPDATE_RETURNS: tuple[str, ...] = ("id",)
+
+#: The terminal write hands back the row it left, because every run end then needed that row twice more — the
+#: run-settled hook read it (``run_end_wake._settled_row``) and the in-process caller read it again (a mandate's
+#: ``finalize.reload``): ~70 ms each per run end, every lane (L-SPEED round 6l). It hands back every column EXCEPT
+#: these: ``input`` is the run's whole start payload (~6 MB on Smart Add's offerings units) and no settle hook reads
+#: it from the row (the one that needs it, agent_build's door, loads it itself), so ``RETURNING *`` decoded it inside
+#: the terminal write for nothing (review 2026-11-10 finding 5; the 2026-11-02 whole-row class). A row handed back
+#: without a column has no such key, so a reader can tell "not returned" from "null".
+TERMINAL_RUN_OMITS: frozenset[str] = frozenset({"input"})
+
+
+def terminal_run_returns() -> list[str] | None:
+    """The columns the terminal write hands back: every column of the host's run model but ``TERMINAL_RUN_OMITS``
+    (None — the whole row — only for a stand-in model that declares no columns)."""
+    fields = getattr(get_model("WfRun"), "_fields", None)
+    return [name for name in fields if name not in TERMINAL_RUN_OMITS] if fields else None
+
+
+@dataclass(frozen=True)
+class AppliedResult:
+    """What :meth:`RunStore.apply_result_with_row` did: ``applied`` is :meth:`RunStore.apply_result`'s answer;
+    ``row`` is the row a TERMINAL write left (unresolved: output / input values may hold references, exactly like
+    ``load(resolve_output=False, resolve_inputs=False)``), None for a park or a refused write."""
+
+    applied: bool
+    row: dict[str, Any] | None = None
 
 
 async def update_run(filters: dict[str, Any], *, returning: Sequence[str] = RUN_UPDATE_RETURNS, **updates: Any) -> Any:
@@ -55,8 +103,9 @@ values rather than replaying a checkpoint."""
 RUN_CLAIM_METADATA_KEY = "_claim"
 
 
-def _claim_stamp() -> JsonbMerge:
-    return JsonbMerge("metadata", {RUN_CLAIM_METADATA_KEY: {"at": datetime.now(UTC).isoformat()}})
+def _claim_stamp(extra: dict[str, Any] | None = None) -> JsonbMerge:
+    """The claim's metadata merge; ``extra`` keys ride the same statement (the claim key always wins)."""
+    return JsonbMerge("metadata", {**(extra or {}), RUN_CLAIM_METADATA_KEY: {"at": datetime.now(UTC).isoformat()}})
 
 
 #: Host-injected "which server/build is this" provider (``configure_run_origin``).
@@ -108,21 +157,187 @@ def _origin_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
 #: (completed / failed / canceled / errored), with the status written and, for a cancel, why. The ONE place every
 #: lane's run end passes through, so a host feature that reacts to run ends (waking the chat that started the run)
 #: never needs a per-lane copy. Never raises into the run: the end is already written.
-_run_settled_hook: Callable[[str, str, str | None], Awaitable[None]] | None = None
+_run_settled_hook: Callable[..., Awaitable[None]] | None = None
 
 
-def configure_run_settled(hook: Callable[[str, str, str | None], Awaitable[None]] | None) -> None:
-    """Install ``hook(run_id, status, cancel_reason)``, awaited after each applied terminal status write."""
+def configure_run_settled(hook: Callable[..., Awaitable[None]] | None) -> None:
+    """Install ``hook(run_id, status, cancel_reason)``, awaited after each applied terminal status write. When the write
+    handed its row back the hook is called with ``row=<that row>`` too (unresolved, like ``load(resolve_output=False,
+    resolve_inputs=False)``), so a hook must accept that keyword."""
     global _run_settled_hook
     _run_settled_hook = hook
 
 
-async def _announce_settled(run_id: str, status: str, cancel_reason: str | None = None) -> None:
-    await _announce_waiting(run_id, "settled", status, None)
+#: Host-injected settle work the caller never waits for (``configure_run_settled_after``), P8-RUNS 2026-11-15.
+_run_settled_after_hook: Callable[..., Awaitable[None]] | None = None
+
+#: The terminal write's durable "settle work after the end still owed" marker (``workflow.run.metadata``): written in
+#: the SAME statement as the end, cleared once the after-work ran. A process that dies between the two leaves it set,
+#: and :func:`recover_settle_after` (the worker's reconciliation pass) runs the work again — every piece is idempotent.
+SETTLE_AFTER_KEY = "_settle_after"
+
+#: The after-work in flight in this process (strong references, so a task is never collected mid-flight).
+_settle_after_tasks: set[asyncio.Task[None]] = set()
+
+
+def configure_run_settled_after(hook: Callable[..., Awaitable[None]] | None) -> None:
+    """Install ``hook(run_id, status, cancel_reason, row=...)``: settle work that runs AFTER a terminal write without
+    holding its caller (a called child's caller resumes at once). Only work the caller never reads, that is
+    idempotent, and that :func:`recover_settle_after` re-runs after a crash belongs here (executor/FEATURE.md §
+    The settle hooks). Never raises into the run."""
+    global _run_settled_after_hook
+    _run_settled_after_hook = hook
+
+
+def _settle_after_owed(alongside: Callable[[], Awaitable[Any]] | None) -> bool:
+    return _run_settled_after_hook is not None or _run_waiting_hook is not None or alongside is not None
+
+
+async def _announce_settled(
+    run_id: str,
+    status: str,
+    cancel_reason: str | None = None,
+    *,
+    row: dict[str, Any] | None = None,
+    alongside: Callable[[], Awaitable[Any]] | None = None,
+    never_parked: bool = False,
+    after_owed: bool = False,
+    marker_token: str | None = None,
+) -> None:
+    """The settle a terminal write's caller waits for — the settled hook only — then the after-work started beside
+    the caller (P8-RUNS 2026-11-15: the requests settle, the host's after hook and the unclaimed-job discard used to
+    sit between every child's end and its caller's resume).
+
+    ``row``: the row the terminal write just handed back (``terminal_run_returns()``, no ``input`` key), passed to the
+    hooks so they never read it again. ``alongside``: independent end-of-run cleanup (the unclaimed-job discard).
+    ``never_parked``: the leg that wrote this end created the run and ran it to the end without a park — the settled
+    hook may skip reads of what only a park leaves (a parked spine). ``after_owed``: the terminal write carried the
+    durable marker, so the after-work runs off the caller's path; without it, it runs here, as before.
+    ``marker_token``: the marker's unique token; the after-work clears the marker only while it still carries it."""
+    from matrx_utils.diagnostics.phase_clock import timed
+
+    await timed("settle.settled_hook", _call_settled_hook(run_id, status, cancel_reason, row, never_parked=never_parked))
+    if not after_owed:
+        await _settle_after(run_id, status, cancel_reason, row=row, alongside=alongside, clear_marker=False)
+        return
+    task = asyncio.ensure_future(
+        _settle_after(run_id, status, cancel_reason, row=row, alongside=alongside, marker_token=marker_token)
+    )
+    _settle_after_tasks.add(task)
+    task.add_done_callback(_settle_after_tasks.discard)
+
+
+async def _settle_after(
+    run_id: str,
+    status: str,
+    cancel_reason: str | None,
+    *,
+    row: dict[str, Any] | None = None,
+    alongside: Callable[[], Awaitable[Any]] | None = None,
+    clear_marker: bool = True,
+    marker_token: str | None = None,
+) -> None:
+    """The after-work, all at once, then the marker cleared — only while it still carries ``marker_token`` (a conditional update: a run that ended
+    again, e.g. a shutdown-cancelled run resumed, wrote a NEW marker the late first clear must not wipe). Each piece never raises by contract; one that does is
+    logged and the marker is still cleared (as before, a failed reaction to an end is reported, not retried)."""
+    from matrx_utils.diagnostics.phase_clock import timed
+
+    work = [
+        timed("settle.waiting_hook", _announce_waiting(run_id, "settled", status, None)),
+        timed("settle.after_hook", _call_settled_after_hook(run_id, status, cancel_reason, row)),
+    ]
+    if alongside is not None:
+        work.append(timed("settle.discard_jobs", alongside()))
+    for outcome in await asyncio.gather(*work, return_exceptions=True):
+        if isinstance(outcome, BaseException):
+            logger.error("[wf:%s] settle work after the end raised", str(run_id)[:8], exc_info=outcome)
+    if not clear_marker:
+        return
+    try:
+        guard: dict[str, Any] = {"id": str(UUID(run_id))}
+        if marker_token is not None:
+            guard["metadata__json_contains"] = {SETTLE_AFTER_KEY: {"token": marker_token}}
+        await get_model("WfRun").update_where(guard, metadata=JsonbMerge("metadata", {SETTLE_AFTER_KEY: None}))
+    except Exception:  # noqa: BLE001 — the marker stays set; the reconciliation pass runs the (idempotent) work again
+        logger.warning("[wf:%s] the settle-after marker could not be cleared", str(run_id)[:8], exc_info=True)
+
+
+async def _call_settled_after_hook(
+    run_id: str, status: str, cancel_reason: str | None, row: dict[str, Any] | None
+) -> None:
+    if _run_settled_after_hook is None:
+        return
+    try:
+        await _run_settled_after_hook(str(run_id), status, cancel_reason, row=row)
+    except Exception:  # noqa: BLE001 — the run already ended; a reaction to it never undoes that
+        logger.exception("[wf:%s] run-settled-after hook failed (status=%s)", str(run_id)[:8], status)
+
+
+async def drain_settle_after() -> None:
+    """Wait for this event loop's after-work in flight (tests, a graceful shutdown). Work left by a loop that already
+    closed is dropped from the set (its marker is still on the row: the recovery pass owns it)."""
+    loop = asyncio.get_running_loop()
+    while True:
+        _settle_after_tasks.difference_update(
+            [t for t in _settle_after_tasks if t.done() or (t.get_loop() is not loop and t.get_loop().is_closed())]
+        )
+        pending = [t for t in _settle_after_tasks if t.get_loop() is loop]
+        if not pending:
+            return
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+async def recover_settle_after(*, older_than_seconds: float = 60.0, limit: int = 200) -> int:
+    """Run the after-work again for every ended run whose marker is still set ``older_than_seconds`` after its end
+    (its process died before the work finished). Returns how many runs were settled. Never raises."""
+    from datetime import timedelta
+
+    try:
+        cutoff = datetime.now(UTC) - timedelta(seconds=older_than_seconds)
+        rows = await (
+            get_model("WfRun")
+            .filter(
+                metadata__json_contains={SETTLE_AFTER_KEY: {"pending": True}},
+                status__in=list(TERMINAL_STATUSES),
+                completed_at__lt=cutoff,
+                deleted_at__isnull=True,
+            )
+            .limit(limit)
+            .values("id", "status", "metadata")
+        )
+    except Exception:  # noqa: BLE001 — the next pass tries again
+        logger.exception("settle-after recovery: the marked runs could not be read")
+        return 0
+    settled = 0
+    for found in rows or []:
+        run_id = str(found["id"])
+        metadata = found.get("metadata") if isinstance(found.get("metadata"), dict) else {}
+        marker = metadata.get(SETTLE_AFTER_KEY) if isinstance(metadata.get(SETTLE_AFTER_KEY), dict) else {}
+
+        async def _discard(rid: str = run_id) -> None:
+            from matrx_graph.workers.queue import discard_for_run
+
+            await discard_for_run(rid)
+
+        await _settle_after(
+            run_id, str(found.get("status") or ""), marker.get("cancel_reason"), alongside=_discard,
+            marker_token=marker.get("token"),
+        )
+        settled += 1
+    return settled
+
+
+async def _call_settled_hook(
+    run_id: str, status: str, cancel_reason: str | None, row: dict[str, Any] | None = None, *, never_parked: bool = False
+) -> None:
     if _run_settled_hook is None:
         return
     try:
-        await _run_settled_hook(str(run_id), status, cancel_reason)
+        extra: dict[str, Any] = {"never_parked": True} if never_parked else {}
+        if row is None and not extra:
+            await _run_settled_hook(str(run_id), status, cancel_reason)
+        else:
+            await _run_settled_hook(str(run_id), status, cancel_reason, row=row, **extra)
     except Exception:  # noqa: BLE001 — the run already ended; a reaction to it never undoes that
         logger.exception("[wf:%s] run-settled hook failed (status=%s)", str(run_id)[:8], status)
 
@@ -264,6 +479,7 @@ class RunStore:
         to_status: str,
         clear_error: bool = False,
         set_error: dict[str, Any] | None = None,
+        reattach_as: tuple[str | None, str | None] | None = None,
     ) -> bool:
         """Atomically move status from one of ``from_statuses`` → ``to_status``.
 
@@ -306,8 +522,14 @@ class RunStore:
             updates["error"] = None
         elif set_error is not None:
             updates["error"] = set_error
+        filters: dict[str, Any] = {"id": str(UUID(run_id)), "status__in": list(from_statuses)}
+        if to_status == "running":
+            filters["deleted_at__isnull"] = True
+        if reattach_as is not None:
+            filters.update(_reattach_owner_filters(reattach_as))
         result = await get_model("WfRun").update_where(
-            {"id": str(UUID(run_id)), "status__in": list(from_statuses)},
+            filters,
+            returning=RUN_UPDATE_RETURNS,
             **updates,
         )
         return result.rows_affected == 1
@@ -468,7 +690,7 @@ class RunStore:
             "status": status,
             "input": inputs or {},
             "metadata": _origin_metadata(metadata),
-            "created_by": _to_uuid(user_id),
+            "created_by": _require_optional_uuid(user_id, "user_id"),
             "organization_id": _to_uuid(organization_id),
             "project_id": _to_uuid(project_id),
             "task_id": _to_uuid(task_id),
@@ -552,7 +774,7 @@ class RunStore:
         cp = _to_uuid(last_checkpoint_id)
         if cp is not None:
             updates["last_checkpoint_id"] = cp
-        await get_model("WfRun").update_where({"id": str(UUID(run_id))}, **updates)
+        await get_model("WfRun").update_where({"id": str(UUID(run_id))}, returning=RUN_UPDATE_RETURNS, **updates)
         await _announce_waiting(run_id, "waiting", "interrupted", interrupt_payload)
 
     async def mark_awaiting_input(
@@ -573,6 +795,7 @@ class RunStore:
         exact form. Guarded: never flips a terminal run."""
         result = await get_model("WfRun").update_where(
             {"id": str(UUID(run_id)), "status__not_in": ["completed", "failed", "cancelled"]},
+            returning=RUN_UPDATE_RETURNS,
             status="awaiting_input",
             interrupt_payload=interrupt_payload,
             steps_executed=steps_executed,
@@ -588,6 +811,19 @@ class RunStore:
         steps_executed: int,
         stopped: dict[str, Any] | None = None,
     ) -> bool:
+        return (await self._mark_completed(run_id, output=output, steps_executed=steps_executed, stopped=stopped))[0]
+
+    async def _mark_completed(
+        self,
+        run_id: str,
+        *,
+        output: dict[str, Any],
+        steps_executed: int,
+        stopped: dict[str, Any] | None = None,
+        alongside: Callable[[], Awaitable[Any]] | None = None,
+        prior_output: dict[str, Any] | None = None,
+        never_parked: bool = False,
+    ) -> tuple[bool, dict[str, Any] | None]:
         """Guarded: a run that already ended failed/cancelled stays that way
         (audit P1-4 — racing terminal writers must not flip each other).
 
@@ -607,13 +843,21 @@ class RunStore:
         # JsonbMerge replaces the key). Display only: the owner can write metadata.
         from matrx_graph.executor.run_stop import RUN_STOP_METADATA_KEY
 
-        output = await _output_by_reference(run_id, output)
-        extra: dict[str, Any] = {
-            "metadata": JsonbMerge("metadata", {RUN_STOP_METADATA_KEY: stopped or None})
-        }
-        result = await get_model("WfRun").update_where(
+        from matrx_utils.diagnostics.phase_clock import timed
+
+        output = await timed(
+            "settle.output_by_reference",
+            _output_by_reference(run_id, output)
+            if prior_output is None
+            else _output_by_reference_known(run_id, output, prior_output),
+        )
+        return await self._write_terminal(
+            run_id,
             {"id": str(UUID(run_id)), "status__not_in": ["failed", "cancelled"]},
-            **extra,
+            "completed",
+            alongside=alongside,
+            metadata_merge={RUN_STOP_METADATA_KEY: stopped or None},
+            never_parked=never_parked,
             status="completed",
             output=JsonbMerge("output", output),
             steps_executed=steps_executed,
@@ -625,10 +869,58 @@ class RunStore:
             # it published a successful answer under a failure notice.
             error=None,
         )
-        applied = result.rows_affected == 1
-        if applied:
-            await _announce_settled(run_id, "completed")
-        return applied
+
+    async def _write_terminal(
+        self,
+        run_id: str,
+        filters: dict[str, Any],
+        settled_as: str,
+        *,
+        cancel_reason: str | None = None,
+        alongside: Callable[[], Awaitable[Any]] | None = None,
+        metadata_merge: dict[str, Any] | None = None,
+        never_parked: bool = False,
+        **updates: Any,
+    ) -> tuple[bool, dict[str, Any] | None]:
+        """THE terminal write every ending runs: one guarded UPDATE handing back the row it left
+        (``terminal_run_returns()``), then both settle hooks with that row — and ``alongside`` — at once.
+        Returns ``(applied, row)``; ``row`` is unresolved (output / input values may hold references) and None
+        when the write was refused or the store handed back no whole row."""
+        from matrx_utils.diagnostics.phase_clock import timed
+
+        # The after-work's durable marker rides THIS statement (no round trip of its own): set, a crash before the
+        # work ran is repaired by ``recover_settle_after``; cleared once it ran.
+        if "metadata" in updates:
+            raise TypeError("a terminal write merges metadata through metadata_merge=, never metadata=")
+        after_owed = _settle_after_owed(alongside)
+        marker_token: str | None = None
+        merge = dict(metadata_merge or {})
+        if after_owed:
+            marker_token = uuid4().hex
+            merge[SETTLE_AFTER_KEY] = {"pending": True, "cancel_reason": cancel_reason, "token": marker_token}
+        if merge:
+            updates["metadata"] = JsonbMerge("metadata", merge)
+        result = await timed(
+            "settle.write",
+            get_model("WfRun").update_where(filters, returning=terminal_run_returns(), **updates),
+        )
+        if getattr(result, "rows_affected", 0) != 1:
+            return False, None
+        row: dict[str, Any] | None = None
+        returned = getattr(result, "updated_rows", None)
+        if isinstance(returned, list) and returned and isinstance(returned[0], dict) and "thread_id" in returned[0]:
+            try:
+                row = _row_to_run_dict(returned[0])
+                for omitted in TERMINAL_RUN_OMITS:
+                    if omitted not in returned[0]:
+                        row.pop(omitted, None)
+            except Exception:  # noqa: BLE001 — the end is written; each reader loads the row itself instead
+                logger.warning("[wf:%s] the terminal write's row could not be read back", str(run_id)[:8], exc_info=True)
+        await _announce_settled(
+            run_id, settled_as, cancel_reason, row=row, alongside=alongside, never_parked=never_parked,
+            after_owed=after_owed, marker_token=marker_token,
+        )
+        return True, row
 
     @staticmethod
     def _sanitize_error(error: dict[str, Any]) -> dict[str, Any]:
@@ -664,6 +956,17 @@ class RunStore:
         error: dict[str, Any],
         steps_executed: int = 0,
     ) -> bool:
+        return (await self._mark_failed(run_id, error=error, steps_executed=steps_executed))[0]
+
+    async def _mark_failed(
+        self,
+        run_id: str,
+        *,
+        error: dict[str, Any],
+        steps_executed: int = 0,
+        alongside: Callable[[], Awaitable[Any]] | None = None,
+        never_parked: bool = False,
+    ) -> tuple[bool, dict[str, Any] | None]:
         """Guarded: never flips a completed/cancelled run to failed.
 
         A failed run ALWAYS records why: an empty ``error`` is replaced by an explicit marker
@@ -674,33 +977,51 @@ class RunStore:
                 "cause": "no_reason_recorded",
                 "source": "run_store.mark_failed",
             }
-        result = await get_model("WfRun").update_where(
+        return await self._write_terminal(
+            run_id,
             {
                 "id": str(UUID(run_id)),
                 "status__not_in": ["completed", "cancelled"],
             },
+            "failed",
+            alongside=alongside,
+            never_parked=never_parked,
             status="failed",
             error=self._sanitize_error(error),
             steps_executed=steps_executed,
             completed_at=datetime.now(UTC),
         )
-        applied = result.rows_affected == 1
-        if applied:
-            await _announce_settled(run_id, "failed")
+
+    async def fail_unstarted(self, run_id: str, *, error: dict[str, Any]) -> bool:
+        """End FAILED a run still ``pending`` or ``running`` whose job failed terminally before the run loop owned
+        it — through THE terminal write like every other ending (sanitized error, ``completed_at``, the settle hooks
+        with the row). A run any other status already holds is never overwritten. True iff this call ended it."""
+        applied, _row = await self._write_terminal(
+            run_id,
+            {"id": str(UUID(run_id)), "status__in": ["pending", "running"]},
+            "failed",
+            status="failed",
+            error=self._sanitize_error(error),
+            completed_at=datetime.now(UTC),
+        )
         return applied
 
-    async def mark_running(self, run_id: str) -> bool:
+    async def mark_running(self, run_id: str, *, metadata_patch: dict[str, Any] | None = None) -> bool:
         """Claim execution without erasing a concurrent control request.
 
         A queued worker may race a pause/cancel call after claiming its job.
         Only ``pending`` or already-``running`` rows may become running; a
         ``pausing``/``cancelling`` status is authoritative and must survive
         worker startup so the scheduler can honor it.
+
+        ``metadata_patch`` lands in the SAME statement as the claim (shallow merge beside the claim
+        stamp), so a caller's claim-time facts (the executor stamp) cost no second write.
         """
         result = await get_model("WfRun").update_where(
             {"id": str(UUID(run_id)), "status__in": ["pending", "running"]},
+            returning=RUN_UPDATE_RETURNS,
             status="running",
-            metadata=_claim_stamp(),
+            metadata=_claim_stamp(metadata_patch),
         )
         return result.rows_affected == 1
 
@@ -725,13 +1046,14 @@ class RunStore:
         cp = _to_uuid(last_checkpoint_id)
         if cp is not None:
             updates["last_checkpoint_id"] = cp
-        await get_model("WfRun").update_where({"id": str(UUID(run_id))}, **updates)
+        await get_model("WfRun").update_where({"id": str(UUID(run_id))}, returning=RUN_UPDATE_RETURNS, **updates)
 
     async def mark_pausing(self, run_id: str) -> bool:
         """Mark a running run as pausing. Same idempotency contract as
         mark_cancelling — only 'pending' or 'running' → 'pausing'."""
         result = await get_model("WfRun").update_where(
             {"id": str(UUID(run_id)), "status__in": ["pending", "running"]},
+            returning=RUN_UPDATE_RETURNS,
             status=RunControlStatus.PAUSING.value,
         )
         return result.rows_affected == 1
@@ -783,16 +1105,15 @@ class RunStore:
         cp = _to_uuid(last_checkpoint_id)
         if cp is not None:
             updates["last_checkpoint_id"] = cp
-        result = await get_model("WfRun").update_where(
+        applied, _row = await self._write_terminal(
+            run_id,
             {"id": str(UUID(run_id)), "status__not_in": ["completed", "failed", "cancelled"]},
+            "errored",
             **updates,
         )
-        applied = getattr(result, "rows_affected", 0) == 1
-        if applied:
-            await _announce_settled(run_id, "errored")
         return applied
 
-    async def mark_cancelling(self, run_id: str) -> bool:
+    async def mark_cancelling(self, run_id: str, *, hard: bool = False, why: str = "stop_now") -> bool:
         """Mark a live run as canceling. Returns True if the row was
         updated (was in a cancellable state), False otherwise.
 
@@ -800,15 +1121,70 @@ class RunStore:
         has not parked yet. Parked runs have no worker to observe
         ``cancelling`` and use ``mark_parked_cancelled`` instead. Terminal
         states no-op so the endpoint stays idempotent after completion.
+
+        GRACEFUL (the default) stops THIS run only: it sends nothing new, and a called workflow
+        already working for one of its steps finishes its whole chain, saves included (G1 ruling,
+        2026-11-01; packages/matrx-graph/matrx_graph/executor/FEATURE.md § Stop and Pause mid-wave). A child that has not started never starts —
+        the caller's step is held. HARD (``hard=True``: "stop now", or a second Stop on a run
+        already ``cancelling``) also cancels every live called workflow under it, and says so on
+        each row: ``metadata._hard_stop = {why, at[, by]}`` — the run's end status names the hard
+        stop. A hard stop on a run that is not live or ``cancelling`` is a no-op (False).
         """
         result = await get_model("WfRun").update_where(
             {
                 "id": str(UUID(run_id)),
                 "status__in": ["pending", "running", "pausing"],
             },
+            returning=RUN_UPDATE_RETURNS,
             status=RunControlStatus.CANCELLING.value,
         )
-        return result.rows_affected == 1
+        transitioned = result.rows_affected == 1
+        if not hard:
+            return transitioned
+        if not transitioned and await self.control_status(run_id) != RunControlStatus.CANCELLING.value:
+            return False
+        at = datetime.now(UTC).isoformat()
+        await self.merge_metadata(run_id, {"_hard_stop": {"why": why, "at": at}})
+        await self._cancel_live_descendants(run_id, stamp={"_hard_stop": {"why": why, "at": at, "by": run_id}})
+        return True
+
+    async def _cancel_live_descendants(self, run_id: str, *, stamp: dict[str, Any]) -> None:
+        """A HARD stop reaches every live CALLED workflow under the run (``subgraph.call`` children,
+        marked by ``metadata.subgraph_parent``, down the ``parent_run_id`` chain), each stamped.
+
+        A called workflow's control check reads only its OWN row — the status its checkpoint save
+        already reads back (no round trip per step boundary, PF-WF 2026-11-02). Only called
+        workflows: a fork or re-run of this run also carries ``parent_run_id`` and is a run of its
+        own, never cancelled with its source. Idempotent; never raises (the run's own cancel already
+        landed) — a failed walk is loud."""
+        model = get_model("WfRun")
+        live = ["pending", "running", "pausing"]
+        frontier = [str(UUID(run_id))]
+        seen: set[str] = set(frontier)
+        try:
+            while frontier:
+                rows = await model.filter(
+                    parent_run_id__in=frontier,
+                    status__in=live,
+                    deleted_at=None,
+                    metadata__json_has_key="subgraph_parent",
+                ).values("id")
+                children = [str(row["id"]) for row in rows if str(row["id"]) not in seen]
+                if not children:
+                    return
+                seen.update(children)
+                await model.update_where(
+                    {"id__in": children, "status__in": live},
+                    returning=RUN_UPDATE_RETURNS,
+                    status=RunControlStatus.CANCELLING.value,
+                    metadata=JsonbMerge("metadata", stamp),
+                )
+                frontier = children
+        except Exception:  # noqa: BLE001 — the run's cancel stands; its children are named
+            logger.exception(
+                "[wf:%s] cancel did not reach its called workflows — they stop at their own end",
+                run_id[:8],
+            )
 
     async def mark_parked_cancelled(self, run_id: str) -> bool:
         """Atomically cancel a run that has no active scheduler.
@@ -818,35 +1194,160 @@ class RunStore:
         cancel-vs-resume race; if resume already claimed ``running``, this
         write loses and the live-path cancellation transition handles it.
         """
-        result = await get_model("WfRun").update_where(
+        applied, _row = await self._write_terminal(
+            run_id,
             {
                 "id": str(UUID(run_id)),
                 "status__in": ["paused", "interrupted", "errored", "awaiting_input"],
             },
+            "cancelled",
             status="cancelled",
             completed_at=datetime.now(UTC),
         )
-        applied = result.rows_affected == 1
-        if applied:
-            await _announce_settled(run_id, "cancelled")
         return applied
+
+    async def mark_cancelling_settled(self, run_id: str, *, why: str) -> bool:
+        """Settle a run stuck at ``cancelling`` whose holder is gone: ``cancelling`` -> ``cancelled``.
+
+        ``cancelling`` is a request the run's worker answers at its next poll; when no worker holds the
+        run any more (its task died, its lease lapsed) nobody ever will, and the run, with every ancestor
+        that refuses to be deleted under it, waits forever (4999ac17, 2026-11-15). The caller has judged
+        the holder gone; this is only the CAS (status must still be ``cancelling``, so a run that settled
+        or resumed meanwhile is untouched). The marker is ``_cancel.reason = 'graceful'``: a person's stop,
+        never auto-resumed by the shutdown reconciliation (which resumes only ``'immediate'``)."""
+        at = datetime.now(UTC)
+        applied, _row = await self._write_terminal(
+            run_id,
+            {"id": str(UUID(run_id)), "status": RunControlStatus.CANCELLING.value},
+            "cancelled",
+            cancel_reason="graceful",
+            status="cancelled",
+            completed_at=at,
+            metadata_merge={"_cancel": {"reason": "graceful", "settled_without_holder": why, "at": at.isoformat()}},
+        )
+        return applied
+
+    async def end_unanswered(
+        self,
+        run_id: str,
+        *,
+        reason: str,
+        node_id: str | None = None,
+        deadline_at: str | None = None,
+        checkpoint_id: str | None = None,
+    ) -> list[str]:
+        """End a run that is WAITING ON A PERSON because nobody answered in time.
+
+        Guarded on the two waiting statuses, so it is the same race the resume
+        claim runs: a person who answered first has already moved the run to
+        ``running`` and this write loses — their answer stands. The run ends
+        ``failed`` carrying ``reason`` as its message and the stable cause
+        ``nobody_answered``, which every run surface already shows. Called
+        workflows parked under it (their question was this run's question) end
+        the same way, so ending the asker never strands the asked.
+
+        ``checkpoint_id`` is the question the caller judged: the write matches
+        only while the run is still parked on THAT checkpoint. A person who
+        answered it, after which the run parked on a NEW question, has a run
+        that is waiting again — on something nobody's deadline has run out on.
+
+        Returns the ids of every run it ended, this run first; empty when the
+        write was refused (so it reads as a yes/no too).
+        """
+        from matrx_graph.failure import Cause
+
+        error = {
+            "message": reason,
+            "cause": Cause.NOBODY_ANSWERED,
+            "error_type": Cause.NOBODY_ANSWERED,
+            "node_id": node_id,
+            "deadline_at": deadline_at,
+            "source": "run_store.end_unanswered",
+        }
+        filters: dict[str, Any] = {"id": str(UUID(run_id)), "status__in": list(WAITING_STATUSES)}
+        parked_on = _to_uuid(checkpoint_id)
+        if parked_on is not None:
+            filters["last_checkpoint_id"] = parked_on
+        applied, _row = await self._write_terminal(
+            run_id,
+            filters,
+            "failed",
+            status="failed",
+            error=self._sanitize_error({k: v for k, v in error.items() if v is not None}),
+            completed_at=datetime.now(UTC),
+        )
+        if not applied:
+            return []
+        return [str(UUID(run_id)), *await self._end_waiting_descendants(run_id, error=error)]
+
+    async def _end_waiting_descendants(self, run_id: str, *, error: dict[str, Any]) -> list[str]:
+        """Called workflows still waiting under an ended run end with it. Never raises: the
+        run's own end already landed; a failed walk is loud and the host's sweep ends each
+        leftover on its own deadline."""
+        model = get_model("WfRun")
+        frontier = [str(UUID(run_id))]
+        seen: set[str] = set(frontier)
+        ended: list[str] = []
+        try:
+            while frontier:
+                rows = await model.filter(
+                    parent_run_id__in=frontier,
+                    status__in=list(WAITING_STATUSES),
+                    deleted_at=None,
+                    metadata__json_has_key="subgraph_parent",
+                ).values("id")
+                children = [str(row["id"]) for row in rows if str(row["id"]) not in seen]
+                if not children:
+                    return ended
+                seen.update(children)
+                for child in children:
+                    applied, _row = await self._write_terminal(
+                        child,
+                        {"id": child, "status__in": list(WAITING_STATUSES)},
+                        "failed",
+                        status="failed",
+                        error=self._sanitize_error(
+                            {k: v for k, v in {**error, "ended_with_run": run_id}.items() if v is not None}
+                        ),
+                        completed_at=datetime.now(UTC),
+                    )
+                    if applied:
+                        ended.append(child)
+                frontier = children
+        except Exception:  # noqa: BLE001 — the run's own end stands
+            logger.exception(
+                "[wf:%s] ending the run did not reach its waiting called workflows", run_id[:8]
+            )
+        return ended
 
     async def mark_cancelled(self, run_id: str, *, steps_executed: int, cancel_reason: str | None = None) -> bool:
         """Guarded: never flips a completed/failed run to canceled. ``cancel_reason`` only travels to the
         run-settled hook (``'immediate'`` = the task was killed under the run, which may resume it)."""
-        result = await get_model("WfRun").update_where(
+        return (await self._mark_cancelled(run_id, steps_executed=steps_executed, cancel_reason=cancel_reason))[0]
+
+    async def _mark_cancelled(
+        self,
+        run_id: str,
+        *,
+        steps_executed: int,
+        cancel_reason: str | None = None,
+        alongside: Callable[[], Awaitable[Any]] | None = None,
+        never_parked: bool = False,
+    ) -> tuple[bool, dict[str, Any] | None]:
+        return await self._write_terminal(
+            run_id,
             {
                 "id": str(UUID(run_id)),
                 "status__not_in": ["completed", "failed"],
             },
+            "cancelled",
+            cancel_reason=cancel_reason,
+            alongside=alongside,
+            never_parked=never_parked,
             status="cancelled",
             steps_executed=steps_executed,
             completed_at=datetime.now(UTC),
         )
-        applied = result.rows_affected == 1
-        if applied:
-            await _announce_settled(run_id, "cancelled", cancel_reason)
-        return applied
 
     async def control_status(self, run_id: str) -> str | None:
         """The run's status in ONE read — the scheduler's ``control_check``,
@@ -869,8 +1370,26 @@ class RunStore:
         rows = await get_model("WfRun").filter(id=str(UUID(run_id))).values("status")
         return bool(rows and rows[0]["status"] == RunControlStatus.CANCELLING.value)
 
+    async def load_metadata_fields(
+        self, run_id: str, *, organization_id: str, **paths: tuple[str, ...]
+    ) -> dict[str, Any] | None:
+        """Read named JSON paths from a live run without fetching the run payload."""
+        if not paths or any(not path for path in paths.values()):
+            raise ValueError("Select at least one nonempty run metadata path.")
+        fields = [Projection(JsonPath(F("metadata"), *path, as_text=False), alias) for alias, path in paths.items()]
+        rows = await get_model("WfRun").filter(
+            id=str(UUID(run_id)), organization_id=str(UUID(organization_id)), deleted_at__isnull=True,
+        ).values(*fields)
+        return rows[0] if rows else None
+
     async def load(
-        self, run_id: str, *, resolve_output: bool = True, missing: str = "raise"
+        self,
+        run_id: str,
+        *,
+        resolve_output: bool = True,
+        missing: str = "raise",
+        resolve_inputs: bool = True,
+        reattach_as: tuple[str | None, str | None] | None = None,
     ) -> dict[str, Any] | None:
         """One run, its ``output`` whole: a step output the row keeps by reference (over the
         ``workflow.run_output.inline_value_max_bytes`` knob) is resolved from the run's value store here, so
@@ -883,18 +1402,107 @@ class RunStore:
         :class:`RunOutputValueMissingError`; only the display read passes ``missing="mark"`` for the honest
         ``{"output_elided": true, "missing": true}`` marker.
 
-        The stored input values are resolved here too, but a gone one NEVER raises from a load: an owner
+        The stored input values are resolved by default. Pass ``resolve_inputs=False`` when the
+        caller must check the run's identity before following stored input references.
+        ``reattach_as=(actor_id, organization_id)`` also checks ownership and retirement before
+        fetching inline values. A found but unavailable run raises ``RunReattachRefused``.
+        A gone input NEVER raises from a load: an owner
         check, a cancel, a delete or a sweep of a run whose input is gone must still work (2026-10-28 review:
         an errored run with a missing input 500'd on view / cancel / delete). Only a leg about to EXECUTE the
         run raises, through :func:`execution_input_values`."""
-        rows = await get_model("WfRun").filter(id=str(UUID(run_id))).values()
+        query = get_model("WfRun").filter(id=str(UUID(run_id)))
+        if reattach_as is not None:
+            identity = await query.values("created_by", "organization_id", "deleted_at")
+            if not identity:
+                return None
+            owner_filters = _reattach_owner_filters(reattach_as)
+            owner = identity[0]
+            saved_actor = str(owner["created_by"]) if owner["created_by"] is not None else None
+            if str(owner["organization_id"]) != owner_filters["organization_id"] or saved_actor != owner_filters.get("created_by"):
+                raise RunReattachRefused(
+                    "This retry key belongs to a different caller or organization. Start with a new key."
+                )
+            if owner["deleted_at"] is not None:
+                raise RunReattachRefused("This workflow run was retired. Start with a new key.")
+            # Repeat the authorization predicates on the payload read. A change after
+            # the projection must never expose the new owner's values or start a new run.
+            query = query.filter(**owner_filters)
+        rows = await query.values()
         if not rows:
+            if reattach_as is not None:
+                raise RunReattachRefused("This workflow run changed while retrying. Retry with the same key.")
             return None
         run = _row_to_run_dict(rows[0])
-        await resolve_input_values(run)
+        if resolve_inputs:
+            await resolve_input_values(run)
         if resolve_output:
             await self.resolve_output(run, missing=missing)
         return run
+
+    @asynccontextmanager
+    async def completed_reattachment(
+        self, run_id: str, *, reattach_as: tuple[str | None, str | None]
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Keep a completed run's owner and retirement state stable while its answer is read."""
+        from matrx_orm import transaction
+        from matrx_orm.core.config import resolve_database_name
+        from matrx_orm.core.transaction import get_active_database_name
+
+        model = get_model("WfRun")
+        active_database = get_active_database_name()
+        if active_database is not None and active_database != resolve_database_name(model._database):
+            raise RunReattachRefused("The saved workflow cannot be read in this transaction.")
+        filters = _reattach_owner_filters(reattach_as)
+        async with transaction(model._database):
+            rows = await (
+                model.filter(id=str(UUID(run_id)), status="completed", **filters)
+                .select_for_update(mode="SHARE")
+                .values("id", "definition_id", "status", "output", "started_at", "completed_at")
+            )
+            if not rows:
+                raise RunReattachRefused(
+                    "This retry key belongs to a different caller or organization, or the workflow is no longer completed."
+                )
+            run = rows[0]
+            run["output"] = _coerce_run_json(run["output"])
+            yield run
+
+    @asynccontextmanager
+    async def resume_reattachment(
+        self, run_id: str, *, reattach_as: tuple[str | None, str | None]
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Read a parked run under its owner lock, then claim it on successful admission."""
+        from matrx_orm import transaction
+        from matrx_orm.core.transaction import get_active_database_name
+
+        # The scheduler and resumed notification must run after the claim commits.
+        if get_active_database_name() is not None:
+            raise RunReattachRefused("The saved workflow cannot be resumed inside another transaction.")
+        model = get_model("WfRun")
+        filters = _reattach_owner_filters(reattach_as)
+        parked_statuses = ("errored", "paused")
+        async with transaction(model._database):
+            rows = await (
+                model.filter(id=str(UUID(run_id)), status__in=list(parked_statuses), **filters)
+                .select_for_update()
+                .values("id", "status", "definition_id", "definition_version_id", "definition_hash", "metadata")
+            )
+            if not rows:
+                if await model.filter(id=str(UUID(run_id)), **filters).values("id"):
+                    raise RunResumeClaimLost("The saved workflow is no longer parked.")
+                raise RunReattachRefused(
+                    "This retry key belongs to a different caller or organization, or the workflow was retired."
+                )
+            run = rows[0]
+            status = run["status"]
+            run["metadata"] = _coerce_run_json(run["metadata"]) or {}
+            await resolve_input_values(run)
+            yield run
+            if not await self.transition(
+                run_id, from_statuses=(status,), to_status="running", reattach_as=reattach_as,
+            ):
+                raise RunResumeClaimLost("This workflow run changed before it could resume.")
+        await _announce_waiting(run_id, "resumed", "running", None)
 
     async def resolve_output(self, run: dict[str, Any], *, missing: str = "raise") -> dict[str, Any]:
         """``run`` (a :meth:`load` row) with its ``output`` references resolved in place; returns ``run``."""
@@ -903,6 +1511,28 @@ class RunStore:
 
             run["output"] = await resolve_run_output(str(run["id"]), run["output"], missing=missing)
         return run
+
+    async def called_descendants(self, run_id: str) -> list[dict[str, Any]]:
+        """Every live-row CALLED workflow (``subgraph.call`` child, marked by ``metadata.subgraph_parent``)
+        under ``run_id``, down the ``parent_run_id`` chain, as ``{"id", "status"}`` rows. A fork or re-run
+        also carries ``parent_run_id`` but is a run of its own and is never listed."""
+        model = get_model("WfRun")
+        frontier = [str(UUID(run_id))]
+        seen: set[str] = set(frontier)
+        found: list[dict[str, Any]] = []
+        while frontier:
+            rows = await model.filter(
+                parent_run_id__in=frontier,
+                deleted_at=None,
+                metadata__json_has_key="subgraph_parent",
+            ).values("id", "status")
+            fresh = [r for r in rows if str(r["id"]) not in seen]
+            if not fresh:
+                break
+            seen.update(str(r["id"]) for r in fresh)
+            found.extend({"id": str(r["id"]), "status": str(r["status"])} for r in fresh)
+            frontier = [str(r["id"]) for r in fresh]
+        return found
 
     async def soft_delete(self, run_id: str) -> bool:
         """Canonically retire a terminal run and its unclaimed queue residue.
@@ -919,6 +1549,7 @@ class RunStore:
                 "deleted_at__isnull": True,
                 "status__in": ["completed", "failed", "cancelled", "errored"],
             },
+            returning=RUN_UPDATE_RETURNS,
             deleted_at=datetime.now(UTC),
         )
         if result.rows_affected:
@@ -1064,8 +1695,15 @@ class RunStore:
         flagged: bool | None = None,
         sort_flagged_first: bool = False,
         parent_run_id: str | None = None,
+        record_ids: Sequence[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Caller-scoped recent runs for the Studio Runs dashboard.
+
+        ``record_ids`` lists only the runs ABOUT those records — ``metadata.record_id`` is one of
+        them (stamped by the table-event fire, the store fire, the system / mandate start, and
+        carried onto every subgraph child) — plus the direct children of a matching run that carry
+        no record stamp of their own (runs started before children inherited it). Children are
+        listed either way (it implies ``include_children``); the access scope still binds.
 
         ``parent_run_id`` lists only that run's durable children (it implies
         ``include_children``); an invalid id matches nothing, never every run.
@@ -1099,12 +1737,15 @@ class RunStore:
         common: dict[str, Any] = {}
         common.update(_flagged_filter(flagged))
         scope: dict[str, Any] = {}
+        wanted_records = [str(r).strip() for r in record_ids or () if str(r or "").strip()]
+        if record_ids is not None and not wanted_records:
+            return []  # asked for runs about no record: nothing, never every run
         if parent_run_id:
             coerced_parent = _to_uuid(parent_run_id)
             if coerced_parent is None:
                 return []
             common["parent_run_id"] = coerced_parent
-        elif not include_children:
+        elif not include_children and not wanted_records:
             common["parent_run_id__isnull"] = True
         for field, raw_value in (
             ("created_by", user_id),
@@ -1135,13 +1776,28 @@ class RunStore:
             common["organization_id"] = coerced_filter
 
         extra_ids = [u for u in (_to_uuid(v) for v in include_ids or ()) if u is not None]
-        qb = get_model("WfRun")
-        if extra_ids and scope:
-            qb = qb.filter(Q(**scope) | Q(id__in=extra_ids), **common)
-        elif extra_ids:
-            qb = qb.filter(id__in=extra_ids, **common)
+
+        def scoped(*about: Any) -> Any:
+            qb = get_model("WfRun")
+            if extra_ids and scope:
+                return qb.filter(*about, Q(**scope) | Q(id__in=extra_ids), **common)
+            if extra_ids:
+                return qb.filter(*about, id__in=extra_ids, **common)
+            return qb.filter(*about, **scope, **common)
+
+        if wanted_records:
+            # ``metadata ->> 'record_id' = ANY(...)`` — the shape the partial expression index
+            # ``run_record_id_idx`` (migration 0122) serves; ``metadata @> {...}`` scanned the whole table.
+            about: Any = ArrayAny(JsonPath(F("metadata"), "record_id"), wanted_records)
+            # The direct children of a matching run, for children written before they inherited the stamp.
+            # An index lookup since 0122, so the second pass is cheap.
+            parents = await scoped(about).limit(RECORD_PARENT_SCAN_MAX).values("id")
+            parent_ids = [str(p["id"]) for p in parents if p.get("id")]
+            if parent_ids:
+                about = about | ArrayAny(F("parent_run_id"), parent_ids, cast="uuid[]")
+            qb = scoped(about)
         else:
-            qb = qb.filter(**scope, **common)
+            qb = scoped()
         ordered = qb.order_by(*_run_order(sort_flagged_first)).limit(limit).offset(offset)
         model_fields = getattr(get_model("WfRun"), "_fields", None)
         if omit_output and model_fields:
@@ -1164,8 +1820,39 @@ class RunStore:
         cancel_reason: str | None = None,
         stopped: dict[str, Any] | None = None,
         schedule_wake: bool = True,
+        prior_output: dict[str, Any] | None = None,
+        never_parked: bool = False,
     ) -> bool:
-        """The terminal write, which never leaves a run "running" because the write itself failed.
+        """The terminal write; :meth:`apply_result_with_row` without the row."""
+        return (await self.apply_result_with_row(
+            run_id, status=status, steps_executed=steps_executed, output=output, interrupt=interrupt, error=error,
+            last_checkpoint_id=last_checkpoint_id, failure=failure, cancel_reason=cancel_reason, stopped=stopped,
+            schedule_wake=schedule_wake, prior_output=prior_output, never_parked=never_parked,
+        )).applied  # fmt: skip
+
+    async def apply_result_with_row(
+        self,
+        run_id: str,
+        *,
+        status: RunStatus,
+        steps_executed: int,
+        output: dict[str, Any] | None,
+        interrupt: dict[str, Any] | None,
+        error: str | None,
+        last_checkpoint_id: str | None,
+        failure: RunFailure | None = None,
+        cancel_reason: str | None = None,
+        stopped: dict[str, Any] | None = None,
+        schedule_wake: bool = True,
+        prior_output: dict[str, Any] | None = None,
+        never_parked: bool = False,
+    ) -> AppliedResult:
+        """The terminal write, which never leaves a run "running" because the write itself failed. Hands back the
+        row a terminal write left, so the caller never reads it again (L-SPEED round 6l).
+
+        ``prior_output``: what the row's ``output`` already holds, when the caller KNOWS it (a leg that created the
+        row and ran it to its end without a park passes ``{}``): a completion then sizes its output against it
+        instead of reading the row first (one round trip fewer per called child, P8-RUNS 2026-11-15).
 
         ``schedule_wake=False``: a timer park records no wake job of its own — a called child whose
         caller relays the park (and its timer) to the outermost run, which holds the one wake.
@@ -1180,6 +1867,7 @@ class RunStore:
                 run_id, status=status, steps_executed=steps_executed, output=output, interrupt=interrupt,
                 error=error, last_checkpoint_id=last_checkpoint_id, failure=failure,
                 cancel_reason=cancel_reason, stopped=stopped, schedule_wake=schedule_wake,
+                prior_output=prior_output, never_parked=never_parked,
             )
         except Exception as exc:
             # A FAILED write that fails is no exception: the row still must not stay "running"
@@ -1229,7 +1917,9 @@ class RunStore:
         cancel_reason: str | None = None,
         stopped: dict[str, Any] | None = None,
         schedule_wake: bool = True,
-    ) -> bool:
+        prior_output: dict[str, Any] | None = None,
+        never_parked: bool = False,
+    ) -> AppliedResult:
         """Convenience: translate a scheduler RunResult into one workflow.run update.
 
         Returns False when a TERMINAL write was rejected by the
@@ -1288,19 +1978,24 @@ class RunStore:
             RunStatus.ERRORED,
         )
 
+        async def _discard_jobs() -> None:
+            from matrx_graph.workers.queue import discard_for_run
+
+            await discard_for_run(run_id)
+
         async def _discard_jobs_if_terminal(applied: bool) -> bool:
             if applied and terminal:
-                from matrx_graph.workers.queue import discard_for_run
-
-                await discard_for_run(run_id)
+                await _discard_jobs()
             return applied
 
+        # The unclaimed-job discard of a COMPLETED / FAILED / CANCELLED end runs alongside the settle hooks (only
+        # when the write applied, as before): it touches no row they read (L-SPEED round 6l).
         if status is RunStatus.COMPLETED:
-            return await _discard_jobs_if_terminal(
-                await self.mark_completed(
-                    run_id, output=output or {}, steps_executed=steps_executed, stopped=stopped
-                )
+            applied, row = await self._mark_completed(
+                run_id, output=output or {}, steps_executed=steps_executed, stopped=stopped, alongside=_discard_jobs,
+                prior_output=prior_output, never_parked=never_parked,
             )
+            return AppliedResult(applied, row)
         elif status is RunStatus.INTERRUPTED:
             await self.mark_interrupted(
                 run_id,
@@ -1319,14 +2014,14 @@ class RunStore:
 
             if schedule_wake:
                 await schedule_sleep_wake(run_id, interrupt, last_checkpoint_id=last_checkpoint_id)
-            return True
+            return AppliedResult(True)
         elif status is RunStatus.AWAITING_INPUT:
             await self.mark_awaiting_input(
                 run_id,
                 interrupt_payload=interrupt or {},
                 steps_executed=steps_executed,
             )
-            return True
+            return AppliedResult(True)
         elif status is RunStatus.PAUSED:
             await self.mark_paused(
                 run_id,
@@ -1334,7 +2029,7 @@ class RunStore:
                 steps_executed=steps_executed,
                 output=output,
             )
-            return True
+            return AppliedResult(True)
         elif status is RunStatus.ERRORED:
             await self.mark_errored(
                 run_id,
@@ -1344,17 +2039,18 @@ class RunStore:
                 output=output,
             )
             await _discard_jobs_if_terminal(True)
-            return True
+            return AppliedResult(True)
         elif status is RunStatus.FAILED:
-            return await _discard_jobs_if_terminal(
-                await self.mark_failed(
-                    run_id,
-                    error=error_payload(),
-                    steps_executed=steps_executed,
-                )
+            applied, row = await self._mark_failed(
+                run_id, error=error_payload(), steps_executed=steps_executed, alongside=_discard_jobs,
+                never_parked=never_parked,
             )
+            return AppliedResult(applied, row)
         elif status is RunStatus.CANCELLED:
-            applied = await self.mark_cancelled(run_id, steps_executed=steps_executed, cancel_reason=cancel_reason)
+            applied, row = await self._mark_cancelled(
+                run_id, steps_executed=steps_executed, cancel_reason=cancel_reason, alongside=_discard_jobs,
+                never_parked=never_parked,
+            )
             if applied and cancel_reason:
                 # Ordered AFTER the terminal write on purpose: dying between
                 # the two leaves an UNMARKED canceled row, which the
@@ -1368,7 +2064,7 @@ class RunStore:
                         }
                     },
                 )
-            return await _discard_jobs_if_terminal(applied)
+            return AppliedResult(applied, row)
         else:
             raise ExecutionError(f"apply_result got unsupported status {status!r}")
 
@@ -1388,12 +2084,12 @@ async def input_values_settings_by_reference(
     try:
         from matrx_graph.checkpoint.postgres import _value_store_available
         from matrx_graph.checkpoint.value_store import store_run_values
-        from matrx_graph.checkpoint.values import outcome_input_row
+        from matrx_graph.checkpoint.values import outcome_input_row, run_pure_off_loop
         from matrx_graph.knobs import event_inline_value_max_bytes
 
         if not _value_store_available():
             return None
-        row, stored = outcome_input_row(values, await event_inline_value_max_bytes())
+        row, stored = await run_pure_off_loop(outcome_input_row, values, await event_inline_value_max_bytes())
         if not stored:
             return None
         await store_run_values(run_id, stored, organization_id=organization_id)
@@ -1474,6 +2170,24 @@ async def _output_by_reference(run_id: str, output: dict[str, Any] | None) -> di
     return await output_by_reference(run_id, output, existing=existing if isinstance(existing, dict) else None)
 
 
+async def _output_by_reference_known(
+    run_id: str, output: dict[str, Any] | None, prior_output: dict[str, Any]
+) -> dict[str, Any] | None:
+    """``_output_by_reference`` when the caller KNOWS what the row holds (``prior_output``: a leg that created the
+    row and ran it to its end passes ``{}``) — the same sizing, without reading the row first (P8-RUNS)."""
+    if not output:
+        return output
+    from matrx_graph.checkpoint.value_store import output_by_reference, run_output_limit
+
+    if await run_output_limit() <= 0:
+        return output
+    return await output_by_reference(run_id, output, existing=prior_output or None)
+
+
+#: How many runs about a record are scanned for their unstamped direct children (``list_recent(record_ids=)``).
+RECORD_PARENT_SCAN_MAX = 500  # protocol-constant: bound on an ancestry walk guarding against cycles, a technical invariant
+
+
 def _to_uuid(value: str | None) -> str | None:
     """Coerce a string to a normalized UUID string, or None. See
     definition_store._to_uuid."""
@@ -1494,15 +2208,16 @@ def _require_optional_uuid(value: str | UUID | None, field_name: str) -> str | N
         raise ValueError(f"RunStore.create: {field_name} must be a valid UUID") from exc
 
 
-def _row_to_run_dict(row: Any) -> dict[str, Any]:
-    def _coerce(v: Any) -> Any:
-        if v is None or not isinstance(v, str):
-            return v
-        try:
-            return json.loads(v)
-        except json.JSONDecodeError:
-            return v
+def _coerce_run_json(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
 
+
+def _row_to_run_dict(row: Any) -> dict[str, Any]:
     return {
         "id": str(row["id"]),
         "thread_id": str(row["thread_id"]),
@@ -1513,21 +2228,22 @@ def _row_to_run_dict(row: Any) -> dict[str, Any]:
         else None,
         "definition_hash": row["definition_hash"],
         "status": row["status"],
-        "input": _coerce(row.get("input")),
-        "output": _coerce(row.get("output")),
-        "error": _coerce(row["error"]),
-        "interrupt_payload": _coerce(row.get("interrupt_payload")),
+        "input": _coerce_run_json(row.get("input")),
+        "output": _coerce_run_json(row.get("output")),
+        "error": _coerce_run_json(row["error"]),
+        "interrupt_payload": _coerce_run_json(row.get("interrupt_payload")),
         "steps_executed": row["steps_executed"],
         "last_checkpoint_id": str(row["last_checkpoint_id"]) if row["last_checkpoint_id"] else None,
         "created_by": str(row["created_by"]) if row["created_by"] else None,
         "organization_id": str(row["organization_id"]) if row["organization_id"] else None,
+        "deleted_at": row.get("deleted_at"),
         "project_id": str(row["project_id"]) if row["project_id"] else None,
         "task_id": str(row["task_id"]) if row["task_id"] else None,
         "conversation_id": str(row["conversation_id"]) if row["conversation_id"] else None,
         "request_attribution_complete": bool(row.get("request_attribution_complete", False)),
         "agent_id": str(row["agent_id"]) if row["agent_id"] else None,
         "agent_version_id": str(row["agent_version_id"]) if row["agent_version_id"] else None,
-        "metadata": _coerce(row.get("metadata")) or {},
+        "metadata": _coerce_run_json(row.get("metadata")) or {},
         # Review flags the run raised (workflow.run.review_flag_count) — the runs lists show and
         # filter on it. A store whose table has no such column reports 0.
         "review_flag_count": int(row.get("review_flag_count") or 0),

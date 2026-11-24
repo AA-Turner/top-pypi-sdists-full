@@ -19,22 +19,21 @@ from __future__ import annotations
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from nab_project.lockfile import IndexPin, TargetLock
 from nab_project.resolve import (
     ResolveResult,
     TargetResult,
     build_lock_input,
-    build_resolver_inputs,
 )
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.marker_holds import dependency_marker_holds
 from nab_provider.provider import VcsConfig
+from nab_provider.resolver_inputs import build_resolver_inputs
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
-from nab_resolver.errors import ResolutionError
 
 from .strategies import LINUX_TARGET, PROPERTY_SETTINGS
 
@@ -139,31 +138,19 @@ class TestMarkerFiltering:
         linux_env = dict(_fake_target().marker_env)
         parsed = [Requirement(text) for text in reqs]
 
-        applies: set[str] = set()
-        seen: set[str] = set()
-        for req in parsed:
-            name = str(canonicalize_name(req.name))
-            seen.add(name)
-            if req.marker is None or req.marker.evaluate(linux_env):
-                applies.add(name)
-        excluded = seen - applies
+        expected = {
+            canonicalize_name(req.name)
+            for req in parsed
+            if req.marker is None or req.marker.evaluate(linux_env)
+        }
+        out = build_resolver_inputs(
+            parsed,
+            VcsConfig(),
+            environment=linux_env,
+            marker_holds=dependency_marker_holds,
+        ).ranges
 
-        try:
-            out = build_resolver_inputs(
-                parsed,
-                VcsConfig(),
-                environment=linux_env,
-                marker_holds=dependency_marker_holds,
-            ).ranges
-        except ResolutionError:
-            # Self-contradictory draws (e.g. ``pkg<0.0``) are rejected
-            # by the function; this property tests marker filtering only.
-            return
-
-        for name in applies:
-            assert name in out
-        for name in excluded:
-            assert name not in out
+        assert set(out) == expected
 
 
 @st.composite

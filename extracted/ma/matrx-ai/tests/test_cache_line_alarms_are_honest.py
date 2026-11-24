@@ -100,3 +100,76 @@ def test_one_alarm_per_conversation_with_the_conversation_on_the_row() -> None:
         _ext._registry.update(saved)
     assert len(rows) == 2, f"expected one row per conversation, got {len(rows)}"
     assert rows[0].get("conversation_id") == CONV, "the row must carry conversation_id itself"
+
+
+def test_a_legacy_row_keeps_the_date_its_stored_prompt_names() -> None:
+    """system_error 2026-11-02 (108 rows, first divergence at the date digit): a row stored
+    before the one-UTC-clock rule names a host-local date one day off its UTC created_at.
+    The pin must keep the stored date, so the frozen prompt renders byte for byte and the
+    cache-line alarm stays quiet."""
+    from matrx_ai.config.send_boundary import _enforce_frozen_prompt, _pin_system_date
+
+    turn_one = SystemInstruction(base_instruction="You help.", date_anchor="2026-08-15")
+    stored = str(turn_one)
+    assert "2026-08-15" in stored
+    si = SystemInstruction(base_instruction="You help.")
+    config = SimpleNamespace(system_instruction=si, system_prompt_frozen=True)
+    row = SimpleNamespace(
+        created_at=datetime(2026, 8, 16, 17, 13, tzinfo=UTC), system_instruction=stored
+    )
+    _pin_system_date(config, row)
+    assert si.date_anchor == "2026-08-15"
+    config.resolved_system_instruction = str(si)
+
+    from matrx_ai.providers import cache_guard
+
+    screams: list[str] = []
+    original = cache_guard.scream_cache_line_violation
+    cache_guard.scream_cache_line_violation = lambda **kw: screams.append(kw["kind"])  # type: ignore[assignment]
+    try:
+        _enforce_frozen_prompt(config, row, conversation_id=CONV)
+    finally:
+        cache_guard.scream_cache_line_violation = original  # type: ignore[assignment]
+    assert screams == [], "a legacy row's own date is not a cache-line violation"
+
+
+def test_a_frozen_row_stored_without_a_date_reloads_without_one() -> None:
+    """system_error 2026-10-31..11-03 (first divergence 0-1, +77 chars): turn one stored a
+    prompt with no date block; the reload rebuilt it with include_date=True, so every later
+    turn put a date in front of the cached prefix and screamed. The stored text is what turn
+    one sent — the reload must render it byte for byte."""
+    from matrx_ai.config.send_boundary import _enforce_frozen_prompt, _pin_system_date
+
+    turn_one = SystemInstruction(base_instruction="You are a research analyst.", include_date=False)
+    stored = str(turn_one)
+    reloaded = SystemInstruction.from_value(stored)
+    config = SimpleNamespace(system_instruction=reloaded, system_prompt_frozen=True)
+    row = SimpleNamespace(
+        created_at=datetime(2026, 11, 3, 0, 48, tzinfo=UTC), system_instruction=stored
+    )
+    _pin_system_date(config, row)
+    config.resolved_system_instruction = str(reloaded)
+    assert config.resolved_system_instruction == stored
+
+    from matrx_ai.providers import cache_guard
+
+    screams: list[str] = []
+    original = cache_guard.scream_cache_line_violation
+    cache_guard.scream_cache_line_violation = lambda **kw: screams.append(kw["kind"])  # type: ignore[assignment]
+    try:
+        _enforce_frozen_prompt(config, row, conversation_id=CONV)
+    finally:
+        cache_guard.scream_cache_line_violation = original  # type: ignore[assignment]
+    assert screams == []
+
+
+def test_an_unfrozen_conversation_still_gets_its_date() -> None:
+    from matrx_ai.config.send_boundary import _pin_system_date
+
+    si = SystemInstruction(base_instruction="You help.")
+    config = SimpleNamespace(system_instruction=si, system_prompt_frozen=False)
+    _pin_system_date(
+        config,
+        SimpleNamespace(created_at=datetime(2026, 11, 3, tzinfo=UTC), system_instruction="You help."),
+    )
+    assert si.include_date and si.date_anchor == "2026-11-03"

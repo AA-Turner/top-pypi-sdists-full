@@ -69,6 +69,8 @@ class BrowserClickArgs(BaseModel):
     selector: str
     session_id: str
     wait_after_ms: int = Field(default=1000, ge=0, le=10000)
+    # False = answer with url, title and a short excerpt; True = the whole page text.
+    extract_text: bool = False
     profile_id: str = _PROFILE_FIELD_DEFAULT
 
 
@@ -81,6 +83,8 @@ class BrowserTypeArgs(BaseModel):
     session_id: str
     clear_first: bool = True
     press_enter: bool = False
+    # False = answer with url, title and a short excerpt; True = the whole page text.
+    extract_text: bool = False
     profile_id: str = _PROFILE_FIELD_DEFAULT
 
 

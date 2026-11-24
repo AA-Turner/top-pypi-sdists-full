@@ -72,6 +72,7 @@ from .world_reset import (
     capture_baseline,
     check_world_reset,
     episode_of,
+    ready_to_destroy,
     reload_current_map,
     same_episode,
     short_map_name,
@@ -325,10 +326,13 @@ def _build_condition_status(
     cond_type = type(cond).__name__
     if is_post_run(cond):
         # Judged once the run is over (_judge_metrics), not checked here:
-        # what the judgement found, or that there has been none yet.
+        # what the judgement found, that it was not judged and why, or that
+        # there has been no judgement yet.
         details = cond.get_details()
         if cond._last_satisfied:
             message = cond._last_message
+        elif details.get("judged") is False:
+            message = f"not judged: {details.get('reason', '')}"
         elif "ng_seconds" in details:
             message = "not triggered"
         else:
@@ -510,9 +514,15 @@ def _judge_metrics(
         commonroad_settings,
     )
 
-    judged = [(i, c) for i, c in enumerate(scenario._fail_conditions) if is_post_run(c)]
+    post_run = [
+        (i, c) for i, c in enumerate(scenario._fail_conditions) if is_post_run(c)
+    ]
     settings = commonroad_settings()
-    for i, condition in judged:
+    judged: list[tuple[int, BaseCondition]] = []
+    # Not judged: the run neither fails nor passes on them, and their
+    # statuses say so (docs/metrics.md).
+    skipped: list[tuple[int, BaseCondition]] = []
+    for i, condition in post_run:
         metric = condition.metric  # type: ignore[attr-defined]
         if not settings.evaluates(metric):
             logger.warning(
@@ -524,11 +534,28 @@ def _judge_metrics(
                 metric,
                 HEAVY_METRICS_ENV,
             )
-    judged = [
-        (i, c)
-        for i, c in judged
-        if settings.evaluates(c.metric)  # type: ignore[attr-defined]
-    ]
+            condition.mark_not_judged("heavy metrics off")  # type: ignore[attr-defined]
+            skipped.append((i, condition))
+        else:
+            judged.append((i, condition))
+    if judged and not recorder.frames:
+        # Nothing to judge on: a condition that read nothing must not hold.
+        for i, condition in judged:
+            logger.warning(
+                "[%s] Metric condition [%d](%s) not judged: no frame recorded",
+                scenario_name,
+                i,
+                condition.label,
+            )
+            condition.mark_not_judged("no frame recorded")  # type: ignore[attr-defined]
+        skipped.extend(judged)
+        judged = []
+    if not judged:
+        statuses = _condition_statuses(
+            scenario, world, result.elapsed_seconds, scenario_name
+        )
+        skipped_labels = {_status_label("fail", i, c) for i, c in skipped}
+        return _merge_metric_verdicts(scenario, result, skipped_labels, None, statuses)
     keys = [c.metric for _, c in judged]  # type: ignore[attr-defined]
     logger.info(
         "[%s] Computing %d metric(s) over %d recorded frames: %s",
@@ -568,7 +595,7 @@ def _judge_metrics(
     statuses = _condition_statuses(
         scenario, world, result.elapsed_seconds, scenario_name
     )
-    judged_labels = {_status_label("fail", i, c) for i, c in judged}
+    judged_labels = {_status_label("fail", i, c) for i, c in judged + skipped}
     return _merge_metric_verdicts(scenario, result, judged_labels, first, statuses)
 
 
@@ -858,6 +885,10 @@ def _destroy_all_dynamic_actors(
     the last one is a pedestrian the next one did not put there.  The
     ``keep`` set is matched on vehicles only, because everything spared is an
     externally owned ego.
+
+    Each walker AI controller is stopped first, and everything is destroyed
+    in the soft reset's order (:func:`~autoware_carla_scenario.world_reset.ready_to_destroy`):
+    sensors and controllers before the walkers and vehicles they are on.
     """
     actors = world.get_actors()
     kept_ids = {
@@ -865,7 +896,7 @@ def _destroy_all_dynamic_actors(
         for actor in actors.filter("vehicle.*")
         if _kept_by_role(actor, keep_role_names)
     }
-    destroyed = 0
+    doomed: list[carla.Actor] = []
     for actor in [
         *actors.filter("vehicle.*"),
         *actors.filter("walker.*"),
@@ -880,6 +911,9 @@ def _destroy_all_dynamic_actors(
             parent = None
         if parent is not None and parent.id in kept_ids:
             continue
+        doomed.append(actor)
+    destroyed = 0
+    for actor in ready_to_destroy(doomed):
         try:
             actor.destroy()
             destroyed += 1

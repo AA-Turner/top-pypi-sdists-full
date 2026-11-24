@@ -17,7 +17,17 @@ from sqlglot.dialects.dialect import (
     strposition_sql,
 )
 from sqlglot.generator import unsupported_args
+from sqlglot.optimizer.helpers import projection_has_aggregate
+from sqlglot.parsers.sqlite import SQLITE_NOW
 from sqlglot.tokens import TokenType
+
+DATETIME_TYPES = (
+    exp.DType.DATETIME,
+    exp.DType.TIMESTAMP,
+    exp.DType.TIMESTAMPNTZ,
+    exp.DType.TIMESTAMPTZ,
+    exp.DType.TIMESTAMPLTZ,
+)
 
 
 def _transform_create(expression: exp.Expr) -> exp.Expr:
@@ -80,6 +90,30 @@ def _generated_to_auto_increment(expression: exp.Expr) -> exp.Expr:
         )
 
     return expression
+
+
+def _is_sqlite_aggregate(func: exp.AggFunc) -> bool:
+    # SQLite's MIN and MAX are scalar when called with multiple arguments.
+    return not isinstance(func, (exp.Min, exp.Max)) or (
+        not func.expressions and func.args.get("count") is None
+    )
+
+
+def _has_aggregate_projection(select: exp.Select) -> bool:
+    # SQLite requires a projected aggregate outside any window to allow ungrouped HAVING.
+    if select.args.get("having"):
+        return any(
+            isinstance(node, exp.AggFunc) and _is_sqlite_aggregate(node)
+            for projection in select.selects
+            for node in projection.walk(prune=lambda n: isinstance(n, (exp.Query, exp.Window)))
+        )
+
+    return any(
+        projection_has_aggregate(
+            p, select.args.get("windows"), aggregate_filter=_is_sqlite_aggregate
+        )
+        for p in select.selects
+    )
 
 
 class SQLiteGenerator(generator.Generator):
@@ -163,7 +197,6 @@ class SQLiteGenerator(generator.Generator):
         exp.LogicalOr: rename_func("MAX"),
         exp.LogicalAnd: rename_func("MIN"),
         exp.Pivot: no_pivot_sql,
-        exp.Rand: lambda self, e: self.func("RANDOM", e.this),
         exp.RegexpLike: lambda self, e: self.binary(e, "REGEXP"),
         exp.Select: transforms.preprocess(
             [
@@ -175,7 +208,7 @@ class SQLiteGenerator(generator.Generator):
         exp.StrPosition: lambda self, e: strposition_sql(self, e, func_name="INSTR"),
         exp.TableSample: no_tablesample_sql,
         exp.TimeStrToTime: lambda self, e: self.sql(e, "this"),
-        exp.TimeToStr: lambda self, e: self.func("STRFTIME", e.args.get("format"), e.this),
+        exp.TimeToStr: lambda self, e: self.func("STRFTIME", self.format_time(e), e.this),
         exp.TryCast: no_trycast_sql,
         exp.TsOrDsToTimestamp: lambda self, e: self.sql(e, "this"),
     }
@@ -201,6 +234,23 @@ class SQLiteGenerator(generator.Generator):
 
     def root_properties(self, properties: exp.Properties) -> str:
         return self.expressions(properties, indent=False, sep=", ")
+
+    def group_sql(self, expression: exp.Group) -> str:
+        if any(isinstance(e, exp.Tuple) and not e.expressions for e in expression.expressions):
+            select = expression.parent
+            if (
+                len(expression.expressions) == 1
+                and not any(
+                    expression.args.get(k) for k in ("grouping_sets", "cube", "rollup", "totals")
+                )
+                and isinstance(select, exp.Select)
+                and _has_aggregate_projection(select)
+            ):
+                return ""
+
+            self.unsupported("SQLite does not support GROUP BY ()")
+
+        return super().group_sql(expression)
 
     def offset_limit_modifiers(
         self, expression: exp.Expr, fetch: bool, limit: exp.Fetch | exp.Limit | None
@@ -242,6 +292,14 @@ class SQLiteGenerator(generator.Generator):
 
         return super().insert_sql(expression)
 
+    def rand_sql(self, expression: exp.Rand) -> str:
+        random = self.func("RANDOM", expression.this)
+        if any(expression.args.values()):
+            return random
+
+        # Keep 53 bits so even the largest draw is exactly representable and strictly below 1 after division.
+        return f"(CAST({random} & 9007199254740991 AS REAL) / 9007199254740992)"
+
     def bitwiseandagg_sql(self, expression: exp.BitwiseAndAgg) -> str:
         self.unsupported("BITWISE_AND aggregation is not supported in SQLite")
         return self.function_fallback_sql(expression)
@@ -266,8 +324,20 @@ class SQLiteGenerator(generator.Generator):
             return self.func("JSON_EXTRACT", expression.this, expression.expression)
         return arrow_json_extract_sql(self, expression)
 
+    def attimezone_sql(self, expression: exp.AtTimeZone) -> str:
+        if expression == SQLITE_NOW:
+            # SQLite date functions accept 'now' directly and retain its milliseconds.
+            if expression.arg_key == "this" and isinstance(
+                expression.parent, (exp.Date, exp.TimeToStr)
+            ):
+                return "'now'"
+            return self.func("STRFTIME", "'%Y-%m-%d %H:%M:%f'", "'now'")
+        return super().attimezone_sql(expression)
+
     def dateadd_sql(self, expression: exp.DateAdd) -> str:
-        modifier = expression.expression
+        return self._date_delta_sql(expression, expression.this, expression.expression)
+
+    def _date_delta_sql(self, expression: exp.Expr, base: exp.Expr, modifier: exp.Expr) -> str:
         unit = expression.args.get("unit")
         # An INTERVAL amount carries its own unit, e.g. DATE_ADD(d, INTERVAL 1 DAY);
         # unwrap it so the unit is not left inside the quoted modifier string.
@@ -275,13 +345,48 @@ class SQLiteGenerator(generator.Generator):
             unit = unit or modifier.unit
             modifier = modifier.this
 
-        if unit and unit.name.upper() == "WEEK":
+        if isinstance(expression, (exp.Sub, exp.DateSub)):
+            modifier = self._negate_date_modifier(modifier)
+
+        # Plural units (e.g. Postgres INTERVAL '2 hours') are valid SQLite modifiers
+        unit_name = unit.name.upper().removesuffix("S") if unit else ""
+        if unit_name == "WEEK":
             modifier = modifier * 7
             unit = exp.var("DAY")
+        elif unit_name == "QUARTER":
+            modifier = modifier * 3
+            unit = exp.var("MONTH")
 
-        # SQLite DATE deliberately returns only a date, so sub-day units would
-        # silently drop the time; DATETIME retains it.
-        func = "DATETIME" if unit and unit.name.upper() in ("HOUR", "MINUTE", "SECOND") else "DATE"
+        floor = None
+        if unit_name in ("MONTH", "QUARTER", "YEAR"):
+            # SQLite otherwise rolls overflowing days into the following month.
+            if self.dialect.version >= (3, 46):
+                floor = "'floor'"
+            else:
+                self.unsupported("Clamping month-end interval arithmetic requires SQLite 3.46+")
+
+        # DATE + INTERVAL can return DATE or TIMESTAMP depending on the source dialect.
+        if expression.is_type(exp.DType.DATE, exp.DType.DATE32):
+            func = "DATE"
+        elif expression.is_type(exp.DType.TIME, exp.DType.TIMETZ):
+            func = "TIME"
+        elif (
+            expression.is_type(*exp.DataType.TEMPORAL_TYPES)
+            or unit_name in ("HOUR", "MINUTE", "SECOND")
+            or isinstance(base, exp.CurrentTimestamp)
+            or base.is_type(*DATETIME_TYPES)
+        ):
+            func = "DATETIME"
+        else:
+            if unit_name in ("DAY", "WEEK", "MONTH", "QUARTER", "YEAR") and (
+                not base.type or base.is_type(exp.DType.UNKNOWN, *exp.DataType.TEXT_TYPES)
+            ):
+                self.unsupported(
+                    "SQLite DATE() may discard the time in interval arithmetic. Cast text operands "
+                    "to a temporal type, or qualify untyped columns and use annotate_types "
+                    "with the source schema."
+                )
+            func = "DATE"
 
         modifier = modifier.unnest()
         if (
@@ -289,46 +394,51 @@ class SQLiteGenerator(generator.Generator):
             and not isinstance(modifier, exp.Literal)
             and not (isinstance(modifier, exp.Neg) and modifier.this.is_number)
         ):
-            return self.func(
-                func,
-                expression.this,
-                exp.DPipe(
-                    this=exp.paren(modifier),
-                    expression=exp.Literal.string(f" {unit.name}"),
-                ),
+            modifier = exp.DPipe(
+                this=exp.paren(modifier),
+                expression=exp.Literal.string(f" {unit.name}"),
             )
-        modifier = modifier.name if modifier.is_string else self.sql(modifier)
-        modifier = f"{modifier} {unit.name}" if unit else modifier
-        return self.func(func, expression.this, exp.Literal.string(modifier))
+        else:
+            value = modifier.name if modifier.is_string else self.sql(modifier)
+            modifier = exp.Literal.string(f"{value} {unit.name}" if unit else value)
+        return self.func(func, base, modifier, floor)
+
+    # SQLite has no INTERVAL type, so `x +/- INTERVAL n unit` uses date modifiers.
+    # Intervals without a unit (e.g. Postgres INTERVAL '1 day 2 hours') are left as is.
+    def add_sql(self, expression: exp.Add) -> str:
+        this, other = expression.this, expression.expression
+        if isinstance(this, exp.Interval) and not isinstance(other, exp.Interval):
+            this, other = other, this
+        if isinstance(other, exp.Interval) and other.unit:
+            return self._date_delta_sql(expression, this, other)
+        return super().add_sql(expression)
+
+    def sub_sql(self, expression: exp.Sub) -> str:
+        interval = expression.expression
+        if isinstance(interval, exp.Interval) and interval.unit:
+            return self._date_delta_sql(expression, expression.this, interval)
+        return super().sub_sql(expression)
 
     def datesub_sql(self, expression: exp.DateSub) -> str:
-        # SQLite has no DATE_SUB, so add the negated amount instead
-        amount = expression.expression
-        unit = expression.args.get("unit")
-        if isinstance(amount, exp.Interval):
-            unit = unit or amount.unit
-            amount = amount.this
+        return self._date_delta_sql(expression, expression.this, expression.expression)
 
+    def _negate_date_modifier(self, amount: exp.Expr) -> exp.Expr:
         amount = amount.unnest()
-        negated: exp.Expr
         if isinstance(amount, exp.Neg):
-            negated = amount.this
-        elif isinstance(amount, exp.Literal):
+            return amount.this
+        if isinstance(amount, exp.Literal):
             text = amount.name.removeprefix("+")
-            negated = exp.Literal.string(text[1:] if text.startswith("-") else f"-{text}")
-        else:
-            negated = exp.Neg(
-                this=amount
-                if isinstance(amount, (exp.Column, exp.Func))
-                else exp.paren(amount, copy=False)
-            )
-
-        return self.dateadd_sql(exp.DateAdd(this=expression.this, expression=negated, unit=unit))
+            return exp.Literal.string(text[1:] if text.startswith("-") else f"-{text}")
+        return exp.Neg(
+            this=amount
+            if isinstance(amount, (exp.Column, exp.Func))
+            else exp.paren(amount, copy=False)
+        )
 
     def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
         if expression.is_type("date"):
             return self.func("DATE", expression.this)
-        if expression.is_type("datetime", "timestamp", "timestampntz"):
+        if expression.is_type(*DATETIME_TYPES):
             return self.func("DATETIME", expression.this)
         if expression.is_type("time"):
             return self.func("TIME", expression.this)
@@ -377,7 +487,14 @@ class SQLiteGenerator(generator.Generator):
         unit = expression.args.get("unit")
         unit = unit.name.upper() if unit else "DAY"
 
-        sql = f"(JULIANDAY({self.sql(expression, 'this')}) - JULIANDAY({self.sql(expression, 'expression')}))"
+        modifier = (
+            exp.Literal.string("start of day")
+            if unit == "DAY" and expression.args.get("date_part_boundary")
+            else None
+        )
+        end = self.func("JULIANDAY", expression.this, modifier)
+        start = self.func("JULIANDAY", expression.expression, modifier)
+        sql = f"({end} - {start})"
 
         if unit == "MONTH":
             sql = f"{sql} / 30.0"

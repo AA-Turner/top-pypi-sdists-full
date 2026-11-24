@@ -49,6 +49,7 @@ from probe.sdk.client.resources.projects.details import ProjectDetailsMixin
 from probe.sdk.client.resources.projects.projects import ProjectsMixin, ProjectsResource
 from probe.sdk.client.resources.projects.summaries import SummariesMixin, SummariesResource
 from probe.sdk.client.resources.reads import ReadsMixin, ReadsResource
+from probe.sdk.client.resources.samples.episodes import EpisodesMixin
 from probe.sdk.client.resources.samples.live import LiveSamplesMixin
 from probe.sdk.client.resources.samples.points import SamplePointsMixin
 from probe.sdk.client.resources.samples.samples import SampleReadsMixin, SamplesResource
@@ -133,6 +134,7 @@ class Client(
     SampleReadsMixin,
     SamplePointsMixin,
     LiveSamplesMixin,
+    EpisodesMixin,
 ):
     #: True for a client whose queue is drained by hand on purpose -- the
     #: offline run's, which `probe sync` drains (plan 2.12) -- so the "no
@@ -512,11 +514,16 @@ class Client(
     #: The launch fields a relaunch keeps (`metadata.launch.process`).
     _RETRY_LAUNCH_KEYS = ("entrypoint", "argv", "cwd")
 
+    #: Statuses of a run whose writer may be alive: attach adopts it, a requeued job takes it over (D23: a paused
+    #: job holds at a step boundary and keeps beating, live like a running one).
+    _LIVE_RUN_STATUSES = frozenset({"running", "paused"})
+
     #: Statuses whose numbers cannot be trusted; superseding one marks it.
     _DEAD_RUN_STATUSES = frozenset({"failed", "crashed", "canceled", "untracked"})
 
     #: Verdicts attach will reopen automatically. ALL are verdicts NOBODY
     #: CHOSE: 'created' means the run was registered and never started,
+    #: 'pending' that its job then waited in a cluster queue (D23),
     #: 'untracked' means the reaper found nothing owning it, and 'crashed'
     #: means the system saw the job's processes die -- the reaper's silence, a
     #: writer-gone report, a hand-off's leases all GONE (plan 2.8). The last is
@@ -526,7 +533,9 @@ class Client(
     #: 'canceled' are deliberately absent -- a human or a real exit code chose
     #: those, and a stale PROBE_RUN_ID pasted into a .env must not quietly
     #: resurrect last week's cancelled run and write this week's curves into it.
-    _REOPENABLE_ON_ATTACH = ("created", "untracked", "crashed")
+    _REOPENABLE_ON_ATTACH = ("created", "pending", "untracked", "crashed")
+    #: Never started: the job's first attach is a plain status PATCH, no reopen (nothing to supersede).
+    _UNSTARTED_ON_ATTACH = ("created", "pending")
 
     #: How long after a run ended attach will still adopt it. Past this, the id
     #: in your environment is much more likely to be stale than to be the run

@@ -90,7 +90,7 @@ HOLDER_OWNED_CONFIG_KEYS = (
 #: deliberate, LOUD cache break (``cache_guard.deliberate_cache_break``).
 HELD_PROMPT_KEY = "held_system_prompt"
 
-#: The turn-context slot the per-turn framing values travel in.
+#: The turn-context policy the per-turn framing values travel in.
 TURN_VALUES_SLOT = "turn_values"
 
 # NOT here: ``dynamic_tools`` / ``dynamic_tool_sources``. They are the CONVERSATION's sticky

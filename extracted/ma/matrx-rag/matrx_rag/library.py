@@ -4,7 +4,7 @@ Helpers for inserting and ingesting reference content into the
 ``rag.library_docs`` table. Library docs are visible to:
 
   * Every authenticated user when the doc sits on the SYSTEM ORG
-    (``matrx-system``, 39c38960-d30c-4840-b0c1-c9960de95582, marked
+    (``matrx-system``, marked
     ``global_readable`` in ``iam.system_orgs``); platform documents are ``published_to_web``.
   * Members of the org when ``organization_id`` is a normal tenant org.
 
@@ -50,11 +50,13 @@ Usage example (CLI / batch script)::
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
 import uuid
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from matrx_orm import call_function
@@ -135,9 +137,7 @@ def _resolve_library_scope(
                 "platform-global content, and never left for the database to stamp."
             )
         return organization_id, False
-    raise ValueError(
-        f"{what}: scope must be 'global' or 'organization'; got {scope!r}"
-    )
+    raise ValueError(f"{what}: scope must be 'global' or 'organization'; got {scope!r}")
 
 
 async def upsert_library_doc(
@@ -304,6 +304,7 @@ async def ingest_library_pdf(
     kind: str,
     local_path: str,
     scope: LibraryScope,
+    source_storage_uri: str | None = None,
     short_code: str | None = None,
     jurisdiction: str | None = None,
     organization_id: str | None = None,
@@ -324,6 +325,7 @@ async def ingest_library_pdf(
     """
     import os
 
+    storage_identity = source_storage_uri if source_storage_uri is not None else local_path
     from matrx_rag.pdf_pipeline import ingest_pdf
 
     # Resolve the owner ONCE, up front, so the row, the file and the chunks all
@@ -339,7 +341,7 @@ async def ingest_library_pdf(
         jurisdiction=jurisdiction,
         organization_id=owner_organization_id,
         version=version,
-        storage_uri=local_path,
+        storage_uri=storage_identity,
         source_url=source_url,
         effective_from=effective_from,
         effective_to=effective_to,
@@ -361,15 +363,17 @@ async def ingest_library_pdf(
         created_by=_system_owner_uuid(owner_seed_org),
         organization_id=owner_organization_id,
         file_path=f"/library/{kind}/{short_code or doc_id}.pdf",
-        storage_uri=local_path,
+        storage_uri=storage_identity,
         file_name=f"{title}.pdf",
         mime_type="application/pdf",
-        size_bytes=os.path.getsize(local_path),
+        size_bytes=await asyncio.to_thread(os.path.getsize, local_path),
         # §6a-1: a tenant's own library PDF is org work product — not published,
         # and NEVER shown_to 'only_me': that is for a user's own artifacts, and
         # using it here is what made library files unreadable to the org that owns
         # them. Platform content is published_to_web on the global_readable system org.
-        **publish_columns(file_published, _system_owner_uuid(owner_seed_org) if file_published else None),
+        **publish_columns(
+            file_published, _system_owner_uuid(owner_seed_org) if file_published else None
+        ),
         current_version=1,
         metadata={
             "library_doc_id": doc_id,
@@ -391,7 +395,7 @@ async def ingest_library_pdf(
         owner_id=_system_owner_uuid(owner_seed_org),
         local_path=local_path,
         file_name=f"{title}.pdf",
-        storage_uri=local_path,
+        storage_uri=storage_identity,
         emitter=emitter,
         force=force,
         extra_metadata={
@@ -484,9 +488,16 @@ async def rehome_library_member_file(
 
     system_owner = _system_owner_uuid(library_organization_id)
 
+    from matrx_files.gated_reads import read_file_row
+    from matrx_utils.ctx import system_file_access
+
     Files = get_db_model("Files")
-    file_row = await Files.get_or_none(id=file_id)
-    if file_row is None or getattr(file_row, "deleted_at", None) is not None:
+    with system_file_access("library-rehome"):
+        file_row_dict = await read_file_row(
+            str(file_id), ["created_by", "organization_id", "metadata"], live_only=True
+        )
+    file_row = SimpleNamespace(**file_row_dict) if file_row_dict is not None else None
+    if file_row is None:
         raise LibraryRehomeError(
             f"rehome_library_member_file: files.files row {file_id} is missing or "
             "deleted — refusing to bind a dead file into a library store."
@@ -546,7 +557,7 @@ async def rehome_library_member_file(
     if stale_ids:
         for i in range(0, len(stale_ids), _REOWN_BATCH):
             batch = stale_ids[i : i + _REOWN_BATCH]
-            result = await KgChunks.filter(id__in=batch).update(
+            result = await KgChunks.filter(id__in=batch).lock_rows_in_pk_order().update(
                 created_by=system_owner, organization_id=str(library_organization_id)
             )
             chunks_reowned += getattr(result, "rows_affected", 0) or 0

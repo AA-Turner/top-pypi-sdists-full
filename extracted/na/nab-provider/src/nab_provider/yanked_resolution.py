@@ -3,21 +3,24 @@
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_provider._vendor.packaging.ranges",
-    "nab_provider._vendor.packaging.utils",
-    "nab_provider.extra_keys",
-    "nab_provider.diagnostics",
     "nab_provider._provider.listing_diagnosis",
+    "nab_provider.diagnostics",
+    "nab_provider.extra_keys",
+    "nab_provider.ranges",
     "nab_provider.yank_candidates",
     "nab_resolver.errors",
     "nab_resolver.ranges",
     "nab_resolver.types",
+    "packaging.utils",
 )
 
 from typing import TYPE_CHECKING, Final
 
+from packaging.utils import canonicalize_name
+
 from nab_resolver.errors import ResolutionError, ResolutionTerminatedError
-from nab_resolver.ranges import Range
+from nab_resolver.priority import compute_tier
+from nab_resolver.ranges import IntegerRangeMembership, Range
 from nab_resolver.resolver import (
     DEFAULT_MAX_ITERATIONS,
     BaseProvider,
@@ -28,11 +31,9 @@ from nab_resolver.types import Incompatibility, IncompatibilityCause, Term
 
 from ._compat import override
 from ._provider.listing_diagnosis import MetadataBlock, metadata_diagnostic
-from ._vendor.packaging.ranges import VersionRange
-from ._vendor.packaging.utils import canonicalize_name
 from .diagnostics import ResolutionMessage
 from .extra_keys import split_extra
-from .priority import compute_tier
+from .ranges import VersionRange, require_version_range
 from .value import HashableRecord
 from .yank_candidates import Candidate, YankCandidates, add_range, is_pin, merge_stats
 from .yank_preference import (
@@ -45,16 +46,39 @@ from .yank_preference import (
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping, Sequence
 
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+
     from nab_resolver.types import RangeProtocol, RootRequirement
 
-    from ._vendor.packaging.requirements import Requirement
-    from ._vendor.packaging.version import Version
     from .diagnostics import Diagnostic
     from .provider import Provider
 
 __all__ = ["YankProxyProvider"]
 _MAX_SOLVER_ROUNDS = DEFAULT_MAX_ITERATIONS
 _ROOT_SCOPE = PreferenceScope()
+
+
+def _incomplete_query(detail: str) -> IncompletePreferenceError:
+    """Keep the reason a query stopped without a usable proof."""
+    message = "yanked dependency resolution is incomplete"
+    if detail:
+        message += f": {detail}"
+    return IncompletePreferenceError(message)
+
+
+def _query_roots(query: YankProxyProvider) -> dict[Package, Range[int]]:
+    """Encode root candidates before asking the solver to prove anything."""
+    try:
+        return {
+            name: query.encode_range(name, allowed)
+            for name, allowed in query.roots.items()
+        }
+    except ResolutionTerminatedError:
+        raise
+    except ResolutionError as exc:
+        # A proof from the host's own lookup does not describe this query.
+        raise _incomplete_query(str(exc)) from exc
 
 
 class _AdmissionRequiredError(Exception):
@@ -91,6 +115,14 @@ class MetadataProxy(HashableRecord):
         self.candidate = candidate
 
     @override
+    def __hash__(self) -> int:
+        """Hash the candidate tuple, retaining subclass comparison overrides."""
+        if type(self) is not MetadataProxy:
+            return super().__hash__()
+
+        return hash((self.candidate,))
+
+    @override
     def _comparison_values(self) -> tuple[object, ...]:
         """Return fixed identity fields, honoring subclass comparison declarations."""
         if type(self) is not MetadataProxy:
@@ -124,8 +156,8 @@ class YankProxyProvider(BaseProvider[Package, int]):
             catalogue = YankCandidates(provider, factory, preferences=preferences)
             root_ranges: dict[str, VersionRange] = {}
             for root in roots:
-                assert isinstance(root.constraint, VersionRange)
-                add_range(root_ranges, root.package, root.constraint)
+                constraint = require_version_range(root.package, root.constraint)
+                add_range(root_ranges, root.package, constraint)
             pins = tuple(req for req in requirements if is_pin(req))
             preference = YankPreference(
                 catalogue,
@@ -142,10 +174,12 @@ class YankProxyProvider(BaseProvider[Package, int]):
         self.scope = scope
         self.fixed = {candidate.package: candidate for candidate in scope.fixed}
         self.items: dict[int, Candidate] = {}
+        self._mixed_release_packages: set[str] = set()
         self.identities: dict[Candidate, int] = {}
         self.proofs: dict[PermissionProxy, dict[Support, int]] = {}
         self.supports: dict[int, Support] = {}
         self.decisions: Mapping[Package, int] = {}
+        self._dependency_parents: dict[str, set[str]] = {}
         self.positive: Mapping[Package, RangeProtocol[int]] = {}
         self.pending: list[Incompatibility[Package, int]] = []
         self.incomplete = False
@@ -153,6 +187,7 @@ class YankProxyProvider(BaseProvider[Package, int]):
         self._trial_pins = self.input_pins
         self._full_version_range = VersionRange.full()
         self._full_integer_range: Range[int] = Range.full()
+        self._integer_membership = IntegerRangeMembership()
         self.stats: ResolverStats[Package] = preference.stats
 
     def identify(self, candidate: Candidate) -> int:
@@ -170,9 +205,17 @@ class YankProxyProvider(BaseProvider[Package, int]):
         if package in self.catalogue.missing_listings:
             self.incomplete = True
         allowed &= self.constraints.get(package, self._full_version_range)
+        choices = self.catalogue.ordered(package, allowed)
+        if choices and package not in self._mixed_release_packages:
+            first_is_prerelease = choices[0].version.is_prerelease
+            if any(
+                choice.version.is_prerelease != first_is_prerelease
+                for choice in choices
+            ):
+                self._mixed_release_packages.add(package)
         return Range[int].from_versions(
             self.identify(candidate)
-            for candidate in self.catalogue.ordered(package, allowed)
+            for candidate in choices
             if self.eligible(candidate)
         )
 
@@ -282,8 +325,9 @@ class YankProxyProvider(BaseProvider[Package, int]):
                 0 if culprit_counts is None else culprit_counts.get(package, 0),
                 culprit_counts,
             )
-            return (0, tier)
-        return (1 if isinstance(package, MetadataProxy) else 2, 0)
+            # Read parent requirements before ranking final and prerelease candidates.
+            return (2 if package in self._mixed_release_packages else 0, tier)
+        return (1 if isinstance(package, MetadataProxy) else 3, 0)
 
     def block_context(self, package: Package) -> None:
         """Reject selected choices without excluding a candidate globally."""
@@ -330,22 +374,13 @@ class YankProxyProvider(BaseProvider[Package, int]):
             self.block_context(package)
             return None
         if isinstance(package, str):
-            # Cached dependencies need incompatibilities before excluding candidates.
-            allowed = self.constraints.get(package, self._full_version_range)
-            return next(
-                (
-                    self.identify(c)
-                    for c in self.catalogue.ordered(package, allowed)
-                    if self.eligible(c) and self.identify(c) in version_range
-                ),
-                None,
-            )
+            return self._choose_candidate(package, version_range)
         if isinstance(package, PermissionProxy):
             return next(
                 (
                     v
                     for v in self.proofs.get(package, {}).values()
-                    if v in version_range
+                    if self._integer_membership.contains(version_range, v)
                 ),
                 None,
             )
@@ -367,7 +402,38 @@ class YankProxyProvider(BaseProvider[Package, int]):
             if candidate in self.catalogue.unavailable:
                 self.incomplete = True
             return None
-        return 0 if 0 in version_range else None
+        return 0 if self._integer_membership.contains(version_range, 0) else None
+
+    def _choose_candidate(
+        self, package: str, version_range: RangeProtocol[int]
+    ) -> int | None:
+        """Choose an eligible package candidate within the encoded range."""
+        for order in self._ordering_ranges(package):
+            for candidate in self.catalogue.ordered(package, order):
+                if not self.eligible(candidate):
+                    continue
+                token = self.identify(candidate)
+                if self._integer_membership.contains(version_range, token):
+                    return token
+        return None
+
+    def _ordering_ranges(self, package: str) -> Iterator[VersionRange]:
+        """Rank prereleases using the requirements of the currently selected parents."""
+        constraint = self.constraints.get(package, self._full_version_range)
+        if package in self._mixed_release_packages:
+            required = self.roots.get(package, self._full_version_range) & constraint
+            for parent in self._dependency_parents.get(package, ()):
+                token = self.decisions.get(parent)
+                if token is not None:
+                    data = self.catalogue.facts.get(self.items[token])
+                    if data is not None and package in data.dependencies:
+                        required &= data.dependencies[package]
+            if required != constraint:
+                yield required
+
+        # Only the solver's encoded range can rule out a candidate. A previous
+        # metadata read can tell us how to rank it before its clause is active.
+        yield constraint
 
     def has_satisfying_version(
         self, package: Package, version_range: RangeProtocol[int]
@@ -397,14 +463,18 @@ class YankProxyProvider(BaseProvider[Package, int]):
             support = next(s for s, v in self.proofs[package].items() if v == version)
             return {self.items[i].package: Range.singleton(i) for i in support}
         token = package.candidate
-        data = self.catalogue.facts[self.items[token]]
-        assert data is not None
+        parent = self.items[token]
+        data = self.catalogue.prepared_data(parent)
         self._trial_pins = (*self.input_pins, *data.pins)
         try:
-            return {
-                name: self.encode_range(name, allowed)
-                for name, allowed in data.dependencies.items()
-            }
+            encoded: dict[Package, Range[int]] = {}
+            for child, allowed in data.dependencies.items():
+                encoded[child] = self.encode_range(child, allowed)
+                if child in self._mixed_release_packages:
+                    self._dependency_parents.setdefault(child, set()).add(
+                        parent.package
+                    )
+            return encoded
         finally:
             self._trial_pins = self.input_pins
 
@@ -426,6 +496,7 @@ class YankProxyProvider(BaseProvider[Package, int]):
         )
         query.items = self.items
         query.identities = self.identities
+        query._integer_membership = self._integer_membership
         return query
 
     def run_query(
@@ -434,24 +505,19 @@ class YankProxyProvider(BaseProvider[Package, int]):
         """Resolve under one set of restrictions with the shared work budget."""
         query = self.new_query(scope)
         query.live_trial = live_trial
+        roots = _query_roots(query)
         solver: Resolver[Package, int] = Resolver(
             query, max_iterations=self.preference.remaining
         )
-        roots: dict[Package, Range[int]] = {
-            name: query.encode_range(name, allowed)
-            for name, allowed in query.roots.items()
-        }
         try:
             selected = solver.resolve(roots)
         except ResolutionTerminatedError:
             raise
         except ResolutionError as exc:
-            if query.incomplete or exc.incompatibility is None:
-                message = "yanked dependency resolution is incomplete"
-                if query.incomplete:
-                    message += ": " + self.catalogue.unavailable_reason
-                raise IncompletePreferenceError(message) from exc
-            raise
+            if not query.incomplete and exc.incompatibility is not None:
+                raise
+            detail = self.catalogue.unavailable_reason if query.incomplete else str(exc)
+            raise _incomplete_query(detail) from exc
         finally:
             self.preference.record_solver_stats(solver.stats)
             self.preference.spend(solver.stats.rounds)
@@ -475,8 +541,7 @@ class YankProxyProvider(BaseProvider[Package, int]):
             if not isinstance(term.package, str) or not term.constraint.is_empty:
                 continue
             if isinstance(parent, MetadataProxy):
-                data = self.catalogue.facts[self.items[parent.candidate]]
-                assert data is not None
+                data = self.catalogue.prepared_data(self.items[parent.candidate])
                 allowed = data.dependencies[term.package]
             else:
                 allowed = self.roots[term.package]
@@ -486,11 +551,9 @@ class YankProxyProvider(BaseProvider[Package, int]):
             )
 
     def _failure_diagnostics(
-        self, error: ResolutionError
+        self, incompatibility: Incompatibility[Package, int]
     ) -> tuple[tuple[str, Diagnostic], ...]:
         """Translate final proof leaves into the original package requirements."""
-        incompatibility = error.incompatibility
-        assert incompatibility is not None
         failures: dict[str, VersionRange] = {}
         rejections: dict[str, dict[Candidate, MetadataBlock]] = {}
         for node in incompatibility.walk():
@@ -500,9 +563,9 @@ class YankProxyProvider(BaseProvider[Package, int]):
                 )
             if node.cause is IncompatibilityCause.NO_VERSIONS:
                 for term in node.terms:
-                    package = term.package
-                    if isinstance(package, MetadataProxy):
-                        candidate = self.items[package.candidate]
+                    proxy = term.package
+                    if isinstance(proxy, MetadataProxy):
+                        candidate = self.items[proxy.candidate]
                         block = self.catalogue.rejections.get(candidate)
                         if block is not None:
                             rejections.setdefault(candidate.package, {})[candidate] = (
@@ -542,15 +605,20 @@ class YankProxyProvider(BaseProvider[Package, int]):
         """Check non-yanked alternatives before adopting the selected candidates."""
         try:
             selected = self._select()
-        except (IncompletePreferenceError, ResolutionTerminatedError):
-            raise
         except ResolutionError as exc:
-            entries = self._failure_diagnostics(exc)
+            proof = exc.incompatibility
+            if proof is None or isinstance(
+                exc, (IncompletePreferenceError, ResolutionTerminatedError)
+            ):
+                raise
+            entries = self._failure_diagnostics(proof)
             summary = "no solution satisfies the requirements and yanked-file policy"
             message = ResolutionMessage(summary, entries)
             error = ResolutionError(message)
             error.verbose_message = message.render(verbose=True)
             raise error from exc
         finally:
+            self._integer_membership.clear()
+
             merge_stats(self.catalogue.provider.stats, self.catalogue.child_stats)
         return self.preference.adopt(selected)

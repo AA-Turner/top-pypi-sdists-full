@@ -9,6 +9,7 @@ Grouped by who raises them:
 - the network mock verb → NetworkMockUnavailable
 - mobile-web driver verbs → WebSurfaceUnavailable
 - the vision verb's own precondition → ScreenshotUnavailable
+- emitted while-loops → LoopExhausted
 """
 
 
@@ -249,3 +250,12 @@ class NetworkAssertionError(AssertionError):
     def __init__(self, message: str, result: dict):
         super().__init__(message)
         self.result = result
+
+
+class LoopExhausted(Exception):
+    """Raised by emitted code when a v4 while-loop consumes its iteration
+    budget with ``on_exhaust="error"``.
+
+    Shared (not per mode) so ``except testmu_appium.LoopExhausted`` catches it
+    whichever implementation raised it. ``testmu_appium._v4._helpers.loop``
+    re-exports it."""

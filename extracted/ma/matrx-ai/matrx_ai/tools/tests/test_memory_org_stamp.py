@@ -261,7 +261,7 @@ async def test_memory_store_updates_existing_row_with_active_org(
     """The update-path (existing row found) must also get the org stamp."""
     app_ctx_with_active_org(TEAM_ORG_ID)
 
-    existing_row = type("Row", (), {"id": "existing-id"})()
+    existing_row = type("Row", (), {"id": "existing-id", "key": "pref", "content": "old"})()
     monkeypatch.setattr(
         cxm.agent_memory, "filter_agent_memories", AsyncMock(return_value=[existing_row])
     )
@@ -291,7 +291,7 @@ async def test_memory_store_update_path_never_invents_an_org_when_none_is_active
     branch passes it untouched."""
     app_ctx_with_active_org(None)
 
-    existing_row = type("Row", (), {"id": "existing-id"})()
+    existing_row = type("Row", (), {"id": "existing-id", "key": "pref", "content": "old"})()
     monkeypatch.setattr(
         cxm.agent_memory, "filter_agent_memories", AsyncMock(return_value=[existing_row])
     )
@@ -346,7 +346,9 @@ async def test_memory_forget_filters_by_scope_id_for_organization_scope(
 
     result = await memory_forget({"key": "team_pref", "scope": "organization"}, _tool_ctx())
 
-    assert result.success is True
+    # forgetting a key that is not stored is a not_found refusal (24da53bde75), not a success
+    assert result.success is False
+    assert result.error is not None and result.error.error_type == "not_found"
     assert captured_filters["scope_id"] == TEAM_ORG_ID
 
 

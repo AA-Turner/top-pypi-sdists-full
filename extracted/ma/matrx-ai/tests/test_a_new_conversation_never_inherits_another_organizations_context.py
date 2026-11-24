@@ -41,11 +41,11 @@ def _answer_for(entity_id: str) -> dict[str, Any]:
 def resolver(monkeypatch):
     calls: list[str] = []
 
-    async def rpc(_db, _schema, _fn, _user, _etype, entity_id, *_rest, **_kw):
+    async def rpc(_user, _db, _schema, _fn, _etype, entity_id, *_rest, **_kw):
         calls.append(entity_id)
         return copy.deepcopy(_answer_for(entity_id))
 
-    monkeypatch.setattr("matrx_orm.call_function", rpc)
+    monkeypatch.setattr("matrx_orm.call_function_as", rpc)
     monkeypatch.setattr(context_engine, "_resolve_context_database", lambda: "test")
     context_engine.invalidate_context_cache()
     yield calls
@@ -91,11 +91,11 @@ async def test_a_truly_new_conversation_still_shares_the_first_turn_slice(monkey
     # so two new conversations of one person in one organization resolve once.
     calls: list[str] = []
 
-    async def rpc(_db, _schema, _fn, _user, _etype, entity_id, *_rest, **_kw):
+    async def rpc(_user, _db, _schema, _fn, _etype, entity_id, *_rest, **_kw):
         calls.append(entity_id)
         return {"variables": {}, "context": {"user_id": "user-1"}, "scope_labels": {}}
 
-    monkeypatch.setattr("matrx_orm.call_function", rpc)
+    monkeypatch.setattr("matrx_orm.call_function_as", rpc)
     monkeypatch.setattr(context_engine, "_resolve_context_database", lambda: "test")
     context_engine.invalidate_context_cache()
     try:

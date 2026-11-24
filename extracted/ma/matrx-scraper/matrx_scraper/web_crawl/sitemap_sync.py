@@ -9,8 +9,10 @@ and idempotent (every statement is an upsert on the table's arbiter).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -197,30 +199,23 @@ async def _upsert_sitemap_documents(
     return sitemap_ids
 
 
-async def _upsert_pages_and_memberships(
+def _build_page_rows(
     *,
+    crawl: SitemapCrawl,
+    sitemap_ids: dict[str, str],
     site_id: str,
     organization_id: str,
     user_id: str,
-    crawl: SitemapCrawl,
-    sitemap_ids: dict[str, str],
-    summary: SitemapSyncSummary,
-    on_progress: ProgressCallback | None,
-    errors: list[str],
-    session_id: str | None = None,
-    revived: list[RevivedDismissal] | None = None,
-) -> None:
-    now = utcnow()
+    now: datetime,
+) -> tuple[dict[str, dict[str, Any]], dict[tuple[str, str], SitemapUrlEntry], int]:
+    """Pure-CPU pass over every sitemap entry (runs in a worker thread)."""
     page_rows: dict[str, dict[str, Any]] = {}
     memberships: dict[tuple[str, str], SitemapUrlEntry] = {}
     skipped_invalid = 0
-
     for doc in crawl.documents:
         if doc.kind != "urlset":
             continue
-        sitemap_id = sitemap_ids.get(doc.url)
-        if sitemap_id is None:
-            raise RuntimeError(f"sitemap row missing for fetched document {redact_url_secrets(doc.url)}")
+        sitemap_id = sitemap_ids[doc.url]
         for entry in doc.entries:
             normalized = normalize_sitemap_loc(entry.loc)
             if normalized is None:
@@ -245,6 +240,38 @@ async def _upsert_pages_and_memberships(
             # First occurrence wins so a duplicate <url> with no metadata
             # cannot blank out an earlier entry's lastmod/changefreq/priority.
             memberships.setdefault((digest, sitemap_id), entry)
+    return page_rows, memberships, skipped_invalid
+
+
+async def _upsert_pages_and_memberships(
+    *,
+    site_id: str,
+    organization_id: str,
+    user_id: str,
+    crawl: SitemapCrawl,
+    sitemap_ids: dict[str, str],
+    summary: SitemapSyncSummary,
+    on_progress: ProgressCallback | None,
+    errors: list[str],
+    session_id: str | None = None,
+    revived: list[RevivedDismissal] | None = None,
+) -> None:
+    now = utcnow()
+    for doc in crawl.documents:
+        if doc.kind == "urlset" and sitemap_ids.get(doc.url) is None:
+            raise RuntimeError(f"sitemap row missing for fetched document {redact_url_secrets(doc.url)}")
+    # A sitemap holds tens of thousands of <loc> values; validating and
+    # hashing each is pure CPU that froze the worker's event loop for 1-2 s
+    # (live event_loop_stall rows, 2026-11-16). Run it off the loop.
+    page_rows, memberships, skipped_invalid = await asyncio.to_thread(
+        _build_page_rows,
+        crawl=crawl,
+        sitemap_ids=sitemap_ids,
+        site_id=site_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        now=now,
+    )
 
     if skipped_invalid:
         errors.append(

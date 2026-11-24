@@ -246,7 +246,7 @@ def fill_form_bytes(
     if password:
         with open_pdf(pdf_bytes, password) as pdf:
             source = save_pdf(pdf)
-    filled = _wrapper(source).fill(coerced, flatten=False).read()
+    filled = _wrapper(source).fill(coerced).read()
     flattened = 0
     if flatten:
         with open_pdf(filled) as pdf:
@@ -299,7 +299,7 @@ class PdfMark(BaseModel):
     image: str | None = None
 
     @model_validator(mode="after")
-    def _needs(self) -> "PdfMark":
+    def _needs(self) -> PdfMark:
         if self.kind in ("text", "date") and not self.text.strip():
             raise ValueError("Text and date marks need their text.")
         if self.kind == "signature" and not self.image:

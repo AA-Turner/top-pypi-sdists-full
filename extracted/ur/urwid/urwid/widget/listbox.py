@@ -35,6 +35,7 @@ from .constants import MouseButton, Sizing, VAlign, WHSettings, normalize_valign
 from .container import (
     _SELECT_COMMANDS,
     SelectNavigationMixin,
+    _focus_request_scope,
     _UnfocusedFocusAttrMixin,
 )
 from .deque_walker import SimpleDequeWalker, SimpleFocusDequeWalker
@@ -251,8 +252,18 @@ class _ListBoxContents(Sized, typing.Generic[_K]):
 
 
 class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
-    """Vertically stacked list of widgets."""
+    """Vertically stacked list of widgets.
 
+    Signals:
+
+    ``"edge reached"``
+        Sent with the end, ``"top"`` or ``"bottom"``, when a key or a wheel notch asks the view to move past it
+        and nothing moves.
+        It is sent in both :attr:`edge` modes, after the key or notch has been handled, so the end is already in view.
+    """
+
+    # (this variable is picked up by the MetaSignals metaclass)
+    signals: typing.ClassVar[list[str]] = ["edge reached"]
     _selectable = True
     _sizing = frozenset([Sizing.BOX])
     #: Whether this ListBox reports FLOW sizing as well, when the body allows it; see :meth:`sizing`.
@@ -269,6 +280,7 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
         focus_when_empty: bool = True,
         edge: Literal["return", "stop"] = "return",
         wheel: Literal["focus", "view"] = "focus",
+        home_end: Literal["any", "selectable"] = "any",
         flow: bool = False,
     ) -> None: ...
 
@@ -283,6 +295,7 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
         focus_when_empty: bool = True,
         edge: Literal["return", "stop"] = "return",
         wheel: Literal["focus", "view"] = "focus",
+        home_end: Literal["any", "selectable"] = "any",
         flow: bool = False,
     ) -> None: ...
 
@@ -296,6 +309,7 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
         focus_when_empty: bool = True,
         edge: Literal["return", "stop"] = "return",
         wheel: Literal["focus", "view"] = "focus",
+        home_end: Literal["any", "selectable"] = "any",
         flow: bool = False,
     ) -> None:
         """Create the ListBox widget.
@@ -312,6 +326,7 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
             ``False`` lets a container move the focus past an empty ListBox.
         :param edge: what :kbd:`up` at the first row and :kbd:`down` at the last row do; see :attr:`edge`.
         :param wheel: what a notch of the vertical mouse wheel moves; see :attr:`wheel`.
+        :param home_end: what :kbd:`home` and :kbd:`end` move the focus to; see :attr:`home_end`.
         :param flow: report FLOW sizing as well, so that a container can lay the ListBox out with the rows of all
             its widgets; see :meth:`sizing`.
 
@@ -365,6 +380,7 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
         self.focus_when_empty = focus_when_empty
         self.edge = edge
         self.wheel = wheel
+        self.home_end = home_end
         self.flow = flow
 
     def sizing(self) -> frozenset[Sizing]:
@@ -437,6 +453,29 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
         """Drop the cached canvases and the cached :meth:`rows_max` result."""
         self._rows_max_cached = 0
         super()._invalidate()
+
+    @property
+    def home_end(self) -> Literal["any", "selectable"]:
+        """What :kbd:`home` and :kbd:`end` move the focus to.
+
+        - ``"any"``: the first or the last widget of the body, as :meth:`scroll_to_top` and :meth:`scroll_to_bottom`
+          move it.
+        - ``"selectable"``: the first or the last selectable widget, with the widgets before or after it in view,
+          as :meth:`scroll_to_selectable` moves it.
+          A body with no selectable widget is handled as in ``"any"``.
+        """
+        return self._home_end
+
+    @home_end.setter
+    def home_end(self, home_end: Literal["any", "selectable"]) -> None:
+        """Set what :kbd:`home` and :kbd:`end` move the focus to.
+
+        :raises ValueError: *home_end* is neither ``"any"`` nor ``"selectable"``.
+        """
+        if home_end not in {"any", "selectable"}:
+            msg = f'home_end must be "any" or "selectable", not {home_end!r}'
+            raise ValueError(msg)
+        self._home_end: Literal["any", "selectable"] = home_end
 
     @property
     def body(self) -> ListWalker[_K, AbstractFlowWidget]:
@@ -1241,6 +1280,8 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
 
         It steps from a neighbour back to *position* with ``get_prev()`` and ``get_next()``.
         A body that has no ``__getitem__`` supports that too.
+        A position with no neighbour on either side is checked against the body's focus, which is where the only
+        position of a one-item body is.
 
         :returns: the widget, or ``None`` when *position* is no longer in the body.
         """
@@ -1251,9 +1292,10 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
             else:
                 next_widget, next_pos = self._body.get_next(position)
                 if next_widget is None:
-                    return None
-                widget, pos = self._body.get_prev(next_pos)
-        except (IndexError, KeyError):
+                    widget, pos = self._body.get_focus()
+                else:
+                    widget, pos = self._body.get_prev(next_pos)
+        except (IndexError, KeyError, ValueError):
             # A body may reject a position it no longer holds instead of reporting no neighbour.
             return None
         return widget if pos == position else None
@@ -1565,8 +1607,13 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
             move cursor up one listbox length (or widget)
         :kbd:`page down`
             move cursor down one listbox length (or widget)
+        :kbd:`home`
+            move to the first widget, or to the first selectable one; see :attr:`home_end`
+        :kbd:`end`
+            move to the last widget, or to the last selectable one; see :attr:`home_end`
 
         With :attr:`edge` ``"stop"``, :kbd:`up` at the first row and :kbd:`down` at the last row are consumed.
+        Whatever :attr:`edge` is, a key that moves nothing at an end sends the ``"edge reached"`` signal.
 
         With :attr:`select_navigation`, unhandled ``'next selectable'`` and ``'prev selectable'`` commands
         move the focus to the next or previous selectable widget.
@@ -1602,17 +1649,21 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
         # pass off the heavy lifting
         if self._command_map[key] == Command.UP:
             unhandled = self._keypress_up((maxcol, maxrow))
+            if unhandled:
+                self._emit("edge reached", "top")
             return actual_key(unhandled and self._edge == "return")
 
         if self._command_map[key] == Command.DOWN:
             unhandled = self._keypress_down((maxcol, maxrow))
+            if unhandled:
+                self._emit("edge reached", "bottom")
             return actual_key(unhandled and self._edge == "return")
 
         if self._command_map[key] == Command.PAGE_UP:
-            return actual_key(self._keypress_page_up((maxcol, maxrow)))
+            return actual_key(self._keypress_page(self._keypress_page_up, (maxcol, maxrow), "top"))
 
         if self._command_map[key] == Command.PAGE_DOWN:
-            return actual_key(self._keypress_page_down((maxcol, maxrow)))
+            return actual_key(self._keypress_page(self._keypress_page_down, (maxcol, maxrow), "bottom"))
 
         if self._command_map[key] == Command.MAX_LEFT:
             return actual_key(self._keypress_max_left((maxcol, maxrow)))  # type: ignore[func-returns-value]
@@ -1621,6 +1672,30 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
             return actual_key(self._keypress_max_right((maxcol, maxrow)))  # type: ignore[func-returns-value]
 
         return key
+
+    def _keypress_page(
+        self,
+        move: Callable[[tuple[int, int]], bool | None],
+        size: tuple[int, int],
+        end: Literal["top", "bottom"],
+    ) -> bool | None:
+        """Run a page key and send ``"edge reached"`` when it moved nothing at *end*.
+
+        The return value of a page key does not tell whether the view moved, so the focus and its offset are compared.
+        The offset is the one drawn, because the stored one can differ from it after the focus is set,
+        and rendering does not update it.
+        """
+        middle = self.calculate_visible(size, focus=True)[0]
+        before = None if middle is None else (middle.offset, middle.focus_pos)
+        unhandled = move(size)
+        middle = self.calculate_visible(size, focus=True)[0]
+        if (
+            middle is not None  # a body can lose its rows while the key is handled
+            and before == (middle.offset, middle.focus_pos)
+            and end in self.ends_visible(size, True)
+        ):
+            self._emit("edge reached", end)
+        return unhandled
 
     def _select_walk(
         self,
@@ -1782,12 +1857,75 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
                 return typing.cast("_K", position)
         return None
 
+    def scroll_to_selectable(self, size: tuple[int, int], end: Literal["top", "bottom"]) -> bool:
+        """Move the focus to the first or the last selectable widget and show the widgets beyond it.
+
+        The widgets between *end* and the new focus are shown as far as the view has room for them,
+        so a heading above the first selectable widget stays in view.
+        Unlike :meth:`focus_first_selectable` and :meth:`focus_last_selectable`,
+        it places the view, and it does not enter the widget.
+
+        >>> import urwid
+        >>> fruit = [urwid.Button(name) for name in ("apple", "pear", "plum")]
+        >>> listbox = urwid.ListBox([urwid.Text("Fruit"), *fruit, urwid.Text("3 items")])
+        >>> listbox.focus_position = 3
+        >>> listbox.scroll_to_selectable((12, 3), "top")
+        True
+        >>> listbox.focus_position
+        1
+        >>> [line.decode() for line in listbox.render((12, 3)).text]
+        ['Fruit       ', '< apple    >', '< pear     >']
+
+        :param size: the box size the list box is rendered at.
+        :param end: ``"top"`` for the first selectable widget, ``"bottom"`` for the last one.
+        :returns: whether the body has a selectable widget; without one nothing changes.
+        :raises ValueError: *end* is neither ``"top"`` nor ``"bottom"``.
+        :raises TypeError: the body does not implement ``set_focus``.
+        :raises ListBoxError: the body has no widget at a position its walk returned.
+        """
+        if end not in {"top", "bottom"}:
+            msg = f'end must be "top" or "bottom", not {end!r}'
+            raise ValueError(msg)
+        maxcol, maxrow = size
+        last = end == "bottom"
+        # A focus or alignment still pending would be completed at the next render and replace this placement.
+        if self.set_focus_pending or self.set_focus_valign_pending:
+            self._set_focus_complete(size, focus=True)
+        missing = object()
+        position = next(self._select_candidates(reverse=last, from_edge=True), missing)
+        if position is missing:
+            return False
+        widget = self._body_widget_at(position)
+        if widget is None:
+            raise ListBoxError(f"The body has no widget at {position!r}, a position its walk returned.")
+        room = maxrow - widget.rows((maxcol,), True)
+        # Rows between the widget and the end, read only while they still fit in the view next to it.
+        beyond = 0
+        seen = _SeenPositions()
+        seen.add(position)
+        for neighbour, _neighbour_pos in self._select_walk(
+            position,
+            forward=last,
+            seen=seen,
+            edges=self._select_wrap_edges(),
+        ):
+            if beyond >= room:
+                break
+            beyond += neighbour.rows((maxcol,), False)
+        shown = max(0, min(beyond, room))
+        self.change_focus(size, typing.cast("_K", position), offset_inset=max(0, room - shown) if last else shown)
+        return True
+
     def _keypress_max_left(self, size: tuple[int, int]) -> None:
-        """Move the focus to the first position of the body, through :meth:`scroll_to_top`."""
+        """Move the focus to the first widget of the body, or to the first selectable one, as :attr:`home_end` says."""
+        if self._home_end == "selectable" and self.scroll_to_selectable(size, "top"):
+            return
         self.scroll_to_top()
 
     def _keypress_max_right(self, size: tuple[int, int]) -> None:
-        """Move the focus to the last position of the body, through :meth:`scroll_to_bottom`."""
+        """Move the focus to the last widget of the body, or to the last selectable one, as :attr:`home_end` says."""
+        if self._home_end == "selectable" and self.scroll_to_selectable(size, "bottom"):
+            return
         self.scroll_to_bottom()
 
     def _keypress_up(self, size: tuple[int, int]) -> bool | None:
@@ -2366,8 +2504,9 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
     ) -> bool | None:
         """Pass the event to the contained widgets.
 
-        May change focus on button 1 press.
-        A vertical wheel notch the widget under the pointer does not handle moves what :attr:`wheel` selects.
+        May change focus on button 1 press, and on a :meth:`Widget.request_focus` from the widget under the pointer.
+        A vertical wheel notch the widget under the pointer does not handle moves what :attr:`wheel` selects,
+        and sends the ``"edge reached"`` signal when the view is already at that end.
 
         .. deprecated:: 2.4.0
             Support for a contained widget that does not implement ``mouse_event`` is deprecated.
@@ -2406,23 +2545,46 @@ class ListBox(Widget, SelectNavigationMixin[_K], _UnfocusedFocusAttrMixin):
             )
             return False
 
-        if w.mouse_event((maxcol,), event, button, col, row - wrow, focus and w == focus_widget):
+        body = self._body
+        focus_before = body.get_focus()[1]
+        with _focus_request_scope() as request:
+            handled = w.mouse_event((maxcol,), event, button, col, row - wrow, focus and w == focus_widget)
+        # The handler may have replaced the body or changed it, so the request applies only while the same body
+        # still has the position; a focus the handler moved itself stays.
+        # A body that keeps its widgets gives the same object twice, and an insertion or a removal can move another
+        # widget to an index position, so there the clicked widget itself must still be at it.
+        # A body that creates a new widget on each call gives two different objects, and the position alone
+        # identifies the row.
+        if (
+            request.requested
+            and self._body is body
+            and (current := self._body_widget_at(w_pos)) is not None
+            and (current is w or current is not self._body_widget_at(w_pos))
+        ):
+            if body.get_focus()[1] == focus_before and w_pos != focus_before and w.selectable():
+                self.change_focus((maxcol, maxrow), w_pos, wrow)
+            self.request_focus()
+        if handled:
             return True
 
         if not is_mouse_press(event) or button not in {MouseButton.WHEEL_UP, MouseButton.WHEEL_DOWN}:
             return False
 
         step: Literal[-1, 1] = -1 if button == MouseButton.WHEEL_UP else 1
+        end: Literal["top", "bottom"] = "top" if step < 0 else "bottom"
         if (
             self._wheel == "view"
             and (scrolled := self._wheel_scroll_view((maxcol, maxrow), step, focus=focus)) is not None
         ):
+            if not scrolled:
+                self._emit("edge reached", end)
             return scrolled
         # In "view" mode this is reached when the cursor of the focus widget held the view.
 
-        if button == MouseButton.WHEEL_UP:
-            return not self._keypress_up((maxcol, maxrow))
-        return not self._keypress_down((maxcol, maxrow))
+        unhandled = self._keypress_up((maxcol, maxrow)) if step < 0 else self._keypress_down((maxcol, maxrow))
+        if unhandled:
+            self._emit("edge reached", end)
+        return not unhandled
 
     def _wheel_scroll_view(self, size: tuple[int, int], step: Literal[-1, 1], *, focus: bool) -> bool | None:
         """Scroll the view one row for a wheel notch in ``"view"`` mode.

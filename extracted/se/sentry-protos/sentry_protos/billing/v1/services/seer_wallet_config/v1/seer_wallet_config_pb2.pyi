@@ -50,7 +50,7 @@ class SpendConfig(google.protobuf.message.Message):
 
     DAILY_CAP_CENTS_FIELD_NUMBER: builtins.int
     daily_cap_cents: builtins.int
-    """The most the organization spends in any 24 hours, in cents before tax.
+    """The most the organization spends in a UTC day, in cents before tax.
     Unset means no cap.
     """
     def __init__(

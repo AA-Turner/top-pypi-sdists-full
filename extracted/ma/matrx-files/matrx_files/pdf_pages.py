@@ -14,6 +14,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .asset_envelope import FileRef
@@ -198,8 +199,9 @@ async def select_pdf_pages(
         file_path,
         extracted.content,
         mime_type="application/pdf",
+        pathway="pdf.page_pdf",  # placement registry: the declared automated pathway
         published_to_web=False,
-        shown_to="only_me",
+        shown_to=SHOWN_TO_TYPE_DEFAULT,  # the file type's "Shown to" knob
         change_summary=f"Selected PDF pages {pages}",
         metadata={
             "parent_file_id": str(source["id"]),

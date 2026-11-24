@@ -4,6 +4,7 @@ import enum
 import fractions
 import io
 import ipaddress
+import math
 import pathlib
 import sys
 import time
@@ -54,6 +55,31 @@ def test_float_hash():
     assert hashes_equal(3.14, 3.14)
     assert not hashes_equal(1.2, 3.14)
 
+
+@pytest.mark.parametrize('first, second', [(-1.0, -2.0), (1.0, float(2**61))])
+def test_cache_float_hash_collision(first, second):
+    assert hash(first) == hash(second)
+    assert not hashes_equal(first, second)
+
+    @cache
+    def identity(value):
+        return value
+
+    assert identity(first) == first
+    assert identity(second) == second
+
+
+def test_cache_float_signed_zero():
+    assert not hashes_equal(0.0, -0.0)
+
+    @cache
+    def sign(value):
+        return math.copysign(1, value[0])
+
+    assert sign((0.0,)) == 1
+    assert sign((-0.0,)) == -1
+
+
 def test_bool_hash():
     assert hashes_equal(True, True)
     assert hashes_equal(False, False)
@@ -86,6 +112,78 @@ def test_list_hash():
     assert not hashes_equal([0], [1])
     assert not hashes_equal(['a', ['b']], ['a', ['c']])
 
+def test_flat_container_hash_distinguishes_types():
+    assert not hashes_equal([1], [True])
+    assert not hashes_equal([1], [1.0])
+    assert not hashes_equal(['1'], [b'1'])
+    assert not hashes_equal([0.0], [-0.0])
+    assert not hashes_equal([None], [0])
+    assert not hashes_equal([1], (1,))
+    assert not hashes_equal({'a': 1}, {'a': True})
+    assert not hashes_equal({1: 'a'}, {True: 'a'})
+    assert not hashes_equal([1, 2], [1, [2]])
+    assert hashes_equal({'a': 1, 'b': 2}, {'a': 1, 'b': 2})
+    assert not hashes_equal({'a': 1, 'b': 2}, {'b': 2, 'a': 1})
+
+def test_flat_container_hash_subclasses_not_treated_as_natives():
+    class Name(str):
+        pass
+
+    Point = namedtuple('Point', ['x'])
+    assert not hashes_equal(['a'], [Name('a')])
+    assert not hashes_equal((1,), Point(1))
+
+def test_custom_scalar_hash_func_applies_inside_containers():
+    def f(a):
+        return a
+
+    same = {int: lambda obj: b'int'}
+    assert compute_hash(f, same, ([1, 2],), {}) == compute_hash(f, same, ([3, 4],), {})
+    assert compute_hash(f, same, ({'a': 1},), {}) == compute_hash(f, same, ({'a': 2},), {})
+    assert compute_hash(f, {}, ([1, 2],), {}) != compute_hash(f, {}, ([3, 4],), {})
+
+def test_hash_funcs_exact_type_overrides_named_default():
+    # The docs recommend hashing frames by a version, which must take
+    # precedence over the default registered under the type's name
+    df = pd.DataFrame({'a': [1]})
+    df.attrs['version'] = 1
+    other = pd.DataFrame({'a': [2]})
+    other.attrs['version'] = 1
+    calls = []
+
+    @cache(hash_funcs={pd.DataFrame: lambda df: str(df.attrs['version']).encode()})
+    def process(df):
+        calls.append(1)
+        return len(df)
+
+    assert process(df) == 1
+    assert process(other) == 1
+    assert len(calls) == 1
+
+def test_hash_funcs_registered_directly_apply_immediately():
+    class Versioned:
+        def __init__(self, version):
+            self.version = version
+
+    a, b = Versioned(1), Versioned(1)
+    assert not hashes_equal(a, b)
+    cache_module._hash_funcs[Versioned] = lambda obj: str(obj.version).encode()
+    try:
+        assert hashes_equal(a, b)
+        assert not hashes_equal(a, Versioned(2))
+    finally:
+        del cache_module._hash_funcs[Versioned]
+    assert not hashes_equal(a, b)
+
+def test_hash_func_lookup_not_memoized_for_instance_dependent_matches():
+    # Dataclass instances are matched by a predicate, which may depend
+    # on the instance rather than its type
+    assert hashes_equal(_Point(1), _Point(1))
+    assert not hashes_equal(_Point(1), _Point(2))
+    assert _Point not in cache_module._HASH_FUNC_CACHE
+    _generate_hash([1])
+    assert cache_module._HASH_FUNC_CACHE[list] is cache_module._container_hash
+
 def test_list_hash_recursive():
     # Recursion
     l = [0]
@@ -109,6 +207,51 @@ def test_dict_hash_recursive():
     d = {'a': {}}
     d['a'] = d
     assert hashes_equal(dict(d), dict(d))
+
+
+@pytest.mark.parametrize('container_type', [list, dict])
+def test_cache_recursive_container(container_type):
+    value = container_type()
+    if container_type is list:
+        value.append(value)
+    else:
+        value['self'] = value
+
+    calls = []
+
+    @cache
+    def size(value):
+        calls.append(None)
+        return len(value)
+
+    assert size(value) == 1
+    assert size(value) == 1
+    assert len(calls) == 1
+
+    if container_type is list:
+        value.append(0)
+    else:
+        value['other'] = 0
+
+    assert size(value) == 2
+    assert len(calls) == 2
+
+
+def test_cache_recursive_container_distinct_ancestors():
+    to_root = [0, [1]]
+    to_root[1].append(to_root)
+    to_inner = [0, [1]]
+    to_inner[1].append(to_inner[1])
+
+    assert not hashes_equal(to_root, to_inner)
+
+    @cache
+    def deref(value):
+        return value[1][1][0]
+
+    assert deref(to_root) == 0
+    assert deref(to_inner) == 1
+
 
 def test_stringio_hash():
     sio1, sio2 = io.StringIO(), io.StringIO()
@@ -452,6 +595,121 @@ def test_cache_ttl(to_disk, tmp_path):
     time.sleep(0.2)
     assert fn(0, 0) == 1
 
+def test_cache_ttl_expired_entries_never_returned(monkeypatch):
+    # The sweep that frees expired entries runs once per ttl, an
+    # expired entry must still never be returned in between
+    clock = [0.0]
+    monkeypatch.setattr(cache_module, '_TIME_FN', lambda: clock[0])
+    calls = []
+
+    @cache(ttl=10)
+    def identity(value):
+        calls.append(value)
+        return value
+
+    buckets = set(state._memoize_cache)
+    identity(0)
+    bucket, = (state._memoize_cache[k] for k in set(state._memoize_cache) - buckets)
+    for value in range(1, 5):
+        clock[0] = value
+        identity(value)
+    assert len(bucket) == 5
+
+    clock[0] = 10
+    assert identity(0) == 0
+    assert len(calls) == 5
+
+    clock[0] = 10.5
+    assert identity(0) == 0
+    assert len(calls) == 6
+    # The sweep that ran found nothing else expired
+    assert len(bucket) == 5
+
+    clock[0] = 15
+    assert identity(1) == 1
+    assert len(calls) == 7
+    # 2-4 have expired but linger until the next sweep
+    assert len(bucket) == 5
+
+    clock[0] = 21
+    assert identity(0) == 0
+    assert len(calls) == 8
+    # Swept, only 0 and 1 remain
+    assert len(bucket) == 2
+
+def test_cache_ttl_with_max_items_evicts_expired_first(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(cache_module, '_TIME_FN', lambda: clock[0])
+    calls = []
+
+    @cache(ttl=10, max_items=3, policy='lru')
+    def identity(value):
+        calls.append(value)
+        return value
+
+    identity(0)
+    clock[0] = 5
+    identity(1)
+    clock[0] = 6
+    identity(2)
+    clock[0] = 10.5
+    # Sweeps 0 and makes 1 the most recently used
+    assert identity(1) == 1
+    clock[0] = 11
+    identity(3)
+    clock[0] = 16
+    # The cache is full, 1 has expired and 2 is the least recently
+    # used: 1 must go rather than 2
+    identity(4)
+    assert identity(2) == 2
+    assert calls == [0, 1, 2, 3, 4]
+    assert identity(1) == 1
+    assert calls == [0, 1, 2, 3, 4, 1]
+
+def test_cache_lru_tracks_hits():
+    global OFFSET
+    OFFSET.clear()
+    fn = cache(function_with_args, max_items=3, policy='lru')
+    assert fn(0, 0) == 0
+    assert fn(0, 1) == 1
+    assert fn(0, 2) == 2
+    assert fn(0, 1) == 1
+    assert fn(0, 0) == 0
+    assert fn(0, 3) == 3 # (0, 2) should be evicted
+    assert fn(0, 0) == 0
+    assert fn(0, 1) == 1
+    assert fn(0, 2) == 3
+
+def test_cache_decorations_with_different_settings_do_not_share(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(cache_module, '_TIME_FN', lambda: clock[0])
+    calls = []
+
+    def identity(value):
+        calls.append(value)
+        return value
+
+    plain = cache(identity)
+    expiring = cache(identity, ttl=1)
+    assert plain(1) == 1
+    clock[0] = 2
+    # A separate bucket, so this neither hits the plain entry nor
+    # expires it
+    assert expiring(1) == 1
+    assert plain(1) == 1
+    assert len(calls) == 2
+
+@diskcache_available
+def test_cache_to_disk_not_shadowed_by_memory_cache(tmp_path):
+    def identity(value):
+        return value
+
+    in_memory = cache(identity)
+    on_disk = cache(identity, to_disk=True, cache_path=tmp_path)
+    in_memory(1)
+    on_disk(1)
+    assert list(tmp_path.glob('*'))
+
 def test_cache_on_undecorated_parameterized_method():
     class Model(param.Parameterized):
         data = param.Parameter(default=1)
@@ -703,6 +961,15 @@ def test_hash_memo_not_keyed_on_indeterminate_values():
     compute_hash(f, {}, (object(),), {})
     assert not _HASH_MAP
 
+
+def test_hash_memo_shared_container():
+    _HASH_MAP.clear()
+    shared = [1, 2]
+    value = [shared, shared]
+
+    assert compute_hash(len, {}, (value,), {}) == compute_hash(len, {}, ([[1, 2], [1, 2]],), {})
+    assert len(_HASH_MAP) == 1
+
 @dataclass
 class _Point:
     x: int
@@ -735,6 +1002,15 @@ def test_hash_enum_members_as_enum(member):
     assert _generate_hash(member) == f'enum:{_get_fqn(member)}.{member.name}'.encode()
     assert not hashes_equal(member, member.value)
 
+def test_hash_time_and_timedelta_by_value():
+    assert hashes_equal(dt.time(12, 30), dt.time(12, 30))
+    assert not hashes_equal(dt.time(12, 30), dt.time(12, 31))
+    assert not hashes_equal(dt.time(12), dt.time(12, tzinfo=dt.timezone.utc))
+    assert hashes_equal(dt.timedelta(days=1), dt.timedelta(hours=24))
+    assert not hashes_equal(dt.timedelta(days=1), dt.timedelta(days=2))
+    assert not hashes_equal(pd.Timedelta(1, 'ns'), pd.Timedelta(2, 'ns'))
+    assert not hashes_equal(dt.time(1), dt.timedelta(hours=1))
+
 def test_hash_identity_types_by_identity():
     a, b = object(), object()
     assert not hashes_equal(a, b)
@@ -753,3 +1029,5 @@ def test_cache_temporary_value_arguments():
     assert double(decimal.Decimal('1.5')) == decimal.Decimal('3.0')
     assert double(decimal.Decimal('7')) == decimal.Decimal('14')
     assert [as_str(uuid.UUID(int=i))[-1] for i in range(1, 6)] == ['1', '2', '3', '4', '5']
+    assert [as_str(dt.timedelta(days=i)) for i in range(1, 4)] == ['1 day, 0:00:00', '2 days, 0:00:00', '3 days, 0:00:00']
+    assert [as_str(dt.time(i)) for i in range(1, 4)] == ['01:00:00', '02:00:00', '03:00:00']

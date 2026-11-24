@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import os
-import sys
 from collections.abc import Iterator
-from importlib import import_module, reload
 from typing import TYPE_CHECKING
 
 import pytest
@@ -15,7 +13,7 @@ _DATABASE_ENV_KEYS = frozenset(
     {
         "CREDENTIALS_ENCRYPTION_KEY",
         "MATRX_DB_CONFIG_NAME",
-        "MATRX_SEO_LOCAL_DEV",
+        "MATRX_STAGE",
         "MATRX_SESSION_AUTHORITY_URL",
         "SUPABASE_JWT_SECRET",
         "SUPABASE_URL",
@@ -66,56 +64,6 @@ def _restore_database_registry(
     registry._used_aliases[:] = used_aliases
 
 
-def _unregister_host_database(name: str) -> None:
-    """Drop an earlier registration so ``db`` re-registers from the live database."""
-    from matrx_orm.core.config import registry
-
-    config = registry._configs.pop(name, None)
-    if config is not None and getattr(config, "alias", "") in registry._used_aliases:
-        registry._used_aliases.remove(config.alias)
-    for alias, target in list(registry._name_aliases.items()):
-        if target == name:
-            registry._name_aliases.pop(alias)
-
-
-@pytest.fixture
-def isolated_host_database() -> Iterator[tuple[str, str] | None]:
-    """Run a live ORM test on the live database, without leaking aidream's DB setup.
-
-    Tests run on live as the test accounts (Arman, 2026-10-03). The connection is
-    ``aidream.testing.live_database`` — the server's own five ``SUPABASE_MATRIX_*``.
-    """
-    from aidream.testing.live_database import live_database_env
-
-    live_env = live_database_env()
-    env_before = _database_env_snapshot()
-    registry_before = _database_registry_snapshot()
-
-    try:
-        os.environ.update(live_env)
-        _unregister_host_database("supabase_automation_matrix")
-        db_was_loaded = "db" in sys.modules
-        host_db = import_module("db")
-        if db_was_loaded:
-            reload(host_db)
-        import_module("db.models")
-
-        user_id = os.environ.get("AGENT_USER_ID", "").strip()
-        from matrx_orm import is_database_registered
-
-        if not user_id or not is_database_registered("supabase_automation_matrix"):
-            yield None
-            return
-
-        from matrx_seo.db import configure_db
-
-        configure_db("supabase_automation_matrix")
-        yield user_id, "supabase_automation_matrix"
-    finally:
-        _restore_database_registry(registry_before)
-        _restore_database_env(env_before)
-
-
 #: The ``platform.feature_knob`` rows for feature ``"seo"``, as registered in the
 #: live database (read 2026-08-23). Every ceiling and default this package uses is
 #: a knob row, never a constant — ``common-docs/policies/limits-are-knobs-agents-set-them.md``
@@ -136,26 +84,7 @@ def isolated_host_database() -> Iterator[tuple[str, str] | None]:
 #: the safe direction: the tests keep asserting against the value they were
 #: written for. Adding a NEW knob read without adding it here fails loudly with
 #: ``KnobNotRegisteredError`` naming the key — never a silent default.
-SEO_KNOB_VALUES: dict[str, dict[str, object]] = {
-    "seo": {
-        "max_per_request_cost_usd": 0.25,
-        "unpriced_run_assumed_cost_usd": 0.01,
-        "org_provider_monthly_ceiling_usd": 50,
-        "global_provider_monthly_ceiling_usd": 750,
-        "caller_daily_ceiling_usd": 1,
-        "global_daily_ceiling_usd": 50,
-        "inline_payload_max_bytes": 32768,
-        # Reuse windows (hours) per operation family — matrx_seo.reuse; the
-        # values the hard-coded TTLs had before they became knobs.
-        "reuse_hours.backlinks": 720,
-        "reuse_hours.keyword_metrics": 720,
-        "reuse_hours.serp": 24,
-        "reuse_hours.onpage": 24,
-        "reuse_hours.reference": 720,
-        "reuse_hours.web_search": 168,
-        "reuse_hours.default": 168,
-    },
-}
+from matrx_seo.testing_knobs import SEO_KNOB_VALUES  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -172,8 +101,9 @@ def _offline_feature_knobs(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     ``matrx_seo`` config IS registered, so a live test that configured the host
     database still resolves real ``platform.feature_knob`` rows instead of
     silently asserting against this table. The check is inside the stub, not at
-    fixture setup, because ``isolated_host_database`` registers the database
-    during test setup — after this fixture has already run.
+    fixture setup, because the host's ``isolated_host_database``
+    (``tests/package_host_contracts/matrx_seo``, which runs on this conftest) registers
+    the database during test setup — after this fixture has already run.
     """
     from matrx_orm import is_database_registered
 
@@ -219,7 +149,25 @@ def _database_state_leak_guard() -> Iterator[None]:
     assert not leaked, f"test leaked process-global state: {', '.join(leaked)}"
 
 
+class _AddOnce:
+    """Adds each option once: a host test directory run in the same session may have added it."""
+
+    def __init__(self, target) -> None:
+        self._target = target
+
+    def addoption(self, *args, **kwargs) -> None:
+        try:
+            self._target.addoption(*args, **kwargs)
+        except ValueError as exc:
+            if "already added" not in str(exc):
+                raise
+
+    def getgroup(self, *args, **kwargs) -> _AddOnce:
+        return _AddOnce(self._target.getgroup(*args, **kwargs))
+
+
 def pytest_addoption(parser) -> None:
+    parser = _AddOnce(parser)
     parser.addoption(
         "--run-seo-database-tests",
         action="store_true",
@@ -373,7 +321,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         fixtures = getattr(item, "fixturenames", ())
         module = getattr(item, "module", None)
         contract = "db" in fixtures and callable(getattr(module, "_dsn", None))
-        if contract or "isolated_host_database" in fixtures:
+        if contract:
             item.add_marker("live")
             item.add_marker("integration")
             item.add_marker("seo_database")

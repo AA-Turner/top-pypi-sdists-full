@@ -42,10 +42,25 @@ class WorkflowOrchestratorServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryResponse.FromString,
         )
+        self.GetWorkflowOrchestratorWorkflowLineage = channel.unary_unary(
+            "/chalk.server.v1.WorkflowOrchestratorService/GetWorkflowOrchestratorWorkflowLineage",
+            request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowLineageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowLineageResponse.FromString,
+        )
         self.SendWorkflowMessage = channel.unary_unary(
             "/chalk.server.v1.WorkflowOrchestratorService/SendWorkflowMessage",
             request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageResponse.FromString,
+        )
+        self.StartWorkflowRun = channel.unary_unary(
+            "/chalk.server.v1.WorkflowOrchestratorService/StartWorkflowRun",
+            request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.StartWorkflowRunRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.StartWorkflowRunResponse.FromString,
+        )
+        self.ListWorkflowMessages = channel.unary_unary(
+            "/chalk.server.v1.WorkflowOrchestratorService/ListWorkflowMessages",
+            request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.ListWorkflowMessagesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.ListWorkflowMessagesResponse.FromString,
         )
 
 
@@ -84,11 +99,36 @@ class WorkflowOrchestratorServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetWorkflowOrchestratorWorkflowLineage(self, request, context):
+        """Returns the parent/child tree a workflow belongs to, from its root execution down, plus the
+        messages its workflows signaled to one another.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def SendWorkflowMessage(self, request, context):
         """Delivers a named message to a running workflow in the caller's environment, for steps
         that wait on a person or another system, such as a review that approves or rejects a run.
         The workflow receives the payload together with the authenticated sender, which it can use
         to decide whose decisions to accept. Fails with NOT_FOUND when the workflow is not running.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def StartWorkflowRun(self, request, context):
+        """Starts a top-level workflow run in the caller's environment. The run's input reaches the
+        workflow function as keyword arguments, and the run's memo records who started it. Child
+        workflows are started by their parent's own workflow code, not through this RPC.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListWorkflowMessages(self, request, context):
+        """Lists the messages a workflow run has received, oldest first, with the sender the API server
+        authenticated for each. Lets a caller wait for a reply by polling with after_sequence.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -122,10 +162,25 @@ def add_WorkflowOrchestratorServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryResponse.SerializeToString,
         ),
+        "GetWorkflowOrchestratorWorkflowLineage": grpc.unary_unary_rpc_method_handler(
+            servicer.GetWorkflowOrchestratorWorkflowLineage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowLineageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowLineageResponse.SerializeToString,
+        ),
         "SendWorkflowMessage": grpc.unary_unary_rpc_method_handler(
             servicer.SendWorkflowMessage,
             request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageResponse.SerializeToString,
+        ),
+        "StartWorkflowRun": grpc.unary_unary_rpc_method_handler(
+            servicer.StartWorkflowRun,
+            request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.StartWorkflowRunRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.StartWorkflowRunResponse.SerializeToString,
+        ),
+        "ListWorkflowMessages": grpc.unary_unary_rpc_method_handler(
+            servicer.ListWorkflowMessages,
+            request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.ListWorkflowMessagesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.ListWorkflowMessagesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -284,6 +339,35 @@ class WorkflowOrchestratorService(object):
         )
 
     @staticmethod
+    def GetWorkflowOrchestratorWorkflowLineage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorkflowOrchestratorService/GetWorkflowOrchestratorWorkflowLineage",
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowLineageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowLineageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def SendWorkflowMessage(
         request,
         target,
@@ -302,6 +386,64 @@ class WorkflowOrchestratorService(object):
             "/chalk.server.v1.WorkflowOrchestratorService/SendWorkflowMessage",
             chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def StartWorkflowRun(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorkflowOrchestratorService/StartWorkflowRun",
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.StartWorkflowRunRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.StartWorkflowRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListWorkflowMessages(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorkflowOrchestratorService/ListWorkflowMessages",
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.ListWorkflowMessagesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.ListWorkflowMessagesResponse.FromString,
             options,
             channel_credentials,
             insecure,

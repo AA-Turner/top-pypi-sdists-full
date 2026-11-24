@@ -439,11 +439,20 @@ class RunConversation:
         error: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         answer_metadata: dict[str, Any] | None = None,
+        tool_messages: list[Any] | None = None,
+        unanswered_is_not_failure: bool = False,
     ) -> RunHistoryRecord:
         """Append one turn and write it. Raises on failure (the caller reports).
 
         ``answer_metadata`` lands on the answer's message row (``chat.message.metadata``),
-        as a caller's own ``user_messages`` carry theirs.
+        as a caller's own ``user_messages`` carry theirs. ``tool_messages`` are the turn's
+        tool calls and their results (an assistant message of ``ToolCallContent`` then a
+        ``tool`` message of ``ToolResultContent``, as a typed turn stores them), written
+        between the person's input and the answer.
+
+        ``unanswered_is_not_failure``: a turn with no answer and no ``error`` is recorded as a
+        completed turn that simply has no assistant row (a voice call the person ended before the
+        agent replied), never as a failed one — nothing failed, so no error row is written.
         """
         from matrx_ai.config.message_config import UnifiedMessage
         from matrx_ai.config.send_boundary import config_with_messages
@@ -465,14 +474,18 @@ class RunConversation:
                 if output_text
                 else []
             )
-            config = config_with_messages(self._request.config, [*prior, *user_messages, *answer])
+            tools = list(tool_messages or [])
+            config = config_with_messages(
+                self._request.config, [*prior, *user_messages, *tools, *answer]
+            )
             request = AIMatrixRequest(
                 conversation_id=self.conversation_id,
                 config=config,
                 request_id=str(uuid.uuid4()),
             )
             request.add_usage(usage)
-            status = "success" if (answer and not error) else "failed"
+            unanswered_ok = unanswered_is_not_failure and not answer and not error
+            status = "success" if ((answer and not error) or unanswered_ok) else "failed"
             final = UnifiedResponse(
                 messages=answer,
                 usage=usage,

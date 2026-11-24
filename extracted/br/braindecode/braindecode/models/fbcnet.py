@@ -55,7 +55,7 @@ class FBCNet(EEGModuleMixin, nn.Module):
         Number of frequency bands. Could
     n_filters_spat : int, default=32
         Number of spatial filters for the first convolution.
-    n_dim: int, default=3
+    n_dim : int, default=3
         Number of dimensions for the temporal reductor
     temporal_layer : str, default='LogVarLayer'
         Type of temporal aggregator layer. Options: 'VarLayer', 'StdLayer',
@@ -68,7 +68,7 @@ class FBCNet(EEGModuleMixin, nn.Module):
         Maximum norm for the spatial convolution layer.
     linear_max_norm : float, default=0.5
         Maximum norm for the final linear layer.
-    filter_parameters: dict, default None
+    filter_parameters : dict, default None
         Dictionary of parameters to use for the FilterBankLayer.
         If None, a default Chebyshev Type II filter with transition bandwidth of
         2 Hz and stop-band ripple of 30 dB will be used.
@@ -81,6 +81,9 @@ class FBCNet(EEGModuleMixin, nn.Module):
     .. [fbcnetcode2021] Link to source-code:
         https://github.com/ravikiran-mane/FBCNet
     """
+
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: spatial_conv.0.parametrizations.weight.original is sized by n_chans
 
     def __init__(
         self,
@@ -181,6 +184,12 @@ class FBCNet(EEGModuleMixin, nn.Module):
             out_features=self.n_outputs,
             max_norm=linear_max_norm,
         )
+        self._n_times_step = self.stride_factor
+        self.on_non_divisible = "pad"
+        self._snaps_in_prepare_inputs = False
+        self._min_n_times = (
+            2 if temporal_layer in ("VarLayer", "StdLayer", "LogVarLayer") else 1
+        ) * self.stride_factor
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -204,14 +213,18 @@ class FBCNet(EEGModuleMixin, nn.Module):
         batch_size, channels, _, _ = x.shape
 
         # shape: (batch_size, n_filters_spat * n_bands, 1, n_times)
-        x = self.padding_layer(x)
+        rem = x.shape[-1] % self.stride_factor
+        if rem != 0 and self.on_non_divisible == "crop":
+            x = x[..., : x.shape[-1] - rem]
+        elif rem != 0:
+            x = nn.functional.pad(x, (0, self.stride_factor - rem))
 
         # shape: (batch_size, n_filters_spat * n_bands, 1, n_times_padded)
         x = x.view(
             batch_size,
             channels,
             self.stride_factor,
-            self.n_times_padded // self.stride_factor,
+            -1,
         )
         # shape: batch_size, n_filters_spat * n_bands, stride, n_times_padded/stride
         x = self.temporal_layer(x)  # type: ignore[operator]

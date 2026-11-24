@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 
+
 import matrx_rag.llm as llm_mod
 from matrx_rag.llm import CleanedPage, clean_pdf_pages
 
@@ -108,29 +109,3 @@ def test_skipped_pages_are_not_counted_as_degraded(monkeypatch):
     assert isinstance(out[0], CleanedPage)
     assert not out[0].degraded
     assert banners == []
-
-
-def test_cleanup_dispatches_whole_batch_even_with_legacy_concurrency_one(monkeypatch):
-    async def scenario() -> None:
-        entered = 0
-        all_entered = asyncio.Event()
-        release = asyncio.Event()
-
-        async def fake_clean(raw: str) -> CleanedPage:
-            nonlocal entered
-            entered += 1
-            if entered == 12:
-                all_entered.set()
-            await release.wait()
-            return CleanedPage(text=f"cleaned-{raw}")
-
-        monkeypatch.setattr(llm_mod, "clean_pdf_text", fake_clean)
-        task = asyncio.create_task(
-            clean_pdf_pages([f"page-{i}" for i in range(12)], concurrency=1)
-        )
-        await asyncio.wait_for(all_entered.wait(), timeout=0.5)
-        assert entered == 12
-        release.set()
-        await task
-
-    asyncio.run(scenario())

@@ -28,6 +28,7 @@ from files_sdk.models.automation_authoring_schema import (
 from files_sdk.models.automation_execution_node import AutomationExecutionNode
 from files_sdk.models.automation_log import AutomationLog
 from files_sdk.models.automation_run import AutomationRun
+from files_sdk.models.automation_version import AutomationVersion
 from files_sdk.models.bandwidth_snapshot import BandwidthSnapshot
 from files_sdk.models.behavior import Behavior
 from files_sdk.models.bundle import Bundle
@@ -37,6 +38,7 @@ from files_sdk.models.bundle_notification import BundleNotification
 from files_sdk.models.bundle_path import BundlePath
 from files_sdk.models.bundle_recipient import BundleRecipient
 from files_sdk.models.bundle_registration import BundleRegistration
+from files_sdk.models.certificate import Certificate
 from files_sdk.models.chat_message import ChatMessage
 from files_sdk.models.chat_session import ChatSession
 from files_sdk.models.child_site_management_policy import (
@@ -100,6 +102,9 @@ from files_sdk.models.outbound_connection_log import OutboundConnectionLog
 from files_sdk.models.partner import Partner
 from files_sdk.models.partner_channel import PartnerChannel
 from files_sdk.models.partner_channel_template import PartnerChannelTemplate
+from files_sdk.models.partner_channel_upload_form import (
+    PartnerChannelUploadForm,
+)
 from files_sdk.models.partner_connection import PartnerConnection
 from files_sdk.models.partner_site import PartnerSite
 from files_sdk.models.partner_site_request import PartnerSiteRequest

@@ -3,9 +3,7 @@
 
 import grpc
 
-from chalk._gen.chalk.weightstream.v1 import (
-    service_pb2 as chalk_dot_weightstream_dot_v1_dot_service__pb2,
-)
+from chalk._gen.chalk.weightstream.v1 import service_pb2 as chalk_dot_weightstream_dot_v1_dot_service__pb2
 
 
 class WeightStreamServiceStub(object):
@@ -105,7 +103,7 @@ class WeightStreamServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def PromoteWeightStreamVersion(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Registry-only: model deployments reject alias selectors, so promoted aliases do not reach serving."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
 import anthropic as anthropic_sdk
@@ -15,6 +18,7 @@ from matrx_ai.config import (
     UnifiedResponse,
 )
 from matrx_ai.config.citations import grounded_citations, normalize_anthropic_citation
+from matrx_ai.config.progress_updates import is_progress_update_signature
 from matrx_ai.context.emitter_protocol import Emitter
 from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.outbound_capture import (
@@ -27,6 +31,12 @@ from matrx_ai.providers.reasoning_stream_state import (
 )
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
+from matrx_ai.tools.partial_args import (
+    tool_args_delta,
+    tool_args_finished,
+    tool_args_started,
+    tool_args_stream_ended,
+)
 
 from .translator import AnthropicTranslator
 
@@ -47,7 +57,84 @@ DEBUG_OVERRIDE = False
 # still rejects it (per-model override), the error classifier in errors.py
 # catches it as non-retryable with a clear user message.
 _ANTHROPIC_NONSTREAMING_MAX_TOKENS = 21_333
+
+
+
+def anthropic_requires_streaming(model: str, max_tokens: int) -> bool:
+    """True when the SDK would refuse a non-streaming send ("Streaming is required...").
+
+    The SDK's own rule: the 10-minute ceiling (``max_tokens`` > 21,333) OR a per-model ceiling from its
+    ``MODEL_NONSTREAMING_TOKENS`` table (e.g. 8,192 for claude-opus-4). Read from the SDK so a model it adds
+    is covered without a code change; the general ceiling still applies if the table is unavailable.
+    """
+    if max_tokens > _ANTHROPIC_NONSTREAMING_MAX_TOKENS:
+        return True
+    try:
+        from anthropic._constants import MODEL_NONSTREAMING_TOKENS
+    except ImportError:  # the SDK moved it: the general ceiling above still holds
+        return False
+    per_model = MODEL_NONSTREAMING_TOKENS.get(model)
+    return bool(per_model and max_tokens > per_model)
+
+
 _MAX_HOSTED_TOOL_CONTINUATIONS = 4
+
+# THE GRAMMAR-BUDGET LADDER'S MEMORY. Anthropic's refusal of an over-budget compiled
+# grammar is a fact about (model, schema, tool set): the same shape is refused every
+# time. Without this, every call of a known-too-large shape (the Applet Builder) paid a
+# refused round trip before the ladder found the rung that serves. Keyed on the model and
+# fingerprints of the bound schema and the tool schemas, so any change to one misses; a
+# remembered rung that is later refused falls down the ladder and the rung that served
+# replaces it. Per process, LRU-bounded. The findings are unchanged: every served rung
+# still goes through `record_structured_output_finding` (written once per process).
+_GRAMMAR_RUNG_MEMORY: OrderedDict[tuple[str, str, str], str] = OrderedDict()
+_GRAMMAR_RUNG_MEMORY_MAX = 512  # protocol-constant: memory bound on an in-process rung cache, not an admin behavior
+
+
+def _fingerprint(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()[:24]
+
+
+def _grammar_rung_key(config_data: dict[str, Any]) -> tuple[str, str, str] | None:
+    """(model, schema fingerprint, tool set fingerprint) for a request the ladder could
+    act on, else ``None`` (nothing to shed means nothing to remember)."""
+    tools = config_data.get("tools") or []
+    output_config = config_data.get("output_config") or {}
+    fmt = output_config.get("format") if isinstance(output_config, dict) else None
+    if not tools and not fmt:
+        return None
+    return (str(config_data.get("model") or ""), _fingerprint(fmt), _fingerprint(tools))
+
+
+def _remember_grammar_rung(key: tuple[str, str, str] | None, rung: str | None) -> None:
+    if key is None:
+        return
+    if rung is None:
+        _GRAMMAR_RUNG_MEMORY.pop(key, None)
+        return
+    _GRAMMAR_RUNG_MEMORY[key] = rung
+    _GRAMMAR_RUNG_MEMORY.move_to_end(key)
+    while len(_GRAMMAR_RUNG_MEMORY) > _GRAMMAR_RUNG_MEMORY_MAX:
+        _GRAMMAR_RUNG_MEMORY.popitem(last=False)
+
+
+def forget_grammar_rungs() -> None:
+    """Clear the ladder's memory (tests; a deliberate re-probe)."""
+    _GRAMMAR_RUNG_MEMORY.clear()
+# A progress update (config/progress_updates.py) is a sentence or two: 396 characters was the longest of 152
+# recorded live (2026-11-06). A thinking block is held up to this size until its signature says whether it is
+# one; past it, the block streams live as reasoning so long reasoning is never held back.
+_PROGRESS_UPDATE_MAX_CHARS = 1200
+
+
+def _streams_thinking_live(emitter: Any) -> bool:
+    """Whether this stream's reader draws thinking live (a blocks-v2 client: ``_LiveBlocksWatcher.streams_thinking_live``).
+
+    Such a reader gets every thinking block live from its first delta, never held for its signature. A block that
+    turns out to be a progress update then closes its reasoning and is ALSO sent as reply text (the ``was_live``
+    path of ``_finish_thinking_block``), so the person still reads the note as the answer's words.
+    """
+    return getattr(emitter, "streams_thinking_live", False) is True
 
 
 class AnthropicChat:
@@ -131,6 +218,10 @@ class AnthropicChat:
         matrx_model_name = unified_config.model
         # Build provider-specific config
         config_data = self.to_provider_config(unified_config, profile)
+        # ALWAYS-WARM: the layout this build made (None when the agent is not enrolled).
+        from matrx_ai.providers import prompt_warm
+
+        warm_layout = prompt_warm.take_layout()
         capture_request_payload(
             config_data,
             provider="anthropic",
@@ -140,42 +231,18 @@ class AnthropicChat:
 
         vcprint(config_data, "Anthropic API Config Data", color="blue", verbose=debug)
 
-        # Auto-enable streaming when max_tokens exceeds the Anthropic SDK's
-        # non-streaming ceiling (21,333 tokens for all models).  The SDK raises
-        # a client-side ValueError before the request is sent — there is nothing
-        # to retry, so we must prevent it proactively at the provider level.
+        # Stream the FIRST call whenever the SDK would refuse a non-streaming send (its 10-minute rule or a
+        # per-model ceiling), so the refusal never happens. A decision nothing failed on: console line only, no
+        # ops issue (the old capture filed ~6,800 recovered events that were this decision).
         stream_requested = unified_config.stream
         max_tokens_for_check = config_data.get("max_tokens", 0)
 
-        if not stream_requested and max_tokens_for_check > _ANTHROPIC_NONSTREAMING_MAX_TOKENS:
-            model_name = config_data.get("model", "unknown")
-
+        if not stream_requested and anthropic_requires_streaming(str(config_data.get("model", "")), max_tokens_for_check):
             vcprint(
-                f"⚠️  Anthropic auto-streaming override:\n"
-                f"   model          = {model_name}\n"
-                f"   max_tokens     = {max_tokens_for_check}\n"
-                f"   provider ceiling (no-stream) = {_ANTHROPIC_NONSTREAMING_MAX_TOKENS}\n"
-                f"   The SDK would raise ValueError because {max_tokens_for_check} > {_ANTHROPIC_NONSTREAMING_MAX_TOKENS}.\n"
-                f"   Auto-enabling streaming to prevent the error.",
+                f"Anthropic streams this call: model={config_data.get('model', 'unknown')} "
+                f"max_tokens={max_tokens_for_check} exceeds the SDK's non-streaming ceiling.",
                 color="yellow",
-            )
-            # NOT said to the person: streaming a long answer is the provider doing its job, not something they did
-            # or can act on (live 2026-10-19: a woken turn printed this warning on every model call). The console
-            # line above and the captured issue below keep it visible to operators.
-            from matrx_ai.ops.issue_capture import capture_issue
-
-            await capture_issue(
-                "anthropic.streaming_required",
-                error_type="streaming_required",
-                provider="anthropic",
-                model=model_name,
-                is_retryable=False,
-                was_recovered=True,
-                detail={
-                    "max_tokens_requested": max_tokens_for_check,
-                    "non_streaming_ceiling": _ANTHROPIC_NONSTREAMING_MAX_TOKENS,
-                    "action": "auto_enabled_streaming",
-                },
+                verbose=debug,
             )
             stream_requested = True
 
@@ -185,11 +252,42 @@ class AnthropicChat:
                 model=matrx_model_name,
                 is_streaming=bool(stream_requested),
             )
-            if stream_requested:
-                return await self._execute_streaming(payload, emitter, matrx_model_name)
-            return await self._execute_non_streaming(payload, emitter, matrx_model_name)
+            try:
+                if stream_requested:
+                    response = await self._execute_streaming(payload, emitter, matrx_model_name)
+                else:
+                    response = await self._execute_non_streaming(payload, emitter, matrx_model_name)
+            except Exception as exc:
+                from matrx_ai.providers.errors import get_billed_usage
+
+                prompt_warm.observe(
+                    warm_layout,
+                    kind=prompt_warm.KIND_LIVE,
+                    usage=get_billed_usage(exc),
+                    error=f"{type(exc).__name__}: {str(exc)[:300]}",
+                )
+                raise
+            # The observation never decides the send: read usage softly, so a response
+            # without one (a wire double, an odd SDK shape) still returns.
+            prompt_warm.observe(warm_layout, kind=prompt_warm.KIND_LIVE, usage=getattr(response, "usage", None))
+            return response
 
         try:
+            remembered = _GRAMMAR_RUNG_MEMORY.get(_grammar_rung_key(config_data) or ("", "", ""))
+            if remembered is not None:
+                # This exact (model, schema, tools) was refused before: start at the
+                # rung that served it instead of paying the refused round trip again.
+                recovered = await self._retry_over_grammar_budget(
+                    config_data,
+                    _send,
+                    emitter,
+                    matrx_model_name,
+                    None,
+                    response_format=unified_config.response_format,
+                    start_at=remembered,
+                )
+                if recovered is not None:
+                    return recovered
             return await _send(config_data)
         except Exception as e:
             from matrx_ai.schema.grammar_budget import is_grammar_too_large
@@ -219,8 +317,9 @@ class AnthropicChat:
         send: Any,
         emitter: Emitter,
         matrx_model_name: str,
-        original: Exception,
+        original: Exception | None,
         response_format: Any = None,
+        start_at: str | None = None,
     ) -> UnifiedResponse | None:
         """Keep the request's contract ENFORCED if at all possible; shed only what
         the budget forces, and record every rung that was needed.
@@ -255,6 +354,14 @@ class AnthropicChat:
         retry is kept (a user still gets an answer) and it is no longer quiet.
         Returns ``None`` when nothing could be shed, so the caller raises the
         provider's original error rather than inventing a success.
+
+        The rung that serves is remembered per (model, schema, tools) in
+        ``_GRAMMAR_RUNG_MEMORY``; ``start_at`` (with ``original=None``) is the
+        caller starting at that remembered rung without sending the refused
+        original first. A remembered rung that is refused falls to the next rung;
+        when every rung from there is refused the memory is dropped and ``None``
+        returned, so the caller sends the request as configured and the full
+        ladder runs.
         """
         from matrx_ai.providers.structured_output_findings import (
             ENFORCEMENT_DROPPED,
@@ -361,12 +468,20 @@ class AnthropicChat:
             **response_format_identity(response_format),
             "tool_count": len(tools),
             "tool_names": [t.get("name") for t in tools if isinstance(t, dict)][:30],
-            "provider_error": str(original)[:300],
+            "provider_error": str(original)[:300]
+            if original is not None
+            else f"not re-sent: this model, schema and tool set was refused before; "
+            f"started at the remembered rung {start_at}",
             # How far over the line the shape is — the measured ceiling is ~70
             # properties and 16 union parameters per request.
             "schema_size": structured_output_size(schema) if isinstance(schema, dict) else None,
         }
-        last_error: Exception = original
+        memory_key = _grammar_rung_key(config_data)
+        if start_at is not None:
+            rung_keys = [r[0] for r in rungs]
+            if start_at in rung_keys:
+                rungs = rungs[rung_keys.index(start_at) :]
+        last_error: Exception | None = original
         for key, detail, payload, gave_up in rungs:
             vcprint(
                 f"⚠️  ANTHROPIC ADJUSTMENT: compiled grammar over budget — retrying with "
@@ -380,6 +495,7 @@ class AnthropicChat:
                 if is_grammar_too_large(exc):
                     continue
                 raise
+            _remember_grammar_rung(memory_key, key)
             if key == ENFORCEMENT_DROPPED:
                 # Marked only once THIS rung is the one that served. Marking while
                 # the rungs were being BUILT told the answer check "not enforced"
@@ -460,12 +576,17 @@ class AnthropicChat:
                 )
             return response
 
+        if start_at is not None and original is None:
+            # The remembered rung no longer serves: forget it and let the caller send
+            # the request as configured, so the full ladder runs from the top.
+            _remember_grammar_rung(memory_key, None)
+            return None
         vcprint(
             "❌ ANTHROPIC: compiled grammar still over budget after narrowing the schema, "
             "shedding every tool and dropping the structured-output binding.",
             color="red",
         )
-        if last_error is not original:
+        if last_error is not None and last_error is not original:
             raise last_error
         return None
 
@@ -694,31 +815,46 @@ class AnthropicChat:
                         await asyncio.sleep(0)
 
                 elif delta_type == "thinking_delta":
-                    # Thinking content being streamed. Open the <reasoning>
-                    # wrapper lazily on the FIRST delta that carries text (same
-                    # pattern as OpenAI's reasoning_summary_text.delta handler),
-                    # so the UI gets a real "model is thinking" signal exactly
-                    # when thinking text exists — and never an empty wrapper.
+                    # Thinking content being streamed. A thinking block may be a
+                    # PROGRESS UPDATE — the model's words to the person before a
+                    # tool call — which only its signature (sent last) tells
+                    # apart (config/progress_updates.py). So a block's text is
+                    # HELD until its signature arrives, then sent as visible
+                    # text or as reasoning; once it outgrows any progress update
+                    # it streams live as reasoning. The <reasoning> wrapper
+                    # opens lazily on the first text (never an empty wrapper).
+                    # A blocks-v2 reader streams EVERY thought live from its
+                    # first delta (_streams_thinking_live): held, a short
+                    # summarized thought reached it in one burst at the block's
+                    # stop, so its Thinking row showed only a label until the
+                    # answer, while the save kept the thought (P1-CHAT).
                     thinking = getattr(delta, "thinking", "")
                     if thinking:
                         reasoning_state = reasoning_state_for(emitter)
-                        if not reasoning_state.open:
-                            await emitter.send_chunk("\n<reasoning>\n")
-                            reasoning_state.open = True
-                        await emitter.send_chunk(thinking)
+                        reasoning_state.thinking_held.append(thinking)
+                        if reasoning_state.thinking_live:
+                            await emitter.send_chunk(thinking)
+                        elif _streams_thinking_live(emitter) or sum(len(t) for t in reasoning_state.thinking_held) > _PROGRESS_UPDATE_MAX_CHARS:
+                            await self._send_reasoning(reasoning_state, emitter, "".join(reasoning_state.thinking_held))
+                            reasoning_state.thinking_live = True
                         await asyncio.sleep(0)
 
                 elif delta_type == "signature_delta":
                     # Encrypted thinking signature (multi-turn continuity). Not
-                    # user-visible and not text — the SDK folds it into the
-                    # final message snapshot, which from_anthropic() reads for
-                    # persistence. Nothing to stream; explicitly a no-op so the
-                    # branch is documented rather than silently falling through.
-                    pass
+                    # user-visible; the SDK folds it into the final message
+                    # snapshot, which from_anthropic() reads for persistence.
+                    # Kept here only so the block's stop knows whether its held
+                    # text is a progress update.
+                    signature = getattr(delta, "signature", "")
+                    if signature:
+                        reasoning_state_for(emitter).thinking_signature.append(signature)
 
                 elif delta_type == "input_json_delta":
-                    # Tool input being streamed (usually not needed for display)
-                    pass
+                    # Tool input being streamed: a tool registered for partial
+                    # arguments hears each completed element (tools/partial_args.py).
+                    await tool_args_delta(
+                        emitter, getattr(event, "index", None), getattr(delta, "partial_json", "") or ""
+                    )
 
                 elif delta_type == "citations_delta":
                     # Citation attaching to the current text block (documents /
@@ -765,7 +901,14 @@ class AnthropicChat:
                 block_type = getattr(content_block, "type", None)
 
                 if block_type == "tool_use":
-                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+                    # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py);
+                    # here only the partial-arguments hook opens, for a tool that registered one.
+                    await tool_args_started(
+                        emitter,
+                        getattr(event, "index", None),
+                        tool_name=str(getattr(content_block, "name", "") or ""),
+                        call_id=str(getattr(content_block, "id", "") or ""),
+                    )
 
                 elif block_type == "thinking":
                     # Thinking block started. Do NOT open the <reasoning>
@@ -789,10 +932,12 @@ class AnthropicChat:
             # actually opened by a thinking_delta. Keyed off our own state (not
             # the block type, which the stop event may not carry) so the close
             # always pairs with a real open and we never emit a stray close.
+            await tool_args_finished(emitter, getattr(event, "index", None))
             reasoning_state = reasoning_state_for(emitter)
             await self._send_grounded_block_citations(
                 reasoning_state, getattr(event, "index", None), emitter
             )
+            await self._finish_thinking_block(reasoning_state, emitter)
             if reasoning_state.open:
                 await emitter.send_chunk("\n</reasoning>\n")
                 reasoning_state.open = False
@@ -804,6 +949,9 @@ class AnthropicChat:
             if reasoning_state.signaled:
                 reasoning_state.signaled = False
                 await emitter.send_reasoning_state("stopped")
+
+        elif event_type == "message_stop":
+            await tool_args_stream_ended(emitter)
 
         elif event_type == "message_start":
             # Message started
@@ -913,6 +1061,39 @@ class AnthropicChat:
         if self.debug:
             await self._debug_event(event)
 
+    @staticmethod
+    async def _send_reasoning(state: Any, emitter: Emitter, text: str) -> None:
+        if not state.open:
+            await emitter.send_chunk("\n<reasoning>\n")
+            state.open = True
+        await emitter.send_chunk(text)
+
+    async def _finish_thinking_block(self, state: Any, emitter: Emitter) -> None:
+        """At a block's stop: a progress update goes out as visible reply text, anything else as reasoning."""
+        held = "".join(state.thinking_held)
+        signature = "".join(state.thinking_signature)
+        was_live = state.thinking_live
+        state.thinking_held, state.thinking_signature, state.thinking_live = [], [], False
+        if not held:
+            return
+        if not is_progress_update_signature(signature):
+            if not was_live:
+                await self._send_reasoning(state, emitter, held)
+            return
+        if was_live:
+            # It already streamed as reasoning (a blocks-v2 reader gets every thought live, or it outgrew the
+            # hold); it is still the model's words to the person (and is stored as text), so it is sent as text
+            # as well — said.
+            vcprint("[ANTHROPIC] a progress update streamed live as reasoning; also sent as reply text", color="yellow")
+        if state.open:
+            if was_live:
+                mark = getattr(emitter, "withdraw_reasoning", None)
+                if callable(mark):
+                    mark()  # a blocks-v2 reader removes the Thinking row: the note arrives as reply text
+            await emitter.send_chunk("\n</reasoning>\n")
+            state.open = False
+        await emitter.send_chunk(held.strip() + "\n\n")
+
     async def _handle_content_block(self, block: Any, emitter: Emitter):
         """Handle a content block from the response"""
         await asyncio.sleep(0)
@@ -937,7 +1118,11 @@ class AnthropicChat:
             # emit nothing rather than an empty wrapper.
             thinking = getattr(block, "thinking", "")
             if thinking:
-                await emitter.send_chunk(f"\n<reasoning>\n{thinking}\n</reasoning>\n")
+                if is_progress_update_signature(getattr(block, "signature", None)):
+                    # A progress update is the model's words to the person (config/progress_updates.py).
+                    await emitter.send_chunk(thinking.strip() + "\n\n")
+                else:
+                    await emitter.send_chunk(f"\n<reasoning>\n{thinking}\n</reasoning>\n")
 
     async def _debug_event(self, event: Any):
         """Debug logging for events - only aggregate/bigger events, not individual chunks"""

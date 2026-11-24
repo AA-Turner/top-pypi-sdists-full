@@ -153,7 +153,7 @@ class SingleSelectBase(SelectBase):
                     idx = indexOf(params['value'], self.unicode_values)
                 else:
                     idx = indexOf(params['value'], self.labels)
-                params['value'] = self._items[self.labels[idx]]
+                params['value'] = self.values[idx]
         params.pop('options', None)
         return params
 
@@ -236,6 +236,12 @@ class Select(SingleSelectBase):
         ])
         self._validate_options_groups()
         self._validate_disabled_options()
+
+    def _init_params(self) -> dict[str, t.Any]:
+        params = super()._init_params()
+        if self.value is None and isIn(None, self.values):
+            params['value'] = None
+        return params
 
     def _validate_disabled_options(self, *events):
         if self.disabled_options and self.disabled_options == self.values:
@@ -969,6 +975,10 @@ class AutocompleteInput(SingleSelectBase):
     case_sensitive = param.Boolean(default=True, doc="""
         Enable or disable case sensitivity.""")
 
+    max_completions = param.Integer(default=None, bounds=(1, None), allow_None=True, doc="""
+        Maximum number of completions to display. If None, all matching
+        options are displayed.""")
+
     min_characters = param.Integer(default=2, doc="""
         The number of characters a user must type before
         completions are presented.""")
@@ -1025,7 +1035,8 @@ class AutocompleteInput(SingleSelectBase):
         if 'value' in params and not self.restrict and not isIn(params['value'], self.values):
             with param.parameterized.discard_events(self):
                 props = super()._process_param_change(params)
-                self.value = props['value'] = params['value']
+                self.value = params['value']
+                props['value'] = '' if self.value is None else str(self.value)
         else:
             props = super()._process_param_change(params)
         return props

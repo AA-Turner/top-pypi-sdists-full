@@ -14,7 +14,7 @@ from matrx_ai.providers.anthropic import anthropic_api
 
 def test_the_auto_streaming_override_sends_nothing_to_the_chat() -> None:
     source = stable_source(anthropic_api)
-    block = source[source.index("_ANTHROPIC_NONSTREAMING_MAX_TOKENS:\n"):] if "_ANTHROPIC_NONSTREAMING_MAX_TOKENS:\n" in source else source
-    override = block[: block.index("capture_issue(") + 400]
+    start = source.index("anthropic_requires_streaming(str(config_data")
+    override = source[start : source.index("stream_requested = True", start)]
     assert "send_warning" not in override, "the auto-streaming override must not warn the person"
     assert "Streaming was enabled automatically" not in source

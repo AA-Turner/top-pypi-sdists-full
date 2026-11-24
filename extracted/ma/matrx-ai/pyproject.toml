@@ -1,6 +1,6 @@
 [project]
 name = "matrx-ai"
-version = "0.5.686"
+version = "0.5.687"
 description = "Unified multi-provider AI client, orchestration, and tool system"
 readme = "README.md"
 license = { text = "MIT" }
@@ -33,18 +33,14 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
     # --- AI providers ---
-    # Versions pinned to current latest (May 2026) to land frontier media-gen
-    # APIs (gpt-image-2, Sora 2, Gemini 3.1 image, Veo 3.1, grok-imagine video).
-    "anthropic>=0.100.0",
-    "openai>=2.35.1",
+    # Floors = the versions this repo is tested on (upgrade campaign, 2026-10-30).
+    "anthropic>=2.3.0",
+    "openai>=3.41.0",
     "google-genai>=2.31.0",
-    "google-cloud-aiplatform>=1.138.0",
     "cerebras-cloud-sdk>=1.67.0",
     "groq>=1.2.0",
-    "together>=2.12.0",
     "xai-sdk>=1.12.2",
     "cohere>=6.1.0",
-    "fireworks-ai",
     "replicate>=1.0.7",
     "elevenlabs>=2.46.0",
     "tiktoken",
@@ -52,45 +48,47 @@ dependencies = [
     "pydantic>=2.12",
     "httpx",
     "aiohttp",
-    "fastapi>=0.115",
+    "fastapi>=0.162.0",
     # --- Utilities ---
     "json-repair",
     "pyyaml",
     "python-dotenv",
     "rich",
+    # Blocks v1 reads a markdown block's fences and GFM tables with a standard parser (PF-1 D9).
+    "markdown-it-py>=4.0",
     # desktop_schedule computes a cron schedule's first run (tools/implementations/desktop.py).
     "croniter>=2.0",
     # --- Data ---
     "numpy>=2.0",
     # Partial-image previews (providers/media_frames.fit_image_preview) —
     # declared here so matrx-ai installs standalone, not via a sibling.
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
     # --- Database (conversation persistence) ---
     "supabase",
-    "asyncpg>=0.31.0",
+    "asyncpg>=0.32.0",
     # --- Matrx ecosystem ---
     # media/media_persistence.py imports VisibilityLiteral, first exported by 2.0.7.
-    "matrx-utils>=2.0.109",
+    "matrx-utils>=2.0.114",
     # Plain matrx-files: its heavy stacks (PyMuPDF, OCR, rembg/OpenCV/ffmpeg) are extras each host
     # declares for the features it runs (Arman 2026-10-16: pay only for what you use). The platform
     # server installs matrx-files[all] itself; matrx-ai[media] covers the podcast slideshow here.
-    "matrx-files>=0.2.328",
+    "matrx-files>=0.2.333",
     # tools/_sandbox_proxy.py sends fs/search calls through the generated orchestrator operations.
-    "matrx-api>=0.1.31",
+    "matrx-api>=0.1.32",
     # 0.1.26+ exports the Masterwork* event models used here (renamed 2026-08-17;
     # the next matrx-connect release is the first tag that exports the new names).
-    "matrx-connect>=0.1.257",
+    "matrx-connect>=0.1.258",
     # actions.register_node is imported at module scope and first shipped in 0.1.22.
-    "matrx-graph>=0.2.373",
+    "matrx-graph>=0.2.374",
     # tools.implementations imports the browser implementation eagerly.
-    "matrx-scraper[browser,files]>=0.2.442",
+    "matrx-scraper[browser,files]>=0.2.443",
     # matrx-runtime (the Request Management Layer): the conversation executor
     # (orchestrator/conversation_runtime.py) is a CONSUMER of its ExecutionEngine —
     # one conversation = one global_execution. ai → runtime is the acyclic edge.
-    "matrx-runtime>=0.0.183",
+    "matrx-runtime>=0.0.190",
     # Payload-agnostic coordinated assignment planner/coordinator. The agent
     # workflow action consumes it; the assignment package never imports AI.
-    "matrx-assignment>=0.1.56",
+    "matrx-assignment>=0.1.57",
     # --- Virtual Filesystem (matrx_ai.tools.vfs) ---
     "fsspec>=2026.4.0",
     "wcmatch>=10.0",
@@ -112,13 +110,17 @@ dev = [
 # Code & docs ingestion tools (matrx_ai.tools.implementations.code_ingest).
 # Optional so a standalone install never force-pulls it; the git_ingest tool
 # imports gitingest lazily and degrades gracefully when it's absent.
+# External MCP servers as tools (tools/external_mcp.py) — the 2.x client API; imported lazily.
+mcp = [
+    "mcp>=2.3.0",
+]
 code-ingest = [
     "gitingest>=0.3.1",
 ]
 # Podcast video (agent_runners/podcast_generator -> matrx_files.compose_slideshow_async) needs the
 # bundled ffmpeg + OpenCV; without it the slideshow step raises FfmpegNotAvailableError naming matrx-files[media].
 media = [
-    "matrx-files[media]>=0.2.328",
+    "matrx-files[media]>=0.2.333",
 ]
 
 [dependency-groups]

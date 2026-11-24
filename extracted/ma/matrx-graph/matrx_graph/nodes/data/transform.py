@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_serializer, model_validator
 
 from matrx_graph.errors import ExecutionError
-from matrx_graph.nodes._sandbox import safe_eval
+from matrx_graph.nodes._sandbox import ExpressionFailure, safe_eval
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
@@ -308,8 +308,14 @@ class TransformExecutor:
                     f"data.transform: the part '{name}' has the same name as an input this step receives; "
                     "rename the part."
                 )
-            payload[name] = safe_eval(formula, payload)
-        result = safe_eval(config.expression, payload)
+            try:
+                payload[name] = safe_eval(formula, payload)
+            except ExpressionFailure as e:
+                return e.failure
+        try:
+            result = safe_eval(config.expression, payload)
+        except ExpressionFailure as e:
+            return e.failure
 
         # Best Practice: If the transformation results in a dictionary,
         # we spread it into the root of the output so downstream Pydantic

@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from ..concurrency import run_in_cpu_executor
 from ..models import PdfBinaryResult
+from ..render_budget import bounded_render_dpi
 from ._pike import inherited, load_pikepdf, open_pdf, save_pdf
 from .stamp import _num, _visible_box, _visual_to_user
 
@@ -50,7 +51,7 @@ class RedactBox(BaseModel):
     y1: float
 
     @model_validator(mode="after")
-    def _ordered(self) -> "RedactBox":
+    def _ordered(self) -> RedactBox:
         if self.x1 <= self.x0 or self.y1 <= self.y0:
             raise ValueError("A redaction box needs x1 > x0 and y1 > y0.")
         return self
@@ -97,8 +98,39 @@ def _catalog_matchers(spec: RedactFindSpec) -> list[tuple[str, str, re.Pattern[s
         rx = (entry.get("tier_regex") or {}).get(spec.tier) or entry.get("regex")
         if not rx:
             continue
-        out.append((pid, entry.get("label", pid), re.compile(rx, entry.get("flags", 0)), VALIDATORS.get(entry.get("validator") or "")))
+        finder = entry.get("finder")
+        if finder:  # a narrower detector than the regex (e.g. names that exclude common capitalised phrases)
+            from ..redact import patterns as _patterns
+
+            matcher: Any = _SpanFinder(getattr(_patterns, finder))
+        else:
+            matcher = re.compile(rx, entry.get("flags", 0))
+        out.append((pid, entry.get("label", pid), matcher, VALIDATORS.get(entry.get("validator") or "")))
     return out
+
+
+class _Span:
+    def __init__(self, text: str, start: int, end: int) -> None:
+        self._text, self._start, self._end = text, start, end
+
+    def start(self) -> int:
+        return self._start
+
+    def end(self) -> int:
+        return self._end
+
+    def group(self, _n: int = 0) -> str:
+        return self._text[self._start:self._end]
+
+
+class _SpanFinder:
+    """Quacks like ``re.Pattern.finditer`` for a catalog entry whose detector returns (start, end) spans."""
+
+    def __init__(self, fn: Any) -> None:
+        self._fn = fn
+
+    def finditer(self, text: str) -> list[_Span]:
+        return [_Span(text, a, b) for a, b in self._fn(text)]
 
 
 def _page_lines(page: Any) -> list[tuple[str, list[Any]]]:
@@ -812,9 +844,9 @@ def _flatten_page(pdf: Any, index: int, plain: bytes, boxes: list[RedactBox]) ->
     from PIL import ImageDraw
 
     pikepdf = load_pikepdf()
-    scale = _RASTER_DPI / 72.0
     doc = pdfium.PdfDocument(plain)
     try:
+        scale = bounded_render_dpi(*doc[index].get_size(), _RASTER_DPI) / 72.0
         img = doc[index].render(scale=scale).to_pil().convert("RGB")
         vw, vh = doc[index].get_size()
     finally:

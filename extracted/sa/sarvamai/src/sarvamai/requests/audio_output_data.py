@@ -6,7 +6,7 @@ import typing_extensions
 class AudioOutputDataParams(typing_extensions.TypedDict):
     content_type: str
     """
-    MIME type of the audio content (e.g., 'audio/mp3', 'audio/wav')
+    MIME type of the audio content, such as `audio/mpeg` for MP3 (the default) or `audio/wav`.
     """
 
     audio: str

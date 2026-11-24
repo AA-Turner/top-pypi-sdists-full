@@ -5,9 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from trajectory._models import BaseModel
-from trajectory.types.benchmarks.ingestion.benchmark_ingestion_failure import (
-  BenchmarkIngestionFailure,
-)
+from trajectory.types.specs.ingestion.benchmark_ingestion_failure import BenchmarkIngestionFailure
 
 
 class BenchmarkIngestionRuntimeResult(BaseModel):

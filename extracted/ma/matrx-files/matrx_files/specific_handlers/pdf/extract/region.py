@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from ..concurrency import run_in_cpu_executor
 from ..internal import load_pymupdf
+from ..render_budget import bounded_render_dpi
 from .bbox import BboxRect, extract_at_bbox
 from .tables import extract_tables_structured
 
@@ -71,7 +72,8 @@ def extract_region(
                 raise ValueError(f"page_number {page_number} out of range")
             page = doc[page_number - 1]
             clip = pymupdf.Rect(bdict["x0"], bdict["y0"], bdict["x1"], bdict["y1"])
-            pix = page.get_pixmap(clip=clip, dpi=200, alpha=False)
+            dpi = bounded_render_dpi(clip.width, clip.height, 200)
+            pix = page.get_pixmap(clip=clip, dpi=dpi, alpha=False)
             png = bytes(pix.tobytes("png"))
             return RegionExtractionResult(
                 page_number=page_number,

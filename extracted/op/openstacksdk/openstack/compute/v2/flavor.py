@@ -38,13 +38,14 @@ class Flavor(resource.Resource):
 
     _query_mapping = resource.QueryParameters(
         "is_public",
+        "name",
         include_sorting_defaults=True,
         min_disk="minDisk",
         min_ram="minRam",
     )
 
-    # extra_specs introduced in 2.61
-    _max_microversion = '2.61'
+    # name filter introduced in 2.102
+    _max_microversion = '2.102'
 
     # Properties
     #: The name of this flavor.
@@ -69,8 +70,10 @@ class Flavor(resource.Resource):
     #: Size of the ephemeral data disk attached to this server. *Type: int*
     ephemeral = resource.Body('OS-FLV-EXT-DATA:ephemeral', type=int, default=0)
     #: ``True`` if this flavor is disabled, ``False`` if not. *Type: bool*
+    #: Not returned with microversion 2.102 or later.
     is_disabled = resource.Body('OS-FLV-DISABLED:disabled', type=bool)
     #: The bandwidth scaling factor this flavor receives on the network.
+    #: Not returned with microversion 2.102 or later.
     rxtx_factor = resource.Body('rxtx_factor', type=float)
     # TODO(mordred) extra_specs can historically also come from
     #               OS-FLV-WITH-EXT-SPECS:extra_specs. Do we care?

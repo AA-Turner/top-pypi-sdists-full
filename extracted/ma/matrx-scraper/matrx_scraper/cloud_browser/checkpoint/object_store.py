@@ -31,7 +31,7 @@ class ObjectRef:
         return f"s3://{self.bucket}/{self.key}"
 
     @classmethod
-    def parse(cls, uri: str, version_id: str | None = None) -> "ObjectRef":
+    def parse(cls, uri: str, version_id: str | None = None) -> ObjectRef:
         if not uri.startswith("s3://"):
             raise ValueError(f"object ref must be an s3:// uri, got {redact_url_secrets(uri)!r}")
         rest = uri[len("s3://") :]

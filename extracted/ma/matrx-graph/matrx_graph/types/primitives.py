@@ -29,6 +29,9 @@ class EdgeKind(str, Enum):
     CONDITIONAL — guarded by a predicate evaluated against source output
     ERROR       — taken only when the source node fails (try/catch topology)
     STREAM      — carries an async iterator (LLM token streams, etc.)
+    RELATION    — carries NOTHING and never runs: an information node's attachment
+                  ("contains", "relates", ...). Never reaches a CompiledGraph
+                  (matrx_graph.information.split_information).
     """
 
     DATA = "data"
@@ -36,6 +39,7 @@ class EdgeKind(str, Enum):
     CONDITIONAL = "conditional"
     ERROR = "error"
     STREAM = "stream"
+    RELATION = "relation"
 
 
 Reducer = Literal["replace", "append", "merge", "sum", "last_writer_wins", "topic_map"]
@@ -110,6 +114,9 @@ class NodeCategory(str, Enum):
     PIPE = "pipe"
     CUSTOM = "custom"
     PLAN = "plan"
+    # Information nodes (notes, frames, media, kinds, records): stored in `nodes`, never run
+    # (``NodeSpec.executes`` is False). Also the React Flow renderer category in ``node.type``.
+    INFO = "info"
 
 
 class RunStatus(str, Enum):

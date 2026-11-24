@@ -44,6 +44,13 @@ _DATE_BLOCK_RE = re.compile(
 # LEADING bare "Current date: YYYY-MM-DD" lines. Strip those too so legacy /
 # already-corrupted rows self-heal on the next ingest.
 _LEGACY_LEADING_DATE_RE = re.compile(r"^(?:Current date: \d{4}-\d{2}-\d{2}[ \t]*(?:\r?\n)+)+")
+# A date block that OPENED its sentinel but never closed it (text an author or a host
+# assembled by hand from the open marker alone). Left in place it reached the provider
+# behind a freshly rendered block — two dates on one send (2026-11-17). Stripped anywhere,
+# any count, AFTER the closed blocks are gone, so whatever remains is unclosed.
+_UNCLOSED_DATE_LINE_RE = re.compile(
+    re.escape(DATE_BLOCK_OPEN) + r"Current date: \d{4}-\d{2}-\d{2}[ \t]*(?:\r?\n)*"
+)
 
 
 def render_date_block(date_str: str) -> str:
@@ -65,6 +72,7 @@ def strip_date_decorations(text: str) -> str:
     if not text:
         return text
     text = _DATE_BLOCK_RE.sub("", text)
+    text = _UNCLOSED_DATE_LINE_RE.sub("", text)
     text = _LEGACY_LEADING_DATE_RE.sub("", text)
     return text.strip("\r\n")
 
@@ -97,6 +105,21 @@ OPENING_TURN_CLOSE = "</opening_turn>"
 
 def render_opening_turn(text: str) -> str:
     return "\n".join((OPENING_TURN_OPEN, OPENING_TURN_NOTE, "", text, OPENING_TURN_CLOSE))
+
+
+def render_kind_directives(action_types: list[str]) -> str:
+    """Block ``kind_directives`` (producer). Guidance describing the Matrx Directives this agent may emit. The model's
+    output_schema (response_format) already constrains the exact envelope;
+    this tells it WHEN/HOW to use it and lists the available action types."""
+    bullets = "\n  * ".join(action_types) if action_types else ""
+    return f"""## Available Kind Directives
+- When the user's request calls for it, you can perform an action by emitting a
+  Kind Directive as your final structured output — `__kind` FIRST, then items:
+  `{{"__kind": "<directive>", "items": [ ... ]}}`
+- Available directive(s):
+  * {bullets}
+- Follow your output schema for the exact item fields. Emit a directive ONLY when
+  it genuinely fulfils the request; otherwise respond normally."""
 
 
 @dataclass
@@ -273,18 +296,8 @@ class SystemInstruction:
 
     @staticmethod
     def _actions_guidance(action_types: list[str]) -> str:
-        """Guidance describing the Matrx Directives this agent may emit. The model's
-        output_schema (response_format) already constrains the exact envelope;
-        this tells it WHEN/HOW to use it and lists the available action types."""
-        bullets = "\n  * ".join(action_types) if action_types else ""
-        return f"""## Available Kind Directives
-- When the user's request calls for it, you can perform an action by emitting a
-  Kind Directive as your final structured output — `__kind` FIRST, then items:
-  `{{"__kind": "<directive>", "items": [ ... ]}}`
-- Available directive(s):
-  * {bullets}
-- Follow your output schema for the exact item fields. Emit a directive ONLY when
-  it genuinely fulfils the request; otherwise respond normally."""
+        """Block ``kind_directives`` — its producer is :func:`render_kind_directives`."""
+        return render_kind_directives(action_types)
 
     @staticmethod
     def _code_guidelines() -> str:

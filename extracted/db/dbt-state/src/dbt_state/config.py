@@ -102,6 +102,7 @@ class _StringEnum(str, Enum):
 class CloneIncrementalInDev(_StringEnum):
     NEVER = "NEVER"
     IF_TABLE_MISSING = "IF_TABLE_MISSING"
+    IF_CHANGED = "IF_CHANGED"
     ALWAYS = "ALWAYS"
 
 

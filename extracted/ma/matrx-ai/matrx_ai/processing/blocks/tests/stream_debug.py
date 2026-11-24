@@ -18,7 +18,7 @@ import argparse
 import json
 import os
 import sys
-from matrx_utils import vcprint, clear_terminal
+from matrx_utils import clear_terminal
 # ---------------------------------------------------------------------------
 # Allow running from the repo root without installing the package
 # ---------------------------------------------------------------------------

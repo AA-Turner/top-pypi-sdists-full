@@ -36,6 +36,10 @@ class BridgeAction(StrEnum):
     DIAGNOSE = "diagnose"
     REPROJECT = "reproject"
     DELETE_NATIVE_STREAM = "delete_native_stream"
+    REGISTER = "register"
+    """Give this provider session its agent-mail address with transcript copying OFF:
+    creates (or refreshes) the binding with no conversation, idempotent per provider
+    session id, in the organization the request carries. Answers ``address``."""
 
 
 IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
@@ -52,6 +56,7 @@ IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
         BridgeAction.SEND,
         BridgeAction.DIAGNOSE,
         BridgeAction.REPROJECT,
+        BridgeAction.REGISTER,
     }
 )
 """The actions this contract actually serves.
@@ -70,6 +75,23 @@ class BridgeProvider(StrEnum):
     CODEX = "codex"
     CURSOR = "cursor"
     VSCODE = "vscode"
+
+
+#: Any coding tool's own name, as ``chat.coding_session_provider_shape_check`` stores it: a
+#: lowercase token of letters, digits, ``_`` or ``-``, 1-40 characters, starting with a letter.
+PROVIDER_TOKEN_PATTERN = r"^[a-z][a-z0-9_-]{0,39}$"
+ProviderToken = Annotated[str, Field(pattern=PROVIDER_TOKEN_PATTERN, min_length=1, max_length=40)]
+#: A request's provider: a built-in tool (``BridgeProvider``, which every adapter and transcript
+#: verb needs) or, for ``register`` / ``delete`` only (an agent-mail address with copying off), any
+#: tool's own name. The enum is tried first, so a built-in name is always the enum member.
+AnyProvider = Annotated[BridgeProvider | ProviderToken, Field(union_mode="left_to_right")]
+#: The verbs any tool may call; every other verb needs a built-in provider and refuses the rest.
+ANY_PROVIDER_ACTIONS: frozenset[str] = frozenset({"register", "delete"})
+
+
+def provider_token(provider: BridgeProvider | str) -> str:
+    """The stored token of a provider, built-in or not."""
+    return provider.value if isinstance(provider, BridgeProvider) else str(provider)
 
 
 class BridgeOrigin(StrEnum):
@@ -328,7 +350,7 @@ class BridgeRequest(BaseModel):
 
     schema_version: Literal[1] = 1
     action: BridgeAction
-    provider: BridgeProvider
+    provider: AnyProvider
     provider_session_id: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
     provider_project_key: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
     conversation: BridgeConversation | None = None
@@ -422,6 +444,8 @@ class BridgeRequest(BaseModel):
             # and nothing to re-project.
             BridgeAction.DIAGNOSE,
             BridgeAction.REPROJECT,
+            # The address belongs to one provider session.
+            BridgeAction.REGISTER,
         }
         if self.action in session_actions and self.provider_session_id is None:
             raise ValueError(f"provider_session_id is required for {self.action.value}")
@@ -724,6 +748,10 @@ class BridgeRefusalCode(StrEnum):
     a validator's documentation is the same dead end the action refusal was
     built to end.
     """
+
+    ORGANIZATION_REQUIRED = "organization_required"
+    """REGISTER was sent with no organization: the address is filed in the organization the
+    request carries (``X-Organization-Id``), never one the server picks."""
 
     UNSUPPORTED_RUNTIME = "unsupported_runtime"
     """The action is implemented, but no runtime can serve this provider/origin."""
@@ -1235,7 +1263,7 @@ class BridgeResponse(BaseModel):
 
     schema_version: Literal[1] = 1
     action: BridgeAction
-    provider: BridgeProvider
+    provider: AnyProvider
     # Every response carries what this server implements, so no client ever
     # hardcodes an action list (there is no version number to negotiate).
     supported_actions: list[BridgeAction] = Field(
@@ -1287,3 +1315,7 @@ class BridgeResponse(BaseModel):
     #: session to continue one more step). The MCP door merges these into the
     #: hook stdout; ``None`` on every other answer.
     hook_top_level_output: dict[str, JsonValue] | None = None
+    #: REGISTER only: the session's agent-mail address (its binding id — the same id
+    #: whether or not its transcript is copied) and whether this call created it.
+    address: str | None = None
+    registered: bool | None = None

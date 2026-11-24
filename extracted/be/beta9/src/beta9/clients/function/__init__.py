@@ -39,6 +39,18 @@ class FunctionInvokeResponse(betterproto.Message):
     exit_code: int = betterproto.int32_field(4)
     result: bytes = betterproto.bytes_field(5)
     container_id: str = betterproto.string_field(6)
+    pending_phase: str = betterproto.string_field(7)
+    """
+    What the invocation waits for before its container runs, on a response
+     that carries no output: the phase (queued, provisioning,
+     waiting_for_capacity or starting), why (worker_starting,
+     backup_worker_starting, no_capacity, machine_busy or no_spare_capacity),
+     how long it has been so, and the same in words.
+    """
+
+    pending_reason: str = betterproto.string_field(8)
+    pending_waited_seconds: int = betterproto.uint32_field(9)
+    pending_message: str = betterproto.string_field(10)
 
 
 @dataclass(eq=False, repr=False)

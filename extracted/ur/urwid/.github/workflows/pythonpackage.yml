@@ -53,14 +53,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
       - name: Create virtual environment
         run: uv venv --python 3.14
       - name: Install package with all extras
         run: uv pip install -e ".[curses,serial,tornado,trio,twisted,zmq]"
       - name: Install dependencies
         run: uv pip install --upgrade -r pylint-requirements.txt
-      # tests are not checked, see [tool.ruff] extend-exclude in pyproject.toml
+      # tests are not checked, see [tool.ruff.lint] exclude in pyproject.toml
       - name: Lint with pylint
         run: uv run --no-project pylint --output-format=github urwid
 
@@ -70,14 +70,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
       - name: Create virtual environment
         run: uv venv --python 3.14
       - name: Install package with all extras
         run: uv pip install -e ".[curses,serial,tornado,trio,twisted,zmq]"
       - name: Install dependencies
         run: uv pip install --upgrade -r mypy-requirements.txt
-      # tests other than tests/type_checks are not checked, see [tool.ruff] extend-exclude in pyproject.toml
+      # tests other than tests/type_checks are not checked, see [tool.ruff.lint] exclude in pyproject.toml
       - name: Type check with mypy
         run: uv run --no-project mypy urwid examples tests/type_checks
 
@@ -87,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
       - name: Create virtual environment
         run: uv venv --python 3.14
       - name: Install package with all extras
@@ -132,7 +132,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
       - name: Create virtual environment
         run: uv venv --python-preference only-system --python ${{ matrix.python-version }}
       - name: Install dependencies
@@ -150,7 +150,8 @@ jobs:
           && 'serial,tornado,trio,twisted,zmq'
           || 'curses,serial,tornado,trio,twisted,zmq' }}]"
       - name: Test
-        run: uv run --no-project python -m pytest --cov-report=term --cov-report=xml
+        # One pytest-xdist worker per runner CPU.
+        run: uv run --no-project python -m pytest -n auto --cov-report=term --cov-report=xml
       - name: Coveralls Parallel
         uses: coverallsapp/github-action@v2
         with:
@@ -179,7 +180,7 @@ jobs:
           fetch-depth: 0  # need for setuptools_scm
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Build dist
         run: uv build
@@ -203,7 +204,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
       - uses: actions/download-artifact@v8
         with:
           # unpacks default artifact into dist/

@@ -330,15 +330,8 @@ def test_legacy_groq_stt_import_is_compatible_without_importing_the_sdk(monkeypa
     reset_provider_client_cache()
     client = UnifiedAIClient._build_provider_client("groq_stt", "GroqSTT")
     assert type(client).__name__ == "GroqSTT"
-
-    migration = (
-        Path(__file__).parents[3]
-        / "db"
-        / "migrations"
-        / "ai_060_catalog_tts_stt_dispatch.sql"
-    ).read_text()
-    assert "HAVING count(v.id) <> 1" in migration
-    assert "translator_key='groq_stt'" in migration
+    # The host migration that registers translator_key='groq_stt' is checked where it lives:
+    # tests/package_host_contracts/test_matrx_ai_host_migrations.py.
 
 
 def test_groq_stt_provider_import_is_cold_safe_and_does_not_load_sdk() -> None:

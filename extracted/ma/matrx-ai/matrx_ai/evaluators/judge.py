@@ -237,7 +237,7 @@ class JudgeContract(BaseModel):
     rubric_provenance: Provenance = "A"
     rubric_author: str | None = Field(
         default=None,
-        description="Who wrote the rubric — an email for H/V, an agent key for A.",
+        description="Who wrote the rubric — a role label for H/V (never a person's address), an agent key for A.",
     )
     rubric_author_ref: EntityRef = Field(
         default_factory=EntityRef,

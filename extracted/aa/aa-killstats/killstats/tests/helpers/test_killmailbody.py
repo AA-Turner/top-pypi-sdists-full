@@ -28,12 +28,25 @@ from killstats.tests.testdata.killstats import KillmailBodyFactory
 APP_SETTINGS_PATH = "killstats.app_settings"
 MODULE_PATH = "killstats.helpers.killmailbody"
 
+# Only the keys these tests touch; cache.clear() would flush the whole Redis DB
+CACHE_KEYS = [
+    "esi:bucket:killmail",
+    LAST_REQUEST_KEY,
+    RETRY_AFTER_KEY,
+    f"{__title__.upper()}_WORKER_SHUTDOWN",
+    KillmailBody._storage_key(999999),
+]
+
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 class TestKillmailHelper(AuthTestCase):
     def setUp(self) -> None:
         super().setUp()
-        cache.clear()
+        cache.delete_many(CACHE_KEYS)
+
+    def tearDown(self) -> None:
+        cache.delete_many(CACHE_KEYS)
+        super().tearDown()
 
     @patch(MODULE_PATH + ".time.sleep")
     def test_should_wait_for_retry_after(self, mocked_sleep):
@@ -248,6 +261,7 @@ class TestKillmailHelper(AuthTestCase):
     def test_storage_lifecycle_save_get_and_delete(self):
         # Test Data
         killmail = KillmailBodyFactory()
+        self.addCleanup(cache.delete, KillmailBody._storage_key(killmail.killmail_id))
 
         # Test Action: Save
         killmail.save()

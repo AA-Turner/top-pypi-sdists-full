@@ -14,7 +14,6 @@ PDF detectors are imported and registered by
 
 from __future__ import annotations
 
-from typing import Any
 
 from .protocol import Detector, DetectorFactory, DetectorSpec
 

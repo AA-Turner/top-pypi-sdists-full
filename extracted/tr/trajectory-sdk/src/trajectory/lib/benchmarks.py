@@ -29,11 +29,11 @@ from trajectory.lib.benchmark_submission import DEFAULT_UPLOAD_MAX_RETRIES, Subm
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
 from trajectory.types import BatchItemFailure
 from trajectory.types.benchmark_images_page import BenchmarkImage
-from trajectory.types.benchmarks.benchmark_spec import BenchmarkSpec
-from trajectory.types.benchmarks.image_spec import ImageSpec
-from trajectory.types.benchmarks.runtime_spec import RuntimeSpec
-from trajectory.types.benchmarks.task_spec import TaskSpec
 from trajectory.types.ingest_benchmark_response import IngestBenchmarkResponse
+from trajectory.types.specs.benchmark_spec import BenchmarkSpec
+from trajectory.types.specs.image_spec import ImageSpec
+from trajectory.types.specs.runtime_spec import RuntimeSpec
+from trajectory.types.specs.task_spec import TaskSpec
 
 _MANIFEST_PATH = "manifest.json"
 _DIGEST_IMAGE_REF = re.compile(r"^.+@sha256:[0-9a-fA-F]{64}$")
@@ -421,7 +421,7 @@ def wait_for_benchmark_images(
   """Request benchmark image builds and poll until every build is terminal.
 
   The build request is only an acknowledgement. Each poll reads every page of
-  `client.benchmarks.images.list(bench_id)`, so an image on any page that is still building
+  `client.specs.images.list(bench_id)`, so an image on any page that is still building
   keeps the helper waiting, and a failed image on any page raises `BenchmarkImageBuildError`
   once no image is building. Returns every image when all builds succeed.
   """
@@ -430,9 +430,9 @@ def wait_for_benchmark_images(
   if poll_seconds < 0:
     raise ValueError("poll_seconds must be non-negative")
   deadline = time.monotonic() + timeout_seconds
-  client.benchmarks.images.build(bench_id)
+  client.specs.images.build(bench_id)
   while True:
-    images = list(client.benchmarks.images.list(bench_id))
+    images = list(client.specs.images.list(bench_id))
     in_flight = any(image.build_status in {"pending", "building"} for image in images)
     if not in_flight:
       failed = [image.task_id for image in images if image.build_status == "failed"]

@@ -7,51 +7,82 @@ CWE-918 (SSRF), CWE-400 (Resource Exhaustion), and CWE-117 (Log Forging).
 
 from __future__ import annotations
 
-import base64
 import contextlib
 import hashlib
 import json
 import logging
 import math
 import re
-import ssl
 import sys
-import tempfile
+import traceback
 import unicodedata
 import warnings
+from collections.abc import Mapping
 from functools import lru_cache
-from html.parser import HTMLParser
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Final, NoReturn
+from typing import TYPE_CHECKING, Any, ClassVar, Final
 from urllib.parse import quote, unquote, urlparse
+
+from mailjet_rest.utils.filesystem_security import (
+    check_file_size as _check_file_size,
+    validate_attachment_path as _validate_attachment_path,
+    validate_multipart_files as _validate_multipart_files,
+)
+from mailjet_rest.utils.html_guard import (
+    XSS_PATTERN as _XSS_PATTERN,
+    LazyHtmlGuardMeta as _LazyGuardMeta,
+    analyze_html_safety as _analyze_html_safety,
+)
+from mailjet_rest.utils.transport_security import (
+    SecretAuth,
+    SecureHTTPAdapter,
+    _build_tls_context,
+    get_secure_ssl_context,
+    resolve_tls_verify,
+)
 
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from html.parser import HTMLParser
+    from pathlib import Path
 
-    import requests
+    from mailjet_rest.types import (
+        AuthCredentials,
+        HeadersMapping,
+        RequestHeaders,
+        SendV31Payload,
+        TimeoutType,
+    )
 
-    from mailjet_rest.types import TimeoutType
-
-from requests.adapters import HTTPAdapter
-from requests.auth import AuthBase
-
-from mailjet_rest.errors import ValidationError
+try:
+    import orjson as _orjson_mod
+except ImportError:  # pragma: no cover - optional speedup extra
+    _orjson_mod = None
+_orjson: Any = _orjson_mod
 
 
 if sys.version_info >= (3, 12):
-    from typing import TYPE_CHECKING, override
+    from typing import override
 else:
     from typing_extensions import override
+
+
+__all__ = [
+    "RedactingFilter",
+    "SecretAuth",
+    "SecureHTTPAdapter",
+    "SecurityGuard",
+    "_build_tls_context",
+    "get_secure_ssl_context",
+]
 
 
 _CRLF_RE: Final = re.compile(r"[\r\n]")
 # RFC 9110 strict control characters (blocks all non-printable ASCII except \x09 tab)
 _CONTROL_CHAR_RE: Final = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")
 _PATH_CONTROL_CHAR_RE: Final = re.compile(r"[\x00-\x1f\x7f]")
-
-# Expanded to include iframe, object, embed, and applet
-_XSS_PATTERN: Final = re.compile(r"<(script|svg|iframe|object|embed|applet)|javascript:|onload=", re.IGNORECASE)
+_ASCII_DOMAIN_RE: Final = re.compile(r"^[A-Za-z0-9_-]{1,63}(?:\.[A-Za-z0-9_-]{1,63})*$")
+_MAX_DNS_DOMAIN_LEN: Final = 253
+_MAX_DNS_LABEL_LEN: Final = 63
 
 
 @lru_cache(maxsize=1)
@@ -69,100 +100,46 @@ def _get_secret_pattern() -> re.Pattern[str]:
     )
 
 
-class SecureHTTPAdapter(HTTPAdapter):
-    """Custom HTTP Adapter enforcing modern TLS versions (CWE-319)."""
-
-    @staticmethod
-    def _get_secure_ssl_context() -> ssl.SSLContext:
-        """Create and return a hardened SSL context enforcing TLS 1.2+.
-
-        Returns:
-            ssl.SSLContext: The configured SSL context.
-        """
-        context = ssl.create_default_context()
-        context.minimum_version = ssl.TLSVersion.TLSv1_2
-        return context
-
-    @override
-    def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
-        kwargs["ssl_context"] = self._get_secure_ssl_context()
-        super().init_poolmanager(*args, **kwargs)
-
-    @override
-    def proxy_manager_for(self, proxy: str, **proxy_kwargs: Any) -> Any:
-        """Ensure proxy connections also strictly enforce TLS 1.2+.
-
-        Returns:
-            Any: The proxy manager instance.
-        """
-        proxy_kwargs["ssl_context"] = self._get_secure_ssl_context()
-        return super().proxy_manager_for(proxy, **proxy_kwargs)
+_SECRET_SENTINELS: Final[tuple[str, ...]] = (
+    "authorization",
+    "api_key",
+    "api-key",
+    "api_secret",
+    "api-secret",
+    "token",
+)
 
 
-class SecretAuth(AuthBase):
-    """OWASP: Obfuscate credentials in memory dumps and tracebacks (CWE-316).
-
-    Inherits from AuthBase instead of tuple to prevent index/iteration exposure.
-    """
-
-    def __init__(self, auth_tuple: tuple[str, str]) -> None:
-        """Initialize with API credentials."""
-        self._api_key = auth_tuple[0]
-        self._api_secret = auth_tuple[1]
-
-    def __call__(self, r: requests.PreparedRequest) -> requests.PreparedRequest:
-        """Apply Basic Auth headers to the request.
-
-        Returns:
-            requests.PreparedRequest: The modified request.
-        """
-        auth_str = f"{self._api_key}:{self._api_secret}".encode("latin1")
-        r.headers["Authorization"] = "Basic " + base64.b64encode(auth_str).decode("ascii")
-        return r
-
-    def __hash__(self) -> int:
-        """Hash the credentials for dictionary lookups.
-
-        Returns:
-            int: The computed hash value.
-        """
-        return hash((self._api_key, self._api_secret))
-
-    def __eq__(self, other: object) -> bool:
-        """Allow equality checks against standard tuples for testing and logic checks.
-
-        Returns:
-            bool: True if equal, False otherwise.
-        """
-        if isinstance(other, tuple):
-            # Reconstruct the tuple on the fly for backwards-compatible equality assertions
-            return (self._api_key, self._api_secret) == other
-
-        if isinstance(other, SecretAuth):
-            # Allow comparison against another SecretAuth instance
-            return self._api_key == other._api_key and self._api_secret == other._api_secret
-
-        return False
-
-    def __getitem__(self, index: int) -> NoReturn:
-        """Prevent Credential extraction via tuple unpacking / indexing."""
-        msg = "Credential extraction via indexing is blocked for security (CWE-316)."
-        raise TypeError(msg)
-
-    def __iter__(self) -> Any:
-        """Prevent Credential extraction via iteration."""
-        msg = "Credential extraction via iteration is blocked for security (CWE-316)."
-        raise TypeError(msg)
-
-    def __repr__(self) -> str:
-        """Return a safe representation of the credential."""
-        return "SecretAuth(***REDACTED***)"
+def _may_contain_secret(text: str) -> bool:
+    lower = text.lower()
+    return any(token in lower for token in _SECRET_SENTINELS)
 
 
 class RedactingFilter(logging.Filter):
     """Deep recursive logging filter to automatically scrub API keys and secrets (CWE-117, CWE-316)."""
 
     MAX_REDACTION_DEPTH: Final[int] = 4
+
+    _SENSITIVE_KEY_NAMES: Final[frozenset[str]] = frozenset(
+        {
+            "password",
+            "passwd",
+            "pwd",
+            "secret",
+            "api_secret",
+            "api-secret",
+            "api_key",
+            "api-key",
+            "apikey",
+            "token",
+            "access_token",
+            "refresh_token",
+            "authorization",
+            "cookie",
+            "set-cookie",
+            "private_key",
+        }
+    )
 
     # Standard LogRecord attributes to ignore for maximum performance
     _STANDARD_ATTRS: Final[frozenset[str]] = frozenset(
@@ -193,12 +170,27 @@ class RedactingFilter(logging.Filter):
         }
     )
 
+    @classmethod
+    def _is_sensitive_key(cls, key: object, value: object) -> bool:
+        return (
+            isinstance(key, str)
+            and key.strip().lower() in cls._SENSITIVE_KEY_NAMES
+            and value is not None
+            and not isinstance(value, bool)
+        )
+
     @staticmethod
     def _redact_str(data: str) -> str:
         try:
             return _get_secret_pattern().sub(r"\1\2********", data)
         except Exception:  # ruff: ignore[blind-except]
             return "[REDACTION_FAILED_UNSAFE_STRING]"
+
+    @classmethod
+    def _redact_str_fast(cls, data: str) -> str:
+        if not _may_contain_secret(data):
+            return data
+        return cls._redact_str(data)
 
     def _redact_tuple(self, data: tuple[Any, ...], depth: int) -> tuple[Any, ...]:
         """Recursively sanitize tuple items preserving namedtuple structure.
@@ -230,7 +222,23 @@ class RedactingFilter(logging.Filter):
         except Exception:  # ruff: ignore[blind-except]
             return ""
 
-        return self._redact_str(str_val)
+        return self._redact_str_fast(str_val)
+
+    def _redact_collection(self, data: Any, depth: int) -> Any:
+        if isinstance(data, dict):
+            return {
+                k: ("********" if self._is_sensitive_key(k, v) else self._deep_redact(v, depth + 1))
+                for k, v in data.items()
+            }
+        if isinstance(data, list):
+            return [self._deep_redact(item, depth + 1) for item in data]
+        if isinstance(data, tuple):
+            return self._redact_tuple(data, depth)
+        if isinstance(data, set):
+            return {self._deep_redact(item, depth + 1) for item in data}
+        if isinstance(data, frozenset):
+            return frozenset(self._deep_redact(item, depth + 1) for item in data)
+        return self._redact_object(data, depth)
 
     def _deep_redact(self, data: Any, depth: int = 0) -> Any:
         """Recursively search and scrub secrets from complex nested data structures.
@@ -240,21 +248,51 @@ class RedactingFilter(logging.Filter):
         """
         if depth > self.MAX_REDACTION_DEPTH:
             return "[MAX_DEPTH_REACHED]"
-
         if isinstance(data, (int, float, bool, type(None))):
             return data
         if isinstance(data, str):
-            return self._redact_str(data)
-        if isinstance(data, dict):
-            return {k: self._deep_redact(v, depth + 1) for k, v in data.items()}
-        if isinstance(data, list):
-            return [self._deep_redact(item, depth + 1) for item in data]
-        if isinstance(data, tuple):
-            return self._redact_tuple(data, depth)
-        if isinstance(data, set):
-            return {self._deep_redact(item, depth + 1) for item in data}
+            return self._redact_str_fast(data)
+        return self._redact_collection(data, depth)
 
-        return self._redact_object(data, depth)
+    def _redact_exc_info(self, record: logging.LogRecord) -> None:
+        if isinstance(record.exc_text, str):
+            record.exc_text = self._redact_str_fast(record.exc_text)
+
+        if isinstance(record.exc_info, tuple) and len(record.exc_info) == 3:
+            formatted = "".join(traceback.format_exception(*record.exc_info)).rstrip("\n")
+            record.exc_text = self._redact_str_fast(formatted)
+            record.exc_info = None
+
+    def _redact_extra_attrs(self, record: logging.LogRecord) -> None:
+        for attr_name, attr_value in list(record.__dict__.items()):
+            if attr_name not in self._STANDARD_ATTRS:
+                if self._is_sensitive_key(attr_name, attr_value):
+                    record.__dict__[attr_name] = "********"
+                else:
+                    record.__dict__[attr_name] = self._deep_redact(attr_value)
+
+    def _redact_msg_and_collect_flags(self, record: logging.LogRecord) -> tuple[bool, bool, bool] | None:
+        has_args = bool(isinstance(record.args, (dict, tuple)) and record.args)
+        has_exc = record.exc_text is not None or record.exc_info is not None
+        has_extras = any(attr not in self._STANDARD_ATTRS for attr in record.__dict__)
+
+        if isinstance(record.msg, str) and _may_contain_secret(record.msg):
+            record.msg = self._redact_str(record.msg)
+        elif not has_args and not has_exc and not has_extras:
+            return None
+        return has_args, has_extras, has_exc
+
+    def _scrub_record(self, record: logging.LogRecord) -> None:
+        flags = self._redact_msg_and_collect_flags(record)
+        if flags is None:
+            return
+        has_args, has_extras, has_exc = flags
+        if has_args:
+            record.args = self._deep_redact(record.args)
+        if has_extras:
+            self._redact_extra_attrs(record)
+        if has_exc:
+            self._redact_exc_info(record)
 
     @override
     def filter(self, record: logging.LogRecord) -> bool:
@@ -263,90 +301,148 @@ class RedactingFilter(logging.Filter):
         Returns:
             bool: Always True (permits the log to write but strictly scrubs the content beforehand).
         """
-        try:  # ruff: ignore[too-many-statements-in-try-clause]
-            # 1. Redact primary flat string message
-            if isinstance(record.msg, str):
-                record.msg = self._redact_str(record.msg)
-
-            # 2. Redact tuple/dict args WITHOUT changing their base types
-            if isinstance(record.args, (dict, tuple)):
-                record.args = self._deep_redact(record.args)
-
-            # 3. Redact dynamically injected 'extra' log attributes
-            for attr_name, attr_value in record.__dict__.items():
-                if attr_name not in self._STANDARD_ATTRS:
-                    record.__dict__[attr_name] = self._deep_redact(attr_value)
+        try:
+            self._scrub_record(record)
         except Exception as e:  # ruff: ignore[blind-except]
             # Failsafe: Never let logging filters crash application execution
             logging.getLogger(__name__).debug("Redaction filter failed: %s", e)
         return True
 
 
-class SecurityGuard:
+_LOOPBACK_HOSTS: Final[frozenset[str]] = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _validate_url_hostname(parsed: Any, allowed_root_domain: str) -> None:
+    hostname = parsed.hostname or ""
+    if "%" in hostname:
+        msg = (
+            f"Security Alert (CWE-918): Hostname '{hostname}' is not permitted. "
+            f"Must be a '{allowed_root_domain}' domain or a local loopback for testing."
+        )
+        raise ValueError(msg)
+
+    allowed_exact_hosts = _LOOPBACK_HOSTS | {
+        allowed_root_domain,
+        f"api.{allowed_root_domain}",
+    }
+    if hostname not in allowed_exact_hosts and not hostname.endswith(f".{allowed_root_domain}"):
+        msg = (
+            f"Security Alert (CWE-918): Hostname '{hostname}' is not permitted. "
+            f"Must be a '{allowed_root_domain}' domain or a local loopback for testing."
+        )
+        raise ValueError(msg)
+
+    if parsed.scheme == "http" and hostname not in _LOOPBACK_HOSTS:
+        msg = (
+            f"Security Alert (CWE-319): Unencrypted 'http://' scheme is forbidden for '{hostname}'. "
+            "Use 'https://' for Mailjet API endpoints; 'http://' is permitted only for local loopback "
+            "('localhost', '127.0.0.1', '::1')."
+        )
+        raise ValueError(msg)
+
+
+def _validate_url_uncached(url: str, allowed_root_domain: str) -> None:
+    if not isinstance(url, str) or not url.strip():
+        msg = "Security Alert (CWE-918): API URL must be a non-empty string."
+        raise ValueError(msg)
+    if _PATH_CONTROL_CHAR_RE.search(url):
+        msg = "Security Alert (CWE-918): URL contains forbidden control characters."
+        raise ValueError(msg)
+
+    parsed = urlparse(url)
+    if "#" in url or parsed.fragment:
+        msg = "Security Alert (CWE-918): URL fragments ('#') are forbidden."
+        raise ValueError(msg)
+    if parsed.scheme not in {"http", "https"}:
+        msg = f"Security Alert (CWE-918): Invalid scheme '{parsed.scheme}'. Only http/https allowed."
+        raise ValueError(msg)
+    if parsed.username is not None or parsed.password is not None:
+        msg = "Security Alert (CWE-918): Embedded credentials in API URL are forbidden."
+        raise ValueError(msg)
+
+    _validate_url_hostname(parsed, allowed_root_domain)
+
+
+@lru_cache(maxsize=32)
+def _validate_config_url_cached(url: str, allowed_root_domain: str) -> None:
+    _validate_url_uncached(url, allowed_root_domain)
+    if "?" in url or "#" in url:
+        msg = "Security Alert (CWE-918): Base API URL must not contain query strings or fragments."
+        raise ValueError(msg)
+
+
+def _deep_strip_volatile(
+    data: Any,
+    volatile_keys: frozenset[str],
+    depth: int = 0,
+    seen: set[int] | None = None,
+) -> Any:
+    if seen is None:
+        seen = set()
+
+    obj_id = id(data)
+    # Active Cycle Detection (CWE-674) to prevent RecursionError crashes
+    if obj_id in seen:
+        return "[Circular]"
+
+    if depth > 50:
+        msg = "Security Violation: Payload exceeds maximum safe nesting depth."
+        raise ValueError(msg)
+
+    if isinstance(data, Mapping):
+        seen.add(obj_id)
+        try:
+            return {
+                k: _deep_strip_volatile(v, volatile_keys, depth + 1, seen)
+                for k, v in data.items()
+                if k not in volatile_keys
+            }
+        finally:
+            seen.discard(obj_id)
+    if isinstance(data, (list, tuple, set)):
+        seen.add(obj_id)
+        try:
+            return [_deep_strip_volatile(item, volatile_keys, depth + 1, seen) for item in data]
+        finally:
+            seen.discard(obj_id)
+    return data
+
+
+class SecurityGuard(metaclass=_LazyGuardMeta):
     """Centralized OWASP API security and payload guardrails."""
+
+    __slots__ = ()
 
     MAX_HTML_SIZE: int = 5 * 1024 * 1024  # 5MB safe limit (CWE-400)
     MAX_TAG_COUNT: int = 10000  # DoS protection against tag bombs (CWE-400)
 
-    VOLATILE_IDEMPOTENCY_KEYS: ClassVar[frozenset[str]] = frozenset({"CustomID", "EventPayload", "SandboxMode"})
+    VOLATILE_IDEMPOTENCY_KEYS: ClassVar[frozenset[str]] = frozenset({"CustomID", "EventPayload"})
     ALLOWED_KWARGS: ClassVar[frozenset[str]] = frozenset(
         {"proxies", "cert", "stream", "verify", "allow_redirects", "files"}
     )
 
-    class _SpamGuardParser(HTMLParser):
-        """Internal lightweight HTML analyzer to preemptively catch XSS and tag bombs."""
+    if TYPE_CHECKING:
 
-        def __init__(self, max_tags: int = 10000) -> None:
-            super().__init__()
-            self.has_script: bool = False
-            self.is_safe: bool = True
-            self.issues: list[str] = []
-            self.tag_count: int = 0
-            self.max_tags: int = max_tags
+        class _SpamGuardParser(HTMLParser):
+            has_script: bool
+            is_safe: bool
+            issues: list[str]
+            tag_count: int
+            max_tags: int
 
-        def _count_tag(self) -> None:
-            self.tag_count += 1
-            if self.tag_count > self.max_tags:
-                msg = f"HTML structure exceeds maximum tag limit ({self.max_tags}): DoS protection triggered."
-                raise ValidationError(msg)
+            def __init__(self, max_tags: int = 10000) -> None:
+                """Initialize the HTML safety parser stub."""
+                super().__init__()
+                self.max_tags = max_tags
 
-        @override
-        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-            self._count_tag()
-            # Catch known executable injection points
-            if tag.lower() in {"script", "iframe", "object", "embed", "applet"}:
-                self.has_script = True
-                self.is_safe = False
-                self.issues.append(f"Blocked executable tag: <{tag}>")
+    @staticmethod
+    def resolve_tls_verify(verify: Any) -> bool | str:
+        """Validate TLS verification flag or custom CA bundle path (CWE-295).
 
-            # Catch any injected event handlers (e.g., onerror, onclick)
-            for attr, _ in attrs:
-                if attr.lower().startswith("on"):
-                    self.has_script = True
-                    self.is_safe = False
-                    self.issues.append(f"Blocked event handler: {attr}")
-
-        @override
-        def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-            self._count_tag()
-            if tag.lower() in {"script", "iframe", "object", "embed", "applet"}:
-                self.has_script = True
-                self.is_safe = False
-                self.issues.append(f"Blocked executable tag: <{tag}>")
-
-            for attr, _ in attrs:
-                if attr.lower().startswith("on"):
-                    self.has_script = True
-                    self.is_safe = False
-                    self.issues.append(f"Blocked event handler: {attr}")
-
-        @override
-        def handle_endtag(self, tag: str) -> None:
-            self._count_tag()
-
-        @override
-        def handle_comment(self, data: str) -> None:
-            self._count_tag()
+        Returns:
+            bool | str: True for system/certifi CA verification, or validated CA bundle path string.
+        """
+        return resolve_tls_verify(verify)
 
     @staticmethod
     def enable_audit_logging() -> None:
@@ -372,62 +468,116 @@ class SecurityGuard:
         Args:
             url (str): The configured API URL to validate.
             allowed_root_domain (str): The trusted root domain for production traffic.
-
-        Raises:
-            ValueError: If the scheme or hostname violates zero-trust policies.
         """
-        parsed = urlparse(url)
+        _validate_config_url_cached(url, allowed_root_domain)
 
-        # 1. Enforce Safe Schemes (Block file://, dict://, gopher://, etc.)
-        if parsed.scheme not in {"http", "https"}:
-            msg = f"Security Alert (CWE-918): Invalid scheme '{parsed.scheme}'. Only http/https allowed."
+    @staticmethod
+    def _validate_fast_target_prefix(url: str) -> None:
+        if "#" in url:
+            msg = "Security Alert (CWE-918): URL fragments ('#') are forbidden."
+            raise ValueError(msg)
+        if not (url.isascii() and url.isprintable()) and _PATH_CONTROL_CHAR_RE.search(url):
+            msg = "Security Alert (CWE-918): URL contains forbidden control characters."
             raise ValueError(msg)
 
-        hostname = parsed.hostname or ""
+    @staticmethod
+    def validate_target_url(
+        url: str,
+        *,
+        base_api_url: str | None = None,
+        allowed_root_domain: str = "mailjet.com",
+    ) -> None:
+        """Validate a per-request target URL against SSRF with O(1) prefix fast-path."""
+        if isinstance(base_api_url, str) and base_api_url:
+            _validate_config_url_cached(base_api_url, allowed_root_domain)
+            prefix = base_api_url if base_api_url.endswith("/") else f"{base_api_url}/"
+            if isinstance(url, str) and url.startswith(prefix):
+                SecurityGuard._validate_fast_target_prefix(url)
+                return
+        _validate_url_uncached(url, allowed_root_domain)
 
-        # 2. Allowlist (Production + Local CI/CD loopbacks)
-        allowed_exact_hosts = frozenset(
-            {
-                allowed_root_domain,
-                f"api.{allowed_root_domain}",
-                "localhost",
-                "127.0.0.1",
-                "::1",  # Include IPv6 loopback for modern CI environments
-            }
-        )
-
-        # Safe if it's an exact match OR a valid subdomain of the trusted root
-        is_safe = hostname in allowed_exact_hosts or hostname.endswith(f".{allowed_root_domain}")
-
-        if not is_safe:
-            msg = (
-                f"Security Alert (CWE-918): Hostname '{hostname}' is not permitted. "
-                f"Must be a '{allowed_root_domain}' domain or a local loopback for testing."
-            )
+    @staticmethod
+    def _validate_proxy_entry(proxy_val: Any) -> bool:
+        if not isinstance(proxy_val, str):
+            msg = f"Invalid proxy URL type: expected str, got {type(proxy_val).__name__}."
+            raise TypeError(msg)
+        if _CRLF_RE.search(proxy_val) or _PATH_CONTROL_CHAR_RE.search(proxy_val):
+            msg = "Security Violation: Proxy URL contains forbidden control characters."
             raise ValueError(msg)
+        if "://" in proxy_val:
+            parsed = urlparse(proxy_val)
+            scheme = parsed.scheme.lower()
+            if scheme not in {"http", "https", "socks5", "socks5h"} or not parsed.hostname:
+                msg = f"Security Alert (CWE-918): Invalid or unsupported proxy scheme '{scheme}'."
+                raise ValueError(msg)
+            return scheme == "http"
+        return proxy_val.lower().startswith("http://")
 
     @staticmethod
     def check_request_security(kwargs: dict[str, Any]) -> None:
-        """Proactively warn developers about unencrypted proxies."""
+        """Validate proxy configuration and warn on unencrypted HTTP proxies."""
         proxies = kwargs.get("proxies")
-        if proxies and any(str(p).startswith("http://") for p in proxies.values()):
+        if proxies is None:
+            return
+        if isinstance(proxies, str):
+            candidates: list[Any] = [proxies]
+        elif isinstance(proxies, Mapping):
+            candidates = [p for p in proxies.values() if p is not None]
+        else:
+            msg = f"Invalid 'proxies' type: expected str, Mapping, or None, got {type(proxies).__name__}."
+            raise TypeError(msg)
+
+        has_http_proxy = False
+        for candidate in candidates:
+            if SecurityGuard._validate_proxy_entry(candidate):
+                has_http_proxy = True
+        if has_http_proxy:
             warnings.warn("Security Warning: Unencrypted HTTP proxy detected.", UserWarning, stacklevel=3)
 
     @staticmethod
-    def sanitize_headers(headers: Mapping[str, str | None]) -> dict[str, str | None]:
+    def _has_forbidden_header_chars(value: str) -> bool:
+        return bool(
+            _CRLF_RE.search(value)
+            or _CONTROL_CHAR_RE.search(value)
+            or any(unicodedata.category(c) == "Cc" and c != "\t" for c in value)
+        )
+
+    @staticmethod
+    def _assert_header_safe_chars(header_name: str, text: str) -> None:
+        if not (text.isascii() and text.isprintable()) and SecurityGuard._has_forbidden_header_chars(text):
+            sys.audit("mailjet.security.header_injection", header_name)
+            msg = f"Security Violation: CRLF injection detected in header '{header_name}'"
+            raise ValueError(msg)
+
+    @staticmethod
+    def _validate_header_entry(k: Any, v: Any) -> None:
+        if not isinstance(k, str):
+            msg = f"Invalid header name type: expected str, got {type(k).__name__}."
+            raise TypeError(msg)
+        if v is not None and not isinstance(v, str):
+            msg = f"Invalid header value type for '{k}': expected str or None, got {type(v).__name__}."
+            raise TypeError(msg)
+        SecurityGuard._assert_header_safe_chars(k, k)
+        if v is not None:
+            SecurityGuard._assert_header_safe_chars(k, v)
+
+    @staticmethod
+    def sanitize_headers(headers: HeadersMapping) -> RequestHeaders:
         """Prevent HTTP Header Injection (CWE-113).
 
         Returns:
-            dict[str, str]: The sanitized headers safely screened for CRLF injections.
+            RequestHeaders: The sanitized headers safely screened for CRLF and control-byte injections.
         """
-        clean_headers: dict[str, str | None] = {}
+        clean_headers: RequestHeaders = {}
         for k, v in headers.items():
-            if _CRLF_RE.search(k) or (v is not None and _CRLF_RE.search(str(v))):
-                sys.audit("mailjet.security.header_injection", k)
-                msg = f"Security Violation: CRLF injection detected in header '{k}'"
-                raise ValueError(msg)
+            SecurityGuard._validate_header_entry(k, v)
             clean_headers[k] = v
         return clean_headers
+
+    @staticmethod
+    def validate_multipart_files(files: Any) -> None:
+        """Validate multipart upload metadata against CRLF and NUL smuggling (CWE-93, CWE-434)."""
+        _validate_multipart_files(files, header_sanitizer=SecurityGuard.sanitize_headers)
 
     @staticmethod
     def check_control_characters(field_name: str, value: Any) -> None:
@@ -445,146 +595,59 @@ class SecurityGuard:
             dict[str, Any]: The analysis report containing boolean 'is_safe' and any
             'issues' strings.
         """
-        if not html_content or (isinstance(html_content, str) and html_content.isspace()):
-            return {"is_safe": True, "issues": []}
 
-        # Defense-in-Depth against Memory/CPU exhaustion (CWE-400)
-        # Cap HTML processing at 5MB prior to standard library parsing.
-        if len(html_content) > SecurityGuard.MAX_HTML_SIZE:
-            sys.audit("mailjet.security.resource_exhaustion", "HTMLPart")
-            msg = "Security Violation: HTML payload exceeds maximum safe length."
-            raise ValueError(msg)
+        def _make_parser() -> Any:
+            return SecurityGuard._SpamGuardParser()
 
-        if _XSS_PATTERN.search(html_content):
-            sys.audit("mailjet.security.xss_attempt", "HTMLPart")
-            msg = "Security Violation: HTML contains executable Javascript/XSS vectors."
-            raise ValueError(msg)
-
-        # Instantiate without args so mock parsers (like CrashParser) don't fail with TypeError
-        parser = SecurityGuard._SpamGuardParser()
-        if hasattr(parser, "max_tags"):
-            parser.max_tags = SecurityGuard.MAX_TAG_COUNT
-
-        try:
-            parser.feed(html_content)
-            parser.close()
-        except ValidationError:
-            raise
-        except Exception as e:
-            # Failsafe: Catch RecursionError, MemoryError, etc. to prevent DoS crashes
-            msg = f"Fatal HTML parsing error (DoS protection triggered): {e}"
-            raise ValidationError(msg) from e
-
-        if parser.has_script:
-            sys.audit("mailjet.security.xss_attempt", "HTMLPart")
-            msg = "Security Violation: HTML contains blocked script/event execution tags."
-            raise ValueError(msg)
-
-        return {
-            "is_safe": parser.is_safe and not parser.has_script,
-            "issues": parser.issues,
-        }
+        return _analyze_html_safety(
+            html_content,
+            parser_factory=_make_parser,
+            max_html_size=SecurityGuard.MAX_HTML_SIZE,
+            max_tag_count=SecurityGuard.MAX_TAG_COUNT,
+        )
 
     @staticmethod
-    def generate_payload_fingerprint(payload: dict[str, Any] | list[Any]) -> str:
+    def _canonical_json_bytes(safe_payload: Any) -> bytes:
+        if _orjson is not None:
+            try:
+                raw: bytes = _orjson.dumps(safe_payload, option=_orjson.OPT_SORT_KEYS, default=str)
+            except TypeError:
+                # Fall back to stdlib json.dumps when orjson rejects non-str keys.
+                pass
+            else:
+                return raw
+        return json.dumps(safe_payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+
+    @staticmethod
+    def generate_payload_fingerprint(payload: Mapping[str, Any] | dict[str, Any] | SendV31Payload | list[Any]) -> str:
         """Generates a safe SHA-256 Idempotency hash for the exact JSON payload.
 
         Returns:
             str: The generated SHA-256 hash.
         """
-
-        def _deep_strip(data: Any, depth: int = 0, seen: set[int] | None = None) -> Any:
-            if seen is None:
-                seen = set()
-
-            # Active Cycle Detection (CWE-674) to prevent RecursionError crashes
-            if id(data) in seen:
-                return "[Circular]"
-
-            if depth > 50:
-                msg = "Security Violation: Payload exceeds maximum safe nesting depth."
-                raise ValueError(msg)
-
-            if isinstance(data, dict):
-                seen.add(id(data))
-                return {
-                    k: _deep_strip(v, depth + 1, seen.copy())
-                    for k, v in data.items()
-                    if k not in SecurityGuard.VOLATILE_IDEMPOTENCY_KEYS
-                }
-            if isinstance(data, (list, tuple, set)):
-                seen.add(id(data))
-                return [_deep_strip(item, depth + 1, seen.copy()) for item in data]
-            return data
-
         try:
-            safe_payload = _deep_strip(payload)
-            serialized = json.dumps(safe_payload, sort_keys=True, default=str)
-            return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+            safe_payload = _deep_strip_volatile(payload, SecurityGuard.VOLATILE_IDEMPOTENCY_KEYS)
+            serialized_bytes = SecurityGuard._canonical_json_bytes(safe_payload)
+            return hashlib.sha256(serialized_bytes).hexdigest()
         except Exception as e:
             msg = "Payload hashing failed due to malformed or deeply nested structure."
             raise ValueError(msg) from e
 
     @staticmethod
     def validate_attachment_path(file_path: Path | str, safe_base_dir: Path | str | None = None) -> Path:
-        """Prevent Path Traversal (CWE-22) via strict resolution boundary checks.
+        """Prevent Path Traversal (CWE-22) via strict resolution, symlink, and boundary checks.
 
         Falls back to Zero-Trust OS directory restrictions if no safe_base_dir is supplied.
 
         Returns:
             Path: The resolved and strictly validated pathlib.Path object.
         """
-        original_path = str(file_path)
-        target = Path(file_path).resolve()
-
-        if safe_base_dir is not None:
-            base = Path(safe_base_dir).resolve()
-            if not target.is_relative_to(base):
-                sys.audit("mailjet.security.path_traversal", str(target))
-                msg = f"Security Violation: Traversal detected. '{target}' is outside '{base}'."
-                raise ValueError(msg)
-        else:
-            # Fallback zero-trust checks if no specific sandbox is provided
-            if ".." in original_path:
-                msg = "Security Alert (CWE-22): Path traversal tokens ('..') are explicitly forbidden."
-                raise ValueError(msg)
-
-            # Allow files residing in the OS temporary directory
-            with contextlib.suppress(Exception):
-                temp_dir = Path(tempfile.gettempdir()).resolve()
-                if target.is_relative_to(temp_dir):
-                    return target
-
-            # Cross-platform component and prefix check for sensitive system directories
-            forbidden_roots = ("/etc", "/var", "/root", "/boot", "C:\\Windows", "C:\\System32")
-            path_str = str(target).lower()
-            if any(path_str.startswith(root.lower()) for root in forbidden_roots):
-                msg = "Security Alert: Access to sensitive OS system directories is explicitly forbidden."
-                raise ValueError(msg)
-
-            forbidden_components = {"etc", "sys", "proc", "dev", "windows", "system32", "root", "boot"}
-            if any(part.lower() in forbidden_components for part in target.parts):
-                msg = "Security Alert: Access to sensitive OS system directories is explicitly forbidden."
-                raise ValueError(msg)
-
-        if not target.exists() or not target.is_file():
-            msg = f"Attachment not found or is not a file: {target}"
-            raise FileNotFoundError(msg)
-
-        return target
+        return _validate_attachment_path(file_path, safe_base_dir=safe_base_dir)
 
     @staticmethod
     def check_file_size(path: Path, max_size_bytes: int = 15 * 1024 * 1024) -> None:
         """Prevent Resource Exhaustion (CWE-400). Limit defaults to 15MB."""
-        target = Path(path)
-        if not target.is_file():
-            msg = f"Security Alert (CWE-400): Path is not a regular file: {target}"
-            raise ValueError(msg)
-
-        size = target.stat().st_size
-        if size > max_size_bytes:
-            msg = f"Security Violation: File '{target.name}' exceeds safe threshold."
-            raise ValueError(msg)
+        _check_file_size(path, max_size_bytes=max_size_bytes)
 
     @staticmethod
     def _validate_scalar_timeout(timeout: Any) -> float:
@@ -662,8 +725,26 @@ class SecurityGuard:
             return res
 
     @staticmethod
+    def _normalize_domain_part(domain_part: str, raw_input: str, *, is_email: bool) -> str:
+        err_prefix = "Invalid IDN in email" if is_email else "Invalid IDN"
+        if len(domain_part) <= _MAX_DNS_DOMAIN_LEN and _ASCII_DOMAIN_RE.fullmatch(domain_part):
+            return domain_part.lower()
+        if len(domain_part) > _MAX_DNS_DOMAIN_LEN or any(
+            len(lbl) > _MAX_DNS_LABEL_LEN for lbl in domain_part.split(".")
+        ):
+            msg = f"{err_prefix}: {raw_input}"
+            raise ValueError(msg)
+        try:
+            return domain_part.encode("idna").decode("ascii")
+        except UnicodeError as e:
+            msg = f"{err_prefix}: {raw_input}"
+            raise ValueError(msg) from e
+
+    @staticmethod
     def normalize_domain(email_or_domain: str) -> str:
         """Prevent Unicode Homograph attacks by encoding IDNs to Punycode (RFC 3490).
+
+        Uses an ASCII fast path with RFC 1035 label bounds before falling back to IDNA.
 
         Returns:
             str: The fully normalized punycode domain representation.
@@ -673,18 +754,46 @@ class SecurityGuard:
 
         local_part, sep, domain_part = email_or_domain.rpartition("@")
         if sep:
-            try:
-                puny_domain = domain_part.encode("idna").decode("ascii")
-            except UnicodeError as e:
-                msg = f"Invalid IDN in email: {email_or_domain}"
-                raise ValueError(msg) from e
+            puny_domain = SecurityGuard._normalize_domain_part(domain_part, email_or_domain, is_email=True)
             return f"{local_part}@{puny_domain}"
 
-        try:
-            return email_or_domain.encode("idna").decode("ascii")
-        except UnicodeError as e:
-            msg = f"Invalid IDN: {email_or_domain}"
-            raise ValueError(msg) from e
+        return SecurityGuard._normalize_domain_part(email_or_domain, email_or_domain, is_email=False)
+
+    @staticmethod
+    def _unquote_segment_bounded(raw_str: str) -> str:
+        test_decoded = raw_str
+        for _ in range(3):
+            new_decoded = unquote(test_decoded)
+            if new_decoded == test_decoded:
+                return unicodedata.normalize("NFKC", test_decoded)
+            test_decoded = new_decoded
+        msg = "Security Alert (CWE-116): Excessive URL encoding detected."
+        raise ValueError(msg)
+
+    @staticmethod
+    def _assert_segment_delimiters(raw_str: str, test_decoded: str) -> None:
+        if "?" in raw_str or "#" in raw_str or "?" in test_decoded or "#" in test_decoded:
+            sys.audit("mailjet.security.path_traversal", test_decoded)
+            msg = "Security Alert (CWE-22): Query or fragment delimiters ('?', '#') are forbidden in path segments."
+            raise ValueError(msg)
+        if ".." in test_decoded or "/" in test_decoded or "\\" in test_decoded:
+            sys.audit("mailjet.security.path_traversal", test_decoded)
+            msg = "Security Alert (CWE-22): Path traversal attempt."
+            raise ValueError(msg)
+
+    @staticmethod
+    def _assert_safe_decoded_segment(raw_str: str, test_decoded: str) -> None:
+        if _PATH_CONTROL_CHAR_RE.search(test_decoded):
+            sys.audit("mailjet.security.control_characters", "path_segment")
+            msg = "Security Alert (CWE-20): Forbidden control characters."
+            raise ValueError(msg)
+        SecurityGuard._assert_segment_delimiters(raw_str, test_decoded)
+        if any(marker in test_decoded for marker in ("{{", "}}", "{%")):
+            msg = "Security Alert (CWE-94): Template injection attempt."
+            raise ValueError(msg)
+        if _XSS_PATTERN.search(test_decoded):
+            msg = "Security Alert (CWE-79): XSS attempt detected."
+            raise ValueError(msg)
 
     @staticmethod
     def sanitize_segment(segment: Any) -> str:
@@ -700,52 +809,8 @@ class SecurityGuard:
             raise TypeError(msg)
 
         raw_str = str(segment)
-
-        # =================================================================
-        # 1. EVALUATION STATE (Phantom Decoding)
-        # =================================================================
-        # CWE-116: Defeat Double-Encoding bypasses
-        test_decoded = raw_str
-        for _ in range(3):
-            new_decoded = unquote(test_decoded)
-            if new_decoded == test_decoded:
-                break
-            test_decoded = new_decoded
-        else:
-            msg = "Security Alert (CWE-116): Excessive URL encoding detected."
-            raise ValueError(msg)
-
-        # CWE-128: Unicode Normalization on the testing string
-        test_decoded = unicodedata.normalize("NFKC", test_decoded)
-
-        # CWE-20: Strict path validation
-        if _PATH_CONTROL_CHAR_RE.search(test_decoded):
-            sys.audit("mailjet.security.control_characters", "path_segment")
-            msg = "Security Alert (CWE-20): Forbidden control characters."
-            raise ValueError(msg)
-
-        # CWE-22: Path Traversal
-        if ".." in test_decoded or "/" in test_decoded or "\\" in test_decoded:
-            sys.audit("mailjet.security.path_traversal", test_decoded)
-            msg = "Security Alert (CWE-22): Path traversal attempt."
-            raise ValueError(msg)
-
-        # CWE-94: Template Injection
-        if any(marker in test_decoded for marker in ("{{", "}}", "{%")):
-            msg = "Security Alert (CWE-94): Template injection attempt."
-            raise ValueError(msg)
-
-        # CWE-79: XSS
-        if _XSS_PATTERN.search(test_decoded):
-            msg = "Security Alert (CWE-79): XSS attempt detected."
-            raise ValueError(msg)
-
-        # =================================================================
-        # 2. TRANSPORT STATE (Safe Construction)
-        # =================================================================
-        # We quote the ORIGINAL raw string. This guarantees that if a user passes
-        # a legitimate email like "user%name@example.com", the '%' is safely encoded
-        # to '%25' without being destructively parsed as a bad hex escape.
+        test_decoded = SecurityGuard._unquote_segment_bounded(raw_str)
+        SecurityGuard._assert_safe_decoded_segment(raw_str, test_decoded)
         return quote(raw_str, safe="").replace(".", "%2E")
 
     @staticmethod
@@ -776,7 +841,24 @@ class SecurityGuard:
         if _CRLF_RE.search(clean_token) or _CONTROL_CHAR_RE.search(clean_token):
             msg = "Auth credentials contain forbidden control characters."
             raise ValueError(msg)
+        if any(ch.isspace() for ch in clean_token) or any(
+            unicodedata.category(c) in {"Zs", "Cc", "Cf"} for c in clean_token
+        ):
+            msg = "Auth credentials contain invalid whitespace or control characters."
+            raise ValueError(msg)
         return clean_token
+
+    @staticmethod
+    def _validate_auth_part(item: str) -> None:
+        if not item or not item.strip():
+            msg = "Auth credentials cannot be empty or whitespace-only."
+            raise ValueError(msg)
+        if _CRLF_RE.search(item) or _CONTROL_CHAR_RE.search(item):
+            msg = "Auth credentials contain forbidden control characters."
+            raise ValueError(msg)
+        if any(unicodedata.category(c) in {"Zs", "Cc", "Cf"} for c in item if c != " "):
+            msg = "Auth credentials contain invalid whitespace or control characters."
+            raise ValueError(msg)
 
     @staticmethod
     def _validate_basic_auth(auth: tuple[str, str]) -> SecretAuth:
@@ -792,25 +874,18 @@ class SecurityGuard:
         if not isinstance(key, str) or not isinstance(secret, str):
             msg = "Auth tuple elements must be strings."  # type: ignore[unreachable]
             raise TypeError(msg)
-        for item in (key, secret):
-            if not item or not item.strip():
-                msg = "Auth credentials cannot be empty or whitespace-only."
-                raise ValueError(msg)
-            if _CRLF_RE.search(item) or _CONTROL_CHAR_RE.search(item):
-                msg = "Auth credentials contain forbidden control characters."
-                raise ValueError(msg)
-            if any(unicodedata.category(c) in {"Zs", "Cc", "Cf"} for c in item if c != " "):
-                msg = "Auth credentials contain invalid whitespace or control characters."
-                raise ValueError(msg)
+        SecurityGuard._validate_auth_part(key)
+        SecurityGuard._validate_auth_part(secret)
         return SecretAuth((key.strip(), secret.strip()))
 
     @staticmethod
-    def validate_and_coerce_auth(auth: str | tuple[str, str] | None) -> str | SecretAuth | None:
+    def validate_and_coerce_auth(auth: AuthCredentials) -> str | SecretAuth | None:
         """Validate and coerce authentication credentials securely (CWE-113, CWE-316).
 
         Returns:
             str | SecretAuth | None: The validated and coerced authentication credentials.
         """
+        __tracebackhide__ = True
         if auth is None:
             return None
 
@@ -822,3 +897,33 @@ class SecurityGuard:
 
         msg = f"Invalid auth type: expected tuple, str, or None, got {type(auth).__name__}"  # type: ignore[unreachable]
         raise TypeError(msg)
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve legacy v1.9.1 module-level symbols extracted from guardrails lazily.
+
+    Returns:
+        Any: Resolved legacy class or exception symbol.
+    """
+    if name == "ValidationError":
+        from mailjet_rest.errors import ValidationError  # ruff: ignore[import-outside-top-level]
+
+        globals()[name] = ValidationError
+        return ValidationError
+    if name == "HTTPAdapter":
+        from requests.adapters import HTTPAdapter  # ruff: ignore[import-outside-top-level]
+
+        globals()[name] = HTTPAdapter
+        return HTTPAdapter
+    if name == "AuthBase":
+        from requests.auth import AuthBase  # ruff: ignore[import-outside-top-level]
+
+        globals()[name] = AuthBase
+        return AuthBase
+    if name == "HTMLParser":
+        from html.parser import HTMLParser  # ruff: ignore[import-outside-top-level]
+
+        globals()[name] = HTMLParser
+        return HTMLParser
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)

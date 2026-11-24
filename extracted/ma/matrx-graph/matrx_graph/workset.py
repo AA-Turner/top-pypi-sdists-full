@@ -136,18 +136,73 @@ class WorkSetStore(Protocol):
         wave: int,
     ) -> list[WorkItemClaim]: ...
 
-    async def complete(self, item_id: str, *, run_id: str) -> bool: ...
+    async def complete(self, item_id: str, *, run_id: str, claim_token: str = "") -> bool:
+        """Settle ``succeeded``. With ``claim_token`` (the claiming firing's
+        dispatch id, carried by the worker invocation) the item must still be
+        ``in_progress`` under THAT claim: a worker whose claim was released or
+        re-claimed is refused and returns False, so a stale result can never
+        overwrite the live claim's outcome."""
+        ...
 
     async def fail(
-        self, item_id: str, *, run_id: str, error: dict[str, Any] | None = None
-    ) -> bool: ...
+        self,
+        item_id: str,
+        *,
+        run_id: str,
+        error: dict[str, Any] | None = None,
+        claim_token: str = "",
+    ) -> bool:
+        """Settle ``failed`` — fenced by ``claim_token`` exactly like complete."""
+        ...
 
     async def reclaim_expired(self, run_id: str, set_name: str) -> int:
         """Expired in_progress leases → pending (or dead_letter past
         max_attempts). Returns how many were reclaimed either way."""
         ...
 
+    async def release_firing_claims(
+        self, run_id: str, set_name: str, firing_key: str, *, legacy_wave: int = 0
+    ) -> int:
+        """in_progress items claimed under ``firing_key`` → pending, with the
+        attempt given back. A queue firing calls it before it claims: a claim
+        under its own stable firing identity can only come from an earlier
+        execution of this same firing that never reached a checkpoint (process
+        death, node retry), so its items were never dispatched from the
+        durable frontier. Claims of any other firing — another queue on the
+        set, a fan-out sibling, a second delivery — are never touched.
+
+        ``legacy_wave`` (> 0): also release claims of the pre-2026-10-31
+        holder format (the bare run id, no firing identity) stamped at that
+        wave or later — so a run that was live across the deploy that
+        introduced firing-scoped holders still frees its dead execution's
+        claims. Delete it once no such run can be resumed. Returns how many
+        were released."""
+        ...
+
     async def counts(self, run_id: str, set_name: str) -> WorkSetCounts: ...
+
+
+def work_claim_holder(firing_key: str, claim_token: str) -> str:
+    """The ``claim_holder`` a queue firing stamps on its claims:
+    ``<firing_key>#<claim_token>``. ``firing_key`` is the firing's identity
+    that survives retry and resume (``NodeExecutionContext.
+    stable_idempotency_key``) — what ``release_firing_claims`` matches;
+    ``claim_token`` is unique per EXECUTION of the firing (its outbound
+    dispatch id, which every worker invocation it Sends carries) — what
+    ``complete``/``fail`` match."""
+    return f"{firing_key}{_HOLDER_SEP}{claim_token}"
+
+
+_HOLDER_SEP = "#"
+
+
+def _holds(holder: str | None, claim_token: str, run_id: str) -> bool:
+    """Is ``claim_token`` the live claim on an item held by ``holder``?
+    A holder of the pre-2026-10-31 format (the bare run id) has no token to
+    compare and is accepted, so items claimed before the deploy still settle."""
+    if holder is None:
+        return False
+    return holder.endswith(f"{_HOLDER_SEP}{claim_token}") or holder == run_id
 
 
 def canonical_key_for(item: Any) -> str:
@@ -170,6 +225,7 @@ class _MemoryItem:
     __slots__ = (
         "attempts",
         "canonical_key",
+        "holder",
         "id",
         "lease_expires_at",
         "max_attempts",
@@ -188,6 +244,7 @@ class _MemoryItem:
         self.state: WorkItemState = "pending"
         self.attempts = 0
         self.wave = 0
+        self.holder: str | None = None
         self.lease_expires_at: datetime | None = None
 
 
@@ -248,6 +305,7 @@ class MemoryWorkSetStore:
             item.state = "in_progress"
             item.attempts += 1
             item.wave = wave
+            item.holder = holder
             item.lease_expires_at = now + timedelta(seconds=lease_seconds)
             claims.append(
                 WorkItemClaim(
@@ -260,17 +318,35 @@ class MemoryWorkSetStore:
             )
         return claims
 
-    async def complete(self, item_id: str, *, run_id: str) -> bool:
+    def _settleable(self, item_id: str, run_id: str, claim_token: str) -> _MemoryItem | None:
         item = self._by_id.get(item_id)
-        if item is None or item.state not in ("in_progress", "pending"):
+        if item is None:
+            return None
+        if claim_token:
+            if item.state != "in_progress" or not _holds(item.holder, claim_token, run_id):
+                return None
+        elif item.state not in ("in_progress", "pending"):
+            return None
+        return item
+
+    async def complete(self, item_id: str, *, run_id: str, claim_token: str = "") -> bool:
+        item = self._settleable(item_id, run_id, claim_token)
+        if item is None:
             return False
         item.state = "succeeded"
         item.lease_expires_at = None
         return True
 
-    async def fail(self, item_id: str, *, run_id: str, error: dict[str, Any] | None = None) -> bool:
-        item = self._by_id.get(item_id)
-        if item is None or item.state not in ("in_progress", "pending"):
+    async def fail(
+        self,
+        item_id: str,
+        *,
+        run_id: str,
+        error: dict[str, Any] | None = None,
+        claim_token: str = "",
+    ) -> bool:
+        item = self._settleable(item_id, run_id, claim_token)
+        if item is None:
             return False
         item.state = "failed"
         item.lease_expires_at = None
@@ -287,8 +363,25 @@ class MemoryWorkSetStore:
                 continue
             item.state = "dead_letter" if item.attempts >= item.max_attempts else "pending"
             item.lease_expires_at = None
+            item.holder = None
             reclaimed += 1
         return reclaimed
+
+    async def release_firing_claims(
+        self, run_id: str, set_name: str, firing_key: str, *, legacy_wave: int = 0
+    ) -> int:
+        prefix = f"{firing_key}{_HOLDER_SEP}"
+        released = 0
+        for item in self._set(run_id, set_name).values():
+            holder = item.holder or ""
+            legacy = legacy_wave > 0 and holder == run_id and item.wave >= legacy_wave
+            if item.state == "in_progress" and (holder.startswith(prefix) or legacy):
+                item.state = "pending"
+                item.attempts = max(item.attempts - 1, 0)
+                item.lease_expires_at = None
+                item.holder = None
+                released += 1
+        return released
 
     async def counts(self, run_id: str, set_name: str) -> WorkSetCounts:
         bucket = self._set(run_id, set_name)
@@ -399,36 +492,62 @@ class PostgresWorkSetStore:
             for row in rows
         ]
 
-    async def complete(self, item_id: str, *, run_id: str) -> bool:
+    async def _settle(self, item_id: str, run_id: str, claim_token: str, **fields: Any) -> bool:
+        """One guarded UPDATE per accepted holder shape — the claim check and
+        the write are the same statement, so a release or re-claim landing
+        between them cannot be overwritten."""
         from matrx_graph.db._registry import get_model
 
-        result = await get_model("WfWorkItem").update_where(
+        model = get_model("WfWorkItem")
+        base = {"id": str(UUID(item_id)), "run_id": str(UUID(run_id))}
+        if not claim_token:
+            result = await model.update_where(
+                {**base, "state__in": ["in_progress", "pending"]}, **fields
+            )
+            return result.rows_affected == 1
+        result = await model.update_where(
             {
-                "id": str(UUID(item_id)),
-                "run_id": str(UUID(run_id)),
-                "state__in": ["in_progress", "pending"],
+                **base,
+                "state": "in_progress",
+                "claim_holder__endswith": f"{_HOLDER_SEP}{claim_token}",
             },
+            **fields,
+        )
+        if result.rows_affected == 1:
+            return True
+        # Pre-2026-10-31 holder (the bare run id): claimed before the deploy.
+        result = await model.update_where(
+            {**base, "state": "in_progress", "claim_holder": run_id}, **fields
+        )
+        return result.rows_affected == 1
+
+    async def complete(self, item_id: str, *, run_id: str, claim_token: str = "") -> bool:
+        return await self._settle(
+            item_id,
+            run_id,
+            claim_token,
             state="succeeded",
             completed_at=datetime.now(UTC),
             lease_expires_at=None,
         )
-        return result.rows_affected == 1
 
-    async def fail(self, item_id: str, *, run_id: str, error: dict[str, Any] | None = None) -> bool:
-        from matrx_graph.db._registry import get_model
-
-        result = await get_model("WfWorkItem").update_where(
-            {
-                "id": str(UUID(item_id)),
-                "run_id": str(UUID(run_id)),
-                "state__in": ["in_progress", "pending"],
-            },
+    async def fail(
+        self,
+        item_id: str,
+        *,
+        run_id: str,
+        error: dict[str, Any] | None = None,
+        claim_token: str = "",
+    ) -> bool:
+        return await self._settle(
+            item_id,
+            run_id,
+            claim_token,
             state="failed",
             error=error,
             completed_at=datetime.now(UTC),
             lease_expires_at=None,
         )
-        return result.rows_affected == 1
 
     async def reclaim_expired(self, run_id: str, set_name: str) -> int:
         from matrx_orm import Compare, F
@@ -454,6 +573,34 @@ class PostgresWorkSetStore:
             lease_expires_at__lte=now,
         ).update(state="pending", lease_expires_at=None, claim_holder=None)
         return dead.rows_affected + back.rows_affected
+
+    async def release_firing_claims(
+        self, run_id: str, set_name: str, firing_key: str, *, legacy_wave: int = 0
+    ) -> int:
+        from matrx_orm import F
+
+        from matrx_graph.db._registry import get_model
+
+        model = get_model("WfWorkItem")
+        scope = {"run_id": str(UUID(run_id)), "set_name": set_name, "state": "in_progress"}
+        release = {
+            "state": "pending",
+            # The release undoes the claim — its attempt too. Otherwise every
+            # resume (a deploy every ~30 min) walks a long run toward dead-letter.
+            "attempts": F("attempts") - 1,
+            "lease_expires_at": None,
+            "claim_holder": None,
+        }
+        result = await model.filter(
+            **scope, claim_holder__startswith=f"{firing_key}{_HOLDER_SEP}"
+        ).update(**release)
+        released = result.rows_affected
+        if legacy_wave > 0:
+            legacy = await model.filter(**scope, claim_holder=run_id, wave__gte=legacy_wave).update(
+                **release
+            )
+            released += legacy.rows_affected
+        return released
 
     async def counts(self, run_id: str, set_name: str) -> WorkSetCounts:
         from matrx_graph.db._registry import get_model

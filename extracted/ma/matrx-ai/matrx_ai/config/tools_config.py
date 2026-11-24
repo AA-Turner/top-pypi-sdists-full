@@ -45,6 +45,40 @@ def _serialize_block_for_anthropic(block: Any) -> dict[str, Any] | None:
     return None
 
 
+def _bounded_stored_content(tool_name: str, content: Any) -> Any:
+    """A stored knowledge_search output resends as the same bounded model view the live call
+    handed the model (``rag.model_view``, with the caps the call ran with) — the stored
+    output itself stays complete for the UI. Every other tool's content is returned as is."""
+    if tool_name != "knowledge_search":
+        return content
+    payload = content
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            return content
+    if not isinstance(payload, dict) or not isinstance(payload.get("hits"), list):
+        return content
+    try:
+        from matrx_ai.tools.implementations.rag import (
+            OUTPUT_BUDGET_CHARS,
+            SNIPPET_WINDOW_CHARS,
+            model_view,
+        )
+
+        caps = payload.get("model_view_caps") or {}
+        return model_view(
+            payload,
+            window_chars=int(caps.get("snippet_window_chars") or SNIPPET_WINDOW_CHARS),
+            budget_chars=int(caps.get("output_budget_chars") or OUTPUT_BUDGET_CHARS),
+        )
+    except Exception as exc:  # noqa: BLE001 — a resend never fails over the view
+        from matrx_utils import vcprint
+
+        vcprint(f"[tools_config] knowledge_search resend view failed: {exc!r}; resending as stored", color="red")
+        return content
+
+
 def _rebuild_citable_wire_blocks(tool_name: str, content: Any) -> list[dict[str, Any]] | None:
     """Best-effort citability restore for stored citable-search-tool outputs.
 
@@ -459,8 +493,8 @@ class ToolResultContent:
             response_data: dict[str, Any] = {
                 "result": "\n".join(text_segments) if text_segments else "",
             }
-        elif isinstance(self.content, dict):
-            response_data = self.content
+        elif isinstance(stored := _bounded_stored_content(self.name, self.content), dict):
+            response_data = stored
         elif isinstance(self.content, str):
             response_data = {"result": self.content}
         elif isinstance(self.content, list):
@@ -493,7 +527,7 @@ class ToolResultContent:
             payload = {"blocks": _typed_blocks_for_openai(self.content)}
             output_str = json.dumps(payload)
         else:
-            output_str = self.content
+            output_str = _bounded_stored_content(self.name, self.content)
             if isinstance(output_str, (dict, list)):
                 output_str = json.dumps(output_str)
             elif not isinstance(output_str, str):
@@ -529,13 +563,14 @@ class ToolResultContent:
             # would resend as plain text, silently un-citing every multi-turn
             # follow-up. Rebuild homogeneous search_result wire blocks from
             # the stored payload at this one boundary.
-            rebuilt = _rebuild_citable_wire_blocks(self.name, self.content)
+            stored = _bounded_stored_content(self.name, self.content)
+            rebuilt = _rebuild_citable_wire_blocks(self.name, stored)
             if rebuilt is not None:
                 content = rebuilt
-            elif isinstance(self.content, str):
-                content = self.content
+            elif isinstance(stored, str):
+                content = stored
             else:
-                content = json.dumps(self.content)
+                content = json.dumps(stored)
 
         result = {
             "type": "tool_result",
@@ -565,8 +600,8 @@ class ToolResultContent:
         if _is_typed_block_list(self.content):
             payload = {"blocks": _typed_blocks_for_openai(self.content)}
             output_str = json.dumps(payload)
-        elif isinstance(self.content, (dict, list)):
-            output_str = json.dumps(self.content)
+        elif isinstance(stored := _bounded_stored_content(self.name, self.content), (dict, list)):
+            output_str = json.dumps(stored)
         elif isinstance(self.content, str):
             output_str = self.content
         else:

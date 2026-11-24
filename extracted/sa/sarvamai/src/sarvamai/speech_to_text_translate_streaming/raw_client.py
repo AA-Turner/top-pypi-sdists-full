@@ -18,7 +18,6 @@ from .types.speech_to_text_translate_streaming_high_vad_sensitivity import (
     SpeechToTextTranslateStreamingHighVadSensitivity,
 )
 from .types.speech_to_text_translate_streaming_input_audio_codec import SpeechToTextTranslateStreamingInputAudioCodec
-from .types.speech_to_text_translate_streaming_model import SpeechToTextTranslateStreamingModel
 from .types.speech_to_text_translate_streaming_vad_signals import SpeechToTextTranslateStreamingVadSignals
 
 try:
@@ -35,7 +34,7 @@ class RawSpeechToTextTranslateStreamingClient:
     def connect(
         self,
         *,
-        model: typing.Optional[SpeechToTextTranslateStreamingModel] = None,
+        model: typing.Optional[typing.Literal["saaras:v3"]] = None,
         sample_rate: typing.Optional[str] = None,
         high_vad_sensitivity: typing.Optional[SpeechToTextTranslateStreamingHighVadSensitivity] = None,
         positive_speech_threshold: typing.Optional[str] = None,
@@ -63,12 +62,11 @@ class RawSpeechToTextTranslateStreamingClient:
 
         Parameters
         ----------
-        model : typing.Optional[SpeechToTextTranslateStreamingModel]
+        model : typing.Optional[typing.Literal["saaras:v3"]]
             Model to be used for speech to text translation.
 
-            - **saaras:v3** (default): Translation model that translates audio from any spoken Indic language to English.
+            - **saaras:v3** (default; legacy): Translation model that translates audio from any spoken Indic language to English.
               - Example: Hindi audio → English text output
-            - **saaras:v2.5**: Earlier translation model, kept for backward compatibility.
 
             `saaras:v4` is not supported on this endpoint. For the latest model (saaras:v4), use the `/speech-to-text` endpoint with `mode="translate"`.
 
@@ -203,7 +201,7 @@ class AsyncRawSpeechToTextTranslateStreamingClient:
     async def connect(
         self,
         *,
-        model: typing.Optional[SpeechToTextTranslateStreamingModel] = None,
+        model: typing.Optional[typing.Literal["saaras:v3"]] = None,
         sample_rate: typing.Optional[str] = None,
         high_vad_sensitivity: typing.Optional[SpeechToTextTranslateStreamingHighVadSensitivity] = None,
         positive_speech_threshold: typing.Optional[str] = None,
@@ -231,12 +229,11 @@ class AsyncRawSpeechToTextTranslateStreamingClient:
 
         Parameters
         ----------
-        model : typing.Optional[SpeechToTextTranslateStreamingModel]
+        model : typing.Optional[typing.Literal["saaras:v3"]]
             Model to be used for speech to text translation.
 
-            - **saaras:v3** (default): Translation model that translates audio from any spoken Indic language to English.
+            - **saaras:v3** (default; legacy): Translation model that translates audio from any spoken Indic language to English.
               - Example: Hindi audio → English text output
-            - **saaras:v2.5**: Earlier translation model, kept for backward compatibility.
 
             `saaras:v4` is not supported on this endpoint. For the latest model (saaras:v4), use the `/speech-to-text` endpoint with `mode="translate"`.
 

@@ -1,4 +1,5 @@
 import type * as p from "@bokehjs/core/properties";
+import type { StyleSheetLike } from "@bokehjs/core/dom";
 import { HTMLBox, HTMLBoxView } from "./layout";
 import type { Ace } from "ace-code";
 declare type ModeList = {
@@ -12,9 +13,14 @@ export declare class AcePlotView extends HTMLBoxView {
     protected _langTools: unknown;
     protected _modelist: ModeList;
     protected _container: HTMLDivElement;
+    protected _marker_ids: number[];
+    protected _gutter_marks: [number, string][];
     connect_signals(): void;
+    stylesheets(): StyleSheetLike[];
     render(): void;
     _update_code_from_model(): void;
+    _update_readonly(): void;
+    _update_markers(): void;
     _update_print_margin(): void;
     _update_code_from_editor(): void;
     _update_code_input_from_editor(): void;
@@ -31,13 +37,16 @@ export declare namespace AcePlot {
         code_input: p.Property<string>;
         on_keyup: p.Property<boolean>;
         language: p.Property<string>;
+        markers: p.Property<any[]>;
         filename: p.Property<string | null>;
         indent: p.Property<number>;
+        keyboard_accessible: p.Property<boolean>;
         theme: p.Property<string>;
         annotations: p.Property<any[]>;
         print_margin: p.Property<boolean>;
         readonly: p.Property<boolean>;
         soft_tabs: p.Property<boolean>;
+        soft_wrap: p.Property<boolean>;
     };
 }
 export interface AcePlot extends AcePlot.Attrs {

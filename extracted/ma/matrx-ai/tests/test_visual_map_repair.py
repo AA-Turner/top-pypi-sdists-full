@@ -401,3 +401,10 @@ def test_the_repair_child_gets_a_new_config_and_the_run_keeps_its_own(monkeypatc
     assert len(child.messages) == 3 and child.tools == [] and child.tool_choice is None
     assert parent.messages is parent_messages and len(parent_messages) == 1
     assert parent.tools == ["web_search"] and parent.tool_choice == "auto"
+
+
+def test_a_skipped_review_is_stamped_on_the_value_so_the_person_can_see_it():
+    out = _run(FakeDelivery([0]), K4, None)  # review unbound: skipped
+    assert out.value.get("review") == "skipped"
+    bound = CallPointResult(bound=True, value={"findings": []})
+    assert "review" not in _run(FakeDelivery([0], review=bound), K4, None).value

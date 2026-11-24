@@ -534,3 +534,54 @@ async def test_observed_url_revives_soft_deleted_page(
     marker = revive_calls[0].kwargs["metadata"]["dismissals"][0]
     assert marker["dismissed_at"] == tombstone.isoformat()
     assert marker["revive_reason"] == "reobserved"
+
+
+@pytest.mark.asyncio
+async def test_large_observation_advances_last_seen_in_bounded_pk_ordered_chunks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Live class db_statement_canceled on web.page (2026-11-09): a weekly sitemap
+    refresh advanced last_seen for ~50k pages in ONE statement returning every whole
+    row, outlived the 10 s statement timeout and blocked a concurrent observation.
+    Every UPDATE must stay bounded, lock in primary-key order and return ids only."""
+    from types import SimpleNamespace
+
+    from matrx_scraper.web_crawl import url_identity
+    from matrx_scraper.web_crawl.url_identity import upsert_observed_page_urls
+
+    pages = [
+        SimpleNamespace(
+            id=f"{i:08d}-0000-4000-8000-000000000000",
+            url=f"https://customer.example/p/{i}",
+            canonical_page_id=f"{i:08d}-0000-4000-8000-000000000000",
+            deleted_at=None,
+            metadata={},
+            status="active",
+        )
+        for i in range(1201)
+    ]
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.url_identity._load_site_pages", AsyncMock(return_value=pages)
+    )
+    update_where = AsyncMock()
+    monkeypatch.setattr("matrx_scraper.web_crawl.url_identity.WebPage.update_where", update_where)
+    monkeypatch.setattr("matrx_scraper.web_crawl.url_identity.WebPage.bulk_upsert", AsyncMock())
+
+    await upsert_observed_page_urls(
+        site_id="site-1",
+        organization_id="org-1",
+        user_id="user-1",
+        urls=[p.url for p in pages],
+        provenance="sitemap",
+    )
+
+    seen_calls = [c for c in update_where.await_args_list if "last_seen" in c.kwargs]
+    assert len(seen_calls) == 3
+    ids: list[str] = []
+    for call in seen_calls:
+        chunk = call.args[0]["id__in"]
+        assert len(chunk) <= url_identity._PAGE_BATCH_SIZE
+        assert call.kwargs["lock_rows_in_pk_order"] is True
+        assert call.kwargs["returning"] == ["id"]
+        ids.extend(chunk)
+    assert ids == sorted(p.id for p in pages)

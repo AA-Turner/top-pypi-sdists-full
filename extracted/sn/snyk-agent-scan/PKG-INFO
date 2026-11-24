@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: snyk-agent-scan
-Version: 0.7.0
+Version: 0.7.1
 Summary: Agent supply chain security scanner.
 License: Apache-2.0
 License-File: LICENSE
@@ -13,7 +13,7 @@ Requires-Dist: detect-secrets>=1.5.0
 Requires-Dist: lark>=1.1.9
 Requires-Dist: mcp[cli]==1.30.0
 Requires-Dist: psutil>=5.9.0
-Requires-Dist: pydantic>=2.11.2
+Requires-Dist: pydantic>=2.14.2
 Requires-Dist: pyjson5>=1.6.8
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: rapidfuzz>=3.13.0

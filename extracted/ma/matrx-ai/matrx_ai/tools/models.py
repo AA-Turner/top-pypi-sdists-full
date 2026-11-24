@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 import hashlib
 import json
 import logging
@@ -15,7 +16,7 @@ from uuid import uuid4
 
 from matrx_utils import vcprint
 from matrx_utils.text_case import humanize_identifier
-from pydantic import BaseModel, Field, PrivateAttr, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_serializer
 from pydantic_core import to_jsonable_python
 
 from matrx_ai.config import TokenUsage
@@ -48,7 +49,50 @@ def tool_output_text(output: Any) -> tuple[str, str]:
     """
     if isinstance(output, str):
         return output, "text"
-    return json.dumps(to_json_safe(output), ensure_ascii=False), "json"
+    return json.dumps(to_lean_json(output), ensure_ascii=False), "json"
+
+
+def to_lean_json(value: Any) -> Any:
+    """``to_json_safe(value)`` without the model fields left at a ``None`` default."""
+    return _drop_default_nulls(value, to_json_safe(value))
+
+
+def _drop_default_nulls(source: Any, dumped: Any) -> Any:
+    """``dumped`` without the model fields that are ``None`` AND default to ``None``.
+
+    A kind model declares every optional field as ``x: T | None = None``, so a
+    write receipt dumped whole is twenty null keys around one count (``sql``
+    535 chars, 2026-11-12) — sent to the model on every iteration. Leaving out
+    exactly the fields equal to a ``None`` default re-validates to the same
+    model; ``__kind`` is never ``None`` so it always stays. A ``None`` that
+    differs from its default (``DirectoryEntry.size``) and every ``None`` in
+    plain data (a row's null column) are kept. Walks ``source`` beside its dump
+    and only descends where the shapes match, so a custom serializer is never
+    second-guessed. Guard: ``tools/tests/test_a_tool_result_sends_no_empty_fields.py``.
+    """
+    if isinstance(source, BaseModel) and isinstance(dumped, dict):
+        out = dict(dumped)
+        for name, field in type(source).model_fields.items():
+            # ``to_jsonable_python`` keys a field by its alias whenever it has one
+            # (with or without ``serialize_by_alias``); a dump by name uses the name.
+            alias = field.serialization_alias or field.alias
+            key = alias if alias and alias in out else name
+            if key not in out:
+                continue
+            value = getattr(source, name, None)
+            if value is None:
+                if out[key] is None and field.default is None and field.default_factory is None:
+                    del out[key]
+                continue
+            out[key] = _drop_default_nulls(value, out[key])
+        return out
+    if isinstance(source, dict) and isinstance(dumped, dict):
+        return {
+            k: (_drop_default_nulls(source[k], v) if k in source else v) for k, v in dumped.items()
+        }
+    if isinstance(source, list | tuple) and isinstance(dumped, list) and len(source) == len(dumped):
+        return [_drop_default_nulls(s, d) for s, d in zip(source, dumped, strict=True)]
+    return dumped
 
 
 class ToolOutputContractError(ValueError):
@@ -139,8 +183,78 @@ def _with_action_descriptions(
     return {**chosen, "description": merged}
 
 
+def _with_owning_actions(
+    chosen: dict[str, Any], owners: list[str], all_actions: list[str]
+) -> dict[str, Any]:
+    """A flattened field only SOME actions take says which ones.
+
+    Flattening ``$variants`` offers every action's fields side by side, so a field
+    that only one action accepts read as an option of every action: the model sent
+    ``cloud_browser(action="navigate", wait_after_ms=3000)`` — ``wait_after_ms`` is
+    click's — and the call was refused (2026-11-06, conversation a2d03e88). The
+    description now names the owning actions (or, when shorter, the actions that do
+    not take it). A text that already names every owner as ``<action>:`` is left as
+    written, so hand-authored ``render_clip: …`` roots do not grow.
+    """
+    if not owners or len(owners) >= len(all_actions):
+        return chosen
+    base = chosen.get("description")
+    base = base.strip() if isinstance(base, str) else ""
+    if base and all(re.search(rf"(?<![\w]){re.escape(a)}(?:,[^:]*)?:", base) for a in owners):
+        return chosen
+    others = [a for a in all_actions if a not in owners]
+    if len(others) < len(owners):
+        label = f"Not for action {', '.join(others)}."
+    else:
+        label = f"Only for action {', '.join(owners)}."
+    return {**chosen, "description": f"{label} {base}".strip()}
+
+
 def _choice_text(values: list[Any]) -> str:
     return ", ".join(v if isinstance(v, str) else json.dumps(v) for v in values)
+
+
+def _shape_members(spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """The alternatives one action's field spec allows, without its prose or bookkeeping."""
+    members = spec.get("anyOf")
+    if isinstance(members, list) and "type" not in spec:
+        return [m for m in members if isinstance(m, dict)]
+    return [{k: v for k, v in spec.items() if k in ("type", "items", "enum", "format")}]
+
+
+def _specs_disagree_on_shape(specs: list[dict[str, Any]]) -> bool:
+    """True when the actions sharing a field name allow different JSON shapes for it.
+
+    Only a spec that is typed or an ``anyOf`` counts; an untyped one is the existing
+    "any value" case and is left to its own branch."""
+    shapes = {
+        json.dumps(_shape_members(s), sort_keys=True)
+        for s in specs
+        if "type" in s or "anyOf" in s
+    }
+    if len(shapes) < 2:
+        return False
+    # Same type with only different enum/items is _union_action_choices' job.
+    kinds = {
+        json.dumps(sorted(str(m.get("type")) for m in _shape_members(s)))
+        for s in specs
+        if "type" in s or "anyOf" in s
+    }
+    return len(kinds) > 1
+
+
+def _union_of_shapes(specs: list[dict[str, Any]], root_spec: Any) -> dict[str, Any]:
+    members: list[dict[str, Any]] = []
+    for s in specs:
+        if "type" not in s and "anyOf" not in s:
+            continue
+        for m in _shape_members(s):
+            if m not in members:
+                members.append(m)
+    description = root_spec.get("description", "") if isinstance(root_spec, dict) else ""
+    if not description:
+        description = next((s["description"] for s in specs if s.get("description")), "")
+    return {"anyOf": members, "description": description}
 
 
 def _union_action_choices(
@@ -220,6 +334,39 @@ def _union_action_choices(
     return chosen
 
 
+def _collapse_nullable_union(node: dict[str, Any]) -> dict[str, Any] | None:
+    """``anyOf``/``oneOf`` of exactly one non-null member plus ``{"type":"null"}``
+    -> that member with the outer description/default merged in; else ``None``.
+
+    Our tool rows spell a nullable optional argument this way; Gemini's schema
+    has no ``anyOf`` here, so without the collapse the property lost its type
+    (it fell to ``string``) and the model sent ``"5"`` for an integer.
+    """
+    for key in ("anyOf", "oneOf"):
+        members = node.get(key)
+        if not isinstance(members, list):
+            continue
+        non_null = [
+            m for m in members if not (isinstance(m, dict) and m.get("type") == "null")
+        ]
+        if len(non_null) != 1 or len(non_null) == len(members):
+            continue
+        member = non_null[0]
+        if not isinstance(member, dict):
+            continue
+        merged = dict(member)
+        for k, v in node.items():
+            if k in ("anyOf", "oneOf"):
+                continue
+            if k == "description":
+                if v:
+                    merged[k] = v
+            else:
+                merged.setdefault(k, v)
+        return merged
+    return None
+
+
 def _normalize_google_schema(
     node: dict[str, Any] | str,
     *,
@@ -236,6 +383,14 @@ def _normalize_google_schema(
     """
     if isinstance(node, str):
         return {"type": node}
+
+    collapsed = _collapse_nullable_union(node)
+    if collapsed is not None:
+        out = _normalize_google_schema(
+            collapsed, missing_items=missing_items, path=path, dropped=dropped
+        )
+        out["nullable"] = True
+        return out
 
     s: dict[str, Any] = {}
     ptype = node.get("type", "string")
@@ -279,7 +434,8 @@ def _normalize_google_schema(
             missing_items.append(path)
             s["items"] = {"type": "string"}
 
-    if ptype == "object" and "properties" in node:
+    # Gemini has no "open object": listing some fields would keep the model from sending the others.
+    if ptype == "object" and "properties" in node and node.get("additionalProperties") is not True:
         s["properties"] = {
             k: _normalize_google_schema(
                 v, missing_items=missing_items, path=f"{path}.{k}", dropped=dropped
@@ -678,6 +834,9 @@ def _build_image_ref_blocks(output: dict[str, Any]) -> list[Any]:
                 file_id=file_id,
                 mime_type=media_type,
                 vision_class=vision_class,
+                # An automatic picture (taken without being asked): a model that cannot read
+                # images is told it was skipped, never sent it or an OCR of it (media_fallback).
+                metadata={"auto_picture": True} if output.get("auto") is True else {},
             )
         )
     else:
@@ -698,8 +857,45 @@ def _build_image_ref_blocks(output: dict[str, Any]) -> list[Any]:
             extra.append(f"{key}={val}")
     summary_parts.extend(extra)
     summary = "Screenshot: " + ", ".join(summary_parts) if summary_parts else "Screenshot captured."
+    label = output.get("label")
+    if isinstance(label, str) and label:
+        page = output.get("page_url")
+        summary = f"{label}{f' — {page}' if isinstance(page, str) and page else ''}. {summary}"
     blocks.append(TextContent(text=summary))
     return blocks
+
+
+def media_ref_output_blocks(output: Any) -> list[Any] | None:
+    """The ONE conversion of a canonical media-ref tool output (image_ref,
+    image_ref_list, document/audio/video ref, media_ref_list) into the typed
+    content blocks a provider serializer sends as real media. ``None`` when the
+    output is not a media-ref envelope.
+
+    Used by the live turn (``ToolResult.to_tool_result_content``) AND by every
+    DB rebuild (``chat.tool_call.output`` is a TEXT column holding the same
+    envelope as JSON) so a resumed or replayed conversation shows the model the
+    same image the live turn did — never the envelope's JSON text.
+    """
+    if isinstance(output, str):
+        if not output.lstrip().startswith("{"):
+            return None
+        try:
+            output = json.loads(output)
+        except ValueError:
+            return None
+    if _is_image_ref_output(output):
+        return _build_image_ref_blocks(output)
+    if _is_image_ref_list_output(output):
+        return _build_image_ref_list_blocks(output)
+    if _is_document_ref_output(output):
+        return _build_document_ref_blocks(output)
+    if _is_audio_ref_output(output):
+        return _build_audio_ref_blocks(output)
+    if _is_video_ref_output(output):
+        return _build_video_ref_blocks(output)
+    if _is_media_ref_list_output(output):
+        return _build_media_ref_list_blocks(output)
+    return None
 
 
 logger = logging.getLogger(__name__)
@@ -736,6 +932,23 @@ class ToolRecovery(BaseModel):
         return line
 
 
+#: The most of a tool error's message / technical details the MODEL reads (head and tail kept, the cut
+#: announced). Benchmark P6 (2026-11-03): an ORM timeout's text carried the query's embedding vector, so
+#: each failed knowledge_search handed the model 50,864 chars and one send tripped the input guard. The
+#: full text stays on the error for the operator surfaces (console, debug log, tool_trace).
+MODEL_ERROR_MESSAGE_CHARS = 2_000
+MODEL_ERROR_DETAILS_CHARS = 3_000
+
+
+def _bounded_for_model(text: str, limit: int) -> str:
+    """``text`` as the model reads it: unchanged when short, else its head and tail with the cut said."""
+    if len(text) <= limit:
+        return text
+    head = limit * 2 // 3
+    tail = limit - head
+    return f"{text[:head]}\n[... {len(text) - head - tail:,} chars cut ...]\n{text[-tail:]}"
+
+
 class ToolError(BaseModel):
     error_type: str
     message: str
@@ -745,6 +958,15 @@ class ToolError(BaseModel):
     # not the calling model's to read — a child agent's provider failure, whose
     # last line is the provider's raw text ("Add credits at https://…").
     traceback_operator_only: bool = False
+    # Why there is no stack, for an error built with no exception behind it. Banner wording only:
+    # neither changes what the model reads, capture, ``_is_expected_domain_failure`` or retries.
+    # ``refusal`` → the tool decided not to act (the caller's input, a permission, an absent
+    # record, a policy) (PB-08 B10: agent_call's nesting limit).
+    refusal: bool = False
+    # ``reported_failure`` → names what failed (a remote, a child run, a subprocess, a service)
+    # and returned an error without raising. Never set inside an ``except``: that is
+    # ``from_exception`` (C40: 329 sites said "no exception was raised" about caught exceptions).
+    reported_failure: str | None = None
     is_retryable: bool = False
     suggested_action: str | None = None
     recovery: ToolRecovery | None = None
@@ -777,6 +999,7 @@ class ToolError(BaseModel):
         is_retryable: bool = False,
         suggested_action: str | None = None,
         recovery: ToolRecovery | None = None,
+        traceback_operator_only: bool = False,
     ) -> ToolError:
         """Build a ToolError from a caught exception WITHOUT losing the stack.
 
@@ -797,14 +1020,61 @@ class ToolError(BaseModel):
             error_type=error_type,
             message=message or f"{type(exc).__name__}: {exc}",
             traceback=tb_text,
+            traceback_operator_only=traceback_operator_only,
             is_retryable=is_retryable,
             suggested_action=suggested_action,
             recovery=recovery,
         )
 
+    @classmethod
+    def declared(
+        cls,
+        error_type: str,
+        message: str,
+        *,
+        exc: BaseException | None = None,
+        reported_failure: str | None = None,
+        **kwargs: Any,
+    ) -> ToolError:
+        """The one builder for a tool's ``_err``/``_fail`` helper: the CALLER names the kind.
+
+        ``exc`` (inside an ``except``) → ``from_exception``, the stack kept for the operator only
+        so the model reads exactly what it read before; ``reported_failure`` → a failure some
+        dependency returned without raising; neither → a refusal."""
+        if exc is not None:
+            built = cls.from_exception(
+                exc, error_type=error_type, message=message, traceback_operator_only=True, **kwargs
+            )
+            # The caller's message is what the model reads, even when it is empty:
+            # ``from_exception`` would substitute the exception text for ''.
+            if message == "":
+                built.message = ""
+            return built
+        if reported_failure:
+            return cls(error_type=error_type, message=message, reported_failure=reported_failure, **kwargs)
+        return cls(error_type=error_type, message=message, refusal=True, **kwargs)
+
+    @model_serializer(mode="wrap")
+    def _drop_an_operator_only_stack(self, handler: Any) -> Any:
+        # Every serialization (model_dump, model_dump_json, a whole ToolResult dump) leaves an
+        # operator-only stack out. Operator sinks read ``error.traceback`` directly (executor:
+        # system_error capture, console, debug log, tool_trace metadata), never a dump.
+        data = handler(self)
+        if self.traceback_operator_only and isinstance(data, dict):
+            data.pop("traceback", None)
+        return data
+
+    def model_view(self, **dump_kwargs: Any) -> dict[str, Any]:
+        """The error as a dict for anything outside the operator sinks. Same as ``model_dump``
+        (which already drops an operator-only stack); kept for the callers that name it."""
+        return self.model_dump(**dump_kwargs)
+
     def to_agent_message(self) -> str:
         return "\n".join(
-            [f"TOOL ERROR [{self.error_type}]: {self.message}", *self._instruction_lines()]
+            [
+                f"TOOL ERROR [{self.error_type}]: {_bounded_for_model(self.message, MODEL_ERROR_MESSAGE_CHARS)}",
+                *self._instruction_lines(),
+            ]
         )
 
     def _instruction_lines(self) -> list[str]:
@@ -814,7 +1084,7 @@ class ToolError(BaseModel):
         if self.recovery is not None:
             parts.append(self.recovery.to_agent_line())
         if self.traceback and not self.traceback_operator_only:
-            parts.append(f"Technical details:\n{self.traceback}")
+            parts.append(f"Technical details:\n{_bounded_for_model(self.traceback, MODEL_ERROR_DETAILS_CHARS)}")
         return parts
 
     def persisted_message(self) -> str:
@@ -824,7 +1094,7 @@ class ToolError(BaseModel):
         ``error_type: error_message`` (``_synthesise_error_content``), so storing
         the bare message made a later turn's model lose the remedy and the
         resume handle it was shown live (OPENSEO-TOOLS-SPEC §7)."""
-        return "\n".join([self.message, *self._instruction_lines()])
+        return "\n".join([_bounded_for_model(self.message, MODEL_ERROR_MESSAGE_CHARS), *self._instruction_lines()])
 
 
 class HandoffOutcome(BaseModel):
@@ -866,6 +1136,11 @@ class ToolResult(BaseModel):
     # pending result is NEVER fed to the model as a tool result.
     # See docs/tool_delegation/DELEGATION_LOOP_BUGS.md.
     delegated_pending: bool = False
+    client_resolved_content: dict[str, Any] | None = None
+    """Set when a turn HELD its stream for a client-run call and the client's result landed under that
+    hold (``tools/delegated_hold.py``): the model-facing tool result built from the stored row by the
+    rebuild's own function. The result POST already wrote the row, its kind and its trace, so the executor
+    returns this content as is and logs nothing of its own."""
 
     # Mandate-candidate containment (matrx_ai.tools.candidate_containment).
     # ``candidate_stopped`` is TERMINAL, never a suspension: the call was NOT
@@ -1087,18 +1362,9 @@ class ToolResult(BaseModel):
                 content = self.provider_content
             else:
                 content = self.output
-                if _is_image_ref_output(content):
-                    content = _build_image_ref_blocks(content)
-                elif _is_image_ref_list_output(content):
-                    content = _build_image_ref_list_blocks(content)
-                elif _is_document_ref_output(content):
-                    content = _build_document_ref_blocks(content)
-                elif _is_audio_ref_output(content):
-                    content = _build_audio_ref_blocks(content)
-                elif _is_video_ref_output(content):
-                    content = _build_video_ref_blocks(content)
-                elif _is_media_ref_list_output(content):
-                    content = _build_media_ref_list_blocks(content)
+                media_blocks = media_ref_output_blocks(content)
+                if media_blocks is not None:
+                    content = media_blocks
                 elif not isinstance(content, str):
                     content = tool_output_text(content)[0] if content is not None else ""
         else:
@@ -1132,7 +1398,7 @@ class ToolResult(BaseModel):
         # Side-channel for cx_request.tool_calls_details enrichment — stripped
         # before ToolResultContent(**…) so it never reaches the provider wire.
         if not self.success and self.error is not None:
-            payload["error"] = self.error.model_dump(exclude_none=True)
+            payload["error"] = self.error.model_view(exclude_none=True)
         return payload
 
 
@@ -1215,6 +1481,16 @@ class ToolContext(BaseModel):
     tools.models → tools.result_gate → tools.sections import loop.
     """
 
+    running_modes: Any = None
+    """The running turn's agent modes (:class:`matrx_ai.config.agent_modes.RunningModes`), or ``None`` when the
+    agent has none or the tool runs outside the agent loop. Set by the orchestrator from the live config;
+    ``running_modes.switch(key)`` changes the mode the next model call of the same loop is sent."""
+
+    allowed_tools: frozenset[str] | None = None
+    """The run's allowed toolset for this call (internal names), stamped by ``ToolExecutor.execute`` after
+    its allowlist guard. ``None`` = no allowlist known. A gateway tool (``use_tool``) reads it so it can run
+    a tool the run already holds and never one it does not — a gateway never widens what a run may do."""
+
     model_config = {"arbitrary_types_allowed": True}
 
     @property
@@ -1249,6 +1525,18 @@ class ToolContext(BaseModel):
         ctx = try_get_app_context()
         # Return a copy so no tool can accidentally mutate the parent context's key store.
         return dict(ctx.api_keys) if ctx else {}
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """The run's metadata (channel, surface, depth ...) as the boundary stamped it.
+
+        A tool that behaves differently on a phone call, a screen run or a
+        child run reads it here. A copy, so no tool changes the run's own.
+        """
+        from matrx_ai.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+        return dict(getattr(ctx, "metadata", None) or {}) if ctx else {}
 
     @property
     def project_id(self) -> str | None:
@@ -1529,6 +1817,27 @@ def _publish_dropped_constraints(tool: str, dropped: list[tuple[str, str, Any]])
         return
 
 
+def _accepts_null(prop: dict[str, Any]) -> bool:
+    """True when a built property already admits JSON ``null`` (or any value)."""
+    kind = prop.get("type")
+    if kind is None and "anyOf" not in prop and "enum" not in prop:
+        return True  # untyped: any JSON value
+    if kind == "null" or (isinstance(kind, list) and "null" in kind):
+        return True
+    members = prop.get("anyOf")
+    return isinstance(members, list) and any(
+        isinstance(m, dict) and _accepts_null(m) for m in members
+    )
+
+
+def _with_null(prop: dict[str, Any]) -> dict[str, Any]:
+    """``prop`` widened to also accept ``null``, its description and default kept on the outside."""
+    outer = {k: prop[k] for k in ("description", "default") if k in prop}
+    inner = {k: v for k, v in prop.items() if k not in outer}
+    members = inner.get("anyOf") if set(inner) == {"anyOf"} else [inner]
+    return {"anyOf": [*members, {"type": "null"}], **outer}
+
+
 def _marks_required(param: dict[str, Any]) -> bool:
     """True when a parameter's per-property ``required`` flag says it is required.
 
@@ -1541,6 +1850,24 @@ def _marks_required(param: dict[str, Any]) -> bool:
     parameter itself.
     """
     return param.get("required") is True
+
+
+@functools.lru_cache(maxsize=2048)
+def _code_declared_output_schema_cached(tool_name: str) -> str | None:
+    from matrx_ai.tools.declared import code_name_for
+    from matrx_ai.tools.kinds import result_kind_model
+
+    model = result_kind_model(code_name_for(tool_name))
+    return json.dumps(model.model_json_schema()) if model is not None else None
+
+
+def _code_declared_output_schema(tool_name: str) -> dict[str, Any] | None:
+    """The JSON schema of the KindModel ``tool_name`` is declared to return, or ``None``.
+
+    A fresh dict per call (the cache holds its JSON text), so no caller can mutate the cached shape.
+    """
+    cached = _code_declared_output_schema_cached(tool_name)
+    return json.loads(cached) if cached is not None else None
 
 
 class ToolDefinition(BaseModel):
@@ -1743,11 +2070,21 @@ class ToolDefinition(BaseModel):
         if not isinstance(variants, dict) or not variants:
             return None
         variant_names = set(variants)
+        # A lean (args-envelope) row advertises ``guide`` beside its actions; the row itself
+        # answers it, so it has no variant. Without discounting it the enum never matched, the
+        # contract fell back to the root map (``action`` + ``args``) and every unwrapped call
+        # was filed as tool_input_contract_drift (cloud_browser, 2026-11-22/23).
+        envelope_guide: set[str] = set()
+        if isinstance(self.parameters.get(ARGS_ENVELOPE_KEY), str):
+            from matrx_ai.tools.lean_envelope import GUIDE_ACTION
+
+            if GUIDE_ACTION not in variant_names:
+                envelope_guide = {GUIDE_ACTION}
         for key, raw_spec in self.parameters.items():
             if key.startswith("$") or not isinstance(raw_spec, dict):
                 continue
             enum = raw_spec.get("enum")
-            if isinstance(enum, list) and set(enum) == variant_names:
+            if isinstance(enum, list) and set(enum) - envelope_guide == variant_names:
                 return key
         return None
 
@@ -1849,6 +2186,12 @@ class ToolDefinition(BaseModel):
                         root_spec.get("description", "") if isinstance(root_spec, dict) else ""
                     )
                 }
+            elif _specs_disagree_on_shape(variant_specs):
+                # One action takes the field as a string, another as string-or-list
+                # (records record_delete.record_id). Keeping the first action's shape
+                # made the Content IR input contract refuse the wider action's call
+                # though the tool ran it (tool_input_contract_drift, live 2026-11-14).
+                chosen = _union_of_shapes(variant_specs, root_spec)
             elif (
                 isinstance(root_spec, dict)
                 and ("type" in root_spec or "anyOf" in root_spec)
@@ -1896,8 +2239,18 @@ class ToolDefinition(BaseModel):
                     if key in variant and isinstance(variant[key], dict)
                 },
             )
-            if union_keys is not None and chosen is not before:
-                union_keys.add(key)
+            before_owners = chosen
+            chosen = _with_owning_actions(
+                chosen,
+                [
+                    action
+                    for action, variant in zip(variants, variant_maps, strict=True)
+                    if key in variant
+                ],
+                list(variants),
+            )
+            if union_keys is not None and (chosen is not before or chosen is not before_owners):
+                union_keys.add(key)  # Gemini takes the labelled field, not the bare root
             flattened[key] = {**chosen, "required": key in required_in_all}
 
         return flattened
@@ -1962,7 +2315,8 @@ class ToolDefinition(BaseModel):
         properties: dict[str, Any] = {}
         required: list[str] = []
 
-        for key, param in self._provider_parameters(contract=contract).items():
+        source_params = self._provider_parameters(contract=contract)
+        for key, param in source_params.items():
             if key.startswith("$"):
                 # `$`-prefixed keys (e.g. `$variants`) are internal contract
                 # metadata, NOT tool parameters. They must never reach a provider's
@@ -2041,14 +2395,17 @@ class ToolDefinition(BaseModel):
                 prop["default"] = param["default"]
             if "enum" in param:
                 prop["enum"] = param["enum"]
-            if prop["type"] == "object" and "properties" in param:
+            # An object may publish the fields it knows and stay open to others. Strict mode cannot say "open", so
+            # there it stays the bare object it was: closing it would forbid every field it did not list.
+            open_object = param.get("additionalProperties") is True
+            if prop["type"] == "object" and "properties" in param and not (open_object and strip_openai_unsupported):
                 prop["properties"] = {
                     sk: self._process_nested(sv, strip_openai_unsupported, dropped, f"{key}.{sk}")
                     for sk, sv in param["properties"].items()
                 }
                 nested_required = param.get("required", [])
                 prop["required"] = nested_required if isinstance(nested_required, list) else []
-                prop["additionalProperties"] = False
+                prop["additionalProperties"] = open_object
 
             properties[key] = prop
             if _marks_required(param):
@@ -2061,6 +2418,32 @@ class ToolDefinition(BaseModel):
         for key in self.required_params:
             if key in properties and key not in required:
                 required.append(key)
+
+        # A row may carry its shared definitions in a root ``$defs`` map (topical_map
+        # does). The loop above skips every ``$`` key, so the built schema would keep each
+        # ``$ref`` and lose what it points at — and a dangling pointer makes the contract
+        # check skip the call entirely (failing open). Inline them here, once.
+        from matrx_ai.tools.validation.schema import inline_local_refs
+
+        root_defs = self.parameters.get("$defs")
+        if isinstance(root_defs, dict) and root_defs:
+            properties = inline_local_refs(properties, root_defs)
+
+        if contract:
+            # The CONTRACT accepts what the executor accepts: an optional argument whose
+            # default is ``null`` (``X | None = None``) takes an explicit ``null`` too. The
+            # flat row keeps only the non-null member, so ``questions: null`` read as drift
+            # (records form_propose, 2026-11-03). Providers keep the plain shape.
+            for key, prop in properties.items():
+                param = source_params.get(key)
+                if (
+                    isinstance(param, dict)
+                    and "default" in param
+                    and param["default"] is None
+                    and key not in required
+                    and not _accepts_null(prop)
+                ):
+                    properties[key] = _with_null(prop)
 
         return {
             "type": "object",
@@ -2111,17 +2494,23 @@ class ToolDefinition(BaseModel):
             version=self.version,
             source_id=str(self.tool_id) if self.tool_id else None,
         )
+        # A tool whose implementation is DECLARED to return a KindModel is measured against that
+        # model's own schema - the shape it really returns - never the stored copy, which lags every
+        # field added until someone re-runs scripts/backfill_tool_output_schemas.py (feedback 84721e9b:
+        # kind_create/kind_get/computers/workflow_run "drifted" on fields the code added; the stored
+        # copy stays guarded by that script's --check in CI and release health).
+        output_schema = _code_declared_output_schema(self.name) or self.output_schema
         output_contract = (
             contract_definition(
                 family=ContractFamily.TOOL_IO,
                 source_name=source_name,
                 direction=ContractDirection.OUTPUT,
-                json_schema=self.output_schema,
+                json_schema=output_schema,
                 label=f"{self.name} output",
                 version=self.version,
                 source_id=str(self.tool_id) if self.tool_id else None,
             )
-            if isinstance(self.output_schema, dict)
+            if isinstance(output_schema, dict)
             else None
         )
         return input_contract, output_contract

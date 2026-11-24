@@ -15,9 +15,8 @@ from torch import nn
 from torch.nn.utils.parametrizations import weight_norm
 
 from braindecode.functional import _real_dft, spectral_input
-from braindecode.functional.attention import _hpu_lazy
 from braindecode.functional.functions import _next_fast_len
-from braindecode.models.base import EEGModuleMixin
+from braindecode.models.base import EEGModuleMixin, deprecated_forward_kwargs
 
 # Cache of one-sided DFT cosine/sine bases keyed by (device, n_fft): the TUEG
 # geometry reuses one basis for every block, forward and backward.
@@ -121,6 +120,9 @@ class CodeBrain(EEGModuleMixin, nn.Module):
        CodeBrain: Scalable Code EEG Pre-Training for Unified Downstream BCI Tasks.
        https://arxiv.org/abs/2506.09110
     """
+
+    _time_axis = "fixed"  # fixed: final_layer.1.weight
+    _channel_axis = "fixed"  # fixed: final_layer.1.weight
 
     _channel_target = (
         "Fp1 Fp2 F7 F3 Fz F4 F8 T7 C3 Cz C4 T8 P7 P3 Pz P4 P8 O1 O2".split()
@@ -234,6 +236,18 @@ class CodeBrain(EEGModuleMixin, nn.Module):
             nn.Dropout(drop_prob),
             nn.Linear(out_channels, self.n_outputs),
         )
+        self._n_times_step = self.patch_size
+        self._min_n_times = self.patch_size
+        self._snaps_in_prepare_inputs = "pad_only"
+
+    def _accepts_any_n_chans(self, args: tuple, kwargs: dict) -> bool:
+        return super()._accepts_any_n_chans(args, kwargs) or self._accepts_any_n_times(
+            args, kwargs
+        )
+
+    def _accepts_any_n_times(self, args: tuple, kwargs: dict) -> bool:
+        ret_feat = self._call_arg(args, kwargs, "return_features", False)
+        return bool(self.pretrain_mode or ret_feat)
 
     def load_state_dict(self, state_dict, *args, **kwargs):
         """Remap upstream checkpoint keys to braindecode attribute names.
@@ -263,9 +277,24 @@ class CodeBrain(EEGModuleMixin, nn.Module):
             remapped[new_key] = value
         return super().load_state_dict(remapped, *args, **kwargs)
 
+    def reset_head(self, n_outputs: int) -> None:
+        """Replace the last layer of ``final_layer`` by one with ``n_outputs`` outputs.
+
+        The two hidden layers of the head keep their weights.
+
+        Parameters
+        ----------
+        n_outputs : int
+            New number of outputs.
+        """
+        self._set_n_outputs(n_outputs)
+        # The hidden layers do not change, so the new layer keeps its input width
+        self.final_layer[-1] = nn.Linear(self.final_layer[-1].in_features, n_outputs)
+
+    @deprecated_forward_kwargs(inputs="x")
     def forward(
         self,
-        inputs: torch.Tensor,
+        x: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         return_features: bool = False,
     ) -> Union[
@@ -273,16 +302,14 @@ class CodeBrain(EEGModuleMixin, nn.Module):
         Dict[str, Optional[torch.Tensor]],
         Tuple[torch.Tensor, torch.Tensor],
     ]:
-        # inputs: (batch, n_chans, n_times)
-        batch, n_chans, n_times = inputs.shape
+        # x: (batch, n_chans, n_times)
+        batch, n_chans, n_times = x.shape
         patch_size = self.patch_size
         seq_len = n_times // patch_size
 
         # Trim to nearest multiple of patch_size and reshape into patches
         # (batch, n_chans, seq_len, patch_size)
-        x = inputs[:, :, : seq_len * patch_size].reshape(
-            batch, n_chans, seq_len, patch_size
-        )
+        x = x[:, :, : seq_len * patch_size].reshape(batch, n_chans, seq_len, patch_size)
         # Dual temporal-spectral patch embedding
         # (batch, n_chans, seq_len, emb_dim)
         x = self.patch_embedding(x, mask=mask)
@@ -442,6 +469,9 @@ class _GConv(nn.Module):
         self.register_buffer(
             "kernel_norm_initialized", torch.tensor(0, dtype=torch.bool)
         )
+        # The buffer as a Python bool: torch.compile guards on it once instead
+        # of breaking the graph to read a tensor on every forward.
+        self._kernel_norm_ready = False
 
         # ========== Learnable parameters ==========
         self.skip_weight = nn.Parameter(torch.randn(channels, self.d_model))
@@ -475,6 +505,10 @@ class _GConv(nn.Module):
             )
             self.output_linear = nn.Linear(self.d_model * self.channels, self.d_model)
 
+    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+        self._kernel_norm_ready = bool(self.kernel_norm_initialized)
+
     def forward(
         self, x: torch.Tensor, return_kernel: bool = False
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -505,11 +539,12 @@ class _GConv(nn.Module):
         # Lazy-init kernel normalisation on first forward pass
         # In place, so a first forward under torch.inference_mode() does not
         # leave inference tensors in the buffers for a later training step.
-        if not self.kernel_norm_initialized:
+        if not self._kernel_norm_ready:
             self.kernel_norm.copy_(
                 torch.linalg.vector_norm(kernel, 2, dim=-1, keepdim=True).detach()
             )
             self.kernel_norm_initialized.fill_(True)
+            self._kernel_norm_ready = True
 
         # Pad or truncate kernel to match seq_len
         if kernel.size(-1) > seq_len:
@@ -896,20 +931,10 @@ class _ResidualGroup(nn.Module):
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         noise = input_data
         h = noise
-        if not torch.jit.is_scripting() and h.device.type == "hpu" and _hpu_lazy():
-            # Gaudi's lazy-mode graph compiler fails on the backward of the
-            # sequential skip sum (one skip_conv dedw node lands in two
-            # pipeline bundles); one n-ary stack-sum reduction compiles.
-            skip_list = []
-            for block in self.residual_blocks:
-                h, skip_n = block((h, noise))
-                skip_list.append(skip_n)
-            skip = torch.stack(skip_list, dim=0).sum(dim=0)
-        else:
-            skip = torch.zeros((), dtype=h.dtype, device=h.device)
-            for block in self.residual_blocks:
-                h, skip_n = block((h, noise))
-                skip = skip_n + skip
+        skip = torch.zeros((), dtype=h.dtype, device=h.device)
+        for block in self.residual_blocks:
+            h, skip_n = block((h, noise))
+            skip = skip_n + skip
 
         return skip * math.sqrt(1.0 / self.num_res_layers)
 
@@ -995,9 +1020,7 @@ class _PatchEmbedding(nn.Module):
         self.d_model = self.emb_dim
 
         # ========== Learnable parameters ==========
-        self.mask_encoding = nn.Parameter(
-            torch.zeros(self.emb_dim), requires_grad=False
-        )
+        self.mask_encoding = nn.Parameter(torch.zeros(patch_size), requires_grad=False)
 
         # ========== Layers ==========
         # Temporal projection: 3-layer Conv2d stack

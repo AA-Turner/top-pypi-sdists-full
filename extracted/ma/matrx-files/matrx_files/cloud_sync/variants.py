@@ -127,7 +127,7 @@ def _ext_for_mime(mime: str) -> str:
 
 
 def variant_file_path(
-    master_file_path: str, variant_key: str, ext: str, master_file_id: str
+    master_file_path: str, variant_key: str, ext: str, master_file_id: str, master_version: int | None = None
 ) -> str:
     """Build the deterministic, **master-scoped** logical path for a variant.
 
@@ -142,11 +142,53 @@ def variant_file_path(
     directory (e.g. many photos uploaded into one folder) can never collide on
     the same variant file. Dropping it silently serves the first master's bytes
     for every sibling — see the module docstring's warning.
+
+    ``master_version`` above 1 is part of the name too (``{variant_key}.v{N}.{ext}``): a master
+    replaced in place gets a variant of its OWN bytes, never the old one (AND-IMG17 #1). Version 1
+    keeps the original name, so every variant rendered before versions were recorded stays valid.
     """
     master_dir = dirname(master_file_path)
-    name = f"{variant_key}.{ext}"
+    version = _master_version(master_version)
+    name = f"{variant_key}.v{version}.{ext}" if version > 1 else f"{variant_key}.{ext}"
     scoped = f"v/{master_file_id}/{name}"
     return f"{master_dir}/{scoped}" if master_dir else scoped
+
+
+def _master_version(value: Any) -> int:
+    """A master's ``current_version`` as an int (absent or unreadable → 1, the first version)."""
+    try:
+        version = int(value)
+    except (TypeError, ValueError):
+        return 1
+    return version if version > 0 else 1
+
+
+def _variant_matches_master(row_meta: dict[str, Any], master_version: int) -> bool:
+    """A stored variant is of the master's CURRENT bytes. A row without ``master_version`` was
+    rendered before versions were recorded: it can only be of version 1."""
+    return _master_version(row_meta.get("master_version")) == master_version
+
+
+async def write_variant_as_its_master(master: dict[str, Any], write: Callable[[], Awaitable[Any]]) -> Any:
+    """Run a variant row's write so its TEST STAMP follows its master's, never the session's.
+
+    A variant's lifetime is its master's. The test stamp (``test_run_id`` / ``test_expires_at``) is set by the
+    database trigger from the WRITING session's declared run, so a variant rendered for an UNSTAMPED master during a
+    test session (a test upload deduplicated onto a person's existing file, a new version of it, a test walker's
+    preset render) was born stamped, and the run's archive later trashed it while the master stayed live: 377 live
+    files lost every thumbnail (2026-11-20, Matrx Scan). For a master whose row SAYS it is unstamped
+    (``test_run_id`` present and null) the write runs in a hop that carries the request identity but no test run
+    (``detached_task``, its default); for a stamped master, or a partial dict without the column, it runs here,
+    under the session. Awaited either way — the caller still gets the
+    write's result or its exception.
+    """
+    if "test_run_id" not in master or master["test_run_id"]:
+        # Stamped, or a partial dict that does not say (matrx-ai's fallback master record): written under the
+        # session as before — an unknown master is never treated as unstamped (it may be this run's own file).
+        return await write()
+    from matrx_utils import detached_task
+
+    return await detached_task(write(), name=f"variant-write:{master.get('id')}", carry_test_run=False)
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +261,7 @@ async def render_variant_async(
 
     master_path: str = master["file_path"]
     owner_id: str = master["owner_id"]
+    master_version = _master_version(master.get("current_version"))
 
     # Cache probe by METADATA, not by guessing filename extensions — the old
     # 4-extension path probe (jpg/png/webp/bin) silently missed every variant
@@ -234,6 +277,8 @@ async def render_variant_async(
         row_family = row_meta.get("variant_family")
         if row_family is not None and row_family != family:
             continue
+        if not _variant_matches_master(row_meta, master_version):
+            continue  # a variant of the master's earlier bytes: never served for the current ones
         urls = await se.build_urls_for_record_async(row)
         return {
             "file_id": row["id"],
@@ -263,7 +308,7 @@ async def render_variant_async(
         encoded_bytes, encoded_mime = raw  # type: ignore[misc]
 
     ext = _ext_for_mime(encoded_mime)
-    variant_path = variant_file_path(master_path, variant_key, ext, master_file_id)
+    variant_path = variant_file_path(master_path, variant_key, ext, master_file_id, master_version)
 
     # A variant inherits the master's ACCESS CONTEXT — web lane, list filter, org, and
     # the contextual policy tags (system_artifact / artifact_domain /
@@ -275,20 +320,22 @@ async def render_variant_async(
             "derived_from": master_file_id,
             "variant_family": family,
             "variant_key": variant_key,
+            "master_version": master_version,
         },
     )
 
-    result = await se.managed_write_async(
+    result = await write_variant_as_its_master(master, lambda: se.managed_write_async(
         variant_path,
         encoded_bytes,
         mime_type=encoded_mime,
+        pathway="files.variant",  # placement registry: the declared automated pathway
         published_to_web=access.published_to_web,
         shown_to=access.shown_to,
         user_id=owner_id,
         metadata=metadata,
         parent_file_id=master_file_id,
         derivation_kind=FileDerivationKind.VARIANT.value,
-    )
+    ))
 
     return {
         "file_id": result.file_id,
@@ -311,4 +358,5 @@ __all__ = [
     "has_variant_encoder",
     "variant_file_path",
     "render_variant_async",
+    "write_variant_as_its_master",
 ]

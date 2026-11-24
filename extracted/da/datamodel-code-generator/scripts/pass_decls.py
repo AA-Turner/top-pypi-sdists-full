@@ -11,9 +11,8 @@ rows are declared from the code; ``after`` edges order the passes whose facts co
 every declaration in execution order and is the source of the generated pass table in ``docs/architecture.md``;
 ``DECISION_DECLS`` declares the decisions of the decision registries (``parser/_phases.py``) by name.
 
-The tables carry no label that only the checks read: ``BOUNDARY_BEFORE`` names the segments that enter a boundary,
-``SCOPE_NAMES`` the pass scope of a segment's guarded writes and ``HOOK_BODIES`` the table that the default
-implementation of each hook runs.
+The tables carry no label that only the checks read: ``BOUNDARY_BEFORE`` names the segments that enter a boundary and
+``HOOK_BODIES`` the table that the default implementation of each hook runs.
 """
 
 from __future__ import annotations
@@ -45,7 +44,6 @@ __all__ = [
     "RENAME_SUBMODULES_HIDDEN_BY_CLASSES",
     "REPLACE_MERGED_UNIQUE_LIST_TO_SET",
     "REPLACE_UNHASHABLE_UNIQUE_SET_TO_LIST",
-    "SCOPE_NAMES",
     "SETTLE_MODULE_UNUSED_MODELS",
     "SET_VALIDATE_DEFAULT_ON_FIELDS",
     "TYPE_USERS_OF_LOOPING_REF_CHAINS_BY_ANY",
@@ -700,7 +698,7 @@ RENAME_FIELDS_HIDING_TYPES = PassDecl(
     ),
     writes=_facts(Fact.FIELD_NAMES, Fact.FIELD_ALIASES, Fact.FIELD_TYPES, RenderFact.CLASS_NAMES),
     after=(After("refresh_field_config", "the field config is refreshed with the aliases before renaming"),),
-    condition="an output that renames fields",
+    condition="an output that renames fields, or --rename-fields-hiding-types-from-type-checkers",
 )
 REMOVE_OVERRIDDEN_MODELS = PassDecl(
     "remove_overridden_models",
@@ -780,6 +778,35 @@ APPLY_BASE_CLASS_TYPE_OVERRIDES = PassDecl(
     trigger=Trigger("--type-overrides gives a model-level key", _facts(Fact.TYPE_OVERRIDES)),
 )
 
+FOLLOW_HIDING_FIELD_RENAMES = PassDecl(
+    "follow_hiding_field_renames",
+    Phase.MODULES,
+    Scope.GLOBAL,
+    PassKind.TRANSFORM,
+    reads=_facts(Fact.FIELD_NAMES),
+    writes=_facts(Fact.FIELD_NAMES, Fact.FIELD_ALIASES),
+    summary=(
+        "After every module is processed: holds a field that a class redeclares under the name its family gave the "
+        "field that hides its type, so the class has one field for the wire key."
+    ),
+    condition="--rename-redeclared-fields-hiding-types or --rename-fields-hiding-types-from-type-checkers",
+    after=(
+        After("record_decimal_alias_models", "the Decimal check reads the field names as parsed"),
+        After("alias_shadowed_imports", "the import aliases read the field names as parsed"),
+        After("reuse_model", "reuse reads the field names of the models it merges as parsed"),
+        After("change_field_name", "applies the renames it recorded for the family"),
+        After(
+            "restore_inherited_field_names_for_unique_aliases",
+            "the inherited names it restores are those before a family rename",
+        ),
+        After("refresh_field_config", "the field config is refreshed with the aliases before renaming"),
+        After("rename_fields_hiding_types", "applies the renames it recorded for the family"),
+        After("apply_field_type_overrides", "scoped overrides name the fields as parsed"),
+        After(
+            "fix_constructor_field_ordering_early", "the early ordering reads the names before every field has its own"
+        ),
+    ),
+)
 SETTLE_KEPT_PARENT_ROOTS = PassDecl(
     "settle_kept_parent_roots",
     Phase.MODULES,
@@ -1142,11 +1169,12 @@ APPLY_GENERIC_BASE_CLASS = PassDecl(
     Phase.CROSS_MODULE,
     Scope.GLOBAL,
     PassKind.TRANSFORM,
-    reads=_facts(Fact.BASES),
+    reads=_facts(Fact.BASES, RenderFact.CLASS_NAMES, RenderFact.MODULE_IMPORTS, RenderFact.IMPORT_ALIASES),
     writes=_facts(Fact.BASES, Fact.MODELS_EXIST),
     summary=(
-        "Inserts the generated base model, in the module an earlier attempt seeded where its import failed, and "
-        "rewrites the base classes; B1 follows."
+        "Inserts the generated base model, in the module an earlier attempt seeded where its import failed, "
+        "renames it while a kept base or another class or import of the output binds its name, and rewrites the "
+        "base classes; B1 follows."
     ),
     condition="use_generic_base_class with a configuration for the base class",
 )
@@ -1253,7 +1281,14 @@ SET_VALIDATE_DEFAULT_ON_FIELDS = PassDecl(
     Scope.MODULE,
     PassKind.TRANSFORM,
     reads=_facts(
-        Fact.DEFAULTS, Fact.FIELD_TYPES, Fact.MODELS_EXIST, Fact.BASES, Fact.FIELD_SET, Fact.FIELD_NAMES, Fact.REQUIRED
+        Fact.DEFAULTS,
+        Fact.FIELD_TYPES,
+        Fact.MODELS_EXIST,
+        Fact.BASES,
+        Fact.FIELD_SET,
+        Fact.FIELD_NAMES,
+        Fact.REQUIRED,
+        RenderFact.BACKEND_CONFIG,
     ),
     writes=_facts(
         Fact.DEFAULTS,
@@ -1936,6 +1971,7 @@ PASS_DECLS: tuple[PassDecl, ...] = (
     FIX_CONSTRUCTOR_FIELD_ORDERING_EARLY,
     SNAPSHOT_MODULE_UNUSED_MODELS,
     APPLY_BASE_CLASS_TYPE_OVERRIDES,
+    FOLLOW_HIDING_FIELD_RENAMES,
     SETTLE_KEPT_PARENT_ROOTS,
     WRITE_RULE_ALIASES_AS_CLASSES,
     NAME_INNER_MODELS_IN_RULES,
@@ -2033,17 +2069,6 @@ BOUNDARY_BEFORE: Final = {
     "imports": Boundary.RENDER_READY,
 }
 """The boundary each segment enters before its steps, by segment name; ``MODULE_DONE`` ends each module body."""
-SCOPE_NAMES: Final = {
-    "structure": "Parser._build_module_structure",
-    "plan": "Parser.parse",
-    "cross_module": "Parser.parse",
-    "generic_base_class": "Parser.parse",
-    "decide": "Parser.parse",
-    "render_preparation": "Parser.parse",
-    "finish": "Parser.parse",
-    "render": "Parser.__render_modules",
-}
-"""The pass scope in which the finality check reports the guarded writes of a segment, by segment name."""
 HOOK_BODIES: Final = {
     "build_module_structure": "STRUCTURE_BODY",
     "process_single_module": "MODULE_BODY",

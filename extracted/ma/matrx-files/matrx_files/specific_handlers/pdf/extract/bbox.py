@@ -12,14 +12,13 @@ from page.rect / page.get_text — i.e. y0 is near the top of the page).
 from __future__ import annotations
 
 import base64
-import io
-from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from ..concurrency import run_in_cpu_executor
 from ..internal import load_pymupdf
+from ..render_budget import bounded_render_dpi
 from .ocr import ocr_image_bytes
 
 
@@ -160,7 +159,8 @@ def extract_at_bbox(
             if should_ocr:
                 try:
                     # Render just the clip rect at OCR-friendly DPI.
-                    pix = page.get_pixmap(clip=clip, dpi=300, alpha=False)
+                    dpi = bounded_render_dpi(clip.width, clip.height, 300)
+                    pix = page.get_pixmap(clip=clip, dpi=dpi, alpha=False)
                     ocr_text = ocr_image_bytes(bytes(pix.tobytes("png"))).strip()
                     if ocr_text:
                         if native_text and ocr_text != native_text:
@@ -212,7 +212,8 @@ def extract_at_bbox(
         preview_b64: str | None = None
         if include_preview:
             try:
-                pix = page.get_pixmap(clip=clip, dpi=preview_dpi, alpha=False)
+                dpi = bounded_render_dpi(clip.width, clip.height, preview_dpi)
+                pix = page.get_pixmap(clip=clip, dpi=dpi, alpha=False)
                 preview_b64 = base64.b64encode(bytes(pix.tobytes("png"))).decode("ascii")
             except Exception as exc:
                 notes.append(f"preview render failed: {exc!r}")

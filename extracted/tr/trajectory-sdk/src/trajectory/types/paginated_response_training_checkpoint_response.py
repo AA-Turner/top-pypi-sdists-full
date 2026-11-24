@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from trajectory._base_client import SyncPage
-from trajectory.types.training.checkpoints.training_checkpoint_response import (
-  TrainingCheckpointResponse,
-)
+from trajectory.types.rl.checkpoints.training_checkpoint_response import TrainingCheckpointResponse
 
 
 class PaginatedResponseTrainingCheckpointResponse(SyncPage[TrainingCheckpointResponse]):

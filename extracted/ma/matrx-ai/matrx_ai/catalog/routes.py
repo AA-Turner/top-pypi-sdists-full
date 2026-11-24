@@ -16,6 +16,11 @@ NON_TURN_CLIENT_ATTRS: dict[str, str] = {
     "google_live": "realtime",
     "google_music_realtime": "music_realtime",
     "google_embeddings": "embedding",
+    # Voyage embeddings: matrx-rag calls Voyage directly; the catalog row exists so the offering prices from ai.offering.
+    "voyage_embeddings": "embedding",
+    # Cohere rerank: providers/cohere/rerank.py calls Cohere directly through the shared dispatch seam; the catalog
+    # row exists so a rerank prices from ai.offering (component_prices["search_units"]) like every other call.
+    "cohere_rerank": "rerank",
     "groq_stt": "stt",
     # Streaming speech-to-text through LiveKit Inference, executed by the
     # LiveKit agent worker's SDK (aidream services/meet/worker.py) — the

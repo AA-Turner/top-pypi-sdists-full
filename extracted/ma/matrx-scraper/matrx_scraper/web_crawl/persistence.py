@@ -40,6 +40,7 @@ from matrx_orm import (
 from matrx_utils import capture_error, utcnow
 from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
 
+from matrx_scraper.file_pathways import WEB_CRAWL_PATHWAY
 from matrx_scraper.crawler import (
     CapturedShot,
     PersistRequest,
@@ -576,7 +577,7 @@ async def _canonical_ids_by_url_hash(site_id: str, digests: set[str]) -> dict[st
     return resolved
 
 
-def _cumulative_progress(state: "CrawlPersistenceState", *, fetched: int, remaining: int) -> dict[str, int]:
+def _cumulative_progress(state: CrawlPersistenceState, *, fetched: int, remaining: int) -> dict[str, int]:
     """The session-lifetime progress a UI shows: `pages_done_total` (pages
     captured across every process life of this session) and `pages_total`
     (done + still queued, never above the session's original page budget)."""
@@ -2212,6 +2213,9 @@ class CanonicalBodyPersister:
         upload_kwargs = {
             "intent": "force_new_copy",
             "root": "web-crawls",
+            # Placement registry: named, never claimed from ``root`` — the claim needs the host's
+            # declarations, which the hosted scraper service does not carry (file_pathways.py).
+            "pathway": WEB_CRAWL_PATHWAY,
             "source_key": self.state.site_id,
             "source_label": _site_folder_label(self.root_url, self.state.site_id),
             "sub_folders": sub_folders,
@@ -2231,7 +2235,7 @@ class CanonicalBodyPersister:
             "change_summary": "Immutable web crawl capture",
             "metadata": {
                 "organization_id": self.state.organization_id,
-                "system_artifact": True,
+                # ``system_artifact`` is stamped by the door from the pathway.
                 "system_immutable": True,
                 "artifact_domain": "web_crawl",
                 "artifact_kind": artifact_kind,

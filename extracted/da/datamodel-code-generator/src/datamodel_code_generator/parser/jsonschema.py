@@ -997,6 +997,18 @@ def _validate_external_ref(ref: str) -> None:
 
 
 json_schema_data_formats: dict[str, dict[str, Types]] = get_data_formats(is_openapi=True)
+_DATE_TIME_TYPES: frozenset[Types] = frozenset({
+    Types.date,
+    Types.date_time,
+    Types.date_time_local,
+    Types.time,
+    Types.time_local,
+})
+"""The date and time types, which the type manager is told sit on a string (``string_format``).
+
+A number of format ``time`` is a float, and only a string takes ``--strict-types datetime``, ``date`` or ``time``: an
+integer or number of format ``date-time`` is a Unix time, which strict mode refuses.
+"""
 _UUID_VERSION_DATA_FORMATS: dict[str, dict[str, Types]] = {
     **json_schema_data_formats,
     "string": {**json_schema_data_formats["string"], "uuid6": Types.uuid6, "uuid7": Types.uuid7, "uuid8": Types.uuid8},
@@ -1143,6 +1155,9 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         self._root_pattern_string_constraints: JsonSchemaObject | None = None
         self._parsed_branches: tuple[JsonSchemaObject | None, str, list[JsonSchemaObject]] = (None, "", [])
         """The site, keyword and branches the last ``parse_combined_schema`` parsed (``_parse_all_of_union_parts``)."""
+        self._inferred_discriminators: _union_tags.InferredDiscriminators = {}
+        """The discriminator inferred at each union site (``set_tagged_union_discriminator``), by the id of the site's
+        ``extras``, which every copy of the site object shares, with that dict; ``get_field_extras`` reads it."""
         self._init_schema_resources()
         self._pattern_validation_document_root: JsonSchemaObject | None = None
         self._root_id: str | None = None
@@ -1261,12 +1276,19 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         return value
 
     def get_field_extras(self, obj: JsonSchemaObject) -> dict[str, Any]:
-        """Extract extra field metadata from a JSON Schema object."""
+        """Extract extra field metadata from a JSON Schema object, with the discriminator its union site inferred.
+
+        The inferred discriminator is kept beside the object (``_inferred_discriminators``), never written into it: a
+        ``$ref`` target is one object every reader shares (``SchemaGraphBuilder.schema``).
+        """
+        declared: Mapping[str, object] = obj.extras
+        if (inferred := self._inferred_discriminators.get(id(declared))) is not None and inferred[0] is declared:
+            declared = {**declared, "discriminator": inferred[1]}
         extras = {
             self.get_field_extra_key(
                 _without_x_prefix(k) if k in self.field_extra_keys_without_x_prefix else k
             ): self._externalize_schema_extra(k, v)
-            for k, v in obj.extras.items()
+            for k, v in declared.items()
             if self.field_include_all_keys or k in self.field_keys
         }
         if isinstance(discriminator := extras.get("discriminator"), dict) and isinstance(
@@ -1370,10 +1392,14 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         return False
 
     def _get_format_type_kwargs(self, type_: str, format_: str, types: Types) -> dict[str, bool]:
-        """Keep bytes mapped from base64 text decoded, and string time formats out of float strictness."""
+        """Keep bytes mapped from base64 text decoded, and mark the date and time formats of a string.
+
+        A string time format stays out of float strictness, and only the date and time formats of a string take the
+        strict date and time types (``_DATE_TIME_TYPES``).
+        """
         if self._format_bytes(types, type_, format_) == "base64":
             return {"base64_encoded": True}
-        if types == Types.time and type_ == "string":
+        if types in _DATE_TIME_TYPES and type_ == "string":
             return {"string_format": True}
         return {}
 
@@ -2300,11 +2326,16 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         """
         format_ = obj.format or "default"
         types = self._get_schema_type(obj, type_, format_)
+        format_form = self.data_type_manager.format_keyword_form(types) if type_ == "string" else None
+        if format_form == "text" and _constraint_values(obj, STRING_KEYWORD_ORDER):
+            types = self._get_type_with_mappings(type_, "default")
+            format_form = None
         by_type = _value_keywords.reads_length_keywords_by_type(self)
         keyword_order = constrained_type_keyword_order(
             types.name,
             encoded_str=field_constraints and self.data_type_manager.encodes_constrained_base64,
             by_type=by_type,
+            format_form=None if field_constraints else format_form,
         )
         if by_type:
             other = other_kind_keywords(_value_keywords.declared_kinds(self, type_, obj.format), by_type=True)
@@ -2517,6 +2548,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             force_optional=self.force_optional_for_required_fields,
             type_excludes_member_null="legacy-all-of-null-as-written" not in self._legacy_intersection,
             read_nullable_beside_type_list=self.config.read_nullable_beside_type_list,
+            keep_null_of_nullable_items=self.config.keep_null_of_nullable_items,
         )
 
     @cached_property
@@ -2526,6 +2558,8 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             "intersect_allof_keywords": self.intersects_allof_keywords,
             "intersect_combined_schema_keywords": self.intersects_combined_schema_keywords,
             "distribute_allof_over_unions": self.config.distribute_allof_over_unions,
+            "intersect_merged_allof_members": self.config.intersect_merged_allof_members,
+            "read_allof_parents_as_their_models": self.config.read_allof_parents_as_their_models,
         }
         return kept_legacy_rows({**options, **implied_options(options)})
 
@@ -3252,7 +3286,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         """Resolve references relative to the file or URL a reference key names, or to the current one without it."""
         resolver = self.model_resolver
         context = (
-            _schema_refs.schema_document_context(self, _ref_path_parts(file_part), local_base_url=True)
+            _schema_refs.schema_document_context(self, _ref_path_parts(file_part))
             if file_part
             else _schema_documents.base_path_context(self, resolver.current_base_path)
         )
@@ -3991,7 +4025,9 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             else None
         )
         if (reading := _union_tags.discriminator_inference(self, obj)) is not None:
-            _union_tags.set_tagged_union_discriminator(self, obj, combined_schemas, reading)
+            _union_tags.set_tagged_union_discriminator(
+                self, obj, combined_schemas, reading, self._inferred_discriminators
+            )
         parsed_schemas = _union_tags.parse_combined_schema_items(
             self, name, obj, path, combined_schemas, variant_names, variant_keys
         )
@@ -4457,7 +4493,13 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     )
                     and self._object_nullable(self._load_inherited_schema_object(base_classes[0].path))
                 )
-            if required_names := list(dict.fromkeys([*required, *obj.required])):
+            if required_names := list(
+                dict.fromkeys([
+                    *required,
+                    *obj.required,
+                    *self._optional_inherited_required_names(base_classes, inherited_required_names),
+                ])
+            ):
                 field_name_to_field = {_field_source_name(field): field for field in fields}
                 for required_name in required_names:
                     if self.force_optional_for_required_fields:
@@ -4494,6 +4536,24 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 self, reference, obj, fields, base_classes, model_type=self.data_model_type, nullable=nullable
             )
             return frame.built(self.data_type(reference=reference))
+
+    def _optional_inherited_required_names(
+        self, base_classes: list[Reference], inherited_required_names: frozenset[str]
+    ) -> tuple[str, ...]:
+        """Return the inherited required names a model restates, as if it required them itself.
+
+        Under --read-allof-parents-as-their-models, the names some parent requires that a base holds optional
+        (``_inherited_schemas.optional_inherited_required_names``), so the class requires them whichever base it takes
+        the field from. Row ``legacy-inherited-required-names-unwritten`` without it: none, and the class takes such a
+        field as its bases give it, optional where the base it takes it from holds it optional.
+        """
+        if (
+            "legacy-inherited-required-names-unwritten" in self._legacy_intersection
+            or not base_classes
+            or not inherited_required_names
+        ):
+            return ()
+        return _inherited_schemas.optional_inherited_required_names(self, base_classes, inherited_required_names)
 
     def _append_missing_required_fields(
         self,
@@ -5043,7 +5103,15 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     )
                 )
 
-            root_model_result = _all_of_values.handle_allof_root_model_with_constraints(self, name, obj, path)
+            root_model_result = _all_of_values.handle_allof_root_model_with_constraints(
+                self,
+                name,
+                site,
+                path,
+                obj.allOf
+                if "legacy-root-site-members-as-written" in self._legacy_intersection
+                else _inherited_schemas.all_of_members(self, obj),
+            )
             if root_model_result is not None:
                 return frame.built(root_model_result)
             reads_values = "legacy-value-union-members-unread" not in self._legacy_intersection
@@ -5604,16 +5672,22 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         """
         value = self._additional_properties_value(name, additional_properties, parent)
         if not value.constrained:
-            return self.parse_item(name, value.schema, path, parent=value.parent)
+            return _object_maps.with_item_null(
+                self, value.schema, self.parse_item(name, value.schema, path, parent=value.parent)
+            )
         if value.item_counts_site:
             value.schema.__dict__[ITEM_COUNTS_SITE_KEY] = True
-        return JsonSchemaParser._parse_constrained_additional_properties_value_item(
+        return _object_maps.with_item_null(
             self,
-            constrained_name or (name if value.preserve_root_model else composed_name(name, "additional-property")),
             value.schema,
-            path,
-            parent=parent,
-            data_model_root_type=(self._nested_constrained_model_type if not value.preserve_root_model else None),
+            JsonSchemaParser._parse_constrained_additional_properties_value_item(
+                self,
+                constrained_name or (name if value.preserve_root_model else composed_name(name, "additional-property")),
+                value.schema,
+                path,
+                parent=parent,
+                data_model_root_type=(self._nested_constrained_model_type if not value.preserve_root_model else None),
+            ),
         )
 
     @cached_property
@@ -6620,12 +6694,16 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         return [
             self.data_type_manager.get_data_type(Types.any)
             if item is True
-            else self.parse_item(
-                name,
+            else _object_maps.with_item_null(
+                self,
                 item,
-                [*path, str(index)],
-                singular_name=singular_name,
-                parent=parent,
+                self.parse_item(
+                    name,
+                    item,
+                    [*path, str(index)],
+                    singular_name=singular_name,
+                    parent=parent,
+                ),
             )
             for index, item in enumerate(target_items)
             if item is not False
@@ -8125,9 +8203,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             self.reserved_refs[tuple(document_part(ref).split("/"))].add(ref)
             return reference
 
-        with _schema_refs.schema_document_context(
-            self, relative_paths, root=self.model_resolver.current_root, local_base_url=True
-        ):
+        with _schema_refs.schema_document_context(self, relative_paths, root=self.model_resolver.current_root):
             ref_body = self._get_ref_body(relative_path)
             object_paths, reference_paths = ref_pointer_parts(self, ref_body, ref)
             self._parse_file(
@@ -8199,6 +8275,8 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         the models specialized for those bindings.
         """
         self._schema_graph = graph = SchemaGraphBuilder()
+        self._input_documents: dict[str, dict[str, YamlValue]] = {}
+        self._url_reads: dict[str, bool] = {}
         self._schema_resource_registry = graph.registry
         self._referring_dialect: DocumentDialect | None = None
         self._document_roles: dict[str, dict[str, None]] = {}
@@ -9102,9 +9180,57 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             raise InvalidFileFormatError(exc, self._input_file_type, source=source_path) from exc
 
     def _load_source_dict(self, source: Source) -> dict[str, YamlValue]:
-        """Load a source into a schema dictionary, reading the input as decoded where the run hands it over."""
+        """Load a source into a schema dictionary, reading the input as decoded where the run hands it over.
+
+        A source ``_prepare_input_documents`` read is the dictionary it read.
+        """
+        if (read := self._input_documents.pop(source.path.as_posix(), None)) is not None:
+            return read
         with _decoding_from(self._source_context.decoded_input):
             return _schema_documents.load_source_dict(self, source)
+
+    def _prepare_input_documents(self) -> None:
+        """Prepare the resources of every document of a directory or list input before the first is parsed (L0).
+
+        Under --read-refs-in-their-resources a reference of one input to a resource another declares is read where
+        the registry holds every input, in any file order; each document read here is the one its parse reads (a
+        source that is no dictionary is left to the parse, which reports it). Each input is prepared as the document
+        parsed (``raw_obj``), as its parse prepares it, and ``schema_features`` is read first with the first input,
+        the document a parse reads it with first. Without the option, row ``legacy-inputs-prepared-as-parsed``: each
+        input is prepared when it is parsed, so the registry holds the inputs parsed before it.
+        """
+        if _schema_documents.resource_row(self, "legacy-inputs-prepared-as-parsed") is not None:
+            return
+        for source, path_parts in _schema_documents.get_context_source_path_parts(self):
+            if not self.model_resolver.after_load_files:
+                return
+            try:
+                raw = self._input_documents[source.path.as_posix()] = self._load_source_dict(source)
+            except TypeError:
+                continue
+            self.raw_obj = raw
+            _ = self.schema_features
+            _schema_documents.prepare_schema_resources(self, raw, path_parts)
+
+    def _reads_document(self, url: str) -> bool:
+        """Return whether reading the document at a URL as its load reads it finds one, once per parse.
+
+        The read is the load's (``_get_ref_body``: refused, read from --http-local-ref-path or fetched, and kept for
+        the load); a read that fails finds nothing. A document the parse has read, also one it is still preparing
+        (its record has ``path_parts``), is found without another read, so a reference of a document to its own URL
+        reads nothing again.
+        """
+        if self._graph.known(url).path_parts is not None:
+            return True
+        if (found := self._url_reads.get(url)) is None:
+            try:
+                self._get_ref_body(url)
+            except Error:
+                found = False
+            else:
+                found = True
+            self._url_reads[url] = found
+        return found
 
     @contextmanager
     def _parsing_session(self, resolve: Callable[[], None] | None = None) -> Generator[None, None, None]:
@@ -9123,6 +9249,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
     def parse_raw(self) -> None:
         """Parse all raw input sources into data models."""
         with self._parsing_session():
+            self._prepare_input_documents()
             for source, path_parts in _schema_documents.get_context_source_path_parts(self):
                 try:
                     raw_obj = self._load_source_dict(source)

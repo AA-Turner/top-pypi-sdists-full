@@ -18,6 +18,10 @@ from typing import Any, Iterator
 from ...sdk import errors
 
 
+#: The longest snapshot `source` a cursor carries (characters).
+SNAPSHOT_SOURCE_LIMIT = 512
+
+
 @dataclass
 class DeliveryContext:
     snapshot: dict | None = None
@@ -60,7 +64,7 @@ def delivery_context(
             not isinstance(snapshot, dict)
             or set(snapshot) - {"source", "end", "sha256", "version"}
             or not isinstance(snapshot.get("source"), str)
-            or not 1 <= len(snapshot["source"]) <= 512
+            or not 1 <= len(snapshot["source"]) <= SNAPSHOT_SOURCE_LIMIT
             or type(snapshot.get("end")) is not int
             or snapshot["end"] < 0
             or not isinstance(snapshot.get("sha256"), str)

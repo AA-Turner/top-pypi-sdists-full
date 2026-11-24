@@ -35,7 +35,7 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ConfigDict, Field
 
 from matrx_graph.content_ir.markers import strip_kind_markers
-from matrx_graph.executor.schema_validation import validate_instance
+from matrx_graph.executor.schema_validation import validate_instance_checked
 
 ValueT = TypeVar("ValueT")
 
@@ -186,7 +186,9 @@ def check_schema(value: Any, schema: dict[str, Any] | None) -> ContractVerdict:
         return ContractVerdict(checked=False)
     try:
         value = strip_kind_markers(value, schema)
-        return ContractVerdict(checked=True, errors=validate_instance(schema, value))
+        # A schema that could not be applied (a dangling ``$ref``) is SKIPPED, never PASS.
+        errors, checked = validate_instance_checked(schema, value)
+        return ContractVerdict(checked=checked, errors=errors)
     except Exception:
         # A malformed producer schema is a platform defect, not a payload
         # failure. Shadow validation must stay fail-open and report SKIPPED.
@@ -206,6 +208,59 @@ def envelope(
         checked=verdict.checked,
         errors=verdict.errors,
     )
+
+
+_PATTERN_CANDIDATES: tuple[str, ...] = (
+    "x", "x.html", "a/x.html", "x.json", "x.txt", "x.md", "x1", "a1", "x-x", "x_x",
+    "x.x", "X", "xx", "a", "0", "1", "x@example.com", "https://example.com/",
+    "x/x", "a.b", "a.b.c", "xxx", "abc", "abc123", "2026-01-01",
+)
+
+
+def _string_patterns(node: dict[str, Any]) -> list[tuple[bool, str]]:
+    """Every ``pattern`` a string must satisfy as ``(must_match, regex)``.
+
+    Collects the node's own ``pattern`` plus those under ``allOf`` (a bare pattern
+    must match; ``{"not": {"pattern": p}}`` must NOT match). A schema that stacks
+    patterns this way (e.g. a portable ``*.html`` path) is unsatisfiable by a fixed
+    ``"x"``, so the synthesizer picks a candidate that passes them all.
+    """
+
+    found: list[tuple[bool, str]] = []
+    if isinstance(node.get("pattern"), str):
+        found.append((True, node["pattern"]))
+    all_of = node.get("allOf")
+    if isinstance(all_of, list):
+        for part in all_of:
+            if not isinstance(part, dict):
+                continue
+            if isinstance(part.get("pattern"), str):
+                found.append((True, part["pattern"]))
+            negated = part.get("not")
+            if isinstance(negated, dict) and isinstance(negated.get("pattern"), str):
+                found.append((False, negated["pattern"]))
+    return found
+
+
+def _string_matching(node: dict[str, Any], patterns: list[tuple[bool, str]]) -> str | None:
+    """The first deterministic candidate meeting every pattern and the length bounds, else None."""
+
+    compiled: list[tuple[bool, re.Pattern[str]]] = []
+    for must_match, source in patterns:
+        try:
+            compiled.append((must_match, re.compile(source)))
+        except re.error:
+            continue  # an ECMA-only construct Python cannot read: judged by the validator, not here
+    low = max(int(node.get("minLength", 0) or 0), 0)
+    high = node.get("maxLength")
+    for candidate in _PATTERN_CANDIDATES:
+        if len(candidate) < low:
+            candidate = candidate + "x" * (low - len(candidate))
+        if high is not None and len(candidate) > int(high):
+            continue
+        if all(bool(rx.search(candidate)) == must_match for must_match, rx in compiled):
+            return candidate
+    return None
 
 
 def example_from_schema(schema: dict[str, Any]) -> Any:
@@ -277,6 +332,11 @@ def example_from_schema(schema: dict[str, Any]) -> Any:
             }
             if isinstance(fmt, str) and fmt in format_values:
                 return format_values[fmt]
+            patterns = _string_patterns(node)
+            if patterns:
+                found = _string_matching(node, patterns)
+                if found is not None:
+                    return found
             minimum = max(int(node.get("minLength", 0) or 0), 0)
             if node.get("pattern") and minimum == 0:
                 minimum = 1

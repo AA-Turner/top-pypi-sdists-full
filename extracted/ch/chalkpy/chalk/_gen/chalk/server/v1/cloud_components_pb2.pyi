@@ -1819,8 +1819,10 @@ class DataplaneControllerDynamicConfig(_message.Message):
     def __init__(self) -> None: ...
 
 class HypervisorDynamicConfig(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("warm_images",)
+    WARM_IMAGES_FIELD_NUMBER: _ClassVar[int]
+    warm_images: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, warm_images: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ListRecoveryClusterTargetsRequest(_message.Message):
     __slots__ = ()

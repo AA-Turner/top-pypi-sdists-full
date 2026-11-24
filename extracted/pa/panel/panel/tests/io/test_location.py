@@ -36,6 +36,22 @@ def test_location_update_query(location):
     location.update_query(b='c')
     assert location.search == "?a=1&b=c"
 
+@pytest.mark.parametrize('search', ['?zip=02134', '?debug=true', '?x=1e3', '?price=1.50'])
+def test_location_update_query_preserves_other_params(location, search):
+    location.search = search
+    location.update_query(page='2')
+    assert location.search == f"{search}&page=2"
+
+def test_location_sync_unsync_preserves_other_params(location):
+    location.search = "?zip=02134"
+    p = SyncParameterized(integer=1)
+    location.sync(p, ['integer'])
+    assert location.search == "?zip=02134&integer=1"
+    p.integer = 2
+    assert location.search == "?zip=02134&integer=2"
+    location.unsync(p)
+    assert location.search == "?zip=02134"
+
 def test_location_sync_query_init(location):
     p = SyncParameterized(integer=1, string='abc')
     location.sync(p)
@@ -248,3 +264,33 @@ def test_location_sync_to_dataframe_with_initial_value(location, dataframe):
 def test_get_location_params(protocol, host, uri, expected):
     params = _get_location_params(protocol, host, uri)
     assert params==expected
+
+
+@pytest.mark.parametrize('query,expected', [('02', '02'), ('007', '007'), ('2', 2)])
+def test_location_sync_select_numeric_looking_option(location, query, expected):
+    from panel.widgets import Select
+    select = Select(options=['01', '02', '007', 2, 3])
+    location.update_query(sel=query)
+    location.sync(select, {'value': 'sel'})
+    assert select.value == expected
+
+
+@pytest.mark.parametrize('prefix,app_path,pathnames,expected', [
+    ('', '/', ['/foo/bar', '/foo/bar/', '/foo/', '/'], ['..', '../..', '..', '']),
+    ('', '/app', ['/foo/bar', '/app'], ['..', '']),
+    # Navigating above the root the app is served under and back
+    ('/pfx', '/app', ['/', '/pfx/a/b', '/pfx/app'], ['', '..', '']),
+], ids=['root', 'app', 'prefix'])
+def test_location_pathname_updates_rel_path(prefix, app_path, pathnames, expected):
+    rel_paths = []
+
+    def app():
+        for pathname in pathnames:
+            state.location.pathname = pathname
+            rel_paths.append(state.rel_path)
+        return '# Location Test'
+
+    serve_and_request({app_path: app}, prefix=prefix, suffix=f'{prefix}{app_path}')
+
+    wait_until(lambda: len(rel_paths) == len(pathnames))
+    assert rel_paths == expected

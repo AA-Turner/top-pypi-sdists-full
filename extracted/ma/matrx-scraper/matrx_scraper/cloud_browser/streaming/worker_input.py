@@ -25,7 +25,7 @@ in-memory form is the executable spec.
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .config import SCOPE_INPUT
 from .errors import INPUT_NOT_PERMITTED, StreamError

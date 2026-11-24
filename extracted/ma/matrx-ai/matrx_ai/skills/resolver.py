@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 async def expand_skill_sets(
     cfg: SkillConfig,
-    provider: "SkillProvider",
+    provider: SkillProvider,
     *,
     user_id: UUID | None = None,
     bodies: dict[UUID, SkillBody | None] | None = None,
@@ -91,8 +91,8 @@ async def expand_skill_sets(
 
 
 async def resolve_skills_for_agent(
-    agent_config: "AgentConfig | Agent",
-    provider: "SkillProvider",
+    agent_config: AgentConfig | Agent,
+    provider: SkillProvider,
     *,
     user_id: UUID | None = None,
     carried: Sequence[SkillBody] = (),

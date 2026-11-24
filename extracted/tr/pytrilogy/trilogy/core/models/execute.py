@@ -168,6 +168,72 @@ def _same_conjunction(left: object, right: object) -> bool:
     return len(a) == len(b) and all(x in b for x in a) and all(y in a for y in b)
 
 
+def zero_filled_counts(
+    outputs: Iterable[BuildConcept],
+    nullable: Iterable[BuildConcept],
+    rolled: Iterable[BuildConcept] | None,
+    stamped: frozenset[str],
+) -> frozenset[str]:
+    """Every COUNT a source renders coalesced to 0: one a merge padded onto a
+    region's rows (`stamped`), or one a join left NULL, which counts an empty
+    group, as the granular path says. A grouping source (`rolled` given)
+    computes its own counts, so only a pre-aggregated one it re-sums can be
+    padded. A multiselect align vetoes all of them: a NULL count there means
+    the entity is absent from that arm, not 0 facts."""
+    outputs = list(outputs)
+    if any(isinstance(o.lineage, BuildMultiSelectLineage) for o in outputs):
+        return frozenset()
+    nullable = list(nullable)
+    padded = {c.address for c in nullable}
+    if rolled is not None:
+        padded &= {c.address for c in rolled}
+    # either spelling of an address may be the COUNT: a rowset handle output
+    # over one, or a count only the WHERE reads
+    return stamped | {
+        c.address for c in nullable + outputs if c.zero_on_empty and c.address in padded
+    }
+
+
+def filter_case_elided(cte: CTE | UnionCTE, lineage: BuildFilterItem) -> bool:
+    """A filter's per-row CASE WHEN is redundant, and renders as bare content,
+    when the CTE's WHERE implies its predicate, or its parents guarantee it:
+    plain-CTE parents whose conditions imply the predicate supply every column
+    the filter reads, under no join that could NULL-pad a row (INNER only)
+    (a group parent's HAVING holding the filter's aggregate condition)."""
+    from trilogy.core.processing.condition_utility import condition_implies
+
+    where_cond = lineage.where.conditional
+    if cte.condition is not None and (
+        cte.condition == where_cond or condition_implies(cte.condition, where_cond)
+    ):
+        return True
+    if not cte.parent_ctes:
+        return False
+    if isinstance(cte, CTE) and any(
+        not isinstance(join, Join) or join.join_type != JoinType.INNER
+        for join in cte.joins
+    ):
+        return False
+    guaranteeing = {
+        parent.name
+        for parent in cte.parent_ctes
+        if isinstance(parent, CTE)
+        and parent.condition is not None
+        and (
+            where_cond == parent.condition
+            or condition_implies(parent.condition, where_cond)
+        )
+    }
+    if not guaranteeing:
+        return False
+    refs = {a.address for a in lineage.content_concept_arguments}
+    refs |= {a.address for a in lineage.where.row_arguments}
+    return all(
+        (sources := cte.source_map.get(r)) and set(sources) <= guaranteeing
+        for r in refs
+    )
+
+
 @dataclass
 class CTE:
     name: str
@@ -190,7 +256,8 @@ class CTE:
     nullable_concepts: list[BuildConcept] = field(default_factory=list)
     join_derived_concepts: list[BuildConcept] = field(default_factory=list)
     hidden_concepts: set[str] = field(default_factory=set)
-    # COUNT outputs padded here on a region's rows: rendered coalesced to 0
+    # See `QueryDatasource.region_zero_filled` and `.zero_filled`.
+    region_zero_filled: frozenset[str] = frozenset()
     zero_filled: frozenset[str] = frozenset()
     # See `QueryDatasource.distinct_counts`.
     distinct_counts: frozenset[str] = frozenset()
@@ -350,7 +417,7 @@ class CTE:
             x for x in self.parent_ctes if x.safe_identifier != parent.safe_identifier
         ]
         if force_group:
-            self.group_to_grain = True
+            self.regroup(True)
         rendered_parent = parent
         if inline_datasource is not ds_being_inlined:
             rendered_parent = replace(parent, datasource=inline_datasource)
@@ -411,6 +478,7 @@ class CTE:
         self.nullable_concepts = unique(
             self.nullable_concepts + other.nullable_concepts, "address"
         )
+        self.region_zero_filled = self.region_zero_filled | other.region_zero_filled
         self.zero_filled = self.zero_filled | other.zero_filled
         self.distinct_counts = self.distinct_counts | other.distinct_counts
         self.partial_sources = {**self.partial_sources, **other.partial_sources}
@@ -565,6 +633,41 @@ class CTE:
                     out |= names
         return out
 
+    def column_reads(self, concept: BuildConcept) -> list[tuple[BuildConcept, str]]:
+        """The parent columns, as (concept, source), that ``concept`` renders
+        from in this CTE; more than one renders coalesced. An outer-join key
+        reads every in-scope member of its class, since any side may be the
+        padded NULL. A bound column reads its in-scope sources, or one of them
+        when an INNER join equates them all on this key. Empty when unbound."""
+        scope = self.from_scope_aliases()
+        key_class = self.outer_join_key_class(concept.address)
+        if len(key_class) > 1:
+            reads: dict[tuple[str, str], tuple[BuildConcept, str]] = {}
+            for member in key_class:
+                for source in self.source_map.get(member.address, []):
+                    key = self.source_key_for(source)
+                    alias = self.get_alias(member, source)
+                    if key not in scope or (
+                        isinstance(alias, str)
+                        and alias.startswith(INVALID_ALIAS_PREFIX)
+                    ):
+                        continue
+                    # a non-column alias renders the same off any source
+                    column = key if isinstance(alias, str) else ""
+                    reads.setdefault((column, str(alias)), (member, source))
+            if len(reads) > 1:
+                return list(reads.values())
+        sources = list(self.source_map.get(concept.address, []))
+        if len(sources) > 1:
+            # An existence-only parent (the HAVING semijoin CTE) can leak into
+            # source_map; prefer FROM-scope providers whenever any exist.
+            sources = [s for s in sources if self.source_key_for(s) in scope] or sources
+        if len(sources) > 1 and self.inner_join_key_sources(concept.address) >= set(
+            sources
+        ):
+            sources = sorted(sources)[:1]
+        return [(concept, source) for source in sources]
+
     def from_scope_aliases(self) -> set[str]:
         """Alias tokens referenceable in this CTE's rendered FROM clause: the
         base plus every join participant. A parent wired in only through an
@@ -644,51 +747,33 @@ class CTE:
         except ValueError as e:
             return f"{INVALID_ALIAS_PREFIX}: {e!s}"
 
-    def zero_fills_count(self, c: BuildConcept, rolled_up: bool = False) -> bool:
-        """A COUNT this CTE renders coalesced to 0: one a merge padded onto a
-        region's rows (``zero_filled``), or a pre-aggregated one a join here
-        left NULL (`rolled_up`: the same, summed through this GROUP BY). A
-        multiselect-align merge vetoes both: a NULL count there means the
-        entity is absent from that arm, not 0 facts. A predicate over such a
-        count accepts the padded rows, so it proves nothing about the side
-        that padded them."""
-        return (
-            c.zero_on_empty
-            and not self._aligns_multiselect()
-            and self._fills_with_zero(
-                c.address,
-                rolled_up,
-                {n.address for n in self.nullable_concepts},
-            )
-        )
+    def zero_fills_count(self, c: BuildConcept) -> bool:
+        """A COUNT this CTE renders coalesced to 0, as its source decided
+        (``QueryDatasource.zero_filled``). A predicate over such a count
+        accepts the padded rows, so it proves nothing about the side that
+        padded them."""
+        return c.address in self.zero_filled
 
     def zero_filled_counts(self, concepts: Iterable[BuildConcept]) -> set[str]:
-        if self._aligns_multiselect():
-            return set()
-        rolled = (
-            {r.address for r in self.rollup_concepts} if self.group_to_grain else set()
-        )
-        nullable = {n.address for n in self.nullable_concepts}
-        return {
-            c.address
-            for c in concepts
-            if c.zero_on_empty
-            and self._fills_with_zero(c.address, c.address in rolled, nullable)
-        }
+        return {c.address for c in concepts if c.address in self.zero_filled}
 
-    def _aligns_multiselect(self) -> bool:
-        return any(
-            isinstance(o.lineage, BuildMultiSelectLineage) for o in self.output_columns
+    def regroup(self, group: bool) -> None:
+        """Turn this CTE's GROUP BY on or off after planning. Its source's
+        zero-fill decision assumed the old shape: a CTE that now groups
+        computes its own counts and pads only those it re-sums; one that no
+        longer groups passes every padded count through."""
+        kept = (
+            self.region_zero_filled
+            if group and not self.group_to_grain
+            else self.zero_filled
         )
-
-    def _fills_with_zero(
-        self, address: str, rolled_up: bool, nullable: set[str]
-    ) -> bool:
-        if address in self.zero_filled:
-            return True
-        if self.group_to_grain and not rolled_up:
-            return False
-        return address in nullable
+        self.group_to_grain = group
+        self.zero_filled = zero_filled_counts(
+            self.output_columns,
+            self.nullable_concepts,
+            self.rollup_concepts if group else None,
+            kept,
+        )
 
     def filter_collapses_to_grain(self, c: BuildConcept) -> bool:
         """A filter virtual whose keys are covered by this grouping CTE's grain
@@ -701,7 +786,6 @@ class CTE:
         grain determines is that value. When the CTE's own condition implies
         the predicate, its own CASE is elided to bare content, which the grain
         determines, and it stays a group key."""
-        from trilogy.core.processing.condition_utility import condition_implies
 
         if not (
             self.group_to_grain
@@ -726,11 +810,7 @@ class CTE:
                 isinstance(self.condition, BuildConceptArgs)
                 and c.address in {a.address for a in self.condition.row_arguments}
             )
-        where_cond = c.lineage.where.conditional
-        return self.condition is None or not (
-            self.condition == where_cond
-            or condition_implies(self.condition, where_cond)
-        )
+        return not filter_case_elided(self, c.lineage)
 
     @property
     def condition_placement(self) -> ConditionPlacement:
@@ -793,13 +873,15 @@ class CTE:
         to it; an unbound column renders through a pseudonym or canonical
         sibling this CTE does bind."""
         seen = seen | {concept.address}
-        # Members of one outer-join key class render as one coalesce.
-        key_class = self.outer_join_key_class(concept.address)
-        if len(key_class) > 1:
-            return ("key_class", *sorted(member.address for member in key_class))
-        sources = self.source_map.get(concept.address, [])
-        if sources:
-            return ("source", *sorted(sources), str(self.get_alias(concept)))
+        reads = self.column_reads(concept)
+        if reads:
+            return (
+                "columns",
+                *sorted(
+                    f"{self.source_key_for(source)}.{self.get_alias(member, source)}"
+                    for member, source in reads
+                ),
+            )
         lineage = concept.lineage
         if isinstance(lineage, BuildRowsetItem):
             return self.render_binding(lineage.content, seen)
@@ -858,7 +940,6 @@ class CTE:
         return keys
 
     def _has_local_aggregate(self, c: BuildConcept, rollup_addresses: set[str]) -> bool:
-        from trilogy.core.processing.condition_utility import condition_implies
 
         # does the rendered column value of `c` contain an aggregate computed
         # in this CTE? A concept sourced from a parent is a plain column here,
@@ -881,29 +962,12 @@ class CTE:
             and c.lineage.operator in FunctionClass.AGGREGATE_FUNCTIONS.value
         ):
             return True
-        # The filtered content renders as the value, but when the per-row
-        # CASE WHEN is emitted the where condition is part of the column
-        # expression too, so a local aggregate in the predicate (a HAVING
-        # `sum(x) > threshold` lowered to a filter virtual) makes the column
-        # aggregate-bearing and unfit for GROUP BY. When the CTE's own
-        # condition implies the filter predicate the renderer elides the
-        # CASE to bare content (dialect/base.py); the where aggregate is
-        # then not in the column and the filter follows its content, so
-        # only widen for the un-elided case.
+        # A filter is computed over predicate inputs its parents materialize,
+        # so only its content can hold an aggregate computed here.
         if c.derivation == Derivation.FILTER and isinstance(c.lineage, BuildFilterItem):
-            if any(
+            return any(
                 self._has_local_aggregate(x, rollup_addresses)
                 for x in c.lineage.content_concept_arguments
-            ):
-                return True
-            where_cond = c.lineage.where.conditional
-            elided = self.condition is not None and (
-                self.condition == where_cond
-                or condition_implies(self.condition, where_cond)
-            )
-            return not elided and any(
-                self._has_local_aggregate(x, rollup_addresses)
-                for x in c.lineage.where.rendered_concept_arguments
             )
         if c.derivation == Derivation.BASIC and c.lineage:
             return any(
@@ -1573,6 +1637,10 @@ class QueryDatasource:
     # COUNT outputs this merge pads on a region's rows (a side holding the
     # region's rows joined to one that was evaluated on the solid rows only):
     # a count over an empty group is 0, so they render coalesced. Not identity.
+    region_zero_filled: frozenset[str] = frozenset()
+    # Every COUNT this source renders coalesced to 0: the region's, and one a
+    # join here leaves NULL (`zero_filled_counts`). Decided at construction;
+    # the CTE and renderer read it. Not identity.
     zero_filled: frozenset[str] = frozenset()
     # COUNT outputs this source computes over a stream that repeats the
     # counted key (a pass shared with a finer sibling): rendered
@@ -1658,6 +1726,12 @@ class QueryDatasource:
         self.input_concepts = unique(self.input_concepts, "address")
         self.output_concepts = unique(self.output_concepts, "address")
         self._fold_inferred_nullables()
+        self.zero_filled = zero_filled_counts(
+            self.output_concepts,
+            self.nullable_concepts,
+            self.rollup_concepts if self.group_required else None,
+            self.region_zero_filled | self.zero_filled,
+        )
         if CONFIG.validate_missing:
             all_concepts = self.input_concepts + self.output_concepts
             mapped_canonical = {
@@ -1904,6 +1978,7 @@ class QueryDatasource:
             # on spans that do not reach the outputs, and a union would claim
             # an address carried by a span this merge no longer routes
             extent_free_carried=self.extent_free_carried,
+            region_zero_filled=self.region_zero_filled | other.region_zero_filled,
             zero_filled=self.zero_filled | other.zero_filled,
             distinct_counts=self.distinct_counts | other.distinct_counts,
             partial_sources={**self.partial_sources, **other.partial_sources},

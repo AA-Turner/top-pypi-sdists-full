@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.34.0
+Version: 0.34.1
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -21,7 +21,7 @@ Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "cor
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "core"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "core"
 Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.4.1; extra == "core"
-Requires-Dist: llama-index-llms-bedrock-converse[async]>=0.15.0; extra == "core"
+Requires-Dist: llama-index-llms-bedrock-converse>=0.15.3; extra == "core"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "core"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "core"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "core"
@@ -38,7 +38,7 @@ Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "cre
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "crewai"
 Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.4.1; extra == "crewai"
-Requires-Dist: llama-index-llms-bedrock-converse[async]>=0.15.0; extra == "crewai"
+Requires-Dist: llama-index-llms-bedrock-converse>=0.15.3; extra == "crewai"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "crewai"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "crewai"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "crewai"
@@ -63,7 +63,7 @@ Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "lan
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "langgraph"
 Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.4.1; extra == "langgraph"
-Requires-Dist: llama-index-llms-bedrock-converse[async]>=0.15.0; extra == "langgraph"
+Requires-Dist: llama-index-llms-bedrock-converse>=0.15.3; extra == "langgraph"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "langgraph"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "langgraph"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "langgraph"
@@ -85,7 +85,7 @@ Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "lla
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "llamaindex"
 Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.4.1; extra == "llamaindex"
-Requires-Dist: llama-index-llms-bedrock-converse[async]>=0.15.0; extra == "llamaindex"
+Requires-Dist: llama-index-llms-bedrock-converse>=0.15.3; extra == "llamaindex"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "llamaindex"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "llamaindex"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "llamaindex"
@@ -226,7 +226,7 @@ Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.64b0; extra == "dra
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.62.1; extra == "dragent"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.64b0; extra == "dragent"
 Requires-Dist: datarobot-moderations[all]<12.0.0,>=11.4.1; extra == "dragent"
-Requires-Dist: llama-index-llms-bedrock-converse[async]>=0.15.0; extra == "dragent"
+Requires-Dist: llama-index-llms-bedrock-converse>=0.15.3; extra == "dragent"
 Requires-Dist: ag-ui-protocol==0.1.15; extra == "dragent"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "dragent"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "dragent"

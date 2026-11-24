@@ -104,6 +104,13 @@ def _no_real_tmux(monkeypatch):
 def _no_live_codex_threads(monkeypatch):
     monkeypatch.setattr(codex_processes, "thread_ttys", lambda: None)
     monkeypatch.setattr(codex_processes, "open_threads", lambda max_age=0.0: None)
+    monkeypatch.setattr(codex_processes, "owner", lambda thread, max_age=0.0: None)
+
+
+@pytest.fixture(autouse=True)
+def _no_shared_codex_listing(monkeypatch):
+    """Each test lists Codex processes afresh rather than reusing another test's listing."""
+    monkeypatch.setattr(codex_processes, "_latest", codex_processes._Answer(float("-inf"), None, 0))
 
 
 @pytest.fixture(autouse=True)

@@ -237,6 +237,13 @@ def as_text(value):
     return value
 
 
+def _select_all_key(page) -> str:
+    """"Control+a" on Chromium (unchanged); "ControlOrMeta+a" on non-CDP
+    engines, where the platform's select-all modifier (Meta on macOS) applies."""
+    from testmu._v4._helpers._perception import perception_for
+    return perception_for(page).select_all_key
+
+
 async def _clear_runner(locator, **kw):
     await locator.clear(**kw)
 
@@ -244,7 +251,7 @@ async def _clear_runner(locator, **kw):
 async def _clear_coord_runner(page, x, y, **kw):
     """Click + Ctrl+A + Delete. Mirrors Selenium _clear_coord_runner."""
     await page.mouse.click(x, y)
-    await page.keyboard.press("Control+a")
+    await page.keyboard.press(_select_all_key(page))
     await page.keyboard.press("Delete")
 
 
@@ -258,7 +265,7 @@ async def _fill_runner(locator, value, **kw):
 async def _fill_coord_runner(page, x, y, value, **kw):
     """Click + Ctrl+A + type. Mirrors Playwright fill semantics (replace existing)."""
     await page.mouse.click(x, y)
-    await page.keyboard.press("Control+a")
+    await page.keyboard.press(_select_all_key(page))
     await page.keyboard.type(as_text(value))
 
 

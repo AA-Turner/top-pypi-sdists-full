@@ -42,6 +42,10 @@ class Send(BaseModel):
     # NodeOutcome.sends like the rest of the identity — replay settles
     # idempotently.
     work_item_id: str = ""
+    # PACED DISPATCH (G3): a For each with ``until`` / ``wave_size`` stamps every Send of its
+    # dispatch with ``{until, wave_size, scope, total}`` so the scheduler can hold its items in
+    # waves and stop sending once ``until`` is true — on replay and resume too. None = unpaced.
+    pace: dict[str, Any] | None = None
 
     @classmethod
     def create(
@@ -52,6 +56,7 @@ class Send(BaseModel):
         dispatch_id: str = "",
         item_index: int = 0,
         work_item_id: str = "",
+        pace: dict[str, Any] | None = None,
     ) -> Send:
         if payload is None:
             payload_dict: dict[str, Any] = {}
@@ -65,4 +70,5 @@ class Send(BaseModel):
             dispatch_id=dispatch_id,
             item_index=item_index,
             work_item_id=work_item_id,
+            pace=pace,
         )

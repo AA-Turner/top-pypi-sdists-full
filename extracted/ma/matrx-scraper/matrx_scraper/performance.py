@@ -49,7 +49,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -58,6 +57,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from matrx_utils.http_client import shared_client
+
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
@@ -70,10 +71,14 @@ logger = logging.getLogger(__name__)
 
 
 def _first_env(*names: str) -> str | None:
+    # Each name through the package's one key door: the host's secret_source when injected (the
+    # platform vault on the server), else this process's environment — read at call time.
+    from matrx_scraper._ext import provider_secret
+
     for n in names:
-        v = os.environ.get(n)
-        if v and v.strip():
-            return v.strip()
+        v = provider_secret(n)
+        if v:
+            return v
     return None
 
 
@@ -241,7 +246,7 @@ class PsiClient:
 
         snap = PsiSnapshot(url=url, strategy=strategy)
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with shared_client(timeout=self.timeout) as client:
                 snap.request_count = 1
                 resp = await client.get(PSI_ENDPOINT, params=params)
                 snap.http_status = resp.status_code
@@ -624,7 +629,7 @@ class GscClient:
             return token
 
     async def _mint_via_refresh_token(self) -> tuple[str, int]:
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with shared_client(timeout=self.timeout) as client:
             resp = await client.post(
                 GSC_TOKEN_ENDPOINT,
                 data={
@@ -668,7 +673,7 @@ class GscClient:
             return _jwt.encode(assertion_payload, private_key, algorithm="RS256")
 
         assertion = await asyncio.to_thread(_sign)
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with shared_client(timeout=self.timeout) as client:
             resp = await client.post(
                 token_uri,
                 data={
@@ -747,7 +752,7 @@ class GscClient:
                 ],
                 "orderBy": [{"field": "clicks", "descending": True}],
             }
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with shared_client(timeout=self.timeout) as client:
                 totals_resp, queries_resp = await asyncio.gather(
                     client.post(endpoint, headers=headers, json=totals_body),
                     client.post(endpoint, headers=headers, json=queries_body),

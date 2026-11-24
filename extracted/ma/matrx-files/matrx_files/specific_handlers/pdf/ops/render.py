@@ -30,6 +30,7 @@ from PIL import Image
 
 from ..concurrency import get_cpu_executor, run_in_cpu_executor
 from ..internal import load_pymupdf
+from ..render_budget import bounded_render_dpi
 
 
 RenderFormat = Literal["png", "jpg", "jpeg", "webp", "tiff"]
@@ -66,8 +67,9 @@ def _pixmap_for_page(
     }
     cs = cs_map.get(colorspace, pymupdf.csRGB)
     rect = pymupdf.Rect(*clip) if clip else None
+    area = rect or page.rect
     return page.get_pixmap(
-        dpi=dpi,
+        dpi=bounded_render_dpi(area.width, area.height, dpi),
         colorspace=cs,
         alpha=alpha or colorspace == "rgba",
         clip=rect,
@@ -161,7 +163,7 @@ def render_page_to_image_bytes(
             width=pix.width,
             height=pix.height,
             format=fmt.lower(),
-            dpi=dpi,
+            dpi=pix.xres,
             content=content,
             colorspace=colorspace,
         )

@@ -27,6 +27,7 @@ function's location in-memory only; the DB does not store it.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -64,6 +65,11 @@ class FindingKind(str, Enum):
     # exempt the ARGUMENT CONTRACT, and using them to excuse routing is how ``records``
     # shipped declared, contract-checked and unreachable for a day (2026-09-19).
     BINDING_INACTIVE = "binding_inactive"
+    # The description TEXT the model reads differs between the code model and the live
+    # row (per parameter, or tool-level when the code model declares ``tool_description``).
+    # Agents read the live row, so wording improved on one side only never reaches them
+    # (ask_person, 2026-11-10: newer code text sat unseen for days).
+    DESCRIPTION_DRIFT = "description_drift"
 
 
 @dataclass(frozen=True)
@@ -229,10 +235,11 @@ def validate(
             intersect this set is reported as ``external`` and never flagged
             as ``missing_in_code``.
 
-    Descriptions are intentionally NOT compared: descriptions are not code,
-    they live only in the DB (``tool_def.description``). The gate checks only
-    the elements code depends on — identity, ownership (via binding), and the
-    argument contract. The schema's ``function_path`` column was dropped, so
+    Description text IS compared, wherever the code declares any: every
+    parameter's ``Field(description=...)`` and an optional ``tool_description``
+    ClassVar on the args model (tool level). A code side that declares no text is
+    skipped (nothing to compare), as is a row location that holds no text. Text compares after whitespace collapse, exactly
+    otherwise. The schema's ``function_path`` column was dropped, so
     location drift is no longer a check — the @tool decorator records the
     function's location in-memory only.
     """
@@ -466,11 +473,18 @@ def _diff_args(
     db: DbTool,
     report: ValidationReport,
 ) -> None:
+    _diff_tool_description(name, ct, db, report)
     # Multi-action dispatchers carry a per-action contract on BOTH sides (a code
     # discriminated-union RootModel and a DB ``$variants`` map). If either side is
     # dispatcher-shaped, diff per action; otherwise take the ordinary flat path.
     union = discriminated_union_members(ct.args_model)
     db_variants = canon_db_variants(db.parameters)
+    if union is not None and db_variants is None and len(union[1]) == 1:
+        # A ONE-action dispatcher whose row is flat (``page_check``): the flat map IS that
+        # action's whole contract, discriminator included — diff it as one model.
+        (only_member,) = union[1].values()
+        _diff_param_maps(name, canon_model_params(only_member), canon_db_params(db.parameters), report)
+        return
     if union is not None or db_variants is not None:
         _diff_args_dispatcher(name, ct, db, report, union, db_variants)
         return
@@ -481,6 +495,66 @@ def _diff_args(
         canon_db_params(db.parameters),
         report,
     )
+
+
+def _norm_text(text: Any) -> str:
+    return " ".join(str(text or "").split())
+
+
+_BRIEF_MAX = 160  # protocol-constant: length of a one-line display excerpt of a validation message, layout not a limit
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'`{(\[])")
+
+
+def _brief_form(text: str) -> str:
+    """First sentence of ``text``, capped at 160 characters with ``…``.
+
+    Generated dispatcher rows (``records``, ``records_data``) advertise this form for their
+    non-core arguments by design and point to a guide action for the rest. A row
+    holding exactly this form of the code text is the same wording, not drift.
+    """
+    first = _SENTENCE_BREAK.split(text.strip(), maxsplit=1)[0]
+    if len(first) > _BRIEF_MAX:
+        first = first[: _BRIEF_MAX - 1].rstrip() + "…"
+    return first
+
+
+def _diff_description(
+    name: str,
+    where: str,
+    code_text: Any,
+    db_text: Any,
+    detail: dict[str, Any],
+    report: ValidationReport,
+) -> None:
+    """Report description-text drift. Silent when either side declares no text there.
+
+    A row location with no text is a gap (``tool_definition_lint`` ranks those), not two
+    different wordings: dispatcher rows keep per-action text in the flat parameter map and
+    the tool description, so their ``$variants`` entries are legitimately bare.
+    """
+    code_norm = _norm_text(code_text)
+    db_norm = _norm_text(db_text)
+    if not code_norm or not db_norm or code_norm == db_norm:
+        return
+    if _norm_text(_brief_form(str(code_text))) == db_norm:
+        return
+    report.findings.append(
+        Finding(
+            FindingKind.DESCRIPTION_DRIFT,
+            Severity.ERROR,
+            name,
+            f"{where} description text differs between code and the live row "
+            "(agents read the live row)",
+            {**detail, "code": str(code_text), "db": str(db_text or "")},
+        )
+    )
+
+
+def _diff_tool_description(name: str, ct: DeclaredTool, db: DbTool, report: ValidationReport) -> None:
+    """Tool-level text: compared only when the args model declares ``tool_description``."""
+    text = getattr(ct.args_model, "tool_description", None)
+    if isinstance(text, str):
+        _diff_description(name, "tool-level", text, db.description, {"param": None}, report)
 
 
 def _diff_param_maps(
@@ -513,6 +587,14 @@ def _diff_param_maps(
 
     for pname in sorted(set(code_params) & set(db_params)):
         c, d = code_params[pname], db_params[pname]
+        _diff_description(
+            name,
+            f"{prefix}argument {pname!r}",
+            c.description,
+            d.description,
+            {**detail_scope, "param": pname},
+            report,
+        )
         if c.identity() != d.identity():
             report.findings.append(
                 Finding(
@@ -647,6 +729,15 @@ def _diff_args_dispatcher(
 
     # The discriminator's own enum members (the one place we DO compare enum values).
     db_enum = db_discriminator_enum(db.parameters, disc)
+    if (
+        db_enum is not None
+        and isinstance(db.parameters, dict)
+        and db.parameters.get("$envelope")
+        and "guide" not in db_actions
+    ):
+        # A lean row advertises `guide`, which the executor answers from the row
+        # (matrx_ai.tools.lean_envelope.row_guide); the code union never has it.
+        db_enum = db_enum - {"guide"}
     if db_enum is not None and db_enum != code_actions:
         report.findings.append(
             Finding(

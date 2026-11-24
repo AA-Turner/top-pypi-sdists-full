@@ -216,7 +216,7 @@ async def run_eval(
     score_faithfulness: bool = True,
     concurrency: int = 4,
 ) -> dict[str, Any]:
-    raw = json.loads(Path(golden_path).read_text())
+    raw = json.loads(await asyncio.to_thread(Path(golden_path).read_text))
     items = [GoldenItem(**it) for it in raw["items"]]
     name = raw.get("name") or Path(golden_path).stem
 
@@ -328,7 +328,7 @@ async def _main_async() -> int:
     )
     _print_summary(report)
     if args.report_out:
-        Path(args.report_out).write_text(json.dumps(report, indent=2))
+        await asyncio.to_thread(Path(args.report_out).write_text, json.dumps(report, indent=2))
         print(f"\nFull report → {args.report_out}")
     return 0
 

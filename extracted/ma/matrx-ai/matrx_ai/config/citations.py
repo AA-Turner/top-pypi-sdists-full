@@ -29,6 +29,14 @@ Provider mapping (ratified):
   - xAI response-level URL list          → ``web``
 
 The original provider payload is ALWAYS preserved in ``raw``.
+
+Answer offsets are UTF-16 code units — the unit every client slices by (the web's JS strings in
+``@ai-matrx/agents`` presentation/citations.ts, the iPhone's ``text.utf16`` in Kit
+``MessageCitations.swift``). Providers count differently, so every normalizer converts on the way
+in: Gemini grounding and the Gemini Interactions API count UTF-8 BYTES, OpenAI (and the
+OpenAI-compatible dialects) count characters, our own regex matches are Python code points. Passing
+one through unconverted lands markers mid-word after the first non-ASCII character (CGU-09 item 7).
+``raw`` keeps the provider's own numbers.
 """
 
 from __future__ import annotations
@@ -57,8 +65,10 @@ class NormalizedCitation(BaseModel):
     Offsets come in two flavours and are never conflated:
       - ``source_start`` / ``source_end``: char/block offsets INTO THE SOURCE
         document (Anthropic char/content_block locations).
-      - ``answer_start`` / ``answer_end``: char offsets INTO THE ANSWER TEXT
-        (OpenAI url_citation annotations, Gemini grounding segment offsets).
+      - ``answer_start`` / ``answer_end``: half-open offsets INTO THE ANSWER TEXT,
+        in UTF-16 CODE UNITS (what JS strings and Swift ``utf16`` index) — never
+        bytes, never code points. Every normalizer converts the provider's unit
+        (``utf16_offset`` / ``utf8_offset_to_utf16``); ``raw`` keeps the original.
     ``page`` / ``end_page`` are 1-based (Anthropic page_location).
     """
 
@@ -113,6 +123,23 @@ def _get(obj: Any, key: str, default: Any = None) -> Any:
     if isinstance(obj, dict):
         return obj.get(key, default)
     return getattr(obj, key, default)
+
+
+def utf16_offset(text: str, index: int) -> int:
+    """A code-point index into ``text`` (a Python ``str`` index) as UTF-16 code units."""
+    index = max(0, index)
+    return index + sum(1 for ch in text[:index] if ord(ch) > 0xFFFF)
+
+
+def utf8_offset_to_utf16(text: str, byte_offset: int) -> int:
+    """A UTF-8 byte offset into ``text`` as UTF-16 code units (a partial character is not counted)."""
+    prefix = text.encode("utf-8")[: max(0, byte_offset)].decode("utf-8", errors="ignore")
+    return utf16_offset(prefix, len(prefix))
+
+
+def _cp_to_utf16(text: str, index: Any) -> Any:
+    """``utf16_offset`` for a provider value that may be missing; without the text it is kept as sent."""
+    return utf16_offset(text, index) if isinstance(index, int) and text else index
 
 
 def _loud_unknown(provider: str, payload: Any, guessed_kind: str) -> None:
@@ -401,9 +428,10 @@ def normalize_openai_annotation(annotation: dict[str, Any], answer_text: str) ->
     """Normalize ONE OpenAI Responses annotation.
 
     ``url_citation`` carries offsets into the ANSWER text (start_index /
-    end_index) — never source offsets. ``answer_text`` is used only to
-    bound-check offsets; OpenAI provides no verbatim source text, so
-    ``cited_text`` stays None.
+    end_index), counted in characters — never source offsets. ``answer_text``
+    converts them to UTF-16 units and bound-checks them; without it they are
+    kept as sent. OpenAI provides no verbatim source text, so ``cited_text``
+    stays None.
     """
     raw = _to_plain(annotation)
     atype = raw.get("type") or ""
@@ -435,8 +463,8 @@ def normalize_openai_annotation(annotation: dict[str, Any], answer_text: str) ->
         url=raw.get("url"),
         source_index=int(raw.get("index") or 0),
         file_id=None,
-        answer_start=answer_start,
-        answer_end=answer_end,
+        answer_start=_cp_to_utf16(answer_text, answer_start),
+        answer_end=_cp_to_utf16(answer_text, answer_end),
         raw=raw,
     )
 
@@ -451,7 +479,8 @@ def normalize_google_grounding(
 ) -> list[NormalizedCitation]:
     """Join ``grounding_supports`` × ``grounding_chunks`` into one flat list.
 
-    Each support segment (answer-text char range) may cite several chunks —
+    Each support segment (an answer-text range in UTF-8 BYTES, converted here
+    to UTF-16 units against ``answer_text``) may cite several chunks —
     one ``NormalizedCitation`` is emitted per (support, chunk_index) pair, so
     the FE can highlight every span/source association. Accepts the SDK
     object or a plain dict. Segment ``start_index`` is None for the first
@@ -470,6 +499,11 @@ def normalize_google_grounding(
         answer_end = _get(segment, "end_index") if segment is not None else None
         if answer_start is None and answer_end is not None:
             answer_start = 0
+        if answer_text:
+            if isinstance(answer_start, int):
+                answer_start = utf8_offset_to_utf16(answer_text, answer_start)
+            if isinstance(answer_end, int):
+                answer_end = utf8_offset_to_utf16(answer_text, answer_end)
         chunk_indices = _get(support, "grounding_chunk_indices") or []
         for chunk_index in chunk_indices:
             title = None
@@ -513,14 +547,15 @@ def normalize_google_grounding(
 
 
 def normalize_google_interaction_annotations(
-    annotations: list[Any] | None, *, offset: int = 0
+    annotations: list[Any] | None, *, text: str, offset: int = 0
 ) -> list[NormalizedCitation]:
     """Normalize the ``annotations`` of ONE Interactions ``text`` content.
 
     ``url_citation`` / ``file_citation`` carry ``start_index`` / ``end_index``
-    into THAT text part. A research report arrives as several text parts that
-    the adapter concatenates, so ``offset`` (the part's position in the joined
-    answer) is added to make the offsets answer offsets. Speech/word/place
+    into THAT text part (``text``), counted in UTF-8 BYTES; they are converted
+    to UTF-16 units against it. A research report arrives as several text parts
+    that the adapter concatenates, so ``offset`` (the part's position in the
+    joined answer, in UTF-16 units) is added to make the offsets answer offsets. Speech/word/place
     annotations are not citations and are skipped; an unknown type is kept
     best-effort and announced.
     """
@@ -556,8 +591,8 @@ def normalize_google_interaction_annotations(
                 url=url,
                 source_index=index,
                 page=raw.get("page_number") if kind == "document_page" else None,
-                answer_start=start + offset if isinstance(start, int) else None,
-                answer_end=end + offset if isinstance(end, int) else None,
+                answer_start=utf8_offset_to_utf16(text, start) + offset if isinstance(start, int) else None,
+                answer_end=utf8_offset_to_utf16(text, end) + offset if isinstance(end, int) else None,
                 raw=raw,
             )
         )
@@ -605,8 +640,8 @@ def normalize_markdown_link_citations(
                 title=label or None,
                 url=url,
                 source_index=source_index,
-                answer_start=match.start(),
-                answer_end=match.end(),
+                answer_start=utf16_offset(text, match.start()),
+                answer_end=utf16_offset(text, match.end()),
                 raw={"type": "markdown_link"},
             )
         )
@@ -672,7 +707,8 @@ def normalize_openai_compatible_citations(
         the payload under ``url_citation``; Groq nests under
         ``document_citation`` (``{document_id,start_index,end_index}``) or
         ``function_citation`` (``{tool_call_id,start_index,end_index}``).
-        ``start_index``/``end_index`` are offsets INTO THE ANSWER.
+        ``start_index``/``end_index`` are character offsets INTO THE ANSWER,
+        converted to UTF-16 units against ``answer_text``.
 
     ``provider`` is stamped ``"openai"`` — it identifies the WIRE DIALECT
     (this whole family speaks OpenAI's), and ``raw`` preserves the exact
@@ -733,8 +769,8 @@ def normalize_openai_compatible_citations(
                     source_index=int(nested_doc.get("document_id") or 0)
                     if str(nested_doc.get("document_id") or "").isdigit()
                     else 0,
-                    answer_start=nested_doc.get("start_index"),
-                    answer_end=nested_doc.get("end_index"),
+                    answer_start=_cp_to_utf16(answer_text, nested_doc.get("start_index")),
+                    answer_end=_cp_to_utf16(answer_text, nested_doc.get("end_index")),
                     raw=raw,
                 )
             )
@@ -745,8 +781,8 @@ def normalize_openai_compatible_citations(
                 NormalizedCitation(
                     kind="search_result",
                     provider="openai",
-                    answer_start=nested_fn.get("start_index"),
-                    answer_end=nested_fn.get("end_index"),
+                    answer_start=_cp_to_utf16(answer_text, nested_fn.get("start_index")),
+                    answer_end=_cp_to_utf16(answer_text, nested_fn.get("end_index")),
                     raw=raw,
                 )
             )

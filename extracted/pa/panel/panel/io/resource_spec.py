@@ -25,14 +25,17 @@ import pathlib
 import re
 import typing as t
 
-from bokeh.model import Model
+from functools import lru_cache
+
+from bokeh.embed.bundle import extension_dirs
 
 from ..config import config
 from ..util import isurl
 from .resources import (
-    Resources, component_resource_path, extension_declared,
-    get_notebook_resources, get_resource_mode, resolve_resource_cdn,
-    set_resource_mode,
+    EXTENSION_CDN, Resources, component_resource_path, extension_cdn_map,
+    extension_declared, get_notebook_resources, get_resource_mode,
+    jupyter_endpoint_available, loaded_custom_classes, model_registry_key,
+    remember, resolve_resource_cdn, set_resource_mode, sorted_model_classes,
 )
 from .state import state
 
@@ -60,6 +63,7 @@ _RESOURCE_ATTRS = (
 _CUSTOM_ELEMENT_RE = re.compile(r"^customElements\.get\(\s*['\"]([^'\"]+)['\"]\s*\)\s*$")
 
 _SPEC_CACHE: dict[t.Any, dict[str, t.Any] | None] = {}
+_DECLARED_CACHE: dict[t.Any, dict[str, t.Any]] = {}
 
 
 class _Entry(t.NamedTuple):
@@ -268,13 +272,45 @@ def _shim_url(resources: Resources) -> str | None:
     return urls[0] if urls else None
 
 
-def _has_resources(cls: type) -> bool:
+def _is_esm(cls: type) -> bool:
+    from ..custom import ReactiveESM
+    return isinstance(cls, type) and issubclass(cls, ReactiveESM)
+
+
+@lru_cache(maxsize=None)
+def _declares_resources(cls: type) -> bool:
+    # ReactiveCustomBase declares every attribute as None.
     mro = getattr(cls, '__mro__', (cls,))
     return any(
-        attr in supcls.__dict__
+        supcls.__dict__.get(attr) is not None
         for attr in _RESOURCE_ATTRS
         for supcls in mro
     )
+
+
+@lru_cache(maxsize=None)
+def _has_resources(cls: type) -> bool:
+    # Every ESM component imports through es-module-shims, which a host
+    # that renders the output itself may not have loaded.
+    return _is_esm(cls) or _declares_resources(cls)
+
+
+def _spec_cdn_map(spec: dict[str, t.Any]) -> list[list[str]]:
+    """
+    The entries of the extension CDN map the urls of a spec fall under,
+    since the spec is serialized with every model instance.
+    """
+    urls = [
+        url for lib in spec.get('libs', [])
+        for url in (*lib.get('js', []), *(module['url'] for module in lib.get('modules', [])))
+    ]
+    urls += spec.get('css', [])
+    if 'shim' in spec:
+        urls.append(spec['shim'])
+    return [
+        [prefix, cdn] for prefix, cdn in extension_cdn_map()
+        if any(prefix in url for url in urls)
+    ]
 
 
 def _build_spec(cls: type, mode: str) -> dict[str, t.Any] | None:
@@ -298,7 +334,8 @@ def _build_spec(cls: type, mode: str) -> dict[str, t.Any] | None:
             for i, (raw, url) in enumerate(modules)
         ]
 
-        if not entries and not css:
+        esm = _is_esm(cls)
+        if not entries and not css and not esm:
             return None
 
         spec: dict[str, t.Any] = {'v': SPEC_VERSION}
@@ -306,10 +343,15 @@ def _build_spec(cls: type, mode: str) -> dict[str, t.Any] | None:
             spec['libs'] = _build_libs(cls, entries, skip)
         if css:
             spec['css'] = css
-        if modules:
+        if modules or esm:
             shim = _shim_url(resources)
             if shim:
                 spec['shim'] = shim
+        if mode == 'server' and (cdn_map := _spec_cdn_map(spec)):
+            # Server urls only resolve where something serves Panel's
+            # extension routes, which a host embedding the output itself
+            # (e.g. Shiny via jupyter_bokeh) may not do.
+            spec['cdn'] = cdn_map
         return spec
 
 
@@ -342,10 +384,15 @@ def resource_spec(cls: type, mode: MODES | None = None) -> dict[str, t.Any] | No
     # The effective notebook default has to be part of the key too: a
     # notebook and a server started from it can share `rel_path`/`base_url`
     # while only one of them is a genuine server session (see `_resources`).
+    # Whether the Jupyter endpoint serves the urls can be toggled with
+    # `config.notebook_resources`, and the extension registries feed the
+    # server-mode `cdn` map and grow as extensions are imported.
     key = (
         cls, resolved_mode, state.rel_path, state.base_url,
         get_notebook_resources() and not state._is_server_session,
         tuple(getattr(cls, '__css_raw__', None) or ()),
+        jupyter_endpoint_available(), config.npm_cdn, len(EXTENSION_CDN),
+        len(extension_dirs),
     )
     if key in _SPEC_CACHE:
         spec = _SPEC_CACHE[key]
@@ -382,17 +429,23 @@ def _resource_classes() -> list[type]:
     ``Resources.extra_resources``, extension gate included, so that what
     is declared to the registry is exactly what was rendered.
     """
-    from ..reactive import ReactiveCustomBase
-    from ..util import _descendents
+    classes = [cls for cls in sorted_model_classes() if extension_declared(cls)]
+    return classes + loaded_custom_classes()
 
-    classes = [
-        cls for _, cls in sorted(Model.model_class_reverse_map.items(), key=lambda item: item[0])
-        if extension_declared(cls)
-    ]
-    classes += [
-        cls for cls in _descendents(ReactiveCustomBase, concrete=True) if cls._loaded()
-    ]
-    return classes
+
+def _declared_key(mode: str) -> tuple:
+    """
+    Everything ``declared_specs`` depends on besides the class declarations
+    themselves, which only change when a class is registered or loaded.
+    """
+    extensions = state._extensions
+    return (
+        mode, state.rel_path, state.base_url,
+        get_notebook_resources() and not state._is_server_session,
+        jupyter_endpoint_available(), config.npm_cdn, len(EXTENSION_CDN),
+        None if extensions is None else frozenset(extensions),
+        model_registry_key(), frozenset(loaded_custom_classes()),
+    )
 
 
 def declared_specs(mode: MODES | None = None) -> dict[str, t.Any]:
@@ -407,10 +460,18 @@ def declared_specs(mode: MODES | None = None) -> dict[str, t.Any]:
     if not config.lazy_resources:
         return {}
     resolved_mode, _ = _spec_mode(mode)
+    key = _declared_key(resolved_mode)
+    if key in _DECLARED_CACHE:
+        return copy.deepcopy(_DECLARED_CACHE[key])
+    return copy.deepcopy(remember(_DECLARED_CACHE, key, _build_declared(resolved_mode)))
+
+
+def _build_declared(resolved_mode: str) -> dict[str, t.Any]:
     libs: dict[str, dict[str, t.Any]] = {}
     css: list[str] = []
     for cls in _resource_classes():
-        if not _has_resources(cls):
+        # A spec with nothing but the shim has no libs or css to declare.
+        if not _declares_resources(cls):
             continue
         try:
             spec = _build_spec(cls, resolved_mode)
@@ -430,4 +491,4 @@ def declared_specs(mode: MODES | None = None) -> dict[str, t.Any]:
         declared['libs'] = list(libs.values())
     if css:
         declared['css'] = css
-    return copy.deepcopy(declared)
+    return declared

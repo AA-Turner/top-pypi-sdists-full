@@ -60,7 +60,7 @@ class _VanishingLocator:
     """Visible when the readiness gate looks, gone by the time the pointer aims —
     the real race, reported by Playwright as a ``wait_for`` TimeoutError."""
 
-    def __init__(self, page: "_Page") -> None:
+    def __init__(self, page: _Page) -> None:
         self._page = page
 
     @property

@@ -217,6 +217,16 @@ from legit_api_client.models.repository_dto import RepositoryDto
 from legit_api_client.models.repository_group_dto import RepositoryGroupDto
 from legit_api_client.models.repository_visibility import RepositoryVisibility
 from legit_api_client.models.sbom_format import SbomFormat
+from legit_api_client.models.scan_log_scanner_type import ScanLogScannerType
+from legit_api_client.models.scan_log_status import ScanLogStatus
+from legit_api_client.models.scan_now_history_item import ScanNowHistoryItem
+from legit_api_client.models.scan_now_history_page import ScanNowHistoryPage
+from legit_api_client.models.scan_now_limits import ScanNowLimits
+from legit_api_client.models.scan_now_request_response import ScanNowRequestResponse
+from legit_api_client.models.scan_now_status import ScanNowStatus
+from legit_api_client.models.scan_now_status_actor import ScanNowStatusActor
+from legit_api_client.models.scan_now_target_status import ScanNowTargetStatus
+from legit_api_client.models.scan_now_trigger_error import ScanNowTriggerError
 from legit_api_client.models.scm_type import ScmType
 from legit_api_client.models.sdlc_asset_dto import SdlcAssetDto
 from legit_api_client.models.sdlc_asset_graph_asset_dto import SdlcAssetGraphAssetDto

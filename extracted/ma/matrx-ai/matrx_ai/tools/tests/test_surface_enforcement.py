@@ -20,9 +20,7 @@ from matrx_connect.emitters.silent_emitter import SilentEmitter
 from matrx_ai.tools.merge import (
     ACTIVE_UI_SURFACE_KEY,
     _surface_check_failed,
-    merge_request_tools,
 )
-from matrx_ai.tools.specs import RegisteredToolSpec
 
 
 class _NullEmitter(SilentEmitter):

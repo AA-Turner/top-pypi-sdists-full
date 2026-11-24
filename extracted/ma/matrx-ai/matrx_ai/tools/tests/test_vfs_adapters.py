@@ -253,7 +253,9 @@ async def test_fs_edit_no_match(ctx: ToolContext) -> None:
     result = await fs_edit({"path": "doc.txt", "old_str": "nope", "new_str": "x"}, ctx)
     assert result.success is False
     assert result.error is not None
-    assert "String to replace not found in file." in result.error.message
+    # fs_edit now runs through the shared patch engine: a typed no-match, and nothing written.
+    assert result.error.error_type == "patch_no_match"
+    assert "not found in doc.txt" in result.error.message and "nothing was written" in result.error.message
 
 
 async def test_fs_edit_multi_match_without_replace_all(ctx: ToolContext) -> None:
@@ -261,7 +263,8 @@ async def test_fs_edit_multi_match_without_replace_all(ctx: ToolContext) -> None
     result = await fs_edit({"path": "doc.txt", "old_str": "ab", "new_str": "x"}, ctx)
     assert result.success is False
     assert result.error is not None
-    assert "Found 3 matches" in result.error.message
+    assert result.error.error_type == "patch_ambiguous"
+    assert "matches 3 places in doc.txt" in result.error.message and "replace_all" in result.error.suggested_action
 
 
 async def test_fs_edit_multi_match_with_replace_all(ctx: ToolContext) -> None:

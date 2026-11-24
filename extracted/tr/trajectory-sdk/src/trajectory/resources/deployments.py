@@ -67,7 +67,7 @@ class Deployments(APIResource):
         params=maybe_transform(
           {
             "status": status,
-            "cursor": cursor,
+            "cursor": omit if cursor is None else cursor,
             "limit": limit,
             "sort": sort,
             "order": order,

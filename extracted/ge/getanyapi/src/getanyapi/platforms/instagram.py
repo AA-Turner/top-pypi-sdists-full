@@ -138,6 +138,21 @@ class InstagramEmbedInput(TypedDict, total=False):
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
+class InstagramFindHashtagsInput(TypedDict, total=False):
+    """Input for Instagram Hashtag Finder."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    query: Required[str]
+    """Keyword to find hashtags for, in any language, with or without a leading #. One call returns one page of results; there is no next page."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
 class InstagramFollowersInput(TypedDict, total=False):
     """Input for Instagram Followers."""
 
@@ -614,9 +629,7 @@ class InstagramSearchProfilesInput(TypedDict, total=False):
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
     """Bio or caption keyword/phrase to search for."""
-    requireFields: NotRequired[
-        list[Literal["bioLinks", "category", "isBusiness", "private"]]
-    ]
+    requireFields: NotRequired[list[Literal["bioLinks", "category", "private"]]]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `private`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a profile that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
@@ -1178,6 +1191,31 @@ class InstagramEmbedData(BaseModel):
 
     html: str = Field(
         description="Populated whenever the provider has data for the entity."
+    )
+
+
+class InstagramFindHashtagsData(BaseModel):
+    hashtags: list[InstagramFindHashtagsHashtag] = Field(
+        description="Hashtags matching the keyword in Instagram's order, usually around 55 per search. Populated whenever the provider has data for the entity."
+    )
+
+
+class InstagramFindHashtagsHashtag(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    id: str = Field(
+        description="Instagram hashtag id, as a string so every digit is exact. Populated whenever the provider has data for the entity."
+    )
+    name: str = Field(
+        description="Hashtag without the #. Pass it to instagram.search_hashtag or instagram.hashtag_analytics. Populated whenever the provider has data for the entity."
+    )
+    posts_count: int | None = Field(
+        default=None,
+        alias="postsCount",
+        description="Number of posts using the hashtag. Populated whenever the provider has data for the entity. Present whenever the upstream returns this record.",
+    )
+    url: str = Field(
+        description="Link to the hashtag's page on Instagram. Populated whenever the provider has data for the entity."
     )
 
 
@@ -4679,7 +4717,7 @@ class InstagramNamespace:
         Fetch an Instagram account's core public profile fields (followers, posts,
         bio, verification) by user id.
 
-        Price: $0.0008 per request.
+        Price: $0.00079 per request.
 
         Example:
             res = client.instagram.basic_profile(userId="314216")
@@ -4797,6 +4835,28 @@ class InstagramNamespace:
             "instagram.embed", dict(input), options
         )
         return RunResult[InstagramEmbedData].model_validate(raw)
+
+    def find_hashtags(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[InstagramFindHashtagsInput],
+    ) -> RunResult[InstagramFindHashtagsData]:
+        """Instagram Hashtag Finder
+
+        Find Instagram hashtags by keyword: get the matching tags, usually around 55
+        per search, each with its name, link, post count, and tag id. To list the
+        posts under a hashtag you already know, use instagram.search_hashtag.
+
+        Price: $0.0011 per request.
+
+        Example:
+            res = client.instagram.find_hashtags(query="coffee")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "instagram.find_hashtags", dict(input), options
+        )
+        return RunResult[InstagramFindHashtagsData].model_validate(raw)
 
     def followers(
         self,
@@ -5127,7 +5187,7 @@ class InstagramNamespace:
         extra on top of the price. If you want the spoken words as well,
         instagram.reel_transcript transcribes the same reel.
 
-        Price: $0.00038 per request.
+        Price: $0.00037 per request.
 
         Example:
             res = client.instagram.post(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -5213,7 +5273,7 @@ class InstagramNamespace:
         Fetch an Instagram account's public profile (followers, posts, bio,
         verification) by handle.
 
-        Price: $0.00054 per request.
+        Price: $0.00053 per request.
 
         Example:
             res = client.instagram.profile(handle="nasa")
@@ -5590,7 +5650,7 @@ class InstagramNamespace:
         instead. For the full list of accounts Instagram suggests as similar, use
         instagram.suggested_profiles.
 
-        Price: $0.00175 per request.
+        Price: $0.0022 per request.
 
         Example:
             res = client.instagram.similar_profiles(handle="nasa")
@@ -5699,7 +5759,7 @@ class InstagramNamespace:
         List the posts an Instagram user is tagged in, with cursor pagination
         (author, caption, likes, comments).
 
-        Price: $0.00188 per request.
+        Price: $0.00135 per request.
 
         Example:
             res = client.instagram.tagged_posts(handle="nasa")
@@ -5763,7 +5823,7 @@ class InstagramNamespace:
 
         List an Instagram account's story highlight reels by handle.
 
-        Price: $0.0012 per request.
+        Price: $0.001 per request.
 
         Example:
             res = client.instagram.user_highlights(handle="nasa")
@@ -5784,7 +5844,7 @@ class InstagramNamespace:
         List an Instagram account's recent posts (likes, comments, captions) by
         handle with cursor pagination.
 
-        Price: $0.00067 per request.
+        Price: $0.00068 per request.
 
         Example:
             res = client.instagram.user_posts(handle="nasa")
@@ -6062,7 +6122,7 @@ class AsyncInstagramNamespace:
         Fetch an Instagram account's core public profile fields (followers, posts,
         bio, verification) by user id.
 
-        Price: $0.0008 per request.
+        Price: $0.00079 per request.
 
         Example:
             res = client.instagram.basic_profile(userId="314216")
@@ -6180,6 +6240,28 @@ class AsyncInstagramNamespace:
             "instagram.embed", dict(input), options
         )
         return RunResult[InstagramEmbedData].model_validate(raw)
+
+    async def find_hashtags(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[InstagramFindHashtagsInput],
+    ) -> RunResult[InstagramFindHashtagsData]:
+        """Instagram Hashtag Finder
+
+        Find Instagram hashtags by keyword: get the matching tags, usually around 55
+        per search, each with its name, link, post count, and tag id. To list the
+        posts under a hashtag you already know, use instagram.search_hashtag.
+
+        Price: $0.0011 per request.
+
+        Example:
+            res = client.instagram.find_hashtags(query="coffee")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "instagram.find_hashtags", dict(input), options
+        )
+        return RunResult[InstagramFindHashtagsData].model_validate(raw)
 
     async def followers(
         self,
@@ -6512,7 +6594,7 @@ class AsyncInstagramNamespace:
         extra on top of the price. If you want the spoken words as well,
         instagram.reel_transcript transcribes the same reel.
 
-        Price: $0.00038 per request.
+        Price: $0.00037 per request.
 
         Example:
             res = client.instagram.post(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -6598,7 +6680,7 @@ class AsyncInstagramNamespace:
         Fetch an Instagram account's public profile (followers, posts, bio,
         verification) by handle.
 
-        Price: $0.00054 per request.
+        Price: $0.00053 per request.
 
         Example:
             res = client.instagram.profile(handle="nasa")
@@ -6975,7 +7057,7 @@ class AsyncInstagramNamespace:
         instead. For the full list of accounts Instagram suggests as similar, use
         instagram.suggested_profiles.
 
-        Price: $0.00175 per request.
+        Price: $0.0022 per request.
 
         Example:
             res = client.instagram.similar_profiles(handle="nasa")
@@ -7084,7 +7166,7 @@ class AsyncInstagramNamespace:
         List the posts an Instagram user is tagged in, with cursor pagination
         (author, caption, likes, comments).
 
-        Price: $0.00188 per request.
+        Price: $0.00135 per request.
 
         Example:
             res = client.instagram.tagged_posts(handle="nasa")
@@ -7148,7 +7230,7 @@ class AsyncInstagramNamespace:
 
         List an Instagram account's story highlight reels by handle.
 
-        Price: $0.0012 per request.
+        Price: $0.001 per request.
 
         Example:
             res = client.instagram.user_highlights(handle="nasa")
@@ -7169,7 +7251,7 @@ class AsyncInstagramNamespace:
         List an Instagram account's recent posts (likes, comments, captions) by
         handle with cursor pagination.
 
-        Price: $0.00067 per request.
+        Price: $0.00068 per request.
 
         Example:
             res = client.instagram.user_posts(handle="nasa")

@@ -46,6 +46,8 @@ registered and active, so this blocks nothing that exists today.
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 from enum import StrEnum
 
 from typing import TYPE_CHECKING
@@ -120,6 +122,7 @@ def authored_kind_bindings(definition: Definition) -> list[KindBinding]:
     Deliberately excludes NodeSpec-declared kinds (see the module docstring):
     those are code, and a user's publish must never be blocked by them.
     """
+    definition = _information.executable_of(definition)  # a note is not a step
     bindings: list[KindBinding] = []
     for node in definition.nodes:
         label = node.label or node.id
@@ -239,6 +242,7 @@ def mapping_source_kinds(
     """Each node's declared output kind (authored ``data.output_kind``, else its step type's
     own kind), via :func:`matrx_graph.kinds.declared_output_kind` — the resolver compile uses.
     A node whose type is not registered contributes only its authored kind."""
+    definition = _information.executable_of(definition)  # a note is not a step
     if registry is None:
         from matrx_graph.executor.registry import default_registry
 
@@ -269,6 +273,7 @@ def kind_mapping_problems(
     against its kind; keys the step adds beside its kind (``run_envelope``) are not the
     kind's. Live 2026-10-28: a Gather fed ``structured_output`` off a Run Typed Agent (whose
     output IS the kind) saved clean and received ``{}`` every run."""
+    definition = _information.executable_of(definition)  # a note is not a step
     by_id = {node.id: node for node in definition.nodes}
     problems: list[KindBindingProblem] = []
     for edge in definition.edges:

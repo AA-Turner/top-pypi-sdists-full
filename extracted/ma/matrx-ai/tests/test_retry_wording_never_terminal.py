@@ -46,7 +46,8 @@ def _claims_retry(text: str) -> bool:
 def test_the_observed_sentence_is_honest_after_the_last_attempt() -> None:
     classified = classify_provider_error("openai", RuntimeError("something odd happened upstream"))
     assert classified.is_retryable is True
-    assert classified.user_message == "An unexpected OpenAI error occurred."
+    assert classified.user_message == "Something went wrong. Please try again."
+    assert classified.details["provider_words"] == "something odd happened upstream"  # the raw words moved, not lost
     assert _claims_retry(classified.retrying_message)
 
 

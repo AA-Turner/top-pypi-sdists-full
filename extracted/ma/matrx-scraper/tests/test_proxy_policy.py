@@ -232,7 +232,8 @@ async def test_proxy_pool_exhaustion_is_structured_once_without_error_log_noise(
     assert isinstance(exc, scraper.ProxyPoolExhaustedError)
     assert str(exc) == "Configured proxy pool exhausted"
     assert kind == "scraper_proxy_pool_exhausted"
-    assert kwargs["context"]["url"] == "https://example.com"
+    # The SECOND refused destination is the evidence (one refused host proves nothing — 9e8a0ef6).
+    assert kwargs["context"]["url"] == "https://example.org"
     assert kwargs["context"]["failure_reason"] == "proxy_error"
     # The capture carries pool telemetry, so an outage is diagnosable from the
     # error row alone instead of needing a live reproduction.
@@ -248,13 +249,20 @@ async def test_proxy_pool_exhaustion_capture_rearms_after_recovery(
     captures: list[BaseException] = []
     # Two proxies per call, plus the DIRECT rescue attempt that now follows an
     # all-proxy-error round (see `scraper.direct_fallback_enabled`).
+    # An outage is proven by TWO refused destinations (one refused host proves nothing — 9e8a0ef6).
     outcomes = iter(
         [
             scraper.FailureReason.PROXY_ERROR,
             scraper.FailureReason.PROXY_ERROR,
             scraper.FailureReason.REQUEST_ERROR,  # direct rescue also fails
+            scraper.FailureReason.PROXY_ERROR,
+            scraper.FailureReason.PROXY_ERROR,
+            scraper.FailureReason.REQUEST_ERROR,  # direct rescue also fails
             scraper.FailureReason.BAD_STATUS,
             scraper.FailureReason.BAD_STATUS,
+            scraper.FailureReason.PROXY_ERROR,
+            scraper.FailureReason.PROXY_ERROR,
+            scraper.FailureReason.REQUEST_ERROR,  # direct rescue also fails
             scraper.FailureReason.PROXY_ERROR,
             scraper.FailureReason.PROXY_ERROR,
             scraper.FailureReason.REQUEST_ERROR,  # direct rescue also fails
@@ -277,6 +285,7 @@ async def test_proxy_pool_exhaustion_capture_rearms_after_recovery(
     # Distinct hosts: the refusal memory is per-host, and reusing one host
     # would send the later calls down the direct-first path instead.
     await scraper.fetch_normally_with_proxy("https://first.example/first")
+    await scraper.fetch_normally_with_proxy("https://first-b.example/first")
     await scraper.fetch_normally_with_proxy("https://recovery.example/recovery")
     # A refusal moments after the pool carried a request is ONE destination
     # being declined, not exhaustion (system_error 586170ad). The pool is only
@@ -288,6 +297,7 @@ async def test_proxy_pool_exhaustion_capture_rearms_after_recovery(
         lambda: real_monotonic() + proxy_health.REFUSAL_MEMORY_SECONDS + 1,
     )
     await scraper.fetch_normally_with_proxy("https://second.example/second")
+    await scraper.fetch_normally_with_proxy("https://second-b.example/second")
 
     assert len(captures) == 2
 
@@ -347,11 +357,12 @@ async def test_host_refused_by_a_healthy_pool_is_not_pool_exhaustion(
 
 
 @pytest.mark.asyncio
-async def test_dead_pool_rescued_by_direct_is_still_reported(
+async def test_dead_pool_rescued_by_direct_is_telemetry_not_a_system_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The mirror image: a pool that carries NOTHING is a real outage even
-    when every page is rescued directly — rescue must not make it silent."""
+    """A pool that carries nothing but whose every page the direct fallback
+    delivers is pool-health telemetry (snapshot + warning log), never a
+    system_error; the failed-direct case is the next test."""
     captures: list[tuple[BaseException, str, dict[str, Any]]] = []
 
     async def fake_fetch(
@@ -375,11 +386,82 @@ async def test_dead_pool_rescued_by_direct_is_still_reported(
     monkeypatch.setattr(scraper, "_proxy_pool_exhausted", False)
 
     response = await scraper.fetch_normally_with_proxy("https://a.example/")
+    # A second destination is the evidence the pool (not one host) is refused — 9e8a0ef6.
+    await scraper.fetch_normally_with_proxy("https://b.example/")
 
     assert response.failed is False
     assert response.proxy_bypassed is True
+    assert captures == []
+    assert proxy_health.proxy_health_snapshot()["direct_fallbacks"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_dead_pool_with_failed_direct_is_still_reported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captures: list[tuple[BaseException, str, dict[str, Any]]] = []
+
+    async def fake_fetch(
+        _url: str,
+        _request_type: scraper.RequestType,
+        proxy: str | None,
+        *_args: Any,
+        **_kwargs: Any,
+    ) -> SimpleNamespace:
+        if proxy is not None:
+            return _failed_response(scraper.FailureReason.PROXY_ERROR)
+        return _failed_response(scraper.FailureReason.BAD_STATUS)
+
+    async def fake_capture(exc: BaseException, *, kind: str, **kwargs: Any) -> None:
+        captures.append((exc, kind, kwargs))
+
+    monkeypatch.setenv("DATACENTER_PROXIES", "http://proxy-one,http://proxy-two")
+    monkeypatch.setattr(scraper, "fetch", fake_fetch)
+    monkeypatch.setattr("matrx_utils.capture_error", fake_capture)
+    monkeypatch.setattr("matrx_utils.vcprint", lambda *_a, **_k: None)
+    monkeypatch.setattr(scraper, "_proxy_pool_exhausted", False)
+
+    await scraper.fetch_normally_with_proxy("https://a.example/")
+    await scraper.fetch_normally_with_proxy("https://b.example/")
+
     assert len(captures) == 1
-    exc, kind, kwargs = captures[0]
-    assert isinstance(exc, scraper.ProxyPoolExhaustedError)
-    assert kind == "scraper_proxy_pool_exhausted"
-    assert kwargs["context"]["direct_rescued"] is True
+    assert captures[0][1] == "scraper_proxy_pool_exhausted"
+    assert captures[0][2]["context"]["direct_rescued"] is False
+
+
+@pytest.mark.asyncio
+async def test_one_refused_host_on_a_cold_pool_is_not_pool_exhaustion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2026-11-13 system_error 9e8a0ef6: a fresh server's first proxied request was a YouTube link — a
+    destination our vendor always refuses — the direct fallback rescued it, and "Configured proxy pool
+    exhausted" was still filed red because the pool had carried nothing yet. One refused destination proves
+    nothing about the pool; a second, different one with still no carry does."""
+    captures: list[BaseException] = []
+
+    async def fake_fetch(url: str, _rt: Any, proxy: str | None, *_a: Any, **_k: Any) -> SimpleNamespace:
+        if proxy is None and "youtube" in url:  # the direct rescue answers
+            return SimpleNamespace(failed=False, failed_primary_reason=None, failed_reasons=[])
+        if proxy is None:  # second destination: direct fails too, so the outage is real
+            return _failed_response(scraper.FailureReason.BAD_STATUS)
+        return _failed_response(scraper.FailureReason.PROXY_ERROR)
+
+    async def fake_capture(exc: BaseException, **_kwargs: Any) -> None:
+        captures.append(exc)
+
+    monkeypatch.setenv("DATACENTER_PROXIES", "http://proxy-one,http://proxy-two")
+    monkeypatch.setattr(scraper, "fetch", fake_fetch)
+    monkeypatch.setattr(scraper.random, "choice", lambda values: values[0])
+    monkeypatch.setattr(scraper.random, "shuffle", lambda values: None)
+    monkeypatch.setattr("matrx_utils.capture_error", fake_capture)
+    monkeypatch.setattr("matrx_utils.vcprint", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(scraper, "_proxy_pool_exhausted", False)
+
+    rescued = await scraper.fetch_normally_with_proxy("https://www.youtube.com/watch?v=x")
+    assert rescued.failed is False
+    assert captures == []
+
+    # A second, different destination refused with still no carry: now the pool is the problem.
+    await scraper.fetch_normally_with_proxy("https://example.org/page")
+    assert len(captures) == 1
+    assert isinstance(captures[0], scraper.ProxyPoolExhaustedError)

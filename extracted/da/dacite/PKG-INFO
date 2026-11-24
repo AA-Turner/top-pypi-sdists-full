@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: dacite
-Version: 1.9.2
+Version: 1.9.3
 Summary: Simple creation of data classes from dictionaries.
 Home-page: https://github.com/konradhalas/dacite
 Author: Konrad Hałas
@@ -41,6 +41,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

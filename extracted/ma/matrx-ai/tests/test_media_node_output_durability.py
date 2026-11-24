@@ -38,7 +38,7 @@ SIGNED_V2 = (
     f"https://matrx-user-files.s3.amazonaws.com/{OWNER}/{FILE_ID}"
     "?response-content-disposition=inline%3B%20filename%3D%22cover.jpg%22"
     "&response-content-type=image%2Fjpeg"
-    "&AWSAccessKeyId=AKIA4WJPWQC7PVFDDC42&Signature=RpqmXw%3D&Expires=1786485620"
+    "&AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Signature=RpqmXw%3D&Expires=1786485620"
 )
 SIGNED_V4 = (
     f"https://matrx-user-files.s3.amazonaws.com/{OWNER}/{FILE_ID}"
@@ -48,6 +48,15 @@ SIGNED_V4 = (
 DURABLE_CDN = f"https://cdn.matrxserver.com/generations/{FILE_ID}.jpg"
 
 SIGNED = pytest.mark.parametrize("signed", [SIGNED_V2, SIGNED_V4])
+
+
+@pytest.fixture(autouse=True)
+def _cdn_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Production always has the CDN configured (``CDN_PUBLIC_BASE_URL`` is in REQUIRED_ENV);
+    without it no URL is a CDN URL and ``cdn_url`` is honestly empty."""
+    from matrx_files.cloud_sync import cdn
+
+    monkeypatch.setattr(cdn, "_cdn_base_url", lambda: "https://cdn.matrxserver.com")
 
 
 def _signed_strings(payload: object, path: str = "") -> list[str]:
@@ -111,6 +120,120 @@ class TestGeneratedImage:
 
         assert_durable(_image_from_block({"signed_url": signed, "file_id": FILE_ID}))
 
+
+# Our own durable-but-PRIVATE byte route: never expires, answers only the reader it authorizes.
+SERVER_PRIVATE = f"https://server.app.matrxserver.com/files/{FILE_ID}/download?inline=1"
+
+
+class TestCdnUrlIsOnlyEverPublic:
+    """``cdn_url`` is "present only when the media is public" (the kind schema's own words).
+
+    Live, 2026-11-03: ``ai.generate_image`` wrote the server's authenticated
+    ``/files/{id}/download`` URL into ``cdn_url`` for a private image. A renderer that
+    trusted it fetched the picture anonymously through the web image proxy and got 404
+    (Bouquet Chain, "Make a picture"). Durable is not public.
+    """
+
+    def test_the_classifier(self) -> None:
+        from matrx_files import is_public_media_url
+
+        assert not is_public_media_url(SERVER_PRIVATE)
+        assert not is_public_media_url(f"https://server.app.matrxserver.com/files/{FILE_ID}")
+        # Our own hosts fail CLOSED: only the CDN is public there, whatever the route.
+        for ours in (
+            f"https://server.app.matrxserver.com/files/{FILE_ID}/thumbnail",
+            f"https://server.app.matrxserver.com/files/{FILE_ID}/content",
+            f"https://server.app.matrxserver.com/api/files/{FILE_ID}/download",
+            f"https://www.aimatrx.com/api/files/{FILE_ID}",
+            f"https://www.aimatrx.com/share/abc123/download",
+        ):
+            assert not is_public_media_url(ours), ours
+        assert not is_public_media_url(SIGNED_V2)
+        assert not is_public_media_url(None)
+        assert is_public_media_url(DURABLE_CDN)
+        assert is_public_media_url("https://images.example.com/cat.png")
+
+    def test_image_content_path(self) -> None:
+        from matrx_ai.config.media_config import ImageContent
+        from matrx_ai.graph_nodes.image_action import _image_from_image_content
+
+        image = _image_from_image_content(ImageContent(url=SERVER_PRIVATE, file_id=FILE_ID))
+        assert image.cdn_url is None
+        assert image.file_id == FILE_ID
+
+    def test_legacy_provider_dict_path(self) -> None:
+        from matrx_ai.graph_nodes.image_action import _image_from_block
+
+        image = _image_from_block({"url": SERVER_PRIVATE, "cdn_url": SERVER_PRIVATE, "file_id": FILE_ID})
+        assert image.cdn_url is None
+        assert image.file_id == FILE_ID
+        public = _image_from_block({"url": DURABLE_CDN, "file_id": FILE_ID})
+        assert public.cdn_url == DURABLE_CDN
+
+    def test_video_path(self) -> None:
+        from types import SimpleNamespace
+
+        from matrx_ai.config.media_config import VideoContent
+        from matrx_ai.graph_nodes.video_action import _shape_video_blocks
+
+        response = SimpleNamespace(
+            messages=[SimpleNamespace(content=[VideoContent(url=SERVER_PRIVATE, file_id=FILE_ID)])]
+        )
+        [video] = _shape_video_blocks(response)
+        assert video.cdn_url is None
+        assert video.file_id == FILE_ID
+
+
+    @pytest.mark.parametrize(
+        ("module", "node", "payload_fn"),
+        [
+            ("music_action", "ai_generate_music", "music_config_payload"),
+            ("sound_effect_action", "ai_generate_sound_effect", "sound_effect_config_payload"),
+            ("voice_to_voice_action", "ai_voice_to_voice", "voice_to_voice_config_payload"),
+            ("tts_action", "ai_text_to_speech", None),
+        ],
+    )
+    @pytest.mark.parametrize(("url", "public"), [(SERVER_PRIVATE, False), (DURABLE_CDN, True)])
+    async def test_audio_nodes(
+        self, monkeypatch: pytest.MonkeyPatch, module: str, node: str, payload_fn: str | None, url: str, public: bool
+    ) -> None:
+        """music, sound_effect, voice_to_voice and tts: ``audio_cdn_url`` only for a public URL."""
+        import importlib
+        from types import SimpleNamespace
+
+        import matrx_ai.config as ai_config
+        import matrx_ai.orchestrator.executor as executor
+        from matrx_ai.graph_nodes.tts_action import _AudioRefs
+
+        mod = importlib.import_module(f"matrx_ai.graph_nodes.{module}")
+
+        async def hold_step(payload, **_kw):
+            return SimpleNamespace(config=payload, metadata={})
+
+        async def execute_ai_request(*_a, **_kw):
+            return SimpleNamespace(final_response=object(), total_usage=None)
+
+        refs = _AudioRefs(file_id=FILE_ID, path=None, url=url, b64=None, mime="audio/mpeg", duration_seconds=3.0)
+        monkeypatch.setattr(mod, "hold_step", hold_step)
+        monkeypatch.setattr(mod, "failed_turn_failure", lambda *_a, **_kw: None)
+        monkeypatch.setattr(mod, "_pick_audio_refs", lambda _r: refs)
+        if payload_fn:
+            monkeypatch.setattr(mod, payload_fn, lambda _inputs: {})
+        monkeypatch.setattr(executor, "execute_ai_request", execute_ai_request)
+        monkeypatch.setattr(ai_config.UnifiedConfig, "from_dict", staticmethod(lambda d: d))
+
+        class _Inputs(SimpleNamespace):
+            def __getattr__(self, _name):
+                return None
+
+        inputs = _Inputs(model="m", text="hello", prompt="hello", metadata={}, duration_seconds=None)
+        fn = getattr(mod, node)
+        fn = getattr(fn, "__wrapped__", fn)
+        result = await fn(None, inputs)
+        output = getattr(result, "result", None)
+        assert output is not None, f"{node} did not succeed: {result!r}"
+        assert output.file_id == FILE_ID
+        assert output.audio_cdn_url == (url if public else None)
 
 class TestMediaOutputModelsDeclareNoLiveSignedUrl:
     """The set-level rule, so a NEW media node cannot reintroduce the class.

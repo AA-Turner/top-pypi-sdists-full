@@ -79,6 +79,11 @@ class TimingUsage:
     model: str = ""
     iteration: int = 0
 
+    #: Seconds between the request reaching the server and this (first) iteration starting: the request
+    #: boundary (auth, body normalization, media resolution, history load). 0 on later iterations and outside a
+    #: stamped HTTP request. Part of the request's total, never of the iteration's (CGU-10 AND-IMG18 N7).
+    boundary_duration: float = 0.0
+
     @property
     def total_duration(self) -> float:
         """Total duration of this iteration in seconds."""
@@ -132,10 +137,14 @@ class TimingUsage:
         wall_clock_start = sorted_timings[0].start_time
         last_end_time = sorted_timings[-1].end_time
         assert last_end_time is not None  # guaranteed by valid_timings filter above
-        wall_clock_duration = last_end_time - wall_clock_start
+        # The request began at the boundary, before the first iteration (AND-IMG18 N7): ``total - api`` left
+        # out the body normalization and media resolution the person waited for.
+        boundary = max(0.0, float(getattr(sorted_timings[0], "boundary_duration", 0.0) or 0.0))
+        wall_clock_duration = last_end_time - wall_clock_start + boundary
 
         return {
             "total_duration": wall_clock_duration,
+            "boundary_duration": boundary,
             "sum_duration": total_sum_duration,
             "api_duration": total_api,
             "tool_duration": total_tool,

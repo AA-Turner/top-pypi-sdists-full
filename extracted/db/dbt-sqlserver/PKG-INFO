@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-sqlserver
-Version: 1.12.2
+Version: 1.12.3
 Summary: A Microsoft SQL Server adapter plugin for dbt
 Author: Mikael Ene, Anders Swanson, Sam Debruyn, Cor Zuurmond, Cody Scott
 License: MIT
@@ -256,6 +256,17 @@ flags:
 flags:
   dbt_sqlserver_use_native_string_types: false  # deprecated legacy behavior
 ```
+
+With `VARCHAR(MAX)`, `dbt_utils.generate_surrogate_key` casts each input to a LOB type, which forces the joins and aggregates around the key into row mode. The adapter ships `sqlserver__generate_surrogate_key`, which casts to `VARCHAR(8000)` and produces the same hashes. dbt only searches adapter macros for the `dbt` namespace, so opt in from your project:
+
+```yaml
+# dbt_project.yml
+dispatch:
+  - macro_namespace: dbt_utils
+    search_order: ["<your_project>", "dbt", "dbt_utils"]
+```
+
+> **Note:** This applies to every `dbt_utils` macro, not only `generate_surrogate_key`: any `sqlserver__` override the adapter ships for `dbt_utils`, now or in a future release, takes precedence over the package's version.
 
 ### `xact_abort`
 

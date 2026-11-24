@@ -4,9 +4,11 @@ The platform places every cache point itself; no author ever places one (the per
 ``cache_boundary`` flag was retired 2026-10-16: on the system message it did nothing, and the
 end of the authored template is a better place the platform can find on its own).
 
-Three marks, at most, on a wire that takes explicit marks (Anthropic):
+Four marks, at most, on a wire that takes explicit marks (Anthropic):
 
-1. **System mark** — end of the stable system text (or the last tool when there is none).
+1. **System mark** — end of the stable system text (or the last tool when there is none). When
+   the text ends in a per-person part (org catalog, saved person context) a second mark closes
+   the shared lead before it (``per_person_split``), so that lead is one cache entry for everyone.
 2. **Template mark** — end of the last AUTHORED template message that the variable fill did
    not change, before any typed or filled content. Few-shot pairs and fixed authored turns
    are cached across runs that differ only in their input.
@@ -16,7 +18,7 @@ Long cache (``UnifiedConfig.extended_prompt_cache``, the agent setting) keeps th
 prefix longer: marks 1 and 2 carry ``ttl: "1h"``; the rolling mark stays at the 5-minute
 default, because Anthropic requires every 1-hour mark to come before any 5-minute mark.
 On wires without explicit marks it maps to that provider's own retention knob, or is said
-to be a no-op (``long_cache_note``). Facts: common-docs projects/agent-evaluation/research/
+to be a no-op (``long_cache_note``). Facts: common-docs systems/agents/projects/agent-evaluation/research/
 provider-caching.md.
 
 How the template mark finds its place: ``UnifiedConfig.replace_variables`` (the one fill,
@@ -169,3 +171,47 @@ __all__ = [
     "stamp_template_messages",
     "template_mark_index",
 ]
+
+
+#: Platform parts of the system text that differ per PERSON or ORGANIZATION while the agent's own
+#: text above them is the same for everyone: the frozen org catalog and the person's saved context.
+#: Each opens with one of these markers (``platform_parts._patterns`` names them).
+PER_PERSON_SYSTEM_MARKERS: tuple[str, ...] = (
+    "<org_catalog",
+    '<person_context source="saved by the person">',
+)
+
+
+def per_person_split(system_text: str | None) -> int | None:
+    """Where the per-person tail of the system text starts, or None.
+
+    The system mark (1) used to sit only at the END of the system text, so a per-person part at its
+    tail (Chief of Staff: a ~400-character ``<org_catalog>`` after ~21k characters of its own prompt)
+    made every person a different cache entry: each new person, or the same person after five
+    minutes in a new conversation, re-wrote all ~23k tokens of tools + prompt (lane 6, 2026-11-17,
+    ``chat.request`` first calls 2026-11-16: read 0, write 23,156-23,164). Splitting here lets a mark
+    on the shared lead be read by everyone; the tail keeps the system mark. Only a split with text
+    on both sides counts.
+    """
+    if not system_text:
+        return None
+    found = [i for i in (system_text.find(m) for m in PER_PERSON_SYSTEM_MARKERS) if i > 0]
+    if not found:
+        return None
+    at = min(found)
+    if not system_text[:at].strip():
+        return None
+    return at
+
+
+def system_blocks_with_shared_lead(system_text: str, *, long: bool) -> list[dict[str, Any]]:
+    """The Anthropic ``system`` block array: ``[shared lead (mark), per-person tail (mark)]`` when the
+    text carries a per-person part (``per_person_split``), else one marked block. The two blocks
+    concatenate to exactly ``system_text`` (the model reads the same characters)."""
+    at = per_person_split(system_text)
+    if at is None:
+        return [{"type": "text", "text": system_text, "cache_control": cache_control(long=long)}]
+    return [
+        {"type": "text", "text": system_text[:at], "cache_control": cache_control(long=long)},
+        {"type": "text", "text": system_text[at:], "cache_control": cache_control(long=long)},
+    ]

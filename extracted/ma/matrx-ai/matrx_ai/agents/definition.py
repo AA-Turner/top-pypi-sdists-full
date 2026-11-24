@@ -438,7 +438,9 @@ class Agent:
         """
         if self._variables_prepared or self._variables_applied:
             return self
-        if self.config.prompt_blocks and self.config.prompt_block_texts is None:
+        from matrx_ai.config.agent_modes import modes_need_resolving
+
+        if (self.config.prompt_blocks and self.config.prompt_block_texts is None) or modes_need_resolving(self.config):
             # Declared prompt blocks resolve here, after overrides (effective model).
             from matrx_connect.context.app_context import try_get_app_context
 

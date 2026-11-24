@@ -146,7 +146,7 @@ def test_no_replacement_says_so_instead_of_inventing_one():
 
 
 # ── resolve_call_profile runs a deprecated model, refuses a retired one ───────
-def _seed_catalog(states: dict[str, dict[str, Any]]) -> None:
+def _seed_catalog(states: dict[str, dict[str, Any]], *, unserved: frozenset[str] = frozenset()) -> None:
     ai_catalog_manager.load_from_rows(
         endpoints=[{"id": "ep-google", "vendor": "google", "internal_name": "google_direct",
                     "display_name": "Google", "is_active": True}],
@@ -157,6 +157,7 @@ def _seed_catalog(states: dict[str, dict[str, Any]]) -> None:
              "api_id": "api-google-chat", "provider_model_id": st["name"], "is_available": True,
              "override": {"params": {}, "constraints": []}}
             for mid, st in states.items()
+            if mid not in unserved
         ],
         settings=[],
         providers={GOOGLE: "Google"},
@@ -205,6 +206,45 @@ async def test_resolve_call_profile_refuses_a_retired_model(monkeypatch):
     _stub_loader(states, monkeypatch)
     with pytest.raises(ModelRetiredError, match="Gemini 3.8 Flash"):
         await resolve_mod.resolve_call_profile(DEAD)
+
+
+# ── a deprecated model nobody serves is the caller's stale pick, not a crash ──
+# Live 2026-11-12: matrx-android chat named google/veo-3.1-fast (deprecated since July, zero
+# offerings) and the plain CatalogRoutingError was filed as a system_error. Red before the
+# typed refusal existed; a NON-deprecated model with no offering stays a catalog defect.
+@pytest.mark.asyncio
+async def test_a_deprecated_model_with_no_offering_is_a_caller_refusal(monkeypatch):
+    from matrx_ai.catalog.lifecycle import DEPRECATED_MODEL_UNSERVED, DeprecatedModelUnservedError
+    from matrx_ai.providers.caller_refusal import is_caller_refusal
+
+    _capture_vcprint(monkeypatch)
+    monkeypatch.setattr(resolve_mod, "vcprint", lambda *a, **k: None)
+    states = _states(**{FLASH_37: {"successor_id": FLASH_38}})
+    _seed_catalog(states, unserved=frozenset({FLASH_37}))
+    _stub_loader(states, monkeypatch)
+    with pytest.raises(DeprecatedModelUnservedError) as err:
+        await resolve_mod.resolve_call_profile(FLASH_37)
+    exc = err.value
+    assert is_caller_refusal(exc) and is_caller_refusal(DEPRECATED_MODEL_UNSERVED)
+    assert exc.error_info.is_retryable is False
+    assert exc.error_info.error_type == DEPRECATED_MODEL_UNSERVED
+    assert "gemini-3.7-flash" not in exc.error_info.user_message  # the person's sentence names no model
+    assert "gemini-3.7-flash" in exc.error_info.message
+    assert "Gemini 3.8 Flash" in str(exc)
+
+
+@pytest.mark.asyncio
+async def test_a_live_model_with_no_offering_stays_a_catalog_defect(monkeypatch):
+    from matrx_ai.catalog.errors import CatalogRoutingError
+    from matrx_ai.providers.caller_refusal import is_caller_refusal
+
+    monkeypatch.setattr(resolve_mod, "vcprint", lambda *a, **k: None)
+    states = _states()
+    _seed_catalog(states, unserved=frozenset({FLASH_38}))
+    _stub_loader(states, monkeypatch)
+    with pytest.raises(CatalogRoutingError) as err:
+        await resolve_mod.resolve_call_profile(FLASH_38)
+    assert not is_caller_refusal(err.value)
 
 
 # ── TTS: deprecated is not a reroute reason ──────────────────────────────────

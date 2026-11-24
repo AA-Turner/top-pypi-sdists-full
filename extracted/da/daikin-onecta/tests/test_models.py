@@ -176,6 +176,39 @@ def test_schedule_tree_and_cache_update() -> None:
     assert not state.apply_selection("missing", "scheduleHeatingRT1", enabled=True)
 
 
+def test_schedule_preserves_raw_schedule_definitions() -> None:
+    """Preserve schedule actions and metadata alongside the typed selection view."""
+    raw_schedules = {
+        "0": {
+            "name": {"value": "Weekday", "settable": True, "maxLength": 32},
+            "meta": {"isReadOnly": False, "actionPeriods": ["monday"]},
+            "actions": {"monday": {"06:30:00": {"operationMode": "heating", "roomTemperature": 20}}},
+            "settable": True,
+        }
+    }
+    schedule = Schedule.from_dict(
+        {
+            "modes": {
+                "heating": {
+                    "currentSchedule": {"value": "0", "values": ["0"]},
+                    "schedules": raw_schedules,
+                }
+            }
+        }
+    )
+
+    heating = schedule.modes["heating"]
+    assert heating.raw_schedules == raw_schedules
+    assert heating.schedules["0"].name is not None
+    assert not hasattr(heating.schedules["0"], "actions")
+
+    restored = Schedule.from_dict(schedule.to_dict())
+    restored_heating = restored.modes["heating"]
+    assert restored_heating.raw_schedules == raw_schedules
+    assert restored_heating.schedules["0"].name is not None
+    assert restored_heating.schedules["0"].name.value == "Weekday"
+
+
 def test_schedule_selections_ignore_invalid_data() -> None:
     """Ignore malformed schedule modes and invalid schedule identifiers."""
     schedule = Schedule.from_dict(

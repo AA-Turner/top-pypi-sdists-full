@@ -42,7 +42,11 @@ def test_every_park_and_unpark_is_announced(monkeypatch):
         asyncio.run(store.mark_interrupted(RUN, interrupt_payload={"node_id": "ask", "payload": {}}))
         asyncio.run(store.mark_awaiting_input(RUN, interrupt_payload={"kind": "awaiting_input"}))
         asyncio.run(store.claim_for_resume(RUN, from_statuses=("interrupted",)))
-        asyncio.run(store.mark_completed(RUN, output={}, steps_executed=1))
+        async def _end() -> None:
+            await store.mark_completed(RUN, output={}, steps_executed=1)
+            await rs.drain_settle_after()  # the "settled" announcement runs after the caller resumed (P8-RUNS)
+
+        asyncio.run(_end())
         asyncio.run(store.mark_paused(RUN))  # a person-free park is not announced
         applied["n"] = 0
         asyncio.run(store.mark_awaiting_input(RUN, interrupt_payload={}))  # guard refused: nothing

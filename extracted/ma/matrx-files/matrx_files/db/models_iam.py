@@ -29,7 +29,7 @@ class Permissions(MatrxEntity):
     review_note = TextField()
     expires_at = DateTimeField()
     granted_via = TextField()
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'team_share_grant': {'from_model': 'TeamShareGrant', 'from_field': 'permission_id', 'referenced_field': 'id', 'related_name': 'team_share_grant', 'from_schema': 'iam'}}
     _database = "matrx_files"
     _table_name = "permissions"
     _db_schema = "iam"

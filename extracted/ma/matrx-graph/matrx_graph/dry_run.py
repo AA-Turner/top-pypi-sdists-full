@@ -50,6 +50,7 @@ from matrx_graph.knobs import dry_run_knob
 from matrx_graph.executor.registry import NodeRegistry, default_registry
 from matrx_graph.executor.schema_validation import validate_instance
 from matrx_graph.mapping_sources import (
+    dotted_target_message,
     WHOLE_PAYLOAD,
     unknown_sigil,
     unknown_sigil_message,
@@ -284,10 +285,8 @@ def _map_sample_payload(
                     target_key=target_key,
                     source_key=source_key,
                     severity="error",
-                    message=(
-                        f"dotted TARGET key {target_key!r} — target keys must be "
-                        "plain top-level input field names (dot-notation is "
-                        "SOURCE-side only)."
+                    message=dotted_target_message(
+                        target_key, str(source_key), edge_id=edge.edge_id, node_id=edge.target_node_id
                     ),
                 )
             )
@@ -704,7 +703,7 @@ def dry_run(
             if name in run_vars or "default" in ref:
                 continue
             declared = graph.variables.get(name)
-            if declared is not None and declared.default is not None:
+            if declared is not None and declared.defaultValue is not None:
                 continue
             # A folded input-surface entry with a default also satisfies the
             # legacy reference (INPUT-SURFACE.md compat — resolve_var_refs

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, JsonValue, model_validator
 
 from matrx_ai.tools.specs import ToolSpec
 
@@ -104,10 +104,19 @@ class ClientContext(BaseModel):
     """
 
     surface: str | None = None
+    chat_input: bool | None = None
+    """True when this request was typed into a chat composer whose ``surface`` is the PAGE it sits on (the
+    chat window and the chat side panel send the page's surface, e.g. ``matrx-user/notes``). The host reads it
+    beside the surface's own ``ui.ui_surface.chat_input`` mark when deciding whether a person typed this turn
+    into a chat box; a deliberately excluded surface (voice, Agent Builder test pane, agent runner) stays
+    excluded whatever this says. None/False: the surface row alone decides."""
     capabilities: list[str] = Field(default_factory=list)
-    state: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    state: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)
     amendments: SurfaceAmendments | None = None
     mcp: list[str] = Field(default_factory=list)
+    reads: list[str] = Field(default_factory=list)
+    """The reply shapes this client draws (``"blocks-v1"``: the saved text parts with their blocks, the
+    ``message_blocks`` event). The server sends a shape only to a client that reads it (PF-1 P3b)."""
     device_id: str | None = None
     """The computer this chat is attached to (``public.app_instances.id``), named whether or not it
     can be reached this turn. The desktop app sends its own row; a web chat bound to a computer sends
@@ -118,7 +127,7 @@ class ClientContext(BaseModel):
     """The surface binding (``agent.menu_surface.id``) whose Run door started this run. The host
     checks it as the caller (exists, in reach, binds this agent) before the request row records it
     as ``chat.user_request.binding_id``; an unproven id is ignored, never a refusal."""
-    capability_check: dict[str, Any] | None = None
+    capability_check: dict[str, JsonValue] | None = None
     """THE SAMPLED DRIFT CHECK (~1 send in 50, a browser knob): the composer's resolved tool view
     for this turn, ``{v, tools: {name: origin}, surface, agent_id}``. The host compares it with the
     toolset it resolved and files drift as an error row; it never changes the run and nothing is

@@ -945,7 +945,7 @@ def _wire_retirement(monkeypatch, known_rows):
 
 @pytest.mark.asyncio
 async def test_a_sitemap_the_rebuilt_site_no_longer_serves_goes_inactive(monkeypatch) -> None:
-    """iopbm.com, 2026-10: the site was rebuilt with NO sitemap, yet we still
+    """example.com, 2026-10: the site was rebuilt with NO sitemap, yet we still
     held July's. A known sitemap that now 404s becomes inactive and its
     memberships stop counting; one we cannot reach is never called gone."""
     known = [
@@ -1009,3 +1009,34 @@ async def test_a_truncated_walk_retires_no_membership(monkeypatch) -> None:
     )
     assert membership_updates == []
     assert any("truncated" in note for note in out.notes)
+
+
+@pytest.mark.asyncio
+async def test_crawl_parses_documents_off_the_event_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 50,000-URL sitemap is seconds of parsing + one model per entry: run on the loop it froze
+    the workflow worker ~7 s (stall class workflow-worker:8fa91a5b4775c699, 2026-11-09)."""
+    import threading
+
+    from matrx_scraper import sitemaps as mod
+
+    origin = "https://acme.example"
+    _wire_responses(
+        monkeypatch,
+        {f"{origin}/sitemap.xml": _response(
+            f"{origin}/sitemap.xml", 200, "<urlset><url><loc>https://acme.example/a</loc></url></urlset>"
+        )},
+    )
+    loop_thread = threading.get_ident()
+    parsed_on: list[int] = []
+    real = mod.parse_sitemap_document
+
+    def _recording(content: bytes):
+        parsed_on.append(threading.get_ident())
+        return real(content)
+
+    monkeypatch.setattr(mod, "parse_sitemap_document", _recording)
+    crawl = await crawl_sitemap_documents(f"{origin}/")
+    assert crawl.url_total == 1
+    assert parsed_on and loop_thread not in parsed_on

@@ -87,8 +87,11 @@ def _extract_html(raw: bytes) -> str | None:
         return re.sub(r"<[^>]+>", " ", text)
 
 
-def _document_format(mime: str, name: str) -> str:
-    """Classify a document into an extractor family. Returns '' for unsupported."""
+def document_format(mime: str, name: str) -> str:
+    """Classify a document into an extractor family. Returns '' for unsupported.
+
+    Public: ``media.media_blocks.block_type_for_mime`` routes every family named here to a ``document`` block, so
+    the block a run builds and the extractor that reads it can never disagree."""
     from matrx_files.specific_handlers.office import classify_office
 
     mime = (mime or "").lower()
@@ -137,10 +140,34 @@ def _extract_document_text(
     return extractor(raw), []
 
 
+async def _read_stored_document(content: Any) -> None:
+    """Read a stored document's bytes, mime and name through the files package.
+
+    The media pass that fetches document bytes (``UnifiedAIClient._annotate_and_resolve_image_refs``)
+    runs AFTER this fallback, so a document that reached dispatch as a bare ``file_id`` (no boundary
+    byte read — a tool result, a route that resolved nothing, a stored turn) arrived here with
+    ``mime=''`` and no bytes and was dropped: the model never saw the attachment (2026-11-19,
+    claude-haiku-5-5). Resolve it here, by identity, through the same item resolver the media pass
+    uses — never a fetched URL."""
+    if getattr(content, "base64_data", None) or not getattr(content, "file_id", None):
+        return
+    from matrx_ai._ext import get_ext, has_ext
+
+    if not has_ext("get_cloud_file_manager"):
+        return
+    from matrx_ai.providers.unified_client import _resolve_media_ref_item
+
+    if getattr(content, "is_resolved", False):
+        # Resolved without bytes (a presigned URL only): this conversion needs the bytes themselves.
+        content.is_resolved = False
+    await _resolve_media_ref_item(get_ext("get_cloud_file_manager")(), content)
+
+
 async def _resolve_document(content: Any, ctx: MediaResolveContext) -> ResolverResult:
+    await _read_stored_document(content)
     name = _document_name(content)
     mime = getattr(content, "mime_type", "") or ""
-    fmt = _document_format(mime, name)
+    fmt = document_format(mime, name)
     if not fmt:
         return ResolverResult(
             replacement=None,
@@ -154,7 +181,11 @@ async def _resolve_document(content: Any, ctx: MediaResolveContext) -> ResolverR
             replacement=None,
             action="dropped",
             user_message=f"Document '{name}' removed — its content wasn't available to extract.",
-            system_message="DocumentContent had no base64_data (boundary didn't resolve bytes); dropped.",
+            system_message=(
+                "DocumentContent had no base64_data (stored-file read returned no bytes"
+                f"{'; resolver_error=' + repr(getattr(content, 'resolver_error', None)) if getattr(content, 'resolver_error', None) else ''}"
+                "); dropped."
+            ),
         )
     try:
         raw = base64.b64decode(b64)
@@ -187,7 +218,11 @@ async def _resolve_document(content: Any, ctx: MediaResolveContext) -> ResolverR
         text = text[:MAX_EXTRACTED_DOCUMENT_CHARS]
         cuts = [*cuts, f"text cut to {MAX_EXTRACTED_DOCUMENT_CHARS:,} characters"]
     cut_note = f" Cut: {'; '.join(cuts)}." if cuts else ""
-    body = f"[Document extracted to text — {name}{' (truncated)' if truncated else ''}]\n\n{text}"
+    # Self-delimiting: Chat-Completions translators join a message's text parts with "", so the
+    # label + end marker is what keeps the file apart from the person's words (and says it IS the
+    # attachment). The handler adds the blank-line boundary around it by position.
+    trunc_note = " (truncated)" if truncated else ""
+    body = f"[Attached file: {name}{trunc_note}]\n{text}\n[End of attached file]"
     return ResolverResult(
         replacement=TextContent(
             text=body,
@@ -200,7 +235,7 @@ async def _resolve_document(content: Any, ctx: MediaResolveContext) -> ResolverR
         ),
         action="extracted",
         user_message=(
-            f"'{name}' converted to text — {ctx.model_name} can't read {fmt.upper()} files directly, "
+            f"'{name}' converted to text — this model can't read {fmt.upper()} files directly, "
             f"so its contents were extracted.{cut_note}"
         ),
         system_message=(
@@ -217,5 +252,6 @@ def register_builtin_media_resolvers() -> None:
 
 __all__ = [
     "MAX_EXTRACTED_DOCUMENT_CHARS",
+    "document_format",
     "register_builtin_media_resolvers",
 ]

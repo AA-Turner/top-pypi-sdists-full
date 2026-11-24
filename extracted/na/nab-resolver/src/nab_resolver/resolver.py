@@ -31,9 +31,9 @@ __lazy_modules__ = (
     "nab_resolver.root",
 )
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Callable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Final, Generic, Protocol
+from typing import Any, Final, Generic, Protocol
 
 from . import conflict, decide, incompat_index, propagate
 from ._compat import override
@@ -54,9 +54,6 @@ from .types import (
     Term,
     VersionType,
 )
-
-if TYPE_CHECKING:
-    from typing_extensions import TypeIs
 
 __all__ = [
     "DEFAULT_MAX_ITERATIONS",
@@ -280,6 +277,7 @@ class ResolverProvider(Protocol[PackageType, VersionType]):
     ) -> list[Incompatibility[PackageType, VersionType]]:
         """Return incompatibilities the provider queued during ``choose_version``.
 
+        Each returned clause is checked even if it describes only earlier decisions.
         Drained after every ``choose_version`` call.  When non-empty AND
         ``choose_version`` returned None, the resolver suppresses the default
         ``NO_VERSIONS`` clause (which would persist across backjumps) so the
@@ -564,32 +562,13 @@ class ResolverObserver(Generic[PackageType, VersionType]):
         """Handle one iteration of the conflict resolution loop."""
 
 
-def _is_root_sequence(
-    requirements: Mapping[PackageType, RangeProtocol[VersionType]]
-    | Sequence[RootRequirement[PackageType, VersionType]],
-) -> TypeIs[Sequence[RootRequirement[PackageType, VersionType]]]:
-    """Return whether the caller passed the one-clause-per-requirement form.
-
-    A ``TypeIs`` rather than a bare ``isinstance``: one type can satisfy both
-    members of the union, so plain narrowing can leave an intersection that
-    has lost the mapping's value type.  ty needs the sequence rather than the
-    mapping as the narrowed side to keep those parameters, while the test
-    itself stays on ``Mapping`` so every non-mapping iterable is still taken
-    as the sequence form.
-    """
-    return not isinstance(requirements, Mapping)
-
-
 def _as_root_requirements(
     requirements: Mapping[PackageType, RangeProtocol[VersionType]]
     | Sequence[RootRequirement[PackageType, VersionType]],
 ) -> Sequence[RootRequirement[PackageType, VersionType]]:
     """Accept either shape ``Resolver.resolve`` takes and return the sequence."""
-    if _is_root_sequence(requirements):
+    if not isinstance(requirements, Mapping):
         return requirements
-    if TYPE_CHECKING:
-        # Older checkers do not narrow the negative branch of a generic TypeIs.
-        assert isinstance(requirements, Mapping)
 
     # The parameters are spelled out because ``constraint`` is a contravariant
     # protocol, which gives the version parameter no inference site.
@@ -599,15 +578,15 @@ def _as_root_requirements(
     ]
 
 
-class _RecordedDependencies:
+class _RecordedDependencies(Generic[PackageType, VersionType]):
     """Retain a parent range and refinement causes across repeated decisions."""
 
     __slots__ = ("parent_range", "refinement_causes")
 
     def __init__(
         self,
-        parent_range: RangeProtocol[Any],
-        refinement_causes: list[Incompatibility[Any, Any]],
+        parent_range: RangeProtocol[VersionType],
+        refinement_causes: list[Incompatibility[PackageType, VersionType]],
     ) -> None:
         self.parent_range = parent_range
         self.refinement_causes = refinement_causes
@@ -653,9 +632,9 @@ class Resolver(Generic[PackageType, VersionType]):
         provider: ResolverProvider[PackageType, VersionType],
         observer: ResolverObserver[PackageType, VersionType] | None = None,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
-        range_type: type[RangeProtocol[Any]] = Range,
+        range_type: type[RangeProtocol[VersionType]] = Range,
         root_version: Any = 1,
-        format_range: Callable[[Any], str] = str,
+        format_range: Callable[[RangeProtocol[VersionType]], str] = str,
     ) -> None:
         """Create a resolver with the given provider and optional observer.
 
@@ -701,8 +680,9 @@ class Resolver(Generic[PackageType, VersionType]):
         self.term_range_by_id: dict[int, RangeProtocol[Any]] = {}
         self.term_range_keepalive: list[RangeProtocol[Any]] = []
 
+        # Root clauses include the virtual package and its own version type.
         self.incompatibilities: list[Incompatibility[Any, Any]] = []
-        self.package_to_incompatibilities: defaultdict[Any, list[int]] = defaultdict(
+        self.package_to_incompatibilities: defaultdict[object, list[int]] = defaultdict(
             list
         )
 
@@ -710,14 +690,18 @@ class Resolver(Generic[PackageType, VersionType]):
         # last seen contradicted; unit propagation skips a clause whose stamp
         # is still current.
         self.clause_contradicted_at: list[int] = []
+        self.unchecked_provider_clauses: deque[int] = deque()
 
         # Keyed by (package, dep_package, dep_constraint, dep_positive); used
         # to merge mergeable dependency clauses (pubgrub-rs's merge_dependents).
-        self.dependency_index: dict[Any, int] = {}
+        self.dependency_index: dict[
+            tuple[PackageType, PackageType, RangeProtocol[VersionType], bool], int
+        ] = {}
 
         # Dependency clauses survive backtracking and restarts.
         self.recorded_dependencies: dict[
-            tuple[PackageType, VersionType], _RecordedDependencies
+            tuple[PackageType, VersionType],
+            _RecordedDependencies[PackageType, VersionType],
         ] = {}
 
         self.solution: PartialSolution[Any, Any] = PartialSolution(
@@ -1083,7 +1067,7 @@ class Resolver(Generic[PackageType, VersionType]):
             changed_package = ROOT
         return changed_package, restart_threshold, restarts_remaining
 
-    def _decide_next(self, next_package: Any) -> Any:
+    def _decide_next(self, next_package: PackageType) -> PackageType:
         """Run the decision phase for ``next_package``. Return next changed package."""
         chosen_version = decide.choose_version(self, next_package)
         had_pending = decide.absorb_pending_clauses(self)
@@ -1119,7 +1103,7 @@ class Resolver(Generic[PackageType, VersionType]):
         self,
         package: PackageType,
         version: VersionType,
-        exact_range: RangeProtocol[Any],
+        exact_range: RangeProtocol[VersionType],
         dependencies: Mapping[PackageType, RangeProtocol[VersionType]],
     ) -> None:
         """Record dependency clauses or reapply their retained refinement causes."""
@@ -1137,7 +1121,9 @@ class Resolver(Generic[PackageType, VersionType]):
                 )
             return
 
-        record = _RecordedDependencies(parent_range, [])
+        record: _RecordedDependencies[PackageType, VersionType] = _RecordedDependencies(
+            parent_range, []
+        )
         for dependency_package, supplied_range in dependencies.items():
             dependency_range = self.as_term_range(supplied_range)
             cross_package = dependency_package != package
@@ -1194,6 +1180,7 @@ class Resolver(Generic[PackageType, VersionType]):
         self.incompatibilities.clear()
         self.package_to_incompatibilities.clear()
         self.clause_contradicted_at.clear()
+        self.unchecked_provider_clauses.clear()
         self.dependency_index.clear()
         self.recorded_dependencies.clear()
         self.solution = PartialSolution(range_type=self.range_type)
@@ -1224,17 +1211,19 @@ class Resolver(Generic[PackageType, VersionType]):
         """Create one root incompatibility per requirement, and decide root."""
         for idx, root in enumerate(requirements):
             term_range = self.as_term_range(root.constraint)
-            root_term: Term[Any, Any] = Term(
-                ROOT, self.range_type.singleton(self.root_version), positive=True
+            root_clause: Incompatibility[object, Any] = Incompatibility(
+                [
+                    Term(
+                        ROOT,
+                        self.range_type.singleton(self.root_version),
+                        positive=True,
+                    ),
+                    Term(root.package, term_range, positive=False),
+                ],
+                cause=IncompatibilityCause.ROOT,
+                origin=root.origin,
             )
-            incompat_index.add_incompatibility(
-                self,
-                Incompatibility(
-                    [root_term, Term(root.package, term_range, positive=False)],
-                    cause=IncompatibilityCause.ROOT,
-                    origin=root.origin,
-                ),
-            )
+            incompat_index.append_incompatibility(self, root_clause)
             # First mention fixes the tiebreak, so naming a package twice
             # does not push its decision later.
             self.root_package_order.setdefault(root.package, (0, idx, ""))

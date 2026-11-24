@@ -81,7 +81,11 @@ from ..maps import (
     resolve_directory,
     resolve_map,
 )
-from ..authoring.validator import ValidationReport, validate_document
+from ..authoring.validator import (
+    ValidationReport,
+    signal_controller_nodes,
+    validate_document,
+)
 from ..serve_bind import check_port
 from .forms import field_present, parse_int_list, parse_params
 from .form_values import float_field, int_field
@@ -745,7 +749,7 @@ class EditorService:
         if "route_yaml" in form:
             document.route = parse_route_yaml(str(form["route_yaml"]))
         if "gate_form" in form:
-            document.gate = parse_gate_form(form)
+            document.gate = parse_gate_form(form, document.gate)
         before = document.map.model_copy()
         # ``group`` and ``name`` are required strings: a blank one is refused,
         # not filled in.  A fallback would be some other map's name or group
@@ -997,7 +1001,7 @@ class EditorService:
                     for other in document.map.traffic_signal_controllers:
                         if other.reference == old:
                             other.reference = new_name
-                    for path, node in _signal_controller_uses(document):
+                    for path, node in signal_controller_nodes(document):
                         if str(node.params.get("controller") or "") == old:
                             node.params["controller"] = new_name
                 controller.name = new_name
@@ -1037,7 +1041,7 @@ class EditorService:
             if other.reference == name:
                 other.reference = None
                 other.delay_seconds = 0.0
-        for path, node in _signal_controller_uses(document):
+        for path, node in signal_controller_nodes(document):
             if str(node.params.get("controller") or "") == name:
                 node.params["controller"] = ""
                 node.params["signal_phase"] = ""
@@ -1093,7 +1097,7 @@ class EditorService:
                     if cycle.name == controller.name
                     for other in cycle.phases
                 ):
-                    for path, node in _signal_controller_uses(document):
+                    for path, node in signal_controller_nodes(document):
                         if (
                             str(node.params.get("controller") or "") == controller.name
                             and str(node.params.get("signal_phase") or "") == old
@@ -1140,7 +1144,7 @@ class EditorService:
             for other in cycle.phases
         ):
             return
-        for path, node in _signal_controller_uses(document):
+        for path, node in signal_controller_nodes(document):
             if (
                 str(node.params.get("controller") or "") == controller.name
                 and str(node.params.get("signal_phase") or "") == name
@@ -1313,9 +1317,20 @@ class EditorService:
         """Read the map's OpenDRIVE from a CARLA server and cache it.
 
         Raises:
-            EditorError: If the map is not downloaded yet, or CARLA could not
-                be reached.
+            EditorError: If the map is not downloaded yet, its directory is
+                outside the editor's map roots, or CARLA could not be reached.
         """
+        from . import map_preview  # noqa: PLC0415 -- imports this module back
+
+        directory = document.map.directory
+        # The map directory is typed, and resolving it reads its files: held
+        # to the roots every map read is held to (#2414).
+        if directory and map_preview._inside_map_roots(Path(directory)) is None:
+            raise EditorError(
+                f"The map directory {directory} is outside the editor's map "
+                f"roots: add it to {map_preview.MAP_ROOTS_ENV} (the working "
+                "directory unless set) to fetch its OpenDRIVE."
+            )
         with _map_errors():
             # The map in use, which is the local directory when one is set:
             # resolving the source instead would file this map's OpenDRIVE in
@@ -1339,7 +1354,6 @@ class EditorService:
                 port=port,
                 refresh=True,
             )
-        from . import map_preview  # noqa: PLC0415 -- imports this module back
 
         # The preview keys its parsed maps on the file paths, and the map just
         # gained one it did not have; without this the next preview would be
@@ -2030,36 +2044,6 @@ def _fill_phase_states(document: ScenarioDocument, phase: Any) -> None:
     ]
 
 
-def _signal_controller_uses(document: ScenarioDocument) -> "list[tuple[str, Any]]":
-    """Every action and condition of the junction type, wherever it is written.
-
-    The same walk the validator does, for the same reason: a rename has to
-    reach a card whether it sits in a trigger, a nested composition or an
-    assertion.
-    """
-    found: "list[tuple[str, Any]]" = []
-
-    def walk(path: str, node: Any) -> None:
-        if node.type == "traffic_signal_controller":
-            found.append((path, node))
-        for index, child in enumerate(node.children):
-            walk(f"{path}.children[{index}]", child)
-
-    for index, action in enumerate(document.actions):
-        path = f"actions[{index}]"
-        if action.type == "traffic_signal_controller":
-            found.append((path, action))
-        if action.trigger is not None:
-            walk(f"{path}.trigger", action.trigger)
-        for gate_index, gate in enumerate(action.advance_conditions):
-            walk(f"{path}.advance_conditions[{gate_index}].condition", gate.condition)
-    for index, condition in enumerate(document.assertions.pass_conditions):
-        walk(f"assertions.pass[{index}]", condition)
-    for index, condition in enumerate(document.assertions.fail_conditions):
-        walk(f"assertions.fail[{index}]", condition)
-    return found
-
-
 def _as_float(raw: Any, label: str, fallback: float) -> float:
     """Return *raw* as a float, or raise a user-facing error.
 
@@ -2151,20 +2135,37 @@ def parse_route_yaml(text: str) -> Optional["RouteSearch"]:
 
 
 def _gate_number(
-    form: Mapping[str, Any], field: GateField, key: str = "", label: str = ""
+    form: Mapping[str, Any],
+    field: GateField,
+    key: str = "",
+    label: str = "",
+    stored: Any = None,
 ) -> Any:
     """*field*'s value in *form* (``gate_<name>``, or *key*), in the unit
-    stored; its default when blank."""
+    stored; its default when blank.
+
+    *stored* is the value the gate holds: posted back as the form shows it
+    (:meth:`~.gate_fields.GateField.shown`), it is kept as it is, so an edit
+    of another row does not turn a share shown in percent into the nearest
+    float of that percentage over 100 (#2442).
+    """
     label = f"Gate: {label or field.label}"
     text = str(form.get(key or f"gate_{field.name}", "")).strip()
+    if stored is not None and text == field.shown(stored):
+        return stored
     if field.unit == "":
         return as_int(text, label, int(field.default))
     value = _as_float(text, label, field.default)
     return value / 100.0 if field.percent else value
 
 
-def parse_gate_form(form: Mapping[str, Any]) -> Optional["GateSpec"]:
+def parse_gate_form(
+    form: Mapping[str, Any], current: Optional["GateSpec"] = None
+) -> Optional["GateSpec"]:
     """The gate the inspector's Gate form states; ``None`` when it is off.
+
+    *current* is the gate the document holds, whose thresholds a number
+    posted back unchanged keeps exactly (:func:`_gate_number`).
 
     Each optional threshold is judged while its checkbox (``gate_on_<name>``)
     is ticked, at its number (``gate_<name>``; a share in percent), or at its
@@ -2188,14 +2189,24 @@ def parse_gate_form(form: Mapping[str, Any]) -> Optional["GateSpec"]:
             continue
         if not field.optional and f"gate_{field.name}" not in form:
             continue  # not on the form yet: the model's default
-        raw[field.name] = _gate_number(form, field)
+        stored = None if current is None else getattr(current, field.name)
+        raw[field.name] = _gate_number(form, field, stored=stored)
+    stored_grades = (
+        {}
+        if current is None
+        else {entry.item: entry.min for entry in current.coverage_items}
+    )
     items: list[dict[str, Any]] = []
     index = 0
     while f"gate_item_name_{index}" in form:
         name = str(form[f"gate_item_name_{index}"]).strip()
         if name and is_checked(form, f"gate_item_on_{index}"):
             grade = _gate_number(
-                form, GATE_ITEM_FIELD, f"gate_item_min_{index}", f"coverage of {name}"
+                form,
+                GATE_ITEM_FIELD,
+                f"gate_item_min_{index}",
+                f"coverage of {name}",
+                stored_grades.get(name),
             )
             items.append({"item": name, "min": grade})
         index += 1

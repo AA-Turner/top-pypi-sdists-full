@@ -53,11 +53,13 @@ send an author hunting through the wrong node.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from matrx_graph.content_ir.blank_kind import report_blank_kind
 from matrx_graph.content_ir.envelope import KIND_KEY
 from matrx_graph.content_ir.model import kind_of
 
@@ -173,6 +175,13 @@ def unwrap_runtime_wrapper(value: Any) -> Any:
     return getattr(value, field, None)
 
 
+def _has_keys(container: Any) -> bool:
+    """Whether a path segment can address a field inside ``container``."""
+    if isinstance(container, Mapping | BaseModel):
+        return True
+    return dataclasses.is_dataclass(container) and not isinstance(container, type)
+
+
 def _child(container: Any, key: str) -> tuple[Any, bool]:
     """One key lookup against a mapping or a model. Returns (value, present)."""
     if isinstance(container, Mapping):
@@ -189,8 +198,16 @@ def _child(container: Any, key: str) -> tuple[Any, bool]:
             if field.alias == key or field.serialization_alias == key:
                 return getattr(container, name), True
         return None, False
-    if hasattr(container, key):
-        return getattr(container, key), True
+    # A plain dataclass is a record with declared fields — the one non-model
+    # object a path may step into, and only by a DECLARED field name.
+    if dataclasses.is_dataclass(container) and not isinstance(container, type):
+        if key in {f.name for f in dataclasses.fields(container)}:
+            return getattr(container, key), True
+        return None, False
+    # Anything else (a str, a number, a list addressed without ``[]``, an
+    # arbitrary object) has no keys. Never fall through to ``getattr``: that
+    # turned ``n.text.strip`` into a bound method and ``n.text.__class__`` into
+    # ``<class 'str'>`` — Python internals offered as data values (hole H1).
     return None, False
 
 
@@ -216,6 +233,13 @@ def resolve_path(root: Any, path: str, *, unwrap_root: bool = True) -> PathResol
         missing = 0
         for container in current:
             if container is None:
+                missing += 1
+                continue
+            if not _has_keys(container):
+                notes.append(
+                    f"'{here}' steps into a {type(container).__name__}, which "
+                    "has no fields — a path cannot go inside a single value"
+                )
                 missing += 1
                 continue
             value, present = _child(container, key)
@@ -274,4 +298,5 @@ def resolve_reference(
 
 def has_kind_marker(value: Any) -> bool:
     """Whether a serialized payload carries the wire discriminator."""
+    report_blank_kind("accessor.has_kind_marker", value if isinstance(value, dict) else None)
     return isinstance(value, Mapping) and isinstance(value.get(KIND_KEY), str)

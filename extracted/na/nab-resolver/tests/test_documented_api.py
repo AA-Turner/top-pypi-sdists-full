@@ -23,7 +23,14 @@ assert loaded == [], f"imported submodules: {loaded}"
 
 
 SUPPORTED_API = {
+    "nab_resolver.diagnostics": {
+        "DiagnosticMessage",
+        "Suggestion",
+        "error_message",
+        "suggestion_lines",
+    },
     "nab_resolver.testing": {
+        "ProviderConformanceError",
         "ProviderScenario",
         "check_provider",
         "check_provider_scenarios",
@@ -35,7 +42,8 @@ SUPPORTED_API = {
         "ResolutionStalledError",
         "ResolutionTerminatedError",
     },
-    "nab_resolver.ranges": {"Range"},
+    "nab_resolver.priority": {"compute_tier"},
+    "nab_resolver.ranges": {"IntegerRangeMembership", "Range"},
     "nab_resolver.resolver": {
         "BaseProvider",
         "DEFAULT_MAX_ITERATIONS",

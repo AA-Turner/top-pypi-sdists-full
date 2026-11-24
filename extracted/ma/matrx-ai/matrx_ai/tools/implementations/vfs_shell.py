@@ -29,15 +29,11 @@ def _err(
     error_type: str,
     message: str,
     *,
-    is_retryable: bool = False,
+    is_retryable: bool = False, exc: BaseException | None = None,
 ) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(
-            error_type=error_type,
-            message=message,
-            is_retryable=is_retryable,
-        ),
+        error=ToolError.declared(error_type, message, exc=exc, is_retryable=is_retryable),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="shell_execute",
@@ -78,6 +74,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             "durable code files, not a sandbox — it has no git, no loops, no 2>&1. "
             "If this conversation is supposed to be bound to a sandbox, the sandbox "
             "binding was lost; tell the user.)",
+            exc=exc,
         )
 
     try:
@@ -85,16 +82,17 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             execute(node, env, runner, capture=True),
             timeout=parsed.timeout_seconds,
         )
-    except TimeoutError:
+    except TimeoutError as exc:
         return _err(
             started_at,
             ctx,
             "timeout",
             f"Command timed out after {parsed.timeout_seconds}s",
             is_retryable=True,
+            exc=exc,
         )
     except ShellExpansionError as exc:
-        return _err(started_at, ctx, "validation", f"bash: {exc}")
+        return _err(started_at, ctx, "validation", f"bash: {exc}", exc=exc)
 
     stdout = result.stdout[:MAX_OUTPUT_SIZE]
     stderr = result.stderr[:MAX_OUTPUT_SIZE]
@@ -124,6 +122,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         success=False,
         output=output,
         error=ToolError(
+            reported_failure="the shell command",
             error_type="exit_code",
             message=f"Command exited with code {result.exit_code}",
             is_retryable=False,

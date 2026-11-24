@@ -182,7 +182,7 @@ async def test_a_leftover_chrome_is_ended_before_the_reopen(
     monkeypatch.setenv("BROWSER_WORKER_DESKTOP_SESSION", "/usr/local/bin/cloud-computer-desktop")
     ended: list[str | None] = []
 
-    async def _end(user_data_dir):
+    async def _end(user_data_dir, grace_seconds=None):
         ended.append(user_data_dir)
         return []
 

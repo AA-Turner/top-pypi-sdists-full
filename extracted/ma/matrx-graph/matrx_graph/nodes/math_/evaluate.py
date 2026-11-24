@@ -21,7 +21,7 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_graph.errors import ExecutionError
-from matrx_graph.nodes._sandbox import safe_eval
+from matrx_graph.nodes._sandbox import ExpressionFailure, safe_eval
 from matrx_graph.types.canonical_payloads import Value
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
@@ -86,6 +86,8 @@ class MathEvaluateExecutor:
         payload = inputs.model_dump(mode="json")
         try:
             result = safe_eval(config.expression, payload)
+        except ExpressionFailure as e:  # zero divisor / mixed-kind operands: the sandbox named it
+            return e.failure
         except ExecutionError as e:
             return failure("expression_invalid", str(e))
         except Exception as e:  # noqa: BLE001 — user expression over user data

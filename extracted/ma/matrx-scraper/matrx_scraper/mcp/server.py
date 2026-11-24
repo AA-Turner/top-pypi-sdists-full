@@ -39,20 +39,26 @@ logger = logging.getLogger(__name__)
 
 def _try_import_mcp() -> Any:
     try:
-        import mcp  # noqa: F401
+        from mcp import types  # type: ignore
         from mcp.server import Server  # type: ignore
         from mcp.server.stdio import stdio_server  # type: ignore
 
-        return {"Server": Server, "stdio_server": stdio_server}
+        return {"Server": Server, "stdio_server": stdio_server, "types": types}
     except Exception:
         return None
 
 
-# ── Generic-shape server (works with the `mcp` SDK) ──────────────────────
+# ── Low-level server (mcp 2: `on_*` handlers returning typed results) ────
 
 
 def build_server(tools: list[ToolSpec] | None = None) -> Any:
     """Build an `mcp.server.Server` instance with our tool set registered.
+
+    mcp 2's low-level `Server` takes its request handlers as `on_*` constructor
+    arguments (`on_list_tools`, `on_call_tool`) and never auto-wraps a return
+    value, so each handler builds the typed `ListToolsResult` / `CallToolResult`
+    itself. A handler crash is answered here as an `is_error` result (mcp 2 no
+    longer converts a raised exception into one).
 
     Returns `None` if the `mcp` SDK is not installed; callers can fall back
     to `run_stdio()` which has its own minimal JSON-RPC loop.
@@ -60,37 +66,30 @@ def build_server(tools: list[ToolSpec] | None = None) -> Any:
     sdk = _try_import_mcp()
     if not sdk:
         return None
-    Server = sdk["Server"]
-    server = Server("matrx-scraper")
-
+    types = sdk["types"]
     specs = list(tools or ALL_TOOLS)
 
-    # Register a single list_tools handler.
-    @server.list_tools()  # type: ignore[misc]
-    async def _list_tools() -> list[dict[str, Any]]:
-        return [
-            {
-                "name": spec.name,
-                "description": spec.description,
-                "inputSchema": spec.input_schema,
-            }
-            for spec in specs
-        ]
+    def _text(payload: Any, *, is_error: bool = False) -> Any:
+        return types.CallToolResult(
+            content=[types.TextContent(type="text", text=json.dumps(payload, default=_json_default))],
+            is_error=is_error,
+        )
 
-    @server.call_tool()  # type: ignore[misc]
-    async def _call_tool(name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+    async def _list_tools(_ctx: Any, _params: Any) -> Any:
+        return types.ListToolsResult(
+            tools=[
+                types.Tool(name=spec.name, description=spec.description, input_schema=spec.input_schema)
+                for spec in specs
+            ]
+        )
+
+    async def _call_tool(_ctx: Any, params: Any) -> Any:
+        name = params.name
         spec = _find(specs, name)
         if spec is None:
-            return [
-                {
-                    "type": "text",
-                    "text": json.dumps(
-                        {"success": False, "error_message": f"unknown tool: {name}"}
-                    ),
-                }
-            ]
+            return _text({"success": False, "error_message": f"unknown tool: {name}"}, is_error=True)
         try:
-            result = await spec.handler(arguments or {})
+            result = await spec.handler(params.arguments or {})
         except Exception as exc:
             logger.exception("tool %s raised", name)
             result = {
@@ -98,9 +97,9 @@ def build_server(tools: list[ToolSpec] | None = None) -> Any:
                 "error_type": "handler_crash",
                 "error_message": f"{type(exc).__name__}: {exc}",
             }
-        return [{"type": "text", "text": json.dumps(result, default=_json_default)}]
+        return _text(result)
 
-    return server
+    return sdk["Server"]("matrx-scraper", on_list_tools=_list_tools, on_call_tool=_call_tool)
 
 
 def _find(specs: list[ToolSpec], name: str) -> ToolSpec | None:

@@ -7,7 +7,7 @@ persisting a second ``ProviderResponse`` whose call record reuses the same
 ``(run_id, provider_call_key)`` as a first, incomplete/failed attempt must
 upgrade request_count/cost/metadata rather than silently keeping the first
 attempt's row. Only the in-memory repository is exercised here (no live DB
-required); ``tests/test_orm_repository_live.py`` covers the ORM path against
+required); the host's ``tests/package_host_contracts/matrx_seo/test_orm_repository_live.py`` covers the ORM path against
 a real Postgres connection when DB env vars are present.
 """
 

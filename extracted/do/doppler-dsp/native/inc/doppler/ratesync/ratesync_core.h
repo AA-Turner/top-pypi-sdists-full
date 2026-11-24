@@ -190,6 +190,11 @@ extern "C"
     int32_t   id_lock;   /**< "<prefix>.lock"   — lock_signal mean     */
     int32_t   id_locked; /**< "<prefix>.locked" — lockdet flag         */
     int32_t   id_mu;     /**< "<prefix>.mu"     — timing NCO phase     */
+    /* The loop-filter set (dp_ratesync_loop_set_filter_telemetry()), its
+       own context, emitted beside the set above. NULL = detached. */
+    dp_tlm_t *filter_ctx; /**< NULL = the filter set detached          */
+    int32_t   id_prop;    /**< "<prefix>.prop"  — kp * e               */
+    int32_t   id_integ;   /**< "<prefix>.integ" — the filter's integrator */
   } ratesync_tlm_t;
 
   /**
@@ -376,6 +381,28 @@ extern "C"
   int dp_ratesync_loop_set_telemetry (ratesync_loop_t *l, dp_tlm_t *tlm,
                                    const char *prefix, uint32_t decim);
 
+  /** @brief Attach (or detach) the timing loop-filter set: "<prefix>.prop"
+   *         (kp * e) and "<prefix>.integ" (the filter's integrator), once a
+   *         recovered symbol, beside the six probes.
+   *
+   *  ".ctrl" is the filter's output times the terminal stage's rate and
+   *  ".rate" is `sps / (1 + integ)`, clamped, so neither shows the two
+   *  terms apart; this set does. It is emitted from
+   *  dp_ratesync_loop_tlm_flush(), so it reports only while the six-probe
+   *  set is attached too. Its own context, so a composer that does not ask
+   *  for it (MpskReceiver's own attach) registers nothing more.
+   *  Observation only: no decision reads it.
+   *  @param l       Must be non-NULL.
+   *  @param tlm     Telemetry context (borrowed), or NULL to detach this set.
+   *  @param prefix  Probe-name prefix; NULL means "sync".
+   *  @param decim   Emit every decim-th symbol.
+   *  @return DP_OK, or DP_ERR_INVALID (an overlong prefix or a full probe
+   *          table), the set then detached. */
+  int dp_ratesync_loop_set_filter_telemetry (ratesync_loop_t *l,
+                                             dp_tlm_t *tlm,
+                                             const char *prefix,
+                                             uint32_t decim);
+
   /** @brief Emit the timing loop's telemetry for the symbol just recovered.
    *
    *  Out-of-line on purpose: the emit machinery must not inline into the
@@ -504,7 +531,14 @@ extern "C"
    * @param num_phases  Matched-filter arms; power of two (1024 is a good
    *                    default). Sets the fractional-timing resolution to
    *                    `1/num_phases` of an output period.
-   * @param bn          Loop noise bandwidth, normalised to the symbol rate.
+   * @param bn          Loop noise bandwidth, normalised to the symbol rate,
+ *                    of the closed loop given a unit-slope detector (see
+ *                    LoopFilter). The detector is normalised by its own
+ *                    slope against the pulse, which makes the slope 1 at
+ *                    UNIT symbol amplitude only: Gardner's goes as the
+ *                    amplitude squared and DTTL's as the amplitude, so a
+ *                    quarter-amplitude stream runs a Gardner loop at 1/16
+ *                    of `bn`.
    * @param zeta        Damping factor (1.0 = critical; 0.707 usual).
    * @param ted         RATESYNC_TED_GARDNER (blind) or RATESYNC_TED_DTTL
    *                    (decision-directed; BPSK/QPSK only).

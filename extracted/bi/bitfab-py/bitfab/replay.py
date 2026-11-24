@@ -14,12 +14,13 @@ import sys
 import threading
 import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, TypedDict, cast
 
 from typing_extensions import NotRequired
 
+from bitfab.agent_session_experiments import record_agent_session_experiment
 from bitfab.constants import (
     INTEGRATION_FIXTURES_KEY,
     STREAM_RESULT_KEY,
@@ -57,8 +58,12 @@ from bitfab.sandbox import (
     SandboxStartCtx,
     SandboxStoreBinding,
 )
-from bitfab.sandbox_modes import SandboxModeSetting, resolve_sandboxes
-from bitfab.sandbox_stores import write_sandbox_store
+from bitfab.sandbox_modes import (
+    SandboxModeSetting,
+    postgres_sandbox_request,
+    resolve_sandboxes,
+)
+from bitfab.sandbox_stores import read_sandbox_store_state, write_sandbox_stores
 from bitfab.selective_replay import (
     SelectiveReplayOptions,
     SelectiveReplayRuntime,
@@ -747,6 +752,32 @@ def _db_branch_enabled(db_branch: DbBranchOptions | bool | None) -> bool:
     return db_branch is not None and db_branch is not False
 
 
+def _with_postgres_sandbox(
+    db_branch: DbBranchOptions | bool | None,
+    sandbox_modes: Mapping[str, SandboxModeSetting] | None,
+    sandboxes: Sequence[Sandbox] | None,
+) -> DbBranchOptions | bool | None:
+    request = postgres_sandbox_request(sandboxes, sandbox_modes)
+    if request is None:
+        return db_branch
+    enabled, options = request
+    if not enabled:
+        if _db_branch_enabled(db_branch):
+            raise ValueError(
+                "The postgres sandbox is turned off in sandboxes or "
+                "sandbox_modes and turned on by db_branch; set one of them."
+            )
+        return False
+    if options and _db_branch_settings(db_branch) is not None:
+        raise ValueError(
+            "The postgres sandbox has settings in both postgres_sandbox() and "
+            "db_branch; set them in postgres_sandbox()."
+        )
+    if options:
+        return cast(DbBranchOptions, dict(options))
+    return db_branch if _db_branch_enabled(db_branch) else True
+
+
 def _db_branch_settings(
     db_branch: DbBranchOptions | bool | None,
 ) -> dict[str, Any] | None:
@@ -1008,7 +1039,6 @@ def replay(
     mock_override: MockOverrideInput | list[MockOverrideInput] | None = None,
     sandboxes: list[Sandbox] | None = None,
     sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
-    sandbox_store: str | None = None,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
     adapt_inputs: (
         Callable[
@@ -1218,15 +1248,12 @@ def replay(
             recorded mail. Gmail's default mode is ``"read-real-write-fake"``;
             a service left out keeps the mode it runs in without this option
             (Gmail: ``"recorded"``). A sandbox set here cannot also be passed
-            in ``sandboxes``.
-        sandbox_store: The name of a sandbox store to replay against (see
-            :class:`~bitfab.sandbox_stores.SandboxStoresClient`). Each trace
-            has its own state in the store: a sandbox starts from the replayed
-            trace's state for it, else from the store's seed, else from the
-            original trace as usual, and its state is saved to the new replay
-            trace after each write and when the item finishes, so two replays
-            of one trace never share state. Replay traces are linked to the store. ``None`` (default) keeps each sandbox's state
-            to its item.
+            in ``sandboxes``. ``{"postgres": True}`` turns on the Postgres
+            sandbox: each item runs against its own copy of your database as
+            it stood when the original trace ran. Read its connection
+            string inside ``fn`` with ``postgres_sandbox_url()``. To size and
+            warm the copy, pass ``postgres_sandbox(min_cu=..., max_cu=...,
+            warmup_sql=...)`` in ``sandboxes`` instead.
         experimental_selective_replay: Opt-in must_run manifest. The server
             protects required subtrees and ancestors, combining assertion targets
             and recorded reuse eligibility.
@@ -1244,14 +1271,12 @@ def replay(
             appended, when kwargs are non-empty) is what
             ``ReplayItem["input"]`` reports. Runs per item; a raising adapter is
             surfaced on that item's ``error`` rather than crashing the run.
-        db_branch: ``True`` to branch with the mirror project's own sizing, or a
-            :class:`DbBranchOptions` mapping to tune how each branch is sized
-            and warmed. ``False`` and omission leave branching off. The server
-            resolves a per-trace branch from each source trace's
-            ``db_snapshot_ref``; read it inside ``fn`` with
-            :func:`bitfab.get_current_replay_branch`, and the SDK releases the
-            branch after each item. Omit it for replays that don't need
-            historical DB state.
+        db_branch: Deprecated. Use the Postgres sandbox:
+            ``sandbox_modes={"postgres": True}``, or
+            ``sandboxes=[postgres_sandbox(min_cu=..., max_cu=...,
+            warmup_sql=...)]`` to size and warm it. ``True`` and a
+            :class:`DbBranchOptions` mapping still turn it on the same way,
+            and ``False`` and omission still leave it off.
         attempts: How many times each source trace is replayed in this run
             (1 to 100, default 1). Superseded by ``concurrency``.
         concurrency: Optional :class:`ReplayConcurrency` carrying ``attempts``,
@@ -1398,6 +1423,7 @@ def replay(
         *client._mock_overrides,
     ]
     resolved_sandboxes = resolve_sandboxes(sandboxes, sandbox_modes)
+    db_branch = _with_postgres_sandbox(db_branch, sandbox_modes, sandboxes)
     if experimental_selective_replay is not None:
         wire_options(experimental_selective_replay)
         if mock != "marked" or resolved_mock_overrides:
@@ -1516,6 +1542,13 @@ def replay(
         experiment_id = replay_data.get("experimentId") or replay_data["testRunId"]
         experiment_url = replay_data.get("experimentUrl") or replay_data["testRunUrl"]
         full_experiment_url = f"{client.service_url}{experiment_url}"
+        record_agent_session_experiment(
+            experiment_id=experiment_id,
+            experiment_url=full_experiment_url,
+            name=name,
+            service_url=client.service_url,
+            explicit_agent_session_id=agent_session_id,
+        )
     server_items = replay_data["items"]
     carried_over_items: list[ReplayItem] = []
     if resume is not None:
@@ -1597,7 +1630,7 @@ def replay(
                 experiment_id,
                 replayed_trace_ids,
                 carried_over_items,
-                db_branch if resume is not None else None,
+                db_branch,
             )
         elif work_items:
             result_items = asyncio.run(
@@ -1622,7 +1655,6 @@ def replay(
                     carried_over_items=carried_over_items,
                     experimental_selective_replay=experimental_selective_replay,
                     sandboxes=resolved_sandboxes,
-                    sandbox_store=sandbox_store,
                 )
             )
         reported_items = [*carried_over_items, *result_items]
@@ -1749,7 +1781,6 @@ def replay(
                 f"unavailable and they cannot be judged."
             )
 
-    _link_sandbox_store(client, sandbox_store, reported_items)
     result = _replay_result(
         reported_items, experiment_id, full_experiment_url, resolved_attempts
     )
@@ -2243,7 +2274,6 @@ def execute_replay_item(
     mock_override: MockOverrideInput | list[MockOverrideInput] | None = None,
     sandboxes: list[Sandbox] | None = None,
     sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
-    sandbox_store: str | None = None,
     adapt_inputs: (
         Callable[
             [list[Any], dict[str, Any], AdaptContext], tuple[list[Any], dict[str, Any]]
@@ -2265,6 +2295,8 @@ def execute_replay_item(
     fn, trace_function_key, auto_wrapped = _resolve_replay_fn(
         client, fn, trace_function_key
     )
+    if db_branch is None:
+        db_branch = _with_postgres_sandbox(None, sandbox_modes, sandboxes)
     include_db_branch_lease = _db_branch_enabled(db_branch) and not dry_run
     client.http_client.track_trace_deliveries([replayed_trace_id])
     item, _had_error = asyncio.run(
@@ -2286,7 +2318,6 @@ def execute_replay_item(
             dry_run=dry_run,
             attempt=attempt,
             sandboxes=resolve_sandboxes(sandboxes, sandbox_modes),
-            sandbox_store=sandbox_store,
         )
     )
     if not dry_run:
@@ -2509,7 +2540,6 @@ async def _run_replay_async(
     carried_over_items: list[ReplayItem] | None = None,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
     sandboxes: list[Sandbox] | None = None,
-    sandbox_store: str | None = None,
 ) -> list[ReplayItem]:
     """Process all replay items concurrently using asyncio.gather."""
     _validate_max_concurrency(max_concurrency)
@@ -2698,7 +2728,6 @@ async def _run_replay_async(
                 attempt=attempt,
                 experimental_selective_replay=experimental_selective_replay,
                 sandboxes=sandboxes,
-                sandbox_store=sandbox_store,
             )
             await report_finish(result[0], result[1], replayed_trace_id, attempt)
             return result
@@ -2739,7 +2768,6 @@ async def _process_item_async(
     attempt: int = 0,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
     sandboxes: list[Sandbox] | None = None,
-    sandbox_store: str | None = None,
 ) -> tuple[ReplayItem, bool]:
     """Fetch span data and execute a single replay item.
 
@@ -2898,7 +2926,6 @@ async def _process_item_async(
             attempt=attempt,
             selective_replay=selective,
             sandboxes=sandboxes,
-            sandbox_store=sandbox_store,
             trace_started_at=span.get("startedAt"),
             load_recorded_spans=_recorded_span_loader(
                 client, original_span_id, tree_root
@@ -3075,44 +3102,19 @@ def _sandbox_session(
     )
 
 
-SANDBOX_STORE_LINK_BATCH = 500
-
-
 def _sandbox_store_binding(
-    client: Any,
-    sandbox_store: str | None,
-    start_from: str | None,
-    save_to: str,
+    client: Any, start_from: str | None, save_to: str
 ) -> SandboxStoreBinding | None:
-    if sandbox_store is None or client is None or start_from is None:
+    if client is None or start_from is None:
         return None
 
-    def read() -> dict[str, dict[str, Any]]:
-        found = client.sandbox_stores.get(sandbox_store, trace_id=start_from)
-        return {entry["sandbox"]: entry for entry in (found or {}).get("entries", [])}
+    def read(sandbox: str) -> dict[str, Any] | None:
+        return read_sandbox_store_state(client.http_client, sandbox, start_from)
 
     def write(states: dict[str, Any]) -> Any:
-        return write_sandbox_store(client.http_client, sandbox_store, save_to, states)
+        return write_sandbox_stores(client.http_client, save_to, states)
 
-    return SandboxStoreBinding(name=sandbox_store, read=read, write=write)
-
-
-def _link_sandbox_store(
-    client: Any, sandbox_store: str | None, items: list[ReplayItem]
-) -> None:
-    trace_ids = [item["trace_id"] for item in items if item.get("trace_id")]
-    if sandbox_store is None or not trace_ids:
-        return
-    try:
-        for start in range(0, len(trace_ids), SANDBOX_STORE_LINK_BATCH):
-            client.sandbox_stores.link_traces(
-                sandbox_store, trace_ids[start : start + SANDBOX_STORE_LINK_BATCH]
-            )
-    except Exception as error:
-        logger.error(
-            f"Bitfab: the replay traces could not be linked to the sandbox store "
-            f"{sandbox_store!r}: {error}"
-        )
+    return SandboxStoreBinding(read=read, write=write)
 
 
 def _tree_nodes(root: dict[str, Any]) -> list[dict[str, Any]]:
@@ -3217,7 +3219,6 @@ async def _execute_item_async(
     attempt: int = 0,
     selective_replay: SelectiveReplayRuntime | None = None,
     sandboxes: list[Sandbox] | None = None,
-    sandbox_store: str | None = None,
     trace_started_at: str | None = None,
     load_recorded_spans: Callable[
         [str | Callable[[str], bool] | None], list[RecordedSpan]
@@ -3309,9 +3310,7 @@ async def _execute_item_async(
             trace_started_at,
             attempt,
             load_recorded_spans or (lambda _name: []),
-            _sandbox_store_binding(
-                client, sandbox_store, source_bitfab_trace_id, replayed_trace_id
-            ),
+            _sandbox_store_binding(client, source_bitfab_trace_id, replayed_trace_id),
         )
     token = _replay_context.set(replay_ctx)
     running = contextlib.ExitStack()

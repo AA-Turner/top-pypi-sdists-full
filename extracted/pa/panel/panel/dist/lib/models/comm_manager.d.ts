@@ -31,12 +31,16 @@ export declare class CommManager extends Model {
     _reconnect: boolean;
     constructor(attrs?: Partial<CommManager.Attrs>);
     initialize(): void;
+    protected _register_view(): void;
+    protected _unregister_view(): void;
     protected _document_listener: (event: DocumentChangedEvent) => void;
     protected _doc_attached(): void;
+    protected _doc_detached(): void;
     protected _document_changed(event: DocumentChangedEvent): void;
     protected _extract_buffers(value: unknown, buffers: ArrayBuffer[]): any;
     process_events(): void;
     disconnect_signals(): void;
+    protected _unblock(): void;
     on_ack(msg: any): void;
     msg_handler(msg: any): void;
     static __module__: string;

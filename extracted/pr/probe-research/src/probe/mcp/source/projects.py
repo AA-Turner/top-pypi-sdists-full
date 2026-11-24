@@ -62,6 +62,11 @@ class ProjectReadsMixin:
         last (each with its HTML) and a project's canvas preview (None for an experiment)."""
         return self.client.read_pane_list(project_id)
 
+    def fetch_decisions(self, scope_id: str | None = None, **filters: Any) -> Any:
+        """One page of decisions, oldest first (`Client.list_decisions`): a project's or experiment's, or the
+        team's with no `scope_id`; `filters` are its keyword filters. A `DecisionPage`."""
+        return self.client.list_decisions(scope_id, **filters)
+
     def project_papers(
         self, project_id: str, limit: int = 50
     ) -> tuple[list[dict], bool]:

@@ -59,6 +59,13 @@ class NoteToolResult(KindModel):
     #: `delete` receipt.
     deleted: bool | None = None
     note_id: str | None = None
+    #: UNDO (Matrx Planner PS2): every write names the version it replaced. ``workbench.notes`` is version-captured
+    #: (``history.row_versions``); an app restores with ``platform.version_restore('note', id, previous_version)``.
+    #: ``version`` is the row's version after the write; ``previous_version`` is null for a create.
+    version: int | None = None
+    previous_version: int | None = None
+    #: `update` — the old value of each field the write changed.
+    previous: dict[str, JsonValue] | None = None
 
 
 @kind(

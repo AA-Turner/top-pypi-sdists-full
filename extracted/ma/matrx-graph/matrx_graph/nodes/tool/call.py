@@ -1,10 +1,16 @@
-"""tool.call — dynamic action dispatcher.
+"""tool.call — "Run an Action": the ONE workflow step that runs any registered Action by name.
 
-Takes an action name from config + a payload from inputs, looks the action up
-in the action registry at execution time, validates the payload against the
-action's Pydantic input_schema, invokes the action's executor, and returns
-the action's output nested under ``output`` (a stable output schema
-regardless of which action runs).
+Takes an Action name from config + an input (``payload``) and runs it through the one router,
+``run_action(name, input, door="step")``, exactly as the Action's own generated step door does:
+lazy names resolve (``mcp.<server>.<tool>``, ``api.<connector>.<endpoint>``, ``workflow.*``,
+``agent.*``), the input is validated against the Action's schema, the apply gate and the
+idempotency ledger apply, and the run's app is carried as-is (actor, organization and runtime
+execution id, so a spending Action's cost nests under the workflow run). The key is the
+attempt-independent step key (``step_idempotency_key``), so a retry or a re-run from a checkpoint
+replays the first answer. A run being stopped refuses to start (``run_stopping``); an Action that
+does not open the ``step`` door is refused (``door_closed``). A step-only node (no work function)
+runs as a step here, through its executor. The output is nested under ``output`` (a stable output
+schema regardless of which Action runs).
 
 This is the generic complement to dragging a specific registered node
 onto the canvas. Use ``tool.call`` when the target action is chosen
@@ -30,7 +36,7 @@ from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
 from matrx_graph.types.primitives import ActionTier, NodeCategory
-from matrx_graph.types.result import NodeResult, failure, success
+from matrx_graph.types.result import NodeResult, Success, failure, success
 from matrx_graph.types.usl import field_extras
 
 
@@ -41,6 +47,9 @@ class ToolCallInput(BaseModel):
         default_factory=dict,
         description="Arguments passed to the invoked action (merged with top-level "
         "inputs when merge_inputs is on).",
+        # The picked Action's own inputs (its required ones included) live here: the step form
+        # shows them open, never folded under "More options".
+        json_schema_extra=field_extras(priority="primary"),
     )
 
 
@@ -68,15 +77,15 @@ class ToolCallConfig(BaseModel):
 
     action_name: str = Field(
         min_length=1,
-        description="Name of the registered action to invoke (e.g. 'news_api.top_headlines').",
+        description="The Action to run: pick it from the list of everything this workspace can do, "
+        "including your connected apps and your own APIs.",
         json_schema_extra=field_extras(widget="action_picker"),
     )
     merge_inputs: bool = Field(
         default=True,
         description=(
-            "If true, merge `inputs.payload` with `inputs` (top-level) before "
-            "passing to the action. Lets callers pass args inline without "
-            "nesting under 'payload'."
+            "If true, the values wired into this step are passed to the Action together with its "
+            "input, so a value can be given inline without nesting it."
         ),
         json_schema_extra=field_extras(widget="toggle"),
     )
@@ -117,8 +126,9 @@ class ToolCallExecutor:
     spec: ClassVar[NodeSpec] = NodeSpec(
         type="tool.call",
         category=NodeCategory.TOOL,
-        display_name="Run Action",
-        description="Run any available action, chosen by name while the workflow runs.",
+        display_name="Run an Action",
+        description="Run any Action from the catalog: a connected app's tool, "
+        "your own API, a workflow, an agent or any built-in Action, with its input.",
         input_schema=ToolCallInput,
         output_schema=ToolCallOutput,
         config_schema=ToolCallConfig,
@@ -141,11 +151,11 @@ class ToolCallExecutor:
         inputs: ToolCallInput,
         config: ToolCallConfig,
     ) -> NodeResult[ToolCallOutput]:
-        try:
-            target = resolve_action_executor(config.action_name)
-        except NodeRegistryError as e:
-            return failure("unknown_action", str(e))
+        from matrx_graph.actions.decorator import _step_result, step_idempotency_key
+        from matrx_graph.actions.registry import default_action_registry
+        from matrx_graph.executor.execution import current_execution
 
+        name = config.action_name
         raw_inputs = inputs.model_dump(mode="json")
         merged: dict[str, Any]
         if config.merge_inputs:
@@ -153,6 +163,45 @@ class ToolCallExecutor:
             merged = {**top, **(raw_inputs.get("payload") or {})}
         else:
             merged = raw_inputs.get("payload") or {}
+
+        # A run being stopped never starts a side effect it would then have to undo.
+        execution = current_execution()
+        if execution is not None and execution.stopping is not None and await execution.stopping():
+            return failure("run_stopping", f"The run is being stopped, so {name} was not started.")
+
+        try:
+            spec = await default_action_registry().resolve(name, app=ctx.app)
+        except NodeRegistryError:
+            spec = None
+        if spec is not None and not (spec.engine == "code" and spec.work is None):
+            # THE one router (``run_action``) on the step door, exactly as an Action's own generated
+            # step runs: the run's carried app (actor, organization, execution id — never rebuilt),
+            # the apply gate, the idempotency ledger keyed by the attempt-independent step key, so a
+            # retry or a re-run from a checkpoint replays the first answer instead of acting twice.
+            if "step" not in spec.doors:
+                return failure(
+                    "door_closed",
+                    f"{name} cannot be run from a workflow step; it opens only {sorted(spec.doors)}.",
+                )
+            result = await _step_result(spec, ctx.app, merged, step_idempotency_key(ctx), run_id=ctx.run_id)
+            if not isinstance(result, Success):
+                return result
+            out = result.result
+            output_dict = out.model_dump(mode="json") if isinstance(out, BaseModel) else dict(out)
+            from matrx_graph.content_ir.envelope import stamp_kind_marker
+
+            stamp_kind_marker(output_dict, spec.node_spec.output_kind)
+            return success(ToolCallOutput(action=spec.name, output=output_dict))
+        return await self._run_step_only(ctx, merged, config)
+
+    async def _run_step_only(
+        self, ctx: NodeExecutionContext, merged: dict[str, Any], config: ToolCallConfig
+    ) -> NodeResult[ToolCallOutput]:
+        """A step-only node (no work function of its own): it IS a step, so it runs as one, here."""
+        try:
+            target = resolve_action_executor(config.action_name)
+        except NodeRegistryError as e:
+            return failure("unknown_action", str(e))
 
         try:
             action_inputs = target.spec.input_schema.model_validate(merged)

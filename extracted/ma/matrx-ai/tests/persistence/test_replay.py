@@ -191,6 +191,7 @@ async def test_replay_reconciles_an_unambiguous_legacy_notes_name_payload(monkey
     monkeypatch.setattr(replay, "_fetch_pending", fetch_pending)
     monkeypatch.setattr(replay, "_row_to_op", row_to_op)
     monkeypatch.setattr(replay, "_op_already_satisfied", not_satisfied)
+    monkeypatch.setattr(replay, "coalesce_ops", lambda ops: ops)
     monkeypatch.setattr(replay, "tier_ops", lambda _ops: [])
     monkeypatch.setattr(
         "matrx_ai.persistence.queue_helpers._ensure_cx_registered", lambda: None
@@ -285,5 +286,8 @@ async def test_replay_failure_is_structurally_captured(monkeypatch) -> None:
             "phase": "execute",
             "failure_row_ids": ["failure-1"],
             "table_targets": ["chat.tool_call"],
+            "op_types": [],
+            "replay_error": "RuntimeError: replay execution failed",
+            "captured_errors": [],
         },
     }

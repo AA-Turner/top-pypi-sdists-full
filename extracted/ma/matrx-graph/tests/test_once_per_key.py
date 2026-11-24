@@ -1124,3 +1124,22 @@ async def test_a_miss_from_the_steps_own_new_input_is_not_blamed_on_upstream(sto
     await _run(_fed_by_jittery("storms"), _registry(paid, search), "run-2", checkpointer=cp)
     assert paid.calls == 2
     assert _missed(flags) == [], "the step's own input changed — blaming the upstream step would be a lie"
+
+
+def test_keep_hours_is_a_fraction_of_a_day_and_never_beside_keep_days():
+    hour = parse_once({"key": ["a"], "keep_hours": 1})
+    assert hour.keep_days_from_knob is False and timedelta(days=hour.keep_days) == timedelta(hours=1)
+    for bad in ({"keep_hours": 0}, {"keep_hours": "1"}, {"keep_hours": 1, "keep_days": 1}):
+        with pytest.raises(ValueError):
+            parse_once(bad)
+
+
+async def test_a_result_kept_for_an_hour_expires_after_an_hour(store):
+    paid = _Step()
+    definition = _definition({**ONCE, "keep_hours": 1}, inputs={"topic": "tides"})
+    await _run(definition, _registry(paid), "run-1")
+    [key] = store.rows()
+    kept = store.rows()[key].result.expires_at - store.rows()[key].result.succeeded_at
+    assert timedelta(minutes=59) < kept <= timedelta(hours=1, seconds=1)
+    await _run(definition, _registry(paid), "run-2")
+    assert paid.calls == 1  # still inside the hour

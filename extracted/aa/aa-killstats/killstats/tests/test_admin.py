@@ -47,8 +47,8 @@ class TestKillstatsAuditAdmin(AuthTestCase):
         request = self.factory.get("/")
         request.user = self.superuser
         expected_html = '<img src="{}" class="img-circle">'.format(
-            eveimageserver._eve_entity_image_url(
-                "corporation", self.killstats_audit.corporation.corporation_id, 32
+            eveimageserver.corporation_logo_url(
+                self.killstats_audit.corporation.corporation_id, 32
             )
         )
         self.assertEqual(
@@ -179,8 +179,8 @@ class TestAlliancesAuditAdmin(AuthTestCase):
         request = self.factory.get("/")
         request.user = self.superuser
         expected_html = '<img src="{}" class="img-circle">'.format(
-            eveimageserver._eve_entity_image_url(
-                "alliance", self.killstats_audit.alliance.alliance_id, 32
+            eveimageserver.alliance_logo_url(
+                self.killstats_audit.alliance.alliance_id, 32
             )
         )
         self.assertEqual(

@@ -219,12 +219,12 @@ async def test_every_task_action_works_against_the_live_columns(table, monkeypat
     assert "Call Blue Shield PPO" in updated.surface_write.before
     assert "specialist copay $40" in updated.surface_write.after
 
-    # An older tool_def still offers the retiring level word — reconciled at the boundary.
-    shared = await _task({"action": "update", "task_id": tid, "visibility": "personal"}, ctx)
+    # The access words: shown_to is the list filter, published_to_web the only anonymous lane.
+    shared = await _task({"action": "update", "task_id": tid, "shown_to": "only_me"}, ctx)
     assert shared.success, _fail(shared)
     assert table.rows[tid]["shown_to"] == "only_me"
     assert table.rows[tid]["published_to_web"] is False
-    published = await _task({"action": "update", "task_id": tid, "visibility": "public"}, ctx)
+    published = await _task({"action": "update", "task_id": tid, "published_to_web": True}, ctx)
     assert published.success, _fail(published)
     assert table.rows[tid]["published_to_web"] is True
     assert table.rows[tid]["published_to_web_by"] == PERSON

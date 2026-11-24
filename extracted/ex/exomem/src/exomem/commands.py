@@ -1494,8 +1494,11 @@ def op_bootstrap(
             "capture_examples": (
                 "Route durable measurements, completed sessions, transactions, maintenance "
                 "events, and current state here without waiting for a magic save or log verb. "
-                "Resolve one compatible collection before append or update; if none fits, "
-                "describe and propose a concise collection before validate and explicit create. "
+                "Resolve one compatible collection before append or update; if none fits and the "
+                "identity, type and scope are clear, call add_record with new_collection under "
+                "silent capture to create the minimal collection from the row; under advisory "
+                "capture propose it, then records.create once confirmed. "
+                "A passing mention gets no collection. "
                 "A recorded outcome never closes Planning automatically; propose or perform "
                 "a guarded transition only with explicit user intent."
             ),
@@ -1967,10 +1970,10 @@ def op_bootstrap(
                 ),
                 "collection_candidate": (
                     "a strong collection_candidate is a proposal: draft its schema through "
-                    f"{tools_text('record_memory', 'read')} describe and validate, ask one "
-                    "question in domain language, "
-                    "and create only after that inline confirmation. Backfill only exactly dated "
-                    "evidence units, citing each unit or artifact in sources"
+                    f"{tools_text('record_memory', 'read')} describe and validate. Under silent capture "
+                    "create it with automatic true; if a bound refuses, or under advisory capture, ask one "
+                    "question in domain language and create only after that inline confirmation. "
+                    "Backfill only exactly dated evidence units, citing each unit or artifact in sources"
                 ),
                 "accepted_links": "persist only through edit_note/create_note/supersede_note; never auto-write suggestions",
                 # Deliberately command-free, exactly like the epistemic
@@ -7062,7 +7065,7 @@ def op_ask_memory(
 def op_served_context(vault_root: Path, *, served_context_id: str | None = None) -> dict:
     """Inspect retained composed response metadata with verified owner authority.
 
-    Omit served_context_id for retained-row counts and unknown usage.
+    Omit served_context_id for retained-row counts, unknown usage and each served method's use evidence.
     Args:
         served_context_id: Exact row id from a maps response; grants no authority.
     """
@@ -7225,8 +7228,8 @@ def op_activate_context(
 
     Reuse held context; conversation gives excerpts. Agent focus is not human intent.
     Keep identity/scope; clarify ambiguity. Due/refresh grants no writes.
-    Read map/task_context refs and method scope/exclusions with a page read.
-    Discard held methods on methods.reset. Follow next_action.
+    Page-read map/task_context refs and approach scope/exclusions.
+    methods.reset: drop held skills, collections, approaches. Follow next_action.
     epistemic_status: counts/completeness; a page read: provenance.
 
     Args:
@@ -8160,6 +8163,7 @@ def _op_activate_context_body(
                     turn=turn, snapshot=snapshot,
                     task_context=task_context,
                     positions=recorded_positions,
+                    reached=lambda: reach.paths,
                     packet_limit=working_set_module.clamp_budget(max_chars),
                     spent_after=reserved_chars,
                 )
@@ -9941,6 +9945,7 @@ def op_transfer_artifact(
     hold: bool = False, artifacts: list[str] | None = None,
     uploads: list[str] | None = None,
     import_identity: str | None = None,
+    size_bytes: int | None = None,
 ) -> dict:
     """Prepare a file transfer or cancel owned waiting uploads.
 
@@ -9955,6 +9960,7 @@ def op_transfer_artifact(
         expected_sha256: Intended original SHA-256.
         hold: One-use upload bound to this session; requires expected_sha256.
         import_identity: Durable external ID for a held Source upload.
+        size_bytes: Exact Source size in bytes to select resumable upload.
         lane: Upload target: source (raw) or evidence (proof); token-bound.
             Ignored for downloads.
         uploads: Cancellation only: held-upload references owned by this authenticated session.
@@ -9967,6 +9973,13 @@ def op_transfer_artifact(
         or artifact is not None or artifacts is not None or uploads is not None
     ):
         raise ValueError("INVALID_IMPORT_IDENTITY: use a held Source upload with expected_sha256")
+
+    if size_bytes is not None and (
+        operation != "upload" or lane != "source" or expected_sha256 is None
+        or artifact is not None or artifacts is not None or uploads is not None
+    ):
+        raise ValueError("INVALID_MODE: size_bytes needs a Source upload with expected_sha256")
+    held_only = hold
 
     if operation == "cancel":
         from . import held_uploads
@@ -10052,6 +10065,7 @@ def op_transfer_artifact(
 
         return upload_handoff.prepare_upload(
             vault_root, lane=lane, expected_sha256=expected_sha256, import_identity=import_identity,
+            size_bytes=size_bytes, held_only=held_only,
         )
     if artifact is not None or expected_sha256 is not None:
         if operation != "download" or not artifact:
@@ -10718,7 +10732,8 @@ def op_review_memory(
     unresolved to authorized governed Source/Evidence; never reconstruct originals.
 
     Args:
-        mode: vocabulary records questions; item/write-advisory-result need ref. No authority:
+        mode: vocabulary records questions; item/write-advisory-result need ref; queued-write
+            lists saves held while Exomem was busy, or reads one by ref. No authority:
             apply through connect_memory accept-relation, adoption_studio
             apply-proposal or triage_memory. Modes: references/governance.md.
         categories: Category filter (attention, activation, audit) or upkeep family.
@@ -10737,7 +10752,7 @@ def op_review_memory(
             vocabulary takes open or all.
         ref: `exomem://review/<id>` for item mode (upkeep refs revalidate one
             item) or `exomem://write-advisory-result/<id>` for
-            write-advisory-result; for a vocabulary relation question, a current
+            write-advisory-result, or `exomem://queued-write/<id>` for queued-write; for a vocabulary relation question, a current
             relation-queue candidate ref alongside its source path.
         family: Vocabulary family for a meaning question; an edge needs
             `relation-type/v1` and the candidate `ref`. Creates only a review
@@ -10854,6 +10869,18 @@ def op_review_memory(
         return attention_module.item_by_ref(vault_root, ref).as_dict()
     if mode == "write-advisory-result":
         return deferred_write_advisory_module.resolve_result(vault_root, ref)
+    if mode == "queued-write":
+        from . import write_intake
+        from .cli_ops import OpError
+
+        if write_intake.principal_record(principal_module.effective_principal()) is None:
+            # Queued saves hold the owner's unpublished arguments: only a caller whose saves may queue reads them.
+            raise OpError(
+                "QUEUED_WRITE_OWNER_ONLY",
+                "queued saves are visible to the vault owner only",
+                "Ask the owner to check the save, or read the page once it is saved.",
+            )
+        return write_intake.read(vault_root, ref=ref, limit=limit)
     if mode == "procedure_approvals":
         return procedure_approval_operation_module.listing(vault_root, limit)
     if mode == held_operation_module.LIST_MODE:
@@ -10908,7 +10935,7 @@ def op_review_memory(
         "INVALID_MODE: review_memory mode must be attention, activation, item, audit, "
         "dispositions, provenance, evolution, compilation, stale, contradiction, "
         "unprocessed-sources, relation-debt, relation-queue, adoption, upkeep, "
-        "plan-progress, procedure_approvals, held, vocabulary, or write-advisory-result"
+        "plan-progress, procedure_approvals, held, vocabulary, write-advisory-result, or queued-write"
     )
 
 
@@ -11759,6 +11786,9 @@ def _with_ownership_question(vault_root: Path, previewed: dict[str, Any]) -> dic
     """
     from . import ownership_review
 
+    if "actions" not in previewed:
+        # A derived plan previews as its summary: the person named the project it places pages in.
+        return previewed
     asked = ownership_review.preview_question(vault_root, previewed["actions"])
     return {**previewed, "ownership_question": asked} if asked else previewed
 
@@ -12502,12 +12532,17 @@ def op_maintain_memory(
         "propose-compensation",
         "apply-compensation",
         "revert",
+        "relocate",
     ]
     | None = None,
     run_id: str | None = None,
     plan: dict[str, Any] | None = None,
     refs: list[str] | None = None,
     paths: list[str] | None = None,
+    pages: list[str] | None = None,
+    to_project: str | None = None,
+    folder: str | None = None,
+    from_project: str | None = None,
     review_ref: str | None = None,
     hydration_recheck: int | None = None,
     expected_plan_fingerprint: str | None = None,
@@ -12562,6 +12597,10 @@ def op_maintain_memory(
         plan: Closed agent-authored plan for curation propose.
         refs: Memory refs for curation work-item.
         paths: Vault paths for curation work-item.
+        pages: Page refs or vault paths for curation relocate.
+        to_project: Relocate: the project key the pages move to; omit to rename them to their titles.
+        folder: Relocate: the folder of a project key that the relocation registers.
+        from_project: Relocate: the project key the pages leave, when a page carries several.
         review_ref: Review ref for a work-item: a recurring-identity candidate, or an item on one page.
         hydration_recheck: Continuation ordinal 1-8; the eighth is closure-only.
         expected_plan_fingerprint: Reviewed plan fingerprint for approval.
@@ -12623,6 +12662,10 @@ def op_maintain_memory(
             "hydration_recheck": hydration_recheck,
             "expected_plan_fingerprint": expected_plan_fingerprint,
             "why": why,
+            "pages": pages,
+            "to_project": to_project,
+            "folder": folder,
+            "from_project": from_project,
         }
         allowed_by_action = {
             "work-item": {"refs", "paths", "review_ref", "hydration_recheck"},
@@ -12639,6 +12682,7 @@ def op_maintain_memory(
                 "why",
             },
             "revert": {"review_ref", "expected_plan_fingerprint", "why"},
+            "relocate": {"pages", "review_ref", "to_project", "folder", "from_project"},
         }
         allowed = allowed_by_action[curation_action]
         if any(value is not None and name not in allowed for name, value in supplied.items()):
@@ -12660,6 +12704,8 @@ def op_maintain_memory(
                 "why",
             },
             "revert": {"review_ref", "expected_plan_fingerprint", "why"},
+            # Pages or one review_ref; the relocation refuses neither or both.
+            "relocate": set(),
         }
         if any(supplied[name] is None for name in required_by_action[curation_action]):
             raise ValueError(
@@ -12700,6 +12746,17 @@ def op_maintain_memory(
             if curation_action == "propose-compensation":
                 assert run_id is not None
                 return curation_module.propose_compensation(vault_root, run_id=run_id)
+            if curation_action == "relocate":
+                from . import relocate as relocate_module
+
+                return relocate_module.propose(
+                    vault_root,
+                    pages=pages,
+                    review_ref=review_ref,
+                    to_project=to_project,
+                    folder=folder,
+                    from_project=from_project,
+                )
             if curation_action == "revert":
                 assert None not in (review_ref, expected_plan_fingerprint, why)
                 from . import promotion_revert as promotion_revert_module
@@ -14366,6 +14423,8 @@ def op_propose_reclassification(
     path: str,
     source_kind: str | None = None,
     domain: str | None = None,
+    preview_run_id: str | None = None,
+    cursor: str | None = None,
 ) -> dict:
     """Report what correcting one source would do, without writing anything.
 
@@ -14382,13 +14441,14 @@ def op_propose_reclassification(
     IS means reading it — a plausible guess presented for approval is how a
     fallback becomes permanent.
     """
-    from . import reclassify_source as reclassify_module
+    from . import reclassification_preview, reclassify_source
 
     try:
-        return reclassify_module.propose(
-            vault_root, path, source_kind=source_kind, domain=domain
-        ).as_dict()
-    except reclassify_module.ReclassifyError as error:
+        return reclassification_preview.report(
+            vault_root, path, source_kind=source_kind, domain=domain,
+            preview_run_id=preview_run_id, cursor=cursor,
+        )
+    except reclassify_source.ReclassifyError as error:
         raise ValueError(f"{error.code}: {error.reason}") from error
 
 
@@ -14451,6 +14511,8 @@ def op_manage_memory_file(
     relation_review_reason: str | None = None,
     promotion_reason: str | None = None,
     preview_digest: str | None = None,
+    preview_run_id: str | None = None,
+    cursor: str | None = None,
 ) -> dict:
     """Manage files when typed tools do not fit.
 
@@ -14479,6 +14541,8 @@ def op_manage_memory_file(
         promotion_reason: Required for a move promoting Sources/ to Evidence/.
         preview_digest: A move or reclassify that repoints Source or Evidence pages passes
             its preview's `preview_digest`.
+        preview_run_id: Follow a background reclassification preview for the same Source.
+        cursor: Read the next page of that preview's completed reference report.
     """
     creation_review_requested = any(
         value is not None
@@ -14576,7 +14640,8 @@ def op_manage_memory_file(
             raise ValueError("INVALID_PATH: reclassify requires `path` naming the captured source")
         if operation == "propose-reclassification":
             return op_propose_reclassification(
-                vault_root, path=target, source_kind=source_kind, domain=domain
+                vault_root, path=target, source_kind=source_kind, domain=domain,
+                preview_run_id=preview_run_id, cursor=cursor,
             )
         if operation == "revert-reclassification":
             return op_revert_reclassification(vault_root, path=target, reason=reason)
@@ -14664,11 +14729,14 @@ def op_record_memory(
     import_request: dict[str, Any] | None = None,
     query: dict[str, Any] | None = None,
     item_id: str | None = None,
+    automatic: bool | None = None,
+    new_collection: dict[str, Any] | None = None,
+    new_fields: list[str] | None = None,
 ) -> dict[str, Any]:
     """Read or update observed state; Planning uses plan_memory; originals use Sources/Evidence.
 
     Describe/validate/inspect/query/history and import preview/status read.
-    Propose before create. Others write or hold candidates.
+    Create a minimal collection with automatic only under silent capture; else propose it. Others write or hold candidates.
 
     Args:
         collection: Vault-relative manifest path, collection UUID or memory reference.
@@ -14687,12 +14755,15 @@ def op_record_memory(
         hold: False refuses; otherwise hold invalid candidates.
         rows: bulk_upsert: 1-50 {item, body?, source?}; one guarded commit.
             Outcomes: inserted/updated/unchanged/rejected.
-        source: bulk_upsert default preserved Source/Evidence path.
+        source: bulk_upsert preserved Source/Evidence path; required once for the batch or on each row.
         on_reject: bulk_upsert: abort writes nothing; skip commits the rest.
         query: v1 query object; grammar via describe.
         item_id: Update or retract: the row `id` a query returned; stands for item_key and both guards, read under the writer lease.
+        automatic: Create only: true for a minimal collection you start under silent proactive_capture; refused with the failed bound named.
+        new_collection: Append only, {"natural_key": [item fields]}: a title that names no collection is created from the row under the automatic bounds, then the row is appended.
+        new_fields: Append or update: names in item/changes the collection does not declare; under silent proactive_capture they are added, typed from the values, then the row is written.
     """
-    return record_memory_module.record_memory(
+    result = record_memory_module.record_memory(
         vault_root,
         action=action,
         collection=collection,
@@ -14733,7 +14804,39 @@ def op_record_memory(
         import_request=import_request,
         query=query,
         item_id=item_id,
+        automatic=automatic,
+        new_collection=new_collection,
+        new_fields=new_fields,
     )
+    # An item write answers `outcome: committed`; a bulk upsert answers `committed: true`. An import starts a job whose
+    # batches commit later, outside this call, so the write log does not attribute them (method-use-evidence spec).
+    committed = isinstance(result, dict) and (result.get("outcome") == "committed" or result.get("committed") is True)
+    if action in _record_writes() and committed:
+        _log_record_write(vault_root, collection)
+    return result
+
+
+def _record_writes() -> frozenset[str]:
+    """The record_memory actions whose operation entry declares a write effect, read from the one operation table."""
+    from . import operation_entries
+
+    return frozenset(entry.action for entry in operation_entries.RECORDS.entries if entry.effect == "write")
+
+
+def _log_record_write(vault_root: Path, collection: str | None) -> None:
+    """Log a committed item write under its collection's manifest path, as a page write logs its page. Best effort."""
+    from . import structured_collections
+
+    try:
+        # The write was authorized and committed; naming its manifest for the local log discloses nothing new, so
+        # this lookup issues no disclosure receipt of its own.
+        path = structured_collections.resolve_collection(
+            vault_root, collection, authorize_path=lambda _relative: True,
+        ).path if collection else None
+    except Exception:  # noqa: BLE001 - the log is best effort and never touches the committed write
+        path = None
+    if path:
+        query_log.log_write_call(tool="record_memory", written_path=path, cited_sources=[])
 
 
 def op_query_dataset(
@@ -14830,10 +14933,14 @@ def op_erase_captured_source(
 def op_coordination_status(vault_root: Path) -> dict:
     """Read writer-lease health during outages.
     """
+    from . import write_intake
     from .governance.raw_protection import is_owner
     from .writer_lease import coordination_status
 
     status = coordination_status(vault_root)
+    if write_intake.principal_record(principal_module.effective_principal()) is not None:
+        # Saves held because the boundary was busy; `unknown` when the store cannot be read.
+        status = {**status, "write_intake": write_intake.status(vault_root)}
     boundary = status.get("mutation_boundary")
     # The contention counters name the last lock holder and how often writers
     # collided. Only the owner needs them, so another caller gets the boundary state alone.
@@ -15230,7 +15337,7 @@ _SIMPLE_ACTION_DEFS: dict[str, dict] = {
     "record": {
         "intent": "Capture, inspect, query, or correct durable observed events and current state.",
         "route": {"tool": "record_memory", "args": {"action": "inspect"}},
-        "safety": "resolve one compatible collection before a mutation; propose rather than silently create a schema",
+        "safety": "resolve one compatible collection before a mutation; create a minimal one only under the served capture disposition",
         "advanced": ["record_memory"],
     },
     "plan": {
@@ -15314,6 +15421,36 @@ _PAGE_NAMING_COMMANDS = frozenset({
     "remember", "edit_memory", "replace_memory", "observe_memory", "connect_memory",
     "capture_source", "ask_memory", "read_memory",
 })
+#: The saves of knowledge that the serving process queues durably when the boundary stays busy
+#: (`Command.busy_intake`, `write_intake`). The keys are command names.
+# nosemgrep: ep-word-set -- the registry's own command names, not a customer vocabulary.
+_BUSY_INTAKE_COMMANDS = frozenset({
+    "remember", "edit_memory", "replace_memory", "observe_memory", "connect_memory",
+    "episode_memory", "capture_source", "preserve_evidence", "record_memory", "plan_memory",
+})
+
+
+def busy_intake_applies(command: Command, arguments: Mapping[str, Any]) -> bool:
+    """Whether the write these JSON `arguments` select may be queued when the boundary is busy.
+
+    A grouped command decides per operation (`OperationEntry.queues_when_busy`); a call that
+    matches no write operation keeps the busy refusal. A capture under a `capture_reservation`
+    passes this check and keeps the busy refusal after it: `writer_lease.replay_origin` gives it
+    no replay identity.
+    """
+    if not command.busy_intake:
+        return False
+    from . import operation_entries
+
+    operations = operation_entries.register_operations(command.name)
+    if operations is None:
+        return True
+    action = None
+    if operations.selector is not None:
+        action = _resolved_invocation_selector(command, dict(arguments), operations.selector)
+    return operations.queues_when_busy(action, arguments)
+
+
 _MCRC = frozenset({"mcp", "rest", "cli"})
 _RC = frozenset({"rest", "cli"})
 # `get_video_frames` returns MCP image content blocks (a FastMCP ToolResult) —
@@ -16139,6 +16276,7 @@ def _build_product_commands() -> tuple[Command, ...]:
                 executor=meta.get("executor", "cell"),
                 outcome_verb=_COMMAND_OUTCOME_VERBS.get(name),
                 names_pages=name in _PAGE_NAMING_COMMANDS,
+                busy_intake=name in _BUSY_INTAKE_COMMANDS,
                 prepare_arguments=meta.get("prepare_arguments"),
             )
         )

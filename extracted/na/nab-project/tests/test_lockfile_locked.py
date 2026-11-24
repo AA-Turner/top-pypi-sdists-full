@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from nab_markersets._compat import get_int_max_str_digits
 from nab_project.lockfile import (
@@ -23,8 +25,6 @@ from nab_project.lockfile import (
     render_lock,
     summarize_lock,
 )
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
 
@@ -499,11 +499,11 @@ class TestSummarizeLock:
 
     def test_no_prior_reports_count_only(self) -> None:
         lock_input = _lock_input({"foo": _pin("foo", "1.0")})
-        assert summarize_lock(lock_input, None) == "1 packages"
+        assert summarize_lock(lock_input, None) == "1 package"
 
     def test_unchanged_pins_report_count_only(self) -> None:
         lock_input = _lock_input({"foo": _pin("foo", "1.0")})
-        assert summarize_lock(lock_input, {"foo": Version("1.0")}) == "1 packages"
+        assert summarize_lock(lock_input, {"foo": Version("1.0")}) == "1 package"
 
     def test_each_change_kind_reports_its_own_count(self) -> None:
         """Each kind gets a distinct count, so a swapped label changes the summary."""
@@ -536,5 +536,5 @@ class TestSummarizeLock:
     def test_downgrade_is_reported(self) -> None:
         lock_input = _lock_input({"foo": _pin("foo", "1.0")})
         assert summarize_lock(lock_input, {"foo": Version("2.0")}) == (
-            "1 packages: 1 downgraded"
+            "1 package: 1 downgraded"
         )

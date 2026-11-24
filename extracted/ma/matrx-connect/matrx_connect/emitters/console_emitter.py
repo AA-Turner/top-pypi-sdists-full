@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import os
@@ -7,8 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from matrx_utils import vcprint
+from matrx_utils.fancy_prints.truncation import content_logging_enabled
 
 from matrx_connect.context.data_types import DataPayload
+from matrx_connect.context.events import GENERIC_ERROR_MESSAGE
+from matrx_connect.context.graph_ops import GraphOpEvent
 from matrx_connect.context.events import (
     END_REASON_CANCELLED,
     END_REASON_ERROR,
@@ -31,6 +35,46 @@ from matrx_connect.context.events import (
 from matrx_connect.context.operations import CompletionPayload, InitPayload
 from matrx_connect.context.phases import Phase
 from matrx_connect.emitters.error_guard import ErrorEmissionGuard
+from matrx_connect.emitters._turn_thinking import turn_thinking_clock
+
+
+#: The identifying keys a one-line summary names (never content: no inputs, outputs, arguments or results).
+_SUMMARY_KEYS = (
+    "event", "run_id", "step", "node_id", "item_index", "tool_name", "call_id",
+    "operation", "operation_id", "status", "error_type", "code",
+)
+#: Longest value a summary prints, and longest summary line (review 6h, M2).
+SUMMARY_VALUE_MAX = 80
+SUMMARY_LINE_MAX = 300
+
+
+def _cap(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _summary(kind: str, dump: Any, *, message_max: int = 0) -> str:
+    """One line naming a payload (its event, run, step, node, tool, status… when it has them), no content.
+
+    ``message_max`` > 0 also prints a capped ``message`` (an error's own diagnostic text)."""
+    if not isinstance(dump, dict):
+        return f"{kind}: {type(dump).__name__}"
+    named = [
+        f"{key}={_cap(str(dump[key]), SUMMARY_VALUE_MAX)}"
+        for key in _SUMMARY_KEYS
+        if dump.get(key) not in (None, "")
+    ]
+    if message_max and dump.get("message"):
+        named.append(f"message={_cap(str(dump['message']), message_max)!r}")
+    if not named:
+        # Keys of mixed types (an int and a str) cannot be sorted against each other.
+        named = [f"keys={sorted(str(key) for key in dump)[:8]}"]
+    return _cap(f"{kind}: " + " ".join(named), SUMMARY_LINE_MAX)
+
+
+def _data_summary(dump: Any) -> str:
+    """One line naming a data payload (its event, run, step and node when it has them), no content."""
+    return _summary("data", dump)
+
 
 DEFAULT_SAVE_DIR = Path(os.environ.get("MATRX_TEMP_DIR", "temp")) / "emitter_responses"
 
@@ -66,25 +110,49 @@ class ConsoleEmitter:
             }
             self._full_text = ""
 
+    def _log(self, kind: str, dump: Any, color: str, *, message_max: int = 0) -> None:
+        """The whole payload under ``debug`` or local content logging; otherwise ONE line naming it (CASA 6.5.1:
+        a server log never carries a person's content — tool arguments and results, step data, completions)."""
+        if self.debug or content_logging_enabled():
+            vcprint(data=dump, verbose=True, title=f"[{self.label}] {kind}", color=color)
+        else:
+            vcprint(f"[{self.label}] {_summary(kind, dump, message_max=message_max)}", verbose=True, color=color)
+
     def reset_turn_text(self) -> None:
         self._turn_text_acc = []
+        self._turn_reasoning_chars = 0
+        turn_thinking_clock(self).reset()
 
     def get_turn_text(self) -> str:
         return "".join(self._turn_text_acc)
 
+    def get_turn_thinking_ms(self) -> int:
+        """This provider call's thinking time (reasoning-start frame -> stop, or now): bills hidden thinking."""
+        return turn_thinking_clock(self).elapsed_ms()
+
+    def get_turn_reasoning_chars(self) -> int:
+        return getattr(self, "_turn_reasoning_chars", 0)
+
     async def send_chunk(self, text: str) -> None:
-        vcprint(data=text, verbose=True, color="green", chunks=True)
+        # CASA 6.5.1: a chunk is model output about a person's content; it reaches the log
+        # only on a local machine (MATRX_LOG_CONTENT=1). Server-side runs use this emitter.
+        if content_logging_enabled():
+            vcprint(data=text, verbose=True, color="green", chunks=True)
         self._turn_text_acc.append(text)
         if self.accumulate:
             self._full_text += text
             self._accumulated["chunks"].append(text)
 
     async def send_reasoning_chunk(self, text: str) -> None:
-        vcprint(data=text, verbose=True, color="magenta", chunks=True)
+        if isinstance(text, str):
+            self._turn_reasoning_chars = self.get_turn_reasoning_chars() + len(text)
+        if content_logging_enabled():
+            vcprint(data=text, verbose=True, color="magenta", chunks=True)
         if self.accumulate:
             self._accumulated["chunks"].append({"reasoning": text})
 
     async def send_reasoning_state(self, state: ReasoningState) -> None:
+        turn_thinking_clock(self).signal(state)
         vcprint(data={"state": state}, verbose=True, title=f"[{self.label}] reasoning", color="magenta")
         if self.accumulate:
             self._accumulated.setdefault("reasoning_states", []).append(state)
@@ -103,7 +171,7 @@ class ConsoleEmitter:
 
     async def send_info(self, payload: InfoPayload) -> None:
         dump = payload.model_dump()
-        vcprint(data=dump, verbose=True, title=f"[{self.label}] info", color="blue")
+        self._log("info", dump, "blue")
         if self.accumulate:
             self._accumulated.setdefault("infos", []).append(dump)
 
@@ -114,7 +182,10 @@ class ConsoleEmitter:
             dump = payload
         else:
             dump = {"value": payload}
-        vcprint(data=dump, verbose=True, title=f"[{self.label}] data", color="green")
+        # CASA 6.5.1, like a chunk: a data payload carries a person's content (step inputs and outputs), so a
+        # server log gets one line naming it. The whole dump also cost every workflow event a pretty-print on
+        # the event loop (L-SPEED 6c: ~28k log lines per search child run).
+        self._log("data", dump, "green")
         if self.accumulate:
             self._accumulated["data"].append(dump)
 
@@ -126,7 +197,7 @@ class ConsoleEmitter:
 
     async def send_completion(self, payload: CompletionPayload) -> None:
         dump = payload.model_dump()
-        vcprint(data=dump, verbose=True, title=f"[{self.label}] completion", color="green")
+        self._log("completion", dump, "green")
         if self.accumulate:
             self._accumulated["completions"].append(dump)
 
@@ -143,11 +214,15 @@ class ConsoleEmitter:
         error = {
             "error_type": error_type,
             "message": message,
-            "user_message": user_message or message,
+            # Only a sentence written for a person; none → the generic line (never `message`).
+            "user_message": (user_message or "").strip() or GENERIC_ERROR_MESSAGE,
             "code": code,
             "details": details,
         }
-        vcprint(data=error, verbose=True, title=f"[{self.label}] error", color="red")
+        # A caller refusal (``details.caller_refusal``, set from the refusal's type by the
+        # producer) is an expected answer — a spend hold, a run approval — not a server failure.
+        refused = isinstance(details, dict) and bool(details.get("caller_refusal"))
+        self._log("caller_refused" if refused else "error", error, "yellow" if refused else "red", message_max=160)
         if self.accumulate:
             self._accumulated["errors"].append(error)
 
@@ -156,7 +231,7 @@ class ConsoleEmitter:
             dump = event_data
         else:
             dump = event_data.model_dump()
-        vcprint(data=dump, verbose=True, title=f"[{self.label}] tool_event", color="cyan")
+        self._log("tool_event", dump, "cyan")
         if self.accumulate:
             self._accumulated["tool_events"].append(dump)
 
@@ -166,7 +241,11 @@ class ConsoleEmitter:
 
     async def send_record_update(self, payload: RecordUpdatePayload) -> None:
         dump = payload.model_dump()
-        color = "green" if payload.status in ("active", "completed") else "red"
+        # A record's status change is a notification, not the failure: a failed run's error is
+        # reported once, at ERROR, by ``send_error`` / ``fatal_error``. Logging the record's
+        # ``failed`` status red as well filed every failure twice — and every expected caller
+        # refusal as a server error (2026-11-12).
+        color = "green" if payload.status in ("active", "completed") else "yellow"
         vcprint(data=dump, verbose=True, title=f"[{self.label}] record_update", color=color)
 
     async def send_resource_changed(
@@ -194,6 +273,14 @@ class ConsoleEmitter:
             data=payload.model_dump(),
             verbose=True,
             title=f"[{self.label}] resource_changed",
+            color="cyan",
+        )
+
+    async def send_graph_op(self, payload: GraphOpEvent) -> None:
+        vcprint(
+            data=payload.model_dump(exclude_none=True),
+            verbose=True,
+            title=f"[{self.label}] graph_op {payload.phase}",
             color="cyan",
         )
 
@@ -365,8 +452,11 @@ class ConsoleEmitter:
         }
 
         try:
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(output, f, indent=2, ensure_ascii=False, default=str)
+            def _write() -> None:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(output, f, indent=2, ensure_ascii=False, default=str)
+
+            await asyncio.to_thread(_write)
             vcprint(f"[ConsoleEmitter] Saved to {filepath}", color="pink")
         except Exception as e:
             vcprint(f"[ConsoleEmitter] Failed to save: {e}", color="red")

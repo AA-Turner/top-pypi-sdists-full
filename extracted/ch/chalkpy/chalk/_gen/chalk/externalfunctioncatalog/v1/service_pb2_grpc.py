@@ -57,6 +57,16 @@ class ExternalFunctionCatalogServiceStub(object):
             request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionRequest.SerializeToString,
             response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionResponse.FromString,
         )
+        self.DescribeExternalFunctionJson = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DescribeExternalFunctionJson",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DescribeExternalFunctionJsonRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DescribeExternalFunctionJsonResponse.FromString,
+        )
+        self.CallExternalFunctionJson = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CallExternalFunctionJson",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionJsonRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionJsonResponse.FromString,
+        )
         self.CreateExternalFunctionVersion = channel.unary_unary(
             "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CreateExternalFunctionVersion",
             request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionRequest.SerializeToString,
@@ -138,6 +148,22 @@ class ExternalFunctionCatalogServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DescribeExternalFunctionJson(self, request, context):
+        """JSON-shaped counterpart of GetExternalFunctionVersion for callers that
+        expose functions as JSON tools (e.g. the MCP gateway).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CallExternalFunctionJson(self, request, context):
+        """JSON-shaped counterpart of CallExternalFunction: encodes `args` into the
+        version's input Arrow schema and decodes the output feather stream.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def CreateExternalFunctionVersion(self, request, context):
         """Legacy compatibility RPC. New callers should use CreateExternalFunction
         for the initial resource and UpdateExternalFunction with `spec` for every
@@ -155,7 +181,7 @@ class ExternalFunctionCatalogServiceServicer(object):
 
     def GetExternalFunctionVersionSource(self, request, context):
         """Resolves the source files for one immutable function version. The browser
-        calls this lazily and reads the selected file directly from the pinned
+        calls this lazily and reads the selected file directly from the returned
         volume version; source is intentionally absent from list responses.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -216,6 +242,16 @@ def add_ExternalFunctionCatalogServiceServicer_to_server(servicer, server):
             servicer.CallExternalFunction,
             request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionRequest.FromString,
             response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionResponse.SerializeToString,
+        ),
+        "DescribeExternalFunctionJson": grpc.unary_unary_rpc_method_handler(
+            servicer.DescribeExternalFunctionJson,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DescribeExternalFunctionJsonRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DescribeExternalFunctionJsonResponse.SerializeToString,
+        ),
+        "CallExternalFunctionJson": grpc.unary_unary_rpc_method_handler(
+            servicer.CallExternalFunctionJson,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionJsonRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionJsonResponse.SerializeToString,
         ),
         "CreateExternalFunctionVersion": grpc.unary_unary_rpc_method_handler(
             servicer.CreateExternalFunctionVersion,
@@ -475,6 +511,64 @@ class ExternalFunctionCatalogService(object):
             "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CallExternalFunction",
             chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionRequest.SerializeToString,
             chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DescribeExternalFunctionJson(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DescribeExternalFunctionJson",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DescribeExternalFunctionJsonRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DescribeExternalFunctionJsonResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CallExternalFunctionJson(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CallExternalFunctionJson",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionJsonRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionJsonResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -66,6 +66,8 @@ async def _a_real_device(conn) -> tuple[str, str, str]:
                ai.organization_id::text AS org
           FROM public.app_instances ai
          WHERE ai.deleted_at IS NULL AND ai.organization_id IS NOT NULL
+           -- an archived organization's rows are hidden by the restrictive org gate
+           AND ai.organization_id NOT IN (SELECT iam.archived_org_ids())
          LIMIT 1
         """
     )
@@ -156,16 +158,19 @@ async def test_the_admin_view_is_path_free():
 async def test_the_personal_variant_emitted_no_extra_lane():
     _skip_without_db()
     async with await _conn() as conn:
-        names = {
-            r["policyname"]
-            for r in await conn.fetch(
-                "SELECT policyname FROM pg_policies "
-                "WHERE schemaname='files' AND tablename='sync_mappings'"
-            )
-        }
-    assert names == {"std_select", "std_insert", "std_update", "std_delete", "svc_all"}, (
-        f"unexpected policy set {sorted(names)}: personal grants nobody but the owner"
-    )
+        rows = await conn.fetch(
+            "SELECT policyname, permissive FROM pg_policies "
+            "WHERE schemaname='files' AND tablename='sync_mappings'"
+        )
+    names = {r["policyname"] for r in rows}
+    # platform_admin_read is required on every RLS table (our-own-admin-database-access law);
+    # org_open_gate is the canonical RESTRICTIVE archived-organization gate — it narrows, never grants.
+    assert names == {
+        "std_select", "std_insert", "std_update", "std_delete", "svc_all",
+        "platform_admin_read", "org_open_gate",
+    }, f"unexpected policy set {sorted(names)}: personal grants nobody but the owner"
+    gate = next(r for r in rows if r["policyname"] == "org_open_gate")
+    assert gate["permissive"] == "RESTRICTIVE", "org_open_gate must narrow access, never grant it"
 
 
 async def test_a_write_without_an_organization_raises():

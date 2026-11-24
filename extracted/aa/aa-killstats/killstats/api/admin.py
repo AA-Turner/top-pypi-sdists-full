@@ -1,18 +1,14 @@
 """API"""
 
+# Standard Library
+from http import HTTPStatus
+
 # Third Party
 from ninja import NinjaAPI
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
-
 # AA Killstats
-from killstats import __title__
 from killstats.api import schema
 from killstats.models.killstatsaudit import AlliancesAudit, CorporationsAudit
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
 
 
 class ApiEndpoints:
@@ -25,14 +21,14 @@ class ApiEndpoints:
     def register_endpoints(self, api: NinjaAPI):
         @api.get(
             "killboard/corporation/admin/",
-            response={200: list[schema.CorporationAdmin], 403: str},
+            response={
+                HTTPStatus.OK: list[schema.CorporationAdmin],
+                HTTPStatus.FORBIDDEN: schema.ErrorSchema,
+            },
             tags=self.tags,
         )
         def get_corporation_admin(request):
             corporations = CorporationsAudit.objects.visible_to(request.user)
-
-            if corporations is None:
-                return 403, "Permission Denied"
 
             corporation_dict = {}
 
@@ -53,14 +49,14 @@ class ApiEndpoints:
 
         @api.get(
             "killboard/alliance/admin/",
-            response={200: list[schema.AllianceAdmin], 403: str},
+            response={
+                HTTPStatus.OK: list[schema.AllianceAdmin],
+                HTTPStatus.FORBIDDEN: schema.ErrorSchema,
+            },
             tags=self.tags,
         )
         def get_alliance_admin(request):
             alliances = AlliancesAudit.objects.visible_to(request.user)
-
-            if alliances is None:
-                return 403, "Permission Denied"
 
             alliance_dict = {}
 

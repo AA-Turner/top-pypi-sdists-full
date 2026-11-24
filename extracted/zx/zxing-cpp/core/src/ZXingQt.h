@@ -172,7 +172,8 @@ class Barcode : private ZXing::Barcode
 	Q_PROPERTY(ContentType contentType READ contentType)
 	Q_PROPERTY(bool hasECI READ hasECI)
 	Q_PROPERTY(Position position READ position)
-	Q_PROPERTY(int orientation READ orientation)
+	Q_PROPERTY(int rotation READ rotation)
+	Q_PROPERTY(int orientation READ orientation) // Deprecated: Use rotation instead
 	Q_PROPERTY(bool isMirrored READ isMirrored)
 	Q_PROPERTY(bool isInverted READ isInverted)
 	Q_PROPERTY(QString symbologyIdentifier READ symbologyIdentifier)
@@ -219,6 +220,7 @@ public:
 		return {qp(0), qp(1), qp(2), qp(3)};
 	}
 
+	using ZXing::Barcode::rotation;
 	using ZXing::Barcode::orientation;
 	using ZXing::Barcode::isMirrored;
 	using ZXing::Barcode::isInverted;
@@ -368,7 +370,7 @@ inline QList<Barcode> ReadBarcodes(const QVideoFrame& frame, const ReaderOptions
 		auto qimg = frame.toImage();
 		if (qimg.format() != QImage::Format_Invalid)
 			return ReadBarcodes(qimg, opts);
-		qWarning() << "failed to convert QVideoFrame to QImage";
+		qWarning() << "Failed to convert QVideoFrame to QImage";
 		return {};
 	}
 }
@@ -463,6 +465,7 @@ public:
 	ZQ_PROPERTY(bool, tryHarder, setTryHarder)
 	ZQ_PROPERTY(bool, tryInvert, setTryInvert)
 	ZQ_PROPERTY(bool, tryDownscale, setTryDownscale)
+	ZQ_PROPERTY(bool, tryDenoise, setTryDenoise)
 	ZQ_PROPERTY(bool, isPure, setIsPure)
 	ZQ_PROPERTY(bool, returnErrors, setReturnErrors)
 

@@ -397,6 +397,45 @@ class GetWorksheetNodeResponse(_message.Message):
     def __init__(self, node: _Optional[_Union[WorksheetNode, _Mapping]] = ...) -> None: ...
 
 class ListWorksheetNodesRequest(_message.Message):
+    __slots__ = ("space_id", "parent_node_id", "include_archived", "limit", "page_token")
+    SPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    PARENT_NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    space_id: str
+    parent_node_id: str
+    include_archived: bool
+    limit: int
+    page_token: str
+    def __init__(
+        self,
+        space_id: _Optional[str] = ...,
+        parent_node_id: _Optional[str] = ...,
+        include_archived: bool = ...,
+        limit: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListWorksheetNodesResponse(_message.Message):
+    __slots__ = ("nodes", "next_page_token")
+    NODES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    nodes: _containers.RepeatedCompositeFieldContainer[WorksheetNode]
+    next_page_token: str
+    def __init__(
+        self, nodes: _Optional[_Iterable[_Union[WorksheetNode, _Mapping]]] = ..., next_page_token: _Optional[str] = ...
+    ) -> None: ...
+
+class ListWorksheetNodesToken(_message.Message):
+    __slots__ = ("sort_name", "id")
+    SORT_NAME_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    sort_name: str
+    id: str
+    def __init__(self, sort_name: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
+
+class ListWorksheetExecutionTimesFilters(_message.Message):
     __slots__ = ("space_id", "parent_node_id", "include_archived")
     SPACE_ID_FIELD_NUMBER: _ClassVar[int]
     PARENT_NODE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -408,11 +447,29 @@ class ListWorksheetNodesRequest(_message.Message):
         self, space_id: _Optional[str] = ..., parent_node_id: _Optional[str] = ..., include_archived: bool = ...
     ) -> None: ...
 
-class ListWorksheetNodesResponse(_message.Message):
-    __slots__ = ("nodes",)
-    NODES_FIELD_NUMBER: _ClassVar[int]
-    nodes: _containers.RepeatedCompositeFieldContainer[WorksheetNode]
-    def __init__(self, nodes: _Optional[_Iterable[_Union[WorksheetNode, _Mapping]]] = ...) -> None: ...
+class ListWorksheetExecutionTimesRequest(_message.Message):
+    __slots__ = ("filters",)
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    filters: ListWorksheetExecutionTimesFilters
+    def __init__(self, filters: _Optional[_Union[ListWorksheetExecutionTimesFilters, _Mapping]] = ...) -> None: ...
+
+class ListWorksheetExecutionTimesResponse(_message.Message):
+    __slots__ = ("last_executed_at_by_node_id",)
+    class LastExecutedAtByNodeIdEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _timestamp_pb2.Timestamp
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...
+        ) -> None: ...
+
+    LAST_EXECUTED_AT_BY_NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    last_executed_at_by_node_id: _containers.MessageMap[str, _timestamp_pb2.Timestamp]
+    def __init__(
+        self, last_executed_at_by_node_id: _Optional[_Mapping[str, _timestamp_pb2.Timestamp]] = ...
+    ) -> None: ...
 
 class CreateWorksheetNodeRequest(_message.Message):
     __slots__ = ("space_id", "kind", "parent_node_id", "name", "content")

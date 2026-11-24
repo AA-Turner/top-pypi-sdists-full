@@ -119,7 +119,7 @@ from ...entity_role import canonical_role_name
 from ...coordinate.map_manager import run_carla_map
 from ...utils.clearance import HIDDEN_BELOW_M, actor_box_centre
 from ...utils.traffic_light import traffic_light_state_name
-from ...utils.vehicles import is_emergency_vehicle_type
+from ...utils.vehicles import apply_physics_control, is_emergency_vehicle_type
 from ...visibility import world_visibility
 from ...world_reset import episode_of
 from ..base import (
@@ -1592,14 +1592,27 @@ class SumoTrafficBackend(TrafficBackend):
         self._persons = {}
 
     def close(self) -> None:
-        """Stop SUMO, destroy the ambient actors and forget the run."""
-        self._tm.close()
+        """Stop SUMO, destroy the ambient actors and forget the run.
+
+        A step that fails is logged and the rest still runs: the parameters
+        are put back and SUMO is always disconnected and stopped.
+        """
+        try:
+            self._tm.close()
+        except Exception:  # noqa: BLE001 - teardown must go on
+            logger.warning("SUMO: closing the TrafficManager failed", exc_info=True)
         # The next run starts from its config, not from this one's overrides.
-        self._restore_parameters()
+        try:
+            self._restore_parameters()
+        except Exception:  # noqa: BLE001 - teardown must go on
+            logger.warning("SUMO: restoring the parameters failed", exc_info=True)
         self._pedestrian_overrides = None
         self._bicycle_overrides = None
         if self._clock_log is not None:
-            self._clock_log.close()
+            try:
+                self._clock_log.close()
+            except Exception:  # noqa: BLE001 - teardown must go on
+                logger.warning("SUMO: closing the clock log failed", exc_info=True)
             self._clock_log = None
         # Also after tick gave up stepping it: an open connection would leave
         # SUMO orphaned and the next start refused ("already active").
@@ -1855,6 +1868,35 @@ class SumoTrafficBackend(TrafficBackend):
                 self._start_lane_change_request(request)
         except Exception as exc:  # noqa: BLE001
             logger.warning("SUMO could not change lane for %s: %s", sumo_id, exc)
+
+    def cancel_lane_change(self, entity: Any, world: Any) -> None:
+        """Drop *entity*'s lane change still waiting for its ``start_after_m``
+        or still being stretched over its ``lane_change_length_m``
+        (:meth:`TrafficBackend.cancel_lane_change`), and give the vehicle its
+        own lane changes, lateral limits and speed back.  One SUMO was asked
+        for at once (``changeLane``) is SUMO's; one the TrafficManager carries
+        out for a vehicle SUMO leaves to it is dropped there.
+        """
+        sumo_id = self._id_of(entity)
+        if sumo_id is None:
+            if self._tm_drives_scenario:
+                self._tm.cancel_lane_change(entity, world)
+            return
+        pending = self._lane_change_requests.pop(sumo_id, None)
+        if pending is None:
+            return
+        try:
+            self._end_lane_change_request(pending)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "SUMO could not cancel the lane change of %s: %s", sumo_id, exc
+            )
+            return
+        logger.info(
+            "SUMO: the %s lane change asked of %s was cancelled",
+            pending.direction.value,
+            sumo_id,
+        )
 
     def _ask_lane_change(self, sumo_id: str, direction: LaneChangeDirection) -> None:
         """Ask SUMO for a lane change of its own one lane to *direction*."""
@@ -3588,7 +3630,9 @@ class SumoTrafficBackend(TrafficBackend):
                 carla.Vector2D(0.0, 1.0),
                 carla.Vector2D(120.0, 1.0),
             ]
-            actor.apply_physics_control(physics)
+            # The torque curve goes back as it was read: without the keys
+            # CARLA 0.10 would put in front of it a second time.
+            apply_physics_control(actor, physics)
         except Exception as exc:  # noqa: BLE001 - keep the estimates
             logger.debug("SUMO: no physics control for %s: %s", actor.id, exc)
         state = {

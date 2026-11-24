@@ -12,15 +12,11 @@ try:
 except ImportError:
     _MINHASH_AVAILABLE = False
 
-try:
-    from simhash import Simhash
-
-    _SIMHASH_AVAILABLE = True
-except ImportError:
-    _SIMHASH_AVAILABLE = False
 
 DEFAULT_MINHASH_PERMS = 128
 DEFAULT_SHINGLE_SIZE = 3
+#: Shingles per vectorised MinHash update (bounds its temporary matrices to ~1 MB each).
+_MINHASH_BATCH = 1024
 
 
 def compute_minhash_from_text(
@@ -35,8 +31,16 @@ def compute_minhash_from_text(
     words = full_text.split()
     shingles = [" ".join(words[i : i + shingle_size]) for i in range(len(words) - shingle_size + 1)]
     m = MinHash(num_perm=num_perms)
-    for shingle in shingles:
-        m.update(shingle.encode("utf-8"))
+    # A MinHash is the per-permutation MINIMUM over the shingle SET: a repeated
+    # shingle cannot move it and the order cannot either, so each distinct shingle
+    # is hashed once and all are applied in one vectorised batch (the same numpy
+    # arithmetic `update` runs one shingle at a time). Pinned bit-for-bit against
+    # the per-shingle loop by tests/test_parse_identity.py.
+    # Batches are bounded: a batch holds a (shingles x permutations) uint64 matrix,
+    # so one unbounded batch on a long page would cost memory the loop never did.
+    unique = list(dict.fromkeys(shingles))
+    for start in range(0, len(unique), _MINHASH_BATCH):
+        m.update_batch([shingle.encode("utf-8") for shingle in unique[start : start + _MINHASH_BATCH]])
     return LeanMinHash(m).digest().tolist()
 
 
@@ -47,19 +51,39 @@ def _clean_outline_key(key: str) -> str:
     return cleaned
 
 
+def _simhash_value(features: list[str], bits: int) -> int:
+    """Charikar SimHash, bit-identical to the ``simhash`` package (md5 per feature, unweighted).
+
+    That package (last release 2022) was retired 2026-10-30; stored fingerprints stay
+    comparable because this reproduces its exact values (tests/test_simhash_is_bit_identical.py).
+    """
+    nbytes = bits // 8
+    counts = [0] * bits
+    # Each DISTINCT feature is hashed once and its bits counted with its
+    # multiplicity — the same sums as one pass per occurrence, without re-running
+    # md5 and the 64-bit loop for every repeated word.
+    for feature, times in Counter(features).items():
+        h = int.from_bytes(hashlib.md5(feature.encode("utf-8")).digest()[-nbytes:], "big")
+        for i in range(bits):
+            if (h >> (bits - 1 - i)) & 1:
+                counts[i] += times
+    half = len(features) / 2
+    value = 0
+    for i, count in enumerate(counts):
+        if count > half:
+            value |= 1 << (bits - 1 - i)
+    return value
+
+
 def compute_simhash(text: str, bits: int = 64) -> int | None:
-    if not _SIMHASH_AVAILABLE:
-        return None
     features = text.split()
-    value = Simhash(features, f=bits).value
+    value = _simhash_value(features, bits)
     if value >= 2**63:
         value -= 2**64
     return value
 
 
 def compute_simhash_from_outline(outline: dict) -> int | None:
-    if not _SIMHASH_AVAILABLE:
-        return None
     text = "\n".join(_clean_outline_key(k) for k in outline.keys())
     return compute_simhash(text)
 

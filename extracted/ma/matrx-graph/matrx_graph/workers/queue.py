@@ -29,7 +29,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError, field_validator
 
 from matrx_utils import compute_backoff_ms
 
@@ -65,6 +65,19 @@ class FailureDisposition(BaseModel):
         return self.failure_class is FailureClass.RETRYABLE
 
 
+JOB_REQUESTER_METADATA_KEY = "execution_requester"
+
+
+class WorkflowJobRequester(BaseModel):
+    """Actor, active organization and admin standing admitted by a workflow queue door."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    user_id: UUID
+    organization_id: UUID
+    is_admin: StrictBool = False
+
+
 class Job(BaseModel):
     """One workflow execution unit in the queue."""
 
@@ -83,6 +96,19 @@ class Job(BaseModel):
     # WHO answered, stamped by the trusted seam that queued this resume (``enqueue(decision=...)``,
     # stored in the job row's ``metadata.decision``). Never read from ``resume_value``.
     decision: dict[str, Any] | None = None
+    execution_requester: WorkflowJobRequester | None = None
+
+    @field_validator("execution_requester", mode="before")
+    @classmethod
+    def _read_execution_requester(cls, value: Any) -> WorkflowJobRequester | None:
+        if value is None:
+            return None
+        try:
+            return WorkflowJobRequester.model_validate(value)
+        except ValidationError:
+            # Keep legacy or malformed jobs claimable. Actions that require
+            # verified queue authority will refuse the unstamped job.
+            return None
 
 
 def classify_failure(error: BaseException) -> FailureDisposition:
@@ -221,6 +247,7 @@ async def enqueue(
     visible_at: datetime | None = None,
     required_node_types: list[str] | None = None,
     decision: Any = None,
+    execution_requester: WorkflowJobRequester | None = None,
 ) -> str:
     """Enqueue a new job. Returns the job_id.
 
@@ -270,6 +297,10 @@ async def enqueue(
         metadata={
             **await _requirement_metadata(run_uuid, required_node_types),
             **({DECISION_METADATA_KEY: _decision_json(decision)} if decision is not None else {}),
+            **(
+                {JOB_REQUESTER_METADATA_KEY: execution_requester.model_dump(mode="json")}
+                if execution_requester is not None else {}
+            ),
         },
     )
     return job_id
@@ -446,6 +477,7 @@ async def claim_one(
     row = rows[0] if rows else None
     if row is None:
         return None
+    metadata = _parse_json(row.get("metadata")) or {}
     return Job(
         job_id=str(row["id"]),
         run_id=str(row["run_id"]),
@@ -457,7 +489,8 @@ async def claim_one(
         attempt=row["attempt"],
         max_attempts=row["max_attempts"],
         claimed_by=row["claimed_by"],
-        decision=(_parse_json(row.get("metadata")) or {}).get(DECISION_METADATA_KEY),
+        decision=metadata.get(DECISION_METADATA_KEY),
+        execution_requester=metadata.get(JOB_REQUESTER_METADATA_KEY),
     )
 
 

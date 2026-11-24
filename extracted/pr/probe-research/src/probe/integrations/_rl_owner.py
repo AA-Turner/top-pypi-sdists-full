@@ -3,6 +3,7 @@ fail-open, and close it with the terminal manifest and the producers' close barr
 
 from __future__ import annotations
 
+import asyncio
 import atexit
 import json
 import logging
@@ -15,7 +16,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from probe.generated.enums import ExitStatus
-from probe.generated.records import RunType
+from probe.generated.records import CommandKind, RunType
 from probe.sdk import errors
 from probe.foundation.safe_warn import safe_warn as _diagnostics
 from probe.sdk.agent_session import ComposedName
@@ -146,6 +147,31 @@ def open_run(
         # it, so it is the attempt's; a chosen name may become `-r2` there, so it is never stamped from here.
         OPENED_KEYS[str(run.id)] = external_id
     return run, True
+
+
+def setup_pause(run: Any, guard: HookGuard) -> None:
+    """Declare `pause` on ``run`` (D23): this process reaches a step boundary that takes the run's asks (a trainer's
+    once-per-step metrics row through `run.log()`, Harbor's next trial start) and holds there while paused. Fail
+    open: a failure costs the run its pause, never the job."""
+    if hasattr(run, "on"):
+        guard.call("pause and resume", run.on, CommandKind.PAUSE)
+
+
+def setup_async_pause(run: Any, guard: HookGuard) -> None:
+    """An asyncio trainer's pause (ART, D23): declared as `setup_pause` does, but the run's asks are taken only at
+    `hold_while_paused`, in a worker thread, so a `run.log()` on the event loop never holds the loop (and the rollouts
+    in flight on it). Fail open."""
+    setup_pause(run, guard)
+    box = getattr(run, "_commands", None)
+    if box is not None:
+        box.is_shared = True  # `run.log()` leaves the asks to the step boundary (`RunCommandsMixin._run_due_commands`)
+
+
+async def hold_while_paused(run: Any, guard: HookGuard) -> None:
+    """At an asyncio trainer's step boundary (ART's `backend.train`): the run's asks, and a pause's hold until a
+    resume, in a worker thread. The awaiting step waits; the event loop, its rollouts and the beat go on."""
+    if run is not None and getattr(run, "_commands", None) is not None:
+        await asyncio.to_thread(guard.call, "pause and resume", run.sync_commands)
 
 
 def send_missing_config(run: Any, config: Mapping[str, Any]) -> None:

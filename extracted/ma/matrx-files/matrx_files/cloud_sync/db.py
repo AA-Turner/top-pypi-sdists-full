@@ -29,6 +29,7 @@ async in FastAPI routes (the sync twins refuse to run inside a live loop).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 from datetime import UTC, date, datetime, timedelta
@@ -173,6 +174,34 @@ def _models():
     return models_files, models_iam
 
 
+def _sync_visible(q: Any, *, include_system: bool) -> Any:
+    """THE device-feed visibility rule, one place: both feed sources (the updated_at keyset and the
+    relocation ledger) decide "does a device hold this row" with exactly these conjuncts."""
+    from matrx_orm.core.expressions import DbFunction, F, Is
+
+    from matrx_files.user_visible import path_visible_filters, row_visible_filters
+
+    # The "not derived" half of THE rule is unconditional: `include_system`
+    # means "ignore the path half", and it never re-admits derivative rows
+    # (824 alive rows are parentless variants, so both columns are needed).
+    q = q.filter(**row_visible_filters())
+    if not include_system:
+        # The path half, one declaration (matrx_files.user_visible).
+        # `file_path__user_visible` is matrx-orm's registered path-family lookup:
+        # it emits `files.is_user_visible_path(file_path) = $n` verbatim, which is
+        # the SAME expression idx_files_sync_feed_owner_updated_id is partial over.
+        # Spelling it as NOT LIKE conjuncts does not imply the index predicate and
+        # costs the scan (measured live: 11,177 with a Sort against 13.83).
+        q = q.filter(**path_visible_filters())
+    # Crawl artifacts are a PROVENANCE test, not an access shape (S2), so they
+    # stay a separate conjunct and are excluded even when include_system is on:
+    # scraped page bytes are never a user's file. The partial index has already
+    # narrowed the scan, so this per-row cross-schema EXISTS runs over the page,
+    # not the table (0 of 8,868 candidate rows on the heaviest owner).
+    q = q.filter(Is(DbFunction("files.is_crawl_artifact", F("id")), False))
+    return q
+
+
 def _norm(value: Any) -> Any:
     """Normalize a DB value to the wire shape PostgREST used to return."""
     if isinstance(value, datetime | date):
@@ -192,6 +221,30 @@ def _row(instance: Any) -> dict | None:
 
 def _rows(instances: list[Any] | None) -> list[dict]:
     return [_row(i) for i in (instances or [])]
+
+
+#: From this many rows, :func:`_owner_rows_off_loop` converts them in a worker thread — the
+#: same threshold matrx-orm uses to hydrate a big result off the loop
+#: (``_BULK_HYDRATION_THREAD_THRESHOLD``). Below it a thread hop costs more than the work.
+ROWS_OFF_LOOP_THRESHOLD = 200
+
+
+def _owner_rows(instances: list[Any] | None) -> list[dict]:
+    return DatabaseClient._owner_from_db_many(_rows(instances))
+
+
+async def _owner_rows_off_loop(instances: list[Any] | None) -> list[dict]:
+    """``_owner_from_db_many(_rows(instances))`` that never freezes the event loop.
+
+    ``to_dict()`` walks every field of every row in Python. A whole-tree read of one
+    person's 67,000 folders spent ~5 s doing it ON the loop (``GET /files/folders``,
+    event_loop_stall 2026-11-02): for those seconds the whole API served nothing — no
+    request, no pool checkout, no change-feed poll. Big lists convert in a worker thread;
+    the shape is byte-for-byte the one ``_rows`` returns.
+    """
+    if instances and len(instances) >= ROWS_OFF_LOOP_THRESHOLD:
+        return await asyncio.to_thread(_owner_rows, instances)
+    return _owner_rows(instances)
 
 
 def _vals(dicts: list[dict] | None) -> list[dict]:
@@ -466,7 +519,10 @@ class DatabaseClient:
             # file_versions insert (FK 23503). A plain insert instead raises
             # a unique-violation on a genuine path collision, which the
             # caller's race-recovery path resolves by reading the winning row.
-            return self._owner_from_db(_row(await mf.Files.create(**cleaned)))
+            from matrx_orm.core.transaction import savepoint
+
+            async with savepoint(if_in_transaction=True):
+                return self._owner_from_db(_row(await mf.Files.create(**cleaned)))
         return self._owner_from_db(
             _row(await mf.Files.upsert(cleaned, on_conflict=_FILES_PATH_CONFLICT))
         )
@@ -584,7 +640,7 @@ class DatabaseClient:
         if sqlstate == "23505":
             from matrx_files.dedup import FilePathConflictError
 
-            raise FilePathConflictError(file_path=message) from exc
+            raise FilePathConflictError(file_path=conflicting_path(exc)) from exc
         if sqlstate == "22023":
             raise ValueError(message) from exc
         raise exc
@@ -978,7 +1034,7 @@ class DatabaseClient:
             q = q.filter(parent_folder_id__in=folder_id)
         elif folder_id is not None:
             q = q.filter(parent_folder_id=folder_id)
-        return self._owner_from_db_many(_rows(await q.order_by("file_path").all()))
+        return await _owner_rows_off_loop(await q.order_by("file_path").all())
 
     async def list_files_paginated_async(
         self,
@@ -1142,9 +1198,6 @@ class DatabaseClient:
         a user's visible file tree.
         """
         from matrx_orm import Q
-        from matrx_orm.core.expressions import DbFunction, F, Is
-
-        from matrx_files.user_visible import path_visible_filters, row_visible_filters
 
         mf, _ = _models()
         q = mf.Files.filter(created_by=owner_id)
@@ -1156,24 +1209,7 @@ class DatabaseClient:
         q = q.filter(updated_at__lte=stability_cutoff)
         if not include_deleted:
             q = q.filter(deleted_at__isnull=True)
-        # The "not derived" half of THE rule is unconditional: `include_system`
-        # means "ignore the path half", and it never re-admits derivative rows
-        # (824 alive rows are parentless variants, so both columns are needed).
-        q = q.filter(**row_visible_filters())
-        if not include_system:
-            # The path half, one declaration (matrx_files.user_visible).
-            # `file_path__user_visible` is matrx-orm's registered path-family lookup:
-            # it emits `files.is_user_visible_path(file_path) = $n` verbatim, which is
-            # the SAME expression idx_files_sync_feed_owner_updated_id is partial over.
-            # Spelling it as NOT LIKE conjuncts does not imply the index predicate and
-            # costs the scan (measured live: 11,177 with a Sort against 13.83).
-            q = q.filter(**path_visible_filters())
-        # Crawl artifacts are a PROVENANCE test, not an access shape (S2), so they
-        # stay a separate conjunct and are excluded even when include_system is on:
-        # scraped page bytes are never a user's file. The partial index has already
-        # narrowed the scan, so this per-row cross-schema EXISTS runs over the page,
-        # not the table (0 of 8,868 candidate rows on the heaviest owner).
-        q = q.filter(Is(DbFunction("files.is_crawl_artifact", F("id")), False))
+        q = _sync_visible(q, include_system=include_system)
         if cursor_ts is not None:
             if cursor_id:
                 q = q.filter(
@@ -1183,6 +1219,61 @@ class DatabaseClient:
                 q = q.filter(updated_at__gt=cursor_ts)
         rows = await q.order_by("updated_at", "id").limit(limit).values(*_SYNC_CHANGE_FIELDS)
         return _vals(rows)
+
+    async def list_sync_relocations_async(
+        self,
+        owner_id: str,
+        *,
+        after_ts: datetime | None,
+        after_id: str | None,
+        include_system: bool = False,
+        limit: int = 500,
+    ) -> tuple[list[dict], tuple[datetime, str] | None]:
+        """The feed's second source: files the placement mover relocated (``files.file_pathway_move``).
+
+        The mover keeps ``updated_at`` (the person's dates and Recents order stay), so the
+        ``(updated_at, id)`` keyset alone never re-delivers a moved row. Each ledger mark after
+        ``(after_ts, after_id)`` yields the file's CURRENT state: visible under the same rule as the
+        main feed → the row (a device renames by file id); not visible → a tombstone (``deleted_at``
+        = the mark's ``feed_at`` when the row itself is alive). Returns the entries and the last
+        mark's position (``None`` when no mark was read), which the cursor carries.
+        """
+        until = datetime.now(UTC) - timedelta(seconds=10)  # the main feed's stability lag
+        marks = await self._rpc(
+            "files", "file_sync_relocations", owner_id, after_ts, after_id or None, until, limit,
+            mode="rows",
+        ) or []
+        if not marks:
+            return [], None
+        last = marks[-1]
+        last_pos = (last["feed_at"], str(last["ledger_id"]))
+        ids = list(dict.fromkeys(str(m["file_id"]) for m in marks))
+        mf, _ = _models()
+        rows = _vals(
+            await mf.Files.filter(created_by=owner_id, id__in=ids).values(*_SYNC_CHANGE_FIELDS)
+        )
+        visible_q = _sync_visible(
+            mf.Files.filter(created_by=owner_id, id__in=ids, deleted_at__isnull=True),
+            include_system=include_system,
+        )
+        visible = {str(r["id"]) for r in _vals(await visible_q.values("id"))}
+        by_id = {str(r["id"]): r for r in rows}
+        out: list[dict] = []
+        seen: set[str] = set()
+        for m in marks:
+            fid = str(m["file_id"])
+            row = by_id.get(fid)
+            if row is None or fid in seen:  # hard-deleted (its tombstone rode the main feed) or repeated
+                continue
+            seen.add(fid)
+            entry = dict(row)
+            if fid not in visible and entry.get("deleted_at") is None:
+                entry["deleted_at"] = m["feed_at"]
+            # The mark's ledger position: ``sync_feed`` merges marks and keyset rows into ONE
+            # causal stream by it (never on the wire).
+            entry["_move_pos"] = (m["feed_at"], str(m["ledger_id"]))
+            out.append(entry)
+        return out, last_pos
 
     async def list_all_folders_async(
         self,
@@ -1216,15 +1307,15 @@ class DatabaseClient:
         if not include_deleted:
             q = q.filter(deleted_at__isnull=True)
         if not include_system:
-            # THE folder rule, one declaration (matrx_files.user_visible
-            # FOLDER_CONJUNCTS -> files.is_user_visible_folder_path): the system
-            # namespaces AND the machine namespaces (coding-sessions/, tool-images/),
-            # the same call the browser tree's folder branch makes (D16).
+            # THE FILE FEED'S path rule, applied to the folder path (placement registry, 2026-10-30):
+            # files.is_user_visible_path excludes system-files/, generations/, .matrx-tmp/ and the
+            # machine namespaces. The folder predicate keeps .matrx-tmp folders in scope, so a device
+            # built empty .matrx-tmp/ folders the file feed never filled — one rule for both halves.
             from matrx_orm.core.expressions import DbFunction, F, Is
 
-            from matrx_files.user_visible import FOLDER_PREDICATE_FUNCTION
+            from matrx_files.user_visible import PATH_PREDICATE_FUNCTION
 
-            q = q.filter(Is(DbFunction(FOLDER_PREDICATE_FUNCTION, F("folder_path")), True))
+            q = q.filter(Is(DbFunction(PATH_PREDICATE_FUNCTION, F("folder_path")), True))
         if cursor_ts is not None:
             if cursor_id:
                 q = q.filter(
@@ -1278,7 +1369,7 @@ class DatabaseClient:
         q = mf.Files.filter(parent_folder_id__in=list(folder_ids))
         if not include_deleted:
             q = q.filter(deleted_at__isnull=True)
-        return self._owner_from_db_many(_rows(await q.all()))
+        return await _owner_rows_off_loop(await q.all())
 
     def list_variants_by_master(self, master_file_id: str) -> list[dict]:
         """Every files.files row whose metadata.derived_from == master_file_id.
@@ -1292,21 +1383,29 @@ class DatabaseClient:
             _rows(
                 mf.Files.filter(
                     metadata__json_key=("derived_from", master_file_id),
+                    # States the partial index's own predicate (idx_cld_files_derived_from): without it the planner
+                    # scans ~170 ms per master instead of 0.04 ms (every list endpoint asks once per file).
+                    metadata__json_has_key="derived_from",
                     deleted_at__isnull=True,
                 ).all_sync()
             )
         )
 
-    async def list_variants_by_master_async(self, master_file_id: str) -> list[dict]:
+    async def list_variants_by_master_async(
+        self, master_file_id: str, *, include_deleted: bool = False
+    ) -> list[dict]:
+        """The master's variant rows. ``include_deleted`` keeps trashed variants too — only for a TRASHED master,
+        whose variants went to the Trash with it (a folder Delete trashes its whole subtree, ``v/`` included)."""
         mf, _ = _models()
-        return self._owner_from_db_many(
-            _rows(
-                await mf.Files.filter(
-                    metadata__json_key=("derived_from", master_file_id),
-                    deleted_at__isnull=True,
-                ).all()
-            )
-        )
+        flt: dict[str, Any] = {
+            "metadata__json_key": ("derived_from", master_file_id),
+            # States the partial index's own predicate (idx_cld_files_derived_from): without it the planner
+            # scans ~170 ms per master instead of 0.04 ms (every list endpoint asks once per file).
+            "metadata__json_has_key": "derived_from",
+        }
+        if not include_deleted:
+            flt["deleted_at__isnull"] = True
+        return self._owner_from_db_many(_rows(await mf.Files.filter(**flt).all()))
 
     # ==================================================================
     # FOLDERS
@@ -1461,7 +1560,10 @@ class DatabaseClient:
         """Insert a folder without overwriting a concurrent path winner."""
         mf, _ = _models()
         cleaned = self._owner_to_db(self._strip_none(_with_system_folder_marker(data)))
-        return self._owner_from_db(_row(await mf.Folders.create(**cleaned)))
+        from matrx_orm.core.transaction import savepoint
+
+        async with savepoint(if_in_transaction=True):
+            return self._owner_from_db(_row(await mf.Folders.create(**cleaned)))
 
     def upsert_folder(self, data: dict) -> dict:
         mf, _ = _models()
@@ -1495,7 +1597,7 @@ class DatabaseClient:
             q = q.filter(parent_id__in=parent_id)
         elif parent_id is not None:
             q = q.filter(parent_id=parent_id)
-        return self._owner_from_db_many(_rows(await q.order_by("folder_path").all()))
+        return await _owner_rows_off_loop(await q.order_by("folder_path").all())
 
     # ==================================================================
     # VERSIONS
@@ -1922,3 +2024,36 @@ class DatabaseClient:
     # was removed in the 2026 DB canonicalization — those tables are
     # deprecated and the group methods that used them are gone. File ACLs
     # are direct user/org grants in iam.permissions only.
+
+
+_UNIQUE_KEY_RE = None
+
+
+def conflicting_path(exc: BaseException) -> str:
+    """The PATH a unique violation collided on — never the raw Postgres text.
+
+    Postgres names it in the error DETAIL: ``Key (owner_id, file_path)=(<uuid>,
+    docs/a.txt) already exists.`` The conflict message used to embed the whole
+    error string ("A file already exists at path 'duplicate key value
+    violates…'"). Falls back to "the destination" when no path column is named.
+    """
+    import re
+
+    global _UNIQUE_KEY_RE
+    if _UNIQUE_KEY_RE is None:
+        _UNIQUE_KEY_RE = re.compile(r"Key \((?P<cols>[^)]*)\)=\((?P<vals>.*)\) already exists")
+    text = " ".join(
+        str(part)
+        for part in (getattr(exc, "detail", None), getattr(exc, "message", None), str(exc))
+        if part
+    )
+    m = _UNIQUE_KEY_RE.search(text)
+    if m:
+        cols = [c.strip() for c in m.group("cols").split(",")]
+        # Values are comma-joined; the path is the LAST column in every files
+        # unique key, and may itself contain commas — so split only len-1 times.
+        vals = m.group("vals").split(", ", len(cols) - 1)
+        for col, val in zip(cols, vals):
+            if col in ("file_path", "folder_path"):
+                return val
+    return "the destination"

@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import pytest
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 from nab_provider._provider import listing as listing_mod
 from nab_provider._provider import listing_diagnosis as diagnosis_mod
@@ -24,8 +26,6 @@ from nab_provider._provider.listing_diagnosis import (
     OverrideLayer,
     ReasonKind,
 )
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.diagnostics import Diagnostic
 from nab_provider.errors import InvalidUploadTimeError
 from nab_provider.overrides import IndexOverride
@@ -42,11 +42,15 @@ from nab_provider.target import ResolveTarget
 from nab_provider.testing import make_coordinator, make_sdist, make_wheel, pkg_override
 from nab_provider.value import field_names
 
+from .provider_fixtures import short_reason
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from nab_provider._vendor.packaging.ranges import VersionRange
+    from packaging.ranges import VersionRange
+
     from nab_provider.provider import DistFile
+
 
 CUTOFF = datetime(2026, 5, 1, tzinfo=timezone.utc)
 EARLY_CUTOFF = datetime(2015, 1, 1, tzinfo=timezone.utc)
@@ -60,12 +64,6 @@ WITH_CUTOFF: dict[str, object] = {"uploaded_prior_to": CUTOFF}
 _LINUX312 = ResolveTarget.for_declared(
     python_version="3.12", spec=PlatformSpec("linux_x86_64")
 )
-
-
-def short_reason(provider: Provider, package: str) -> str | None:
-    """Return the one line ``package``'s diagnostic prints at default verbosity."""
-    diagnostic = provider.get_no_versions_reason(package)
-    return None if diagnostic is None else diagnostic.short
 
 
 def wheel(
@@ -100,6 +98,29 @@ def build(files: Sequence[WheelFile | SdistFile], **kwargs: object) -> Provider:
 def render(diagnostic: Diagnostic) -> str:
     """Return an entry as one string: the line, then everything ``-v`` adds."""
     return "\n".join(diagnostic.lines(verbose=True))
+
+
+@pytest.mark.parametrize("package", ["pkg", "pkg[feature]"])
+def test_absent_package_remembers_which_index_was_asked(package: str) -> None:
+    port = make_coordinator(listings={"pkg": []})
+    port.index.store_listing_index("pkg", "internal", pinned=True)
+    first = Provider(port)
+    allowed = SpecifierSet("").to_range()
+    assert first.choose_version(package, allowed) is None
+
+    port.index.store_listing_index("pkg", "public", pinned=False)
+    second = Provider(port)
+    assert second.choose_version(package, allowed) is None
+
+    old = first.get_no_versions_reason(package)
+    current = second.get_no_versions_reason(package)
+    assert old is not None
+    assert current is not None
+    assert (
+        old.short
+        == "not found on index 'internal', the only index this package is routed to"
+    )
+    assert current.short == "package not found on any configured index"
 
 
 def diagnostic_for(
@@ -1221,10 +1242,22 @@ class TestTheTryLine:
             ("pypi", '"pypi"'),
             ("corp mirror", '"corp mirror"'),
             ("my.index", '"my.index"'),
-            ('corp "the" mirror', "'corp \"the\" mirror'"),
+            ('corp "the" mirror', r'"corp \"the\" mirror"'),
             ('it\'s "ours"', '"it\'s \\"ours\\""'),
+            (r"team\build", r'"team\\build"'),
+            ("team\nmirror", r'"team\nmirror"'),
+            ("mirror\x7f📦", '"mirror\\u007f📦"'),
         ],
-        ids=["bare", "spaced", "dotted", "quoted", "both-quotes"],
+        ids=[
+            "bare",
+            "spaced",
+            "dotted",
+            "quoted",
+            "both-quotes",
+            "backslash",
+            "newline",
+            "unicode",
+        ],
     )
     def test_a_per_index_cutoff_quotes_whatever_the_index_is_called(
         self, index_name: str, key: str
@@ -1481,6 +1514,49 @@ class TestTheLadderSdistLine:
 
 class TestTheInRangeLead:
     """Which filters dropped the release the requirement asked for."""
+
+    @pytest.mark.parametrize(
+        ("spec", "short"),
+        [
+            (">=3", "no version matches the requirement"),
+            ("==2", "no wheel in range matches this platform or Python"),
+        ],
+    )
+    def test_empty_listing_omits_out_of_range_policy_repairs(
+        self, spec: str, short: str
+    ) -> None:
+        files = [sdist("1"), wheel("2", tag="cp312-cp312-win_amd64")]
+        diagnostic = diagnostic_for(
+            files, spec=spec, target=_LINUX312, dist_policy=DistPolicy.WHEEL_ONLY
+        )
+
+        assert diagnostic.short == short
+        assert not diagnostic.suggestions
+
+    def test_constraint_scopes_the_listing_report_for_a_broad_failure(self) -> None:
+        constraint = SpecifierSet("==2").to_range()
+        provider = build(
+            [sdist("1"), wheel("2", tag="cp312-cp312-win_amd64")],
+            target=_LINUX312,
+            dist_policy=DistPolicy.WHEEL_ONLY,
+            constraints={"pkg": constraint},
+        )
+        assert provider.choose_version("pkg", constraint) is None
+        diagnostic = provider.get_no_versions_reason("pkg", SpecifierSet("").to_range())
+
+        assert diagnostic is not None
+        assert diagnostic.short == "no wheel in range matches this platform or Python"
+        assert not diagnostic.suggestions
+
+    def test_literal_range_explains_only_the_matching_version_text(self) -> None:
+        diagnostic = diagnostic_for(
+            [sdist("1"), wheel("1.0.0", tag="cp312-cp312-win_amd64")],
+            spec="===1.0.0",
+            target=_LINUX312,
+            dist_policy=DistPolicy.WHEEL_ONLY,
+        )
+        assert diagnostic.short == "no wheel in range matches this platform or Python"
+        assert not diagnostic.suggestions
 
     def test_two_filters_read_as_a_pair(self) -> None:
         reason = reason_for(
@@ -1987,12 +2063,6 @@ def ladder_entry() -> Diagnostic:
     return entry
 
 
-def extra_entry(kind: str, **kwargs: object) -> Diagnostic:
-    """The entry an extras proxy gets for one of its three markers."""
-    recorded = NoVersionsReason(kind, **kwargs)  # type: ignore[arg-type]
-    return diagnosis_mod.extra_diagnostic("foo", "bar", recorded, "<1.5")
-
-
 def every_shape() -> dict[str, Diagnostic]:
     """Return representative entries for the report rendering checks."""
     blocked = [blocker("bar", diagnosis_mod.BlockerKind.DECIDED)]
@@ -2116,11 +2186,22 @@ def every_shape() -> dict[str, Diagnostic]:
         "metadata": diagnosis_mod.blockers_diagnostic(
             build([wheel("1.0")]), "pkg", [], unreadable
         ),
-        "extra-undeclared": extra_entry(
-            ReasonKind.EXTRA_UNDECLARED, version_range=SpecifierSet(">=1.0").to_range()
+        "extra-undeclared": diagnosis_mod.extra_diagnostic(
+            diagnosis_mod.ExtraFailure("foo", "bar", ReasonKind.EXTRA_UNDECLARED),
+            "<1.5",
         ),
-        "extra-metadata": extra_entry(ReasonKind.EXTRA_METADATA, metadata=unreadable),
-        "extra-narrowed": extra_entry(ReasonKind.EXTRA_NARROWED),
+        "extra-metadata": diagnosis_mod.extra_diagnostic(
+            diagnosis_mod.ExtraFailure(
+                "foo", "bar", ReasonKind.EXTRA_METADATA, metadata=unreadable
+            ),
+            "",
+        ),
+        "extra-narrowed": diagnosis_mod.extra_diagnostic(
+            diagnosis_mod.ExtraFailure(
+                "foo", "bar", ReasonKind.EXTRA_NARROWED, declaring_version=Version("2")
+            ),
+            "",
+        ),
     }
 
 
@@ -2149,3 +2230,37 @@ class TestTheTwoDepths:
         internal = re.compile(r"\b(root|rung|walk|walked|predicate|marker)\b")
         for line in (entry.short, *entry.detail):
             assert internal.search(line) is None, line
+
+
+def test_sdist_diagnostic_without_a_listing() -> None:
+    port = make_coordinator(pending_listings={"pkg": [sdist("1.0", upload_time=AFTER)]})
+    provider = Provider(port, uploaded_prior_to=CUTOFF)
+    assert provider.filtered_sdist_diagnostic("pkg", Version("1.0")) is None
+
+    provider.fetch_versions("pkg")
+    diagnostic = provider.filtered_sdist_diagnostic("pkg", Version("1.0"))
+    assert diagnostic is not None
+    assert "uploaded-prior-to" in diagnostic.short
+
+
+def test_extra_failure_requires_an_extra_package() -> None:
+    provider = Provider(make_coordinator())
+    with pytest.raises(ValueError, match="extra failure for 'pkg'"):
+        provider.record_extra_no_versions("pkg", ReasonKind.EXTRA_UNDECLARED)
+
+
+def test_narrowed_extra_requires_the_declaring_version() -> None:
+    provider = Provider(make_coordinator())
+    with pytest.raises(ValueError, match=r"pkg\[fast\] requires its declaring version"):
+        provider.record_extra_no_versions("pkg[fast]", ReasonKind.EXTRA_NARROWED)
+
+
+def test_empty_replacement_listing_cannot_explain_an_earlier_filter() -> None:
+    port = make_coordinator([sdist("1.0", upload_time=AFTER)])
+    provider = Provider(port, uploaded_prior_to=CUTOFF)
+    assert provider.choose_version("pkg", SpecifierSet("==1").to_range()) is None
+
+    port.index.store_listing("pkg", [])
+    reason = provider.get_no_versions_reason("pkg")
+    assert reason is not None
+    assert reason.short == "no version matches the requirement"

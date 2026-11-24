@@ -261,6 +261,10 @@ class CreateAggregateBackfillV2Request(_message.Message):
         "mode",
         "num_shards",
         "store_online_summaries",
+        "override_target_image_tag",
+        "use_metaplanner",
+        "include_partial_bucket",
+        "branch",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -286,6 +290,10 @@ class CreateAggregateBackfillV2Request(_message.Message):
     MODE_FIELD_NUMBER: _ClassVar[int]
     NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
     STORE_ONLINE_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_TARGET_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
+    USE_METAPLANNER_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_PARTIAL_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FIELD_NUMBER: _ClassVar[int]
     features: _containers.RepeatedScalarFieldContainer[str]
     resolver: str
     input_sql: str
@@ -302,6 +310,10 @@ class CreateAggregateBackfillV2Request(_message.Message):
     mode: AggregateBackfillMode
     num_shards: int
     store_online_summaries: bool
+    override_target_image_tag: str
+    use_metaplanner: bool
+    include_partial_bucket: bool
+    branch: str
     def __init__(
         self,
         features: _Optional[_Iterable[str]] = ...,
@@ -320,6 +332,40 @@ class CreateAggregateBackfillV2Request(_message.Message):
         mode: _Optional[_Union[AggregateBackfillMode, str]] = ...,
         num_shards: _Optional[int] = ...,
         store_online_summaries: bool = ...,
+        override_target_image_tag: _Optional[str] = ...,
+        use_metaplanner: bool = ...,
+        include_partial_bucket: bool = ...,
+        branch: _Optional[str] = ...,
+    ) -> None: ...
+
+class BackfillTileSeriesGapsRequest(_message.Message):
+    __slots__ = ("gaps", "resource_group", "mode")
+    GAPS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    gaps: _containers.RepeatedCompositeFieldContainer[_backfill_pb2.TileSeriesGap]
+    resource_group: str
+    mode: AggregateBackfillMode
+    def __init__(
+        self,
+        gaps: _Optional[_Iterable[_Union[_backfill_pb2.TileSeriesGap, _Mapping]]] = ...,
+        resource_group: _Optional[str] = ...,
+        mode: _Optional[_Union[AggregateBackfillMode, str]] = ...,
+    ) -> None: ...
+
+class BackfillTileSeriesGapsResponse(_message.Message):
+    __slots__ = ("results", "backfills", "max_backfill_count")
+    RESULTS_FIELD_NUMBER: _ClassVar[int]
+    BACKFILLS_FIELD_NUMBER: _ClassVar[int]
+    MAX_BACKFILL_COUNT_FIELD_NUMBER: _ClassVar[int]
+    results: _containers.RepeatedCompositeFieldContainer[_backfill_pb2.TileSeriesGapBackfillResult]
+    backfills: _containers.RepeatedCompositeFieldContainer[_backfill_pb2.TileSeriesGapBackfill]
+    max_backfill_count: int
+    def __init__(
+        self,
+        results: _Optional[_Iterable[_Union[_backfill_pb2.TileSeriesGapBackfillResult, _Mapping]]] = ...,
+        backfills: _Optional[_Iterable[_Union[_backfill_pb2.TileSeriesGapBackfill, _Mapping]]] = ...,
+        max_backfill_count: _Optional[int] = ...,
     ) -> None: ...
 
 class CreateAggregateBackfillV2Response(_message.Message):

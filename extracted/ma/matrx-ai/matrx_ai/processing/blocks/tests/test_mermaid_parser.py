@@ -117,7 +117,7 @@ class TestDetectorIntegration:
     def test_json_diagram_block_unaffected(self):
         content = '```json\n{"diagram": {"title": "T", "nodes": [{"id": "a", "label": "A"}]}}\n```'
         blocks = split_content_into_blocks(content)
-        assert any(b.type == "diagram" for b in blocks)
+        assert not any(b.type == "diagram" for b in blocks)  # LEGACY-5: plain JSON code
         assert not any(b.type == "mermaid" for b in blocks)
 
     def test_plain_code_fence_unaffected(self):

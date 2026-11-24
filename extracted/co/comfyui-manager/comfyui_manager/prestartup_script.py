@@ -279,6 +279,7 @@ try:
             self.is_stdout = is_stdout
             self.encoding = "utf-8"
             self.last_char = ''
+            self.console_is_gone = False
 
         def fileno(self):
             try:
@@ -352,12 +353,29 @@ try:
                     if '100%' in message:
                         self.sync_write(message)
                     else:
-                        write_stderr(message)
-                        original_stderr.flush()
+                        self.write_console(message)
                 else:
                     self.sync_write(message)
             else:
                 self.sync_write(message)
+
+        def write_console(self, message):
+            # A console that is gone does not come back, and ComfyUI's stream keeps every write
+            # it could not flush, so it is not written to again.
+            if self.console_is_gone:
+                return
+
+            try:
+                if self.is_stdout:
+                    write_stdout(message)
+                    original_stdout.flush()
+                else:
+                    write_stderr(message)
+                    original_stderr.flush()
+            except BlockingIOError:
+                pass
+            except OSError:
+                self.console_is_gone = True
 
         def sync_write(self, message, file_only=False):
             with log_lock:
@@ -378,12 +396,7 @@ try:
 
             if not file_only:
                 with std_log_lock:
-                    if self.is_stdout:
-                        write_stdout(message)
-                        original_stdout.flush()
-                    else:
-                        write_stderr(message)
-                        original_stderr.flush()
+                    self.write_console(message)
 
         def flush(self):
             try:
@@ -439,8 +452,12 @@ try:
             try:
                 message = record.getMessage()
             except Exception as e:
-                message = f"<<logging error>>: {record} - {e}"
-                original_stderr.write(message)
+                try:
+                    error = f"{type(e).__name__}: {e}"
+                except Exception:
+                    # an error can carry the message that cannot be turned into text
+                    error = type(e).__name__
+                message = f"<<logging error>>: {record.pathname}:{record.lineno} - {error}"
 
             if is_start_mode:
                 match = re.search(pat_import_fail, message)
@@ -531,7 +548,7 @@ script_list_path = os.path.join(manager_files_path, "startup-scripts", "install-
 pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
 
 
-def is_installed(name):
+def is_installed(name, reinstall=False):
     name = name.strip()
 
     if name.startswith('#'):
@@ -544,8 +561,14 @@ def is_installed(name):
         return True
 
     pkg_name, extras, clauses = manager_util.parse_pip_spec(name)
-    if pkg_name is None or extras:
-        return False  # not a plain named requirement, or extras to add: let pip decide
+    if extras:
+        return False  # extras to add: let pip decide
+
+    if clauses and clauses[0][0] == '@':
+        return not reinstall and manager_util.installed_from(clauses[0][1], pkg_name) is not None
+
+    if pkg_name is None:
+        return False  # a path or an option: let pip decide
 
     pkg = manager_util.get_installed_packages().get(pkg_name)
     if pkg is None:
@@ -753,20 +776,26 @@ def execute_startup_script():
                         execute_lazy_delete(script[2])
 
                 elif os.path.exists(script[0]):
+                    reinstall = False
                     if script[1] == "#FORCE":
                         del script[1]
                     else:
+                        reinstall = manager_util.is_reinstall(script[1:])
                         requirement = manager_util.pip_install_requirement(script[1:])
-                        if requirement is not None and is_installed(requirement):
+                        if requirement is not None and is_installed(requirement, reinstall):
                             continue
 
-                    print(f"\n## ComfyUI-Manager: EXECUTE => {script[1:]}")
+                    if not reinstall:
+                        print(f"\n## ComfyUI-Manager: EXECUTE => {script[1:]}")
                     print(f"\n## Execute management script for '{script[0]}'")
 
                     new_env = os.environ.copy()
                     if 'COMFYUI_FOLDERS_BASE_PATH' not in new_env:
                         new_env["COMFYUI_FOLDERS_BASE_PATH"] = comfy_path
-                    exit_code = process_wrap(script[1:], script[0], env=new_env)
+                    if reinstall:
+                        exit_code = manager_util.reinstall(script[1:], lambda cmd: process_wrap(cmd, script[0], env=new_env))
+                    else:
+                        exit_code = process_wrap(script[1:], script[0], env=new_env)
 
                     if exit_code != 0:
                         print(f"management script failed: {script[0]}")

@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from matrx_connect.context.data_types import DataPayload
+from matrx_connect.context.graph_ops import GraphOpEvent
 from matrx_connect.context.events import (
     CitationPayload,
     ContextAnalysisPayload,
@@ -34,6 +35,7 @@ from matrx_connect.context.events import (
 )
 from matrx_connect.context.operations import CompletionPayload, InitPayload
 from matrx_connect.context.phases import Phase
+from matrx_connect.emitters._turn_thinking import turn_thinking_clock
 
 
 class SilentEmitter:
@@ -70,13 +72,26 @@ class SilentEmitter:
 
     def reset_turn_text(self) -> None:
         self._turn_text_acc = []
+        self._turn_reasoning_chars = 0
+        turn_thinking_clock(self).reset()
 
     def get_turn_text(self) -> str:
         return "".join(self._turn_text_acc)
 
-    async def send_reasoning_chunk(self, text: str) -> None: ...
+    def get_turn_thinking_ms(self) -> int:
+        """This provider call's thinking time (reasoning-start frame -> stop, or now): bills hidden thinking."""
+        return turn_thinking_clock(self).elapsed_ms()
 
-    async def send_reasoning_state(self, state: ReasoningState) -> None: ...
+    def get_turn_reasoning_chars(self) -> int:
+        return getattr(self, "_turn_reasoning_chars", 0)
+
+    async def send_reasoning_chunk(self, text: str) -> None:
+        # A length only (billing a stopped call's thinking), never the text: still muted.
+        if isinstance(text, str):
+            self._turn_reasoning_chars = self.get_turn_reasoning_chars() + len(text)
+
+    async def send_reasoning_state(self, state: ReasoningState) -> None:
+        turn_thinking_clock(self).signal(state)
 
     async def send_phase(self, phase: Phase) -> None: ...
 
@@ -122,6 +137,8 @@ class SilentEmitter:
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> None: ...
+
+    async def send_graph_op(self, payload: GraphOpEvent) -> None: ...
 
     async def send_structured_output(self, payload: StructuredOutputPayload) -> None: ...
 

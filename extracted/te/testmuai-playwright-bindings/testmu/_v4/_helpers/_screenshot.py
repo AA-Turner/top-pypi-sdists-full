@@ -42,6 +42,8 @@ async def take_screenshot(
 ) -> bytes:
     """Page.screenshot with binding defaults. Returns raw bytes."""
     await page.wait_for_timeout(_SETTLE_MS)
+    from testmu._v4._helpers._perception import perception_for
+    await perception_for(page).before_screenshot()
     q = quality if type == "jpeg" else None
     omit_bg = omit_background if type == "png" else None
     return await page.screenshot(

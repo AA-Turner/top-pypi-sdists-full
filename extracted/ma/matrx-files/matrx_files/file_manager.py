@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -14,15 +13,6 @@ from .specific_handlers.text_handler import TextHandler
 from .specific_handlers.image_handler import (
     ImageHandler,
     ImageVariant,
-    PODCAST_VARIANTS,
-    SOCIAL_VARIANTS,
-    WEB_VARIANTS,
-    EMAIL_VARIANTS,
-    LOGO_VARIANTS,
-    AVATAR_VARIANTS,
-    FAVICON_VARIANTS,
-    SOCIAL_BASELINE,
-    ALL_VARIANTS,
 )
 from .specific_handlers.video_handler import VideoHandler
 from .batch_handler import BatchHandler
@@ -162,14 +152,21 @@ class FileManager:
                                     presigned_ttl_seconds=presigned_ttl_seconds)
 
     async def resolve_media_async(self, ref, *, needs_bytes: bool = False,
-                                   presigned_ttl_seconds: int = 3600):
-        """Async variant. Same idempotency + caching guarantees."""
+                                   presigned_ttl_seconds: int = 3600,
+                                   external_max_bytes: int | None = None,
+                                   external_timeout_seconds: float | None = None):
+        """Async variant. Same idempotency + caching guarantees.
+
+        ``external_max_bytes`` / ``external_timeout_seconds`` bound the download of a genuinely
+        external URL (a host passes its own knob values); omitted, the package ceilings apply."""
         from .cloud_sync.media_ref import MediaRef
         from .cloud_sync._media_resolution import _resolve_media_async_impl
         if not isinstance(ref, MediaRef):
             raise TypeError(f"resolve_media_async expects MediaRef, got {type(ref).__name__}")
         return await _resolve_media_async_impl(self, ref, needs_bytes=needs_bytes,
-                                                presigned_ttl_seconds=presigned_ttl_seconds)
+                                                presigned_ttl_seconds=presigned_ttl_seconds,
+                                                external_max_bytes=external_max_bytes,
+                                                external_timeout_seconds=external_timeout_seconds)
 
     # ==================================================================
     # VARIANTS — derived files written to cld_files alongside the master.
@@ -647,9 +644,9 @@ class FileManager:
     async def process_image_variants_async(
         self,
         image_bytes: bytes,
-        variants: "list[ImageVariant]",
+        variants: list[ImageVariant],
         folder_uri: str,
-    ) -> "dict[str, str]":
+    ) -> dict[str, str]:
         """Resize image to all variants, upload each to cloud, return public URLs.
 
         Delegates to ImageHandler.process_variants_async(). CPU work runs in a

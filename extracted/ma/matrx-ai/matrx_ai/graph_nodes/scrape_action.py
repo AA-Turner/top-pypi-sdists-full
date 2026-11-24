@@ -79,6 +79,16 @@ async def ai_scrape_web(
             content = str(result)
 
         is_good_scrape = bool(content.strip())
+        if not is_good_scrape:
+            # A page that loaded with no readable text is not a scrape: it used to return Success
+            # with is_good_scrape=False, so a workflow carried an empty page on as if it were
+            # content and a model downstream read nothing (E5). The engine has no partial
+            # outcome; a declared failure is what its error edges, fan-in holes and run page show.
+            return failure(
+                "empty_page",
+                f"{inputs.url} loaded but carried no readable text.",
+                details={"url": inputs.url, "failure_reason": "empty_page"},
+            )
 
         if isinstance(content, str) and len(content) > inputs.max_content_length:
             content = content[: inputs.max_content_length] + "\n...[truncated]"

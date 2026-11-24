@@ -26,6 +26,14 @@ class TextPart(BaseModel):
   """Identifies a text content part."""
 
 
+class TrajectoryDecisionChoice(BaseModel):
+  value: str
+
+  probability: float
+
+  description: str | None = None
+
+
 class Message(BaseModel):
   message_id: int
 
@@ -47,6 +55,19 @@ class Message(BaseModel):
   completion_tokens: int | None = None
 
 
+class TrajectoryDecision(BaseModel):
+  name: str
+
+  selected_choice: str
+
+  instructions: str | None = None
+
+  choices: list[TrajectoryDecisionChoice]
+
+  has_request_order: bool = False
+  """Whether choices are in the original request order."""
+
+
 class Step(BaseModel):
   step_index: int
 
@@ -55,3 +76,6 @@ class Step(BaseModel):
   has_error: bool = False
 
   messages: list[Message] | None = None
+
+  decision: TrajectoryDecision | None = None
+  """The recorded decision when requested and available."""

@@ -106,6 +106,11 @@ class AuthServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenResponse.FromString,
         )
+        self.ReportEmailCodeSignInRefusal = channel.unary_unary(
+            "/chalk.server.v1.AuthService/ReportEmailCodeSignInRefusal",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.ReportEmailCodeSignInRefusalRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.ReportEmailCodeSignInRefusalResponse.FromString,
+        )
         self.UpsertUserByEmail = channel.unary_unary(
             "/chalk.server.v1.AuthService/UpsertUserByEmail",
             request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailRequest.SerializeToString,
@@ -115,6 +120,11 @@ class AuthServiceStub(object):
             "/chalk.server.v1.AuthService/SelfServiceCreateTeam",
             request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamResponse.FromString,
+        )
+        self.GetSelfServiceStatus = channel.unary_unary(
+            "/chalk.server.v1.AuthService/GetSelfServiceStatus",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetSelfServiceStatusRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetSelfServiceStatusResponse.FromString,
         )
         self.GetTeamOnboardingStatus = channel.unary_unary(
             "/chalk.server.v1.AuthService/GetTeamOnboardingStatus",
@@ -269,6 +279,12 @@ class AuthServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ReportEmailCodeSignInRefusal(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def UpsertUserByEmail(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -276,6 +292,12 @@ class AuthServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def SelfServiceCreateTeam(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetSelfServiceStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -424,6 +446,11 @@ def add_AuthServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenResponse.SerializeToString,
         ),
+        "ReportEmailCodeSignInRefusal": grpc.unary_unary_rpc_method_handler(
+            servicer.ReportEmailCodeSignInRefusal,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.ReportEmailCodeSignInRefusalRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.ReportEmailCodeSignInRefusalResponse.SerializeToString,
+        ),
         "UpsertUserByEmail": grpc.unary_unary_rpc_method_handler(
             servicer.UpsertUserByEmail,
             request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailRequest.FromString,
@@ -433,6 +460,11 @@ def add_AuthServiceServicer_to_server(servicer, server):
             servicer.SelfServiceCreateTeam,
             request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamResponse.SerializeToString,
+        ),
+        "GetSelfServiceStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSelfServiceStatus,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetSelfServiceStatusRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetSelfServiceStatusResponse.SerializeToString,
         ),
         "GetTeamOnboardingStatus": grpc.unary_unary_rpc_method_handler(
             servicer.GetTeamOnboardingStatus,
@@ -1006,6 +1038,35 @@ class AuthService(object):
         )
 
     @staticmethod
+    def ReportEmailCodeSignInRefusal(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/ReportEmailCodeSignInRefusal",
+            chalk_dot_server_dot_v1_dot_auth__pb2.ReportEmailCodeSignInRefusalRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.ReportEmailCodeSignInRefusalResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def UpsertUserByEmail(
         request,
         target,
@@ -1053,6 +1114,35 @@ class AuthService(object):
             "/chalk.server.v1.AuthService/SelfServiceCreateTeam",
             chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSelfServiceStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/GetSelfServiceStatus",
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetSelfServiceStatusRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetSelfServiceStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

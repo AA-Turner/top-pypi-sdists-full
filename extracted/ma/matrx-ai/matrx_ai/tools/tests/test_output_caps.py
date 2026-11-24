@@ -8,6 +8,8 @@ Pins the building blocks of the tool-result size gate:
 
 from __future__ import annotations
 
+import json
+
 from matrx_ai.tools.models import ToolResult
 from matrx_ai.tools.output_caps import (
     TOOL_RESULT_ABSOLUTE_CEILING_CHARS,
@@ -94,3 +96,23 @@ def test_toolresult_can_declare_self_management() -> None:
     )
     assert r.output_self_capped is True
     assert r.approved_max_chars == 80_000
+
+
+def test_cap_list_also_bounds_serialized_size_not_just_row_count() -> None:
+    """Live 2026-11-15 ``tool_result_overflow:task``: 200 rows of long titles = 62K chars under a count-only cap."""
+    from matrx_ai.tools.output_caps import TOOL_LIST_MAX_CHARS, cap_list
+
+    rows = [{"id": str(i), "title": "T" * 300} for i in range(200)]
+    shown, info = cap_list(rows)
+
+    assert len(json.dumps(shown, separators=(",", ":"))) <= TOOL_LIST_MAX_CHARS
+    assert 0 < info.shown < 200
+    assert info.total == 200
+    assert info.truncated is True
+
+
+def test_cap_list_small_rows_still_return_every_row_up_to_the_count() -> None:
+    from matrx_ai.tools.output_caps import cap_list
+
+    shown, info = cap_list([{"id": i} for i in range(50)])
+    assert len(shown) == 50 and info.truncated is False

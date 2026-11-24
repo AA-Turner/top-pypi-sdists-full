@@ -67,6 +67,9 @@ _config_data = {
     "accesskey": "",
     "session_id": "",
     "clipboard": False,
+    # Local-run browser engine: "chromium" (default when empty) or "firefox".
+    # Env override: TESTMU_BROWSER. Cloud runs ignore it.
+    "browser": "",
 }
 
 # Keys explicitly set via configure() — used to distinguish "not configured"
@@ -123,6 +126,7 @@ _DEFAULTS = {
     "kane_run_v3": False,
     "automind_url": "", "code_export_id": "", "commit_id": "", "test_id": "",
     "org_id": "", "username": "", "accesskey": "", "session_id": "",
+    "browser": "",
 }
 
 

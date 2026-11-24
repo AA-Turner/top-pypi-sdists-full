@@ -11,14 +11,15 @@ import warnings
 import numpy as np
 import param  # type: ignore
 
-from bokeh.models import ImportedStyleSheet, Tooltip
+from bokeh.models import Tooltip
 from bokeh.models.dom import HTML
 from param.parameterized import register_reference_transform
 
 from .._param import Margin
+from ..io.resources import imported_stylesheet
 from ..io.state import state
 from ..layout.base import Row
-from ..reactive import Reactive
+from ..reactive import Reactive, drop_default_properties
 from ..util import edit_readonly, unique_iterator
 from ..util.warnings import find_stack_level
 from ..viewable import Layoutable, Viewable
@@ -73,7 +74,7 @@ class WidgetBase(param.Parameterized):
         from ..param import Param
         if not isinstance(parameter, param.Parameter):
             raise ValueError(f"{cls.__name__}.from_param only accepts Parameter types, provided value is of type {type(parameter)}.")
-        return Param.widget(parameter.name, parameter.owner, dict(type=cls, **params))
+        return Param.widget(parameter.name, parameter.owner, {'expand_button': False, 'type': cls, **params})
 
     @classmethod
     def _infer_params(cls, values, **params):
@@ -183,10 +184,9 @@ class Widget(Reactive, WidgetBase):
         else:
             self._param_pane = None
         super().__init__(**params)
-        self._internal_callbacks.extend([
-            self.param.watch(self._sync__label, ['name']),
-            self.param.watch(self._sync__name, ['label'])
-        ])
+        self._internal_callbacks.append(
+            self.param.watch(self._sync_name_and_label, ['name', 'label'])
+        )
         if 'value_throttled' in self.param and self._auto_sync_value_throttled:
             self._internal_callbacks.append(
                 self.param.watch(self._sync_value_throttled, 'value')
@@ -203,6 +203,14 @@ class Widget(Reactive, WidgetBase):
             return
         with edit_readonly(self):
             self.value_throttled = event.new
+
+    def _sync_name_and_label(self, *events):
+        events = {event.name: event for event in events}
+        # name wins when both change at once, as it did with separate watchers
+        if 'name' in events:
+            self._sync__label(events['name'])
+        elif 'label' in events:
+            self._sync__name(events['label'])
 
     def _sync__label(self, event):
         if self.label != self.name:
@@ -225,7 +233,7 @@ class Widget(Reactive, WidgetBase):
         if self._widget_type is not None and 'stylesheets' in params:
             css = getattr(self._widget_type, '__css__', [])
             params['stylesheets'] = [
-                ImportedStyleSheet(url=(f'{state.rel_path}/' if state.rel_path else '') + ss) for ss in css
+                imported_stylesheet((f'{state.rel_path}/' if state.rel_path else '') + ss) for ss in css
             ] + params['stylesheets']
         if "description" in params:
             description = params["description"]
@@ -251,7 +259,8 @@ class Widget(Reactive, WidgetBase):
             raise NotImplementedError(
                 f'Widget {type(self).__name__} did not define a _widget_type'
             )
-        model = self._widget_type(**self._get_properties(doc))
+        properties = drop_default_properties(self._widget_type, self._get_properties(doc))
+        model = self._widget_type(**properties)
         root = root or model
         self._models[root.ref['id']] = (model, parent)
         self._link_props(model, self._linked_properties, doc, root, comm)

@@ -25,6 +25,8 @@ ASSISTANT_ROLE_PREFIX = "assistant\n"
 SENTENCE_END_PUNCTUATION = frozenset(".!?。！？；;")
 CLAUSE_SPLIT_PUNCTUATION = frozenset(",，、；;：:")
 CLOSING_PUNCTUATION = frozenset("\"'”’)]}）】》」』")
+# Marks that join digits (3.14, 1,000, 10:30) rather than end a sentence or clause.
+NUMBER_JOINING_PUNCTUATION = frozenset(".,:")
 
 
 class TextTokenizer(Protocol):
@@ -148,6 +150,15 @@ def prepare_text_for_sentence_chunking(text: str) -> str:
     return normalized_text
 
 
+def _is_number_joining_punctuation(text: str, index: int) -> bool:
+    return (
+        text[index] in NUMBER_JOINING_PUNCTUATION
+        and 0 < index < len(text) - 1
+        and text[index - 1].isdigit()
+        and text[index + 1].isdigit()
+    )
+
+
 def split_text_by_punctuation(
     text: str, punctuation: set[str] | frozenset[str]
 ) -> list[str]:
@@ -158,7 +169,9 @@ def split_text_by_punctuation(
     while index < len(normalized_text):
         character = normalized_text[index]
         current_chars.append(character)
-        if character in punctuation:
+        if character in punctuation and not _is_number_joining_punctuation(
+            normalized_text, index
+        ):
             lookahead = index + 1
             while (
                 lookahead < len(normalized_text)
@@ -229,15 +242,15 @@ def split_text_by_token_budget(
                 high = middle - 1
 
         cut_index = best_prefix_length
-        prefix = remaining_text[:best_prefix_length]
-        preferred_index = -1
-        scan_min = max(-1, len(prefix) - 25)
-        for scan_index in range(len(prefix) - 1, scan_min, -1):
-            if prefix[scan_index] in preferred_boundary_chars:
-                preferred_index = scan_index + 1
+        scan_min = max(-1, best_prefix_length - 25)
+        for scan_index in range(best_prefix_length - 1, scan_min, -1):
+            character = remaining_text[scan_index]
+            if (
+                character in preferred_boundary_chars
+                and not _is_number_joining_punctuation(remaining_text, scan_index)
+            ):
+                cut_index = scan_index + 1
                 break
-        if preferred_index > 0:
-            cut_index = preferred_index
 
         piece = remaining_text[:cut_index].strip()
         if not piece:

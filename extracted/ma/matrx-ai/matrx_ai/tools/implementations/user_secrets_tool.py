@@ -50,6 +50,7 @@ async def user_secret_set(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="auth_required",
                 message="user_secret_set requires an authenticated user — "
                 "no user_id on the request context.",
@@ -73,7 +74,7 @@ async def user_secret_set(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type="feature_unavailable",
                 message="The user-secrets vault is only available when "
                 "matrx-orm (with the secrets battery configured) is installed.",
@@ -97,7 +98,7 @@ async def user_secret_set(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except ValueError as exc:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="model_error", message=str(exc)),
+            error=ToolError.declared(exc=exc, error_type="model_error", message=str(exc)),
             started_at=started_at,
             completed_at=time.time(),
             tool_name="user_secret_set",

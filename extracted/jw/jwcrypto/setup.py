@@ -32,13 +32,14 @@ setup(
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
         'Intended Audience :: Developers',
         'Topic :: Security',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
     data_files = [('share/doc/jwcrypto', ['LICENSE', 'README.md'])],
     install_requires = [
-        'cryptography >= 49.0.0',
+        'cryptography >= 39.0.0',
         'typing_extensions >= 4.5.0',
     ],
     python_requires = '>= 3.9',

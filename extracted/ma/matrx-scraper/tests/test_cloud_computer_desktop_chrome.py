@@ -5,7 +5,7 @@ closing it left a black screen. On a desktop session the window is a normal
 maximized window (the window manager keeps it above the taskbar), it opens on a
 real new-tab page, and a window the person closes stays closed until the agent
 needs it (test_cloud_computer_stream_and_chrome_close.py). The
-browser fleet (no desktop session) keeps its full-screen kiosk flags.
+worker with no desktop session keeps its full-screen kiosk flags.
 """
 
 from __future__ import annotations

@@ -133,27 +133,6 @@ async def test_candidate_probe_requires_exact_endpoint_contract(monkeypatch, sta
     assert len(calls) == 1
 
 
-def test_both_deploy_paths_probe_candidate_before_removal_and_inject_authority():
-    import re
-    from pathlib import Path
-
-    root = Path(__file__).resolve().parents[3]
-    manual = (root / "packages/matrx-seo/deploy.sh").read_text()
-    workflow = (root / ".github/workflows/publish-package.yml").read_text()
-    local = (root / "packages/matrx-seo/scripts/run_local.sh").read_text()
-    manual_url = re.search(r'^SESSION_AUTHORITY_URL="([^"]+)"$', manual, re.M)[1]
-    workflow_url = re.search(r"^      SESSION_AUTHORITY_URL: (.+)$", workflow, re.M)[1]
-    assert manual_url == workflow_url
-    assert manual_url in local
-    for script in (manual, workflow):
-        assert script.index("docker run --rm -i --entrypoint python") < script.index(
-            "docker rm -f matrx-seo"
-        )
-        for run in re.findall(r"docker run -d --name matrx-seo[^\n]*", script.replace("\\\n", " ")):
-            assert "MATRX_SESSION_AUTHORITY_URL=" in run
-    assert workflow.count('-e "MATRX_SESSION_AUTHORITY_URL=$SESSION_AUTHORITY_URL"') == 3
-    assert manual.count("-e 'MATRX_SESSION_AUTHORITY_URL=${SESSION_AUTHORITY_URL}'") == 2
-
 
 @pytest.mark.parametrize("kind", ["api-key", "service-role"])
 def test_independent_credential_cannot_become_login_session(monkeypatch, kind):
@@ -230,7 +209,7 @@ def test_manual_failed_candidate_probe_never_removes_existing_container(tmp_path
     import subprocess
     from pathlib import Path
 
-    root = Path(__file__).resolve().parents[3]
+    package = Path(__file__).resolve().parents[1]
     log = tmp_path / "calls"
     monkeypatch.setenv("CALL_LOG", str(log))
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
@@ -249,7 +228,7 @@ exit 0
 """)
     ssh.chmod(0o755)
     result = subprocess.run(
-        ["bash", str(root / "packages/matrx-seo/deploy.sh"), "0.0.0"],
+        ["bash", str(package / "deploy.sh"), "0.0.0"],
         capture_output=True,
         text=True,
         timeout=10,
@@ -271,7 +250,7 @@ def test_source_probe_allows_rollback_wheel_without_new_seo_cli(tmp_path, monkey
     import sys
     from pathlib import Path
 
-    root = Path(__file__).resolve().parents[3]
+    package = Path(__file__).resolve().parents[1]
     log = tmp_path / "calls"
     monkeypatch.setenv("CALL_LOG", str(log))
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
@@ -307,7 +286,7 @@ elif "importlib.metadata" in command:
     )
     ssh.chmod(0o755)
     result = subprocess.run(
-        ["bash", str(root / "packages/matrx-seo/deploy.sh"), "0.0.0"],
+        ["bash", str(package / "deploy.sh"), "0.0.0"],
         capture_output=True,
         text=True,
         timeout=15,

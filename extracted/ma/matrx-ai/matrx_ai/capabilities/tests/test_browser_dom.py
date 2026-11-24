@@ -143,6 +143,38 @@ class TestBrowserDomPayload:
                 }
             )
 
+    @pytest.mark.parametrize("status", ["loading", "complete", "closed", None])
+    def test_every_tab_status_the_extension_sends_validates(self, status: str | None) -> None:
+        # The extension's union (build-browser-dom-state.ts `tab_status`): 'closed' after the
+        # turn's tab closed; a payload the server refused lost the whole capability for the turn.
+        payload = BrowserDomPayload.model_validate(
+            {
+                "current_tab_id": None,
+                "tab_status": status,
+                "surface": "assistant",
+                "is_admin": False,
+                "permission_mode": "act",
+                "desktop_bridge": "none",
+                "onbox_ai_available": False,
+                "optional_permissions_granted": [],
+            }
+        )
+        assert payload.tab_status == status
+
+    def test_a_tab_status_the_extension_never_sends_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            BrowserDomPayload.model_validate(
+                {
+                    "tab_status": "unloaded",
+                    "surface": "assistant",
+                    "is_admin": False,
+                    "permission_mode": "ask",
+                    "desktop_bridge": "none",
+                    "onbox_ai_available": False,
+                    "optional_permissions_granted": [],
+                }
+            )
+
     def test_invalid_desktop_bridge_rejected(self) -> None:
         with pytest.raises(ValidationError):
             BrowserDomPayload.model_validate(
@@ -231,10 +263,16 @@ class TestBrowserDomCapability:
         assert "$envelope" not in str(spec.model_dump())
         dom._specs_cache = None
         try:
+            # Bound to the extension but not tagged: reached through the loader, never always-on.
+            always_on = dom._build_auto_load_specs()
+            assert [spec.name for spec in always_on] == ["load_chrome_tools"]
+            dom._specs_cache = None
+            tool.tags = [dom.ALWAYS_ON_TAG]
             always_on = dom._build_auto_load_specs()
             assert [spec.name for spec in always_on] == ["load_chrome_tools", "records"]
         finally:
             dom._specs_cache = None
+            tool.tags = []
 
         from matrx_ai.tools.implementations.bundle_lister import _build_spec_for
         from matrx_ai.tools.specs import RegisteredToolSpec
@@ -290,9 +328,13 @@ class TestBrowserDomCapabilityWithRegistry:
                 assert spec.description, f"{spec.name!r} must carry a description"
                 assert spec.input_schema, f"{spec.name!r} must carry an input_schema"
 
-            # Verify count matches tool_surface_defaults.always_include_tools.
-            always_include = _dom_mod._read_always_include_tools("matrx-extend.browser")
-            assert len(specs) == len(always_include) + 1  # +1 for load_chrome_tools
+            # Only tagged tools are always-on, and the core kit stays small.
+            from matrx_ai.tools.registry import ToolRegistry
+
+            registry = ToolRegistry.get_instance()
+            for spec in specs[1:]:
+                assert _dom_mod.ALWAYS_ON_TAG in registry.get(spec.name).tags
+            assert 1 < len(specs) <= 30, f"core browsing kit has {len(specs) - 1} tools"
         finally:
             _dom_mod._specs_cache = None
 

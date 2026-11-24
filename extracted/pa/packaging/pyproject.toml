@@ -9,7 +9,7 @@ description = "Core utilities for Python packages"
 dynamic = ["version"]
 license = "Apache-2.0 OR BSD-2-Clause"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{name = "Donald Stufft", email = "donald@stufft.io"}]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -17,7 +17,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -70,6 +69,10 @@ exclude = [
   "build/__pycache__",
 ]
 
+[tool.typos.default]
+# Pickle bytes in the tests.
+extend-ignore-re = ['(?m)^\s+b["\x27].*\\x[0-9a-f]{2}.*["\x27]$']
+
 [tool.typos.default.extend-identifiers]
 iMatix = "iMatix"
 ANDed = "ANDed"
@@ -98,10 +101,25 @@ exclude_also = [
 
 [tool.pytest.ini_options]
 minversion = "6.2"
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-m", "not property"]
+addopts = [
+    "-ra",
+    "--showlocals",
+    "--strict-markers",
+    "--strict-config",
+    "-m",
+    "not property",        # property based tests opt-in only
+    "--capture=sys",       # avoids per-test fd dup2/lseek syscalls (~20% of the runtime)
+    "-p",
+    "no:logging",          # no test uses caplog and its per-test setup is measurable
+    "-p",
+    "no:threadexception",  # no threads, avoids extra gc
+    "-p",
+    "no:tmpdir",           # no usage of tempdir (mostly sans IO)
+    "-p",
+    "no:legacypath",       # no legacy paths
+]
 xfail_strict = true
 filterwarnings = ["error"]
-log_level = "INFO"
 testpaths = ["tests"]
 markers = ["property: property-based tests (opt-in)"]
 
@@ -110,7 +128,7 @@ markers = ["property: property-based tests (opt-in)"]
 strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_ignores = true
-python_version = "3.9"
+python_version = "3.10"
 files = ["src", "tests", "noxfile.py"]
 native_parser = true
 
@@ -156,6 +174,7 @@ ignore = [
     "TRY003",  # long messages outside exception class
 ]
 flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+flake8-import-conventions.extend-aliases = { datetime = "datetime" }
 flake8-unused-arguments.ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]

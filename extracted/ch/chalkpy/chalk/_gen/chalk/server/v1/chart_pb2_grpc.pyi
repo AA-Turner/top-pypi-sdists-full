@@ -34,6 +34,8 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     GetFormulaOptionsResponse,
     GetMetricOptionsRequest,
     GetMetricOptionsResponse,
+    GetOfflineStorageHistoryRequest,
+    GetOfflineStorageHistoryResponse,
     GetQueryMetricsRequest,
     GetQueryMetricsResponse,
     GetRawMetricLabelNamesRequest,
@@ -64,6 +66,10 @@ from grpc import (
 
 class ChartsServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    GetOfflineStorageHistory: UnaryUnaryMultiCallable[
+        GetOfflineStorageHistoryRequest,
+        GetOfflineStorageHistoryResponse,
+    ]
     ListRawMetrics: UnaryUnaryMultiCallable[
         ListRawMetricsRequest,
         ListRawMetricsResponse,
@@ -179,6 +185,12 @@ class ChartsServiceStub:
     ]
 
 class ChartsServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def GetOfflineStorageHistory(
+        self,
+        request: GetOfflineStorageHistoryRequest,
+        context: ServicerContext,
+    ) -> GetOfflineStorageHistoryResponse: ...
     @abstractmethod
     def ListRawMetrics(
         self,

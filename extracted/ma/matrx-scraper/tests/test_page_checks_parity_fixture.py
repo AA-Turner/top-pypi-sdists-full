@@ -19,9 +19,9 @@ import importlib.util
 import json
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-GENERATOR = REPO_ROOT / "packages/matrx-scraper/scripts/generate_page_checks_parity_fixture.py"
-FIXTURE = REPO_ROOT / "packages/matrx-scraper/tests/__fixtures__/page-checks-parity.json"
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+GENERATOR = PACKAGE_ROOT / "scripts/generate_page_checks_parity_fixture.py"
+FIXTURE = PACKAGE_ROOT / "tests/__fixtures__/page-checks-parity.json"
 
 
 def _load_generator():

@@ -209,7 +209,12 @@ class StaticDomainConfigStore:
 class PostgresDomainConfigStore:
     """Loads domain configs from PostgreSQL and refreshes periodically."""
 
-    def __init__(self, pool: Any | None = None) -> None:
+    def __init__(
+        self,
+        pool: Any | None = None,
+        *,
+        initial_load_backoff_seconds: tuple[float, ...] = (2.0, 5.0, 10.0),
+    ) -> None:
         # Backward-compatible host wiring only. All DB access is through the
         # package's matrx-orm models; the injected raw pool is never used.
         _ = pool
@@ -224,6 +229,8 @@ class PostgresDomainConfigStore:
         ) = _domain_models()
         self._domains: dict[str, DomainConfig] = {}
         self._refresh_task: asyncio.Task[None] | None = None
+        # One wait per retry of a boot-time connect failure (attempts = waits + 1); a host may inject its own.
+        self._initial_load_backoff = tuple(initial_load_backoff_seconds)
         self._healthy = False
         self._last_error: str | None = None
 
@@ -232,7 +239,7 @@ class PostgresDomainConfigStore:
         # store after a schema error makes health checks lie and silently disables
         # permission/proxy/path rules.
         try:
-            await self._refresh(raise_on_error=True)
+            await self._initial_load()
         except Exception as exc:
             logger.critical(
                 "🚨 PostgresDomainConfigStore: INITIAL load FAILED. Refusing to "
@@ -242,6 +249,31 @@ class PostgresDomainConfigStore:
             raise RuntimeError("domain config initial load failed") from exc
         self._refresh_task = asyncio.create_task(self._periodic_refresh())
         logger.info("PostgresDomainConfigStore started (%d domains)", len(self._domains))
+
+    # A boot that lands while the pooler is slow to hand out a FIRST connection is not a schema
+    # error: without a retry the store was never registered and the scraper ran degraded for the
+    # whole life of the process (system_error startup_wiring_failed, 2026-11-05). Only a
+    # transport failure is retried; a schema/query error still fails the first time.
+    async def _initial_load(self) -> None:
+        waits = self._initial_load_backoff
+        attempts = len(waits) + 1
+        for attempt in range(1, attempts + 1):
+            try:
+                await self._refresh(raise_on_error=True)
+                return
+            except Exception as exc:
+                if attempt >= attempts or not _is_transient_connect_failure(exc):
+                    raise
+                delay = waits[attempt - 1]
+                logger.warning(
+                    "PostgresDomainConfigStore: initial load attempt %d/%d could not reach the "
+                    "database (%s) — retrying in %.0fs",
+                    attempt,
+                    attempts,
+                    type(exc).__name__,
+                    delay,
+                )
+                await asyncio.sleep(delay)
 
     async def stop(self) -> None:
         if self._refresh_task and not self._refresh_task.done():
@@ -496,3 +528,30 @@ class PostgresDomainConfigStore:
 
         await self._refresh()
         return {"id": str(domain_id), "url": url, "scrape_allowed": scrape_allowed}
+
+
+def _is_transient_connect_failure(exc: BaseException) -> bool:
+    """True when the cause chain is a transport failure reaching the database (never auth, never SQL)."""
+    from matrx_orm import exceptions as orm_exc
+
+    transient = tuple(
+        cls
+        for cls in (
+            getattr(orm_exc, "PoolConnectTimeoutError", None),
+            getattr(orm_exc, "PoolAcquireTimeoutError", None),
+            getattr(orm_exc, "ConnectionError", None),
+        )
+        if isinstance(cls, type)
+    )
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, orm_exc.DatabaseConnectError):
+            return (current.details or {}).get("kind") != "auth"
+        if transient and isinstance(current, transient):
+            return True
+        if isinstance(current, (asyncio.TimeoutError, ConnectionRefusedError, ConnectionResetError)):
+            return True
+        current = current.__cause__ or current.__context__
+    return False

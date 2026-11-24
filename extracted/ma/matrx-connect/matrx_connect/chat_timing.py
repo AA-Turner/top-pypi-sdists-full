@@ -61,7 +61,7 @@ PREP_COMPLETE_KEY = "payload_captured"
 # attributed to the block owning its `to_key`. `op` names the actual operation so
 # the table reads as a ledger of what we fetch, not a wall of labels.
 _BLOCKS: tuple[tuple[str, str, str, tuple[str, ...], str], ...] = (
-    ("entry", "Route + auth entry", "local", ("prep_begin", "prepare_entry"), "—"),
+    ("entry", "Route + auth entry", "local", ("prep_begin", "route_entry", "prepare_entry"), "—"),
     (
         "agent_load",
         "Agent definition load",
@@ -80,8 +80,43 @@ _BLOCKS: tuple[tuple[str, str, str, tuple[str, ...], str], ...] = (
         "scope_picklist",
         "Memory + scope + picklist",
         "local",
-        ("memory_resolved", "scope_bindings", "picklist_staged"),
+        ("memory_resolved", "scope_bindings", "auto_assignments", "document_variables", "picklist_staged"),
         "local resolve",
+    ),
+    # The mandated start (``mandated_start.resolve_mandated_agent_start``): every door that runs a mandate — the
+    # phone line's staff ask, SMS, the client mandate door — resolves the Holder, builds the turn framing, routes
+    # the values and records the run here. Until 2026-11-19 it closed no mark, so its time landed in the NEXT
+    # block that did ("tools" on a continuation) and read as tool resolution.
+    (
+        "mandate_start",
+        "Mandate resolve + framing",
+        "read",
+        ("m_holder_resolved", "m_framing_built", "m_values_routed", "m_run_recorded"),
+        "mandate verdict (process cache) + turn framing + variable route + placement + watch frame",
+    ),
+    (
+        "run_gates",
+        "Run gates + conversation verify",
+        "read",
+        ("orchestra_probed", "run_gates_passed"),
+        "COPPA gate, compiled-orchestra probe, confidential + continuation-binding checks",
+    ),
+    (
+        "continue_setup",
+        "Continuation setup",
+        "read",
+        ("cr_context_restored", "cr_scope_tracked"),
+        "conversation context restore, answered-card settle, memory flag, scope + org + file references",
+    ),
+    # A continuation's history + structure load (ConversationResolver). Until 2026-11-19 the continue
+    # path closed no mark here, so this load (3.6 s on a phone hand-off) and the sandbox arm landed in
+    # "tools" and read as tool resolution.
+    (
+        "history",
+        "Conversation history + structure",
+        "read",
+        ("h_structure_read", "h_holder_built", "h_messages_loaded", "history_resolved"),
+        "ConversationResolver: structure source, Holder, persisted messages rebuild",
     ),
     (
         "sandbox",
@@ -95,7 +130,7 @@ _BLOCKS: tuple[tuple[str, str, str, tuple[str, ...], str], ...] = (
         "tools",
         "Tools + surface + model caps",
         "read",
-        ("tools_merge_start", "tools_model_caps", "tools_surface_manifest", "tools_merged"),
+        ("tools_merge_start", "tools_model_caps", "tools_surface_manifest", "conductor_members", "tools_merged"),
         "surface manifest + model caps (process cache)",
     ),
     (
@@ -116,10 +151,43 @@ _BLOCKS: tuple[tuple[str, str, str, tuple[str, ...], str], ...] = (
         "user_context",
         "User context",
         "rpc",
-        ("u_active_rendered", "u_record_scope", "agent_context_block"),
+        ("u_active_rendered", "u_record_scope", "agent_context_block", "u_agent_tables"),
         "active block + record scope",
     ),
     ("context_apply", "Context apply", "local", ("c_surface", "context_objects"), "local merge"),
+    # The context assembly's own stages (apply_context_objects). Until 2026-11-19 none of them
+    # closed a segment, so on the continue path their time — a 10 s sandbox brief wait on every
+    # phone hand-off — landed in "stream_handoff" and read as a local, free block.
+    (
+        "context_assembly",
+        "Context gate + seeds + sources",
+        "read",
+        (
+            "c_gate_open",
+            "c_seeded",
+            "c_lazy_described",
+            "c_file_blocks",
+            "c_ref_flags",
+            "c_sources_resolved",
+            "c_earlier_turn",
+            "c_attachments",
+        ),
+        "context gate, resource seeds, lazy sources, earlier-turn block, attachments",
+    ),
+    (
+        "sandbox_briefing",
+        "Sandbox briefing",
+        "rpc",
+        ("c_sandbox_briefing",),
+        "sandbox daemon reads + the once-per-stale-brief fresh-brief wait",
+    ),
+    (
+        "staff_door",
+        "Staff door (thread + admission)",
+        "write",
+        ("staff_thread_opened", "staff_admitted"),
+        "staff thread open (idempotent) + delegated member admission",
+    ),
     (
         "user_request",
         "User-request INSERT",
@@ -170,6 +238,15 @@ _BLOCKS: tuple[tuple[str, str, str, tuple[str, ...], str], ...] = (
         "read",
         ("structured_inputs_resolved",),
         "structured-input resolve + cx_pending_injection drain",
+    ),
+    # The send boundary's own stages (``matrx_ai.config.send_boundary.prepare_for_send``, loop stage only) and the
+    # executor's pre-send checks. Until 2026-11-19 all of it was one unmarked span closed by ``wire_config_built``.
+    (
+        "send_prep",
+        "Send boundary + turn context",
+        "read",
+        ("pre_send_checks", "sb_media_stored", "sb_shaped", "sb_trimmed", "sb_fit", "sb_turn_context_staged"),
+        "held prompt, fences, answer room, trim, input fit, identity/memories/environment/plan/helpers/briefings",
     ),
     (
         "wire_config",
@@ -243,6 +320,9 @@ class _InboundStamp:
 
 
 _inbound: ContextVar[_InboundStamp | None] = ContextVar("chat_timing_inbound", default=None)
+#: The stamp whose lead a request timer already took (``take_inbound_lead_seconds``): a request's boundary is
+#: counted ONCE — a sub-agent or a second run inside the same request never adds the parent's wait again.
+_inbound_taken: ContextVar[_InboundStamp | None] = ContextVar("chat_timing_inbound_taken", default=None)
 
 
 def _wall_utc_now() -> str:
@@ -273,6 +353,22 @@ def _inbound_gap_s() -> float | None:
     stamp = _inbound.get()
     if stamp is None:
         return None
+    return time.perf_counter() - stamp.perf
+
+
+def inbound_lead_seconds() -> float | None:
+    """Seconds since this request reached the server (the auth middleware's inbound stamp); ``None`` outside a
+    stamped chat request. The request timer starts here, so the boundary's work is on it (CGU-10 AND-IMG18 N7)."""
+    return _inbound_gap_s()
+
+
+def take_inbound_lead_seconds() -> float | None:
+    """:func:`inbound_lead_seconds`, once per stamped request: the first run in the request takes the boundary,
+    every later one (a sub-agent, a nested run) gets ``None`` (CGU-10 AND-IMG19 F4)."""
+    stamp = _inbound.get()
+    if stamp is None or _inbound_taken.get() is stamp:
+        return None
+    _inbound_taken.set(stamp)
     return time.perf_counter() - stamp.perf
 
 
@@ -333,6 +429,9 @@ def _block_breakdown(segments: list[dict[str, Any]], controllable_s: float) -> l
 class ChatTimingTrace:
     _start: float = field(default_factory=time.perf_counter)
     points: list[dict[str, Any]] = field(default_factory=list)
+    #: Named facts a proof reads from data (a cache hit or miss, why something was not reused), each a list of
+    #: entries in arrival order. Kept beside the marks so the persisted summary carries them.
+    facts: dict[str, list[Any]] = field(default_factory=dict)
     _prep_summary_emitted: bool = False
 
     def mark(self, key: str, label: str) -> float:
@@ -397,6 +496,7 @@ class ChatTimingTrace:
             "slowest_segments": slowest_controllable,
             "slowest_controllable_segments": slowest_controllable,
             "prep_complete": any(point["key"] == PREP_COMPLETE_KEY for point in prep_points),
+            "facts": {k: list(v) for k, v in self.facts.items()},
         }
 
     def headline(self) -> str:
@@ -508,6 +608,15 @@ def chat_timing_mark(key: str, label: str) -> float | None:
         if CHAT_TIME_CHECK_ENABLED:
             _emit_prep_summary_safe(trace)
     return elapsed
+
+
+def chat_timing_fact(key: str, value: Any) -> None:
+    """Record a fact on this request's trace (appended under ``key``); a no-op with no trace. A fact recorded after
+    prep completed still lands: it describes the same turn."""
+    trace = _active.get()
+    if trace is None:
+        return
+    trace.facts.setdefault(key, []).append(value)
 
 
 def chat_timing_finish() -> dict[str, Any] | None:

@@ -107,7 +107,7 @@ async def test_the_retry_is_seeded_beside_the_inline_attempt(
     monkeypatch.setattr(labeler, "cxm", _cxm(SimpleNamespace(title="New chat", organization_id="org-1")))
     await labeler._run_labeling(CID, "user-1", [{"role": "user", "content": "taxes?"}])
     assert order == ["seed", "label"]
-    assert writes == [{"title": "Tax plan", "description": "Planning taxes", "keywords": ["tax"]}]
+    assert writes == [{"title": "Tax plan", "description": "Planning taxes", "keywords": ["tax"], "named_by": "auto_write"}]
 
 
 async def test_the_retry_skips_a_label_that_landed(monkeypatch: pytest.MonkeyPatch, writes: list[dict[str, Any]]) -> None:
@@ -148,7 +148,7 @@ async def test_the_retry_labels_a_conversation_the_inline_attempt_never_reached(
         {"conversation_id": CID, "user_id": "user-1", "conversation_content": "taxes?", "title_before": "New chat"}
     )
     assert outcome == "succeeded"
-    assert writes == [{"title": "Tax plan", "description": "Planning taxes", "keywords": ["tax"]}]
+    assert writes == [{"title": "Tax plan", "description": "Planning taxes", "keywords": ["tax"], "named_by": "auto_write"}]
 
 
 async def test_a_failed_retry_raises_so_the_queue_backs_off(monkeypatch: pytest.MonkeyPatch, writes: list[dict[str, Any]]) -> None:
@@ -160,3 +160,34 @@ async def test_a_failed_retry_raises_so_the_queue_backs_off(monkeypatch: pytest.
     with pytest.raises(RuntimeError, match="provider down"):
         await labeler.run_label_retry({"conversation_id": CID, "user_id": "user-1"})
     assert writes == []
+
+
+async def test_the_inline_attempt_never_overwrites_a_rename_made_while_it_ran(
+    monkeypatch: pytest.MonkeyPatch, writes: list[dict[str, Any]]
+) -> None:
+    """P-032, "the title is the title": the person renames during the first turn; the label lands after."""
+    row = SimpleNamespace(title="New chat", organization_id="org-1")
+
+    async def seed(**_kw: Any) -> None:
+        return None
+
+    async def label(**_kw: Any) -> LabelResult:
+        row.title = "My own name"  # the person's rename lands while the labeler is thinking
+        return LabelResult(success=True, output=OUTPUT)
+
+    async def not_staff(_cid: str) -> bool:
+        return False
+
+    sent: list[Any] = []
+
+    async def send_data(data: Any) -> None:
+        sent.append(data)
+
+    monkeypatch.setitem(_ext._registry, "system_process_seed", seed)
+    monkeypatch.setattr(labeler, "label_chat_conversation", label)
+    monkeypatch.setattr(labeler, "_is_staff_channel_conversation", not_staff)
+    monkeypatch.setattr(labeler, "cxm", _cxm(row))
+    monkeypatch.setattr(labeler, "try_get_app_context", lambda: SimpleNamespace(emitter=SimpleNamespace(send_data=send_data)))
+    await labeler._run_labeling(CID, "user-1", [{"role": "user", "content": "taxes?"}])
+    assert writes == [{"description": "Planning taxes", "keywords": ["tax"]}]
+    assert sent == []  # no client is told a title the database never took

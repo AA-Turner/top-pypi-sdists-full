@@ -25,6 +25,7 @@ from typing import Any
 
 import httpx
 import openai
+from matrx_ai.providers.errors import OUR_SIDE_MESSAGE
 import pytest
 from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
 
@@ -208,7 +209,8 @@ async def test_out_of_credit_files_its_own_operator_class(monkeypatch) -> None:
 async def test_the_person_reads_one_plain_sentence(monkeypatch) -> None:
     run = await _run(monkeypatch, openai.APIError(_NO_CREDITS, _REQ, body=None))
 
-    sentence = "OpenAI refused this request: the platform's OpenAI account is out of credit."
+    # Arman, 2026-11-18 (974a506232f): a provider/account fault is OUR problem and is one fixed sentence that names no provider.
+    sentence = OUR_SIDE_MESSAGE
     assert [e["user_message"] for e in run["errors"]] == [sentence]
     meta = run["finalized"][0]["metadata"]
     assert meta["status"] == "failed"

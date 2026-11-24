@@ -287,11 +287,29 @@ class DecisionExecutor:
         except Exception as e:
             self._adapter_ext.rollback()
             should_run_hooks = False
-            events.fire_warn_event(
-                "Clone failed for node '{}', falling back to full execution: {}",
-                node.name,
-                str(e),
-            )
+            # If the source is gone, log at info rather than warn
+            try:
+                source_missing = (
+                    self._freshness.get_last_modified_epoch(
+                        exp.to_table(response.clone_source, dialect=self._node_resolution.dialect)
+                    )
+                    is None
+                )
+            except Exception:
+                source_missing = False
+            if source_missing:
+                events.fire_info_event(
+                    "Unable to clone node '{}': clone source '{}' not found, running the model instead: {}",
+                    node.name,
+                    response.clone_source,
+                    str(e),
+                )
+            else:
+                events.fire_warn_event(
+                    "Clone failed for node '{}', falling back to full execution: {}",
+                    node.name,
+                    str(e),
+                )
             return NoRunResult(response.request_id, failed_to_clone=True)
         finally:
             # Clones only have an execution once confirmed.
@@ -424,7 +442,7 @@ class DecisionExecutor:
             )
             return False
 
-        self._dev_cloner.clone(
+        replaced_existing_table = self._dev_cloner.clone(
             self._adapter,
             node,
             clone_response.clone_sqls,
@@ -435,7 +453,13 @@ class DecisionExecutor:
         if isinstance(clone_response, clone_service_models.ReadyToCloneResponse):
             self.confirm_execution(node, clone_response.request_id)
             self._decision_logger.log_dev_clone(
-                node.name, clone_response.clone_source, clone_response.clone_target
+                node.name,
+                clone_response.clone_source,
+                clone_response.clone_target,
+                clone_incremental_in_dev=self._run_cache_config.resolve_clone_incremental_in_dev(
+                    node.config
+                ),
+                replaced_existing_table=replaced_existing_table,
             )
         self.dev_cloned_nodes.add(node.unique_id)
         return True

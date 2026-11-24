@@ -19,7 +19,7 @@ from matrx_files.cloud_sync.durability import (
     is_signed_url,
     signed_url_expiry_ms,
 )
-from matrx_files.cloud_sync.url_resolver import file_id_from_our_url
+from matrx_files.cloud_sync.url_resolver import file_id_from_our_url, is_public_media_url
 from matrx_files.cloud_sync.media_ref import MediaRef
 from matrx_utils import VisibilityLiteral
 
@@ -294,6 +294,7 @@ __all__ = [
     "is_signed_url",
     "signed_url_expiry_ms",
     "file_id_from_our_url",
+    "is_public_media_url",
     "IndependenceConfigError",
     "PackageConfig",
     "configure",

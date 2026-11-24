@@ -41,6 +41,7 @@ from .auth import (
 )
 from .document import _cleanup_doc, extra_socket_handlers
 from .logging import LOG_SESSION_CREATED
+from .proxy import forwarded_prefix
 from .reload import record_modules
 from .resources import COMPONENT_PATH, DIST_DIR, Resources
 from .server import (
@@ -101,15 +102,33 @@ _APP_SUFFIXES: tuple[str, ...] = (
 )
 
 
+async def _write_unlocked(socket: _ASGIWebSocketTransport, msg: Message) -> None:
+    try:
+        await socket.write_message(msg.header_json, locked=False)
+        await socket.write_message(msg.metadata_json, locked=False)
+        await socket.write_message(msg.content_json, locked=False)
+        for buffer in msg._buffers:
+            await socket.write_message(json.dumps(buffer.ref), locked=False)
+            await socket.write_message(buffer.to_bytes(), binary=True, locked=False)
+    except OSError:
+        # ASGI servers raise OSError when the peer has disconnected
+        socket.closed = True
+
+
 def dispatch_asgi(
     conn, events: list[DocumentPatchedEvent] | None = None, msg: Message | None = None
 ):
     """
     Dispatches a message or set of events to an ASGI websocket transport.
+
+    Like ``dispatch_tornado`` the frames are written without acquiring the
+    socket's write lock, which callers that serialize writes already hold.
+    ``Message.send`` acquires the lock itself and since the lock wraps a
+    non reentrant ``asyncio.Lock`` it would wait forever.
     """
     if msg is None:
         msg = conn.protocol.create("PATCH-DOC", events)
-    return [conn._socket.send_message(msg)]
+    return [_write_unlocked(conn._socket, msg)]
 
 extra_socket_handlers[_ASGIWebSocketTransport] = dispatch_asgi
 
@@ -157,6 +176,10 @@ class PanelASGI(BokehASGI):
     server_config: dict[str, Any] | None
         Per-server configuration, e.g. the ``basic_auth`` credentials,
         looked up by the authentication handlers.
+    use_xheaders: bool
+        Whether to trust the ``X-Forwarded-Prefix`` and ``X-Forwarded-Host``
+        headers of a reverse proxy to determine the external URL of the
+        server. Only enable this behind a proxy which sets them.
     """
 
     def __init__(
@@ -176,10 +199,14 @@ class PanelASGI(BokehASGI):
         auth_provider: AuthProvider | None = None,
         auth_policy: AuthPolicy | None = None,
         server_config: dict[str, t.Any] | None = None,
+        use_xheaders: bool = False,
         **kwargs
     ) -> None:
         if auth_policy is None and auth_provider is not None:
-            auth_policy = PanelAuthPolicy(auth_provider, server_config, prefix=prefix)
+            auth_policy = PanelAuthPolicy(
+                auth_provider, server_config, prefix=prefix, use_xheaders=use_xheaders
+            )
+        self._use_xheaders = use_xheaders
         super().__init__(applications, prefix=prefix, auth_policy=auth_policy, **kwargs)
         if isinstance(auth_policy, PanelAuthPolicy):
             # Ensure the login redirects apply the normalized prefix
@@ -392,6 +419,13 @@ class PanelASGI(BokehASGI):
 
     def _request(self, scope: Scope) -> ServerRequest:
         request = super()._request(scope)
+        if self._use_xheaders and not request.root_path.strip('/'):
+            if root_path := forwarded_prefix(request.headers):
+                # Matches a root path set on the ASGI server, which also
+                # reports paths that include it.
+                request.root_path = root_path
+                request.path = root_path + request.path
+                request.uri = root_path + request.uri
         params: dict[str, str] = {}
         app_path: str | None = None
         if route := self._route_path(scope):
@@ -924,7 +958,7 @@ def warm_applications(apps: Mapping[str, BkApplication]) -> None:
     Runs each application once to warm up imports and caches.
     """
     for endpoint, app in apps.items():
-        if endpoint == '/admin':
+        if endpoint == config._admin_path:
             continue
         if config.autoreload:
             with record_modules(list(apps.values())):

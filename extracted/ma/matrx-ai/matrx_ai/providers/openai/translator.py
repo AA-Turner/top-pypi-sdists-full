@@ -23,6 +23,7 @@ from matrx_ai.config.tools_config import ToolCallContent
 from matrx_ai.config.unified_content import TextContent, ThinkingContent
 from matrx_ai.providers.base_translator import BaseTranslator, record_platform_text_placement
 from matrx_ai.providers.cache_guard import normalize_openai_prompt_cache_key
+from matrx_ai.providers.final_outbound_snapshot import SHAPE_RESPONSES, SealLocator
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 
 # ============================================================================
@@ -34,6 +35,7 @@ class OpenAITranslator(BaseTranslator):
     """Translates between unified format and OpenAI Responses API"""
 
     PROVIDER = "openai"
+    SUPPORTS_LATE_TOOLS = True  # late tools ride the trailing channel (providers/late_tools.py)
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)
@@ -72,11 +74,20 @@ class OpenAITranslator(BaseTranslator):
             )
 
         # Process all messages - delegate to message method
-        for msg in self.messages_for_wire(config):
+        # THE STATIC SEAL LINE: stamped in THIS wire list for the final outbound snapshot
+        # (``providers/final_outbound_snapshot.py``). Observes only.
+        wire_list = self.messages_for_wire(config)
+        seal = SealLocator(SHAPE_RESPONSES, wire_list)
+        for position, msg in enumerate(wire_list):
+            seal.before(position, messages)
             converted = msg.to_openai_items_modified()
             if self.debug:
                 rich.print(converted)
             messages.extend(converted)
+        seal.finish(messages)
+        # THE PICTURE'S DETAIL IS SENT, never left to ``auto`` (CGU-10 IMG7 #1): the same value the
+        # prompt estimate counts (``openai_image_detail``), so what is counted is what is sent.
+        _stamp_image_detail(messages, config.model, getattr(profile, "wire_format", None))
 
         # TAIL CHANNEL (config/live_plan.py): a developer item after the newest
         # function_call_output — the platform's voice, not the person's, at the
@@ -536,9 +547,7 @@ class OpenAITranslator(BaseTranslator):
                     item, f"[OPENAI TRANSLATOR] Unknown output item type: {item.type}", color="red"
                 )
 
-        has_thinking = bool(thinking_blocks)
         has_tool_calls = bool(tool_call_blocks)
-        has_text = bool(text_blocks)
 
         messages: list[UnifiedMessage] = []
 
@@ -713,3 +722,25 @@ class OpenAITranslator(BaseTranslator):
             color="red",
         )
         return None
+
+
+def _stamp_image_detail(items: list[Any], model: str | None, wire_format: str | None) -> None:
+    """Put ``detail`` on every ``input_image`` the request carries (tool outputs included) that has none."""
+    from matrx_ai.processing.vision.image_tokens import openai_image_detail
+
+    detail = openai_image_detail(model, wire_format)
+    if detail is None:
+        return
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "input_image" and "detail" not in node:
+                node["detail"] = detail
+            for value in node.values():
+                if isinstance(value, (list, dict)):
+                    _walk(value)
+        elif isinstance(node, list):
+            for child in node:
+                _walk(child)
+
+    _walk(items)

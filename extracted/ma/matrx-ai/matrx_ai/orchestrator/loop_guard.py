@@ -142,6 +142,45 @@ def _thresholds_from_values(values: dict[str, Any]) -> LoopGuardThresholds:
     return out
 
 
+#: Error types that are the CALLER's to correct AND carry what to correct: the database refused
+#: the model's own values and the refusal names the allowed ones. A model that reads one and
+#: corrects it is working, not stuck, so these never count toward the failure ceiling that
+#: disables a tool. Deliberately narrow: argument-validation errors and access refusals still
+#: count — a model repeating those is looping, and the guard is what stops it.
+CALLER_CORRECTABLE_ERROR_TYPES = frozenset({"constraint_violation"})
+
+
+def is_caller_correctable_failure(detail: dict[str, Any]) -> bool:
+    """True for a failed call whose structured error is a refusal of the model's own input."""
+    if bool(detail.get("success", True)):
+        return False
+    error = detail.get("error")
+    if not isinstance(error, dict):
+        return False
+    return error.get("error_type") in CALLER_CORRECTABLE_ERROR_TYPES
+
+
+def _effective_ok_flags(details: list[dict[str, Any]]) -> list[bool]:
+    """Per call, oldest first: does it count as OK for the failure ceiling?
+
+    A real success is OK. A correctable refusal is OK only the FIRST time its tool + arguments
+    appear among the exempt failures — a model that repeats the identical refused call is looping,
+    not correcting, so the repeat counts as a failure. Failed details carry their ``arguments``.
+    """
+    seen: set[tuple[str, str]] = set()
+    flags: list[bool] = []
+    for detail in details:
+        if bool(detail.get("success", True)):
+            flags.append(True)
+        elif is_caller_correctable_failure(detail):
+            key = (_detail_name(detail), _arguments_fingerprint(detail.get("arguments", {})))
+            flags.append(key not in seen)
+            seen.add(key)
+        else:
+            flags.append(False)
+    return flags
+
+
 def evaluate_loop_health(
     history: list[ToolCallUsage],
     *,
@@ -180,11 +219,7 @@ def evaluate_loop_health(
     failure_threshold = limits.failure_threshold if failure_threshold is None else failure_threshold
     recovery_window = limits.recovery_window if recovery_window is None else recovery_window
 
-    flat: list[bool] = [
-        bool(detail.get("success", True))
-        for usage in history
-        for detail in usage.tool_calls_details
-    ]
+    flat: list[bool] = _effective_ok_flags(_details(history))
 
     total = len(flat)
     if total < min_calls_before_check:
@@ -284,6 +319,8 @@ def loop_guard_evidence(history: list[ToolCallUsage]) -> dict[str, Any]:
     per_tool: dict[str, dict[str, Any]] = {}
     total = 0
     failed = 0
+    _evidence_details = _details(history)
+    _evidence_ok = iter(_effective_ok_flags(_evidence_details))
     for usage in history or []:
         for detail in getattr(usage, "tool_calls_details", None) or []:
             if not isinstance(detail, dict):
@@ -294,7 +331,7 @@ def loop_guard_evidence(history: list[ToolCallUsage]) -> dict[str, Any]:
                 name, {"tool": name, "calls": 0, "failures": 0, "last_error": ""}
             )
             row["calls"] += 1
-            if bool(detail.get("success", True)):
+            if next(_evidence_ok):
                 continue
             failed += 1
             row["failures"] += 1
@@ -400,10 +437,13 @@ def failing_tool_from_history(
     than picking arbitrarily.
     """
     blocked = tuple(exclude or ())
-    window = _details(history)[-window_size:] if window_size > 0 else _details(history)
+    every = _details(history)
+    flags = _effective_ok_flags(every)
+    start = max(0, len(every) - window_size) if window_size > 0 else 0
+    window = every[start:]
     scores: dict[str, tuple[int, int]] = {}
     for index, detail in enumerate(window):
-        if bool(detail.get("success", True)):
+        if flags[start + index]:
             continue
         name = _detail_name(detail)
         if any(_tool_name_matches(name, off) for off in blocked):
@@ -458,8 +498,10 @@ def disable_failing_tool(config: Any, tool_name: str) -> ToolDisableOutcome:
     ]
     removed = len(kept_registered) != len(registered) or len(kept_custom) != len(custom)
 
-    config.tools = kept_registered
-    config.custom_tools = kept_custom
+    # THIS TURN ONLY (CGU-10 IMG8 #2): a tool that broke this turn is not taken from the stored chat.
+    from matrx_ai.config.unified_config import narrow_tools_this_turn_only
+
+    narrow_tools_this_turn_only(config, kept_registered, kept_custom)
 
     remaining = tuple(
         [t for t in kept_registered if isinstance(t, str)]
@@ -554,14 +596,17 @@ def build_standoff_provision(
     """
     limits = thresholds or LoopGuardThresholds()
     all_details = _details(history)
+    all_ok = _effective_ok_flags(all_details)
+    mine_ok = [ok for d, ok in zip(all_details, all_ok) if _tool_name_matches(_detail_name(d), tool_name)]
     mine = [d for d in all_details if _tool_name_matches(_detail_name(d), tool_name)]
     recent = mine[-STANDOFF_RECENT_CALLS:]
 
-    failures_this_tool = sum(1 for d in mine if not bool(d.get("success", True)))
+    # Same exemption as the verdict (a first-time correctable refusal is not a failure).
+    failures_this_tool = sum(1 for ok in mine_ok if not ok)
     successes_this_tool = len(mine) - failures_this_tool
     consecutive = 0
-    for detail in reversed(mine):
-        if bool(detail.get("success", True)):
+    for ok in reversed(mine_ok):
+        if ok:
             break
         consecutive += 1
 
@@ -627,7 +672,7 @@ def build_standoff_provision(
         "successes_this_tool": successes_this_tool,
         "failures_in_window": health.failures_in_window,
         "window_size": health.window_size or limits.window_size,
-        "failures_total": sum(1 for d in all_details if not bool(d.get("success", True))),
+        "failures_total": sum(1 for ok in all_ok if not ok),
         "call_count_total": len(all_details),
         "failure_limit": limits.failure_threshold,
         "is_unattended": bool(is_unattended),
@@ -805,6 +850,27 @@ def standoff_branch(action: str, *, already_continued: bool) -> StandoffBranch:
     return "disable_tool"
 
 
+STANDOFF_FALLBACK_CODE = "loop_guard_standoff_fallback"
+
+
+def standoff_fallback_note(verdict: StandoffVerdict, *, tool_name: str, iteration: int) -> dict[str, Any] | None:
+    """The typed RUN NOTE for a standoff the count rule decided because the mandate did not (None when it did).
+
+    A log line is not a record (Law 4): the executor stamps this on the run's loop-guard evidence and emits it
+    as a warning event, so whoever reads the run sees that the standoff mandate never decided it.
+    """
+    if verdict.source != "fallback":
+        return None
+    return {
+        "code": STANDOFF_FALLBACK_CODE,
+        "mandate_key": STANDOFF_MANDATE_KEY,
+        "decided_by": "count_rule",
+        "action": verdict.action,
+        "tool": tool_name,
+        "iteration": iteration,
+    }
+
+
 def _warned_fallback(tool_name: str, why: str) -> StandoffVerdict:
     reason = (
         f"The '{STANDOFF_MANDATE_KEY}' mandate did not decide this standoff because "
@@ -844,6 +910,8 @@ __all__ = [
     "load_loop_guard_thresholds",
     "loop_guard_evidence",
     "loop_guard_sentence",
+    "STANDOFF_FALLBACK_CODE",
     "standoff_branch",
+    "standoff_fallback_note",
     "verdict_from_mandate_output",
 ]

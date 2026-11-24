@@ -35,13 +35,6 @@ from matrx_ai.catalog.constraint_eval import (
     parse_constraint,
 )
 
-# tests/ -> matrx-ai/ -> packages/ -> <repo root> -> the checkout dir holding
-# both repos as siblings.
-_SIBLINGS = Path(__file__).resolve().parents[3].parent
-COMMON_DOCS_ROOT = Path(
-    os.environ.get("MATRX_COMMON_DOCS", str(_SIBLINGS / "common-docs"))
-)
-DEFAULT_FIXTURES_DIR = COMMON_DOCS_ROOT / "systems" / "ai" / "ai-models"
 PACKAGE_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 FIXTURES_DIR = Path(os.environ.get("MATRX_SHARED_FIXTURES_DIR", str(PACKAGE_FIXTURES_DIR)))
 FIXTURE_PATH = FIXTURES_DIR / "constraint-eval-fixture.json"
@@ -76,14 +69,8 @@ def test_fixture_has_minimum_coverage() -> None:
     assert len(_CASES) >= 25
 
 
-def test_workspace_common_docs_fixture_matches_package_fixture() -> None:
-    shared_fixture = DEFAULT_FIXTURES_DIR / "constraint-eval-fixture.json"
-    if not shared_fixture.exists():
-        pytest.skip("sibling common-docs checkout is unavailable; package fixture remains measured")
-    assert shared_fixture.read_bytes() == FIXTURE_PATH.read_bytes(), (
-        "package and common-docs constraint evaluator fixtures diverged; update both "
-        "tracked copies in the same integration change"
-    )
+# The common-docs copy of this fixture is held identical by the host:
+# tests/package_host_contracts/test_matrx_ai_fixture_copies.py.
 
 
 @pytest.mark.parametrize("case", _CASES, ids=[c["name"] for c in _CASES])

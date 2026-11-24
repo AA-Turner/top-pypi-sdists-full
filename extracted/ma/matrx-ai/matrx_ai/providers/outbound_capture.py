@@ -223,6 +223,27 @@ async def _outbound_request_hook(request: httpx.Request) -> None:
             body=request.content or b"",
         )
 
+    # THE FINAL OUTBOUND SNAPSHOT (always on, every chat send): the exact serialized body is
+    # fingerprinted and the static seal check runs (``final_outbound_snapshot.py``). Report only;
+    # a failure is said once and the send proceeds. One ContextVar read for a non-chat request.
+    try:
+        from matrx_ai.providers.final_outbound_snapshot import (
+            current_seal_stamp,
+            observe_wire_body,
+            shape_of_url,
+        )
+
+        # The URL first: a non-chat request (a streamed upload) is never read.
+        if current_seal_stamp() is not None and shape_of_url(str(request.url)) is not None:
+            observe_wire_body(url=str(request.url), body=request.content or b"")
+    except Exception as exc:  # noqa: BLE001 — never breaks the call; said once per kind
+        try:
+            from matrx_ai.providers.final_outbound_snapshot import _say_failure
+
+            _say_failure("httpx hook", exc)
+        except Exception:  # noqa: BLE001, S110 — saying it must not break the send either
+            pass
+
     enabled, ctx = _is_snapshot_enabled()
     if not enabled:
         return
@@ -289,8 +310,8 @@ async def _outbound_request_hook(request: httpx.Request) -> None:
 def _httpx_flavor_of_class(cls: type) -> Any | None:
     """Return the top-level httpx-like module a client class belongs to.
 
-    ``anthropic.DefaultAsyncHttpxClient`` subclasses ``httpx2.AsyncClient``;
-    ``openai.DefaultAsyncHttpxClient`` subclasses ``httpx.AsyncClient``.
+    ``anthropic`` (>=1.0) and ``openai`` (>=3.0) clients subclass ``httpx2.AsyncClient``;
+    groq and cerebras still subclass ``httpx.AsyncClient``.
     Walking the MRO and taking the first base whose root module exposes
     ``AsyncClient`` gives us the flavor without hardcoding a name.
     """
@@ -387,8 +408,8 @@ def make_capture_http_client(
     """Construct an ``AsyncClient`` with the CONTEXT_ANALYSIS request hook
     installed, **built on the httpx flavor the target SDK itself uses**.
 
-    Provider SDKs (OpenAI, Anthropic, Groq, xAI, Cerebras, Together,
-    GenericOpenAI) accept this via their ``http_client=`` constructor
+    Provider SDKs (OpenAI, Anthropic, Groq, xAI, Cerebras, and every
+    OpenAI-compatible provider) accept this via their ``http_client=`` constructor
     argument and will route every outbound request through it. Any
     additional ``AsyncClient`` kwargs (proxies, transport overrides, etc.)
     are forwarded.
@@ -412,10 +433,15 @@ def make_capture_http_client(
 
     client_cls = resolve_sdk_httpx(sdk).AsyncClient
 
-    return client_cls(
-        timeout=timeout,
-        event_hooks={"request": request_hooks, "response": response_hooks},
-        **kwargs,
+    from matrx_ai.providers.wire_sent import mark_provider_client
+
+    # A provider client: every request it sends notes "request sent" at the transport (wire_sent.py).
+    return mark_provider_client(
+        client_cls(
+            timeout=timeout,
+            event_hooks={"request": request_hooks, "response": response_hooks},
+            **kwargs,
+        )
     )
 
 

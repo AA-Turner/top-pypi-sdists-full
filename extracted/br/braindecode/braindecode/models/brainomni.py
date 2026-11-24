@@ -10,47 +10,41 @@ from __future__ import annotations
 from functools import partial
 from typing import Dict, Optional, Union
 
-import mne
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mne.io.constants import FIFF
 from torch.nn import RMSNorm
-from torch.nn.utils.parametrizations import weight_norm
 
-from braindecode.functional import apply_rotary, init_weights_, rotary_frequencies
+from braindecode.functional import check_n_chans, init_weights_
 from braindecode.models.base import EEGModuleMixin
 from braindecode.models.util import (
-    extract_channel_locations_from_chs_info,
+    geometry_from_chs_info,
+    sensor_type_of,
     warn_if_sfreq_differs,
 )
-from braindecode.modules import FeedForwardBlock
+from braindecode.modules import (
+    FeedForwardBlock,
+    SEANetDecoder,
+    SEANetEncoder,
+    SpatialTemporalBlock,
+)
 from braindecode.modules.quantization import ResidualVectorQuantizer
-
-
-class _SELU(nn.SELU):
-    """``nn.SELU`` as ``ELU(x, alpha * scale)`` times ``scale`` where ``x > 0``:
-    same values and gradients, and trainable on Gaudi, whose ELU backward only
-    supports ``scale == 1``."""
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        alpha, scale = (
-            1.6732632423543772848170429916717,
-            1.0507009873554804934193349852946,
-        )
-        # ELU is x on the positive side, so this equals the where(x > 0, x * scale,
-        # elu) form bit for bit, without its zero-filled where backward. The
-        # factor is at least float32, like the scalar multiply's compute type.
-        one = x.new_ones((), dtype=torch.promote_types(x.dtype, torch.float32))
-        factor = torch.where(x > 0, one * scale, one)
-        return (F.elu(x, alpha * scale) * factor).to(x.dtype)
+from braindecode.modules.spatial_temporal import _SELU, _attend
 
 
 class BrainTokenizer(EEGModuleMixin, nn.Module, license="mit"):
     r"""BrainTokenizer from Xiao et al. (2025) [brainomni]_.
 
     :bdg-danger:`Foundation Model` :bdg-info:`Attention/Transformer`
+
+    .. figure:: ../_static/model/braintokenizer_arch.png
+       :align: center
+       :alt: BrainTokenizer architecture
+       :width: 1000px
+
+       BrainTokenizer training as an autoencoder, with its encoder,
+       reconstructor and sensor encoder, reproduced from [brainomni]_
+       (CC BY 4.0).
 
     .. rubric:: Architecture Overview
 
@@ -137,6 +131,14 @@ class BrainTokenizer(EEGModuleMixin, nn.Module, license="mit"):
         straight-through estimator.
     drop_prob : float
         Attention dropout.
+    channel_strategy : str
+        How another EEG montage reaches the encoder; see
+        :class:`~braindecode.models.base.EEGModuleMixin`. The channel layer maps
+        electrodes only, so a ``chs_info`` with MEG sensors takes only
+        ``"native"``. BrainTokenizer builds on any EEG/MEG montage from the sensor
+        geometry of ``chs_info`` (the weights do not depend on it).
+    channel_strategy_kwargs : dict or None
+        Options of ``channel_strategy``.
 
     References
     ----------
@@ -145,6 +147,9 @@ class BrainTokenizer(EEGModuleMixin, nn.Module, license="mit"):
        BrainOmni: A Brain Foundation Model for Unified EEG and MEG Signals.
        NeurIPS 2025. https://arxiv.org/abs/2505.18185
     """
+
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: pos is sized by n_chans
 
     def __init__(
         self,
@@ -168,7 +173,10 @@ class BrainTokenizer(EEGModuleMixin, nn.Module, license="mit"):
         num_quantizers: int = 4,
         rotation_trick: bool = True,
         drop_prob: float = 0.0,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
+        _check_channel_strategy(self, chs_info, channel_strategy)
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -176,6 +184,8 @@ class BrainTokenizer(EEGModuleMixin, nn.Module, license="mit"):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         warn_if_sfreq_differs("BrainTokenizer", self.sfreq, 256)
@@ -192,7 +202,7 @@ class BrainTokenizer(EEGModuleMixin, nn.Module, license="mit"):
                 f"tokenizer_num_heads ({tokenizer_num_heads})."
             )
         # Derived from chs_info, so not saved: one checkpoint serves any montage.
-        pos, sensor_type = _geometry_from_chs_info(self.chs_info)
+        pos, sensor_type = geometry_from_chs_info(self.chs_info)
         self.register_buffer("pos", torch.from_numpy(pos), persistent=False)
         self.register_buffer(
             "sensor_type", torch.from_numpy(sensor_type), persistent=False
@@ -226,6 +236,7 @@ class BrainTokenizer(EEGModuleMixin, nn.Module, license="mit"):
             last_kernel_size,
             drop_prob,
         )
+        self._min_n_times = 1
         self._init_parameters()
 
     def _init_parameters(self) -> None:
@@ -233,6 +244,12 @@ class BrainTokenizer(EEGModuleMixin, nn.Module, license="mit"):
         self.apply(_init_weights)
 
     def _encode_quantize(self, x: torch.Tensor, overlap_ratio: float = 0.0):
+        check_n_chans(
+            x,
+            self.n_chans,
+            "BrainTokenizer",
+            "build the model with the chs_info of this montage.",
+        )
         step = int(self.window_length * (1 - overlap_ratio))
         x = F.pad(x, (0, max(self.window_length - x.shape[-1], 0)))
         if step < self.window_length:  # overlap pads the last window, as released
@@ -295,6 +312,15 @@ class BrainOmni(EEGModuleMixin, nn.Module, license="mit"):
     r"""BrainOmni from Xiao et al. (2025) [brainomni]_.
 
     :bdg-danger:`Foundation Model` :bdg-info:`Attention/Transformer`
+
+    .. figure:: ../_static/model/brainomni_arch.png
+       :align: center
+       :alt: BrainOmni architecture
+       :width: 1000px
+
+       BrainOmni pretraining: masked BrainTokenizer tokens are predicted by
+       stacked criss-cross Transformer blocks, reproduced from [brainomni]_
+       (CC BY 4.0).
 
     .. rubric:: Architecture Overview
 
@@ -389,6 +415,14 @@ class BrainOmni(EEGModuleMixin, nn.Module, license="mit"):
         Transformer dropout.
     activation : type[nn.Module]
         Activation of the classification head.
+    channel_strategy : str
+        How another EEG montage reaches the encoder; see
+        :class:`~braindecode.models.base.EEGModuleMixin`. The channel layer maps
+        electrodes only, so a ``chs_info`` with MEG sensors takes only
+        ``"native"``. BrainOmni builds on any EEG/MEG montage from the sensor
+        geometry of ``chs_info`` (the weights do not depend on it).
+    channel_strategy_kwargs : dict or None
+        Options of ``channel_strategy``.
 
     References
     ----------
@@ -397,6 +431,9 @@ class BrainOmni(EEGModuleMixin, nn.Module, license="mit"):
        BrainOmni: A Brain Foundation Model for Unified EEG and MEG Signals.
        NeurIPS 2025. https://arxiv.org/abs/2505.18185
     """
+
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: tokenizer.pos is sized by n_chans
 
     def __init__(
         self,
@@ -426,7 +463,10 @@ class BrainOmni(EEGModuleMixin, nn.Module, license="mit"):
         depth: int = 12,
         drop_prob: float = 0.1,
         activation: type[nn.Module] = nn.SELU,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
+        _check_channel_strategy(self, chs_info, channel_strategy)
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -434,6 +474,8 @@ class BrainOmni(EEGModuleMixin, nn.Module, license="mit"):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         if not 0 <= overlap_ratio < 1:
@@ -474,11 +516,12 @@ class BrainOmni(EEGModuleMixin, nn.Module, license="mit"):
             nn.Linear(emb_dim, lm_dim) if emb_dim != lm_dim else nn.Identity()
         )
         self.blocks = nn.ModuleList(
-            [_SpatialTemporalBlock(lm_dim, num_heads, drop_prob) for _ in range(depth)]
+            [SpatialTemporalBlock(lm_dim, num_heads, drop_prob) for _ in range(depth)]
         )
         self._init_parameters()
         self.final_layer = self._make_head(self.n_outputs)  # default init, as released
         self.tokenizer.requires_grad_(False)
+        self._min_n_times = 1
 
     def _init_parameters(self) -> None:
         """Model-specific initialization (see ``reset_parameters``)."""
@@ -491,7 +534,7 @@ class BrainOmni(EEGModuleMixin, nn.Module, license="mit"):
         return nn.Sequential(
             nn.Dropout(0.1),
             nn.Linear(self.n_neuro * self.lm_dim, self.lm_dim),
-            # nn.SELU (the released config) as _SELU, which trains on Gaudi
+            # nn.SELU (the released config) computed as _SELU, the scale == 1 ELU form
             (_SELU if self.activation is nn.SELU else self.activation)(),
             nn.Linear(self.lm_dim, n_outputs),
         )
@@ -506,6 +549,12 @@ class BrainOmni(EEGModuleMixin, nn.Module, license="mit"):
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """L2-normalized ``(batch, n_neuro, n_tokens, lm_dim)`` embedding."""
+        check_n_chans(
+            x,
+            self.n_chans,
+            "BrainOmni",
+            "build the model with the chs_info of this montage.",
+        )
         if torch.jit.is_scripting():
             # TorchScript cannot switch modes, so tokenize() is not scriptable.
             if self.tokenizer.training:
@@ -544,191 +593,23 @@ _init_weights = partial(
 )
 
 
-_SENSOR_CODE = {"eeg": 0, "mag": 1, "grad": 2}
-# FIFF coil names by value, so plain-int coil types (serialized chs_info) resolve.
-_COIL_NAMES = {
-    int(value): name for name, value in FIFF.items() if name.startswith("FIFFV_COIL_")
-}
-
-
-def _coil_name(ch) -> str:
-    return _COIL_NAMES.get(int(ch.get("coil_type", 0)), "")
-
-
-def _sensor_type_of(chs_info, index: int) -> str:
-    """EEG, MAG or GRAD as released: an MEG coil is MAG iff its name has "MAG".
-
-    So CTF/KIT axial gradiometers are GRAD although MNE types them ``mag``.
-    """
-    ch = chs_info[index]
-    kind = ch.get("kind")
-    if kind is not None and not isinstance(kind, str):
-        if int(kind) == FIFF.FIFFV_EEG_CH:
-            return "eeg"
-        if int(kind) == FIFF.FIFFV_MEG_CH and "coil_type" in ch:
-            return "mag" if "MAG" in _coil_name(ch) else "grad"
-        return mne.channel_type({"chs": chs_info}, index)
-    resolved_type = ch.get("ch_type", kind)
-    if resolved_type is None:
-        resolved_type = mne.channel_type({"chs": chs_info}, index)
-    return str(resolved_type).lower()
-
-
-def _geometry_from_chs_info(chs_info):
-    """``(pos (n_chans, 6) float32, sensor_type (n_chans,) int64)``, as released.
-
-    Positions are centred and scaled per modality (EEG, MEG); the orientation
-    is the coil x-axis for planar gradiometers, the coil normal for other MEG
-    coils and zero for EEG.
-    """
-    types = [_sensor_type_of(chs_info, index) for index in range(len(chs_info))]
-    xyz = extract_channel_locations_from_chs_info(chs_info)
-    if xyz is None or len(xyz) != len(chs_info) or not np.isfinite(xyz).all():
+def _check_channel_strategy(model, chs_info, channel_strategy):
+    """The channel layer maps electrodes only: a montage with MEG stays native."""
+    if channel_strategy == "native" or not chs_info:
+        return
+    other = [
+        ch["ch_name"]
+        for index, ch in enumerate(chs_info)
+        if sensor_type_of(chs_info, index) != "eeg"
+    ]
+    if other:
         raise ValueError(
-            "chs_info lacks finite sensor positions; call raw.set_montage(...)."
+            f"{type(model).__name__} reads EEG and MEG, but the channel layer maps "
+            f"electrodes only and chs_info has other sensors ({other}): only "
+            f"channel_strategy='native' is supported for them. "
+            f"{type(model).__name__} builds on any EEG/MEG montage from the sensor "
+            f"geometry of chs_info."
         )
-    unsupported = set(types) - set(_SENSOR_CODE)
-    if unsupported:
-        raise ValueError(
-            f"Unsupported channel type(s) {sorted(unsupported)}; pass only EEG/MEG."
-        )
-    sensor_type = np.array([_SENSOR_CODE[t] for t in types], dtype=np.int64)
-
-    ori = np.zeros((len(chs_info), 3))
-    for index in np.flatnonzero(sensor_type > 0):
-        planar = "PLANAR" in _coil_name(chs_info[index])
-        axis = np.asarray(chs_info[index]["loc"], dtype=np.float64)
-        axis = axis[3:6] if sensor_type[index] == 2 and planar else axis[9:12]
-        if axis.shape != (3,) or not np.isfinite(axis).all():
-            raise ValueError("chs_info lacks a finite MEG coil orientation.")
-        ori[index] = axis
-
-    pos = np.concatenate([xyz, ori], axis=1).astype(np.float32)
-    for mask in (sensor_type == 0, sensor_type > 0):
-        if mask.any():
-            centred = pos[mask, :3] - pos[mask, :3].mean(axis=0, keepdims=True)
-            scale = np.sqrt(3 * np.mean(np.sum(centred**2, axis=1)))
-            pos[mask, :3] = centred / (scale if scale > 0 else 1.0)
-    return pos, sensor_type
-
-
-def _attend(q, k, v, n_head: int, dropout_p: float) -> torch.Tensor:
-    """SDPA over ``(batch, seq, n_head * head_dim)`` inputs."""
-    q = q.unflatten(-1, (n_head, -1))
-    k = k.unflatten(-1, (n_head, -1))
-    v = v.unflatten(-1, (n_head, -1))
-    out = F.scaled_dot_product_attention(
-        q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p
-    )
-    return out.transpose(1, 2).flatten(2)
-
-
-class _SpatialTemporalBlock(nn.Module):
-    """Temporal attention (RoPE) on one feature half, spatial on the other."""
-
-    def __init__(self, n_dim, n_head, dropout):
-        super().__init__()
-        self.pre_attn_norm = RMSNorm(n_dim, eps=1e-6)
-        self.time_attn = _MultiHeadAttentionRoPE(n_dim // 2, n_head // 2, dropout, True)
-        self.spatial_attn = _MultiHeadAttentionRoPE(
-            n_dim // 2, n_head // 2, dropout, False
-        )
-        self.pre_ff_norm = RMSNorm(n_dim, eps=1e-6)
-        # Released FeedForward: Linear -> SELU -> Linear -> Dropout.
-        self.ff = FeedForwardBlock(n_dim, 4, 0.0, _SELU, output_drop_p=dropout)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        batch, chans, times, dim = x.shape
-        h = self.pre_attn_norm(x)
-        # (b, c, t, d) -> (b * t, c, d) and (b * c, t, d), and back
-        xs = h[..., dim // 2 :].permute(0, 2, 1, 3).reshape(batch * times, chans, -1)
-        xt = h[..., : dim // 2].reshape(batch * chans, times, -1)
-        xs = self.spatial_attn(xs).reshape(batch, times, chans, -1).permute(0, 2, 1, 3)
-        xt = self.time_attn(xt).reshape(batch, chans, times, -1)
-        # Spatial half first: the halves swap, as released.
-        x = x + torch.cat([xs, xt], dim=-1)
-        return x + self.ff(self.pre_ff_norm(x))
-
-
-class _RotaryPositionalEmbedding(nn.Module):
-    """RoPE of the released BrainOmni.
-
-    ``rotate`` caches 240 positions as ``(cos, sin)`` pairs; the released
-    checkpoints hold cosines only (zero sine). A longer sequence rebuilds the
-    cache from ``freqs`` and later calls keep it (not saved). The caches stay
-    float32 under a dtype cast, ``freqs`` follows it.
-    """
-
-    # TorchScript types the ``rebuilt`` buffer from this; a postponed string
-    # annotation would not resolve.
-    __annotations__ = {"rebuilt": Optional[torch.Tensor]}
-
-    def __init__(self, n_dim, base=10000):
-        super().__init__()
-        self.n_dim = n_dim
-        self.register_buffer("freqs", rotary_frequencies(n_dim, base))
-        self.register_buffer("rotate", self._polar(240))
-        self.register_buffer("rebuilt", None, persistent=False)
-
-    def _polar(self, seq: int) -> torch.Tensor:
-        positions = torch.arange(seq, device=self.freqs.device).type_as(self.freqs)
-        angles = torch.outer(positions, self.freqs).float()
-        return torch.stack((angles.cos(), angles.sin()), dim=-1)
-
-    def _apply(self, fn, recurse=True):
-        before = {name: self._buffers[name] for name in ("rotate", "rebuilt")}
-        super()._apply(fn, recurse)
-        for name, buffer in before.items():
-            moved = self._buffers[name]
-            if buffer is not None and moved is not None and moved.dtype != buffer.dtype:
-                self._buffers[name] = buffer.to(device=moved.device)
-        return self
-
-    def _load_from_state_dict(self, *args, **kwargs):
-        self.rebuilt = None
-        super()._load_from_state_dict(*args, **kwargs)
-
-    def forward(self, q, k):
-        """Rotate ``q`` and ``k`` of shape ``(batch, seq, n_heads, head_dim)``."""
-        _, seq, heads, _ = q.shape
-        rebuilt = self.rebuilt
-        rotate = self.rotate if rebuilt is None else rebuilt
-        if seq > rotate.shape[0]:
-            rotate = self._polar(seq)
-            self.rebuilt = rotate
-        # In at least float32 (the cache's dtype), float64 for float64 inputs.
-        work = torch.promote_types(q.dtype, torch.float32)
-        rotate = rotate.to(work)[:seq].repeat_interleave(2, dim=1)
-        rotate = rotate.unflatten(1, (heads, -1))  # (seq, heads, head_dim, 2)
-        cos, sin = rotate[..., 0], rotate[..., 1]
-        q_float, k_float = q.to(work), k.to(work)
-        q_out = apply_rotary(q_float, cos, sin)
-        k_out = apply_rotary(k_float, cos, sin)
-        return q_out.type_as(q), k_out.type_as(k)
-
-
-class _MultiHeadAttentionRoPE(nn.Module):
-    """Self-attention with a fused ``qkv`` projection and optional RoPE."""
-
-    def __init__(self, n_dim, n_head, dropout, rope):
-        super().__init__()
-        self.dropout = dropout
-        self.n_dim = n_dim
-        self.n_head = n_head
-        self.qkv = nn.Linear(n_dim, 3 * n_dim)
-        self.proj = nn.Linear(n_dim, n_dim)
-        self.rope_embedding_layer = _RotaryPositionalEmbedding(n_dim) if rope else None
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        q, k, v = torch.split(self.qkv(x), self.n_dim, dim=-1)
-        dropout_p = self.dropout if self.training else 0.0
-        if self.rope_embedding_layer is not None:  # on (batch, seq, heads, head_dim)
-            q, k = self.rope_embedding_layer(
-                q.unflatten(-1, (self.n_head, -1)), k.unflatten(-1, (self.n_head, -1))
-            )
-            q, k = q.flatten(2), k.flatten(2)
-        out = _attend(q, k, v, self.n_head, dropout_p)
-        return self.proj(out)
 
 
 class _ForwardSolution(nn.Module):
@@ -797,7 +678,7 @@ class _TokenizerEncoder(nn.Module):
         n_neuro,
     ) -> None:
         super().__init__()
-        self.seanet_encoder = _seanet_encoder(
+        self.seanet_encoder = SEANetEncoder(
             n_dim, n_filters, ratios, kernel_size, last_kernel_size
         )
         self.neuros = nn.Parameter(torch.randn(n_neuro, n_dim))
@@ -838,7 +719,7 @@ class _TokenizerDecoder(nn.Module):
     ) -> None:
         super().__init__()
         self.forwardsolution = _ForwardSolution(n_dim, n_head, dropout)
-        self.seanet_decoder = _seanet_decoder(
+        self.seanet_decoder = SEANetDecoder(
             n_dim, n_filters, ratios, kernel_size, last_kernel_size
         )
 
@@ -858,112 +739,3 @@ class _TokenizerDecoder(nn.Module):
         x = self.seanet_decoder(x.reshape(-1, dim, tok))
         # (b c w) 1 l -> b c w l
         return x.reshape(batch, chans, nwin, x.shape[-1])
-
-
-class _SEANetConv1d(nn.Module):
-    """Weight-normed Conv1d with EnCodec's non-causal reflect padding."""
-
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1):
-        super().__init__()
-        self.conv = weight_norm(
-            nn.Conv1d(in_channels, out_channels, kernel_size, stride)
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        kernel_size, stride = self.conv.kernel_size[0], self.conv.stride[0]
-        padding_total = kernel_size - stride
-        # Round the length up so the last strided window is full.
-        extra = (kernel_size - padding_total - x.shape[-1]) % stride
-        right = padding_total // 2
-        padding = (padding_total - right, right + extra)
-        if max(padding) == 0:  # 1x1 convs: padding would only copy x
-            return self.conv(x)
-        # Zero-extend a signal too short to reflect, as EnCodec does.
-        short = max(max(padding) - x.shape[-1] + 1, 0)
-        if short > 0:  # F.pad with nothing to pad still copies x
-            x = F.pad(x, (0, short))
-        x = F.pad(x, padding, mode="reflect")
-        return self.conv(x[..., : x.shape[-1] - short])
-
-
-class _SEANetConvTranspose1d(nn.Module):
-    """Weight-normed ConvTranspose1d trimmed as EnCodec (non-causal)."""
-
-    def __init__(self, in_channels, out_channels, kernel_size, stride):
-        super().__init__()
-        self.convtr = weight_norm(
-            nn.ConvTranspose1d(in_channels, out_channels, kernel_size, stride)
-        )
-        self.padding_total = kernel_size - stride
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        y = self.convtr(x)
-        right = self.padding_total // 2
-        return y[..., self.padding_total - right : y.shape[-1] - right]
-
-
-class _SEANetLSTM(nn.Module):
-    """Two-layer LSTM with a skip connection over ``(batch, dim, time)``."""
-
-    def __init__(self, dimension: int):
-        super().__init__()
-        self.lstm = nn.LSTM(dimension, dimension, 2)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # 4D-view permute: Gaudi lazy mode cannot compile the LSTM after a 3D one.
-        x = x.unsqueeze(-1).permute(2, 0, 1, 3).squeeze(-1)
-        y, _ = self.lstm(x)
-        return (y + x).permute(1, 2, 0)
-
-
-class _SEANetResBlock(nn.Module):
-    """``ELU -> conv3 -> ELU -> conv1`` plus a 1x1 conv shortcut."""
-
-    def __init__(self, dim: int):
-        super().__init__()
-        self.block = nn.Sequential(
-            nn.ELU(),
-            _SEANetConv1d(dim, dim // 2, 3),
-            nn.ELU(),
-            _SEANetConv1d(dim // 2, dim, 1),
-        )
-        self.shortcut = _SEANetConv1d(dim, dim, 1)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.shortcut(x) + self.block(x)
-
-
-def _seanet_encoder(dim, n_filters, ratios, kernel_size, last_kernel_size):
-    """SEANet encoder of the release: ``(N, 1, L) -> (N, dim, L / prod(ratios))``."""
-    layers = [_SEANetConv1d(1, n_filters, kernel_size)]
-    mult = 1
-    for ratio in reversed(ratios):
-        layers += [
-            _SEANetResBlock(mult * n_filters),
-            nn.ELU(),
-            _SEANetConv1d(mult * n_filters, 2 * mult * n_filters, 2 * ratio, ratio),
-        ]
-        mult *= 2
-    layers += [
-        _SEANetLSTM(mult * n_filters),
-        nn.ELU(),
-        _SEANetConv1d(mult * n_filters, dim, last_kernel_size),
-    ]
-    return nn.Sequential(*layers)
-
-
-def _seanet_decoder(dim, n_filters, ratios, kernel_size, last_kernel_size):
-    """Mirror of :func:`_seanet_encoder` with transposed convolutions."""
-    mult = 2 ** len(ratios)
-    layers = [_SEANetConv1d(dim, mult * n_filters, kernel_size)]
-    layers += [_SEANetLSTM(mult * n_filters)]
-    for ratio in ratios:
-        out = mult * n_filters // 2
-        layers += [
-            nn.ELU(),
-            _SEANetConvTranspose1d(mult * n_filters, out, 2 * ratio, ratio),
-            _SEANetResBlock(out),
-        ]
-        mult //= 2
-    layers += [nn.ELU(), _SEANetConv1d(n_filters, 1, last_kernel_size)]
-    return nn.Sequential(*layers)

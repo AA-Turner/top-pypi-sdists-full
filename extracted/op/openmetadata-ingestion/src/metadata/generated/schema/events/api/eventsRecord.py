@@ -13,6 +13,12 @@ class EventSubscriptionEventsRecord(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    enabled: Annotated[
+        bool | None,
+        Field(
+            description="Whether the alert is enabled. A disabled alert is not running: it reads and sends no events until it is enabled again, and then it starts from the latest event."
+        ),
+    ] = None
     totalEventsCount: Annotated[
         Any | None,
         Field(
@@ -20,7 +26,10 @@ class EventSubscriptionEventsRecord(BaseModel):
         ),
     ] = None
     pendingEventsCount: Annotated[
-        Any | None, Field(description="Count of pending events for specific alert.")
+        Any | None,
+        Field(
+            description="Count of events the alert will still process. Always 0 for a disabled alert, because enabling it starts from the latest event."
+        ),
     ] = None
     successfulEventsCount: Annotated[
         Any | None, Field(description="Count of successful events for specific alert.")

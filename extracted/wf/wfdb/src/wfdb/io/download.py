@@ -1,8 +1,10 @@
-import json
+import functools
 import multiprocessing.dummy
 import os
 import posixpath
+import time
 
+import fsspec
 import numpy as np
 
 from wfdb.io import _url
@@ -46,6 +48,74 @@ def set_db_index_url(db_index_url=PN_INDEX_URL):
     config.db_index_url = db_index_url
 
 
+# Options for opening physionet:// files: read only the parts of a file that
+# are needed, with HTTP range requests, and show no progress bars
+PHYSIONET_OPEN_OPTIONS = {"stream": True, "show_progress": False}
+
+
+def _physionet_uri(pn_dir, file_name):
+    """Return the physionet:// URI of a file in a PhysioNet database.
+
+    Parameters
+    ----------
+    pn_dir : str
+        The PhysioNet database directory, including its version, such as
+        'mitdb/1.0.0'.
+    file_name : str
+        The name of the file in that directory.
+
+    Returns
+    -------
+    str or None
+        The URI, or None if the database index URL has been set to a server
+        other than PhysioNet (with `set_db_index_url`).
+
+    """
+    if config.db_index_url.rstrip("/") != PN_INDEX_URL.rstrip("/"):
+        return None
+    return "physionet://" + posixpath.join(pn_dir, file_name)
+
+
+def _open_pn_file(pn_dir, file_name, mode="rb", **kwargs):
+    """Open a file in a PhysioNet database directory.
+
+    Files on PhysioNet are read through the physionet package, which reads
+    only the parts of a file that are needed, and reads restricted databases
+    with the sign-in saved by `physionet login`. Files on another server, set
+    with `set_db_index_url`, are read with `wfdb.io._url.openurl`.
+
+    Parameters
+    ----------
+    pn_dir : str
+        The PhysioNet database directory, including its version.
+    file_name : str
+        The name of the file in that directory.
+    mode : str, optional
+        The mode to open the file in: "rb" (the default) or "r".
+    kwargs : dict, optional
+        Passed to `wfdb.io._url.openurl` for another server. For PhysioNet,
+        only `encoding`, `errors` and `newline` are used.
+
+    Returns
+    -------
+    file
+        The file to open, as a context manager.
+
+    """
+    uri = _physionet_uri(pn_dir, file_name)
+    if uri is None:
+        url = posixpath.join(config.db_index_url, pn_dir, file_name)
+        return _url.openurl(url, mode, **kwargs)
+    # Other options would make fsspec create a separate filesystem, without
+    # the connection and lookups that are shared by every physionet:// file
+    text_options = {
+        name: kwargs[name]
+        for name in ("encoding", "errors", "newline")
+        if kwargs.get(name) is not None
+    }
+    return fsspec.open(uri, mode, **PHYSIONET_OPEN_OPTIONS, **text_options)
+
+
 def _remote_file_size(url=None, file_name=None, pn_dir=None):
     """Get the remote file size in bytes.
 
@@ -67,9 +137,9 @@ def _remote_file_size(url=None, file_name=None, pn_dir=None):
         Size of the file in bytes.
 
     """
-    # Option to construct the url
     if file_name and pn_dir:
-        url = posixpath.join(config.db_index_url, pn_dir, file_name)
+        with _open_pn_file(pn_dir, file_name) as f:
+            return f.seek(0, os.SEEK_END)
 
     with _url.openurl(url, "rb") as f:
         remote_file_size = f.seek(0, os.SEEK_END)
@@ -95,11 +165,8 @@ def _stream_header(file_name: str, pn_dir: str) -> str:
         The text contained in the header file
 
     """
-    # Full url of header location
-    url = posixpath.join(config.db_index_url, pn_dir, file_name)
-
     # Get the content of the remote file
-    with _url.openurl(url, "rb") as f:
+    with _open_pn_file(pn_dir, file_name) as f:
         content = f.read()
 
     return content.decode("iso-8859-1")
@@ -127,11 +194,8 @@ def _stream_dat(file_name, pn_dir, byte_count, start_byte, dtype):
         The data read from the dat file.
 
     """
-    # Full url of dat file
-    url = posixpath.join(config.db_index_url, pn_dir, file_name)
-
     # Get the content
-    with _url.openurl(url, "rb", buffering=0) as f:
+    with _open_pn_file(pn_dir, file_name, buffering=0) as f:
         f.seek(start_byte)
         content = f.read(byte_count)
 
@@ -157,11 +221,8 @@ def _stream_annotation(file_name, pn_dir):
         The resulting data stream in numpy array format.
 
     """
-    # Full url of annotation file
-    url = posixpath.join(config.db_index_url, pn_dir, file_name)
-
     # Get the content
-    with _url.openurl(url, "rb") as f:
+    with _open_pn_file(pn_dir, file_name) as f:
         content = f.read()
 
     # Convert to numpy array
@@ -171,7 +232,12 @@ def _stream_annotation(file_name, pn_dir):
 
 
 def get_dbs():
-    """Get a list of all the PhysioNet databases available.
+    """Get a list of the databases published on PhysioNet.
+
+    The list comes from PhysioNet's API, through the ``physionet`` package. It
+    includes every database on PhysioNet, including those that need
+    credentials or a signed data use agreement to access, but not software,
+    models or challenges.
 
     Parameters
     ----------
@@ -180,27 +246,27 @@ def get_dbs():
     Returns
     -------
     dbs : list
-        All of the databases currently available for analysis.
+        The slug and title of each database, sorted by slug.
 
     Examples
     --------
+    >>> import wfdb
     >>> dbs = wfdb.get_dbs()
-    >>> dbs
-    [
-     ['aami-ec13', 'ANSI/AAMI EC13 Test Waveforms'],
-     ['adfecgdb', 'Abdominal and Direct Fetal ECG Database'],
-     ...
-     ['wrist', 'Wrist PPG During Exercise']
-    ]
+    >>> any(slug == 'mitdb' for slug, title in dbs)
+    True
 
     """
-    with _url.openurl("https://physionet.org/rest/database-list/", "rb") as f:
-        content = f.read()
-    dbs = json.loads(content)
-    dbs = [[d["slug"], d["title"]] for d in dbs]
-    dbs.sort()
+    import physionet
 
-    return dbs
+    with physionet.PhysioNetClient() as client:
+        projects = client.projects.list_published()
+    # The API lists every version of each project, with the title of each
+    titles = {
+        project.slug: project.title
+        for project in projects
+        if project.resource_type == "Database" and project.is_latest_version
+    }
+    return [[slug, title] for slug, title in sorted(titles.items())]
 
 
 # ---- Helper functions for downloading PhysioNet files ------- #
@@ -219,18 +285,41 @@ def get_version(pn_dir):
     Returns
     -------
     version_number : str
-        The version number of the most recent database.
+        The version number of the most recent database. It is looked up
+        once per database, and remembered until the program ends.
 
     """
-    db_dir = pn_dir.split("/")[0]
-    url = posixpath.join(PN_CONTENT_URL, db_dir) + "/"
-    with _url.openurl(url, "rb") as f:
-        content = f.read()
-    contents = [line.decode("utf-8").strip() for line in content.splitlines()]
-    version_number = [v for v in contents if "Version:" in v]
-    version_number = version_number[0].split(":")[-1].strip().split("<")[0]
+    return _latest_version(pn_dir.split("/")[0])
 
-    return version_number
+
+# How many times to try looking up a version, if PhysioNet is unavailable
+VERSION_ATTEMPTS = 3
+
+
+@functools.cache
+def _latest_version(db_dir):
+    """Look up the latest version of a PhysioNet database.
+
+    Connection errors, server errors and rate limiting are retried, after 1
+    and then 2 seconds.
+
+    """
+    import physionet
+    from physionet.api.exceptions import NotFoundError, PhysioNetAPIError
+
+    for attempt in range(VERSION_ATTEMPTS):
+        try:
+            return physionet.latest_version(db_dir)
+        except NotFoundError as exc:
+            raise FileNotFoundError(f"PhysioNet has no database {db_dir!r}") from exc
+        except (ConnectionError, PhysioNetAPIError) as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            unavailable = isinstance(exc, ConnectionError) or (
+                status is not None and (status >= 500 or status == 429)
+            )
+            if not unavailable or attempt == VERSION_ATTEMPTS - 1:
+                raise
+            time.sleep(2**attempt)
 
 
 def get_record_list(db_dir, records="all"):
@@ -252,21 +341,20 @@ def get_record_list(db_dir, records="all"):
 
     Examples
     --------
-    >>> wfdb.get_record_list('mitdb')
+    >>> import wfdb
+    >>> records = wfdb.get_record_list('mitdb')
 
     """
-    # Full url PhysioNet database
     if "/" not in db_dir:
-        db_url = posixpath.join(config.db_index_url, db_dir, get_version(db_dir))
-    else:
-        db_url = posixpath.join(config.db_index_url, db_dir)
+        db_dir = posixpath.join(db_dir, get_version(db_dir))
 
     # Check for a RECORDS file
     if records == "all":
         try:
-            with _url.openurl(posixpath.join(db_url, "RECORDS"), "rb") as f:
+            with _open_pn_file(db_dir, "RECORDS") as f:
                 content = f.read()
         except FileNotFoundError:
+            db_url = posixpath.join(config.db_index_url, db_dir)
             raise ValueError("The database %s has no WFDB files to download" % db_url)
 
         # Get each line as a string
@@ -297,7 +385,8 @@ def get_annotators(db_dir, annotators):
 
     Examples
     --------
-    >>> wfdb.get_annotators('mitdb')
+    >>> from wfdb.io.download import get_annotators
+    >>> annotators = get_annotators('mitdb/1.0.0', 'all')
 
     """
     # Full url PhysioNet database
@@ -306,7 +395,7 @@ def get_annotators(db_dir, annotators):
     if annotators is not None:
         # Check for an ANNOTATORS file
         try:
-            with _url.openurl(posixpath.join(db_url, "ANNOTATORS"), "rb") as f:
+            with _open_pn_file(db_dir, "ANNOTATORS") as f:
                 content = f.read()
         except FileNotFoundError:
             if annotators == "all":
@@ -336,6 +425,82 @@ def get_annotators(db_dir, annotators):
                     )
 
     return annotators
+
+
+def _project_files(db_dir):
+    """List the files in a PhysioNet database directory, from its checksum list.
+
+    Parameters
+    ----------
+    db_dir : str
+        The PhysioNet database directory, including its version, such as
+        'mitdb/1.0.0'.
+
+    Returns
+    -------
+    set of str or None
+        The paths of the files, relative to `db_dir`, or None if the database
+        index URL has been set to a server other than PhysioNet.
+
+    """
+    if _physionet_uri(db_dir, "") is None:
+        return None
+    fs = fsspec.filesystem("physionet", **PHYSIONET_OPEN_OPTIONS)
+    prefix = db_dir.rstrip("/") + "/"
+    return {path[len(prefix) :] for path in fs.find(db_dir) if path.startswith(prefix)}
+
+
+def _download_files(db_dir, dl_dir, files, keep_subdirs, overwrite):
+    """Download files from a PhysioNet database with the physionet package.
+
+    Each file is checked against the database's checksum list. A file that is
+    already saved with the right content is skipped, and one that was partly
+    downloaded is completed.
+
+    Parameters
+    ----------
+    db_dir : str
+        The PhysioNet database directory, including its version, such as
+        'mitdb/1.0.0' or 'mimic3wdb/1.0/30'.
+    dl_dir : str
+        The local directory to save the files in.
+    files : list of str
+        The paths of the files to download, relative to `db_dir`.
+    keep_subdirs : bool
+        Whether to save the files in the same subdirectories as on PhysioNet
+        (True), or all in `dl_dir` (False).
+    overwrite : bool
+        Whether to download files again even if they are already saved.
+
+    Returns
+    -------
+    N/A
+
+    """
+    import physionet
+
+    slug, version, *subdirs = db_dir.strip("/").split("/")
+    saved_as = {}
+    for file in files:
+        path = posixpath.join(*subdirs, file)
+        saved_as[path] = file if keep_subdirs else posixpath.basename(file)
+
+    if not os.path.isdir(dl_dir):
+        os.makedirs(dl_dir)
+        print("Created local base download directory: %s" % dl_dir)
+    # Two files at a time, as before, to avoid overloading the server. With
+    # overwrite, physionet replaces each saved file only after checking every
+    # requested file and destination, and once the new copy is complete.
+    physionet.download(
+        slug,
+        version,
+        output_dir=dl_dir,
+        files=saved_as,
+        verbose=False,
+        show_progress=False,
+        jobs=2,
+        overwrite=overwrite,
+    )
 
 
 def make_local_dirs(dl_dir, dl_inputs, keep_subdirs):
@@ -476,30 +641,49 @@ def dl_files(db, dl_dir, files, keep_subdirs=True, overwrite=False):
         are organized in PhysioNet (True), or to download all files into the
         same base directory (False).
     overwrite : bool, optional
-        If True, all files will be redownloaded regardless. If False, existing
-        files with the same name and relative subdirectory will be checked.
-        If the local file is the same size as the online file, the download is
-        skipped. If the local file is larger, it will be deleted and the file
-        will be redownloaded. If the local file is smaller, the file will be
-        assumed to be partially downloaded and the remaining bytes will be
-        downloaded and appended.
+        If True, all files are downloaded again, and each saved file is only
+        replaced once its new copy is complete and checked. If False, a file
+        that is already saved with the right content (checked against the
+        database's checksum list) is skipped, a partly downloaded file is
+        completed, and any other saved file is downloaded again in its place,
+        which removes the saved file if the new download fails its checksum.
 
     Returns
     -------
     N/A
 
+    Notes
+    -----
+    Files are downloaded with the `physionet` package, two at a time, from the
+    AWS open data mirror for open databases, and from PhysioNet for restricted
+    ones, which can be downloaded after signing in with `physionet login`.
+    Each file is checked against the database's checksum list. If the database
+    index URL has been set to another server with `set_db_index_url`, files are
+    downloaded from that server instead, comparing only their sizes when they
+    are already saved.
+
     Examples
     --------
-    >>> wfdb.dl_files('ahadb', os.getcwd(),
-                      ['STAFF-Studies-bibliography-2016.pdf', 'data/001a.hea',
-                      'data/001a.dat'])
+    >>> from contextlib import redirect_stdout
+    >>> from io import StringIO
+    >>> import wfdb
+    >>> with redirect_stdout(StringIO()):
+    ...     wfdb.dl_files('mitdb', '.', ['100.hea'])
 
     """
     # Full url PhysioNet database
     db_dir = posixpath.join(db, get_version(db))
-    db_url = posixpath.join(PN_CONTENT_URL, db_dir) + "/"
+
+    # The physionet package reports a missing database, version or file
+    # before downloading anything
+    if _physionet_uri(db_dir, "") is not None:
+        print("Downloading files...")
+        _download_files(db_dir, dl_dir, files, keep_subdirs, overwrite)
+        print("Finished downloading files")
+        return
 
     # Check if the database is valid
+    db_url = posixpath.join(PN_CONTENT_URL, db_dir) + "/"
     _url.openurl(db_url, check_access=True)
 
     # Construct the urls to download

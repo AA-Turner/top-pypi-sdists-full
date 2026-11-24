@@ -1,11 +1,13 @@
 import dataclasses
-from dataclasses import dataclass, field
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
 from matrx_utils import vcprint
 
+from .builtin_tool_use import PROVIDER_TOOL_ACTIVITY as DISPLAY_ONLY_PART_TYPE
 from .enums import Role
+from .platform_texts import platform_text
 from .extra_config import HostedToolContent, WebSearchCallContent
 from .media_config import (
     AudioContent,
@@ -14,14 +16,19 @@ from .media_config import (
     YouTubeVideoContent,
     reconstruct_media_content,
 )
+from .progress_updates import REPLAY_AS_KEY, anthropic_replay_block, is_progress_update_signature
 from .structured_input_config import (
     STRUCTURED_INPUT_TYPE_MAP,
+    SourceSetInputContent,
     _StructuredInputBase,
+    is_source_set_media,
     reconstruct_structured_input,
 )
 from .tool_result_guard import (
     LAYER_SANITIZE,
+    OPEN_ASK_RESULT_TEXT,
     ORPHAN_TOOL_RESULT_TEXT,
+    is_person_ask_call,
     report_nonadjacent_tool_uses,
     report_orphan_tool_uses_repaired,
     report_tool_result_duplicates,
@@ -64,6 +71,13 @@ TURN_CONTEXT_NOTE = (
     "simply knew what this contains."
 )
 TURN_CONTEXT_CLOSE = "</turn_context>"
+#: The frame of the parts of this turn's block that changed AFTER its first send (the tail
+#: channel, after the cache line). Her turn keeps the turn-start copy byte for byte; this one is
+#: current and replaces it (``MessageList.render_turn_context_changes``).
+TURN_CONTEXT_CURRENT_OPEN = '<turn_context source="platform" as_of="now">'
+#: ``TURN_CONTEXT_CURRENT_NOTE`` — its words come from ``platform_text("turn_context_current_note")`` (see
+#: ``__getattr__`` at the bottom of this module; the host supplies them, the package carries a default).
+TURN_CONTEXT_SLOT_GONE = "(no longer applies)"
 #: The same note without the platform naming itself — used while a caller's request firewall
 #: lists terms that must not reach the model (``request_firewall.self_description_withheld``):
 #: a blind run about a brand that shares words with our platform must be able to run.
@@ -79,6 +93,20 @@ TURN_CONTEXT_NOTE_NEUTRAL = TURN_CONTEXT_NOTE.replace("the AI Matrx platform", "
 #: (``room_view``) is the case: the model must be able to name and quote the
 #: other speakers in the group.
 TURN_CONTEXT_SLOT_NOTES: dict[str, str] = {}
+
+
+#: Slots that render AFTER every other turn-context slot, in this order. Later words outrank earlier
+#: ones: the ENVIRONMENT block (what is true for this run) comes after the person's saved memories
+#: (``person_context``) and everything else, so a memory written for another environment never has the
+#: last word. Declared, not an accident of the alphabet (test_the_environment_block_renders_last).
+#: Every other slot renders by name (THE ONE ORDER, P0.2).
+TURN_CONTEXT_LAST_SLOTS: tuple[str, ...] = ("run_environment",)
+
+
+def turn_context_slot_order(slots: Iterable[str]) -> list[str]:
+    """THE ONE ORDER of turn-context slots: by name, except ``TURN_CONTEXT_LAST_SLOTS`` which come last."""
+    last = {slot: i for i, slot in enumerate(TURN_CONTEXT_LAST_SLOTS)}
+    return sorted(slots, key=lambda slot: (slot in last, last.get(slot, 0), str(slot)))
 
 
 def _turn_context_note() -> str:
@@ -150,13 +178,17 @@ def _raise_sanitized_empty(
     )
 
 
-def _media_identity_label(content: Any, role: Any) -> str | None:
+def _media_identity_label(content: Any, role: Any, *, converted_to: str | None = None) -> str | None:
     """The file identity that rides as its OWN text part right before a media part.
 
     No provider has a title on an image / audio / video part (and only Anthropic titles
     documents), so a model shown five attachments cited "whiteboard image (no file name)"
     (real test PB-05 defect 54). Every media part of a person's message is preceded by
     ``<attachment kind name id/>`` — a separate part, never folded into the person's text.
+
+    ``converted_to``: the media fallback turned this item into text for a model that cannot
+    take it; the label (built from the ORIGINAL item) then says so, and opens the converted
+    text — the same identity every unconverted attachment carries (PB-05, 2026-11-08).
     """
     if str(getattr(role, "value", role)) != "user":
         return None
@@ -167,15 +199,19 @@ def _media_identity_label(content: Any, role: Any) -> str | None:
         return None
     from html import escape
 
-    metadata = getattr(content, "metadata", None) or {}
-    name = metadata.get("file_name") if isinstance(metadata, dict) else None
+    from matrx_ai.config.attached_files import label_name_for
+
     ident = getattr(content, "file_id", None) or getattr(content, "url", None) or ""
+    # The part's own stored name; a storage-made ``<id>.<ext>`` is never shown (turn 1 = replay).
+    name = label_name_for(getattr(content, "metadata", None), getattr(content, "file_id", None))
     attrs = {"kind": container.value}
-    if isinstance(name, str) and name.strip():
-        attrs["name"] = name.strip()
+    if name:
+        attrs["name"] = name
     else:
         attrs["name_unavailable"] = "no file name was found for this attachment"
     attrs["id"] = str(ident)
+    if converted_to:
+        attrs["converted_to"] = converted_to
     rendered = " ".join(f'{k}="{escape(v, quote=True)}"' for k, v in attrs.items())
     return f"<attachment {rendered}/>"
 
@@ -208,6 +244,17 @@ def _record_serializer_drop(content: Any, style: str) -> None:
             "file_id": getattr(content, "file_id", None),
         }
     )
+
+
+def _stored_author(message: Any) -> str | None:
+    """A stored person row's writer: ``author_id``, else (a row from before the column) the chat's owner."""
+    if getattr(message, "role", None) != "user":
+        return None
+    for column in ("author_id", "created_by"):
+        value = getattr(message, column, None)  # orm-getattr-ok: CxMessage (a client store's row may lack the column)
+        if value:
+            return str(getattr(value, "id", value))
+    return None
 
 
 @dataclass
@@ -252,6 +299,10 @@ class UnifiedMessage:
     # conversation holds replies from more than one). Never written back from
     # here — the persist funnel stamps the column. None = unknown / user row.
     agent_id: str | None = None
+    # The PERSON who wrote this row (chat.message.author_id: stamped by the database from the signed-in
+    # caller, never client-written). A row from before the column read as the chat's owner (created_by).
+    # Trusted only when ``from_store`` (``config/speakers.py`` names speakers from it). None = not a person row.
+    author_id: str | None = None
     # True ONLY for a message the server read back from storage (``from_cx_message``).
     # ``id`` + ``position`` are fields a client can send in JSON (``from_dict``), so they
     # cannot prove a message is stored; this flag is never read from client data.
@@ -291,6 +342,8 @@ class UnifiedMessage:
                     parsed_content.append(TextContent(text=item))
                 elif isinstance(item, dict):
                     content_type = item.get("type", "text")
+                    if content_type == DISPLAY_ONLY_PART_TYPE:
+                        continue  # display-only, never sent to a model
                     if (
                         content_type == "text"
                         or content_type == "input_text"
@@ -411,6 +464,10 @@ class UnifiedMessage:
                         obj = reconstruct_structured_input(item)
                         if obj is not None:
                             parsed_content.append(obj)
+                            # A stored source_set block re-splices the media it
+                            # resolved to, so a reloaded turn sends what it sent.
+                            if isinstance(obj, SourceSetInputContent):
+                                parsed_content.extend(obj.media_contents())
                     else:
                         vcprint(
                             item,
@@ -478,7 +535,15 @@ class UnifiedMessage:
         if raw is None:
             return []
         if isinstance(raw, list):
-            return [reconstruct_content(item) for item in raw]
+            # A provider_tool_activity block is display-only (the working card of a provider's
+            # built-in search): never decoded, so it can never reach a provider.
+            return [
+                reconstruct_content(item)
+                for item in raw
+                if not (isinstance(item, dict) and item.get("type") == DISPLAY_ONLY_PART_TYPE)
+            ]
+        if isinstance(raw, dict) and raw.get("type") == DISPLAY_ONLY_PART_TYPE:
+            return []
         # A bare string, dict, or any other stored shape (int, bool, float, ...) —
         # one item, decoded the same way an array's element would be.
         return [reconstruct_content(raw)]
@@ -498,7 +563,14 @@ class UnifiedMessage:
             role=message.role,
             content=content,
             id=message.id,
-            timestamp=message.created_at.isoformat() if message.created_at else None,
+            # A row read back from Postgres carries a datetime; a row a client host's
+            # store (or the turn just queued) carries the ISO string it was written with.
+            timestamp=(
+                created_at
+                if isinstance(created_at := message.created_at, str) or created_at is None
+                else created_at.isoformat()
+            )
+            or None,
             status=message.status,
             is_visible_to_model=bool(getattr(message, "is_visible_to_model", True)),
             metadata=dict(message.metadata or {}),
@@ -508,6 +580,7 @@ class UnifiedMessage:
             agent_id=(
                 str(message.agent_id) if getattr(message, "agent_id", None) else None  # orm-getattr-ok: CxMessage
             ),
+            author_id=_stored_author(message),
         )
 
     @classmethod
@@ -608,7 +681,20 @@ class UnifiedMessage:
             elif block_type == "tool_use":
                 content_blocks.append(ToolCallContent.from_anthropic(block))
             elif block_type == "thinking":
-                content_blocks.append(ThinkingContent.from_anthropic(block))
+                # A progress update (the model's words to the person before a tool call) arrives as a
+                # thinking block labelled ``narration``: it is REPLY TEXT, carried with the block it
+                # replays as (config/progress_updates.py). Reasoning, and an empty block, stay thinking.
+                text = block.get("thinking") or ""
+                signature = block.get("signature")
+                if text.strip() and is_progress_update_signature(signature):
+                    content_blocks.append(
+                        TextContent(
+                            text=text.strip(),
+                            metadata={REPLAY_AS_KEY: anthropic_replay_block(text, signature)},
+                        )
+                    )
+                else:
+                    content_blocks.append(ThinkingContent.from_anthropic(block))
             elif block_type in {"server_tool_use", "web_search_tool_result"}:
                 # Provider-hosted tool state. Carried VERBATIM as
                 # HostedToolContent — never ToolCallContent, or the local
@@ -992,7 +1078,13 @@ class UnifiedMessage:
         Returns dict with 'role', 'status', and 'content' (list of storage-format blocks).
         Content blocks use each item's to_storage_dict() for the cx_message.content JSONB.
         """
-        content_storage_dicts = [content.to_storage_dict() for content in self.content]
+        # Media spliced in from a source_set block is never stored on its own:
+        # the block's metadata.resolved_media is the stored truth.
+        content_storage_dicts = [
+            content.to_storage_dict()
+            for content in self.content
+            if not is_source_set_media(content)
+        ]
         # vcprint(
         #     content_storage_dicts,
         #     "[UnifiedMessage] Content Storage Dicts",
@@ -1102,6 +1194,11 @@ class UnifiedMessage:
 
 HOST_AUTHORED_BY = "host"
 
+#: Host-authored user turns that OPEN a turn (the agent speaks first: ``mark_unspoken_opening_turn``)
+#: rather than a gate's notice inside one. The one home of the list: the change-claim gate's turn boundary
+#: and the send boundary's stand-in person turn (``typed_text_last.turn_person_index``) both read it.
+TURN_OPENING_REASONS = frozenset({"agent_opening"})
+
 
 def host_authored_user_turn(text: str, *, reason: str) -> "UnifiedMessage":
     """A user-role turn the HOST wrote — never something a person typed.
@@ -1121,7 +1218,9 @@ def host_authored_user_turn(text: str, *, reason: str) -> "UnifiedMessage":
         role="user",
         content=[TextContent(text=text)],
         user_content=[],
-        metadata={"authored_by": HOST_AUTHORED_BY, "authored_reason": reason},
+        # A SERVER MESSAGE IS NEVER SHOWN AS A MESSAGE (Arman, 2026-11-01: "when you send a server message, mark
+        # it as 'visible to user' false so it doesn't show up in the ui"): the model reads it, the chat never lists it.
+        metadata={"authored_by": HOST_AUTHORED_BY, "authored_reason": reason, "is_visible_to_user": False},
     )
 
 
@@ -1133,6 +1232,34 @@ def person_authored_user_turn(text: str) -> "UnifiedMessage":
         content=[TextContent(text=text)],
         user_content=[TextContent(text=text)],
     )
+
+
+#: Metadata key on a PERSON turn that carries only what she attached (a stored file, a picked skill)
+#: and no words. Its stored ``content`` and ``user_content`` are both empty: the attachment rides
+#: the turn's context record, and nothing is ever stored as her words.
+ATTACHMENT_ONLY_KEY = "attachment_only"
+
+#: The line the model reads in an attachment-only turn. Added at the send boundary on the wire
+#: copy only (``send_boundary._voice_attachment_only_turns``), marked host-written, never stored.
+#: Its words come from ``platform_text("attachment_only_notice")`` — ``ATTACHMENT_ONLY_NOTICE`` resolves
+#: through the module ``__getattr__`` at the bottom of this module.
+
+
+def person_attachment_only_turn() -> "UnifiedMessage":
+    """The PERSON's turn when she attached input and typed nothing.
+
+    Hers (no ``authored_by: host``; it shows in the chat with her attachment), with no words:
+    ``content`` and ``user_content`` are empty lists. A provider that needs text in the turn gets
+    :data:`ATTACHMENT_ONLY_NOTICE` from the send boundary, marked host-written, on the wire only.
+    Guard: ``aidream/services/ai_execution/tests/test_an_attachment_only_turn_puts_no_words_in_her_mouth.py``.
+    """
+    return UnifiedMessage(role="user", content=[], user_content=[], metadata={ATTACHMENT_ONLY_KEY: True})
+
+
+def is_attachment_only_turn(message: Any) -> bool:
+    """Whether ``message`` is a person's attachment-only turn (:func:`person_attachment_only_turn`)."""
+    metadata = message.get("metadata") if isinstance(message, dict) else getattr(message, "metadata", None)
+    return isinstance(metadata, dict) and metadata.get(ATTACHMENT_ONLY_KEY) is True
 
 
 def human_authored_text(role: Any, content: Any, user_content: Any) -> str:
@@ -1167,19 +1294,40 @@ def human_authored_text(role: Any, content: Any, user_content: Any) -> str:
 NOT_REPLY_BLOCK_TYPES = frozenset({"thinking", "redacted_thinking", "reasoning"})
 
 
+#: ``metadata`` key on the stored stand-in for a file that could not be stored (``persistence.sealed.
+#: unavailable_attachment_part``). That part is a ``text`` part only so every reader can draw it; it is an
+#: attachment, never words anyone said or wrote (AND-V IMG16 F2).
+UNAVAILABLE_ATTACHMENT_KEY = "attachment_unavailable"
+#: ``metadata`` key on the send-only stand-in for a picture the media pass could not read this turn
+#: (``providers.unified_client._unreadable_picture_stand_in``) — words to the model, never hers (AND-V IMG18 F1).
+UNREADABLE_PICTURE_KEY = "picture_unreadable"
+
+
+def is_unsaved_attachment_stand_in(block: Any) -> bool:
+    """True for a stand-in of an attachment: one whose file could not be stored, or a picture that could not
+    be read for a turn. Either is a ``text`` part only so it can be drawn or sent; neither is anyone's words."""
+    metadata = block.get("metadata") if isinstance(block, dict) else getattr(block, "metadata", None)
+    return isinstance(metadata, dict) and bool(
+        metadata.get(UNAVAILABLE_ATTACHMENT_KEY) or metadata.get(UNREADABLE_PICTURE_KEY)
+    )
+
+
 def content_text(content: Any, *, sep: str = "\n") -> str:
     """THE reply text of a stored or in-memory message body: text blocks only.
 
     Tool machinery is not speech and reasoning is not a reply: only ``text`` / ``input_text``
     blocks (dicts, typed contents or bare strings) contribute, so a ``thinking`` block, whose
-    reasoning rides under ``text``, never leaks. ``sep`` joins the pieces (``""`` for text that the
-    provider split mid-sentence into consecutive blocks)."""
+    reasoning rides under ``text``, never leaks, and neither does the stand-in for an attachment that
+    could not be stored (:func:`is_unsaved_attachment_stand_in`). ``sep`` joins the pieces (``""`` for
+    text that the provider split mid-sentence into consecutive blocks)."""
     if isinstance(content, str):
         return content
     if not isinstance(content, list):
         return ""
     parts: list[str] = []
     for block in content:
+        if is_unsaved_attachment_stand_in(block):
+            continue
         if isinstance(block, str):
             parts.append(block)
         elif isinstance(block, dict) and block.get("type", "text") in ("text", "input_text"):
@@ -1235,6 +1383,27 @@ class MessageList:
     # render_tail_context(); see attach_tail_context().
     _tail_context_blocks: dict[str, str] = field(
         default_factory=dict,
+        init=False,
+        repr=False,
+        compare=False,
+    )
+
+    # THE TURN FREEZE: the per-turn blocks this turn's FIRST send placed before her words
+    # (``send_boundary.order_for_wire``), keyed by her turn. Every later send of the turn places
+    # exactly that text, so her turn never changes behind the cache line; a slot that changes
+    # mid-turn (page values, the agent identity after a reroute) rides the tail as the CURRENT
+    # copy (``render_turn_context_changes``). Reset when a turn starts and when it ends.
+    _turn_freeze: dict[str, Any] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+        compare=False,
+    )
+    # Earlier person turns of THIS request whose frozen block was kept on them when a newer person
+    # turn joined the loop (``send_boundary._keep_the_replaced_turns_block``): ``(index, message)``,
+    # persisted by the executor's end-of-turn step like ``keep_turn_context_for_next_turn``.
+    _kept_replaced_turns: list[tuple[int, Any]] = field(
+        default_factory=list,
         init=False,
         repr=False,
         compare=False,
@@ -1374,10 +1543,120 @@ class MessageList:
         return dict(self._turn_context_blocks)
 
     def clear_turn_context(self) -> None:
-        """Drop every staged per-turn block (called at the end of a turn)."""
+        """Drop every staged per-turn block and the turn's freeze (called at the end of a turn)."""
         self._turn_context_blocks.clear()
+        self._turn_freeze = None
 
-    def render_turn_context(self) -> str | None:
+    def forget_turn_freeze(self) -> None:
+        """A new turn (or run) starts: its first send freezes its own block."""
+        self._turn_freeze = None
+
+    def freeze_turn_context(
+        self,
+        key: Any,
+        blocks: dict[str, str] | None = None,
+        *,
+        at_length: int | None = None,
+        kept: tuple[str, dict[str, str] | None] | None = None,
+    ) -> str | None:
+        """The block every send of the turn ``key`` places before her words.
+
+        The first send of the turn (or the first after its key changed) renders the staged blocks
+        (``blocks``: a wire copy's, else this list's) and keeps them; every later send gets the
+        same text back, byte for byte.
+
+        ``kept``: the block (and its slot texts) an earlier send already cached on her turn
+        (``STORED_TURN_CONTEXT_KEY``) — a woken turn or a resumed run places exactly that, never a
+        fresh render behind the cache line. ``at_length``: the list length of this send. A send
+        of the same length as the one that froze is a RETRY of it (an overload reroute): nothing
+        was cached by the failed attempt, so it freezes again from what is staged now (the
+        rerouted model's identity).
+        """
+        freeze = self._turn_freeze
+        retry = (
+            freeze is not None
+            and at_length is not None
+            and freeze.get("key") == key
+            and freeze.get("at_length") == at_length
+        )
+        if freeze is None or freeze.get("key") != key or retry:
+            if kept is not None:
+                staged = dict(kept[1] or {})
+                block = kept[0]
+            else:
+                staged = dict(self._turn_context_blocks if blocks is None else blocks)
+                block = self.render_turn_context(staged)
+            freeze = {"key": key, "blocks": staged, "block": block, "at_length": at_length}
+            self._turn_freeze = freeze
+        return freeze["block"]
+
+    def frozen_turn_key(self) -> Any:
+        """The key of the turn whose block is frozen (``freeze_turn_context``), or None."""
+        freeze = self._turn_freeze
+        return freeze.get("key") if freeze else None
+
+    def note_kept_replaced_turn(self, at: int, message: Any) -> None:
+        """Record an earlier person turn that now carries its kept block (persisted at turn end)."""
+        if all(m is not message for _at, m in self._kept_replaced_turns):
+            self._kept_replaced_turns.append((at, message))
+
+    def take_kept_replaced_turns(self) -> list[tuple[int, Any]]:
+        """The earlier turns kept this request, cleared as they are handed over for persisting."""
+        kept, self._kept_replaced_turns = self._kept_replaced_turns, []
+        return kept
+
+    def frozen_turn_slots(self) -> dict[str, str] | None:
+        """The slot texts the turn's frozen block was rendered from, or None before the first send."""
+        freeze = self._turn_freeze
+        return dict(freeze["blocks"]) if freeze else None
+
+    def placed_turn_context(self) -> str | None:
+        """The block this turn's sends placed before her words, or None before the first send."""
+        freeze = self._turn_freeze
+        return freeze["block"] if freeze else None
+
+    def turn_context_changes(
+        self, live: dict[str, str] | None = None, riding: dict[str, str] | None = None
+    ) -> dict[str, str]:
+        """Slots whose live text differs from the turn's frozen copy ("" = no longer staged).
+
+        ``live`` / ``riding``: a wire copy's staged turn and tail blocks (default: this list's).
+        A slot that also rides the tail channel (the helper roster) is skipped: its live copy is
+        already there.
+        """
+        freeze = self._turn_freeze
+        if not freeze:
+            return {}
+        frozen: dict[str, str] = freeze["blocks"]
+        live = self._turn_context_blocks if live is None else live
+        riding = self._tail_context_blocks if riding is None else riding
+        changed: dict[str, str] = {}
+        # THE ONE ORDER (P0.2): slots by name, never by which contributor attached first.
+        for slot in turn_context_slot_order({*frozen, *live}):
+            if slot in riding:
+                continue
+            now = live.get(slot, "")
+            if now != frozen.get(slot, ""):
+                changed[slot] = now
+        return changed
+
+    def render_turn_context_changes(
+        self, live: dict[str, str] | None = None, riding: dict[str, str] | None = None
+    ) -> str | None:
+        """The slots changed since the turn's first send, framed as the CURRENT copy, or None."""
+        changed = self.turn_context_changes(live, riding)
+        if not changed:
+            return None
+        parts = [TURN_CONTEXT_CURRENT_OPEN, platform_text("turn_context_current_note")]
+        for slot, block in changed.items():
+            parts.append("")
+            parts.append(f'<slot name="{slot}">')
+            parts.append(block if block else TURN_CONTEXT_SLOT_GONE)
+            parts.append("</slot>")
+        parts.append(TURN_CONTEXT_CLOSE)
+        return "\n".join(parts)
+
+    def render_turn_context(self, blocks: dict[str, str] | None = None) -> str | None:
         """The staged blocks as ONE framed system-channel section, or None.
 
         The frame names the platform as the author and says plainly that the
@@ -1386,16 +1665,18 @@ class MessageList:
         its answer will say so out loud to the person.
         """
         notes = TURN_CONTEXT_SLOT_NOTES
-        body = "\n\n".join(
-            b for slot, b in self._turn_context_blocks.items() if b and slot not in notes
-        )
+        staged = self._turn_context_blocks if blocks is None else blocks
+        # THE ONE ORDER (static seal P0.2, D16): slots by name, so the block never depends on
+        # which contributor attached first this turn (B17). ``canonical_order.sorted_by_name``.
+        staged = {slot: staged[slot] for slot in turn_context_slot_order(staged)}
+        body = "\n\n".join(b for slot, b in staged.items() if b and slot not in notes)
         frames: list[str] = []
         if body:
             frames.append(
                 "\n".join((TURN_CONTEXT_OPEN, _turn_context_note(), "", body, TURN_CONTEXT_CLOSE))
             )
         # A slot with its own note gets its own frame (see TURN_CONTEXT_SLOT_NOTES).
-        for slot, block in self._turn_context_blocks.items():
+        for slot, block in staged.items():
             if block and slot in notes:
                 frames.append(
                     "\n".join(
@@ -1438,8 +1719,9 @@ class MessageList:
         return dict(self._tail_context_blocks)
 
     def render_tail_context(self) -> str | None:
-        """The staged tail blocks joined in slot order, or None."""
-        body = "\n\n".join(b for b in self._tail_context_blocks.values() if b)
+        """The staged tail blocks joined in slot-name order (THE ONE ORDER, P0.2), or None."""
+        tail = self._tail_context_blocks
+        body = "\n\n".join(tail[slot] for slot in sorted(tail, key=str) if tail[slot])
         return body or None
 
     def merge_metadata_into_last_user(self, updates: dict[str, Any]) -> None:
@@ -1686,6 +1968,7 @@ class MessageList:
                 if isinstance(c, ToolCallContent) and c.id and c.id not in answered_ids
             }
         repaired_orphans: list[dict[str, Any]] = []
+        open_asks: list[dict[str, Any]] = []
         repaired_ids: set[str] = set()
         repaired_visible: list[UnifiedMessage] = []
         for msg in visible:
@@ -1705,17 +1988,23 @@ class MessageList:
             for call in orphan_calls:
                 call_name = getattr(call, "name", "") or "tool"
                 repaired_ids.add(call.id)
-                repaired_orphans.append({"tool_use_id": call.id, "name": call_name})
+                # A question still open for the person is answered with the truth, not as a lost call. A
+                # notice (`user` with type notify) waits on nobody: a lost one is an orphan like any call.
+                open_ask = is_person_ask_call(call_name, getattr(call, "arguments", None))
+                if open_ask:
+                    open_asks.append({"tool_use_id": call.id, "name": call_name})
+                else:
+                    repaired_orphans.append({"tool_use_id": call.id, "name": call_name})
                 synthetic.append(
                     ToolResultContent(
                         tool_use_id=call.id,
                         call_id=call.id,
                         name=getattr(call, "name", "") or "",
-                        content=ORPHAN_TOOL_RESULT_TEXT.format(name=call_name),
-                        is_error=True,
+                        content=(OPEN_ASK_RESULT_TEXT if open_ask else ORPHAN_TOOL_RESULT_TEXT).format(name=call_name),
+                        is_error=not open_ask,
                         metadata={
                             "synthesized_by": "MessageList.sanitize",
-                            "reason": "orphan_tool_use",
+                            "reason": "open_person_ask" if open_ask else "orphan_tool_use",
                         },
                     )
                 )
@@ -1729,9 +2018,16 @@ class MessageList:
                     },
                 )
             )
-        if repaired_orphans:
+        if repaired_orphans or open_asks:
             visible = repaired_visible
+        if repaired_orphans:
             report_orphan_tool_uses_repaired(layer=LAYER_SANITIZE, repaired=repaired_orphans)
+        if open_asks:
+            vcprint(
+                f"[{LAYER_SANITIZE}] {len(open_asks)} question(s) still open for the person told to the model as "
+                f"open: {', '.join(str(a['tool_use_id']) for a in open_asks)}",
+                color="yellow",
+            )
 
         # Pass 3 prep — ADJACENCY-aware pairing. The provider's rule is strict:
         # an assistant's tool_results must be in the IMMEDIATELY-following message,
@@ -1810,7 +2106,9 @@ class MessageList:
                         return "duplicated"
                 if call_id in result_ids_by_msg[j]:
                     return "separated"
-            return "duplicated"
+            # Nothing after it: the only result sits BEFORE the call (feedback 7e1c088c — the
+            # four personal-staff drops read separated=0, so this case wore "duplicated").
+            return "result_before_call"
 
         # Pass 2-drop + 3 + 4 — drop duplicate/orphan/non-adjacent tool blocks +
         # empty text, then drop any message left with no content.
@@ -1833,11 +2131,21 @@ class MessageList:
                     # copy; the adjacently-paired one survives.
                     if c.id not in next_results and c.id not in pending_ids:
                         if c.id in results_for:
+                            result_at = [j for j in range(n) if c.id in result_ids_by_msg[j]]
                             nonadjacent_uses.append(
                                 {
                                     "tool_use_id": c.id,
                                     "name": getattr(c, "name", None),
                                     "reason": _drop_reason(i, c.id),
+                                    # WHERE the pair split, so the writer can be found:
+                                    # the call's message and every message holding its result.
+                                    "use_index": i,
+                                    "use_message_id": getattr(msg, "id", None),
+                                    "result_indexes": result_at,
+                                    "result_message_ids": [
+                                        getattr(visible[j], "id", None) for j in result_at
+                                    ],
+                                    "message_count": n,
                                 }
                             )
                         else:
@@ -1868,6 +2176,18 @@ class MessageList:
             if new_content:
                 msg.content = new_content
                 cleaned.append(msg)
+            elif is_attachment_only_turn(msg):
+                # Her attachment-only turn has no words by design; the send boundary voices it on
+                # the wire (``ATTACHMENT_ONLY_NOTICE``). Dropping it lost her turn from history.
+                msg.content = []
+                cleaned.append(msg)
+            elif allow_empty and is_blank_message(msg):
+                # The authored blank placeholder (an agent's stored ``{"type":"text","text":""}``
+                # user turn that request input fills later) seen during config hydration. Nothing
+                # was lost and nothing failed: the strict provider-bound pass still raises if it is
+                # never filled. Warning here put two false WARNINGs per load in app_log for every
+                # export, preview and run of such an agent (2026-11-17: 42 pairs in 7 minutes).
+                pass
             else:
                 vcprint(
                     f"[MessageList.sanitize] Dropped message with no remaining content (role={msg.role!r})",
@@ -1890,13 +2210,18 @@ class MessageList:
             if allow_empty:
                 self._deferred_emptying_pass = pass_name
                 self._deferred_empty_messages = original_messages
-                vcprint(
-                    f"[MessageList.sanitize] Deferred empty-conversation failure "
-                    f"during config hydration (emptying_pass={pass_name}). A strict "
-                    f"provider-bound sanitation pass will reject it unless runtime "
-                    f"content is added.",
-                    color="yellow",
+                # Only authored blank placeholder(s) is the documented legitimate case: stay quiet.
+                placeholder_only = pass_name == "empty_scrub" and all(
+                    is_blank_message(m) for m in original_messages
                 )
+                if not placeholder_only:
+                    vcprint(
+                        f"[MessageList.sanitize] Deferred empty-conversation failure "
+                        f"during config hydration (emptying_pass={pass_name}). A strict "
+                        f"provider-bound sanitation pass will reject it unless runtime "
+                        f"content is added.",
+                        color="yellow",
+                    )
             else:
                 _raise_sanitized_empty(
                     pass_name=pass_name,
@@ -2289,21 +2614,25 @@ class MessageList:
         replaced with the unusable string ``<bytes len=N>``. Every recorded
         Gemini call carrying a thought signature was un-replayable as a result
         (2026-08-16 defect; 151 SDK validation errors before the request left
-        the process). Blocks with no ``to_dict`` keep the legacy dump.
+        the process). A block with no ``to_dict`` uses its ``to_storage_dict``
+        (every structured-input block: ``input_notes`` etc.); only a block with
+        neither keeps the legacy dump. ``user_content`` (the authorship record)
+        goes through the SAME projection: it called ``to_dict`` bare, so a turn
+        carrying a structured input lost its whole request snapshot
+        (``'NotesInputContent' object has no attribute 'to_dict'``, 2026-11-19).
         """
+
+        def block(content: Any) -> dict[str, Any]:
+            if hasattr(content, "to_dict"):
+                return content.to_dict()
+            if hasattr(content, "to_storage_dict"):
+                return content.to_storage_dict()
+            return {k: v for k, v in content.__dict__.items() if v is not None and v != {} and v != []}
+
         return [
             {
                 "role": msg.role,
-                "content": [
-                    content.to_dict()
-                    if hasattr(content, "to_dict")
-                    else {
-                        k: v
-                        for k, v in content.__dict__.items()
-                        if v is not None and v != {} and v != []
-                    }
-                    for content in msg.content
-                ],
+                "content": [block(content) for content in msg.content],
                 **({"id": msg.id} if msg.id else {}),
                 **({"name": msg.name} if msg.name else {}),
                 **({"timestamp": msg.timestamp} if msg.timestamp else {}),
@@ -2311,7 +2640,7 @@ class MessageList:
                 # The authorship record rides too — an EMPTY list (a host turn) included —
                 # or a direct send's stored row reads NULL and quotes the host as the person.
                 **(
-                    {"user_content": [content.to_dict() for content in msg.user_content]}
+                    {"user_content": [block(content) for content in msg.user_content]}
                     if msg.user_content is not None
                     else {}
                 ),
@@ -2459,3 +2788,17 @@ def iter_images_by_role(messages: Any, role: str | None):
         else:
             if content_role == role:
                 yield content
+
+
+_PLATFORM_TEXT_CONSTANTS = {
+    "TURN_CONTEXT_CURRENT_NOTE": "turn_context_current_note",
+    "ATTACHMENT_ONLY_NOTICE": "attachment_only_notice",
+}
+
+
+def __getattr__(name: str) -> str:
+    """The two platform-text constants, resolved at read time (host text when configured, else the default)."""
+    key = _PLATFORM_TEXT_CONSTANTS.get(name)
+    if key is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return platform_text(key)

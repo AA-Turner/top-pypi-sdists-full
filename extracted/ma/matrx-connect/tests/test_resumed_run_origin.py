@@ -15,7 +15,7 @@ from matrx_connect import (
 from matrx_connect.emitters.console_emitter import ConsoleEmitter
 
 REQUEST_ID = "9068fa79-5391-4148-82b7-d851840e0625"
-PERSON = "4cf62e4e-2679-484f-b652-034e697418df"
+PERSON = "87a6e699-3622-4869-8843-d0867456c0dd"
 ORIGINAL_WITNESS = {"route": "/ai/agents/8d02d271", "auth_type": "token", "declared_class": "human"}
 
 

@@ -574,7 +574,7 @@ def test_stored_relative_self_canonical_is_rejudged_on_load() -> None:
         http_status=200,
         captured_at=None,
     )
-    page = SimpleNamespace(id="p1", url="https://acme.example/recall", link_score=None, target_keyword=None)
+    page = SimpleNamespace(id="p1", url="https://acme.example/recall", link_score=None, desired_values=None)
     assert analysis._extract_page_facts(page, snap).canonical_matches is True
     snap.head_tags = {"title": "Recall", "canonical_url": "/elsewhere"}
     assert analysis._extract_page_facts(page, snap).canonical_matches is False

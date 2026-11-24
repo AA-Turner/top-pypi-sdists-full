@@ -38,6 +38,43 @@ function module_url(url) {
     url = resource_url(url);
     return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : url_key(url);
 }
+const EXTENSION_PATH = "static/extensions/";
+/**
+ * The part of a bundled server extension url
+ * (`static/extensions/<name>/bundled/<path>`) that identifies the file
+ * wherever it is served from. Other extension files, e.g. an `index.js`,
+ * are too generic to match on.
+ */
+function extension_tail(url) {
+    const match = /static\/extensions\/[^/]+\/(bundled\/.+)$/.exec(url.split(/[?#]/)[0]);
+    return match == null ? null : `/${match[1]}`;
+}
+/**
+ * Whether a url is already on the page.
+ *
+ * A host that embeds Panel output itself (Shiny, through jupyter_bokeh)
+ * serves the extension files under its own routes, rewriting the urls the
+ * eager path rendered. Such a url is matched on its `/bundled/...` tail,
+ * which drops the extension name, so a page url ending in the same tail
+ * counts as the same file. Not every bundled file is versioned (jquery,
+ * theme css, font-awesome), so this is only safe because the urls a spec
+ * asks for carry their package version.
+ */
+function on_page(urls, url) {
+    if (urls.has(url_key(url))) {
+        return true;
+    }
+    const tail = extension_tail(url);
+    if (tail == null) {
+        return false;
+    }
+    for (const existing of urls) {
+        if (existing.split(/[?#]/)[0].endsWith(tail)) {
+            return true;
+        }
+    }
+    return false;
+}
 function existing_urls(selector, attr) {
     const urls = new Set();
     for (const el of document.querySelectorAll(selector)) {
@@ -49,12 +86,39 @@ function existing_urls(selector, attr) {
     return urls;
 }
 const JUPYTER_ENDPOINT = "/panel-preview/";
+/** Server extension paths and their CDN urls, from the specs seen so far. */
+const extension_cdn_map = [];
+function register_cdn_map(cdn_map) {
+    for (const [prefix, cdn] of cdn_map ?? []) {
+        if (!extension_cdn_map.some(([known]) => known === prefix)) {
+            extension_cdn_map.push([prefix, cdn]);
+        }
+    }
+}
+/**
+ * Maps a server extension url to its CDN equivalent, using the map the
+ * resource specs carry in `server` mode, for hosts that serve the page
+ * without Panel's extension routes.
+ */
+function extension_cdn_url(url) {
+    const index = url.indexOf(EXTENSION_PATH);
+    if (index === -1) {
+        return null;
+    }
+    const path = url.slice(index);
+    for (const [prefix, cdn] of extension_cdn_map) {
+        if (path.startsWith(prefix)) {
+            return cdn + path.slice(prefix.length);
+        }
+    }
+    return null;
+}
 /**
  * Maps a Jupyter extension endpoint url to its CDN equivalent, using the
  * map of endpoint paths to CDN urls the notebook bootstrap publishes
- * (Panel's dist, every extension with a CDN and each BokehJS file). Null
- * if the url is not served by the endpoint or has no CDN equivalent, e.g.
- * in server/served-app contexts, where the bootstrap never runs.
+ * (Panel's dist, every extension with a CDN and each BokehJS file). Any
+ * other server extension url goes through the map the specs carry. Null
+ * if the url has no CDN equivalent.
  */
 export function cdn_url(url) {
     const global = globalThis;
@@ -64,7 +128,7 @@ export function cdn_url(url) {
     }
     const index = url.indexOf(JUPYTER_ENDPOINT);
     if (cdn_map == null || index === -1) {
-        return null;
+        return extension_cdn_url(url);
     }
     const path = url.slice(index + JUPYTER_ENDPOINT.length);
     for (const [prefix, cdn] of cdn_map) {
@@ -72,7 +136,7 @@ export function cdn_url(url) {
             return cdn + path.slice(prefix.length);
         }
     }
-    return null;
+    return extension_cdn_url(url);
 }
 /**
  * Loads endpoint urls from the CDN where the endpoint cannot serve them:
@@ -102,30 +166,39 @@ function fallback_to_cdn(el, url) {
 function is_endpoint_url(url) {
     return url.includes(`${JUPYTER_ENDPOINT}static/`);
 }
-function inject(el) {
+function inject(el, wrapped) {
     return new Promise((resolve, reject) => {
+        let retried = null;
         const attempt = (element) => {
             element.addEventListener("load", () => resolve(), { once: true });
             element.addEventListener("error", () => {
-                const url = element.src || element.href;
+                const url = wrapped?.url ?? (element.src || element.href);
                 const fallback = fallback_to_cdn(element, url);
                 if (fallback != null) {
+                    retried = [url, fallback];
                     element.remove();
-                    if (element instanceof HTMLLinkElement) {
-                        element.href = fallback;
+                    // A script element only ever runs once, so changing its src and
+                    // reinserting it never fetches again.
+                    const retry = document.createElement(element.tagName.toLowerCase());
+                    for (const { name, value } of Array.from(element.attributes)) {
+                        retry.setAttribute(name, value);
+                    }
+                    if (retry instanceof HTMLLinkElement) {
+                        retry.href = fallback;
                     }
                     else {
-                        element.src = fallback;
+                        retry.async = element.async;
+                        retry.src = wrapped != null ? wrapped.src(fallback) : fallback;
                     }
-                    attempt(element);
-                    document.head.appendChild(element);
+                    attempt(retry);
+                    document.head.appendChild(retry);
                     return;
                 }
                 if (is_endpoint_url(url)) {
                     const global = globalThis;
                     global.__panel_jupyter_extension_error__?.();
                 }
-                reject(new Error(`Failed to load ${url}`));
+                reject(new Error(retried == null ? `Failed to load ${url}` : `Failed to load ${retried[0]} or its CDN fallback ${retried[1]}`));
             }, { once: true });
         };
         attempt(el);
@@ -228,10 +301,19 @@ function inject_module(url, name) {
         el.src = resource_url(url);
         return inject(el);
     }
+    const blobs = [];
+    const src = (target) => {
+        const code = `import * as ns from ${JSON.stringify(target)}\nglobalThis[${JSON.stringify(name)}] = ns.default ?? ns\n`;
+        const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+        blobs.push(blob);
+        return blob;
+    };
     url = module_url(url);
-    const code = `import * as ns from ${JSON.stringify(url)}\nglobalThis[${JSON.stringify(name)}] = ns.default ?? ns\n`;
-    el.src = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
-    return inject(el).finally(() => URL.revokeObjectURL(el.src));
+    el.src = src(url);
+    return inject(el, { url, src: (fallback) => {
+            hide_amd_module(fallback);
+            return src(fallback);
+        } }).finally(() => blobs.forEach((blob) => URL.revokeObjectURL(blob)));
 }
 function inject_link(url) {
     const el = document.createElement("link");
@@ -373,10 +455,7 @@ export class ResourceRegistry {
         if (urls.length === 0) {
             return true;
         }
-        return urls.every((url) => {
-            const key = url_key(url);
-            return this.urls.has(key) || (scripts != null && scripts.has(key));
-        });
+        return urls.every((url) => this.urls.has(url_key(url)) || (scripts != null && on_page(scripts, url)));
     }
     /**
      * Loads everything a resource spec declares, skipping what is present.
@@ -385,6 +464,7 @@ export class ResourceRegistry {
         if (spec == null) {
             return;
         }
+        register_cdn_map(spec.cdn);
         const scripts = existing_urls("script[src]", "src");
         const waits = [];
         const js = [];
@@ -452,7 +532,7 @@ export class ResourceRegistry {
             const key = url_key(url);
             let promise = this.urls.get(key);
             if (promise == null) {
-                promise = links.has(key) ? Promise.resolve() : inject_link(url);
+                promise = on_page(links, url) ? Promise.resolve() : inject_link(url);
                 this.urls.set(key, promise);
             }
             return promise.catch((error) => {
@@ -488,7 +568,7 @@ export class ResourceRegistry {
         }
         const key = url_key(url);
         const scripts = existing_urls("script[src]", "src");
-        const promise = scripts.has(key) ? Promise.resolve() : inject_script(url);
+        const promise = on_page(scripts, url) ? Promise.resolve() : inject_script(url);
         this.urls.set(key, promise);
         this._shim = promise.catch((e) => {
             this._shim = null;
@@ -547,7 +627,7 @@ export class ResourceRegistry {
             const key = url_key(url);
             let promise = this.urls.get(key);
             if (promise == null) {
-                promise = scripts.has(key) ? Promise.resolve() : inject_script(url);
+                promise = on_page(scripts, url) ? Promise.resolve() : inject_script(url);
                 this.urls.set(key, promise);
                 promise.catch(() => this.urls.delete(key));
             }
@@ -561,7 +641,7 @@ export class ResourceRegistry {
             const key = url_key(url);
             let promise = this.urls.get(key);
             if (promise == null) {
-                promise = scripts.has(key) ? Promise.resolve() : inject_module(url, name);
+                promise = on_page(scripts, url) ? Promise.resolve() : inject_module(url, name);
                 this.urls.set(key, promise);
                 promise.catch(() => this.urls.delete(key));
             }

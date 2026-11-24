@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from matrx_utils.row_access import RowAccess
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT, RowAccess
 
 from .. import db as _db
 
@@ -122,7 +122,7 @@ class PresignedManager:
     methods for a multi-worker shared store (Redis, DB, etc).
     """
 
-    def __init__(self, engine: "SyncEngine") -> None:
+    def __init__(self, engine: SyncEngine) -> None:
         self._engine = engine
 
     # ------------------------------------------------------------------
@@ -233,7 +233,7 @@ class PresignedManager:
         file_path: str,
         content_type: str | None = None,
         published_to_web: bool = False,
-        shown_to: str | None = "only_me",
+        shown_to: str | None = SHOWN_TO_TYPE_DEFAULT,
         metadata: dict[str, Any] | None = None,
         expected_size_bytes: int | None = None,
         expires_in: int = 900,

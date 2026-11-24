@@ -26,7 +26,8 @@ from __future__ import annotations
 from typing import Any
 
 from matrx_graph.types.compiled import CompiledNode
-from matrx_graph.types.variables import VariableSpec, resolve_var_refs
+from matrx_graph.input_declaration import VariableDefinition
+from matrx_graph.types.variables import resolve_var_refs
 
 
 def resolve_invocation_inputs(
@@ -34,7 +35,7 @@ def resolve_invocation_inputs(
     invocation_inputs: dict[str, Any],
     *,
     run_variables: dict[str, Any] | None = None,
-    declared_variables: dict[str, VariableSpec] | None = None,
+    declared_variables: dict[str, VariableDefinition] | None = None,
     strict_variables: bool = True,
     run_inputs: dict[str, Any] | None = None,
     input_surface: dict[str, Any] | None = None,

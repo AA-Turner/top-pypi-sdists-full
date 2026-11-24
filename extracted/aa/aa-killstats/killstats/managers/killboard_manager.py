@@ -220,12 +220,12 @@ class KillmailQuerySet(KillmailQueryMining):
         )
 
     def visible_to(self, user):
-        # superusers get all visible
-        if user.is_superuser:
-            logger.debug("Returning all Squads for superuser %s.", user)
-            return self
+        # pylint: disable=import-outside-toplevel
+        # AA Killstats
+        from killstats.models.general import General
 
-        if user.has_perm("killstats.admin_access"):
+        # superusers and admins get all visible
+        if General.objects.has_management_access(user):
             logger.debug("Returning all Killboards for Admin %s.", user)
             return self
 
@@ -399,8 +399,7 @@ class KillmailManager(models.Manager["KillmailContext"]):
                 try:
                     unique_attackers = list(set(attackers_list))
                     killmail_body.create_names_bulk(eve_ids=unique_attackers)
-                # pylint: disable=broad-exception-caught
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     logger.debug("Error on Create Names: %s", e, exc_info=True)
 
             km = Killmail.objects.create(

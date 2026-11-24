@@ -305,13 +305,14 @@ _test_acquire_and_decode (void)
  * on. */
 static double
 _run_ramp_composition (const uint8_t *code, size_t sf, size_t spc, double fs,
-                       double rate_hz_per_s, size_t n_periods, double sigma,
+                       double rate_hz_per_s, size_t n_periods, double cn0_dbhz,
                        double bn_fll, uint32_t seed)
 {
   size_t          tsamps = sf * spc;
   size_t          n      = n_periods * tsamps;
-  float _Complex *x      = malloc (n * sizeof *x);
-  uint32_t        nst    = seed;
+  float _Complex *x      = calloc (n, sizeof *x);
+  /* The shipped noise at the stated C/N0 (dp_dsss_test.h, #689). */
+  dp_dsss_add_awgn (x, n, fs, cn0_dbhz, seed);
   for (size_t idx = 0; idx < n; idx++)
     {
       double t               = (double)idx / fs;
@@ -319,9 +320,7 @@ _run_ramp_composition (const uint8_t *code, size_t sf, size_t spc, double fs,
       float _Complex carrier = (float _Complex) (cos (ph) + I * sin (ph));
       size_t cph             = (idx / spc) % sf;
       float  csgn            = (code[cph] & 1u) ? -1.0f : 1.0f;
-      float _Complex noise
-          = (float _Complex) (sigma / sqrt (2.0)) * dp_cgauss (&nst);
-      x[idx] = csgn * carrier + noise;
+      x[idx] += csgn * carrier;
     }
 
   dp_dll_state_t *dll
@@ -330,20 +329,34 @@ _run_ramp_composition (const uint8_t *code, size_t sf, size_t spc, double fs,
   dp_costas_init (&car, 0.01, 0.707, 0.0, tsamps, bn_fll);
 
   float _Complex *wiped = malloc (tsamps * sizeof *wiped);
+  /* A period's samples close at most two epochs (two when the boundary
+     sits on the call's edge), 4 partials each: the capacity holds that
+     and one more, so a call that filled it would have dropped dumps
+     (dp_dll_steps() drops past max_out silently, #3282). Before #3281's
+     audit this read one partial of the four a period. */
+  float _Complex parts[2 * 4 + 1];
+  size_t most = 0;
   for (size_t p = 0; p < n_periods; p++)
     {
       const float _Complex *chunk = x + p * tsamps;
       for (size_t i = 0; i < tsamps; i++)
         wiped[i] = costas_wipeoff (&car, chunk[i]);
-      float _Complex prompt;
-      /* exactly one period's worth of raw samples in; ordinarily exactly
-       * one prompt out, but Dll's own tracked code_rate need not be
-       * precisely 1.0 -- don't hard-assert the count, mirroring the
-       * production loop's own planned discipline (task #95's own doc). */
-      size_t n_out = dp_dll_steps (dll, wiped, tsamps, &prompt, 1);
-      if (n_out == 1)
-        costas_update (&car, prompt);
+      const size_t n_out = dp_dll_steps (dll, wiped, tsamps, parts,
+                                         sizeof parts / sizeof *parts);
+      most               = n_out > most ? n_out : most;
+      if (n_out == 0)
+        continue;
+      /* One prompt a period, as the receiver forms it
+         (dsss_rx_carrier_update_from_partials(): each partial aligned by
+         its own real part's sign, so a data transition inside the period
+         does not cancel the sum). */
+      float _Complex prompt = 0.0f;
+      for (size_t k = 0; k < n_out; k++)
+        prompt += parts[k] * (crealf (parts[k]) >= 0.0f ? 1.0f : -1.0f);
+      costas_update (&car, prompt);
     }
+  DP_CHECK_MSG (most < sizeof parts / sizeof *parts,
+                "no period's call filled the partials' capacity");
 
   double tracked_hz  = dp_costas_get_norm_freq (&car) * fs;
   double true_at_end = rate_hz_per_s * (double)n_periods * (double)tsamps / fs;
@@ -369,8 +382,12 @@ _test_carrier_dll_composition_ramp (void)
   const double rate_hz_per_s = 500.0; /* the specification's worst case */
   const size_t n_periods     = 2700;  /* matches this session's own
                                           Python floor-sweep scale */
-  const double sigma = 0.6;           /* a stressed, not comfortable,
-                                          operating point */
+  /* A stressed, not comfortable, operating point: noise power 0.18
+     against the unit signal, 7.4 dB a sample. It was written as a bare
+     sigma of 0.6, which the hand-scaled noise this test used before #689
+     delivered as 0.6^2 / 2; stated here as the C/N0 it always ran at,
+     10 log10 (fs / 0.18). */
+  const double cn0_dbhz = 10.0 * log10 (fs / 0.18);
 
   uint8_t *code = malloc (sf);
   uint32_t cst  = 7;
@@ -378,9 +395,9 @@ _test_carrier_dll_composition_ramp (void)
     code[i] = (uint8_t)(dp_bit (&cst) > 0 ? 0u : 1u);
 
   double err_off = _run_ramp_composition (code, sf, spc, fs, rate_hz_per_s,
-                                          n_periods, sigma, 0.0, 11);
+                                          n_periods, cn0_dbhz, 0.0, 11);
   double err_on  = _run_ramp_composition (code, sf, spc, fs, rate_hz_per_s,
-                                          n_periods, sigma, 0.03, 11);
+                                          n_periods, cn0_dbhz, 0.03, 11);
   free (code);
 
   /* The mechanism must be NEEDED: a bare PLL (bn_fll=0) should not track
@@ -488,16 +505,24 @@ _test_sustained_doppler_rate (void)
   DP_CHECK (ber4 < 0.05);
   DP_CHECK (evm4 < -8.0);
   DP_CHECK (snr4 > 8.0);
-  /* The async-lookback mechanism must be NEEDED, not incidental: on the
-   * IDENTICAL genuinely-async (~1.111 periods/symbol) signal, `segments=1`
-   * (no lookback -- a plain coherent full-epoch dump) must decode
-   * measurably WORSE than `segments=4` (DsssReceiver's own default) --
-   * proving the new pre-despread carrier composition still lets
-   * `dp_dll_steps()`'s segments>1 lookback do real, load-bearing work,
-   * exactly as it did before this session's carrier-loop addition.
-   * Confirmed directly: ber4=0.0000, ber1=0.1702 on the same run. */
-  DP_CHECK (ber1 > ber4);
-  DP_CHECK (ber1 > 0.05);
+  /* segments=1 on the same capture: the one-segment loop at its stated bn
+   * must hold lock and decode, held to the segments=4 arm's EVM bound. That
+   * bound, -8 dB, is where the constellation stops being error-free at this
+   * record length: hard-decision BPSK at an EVM of -8 dB has a BER of
+   * Q(sqrt(2 * 10^0.8)) = 1.9e-4, 0.46 errors expected over the record's
+   * ~2431 symbols. The error bound follows from it: at most 2 errors, a
+   * 1.2% false red at the EVM bound itself (Poisson, mean 0.46). BER is never
+   * asserted alone, hence the pair. Both fail on a loop whose integral path
+   * is not unit gain (doppler#3234: ~400 errors, EVM -2 dB on this capture).
+   *
+   * What this does NOT show is that segments > 1 is needed for decoding: BER
+   * does not separate the two arms here (EVM does, by 12 dB), and the
+   * premise that it must is unshown (doppler#3259). */
+  double evm1 = dp_test_evm_db_hard (syms1, n_syms1);
+  printf ("  segments=1: n=%zu ber=%.4f evm=%.1f dB\n", n_syms1, ber1, evm1);
+  DP_CHECK (n_syms1 > (n_sym / 2));
+  DP_CHECK (ber1 * (double)n_syms1 <= 2.0);
+  DP_CHECK (evm1 < -8.0);
 
   free (syms4);
   free (syms1);
@@ -752,6 +777,59 @@ _test_handoff_resumes_at_the_hit (void)
   return 0;
 }
 
+/* A call of a few samples that completes a carried period keeps the
+ * period's partials. The tracking chain wipes and despreads a whole code
+ * period at a time, carrying the remainder, so a 1-sample call that
+ * completes the carry runs a period through the Dll, which emits its
+ * `segments` partials (4 here). Its scratch held x_len before #3281's
+ * audit, 1 here, and dp_dll_steps() drops what does not fit silently
+ * (#3282): 3 partials a period lost. The case: the hand-off geometry above
+ * fed as calls of te - 1 and 1 samples, which must equal one call over the
+ * capture bit for bit. Sabotage: the Dll's scratch back to x_len -> the
+ * chunked run loses partials and differs, red. */
+static int
+_test_small_call_keeps_a_carried_period (void)
+{
+  const size_t    sf = 7, spc = 4, te = sf * spc, n_sym = 300;
+  const double    fs = 1.0e6 * (double)spc, tsym = fs / 35714.29;
+  float _Complex *x;
+  size_t          n;
+  double         *data;
+  dp_dsss_capture (CODE7, sf, spc, fs, tsym, 0.0, 90.0, n_sym, te * 5 + 3, 7,
+                   &x, &n, &data);
+  dp_dsss_receiver_state_t *one = dp_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, fs, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0);
+  dp_dsss_receiver_state_t *chunked = dp_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, fs, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0);
+  DP_REQUIRE (one != NULL && chunked != NULL);
+  float _Complex *a;
+  const size_t    n_a = _stream (one, x, n, n, &a);
+  float _Complex *b   = malloc (n * sizeof *b);
+  DP_REQUIRE (b != NULL);
+  size_t n_b = 0;
+  for (size_t pos = 0, k = 0; pos < n; k++)
+    {
+      size_t take = (k & 1u) ? 1 : te - 1;
+      take        = pos + take <= n ? take : n - pos;
+      n_b += dp_dsss_receiver_steps (chunked, x + pos, take, b + n_b, n - n_b);
+      pos += take;
+    }
+  DP_REQUIRE (dp_dsss_receiver_get_tracking (one) == 1 && n_a > 20);
+  printf ("  calls of %zu and 1 samples: %zu symbols against one call's "
+          "%zu\n",
+          te - 1, n_b, n_a);
+  DP_CHECK_MSG (n_a == n_b && memcmp (a, b, n_a * sizeof *a) == 0,
+                "a 1-sample call that completes a carried period keeps its "
+                "partials");
+  free (a);
+  free (b);
+  dp_dsss_receiver_destroy (one);
+  dp_dsss_receiver_destroy (chunked);
+  free (x);
+  free (data);
+  return 0;
+}
+
 /* The hand-off's two counts must be one timebase (#2042's final round).
  * The tail is where the hit's frame ended in the ENGINE's position; a count
  * of what this receiver fed was a second timebase that configure_search_raw
@@ -850,6 +928,7 @@ main (void)
   (void)_test_arg_validation ();
   (void)_test_acquire_and_decode ();
   (void)_test_handoff_resumes_at_the_hit ();
+  (void)_test_small_call_keeps_a_carried_period ();
   (void)_test_handoff_survives_reconfigure_and_restore ();
   (void)_test_carrier_dll_composition_ramp ();
   (void)_test_sustained_doppler_rate ();

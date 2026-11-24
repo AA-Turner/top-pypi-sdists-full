@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gs_quant
-Version: 2.2.6
+Version: 2.2.9
 Summary: Goldman Sachs Quant
 Author-email: Goldman Sachs <developer@gs.com>
 License: Apache-2.0
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.10

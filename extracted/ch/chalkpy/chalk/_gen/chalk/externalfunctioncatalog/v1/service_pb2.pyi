@@ -1,5 +1,6 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import tag_filter_pb2 as _tag_filter_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from chalk._gen.chalk.runtime.v1 import remote_python_call_pb2 as _remote_python_call_pb2
 from chalk._gen.chalk.sandbox.v1 import service_pb2 as _service_pb2
@@ -635,19 +636,29 @@ class ExternalFunctionVersionKey(_message.Message):
     ) -> None: ...
 
 class GetExternalFunctionVersionRequest(_message.Message):
-    __slots__ = ("id", "key", "include_scaling_group", "include_active_schedule", "visibility", "include_deleted")
+    __slots__ = (
+        "id",
+        "key",
+        "include_scaling_group",
+        "include_active_schedule",
+        "visibility",
+        "include_deleted",
+        "include_scaling_group_revision",
+    )
     ID_FIELD_NUMBER: _ClassVar[int]
     KEY_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_ACTIVE_SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_SCALING_GROUP_REVISION_FIELD_NUMBER: _ClassVar[int]
     id: str
     key: ExternalFunctionVersionKey
     include_scaling_group: bool
     include_active_schedule: bool
     visibility: _containers.RepeatedScalarFieldContainer[ExternalFunctionVisibility]
     include_deleted: bool
+    include_scaling_group_revision: bool
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -656,21 +667,25 @@ class GetExternalFunctionVersionRequest(_message.Message):
         include_active_schedule: bool = ...,
         visibility: _Optional[_Iterable[_Union[ExternalFunctionVisibility, str]]] = ...,
         include_deleted: bool = ...,
+        include_scaling_group_revision: bool = ...,
     ) -> None: ...
 
 class GetExternalFunctionVersionResponse(_message.Message):
-    __slots__ = ("external_function_version", "scaling_group", "active_schedule")
+    __slots__ = ("external_function_version", "scaling_group", "active_schedule", "scaling_group_revision")
     EXTERNAL_FUNCTION_VERSION_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     ACTIVE_SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    SCALING_GROUP_REVISION_FIELD_NUMBER: _ClassVar[int]
     external_function_version: ExternalFunctionVersion
     scaling_group: _service_pb2_1.ScalingGroupResponse
     active_schedule: ActiveSchedule
+    scaling_group_revision: _service_pb2_1.ScalingGroupRevisionResponse
     def __init__(
         self,
         external_function_version: _Optional[_Union[ExternalFunctionVersion, _Mapping]] = ...,
         scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...,
         active_schedule: _Optional[_Union[ActiveSchedule, _Mapping]] = ...,
+        scaling_group_revision: _Optional[_Union[_service_pb2_1.ScalingGroupRevisionResponse, _Mapping]] = ...,
     ) -> None: ...
 
 class ExternalFunctionVersionSourceFile(_message.Message):
@@ -688,21 +703,24 @@ class GetExternalFunctionVersionSourceRequest(_message.Message):
     def __init__(self, function_version_id: _Optional[str] = ...) -> None: ...
 
 class GetExternalFunctionVersionSourceResponse(_message.Message):
-    __slots__ = ("volume_name", "volume_version_id", "primary_path", "source_files")
+    __slots__ = ("volume_name", "volume_version_id", "primary_path", "source_files", "best_effort")
     VOLUME_NAME_FIELD_NUMBER: _ClassVar[int]
     VOLUME_VERSION_ID_FIELD_NUMBER: _ClassVar[int]
     PRIMARY_PATH_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FILES_FIELD_NUMBER: _ClassVar[int]
+    BEST_EFFORT_FIELD_NUMBER: _ClassVar[int]
     volume_name: str
     volume_version_id: int
     primary_path: str
     source_files: _containers.RepeatedCompositeFieldContainer[ExternalFunctionVersionSourceFile]
+    best_effort: bool
     def __init__(
         self,
         volume_name: _Optional[str] = ...,
         volume_version_id: _Optional[int] = ...,
         primary_path: _Optional[str] = ...,
         source_files: _Optional[_Iterable[_Union[ExternalFunctionVersionSourceFile, _Mapping]]] = ...,
+        best_effort: bool = ...,
     ) -> None: ...
 
 class ActiveSchedule(_message.Message):
@@ -909,7 +927,7 @@ class ListExternalFunctionsRequest(_message.Message):
     ) -> None: ...
 
 class ListExternalFunctionsFilters(_message.Message):
-    __slots__ = ("visibility", "statuses", "created_by", "tags")
+    __slots__ = ("visibility", "statuses", "created_by", "tags", "tag_filter")
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -922,16 +940,19 @@ class ListExternalFunctionsFilters(_message.Message):
     STATUSES_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
+    TAG_FILTER_FIELD_NUMBER: _ClassVar[int]
     visibility: _containers.RepeatedScalarFieldContainer[ExternalFunctionVisibility]
     statuses: _containers.RepeatedScalarFieldContainer[str]
     created_by: _containers.RepeatedScalarFieldContainer[str]
     tags: _containers.ScalarMap[str, str]
+    tag_filter: _tag_filter_pb2.TagFilter
     def __init__(
         self,
         visibility: _Optional[_Iterable[_Union[ExternalFunctionVisibility, str]]] = ...,
         statuses: _Optional[_Iterable[str]] = ...,
         created_by: _Optional[_Iterable[str]] = ...,
         tags: _Optional[_Mapping[str, str]] = ...,
+        tag_filter: _Optional[_Union[_tag_filter_pb2.TagFilter, _Mapping]] = ...,
     ) -> None: ...
 
 class ListExternalFunctionsResponse(_message.Message):
@@ -1033,4 +1054,55 @@ class CallExternalFunctionResponse(_message.Message):
         enqueue_remote_call_response: _Optional[
             _Union[_remote_python_call_pb2.EnqueueRemoteCallResponse, _Mapping]
         ] = ...,
+    ) -> None: ...
+
+class DescribeExternalFunctionJsonRequest(_message.Message):
+    __slots__ = ("function",)
+    FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    function: ExternalFunctionVersionKey
+    def __init__(self, function: _Optional[_Union[ExternalFunctionVersionKey, _Mapping]] = ...) -> None: ...
+
+class DescribeExternalFunctionJsonResponse(_message.Message):
+    __slots__ = ("function_name", "version", "input_json_schema", "output_json_schema")
+    FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    INPUT_JSON_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_JSON_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    function_name: str
+    version: int
+    input_json_schema: _struct_pb2.Struct
+    output_json_schema: _struct_pb2.Struct
+    def __init__(
+        self,
+        function_name: _Optional[str] = ...,
+        version: _Optional[int] = ...,
+        input_json_schema: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...,
+        output_json_schema: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...,
+    ) -> None: ...
+
+class CallExternalFunctionJsonRequest(_message.Message):
+    __slots__ = ("function", "args")
+    FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    ARGS_FIELD_NUMBER: _ClassVar[int]
+    function: ExternalFunctionVersionKey
+    args: _struct_pb2.Struct
+    def __init__(
+        self,
+        function: _Optional[_Union[ExternalFunctionVersionKey, _Mapping]] = ...,
+        args: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...,
+    ) -> None: ...
+
+class CallExternalFunctionJsonResponse(_message.Message):
+    __slots__ = ("function_name", "version", "result")
+    FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    RESULT_FIELD_NUMBER: _ClassVar[int]
+    function_name: str
+    version: int
+    result: _struct_pb2.Struct
+    def __init__(
+        self,
+        function_name: _Optional[str] = ...,
+        version: _Optional[int] = ...,
+        result: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...,
     ) -> None: ...

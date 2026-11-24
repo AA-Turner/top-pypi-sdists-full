@@ -22,7 +22,10 @@ class _Q:
     def __init__(self, rows: list[dict]) -> None:
         self._rows = rows
 
-    def limit(self, *_a: int) -> "_Q":
+    def limit(self, *_a: int) -> _Q:
+        return self
+
+    def including_archived(self) -> _Q:  # the ORM's include-archived door
         return self
 
     async def values(self, *_f: str) -> list[dict]:

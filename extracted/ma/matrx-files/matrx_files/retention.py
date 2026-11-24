@@ -48,6 +48,9 @@ class TemporaryFileRetentionPolicy(BaseModel):
     name: str = Field(min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_-]*$")
     path_prefix: str
     filename_glob: str
+    #: Where a provider writes the objects this policy may adopt, as an S3 key prefix. ``None``
+    #: means the policy adopts nothing from outside (CASA 5.1.5).
+    source_key_prefix: str | None = None
     ttl: timedelta = DEFAULT_TEMPORARY_FILE_TTL
     batch_size: int = Field(default=100, ge=1, le=1_000)
     max_batches: int = Field(default=10, ge=1, le=1_000)
@@ -137,6 +140,7 @@ MEET_RECORDING_RETENTION_POLICY = TemporaryFileRetentionPolicy(
     name="meet_recordings_30d",
     path_prefix=".matrx-tmp/meet-recordings/",
     filename_glob="recording_*",
+    source_key_prefix="meet/",
     ttl=MEET_RECORDING_RETENTION_TTL,
 )
 

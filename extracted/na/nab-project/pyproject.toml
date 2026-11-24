@@ -1,7 +1,7 @@
 [project]
 name = "nab-project"
-version = "0.0.30"
-description = "Index-backed provider, lockfile emitter, and downloader for nab"
+version = "0.0.31"
+description = "Python project resolution, lockfiles and downloads for nab"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -21,13 +21,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "nab-markersets==0.0.30",
-    "nab-provider==0.0.30",
-    "nab-resolver==0.0.30",
-    "nab-index==0.0.30",
-    # fetch.py normalises a name for nab-index's API, which is typed in
-    # released packaging's NormalizedName.
-    "packaging>=24.0",
+    "nab-markersets==0.0.31",
+    "nab-provider==0.0.31",
+    "nab-resolver==0.0.31",
+    "nab-index==0.0.31",
+    "packaging>=26.4",
     # toml_io builds TOMLDecodeError(msg, doc, pos), a signature 2.2 added.
     "tomli>=2.2",
     "build>=1.2",
@@ -47,7 +45,10 @@ Changelog = "https://github.com/notatallshaw/nab/releases"
 requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
 
-# Benchmarks are development tooling, not part of the shipped package, so the
-# sdist carries only the source and tests.
+# The benchmark harness and the tests that need it run from the checkout.
 [tool.hatch.build.targets.sdist]
-exclude = ["/benchmarks"]
+exclude = ["/benchmarks", "/tests/benchmark", "/tests/test_deterministic_smoke_core.py"]
+
+# Put the shared pytest plugin and test helpers beside the archived tests.
+[tool.hatch.build.targets.sdist.sources]
+"test-support" = ""

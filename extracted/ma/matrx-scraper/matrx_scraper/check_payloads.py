@@ -185,6 +185,9 @@ class InternalLinkEquityEvidence(CheckEvidence):
     pages_scored: int | None = None
     prioritized: bool | None = None
     priority_penalty_applied: bool | None = None
+    # The SEO-plan primary keyword (web.page.desired_values.keyword_plan.primary_keyword_id)
+    # that makes the page prioritized; present only on judged (prioritized) findings.
+    primary_keyword_id: str | None = None
 
 
 class OrphanPagesEvidence(CheckEvidence):
@@ -221,6 +224,13 @@ class NearDuplicateContentEvidence(CheckEvidence):
 
 class CanonicalConflictsEvidence(CheckEvidence):
     canonical_url: str | None = None
+    #: The canonical TARGET's state, judged across pages (2026-10-30).
+    target_status: int | None = None
+    target_noindex: bool | None = None
+    target_redirects: bool | None = None
+    target_canonical: str | None = None
+    in_sitemap: bool | None = None
+    canonical_is_homepage: bool | None = None
     # The page's final address when the canonical names a redirecting hop.
     redirects_to: str | None = None
 
@@ -237,6 +247,10 @@ class HttpStatusEvidence(CheckEvidence):
     # ``None`` = not measured on this run, never "zero".
     inlink_pages: int | None = None
     in_sitemap: bool | None = None
+    #: Only a stale (>30 days) sitemap listed it — past-life evidence.
+    formerly_in_sitemap: bool | None = None
+    google_shows: bool | None = None
+    ever_worked: bool | None = None
 
 
 class RedirectChainEvidence(CheckEvidence):

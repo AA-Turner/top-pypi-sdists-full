@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openstacksdk
-Version: 4.24.0
+Version: 4.25.0
 Summary: An SDK for building applications to work with OpenStack
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: cryptography>=2.7
+Requires-Dist: cryptography>=50.0.0
 Requires-Dist: decorator>=4.4.1
 Requires-Dist: dogpile.cache>=0.6.5
 Requires-Dist: iso8601>=0.1.11

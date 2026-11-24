@@ -24,10 +24,12 @@ from typing import Any, Union
 from .literals import (
     AdministrativeActionTypeType,
     AliasLifecycleType,
+    AllowedSvmModeType,
     AutocommitPeriodTypeType,
     AutoImportPolicyTypeType,
     BackupLifecycleType,
     BackupTypeType,
+    ClusterPeerLifecycleType,
     DataCompressionTypeType,
     DataRepositoryLifecycleType,
     DataRepositoryTaskFilterNameType,
@@ -65,14 +67,32 @@ from .literals import (
     S3AccessPointAttachmentTypeType,
     SecurityStyleType,
     SnaplockTypeType,
+    SnapmirrorPolicyFilterNameType,
+    SnapmirrorPolicyLifecycleType,
+    SnapmirrorPolicyScopeType,
+    SnapmirrorPolicySnapshotCopyModeType,
+    SnapmirrorRelationshipFilterNameType,
+    SnapmirrorRelationshipLifecycleType,
+    SnapmirrorRelationshipStateType,
     SnapshotFilterNameType,
     SnapshotLifecycleType,
+    SnapshotPolicyFilterNameType,
+    SnapshotPolicyLifecycleType,
+    SnapshotPolicyRetentionPeriodTypeType,
+    SnapshotPolicyScopeType,
+    SnapshotTypeType,
     StatusType,
     StorageTypeType,
     StorageVirtualMachineLifecycleType,
+    StorageVirtualMachinePeerApplicationType,
+    StorageVirtualMachinePeerFilterNameType,
+    StorageVirtualMachinePeerLifecycleType,
+    StorageVirtualMachinePeerStateType,
+    StorageVirtualMachinePeerUpdateStateType,
     StorageVirtualMachineRootVolumeSecurityStyleType,
     StorageVirtualMachineSubtypeType,
     TieringPolicyNameType,
+    UpdatableSnapmirrorRelationshipStateType,
     UpdateOpenZFSVolumeOptionType,
     VolumeFilterNameType,
     VolumeLifecycleType,
@@ -107,6 +127,10 @@ __all__ = (
     "BackupTypeDef",
     "CancelDataRepositoryTaskRequestTypeDef",
     "CancelDataRepositoryTaskResponseTypeDef",
+    "CloneConfigurationTypeDef",
+    "ClusterPeerAuthenticationStatusTypeDef",
+    "ClusterPeerFilterTypeDef",
+    "ClusterPeerTypeDef",
     "CompletionReportTypeDef",
     "CopyBackupRequestTypeDef",
     "CopyBackupResponseTypeDef",
@@ -120,6 +144,9 @@ __all__ = (
     "CreateAndAttachS3AccessPointS3ConfigurationTypeDef",
     "CreateBackupRequestTypeDef",
     "CreateBackupResponseTypeDef",
+    "CreateCloneConfigurationTypeDef",
+    "CreateClusterPeerRequestTypeDef",
+    "CreateClusterPeerResponseTypeDef",
     "CreateDataRepositoryAssociationRequestTypeDef",
     "CreateDataRepositoryAssociationResponseTypeDef",
     "CreateDataRepositoryTaskRequestTypeDef",
@@ -136,12 +163,23 @@ __all__ = (
     "CreateFileSystemRequestTypeDef",
     "CreateFileSystemResponseTypeDef",
     "CreateFileSystemWindowsConfigurationTypeDef",
+    "CreateOntapSnapshotConfigurationTypeDef",
     "CreateOntapVolumeConfigurationTypeDef",
     "CreateOpenZFSOriginSnapshotConfigurationTypeDef",
     "CreateOpenZFSVolumeConfigurationTypeDef",
     "CreateSnaplockConfigurationTypeDef",
+    "CreateSnapmirrorDestinationTypeDef",
+    "CreateSnapmirrorPolicyRequestTypeDef",
+    "CreateSnapmirrorPolicyResponseTypeDef",
+    "CreateSnapmirrorRelationshipRequestTypeDef",
+    "CreateSnapmirrorRelationshipResponseTypeDef",
+    "CreateSnapmirrorSourceTypeDef",
+    "CreateSnapshotPolicyRequestTypeDef",
+    "CreateSnapshotPolicyResponseTypeDef",
     "CreateSnapshotRequestTypeDef",
     "CreateSnapshotResponseTypeDef",
+    "CreateStorageVirtualMachinePeerRequestTypeDef",
+    "CreateStorageVirtualMachinePeerResponseTypeDef",
     "CreateStorageVirtualMachineRequestTypeDef",
     "CreateStorageVirtualMachineResponseTypeDef",
     "CreateSvmActiveDirectoryConfigurationTypeDef",
@@ -158,6 +196,8 @@ __all__ = (
     "DataRepositoryTaskTypeDef",
     "DeleteBackupRequestTypeDef",
     "DeleteBackupResponseTypeDef",
+    "DeleteClusterPeerRequestTypeDef",
+    "DeleteClusterPeerResponseTypeDef",
     "DeleteDataRepositoryAssociationRequestTypeDef",
     "DeleteDataRepositoryAssociationResponseTypeDef",
     "DeleteFileCacheRequestTypeDef",
@@ -170,8 +210,16 @@ __all__ = (
     "DeleteFileSystemResponseTypeDef",
     "DeleteFileSystemWindowsConfigurationTypeDef",
     "DeleteFileSystemWindowsResponseTypeDef",
+    "DeleteSnapmirrorPolicyRequestTypeDef",
+    "DeleteSnapmirrorPolicyResponseTypeDef",
+    "DeleteSnapmirrorRelationshipRequestTypeDef",
+    "DeleteSnapmirrorRelationshipResponseTypeDef",
+    "DeleteSnapshotPolicyRequestTypeDef",
+    "DeleteSnapshotPolicyResponseTypeDef",
     "DeleteSnapshotRequestTypeDef",
     "DeleteSnapshotResponseTypeDef",
+    "DeleteStorageVirtualMachinePeerRequestTypeDef",
+    "DeleteStorageVirtualMachinePeerResponseTypeDef",
     "DeleteStorageVirtualMachineRequestTypeDef",
     "DeleteStorageVirtualMachineResponseTypeDef",
     "DeleteVolumeOntapConfigurationTypeDef",
@@ -183,6 +231,9 @@ __all__ = (
     "DescribeBackupsRequestTypeDef",
     "DescribeBackupsResponsePaginatorTypeDef",
     "DescribeBackupsResponseTypeDef",
+    "DescribeClusterPeersRequestPaginateTypeDef",
+    "DescribeClusterPeersRequestTypeDef",
+    "DescribeClusterPeersResponseTypeDef",
     "DescribeDataRepositoryAssociationsRequestTypeDef",
     "DescribeDataRepositoryAssociationsResponseTypeDef",
     "DescribeDataRepositoryTasksRequestTypeDef",
@@ -199,10 +250,22 @@ __all__ = (
     "DescribeS3AccessPointAttachmentsRequestTypeDef",
     "DescribeS3AccessPointAttachmentsResponseTypeDef",
     "DescribeSharedVpcConfigurationResponseTypeDef",
+    "DescribeSnapmirrorPoliciesRequestPaginateTypeDef",
+    "DescribeSnapmirrorPoliciesRequestTypeDef",
+    "DescribeSnapmirrorPoliciesResponseTypeDef",
+    "DescribeSnapmirrorRelationshipsRequestPaginateTypeDef",
+    "DescribeSnapmirrorRelationshipsRequestTypeDef",
+    "DescribeSnapmirrorRelationshipsResponseTypeDef",
+    "DescribeSnapshotPoliciesRequestPaginateTypeDef",
+    "DescribeSnapshotPoliciesRequestTypeDef",
+    "DescribeSnapshotPoliciesResponseTypeDef",
     "DescribeSnapshotsRequestPaginateTypeDef",
     "DescribeSnapshotsRequestTypeDef",
     "DescribeSnapshotsResponsePaginatorTypeDef",
     "DescribeSnapshotsResponseTypeDef",
+    "DescribeStorageVirtualMachinePeersRequestPaginateTypeDef",
+    "DescribeStorageVirtualMachinePeersRequestTypeDef",
+    "DescribeStorageVirtualMachinePeersResponseTypeDef",
     "DescribeStorageVirtualMachinesRequestPaginateTypeDef",
     "DescribeStorageVirtualMachinesRequestTypeDef",
     "DescribeStorageVirtualMachinesResponseTypeDef",
@@ -242,8 +305,10 @@ __all__ = (
     "LustreRootSquashConfigurationTypeDef",
     "LustreRootSquashConfigurationUnionTypeDef",
     "NFSDataRepositoryConfigurationTypeDef",
+    "OntapErrorTypeDef",
     "OntapFileSystemConfigurationTypeDef",
     "OntapFileSystemIdentityTypeDef",
+    "OntapSnapshotConfigurationTypeDef",
     "OntapUnixFileSystemUserTypeDef",
     "OntapVolumeConfigurationTypeDef",
     "OntapWindowsFileSystemUserTypeDef",
@@ -287,12 +352,28 @@ __all__ = (
     "SelfManagedActiveDirectoryConfigurationUpdatesTypeDef",
     "SnaplockConfigurationTypeDef",
     "SnaplockRetentionPeriodTypeDef",
+    "SnapmirrorDestinationTypeDef",
+    "SnapmirrorExportedSnapshotTypeDef",
+    "SnapmirrorPolicyFilterTypeDef",
+    "SnapmirrorPolicyRetentionRuleTypeDef",
+    "SnapmirrorPolicyTypeDef",
+    "SnapmirrorRelationshipFilterTypeDef",
+    "SnapmirrorRelationshipPolicyTypeDef",
+    "SnapmirrorRelationshipTypeDef",
+    "SnapmirrorSourceTypeDef",
+    "SnapmirrorTransferStateTypeDef",
     "SnapshotFilterTypeDef",
     "SnapshotPaginatorTypeDef",
+    "SnapshotPolicyFilterTypeDef",
+    "SnapshotPolicyRetentionPeriodTypeDef",
+    "SnapshotPolicyScheduleTypeDef",
+    "SnapshotPolicyTypeDef",
     "SnapshotTypeDef",
     "StartMisconfiguredStateRecoveryRequestTypeDef",
     "StartMisconfiguredStateRecoveryResponseTypeDef",
     "StorageVirtualMachineFilterTypeDef",
+    "StorageVirtualMachinePeerFilterTypeDef",
+    "StorageVirtualMachinePeerTypeDef",
     "StorageVirtualMachineTypeDef",
     "SvmActiveDirectoryConfigurationTypeDef",
     "SvmEndpointTypeDef",
@@ -300,7 +381,11 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TieringPolicyTypeDef",
+    "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateCloneConfigurationTypeDef",
+    "UpdateClusterPeerRequestTypeDef",
+    "UpdateClusterPeerResponseTypeDef",
     "UpdateDataRepositoryAssociationRequestTypeDef",
     "UpdateDataRepositoryAssociationResponseTypeDef",
     "UpdateFileCacheLustreConfigurationTypeDef",
@@ -313,13 +398,22 @@ __all__ = (
     "UpdateFileSystemRequestTypeDef",
     "UpdateFileSystemResponseTypeDef",
     "UpdateFileSystemWindowsConfigurationTypeDef",
+    "UpdateOntapSnapshotConfigurationTypeDef",
     "UpdateOntapVolumeConfigurationTypeDef",
     "UpdateOpenZFSVolumeConfigurationTypeDef",
     "UpdateSharedVpcConfigurationRequestTypeDef",
     "UpdateSharedVpcConfigurationResponseTypeDef",
     "UpdateSnaplockConfigurationTypeDef",
+    "UpdateSnapmirrorPolicyRequestTypeDef",
+    "UpdateSnapmirrorPolicyResponseTypeDef",
+    "UpdateSnapmirrorRelationshipRequestTypeDef",
+    "UpdateSnapmirrorRelationshipResponseTypeDef",
+    "UpdateSnapshotPolicyRequestTypeDef",
+    "UpdateSnapshotPolicyResponseTypeDef",
     "UpdateSnapshotRequestTypeDef",
     "UpdateSnapshotResponseTypeDef",
+    "UpdateStorageVirtualMachinePeerRequestTypeDef",
+    "UpdateStorageVirtualMachinePeerResponseTypeDef",
     "UpdateStorageVirtualMachineRequestTypeDef",
     "UpdateStorageVirtualMachineResponseTypeDef",
     "UpdateSvmActiveDirectoryConfigurationTypeDef",
@@ -407,6 +501,21 @@ class CancelDataRepositoryTaskRequestTypeDef(TypedDict):
     TaskId: str
 
 
+class CloneConfigurationTypeDef(TypedDict):
+    ParentVolumeId: NotRequired[str]
+    SnapshotId: NotRequired[str]
+
+
+class ClusterPeerAuthenticationStatusTypeDef(TypedDict):
+    State: NotRequired[str]
+    InUse: NotRequired[str]
+
+
+class ClusterPeerFilterTypeDef(TypedDict):
+    Name: NotRequired[Literal["file-system-id"]]
+    Values: NotRequired[Sequence[str]]
+
+
 class CompletionReportTypeDef(TypedDict):
     Enabled: bool
     Path: NotRequired[str]
@@ -429,6 +538,11 @@ class CreateAggregateConfigurationTypeDef(TypedDict):
 
 class S3AccessPointVpcConfigurationTypeDef(TypedDict):
     VpcId: NotRequired[str]
+
+
+class CreateCloneConfigurationTypeDef(TypedDict):
+    ParentVolumeId: str
+    SnapshotId: NotRequired[str]
 
 
 class FileCacheLustreMetadataConfigurationTypeDef(TypedDict):
@@ -481,6 +595,9 @@ class WindowsFsrmConfigurationTypeDef(TypedDict):
     EventLogDestination: NotRequired[str]
 
 
+TimestampTypeDef = Union[datetime, str]
+
+
 class TieringPolicyTypeDef(TypedDict):
     CoolingPeriod: NotRequired[int]
     Name: NotRequired[TieringPolicyNameType]
@@ -499,6 +616,20 @@ OpenZFSUserOrGroupQuotaTypeDef = TypedDict(
         "StorageCapacityQuotaGiB": int,
     },
 )
+
+
+class CreateSnapmirrorDestinationTypeDef(TypedDict):
+    VolumeId: str
+
+
+class SnapmirrorPolicyRetentionRuleTypeDef(TypedDict):
+    Label: str
+    Count: int
+    CreationSchedule: NotRequired[str]
+
+
+class CreateSnapmirrorSourceTypeDef(TypedDict):
+    Path: str
 
 
 class DataRepositoryFailureDetailsTypeDef(TypedDict):
@@ -527,6 +658,11 @@ class DeleteBackupRequestTypeDef(TypedDict):
     ClientRequestToken: NotRequired[str]
 
 
+class DeleteClusterPeerRequestTypeDef(TypedDict):
+    ClusterPeerId: str
+    ClientRequestToken: NotRequired[str]
+
+
 class DeleteDataRepositoryAssociationRequestTypeDef(TypedDict):
     AssociationId: str
     ClientRequestToken: NotRequired[str]
@@ -538,8 +674,28 @@ class DeleteFileCacheRequestTypeDef(TypedDict):
     ClientRequestToken: NotRequired[str]
 
 
+class DeleteSnapmirrorPolicyRequestTypeDef(TypedDict):
+    SnapmirrorPolicyId: str
+    ClientRequestToken: NotRequired[str]
+
+
+class DeleteSnapmirrorRelationshipRequestTypeDef(TypedDict):
+    SnapmirrorRelationshipId: str
+    ClientRequestToken: NotRequired[str]
+
+
+class DeleteSnapshotPolicyRequestTypeDef(TypedDict):
+    SnapshotPolicyId: str
+    ClientRequestToken: NotRequired[str]
+
+
 class DeleteSnapshotRequestTypeDef(TypedDict):
     SnapshotId: str
+    ClientRequestToken: NotRequired[str]
+
+
+class DeleteStorageVirtualMachinePeerRequestTypeDef(TypedDict):
+    StorageVirtualMachinePeerId: str
     ClientRequestToken: NotRequired[str]
 
 
@@ -587,8 +743,28 @@ class S3AccessPointAttachmentsFilterTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
 
 
+class SnapmirrorPolicyFilterTypeDef(TypedDict):
+    Name: NotRequired[SnapmirrorPolicyFilterNameType]
+    Values: NotRequired[Sequence[str]]
+
+
+class SnapmirrorRelationshipFilterTypeDef(TypedDict):
+    Name: NotRequired[SnapmirrorRelationshipFilterNameType]
+    Values: NotRequired[Sequence[str]]
+
+
+class SnapshotPolicyFilterTypeDef(TypedDict):
+    Name: NotRequired[SnapshotPolicyFilterNameType]
+    Values: NotRequired[Sequence[str]]
+
+
 class SnapshotFilterTypeDef(TypedDict):
     Name: NotRequired[SnapshotFilterNameType]
+    Values: NotRequired[Sequence[str]]
+
+
+class StorageVirtualMachinePeerFilterTypeDef(TypedDict):
+    Name: NotRequired[StorageVirtualMachinePeerFilterNameType]
     Values: NotRequired[Sequence[str]]
 
 
@@ -647,8 +823,9 @@ class FileSystemLustreMetadataConfigurationTypeDef(TypedDict):
     Iops: NotRequired[int]
 
 
-class LifecycleTransitionReasonTypeDef(TypedDict):
+class OntapErrorTypeDef(TypedDict):
     Message: NotRequired[str]
+    Code: NotRequired[str]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -673,6 +850,14 @@ class OntapUnixFileSystemUserTypeDef(TypedDict):
 
 class OntapWindowsFileSystemUserTypeDef(TypedDict):
     Name: str
+
+
+class OntapSnapshotConfigurationTypeDef(TypedDict):
+    SizeInMegabytes: NotRequired[int]
+    SnapmirrorLabel: NotRequired[str]
+    ExpiryTime: NotRequired[datetime]
+    SnaplockExpiryTime: NotRequired[datetime]
+    UUID: NotRequired[str]
 
 
 class OpenZFSClientConfigurationOutputTypeDef(TypedDict):
@@ -742,6 +927,44 @@ class SelfManagedActiveDirectoryConfigurationUpdatesTypeDef(TypedDict):
     DomainJoinServiceAccountSecret: NotRequired[str]
 
 
+class SnapmirrorDestinationTypeDef(TypedDict):
+    Path: NotRequired[str]
+    VolumeId: NotRequired[str]
+
+
+class SnapmirrorExportedSnapshotTypeDef(TypedDict):
+    SnapshotId: NotRequired[str]
+    SnapshotName: NotRequired[str]
+
+
+class SnapmirrorRelationshipPolicyTypeDef(TypedDict):
+    PolicyId: NotRequired[str]
+    PolicyName: NotRequired[str]
+
+
+class SnapmirrorSourceTypeDef(TypedDict):
+    Path: NotRequired[str]
+
+
+SnapmirrorTransferStateTypeDef = TypedDict(
+    "SnapmirrorTransferStateTypeDef",
+    {
+        "State": NotRequired[str],
+        "Type": NotRequired[str],
+        "BytesTransferred": NotRequired[int],
+        "Duration": NotRequired[str],
+        "EndTime": NotRequired[datetime],
+    },
+)
+SnapshotPolicyRetentionPeriodTypeDef = TypedDict(
+    "SnapshotPolicyRetentionPeriodTypeDef",
+    {
+        "Type": SnapshotPolicyRetentionPeriodTypeType,
+        "Value": NotRequired[int],
+    },
+)
+
+
 class StartMisconfiguredStateRecoveryRequestTypeDef(TypedDict):
     FileSystemId: str
     ClientRequestToken: NotRequired[str]
@@ -758,6 +981,17 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 
+class UpdateCloneConfigurationTypeDef(TypedDict):
+    SplitAction: NotRequired[Literal["START"]]
+
+
+class UpdateClusterPeerRequestTypeDef(TypedDict):
+    ClusterPeerId: str
+    ClientRequestToken: NotRequired[str]
+    PeerClusterName: NotRequired[str]
+    PeerAddresses: NotRequired[Sequence[str]]
+
+
 class UpdateFileCacheLustreConfigurationTypeDef(TypedDict):
     WeeklyMaintenanceStartTime: NotRequired[str]
 
@@ -772,10 +1006,27 @@ class UpdateSharedVpcConfigurationRequestTypeDef(TypedDict):
     ClientRequestToken: NotRequired[str]
 
 
-class UpdateSnapshotRequestTypeDef(TypedDict):
-    Name: str
-    SnapshotId: str
+class UpdateSnapmirrorRelationshipRequestTypeDef(TypedDict):
+    SnapmirrorRelationshipId: str
     ClientRequestToken: NotRequired[str]
+    PolicyId: NotRequired[str]
+    TransferSchedule: NotRequired[str]
+    ThrottleInKbps: NotRequired[int]
+    State: NotRequired[UpdatableSnapmirrorRelationshipStateType]
+
+
+class UpdateSnapshotPolicyRequestTypeDef(TypedDict):
+    SnapshotPolicyId: str
+    ClientRequestToken: NotRequired[str]
+    Enabled: NotRequired[bool]
+
+
+class UpdateStorageVirtualMachinePeerRequestTypeDef(TypedDict):
+    StorageVirtualMachinePeerId: str
+    ClientRequestToken: NotRequired[str]
+    Applications: NotRequired[Sequence[StorageVirtualMachinePeerApplicationType]]
+    PeerSvmAlias: NotRequired[str]
+    State: NotRequired[StorageVirtualMachinePeerUpdateStateType]
 
 
 class WindowsAuditLogConfigurationTypeDef(TypedDict):
@@ -801,6 +1052,12 @@ class DeleteBackupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteClusterPeerResponseTypeDef(TypedDict):
+    ClusterPeerId: str
+    Lifecycle: ClusterPeerLifecycleType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteDataRepositoryAssociationResponseTypeDef(TypedDict):
     AssociationId: str
     Lifecycle: DataRepositoryLifecycleType
@@ -814,9 +1071,33 @@ class DeleteFileCacheResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteSnapmirrorPolicyResponseTypeDef(TypedDict):
+    SnapmirrorPolicyId: str
+    Lifecycle: SnapmirrorPolicyLifecycleType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteSnapmirrorRelationshipResponseTypeDef(TypedDict):
+    SnapmirrorRelationshipId: str
+    Lifecycle: SnapmirrorRelationshipLifecycleType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteSnapshotPolicyResponseTypeDef(TypedDict):
+    SnapshotPolicyId: str
+    Lifecycle: SnapshotPolicyLifecycleType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteSnapshotResponseTypeDef(TypedDict):
     SnapshotId: str
     Lifecycle: SnapshotLifecycleType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteStorageVirtualMachinePeerResponseTypeDef(TypedDict):
+    StorageVirtualMachinePeerId: str
+    Lifecycle: StorageVirtualMachinePeerLifecycleType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -885,10 +1166,24 @@ class CreateBackupRequestTypeDef(TypedDict):
     VolumeId: NotRequired[str]
 
 
-class CreateSnapshotRequestTypeDef(TypedDict):
-    Name: str
-    VolumeId: str
+class CreateClusterPeerRequestTypeDef(TypedDict):
+    FileSystemId: str
+    PeerAddresses: Sequence[str]
+    PassphraseSecretArn: str
+    AllowedSvmMode: AllowedSvmModeType
     ClientRequestToken: NotRequired[str]
+    PeerClusterName: NotRequired[str]
+    AllowedSvmIds: NotRequired[Sequence[str]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class CreateStorageVirtualMachinePeerRequestTypeDef(TypedDict):
+    StorageVirtualMachineId: str
+    PeerSvmName: str
+    Applications: Sequence[StorageVirtualMachinePeerApplicationType]
+    ClientRequestToken: NotRequired[str]
+    PeerClusterName: NotRequired[str]
+    PeerSvmAlias: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -943,6 +1238,13 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     ResourceARN: str
     Tags: Sequence[TagTypeDef]
+
+
+class DescribeClusterPeersRequestTypeDef(TypedDict):
+    ClusterPeerIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[ClusterPeerFilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class CreateAndAttachS3AccessPointS3ConfigurationTypeDef(TypedDict):
@@ -1051,6 +1353,50 @@ class CreateFileSystemWindowsConfigurationTypeDef(TypedDict):
     FsrmConfiguration: NotRequired[WindowsFsrmConfigurationTypeDef]
 
 
+class CreateOntapSnapshotConfigurationTypeDef(TypedDict):
+    SnapmirrorLabel: NotRequired[str]
+    ExpiryTime: NotRequired[TimestampTypeDef]
+    SnaplockExpiryTime: NotRequired[TimestampTypeDef]
+
+
+class UpdateOntapSnapshotConfigurationTypeDef(TypedDict):
+    SnapmirrorLabel: NotRequired[str]
+    ExpiryTime: NotRequired[TimestampTypeDef]
+    SnaplockExpiryTime: NotRequired[TimestampTypeDef]
+
+
+class CreateSnapmirrorPolicyRequestTypeDef(TypedDict):
+    Name: str
+    ClientRequestToken: NotRequired[str]
+    FileSystemId: NotRequired[str]
+    StorageVirtualMachineId: NotRequired[str]
+    SnapshotCopyMode: NotRequired[SnapmirrorPolicySnapshotCopyModeType]
+    RetentionRules: NotRequired[Sequence[SnapmirrorPolicyRetentionRuleTypeDef]]
+    TransferSchedule: NotRequired[str]
+    NetworkCompressionEnabled: NotRequired[bool]
+    ThrottleInKbps: NotRequired[int]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateSnapmirrorPolicyRequestTypeDef(TypedDict):
+    SnapmirrorPolicyId: str
+    ClientRequestToken: NotRequired[str]
+    RetentionRules: NotRequired[Sequence[SnapmirrorPolicyRetentionRuleTypeDef]]
+    TransferSchedule: NotRequired[str]
+    NetworkCompressionEnabled: NotRequired[bool]
+    ThrottleInKbps: NotRequired[int]
+
+
+class CreateSnapmirrorRelationshipRequestTypeDef(TypedDict):
+    Source: CreateSnapmirrorSourceTypeDef
+    Destination: CreateSnapmirrorDestinationTypeDef
+    ClientRequestToken: NotRequired[str]
+    PolicyId: NotRequired[str]
+    TransferSchedule: NotRequired[str]
+    ThrottleInKbps: NotRequired[int]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
 class DataRepositoryConfigurationTypeDef(TypedDict):
     Lifecycle: NotRequired[DataRepositoryLifecycleType]
     ImportPath: NotRequired[str]
@@ -1087,6 +1433,12 @@ class DescribeBackupsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class DescribeClusterPeersRequestPaginateTypeDef(TypedDict):
+    ClusterPeerIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[ClusterPeerFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class DescribeFileSystemsRequestPaginateTypeDef(TypedDict):
     FileSystemIds: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1110,6 +1462,45 @@ class DescribeS3AccessPointAttachmentsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DescribeSnapmirrorPoliciesRequestPaginateTypeDef(TypedDict):
+    SnapmirrorPolicyIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[SnapmirrorPolicyFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeSnapmirrorPoliciesRequestTypeDef(TypedDict):
+    SnapmirrorPolicyIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[SnapmirrorPolicyFilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class DescribeSnapmirrorRelationshipsRequestPaginateTypeDef(TypedDict):
+    SnapmirrorRelationshipIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[SnapmirrorRelationshipFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeSnapmirrorRelationshipsRequestTypeDef(TypedDict):
+    SnapmirrorRelationshipIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[SnapmirrorRelationshipFilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class DescribeSnapshotPoliciesRequestPaginateTypeDef(TypedDict):
+    SnapshotPolicyIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[SnapshotPolicyFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeSnapshotPoliciesRequestTypeDef(TypedDict):
+    SnapshotPolicyIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[SnapshotPolicyFilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class DescribeSnapshotsRequestPaginateTypeDef(TypedDict):
     SnapshotIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[SnapshotFilterTypeDef]]
@@ -1123,6 +1514,19 @@ class DescribeSnapshotsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     IncludeShared: NotRequired[bool]
+
+
+class DescribeStorageVirtualMachinePeersRequestPaginateTypeDef(TypedDict):
+    StorageVirtualMachinePeerIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[StorageVirtualMachinePeerFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeStorageVirtualMachinePeersRequestTypeDef(TypedDict):
+    StorageVirtualMachinePeerIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[StorageVirtualMachinePeerFilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class DescribeStorageVirtualMachinesRequestPaginateTypeDef(TypedDict):
@@ -1176,28 +1580,9 @@ class FileSystemEndpointsTypeDef(TypedDict):
     Management: NotRequired[FileSystemEndpointTypeDef]
 
 
-class SnapshotPaginatorTypeDef(TypedDict):
-    ResourceARN: NotRequired[str]
-    SnapshotId: NotRequired[str]
-    Name: NotRequired[str]
-    VolumeId: NotRequired[str]
-    CreationTime: NotRequired[datetime]
-    Lifecycle: NotRequired[SnapshotLifecycleType]
-    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
-    Tags: NotRequired[list[TagTypeDef]]
-    AdministrativeActions: NotRequired[list[dict[str, Any]]]
-
-
-class SnapshotTypeDef(TypedDict):
-    ResourceARN: NotRequired[str]
-    SnapshotId: NotRequired[str]
-    Name: NotRequired[str]
-    VolumeId: NotRequired[str]
-    CreationTime: NotRequired[datetime]
-    Lifecycle: NotRequired[SnapshotLifecycleType]
-    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
-    Tags: NotRequired[list[TagTypeDef]]
-    AdministrativeActions: NotRequired[list[dict[str, Any]]]
+class LifecycleTransitionReasonTypeDef(TypedDict):
+    Message: NotRequired[str]
+    OntapError: NotRequired[OntapErrorTypeDef]
 
 
 LustreRootSquashConfigurationUnionTypeDef = Union[
@@ -1263,6 +1648,14 @@ class UpdateSvmActiveDirectoryConfigurationTypeDef(TypedDict):
         SelfManagedActiveDirectoryConfigurationUpdatesTypeDef
     ]
     NetBiosName: NotRequired[str]
+
+
+class SnapshotPolicyScheduleTypeDef(TypedDict):
+    Name: str
+    Count: int
+    Prefix: NotRequired[str]
+    SnapmirrorLabel: NotRequired[str]
+    RetentionPeriod: NotRequired[SnapshotPolicyRetentionPeriodTypeDef]
 
 
 class SvmEndpointsTypeDef(TypedDict):
@@ -1363,6 +1756,21 @@ class CreateStorageVirtualMachineRequestTypeDef(TypedDict):
     SvmAdminPassword: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
     RootVolumeSecurityStyle: NotRequired[StorageVirtualMachineRootVolumeSecurityStyleType]
+
+
+class CreateSnapshotRequestTypeDef(TypedDict):
+    Name: str
+    VolumeId: str
+    ClientRequestToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    OntapConfiguration: NotRequired[CreateOntapSnapshotConfigurationTypeDef]
+
+
+class UpdateSnapshotRequestTypeDef(TypedDict):
+    SnapshotId: str
+    ClientRequestToken: NotRequired[str]
+    Name: NotRequired[str]
+    OntapConfiguration: NotRequired[UpdateOntapSnapshotConfigurationTypeDef]
 
 
 class LustreFileSystemConfigurationTypeDef(TypedDict):
@@ -1491,26 +1899,104 @@ class OntapFileSystemConfigurationTypeDef(TypedDict):
     EndpointIpv6AddressRange: NotRequired[str]
 
 
-class DescribeSnapshotsResponsePaginatorTypeDef(TypedDict):
-    Snapshots: list[SnapshotPaginatorTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class ClusterPeerTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
+    ClusterPeerId: NotRequired[str]
+    FileSystemId: NotRequired[str]
+    Lifecycle: NotRequired[ClusterPeerLifecycleType]
+    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+    PeerAddresses: NotRequired[list[str]]
+    PeerClusterName: NotRequired[str]
+    PassphraseSecretArn: NotRequired[str]
+    AllowedSvmMode: NotRequired[AllowedSvmModeType]
+    AllowedSvmIds: NotRequired[list[str]]
+    Status: NotRequired[str]
+    UUID: NotRequired[str]
+    AuthenticationStatus: NotRequired[ClusterPeerAuthenticationStatusTypeDef]
 
 
-class CreateSnapshotResponseTypeDef(TypedDict):
-    Snapshot: SnapshotTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class SnapmirrorPolicyTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
+    SnapmirrorPolicyId: NotRequired[str]
+    FileSystemId: NotRequired[str]
+    StorageVirtualMachineId: NotRequired[str]
+    Name: NotRequired[str]
+    SnapshotCopyMode: NotRequired[SnapmirrorPolicySnapshotCopyModeType]
+    RetentionRules: NotRequired[list[SnapmirrorPolicyRetentionRuleTypeDef]]
+    TransferSchedule: NotRequired[str]
+    NetworkCompressionEnabled: NotRequired[bool]
+    ThrottleInKbps: NotRequired[int]
+    Scope: NotRequired[SnapmirrorPolicyScopeType]
+    Lifecycle: NotRequired[SnapmirrorPolicyLifecycleType]
+    UUID: NotRequired[str]
+    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
-class DescribeSnapshotsResponseTypeDef(TypedDict):
-    Snapshots: list[SnapshotTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class SnapmirrorRelationshipTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
+    SnapmirrorRelationshipId: NotRequired[str]
+    FileSystemId: NotRequired[str]
+    Lifecycle: NotRequired[SnapmirrorRelationshipLifecycleType]
+    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+    Source: NotRequired[SnapmirrorSourceTypeDef]
+    Destination: NotRequired[SnapmirrorDestinationTypeDef]
+    SnapmirrorPolicy: NotRequired[SnapmirrorRelationshipPolicyTypeDef]
+    TransferSchedule: NotRequired[str]
+    ThrottleInKbps: NotRequired[int]
+    State: NotRequired[SnapmirrorRelationshipStateType]
+    Healthy: NotRequired[bool]
+    UnhealthyReason: NotRequired[str]
+    LagTimeInMinutes: NotRequired[int]
+    ExportedSnapshot: NotRequired[SnapmirrorExportedSnapshotTypeDef]
+    TransferState: NotRequired[SnapmirrorTransferStateTypeDef]
+    UUID: NotRequired[str]
 
 
-class UpdateSnapshotResponseTypeDef(TypedDict):
-    Snapshot: SnapshotTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class SnapshotPaginatorTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
+    SnapshotId: NotRequired[str]
+    Name: NotRequired[str]
+    VolumeId: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    Lifecycle: NotRequired[SnapshotLifecycleType]
+    SnapshotType: NotRequired[SnapshotTypeType]
+    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+    AdministrativeActions: NotRequired[list[dict[str, Any]]]
+    OntapConfiguration: NotRequired[OntapSnapshotConfigurationTypeDef]
+
+
+class SnapshotTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
+    SnapshotId: NotRequired[str]
+    Name: NotRequired[str]
+    VolumeId: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    Lifecycle: NotRequired[SnapshotLifecycleType]
+    SnapshotType: NotRequired[SnapshotTypeType]
+    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+    AdministrativeActions: NotRequired[list[dict[str, Any]]]
+    OntapConfiguration: NotRequired[OntapSnapshotConfigurationTypeDef]
+
+
+class StorageVirtualMachinePeerTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
+    StorageVirtualMachinePeerId: NotRequired[str]
+    StorageVirtualMachineId: NotRequired[str]
+    FileSystemId: NotRequired[str]
+    Lifecycle: NotRequired[StorageVirtualMachinePeerLifecycleType]
+    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+    PeerSvmName: NotRequired[str]
+    PeerSvmAlias: NotRequired[str]
+    PeerClusterName: NotRequired[str]
+    Applications: NotRequired[list[StorageVirtualMachinePeerApplicationType]]
+    State: NotRequired[StorageVirtualMachinePeerStateType]
+    UUID: NotRequired[str]
 
 
 class CreateFileSystemLustreConfigurationTypeDef(TypedDict):
@@ -1634,6 +2120,31 @@ class UpdateStorageVirtualMachineRequestTypeDef(TypedDict):
     SvmAdminPassword: NotRequired[str]
 
 
+class CreateSnapshotPolicyRequestTypeDef(TypedDict):
+    Name: str
+    Schedules: Sequence[SnapshotPolicyScheduleTypeDef]
+    ClientRequestToken: NotRequired[str]
+    FileSystemId: NotRequired[str]
+    StorageVirtualMachineId: NotRequired[str]
+    Enabled: NotRequired[bool]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class SnapshotPolicyTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
+    SnapshotPolicyId: NotRequired[str]
+    FileSystemId: NotRequired[str]
+    StorageVirtualMachineId: NotRequired[str]
+    Name: NotRequired[str]
+    Enabled: NotRequired[bool]
+    Schedules: NotRequired[list[SnapshotPolicyScheduleTypeDef]]
+    Scope: NotRequired[SnapshotPolicyScopeType]
+    Lifecycle: NotRequired[SnapshotPolicyLifecycleType]
+    UUID: NotRequired[str]
+    LifecycleTransitionReason: NotRequired[LifecycleTransitionReasonTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
 class StorageVirtualMachineTypeDef(TypedDict):
     ActiveDirectoryConfiguration: NotRequired[SvmActiveDirectoryConfigurationTypeDef]
     CreationTime: NotRequired[datetime]
@@ -1711,6 +2222,92 @@ class UpdateFileCacheResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateClusterPeerResponseTypeDef(TypedDict):
+    ClusterPeer: ClusterPeerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeClusterPeersResponseTypeDef(TypedDict):
+    ClusterPeers: list[ClusterPeerTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateClusterPeerResponseTypeDef(TypedDict):
+    ClusterPeer: ClusterPeerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateSnapmirrorPolicyResponseTypeDef(TypedDict):
+    SnapmirrorPolicy: SnapmirrorPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeSnapmirrorPoliciesResponseTypeDef(TypedDict):
+    SnapmirrorPolicies: list[SnapmirrorPolicyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateSnapmirrorPolicyResponseTypeDef(TypedDict):
+    SnapmirrorPolicy: SnapmirrorPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateSnapmirrorRelationshipResponseTypeDef(TypedDict):
+    SnapmirrorRelationship: SnapmirrorRelationshipTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeSnapmirrorRelationshipsResponseTypeDef(TypedDict):
+    SnapmirrorRelationships: list[SnapmirrorRelationshipTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateSnapmirrorRelationshipResponseTypeDef(TypedDict):
+    SnapmirrorRelationship: SnapmirrorRelationshipTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeSnapshotsResponsePaginatorTypeDef(TypedDict):
+    Snapshots: list[SnapshotPaginatorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateSnapshotResponseTypeDef(TypedDict):
+    Snapshot: SnapshotTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeSnapshotsResponseTypeDef(TypedDict):
+    Snapshots: list[SnapshotTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateSnapshotResponseTypeDef(TypedDict):
+    Snapshot: SnapshotTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateStorageVirtualMachinePeerResponseTypeDef(TypedDict):
+    StorageVirtualMachinePeer: StorageVirtualMachinePeerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeStorageVirtualMachinePeersResponseTypeDef(TypedDict):
+    StorageVirtualMachinePeers: list[StorageVirtualMachinePeerTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateStorageVirtualMachinePeerResponseTypeDef(TypedDict):
+    StorageVirtualMachinePeer: StorageVirtualMachinePeerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateFileSystemRequestTypeDef(TypedDict):
     FileSystemId: str
     ClientRequestToken: NotRequired[str]
@@ -1757,6 +2354,7 @@ class CreateOntapVolumeConfigurationTypeDef(TypedDict):
     VolumeStyle: NotRequired[VolumeStyleType]
     AggregateConfiguration: NotRequired[CreateAggregateConfigurationTypeDef]
     SizeInBytes: NotRequired[int]
+    CloneConfiguration: NotRequired[CreateCloneConfigurationTypeDef]
 
 
 class OntapVolumeConfigurationTypeDef(TypedDict):
@@ -1776,6 +2374,7 @@ class OntapVolumeConfigurationTypeDef(TypedDict):
     VolumeStyle: NotRequired[VolumeStyleType]
     AggregateConfiguration: NotRequired[AggregateConfigurationTypeDef]
     SizeInBytes: NotRequired[int]
+    CloneConfiguration: NotRequired[CloneConfigurationTypeDef]
 
 
 class UpdateOntapVolumeConfigurationTypeDef(TypedDict):
@@ -1788,6 +2387,23 @@ class UpdateOntapVolumeConfigurationTypeDef(TypedDict):
     CopyTagsToBackups: NotRequired[bool]
     SnaplockConfiguration: NotRequired[UpdateSnaplockConfigurationTypeDef]
     SizeInBytes: NotRequired[int]
+    CloneConfiguration: NotRequired[UpdateCloneConfigurationTypeDef]
+
+
+class CreateSnapshotPolicyResponseTypeDef(TypedDict):
+    SnapshotPolicy: SnapshotPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeSnapshotPoliciesResponseTypeDef(TypedDict):
+    SnapshotPolicies: list[SnapshotPolicyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateSnapshotPolicyResponseTypeDef(TypedDict):
+    SnapshotPolicy: SnapshotPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateStorageVirtualMachineResponseTypeDef(TypedDict):

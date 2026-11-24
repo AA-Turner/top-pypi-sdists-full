@@ -11,6 +11,7 @@ from ...foundation.process_rank import read_process_ranks
 from ..client.client import Client
 from ..client import FROM_ENV
 from ..values.run_type import to_run_type
+from ..values.total_steps import to_total_steps
 
 if TYPE_CHECKING:
 
@@ -29,7 +30,7 @@ _DESCRIBING_KWARGS = ("name", "question", "hypothesis")
 #: Every kwarg that names or describes a run (the integrations drop them under a launcher).
 _IDENTITY_KWARGS = _CHOOSING_KWARGS + _DESCRIBING_KWARGS
 #: Kwargs an attach applies to the joined run (rank 0), so never named as ignored.
-_APPLIED_KWARGS = ("config", "run_type")
+_APPLIED_KWARGS = ("config", "run_type", "total_steps")
 
 
 #: The PROBE_RUN_ID this process exported from a per-run token, so a later
@@ -117,10 +118,11 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
     # Everything else a caller passed is DROPPED -- attach_run has no use for
     # it. Silence there is its own failure: `probe.init(hw=True)` would stop
     # collecting hardware metrics with no sign, and tags/description would
-    # simply not arrive. Name them. `config` (plan (c)) and `run_type` are the
-    # exceptions: they reach the joined run below, from global rank 0 only.
+    # simply not arrive. Name them. `config` (plan (c)), `run_type` and `total_steps`
+    # are the exceptions: they reach the joined run below, from global rank 0 only.
     config = kw.get("config")
     run_type = to_run_type(kw["run_type"]) if kw.get("run_type") is not None else None
+    total_steps = to_total_steps(kw["total_steps"]) if kw.get("total_steps") is not None else None
     agreed = set(choosing) - set(unchecked)
     name = kw.get("name")
     if name is not None and data is None:
@@ -197,6 +199,8 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
         # the run already reads it: an undeclared run reads `general`, and only a stored choice keeps a later
         # sample batch from declaring it `rl`.
         run.set_run_type(run_type)
+    if total_steps is not None and _nonzero_global_rank() is None:
+        run.set_total_steps(total_steps)  # the launcher opened the run without it: a choice, once per job
     return run
 
 def _read_run_quietly(client: Client, run_id: str) -> dict | None:

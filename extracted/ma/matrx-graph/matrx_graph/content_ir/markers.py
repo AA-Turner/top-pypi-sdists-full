@@ -61,7 +61,11 @@ from typing import Any
 from matrx_graph.content_ir.envelope import KIND_KEY
 
 __all__ = [
+    "declare_schema_kind",
     "normalize_nonidentity_markers",
+    "drop_blank_kind_markers",
+    "without_blank_kind_slot",
+    "without_blank_kind_slots",
     "strip_kind_markers",
     "strip_optional_schema_kind_stamps",
 ]
@@ -74,7 +78,9 @@ _MAX_REF_HOPS = 32
 _SCHEMA_KEYED_MAPS = frozenset({"properties", "$defs", "patternProperties"})
 
 
-def strip_optional_schema_kind_stamps(node: Any, *, keys_are_data: bool = False) -> Any:
+def strip_optional_schema_kind_stamps(
+    node: Any, *, keys_are_data: bool = False, keep_blank_const: bool = False
+) -> Any:
     """Return a schema copy without optional registry-added marker properties.
 
     The registry write trigger stamps ``__kind`` onto every object schema. That
@@ -83,26 +89,44 @@ def strip_optional_schema_kind_stamps(node: Any, *, keys_are_data: bool = False)
     non-identity ``const: ""`` form. This is schema-only and pure: required and
     identity-bearing const or enum marker declarations are kept; the input
     schema is never mutated.
+
+    ``keep_blank_const=True`` is for DRIFT detection (rule 31): a stored blank
+    ``const ""`` is a defect, so removing it IS a change the publisher must see and
+    write, even though the compatibility gate (default) rightly calls the removal
+    backward compatible.
     """
     if isinstance(node, list):
-        return [strip_optional_schema_kind_stamps(item) for item in node]
+        return [
+            strip_optional_schema_kind_stamps(item, keep_blank_const=keep_blank_const)
+            for item in node
+        ]
     if not isinstance(node, dict):
         return node
     out = {
         key: strip_optional_schema_kind_stamps(
-            value, keys_are_data=(not keys_are_data and key in _SCHEMA_KEYED_MAPS)
+            value,
+            keys_are_data=(not keys_are_data and key in _SCHEMA_KEYED_MAPS),
+            keep_blank_const=keep_blank_const,
         )
         for key, value in node.items()
     }
     if keys_are_data:
         return out
     properties = out.get("properties")
+    node_type = out.get("type")
+    # A nullable object (``type: ["object", "null"]``) carries the same optional
+    # stamp; reading only the bare ``"object"`` form called the rule-31 removal of
+    # its blank ``const ""`` a breaking change (variable_definition.control, 2026-11-02).
+    is_object = node_type == "object" or (isinstance(node_type, list) and "object" in node_type)
     if (
-        out.get("type") == "object"
+        is_object
         and isinstance(properties, dict)
-        and properties.get(KIND_KEY) in (
-            {"type": "string"},
-            {"type": "string", "const": ""},
+        and (
+            properties.get(KIND_KEY) == {"type": "string"}
+            or (
+                not keep_blank_const
+                and properties.get(KIND_KEY) == {"type": "string", "const": ""}
+            )
         )
         and KIND_KEY not in set(out.get("required") or ())
     ):
@@ -161,10 +185,25 @@ def _declares_kind(schema: dict[str, Any], root: dict[str, Any]) -> bool:
 
 
 def _property_schema(schema: dict[str, Any], root: dict[str, Any], key: str) -> Any:
-    for branch in _branches(schema, root):
+    """The schema governing ``key``: a declared property first, else a matching ``patternProperties``
+    pattern (FX18: a key matched only by a pattern, like ``testimony_room_<slug>``, was treated as
+    unknown and lost its ``__kind``, so a section the kind REQUIRES to carry it failed)."""
+    import re as _re
+
+    branches = list(_branches(schema, root))
+    for branch in branches:
         properties = branch.get("properties")
         if isinstance(properties, dict) and key in properties:
             return properties[key]
+    for branch in branches:
+        patterns = branch.get("patternProperties")
+        if isinstance(patterns, dict):
+            for pattern, sub in patterns.items():
+                try:
+                    if _re.search(pattern, key) and isinstance(sub, dict):
+                        return sub
+                except _re.error:
+                    continue
     return None
 
 
@@ -176,10 +215,95 @@ def _items_schema(schema: dict[str, Any], root: dict[str, Any]) -> Any:
     return None
 
 
-def _reduce(value: Any, schema: Any, root: dict[str, Any] | None) -> Any:
+#: Keywords that annotate a schema position without constraining what it accepts.
+_ANNOTATION_KEYWORDS = frozenset(
+    {"title", "description", "default", "examples", "$comment", "deprecated", "readOnly", "writeOnly"}
+)
+
+
+def _accepts_anything(schema: Any, root: dict[str, Any]) -> bool:
+    """True when ``schema`` is a position that accepts EVERY instance: ``{}`` (pydantic's ``JsonValue``
+    exports as ``$defs.JsonValue: {}``), reached through real ``$ref`` hops, with annotations only.
+
+    An unresolvable ``$ref`` is NOT accepting (the validator cannot apply it — its verdict is a skip)."""
+    hops = 0
+    while isinstance(schema, dict):
+        if not set(schema) - _ANNOTATION_KEYWORDS - {"$ref"}:
+            if "$ref" not in schema:
+                return True
+        else:
+            return False
+        hops += 1
+        if hops > _MAX_REF_HOPS:
+            return False
+        ref = str(schema["$ref"])
+        if ref in ("#", "#/"):
+            schema = root
+            continue
+        if not ref.startswith("#/$defs/"):
+            return False
+        schema = (root.get("$defs") or {}).get(ref.rsplit("/", 1)[-1])
+    return schema is True
+
+
+#: The keywords a container position may carry and still let a child that accepts anything be validated as
+#: given (review 6h, I2). Each constrains only the container's own keys or type, never a child's content, and
+#: never prints the instance in its error. Anything else — ``allOf``/``anyOf``/``oneOf``/``not``/``if`` (a sibling
+#: branch may constrain the same child), ``const``/``enum``/``uniqueItems``/``contains`` (they compare the whole
+#: child, markers included), ``unevaluated*``/``prefixItems``/``patternProperties`` (a second schema reaches the
+#: child), ``min*``/``max*`` (their error prints the instance) — means the child is reduced as before.
+_PLAIN_OBJECT_KEYWORDS = _ANNOTATION_KEYWORDS | {
+    "type", "properties", "required", "additionalProperties", "propertyNames", "$defs", "definitions", "$schema",
+}
+_PLAIN_ARRAY_KEYWORDS = _ANNOTATION_KEYWORDS | {"type", "items", "$defs", "definitions", "$schema"}
+
+
+def _plain_container(schema: Any, root: dict[str, Any], value: Any) -> bool:
+    """True when ``schema`` (``value``'s position) reaches its children ONLY through the one child schema the
+    reduction reads: pure ``$ref`` hops (no sibling keywords lost on the way), a ``type`` that admits ``value``,
+    and keywords from the plain set alone. Then a child whose schema accepts anything is under no other
+    constraint at all, so keeping its markers cannot change the verdict or a single error message."""
+    hops = 0
+    while isinstance(schema, dict) and "$ref" in schema:
+        if set(schema) - _ANNOTATION_KEYWORDS - {"$ref"}:
+            return False
+        hops += 1
+        if hops > _MAX_REF_HOPS:
+            return False
+        ref = str(schema["$ref"])
+        if ref in ("#", "#/"):
+            schema = root
+            continue
+        if not ref.startswith("#/$defs/"):
+            return False
+        schema = (root.get("$defs") or {}).get(ref.rsplit("/", 1)[-1])
+    if not isinstance(schema, dict):
+        return False
+    if isinstance(value, dict):
+        allowed, wanted = _PLAIN_OBJECT_KEYWORDS, "object"
+    elif isinstance(value, list):
+        allowed, wanted = _PLAIN_ARRAY_KEYWORDS, "array"
+    else:
+        return False
+    if set(schema) - allowed:
+        return False
+    declared = schema.get("type", wanted)
+    return declared == wanted or (isinstance(declared, list) and wanted in declared)
+
+
+def _reduce(value: Any, schema: Any, root: dict[str, Any] | None, keep_free: bool = False) -> Any:
+    # A position that accepts anything validates the same whatever it holds: the validation copy
+    # keeps it as given instead of rebuilding it (L-SPEED 6e: a 900 KB list of rows under
+    # ``items: {$ref: JsonValue}`` was copied leaf by leaf on every kind check of every step).
+    # ``keep_free`` is True only while every container from the root down to here is plain
+    # (:func:`_plain_container`), so the accept-anything schema is the ONLY one reaching this value.
+    if keep_free and schema is not None and root is not None and _accepts_anything(schema, root):
+        return value
     resolved: dict[str, Any] = {}
     if root is not None and schema is not None:
         resolved = _resolve_ref(schema, root)
+    if keep_free:
+        keep_free = schema is not None and root is not None and _plain_container(schema, root, value)
 
     if isinstance(value, dict):
         # Schema-free (root is None) OR this position is unknown to the schema
@@ -191,12 +315,12 @@ def _reduce(value: Any, schema: Any, root: dict[str, Any] | None) -> Any:
             if key == KIND_KEY and not keep_marker:
                 continue
             child = _property_schema(resolved, root or {}, key) if resolved else None
-            out[key] = _reduce(item, child, root)
+            out[key] = _reduce(item, child, root, keep_free)
         return out
 
     if isinstance(value, list):
         child = _items_schema(resolved, root or {}) if resolved else None
-        return [_reduce(item, child, root) for item in value]
+        return [_reduce(item, child, root, keep_free) for item in value]
 
     return value
 
@@ -212,57 +336,135 @@ def strip_kind_markers(value: Any, schema: dict[str, Any] | None = None) -> Any:
     return _reduce(value, root, root)
 
 
-def _is_nonidentity_marker(prop: Any) -> bool:
-    """A ``__kind`` declaration that says "no kind here": ``const ""``."""
-    return isinstance(prop, dict) and prop.get("const") == ""
+def reduce_for_validation(value: Any, schema: dict[str, Any]) -> Any:
+    """The copy a kind check validates: blank markers dropped (:func:`normalize_nonidentity_markers`), then
+    :func:`strip_kind_markers` — except that a subtree whose ONLY governing schema accepts anything (reached
+    through plain containers alone, :func:`_plain_container`) is kept as given. The verdict and every error are
+    identical (``tests/test_a_kind_check_skip_never_changes_a_verdict.py`` diffs it against the full reduction);
+    only the copying is skipped. Never
+    for storage: a stored or returned value is reduced by :func:`strip_kind_markers` itself."""
+    if not isinstance(schema, dict):
+        return strip_kind_markers(value)
+    return _reduce(_normalize(value, schema, schema, keep_free=True), schema, schema, keep_free=True)
 
 
-def _marker_is_nonidentity(schema: dict[str, Any], root: dict[str, Any]) -> bool:
-    """True when every branch that declares ``__kind`` here declares the
-    non-identity ``const ""`` — the position is a plain sub-structure
-    (``KindSubModel``), so any marker a payload carries there is noise."""
-    declared = [
-        branch["properties"][KIND_KEY]
-        for branch in _branches(schema, root)
-        if isinstance(branch.get("properties"), dict) and KIND_KEY in branch["properties"]
-    ]
-    return bool(declared) and all(_is_nonidentity_marker(p) for p in declared)
+def _marker_required(schema: dict[str, Any], root: dict[str, Any]) -> bool:
+    """True when some branch at this position REQUIRES ``__kind``."""
+    return any(KIND_KEY in (branch.get("required") or ()) for branch in _branches(schema, root))
 
 
-def _normalize(value: Any, schema: Any, root: dict[str, Any]) -> Any:
+def _normalize(value: Any, schema: Any, root: dict[str, Any], keep_free: bool = False) -> Any:
+    if keep_free and schema is not None and _accepts_anything(schema, root):
+        return value  # the only schema reaching it accepts anything (reduce_for_validation)
     resolved = _resolve_ref(schema, root) if schema is not None else {}
+    if keep_free:
+        keep_free = schema is not None and _plain_container(schema, root, value)
     if isinstance(value, dict):
         out: dict[str, Any] = {}
         for key, item in value.items():
+            if key == KIND_KEY and item in ("", None) and not (
+                resolved and _marker_required(resolved, root)
+            ):
+                continue  # rule 31: a blank marker is absent, never a value
             child = _property_schema(resolved, root, key) if resolved else None
-            out[key] = _normalize(item, child, root) if child is not None else item
-        if (
-            KIND_KEY in out
-            and out[KIND_KEY] != ""
-            and resolved
-            and _marker_is_nonidentity(resolved, root)
-        ):
-            out[KIND_KEY] = ""
+            out[key] = _normalize(item, child, root, keep_free) if child is not None else item
         return out
     if isinstance(value, list):
         child = _items_schema(resolved, root) if resolved else None
-        return [_normalize(item, child, root) if child is not None else item for item in value]
+        return [_normalize(item, child, root, keep_free) if child is not None else item for item in value]
     return value
 
 
-def normalize_nonidentity_markers(value: Any, schema: dict[str, Any] | None) -> Any:
-    """Accept-and-normalize junk ``__kind`` values on plain sub-structures.
+def drop_blank_kind_markers(value: Any) -> Any:
+    """Every ``"__kind": ""`` (or ``null``) removed, at any depth; NAMED values untouched.
 
-    Wherever ``schema`` declares ``__kind`` as the non-identity ``const ""``
-    (every ``KindSubModel`` position), a payload's marker there is set to
-    ``""`` — whatever an agent or an old stored row wrote (``"x"``,
-    ``"grew_from"``, ``null``). The key is never removed (the marker is part
-    of the data) and never added when absent. Positions that declare a real
-    identity, or nothing, are untouched. Pure: the input is never mutated.
+    Schema-free twin of :func:`normalize_nonidentity_markers` for STORED values
+    (kind examples, samples) whose blank markers were stamped by the retired
+    ``const ""`` (rule 31). Pure: the input is never mutated.
+    """
+    if isinstance(value, dict):
+        return {
+            key: drop_blank_kind_markers(item)
+            for key, item in value.items()
+            if not (key == KIND_KEY and item in ("", None))
+        }
+    if isinstance(value, list):
+        return [drop_blank_kind_markers(item) for item in value]
+    return value
+
+
+def _is_blank_slot(marker: Any) -> bool:
+    """A ``__kind`` property schema that can only hold the blank: ``const`` empty, or ``enum`` of only it."""
+    if not isinstance(marker, dict):
+        return False
+    const = marker.get("const")
+    enum = marker.get("enum")
+    return (isinstance(const, str) and not const) or (
+        isinstance(enum, list) and bool(enum) and all(isinstance(v, str) and not v for v in enum)
+    )
+
+
+def without_blank_kind_slot(node: dict[str, Any]) -> dict[str, Any]:
+    """This object schema level without its BLANK ``__kind`` slot (rule 31: a kind is NAMED or ABSENT).
+
+    Only a slot that can hold nothing but ``""`` leaves ``properties``, ``required`` and
+    ``propertyOrdering``; a NAMED slot is returned untouched (rule 32: nothing destroys a kind name).
+    Shallow and pure: the input is never mutated."""
+    props = node.get("properties")
+    if not (isinstance(props, dict) and _is_blank_slot(props.get(KIND_KEY))):
+        return node
+    out = dict(node)
+    out["properties"] = {k: v for k, v in props.items() if k != KIND_KEY}
+    for key in ("required", "propertyOrdering"):
+        if isinstance(out.get(key), list):
+            out[key] = [k for k in out[key] if k != KIND_KEY]
+    return out
+
+
+def without_blank_kind_slots(schema: Any) -> Any:
+    """:func:`without_blank_kind_slot` at every depth (a copy). Named slots are kept everywhere."""
+    if isinstance(schema, list):
+        return [without_blank_kind_slots(v) for v in schema]
+    if not isinstance(schema, dict):
+        return schema
+    return without_blank_kind_slot({k: without_blank_kind_slots(v) for k, v in schema.items()})
+
+
+def declare_schema_kind(node: dict[str, Any], kind: str, *, description: str | None = None) -> dict[str, Any]:
+    """This object schema level declaring ``__kind`` as the required ``const`` ``kind``, FIRST in
+    ``properties`` (a constrained decoder writes keys in ``properties`` order). Any earlier marker
+    declaration is REPLACED by the named one, never removed. Shallow and pure."""
+    if not kind:
+        raise ValueError("declare_schema_kind needs a kind name: a blank is never a kind (rule 31)")
+    marker: dict[str, Any] = {"type": "string", "const": kind}
+    if description:
+        marker["description"] = description
+    props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
+    out = dict(node)
+    declared = {KIND_KEY: marker, **props}
+    declared[KIND_KEY] = marker
+    out["properties"] = declared
+    required = node.get("required")
+    if isinstance(required, list):
+        if KIND_KEY not in required:
+            out["required"] = [KIND_KEY, *required]
+    else:
+        out["required"] = [KIND_KEY]
+    return out
+
+
+def normalize_nonidentity_markers(value: Any, schema: dict[str, Any] | None) -> Any:
+    """Accept-and-drop BLANK ``__kind`` markers (Content IR rule 31).
+
+    A ``"__kind": ""`` (or ``null``) anywhere in ``value`` is removed — a blank is
+    never a kind, so the key is absent — except where the schema REQUIRES the
+    marker (left for the blank-kind alarm to report, never guessed). A NAMED
+    value is never touched, wherever it sits (rule 32: nothing destroys a kind
+    name); validators judge a local marker-reduced copy, so it is read, never
+    refused. Nothing is ever written as ``""``. Pure: the input is never mutated.
 
     Called at the agent-output parse funnel (``matrx_ai.agents.output``) and on
-    the local copy kind validation reads (``matrx_graph.kinds``), so old data
-    and a provider that ignored the const are read, never refused.
+    the local copy kind validation reads (``matrx_graph.kinds``).
     """
     if not isinstance(schema, dict):
         return value

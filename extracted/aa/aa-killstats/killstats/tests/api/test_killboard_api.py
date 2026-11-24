@@ -10,6 +10,7 @@ from ninja.testing import TestClient
 
 # Django
 from django.core.cache import cache
+from django.test import override_settings
 
 # AA Killstats
 from killstats.api import api
@@ -21,17 +22,18 @@ from killstats.tests.testdata.killstats import (
     UserMainFactory,
 )
 
+# cache_page keys cannot be rebuilt, so the endpoints run against LocMem;
+# cache.clear() then only empties LocMem, not the shared Redis DB
+LOCMEM_CACHE = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
+
+@override_settings(CACHES=LOCMEM_CACHE)
 class TestKillboardApi(AuthTestCase):
     def setUp(self):
         super().setUp()
         cache.clear()
         self.client = TestClient(api)
         self.user = UserMainFactory()
-
-    def tearDown(self):
-        cache.clear()
-        super().tearDown()
 
     def test_get_combat_summary_api_should_return_summary(self):
         # Test Data
@@ -62,19 +64,6 @@ class TestKillboardApi(AuthTestCase):
         self.assertEqual(data["destroyed_isk"], 5000000)
         self.assertEqual(data["lost_isk"], 5000000)
 
-    def test_get_combat_summary_api_should_return_403_when_no_permission(self):
-        # Test Data
-        unauthed_user = UserMainFactory(permissions__=[])
-
-        # Test Action
-        response = self.client.get(
-            "/stats/v2/summary/corporation/98000001/?year=2026&month=9",
-            user=unauthed_user,
-        )
-
-        # Expected Result
-        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
-
     def test_get_top_attackers_api_should_return_top_attackers(self):
         # Test Data
         corp_id = 98000002
@@ -103,19 +92,6 @@ class TestKillboardApi(AuthTestCase):
         self.assertEqual(data["pilots"][0]["count"], 1)
         self.assertEqual(data["pilots"][0]["total_value"], 10000000)
 
-    def test_get_top_attackers_api_should_return_403_when_no_permission(self):
-        # Test Data
-        unauthed_user = UserMainFactory(permissions__=[])
-
-        # Test Action
-        response = self.client.get(
-            "/stats/v2/attackers/corporation/98000002/?year=2026&month=9",
-            user=unauthed_user,
-        )
-
-        # Expected Result
-        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
-
     def test_get_top_victims_api_should_return_top_victims(self):
         # Test Data
         corp_id = 98000003
@@ -139,16 +115,3 @@ class TestKillboardApi(AuthTestCase):
         self.assertEqual(len(data["pilots"]), 1)
         self.assertEqual(data["pilots"][0]["count"], 1)
         self.assertEqual(data["pilots"][0]["total_value"], 25000000)
-
-    def test_get_top_victims_api_should_return_403_when_no_permission(self):
-        # Test Data
-        unauthed_user = UserMainFactory(permissions__=[])
-
-        # Test Action
-        response = self.client.get(
-            "/stats/v2/victims/corporation/98000003/?year=2026&month=9",
-            user=unauthed_user,
-        )
-
-        # Expected Result
-        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)

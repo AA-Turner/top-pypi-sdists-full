@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from trajectory._base_client import SyncPage
-from trajectory.types.training.training_run_response import TrainingRunResponse
+from trajectory.types.rl.training_run_response import TrainingRunResponse
 
 
 class PaginatedResponseTrainingRunResponse(SyncPage[TrainingRunResponse]):

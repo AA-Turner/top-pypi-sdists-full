@@ -34,6 +34,7 @@ class CloneRequest(BaseSerDeModel):
     table_properties: t.Optional[TableProperties] = None
     clone_chain_depth_limit: t.Optional[int] = None
     table_namespace: t.Optional[str] = None
+    skip_if_unchanged: bool = False
 
 
 @proto_dataclass(clone_service_pb2.ReadyToCloneResponse)

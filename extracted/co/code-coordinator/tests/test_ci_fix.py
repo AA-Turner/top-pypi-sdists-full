@@ -20,6 +20,7 @@ from coord.ci_fix import (
     MAX_CI_FIX_DISPATCHES,
     MAX_CI_FIX_NOOP_STREAK,
     CI_FIX_TITLE_PREFIX,
+    CI_MECHANIC_TITLE_PREFIX,
     SEALED_STUCK_MARKER,
     build_ci_fix_briefing,
     dispatch_ci_fix,
@@ -827,6 +828,290 @@ class TestDispatchCiFix:
             _entry(), board, two_machine_config, http_client=_Failing(),
         )
         assert result is None
+
+
+# ── #4097: triage-first routing for the CI-red edge ──────────────────────────
+
+
+class TestDispatchCiFixTriageMechanical:
+    """A CI-red failure whose log is a small, confined clippy/compile-error
+    signal routes to the #4094 mechanic leg instead of a full ci-fix
+    worker."""
+
+    def test_clippy_error_routes_to_mechanic_leg(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        board = Board()
+        board.completed.append(_work_assignment())
+        entry = _entry()
+        entry.branch_head_sha = "sha123"
+        detail = CIFailureDetail(
+            check_name="lint", job_name="lint", step_name="Run clippy",
+            log_excerpt=(
+                "error: this loop never actually loops\n"
+                "  --> src/foo.rs:10:5\n"
+                "   |\n"
+                "10 |     loop {\n"
+                "   |\n"
+                "   = note: `#[deny(clippy::never_loop)]` on by default\n"
+            ),
+        )
+        mechanic_fix = Assignment(
+            machine_name="laptop", repo_name="api", issue_number=1,
+            issue_title="Fix the thing", assignment_id="mech-1",
+            status="pending", type="work", branch="issue-1-fix",
+        )
+
+        captured: dict = {}
+
+        def _fake_dispatch(
+            repo_name, issue_number, b, cfg, *,
+            verdict, branch_sha, cause=None, evidence=(), http_client=None,
+        ):
+            assert verdict.bucket == "mechanical"
+            assert branch_sha == "sha123"
+            captured["cause"] = cause
+            captured["evidence"] = evidence
+            b.active.append(mechanic_fix)
+            return True
+
+        with (
+            patch("coord.ci_fix.github_ops.get_issue", return_value={"body": ""}),
+            patch("coord.ci_fix.github_ops.get_compare_diff", return_value="diff --git a/src/foo.rs"),
+            patch("coord.ci_fix.github_ops.diff_file_paths", return_value=["src/foo.rs"]),
+            patch(
+                "coord.board_doctor_policy.dispatch_mechanic_leg_for_triage",
+                side_effect=_fake_dispatch,
+            ) as mech_dispatch,
+        ):
+            result = dispatch_ci_fix(
+                entry, board, two_machine_config, detail=detail,
+                http_client=_FakeHTTPClient({"id": "would-not-fire"}),
+            )
+
+        mech_dispatch.assert_called_once()
+        assert result is mechanic_fix
+        assert result.issue_title.startswith(CI_MECHANIC_TITLE_PREFIX)
+        assert entry.ci_fix_dispatches == 1
+        assert entry.ci_fix_head_sha == "sha123"
+        # #4097 review: the leg must be briefed with the REAL failure
+        # evidence (job/step/log excerpt), not just the generic bucket
+        # diagnosis — and must be audited/briefed as a CI-red cause, not
+        # the Test-stage one.
+        from coord.board_doctor_policy import CAUSE_CI_TRIAGE_MECHANICAL
+
+        assert captured["cause"] == CAUSE_CI_TRIAGE_MECHANICAL
+        evidence_text = "\n".join(captured["evidence"])
+        assert "Failing job: lint" in evidence_text
+        assert "Failing step: Run clippy" in evidence_text
+        assert "this loop never actually loops" in evidence_text
+
+    def test_declined_mechanic_leg_falls_back_to_ordinary_ci_fix_worker(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        """A mechanical verdict whose mechanic-leg dispatch declines (tier
+        off, at capacity, already attempted at this SHA, ...) must fall
+        straight through to the unconditional worker dispatch — never a
+        worse outcome than before #4097."""
+        board = Board()
+        board.completed.append(_work_assignment())
+        entry = _entry()
+        entry.branch_head_sha = "sha123"
+        detail = CIFailureDetail(
+            check_name="lint", job_name="lint", step_name="Run clippy",
+            log_excerpt=(
+                "error: this loop never actually loops\n"
+                "  --> src/foo.rs:10:5\n"
+                "   = note: `#[deny(clippy::never_loop)]` on by default\n"
+            ),
+        )
+        client = _FakeHTTPClient({"id": "ci-fix-fallback"})
+
+        with (
+            patch("coord.ci_fix.github_ops.get_issue", return_value={"body": ""}),
+            patch("coord.ci_fix.github_ops.get_compare_diff", return_value="diff --git a/src/foo.rs"),
+            patch("coord.ci_fix.github_ops.diff_file_paths", return_value=["src/foo.rs"]),
+            patch(
+                "coord.board_doctor_policy.dispatch_mechanic_leg_for_triage",
+                return_value=False,
+            ),
+        ):
+            result = dispatch_ci_fix(
+                entry, board, two_machine_config, detail=detail, http_client=client,
+            )
+
+        assert result is not None
+        assert result.issue_title.startswith(CI_FIX_TITLE_PREFIX)
+        _, payload = client.calls[0]
+        assert "## Triage diagnosis" in payload["briefing"]
+
+
+class TestDispatchCiFixTriageInfra:
+    """A CI-red failure whose log says the runner/infrastructure itself
+    failed (not the code) triggers a plain CI rerun instead of a worker."""
+
+    def test_runner_not_acquired_cancellation_routes_to_rerun(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        board = Board()
+        board.completed.append(_work_assignment())
+        entry = _entry()
+        entry.pr_number = 42
+        detail = CIFailureDetail(
+            check_name="Test (Linux)", job_name="Test (Linux)", step_name="",
+            log_excerpt=(
+                "Error: The runner has received a shutdown signal. This "
+                "job was canceled because no hosted runner was ever "
+                "acquired."
+            ),
+        )
+
+        rerun_calls: list[tuple[str, int]] = []
+
+        class _FakeCiStore:
+            def rerun_for_pr(self, repo: str, number: int) -> bool:
+                rerun_calls.append((repo, number))
+                return True
+
+        with (
+            patch("coord.ci_fix.github_ops.get_issue", return_value={"body": ""}),
+            patch("coord.ci_fix.github_ops.get_compare_diff", return_value=None),
+            patch("coord.ci_store.build_ci_store", return_value=_FakeCiStore()),
+        ):
+            result = dispatch_ci_fix(
+                entry, board, two_machine_config, detail=detail,
+                http_client=_FakeHTTPClient({"id": "would-not-fire"}),
+            )
+
+        assert result is None
+        assert rerun_calls == [("acme/api", 42)]
+        # Budgeted off the SAME counter `coord.merge_queue`'s own #1892
+        # remedy spends — never a second, independent rerun budget.
+        assert entry.ci_infra_reruns == 1
+        assert entry.ci_fix_dispatches == 0
+        assert "infra" in (entry.error or "").lower()
+        # No worker was ever spawned — the rerun is the whole remedy.
+        assert not board.active
+
+    def test_rerun_failing_to_trigger_falls_through_to_ordinary_dispatch(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        """A rerun that cannot fire (no capability, the call itself
+        failing) must fall straight through to the unconditional ci-fix
+        worker dispatch — never stranded with no remedy and no worker,
+        which would make the retry-cap/HUMAN_REQUIRED escalation
+        unreachable."""
+        board = Board()
+        board.completed.append(_work_assignment())
+        entry = _entry()
+        entry.pr_number = 42
+        detail = CIFailureDetail(
+            check_name="Test (Linux)", job_name="Test (Linux)", step_name="",
+            log_excerpt="Error: The runner has received a shutdown signal.",
+        )
+        client = _FakeHTTPClient({"id": "ci-fix-infra-fallback"})
+
+        class _FailingCiStore:
+            def rerun_for_pr(self, repo: str, number: int) -> bool:
+                return False
+
+        with (
+            patch("coord.ci_fix.github_ops.get_issue", return_value={"body": ""}),
+            patch("coord.ci_fix.github_ops.get_compare_diff", return_value=None),
+            patch("coord.ci_store.build_ci_store", return_value=_FailingCiStore()),
+        ):
+            result = dispatch_ci_fix(
+                entry, board, two_machine_config, detail=detail, http_client=client,
+            )
+
+        assert result is not None
+        assert result.issue_title.startswith(CI_FIX_TITLE_PREFIX)
+        assert entry.ci_infra_reruns == 0
+        assert entry.ci_fix_dispatches == 1
+        _, payload = client.calls[0]
+        assert "## Triage diagnosis" in payload["briefing"]
+
+    def test_infra_verdict_with_rerun_budget_already_exhausted_falls_through(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        """#4097 review: when `entry.ci_infra_reruns` is already at
+        `MAX_CI_INFRA_RERUNS` (the budget `coord.merge_queue`'s own #1892
+        remedy also spends from), an infra verdict must NOT open a second,
+        independent rerun budget — it must fall straight through to the
+        ordinary ci-fix worker dispatch exactly like a non-firing rerun
+        does."""
+        from coord.merge_queue import MAX_CI_INFRA_RERUNS
+
+        board = Board()
+        board.completed.append(_work_assignment())
+        entry = _entry()
+        entry.pr_number = 42
+        entry.ci_infra_reruns = MAX_CI_INFRA_RERUNS
+        detail = CIFailureDetail(
+            check_name="Test (Linux)", job_name="Test (Linux)", step_name="",
+            log_excerpt="Error: The runner has received a shutdown signal.",
+        )
+        client = _FakeHTTPClient({"id": "ci-fix-infra-exhausted"})
+        rerun_calls: list[tuple[str, int]] = []
+
+        class _FakeCiStore:
+            def rerun_for_pr(self, repo: str, number: int) -> bool:
+                rerun_calls.append((repo, number))
+                return True
+
+        with (
+            patch("coord.ci_fix.github_ops.get_issue", return_value={"body": ""}),
+            patch("coord.ci_fix.github_ops.get_compare_diff", return_value=None),
+            patch("coord.ci_store.build_ci_store", return_value=_FakeCiStore()),
+        ):
+            result = dispatch_ci_fix(
+                entry, board, two_machine_config, detail=detail, http_client=client,
+            )
+
+        # Budget already exhausted — no rerun attempted at all.
+        assert rerun_calls == []
+        assert result is not None
+        assert result.issue_title.startswith(CI_FIX_TITLE_PREFIX)
+        assert entry.ci_infra_reruns == MAX_CI_INFRA_RERUNS
+        assert entry.ci_fix_dispatches == 1
+
+
+class TestDispatchCiFixTriageSubstantive:
+    """A CI-red failure the deterministic rules can't resolve falls through
+    to the ordinary ci-fix worker, now carrying the triage diagnosis."""
+
+    def test_test_assertion_dispatches_ci_fix_with_diagnosis(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        board = Board()
+        board.completed.append(_work_assignment())
+        entry = _entry()
+        detail = CIFailureDetail(
+            check_name="Test (Linux)", job_name="Test (Linux)", step_name="Run tests",
+            log_excerpt=(
+                "FAILED tests/test_foo.py::test_bar\n"
+                "E   AssertionError: expected 1, got 2\n"
+            ),
+        )
+        client = _FakeHTTPClient({"id": "ci-fix-substantive"})
+
+        with (
+            patch("coord.ci_fix.github_ops.get_issue", return_value={"body": ""}),
+            patch("coord.ci_fix.github_ops.get_compare_diff", return_value=None),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = type(
+                "Result", (), {"returncode": 1, "stdout": "", "stderr": "no claude binary"},
+            )()
+            result = dispatch_ci_fix(
+                entry, board, two_machine_config, detail=detail, http_client=client,
+            )
+
+        assert result is not None
+        assert result.issue_title.startswith(CI_FIX_TITLE_PREFIX)
+        _, payload = client.calls[0]
+        assert "## Triage diagnosis" in payload["briefing"]
+        assert "model tier call failed" in payload["briefing"]
 
 
 # ── CLI classification wrapper ───────────────────────────────────────────────

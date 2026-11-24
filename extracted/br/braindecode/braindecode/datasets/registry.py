@@ -9,13 +9,17 @@ without direct imports (avoiding circular dependencies).
 #
 # License: BSD (3-clause)
 
-from typing import Any, Dict, Type
+from typing import Any, Dict, Type, TypeVar
+
+from braindecode.util import _warn_orphaned_api
+
+_DatasetT = TypeVar("_DatasetT", bound=type)
 
 # Global registry mapping dataset class names to classes
 _DATASET_REGISTRY: Dict[str, Type] = {}
 
 
-def register_dataset(cls: Type) -> Type:
+def register_dataset(cls: _DatasetT) -> _DatasetT:
     """
     Decorator to register a dataset class in the global registry.
 
@@ -101,6 +105,9 @@ def is_registered_dataset(obj: Any, class_name: str) -> bool:
     """
     Check if an object is an instance of a registered dataset class.
 
+    .. deprecated:: 2.1
+        It has no user in braindecode and will be removed in 2.2.
+
     Parameters
     ----------
     obj : Any
@@ -113,6 +120,7 @@ def is_registered_dataset(obj: Any, class_name: str) -> bool:
     bool
         True if obj is an instance of the named class, False otherwise.
     """
+    _warn_orphaned_api("is_registered_dataset")
     try:
         cls = get_dataset_class(class_name)
     except KeyError:

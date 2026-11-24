@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit, urlunsplit
 
-from nab_index.file_urls import parse_file_url
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
+from packaging.version import Version
+
+from nab_index.file_urls import is_local_file_authority, parse_file_url
 from nab_provider.pep508 import parse_requirement
 from nab_provider.policy import (
     BuildPolicy,
@@ -25,8 +26,10 @@ from nab_provider.policy import (
     ResolutionStrategy,
 )
 from nab_provider.requirements_file import (
+    InvalidProjectTableError,
     expand_extra_requirements,
-    resolve_groups_to_requirements,
+    iter_group_requirements,
+    require_string_list,
 )
 from nab_provider.serialization import SimpleSerialization
 from nab_provider.value import Record, SlottedValue, field_names
@@ -49,6 +52,7 @@ if TYPE_CHECKING:
     from nab_provider.target import ResolveTarget
 
     from .inputs import ResolveInputs
+    from .prepared_input import PreparedProjectInput
 
 __all__ = [
     "VALIDATION_VERSION",
@@ -77,7 +81,7 @@ def _relative(path: Path, base: Path) -> str:
 def _url(url: str, base: Path) -> str:
     """Remove URL credentials and normalize local source locations."""
     parts = urlsplit(url)
-    if parts.scheme == "file" and parts.netloc in {"", "localhost"}:
+    if parts.scheme == "file" and is_local_file_authority(parts.netloc):
         location = _relative(parse_file_url(url), base)
         # Keep filename '?' and '#' separate from URL selectors.
         location = location.replace("%", "%25").replace("?", "%3F").replace("#", "%23")
@@ -241,7 +245,19 @@ def selection_inputs_digest(inputs: Mapping[str, Any]) -> str:
     return validation_digest(selection_inputs)
 
 
-def _project_inputs(path: Path) -> dict[str, Any]:
+def _local_optional_dependencies(value: object, path: Path) -> dict[str, list[str]]:
+    """Keep each extra's original requirement strings in the saved fingerprint."""
+    source = f"{path}: [project.optional-dependencies]"
+    if not isinstance(value, dict):
+        message = f"{source} must be a table"
+        raise InvalidProjectTableError(message)
+    return {
+        extra: require_string_list(requirements, f"{source}.{extra}")
+        for extra, requirements in value.items()
+    }
+
+
+def _project_inputs(path: Path) -> dict[str, object]:
     """Read local dependency inputs without executing a backend."""
     try:
         data = toml_io.load_path(path)
@@ -249,20 +265,27 @@ def _project_inputs(path: Path) -> dict[str, Any]:
         return {"dynamic": ["metadata"]}
     project = data.get("project", {})
     if not isinstance(project, dict):
-        message = f"{path}: project must be a table"
-        raise TypeError(message)
-    fields = {
+        message = f"{path}: [project] must be a table"
+        raise InvalidProjectTableError(message)
+
+    fields: dict[str, object] = {
         name: project[name]
-        for name in (
-            "name",
-            "version",
-            "requires-python",
-            "dependencies",
-            "optional-dependencies",
-        )
+        for name in ("name", "version", "requires-python")
         if name in project
     }
-    dynamic = set(project.get("dynamic", [])) & set(
+    if "dependencies" in project:
+        fields["dependencies"] = require_string_list(
+            project["dependencies"], f"{path}: [project].dependencies"
+        )
+    if "optional-dependencies" in project:
+        fields["optional-dependencies"] = _local_optional_dependencies(
+            project["optional-dependencies"], path
+        )
+
+    declared = require_string_list(
+        project.get("dynamic", []), f"{path}: [project].dynamic"
+    )
+    dynamic = set(declared) & (
         fields.keys()
         | {"dependencies", "optional-dependencies", "requires-python", "version"}
     )
@@ -281,7 +304,7 @@ def _requirements(requirements: Iterable[Requirement], base: Path) -> list[str]:
     return sorted({_requirement(requirement, base) for requirement in requirements})
 
 
-def snapshot_inputs(
+def snapshot_inputs(  # noqa: PLR0913 - independently selectable project inputs and policies
     path: Path,
     inputs: ResolveInputs,
     targets: Sequence[ResolveTarget],
@@ -291,11 +314,14 @@ def snapshot_inputs(
     build_requirements: bool = False,
     exclude: frozenset[str] = frozenset(),
     input_format: InputFormat = InputFormat.PROJECT,
+    project_input: PreparedProjectInput | None = None,
 ) -> dict[str, Any]:
     """Capture declarations, admission policy, targets and local metadata."""
     # A symlinked input still declares paths relative to its parent.
     base = path.parent.resolve()
-    data = read_input_document(path, input_format=input_format)
+    data = read_input_document(
+        path, input_format=input_format, project_input=project_input
+    )
     roots: dict[str, list[str]] = {}
     if build_requirements:
         roots["build"] = _requirements(build_system_requires(data, path), base)
@@ -303,18 +329,22 @@ def snapshot_inputs(
         roots["base"] = (
             _requirements(project_dependencies(data), base) if "project" in data else []
         )
-        optional = project_optional_dependencies(data)
+        optional = project_optional_dependencies(data, require_static=bool(extras))
         for extra in sorted(extras):
             roots["extra:" + canonicalize_name(extra)] = _requirements(
-                expand_extra_requirements(optional, project_name(data), [extra]), base
+                expand_extra_requirements(
+                    optional, project_name(data), [extra], bind_extra_markers=True
+                ),
+                base,
             )
         table = dependency_groups(data)
-        for group in sorted(
+        selected_groups = sorted(
             (set(groups) | set(inputs.default_groups))
             - {inputs.base_group, inputs.build_group}
-        ):
+        )
+        for group, requirements in iter_group_requirements(table, selected_groups):
             roots["group:" + canonicalize_name(group)] = _requirements(
-                resolve_groups_to_requirements(table, [group]), base
+                requirements, base
             )
         if inputs.build_group is not None:
             roots["build"] = _requirements(build_system_requires(data, path), base)
@@ -331,7 +361,7 @@ def snapshot_inputs(
         local[canonicalize_name(source.name)] = _project_inputs(
             directory / "pyproject.toml"
         )
-    return {
+    snapshot = {
         "roots": roots,
         "constraints": _requirements(
             (parse_requirement(text) for text in inputs.constraints), base
@@ -356,6 +386,10 @@ def snapshot_inputs(
         "excluded": sorted(exclude),
         "build-requirements": build_requirements,
     }
+
+    if project_input is not None:
+        snapshot["prepared-inputs"] = _value(project_input.identity, base)
+    return snapshot
 
 
 def make_validation_record(

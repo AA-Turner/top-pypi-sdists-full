@@ -24,10 +24,17 @@ state is the other text-bearing parts of the same message, plus the system
 instruction and earlier user text when present, assembled as a JSON object with
 descriptive keys. One source, nothing to drift.
 
-COMPATIBILITY IS NEVER SILENT. A decision holder is text-only, so an image,
-audio or video part standing beside the questions is REFUSED with a sentence
-naming the part and the reason — never dropped while the model answers as if it
-had seen it (the typed-messages compatibility law).
+COMPATIBILITY IS NEVER SILENT. An audio, video or document part standing
+beside the questions is REFUSED with a sentence naming the part and the reason
+— never dropped while the model answers as if it had seen it (the
+typed-messages compatibility law). An IMAGE is state when the holder reads
+images (catalog ``capabilities.input`` has ``image``: Jev 1.14, a vision chat
+model) and refused by name when it does not. Images are numbered in the order
+they sit in the message — image 0, image 1 — on every route (``images.py``).
+
+A ``box`` question asks WHERE something is in an image. A Box is always four
+edges, even for a thing that is not there, so every box is asked together with
+its presence ("is it in the picture?") and the answer carries that probability.
 """
 
 from __future__ import annotations
@@ -36,9 +43,12 @@ import json
 from typing import Any
 
 from matrx_ai.config.message_config import NOT_REPLY_BLOCK_TYPES
+from matrx_ai.decisions.images import is_image_block, turn_image_blocks
 from matrx_ai.decisions.kinds import (
     DecisionAnswer,
     DecisionAnswers,
+    DecisionBox,
+    DecisionImage,
     DecisionQuestion,
     DecisionQuestions,
     DecisionUsage,
@@ -47,11 +57,13 @@ from matrx_ai.decisions.kinds import (
 __all__ = [
     "DecisionCompatibilityError",
     "DecisionQuestionsMissing",
+    "box_presence_id",
     "build_decision_state",
     "decision_answers_from_system_one",
     "decision_answers_from_verbalized",
     "find_decision_questions",
     "refuse_incompatible_parts",
+    "refuse_incompatible_turn",
     "system_one_questions",
     "verbalized_instructions",
     "verbalized_response_schema",
@@ -113,24 +125,85 @@ def find_decision_questions(messages: list[Any]) -> tuple[int, DecisionQuestions
     )
 
 
-def refuse_incompatible_parts(message: Any, *, model_name: str) -> None:
-    """Refuse — loudly, by name — any part a text-only holder cannot read."""
+def refuse_incompatible_parts(
+    message: Any, *, model_name: str, reads_images: bool = False
+) -> None:
+    """Refuse — loudly, by name — any part this holder cannot read.
+
+    Images are readable when ``reads_images`` (the route's catalog input has
+    ``image``). A ``box`` question with no image to look in is refused too.
+    """
+    _refuse_unreadable(message, model_name=model_name, reads_images=reads_images)
+    images = (
+        sum(1 for block in getattr(message, "content", None) or [] if is_image_block(block))
+        if reads_images
+        else 0
+    )
+    _refuse_boxes_without_images(message, model_name=model_name, images=images)
+
+
+def refuse_incompatible_turn(
+    messages: list[Any], question_index: int, *, model_name: str, reads_images: bool = False
+) -> None:
+    """``refuse_incompatible_parts`` over the whole decision TURN — the questions'
+    message and every message after it — so a photo or a file the person adds when an
+    agent runs is read or refused, never silently ignored."""
+    images = 0
+    for message in messages[question_index:]:
+        _refuse_unreadable(message, model_name=model_name, reads_images=reads_images)
+        images += sum(1 for block in getattr(message, "content", None) or [] if is_image_block(block))
+    if not reads_images:
+        images = 0
+    _refuse_boxes_without_images(messages[question_index], model_name=model_name, images=images)
+
+
+def _refuse_unreadable(message: Any, *, model_name: str, reads_images: bool) -> None:
     for block in getattr(message, "content", None) or []:
-        block_type = _content_type(block)
-        label = _UNREADABLE_PART_LABELS.get(block_type)
-        if label is None and block_type == "media":
+        if is_image_block(block):
+            if reads_images:
+                continue
+            label: str | None = "an image"
+        else:
+            label = _UNREADABLE_PART_LABELS.get(_content_type(block))
+        if label is None and _content_type(block) == "media":
             label = _UNREADABLE_PART_LABELS.get(str(getattr(block, "kind", "") or ""))
         if label is None:
             continue
+        reads = "text and images" if reads_images else "TEXT ONLY"
         raise DecisionCompatibilityError(
             f"The message sent to the decision model {model_name!r} contains "
-            f"{label} beside its questions, and a decision model reads TEXT ONLY: "
-            "its state is a text or JSON object, so this part cannot be put on the "
-            "wire and will not be silently dropped. Either describe what it "
-            "contains in text in the same message, or ask these questions of a "
-            "model that can read it."
+            f"{label} beside its questions, and this model reads {reads}, so this "
+            "part cannot be put on the wire and will not be silently dropped. "
+            "Either describe what it contains in text in the same message, or ask "
+            "these questions of a model that can read it."
         )
 
+
+def _refuse_boxes_without_images(message: Any, *, model_name: str, images: int) -> None:
+    for block in getattr(message, "content", None) or []:
+        if _content_type(block) != "decision_questions":
+            continue
+        raw = getattr(block, "questions", None)
+        if raw is None and isinstance(block, dict):
+            raw = block.get("questions")
+        for question in raw or []:
+            q_type = question.get("type") if isinstance(question, dict) else getattr(question, "type", None)
+            if q_type != "box":
+                continue
+            name = question.get("name") if isinstance(question, dict) else getattr(question, "name", "")
+            wanted = question.get("image") if isinstance(question, dict) else getattr(question, "image", None)
+            position = int(wanted or 0)
+            if images == 0:
+                raise DecisionCompatibilityError(
+                    f"Box question {name!r} asks where something is in an image, but the "
+                    f"message sent to {model_name!r} carries no image it can read. Attach "
+                    "the image beside the questions, or choose a model that reads images."
+                )
+            if position >= images:
+                raise DecisionCompatibilityError(
+                    f"Box question {name!r} looks in image {position}, but the message has "
+                    f"{images} image(s), numbered from 0."
+                )
 
 def _text_of(block: Any) -> str:
     """The text a block contributes to the state, or ``''``. A reasoning block contributes nothing: it
@@ -180,6 +253,8 @@ def build_decision_state(
     question_index: int,
     *,
     system_instruction: Any = None,
+    image_references: list[str] | None = None,
+    earlier_image_references: list[str] | None = None,
 ) -> dict[str, Any]:
     """The JSON state object a decision holder reasons over.
 
@@ -206,10 +281,21 @@ def build_decision_state(
         earlier.append(f"{role or 'user'}: {text}" if role else text)
     if earlier:
         state["earlier_conversation"] = "\n\n".join(earlier)
+    if earlier_image_references:
+        state["earlier_images"] = list(earlier_image_references)
 
-    subject = _message_text(messages[question_index], skip_questions=True)
+    # The subject is the questions' own message, then any message after it: an agent's
+    # template carries the questions, and the person's turn when it runs follows it.
+    subject = "\n\n".join(
+        text
+        for message in messages[question_index:]
+        if (text := _message_text(message, skip_questions=True))
+    )
     if subject:
         state["subject"] = subject
+    if image_references:
+        # A native holder receives each picture where its reference stands.
+        state["images"] = list(image_references)
     if not state:
         raise DecisionCompatibilityError(
             "The decision questions arrived with no state at all — no text beside "
@@ -249,11 +335,37 @@ def _missing_probability_reason(value: Any) -> str:
     )
 
 
+def box_presence_id(name: str) -> str:
+    """The wire id of a box's paired presence question. ``:`` can never be in a
+    question name, so it can never collide with an authored one."""
+    return f"{name}:present"
+
+
+def _box_target(question: DecisionQuestion) -> str:
+    return f"`images[{question.image or 0}]`"
+
+
 def system_one_questions(batch: DecisionQuestions) -> dict[str, Any]:
-    """The questions as TypeSafe System One's typed question map."""
+    """The questions as TypeSafe System One's typed question map.
+
+    A ``box`` names the image it looks in by its path in the state and brings
+    its presence ``noul`` with it (``box_presence_id``).
+    """
     out: dict[str, Any] = {}
     for question in batch.questions:
-        if question.type == "choice":
+        if question.type == "box":
+            target = _box_target(question)
+            out[question.name] = {
+                "type": "box",
+                "instructions": f"{question.rendered_instructions()} in {target}",
+            }
+            out[box_presence_id(question.name)] = {
+                "type": "noul",
+                "instructions": (
+                    f"Is this in {target} at all: {question.rendered_instructions()}"
+                ),
+            }
+        elif question.type == "choice":
             out[question.name] = {
                 "type": "choice",
                 "instructions": question.rendered_instructions(),
@@ -299,8 +411,13 @@ def decision_answers_from_system_one(
     input_tokens: int,
     output_tokens: int,
     cost_usd: float,
+    images: list[Any] | None = None,
 ) -> DecisionAnswers:
     """The NATIVE path's provider answers as the platform's answer kind.
+
+    ``images`` are the prepared images (``images.PreparedDecisionImage``), in
+    order: a Box answered on a fitted image is mapped back onto its source
+    picture, and their identities ride the answers.
 
     A question the holder did not answer becomes an entry in ``unanswerable``
     with the reason — a refusal is an answer, and it is never replaced by a
@@ -316,6 +433,30 @@ def decision_answers_from_system_one(
             unanswerable[name] = "the decision model returned no answer for this question"
             continue
         payload = raw if isinstance(raw, dict) else raw.model_dump(mode="json")
+        if question.type == "box":
+            presence_raw = raw_answers.get(box_presence_id(name))
+            presence = presence_raw if isinstance(presence_raw, dict) or presence_raw is None else (
+                presence_raw.model_dump(mode="json")
+            )
+            edges = dict(payload.get("box") or {})
+            position = question.image or 0
+            prepared = (images or [])[position] if position < len(images or []) else None
+            if prepared is not None:
+                edges = prepared.fitted.to_source_fractions(edges)
+            try:
+                box = DecisionBox.model_validate(edges)
+            except ValueError:
+                unanswerable[name] = "the decision model returned a box whose edges do not enclose any area"
+                continue
+            confidence = payload.get("confidence")
+            answers[name] = DecisionAnswer(
+                type="box",
+                answer=box,
+                probability=_stated_probability((presence or {}).get("noul")),
+                confidence=float(confidence) if isinstance(confidence, int | float) else None,
+                image=position,
+            )
+            continue
         if question.type == "noul":
             probability = _stated_probability(payload.get("noul"))
             if probability is None:
@@ -365,6 +506,7 @@ def decision_answers_from_system_one(
         unanswerable=unanswerable,
         usage=DecisionUsage(input_tokens=input_tokens, output_tokens=output_tokens),
         cost_usd=cost_usd,
+        images=[image.identity for image in images or []],
     )
 
 
@@ -378,6 +520,7 @@ def verbalized_instructions(
     batch: DecisionQuestions,
     *,
     subject_above: bool = False,
+    images: int = 0,
 ) -> str:
     """The prose a text model is given: the state, then each question.
 
@@ -397,6 +540,14 @@ def verbalized_instructions(
             "You are answering a fixed set of decision questions about the state below."
         )
     lines = [opening, ""]
+    if images:
+        lines.extend(
+            [
+                f"The message carries {images} image(s), numbered in the order they appear, "
+                "starting at 0 (image 0 is the first). They are part of what you judge.",
+                "",
+            ]
+        )
     if state:
         lines.extend(
             [
@@ -411,7 +562,15 @@ def verbalized_instructions(
     for question in batch.questions:
         lines.append(f"### {question.name} ({question.type})")
         lines.append(question.rendered_instructions())
-        if question.type == "choice":
+        if question.type == "box":
+            lines.append(
+                f"Find it in image {question.image or 0}. Give `present`, the probability it is "
+                "in that image at all, and `box`, the smallest rectangle around it as four edges "
+                "— top and bottom as fractions of the image's height, left and right as fractions "
+                "of its width, measured from the top-left corner (0 to 1). If it is absent, give "
+                "a low `present` and your best box anyway."
+            )
+        elif question.type == "choice":
             lines.append("Choose exactly one option:")
             lines.extend(
                 f"- {name}: {meaning}" for name, meaning in (question.criteria or {}).items()
@@ -449,8 +608,25 @@ def verbalized_instructions(
 def verbalized_response_schema(batch: DecisionQuestions) -> dict[str, Any]:
     """The JSON Schema that forces the answers shape out of a text model."""
     properties: dict[str, Any] = {}
+    unit = {"type": "number", "minimum": 0, "maximum": 1}
     for question in batch.questions:
-        if question.type == "noul":
+        if question.type == "box":
+            properties[question.name] = {
+                "type": "object",
+                "properties": {
+                    "present": unit,
+                    "box": {
+                        "type": "object",
+                        "properties": {edge: unit for edge in ("top", "bottom", "left", "right")},
+                        "required": ["top", "bottom", "left", "right"],
+                        "additionalProperties": False,
+                    },
+                    "confidence": unit,
+                },
+                "required": ["present", "box", "confidence"],
+                "additionalProperties": False,
+            }
+        elif question.type == "noul":
             properties[question.name] = {
                 "type": "object",
                 "properties": {
@@ -529,6 +705,7 @@ def decision_answers_from_verbalized(
     input_tokens: int,
     output_tokens: int,
     cost_usd: float,
+    images: list[DecisionImage] | None = None,
 ) -> DecisionAnswers:
     """A text model's own stated probabilities as the platform's answer kind.
 
@@ -552,6 +729,23 @@ def decision_answers_from_verbalized(
         if not isinstance(raw, dict):
             unanswerable[question.name] = (
                 "the model returned no answer for this question in its structured output"
+            )
+            continue
+        if question.type == "box":
+            try:
+                box = DecisionBox.model_validate(raw.get("box") or {})
+            except ValueError:
+                unanswerable[question.name] = (
+                    "the model returned a box whose edges are missing or do not enclose any area"
+                )
+                continue
+            confidence = raw.get("confidence")
+            answers[question.name] = DecisionAnswer(
+                type="box",
+                answer=box,
+                probability=_stated_probability(raw.get("present")),
+                confidence=float(confidence) if isinstance(confidence, int | float) else None,
+                image=question.image or 0,
             )
             continue
         if question.type == "noul":
@@ -614,6 +808,7 @@ def decision_answers_from_verbalized(
         unanswerable=unanswerable,
         usage=DecisionUsage(input_tokens=input_tokens, output_tokens=output_tokens),
         cost_usd=cost_usd,
+        images=list(images or []),
     )
 
 
@@ -632,7 +827,7 @@ class VerbalizedDecisionOverlay:
     question that was asked.
     """
 
-    __slots__ = ("batch", "message_index", "state", "model_name", "suspended")
+    __slots__ = ("batch", "message_index", "state", "model_name", "suspended", "images")
 
     def __init__(
         self,
@@ -655,6 +850,9 @@ class VerbalizedDecisionOverlay:
         #: wires, so the resolved ``profile.model_name`` is captured HERE,
         #: where the route is known, and carried to the finalizer.
         self.model_name = model_name
+        #: The images beside the questions, by position — they stay on the wire
+        #: as ordinary image parts and ride the answers as identities.
+        self.images: list[DecisionImage] = []
 
 
 # THE DECISION TURN IS ITS MESSAGE PARTS, AND NOTHING ELSE.
@@ -719,6 +917,7 @@ def prepare_verbalized_decision(
     *,
     model_name: str,
     supports_structured_output: bool,
+    supports_vision: bool = False,
 ) -> VerbalizedDecisionOverlay | None:
     """Render a ``decision_questions`` part for a NON-decision model.
 
@@ -740,7 +939,7 @@ def prepare_verbalized_decision(
     except DecisionQuestionsMissing:
         return None
 
-    refuse_incompatible_parts(messages[index], model_name=model_name)
+    refuse_incompatible_turn(messages, index, model_name=model_name, reads_images=supports_vision)
     if not supports_structured_output:
         raise DecisionCompatibilityError(
             f"The message asks decision questions, but {model_name!r} does not "
@@ -777,12 +976,21 @@ def prepare_verbalized_decision(
     # only ``metadata.resolved_text`` (nothing the translator would send) the
     # state keeps the subject, because then it is the ONLY copy.
     wire_state = dict(state)
-    subject_above = "subject" in wire_state and _subject_is_on_the_wire(message)
+    subject_above = (
+        "subject" in wire_state
+        and _subject_is_on_the_wire(message)
+        and not any(_message_text(later) for later in messages[index + 1 :])
+    )
     if subject_above:
         wire_state.pop("subject")
+    from matrx_ai.decisions.images import decision_image_identity
+
+    pictures = turn_image_blocks(messages, index)
     message.content.append(
         TextContent(
-            text=verbalized_instructions(wire_state, batch, subject_above=subject_above)
+            text=verbalized_instructions(
+                wire_state, batch, subject_above=subject_above, images=len(pictures)
+            )
         )
     )
 
@@ -803,6 +1011,7 @@ def prepare_verbalized_decision(
         ),
     ).model_dump(by_alias=True, exclude_none=True)
     overlay = VerbalizedDecisionOverlay(batch, index, state, model_name=model_name)
+    overlay.images = [decision_image_identity(block) for block in pictures]
     overlay.suspended = suspend_chat_furniture(config)
     # THE CALL RECORD MATCHES THE CALL. Request prep stamped ``tools_on_call``
     # on this user message from the conversation's toolset BEFORE the route was
@@ -888,6 +1097,7 @@ def finalize_verbalized_decision(
         input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
         output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
         cost_usd=cost_usd,
+        images=getattr(overlay, "images", None),
     )
     messages[-1].content = [DecisionAnswersContent(answers=answers)]
     response.messages = messages

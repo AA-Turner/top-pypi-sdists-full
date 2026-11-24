@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import datetime
 import functools
 import hashlib
@@ -7,6 +8,7 @@ import random
 import sys
 import threading
 import time
+import weakref
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -21,6 +23,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Set,
     Tuple,
     TypedDict,
@@ -42,6 +45,7 @@ from dbos._utils import (
     generate_uuid,
     retriable_postgres_exception,
     retriable_sqlite_exception,
+    serialization_failure,
 )
 
 from ._context import (
@@ -164,6 +168,34 @@ def workflow_is_active(status: str) -> bool:
         or status == WorkflowStatusString.DELAYED.value
         or status == WorkflowStatusString.SUSPENDED.value
     )
+
+
+def rewindable_status(workflow_id: str, status: Optional[str]) -> str:
+    """The status of a workflow that can be rewound. Refuses one that is missing
+    (status None) or still running."""
+    if status is None:
+        raise DBOSNonExistentWorkflowError("target", workflow_id)
+    if workflow_is_active(status):
+        raise DBOSException(
+            f"Cannot rewind {workflow_id} ({status}): only a workflow in a "
+            "terminal state can be rewound, so cancel it first"
+        )
+    return status
+
+
+def rewind_targets(
+    workflow_ids: Sequence[str], start_steps: Sequence[int]
+) -> Dict[str, int]:
+    """Each workflow's start step for a batch rewind: once per workflow, its first
+    listing winning, in ID order."""
+    if len(workflow_ids) != len(start_steps):
+        raise ValueError("workflow_ids and start_steps must have the same length")
+    targets: Dict[str, int] = {}
+    for workflow_id, start_step in zip(workflow_ids, start_steps):
+        if start_step < 1:
+            raise ValueError(f"start_step must be >= 1, got {start_step}")
+        targets.setdefault(workflow_id, start_step)
+    return dict(sorted(targets.items()))
 
 
 WorkflowStatuses = Literal[
@@ -612,15 +644,20 @@ def db_retry(
                     sqlite_retriable = getattr(
                         db, "_is_sqlite", True
                     ) and retriable_sqlite_exception(e)
+                    # CockroachDB rolls back a transaction that loses a serialization race and expects the client to rerun it.
+                    cockroach_retriable = getattr(
+                        db, "_is_cockroach", False
+                    ) and serialization_failure(e)
                     if (
                         not postgres_retriable
                         and not pool_retriable
                         and not sqlite_retriable
+                        and not cockroach_retriable
                     ):
                         raise
 
                     # Connection-error and pool retries are optional; SQLite lock
-                    # contention is not a connection error and always retries.
+                    # contention and CockroachDB conflicts are not connection errors and always retry.
                     if (postgres_retriable or pool_retriable) and not getattr(
                         db, "_retry_connection_errors", True
                     ):
@@ -634,6 +671,11 @@ def db_retry(
                         dbos_logger.warning(
                             f"Database connection pool exhausted: {str(e)}. "
                             "If this persists, look for stalled or leaked connections or increase sys_db_pool_size. "
+                            f"Retrying in {actual_backoff:.2f}s (attempt {retries})"
+                        )
+                    elif cockroach_retriable:
+                        dbos_logger.warning(
+                            f"Transaction lost a serialization conflict: {str(e)}. "
                             f"Retrying in {actual_backoff:.2f}s (attempt {retries})"
                         )
                     else:
@@ -667,6 +709,133 @@ DEFAULT_IDLE_TRANSACTION_TIMEOUT_SEC = 60.0
 SQLITE_JSON_SET_MAX_PAIRS = 50
 
 
+# Statuses at which a workflow is not yet complete; any other status has a result.
+_NOT_COMPLETE_STATUSES = frozenset(
+    {
+        WorkflowStatusString.PENDING.value,
+        WorkflowStatusString.ENQUEUED.value,
+        WorkflowStatusString.DELAYED.value,
+        WorkflowStatusString.SUSPENDED.value,
+    }
+)
+
+# A workflow as the status watcher reads it: its ID and the shard key it lives under.
+_WatchedWorkflow = Tuple[str, Optional[str]]
+
+
+def result_suspend_key(workflow_id: str) -> str:
+    """The suspend_key of a workflow SUSPENDED awaiting workflow_id's result."""
+    return f"__dbos_result__:{workflow_id}"
+
+
+# The suspend_key of a workflow SUSPENDED in wait_first on several workflows; any one's completion wakes it.
+WAIT_FIRST_SUSPEND_KEY = "__dbos_wait_first__"
+
+
+@dataclass(eq=False)
+class _StatusWaiter:
+    workflows: Tuple[_WatchedWorkflow, ...]
+    future: "asyncio.Future[None]"
+
+    def should_wake(self, statuses: Dict[_WatchedWorkflow, str]) -> bool:
+        # Wake when any workflow is complete, or has no row: deleted, or under a shard
+        # key the read didn't capture, which the waiter then checks in its own context.
+        return any(
+            (status := statuses.get(wf)) is None or status not in _NOT_COMPLETE_STATUSES
+            for wf in self.workflows
+        )
+
+
+class _StatusWatcher:
+    """Watches, for one event loop and polling interval, the workflows that async
+    result waits are waiting on, with one status read per shard key per interval
+    instead of one per waiter. A woken waiter re-checks the workflow itself, so the
+    watcher only decides when to look, never what the result is."""
+
+    def __init__(
+        self,
+        sys_db: "SystemDatabase",
+        loop: asyncio.AbstractEventLoop,
+        interval: float,
+    ) -> None:
+        self._sys_db = sys_db
+        # Weak, so the watchers keyed by this loop don't keep it alive.
+        self._loop = weakref.ref(loop)
+        self._interval = interval
+        self._waiters: Set[_StatusWaiter] = set()
+        self._poller: Optional["asyncio.Task[None]"] = None
+
+    def register(self, workflows: Tuple[_WatchedWorkflow, ...]) -> _StatusWaiter:
+        waiter = _StatusWaiter(workflows, asyncio.get_running_loop().create_future())
+        self._waiters.add(waiter)
+        if self._poller is None or self._poller.done():
+            # An empty context, so the poller doesn't run as part of the registering step.
+            self._poller = contextvars.Context().run(asyncio.create_task, self._poll())
+            self._poller.add_done_callback(self._poller_done)
+        return waiter
+
+    def unregister(self, waiter: _StatusWaiter) -> None:
+        waiter.future.cancel()
+        self._waiters.discard(waiter)
+        if not self._waiters:
+            # Stop now, not after one more sleep, so an idle poller can't outlive a loop
+            # that is closed without cancelling its tasks, and drop this watcher so
+            # watchers don't pile up per interval.
+            if self._poller is not None:
+                self._poller.cancel()
+                self._poller = None
+            self._sys_db._drop_status_watcher(self._loop, self._interval, self)
+
+    def _wake(self, waiter: _StatusWaiter) -> None:
+        if not waiter.future.done():
+            waiter.future.set_result(None)
+
+    def _poller_done(self, task: "asyncio.Task[None]") -> None:
+        # A finished task references its loop, so keeping it would pin closed loops.
+        if self._poller is task:
+            self._poller = None
+        # A poller that died would leave its waiters waiting forever: wake them, so each
+        # checks for itself and re-registers, which starts a new poller.
+        error = None if task.cancelled() else task.exception()
+        if error is not None:
+            dbos_logger.warning(f"Error in the workflow result poller: {error}")
+        if task.cancelled() or error is not None:
+            for waiter in list(self._waiters):
+                self._wake(waiter)
+
+    async def _poll(self) -> None:
+        while self._waiters:
+            await asyncio.sleep(self._interval)
+            snapshot = list(self._waiters)
+            if not snapshot:
+                return
+            workflows = {wf for waiter in snapshot for wf in waiter.workflows}
+            statuses = await asyncio.to_thread(self._read, workflows)
+            for waiter in snapshot:
+                if waiter.should_wake(statuses):
+                    self._wake(waiter)
+
+    def _read(self, workflows: Set[_WatchedWorkflow]) -> Dict[_WatchedWorkflow, str]:
+        """One read per shard key, each under its key's binding. A key whose read fails
+        returns no statuses, so its waiters wake and check for themselves, raising or
+        waiting exactly as an unbatched wait would."""
+        by_key: Dict[Optional[str], List[str]] = {}
+        for workflow_id, shard_key in workflows:
+            by_key.setdefault(shard_key, []).append(workflow_id)
+        statuses: Dict[_WatchedWorkflow, str] = {}
+        for shard_key, workflow_ids in by_key.items():
+            try:
+                with bind_shard_keys({wfid: shard_key for wfid in workflow_ids}):
+                    found = self._sys_db.get_workflow_status_values(workflow_ids)
+            except Exception as e:
+                dbos_logger.warning(f"Error polling status for workflow results: {e}")
+                continue
+            statuses.update(
+                ((wfid, shard_key), status) for wfid, status in found.items()
+            )
+        return statuses
+
+
 class SystemDatabase(ABC):
 
     # Tables this handle queries; a sharded subclass supplies copies that also declare shard_key.
@@ -676,6 +845,8 @@ class SystemDatabase(ABC):
     # Suspend mode (Transact Enterprise), installed by DBOS when it is on: recv and sleep
     # may park their workflow. Waking a parked recv is core: every send does it.
     suspend: Optional["Suspend"] = None
+    # Set when workflow archiving is configured: every terminal transition queues its row.
+    archive_completions: bool = False
 
     @staticmethod
     def create(
@@ -875,6 +1046,11 @@ class SystemDatabase(ABC):
             else max(1, effective_pool_size // 2)
         )
         self.poll_limiter = PollingLimiter(polling_limit)
+        # Async result waits on one event loop and interval share one status watcher.
+        self._status_watchers: weakref.WeakKeyDictionary[
+            asyncio.AbstractEventLoop, Dict[float, _StatusWatcher]
+        ] = weakref.WeakKeyDictionary()
+        self._status_watchers_lock = threading.Lock()
 
         self.notifications_map = ThreadSafeEventDict()
         self.workflow_events_map = ThreadSafeEventDict()
@@ -983,6 +1159,15 @@ class SystemDatabase(ABC):
         """Clean up database-specific connections."""
         pass
 
+    def _archive_values(self) -> Dict[str, Any]:
+        """Columns a statement setting completed_at also sets, to queue the row for its
+        application's archiver. Unclaimed rows have none, so retention collects them unmarked.
+        """
+        if not self.archive_completions:
+            return {}
+        claimed = self.tables.workflow_status.c.application_name.isnot(None)
+        return {"archive_pending": sa.case((claimed, sa.true()), else_=sa.null())}
+
     def _now_ms_sql(self) -> Any:
         # Cast to BIGINT: EXTRACT yields numeric, which casts any bigint column compared against it, costing that column its index.
         # SQLite's CURRENT_TIMESTAMP is second-precision; use unixepoch('subsec') for ms.
@@ -991,6 +1176,14 @@ class SystemDatabase(ABC):
                 return sa.cast(sa.func.unixepoch("subsec") * 1000, sa.BigInteger)
             return sa.cast(sa.func.strftime("%s", "now") * 1000, sa.BigInteger)
         return sa.cast(sa.func.extract("epoch", sa.func.now()) * 1000, sa.BigInteger)
+
+    def _statement_ms_sql(self) -> Any:
+        # Statement time, as workflow_status.created_at defaults to: now() is the transaction's start.
+        if self.engine.dialect.name == "sqlite":
+            return self._now_ms_sql()
+        return sa.cast(
+            sa.func.extract("epoch", sa.func.clock_timestamp()) * 1000, sa.BigInteger
+        )
 
     # Key helpers: every statement locates a workflow's rows through these, so a sharded
     # subclass can add the shard key without rewriting the statement.
@@ -1496,7 +1689,7 @@ class SystemDatabase(ABC):
             return
         with self.engine.begin() as c:
             now_ms = self._now_ms_sql()
-            c.execute(
+            update = (
                 sa.update(self.tables.workflow_status)
                 .where(*self._wf_in(self.tables.workflow_status, workflow_ids))
                 .where(
@@ -1514,8 +1707,15 @@ class SystemDatabase(ABC):
                     started_at_epoch_ms=None,
                     updated_at=now_ms,
                     completed_at=now_ms,
+                    **self._archive_values(),
                 )
             )
+            returning = self._waiter_returning()
+            if not returning:
+                c.execute(update)
+                return
+            rows = c.execute(update.returning(*returning)).fetchall()
+            self._wake_result_waiters_txn(c, list(rows))
 
     @db_retry()
     def update_workflow_outcome(
@@ -1558,6 +1758,9 @@ class SystemDatabase(ABC):
         }
         if owner_xid is not None:
             values["owner"] = owner_xid
+        wakes = self._wakes_result_waiters()
+        if wakes:
+            values["wake_key"] = result_suspend_key(workflow_id)
 
         def build() -> Any:
             ws, wo = self.tables.workflow_status, self.tables.workflow_output
@@ -1579,6 +1782,7 @@ class SystemDatabase(ABC):
                     owner_xid=None,
                     updated_at=now_ms,
                     completed_at=now_ms,
+                    **self._archive_values(),
                 )
                 .where(
                     *[
@@ -1594,7 +1798,11 @@ class SystemDatabase(ABC):
                 update = update.where(
                     ws.c.owner_xid == sa.bindparam("owner", type_=ws.c.owner_xid.type)
                 )
-            updated = update.returning(sa.literal_column("1")).cte("updated")
+            updated = (
+                update.returning(ws.c.result_waiter_ids)
+                if wakes
+                else update.returning(sa.literal_column("1"))
+            ).cte("updated")
             insert = self.dialect.insert(wo)
             stored = (
                 insert.from_select(
@@ -1619,18 +1827,82 @@ class SystemDatabase(ABC):
             )
             # Selecting from the CTEs rather than inserting at the top level lets a
             # router see the shard key: PgDog sends an INSERT ... SELECT to every shard.
-            return sa.select(sa.func.count()).select_from(updated).add_cte(stored)
+            completed = sa.select(sa.func.count()).select_from(updated).add_cte(stored)
+            if not wakes:
+                return completed
+            # The waiters come from RETURNING, which sees an append that committed while this waited on the row lock.
+            woken = (
+                sa.update(ws)
+                .where(
+                    ws.c.workflow_uuid.in_(
+                        sa.select(sa.func.unnest(updated.c.result_waiter_ids))
+                    )
+                )
+                .values(
+                    **self._wake_values(
+                        sa.bindparam("wake_key", type_=ws.c.suspend_key.type)
+                    )
+                )
+                .returning(sa.literal_column("1"))
+                .cte("woken")
+            )
+            return completed.add_cte(woken)
 
         with self.engine.connect() as c:
             c.execution_options(isolation_level="AUTOCOMMIT")
-            written = self._execute_prepared(
+            result = self._execute_prepared(
                 c,
                 "update_workflow_outcome" + ("" if owner_xid is None else "_owned"),
                 values,
                 build,
                 insert_columns=False,
-            ).scalar()
-        return bool(written)
+            )
+            return bool(result.scalar())
+
+    def _wakes_result_waiters(self) -> bool:
+        """Whether completions wake result waiters: get_result(suspend=True) is refused when sharded or on CockroachDB."""
+        return not self.sharded and not self._is_cockroach
+
+    def _waiter_returning(self) -> List[Any]:
+        """Columns a completing UPDATE returns for _wake_result_waiters_txn; none without waiters to wake."""
+        ws = self.tables.workflow_status
+        if not self._wakes_result_waiters():
+            return []
+        return [ws.c.workflow_uuid, ws.c.result_waiter_ids]
+
+    def _wake_values(self, key: Any) -> Dict[str, Any]:
+        """Values making a workflow SUSPENDED under key (a result_suspend_key) or in wait_first due for the background pass."""
+        ws = self.tables.workflow_status
+        # Tested in SET, not WHERE: a park committed after the snapshot is re-read only for rows WHERE matched, and the planner can't scan idx_workflow_status_suspended.
+        return {
+            "delay_until_epoch_ms": sa.case(
+                (
+                    (ws.c.status == WorkflowStatusString.SUSPENDED.value)
+                    & (
+                        (ws.c.suspend_key == key)
+                        | (ws.c.suspend_key == WAIT_FIRST_SUSPEND_KEY)
+                    ),
+                    0,
+                ),
+                else_=ws.c.delay_until_epoch_ms,
+            )
+        }
+
+    def _wake_result_waiters_txn(
+        self, conn: Union[sa.Connection, Session], rows: List[Any]
+    ) -> None:
+        """Wake the waiters of the workflows a completing UPDATE returned (_waiter_returning);
+        the caller's transaction still holds those rows' locks."""
+        if not self._wakes_result_waiters():
+            return
+        ws = self.tables.workflow_status
+        for workflow_id, waiters in rows:
+            if waiters:
+                conn.execute(
+                    sa.update(ws)
+                    .where(*self._wf_in(ws, list(waiters)))
+                    .values(**self._wake_values(result_suspend_key(workflow_id)))
+                )
 
     def _outcome_in_one_statement(self) -> bool:
         """Whether update_workflow_outcome writes in one statement; SQLite cannot put an
@@ -1660,6 +1932,7 @@ class SystemDatabase(ABC):
                     owner_xid=None,
                     updated_at=now_ms,
                     completed_at=now_ms,
+                    **self._archive_values(),
                 )
                 .where(*self._wf(self.tables.workflow_status, workflow_id))
                 .where(
@@ -1671,10 +1944,17 @@ class SystemDatabase(ABC):
                 update = update.where(
                     self.tables.workflow_status.c.owner_xid == owner_xid
                 )
-            result = c.execute(update)
-            if result.rowcount == 0:
+            returning = self._waiter_returning()
+            if returning:
+                rows = c.execute(update.returning(*returning)).fetchall()
+                written = len(rows)
+            else:
+                written = c.execute(update).rowcount
+            if written == 0:
                 # The outcome was not ours to write, so leave no orphan payload.
                 return False
+            if returning:
+                self._wake_result_waiters_txn(c, list(rows))
             output_values = dict(
                 **self._wf_values(workflow_id),
                 workflow_uuid=workflow_id,
@@ -1707,9 +1987,9 @@ class SystemDatabase(ABC):
         def _cancel_workflows(ids: list[str]) -> None:
             with self.engine.begin() as c:
                 now_ms = self._now_ms_sql()
-                # Set the workflows' status to CANCELLED, keeping their queue for a
-                # later resume, but only if the workflow is not already complete.
-                c.execute(
+                # Set the workflows' status to CANCELLED, keeping their queue for a later
+                # resume, unless already complete or cancelled (a repeat restamps completion).
+                update = (
                     sa.update(self.tables.workflow_status)
                     .where(*self._wf_in(self.tables.workflow_status, ids))
                     .where(
@@ -1717,6 +1997,7 @@ class SystemDatabase(ABC):
                             [
                                 WorkflowStatusString.SUCCESS.value,
                                 WorkflowStatusString.ERROR.value,
+                                WorkflowStatusString.CANCELLED.value,
                             ]
                         )
                     )
@@ -1728,8 +2009,15 @@ class SystemDatabase(ABC):
                         started_at_epoch_ms=None,
                         updated_at=now_ms,
                         completed_at=now_ms,
+                        **self._archive_values(),
                     )
                 )
+                returning = self._waiter_returning()
+                if not returning:
+                    c.execute(update)
+                    return
+                rows = c.execute(update.returning(*returning)).fetchall()
+                self._wake_result_waiters_txn(c, list(rows))
 
         if not cancel_children:
             _cancel_workflows(workflow_ids)
@@ -1788,6 +2076,7 @@ class SystemDatabase(ABC):
                     started_at_epoch_ms=None,
                     updated_at=self._now_ms_sql(),
                     completed_at=None,
+                    archive_pending=None,
                 )
             )
 
@@ -2038,28 +2327,47 @@ class SystemDatabase(ABC):
     ) -> None:
         """Delete workflows and all associated data from the system database,
         and with delete_children every workflow they started, recursively."""
-        all_ids = list(workflow_ids)
-        if delete_children:
-            for wfid in workflow_ids:
-                all_ids.extend(self.get_workflow_children(wfid))
-        self._delete_workflows(all_ids)
+        if not delete_children:
+            self._delete_workflows(workflow_ids)
+            return
+
+        # Delete each level before reading its children, so a racing child start fails.
+        @db_retry(sys_db=self)
+        def delete_trees() -> None:
+            with self.engine.begin() as c:
+                visited: set[str] = set(workflow_ids)
+                level: list[str] = list(workflow_ids)
+                while level:
+                    self._delete_workflow_rows(c, level)
+                    level = [
+                        child
+                        for child in self._direct_children_txn(c, level)
+                        if child not in visited
+                    ]
+                    visited.update(level)
+
+        delete_trees()
 
     @db_retry()
     def _delete_workflows(self, workflow_ids: list[str]) -> None:
         with self.engine.begin() as c:
-            # The payload tables carry no foreign key, so the status delete does
-            # not cascade into them; without this they survive as orphans.
-            for table in (
-                self.tables.workflow_input,
-                self.tables.workflow_output,
-                self.tables.operation_outputs,
-            ):
-                c.execute(sa.delete(table).where(*self._wf_in(table, workflow_ids)))
-            c.execute(
-                sa.delete(self.tables.workflow_status).where(
-                    *self._wf_in(self.tables.workflow_status, workflow_ids)
-                )
+            self._delete_workflow_rows(c, workflow_ids)
+
+    def _delete_workflow_rows(self, c: sa.Connection, workflow_ids: list[str]) -> None:
+        # Status first: it waits out in-flight owned writes, so their payload goes too.
+        c.execute(
+            sa.delete(self.tables.workflow_status).where(
+                *self._wf_in(self.tables.workflow_status, workflow_ids)
             )
+        )
+        # The payload tables carry no foreign key, so the status delete does
+        # not cascade into them; without this they survive as orphans.
+        for table in (
+            self.tables.workflow_input,
+            self.tables.workflow_output,
+            self.tables.operation_outputs,
+        ):
+            c.execute(sa.delete(table).where(*self._wf_in(table, workflow_ids)))
 
     def rewind_workflow(
         self,
@@ -2090,155 +2398,219 @@ class SystemDatabase(ABC):
         if start_step < 1:
             raise ValueError(f"start_step must be >= 1, got {start_step}")
 
+        with self.engine.begin() as c:
+            status = rewindable_status(
+                workflow_id,
+                c.execute(
+                    sa.select(self.tables.workflow_status.c.status).where(
+                        *self._wf(self.tables.workflow_status, workflow_id)
+                    )
+                ).scalar(),
+            )
+            self._rewind_workflow_txn(
+                c,
+                workflow_id,
+                start_step,
+                status,
+                application_version=application_version,
+                queue_name=queue_name,
+                queue_partition_key=queue_partition_key,
+            )
+
+    def rewind_workflows(
+        self,
+        workflow_ids: Sequence[str],
+        start_steps: Sequence[int],
+        *,
+        application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
+    ) -> None:
+        """Rewind each workflow from its own start step, all or nothing in one
+        transaction."""
+        targets = rewind_targets(workflow_ids, start_steps)
+        if not targets:
+            return
+        with self.engine.begin() as c:
+            statuses = self._rewindable_statuses(c, list(targets))
+            for workflow_id, start_step in targets.items():
+                self._rewind_workflow_txn(
+                    c,
+                    workflow_id,
+                    start_step,
+                    statuses[workflow_id],
+                    application_version=application_version,
+                    queue_name=queue_name,
+                    queue_partition_key=queue_partition_key,
+                )
+
+    def check_rewindable(self, workflow_ids: Sequence[str]) -> None:
+        """Refuse, naming the workflow, if any of them is missing or still running."""
+        with self.engine.begin() as c:
+            self._rewindable_statuses(c, workflow_ids)
+
+    def _rewindable_statuses(
+        self, c: sa.Connection, workflow_ids: Sequence[str]
+    ) -> Dict[str, str]:
+        """Each workflow's status, refusing if any is missing or still running. Takes
+        no locks: the guarded update in _rewind_workflow_txn catches a later change."""
+        ws = self.tables.workflow_status
+        rows = c.execute(
+            sa.select(ws.c.workflow_uuid, ws.c.status).where(
+                *self._wf_in(ws, workflow_ids)
+            )
+        ).fetchall()
+        found: Dict[str, str] = {row[0]: row[1] for row in rows}
+        return {
+            workflow_id: rewindable_status(workflow_id, found.get(workflow_id))
+            for workflow_id in workflow_ids
+        }
+
+    def _rewind_workflow_txn(
+        self,
+        c: sa.Connection,
+        workflow_id: str,
+        start_step: int,
+        status: str,
+        *,
+        application_version: Optional[str],
+        queue_name: Optional[str],
+        queue_partition_key: Optional[str],
+    ) -> None:
+        """A rewind's statements, for a workflow already checked to be in status."""
         weh = self.tables.workflow_events_history
         events = self.tables.workflow_events
 
-        with self.engine.begin() as c:
-            # Check the workflow exists and is in a terminal state
-            status = c.execute(
-                sa.select(self.tables.workflow_status.c.status).where(
-                    *self._wf(self.tables.workflow_status, workflow_id)
-                )
-            ).scalar()
-            if status is None:
-                raise DBOSNonExistentWorkflowError("target", workflow_id)
-            if workflow_is_active(status):
-                raise DBOSException(
-                    f"Cannot rewind {workflow_id} ({status}): only a workflow in a "
-                    "terminal state can be rewound, so cancel it first"
-                )
+        # Rollback workflows events to the latest published value
+        # before the rewind, using the workflow_events_history as an undo log.
+        # Then rewind the workflow events history as well.
+        discarded = weh.alias("discarded")
 
-            # Rollback workflows events to the latest published value
-            # before the rewind, using the workflow_events_history as an undo log.
-            # Then rewind the workflow events history as well.
-            discarded = weh.alias("discarded")
-
-            def published_past_cut(key: Any) -> Any:
-                """Whether this key was published at or past the cut."""
-                return (
-                    sa.select(sa.literal(1))
-                    .where(
-                        *self._wf(discarded, workflow_id),
-                        discarded.c.key == key,
-                        discarded.c.function_id >= start_step,
-                    )
-                    .exists()
-                )
-
-            # First delete all events published after the rewind point.
-            c.execute(
-                sa.delete(events).where(
-                    *self._wf(events, workflow_id), published_past_cut(events.c.key)
-                )
-            )
-
-            # Then restore events, if any, as published before the rewind point.
-            surviving = (
-                sa.select(
-                    weh.c.workflow_uuid,
-                    weh.c.key,
-                    weh.c.value,
-                    weh.c.serialization,
-                    sa.func.row_number()
-                    .over(
-                        partition_by=weh.c.key,
-                        order_by=weh.c.function_id.desc(),
-                    )
-                    .label("rn"),
-                )
+        def published_past_cut(key: Any) -> Any:
+            """Whether this key was published at or past the cut."""
+            return (
+                sa.select(sa.literal(1))
                 .where(
-                    *self._wf(weh, workflow_id),
-                    weh.c.function_id < start_step,
-                    published_past_cut(weh.c.key),
+                    *self._wf(discarded, workflow_id),
+                    discarded.c.key == key,
+                    discarded.c.function_id >= start_step,
                 )
-                .subquery("surviving")
+                .exists()
             )
-            key_columns = self._wf_columns(workflow_id)
+
+        # First delete all events published after the rewind point.
+        c.execute(
+            sa.delete(events).where(
+                *self._wf(events, workflow_id), published_past_cut(events.c.key)
+            )
+        )
+
+        # Then restore events, if any, as published before the rewind point.
+        surviving = (
+            sa.select(
+                weh.c.workflow_uuid,
+                weh.c.key,
+                weh.c.value,
+                weh.c.serialization,
+                sa.func.row_number()
+                .over(
+                    partition_by=weh.c.key,
+                    order_by=weh.c.function_id.desc(),
+                )
+                .label("rn"),
+            )
+            .where(
+                *self._wf(weh, workflow_id),
+                weh.c.function_id < start_step,
+                published_past_cut(weh.c.key),
+            )
+            .subquery("surviving")
+        )
+        key_columns = self._wf_columns(workflow_id)
+        c.execute(
+            sa.insert(events).from_select(
+                [
+                    *[name for name, _ in key_columns],
+                    "workflow_uuid",
+                    "key",
+                    "value",
+                    "serialization",
+                ],
+                sa.select(
+                    *[expr for _, expr in key_columns],
+                    surviving.c.workflow_uuid,
+                    surviving.c.key,
+                    surviving.c.value,
+                    surviving.c.serialization,
+                ).where(surviving.c.rn == 1),
+            )
+        )
+
+        # Clear streams' close sentinels: the rows a reader never reads ahead.
+        c.execute(
+            sa.delete(self.tables.streams).where(
+                *self._wf(self.tables.streams, workflow_id),
+                self.tables.streams.c.function_id >= start_step,
+                self.tables.streams.c.value == _serialized_stream_closed_sentinel,
+                self.tables.streams.c.serialization == DBOSPortableJSON.name(),
+            )
+        )
+
+        # Discard steps and workflow events history
+        for table in (self.tables.operation_outputs, weh):
             c.execute(
-                sa.insert(events).from_select(
-                    [
-                        *[name for name, _ in key_columns],
-                        "workflow_uuid",
-                        "key",
-                        "value",
-                        "serialization",
-                    ],
-                    sa.select(
-                        *[expr for _, expr in key_columns],
-                        surviving.c.workflow_uuid,
-                        surviving.c.key,
-                        surviving.c.value,
-                        surviving.c.serialization,
-                    ).where(surviving.c.rn == 1),
+                sa.delete(table).where(
+                    *self._wf(table, workflow_id), table.c.function_id >= start_step
                 )
             )
 
-            # Clear streams' close sentinels: the rows a reader never reads ahead.
-            c.execute(
-                sa.delete(self.tables.streams).where(
-                    *self._wf(self.tables.streams, workflow_id),
-                    self.tables.streams.c.function_id >= start_step,
-                    self.tables.streams.c.value == _serialized_stream_closed_sentinel,
-                    self.tables.streams.c.serialization == DBOSPortableJSON.name(),
-                )
+        # Delete messages consumed or received after the rewind point
+        c.execute(
+            sa.delete(self.tables.notifications).where(
+                *self._wf(self.tables.notifications, workflow_id, "destination_uuid"),
+                (self.tables.notifications.c.consumed_by_function_id >= start_step)
+                | (self.tables.notifications.c.consumed == False),
             )
+        )
 
-            # Discard steps and workflow events history
-            for table in (self.tables.operation_outputs, weh):
-                c.execute(
-                    sa.delete(table).where(
-                        *self._wf(table, workflow_id), table.c.function_id >= start_step
-                    )
-                )
+        c.execute(
+            sa.delete(self.tables.workflow_output).where(
+                *self._wf(self.tables.workflow_output, workflow_id)
+            )
+        )
 
-            # Delete messages consumed or received after the rewind point
-            c.execute(
-                sa.delete(self.tables.notifications).where(
-                    *self._wf(
-                        self.tables.notifications, workflow_id, "destination_uuid"
-                    ),
-                    (self.tables.notifications.c.consumed_by_function_id >= start_step)
-                    | (self.tables.notifications.c.consumed == False),
-                )
+        # Re-enqueue the workflow
+        version_update = (
+            {"application_version": application_version}
+            if application_version is not None
+            else {}
+        )
+        result = c.execute(
+            sa.update(self.tables.workflow_status)
+            .where(*self._wf(self.tables.workflow_status, workflow_id))
+            .where(self.tables.workflow_status.c.status == status)
+            .values(
+                status=WorkflowStatusString.ENQUEUED.value,
+                owner_xid=None,
+                **version_update,
+                **self._requeue_values(queue_name, queue_partition_key),
+                recovery_attempts=0,
+                workflow_deadline_epoch_ms=None,
+                deduplication_id=None,
+                suspend_key=None,
+                started_at_epoch_ms=None,
+                updated_at=self._now_ms_sql(),
+                completed_at=None,
+                archive_pending=None,
+                output=None,
+                error=None,
             )
-
-            c.execute(
-                sa.delete(self.tables.workflow_output).where(
-                    *self._wf(self.tables.workflow_output, workflow_id)
-                )
+        )
+        if result.rowcount != 1:
+            raise DBOSException(
+                f"Workflow {workflow_id} changed status while being rewound; "
+                "retry the rewind"
             )
-
-            # Re-enqueue the workflow
-            version_update = (
-                {"application_version": application_version}
-                if application_version is not None
-                else {}
-            )
-            result = c.execute(
-                sa.update(self.tables.workflow_status)
-                .where(*self._wf(self.tables.workflow_status, workflow_id))
-                .where(self.tables.workflow_status.c.status == status)
-                .values(
-                    status=WorkflowStatusString.ENQUEUED.value,
-                    owner_xid=None,
-                    **version_update,
-                    **self._requeue_values(queue_name, queue_partition_key),
-                    recovery_attempts=0,
-                    workflow_deadline_epoch_ms=None,
-                    deduplication_id=None,
-                    suspend_key=None,
-                    started_at_epoch_ms=None,
-                    updated_at=self._now_ms_sql(),
-                    completed_at=None,
-                    output=None,
-                    error=None,
-                )
-            )
-            if result.rowcount != 1:
-                raise DBOSException(
-                    f"Workflow {workflow_id} changed status while being rewound; "
-                    "retry the rewind"
-                )
 
     @staticmethod
     def _fork_queue_values(
@@ -2483,7 +2855,8 @@ class SystemDatabase(ABC):
                             oo.c.started_at_epoch_ms,
                             oo.c.completed_at_epoch_ms,
                             mapping_subquery.c.owner,
-                            self._now_ms_sql(),
+                            # Never before the fork's created_at, which retention's payload sweep relies on.
+                            self._statement_ms_sql(),
                             *child_key_columns,
                         ).select_from(
                             mapping_subquery.join(
@@ -2757,6 +3130,72 @@ class SystemDatabase(ABC):
                 found[status["workflow_uuid"]] = status
         return [found[id] for id in workflow_ids if id in found]
 
+    def get_workflow_status_values(self, workflow_ids: List[str]) -> Dict[str, str]:
+        """The status of each of these workflows that has a row, for the status watcher."""
+        ws = self.tables.workflow_status
+
+        # Not retried: a failed read wakes its waiters, whose own checks retry, so a
+        # shard key that keeps failing can't hold up the reads for the other keys.
+        def fetch_chunk(chunk: List[str]) -> List[Tuple[str, str]]:
+            with self.poll_limiter, self.engine.begin() as c:
+                return [
+                    (row[0], row[1])
+                    for row in c.execute(
+                        sa.select(ws.c.workflow_uuid, ws.c.status).where(
+                            *self._wf_in(ws, chunk)
+                        )
+                    ).fetchall()
+                ]
+
+        statuses: Dict[str, str] = {}
+        # Chunk the IN list to stay under bind-parameter limits, like get_workflow_statuses.
+        chunk_size = 4096
+        for start in range(0, len(workflow_ids), chunk_size):
+            statuses.update(fetch_chunk(workflow_ids[start : start + chunk_size]))
+        return statuses
+
+    async def _await_status(
+        self, workflows: Tuple[_WatchedWorkflow, ...], polling_interval: float
+    ) -> None:
+        """Wait until a batched status read wakes this waiter (or the watcher gives up on it)."""
+        loop = asyncio.get_running_loop()
+        # Watchers are reached from several loops' threads; create them under a lock.
+        with self._status_watchers_lock:
+            per_loop = self._status_watchers.get(loop)
+            if per_loop is None:
+                per_loop = {}
+                self._status_watchers[loop] = per_loop
+            watcher = per_loop.get(polling_interval)
+            if watcher is None:
+                watcher = _StatusWatcher(self, loop, polling_interval)
+                per_loop[polling_interval] = watcher
+        waiter = watcher.register(workflows)
+        try:
+            await waiter.future
+        finally:
+            watcher.unregister(waiter)
+
+    def _drop_status_watcher(
+        self,
+        loop_ref: "weakref.ref[asyncio.AbstractEventLoop]",
+        interval: float,
+        watcher: _StatusWatcher,
+    ) -> None:
+        # By the watcher's own loop: this can run in a finally with no loop running.
+        loop = loop_ref()
+        if loop is None:
+            return
+        with self._status_watchers_lock:
+            per_loop = self._status_watchers.get(loop)
+            if per_loop is not None and per_loop.get(interval) is watcher:
+                del per_loop[interval]
+                if not per_loop:
+                    del self._status_watchers[loop]
+
+    def _watched(self, workflow_ids: List[str]) -> Tuple[_WatchedWorkflow, ...]:
+        # Resolved now: the watcher reads from its own context, outside the caller's bindings.
+        return tuple((wfid, self._key_hint(wfid)) for wfid in workflow_ids)
+
     @db_retry()
     def _read_workflow_result_row(self, workflow_id: str) -> Optional[Any]:
         # Polling read under the limiter; acquired inside the db_retry body so the permit frees across backoff (like check_first_workflow_id).
@@ -2842,13 +3281,17 @@ class SystemDatabase(ABC):
         *,
         fail_if_missing: bool = False,
     ) -> Any:
+        watched: Optional[Tuple[_WatchedWorkflow, ...]] = None
         while True:
             result = await asyncio.to_thread(
                 self.check_workflow_result, workflow_id, fail_if_missing=fail_if_missing
             )
             if not isinstance(result, NoResult):
                 return result
-            await asyncio.sleep(polling_interval)
+            if watched is None:
+                watched = await asyncio.to_thread(self._watched, [workflow_id])
+            # One shared status read per interval wakes this wait, rather than a read of its own.
+            await self._await_status(watched, polling_interval)
 
     @db_retry()
     def check_first_workflow_id(self, workflow_ids: List[str]) -> Union[NoResult, str]:
@@ -2869,12 +3312,7 @@ class SystemDatabase(ABC):
                 .where(
                     *self._wf_in(self.tables.workflow_status, workflow_ids),
                     ~self.tables.workflow_status.c.status.in_(
-                        [
-                            WorkflowStatusString.PENDING.value,
-                            WorkflowStatusString.ENQUEUED.value,
-                            WorkflowStatusString.DELAYED.value,
-                            WorkflowStatusString.SUSPENDED.value,
-                        ]
+                        sorted(_NOT_COMPLETE_STATUSES)
                     ),
                 )
                 .limit(1)
@@ -2896,11 +3334,15 @@ class SystemDatabase(ABC):
     async def await_first_workflow_id_async(
         self, workflow_ids: List[str], polling_interval: float
     ) -> str:
+        watched: Optional[Tuple[_WatchedWorkflow, ...]] = None
         while True:
             result = await asyncio.to_thread(self.check_first_workflow_id, workflow_ids)
             if not isinstance(result, NoResult):
                 return result
-            await asyncio.sleep(polling_interval)
+            if watched is None:
+                watched = await asyncio.to_thread(self._watched, workflow_ids)
+            # One shared status read per interval wakes this wait, rather than a read of its own.
+            await self._await_status(watched, polling_interval)
 
     @db_retry()
     def list_workflows(
@@ -5043,9 +5485,11 @@ class SystemDatabase(ABC):
                     started_at_epoch_ms=None,
                     updated_at=cancelled_at,
                     completed_at=cancelled_at,
+                    **self._archive_values(),
                 )
-                .returning(ws.c.workflow_uuid)
+                .returning(*(self._waiter_returning() or [ws.c.workflow_uuid]))
             ).fetchall()
+            self._wake_result_waiters_txn(c, list(rows))
         return [row[0] for row in rows]
 
     def dequeue_scopes(self, queue_name: str) -> List[Optional[str]]:
@@ -6478,11 +6922,19 @@ class SystemDatabase(ABC):
         if not workflow_ids:
             return []
         with self.engine.begin() as c:
-            child_rows = c.execute(
-                sa.select(self.tables.workflow_status.c.workflow_uuid).where(
-                    self.tables.workflow_status.c.parent_workflow_id.in_(workflow_ids)
-                )
-            ).fetchall()
+            return self._direct_children_txn(c, workflow_ids)
+
+    def _direct_children_txn(
+        self, c: sa.Connection, workflow_ids: list[str]
+    ) -> list[str]:
+        """_get_direct_children on the caller's connection, joining its transaction."""
+        if not workflow_ids:
+            return []
+        child_rows = c.execute(
+            sa.select(self.tables.workflow_status.c.workflow_uuid).where(
+                self.tables.workflow_status.c.parent_workflow_id.in_(workflow_ids)
+            )
+        ).fetchall()
         return [row[0] for row in child_rows]
 
     @db_retry()

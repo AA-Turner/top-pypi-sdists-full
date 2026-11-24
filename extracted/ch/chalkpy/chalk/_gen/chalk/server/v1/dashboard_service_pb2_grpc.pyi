@@ -26,6 +26,8 @@ from chalk._gen.chalk.server.v1.dashboard_service_pb2 import (
     ResetContextualDashboardResponse,
     UpdateDashboardRequest,
     UpdateDashboardResponse,
+    UpdateDashboardSharingRequest,
+    UpdateDashboardSharingResponse,
     UpsertContextualDashboardRequest,
     UpsertContextualDashboardResponse,
 )
@@ -54,6 +56,11 @@ class DashboardServiceStub:
         UpdateDashboardRequest,
         UpdateDashboardResponse,
     ]
+    UpdateDashboardSharing: UnaryUnaryMultiCallable[
+        UpdateDashboardSharingRequest,
+        UpdateDashboardSharingResponse,
+    ]
+    """Owner-only, enforced in the handler; the annotation is just the coarse gate."""
     DeleteDashboard: UnaryUnaryMultiCallable[
         DeleteDashboardRequest,
         DeleteDashboardResponse,
@@ -104,6 +111,13 @@ class DashboardServiceServicer(metaclass=ABCMeta):
         request: UpdateDashboardRequest,
         context: ServicerContext,
     ) -> UpdateDashboardResponse: ...
+    @abstractmethod
+    def UpdateDashboardSharing(
+        self,
+        request: UpdateDashboardSharingRequest,
+        context: ServicerContext,
+    ) -> UpdateDashboardSharingResponse:
+        """Owner-only, enforced in the handler; the annotation is just the coarse gate."""
     @abstractmethod
     def DeleteDashboard(
         self,

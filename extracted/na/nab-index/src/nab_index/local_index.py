@@ -33,7 +33,6 @@ __lazy_modules__ = (
 
 import errno
 import os
-import re
 import stat
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
@@ -44,6 +43,7 @@ from packaging.utils import canonicalize_name as _canonical
 from nab_provider.errors import IndexAccessError, UnsupportedWheelError
 from nab_provider.value import replace
 
+from ._listing import ListingDiagnostics, ListingReports, ListingResult
 from ._pep503 import hash_fragment, metadata_declaration, read_page
 from .client import (
     SdistFile,
@@ -176,30 +176,10 @@ def _is_dir(path: Path) -> bool:
     return mode is not None and stat.S_ISDIR(mode)
 
 
-_FLAT_EXTS = re.compile(r"\.(whl|tar\.gz|zip)$", re.IGNORECASE)
-
-
-class _ScanResult(NamedTuple):
-    """One local-index scan and its dropped-file evidence.
-
-    ``unreadable`` marks unsupported formats; ``unreachable`` marks a
-    wheel or tar sdist behind an unusable URL. ``all_yanked`` marks a
-    page whose file links are all yanked; ``named_files`` records an
-    unyanked release name. ``zip_sdists`` records zip-sdist versions.
-    """
-
-    files: list[WheelFile | SdistFile]
-    unreadable: bool
-    unreachable: bool
-    all_yanked: bool
-    named_files: bool
-    zip_sdists: frozenset[str]
-
-
 def _scan_pep503_directory(
     package_dir: Path,
     canonical: str,
-) -> _ScanResult:
+) -> ListingResult:
     """Parse ``<package>/index.html`` and return file records.
 
     ``package_dir`` has to be absolute, because the page's URI is the base
@@ -207,14 +187,7 @@ def _scan_pep503_directory(
     """
     index_html = package_dir / "index.html"
     if not _is_file(index_html):
-        return _ScanResult(
-            [],
-            unreadable=False,
-            unreachable=False,
-            all_yanked=False,
-            named_files=False,
-            zip_sdists=frozenset(),
-        )
+        return ListingResult([])
 
     try:
         text = index_html.read_text(encoding="utf-8")
@@ -222,8 +195,9 @@ def _scan_pep503_directory(
         msg = f"{index_html} is not valid UTF-8: {exc}"
         raise MalformedLocalListingError(msg) from exc
 
-    anchors, base_href = read_page(text)
-    base_url = _page_base_url(index_html, base_href)
+    page_url = index_html.as_uri()
+    anchors, base_href = read_page(text, page_url)
+    base_url = _page_base_url(page_url, base_href)
     bases = _merging_bases(base_url, anchors)
 
     files: list[WheelFile | SdistFile] = []
@@ -231,6 +205,7 @@ def _scan_pep503_directory(
     unreachable = False
     yanked = 0
     nameless = 0
+    has_remote_files = False
     zip_sdists: set[str] = set()
 
     for anchor in anchors:
@@ -264,21 +239,27 @@ def _scan_pep503_directory(
             link.hashes,
             canonical,
             has_metadata=metadata_declaration(anchor.metadata) is not None,
+            upload_time=anchor.upload_time,
         )
         if record is not None:
             files = _append_record(files, record, yanked=anchor.yanked)
+            has_remote_files = has_remote_files or record.local_path is None
+
+    # The filesystem client can read local files when other selection criteria tie.
+    if has_remote_files:
+        files.sort(key=lambda file: file.local_path is None)
 
     # A navigation link is not a release, so both counts below read the
     # anchors that name one.
     named = len(anchors) - yanked - nameless
-    return _ScanResult(
-        files,
-        unreadable=unreadable,
-        unreachable=unreachable,
+    diagnostics = ListingDiagnostics(
+        unreadable_only=not files and unreadable,
+        unreachable_only=not files and unreachable,
         all_yanked=yanked > 0 and named == 0,
-        named_files=named > 0,
+        no_usable_file=not files and named > 0,
         zip_sdists=frozenset(zip_sdists),
     )
+    return ListingResult(files, diagnostics)
 
 
 def _append_record(
@@ -297,7 +278,7 @@ def _append_record(
     return files
 
 
-def _page_base_url(index_html: Path, base_href: str | None) -> str:
+def _page_base_url(page_url: str, base_href: str | None) -> str:
     """Return the URI a page's relative anchors resolve against.
 
     RFC 3986 section 5.1.3: the base is the URI the page was read from, not
@@ -306,14 +287,13 @@ def _page_base_url(index_html: Path, base_href: str | None) -> str:
     loudly rather than falling back to the page URL, which would resolve each
     link to a different file than the page names.
     """
-    page_url = index_html.as_uri()
     if base_href is None:
         return page_url
 
     try:
         return urljoin(page_url, base_href)
     except ValueError as exc:
-        msg = f"{index_html} has an unparseable <base href>: {exc}"
+        msg = f"{page_url} has an unparseable <base href>: {exc}"
         raise MalformedLocalListingError(msg) from exc
 
 
@@ -522,33 +502,42 @@ def _merging_bases(base_url: str, anchors: list[Anchor]) -> list[str] | None:
     return None
 
 
+def _wheelhouse_project(filename: str) -> str | None:
+    """Read the project name from a wheel or sdist filename."""
+    # Wheels escape dashes in project names. Sdist names can contain them.
+    if filename.endswith(".whl"):
+        return _canonical(filename.partition("-")[0])
+    if filename.endswith((".tar.gz", ".zip")):
+        return _canonical(filename.rpartition("-")[0])
+    return None
+
+
 def _scan_flat_wheelhouse(
     root: Path,
-    package: str,
-) -> _ScanResult:
-    """Find all dists for ``package`` in a flat directory of files.
+    canonical: str,
+) -> ListingResult:
+    """Find files for one canonical project name in a flat wheelhouse.
 
     Entries are sorted because the listing order breaks ties between dists at
     one version, and ``iterdir`` order comes from the filesystem.
 
-    One directory serves every package, so a file that does not name
-    ``package`` says nothing about it. A flat directory has no yank marks
-    and no page that named ``package``'s files.
+    A flat directory has no yank marks or package listing page.
     """
-    canonical = _canonical(package)
     files: list[WheelFile | SdistFile] = []
     zip_sdists: set[str] = set()
 
-    for entry in sorted(root.iterdir()):
+    matches = (
+        entry
+        for entry in root.iterdir()
+        if _wheelhouse_project(entry.name) == canonical
+    )
+    for entry in sorted(matches):
         if not _is_file(entry):
             continue
-        if (version := zip_sdist_version(entry.name, canonical)) is not None:
-            zip_sdists.add(version)
-        if _FLAT_EXTS.search(entry.name) is None:
-            continue
 
+        filename = entry.name
         record = _make_record(
-            entry.name,
+            filename,
             entry.as_uri(),
             entry,
             None,
@@ -557,6 +546,8 @@ def _scan_flat_wheelhouse(
             has_metadata=False,
         )
         if record is not None:
+            if filename.endswith(".zip"):
+                zip_sdists.add(record.version)
             requires_python = (
                 _read_wheel_requires_python(entry, canonical)
                 if isinstance(record, WheelFile)
@@ -564,14 +555,7 @@ def _scan_flat_wheelhouse(
             )
             files.append(replace(record, requires_python=requires_python))
 
-    return _ScanResult(
-        files,
-        unreadable=False,
-        unreachable=False,
-        all_yanked=False,
-        named_files=False,
-        zip_sdists=frozenset(zip_sdists),
-    )
+    return ListingResult(files, ListingDiagnostics(zip_sdists=frozenset(zip_sdists)))
 
 
 def _read_sdist_requires_python(sdist_path: Path) -> str | None:
@@ -629,6 +613,7 @@ def _make_record(
     expected: str,
     *,
     has_metadata: bool,
+    upload_time: str | None = None,
 ) -> WheelFile | SdistFile | None:
     """Build a file record, or ``None`` for unusable filenames.
 
@@ -647,7 +632,7 @@ def _make_record(
             version=version,
             requires_python=requires_python,
             has_metadata=has_metadata,
-            upload_time=None,
+            upload_time=upload_time,
             hashes=hashes,
             local_path=local_path,
         )
@@ -661,7 +646,7 @@ def _make_record(
             url=file_url,
             version=version,
             requires_python=requires_python,
-            upload_time=None,
+            upload_time=upload_time,
             hashes=hashes,
             local_path=local_path,
         )
@@ -756,7 +741,7 @@ def _dist_info_name(info_dir: str) -> str:
     return _canonical(stem.rsplit("-", 1)[0])
 
 
-class LocalIndexClient:
+class LocalIndexClient(ListingReports):
     """File-system-backed index client.
 
     Speaks the same surface as :class:`CachedAsyncSimpleClient` so the
@@ -773,13 +758,9 @@ class LocalIndexClient:
         Dropping the dot segments must not follow symlinks, so a page keeps the
         path it was reached by.
         """
+        super().__init__()
         root = parse_file_url(index_url)
         self._root = Path(os.path.abspath(root))  # noqa: PTH100
-        self._unreadable_only: set[str] = set()
-        self._unreachable_only: set[str] = set()
-        self._no_usable_file: set[str] = set()
-        self._all_yanked: set[str] = set()
-        self._zip_sdists: dict[str, frozenset[str]] = {}
 
     async def aclose(self) -> None:
         """No-op; nothing to release."""
@@ -806,50 +787,14 @@ class LocalIndexClient:
             if _is_file(package_dir / "index.html"):
                 scan = _scan_pep503_directory(package_dir, canonical)
             elif not _is_dir(self._root):
-                scan = _ScanResult(
-                    [],
-                    unreadable=False,
-                    unreachable=False,
-                    all_yanked=False,
-                    named_files=False,
-                    zip_sdists=frozenset(),
-                )
+                scan = ListingResult([])
             else:
-                scan = _scan_flat_wheelhouse(self._root, package)
+                scan = _scan_flat_wheelhouse(self._root, canonical)
         except OSError as exc:
             msg = f"cannot read local index {self._root}: {exc}"
             raise UnreadableLocalIndexError(msg) from exc
 
-        if not scan.files and scan.unreadable:
-            self._unreadable_only.add(package)
-        if not scan.files and scan.unreachable:
-            self._unreachable_only.add(package)
-        if scan.all_yanked:
-            self._all_yanked.add(package)
-        if not scan.files and scan.named_files:
-            self._no_usable_file.add(package)
-        self._zip_sdists[package] = scan.zip_sdists
-        return scan.files
-
-    def served_unreadable_only(self, package: str) -> bool:
-        """Whether a listing for ``package`` held only files nab cannot read."""
-        return package in self._unreadable_only
-
-    def served_unreachable_only(self, package: str) -> bool:
-        """Whether a listing for ``package`` held only links nab cannot reach."""
-        return package in self._unreachable_only
-
-    def served_no_usable_file(self, package: str) -> bool:
-        """Whether a listing for ``package`` named files and nab kept none."""
-        return package in self._no_usable_file
-
-    def served_all_yanked(self, package: str) -> bool:
-        """Whether a listing for ``package`` held file links and yanked every one."""
-        return package in self._all_yanked
-
-    def served_zip_sdists(self, package: str) -> frozenset[str]:
-        """Versions ``package`` was served as a ``.zip`` sdist."""
-        return self._zip_sdists.get(package, frozenset())
+        return self._publish_listing(canonical, scan)
 
     async def get_metadata_text(
         self,

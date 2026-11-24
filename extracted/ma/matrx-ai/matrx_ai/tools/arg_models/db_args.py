@@ -140,6 +140,24 @@ class SqlUpsertWire(ToolArgs):
         return _coerce_rows_field(v, field="data")
 
 
+class SqlPatchWire(ToolArgs):
+    """str_replace on one text column of exactly one row (super_admin only)."""
+
+    action: Literal["patch"]
+    table: str
+    match: dict[str, Any]
+    column: str = "body"
+    old_str: str = Field(min_length=1)
+    new_str: str
+    replace_all: bool = False
+    returning: Returning = "minimal"
+
+    @field_validator("match", mode="before")
+    @classmethod
+    def _coerce_match(cls, v: Any) -> Any:
+        return _coerce_object_field(v, field="match", purpose="column=value WHERE filters")
+
+
 class SqlSchemaWire(ToolArgs):
     action: Literal["schema"]
     table: str = ""
@@ -153,6 +171,7 @@ class SqlArgs(
             | SqlUpdateWire
             | SqlDeleteWire
             | SqlUpsertWire
+            | SqlPatchWire
             | SqlSchemaWire,
             Field(discriminator="action"),
         ]

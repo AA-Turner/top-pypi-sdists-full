@@ -168,6 +168,12 @@ def _convert_thinking_level(data: dict[str, Any]) -> None:
         data["reasoning_effort"] = effort
 
 
+#: Keys a client page loaded before a rename may still send. Dropped before validation (logged), so an
+#: old page's turn runs instead of failing with a 422. ``understanding_mode`` became ``agent_mode``
+#: (Understanding v2, 2026-11-19); delete the entry once every client sends ``agent_mode``.
+_RETIRED_KEYS: frozenset[str] = frozenset({"understanding_mode"})
+
+
 class LLMParams(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -183,6 +189,12 @@ class LLMParams(BaseModel):
     def _remap_aliases(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
+        retired = _RETIRED_KEYS & data.keys()
+        if retired:
+            import logging
+
+            logging.getLogger(__name__).info("[LLMParams] dropped retired key(s) %s", sorted(retired))
+            data = {k: v for k, v in data.items() if k not in retired}
         for old_name, new_name in _FIELD_ALIASES.items():
             if old_name not in data:
                 continue
@@ -216,6 +228,11 @@ class LLMParams(BaseModel):
     # (``send_boundary._apply_conversation_instructions``). Stored with the conversation; an
     # explicit null clears it. Never rides ``user_input``.
     conversation_instructions: str | None = None
+
+    # THIS CONVERSATION'S MODE: a ``key`` of one of the agent's modes (``config/agent_modes.py``).
+    # Stored with the conversation like ``conversation_instructions``; the send boundary names it in
+    # the ``agent_modes`` block on every model call. Absent, null or unknown = the agent's first mode.
+    agent_mode: str | None = None
 
     max_output_tokens: int | None = None
 

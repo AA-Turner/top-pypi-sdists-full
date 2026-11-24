@@ -149,3 +149,36 @@ def test_enforcement_does_not_mutate_input() -> None:
     schema = {"type": "object", "properties": {"a": {"type": "string"}}}
     enforce_additional_properties_false(schema)
     assert "additionalProperties" not in schema  # original untouched
+
+
+def test_each_provider_names_the_keywords_it_does_not_enforce() -> None:
+    """minLength / pattern / format reach no strict decoder: OpenAI and Anthropic
+    are told by name; Gemini honors them, so it says nothing about them. A
+    PROPERTY named like a keyword is a name, never a keyword use."""
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["code", "pattern"],
+        "properties": {
+            "code": {"type": "string", "minLength": 3, "pattern": "^[A-Z]+$"},
+            "pattern": {"type": "string", "x-kind": "label"},
+        },
+    }
+    r = lint_output_schema(schema)
+    assert r.ok is True
+    by_provider = {f.provider: f.message for f in r.warnings if "does not enforce" in f.message}
+    assert "minLength" in by_provider["openai"] and "pattern" in by_provider["openai"]
+    assert "minLength" in by_provider["anthropic"]
+    # Gemini accepts the bounds verbatim; only the x- extension is removed for it.
+    assert "minLength" not in by_provider["google"] and "x-kind" in by_provider["google"]
+    assert "x-kind" in by_provider["openai"]
+
+
+def test_a_clean_portable_schema_names_no_ignored_keywords() -> None:
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["a"],
+        "properties": {"a": {"type": "string", "enum": ["x", "y"], "description": "pick"}},
+    }
+    assert not [f for f in lint_output_schema(schema).findings if "does not enforce" in f.message]

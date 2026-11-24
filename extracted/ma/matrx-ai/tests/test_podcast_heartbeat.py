@@ -136,15 +136,31 @@ async def test_cancellation_is_silent() -> None:
 
 
 @pytest.mark.parametrize("interval", [0.005, 0.02])
-async def test_the_cadence_follows_the_configured_interval(interval: float) -> None:
+async def test_the_cadence_follows_the_configured_interval(interval: float, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every wait the loop takes is exactly the configured interval, and every wait ends in a pulse.
+
+    Measured on the loop's own clock (the delays it asks for), not on wall time: a 5 ms
+    wall-clock window counted pulses that a loaded test machine never scheduled, so the
+    old form went red under a full-suite run while the loop was correct.
+    """
+    import types
+
+    import matrx_ai.agent_runners.podcast_generator as pg
+
     ckpt = _Ckpt()
     running = {"create_audio": (0.0, "Recording")}
-    window = 0.12
+    asked: list[float] = []
+    real_sleep = asyncio.sleep
+    waits = 6
 
-    await _run_for(lambda: run_heartbeat_loop(ckpt, running, interval=interval), window)
+    async def _clocked_sleep(delay: float) -> None:
+        asked.append(delay)
+        if len(asked) > waits:
+            raise asyncio.CancelledError
+        await real_sleep(0)
 
-    expected = window / interval
-    assert ckpt.touches >= expected * 0.4, (
-        f"{ckpt.touches} pulses in {window}s at interval={interval} is far below "
-        f"the ~{expected:.0f} the cadence promises"
-    )
+    monkeypatch.setattr(pg, "asyncio", types.SimpleNamespace(sleep=_clocked_sleep, CancelledError=asyncio.CancelledError))
+    await run_heartbeat_loop(ckpt, running, interval=interval)
+
+    assert asked == [interval] * (waits + 1), f"the loop waited {asked}, not the configured {interval}s each time"
+    assert ckpt.touches == waits, f"{ckpt.touches} pulses after {waits} completed waits"

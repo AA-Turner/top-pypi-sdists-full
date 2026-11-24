@@ -10,11 +10,6 @@
 #include "ZXTestSupport.h"
 #include "ZXAlgorithms.h"
 
-#include <iomanip>
-#include <cstdint>
-#include <sstream>
-#include <string_view>
-
 using utf8_t = std::u8string_view;
 
 namespace ZXing {
@@ -92,7 +87,7 @@ static size_t Utf8CountCodePoints(utf8_t utf8)
 	return count;
 }
 
-static void AppendFromUtf8(utf8_t utf8, std::wstring& buffer)
+static void AppendFromUtf8(std::wstring& buffer, utf8_t utf8)
 {
 	buffer.reserve(buffer.size() + Utf8CountCodePoints(utf8));
 
@@ -127,14 +122,14 @@ bool IsValidUtf8(ByteView bytes)
 std::wstring FromUtf8(std::string_view utf8)
 {
 	std::wstring str;
-	AppendFromUtf8({reinterpret_cast<const char8_t*>(utf8.data()), utf8.size()}, str);
+	AppendFromUtf8(str, {reinterpret_cast<const char8_t*>(utf8.data()), utf8.size()});
 	return str;
 }
 
 std::wstring FromUtf8(std::u8string_view utf8)
 {
 	std::wstring str;
-	AppendFromUtf8(utf8, str);
+	AppendFromUtf8(str, utf8);
 	return str;
 }
 
@@ -147,53 +142,45 @@ static size_t Utf8CountBytes(std::wstring_view str)
 			result += 1;
 		else if (str.front() < 0x800)
 			result += 2;
-		else if (sizeof(wchar_t) == 4) {
-			if (str.front() < 0x10000)
-				result += 3;
-			else
-				result += 4;
-		} else {
-			if (IsUtf16SurrogatePair(str)) {
-				result += 4;
-				str.remove_prefix(1);
-			} else
-				result += 3;
-		}
+#if WCHAR_MAX > 0xFFFF
+		else if (str.front() < 0x10000)
+			result += 3;
+		else
+			result += 4;
+#else
+		else if (IsUtf16SurrogatePair(str)) {
+			result += 4;
+			str.remove_prefix(1);
+		} else
+			result += 3;
+#endif
 	}
 	return result;
 }
 
-ZXING_EXPORT_TEST_ONLY
-int Utf32ToUtf8(char32_t utf32, char* out)
+void AppendToUtf8(std::string& utf8, char32_t utf32)
 {
-	if (utf32 < 0x80) {
-		*out++ = narrow_cast<char8_t>(utf32);
-		return 1;
+	if (utf32 <= 0x7F) {
+		utf8.push_back(narrow_cast<char>(utf32));
+	} else if (utf32 <= 0x7FF) {
+		utf8.push_back(narrow_cast<char>(0xC0 | (utf32 >> 6)));
+		utf8.push_back(narrow_cast<char>(0x80 | (utf32 & 0x3F)));
+	} else if (utf32 <= 0xFFFF) {
+		utf8.push_back(narrow_cast<char>(0xE0 | (utf32 >> 12)));
+		utf8.push_back(narrow_cast<char>(0x80 | ((utf32 >> 6) & 0x3F)));
+		utf8.push_back(narrow_cast<char>(0x80 | (utf32 & 0x3F)));
+	} else {
+		utf8.push_back(narrow_cast<char>(0xF0 | (utf32 >> 18)));
+		utf8.push_back(narrow_cast<char>(0x80 | ((utf32 >> 12) & 0x3F)));
+		utf8.push_back(narrow_cast<char>(0x80 | ((utf32 >> 6) & 0x3F)));
+		utf8.push_back(narrow_cast<char>(0x80 | (utf32 & 0x3F)));
 	}
-	if (utf32 < 0x800) {
-		*out++ = narrow_cast<char8_t>((utf32 >> 6) | 0xc0);
-		*out++ = narrow_cast<char8_t>((utf32 & 0x3f) | 0x80);
-		return 2;
-	}
-	if (utf32 < 0x10000) {
-		*out++ = narrow_cast<char8_t>((utf32 >> 12) | 0xe0);
-		*out++ = narrow_cast<char8_t>(((utf32 >> 6) & 0x3f) | 0x80);
-		*out++ = narrow_cast<char8_t>((utf32 & 0x3f) | 0x80);
-		return 3;
-	}
-
-	*out++ = narrow_cast<char8_t>((utf32 >> 18) | 0xf0);
-	*out++ = narrow_cast<char8_t>(((utf32 >> 12) & 0x3f) | 0x80);
-	*out++ = narrow_cast<char8_t>(((utf32 >> 6) & 0x3f) | 0x80);
-	*out++ = narrow_cast<char8_t>((utf32 & 0x3f) | 0x80);
-	return 4;
 }
 
-static void AppendToUtf8(std::wstring_view str, std::string& utf8)
+static void AppendToUtf8(std::string& utf8, std::wstring_view str)
 {
 	utf8.reserve(utf8.size() + Utf8CountBytes(str));
 
-	char buffer[4];
 	for (; str.size(); str.remove_prefix(1))
 	{
 		uint32_t cp;
@@ -203,28 +190,28 @@ static void AppendToUtf8(std::wstring_view str, std::string& utf8)
 		} else
 			cp = str.front();
 
-		auto bufLength = Utf32ToUtf8(cp, buffer);
-		utf8.append(buffer, bufLength);
+		AppendToUtf8(utf8, cp);
 	}
 }
 
 std::string ToUtf8(std::wstring_view str)
 {
 	std::string utf8;
-	AppendToUtf8(str, utf8);
+	AppendToUtf8(utf8, str);
 	return utf8;
 }
 
-static bool iswgraph(wchar_t wc)
+static bool iswgraph(uint32_t wc)
 {
 	/* Consider all legal codepoints as graphical except for:
 	 * - whitespace
 	 * - C0 and C1 control characters
 	 * - U+2028 and U+2029 (line/para break)
 	 * - U+FFF9 through U+FFFB (interlinear annotation controls)
-	 * The following code is based on libmusls implementation */
+	 * The following code is based on libmusls implementation.
+	 * Note: wc was originally of type wint_t, which is unsigned and the code below depends on that. */
 
-	if (wc == ' ' || (unsigned)wc - '\t' < 5)
+	if (wc == ' ' || wc - '\t' < 5)
 		return false;
 	if (wc < 0xff)
 		return ((wc + 1) & 0x7f) >= 0x21;
@@ -235,37 +222,58 @@ static bool iswgraph(wchar_t wc)
 	return true;
 }
 
+// Appends "<U+XXXX>", val in uppercase hex zero-padded to len digits. This is std::format("<U+{:0{}X}>")
+// spelled out by hand: on Android, instantiating std::format at all links the libc++ locale facets and
+// costs ~395 KB, which is most of what dropping the ostringstreams here bought (see #1151).
+static void AppendUnicodeEscape(std::wstring& out, uint32_t val, int len)
+{
+	wchar_t buf[8]; // enough for any uint32_t
+	int n = 0;
+	do {
+		buf[n++] = L"0123456789ABCDEF"[val & 0xf];
+		val >>= 4;
+	} while (val);
+	for (; n < len; ++n) // like std::format's width, a value needing more digits than len is not truncated
+		buf[n] = L'0';
+
+	out += L"<U+";
+	while (n--)
+		out += buf[n];
+	out += L'>';
+}
+
 std::wstring EscapeNonGraphical(std::wstring_view str)
 {
-	static const char* const ascii_nongraphs[33] = {
-		"NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",
-		"BS",  "HT",  "LF",  "VT",  "FF",  "CR",  "SO",  "SI",
-		"DLE", "DC1", "DC2", "DC3", "DC4", "NAK", "SYN", "ETB",
-		"CAN",  "EM", "SUB", "ESC",  "FS",  "GS",  "RS",  "US",
-		"DEL",
+	static const wchar_t* const ascii_nongraphs[33] = {
+		L"NUL", L"SOH", L"STX", L"ETX", L"EOT", L"ENQ", L"ACK", L"BEL",
+		L"BS",  L"HT",  L"LF",  L"VT",  L"FF",  L"CR",  L"SO",  L"SI",
+		L"DLE", L"DC1", L"DC2", L"DC3", L"DC4", L"NAK", L"SYN", L"ETB",
+		L"CAN",  L"EM", L"SUB", L"ESC",  L"FS",  L"GS",  L"RS",  L"US",
+		L"DEL",
 	};
 
-	std::wostringstream ws;
-	ws.fill(L'0');
+	std::wstring ws;
 
 	for (; str.size(); str.remove_prefix(1)) {
 		wchar_t wc = str.front();
-		if (wc < 32 || wc == 127) // Non-graphical ASCII, excluding space
-			ws << "<" << ascii_nongraphs[wc == 127 ? 32 : wc] << ">";
-		else if (wc < 128) // ASCII
-			ws << wc;
+		if (wc < 32 || wc == 127) { // Non-graphical ASCII, excluding space
+			ws += L'<';
+			ws += ascii_nongraphs[wc == 127 ? 32 : wc];
+			ws += L'>';
+		} else if (wc < 128) // ASCII
+			ws += wc;
 		else if (IsUtf16SurrogatePair(str)) {
-			ws.write(str.data(), 2);
+			ws.append(str.data(), 2);
 			str.remove_prefix(1);
 		}
 		// Exclude unpaired surrogates and NO-BREAK spaces NBSP and NUMSP
 		else if ((wc < 0xd800 || wc >= 0xe000) && (iswgraph(wc) && wc != 0xA0 && wc != 0x2007 && wc != 0x2000 && wc != 0xfffd))
-			ws << wc;
+			ws += wc;
 		else // Non-graphical Unicode
-			ws << "<U+" << std::setw(wc < 256 ? 2 : 4) << std::uppercase << std::hex << static_cast<uint32_t>(wc) << ">";
+			AppendUnicodeEscape(ws, static_cast<uint32_t>(wc), wc < 256 ? 2 : 4);
 	}
 
-	return ws.str();
+	return ws;
 }
 
 std::string EscapeNonGraphical(std::string_view utf8)

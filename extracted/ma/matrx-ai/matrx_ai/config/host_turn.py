@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from matrx_ai.config.message_config import UnifiedMessage, host_authored_user_turn
 
@@ -33,11 +33,11 @@ class HostTurn(BaseModel):
 
     text: str = Field(min_length=1, description="The activation line the model reads.")
     reason: str = Field(min_length=1, max_length=80, description="Which host feature wrote it.")
-    metadata: dict[str, Any] = Field(  # api-any-ok: stamped verbatim onto the stored message
+    metadata: dict[str, JsonValue] = Field(  # stamped verbatim onto the stored message
         default_factory=dict,
         description="Extra stamps for the stored message (e.g. revision_key).",
     )
-    attachments: list[dict[str, Any]] = Field(  # api-any-ok: content blocks in the user_input item shape
+    attachments: list[dict[str, JsonValue]] = Field(  # content blocks in the user_input item shape
         default_factory=list,
         description=(
             "The PERSON's own attachments (files, images, audio) this turn carries before its text, as "
@@ -48,7 +48,7 @@ class HostTurn(BaseModel):
 
     @field_validator("attachments")
     @classmethod
-    def _attachments_are_not_words(cls, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _attachments_are_not_words(cls, value: list[dict[str, JsonValue]]) -> list[dict[str, JsonValue]]:
         words = [b.get("type") for b in value if b.get("type") in _TEXT_BLOCK_TYPES]
         if words:
             raise ValueError(
@@ -63,6 +63,9 @@ class HostTurn(BaseModel):
         in ``user_content`` as hers."""
         message = host_authored_user_turn(self.text, reason=self.reason)
         message.metadata.update(self.metadata)
+        # A server message never shows in the chat (Arman, 2026-11-01), whatever a caller stamps; the one exception is
+        # a question put to the PERSON on their behalf (``visible_to_person``, the Debrief fork), which is for them.
+        message.metadata["is_visible_to_user"] = self.metadata.get("visible_to_person") is True
         if self.attachments:
             # Files FIRST, then the host's line: the order a person's files and words reach the
             # provider (Anthropic wire, wave 19 live A/B), so a converted ``user_input`` sends the same turn.

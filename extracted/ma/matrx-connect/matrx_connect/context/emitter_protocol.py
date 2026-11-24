@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Protocol, runtime_checkable
 
 from matrx_connect.context.data_types import DataPayload
+from matrx_connect.context.graph_ops import GraphOpEvent
 from matrx_connect.context.events import (
     CitationPayload,
     ContextAnalysisPayload,
@@ -72,6 +73,8 @@ class Emitter(Protocol):
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> None: ...
+
+    async def send_graph_op(self, payload: GraphOpEvent) -> None: ...
 
     async def send_structured_output(self, payload: StructuredOutputPayload) -> None: ...
 

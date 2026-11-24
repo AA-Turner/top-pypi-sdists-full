@@ -10,8 +10,6 @@ from __future__ import annotations
 __lazy_modules__ = (
     "functools",
     "nab_provider._provider.metadata_resolver",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.version",
     "nab_provider.errors",
     "nab_provider.iso8601",
     "nab_provider.metadata",
@@ -19,29 +17,32 @@ __lazy_modules__ = (
     "nab_provider.records",
     "nab_provider.tags",
     "nab_provider.vcs_admission",
+    "packaging.specifiers",
+    "packaging.version",
 )
 
 from functools import partial
 from typing import TYPE_CHECKING, Final, TypeGuard
 
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.version import InvalidVersion, Version
-from nab_provider.records import SdistFile, WheelFile, release_wheel_payload
+from packaging.specifiers import SpecifierSet
+from packaging.version import InvalidVersion, Version
 
 from ..errors import (
     ForeignMetadataError,
     IncompatiblePythonError,
+    IndexAccessError,
     InvalidUploadTimeError,
 )
 from ..iso8601 import fast_iso_parser, parse_iso_datetime
 from ..metadata import intern_version as _intern_version
 from ..policy import DistPolicy, MetadataPolicy
+from ..records import SdistFile, WheelFile, release_wheel_payload
 from ..tags import TagSet
 from ..value import HashableRecord
 from ..vcs_admission import UnsupportedVcsError
 from .metadata_resolver import (
-    assumed_wheel_metadata,
     pick_dist_for_metadata,
+    shared_wheel,
     version_dists,
 )
 
@@ -50,12 +51,13 @@ if TYPE_CHECKING:
     from datetime import datetime
     from typing import Literal, TypeAlias
 
-    from nab_provider._vendor.packaging.ranges import VersionRange
+    from packaging.ranges import VersionRange
+
     from nab_resolver.types import RangeProtocol
 
     from ..fetch_port import Waitable
     from ..policy import ArchiveSource, LocalSource, VcsSource
-    from ..provider import DistFile, Provider, ProviderStats
+    from ..provider import DistFile, ListingFilterCache, Provider, ProviderStats
     from ..target import ResolveTarget
 
     _PreparedListing = tuple[
@@ -77,11 +79,12 @@ if TYPE_CHECKING:
         "requires-python",
         "wheel-tags",
         "invalid-version",
+        "yanked",
     ]
 
     # A prepared listing plus the cutoff verdicts taken over it, keyed by
     # position in the listing, or ``None`` when no cutoff is configured.
-    _SharedListing = tuple[
+    SharedListing = tuple[
         list[tuple[Version, DistFile]],
         set[Version],
         bool,
@@ -100,8 +103,8 @@ class DropCause:
 
     :data:`REPORT_ORDER` is the order the clauses print in, which is not
     the order the filter applies.  A file is refused at the first rung that
-    objects, and the rungs run in this order: ``INVALID_VERSION``,
-    ``DIST_POLICY``, ``REQUIRES_PYTHON``, the four ``UPLOAD_TIME_*``, ``ZIP_SDIST``,
+    objects. The diagnostic checks ``INVALID_VERSION``, ``YANKED``, ``DIST_POLICY``,
+    ``REQUIRES_PYTHON``, the four ``UPLOAD_TIME_*``, ``ZIP_SDIST``,
     ``SDIST_REQUIRED_NO_SDIST``, ``WHEEL_TAGS``.
     """
 
@@ -115,6 +118,7 @@ class DropCause:
     REQUIRES_PYTHON: Final = "requires-python"
     WHEEL_TAGS: Final = "wheel-tags"
     INVALID_VERSION: Final = "invalid-version"
+    YANKED: Final = "yanked"
 
     REPORT_ORDER: Final = (
         UPLOAD_TIME_MISSING,
@@ -127,6 +131,7 @@ class DropCause:
         REQUIRES_PYTHON,
         WHEEL_TAGS,
         INVALID_VERSION,
+        YANKED,
     )
 
 
@@ -162,9 +167,12 @@ def fetch_versions(provider: Provider, package: str) -> list[tuple[Version, Dist
         if error is not None:
             raise error
         files = provider.coordinator.index.get_listing(normalized)
-    # A successful fetch stores at least an empty list; a failed fetch
-    # stores an error, re-raised above, so ``files`` is non-None here.
-    assert files is not None
+        if files is None:
+            msg = (
+                f"Listing request for {normalized!r} was marked complete before "
+                "the application stored the list of files or an error."
+            )
+            raise IndexAccessError(msg)
 
     # Routed through the method (not the module function) so a subclass
     # override still runs.
@@ -225,7 +233,7 @@ def speculative_prefetch(
     if root_range is not None and not (~root_range).is_empty:
         prefetch_root_batch(provider, normalized, versions, root_range)
     else:
-        prefetch_transitive_best(
+        _prefetch_transitive_best(
             provider, normalized, versions, version_range=version_range
         )
 
@@ -242,10 +250,12 @@ def _has_metadata_override_or_representative(
     provider: Provider, normalized: str, version: Version
 ) -> bool:
     """Whether a declared override or assumed wheel source can answer."""
-    return provider.effective_dependencies(normalized, version) is not None or (
-        provider.consistent_metadata_declared
-        and assumed_wheel_metadata(provider, normalized, version) is not None
-    )
+    if provider.effective_dependencies(normalized, version) is not None:
+        return True
+    if provider.consistent_metadata_contexts is None:
+        return False
+    source = shared_wheel(provider, normalized, version)
+    return source is not None and source.text is not None
 
 
 def prefetch_root_batch(
@@ -292,7 +302,7 @@ def prefetch_root_batch(
         provider.coordinator.request_metadata_batch(items)
 
 
-def metadata_prefetch_version(
+def _metadata_prefetch_version(
     provider: Provider,
     normalized: str,
     versions: list[tuple[Version, DistFile]],
@@ -324,7 +334,7 @@ def metadata_prefetch_version(
     return version
 
 
-def prefetch_transitive_best(
+def _prefetch_transitive_best(
     provider: Provider,
     normalized: str,
     versions: list[tuple[Version, DistFile]],
@@ -332,7 +342,7 @@ def prefetch_transitive_best(
     version_range: VersionRange | None = None,
 ) -> None:
     """Request one transitive guess without repeating cached or declined work."""
-    version = metadata_prefetch_version(
+    version = _metadata_prefetch_version(
         provider, normalized, versions, version_range=version_range
     )
     if version is None:
@@ -387,6 +397,7 @@ def filter_distributions(
     provider: Provider,
     normalized: str,
     files: Sequence[WheelFile | SdistFile],
+    cache: ListingFilterCache | None,
 ) -> list[tuple[Version, DistFile]]:
     """Return candidate listing records, newest version first.
 
@@ -397,25 +408,25 @@ def filter_distributions(
     Metadata policy can retain wheels as a metadata source for source-only
     installation. Those releases still require a surviving sdist.
     """
-    base = base_distributions(provider, normalized, files)
-    return _apply_wheel_tags(provider, normalized, base)
+    base = base_distributions(provider, normalized, files, cache)
+    return _apply_wheel_tags(provider, normalized, base, cache)
 
 
 def base_distributions(
     provider: Provider,
     normalized: str,
     files: Sequence[WheelFile | SdistFile],
+    cache: ListingFilterCache | None,
 ) -> list[tuple[Version, DistFile]]:
     """Return the pre-tag filter result, through the shared memo when there is one."""
-    cache = provider.listing_filter_cache
     if cache is None:
-        return _filter_base(provider, normalized, files)
+        return _filter_base(provider, normalized, files, cache)
 
     return cache.filtered(
         normalized,
         provider.python_version,
         provider.stats,
-        partial(_filter_base, provider, normalized, files),
+        partial(_filter_base, provider, normalized, files, cache),
     )
 
 
@@ -485,6 +496,7 @@ def _filter_base(
     provider: Provider,
     normalized: str,
     files: Sequence[WheelFile | SdistFile],
+    cache: ListingFilterCache | None,
 ) -> list[tuple[Version, DistFile]]:
     """Filter by policy, Python and upload time before matching wheel tags.
 
@@ -494,7 +506,6 @@ def _filter_base(
     """
     policy = listing_policy(provider, normalized)
 
-    cache = provider.listing_filter_cache
     if cache is None or not cache.shares_pythons:
         result, sdist_required_versions, sort_with_wheel_first = _prepare_listing(
             provider,
@@ -556,7 +567,7 @@ def _prepare_shared(
     normalized: str,
     files: Sequence[WheelFile | SdistFile],
     policy: ListingPolicy,
-) -> _SharedListing:
+) -> SharedListing:
     """Run the half of the pass a matrix shares, and start its cutoff table.
 
     A cutoff verdict reads the file's stamp and its effective cutoff, and
@@ -814,10 +825,9 @@ def _prepare_listing_defaults(
 
 
 def _prepared_tag_result(
-    provider: Provider, normalized: str, tags: TagSet
+    provider: Provider, normalized: str, tags: TagSet, cache: ListingFilterCache | None
 ) -> list[tuple[Version, DistFile]] | None:
     """Replay a shared projection only for unmodified native filter contracts."""
-    cache = provider.listing_filter_cache
     if (
         cache is not None
         and provider.prepare_candidate_views
@@ -860,6 +870,7 @@ def _apply_wheel_tags(
     provider: Provider,
     normalized: str,
     base: list[tuple[Version, DistFile]],
+    cache: ListingFilterCache | None,
 ) -> list[tuple[Version, DistFile]]:
     """Drop the wheels this target cannot install, and the versions they leave empty.
 
@@ -873,7 +884,7 @@ def _apply_wheel_tags(
     if tags is None:
         return base
 
-    prepared = _prepared_tag_result(provider, normalized, tags)
+    prepared = _prepared_tag_result(provider, normalized, tags, cache)
     if prepared is not None:
         return prepared
 
@@ -960,7 +971,7 @@ def python_or_time_cause(
     if cause is None:
         return None
     if cause == DropCause.UPLOAD_TIME_NAIVE:
-        raise InvalidUploadTimeError(naive_upload_time_message(normalized, dist))
+        raise InvalidUploadTimeError(_naive_upload_time_message(normalized, dist))
     provider.stats.excluded_by_time += 1
     return cause
 
@@ -1009,7 +1020,7 @@ def _python_or_shared_time_cause(
     if cause is None:
         return None
     if cause == DropCause.UPLOAD_TIME_NAIVE:
-        raise InvalidUploadTimeError(naive_upload_time_message(normalized, dist))
+        raise InvalidUploadTimeError(_naive_upload_time_message(normalized, dist))
     provider.stats.excluded_by_time += 1
     return cause
 
@@ -1225,7 +1236,7 @@ def upload_time_cause(dist: DistFile, cutoff: datetime | None) -> Cause | None:
     diagnosis can meet one without turning a report into an error.  The
     filter's caller raises on that answer.
     """
-    # A local file:// artifact has no upload time, so the cutoff cannot apply.
+    # Files on disk remain eligible regardless of any upload time in the listing.
     if cutoff is None or dist.local_path is not None:
         return None
 
@@ -1252,7 +1263,7 @@ def upload_time_cause(dist: DistFile, cutoff: datetime | None) -> Cause | None:
     return None
 
 
-def naive_upload_time_message(normalized: str, dist: DistFile) -> str:
+def _naive_upload_time_message(normalized: str, dist: DistFile) -> str:
     """Return the error text for a candidate whose upload time carries no zone."""
     return (
         f"{normalized} {dist.version} has a timezone-naive upload time "
@@ -1273,7 +1284,7 @@ def _excluded_by_upload_time(
     if cause is None:
         return False
     if cause == DropCause.UPLOAD_TIME_NAIVE:
-        raise InvalidUploadTimeError(naive_upload_time_message(normalized, dist))
+        raise InvalidUploadTimeError(_naive_upload_time_message(normalized, dist))
     provider.stats.excluded_by_time += 1
     return True
 
@@ -1456,6 +1467,7 @@ def parse_prefetched_metadata(
         ValueError,
         ForeignMetadataError,
         IncompatiblePythonError,
+        IndexAccessError,
         UnsupportedVcsError,
         NotImplementedError,
     ):

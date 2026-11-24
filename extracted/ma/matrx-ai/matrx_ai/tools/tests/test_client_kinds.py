@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from matrx_ai.tools.registry import ToolRegistry
 
-
 # The host-wired half — a native tool must not suspend on a client that cannot
 # execute it — needs aidream's generated declarations, which a package may not
 # import: it lives at aidream/tools/tests/test_server_declaration_routing.py.
@@ -132,3 +131,30 @@ class TestClientKindsForExecutor:
                 registry._bindings_by_tool.pop(name, None)
             else:
                 registry._bindings_by_tool[name] = saved_binding
+
+
+def test_a_client_declared_to_implement_a_server_tool_answers_it_when_live() -> None:
+    """``client_executors`` on a server declaration: the named client runs the tool when
+    it is the run's live surface AND bound; otherwise the server keeps it (CL1, 2026-11-18)."""
+    from matrx_ai.tools import declared as declared_mod
+
+    async def _impl(args, ctx):  # pragma: no cover - never dispatched here
+        return None
+
+    name = "cl1_dual_owned_probe"
+    registry = ToolRegistry.get_instance()
+    saved_binding = registry._bindings_by_tool.get(name)
+    declared_mod.tool(
+        name=name, source_kind="native", executor="aidream", client_executors=("chrome-extension",)
+    )(_impl)
+    registry._bindings_by_tool[name] = {"aidream", "chrome-extension", "matrx-user"}
+    try:
+        assert registry.resolve_executor_binding(name, {"chrome-extension"}) == "surface"
+        assert registry.resolve_executor_binding(name, {"matrx-user"}) == "server"
+        assert registry.resolve_executor_binding(name, set()) == "server"
+    finally:
+        declared_mod._REGISTRY.pop(name, None)
+        if saved_binding is None:
+            registry._bindings_by_tool.pop(name, None)
+        else:
+            registry._bindings_by_tool[name] = saved_binding

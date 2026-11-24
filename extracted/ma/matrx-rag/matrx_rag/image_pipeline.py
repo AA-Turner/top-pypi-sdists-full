@@ -125,6 +125,11 @@ class VisionAnalysisError(RuntimeError):
     an image indexed with no caption is unsearchable, and that must be said."""
 
 
+class VisionInputRefused(VisionAnalysisError):
+    """The provider refused this image (it could not read it, or stopped its answer on its own
+    content filter). A fact about the file, recorded on its ingestion result, not a platform failure."""
+
+
 async def _record_vision_failure(exc: BaseException, *, context: dict[str, Any]) -> None:
     logger.error("rag.image_pipeline: vision analysis FAILED — %s", exc)
     try:
@@ -197,6 +202,10 @@ async def analyze_image_unified(
             ),
         )
     except Exception as exc:  # noqa: BLE001 — every cause is one refusal, named
+        from matrx_rag._ext import LLMInputRefused
+
+        if isinstance(exc, LLMInputRefused):
+            raise VisionInputRefused(f"the provider refused this image: {exc}") from exc
         raise VisionAnalysisError(f"the caption call failed: {type(exc).__name__}: {exc}") from exc
 
     if not raw or not raw.strip():
@@ -338,12 +347,17 @@ async def ingest_image(
         )
         if not enrichment.get("alt_text"):
             raise VisionAnalysisError("the caption model returned no alt text")
+    except VisionInputRefused as exc:
+        # The provider refused THIS file: recorded on its result (the ingest ledger row the host
+        # writes from it) and logged, never filed as a platform failure.
+        failure = f"vision_refused: {exc}"
+        logger.warning("rag.image_pipeline: file %s refused by the vision provider — %s", cld_file_id, exc)
     except VisionAnalysisError as exc:
-        failure = str(exc)
+        failure = f"vision_analysis_failed: {exc}"
         await _record_vision_failure(exc, context={"cld_file_id": cld_file_id})
 
     if failure is not None:
-        error = f"vision_analysis_failed: {failure}"
+        error = failure
         await progress.stage("error", error=error)
         return IngestionResult(
             source_kind="cld_file",
@@ -440,6 +454,8 @@ _ = (CHUNKER_VERSION,)
 
 __all__ = [
     "IMAGE_MIMES",
+    "VisionAnalysisError",
+    "VisionInputRefused",
     "analyze_image_unified",
     "ingest_image",
 ]

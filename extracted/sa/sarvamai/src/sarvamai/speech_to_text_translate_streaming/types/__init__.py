@@ -11,13 +11,11 @@ if typing.TYPE_CHECKING:
         SpeechToTextTranslateStreamingHighVadSensitivity,
     )
     from .speech_to_text_translate_streaming_input_audio_codec import SpeechToTextTranslateStreamingInputAudioCodec
-    from .speech_to_text_translate_streaming_model import SpeechToTextTranslateStreamingModel
     from .speech_to_text_translate_streaming_vad_signals import SpeechToTextTranslateStreamingVadSignals
 _dynamic_imports: typing.Dict[str, str] = {
     "SpeechToTextTranslateStreamingFlushSignal": ".speech_to_text_translate_streaming_flush_signal",
     "SpeechToTextTranslateStreamingHighVadSensitivity": ".speech_to_text_translate_streaming_high_vad_sensitivity",
     "SpeechToTextTranslateStreamingInputAudioCodec": ".speech_to_text_translate_streaming_input_audio_codec",
-    "SpeechToTextTranslateStreamingModel": ".speech_to_text_translate_streaming_model",
     "SpeechToTextTranslateStreamingVadSignals": ".speech_to_text_translate_streaming_vad_signals",
 }
 
@@ -47,6 +45,5 @@ __all__ = [
     "SpeechToTextTranslateStreamingFlushSignal",
     "SpeechToTextTranslateStreamingHighVadSensitivity",
     "SpeechToTextTranslateStreamingInputAudioCodec",
-    "SpeechToTextTranslateStreamingModel",
     "SpeechToTextTranslateStreamingVadSignals",
 ]

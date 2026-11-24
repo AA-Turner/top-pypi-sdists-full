@@ -46,7 +46,9 @@ __all__ = [
     "ToolLedgerEntry",
     "TurnToolLedger",
     "apply_ledger_truth",
+    "claim_superseded",
     "get_turn_ledger",
+    "record_row_metadata",
     "record_row_opened",
     "record_row_settled",
     "take_open_rows",
@@ -91,6 +93,16 @@ class ToolLedgerEntry:
     #: free-form ``command`` argument (see ``_derive_command``). None otherwise —
     #: never a guess.
     command: str | None = None
+    #: Canonical JSON of the call's arguments and its ``action`` (action-envelope tools) - what
+    #: ``claim_superseded`` compares. None when the call's arguments were never recorded.
+    arguments_key: str | None = None
+    action: str | None = None
+    #: The ``chat.tool_call`` row id and the metadata its INSERT carried (so the supersede mark is a
+    #: merge, never a clobber). None when nothing was persisted (store=false).
+    row_id: str | None = None
+    row_metadata: dict[str, Any] | None = None
+    #: ``call_id`` of the LATER successful call that corrected this failed one (see ``claim_superseded``).
+    superseded_by: str | None = None
 
 
 @dataclass(slots=True)
@@ -210,12 +222,69 @@ def _derive_command(arguments: Any, tool_def: Any) -> str | None:
     return None
 
 
+def _stamp_arguments(entry: ToolLedgerEntry, arguments: Any) -> None:
+    if not isinstance(arguments, dict):
+        return
+    try:
+        entry.arguments_key = json.dumps(arguments, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        entry.arguments_key = repr(sorted(arguments.items(), key=lambda kv: str(kv[0])))
+    action = arguments.get("action")
+    entry.action = action if isinstance(action, str) else None
+
+
+def record_row_metadata(*, key: str, metadata: dict[str, Any] | None) -> None:
+    """Remember the metadata this call's row was INSERTed with (the supersede mark merges into it)."""
+    try:
+        ledger = _ledger_for(key)
+        entry = ledger._by_key.get(key) if ledger is not None else None
+        if entry is not None:
+            entry.row_metadata = dict(metadata or {})
+    except Exception as exc:  # noqa: BLE001
+        vcprint(f"[ToolLedger] record_row_metadata failed: {exc}", color="yellow")
+
+
+def claim_superseded(key: str) -> list[ToolLedgerEntry]:
+    """The EARLIER failed calls this (successful) call corrects - marked, so each is claimed once.
+
+    THE SELF-CORRECTED SLIP RULE (Arman's chat lane, 2026-11-15): a failed call is superseded when a
+    LATER call of the same turn succeeds with the same tool name and the same ``action`` and DIFFERENT
+    arguments. Exact match only - no fuzzy matching. "Later" is ledger order (start order); "the same
+    turn" is this ledger's scope (one orchestrator run, all its iterations). Call it once, as the
+    successful call completes. Returns the claimed failed entries (each now carries ``superseded_by``).
+    """
+    try:
+        ledger = _ledger_for(key)
+        winner = ledger._by_key.get(key) if ledger is not None else None
+        if ledger is None or winner is None or winner.arguments_key is None:
+            return []
+        claimed: list[ToolLedgerEntry] = []
+        for earlier in ledger.entries:
+            if earlier is winner:
+                break
+            if (
+                earlier.status in ("error", "rejected")
+                and earlier.superseded_by is None
+                and earlier.arguments_key is not None
+                and earlier.tool_name == winner.tool_name
+                and earlier.action == winner.action
+                and earlier.arguments_key != winner.arguments_key
+            ):
+                earlier.superseded_by = key
+                claimed.append(earlier)
+        return claimed
+    except Exception as exc:  # noqa: BLE001 - the ledger never breaks a run
+        vcprint(f"[ToolLedger] claim_superseded failed: {exc}", color="yellow")
+        return []
+
+
 def record_tool_started(
     *,
     key: str,
     tool_name: str,
     arguments: Any = None,
     tool_def: Any = None,
+    row_id: str | None = None,
 ) -> None:
     """Mirror a ``chat.tool_call`` INSERT into this turn's ledger."""
     try:
@@ -230,6 +299,9 @@ def record_tool_started(
         command = _derive_command(arguments, tool_def)
         if command:
             entry.command = command
+        _stamp_arguments(entry, arguments)
+        if row_id:
+            entry.row_id = row_id
     except Exception as exc:  # noqa: BLE001 — the ledger never breaks a run
         vcprint(f"[ToolLedger] record_tool_started failed: {exc}", color="yellow")
 
@@ -278,14 +350,27 @@ def record_tool_outcome(
     tool_name: str = "",
     status: str,
     error_text: Any = None,
+    arguments: Any = None,
+    row_id: str | None = None,
+    row_metadata: dict[str, Any] | None = None,
 ) -> None:
-    """Mirror a ``chat.tool_call`` terminal UPDATE into this turn's ledger."""
+    """Mirror a ``chat.tool_call`` terminal UPDATE into this turn's ledger.
+
+    ``arguments`` / ``row_id`` / ``row_metadata`` are for calls born terminal (a rejected call never
+    reaches ``record_tool_started``) so they too can be recognised as superseded.
+    """
     try:
         ledger = _ledger_for(key)
         if ledger is None or not key:
             return
         entry = ledger.upsert(key, tool_name)
         entry.status = status
+        if arguments is not None and entry.arguments_key is None:
+            _stamp_arguments(entry, arguments)
+        if row_id and not entry.row_id:
+            entry.row_id = row_id
+        if row_metadata is not None and entry.row_metadata is None:
+            entry.row_metadata = dict(row_metadata)
         if status in ("error", "rejected"):
             entry.error_text = _truncate(error_text or "Unknown error", _ERROR_TEXT_LIMIT)
     except Exception as exc:  # noqa: BLE001

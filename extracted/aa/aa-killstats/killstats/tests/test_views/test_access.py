@@ -7,6 +7,7 @@ from django.urls import resolve, reverse
 # AA Killstats
 from killstats import views
 from killstats.tests import AuthTestCase
+from killstats.tests.testdata.killstats import UserMainFactory
 
 MODULE_PATH = "killstats.views"
 
@@ -68,3 +69,48 @@ class TestViewKillstatsAccess(AuthTestCase):
         # Expected Result
         self.assertEqual(resp_corp.status_code, HTTPStatus.OK)
         self.assertEqual(resp_alli.status_code, HTTPStatus.OK)
+
+
+class TestViewAddOwnerAccess(AuthTestCase):
+    """`add_corp` and `add_alliance` need `basic_access` and `admin_access`."""
+
+    VIEW_NAMES = ["killstats:add_corp", "killstats:add_alliance"]
+
+    def test_add_views_should_redirect_to_login_without_both_permissions(self):
+        # Test Data: the check runs before `token_required`, so no SSO detour
+        users = {
+            "no permission": UserMainFactory(permissions__=[]),
+            "basic_access only": self.user,
+            "admin_access only": UserMainFactory(
+                permissions__=["killstats.admin_access"]
+            ),
+        }
+
+        for name, user in users.items():
+            self.client.force_login(user)
+            for view_name in self.VIEW_NAMES:
+                with self.subTest(user=name, view=view_name):
+                    # Test Action
+                    response = self.client.get(reverse(view_name))
+
+                    # Expected Result
+                    self.assertEqual(response.status_code, HTTPStatus.FOUND)
+                    self.assertIn("/account/login/", response["Location"])
+
+    def test_add_views_should_pass_to_token_selection_with_both_permissions(self):
+        # Test Data
+        user = UserMainFactory(
+            permissions__=["killstats.basic_access", "killstats.admin_access"]
+        )
+        self.client.force_login(user)
+
+        for view_name in self.VIEW_NAMES:
+            with self.subTest(view=view_name):
+                # Test Action
+                response = self.client.get(reverse(view_name))
+
+                # Expected Result: `token_required` answers, not the permission check
+                self.assertNotIn(
+                    "/account/login/", response.headers.get("Location", "")
+                )
+                self.assertIn(response.status_code, (HTTPStatus.OK, HTTPStatus.FOUND))

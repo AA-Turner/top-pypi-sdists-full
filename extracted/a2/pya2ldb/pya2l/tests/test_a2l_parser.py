@@ -4,6 +4,7 @@ import pytest
 
 from pya2l import _render_a2l, model
 from pya2l.a2lparser import A2LParser
+from pya2l.aml.ifdata_parser import ParsingError
 
 
 MINIMAL_A2L = """
@@ -340,6 +341,33 @@ ASAP2_VERSION 1 71
 """
 
 
+NUMERIC_IFDATA_A2L = """
+ASAP2_VERSION 1 71
+/begin PROJECT NumericProject "IF_DATA numeric test"
+  /begin MODULE NumericModule ""
+    /begin A2ML
+      block "IF_DATA" taggedunion {
+      "XCP" taggedstruct {
+      block "DAQ_EVENT" taggedunion {
+      "FIXED_EVENT_LIST" taggedstruct {
+      ("EVENT" uint)*;
+      };
+      };
+      "FLOAT_VALUE" double;
+      "TEXT_VALUE" char[256];
+      "CHAR_VALUE" char;
+      };
+      };
+    /end A2ML
+    /begin IF_DATA XCP
+      /begin DAQ_EVENT FIXED_EVENT_LIST EVENT 0x0000 EVENT 0x0001 /end DAQ_EVENT
+      FLOAT_VALUE 1.5e-2
+    /end IF_DATA
+  /end MODULE
+/end PROJECT
+"""
+
+
 @pytest.fixture
 def parser():
     import gc
@@ -477,6 +505,113 @@ def test_parse_if_data(parser, tmp_path):
     assert "0x100" in char.if_data[0].raw
 
 
+def test_parse_if_data_numeric_values(parser, tmp_path):
+    a2l_file = tmp_path / "numeric_ifdata.a2l"
+    a2l_file.write_text(NUMERIC_IFDATA_A2L, encoding="latin-1")
+
+    db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
+    session = db.session
+    session.setup_ifdata_parser(loglevel="ERROR")
+    parsed = session.parse_ifdata(session.query(model.Module).first().if_data)
+
+    assert parsed == [{"XCP": {"DAQ_EVENT": {"FIXED_EVENT_LIST": {"EVENT": [0, 1]}}, "FLOAT_VALUE": 0.015}}]
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        ("/begin IF_DATA XCP FLOAT_VALUE 1 /end WRONG", "Expected 'IF_DATA'"),
+        ("/begin WRONG XCP FLOAT_VALUE 1 /end IF_DATA", "Expected 'IF_DATA'"),
+        ("/begin IF_DATA XCP FLOAT_VALUE /end IF_DATA", "Expected DOUBLE value, got END"),
+        ("/begin IF_DATA XCP FLOAT_VALUE invalid /end IF_DATA", "Expected DOUBLE value, got IDENT"),
+        ("/begin IF_DATA XCP /begin DAQ_EVENT FIXED_EVENT_LIST EVENT /end DAQ_EVENT /end IF_DATA", "Expected UINT value"),
+        ("/begin IF_DATA XCP /begin DAQ_EVENT FIXED_EVENT_LIST EVENT 1.5 /end DAQ_EVENT /end IF_DATA", "Expected UINT value"),
+        ("/begin IF_DATA XCP TEXT_VALUE 1 /end IF_DATA", "Expected CHAR value"),
+        ("/begin IF_DATA XCP /begin DAQ_EVENT FIXED_EVENT_LIST EVENT 1 /end WRONG /end IF_DATA", "Expected 'DAQ_EVENT'"),
+        ("/begin IF_DATA XCP FLOAT_VALUE 1", "Unexpected end of input"),
+        ("/begin IF_DATA", "Unexpected end of input"),
+        ("/begin IF_DATA /end WRONG", "Expected 'IF_DATA'"),
+        ("/begin IF_DATA /end IF_DATA extra", "Unexpected token after IF_DATA"),
+    ],
+)
+def test_parse_if_data_rejects_malformed_input_and_recovers(parser, tmp_path, raw, message):
+    a2l_file = tmp_path / "numeric_ifdata.a2l"
+    a2l_file.write_text(NUMERIC_IFDATA_A2L, encoding="latin-1")
+
+    db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
+    session = db.session
+    session.setup_ifdata_parser(loglevel="ERROR")
+    valid_section = session.query(model.Module).first().if_data[0]
+
+    with pytest.raises(ParsingError, match=message):
+        session.parse_ifdata([model.IfData(raw=raw)])
+
+    assert session.parse_ifdata([valid_section]) == [
+        {"XCP": {"DAQ_EVENT": {"FIXED_EVENT_LIST": {"EVENT": [0, 1]}}, "FLOAT_VALUE": 0.015}}
+    ]
+
+
+def test_parse_empty_if_data(parser, tmp_path):
+    a2l_file = tmp_path / "numeric_ifdata.a2l"
+    a2l_file.write_text(NUMERIC_IFDATA_A2L, encoding="latin-1")
+    db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
+    db.session.setup_ifdata_parser(loglevel="ERROR")
+
+    assert db.session.parse_ifdata([model.IfData(raw="/begin IF_DATA /end IF_DATA")]) == [{}]
+
+
+def test_parse_if_data_char_and_integer_float_values(parser, tmp_path):
+    a2l_file = tmp_path / "numeric_ifdata.a2l"
+    a2l_file.write_text(NUMERIC_IFDATA_A2L, encoding="latin-1")
+    db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
+    db.session.setup_ifdata_parser(loglevel="ERROR")
+    section = model.IfData(raw='/begin IF_DATA XCP TEXT_VALUE "" CHAR_VALUE 65 FLOAT_VALUE 1 /end IF_DATA')
+
+    assert db.session.parse_ifdata([section]) == [{"XCP": {"TEXT_VALUE": "", "CHAR_VALUE": 65, "FLOAT_VALUE": 1}}]
+
+
+def test_parse_if_data_comments_and_escaped_strings(parser, tmp_path):
+    a2l_file = tmp_path / "numeric_ifdata.a2l"
+    a2l_file.write_text(NUMERIC_IFDATA_A2L, encoding="latin-1")
+    db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
+    db.session.setup_ifdata_parser(loglevel="ERROR")
+    raw = (
+        '/begin IF_DATA XCP // FLOAT_VALUE 99\n'
+        'TEXT_VALUE "a \\"quoted\\" value // not a comment" '
+        '/* FLOAT_VALUE 100\n/end WRONG */ FLOAT_VALUE 1.5 /end IF_DATA'
+    )
+
+    assert db.session.parse_ifdata([model.IfData(raw=raw)]) == [
+        {"XCP": {"TEXT_VALUE": r'a \"quoted\" value // not a comment', "FLOAT_VALUE": 1.5}}
+    ]
+
+
+def test_import_if_data_with_escaped_string(parser, tmp_path):
+    a2l_file = tmp_path / "escaped_ifdata.a2l"
+    a2l_file.write_text(
+        NUMERIC_IFDATA_A2L.replace("FLOAT_VALUE 1.5e-2", r'TEXT_VALUE "a \"quoted\" value"'),
+        encoding="latin-1",
+    )
+    db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
+    db.session.setup_ifdata_parser(loglevel="ERROR")
+    section = db.session.query(model.Module).first().if_data
+
+    assert db.session.parse_ifdata(section) == [
+        {"XCP": {"DAQ_EVENT": {"FIXED_EVENT_LIST": {"EVENT": [0, 1]}}, "TEXT_VALUE": r'a \"quoted\" value'}}
+    ]
+
+
+@pytest.mark.parametrize("raw", ['/begin IF_DATA XCP TEXT_VALUE "unterminated', "/begin IF_DATA XCP /* unterminated"])
+def test_parse_if_data_rejects_unterminated_strings_and_comments(parser, tmp_path, raw):
+    a2l_file = tmp_path / "numeric_ifdata.a2l"
+    a2l_file.write_text(NUMERIC_IFDATA_A2L, encoding="latin-1")
+    db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
+    db.session.setup_ifdata_parser(loglevel="ERROR")
+
+    with pytest.raises(ParsingError, match="Unterminated IF_DATA"):
+        db.session.parse_ifdata([model.IfData(raw=raw)])
+
+
 def test_parse_coeffs(parser, tmp_path):
     a2l_file = tmp_path / "coeffs.a2l"
     a2l_file.write_text(COEFFS_A2L, encoding="latin-1")
@@ -536,9 +671,12 @@ def test_parse_and_export_xcp_on_can(parser, tmp_path):
 
     assert parsed and "XCP" in parsed[0]
     xcp_entries = parsed[0]["XCP"]
-    assert xcp_entries and "XCP_ON_CAN" in xcp_entries[0]
+    assert xcp_entries[0] == {}
+    assert "XCP_ON_CAN" in xcp_entries[1]
 
-    can_entry = xcp_entries[0]["XCP_ON_CAN"][0]
+    can_block = xcp_entries[1]["XCP_ON_CAN"]
+    assert can_block[1] == {}
+    can_entry = can_block[0]
     assert can_entry[0] == 0x0104
     params = can_entry[1]
     assert params["CAN_ID_MASTER"] == 0x7E0

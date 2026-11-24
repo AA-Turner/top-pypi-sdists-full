@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-fsx
-Version: 1.44.8
-Summary: Type annotations for boto3 FSx 1.44.8 service generated with mypy-boto3-builder 8.12.0
+Version: 1.44.10
+Summary: Type annotations for boto3 FSx 1.44.10 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 FSx 1.44.8](https://pypi.org/project/boto3/)
+Type annotations for [boto3 FSx 1.44.10](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.8' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.10' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `FSx` service.
 4. Use provided commands to install generated packages.
@@ -338,9 +338,14 @@ from boto3.session import Session
 from mypy_boto3_fsx import FSxClient
 from mypy_boto3_fsx.paginator import (
     DescribeBackupsPaginator,
+    DescribeClusterPeersPaginator,
     DescribeFileSystemsPaginator,
     DescribeS3AccessPointAttachmentsPaginator,
+    DescribeSnapmirrorPoliciesPaginator,
+    DescribeSnapmirrorRelationshipsPaginator,
+    DescribeSnapshotPoliciesPaginator,
     DescribeSnapshotsPaginator,
+    DescribeStorageVirtualMachinePeersPaginator,
     DescribeStorageVirtualMachinesPaginator,
     DescribeVolumesPaginator,
     ListTagsForResourcePaginator,
@@ -351,14 +356,29 @@ client: FSxClient = Session().client("fsx")
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
 describe_backups_paginator: DescribeBackupsPaginator = client.get_paginator("describe_backups")
+describe_cluster_peers_paginator: DescribeClusterPeersPaginator = client.get_paginator(
+    "describe_cluster_peers"
+)
 describe_file_systems_paginator: DescribeFileSystemsPaginator = client.get_paginator(
     "describe_file_systems"
 )
 describe_s3_access_point_attachments_paginator: DescribeS3AccessPointAttachmentsPaginator = (
     client.get_paginator("describe_s3_access_point_attachments")
 )
+describe_snapmirror_policies_paginator: DescribeSnapmirrorPoliciesPaginator = client.get_paginator(
+    "describe_snapmirror_policies"
+)
+describe_snapmirror_relationships_paginator: DescribeSnapmirrorRelationshipsPaginator = (
+    client.get_paginator("describe_snapmirror_relationships")
+)
+describe_snapshot_policies_paginator: DescribeSnapshotPoliciesPaginator = client.get_paginator(
+    "describe_snapshot_policies"
+)
 describe_snapshots_paginator: DescribeSnapshotsPaginator = client.get_paginator(
     "describe_snapshots"
+)
+describe_storage_virtual_machine_peers_paginator: DescribeStorageVirtualMachinePeersPaginator = (
+    client.get_paginator("describe_storage_virtual_machine_peers")
 )
 describe_storage_virtual_machines_paginator: DescribeStorageVirtualMachinesPaginator = (
     client.get_paginator("describe_storage_virtual_machines")

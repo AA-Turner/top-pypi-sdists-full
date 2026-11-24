@@ -44,9 +44,20 @@ CONTENT_TYPES: frozenset[str] = frozenset(
 #: The ONE list of interaction modes. ``INTERACTION_MODES`` and every pydantic model that types
 #: ``interaction`` derive from it, so the set and the models cannot drift apart again (they did
 #: twice: "single"/"agent" coerced to "turn" until 2026-09-12, and "detection" — the wake-word
-#: models of 2026-10-17 — crashed every capability resolve until 2026-10-20).
+#: models of 2026-10-17 — crashed every capability resolve until 2026-10-20). "rerank" (query +
+#: documents in, relevance scores out — Cohere rerank-v4.0-pro, catalogued 2026-11-18) was read
+#: as "turn" until it was named here, which made a rerank model look like a chat model.
 InteractionMode = Literal[
-    "turn", "single", "extraction", "realtime", "embedding", "agent", "decision", "adapter", "detection"
+    "turn",
+    "single",
+    "extraction",
+    "realtime",
+    "embedding",
+    "agent",
+    "decision",
+    "adapter",
+    "detection",
+    "rerank",
 ]
 
 INTERACTION_MODES: frozenset[str] = frozenset(get_args(InteractionMode))
@@ -111,6 +122,9 @@ FEATURE_KEYS: frozenset[str] = frozenset(
         "speech_to_speech",
         # Content classification for safety (moderation endpoints).
         "moderation",
+        # Speech in a voice cloned from a short reference recording (Kyutai Pocket TTS,
+        # the Matrx 2 voice clone; pocket-tts-english, 2026-11-09).
+        "voice_cloning",
         "conversational_editing",
         "stateful_editing",
         "dialogue",
@@ -192,6 +206,7 @@ CANONICAL_KEYS: frozenset[str] = frozenset(
         "image_reference_roles",
         "video_reference_roles",
         "base_family",
+        "image_sizing",
     }
 )
 
@@ -209,6 +224,16 @@ IMAGE_REFERENCE_ROLES_KEY = "image_reference_roles"
 #: — the video/audio inputs and named references a video model accepts.
 #: Vocabulary: ``matrx_ai/media/video_reference_roles.py``.
 VIDEO_REFERENCE_ROLES_KEY = "video_reference_roles"
+
+#: ``image_sizing`` is how a vision model's provider measures an image:
+#: ``{long_edge, patch_px, max_patches, overhead, label_scale}`` — the long edge
+#: it downscales to, the patch size, the patch ceiling, the per-image token
+#: overhead and the label scale. Every member is a positive number; the catalog
+#: writes it per model (2026-11-12, every Claude row).
+IMAGE_SIZING_KEY = "image_sizing"
+IMAGE_SIZING_FIELDS: frozenset[str] = frozenset(
+    {"long_edge", "patch_px", "max_patches", "overhead", "label_scale"}
+)
 
 VOCABULARY_FILE = "matrx_ai/providers/capability_vocabulary.py"
 
@@ -371,6 +396,23 @@ def normalize_capabilities(raw: Any, *, label: str = "") -> CapabilitiesNormaliz
     base_family = raw.get(BASE_FAMILY_KEY)
     if base_family is not None and (not isinstance(base_family, str) or not base_family.strip()):
         rejections.append(f"{BASE_FAMILY_KEY} {base_family!r}{where} is not a non-empty string")
+
+    if IMAGE_SIZING_KEY in raw:
+        sizing = raw[IMAGE_SIZING_KEY]
+        if not isinstance(sizing, dict):
+            rejections.append(f"{IMAGE_SIZING_KEY}{where} must be an object of measure -> number")
+        else:
+            for name, number in sizing.items():
+                if name not in IMAGE_SIZING_FIELDS:
+                    rejections.append(f"{IMAGE_SIZING_KEY} field {name!r}{where}")
+                elif (
+                    isinstance(number, bool)
+                    or not isinstance(number, (int, float))
+                    or number <= 0
+                ):
+                    rejections.append(
+                        f"{IMAGE_SIZING_KEY}.{name} {number!r}{where} is not a positive number"
+                    )
 
     if IMAGE_REFERENCE_ROLES_KEY in raw:
         from matrx_ai.media.image_reference_roles import IMAGE_REFERENCE_ROLES, TOTAL_KEY

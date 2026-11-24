@@ -28,7 +28,7 @@ from typing import Any
 from lxml.etree import tostring
 from lxml.html import HtmlElement, fragment_fromstring
 
-from .utils import load_html, trim
+from .utils import load_html, lru_cache, trim
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +80,12 @@ class Candidate:
 
     score: float
     elem: HtmlElement
+
+
+@lru_cache(maxsize=4096)
+def _attribute_weight(attribute: str) -> int:
+    "Score a class or id value, cached since pages repeat the same values."
+    return (-25 if REGEXES["negativeRe"].search(attribute) else 0) + (25 if REGEXES["positiveRe"].search(attribute) else 0)
 
 
 class Document:
@@ -198,13 +204,7 @@ class Document:
         return candidates
 
     def class_weight(self, elem: HtmlElement) -> float:
-        weight = 0
-        for attribute in filter(None, (elem.get("class"), elem.get("id"))):
-            if REGEXES["negativeRe"].search(attribute):
-                weight -= 25
-            if REGEXES["positiveRe"].search(attribute):
-                weight += 25
-        return weight
+        return sum(_attribute_weight(attribute) for attribute in filter(None, (elem.get("class"), elem.get("id"))))
 
     def score_node(self, elem: HtmlElement) -> Candidate:
         return Candidate(self.class_weight(elem) + TAG_SCORES.get(str(elem.tag).lower(), 0), elem)

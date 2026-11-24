@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vmecpp
-Version: 0.9.3
+Version: 0.9.4
 Summary: Proxima Fusion's reimplementation of the Variational Moments Equilibrium Code (VMEC), a free-boundary ideal-MHD equilibrium solver for stellarators and Tokamaks.
 Author-Email: Jonathan Schilling <jons@proximafusion.com>, Enrico Guiraud <eguiraud@proximafusion.com>, Philipp Jurasic <jurasic@proximafusion.com>
 License-Expression: MIT

@@ -22,6 +22,7 @@ from matrx_graph import (
 )
 from matrx_graph.errors import CompilationError, UnresolvedInputError
 from matrx_graph.types.input_surface import InputSpec, unsatisfied_inputs
+from matrx_graph.types.input_surface import input_choice_style, input_hint, input_option_labels, input_options
 from matrx_graph.types.variables import input_ref, resolve_var_refs
 
 from tests._fixtures import FakeEmitter, make_app_context
@@ -127,7 +128,7 @@ def test_yes_no_and_choice_map_to_boolean_and_text() -> None:
     assert surface["pick"].kind == "text"
     # "dropdown" is the registry's seeded single-select variant on kind "text".
     assert surface["pick"].variant == "dropdown"
-    assert surface["pick"].options == ["a", "b"]
+    assert input_options(surface["pick"].declaration) == ["a", "b"]
 
 
 def test_field_collision_is_named_compile_refusal() -> None:
@@ -155,12 +156,17 @@ def test_variable_shadowing_field_is_named_compile_refusal() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _spec(*, name: str, **compiled) -> InputSpec:
+    """A compiled surface entry with the minimal declaration the engine requires."""
+    return InputSpec(name=name, declaration={"__kind": "variable_definition", "name": name}, **compiled)
+
+
 def _surface(**specs: InputSpec) -> dict[str, InputSpec]:
     return dict(specs)
 
 
 def test_input_ref_resolves_from_landed_values() -> None:
-    surface = _surface(topic=InputSpec(name="topic", kind="text", sourcing="require"))
+    surface = _surface(topic=_spec(name="topic", kind="text", sourcing="require"))
     out = resolve_var_refs(
         {"prompt": input_ref("topic")},
         run_variables={},
@@ -174,7 +180,7 @@ def test_input_ref_resolves_from_landed_values() -> None:
 
 def test_input_ref_falls_back_to_declared_default() -> None:
     surface = _surface(
-        tone=InputSpec(name="tone", kind="text", sourcing="optional", default="friendly")
+        tone=_spec(name="tone", kind="text", sourcing="optional", default="friendly")
     )
     out = resolve_var_refs(
         {"style": input_ref("tone")},
@@ -200,7 +206,7 @@ def test_undeclared_input_ref_fails_loudly() -> None:
 
 
 def test_missing_input_value_without_default_fails_loudly() -> None:
-    surface = _surface(topic=InputSpec(name="topic", kind="text", sourcing="require"))
+    surface = _surface(topic=_spec(name="topic", kind="text", sourcing="require"))
     with pytest.raises(UnresolvedInputError, match="topic"):
         resolve_var_refs(
             {"x": input_ref("topic")},
@@ -210,6 +216,21 @@ def test_missing_input_value_without_default_fails_loudly() -> None:
             run_inputs={},
             input_surface=surface,
         )
+
+
+def test_optional_input_left_out_reads_as_nothing_not_a_failure() -> None:
+    """Regression: 'Save late findings to a brand' declares brand_id optional (run_id is the other way in);
+    every run without a brand_id failed UnresolvedInputError at its first step."""
+    surface = _surface(brand_id=_spec(name="brand_id", kind="text", sourcing="optional"))
+    out = resolve_var_refs(
+        {"bid": input_ref("brand_id")},
+        run_variables={},
+        declared={},
+        node_id="which",
+        run_inputs={},
+        input_surface=surface,
+    )
+    assert out == {"bid": None}
 
 
 def test_validation_rejects_undeclared_input_marker() -> None:
@@ -238,15 +259,15 @@ def test_validation_rejects_undeclared_input_marker() -> None:
 
 def test_require_satisfied_by_any_source_including_default() -> None:
     surface = _surface(
-        a=InputSpec(name="a", kind="text", sourcing="require", default="fallback"),
-        b=InputSpec(name="b", kind="text", sourcing="require"),
+        a=_spec(name="a", kind="text", sourcing="require", default="fallback"),
+        b=_spec(name="b", kind="text", sourcing="require"),
     )
     gaps = unsatisfied_inputs(surface, {"b": "supplied"}, {"b": "caller"})
     assert gaps == []
 
 
 def test_ask_satisfied_only_by_human_stamp() -> None:
-    surface = _surface(q=InputSpec(name="q", kind="text", sourcing="ask", default="preset"))
+    surface = _surface(q=_spec(name="q", kind="text", sourcing="ask", default="preset"))
     # A caller value does NOT satisfy ask; neither does the default.
     assert [g.name for g in unsatisfied_inputs(surface, {"q": "v"}, {"q": "caller"})] == ["q"]
     assert [g.name for g in unsatisfied_inputs(surface, {}, {})] == ["q"]
@@ -256,8 +277,8 @@ def test_ask_satisfied_only_by_human_stamp() -> None:
 
 def test_gate_skips_unreferenced_variables_and_edge_fed_fields() -> None:
     surface = _surface(
-        v=InputSpec(name="v", kind="text", sourcing="require", origin="variable", referenced=False),
-        f=InputSpec(name="f", kind="text", sourcing="require", edge_fed=True),
+        v=_spec(name="v", kind="text", sourcing="require", origin="variable", referenced=False),
+        f=_spec(name="f", kind="text", sourcing="require", edge_fed=True),
     )
     assert unsatisfied_inputs(surface, {}, {}) == []
 
@@ -376,13 +397,15 @@ def test_input_hints_travel_from_field_to_surface() -> None:
     )
     surface = compile_graph(d).input_surface
     domain, country, plain = surface["domain"], surface["country"], surface["plain"]
-    assert domain.primary is True and domain.detect == ["domain", "url"]
-    assert domain.example == "ahrefs.com"
-    assert country.advanced is True and country.group == "Location" and country.order == 2
-    assert country.choice_style == "chips"
-    assert country.option_labels == {"us": "United States", "gb": "United Kingdom"}
+    hint = lambda spec, key: input_hint(spec.declaration, key)  # noqa: E731
+    assert hint(domain, "primary") is True and hint(domain, "detect") == ["domain", "url"]
+    assert hint(domain, "example") == "ahrefs.com"
+    assert hint(country, "advanced") is True and hint(country, "group") == "Location"
+    assert hint(country, "order") == 2
+    assert input_choice_style(country.declaration) == "chips"
+    assert input_option_labels(country.declaration) == {"us": "United States", "gb": "United Kingdom"}
     # Absent means "infer" — never a guessed value on the server.
-    assert plain.primary is False and plain.advanced is None and plain.detect == []
+    assert hint(plain, "primary") is False and hint(plain, "advanced") is None and hint(plain, "detect") == []
 
 
 def test_unknown_detect_type_is_refused_by_name() -> None:

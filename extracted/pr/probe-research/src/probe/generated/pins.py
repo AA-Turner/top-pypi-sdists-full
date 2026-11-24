@@ -51,12 +51,14 @@ class PinKind(StrEnum):
 
 
 class PinAnchorKind(StrEnum):
-    """Where a view lives: the project or one of its experiments."""
+    """Where a view lives: the project, one of its experiments or one of its runs."""
 
     #: The project itself: its own runs and views.
     PROJECT = "project"
     #: One experiment under the project.
     EXPERIMENT = "experiment"
+    #: One run under the project: its page's top grid, never the project's Pinned area.
+    RUN = "run"
 
 
 class PinMetricKind(StrEnum):
@@ -77,8 +79,8 @@ class PinErrorCode(StrEnum):
     PINS_FULL = "pins_full"
     #: 422: no run under the anchor logged the metric as a drawable line; the message names the key.
     UNKNOWN_METRIC = "unknown_metric"
-    #: 404: the ref's project, experiment, pane or visual is not under this project, or the caller
-    #: cannot see it (a visual withheld from them included).
+    #: 404: the ref's project, experiment, run, pane or visual is not under this project, or the
+    #: caller cannot see it (a visual withheld from them included).
     VIEW_NOT_FOUND = "view_not_found"
     #: 404: no pin by that id on this project.
     PIN_NOT_FOUND = "pin_not_found"

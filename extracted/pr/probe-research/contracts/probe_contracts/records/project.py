@@ -16,7 +16,8 @@ class ProjectKind(StrEnum):
 
     TRAINING = "training"
     EVALUATION = "evaluation"
-    RESEARCH = "research"
+    #: `research` was retired by 0529 (D24): papers are a list on every project. Still accepted on
+    #: input and stored as `general` (app/shared/vocab/kinds.py); no row is `research` (0530).
     GENERAL = "general"
     #: 0231. Structural, not intent: a leaf answering one question, held by 3 CHECKs (DESIGN.md). `kind`
     #: never changes into or out of it, so reclassifying is create-and-move, never a PATCH.

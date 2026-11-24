@@ -10,7 +10,8 @@ step lives ON the step and the canvas shows one card:
                         steps then run as if the step had produced it.
 * ``data.shape``      — an expression over what the step produced (``{'keywords':
                         inputs['answer']}``); downstream connections read the shaped result.
-* ``data.for_each``   — ``{}`` or ``{"as": "page", "max_dispatches": 200, …}``: the step runs once
+* ``data.for_each``   — ``{}`` or ``{"as": "page", "max_dispatches": 200, …}`` (``until`` /
+                        ``wave_size`` / ``wave_gap``: see ``control.map``): the step runs once
                         per element of the list its connections deliver as ``items``; each run gets
                         the element under ``as`` (default ``item``) and every OTHER input the
                         connections deliver, and the steps after it get the gathered results
@@ -43,7 +44,9 @@ STEP_SETTING_KEYS: tuple[str, ...] = (WHEN, IF_SKIPPED, SHAPE)
 #: Helper parts a step setting writes out (``owner_of`` recognises exactly these).
 _PARTS = frozenset({WHEN, IF_SKIPPED, SHAPE, "each", "gather"})
 #: What ``data.for_each`` may set: the For Each's own options, plus ``as`` (the item's input name).
-_FOR_EACH_KEYS = frozenset({"as", "include_index", "max_dispatches", "payload_template", "pairs"})
+_FOR_EACH_KEYS = frozenset(
+    {"as", "include_index", "max_dispatches", "payload_template", "pairs", "until", "wave_size", "wave_gap"}
+)
 #: With ``data.for_each.pairs``: the input the Gather receives the fanned-out list under
 #: (``control.gather`` ``items_from``), so each result and each hole carries its item.
 SENT_ITEMS = "sent_items"
@@ -59,7 +62,7 @@ _PART_LABEL = {WHEN: "Only when", IF_SKIPPED: "If skipped", SHAPE: "Shape the re
 _DISPATCHERS = frozenset({"control.map", "control.send", "control.loop", "control.work_queue"})
 
 #: How a step's inputs JOIN: these settings move to the gate, which is now what receives them.
-_JOIN_KEYS = ("join_policy", "on_skipped_upstream", "skip_defaults", "arg_merge")
+_JOIN_KEYS = ("join_policy", "on_skipped_upstream", "skip_defaults", "arg_merge", "when_input_skipped")
 
 #: Output handles that are the step's single plain output (anything else routes by handle).
 _PLAIN_HANDLES = frozenset({"", "out", "output"})
@@ -121,7 +124,6 @@ def _transform(node_id: str, owner: NodeDef, part: str, expression: str) -> Node
             "spec_type": "data.transform",
             "label": f"{_PART_LABEL[part]}: {name}",
             "config": {"expression": expression},
-            "step_setting_of": owner.id,
         },
     )
 
@@ -295,7 +297,7 @@ def _expand_for_each(
             )
         template = {item_as: "$item", **{key: f"$in.{key}" for key in sorted(mapped - {"items"})}}
     config: dict[str, Any] = {"target_node_id": node.id, "payload_template": template}
-    for key in ("include_index", "max_dispatches"):
+    for key in ("include_index", "max_dispatches", "until", "wave_size", "wave_gap"):
         if key in each:
             config[key] = each[key]
 
@@ -304,7 +306,7 @@ def _expand_for_each(
     each_id, gather_id = helper_id(node.id, "each"), helper_id(node.id, "gather")
     each_node = NodeDef(
         id=each_id, type="control", position=node.position,
-        data={"spec_type": "control.map", "label": f"For each: {name}", "config": config, "step_setting_of": node.id},
+        data={"spec_type": "control.map", "label": f"For each: {name}", "config": config},
     )
     for key in _JOIN_KEYS:
         if key in owner.data:
@@ -312,7 +314,7 @@ def _expand_for_each(
     gather_node = NodeDef(
         id=gather_id, type="control", position=node.position,
         data={"spec_type": "control.gather", "label": f"Every result: {name}",
-              "config": {"items_from": SENT_ITEMS} if pairs else {}, "step_setting_of": node.id},
+              "config": {"items_from": SENT_ITEMS} if pairs else {}},
     )
     if pairs:
         # The same list the For each fans out, into the Gather beside the results (``items_from``):

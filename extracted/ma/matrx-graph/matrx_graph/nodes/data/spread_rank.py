@@ -27,6 +27,7 @@ Pure: the same items and settings always give the same ranking (ties: more homes
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections import Counter, defaultdict
 from datetime import date, datetime
@@ -503,7 +504,11 @@ class SpreadRankExecutor:
         _ = ctx
         settings, source = _resolve(config, await knobs.spread_rank_knobs())
         try:
-            return success(rank_spread(inputs.items, config, settings, source))
+            # Off the event loop, like text.key_phrases and data.batch: ranking a
+            # 20,000-record corpus is pure CPU, and a held loop times out every
+            # statement this process has in flight (run 40a1144a, 2026-10-31).
+            ranked = await asyncio.to_thread(rank_spread, inputs.items, config, settings, source)
+            return success(ranked)
         except _Refused as refused:
             return failure(refused.code, f"data.spread_rank: {refused}")
 

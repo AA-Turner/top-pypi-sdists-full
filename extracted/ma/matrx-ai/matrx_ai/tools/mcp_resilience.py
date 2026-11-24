@@ -84,6 +84,21 @@ def wait_before(attempt: int) -> float:
 DISPATCH_ENDS_AT: ContextVar[float | None] = ContextVar("mcp_dispatch_ends_at", default=None)
 
 
+def dispatch_room_seconds(tool_name: str) -> float:
+    """How long work inside ``tool_name`` may still run and leave the call time to answer before its dispatch
+    ceiling cancels it: the ceiling (or the call's own deadline, counted from its dispatch, when sooner) less a
+    sixth of the ceiling kept for the answer. The ONE answer for every in-tool budget (aidream ``wait_that_fits``,
+    ``fs_search``'s walk) — a tool that runs past it is canceled as a system error with nothing returned."""
+    from matrx_ai.tools.knobs import dispatch_timeout_ceiling
+
+    ceiling = dispatch_timeout_ceiling(tool_name)
+    room = ceiling
+    ends_at = DISPATCH_ENDS_AT.get()
+    if ends_at and ends_at > time.monotonic():
+        room = min(room, ends_at - time.monotonic())
+    return max(0.0, room - ceiling / 6)
+
+
 class Deadline:
     """One call's whole time budget, shared by every attempt and every wait between them, so the call answers in
     its own words before the caller's deadline does (the agent dispatch ceiling: adversarial review 2026-10-18 —
@@ -207,5 +222,5 @@ def failure_words(*, provider: str, tool: str, kind: str, why: str, tries: int, 
             f"Try again in a few minutes; if {provider} keeps failing, its own status page will say so.")
 
 
-__all__ = ["DISPATCH_ENDS_AT", "Deadline", "ATTEMPTS_KEY", "NOT_REACHED", "NO_ANSWER", "WAIT_KEY", "attempts", "cause", "classify", "classify_reply",
+__all__ = ["DISPATCH_ENDS_AT", "Deadline", "dispatch_room_seconds", "ATTEMPTS_KEY", "NOT_REACHED", "NO_ANSWER", "WAIT_KEY", "attempts", "cause", "classify", "classify_reply",
            "already_asked_again", "failure_words", "provider_name", "safe_to_repeat", "wait_before"]

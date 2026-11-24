@@ -27,6 +27,20 @@ class MonitorType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MONITOR_TYPE_DATA_SOURCE: _ClassVar[MonitorType]
     MONITOR_TYPE_FEATURE_DRIFT: _ClassVar[MonitorType]
 
+class OccurrenceCountBound(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    OCCURRENCE_COUNT_BOUND_UNSPECIFIED: _ClassVar[OccurrenceCountBound]
+    OCCURRENCE_COUNT_BOUND_ESTIMATE: _ClassVar[OccurrenceCountBound]
+    OCCURRENCE_COUNT_BOUND_LOWER: _ClassVar[OccurrenceCountBound]
+    OCCURRENCE_COUNT_BOUND_UPPER: _ClassVar[OccurrenceCountBound]
+
+class MetricMonitorNullValueBehavior(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    METRIC_MONITOR_NULL_VALUE_BEHAVIOR_UNSPECIFIED: _ClassVar[MetricMonitorNullValueBehavior]
+    METRIC_MONITOR_NULL_VALUE_BEHAVIOR_ALERT: _ClassVar[MetricMonitorNullValueBehavior]
+    METRIC_MONITOR_NULL_VALUE_BEHAVIOR_ZERO_FILL: _ClassVar[MetricMonitorNullValueBehavior]
+    METRIC_MONITOR_NULL_VALUE_BEHAVIOR_IGNORE: _ClassVar[MetricMonitorNullValueBehavior]
+
 MONITOR_TYPE_UNSPECIFIED: MonitorType
 MONITOR_TYPE_CHART: MonitorType
 MONITOR_TYPE_LOG: MonitorType
@@ -34,20 +48,31 @@ MONITOR_TYPE_HEALTHCHECK: MonitorType
 MONITOR_TYPE_SQL_BAD_ROWS: MonitorType
 MONITOR_TYPE_DATA_SOURCE: MonitorType
 MONITOR_TYPE_FEATURE_DRIFT: MonitorType
+OCCURRENCE_COUNT_BOUND_UNSPECIFIED: OccurrenceCountBound
+OCCURRENCE_COUNT_BOUND_ESTIMATE: OccurrenceCountBound
+OCCURRENCE_COUNT_BOUND_LOWER: OccurrenceCountBound
+OCCURRENCE_COUNT_BOUND_UPPER: OccurrenceCountBound
+METRIC_MONITOR_NULL_VALUE_BEHAVIOR_UNSPECIFIED: MetricMonitorNullValueBehavior
+METRIC_MONITOR_NULL_VALUE_BEHAVIOR_ALERT: MetricMonitorNullValueBehavior
+METRIC_MONITOR_NULL_VALUE_BEHAVIOR_ZERO_FILL: MetricMonitorNullValueBehavior
+METRIC_MONITOR_NULL_VALUE_BEHAVIOR_IGNORE: MetricMonitorNullValueBehavior
 
 class LogsMonitor(_message.Message):
-    __slots__ = ("query_string", "window_period", "data_source")
+    __slots__ = ("query_string", "window_period", "data_source", "occurrence_count_bound")
     QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     DATA_SOURCE_FIELD_NUMBER: _ClassVar[int]
+    OCCURRENCE_COUNT_BOUND_FIELD_NUMBER: _ClassVar[int]
     query_string: str
     window_period: _duration_pb2.Duration
     data_source: str
+    occurrence_count_bound: OccurrenceCountBound
     def __init__(
         self,
         query_string: _Optional[str] = ...,
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         data_source: _Optional[str] = ...,
+        occurrence_count_bound: _Optional[_Union[OccurrenceCountBound, str]] = ...,
     ) -> None: ...
 
 class HealthcheckMonitor(_message.Message):
@@ -57,12 +82,19 @@ class HealthcheckMonitor(_message.Message):
     def __init__(self, healthcheck_name: _Optional[str] = ...) -> None: ...
 
 class ChartMonitor(_message.Message):
-    __slots__ = ("series_mql", "formula_mql")
+    __slots__ = ("series_mql", "formula_mql", "null_value_behavior")
     SERIES_MQL_FIELD_NUMBER: _ClassVar[int]
     FORMULA_MQL_FIELD_NUMBER: _ClassVar[int]
+    NULL_VALUE_BEHAVIOR_FIELD_NUMBER: _ClassVar[int]
     series_mql: _containers.RepeatedScalarFieldContainer[str]
     formula_mql: str
-    def __init__(self, series_mql: _Optional[_Iterable[str]] = ..., formula_mql: _Optional[str] = ...) -> None: ...
+    null_value_behavior: MetricMonitorNullValueBehavior
+    def __init__(
+        self,
+        series_mql: _Optional[_Iterable[str]] = ...,
+        formula_mql: _Optional[str] = ...,
+        null_value_behavior: _Optional[_Union[MetricMonitorNullValueBehavior, str]] = ...,
+    ) -> None: ...
 
 class SqlBadRowsMonitor(_message.Message):
     __slots__ = ("query", "datasource_name", "resource_group")

@@ -143,12 +143,15 @@ async def textual_analyzer(
         page, query, expected_value, needs_unit_conversion, condition, code_js,
     )
     if outcome is None:
-        if condition:
+        if condition and (expected_value or operator in ("true", "false")):
             # This read feeds a condition (a while / if-else producer). Its
             # element is gone and nothing on the page can replace it, so the
             # condition is not met here: read false and let the caller take
             # the else branch / exit the loop. Failing the step would abort a
             # test whose recorded page simply differs from the current one.
+            # Only a judged read (an expected value or a yes/no operator) is
+            # such evidence; a plain value read can carry a descriptive
+            # condition too, and "false" would become its stored value.
             _log.info(
                 "[textual_analyzer] heal missed for condition evidence -> 'false' (query=%r)",
                 query[:60],

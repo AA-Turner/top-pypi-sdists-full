@@ -110,13 +110,13 @@ def test_an_old_listing_and_an_old_uname_are_marked_stale_with_their_own_time() 
 
     listing = _result(messages, "c-list").content
     assert listing.startswith(STALE_MARKER), listing
-    assert "fs_list returned at 2026-09-28 02:40 UTC" in listing
+    assert "fs_list returned in an earlier turn" in listing and "UTC" not in listing
     assert "run the tool again" in listing
     assert listing.endswith(OLD_LISTING), "the reading itself stays readable"
 
     uname = _result(messages, "c-uname").content
     assert uname.startswith(STALE_MARKER)
-    assert "shell_execute returned at 2026-09-28 02:44 UTC" in uname
+    assert "shell_execute returned in an earlier turn" in uname and "UTC" not in uname
     assert OLD_UNAME in uname
 
     assert report.blocks_marked == 2

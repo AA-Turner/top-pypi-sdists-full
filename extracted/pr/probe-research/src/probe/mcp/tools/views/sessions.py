@@ -1,6 +1,7 @@
 """session views: the captured sessions behind a run, file, project or experiment, and a transcript in line sections."""
 
 from __future__ import annotations
+from bisect import bisect_right
 from typing import Any
 from ....sdk import errors
 from ...delivery import accounting
@@ -88,6 +89,49 @@ def _sessions_view(sessions: Any, total: Any) -> _ViewData:
             else []
         ),
     )
+
+
+#: Printed before the line where a UTC day starts. View-only: never stored or served, and
+#: never counted in `line`/`line_start`/`line_end`, which stay in the document's own lines.
+_DAY_LINE = "── {date} ──"
+
+
+def _read_day_marks(doc: dict) -> dict[int, str]:
+    """`day_marks` from the transcript read as {line: date}; a malformed entry or an
+    older server (no field) gives none, so the view prints exactly what it did before."""
+    marks: dict[int, str] = {}
+    raw = doc.get("day_marks")
+    for entry in raw if isinstance(raw, list) else []:
+        line = entry.get("line") if isinstance(entry, dict) else None
+        date = entry.get("date") if isinstance(entry, dict) else None
+        if type(line) is int and line >= 1 and isinstance(date, str) and date:
+            marks[line] = date
+    return marks
+
+
+def _add_day_lines(
+    rows: list[dict], lines: list[str], marks: dict[int, str], *, should_head_every: bool
+) -> None:
+    """Print a day line before each marked line of each section, in place. The first
+    section (every one, with `should_head_every`) opens with the day it is in when it starts
+    mid-day: the latest mark before its first line. Sections with no day are untouched."""
+    starts = sorted(marks)
+    for index, row in enumerate(rows):
+        first, last = row["line_start"], row["line_end"]
+        before = bisect_right(starts, first) - 1
+        head = (
+            [_DAY_LINE.format(date=marks[starts[before]])]
+            if (index == 0 or should_head_every) and first not in marks and before >= 0
+            else []
+        )
+        if not head and bisect_right(starts, last) == bisect_right(starts, first - 1):
+            continue
+        out = head
+        for number in range(first, last + 1):
+            if number in marks:
+                out.append(_DAY_LINE.format(date=marks[number]))
+            out.append(lines[number - 1])
+        row["text"] = "\n".join(out)
 
 
 def _session_id_of(address: str) -> str:
@@ -210,7 +254,7 @@ class SessionsViewsMixin:
         "search within THIS session" read that chunk-ranked search
         cannot promise. Either shape rides the ordinary rows machinery, so
         token_budget bounds what one response carries and the cursor walks the
-        rest.
+        rest. The server's `day_marks` print as day lines (`_add_day_lines`).
         """
         agent = entity.get("agent") or None
         try:
@@ -249,4 +293,18 @@ class SessionsViewsMixin:
         # route has no line-range parameter) -- TODO(backend): a start_line/limit
         # query would make a full walk linear instead of O(pages * doc), the same
         # shape as the _bounded() span-walk TODO.
-        return self._line_sections(lines, request, payload, noun="transcript")
+        marks = {line: day for line, day in _read_day_marks(doc).items() if line <= total}
+        if marks:
+            # Fixed part, so a caller can jump to a day with `start_line`.
+            payload["days"] = [{"date": day, "line": line} for line, day in sorted(marks.items())]
+        data = self._line_sections(lines, request, payload, noun="transcript")
+        if marks and data.rows:
+            # A page opens at row `offset` (earlier rows are never sent); grep
+            # sections lie apart, so each says its day.
+            _add_day_lines(
+                data.rows[request.offset :],
+                lines,
+                marks,
+                should_head_every=request.filters.get("grep") is not None,
+            )
+        return data

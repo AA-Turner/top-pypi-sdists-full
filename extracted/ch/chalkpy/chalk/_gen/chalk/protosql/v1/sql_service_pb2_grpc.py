@@ -40,10 +40,20 @@ class SqlServiceStub(object):
             request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamRequest.SerializeToString,
             response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamResponse.FromString,
         )
+        self.ReadSqlQueryResults = channel.unary_unary(
+            "/chalk.protosql.v1.SqlService/ReadSqlQueryResults",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ReadSqlQueryResultsRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ReadSqlQueryResultsResponse.FromString,
+        )
         self.PlanSqlQuery = channel.unary_unary(
             "/chalk.protosql.v1.SqlService/PlanSqlQuery",
             request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.FromString,
+        )
+        self.CancelSqlQuery = channel.unary_unary(
+            "/chalk.protosql.v1.SqlService/CancelSqlQuery",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.CancelSqlQueryRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.CancelSqlQueryResponse.FromString,
         )
         self.PollSqlQuery = channel.unary_unary(
             "/chalk.protosql.v1.SqlService/PollSqlQuery",
@@ -97,21 +107,27 @@ class SqlServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ExecuteSqlQueryStream(self, request, context):
-        """Execute a SQL query, emitting each chunk of the result as the plan produces it instead of
-        gathering the whole result first. Same request as ExecuteSqlQuery and the same execution;
-        only the delivery differs, so a query whose leading rows are cheap becomes visible while
-        its expensive tail is still running.
-
-        Rows are streamed, never persisted, and never profiled: async_options,
-        persistence_settings.enabled and column_profile_options.enabled are each rejected, since
-        each of them replaces the plan's row output with something else (an operation id to poll,
-        a write summary, an aggregation over the whole result). Use ExecuteSqlQuery for those.
+        """Execute a persisted query and stream committed-partition availability. A sync
+        reader owns execution and disconnecting cancels it. Async execution is owned by
+        its existing job and survives the reader. Fetch rows through ReadSqlQueryResults.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ReadSqlQueryResults(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def PlanSqlQuery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CancelSqlQuery(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -169,10 +185,20 @@ def add_SqlServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamRequest.FromString,
             response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamResponse.SerializeToString,
         ),
+        "ReadSqlQueryResults": grpc.unary_unary_rpc_method_handler(
+            servicer.ReadSqlQueryResults,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ReadSqlQueryResultsRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ReadSqlQueryResultsResponse.SerializeToString,
+        ),
         "PlanSqlQuery": grpc.unary_unary_rpc_method_handler(
             servicer.PlanSqlQuery,
             request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.FromString,
             response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.SerializeToString,
+        ),
+        "CancelSqlQuery": grpc.unary_unary_rpc_method_handler(
+            servicer.CancelSqlQuery,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.CancelSqlQueryRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.CancelSqlQueryResponse.SerializeToString,
         ),
         "PollSqlQuery": grpc.unary_unary_rpc_method_handler(
             servicer.PollSqlQuery,
@@ -349,6 +375,35 @@ class SqlService(object):
         )
 
     @staticmethod
+    def ReadSqlQueryResults(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/ReadSqlQueryResults",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ReadSqlQueryResultsRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ReadSqlQueryResultsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def PlanSqlQuery(
         request,
         target,
@@ -367,6 +422,35 @@ class SqlService(object):
             "/chalk.protosql.v1.SqlService/PlanSqlQuery",
             chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryRequest.SerializeToString,
             chalk_dot_protosql_dot_v1_dot_sql__service__pb2.PlanSqlQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CancelSqlQuery(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/CancelSqlQuery",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.CancelSqlQueryRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.CancelSqlQueryResponse.FromString,
             options,
             channel_credentials,
             insecure,

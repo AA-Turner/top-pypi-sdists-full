@@ -100,6 +100,34 @@ class RepoStatus:
                 signed-in user's role. Saving a token with the webhook scope in
                 Settings is the fix. Absent when a token is saved, whatever
                 role it holds. Set today for Forgejo only.
+            webhook_reason (str | Unset): Why this repo has no live webhook, when the dashboard knows.
+                Present only while hasWebhook is false, and absent when nothing
+                has been tried or learned yet. A client shows it on the repo's
+                row and decides the wording; new values are additive.
+
+                - `no_permission`: the credential can't administer the repo
+                  (canManageWebhooks is false), so no hook is attempted.
+                  webhookNeedsToken and webhookLockedByConnection say which
+                  fix applies.
+                - `forge_unavailable`: the forge was rate limited, unreachable
+                  or answered with a server error, so the automatic pass left
+                  the repo for a later refresh. Nothing is broken; the
+                  dashboard asks again by itself.
+                - `forge_refused`: the forge refused to create the hook.
+                  webhookReasonDetail has its reason, and webhookNextAttemptAt
+                  says when the dashboard asks again.
+
+                A public origin that makes no hook possible is not a per-repo
+                reason: see `webhookOriginProblem` on the dashboard.
+            webhook_reason_detail (str | Unset): What the forge itself said about the refusal, in one plain line.
+                Present only when `webhookReason` is `forge_refused` and the forge
+                gave a sentence; absent when it gave none, so a client never shows
+                a dashboard sentence as the forge's.
+            webhook_next_attempt_at (datetime.datetime | Unset): When the automatic pass next tries to create this repo's
+                hook,
+                present with webhookReason `forge_refused`. A refresh that runs
+                after this time makes the attempt. It is not saved, so after a
+                restart the pass tries again at once.
             failing_since (datetime.datetime | Unset): Present when the last fetch of this repository failed, and the
                 time of the first failure in the run it is still part of. Its
                 pull requests and issues are then the last good ones. Absent
@@ -127,6 +155,9 @@ class RepoStatus:
     logo_url: str | Unset = UNSET
     webhook_locked_by_connection: bool | Unset = UNSET
     webhook_needs_token: bool | Unset = UNSET
+    webhook_reason: str | Unset = UNSET
+    webhook_reason_detail: str | Unset = UNSET
+    webhook_next_attempt_at: datetime.datetime | Unset = UNSET
     failing_since: datetime.datetime | Unset = UNSET
     failing_for_good: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -162,6 +193,14 @@ class RepoStatus:
 
         webhook_needs_token = self.webhook_needs_token
 
+        webhook_reason = self.webhook_reason
+
+        webhook_reason_detail = self.webhook_reason_detail
+
+        webhook_next_attempt_at: str | Unset = UNSET
+        if not isinstance(self.webhook_next_attempt_at, Unset):
+            webhook_next_attempt_at = self.webhook_next_attempt_at.isoformat()
+
         failing_since: str | Unset = UNSET
         if not isinstance(self.failing_since, Unset):
             failing_since = self.failing_since.isoformat()
@@ -189,6 +228,12 @@ class RepoStatus:
             field_dict["webhookLockedByConnection"] = webhook_locked_by_connection
         if webhook_needs_token is not UNSET:
             field_dict["webhookNeedsToken"] = webhook_needs_token
+        if webhook_reason is not UNSET:
+            field_dict["webhookReason"] = webhook_reason
+        if webhook_reason_detail is not UNSET:
+            field_dict["webhookReasonDetail"] = webhook_reason_detail
+        if webhook_next_attempt_at is not UNSET:
+            field_dict["webhookNextAttemptAt"] = webhook_next_attempt_at
         if failing_since is not UNSET:
             field_dict["failingSince"] = failing_since
         if failing_for_good is not UNSET:
@@ -230,6 +275,20 @@ class RepoStatus:
 
         webhook_needs_token = d.pop("webhookNeedsToken", UNSET)
 
+        webhook_reason = d.pop("webhookReason", UNSET)
+
+        webhook_reason_detail = d.pop("webhookReasonDetail", UNSET)
+
+        _webhook_next_attempt_at = d.pop("webhookNextAttemptAt", UNSET)
+        webhook_next_attempt_at: datetime.datetime | Unset
+        if isinstance(_webhook_next_attempt_at,  Unset):
+            webhook_next_attempt_at = UNSET
+        else:
+            webhook_next_attempt_at = datetime.datetime.fromisoformat(_webhook_next_attempt_at)
+
+
+
+
         _failing_since = d.pop("failingSince", UNSET)
         failing_since: datetime.datetime | Unset
         if isinstance(_failing_since,  Unset):
@@ -256,6 +315,9 @@ class RepoStatus:
             logo_url=logo_url,
             webhook_locked_by_connection=webhook_locked_by_connection,
             webhook_needs_token=webhook_needs_token,
+            webhook_reason=webhook_reason,
+            webhook_reason_detail=webhook_reason_detail,
+            webhook_next_attempt_at=webhook_next_attempt_at,
             failing_since=failing_since,
             failing_for_good=failing_for_good,
         )

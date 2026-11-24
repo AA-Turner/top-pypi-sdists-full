@@ -20,9 +20,9 @@ import random
 from typing import TYPE_CHECKING, Any, ClassVar, Collection, List, Optional, Tuple
 
 from ..constants import (
-    FIXED_DELTA_SECONDS,
     LANE_CHANGE_CENTER_TOLERANCE_M,
     LANE_CHANGE_HEADING_TOLERANCE_DEG,
+    tick_seconds_or_fixed,
 )
 from ..coordinate.map_manager import run_carla_map
 from ..kinematics.angle import normalize_angle_deg
@@ -746,10 +746,19 @@ class TrafficManagerBackend(TrafficBackend):
         Resets its ``InMemoryMap`` cache and internal state.  Safe to call twice
         and safe to call after a failed :meth:`prepare`, because teardown runs
         whatever happened during the run.
+
+        A step that fails is logged and the rest still runs: above all the
+        parameters are put back (or the next case would draw this one's
+        overrides) and the TrafficManager is shut down.
         """
         # First: nothing below may keep a finished run's map on its vehicles.
         for entity in self._lane_changed:
-            entity.forget_lane_change()
+            try:
+                entity.forget_lane_change()
+            except Exception:  # noqa: BLE001 - teardown must go on
+                logger.warning(
+                    "TrafficManager: forgetting a lane change failed", exc_info=True
+                )
         self._lane_changed = []
         self._lane_change_requests = []
         for actor in self._background.values():
@@ -786,7 +795,12 @@ class TrafficManagerBackend(TrafficBackend):
         self._paused = {}
         self._lead_from = {}
         self._lead_route = {}
-        self._restore_parameters()
+        try:
+            self._restore_parameters()
+        except Exception:  # noqa: BLE001 - the shut-down must still run
+            logger.warning(
+                "TrafficManager: restoring the parameters failed", exc_info=True
+            )
         if self._closed or self._client is None:
             return
         self._closed = True
@@ -1065,6 +1079,27 @@ class TrafficManagerBackend(TrafficBackend):
         logger.info(
             "%s: forced a %s lane change", _entity_name(entity), direction.value
         )
+
+    def cancel_lane_change(self, entity: DrivenEntity, world: "carla.World") -> None:
+        """Drop *entity*'s lane change still waiting for its ``start_after_m``
+        or still being stretched over its ``lane_change_length_m``
+        (:meth:`TrafficBackend.cancel_lane_change`): the vehicle is left to the
+        TrafficManager, its lane offset taken off and its own speed and lane
+        changes given back (:meth:`_end_lane_change_request`).  A lane change
+        that is done, or that was forced at once, has no request left to drop.
+        """
+        for pending in self._lane_change_requests:
+            if pending.entity is entity:
+                tm = self._require_tm("cancel_lane_change")
+                if tm is not None:
+                    self._end_lane_change_request(pending, tm)
+                self._lane_change_requests.remove(pending)
+                logger.info(
+                    "%s: the %s lane change asked for was cancelled",
+                    _entity_name(entity),
+                    pending.direction.value,
+                )
+                return
 
     def _aim_lane_change(
         self,
@@ -1932,7 +1967,7 @@ class TrafficManagerBackend(TrafficBackend):
             if approach is not None:
                 driving: FinalApproach = approach
                 try:
-                    driving.step(_tick_seconds(world), elapsed)
+                    driving.step(tick_seconds_or_fixed(world), elapsed)
                 except RuntimeError as error:
                     if not kept.actor.is_alive:
                         del self._kept[actor_id]  # Destroyed under us.
@@ -2428,15 +2463,6 @@ def _clear_of_junctions(
         if not any(inside[max(0, i - 1) : i + 2]):
             clear.append(location)
     return clear
-
-
-def _tick_seconds(world: "carla.World") -> float:
-    """How much simulated time the last tick covered (the run's fixed step
-    when the world cannot say)."""
-    try:
-        return float(world.get_snapshot().timestamp.delta_seconds)
-    except (AttributeError, RuntimeError):
-        return FIXED_DELTA_SECONDS
 
 
 def _frame_of(world: "carla.World") -> int:

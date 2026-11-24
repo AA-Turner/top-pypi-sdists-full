@@ -6,16 +6,41 @@ const processes = new Map(),
   plugins = new Map(),
   interfaces = new Map(),
   sites = new Map();
-const historyKey = `archivebox-bandwidth-v2:${root.dataset.monitorKey}`;
-const completed = new Map();
-const renderedReports = new Set();
+let range = root.dataset.range;
+let rangeSeconds = Number(root.dataset.rangeSeconds);
+let rangeLabel = root.dataset.rangeLabel;
+const bucketSeconds = 60;
+const historyKey = `archivebox-bandwidth-v3:${root.dataset.monitorKey}`;
+const columns = { crawls, plugins, interfaces, sites };
+const completed = new Set();
+const observed = new Set();
+const histories = [
+  ["downloads", root.dataset.historyEnabled],
+  ["hits", root.dataset.hitHistoryEnabled],
+  ["groups", root.dataset.groupHistoryEnabled],
+].filter(([, enabled]) => enabled === "true").map(([source]) => ({
+  source,
+  cursor: source === "groups" && rangeSeconds ? null : "",
+  request: null,
+  loadedRange: 0,
+}));
+const nearbyCards = new WeakSet();
+const cardData = new WeakMap();
+const cardObserver = new IntersectionObserver((entries) => {
+  for (const { target, isIntersecting } of entries) {
+    if (isIntersecting && cardData.has(target)) {
+      nearbyCards.add(target);
+      renderCard(target, ...cardData.get(target));
+    } else {
+      nearbyCards.delete(target);
+    }
+  }
+}, { rootMargin: "250px" });
 let savedAt = 0;
-let restoredWork = false;
+let oldest = Date.now() / 1000;
 let cursor = "",
   previous = null,
   busy = false,
-  paused = false,
-  totalBytes = 0,
   totalRate = 0;
 const bytes = (value) => {
   let i = 0;
@@ -42,15 +67,8 @@ function el(tag, text, className) {
 }
 function group(map, id) {
   if (!map.has(id)) {
-    if (map.size >= 128) {
-      const cold = [...map.values()]
-        .filter((g) => !g.active)
-        .sort((a, b) => a.last - b.last)[0];
-      if (cold) map.delete(cold.id);
-    }
     map.set(id, {
       id,
-      bytes: 0,
       disk: 0,
       cpu: 0,
       fg: 0,
@@ -63,6 +81,7 @@ function group(map, id) {
       last: 0,
       seconds: new Map(),
       minutes: new Map(),
+      buckets: new Map(),
       snapshots: new Set(),
       measured: false,
       rate: 0,
@@ -72,23 +91,27 @@ function group(map, id) {
   return map.get(id);
 }
 function emptyBucket() {
-  return { bytes: 0, hits: 0, rtt: null };
+  return { bytes: 0, measured: false, hits: 0, observations: 0, rtt: null };
 }
 function appendBucket(bucket, amount) {
-  bucket.bytes += amount.bytes;
-  bucket.hits += amount.hits;
+  bucket.bytes += amount.bytes ?? 0;
+  bucket.measured ||= amount.measured ?? amount.bytes > 0;
+  bucket.hits += amount.hits ?? 0;
+  bucket.observations += amount.observations ?? 0;
   if (amount.rtt != null)
     bucket.rtt = Math.min(bucket.rtt ?? Infinity, amount.rtt);
 }
 function addTraffic(group, now, amount, seconds = 0) {
-  group.measured = true;
+  group.measured ||= amount.measured ?? amount.bytes > 0;
   if (seconds > 0) group.rate = amount.bytes / seconds;
-  group.bytes += amount.bytes;
   group.peak = Math.max(group.peak, group.rate);
-  if (!amount.bytes && !amount.hits && amount.rtt == null) return;
+  if (!amount.measured && !amount.bytes && !amount.hits && !amount.observations && amount.rtt == null) return;
+  oldest = Math.min(oldest, now);
+  const age = Date.now() / 1000 - now;
   for (const [buckets, period] of [
-    [group.seconds, 1],
-    [group.minutes, 60],
+    [group.buckets, bucketSeconds],
+    ...(age < 3600 ? [[group.minutes, 60]] : []),
+    ...(age < 60 ? [[group.seconds, 1]] : []),
   ]) {
     const key = Math.floor(now / period);
     if (!buckets.has(key)) buckets.set(key, emptyBucket());
@@ -98,7 +121,7 @@ function addTraffic(group, now, amount, seconds = 0) {
 function trafficWindows(group, now) {
   const recent = emptyBucket(),
     hour = emptyBucket(),
-    day = emptyBucket();
+    selected = emptyBucket();
   for (const [second, amount] of group.seconds) {
     if (now - second >= 60) group.seconds.delete(second);
     else appendBucket(recent, amount);
@@ -106,109 +129,54 @@ function trafficWindows(group, now) {
   const minute = Math.floor(now / 60);
   for (const [time, amount] of group.minutes) {
     const age = minute - time;
-    if (age >= 1440) group.minutes.delete(time);
-    else {
-      appendBucket(day, amount);
-      if (age < 60) appendBucket(hour, amount);
-    }
+    if (age >= 60) group.minutes.delete(time);
+    else appendBucket(hour, amount);
   }
-  return [recent, hour, day];
+  for (const [time, amount] of group.buckets) {
+    if (!rangeSeconds || (time + 1) * bucketSeconds > now - rangeSeconds)
+      appendBucket(selected, amount);
+  }
+  return [recent, hour, selected];
 }
 function restoreHistory() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(historyKey) || "{}");
-    totalBytes = saved.totalBytes || 0;
-    for (const [id, time] of saved.completed || [])
-      if (Date.now() / 1000 - time < 86400) completed.set(id, time);
-    for (const {
-      id,
-      href,
-      favicon,
-      seconds,
-      minutes,
-      peak,
-      hostnames,
-    } of saved.sites || []) {
-      const site = group(sites, id);
-      Object.assign(site, {
-        href,
-        favicon,
-        seconds: new Map(seconds),
-        minutes: new Map(minutes),
-        hostnames: new Set(hostnames),
-        peak,
-      });
-      site.bytes = trafficWindows(site, Date.now() / 1000)[2].bytes;
-      site.measured = site.minutes.size > 0;
-      if (!site.measured) sites.delete(id);
-    }
-    for (const [key, map] of [
-      ["plugins", plugins],
-      ["crawls", crawls],
-    ]) {
-      for (const { id, label, href, seconds, minutes, peak, last } of saved
-        .work?.[key] || []) {
-        const work = group(map, id);
-        Object.assign(work, {
-          label,
-          href,
+    const now = Date.now() / 1000;
+    oldest = saved.oldest ?? oldest;
+    for (const id of saved.completed || []) completed.add(id);
+    for (const id of saved.observed || []) observed.add(id);
+    for (const [kind, map] of Object.entries(columns)) {
+      for (const { id, seconds, minutes, buckets, hostnames, ...meta } of saved[kind] || []) {
+        const g = group(map, id);
+        Object.assign(g, meta, {
           seconds: new Map(seconds),
           minutes: new Map(minutes),
-          peak,
-          last,
+          buckets: new Map(buckets),
+          hostnames: new Set(hostnames),
         });
-        work.bytes = trafficWindows(work, Date.now() / 1000)[2].bytes;
-        work.measured = work.minutes.size > 0;
-        if (!work.measured) map.delete(id);
+        trafficWindows(g, now);
+        if (!g.buckets.size) map.delete(id);
       }
     }
-    restoredWork = Boolean(saved.work);
   } catch {
     // The dashboard also works when storage is unavailable.
   }
 }
 function saveHistory() {
   try {
-    const history = [...sites.values()]
-      .filter((s) => s.minutes.size)
-      .map((s) => ({
-        id: s.id,
-        href: s.href,
-        favicon: s.favicon,
-        seconds: [...s.seconds],
-        minutes: [...s.minutes],
-        hostnames: [...(s.hostnames || [])],
-        peak: s.peak,
-      }));
-    const now = Date.now() / 1000;
-    for (const [id, time] of completed)
-      if (now - time >= 86400) completed.delete(id);
-    const work = {};
-    for (const [key, map] of [
-      ["plugins", plugins],
-      ["crawls", crawls],
-    ]) {
-      work[key] = [...map.values()]
-        .filter((g) => g.minutes.size)
-        .map(({ id, label, href, seconds, minutes, peak, last }) => ({
-          id,
-          label,
-          href,
+    const saved = { oldest, completed: [...completed], observed: [...observed] };
+    for (const [kind, map] of Object.entries(columns)) {
+      saved[kind] = [...map.values()]
+        .filter((g) => g.buckets.size)
+        .map(({ id, label, href, favicon, seconds, minutes, buckets, hostnames, peak, last, local, wan }) => ({
+          id, label, href, favicon, peak, last, local, wan,
           seconds: [...seconds],
           minutes: [...minutes],
-          peak,
-          last,
+          buckets: [...buckets],
+          hostnames: [...(hostnames || [])],
         }));
     }
-    sessionStorage.setItem(
-      historyKey,
-      JSON.stringify({
-        sites: history,
-        work,
-        completed: [...completed],
-        totalBytes,
-      })
-    );
+    sessionStorage.setItem(historyKey, JSON.stringify(saved));
   } catch {
     // Storage limits do not affect live measurements.
   }
@@ -225,8 +193,64 @@ function ifaceFor(flow, process) {
 }
 function workGroups(process) {
   const groups = [group(plugins, process.name)];
-  if (process.crawl) groups.push(group(crawls, process.crawl));
+  if (process.crawl) {
+    const crawl = group(crawls, process.crawl);
+    crawl.label = process.crawl_label;
+    crawl.href = `../crawls/crawl/${process.crawl}/change/`;
+    groups.push(crawl);
+  }
   return groups;
+}
+function ingestGroups(data) {
+  for (const [id, label] of data.crawls) {
+    const crawl = group(crawls, id);
+    crawl.label ||= label;
+    crawl.href = `../crawls/crawl/${id}/change/`;
+    crawl.hasHistory = true;
+  }
+  for (const name of data.plugins) group(plugins, name).hasHistory = true;
+  for (const [name, { local, wan }] of Object.entries(data.interfaces)) {
+    const nic = group(interfaces, name);
+    nic.local ||= local;
+    nic.wan ||= wan;
+    nic.hasHistory = true;
+  }
+}
+function ingestDownloads(data, owners) {
+  for (const report of data.downloads || []) {
+    const owner = owners.get(report.process);
+    if (!owner || completed.has(report.process)) continue;
+    completed.add(report.process);
+    const groups = workGroups(owner);
+    if (owner.interface) {
+      const nic = ifaceFor({ interface: owner.interface, local: owner.local_ip }, owner);
+      groups.push(nic);
+    }
+    for (const entry of report.entries) {
+      const site = group(sites, entry.site);
+      site.href ||= entry.site_url;
+      site.favicon ||= data.favicons?.[entry.site];
+      site.hostnames ||= new Set();
+      if (site.hostnames.size < 12) site.hostnames.add(entry.hostname);
+      const amount = { bytes: entry.bytes, hits: entry.hits, measured: true };
+      for (const g of [site, ...groups]) {
+        g.last = Math.max(g.last, report.time);
+        addTraffic(g, report.time, amount);
+      }
+    }
+  }
+}
+function ingestObservations(data) {
+  for (const row of data.observations) {
+    const key = `${row.snapshot}/${row.site}`;
+    if (observed.has(key)) continue;
+    observed.add(key);
+    const site = group(sites, row.site);
+    site.href ||= row.site_url;
+    site.hostnames ||= new Set();
+    if (site.hostnames.size < 12) site.hostnames.add(row.hostname);
+    addTraffic(site, row.time, { observations: 1 });
+  }
 }
 function ingest(data) {
   if (previous && data.time <= previous.time) return;
@@ -255,10 +279,6 @@ function ingest(data) {
       g.fg += fgDelta;
       g.last = Math.max(g.last, p.ended || p.started || now);
       if (p.snapshot && g.snapshots.size < 4096) g.snapshots.add(p.snapshot);
-      if (p.crawl && g === crawls.get(p.crawl)) {
-        g.label = p.crawl_label;
-        g.href = `../crawls/crawl/${p.crawl}/change/`;
-      }
     }
     previousProcesses.set(row.id, { cpu: p.cpu, disk: row.disk || 0, elapsed });
     if (p.status === "running" || now - (p.ended || 0) < 45) {
@@ -306,8 +326,7 @@ function ingest(data) {
   );
   const amounts = new Map();
   const liveRates = new Map();
-  let transferred = 0,
-    liveBytes = 0;
+  let liveBytes = 0;
   for (const flow of data.flows) {
     const owner = owners.get(flow.process);
     if (!owner) continue;
@@ -326,17 +345,19 @@ function ingest(data) {
     const bytes = old ? Math.max(0, flow.rx - old.rx) : 0;
     const amount = {
       bytes: owner.reports_downloads ? 0 : bytes,
+      measured: Boolean(old && !owner.reports_downloads),
       hits:
         !owner.reports_downloads && flow.site && (!old || !old.site) ? 1 : 0,
       rtt: Number.isFinite(flow.rtt) && flow.rtt > 0 ? flow.rtt : null,
     };
-    for (const g of [site, ...workGroups(owner)]) {
+    const related = [site, ...workGroups(owner)];
+    if (nic) related.push(nic);
+    for (const g of related) {
       liveRates.set(g, (liveRates.get(g) || 0) + bytes / delta);
       if (!amounts.has(g)) amounts.set(g, emptyBucket());
       appendBucket(amounts.get(g), amount);
     }
     liveBytes += bytes;
-    transferred += amount.bytes;
   }
   for (const map of [plugins, crawls, sites, interfaces])
     for (const g of map.values()) g.rate = 0;
@@ -345,29 +366,7 @@ function ingest(data) {
     g.rate = rate;
     g.peak = Math.max(g.peak, rate);
   }
-  for (const report of data.downloads || []) {
-    const owner = owners.get(report.process);
-    if (!owner || renderedReports.has(report.process)) continue;
-    renderedReports.add(report.process);
-    const alreadyCounted = completed.has(report.process);
-    completed.set(report.process, report.time);
-    for (const entry of report.entries) {
-      const site = group(sites, entry.site);
-      site.href ||= entry.site_url;
-      site.favicon ||= data.favicons?.[entry.site];
-      site.hostnames ||= new Set();
-      if (site.hostnames.size < 12) site.hostnames.add(entry.hostname);
-      site.last = Math.max(site.last, report.time);
-      const amount = { bytes: entry.bytes, hits: entry.hits, rtt: null };
-      if (!alreadyCounted || !restoredWork)
-        for (const g of workGroups(owner)) addTraffic(g, report.time, amount);
-      if (!alreadyCounted) {
-        addTraffic(site, report.time, amount);
-        transferred += entry.bytes;
-      }
-    }
-  }
-  totalBytes += transferred;
+  ingestDownloads(data, owners);
   totalRate = delta > 0 ? liveBytes / delta : 0;
 
   const counters = new Map(
@@ -377,15 +376,12 @@ function ingest(data) {
     previous?.interfaces.map((counter) => [counter.id, counter])
   );
   for (const g of interfaces.values()) {
-    g.rx = g.tx = 0;
+    g.tx = 0;
     const current = counters.get(g.id);
     const old = previousCounters.get(g.id);
     if (!current || !old || delta <= 0) continue;
-    const rx = Math.max(0, current.rx - old.rx);
     const tx = Math.max(0, current.tx - old.tx);
-    g.rx = rx / delta;
     g.tx = tx / delta;
-    addTraffic(g, now, { ...emptyBucket(), bytes: rx }, delta);
   }
   for (const map of [plugins, crawls, interfaces, sites]) {
     for (const group of map.values()) {
@@ -396,7 +392,6 @@ function ingest(data) {
   }
   previous = data;
   cursor = data.cursor || cursor;
-  $("clock").textContent = new Date(data.time * 1000).toLocaleTimeString();
   render();
   if (now - savedAt >= 30) {
     saveHistory();
@@ -415,7 +410,6 @@ const icons = {
   memory: "M3 7h18v10H3zM7 10v3m5-3v3m5-3v3M7 17v3m5-3v3m5-3v3",
   snapshots: "M7 3h12v14H7zM4 7v13h12M10 7h6m-6 4h6",
   pulse: "M2 12h5l3-7 4 14 3-7h5",
-  sum: "M18 4H6l7 8-7 8h12",
   peak: "M3 19 10 7l4 6 3-4 4 10z",
   receive: "M12 4v11m-4-4 4 4 4-4M5 18v2h14v-2",
   send: "M12 15V4m-4 4 4-4 4 4M5 18v2h14v-2",
@@ -433,11 +427,10 @@ function icon(name) {
   node.append(path);
   return node;
 }
-function metric(symbol, label, value) {
+function metric(label, value) {
   const item = el("div", null, "metric");
-  const title = el("dt");
-  title.append(icon(symbol), el("span", label));
-  item.append(title, el("dd", value));
+  item.append(el("dt", label), el("dd", value));
+  item.title = label;
   return item;
 }
 function chip(symbol, label, value) {
@@ -469,22 +462,24 @@ function sparkline(history) {
   chart.append(bars);
   return chart;
 }
-function dayBins(site, now) {
+function historyBins(g, now) {
   const bins = new Array(96).fill(0);
-  const lastMinute = Math.floor(now / 60);
-  for (const [minute, amount] of site.minutes) {
-    const bin = 95 - Math.floor((lastMinute - minute) / 15);
-    if (bin >= 0 && bin < 96) bins[bin] += amount.bytes;
+  const start = rangeSeconds ? now - rangeSeconds : oldest;
+  const width = Math.max(1, (now - start) / bins.length);
+  for (const [bucket, amount] of g.buckets) {
+    if ((bucket + 1) * bucketSeconds <= start) continue;
+    const bin = Math.min(bins.length - 1, Math.max(0, Math.floor((bucket * bucketSeconds - start) / width)));
+    bins[bin] += amount.bytes;
   }
   return bins;
 }
-function dayChart(bins, maximum) {
+function historyChart(bins, maximum) {
   const panel = el("div", null, "day-chart");
   const plot = svg("svg");
   plot.setAttribute("viewBox", "0 0 96 28");
   plot.setAttribute("preserveAspectRatio", "none");
   plot.setAttribute("role", "img");
-  plot.setAttribute("aria-label", "24-hour download history");
+  plot.setAttribute("aria-label", `Downloads · ${rangeLabel}`);
   if (maximum) {
     const bars = svg("path");
     bars.setAttribute(
@@ -515,7 +510,7 @@ function renderCard(card, g, kind, chartMaximum) {
       ? g.label || `Crawl #${short(g.id)}`
       : g.hostnames?.size === 1
       ? g.hostnames.values().next().value
-      : g.id || "Unattributed"
+      : g.id
   );
   if (g.href) name.href = g.href;
   name.title = name.textContent;
@@ -528,19 +523,18 @@ function renderCard(card, g, kind, chartMaximum) {
     emblem.append(favicon);
   } else emblem.append(icon(kind));
   header.append(emblem, name);
+  card.replaceChildren(header);
+  const stats = site ? el("div", null, "site-stats") : header;
   if (g.active) {
     const label = work ? "running" : g.active === 1 ? "socket" : "sockets";
-    header.append(el("span", `${g.active} ${label}`, "status-badge started"));
-  } else if (work) header.append(el("span", "Finished", "status-badge sealed"));
+    stats.append(el("span", `${g.active} ${label}`, "status-badge started"));
+  }
   if (site) {
-    const stats = el("div", null, "site-stats");
-    const badge = chip(
-      "receive",
-      "Live download rate",
-      g.rate ? `${bytes(g.rate)}/s` : "0B/s"
-    );
-    badge.classList.add("site-rate");
-    stats.append(badge);
+    if (g.rate > 0) {
+      const badge = chip("receive", "Live download rate", `${bytes(g.rate)}/s`);
+      badge.classList.add("site-rate");
+      stats.append(badge);
+    }
     if (g.peak > 0)
       stats.append(
         chip(
@@ -558,25 +552,22 @@ function renderCard(card, g, kind, chartMaximum) {
           `${Math.round(latency) || "<1"} ms`
         )
       );
-    header.append(stats);
+    if (stats.childElementCount) card.append(stats);
   }
-  card.replaceChildren(header);
 
   const traffic = el("div", null, "traffic-strip");
   const metrics = el("dl", null, "traffic-values");
   const averaged = !g.rate && g.windows[0].bytes > 0;
   const rate = averaged ? g.windows[0].bytes / 60 : g.rate;
-  if (!site) {
+  if (!site && (g.measured || g.windows[2].measured)) {
     metrics.append(
       metric(
-        "receive",
-        averaged ? "1m avg" : "Download / sec",
+        averaged ? "1-minute average" : "Download rate",
         g.measured ? `${bytes(rate)}/s` : "—"
       ),
       metric(
-        "sum",
-        nic ? "Interface downloads" : "Observed downloads",
-        g.measured ? bytes(g.bytes) : "—"
+        "Total transferred",
+        g.measured || g.windows[2].bytes ? bytes(g.windows[2].bytes) : "—"
       )
     );
     traffic.append(metrics);
@@ -584,7 +575,7 @@ function renderCard(card, g, kind, chartMaximum) {
     if (chart) traffic.append(chart);
     card.append(traffic);
   }
-  if (site) card.append(dayChart(g.bins, chartMaximum));
+  if (site && g.windows[2].bytes) card.append(historyChart(g.bins, chartMaximum));
 
   const details = el("div", null, "detail-strip");
   if (!site && g.peak > 0)
@@ -592,28 +583,23 @@ function renderCard(card, g, kind, chartMaximum) {
       chip(
         "peak",
         "Peak traffic",
-        `${Math.round((g.peak * 8) / 1e6) || "<1"} Mbps peak`
+        `${Math.round((g.peak * 8) / 1e6) || "<1"} Mbps`
       )
     );
   if (work) {
     if (g.disk) details.append(chip("disk", "Disk", bytes(g.disk)));
     if (g.fg)
       details.append(
-        chip("clock", "Foreground elapsed time", `${duration(g.fg)} fg`)
+        chip("clock", "Foreground elapsed time", duration(g.fg))
       );
-    details.append(
-      chip(
-        "cpu",
-        "Foreground CPU",
-        g.cpu ? `≥ ${duration(g.cpu)} CPU` : "— CPU"
-      )
-    );
+    if (g.cpu)
+      details.append(chip("cpu", "Observed foreground CPU", duration(g.cpu)));
     if (g.snapshots.size)
       details.append(
         chip(
           "snapshots",
           "Snapshots",
-          `${g.snapshots.size.toLocaleString()} snapshots`
+          g.snapshots.size.toLocaleString()
         )
       );
     if (g.active && g.cpuSamples && g.cpuLive > 0)
@@ -621,7 +607,7 @@ function renderCard(card, g, kind, chartMaximum) {
         chip(
           "cpu",
           "Average live CPU",
-          `${Math.round(g.cpuLive / g.cpuSamples) || "<1"}% CPU avg`
+          `${Math.round(g.cpuLive / g.cpuSamples) || "<1"}%`
         )
       );
     if (g.active && g.ramSamples && g.ram > 0)
@@ -629,109 +615,152 @@ function renderCard(card, g, kind, chartMaximum) {
         chip(
           "memory",
           "Average live RAM",
-          `${bytes(g.ram / g.ramSamples)} RAM avg`
+          bytes(g.ram / g.ramSamples)
         )
       );
   }
   if (nic) {
     if (g.tx) details.append(chip("send", "Upload rate", `${bytes(g.tx)}/s ↑`));
-    details.append(
-      chip("interfaces", "Local IP", `LAN ${g.local || "—"}`),
-      chip("sites", "WAN IP", `WAN ${g.wan || "—"}`)
-    );
+    if (g.local) details.append(chip("interfaces", "Local IP", g.local));
+    if (g.wan) details.append(chip("sites", "WAN IP", g.wan));
   }
   if (details.childElementCount) card.append(details);
 
-  if (site || g.windows.some(({ bytes, hits }) => bytes || hits)) {
+  const windowsToShow = g.windows
+    .map((amount, index) => ({ ...amount, index }))
+    .filter(({ bytes, hits, measured, observations, index }) =>
+      !(range === "1h" && index === 1) &&
+      (site ? measured || hits || observations : index < 2 && (bytes || hits))
+    );
+  if (windowsToShow.length) {
     const windows = el("div", null, site ? "window-tiles" : "window-strip");
     if (!site) windows.append(icon("clock"));
-    g.windows.forEach(({ bytes: value, hits }, index) => {
-      if (!site && !value && !hits) return;
+    for (const { bytes: value, hits, measured, observations, index } of windowsToShow) {
       const item = el("span", null, "rate-badge");
-      const label = ["1m", "1h", "24h"][index];
+      const label = ["1m", "1h", range === "all" ? "All time" : range][index];
       item.title = [
         "Downloads in the last minute",
         "Downloads in the last hour",
-        "Downloads in the last 24 hours",
+        rangeLabel,
       ][index];
       item.append(el("b", label));
-      if (site || value) item.append(el("strong", bytes(value)));
-      if (site) {
+      if (value || (site && measured)) item.append(el("strong", bytes(value)));
+      if (site && hits) {
         const estimate = el(
           "span",
-          `≈ ${hits.toLocaleString()} req`,
+          `${hits.toLocaleString()} req`,
           "hit-estimate"
         );
         estimate.title = "Completed downloads and observed connections";
         item.append(estimate);
       }
+      if (site && observations) {
+        const count = el("span", `${observations.toLocaleString()} ${observations === 1 ? "hit" : "hits"}`, "hit-estimate");
+        count.title = "Captures with a browser response";
+        item.append(count);
+      }
       windows.append(item);
-    });
+    }
     card.append(windows);
   }
 }
 
 function render() {
   const now = Date.now() / 1000;
-  for (const [id, map, limit] of [
-    ["crawls", crawls, 10],
-    ["plugins", plugins, 10],
-    ["interfaces", interfaces, 8],
-    ["sites", sites, 30],
-  ]) {
+  for (const [id, map] of Object.entries(columns)) {
     for (const g of map.values()) g.windows = trafficWindows(g, now);
     const sort = $(`${id}-sort`)?.value || "bandwidth";
     const weight = (g) =>
-      sort === "cpu" ? g.cpu : sort === "disk" ? g.disk : g.rate;
+      sort === "cpu" ? g.cpu : sort === "disk" ? g.disk : g.windows[2].bytes;
     const groups = [...map.values()]
-      .filter((g) => {
-        if (id === "interfaces") return g.active || now - g.last < 120;
-        if (id === "sites")
-          return g.active || g.windows[2].bytes || g.windows[2].hits;
-        return true;
-      })
+      .filter((g) => id !== "sites" || g.id)
+      .filter((g) => (!rangeSeconds && g.hasHistory) || g.active || g.windows[2].measured || g.windows[2].hits || g.windows[2].observations || (
+        ["crawls", "plugins"].includes(id) && g.last >= (rangeSeconds ? now - rangeSeconds : 0)
+      ))
       .sort(
         (a, b) =>
           weight(b) - weight(a) ||
-          b.bytes - a.bytes ||
+          b.windows[2].bytes - a.windows[2].bytes ||
+          b.windows[2].hits + b.windows[2].observations - a.windows[2].hits - a.windows[2].observations ||
           b.disk - a.disk ||
           b.cpu - a.cpu ||
           a.id.localeCompare(b.id)
-      )
-      .slice(0, limit);
+      );
     let chartMaximum = 0;
     if (id === "sites") {
       for (const site of groups) {
-        site.bins = dayBins(site, now);
+        if (!site.windows[2].bytes) continue;
+        site.bins = historyBins(site, now);
         chartMaximum = Math.max(chartMaximum, ...site.bins);
       }
     }
     const parent = $(id),
       existing = new Map([...parent.children].map((n) => [n.dataset.key, n]));
-    groups.forEach((g) => {
-      const card = existing.get(g.id) || el("article");
-      card.dataset.key = g.id;
-      renderCard(card, g, id, chartMaximum);
-      parent.append(card);
+    let next = parent.firstElementChild;
+    for (const g of groups) {
+      let card = existing.get(g.id);
+      const isNew = !card;
+      if (isNew) {
+        card = el("article");
+        card.dataset.key = g.id;
+        cardObserver.observe(card);
+      }
+      cardData.set(card, [g, id, chartMaximum]);
+      if (isNew || nearbyCards.has(card)) renderCard(card, g, id, chartMaximum);
+      if (card === next) next = next.nextElementSibling;
+      else parent.insertBefore(card, next);
       existing.delete(g.id);
-    });
-    for (const card of existing.values()) card.remove();
+    }
+    for (const card of existing.values()) {
+      cardObserver.unobserve(card);
+      card.remove();
+    }
     $(`${id}-count`).hidden = !groups.length;
-    $(`${id}-count`).textContent = String(
-      id === "interfaces" ? groups.length : map.size
-    );
+    $(`${id}-count`).textContent = String(groups.length);
   }
-  $("total-bytes").textContent = bytes(totalBytes);
+  const observedBytes = [...sites.values()].reduce((sum, g) => sum + g.windows[2].bytes, 0);
+  $("total-bytes").textContent = bytes(observedBytes);
   $("total-rate").textContent = bytes(totalRate) + "/s";
   $("process-count").textContent = String(
     [...processes.values()].filter((p) => p.status === "running").length
   );
 }
+async function loadHistory(stream) {
+  if (stream.request || stream.cursor === null || document.hidden) return;
+  const controller = new AbortController();
+  stream.request = controller;
+  try {
+    const response = await fetch(`data/?${new URLSearchParams({ history: stream.cursor, source: stream.source, range })}`, {
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]),
+    });
+    if (!response.ok) throw new Error(String(response.status));
+    const data = await response.json();
+    if (stream.request !== controller) return;
+    if (stream.source === "hits") ingestObservations(data);
+    else if (stream.source === "groups") ingestGroups(data);
+    else ingestDownloads(data, new Map(data.processes.map((process) => [process.id, process])));
+    stream.cursor = data.cursor;
+    if (stream.cursor !== null) setTimeout(() => loadHistory(stream), 0);
+    else {
+      stream.loadedRange = rangeSeconds || Infinity;
+      saveHistory();
+    }
+  } catch (error) {
+    if (!controller.signal.aborted) console.error(error);
+  } finally {
+    if (stream.request === controller) {
+      stream.request = null;
+      render();
+    }
+  }
+}
 async function poll() {
-  if (paused || document.hidden || busy) return;
+  if (document.hidden || busy) return;
+  histories.forEach(loadHistory);
   busy = true;
   try {
-    const params = new URLSearchParams(cursor ? { after: cursor } : {});
+    const params = new URLSearchParams({ range });
+    if (cursor) params.set("after", cursor);
     const tracked = [...processes.values()]
       .sort((a, b) => (b.status === "running") - (a.status === "running"))
       .slice(0, 128)
@@ -752,24 +781,42 @@ async function poll() {
     busy = false;
   }
 }
-$("play").onclick = () => {
-  paused = !paused;
-  $("play").textContent = paused ? "▶" : "Ⅱ";
-  $("play").ariaLabel = paused ? "Resume" : "Pause";
-  if (!paused) {
-    previous = null;
-    poll();
-  }
-};
-$("reset").onclick = () => {
-  window.removeEventListener("pagehide", saveHistory);
-  try {
-    sessionStorage.removeItem(historyKey);
-  } catch {}
-  location.reload();
-};
 for (const control of root.querySelectorAll("select"))
   control.onchange = render;
+const rangeLinks = [...root.querySelectorAll(".range-bar a")];
+function selectRange(key) {
+  const link = rangeLinks.find((item) => item.dataset.range === key);
+  if (!link || key === range) return;
+  range = key;
+  rangeSeconds = Number(link.dataset.seconds);
+  rangeLabel = link.textContent;
+  root.dataset.range = key;
+  root.dataset.rangeSeconds = link.dataset.seconds;
+  root.dataset.rangeLabel = rangeLabel;
+  for (const item of rangeLinks) item.removeAttribute("aria-current");
+  link.setAttribute("aria-current", "true");
+  for (const stream of histories) {
+    stream.request?.abort();
+    stream.request = null;
+    stream.cursor = (stream.source !== "groups" || !rangeSeconds) &&
+      (rangeSeconds || Infinity) > stream.loadedRange ? "" : null;
+  }
+  render();
+  histories.forEach(loadHistory);
+}
+for (const link of rangeLinks) {
+  link.onclick = (event) => {
+    if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
+    event.preventDefault();
+    if (link.dataset.range === range) return;
+    history.pushState(null, "", link.href);
+    selectRange(link.dataset.range);
+  };
+}
+window.addEventListener("popstate", () => {
+  selectRange(new URLSearchParams(location.search).get("range") || "24h");
+});
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     previous = null;

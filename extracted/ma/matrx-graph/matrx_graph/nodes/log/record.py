@@ -48,7 +48,7 @@ WHAT MAKES IT USEFUL RATHER THAN A SHRUG
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar, Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -179,7 +179,7 @@ class RecordIssueExecutor:
             HandleSpec(id="out", direction=HandleDirection.OUTPUT, required=False),
         ),
         determinism=ActionTier.SIDE_EFFECT,
-        icon="clipboard-alert",
+        icon="clipboard-list",
         output_kind="run_log_entry",
     )
 

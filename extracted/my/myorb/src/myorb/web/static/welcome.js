@@ -341,7 +341,17 @@
     }).catch(() => {});
   }
 
+  // The title's ‹ › while there is no email that way.
+  function markSteps() {
+    const rows = viewRows();
+    const at = rows.indexOf(viewing);
+    document.querySelectorAll("#page-view [data-view-step]").forEach((button) => {
+      button.disabled = !rows[at + Number(button.dataset.viewStep)];
+    });
+  }
+
   function preloadNeighbours() {
+    markSteps();
     const rows = viewRows();
     const at = rows.indexOf(viewing);
     preload(strip[0], rows[at - 1]);
@@ -426,6 +436,11 @@
 
   document.addEventListener("click", (event) => {
     if (event.target.closest?.("[data-close-view]")) closeView();
+    const step = event.target.closest?.("#page-view [data-view-step]");
+    if (step) goView(Number(step.dataset.viewStep));
+  });
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail.target?.id === "page-view") markSteps();
   });
 
   window.addEventListener("popstate", () => {

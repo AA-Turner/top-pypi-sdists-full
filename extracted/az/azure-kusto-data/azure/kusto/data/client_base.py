@@ -1,15 +1,15 @@
 import abc
+import asyncio
 import io
 import json
 import uuid
 from datetime import timedelta
-from typing import Union, Optional, Any, NoReturn, ClassVar, TYPE_CHECKING
+from typing import Union, Optional, Any, NoReturn, ClassVar, TYPE_CHECKING, cast
 from urllib.parse import urljoin
 
 from requests import Response, Session
 
 from azure.kusto.data._cloud_settings import CloudSettings
-from azure.kusto.data._token_providers import CloudInfoTokenProvider
 from .client_details import ClientDetails
 from .client_request_properties import ClientRequestProperties
 from .exceptions import KustoServiceError, KustoThrottlingError, KustoApiError
@@ -78,17 +78,26 @@ class _KustoClientBase(abc.ABC):
 
     def validate_endpoint(self):
         if not self._endpoint_validated and self._aad_helper is not None:
-            if isinstance(self._aad_helper.token_provider, CloudInfoTokenProvider):
-                endpoint = CloudSettings.get_cloud_info_for_cluster(
-                    self._kusto_cluster,
-                    self._aad_helper.token_provider._proxy_dict,
-                    self._session if isinstance(self._session, Session) else None,
-                ).login_endpoint
-                well_known_kusto_endpoints.validate_trusted_endpoint(
-                    self._kusto_cluster,
-                    endpoint,
-                )
+            kusto_cluster = cast(str, self._kusto_cluster)
+            # Trusted-endpoint validation must run for every authentication method. Gating it on the
+            # token provider type let token-based and callback-based flows send the Authorization
+            # header to an arbitrary host named in the connection string.
+            # The login endpoint is resolved lazily because doing so contacts the cluster itself.
+            well_known_kusto_endpoints.validate_trusted_endpoint(
+                kusto_cluster,
+                lambda: (
+                    CloudSettings.get_cloud_info_for_cluster(
+                        kusto_cluster,
+                        self._aad_helper.token_provider._proxy_dict,
+                        self._session if isinstance(self._session, Session) else None,
+                    ).login_endpoint
+                ),
+            )
             self._endpoint_validated = True
+
+    async def validate_endpoint_async(self):
+        if not self._endpoint_validated and self._aad_helper is not None:
+            await asyncio.get_running_loop().run_in_executor(None, self.validate_endpoint)
 
     @staticmethod
     def _kusto_parse_by_endpoint(endpoint: str, response_json: Any) -> KustoResponseDataSet:

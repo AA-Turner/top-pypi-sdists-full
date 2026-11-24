@@ -12,8 +12,6 @@ import asyncio
 from dataclasses import dataclass
 
 from matrx_ai.tools.vfs import (
-    MatrxAsyncFS,
-    MemoryBackend,
     ShellEnv,
     VfsCommandRunner,
     execute,

@@ -17,7 +17,8 @@ typedef struct
 {
   PyObject_HEAD dp_dll_state_t *handle;
   jm_inflight_t _jm_inflight; /* gh-2272: GIL-free calls running */
-  PyObject     *_jm_retain_set_telemetry_tlm; /* keeps tlm's owner alive */
+  PyObject     *_jm_retain_set_telemetry_tlm;   /* keeps tlm's owner alive */
+  PyObject *_jm_retain_set_steer_telemetry_tlm; /* keeps tlm's owner alive */
 } DllObject;
 
 static void
@@ -27,6 +28,7 @@ DllObj_dealloc (DllObject *self)
     dp_dll_destroy (self->handle);
   jm_inflight_free (&self->_jm_inflight);
   Py_XDECREF (self->_jm_retain_set_telemetry_tlm);
+  Py_XDECREF (self->_jm_retain_set_steer_telemetry_tlm);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -360,6 +362,78 @@ DllObj_set_telemetry (DllObject *self, PyObject *args, PyObject *kwds)
   if (tlm_obj != Py_None)
     Py_INCREF (tlm_obj);
   Py_XSETREF (self->_jm_retain_set_telemetry_tlm,
+              tlm_obj != Py_None ? tlm_obj : NULL);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+DllObj_set_steer_telemetry (DllObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "tlm", "prefix", "decim", NULL };
+  PyObject    *tlm_obj   = Py_None;
+  const char  *prefix    = NULL;
+  long long    decim_raw = 1;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Os|L", _kwlist, &tlm_obj,
+                                    &prefix, &decim_raw))
+    return NULL;
+  dp_tlm_t *tlm = NULL;
+  if (tlm_obj != Py_None)
+    {
+      PyObject *tlm_cap = tlm_obj;
+      Py_INCREF (tlm_cap);
+      if (!PyCapsule_CheckExact (tlm_cap))
+        {
+          Py_DECREF (tlm_cap);
+          tlm_cap = PyObject_GetAttrString (tlm_obj, "_capsule");
+          if (!tlm_cap)
+            {
+              if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+                return NULL;
+              PyErr_Clear ();
+              PyErr_Format (PyExc_TypeError,
+                            "tlm must be the doppler.telemetry.dp_tlm capsule"
+                            " or an object exposing it as ._capsule,"
+                            " not %s",
+                            Py_TYPE (tlm_obj)->tp_name);
+              return NULL;
+            }
+        }
+      tlm = (dp_tlm_t *)PyCapsule_GetPointer (tlm_cap,
+                                              "doppler.telemetry.dp_tlm");
+      Py_DECREF (tlm_cap);
+      if (!tlm)
+        return NULL;
+    }
+  if (decim_raw < 0 || decim_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "decim: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)decim_raw, (long long)0, (long long)UINT32_MAX);
+      return NULL;
+    }
+  uint32_t decim = (uint32_t)decim_raw;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int _rc = dp_dll_set_steer_telemetry (self->handle, tlm, prefix, decim);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "set_steer_telemetry failed", (long long)_rc);
+      return NULL;
+    }
+  /* retain: the kernel keeps `tlm`, so this object keeps its owner
+     until the next call replaces it or None detaches it. */
+  if (tlm_obj != Py_None)
+    Py_INCREF (tlm_obj);
+  Py_XSETREF (self->_jm_retain_set_steer_telemetry_tlm,
               tlm_obj != Py_None ? tlm_obj : NULL);
   Py_RETURN_NONE;
 }
@@ -990,9 +1064,13 @@ static PyMethodDef DllObj_methods[] = {
     ">>> rng = np.random.default_rng(1)\n"
     ">>> code = rng.integers(0, 2, 31).astype(np.uint8)\n"
     ">>> chip = np.where(code & 1, -1.0, 1.0)    # BPSK spreading code\n"
-    ">>> x = np.tile(np.repeat(chip, 2), 40).astype(np.complex64)\n"
+    ">>> one = np.repeat(chip, 2)                # one period: 31 chips x 2\n"
+    ">>> x = np.concatenate([np.tile(one, 40), one[:31]])  # 40.5 periods\n"
     ">>> d = Dll(code=code, sps=2)\n"
-    ">>> sym = d.steps(x)                        # one prompt per period\n"
+    ">>> sym = d.steps(x.astype(np.complex64))   # one prompt per period\n"
+    ">>> len(sym)                                # the half period ends "
+    "mid-period\n"
+    "40\n"
     ">>> sym.dtype\n"
     "dtype('complex64')\n"
     ">>> round(float(np.mean(sym.real[-10:])), 1)  # despread to a clean +1\n"
@@ -1016,7 +1094,7 @@ static PyMethodDef DllObj_methods[] = {
     "set_telemetry(tlm, prefix, decim) -> None\n"
     "\n"
     "Attach (or detach) a telemetry context and register the code loop's\n"
-    "probes on it. Registers five probes, emitted once per code epoch\n"
+    "probes on it. Registers seven probes, emitted once per code epoch\n"
     "(period) and further thinned by decim: \"<prefix>.e\" (the\n"
     "early-minus-late envelope discriminator — the loop stress),\n"
     "\"<prefix>.rate\" (the tracked code rate, chips advanced per nominal\n"
@@ -1029,10 +1107,21 @@ static PyMethodDef DllObj_methods[] = {
     "\"<prefix>.nco\" (what the code NCO is commanded: the complete\n"
     "loop-filter output, the integrator, the proportional term and the\n"
     "carrier aid, as chips per nominal chip, at the NCO's resolution of one\n"
-    "phase-increment step; a held loop's held command). Passing NULL\n"
-    "detaches. Setup path, never hot: call before the producer thread starts\n"
-    "stepping; the context is borrowed and must outlive the attachment (SPSC\n"
-    "rules in dp_tlm/dp_tlm_core.h).\n"
+    "phase-increment step; a held loop's held command), and the two terms\n"
+    "the lock statistic is formed from, for its decomposition (#3134):\n"
+    "\"<prefix>.prompt_amp\" (the epoch's last look's prompt magnitude |P|,\n"
+    "the signal term) and \"<prefix>.offset_pwr\" (that look's offset "
+    "(noise)\n"
+    "tap power |O|^2, the noise reference's input, of which R's denominator\n"
+    "E|O|^2 is the running mean). Both are in the units the statistic is\n"
+    "formed in -- the look's normalized correlation. They are ONE look's\n"
+    "terms -- the epoch's last look -- not the epoch's sum: with segments >\n"
+    "1 an epoch holds several looks, and R sums |P|^2 over n_looks of them,\n"
+    "so R = sqrt(2 sum |P|^2 / E|O|^2) is rebuilt from these only as their\n"
+    "moments (n_looks E|P|^2 over E|O|^2), never from one epoch's pair.\n"
+    "Passing NULL detaches. Setup path, never hot: call before the producer\n"
+    "thread starts stepping; the context is borrowed and must outlive the\n"
+    "attachment (SPSC rules in dp_tlm/dp_tlm_core.h).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1059,12 +1148,62 @@ static PyMethodDef DllObj_methods[] = {
     ">>> d = Dll(code=code, sps=2)\n"
     ">>> d.set_telemetry(tlm, \"code\")\n"
     ">>> sorted(tlm.probe_names)\n"
-    "['code.e', 'code.lock', 'code.locked', 'code.nco', 'code.rate']\n"
-    ">>> x = np.ones(31 * 2 * 50, dtype=np.complex64)\n"
+    "['code.e', 'code.lock', 'code.locked', 'code.nco', 'code.offset_pwr', "
+    "'code.prompt_amp', 'code.rate']\n"
+    ">>> x = np.ones(31 * 2 * 50 + 31, dtype=np.complex64)  # 50.5 periods\n"
     ">>> _ = d.steps(x)\n"
-    ">>> recs = tlm.read()   # five records per code epoch\n"
-    ">>> len(recs) > 0 and len(recs) % 5 == 0\n"
+    ">>> recs = tlm.read()   # seven records per code epoch\n"
+    ">>> len(recs) > 0 and len(recs) % 7 == 0\n"
     "True\n" },
+  { "set_steer_telemetry", (PyCFunction)(void *)DllObj_set_steer_telemetry,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_steer_telemetry(tlm, prefix, decim) -> None\n"
+    "\n"
+    "Attach (or detach) the per-steer telemetry set: the loop filter's\n"
+    "outputs at each steer of the symbol-period aid.\n"
+    "\n"
+    "dp_dll_set_telemetry()'s probes flush once a code epoch, but with the\n"
+    "symbol-period aid on (dp_dll_set_symbol_period()) the loop steers once\n"
+    "a symbol window, so those probes hold the last steer. This set is\n"
+    "emitted at the steer itself, in aid_look(): \"<prefix>.e\" (the\n"
+    "discriminator), \".prop\" (kp * e), \".integ\" (the filter's "
+    "integrator),\n"
+    "\".ctrl\" (what the steer adds to the nominal code rate, code periods a\n"
+    "sample, the rate aid excluded) and \".aid\" (the rate aid,\n"
+    "dp_dll_set_rate_aid()). A held loop (dp_dll_set_coast()) still emits:\n"
+    "its discriminator reads, and its filter outputs are the held ones. With\n"
+    "the aid off nothing is emitted: the steer is the epoch's, and the epoch\n"
+    "set shows it. Its own context, so a composer that does not ask for it\n"
+    "(the despreader) registers and emits nothing more. Observation only: no\n"
+    "decision reads it.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "tlm : object | None\n"
+    "    Telemetry context, or NULL to detach this set.\n"
+    "prefix : str\n"
+    "    Probe-name prefix, e.g. \"rx.code.steer\".\n"
+    "decim : int, default 1\n"
+    "    Emit every decim-th steer; >= 1.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``set_steer_telemetry failed``, with the return code appended\n"
+    "    (gh-869).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.track import Dll\n"
+    ">>> from doppler.telemetry import Telemetry\n"
+    ">>> code = np.random.default_rng(1).integers(0, 2, 31).astype(np.uint8)\n"
+    ">>> tlm = Telemetry(1 << 12)\n"
+    ">>> d = Dll(code=code, sps=2)\n"
+    ">>> d.set_steer_telemetry(tlm, \"code.steer\")\n"
+    ">>> sorted(n.split(\".\")[-1] for n in tlm.probe_names)\n"
+    "['aid', 'ctrl', 'e', 'integ', 'prop']\n" },
   { "configure", (PyCFunction)(void *)DllObj_configure,
     METH_VARARGS | METH_KEYWORDS,
     "configure(bn, zeta) -> None\n"
@@ -1112,23 +1251,29 @@ static PyMethodDef DllObj_methods[] = {
     "on top of the loop's own control. For physically-coupled Doppler, pass "
     "carrier_offset_hz / carrier_freq_hz so the code NCO rides the code-rate "
     "dilation the discriminator alone can't pull in at low SNR. Applied "
-    "continuously across the epoch (not a phase pulse), and nudges the "
-    "current phase_inc so the aid takes effect before the first period "
-    "update. code_rate stays the loop's own observable and is unaffected.\n"
+    "continuously across the epoch (not a phase pulse). The call only stores "
+    "the aid: it reaches phase_inc at the next steer (a period boundary), and "
+    "until then the NCO runs the increment it already has (the last steer's, "
+    "or the nominal one on a fresh or seeded loop). code_rate stays the "
+    "loop's own observable and is unaffected.\n"
     "\n"
     "A fixed fractional rate bias summed into the sample-and-hold\n"
     "`phase_inc` on top of the loop's own control every epoch -- for\n"
     "physically-coupled Doppler, `carrier_offset_hz / carrier_freq_hz`, so\n"
     "the code NCO rides the code-rate dilation the discriminator alone can't\n"
     "pull in at low SNR. Applied continuously across the epoch (via\n"
-    "`phase_inc`), not as a phase pulse. Also nudges the current `phase_inc`\n"
-    "so the aid takes effect before the first period update. `code_rate`\n"
-    "stays the loop's own observable and is unaffected. A HELD loop\n"
-    "(dp_dll_set_coast()) takes the new aid at once: nothing steers a\n"
-    "coasting loop's `phase_inc`, so it is recomputed here from the held\n"
-    "filter and the new aid -- a holder that refreshes the Doppler it holds\n"
-    "(a searcher-timed receiver's fold) sees the code rate follow. Before\n"
-    "this, a coasting loop kept the aid it was held with.\n"
+    "`phase_inc`), not as a phase pulse. The call only stores the aid: it\n"
+    "reaches `phase_inc` at the next steer (a period boundary), and until\n"
+    "then the NCO runs the increment it already has -- the last steer's on a\n"
+    "loop that has been running, the nominal `1 / (sf * sps)` on a fresh or\n"
+    "seeded one. Calling it every period, as a carrier-aided receiver does,\n"
+    "therefore leads the NCO by one update. `code_rate` stays the loop's own\n"
+    "observable and is unaffected. A HELD loop (dp_dll_set_coast()) takes\n"
+    "the new aid at its next period boundary, where the held rate is\n"
+    "converted with the aid in it: a holder that refreshes the Doppler it\n"
+    "holds (a searcher-timed receiver's fold) sees the code rate follow, and\n"
+    "refreshing it any number of times within a period changes nothing a\n"
+    "conversion carries.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1145,11 +1290,12 @@ static PyMethodDef DllObj_methods[] = {
     ">>> idx = (np.arange(63 * 4 * 300) * (1 + delta) / 4).astype(\n"
     "...     np.int64) % 63\n"
     ">>> x = np.where(code[idx] & 1, -1.0, 1.0).astype(np.complex64)\n"
-    ">>> plain = Dll(code, sps=4, bn=0.005)\n"
-    ">>> _ = plain.steps(x)\n"
+    ">>> plain = Dll(code, sps=4, bn=0.05)  # wn 0.09 per period: a ramp of\n"
+    ">>> _ = plain.steps(x)                 # 0.03 chip/period stays in "
+    "range\n"
     ">>> round(plain.code_rate, 4)      # loop had to pull the whole Doppler\n"
     "1.0005\n"
-    ">>> aided = Dll(code, sps=4, bn=0.005)\n"
+    ">>> aided = Dll(code, sps=4, bn=0.05)\n"
     ">>> aided.set_rate_aid(delta)      # feed the Doppler forward instead\n"
     ">>> _ = aided.steps(x)\n"
     ">>> round(aided.code_rate, 4)      # loop integrator stays at nominal\n"
@@ -1176,11 +1322,11 @@ static PyMethodDef DllObj_methods[] = {
     ">>> from doppler.track import Dll\n"
     ">>> rng = np.random.default_rng(3)\n"
     ">>> code = rng.integers(0, 2, 63).astype(np.uint8)\n"
-    ">>> idx = (np.arange(63 * 4 * 200) // 4) % 63\n"
+    ">>> idx = (np.arange(63 * 4 * 200 + 126) // 4) % 63\n"
     ">>> x = np.where(code[idx] & 1, -1.0, 1.0).astype(np.complex64)\n"
     ">>> d = Dll(code, sps=4, init_chip=0.15, bn=0.005)   # 0.15 chip off\n"
-    ">>> _ = d.steps(x)                        # 200 epochs: the loop pulls "
-    "in\n"
+    ">>> _ = d.steps(x)                        # 200.5 periods: the loop "
+    "pulls in\n"
     ">>> m = d.take_error_mean()               # the 200 steers' mean\n"
     ">>> 0.0 < abs(m) < 0.5                    # the pull-in's transient\n"
     "True\n"
@@ -1512,7 +1658,9 @@ static PyMethodDef DllObj_methods[] = {
     ">>> # >= 7 chips gives a usable lock statistic\n"
     ">>> code = rng.integers(0, 2, 63).astype(np.uint8)\n"
     ">>> chip = np.where(code & 1, -1.0, 1.0)\n"
-    ">>> x = np.tile(np.repeat(chip, 4), 400).astype(np.complex64)\n"
+    ">>> one = np.repeat(chip, 4)                # one period: 63 chips x 4\n"
+    ">>> x = np.concatenate([np.tile(one, 400), one[:126]])  # 400.5 periods\n"
+    ">>> x = x.astype(np.complex64)\n"
     ">>> d = Dll(code, sps=4, bn=0.005)\n"
     ">>> # raw geometry: declare at R>3, drop at R<2.5, 8-look,\n"
     ">>> # 2-of-2 hysteresis\n"
@@ -1660,7 +1808,37 @@ static PyTypeObject DllObjType = {
     "init_chip : float, default 0.0\n"
     "    Seed code phase, chips (default 0.0).\n"
     "bn : float, default 0.01\n"
-    "    Loop noise bandwidth (default 0.01).\n"
+    "    Loop noise bandwidth (default 0.01), of the closed loop given a\n"
+    "    unit-slope detector (see LoopFilter). At `segments` 1 and spacing "
+    "0.5\n"
+    "    the delivered bandwidth is `bn` times (4 zeta^2 Kd + 1) / (4 zeta^2 "
+    "+\n"
+    "    1), whatever the code length, where Kd is the discriminator's slope "
+    "per\n"
+    "    chip: 1.31 at 4 samples per chip (1.02 at 2). The slope is 0 at a\n"
+    "    spacing of one chip or more. TRACKING: the perfect integrator holds "
+    "the\n"
+    "    code rate, so a constant code-rate offset is followed with zero\n"
+    "    steady-state error; the offset tracked is not bounded by `bn` or "
+    "the\n"
+    "    natural frequency wn = 8 zeta bn / (4 zeta^2 + 1). ACQUISITION: what "
+    "is\n"
+    "    bounded is the transient of an unseeded loop handed a rate step. "
+    "The\n"
+    "    phase error peaks near (rate step) / wn before the integrator has\n"
+    "    wound, and the discriminator is not periodic (a carrier loop's is), "
+    "so\n"
+    "    once the peak leaves the correlation triangle there is no slip to\n"
+    "    recover through. An offset `delta` is a ramp of `delta * sf` chips "
+    "per\n"
+    "    period; measured at bn 0.005 (wn 0.0094, so a ramp of 7e-5 at 127 "
+    "chips\n"
+    "    and 9e-6 at 1023 is 1 wn) the unseeded step is held to twice wn,\n"
+    "    erratic from 2.2 to 2.6 times it and lost from 2.8\n"
+    "    (examples/dll_demo.py, dsss/tests/test_despreader.py). Past that, "
+    "seed\n"
+    "    the rate (the rate aid, dp_dll_set_rate_aid()) or widen `bn` for\n"
+    "    acquisition.\n"
     "zeta : float, default 0.707\n"
     "    Damping factor (default 0.707).\n"
     "spacing : float, default 0.5\n"
@@ -1696,11 +1874,13 @@ static PyTypeObject DllObjType = {
     ">>> rng = np.random.default_rng(1)\n"
     ">>> code = rng.integers(0, 2, 31).astype(np.uint8)  # a 31-chip PN code\n"
     ">>> chip = np.where(code & 1, -1.0, 1.0)    # BPSK spreading code\n"
-    ">>> x = np.tile(np.repeat(chip, 2), 60).astype(np.complex64)\n"
+    ">>> one = np.repeat(chip, 2)                # one period: 31 chips x 2\n"
+    ">>> x = np.concatenate([np.tile(one, 60), one[:31]])  # 60.5 periods\n"
     ">>> d = Dll(code=code, sps=2)               # 2 samples/chip loop\n"
-    ">>> sym = d.steps(x)                        # one prompt per period\n"
-    ">>> sym.shape                               # 60 despread symbols\n"
-    "(60,)\n"
+    ">>> sym = d.steps(x.astype(np.complex64))   # one prompt per period\n"
+    ">>> len(sym)                                # the half period ends "
+    "mid-period\n"
+    "60\n"
     ">>> round(float(np.mean(sym.real[-10:])), 1)  # despread to a clean +1\n"
     "1.0\n"
     ">>> round(d.code_rate, 3)                   # code NCO at nominal rate\n"

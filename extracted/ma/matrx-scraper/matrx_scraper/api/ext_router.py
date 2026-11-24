@@ -278,6 +278,20 @@ async def content_save(
 # ---------------------------------------------------------------------------
 # Retry queue
 # ---------------------------------------------------------------------------
+#
+# Every queue row belongs to the organization whose scrape failed
+# (``request_context.organization_id``, stamped by ``service.py``). The helpers
+# (matrx-local's desktop app, the extension) run as a signed-in person, and
+# what they save lands in THEIR organization's cache, so a helper of another
+# organization never helped the row's owner: it only read which pages that
+# organization was reading and could claim, fail or "complete" its items.
+# Every queue route therefore acts only on rows of the request's organization.
+# A row from before the stamp (no organization) is reachable by no one.
+
+
+def _queue_scope(ctx: AppContext) -> dict[str, Any]:
+    """The filter every retry-queue read and write carries: the request's organization."""
+    return {"request_context__json_key": ("organization_id", confirm_request_organization(ctx))}
 
 
 @router.get("/queue/pending")
@@ -287,16 +301,17 @@ async def queue_pending(
     domain: str | None = None,
     ctx: AppContext = Depends(context_dep),
 ) -> dict[str, Any]:
+    scope = _queue_scope(ctx)
     now = datetime.now(UTC)
     await ScrapeRetryQueue.update_where(
-        {"status": "claimed", "claim_expires_at__lt": now},
+        {"status": "claimed", "claim_expires_at__lt": now, **scope},
         status="pending",
         claimed_by=None,
         claimed_at=None,
         claim_expires_at=None,
     )
 
-    query = ScrapeRetryQueue.filter(status="pending", tier=tier)
+    query = ScrapeRetryQueue.filter(status="pending", tier=tier, **scope)
     if domain:
         query = query.filter(domain_name=domain)
     rows = (
@@ -305,7 +320,7 @@ async def queue_pending(
         .values("id", "target_url", "domain_name", "failure_reason", "tier", "created_at")
     )
 
-    total = await ScrapeRetryQueue.count(status="pending", tier=tier)
+    total = await ScrapeRetryQueue.count(status="pending", tier=tier, **scope)
 
     return {
         "items": [
@@ -328,6 +343,7 @@ async def queue_claim(
     request: RetryClaimRequest,
     ctx: AppContext = Depends(context_dep),
 ) -> dict[str, list[str]]:
+    scope = _queue_scope(ctx)
     now = datetime.now(UTC)
     expires = now + timedelta(minutes=request.claim_ttl_minutes)
     claimed: list[str] = []
@@ -335,7 +351,7 @@ async def queue_claim(
 
     for item_id in request.item_ids:
         result = await ScrapeRetryQueue.update_where(
-            {"id": item_id, "status": "pending"},
+            {"id": item_id, "status": "pending", **scope},
             status="claimed",
             claimed_by=request.client_id,
             claimed_at=now,
@@ -354,9 +370,10 @@ async def queue_submit(
     request: RetrySubmitRequest,
     ctx: AppContext = Depends(context_dep),
 ) -> dict[str, bool]:
+    scope = _queue_scope(ctx)
     now = datetime.now(UTC)
     result = await ScrapeRetryQueue.update_where(
-        {"id": request.queue_item_id, "status": "claimed"},
+        {"id": request.queue_item_id, "status": "claimed", **scope},
         status="completed",
         completed_at=now,
         attempt_count=F("attempt_count") + 1,
@@ -369,9 +386,10 @@ async def queue_fail(
     request: RetryFailRequest,
     ctx: AppContext = Depends(context_dep),
 ) -> dict[str, bool]:
+    scope = _queue_scope(ctx)
     if request.promote_to_extension:
         result = await ScrapeRetryQueue.update_where(
-            {"id": request.queue_item_id, "status": "claimed", "tier": "desktop"},
+            {"id": request.queue_item_id, "status": "claimed", "tier": "desktop", **scope},
             status="pending",
             tier="extension",
             last_error=request.error,
@@ -382,7 +400,7 @@ async def queue_fail(
         )
     else:
         result = await ScrapeRetryQueue.update_where(
-            {"id": request.queue_item_id, "status": "claimed"},
+            {"id": request.queue_item_id, "status": "claimed", **scope},
             status="failed",
             last_error=request.error,
             attempt_count=F("attempt_count") + 1,
@@ -393,7 +411,7 @@ async def queue_fail(
 @router.get("/queue/stats")
 async def queue_stats(ctx: AppContext = Depends(context_dep)) -> dict[str, Any]:
     rows = await (
-        ScrapeRetryQueue.filter()
+        ScrapeRetryQueue.filter(**_queue_scope(ctx))
         .annotate(count=Count("*"))
         .group_by("status", "tier")
         .order_by("status", "tier")

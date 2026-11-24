@@ -9,6 +9,7 @@ from allianceauth.services.hooks import MenuItemHook, UrlHook
 
 # AA Killstats
 from killstats import app_settings, urls
+from killstats.models.general import General
 
 
 class KillstatsMenuItem(MenuItemHook):
@@ -23,7 +24,7 @@ class KillstatsMenuItem(MenuItemHook):
         )
 
     def render(self, request):
-        if request.user.has_perm("killstats.basic_access"):
+        if General.objects.has_basic_access(request.user):
             return MenuItemHook.render(self, request)
         return ""
 

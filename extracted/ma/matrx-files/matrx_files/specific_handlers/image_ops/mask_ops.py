@@ -11,7 +11,6 @@ turns it into an RGBA PNG (white-on-transparent) via ``preserves_alpha``.
 
 from __future__ import annotations
 
-import math
 from typing import Literal
 
 from PIL import Image, ImageChops, ImageColor, ImageFilter
@@ -229,7 +228,6 @@ class MaskCombineOp(ImageOp):
         if mask is None:
             raise ValueError("mask.combine requires a mask")
         import base64
-        from io import BytesIO
         from .base import load_mask_from_png_bytes
         other_bytes = base64.b64decode(params.other_mask_b64)
         other = load_mask_from_png_bytes(other_bytes, target_size=mask.size)

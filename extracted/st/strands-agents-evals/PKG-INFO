@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents-evals
-Version: 1.11.0
+Version: 1.12.0
 Summary: Evaluation framework for Strands
 Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0
@@ -20,7 +20,7 @@ Requires-Dist: opentelemetry-sdk>=1.20.0
 Requires-Dist: pydantic<3.0.0,>=2.4.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.0
 Requires-Dist: rich<16.0.0,>=15.0.0
-Requires-Dist: strands-agents>=1.64.0
+Requires-Dist: strands-agents>=1.66.0
 Requires-Dist: tenacity<10.0.0,>=8.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Provides-Extra: adk
@@ -43,6 +43,12 @@ Provides-Extra: langfuse
 Requires-Dist: langfuse<4,>=2.0.0; extra == 'langfuse'
 Provides-Extra: opensearch
 Requires-Dist: opensearch-genai-observability-sdk-py[opensearch]<1.0.0,>=0.2.7; extra == 'opensearch'
+Provides-Extra: optimization
+Requires-Dist: numpy<3.0.0,>=1.26.0; extra == 'optimization'
+Requires-Dist: optuna<6.0.0,>=5.0.0; extra == 'optimization'
+Requires-Dist: scipy<2.0.0,>=1.11.0; extra == 'optimization'
+Requires-Dist: strands-harness<0.5.0,>=0.4.0; extra == 'optimization'
+Requires-Dist: tomli<3.0.0,>=2.0.0; (python_version < '3.11') and extra == 'optimization'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'otel'
 Provides-Extra: stickler
@@ -551,7 +557,7 @@ def task(case):
 report = ChaosExperiment(cases=chaos_cases, evaluators=[...]).run_evaluations(task=task)
 ```
 
-Available effects: `Timeout`, `NetworkError`, `ExecutionError`, `ValidationError` (cancel the tool call); `TruncateFields`, `RemoveFields`, `CorruptValues` (corrupt the response). Pair with chaos-aware evaluators in `strands_evals.evaluators.chaos` (`FailureCommunicationEvaluator`, `PartialCompletionEvaluator`, `RecoveryStrategyEvaluator`). For the full authoring guide see [`SKILL.md`](SKILL.md#chaos-testing-deterministic-fault-injection).
+Available effects: `Timeout`, `NetworkError`, `ExecutionError`, `ValidationError` (cancel the tool call); `TruncateFields`, `RemoveFields`, `CorruptValues` (corrupt the response). Pair with chaos-aware evaluators in `strands_evals.evaluators.chaos` (`FailureCommunicationEvaluator`, `PartialCompletionEvaluator`, `RecoveryStrategyEvaluator`). For the full authoring guide see [`SKILL.md`](.agents/skills/strands-evals/SKILL.md#chaos-testing-deterministic-fault-injection).
 
 ### Custom Evaluators with Structured Output
 
@@ -705,6 +711,10 @@ The case score is the weighted mean of the applicable questions, and it passes a
 `pass_threshold` unless a `required` question failed. Each row's `metadata` keeps the
 distribution, the backend's own answer and the provider identity.
 
+`report.display()` shows the decision-model identity and each question's score, label, raw
+answer, selected option, and probabilities. `report.run_display()` shows the question details
+when a case is expanded. Missing model ids are marked as not reported.
+
 **Saving experiments.** `to_file()` saves the rubric but never the decision model. Re-attach
 it after loading:
 
@@ -767,6 +777,16 @@ rows also record `escalation_reason`, and keep the rubric's rows under `fast_row
 not apply to the case. The second wins, and its `p_gate` says nothing about the band. After loading a saved experiment, re-attach
 the decision model with `cascade.fast.decision_model = decision_model`, and on
 `cascade.fallback` too when the fallback is a `TypedRubricEvaluator`.
+
+Rendered Cascade reports include `path` and `p_gate` columns. Fallback cases show the final
+verdicts and a separate fast-rubric audit, with the decision models identified by stage.
+These details also appear when rendering a saved report with `strands-evals --rich report`.
+Routing columns are shown only for the recorded `fast` and `fallback` stages. Malformed
+optional numeric metadata is shown as text; an invalid fast-rubric audit logs a warning
+while the final verdict remains visible.
+
+Expanded metric details also show labels for other evaluators, and display not-applicable
+scores as `n/a`. Input, reasons, and metadata text are rendered literally, including brackets.
 
 ### Tool Usage and Parameter Evaluation
 

@@ -8,16 +8,19 @@ orbs:
 commands:
   run-cibuildwheel:
     parameters:
+      cibw-config:  # environment variables
+        type: string
+        default: ""
       cibw-version:
         type: string
-        default: 3.4.0    # latest as of March 2026
+        default: 4.3.5    # latest as of November 2026
     steps:
       - run:
           name: run cibuildwheel
           shell: bash -eo pipefail
           command: |
             python -m pip install --user cibuildwheel==<< parameters.cibw-version >>
-            python -m cibuildwheel --output-dir dist
+            << parameters.cibw-config >> python -m cibuildwheel --output-dir dist
       - store_artifacts: &store-artifacts
           path: ./dist
       - persist_to_workspace: &persist-to-workspace
@@ -57,7 +60,7 @@ jobs:
 
   build-and-test-osx:
     macos:
-      xcode: 26.2.0  # latest as of Jan 2026
+      xcode: 27.3.0   # latest as of November 2026
 
     environment:
       <<: *global-environment
@@ -93,7 +96,9 @@ jobs:
 
     steps:
       - checkout
-      - run-cibuildwheel
+      - run: choco install llvm -y
+      - run-cibuildwheel:
+          cibw-config: CIBW_ENVIRONMENT_PASS=CXX CXX=clang-cl
 
   check-dist:
     docker:
@@ -168,10 +173,6 @@ jobs:
     parameters:
       python-version:
         type: string
-      dependency-versions:
-        type: string
-      only-binary:
-        type: string
 
     docker:
       - image: python:<< parameters.python-version >>-slim
@@ -180,13 +181,20 @@ jobs:
       - checkout
       - attach_workspace:
           at: dist
+
       - run:
-          name: install
+          name: select wheel
+          command: |
+            pip download --no-index --no-deps --only-binary=:all: \
+              -f dist --dest /tmp/wheel dwave-samplers
+
+      - run:
+          name: install oldest dependencies
           command: |
             python -m venv env
             . env/bin/activate
-            pip install << parameters.dependency-versions >> --upgrade --only-binary << parameters.only-binary >>
-            pip install dwave-samplers --no-index -f dist/ --no-deps --force-reinstall
+            pip install pip --upgrade
+            pip install --group deps-oldest /tmp/wheel/*.whl
 
       - run: &unix-run-tests
           name: run tests
@@ -196,12 +204,23 @@ jobs:
             pip install --group test
             cd tests
             python -m unittest
+            rm -r ../env
+
+      - run:
+          name: install latest dependencies
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install pip --upgrade
+            pip install --upgrade-strategy=eager /tmp/wheel/*.whl
+
+      - run: *unix-run-tests
 
   test-linux-cpp:
     docker:
       - image: cimg/python:3.12
 
-    steps:
+    steps: &cpp-tests
       - checkout
 
       - run:
@@ -216,8 +235,23 @@ jobs:
           name: run cpp tests
           command: |
             . env/bin/activate
-            meson setup _build -Dbuildtype=debug
+            meson setup _build -Dwerror=true -Dbuild-tests="enabled"
+            meson compile -C _build
             meson test -C _build
+
+      - run:
+          name: run cpp tests with debug symbols
+          command: |
+            . env/bin/activate
+            meson setup _build -Dbuildtype=debug --reconfigure
+            meson compile -C _build
+            meson test -C _build
+
+  test-osx-cpp:
+    macos:
+      xcode: 26.2.0  # latest as of Jan 2026
+
+    steps: *cpp-tests
 
   test-sdist:
     docker:
@@ -256,17 +290,17 @@ workflows:
           requires:
             - build-and-test-linux
       - test-dependencies:
-          name: test-dependencies-python<< matrix.python-version >>-dependencies=<< matrix.dependency-versions >>
+          name: test-dependencies-python<< matrix.python-version >>
           filters: *tags
           requires:
             - build-and-test-linux
           matrix:
             parameters:
-              dependency-versions: [dimod==0.12.21 oldest-supported-numpy networkx==3.0, dimod numpy networkx]
               # Skip some of the intermediate Python versions for speed
-              python-version: ["3.10", "3.14"]
-              only-binary: ["numpy,dimod,networkx"]
+              python-version: ["3.11", "3.15"]
       - test-linux-cpp:
+          filters: *tags
+      - test-osx-cpp:
           filters: *tags
       - test-sdist:
           filters: *tags

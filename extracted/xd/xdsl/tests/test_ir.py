@@ -1065,13 +1065,13 @@ class CustomVerifyOp(IRDLOperation):
         return CustomVerifyOp.build(operands=[val])
 
     def verify_(self):
-        raise Exception("Custom Verification Check")
+        raise VerifyException("Custom Verification Check")
 
 
 def test_op_custom_verify_is_called():
     a = ConstantOp.from_int_and_width(1, i64)
     b = CustomVerifyOp.get(a.result)
-    with pytest.raises(Exception, match="Custom Verification Check"):
+    with pytest.raises(VerifyException, match="Custom Verification Check"):
         b.verify()
 
 
@@ -1344,6 +1344,24 @@ def test_ssa_get_on_op():
         SSAValue.get(op2)
 
 
+def test_ssa_get_on_use():
+    value = create_ssa_value(i32)
+    test.TestOp.create(operands=[value])
+    (use,) = value.uses
+
+    assert SSAValue.get(use) is value
+    assert SSAValue.get(use, type=IntegerType) is value
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "SSAValue.get: Expected <class 'xdsl.dialects.builtin.IndexType'> "
+            "but got SSAValue with type i32."
+        ),
+    ):
+        SSAValue.get(use, type=IndexType)
+
+
 def test_repr():
     bb = tuple(Block(arg_types=(i32,)) for _ in range(3))
     bb[0].add_op(test.TestTermOp(result_types=(i32,), successors=bb[1:]))
@@ -1408,15 +1426,15 @@ def test_repr():
 
     block_use_reprs = tuple(repr(use) for use in block_uses)
     assert block_use_reprs == (
-        f"<Use {id(block_uses[0])}(_operation=<TestTermOp {id(ops[1])}>, _index=0, _prev_use=None, _next_use=None)>",
-        f"<Use {id(block_uses[1])}(_operation=<TestTermOp {id(ops[2])}>, _index=0, _prev_use=None, _next_use=<Use {id(block_uses[2])}>)>",
-        f"<Use {id(block_uses[2])}(_operation=<TestTermOp {id(ops[1])}>, _index=1, _prev_use=<Use {id(block_uses[1])}>, _next_use=None)>",
+        f"<_Successor {id(block_uses[0])}(_operation=<TestTermOp {id(ops[1])}>, _index=0, _prev_use=None, _next_use=None)>",
+        f"<_Successor {id(block_uses[1])}(_operation=<TestTermOp {id(ops[2])}>, _index=0, _prev_use=None, _next_use=<_Successor {id(block_uses[2])}>)>",
+        f"<_Successor {id(block_uses[2])}(_operation=<TestTermOp {id(ops[1])}>, _index=1, _prev_use=<_Successor {id(block_uses[1])}>, _next_use=None)>",
     )
 
     value_use_reprs = tuple(repr(use) for use in value_uses)
     assert value_use_reprs == (
-        f"<Use {id(value_uses[0])}(_operation=<TestTermOp {id(ops[3])}>, _index=0, _prev_use=None, _next_use=<Use {id(value_uses[1])}>)>",
-        f"<Use {id(value_uses[1])}(_operation=<TestTermOp {id(ops[2])}>, _index=0, _prev_use=<Use {id(value_uses[0])}>, _next_use=None)>",
+        f"<_Operand {id(value_uses[0])}(_operation=<TestTermOp {id(ops[3])}>, _index=0, _prev_use=None, _next_use=<_Operand {id(value_uses[1])}>)>",
+        f"<_Operand {id(value_uses[1])}(_operation=<TestTermOp {id(ops[2])}>, _index=0, _prev_use=<_Operand {id(value_uses[0])}>, _next_use=None)>",
     )
 
 

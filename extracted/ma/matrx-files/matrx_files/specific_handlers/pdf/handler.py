@@ -17,9 +17,10 @@ submodules. It exists for three reasons:
 
 from __future__ import annotations
 
+import asyncio
 import os
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,7 @@ from .analyze import (
 from .extract.chunking import chunk_page_text, chunk_text
 from .extract.tables import PdfTablesReport, extract_tables, extract_tables_async
 from .extract.text import (
+    BlankPageTest,
     extract_text_from_bytes_sync,
     extract_text_from_image_bytes,
     extract_text_pages,
@@ -121,13 +123,10 @@ from .ops.render import (
 )
 from .pipelines.ai import process_chunks_with_ai
 from .redact import (
-    BUILTIN_PATTERNS,
-    RedactionAudit,
     RedactionRegion,
     RedactionResult,
     flatten_annotations,
     flatten_annotations_async,
-    list_builtin_patterns,
     redact_pattern,
     redact_pattern_async,
     redact_regions,
@@ -869,6 +868,7 @@ class PDFHandler(FileHandler):
     # Remote fetch — URL, file descriptor, or local path
     # ------------------------------------------------------------------
 
+    # returns-temp-path(file): a download the caller removes (full_pipeline removes its own; routes use _release_request_temp)
     async def fetch_remote(self, source: str | dict) -> str | None:
         """Resolve *source* to a local temp file path.
 
@@ -882,7 +882,7 @@ class PDFHandler(FileHandler):
         if isinstance(source, str):
             if source.startswith("http://") or source.startswith("https://"):
                 return await self._download_url(source)
-            if os.path.isfile(source):
+            if await asyncio.to_thread(os.path.isfile, source):
                 return source
 
         return None
@@ -917,11 +917,11 @@ class PDFHandler(FileHandler):
                 print(f"[PDFHandler] Cloud credential fetch failed: {exc}")
                 return None
 
-        from matrx_utils.outbound_guard import public_only_client
+        from matrx_utils.http_client import shared_client
 
         try:
             # Genuinely external: no address inside our network, every hop.
-            async with public_only_client(timeout=30, follow_redirects=True) as client:
+            async with shared_client(public_only=True, timeout=30, follow_redirects=True) as client:
                 async with client.stream("GET", url) as response:
                     response.raise_for_status()
                     declared = response.headers.get("content-length")
@@ -984,10 +984,10 @@ class PDFHandler(FileHandler):
         # Second attempt: genuinely-external URL — a plain HTTP download (skip
         # when url is empty to avoid httpx.UnsupportedProtocol churn).
         elif url:
-            from matrx_utils.outbound_guard import public_only_client
+            from matrx_utils.http_client import shared_client
 
             try:
-                async with public_only_client(timeout=30) as client:
+                async with shared_client(public_only=True, timeout=30) as client:
                     http_response = await client.get(url)
                     http_response.raise_for_status()
                     temp_filename = f"{uuid.uuid4()}.{extension}"
@@ -1078,11 +1078,14 @@ class PDFHandler(FileHandler):
         include_words: bool = False,
         page_start: int | None = None,
         page_end: int | None = None,
+        supplied_pages: Mapping[int, tuple[str, str]] | None = None,
+        blank_page: BlankPageTest | None = None,
     ) -> AsyncIterator[PdfExtractStart | PdfPageText]:
         """Async iterator of PdfExtractStart (page count) then each PdfPageText
         as its page is extracted — the real-time variant of
         ``extract_text_pages_async``. ``page_start``/``page_end`` (1-based,
-        inclusive) limit extraction to that slice."""
+        inclusive) limit extraction to that slice; ``supplied_pages`` (page ->
+        ``(text, method)``) are taken as given, never read or OCR'd."""
         return extract_text_pages_stream(
             path,
             force_ocr=force_ocr,
@@ -1091,6 +1094,8 @@ class PDFHandler(FileHandler):
             include_words=include_words,
             page_start=page_start,
             page_end=page_end,
+            supplied_pages=supplied_pages,
+            blank_page=blank_page,
         )
 
     def extract_text_pages_from_bytes(
@@ -1387,7 +1392,7 @@ class PDFHandler(FileHandler):
         finally:
             if cleanup_path:
                 try:
-                    Path(cleanup_path).unlink(missing_ok=True)
+                    await asyncio.to_thread(Path(cleanup_path).unlink, missing_ok=True)
                 except OSError as exc:
                     print(f"[PDFHandler] temp cleanup failed for {cleanup_path}: {exc}")
         return result

@@ -65,3 +65,22 @@ def test_the_refusal_carries_everything_the_executor_failure_path_reads() -> Non
     assert info.is_retryable is False
     assert info.status_code == 422
     assert info.user_message == "There is nothing to send yet. Type a message and try again."
+
+
+def test_an_empty_conversation_is_a_caller_refusal_never_a_provider_issue() -> None:
+    """The caller sent nothing to answer: a CALLER REFUSAL, final and never filed as the provider's.
+
+    Live 2026-11-06..13 (issue class ``anthropic.empty_conversation``, 5 events, every one a
+    ``POST /ai/manual`` answered 422): the refusal was not marked, so the executor's terminal path
+    filed it through ``capture_issue`` as Anthropic's own failure and fed it to the provider-outage
+    alarm, although no provider was ever called. The executor skips ``capture_issue`` exactly when
+    the exception says ``is_caller_refusal``; a code-only consumer (a retry loop, a workflow step)
+    asks the registry.
+    """
+    from matrx_ai.providers.caller_refusal import caller_refusal_codes, is_caller_refusal
+
+    exc = EmptyConversationError(step="conversation 00000000-0000-4000-8000-000000000000")
+    assert is_caller_refusal(exc)
+    assert exc.error_info.is_retryable is False
+    assert "empty_conversation" in caller_refusal_codes()
+    assert is_caller_refusal({"code": "empty_conversation"})

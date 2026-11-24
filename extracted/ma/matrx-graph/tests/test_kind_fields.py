@@ -83,7 +83,9 @@ def test_platform_fields_are_kept_by_agent_output_with_n_c1_values() -> None:
     fields = fields_for_kind(FLASHCARD_SET, EDGES)
     got = _by_key(fields)
     for key in PLATFORM_KEYS:
-        assert got[key].declaration["config"] == {"kept_by": "agent_output"}
+        # #91: a platform CHOICE column also names its one per-organization choices set.
+        shared = {"shared_choices": f"agent_output.{key}"} if got[key].declaration.get("options") else {}
+        assert got[key].declaration["config"] == {"kept_by": "agent_output", **shared}
     assert got["output_state"].declaration["options"] == ["draft", "superseded"]
     assert got["output_replaced_by"].child_kind == SELF
     assert got["output_replaced_by"].declaration["relation_max"] == 1

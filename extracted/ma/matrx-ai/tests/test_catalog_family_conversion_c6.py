@@ -156,6 +156,18 @@ class TestOwnerCase:
     def test_extreme_thinking_at_a_video_model_becomes_its_top_resolution(self):
         assert _wire(_map(VIDEO), reasoning_effort="max") == {"resolution": "4k"}
 
+    def test_a_target_that_declares_no_values_is_never_converted_into(self):
+        # CGU-10 row 203: Veo 3.1 on Replicate carried resolution as bare "supported"
+        # (no values). reasoning_effort=low converted to resolution="480p" from the
+        # family scale and Replicate refused every video (422: 720p or 1080p).
+        params = _wire(_map({"resolution": {"supported": True}}), reasoning_effort="low")
+        assert "resolution" not in params, params
+
+    def test_a_declared_value_list_bounds_the_conversion(self):
+        veo = {"resolution": {"supported": True, "accepts": ["720p", "1080p"]}}
+        assert _wire(_map(veo), reasoning_effort="low") == {"resolution": "720p"}
+        assert _wire(_map(veo), reasoning_effort="max") == {"resolution": "1080p"}
+
     def test_a_large_thinking_budget_converts_through_the_effort_scale(self):
         # 50,000 tokens -> xhigh (the declared default steps) -> nearest resolution
         params, _ = _gate(_map(VIDEO), thinking_budget=50000)

@@ -15,6 +15,12 @@ from matrx_ai.config.json_schema_wire import JsonSchemaObjectDocument
 
 STRUCTURED_OUTPUT_SATISFIED_KEY = "structured_output_contract_satisfied"
 
+#: ``ctx.metadata`` key a HOST sets when this conversation's output contract holds on
+#: EVERY turn (a conversation a mandate started under a typed output kind: its caller
+#: reads a typed result after each turn, the first and every follow-up alike). When
+#: true, the one-answer relaxation below never fires — the wire keeps the schema.
+RESPONSE_FORMAT_HOLDS_KEY = "response_format_holds"
+
 
 def is_clean_structured_output_completion(metadata: Any) -> bool:
     """Whether a terminal outcome may consume the one-answer JSON contract."""
@@ -187,6 +193,7 @@ def response_format_transition_after_first_structured_answer(
     user_input: Any,
     config_overrides: Any = None,
     prior_request_status: str | None = None,
+    contract_holds: bool = False,
 ) -> dict[str, Any] | None:
     """Relax a persisted JSON contract for a natural follow-up turn.
 
@@ -209,6 +216,13 @@ def response_format_transition_after_first_structured_answer(
     turn's text against it (``executor._emit_structured_output_if_schema``). A turn
     that speaks is prose; a turn that acts is parsed and dispatched.
 
+    **A held contract never relaxes** (``contract_holds``, the host's
+    ``RESPONSE_FORMAT_HOLDS_KEY``): a conversation a mandate started under a typed
+    output kind has a caller that reads that kind after EVERY turn (the applet
+    builder sends each change as a new person turn). Relaxing it sent follow-ups out
+    with no output format, the model answered in prose and the caller reported
+    "no usable structured result" (live 2026-11-14, conversation ade9ed97).
+
     This function only decides the transition. The send boundary owns the
     actual wire-config mutation and observability so every shaping step remains
     behind one mechanically guarded entry point.
@@ -216,6 +230,7 @@ def response_format_transition_after_first_structured_answer(
     response_format = getattr(config, "response_format", None)
     if (
         user_input is None
+        or contract_holds
         or _explicit_response_format_override(config_overrides)
         or not _has_successful_generated_structured_answer(
             getattr(config, "messages", None),

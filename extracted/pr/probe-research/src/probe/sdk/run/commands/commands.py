@@ -1,8 +1,8 @@
 """RunCommandsMixin: a running script takes commands (agentic W&B C.1). `run.on(kind, fn)` registers a handler and,
 for a new kind, says so on one beat at once; every writer beat declares what is registered (`capabilities`) and, when
 the run's command counter moves, lists, claims and queues the asks for this writer; the next `run.log()` (a safe point
-on the training thread) runs each handler and answers it. `stop --force` is answered and done on the beat thread.
-Why: DESIGN.md."""
+on the training thread) runs each handler and answers it, and holds there while paused (`pause.py`). `stop --force` is
+answered and done on the beat thread. Why: DESIGN.md."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ....generated.records import CommandKind
 from ..closing.heartbeat import _beat_once
+from .pause import PAUSE_KINDS, restart_progress, run_commands
 from .ranks import get_world, send_to_every_rank
 from .stream import ProducerStream
 
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 #: The built-in kinds a script registers by `CommandKind`; any other kind is the script's own `StrEnum` member.
-RUN_KINDS = (CommandKind.CHECKPOINT, CommandKind.CONFIG, CommandKind.STOP)
+RUN_KINDS = (CommandKind.CHECKPOINT, CommandKind.CONFIG, CommandKind.STOP, CommandKind.PAUSE, CommandKind.RESUME)
 #: A custom kind's value (`probe_contracts.records.command.CUSTOM_NAME_PATTERN`).
 _CUSTOM_NAME = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 #: Why a command waits in vain in a job of several processes with no sync point.
@@ -51,6 +52,8 @@ class CommandBox:
 
     def __init__(self) -> None:
         self.lock = threading.Lock()
+        #: Signalled when the beat thread queues an ask: a paused safe point waits on it (`wait_for_due`).
+        self.arrived = threading.Condition(self.lock)
         self.handlers: dict[str, Callable[..., Any]] = {}
         self.seen = 0
         self.due: collections.deque[dict] = collections.deque()
@@ -84,14 +87,21 @@ def get_handler_key(kind: str, args: dict[str, Any]) -> str:
     return str(args.get("name", "")) if kind == CommandKind.CUSTOM.value else kind
 
 
+def _hold_here(*_args: Any) -> None:
+    """Pause and resume's handler: the safe point does them itself (`pause.run_commands`), never a handler."""
+    raise RuntimeError("pause and resume are done at the safe point, not by a handler")
+
+
 def check_kind(kind: enum.Enum) -> str:
     if not isinstance(kind, enum.Enum) or not isinstance(kind.value, str):
         raise TypeError(f"run.on takes an enum member (CommandKind.CHECKPOINT, or a member of your own StrEnum: "
                         f"class TrainerCommand(StrEnum): EVAL_NOW = 'eval_now'), not {kind!r}")  # fmt: skip
     if isinstance(kind, CommandKind):
         if kind not in RUN_KINDS:
-            raise ValueError(f"{kind.value} is not asked of a run's script: register checkpoint, config, stop or your "
-                             "own StrEnum's kinds")  # fmt: skip
+            raise ValueError(f"{kind.value} is not asked of a run's script: register checkpoint, config, stop, pause or "
+                             "your own StrEnum's kinds")  # fmt: skip
+        if kind is CommandKind.RESUME:
+            raise ValueError("resume comes with pause: register CommandKind.PAUSE")
         return kind.value
     if not _CUSTOM_NAME.fullmatch(kind.value) or kind.value in {member.value for member in CommandKind}:
         raise ValueError(f"{kind.value!r}: a command kind's value is lowercase letters, digits and _ (up to 64), "
@@ -105,14 +115,21 @@ class RunCommandsMixin:
     _commands: CommandBox
     _client: Client
 
-    def on(self, kind: enum.Enum, handler: Callable[..., Any]) -> None:
+    def on(self, kind: enum.Enum, handler: Callable[..., Any] | None = None) -> None:
         """Run ``handler`` when this run is asked for ``kind``, at the next ``run.log()`` (a safe point).
 
         ``kind`` is an enum member, never a string: ``CommandKind.CHECKPOINT`` (``handler()``; return the saved
         artifact's id, or a dict), ``CommandKind.CONFIG`` (``handler(values)``; the values are then recorded on
         ``run.config``), ``CommandKind.STOP`` (``handler()``, a graceful stop; ``--force`` signals the process
-        itself), or a member of your own ``StrEnum`` (``handler(payload)``). Asked with ``probe run send``."""
+        itself), ``CommandKind.PAUSE`` with no handler (``run.log()`` then holds when paused, until resumed or
+        stopped: call it once per step, from the training loop), or a member of your own ``StrEnum``
+        (``handler(payload)``). Asked with ``probe run send``."""
         key = check_kind(kind)
+        if kind is CommandKind.PAUSE:
+            if handler is not None:
+                raise TypeError("run.on(CommandKind.PAUSE) takes no handler: run.log() holds while paused")
+            self._add_handlers({paused.value: _hold_here for paused in PAUSE_KINDS})
+            return
         if not callable(handler):
             raise TypeError("run.on takes a callable handler")
         self._add_handlers({key: handler})
@@ -251,6 +268,7 @@ class RunCommandsMixin:
             return
         with box.lock:
             box.due.append({**claimed, "session_id": session_id})
+            box.arrived.notify_all()
 
     def _stop_now(self, client: Client, session_id: str, command: dict) -> None:
         """`stop --force`: answered, then SIGTERM to this process (the SDK's preempt handler flushes), and SIGKILL
@@ -264,8 +282,8 @@ class RunCommandsMixin:
         os.kill(pid, signal.SIGTERM)
 
     def _run_due_commands(self) -> None:
-        """At a safe point on the training thread (`run.log()`): run each claimed ask's handler and answer it. A
-        handler that raises answers `refused` with its error; the run goes on."""
+        """At a safe point on the training thread (`run.log()`): run each claimed ask's handler and answer it, and hold
+        here while paused. A handler that raises answers `refused` with its error; the run goes on."""
         box = self._commands
         if box.is_running or box.is_shared:
             return
@@ -276,13 +294,22 @@ class RunCommandsMixin:
         box.is_running = True
         try:
             while box.due:
-                with box.lock:
-                    if not box.due:
-                        return
-                    command = box.due.popleft()
-                self._answer_command(command)
+                if run_commands(self._take_due_commands(), take=self._wait_for_due, apply=self._answer_command,
+                                answer=self._answer_pause):  # fmt: skip
+                    restart_progress(self)
         finally:
             box.is_running = False
+
+    def _wait_for_due(self, timeout: float) -> list[dict]:
+        """Every claimed ask, once one is queued or `timeout` seconds passed (a held safe point's wait)."""
+        box = self._commands
+        with box.lock:
+            box.arrived.wait_for(lambda: bool(box.due), timeout)
+        return self._take_due_commands()
+
+    def _answer_pause(self, command: dict, reason: str | None) -> None:
+        """A pause or resume's answer: `done`, or `refused` saying why."""
+        self._send_answer(command, "refused" if reason else "done", reason, {})
 
     def _take_due_commands(self) -> list[dict]:
         """Every claimed command waiting, taken off the queue (a sync point hands them to every rank)."""
@@ -319,13 +346,24 @@ class RunCommandsMixin:
         """Hand the claimed commands to every rank and run each one's handler on every rank, at the same point
         (`probe.commands.sync()`). Rank 0 claims, but a rank that claimed before torch.distributed numbered it hands
         its own on too, so nothing claimed waits in one process. Every rank must call it, or the job hangs; rank 0
-        answers. Returns how many commands ran here."""
+        answers. A pause holds every rank here until a resume or a stop (`pause.run_commands`). Returns how many
+        commands ran here."""
         self._commands.is_shared = True
         rank, _world = get_world()
         commands = send_to_every_rank(self._take_due_commands())
-        for command in commands:
-            self._answer_command(command, should_answer=rank == 0)
-        return len(commands)
+        ran = len(commands)
+
+        def take_while_held(timeout: float) -> list[dict]:
+            nonlocal ran
+            taken = send_to_every_rank(self._wait_for_due(timeout) if rank == 0 else [])
+            ran += len(taken)
+            return taken
+
+        if run_commands(commands, take=take_while_held,
+                        apply=lambda command: self._answer_command(command, should_answer=rank == 0),
+                        answer=lambda command, reason: self._answer_pause(command, reason) if rank == 0 else None):  # fmt: skip
+            restart_progress(self)
+        return ran
 
     def _call_handler(self, handler: Callable[..., Any] | None, kind: str, args: dict[str, Any]) -> Any:
         if handler is None:

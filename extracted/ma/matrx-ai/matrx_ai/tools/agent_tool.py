@@ -8,6 +8,7 @@ from typing import Any
 
 from matrx_connect.context.app_context import set_app_context, try_get_app_context
 
+from matrx_ai.config.prompt_values import relation_prompt_text
 from matrx_ai.tools.models import (
     AGENT_DEPTH_METADATA_KEY,
     ToolContext,
@@ -173,6 +174,7 @@ async def _finalize_handoff_result(
         return ToolResult(
             success=False,
             error=ToolError(
+                reported_failure="the child agent run",
                 error_type=error_type,
                 message=(
                     f"Handoff agent '{tool_def.prompt_id}' did not complete "
@@ -193,6 +195,7 @@ async def _finalize_handoff_result(
         return ToolResult(
             success=False,
             error=ToolError(
+                reported_failure="the child agent run",
                 error_type="agent_empty_response",
                 message=(
                     f"Handoff agent '{tool_def.prompt_id}' produced no text — "
@@ -366,6 +369,10 @@ def _merge_projected_variables(
             continue
         if isinstance(value, str):
             variables[key] = value
+        elif relation_prompt_text(value) is not None:
+            # A record input's value (a relation, or a list of them) stays structured: the prompt
+            # door renders it as "label (token id)", never as a JSON envelope.
+            variables[key] = value
         else:
             # Variables are strings everywhere in the agent system; non-string
             # values arrive when a model passes structured content — keep it
@@ -402,6 +409,7 @@ async def execute_agent_tool(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="configuration",
                 message=f"Agent tool '{tool_def.name}' has no prompt_id configured.",
             ),
@@ -412,12 +420,13 @@ async def execute_agent_tool(
         )
 
     try:
-        from matrx_ai.agents.definition import Agent
-        from matrx_ai.agents.executor import run_agent
+        # An agent chose this tool, so the agent behind it runs as named — loaded and run by the mandate runner's
+        # agent-as-tool verbs (runner-boundary wave 4), never by package code itself.
+        from matrx_ai.mandates import HolderRef, RunOptions, carried_principal, get_agent_as_tool_runner
     except ImportError as exc:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type="import",
                 message=f"Cannot import agent modules: {exc}",
             ),
@@ -469,10 +478,15 @@ async def execute_agent_tool(
                 # keeps it in its state and stages it as its own named per-turn block.
                 host_state = resolution.get("host_state")
                 notes = [n for n in (resolution.get("notes") or []) if isinstance(n, dict)]
-        agent = await Agent.from_agent(
-            tool_def.prompt_id,
-            is_version=tool_def.prompt_is_version,
-            variables=variables,
+        runner = get_agent_as_tool_runner()
+        who = carried_principal()
+        run_opts = RunOptions(door="agent_tool")
+        prompt_id = str(tool_def.prompt_id)
+        agent = await runner.prepare_own_agent(
+            HolderRef(type="agent", id=prompt_id, version_id=prompt_id if tool_def.prompt_is_version else None),
+            variables or {},
+            who=who,
+            opts=run_opts,
         )
         if _host_data(tool_def) is not None:
             agent.host_data = {
@@ -512,6 +526,7 @@ async def execute_agent_tool(
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type=MISSING_CHILD_INPUT_ERROR_TYPE,
                     message=refusal_message,
                     suggested_action=refusal_action,
@@ -589,8 +604,10 @@ async def execute_agent_tool(
             # context (lifecycle events, reservation isolation, parent restore)
             # and never raises; failures arrive as result.success=False.
             try:
-                result = await run_agent(
+                result = await runner.run_agent_as_tool(
                     agent,
+                    who=who,
+                    opts=run_opts,
                     label=tool_def.name,
                     source_feature="agent_tool",
                     user_input=user_input or None if hand_over_turn is not None else user_input,
@@ -652,6 +669,7 @@ async def execute_agent_tool(
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    reported_failure="the child agent run",
                     error_type="agent_execution",
                     message=f"Agent '{tool_def.prompt_id}' failed: {result.error}"
                     + _hand_over_line(getattr(agent, "host_notes", None) or []),
@@ -699,6 +717,7 @@ async def execute_agent_tool(
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        reported_failure="the child agent run",
                         error_type=error_type,
                         message=(
                             f"Agent '{tool_def.prompt_id}' "

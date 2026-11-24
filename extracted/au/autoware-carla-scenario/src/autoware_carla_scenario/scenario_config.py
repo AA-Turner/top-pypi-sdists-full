@@ -49,6 +49,7 @@ __all__ = [
     "DriverCameraSpec",
     "DriverLidarSpec",
     "DriverControlSpec",
+    "DriverLateralSpec",
     "DriverConfig",
     "SweepConfig",
     # Re-exported from `traffic.config` so that a scenario package importing
@@ -446,6 +447,33 @@ class DriverLidarSpec:
 
 
 @dataclass
+class DriverLateralSpec:
+    """The lateral control chain that steers the policy's plan (``driver.lateral``).
+
+    Mirrors :class:`~autoware_carla_scenario.driver.autoware_lateral.LateralChainConfig`;
+    see that class for the meaning of each field.  ``controller: pure_pursuit`` (the
+    default) leaves the steering to :class:`DriverControlSpec`'s pure pursuit;
+    ``controller: mpc`` puts Autoware's chain -- the TSO, the publish delay and the
+    MPC lateral controller, with the X2's parameters by default -- between the plan
+    and the steering, as tier4/OnePlanner's closed-loop replay does.
+    """
+
+    controller: str = "pure_pursuit"
+    trajectory_optimizer: str = "tso"
+    mpc_param_file: str = ""
+    tso_param_file: str = ""
+    wheelbase_m: float = 2.75
+    publish_delay_s: float = 0.078
+    localization_lag_s: float = 0.03
+    ctrl_period_s: float = 0.03
+    mpc_companion: bool = True
+    tso_v0_from_ego: bool = True
+    tso_upstream_semantics: bool = True
+    tso_bounds: bool = True
+    tso_t0_point: bool = True
+
+
+@dataclass
 class DriverControlSpec:
     """Gains for the controller that tracks the policy's plan.
 
@@ -456,8 +484,10 @@ class DriverControlSpec:
     ``yaw_rate_trim_limit_deg``), which read better, or in radians
     (``max_steer_angle_rad``, ``yaw_rate_trim_limit_rad``), not both: one
     angle set both ways is refused.  Each is ``None`` here, the controller's
-    default (56 and 25 degrees), so that an override of either one works
-    (#2241).
+    default (the server's full lock, 53 degrees on CARLA 1.0 and 56 on 0.10,
+    and 25 degrees), so that an override of either one works (#2241).
+    ``steer_exponent`` is ``None`` too, the server's (1 on CARLA 1.0, 2 on
+    0.10; carla_release).
     """
 
     lookahead_gain_s: float = 0.6
@@ -466,7 +496,7 @@ class DriverControlSpec:
     wheelbase_m: float = 2.8
     max_steer_angle_deg: Optional[float] = None
     max_steer_angle_rad: Optional[float] = None
-    steer_exponent: float = 2.0
+    steer_exponent: Optional[float] = None
     max_steer_rate: float = 4.0
     yaw_rate_ki: float = 3.0
     yaw_rate_trim_limit_deg: Optional[float] = None
@@ -677,6 +707,9 @@ class DriverConfig:
 
     #: Trajectory-following gains.
     control: DriverControlSpec = field(default_factory=DriverControlSpec)
+
+    #: The lateral control chain (pure pursuit, or Autoware's TSO and MPC).
+    lateral: DriverLateralSpec = field(default_factory=DriverLateralSpec)
 
 
 # ---------------------------------------------------------------------------

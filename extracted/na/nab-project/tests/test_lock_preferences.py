@@ -6,20 +6,20 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
-
-from nab_project.inputs import ResolveInputs
-from nab_project.lock_preferences import LockPreferences, read_lock_preferences
-from nab_project.resolve import resolve_with_coordinator
-from nab_provider._vendor.packaging.markers import Marker
-from nab_provider._vendor.packaging.pylock import (
+from packaging.markers import Marker
+from packaging.pylock import (
     Package,
     PackageArchive,
     PackageWheel,
     Pylock,
 )
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+from packaging.version import Version
+
+from nab_project.inputs import ResolveInputs
+from nab_project.lock_preferences import LockPreferences, read_lock_preferences
+from nab_project.resolve import resolve_with_coordinator
 from nab_provider.environment import marker_environment
 from nab_provider.policy import BuildPolicy, DecisionOrder
 from nab_provider.provider import Provider
@@ -33,6 +33,7 @@ from nab_provider.testing import (
     make_wheel,
 )
 from nab_provider.yanking import append_yanked_file
+from nab_resolver.errors import ResolutionTerminatedError
 
 
 def wheel_package(
@@ -88,6 +89,15 @@ def test_conditional_versions_are_selected_per_actual_target() -> None:
 
     assert preferences.versions_for(target()) == {"a": Version("1")}
     assert preferences.versions_for(target("windows_amd64")) == {"a": Version("2")}
+    assert preferences.summary_versions() is None
+
+
+def test_conditional_rows_with_the_same_version_can_be_compared() -> None:
+    lock = prior(
+        wheel_package(version="1", marker='sys_platform == "linux"'),
+        wheel_package(version="1", marker='sys_platform == "win32"'),
+    )
+    assert LockPreferences(lock).summary_versions() == {"a": Version("1")}
 
 
 def test_selector_conjunction_uses_one_complete_context() -> None:
@@ -146,6 +156,27 @@ def test_old_artifact_priority_cannot_change_the_package_version() -> None:
     }
 
     assert LockPreferences(lock).versions_for(consumer) == expected
+
+
+def test_prior_lock_cannot_satisfy_a_literal_pin_with_an_unlisted_label() -> None:
+    preferences = LockPreferences(prior(wheel_package(version="1.0")))
+    port = make_coordinator(
+        [make_wheel("1", package="a")], package="a", auto_metadata=True
+    )
+
+    result = resolve_with_coordinator(
+        port,
+        [target()],
+        [Requirement("a===1.0")],
+        inputs=ResolveInputs(build_policy=BuildPolicy.NEVER),
+        lock_preferences=preferences,
+    )
+
+    (failure,) = result.target_results
+    assert failure.lock is None
+    assert failure.error is not None
+    assert not isinstance(failure.error, ResolutionTerminatedError)
+    assert failure.error.incompatibility is not None
 
 
 def test_old_pypy_wheel_supplies_the_open_abi_family() -> None:

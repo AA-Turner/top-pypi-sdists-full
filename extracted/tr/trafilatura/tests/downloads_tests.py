@@ -100,6 +100,63 @@ def test_urllib_request_releases_conn_on_oversize():
     resp.release_conn.assert_called_once()
 
 
+def test_urllib_request_recovers_after_oversize():
+    "An unread oversized response must not poison the next pooled request."
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    release_tail = threading.Event()
+    peers = []
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self):
+            peers.append(self.client_address[1])
+            self.send_response(200)
+            if self.path == "/oversize":
+                self.send_header("Content-Length", str(2**17 + 1))
+                self.end_headers()
+                self.wfile.write(b"x" * (2**17))
+                self.wfile.flush()
+                # Keep the socket live with an unread tail until the following request finishes.
+                release_tail.wait(3)
+                self.close_connection = True
+            else:
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"ok")
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=lambda: server.serve_forever(poll_interval=0.01))
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    config = use_config()
+    config.set("DEFAULT", "SSRF_PROTECTION", "off")
+    config.set("DEFAULT", "MAX_FILE_SIZE", "1024")
+    config.set("DEFAULT", "DOWNLOAD_TIMEOUT", "1")
+    # Retrying the poisoned connection on a fresh one would hide the regression.
+    config.set("DEFAULT", "MAX_REDIRECTS", "0")
+    try:
+        assert _send_urllib_request(f"{base}/oversize", False, config) is None
+        response = _send_urllib_request(f"{base}/ok", False, config)
+        assert response is not None
+        assert response.data == b"ok"
+        assert len(peers) == 2
+        assert peers[0] != peers[1]
+    finally:
+        release_tail.set()
+        if dl.HTTP_POOL is not None:
+            dl.HTTP_POOL.clear()
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+        assert not thread.is_alive()
+
+
 @pytest.mark.parametrize(
     "geturl_result, expected",
     [
@@ -121,7 +178,68 @@ def test_urllib_request_resolves_relative_url(geturl_result, expected):
     assert result.url == expected
 
 
-def test_response_object():
+@pytest.mark.parametrize(
+    "path, expected_path",
+    [
+        # issue #1068: a relative Location after a cross-host hop
+        ("/cross", "/final"),
+        ("/cross-relative", "/sub/final"),
+        # the redirect target was retried, geturl() is then empty
+        ("/retried", "/flaky"),
+    ],
+)
+def test_urllib_request_resolves_redirect_against_last_hop(path, expected_path, monkeypatch):
+    "regression: Response.url is the last redirect target resolved against the hop that sent it."
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    hits = []
+
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path)
+            redirects = {
+                # the original request goes to the first server, the next hop to the other one
+                "/cross": f"{other}/hop",
+                "/hop": "/final",
+                "/cross-relative": f"{other}/sub/hop",
+                "/sub/hop": "final",
+                "/retried": f"{other}/flaky",
+            }
+            if self.path in redirects:
+                self.send_response(302)
+                self.send_header("Location", redirects[self.path])
+            elif self.path == "/flaky" and hits.count("/flaky") == 1:
+                self.send_response(503)
+                self.send_header("Retry-After", "0")
+            else:
+                self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            pass
+
+    servers = [ThreadingHTTPServer(("127.0.0.1", 0), _Handler) for _ in range(2)]
+    for server in servers:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+    first, other = (f"http://127.0.0.1:{server.server_port}" for server in servers)
+    config = use_config()
+    config.set("DEFAULT", "SSRF_PROTECTION", "off")
+    monkeypatch.setattr(dl.urllib3.util.retry.time, "sleep", lambda _: None)
+
+    try:
+        response = _send_urllib_request(f"{first}{path}", False, config)
+    finally:
+        for server in servers:
+            server.shutdown()
+            server.server_close()
+    assert response is not None
+    assert response.status == 200
+    assert response.url == f"{other}{expected_path}"
+
+
+def test_response_object(caplog):
     "Test if the Response class is functioning as expected."
     my_html = b"<html><body><p>ABC</p></body></html>"
     resp = Response(my_html, 200, "https://example.org")
@@ -138,13 +256,15 @@ def test_response_object():
     for size in (10000000, 1):
         response.data = b"ABC" * size
         assert _is_suitable_response(response.url, response, DEFAULT_OPTS) is False
+    # the size check names the downloaded URL
+    assert "for URL https://httpbin.org/encoding/utf8" in caplog.text
     # straight handling of response object
     with open(os.path.join(RESOURCES_DIR, "utf8.html"), "rb") as filehandle:
         response.data = filehandle.read()
     assert _is_suitable_response(response.url, response, DEFAULT_OPTS) is True
     assert load_html(response) is not None
-    # nothing to see here
-    assert extract(response, url=response.url, config=ZERO_CONFIG) is None
+    # the stray <http:> tag in the file used to discard the whole document
+    assert "UTF-8 encoded sample plain-text file" in extract(response, url=response.url, config=ZERO_CONFIG)
 
 
 @pytest.mark.filterwarnings("ignore::urllib3.exceptions.InsecureRequestWarning")
@@ -327,6 +447,63 @@ def test_urllib3_live_page_retries(monkeypatch):
         server.server_close()
 
 
+def test_urllib3_read_errors_retried_once(monkeypatch):
+    "A read error is retried once without backoff: a dropped connection recovers, a read timeout gives up quickly."
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    hits = []
+    body = b"<html><body>" + b"x" * 100 + b"</body></html>"
+
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append((self.command, self.path))
+            if self.path == "/drop" and hits.count((self.command, self.path)) == 1:
+                # close without a response, as a server does with a stale keep-alive connection
+                self.close_connection = True
+                return
+            if self.path == "/slow":
+                sleep(2)  # longer than DOWNLOAD_TIMEOUT
+            try:
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                if self.command == "GET":
+                    self.wfile.write(body)
+            except OSError:
+                pass  # the client has given up
+
+        def do_HEAD(self):
+            self.do_GET()
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    config = use_config()
+    config.set("DEFAULT", "SSRF_PROTECTION", "off")
+    config.set("DEFAULT", "DOWNLOAD_TIMEOUT", "1")
+    naps = []
+    monkeypatch.setattr(dl.urllib3.util.retry.time, "sleep", naps.append)
+
+    try:
+        with patch.object(dl, "HAS_PYCURL", False):
+            assert fetch_url(f"{base}/drop", config=config) == body.decode()
+            assert fetch_url(f"{base}/slow", config=config) is None
+        assert hits.count(("GET", "/drop")) == 2
+        assert hits.count(("GET", "/slow")) == 2
+        assert _urllib3_is_live_page(f"{base}/drop", config) is True
+        assert _urllib3_is_live_page(f"{base}/slow", config) is False
+        assert hits.count(("HEAD", "/drop")) == 2
+        assert hits.count(("HEAD", "/slow")) == 2
+        assert naps == []
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_no_ssl_pool():
     "no_ssl skips cert verification in the urllib3 pool; the default verifies."
     insecure = _initiate_pool(DEFAULT_CONFIG, no_ssl=True)
@@ -363,6 +540,80 @@ def test_urllib_request_ssl_retry():
     with patch.object(dl, "_initiate_pool", return_value=pool), patch.object(dl, "HAS_PYCURL", False):
         assert dl.fetch_response("https://ssl.example/", config=config) is None
     assert pool.request.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "payload, max_size, accepted",
+    [
+        (b"<html><body>" + b"x" * 1000 + b"</body></html>", "20000000", True),
+        # compressed size under the cap, decompressed size over it
+        (b"0" * 100_000, "10000", False),
+    ],
+    ids=["html", "over-cap"],
+)
+def test_urllib_request_chunked_gzip(payload, max_size, accepted):
+    "A gzip answer sent with Transfer-Encoding: chunked is decoded, and the cap applies to decoded bytes."
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    body = gzip.compress(payload)
+
+    class _Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            for i in range(0, len(body), 100):
+                chunk = body[i : i + 100]
+                self.wfile.write(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
+            self.wfile.write(b"0\r\n\r\n")
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    config = use_config()
+    config.set("DEFAULT", "SSRF_PROTECTION", "off")
+    config.set("DEFAULT", "MAX_FILE_SIZE", max_size)
+    try:
+        with patch.object(dl, "HAS_PYCURL", False):
+            response = dl.fetch_response(f"http://127.0.0.1:{server.server_port}/", config=config)
+        if accepted:
+            assert response.data == payload
+        else:
+            assert response is None
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.mark.parametrize("fallback, attempts", [("on", 2), ("off", 1)])
+def test_urllib_request_cert_error_not_retried(fallback, attempts, monkeypatch):
+    "A certificate error goes straight to the insecure fallback or None, without retries or backoff."
+    import ssl
+
+    import urllib3
+
+    calls = []
+
+    def _connect(self):
+        calls.append(self.host)
+        raise ssl.SSLCertVerificationError("certificate verify failed")
+
+    naps = []
+    monkeypatch.setattr(urllib3.connection.HTTPSConnection, "connect", _connect)
+    monkeypatch.setattr(dl.urllib3.util.retry.time, "sleep", naps.append)
+    config = use_config()
+    config.set("DEFAULT", "INSECURE_SSL_FALLBACK", fallback)
+    with patch.object(dl, "HAS_PYCURL", False):
+        assert fetch_url("https://ssl.example/", config=config) is None
+    assert len(calls) == attempts
+    assert naps == []
 
 
 def test_fetch_response_decode_cap():
@@ -559,6 +810,75 @@ def test_partial_config_headers():
     assert _determine_headers(ConfigParser()) == DEFAULT_HEADERS
 
 
+@pytest.mark.parametrize("use_pycurl", [False, True] if dl.HAS_PYCURL else [False])
+@pytest.mark.parametrize(
+    "lines, path, cookie, expected",
+    [
+        # only the cookies matching the domain and the path are sent
+        (
+            ["127.0.0.1\tFALSE\t/\tFALSE\t0\tsession\tabc", ".example.org\tTRUE\t/\tFALSE\t0\tother\tno"],
+            "/page",
+            "",
+            "session=abc",
+        ),
+        (["127.0.0.1\tFALSE\t/private\tFALSE\t0\tsession\tabc"], "/page", "", ""),
+        (["127.0.0.1\tFALSE\t/private\tFALSE\t0\tsession\tabc"], "/private/page", "", "session=abc"),
+        # expired cookies and secure cookies over HTTP are left out
+        (["127.0.0.1\tFALSE\t/\tFALSE\t1\tsession\tabc"], "/page", "", ""),
+        (["127.0.0.1\tFALSE\t/\tTRUE\t0\tsession\tabc"], "/page", "", ""),
+        # the cookie file takes precedence over COOKIE
+        (["127.0.0.1\tFALSE\t/\tFALSE\t0\tsession\tabc"], "/page", "lang=en", "session=abc"),
+        # a missing cookie file sends no cookie
+        (None, "/page", "lang=en", ""),
+    ],
+)
+def test_cookie_file(lines, path, cookie, expected, use_pycurl, monkeypatch, tmp_path):
+    "Cookies from a Netscape cookie file are sent with matching requests."
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = ("received cookies: " + (self.headers.get("Cookie") or "")).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args):
+            pass
+
+    cookiefile = tmp_path / "cookies.txt"
+    if lines is not None:
+        cookiefile.write_text("# Netscape HTTP Cookie File\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    config = use_config()
+    config.set("DEFAULT", "SSRF_PROTECTION", "off")
+    config.set("DEFAULT", "COOKIE", cookie)
+    config.set("DEFAULT", "COOKIE_FILE", str(cookiefile))
+    monkeypatch.setattr(dl, "HAS_PYCURL", use_pycurl)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = fetch_url(f"http://127.0.0.1:{server.server_port}{path}", config=config)
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert result == f"received cookies: {expected}"
+
+
+@pytest.mark.parametrize("use_pycurl", [False, True] if dl.HAS_PYCURL else [False])
+def test_cookie_file_malformed_url(use_pycurl, monkeypatch, tmp_path):
+    "A malformed URL is handled as without a cookie file."
+    cookiefile = tmp_path / "cookies.txt"
+    cookiefile.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    config = use_config()
+    config.set("DEFAULT", "COOKIE_FILE", str(cookiefile))
+    monkeypatch.setattr(dl, "HAS_PYCURL", use_pycurl)
+    assert fetch_url("http://[::1/page", config=config) is None
+
+
 def test_parse_curl_headers():
     "Only the last response of a redirect chain should be kept."
     raw = (
@@ -662,6 +982,10 @@ def test_queue():
         ["https://example.org/page", "https://example.org/skip"], blacklist={"example.org/skip"}, url_filter=["/page"]
     )
     assert url_store.dump_urls() == ["https://example.org/page"]
+    # blacklist entries are compared without protocol and trailing slashes
+    urls = ["https://example.org/a", "https://example.org/b", "http://example.org/c"]
+    blacklist = {"https://example.org/a/", "example.org/c"}
+    assert add_to_compressed_dict(urls, blacklist=blacklist).dump_urls() == ["https://example.org/b"]
 
     # response download buffer (empty input, no network)
     assert list(dl.buffered_response_downloads([], 1)) == []

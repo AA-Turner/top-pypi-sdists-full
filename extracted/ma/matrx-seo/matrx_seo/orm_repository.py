@@ -71,7 +71,7 @@ from .contracts import (
     WebAnalyticsObservation,
 )
 from .db import models_seo as m
-from .identity import collection_identity, stable_hash
+from .identity import collection_identity, daily_fact_key, stable_hash
 from .market_math import compute_market_stats, merge_monthly
 from .repository import RUN_LEASE_SECONDS, SeoRepository
 from .reuse import narrowed
@@ -81,6 +81,33 @@ from .reuse import narrowed
 # transient DB failure (QueryTimeoutError / PoolAcquireTimeoutError).
 _SEARCH_PERFORMANCE_WRITE_CHUNK_ROWS = 500
 _SEARCH_PERFORMANCE_WRITE_ATTEMPTS = 3
+# What a later fetch of the SAME day replaces: the provider's (possibly revised)
+# numbers plus the run and payload that now own the row.
+_SEARCH_PERFORMANCE_REFRESHED_FIELDS = [
+    "run_id",
+    "raw_payload_id",
+    "keyword_id",
+    "clicks",
+    "impressions",
+    "ctr",
+    "average_position",
+    "extras",
+]
+_WEB_ANALYTICS_REFRESHED_FIELDS = [
+    "run_id",
+    "raw_payload_id",
+    "currency_code",
+    "property_timezone",
+    "sessions",
+    "users",
+    "engaged_sessions",
+    "views",
+    "engagement_rate",
+    "key_events",
+    "conversions",
+    "revenue",
+    "extras",
+]
 
 # Run-scoped observation tables (all carry run_id). seo.keyword_market is NOT
 # here — it is a current-state cache keyed (keyword_id, location_code), not a
@@ -291,7 +318,13 @@ def _observation_dedup_key(
 
     Retries of the same run remain idempotent, while an explicit fresh run owns
     its own observation rows and therefore keeps a truthful run receipt.
+
+    Daily provider facts (GSC search performance, GA4 web analytics) are the
+    exception: a day is ONE row whatever run fetched it, and a later run
+    UPDATES it (see :func:`_daily_fact_dedup_key`).
     """
+    if isinstance(observation, SearchPerformanceObservation | WebAnalyticsObservation):
+        return _daily_fact_dedup_key(organization_id, provider, observation)
     base: dict[str, Any] = {
         "kind": observation.kind,
         "collection_identity_key": collection_identity_key,
@@ -320,30 +353,6 @@ def _observation_dedup_key(
             location_code=observation.location_code,
             observed_at=observation.observed_at,
         )
-    elif isinstance(observation, SearchPerformanceObservation):
-        base.update(
-            site_id=observation.site_id,
-            page_id=observation.page_id,
-            keyword_id=observation.keyword_id,
-            date=observation.date.isoformat(),
-            query=observation.query,
-            country=observation.country,
-            device=observation.device,
-            dimension_profile=observation.dimension_profile,
-            search_appearance=observation.search_appearance,
-        )
-    elif isinstance(observation, WebAnalyticsObservation):
-        base.update(
-            site_id=observation.site_id,
-            page_id=observation.page_id,
-            date=observation.date.isoformat(),
-            source=observation.source,
-            medium=observation.medium,
-            channel=observation.channel,
-            campaign=observation.campaign,
-            device=observation.device,
-            landing_page=observation.landing_page,
-        )
     elif isinstance(observation, PagePerformanceObservation):
         base.update(
             page_id=observation.page_id,
@@ -365,6 +374,44 @@ def _observation_dedup_key(
             "persisting it requires a schema addition, not a silent skip"
         )
     return stable_hash(base)
+
+
+def _daily_fact_dedup_key(
+    organization_id: str,
+    provider: str,
+    observation: SearchPerformanceObservation | WebAnalyticsObservation,
+) -> str:
+    """The run-independent identity of one daily provider row. The part order is
+    pinned by migration 20261101000000 (its SQL rebuilds these keys) — change
+    both together or old rows stop matching new writes."""
+    if isinstance(observation, SearchPerformanceObservation):
+        return daily_fact_key(
+            "search_performance:v2",
+            organization_id,
+            provider,
+            observation.site_id,
+            observation.page_id,
+            observation.date.isoformat(),
+            observation.query,
+            observation.country,
+            observation.device,
+            observation.dimension_profile,
+            observation.search_appearance,
+        )
+    return daily_fact_key(
+        "web_analytics:v2",
+        organization_id,
+        provider,
+        observation.site_id,
+        observation.page_id,
+        observation.date.isoformat(),
+        observation.source,
+        observation.medium,
+        observation.channel,
+        observation.campaign,
+        observation.device,
+        observation.landing_page,
+    )
 
 
 #: How many archived runs in a row one collection identity may walk past before
@@ -1134,6 +1181,73 @@ class OrmSeoRepository(SeoRepository):
             seen.add(key)
         return [ids_by_key[key] for key in dedup_keys], created_flags
 
+    async def _upsert_daily_facts(
+        self,
+        model_cls: type,
+        rows: list[dict[str, Any]],
+        dedup_keys: list[str],
+        *,
+        update_fields: list[str],
+        label: str,
+    ) -> tuple[list[str], list[bool]]:
+        """Write daily provider facts as ONE row per day: insert a new day, and
+        UPDATE an existing day's numbers (and its owning run) when a later run
+        re-fetches it — providers revise recent days, so the newest fetch is the
+        truest. Never a second copy (the 2026-10-31 GSC overcount: 7 copies of
+        a day from 7 overlapping daily windows).
+
+        Bounded statements, each retried on a transient failure; an upsert on a
+        run-independent key is retry-safe by construction. Returns ``(ids,
+        created_flags)`` in ``dedup_keys`` order, like :meth:`_persist_dedup_batch`.
+        """
+        if not rows:
+            return [], []
+        # A key may appear twice in one fetch; ON CONFLICT DO UPDATE refuses to
+        # touch a row twice in one statement, so the LAST occurrence wins.
+        last_by_key: dict[str, dict[str, Any]] = {}
+        for key, row in zip(dedup_keys, rows, strict=True):
+            last_by_key[key] = row
+        unique_keys = list(last_by_key)
+        ids_by_key: dict[str, str] = {}
+        existing_keys: set[str] = set()
+        for start in range(0, len(unique_keys), _SEARCH_PERFORMANCE_WRITE_CHUNK_ROWS):
+            chunk_keys = unique_keys[start : start + _SEARCH_PERFORMANCE_WRITE_CHUNK_ROWS]
+            prior = await model_cls.filter(dedup_key__in=chunk_keys).values("dedup_key")
+            existing_keys.update(str(row["dedup_key"]) for row in prior)
+            chunk = [last_by_key[key] for key in chunk_keys]
+
+            async def _write(chunk: list[dict[str, Any]] = chunk) -> list[Any]:
+                return await model_cls.bulk_upsert(
+                    chunk,
+                    on_conflict=["dedup_key"],
+                    update_fields=update_fields,
+                    returning=["id", "dedup_key"],
+                )
+
+            landed = await retry_on_transient(
+                _write,
+                attempts=_SEARCH_PERFORMANCE_WRITE_ATTEMPTS,
+                base_backoff=1.0,
+                jitter_ratio=0.5,
+                label=f"{label} upsert rows[{start}:{start + len(chunk)}]",
+            )
+            for item in landed:
+                key = item["dedup_key"] if isinstance(item, dict) else item.dedup_key
+                row_id = item["id"] if isinstance(item, dict) else item.id
+                ids_by_key[str(key)] = str(row_id)
+        missing = [key for key in unique_keys if key not in ids_by_key]
+        if missing:
+            raise RuntimeError(
+                f"daily fact upsert could not account for {len(missing)} "
+                f"{model_cls.__name__} rows"
+            )
+        seen: set[str] = set()
+        created_flags: list[bool] = []
+        for key in dedup_keys:
+            created_flags.append(key not in existing_keys and key not in seen)
+            seen.add(key)
+        return [ids_by_key[key] for key in dedup_keys], created_flags
+
     async def _persist_serp_snapshots_batch(
         self,
         run: CollectionRun,
@@ -1275,7 +1389,13 @@ class OrmSeoRepository(SeoRepository):
                     "extras": observation.extras,
                 }
             )
-        return await self._persist_dedup_batch(m.WebAnalyticsDaily, rows, dedup_keys)
+        return await self._upsert_daily_facts(
+            m.WebAnalyticsDaily,
+            rows,
+            dedup_keys,
+            update_fields=_WEB_ANALYTICS_REFRESHED_FIELDS,
+            label=f"seo.web_analytics_daily run={run.id}",
+        )
 
     async def _persist_page_performance_batch(
         self,
@@ -1879,58 +1999,22 @@ class OrmSeoRepository(SeoRepository):
         # such statement blew the pool's 10 s command_timeout mid-run — no lock
         # convoy, no correlated timeouts, just one oversized write — failing
         # the whole window. Smaller statements finish well inside the ceiling,
-        # and each is `ON CONFLICT (dedup_key) DO NOTHING` keyed on a
-        # retry-stable dedup key, so re-issuing one after a timeout can never
-        # double-write (the only effect of an ambiguous first attempt is that
-        # its rows count as `existing` rather than `created`). Bounded at
-        # three attempts and LOUD on every retry (`retry_on_transient`), so a
-        # genuinely slow table still fails the run instead of hiding.
-        created = 0
-        for start in range(0, len(rows), _SEARCH_PERFORMANCE_WRITE_CHUNK_ROWS):
-            chunk = rows[start : start + _SEARCH_PERFORMANCE_WRITE_CHUNK_ROWS]
-
-            async def _write(chunk: list[dict[str, Any]] = chunk) -> int | Any:
-                return await bulk_insert_ignore(
-                    m.SearchPerformanceDaily,
-                    chunk,
-                    on_conflict=["dedup_key"],
-                )
-
-            landed = await retry_on_transient(
-                _write,
-                attempts=_SEARCH_PERFORMANCE_WRITE_ATTEMPTS,
-                base_backoff=1.0,
-                jitter_ratio=0.5,
-                label=(
-                    f"seo.search_performance_daily insert run={run.id} "
-                    f"rows[{start}:{start + len(chunk)}]"
-                ),
-            )
-            if not isinstance(landed, int):
-                raise RuntimeError(
-                    "bulk search performance persistence returned a non-count result"
-                )
-            created += landed
-
-        unique_keys = list(dict.fromkeys(dedup_keys))
-        persisted: list[dict[str, Any]] = []
-        for start in range(0, len(unique_keys), _SEARCH_PERFORMANCE_WRITE_CHUNK_ROWS):
-            persisted.extend(
-                await m.SearchPerformanceDaily.filter(
-                    dedup_key__in=unique_keys[start : start + _SEARCH_PERFORMANCE_WRITE_CHUNK_ROWS]
-                ).values("id", "dedup_key")
-            )
-        ids_by_key = {str(row["dedup_key"]): str(row["id"]) for row in persisted}
-        missing = [key for key in unique_keys if key not in ids_by_key]
-        if missing:
-            raise RuntimeError(
-                "bulk search performance persistence could not reload "
-                f"{len(missing)} landed observations"
-            )
+        # and each is an upsert on the run-independent day key, so re-issuing
+        # one after a timeout can never double-write. Bounded at three attempts
+        # and LOUD on every retry (`retry_on_transient`), so a genuinely slow
+        # table still fails the run instead of hiding.
+        ids, created_flags = await self._upsert_daily_facts(
+            m.SearchPerformanceDaily,
+            rows,
+            dedup_keys,
+            update_fields=_SEARCH_PERFORMANCE_REFRESHED_FIELDS,
+            label=f"seo.search_performance_daily run={run.id}",
+        )
+        created = sum(created_flags)
         return UpsertReceipt(
             created=created,
             existing=len(observations) - created,
-            observation_ids=[ids_by_key[key] for key in dedup_keys],
+            observation_ids=ids,
         )
 
     async def complete_run(

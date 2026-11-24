@@ -28,7 +28,7 @@ from matrx_connect.emitters.silent_emitter import SilentEmitter
 from matrx_ai.providers import model_tier_gate as gate
 from matrx_ai.providers.unified_client import UnifiedAIClient
 
-ON = "4cf62e4e-2679-484f-b652-034e697418df"
+ON = "0d3c1b2a-5e4f-4a6b-9c8d-7e6f5a4b3c2d"
 OFF = "0f0e0d0c-0b0a-4908-8706-050403020100"
 
 

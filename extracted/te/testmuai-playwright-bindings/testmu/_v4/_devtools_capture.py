@@ -772,6 +772,8 @@ async def _start_sse_capture(page):
     """Create a CDP session on `page`, wire SSE handlers, register it in the
     page→session registry, and return the session. Handlers close over per-session
     request maps (requestId collides across CDP targets)."""
+    from testmu._v4._helpers._perception import perception_for
+    perception_for(page).ensure_sse_supported()
     cdp = await page.context.new_cdp_session(page)
     await cdp.send("Network.enable")
 
@@ -1161,6 +1163,11 @@ async def devtoolsStorageQuery(code: str) -> str:
     return await _settle("devtoolsStorageQuery", _once)
 
 
+def _engine_name(page) -> str:
+    from testmu._v4._helpers._perception import perception_for
+    return perception_for(page).engine
+
+
 async def snapshotPerformanceTrace() -> str:
     """Snapshot Core Web Vitals from page."""
     if not _page_ref:
@@ -1181,6 +1188,9 @@ async def snapshotPerformanceTrace() -> str:
             parts.append(f"INP={cwv.inp_ms:.0f}ms")
         if cwv.ttfb_ms is not None:
             parts.append(f"TTFB={cwv.ttfb_ms:.0f}ms")
+        if cwv.unsupported:
+            # Non-Chromium only: name what the engine cannot measure.
+            parts.append(f"{', '.join(cwv.unsupported)} not supported on {_engine_name(_page_ref)}")
         # Vitals land progressively (TTFB/FCP first, LCP after paint settles), so
         # "nothing yet" is the same too-early case the other readers hit.
         return (", ".join(parts) if parts else ""), None
@@ -1216,6 +1226,13 @@ async def devtoolsPerformanceQuery(code: str) -> str:
         # first attempt, by design. Vitals can trail the load event by seconds,
         # so this read gets its own, longer budget.
         cwv = await _snapshot(_page_ref)
+        if cwv.unsupported:
+            # Non-Chromium only: a vital the engine cannot measure reports so
+            # explicitly (returned at once) instead of stringifying None.
+            from testmu._v4._helpers.devtools_performance import unsupported_metrics_message
+            msg = unsupported_metrics_message(code, cwv, _engine_name(_page_ref))
+            if msg:
+                return msg, None
         result = devtools_performance_query(code, cwv)
         return ((result.value or "") if result.success else ""), result.error
 

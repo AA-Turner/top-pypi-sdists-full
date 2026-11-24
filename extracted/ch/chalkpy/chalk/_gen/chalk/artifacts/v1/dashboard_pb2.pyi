@@ -1,4 +1,5 @@
 from chalk._gen.chalk.artifacts.v1 import chart_pb2 as _chart_pb2
+from chalk._gen.chalk.artifacts.v1 import contentgrant_pb2 as _contentgrant_pb2
 from chalk._gen.chalk.artifacts.v1 import value_tone_pb2 as _value_tone_pb2
 from chalk._gen.chalk.searchaggregates.v1 import aggregation_pb2 as _aggregation_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
@@ -272,12 +273,14 @@ class DashboardTreeMapViz(_message.Message):
     def __init__(self) -> None: ...
 
 class DashboardPieViz(_message.Message):
-    __slots__ = ("hide_legend", "hide_labels")
+    __slots__ = ("hide_legend", "hide_labels", "multiple_rings")
     HIDE_LEGEND_FIELD_NUMBER: _ClassVar[int]
     HIDE_LABELS_FIELD_NUMBER: _ClassVar[int]
+    MULTIPLE_RINGS_FIELD_NUMBER: _ClassVar[int]
     hide_legend: bool
     hide_labels: bool
-    def __init__(self, hide_legend: bool = ..., hide_labels: bool = ...) -> None: ...
+    multiple_rings: bool
+    def __init__(self, hide_legend: bool = ..., hide_labels: bool = ..., multiple_rings: bool = ...) -> None: ...
 
 class DashboardStatisticViz(_message.Message):
     __slots__ = ("compare_to_previous", "number_format", "unit_label", "rate_options", "coloring")
@@ -354,6 +357,8 @@ class Dashboard(_message.Message):
         "read_only",
         "total_view_count",
         "viewer_last_viewed_at",
+        "visibility",
+        "viewer_role",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -368,6 +373,8 @@ class Dashboard(_message.Message):
     READ_ONLY_FIELD_NUMBER: _ClassVar[int]
     TOTAL_VIEW_COUNT_FIELD_NUMBER: _ClassVar[int]
     VIEWER_LAST_VIEWED_AT_FIELD_NUMBER: _ClassVar[int]
+    VISIBILITY_FIELD_NUMBER: _ClassVar[int]
+    VIEWER_ROLE_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     name: str
@@ -381,6 +388,8 @@ class Dashboard(_message.Message):
     read_only: bool
     total_view_count: int
     viewer_last_viewed_at: _timestamp_pb2.Timestamp
+    visibility: _contentgrant_pb2.ContentVisibility
+    viewer_role: _contentgrant_pb2.ContentRole
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -396,4 +405,6 @@ class Dashboard(_message.Message):
         read_only: bool = ...,
         total_view_count: _Optional[int] = ...,
         viewer_last_viewed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        visibility: _Optional[_Union[_contentgrant_pb2.ContentVisibility, str]] = ...,
+        viewer_role: _Optional[_Union[_contentgrant_pb2.ContentRole, str]] = ...,
     ) -> None: ...

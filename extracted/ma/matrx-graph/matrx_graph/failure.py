@@ -181,6 +181,12 @@ class Cause:
     the run ended there (lane HELD-WRITE-RESUME, 2026-09-26). The terminal twin of
     ``HELD_FOR_APPROVAL``; set only by the resume route from the approval's own state."""
 
+    NOBODY_ANSWERED = "nobody_answered"
+    """Not a fault: the run asked a person something, nobody answered before the
+    deadline, and the step's declared outcome was to END the run (or nothing else
+    could answer). ``message`` is the plain reason; ``node_id`` the asking step.
+    Set only by ``RunStore.end_unanswered`` (2026-11-14)."""
+
     # --- lifecycle -------------------------------------------------------
     CANCELLED = "cancelled"
     RUN_STRANDED = "run_stranded"
@@ -349,6 +355,22 @@ _PYDANTIC_TYPES: dict[str, tuple[str, str]] = {
 }
 
 
+def _text_given_whole(err_type: str, given: Any, expected: str | None) -> str | None:
+    """A text input handed a whole record or list says so (FIX-L6, 2026-11-03).
+
+    "it expects text" alone left the reader guessing; the live run had wired a whole table row
+    into an AI step's prompt. ``given`` is the input value, or (from rendered text) its first
+    character. The save-time twin is ``validation._text_input_fed_object_issues``.
+    """
+    if err_type != "string_type":
+        return expected
+    if isinstance(given, dict) or given == "{":
+        return "text, not a whole record — pick the fields it should read"
+    if isinstance(given, list) or given == "[":
+        return "text, not a whole list — pick the entries it should read"
+    return expected
+
+
 def _loc_to_field(loc: tuple[Any, ...]) -> str:
     """Flatten a pydantic ``loc`` to a dotted path, dropping the union-branch
     tag segments pydantic injects (``function-after``, ``str``) that mean
@@ -387,6 +409,7 @@ def problems_from_validation_error(exc: Any) -> list[FieldProblem]:
             # ("Value error, unregistered source_feature ..."), far better than
             # dropping to a generic phrase.
             expected = strip_ansi(str(item.get("msg") or "")).strip() or None
+        expected = _text_given_whole(err_type, item.get("input"), expected)
         problems.append(
             FieldProblem(
                 field=_loc_to_field(tuple(item.get("loc") or ())),
@@ -429,6 +452,7 @@ def problems_from_validation_text(text: str) -> list[FieldProblem]:
         if expected is None:
             expected = strip_ansi(match.group("msg")).strip() or None
         raw_input = match.group("input")
+        expected = _text_given_whole(err_type, (raw_input or "").strip()[:1], expected)
         problems.append(
             FieldProblem(
                 field=_loc_to_field(tuple(match.group("loc").strip().split("."))),
@@ -919,6 +943,63 @@ _LEADING_EXC_TYPE = re.compile(r"^(?P<type>[A-Z][A-Za-z0-9_]*(?:Error|Exception|
 _WRAPPER_TYPES: frozenset[str] = frozenset({"ExecutionError"})
 
 
+def _wrapped_exception(exc: BaseException) -> BaseException | None:
+    """The first exception under a chain of generic wrappers (``__cause__``), or None."""
+    seen: set[int] = set()
+    inner = exc.__cause__
+    while inner is not None and id(inner) not in seen:
+        seen.add(id(inner))
+        if type(inner).__name__ not in _WRAPPER_TYPES:
+            return inner
+        inner = inner.__cause__
+    return None
+
+
+def _leading_type(text: str) -> str | None:
+    """The exception class a text opens with, looking THROUGH generic wrappers: for
+    ``"ExecutionError: LockContentionError: …"`` the answer is ``LockContentionError``."""
+    match = _LEADING_EXC_TYPE.match(text)
+    if match is None:
+        return None
+    found = match.group("type")
+    rest = text[match.end():]
+    while found in _WRAPPER_TYPES:
+        inner = _LEADING_EXC_TYPE.match(rest.lstrip())
+        if inner is None:
+            break
+        found = inner.group("type")
+        rest = rest.lstrip()[inner.end():]
+    return found
+
+
+# A run input refused in prose ("Input 'audience' failed validation: 'forbidden' is not one of
+# [...]", "Input validation failed for 'audience': ..."). The VALUE the person typed rides in the
+# reason, so its words ("forbidden", "permission", "403") must never be read as a permission refusal
+# by the prose ladder: an input the engine named is INVALID_INPUT/MISSING_INPUT, field and reason
+# preserved (live 2026-11-14: a refused input read "belongs to a different account").
+_NAMED_INPUT_REFUSAL = re.compile(
+    r"\binputs?\s+(?:validation\s+(?:failed|error)\s+for\s+)?[\'\"“‘]?(?P<name1>[\w.\-]+)[\'\"”’]?\s+"
+    r"(?:failed\s+validation|is\s+invalid|is\s+required|is\s+missing|must\s+be)\b[:,]?\s*(?P<why1>.*)"
+    r"|\binputs?\s+validation\s+(?:failed|error)\s+for\s+[\'\"“‘](?P<name2>[\w.\-]+)[\'\"”’][:,]?\s*(?P<why2>.*)",
+    re.I | re.S,
+)
+
+
+def _named_input_problem(text: str) -> FieldProblem | None:
+    match = _NAMED_INPUT_REFUSAL.search(text or "")
+    if match is None:
+        return None
+    name = match.group("name1") or match.group("name2")
+    why = (match.group("why1") if match.group("name1") else match.group("why2") or "").strip()
+    missing = bool(re.search(r"\b(?:is\s+required|is\s+missing|required|missing|empty)\b", match.group(0), re.I))
+    return FieldProblem(
+        field=name,
+        expected="a value" if missing else (why[:200] or "a usable value"),
+        got="nothing" if missing else None,
+        code="missing" if missing else "invalid",
+    )
+
+
 def failure_from_text(
     text: str,
     *,
@@ -933,18 +1014,20 @@ def failure_from_text(
     flattened. Tries the stringified-ValidationError parser first, then falls
     back to the type/prose ladder.
     """
-    prefix = _LEADING_EXC_TYPE.match(text)
+    leading = _leading_type(text)
     if error_type is None:
         # 108 of the 144 live messages open with a raw exception class name
         # ("EdgeRoutingError: …", "NodeInputValidationError: …"). When all we
         # have is the string, that prefix is the same hard evidence the
         # exception's type would have been — recover it rather than dropping
         # to prose matching.
-        error_type = prefix.group("type") if prefix else None
-    elif error_type in _WRAPPER_TYPES and prefix and prefix.group("type") in _TYPE_CAUSES:
+        error_type = leading
+    elif error_type in _WRAPPER_TYPES and leading in _TYPE_CAUSES:
         # The generic wrapper says nothing; the known class it wraps does (a QueryTimeoutError while saving a
-        # step's result is OUR write failing, never "the step ran past its time limit" — run bcf4958b).
-        error_type = prefix.group("type")
+        # step's result is OUR write failing, never "the step ran past its time limit" — run bcf4958b). The
+        # wrapper's own name may open the text too ("ExecutionError: LockContentionError: … lock timeout"
+        # read timed_out off its prose — run 188426a6, 2026-11-01), so the look goes through it.
+        error_type = leading
 
     problems = problems_from_validation_text(text)
     if problems:
@@ -956,6 +1039,16 @@ def failure_from_text(
             step_label=step_label,
             error_type=error_type,
             problems=problems,
+        )
+    named = _named_input_problem(text)
+    if named is not None:
+        return build_failure(
+            cause=Cause.MISSING_INPUT if named.code == "missing" else Cause.INVALID_INPUT,
+            technical=text,
+            step_id=step_id,
+            step_label=step_label,
+            error_type=error_type,
+            problems=[named],
         )
     refused = _failure_from_refusal(
         text, step_id=step_id, step_label=step_label, error_type=error_type
@@ -1186,6 +1279,15 @@ def failure_from_exception(
     # cancellation/authorization families need no prose, and reading prose here
     # is what turned a checkpoint timeout into an age-verification refusal.
     class_cause = persistence_cause_for_exception(exc)
+    if class_cause is None and error_type in _WRAPPER_TYPES:
+        # A generic wrapper (the step's partial-success note wrap) says nothing; the class it wraps
+        # does. Run 188426a6: a LockContentionError under the note wrap read "ran past its time
+        # limit" off the words "lock timeout" (2026-11-01).
+        wrapped = _wrapped_exception(exc)
+        if wrapped is not None:
+            class_cause = persistence_cause_for_exception(wrapped)
+            if class_cause is not None:
+                error_type = type(wrapped).__name__
     if class_cause in {Cause.PERSISTENCE_FAILED, Cause.DATABASE_BUSY, Cause.NOT_AUTHORIZED, Cause.CANCELLED}:
         return build_failure(
             cause=class_cause,

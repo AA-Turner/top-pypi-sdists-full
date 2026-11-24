@@ -15,7 +15,7 @@ from .air import Air
 from .language import Language
 from .logging import log
 from .middlewares import RedirectWithPrefixMiddleware, SetCacheControlMiddleware
-from .nicegui import _shutdown, _startup
+from .nicegui import _lifespan
 from .server import Server
 
 
@@ -62,7 +62,7 @@ def run_with(
     :param tailwind: whether to use Tailwind CSS (experimental, default: ``True``)
     :param unocss: use UnoCSS with the specified preset instead of Tailwind CSS (default: ``None``, options: "mini", "wind3", "wind4", *added in version 3.7.0*)
     :param prod_js: whether to use the production version of Vue and Quasar dependencies (default: ``True``)
-    :param storage_secret: secret key for browser-based storage (default: ``None``, a value is required to enable ui.storage.user and ui.storage.browser)
+    :param storage_secret: secret key for browser-based storage (default: ``None``, a value is required to enable ``app.storage.user`` and ``app.storage.browser``)
     :param session_middleware_kwargs: additional keyword arguments passed to SessionMiddleware that creates the session cookies used for browser-based storage
     :param show_welcome_message: whether to show the welcome message (default: ``True``)
     :param markdown: whether to serve a Markdown representation when a client sends ``Accept: text/markdown``
@@ -131,9 +131,7 @@ def run_with(
             return None
         if (instance := _get_server_instance()) is not None:
             Server.instance = instance
-        await _startup()
-        async with main_app_lifespan(app) as state:
+        async with _lifespan(app), main_app_lifespan(app) as state:
             yield state
-        await _shutdown()
 
     app.router.lifespan_context = lifespan_wrapper

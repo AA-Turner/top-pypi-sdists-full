@@ -47,11 +47,20 @@ ENFORCEMENT_DROPPED = "structured_output.enforcement_dropped"  # prompt-guided, 
 #: severity table stays in one place.
 ANSWER_OFF_CONTRACT = "structured_output.answer_off_contract"
 
+#: ``ENFORCEMENT_DROPPED`` is the EXPLANATION, not the harm, so it is medium. Every drop
+#: the person paid for is surfaced at high severity on its own: an answer that missed the
+#: contract lands ``ANSWER_OFF_CONTRACT`` (never collapsed), a call that failed lands its
+#: provider error. What is left are the recovered capability facts — Anthropic's strict
+#: decoder empties dynamic-key maps, Gemini grounding corrupts a native schema — written
+#: once per day per agent and schema. Live 2026-11-18: 3556 events, 30-day reasons
+#: open-map 987 (99.8 % recovered), grounding 835 (95 %), Gemini tools+schema 401 (stopped
+#: 2026-10-27), grammar budget ~80, media models 32 (stopped 2026-11-16); at "high" they
+#: buried the off-contract answers that are the real signal.
 _SEVERITY = {
     NARROWED: "medium",
     RELAXED: "high",
     TOOLS_SHED: "high",
-    ENFORCEMENT_DROPPED: "high",
+    ENFORCEMENT_DROPPED: "medium",
     ANSWER_OFF_CONTRACT: "high",
 }
 
@@ -286,6 +295,47 @@ def _agent_identity() -> dict[str, Any]:
     return identity
 
 
+#: The compromises that are a capability FACT about a (model, shape, agent) when
+#: the call they were made for recovered. Live 2026-11-12: 633
+#: ``enforcement_dropped`` events in 7 days, 261 of them one identical fact (the
+#: agent factory's envelope on claude-opus-5-5, open maps a strict decoder would
+#: empty, every answer judged ON CONTRACT). The first write says everything the
+#: next 260 said, so a RECOVERED repeat is written once per process — the same
+#: rule as ``anthropic.streaming_required`` (``addc8bcd8dd``). An UNRECOVERED one
+#: (the call failed, the answer missed the contract) is news every time and is
+#: always written; ``answer_off_contract`` is never collapsed.
+_ONCE_WHEN_RECOVERED: frozenset[str] = frozenset({NARROWED, RELAXED, TOOLS_SHED, ENFORCEMENT_DROPPED})
+_RECOVERED_FACTS_WRITTEN: set[tuple[str, ...]] = set()
+
+
+def _recovered_fact_key(key: str, provider: str, model: str | None, detail: dict[str, Any]) -> tuple[str, ...]:
+    what = detail.get("action") or json.dumps(
+        [detail.get("narrowed"), detail.get("relaxed")], sort_keys=True, default=str
+    )
+    who = detail.get("agent_id") or detail.get("mandate_key") or detail.get("agent_name") or ""
+    return (
+        key,
+        str(provider),
+        str(model or ""),
+        str(detail.get("schema_fingerprint") or detail.get("schema_name") or ""),
+        str(who),
+        str(what)[:1000],
+    )
+
+
+def _recovered_day_key(detail: dict[str, Any]) -> tuple[str, ...]:
+    """The cross-process, per-UTC-day identity of a recovered fact: WHICH agent and WHICH schema.
+    (The class and model are already part of ``capture_issue``'s once-per-day key.)"""
+    who = detail.get("agent_id") or detail.get("mandate_key") or detail.get("agent_name") or ""
+    schema = detail.get("schema_fingerprint") or detail.get("schema_name") or ""
+    return (str(who), str(schema))
+
+
+def forget_recorded_facts() -> None:
+    """Clear the once-per-process memory (tests; a deliberate re-announce)."""
+    _RECOVERED_FACTS_WRITTEN.clear()
+
+
 async def record_structured_output_finding(
     key: str,
     *,
@@ -299,6 +349,20 @@ async def record_structured_output_finding(
     try:
         from matrx_ai.ops.issue_capture import capture_issue
 
+        full = {**_agent_identity(), **detail}
+        once_per_day = False
+        day_key: tuple[str, ...] | None = None
+        if was_recovered and key in _ONCE_WHEN_RECOVERED:
+            once_per_day = True
+            day_key = _recovered_day_key(full)
+            fact = _recovered_fact_key(key, provider, model, full)
+            if fact in _RECOVERED_FACTS_WRITTEN:
+                return
+            _RECOVERED_FACTS_WRITTEN.add(fact)
+            full["recorded"] = (
+                "once per process, and once per UTC day across processes, for this model, shape, agent "
+                "and compromise while the call recovers; every unrecovered occurrence is written"
+            )
         await capture_issue(
             key,
             error_type=key.rsplit(".", 1)[-1],
@@ -307,7 +371,9 @@ async def record_structured_output_finding(
             is_retryable=False,
             was_recovered=was_recovered,
             severity=_SEVERITY.get(key, "medium"),
-            detail={**_agent_identity(), **detail},
+            detail=full,
+            once_per_day=once_per_day,
+            day_key=day_key,
         )
     except Exception as exc:  # noqa: BLE001 — a broken sink never breaks the call
         vcprint(f"[structured_output_findings] could not record {key}: {exc}", color="red")
@@ -376,7 +442,7 @@ def record_structured_output_finding_sync(
 
 
 def translation_outcome(
-    succeeded: bool | None, answer_off_contract: bool | None
+    succeeded: bool | None, answer_off_contract: bool | None, cut_short_by: str | None = None
 ) -> tuple[bool, str]:
     """THE ONE PLACE ``was_recovered`` is decided for a structured-output finding,
     and it is decided only from facts that have already happened.
@@ -409,6 +475,14 @@ def translation_outcome(
         )
     if not succeeded:
         return False, "the call then FAILED — the compromise did not recover it"
+    if answer_off_contract and cut_short_by:
+        # Not recovered — the person got no answer on contract — but the stop, not the
+        # compromise, is the cause: blaming the compromise sends the reader to the schema.
+        return False, (
+            f"the provider stopped the answer (finish_reason={cut_short_by}) before its JSON "
+            "was complete — the answer missed the contract because it was cut short, not "
+            "because of this compromise"
+        )
     if answer_off_contract:
         return False, (
             "the call returned and the answer was then judged OFF CONTRACT — "
@@ -427,6 +501,7 @@ async def flush_translation_findings(
     model: str | None,
     succeeded: bool | None = None,
     answer_off_contract: bool | None = None,
+    cut_short_by: str | None = None,
 ) -> None:
     """Record everything buffered for the current call (called once, by the
     dispatch seam, when the provider call ends — success or failure).
@@ -437,7 +512,7 @@ async def flush_translation_findings(
     found (``None`` when no contract was bound, so nothing was judged). Both are
     read ONLY through :func:`translation_outcome`, the single decision point for
     every finding written here — gate half and translation half alike."""
-    recovered, outcome = translation_outcome(succeeded, answer_off_contract)
+    recovered, outcome = translation_outcome(succeeded, answer_off_contract, cut_short_by)
     gate = _GATE_PENDING.get()
     if gate:
         _GATE_PENDING.set([])
@@ -499,6 +574,7 @@ __all__ = [
     "begin_translation_findings",
     "end_translation_findings",
     "flush_translation_findings",
+    "forget_recorded_facts",
     "note_translation",
     "open_gate_findings",
     "record_structured_output_finding",

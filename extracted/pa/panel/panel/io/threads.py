@@ -1,13 +1,50 @@
 import asyncio
+# Imported for its side effect: the exit hook that disables thread pools must
+# be registered before ours so that ours runs first
+import concurrent.futures.thread  # noqa: F401
 import logging
 import threading
 import typing as t
+import weakref
+
+from tornado.ioloop import IOLoop
 
 from .state import state
 
 logger = logging.getLogger(__name__)
 
 _SHUTDOWN_TIMEOUT = 5
+
+
+_exit_hook_registered = False
+_started_threads: weakref.WeakSet['StoppableThread'] = weakref.WeakSet()
+
+
+def _join_threads_at_exit() -> None:
+    while threads := [thread for thread in list(_started_threads) if thread.is_alive()]:
+        for thread in threads:
+            thread.join()
+
+
+def _register_exit_hook() -> None:
+    """
+    Keep thread pools usable for as long as a StoppableThread is serving.
+
+    When the main thread finishes, Python first disables all thread pools
+    and only then waits for the remaining threads, so a server that keeps
+    running in a thread could no longer hand off any work. Waiting for the
+    server threads in a hook that runs before the pools are disabled avoids
+    that. Such hooks run in reverse order of registration.
+    """
+    global _exit_hook_registered
+    if _exit_hook_registered:
+        return
+    try:
+        threading._register_atexit(_join_threads_at_exit)  # type: ignore[attr-defined]
+    except (AttributeError, RuntimeError):
+        # No such hook, or the interpreter is already shutting down
+        return
+    _exit_hook_registered = True
 
 
 class StoppableThread(threading.Thread):
@@ -22,6 +59,11 @@ class StoppableThread(threading.Thread):
         self._owns_loop = owns_loop
         self.server_id = kwargs.get('kwargs', {}).get('server_id')
         self._shutdown_task: t.Any | None = None
+
+    def start(self) -> None:
+        _register_exit_hook()
+        _started_threads.add(self)
+        super().start()
 
     def run(self) -> None:
         if hasattr(self, '_target'):
@@ -49,13 +91,21 @@ class StoppableThread(threading.Thread):
                 except Exception:
                     logger.debug('Could not drain pending tasks', exc_info=True)
                 try:
-                    self.asyncio_loop.close()
+                    self._close_loop()
                 except Exception:
                     logger.debug('Could not close the event loop', exc_info=True)
             if hasattr(self, '_target'):
                 del self._target, self._args, self._kwargs # type: ignore
             else:
                 del self._Thread__target, self._Thread__args, self._Thread__kwargs # type: ignore
+
+    def _close_loop(self) -> None:
+        # Tornado adds a selector thread and socket pair to a Proactor loop
+        io_loop = getattr(IOLoop, '_ioloop_for_asyncio', {}).get(self.asyncio_loop)
+        if io_loop is None:
+            self.asyncio_loop.close()
+        else:
+            io_loop.close()
 
     def _cancel_pending_tasks(self) -> None:
         # Stopping the server can leave tasks pending.

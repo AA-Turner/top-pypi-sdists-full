@@ -1,4 +1,4 @@
-# BSD 3-Clause License; see https://github.com/scikit-hep/uproot5/blob/main/LICENSE
+# BSD 3-Clause License; see https://github.com/scikit-hep/uproot/blob/main/LICENSE
 
 from __future__ import annotations
 
@@ -57,9 +57,7 @@ class FSSpecSource(uproot.source.chunk.Source):
 
         file_path = _maybe_wrap_remote_url(file_path)
 
-        self._fsspec_options = {
-            k: v for k, v in options.items() if k not in uproot.reading.open.defaults
-        }
+        self._fsspec_options = uproot._util.fsspec_storage_options(options)
         self._file_path_orig = file_path
         self._open()
 
@@ -128,7 +126,10 @@ class FSSpecSource(uproot.source.chunk.Source):
         return uproot.source.chunk.Chunk(self, start, stop, future)
 
     def chunks(
-        self, ranges: list[tuple[int, int]], notifications: queue.Queue
+        self,
+        ranges: list[tuple[int, int]],
+        notifications: queue.Queue,
+        coalesce_config: CoalesceConfig | None = None,
     ) -> list[uproot.source.chunk.Chunk]:
         """
         Args:
@@ -138,6 +139,8 @@ class FSSpecSource(uproot.source.chunk.Source):
                 chunks. After each gets filled, it is ``put`` on the
                 queue; a listener should ``get`` from this queue
                 ``len(ranges)`` times.
+            coalesce_config (struct, optional): Overrides the source's
+                coalescing configuration for this call.
 
         Request a set of byte ranges from the file.
 
@@ -193,8 +196,10 @@ class FSSpecSource(uproot.source.chunk.Source):
             )
             return self._executor.submit(coroutine)
 
+        if coalesce_config is None:
+            coalesce_config = self._coalesce_config
         return coalesce_requests(
-            ranges, submit, self, notifications, config=self._coalesce_config
+            ranges, submit, self, notifications, config=coalesce_config
         )
 
     @property

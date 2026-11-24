@@ -1,6 +1,6 @@
 """The agent-input bridge — the laws it must obey (§10d-C).
 
-Companion to the cross-language gate (`tests/parity/test_variable_kind_fixture.py`,
+Companion to the cross-language gate (`tests/package_host_contracts/matrx_ai_parity/test_variable_kind_fixture.py`,
 which proves the TS twin agrees). This file proves the laws themselves:
 
 1. THE ROUND-TRIP LAW — for the clean subset, fields → variables → fields is
@@ -115,10 +115,35 @@ def test_a_scope_binding_never_enters_the_schema() -> None:
 
 def test_an_unknown_component_type_is_a_loss_not_an_exception() -> None:
     conversion = variable_definitions_to_kind_fields(
-        [{"name": "legacy", "customComponent": {"type": "text"}}]
+        [{"name": "legacy", "customComponent": {"type": "sparkle"}}]
     )
     assert conversion.fields["legacy"] == {"type": "string"}
     assert "unknown component type" in conversion.losses[0].reason
+
+
+def test_single_line_text_is_a_string_with_no_loss() -> None:
+    conversion = variable_definitions_to_kind_fields(
+        [{"name": "title", "customComponent": {"type": "text"}}]
+    )
+    assert conversion.fields["title"] == {"type": "string"}
+    assert conversion.losses == []
+    back = kind_fields_to_variable_definitions(conversion.fields, sidecar=conversion.sidecar)
+    assert back[0]["customComponent"] == {"__kind": "variable_component", "type": "text"}
+
+
+def test_a_record_input_is_a_relation_and_round_trips() -> None:
+    variables = [
+        {"name": "brief", "customComponent": {"type": "record", "tokens": ["note"], "multiple": False}},
+        {"name": "helpers", "customComponent": {"type": "record", "tokens": ["agent", "note"], "multiple": True}},
+    ]
+    conversion = variable_definitions_to_kind_fields(variables)
+    assert conversion.fields["brief"] == {"type": "object", "kind": "relation"}
+    assert conversion.fields["helpers"] == {"type": "array", "itemKinds": ["relation"]}
+    assert conversion.losses == []
+    back = kind_fields_to_variable_definitions(conversion.fields, sidecar=conversion.sidecar)
+    assert [b["customComponent"] for b in back] == [
+        {"__kind": "variable_component", **v["customComponent"]} for v in variables
+    ]
 
 
 def test_junk_entries_are_skipped_not_fatal() -> None:
@@ -210,3 +235,16 @@ def test_the_signature_ignores_declaration_order_only() -> None:
     c = variable_definitions_to_kind_fields([{"name": "topic"}, {"name": "tone"}])
     assert kind_fields_signature(a.fields) == kind_fields_signature(b.fields)
     assert kind_fields_signature(a.fields) != kind_fields_signature(c.fields)
+
+
+def test_every_produced_variable_carries_the_kind_marker() -> None:
+    """``__kind`` is part of the data: the definition and its component are stamped."""
+    fields = {
+        "tone": {"type": "enum", "values": ["warm", "dry"], "default": "warm"},
+        "notes": {"type": "string"},
+    }
+    variables = kind_fields_to_variable_definitions(fields)
+    assert variables
+    for v in variables:
+        assert v["__kind"] == "variable_definition"
+        assert v["customComponent"]["__kind"] == "variable_component"

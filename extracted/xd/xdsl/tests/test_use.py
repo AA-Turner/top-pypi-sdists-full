@@ -1,3 +1,5 @@
+import pytest
+
 from xdsl.context import Context
 from xdsl.dialects.builtin import Builtin, ModuleOp, i32
 from xdsl.dialects.test import Test, TestOp, TestTermOp
@@ -29,6 +31,118 @@ def test_main():
         (op2, 1),
     }
     assert set(op2.results[0].uses) == set()
+
+
+@pytest.mark.parametrize(
+    "count, index",
+    [(1, 0), (3, 0), (3, 1), (3, 2)],
+    ids=["singleton", "head", "middle", "tail"],
+)
+def test_remove_use_clears_links(count: int, index: int):
+    (value,) = TestOp.create(result_types=[i32]).results
+    TestOp.create(operands=[value] * count)
+    uses = tuple(value.uses)
+    removed = uses[index]
+    remaining = uses[:index] + uses[index + 1 :]
+
+    value.remove_use(removed)
+
+    assert removed._prev_use is None  # pyright: ignore[reportPrivateUsage]
+    assert removed._next_use is None  # pyright: ignore[reportPrivateUsage]
+    assert value.first_use is (remaining[0] if remaining else None)
+    assert tuple(value.uses) == remaining
+    for i, use in enumerate(remaining):
+        expected_prev = remaining[i - 1] if i else None
+        expected_next = remaining[i + 1] if i + 1 < len(remaining) else None
+        assert use._prev_use is expected_prev  # pyright: ignore[reportPrivateUsage]
+        assert use._next_use is expected_next  # pyright: ignore[reportPrivateUsage]
+
+
+def test_operand_value():
+    val1, val2 = TestOp.create(result_types=[i32, i32]).results
+    op = TestOp.create(operands=[val1, val2])
+    (use1,) = val1.uses
+    (use2,) = val2.uses
+
+    assert use1.value is val1
+    assert use2.value is val2
+
+    op.operands[0] = val2
+
+    assert use1.value is val2
+    assert use2.value is val2
+
+
+@pytest.mark.parametrize("new_length", [0, 1, 2])
+def test_operand_value_invalidated(new_length: int):
+    values = TestOp.create(result_types=[i32, i32]).results
+    op = TestOp.create(operands=values)
+    uses = tuple(use for value in values for use in value.uses)
+
+    op.set_operands(values[:new_length])
+
+    for use in uses:
+        with pytest.raises(
+            AssertionError, match="Attempting to use Operand that has been replaced"
+        ):
+            _ = use.value
+
+    for value in values[:new_length]:
+        (use,) = value.uses
+        assert use.value is value
+
+
+def test_successor_value():
+    block1, block2 = Block(), Block()
+    op = TestTermOp.create(successors=[block1, block2])
+    (use1,) = block1.uses
+    (use2,) = block2.uses
+
+    assert use1.value is block1
+    assert use2.value is block2
+
+    op.successors[0] = block2
+
+    assert use1.value is block2
+    assert use2.value is block2
+
+
+@pytest.mark.parametrize("new_length", [0, 1, 2])
+def test_successor_value_invalidated(new_length: int):
+    blocks = (Block(), Block())
+    op = TestTermOp.create(successors=blocks)
+    uses = tuple(use for block in blocks for use in block.uses)
+
+    op.successors = blocks[:new_length]
+
+    for use in uses:
+        with pytest.raises(
+            AssertionError, match="Attempting to use Successor that has been replaced"
+        ):
+            _ = use.value
+
+    for block in blocks[:new_length]:
+        (use,) = block.uses
+        assert use.value is block
+
+
+def test_drop_all_references_invalidates_uses():
+    (value,) = TestOp.create(result_types=[i32]).results
+    block = Block()
+    op = TestTermOp.create(operands=[value], successors=[block])
+    (operand_use,) = value.uses
+    (successor_use,) = block.uses
+
+    op.drop_all_references()
+
+    with pytest.raises(
+        AssertionError, match="Attempting to use Operand that has been replaced"
+    ):
+        _ = operand_use.value
+    with pytest.raises(
+        AssertionError, match="Attempting to use Successor that has been replaced"
+    ):
+        _ = successor_use.value
 
 
 def test_drop_all_references_clears_successor_uses():

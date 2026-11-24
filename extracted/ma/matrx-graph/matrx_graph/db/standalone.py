@@ -50,7 +50,6 @@ def build_standalone_models(
         published_to_web_by = m.UUIDField()
         # 'user' | 'builtin' | 'generated' (mirrors agent.definition.agent_type)
         workflow_type = m.TextField(null=False, default="user")
-        is_favorite = m.BooleanField(null=False, default=False)
         tags = m.TextArrayField(null=False, default=[])
         category = m.TextField()
         created_by = m.UUIDField(null=False)
@@ -252,8 +251,14 @@ def build_standalone_models(
 
     class WfTrigger(m.Model):
         id = m.UUIDField(primary_key=True, null=False)
-        definition_id = m.UUIDField(null=False)
+        # 0123: NULL for an Action target; the CHECK keeps it for every workflow target.
+        definition_id = m.UUIDField()
         definition_version_id = m.UUIDField()
+        target_action = m.TextField()
+        target_input = m.JSONBField(null=False, default={})
+        needs_reconnect = m.TextField()
+        # 0125: kind=webhook only; NULL = the matrx header scheme.
+        signature_scheme = m.TextField()
         name = m.TextField(null=False)
         description = m.TextField()
         kind = m.TextField(null=False)
@@ -272,6 +277,7 @@ def build_standalone_models(
         organization_id = m.UUIDField()
         project_id = m.UUIDField()
         task_id = m.UUIDField()
+        metadata = m.JSONBField(null=False, default={})
         deleted_at = m.DateTimeField()
         created_at = m.DateTimeField(null=False)
         updated_at = m.DateTimeField(null=False)

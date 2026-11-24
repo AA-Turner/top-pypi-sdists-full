@@ -176,5 +176,5 @@ class CreateResponseV2ResponseParams(typing_extensions.TypedDict):
 
     billing: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     """
-    Reserved — always observed as `null` in testing. Shape not yet defined; do not rely on this field.
+    Reserved. Shape not yet defined; do not rely on this field.
     """

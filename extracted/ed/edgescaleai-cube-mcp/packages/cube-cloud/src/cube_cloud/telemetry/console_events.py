@@ -87,6 +87,11 @@ CONSOLE_ROUTES: dict[str, str | None] = {
     "/console/api/gps": "console.view_map",
     # The staff-only Manage section's Products tab (§4.30): its own URL, one fetch per view.
     "/console/api/manage/products": "console.manage_products",
+    # One product's details panel, opened by clicking a row: its own intent, one
+    # fetch per product opened (`product` joins the suppression key below).
+    "/console/api/manage/products/details": "console.manage_product_details",
+    # A satellite of the details panel, fetched once it draws: the open is already counted.
+    "/console/api/manage/products/install-facts": None,
     # A satellite of the session, asked on every page load by a staff address: counting
     # it would count page loads, not anyone deciding to manage something.
     "/console/api/manage/access": None,
@@ -134,6 +139,7 @@ CONSOLE_ROUTES: dict[str, str | None] = {
     "/console/api/manage/products/owner": "console.manage_set_owner",
     "/console/api/manage/products/share": "console.manage_share",
     "/console/api/manage/products/unshare": "console.manage_unshare",
+    "/console/api/manage/products/bulk": "console.manage_bulk_edit",
     # The page polls this every few seconds while a registration runs: a satellite.
     "/console/api/cubes/{cube}/ai/vision/registrations/{reg_id}": None,
 }
@@ -150,8 +156,9 @@ _PREFETCHED: frozenset[str] = frozenset({"/console/api/cubes/{cube}/ai"})
 _SAFE_METHODS = frozenset({"GET", "HEAD"})
 
 # Query params that join the suppression key: the same cube's logs for a
-# different app is a different thing being looked at.
-_SUPPRESS_KEY_QUERY_PARAMS = ("app",)
+# different app is a different thing being looked at, and so is a different product's
+# details panel.
+_SUPPRESS_KEY_QUERY_PARAMS = ("app", "product")
 
 # Bounds the suppression dict by COUNT. Size is bounded separately: every
 # caller-supplied component of a key is reduced to a fixed-width digest before it

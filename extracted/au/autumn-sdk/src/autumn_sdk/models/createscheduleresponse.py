@@ -323,7 +323,7 @@ r"""How the change when this phase starts is billed. 'prorate_immediately' charg
 
 class PhaseRequest2TypedDict(TypedDict):
     plans: List[CreateSchedulePlan2TypedDict]
-    r"""Plans to materialize for this phase."""
+    r"""Plans to materialize for this phase. Only set_plans accepts an empty list, as its single phase, to end every plan in scope now."""
     starts_at: NotRequired[CreateScheduleStartsAt2TypedDict]
     r"""When this phase should start, in epoch milliseconds, or 'now' for the immediate phase."""
     starting_after: NotRequired[StartingAfter2TypedDict]
@@ -336,7 +336,7 @@ class PhaseRequest2TypedDict(TypedDict):
 
 class PhaseRequest2(BaseModel):
     plans: List[CreateSchedulePlan2]
-    r"""Plans to materialize for this phase."""
+    r"""Plans to materialize for this phase. Only set_plans accepts an empty list, as its single phase, to end every plan in scope now."""
 
     starts_at: Optional[CreateScheduleStartsAt2] = None
     r"""When this phase should start, in epoch milliseconds, or 'now' for the immediate phase."""

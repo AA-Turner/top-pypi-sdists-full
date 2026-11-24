@@ -19,6 +19,21 @@ from fishaudio.exceptions import (
 from .request_options import RequestOptions
 
 
+def _api_error(status: int, message: str, body: Optional[str] = None) -> APIError:
+    """Build the exception that matches an HTTP error status."""
+    if status == 401:
+        return AuthenticationError(status, message, body)
+    if status == 403:
+        return PermissionError(status, message, body)
+    if status == 404:
+        return NotFoundError(status, message, body)
+    if status == 429:
+        return RateLimitError(status, message, body)
+    if status >= 500:
+        return ServerError(status, message, body)
+    return APIError(status, message, body)
+
+
 def _raise_for_status(response: httpx.Response) -> None:
     """Raise appropriate exception based on status code."""
     status = response.status_code
@@ -30,18 +45,7 @@ def _raise_for_status(response: httpx.Response) -> None:
     except JSONDecodeError:
         message = response.text or httpx.codes.get_reason_phrase(status)
 
-    # Raise specific exception based on status code
-    if status == 401:
-        raise AuthenticationError(status, message, response.text)
-    if status == 403:
-        raise PermissionError(status, message, response.text)
-    if status == 404:
-        raise NotFoundError(status, message, response.text)
-    if status == 429:
-        raise RateLimitError(status, message, response.text)
-    if status >= 500:
-        raise ServerError(status, message, response.text)
-    raise APIError(status, message, response.text)
+    raise _api_error(status, message, response.text)
 
 
 class BaseClientWrapper:
@@ -80,7 +84,14 @@ class BaseClientWrapper:
         headers = self.get_headers()
         if request_options and request_options.additional_headers:
             headers.update(request_options.additional_headers)
-        kwargs["headers"] = {**headers, **kwargs.get("headers", {})}
+        # Headers set by the calling method win, whatever the case of the name:
+        # {"Model": ...} from request options must not travel next to {"model": ...}.
+        explicit = kwargs.get("headers", {})
+        explicit_names = {name.lower() for name in explicit}
+        kwargs["headers"] = {
+            **{k: v for k, v in headers.items() if k.lower() not in explicit_names},
+            **explicit,
+        }
 
         # Apply timeout override if provided
         if request_options and request_options.timeout is not None:
@@ -122,6 +133,7 @@ class ClientWrapper(BaseClientWrapper):
         path: str,
         *,
         request_options: Optional[RequestOptions] = None,
+        stream: bool = False,
         **kwargs: Any,
     ) -> httpx.Response:
         """
@@ -131,6 +143,9 @@ class ClientWrapper(BaseClientWrapper):
             method: HTTP method (GET, POST, etc.)
             path: API endpoint path
             request_options: Optional request-level overrides
+            stream: If True, return as soon as the response headers arrive and
+                leave the body unread. The caller must consume it with
+                `iter_bytes()` and then call `close()` on the response.
             **kwargs: Additional arguments to pass to httpx.request
 
         Returns:
@@ -140,6 +155,20 @@ class ClientWrapper(BaseClientWrapper):
             APIError: On non-2xx responses
         """
         self._prepare_request_kwargs(request_options, kwargs)
+
+        if stream:
+            timeout = kwargs.pop("timeout", httpx.USE_CLIENT_DEFAULT)
+            http_request = self._client.build_request(
+                method, path, timeout=timeout, **kwargs
+            )
+            response = self._client.send(http_request, stream=True)
+            if not response.is_success:
+                try:
+                    response.read()
+                finally:
+                    response.close()
+                _raise_for_status(response)
+            return response
 
         # Make the request
         response = self._client.request(method, path, **kwargs)
@@ -194,6 +223,7 @@ class AsyncClientWrapper(BaseClientWrapper):
         path: str,
         *,
         request_options: Optional[RequestOptions] = None,
+        stream: bool = False,
         **kwargs: Any,
     ) -> httpx.Response:
         """
@@ -203,6 +233,9 @@ class AsyncClientWrapper(BaseClientWrapper):
             method: HTTP method (GET, POST, etc.)
             path: API endpoint path
             request_options: Optional request-level overrides
+            stream: If True, return as soon as the response headers arrive and
+                leave the body unread. The caller must consume it with
+                `aiter_bytes()` and then call `aclose()` on the response.
             **kwargs: Additional arguments to pass to httpx.request
 
         Returns:
@@ -212,6 +245,20 @@ class AsyncClientWrapper(BaseClientWrapper):
             APIError: On non-2xx responses
         """
         self._prepare_request_kwargs(request_options, kwargs)
+
+        if stream:
+            timeout = kwargs.pop("timeout", httpx.USE_CLIENT_DEFAULT)
+            http_request = self._client.build_request(
+                method, path, timeout=timeout, **kwargs
+            )
+            response = await self._client.send(http_request, stream=True)
+            if not response.is_success:
+                try:
+                    await response.aread()
+                finally:
+                    await response.aclose()
+                _raise_for_status(response)
+            return response
 
         # Make the request
         response = await self._client.request(method, path, **kwargs)

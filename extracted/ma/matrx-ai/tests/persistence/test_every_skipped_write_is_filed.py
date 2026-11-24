@@ -66,3 +66,19 @@ async def test_a_skipped_write_files_a_run_history_write_failure(monkeypatch) ->
     monkeypatch.setattr(persistence, "stored_run_in_context", lambda: False)
     await persistence.surface_skipped_write("cx_request_model_unresolvable", "no model")
     assert len(filed) == 1, "an unsaved run has no row to lose"
+
+
+def test_a_sealed_run_counts_its_failed_writes(monkeypatch) -> None:
+    """A confidential run has store=False and still writes structure rows: its failed write is
+    counted (2026-11-01 — every sealed turn's final commit was refused and nothing recorded it)."""
+    from types import SimpleNamespace
+
+    from matrx_ai.context import app_context
+    from matrx_ai.db import persistence
+
+    sealed = SimpleNamespace(store=False, sealed_conversation_id="c-1", conversation_id="c-1")
+    monkeypatch.setattr(app_context, "try_get_app_context", lambda: sealed)
+    assert persistence.stored_run_in_context() is True
+    unsaved = SimpleNamespace(store=False, sealed_conversation_id=None, conversation_id="c-2")
+    monkeypatch.setattr(app_context, "try_get_app_context", lambda: unsaved)
+    assert persistence.stored_run_in_context() is False

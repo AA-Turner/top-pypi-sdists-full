@@ -44,6 +44,8 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
+from matrx_ai.config.message_config import TURN_OPENING_REASONS as _TURN_OPENING_REASONS
+
 if TYPE_CHECKING:
     from matrx_ai.orchestrator.tracking import ToolCallUsage
 
@@ -260,6 +262,9 @@ class ChangeClaimReport:
 
 ChangeClaimAction = Literal["proceed", "force", "disclose"]
 
+#: ``tool:action`` in a policy's ``write_tools``: that tool counts as a write only for that action.
+WRITE_ACTION_SEPARATOR = ":"
+
 
 def successful_write_tools(
     tool_call_history: list[ToolCallUsage] | None,
@@ -272,6 +277,11 @@ def successful_write_tools(
     trusts, and the reason this gate cannot be talked out of its verdict.
     """
     names: list[str] = []
+    # ``tool:action`` entries make an action-dispatched tool count only for its WRITING actions: one tool that
+    # both reads and writes (``records``) must not let a successful read pass as a save. A tool named by any
+    # such entry counts ONLY through them; a plain name still counts for every successful call.
+    by_action = {entry for entry in write_tools if WRITE_ACTION_SEPARATOR in entry}
+    action_tools = {entry.split(WRITE_ACTION_SEPARATOR, 1)[0] for entry in by_action}
     for usage in tool_call_history or []:
         for detail in usage.tool_calls_details or []:
             if detail.get("success") is not True:
@@ -279,7 +289,12 @@ def successful_write_tools(
             name = str(detail.get("name") or "")
             if not name:
                 continue
-            if write_tools and name not in write_tools:
+            if name in action_tools:
+                arguments = detail.get("arguments")
+                action = str(arguments.get("action") or "") if isinstance(arguments, dict) else ""
+                if f"{name}{WRITE_ACTION_SEPARATOR}{action}" not in by_action:
+                    continue
+            elif write_tools and name not in write_tools:
                 continue
             if name not in names:
                 names.append(name)
@@ -288,7 +303,7 @@ def successful_write_tools(
 
 #: Host-authored user turns that are a TURN BOUNDARY rather than a mid-loop notice.
 #: Every other host-authored user turn is a gate's notice inside the same turn.
-_TURN_OPENING_REASONS = frozenset({"agent_opening"})
+#: (one home: ``matrx_ai.config.message_config.TURN_OPENING_REASONS``)
 
 
 def _field(block: Any, key: str) -> Any:
@@ -319,15 +334,35 @@ def successful_writes_in_turn(messages: Any, write_tools: frozenset[str]) -> tup
     segments live in the message list (every tool result, with ``is_error``), so the
     gate reads them back to the turn's opening as well.
     """
-    names: list[str] = []
+    by_action = {entry for entry in write_tools if WRITE_ACTION_SEPARATOR in entry}
+    action_tools = {entry.split(WRITE_ACTION_SEPARATOR, 1)[0] for entry in by_action}
+    turn: list[Any] = []
     for message in reversed(list(messages or [])):
         if _is_turn_boundary(message):
             break
+        turn.append(message)
+    # A tool result does not carry its call's arguments; a tool that counts by action (``tool:action``) is read
+    # through the call it answers, matched by id (the same rule ``successful_write_tools`` applies to the ledger).
+    actions: dict[str, str] = {}
+    for message in turn:
+        for block in _field(message, "content") or []:
+            if _field(block, "type") in ("tool_call", "function_call"):
+                arguments = _field(block, "arguments")
+                if isinstance(arguments, dict):
+                    actions[str(_field(block, "id") or "")] = str(arguments.get("action") or "")
+    names: list[str] = []
+    for message in turn:
         for block in _field(message, "content") or []:
             if _field(block, "type") != "tool_result" or _field(block, "is_error"):
                 continue
             name = str(_field(block, "name") or "")
-            if not name or (write_tools and name not in write_tools):
+            if not name:
+                continue
+            if name in action_tools:
+                call = str(_field(block, "tool_use_id") or _field(block, "call_id") or "")
+                if f"{name}{WRITE_ACTION_SEPARATOR}{actions.get(call, '')}" not in by_action:
+                    continue
+            elif write_tools and name not in write_tools:
                 continue
             if name not in names:
                 names.append(name)
@@ -406,6 +441,7 @@ __all__ = [
     "decide_change_claim_action",
     "evaluate_change_claims",
     "find_change_claims",
+    "WRITE_ACTION_SEPARATOR",
     "successful_write_tools",
     "successful_writes_in_turn",
 ]

@@ -260,7 +260,15 @@ def test_dry_run_validates_routed_inputs_against_input_schema() -> None:
                 "id": "m",
                 "type": "control.map",
                 "position": {"x": 200, "y": 0},
-                "data": {"config": {"target_node_id": "a"}},
+                # Its own body: a map dispatching back into its only source is a loop nothing
+                # starts, which compile refuses (G1, 2026-11-18).
+                "data": {"config": {"target_node_id": "b"}},
+            },
+            {
+                "id": "b",
+                "type": "test.closed_output",
+                "position": {"x": 400, "y": 0},
+                "data": {},
             },
         ],
         "edges": [

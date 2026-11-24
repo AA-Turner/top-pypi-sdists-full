@@ -5,7 +5,7 @@ known-bloat directories, detects each file's language, then upserts
 each into ``code.code_files`` and runs ``ingest_source`` to chunk +
 embed it via the standard pipeline.
 
-See ``/Users/armanisadeghi/code/common-docs/projects/knowledge-system/README.md`` §2.3 for code-repo indexing backlog.
+See ``/Users/armanisadeghi/code/common-docs/systems/knowledge/projects/knowledge-system/README.md`` §2.3 for code-repo indexing backlog.
 
 Public entry points:
 
@@ -36,7 +36,7 @@ from typing import Any
 from matrx_orm import F
 
 from matrx_rag._ext import get_db_model
-from matrx_rag.ingestion import IngestionResult, ingest_source
+from matrx_rag.ingestion import IngestionResult, delete_chunks_in_lock_order, ingest_source
 from matrx_rag.progress import from_emitter
 
 logger = logging.getLogger(__name__)
@@ -149,6 +149,11 @@ def _git_ignored_files(repo_path: str) -> set[str]:
     return {line.strip() for line in result.stdout.splitlines() if line.strip()}
 
 
+def repository_language(path: str) -> str | None:
+    """The shared extension policy for repository ingestion candidates."""
+    return _EXT_LANG.get(Path(path).suffix.lower())
+
+
 def _walk_repo(
     repo_path: str,
     *,
@@ -166,8 +171,7 @@ def _walk_repo(
     if git_files is not None:
         # Trust git's enumeration — fastest + most correct path.
         for rel in git_files:
-            ext = Path(rel).suffix.lower()
-            lang = _EXT_LANG.get(ext)
+            lang = repository_language(rel)
             if not lang:
                 continue
             abs_path = str(repo_root / rel)
@@ -188,8 +192,7 @@ def _walk_repo(
     for dirpath, dirnames, filenames in os.walk(repo_root, followlinks=False):
         dirnames[:] = [d for d in dirnames if d not in deny_dirs]
         for name in filenames:
-            ext = Path(name).suffix.lower()
-            lang = _EXT_LANG.get(ext)
+            lang = repository_language(name)
             if not lang:
                 continue
             abs_path = os.path.join(dirpath, name)
@@ -234,15 +237,17 @@ async def _upsert_code_file(
     conversion fixes the drift as part of the port.
     """
     try:
-        text = Path(file.abs_path).read_text(encoding="utf-8", errors="replace")
+        text = await asyncio.to_thread(Path(file.abs_path).read_text, encoding="utf-8", errors="replace")
     except OSError as exc:
         raise RuntimeError(f"could not read {file.abs_path}: {exc}") from exc
 
     h = _content_hash(text)
 
     CodeFiles = get_db_model("CodeFiles")
-    existing_rows = await CodeFiles.filter(created_by=user_id, path=file.rel_path).limit(1).values(
-        "id", "content_hash", "metadata"
+    existing_rows = (
+        await CodeFiles.filter(created_by=user_id, path=file.rel_path)
+        .limit(1)
+        .values("id", "content_hash", "metadata")
     )
     existing = existing_rows[0] if existing_rows else None
     if existing and existing["content_hash"] == h:
@@ -341,16 +346,20 @@ async def ingest_repository(
     max_bytes: int = DEFAULT_MAX_BYTES,
     extra_deny_dirs: set[str] | None = None,
     emitter: Any | None = None,
+    source_repo_root: str | None = None,
 ) -> RepoIngestSummary:
     if not organization_id:
-        raise ValueError("ingest a repository into an organization: organization_id is required (the host carries it)")
+        raise ValueError(
+            "ingest a repository into an organization: organization_id is required (the host carries it)"
+        )
     started = time.time()
-    progress = from_emitter(emitter, source_kind="repository", source_id=repo_path)
-    await progress.stage("fetch", message=f"Walking {repo_path}")
+    logical_root = source_repo_root if source_repo_root is not None else repo_path
+    progress = from_emitter(emitter, source_kind="repository", source_id=logical_root)
+    await progress.stage("fetch", message=f"Walking {logical_root}")
 
     files = _walk_repo(repo_path, max_bytes=max_bytes, extra_deny_dirs=extra_deny_dirs)
     summary = RepoIngestSummary(
-        repo_path=repo_path,
+        repo_path=logical_root,
         repo_ref=repo_ref,
         files_total=len(files),
     )
@@ -381,14 +390,19 @@ async def ingest_repository(
                 rel, result = await _ingest_one(
                     user_id=user_id,
                     organization_id=organization_id,
-                    repo_root=repo_path,
+                    repo_root=logical_root,
                     repo_ref=repo_ref,
                     file=file,
                     force=force,
                 )
                 if result.error:
                     summary.files_failed += 1
-                    summary.failures.append({"path": file.rel_path, "error": result.error})
+                    summary.failures.append(
+                        {
+                            "path": file.rel_path,
+                            "error": result.error.replace(repo_path, logical_root),
+                        }
+                    )
                 elif result.skipped_unchanged:
                     summary.files_skipped_unchanged += 1
                 else:
@@ -398,7 +412,9 @@ async def ingest_repository(
             except Exception as exc:  # noqa: BLE001
                 logger.warning("repo_ingest: %s failed: %s", file.rel_path, exc)
                 summary.files_failed += 1
-                summary.failures.append({"path": file.rel_path, "error": str(exc)})
+                summary.failures.append(
+                    {"path": file.rel_path, "error": str(exc).replace(repo_path, logical_root)}
+                )
             async with completed_lock:
                 completed += 1
                 if completed % 25 == 0 or completed == len(files):
@@ -446,7 +462,9 @@ async def incremental_update(
     emitter: Any | None = None,
 ) -> RepoIngestSummary:
     if not organization_id:
-        raise ValueError("ingest a repository into an organization: organization_id is required (the host carries it)")
+        raise ValueError(
+            "ingest a repository into an organization: organization_id is required (the host carries it)"
+        )
     started = time.time()
     progress = from_emitter(emitter, source_kind="repository", source_id=repo_path)
     await progress.stage(
@@ -475,7 +493,7 @@ async def incremental_update(
     )
 
     sem = asyncio.Semaphore(concurrency)
-    repo_root = str(Path(repo_path).resolve())
+    repo_root = str(await asyncio.to_thread(Path(repo_path).resolve))
 
     async def handle_one(status: str, rel_path: str):
         ext = Path(rel_path).suffix.lower()
@@ -490,8 +508,8 @@ async def incremental_update(
             rows = await CodeFiles.filter(created_by=user_id, path=rel_path).values("id")
             if rows:
                 row_id = rows[0]["id"]
-                await get_db_model("KgChunks").delete_where(
-                    source_kind="code_file", source_id=str(row_id)
+                await delete_chunks_in_lock_order(
+                    get_db_model("KgChunks"), source_kind="code_file", source_id=str(row_id)
                 )
                 now = datetime.now(UTC)
                 await CodeFiles.filter(id=row_id).update(deleted_at=now, updated_at=now)
@@ -500,12 +518,12 @@ async def incremental_update(
 
         # Added or modified — re-ingest
         abs_path = os.path.join(repo_path, rel_path)
-        if not os.path.exists(abs_path):
+        if not await asyncio.to_thread(os.path.exists, abs_path):
             summary.files_failed += 1
             summary.failures.append({"path": rel_path, "error": "missing on disk"})
             return
         try:
-            size = os.path.getsize(abs_path)
+            size = await asyncio.to_thread(os.path.getsize, abs_path)
         except OSError:
             summary.files_failed += 1
             summary.failures.append({"path": rel_path, "error": "stat failed"})

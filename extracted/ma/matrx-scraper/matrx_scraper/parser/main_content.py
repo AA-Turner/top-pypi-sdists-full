@@ -263,6 +263,70 @@ def _furniture_reason(element: Tag) -> tuple[str, str] | None:
     return None
 
 
+class _SelectorHints:
+    """One walk over a tree: every tag name, attribute name, class token and id
+    in it, lowercased — enough to say a simple root selector CANNOT match."""
+
+    def __init__(self, tree) -> None:
+        self.names: set[str] = set()
+        self.attr_names: set[str] = set()
+        self.classes: set[str] = set()
+        self.ids: set[str] = set()
+        if tree is None:
+            return
+        for el in tree.descendants:
+            if not isinstance(el, Tag):
+                continue
+            if el.name:
+                self.names.add(str(el.name).lower())
+            for key, value in el.attrs.items():
+                key = str(key).lower()
+                self.attr_names.add(key)
+                if key == "class":
+                    items = value if isinstance(value, (list, tuple)) else [value]
+                    for item in items:
+                        item = str(item).lower()
+                        self.classes.add(item)
+                        self.classes.update(item.split())
+                elif key == "id":
+                    self.ids.add(str(value).lower())
+
+
+_TYPE_SELECTORS_WITH_HINTS = frozenset({"article", "main"})
+_ATTR_SELECTOR = re.compile(r"^\[([A-Za-z][\w-]*)=[^\]]*\]$")
+_CLASS_SELECTOR = re.compile(r"^\.([A-Za-z_][\w-]*)$")
+_ID_SELECTOR = re.compile(r"^#([A-Za-z_][\w-]*)$")
+
+
+def _selector_could_match(selector: str, hints: _SelectorHints) -> bool:
+    """False only when ``selector`` provably selects nothing in the hinted tree
+    (deliberately loose: substring and case-insensitive, so it errs to True).
+    Anything but the simple forms the root selectors use answers True."""
+    if not isinstance(selector, str):
+        return True
+    sel = selector.strip()
+    if sel.lower() in _TYPE_SELECTORS_WITH_HINTS:
+        word = sel.lower()
+        return any(word in name for name in hints.names)
+    m = _ATTR_SELECTOR.match(sel)
+    if m:
+        word = m.group(1).lower()
+        return any(word in name for name in hints.attr_names)
+    m = _CLASS_SELECTOR.match(sel)
+    if m:
+        word = m.group(1).lower()
+        return any(word in cls for cls in hints.classes)
+    m = _ID_SELECTOR.match(sel)
+    if m:
+        word = m.group(1).lower()
+        return any(word in i for i in hints.ids)
+    return True
+
+
+def _any_selector_could_match(selectors, hints: _SelectorHints) -> bool:
+    return any(_selector_could_match(s, hints) for s in selectors)
+
+
 class ArticleContentFinder:
     """Readability-style main-content extraction for article-like pages.
 
@@ -295,6 +359,12 @@ class ArticleContentFinder:
         self.root_selector = None
         if soup is None:
             return None
+        # A page on which no root selector can match anything is not article-like
+        # whatever the re-parse below would make of it (a re-parse moves and merges
+        # nodes, never invents a tag name, an attribute or a class): answer None
+        # without serialising and re-parsing the whole page for nothing.
+        if not _any_selector_could_match(self.selectors, _SelectorHints(soup)):
+            return None
         working = BeautifulSoup(str(soup), "lxml")
         root, selector = self._pick_root(working)
         if root is None:
@@ -311,7 +381,12 @@ class ArticleContentFinder:
     def _pick_root(self, soup: BeautifulSoup) -> tuple[Tag | None, str | None]:
         body = soup.body or soup
         best: tuple[int, Tag, str] | None = None
+        hints = _SelectorHints(soup)
         for selector in self.selectors:
+            # A selector that cannot match anything in this tree would select []
+            # and be skipped below; skip it without a whole-tree soupsieve pass.
+            if not _selector_could_match(selector, hints):
+                continue
             try:
                 candidates = soup.select(selector)
             except Exception:

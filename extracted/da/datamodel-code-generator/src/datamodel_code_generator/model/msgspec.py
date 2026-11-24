@@ -108,6 +108,7 @@ from datamodel_code_generator.reference import FieldNameResolver, ModelType, fie
 from datamodel_code_generator.types import (
     NONE,
     DataType,
+    Types,
     _copy_data_type,
     _is_value_literal,
     _qualified_type_path,
@@ -726,7 +727,9 @@ class Struct(DataModel):
     _READ_BY_MSGSPEC: ClassVar[bool] = True
     REQUIRES_TAGGED_UNION_DISCRIMINATOR: ClassVar[bool] = True
     REQUIRES_UNIQUE_FIELD_ALIASES: ClassVar[bool] = True
+    HIDING_FIELD_RESOLUTION: ClassVar[Literal["field", "type"] | None] = "field"
     FLATTENS_CONFLICTING_BASE_LAYOUTS: ClassVar[bool] = True
+    FIRST_BASE_CONFIGURES: ClassVar[bool] = True
     SUPPORTS_ANNOTATED_CONSTRAINTS: ClassVar[bool] = True
     ANNOTATED_CONSTRAINTS_CONTEXT: ClassVar[object | None] = _ANNOTATED_CONSTRAINTS_CONTEXT
     REQUIRES_EXPLICIT_DEFERRED_ANNOTATIONS_FOR_FORWARD_REFS: ClassVar[bool] = True
@@ -2297,6 +2300,14 @@ class DataTypeManager(_DataTypeManager):
     REGEX_ENGINES: ClassVar[frozenset[str]] = _applicability.MSGSPEC_OUTPUT.regex_engines
     WRITES_UNTYPED_VALUE_TYPE: ClassVar[bool] = False
     """msgspec decodes neither ``pydantic.JsonValue`` nor a recursive alias, and decodes ``Any`` into JSON values."""
+    _UNDECODED_STANDARD_PRIMITIVE_TYPES: ClassVar[frozenset[Types]] = frozenset({
+        Types.ipv4,
+        Types.ipv6,
+        Types.ipv4_network,
+        Types.ipv6_network,
+        Types.path,
+    })
+    """msgspec has no decoder for the ``ipaddress`` classes or ``Path``: they are decoded as ``str``, which it reads."""
 
     @property
     @override

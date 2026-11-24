@@ -212,6 +212,8 @@ async def _capture_backlink_screenshot(
 
     from matrx_files import FileManager
     from matrx_files.service import FileService
+
+    from matrx_scraper.file_pathways import SEO_BACKLINK_EVIDENCE_PATHWAY
     from matrx_scraper._ext import get_ext, has_ext
     from matrx_scraper.recipe_runtime import execute_directives
     from matrx_scraper.recipes import RecipeAction
@@ -265,6 +267,7 @@ async def _capture_backlink_screenshot(
         upload = await FileService(file_manager).upload_for_organization(
             shot.bytes,
             root="seo-data",
+            pathway=SEO_BACKLINK_EVIDENCE_PATHWAY,
             source_key=f"backlinks-{request.site_id}",
             source_label=f"Backlink evidence · {site_host or request.site_id}",
             sub_folders=[str(request.backlink_id)],
@@ -280,7 +283,7 @@ async def _capture_backlink_screenshot(
             change_summary="Backlink source-page link evidence",
             metadata={
                 "organization_id": organization_id,
-                "system_artifact": True,
+                # ``system_artifact`` is stamped by the door from the pathway.
                 "system_immutable": True,
                 "artifact_domain": "seo_backlink",
                 "artifact_kind": "screenshot:link_evidence",
@@ -743,6 +746,77 @@ class ExactCaptureRequest(BaseModel):
     expand_scrollers: bool = True
 
 
+BROWSER_INSPECT_MAX_COOKIES = 8
+BROWSER_INSPECT_MAX_SETTLE_SECONDS = 20.0
+
+
+class InspectCookie(BaseModel):
+    """One cookie for `/browser-inspect` url mode (Playwright `add_cookies` shape)."""
+
+    name: str = Field(min_length=1, max_length=256)
+    value: str = Field(max_length=8_192)
+    domain: str = Field(min_length=1, max_length=253)
+    path: str = "/"
+    secure: bool = True
+    http_only: bool = False
+    same_site: Literal["Lax", "Strict", "None"] = "Lax"
+
+    def to_playwright(self) -> dict[str, Any]:
+        return {"name": self.name, "value": self.value, "domain": self.domain, "path": self.path,
+                "secure": self.secure, "httpOnly": self.http_only, "sameSite": self.same_site}
+
+
+class InspectPress(BaseModel):
+    """Url mode: press ONE button after the page settles (see `matrx_scraper.page_press`)."""
+
+    # The button's visible label or accessible name (exact match first, then contains, then plain text).
+    button: str = Field(min_length=1, max_length=200)
+    # Text of the card / row / section holding the button, when the label alone is ambiguous.
+    within: str | None = Field(default=None, max_length=300)
+    # Stop waiting early once every one of these shows (any frame).
+    until_text: list[str] = Field(default_factory=list, max_length=12)
+    wait_seconds: float = Field(default=12.0, ge=0.5, le=45.0)
+    # A confirm dialog's button label to press if one appears; null = the dialog's primary (go-ahead) button.
+    confirm: str | None = Field(default=None, max_length=120)
+    # URL substrings whose responses are recorded even when they are GETs (non-GET ones always are).
+    watch: list[str] = Field(default_factory=list, max_length=12)
+
+
+class PressedCall(BaseModel):
+    method: str
+    url: str
+    status: int
+    body_excerpt: str = ""
+    # The response's Content-Range header ("*/*" or ".../0" from a data API = the write changed no row).
+    content_range: str = ""
+    # The request's Content-Profile / Accept-Profile header: the data-API schema a function call named.
+    profile: str = ""
+
+
+class PressResult(BaseModel):
+    """What the press did. `found=false` → `visible_buttons` names what is there."""
+
+    found: bool
+    pressed: bool = False
+    pressed_label: str = ""
+    frame_url: str = ""
+    error: str | None = None
+    visible_buttons: list[str] = Field(default_factory=list)
+    confirmed: str | None = None
+    # A confirm step appeared after the press and was not answered: its words and buttons.
+    confirm_unanswered: str | None = None
+    # `within` was given and no visible element shows that text.
+    within_missing: bool = False
+    calls: list[PressedCall] = Field(default_factory=list)
+    text_before: str = ""
+    text_after: str = ""
+    console_errors_after: list[str] = Field(default_factory=list)
+    http_errors_after: list[str] = Field(default_factory=list)
+    # Toast / alert / live-region text that appeared at any moment after the press.
+    notices: list[str] = Field(default_factory=list)
+    seconds: float = 0.0
+
+
 class BrowserInspectRequest(BaseModel):
     """One-shot render CHECK of a single URL — errors, DOM probes, screenshots.
 
@@ -791,6 +865,17 @@ class BrowserInspectRequest(BaseModel):
     # One exact render at the caller's width/theme (kind "exact"), captured in
     # its own navigation before any named device kinds.
     exact: ExactCaptureRequest | None = None
+    # Url mode: open the page AS a visitor — cookies set on the browser context before the first request (a
+    # person's own session cookie, so a signed-in page renders what that person sees). Never logged or echoed.
+    cookies: list[InspectCookie] = Field(default_factory=list, max_length=BROWSER_INSPECT_MAX_COOKIES)
+    # Url mode: return `visible_text` — the text of the page AND every child frame (an embedded app renders in
+    # its own frame), capped. `expect_text` then also matches inside frames.
+    collect_text: bool = False
+    # Url mode: seconds to wait after load + network-quiet before reading anything (a page that fetches its
+    # rows after it paints needs longer than the default 1.5 s). The hard budget grows with it.
+    settle_seconds: float | None = Field(default=None, ge=0, le=BROWSER_INSPECT_MAX_SETTLE_SECONDS)
+    # Url mode: after settle, press one button on the primary page and report what it did (`press` in the result).
+    press: InspectPress | None = None
 
 
 class InspectedScreenshot(BaseModel):
@@ -848,6 +933,12 @@ class BrowserInspectResult(BaseModel):
     # Url mode with a measure_script: its result (null when it failed — see measure_error).
     measurements: Any = None
     measure_error: str | None = None
+    # Url mode: every response the page got with status >= 400 ("GET <url> -> 400") — failed READS.
+    http_errors: list[str] = Field(default_factory=list)
+    # Url mode with collect_text: visible text of the page and its frames (capped); null when not asked for.
+    visible_text: str | None = None
+    # Url mode with `press`: what pressing the button did; null when no press was asked for.
+    press: PressResult | None = None
 
 
 async def _browser_inspect_inline(request: BrowserInspectRequest) -> BrowserInspectResult:
@@ -902,6 +993,46 @@ async def _browser_inspect_inline(request: BrowserInspectRequest) -> BrowserInsp
             for cap in captures
         ],
     )
+
+
+def _inspect_wait_overrides(request: BrowserInspectRequest) -> dict[str, float]:
+    """A caller-chosen settle, with the hard budget grown to cover navigation + quiet wait + that settle."""
+    if request.settle_seconds is None and request.press is None:
+        return {}
+    from matrx_scraper.browser_pool import (
+        INSPECT_HARD_BUDGET_SECONDS,
+        INSPECT_NETWORK_IDLE_TIMEOUT_MS,
+        INSPECT_SETTLE_SECONDS,
+    )
+
+    settle = INSPECT_SETTLE_SECONDS if request.settle_seconds is None else request.settle_seconds
+    # A press adds its wait plus the find / confirm / re-read around it.
+    press = (request.press.wait_seconds + 10.0) if request.press is not None else 0.0
+    budget = request.timeout_ms / 1000 + INSPECT_NETWORK_IDLE_TIMEOUT_MS / 1000 + settle + press + 5.0
+    out: dict[str, float] = {"hard_budget_seconds": max(INSPECT_HARD_BUDGET_SECONDS, budget)}
+    if request.settle_seconds is not None:
+        out["settle_seconds"] = request.settle_seconds
+    return out
+
+
+def _press_spec(request: BrowserInspectRequest) -> Any:
+    if request.press is None:
+        return None
+    from matrx_scraper.page_press import PressSpec
+
+    p = request.press
+    return PressSpec(button=p.button, within=p.within, until_text=list(p.until_text), wait_seconds=p.wait_seconds,
+                     confirm=p.confirm, watch=list(p.watch))
+
+
+def _press_result(outcome: Any) -> PressResult | None:
+    if outcome is None:
+        return None
+    from dataclasses import asdict
+
+    data = asdict(outcome)
+    data["seconds"] = round(float(data.get("seconds") or 0.0), 1)
+    return PressResult.model_validate(data)
 
 
 @router.post(
@@ -969,6 +1100,10 @@ async def browser_inspect(
             exact=ExactCaptureSpec(**request.exact.model_dump()) if request.exact else None,
             pictures_only=request.pictures_only,
             measure_script=request.measure_script,
+            cookies=[c.to_playwright() for c in request.cookies] or None,
+            collect_text=request.collect_text,
+            press=_press_spec(request),
+            **_inspect_wait_overrides(request),
         )
     except BrowserInspectTimeout as exc:
         return BrowserInspectResult(
@@ -1020,6 +1155,9 @@ async def browser_inspect(
         expect_selector_found=inspection.dom_selector_found,
         measurements=inspection.measurements,
         measure_error=inspection.measure_error,
+        http_errors=inspection.http_errors,
+        visible_text=inspection.visible_text,
+        press=_press_result(getattr(inspection, "press", None)),
         screenshots=[
             InspectedScreenshot(
                 kind=shot.kind,

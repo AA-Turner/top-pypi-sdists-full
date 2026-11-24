@@ -56,7 +56,7 @@ class Rewards(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "cursor": cursor,
+            "cursor": omit if cursor is None else cursor,
             "limit": limit,
           }
         ),

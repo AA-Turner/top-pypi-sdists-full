@@ -1,10 +1,23 @@
 import type { DOMView } from "@bokehjs/core/dom_view";
+import type { View } from "@bokehjs/core/view";
 import { WidgetView } from "@bokehjs/models/widgets/widget";
 import type { Markup } from "@bokehjs/models/widgets/markup";
 import { LayoutDOM, LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import type { UIElement } from "@bokehjs/models/ui/ui_element";
 import type * as p from "@bokehjs/core/properties";
 import type { ResourceSpec } from "./resources";
+/**
+ * Lays out the layout views nested in `view` that no layout manages, e.g.
+ * the internal plot of a `SizeBar`, if they have not been laid out yet.
+ *
+ * Such a view only builds its layout in its own `after_render`, but the view
+ * containing it may read that layout in its `update_layout`, which here can
+ * run first. Once the view has been laid out it builds a fresh layout on
+ * every `after_render`, so the caller must lay out `view` again if any of
+ * the returned views ends up with a different layout. Can be removed once
+ * https://github.com/bokeh/bokeh/issues/15794 is fixed.
+ */
+export declare function prepare_nested_layouts(view: View): LayoutDOMView[];
 /**
  * Re-renders a view, including its layout.
  *
@@ -50,6 +63,11 @@ export declare class PanelMarkupView extends WidgetView {
     has_math_disabled(): boolean;
     render(): void;
 }
+/**
+ * Like `set_size`, for a model whose sizes changed: `set_size` only sets the
+ * sizes that are given, so the sizes that were unset are cleared first.
+ */
+export declare function reset_size(el: HTMLElement, model: LayoutDOM, adjust_margin?: boolean): void;
 export declare function set_size(el: HTMLElement, model: LayoutDOM, adjust_margin?: boolean): void;
 export declare abstract class HTMLBoxView extends LayoutDOMView {
     model: HTMLBox;

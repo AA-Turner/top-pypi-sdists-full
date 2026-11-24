@@ -123,7 +123,7 @@ def test_native_prefill_is_kept_on_the_wire() -> None:
 
 
 def test_refuse_names_the_model_before_any_spend() -> None:
-    with pytest.raises(MessageFlagRefusal, match="claude-sonnet-5 cannot continue a reply from a prefill"):
+    with pytest.raises(MessageFlagRefusal, match="This model cannot continue a reply from a prefill"):
         plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-sonnet-5", mode="refuse")
 
 
@@ -134,7 +134,7 @@ def test_default_is_convert_so_a_prefill_never_fails_every_run() -> None:
     plan = plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-haiku-5-5")
     assert plan.prefill_mode == "convert"
     assert plan.wire_messages[-1].role == "user"
-    assert any("claude-haiku-5-5 cannot take a prefill" in n for n in plan.notes)
+    assert any("This model cannot take a prefill" in n for n in plan.notes)
     # an unreadable / unknown org value also lands on convert, not a failed run
     assert plan_message_flags(
         _drafter(), supports_prefill=False, model_label="m", mode="garbage"
@@ -309,4 +309,34 @@ def test_refusal_is_not_retried_and_keeps_its_sentence() -> None:
         classified = classify_internal_error(exc, "anthropic")
     assert classified is not None and classified.is_retryable is False
     assert classified.error_type == "prefill_unsupported"
-    assert "claude-sonnet-5 cannot continue a reply from a prefill" in (classified.user_message or "")
+    assert "This model cannot continue a reply from a prefill" in (classified.user_message or "")
+
+
+@pytest.mark.asyncio
+async def test_flag_notification_survives_error_capture_failure(monkeypatch):
+    from types import SimpleNamespace
+    import matrx_utils
+    from matrx_connect.context import app_context
+    from matrx_ai.providers import unified_client
+
+    notes = []
+    captures = []
+    logs = []
+
+    async def send_info(payload):
+        notes.append(payload.user_message)
+        raise RuntimeError("flag wire unavailable")
+
+    async def capture(exc, **kwargs):
+        captures.append((str(exc), kwargs["kind"]))
+        raise RuntimeError("capture unavailable")
+
+    monkeypatch.setattr(app_context, "try_get_app_context", lambda: SimpleNamespace(
+        emitter=SimpleNamespace(send_info=send_info)))
+    monkeypatch.setattr(matrx_utils, "capture_error", capture)
+    monkeypatch.setattr(unified_client, "vcprint", lambda message, **kwargs: logs.append(message))
+    await unified_client._announce_flag_notes(["Prefill converted"])
+    assert notes == ["Prefill converted"]
+    assert captures == [("flag wire unavailable", "provider_flag_note_emit_failed")]
+    assert "capture unavailable" in logs[0]
+    assert "flag wire unavailable" in logs[0]

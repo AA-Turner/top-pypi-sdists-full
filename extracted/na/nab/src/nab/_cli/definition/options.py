@@ -10,7 +10,7 @@ import types
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, NewType
+from typing import Any, NewType
 
 from nab_project.conflicts import ConflictSet
 from nab_project.lock_policy import LockPolicy
@@ -34,6 +34,8 @@ from ...config import hooks, values
 from ...config.values import MatrixConfig
 from ...flagtypes import (
     BuildPolicyFlag,
+    CacheAction,
+    ConfigAction,
     DecisionOrderFlag,
     DistPolicyFlag,
     HttpBackend,
@@ -218,7 +220,7 @@ class ProjectKeys(
             sample="P7D",
             label="datetime|PnD",
         ),
-        help="ignore distributions uploaded after this point",
+        help="exclude distributions uploaded at or after the cutoff",
     )
 
     dist_policy = Value[DistPolicyFlag | None](
@@ -332,6 +334,28 @@ class ProjectKeys(
         ),
         help="the member paths a workspace root declares",
         docs="how-to/workspaces.md",
+    )
+
+    plans = Key(
+        Layer[Mapping[str, Mapping[str, object]]](
+            rdefault=_EMPTY_MAPPING,
+            parse=values.parse_input_tables,
+            render=hooks.render_input_tables,
+            label="table(lock-plan)",
+        ),
+        help="named lock plans with selections and project settings",
+        docs="reference/lock-plans.md",
+    )
+
+    input_sources = Key(
+        Layer[Mapping[str, Mapping[str, object]]](
+            rdefault=_EMPTY_MAPPING,
+            parse=values.parse_input_tables,
+            render=hooks.render_input_tables,
+            label="table(input-source)",
+        ),
+        help="named sources of dependency declarations",
+        docs="reference/lock-plans.md",
     )
 
     indexes = Key(
@@ -587,6 +611,19 @@ class UserKeys(Table, on=_LAYERED, scope=Scope.USER, docs="reference/cli.md"):
         docs="reference/cache.md",
     )
 
+    plan = Value[str | None](
+        key=Layer[str | None](
+            rdefault=None,
+            parse=values.parse_plan_name,
+            render=hooks.render_optional_text,
+            sample="dev",
+        ),
+        env=True,
+        help="use a named lock plan (saved selections and settings)",
+        on=("lock",),
+        docs="reference/lock-plans.md",
+    )
+
     groups = Star[str](
         key=Layer[tuple[str, ...]](
             rdefault=(),
@@ -675,7 +712,7 @@ class ConfigWords(Table, on=("config",), docs="reference/cli.md"):
         on=_RUN,
     )
 
-    action = Verb[Literal["list", "get", "explain"]](
+    action = Verb[ConfigAction](
         help="which configuration report to print",
     )
 
@@ -692,7 +729,7 @@ class CacheWords(Table, on=("cache",), docs="reference/cache.md"):
     ``RunFlags`` have already bound, and a table binds each name once.
     """
 
-    action = Verb[Literal["dir", "verify", "clear"]](
+    action = Verb[CacheAction](
         help="what to do with the cache",
     )
 
@@ -731,6 +768,15 @@ class RunFlags(Table, on=_RUN, docs="reference/cli.md"):
         docs="how-to/scripts.md",
         on=_LAYERED,
         action=True,
+    )
+
+    all_plans = Switch(
+        default=False,
+        negatable=True,
+        help="run every declared lock plan",
+        on=("lock",),
+        action=True,
+        docs="reference/lock-plans.md",
     )
 
     output = Value[Path](

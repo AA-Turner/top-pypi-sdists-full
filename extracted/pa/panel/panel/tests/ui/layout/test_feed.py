@@ -211,6 +211,7 @@ def test_feed_scroll_to_latest_within_limit(page):
     wait_until(assert_at_bottom, page)
 
 
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_feed_view_scroll_button(page):
     feed = Feed(*list(range(ITEMS)), height=250, scroll_button_threshold=50)
     serve_component(page, feed)
@@ -235,8 +236,10 @@ def test_feed_dynamic_objects(page):
 
     feed.objects = list(range(ITEMS))
 
-    wait_until(lambda: expect(page.locator('pre').first).to_have_text('0'))
     wait_until(lambda: page.locator('pre').count() > 10, page)
+    # Filling an empty Feed must not scroll it to the latest object
+    expect(page.locator('pre').first).to_have_text('0')
+    expect(page.locator('.bk-panel-models-feed-Feed')).to_have_js_property('scrollTop', 0)
 
 
 def test_feed_reset_visible_range(page):

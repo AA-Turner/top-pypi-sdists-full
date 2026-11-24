@@ -8,12 +8,11 @@ Observer LLM needs to extract meaningful observations.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from datetime import UTC, datetime
 from typing import Any, Iterable
 
-from .types import Message, MessageRole, TextPart, ToolCallPart, ToolResultPart
+from .types import Message, MessageRole, TextPart, ToolCallPart, ToolResultPart, to_json_safe
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +75,7 @@ def _render_text_from_unified_content(content: Any) -> tuple[list[TextPart | Too
             parts.append(ToolCallPart(
                 tool_call_id=str(call_id or ""),
                 tool_name=str(tool_name or ""),
-                args=args if isinstance(args, dict) else {"value": args},
+                args=to_json_safe(args) if isinstance(args, dict) else {"value": to_json_safe(args)},
             ))
             digest_parts.append(f"toolcall:{tool_name}")
         elif type_name in ("tool_result", "tool_response"):
@@ -96,7 +95,7 @@ def _render_text_from_unified_content(content: Any) -> tuple[list[TextPart | Too
             parts.append(ToolResultPart(
                 tool_call_id=str(call_id or ""),
                 tool_name=str(tool_name),
-                result=content_val,
+                result=to_json_safe(content_val),
                 is_error=is_error,
             ))
             digest_parts.append(f"toolresult:{tool_name}")

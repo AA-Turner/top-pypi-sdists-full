@@ -95,6 +95,9 @@ from matrx_ai.catalog.processors import ProcessorContext, get_processor, has_pro
 
 # The canonical output-ceiling key every chat api maps to its provider name
 # (max_tokens / max_completion_tokens / max_output_tokens / maxOutputTokens).
+#: The depth keys, most specific first (also the order ties between run-set keys keep).
+DEPTH_KEYS = ("thinking_level", "thinking_budget", "reasoning_effort")
+
 OUTPUT_CEILING_KEY = "max_output_tokens"
 
 
@@ -1012,6 +1015,53 @@ class CompiledControlsMap(BaseModel):
             return None
         return min(ranked, key=lambda v: order.index(str(v)))
 
+    def run_value_beats_stored(
+        self, canonical: dict[str, Any]
+    ) -> tuple[dict[str, Any], list[Adjustment]]:
+        """SOURCE PRECEDENCE for depth (Arman, 2026-11-09): a depth value set for THIS run (the
+        request, the person's pick) beats a depth value that only came from the agent's stored
+        settings, whatever the key (a per-run effort over a stored budget, and the reverse).
+
+        ``canonical["_depth_stored"]`` lists the depth keys whose value is the agent's own
+        (``canonicalize``); everything else is this run's. Each stored loser is removed and recorded
+        ``overridden`` (law ``this-run-beats-stored-agent``, kept value in ``sent_value``). Only when
+        BOTH sources are present does anything happen, so a lone stored value runs exactly as saved."""
+        stored = set(canonical.get("_depth_stored") or ())
+        depth = [k for k in DEPTH_KEYS if canonical.get(k) is not None]
+        run = [k for k in depth if k not in stored]
+        losers = [k for k in depth if k in stored]
+        if not run or not losers:
+            return canonical, []
+        kept_key = run[0]
+        out = {k: v for k, v in canonical.items() if k not in losers}
+        if (
+            out.get("reasoning_effort") is None
+            and out.get("thinking_budget") is not None
+            and "reasoning_effort" in losers
+        ):
+            # The stored effort is gone; the run's number still has to reach a model that takes an
+            # effort, through the target's own scale (bridge_numbers).
+            out["_convert"] = {**(out.get("_convert") or {}), "reasoning_effort": "thinking_budget"}
+        if "thinking_budget" in losers:
+            out.pop("_convert", None)
+        adjustments = [
+            Adjustment(
+                key=key,
+                action="overridden",
+                canonical_value=canonical[key],
+                sent_value=canonical[kept_key],
+                expected=True,
+                provenance="computed",
+                law="this-run-beats-stored-agent",
+                reason=(
+                    f"{kept_key} {canonical[kept_key]!r} was set for this run: it takes precedence "
+                    f"over the agent's stored {key} {canonical[key]!r}, so that was not used"
+                ),
+            )
+            for key in losers
+        ]
+        return out, adjustments
+
     def bridge_numbers(self, canonical: dict[str, Any]) -> tuple[dict[str, Any], list[Adjustment]]:
         """THE TARGET-AWARE number -> scale conversion (K6 ``from_number``).
 
@@ -1056,10 +1106,10 @@ class CompiledControlsMap(BaseModel):
                     key="reasoning_effort",
                     action="overridden",
                     canonical_value=effort,
-                    sent_value=None,
+                    sent_value=budget,
                     expected=True,
                     provenance="computed",
-                    law="specific-beats-general",
+                    law="budget-beats-effort (raw-budget model)",
                     reason=(
                         f"thinking_budget {int(budget)} given explicitly: the number is the "
                         f"more specific instruction, so reasoning_effort '{effort}' was not used"
@@ -1145,8 +1195,11 @@ class CompiledControlsMap(BaseModel):
         # provider's own auto only where the target natively offers one. Runs
         # AFTER caller_set so a defaulted key is never voiced as a user drop.
         canonical = self.apply_reasoning_default(canonical, context=context)
+        # ── SOURCE FIRST: a depth value set for THIS run beats a stored agent setting ──
+        canonical, run_adjustments = self.run_value_beats_stored(canonical)
         # ── BRIDGE: target-aware number -> scale (K6 from_number) ────────────
         canonical, adjustments = self.bridge_numbers(canonical)
+        adjustments = [*run_adjustments, *adjustments]
 
         # ── PASS 0: the output ceiling (see ``output_maximum``) ───────────────
         # A conversion, not a drop: silent to the client, loud in the log. An
@@ -1233,6 +1286,9 @@ class CompiledControlsMap(BaseModel):
         # Keys whose SET value was eliminated (map->null / unmapped drop) —
         # send_when_unset=True backfills their default below.
         eliminated: set[str] = set()
+        # provider key -> (canonical key, value) the per-key loop wrote there, so two keys the
+        # caller set that land on ONE provider key never overwrite each other silently.
+        wire_writers: dict[str, tuple[str, Any]] = {}
         # K6 off={"omit"}: wire(off) == wire(unset) — the defaults below treat
         # these keys as unset.
         off_omitted: set[str] = set()
@@ -1650,7 +1706,38 @@ class CompiledControlsMap(BaseModel):
                     )
                 sent = items
 
-            expand_dotted(out, rule.provider_key or key, sent)
+            wire_target = rule.provider_key or key
+            earlier = wire_writers.get(wire_target)
+            if earlier is not None and earlier[0] != key and earlier[1] != sent:
+                # PB-03 U6: two keys the caller set land on ONE provider key. The winner is
+                # decided by the declared law ``specific-beats-general`` (the one
+                # ``bridge_numbers`` declares), never by the order the caller's dict was
+                # built in: the key named like the provider key's own leaf is the specific one
+                # (thinking_level -> thinking_config.thinking_level), the other is the general
+                # tier. Same leaf rank -> the key name decides, still order-free.
+                leaf = wire_target.rsplit(".", 1)[-1]
+                new_wins = (key == leaf, key) > (earlier[0] == leaf, earlier[0])
+                winner, loser = ((key, sent), earlier) if new_wins else (earlier, (key, sent))
+                adjustments.append(
+                    Adjustment(
+                        key=loser[0],
+                        action="overridden",
+                        canonical_value=loser[1],
+                        sent_value=winner[1],
+                        expected=True,
+                        provenance="computed",
+                        law="specific-beats-general",
+                        reason=(
+                            f"'{loser[0]}'={loser[1]!r} and '{winner[0]}'={winner[1]!r} both set "
+                            f"'{wire_target}' for this api/offering; the more specific "
+                            f"'{winner[0]}' was sent, so '{loser[0]}' was not used"
+                        ),
+                    )
+                )
+                if not new_wins:
+                    continue
+            wire_writers[wire_target] = (key, sent)
+            expand_dotted(out, wire_target, sent)
 
         # const — always send the fixed provider value; wins over any incoming value.
         for key, rule in self.rules.items():
@@ -1820,7 +1907,22 @@ class CompiledControlsMap(BaseModel):
                         )
                     )
                     canonical = _without(canonical, spent)
-                    off_send = (True, deciding.provider_key or deciding_key, deciding.off.send)
+                    if (
+                        deciding.processor is not None
+                        and not deciding.provider_key
+                        and not D.is_off_value(deciding_key, deciding.off.send)
+                    ):
+                        # A PROCESSOR rule's key is canonical, never a wire key: a
+                        # declared off that sends a real LEVEL goes INTO the processor,
+                        # which writes the provider's own field. Written raw it leaked
+                        # onto the wire — live 2026-11-08, gemini-3.8-flash:
+                        # thinking_budget=0 put ``reasoning_effort='low'`` into
+                        # GenerateContentConfig (400). An off value itself (together's
+                        # "none") would re-enter the processor's off path and vanish,
+                        # so it keeps the raw write below.
+                        canonical = _set_explicit(canonical, deciding_key, deciding.off.send)
+                    else:
+                        off_send = (True, deciding.provider_key or deciding_key, deciding.off.send)
                 else:
                     floor = self._floor_value(deciding_key, deciding)
                     adjustments.append(

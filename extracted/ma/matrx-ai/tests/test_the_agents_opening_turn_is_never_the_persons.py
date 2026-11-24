@@ -46,3 +46,16 @@ def test_a_turn_with_recorded_authorship_or_history_is_untouched() -> None:
     )
     assert answered.mark_unspoken_opening_turn() is False
     assert answered.messages[-1].user_content is None
+
+
+def test_a_variables_only_send_the_person_pressed_is_hers() -> None:
+    """Arman, 2026-11-20: a variables-only Send was stored as the agent's opening and vanished."""
+    opening = UnifiedMessage(role="user", content=[TextContent(text="Sync the models for OpenAi.")])
+    config = _config(opening)
+
+    assert config.mark_unspoken_opening_turn(person_pressed_send=True) is True
+
+    last = config.messages[-1]
+    assert last.user_content == []
+    assert "authored_by" not in (last.metadata or {})
+    assert last.content[0].text == "Sync the models for OpenAi."

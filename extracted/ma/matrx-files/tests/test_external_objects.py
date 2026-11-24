@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
+import matrx_files.external_objects as external_objects
+from matrx_files.cloud_sync.sync_engine import SyncEngine
 from matrx_files.derivations import (
     ClientPolicyMetadataError,
     assert_no_client_policy_metadata,
@@ -49,7 +53,7 @@ class _Router:
     async def download_to_path_async(self, uri: str, local_path: str) -> int:
         path = uri.removeprefix("s3://")
         content = self.s3.objects[path]
-        Path(local_path).write_bytes(content)
+        await asyncio.to_thread(Path(local_path).write_bytes, content)
         if self.s3.drift_on_download:
             self.s3.objects[path] = content + b"-changed"
         return len(content)
@@ -62,7 +66,26 @@ class _Router:
         return True
 
 
+@pytest.fixture(autouse=True)
+def _external_database_transaction(monkeypatch: pytest.MonkeyPatch) -> None:
+    # These existing unit tests replace the database; transaction integration is separate.
+    @asynccontextmanager
+    async def transaction(*, database: str):
+        yield
+
+    monkeypatch.setattr(external_objects, "transaction", transaction)
+
+
+class _PathCollision(Exception):
+    sqlstate = "23505"
+    constraint_name = "cld_files_owner_id_file_path_key"
+
+
 class _Db:
+    @staticmethod
+    def _db_name() -> str:
+        return "unit-test"
+
     def __init__(self) -> None:
         self.rows: dict[str, dict[str, object]] = {}
         self.events: list[dict[str, object]] = []
@@ -115,6 +138,10 @@ class _Db:
 
 
 class _Engine:
+    _is_folder_path_unique_violation = staticmethod(SyncEngine._is_folder_path_unique_violation)
+    _is_path_unique_violation = staticmethod(SyncEngine._is_path_unique_violation)
+    _is_dedup_unique_violation = staticmethod(SyncEngine._is_dedup_unique_violation)
+
     def __init__(self) -> None:
         self.router = _Router()
         self.db = _Db()
@@ -204,7 +231,8 @@ async def test_adoption_indexes_personal_file_without_returning_storage_location
 
     row = engine.db.rows[result.file_id]
     assert row["published_to_web"] is False
-    assert row["shown_to"] == "only_me"
+    # No hand-written label: NULL follows the file type's "Shown to" knob.
+    assert row["shown_to"] is None
     assert row["checksum"] == hashlib.sha256(CONTENT).hexdigest()
     assert row["storage_uri"] == STORAGE_URI
     assert result.evidence.retention_policy == "voice_recordings_30d"
@@ -314,3 +342,146 @@ async def test_canary_proves_owner_read_and_governed_delete_with_receipts() -> N
         "file.external_object_delete_authorized",
         "file.external_object_deleted",
     ]
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("branch", ["existing", "concurrent"])
+@pytest.mark.parametrize("constraint", ["cld_files_owner_id_file_path_key", "cld_files_dedup_canonical", "uq_cld_files_storage_uri"])
+@pytest.mark.parametrize("drift", [
+    "owner", "path", "organization", "published", "shown", "uri", "checksum", "size", "mime",
+    "source_kind", "event", "identity", "evidence_sha", "evidence_size",
+])
+async def test_concurrent_winner_must_match_the_same_custody_as_existing_replay(
+    drift: str, branch: str, constraint: str,
+) -> None:
+    """A losing insert may never adopt a winner the ordinary replay would refuse."""
+    engine = _Engine()
+    first = await adopt_external_object(engine, _request(), retention_policy=VOICE_RECORDING_RETENTION_POLICY)
+    row = engine.db.rows[first.file_id]
+    metadata = row["metadata"]
+    assert isinstance(metadata, dict)
+    custody = metadata["external_object_custody"]
+    assert isinstance(custody, dict)
+    mutations = {
+        "owner": (row, "owner_id", OTHER_ID),
+        "path": (row, "file_path", "different/path"),
+        "organization": (row, "organization_id", OTHER_ID),
+        "published": (row, "published_to_web", True),
+        "shown": (row, "shown_to", "everyone"),
+        "uri": (row, "storage_uri", "s3://recordings/twilio/us1/owner-beta/other.wav"),
+        "checksum": (row, "checksum", "0" * 64),
+        "size": (row, "size_bytes", len(CONTENT) + 1),
+        "mime": (row, "mime_type", "audio/mpeg"),
+        "source_kind": (custody, "source_kind", "other"),
+        "event": (custody, "source_event_key_hash", "0" * 64),
+        "identity": (custody, "object_identity_hash", "0" * 64),
+        "evidence_sha": (custody, "sha256", "0" * 64),
+        "evidence_size": (custody, "size_bytes", len(CONTENT) + 1),
+    }
+    target, field, value = mutations[drift]
+    target[field] = value
+    reads = 0
+    async def get_row(owner_id: str, file_path: str) -> dict[str, object] | None:
+        nonlocal reads
+        reads += 1
+        return None if branch == "concurrent" and reads == 1 else row
+    async def conflict(payload: dict[str, object]) -> dict[str, object]:
+        error = _PathCollision("synthetic concurrent insert")
+        error.constraint_name = constraint
+        raise error
+    engine.db.get_file_by_path_async = get_row
+    engine.db.upsert_file_async = conflict
+    previous_receipts = len(engine.db.events)
+    with pytest.raises(ExternalObjectDriftError, match="custody evidence"):
+        await adopt_external_object(engine, _request(), retention_policy=VOICE_RECORDING_RETENTION_POLICY)
+    assert reads == (2 if branch == "concurrent" else 1)
+    assert len(engine.db.events) == previous_receipts
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("constraint", ["cld_files_owner_id_file_path_key", "cld_files_dedup_canonical", "uq_cld_files_storage_uri"])
+@pytest.mark.parametrize("organization_id", [ORG_ID, None])
+@pytest.mark.parametrize("shown_to", [None, "only_me"])
+async def test_identical_concurrent_winner_remains_a_replay(
+    organization_id: str | None, shown_to: str | None, constraint: str,
+) -> None:
+    engine = _Engine()
+    request = _request().model_copy(update={"organization_id": organization_id})
+    first = await adopt_external_object(engine, request, retention_policy=VOICE_RECORDING_RETENTION_POLICY)
+    row = engine.db.rows[first.file_id]
+    row["shown_to"] = shown_to
+    reads = 0
+    async def get_row(owner_id: str, file_path: str) -> dict[str, object] | None:
+        nonlocal reads
+        reads += 1
+        return None if reads == 1 else row
+    async def conflict(payload: dict[str, object]) -> dict[str, object]:
+        error = _PathCollision("synthetic concurrent insert")
+        error.constraint_name = constraint
+        raise error
+    engine.db.get_file_by_path_async = get_row
+    engine.db.upsert_file_async = conflict
+    replay = await adopt_external_object(engine, request, retention_policy=VOICE_RECORDING_RETENTION_POLICY)
+    assert replay.file_id == first.file_id and replay.replayed
+    assert replay.organization_id == ORG_ID
+    assert replay.evidence.custody_receipt_id == first.evidence.custody_receipt_id
+    assert replay.operation_receipt_id != first.operation_receipt_id
+    assert engine.db.events[-1]["event_type"] == "file.external_object_adoption_replayed"
+
+@pytest.mark.asyncio
+async def test_unrelated_insert_failure_is_not_misreported_as_replay() -> None:
+    engine = _Engine()
+    first = await adopt_external_object(engine, _request(), retention_policy=VOICE_RECORDING_RETENTION_POLICY)
+    winner = engine.db.rows[first.file_id]
+    reads = 0
+
+    async def get_row(owner_id: str, file_path: str) -> dict[str, object] | None:
+        nonlocal reads
+        reads += 1
+        return None if reads == 1 else winner
+
+    async def fail_insert(payload: dict[str, object]) -> dict[str, object]:
+        raise RuntimeError("database unavailable")
+
+    engine.db.get_file_by_path_async = get_row
+    engine.db.upsert_file_async = fail_insert
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        await adopt_external_object(engine, _request(), retention_policy=VOICE_RECORDING_RETENTION_POLICY)
+    assert len(engine.db.events) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("constraint,sqlstate,winner_exists", [
+    ("cld_files_dedup_canonical", "23505", False),
+    ("uq_cld_files_storage_uri", "23505", False),
+    ("cld_files_pkey", "23505", True),
+    ("cld_files_id_organization_id_key", "23505", True),
+    ("unknown_unique", "23505", True),
+    ("cld_files_dedup_canonical", "23503", True),
+])
+async def test_collision_without_matching_winner_or_known_constraint_propagates(
+    constraint: str, sqlstate: str, winner_exists: bool,
+) -> None:
+    engine = _Engine()
+    first = await adopt_external_object(engine, _request(), retention_policy=VOICE_RECORDING_RETENTION_POLICY)
+    winner = engine.db.rows[first.file_id]
+    reads = 0
+
+    async def get_row(owner_id: str, file_path: str) -> dict[str, object] | None:
+        nonlocal reads
+        reads += 1
+        return winner if reads > 1 and winner_exists else None
+
+    error = _PathCollision("insert failed")
+    error.constraint_name = constraint
+    error.sqlstate = sqlstate
+
+    async def conflict(payload: dict[str, object]) -> dict[str, object]:
+        raise error
+
+    engine.db.get_file_by_path_async = get_row
+    engine.db.upsert_file_async = conflict
+    with pytest.raises(_PathCollision) as caught:
+        await adopt_external_object(engine, _request(), retention_policy=VOICE_RECORDING_RETENTION_POLICY)
+    assert caught.value is error
+    assert len(engine.db.events) == 1
+    assert reads == (3 if not winner_exists and sqlstate == "23505" else 1)

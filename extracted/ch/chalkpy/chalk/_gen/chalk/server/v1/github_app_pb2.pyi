@@ -307,15 +307,21 @@ class GetGitHubAppInstallUrlResponse(_message.Message):
     def __init__(self, url: _Optional[str] = ...) -> None: ...
 
 class CompleteGitHubAppInstallationRequest(_message.Message):
-    __slots__ = ("installation_id", "setup_action", "state")
+    __slots__ = ("installation_id", "setup_action", "state", "code")
     INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
     SETUP_ACTION_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
+    CODE_FIELD_NUMBER: _ClassVar[int]
     installation_id: int
     setup_action: str
     state: str
+    code: str
     def __init__(
-        self, installation_id: _Optional[int] = ..., setup_action: _Optional[str] = ..., state: _Optional[str] = ...
+        self,
+        installation_id: _Optional[int] = ...,
+        setup_action: _Optional[str] = ...,
+        state: _Optional[str] = ...,
+        code: _Optional[str] = ...,
     ) -> None: ...
 
 class CompleteGitHubAppInstallationResponse(_message.Message):

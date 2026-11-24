@@ -1,7 +1,7 @@
 """A provider SDK client never retries on its own beneath our retry loop.
 
 THE BREAK THIS GUARDS (2026-10-01 review). The Stainless SDKs (openai,
-anthropic, groq, cerebras, together) retry every connection error, timeout,
+anthropic, groq, cerebras) retry every connection error, timeout,
 429 and 5xx TWICE by default (``max_retries=2``), silently. Every adapter here
 already sits under one of OUR retry loops — the executor's provider retry
 (schedules, the visible "retrying" state, admission's 429 accounting) or
@@ -32,7 +32,7 @@ from matrx_ai.providers.groq import stt as groq_stt
 
 PROVIDERS = Path(__file__).resolve().parents[1]
 
-STAINLESS_CLIENTS = {"AsyncOpenAI", "AsyncAnthropic", "AsyncGroq", "AsyncCerebras", "AsyncTogether"}
+STAINLESS_CLIENTS = {"AsyncOpenAI", "AsyncAnthropic", "AsyncGroq", "AsyncCerebras"}
 
 #: Files that build a Stainless client NOT beneath one of our retry loops — the
 #: SDK's own retry is the only retry they have. Each needs its reason.
@@ -88,9 +88,11 @@ async def test_a_failed_transcription_is_sent_once_not_three_times(monkeypatch) 
         response_format="verbose_json",
         timestamp_granularities=None,
         language=None,
+        prompt=None,
     )
 
-    with pytest.raises(Exception):
+    # The provider's 500 is the failure — a fixture missing an STTRequest field would raise before any send.
+    with pytest.raises(Exception, match="internal error"):
         await groq_stt.GroqSTT().execute(request, profile)  # type: ignore[arg-type]
     groq_stt._clients.clear()
 

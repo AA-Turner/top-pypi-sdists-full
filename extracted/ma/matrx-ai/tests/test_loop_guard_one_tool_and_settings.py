@@ -79,7 +79,7 @@ def _history(pattern: list[tuple[str, bool]]) -> list[ToolCallUsage]:
                         else {
                             "arguments": {"id": f"arg-{i}"},
                             "agent_error": "boom",
-                            "error": {"message": "boom", "error_type": "validation"},
+                            "error": {"message": "boom", "error_type": "database"},
                         }
                     ),
                 }

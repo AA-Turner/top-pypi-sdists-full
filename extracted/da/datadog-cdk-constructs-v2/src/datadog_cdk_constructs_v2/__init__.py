@@ -282,6 +282,13 @@ To further configure your DatadogLambda construct for Lambda, use the following 
 | `llmObsEnabled`              | `llm_obs_enabled`               | Toggle to enable submitting data to LLM Observability Defaults to `false`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `llmObsMlApp`                | `llm_obs_ml_app`                | The name of your LLM application, service, or project, under which all traces and spans are grouped. This helps distinguish between different applications or experiments. See [Application naming guidelines](https://docs.datadoghq.com/llm_observability/sdk/?tab=nodejs#application-naming-guidelines) for allowed characters and other constraints. To override this value for a given root span, see [Tracing multiple applications](https://docs.datadoghq.com/llm_observability/sdk/?tab=nodejs#tracing-multiple-applications).  Required if `llmObsEnabled` is `true` |
 | `llmObsAgentlessEnabled`     | `llm_obs_agentless_enabled`     | Only required if you are not using the Datadog Lambda Extension, in which case this should be set to `true`.  Defaults to `false`.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `suppressLowMemoryWarning`   | `suppress_low_memory_warning`   | When set to `true`, silence the warning emitted for functions with less than 256 MB of memory. See [Memory requirements](#memory-requirements). Defaults to `false`.                                                                                                                                                                                                                                                                                                                                                                                                              |
+
+#### Memory requirements
+
+The Datadog Lambda Extension and tracer add memory overhead to your function (about 70 MB for Python). On functions with little memory, this overhead can cause out-of-memory errors and timeouts. When `addLambdaFunctions` instruments a function with less than 256 MB of memory, the construct emits a CDK warning with the reason `lambda_low_memory`. If `memorySize` is not set, the function uses the Lambda default of 128 MB, so the construct emits the warning. If `memorySize` is a token that resolves only at deploy time, the construct doesn't emit a warning.
+
+The construct still instruments the function. To avoid out-of-memory errors and timeouts, increase the function's memory to at least 256 MB. To silence the warning, set `suppressLowMemoryWarning` to `true`.
 
 #### Setting `DD_*` environment variables
 
@@ -4006,6 +4013,7 @@ class DatadogLambda(
         service: typing.Optional[builtins.str] = None,
         site: typing.Optional[builtins.str] = None,
         source_code_integration: typing.Optional[builtins.bool] = None,
+        suppress_low_memory_warning: typing.Optional[builtins.bool] = None,
         tags: typing.Optional[builtins.str] = None,
         use_layers_from_account: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
@@ -4059,6 +4067,7 @@ class DatadogLambda(
         :param service: 
         :param site: 
         :param source_code_integration: 
+        :param suppress_low_memory_warning: Silence the warning emitted when an instrumented Lambda function has less than 256 MB of memory. The construct instruments the function either way. Default: false
         :param tags: 
         :param use_layers_from_account: 
         :param version: 
@@ -4114,6 +4123,7 @@ class DatadogLambda(
             service=service,
             site=site,
             source_code_integration=source_code_integration,
+            suppress_low_memory_warning=suppress_low_memory_warning,
             tags=tags,
             use_layers_from_account=use_layers_from_account,
             version=version,
@@ -4356,6 +4366,7 @@ class DatadogLambda(
         "service": "service",
         "site": "site",
         "source_code_integration": "sourceCodeIntegration",
+        "suppress_low_memory_warning": "suppressLowMemoryWarning",
         "tags": "tags",
         "use_layers_from_account": "useLayersFromAccount",
         "version": "version",
@@ -4411,6 +4422,7 @@ class DatadogLambdaProps:
         service: typing.Optional[builtins.str] = None,
         site: typing.Optional[builtins.str] = None,
         source_code_integration: typing.Optional[builtins.bool] = None,
+        suppress_low_memory_warning: typing.Optional[builtins.bool] = None,
         tags: typing.Optional[builtins.str] = None,
         use_layers_from_account: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
@@ -4462,6 +4474,7 @@ class DatadogLambdaProps:
         :param service: 
         :param site: 
         :param source_code_integration: 
+        :param suppress_low_memory_warning: Silence the warning emitted when an instrumented Lambda function has less than 256 MB of memory. The construct instruments the function either way. Default: false
         :param tags: 
         :param use_layers_from_account: 
         :param version: 
@@ -4514,6 +4527,7 @@ class DatadogLambdaProps:
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument site", value=site, expected_type=type_hints["site"])
             check_type(argname="argument source_code_integration", value=source_code_integration, expected_type=type_hints["source_code_integration"])
+            check_type(argname="argument suppress_low_memory_warning", value=suppress_low_memory_warning, expected_type=type_hints["suppress_low_memory_warning"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument use_layers_from_account", value=use_layers_from_account, expected_type=type_hints["use_layers_from_account"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -4610,6 +4624,8 @@ class DatadogLambdaProps:
             self._values["site"] = site
         if source_code_integration is not None:
             self._values["source_code_integration"] = source_code_integration
+        if suppress_low_memory_warning is not None:
+            self._values["suppress_low_memory_warning"] = suppress_low_memory_warning
         if tags is not None:
             self._values["tags"] = tags
         if use_layers_from_account is not None:
@@ -4849,6 +4865,17 @@ class DatadogLambdaProps:
     @builtins.property
     def source_code_integration(self) -> typing.Optional[builtins.bool]:
         result = self._values.get("source_code_integration")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def suppress_low_memory_warning(self) -> typing.Optional[builtins.bool]:
+        '''Silence the warning emitted when an instrumented Lambda function has less than 256 MB of memory.
+
+        The construct instruments the function either way.
+
+        :default: false
+        '''
+        result = self._values.get("suppress_low_memory_warning")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -7018,6 +7045,7 @@ def _typecheckingstub__7d2984f96d56b35b6bf9f462eeb539cb66d7814bc0c2c05efa693a19e
     service: typing.Optional[builtins.str] = None,
     site: typing.Optional[builtins.str] = None,
     source_code_integration: typing.Optional[builtins.bool] = None,
+    suppress_low_memory_warning: typing.Optional[builtins.bool] = None,
     tags: typing.Optional[builtins.str] = None,
     use_layers_from_account: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
@@ -7151,6 +7179,7 @@ def _typecheckingstub__63d91330a506031886b9d88e6eb264015f9a55aa2384c231f96607376
     service: typing.Optional[builtins.str] = None,
     site: typing.Optional[builtins.str] = None,
     source_code_integration: typing.Optional[builtins.bool] = None,
+    suppress_low_memory_warning: typing.Optional[builtins.bool] = None,
     tags: typing.Optional[builtins.str] = None,
     use_layers_from_account: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,

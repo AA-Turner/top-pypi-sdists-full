@@ -29,7 +29,7 @@ class SpeechToTextJobParameters(UniversalBaseModel):
     - `en-IN`: English
     - `gu-IN`: Gujarati
     
-    **Additional Options (saaras:v3 only):**
+    **Additional Options (23-language support, use saaras:v4):**
     - `as-IN`: Assamese
     - `ur-IN`: Urdu
     - `ne-IN`: Nepali
@@ -48,14 +48,14 @@ class SpeechToTextJobParameters(UniversalBaseModel):
     """
     Model to be used for speech to text.
     
-    - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+    - **saaras:v4** (default, recommended, latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
     
-    - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
+    - **saaras:v3** (legacy; use saaras:v4): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
     """
 
     mode: typing.Optional[Mode] = pydantic.Field(default=None)
     """
-    Mode of operation. **Only applicable when using saaras:v3 or saaras:v4 models.**
+    Mode of operation. **Only applicable when using saaras:v3 (legacy) or saaras:v4 models.**
     
     Example audio: 'मेरा फोन नंबर है 9840950950'
     

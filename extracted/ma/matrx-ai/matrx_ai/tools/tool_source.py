@@ -26,6 +26,7 @@ ZERO ``DBNotConfiguredError`` from the tool system.
 
 from __future__ import annotations
 
+from matrx_utils.http_client import shared_client
 import inspect
 from typing import Any, Protocol, runtime_checkable
 
@@ -122,7 +123,7 @@ class ServerToolSource:
         import httpx
 
         try:
-            async with httpx.AsyncClient(
+            async with shared_client(
                 timeout=self._timeout, follow_redirects=True
             ) as client:
                 resp = await client.get(self.url, headers=await self._headers())

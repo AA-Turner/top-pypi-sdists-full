@@ -19,13 +19,16 @@ Architecture:
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import contextvars
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-import httpx
 from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
+
+from matrx_ai.providers.http_flavors import transport_classes
 
 if TYPE_CHECKING:
     from matrx_ai.config import TokenUsage
@@ -34,6 +37,12 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Core data structure
 # ---------------------------------------------------------------------------
+
+
+#: The one sentence for a fault that is OURS: our key, our quota, our billing with a provider, a provider outage.
+#: Fixed text — never the provider's name, never its words (Arman, 2026-11-18). The operator's detail rides
+#: ``RetryableError.message`` / ``details``. Guard: tests/test_server_messages_never_name_a_model_or_provider.py.
+OUR_SIDE_MESSAGE = "Something went wrong on our side. We have been notified and are fixing it."
 
 
 @dataclass
@@ -124,13 +133,71 @@ def was_billing_checked(exc: BaseException | None) -> bool:
     return bool(getattr(exc, _BILLING_CHECKED_ATTR, False))
 
 
+# "The request reached the wire" (cost adversary pass 6, N2; pass 7, P7/P8). The TRANSPORT notes it here
+# (``wire_sent.py``: the httpx/httpx2 transport hand-off, aiohttp, grpc.aio — every provider SDK by construction, only
+# once a request byte can have left the process), and the funnel (``executor.execute_ai_request``) stamps an exception
+# that escapes it AFTER that point. An exception without the stamp was raised before any provider request left (an
+# unreadable input file, a bad setting, an SDK's own client-side validation): nothing can have been billed, and a host
+# books it free. One with the stamp and no billed usage has an unknown cost.
+_REQUEST_SENT_ATTR = "_matrx_request_sent"
+_REQUEST_SENT_TRACKER: contextvars.ContextVar[list[bool] | None] = contextvars.ContextVar(
+    "matrx_request_sent_tracker", default=None
+)
+
+
+def note_request_sent() -> None:
+    """A provider request left the process: mark the funnel's tracker (no-op outside one). Called by the transport
+    stamp (``wire_sent.py``) and by a provider seam that sends outside every hooked transport. Never raises."""
+    holder = _REQUEST_SENT_TRACKER.get()
+    if holder is not None:
+        holder[0] = True
+
+
+def mark_request_sent(exc: BaseException) -> None:
+    """Stamp ``exc`` as raised after its request was sent. Best-effort; never masks the error."""
+    try:
+        setattr(exc, _REQUEST_SENT_ATTR, True)
+    except Exception:
+        pass
+
+
+def was_request_sent(exc: BaseException | None) -> bool:
+    """True when ``exc`` escaped the funnel after a provider request was sent."""
+    return bool(exc is not None and getattr(exc, _REQUEST_SENT_ATTR, False))
+
+
+@contextlib.contextmanager
+def stamp_request_sent_on_failure() -> Any:
+    """Track whether a provider request is sent inside the block; an exception escaping after one was sent is
+    stamped (``mark_request_sent``). Nested blocks share the outer tracker. The transport stamp is installed here, so
+    a tracker never exists without it."""
+    from matrx_ai.providers.wire_sent import install_wire_sent_hooks
+
+    install_wire_sent_hooks()
+    if _REQUEST_SENT_TRACKER.get() is not None:
+        holder = _REQUEST_SENT_TRACKER.get()
+        token = None
+    else:
+        holder = [False]
+        token = _REQUEST_SENT_TRACKER.set(holder)
+    try:
+        yield holder
+    except BaseException as exc:
+        if holder and holder[0]:
+            mark_request_sent(exc)
+        raise
+    finally:
+        if token is not None:
+            _REQUEST_SENT_TRACKER.reset(token)
+
+
 # Top-level packages whose exceptions can only come from a provider SDK or the
-# HTTP client underneath it — i.e. the wire was engaged and we may already have
+# HTTP client underneath it (httpx or httpx2) — i.e. the wire was engaged and we may already have
 # been billed. Deliberately an ALLOWLIST: an unknown module means "don't know",
 # and layer 2 stays quiet rather than crying wolf on our own pre-flight errors.
 _WIRE_EXC_MODULES: frozenset[str] = frozenset(
     {
-        "httpx", "httpcore", "aiohttp", "urllib3", "requests", "ssl", "socket",
+        "httpx", "httpx2", "httpcore", "aiohttp", "urllib3", "requests", "ssl", "socket",
         "openai", "anthropic", "google", "groq", "together", "cerebras",
         "replicate", "elevenlabs", "huggingface_hub", "xai_sdk",
     }
@@ -148,13 +215,18 @@ _PRE_INFERENCE_STATUSES: frozenset[int] = frozenset(
 
 # Never reached a server, so nothing can have been billed. Note the ORDER of the
 # checks in ``wire_was_engaged``: several of these are httpx.HTTPError subclasses,
-# so they must be excluded BEFORE the positive httpx test.
+# so they must be excluded BEFORE the positive httpx test. Every httpx flavor
+# (``providers/http_flavors.py``) — httpx2 errors are not httpx errors.
+_NEVER_SENT_HTTPX_NAMES = (
+    "ConnectError", "ConnectTimeout", "UnsupportedProtocol", "InvalidURL", "TooManyRedirects",
+)
+_HTTPX_TRANSPORT_NAMES = ("HTTPError", "TimeoutException", "RemoteProtocolError", "TransportError")
+_HTTPX_HTTP_ERROR = transport_classes("HTTPError")
+_HTTPX_TIMEOUT = transport_classes("TimeoutException")
+_HTTPX_REMOTE_PROTOCOL = transport_classes("RemoteProtocolError")
+_HTTPX_TRANSPORT = transport_classes("TransportError")
 _NEVER_SENT_EXC = (
-    httpx.ConnectError,
-    httpx.ConnectTimeout,
-    httpx.UnsupportedProtocol,
-    httpx.InvalidURL,
-    httpx.TooManyRedirects,
+    *transport_classes(*_NEVER_SENT_HTTPX_NAMES),
     ConnectionError,
     OSError,  # covers socket.gaierror (DNS) and friends
 )
@@ -202,7 +274,7 @@ def wire_was_engaged(exc: BaseException) -> bool:
         return status not in _PRE_INFERENCE_STATUSES
     # A read-timeout means we were mid-flight with a live request — the provider
     # may well have generated (and billed) before we gave up.
-    if isinstance(exc, TimeoutError | httpx.HTTPError):
+    if isinstance(exc, (TimeoutError, *_HTTPX_HTTP_ERROR)):
         return True
     root = (type(exc).__module__ or "").split(".", 1)[0]
     return root in _WIRE_EXC_MODULES
@@ -580,7 +652,7 @@ def _handle_auth_error(provider: str, message: str, status_code: int) -> Retryab
         message=message,
         status_code=status_code,
         is_retryable=False,
-        user_message=f"{provider} API key is invalid, expired, or missing. Please check your configuration.",
+        user_message=OUR_SIDE_MESSAGE,
     )
 
 
@@ -590,7 +662,7 @@ def _handle_permission_error(provider: str, message: str, status_code: int) -> R
         message=message,
         status_code=status_code,
         is_retryable=False,
-        user_message=f"Your {provider} API key does not have permission to access this model or feature.",
+        user_message=OUR_SIDE_MESSAGE,
     )
 
 
@@ -633,7 +705,6 @@ def _setting_rejection_or_none(
 
 def _rebrand_openai_compatible(result: RetryableError, display: str, key: str) -> RetryableError:
     """A result the OpenAI classifier produced for an OpenAI-compatible provider."""
-    result.user_message = result.user_message.replace("OpenAI", display)
     if result.error_type == "invalid_setting" and isinstance(result.details, dict):
         result.details["provider"] = key
         rejection = result.details.get("setting_rejection")
@@ -653,16 +724,21 @@ def _handle_bad_request(provider: str, message: str, body: dict[str, object]) ->
     setting = _setting_rejection_or_none(provider, message, body, 400)
     if setting is not None:
         return setting
+    # A 400 whose cause is the MODEL's generated JSON breaking a schema the provider enforces
+    # (groq ``json_validate_failed`` non-streamed, live 2026-11-14) is a sampling failure the next
+    # attempt can fix — never our request's fault. Same markers as the status-less path.
+    # Guard: tests/test_provider_schema_violation_keeps_cause.py.
+    if any(marker in message.lower() or marker in str(body).lower() for marker in _SCHEMA_VIOLATION_MARKERS):
+        return _handle_schema_violation(provider, message)
     detail_text = str(body.get("message", message) or message).lower()
     if any(marker in detail_text or marker in message.lower() for marker in _RATE_LIMIT_IN_400_MARKERS):
         return _handle_rate_limit(provider, message, _RATE_LIMIT_IN_400_RETRY_AFTER)
-    detail = body.get("message", message)
     return RetryableError(
         error_type="invalid_request",
         message=message,
         status_code=400,
         is_retryable=False,
-        user_message=f"{provider} rejected the request: {detail}",
+        user_message="This request could not be completed. Please change it and try again.",
         details=body,
     )
 
@@ -676,17 +752,28 @@ def _handle_not_found(provider: str, message: str) -> RetryableError:
             status_code=404,
             is_retryable=False,
             user_message=(
-                f"The configured {provider} model has been retired. "
-                "Choose an active catalog model before running this agent again."
+                "The model this step uses is no longer available. "
+                "Choose a different one and run it again."
             ),
             details={"catalog_drift": True},
+        )
+    if any(marker in lowered for marker in ("voice_not_found", "voice not found", "requested voice was not found")):
+        # A 404 that names the VOICE is not a retired model: the person's saved or chosen voice no longer exists at the
+        # provider (Cartesia answers 404 ``voice_not_found``), so the sentence must say so (2026-11-17 read-aloud toast).
+        return RetryableError(
+            error_type="voice_not_found",
+            message=message,
+            status_code=404,
+            is_retryable=False,
+            user_message="The selected voice is no longer available. Choose another voice in voice settings.",
+            details={"voice_missing": True},
         )
     return RetryableError(
         error_type="not_found",
         message=message,
         status_code=404,
         is_retryable=False,
-        user_message=f"The requested {provider} model or endpoint was not found. It may have been retired or renamed.",
+        user_message="This option is not available right now. Try a different one.",
     )
 
 
@@ -697,7 +784,7 @@ def _handle_request_too_large(provider: str, message: str) -> RetryableError:
         status_code=413,
         is_retryable=False,
         user_message=(
-            f"The request exceeds {provider}'s maximum size limit. "
+            "The request is too large to send. "
             "Try shortening the conversation or removing large attachments."
         ),
     )
@@ -800,18 +887,16 @@ def _handle_billing_error(
         if any(marker in message.lower() for marker in _SUSPENSION_MARKERS)
         else "is out of credit"
     )
-    name = _provider_display_name(provider)
-    user_message = (
-        f"{name} refused this request: the platform's {name} account {condition}."
-        if name
-        else f"The AI provider refused this request: the platform's account {condition}."
-    )
+    # The sentence is ours and fixed: a provider/account fault is OUR problem, never the person's, and it names no
+    # provider (Arman, 2026-11-18). ``condition`` and the provider's words ride ``message`` / ``details`` for the operator.
+    user_message = OUR_SIDE_MESSAGE
     return RetryableError(
         error_type="billing_error",
         message=message,
         status_code=status_code,
         is_retryable=False,
         user_message=user_message,
+        details={"account_condition": condition},
     )
 
 
@@ -838,13 +923,12 @@ def _handle_unprocessable(provider: str, message: str, body: dict[str, object]) 
     setting = _setting_rejection_or_none(provider, message, body, 422)
     if setting is not None:
         return setting
-    detail = body.get("message", message)
     return RetryableError(
         error_type="unprocessable_request",
         message=message,
         status_code=422,
         is_retryable=False,
-        user_message=f"{provider} could not process the request: {detail}",
+        user_message="This request could not be processed. Please change it and try again.",
         details=body,
     )
 
@@ -855,7 +939,7 @@ def _handle_conflict(provider: str, message: str) -> RetryableError:
         message=message,
         status_code=409,
         is_retryable=False,
-        user_message=f"A conflict occurred with the {provider} request. Please try again.",
+        user_message="A conflict occurred with this request. Please try again.",
     )
 
 
@@ -875,7 +959,7 @@ def _handle_rate_limit(provider: str, message: str, retry_after: float | None) -
         status_code=429,
         retry_after=delay,
         is_retryable=True,
-        user_message=f"{provider} rate limit reached.",
+        user_message="The service is busy right now.",
         retry_notice=f"Retrying in {delay:.0f} seconds…",
     )
 
@@ -921,7 +1005,7 @@ def classify_moonshot_error(exception: Exception) -> RetryableError:
                 message=provider_message,
                 status_code=429,
                 is_retryable=False,
-                user_message="Moonshot rate limit reached. Please wait and try again.",
+                user_message="The service is busy right now. Please wait and try again.",
             )
         else:
             result = _handle_rate_limit("Moonshot", provider_message, retry_after)
@@ -933,7 +1017,7 @@ def classify_moonshot_error(exception: Exception) -> RetryableError:
             message=provider_message,
             status_code=499,
             is_retryable=False,
-            user_message="The provider connection closed before completion. Please try again.",
+            user_message="The connection closed before completion. Please try again.",
         )
     elif provider_type == "invalid_request_error" or status_code == 400:
         lowered = provider_message.lower()
@@ -963,7 +1047,7 @@ def classify_moonshot_error(exception: Exception) -> RetryableError:
                 message=provider_message,
                 status_code=429,
                 is_retryable=False,
-                user_message="Moonshot rate limit reached. Please wait and try again.",
+                user_message="The service is busy right now. Please wait and try again.",
             )
         else:
             result = classified_rate_limit
@@ -979,7 +1063,7 @@ def classify_moonshot_error(exception: Exception) -> RetryableError:
             message=provider_message,
             status_code=status_code,
             is_retryable=False,
-            user_message="Moonshot could not complete this request. Please try again.",
+            user_message="This request could not be completed. Please try again.",
         )
     result.details.update({key: value for key, value in details.items() if value is not None})
     return result
@@ -995,7 +1079,7 @@ def _handle_server_error(provider: str, message: str, status_code: int) -> Retry
         status_code=status_code,
         retry_after=5.0,
         is_retryable=True,
-        user_message=f"{provider} is experiencing an internal error.",
+        user_message=OUR_SIDE_MESSAGE,
     )
 
 
@@ -1007,7 +1091,7 @@ def _handle_overloaded(provider: str, message: str, status_code: int) -> Retryab
         status_code=status_code,
         retry_after=None,
         is_retryable=True,
-        user_message=f"{provider} is temporarily overloaded due to high demand.",
+        user_message="The service is busy due to high demand.",
         retry_notice="Waiting, then retrying automatically…",
         retry_schedule=schedule,
         details={
@@ -1026,7 +1110,7 @@ def _handle_timeout(provider: str, message: str) -> RetryableError:
         retry_after=10.0,
         is_retryable=True,
         user_message=(
-            f"The request to {provider} timed out. "
+            "The request timed out. "
             "This can happen with very long prompts or high token limits."
         ),
     )
@@ -1038,7 +1122,7 @@ def _handle_connection_error(provider: str, message: str) -> RetryableError:
         message=message,
         retry_after=3.0,
         is_retryable=True,
-        user_message=f"Could not connect to {provider}.",
+        user_message="Could not connect to the AI service.",
         retry_notice="Checking the connection and retrying…",
     )
 
@@ -1064,7 +1148,7 @@ def _handle_incomplete_response(provider: str, message: str) -> RetryableError:
         retry_after=2.0,
         is_retryable=True,
         user_message=(
-            f"The response from {provider} was cut off in transit before it finished."
+            "The response was cut off in transit before it finished."
         ),
     )
 
@@ -1089,7 +1173,7 @@ def _handle_content_filter(provider: str, message: str) -> RetryableError:
         error_type="content_filtered",
         message=message,
         is_retryable=False,
-        user_message=f"{provider} blocked this request due to content policy restrictions.",
+        user_message="This request was blocked by content policy restrictions.",
     )
 
 
@@ -1099,7 +1183,7 @@ def _handle_context_length_exceeded(provider: str, message: str) -> RetryableErr
         message=message,
         is_retryable=False,
         user_message=(
-            f"The conversation is too long for the selected {provider} model's context window. "
+            "The conversation is too long for the selected model's context window. "
             "Please shorten the conversation or switch to a model with a larger context window."
         ),
     )
@@ -1138,7 +1222,7 @@ def _classify_unbranched_status(provider: str, status_code: int, message: str) -
             message=message,
             retry_after=2.0,
             is_retryable=True,
-            user_message=f"{provider} asked for the request to be retried shortly.",
+            user_message="The service asked for the request to be retried shortly.",
         )
     elif status_code == 409:
         result = _handle_conflict(provider, message)
@@ -1151,7 +1235,7 @@ def _classify_unbranched_status(provider: str, status_code: int, message: str) -
             error_type="invalid_request",
             message=message,
             is_retryable=False,
-            user_message=f"{provider} rejected the request (HTTP {status_code}).",
+            user_message="This request could not be completed. Please change it and try again.",
         )
     else:
         return None
@@ -1171,6 +1255,14 @@ _SCHEMA_VIOLATION_MARKERS = (
     "does not match the expected schema",
     "json_validate_failed",
     "failed_generation",
+    # Groq validating the model's TOOL CALL against the tool's schema (live 2026-11-05: the
+    # `context` tool, `/action`: value must be one of 'get', 'batch', 'create'): same class,
+    # the model broke a schema the provider enforces; the next sample can satisfy it.
+    "tool call validation failed",
+    "did not match schema",
+    # Groq when the model's tool-call ARGUMENTS are not JSON at all (live 2026-11-16, issue_class
+    # groq.unknown_error, recovered after 2 attempts): the same sampling failure, one step earlier.
+    "failed to parse tool call arguments",
 )
 
 
@@ -1185,13 +1277,70 @@ def _handle_schema_violation(provider: str, error_str: str) -> RetryableError:
         retry_after=1.0,
         # Model sampling is nondeterministic: the next attempt can satisfy the schema.
         is_retryable=True,
-        user_message=f"{provider} could not produce output matching the required schema: {detail}",
+        user_message="The AI could not produce output in the required format. Please try again.",
         details={"message": error_str, "provider_code": "json_validate_failed"},
     )
 
 
+#: The model emitted a tool call although the request offered it NO tools (Groq, streamed as a bare ``APIError``
+#: with no status: "Tool choice is none, but model called a tool"). openai/gpt-oss-* does this when asked to search
+#: and given nothing to search with — it reaches for its trained-in browser tool. Live 2026-11-10 (system_error
+#: 7d1676bb): every test seat's tool-less "Test Reply" chat read "An unexpected Groq error occurred." on every turn that
+#: asked for a search. Guard: tests/test_a_tool_call_with_no_tools_keeps_its_cause.py.
+_UNOFFERED_TOOL_MARKERS = (
+    "tool choice is none, but model called a tool",
+)
+
+
+def _handle_unoffered_tool_call(provider: str, error_str: str) -> RetryableError:
+    return RetryableError(
+        error_type="model_called_unoffered_tool",
+        message=error_str,
+        status_code=400,
+        retry_after=1.0,
+        # Sampling is nondeterministic: the next attempt can answer without reaching for a tool.
+        is_retryable=True,
+        user_message="The AI tried to use a tool, but this agent has no tools.",
+        details={"message": error_str, "provider_code": "tool_called_with_no_tools"},
+    )
+
+
+_SECRET_SHAPES = (
+    # key=value / key: value style credentials, and Authorization headers / Bearer tokens
+    re.compile(r"(?i)\b(api[_-]?key|apikey|access[_-]?token|secret|token|password|key)(\s*[=:]\s*)[\"']?[^\s\"',;&]+"),
+    re.compile(r"(?i)\b(authorization)(\s*[=:]\s*)[\"']?(?:bearer\s+|basic\s+)?[^\s\"',;]+"),
+    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+"),
+    # provider key prefixes
+    re.compile(r"\b(?:sk|xai|pk|rk)-[A-Za-z0-9_-]{6,}"),
+    re.compile(r"\bAIza[A-Za-z0-9_-]{10,}"),
+    # email addresses
+    re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+    # any long token-like run (base64 / hex / url-safe)
+    re.compile(r"[A-Za-z0-9+/_=-]{32,}"),
+)
+
+
+def _scrub_provider_text(text: str) -> str:
+    """Mask credentials and personal addresses in a provider's raw words before a person reads them."""
+
+    def _keep_label(m: re.Match[str]) -> str:
+        return f"{m.group(1)}{m.group(2)}[hidden]" if m.lastindex and m.lastindex >= 2 else "[hidden]"
+
+    for shape in _SECRET_SHAPES:
+        text = shape.sub(_keep_label, text)
+    return text
+
+
+def _provider_words(error_str: str, limit: int = 400) -> str:
+    detail = _scrub_provider_text(" ".join((error_str or "").split()))
+    return detail if len(detail) <= limit else detail[:limit] + "..."
+
+
 def _fallback_classify(error_str: str, provider: str) -> RetryableError:
     s = error_str.lower()
+
+    if any(marker in s for marker in _UNOFFERED_TOOL_MARKERS):
+        return _handle_unoffered_tool_call(provider, error_str)
 
     if any(marker in s for marker in _SCHEMA_VIOLATION_MARKERS):
         return _handle_schema_violation(provider, error_str)
@@ -1264,7 +1413,10 @@ def _fallback_classify(error_str: str, provider: str) -> RetryableError:
         message=error_str,
         retry_after=5.0,
         is_retryable=True,
-        user_message=f"An unexpected {provider} error occurred.",
+        # The provider's own words ride in the sentence the person reads: "An unexpected X error occurred." alone
+        # hid every cause that reached here (nothing fails silently).
+        user_message="Something went wrong. Please try again.",
+        details={"provider_words": _provider_words(error_str)} if error_str and error_str.strip() else {},
     )
 
 
@@ -1377,7 +1529,8 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             message=message,
             is_retryable=False,
             details={"exception": type(exception).__qualname__, "provider": provider},
-            user_message=message,
+            user_message=getattr(exception, "user_message", None)
+            or "This speech script cannot be performed as written. Check its speakers and voices, then try again.",
         )
 
     # A message flag this model cannot honor, under the org's `refuse` mode
@@ -1394,6 +1547,32 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             is_retryable=False,
             details={"exception": type(exception).__qualname__, "provider": provider},
             user_message=message,
+        )
+
+    # Media the model cannot accept and that could not be converted is refused
+    # BEFORE dispatch — the provider was never contacted. Left to the string
+    # fallback, the resolver's own repr decided the class: live 2026-11-12 a
+    # resolver message containing "Refused" became an Anthropic
+    # ``connection_error`` ("Could not connect to Anthropic"), retried until
+    # exhausted. Retrying the same media cannot convert it.
+    from matrx_ai.processing.media_fallback.handler import MediaFallbackResolutionError
+
+    if isinstance(exception, MediaFallbackResolutionError):
+        detail = str(exception).strip() or type(exception).__name__
+        return RetryableError(
+            error_type="media_conversion_failed",
+            message=detail,
+            is_retryable=False,
+            details={
+                "exception": type(exception).__qualname__,
+                "container": exception.container.value,
+                "model": exception.model_name,
+                "endpoint": exception.endpoint,
+            },
+            user_message=(
+                f"An attached {exception.container.value} could not be prepared for this "
+                "model, so nothing was sent."
+            ),
         )
 
     # Catalog routing fails before a provider request can start. It is a
@@ -1415,7 +1594,7 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             details={"exception": type(exception).__qualname__},
             user_message=(
                 "This AI step is configured with a model route that is no longer "
-                f"available. The configuration error has been recorded. {detail}"
+                "available. The configuration error has been recorded."
             ),
         )
 
@@ -1435,9 +1614,8 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             is_retryable=False,
             details={"exception": type(exception).__qualname__},
             user_message=(
-                "This step could not start because its tools were not resolved in "
-                f"the process that ran it (a bug in our code, not a {provider} "
-                f"failure; no request was sent). It has been recorded. {detail}"
+                "This step could not start because its tools were not resolved "
+                "(a bug in our code; no request was sent). It has been recorded."
             ),
         )
 
@@ -1455,9 +1633,8 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             is_retryable=False,
             details={"exception": type(exception).__qualname__},
             user_message=(
-                "This server's tools are not loaded yet, so this turn was stopped "
-                f"instead of running without them (not a {provider} failure; no "
-                "request was sent). It has been recorded."
+                "Our tools are not loaded yet, so this turn was stopped "
+                "instead of running without them (no request was sent). It has been recorded."
             ),
         )
 
@@ -1476,7 +1653,7 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             is_retryable=False,
             user_message=(
                 "An internal error occurred while processing the request "
-                f"(a bug in our code, not a {provider} failure). It has been recorded."
+                "(a bug in our code). It has been recorded."
             ),
         )
 
@@ -1492,8 +1669,7 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             details={"infrastructure": infra, "exception": type(exception).__qualname__},
             user_message=(
                 "Our database is not accepting writes right now, so this step could "
-                f"not be saved (this is NOT a {provider} failure). "
-                f"Underlying error: {detail}"
+                "not be saved. It has been recorded."
             ),
         )
     return None
@@ -1593,7 +1769,8 @@ def classify_common_error(exception: Exception, provider: str) -> RetryableError
     used to produce a retryable ``unknown_error`` with a blank message. Preserve
     the typed transport meaning and always provide a useful diagnostic.
 
-    🚨 BOTH HTTP CLIENTS, ALWAYS. We run on httpx *and* aiohttp (the Google
+    🚨 EVERY HTTP CLIENT, ALWAYS. We run on httpx, httpx2 (anthropic>=1.0,
+    openai>=3.0 — its classes are unrelated to httpx's; ``http_flavors.py``) *and* aiohttp (the Google
     GenAI async path). A transport family known to only one of them is a
     transport family that gets classified by string guessing — see
     ``_aiohttp_transport_classes`` for what that cost. Add any new client's
@@ -1607,18 +1784,18 @@ def classify_common_error(exception: Exception, provider: str) -> RetryableError
     message = str(exception).strip() or type(exception).__name__
     aiohttp_timeouts, aiohttp_incomplete, aiohttp_connection = _aiohttp_transport_classes()
     result: RetryableError | None = None
-    if isinstance(exception, httpx.TimeoutException | TimeoutError) or (
+    if isinstance(exception, (TimeoutError, *_HTTPX_TIMEOUT)) or (
         aiohttp_timeouts and isinstance(exception, aiohttp_timeouts)
     ):
         result = _handle_timeout(provider, message)
     elif aiohttp_incomplete and isinstance(exception, aiohttp_incomplete):
         result = _handle_incomplete_response(provider, message)
-    elif isinstance(exception, httpx.RemoteProtocolError):
+    elif isinstance(exception, _HTTPX_REMOTE_PROTOCOL):
         # httpx's own truncated-response type: the server ended the body early.
         # Matched before the broader TransportError branch below, which would
         # otherwise flatten it into a plain connection error.
         result = _handle_incomplete_response(provider, message)
-    elif isinstance(exception, httpx.TransportError | ConnectionError) or (
+    elif isinstance(exception, (ConnectionError, *_HTTPX_TRANSPORT)) or (
         aiohttp_connection and isinstance(exception, aiohttp_connection)
     ):
         result = _handle_connection_error(provider, message)
@@ -2011,7 +2188,7 @@ def classify_xai_error(exception: Exception) -> RetryableError:
 
 
 # ============================================================================
-# TOGETHER AI (OpenAI-compatible SDK)
+# TOGETHER AI (reached through the OpenAI SDK)
 # ============================================================================
 
 
@@ -2110,7 +2287,7 @@ def classify_elevenlabs_error(exception: Exception) -> RetryableError:
                 message=msg,
                 status_code=422,
                 is_retryable=False,
-                user_message="The text exceeds ElevenLabs' character limit for this voice/plan.",
+                user_message="The text exceeds the character limit for this voice or plan.",
             )
         return _handle_unprocessable("ElevenLabs", msg, _extract_error_body(exception))
     if status_code == 429:
@@ -2277,6 +2454,32 @@ _PROVIDER_CLASSIFIERS: dict[str, object] = {
 #: (``classify_common_error``) would read a relay hop's httpx error as a
 #: retryable connection error and invite a re-send a device run never gets.
 _OWNS_EVERY_FAILURE: frozenset[str] = frozenset({"device"})
+
+
+#: The provider's words for "I cannot read an input you sent" (Google 400 INVALID_ARGUMENT, 2026-11-07/18).
+_UNREADABLE_INPUT_MARKERS: tuple[str, ...] = ("unable to process input image",)
+PROVIDER_INPUT_REFUSED = "provider_input_refused"
+
+
+def input_refusal_info(exception: BaseException, provider: str | None = None) -> RetryableError | None:
+    """The typed, user-facing refusal when the provider says it cannot read an input (an image).
+
+    The provider refused THIS input, not the platform: retrying changes nothing and nobody can repair
+    it from the server, so it is a final refusal shown to the person and never a ``provider_request_failed``
+    system error (the executor treats ``PROVIDER_INPUT_REFUSED`` as a caller refusal). ``None`` for every
+    other failure.
+    """
+    text = str(exception).lower()
+    if not any(marker in text for marker in _UNREADABLE_INPUT_MARKERS):
+        return None
+    return RetryableError(
+        error_type=PROVIDER_INPUT_REFUSED,
+        message=str(exception).strip() or "the provider could not read an input",
+        status_code=400,
+        is_retryable=False,
+        user_message="One of the attached images could not be read. Try a different image or file format.",
+        details={"provider": (provider or "unknown").lower(), "code": PROVIDER_INPUT_REFUSED},
+    )
 
 
 def classify_provider_error(provider: str, exception: Exception) -> RetryableError:

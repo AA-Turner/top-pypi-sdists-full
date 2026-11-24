@@ -38,6 +38,7 @@ from coord.commands.dr import dr_group
 from coord.commands.gate_a import gate_a
 from coord.commands.report import report_group
 from coord.commands.scorecard import scorecard
+from coord.commands.stats import stats_group
 
 # Re-exported for back-compat: some tests do `from coord.cli import
 # _save_config_snapshot` / `_load_config` / etc. directly.
@@ -148,6 +149,7 @@ from coord.commands.drive import (
     drive_sessions,
     drive_stop,
     escalate_group,
+    mechanic_dispatch,
 )
 from coord.commands.drive_queue import drive_queue_group
 from coord.commands.lifecycle import done, housekeeping, notify, resume, serve, web
@@ -460,6 +462,7 @@ main.add_command(context_group)
 main.add_command(audit)
 main.add_command(report_group)
 main.add_command(scorecard)
+main.add_command(stats_group)
 main.add_command(milestone_group)
 main.add_command(plans_cmd)
 main.add_command(fix_briefing_cmd)
@@ -496,6 +499,7 @@ main.add_command(drive_stop)
 main.add_command(drive_queue_group)
 main.add_command(escalate_group)
 main.add_command(decide)
+main.add_command(mechanic_dispatch)
 main.add_command(pr_group)
 main.add_command(ci_group)
 main.add_command(fix)

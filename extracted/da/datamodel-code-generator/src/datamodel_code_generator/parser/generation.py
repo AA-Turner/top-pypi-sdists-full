@@ -29,11 +29,11 @@ Contributor guide:
   list-method contract test deliberately fails when Python adds an unclassified
   method so new mutation paths cannot silently leave facts stale.
 
-The pre-commit hook backed by ``scripts/check_generation_store_usage.py``
-guards the parser package against common direct mutations. When adding a new
-store mutation API, add it to ``SITE_EFFECTS`` or ``NO_SITE_EFFECT``, which make up
-``GENERATION_STORE_MUTATION_METHODS``, so the checker and its tests stay aligned
-with the public parser-facing surface, and give ``GraphBuilder`` its delegating method.
+heki's write-owner contracts (``scripts/heki.toml``, built from the rows of
+``scripts/fact_tables.py``) guard the package against writes outside these
+operations. When adding a new store mutation API, add it to ``SITE_EFFECTS`` or
+``NO_SITE_EFFECT``, which make up ``GENERATION_STORE_MUTATION_METHODS`` (a row may
+name only those in its ``store_ops``), and give ``GraphBuilder`` its delegating method.
 """
 
 # ruff: noqa: D105, FURB189
@@ -217,6 +217,7 @@ NO_SITE_EFFECT: frozenset[str] = frozenset({
     "set_field_extra",
     "set_field_extras",
     "set_field_identity",
+    "set_field_runtime_default",
     "set_module_models",
     "set_type_discriminator",
     "set_type_expressions",
@@ -1905,6 +1906,15 @@ class GenerationStore:  # noqa: PLR0904
         bump_field(field_)
 
     @staticmethod
+    def set_field_runtime_default(
+        field_: DataModelFieldBase, default: object, runtime_expression_imports: tuple[Import, ...]
+    ) -> None:
+        """Write a field's default with the imports of the runtime expressions it holds (``GraphBuilder``'s)."""
+        field_.default = default
+        field_._set_runtime_expression_imports(runtime_expression_imports)  # noqa: SLF001
+        bump_field(field_)
+
+    @staticmethod
     @deprecated("Use GenerationStore.builder().record_nullable_without_default() instead.", category=None)
     def record_nullable_without_default(field_: DataModelFieldBase, nullable: bool | None) -> None:  # noqa: FBT001
         """Record the ``nullable`` a field has as one without its default; none where it equals its ``nullable``."""
@@ -2728,6 +2738,12 @@ class GraphBuilder:
     def set_field_default(self, field_: DataModelFieldBase, default: Any) -> None:
         """Write a field's default, which the facts do not record, so they stay current."""
         self._store.set_field_default(field_, default)  # ty: ignore[deprecated]
+
+    def set_field_runtime_default(
+        self, field_: DataModelFieldBase, default: object, runtime_expression_imports: tuple[Import, ...]
+    ) -> None:
+        """Write a field's default with the imports of the runtime expressions it holds, through the store."""
+        self._store.set_field_runtime_default(field_, default, runtime_expression_imports)
 
     def record_nullable_without_default(self, field_: DataModelFieldBase, nullable: bool | None) -> None:  # noqa: FBT001
         """Record the ``nullable`` a field has as one without its default, through the store."""

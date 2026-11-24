@@ -5,8 +5,10 @@ import { DOMView } from "@bokehjs/core/dom_view";
 import type * as p from "@bokehjs/core/properties";
 import type { Attrs } from "@bokehjs/core/types";
 import type { LayoutDOM } from "@bokehjs/models/layouts/layout_dom";
+import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import { UIElementView } from "@bokehjs/models/ui/ui_element";
 import type { UIElement } from "@bokehjs/models/ui/ui_element";
+import { Model } from "@bokehjs/model";
 import { HTMLBox, HTMLBoxView } from "./layout";
 export declare class DataEvent extends ModelEvent {
     readonly data: unknown;
@@ -60,6 +62,18 @@ export declare class ReactiveESMView extends HTMLBoxView {
      * context menu) is not ours to defer.
      */
     protected _is_mountable(child_view: DOMView): boolean;
+    /**
+     * A child view is built, and so listed in `child_views`, as soon as its
+     * model is added, but it is only rendered once the component mounts it,
+     * which for a React component is a later commit. Bokeh assumes a child it
+     * measures has run `update_layout` (a figure reads the panels of the
+     * layout built there), so a layout pass in between, e.g. from a resize
+     * or from another child mounting, would throw on the unmounted child and
+     * abort the pass for every other view. Layout passes therefore only visit
+     * mounted children; `update_layout` still visits all of them.
+     */
+    get layoutable_views(): LayoutDOMView[];
+    update_layout(): void;
     notify_mount(child: string, id: string, remove?: boolean): void;
     on_event(callback: (data: unknown) => void): void;
     remove_on_event(callback: (data: unknown) => void): boolean;
@@ -126,6 +140,17 @@ export declare class ReactiveESMView extends HTMLBoxView {
     remove_on_child_render(child: string, callback?: (new_views: UIElementView[]) => void): void;
 }
 export declare const RenderPolicy: import("@bokehjs/core/kinds").Kinds.Enum<"children" | "manual">;
+export declare namespace ESMBundle {
+    type Props = Model.Props & {
+        source: p.Property<string>;
+    };
+}
+export interface ESMBundle extends p.AttrsOf<ESMBundle.Props> {
+}
+export declare class ESMBundle extends Model {
+    properties: ESMBundle.Props;
+    static __module__: string;
+}
 export declare namespace ReactiveESM {
     type Attrs = p.AttrsOf<Props>;
     type Props = HTMLBox.Props & {
@@ -136,7 +161,7 @@ export declare namespace ReactiveESM {
         class_name: p.Property<string>;
         data: p.Property<any>;
         dev: p.Property<boolean>;
-        esm: p.Property<string>;
+        esm: p.Property<string | ESMBundle>;
         events: p.Property<string[]>;
         importmap: p.Property<any>;
         render_policy: p.Property<typeof RenderPolicy["__type__"]>;
@@ -187,6 +212,7 @@ export declare class ReactiveESM extends HTMLBox {
     protected _cached_module(key: string, load: () => Promise<any>): Promise<any>;
     get resolved_render_module(): any | null;
     protected _import_source(code: string): Promise<any>;
+    get esm_source(): string;
     compile(): string | null;
     get _module_cache_key(): string;
     recompile(): Promise<void>;

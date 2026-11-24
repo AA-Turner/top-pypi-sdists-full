@@ -89,7 +89,7 @@ class PapersMixin:
 
     # -- papers (0152) -------------------------------------------------------
     #
-    # The literature a `research` project was built from. Project-anchored and
+    # The papers a project reads, cites or builds on (any project, D24). Project-anchored and
     # only project-anchored; an experiment-level anchor stays unbuilt until a
     # surface asks for one. NO DEDUPE: two adds of one ``source_url`` make two
     # rows, because the server cannot decide what identity means for a paper
@@ -108,8 +108,12 @@ class PapersMixin:
         tags: list[str] | None = None,
         lineage: dict | None = None,
         relates_to: dict | None = None,
+        relevance: str | None = None,
     ) -> dict:
         """Record one paper against a project.
+
+        ``relevance`` is why this paper matters to THIS project, one line of at
+        most 15 words. Omitted, the server writes one shortly after.
 
         ``tags`` are the CONCEPTS this paper is about in your own vocabulary --
         the same reader-authored list projects, experiments and runs carry, and
@@ -176,6 +180,7 @@ class PapersMixin:
                 # presence of the object is what says "I looked".
                 "lineage": lineage,
                 "relates_to": relates_to,
+                "relevance": relevance,
             }.items()
             if value is not None
         }
@@ -232,10 +237,12 @@ class PapersMixin:
         summary_md: str | None = None,
         discrepancies_md: str | None = None,
         tags: list[str] | None = None,
+        relevance: str | None = None,
     ) -> dict:
         """Field-replace: an omitted field is untouched, ``""`` clears it —
         except ``title`` and ``source_url``, which are required and cannot be
-        emptied (an empty replacement is a 422).
+        emptied (an empty replacement is a 422). A cleared ``relevance`` is
+        written again by the server.
 
         ``tags`` replaces the WHOLE list (``[]`` clears it), which is the tag
         contract on every entity. To add or drop one tag without knowing the
@@ -251,6 +258,7 @@ class PapersMixin:
                 "summary_md": summary_md,
                 "discrepancies_md": discrepancies_md,
                 "tags": tags,
+                "relevance": relevance,
             }.items()
             if value is not None
         }

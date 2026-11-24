@@ -16,8 +16,7 @@ from einops.layers.torch import Rearrange
 from torch import nn
 
 from braindecode.functional import scaled_dot_product_attention
-from braindecode.functional.attention import _hpu_lazy
-from braindecode.models.base import EEGModuleMixin
+from braindecode.models.base import EEGModuleMixin, deprecated_forward_kwargs
 from braindecode.models.util import (
     extract_channel_locations_from_chs_info,
     warn_if_sfreq_differs,
@@ -157,7 +156,8 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         Base period of the rotary positional embedding. The default is
         ``10000.0``.
     pos_bins : int, optional
-        Number of buckets per spatial coordinate. The default is ``50``.
+        Number of buckets per spatial coordinate. The default is ``100``, the
+        value ZUNA1.1 was trained with (ZUNA1 used ``50``).
     pos_half_range : float, optional
         Half-range (in metres) used to normalise channel coordinates before
         bucketing. Coordinates at or beyond this range are clipped to the first
@@ -219,6 +219,9 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
        https://arxiv.org/abs/2607.27308
     """
 
+    _time_axis = "fixed"  # fixed: encoder.rotary_cosine is sized by n_times
+    _channel_axis = "fixed"  # fixed: final_layer.1.weight is sized by n_chans
+
     def __init__(
         self,
         # braindecode parameters
@@ -238,7 +241,7 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         latent_dim: int = 32,
         max_seqlen: int = 256,
         rope_theta: float = 10000.0,
-        pos_bins: int = 50,
+        pos_bins: int = 100,
         pos_half_range: float = 0.12,
         norm_eps: float = 1e-5,
         multiple_of: int = 256,
@@ -354,13 +357,16 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
             Rearrange("batch channel latent -> batch (channel latent)"),
             nn.Linear(self.num_channels * self.latent_dim, self.n_outputs),
         )
+        self.on_non_divisible = on_non_divisible
+        self._n_times_step = fine_time_pts
 
+    @deprecated_forward_kwargs(input_tensor="x")
     def forward(
         self,
-        input_tensor: torch.Tensor,
+        x: torch.Tensor,
         return_features: bool = False,
     ):
-        patch_tokens = self.patch_embedding(input_tensor)
+        patch_tokens = self.patch_embedding(x)
         token_latents = self.encoder(patch_tokens)
         structured_latents = token_latents.reshape(
             token_latents.shape[0], self.num_channels, -1, self.latent_dim
@@ -403,14 +409,9 @@ def _channel_positions(chs_info, n_chans):
     names = [str(chs_info[i].get("ch_name", "")) for i in missing]
     unknown = [n for n in names if not n]
     if not unknown:
-        montage = (
-            "colin27_1005"  # standard_1005's name from MNE 1.13
-            if "colin27_1005" in mne.channels.get_builtin_montages()
-            else "standard_1005"
-        )
         info = mne.create_info(names, 256.0, "eeg")
         info.set_montage(
-            montage, match_case=False, match_alias=True, on_missing="ignore"
+            "colin27_1005", match_case=False, match_alias=True, on_missing="ignore"
         )
         filled = np.array([ch["loc"][:3] for ch in info["chs"]], dtype=locs.dtype)
         ok = np.isfinite(filled).all(1) & filled.any(1)
@@ -470,9 +471,7 @@ class _RotaryPositionEmbedding(nn.Module):
         rotary_sine: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         if not torch.jit.is_scripting() and query.device.type == "hpu":
-            fused = _hpu_fused_rotary(query, key, rotary_cosine, rotary_sine)
-            if fused is not None:
-                return fused
+            return _hpu_fused_rotary(query, key, rotary_cosine, rotary_sine)
         rotary_cosine = rotary_cosine.unsqueeze(0).unsqueeze(2)
         rotary_sine = rotary_sine.unsqueeze(0).unsqueeze(2)
 
@@ -547,21 +546,16 @@ def _hpu_fused_rotary(
     key: torch.Tensor,
     rotary_cosine: torch.Tensor,
     rotary_sine: torch.Tensor,
-) -> Optional[tuple[torch.Tensor, torch.Tensor]]:
-    """``_RotaryPositionEmbedding`` in HPU eager mode (and compiled regions).
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """``_RotaryPositionEmbedding`` on HPU, eager and compiled.
 
-    Gaudi's fused pairwise RoPE kernel. Not in lazy mode, where the graph
-    compiler fuses the formula itself and the kernel was slower (2.47 -> 2.86 s
-    per train step, 21 channels x 1280 samples, batch 64): None there.
-
-    The formula runs as about ten element-wise ops on float32 copies of the
-    queries and keys (a quarter of a ZUNA block's train-step time at 107,520
-    tokens per batch in eager mode); the kernel does it in one pass, also inside
-    a compiled region. Same float32 arithmetic, so the outputs are identical;
-    the gradient is rounded to the input dtype once instead of once per term.
+    Gaudi's fused pairwise RoPE kernel. The formula runs as about ten
+    element-wise ops on float32 copies of the queries and keys (a quarter of a
+    ZUNA block's train-step time at 107,520 tokens per batch in eager mode);
+    the kernel does it in one pass, also inside a compiled region. Same float32
+    arithmetic, so the outputs are identical; the gradient is rounded to the
+    input dtype once instead of once per term.
     """
-    if not torch.compiler.is_compiling() and _hpu_lazy():
-        return None
     work = torch.promote_types(query.dtype, torch.float32)
     cosine = rotary_cosine.unsqueeze(0).unsqueeze(2)
     # The kernel applies the pair sign itself: pass sin(angle), which is

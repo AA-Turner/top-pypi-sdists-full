@@ -1,5 +1,6 @@
 """Sample parts as `POST /v1/runs/{id}/samples/batch` takes them (twin: app/runs/samples): the body's
-lists checked against the contract (`probe.generated.samples`), turns fitted to it and scrubbed, the 4 KiB log tail
+lists checked against the contract (`probe.generated.samples`), turns and tool definitions fitted to it, turns
+scrubbed, the 4 KiB log tail
 and 1 MiB log cap, the failure reason's one line and the sampling settings, and the send-time gate on the turn capture
 fields (D7)."""
 
@@ -32,6 +33,7 @@ from ....generated.samples import (
     WeightVersionIn,
 )
 from ....generated.samples.task import MAX_TASK_DESCRIPTION_CHARS, MAX_TASK_NAME_CHARS
+from ....generated.samples.turns import MAX_TOOL_DESCRIPTION_CHARS, MAX_TOOL_NAME_CHARS, MAX_TOOLS, MAX_TOOLS_BYTES
 
 
 class BatchList(StrEnum):
@@ -193,6 +195,55 @@ def to_message_tool_call(item: Any) -> dict | None:
     if has_id:
         call["id"] = call_id[:MAX_NAME_CHARS]
     return call
+
+
+def fit_tools(part: dict) -> None:
+    """The part's `tools` (OpenAI's `{type, function: {name, description, parameters}}`, flat, or Anthropic's
+    `input_schema`; dicts or objects) as `ToolDefinition`s: the first `MAX_TOOLS`, then, past `MAX_TOOLS_BYTES`, the
+    last tools' parameters dropped, then the last tools; off the part when none is left. A cut, never a refused part.
+    Each tool is measured once (a list's JSON is its items' plus `[]` and a `, ` between each), so a huge schema costs
+    one dump, not one per cut."""
+    if "tools" not in part:
+        return
+    found = part.pop("tools")
+    tools = [tool for tool in map(to_tool_definition, found if isinstance(found, (list, tuple)) else ())
+             if tool is not None][:MAX_TOOLS]  # fmt: skip
+    sizes = [measure_bytes(tool) for tool in tools]
+    total = sum(sizes) + 2 * len(tools)  # `[]`, plus `, ` between each
+    for index in range(len(tools) - 1, -1, -1):
+        if total <= MAX_TOOLS_BYTES:
+            break
+        if tools[index].pop("parameters", None) is not None:
+            total -= sizes[index]
+            sizes[index] = measure_bytes(tools[index])
+            total += sizes[index]
+    while tools and total > MAX_TOOLS_BYTES:
+        tools.pop()
+        total -= sizes.pop() + 2
+    if tools:
+        part["tools"] = tools
+
+
+def to_tool_definition(item: Any) -> dict | None:
+    """One offered tool as a `ToolDefinition`; None without a name. Parameters that are not plain finite JSON (a
+    NaN, a cycle) are left out rather than costing the part."""
+    function = _get_field(item, "function") or item
+    name = _get_field(function, "name")
+    if not isinstance(name, str) or not name:
+        return None
+    tool: dict[str, Any] = {"name": name[:MAX_TOOL_NAME_CHARS]}
+    description = _get_field(function, "description")
+    if isinstance(description, str) and description:
+        tool["description"] = description[:MAX_TOOL_DESCRIPTION_CHARS]
+    parameters = _get_field(function, "parameters") or _get_field(function, "input_schema")
+    if hasattr(parameters, "model_dump"):
+        parameters = parameters.model_dump()
+    if isinstance(parameters, Mapping):
+        try:
+            tool["parameters"] = json.loads(json.dumps(parameters, default=str, allow_nan=False))
+        except (TypeError, ValueError, RecursionError):
+            pass
+    return tool
 
 
 def fit_trial_file(found: Mapping[str, Any]) -> dict:

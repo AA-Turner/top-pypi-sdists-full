@@ -1,9 +1,8 @@
 """Hold this suite to the files the umbrella sdist carries.
 
-The sdist ships the CLI package, this suite and the root conftest, so a test
-that reads ``docs/``, ``tasks/`` or a sibling workspace fails when the suite is
-run from the unpacked source. Such a test goes on the sdist's exclude list
-instead.
+The sdist ships the CLI package, this suite and its fixtures. Tests that
+need the repository documentation, development tools or sibling packages'
+source trees go on the sdist's exclude list.
 
 The check reads paths built from ``__file__`` by ``.parent``, ``.parents[n]``
 and ``/`` joins. A module that reaches a file some other way is not covered.
@@ -25,6 +24,7 @@ _TESTS = Path(__file__).resolve().parent
 _ROOT = _TESTS.parent
 _MANIFEST = tomli.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 _SDIST = _MANIFEST["tool"]["hatch"]["build"]["targets"]["sdist"]
+_EXCLUDED_MODULES = frozenset(_SDIST["exclude"])
 
 # Stands in for a path component that is not a string literal.
 _UNKNOWN = "*"
@@ -38,7 +38,11 @@ _ALWAYS_SHIPPED = frozenset(
 
 def _suite_modules() -> list[Path]:
     """The Python files that make up the suite, shipped and excluded alike."""
-    return [_ROOT / "conftest.py", *sorted(_TESTS.glob("*.py"))]
+    return [
+        _ROOT / "conftest.py",
+        *sorted((_ROOT / "nab-project/test-support/nab_test_support").rglob("*.py")),
+        *sorted(_TESTS.rglob("*.py")),
+    ]
 
 
 def _as_posix(relative: str, flavour: type[PurePath]) -> str:
@@ -149,7 +153,7 @@ def _is_shipped(relative: str) -> bool:
         return True
 
     parts = PurePosixPath(relative).parts
-    if _UNKNOWN in parts or ".." in parts:
+    if relative in _EXCLUDED_MODULES or _UNKNOWN in parts or ".." in parts:
         return False
 
     for entry in _SDIST["only-include"]:
@@ -177,7 +181,7 @@ def test_modules_reaching_outside_are_exactly_the_excluded_ones() -> None:
             )
         )
     }
-    excluded = set(_SDIST["exclude"]) & {_relative(module) for module in modules}
+    excluded = _EXCLUDED_MODULES.intersection(_relative(module) for module in modules)
 
     assert set(reaching) == excluded, (
         f"reads files the sdist does not carry: {reaching}; "

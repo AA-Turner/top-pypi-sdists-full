@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from hashlib import sha256
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Final, TypedDict
 from zipfile import ZipFile
@@ -195,10 +196,10 @@ def test_pip_install_deps_substitution_cannot_add_line(
 ) -> None:
     monkeypatch.setenv("VERSION", version)
     monkeypatch.delenv("MISSING", raising=False)
-    project: Final = tox_project({**files, "c.txt": ""})
-    execute_calls: Final = project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+    project: Final[ToxProject] = tox_project({**files, "c.txt": ""})
+    execute_calls: Final[MockType] = project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
 
-    result: Final = project.run("r", "-e", "py")
+    result: Final[ToxRunOutcome] = project.run("r", "-e", "py")
 
     result.assert_failed()
     assert message in result.out
@@ -216,10 +217,10 @@ def test_pip_install_constraints_substitution_cannot_add_line(
     tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch, files: dict[str, str]
 ) -> None:
     monkeypatch.setenv("C", "c.txt\nd")
-    project: Final = tox_project({**files, "c.txt": "", "d.txt": ""})
-    execute_calls: Final = project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+    project: Final[ToxProject] = tox_project({**files, "c.txt": "", "d.txt": ""})
+    execute_calls: Final[MockType] = project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
 
-    result: Final = project.run("r", "-e", "py")
+    result: Final[ToxRunOutcome] = project.run("r", "-e", "py")
 
     result.assert_failed()
     assert "a substitution within a requirement cannot add a line break" in result.out
@@ -331,7 +332,7 @@ def test_pip_install_deps_override_cannot_add_line(
     namespace: str,
 ) -> None:
     monkeypatch.setenv("VERSION", "1\n--pre")
-    result: Final = tox_project({filename: content}).run(
+    result: Final[ToxRunOutcome] = tox_project({filename: content}).run(
         "c", "-e", "py", "-k", "deps", "-x", f"{namespace}.deps+=a=={{env:VERSION}}"
     )
     result.assert_failed()
@@ -347,13 +348,13 @@ def test_pip_install_deps_override_cannot_add_line(
 )
 @pytest.mark.skipif(os.name == "nt", reason="Windows file names cannot contain line breaks or trailing backslashes")
 def test_pip_install_globbed_requirement_cannot_add_line(tox_project: ToxProjectCreator, name: str) -> None:
-    project: Final = tox_project({
+    project: Final[ToxProject] = tox_project({
         "tox.toml": '[env_run_base]\npackage="skip"\ndeps=[{replace="glob",pattern="wheelhouse/*",extend=true}]',
     })
-    wheelhouse: Final = project.path / "wheelhouse"
+    wheelhouse: Final[Path] = project.path / "wheelhouse"
     wheelhouse.mkdir()
     (wheelhouse / name).write_text("")
-    result: Final = project.run("c", "-e", "py", "-k", "deps")
+    result: Final[ToxRunOutcome] = project.run("c", "-e", "py", "-k", "deps")
     result.assert_failed()
     assert "a globbed requirement path cannot contain a line break or end in a backslash" in result.out
 
@@ -362,7 +363,7 @@ def test_pip_install_substitution_keeps_internal_backslash(
     tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DEP_PATH", ".\\")
-    result: Final = tox_project({"tox.ini": "[testenv]\npackage=skip\ndeps=-r {env:DEP_PATH}a.txt"}).run(
+    result: Final[ToxRunOutcome] = tox_project({"tox.ini": "[testenv]\npackage=skip\ndeps=-r {env:DEP_PATH}a.txt"}).run(
         "c", "-e", "py", "-k", "deps"
     )
 
@@ -390,7 +391,7 @@ def test_pip_install_whole_substitution_can_supply_requirements(
     tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch, files: dict[str, str], expected: list[str]
 ) -> None:
     monkeypatch.setenv("EXTRA_DEPS", "a\nb")
-    result: Final = tox_project(files).run("c", "-e", "py", "-k", "deps")
+    result: Final[ToxRunOutcome] = tox_project(files).run("c", "-e", "py", "-k", "deps")
     result.assert_success()
     assert result.env_conf("py")["deps"].as_root_args == expected
 
@@ -1047,6 +1048,60 @@ def test_pip_install_requirements_file_deps(tox_project: ToxProjectCreator) -> N
 
 
 @pytest.fixture
+def hashed_wheel_project(tox_project: ToxProjectCreator) -> ToxProject:
+    return tox_project({
+        "tox.ini": """
+            [testenv]
+            package = skip
+            deps = -r requirements.txt
+            commands = python -c 'from demo_pkg_inline import do; do()'
+        """,
+    })
+
+
+@pytest.mark.parametrize(
+    ("digest_suffix", "exit_code", "output"),
+    [
+        pytest.param(b"", 0, "greetings from demo_pkg_inline", id="matching-digest"),
+        pytest.param(b"other content", 1, "DO NOT MATCH THE HASHES", id="mismatched-digest"),
+    ],
+)
+def test_pip_install_requirements_file_hash_case(
+    hashed_wheel_project: ToxProject, demo_pkg_inline_wheel: Path, digest_suffix: bytes, exit_code: int, output: str
+) -> None:
+    digest = sha256(demo_pkg_inline_wheel.read_bytes() + digest_suffix).hexdigest().upper()
+    (hashed_wheel_project.path / "requirements.txt").write_text(
+        f"--no-index\n{demo_pkg_inline_wheel.as_uri()} --hash=sha256:{digest}\n", encoding="utf-8"
+    )
+
+    result = hashed_wheel_project.run("r")
+
+    assert result.code == exit_code, result
+    assert output in result.out + result.err, result
+
+
+def test_pip_install_reuses_env_when_only_digest_case_changes(
+    hashed_wheel_project: ToxProject, demo_pkg_inline_wheel: Path
+) -> None:
+    digest = sha256(demo_pkg_inline_wheel.read_bytes()).hexdigest()
+    assert digest != digest.upper()
+    requirement = f"--no-index\n{demo_pkg_inline_wheel.as_uri()} --hash=sha256:"
+    requirements = hashed_wheel_project.path / "requirements.txt"
+    requirements.write_text(f"{requirement}{digest}\n", encoding="utf-8")
+    original = hashed_wheel_project.run("r")
+    original.assert_success()
+    marker = original.state.envs["py"].env_dir / "marker"
+    marker.touch()
+
+    requirements.write_text(f"{requirement}{digest.upper()}\n", encoding="utf-8")
+    result = hashed_wheel_project.run("r")
+
+    result.assert_success()
+    assert marker.is_file(), result
+    assert "install_deps>" not in result.out, result
+
+
+@pytest.fixture
 def secret_requirements_project(tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch) -> ToxProject:
     monkeypatch.setenv("PYPI_TOKEN", "magic-one")
     return tox_project({
@@ -1059,10 +1114,10 @@ def secret_requirements_project(tox_project: ToxProjectCreator, monkeypatch: pyt
 def test_pip_install_requirements_file_secret_cache(secret_requirements_project: ToxProject) -> None:
     secret_requirements_project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
 
-    result: Final = secret_requirements_project.run("r")
+    result: Final[ToxRunOutcome] = secret_requirements_project.run("r")
 
     result.assert_success()
-    cache: Final = (secret_requirements_project.path / ".tox" / "py" / ".tox-info.json").read_text()
+    cache: Final[str] = (secret_requirements_project.path / ".tox" / "py" / ".tox-info.json").read_text()
     assert "magic-one" not in cache
     assert "https://ci:*********@host/" in cache
 
@@ -1070,7 +1125,7 @@ def test_pip_install_requirements_file_secret_cache(secret_requirements_project:
 def test_pip_install_requirements_file_token_rotation(
     secret_requirements_project: ToxProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    execute_calls: Final = secret_requirements_project.patch_execute(
+    execute_calls: Final[MockType] = secret_requirements_project.patch_execute(
         lambda request: 0 if "install" in request.run_id else None
     )
     secret_requirements_project.run("r").assert_success()
@@ -1087,13 +1142,13 @@ def test_pip_install_legacy_secret_cache_migration(
 ) -> None:
     secret_requirements_project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
     secret_requirements_project.run("r").assert_success()
-    cache: Final = secret_requirements_project.path / ".tox" / "py" / ".tox-info.json"
-    old_cache: Final = json.loads(cache.read_text())
+    cache: Final[Path] = secret_requirements_project.path / ".tox" / "py" / ".tox-info.json"
+    old_cache: Final[dict[str, dict[str, dict[str, JsonValue]]]] = json.loads(cache.read_text())
     old_cache["PythonRun"]["deps"].pop("redaction_format")
     cache.write_text(json.dumps(old_cache).replace("*********", "legacy-secret"))
     monkeypatch.setenv("PYPI_TOKEN", "magic-two")
 
-    result: Final = secret_requirements_project.run("r")
+    result: Final[ToxRunOutcome] = secret_requirements_project.run("r")
 
     result.assert_success()
     assert "recreate env because install cache format changed" in result.out
@@ -1105,10 +1160,10 @@ def test_pip_install_legacy_secret_cache_migration(
 def test_pip_install_secret_recreate_warning(secret_requirements_project: ToxProject, name: str) -> None:
     secret_requirements_project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
     secret_requirements_project.run("r").assert_success()
-    path: Final = secret_requirements_project.path / name
+    path: Final[Path] = secret_requirements_project.path / name
     path.write_text(path.read_text().replace("@host", "@other"))
 
-    result: Final = secret_requirements_project.run("r")
+    result: Final[ToxRunOutcome] = secret_requirements_project.run("r")
 
     result.assert_success()
     assert "recreate env because " in result.out
@@ -1119,7 +1174,7 @@ def test_pip_install_secret_recreate_warning(secret_requirements_project: ToxPro
 def test_constrain_package_deps_keeps_secret_env_var(
     tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    project: Final = tox_project({
+    project: Final[ToxProject] = tox_project({
         "tox.ini": "[testenv]\ndeps=-r r.txt\nskip_install=true\nconstrain_package_deps=true\npass_env=PYPI_TOKEN",
         "r.txt": "https://ci:${PYPI_TOKEN}@host/a.whl\n-c c.txt",
         "c.txt": "b<2",
@@ -1127,7 +1182,7 @@ def test_constrain_package_deps_keeps_secret_env_var(
     project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
     monkeypatch.setenv("PYPI_TOKEN", "magic")
 
-    result: Final = project.run("r")
+    result: Final[ToxRunOutcome] = project.run("r")
 
     result.assert_success()
     assert (project.path / ".tox" / "py" / "constraints.txt").read_text() == "https://ci:magic@host/a.whl\nb<2"
@@ -1152,12 +1207,12 @@ def test_pip_install_missing_nested_file_redacts_secret(
     expected: str,
 ) -> None:
     monkeypatch.setenv("PYPI_TOKEN", "magic")
-    project: Final = tox_project({
+    project: Final[ToxProject] = tox_project({
         "tox.ini": f"[testenv]\npackage=skip\npass_env=PYPI_TOKEN\n{field}={value}",
         "requirements.txt": nested,
     })
 
-    result: Final = project.run("r")
+    result: Final[ToxRunOutcome] = project.run("r")
 
     result.assert_failed()
     assert expected in result.out

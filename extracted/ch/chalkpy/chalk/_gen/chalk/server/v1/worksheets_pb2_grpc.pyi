@@ -26,6 +26,8 @@ from chalk._gen.chalk.server.v1.worksheets_pb2 import (
     GetWorksheetRunResponse,
     ListWorksheetCommitsRequest,
     ListWorksheetCommitsResponse,
+    ListWorksheetExecutionTimesRequest,
+    ListWorksheetExecutionTimesResponse,
     ListWorksheetNodesRequest,
     ListWorksheetNodesResponse,
     ListWorksheetRunsRequest,
@@ -71,6 +73,10 @@ class WorksheetsServiceStub:
     ListWorksheetNodes: UnaryUnaryMultiCallable[
         ListWorksheetNodesRequest,
         ListWorksheetNodesResponse,
+    ]
+    ListWorksheetExecutionTimes: UnaryUnaryMultiCallable[
+        ListWorksheetExecutionTimesRequest,
+        ListWorksheetExecutionTimesResponse,
     ]
     CreateWorksheetNode: UnaryUnaryMultiCallable[
         CreateWorksheetNodeRequest,
@@ -158,6 +164,12 @@ class WorksheetsServiceServicer(metaclass=ABCMeta):
         request: ListWorksheetNodesRequest,
         context: ServicerContext,
     ) -> ListWorksheetNodesResponse: ...
+    @abstractmethod
+    def ListWorksheetExecutionTimes(
+        self,
+        request: ListWorksheetExecutionTimesRequest,
+        context: ServicerContext,
+    ) -> ListWorksheetExecutionTimesResponse: ...
     @abstractmethod
     def CreateWorksheetNode(
         self,

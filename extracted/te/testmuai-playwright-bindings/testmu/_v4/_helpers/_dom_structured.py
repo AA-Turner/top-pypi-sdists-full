@@ -102,6 +102,12 @@ class StructuredDom:
 
     text: str
     index_to_backend_id: dict[int, int]
+    # Set by capture_structured_dom when it attaches iframe content: a node inside
+    # an iframe is keyed by a negative id in index_to_backend_id, mapped here to
+    # (its frame id, its real backend node id); frame_captures is the frame forest
+    # that frame id belongs to. Both empty for a page without iframes.
+    frame_nodes: dict[int, tuple[str, int]] = field(default_factory=dict)
+    frame_captures: list = field(default_factory=list)
 
 
 def build_structured_dom(root: AxNode) -> StructuredDom:
@@ -273,6 +279,26 @@ async def capture_structured_dom(page) -> StructuredDom | None:
     derive is_visible/in_viewport → AxNode tree → build_structured_dom. Returns
     None if the tree is empty or capture fails.
     """
+    from testmu._v4._helpers._perception import perception_for
+    return await perception_for(page).structured_dom()
+
+
+async def _capture_structured_dom_portable(page) -> StructuredDom | None:
+    """Portable aria-snapshot tree (no boxes, so no viewport filter — like a
+    whole-page capture); el(i) indices map to portable handles."""
+    from testmu._aria_perception._snapshot import PlaywrightInternalsError
+    from testmu._v4._helpers.aria_perception import capture_tree_portable
+    try:
+        tree = await capture_tree_portable(page)
+        return build_structured_dom(tree) if tree is not None else None
+    except PlaywrightInternalsError:
+        raise
+    except Exception as e:  # noqa: BLE001
+        _log.warning("[dom_structured] portable capture failed: %s", e)
+        return None
+
+
+async def _capture_structured_dom_cdp(page) -> StructuredDom | None:
     vp = page.viewport_size or {}
     vw = vp.get("width")
     vh = vp.get("height")
@@ -336,9 +362,65 @@ async def capture_structured_dom(page) -> StructuredDom | None:
 
             root = next((n for n in nodes if not n.get("parentId")), nodes[0])
             tree = _parse_node(root, by_id, vw, vh)
-            return build_structured_dom(tree)
         finally:
             await cdp.detach()
+        frame_nodes, frame_captures = await _attach_frames(page, tree, vw, vh)
+        structured = build_structured_dom(tree)
+        structured.frame_nodes = frame_nodes
+        structured.frame_captures = frame_captures
+        return structured
     except Exception as e:  # noqa: BLE001
         _log.warning("[dom_structured] capture failed: %s", e)
         return None
+
+
+async def _attach_frames(
+    page, root: AxNode, vw: float, vh: float,
+) -> tuple[dict[int, tuple[str, int]], list]:
+    """Put each iframe's own tree under its ``iframe`` node, in place.
+
+    ``getFullAXTree`` without a frame id returns the main frame only, so an app
+    inside an iframe is one empty ``iframe`` row. The frames come from
+    ``capture_frame_forest`` (the capture the click heal uses: nested and
+    out-of-process frames, hidden frames skipped). A node inside a frame gets a
+    negative id, mapped in the returned dict to (frame id, real backend node id),
+    since backend ids of an out-of-process frame can repeat the page's. Never raises.
+    """
+    try:
+        if len(page.frames) <= 1:
+            return {}, []
+        from testmu._v4._helpers.ax_tree import capture_frame_forest
+
+        forest = await capture_frame_forest(page, viewport_width=vw, viewport_height=vh)
+    except Exception as e:  # noqa: BLE001
+        _log.warning("[dom_structured] frame capture failed: %s", e)
+        return {}, []
+    frame_nodes: dict[int, tuple[str, int]] = {}
+
+    def attach(tree: AxNode, captures: list) -> None:
+        by_owner = {
+            fc.owner_backend_node_id: fc for fc in captures
+            if fc.tree is not None and fc.owner_backend_node_id is not None
+        }
+        if not by_owner:
+            return
+        stack = [tree]
+        while stack:
+            node = stack.pop()
+            fc = by_owner.get(node.backend_dom_node_id)
+            if fc is None or (node.role or "").strip().lower() != "iframe":
+                stack.extend(node.children)
+                continue
+            attach(fc.tree, fc.children)
+            remap = [fc.tree]
+            while remap:
+                n = remap.pop()
+                if n.backend_dom_node_id is not None and n.backend_dom_node_id > 0:
+                    key = -(len(frame_nodes) + 1)
+                    frame_nodes[key] = (fc.frame_id, n.backend_dom_node_id)
+                    n.backend_dom_node_id = key
+                remap.extend(n.children)
+            node.children = list(node.children) + [fc.tree]
+
+    attach(root, forest.frame_captures)
+    return frame_nodes, forest.frame_captures

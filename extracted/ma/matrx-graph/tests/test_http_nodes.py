@@ -96,8 +96,8 @@ async def test_get_captures_transport_error():
     # Transport failure → node Failure with the structured NodeError.
     assert out.status == "error"
     assert out.error.code == "http_transport_error"
-    assert "ConnectError" in out.error.message
-    assert out.error.details["url"] == "https://example.com"
+    assert "connect" in out.error.message.lower()
+    assert set(out.error.details) == {"elapsed_ms"}
 
 
 async def test_get_truncates_oversize_body():
@@ -257,7 +257,7 @@ async def test_graphql_transport_error_captured():
 
     assert out.status == "error"
     assert out.error.code == "http_transport_error"
-    assert "Timeout" in out.error.message
+    assert "timed out" in out.error.message.lower()
 
 
 async def test_graphql_variables_and_operation_name_are_sent():
@@ -288,3 +288,105 @@ async def test_graphql_variables_and_operation_name_are_sent():
 
 # Silence the patch target not being available outside test context
 _ = pytest
+
+
+@pytest.mark.parametrize("node", ["get", "post", "custom", "graphql"])
+@pytest.mark.parametrize("error_type", [httpx.ConnectError, httpx.ReadTimeout, RuntimeError])
+async def test_failure_does_not_expose_request_or_transport_exception(node, error_type):
+    from matrx_graph.nodes.http.custom_api import CustomApiConfig, CustomApiExecutor, CustomApiInput
+
+    def handler(_request):
+        raise error_type("private-exception-marker")
+
+    url = "https://example.com/?private-url-marker"
+    with _install_mock(handler):
+        if node == "get":
+            out = await HttpGetExecutor().execute(None, HttpGetInput(url=url), HttpGetConfig())
+        elif node == "post":
+            out = await HttpPostExecutor().execute(None, HttpPostInput(url=url), HttpPostConfig())
+        elif node == "custom":
+            out = await CustomApiExecutor().execute(None, CustomApiInput(url=url), CustomApiConfig(max_retries=0))
+        else:
+            out = await HttpGraphQLExecutor().execute(None, GraphQLInput(endpoint=url, query="{ x }"), GraphQLConfig())
+    assert out.status == "error"
+    assert out.error.code == "http_transport_error"
+    assert "marker" not in str(out)
+    assert set(out.error.details) == {"elapsed_ms"}
+    expected = {httpx.ConnectError: "connect", httpx.ReadTimeout: "timed out", RuntimeError: "failed"}
+    assert expected[error_type] in out.error.message.lower()
+
+
+async def test_graphql_invalid_json_failure_does_not_expose_endpoint_or_response():
+    with _install_mock(lambda _request: httpx.Response(503, text="private-response-marker")):
+        out = await HttpGraphQLExecutor().execute(
+            None, GraphQLInput(endpoint="https://example.com/?private-url-marker", query="{ x }"), GraphQLConfig()
+        )
+    assert out.status == "error"
+    assert out.error.code == "invalid_json_response"
+    assert "marker" not in str(out)
+    assert out.error.details["status"] == 503
+    assert set(out.error.details) == {"elapsed_ms", "status"}
+
+
+@pytest.mark.parametrize("node", ["get", "post", "custom", "graphql"])
+async def test_untrusted_refusal_exception_does_not_expose_its_text(node):
+    from matrx_graph.nodes.http.custom_api import CustomApiConfig, CustomApiExecutor, CustomApiInput
+    from matrx_utils.outbound_guard import OutboundUrlRefused
+
+    def handler(_request):
+        raise OutboundUrlRefused("private-exception-marker")
+
+    url = "https://example.com/?private-url-marker"
+    with _install_mock(handler):
+        if node == "get":
+            out = await HttpGetExecutor().execute(None, HttpGetInput(url=url), HttpGetConfig())
+        elif node == "post":
+            out = await HttpPostExecutor().execute(None, HttpPostInput(url=url), HttpPostConfig())
+        elif node == "custom":
+            out = await CustomApiExecutor().execute(None, CustomApiInput(url=url), CustomApiConfig(max_retries=0))
+        else:
+            out = await HttpGraphQLExecutor().execute(None, GraphQLInput(endpoint=url, query="{ x }"), GraphQLConfig())
+    assert out.status == "error"
+    assert out.error.code == "outbound_address_refused"
+    assert "marker" not in str(out)
+    assert set(out.error.details) == {"elapsed_ms"}
+
+
+@pytest.mark.parametrize("body", [[], None])
+async def test_graphql_non_object_json_is_typed_failure(body):
+    with _install_mock(lambda _request: httpx.Response(200, json=body)):
+        out = await HttpGraphQLExecutor().execute(
+            None, GraphQLInput(endpoint="https://example.com/?private-url-marker", query="{ x }"), GraphQLConfig()
+        )
+    assert out.status == "error"
+    assert out.error.code == "invalid_json_response"
+    assert out.error.details["status"] == 200
+    assert "marker" not in str(out)
+
+
+@pytest.mark.parametrize("body", [
+    {"errors": ["private-response-marker"]},
+    {"errors": "private-response-marker"},
+    {"extensions": "private-response-marker"},
+])
+async def test_graphql_malformed_fields_return_sanitized_failure(body):
+    with _install_mock(lambda _request: httpx.Response(200, json=body)):
+        out = await HttpGraphQLExecutor().execute(
+            None, GraphQLInput(endpoint="https://example.com/?private-url-marker", query="{ x }"), GraphQLConfig()
+        )
+    assert out.status == "error"
+    assert out.error.code == "invalid_json_response"
+    assert out.error.details["status"] == 200
+    assert set(out.error.details) == {"status", "elapsed_ms"}
+    assert "marker" not in str(out)
+
+
+async def test_graphql_falsey_optional_fields_remain_valid():
+    with _install_mock(lambda _request: httpx.Response(200, json={"data": {"ready": True}, "errors": None, "extensions": None})):
+        out = await HttpGraphQLExecutor().execute(
+            None, GraphQLInput(endpoint="https://example.com/graphql", query="{ ready }"), GraphQLConfig()
+        )
+    assert out.status == "success"
+    assert out.result.data == {"ready": True}
+    assert out.result.errors == []
+    assert out.result.extensions == {}

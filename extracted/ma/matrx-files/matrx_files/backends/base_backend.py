@@ -154,6 +154,36 @@ class StorageBackend(ABC):
             f"{self.__class__.__name__} cannot atomically tag ephemeral writes"
         )
 
+    def write_ephemeral_file(
+        self,
+        path: str,
+        local_path: str,
+        *,
+        policy: EphemeralObjectPolicy,
+        content_type: str | None = None,
+    ) -> bool:
+        """Stream a local file into row-less scratch with the policy's lifecycle tags (never read into memory)."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} cannot atomically tag ephemeral writes"
+        )
+
+    async def write_ephemeral_file_async(
+        self,
+        path: str,
+        local_path: str,
+        *,
+        policy: EphemeralObjectPolicy,
+        content_type: str | None = None,
+    ) -> bool:
+        """Async version of :meth:`write_ephemeral_file`."""
+        import asyncio
+        from functools import partial
+
+        fn = partial(
+            self.write_ephemeral_file, path, local_path, policy=policy, content_type=content_type
+        )
+        return await asyncio.get_running_loop().run_in_executor(None, fn)
+
     async def write_ephemeral_async(
         self,
         path: str,
@@ -187,10 +217,32 @@ class StorageBackend(ABC):
         return len(content)
 
     async def download_to_path_async(self, path: str, local_path: str) -> int:
-        """Async version of :meth:`download_to_path`."""
+        """Download without leaving a worker writing after cancellation returns."""
         import asyncio
+        import contextvars
+        from functools import partial
 
-        return await asyncio.to_thread(self.download_to_path, path, local_path)
+        context = contextvars.copy_context()
+        download = partial(self.download_to_path, path, local_path)
+        transfer = asyncio.get_running_loop().run_in_executor(None, context.run, download)
+        try:
+            return await asyncio.shield(transfer)
+        except asyncio.CancelledError as cancellation:
+            # A thread cannot be cancelled: keep ownership of the destination
+            # until it finishes, even if the caller cancels us repeatedly.
+            while not transfer.done():
+                try:
+                    await asyncio.shield(transfer)
+                except asyncio.CancelledError:
+                    continue
+                except BaseException:
+                    break
+            # Consume any transfer failure without replacing the caller's cancellation.
+            try:
+                transfer.result()
+            except BaseException:
+                pass
+            raise cancellation
 
     # ------------------------------------------------------------------
     # Listing WITH metadata (not abstract — a backend that can't report

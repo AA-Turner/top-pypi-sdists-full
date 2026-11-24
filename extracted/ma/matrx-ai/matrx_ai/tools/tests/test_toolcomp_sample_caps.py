@@ -21,6 +21,21 @@ class _SampleModel:
         return SimpleNamespace(_fields=values, **values)
 
 
+@pytest.fixture(autouse=True)
+def _runs_in_a_person_session(monkeypatch):
+    """toolcomp reads run in the caller's RLS session (person_session.acts_as_the_person);
+    these unit tests hold a pass-through session."""
+    import contextlib
+
+    from matrx_ai import _ext
+
+    @contextlib.asynccontextmanager
+    async def _session(_ctx=None):
+        yield
+
+    monkeypatch.setitem(_ext._registry, "acting_as_caller", _session)
+
+
 @pytest.mark.asyncio
 async def test_full_sample_events_are_paged_and_field_bounded(monkeypatch) -> None:
     monkeypatch.setattr(tool_component, "get_db_model", lambda _name: _SampleModel)
@@ -32,7 +47,7 @@ async def test_full_sample_events_are_paged_and_field_bounded(monkeypatch) -> No
             "event_offset": 10,
             "event_limit": 10,
         },
-        SimpleNamespace(),
+        SimpleNamespace(call_id="call-1"),
     )
 
     assert result.success is True

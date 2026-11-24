@@ -9,7 +9,7 @@ import logging
 from typing import Callable, Coroutine, Optional
 
 from .reflector_agent import run_reflector
-from .types import ModelConfig, ReflectionConfig, ReflectorResult
+from .types import ReflectionConfig, ReflectorResult
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,6 @@ class ReflectorRunner:
         """
         Slice a piece off the oldest observations and reflect them in the background.
         """
-        import asyncio
         lines = observations.split("\n")
         # Take the top half of lines for reflection (oldest)
         lines_to_reflect = lines[:len(lines)//2]

@@ -11,16 +11,11 @@ import requests
 from django.core.management.base import BaseCommand
 from django.db import models
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
-
 # AA Killstats
-from killstats import USER_AGENT_TEXT, __title__
+from killstats import USER_AGENT_TEXT
 from killstats.helpers.killmailbody import KillmailBody
 from killstats.models.killboard import Killmail
-from killstats.providers import AppLogger, esi
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
+from killstats.providers import esi, logger
 
 
 class Command(BaseCommand):

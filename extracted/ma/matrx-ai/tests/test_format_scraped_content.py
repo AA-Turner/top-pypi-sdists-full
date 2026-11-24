@@ -10,11 +10,11 @@ from a live ``scraper.scrape_many`` result.
 from __future__ import annotations
 
 import pytest
-
 from matrx_ai.graph_nodes.util_action import (
     FormatScrapedContentInput,
     ai_util_format_scraped_content,
 )
+from matrx_graph.actions import run_as_step
 
 
 def page(**overrides):
@@ -32,7 +32,7 @@ def page(**overrides):
 
 
 async def run(**kwargs):
-    return await ai_util_format_scraped_content(None, FormatScrapedContentInput(**kwargs))
+    return await run_as_step(ai_util_format_scraped_content, None, FormatScrapedContentInput(**kwargs))
 
 
 @pytest.mark.asyncio
@@ -107,4 +107,5 @@ async def test_no_pages_at_all_is_not_a_failure() -> None:
 @pytest.mark.asyncio
 async def test_each_page_is_capped() -> None:
     result = await run(values=[page(text="x" * 5000)], max_chars_per_page=100)
-    assert len(result.result.formatted_text) == 100
+    # The cap holds and the cut is said (the marker line), never a silent chop.
+    assert result.result.formatted_text == "x" * 100 + "\n[Page capped: 100 of 5,000 characters kept]"

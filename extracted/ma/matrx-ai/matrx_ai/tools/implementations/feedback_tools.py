@@ -54,6 +54,7 @@ _DEDUP_MAX_AGE_DAYS = 30
 
 
 _ADMIN_ERR = ToolError(
+    refusal=True,
     error_type="not_allowed",
     message=(
         "report_trace_incident / get_open_trace_incidents are admin tools: "
@@ -205,6 +206,7 @@ async def report_trace_incident(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation", message="tool_name is required"
             ),
         )
@@ -212,6 +214,7 @@ async def report_trace_incident(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="err_msg_normalised is required",
             ),
@@ -277,10 +280,10 @@ async def report_trace_incident(
     # attribution for the row.
     try:
         user_id = ctx.user_id
-    except Exception:
+    except Exception as exc:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type="configuration",
                 message="ctx.user_id unavailable; cannot attribute row",
             ),
@@ -295,6 +298,7 @@ async def report_trace_incident(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="configuration",
                 message="ctx.organization_id unavailable; cannot attribute row",
             ),
@@ -373,6 +377,8 @@ async def report_trace_incident(
     # ── Fresh insert ──────────────────────────────────────────────────
     row = {
         "user_id": user_id,
+        # The owner arm of every read reads created_by, and a server write has no session to stamp it.
+        "created_by": user_id,
         "organization_id": organization_id,
         "feedback_type": "bug",
         "route": f"tool:{tool_name}",
@@ -477,7 +483,7 @@ async def get_open_trace_incidents(
     except Exception as e:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="database", message=str(e)),
+            error=ToolError.declared(exc=e, error_type="database", message=str(e)),
         )
 
     return ToolResult(

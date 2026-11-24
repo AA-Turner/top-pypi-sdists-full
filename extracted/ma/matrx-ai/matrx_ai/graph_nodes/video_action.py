@@ -25,7 +25,12 @@ from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
 )
-from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage, failed_turn_failure
+from matrx_ai.graph_nodes.shared import (
+    AiUsage,
+    _extract_usage,
+    failed_turn_failure,
+    no_media_reason,
+)
 
 
 class GenerateVideoInput(BaseModel):
@@ -139,7 +144,7 @@ def _shape_video_blocks(response: Any) -> list[GeneratedVideo]:
     and is replayed days later, and a signed URL is a handoff, never a record.
     Durability is decided by the ONE classifier (``matrx_files``).
     """
-    from matrx_files import is_durable_media_url
+    from matrx_files import is_durable_media_url, is_public_media_url
 
     from matrx_ai.config.media_config import VideoContent
 
@@ -159,7 +164,7 @@ def _shape_video_blocks(response: Any) -> list[GeneratedVideo]:
                         file_id=block.file_id,
                         path=metadata.get("path"),
                         url=url,
-                        cdn_url=url,
+                        cdn_url=url if is_public_media_url(url) else None,
                         mime_type=block.mime_type,
                         duration_seconds=duration,
                     )
@@ -312,13 +317,16 @@ async def _run_video_action(
         if not videos:
             # Paid call with no artifact — fail with the billed usage in
             # details so the scheduler's cost settlement records the spend.
+            reason, why = no_media_reason(completed, requested_model=inputs.model)
             return failure(
                 "generation_failed",
-                f"ai.{video_action}_video: provider returned no videos for model '{inputs.model}'.",
+                f"ai.{video_action}_video: provider returned no videos for model '{inputs.model}'"
+                + (f": {reason}." if reason else "."),
                 details={
                     "model": inputs.model,
                     "video_action": video_action,
                     "usage": _extract_usage(usage_raw).model_dump(mode="json"),
+                    **why,
                 },
             )
 

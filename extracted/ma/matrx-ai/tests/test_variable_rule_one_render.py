@@ -78,7 +78,7 @@ def _toggle(labels: list[str] | None = None) -> dict[str, AgentVariable]:
     cc: dict = {"type": "toggle"}
     if labels:
         cc["toggleValues"] = labels
-    return {"flag": AgentVariable(name="flag", default_value=None, custom_component=cc)}
+    return {"flag": AgentVariable(declaration={"name": "flag", "defaultValue": None, "customComponent": cc})}
 
 
 @pytest.mark.parametrize(
@@ -101,10 +101,10 @@ def test_w06_a_toggle_off_label_empties_its_section_but_still_fills_its_slot(
 
 
 DEFINITIONS = {
-    "a": AgentVariable(name="a", default_value="DEF-A"),
-    "b": AgentVariable(name="b", default_value=None),
-    "c": AgentVariable(name="c", default_value=["x", "y"]),
-    "d": AgentVariable(name="d", default_value="DEF-D"),
+    "a": AgentVariable(declaration={"name": "a", "defaultValue": "DEF-A"}),
+    "b": AgentVariable(declaration={"name": "b", "defaultValue": None}),
+    "c": AgentVariable(declaration={"name": "c", "defaultValue": ["x", "y"]}),
+    "d": AgentVariable(declaration={"name": "d", "defaultValue": "DEF-D"}),
 }
 DOORS_AUTHORED = "a=[{{a}}] b=[{{b}}] c=[{{c}}] d=[{{d}}] e=[{{e}}]"
 
@@ -135,7 +135,7 @@ def test_w03_programmatic_and_route_doors_compose_identically(client, expected) 
 
 
 def test_w07_an_agent_with_no_values_still_turns_the_escape_into_braces() -> None:
-    agent = Agent(config=_config("Write {{!name}} and {{other}}."), variable_defaults={"name": AgentVariable(name="name")})
+    agent = Agent(config=_config("Write {{!name}} and {{other}}."), variable_defaults={"name": AgentVariable(declaration={"name": "name"})})
     agent.apply_variables()
     assert _system_and_user(agent.config) == ("Write {{name}} and {{other}}.",) * 2
 
@@ -150,5 +150,5 @@ def test_w07_an_undeclared_escape_becomes_its_token() -> None:
 
 def test_w13_a_spaced_token_is_not_a_declared_slot() -> None:
     config = _config("Hi {{ name }} and {{name}}.")
-    config.replace_variables(compose_variable_values({"name": AgentVariable(name="name")}, {"name": "Ada"}))
+    config.replace_variables(compose_variable_values({"name": AgentVariable(declaration={"name": "name"})}, {"name": "Ada"}))
     assert _system_and_user(config) == ("Hi {{ name }} and Ada.",) * 2

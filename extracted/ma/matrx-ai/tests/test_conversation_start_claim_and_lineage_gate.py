@@ -31,7 +31,10 @@ async def _create(monkeypatch, **kwargs):
     monkeypatch.setattr(gate, "_get_coordinator", lambda: _Coordinator())
     monkeypatch.setattr(gate, "_cxm", lambda: SimpleNamespace(conversation=_Conversation()))
     monkeypatch.setattr(gate, "_queue_conversation_create", lambda **kw: queued.append(kw))
-    monkeypatch.setattr(gate, "stamp_org_id", lambda *_a, **_k: None)
+    # The gate refuses a conversation with no organization; this run carries one.
+    monkeypatch.setattr(
+        gate, "stamp_org_id", lambda row, _org: row.setdefault("organization_id", "55555555-5555-4555-8555-555555555555")
+    )
     monkeypatch.setattr(gate, "resolve_parent_conversation_lineage", _no_parent)
     gate._known_conversation_ids.clear()
     await gate.create_new_conversation(str(uuid4()), str(uuid4()), **kwargs)

@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1 import date_pb2 as sentry__protos_dot_billing_dot_v1_dot_date__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n`sentry_protos/billing/v1/services/seer_feature_billing/v1/endpoint_get_seer_wallet_balance.proto\x12\x39sentry_protos.billing.v1.services.seer_feature_billing.v1\x1a#sentry_protos/billing/v1/date.proto\"6\n\x1bGetSeerWalletBalanceRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\"\xd0\x01\n\nSeerWallet\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12\x17\n\x0f\x62\x61lance_credits\x18\x02 \x01(\x03\x12\x14\n\x0c\x63redit_price\x18\x03 \x01(\x04\x12\x18\n\x10included_credits\x18\x04 \x01(\x04\x12\x1d\n\x15included_credits_used\x18\x05 \x01(\x04\x12\x37\n\nexpires_at\x18\x06 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateH\x00\x88\x01\x01\x42\r\n\x0b_expires_at\"\x85\x01\n\x1cGetSeerWalletBalanceResponse\x12Z\n\x06wallet\x18\x01 \x01(\x0b\x32\x45.sentry_protos.billing.v1.services.seer_feature_billing.v1.SeerWalletH\x00\x88\x01\x01\x42\t\n\x07_walletb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n`sentry_protos/billing/v1/services/seer_feature_billing/v1/endpoint_get_seer_wallet_balance.proto\x12\x39sentry_protos.billing.v1.services.seer_feature_billing.v1\x1a#sentry_protos/billing/v1/date.proto\"6\n\x1bGetSeerWalletBalanceRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\"\xec\x01\n\nSeerWallet\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12\x17\n\x0f\x62\x61lance_credits\x18\x02 \x01(\x03\x12\x14\n\x0c\x63redit_price\x18\x03 \x01(\x04\x12\x18\n\x10included_credits\x18\x04 \x01(\x04\x12\x1d\n\x15included_credits_used\x18\x05 \x01(\x04\x12\x37\n\nexpires_at\x18\x06 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateH\x00\x88\x01\x01\x12\x1a\n\x12\x63redits_used_today\x18\x07 \x01(\x04\x42\r\n\x0b_expires_at\"\x85\x01\n\x1cGetSeerWalletBalanceResponse\x12Z\n\x06wallet\x18\x01 \x01(\x0b\x32\x45.sentry_protos.billing.v1.services.seer_feature_billing.v1.SeerWalletH\x00\x88\x01\x01\x42\t\n\x07_walletb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,7 +35,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETSEERWALLETBALANCEREQUEST']._serialized_start=196
   _globals['_GETSEERWALLETBALANCEREQUEST']._serialized_end=250
   _globals['_SEERWALLET']._serialized_start=253
-  _globals['_SEERWALLET']._serialized_end=461
-  _globals['_GETSEERWALLETBALANCERESPONSE']._serialized_start=464
-  _globals['_GETSEERWALLETBALANCERESPONSE']._serialized_end=597
+  _globals['_SEERWALLET']._serialized_end=489
+  _globals['_GETSEERWALLETBALANCERESPONSE']._serialized_start=492
+  _globals['_GETSEERWALLETBALANCERESPONSE']._serialized_end=625
 # @@protoc_insertion_point(module_scope)

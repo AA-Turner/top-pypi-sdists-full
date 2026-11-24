@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: emailable
-Version: 3.1.0
+Version: 3.2.0
 Summary: This is the official python wrapper for the Emailable API.
 Home-page: https://github.com/emailable/emailable-python
 Author: Emailable
@@ -11,7 +11,6 @@ Project-URL: Documentation, https://emailable.com/docs/api?python
 Project-URL: Source Code, https://github.com/emailable/emailable-python
 Keywords: emailable email verification
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
@@ -35,13 +34,12 @@ Dynamic: summary
 
 [![Version](https://img.shields.io/pypi/v/emailable.svg)](https://pypi.org/project/emailable/)
 ![Build Status](https://github.com/emailable/emailable-python/actions/workflows/ci.yml/badge.svg)
-[![Maintainability](https://api.codeclimate.com/v1/badges/dcb962c96795974051fc/maintainability)](https://codeclimate.com/github/emailable/emailable-python/maintainability)
 
 This is the official python wrapper for the Emailable API.
 
 ## Documentation
 
-See the [Python API docs](https://emailable.com/docs/api/?python).
+See the [Python API docs](https://emailable.com/docs/api/?code_language=python).
 
 ## Installation
 
@@ -72,6 +70,21 @@ client.verify(api_key='your_api_key')
 # set access_token at request time
 client.verify(access_token='your_access_token')
 ```
+
+### Timeouts
+
+By default, the client waits up to 30 seconds to connect and up to 60 seconds
+for the server to send data before raising `emailable.ClientError`. The read
+timeout applies to each wait between bytes, not to the whole response. Both
+must be positive numbers of seconds. To change them for every client:
+
+```python
+emailable.Client.open_timeout = 10
+emailable.Client.read_timeout = 45
+```
+
+The read timeout is separate from the `timeout` argument to `verify`, which
+tells the API how long to spend verifying before returning a 249 response.
 
 ### Verification
 
@@ -152,6 +165,13 @@ Tests can be run with the following command:
 ```shell
 pytest
 ```
+
+## Cutting a Release
+
+Run `make release VERSION=x.y.z` on an up to date `master` with a clean tree,
+then `git push --follow-tags`. It runs the tests, bumps `VERSION`, commits,
+and tags `x.y.z`. Pushing the tag triggers the release workflow, which
+publishes to PyPI and creates the GitHub release.
 
 ## Contributing
 

@@ -5,7 +5,7 @@ import subprocess
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,11 +14,19 @@ from pygitguardian.config import DOCUMENT_SIZE_THRESHOLD_BYTES, MAXIMUM_PAYLOAD_
 from pygitguardian.models import MCPActivityResponse, MultiScanResult
 from pygitguardian.models import ScanResult as ApiScanResult
 
+from ggshield.core.config.auth_config import AccountConfig, AuthConfig, InstanceConfig
+from ggshield.core.config.token_store import (
+    KEYRING_SENTINEL,
+    KeystoreError,
+    KeystoreFailure,
+)
 from ggshield.core.config.user_config import SecretConfig
+from ggshield.core.errors import AuthError
 from ggshield.core.filter import init_exclusion_regexes
 from ggshield.core.scan import File, ScanContext, ScanMode, StringScannable
 from ggshield.utils.git_shell import Filemode
 from ggshield.verticals.ai.agents import (
+    AGENTS,
     Agent,
     Claude,
     Codex,
@@ -27,6 +35,7 @@ from ggshield.verticals.ai.agents import (
     Vibe,
     VSCode,
 )
+from ggshield.verticals.ai.agents.claude_code import redact
 from ggshield.verticals.ai.cache import (
     _verdict_cache_path,
     has_clean_verdict,
@@ -34,6 +43,9 @@ from ggshield.verticals.ai.cache import (
 )
 from ggshield.verticals.ai.hooks import (
     AIHookScanner,
+    UnrecognizedAgentError,
+    _cannot_scan_warning,
+    _false_positive_block,
     _send_desktop_notification,
     build_agent_headers,
     find_filepaths,
@@ -76,6 +88,7 @@ def _mock_scanner(
     matches: List[str],
     secret_config: Optional[SecretConfig] = None,
     ignored_secrets_count_by_kind: Optional[Counter] = None,
+    validity: str = "valid",
 ) -> MagicMock:
     """Create a mock SecretScanner that returns the given Results from scan()."""
     mock = MagicMock(spec=SecretScanner)
@@ -98,7 +111,9 @@ def _mock_scanner(
                     filemode=Filemode.FILE,
                     path=Path("."),
                     url=first.url,
-                    secrets=[_make_secret(match) for match in matches],
+                    secrets=[
+                        _make_secret(match, validity=validity) for match in matches
+                    ],
                     ignored_secrets_count_by_kind=(
                         ignored_secrets_count_by_kind or Counter()
                     ),
@@ -115,6 +130,7 @@ def _make_secret(
     match_str: str = "***",
     known_secret: bool = False,
     incident_url: Optional[str] = None,
+    validity: str = "valid",
 ):
     """Minimal Secret for tests; _message_from_secrets only uses
     detector_display_name, validity, matches[].match, matches[].match_type,
@@ -129,7 +145,7 @@ def _make_secret(
         detector_name="dummy-detector",
         detector_group_name=None,
         documentation_url=None,
-        validity="valid",
+        validity=validity,
         known_secret=known_secret,
         incident_url=incident_url,
         matches=[mock_match],
@@ -181,6 +197,28 @@ class TestAIHookScannerScanContent:
         assert "dummy-detector" in result.message
         assert "secret" in result.message.lower()
         assert "remove the secret from your prompt" in result.message
+
+    def test_a_secret_reported_twice_is_listed_and_counted_once(self):
+        """
+        GIVEN a document where the scan reports the same secret twice, plus another
+        WHEN the event is scanned
+        THEN the repeat is listed once and counted once.
+        """
+        hook_scanner = AIHookScanner(
+            _mock_scanner(["sk-same-value", "sk-same-value", "sk-other-value"])
+        )
+        payload = HookPayload(
+            event_type=EventType.POST_TOOL_USE,
+            tool=Tool.OTHER,
+            content="sk-same-value sk-same-value sk-other-value",
+            identifier="id",
+            agent=Cursor(),
+            raw={},
+        )
+        result = hook_scanner._scan_content(payload)
+        assert result.nbr_secrets == 2
+        assert "Detected 2 secrets" in result.message
+        assert result.message.count("dummy-detector") == 2
 
 
 class TestVerdictCacheShortCircuit:
@@ -785,6 +823,41 @@ class TestAIHookScannerScan:
         assert scanner.scan(content) == 0
         mock_scanner.scan.assert_called_once()
 
+    def test_a_failed_scan_is_not_remembered_as_seen(self):
+        """
+        GIVEN a payload whose scan raises, as when the API is unreachable
+        WHEN the identical payload comes again
+        THEN it is scanned again rather than waved through as a duplicate, so
+             `ai_hook_failure_policy` answers the retry too
+        """
+        mock_scanner = _mock_scanner([])
+        mock_scanner.scan.side_effect = ConnectionError("server unreachable")
+        scanner = AIHookScanner(mock_scanner)
+        content = json.dumps(
+            {
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "hello world",
+                "transcript_path": "/home/user/.claude/projects/foo/session.jsonl",
+                "cursor_version": "1.2.3",
+            }
+        )
+        for _ in range(2):
+            with pytest.raises(ConnectionError):
+                scanner.scan(content)
+        assert mock_scanner.scan.call_count == 2
+
+    def test_an_unrecognized_agent_is_not_remembered_as_seen(self):
+        """
+        GIVEN a payload from no known agent
+        WHEN the identical payload comes again
+        THEN it is rejected again rather than waved through as a duplicate
+        """
+        scanner = AIHookScanner(_mock_scanner([]))
+        content = json.dumps({"hook_event_name": "somethingElse", "prompt": "hi"})
+        for _ in range(2):
+            with pytest.raises(UnrecognizedAgentError):
+                scanner.scan(content)
+
     @patch("ggshield.verticals.ai.hooks.AIHookScanner._send_secret_notification")
     def test_scan_post_tool_use_with_secrets_sends_notification(
         self, mock_notify: MagicMock
@@ -805,6 +878,99 @@ class TestAIHookScannerScan:
         result = mock_notify.call_args[0][0]
         assert result.nbr_secrets == 1  # nbr_secrets
         assert result.payload.tool == Tool.BASH  # tool
+
+    @pytest.mark.parametrize(
+        "validity, notified", [("unknown", True), ("valid", False)]
+    )
+    @patch("ggshield.verticals.ai.hooks.AIHookScanner._send_secret_notification")
+    def test_scan_blocked_prompt_notifies_only_when_there_is_a_hint(
+        self, mock_notify: MagicMock, validity: str, notified: bool
+    ):
+        """On an event without a user-only field (VS Code drops systemMessage on
+        a blocked prompt), a block that leaked nothing raises a banner for the
+        false-positive hint, and none for a valid secret."""
+        scanner = AIHookScanner(_mock_scanner(["sk-xxx"], validity=validity))
+        data = {
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "transcript_path": (
+                "/home/user1/.config/Code/User/workspaceStorage/"
+                "abc123/GitHub.copilot-chat/transcripts/69cc6a03.jsonl"
+            ),
+            "prompt": "my key is sk-xxx",
+            "cwd": "/home/user1/foo",
+        }
+        scanner.scan(json.dumps(data))
+        assert mock_notify.called is notified
+        if notified:
+            assert mock_notify.call_args.kwargs == {"leaked": False}
+
+    @pytest.mark.parametrize("tool_name", ["Edit", "Write"])
+    @patch("ggshield.verticals.ai.agents.claude_code.click.echo")
+    @patch("ggshield.verticals.ai.hooks.AIHookScanner._send_secret_notification")
+    def test_scan_claude_file_change_is_redacted_without_blocking(
+        self, mock_notify: MagicMock, mock_echo: MagicMock, tool_name: str
+    ):
+        """
+        GIVEN a secret in the output of a Claude Code Edit or Write, which the
+        model never receives
+        WHEN scan() runs
+        THEN the agent is not blocked, no desktop notification is raised, the
+        user is told through systemMessage, and the stored output is the real
+        one with the secret replaced everywhere.
+        """
+        tool_response = {
+            "filePath": "/repo/lib/linear.ts",
+            "originalFile": "const KEY = 'sk-xxx';\nlet typo;\n",
+            "structuredPatch": [
+                {"lines": [" const KEY = 'sk-xxx';", "-let typo;", "+let fixed;"]}
+            ],
+            "userModified": False,
+        }
+        data = {
+            "hook_event_name": "PostToolUse",
+            "tool_name": tool_name,
+            "tool_input": {"file_path": "/repo/lib/linear.ts"},
+            "tool_response": tool_response,
+            "transcript_path": "/home/user/.claude/projects/foo/session.jsonl",
+            "session_id": "427ae0c5-0862-4e14-aa2c-12fad909c323",
+        }
+        scanner = AIHookScanner(_mock_scanner(["sk-xxx"], validity="unknown"))
+        code = scanner.scan(json.dumps(data))
+
+        assert code == 0
+        mock_notify.assert_not_called()
+        out = json.loads(mock_echo.call_args[0][0])
+        assert out["continue"] is True
+        assert "decision" not in out
+        assert "Detected 1 secret in /repo/lib/linear.ts" in out["systemMessage"]
+        assert "removed from the transcript" in out["systemMessage"]
+        assert "exposed" not in out["systemMessage"]
+        # The message only the user reads ends with the false-positive hint.
+        assert "\n\n> If this is a false positive, run:" in out["systemMessage"]
+        assert "- match:" in out["systemMessage"]
+        redacted = out["hookSpecificOutput"]["updatedToolOutput"]
+        assert redacted == json.loads(
+            json.dumps(tool_response).replace("sk-xxx", "[redacted by ggshield]")
+        )
+
+    def test_claude_redacts_a_multi_line_secret_from_the_diff_lines(self):
+        """
+        GIVEN a multi-line secret, matched JSON-escaped and spread over diff lines
+        WHEN the Edit output is redacted
+        THEN no line of it survives, and the lines around it do.
+        """
+        key = "-----BEGIN FAKE KEY-----\nAAAAfakefake\n-----END FAKE KEY-----"
+        output = {
+            "originalFile": f"before\n{key}\nafter\n",
+            "structuredPatch": [
+                {"lines": [f" {line}" for line in key.split("\n")] + ["+after"]}
+            ],
+        }
+        redacted = json.dumps(redact(output, [json.dumps(key)[1:-1]]))
+        for line in key.split("\n"):
+            assert line not in redacted
+        assert "+after" in redacted
 
     @patch("ggshield.verticals.ai.hooks._send_desktop_notification")
     def test_scan_post_tool_use_notifier_failure_still_emits_block(
@@ -1294,26 +1460,204 @@ class TestMessageFromSecrets:
             (EventType.OTHER, None),
         ],
     )
-    def test_message_always_ends_with_false_positive_block(
+    def test_message_always_ends_with_agent_instructions(
         self, event_type: EventType, tool: Optional[Tool]
     ):
-        """Every message ends with the false positive escape hatch, and with the
-        `ignored_matches` entry it would write."""
+        """Every message ends with the instructions to the agent, and a valid
+        secret comes with no false-positive hint at all."""
         payload = self._payload(event_type=event_type, tool=tool)
-        secret = _make_secret("sk-xxx")
-        message = AIHookScanner._message_from_secrets([secret], payload)
-        assert "    ggshield secret ignore --last-found" in message
-        assert "> If this is a false positive, run:" in message
-        assert message.endswith(f"    - match: {secret.get_ignore_sha()}")
-
-    def test_false_positive_block_is_plural_for_several_secrets(self):
-        """The false positive block says "these are false positives" when
-        several secrets were detected."""
-        payload = self._payload(event_type=EventType.USER_PROMPT, tool=None)
-        message = AIHookScanner._message_from_secrets(
-            [_make_secret("sk-xxx"), _make_secret("sk-yyy")], payload
+        message = AIHookScanner._message_from_secrets([_make_secret("sk-xxx")], payload)
+        assert "false positive" not in message
+        assert "secret ignore" not in message
+        assert message.endswith(
+            "do not suggest disabling or uninstalling the GitGuardian hook."
         )
-        assert "> If these are false positives, run:" in message
+
+    @pytest.mark.parametrize("agent", [Claude(), Copilot()], ids=["claude", "copilot"])
+    def test_a_valid_secret_in_another_document_withholds_last_found(
+        self, agent: Agent
+    ):
+        """A prompt with an unchecked secret that mentions a file holding a valid
+        one: `--last-found` would ignore both, so neither hint offers it, while
+        the unchecked secret's entry is still given."""
+        payloads = [
+            HookPayload(
+                event_type=EventType.PRE_TOOL_USE,
+                tool=Tool.BASH,
+                content=content,
+                identifier=content,
+                agent=agent,
+                raw={},
+            )
+            for content in ("echo first", "echo second")
+        ]
+        unchecked = _make_secret("sk-unknown", validity="unknown")
+        mock_scanner = _mock_scanner([])
+        mock_scanner.scan.side_effect = None
+        mock_scanner.scan.return_value = Results(
+            results=[
+                ScanResult(
+                    filename=payload.scannable.filename,
+                    filemode=Filemode.FILE,
+                    path=Path("."),
+                    url=payload.scannable.url,
+                    secrets=[secret],
+                    ignored_secrets_count_by_kind=Counter(),
+                )
+                for payload, secret in zip(
+                    payloads, [unchecked, _make_secret("sk-valid", validity="valid")]
+                )
+            ],
+            errors=[],
+        )
+        first, _ = AIHookScanner(mock_scanner)._scan_contents(payloads)
+
+        assert first.block
+        hint = first.user_message or first.notification_hint
+        assert "do not run" in hint or "--last-found" not in hint
+        if isinstance(agent, Claude):
+            assert first.user_message.endswith(
+                f"    - match: {unchecked.get_ignore_sha()}"
+            )
+        else:
+            assert first.notification_hint.startswith(
+                "If this is a false positive, do not run ggshield secret ignore "
+                "--last-found"
+            )
+
+    @pytest.mark.parametrize("agent", list(AGENTS.values()), ids=list(AGENTS))
+    @pytest.mark.parametrize(
+        "event_type",
+        [EventType.USER_PROMPT, EventType.PRE_TOOL_USE, EventType.POST_TOOL_USE],
+    )
+    @pytest.mark.parametrize(
+        "validities, notification",
+        [
+            (["valid"], ""),
+            (
+                ["unknown"],
+                "If this is a false positive, run: ggshield secret ignore --last-found",
+            ),
+            (
+                ["valid", "no_checker"],
+                "If the secret not marked valid is a false positive, do not run "
+                "ggshield secret ignore --last-found: it would also ignore any "
+                "secret marked valid.",
+            ),
+        ],
+    )
+    def test_every_agent_keeps_the_hint_from_the_model_and_gives_it_to_the_user(
+        self,
+        agent: Agent,
+        event_type: EventType,
+        validities: List[str],
+        notification: str,
+    ):
+        """The model text carries the instructions and no false-positive hint;
+        the user gets the hint in the user-only field where the event has one,
+        in the notification otherwise, and nowhere for a valid secret."""
+        payload = HookPayload(
+            event_type=event_type,
+            tool=Tool.BASH,
+            content="content",
+            identifier="echo x",
+            agent=agent,
+            raw={},
+        )
+        mock_scanner = _mock_scanner([])
+        mock_scanner.scan.side_effect = None
+        mock_scanner.scan.return_value = Results(
+            results=[
+                ScanResult(
+                    filename=payload.scannable.filename,
+                    filemode=Filemode.FILE,
+                    path=Path("."),
+                    url=payload.scannable.url,
+                    secrets=[_make_secret(f"sk-{v}", validity=v) for v in validities],
+                    ignored_secrets_count_by_kind=Counter(),
+                )
+            ],
+            errors=[],
+        )
+        (result,) = AIHookScanner(mock_scanner)._scan_contents([payload])
+
+        assert result.block
+        for leak in ("false positive", "secret ignore", "ignored_matches", "- match:"):
+            assert leak not in result.message
+        assert "> Instructions for the AI agent" in result.message
+        assert result.message.endswith(
+            "do not suggest disabling or uninstalling the GitGuardian hook."
+        )
+        if agent.has_user_only_channel(event_type):
+            assert result.notification_hint == ""
+            assert bool(result.user_message) == bool(notification)
+        else:
+            assert result.user_message == ""
+            assert result.notification_hint.startswith(notification)
+            assert bool(result.notification_hint) == bool(notification)
+
+    @patch("ggshield.verticals.ai.hooks._send_desktop_notification")
+    def test_a_blocked_tool_call_raises_the_hint_in_a_notification(
+        self, mock_send: MagicMock
+    ):
+        """On an agent without a user-only field, a block that leaked nothing
+        still raises a banner, because it is the only way to reach the user."""
+        result = HookResult(
+            block=True,
+            message="",
+            nbr_secrets=1,
+            payload=self._payload(),
+            notification_hint="If this is a false positive, run: x",
+        )
+        AIHookScanner._send_secret_notification(result, leaked=False)
+        assert mock_send.call_args.args == (
+            "ggshield blocked 1 secret in Cursor",
+            "If this is a false positive, run: x",
+        )
+
+    def test_claude_sends_the_false_positive_hint_to_the_user_only(self):
+        """On Claude Code the hint goes to systemMessage, for the unchecked
+        secrets only, and the model text carries no way to ignore them."""
+        valid = _make_secret("sk-valid")
+        unchecked = _make_secret("sk-unchecked", validity="unknown")
+        payload = HookPayload(
+            event_type=EventType.PRE_TOOL_USE,
+            tool=Tool.BASH,
+            content="content",
+            identifier="id",
+            agent=Claude(),
+            raw={},
+        )
+        cases = [
+            ([valid], ""),
+            (
+                [unchecked],
+                "> If this is a false positive, run:\n\n"
+                "    ggshield secret ignore --last-found",
+            ),
+            (
+                [valid, unchecked],
+                "> If the secret not marked valid is a false positive, "
+                "add to secret.ignored_matches",
+            ),
+        ]
+        for secrets, hint in cases:
+            message = AIHookScanner._message_from_secrets(
+                secrets, payload, escape_markdown=True
+            )
+            for leak in ("secret ignore", "ignored_matches", "- match:", "handling"):
+                assert leak not in message
+            assert "> Instructions for the AI agent" in message
+
+            user_message = _false_positive_block(secrets)
+            assert user_message.startswith(hint)
+            if hint:
+                assert user_message.endswith(
+                    f"    - match: {unchecked.get_ignore_sha()}"
+                )
+                assert user_message.count("- match:") == 1
+            else:
+                assert user_message == ""
 
 
 class TestSendSecretNotification:
@@ -1472,6 +1816,85 @@ class TestAIHookScannerParseInput:
         assert payload.tool is None
         assert payload.identifier != ""
         assert isinstance(payload.agent, Cursor)
+
+    @pytest.mark.parametrize(
+        "data, agent_class, status",
+        [
+            pytest.param(
+                {
+                    "session_id": "s",
+                    "turn_id": "t",
+                    "cwd": "/p",
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "apply_patch",
+                    "tool_input": {
+                        "command": "*** Begin Patch\n*** Update File: /p/creds.py\n"
+                        "@@\n KEY = 'sk-in-file'\n-a = 1\n+a = 2\n*** End Patch"
+                    },
+                    "tool_response": "Exit code: 0\nOutput:\nSuccess. Updated the following files:\nM /p/creds.py\n",
+                },
+                Codex,
+                "Exit code: 0\nOutput:\nSuccess. Updated the following files:\nM /p/creds.py\n",
+                id="codex-apply_patch",
+            ),
+            pytest.param(
+                {
+                    "hook_event_name": "PostToolUse",
+                    "session_id": "s",
+                    "timestamp": "2026-11-23T09:21:03.487Z",
+                    "cwd": "/p",
+                    "tool_name": "Edit",
+                    "tool_input": "*** Begin Patch\n*** Update File: creds.py\n"
+                    "@@\n KEY = 'sk-in-file'\n-a = 1\n+a = 2\n*** End Patch\n",
+                    "tool_result": {
+                        "result_type": "success",
+                        "text_result_for_llm": "Modified 1 file(s): /p/creds.py",
+                    },
+                },
+                Copilot,
+                json.dumps(
+                    {
+                        "result_type": "success",
+                        "text_result_for_llm": "Modified 1 file(s): /p/creds.py",
+                    }
+                ),
+                id="copilot-edit",
+            ),
+            pytest.param(
+                {
+                    "cwd": "/p",
+                    "hook_event_name": "post_tool",
+                    "tool_name": "file_system.search_replace",
+                    "tool_input": {
+                        "content": [{"new_str": "a = 2", "old_str": "a = 1"}],
+                        "file_path": "./creds.py",
+                    },
+                    "tool_status": "success",
+                    "tool_output": {"file": "/p/creds.py", "lines_changed": 1},
+                    "tool_output_text": "file: /p/creds.py\nlines_changed: 1",
+                    "tool_error": None,
+                },
+                Vibe,
+                json.dumps({"file": "/p/creds.py", "lines_changed": 1}),
+                id="vibe-search_replace",
+            ),
+        ],
+    )
+    def test_an_edit_on_the_other_agents_scans_only_its_status_line(
+        self, data: Dict[str, Any], agent_class: type, status: str
+    ):
+        """
+        GIVEN a file edit as Codex 0.170, Copilot CLI 1.0.104 and Vibe 2.25.1 sent
+        it, on a file that holds a secret
+        WHEN it is parsed
+        THEN the scanned content is the status line the model gets, and it is not
+        a file change to redact.
+        """
+        (payload,) = parse_hook_input(json.dumps(data))
+        assert isinstance(payload.agent, agent_class)
+        assert payload.content == status
+        assert "sk-in-file" not in payload.content
+        assert not payload.agent.is_file_change(payload)
 
     def test_cursor_pre_tool_use_shell(self):
         """Test Cursor preToolUse with Shell (bash) parsing."""
@@ -1906,6 +2329,49 @@ class TestAIHookScannerParseInput:
         assert "user1" in payload.content
         assert isinstance(payload.agent, Copilot)
 
+    @pytest.mark.parametrize(
+        "extra",
+        [
+            pytest.param(
+                {"hook_event_name": "UserPromptSubmit", "prompt": "hello world"},
+                id="user_prompt",
+            ),
+            pytest.param(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "bash",
+                    "tool_input": {"command": "whoami"},
+                    "tool_use_id": "toolu_01",
+                },
+                id="pre_tool_use",
+            ),
+            pytest.param(
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "bash",
+                    "tool_input": {"command": "whoami"},
+                    "tool_result": {
+                        "result_type": "success",
+                        "text_result_for_llm": "user1",
+                    },
+                    "tool_use_id": "toolu_01",
+                },
+                id="post_tool_use",
+            ),
+        ],
+    )
+    def test_copilot_desktop_app_payloads(self, extra: Dict[str, Any]):
+        """The Copilot desktop app (1.4.2) adds `tool_use_id` to tool events,
+        which must not stop it being recognized as Copilot."""
+        data = {
+            "cwd": "/home/user1/foo",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "timestamp": "2026-11-16T10:00:00.000Z",
+            **extra,
+        }
+        payload = parse_hook_input(json.dumps(data))[-1]
+        assert isinstance(payload.agent, Copilot)
+
     def test_raises_if_no_agent_recognized(self):
         """Test raises if no agent can be recognized."""
         data = {
@@ -2075,6 +2541,43 @@ class TestAIHookScannerParseInput:
         payload = parse_hook_input(json.dumps(data))[0]
 
         assert isinstance(payload.agent, Vibe)
+
+    def test_cursor_wins_over_claude_when_project_is_named_claude(self):
+        """Cursor mangles the project path into its transcript path, so a
+        project called claude-tools must still be answered as Cursor."""
+        data = {
+            "conversation_id": "75fed8a8-2078-4e49-80d2-776b20d441c3",
+            "session_id": "75fed8a8-2078-4e49-80d2-776b20d441c3",
+            "cursor_version": "2.5.25",
+            "workspace_roots": ["/home/user1/claude-tools"],
+            "transcript_path": (
+                "/home/user1/.cursor/projects/home-user1-claude-tools/"
+                "agent-transcripts/75fed8a8/75fed8a8.jsonl"
+            ),
+            "hook_event_name": "preToolUse",
+            "tool_name": "Shell",
+            "tool_input": {"command": "whoami"},
+        }
+
+        payload = parse_hook_input(json.dumps(data))[0]
+
+        assert isinstance(payload.agent, Cursor)
+
+    def test_claude_with_relocated_config_dir(self):
+        """CLAUDE_CONFIG_DIR can put Claude Code's transcripts under a path
+        that does not say "claude"."""
+        data = {
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "transcript_path": "/workspace/.config/cc/projects/foo/3b7ae0c5.jsonl",
+            "cwd": "/workspace/foo",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "whoami"},
+        }
+
+        payload = parse_hook_input(json.dumps(data))[0]
+
+        assert isinstance(payload.agent, Claude)
 
     def test_pre_tool_use_read_with_missing_file(self):
         """PRE_TOOL_USE with tool_name 'read' and non-existing file yields empty content."""
@@ -2352,6 +2855,58 @@ class TestFlavorOutputResult:
         assert (
             out["hookSpecificOutput"]["permissionDecisionReason"] == "Secrets in file"
         )
+
+    def test_user_only_channels_match_each_agent(self):
+        """The agents and events whose block has a field the model never reads:
+        Codex answers Other on stderr, VS Code aborts a blocked prompt before
+        showing systemMessage, Vibe drops system_message on pre_tool and Cursor
+        cannot block a PostToolUse."""
+        channels = {
+            (name, event_type)
+            for name, agent in AGENTS.items()
+            for event_type in EventType
+            if agent.has_user_only_channel(event_type)
+        }
+        claude = {("claude-code", event_type) for event_type in EventType}
+        assert channels == claude | {
+            ("codex", EventType.USER_PROMPT),
+            ("codex", EventType.PRE_TOOL_USE),
+            ("codex", EventType.POST_TOOL_USE),
+            ("cursor", EventType.USER_PROMPT),
+            ("cursor", EventType.PRE_TOOL_USE),
+            ("vscode", EventType.PRE_TOOL_USE),
+            ("vscode", EventType.POST_TOOL_USE),
+            ("vibe", EventType.POST_TOOL_USE),
+        }
+
+    @pytest.mark.parametrize("event_type", list(EventType))
+    @pytest.mark.parametrize("agent", list(AGENTS.values()), ids=list(AGENTS))
+    @patch("click.echo")
+    def test_output_result_block_sends_user_message_to_the_user_only(
+        self, mock_echo: MagicMock, agent: Agent, event_type: EventType
+    ):
+        """A block's user_message rides once in the agent's user-only field and
+        never in a field the model reads."""
+        if not agent.has_user_only_channel(event_type):
+            pytest.skip("no user-only field for this event")
+        result = HookResult(
+            block=True,
+            message="Secret",
+            nbr_secrets=1,
+            payload=_dummy_payload(event_type),
+            user_message="for the user",
+        )
+        agent.output_result(result)
+        args, _ = mock_echo.call_args
+        assert args[0].count("for the user") == 1
+        out = json.loads(args[0])
+        if isinstance(agent, Cursor):
+            assert out["user_message"] == "Secret\n\nfor the user"
+            assert out.get("agent_message", "Secret") == "Secret"
+        elif isinstance(agent, Vibe):
+            assert out["system_message"] == "for the user"
+        else:
+            assert out["systemMessage"] == "for the user"
 
     @patch("ggshield.verticals.ai.agents.claude_code.click.echo")
     def test_claude_output_result_user_prompt_block(self, mock_echo: MagicMock):
@@ -3002,3 +3557,86 @@ def test_a_falsy_no_notification_switch_still_notifies(mock_run, monkeypatch, va
     monkeypatch.setenv("GGSHIELD_NO_NOTIFICATION", value)
     _send_desktop_notification("ggshield - Secrets Detected", "a banner appears")
     mock_run.assert_called_once()
+
+
+class TestCannotScanWarning:
+    """The Rust hook gives the same warnings, see rust/common/src/error.rs."""
+
+    @staticmethod
+    def _token_read_error(failure: KeystoreFailure) -> AuthError:
+        url = "https://dashboard.gitguardian.com"
+        account = AccountConfig(
+            workspace_id=1,
+            token=KEYRING_SENTINEL,
+            type="pat",
+            token_name="t",
+            expire_at=None,
+        )
+        auth_config = AuthConfig(instances=[InstanceConfig(account=account, url=url)])
+        store = MagicMock()
+        store.read_token.side_effect = KeystoreError(failure, "SecItemCopyMatching")
+        with patch(
+            "ggshield.core.config.auth_config.get_keystore", return_value=store
+        ), pytest.raises(AuthError) as exc_info:
+            auth_config.get_instance_token(url)
+        return exc_info.value
+
+    @pytest.mark.parametrize(
+        ("platform", "expected"),
+        [
+            (
+                "darwin",
+                "ggshield could not read its token from the macOS Keychain — this "
+                "action was NOT scanned for secrets. The Keychain may be locked, or "
+                "its item may not trust this ggshield binary. Run 'ggshield auth "
+                "login' in a terminal to store the token again.",
+            ),
+            (
+                "linux",
+                "ggshield could not read its token from the Secret Service — this "
+                "action was NOT scanned for secrets. The Secret Service may be "
+                "locked. Run 'ggshield auth login' in a terminal to store the "
+                "token again.",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "failure", [KeystoreFailure.DENIED, KeystoreFailure.UNAVAILABLE]
+    )
+    def test_an_unreadable_token_names_the_credential_store(
+        self, monkeypatch, platform, expected, failure
+    ):
+        """
+        GIVEN a token the credential store refuses to return
+        WHEN the hook builds its warning
+        THEN it names the store and the likely cause, as the Rust hook does
+        """
+        monkeypatch.setattr("sys.platform", platform)
+
+        assert _cannot_scan_warning(self._token_read_error(failure)) == expected
+
+    def test_a_missing_token_says_it_is_not_there(self, monkeypatch):
+        """
+        GIVEN a token marked as stored in the macOS Keychain, with no Keychain item
+        WHEN the hook builds its warning
+        THEN it says the token is missing, as the Rust hook does
+        """
+        monkeypatch.setattr("sys.platform", "darwin")
+
+        assert _cannot_scan_warning(
+            self._token_read_error(KeystoreFailure.NOT_FOUND)
+        ) == (
+            "ggshield's token should be in the macOS Keychain, but it is not there "
+            "— this action was NOT scanned for secrets. Run 'ggshield auth login' "
+            "to store a new one."
+        )
+
+    def test_a_disabled_keystore_keeps_the_authentication_warning(self):
+        """
+        GIVEN a token in the credential store while GGSHIELD_NO_KEYRING is set
+        WHEN the hook builds its warning
+        THEN it gives the authentication warning, as the Rust hook does
+        """
+        warning = _cannot_scan_warning(self._token_read_error(KeystoreFailure.DISABLED))
+
+        assert warning.startswith("ggshield could not authenticate to GitGuardian")

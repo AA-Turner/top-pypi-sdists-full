@@ -67,6 +67,8 @@ class UnifiedConfigModel(BaseModel):
     served_via: ServedVia | None = None
     # This conversation's own instructions (UnifiedConfig.conversation_instructions, L3 one-chat G1).
     conversation_instructions: str | None = None
+    # This conversation's mode, a key of one of the agent's modes (UnifiedConfig.agent_mode).
+    agent_mode: str | None = None
     runtime_offering_id: str | None = None
     prompt_cache_key: str | None = None
     prompt_cache_marks: str | None = None
@@ -85,6 +87,14 @@ class UnifiedConfigModel(BaseModel):
     tool_declarations: dict[str, list[dict[str, Any]]] | None = None
     agent_auto_tools_disabled: bool | None = None
     agent_excluded_tools: list[str] | None = None
+    agent_tool_arg_limits: dict[str, dict[str, list[str]]] | None = None
+    surface_tool_actions: dict[str, list[str] | None] | None = None
+    # The agent's modes ([{key, name, description, instructions}], config/agent_modes.py).
+    agent_modes: list[dict[str, str]] | None = None
+    # The mode the agent last knew and the person's flip this turn (UnifiedConfig, D17); never stored.
+    agent_mode_known: str | None = None
+    agent_mode_person_set: dict[str, Any] | None = None
+    agent_mode_settled_request: str | None = None
     prompt_blocks: list[str] = Field(default_factory=list)
     prompt_block_creator: str | None = None
     agent_organization_id: str | None = None
@@ -103,6 +113,11 @@ class UnifiedConfigModel(BaseModel):
     responder_mandate_key: str | None = None
     held_prompt: dict[str, Any] | None = None
     model_turn_only_restore: dict[str, Any] | None = None
+    model_swaps_this_turn: list[dict[str, Any]] | None = None
+    # Did the person pick this model (UnifiedConfig.model_picked_by_person); in memory, never stored.
+    model_picked_by_person: bool = False
+    tools_turn_only_restore: dict[str, Any] | None = None
+    stored_route_baseline: dict[str, Any] | None = None
     tool_choice: Optional[Literal['none', 'auto', 'required']] = None  # never populated in 6,485 stored configs
     parallel_tool_calls: bool = True
     skill_injected_tool_ids: list[str] = Field(default_factory=list)

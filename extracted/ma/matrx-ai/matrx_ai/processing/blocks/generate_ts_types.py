@@ -121,7 +121,6 @@ def _model_to_interface(model_class: type, seen: set[str]) -> list[str]:
     Returns the interface definition as a list of strings.
     Also recursively processes referenced models.
     """
-    from pydantic import BaseModel
 
     name = model_class.__name__
     if name in seen:
@@ -167,7 +166,6 @@ def _collect_deps(annotation: Any, seen: set[str], deps: list[str], lines: list[
     """Recursively collect dependency model interfaces."""
     from pydantic import BaseModel
 
-    origin = get_origin(annotation)
     args = get_args(annotation)
 
     if isinstance(annotation, type) and issubclass(annotation, BaseModel):
@@ -192,30 +190,16 @@ def _to_camel_case(snake: str) -> str:
 
 def generate_content_blocks_ts() -> str:
     """Generate the full content-blocks.ts file content."""
-    from pydantic import BaseModel
 
     # Import all models
     from matrx_ai.processing.blocks.models import (
-        FlashcardItem, FlashcardsBlockData,
-        TranscriptSegment, TranscriptBlockData,
-        TaskItem, TasksBlockData,
-        QuizQuestion, QuizBlockData,
-        Slide, SlideTheme, PresentationBlockData,
-        Ingredient, RecipeStep, RecipeBlockData,
-        TimelineEvent, TimelinePeriod, TimelineBlockData,
-        Position, DiagramNode, DiagramEdge, DiagramLayout, DiagramBlockData,
+        CodeBlockData,
+        ConsolidatedReasoningBlockData,
+        DiffBlockData,
+        ImageBlockData,
+        MermaidBlockData,
         TableBlockData,
-        ResearchSection, ResearchBlockData,
-        ResourceItem, ResourceCategory, ResourcesBlockData,
-        ProgressItem, ProgressCategory, ProgressTrackerBlockData,
-        ComparisonCriterion, ComparisonBlockData,
-        TroubleshootingStep, TroubleshootingSolution, TroubleshootingIssue, TroubleshootingBlockData,
-        DecisionNode, DecisionTreeBlockData,
-        MathProblemBlockData,
-        QuestionnaireSection, QuestionnaireBlockData,
-        TextBlockData, CodeBlockData, DiffBlockData,
-        ThinkingBlockData, ReasoningBlockData, ConsolidatedReasoningBlockData,
-        ImageBlockData, VideoBlockData,
+        VideoBlockData,
     )
 
     output: list[str] = []
@@ -272,23 +256,8 @@ def generate_content_blocks_ts() -> str:
     # Generate all model interfaces
     seen: set[str] = set()
     models_to_generate: list[type] = [
-        FlashcardItem, FlashcardsBlockData,
-        TranscriptSegment, TranscriptBlockData,
-        TaskItem, TasksBlockData,
-        QuizQuestion, QuizBlockData,
-        Slide, SlideTheme, PresentationBlockData,
-        Ingredient, RecipeStep, RecipeBlockData,
-        TimelineEvent, TimelinePeriod, TimelineBlockData,
-        Position, DiagramNode, DiagramEdge, DiagramLayout, DiagramBlockData,
         TableBlockData,
-        ResearchSection, ResearchBlockData,
-        ResourceItem, ResourceCategory, ResourcesBlockData,
-        ProgressItem, ProgressCategory, ProgressTrackerBlockData,
-        ComparisonCriterion, ComparisonBlockData,
-        TroubleshootingStep, TroubleshootingSolution, TroubleshootingIssue, TroubleshootingBlockData,
-        DecisionNode, DecisionTreeBlockData,
-        MathProblemBlockData,
-        QuestionnaireSection, QuestionnaireBlockData,
+        MermaidBlockData,
         CodeBlockData, DiffBlockData,
         ConsolidatedReasoningBlockData,
         ImageBlockData, VideoBlockData,
@@ -313,22 +282,7 @@ def generate_content_blocks_ts() -> str:
     output.append("  consolidated_reasoning: ConsolidatedReasoningBlockData;")
     output.append("  image: ImageBlockData;")
     output.append("  video: VideoBlockData;")
-    output.append("  flashcards: FlashcardsBlockData;")
-    output.append("  transcript: TranscriptBlockData;")
-    output.append("  tasks: TasksBlockData;")
-    output.append("  quiz: QuizBlockData;")
-    output.append("  presentation: PresentationBlockData;")
-    output.append("  cooking_recipe: RecipeBlockData;")
-    output.append("  timeline: TimelineBlockData;")
-    output.append("  progress_tracker: ProgressTrackerBlockData;")
-    output.append("  comparison_table: ComparisonBlockData;")
-    output.append("  troubleshooting: TroubleshootingBlockData;")
-    output.append("  resources: ResourcesBlockData;")
-    output.append("  research: ResearchBlockData;")
-    output.append("  decision_tree: DecisionTreeBlockData;")
-    output.append("  diagram: DiagramBlockData;")
-    output.append("  math_problem: MathProblemBlockData;")
-    output.append("  questionnaire: QuestionnaireBlockData;")
+    output.append("  mermaid: MermaidBlockData;")
     output.append("  diff: DiffBlockData;")
     output.append("}")
     output.append("")

@@ -9,6 +9,9 @@ Public surface:
 - ``resolve_vision_class(model, wire_format)`` — resolution helper.
 - ``is_known_vision_class(name)`` — registry membership check.
 - ``reencode_for_vision_class(master_bytes, cls)`` — pure Pillow encoder.
+- ``fit_for_vision_class(master_bytes, cls)`` — fit INSIDE a route's accepted
+  bounds (upright, min/max edge, byte cap) and record where the picture sits,
+  for routes that reject instead of resizing (TypeSafe Jev).
 - ``should_skip_reencode(meta, cls)`` — pass-through guard.
 
 The ``configure()`` entrypoint in ``matrx_ai/__init__.py`` registers a
@@ -17,7 +20,12 @@ so every ``MediaRef.vision_class`` resolves to a real cld_files variant
 without matrx-utils ever importing matrx-ai at module top-level.
 """
 
-from .image_processor import reencode_for_vision_class, should_skip_reencode
+from .image_processor import (
+    FittedImage,
+    fit_for_vision_class,
+    reencode_for_vision_class,
+    should_skip_reencode,
+)
 from .vision_classes import (
     MODEL_TO_VISION_CLASS,
     VISION_API_CLASSES,
@@ -34,6 +42,8 @@ __all__ = [
     "WIRE_FORMAT_DEFAULT_VISION_CLASS",
     "resolve_vision_class",
     "is_known_vision_class",
+    "FittedImage",
+    "fit_for_vision_class",
     "reencode_for_vision_class",
     "should_skip_reencode",
 ]

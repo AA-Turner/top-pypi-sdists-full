@@ -17,6 +17,8 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlparse
 
+from matrx_orm import db_constraint, db_sqlstate
+from matrx_orm.core.transaction import transaction
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -26,6 +28,7 @@ from pydantic import (
     model_validator,
 )
 
+from .external_object_runtime import AdoptionDescriptor, adoption_descriptor, admit_remote, publication_scope
 from .dedup import compute_checksum_stream
 from .derivations import EXTERNAL_OBJECT_CUSTODY_METADATA_KEY
 from .retention import TemporaryFileRetentionPolicy
@@ -259,12 +262,11 @@ async def _stream_and_hash(engine: SyncEngine, storage_uri: str) -> tuple[int, s
     try:
         downloaded = await engine.router.download_to_path_async(storage_uri, temp_name)
 
-        def _hash() -> str:
+        def _hash() -> tuple[str, int]:
             with open(temp_name, "rb") as reader:
-                return compute_checksum_stream(reader)
+                return compute_checksum_stream(reader), os.fstat(reader.fileno()).st_size
 
-        checksum = await asyncio.to_thread(_hash)
-        actual_size = os.path.getsize(temp_name)
+        checksum, actual_size = await asyncio.to_thread(_hash)
         if downloaded != actual_size:
             raise ExternalObjectDriftError(
                 "external object download byte count changed while establishing custody"
@@ -346,11 +348,47 @@ async def _append_receipt(
     )
 
 
+def _validate_replay_candidate(
+    row: dict[str, object],
+    request: ExternalObjectAdoptionRequest,
+    *,
+    source_event_key_hash: str,
+    identity_hash: str,
+    sha256: str,
+    actual_size: int,
+    error_message: str,
+) -> ExternalObjectCustodyEvidence:
+    """Apply the same custody boundary to an existing row and a concurrent winner."""
+    evidence = _custody_from_row(row)
+    if (
+        str(row.get("owner_id") or "") != request.owner_id
+        or row.get("file_path") != request.file_path
+        or str(row.get("organization_id") or "")
+        != str(request.organization_id or row.get("organization_id") or "")
+        or bool(row.get("published_to_web"))
+        # Rows written before the knob default carry the old label; both mean "unstated".
+        or row.get("shown_to") not in (None, "only_me")
+        or row.get("storage_uri") != request.storage_uri
+        or str(row.get("checksum") or "") != sha256
+        or int(row.get("size_bytes") or -1) != actual_size
+        or str(row.get("mime_type") or "").lower() != request.mime_type
+        or evidence.source_kind != request.source_kind
+        or evidence.source_event_key_hash != source_event_key_hash
+        or evidence.object_identity_hash != identity_hash
+        or evidence.sha256 != sha256
+        or evidence.size_bytes != actual_size
+    ):
+        raise ExternalObjectDriftError(error_message)
+    return evidence
+
+
 async def adopt_external_object(
     engine: SyncEngine,
     request: ExternalObjectAdoptionRequest,
     *,
     retention_policy: TemporaryFileRetentionPolicy,
+    operation: object | None = None,
+    descriptor: AdoptionDescriptor | None = None,
 ) -> ExternalObjectAdoptionResult:
     """Index one immutable provider-written S3 object as a personal file.
 
@@ -363,8 +401,16 @@ async def adopt_external_object(
             f"file_path is outside retention policy {retention_policy.name!r}"
         )
 
+    expected_descriptor = adoption_descriptor(request, retention_policy)
+    if descriptor is not None and descriptor != expected_descriptor:
+        raise ExternalObjectMismatchError("adoption descriptor does not match request and policy")
+    descriptor = expected_descriptor
+
+    await admit_remote(engine, request.storage_uri, operation=operation, unit="adopt_head_before", descriptor=descriptor)
     before = await _snapshot_s3(engine, request.storage_uri)
+    await admit_remote(engine, request.storage_uri, operation=operation, unit="adopt_stream", descriptor=descriptor)
     actual_size, sha256 = await _stream_and_hash(engine, request.storage_uri)
+    await admit_remote(engine, request.storage_uri, operation=operation, unit="adopt_head_after", descriptor=descriptor)
     after = await _snapshot_s3(engine, request.storage_uri)
     _validate_object(
         request,
@@ -380,30 +426,36 @@ async def adopt_external_object(
         snapshot=after,
         sha256=sha256,
     )
+    for attempt in range(3):
+        try:
+            async with publication_scope(engine, request.storage_uri, operation=operation, unit="adopt_publication", descriptor=descriptor):
+                async with transaction(database=engine.db._db_name()):
+                    result = await _adopt_database_phase(engine, request, retention_policy, source_event_key_hash, identity_hash, sha256, actual_size)
+            return result
+        except (ExternalObjectError, PermissionError):
+            raise
+        except Exception as exc:
+            retry = db_sqlstate(exc) in {"40001", "40P01"} or (
+                db_sqlstate(exc) == "23505" and (
+                    engine._is_folder_path_unique_violation(exc)
+                    or engine._is_path_unique_violation(exc)
+                    or engine._is_dedup_unique_violation(exc)
+                    or db_constraint(exc) == "uq_cld_files_storage_uri"
+                )
+            )
+            if not retry or attempt == 2:
+                raise
+
+
+async def _adopt_database_phase(engine, request, retention_policy, source_event_key_hash, identity_hash, sha256, actual_size):
     existing = await engine.db.get_file_by_path_async(request.owner_id, request.file_path)
     operation_receipt_id = str(uuid.uuid4())
     if existing is not None:
-        evidence = _custody_from_row(existing)
-        existing_uri = existing.get("storage_uri")
-        if (
-            str(existing.get("owner_id") or "") != request.owner_id
-            or str(existing.get("organization_id") or "")
-            != str(request.organization_id or existing.get("organization_id") or "")
-            or bool(existing.get("published_to_web"))
-            or existing.get("shown_to") != "only_me"
-            or existing_uri != request.storage_uri
-            or str(existing.get("checksum") or "") != sha256
-            or int(existing.get("size_bytes") or -1) != actual_size
-            or str(existing.get("mime_type") or "").lower() != request.mime_type
-            or evidence.source_kind != request.source_kind
-            or evidence.source_event_key_hash != source_event_key_hash
-            or evidence.object_identity_hash != identity_hash
-            or evidence.sha256 != sha256
-            or evidence.size_bytes != actual_size
-        ):
-            raise ExternalObjectDriftError(
-                "idempotent adoption found a canonical row with different custody evidence"
-            )
+        evidence = _validate_replay_candidate(
+            existing, request, source_event_key_hash=source_event_key_hash,
+            identity_hash=identity_hash, sha256=sha256, actual_size=actual_size,
+            error_message="idempotent adoption found a canonical row with different custody evidence",
+        )
         await _append_receipt(
             engine,
             action="file.external_object_adoption_replayed",
@@ -461,29 +513,12 @@ async def adopt_external_object(
         "size_bytes": actual_size,
         "checksum": sha256,
         "published_to_web": False,
-        "shown_to": "only_me",
+        # NULL: the file type's "Shown to" knob, never a hand-written label.
+        "shown_to": None,
         "metadata": metadata,
     }
-    try:
-        row = await engine.db.upsert_file_async(insert_payload)
-        replayed = False
-    except Exception as exc:
-        winner = await engine.db.get_file_by_path_async(request.owner_id, request.file_path)
-        if winner is None:
-            raise
-        winner_evidence = _custody_from_row(winner)
-        if (
-            winner.get("storage_uri") != request.storage_uri
-            or winner_evidence.source_event_key_hash != source_event_key_hash
-            or winner_evidence.object_identity_hash != identity_hash
-        ):
-            raise ExternalObjectDriftError(
-                "concurrent adoption won the path with different custody evidence"
-            ) from exc
-        row = winner
-        evidence = winner_evidence
-        file_id = str(winner["id"])
-        replayed = True
+    row = await engine.db.upsert_file_async(insert_payload)
+    replayed = False
 
     action = (
         "file.external_object_adoption_replayed"
@@ -515,13 +550,16 @@ async def read_external_object_with_receipt(
     *,
     file_id: str,
     user_id: str,
+    operation: object | None = None,
 ) -> ExternalObjectReadResult:
     """Read adopted bytes through the canonical access judge and audit it."""
     row = await engine.get_authorized_record_async(file_id, user_id=user_id, level="read")
     if str(row.get("owner_id") or "") != user_id:
         raise PermissionError("provider-external objects are restricted to their owner")
     evidence = _custody_from_row(row)
-    content = await engine.router.read_async(str(row["storage_uri"]))
+    uri = str(row["storage_uri"])
+    await admit_remote(engine, uri, operation=operation, unit="read_stream", file_id=file_id)
+    content = await engine.router.read_async(uri)
     sha256 = hashlib.sha256(content).hexdigest()
     if (
         sha256 != evidence.sha256
@@ -531,23 +569,24 @@ async def read_external_object_with_receipt(
         raise ExternalObjectDriftError(
             "canonical external object no longer matches its custody evidence"
         )
-    receipt_id = str(uuid.uuid4())
-    await _append_receipt(
-        engine,
-        action="file.external_object_read",
-        owner_id=user_id,
-        organization_id=str(row["organization_id"]),
-        file_id=file_id,
-        receipt_id=receipt_id,
-        evidence=evidence,
-    )
-    return ExternalObjectReadResult(
-        file_id=file_id,
-        content=content,
-        sha256=sha256,
-        size_bytes=len(content),
-        operation_receipt_id=receipt_id,
-    )
+    async with publication_scope(engine, uri, operation=operation, unit="read_publication", file_id=file_id):
+        receipt_id = str(uuid.uuid4())
+        await _append_receipt(
+            engine,
+            action="file.external_object_read",
+            owner_id=user_id,
+            organization_id=str(row["organization_id"]),
+            file_id=file_id,
+            receipt_id=receipt_id,
+            evidence=evidence,
+        )
+        return ExternalObjectReadResult(
+            file_id=file_id,
+            content=content,
+            sha256=sha256,
+            size_bytes=len(content),
+            operation_receipt_id=receipt_id,
+        )
 
 
 async def delete_external_object_with_receipt(
@@ -593,17 +632,20 @@ async def run_external_object_custody_canary(
     request: ExternalObjectAdoptionRequest,
     *,
     retention_policy: TemporaryFileRetentionPolicy,
+    operation: object | None = None,
 ) -> ExternalObjectCustodyCanaryResult:
     """Prove adoption, owner-only read, checksum, governed delete, and audit."""
     adoption = await adopt_external_object(
         engine,
         request,
         retention_policy=retention_policy,
+        operation=operation,
     )
     read = await read_external_object_with_receipt(
         engine,
         file_id=adoption.file_id,
         user_id=request.owner_id,
+        operation=operation,
     )
     deleted = await delete_external_object_with_receipt(
         engine,

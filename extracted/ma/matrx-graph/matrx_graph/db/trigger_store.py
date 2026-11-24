@@ -1,10 +1,9 @@
-"""CRUD + scheduling over workflow.trigger.
+"""CRUD over workflow.trigger, through the host-injected matrx-orm models
+(``configure_db`` + ``db_requirements``).
 
-Everything — including the cron claim — goes through the host-injected
-matrx-orm models (``configure_db`` + ``db_requirements``): the claim rides
-matrx-orm's ``transaction()`` ContextVar so the ``FOR UPDATE SKIP LOCKED``
-SELECT and the per-row ``next_run_at`` advance share one connection/
-transaction, same as a hand-written claim transaction would.
+A cron trigger's CLOCK is not here: this store validates its expression and
+the host schedules it (aidream: one person-owned ``sch_task`` per trigger).
+There is no cron claim and ``next_run_at`` is never written for a cron row.
 """
 
 from __future__ import annotations
@@ -27,7 +26,8 @@ from pydantic import (
 
 from matrx_graph.db._registry import get_model
 
-TriggerKind = Literal["cron", "webhook", "manual", "event"]
+# "schedule": the cadence is the host scheduler's own trigger (interval, one-shot, cron) and that scheduler is its clock.
+TriggerKind = Literal["cron", "webhook", "manual", "event", "schedule"]
 #: A table event source's tenant fence (``TableEventSource.organization_scope``).
 OrganizationScope = Literal["own", "any"]
 
@@ -153,6 +153,83 @@ class StoreEventSource(BaseModel):
     bound_graph_hash: str | None = None
 
 
+OfficeEvent = Literal["sheet.range_changed", "document.saved", "live_table.record_changed"]
+#: The store event a ``live_table.record_changed`` source becomes (the tab's table, any record change).
+LIVE_TABLE_STORE_EVENT = "record.updated"
+
+
+class OfficeEventSource(BaseModel):
+    """kind='event' config, ``source='office'`` arm — a change to a workbook or a document (office W11).
+
+    ``sheet.range_changed``: the cells of ``range`` on ``sheet`` of the workbook ``record_id`` changed.
+    ``document.saved``: the document ``record_id`` changed (a save, or edits in its co-editing room).
+    ``live_table.record_changed``: a record of the table a workbook's live table tab shows changed — the
+    host rewrites it into the ``store`` arm on that tab's table when the trigger is created, so it IS a
+    store trigger (one trigger system, one record-change feed).
+
+    Matched by the DB capture function ``workflow.emit_office_trigger_events`` (a new snapshot row, or a
+    room op of the record), which queues ONE pending ``workflow.trigger_event`` per (trigger, record):
+    a newer change while it is pending pushes the fire time forward — the settle window
+    ``debounce_seconds``, or the knob ``office.trigger_debounce_seconds`` when unset. The payload is
+    ids only and never trusted: the host's fire re-reads the record as the trigger's owner and runs
+    only when the watched content's fingerprint moved.
+
+    ``fingerprint`` is SERVER-SET (the content's hash when the trigger was created or last fired);
+    a request carrying it is refused, like ``bound_graph_hash``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["office"]
+    event: OfficeEvent
+    record_id: UUID = Field(description="The workbook (sheet.range_changed, live_table.record_changed) or document.")
+    sheet: str | None = Field(default=None, description="Sheet name or id; for a live table, the tab's id or label.")
+    range: str | None = Field(default=None, description="A1 range watched (sheet.range_changed), e.g. B2:D20.")
+    debounce_seconds: int | None = Field(default=None, ge=0, le=86_400)
+    fingerprint: str | None = None
+
+    @model_validator(mode="after")
+    def _what_it_watches(self) -> OfficeEventSource:
+        if self.event == "sheet.range_changed" and not (self.range or "").strip():
+            raise ValueError("sheet.range_changed needs the A1 range it watches (range)")
+        if self.event == "live_table.record_changed" and not (self.sheet or "").strip():
+            raise ValueError("live_table.record_changed needs the live table tab (sheet: its id or label)")
+        if self.event == "document.saved" and (self.sheet or self.range):
+            raise ValueError("document.saved watches the whole document; sheet and range do not apply")
+        return self
+
+
+class AppEventSource(BaseModel):
+    """kind='event' config, ``source='app'`` arm — an outside event arrived through the host's one
+    event intake (Triggers Phase 5): a connected app's push, or a provider delivery.
+
+    ``app`` and ``event`` are OPAQUE strings here; the host validates its closed lists at create.
+    ``account`` is the provider account the event belongs to (the intake's ``external_account_key``,
+    e.g. a Stripe account id or a Slack team id) — REQUIRED, so a trigger never hears another
+    tenant's account. ``connection_id`` names the host connection the account came from (the host
+    checks the bound person still owns it at fire). ``filter``: the event payload must CONTAIN it
+    (JSON containment, ``payload @> filter``).
+
+    Matched by the DB intake function ``workflow.ingest_app_event``, which stores the event ONCE and
+    queues one ``workflow.trigger_event`` per matching trigger exactly once (entity_key
+    ``source:account:event_id``). The payload is ids only and never trusted: the host's fire re-reads
+    the stored event.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["app"]
+    app: str = Field(min_length=1, max_length=64)
+    event: str = Field(min_length=1, max_length=128)
+    account: str = Field(min_length=1, max_length=255)
+    connection_id: UUID | None = None
+    filter: dict[str, Any] | None = None
+    #: A first-party app (the host's own events, e.g. its mail): no connection exists; ``account`` IS the
+    #: trigger's organization and the intake matches only that organization (migration 0133). Set by the
+    #: host at create from its closed list of first-party apps — never trusted from a caller.
+    first_party: bool = False
+
+
 def _event_source_arm(value: Any) -> str:
     """The discriminator. A spec with no ``source`` is the table arm, so every row and
     caller from before the store arm keeps validating unchanged."""
@@ -162,15 +239,20 @@ def _event_source_arm(value: Any) -> str:
 
 
 EventSourceSpec = Annotated[
-    Annotated[TableEventSource, Tag("table")] | Annotated[StoreEventSource, Tag("store")],
+    Annotated[TableEventSource, Tag("table")]
+    | Annotated[StoreEventSource, Tag("store")]
+    | Annotated[OfficeEventSource, Tag("office")]
+    | Annotated[AppEventSource, Tag("app")],
     Discriminator(_event_source_arm),
 ]
-"""kind='event' config: what change fires this trigger — ``source: 'table' | 'store'``."""
+"""kind='event' config: what fires this trigger — ``source: 'table' | 'store' | 'office' | 'app'``."""
 
 _EVENT_SOURCE = TypeAdapter(EventSourceSpec)
 
 
-def validate_event_source(value: Any) -> TableEventSource | StoreEventSource:
+def validate_event_source(
+    value: Any,
+) -> TableEventSource | StoreEventSource | OfficeEventSource | AppEventSource:
     """Validate a stored/requested event_source into its arm (default arm: table)."""
     return _EVENT_SOURCE.validate_python(value)
 
@@ -216,20 +298,102 @@ def event_run_organization_id(
     return str(event_organization_id)
 
 
+#: ``link_kind`` of a fire that started a workflow run (``link_id`` = the run id).
+LINK_WORKFLOW_RUN = "workflow_run"
+#: ``link_kind`` of an Action fire whose apply gate put the call in front of a person
+#: (``link_id`` = the approval id): nothing ran yet, the fire is waiting on a person.
+LINK_APPROVAL = "approval"
+
+
+class FireOutcome(BaseModel):
+    """What one trigger fire produced — the host's fire returns it, the stores record it.
+
+    A workflow target: ``run_id`` + ``link_kind='workflow_run'``. An Action target
+    (``workflow.trigger.target_action``): ``action`` + whatever the Action produced —
+    ``link_kind``/``link_id`` name its record, its operation, or the approval it waits on
+    (``LINK_APPROVAL``); ``run_id`` stays None. The package never runs an Action: the
+    host's injected fire does (``matrx_graph.actions`` is never imported here).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str | None = None
+    action: str | None = None
+    link_kind: str | None = None
+    link_id: str | None = None
+    #: True when the fire is waiting on a person (an Action the apply gate queued).
+    waiting_on_person: bool = False
+    #: True when the fire started NOTHING (the target said a run is already in progress): the fire
+    #: history still says so, but the trigger's fire_count / last_fired_at are never bumped for it
+    #: (``record_outcome``).
+    skipped: bool = False
+
+    @classmethod
+    def for_run(cls, run_id: str) -> FireOutcome:
+        return cls(run_id=str(run_id), link_kind=LINK_WORKFLOW_RUN, link_id=str(run_id))
+
+
+class TriggerFireRefused(Exception):  # noqa: N818 — the name says what the watcher reads
+    """A fire that must never be retried: the watcher dead-letters its event with this sentence
+    and nothing runs (the actor lost the organization, the trigger needs reconnecting, the
+    target refuses for good). A transient failure raises anything else and is retried."""
+
+
+class TriggerFireHeld(Exception):  # noqa: N818 — the name says what the watcher reads
+    """A fire HELD, not failed: the trigger may fire again after ``retry_after_seconds`` (the host's
+    per-trigger rate limit). The watcher releases the event to pending at that time without
+    spending an attempt, never dead-letters it and never records it as an error."""
+
+    def __init__(self, message: str, *, retry_after_seconds: float) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = max(float(retry_after_seconds), 0.0)
+
+
+#: The prefix of a workflow's generated Action name (``workflow.<key>`` / ``workflow.id_<hex>``).
+WORKFLOW_ACTION_PREFIX = "workflow."
+
+
+def fires_an_action(trigger: Any) -> bool:
+    """True when a trigger's fire runs its ``target_action`` rather than its workflow.
+
+    A ``workflow.<key>`` target is still a workflow target: it keeps its definition, its
+    published-version pin and the bound-graph proof (Triggers PLAN Rule 1)."""
+    target = getattr(trigger, "target_action", None)
+    return bool(target) and not str(target).startswith(WORKFLOW_ACTION_PREFIX)
+
+
 class TriggerRow(BaseModel):
     """Row shape for workflow.trigger CRUD responses."""
 
     model_config = ConfigDict(extra="allow")
 
     id: str
-    definition_id: str
+    # None only for an Action target (``target_action``); the DB CHECK keeps it for workflows.
+    definition_id: str | None = None
     definition_version_id: str | None = None
+    # The registered Action a fire runs (an opaque registry name here — the host validates it).
+    target_action: str | None = None
+    # The Action's static input; the event's own inputs merge over it (host-side).
+    target_input: dict[str, Any] = Field(default_factory=dict)
+    # A sentence while the bound actor lost the organization / connection a fire needs.
+    needs_reconnect: str | None = None
+    # The row's free-form jsonb (``created_via='person'`` marks a trigger a signed-in person made).
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _a_workflow_target_names_its_workflow(self) -> TriggerRow:
+        # The row-shape twin of the DB CHECK wf_trigger_workflow_target_has_definition (0123).
+        if self.definition_id is None and not fires_an_action(self):
+            raise ValueError("a workflow trigger names its workflow (definition_id)")
+        return self
     name: str
     description: str | None = None
     kind: TriggerKind
     cron_expression: str | None = None
     timezone: str = "UTC"
     webhook_secret: str | None = None
+    # kind='webhook' only (0125): how the door verifies a delivery; None = the matrx header. Opaque here.
+    signature_scheme: str | None = None
     # kind='event' only — validated EventSourceSpec shape (stored as JSONB).
     event_source: dict[str, Any] | None = None
     default_inputs: dict[str, Any] = Field(default_factory=dict)
@@ -249,6 +413,10 @@ class TriggerRow(BaseModel):
     task_id: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # The row's revision (the host's canonical ``version`` column, bumped on every write): an editor sends
+    # back the one it loaded and ``update_fields(expected_version=)`` refuses a stale save. None on a
+    # standalone baseline without the column.
+    version: int | None = None
 
 
 class TriggerStore:
@@ -257,7 +425,7 @@ class TriggerStore:
     async def create(
         self,
         *,
-        definition_id: str,
+        definition_id: str | None,
         name: str,
         kind: TriggerKind,
         cron_expression: str | None = None,
@@ -273,11 +441,25 @@ class TriggerStore:
         organization_id: str | None = None,
         project_id: str | None = None,
         task_id: str | None = None,
+        target_action: str | None = None,
+        target_input: dict[str, Any] | None = None,
+        signature_scheme: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TriggerRow:
         trigger_id = str(uuid4())
-        next_run_at: datetime | None = None
+        target_action = (target_action or "").strip() or None
+        if definition_id is None and (
+            target_action is None or target_action.startswith(WORKFLOW_ACTION_PREFIX)
+        ):
+            # The same rule as the DB CHECK (wf_trigger_workflow_target_has_definition), said here.
+            raise ValueError(
+                "a trigger names the workflow it runs (definition_id) unless it targets an Action "
+                "(target_action, not a workflow.* name)"
+            )
         if kind == "cron" and cron_expression:
-            next_run_at = _compute_next_run(cron_expression, timezone, base=None)
+            # Validates the expression + timezone (ValueError at the store boundary). The
+            # clock itself is the HOST's scheduler, never this row: next_run_at stays empty.
+            _compute_next_run(cron_expression, timezone, base=None)
         if kind == "event":
             # Same posture as the cron-expression check: a malformed spec is a
             # ValueError at the store boundary, never a stored row the capture
@@ -288,10 +470,15 @@ class TriggerStore:
                 raise ValueError(f"invalid event_source: {e}") from e
         elif event_source is not None:
             raise ValueError("event_source is only valid on kind='event' triggers")
+        signature_scheme = (signature_scheme or "").strip() or None
+        if signature_scheme is not None and kind != "webhook":
+            raise ValueError("signature_scheme is only valid on kind='webhook' triggers")
 
         instance = await get_model("WfTrigger").create(
             id=trigger_id,
-            definition_id=str(UUID(definition_id)),
+            definition_id=str(UUID(definition_id)) if definition_id is not None else None,
+            target_action=target_action,
+            target_input=dict(target_input or {}),
             definition_version_id=_to_uuid(definition_version_id),
             name=name,
             description=description,
@@ -299,16 +486,18 @@ class TriggerStore:
             cron_expression=cron_expression,
             timezone=timezone,
             webhook_secret=webhook_secret,
+            signature_scheme=signature_scheme,
             event_source=event_source,
             default_inputs=default_inputs or {},
             max_steps=max_steps,
             callback_url=callback_url,
             is_active=True,
-            next_run_at=next_run_at,
+            next_run_at=None,
             created_by=_to_uuid(user_id),
             organization_id=_to_uuid(organization_id),
             project_id=_to_uuid(project_id),
             task_id=_to_uuid(task_id),
+            **({"metadata": dict(metadata)} if metadata else {}),
         )
         return _row_to_trigger(_instance_to_mapping(instance))
 
@@ -326,10 +515,19 @@ class TriggerStore:
         organization_id: str | None = None,
         definition_id: str | None = None,
         kind: TriggerKind | None = None,
+        target_action: str | None = None,
+        ids: list[str] | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[TriggerRow]:
+        """Live triggers matching every filter given. ``ids`` = only these rows (the host's canonical
+        reachable set — the store decides no access itself); an empty list matches nothing."""
         filters: dict[str, Any] = {}
+        if ids is not None:
+            wanted = [u for u in (_to_uuid(i) for i in ids) if u is not None]
+            if not wanted:
+                return []
+            filters["id__in"] = wanted
         for field, raw_value in (
             ("created_by", user_id),
             ("organization_id", organization_id),
@@ -345,6 +543,8 @@ class TriggerStore:
                 filters[field] = coerced
         if kind:
             filters["kind"] = kind
+        if target_action:
+            filters["target_action"] = target_action
         filters["deleted_at__isnull"] = True
 
         rows = await (
@@ -376,6 +576,16 @@ class TriggerStore:
             event_source=JsonbMerge("event_source", {"bound_graph_hash": str(graph_hash)}),
         )
 
+    async def set_office_fingerprint(self, trigger_id: str, fingerprint: str) -> None:
+        """Record the watched content's fingerprint an office trigger last saw (server-only, like
+        ``bind_version``): its next fire runs only when the content moved off it."""
+        from matrx_orm import JsonbMerge
+
+        await get_model("WfTrigger").update_where(
+            {"id": _to_uuid(trigger_id), "deleted_at__isnull": True},
+            event_source=JsonbMerge("event_source", {"fingerprint": str(fingerprint)}),
+        )
+
     async def delete(self, trigger_id: str) -> None:
         """Canonical SOFT delete — the row survives for audit/undelete but
         disappears from every store read and from cron claiming (all filter
@@ -390,62 +600,123 @@ class TriggerStore:
             is_active=False,
         )
 
-    # -- Scheduling -------------------------------------------------------
-
-    async def claim_due(self, *, now: datetime | None = None, limit: int = 100) -> list[TriggerRow]:
-        """Atomically claim due cron triggers by advancing their next_run_at.
-
-        Returns the rows BEFORE advancement so the caller knows what to
-        enqueue. FOR UPDATE SKIP LOCKED ensures two watchers can run
-        concurrently without double-firing.
-        """
-        now = now or datetime.now(UTC)
-        from matrx_orm import transaction
-
-        # FOR UPDATE SKIP LOCKED claim: two watchers must never double-fire
-        # the same trigger. matrx-orm's transaction() binds every ORM call
-        # inside this block to ONE connection via a ContextVar, so the
-        # row-lock SELECT and the per-row next_run_at UPDATE ride the same
-        # transaction/connection exactly like a hand-written claim would —
-        # the row lock from select_for_update(skip_locked=True) is held
-        # until this block commits, serializing concurrent claims.
-        async with transaction():
-            rows = await (
-                get_model("WfTrigger")
-                .filter(
-                    is_active=True,
-                    kind="cron",
-                    deleted_at__isnull=True,
-                    next_run_at__isnull=False,
-                    next_run_at__lte=now,
-                )
-                .order_by("next_run_at")
-                .limit(limit)
-                .select_for_update(skip_locked=True)
-                .values()
-            )
-            due = [_row_to_trigger(r) for r in rows]
-            for trig in due:
-                assert trig.cron_expression is not None
-                upcoming = _compute_next_run(trig.cron_expression, trig.timezone, base=now)
-                await get_model("WfTrigger").update_where(
-                    {"id": UUID(trig.id)}, next_run_at=upcoming
-                )
-        return due
-
     async def record_fire(
-        self, trigger_id: str, run_id: str, *, fired_at: datetime | None = None
+        self, trigger_id: str, run_id: str | None, *, fired_at: datetime | None = None
     ) -> None:
-        """Bump fire_count, set last_fired_at + last_run_id. Doesn't touch
-        next_run_at (claim_due already advanced it)."""
+        """Bump fire_count, set last_fired_at (+ last_run_id when the fire started a workflow
+        run; an Action fire starts none and leaves it). Never touches next_run_at: a cron
+        trigger's clock is the host's scheduler."""
         from matrx_orm import F
 
         fired_at = fired_at or datetime.now(UTC)
+        values: dict[str, Any] = {"fire_count": F("fire_count") + 1, "last_fired_at": fired_at}
+        if run_id:
+            values["last_run_id"] = str(UUID(run_id))
+        await get_model("WfTrigger").update_where({"id": str(UUID(trigger_id))}, **values)
+
+    async def record_outcome(self, trigger_id: str, outcome: FireOutcome) -> bool:
+        """``record_fire`` for one fire's outcome — the ONE door every fire path uses: a skipped fire
+        (nothing ran) bumps nothing. Returns True when the counters moved."""
+        if outcome.skipped:
+            return False
+        await self.record_fire(trigger_id, outcome.run_id)
+        return True
+
+    async def set_target_input(self, trigger_id: str, target_input: dict[str, Any]) -> None:
+        """Replace an Action-target trigger's ``target_input`` (static values and its declared
+        ``{"$event": path}`` bindings). The host validates it against the Action first."""
         await get_model("WfTrigger").update_where(
-            {"id": str(UUID(trigger_id))},
-            fire_count=F("fire_count") + 1,
-            last_fired_at=fired_at,
-            last_run_id=str(UUID(run_id)),
+            {"id": _to_uuid(trigger_id), "deleted_at__isnull": True}, target_input=dict(target_input or {})
+        )
+
+    async def update_fields(
+        self,
+        trigger_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        cron_expression: str | None = None,
+        timezone: str | None = None,
+        event_source: dict[str, Any] | None = None,
+        default_inputs: dict[str, Any] | None = None,
+        target_input: dict[str, Any] | None = None,
+        definition_version_id: str | None = None,
+        expected_version: int | None = None,
+        touch: bool = False,
+    ) -> TriggerRow | None:
+        """Edit a live trigger's own fields (None = leave it) in ONE UPDATE. The same store-boundary
+        checks as ``create``, all run before anything is written: a cron expression + timezone must
+        compute a next fire, an event source must be a valid spec and belongs to kind='event' only.
+        Kind and target never change here — a trigger that should run something else, or start another
+        way, is a new trigger. ``target_input`` is an Action target's input (the host validates it
+        against the Action first); ``definition_version_id`` binds the published version a store source
+        fires (its graph hash rides ``event_source``).
+
+        ``expected_version`` (optional): the row's ``version`` the editor loaded. When given, the write
+        is a compare-and-swap on it (matrx-orm ``update_where(expected_version=)``) — a row someone
+        else changed since raises ``OptimisticLockError`` (the host answers 409 version_conflict) and
+        writes nothing. Omitted = last-write-wins (the on/off toggle and older callers). ``touch``
+        writes the row even when no column of its own changes (a clock-only cadence edit), so the
+        guard still runs and the version still moves. Returns the row."""
+        row = await self.load(trigger_id)
+        if row is None:
+            return None
+        values: dict[str, Any] = {}
+        if name is not None:
+            values["name"] = name
+        if description is not None:
+            values["description"] = description
+        if cron_expression is not None or timezone is not None:
+            if cron_expression is not None and row.kind != "cron":
+                raise ValueError("cron_expression is only valid on kind='cron' triggers")
+            expression = cron_expression if cron_expression is not None else row.cron_expression
+            zone = timezone if timezone is not None else row.timezone
+            if row.kind == "cron" and expression:
+                _compute_next_run(expression, zone, base=None)
+            if cron_expression is not None:
+                values["cron_expression"] = cron_expression
+            if timezone is not None:
+                values["timezone"] = timezone
+        if event_source is not None:
+            if row.kind != "event":
+                raise ValueError("event_source is only valid on kind='event' triggers")
+            try:
+                values["event_source"] = event_source_json(event_source)
+            except Exception as e:
+                raise ValueError(f"invalid event_source: {e}") from e
+        if default_inputs is not None:
+            values["default_inputs"] = dict(default_inputs)
+        if target_input is not None:
+            values["target_input"] = dict(target_input)
+        if definition_version_id is not None:
+            values["definition_version_id"] = _to_uuid(definition_version_id)
+        if not values and (touch or expected_version is not None):
+            values["name"] = row.name  # no column of its own changed: the write still guards + moves the version
+        if values:
+            guard = {"expected_version": int(expected_version)} if expected_version is not None else {}
+            await get_model("WfTrigger").update_where(
+                {"id": _to_uuid(trigger_id), "deleted_at__isnull": True}, **guard, **values
+            )
+        return await self.load(trigger_id)
+
+    def write_transaction(self) -> Any:
+        """One transaction over the trigger's database: an edit's row write and its clock's write
+        (``scheduler.*``, the same database) land together or not at all."""
+        from matrx_orm import transaction
+
+        return transaction(getattr(get_model("WfTrigger"), "_database", None))
+
+    async def set_needs_reconnect(self, trigger_id: str, sentence: str | None) -> None:
+        """Set (a sentence) or clear (None) the trigger's ``needs_reconnect`` state.
+
+        Setting it also turns the trigger OFF in the same write: a trigger waiting on a reconnect
+        never reads as on (one consistent state for every list, clock and sync). Clearing it
+        leaves ``is_active`` alone — turning it on again is the caller's own, separate step."""
+        values: dict[str, Any] = {"needs_reconnect": sentence}
+        if sentence:
+            values["is_active"] = False
+        await get_model("WfTrigger").update_where(
+            {"id": _to_uuid(trigger_id), "deleted_at__isnull": True}, **values
         )
 
 
@@ -496,9 +767,15 @@ def _row_to_trigger(row: Any) -> TriggerRow:
         except json.JSONDecodeError:
             return v
 
+    mapping = dict(row)
     return TriggerRow(
         id=str(row["id"]),
-        definition_id=str(row["definition_id"]),
+        definition_id=str(row["definition_id"]) if row["definition_id"] else None,
+        # Guarded like callback_url: a standalone host on an older baseline may not carry them.
+        target_action=mapping.get("target_action"),
+        target_input=_coerce(mapping.get("target_input")) or {},
+        needs_reconnect=mapping.get("needs_reconnect"),
+        metadata=_coerce(mapping.get("metadata")) or {},
         definition_version_id=str(row["definition_version_id"])
         if row["definition_version_id"]
         else None,
@@ -508,6 +785,7 @@ def _row_to_trigger(row: Any) -> TriggerRow:
         cron_expression=row["cron_expression"],
         timezone=row["timezone"],
         webhook_secret=row["webhook_secret"],
+        signature_scheme=mapping.get("signature_scheme"),
         # Guarded like callback_url: standalone hosts on an older baseline may
         # not carry the column yet.
         event_source=(_coerce(row["event_source"]) if "event_source" in dict(row) else None),
@@ -525,4 +803,5 @@ def _row_to_trigger(row: Any) -> TriggerRow:
         task_id=str(row["task_id"]) if row["task_id"] else None,
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        version=mapping.get("version"),
     )

@@ -6,7 +6,7 @@ from einops.layers.torch import Rearrange
 from torch import nn
 from torch.nn.utils.parametrize import register_parametrization
 
-from braindecode.models.base import EEGModuleMixin
+from braindecode.models.base import EEGModuleMixin, deprecated_forward_kwargs
 from braindecode.modules import (
     DepthwiseConv2d,
     Ensure4d,
@@ -35,9 +35,9 @@ class EEGITNet(EEGModuleMixin, nn.Sequential):
 
     Parameters
     ----------
-    drop_prob: float
+    drop_prob : float
         Dropout probability.
-    activation: nn.Module, default=nn.ELU
+    activation : nn.Module, default=nn.ELU
         Activation function class to apply. Should be a PyTorch activation
         module class like ``nn.ReLU`` or ``nn.ELU``. Default is ``nn.ELU``.
     kernel_length : int, optional
@@ -72,6 +72,11 @@ class EEGITNet(EEGModuleMixin, nn.Sequential):
         imagery classification," in IEEE Access,
         doi: 10.1109/ACCESS.2022.3161489.
     """
+
+    _time_axis = "fixed"  # fixed: final_layer.parametrizations.weight.original
+    _channel_axis = (
+        "fixed"  # fixed: inception_block.branches.0.2.parametrizations.weight.original
+    )
 
     def __init__(
         self,
@@ -141,6 +146,11 @@ class EEGITNet(EEGModuleMixin, nn.Sequential):
                 nn.AvgPool2d(kernel_size=(1, pool_kernel)), nn.Dropout(drop_prob)
             ),
         )
+        if tcn_padding != tcn_dilatation * (tcn_kernel_size - 1):
+            raise ValueError(
+                "The TC blocks keep the time axis only with tcn_padding == "
+                "tcn_dilatation * (tcn_kernel_size - 1)."
+            )
         # =========== TC blocks =====================
         self.add_module(
             "TC_block1",
@@ -207,13 +217,29 @@ class EEGITNet(EEGModuleMixin, nn.Sequential):
         # Moved flatten to another layer
         self.add_module("flatten", nn.Flatten())
 
-        num_features = self.get_output_shape()[-1]
+        # The inception branches keep the time axis ("same" padding) and
+        # collapse the electrodes; the causal TC blocks keep it too. Only the
+        # two average poolings shorten it.
+        n_time = self.n_times // pool_kernel // tcn_kernel_size
+        if n_time < 1:
+            raise ValueError(
+                "The convolutions and poolings leave no time sample: too small "
+                f"`n_times`/`input_window_seconds` for the input {self.input_shape}."
+            )
+        num_features = tcn_in_channel * n_time
 
         # The authors constrain the final dense with ``max_norm(0.25)``.
         self.add_module(
             "final_layer",
             LinearWithConstraint(num_features, self.n_outputs, max_norm=0.25),
         )
+
+    @deprecated_forward_kwargs(input="x")
+    def forward(self, x):
+        """Run the layers in order on ``x``, ``(batch, n_chans, n_times)``."""
+        for module in self:
+            x = module(x)
+        return x
 
     @staticmethod
     def _get_inception_branch(

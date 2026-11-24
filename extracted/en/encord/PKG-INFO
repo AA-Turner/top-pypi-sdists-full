@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: encord
-Version: 0.2.2
+Version: 0.2.3
 Summary: Encord Python SDK Client
 Keywords: encord
 Author: Cord Technologies Limited
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Dist: python-dateutil>=2.8.2,<3.0.0
@@ -26,8 +27,9 @@ Requires-Dist: pycocotools>=2.0.7,<3.0.0 ; extra == 'coco'
 Requires-Dist: shapely>=2.0.4,<3.0.0 ; extra == 'coco'
 Requires-Dist: opencv-python>=4.11.0.86,<5.0.0.0 ; extra == 'coco'
 Requires-Dist: numpy>=1.24,<2.0.0 ; python_full_version < '3.12' and extra == 'coco'
-Requires-Dist: numpy>=1.26,<2.0.0 ; python_full_version >= '3.12' and extra == 'coco'
-Requires-Python: >=3.9, <3.15
+Requires-Dist: numpy>=1.26,<2.0.0 ; python_full_version == '3.12.*' and extra == 'coco'
+Requires-Dist: numpy>=1.26 ; python_full_version >= '3.13' and extra == 'coco'
+Requires-Python: >=3.9
 Project-URL: repository, https://github.com/encord-team/encord-client-python
 Project-URL: documentation, https://docs.encord.com/sdk-documentation/getting-started-sdk/sdk-intro
 Provides-Extra: coco
@@ -47,7 +49,7 @@ Description-Content-Type: text/markdown
 ## 💻 Features
 
 - Minimal low-level Python client that allows you to interact with Encord's API
-- Supports Python: `3.9`, `3.10`, `3.11`, `3.12`, `3.13` and `3.14`
+- Supports Python: `3.9`, `3.10`, `3.11`, `3.12`, `3.13`, `3.14` and `3.15`
 
 ## ✨ Relevant Links
 

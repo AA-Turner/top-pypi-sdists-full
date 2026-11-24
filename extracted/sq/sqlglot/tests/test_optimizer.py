@@ -1135,6 +1135,22 @@ class TestOptimizer(unittest.TestCase):
                 expression, schema={"x": {"a": "INT", "b": "INT", "c": "TEXT"}}
             )
 
+    def test_group_by_all_having_with_unexpanded_star(self):
+        for star in ("*", "x.* EXCLUDE (a)"):
+            with self.subTest(star=star):
+                sql = f"SELECT {star}, SUM(b) AS a FROM x GROUP BY ALL HAVING a = 2"
+                qualified = qualify(
+                    parse_one(sql, read="duckdb"),
+                    dialect="duckdb",
+                    schema=self.schema,
+                    expand_stars=False,
+                    identify=False,
+                )
+                self.assertEqual(
+                    qualified.sql("duckdb"),
+                    f"SELECT {star}, SUM(x.b) AS a FROM x AS x GROUP BY ALL HAVING a = 2",
+                )
+
     def test_qualify_unknown_tvf_table_reference(self):
         for sql in (
             "SELECT r FROM range(3) AS r",
@@ -2284,6 +2300,38 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             "SELECT :expressions,item_id /* description */",
         )
 
+    def test_simplify_conditional_result_type(self):
+        for sql, folds in (
+            ("IF(TRUE, 7, 2)", True),
+            ("IF(TRUE, 7, 1.5)", False),
+            ("IF(TRUE, 7::DECIMAL(5, 2), 2::DECIMAL(5, 2))", False),
+            ("CASE WHEN FALSE THEN 0::BIGINT ELSE 2147483647::INT END", False),
+        ):
+            with self.subTest(sql=sql):
+                expr = parse_one(sql, read="duckdb")
+                self.assertEqual(optimizer.simplify.simplify(expr.copy(), dialect="duckdb"), expr)
+                annotated = annotate_types(expr.copy(), dialect="duckdb")
+                reduced = optimizer.simplify.simplify(annotated, dialect="duckdb")
+                self.assertEqual(reduced != expr, folds)
+
+        partial = annotate_types(parse_one("CASE WHEN p THEN 1 WHEN TRUE THEN 2 ELSE 3 END"))
+        partial.args["ifs"][0].args["true"].type = None
+        self.assertEqual(optimizer.simplify.simplify(partial.copy()), partial)
+
+    def test_sqlite_date_datetime_comparison(self):
+        sql = "SELECT DATE('2024-02-01') = CAST('2024-02-01 00:00:00' AS DATETIME)"
+        optimized = optimizer.optimize(sql, dialect="sqlite").sql("sqlite")
+        connection = sqlite3.connect(":memory:")
+        self.addCleanup(connection.close)
+        self.assertEqual(connection.execute(sql).fetchone(), (0,))
+        self.assertEqual(connection.execute(optimized).fetchone(), (0,))
+
+    def test_simplify_temporal_comparison_without_types(self):
+        expr = parse_one("TO_DATE('2024-02-01') < TO_DATE('2024-02-02')", read="databricks")
+        self.assertEqual(optimizer.simplify.simplify(expr.copy(), dialect="databricks"), expr)
+        annotate_types(expr, dialect="databricks")
+        self.assertEqual(optimizer.simplify.simplify(expr, dialect="databricks"), exp.true())
+
     def test_simplify_string_comparisons(self):
         with duckdb.connect() as conn:
             for dtype in (None, "UNKNOWN", "INT", "DECIMAL(10, 2)", "TEXT"):
@@ -2340,6 +2388,39 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
 
     def test_unnest_subqueries(self):
         self.check_file("unnest_subqueries", optimizer.unnest_subqueries.unnest_subqueries)
+
+    def test_unnest_case_when_where(self):
+        for condition in (
+            "x.a IN (SELECT y.b FROM y)",
+            "x.a IN (SELECT y.b FROM y WHERE FALSE)",
+            "(x.a = ANY (SELECT y.b FROM y)) AND x.b > 1 OR x.b = 1",
+        ):
+            sql = f"SELECT x.a FROM x WHERE CASE WHEN {condition} THEN 1 ELSE 0 END = 1"
+            with self.subTest(sql=sql):
+                expression = qualify(parse_one(sql), schema=self.schema)
+                rewritten = optimizer.unnest_subqueries.unnest_subqueries(expression)
+                self.assertIsNone(rewritten.find(exp.In, exp.Any))
+                self.assertCountEqual(
+                    self.conn.execute(rewritten.sql("duckdb")).fetchall(),
+                    self.conn.execute(sql).fetchall(),
+                )
+
+    def test_unnest_case_when_scope(self):
+        predicate = "x.a IN (SELECT y.b FROM y)"
+        case = f"CASE WHEN {predicate} THEN 1 ELSE 0 END"
+        for sql in (
+            f"SELECT x.a FROM x WHERE CASE FALSE WHEN ({predicate}) THEN TRUE ELSE FALSE END",
+            f"SELECT x.a FROM x WHERE CASE WHEN TRUE THEN ({predicate}) ELSE FALSE END",
+            f"SELECT x.a FROM x WHERE CASE WHEN FALSE THEN TRUE ELSE ({predicate}) END",
+            f"SELECT x.a FROM x WHERE CASE WHEN NOT ({predicate}) THEN 1 ELSE 0 END = 1",
+            f"SELECT x.a, {case} FROM x GROUP BY x.a",
+            f"SELECT x.a FROM x JOIN x AS x2 ON {case} = 0",
+        ):
+            with self.subTest(sql=sql):
+                expression = qualify(parse_one(sql), schema=self.schema)
+                self.assertEqual(
+                    optimizer.unnest_subqueries.unnest_subqueries(expression.copy()), expression
+                )
 
     def test_optimize_scalar_subquery_predicates(self):
         schema = {"x": {"id": "INT", "ref": "INT"}, "y": {"id": "INT", "val": "INT"}}
@@ -4127,7 +4208,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
 
     def test_lateral_annotation(self):
         expression = optimizer.optimize(
-            parse_one("SELECT c FROM (select 1 a) as x LATERAL VIEW EXPLODE (a) AS c")
+            parse_one("SELECT c FROM (select array(1) a) as x LATERAL VIEW EXPLODE (a) AS c")
         ).expressions[0]
         self.assertEqual(expression.type.this, exp.DataType.Type.INT)
 

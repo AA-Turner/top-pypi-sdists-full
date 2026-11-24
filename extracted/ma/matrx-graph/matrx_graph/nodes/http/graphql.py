@@ -10,12 +10,12 @@ from __future__ import annotations
 import time
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
 from matrx_graph.nodes.http._shared import _DEFAULT_MAX_BYTES
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.types.context import NodeExecutionContext
-from matrx_graph.types.result import NodeResult, failure, success
+from matrx_graph.types.result import Failure, NodeResult, failure, success
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
 from matrx_graph.types.primitives import ActionTier, NodeCategory
@@ -122,7 +122,12 @@ class HttpGraphQLExecutor:
         _ = ctx
         from matrx_utils.outbound_guard import OutboundUrlRefused
 
-        from matrx_graph.nodes.http._shared import outbound_client, refused_failure
+        from matrx_graph.nodes.http._shared import destination_refused
+
+        if (refused := await destination_refused(inputs.endpoint)) is not None:
+            return refused
+
+        from matrx_graph.nodes.http._shared import outbound_client, refused_failure, transport_failure
 
         payload: dict[str, Any] = {"query": inputs.query}
         if inputs.variables:
@@ -139,35 +144,25 @@ class HttpGraphQLExecutor:
             elapsed = int((time.monotonic() - started) * 1000)
         except OutboundUrlRefused as e:
             elapsed = int((time.monotonic() - started) * 1000)
-            return refused_failure(inputs.endpoint, e, elapsed)
+            return refused_failure(e, elapsed)
         except Exception as e:
             elapsed = int((time.monotonic() - started) * 1000)
-            return failure(
-                "http_transport_error",
-                f"{type(e).__name__}: {e}",
-                details={"endpoint": inputs.endpoint, "elapsed_ms": elapsed},
-            )
+            return transport_failure(e, elapsed)
 
         try:
             body = resp.json()
-        except Exception as e:
-            return failure(
-                "invalid_json_response",
-                f"Invalid JSON response: {e}",
-                details={
-                    "endpoint": inputs.endpoint,
-                    "status": resp.status_code,
-                    "elapsed_ms": elapsed,
-                },
-            )
+        except Exception:
+            body = None
+        if not isinstance(body, dict):
+            return _invalid_response(resp.status_code, elapsed)
 
         errors = body.get("errors") or []
         # Clip overly large data payloads to match max_bytes-style guardrails.
         data = body.get("data")
         extensions = body.get("extensions") or {}
 
-        return success(
-            GraphQLResponse(
+        try:
+            result = GraphQLResponse(
                 status=resp.status_code,
                 endpoint=inputs.endpoint,
                 data=data,
@@ -175,4 +170,14 @@ class HttpGraphQLExecutor:
                 extensions=extensions,
                 elapsed_ms=elapsed,
             )
-        )
+        except ValidationError:
+            return _invalid_response(resp.status_code, elapsed)
+        return success(result)
+
+
+def _invalid_response(status: int, elapsed_ms: int) -> Failure:
+    return failure(
+        "invalid_json_response",
+        "The response was not a valid GraphQL JSON object.",
+        details={"status": status, "elapsed_ms": elapsed_ms},
+    )

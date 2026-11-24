@@ -114,5 +114,7 @@ BASE = DeployBase(
     # Its exports' model.pt is a torch archive: Detect reads it from the listing's spans
     # (``archives``), and the upload sends only the members a build reads.
     local_archive=True,
+    # NVIDIA's stock checkpoint by name, on the owner's deployments: the session is theirs.
+    catalog_exports={C.LONG_WAM_YAM_CATALOG_MODEL: EXPORTED},
     **UNITS.hooks(),
 )

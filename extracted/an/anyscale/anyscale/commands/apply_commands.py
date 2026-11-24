@@ -62,12 +62,23 @@ log = BlockLogger()
     type=str,
     help="Name for the workload. Defaults to the CR's metadata.name.",
 )
+@click.option(
+    "--priority",
+    required=False,
+    default=None,
+    type=click.IntRange(0, 1000),
+    help=(
+        "Scheduling priority from 0 to 1000. Higher-priority workloads are admitted first, "
+        "ahead of your organization's other queued workloads. Unset ranks as 0."
+    ),
+)
 def apply(
     file: str,
     cloud: Optional[str],
     cloud_id: Optional[str],
     project_id: Optional[str],
     name: Optional[str],
+    priority: Optional[int],
 ) -> None:
     """Submit a KubeRay workload defined in a YAML file to run on Anyscale.
 
@@ -113,6 +124,7 @@ def apply(
         cloud_id=resolved_cloud_id,
         project_id=project_id,
         name=name,
+        priority=priority,
     )
     log.info(
         f"Submitted {response.workload_type} '{response.name}' "

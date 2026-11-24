@@ -7,7 +7,7 @@ fallback yields usable dependency metadata, and the effective
 :attr:`~nab_provider.provider.BuildPolicy.BUILD_REMOTE`.
 
 The build itself is the host's, behind
-:meth:`~nab_provider.fetch_port.FetchPort.request_built_metadata`.
+:meth:`~nab_provider.fetch_port.FetchPort.build_sdist_metadata`.
 
 A failure here raises :class:`~nab_provider.provider.UnsupportedSdistError`
 so :func:`nab_provider._provider.lookahead.look_ahead_ok` can skip the version.
@@ -17,23 +17,23 @@ from __future__ import annotations
 
 __lazy_modules__ = (
     "nab_provider._provider.metadata_resolver",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.errors",
     "nab_provider.store",
+    "packaging.specifiers",
+    "packaging.utils",
 )
 
 from typing import TYPE_CHECKING
 
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.utils import canonicalize_name
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
 
 from ..errors import UnsupportedSdistError
 from ..store import sdist_artifact_key
 from .metadata_resolver import find_sdist
 
 if TYPE_CHECKING:
-    from nab_provider._vendor.packaging.version import Version
+    from packaging.version import Version
 
     from ..metadata import WheelMetadata
     from ..provider import Provider
@@ -69,16 +69,12 @@ def build_remote_sdist(
     ver_str = str(version)
     source_key = sdist_artifact_key(ver_str, sdist.url)
     index = provider.coordinator.index
-    built: WheelMetadata | None = index.get_built_metadata(canonical, source_key)
+    built = index.get_built_metadata(canonical, source_key)
     if built is None:
-        event = provider.coordinator.request_built_metadata(
+        built = provider.coordinator.build_sdist_metadata(
             canonical, ver_str, sdist.url, sdist.hashes
         )
-        event.wait()
-
-        # The port raises on failure, so a returned request left its metadata.
-        built = index.get_built_metadata(canonical, source_key)
-        assert built is not None
+        index.store_built_metadata(canonical, source_key, built)
 
     target = provider.target
     override_rp = provider.effective_requires_python(canonical, version)

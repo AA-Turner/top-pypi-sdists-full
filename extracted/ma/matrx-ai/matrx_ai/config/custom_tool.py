@@ -57,18 +57,6 @@ class CustomTool(BaseModel):
     def _validate_name(cls, value: str) -> str:
         if not _TOOL_NAME_RE.match(value):
             raise ValueError(f"tool name {value!r} must match [a-zA-Z0-9_:-]{{1,64}}")
-        # Each ':' gains one character at wire time (':' → '__'); a name whose
-        # WIRE form exceeds the 64-char provider limit can never be declared —
-        # the boundary would silently drop it while the request returns 200.
-        # Fail fast here instead, where the caller sees the error.
-        from matrx_ai.config.wire_names import to_wire_name
-
-        if len(to_wire_name(value)) > 64:
-            raise ValueError(
-                f"tool name {value!r} exceeds the 64-char provider limit once "
-                f"serialized to its wire form ({to_wire_name(value)!r}, "
-                f"{len(to_wire_name(value))} chars) — shorten the name."
-            )
         return value
 
     @classmethod

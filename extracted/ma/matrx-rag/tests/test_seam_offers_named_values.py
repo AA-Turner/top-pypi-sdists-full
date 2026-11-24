@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 
 import matrx_rag.grounding as grounding
 import matrx_rag.image_pipeline as image_pipeline

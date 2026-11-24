@@ -26,7 +26,6 @@ import groq as groq_sdk
 import httpx
 import openai as openai_sdk
 import pytest
-import together as together_sdk
 from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
 from matrx_connect.emitters import SilentEmitter
 
@@ -148,10 +147,11 @@ def _together(wire: _Wire):
     from matrx_ai.providers.together.together_api import TogetherChat
 
     chat = TogetherChat()
-    chat.client = together_sdk.AsyncTogether(
+    chat.client = openai_sdk.AsyncOpenAI(
         api_key=SECRET,
         max_retries=0,
-        http_client=make_capture_http_client(sdk=together_sdk, transport=wire.transport()),
+        base_url="https://api-inference.together.ai/v1",
+        http_client=make_capture_http_client(sdk=openai_sdk, transport=wire.transport()),
     )
     return chat
 
@@ -175,7 +175,7 @@ HTTPX_ADAPTERS = [
     pytest.param(_openai, openai_sdk, "openai_chat", "gpt-4.1-mini", id="openai-chat"),
     pytest.param(_groq, groq_sdk, "groq_chat", "llama-3.1-8b-instant", id="groq"),
     pytest.param(_cerebras, cerebras_sdk, "cerebras_chat", "llama3.1-8b", id="cerebras"),
-    pytest.param(_together, together_sdk, "together_chat", "meta-llama/Llama-3-8b-chat-hf", id="together"),
+    pytest.param(_together, openai_sdk, "together_chat", "meta-llama/Llama-3-8b-chat-hf", id="together"),
     pytest.param(_moonshot, openai_sdk, "moonshot_chat", "kimi-k2", id="moonshot-generic-openai"),
 ]
 

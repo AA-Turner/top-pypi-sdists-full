@@ -2,7 +2,7 @@
 
 Owner's words: common-docs ``systems/content/visual-maps/VISION.md`` ("iteratively get the diagram to
 actually display properly"; "specialists, not one AI"). Plan: common-docs
-``projects/legible-diagrams/PLAN.md`` item L4.
+``systems/content/visual-maps/projects/legible-diagrams/PLAN.md`` item L4.
 
 When a run is about to finish and its final answer carries a ``visual_map`` value
 (``{"__kind": "visual_map", "type", "spec", ...}``), ``visual_map_gate`` runs this loop BEFORE the turn
@@ -89,6 +89,8 @@ REVIEW_MANDATE_KEY = "visual_maps.diagram_review"
 CHECKING_CODE = "visual_map_checking"
 CHECKED_CODE = "visual_map_checked"
 UNVERIFIED_CODE = "visual_map_unverified"
+#: The stamped value's ``review`` when the screenshot review did not run (read by rich-content's VisualMap).
+REVIEW_SKIPPED = "skipped"
 
 #: Knob keys the host resolves (feature ``content.visual_maps``).
 KNOB_MAX_ROUNDS = "repair_max_rounds"
@@ -856,6 +858,7 @@ async def run_repair_loop(
             dropped_labels.extend(labels.get(i, i) for i in ids)
 
     review_log: dict[str, Any] | None = None
+    review_skipped = False
     shot = delivered.get("screenshot_file_id")
     if shot:
         try:
@@ -890,10 +893,12 @@ async def run_repair_loop(
                 "note": reviewed.note or f"review skipped: no agent is bound to {REVIEW_MANDATE_KEY}",
             }
             notes.append(review_log["note"])
+            review_skipped = True
     else:
         notes.append("review skipped: delivery returned no screenshot")
+        review_skipped = True
 
-    stamped = _stamp(value, d_type, d_spec, delivered, verified, issues)
+    stamped = _stamp(value, d_type, d_spec, delivered, verified, issues, review_skipped)
     return RepairOutcome(stamped, rounds, reason, notes, review_log, dropped=dropped_labels)
 
 
@@ -964,7 +969,7 @@ def _findings(value: Any) -> list[dict[str, Any]]:
 
 def _stamp(
     value: dict[str, Any], type_: str | None, spec: dict[str, Any] | None,
-    delivered: dict[str, Any] | None, verified: bool, issues: int,
+    delivered: dict[str, Any] | None, verified: bool, issues: int, review_skipped: bool = False,
 ) -> dict[str, Any]:
     out: dict[str, Any] = {"__kind": VISUAL_MAP_KIND, "type": type_ or value.get("type"), "spec": spec}
     if spec is None:
@@ -975,6 +980,10 @@ def _stamp(
         out["inspection_id"] = str(delivered["inspection_id"])
     out["verified"] = bool(verified)
     out["issues"] = max(0, int(issues or 0))
+    if review_skipped:
+        # The screenshot review did not run (no agent holds the mandate, or no screenshot came back). The
+        # renderer says so quietly; the loop note alone reached nobody.
+        out["review"] = REVIEW_SKIPPED
     return out
 
 
@@ -1005,7 +1014,7 @@ def neutralize_model_stamps(value: dict[str, Any]) -> tuple[dict[str, Any], list
     )
     if not claimed:
         return value, []
-    out = {k: v for k, v in value.items() if k not in ("receipt", "inspection_id")}
+    out = {k: v for k, v in value.items() if k not in ("receipt", "inspection_id", "review")}
     out["verified"] = False
     out["issues"] = 0
     return out, [
@@ -1106,7 +1115,9 @@ def _repair_model(config: Any, provision: dict[str, Any]) -> None:
     """The organization's ``repair_model`` knob, when set, repairs instead of the authoring model."""
     model = provision.get("repair_model")
     if isinstance(model, str) and model.strip():
-        config.model = model.strip()
+        from matrx_ai.config.unified_config import adopt_model_for_conversation
+
+        adopt_model_for_conversation(config, model.strip())  # the repair child's own model
 
 
 def authoring_model_repairer(current_request: Any) -> FallbackRepair:

@@ -27,7 +27,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, JsonValue, PrivateAttr
 
 from matrx_ai.tools.models import CustomToolInputSchema, ToolDefinition
 
@@ -153,7 +153,7 @@ class AgentToolSpec(BaseModel):
             "can be stubbed from history once consumed."
         ),
     )
-    host_data: dict[str, Any] | None = Field(
+    host_data: dict[str, JsonValue] | None = Field(
         default=None,
         description=(
             "Opaque data the HOST attaches to this projected agent (an Orchestra connection: "

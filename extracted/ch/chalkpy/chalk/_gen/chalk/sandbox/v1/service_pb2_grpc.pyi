@@ -32,6 +32,8 @@ from chalk._gen.chalk.sandbox.v1.service_pb2 import (
     GetSandboxResponse,
     ListCustomImageBuildsRequest,
     ListCustomImageBuildsResponse,
+    ListImageFacetsRequest,
+    ListImageFacetsResponse,
     ListSandboxesRequest,
     ListSandboxesResponse,
     StreamCustomImageBuildUpdatesRequest,
@@ -165,6 +167,11 @@ class CustomImageServiceStub:
     """ListCustomImageBuilds lists the custom images the calling environment
     references (from the per-environment custom_image_refs index), newest first.
     """
+    ListImageFacets: UnaryUnaryMultiCallable[
+        ListImageFacetsRequest,
+        ListImageFacetsResponse,
+    ]
+    """ListImageFacets lists the available filters for the calling environment's images."""
     GetCustomImageBuild: UnaryUnaryMultiCallable[
         GetCustomImageBuildRequest,
         GetCustomImageBuildResponse,
@@ -249,6 +256,13 @@ class CustomImageServiceServicer(metaclass=ABCMeta):
         """ListCustomImageBuilds lists the custom images the calling environment
         references (from the per-environment custom_image_refs index), newest first.
         """
+    @abstractmethod
+    def ListImageFacets(
+        self,
+        request: ListImageFacetsRequest,
+        context: ServicerContext,
+    ) -> ListImageFacetsResponse:
+        """ListImageFacets lists the available filters for the calling environment's images."""
     @abstractmethod
     def GetCustomImageBuild(
         self,

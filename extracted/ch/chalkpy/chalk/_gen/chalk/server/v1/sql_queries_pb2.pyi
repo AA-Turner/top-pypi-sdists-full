@@ -1,7 +1,9 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import datasets_pb2 as _datasets_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -13,6 +15,26 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class SqlQueryLifecyclePhase(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SQL_QUERY_LIFECYCLE_PHASE_UNSPECIFIED: _ClassVar[SqlQueryLifecyclePhase]
+    SQL_QUERY_LIFECYCLE_PHASE_QUEUED: _ClassVar[SqlQueryLifecyclePhase]
+    SQL_QUERY_LIFECYCLE_PHASE_SETTING_UP: _ClassVar[SqlQueryLifecyclePhase]
+    SQL_QUERY_LIFECYCLE_PHASE_EXECUTING: _ClassVar[SqlQueryLifecyclePhase]
+    SQL_QUERY_LIFECYCLE_PHASE_RETRYING: _ClassVar[SqlQueryLifecyclePhase]
+    SQL_QUERY_LIFECYCLE_PHASE_SUCCEEDED: _ClassVar[SqlQueryLifecyclePhase]
+    SQL_QUERY_LIFECYCLE_PHASE_FAILED: _ClassVar[SqlQueryLifecyclePhase]
+    SQL_QUERY_LIFECYCLE_PHASE_CANCELED: _ClassVar[SqlQueryLifecyclePhase]
+
+SQL_QUERY_LIFECYCLE_PHASE_UNSPECIFIED: SqlQueryLifecyclePhase
+SQL_QUERY_LIFECYCLE_PHASE_QUEUED: SqlQueryLifecyclePhase
+SQL_QUERY_LIFECYCLE_PHASE_SETTING_UP: SqlQueryLifecyclePhase
+SQL_QUERY_LIFECYCLE_PHASE_EXECUTING: SqlQueryLifecyclePhase
+SQL_QUERY_LIFECYCLE_PHASE_RETRYING: SqlQueryLifecyclePhase
+SQL_QUERY_LIFECYCLE_PHASE_SUCCEEDED: SqlQueryLifecyclePhase
+SQL_QUERY_LIFECYCLE_PHASE_FAILED: SqlQueryLifecyclePhase
+SQL_QUERY_LIFECYCLE_PHASE_CANCELED: SqlQueryLifecyclePhase
 
 class SqlQuery(_message.Message):
     __slots__ = (
@@ -35,6 +57,7 @@ class SqlQuery(_message.Message):
         "output_uri_prefix",
         "plan_uri",
         "error",
+        "lifecycle",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     AGENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -55,6 +78,7 @@ class SqlQuery(_message.Message):
     OUTPUT_URI_PREFIX_FIELD_NUMBER: _ClassVar[int]
     PLAN_URI_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    LIFECYCLE_FIELD_NUMBER: _ClassVar[int]
     id: str
     agent_id: str
     environment_id: str
@@ -74,6 +98,7 @@ class SqlQuery(_message.Message):
     output_uri_prefix: str
     plan_uri: str
     error: str
+    lifecycle: SqlQueryLifecycle
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -95,6 +120,7 @@ class SqlQuery(_message.Message):
         output_uri_prefix: _Optional[str] = ...,
         plan_uri: _Optional[str] = ...,
         error: _Optional[str] = ...,
+        lifecycle: _Optional[_Union[SqlQueryLifecycle, _Mapping]] = ...,
     ) -> None: ...
 
 class ListSqlQueriesRequest(_message.Message):
@@ -161,10 +187,63 @@ class GetSqlQueryRequest(_message.Message):
     def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class GetSqlQueryResponse(_message.Message):
-    __slots__ = ("query",)
+    __slots__ = ("query", "lifecycle")
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    LIFECYCLE_FIELD_NUMBER: _ClassVar[int]
     query: SqlQuery
-    def __init__(self, query: _Optional[_Union[SqlQuery, _Mapping]] = ...) -> None: ...
+    lifecycle: SqlQueryLifecycle
+    def __init__(
+        self,
+        query: _Optional[_Union[SqlQuery, _Mapping]] = ...,
+        lifecycle: _Optional[_Union[SqlQueryLifecycle, _Mapping]] = ...,
+    ) -> None: ...
+
+class SqlQueryLifecycle(_message.Message):
+    __slots__ = (
+        "phase",
+        "revision",
+        "attempt_number",
+        "enqueued_at",
+        "queued_at",
+        "started_at",
+        "work_started_at",
+        "finished_at",
+        "phase_started_at",
+        "retry_reason",
+    )
+    PHASE_FIELD_NUMBER: _ClassVar[int]
+    REVISION_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPT_NUMBER_FIELD_NUMBER: _ClassVar[int]
+    ENQUEUED_AT_FIELD_NUMBER: _ClassVar[int]
+    QUEUED_AT_FIELD_NUMBER: _ClassVar[int]
+    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    WORK_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    FINISHED_AT_FIELD_NUMBER: _ClassVar[int]
+    PHASE_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    RETRY_REASON_FIELD_NUMBER: _ClassVar[int]
+    phase: SqlQueryLifecyclePhase
+    revision: int
+    attempt_number: int
+    enqueued_at: _timestamp_pb2.Timestamp
+    queued_at: _timestamp_pb2.Timestamp
+    started_at: _timestamp_pb2.Timestamp
+    work_started_at: _timestamp_pb2.Timestamp
+    finished_at: _timestamp_pb2.Timestamp
+    phase_started_at: _timestamp_pb2.Timestamp
+    retry_reason: str
+    def __init__(
+        self,
+        phase: _Optional[_Union[SqlQueryLifecyclePhase, str]] = ...,
+        revision: _Optional[int] = ...,
+        attempt_number: _Optional[int] = ...,
+        enqueued_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        queued_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        work_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        finished_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        phase_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        retry_reason: _Optional[str] = ...,
+    ) -> None: ...
 
 class GetSqlQueryPlanRequest(_message.Message):
     __slots__ = ("query_id",)

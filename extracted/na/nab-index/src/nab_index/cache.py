@@ -21,6 +21,7 @@ Layout under ``root``:
     sdist-v3/<index>/<package>/<version>.record  <- pkg_info and pyproject,
                                                     length-prefixed UTF-8
     sdist-v1/<index>/<package>/<version>.json    <- the same pair, as JSON
+    dependency-inputs-v1/<archive hash>/<file name digest>.json  <- declaration text
 
 An index pinned to one serialization gets its own listings directory,
 since a stored body records nothing about which serialization it came from.
@@ -50,7 +51,6 @@ __lazy_modules__ = (
     "nab_index._json_decode",
     "nab_index.atomic",
     "nab_index.parsed_listing",
-    "nab_provider.digest",
     "os",
     "pathlib",
     "shutil",
@@ -70,13 +70,14 @@ from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Protocol
 
-from nab_provider.digest import is_hex_digest
 from nab_provider.serialization import SimpleSerialization
 from nab_provider.value import HashableRecord, replace
 
+from . import dependency_input_cache
 from ._json_decode import decode_json
 from .atomic import atomic_write_chunks
 from .parsed_listing import corruption_reason as _parsed_corruption
+from .parsed_listing import parse_body_digest
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -244,12 +245,25 @@ class CachePolicy(HashableRecord):
     def is_fresh(self, now: int | None = None) -> bool:
         """Return True if the entry is still within its freshness window."""
         current = int(time.time()) if now is None else now
-        return current - self.fetched_at < self.max_age
+        # A clock adjustment can put a persisted fetch time in the future.
+        return 0 <= current - self.fetched_at < self.max_age
+
+
+def _entry_mode(path: Path, on_error: Callable[[OSError], None] | None) -> int | None:
+    """Inspect a cache entry without following links or hiding a failed stat."""
+    try:
+        return path.lstat().st_mode
+    except OSError as exc:
+        if on_error is not None:
+            on_error(exc)
+        return None
 
 
 def _is_entry_bucket(name: str) -> bool:
     """Whether ``name`` is a bucket of records nab writes and parses."""
-    return any(name.startswith(prefix) for prefix in ENTRY_BUCKET_PREFIXES)
+    return name == dependency_input_cache.BUCKET or name.startswith(
+        ENTRY_BUCKET_PREFIXES
+    )
 
 
 def is_recognized_bucket(name: str) -> bool:
@@ -608,12 +622,10 @@ class OnDiskCache:
             raw = path.read_bytes()
         except OSError:
             return None
-        record = _decode_json_sdist_record(raw)
-        if record is None:
-            logger.warning(
-                "Corrupt sdist cache record %s: not decodable; treating as a miss",
-                path,
-            )
+        try:
+            record = _decode_json_sdist_record(raw)
+        except ValueError as exc:
+            logger.warning("Ignoring corrupt sdist cache record %s (%s)", path, exc)
             return None
         self.put_sdist_files(package, version, *record)
         return record
@@ -665,7 +677,7 @@ class OnDiskCache:
     def _root_children(self) -> list[Path]:
         try:
             return list(self._root.iterdir())
-        except OSError:
+        except FileNotFoundError:
             return []
 
     def _bucket_dirs(self) -> list[Path]:
@@ -688,20 +700,33 @@ class OnDiskCache:
             child for child in self._root_children() if _is_entry_bucket(child.name)
         ]
 
-    def iter_cache_entries(self) -> Iterator[Path]:
+    def iter_cache_entries(
+        self, *, on_error: Callable[[OSError], None] | None = None
+    ) -> Iterator[Path]:
         """Yield each entry file inside the record buckets.
 
         A symlinked bucket or a symlinked file is skipped, never followed
-        out of the tree.
+        out of the tree. If supplied, on_error receives directory read failures.
         """
-        for bucket in self._entry_bucket_dirs():
-            if bucket.is_symlink() or not bucket.is_dir():
+        try:
+            buckets = self._entry_bucket_dirs()
+        except OSError as exc:
+            if on_error is not None:
+                on_error(exc)
+            return
+
+        for bucket in buckets:
+            mode = _entry_mode(bucket, on_error)
+            if mode is None or not stat.S_ISDIR(mode):
                 continue
-            for dirpath, _dirnames, filenames in os.walk(bucket, followlinks=False):
+            for dirpath, _dirnames, filenames in os.walk(
+                bucket, onerror=on_error, followlinks=False
+            ):
                 base = Path(dirpath)
                 for name in filenames:
                     entry = base / name
-                    if not entry.is_symlink():
+                    mode = _entry_mode(entry, on_error)
+                    if mode is not None and not stat.S_ISLNK(mode):
                         yield entry
 
     def read_cache_entry(self, path: Path) -> str | None:
@@ -713,13 +738,14 @@ class OnDiskCache:
         its two fields), ``.parsed`` as a parsed-listing blob. Any other
         suffix is not a nab entry and is reported clean.
         """
+        suffix = path.suffix
+        if suffix not in (".policy", ".neg", ".json") and suffix not in _ENTRY_READERS:
+            return None
+
         try:
             raw = path.read_bytes()
         except OSError as exc:
             return f"unreadable: {exc.strerror or exc}"
-        suffix = path.suffix
-        if suffix not in (".policy", ".neg", ".json") and suffix not in _ENTRY_READERS:
-            return None
         if self._bucket_of(path) in _CHECKED_RECORD_BUCKETS:
             payload = _record_payload(
                 raw[:_CACHE_RECORD_HEADER_BYTES], raw[_CACHE_RECORD_HEADER_BYTES:]
@@ -736,14 +762,17 @@ class OnDiskCache:
 
     def _read_json_reason(self, path: Path, raw: bytes) -> str | None:
         try:
-            doc = decode_json(raw)
+            bucket = self._bucket_of(path)
+            if bucket == dependency_input_cache.BUCKET:
+                dependency_input_cache.verify_record(
+                    path.relative_to(self._root / bucket), raw
+                )
+            elif bucket.startswith("sdist-"):
+                _decode_json_sdist_record(raw)
+            else:
+                decode_json(raw)
         except ValueError as exc:
             return str(exc)
-        bucket = self._bucket_of(path)
-        if bucket.startswith("sdist-") and not (
-            isinstance(doc, dict) and "pkg_info" in doc and "pyproject" in doc
-        ):
-            return "sdist record missing fields"
         return None
 
     def _bucket_of(self, path: Path) -> str:
@@ -762,9 +791,13 @@ class OnDiskCache:
         """
         removed: list[str] = []
         for bucket in self._bucket_dirs():
-            if bucket.is_symlink():
+            try:
+                mode = bucket.lstat().st_mode
+            except FileNotFoundError:
+                continue
+            if stat.S_ISLNK(mode):
                 bucket.unlink()
-            elif bucket.is_dir():
+            elif stat.S_ISDIR(mode):
                 try:
                     shutil.rmtree(bucket)
                 except PermissionError:
@@ -783,21 +816,25 @@ _SDIST_MAGIC = b"nabsdist1 "
 _SDIST_ABSENT = -1
 
 
-def _decode_json_sdist_record(raw: bytes) -> tuple[str | None, str | None] | None:
-    """Decode a retired JSON sdist record, or ``None`` when it is not one.
+def _decode_json_sdist_record(raw: bytes) -> tuple[str | None, str | None]:
+    """Read the two optional text files from an old JSON sdist cache entry."""
+    doc = decode_json(raw)
+    if not isinstance(doc, dict) or "pkg_info" not in doc or "pyproject" not in doc:
+        msg = "sdist record missing fields"
+        raise ValueError(msg)
 
-    A field holds a file's text, or ``null`` for a file the sdist does not
-    ship. Any other JSON type is corruption, since the pair is re-encoded
-    into the current bucket.
-    """
-    try:
-        doc = decode_json(raw)
-        pkg_info, pyproject = doc["pkg_info"], doc["pyproject"]
-    except (ValueError, KeyError, TypeError):
-        return None
-    if not isinstance(pkg_info, str | None) or not isinstance(pyproject, str | None):
-        return None
-    return (pkg_info, pyproject)
+    return (
+        _json_sdist_text(doc["pkg_info"], "pkg_info"),
+        _json_sdist_text(doc["pyproject"], "pyproject"),
+    )
+
+
+def _json_sdist_text(value: object, field: str) -> str | None:
+    """Read cached file contents, or null if the archive did not contain the file."""
+    if value is None or isinstance(value, str):
+        return value
+    msg = f"sdist record {field} must be text or null"
+    raise ValueError(msg)
 
 
 def _encode_sdist_field(text: str | None) -> tuple[bytes, int]:
@@ -941,16 +978,6 @@ def _policy_etag(value: object) -> str | None:
     return value if isinstance(value, str) and is_sendable_etag(value) else None
 
 
-_SHA256_HEX_LEN = 64
-
-
-def _policy_body_digest(value: object) -> str | None:
-    """Body digest from a policy, or None when it is not 64 hex characters."""
-    if not isinstance(value, str):
-        return None
-    return value if len(value) == _SHA256_HEX_LEN and is_hex_digest(value) else None
-
-
 def _decode_policy(policy_bytes: bytes) -> CachePolicy | None:
     """Decode stored policy bytes, or ``None`` when they are not a policy.
 
@@ -960,15 +987,28 @@ def _decode_policy(policy_bytes: bytes) -> CachePolicy | None:
     """
     try:
         doc = decode_json(policy_bytes)
-        return CachePolicy(
-            fetched_at=int(doc["fetched_at"]),
-            max_age=int(doc["max_age"]),
-            etag=_policy_etag(doc.get("etag")),
-            page_url=_policy_page_url(doc.get("page_url")),
-            body_digest=_policy_body_digest(doc.get("body_digest")),
-        )
-    except (ValueError, KeyError, TypeError, OverflowError):
+    except ValueError:
         return None
+    if not isinstance(doc, dict):
+        return None
+    fetched_at = doc.get("fetched_at")
+    max_age = doc.get("max_age")
+    if not isinstance(fetched_at, (int, float, str)) or not isinstance(
+        max_age, (int, float, str)
+    ):
+        return None
+
+    try:
+        start, lifetime = int(fetched_at), int(max_age)
+    except (ValueError, OverflowError):
+        return None
+    return CachePolicy(
+        fetched_at=start,
+        max_age=lifetime,
+        etag=_policy_etag(doc.get("etag")),
+        page_url=_policy_page_url(doc.get("page_url")),
+        body_digest=parse_body_digest(doc.get("body_digest")),
+    )
 
 
 class CacheBackend(Protocol):

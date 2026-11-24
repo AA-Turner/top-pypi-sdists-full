@@ -13,6 +13,8 @@ from skyrl.train.utils.tracking import Tracking
 from skyrl.train.utils.utils import Timer
 
 from probe.foundation.safe_warn import safe_warn as _diagnostics
+from probe.sdk.catalog.environments import RunEnvironments, count_tasks
+from probe.sdk.catalog.vocab import Provider
 from probe.sdk.run.samples.rollout import make_decode
 
 from .. import _rl_owner
@@ -35,6 +37,8 @@ SCENARIO_KEYS_ENV = "PROBE_SKYRL_SCENARIO"
 #: SkyRL's tracker backends (`utils/tracking.py:34`): W&B is never used under Probe.
 WANDB_BACKEND = "wandb"
 CONSOLE_BACKEND = "console"
+#: The dataset column that names a row's SkyRL Gym env class (`PromptDataset`'s `env_class_key`).
+ENV_CLASS_COLUMN = "env_class"
 
 
 class ProbeTracking(Tracking):
@@ -62,6 +66,8 @@ class ProbeExp(BasePPOExp):
         self.final_step: int | None = None
         self._probe_run: Any = None
         self._is_owner = False
+        #: Each Gym env class the rows name, registered once per run as a `skyrl` environment (D9).
+        self._environments: RunEnvironments | None = None
 
     def run(self) -> None:
         self.guard.call("run open", self._open_probe)
@@ -112,6 +118,9 @@ class ProbeExp(BasePPOExp):
         )
         if self.hooks is not None:
             self.guard.call("the trainer", self.hooks.wrap_trainer, trainer, is_fully_async=is_fully_async)
+        if self._environments is not None:  # rows without the column run the config's default class: not counted
+            datasets = {"train": train_dataset, "eval": eval_dataset}
+            self._environments.set_task_source(lambda: count_tasks(datasets, ENV_CLASS_COLUMN))
         return trainer
 
     # -- the run -----------------------------------------------------------------------------------------
@@ -135,6 +144,7 @@ class ProbeExp(BasePPOExp):
         self._probe_run = run
         samples = run.samples.as_producer(PRODUCER)
         tokenizer = self.tokenizer
+        self._environments = RunEnvironments(run, provider=Provider.SKYRL)
         mapper = OutputMapper(
             decode=lambda ids: tokenizer.decode(ids, skip_special_tokens=False),
             decode_turns=make_decode(tokenizer),
@@ -142,12 +152,14 @@ class ProbeExp(BasePPOExp):
             scenario_keys=[name for name in os.environ.get(SCENARIO_KEYS_ENV, "").split(",") if name.strip()],
             host=socket.gethostname(),
             worker=f"pid:{os.getpid()}",
+            environments=self._environments,
         )
         recorder = SkyrlRecorder(
             samples, mapper, is_zero_variance_filter=bool(cfg.trainer.algorithm.zero_variance_filter),
             floor=get_rewind_step(resume) if resume > 0 else 0,
         )
         self.hooks = SkyrlHooks(run, recorder, self.guard, live=SkyrlLive(samples, mapper, self.guard))
+        _rl_owner.setup_pause(run, self.guard)  # the trainer's metrics row ends each step (`log_metrics`)
         phases.set_active_clock(self.hooks.phases)
         self.guard.call("phases", phases.install_phase_timer, Timer)
         self.guard.call("base model", record_base_model, run, cfg)
@@ -165,6 +177,8 @@ class ProbeExp(BasePPOExp):
             return
         phases.set_active_clock(None)
         self.final_step = hooks.recorder.close()
+        if self._environments is not None:  # the last registrations land before the run closes
+            self._environments.close()
         samples = run.samples.as_producer(PRODUCER)
         if self.final_step is not None:
             samples.plan(final_step=self.final_step)

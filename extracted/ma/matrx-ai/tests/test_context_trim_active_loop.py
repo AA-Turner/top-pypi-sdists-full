@@ -95,7 +95,6 @@ def test_recent_large_result_survives() -> None:
 
 import json
 
-from matrx_ai.config import ToolCallContent
 from matrx_ai.config.context_trim import TrimPolicy
 
 

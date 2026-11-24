@@ -16,7 +16,7 @@ later turn it is a memory of the truth, and the model has no way to tell the two
 apart — both are just text in its history. The world's best coding agents
 (Claude Code, Cursor) treat file and terminal state as perishable and re-read
 before they assert. This module makes the history SAY which results are
-photographs from an earlier turn, with the time they were taken.
+photographs from an earlier turn, and no clock time (2026-11-06: a UTC stamp competed with the person's local clock).
 
 What it does
 ------------
@@ -25,7 +25,7 @@ boundary and, for every ``tool_result`` block from a PERISHABLE tool (see
 :func:`is_perishable_tool`) that sits BEFORE the current turn — i.e. before the
 last message the person sent — prefixes its content with::
 
-    [STALE — this is what fs_list returned at 2026-09-28 02:40 UTC, in an
+    [STALE — this is what fs_list returned in an
     earlier turn. The workspace, its files, processes and browser may have
     changed since. Never state it as current; run the tool again.]
 
@@ -36,14 +36,19 @@ test@test.com's staff thread, asked "what's today's date?" on Friday October 2,
 the Chief answered "Monday, September 28, 2026" — word for word its own answer to
 the same question four days earlier — while its instructions that very turn said
 "Right now it is 9:01 PM on Friday, October 2" and "Today is Saturday, October 3".
-The provision was live; the history won. So every earlier ASSISTANT text that
-states a calendar date, a weekday or a clock time is prefixed::
+The provision was live; the history won. So for every earlier ASSISTANT text that
+states a calendar date, a weekday or a clock time, the PERSON's message it answered
+gets a leading note block::
 
-    [STALE — said at 2026-09-28 22:59 UTC, in an earlier turn. Any "today",
-    weekday or current time in it described THAT moment, not now; the current
-    date and time are in your instructions.]
+    [STALE — the reply to this message was said in an
+    earlier turn. Any "today", weekday or current time in it described THAT
+    moment, not now; the current date and time are in your instructions.]
 
-Same properties as the tool-result marker: the message's own timestamp, in
+Never in the assistant's own text (2026-11-06): prefixed onto its earlier answers,
+the model opened its NEW answer with the same note — it continues the pattern of
+its own turns. Tool results are never imitated, so their marker stays in place.
+
+Same properties as the tool-result marker: in
 memory only, idempotent, current-turn text untouched.
 
 Properties the send boundary depends on
@@ -59,6 +64,8 @@ Properties the send boundary depends on
   ``PerishableReport.marked_keys``). The send boundary moves the markers only on a COLD provider cache — the
   same decision as the history window — and while warm re-marks exactly the recorded keys (``only=``), so
   nothing behind the cache line changes (Arman's cache law; adversarial 2026-10-30 follow-up).
+* Never on a cleared stub: a result the window or the trim cleared holds no reading; its key counts as covered.
+  The send boundary replays the trim's clears BEFORE this pass, so a cold and a warm send agree byte for byte.
 * Pairing-safe: only ``content`` changes; ids, names and ``is_error`` stay.
 * Media-bearing results (typed image/audio/video block lists) are never touched.
 
@@ -189,9 +196,11 @@ def stamp_for(timestamp: Any) -> str:
     return moment.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def stale_prefix(tool_name: str, timestamp: Any) -> str:
+def stale_prefix(tool_name: str, timestamp: Any = None) -> str:
+    # No clock time in the note (2026-11-06): a UTC stamp here competed with the person's local clock and the
+    # model sometimes answered in UTC. "An earlier turn" is all the model needs; the stamp argument is kept for callers.
     return (
-        f"{STALE_MARKER}this is what {tool_name} returned at {stamp_for(timestamp)}, in an "
+        f"{STALE_MARKER}this is what {tool_name} returned in an "
         "earlier turn. The workspace, its files, processes and browser may have changed "
         "since. Never state it as current; run the tool again to see it now.]\n"
     )
@@ -199,6 +208,13 @@ def stale_prefix(tool_name: str, timestamp: Any) -> str:
 
 def _already_marked(content: Any) -> bool:
     return isinstance(content, str) and content.startswith(STALE_MARKER)
+
+
+def _is_cleared(content: Any) -> bool:
+    """A result the history window or the context trim replaced with its cleared stub."""
+    from matrx_ai.config.context_trim import _already_trimmed
+
+    return _already_trimmed({"content": content})
 
 
 #: A calendar date, a weekday or a clock time stated in prose. Deliberately
@@ -216,10 +232,10 @@ DATED_STATEMENT = re.compile(
 )
 
 
-def said_prefix(timestamp: Any) -> str:
+def said_prefix(timestamp: Any = None) -> str:
     return (
-        f"{STALE_MARKER}said at {stamp_for(timestamp)}, in an earlier turn. Any \"today\", "
-        "weekday or current time in it described THAT moment, not now; the current date and "
+        f"{STALE_MARKER}the reply to this message was said in an earlier turn. "
+        "Any \"today\", weekday or current time in it described THAT moment, not now; the current date and "
         "time are in your instructions.]\n"
     )
 
@@ -243,51 +259,67 @@ def _allowed(key: str | None, only: set[str] | None) -> bool:
     return only is None or (key is not None and key in only)
 
 
-def _mark_dated_assistant_text(message: Any, report: PerishableReport, only: set[str] | None = None) -> None:
-    """Prefix the first text block of an earlier assistant message that states a date/time."""
-    if _role(message) != "assistant":
+def _states_a_date(message: Any) -> bool:
+    blocks = _get(message, "content")
+    if isinstance(blocks, str):
+        return bool(DATED_STATEMENT.search(blocks))
+    if not isinstance(blocks, list):
+        return False
+    return any(
+        _get(b, "type") == "text" and isinstance(_get(b, "text"), str) and DATED_STATEMENT.search(str(_get(b, "text")))
+        for b in blocks
+    )
+
+
+def _note_marked(message: Any) -> bool:
+    blocks = _get(message, "content")
+    if isinstance(blocks, str):
+        return blocks.startswith(STALE_MARKER)
+    if not isinstance(blocks, list) or not blocks:
+        return False
+    first = blocks[0]
+    return _get(first, "type") == "text" and str(_get(first, "text") or "").startswith(STALE_MARKER)
+
+
+def _new_text_block(like: Any, text: str) -> Any:
+    if isinstance(like, dict):
+        return {"type": "text", "text": text}
+    from matrx_ai.config.unified_content import TextContent
+
+    return TextContent(text=text)
+
+
+def _mark_dated_assistant_text(
+    message: Any, anchor: Any, report: PerishableReport, only: set[str] | None = None
+) -> None:
+    """Note an earlier assistant message that states a date/time — on the PERSON's message it answered.
+
+    Never in the assistant's own text (live, 2026-11-06, admin@admin.com staff thread 3af9e95c): with every
+    earlier "It's 1:14 PM …" answer opening ``[STALE — said at …]``, the Chief opened its NEW answer the same way —
+    a model continues the pattern of its own turns. A note in the person's turn is read, never imitated. The note
+    is a separate leading block; the person's own words are unchanged. One note per person message (a tool loop's
+    several dated replies share it, stamped by the first)."""
+    if _role(message) != "assistant" or anchor is None:
         return
     key = said_key(message)
     if not _allowed(key, only):
         return
-    blocks = _get(message, "content")
-    if isinstance(blocks, str):
-        if blocks.startswith(STALE_MARKER):
-            if key:
-                report.marked_keys.append(key)
-            return
-        if not DATED_STATEMENT.search(blocks):
-            return
-        prefix = said_prefix(_get(message, "timestamp"))
-        if isinstance(message, dict):
-            message["content"] = prefix + blocks
+    if not _states_a_date(message):
+        return
+    if not _note_marked(anchor):
+        note = said_prefix(_get(message, "timestamp"))
+        blocks = _get(anchor, "content")
+        if isinstance(blocks, str):
+            value: Any = note + blocks
+        elif isinstance(blocks, list) and blocks:
+            value = [_new_text_block(blocks[0], note), *blocks]
         else:
-            message.content = prefix + blocks
+            return
+        if isinstance(anchor, dict):
+            anchor["content"] = value
+        else:
+            anchor.content = value
         report.dated_statements_marked += 1
-        if key:
-            report.marked_keys.append(key)
-        return
-    if not isinstance(blocks, list):
-        return
-    texts = [
-        b for b in blocks
-        if _get(b, "type") == "text" and isinstance(_get(b, "text"), str)
-    ]
-    if not texts:
-        return
-    if any(str(_get(b, "text")).startswith(STALE_MARKER) for b in texts):
-        if key:
-            report.marked_keys.append(key)
-        return
-    if not any(DATED_STATEMENT.search(str(_get(b, "text"))) for b in texts):
-        return
-    first = texts[0]
-    value = said_prefix(_get(message, "timestamp")) + str(_get(first, "text"))
-    if isinstance(first, dict):
-        first["text"] = value
-    else:
-        first.text = value
-    report.dated_statements_marked += 1
     if key:
         report.marked_keys.append(key)
 
@@ -311,8 +343,11 @@ def mark_perishable_state(messages: list[Any], *, only: set[str] | None = None) 
     if current_turn_start is None:
         return report
 
+    anchor: Any = None
     for message in messages[:current_turn_start]:
-        _mark_dated_assistant_text(message, report, only)
+        if _is_person_turn(message):
+            anchor = message
+        _mark_dated_assistant_text(message, anchor, report, only)
         blocks = _get(message, "content")
         if not isinstance(blocks, list):
             continue
@@ -327,7 +362,10 @@ def mark_perishable_state(messages: list[Any], *, only: set[str] | None = None) 
             if not _allowed(key, only):
                 continue
             content = _get(block, "content")
-            if _already_marked(content):
+            if _already_marked(content) or _is_cleared(content):
+                # A cleared result holds no reading to go stale: it is never marked (a marker on a stub was the
+                # one byte difference that made every warm send re-write the cached prefix, 2026-11-19). Its key
+                # still counts as covered, so the recorded set — and the moved/held decision — stays stable.
                 if key:
                     report.marked_keys.append(key)
                 continue

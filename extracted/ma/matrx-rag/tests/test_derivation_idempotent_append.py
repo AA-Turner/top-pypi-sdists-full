@@ -235,8 +235,4 @@ def test_generators_resume_from_existing_max_chunk_index() -> None:
     pkg = Path(__file__).resolve().parent.parent / "matrx_rag"
     caption_src = (pkg / "image_caption_derivation.py").read_text(encoding="utf-8")
     assert "existing_max_chunk_index" in caption_src
-
-    repo_root = pkg.parent.parent.parent
-    kd = repo_root / "aidream" / "services" / "knowledge_derivations.py"
-    if kd.exists():  # standalone package checkouts don't ship aidream
-        assert "existing_max_chunk_index" in kd.read_text(encoding="utf-8")
+    # The host's knowledge_derivations.py half: tests/package_host_contracts/test_matrx_rag_host.py.

@@ -17,6 +17,7 @@ Pure: the same items and settings always give the same phrases, in first-seen or
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import ClassVar
 
@@ -175,70 +176,81 @@ class KeyPhrasesExecutor:
         inputs: KeyPhrasesInput,
         config: KeyPhrasesConfig,
     ) -> NodeResult[KeyPhrasesOutput]:
-        if config.min_words > config.max_words:
-            return failure(
-                "invalid_config",
-                f"min_words ({config.min_words}) is more than max_words ({config.max_words}).",
-            )
-        if "." in config.terms_path or "[" in config.terms_path:
-            return failure(
-                "invalid_config",
-                f"terms_path '{config.terms_path}' must be one field name, not a path.",
-            )
-        stop = STOP_WORDS | {w.lower() for w in config.extra_stop_words}
-        ignore = {p.strip().lower() for p in config.ignore_phrases}
-        out_items: list[JsonValue] = []
-        empty: list[int] = []
-        distinct: set[str] = set()
-        for position, item in enumerate(inputs.items):
-            if isinstance(item, str):
-                texts = [item]
-            elif isinstance(item, dict):
-                texts = []
-                for path in config.text_paths:
-                    for value in resolve_path(item, path).values:
-                        if isinstance(value, str):
-                            texts.append(value)
-                        elif value is not None:
-                            return failure(
-                                "text_not_a_string",
-                                f"Item {position} has a '{path}' that is not text.",
-                            )
-            elif item is None:
-                texts = []
-            else:
-                return failure(
-                    "item_not_text", f"Item {position} is neither text nor a record."
-                )
-            if not any(t.strip() for t in texts):
-                empty.append(position)
-            phrases: dict[str, None] = {}
-            for text in texts:
-                for p in mine_phrases(
-                    text,
-                    max_chars=config.max_chars,
-                    min_words=config.min_words,
-                    max_words=config.max_words,
-                    stop_words=stop,
-                ):
-                    if p not in ignore:
-                        phrases.setdefault(p, None)
-            distinct.update(phrases)
-            if isinstance(item, dict):
-                before = item.get(config.terms_path)
-                if before is not None and not isinstance(before, list):
-                    return failure(
-                        "terms_not_a_list",
-                        f"Item {position} has a '{config.terms_path}' that is not a list.",
-                    )
-                out_items.append({**item, config.terms_path: [*(before or []), *phrases]})
-            else:
-                out_items.append({"text": item or "", config.terms_path: list(phrases)})
-        return success(
-            KeyPhrasesOutput(
-                items=out_items,
-                item_count=len(inputs.items),
-                phrase_count=len(distinct),
-                empty_items=empty,
-            )
+        _ = ctx
+        # Off the event loop: 20,000 records is over a minute of pure CPU, and a
+        # loop held that long starves every statement this process has in flight
+        # — run 40a1144a (2026-10-31) lost its work-queue wave to a statement
+        # timeout while this step held the loop for 82 s. Guard:
+        # tests/test_text_key_phrases.py::test_mining_never_holds_the_event_loop.
+        return await asyncio.to_thread(_mine_items, inputs, config)
+
+
+def _mine_items(inputs: KeyPhrasesInput, config: KeyPhrasesConfig) -> NodeResult[KeyPhrasesOutput]:
+    """The whole step's work, synchronous — run on a worker thread."""
+    if config.min_words > config.max_words:
+        return failure(
+            "invalid_config",
+            f"min_words ({config.min_words}) is more than max_words ({config.max_words}).",
         )
+    if "." in config.terms_path or "[" in config.terms_path:
+        return failure(
+            "invalid_config",
+            f"terms_path '{config.terms_path}' must be one field name, not a path.",
+        )
+    stop = STOP_WORDS | {w.lower() for w in config.extra_stop_words}
+    ignore = {p.strip().lower() for p in config.ignore_phrases}
+    out_items: list[JsonValue] = []
+    empty: list[int] = []
+    distinct: set[str] = set()
+    for position, item in enumerate(inputs.items):
+        if isinstance(item, str):
+            texts = [item]
+        elif isinstance(item, dict):
+            texts = []
+            for path in config.text_paths:
+                for value in resolve_path(item, path).values:
+                    if isinstance(value, str):
+                        texts.append(value)
+                    elif value is not None:
+                        return failure(
+                            "text_not_a_string",
+                            f"Item {position} has a '{path}' that is not text.",
+                        )
+        elif item is None:
+            texts = []
+        else:
+            return failure(
+                "item_not_text", f"Item {position} is neither text nor a record."
+            )
+        if not any(t.strip() for t in texts):
+            empty.append(position)
+        phrases: dict[str, None] = {}
+        for text in texts:
+            for p in mine_phrases(
+                text,
+                max_chars=config.max_chars,
+                min_words=config.min_words,
+                max_words=config.max_words,
+                stop_words=stop,
+            ):
+                if p not in ignore:
+                    phrases.setdefault(p, None)
+        distinct.update(phrases)
+        if isinstance(item, dict):
+            before = item.get(config.terms_path)
+            if before is not None and not isinstance(before, list):
+                return failure(
+                    "terms_not_a_list",
+                    f"Item {position} has a '{config.terms_path}' that is not a list.",
+                )
+            out_items.append({**item, config.terms_path: [*(before or []), *phrases]})
+        else:
+            out_items.append({"text": item or "", config.terms_path: list(phrases)})
+    return success(
+        KeyPhrasesOutput(
+            items=out_items,
+            item_count=len(inputs.items),
+            phrase_count=len(distinct),
+            empty_items=empty,
+        )
+    )

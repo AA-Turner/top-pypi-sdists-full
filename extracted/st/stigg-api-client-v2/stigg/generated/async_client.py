@@ -323,6 +323,7 @@ class AsyncClient(AsyncBaseClient):
               entitlementsV2 {
                 ...EntitlementUnionFragment
               }
+              entitlementsUpdatedAt
             }
 
             fragment ResetPeriodConfigurationFragment on ResetPeriodConfiguration {
@@ -817,6 +818,7 @@ class AsyncClient(AsyncBaseClient):
               entitlementsV2 {
                 ...EntitlementUnionFragment
               }
+              entitlementsUpdatedAt
             }
 
             fragment ResetPeriodConfigurationFragment on ResetPeriodConfiguration {
@@ -984,6 +986,7 @@ class AsyncClient(AsyncBaseClient):
               entitlementsV2 {
                 ...EntitlementUnionFragment
               }
+              entitlementsUpdatedAt
             }
 
             fragment CreditEntitlementFragment on CreditEntitlement {
@@ -6360,6 +6363,7 @@ class AsyncClient(AsyncBaseClient):
                   ...EntitlementUnionFragment
                 }
                 accessDeniedReason
+                entitlementsUpdatedAt
               }
             }
 

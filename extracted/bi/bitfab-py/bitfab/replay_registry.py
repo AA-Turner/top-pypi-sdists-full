@@ -89,7 +89,6 @@ _REGISTRY_OPTION_NAMES = frozenset(
         "mock_override",
         "sandboxes",
         "sandbox_modes",
-        "sandbox_store",
         "adapt_inputs",
         "db_branch",
         "dry_run",
@@ -267,6 +266,21 @@ def _describe_selected_traces(options: Mapping[str, Any]) -> str:
     return (
         f"{dataset_count} datasets' traces" if dataset_count > 1 else "dataset traces"
     )
+
+
+class _RemovedDbBranchFlag(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
+        parser.error(
+            f"{option_string} was removed. Turn the Postgres sandbox on or off "
+            'in the registry entry: sandbox_modes={"postgres": True} or '
+            '{"postgres": False}.'
+        )
 
 
 def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
@@ -449,10 +463,13 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
         help="deprecated: judging is on by default",
     )
     parser.add_argument("--mock", choices=("none", "all", "marked"))
-    db_branch = parser.add_mutually_exclusive_group()
-    db_branch.add_argument("--db-branch", action="store_true", dest="db_branch")
-    db_branch.add_argument("--no-db-branch", action="store_false", dest="db_branch")
-    parser.set_defaults(db_branch=None)
+    parser.add_argument(
+        "--db-branch",
+        "--no-db-branch",
+        nargs=0,
+        action=_RemovedDbBranchFlag,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--params")
     parser.add_argument("--param", action="append", default=[])
     parser.add_argument("--dry-run", action="store_true", dest="dry_run")
@@ -897,7 +914,6 @@ _CHILD_OPTION_NAMES = (
     "mock_override",
     "sandboxes",
     "sandbox_modes",
-    "sandbox_store",
     "adapt_inputs",
     "db_branch",
     "dry_run",
@@ -1354,15 +1370,6 @@ def run_replay_cli(
 
     if args.dry_run:
         options["dry_run"] = True
-
-    if args.db_branch is not None:
-        if args.db_branch:
-            configured = options.get("db_branch")
-            options["db_branch"] = (
-                configured if configured not in (None, False) else True
-            )
-        else:
-            options["db_branch"] = False
 
     options["code_change"] = args.code_change
     if args.code_change_base is not None:

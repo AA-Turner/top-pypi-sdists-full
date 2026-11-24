@@ -4,7 +4,7 @@ build-backend= "setuptools.build_meta"
 
 [project]
 name = "Mastodon.py"
-version = "2.3.3"
+version = "2.4.0"
 description = "Python wrapper for the Mastodon API"
 readme = "README.rst"
 authors = [
@@ -38,7 +38,8 @@ blurhash = [
     'blurhash>=1.1.4',
 ]
 grapheme = [
-    'graphemeu>=0.7.2',
+    'graphemeu>=0.7.2,<0.8.1; python_version < "3.8"',
+    'graphemeu>=0.8.1; python_version >= "3.8"',
 ]
 magic = [
     'python-magic-bin ; platform_system=="Windows"',

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import fnmatch
 import re
 import time
@@ -26,6 +27,7 @@ from matrx_ai.tools.kinds.filesystem import (
     FileSearchResults,
     FileWriteResult,
 )
+from matrx_ai.tools.mcp_resilience import dispatch_room_seconds
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 from matrx_ai.tools.output_caps import cap_json_list
 from matrx_ai.tools.vfs.mimicry import claude_tool
@@ -47,11 +49,11 @@ def _err(
     ctx: ToolContext,
     tool_name: str,
     error_type: str,
-    message: str,
+    message: str, *, exc: BaseException | None = None,
 ) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type=error_type, message=message),
+        error=ToolError.declared(error_type, message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name=tool_name,
@@ -84,20 +86,20 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     try:
         data = await vfs._cat_file(path)
-    except FileNotFoundError:
-        return _err(started_at, ctx, "fs_read", "not_found", f"File not found: {parsed.path}")
-    except IsADirectoryError:
-        return _err(started_at, ctx, "fs_read", "filesystem", f"Is a directory: {parsed.path}")
+    except FileNotFoundError as exc:
+        return _err(started_at, ctx, "fs_read", "not_found", f"File not found: {parsed.path}", exc=exc)
+    except IsADirectoryError as exc:
+        return _err(started_at, ctx, "fs_read", "filesystem", f"Is a directory: {parsed.path}", exc=exc)
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_read", "permission", str(exc))
+        return _err(started_at, ctx, "fs_read", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_read", "filesystem", f"Read failed: {exc}")
+        return _err(started_at, ctx, "fs_read", "filesystem", f"Read failed: {exc}", exc=exc)
 
-    from matrx_ai.tools.implementations.filesystem import FS_READ_MAX_CHARS
+    from matrx_ai.tools.implementations.filesystem import fs_read_limit
 
     full_size = len(data)
     start = min(parsed.offset, full_size)
-    read_limit = min(parsed.limit, FS_READ_MAX_CHARS) if parsed.limit > 0 else FS_READ_MAX_CHARS
+    read_limit = await fs_read_limit(parsed.limit, ctx)
     end = min(full_size, start + read_limit)
     # Never split a UTF-8 sequence at the page edge (next_offset is a byte offset).
     while end < full_size and end > start and (data[end] & 0xC0) == 0x80:
@@ -151,17 +153,17 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             content_bytes = existing + content_bytes
 
         await vfs._pipe_file(path, content_bytes)
-    except IsADirectoryError:
-        return _err(started_at, ctx, "fs_write", "filesystem", f"Is a directory: {parsed.path}")
+    except IsADirectoryError as exc:
+        return _err(started_at, ctx, "fs_write", "filesystem", f"Is a directory: {parsed.path}", exc=exc)
     except NotADirectoryError as exc:
-        return _err(started_at, ctx, "fs_write", "filesystem", str(exc))
+        return _err(started_at, ctx, "fs_write", "filesystem", str(exc), exc=exc)
     except FileNotFoundError as exc:
         # Parent missing and create_dirs=False
-        return _err(started_at, ctx, "fs_write", "not_found", str(exc))
+        return _err(started_at, ctx, "fs_write", "not_found", str(exc), exc=exc)
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_write", "permission", str(exc))
+        return _err(started_at, ctx, "fs_write", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_write", "filesystem", f"Write failed: {exc}")
+        return _err(started_at, ctx, "fs_write", "filesystem", f"Write failed: {exc}", exc=exc)
 
     return with_file_surface_write(
         _ok(
@@ -246,11 +248,11 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     entry_limit_reached = True
                     break
     except NotADirectoryError as exc:
-        return _err(started_at, ctx, "fs_list", "filesystem", str(exc))
+        return _err(started_at, ctx, "fs_list", "filesystem", str(exc), exc=exc)
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_list", "permission", str(exc))
+        return _err(started_at, ctx, "fs_list", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_list", "filesystem", f"List failed: {exc}")
+        return _err(started_at, ctx, "fs_list", "filesystem", f"List failed: {exc}", exc=exc)
 
     shown, cap = cap_json_list(entries, max_chars=MAX_LIST_OUTPUT_CHARS)
     return _ok(
@@ -280,11 +282,60 @@ def _relative(absolute: str, base: str) -> str:
 
 
 async def fs_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Walk-and-match over the durable VFS, bounded by the call's own dispatch room.
+
+    Live 2026-11-12 (system_error c6beed97): a walk over a mounted cloud-files tree spent the whole 120 s
+    ceiling resolving folder access one row at a time, the executor canceled it, and the agent got a system
+    error with nothing. The walk now stops at ``dispatch_room_seconds("fs_search")`` and answers with what it
+    found, ``truncated=True`` and a ``stopped_reason`` naming why, so the agent can narrow ``path``."""
     started_at = time.time()
     parsed = FsSearchArgs(**args)
     vfs = await get_workspace_fs(ctx)
     base = _abs(parsed.path)
 
+    content_re: re.Pattern[str] | None = None
+    if parsed.content_search:
+        try:
+            content_re = re.compile(parsed.pattern)
+        except re.error as exc:
+            return _err(
+                started_at,
+                ctx,
+                "fs_search",
+                "validation",
+                f"Invalid regex: {exc}",
+                exc=exc,
+            )
+
+    results: list[dict[str, Any]] = []
+
+    async def _collect() -> None:
+        async for root, _dirs, files in vfs._walk(base, topdown=True):
+            for fname in files:
+                if len(results) >= parsed.max_results:
+                    break
+                full = join(root, fname)
+                if content_re is not None:
+                    try:
+                        data = await vfs._cat_file(full)
+                    except OSError:
+                        continue
+                    text = data.decode("utf-8", errors="replace")[:50000]
+                    matches = [m.group() for m in content_re.finditer(text)]
+                    if matches:
+                        results.append({"path": _relative(full, base), "matches": matches[:10]})
+                else:
+                    if not fnmatch.fnmatch(fname, parsed.pattern):
+                        continue
+                    try:
+                        info = await vfs._info(full)
+                    except OSError:
+                        continue
+                    results.append({"path": _relative(full, base), "size": info["size"]})
+            if len(results) >= parsed.max_results:
+                break
+
+    stopped_reason: str | None = None
     try:
         if not await vfs._isdir(base):
             return _err(
@@ -294,66 +345,30 @@ async def fs_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "not_found",
                 f"Directory not found: {parsed.path}",
             )
-
-        results: list[dict[str, Any]] = []
-
-        if parsed.content_search:
-            try:
-                content_re = re.compile(parsed.pattern)
-            except re.error as exc:
-                return _err(
-                    started_at,
-                    ctx,
-                    "fs_search",
-                    "validation",
-                    f"Invalid regex: {exc}",
-                )
-            async for root, _dirs, files in vfs._walk(base, topdown=True):
-                for fname in files:
-                    if len(results) >= parsed.max_results:
-                        break
-                    full = join(root, fname)
-                    try:
-                        data = await vfs._cat_file(full)
-                    except OSError:
-                        continue
-                    text = data.decode("utf-8", errors="replace")[:50000]
-                    matches = [m.group() for m in content_re.finditer(text)]
-                    if matches:
-                        results.append(
-                            {
-                                "path": _relative(full, base),
-                                "matches": matches[:10],
-                            }
-                        )
-                if len(results) >= parsed.max_results:
-                    break
+        budget = dispatch_room_seconds("fs_search")
+        walk = asyncio.ensure_future(_collect())
+        try:
+            done, _ = await asyncio.wait({walk}, timeout=budget)
+        except asyncio.CancelledError:
+            walk.cancel()
+            raise
+        if walk in done:
+            walk.result()  # re-raises a filesystem error from the walk
         else:
-            async for root, _dirs, files in vfs._walk(base, topdown=True):
-                for fname in files:
-                    if len(results) >= parsed.max_results:
-                        break
-                    if not fnmatch.fnmatch(fname, parsed.pattern):
-                        continue
-                    full = join(root, fname)
-                    try:
-                        info = await vfs._info(full)
-                    except OSError:
-                        continue
-                    results.append(
-                        {
-                            "path": _relative(full, base),
-                            "size": info["size"],
-                        }
-                    )
-                if len(results) >= parsed.max_results:
-                    break
+            walk.cancel()
+            await asyncio.wait({walk}, timeout=1.0)
+            if walk.done() and not walk.cancelled():
+                walk.exception()  # read, so an unwind failure is never "never retrieved"
+            stopped_reason = (
+                f"The search stopped after {int(budget)}s, before it finished walking {parsed.path!r}; "
+                f"these are the matches found so far. Search a narrower path for the rest."
+            )
     except NotADirectoryError as exc:
-        return _err(started_at, ctx, "fs_search", "filesystem", str(exc))
+        return _err(started_at, ctx, "fs_search", "filesystem", str(exc), exc=exc)
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_search", "permission", str(exc))
+        return _err(started_at, ctx, "fs_search", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_search", "filesystem", f"Search failed: {exc}")
+        return _err(started_at, ctx, "fs_search", "filesystem", f"Search failed: {exc}", exc=exc)
 
     return _ok(
         started_at,
@@ -363,6 +378,8 @@ async def fs_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             results=[FileSearchMatch(**r) for r in results],
             count=len(results),
             content_search=parsed.content_search,
+            truncated=True if stopped_reason else None,
+            stopped_reason=stopped_reason,
         ).model_dump(mode="json"),
     )
 
@@ -378,22 +395,23 @@ async def fs_mkdir(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             await vfs._makedirs(path, exist_ok=True)
         else:
             await vfs._mkdir(path, create_parents=False)
-    except FileExistsError:
+    except FileExistsError as exc:
         return _err(
             started_at,
             ctx,
             "fs_mkdir",
             "filesystem",
             f"Directory already exists: {parsed.path}",
+            exc=exc,
         )
     except FileNotFoundError as exc:
-        return _err(started_at, ctx, "fs_mkdir", "not_found", str(exc))
+        return _err(started_at, ctx, "fs_mkdir", "not_found", str(exc), exc=exc)
     except NotADirectoryError as exc:
-        return _err(started_at, ctx, "fs_mkdir", "filesystem", str(exc))
+        return _err(started_at, ctx, "fs_mkdir", "filesystem", str(exc), exc=exc)
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_mkdir", "permission", str(exc))
+        return _err(started_at, ctx, "fs_mkdir", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_mkdir", "filesystem", f"Mkdir failed: {exc}")
+        return _err(started_at, ctx, "fs_mkdir", "filesystem", f"Mkdir failed: {exc}", exc=exc)
 
     return _ok(
         started_at,
@@ -421,14 +439,14 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     try:
         data = await vfs._cat_file(path)
-    except FileNotFoundError:
-        return _err(started_at, ctx, "fs_edit", "not_found", claude_tool.edit_not_found())
-    except IsADirectoryError:
-        return _err(started_at, ctx, "fs_edit", "filesystem", f"Is a directory: {parsed.path}")
+    except FileNotFoundError as exc:
+        return _err(started_at, ctx, "fs_edit", "not_found", claude_tool.edit_not_found(), exc=exc)
+    except IsADirectoryError as exc:
+        return _err(started_at, ctx, "fs_edit", "filesystem", f"Is a directory: {parsed.path}", exc=exc)
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_edit", "permission", str(exc))
+        return _err(started_at, ctx, "fs_edit", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_edit", "filesystem", f"Read failed: {exc}")
+        return _err(started_at, ctx, "fs_edit", "filesystem", f"Read failed: {exc}", exc=exc)
 
     before = decode_prior(data)
     text = before if before is not None else data.decode("utf-8", errors="replace")
@@ -449,9 +467,9 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         await vfs._pipe_file(path, new_text.encode("utf-8"))
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_edit", "permission", str(exc))
+        return _err(started_at, ctx, "fs_edit", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_edit", "filesystem", f"Write failed: {exc}")
+        return _err(started_at, ctx, "fs_edit", "filesystem", f"Write failed: {exc}", exc=exc)
 
     return with_file_surface_write(
         _ok(
@@ -500,12 +518,12 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except FileNotFoundError:
         existed = False
         data = b""
-    except IsADirectoryError:
-        return _err(started_at, ctx, "fs_patch", "filesystem", f"Is a directory: {parsed.path}")
+    except IsADirectoryError as exc:
+        return _err(started_at, ctx, "fs_patch", "filesystem", f"Is a directory: {parsed.path}", exc=exc)
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_patch", "permission", str(exc))
+        return _err(started_at, ctx, "fs_patch", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_patch", "filesystem", f"Read failed: {exc}")
+        return _err(started_at, ctx, "fs_patch", "filesystem", f"Read failed: {exc}", exc=exc)
 
     if not existed:
         if not parsed.create_if_missing:
@@ -553,9 +571,9 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 await vfs._makedirs(parent, exist_ok=True)
         await vfs._pipe_file(path, content.encode("utf-8"))
     except PermissionError as exc:
-        return _err(started_at, ctx, "fs_patch", "permission", str(exc))
+        return _err(started_at, ctx, "fs_patch", "permission", str(exc), exc=exc)
     except OSError as exc:
-        return _err(started_at, ctx, "fs_patch", "filesystem", f"Write failed: {exc}")
+        return _err(started_at, ctx, "fs_patch", "filesystem", f"Write failed: {exc}", exc=exc)
 
     return with_file_surface_write(
         _ok(

@@ -262,6 +262,16 @@ def _resolve_single(name):
     # stay out of the step-variable buffer BY CONSTRUCTION — the buffer is
     # shipped to the hub and written into the run's artefacts.
 
+    # {{secrets.env.NAME}} → os.getenv("KANE_ENV_<environment id>__NAME"), the
+    # run environment's own copy of the secret. No environment id → resolves
+    # like any unset secret.
+    if parts[0] == "secrets" and len(parts) == 3 and parts[1] == "env":
+        from testmu import _configure
+        environment_id = os.getenv("ENVIRONMENT_ID") or _configure.get("environment_id")
+        if not environment_id:
+            return _mark_secret("")
+        return _mark_secret(os.getenv(f"KANE_ENV_{environment_id}__{parts[2]}", ""))
+
     # {{secrets.cat.key}} → os.getenv(key)
     if parts[0] == "secrets" and len(parts) >= 2:
         key = parts[-1]

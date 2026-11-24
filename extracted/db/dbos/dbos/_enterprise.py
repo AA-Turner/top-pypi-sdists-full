@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from ._external_storage import ExternalObjectRef, ExternalStore
     from ._serialization import Serializer, WorkflowSerializationFormat
     from ._sys_db import SystemDatabase
+    from ._workflow_archive import WorkflowArchive
 
 # Receives a Conductor alert as (name, message, metadata).
 AlertHandler = Callable[[str, str, Dict[str, str]], None]
@@ -101,6 +102,11 @@ class Suspend(Protocol):
     ) -> float:
         """Checkpoints the sleep and parks the workflow until its end time, or returns
         the seconds to sleep in the thread when that end time is near or past."""
+        ...
+
+    def result_suspend(self, workflow_uuid: str, awaited_ids: List[str]) -> None:
+        """Parks the workflow until any of awaited_ids completes, raising DBOSWorkflowSuspendedError;
+        returns when one is already complete or has no row."""
         ...
 
     def transition_suspended_workflows(self) -> None: ...
@@ -171,6 +177,30 @@ class ExternalStorageFactory(Protocol):
     ) -> ExternalStorage: ...
 
 
+class Archiver(Protocol):
+    """Copies workflows the system database marks archive_pending into a workflow archive."""
+
+    def start(self) -> None: ...
+
+    def stop(self) -> None: ...
+
+
+class ArchiverFactory(Protocol):
+    def __call__(self, dbos: DBOS, archive: "WorkflowArchive") -> Archiver: ...
+
+
+class ArchivedWorkflowImporter(Protocol):
+    """Copies one archived snapshot back into the system database, completed as of now."""
+
+    def __call__(
+        self,
+        sys_db: "SystemDatabase",
+        archive: "WorkflowArchive",
+        workflow_id: str,
+        completed_at: int,
+    ) -> None: ...
+
+
 class Enterprise(Protocol):
     """What the top-level dbos_enterprise module must provide."""
 
@@ -189,6 +219,12 @@ class Enterprise(Protocol):
 
     @property
     def ExternalStorage(self) -> ExternalStorageFactory: ...
+
+    @property
+    def Archiver(self) -> ArchiverFactory: ...
+
+    @property
+    def import_archived_workflow(self) -> ArchivedWorkflowImporter: ...
 
 
 # What needs the package without being an entitlement, for load()'s messages.
@@ -215,9 +251,18 @@ SUSPEND = Feature(
 EXTERNAL_STORAGE = Feature(
     "externalStorage", "Using external storage", config_key="external_stores"
 )
+WORKFLOW_ARCHIVE = Feature(
+    "workflowArchive", "Archiving workflows", config_key="workflow_archive"
+)
 
 # Every entitled feature; a new one is a Feature here, named by Conductor's camelCase key.
-FEATURES: Tuple[Feature, ...] = (AUTO_UPGRADE, SHARDING, SUSPEND, EXTERNAL_STORAGE)
+FEATURES: Tuple[Feature, ...] = (
+    AUTO_UPGRADE,
+    SHARDING,
+    SUSPEND,
+    EXTERNAL_STORAGE,
+    WORKFLOW_ARCHIVE,
+)
 
 
 def enabled_features(config: Mapping[str, object]) -> List[Feature]:

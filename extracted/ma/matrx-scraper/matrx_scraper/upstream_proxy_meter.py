@@ -3,7 +3,7 @@ counts every byte that crosses it.
 
 Why it exists: a paid proxy (DataImpulse, ~$1/GB) bills by traffic, and the
 platform meters that traffic to points per run
-(``common-docs/projects/cloud-computer/PLAN.md`` rulings 6 and 12). Chrome talks
+(``common-docs/systems/architecture/sandboxes/projects/cloud-computer/PLAN.md`` rulings 6 and 12). Chrome talks
 to the upstream proxy itself when Playwright is handed ``proxy={server,
 username, password}``, and then nothing on our side ever sees a byte count. So
 the worker launches Chrome through THIS listener instead::

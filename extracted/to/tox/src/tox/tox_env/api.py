@@ -2,6 +2,21 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "fnmatch",
+    "glob",
+    "re",
+    "string",
+    "tox.config.set_env",
+    "tox.execute.request",
+    "tox.report",
+    "tox.util.path",
+    "tox.util.redact",
+    "tox.util.venv_redirect",
+    f"{__spec__.parent}.errors",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}.info",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 import fnmatch
 import glob
 import logging
@@ -330,7 +345,7 @@ class ToxEnv(ABC):  # ruff:ignore[too-many-public-methods]  # public facade
     def _clean(self, transitive: bool = False) -> None:  # ruff:ignore[unused-method-argument, boolean-type-hint-positional-argument, boolean-default-value-positional-argument]
         if self._run_state["clean"]:  # pragma: no branch  # other outcome untested
             return  # pragma: no cover  # untested error path
-        env_dir: Final = self.env_dir
+        env_dir: Final[Path] = self.env_dir
         if env_dir.exists() or env_dir.is_symlink() or is_junction(env_dir):
             _LOGGER.warning("remove tox env folder %s", env_dir)
             # retract the redirect so nothing points at the environment while it rebuilds
@@ -355,7 +370,7 @@ class ToxEnv(ABC):  # ruff:ignore[too-many-public-methods]  # public facade
         # 1. env dir exists
         # 2. contains a runner with the same type.
         if self.env_dir.is_symlink() or is_junction(self.env_dir):
-            link_msg: Final = f"{self.env_dir} is a link where this environment should live; delete it"
+            link_msg: Final[str] = f"{self.env_dir} is a link where this environment should live; delete it"
             raise Fail(link_msg)
         if self.env_dir.is_file() and not release_venv_redirect(
             self.env_dir, lambda target: target.is_relative_to(self.core.get("work_dir", Path))
@@ -374,7 +389,7 @@ class ToxEnv(ABC):  # ruff:ignore[too-many-public-methods]  # public facade
         ensure_empty_dir(self.env_log_dir)
 
     def _handle_env_tmp_dir(self) -> None:
-        env_tmp_dir: Final = self.env_tmp_dir
+        env_tmp_dir: Final[Path] = self.env_tmp_dir
         if (
             env_tmp_dir.is_symlink()
             or is_junction(env_tmp_dir)

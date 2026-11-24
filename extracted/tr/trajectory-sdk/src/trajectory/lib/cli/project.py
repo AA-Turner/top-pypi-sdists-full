@@ -245,16 +245,16 @@ if __name__ == "__main__":
     if template == "benchmark":
       return [
         "Run tj docs --topic skill and ask your coding agent to adapt the task loader, harness, and native grader.",
-        "Create a BenchmarkSpec JSON manifest, then tj benchmarks push --manifest PATH --agent-id ID.",
+        "Create a BenchmarkSpec JSON manifest, then tj specs push --manifest PATH --agent-id ID.",
         "Run a diagnostic before starting an eval or training.",
       ]
     owner = agent_id or "<agent-id>"
     return [
-      "tj agents list --json (or tj agents create --name NAME)",
-      f"tj benchmarks push --manifest {shlex.quote(str(self.directory / 'trajectory-example/manifest.json'))} --agent-id {owner}",
+      "tj projects list --json (or tj projects create --name NAME)",
+      f"tj specs push --manifest {shlex.quote(str(self.directory / 'trajectory-example/manifest.json'))} --agent-id {owner}",
       "tj operations watch <operation-id> --timeout 300",
-      "tj benchmarks readiness <bench-id>",
-      "tj benchmarks diagnose <bench-id>",
+      "tj specs readiness <bench-id>",
+      "tj specs diagnose <bench-id>",
       "tj diagnostics watch <diagnostic-id> --timeout 300",
       "tj evals models --json",
       "Create eval.json with bench_id and a catalog base_model_slug; use options.val_num_tasks=1 and options.val_trajectories_per_task=1.",

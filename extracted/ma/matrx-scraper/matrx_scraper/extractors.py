@@ -9,13 +9,11 @@ from matrx_utils import vcprint
 
 from matrx_scraper.ocr_health import ocr_status
 
-try:
-    import pytesseract
-    from PIL import Image
+from importlib.util import find_spec
 
-    OCR_IMPORTS_PRESENT = True
-except ImportError:
-    OCR_IMPORTS_PRESENT = False
+# Present, never imported here: `pytesseract` pulls pandas in (~87 MB resident in every server process, E2
+# 2026-11-17), and only an OCR call needs it — imported inside `extract_text_from_image_bytes`.
+OCR_IMPORTS_PRESENT = find_spec("pytesseract") is not None and find_spec("PIL") is not None
 
 # 🚨 NEVER test OCR availability by import alone. `pytesseract` is a wrapper
 # that shells out to the `tesseract` BINARY: the production image had the
@@ -87,6 +85,9 @@ def extract_text_from_image_bytes(image_bytes: bytes) -> str | None:
         )
         return None
     try:
+        import pytesseract
+        from PIL import Image
+
         img = Image.open(io.BytesIO(image_bytes))
         text = pytesseract.image_to_string(img, config=OCR_CONFIG)
         return text.strip() if text.strip() else None

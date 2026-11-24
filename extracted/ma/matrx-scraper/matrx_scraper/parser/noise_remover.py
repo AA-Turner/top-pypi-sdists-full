@@ -207,11 +207,23 @@ class NoiseRemover:
             VisibilityNoiseRemover(cfg.visibility),
         ]
 
-    def remove_noise(self, soup: bs4.BeautifulSoup, remove: bool = False) -> bs4.BeautifulSoup:
-        original = copy.deepcopy(soup)
-        processed = copy.deepcopy(soup)
+    def remove_noise(
+        self, soup: bs4.BeautifulSoup, remove: bool = False, copy_input: bool = True
+    ) -> bs4.BeautifulSoup:
+        """Mark (or remove) the page's noise and return the marked tree.
+
+        The removers only READ the unmarked page (prepare's body-text length, taken
+        before any element is marked; check_element never touches the page), so
+        by default the page is left as it was and a deep copy is marked.
+        ``copy_input=False`` marks ``soup`` itself — for a caller that owns the tree
+        and has already read everything it needs from the unmarked page (the parse
+        pipeline: metadata and links are read first, so the page is parsed into a
+        tree once and every stage works on that one tree).
+        """
+        original = soup
         for remover in self.removers:
             remover.prepare(original)
+        processed = copy.deepcopy(soup) if copy_input else soup
 
         elements_to_remove = []
         for element in processed.find_all():

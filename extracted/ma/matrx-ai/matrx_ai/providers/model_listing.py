@@ -45,6 +45,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 ProviderEntry = dict[str, Any]
 
@@ -344,7 +345,9 @@ async def fetch_typesafe(http: _GetClient, api_key: str) -> list[ProviderEntry]:
 
 
 async def fetch_anthropic(http: _GetClient, api_key: str) -> list[ProviderEntry]:
-    headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+    from matrx_ai.providers.anthropic.broker import ANTHROPIC_API_VERSION
+
+    headers = {"x-api-key": api_key, "anthropic-version": ANTHROPIC_API_VERSION}
     entries: list[ProviderEntry] = []
     after_id: str | None = None
     for _ in range(MAX_PAGES):
@@ -466,7 +469,7 @@ async def read_openrouter_public_model(
     never reaches the JSON parser), and invalid JSON. Never sends credentials.
     """
     owns_client = http is None
-    client = http or httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=False)
+    client = http or shared_client(timeout=timeout_seconds, follow_redirects=False)
     try:
         async with client.stream(
             "GET",

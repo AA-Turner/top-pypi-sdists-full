@@ -7,6 +7,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from matrx_scraper._ext import provider_secret
+from matrx_scraper.search.brave_client import BRAVE_KEY_ENV_VAR
+
 
 @dataclass
 class ServerConfig:
@@ -86,7 +89,9 @@ class ServerConfig:
             session_authority_url=os.getenv("MATRX_SCRAPER_SESSION_AUTHORITY_URL", ""),
             cors_allowed_origins=os.getenv("MATRX_SCRAPER_CORS_ALLOWED_ORIGINS", ""),
             cors_allowed_origin_regex=os.getenv("MATRX_SCRAPER_CORS_ALLOWED_ORIGIN_REGEX", ""),
-            brave_api_key=os.getenv("BRAVE_SEARCH_API_KEY_PRO_AI", ""),
+            # The package's one key door: this deployment injects no secret_source, so this is its
+            # own environment copy (a holder outside the platform vault: _OTHER_HOLDERS in aidream).
+            brave_api_key=provider_secret(BRAVE_KEY_ENV_VAR) or "",
             aidream_url=os.getenv("AIDREAM_URL", ""),
             aidream_service_token=os.getenv("AIDREAM_SERVICE_TOKEN", ""),
             deployment=os.getenv("MATRX_SCRAPER_DEPLOYMENT", ""),

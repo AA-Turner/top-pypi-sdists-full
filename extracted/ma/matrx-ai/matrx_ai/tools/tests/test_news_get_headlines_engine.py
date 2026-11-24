@@ -15,7 +15,6 @@ had no organization hold) and are green against the current one.
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch

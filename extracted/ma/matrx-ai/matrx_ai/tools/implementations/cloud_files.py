@@ -61,10 +61,10 @@ def _stamp(result: ToolResult, started_at: float, ctx: ToolContext) -> ToolResul
     return result
 
 
-def _validation_error(message: str, started_at: float, ctx: ToolContext) -> ToolResult:
+def _validation_error(message: str, started_at: float, ctx: ToolContext, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="validation", message=message),
+        error=ToolError.declared("validation", message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="cloud_file",
@@ -76,6 +76,7 @@ def _not_found_error(file_id: str, started_at: float, ctx: ToolContext) -> ToolR
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="not_found",
             message=f"File '{file_id}' not found or you do not own it.",
         ),
@@ -137,6 +138,7 @@ HARD_DELETE_REFUSED = (
 #: Production (ops ``tool_result_overflow:cloud_file``, 09-01): ``list`` limit=80
 #: returned 71,649 chars of full file rows. Past this the page ends early with an
 #: exact ``next_offset`` (list) or the ids still to fetch (batch_get).
+#: KNOB MIRROR of platform.feature_knob "tools.cloud_file" "result_max_chars" (read via ``tool_knobs``).
 CLOUD_FILE_RESULT_MAX_CHARS = 40_000
 
 
@@ -145,7 +147,7 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         parsed = CloudFileArgs.model_validate(args).root
     except ValidationError as exc:
-        return _validation_error(format_args_error(exc), started_at, ctx)
+        return _validation_error(format_args_error(exc), started_at, ctx, exc=exc)
     # Read the wire model's coerced values (e.g. a JSON-string list decoded), never the
     # raw arguments they were coerced from (the 2026-10-01 dataset update_row class).
     args = {**args, **parsed.model_dump(exclude_unset=True)}
@@ -153,6 +155,11 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     db = _get_file_db()
     user_id = ctx.user_id
+    from matrx_ai.tools.tool_knobs import tool_knob_int
+
+    result_cap = await tool_knob_int(
+        "cloud_file_result_max_chars", CLOUD_FILE_RESULT_MAX_CHARS, getattr(ctx, "organization_id", None)
+    )
 
     if action == "list":
         limit = max(1, min(int(args.get("limit", 50)), 500))
@@ -169,7 +176,7 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
             from matrx_ai.tools.output_caps import cap_json_list
 
-            shown, cap = cap_json_list(files, max_chars=CLOUD_FILE_RESULT_MAX_CHARS)
+            shown, cap = cap_json_list(files, max_chars=result_cap)
             out: dict[str, Any] = {"files": shown, "count": len(shown), "offset": offset, "limit": limit}
             if cap.truncated:
                 out.update(
@@ -178,7 +185,7 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     next_offset=offset + len(shown),
                     note=(
                         f"{cap.total} file(s) matched this page but only {len(shown)} fit in one "
-                        f"result ({CLOUD_FILE_RESULT_MAX_CHARS:,} chars). Continue with "
+                        f"result ({result_cap:,} chars). Continue with "
                         f"action='list', offset={offset + len(shown)}."
                     ),
                 )
@@ -244,7 +251,7 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             missing = [fid for fid, r in zip(file_ids, results, strict=False) if r is None]
             from matrx_ai.tools.output_caps import cap_json_list
 
-            shown, cap = cap_json_list(found, max_chars=CLOUD_FILE_RESULT_MAX_CHARS)
+            shown, cap = cap_json_list(found, max_chars=result_cap)
             out = {
                 "files": shown,
                 "count": len(shown),
@@ -258,7 +265,7 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     not_returned=rest,
                     note=(
                         f"{len(found)} file(s) were found but only {len(shown)} fit in one result "
-                        f"({CLOUD_FILE_RESULT_MAX_CHARS:,} chars). Fetch the rest with "
+                        f"({result_cap:,} chars). Fetch the rest with "
                         f"action='batch_get', file_ids=not_returned."
                     ),
                 )

@@ -119,3 +119,36 @@ def test_example_generator_resolves_pydantic_defs() -> None:
     sample = example_from_schema(schema)
     assert sample == {"nested": {"count": 0}, "names": []}
     assert check_schema(sample, schema).errors == []
+
+
+def test_a_schema_that_cannot_be_applied_is_skipped_never_a_pass() -> None:
+    """A dangling ``$ref`` used to fail open INSIDE ``validate_instance`` and come back as
+    ``checked=True, errors=[]`` — a pass. Records' ``#/$defs/JsonValue`` (2026-11-03)."""
+    from matrx_graph.contract_kinds import check_schema
+
+    schema = {"type": "object", "properties": {"q": {"type": "array", "items": {"$ref": "#/$defs/JsonValue"}}}}
+    verdict = check_schema({"q": [1]}, schema)
+    assert verdict.checked is False
+    assert verdict.ok is None
+    applied = check_schema({"q": [1]}, {**schema, "$defs": {"JsonValue": {}}})
+    assert applied.checked is True and applied.ok is True
+
+
+def test_example_satisfies_stacked_string_patterns() -> None:
+    """A string whose ``allOf`` stacks patterns (a portable ``*.html`` path) gets a value passing ALL of them."""
+    from jsonschema import Draft202012Validator
+
+    schema = {
+        "type": "object",
+        "required": ["output"],
+        "properties": {
+            "output": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^/]+(?:/[^/]+)*$",
+                "allOf": [{"pattern": "(?:^|/)[^/]+[.][Hh][Tt][Mm][Ll]$"}, {"not": {"pattern": "[<>:]"}}],
+            }
+        },
+    }
+    example = example_from_schema(schema)
+    assert list(Draft202012Validator(schema).iter_errors(example)) == []

@@ -26,6 +26,7 @@ this shape verbatim.
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from matrx_utils import vcprint
@@ -45,14 +46,15 @@ _NS_PREFIX = "matrx-extend:"
 _CHROME_EXTENSION_EXECUTOR = "chrome-extension"
 
 
-def _is_chrome_extension_tool(tool: ToolDefinition) -> bool:
+def _is_chrome_extension_tool(tool: ToolDefinition, registry: Any = None) -> bool:
     """True iff the tool has a binding to the ``chrome-extension`` executor
     (or any sub-executor under it). Replaces the legacy
     ``source_app == 'matrx-extend'`` check.
     """
-    from matrx_ai.tools.registry import ToolRegistry
+    if registry is None:
+        from matrx_ai.tools.registry import ToolRegistry
 
-    registry = ToolRegistry.get_instance()
+        registry = ToolRegistry.get_instance()
     bindings = registry.bindings_for_tool(tool.name)
     if not bindings:
         return False
@@ -64,6 +66,7 @@ def _is_chrome_extension_tool(tool: ToolDefinition) -> bool:
 
 def _registry_routing_for_category(
     category: str,
+    registry: Any = None,
 ) -> tuple[
     dict[str, dict[str, Any]],
     list[str],
@@ -80,19 +83,20 @@ def _registry_routing_for_category(
     Metadata shape: ``{local_name: {admin_only, required_optional_permissions}}``
     — same dict interface ``_filter_tools`` consumes.
     """
-    from matrx_ai.tools.registry import ToolRegistry
+    if registry is None:
+        from matrx_ai.tools.registry import ToolRegistry
 
-    registry = ToolRegistry.get_instance()
+        registry = ToolRegistry.get_instance()
     # Identify browser tools by binding to the chrome-extension executor,
     # NOT by a name prefix. (The registry stores tools under their bare
     # canonical name; ownership lives on tool_binding, not on a column.)
     candidates: list[ToolDefinition] = [
-        t for t in registry.list_tools(category=category) if _is_chrome_extension_tool(t)
+        t for t in registry.list_tools(category=category) if _is_chrome_extension_tool(t, registry)
     ]
 
     if not candidates:
         # Distinguish "no tools in this category" from "registry empty entirely".
-        all_chrome_ext = [t for t in registry.list_tools() if _is_chrome_extension_tool(t)]
+        all_chrome_ext = [t for t in registry.list_tools() if _is_chrome_extension_tool(t, registry)]
         if not all_chrome_ext:
             vcprint(
                 {
@@ -286,6 +290,67 @@ def _filter_tools(
     }
 
 
+@dataclass(frozen=True)
+class ChromeGates:
+    """The request's real gates for ``load_chrome_tools`` (read from the ``browser-dom`` payload)."""
+
+    is_admin: bool
+    granted: frozenset[str]
+    desktop_status: str
+
+
+def chrome_gates(state: dict[str, Any]) -> ChromeGates:
+    """THE ONE reading of the gates: the loader and the ENVIRONMENT block both call this.
+
+    The extension's claim is not enough: the server's own context must say the caller is an
+    admin (admin tools run for an admin from any chat, 2026-10-07).
+    """
+    from matrx_connect import admin_tool_authorized
+
+    return ChromeGates(
+        is_admin=bool(state.get("is_admin", False)) and admin_tool_authorized(),
+        granted=frozenset(state.get("optional_permissions_granted") or []),
+        desktop_status=str(state.get("desktop_bridge", "none")),
+    )
+
+
+def loadable_chrome_tools(
+    state: dict[str, Any], *, held: frozenset[str] = frozenset(), registry: Any = None
+) -> dict[str, list[str]]:
+    """``{category: [tool, ...]}`` this request could really load with ``load_chrome_tools``.
+
+    Same registry routing (``_registry_routing_for_category``) and the same filter
+    (``_filter_tools``) the loader applies, so a tool listed here is a tool the loader would
+    queue; tools already in ``held`` are left out. An empty registry answers ``{}``.
+    """
+    if registry is None:
+        from matrx_ai.tools.registry import ToolRegistry
+
+        registry = ToolRegistry.get_instance()
+    gates = chrome_gates(state)
+    categories = sorted(
+        {
+            str(t.category)
+            for t in registry.list_tools()
+            if getattr(t, "category", None) and _is_chrome_extension_tool(t, registry)
+        }
+    )
+    out: dict[str, list[str]] = {}
+    for category in categories:
+        metadata, routing = _registry_routing_for_category(category, registry)
+        passed, _skipped = _filter_tools(
+            routing,
+            is_admin=gates.is_admin,
+            granted=gates.granted,
+            desktop_status=gates.desktop_status,
+            metadata_source=metadata,
+        )
+        names = sorted(n for n in passed if n not in held)
+        if names:
+            out[category] = names
+    return out
+
+
 def _chrome_extension_executor_live(ctx: ToolContext) -> tuple[bool, list[str]]:
     """True iff this request's resolved active client-executor set includes
     the ``chrome-extension`` executor (or any dot-descendant). Returns the
@@ -351,6 +416,7 @@ async def load_chrome_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="client_unavailable",
                 message=(
                     "The browser tools this loads run inside the Matrx Chrome "
@@ -377,6 +443,7 @@ async def load_chrome_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="invalid_argument",
                 message="category is required",
                 suggested_action=(f"Choose one of: {', '.join(category_names)}"),
@@ -394,6 +461,7 @@ async def load_chrome_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="unknown_category",
                 message=f"Unknown category {category!r}." + (f" {hint}" if hint else ""),
                 suggested_action=(f"Valid categories: {', '.join(category_names)}"),
@@ -405,13 +473,8 @@ async def load_chrome_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         )
 
     state = _read_browser_dom_state(ctx)
-    # The extension's claim is not enough: the server's own context must say the
-    # caller is an admin. Admin tools run for an admin from any chat (2026-10-07).
-    from matrx_connect import admin_tool_authorized
-
-    is_admin = bool(state.get("is_admin", False)) and admin_tool_authorized()
-    granted = frozenset(state.get("optional_permissions_granted") or [])
-    desktop_status: str = state.get("desktop_bridge", "none")
+    gates = chrome_gates(state)
+    is_admin, granted, desktop_status = gates.is_admin, gates.granted, gates.desktop_status
     loaded_categories: list[str] = list(state.get("loaded_categories") or [])
 
     if loaded_categories:
@@ -447,6 +510,7 @@ async def load_chrome_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="forbidden",
                 message=(
                     f"Category {category!r} is admin-only and the current user is not an admin."

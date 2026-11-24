@@ -3,9 +3,11 @@
 import zlib
 
 from jwcrypto import common
+from jwcrypto.common import InvalidJWSEHeader
 from jwcrypto.common import JWKeyNotFound
 from jwcrypto.common import JWSEHeaderParameter, JWSEHeaderRegistry
 from jwcrypto.common import base64url_decode, base64url_encode
+from jwcrypto.common import check_crit, merge_headers, validate_headers
 from jwcrypto.common import json_decode, json_encode
 from jwcrypto.jwa import JWA
 from jwcrypto.jwk import JWKSet
@@ -14,13 +16,15 @@ from jwcrypto.jwk import JWKSet
 default_max_compressed_size = 256 * 1024
 # Limit the maximum plaintext size to 100MB by default.
 default_max_plaintext_size = 100 * 1024 * 1024
+# Limit the number of recipients accepted in one decrypt() call.
+default_max_recipients = 10
 
 # RFC 7516 - 4.1
 # name: (description, supported?)
 JWEHeaderRegistry = {
     'alg': JWSEHeaderParameter('Algorithm', False, True, None),
     'enc': JWSEHeaderParameter('Encryption Algorithm', False, True, None),
-    'zip': JWSEHeaderParameter('Compression Algorithm', False, True, None),
+    'zip': JWSEHeaderParameter('Compression Algorithm', True, True, None),
     'jku': JWSEHeaderParameter('JWK Set URL', False, False, None),
     'jwk': JWSEHeaderParameter('JSON Web Key', False, False, None),
     'kid': JWSEHeaderParameter('Key ID', False, True, None),
@@ -147,27 +151,26 @@ class JWE:
         self._allowed_algs = algs
 
     def _merge_headers(self, h1, h2):
-        for k in list(h1.keys()):
-            if k in h2:
-                raise InvalidJWEData('Duplicate header: "%s"' % k)
-        h1.update(h2)
-        return h1
+        try:
+            return merge_headers(h1, h2)
+        except InvalidJWSEHeader as e:
+            raise InvalidJWEData(str(e)) from e
 
     def _get_jose_header(self, header=None):
-        jh = {}
-        if 'protected' in self.objects:
-            ph = json_decode(self.objects['protected'])
-            jh = self._merge_headers(jh, ph)
-        if 'unprotected' in self.objects:
-            uh = json_decode(self.objects['unprotected'])
-            jh = self._merge_headers(jh, uh)
+        ph = json_decode(self.objects.get('protected', '{}'))
+        uh = json_decode(self.objects.get('unprotected', '{}'))
+        rh = None
         if header:
             if isinstance(header, dict):
                 rh = header
             else:
                 rh = json_decode(header)
-            jh = self._merge_headers(jh, rh)
-        return jh
+        try:
+            jh = merge_headers(ph, uh, rh, registry=self.header_registry)
+            check_crit(jh, ph, registry=self.header_registry)
+            return jh
+        except InvalidJWSEHeader as e:
+            raise InvalidJWEData(str(e)) from e
 
     def _get_alg_enc_from_headers(self, jh):
         algname = jh.get('alg', None)
@@ -345,15 +348,6 @@ class JWE:
                     enc['header'] = json_decode(obj['header'])
             return json_encode(enc)
 
-    def _check_crit(self, crit):
-        for k in crit:
-            if k not in self.header_registry:
-                raise InvalidJWEData('Unknown critical header: "%s"' % k)
-            else:
-                if not self.header_registry[k].supported:
-                    raise InvalidJWEData('Unsupported critical header: '
-                                         '"%s"' % k)
-
     def _unwrap_decrypt(self, alg, enc, key, enckey, header,
                         aad, iv, ciphertext, tag):
         cek = alg.unwrap(key, enc.wrap_key_size, enckey, header)
@@ -368,12 +362,10 @@ class JWE:
         jh = self._get_jose_header(ppe.get('header', None))
 
         # TODO: allow caller to specify list of headers it understands
-        self._check_crit(jh.get('crit', {}))
-
-        for hdr in jh:
-            if hdr in self.header_registry:
-                if not self.header_registry.check_header(hdr, self):
-                    raise InvalidJWEData('Failed header check')
+        try:
+            validate_headers(jh, registry=self.header_registry, target=self)
+        except InvalidJWSEHeader as e:
+            raise InvalidJWEData(str(e)) from e
 
         alg = self._jwa_keymgmt(jh.get('alg', None))
         enc = self._jwa_enc(jh.get('enc', None))
@@ -461,9 +453,16 @@ class JWE:
         missingkey = False
 
         if 'recipients' in self.objects:
+            if len(self.objects['recipients']) > default_max_recipients:
+                raise InvalidJWEData(
+                    'Too many recipients (%d)' %
+                    len(self.objects['recipients']))
             for rec in self.objects['recipients']:
                 try:
                     self._decrypt(key, rec, max_plaintext=max_plaintext)
+                    # Stop after the first successful recipient.
+                    if self.plaintext is not None:
+                        break
                 except Exception as e:  # pylint: disable=broad-except
                     if isinstance(e, JWKeyNotFound):
                         missingkey = True

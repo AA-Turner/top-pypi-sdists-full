@@ -292,7 +292,32 @@ async def _standalone_resolve_active_organization(
     has_access = await call_function(
         PACKAGE_DB_NAME, "iam", "has_org_access_for", user_id, claimed_org_id
     )
-    return claimed_org_id if has_access is True else None
+    if has_access is True:
+        return claimed_org_id
+    # ONE answer on both hosts (black-box finding 12): an archived organization is
+    # `organization_archived` (remedy: restore it), never `organization_forbidden`
+    # ("ask an admin to add you" sends the person to fix the wrong thing). The
+    # aidream host raises the same matrx-connect decision from its resolver.
+    if await _organization_is_archived(claimed_org_id):
+        from matrx_connect.middleware.auth import OrganizationArchived
+
+        raise OrganizationArchived(claimed_org_id)
+    return None
+
+
+async def _organization_is_archived(organization_id: str) -> bool:
+    """``iam.archived_org_ids()`` — the database's own list of CLOSED organizations (T-33)."""
+    from matrx_orm import call_function
+
+    from matrx_files.db import PACKAGE_DB_NAME
+
+    rows = await call_function(PACKAGE_DB_NAME, "iam", "archived_org_ids", mode="rows") or []
+    wanted = str(organization_id)
+    for row in rows:
+        values = row.values() if hasattr(row, "values") else (row,)
+        if any(str(v) == wanted for v in values):
+            return True
+    return False
 
 
 def _user_id_dep():
@@ -330,6 +355,13 @@ def create_app() -> FastAPI:
     )
 
     app.state.standalone_session_policy_required = True
+
+    # Every failure is the ONE ApiError envelope {error, message, user_message,
+    # details, request_id} — same shape the aidream host renders — never
+    # FastAPI's bare {"detail": ...} or a raw 422 list.
+    from matrx_files.api.errors import install_error_handlers
+
+    install_error_handlers(app)
 
     # Health is ALWAYS served — the independence gate's proof of boot.
     from matrx_files.api.router import router as health_router
@@ -466,6 +498,7 @@ def create_app() -> FastAPI:
     # the middleware stack at first request, so the ORDER relative to CORS below is unchanged.
     from matrx_connect.middleware.auth import AuthMiddleware
     from matrx_files.standalone.admission import admission_config
+    from matrx_files.standalone.request_actor import request_actor_scope
 
     supabase_url = str(cfg["supabase_url"]).rstrip("/")
     app.add_middleware(
@@ -480,6 +513,9 @@ def create_app() -> FastAPI:
         resolve_current_session=session_policy.login,
         resolve_file_session=session_policy.file,
         require_file_session_source=True,
+        # WHO is calling, declared once for every admitted request (request_actor.py): a person's
+        # writes reach the tier-stamped tables as theirs, never as a nameless system (AD282).
+        request_scope=request_actor_scope,
         # Declared explicitly, reusing the SAME public-surface list this
         # module already maintains for its own auth-coverage assertion
         # (_PUBLIC_PATHS / _PUBLIC_PREFIXES) — one list of "doesn't need a
@@ -495,6 +531,12 @@ def create_app() -> FastAPI:
 
     app.add_middleware(RemoteFileSessionMintMiddleware, mint=session_policy.mint)
     app.state.file_session_policy = session_policy
+    # THE TEST STAMP: X-Matrx-Test-Run → ContextVar → `app.test_run` at every transaction
+    # open, so platform._stamp_test_run stamps what a test session uploads here
+    # (matrx_files/standalone/test_stamp.py). Inert without the header.
+    from matrx_files.standalone.test_stamp import install_test_run_stamp
+
+    install_test_run_stamp(app)
     # Last-added middleware is outermost in Starlette. CORS must wrap auth so
     # unauthenticated browser OPTIONS preflights never reach AuthMiddleware.
     _add_cors_middleware(app, cfg)

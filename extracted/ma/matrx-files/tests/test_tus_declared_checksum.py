@@ -150,13 +150,35 @@ def test_a_declared_checksum_that_cannot_be_verified_fails_the_upload(
     assert len(world.files.rows) == before
 
 
-def test_declaring_nothing_keeps_todays_behaviour(
+def test_declaring_nothing_still_stores_the_checksum(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """No declaration, no new refusal: existing callers are untouched."""
+    """No declaration, no new refusal — and the row STILL carries its SHA-256.
+
+    Live black-box finding 7 (2026-10-30): production S3 returns no FULL_OBJECT
+    checksum, and this test used to pin the result — every TUS row with checksum
+    NULL, outside dedup and unmatchable by expected_checksum. Every non-empty
+    upload is now re-hashed when S3 supplies none.
+    """
     world = build_world(monkeypatch, s3=FakeS3Client(reject_full_object_sha256=True))
     client = _client(world)
     resp = _upload(client, world, metadata=_meta(filepath="Docs/e.txt"))
+    assert resp.status_code == 204, resp.text
+    assert next(reversed(list(world.files.rows.values())))["checksum"] == SHA
+
+
+def test_an_unreadable_object_without_a_declaration_still_lands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With nothing declared, a failed re-hash is logged and the row lands NULL — never refused."""
+    s3 = FakeS3Client(reject_full_object_sha256=True)
+
+    def _unreadable(**kwargs):
+        raise RuntimeError("object store read failed")
+
+    s3.get_object = _unreadable  # type: ignore[method-assign]
+    world = build_world(monkeypatch, s3=s3)
+    resp = _upload(_client(world), world, metadata=_meta(filepath="Docs/f.txt"))
     assert resp.status_code == 204, resp.text
     assert next(reversed(list(world.files.rows.values())))["checksum"] is None
 

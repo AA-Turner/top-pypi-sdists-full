@@ -83,3 +83,17 @@ def test_the_validator_warns_and_never_blocks() -> None:
     assert len(rule18) == 2
     assert all(i.severity == "warning" for i in rule18)
     assert not [i for i in result.issues if i.severity == "error" and i in rule18]
+
+
+def test_a_workflow_setting_is_a_visible_input() -> None:
+    """A variable in the Settings group is drawn by the canvas's Settings panel (workflow_settings.py), so reading it
+    is not a hidden input; a plain declared variable still is."""
+    setting = {"name": "part_size", "label": "Part size", "defaultValue": 2,
+               "customComponent": {"type": "number"}, "hints": {"group": "Settings"}}
+    plain = {"name": "secret_size", "defaultValue": 2}
+    use = _node("split", "data.batch", {"config": {"size": {"$input": "part_size"}, "other": {"$input": "secret_size"}}})
+    raw = {"variables": [setting, plain], "nodes": [INPUT, use, OUTPUT],
+           "edges": [_edge("ask", "split"), _edge("split", "show")]}
+    hidden = [subject for code, subject in _codes(raw) if code == "hidden_input"]
+    assert "part_size" not in hidden
+    assert "secret_size" in hidden

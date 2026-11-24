@@ -1,0 +1,37 @@
+---
+- project:
+    templates:
+      - check-requirements
+      - openstack-python3-jobs
+      - openstack-python3-next-jobs
+      - openstacksdk-functional-tips
+      - openstacksdk-tox-tips
+      - os-client-config-tox-tips
+      - osc-tox-unit-tips
+      - publish-openstack-docs-pti
+      - release-notes-jobs-python3
+    check:
+      jobs:
+        - openstack-tox-py312
+        - openstacksdk-functional-devstack
+        - openstacksdk-functional-devstack-networking
+        - openstacksdk-functional-devstack-networking-ext
+        - openstacksdk-functional-devstack-magnum
+        - openstacksdk-functional-devstack-manila
+        - openstacksdk-functional-devstack-compute-manila
+        - openstacksdk-functional-devstack-cyborg
+        - openstacksdk-functional-devstack-masakari
+        - openstacksdk-functional-devstack-ironic
+        - osc-functional-devstack-tips:
+            voting: false
+        - ansible-collections-openstack-functional-devstack:
+            voting: false
+    post-review:
+      jobs:
+        - openstacksdk-acceptance-devstack
+        - openstacksdk-acceptance-cleura
+    gate:
+      jobs:
+        - openstacksdk-functional-devstack
+        - openstacksdk-functional-devstack-networking
+        - openstacksdk-functional-devstack-ironic

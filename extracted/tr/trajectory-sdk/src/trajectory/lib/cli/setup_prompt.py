@@ -16,8 +16,8 @@ Follow the benchmark's data-use restrictions: if all records are evaluation-only
 
 Resolve the remaining decisions one at a time:
 1. Benchmark: from the cookbook, this repo's, a well-known one, or other (research first)?
-2. Model: one from client.evals.list_models() for evaluation-only data, otherwise client.training.list_models().
-3. Plan the upload{agent}. If trainable, propose a small smoke run (2 steps, batch 1, minimal supported group size, no in-training eval) within client.training.list_options() bounds, with estimated cost from list_models() pricing.
+2. Model: one from client.evals.list_models() for evaluation-only data, otherwise client.rl.list_models().
+3. Plan the upload{agent}. If trainable, propose a small smoke run (2 steps, batch 1, minimal supported group size, no in-training eval) within client.rl.list_options() bounds, with estimated cost from list_models() pricing.
 4. Confirm agent name, benchmark, task count, models, and training config and cost if training; wait for my yes.
 
 After confirmation, upload and recheck model options with the returned bench_id. Then diagnose, omitting val_num_tasks, val_trajectories_per_task and val_max_concurrent_trajectories; eval the selected model and another from client.evals.list_models(), fix errors and rerun (incl. eval options like trajectory_timeout_seconds, max_turns_per_trajectory); warn if baseline ~1.0; if trainable, train and eval the final checkpoint. No deploy."""

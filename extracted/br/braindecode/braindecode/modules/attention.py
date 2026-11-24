@@ -20,10 +20,14 @@ from einops import rearrange
 from einops.layers.torch import Rearrange
 from torch import Tensor, nn
 
-from braindecode.functional import _get_gaussian_kernel1d, scaled_dot_product_attention
+from braindecode.functional import (
+    _get_gaussian_kernel1d,
+    apply_rotary,
+    rotary_angles,
+    rotary_frequencies,
+    scaled_dot_product_attention,
+)
 from braindecode.functional.attention import (  # noqa: F401  (re-exported)
-    _hpu_eager_fused_sdpa,
-    _hpu_lazy,
     _sdpa_math_dropout,
 )
 
@@ -200,7 +204,7 @@ class FCA(nn.Module):
         )
         self.fc = nn.Sequential(
             nn.Linear(in_channels, in_channels // reduction_rate, bias=False),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Linear(in_channels // reduction_rate, in_channels, bias=False),
             nn.Sigmoid(),
         )
@@ -862,7 +866,13 @@ class TimmAttention(nn.Module):
         timm's op order, ``softmax((q * scale) @ k^T) @ v``, bit-identical to
         the reference implementations (see
         :func:`braindecode.functional.scaled_dot_product_attention`); otherwise
-        torch's kernels (Gaudi's fused kernel on HPU).
+        torch's kernels.
+    rotary_runs : int, optional
+        Rotate the queries and keys with RoPE (``head_dim`` must be even). The
+        tokens form ``rotary_runs`` consecutive runs of equal length and the
+        positions ``0 .. L - 1`` restart in each run; ``1`` is RoPE over the
+        whole sequence. TinyMyo uses one run per channel. ``None`` adds no
+        rotation.
 
     Examples
     --------
@@ -882,6 +892,8 @@ class TimmAttention(nn.Module):
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
         exact: bool = False,
+        rotary_runs: Optional[int] = None,
+        rotary_run_len: Optional[int] = None,
     ):
         super().__init__()
         if not 1 <= num_heads <= dim:
@@ -890,6 +902,25 @@ class TimmAttention(nn.Module):
             )
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
+        if rotary_runs is not None and rotary_runs < 1:
+            raise ValueError(f"rotary_runs must be positive, got {rotary_runs}.")
+        if rotary_run_len is not None and rotary_run_len < 1:
+            raise ValueError(f"rotary_run_len must be positive, got {rotary_run_len}.")
+        if rotary_runs is not None and self.head_dim % 2:
+            raise ValueError(
+                f"head_dim ({self.head_dim}) must be even: RoPE rotates in pairs."
+            )
+        self.rotary_runs = rotary_runs
+        # cos and sin of the build length, so forward does not rebuild them
+        cos = sin = torch.empty(0, self.head_dim)
+        if rotary_runs is not None and rotary_run_len is not None:
+            positions = torch.arange(rotary_run_len, dtype=torch.float32)
+            angles = rotary_angles(
+                positions.repeat(rotary_runs), rotary_frequencies(self.head_dim)
+            )
+            cos, sin = angles.cos(), angles.sin()
+        self.register_buffer("_rotary_cos", cos, persistent=False)
+        self.register_buffer("_rotary_sin", sin, persistent=False)
         all_head_dim = self.head_dim * num_heads
         self.scale = self.head_dim**-0.5
         self.exact = exact
@@ -915,7 +946,37 @@ class TimmAttention(nn.Module):
         # unbind, not qkv[0..2]: the backward of three selects writes three
         # zero-filled copies of the whole qkv tensor and sums them.
         q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
+        # Full models saved before RoPE have no rotary_runs attribute.
+        rotary_runs = getattr(self, "rotary_runs", None)
+        if rotary_runs is not None:
+            q, k = self._rotate(q, k, rotary_runs)
         return q, k, v
+
+    def _rotate(self, q: Tensor, k: Tensor, rotary_runs: int) -> tuple[Tensor, Tensor]:
+        n_tokens = q.shape[-2]
+        if n_tokens % rotary_runs:
+            raise ValueError(
+                f"Token count ({n_tokens}) must be divisible by rotary_runs ({rotary_runs})."
+            )
+        # Rotate in float32 at least, as the reference implementations do
+        dtype = torch.promote_types(q.dtype, torch.float32)
+        if self._rotary_cos.dtype == dtype == torch.float32 and (
+            n_tokens == self._rotary_cos.shape[0]
+        ):
+            cos, sin = self._rotary_cos, self._rotary_sin
+        else:
+            positions = torch.arange(
+                n_tokens // rotary_runs, device=q.device, dtype=dtype
+            ).repeat(rotary_runs)
+            angles = rotary_angles(
+                positions,
+                rotary_frequencies(self.head_dim, device=q.device, dtype=dtype),
+            )
+            cos, sin = angles.cos(), angles.sin()
+        return (
+            apply_rotary(q.to(dtype), cos, sin).to(q.dtype),
+            apply_rotary(k.to(dtype), cos, sin).to(k.dtype),
+        )
 
     def forward(self, x: Tensor, need_weights: bool = False) -> Tensor:
         """``(batch, seq, dim) -> (batch, seq, dim)``; with ``need_weights`` the
@@ -931,9 +992,7 @@ class TimmAttention(nn.Module):
                 q * self.scale, k, v, dropout_p=dropout_p, scale=1.0, exact=True
             )
         else:
-            y = scaled_dot_product_attention(
-                q, k, v, dropout_p=dropout_p, fused_in_lazy=True
-            )
+            y = scaled_dot_product_attention(q, k, v, dropout_p=dropout_p)
         return self.proj_drop(self.proj(y.transpose(1, 2).flatten(2)))
 
 
@@ -961,6 +1020,9 @@ class MultiHeadAttention(nn.Module):
     qk_norm : bool, optional
         Apply a :class:`~torch.nn.LayerNorm` over ``head_dim`` to the queries
         and keys of each head (as in LaBraM and Du-IN). Default ``False``.
+    qkv_bias : bool, optional
+        Give the query, key and value projections a bias (fNIRS-T has none).
+        Default ``True``.
 
     Examples
     --------
@@ -981,6 +1043,7 @@ class MultiHeadAttention(nn.Module):
         scale: float | None = None,
         head_dim: int | None = None,
         qk_norm: bool = False,
+        qkv_bias: bool = True,
     ):
         super().__init__()
         if num_heads < 1 or (head_dim is not None and head_dim < 1):
@@ -998,9 +1061,9 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
         self.head_dim = head_dim
         self.scale = scale
-        self.keys = nn.Linear(emb_size, inner_dim)
-        self.queries = nn.Linear(emb_size, inner_dim)
-        self.values = nn.Linear(emb_size, inner_dim)
+        self.keys = nn.Linear(emb_size, inner_dim, bias=qkv_bias)
+        self.queries = nn.Linear(emb_size, inner_dim, bias=qkv_bias)
+        self.values = nn.Linear(emb_size, inner_dim, bias=qkv_bias)
         self.q_norm = nn.LayerNorm(head_dim) if qk_norm else None
         self.k_norm = nn.LayerNorm(head_dim) if qk_norm else None
         self.att_drop = dropout
@@ -1164,6 +1227,11 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
         is_causal: bool = False,
     ) -> Tensor:
         bz, ch_num, patch_num, patch_size = x.shape
+        # key_padding_mask is (batch, channels), True for padded channels: the
+        # spatial attention of every patch skips them.
+        s_key_padding_mask: Optional[Tensor] = None
+        if key_padding_mask is not None:
+            s_key_padding_mask = key_padding_mask.repeat_interleave(patch_num, dim=0)
         xs = x[:, :, :, : patch_size // 2]
         xt = x[:, :, :, patch_size // 2 :]
         xs = xs.permute(0, 2, 1, 3).reshape(bz * patch_num, ch_num, -1)
@@ -1173,7 +1241,7 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
             xs,
             xs,
             attn_mask=attn_mask,
-            key_padding_mask=key_padding_mask,
+            key_padding_mask=s_key_padding_mask,
             need_weights=False,
         )[0]
         xs = xs.reshape(bz, patch_num, ch_num, -1).permute(0, 2, 1, 3)
@@ -1182,7 +1250,6 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
             xt,
             xt,
             attn_mask=attn_mask,
-            key_padding_mask=key_padding_mask,
             need_weights=False,
         )[0]
         xt = xt.reshape(bz, ch_num, patch_num, -1)

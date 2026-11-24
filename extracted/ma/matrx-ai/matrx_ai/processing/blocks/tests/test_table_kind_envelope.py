@@ -30,10 +30,8 @@ from matrx_ai.processing.blocks.envelope import IR_ENVELOPE_KEY
 from matrx_ai.processing.blocks.stream_processor import StreamBlockProcessor
 from matrx_ai.schema.lint import lint_output_schema
 
-GOLDEN = (
-    Path(__file__).resolve().parents[5]
-    / "matrx-graph/tests/fixtures/table_kind_golden.json"
-)
+# matrx-ai's own copy of matrx-graph's golden; tests/package_host_contracts keeps it byte-identical.
+GOLDEN = Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "table_kind_golden.json"
 CASES = json.loads(GOLDEN.read_text())["cases"]
 RATE_CARD = CASES["movers_rate_card"]["facts"]
 SLUG = table_kind_slug(RATE_CARD["table_id"])

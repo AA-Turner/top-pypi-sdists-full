@@ -17,16 +17,17 @@ import json
 import logging
 import os
 import threading
-from collections.abc import Callable, Coroutine, Mapping
+import time
+from asyncio import run as _run
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, TypeVar
 
 import pytest
 import urllib3
 
 import nab_index.cache as cache_module
+from nab_index._listing import ListingResult
 from nab_index.cache import (
     CACHE_VERSION_SIMPLE,
     CACHE_VERSION_SIMPLE_PARSED,
@@ -44,16 +45,13 @@ from nab_index.cached_client import CachedAsyncSimpleClient, ParsedCacheStats
 from nab_index.client import SdistFile, WheelFile, _parse_files
 from nab_index.parsed_listing import corruption_reason, decode, encode
 from nab_index.urllib3_async_transport import _Urllib3Response
+from nab_provider.errors import IndexAccessError
 
 # Derived so a bucket-version bump does not need every path updated.
 _SIMPLE_BUCKET = f"simple-{CACHE_VERSION_SIMPLE}"
 
 _FRESH = CachePolicy(fetched_at=0, max_age=600, etag=None)
 
-# Stands in for a body nested past the decoder's guard (``refuse_over_nested``).
-_OVER_NESTED = b"[[[]]]"
-
-_T = TypeVar("_T")
 
 # Constructor form and the trailing-slash form the client normalizes to and
 # feeds _parse_files; the cache maps both to the "pypi" index dir.
@@ -96,10 +94,6 @@ _LISTING_V2_BYTES = json.dumps(
         ],
     }
 ).encode()
-
-
-def _run(coro: Coroutine[Any, Any, _T]) -> _T:
-    return asyncio.run(coro)
 
 
 class _FakeResponse:
@@ -164,10 +158,14 @@ def test_failed_writers_do_not_wait_for_another_writers_warning(
     digest = hashlib.sha256(_LISTING_BYTES).hexdigest()
 
     with ThreadPoolExecutor(max_workers=2) as workers:
-        first = workers.submit(client._store_parsed, "pkg", digest, _PARSED)
+        first = workers.submit(
+            client._store_parsed, "pkg", digest, ListingResult(_PARSED)
+        )
         try:
             assert entered.wait(timeout=5)
-            second = workers.submit(client._store_parsed, "pkg", digest, _PARSED)
+            second = workers.submit(
+                client._store_parsed, "pkg", digest, ListingResult(_PARSED)
+            )
             second.result(timeout=5)
             assert len(reported) == 1
         finally:
@@ -186,22 +184,24 @@ def test_cancelled_listing_write_finishes_before_close(
 
     def blocked_replace(source: Path, destination: Path) -> None:
         assert threading.get_ident() != loop_thread
-        started.set()
-        assert released.wait(timeout=5)
+        if not started.is_set():
+            started.set()
+            assert released.wait(timeout=5)
         real_replace(source, destination)
 
     monkeypatch.setattr(os, "replace", blocked_replace)
     cache = _cache(tmp_path)
-    client = CachedAsyncSimpleClient(
-        _FakeTransport([_FakeResponse(_LISTING_BYTES)]), cache, _INDEX
-    )
+    zip_page = b'{"files":[{"filename":"pkg-2.zip","url":"pkg-2.zip"}]}'
+    transport = _FakeTransport([_FakeResponse(_LISTING_BYTES), _FakeResponse(zip_page)])
+    client = CachedAsyncSimpleClient(transport, cache, _INDEX)
 
     async def exercise() -> None:
         request = asyncio.create_task(client.get_files("pkg"))
         try:
             assert await asyncio.to_thread(started.wait, 2)
-            # A later listing can replace this report while the disk write waits.
-            client._zip_sdists["pkg"] = frozenset({"2.0"})
+            # Complete another lookup while the first page is still being written.
+            await client.get_files("pkg")
+            assert client.served_zip_sdists("pkg") == frozenset({"2"})
             request.cancel()
             with pytest.raises(asyncio.CancelledError):
                 await request
@@ -215,6 +215,7 @@ def test_cancelled_listing_write_finishes_before_close(
         await closing
 
     _run(exercise())
+    assert client.served_zip_sdists("pkg") == frozenset({"2"})
 
     stored = cache.get_simple("pkg")
     assert stored is not None
@@ -396,9 +397,8 @@ class TestReadCacheEntryParsed:
             / "pypi"
             / "foo.parsed"
         )
-        path.parent.mkdir(parents=True)
-        path.write_bytes(b"\xff\xfe not json")
-        assert cache.read_cache_entry(path) is not None
+        cache.put_simple_parsed("foo", b"{}")
+        assert cache.read_cache_entry(path) == "unexpected top-level shape"
 
 
 class TestNullCacheParsed:
@@ -615,10 +615,10 @@ class TestWritePathParsedBlob:
         assert cache.get_simple_parsed("pkg") == old_blob
         assert _decoded(old_blob, policy) == files
 
-    def test_revalidate_304_from_a_new_page_retires_the_blob(
+    def test_revalidate_304_from_a_new_page_rebuilds_the_blob(
         self, tmp_path: Path
     ) -> None:
-        """A moved page re-resolves relative entries, so the old blob is retired."""
+        """Relative entries in the refetched page use its new location."""
         cache = _cache(tmp_path)
         listing = dict(_LISTING)
         listing["files"] = [dict(row, url=row["filename"]) for row in _LISTING["files"]]
@@ -642,7 +642,12 @@ class TestWritePathParsedBlob:
                     status=304,
                     headers={"etag": "e1", "cache-control": "max-age=600"},
                     url=moved,
-                )
+                ),
+                _FakeResponse(
+                    body,
+                    headers={"etag": "e1", "cache-control": "max-age=600"},
+                    url=moved,
+                ),
             ]
         )
         client = CachedAsyncSimpleClient(transport, cache, _INDEX)
@@ -655,13 +660,13 @@ class TestWritePathParsedBlob:
         assert new_body == body
         assert policy.page_url == moved
         assert policy.body_digest == digest
-        # The blob is still on disk but no longer binds, so the next read
-        # rebuilds it against the new page rather than serving stale URLs.
-        assert cache.get_simple_parsed("pkg") == old_blob
         assert decode(old_blob, policy) is None
+        new_blob = cache.get_simple_parsed("pkg")
+        assert new_blob is not None
+        assert _decoded(new_blob, policy) == first
         second = _run(client.get_files("pkg"))
         assert all(record.url.startswith(moved) for record in [*first, *second])
-        assert len(transport.calls) == 1
+        assert len(transport.calls) == 2
 
 
 _SURROGATE_REQUIRES_PYTHON = ">=3.8\ud800"
@@ -720,7 +725,7 @@ def _warm_bound(
 ) -> tuple[list, str]:
     """Warm a package's body, policy, and a parsed blob bound to that body."""
     policy = CachePolicy(
-        fetched_at=2_000_000_000 if fresh else 0,
+        fetched_at=int(time.time()) if fresh else 0,
         max_age=99999 if fresh else 0,
         etag="e",
         page_url=_PAGE_URL,
@@ -778,13 +783,35 @@ class TestReadPathParsedHit:
         assert cache.get_simple_parsed("pkg") == before
 
 
+@pytest.mark.parametrize("live_file", [None, "pkg-2.0-py3-none-any.whl", "pkg-2.exe"])
+def test_raw_and_parsed_hits_report_withdrawals_from_the_whole_page(
+    tmp_path: Path, live_file: str | None
+) -> None:
+    cache = _cache(tmp_path)
+    wheel = "pkg-1.0-py3-none-any.whl"
+    entries = [{"filename": wheel, "url": wheel, "yanked": True}]
+    if live_file is not None:
+        entries.append({"filename": live_file, "url": live_file})
+    cache.put_simple("pkg", json.dumps({"files": entries}).encode(), _FRESH)
+    stats = ParsedCacheStats()
+    client = CachedAsyncSimpleClient(
+        _FakeTransport([]), cache, _INDEX, offline=True, parsed_stats=stats
+    )
+
+    for _ in range(2):
+        files = _run(client.get_files("pkg"))
+        assert files[0].yanked
+        assert client.served_all_yanked("pkg") is (live_file is None)
+    assert stats.hit == 1
+
+
 class TestReadPathRebuild:
     def test_cold_parsed_miss_reparses_and_rebuilds(self, tmp_path: Path) -> None:
         cache = _cache(tmp_path)
         digest = cache.put_simple(
             "pkg",
             _LISTING_BYTES,
-            CachePolicy(fetched_at=2_000_000_000, max_age=99999, etag=None),
+            CachePolicy(fetched_at=int(time.time()), max_age=99999, etag=None),
         )
         assert cache.get_simple_parsed("pkg") is None
         transport = _FakeTransport([])
@@ -882,15 +909,15 @@ class TestReadPathRebuild:
         self,
         tmp_path: Path,
         caplog: pytest.LogCaptureFixture,
-        refuse_over_nested: Callable[[bytes], AbstractContextManager[None]],
+        over_nested_json: bytes,
     ) -> None:
         cache = _cache(tmp_path)
         files, _ = _warm_bound(cache)
-        cache.put_simple_parsed("pkg", _OVER_NESTED)
+        cache.put_simple_parsed("pkg", over_nested_json)
         transport = _FakeTransport([])
         client = CachedAsyncSimpleClient(transport, cache, _INDEX)
 
-        with refuse_over_nested(_OVER_NESTED), caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.WARNING):
             got = _run(client.get_files("pkg"))
 
         assert got == files
@@ -940,18 +967,20 @@ class TestReadPathRebuild:
         _, policy = result
         assert _decoded(cache.get_simple_parsed("pkg"), policy) == files
 
-    def test_pre_c1_policy_without_digest_self_heals(self, tmp_path: Path) -> None:
+    def test_policy_refresh_keeps_the_body_digest_for_a_parsed_rebuild(
+        self, tmp_path: Path
+    ) -> None:
         cache = _cache(tmp_path)
         digest = cache.put_simple(
             "pkg",
             _LISTING_BYTES,
-            CachePolicy(fetched_at=2_000_000_000, max_age=99999, etag=None),
+            CachePolicy(fetched_at=0, max_age=0, etag=None),
         )
-        # Simulate an entry written before body_digest existed: strip the digest.
+        # Refresh the stale entry without supplying a new body digest.
         cache.refresh_simple_policy(
             "pkg",
             CachePolicy(
-                fetched_at=2_000_000_000, max_age=99999, etag=None, body_digest=None
+                fetched_at=int(time.time()), max_age=99999, etag=None, body_digest=None
             ),
         )
         transport = _FakeTransport([])
@@ -960,7 +989,7 @@ class TestReadPathRebuild:
         got = _run(client.get_files("pkg"))
 
         assert got == _PARSED
-        # The rebuild stamped the digest into the policy and bound a blob to it.
+        # The rebuilt blob uses the digest of the original body.
         got_policy = cache.get_simple_policy("pkg")
         assert got_policy is not None
         assert got_policy.body_digest == digest
@@ -1009,7 +1038,7 @@ class TestReadPathCorruptBody:
         cache.put_simple(
             "pkg",
             b"<html>not json",
-            CachePolicy(fetched_at=2_000_000_000, max_age=1, etag=None),
+            CachePolicy(fetched_at=int(time.time()), max_age=99999, etag=None),
         )
         transport = _FakeTransport(
             [_FakeResponse(_LISTING_BYTES, headers={"etag": "v1"})]
@@ -1035,6 +1064,25 @@ class TestReadPathCorruptBody:
 
 
 class TestReadPathOffline:
+    def test_old_rows_cannot_hide_an_incompatible_json_page(
+        self, tmp_path: Path
+    ) -> None:
+        cache = _cache(tmp_path)
+        body = json.dumps({**_LISTING, "meta": {"api-version": "2.0"}}).encode()
+        digest = cache.put_simple("pkg", body, _FRESH)
+        files = _parse_files(_LISTING, _INDEX_NORM, "pkg")
+
+        # Format 9 stored rows before Nab checked the page's API version.
+        header, rows = json.loads(encode(files, digest))
+        header[0] = 9
+        cache.put_simple_parsed("pkg", json.dumps([header, rows]).encode())
+        transport = _FakeTransport([])
+        client = CachedAsyncSimpleClient(transport, cache, _INDEX, offline=True)
+
+        with pytest.raises(IndexAccessError, match="requires Simple API version 2.0"):
+            _run(client.get_files("pkg"))
+        assert not transport.calls
+
     def test_offline_parsed_hit_without_body_or_network(self, tmp_path: Path) -> None:
         cache = _cache(tmp_path)
         files, _ = _warm_bound(cache, fresh=False)
@@ -1282,7 +1330,7 @@ class TestParsedCacheStats:
         cache.put_simple(
             "pkg",
             _LISTING_BYTES,
-            CachePolicy(fetched_at=2_000_000_000, max_age=99999, etag=None),
+            CachePolicy(fetched_at=int(time.time()), max_age=99999, etag=None),
         )
         stats = ParsedCacheStats()
         client = CachedAsyncSimpleClient(
@@ -1411,7 +1459,7 @@ class LegacyListingCache(NullCache):
     """A seeded legacy backend that learns body binding from the client."""
 
     def __init__(self) -> None:
-        self.policy = CachePolicy(2_000_000_000, 99999, None)
+        self.policy = CachePolicy(int(time.time()), 99999, None)
         self.blob: bytes | None = None
 
     def get_simple_policy(self, package: str) -> CachePolicy:

@@ -26,6 +26,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from matrx_ai.schema.rules import (
+    STRUCTURED_OUTPUT_EXTENSION_PREFIX,
     WideningBudget,
     dedupe_combinator_branches,
     enforce_additional_properties_false,
@@ -39,6 +40,7 @@ from matrx_ai.schema.rules import (
     restore_generation_order,
     rewrite_const_as_enum,
     split_enum_from_type_union,
+    unsupported_structured_output_keywords,
 )
 
 Provider = Literal["openai", "anthropic", "google"]
@@ -98,6 +100,69 @@ def _walk_objects(node: Any, path: str) -> list[tuple[str, dict[str, Any]]]:
             for key, value in defs.items():
                 out.extend(_walk_objects(value, f"{path}/$defs/{key}"))
     return out
+
+
+# Under these keys a dict is a NAME → subschema map: its keys are user-chosen
+# names, never keywords (a property literally named "pattern" is not a keyword).
+_NAME_MAP_KEYS = frozenset({"properties", "$defs", "definitions", "patternProperties", "dependentSchemas"})
+
+
+def _keyword_uses(node: Any, path: str, out: dict[str, list[str]]) -> None:
+    """Every schema KEYWORD used anywhere in ``node`` → the paths it appears at."""
+    if isinstance(node, list):
+        for idx, item in enumerate(node):
+            _keyword_uses(item, f"{path}/{idx}", out)
+        return
+    if not isinstance(node, dict):
+        return
+    for key, value in node.items():
+        out.setdefault(key, []).append(path)
+        if key in _NAME_MAP_KEYS and isinstance(value, dict):
+            for name, sub in value.items():
+                _keyword_uses(sub, f"{path}/{key}/{name}", out)
+        elif key in ("enum", "const", "default", "examples", "required"):
+            continue  # values, not subschemas
+        else:
+            _keyword_uses(value, f"{path}/{key}", out)
+
+
+_PROVIDER_LABEL: dict[str, str] = {"openai": "OpenAI", "anthropic": "Anthropic", "google": "Gemini"}
+
+
+def _ignored_keyword_findings(schema: dict[str, Any], want: set[str]) -> list[SchemaFinding]:
+    """One finding per provider naming the keywords its structured-output engine
+    does not accept — the request boundary strips them (``strip_unsupported_keywords``),
+    so the model is never held to them while it writes; the answer is still checked
+    against the stored schema afterwards (``schema.answer_contract``)."""
+    uses: dict[str, list[str]] = {}
+    _keyword_uses(schema, "#", uses)
+    findings: list[SchemaFinding] = []
+    for provider in ALL_PROVIDERS:
+        if provider not in want:
+            continue
+        unsupported = unsupported_structured_output_keywords(provider)
+        dropped = sorted(
+            key for key in uses
+            if key in unsupported or key.startswith(STRUCTURED_OUTPUT_EXTENSION_PREFIX)
+        )
+        if not dropped:
+            continue
+        places = sum(len(uses[key]) for key in dropped)
+        first = uses[dropped[0]][0]
+        findings.append(
+            SchemaFinding(
+                provider=provider,
+                severity="warning",
+                path=first,
+                message=(
+                    f"{_PROVIDER_LABEL[provider]} does not enforce {', '.join(dropped)} "
+                    f"({places} place{'s' if places != 1 else ''}): they are removed from the "
+                    "request, so the model is not held to them while it writes; the answer is "
+                    "still checked against them afterwards."
+                ),
+            )
+        )
+    return findings
 
 
 def _contains_ref(node: Any) -> bool:
@@ -270,6 +335,9 @@ def lint_output_schema(
                 message="Gemini's restricted schema subset may not resolve $ref/$defs — inline definitions for portability.",
             )
         )
+
+    if root_object:
+        findings.extend(_ignored_keyword_findings(schema, want))
 
     portable = _make_portable(schema) if root_object else None
     has_error = any(f.severity == "error" for f in findings)

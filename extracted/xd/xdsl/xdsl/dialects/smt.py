@@ -253,7 +253,7 @@ class ApplyFuncOp(IRDLOperation):
 
     result = result_def(RANGE)
 
-    assembly_format = "$func `(` $args `)` attr-dict `:` type($func)"
+    assembly_format = "$func `(` $args `)` attr-dict `:` qualified(type($func))"
 
     def __init__(self, func: SSAValue[FuncType], *args: SSAValue):
         super().__init__(
@@ -265,7 +265,7 @@ class ApplyFuncOp(IRDLOperation):
 class ConstantBoolOp(IRDLOperation, HasFolderInterface):
     """
     This operation represents a constant boolean value. The semantics are
-    equivalent to the ‘true’ and ‘false’ keywords in the Core theory of the
+    equivalent to the `true` and `false` keywords in the Core theory of the
     SMT-LIB Standard 2.7.
     """
 
@@ -294,7 +294,7 @@ class ConstantBoolOp(IRDLOperation, HasFolderInterface):
 class NotOp(IRDLOperation):
     """
     This operation performs a boolean negation. The semantics are equivalent
-    to the ’not’ operator in the Core theory of the SMT-LIB Standard 2.7.
+    to the `not` operator in the Core theory of the SMT-LIB Standard 2.7.
     """
 
     name = "smt.not"
@@ -331,7 +331,7 @@ class VariadicBoolOp(IRDLOperation):
 class AndOp(VariadicBoolOp):
     """
     This operation performs a boolean conjunction. The semantics are equivalent
-    to the ‘and’ operator in the Core theory of the SMT-LIB Standard 2.7.
+    to the `and` operator in the Core theory of the SMT-LIB Standard 2.7.
 
     It supports a variadic number of operands, but requires at least two.
     """
@@ -343,7 +343,7 @@ class AndOp(VariadicBoolOp):
 class OrOp(VariadicBoolOp):
     """
     This operation performs a boolean disjunction. The semantics are equivalent
-    to the ‘or’ operator in the Core theory of the SMT-LIB Standard 2.7.
+    to the `or` operator in the Core theory of the SMT-LIB Standard 2.7.
 
     It supports a variadic number of operands, but requires at least two.
     """
@@ -355,7 +355,7 @@ class OrOp(VariadicBoolOp):
 class XOrOp(VariadicBoolOp):
     """
     This operation performs a boolean exclusive or. The semantics are equivalent
-    to the ‘xor’ operator in the Core theory of the SMT-LIB Standard 2.7.
+    to the `xor` operator in the Core theory of the SMT-LIB Standard 2.7.
 
     It supports a variadic number of operands, but requires at least two.
     """
@@ -606,7 +606,7 @@ class AssertOp(IRDLOperation):
 class BvConstantOp(IRDLOperation, HasFolderInterface):
     """
     This operation produces an SSA value equal to the bitvector constant specified
-    by the ‘value’ attribute.
+    by the `value` attribute.
     """
 
     name = "smt.bv.constant"
@@ -654,7 +654,7 @@ class UnaryBVOp(IRDLOperation, ABC):
     input = operand_def(T)
     result = result_def(T)
 
-    assembly_format = "$input attr-dict `:` type($result)"
+    assembly_format = "$input attr-dict `:` qualified(type($result))"
 
     traits = traits_def(Pure())
 
@@ -694,7 +694,7 @@ class BinaryBVOp(IRDLOperation, ABC):
     rhs = operand_def(T)
     result = result_def(T)
 
-    assembly_format = "$lhs `,` $rhs attr-dict `:` type($result)"
+    assembly_format = "$lhs `,` $rhs attr-dict `:` qualified(type($result))"
 
     traits = traits_def(Pure())
 

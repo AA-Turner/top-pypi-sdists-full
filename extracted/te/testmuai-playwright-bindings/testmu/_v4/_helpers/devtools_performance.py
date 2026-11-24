@@ -1,8 +1,48 @@
 from __future__ import annotations
 
+import dataclasses
+import re
+
 from .devtools_types import CoreWebVitals
 
 _COLLECT_JS = "(() => window.__v16_perf)()"
+
+# Non-CDP engines only: which vitals the engine's PerformanceObserver cannot
+# measure (same feature detection as the runner's collector).
+_UNSUPPORTED_JS = """() => {
+  const t = (typeof PerformanceObserver !== "undefined" && PerformanceObserver.supportedEntryTypes) || [];
+  const inp = typeof PerformanceEventTiming !== "undefined" && "interactionId" in PerformanceEventTiming.prototype;
+  return [["LCP", t.includes("largest-contentful-paint")], ["CLS", t.includes("layout-shift")],
+          ["INP", t.includes("event") && inp], ["FCP", t.includes("paint")],
+          ["TTFB", t.includes("navigation")]].filter(p => !p[1]).map(p => p[0]);
+}"""
+
+# Metric -> the names query code reads it by (``perf.cls``, ``all()["lcp_ms"]``).
+_VITAL_TOKENS: dict[str, tuple[str, ...]] = {
+    "CLS": ("cls",),
+    "LCP": ("lcp_ms", "lcp"),
+    "FCP": ("fcp_ms", "fcp"),
+    "INP": ("inp_ms", "inp"),
+    "TTFB": ("ttfb_ms", "ttfb"),
+}
+
+
+def unsupported_metrics_message(code: str, cwv: CoreWebVitals, engine: str = "") -> str | None:
+    """"CLS is not supported on firefox" when ``code`` reads a vital listed in
+    ``cwv.unsupported``; None otherwise (always None on Chromium)."""
+    unsupported = getattr(cwv, "unsupported", None) or []
+    hit = [
+        m for m in unsupported
+        if isinstance(m, str)
+        and any(re.search(rf"\b{t}\b", code or "") for t in _VITAL_TOKENS.get(m.upper(), (re.escape(m.lower()),)))
+    ]
+    if not hit:
+        return None
+    if not engine:
+        from testmu._aria_perception import session_engine
+        engine = session_engine()
+    engine = engine if engine != "chromium" else "this browser"
+    return f"{', '.join(hit)} {'is' if len(hit) == 1 else 'are'} not supported on {engine}"
 
 
 def _build_cwv(raw: dict) -> CoreWebVitals:
@@ -16,6 +56,7 @@ def _build_cwv(raw: dict) -> CoreWebVitals:
         inp_ms=_f("inp"),
         fcp_ms=_f("fcp"),
         ttfb_ms=_f("ttfb"),
+        unsupported=[m for m in (raw.get("unsupported") or []) if isinstance(m, str)],
     )
 
 
@@ -27,7 +68,22 @@ async def snapshotPerformanceTrace(page) -> CoreWebVitals:
     - the equivalent performance snapshot on the recording path
     """
     raw = await page.evaluate(_COLLECT_JS)
-    return _build_cwv(raw or {})
+    cwv = _build_cwv(raw or {})
+    if not cwv.unsupported:
+        from testmu._v4._helpers._perception import perception_for
+        unsupported = await perception_for(page).unsupported_vitals()
+        if unsupported:
+            cwv = dataclasses.replace(cwv, unsupported=unsupported)
+    return cwv
+
+
+async def _unsupported_vitals_portable(page) -> list[str]:
+    """Firefox: the vitals this engine's PerformanceObserver can't measure."""
+    try:
+        unsupported = await page.evaluate(_UNSUPPORTED_JS)
+    except Exception:  # noqa: BLE001 — best-effort; the vitals stand
+        return []
+    return [m for m in (unsupported or []) if isinstance(m, str)]
 
 
 # ---------------------------------------------------------------------------
@@ -68,6 +124,10 @@ class _ReadOnlyPerfStore:
     def ttfb_ms(self) -> float | None:
         return self._cwv.ttfb_ms
 
+    @property
+    def unsupported(self) -> list[str]:
+        return list(getattr(self._cwv, "unsupported", None) or [])
+
     def all(self) -> dict:
         return {
             "lcp_ms": self._cwv.lcp_ms,
@@ -100,8 +160,13 @@ def devtools_performance_query(
     code: str,
     cwv: CoreWebVitals,
     timeout_sec: float = 2.0,
+    engine: str = "",
 ) -> DevtoolsQueryResult:
     """Execute LLM-generated code against CoreWebVitals. Shares pool with network/console."""
+    unsupported_err = unsupported_metrics_message(code, cwv, engine)
+    if unsupported_err:
+        # Non-Chromium only: fail loud rather than read a silent None.
+        return DevtoolsQueryResult(success=False, error=unsupported_err)
     try:
         future = _net._executor.submit(_run_perf_worker, code, cwv)
         tag, val = future.result(timeout=timeout_sec)

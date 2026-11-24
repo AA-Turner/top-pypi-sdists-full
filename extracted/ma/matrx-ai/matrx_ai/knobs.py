@@ -16,6 +16,7 @@ failure is announced once per key and uses the mirror — never a crashed call.
 
 from __future__ import annotations
 
+import math
 import sys
 from collections.abc import Callable
 from typing import Any
@@ -67,15 +68,67 @@ def package_knob(feature: str, key: str, mirror: Any) -> Any:
         return mirror
 
 
+class MalformedKnobValue(ValueError):
+    """A knob row holds a value its reader cannot use (the reader fell back, and said so)."""
+
+
+_malformed: set[tuple[str, str, str]] = set()
+
+
+def announce_malformed_knob(feature: str, key: str, value: Any, *, using: Any, why: str) -> None:
+    """Law 4 (CGU-10 IMG8 #8): a knob value its reader cannot use is never silently replaced. Said once
+    per distinct bad value, on stderr AND as a durable ``feature_knob_malformed`` system error (when a
+    loop is running and a host sink is configured), naming the row, the value and what is used instead."""
+    mark = (feature, key, repr(value))
+    if mark in _malformed:
+        return
+    _malformed.add(mark)
+    message = (
+        f"knob {feature}.{key} = {value!r} is malformed ({why}); using {using!r} until the row is fixed"
+    )
+    print(f"[matrx_ai] {message}", file=sys.stderr)
+    try:
+        import asyncio
+
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return  # no loop (a sync caller): stderr is the record
+    from matrx_utils.error_capture import capture_error, supervised_task
+
+    supervised_task(
+        capture_error(
+            MalformedKnobValue(message),
+            kind="feature_knob_malformed",
+            context={"feature": feature, "key": key, "value": repr(value)[:500], "using": repr(using)},
+        ),
+        kind="feature_knob_malformed",
+        name=f"feature_knob_malformed:{feature}.{key}",
+    )
+
+
 def package_knob_number[N: (int, float)](feature: str, key: str, mirror: N, *, low: N, high: N) -> N:
-    """A numeric knob, clamped into ``low..high``; a value that is not a number answers the mirror."""
+    """A numeric knob, clamped into ``low..high``; a value that is not a number answers the mirror
+    (announced — never silent)."""
     raw = package_knob(feature, key, mirror)
     try:
         value = float(str(raw).strip().strip('"'))
     except (TypeError, ValueError):
+        announce_malformed_knob(feature, key, raw, using=mirror, why="not a number")
+        return mirror
+    if math.isnan(value):
+        # CGU-10 IMG9 #4: NaN compares false with every bound, so a clamp lets it through — an
+        # integer knob then raised ``cannot convert float NaN`` to the caller and a decimal knob fed
+        # ``nan`` into arithmetic silently. Not a number: announced, the mirror is used. (±inf clamps.)
+        announce_malformed_knob(feature, key, raw, using=mirror, why="not a number (NaN)")
         return mirror
     value = min(max(value, float(low)), float(high))
     return int(round(value)) if isinstance(mirror, int) else value  # type: ignore[return-value]
 
 
-__all__ = ["configure_package_knobs", "package_knob", "package_knob_number"]
+__all__ = [
+    "MalformedKnobValue",
+    "announce_malformed_knob",
+    "configure_package_knobs",
+    "package_knob",
+    "package_knob_number",
+]

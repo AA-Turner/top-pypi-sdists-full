@@ -68,6 +68,21 @@ class CatalogMixin:
         kind, revision, created}``."""
         return self.transport.post("/v1/sources", body)
 
+    def create_environment(self, body: dict) -> dict:
+        """``POST /v1/environments``: register an RL environment version, or get the one registered under
+        the same name@version. ``{id, ref, name, version, provider, tasks, created}``."""
+        return self.transport.post("/v1/environments", body)
+
+    def list_environments(self, **params: Any) -> dict:
+        """``GET /v1/catalog/environments`` (``q``, ``tag``, ``cursor``, ``limit``): one row per name, its newest
+        version, task counts and runs using it."""
+        return self.transport.get("/v1/catalog/environments", params=_present(params))
+
+    def get_environment(self, name: str, version: str | None = None) -> dict:
+        """``GET /v1/catalog/environments/{name}``: the version asked for (else the newest), every version, the
+        README and the runs that used it."""
+        return self.transport.get(f"/v1/catalog/environments/{name.strip()}", params=_present({"version": version}))
+
     def get_source(self, ref: str) -> dict:
         """``GET /v1/sources/{ref}``: one source with its use counts."""
         return self.transport.get(f"/v1/sources/{catalog_path_ref(ref)}")

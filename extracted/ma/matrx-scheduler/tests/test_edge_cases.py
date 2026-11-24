@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from matrx_scheduler.cron_helpers import next_n_fires, validate_cron
 from matrx_scheduler.next_due import compute_next_due_at
@@ -16,7 +16,7 @@ def test_interval_non_numeric_returns_none():
         compute_next_due_at(
             "interval",
             {"every_seconds": "abc"},
-            now=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            now=datetime(2026, 1, 1, tzinfo=UTC),
         )
         is None
     )
@@ -54,7 +54,7 @@ def test_cron_dst_spring_forward_la():
         "0 2 * * *",
         "America/Los_Angeles",
         3,
-        datetime(2026, 3, 7, 12, 0, 0, tzinfo=timezone.utc),
+        datetime(2026, 3, 7, 12, 0, 0, tzinfo=UTC),
     )
     assert len(fires) == 3
     # Each fire must be unique and in order.
@@ -70,7 +70,7 @@ def test_cron_dst_fall_back_la():
         "0 2 * * *",
         "America/Los_Angeles",
         3,
-        datetime(2026, 10, 31, 0, 0, 0, tzinfo=timezone.utc),
+        datetime(2026, 10, 31, 0, 0, 0, tzinfo=UTC),
     )
     assert len(fires) == 3
     for a, b in zip(fires, fires[1:]):
@@ -82,7 +82,7 @@ def test_cron_every_minute():
         "* * * * *",
         "UTC",
         5,
-        datetime(2026, 5, 10, 12, 0, 0, tzinfo=timezone.utc),
+        datetime(2026, 5, 10, 12, 0, 0, tzinfo=UTC),
     )
     assert len(fires) == 5
     for a, b in zip(fires, fires[1:]):
@@ -104,7 +104,7 @@ def test_validate_cron_too_many_fields():
 
 
 def test_heartbeat_advances_by_seconds():
-    now = datetime(2026, 5, 10, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 10, 12, 0, 0, tzinfo=UTC)
     out = compute_next_due_at("heartbeat", {"every_seconds": 90}, now=now)
     assert out is not None
     assert (out - now).total_seconds() == 90

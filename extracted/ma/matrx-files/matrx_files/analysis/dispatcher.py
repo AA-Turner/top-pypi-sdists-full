@@ -133,6 +133,7 @@ async def analyze_file(
     inline_payload_limit_bytes: int = 256 * 1024,
     per_pipeline_semaphore: int = DEFAULT_PER_PIPELINE_SEMAPHORE,
     on_progress: AnalysisProgressCallback | None = None,
+    before_detector: Callable[[str, str], Awaitable[None]] | None = None,
 ) -> AnalysisOutcome:
     """Top-level entry. Never raises — every failure captured per-detector."""
     started_wall = time.monotonic()
@@ -218,7 +219,9 @@ async def analyze_file(
     )
 
     # ── pre-step: upsert file_pages so per-page detectors can stamp page_id ───
-    page_info = _extract_page_info(mime_type, bytes_in_memory)
+    # PyMuPDF opens and walks the whole PDF synchronously: off the event loop, or one large
+    # upload freezes the entire server (EventLoopStall ~1 s at this line, 2026-11-18).
+    page_info = await asyncio.to_thread(_extract_page_info, mime_type, bytes_in_memory)
     page_id_by_index: dict[int, str] = {}
     if page_info:
         try:
@@ -316,6 +319,8 @@ async def analyze_file(
         async with semaphore:
             await _wait_for_deps(spec, completed_kinds, settings)
             started_iso = datetime.now(UTC).isoformat()
+            if before_detector is not None:
+                await before_detector(spec.kind, tier)
             res = await _run_detector(spec, tier, ctx)
             finished_iso = datetime.now(UTC).isoformat()
             await persistence.record_detector_run(

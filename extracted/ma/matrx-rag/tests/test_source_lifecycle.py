@@ -9,7 +9,7 @@ marker (deleted_at) with supersession (valid_to) or drop the idempotency
 predicate. Wave A (2026-07-17): trash IS deleted_at — valid_to means
 supersession only and must NEVER be written or cleared by trash/restore.
 
-Contract: /Users/armanisadeghi/code/common-docs/projects/knowledge-system/README.md.
+Contract: /Users/armanisadeghi/code/common-docs/systems/knowledge/projects/knowledge-system/README.md.
 """
 
 from __future__ import annotations
@@ -33,6 +33,18 @@ class _RecordingModel:
         return _UpdateResult(1)
 
     @classmethod
+    def filter(cls, **filters):
+        return cls
+
+    @classmethod
+    def including_archived(cls):  # the ORM's include-archived door
+        return cls
+
+    @classmethod
+    async def values(cls, *fields):
+        return []  # no rows to pre-lock
+
+    @classmethod
     async def delete_where(cls, **filters):
         cls.calls.append(("delete", cls.__name__, filters))
         return 1
@@ -46,6 +58,14 @@ class _DataStoreMembers(_RecordingModel):
     pass
 
 
+class _NoopTransaction:
+    async def __aenter__(self) -> None:
+        return None
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+
 def _patch(monkeypatch):
     _RecordingModel.calls = []
 
@@ -53,6 +73,7 @@ def _patch(monkeypatch):
         return {"KgChunks": _KgChunks, "DataStoreMembers": _DataStoreMembers}[name]
 
     monkeypatch.setattr(ingestion, "get_db_model", _fake_get_db_model)
+    monkeypatch.setattr(ingestion, "transaction", lambda *_a, **_k: _NoopTransaction())
 
 
 def test_exports_present():
@@ -75,7 +96,7 @@ def test_soft_delete_sets_deleted_at_never_valid_to(monkeypatch):
     # Chunks are trashed via the dedicated deleted_at marker, only touching
     # still-live rows. valid_to (supersession) must never appear here.
     assert filters == {"source_kind": "cld_file", "source_id": "f1", "deleted_at__isnull": True}
-    assert set(updates) == {"deleted_at"} and updates["deleted_at"] is not None
+    assert set(updates) == {"deleted_at", "lock_rows_in_pk_order"} and updates["deleted_at"] is not None
 
     member_call = next(c for c in _RecordingModel.calls if c[1] == "_DataStoreMembers")
     _, _, mfilters, mupdates = member_call
@@ -93,7 +114,7 @@ def test_restore_clears_only_deleted_at(monkeypatch):
     # Restore only touches trashed rows and clears ONLY deleted_at — clearing
     # valid_to would resurrect superseded chunks.
     assert filters == {"source_kind": "cld_file", "source_id": "f1", "deleted_at__isnull": False}
-    assert updates == {"deleted_at": None}
+    assert updates == {"deleted_at": None, "lock_rows_in_pk_order": True}
 
     member_call = next(c for c in _RecordingModel.calls if c[1] == "_DataStoreMembers")
     _, _, mfilters, mupdates = member_call
@@ -109,7 +130,7 @@ def test_document_scoped_primitives(monkeypatch):
     chunk_call = next(c for c in _RecordingModel.calls if c[1] == "_KgChunks")
     _, _, filters, updates = chunk_call
     assert filters == {"processed_document_id": "pd1", "deleted_at__isnull": True}
-    assert set(updates) == {"deleted_at"} and updates["deleted_at"] is not None
+    assert set(updates) == {"deleted_at", "lock_rows_in_pk_order"} and updates["deleted_at"] is not None
 
     # Doc-scoped delete only touches doc-keyed memberships — never file-keyed.
     member_call = next(c for c in _RecordingModel.calls if c[1] == "_DataStoreMembers")
@@ -126,7 +147,7 @@ def test_document_scoped_primitives(monkeypatch):
     chunk_call = next(c for c in _RecordingModel.calls if c[1] == "_KgChunks")
     _, _, filters, updates = chunk_call
     assert filters == {"processed_document_id": "pd1", "deleted_at__isnull": False}
-    assert updates == {"deleted_at": None}
+    assert updates == {"deleted_at": None, "lock_rows_in_pk_order": True}
 
     _RecordingModel.calls = []
     out = asyncio.run(ingestion.purge_document_artifacts("pd1"))

@@ -42,21 +42,32 @@ class RawTextToSpeechStreamingClient:
         The Try It playground may not provide the best experience for streaming audio.
         For optimal streaming performance, please use the SDK or implement your own WebSocket client.
 
-        **Model-Specific Notes:**
-        - **bulbul:v2:** Supports pitch, loudness, pace (0.3-3.0). Default sample rate: 22050 Hz.
-        - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter (0.01–1.0). Default sample rate: 22050 Hz when `speech_sample_rate` is omitted. Preprocessing is always enabled.
-        - **bulbul:v4-flash:** Same request/response contract as bulbul:v3, with 200+ persona voices. Default sample rate: 22050 Hz when omitted.
+        **Connecting**
+        - Open `wss://api.sarvam.ai/text-to-speech/ws` and authenticate with the `Api-Subscription-Key` header (or `Authorization: Bearer <key>`). Browsers cannot set headers on a WebSocket, so pass the key as the subprotocol `api-subscription-key.<key>` instead. A missing or invalid key is rejected with HTTP 403 during the handshake, and the key cannot be sent as a query parameter.
+        - Choose the model with the `model` connection query parameter (`bulbul:v3` or `bulbul:v4-flash`). If omitted, `bulbul:v3` is used.
+        - Add `send_completion_event=true` to receive a `final` event after each flush. It is off by default.
+
+        **Message flow**
+        1. Send a `config` message first. Sending `text` before `config` returns an error.
+        2. Send one or more `text` messages (up to 2,500 characters each).
+        3. Send `flush` to synthesize any text still in the buffer. Audio arrives as `audio` messages, followed by an `event` message if completion events are on.
+        4. Repeat steps 2 and 3 for more utterances on the same connection. A new `config` message updates the settings and flushes the current buffer first.
+
+        **Keeping the connection open**
+        - The server closes an idle connection after 60 seconds with an `error` message (code 408) and a normal close. Send a `ping` message to keep it open. The server does not reply to pings.
+
+        **Both models**
+        - `bulbul:v3` and `bulbul:v4-flash` use the same messages and accept the same settings: pitch -0.5 to 0.5, loudness 0.1 to 2.5, pace 0.5 to 2.0, temperature 0.01 to 1.0. Default sample rate: 22050 Hz.
 
         Parameters
         ----------
         model : typing.Optional[TextToSpeechStreamingModel]
-            Text to speech model to use.
-            - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-            - **bulbul:v4-flash**: Latest model, recommended for new integrations — same contract as bulbul:v3, with a 200+ voice persona catalog
-            - **bulbul:v3**: Stable model (API default when omitted) with temperature control (no pitch/loudness)
+            Text to speech model to use. Set it as the `model` query parameter on the connection URL.
+            - **bulbul:v4-flash**: the latest model, recommended for new integrations. Same messages as bulbul:v3, with 200+ persona voices.
+            - **bulbul:v3**: the API default when omitted. 37 named speakers.
 
         send_completion_event : typing.Optional[TextToSpeechStreamingSendCompletionEvent]
-            Enable completion event notifications when TTS generation finishes. When set to true, an event message will be sent when the final audio chunk has been generated.
+            Set it as the `send_completion_event` query parameter on the connection URL. When `true`, an `event` message with `event_type` `final` is sent after the last audio chunk of each flush. Default is `false`, and it has no effect when sent inside a `config` message.
 
         api_subscription_key : typing.Optional[str]
             API subscription key for authentication
@@ -129,21 +140,32 @@ class AsyncRawTextToSpeechStreamingClient:
         The Try It playground may not provide the best experience for streaming audio.
         For optimal streaming performance, please use the SDK or implement your own WebSocket client.
 
-        **Model-Specific Notes:**
-        - **bulbul:v2:** Supports pitch, loudness, pace (0.3-3.0). Default sample rate: 22050 Hz.
-        - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter (0.01–1.0). Default sample rate: 22050 Hz when `speech_sample_rate` is omitted. Preprocessing is always enabled.
-        - **bulbul:v4-flash:** Same request/response contract as bulbul:v3, with 200+ persona voices. Default sample rate: 22050 Hz when omitted.
+        **Connecting**
+        - Open `wss://api.sarvam.ai/text-to-speech/ws` and authenticate with the `Api-Subscription-Key` header (or `Authorization: Bearer <key>`). Browsers cannot set headers on a WebSocket, so pass the key as the subprotocol `api-subscription-key.<key>` instead. A missing or invalid key is rejected with HTTP 403 during the handshake, and the key cannot be sent as a query parameter.
+        - Choose the model with the `model` connection query parameter (`bulbul:v3` or `bulbul:v4-flash`). If omitted, `bulbul:v3` is used.
+        - Add `send_completion_event=true` to receive a `final` event after each flush. It is off by default.
+
+        **Message flow**
+        1. Send a `config` message first. Sending `text` before `config` returns an error.
+        2. Send one or more `text` messages (up to 2,500 characters each).
+        3. Send `flush` to synthesize any text still in the buffer. Audio arrives as `audio` messages, followed by an `event` message if completion events are on.
+        4. Repeat steps 2 and 3 for more utterances on the same connection. A new `config` message updates the settings and flushes the current buffer first.
+
+        **Keeping the connection open**
+        - The server closes an idle connection after 60 seconds with an `error` message (code 408) and a normal close. Send a `ping` message to keep it open. The server does not reply to pings.
+
+        **Both models**
+        - `bulbul:v3` and `bulbul:v4-flash` use the same messages and accept the same settings: pitch -0.5 to 0.5, loudness 0.1 to 2.5, pace 0.5 to 2.0, temperature 0.01 to 1.0. Default sample rate: 22050 Hz.
 
         Parameters
         ----------
         model : typing.Optional[TextToSpeechStreamingModel]
-            Text to speech model to use.
-            - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-            - **bulbul:v4-flash**: Latest model, recommended for new integrations — same contract as bulbul:v3, with a 200+ voice persona catalog
-            - **bulbul:v3**: Stable model (API default when omitted) with temperature control (no pitch/loudness)
+            Text to speech model to use. Set it as the `model` query parameter on the connection URL.
+            - **bulbul:v4-flash**: the latest model, recommended for new integrations. Same messages as bulbul:v3, with 200+ persona voices.
+            - **bulbul:v3**: the API default when omitted. 37 named speakers.
 
         send_completion_event : typing.Optional[TextToSpeechStreamingSendCompletionEvent]
-            Enable completion event notifications when TTS generation finishes. When set to true, an event message will be sent when the final audio chunk has been generated.
+            Set it as the `send_completion_event` query parameter on the connection URL. When `true`, an `event` message with `event_type` `final` is sent after the last audio chunk of each flush. Default is `false`, and it has no effect when sent inside a `config` message.
 
         api_subscription_key : typing.Optional[str]
             API subscription key for authentication

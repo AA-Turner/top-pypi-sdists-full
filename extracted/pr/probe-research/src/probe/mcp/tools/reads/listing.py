@@ -84,12 +84,15 @@ class BrowseListMixin:
 
     @staticmethod
     def _list_cursor(
-        mode: str, backend: str | None = None, last: str | None = None, index: int | None = None
+        mode: str, backend: str | None = None, last: str | None = None, index: int | None = None,
+        window: dict[str, str] | None = None,
     ) -> str:
         """`index`: where the last row sent sat in its read, for an order rows can move in (newest
-        activity first); `_check_resume_index` refuses a continuation once it has moved."""
+        activity first); `_check_resume_index` refuses a continuation once it has moved. `window`: the
+        absolute dates a continuation sends in place of the ones asked (a span like `7d` moves)."""
         return _pack_cursor(
-            {"browse": str(mode), "c": backend, "a": last, **({"i": index} if index is not None else {})}
+            {"browse": str(mode), "c": backend, "a": last, **({"i": index} if index is not None else {}),
+             **({"w": window} if window else {})}
         )
 
     @staticmethod
@@ -212,7 +215,8 @@ class BrowseListMixin:
             # mode=runs carries its order on the runs query, not on `people`.
             *(["order"] if order == BrowseOrder.RECENT else []),
         ]
-        if asked:
+        # mode=decisions reads `since` / `until` as its route's own window; the SDK checks the server's echo.
+        if asked and mode is not BrowseMode.DECISIONS:
             self.source.require_people_filters(asked)
         page_size = max(1, min(int(limit), self._BROWSE_LIST_MAX))
         backend_cursor, last_sent = self._list_position(cursor, mode)
@@ -372,6 +376,12 @@ class BrowseListMixin:
                 mode=mode, page_size=page_size, people=people, scope=scope, sent=sent, query=query,
             )
             views_by_kind = {row["entity_type"] for row, _ in sent}
+        elif mode is BrowseMode.DECISIONS:
+            end = self._list_decisions_page(
+                backend_cursor=backend_cursor, cursor=native_cursor, data=data, last_sent=last_sent, mode=mode,
+                page_size=page_size, people=people, query=query, sent=sent,
+            )
+            views_by_kind = set()
         elif mode is BrowseMode.BRANCHES:
             # The whole read every call (the route does not page), its rows
             # resumed after the last REF sent; delivery fits whole rows to the
@@ -764,5 +774,6 @@ def _get_capped_totals(totals: dict) -> dict:
 # composed in tools.py: they are `listings/` variants, reached through this listing.
 from probe.mcp.tools.reads.listings.people import PeopleRowsMixin  # noqa: E402 -- the class exists first
 from probe.mcp.tools.reads.listings.sessions import SessionRowsMixin  # noqa: E402
+from probe.mcp.tools.reads.listings.decisions import DecisionRowsMixin  # noqa: E402
 
-fold_parts(BrowseListMixin, PeopleRowsMixin, SessionRowsMixin)
+fold_parts(BrowseListMixin, PeopleRowsMixin, SessionRowsMixin, DecisionRowsMixin)

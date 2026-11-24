@@ -4,23 +4,23 @@ Cron parser helpers used by the /scheduling/validate-cron route in the host.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Iterable
+from datetime import datetime, UTC
 from zoneinfo import ZoneInfo
 
 from croniter import croniter
 
 
 def validate_cron(expression: str, tz: str = "UTC") -> str | None:
-    """Returns None on success, error message on failure."""
+    """Returns None on success, error message on failure — the same check every write door
+    makes (``next_due.require_valid_cron``), so "valid" here means a door will accept it."""
+    from .next_due import InvalidCronTimezone, require_valid_cron
+
     try:
-        ZoneInfo(tz)
-    except Exception:
+        require_valid_cron(expression, tz)
+    except InvalidCronTimezone:
         return f"unknown timezone: {tz}"
-    try:
-        croniter(expression, datetime.now(timezone.utc))
-    except Exception as exc:  # croniter raises ValueError, KeyError, etc.
-        return f"invalid cron expression: {exc}"
+    except ValueError as exc:
+        return f"invalid cron expression: {getattr(exc, 'reason', exc)}"
     return None
 
 
@@ -32,9 +32,9 @@ def next_n_fires(
 ) -> list[datetime]:
     """Returns the next N fire times as UTC datetimes."""
     if start is None:
-        start = datetime.now(timezone.utc)
+        start = datetime.now(UTC)
     elif start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
+        start = start.replace(tzinfo=UTC)
 
     try:
         zoneinfo = ZoneInfo(tz)
@@ -46,7 +46,7 @@ def next_n_fires(
     out: list[datetime] = []
     for _ in range(max(1, n)):
         local_next = itr.get_next(datetime)
-        out.append(local_next.astimezone(timezone.utc))
+        out.append(local_next.astimezone(UTC))
     return out
 
 
@@ -59,9 +59,9 @@ def fire_count_in_window(
 ) -> int:
     """Count how many times this cron fires between [start, end). Capped."""
     if start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
+        start = start.replace(tzinfo=UTC)
     if end.tzinfo is None:
-        end = end.replace(tzinfo=timezone.utc)
+        end = end.replace(tzinfo=UTC)
     try:
         zoneinfo = ZoneInfo(tz)
     except Exception:

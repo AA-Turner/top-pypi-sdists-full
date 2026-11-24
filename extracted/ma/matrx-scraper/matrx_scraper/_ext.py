@@ -41,3 +41,17 @@ def get_ext(name: str) -> Any:
 
 def has_ext(name: str) -> bool:
     return name in _registry
+
+
+def provider_secret(name: str) -> str | None:
+    """The package's own provider key ``name`` (Brave, Unsplash, the Google keys), read NOW.
+
+    The host's ``secret_source`` — ``configure_ext(secret_source=(name) -> str | None)``, sync — when
+    one was injected: its answer is final (empty = not configured), so a rotated key takes effect on
+    the next call with no restart. Otherwise this process's environment, exactly as a standalone
+    install (and the separately deployed scraper service) always read it. ``None`` = not set."""
+    import os
+
+    source = _registry.get("secret_source")
+    value = source(name) if source is not None else os.environ.get(name)
+    return value.strip() or None if isinstance(value, str) else None

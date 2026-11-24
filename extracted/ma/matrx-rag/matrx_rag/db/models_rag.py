@@ -112,10 +112,12 @@ class DataStores(MatrxEntity):
 class EmbeddingCache(MatrxEntity):
     cache_key = TextField(primary_key=True, null=False)
     model = TextField(null=False)
-    embedding = VectorField(dimensions=1536, null=False)
+    embedding = VectorField(null=False)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     hit_count = IntegerField(null=False, default=0)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "embedding_cache"
@@ -170,6 +172,8 @@ class IngestRun(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     cleanup_calls = IntegerField(null=False, default=0)
     cleanup_cost_usd = DecimalField(null=False, default=0)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "ingest_run"
@@ -534,6 +538,8 @@ class LibraryAuditLog(MatrxEntity):
     entity_id = UUIDField()
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "library_audit_log"
@@ -722,6 +728,8 @@ class RetrievalAudit(MatrxEntity):
     updated_at = DateTimeField(null=False)
     version = IntegerField(null=False, default=1)
     deleted_at = DateTimeField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "retrieval_audit"
@@ -801,6 +809,8 @@ class DataStoreMembers(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     metadata = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "data_store_members"
@@ -821,6 +831,8 @@ class EmbeddingsGoogleGemini21536(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     id = UUIDField(null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "embeddings_google_gemini_2_1536"
@@ -841,6 +853,8 @@ class EmbeddingsOai3Small1536(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     id = UUIDField(null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "embeddings_oai_3_small_1536"
@@ -861,6 +875,8 @@ class EmbeddingsVoyage4Large1024(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     id = UUIDField(null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "embeddings_voyage_4_large_1024"
@@ -881,6 +897,8 @@ class EmbeddingsVoyageCode31024(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     id = UUIDField(null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "embeddings_voyage_code_3_1024"
@@ -990,6 +1008,8 @@ class KgEdges(MatrxEntity):
     created_at = DateTimeField(null=False)
     custom_fields = JSONBField(null=False, default={})
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_rag"
     _table_name = "kg_edges"
@@ -1013,6 +1033,8 @@ class KgEntityAliases(MatrxEntity):
     custom_fields = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'kg_chunk_entities': {'from_model': 'KgChunkEntities', 'from_field': 'alias_id', 'referenced_field': 'id', 'related_name': 'kg_chunk_entities', 'from_schema': 'rag'}}
     _database = "matrx_rag"
     _table_name = "kg_entity_aliases"
@@ -1098,6 +1120,8 @@ class KgChunkEntities(MatrxEntity):
     custom_fields = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'scope_association_suggestions': {'from_model': 'ScopeAssociationSuggestions', 'from_field': 'kg_chunk_entity_id', 'referenced_field': 'id', 'related_name': 'scope_association_suggestions', 'from_schema': 'rag'}}
     _database = "matrx_rag"
     _table_name = "kg_chunk_entities"

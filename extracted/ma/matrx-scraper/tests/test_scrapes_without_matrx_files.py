@@ -34,13 +34,19 @@ _CHILD = textwrap.dedent(
     from matrx_utils.conf import configure_settings
     configure_settings(type("S", (), {"BASE_DIR": home}))
 
-    import requests
+    import httpx
 
     class _List:
         status_code = 200
         text = "! test list\n||ads.blocked-example.com^\n"
 
-    requests.get = lambda url, timeout=10: _List()
+    downloads = []
+
+    def _fetch(url, **_kwargs):
+        downloads.append(url)
+        return _List()
+
+    httpx.get = _fetch
 
     from matrx_scraper import orchestrator
     from matrx_scraper.scraper import ContentType, RequestType, Response
@@ -62,15 +68,21 @@ _CHILD = textwrap.dedent(
         )
 
     orchestrator.fetch = fake_fetch
-    result = asyncio.run(orchestrator.scrape("https://example.com/", use_proxy=False, escalate=False))
-    from matrx_scraper.parser.utils import DomainFilter
-    domain_filter = DomainFilter("easylist")
+    from matrx_scraper.parser.utils import DomainFilter, ensure_filter_lists, filter_list_status
     saved = home / "temp" / "scraper" / "easylist-filters.txt"
+
+    # A process that never pre-warmed: the first parse runs the ONE list step itself.
+    result = asyncio.run(orchestrator.scrape("https://example.com/", use_proxy=False, escalate=False))
+    # A later ensure (a host's pre-warm) is the same step: it never fetches again.
+    status = ensure_filter_lists()
+    domain_filter = DomainFilter("easylist")
     print(json.dumps({
         "matrx_files_loaded": any(m == "matrx_files" or m.startswith("matrx_files.") for m in sys.modules),
         "success": result.success,
         "failure_reason": result.failure_reason,
         "text": result.text_data or "",
+        "downloads": downloads,
+        "status": status,
         "blocks_ad": domain_filter.should_block("https://ads.blocked-example.com/banner.png"),
         "allows_other": not domain_filter.should_block("https://cdn.allowed-example.com/photo.png"),
         "saved_list": saved.read_text() if saved.exists() else None,
@@ -93,6 +105,9 @@ def test_scrape_runs_and_saves_the_filter_list_with_matrx_files_absent(tmp_path:
     assert out["matrx_files_loaded"] is False
     assert out["success"] is True, out["failure_reason"]
     assert "Hello" in out["text"]
+    # One fetch per process, however many parses and pre-warms ask.
+    assert len(out["downloads"]) == 1
+    assert out["status"] == {"easylist": "fetched"}
     assert out["blocks_ad"] is True
     assert out["allows_other"] is True
     assert out["saved_list"] is not None and "||ads.blocked-example.com^" in out["saved_list"]

@@ -10,7 +10,7 @@ Usage:
     # All built-in types are auto-registered
 
     # Look up a block type:
-    defn = registry.get("flashcards")
+    defn = registry.get("thinking")
     parsed = defn.parser(raw_content)
 
     # Register a custom type:
@@ -45,9 +45,9 @@ type BlockTypeRowsLoader = Callable[
 class DetectionMethod(str, Enum):
     """How a block type is detected in the content stream."""
 
-    XML_TAG = "xml_tag"  # e.g., <flashcards>...</flashcards>
-    JSON_ROOT_KEY = "json_root_key"  # e.g., {"quiz_title": ...}
-    CODE_LANGUAGE = "code_language"  # e.g., ```transcript
+    XML_TAG = "xml_tag"  # e.g., <thinking>...</thinking>
+    JSON_ROOT_KEY = "json_root_key"  # e.g., a JSON object whose root key names the block
+    CODE_LANGUAGE = "code_language"  # e.g., ```matrx
     REGEX = "regex"  # Custom regex
     MARKDOWN = "markdown"  # e.g., table rows, images
 
@@ -200,31 +200,10 @@ class BlockRegistry:
         """Register all built-in block types."""
 
         # --- Text-like (incremental streaming) ---
-        for type_key in (
-            "text",
-            "info",
-            "task",
-            "database",
-            "private",
-            "plan",
-            "event",
-            "tool",
-        ):
-            self.register(
-                BlockTypeDefinition(
-                    type_key=type_key,
-                    streaming_behavior=StreamingBehavior.INCREMENTAL,
-                )
-            )
-
         self.register(
             BlockTypeDefinition(
-                type_key="structured_info",
-                detection=DetectionRule(
-                    method=DetectionMethod.CODE_LANGUAGE,
-                    code_language="structured_info",
-                ),
-                streaming_behavior=StreamingBehavior.MARKDOWN_COMPLETE,
+                type_key="text",
+                streaming_behavior=StreamingBehavior.INCREMENTAL,
             )
         )
 
@@ -289,171 +268,9 @@ class BlockRegistry:
             )
         )
 
-        # --- XML tag blocks with parsers ---
-        self.register(
-            BlockTypeDefinition(
-                type_key="flashcards",
-                detection=DetectionRule(
-                    method=DetectionMethod.XML_TAG,
-                    xml_tags=["<flashcards>"],
-                ),
-                streaming_behavior=StreamingBehavior.PARTIAL_UPDATES,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="questionnaire",
-                detection=DetectionRule(
-                    method=DetectionMethod.XML_TAG,
-                    xml_tags=["<questionnaire>"],
-                ),
-                streaming_behavior=StreamingBehavior.PARTIAL_UPDATES,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="cooking_recipe",
-                detection=DetectionRule(
-                    method=DetectionMethod.XML_TAG,
-                    xml_tags=["<cooking_recipe>"],
-                ),
-                streaming_behavior=StreamingBehavior.PARTIAL_UPDATES,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="timeline",
-                detection=DetectionRule(
-                    method=DetectionMethod.XML_TAG,
-                    xml_tags=["<timeline>"],
-                ),
-                streaming_behavior=StreamingBehavior.SEMANTIC_STREAM,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="progress_tracker",
-                detection=DetectionRule(
-                    method=DetectionMethod.XML_TAG,
-                    xml_tags=["<progress_tracker>"],
-                ),
-                streaming_behavior=StreamingBehavior.MARKDOWN_COMPLETE,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="troubleshooting",
-                detection=DetectionRule(
-                    method=DetectionMethod.XML_TAG,
-                    xml_tags=["<troubleshooting>"],
-                ),
-                streaming_behavior=StreamingBehavior.MARKDOWN_COMPLETE,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="resources",
-                detection=DetectionRule(
-                    method=DetectionMethod.XML_TAG,
-                    xml_tags=["<resources>"],
-                ),
-                streaming_behavior=StreamingBehavior.MARKDOWN_COMPLETE,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="research",
-                detection=DetectionRule(
-                    method=DetectionMethod.XML_TAG,
-                    xml_tags=["<research>"],
-                ),
-                streaming_behavior=StreamingBehavior.MARKDOWN_COMPLETE,
-            )
-        )
-
-        # --- Code language blocks (special languages) ---
-        self.register(
-            BlockTypeDefinition(
-                type_key="transcript",
-                detection=DetectionRule(
-                    method=DetectionMethod.CODE_LANGUAGE,
-                    code_language="transcript",
-                ),
-                streaming_behavior=StreamingBehavior.PARTIAL_UPDATES,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="tasks",
-                detection=DetectionRule(
-                    method=DetectionMethod.CODE_LANGUAGE,
-                    code_language="tasks",
-                ),
-                streaming_behavior=StreamingBehavior.PARTIAL_UPDATES,
-            )
-        )
-
-        # --- JSON-based blocks (complete only) ---
-        self.register(
-            BlockTypeDefinition(
-                type_key="quiz",
-                detection=DetectionRule(
-                    method=DetectionMethod.JSON_ROOT_KEY,
-                    json_root_key="quiz_title",
-                ),
-                streaming_behavior=StreamingBehavior.COMPLETE_ONLY,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="presentation",
-                detection=DetectionRule(
-                    method=DetectionMethod.JSON_ROOT_KEY,
-                    json_root_key="presentation",
-                ),
-                streaming_behavior=StreamingBehavior.COMPLETE_ONLY,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="decision_tree",
-                detection=DetectionRule(
-                    method=DetectionMethod.JSON_ROOT_KEY,
-                    json_root_key="decision_tree",
-                ),
-                streaming_behavior=StreamingBehavior.COMPLETE_ONLY,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="comparison_table",
-                detection=DetectionRule(
-                    method=DetectionMethod.JSON_ROOT_KEY,
-                    json_root_key="comparison",
-                ),
-                streaming_behavior=StreamingBehavior.COMPLETE_ONLY,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="diagram",
-                detection=DetectionRule(
-                    method=DetectionMethod.JSON_ROOT_KEY,
-                    json_root_key="diagram",
-                ),
-                streaming_behavior=StreamingBehavior.COMPLETE_ONLY,
-            )
-        )
-        self.register(
-            BlockTypeDefinition(
-                type_key="math_problem",
-                detection=DetectionRule(
-                    method=DetectionMethod.JSON_ROOT_KEY,
-                    json_root_key="math_problem",
-                ),
-                streaming_behavior=StreamingBehavior.COMPLETE_ONLY,
-            )
-        )
+        # The pre-kind display formats (XML tags, named fences, JSON root keys) and the
+        # no-kind display tags (info, task, database, private, plan, event, tool) were
+        # deleted in legacy-shapes step 5 (LEGACY-5): a kind arrives as a ``__kind`` instance.
 
         # --- Inline Decision (attribute-bearing XML: <decision prompt="...">) ---
         self.register(

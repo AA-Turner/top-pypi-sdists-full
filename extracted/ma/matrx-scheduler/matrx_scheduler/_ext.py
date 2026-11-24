@@ -113,6 +113,7 @@ def configure(
     guardrail_breach: Callable[..., Any] | None = None,
     failure_rate_limits: Callable[..., Any] | None = None,
     suspension_exempt: Callable[..., Any] | None = None,
+    agent_access_check: Callable[..., Any] | None = None,
 ) -> None:
     """
     Wire host-supplied dependencies. Call once at app startup.
@@ -194,6 +195,11 @@ def configure(
             whose silence costs more than its failures — aidream's
             ``cloud_browser_lease_maintenance``, whose suspension on
             2026-10-17 ended every Cloud Computer 150 s later.
+        agent_access_check: async ``(user_id, agent_id) -> bool``. True when
+            ``agent_id`` names an agent the caller may use. Every door that
+            stores or arms an ``sch_agent_task.agent_id`` asks it and answers
+            422 on False (CGU-10: a random UUID used to be stored). Unset, the
+            doors refuse every direct ``agent_id`` loudly — never trust it.
     """
     global _configured
     _registry["supabase_client"] = supabase_client
@@ -229,6 +235,7 @@ def configure(
     _registry["guardrail_breach"] = guardrail_breach
     _registry["failure_rate_limits"] = failure_rate_limits
     _registry["suspension_exempt"] = suspension_exempt
+    _registry["agent_access_check"] = agent_access_check
     # async () -> int: continuations one scheduled fire may get after its worker
     # goes away (``continuation.py``). aidream reads the knob
     # scheduler.continuation.max_continuations_per_fire; without a resolver the

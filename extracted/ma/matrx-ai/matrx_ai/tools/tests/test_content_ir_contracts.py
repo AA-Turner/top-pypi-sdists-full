@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from matrx_ai.tools._sandbox_proxy import SandboxBinding
 from matrx_ai.tools.executor import (
     TOOL_EXECUTION_FAILED_KIND,
     TOOL_INPUT_CONTRACT_DRIFT_KIND,
@@ -466,6 +467,7 @@ async def test_input_drift_creates_bounded_structured_capture(monkeypatch) -> No
         "tool_name": "cloud_browser",
         "input_kind": "tool_io_cloud_browser_input",
         "error_count": 1,
+        "validation_errors": [],
     }
     assert "arguments" not in captured["context"]
 
@@ -501,6 +503,7 @@ async def test_output_drift_creates_bounded_structured_capture(monkeypatch) -> N
         "tool_name": "kindcomp_get_code",
         "output_kind": "tool_io_kindcomp_get_code_output",
         "error_count": 1,
+        "validation_errors": [],
         "validation_sources": ["generated_output_contract"],
     }
     assert "output" not in captured["context"]
@@ -683,7 +686,7 @@ async def test_sandbox_shell_failure_caps_error_and_output_before_result_gate(
 
     monkeypatch.setattr(
         "matrx_ai.tools.implementations.shell.get_active_sandbox",
-        lambda: SimpleNamespace(root_path="/home/agent"),
+        lambda: SandboxBinding("sbx", "https://x", "t"),  # the real type; a stub drifted
     )
 
     async def fake_proxy(*_args: object, **_kwargs: object) -> dict[str, object]:
@@ -724,7 +727,7 @@ async def test_sandbox_shell_failure_keeps_huge_command_only_in_durable_log(
 
     monkeypatch.setattr(
         "matrx_ai.tools.implementations.shell.get_active_sandbox",
-        lambda: SimpleNamespace(root_path="/home/agent"),
+        lambda: SandboxBinding("sbx", "https://x", "t"),  # the real type; a stub drifted
     )
 
     async def fake_proxy(*_args: object, **_kwargs: object) -> dict[str, object]:

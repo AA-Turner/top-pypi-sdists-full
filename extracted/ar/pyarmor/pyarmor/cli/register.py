@@ -22,8 +22,9 @@
 import os
 
 from base64 import b64decode, b64encode, urlsafe_b64encode
-from json import loads as json_loads
+from json import loads as json_loads, dumps as json_dumps
 from string import Template
+from struct import unpack, pack
 
 from . import logger, CliError
 
@@ -42,8 +43,6 @@ $notes
 
 
 def parse_token(data):
-    from struct import unpack
-
     if data and data.find(b' ') > 0:
         try:
             buf = b64decode(data.split()[0])
@@ -261,7 +260,6 @@ class Register(object):
         self.ctx.save_group_token(fzip.read(name))
 
     def _init_token(self, reginfo):
-        from struct import pack
         rev, licno, lictp, regname, product = (
             reginfo['rev'], reginfo['rcode'], reginfo['type'],
             reginfo['name'], reginfo['product']
@@ -296,6 +294,28 @@ class Register(object):
                     sizes[2], notes)
         return b64encode(data) + b' *=='
 
+    def _check_license(self, licinfo, regfile):
+        lictype = licinfo.get('type', '')
+        if lictype == 'C':
+            logger.info(
+                'this file is only used to request ci regfile:\n\n'
+                '\tpyarmor reg -C %s\n', regfile
+            )
+            raise CliError('wrong usage for CI License')
+        elif lictype in ('J', 'Z'):
+            mlist = [self._get_machine_id(MACHFLAGS[0]) for i in range(2)]
+            if mlist[0] != mlist[1]:
+                logger.warning(
+                    'Basic/Pro License can NOT be used in the docker\n\n'
+                    'each docker run will be taken as one build device\n'
+                    'after 100 runs, this license will not be available '
+                    'until there is free token\n'
+                    'each token will be unlocked after 30 days'
+                )
+                ch = input('Are you sure continue (y/N) ? ').lower()[:1]
+                if ch != 'y':
+                    raise CliError('user abort')
+
     def register_regfile(self, regfile, clean=True):
         from zipfile import ZipFile
 
@@ -309,6 +329,7 @@ class Register(object):
                 f.extract(item, path=path)
             namelist = f.namelist()
             if 'group.tokens' in namelist:
+                f.extract('group.tokens', path=path)
                 self._register_offline_license(f, namelist)
             elif 'ci.token' in namelist:
                 name = 'ci.token'
@@ -322,11 +343,7 @@ class Register(object):
             elif 'reg.info' in namelist:
                 data = f.read('reg.info')
                 info = json_loads(data)
-                if info.get('type', '') == 'C':
-                    logger.info('this file is only used to '
-                                'request ci regfile:\n\n'
-                                '\tpyarmor reg -C %s\n', regfile)
-                    raise CliError('wrong usage for CI License')
+                self._check_license(info, regfile)
                 self.ctx.save_token(self._init_token(info))
             else:
                 logger.error('this license is not ready for Pyarmor 9')
@@ -430,6 +447,84 @@ class Register(object):
                 raise RuntimeError(
                     'this group license is not for this machine')
 
+    def _fix_docker_hosts(self, hostname, dockname):
+        if hostname != 'host.docker.internal':
+            return
+
+        etcfile = (
+            '/etc/hosts' if os.sep == '/' else
+            os.path.expandvars(r'%SystemRoot%\system32\drivers\etc\hosts')
+        )
+
+        try:
+            dockip = None
+
+            with open(etcfile, 'r') as f:
+                for line in f:
+                    if line.startswith('#'):
+                        continue
+                    if line.find(dockname) > 0:
+                        dockip = line.split()[0]
+                        logger.info('got docker ipaddr: %s', dockip)
+                    elif line.find(hostname) > 0:
+                        return
+
+            if dockip:
+                with open(etcfile, 'a') as f:
+                    n = dockip.rfind('.')
+                    hostip = dockip[:n] + '.1'
+                    logger.info('got host ipaddr: %s', hostip)
+                    f.write('%s %s\n' % (hostip, hostname))
+                return True
+
+        except Exception as e:
+            logger.debug('update docker hosts failed: %s', e)
+
+    def register_docker(self):
+        from socket import socket, AF_INET, SOCK_STREAM, gethostname, gaierror
+        timeout = 3.0
+
+        ctx = self.ctx
+
+        if os.path.exists(ctx.license_group_token):
+            logger.info('remove old token')
+            os.remove(ctx.license_group_token)
+
+        if not os.path.exists(ctx.reg_path):
+            logger.info('make reginfo path: %s', ctx.reg_path)
+            os.makedirs(ctx.reg_path)
+
+        dkid = os.getenv('PYARMOR_DOCKER_ID', gethostname())
+        host = os.getenv('PYARMOR_DOCKER_HOST', 'host.docker.internal')
+        port = 29092
+        with socket(AF_INET, SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            try:
+                s.connect((host, port))
+            except gaierror:
+                if self._fix_docker_hosts(host, dkid):
+                    s.connect((host, port))
+                else:
+                    raise
+
+            logger.info('docker id: %s', dkid)
+            logger.info('docker addr: %s', str(s.getsockname()))
+            logger.info('host addr: %s', str(s.getpeername()))
+            s.sendall(b'PADC' + dkid.encode('utf-8'))
+            while True:
+                header = s.recv(4)
+                size1, size2 = unpack('!HH', header)
+                data = s.recv(size1)
+                logger.info('write token (%d)', size1)
+                ctx.save_group_token(data)
+                data = s.recv(size2)
+                break
+
+            logger.info('write key (%d)', size2)
+            keyname = os.path.join(ctx.reg_path, ctx.license_file)
+            with open(keyname, 'wb') as f:
+                f.write(data)
+
     def __str__(self):
         info = self.license_info
         lictype = self._license_type(info)
@@ -506,7 +601,7 @@ class WebRegister(Register):
         conn.request("GET", url[k:])
         return conn.getresponse()
 
-    def check_request_interval(self, delta=30.0, activation=False):
+    def check_request_interval(self, delta=10.0, activation=False):
         """Make sure no more than 2 requests in 1 minute"""
         tspath = os.path.join(self.ctx.reg_path, 'last_register')
         try:
@@ -738,15 +833,10 @@ class WebRegister(Register):
         with ZipFile(filename, 'a') as f:
             f.writestr('group.info', data)
 
-    def request_device_regfile(self, regfile, devid):
-        from zipfile import ZipFile
-        devfile = self.ctx.group_device_file(devid)
-        rev = self.LICENSE_REVSION
-        logger.info('request device regfile "%s" (v%d)', devfile, rev)
-        logger.info('use group license "%s"', regfile)
+    def _read_machine_id(self, devfile, devid):
         if not os.path.exists(devfile):
             logger.error('please generate device file in offline device by')
-            logger.error('    pyarmor reg -g %s', devid)
+            logger.error('    pyarmor reg -g %s', min(1, devid))
             logger.error('and copy generated device file to this machine')
             raise CliError('no group device file "%s"' % devfile)
 
@@ -754,19 +844,36 @@ class WebRegister(Register):
             prefix = 'machine:'
             for line in f:
                 if line.startswith(prefix):
-                    machid = line[len(prefix):].strip()
-                    break
+                    return line[len(prefix):].strip()
             else:
                 logger.error('no machid information in device file')
                 raise CliError('invalid device file "%s"' % devfile)
 
-        with ZipFile(regfile, 'r') as f:
-            if 'group.info' not in f.namelist():
-                logger.error('no group information in group license file')
-                raise CliError('invalid group license file "%s"' % regfile)
-            group = json_loads(f.read('group.info'))
-            licdata = f.read('license.lic')
-            capsule = f.read('.pyarmor_capsule.zip')
+    def request_device_regfile(self, regfile, devid, **kwargs):
+        from zipfile import ZipFile
+
+        rev = self.LICENSE_REVSION
+        devfile = self.ctx.group_device_file(devid)
+
+        machid = kwargs.get('machid')
+        if machid:
+            logger.info('request device regfile for "%s" (r%d)', machid, rev)
+        else:
+            machfile = kwargs.get('devfile', devfile)
+            machid = self._read_machine_id(machfile, devid)
+            logger.info('request device regfile for "%s" (r%d)', machfile, rev)
+
+        if isinstance(regfile, str):
+            logger.info('use group license "%s"', regfile)
+            with ZipFile(regfile, 'r') as f:
+                if 'group.info' not in f.namelist():
+                    logger.error('no group information in group license file')
+                    raise CliError('invalid group license file "%s"' % regfile)
+                group = json_loads(f.read('group.info'))
+                licdata = f.read('license.lic')
+                capsule = f.read('.pyarmor_capsule.zip')
+        else:
+            group, licdata, capsule = regfile
 
         # Ignore token cache
         tokencache = os.path.join(os.path.dirname(devfile), 'tokens', machid)
@@ -793,10 +900,20 @@ class WebRegister(Register):
             with open(tokencache, 'wb') as f:
                 f.write(data)
 
+        if devid == 0:
+            # filename: pyarmor-device-regfile-6000.4.r3.zip
+            try:
+                devid = int(filename.split('.')[1])
+                logger.info('server assign this device no. %s', devid)
+            except Exception as e:
+                logger.debug('parse device id failed: %s', e)
+                raise CliError('no found device id in "%s"', filename)
+
+        group['tokens'] = [machid]
         with ZipFile(filename, 'w') as f:
             f.writestr('license.lic', licdata)
             f.writestr('.pyarmor_capsule.zip', capsule)
-            f.writestr('group.tokens', b'')
+            f.writestr('group.tokens', json_dumps(group).encode('utf-8'))
             f.writestr('dev.info', ('%s,%s' % (devid, machid)).encode('utf-8'))
             f.writestr('tokens/' + machid, data)
 
@@ -804,6 +921,44 @@ class WebRegister(Register):
         logger.info('    pyarmor reg %s', filename)
 
     register_group_device = request_device_regfile
+
+    def request_machine_regfile(self, machine, regfile=None, devid=None):
+        if regfile is None:
+            path = self.ctx.reg_path
+            try:
+                with open(os.path.join(path, 'group.tokens'), 'r') as f:
+                    group = json_loads(f.read())
+            except FileNotFoundError:
+                logger.error('no found "group.tokens" in "%s"', path)
+                raise CliError('this device may be not registerred '
+                               'by Pyarmor 9.3.1+')
+            except Exception as e:
+                logger.error('failed to parse "group.tokens": %s', e)
+                raise CliError('this device registration file may not '
+                               'be requested by Pyarmor 9.3.1+. '
+                               'Please specify group regfile in the command.')
+
+            regfile = [group]
+            for name in ('license.lic', '.pyarmor_capsule.zip'):
+                filename = os.path.join(path, name)
+                try:
+                    with open(filename, 'rb') as f:
+                        regfile.append(f.read())
+                except FileNotFoundError:
+                    logger.error('no "%s" found in reg path' % name)
+                    raise CliError('this device is not registerred')
+
+        devid = 0 if devid is None else devid
+        if devid and machine == str(devid):
+            return self.request_device_regfile(regfile, devid)
+
+        if os.path.exists(machine):
+            self.request_device_regfile(regfile, devid, devfile=machine)
+        elif len(machine) == 33 and machine[:1] == 'm' and all(
+                [machine.find(x) == -1 for x in r'.\/']):
+            self.request_device_regfile(regfile, devid, machid=machine)
+        else:
+            raise CliError('no found file "%s"' % machine)
 
     def _write_ci_info(self, filename, data):
         from zipfile import ZipFile
@@ -814,7 +969,7 @@ class WebRegister(Register):
     def request_ci_regfile(self, regfile):
         rev = self.LICENSE_REVSION
         cirev = self.CI_LICENSE_REVSION
-        logger.info('request ci regfile (v%d) by "%s"', cirev, regfile)
+        logger.info('request ci regfile (r%d) by "%s"', cirev, regfile)
         from zipfile import ZipFile
 
         with ZipFile(regfile, 'r') as f:

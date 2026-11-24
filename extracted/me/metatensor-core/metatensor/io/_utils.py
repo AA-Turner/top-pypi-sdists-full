@@ -1,7 +1,13 @@
 import ctypes
+from typing import Callable, Optional
 
-from .._c_api import c_uintptr_t
-from .._status import save_exception
+import numpy as np
+from ctypes_dlpack import DLDataType, DLDataTypeCode
+
+from .._c_api import c_uintptr_t, mts_array_t
+from .._data import ArrayBackend, check_array_backend
+from .._data._array import create_mts_array, dlpack_dtype_to_numpy
+from .._status import catch_exceptions, save_exception
 
 
 def _resize_array(array, new_size):
@@ -9,7 +15,7 @@ def _resize_array(array, new_size):
     return (array._type_ * new_size).from_address(ctypes.addressof(array))
 
 
-def _save_buffer_raw(mts_function, data) -> ctypes.Array:
+def save_buffer_raw(mts_function, data) -> ctypes.Array:
     def realloc(buffer, _ptr, new_size):
         try:
             # convert void* to PyObject* and dereference to get a PyObject
@@ -60,3 +66,113 @@ def _save_buffer_raw(mts_function, data) -> ctypes.Array:
     result = (ctypes.c_char * n).from_address(ctypes.addressof(buffer))
     result._keepalive = buffer
     return result
+
+
+# TODO: turn this into a type once we drop Python 3.11 (type CreateArrayCallback = ...)
+CreateArrayCallback = Callable[
+    [ctypes.POINTER(c_uintptr_t), c_uintptr_t, DLDataType, ctypes.POINTER(mts_array_t)],
+    None,
+]
+
+
+def _dlpack_dtype_to_torch(dtype):
+    """Convert a DLDataType to a torch dtype."""
+    if dtype.lanes != 1:
+        raise ValueError(
+            f"unsupported DLDataType for torch: lanes={dtype.lanes} (expected 1)"
+        )
+    import torch
+
+    _MAP = {
+        (DLDataTypeCode.kDLFloat, 16): torch.float16,
+        (DLDataTypeCode.kDLFloat, 32): torch.float32,
+        (DLDataTypeCode.kDLFloat, 64): torch.float64,
+        (DLDataTypeCode.kDLInt, 8): torch.int8,
+        (DLDataTypeCode.kDLInt, 16): torch.int16,
+        (DLDataTypeCode.kDLInt, 32): torch.int32,
+        (DLDataTypeCode.kDLInt, 64): torch.int64,
+        (DLDataTypeCode.kDLUInt, 8): torch.uint8,
+        (DLDataTypeCode.kDLBool, 8): torch.bool,
+        (DLDataTypeCode.kDLComplex, 64): torch.complex64,
+        (DLDataTypeCode.kDLComplex, 128): torch.complex128,
+    }
+    result = _MAP.get((dtype.code, dtype.bits))
+    if result is None:
+        raise ValueError(
+            f"unsupported DLDataType for torch: code={dtype.code}, bits={dtype.bits}"
+        )
+    return result
+
+
+@catch_exceptions
+def create_numpy_array(shape_ptr, shape_count, dtype, array):
+    """
+    Callback function that can be used with
+    :py:func:`metatensor.io.load_custom_array` to load data in numpy arrays.
+    """
+    shape = []
+    for i in range(shape_count):
+        shape.append(shape_ptr[i])
+
+    np_dtype = dlpack_dtype_to_numpy(dtype)
+    data = np.empty(shape, dtype=np_dtype)
+    array[0] = create_mts_array(data)
+
+
+@catch_exceptions
+def create_torch_array(shape_ptr, shape_count, dtype, array):
+    """
+    Callback function that can be used with
+    :py:func:`metatensor.io.load_custom_array` to load data in torch
+    tensors. The resulting tensors are stored on CPU.
+    """
+    import torch
+
+    shape = []
+    for i in range(shape_count):
+        shape.append(shape_ptr[i])
+
+    torch_dtype = _dlpack_dtype_to_torch(dtype)
+    data = torch.empty(shape, dtype=torch_dtype, device="cpu")
+    array[0] = create_mts_array(data)
+
+
+def array_backend_for_create_array(
+    create_array: CreateArrayCallback,
+    array_backend: Optional[ArrayBackend],
+) -> ArrayBackend:
+    """
+    Get the array backend to use for data loaded with ``create_array``. For the
+    callbacks provided by metatensor, this is determined by the callback itself.
+    Otherwise, this is ``array_backend``, which must be given.
+    """
+    if create_array is create_numpy_array:
+        expected = "numpy"
+    elif create_array is create_torch_array:
+        expected = "torch"
+    elif array_backend is None:
+        raise ValueError(
+            "`array_backend` is required when using a custom `create_array` callback"
+        )
+    else:
+        return check_array_backend(array_backend)
+
+    if array_backend is not None and array_backend != expected:
+        raise ValueError(
+            f"array_backend='{array_backend}' is not compatible with "
+            f"create_array={create_array.__name__}, which uses '{expected}'"
+        )
+
+    return expected
+
+
+def create_array_for_array_backend(array_backend: ArrayBackend) -> CreateArrayCallback:
+    """
+    Get the appropriate array creation callback for the given array backend.
+    """
+    if array_backend == "numpy":
+        return create_numpy_array
+    elif array_backend == "torch":
+        return create_torch_array
+    else:
+        raise ValueError(f"Unknown array backend '{array_backend}'")

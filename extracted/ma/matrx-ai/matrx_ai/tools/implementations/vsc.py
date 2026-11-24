@@ -53,6 +53,7 @@ async def vsc_get_state(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message="fields is required and must be a non-empty list.",
                     suggested_action=(
@@ -66,6 +67,7 @@ async def vsc_get_state(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Unknown field(s): {unknown}",
                     suggested_action=(
@@ -81,6 +83,7 @@ async def vsc_get_state(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="not_found",
                     message="No IDE state is available for this request.",
                     suggested_action=(

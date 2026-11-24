@@ -16,20 +16,1646 @@ import torch.nn as nn
 from einops.layers.torch import Rearrange
 from torch.nn.init import trunc_normal_
 
-from braindecode.functional import init_weights_, rescale_parameter
-from braindecode.functional.attention import _hpu_eager_fused_sdpa
+from braindecode.functional import (
+    check_ch_mask,
+    init_weights_,
+    masked_group_norm,
+    masked_mean,
+    rescale_parameter,
+)
 from braindecode.models.base import EEGModuleMixin
 from braindecode.modules import MLP, DropPath
 from braindecode.modules.blocks import PatchTokenizer
 
+
+class Labram(EEGModuleMixin, nn.Module):
+    r"""Labram from Jiang, W B et al (2024) [Jiang2024]_.
+
+    :bdg-success:`Convolution` :bdg-danger:`Foundation Model`
+
+    .. figure:: https://arxiv.org/html/2405.18765v1/x1.png
+        :align: center
+        :alt: Labram Architecture.
+
+    Large Brain Model for Learning Generic Representations with Tremendous
+    EEG Data in BCI from [Jiang2024]_.
+
+    This is an **adaptation** of the code [Code2024]_ from the Labram model.
+
+    The model is transformer architecture with **strong** inspiration from
+    BEiTv2 [BeiTv2]_.
+
+    The models can be used in two modes:
+
+    - Neural Tokenizer: Design to get an embedding layers (e.g. classification).
+    - Neural Decoder: To extract the ampliture and phase outputs with a VQSNP.
+
+    The braindecode's modification is to allow the model to be used in
+    with an input shape of (batch, n_chans, n_times), if neural tokenizer
+    equals True. The original implementation uses (batch, n_chans, n_patches,
+    patch_size) as input with static segmentation of the input data.
+
+    The models have the following sequence of steps::
+
+        if neural tokenizer:
+            - SegmentPatch: Segment the input data in patches;
+            - TemporalConv: Apply a temporal convolution to the segmented data;
+            - Residual adding cls, temporal and position embeddings (optional);
+            - WindowsAttentionBlock: Apply a windows attention block to the data;
+            - LayerNorm: Apply layer normalization to the data;
+            - Linear: An head linear layer to transformer the data into classes.
+
+        else:
+            - PatchEmbed: Apply a patch embedding to the input data;
+            - Residual adding cls, temporal and position embeddings (optional);
+            - WindowsAttentionBlock: Apply a windows attention block to the data;
+            - LayerNorm: Apply layer normalization to the data;
+            - Linear: An head linear layer to transformer the data into classes.
+
+    .. important::
+       **Pre-trained Weights Available**
+
+       This model has pre-trained weights available on the Hugging Face Hub.
+       You can load them using:
+
+       .. code-block:: python
+
+           from braindecode.models import Labram
+
+           # Load pre-trained model from Hugging Face Hub
+           model = Labram.from_pretrained("braindecode/labram-pretrained")
+
+       To push your own trained model to the Hub:
+
+       .. code-block:: python
+
+           # After training your model
+           model.push_to_hub(
+               repo_id="username/my-labram-model", commit_message="Upload trained Labram model"
+           )
+
+       Requires installing ``braindecode[hub]`` for Hub integration.
+
+    .. versionadded:: 0.9
+
+
+    Examples
+    --------
+    Load pre-trained weights::
+
+        >>> import torch
+        >>> from braindecode.models import Labram
+        >>> model = Labram(n_times=1600, n_chans=64, n_outputs=4)
+        >>> url = "https://huggingface.co/braindecode/Labram-Braindecode/blob/main/braindecode_labram_base.pt"
+        >>> state = torch.hub.load_state_dict_from_url(url, progress=True)
+        >>> model.load_state_dict(state)
+
+
+    Parameters
+    ----------
+    on_non_divisible : {"pad", "crop", "error"}, default="pad"
+        How :class:`~braindecode.modules.PatchTokenizer` treats a time axis that
+        is not a multiple of ``patch_size``: right-pad with zeros (default),
+        crop the trailing samples, or raise.
+    patch_size : int
+        The size of the patch to be used in the patch embedding.
+    learned_patcher : bool
+        Whether to use a learned patch embedding (via a convolutional layer) or a fixed patch embedding (via rearrangement).
+    embed_dim : int
+        The dimension of the embedding. In the Neural Tokenizer mode, it is
+        set by the temporal convolution (``conv_out_channels`` and
+        ``patch_size``), with a warning if the given value differs.
+    conv_in_channels : int
+        The number of convolutional input channels.
+    conv_out_channels : int
+        The number of convolutional output channels.
+    num_layers :  int (default=12)
+        The number of attention layers of the model.
+    num_heads : int (default=10)
+        The number of attention heads.
+    mlp_ratio : float (default=4.0)
+        The expansion ratio of the mlp layer
+    qkv_bias :  bool (default=False)
+        If True, add a learnable bias to the query, key, and value tensors.
+    qk_norm : Pytorch Normalize layer (default=nn.LayerNorm)
+        If not None, apply LayerNorm to the query and key tensors.
+        Default is nn.LayerNorm for better weight transfer from original LaBraM.
+        Set to None to disable Q,K normalization.
+    qk_scale : float (default=None)
+        If not None, use this value as the scale factor. If None,
+        use head_dim**-0.5, where head_dim = dim // num_heads.
+    drop_prob : float (default=0.0)
+        Dropout rate for the attention weights.
+    attn_drop_prob : float (default=0.0)
+        Dropout rate for the attention weights.
+    drop_path_prob : float (default=0.0)
+        Dropout rate for the attention weights used on DropPath.
+    norm_layer : Pytorch Normalize layer (default=nn.LayerNorm)
+        The normalization layer to be used.
+    init_values : float (default=0.1)
+        If not None, use this value to initialize the gamma_1 and gamma_2
+        parameters for residual scaling. Default is 0.1 for better weight
+        transfer from original LaBraM. Set to None to disable.
+    use_abs_pos_emb : bool (default=True)
+        If True, use absolute position embedding.
+    use_mean_pooling : bool (default=True)
+        If True, the readout is ``fc_norm`` applied to the mean of the patch
+        tokens, as in the original fine-tuning. If False, the readout is the
+        [CLS] token after the final ``norm``; the original pretraining loss
+        never uses the [CLS] output. A pretraining checkpoint (with ``norm``
+        and without ``fc_norm`` or head, such as the released weights) loads
+        into a mean-pooling model as in the original fine-tuning script:
+        ``norm`` is unused and ``fc_norm`` keeps its initialization.
+    init_scale : float (default=0.001)
+        The initial scale to be used in the parameters of the model.
+    neural_tokenizer : bool (default=True)
+        The model can be used in two modes: Neural Tokenizer or Neural Decoder.
+    attn_head_dim : bool (default=None)
+        The head dimension to be used in the attention layer, to be used only
+        during pre-training.
+    activation : nn.Module, default=nn.GELU
+        Activation function class to apply. Should be a PyTorch activation
+        module class like ``nn.ReLU`` or ``nn.ELU``. Default is ``nn.GELU``.
+
+    References
+    ----------
+    .. [Jiang2024] Wei-Bang Jiang, Li-Ming Zhao, Bao-Liang Lu. 2024, May.
+       Large Brain Model for Learning Generic Representations with Tremendous
+       EEG Data in BCI. The Twelfth International Conference on Learning
+       Representations, ICLR.
+    .. [Code2024] Wei-Bang Jiang, Li-Ming Zhao, Bao-Liang Lu. 2024. Labram
+       Large Brain Model for Learning Generic Representations with Tremendous
+       EEG Data in BCI. GitHub https://github.com/935963004/LaBraM
+       (accessed 2024-03-02)
+    .. [BeiTv2] Zhiliang Peng, Li Dong, Hangbo Bao, Qixiang Ye, Furu Wei. 2024.
+       BEiT v2: Masked Image Modeling with Vector-Quantized Visual Tokenizers.
+       arXiv:2208.06366 [cs.CV]
+    """
+
+    _time_axis = "free"
+    _channel_axis = (
+        "fixed"  # fixed: position_embedding uses LABRAM_CHANNEL_ORDER without ch_names
+    )
+
+    # Constant, so TorchScript compiles only the mode in use (the decoder-only
+    # locals do not exist in tokenizer mode).
+    __constants__ = ["neural_tokenizer"]
+
+    def __init__(
+        self,
+        n_times=None,
+        n_outputs=None,
+        chs_info=None,
+        n_chans=None,
+        sfreq=None,
+        input_window_seconds=None,
+        patch_size=200,
+        learned_patcher=False,
+        embed_dim=200,
+        conv_in_channels=1,
+        conv_out_channels=8,
+        num_layers=12,
+        num_heads=10,
+        mlp_ratio=4.0,
+        qkv_bias=False,
+        qk_norm: type[nn.Module] = nn.LayerNorm,
+        qk_scale=None,
+        drop_prob=0.0,
+        attn_drop_prob=0.0,
+        drop_path_prob=0.0,
+        norm_layer: type[nn.Module] = nn.LayerNorm,
+        init_values=0.1,
+        use_abs_pos_emb=True,
+        use_mean_pooling=True,
+        init_scale=0.001,
+        neural_tokenizer=True,
+        attn_head_dim=None,
+        activation: type[nn.Module] = nn.GELU,
+        on_non_divisible="pad",
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
+    ):
+        super().__init__(
+            n_outputs=n_outputs,
+            n_chans=n_chans,
+            chs_info=chs_info,
+            n_times=n_times,
+            input_window_seconds=input_window_seconds,
+            sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
+        )
+        del n_outputs, n_chans, n_times, input_window_seconds, sfreq
+
+        # Non-canonical chs_info is accepted with a warning so callers can
+        # resolve channels per batch via forward(ch_names=...).
+        _chs_info = self._signal_param("chs_info")
+        if _chs_info is not None:
+            user_names = [ch["ch_name"] for ch in _chs_info]  # type: ignore[index]
+            if [n.upper() for n in user_names] != list(_LABRAM_CANONICAL_INDEX):
+                warn(
+                    f"Labram chs_info does not match LABRAM_CHANNEL_ORDER "
+                    f"(got {len(user_names)} of {len(LABRAM_CHANNEL_ORDER)}). "
+                    f"Pass ch_names to forward() per batch, or use "
+                    f"channel_strategy='spline'.",
+                    UserWarning,
+                )
+
+        # A module attribute, so the scripted forward can resolve ch_names.
+        self._canonical_index = _LABRAM_CANONICAL_INDEX
+        self.patch_size = patch_size
+        self.num_features = self.embed_dim = embed_dim
+        self.neural_tokenizer = neural_tokenizer
+        self.init_scale = init_scale
+
+        if patch_size > self.n_times:
+            warn(
+                f"patch_size ({patch_size}) > n_times ({self.n_times}); "
+                f"setting patch_size = {self.n_times}.",
+                UserWarning,
+            )
+            self.patch_size = self.n_times
+            self.num_features = None
+            self.embed_dim = None
+        else:
+            self.patch_size = patch_size
+        self.on_non_divisible = on_non_divisible
+        self.n_path = (
+            -(-self.n_times // self.patch_size)
+            if on_non_divisible == "pad"
+            else self.n_times // self.patch_size
+        )
+
+        if neural_tokenizer and conv_in_channels != 1:
+            warn(
+                "The model is in Neural Tokenizer mode, but the variable "
+                + "`conv_in_channels` is different from the default values."
+                + "`conv_in_channels` is only needed for the Neural Decoder mode."
+                + "conv_in_channels is not used in the Neural Tokenizer mode.",
+                UserWarning,
+            )
+            conv_in_channels = 1
+            # If you can use the model in Neural Tokenizer mode,
+        # temporal conv layer will be use over the patched dataset
+        if neural_tokenizer:
+            self.patch_embed = nn.Sequential(
+                OrderedDict(
+                    [
+                        (
+                            "segment_patch",
+                            _SegmentPatch(
+                                n_times=self.n_times,
+                                patch_size=self.patch_size,
+                                n_chans=self.n_chans,
+                                emb_dim=self.patch_size,
+                                learned_patcher=learned_patcher,
+                                on_non_divisible=on_non_divisible,
+                            ),
+                        ),
+                        (
+                            "temporal_conv",
+                            _TemporalConv(
+                                out_channels=conv_out_channels, activation=activation
+                            ),
+                        ),
+                    ]
+                )
+            )
+        else:
+            # If not, the model will be used as Neural Decoder mode
+            # So the input here will be after the VQVAE encoder
+            # To be used to extract the amplitude and phase outputs.
+            # Adding inside a Sequential to use the same convention as the
+            # Neural Tokenizer mode.
+            self.patch_embed = nn.Sequential()
+            self.patch_embed.add_module(
+                "segment_patch",
+                _PatchEmbed(
+                    n_times=self.n_times,
+                    patch_size=patch_size,
+                    in_channels=conv_in_channels,
+                    emb_dim=self.embed_dim,
+                    on_non_divisible=on_non_divisible,
+                ),
+            )
+            # Each token averages n_chans / conv_in_channels channels.
+            if self.n_chans % conv_in_channels:
+                raise ValueError(
+                    f"The input channel dimension ({self.n_chans}) must be "
+                    f"divisible by in_channels ({conv_in_channels})."
+                )
+
+        # Token width: the temporal convolution's flattened output in the
+        # Neural Tokenizer mode, embed_dim in the Neural Decoder mode.
+        token_dim = (
+            self.patch_embed.temporal_conv.out_features(self.patch_size)
+            if neural_tokenizer
+            else self.embed_dim
+        )
+        if token_dim != self.embed_dim:
+            warn(
+                f"In the Neural Tokenizer mode the embedding dimension is set "
+                f"by the temporal convolution (conv_out_channels, patch_size): "
+                f"using embed_dim={token_dim} instead of the given "
+                f"embed_dim={self.embed_dim}.",
+                UserWarning,
+            )
+        self.embed_dim = token_dim
+        self.num_features = self.embed_dim
+
+        # Defining the parameters
+        # Creating a parameter list with cls token]
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
+        # Positional embedding and time embedding are complementary
+        # one is for the spatial information and the other is for the temporal
+        # information.
+        # The time embedding is used to encode something in the number of
+        # patches, and the position embedding is used to encode the channels'
+        # information.
+        if use_abs_pos_emb:
+            self.position_embedding = nn.Parameter(
+                torch.zeros(1, len(LABRAM_CHANNEL_ORDER) + 1, self.embed_dim),
+                requires_grad=True,
+            )
+        else:
+            self.position_embedding = None
+
+        # The tokenizer keeps the original's absolute time slots, so the
+        # pretrained slots load at every window length; longer windows get
+        # extra slots. The decoder mode keeps one slot per patch plus one.
+        n_patches = self.patch_embed[0].n_patchs
+        n_time_slots = (
+            max(_LABRAM_N_TIME_SLOTS, n_patches) if neural_tokenizer else n_patches + 1
+        )
+        self.temporal_embedding = nn.Parameter(
+            torch.zeros(1, n_time_slots, self.embed_dim),
+            requires_grad=True,
+        )
+        self.pos_drop = nn.Dropout(p=drop_prob)
+
+        dpr = [
+            x.item() for x in torch.linspace(0, drop_path_prob, num_layers)
+        ]  # stochastic depth decay rule
+        self.blocks = nn.ModuleList(
+            [
+                _WindowsAttentionBlock(
+                    dim=self.embed_dim,
+                    num_heads=num_heads,
+                    mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias,
+                    qk_norm=qk_norm,
+                    qk_scale=qk_scale,
+                    drop=drop_prob,
+                    attn_drop=attn_drop_prob,
+                    drop_path=dpr[i],
+                    norm_layer=norm_layer,
+                    init_values=init_values,
+                    window_size=(
+                        self.patch_embed[0].patch_shape
+                        if not neural_tokenizer
+                        else None
+                    ),
+                    attn_head_dim=attn_head_dim,
+                    activation=activation,
+                )
+                for i in range(num_layers)
+            ]
+        )
+        self.norm = (
+            nn.Identity() if use_mean_pooling else norm_layer(self.embed_dim, eps=1e-6)
+        )
+        self.fc_norm = (
+            norm_layer(self.embed_dim, eps=1e-6) if use_mean_pooling else None
+        )
+
+        self.reset_classifier(self.n_outputs)
+        self._n_times_step = self.patch_size
+        self._min_n_times = 1 if self.on_non_divisible == "pad" else self.patch_size
+        if not neural_tokenizer:
+            self._time_axis = "fixed"
+
+        self._init_parameters()
+
+    def _accepts_any_n_chans(self, args: tuple, kwargs: dict) -> bool:
+        if super()._accepts_any_n_chans(args, kwargs):
+            return True
+        if not self.neural_tokenizer:
+            return True
+        ch_names = self._call_arg(args, kwargs, "ch_names")
+        return ch_names is not None
+
+    def _accepts_any_n_times(self, args: tuple, kwargs: dict) -> bool:
+        if not self.neural_tokenizer:
+            return True
+        x = self._first_input(args, kwargs)
+        return x is not None and x.ndim == 4
+
+    def _init_parameters(self) -> None:
+        """Model-specific initialization (see ``reset_parameters``)."""
+        self.apply(init_weights_)
+        self.fix_init_weight_and_init_embedding()
+
+    def fix_init_weight_and_init_embedding(self):
+        """
+        Fix the initial weight and the initial embedding.
+        Initializing with truncated normal distribution.
+        """
+        trunc_normal_(self.cls_token, std=0.02)
+        trunc_normal_(self.temporal_embedding, std=0.02)
+
+        if self.position_embedding is not None:
+            trunc_normal_(self.position_embedding, std=0.02)
+
+        if isinstance(self.final_layer, nn.Linear):
+            trunc_normal_(self.final_layer.weight, std=0.02)
+
+        for layer_id, layer in enumerate(self.blocks):
+            rescale_parameter(layer.attn.proj.weight.data, layer_id + 1)
+            rescale_parameter(layer.mlp[-2].weight.data, layer_id + 1)
+
+        if isinstance(self.final_layer, nn.Linear):
+            self.final_layer.weight.data.mul_(self.init_scale)
+            self.final_layer.bias.data.mul_(self.init_scale)
+
+    def get_num_layers(self):
+        """
+        Convenience method to get the number of layers in the model.
+        """
+        return len(self.blocks)
+
+    def forward_features(
+        self,
+        x,
+        input_chans,
+        return_patch_tokens: bool = False,
+        return_all_tokens: bool = False,
+        ch_mask: Optional[torch.Tensor] = None,
+    ):
+        """
+        Forward the features of the model.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            The input data with shape (batch, n_chans, n_times).
+        input_chans : torch.Tensor
+            Indices for selecting position embeddings (including the [CLS] token).
+        return_patch_tokens : bool
+            Whether to return the patch tokens.
+        return_all_tokens : bool
+            Whether to return all the tokens.
+        ch_mask : torch.Tensor, optional
+            ``(batch, n_chans)`` boolean mask of real channels, already checked.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The output of the model.
+        """
+        batch_size, n_input_chans, _ = x.shape
+        token_mask: Optional[torch.Tensor] = None
+        key_mask: Optional[torch.Tensor] = None
+        if ch_mask is not None:
+            # Padding may hold NaN, which the patch embedding would spread.
+            x = x.masked_fill(~ch_mask[:, :, None], 0.0)
+
+        n_patches = self.patch_embed[0].n_patchs
+        if self.neural_tokenizer:
+            # For neural tokenizer: input is (batch, n_chans, n_times)
+            patches = self.patch_embed.segment_patch(x)
+            n_patches = patches.shape[2]
+            if n_patches > self.temporal_embedding.shape[1]:
+                raise ValueError(
+                    f"Input produces {n_patches} patches, exceeding "
+                    f"temporal_embedding capacity ({self.temporal_embedding.shape[1]})."
+                )
+            if ch_mask is not None:
+                # Tokens are (channel, patch), channel outermost; [CLS] is real.
+                token_mask = ch_mask.repeat_interleave(n_patches, dim=1)
+                key_mask = torch.cat(
+                    [token_mask.new_ones(batch_size, 1), token_mask], dim=1
+                )
+            x = self.patch_embed.temporal_conv(patches, ch_mask)
+            # x shape: (batch, n_chans * n_patches, emb_dim)
+            n_patch = n_input_chans  # Use actual input channels, not self.n_chans
+            temporal = self.embed_dim
+        else:
+            # For neural decoder: input is (batch, n_chans, n_times)
+            # patch_embed returns one token per temporal patch:
+            # (batch, n_patches_per_channel, emb_dim)
+            x = self.patch_embed(x)
+            # x shape: (batch, n_patches_per_channel, emb_dim)
+            batch_size, n_patches_per_channel, temporal = x.shape
+
+        # add the [CLS] token to the embedded patch tokens
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
+
+        # Concatenate cls token with patch/channel embeddings
+        x = torch.cat((cls_tokens, x), dim=1)
+
+        # Positional Embedding
+        if self.position_embedding is not None:
+            if self.neural_tokenizer:
+                # In tokenizer mode, use channel-based position embedding
+                pos_embed_used = self.position_embedding[:, input_chans]
+
+                pos_embed = self._adj_position_embedding(
+                    pos_embed_used=pos_embed_used,
+                    batch_size=batch_size,
+                    n_patches=n_patches,
+                )
+            else:
+                # In decoder mode, patch_embed already averages over the grouped
+                # channel dimension, so the token axis only indexes temporal
+                # patches.
+                n_pos = min(
+                    self.position_embedding.shape[1],
+                    n_patches_per_channel + 1,
+                )
+                pos_embed_used = self.position_embedding[:, :n_pos, :]
+                pos_embed = pos_embed_used.expand(batch_size, -1, -1)
+
+            x += pos_embed
+
+        # The time embedding is added across the channels after the [CLS] token
+        if self.neural_tokenizer:
+            num_ch = n_input_chans  # Use actual input channels
+            time_embed = self._adj_temporal_embedding(
+                num_ch=num_ch,
+                batch_size=batch_size,
+                n_patches=n_patches,
+            )
+            x[:, 1:, :] += time_embed
+        else:
+            # In decoder mode, patch_embed returns one token per temporal patch,
+            # so we only need one temporal embedding per time slice.
+            if temporal is None:
+                temporal = self.embed_dim
+
+            n_time_tokens = min(
+                n_patches_per_channel, self.temporal_embedding.shape[1] - 1
+            )
+            time_embed = self.temporal_embedding[
+                :, 1 : n_time_tokens + 1, :
+            ]  # (1, n_patches_per_channel, emb_dim)
+            time_embed = time_embed.expand(
+                batch_size, -1, -1
+            )  # (batch, n_patches_per_channel, emb_dim)
+            x[:, 1:, :] += time_embed
+
+        x = self.pos_drop(x)
+
+        for blk in self.blocks:
+            out = blk(x, key_mask=key_mask)
+            assert isinstance(out, torch.Tensor)  # narrows the Union for TorchScript
+            x = out
+
+        x = self.norm(x)
+        if self.fc_norm is not None:
+            if not (return_all_tokens or return_patch_tokens):
+                return self.fc_norm(masked_mean(x[:, 1:, :], token_mask, [1]))
+            x = self.fc_norm(x)
+        elif not (return_all_tokens or return_patch_tokens):
+            return x[:, 0]
+        if key_mask is not None:
+            x = x.masked_fill(~key_mask[:, :, None], 0.0)
+        return x if return_all_tokens else x[:, 1:]
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        return_patch_tokens: bool = False,
+        return_all_tokens: bool = False,
+        return_features: bool = False,
+        ch_names: Optional[List[str]] = None,
+        ch_mask: Optional[torch.Tensor] = None,
+    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+        """
+        Forward the input EEG data through the model.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            The input data with shape (batch, n_chans, n_times)
+            or (batch, n_chans, n_patches, patch size).
+        return_patch_tokens: bool
+            Return the patch tokens
+        return_all_tokens: bool
+            Return all the tokens
+        return_features : bool
+            If True, return a dict with ``"features"`` (patch tokens),
+            ``"cls_token"`` and ``"tokens"``, the patch tokens as ``(batch,
+            n_chans, n_patches, embed_dim)`` (one row in decoder mode), instead of
+            the classification output. Token outputs are zero for padded channels.
+        ch_names : list of str, optional
+            Channel names matching the channel axis of ``x``.
+            Matched case-insensitively against :data:`LABRAM_CHANNEL_ORDER`
+            to select the corresponding position embeddings, so callers can
+            forward an arbitrary subset of canonical channels. If ``None``
+            (default), ``x`` must already be in :data:`LABRAM_CHANNEL_ORDER`
+            with exactly ``len(LABRAM_CHANNEL_ORDER)`` channels; otherwise
+            a :class:`ValueError` is raised. Only honored when
+            ``neural_tokenizer=True``; in decoder mode the position
+            embedding is sequential and ``ch_names`` has no effect.
+        ch_mask : torch.Tensor, optional
+            ``(batch, n_chans)`` mask of real channels, see
+            :func:`~braindecode.functional.check_ch_mask`. Padded channels affect no
+            pooled output. Needs ``neural_tokenizer=True``.
+
+        Returns
+        -------
+        torch.Tensor or dict
+            The output of the model with dimensions (batch, n_outputs)
+        """
+        mask = check_ch_mask(ch_mask, x)
+        if mask is not None and not self.neural_tokenizer:
+            raise ValueError(
+                "ch_mask needs neural_tokenizer=True: the decoder averages the "
+                "channels into each token."
+            )
+        n_canonical = len(self._canonical_index)  # len(LABRAM_CHANNEL_ORDER)
+        if ch_names is None:
+            if x.shape[1] != n_canonical:
+                raise ValueError(
+                    f"x has {x.shape[1]} channels but ch_names is None; "
+                    f"expected {n_canonical} canonical channels "
+                    f"in LABRAM_CHANNEL_ORDER. Either pass "
+                    f"ch_names=<your channel names> matching x.shape[1], or "
+                    f"use channel_strategy='spline' to project from an arbitrary "
+                    f"montage onto the canonical 128-channel layout."
+                )
+            input_chans = torch.arange(
+                n_canonical + 1, device=x.device, dtype=torch.long
+            )
+        else:
+            if len(ch_names) != x.shape[1]:
+                raise ValueError(
+                    f"len(ch_names)={len(ch_names)} != x.shape[1]={x.shape[1]}"
+                )
+            # CLS token at index 0; canonical channel indices are offset by 1.
+            matched = [0]
+            for name in ch_names:
+                if name.upper() not in self._canonical_index:
+                    raise ValueError(
+                        "ch_names contains a name not in LABRAM_CHANNEL_ORDER: "
+                        f"'{name.upper()}'. Filter unknown channels before calling "
+                        "forward, or use channel_strategy='spline'."
+                    )
+                matched.append(self._canonical_index[name.upper()] + 1)
+            input_chans = torch.tensor(matched, device=x.device, dtype=torch.long)
+
+        if return_features:
+            n_rows = x.shape[1] if self.neural_tokenizer else 1
+            x = self.forward_features(
+                x, input_chans=input_chans, return_all_tokens=True, ch_mask=mask
+            )
+            out: Dict[str, torch.Tensor] = {
+                "features": x[:, 1:, :],
+                "cls_token": x[:, 0, :],
+                "tokens": x[:, 1:, :].unflatten(1, [n_rows, -1]),
+            }
+            return out
+
+        x = self.forward_features(
+            x,
+            input_chans=input_chans,
+            return_patch_tokens=return_patch_tokens,
+            return_all_tokens=return_all_tokens,
+            ch_mask=mask,
+        )
+        x = self.final_layer(x)
+        return x
+
+    def get_classifier(self):
+        """
+        Get the classifier of the model.
+
+        Returns
+        -------
+        torch.nn.Module
+            The classifier of the head model.
+        """
+        return self.final_layer
+
+    def reset_classifier(self, n_outputs):
+        """
+        Reset the classifier with the new number of classes.
+
+        Parameters
+        ----------
+        n_outputs : int
+            The new number of classes.
+        """
+        self.final_layer = (
+            nn.Linear(self.embed_dim, n_outputs) if n_outputs > 0 else nn.Identity()
+        )
+        provenance = self.__dict__.get("_pretrained_provenance")
+        if provenance:
+            provenance["loaded"].difference_update(
+                {"final_layer.weight", "final_layer.bias"}
+            )
+
+    def reset_head(self, n_outputs):
+        self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
+        self.reset_classifier(n_outputs)
+
+    def _adj_temporal_embedding(self, num_ch: int, batch_size: int, n_patches: int):
+        """
+        Adjust the dimensions of the time embedding to match the
+        number of channels and patches.
+
+        Parameters
+        ----------
+        num_ch : int
+            The number of channels.
+        batch_size : int
+            Batch size of the input data.
+        n_patches : int
+            The number of patches per channel. Patch ``p`` uses time slot
+            ``p``, as in the original implementation.
+
+        Returns
+        -------
+        temporal_embedding : torch.Tensor
+            The adjusted time embedding to be added across the channels
+            after the [CLS] token. (x[:, 1:, :] += time_embed)
+        """
+        # Get the temporal embedding: (1, n_time_slots, emb_size)
+        # Keep the first n_patches slots: (1, n_patches, emb_size)
+        cut_dimension = n_patches
+        temporal_embedding = self.temporal_embedding[:, 0:cut_dimension, :]
+
+        # Add a new dimension to the time embedding
+        # e.g. (1, 5, 200) -> (1, 1, 5, 200)
+        temporal_embedding = temporal_embedding.unsqueeze(1)
+
+        # Expand the time embedding to match the number of channels or patches
+        # (1, 1, cut_dimension, 200) -> (batch_size, num_ch, cut_dimension, 200)
+        temporal_embedding = temporal_embedding.expand(batch_size, num_ch, -1, -1)
+
+        # Flatten the intermediate dimensions
+        # (batch_size, num_ch, cut_dimension, 200) -> (batch_size, num_ch * cut_dimension, 200)
+        temporal_embedding = temporal_embedding.flatten(1, 2)
+
+        return temporal_embedding
+
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        # Time slots are absolute positions: take every slot the checkpoint
+        # holds and keep the model's own values for the others. This loads the
+        # released 16 slots at any window length, and checkpoints saved when
+        # the embedding had one slot per patch plus one.
+        key = prefix + "temporal_embedding"
+        loaded = state_dict.get(key)
+        own = self.temporal_embedding
+        if (
+            self.neural_tokenizer
+            and isinstance(loaded, torch.Tensor)
+            and loaded.dim() == own.dim() == 3
+            and loaded.shape[0] == own.shape[0]
+            and loaded.shape[2] == own.shape[2]
+            and loaded.shape[1] != own.shape[1]
+        ):
+            n_copied = min(loaded.shape[1], own.shape[1])
+            resized = own.detach().clone()
+            resized[:, :n_copied] = loaded[:, :n_copied].to(resized)
+            n_used = self.patch_embed[0].n_patchs
+            if n_copied < n_used:
+                warn(
+                    f"The checkpoint holds {loaded.shape[1]} time slots but this "
+                    f"model uses {n_used} (one per patch); time slots "
+                    f"{n_copied} to {n_used - 1} keep their initialization.",
+                    UserWarning,
+                )
+            state_dict[key] = resized
+        # A pretraining checkpoint has the per-token final ``norm`` and no
+        # pooling ``fc_norm`` or head. As in the original fine-tuning script,
+        # a mean-pooling model leaves that ``norm`` unused and starts
+        # ``fc_norm`` from its initialization. A checkpoint with a head was
+        # fine-tuned with its own readout and is not converted.
+        if (
+            self.fc_norm is not None
+            and prefix + "cls_token" in state_dict
+            and not any(
+                k.startswith((prefix + "fc_norm.", prefix + "final_layer."))
+                for k in state_dict
+            )
+        ):
+            for k in [k for k in state_dict if k.startswith(prefix + "norm.")]:
+                del state_dict[k]
+            for name, value in self.fc_norm.state_dict().items():
+                state_dict[prefix + "fc_norm." + name] = value
+        super()._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
+
+    def _adj_position_embedding(
+        self,
+        pos_embed_used,
+        batch_size: int,
+        n_patches: Optional[int] = None,
+    ):
+        """Copy/pasted from https://github.com/935963004/LaBraM/blob/c431221e6cfd23dbfa9950e0180682fb322b0548/modeling_finetune.py#L358-L362"""
+        input_time_window = (
+            self.patch_embed[0].n_patchs if n_patches is None else n_patches
+        )
+        pos_embed = (
+            pos_embed_used[:, 1:, :]
+            .unsqueeze(2)
+            .expand(batch_size, -1, input_time_window, -1)
+            .flatten(1, 2)
+        )
+        pos_embed = torch.cat(
+            (pos_embed_used[:, 0:1, :].expand(batch_size, -1, -1), pos_embed), dim=1
+        )
+        return pos_embed
+
+
+class _SegmentPatch(nn.Module):
+    r"""Segment and Patch for EEG data.
+
+    Adapted Patch Embedding inspired by the Vision Transformer approach
+    to learn the segmentation; the input shape is:
+    (Batch, Number of Channels, number of times points).
+
+    We apply a 2D convolution with kernel size of (1, patch_size)
+    and a stride of (1, patch_size).
+
+    The results output shape will be:
+    (Batch, Number of Channels, Number of patches, patch size).
+
+    This way, we learned a convolution to segment the input shape.
+
+    The number of patches is calculated as the number of samples divided
+    by the patch size.
+
+    Parameters
+    ----------
+    n_times: int (default=2000)
+        Number of temporal components of the input tensor.
+    in_chans: int (default=1)
+        number of electrodes of the EEG signal
+    emb_dim: int (default=200)
+        Number of n_output to be used in the convolution, here,
+        we used the same as patch_size.
+    patch_size: int (default=200)
+        Size of the patch, default is 1-seconds with 200Hz.
+    Returns
+    -------
+    x_patched: torch.Tensor
+        Output tensor of shape (batch, n_chans, num_patches, emb_dim).
+    """
+
+    # Constant, so TorchScript skips the branch whose layers do not exist.
+    __constants__ = ["learned_patcher"]
+
+    def __init__(
+        self,
+        n_times=2000,
+        patch_size=200,
+        n_chans=1,
+        emb_dim=200,
+        learned_patcher=True,
+        on_non_divisible="pad",
+    ):
+        super().__init__()
+
+        self.n_times = n_times
+        self.patch_size = patch_size
+        # Single place that pads/crops/rejects a non-divisible time axis
+        # (no parameters, so checkpoints are unaffected).
+        self.tokenizer = PatchTokenizer(
+            patch_size=patch_size, n_times=n_times, on_non_divisible=on_non_divisible
+        )
+        self.n_patchs = (
+            -(-n_times // patch_size)
+            if on_non_divisible == "pad"
+            else n_times // patch_size
+        )
+        self.emb_dim = emb_dim
+        self.n_chans = n_chans
+        self.learned_patcher = learned_patcher
+
+        if learned_patcher:
+            self.patcher = nn.Conv1d(
+                in_channels=1,
+                out_channels=self.emb_dim,
+                kernel_size=self.patch_size,
+                stride=self.patch_size,
+            )
+            self.adding_extra_dim = Rearrange(
+                pattern="batch nchans temporal -> (batch nchans) 1 temporal"
+            )
+
+    def forward(self, x):
+        """
+        Using an 1D convolution to generate segments of EEG signal.
+
+        Parameters
+        ----------
+        X: Tensor
+            [batch, n_chans, n_times]
+
+        Returns
+        -------
+        X_patch: Tensor
+            [batch, n_chans, n_patchs, emb_dim] if ``learned_patcher``, else
+            [batch, n_chans, n_patchs, patch_size], where ``n_patchs`` is
+            ``ceil(n_times / patch_size)`` for ``on_non_divisible="pad"`` and
+            ``n_times // patch_size`` otherwise.
+        """
+        x = self.tokenizer.prepare_input(x)
+        batch_size, n_chans_actual, n_times_actual = x.shape
+        # Input shape: [batch, n_chs, n_times]
+
+        # First, rearrange input to treat the channel dimension 'n_chs' as
+        # separate 'dimension' in batch for Conv1d
+        # This requires reshaping x to have a height of 1 for each EEG sample.
+        if self.learned_patcher:
+            x = self.adding_extra_dim(x)
+
+            # Apply the convolution along the temporal dimension
+            # Conv2d output shape: [(batch*n_chs), emb_dim, n_patches]
+            x = self.patcher(x)
+
+            # Now, rearrange output to get back to a batch-first format,
+            # combining embedded patches with channel information
+            # Assuming you want [batch, n_chs, n_patches, emb_dim]
+            # as output, which keeps channel information
+            # This treats each patch embedding as a feature alongside channels
+            # Use actual number of channels from input, not self.n_chans
+            # (batch * nchans, embed, npatchs) -> (batch, nchans, npatchs, embed)
+            x = x.reshape(batch_size, n_chans_actual, x.shape[1], x.shape[2])
+            x = x.permute(0, 1, 3, 2)
+        else:
+            x = x.view(
+                batch_size,
+                n_chans_actual,
+                n_times_actual // self.patch_size,
+                self.patch_size,
+            )
+        return x
+
+
+class _PatchEmbed(nn.Module):
+    r"""EEG to Patch Embedding for Neural Decoder mode.
+
+    This code is used when we want to apply the patch embedding
+    after the codebook layer (Neural Decoder mode).
+
+    The input is expected to be in the format (Batch, n_channels, n_times),
+    but the original LaBraM expects pre-patched data (Batch, n_channels, n_patches, patch_size).
+    This class reshapes the input to the pre-patched format, then applies a 2D
+    convolution to project this pre-patched data to the embedding dimension,
+    and finally averages over grouped channels to produce one embedding per
+    temporal patch.
+
+    Parameters
+    ----------
+    n_times: int (default=2000)
+        Number of temporal components of the input tensor (used for dimension calculation).
+    patch_size: int (default=200)
+        Size of the patch, default is 1-seconds with 200Hz.
+    in_channels: int (default=1)
+        Number of input channels (from VQVAE codebook).
+    emb_dim: int (default=200)
+        Number of output embedding dimension.
+    on_non_divisible: {"pad", "crop", "error"} (default="pad")
+        Passed to :class:`~braindecode.modules.PatchTokenizer`.
+    """
+
+    def __init__(
+        self,
+        n_times=2000,
+        patch_size=200,
+        in_channels=1,
+        emb_dim=200,
+        n_codebooks=62,
+        on_non_divisible="pad",
+    ):
+        super().__init__()
+        self.n_times = n_times
+        self.patch_size = patch_size
+        # Same pad/crop/error step as the tokenizer mode (no parameters).
+        self.tokenizer = PatchTokenizer(
+            patch_size=patch_size, n_times=n_times, on_non_divisible=on_non_divisible
+        )
+        self.n_patchs = (
+            -(-n_times // patch_size)
+            if on_non_divisible == "pad"
+            else n_times // patch_size
+        )
+        self.patch_shape = (1, self.n_patchs)
+        self.emb_dim = emb_dim
+        self.in_channels = in_channels
+
+        # 2D Conv to project the pre-patched data
+        # Input: (Batch, in_channels, n_patches, patch_size)
+        # After proj: (Batch, emb_dim, n_patches, 1)
+        self.proj = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=emb_dim,
+            kernel_size=(1, self.patch_size),
+            stride=(1, self.patch_size),
+        )
+
+    def forward(self, x):
+        """
+        Apply the temporal projection to the input tensor after grouping channels.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape (Batch, n_channels, n_times) or
+            (Batch, n_channels, n_patches, patch_size).
+
+        Returns
+        -------
+        torch.Tensor
+            Output tensor of shape (Batch, n_patchs, emb_dim).
+        """
+        if x.ndim == 4:
+            batch_size, n_channels, n_patchs, patch_len = x.shape
+            if patch_len != self.patch_size:
+                raise ValueError(
+                    "When providing a 4D tensor, the last dimension "
+                    f"({patch_len}) must match patch_size ({self.patch_size})."
+                )
+            n_times = n_patchs * patch_len
+            x = x.reshape(batch_size, n_channels, n_times)
+        elif x.ndim == 3:
+            batch_size, n_channels, n_times = x.shape
+        else:
+            raise ValueError(
+                "Input must be either 3D (batch, channels, times) or "
+                "4D (batch, channels, n_patches, patch_size)."
+            )
+        x = self.tokenizer.prepare_input(x)
+        n_times = x.shape[-1]
+
+        if n_channels % self.in_channels != 0:
+            raise ValueError(
+                "The input channel dimension "
+                f"({n_channels}) must be divisible by in_channels ({self.in_channels})."
+            )
+
+        group_size = n_channels // self.in_channels
+
+        # Reshape so Conv2d sees `in_channels` feature maps and uses the grouped
+        # EEG channels as the spatial height dimension.
+        # Shape after view: (Batch, in_channels, group_size, n_times)
+        x = x.view(batch_size, self.in_channels, group_size, n_times)
+
+        # Apply the temporal projection per group.
+        # Output shape: (Batch, emb_dim, group_size, n_patchs)
+        x = self.proj(x)
+
+        # THIS IS braindecode's MODIFICATION:
+        # Average over the grouped channel dimension and permute to (Batch, n_patchs, emb_dim)
+        x = x.mean(dim=2)
+        x = x.transpose(1, 2).contiguous()
+
+        return x
+
+
+class _Attention(nn.Module):
+    r"""
+    Attention with the options of Window-based multi-head self attention (W-MSA).
+
+    This code is strong inspired by:
+    https://github.com/microsoft/Swin-Transformer/blob/main/models/swin_transformer.py#L77
+
+    Basically, the attention module is a linear layer that takes the input
+    tensor and returns the output tensor. The input tensor is first passed
+    through a linear layer to get the query, key, and value tensors. Then,
+    the query tensor is multiplied by the scale factor and the result is
+    multiplied by the transpose of the key tensor.
+
+    The flag window_size is used to determine if the attention is
+    window-based or not.
+
+    Parameters
+    ----------
+    dim: int
+        Number of input features.
+    num_heads: int (default=8)
+        Number of attention heads.
+    qkv_bias: bool (default=False)
+        If True, add a learnable bias to the query, key, and value tensors.
+    qk_norm: nn.LayerNorm (default=None)
+        If not None, apply LayerNorm to the query and key tensors.
+    qk_scale: float (default=None)
+        If not None, use this value as the scale factor. If None,
+        use head_dim**-0.5, where head_dim = dim // num_heads.
+    attn_drop: float (default=0.0)
+        Dropout rate for the attention weights.
+    proj_drop: float (default=0.0)
+        Dropout rate for the output tensor.
+    window_size: bool (default=None)
+        If not None, use window-based multi-head self attention based on Swin Transformer.
+    attn_head_dim: int (default=None)
+        If not None, use this value as the head_dim. If None, use dim // num_heads.
+    """
+
+    def __init__(
+        self,
+        dim,
+        num_heads=8,
+        qkv_bias=False,
+        qk_norm=None,
+        qk_scale=None,
+        attn_drop=0.0,
+        proj_drop=0.0,
+        window_size=None,
+        attn_head_dim=None,
+    ):
+        super().__init__()
+        self.num_heads = num_heads
+        head_dim = dim // num_heads
+        if attn_head_dim is not None:
+            head_dim = attn_head_dim
+        all_head_dim = head_dim * self.num_heads
+        self.scale = qk_scale or head_dim**-0.5
+
+        self.qkv = nn.Linear(dim, all_head_dim * 3, bias=False)
+        if qkv_bias:
+            self.q_bias = nn.Parameter(torch.zeros(all_head_dim))
+            self.v_bias = nn.Parameter(torch.zeros(all_head_dim))
+        else:
+            self.q_bias = None
+            self.v_bias = None
+
+        if qk_norm is not None:
+            self.q_norm = qk_norm(head_dim, eps=1e-6)
+            self.k_norm = qk_norm(head_dim, eps=1e-6)
+        else:
+            self.q_norm = None
+            self.k_norm = None
+
+        if window_size:
+            self.window_size = window_size
+            self.num_relative_distance = (2 * window_size[0] - 1) * (
+                2 * window_size[1] - 1
+            ) + 3
+            self.relative_position_bias_table = nn.Parameter(
+                torch.zeros(self.num_relative_distance, num_heads)
+            )  # 2*Wh-1 * 2*Ww-1, nH
+            # cls to token & token 2 cls & cls to cls
+
+            # get pair-wise relative position index for each token inside the window
+            coords_h = torch.arange(window_size[0])
+            coords_w = torch.arange(window_size[1])
+            coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
+            coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+            relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
+            # 2, Wh*Ww, Wh*Ww
+            relative_coords = relative_coords.permute(
+                1, 2, 0
+            ).contiguous()  # Wh*Ww, Wh*Ww, 2
+            relative_coords[:, :, 0] += window_size[0] - 1
+            # shift to start from 0
+            relative_coords[:, :, 1] += window_size[1] - 1
+            relative_coords[:, :, 0] *= 2 * window_size[1] - 1
+            relative_position_index = torch.zeros(
+                size=(window_size[0] * window_size[1] + 1,) * 2,
+                dtype=relative_coords.dtype,
+            )
+            relative_position_index[1:, 1:] = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
+            relative_position_index[0, 0:] = self.num_relative_distance - 3
+            relative_position_index[0:, 0] = self.num_relative_distance - 2
+            relative_position_index[0, 0] = self.num_relative_distance - 1
+
+            self.register_buffer("relative_position_index", relative_position_index)
+        else:
+            self.window_size = None
+            self.relative_position_bias_table = None
+            self.relative_position_index = None
+
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(all_head_dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        return_attention: bool = False,
+        return_qkv: bool = False,
+        key_mask: Optional[torch.Tensor] = None,
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """
+        Apply the attention mechanism to the input tensor.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Input tensor of shape (Batch, N, C).
+        return_attention: bool (default=False)
+            If True, return the attention weights.
+        return_qkv: bool (default=False)
+            If True, return the query, key, and value tensors together with
+            the output tensor.
+        key_mask: torch.Tensor, optional
+            (Batch, N) boolean mask of the keys that take part.
+        Returns
+        -------
+        x: torch.Tensor
+            Output tensor of shape (Batch, N, C).
+        qkv: torch.Tensor (optional)
+            Query, key, and value tensors of shape
+            (Batch, N, 3, num_heads, C // num_heads).
+        """
+        B, N, _ = x.shape
+        qkv_bias = None
+        if self.q_bias is not None:
+            qkv_bias = torch.cat(
+                (
+                    self.q_bias,
+                    torch.zeros_like(self.v_bias),
+                    self.v_bias,
+                )
+            )
+        # Call the ``qkv`` module rather than ``linear`` on its weight, so hooks
+        # and adapters attached to it (e.g. LoRA) take part in the forward.
+        qkv = self.qkv(x)
+        if qkv_bias is not None:
+            qkv = qkv + qkv_bias.to(qkv.dtype)  # keep autocast dtype
+        qkv = qkv.reshape(B, N, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv.unbind(0)  # (B, H, N, C); TorchScript cannot unpack qkv
+        if self.q_norm is not None:
+            q = self.q_norm(q).type_as(v)
+        if self.k_norm is not None:
+            k = self.k_norm(k).type_as(v)
+
+        attn_mask: Optional[torch.Tensor] = None
+        if self.relative_position_bias_table is not None:
+            relative_position_bias = self.relative_position_bias_table[
+                self.relative_position_index.view(-1)
+            ].view(
+                self.window_size[0] * self.window_size[1] + 1,
+                self.window_size[0] * self.window_size[1] + 1,
+                -1,
+            )  # Wh*Ww,Wh*Ww,nH
+            attn_mask = (
+                relative_position_bias.permute(2, 0, 1).contiguous().unsqueeze(0)
+            )  # 1, nH, Wh*Ww, Wh*Ww
+        if key_mask is not None:
+            key_bias = torch.zeros(
+                key_mask.shape, dtype=q.dtype, device=q.device
+            ).masked_fill(~key_mask, float("-inf"))[:, None, None, :]
+            attn_mask = key_bias if attn_mask is None else attn_mask + key_bias
+
+        # Fused kernel, same math. Not with attention dropout in training (it
+        # would draw other masks).
+        if not return_attention and (self.attn_drop.p == 0.0 or not self.training):
+            x = nn.functional.scaled_dot_product_attention(
+                q, k, v, attn_mask=attn_mask, scale=self.scale
+            )
+        else:
+            attn = (q * self.scale) @ k.transpose(-2, -1)
+            if attn_mask is not None:
+                attn = attn + attn_mask
+            attn = self.attn_drop(attn.softmax(dim=-1))
+            if return_attention:
+                return attn
+            x = attn @ v
+        x = x.transpose(1, 2).reshape(B, N, -1)
+
+        x = self.proj(x)
+        x = self.proj_drop(x)
+
+        if return_qkv:
+            return x, qkv
+
+        return x
+
+
+class _WindowsAttentionBlock(nn.Module):
+    r"""Blocks of Windows Attention with Layer norm and MLP.
+
+    Notes: This code is strong inspired by:
+    BeiTv2 from Microsoft.
+
+    Parameters
+    ----------
+    dim: int
+        Number of input features.
+    num_heads: int (default=8)
+        Number of attention heads.
+    mlp_ratio: float (default=4.0)
+        Ratio to increase the hidden features from input features in the MLP layer
+    qkv_bias: bool (default=False)
+        If True, add a learnable bias to the query, key, and value tensors.
+    qk_norm: nn.LayerNorm (default=None)
+        If not None, apply LayerNorm to the query and key tensors.
+    qk_scale: float (default=None)
+        If not None, use this value as the scale factor. If None,
+        use head_dim**-0.5, where head_dim = dim // num_heads.
+    drop: float (default=0.0)
+        Dropout rate for the output tensor.
+    attn_drop: float (default=0.0)
+        Dropout rate for the attention weights.
+    drop_path: float (default=0.0)
+        Dropout rate for the output tensor.
+    init_values: float (default=None)
+        If not None, use this value to initialize the gamma_1 and gamma_2
+        parameters.
+    activation: nn.GELU (default)
+        Activation function.
+    norm_layer: nn.LayerNorm (default)
+        Normalization layer.
+    window_size: bool (default=None)
+        If not None, use window-based multi-head self attention based on
+        Swin Transformer.
+    attn_head_dim: int (default=None)
+        If not None, use this value as the head_dim. If None,
+        the classes use dim // num_heads
+
+    Returns
+    -------
+    x: torch.Tensor
+        Output tensor of shape (Batch, N, C). [I think]
+
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int,
+        mlp_ratio=4.0,
+        qkv_bias=False,
+        qk_norm=None,
+        qk_scale=None,
+        drop=0.0,
+        attn_drop=0.0,
+        drop_path=0.0,
+        init_values=None,
+        activation: type[nn.Module] = nn.GELU,
+        norm_layer=nn.LayerNorm,
+        window_size=None,
+        attn_head_dim=None,
+    ):
+        super().__init__()
+        self.norm1 = norm_layer(dim, eps=1e-6)
+        self.attn = _Attention(
+            dim,
+            num_heads=num_heads,
+            qkv_bias=qkv_bias,
+            qk_norm=qk_norm,
+            qk_scale=qk_scale,
+            attn_drop=attn_drop,
+            proj_drop=drop,
+            window_size=window_size,
+            attn_head_dim=attn_head_dim,
+        )
+
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.norm2 = norm_layer(dim, eps=1e-6)
+        mlp_hidden_dim = int(dim * mlp_ratio)
+        self.mlp = MLP(
+            in_features=dim,
+            hidden_features=[mlp_hidden_dim],
+            activation=activation,
+            drop=drop,
+        )
+
+        if init_values is not None and init_values > 0:
+            self.gamma_1 = nn.Parameter(
+                init_values * torch.ones((dim)), requires_grad=True
+            )
+            self.gamma_2 = nn.Parameter(
+                init_values * torch.ones((dim)), requires_grad=True
+            )
+        else:
+            self.gamma_1, self.gamma_2 = None, None
+
+    def forward(
+        self,
+        x,
+        return_attention: bool = False,
+        return_qkv: bool = False,
+        key_mask: Optional[torch.Tensor] = None,
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """
+        Apply the attention mechanism to the input tensor.
+        Parameters
+        ----------
+        x: torch.Tensor
+            Input tensor of shape (Batch, chs, npatchs, patch).
+        return_attention: bool (default=False)
+            If True, return the attention weights.
+        return_qkv: bool (default=False)
+            If True, return the query, key, and value tensors together with
+            the output tensor.
+        key_mask: torch.Tensor, optional
+            (Batch, N) boolean mask of the keys that take part.
+
+        Returns
+        -------
+        torch.Tensor
+            Output tensor of shape (Batch, chs, npatchs, patch).
+        """
+
+        if return_attention:
+            return self.attn(self.norm1(x), return_attention=True, key_mask=key_mask)
+        if return_qkv:
+            out = self.attn(self.norm1(x), return_qkv=return_qkv, key_mask=key_mask)
+            assert isinstance(out, tuple)  # narrows the Union for TorchScript
+            y, qkv = out
+            x = x + self.drop_path(self.gamma_1 * y)
+            x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
+            return x, qkv
+
+        y = self.attn(self.norm1(x), key_mask=key_mask)
+        assert isinstance(y, torch.Tensor)  # narrows the Union for TorchScript
+        if self.gamma_1 is None:
+            x = x + self.drop_path(y)
+            x = x + self.drop_path(self.mlp(self.norm2(x)))
+        else:
+            x = x + self.drop_path(self.gamma_1 * y)
+            x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
+        return x
+
+
+class _TemporalConv(nn.Module):
+    r"""
+    Temporal Convolutional Module inspired by Visual Transformer.
+
+    In this module we apply the following steps three times
+    to the input tensor, reducing the temporal dimension only in the first.
+    - Apply a 2D convolution.
+    - Apply a GroupNorm with ``num_groups`` groups.
+    - Apply the activation (GELU by default).
+
+    Parameters
+    ----------
+    in_channels: int (default=1)
+        Number of input channels.
+    out_channels: int (default=8)
+        Number of output channels.
+    num_groups: int (default=4)
+        Number of groups for GroupNorm.
+    kernel_size_1: tuple (default=(1, 15))
+        Kernel size for the first convolution.
+    kernel_size_2: tuple (default=(1, 3))
+        Kernel size for the second and third convolutions.
+    stride_1: tuple (default=(1, 8))
+        Stride for the first convolution.
+    padding_1: tuple (default=(0, 7))
+        Padding for the first convolution.
+    padding_2: tuple (default=(0, 1))
+        Padding for the second and third convolutions.
+    activation: nn.Module, default=nn.GELU
+        Activation function class to apply. Should be a PyTorch activation
+        module class like ``nn.ReLU`` or ``nn.ELU``. Default is ``nn.GELU``.
+
+    Returns
+    -------
+    x: torch.Tensor
+        Output tensor of shape (batch, n_chans * n_patches, out_features(patch_size)).
+    """
+
+    def __init__(
+        self,
+        in_channels=1,
+        out_channels=8,
+        num_groups=4,
+        kernel_size_1=(1, 15),
+        stride_1=(1, 8),
+        padding_1=(0, 7),
+        kernel_size_2=(1, 3),
+        padding_2=(0, 1),
+        activation: type[nn.Module] = nn.GELU,
+    ):
+        super().__init__()
+
+        # Here, we use the Rearrange layer from einops to flatten the input
+        # tensor to a 2D tensor, so we can apply 2D convolutions.
+        self.channel_patch_flatten = Rearrange(
+            "Batch chs npat spatch -> Batch () (chs npat) spatch"
+        )
+
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size_1,
+            stride=stride_1,
+            padding=padding_1,
+        )
+        self.act_layer_1 = activation()
+        self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
+
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size_2,
+            padding=padding_2,
+        )
+        self.act_layer_2 = activation()
+        self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
+
+        self.conv3 = nn.Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size_2,
+            padding=padding_2,
+        )
+        self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
+        self.act_layer_3 = activation()
+
+        self.transpose_temporal_channel = Rearrange("Batch C NA T -> Batch NA (T C)")
+
+    def out_features(self, patch_size: int) -> int:
+        """Width of each output token for patches of ``patch_size`` samples.
+
+        Each convolution keeps ``(n + 2 * padding - kernel) // stride + 1`` of
+        its ``n`` input samples, and the ``out_channels`` maps of the last one
+        are flattened into one token.
+        """
+        n_samples = patch_size
+        for conv in (self.conv1, self.conv2, self.conv3):
+            n_samples = (
+                n_samples + 2 * conv.padding[1] - conv.kernel_size[1]
+            ) // conv.stride[1] + 1
+        return self.conv3.out_channels * n_samples
+
+    def forward(self, x, ch_mask: Optional[torch.Tensor] = None):
+        """
+        Apply 3 steps of 2D convolution, GroupNorm and activation.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Input tensor of shape (Batch, Channels, n_patchs, size_patch).
+        ch_mask: torch.Tensor, optional
+            (Batch, Channels) boolean mask of real channels; padded channels
+            then take no part in the GroupNorm statistics.
+
+        Returns
+        -------
+        x: torch.Tensor
+            Output tensor of shape (batch, n_chans * n_patches, out_features(patch_size)).
+        """
+        row_mask: Optional[torch.Tensor] = None
+        if ch_mask is not None:
+            # Flattened rows are (chs npat), channel outermost.
+            row_mask = ch_mask.repeat_interleave(x.shape[2], dim=1)
+        x = self.channel_patch_flatten(x)
+        x = self.conv1(x)
+        x = masked_group_norm(
+            x,
+            self.norm1.num_groups,
+            row_mask,
+            self.norm1.weight,
+            self.norm1.bias,
+            self.norm1.eps,
+        )
+        x = self.conv2(self.act_layer_1(x))
+        x = masked_group_norm(
+            x,
+            self.norm2.num_groups,
+            row_mask,
+            self.norm2.weight,
+            self.norm2.bias,
+            self.norm2.eps,
+        )
+        x = self.conv3(self.act_layer_2(x))
+        x = masked_group_norm(
+            x,
+            self.norm3.num_groups,
+            row_mask,
+            self.norm3.weight,
+            self.norm3.bias,
+            self.norm3.eps,
+        )
+        x = self.act_layer_3(x)
+        x = self.transpose_temporal_channel(x)
+        return x
+
+
 # -----------------------------------------------------------------------------
-# Standard 10-20 system electrode positions used by LaBraM for position embeddings.
-# This defines the canonical channel order that the pretrained LaBraM model expects.
-# Channels from input data will be automatically reordered to match this order.
+# LaBraM's 128 pretraining channels as (name, (x, y, z)) pairs, in the order of
+# the rows of ``position_embedding`` (channel i owns row i + 1; row 0 is the cls
+# token). forward(ch_names=...) looks each input channel up by name; without
+# ch_names the input must hold exactly these channels, in this order.
 # Reference: https://github.com/935963004/LaBraM/blob/c431221e6cfd23dbfa9950e0180682fb322b0548/utils.py#L42-L57
-# We just commented the last 8 channels to match the 128 in the pretrained weights here
+# (its last 8 bipolar pairs, listed after the table, have no row in the weights).
 #
-# Channels positions come from several sources, all in the head frame that
+# Positions are in metres. They come from several sources, all in the head frame that
 # ``raw.set_montage`` gives (one fiducial transform of the montages' own frame):
 #   - standard_1005 names (majority): looked up directly by uppercase key
 #   - bipolar pairs "A-B"  → midpoint of A and B (from standard_1005).
@@ -47,9 +1673,8 @@ from braindecode.modules.blocks import PatchTokenizer
 #   - CCP7/CCP8 → midpoint(T7, TP7) / midpoint(T8, TP8)
 #   - FTT9h/TTP7h/TPP9h/FTT10h/TPP8h/TPP10h → standard_1005 (h-suffix entries)
 #
-# The `loc` values are only used to build an MNE interpolation matrix
-# for the channel layer. They are NOT used by Labram itself, which
-# relies on learned position embeddings indexed by channel name.
+# Labram itself uses only the names; the positions build the ChannelLayer's
+# interpolation matrix under a channel_strategy.
 # -----------------------------------------------------------------------------
 
 # fmt: off
@@ -199,1503 +1824,8 @@ LABRAM_CHANNEL_ORDER = [ch for ch, _ in _LABRAM_TARGET_CHS_TUPLES]
 #: ``modeling_finetune.py``), whatever the window length. A window of P patches
 #: uses slots 0..P-1, and the released weights hold all 16 of them.
 _LABRAM_N_TIME_SLOTS = 16
+# Upper-case name -> index in LABRAM_CHANNEL_ORDER (position_embedding row - 1).
 _LABRAM_CANONICAL_INDEX = {n.upper(): i for i, n in enumerate(LABRAM_CHANNEL_ORDER)}
 
-
-class Labram(EEGModuleMixin, nn.Module):
-    r"""Labram from Jiang, W B et al (2024) [Jiang2024]_.
-
-    :bdg-success:`Convolution` :bdg-danger:`Foundation Model`
-
-    .. figure:: https://arxiv.org/html/2405.18765v1/x1.png
-        :align: center
-        :alt: Labram Architecture.
-
-    Large Brain Model for Learning Generic Representations with Tremendous
-    EEG Data in BCI from [Jiang2024]_.
-
-    This is an **adaptation** of the code [Code2024]_ from the Labram model.
-
-    The model is transformer architecture with **strong** inspiration from
-    BEiTv2 [BeiTv2]_.
-
-    The models can be used in two modes:
-
-    - Neural Tokenizer: Design to get an embedding layers (e.g. classification).
-    - Neural Decoder: To extract the ampliture and phase outputs with a VQSNP.
-
-    The braindecode's modification is to allow the model to be used in
-    with an input shape of (batch, n_chans, n_times), if neural tokenizer
-    equals True. The original implementation uses (batch, n_chans, n_patches,
-    patch_size) as input with static segmentation of the input data.
-
-    The models have the following sequence of steps::
-
-        if neural tokenizer:
-            - SegmentPatch: Segment the input data in patches;
-            - TemporalConv: Apply a temporal convolution to the segmented data;
-            - Residual adding cls, temporal and position embeddings (optional);
-            - WindowsAttentionBlock: Apply a windows attention block to the data;
-            - LayerNorm: Apply layer normalization to the data;
-            - Linear: An head linear layer to transformer the data into classes.
-
-        else:
-            - PatchEmbed: Apply a patch embedding to the input data;
-            - Residual adding cls, temporal and position embeddings (optional);
-            - WindowsAttentionBlock: Apply a windows attention block to the data;
-            - LayerNorm: Apply layer normalization to the data;
-            - Linear: An head linear layer to transformer the data into classes.
-
-    .. important::
-       **Pre-trained Weights Available**
-
-       This model has pre-trained weights available on the Hugging Face Hub.
-       You can load them using:
-
-       .. code-block:: python
-
-           from braindecode.models import Labram
-
-           # Load pre-trained model from Hugging Face Hub
-           model = Labram.from_pretrained("braindecode/labram-pretrained")
-
-       To push your own trained model to the Hub:
-
-       .. code-block:: python
-
-           # After training your model
-           model.push_to_hub(
-               repo_id="username/my-labram-model", commit_message="Upload trained Labram model"
-           )
-
-       Requires installing ``braindecode[hug]`` for Hub integration.
-
-    .. versionadded:: 0.9
-
-
-    Examples
-    --------
-    Load pre-trained weights::
-
-        >>> import torch
-        >>> from braindecode.models import Labram
-        >>> model = Labram(n_times=1600, n_chans=64, n_outputs=4)
-        >>> url = "https://huggingface.co/braindecode/Labram-Braindecode/blob/main/braindecode_labram_base.pt"
-        >>> state = torch.hub.load_state_dict_from_url(url, progress=True)
-        >>> model.load_state_dict(state)
-
-
-    Parameters
-    ----------
-    on_non_divisible : {"pad", "crop", "error"}, default="pad"
-        How :class:`~braindecode.modules.PatchTokenizer` treats a time axis that
-        is not a multiple of ``patch_size``: right-pad with zeros (default),
-        crop the trailing samples, or raise.
-    patch_size : int
-        The size of the patch to be used in the patch embedding.
-    learned_patcher : bool
-        Whether to use a learned patch embedding (via a convolutional layer) or a fixed patch embedding (via rearrangement).
-    embed_dim : int
-        The dimension of the embedding. In the Neural Tokenizer mode, it is
-        set by the temporal convolution (``conv_out_channels`` and
-        ``patch_size``), with a warning if the given value differs.
-    conv_in_channels : int
-        The number of convolutional input channels.
-    conv_out_channels : int
-        The number of convolutional output channels.
-    num_layers :  int (default=12)
-        The number of attention layers of the model.
-    num_heads : int (default=10)
-        The number of attention heads.
-    mlp_ratio : float (default=4.0)
-        The expansion ratio of the mlp layer
-    qkv_bias :  bool (default=False)
-        If True, add a learnable bias to the query, key, and value tensors.
-    qk_norm : Pytorch Normalize layer (default=nn.LayerNorm)
-        If not None, apply LayerNorm to the query and key tensors.
-        Default is nn.LayerNorm for better weight transfer from original LaBraM.
-        Set to None to disable Q,K normalization.
-    qk_scale : float (default=None)
-        If not None, use this value as the scale factor. If None,
-        use head_dim**-0.5, where head_dim = dim // num_heads.
-    drop_prob : float (default=0.0)
-        Dropout rate for the attention weights.
-    attn_drop_prob : float (default=0.0)
-        Dropout rate for the attention weights.
-    drop_path_prob : float (default=0.0)
-        Dropout rate for the attention weights used on DropPath.
-    norm_layer : Pytorch Normalize layer (default=nn.LayerNorm)
-        The normalization layer to be used.
-    init_values : float (default=0.1)
-        If not None, use this value to initialize the gamma_1 and gamma_2
-        parameters for residual scaling. Default is 0.1 for better weight
-        transfer from original LaBraM. Set to None to disable.
-    use_abs_pos_emb : bool (default=True)
-        If True, use absolute position embedding.
-    use_mean_pooling : bool (default=True)
-        If True, the readout is ``fc_norm`` applied to the mean of the patch
-        tokens, as in the original fine-tuning. If False, the readout is the
-        [CLS] token after the final ``norm``; the original pretraining loss
-        never uses the [CLS] output. A pretraining checkpoint (with ``norm``
-        and without ``fc_norm`` or head, such as the released weights) loads
-        into a mean-pooling model as in the original fine-tuning script:
-        ``norm`` is unused and ``fc_norm`` keeps its initialization.
-    init_scale : float (default=0.001)
-        The initial scale to be used in the parameters of the model.
-    neural_tokenizer : bool (default=True)
-        The model can be used in two modes: Neural Tokenizer or Neural Decoder.
-    attn_head_dim : bool (default=None)
-        The head dimension to be used in the attention layer, to be used only
-        during pre-training.
-    activation: nn.Module, default=nn.GELU
-        Activation function class to apply. Should be a PyTorch activation
-        module class like ``nn.ReLU`` or ``nn.ELU``. Default is ``nn.GELU``.
-
-    References
-    ----------
-    .. [Jiang2024] Wei-Bang Jiang, Li-Ming Zhao, Bao-Liang Lu. 2024, May.
-       Large Brain Model for Learning Generic Representations with Tremendous
-       EEG Data in BCI. The Twelfth International Conference on Learning
-       Representations, ICLR.
-    .. [Code2024] Wei-Bang Jiang, Li-Ming Zhao, Bao-Liang Lu. 2024. Labram
-       Large Brain Model for Learning Generic Representations with Tremendous
-       EEG Data in BCI. GitHub https://github.com/935963004/LaBraM
-       (accessed 2024-03-02)
-    .. [BeiTv2] Zhiliang Peng, Li Dong, Hangbo Bao, Qixiang Ye, Furu Wei. 2024.
-       BEiT v2: Masked Image Modeling with Vector-Quantized Visual Tokenizers.
-       arXiv:2208.06366 [cs.CV]
-    """
-
-    _channel_target = _LABRAM_TARGET_CHS_INFO
-    # Constant, so TorchScript compiles only the mode in use (the decoder-only
-    # locals do not exist in tokenizer mode).
-    __constants__ = ["neural_tokenizer"]
-
-    def __init__(
-        self,
-        n_times=None,
-        n_outputs=None,
-        chs_info=None,
-        n_chans=None,
-        sfreq=None,
-        input_window_seconds=None,
-        patch_size=200,
-        learned_patcher=False,
-        embed_dim=200,
-        conv_in_channels=1,
-        conv_out_channels=8,
-        num_layers=12,
-        num_heads=10,
-        mlp_ratio=4.0,
-        qkv_bias=False,
-        qk_norm: type[nn.Module] = nn.LayerNorm,
-        qk_scale=None,
-        drop_prob=0.0,
-        attn_drop_prob=0.0,
-        drop_path_prob=0.0,
-        norm_layer: type[nn.Module] = nn.LayerNorm,
-        init_values=0.1,
-        use_abs_pos_emb=True,
-        use_mean_pooling=True,
-        init_scale=0.001,
-        neural_tokenizer=True,
-        attn_head_dim=None,
-        activation: type[nn.Module] = nn.GELU,
-        on_non_divisible="pad",
-        channel_strategy: str = "native",
-        channel_strategy_kwargs: dict | None = None,
-    ):
-        super().__init__(
-            n_outputs=n_outputs,
-            n_chans=n_chans,
-            chs_info=chs_info,
-            n_times=n_times,
-            input_window_seconds=input_window_seconds,
-            sfreq=sfreq,
-            channel_strategy=channel_strategy,
-            channel_strategy_kwargs=channel_strategy_kwargs,
-        )
-        del n_outputs, n_chans, n_times, input_window_seconds, sfreq
-
-        # Non-canonical chs_info is accepted with a warning so callers can
-        # resolve channels per batch via forward(ch_names=...).
-        try:
-            _chs_info = self.chs_info
-        except ValueError:
-            _chs_info = None
-        if _chs_info is not None:
-            user_names = [ch["ch_name"] for ch in _chs_info]  # type: ignore[index]
-            if [n.upper() for n in user_names] != list(_LABRAM_CANONICAL_INDEX):
-                warn(
-                    f"Labram chs_info does not match LABRAM_CHANNEL_ORDER "
-                    f"(got {len(user_names)} of {len(LABRAM_CHANNEL_ORDER)}). "
-                    f"Pass ch_names to forward() per batch, or use "
-                    f"channel_strategy='spline'.",
-                    UserWarning,
-                )
-
-        # A module attribute, so the scripted forward can resolve ch_names.
-        self._canonical_index = _LABRAM_CANONICAL_INDEX
-        self.patch_size = patch_size
-        self.num_features = self.embed_dim = embed_dim
-        self.neural_tokenizer = neural_tokenizer
-        self.init_scale = init_scale
-
-        if patch_size > self.n_times:
-            warn(
-                f"patch_size ({patch_size}) > n_times ({self.n_times}); "
-                f"setting patch_size = {self.n_times}.",
-                UserWarning,
-            )
-            self.patch_size = self.n_times
-            self.num_features = None
-            self.embed_dim = None
-        else:
-            self.patch_size = patch_size
-        self.on_non_divisible = on_non_divisible
-        self.n_path = (
-            -(-self.n_times // self.patch_size)
-            if on_non_divisible == "pad"
-            else self.n_times // self.patch_size
-        )
-
-        if neural_tokenizer and conv_in_channels != 1:
-            warn(
-                "The model is in Neural Tokenizer mode, but the variable "
-                + "`conv_in_channels` is different from the default values."
-                + "`conv_in_channels` is only needed for the Neural Decoder mode."
-                + "conv_in_channels is not used in the Neural Tokenizer mode.",
-                UserWarning,
-            )
-            conv_in_channels = 1
-            # If you can use the model in Neural Tokenizer mode,
-        # temporal conv layer will be use over the patched dataset
-        if neural_tokenizer:
-            self.patch_embed = nn.Sequential(
-                OrderedDict(
-                    [
-                        (
-                            "segment_patch",
-                            _SegmentPatch(
-                                n_times=self.n_times,
-                                patch_size=self.patch_size,
-                                n_chans=self.n_chans,
-                                emb_dim=self.patch_size,
-                                learned_patcher=learned_patcher,
-                                on_non_divisible=on_non_divisible,
-                            ),
-                        ),
-                        (
-                            "temporal_conv",
-                            _TemporalConv(
-                                out_channels=conv_out_channels, activation=activation
-                            ),
-                        ),
-                    ]
-                )
-            )
-        else:
-            # If not, the model will be used as Neural Decoder mode
-            # So the input here will be after the VQVAE encoder
-            # To be used to extract the ampliture and phase outputs.
-            # Adding inside a Sequential to use the same convention as the
-            # Neural Tokenizer mode.
-            self.patch_embed = nn.Sequential()
-            self.patch_embed.add_module(
-                "segment_patch",
-                _PatchEmbed(
-                    n_times=self.n_times,
-                    patch_size=patch_size,
-                    in_channels=conv_in_channels,
-                    emb_dim=self.embed_dim,
-                    on_non_divisible=on_non_divisible,
-                ),
-            )
-
-        with torch.no_grad():
-            dummy = torch.zeros(1, self.n_chans, self.n_times)
-            out = self.patch_embed(dummy)
-        # out.shape for tokenizer: (1, n_chans, emb_dim)
-        # for decoder:        (1, n_patch, patch_size, emb_dim), but we want last dim
-        if neural_tokenizer and out.shape[-1] != self.embed_dim:
-            warn(
-                f"In the Neural Tokenizer mode the embedding dimension is set "
-                f"by the temporal convolution (conv_out_channels, patch_size): "
-                f"using embed_dim={out.shape[-1]} instead of the given "
-                f"embed_dim={self.embed_dim}.",
-                UserWarning,
-            )
-        self.embed_dim = out.shape[-1]
-        self.num_features = self.embed_dim
-
-        # Defining the parameters
-        # Creating a parameter list with cls token]
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
-        # Positional embedding and time embedding are complementary
-        # one is for the spatial information and the other is for the temporal
-        # information.
-        # The time embedding is used to encode something in the number of
-        # patches, and the position embedding is used to encode the channels'
-        # information.
-        if use_abs_pos_emb:
-            self.position_embedding = nn.Parameter(
-                torch.zeros(1, len(LABRAM_CHANNEL_ORDER) + 1, self.embed_dim),
-                requires_grad=True,
-            )
-        else:
-            self.position_embedding = None
-
-        # The tokenizer keeps the original's absolute time slots, so the
-        # pretrained slots load at every window length; longer windows get
-        # extra slots. The decoder mode keeps one slot per patch plus one.
-        n_patches = self.patch_embed[0].n_patchs
-        n_time_slots = (
-            max(_LABRAM_N_TIME_SLOTS, n_patches) if neural_tokenizer else n_patches + 1
-        )
-        self.temporal_embedding = nn.Parameter(
-            torch.zeros(1, n_time_slots, self.embed_dim),
-            requires_grad=True,
-        )
-        self.pos_drop = nn.Dropout(p=drop_prob)
-
-        dpr = [
-            x.item() for x in torch.linspace(0, drop_path_prob, num_layers)
-        ]  # stochastic depth decay rule
-        self.blocks = nn.ModuleList(
-            [
-                _WindowsAttentionBlock(
-                    dim=self.embed_dim,
-                    num_heads=num_heads,
-                    mlp_ratio=mlp_ratio,
-                    qkv_bias=qkv_bias,
-                    qk_norm=qk_norm,
-                    qk_scale=qk_scale,
-                    drop=drop_prob,
-                    attn_drop=attn_drop_prob,
-                    drop_path=dpr[i],
-                    norm_layer=norm_layer,
-                    init_values=init_values,
-                    window_size=(
-                        self.patch_embed[0].patch_shape
-                        if not neural_tokenizer
-                        else None
-                    ),
-                    attn_head_dim=attn_head_dim,
-                    activation=activation,
-                )
-                for i in range(num_layers)
-            ]
-        )
-        self.norm = (
-            nn.Identity() if use_mean_pooling else norm_layer(self.embed_dim, eps=1e-6)
-        )
-        self.fc_norm = (
-            norm_layer(self.embed_dim, eps=1e-6) if use_mean_pooling else None
-        )
-
-        self.reset_classifier(self.n_outputs)
-
-        self._init_parameters()
-
-    def _init_parameters(self) -> None:
-        """Model-specific initialization (see ``reset_parameters``)."""
-        self.apply(init_weights_)
-        self.fix_init_weight_and_init_embedding()
-
-    def fix_init_weight_and_init_embedding(self):
-        """
-        Fix the initial weight and the initial embedding.
-        Initializing with truncated normal distribution.
-        """
-        trunc_normal_(self.cls_token, std=0.02)
-        trunc_normal_(self.temporal_embedding, std=0.02)
-
-        if self.position_embedding is not None:
-            trunc_normal_(self.position_embedding, std=0.02)
-
-        if isinstance(self.final_layer, nn.Linear):
-            trunc_normal_(self.final_layer.weight, std=0.02)
-
-        for layer_id, layer in enumerate(self.blocks):
-            rescale_parameter(layer.attn.proj.weight.data, layer_id + 1)
-            rescale_parameter(layer.mlp[-2].weight.data, layer_id + 1)
-
-        if isinstance(self.final_layer, nn.Linear):
-            self.final_layer.weight.data.mul_(self.init_scale)
-            self.final_layer.bias.data.mul_(self.init_scale)
-
-    def get_num_layers(self):
-        """
-        Convenience method to get the number of layers in the model.
-        """
-        return len(self.blocks)
-
-    def forward_features(
-        self,
-        x,
-        input_chans,
-        return_patch_tokens: bool = False,
-        return_all_tokens: bool = False,
-    ):
-        """
-        Forward the features of the model.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            The input data with shape (batch, n_chans, n_times).
-        input_chans : torch.Tensor
-            Indices for selecting position embeddings (including the [CLS] token).
-        return_patch_tokens : bool
-            Whether to return the patch tokens.
-        return_all_tokens : bool
-            Whether to return all the tokens.
-
-        Returns
-        -------
-        x : torch.Tensor
-            The output of the model.
-        """
-        batch_size, n_input_chans, _ = x.shape
-
-        if self.neural_tokenizer:
-            # For neural tokenizer: input is (batch, n_chans, n_times)
-            # patch_embed returns (batch, n_chans, emb_dim)
-            x = self.patch_embed(x)
-            # x shape: (batch, n_chans, emb_dim)
-            n_patch = n_input_chans  # Use actual input channels, not self.n_chans
-            temporal = self.embed_dim
-        else:
-            # For neural decoder: input is (batch, n_chans, n_times)
-            # patch_embed returns one token per temporal patch:
-            # (batch, n_patches_per_channel, emb_dim)
-            x = self.patch_embed(x)
-            # x shape: (batch, n_patches_per_channel, emb_dim)
-            batch_size, n_patches_per_channel, temporal = x.shape
-
-        # add the [CLS] token to the embedded patch tokens
-        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
-
-        # Concatenate cls token with patch/channel embeddings
-        x = torch.cat((cls_tokens, x), dim=1)
-
-        # Positional Embedding
-        if self.position_embedding is not None:
-            if self.neural_tokenizer:
-                # In tokenizer mode, use channel-based position embedding
-                pos_embed_used = self.position_embedding[:, input_chans]
-
-                pos_embed = self._adj_position_embedding(
-                    pos_embed_used=pos_embed_used, batch_size=batch_size
-                )
-            else:
-                # In decoder mode, patch_embed already averages over the grouped
-                # channel dimension, so the token axis only indexes temporal
-                # patches.
-                n_pos = min(
-                    self.position_embedding.shape[1],
-                    n_patches_per_channel + 1,
-                )
-                pos_embed_used = self.position_embedding[:, :n_pos, :]
-                pos_embed = pos_embed_used.expand(batch_size, -1, -1)
-
-            x += pos_embed
-
-        # The time embedding is added across the channels after the [CLS] token
-        if self.neural_tokenizer:
-            num_ch = n_input_chans  # Use actual input channels
-            time_embed = self._adj_temporal_embedding(
-                num_ch=num_ch,
-                batch_size=batch_size,
-                n_patches=self.patch_embed[0].n_patchs,
-            )
-            x[:, 1:, :] += time_embed
-        else:
-            # In decoder mode, patch_embed returns one token per temporal patch,
-            # so we only need one temporal embedding per time slice.
-            if temporal is None:
-                temporal = self.embed_dim
-
-            n_time_tokens = min(
-                n_patches_per_channel, self.temporal_embedding.shape[1] - 1
-            )
-            time_embed = self.temporal_embedding[
-                :, 1 : n_time_tokens + 1, :
-            ]  # (1, n_patches_per_channel, emb_dim)
-            time_embed = time_embed.expand(
-                batch_size, -1, -1
-            )  # (batch, n_patches_per_channel, emb_dim)
-            x[:, 1:, :] += time_embed
-
-        x = self.pos_drop(x)
-
-        for blk in self.blocks:
-            out = blk(x)
-            assert isinstance(out, torch.Tensor)  # narrows the Union for TorchScript
-            x = out
-
-        x = self.norm(x)
-        if self.fc_norm is not None:
-            if return_all_tokens:
-                return self.fc_norm(x)
-            tokens = x[:, 1:, :]
-            if return_patch_tokens:
-                return self.fc_norm(tokens)
-            return self.fc_norm(tokens.mean(1))
-        else:
-            if return_all_tokens:
-                return x
-            elif return_patch_tokens:
-                return x[:, 1:]
-            return x[:, 0]
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        return_patch_tokens: bool = False,
-        return_all_tokens: bool = False,
-        return_features: bool = False,
-        ch_names: Optional[List[str]] = None,
-    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
-        """
-        Forward the input EEG data through the model.
-
-        Parameters
-        ----------
-        x: torch.Tensor
-            The input data with shape (batch, n_chans, n_times)
-            or (batch, n_chans, n_patches, patch size).
-        return_patch_tokens: bool
-            Return the patch tokens
-        return_all_tokens: bool
-            Return all the tokens
-        return_features : bool
-            If True, return a dict with ``"features"`` (patch tokens) and
-            ``"cls_token"`` instead of the classification output.
-        ch_names : list of str, optional
-            Channel names matching the channel axis of ``x``.
-            Matched case-insensitively against :data:`LABRAM_CHANNEL_ORDER`
-            to select the corresponding position embeddings, so callers can
-            forward an arbitrary subset of canonical channels. If ``None``
-            (default), ``x`` must already be in :data:`LABRAM_CHANNEL_ORDER`
-            with exactly ``len(LABRAM_CHANNEL_ORDER)`` channels; otherwise
-            a :class:`ValueError` is raised. Only honored when
-            ``neural_tokenizer=True``; in decoder mode the position
-            embedding is sequential and ``ch_names`` has no effect.
-
-        Returns
-        -------
-        torch.Tensor or dict
-            The output of the model with dimensions (batch, n_outputs)
-        """
-        n_canonical = len(self._canonical_index)  # len(LABRAM_CHANNEL_ORDER)
-        if ch_names is None:
-            if x.shape[1] != n_canonical:
-                raise ValueError(
-                    f"x has {x.shape[1]} channels but ch_names is None; "
-                    f"expected {n_canonical} canonical channels "
-                    f"in LABRAM_CHANNEL_ORDER. Either pass "
-                    f"ch_names=<your channel names> matching x.shape[1], or "
-                    f"use channel_strategy='spline' to project from an arbitrary "
-                    f"montage onto the canonical 128-channel layout."
-                )
-            input_chans = torch.arange(
-                n_canonical + 1, device=x.device, dtype=torch.long
-            )
-        else:
-            if len(ch_names) != x.shape[1]:
-                raise ValueError(
-                    f"len(ch_names)={len(ch_names)} != x.shape[1]={x.shape[1]}"
-                )
-            # CLS token at index 0; canonical channel indices are offset by 1.
-            matched = [0]
-            for name in ch_names:
-                if name.upper() not in self._canonical_index:
-                    raise ValueError(
-                        "ch_names contains a name not in LABRAM_CHANNEL_ORDER: "
-                        f"'{name.upper()}'. Filter unknown channels before calling "
-                        "forward, or use channel_strategy='spline'."
-                    )
-                matched.append(self._canonical_index[name.upper()] + 1)
-            input_chans = torch.tensor(matched, device=x.device, dtype=torch.long)
-
-        if return_features:
-            x = self.forward_features(
-                x, input_chans=input_chans, return_all_tokens=True
-            )
-            out: Dict[str, torch.Tensor] = {
-                "features": x[:, 1:, :],
-                "cls_token": x[:, 0, :],
-            }
-            return out
-
-        x = self.forward_features(
-            x,
-            input_chans=input_chans,
-            return_patch_tokens=return_patch_tokens,
-            return_all_tokens=return_all_tokens,
-        )
-        x = self.final_layer(x)
-        return x
-
-    def get_classifier(self):
-        """
-        Get the classifier of the model.
-
-        Returns
-        -------
-        torch.nn.Module
-            The classifier of the head model.
-        """
-        return self.final_layer
-
-    def reset_classifier(self, n_outputs):
-        """
-        Reset the classifier with the new number of classes.
-
-        Parameters
-        ----------
-        n_outputs : int
-            The new number of classes.
-        """
-        self.final_layer = (
-            nn.Linear(self.embed_dim, n_outputs) if n_outputs > 0 else nn.Identity()
-        )
-
-    def reset_head(self, n_outputs):
-        self._n_outputs = n_outputs
-        self._update_init_kwargs(n_outputs=n_outputs)
-        self.reset_classifier(n_outputs)
-
-    def _adj_temporal_embedding(self, num_ch: int, batch_size: int, n_patches: int):
-        """
-        Adjust the dimensions of the time embedding to match the
-        number of channels and patches.
-
-        Parameters
-        ----------
-        num_ch : int
-            The number of channels.
-        batch_size : int
-            Batch size of the input data.
-        n_patches : int
-            The number of patches per channel. Patch ``p`` uses time slot
-            ``p``, as in the original implementation.
-
-        Returns
-        -------
-        temporal_embedding : torch.Tensor
-            The adjusted time embedding to be added across the channels
-            after the [CLS] token. (x[:, 1:, :] += time_embed)
-        """
-        # Get the temporal embedding: (1, n_time_slots, emb_size)
-        # Keep the first n_patches slots: (1, n_patches, emb_size)
-        cut_dimension = n_patches
-        temporal_embedding = self.temporal_embedding[:, 0:cut_dimension, :]
-
-        # Add a new dimension to the time embedding
-        # e.g. (1, 5, 200) -> (1, 1, 5, 200)
-        temporal_embedding = temporal_embedding.unsqueeze(1)
-
-        # Expand the time embedding to match the number of channels or patches
-        # (1, 1, cut_dimension, 200) -> (batch_size, num_ch, cut_dimension, 200)
-        temporal_embedding = temporal_embedding.expand(batch_size, num_ch, -1, -1)
-
-        # Flatten the intermediate dimensions
-        # (batch_size, num_ch, cut_dimension, 200) -> (batch_size, num_ch * cut_dimension, 200)
-        temporal_embedding = temporal_embedding.flatten(1, 2)
-
-        return temporal_embedding
-
-    def _load_from_state_dict(
-        self,
-        state_dict,
-        prefix,
-        local_metadata,
-        strict,
-        missing_keys,
-        unexpected_keys,
-        error_msgs,
-    ):
-        # Time slots are absolute positions: take every slot the checkpoint
-        # holds and keep the model's own values for the others. This loads the
-        # released 16 slots at any window length, and checkpoints saved when
-        # the embedding had one slot per patch plus one.
-        key = prefix + "temporal_embedding"
-        loaded = state_dict.get(key)
-        own = self.temporal_embedding
-        if (
-            self.neural_tokenizer
-            and isinstance(loaded, torch.Tensor)
-            and loaded.dim() == own.dim() == 3
-            and loaded.shape[0] == own.shape[0]
-            and loaded.shape[2] == own.shape[2]
-            and loaded.shape[1] != own.shape[1]
-        ):
-            n_copied = min(loaded.shape[1], own.shape[1])
-            resized = own.detach().clone()
-            resized[:, :n_copied] = loaded[:, :n_copied].to(resized)
-            n_used = self.patch_embed[0].n_patchs
-            if n_copied < n_used:
-                warn(
-                    f"The checkpoint holds {loaded.shape[1]} time slots but this "
-                    f"model uses {n_used} (one per patch); time slots "
-                    f"{n_copied} to {n_used - 1} keep their initialization.",
-                    UserWarning,
-                )
-            state_dict[key] = resized
-        # A pretraining checkpoint has the per-token final ``norm`` and no
-        # pooling ``fc_norm`` or head. As in the original fine-tuning script,
-        # a mean-pooling model leaves that ``norm`` unused and starts
-        # ``fc_norm`` from its initialization. A checkpoint with a head was
-        # fine-tuned with its own readout and is not converted.
-        if (
-            self.fc_norm is not None
-            and prefix + "cls_token" in state_dict
-            and not any(
-                k.startswith((prefix + "fc_norm.", prefix + "final_layer."))
-                for k in state_dict
-            )
-        ):
-            for k in [k for k in state_dict if k.startswith(prefix + "norm.")]:
-                del state_dict[k]
-            for name, value in self.fc_norm.state_dict().items():
-                state_dict[prefix + "fc_norm." + name] = value
-        super()._load_from_state_dict(
-            state_dict,
-            prefix,
-            local_metadata,
-            strict,
-            missing_keys,
-            unexpected_keys,
-            error_msgs,
-        )
-
-    def _adj_position_embedding(self, pos_embed_used, batch_size: int):
-        """Copy/pasted from https://github.com/935963004/LaBraM/blob/c431221e6cfd23dbfa9950e0180682fb322b0548/modeling_finetune.py#L358-L362"""
-        input_time_window = self.patch_embed[0].n_patchs
-        pos_embed = (
-            pos_embed_used[:, 1:, :]
-            .unsqueeze(2)
-            .expand(batch_size, -1, input_time_window, -1)
-            .flatten(1, 2)
-        )
-        pos_embed = torch.cat(
-            (pos_embed_used[:, 0:1, :].expand(batch_size, -1, -1), pos_embed), dim=1
-        )
-        return pos_embed
-
-
-class _SegmentPatch(nn.Module):
-    r"""Segment and Patch for EEG data.
-
-    Adapted Patch Embedding inspired in the Visual Transform approach
-    to extract the learned segmentor, we expect get the input shape as:
-    (Batch, Number of Channels, number of times points).
-
-    We apply a 2D convolution with kernel size of (1, patch_size)
-    and a stride of (1, patch_size).
-
-    The results output shape will be:
-    (Batch, Number of Channels, Number of patches, patch size).
-
-    This way, we learned a convolution to segment the input shape.
-
-    The number of patches is calculated as the number of samples divided
-    by the patch size.
-
-    Parameters:
-    -----------
-    n_times: int (default=2000)
-        Number of temporal components of the input tensor.
-    in_chans: int (default=1)
-        number of electrods from the EEG signal
-    emb_dim: int (default=200)
-        Number of n_output to be used in the convolution, here,
-        we used the same as patch_size.
-    patch_size: int (default=200)
-        Size of the patch, default is 1-seconds with 200Hz.
-    Returns:
-    --------
-    x_patched: torch.Tensor
-        Output tensor of shape (batch, n_chans, num_patches, emb_dim).
-    """
-
-    # Constant, so TorchScript skips the branch whose layers do not exist.
-    __constants__ = ["learned_patcher"]
-
-    def __init__(
-        self,
-        n_times=2000,
-        patch_size=200,
-        n_chans=1,
-        emb_dim=200,
-        learned_patcher=True,
-        on_non_divisible="pad",
-    ):
-        super().__init__()
-
-        self.n_times = n_times
-        self.patch_size = patch_size
-        # Single place that pads/crops/rejects a non-divisible time axis
-        # (no parameters, so checkpoints are unaffected).
-        self.tokenizer = PatchTokenizer(
-            patch_size=patch_size, n_times=n_times, on_non_divisible=on_non_divisible
-        )
-        self.n_patchs = (
-            -(-n_times // patch_size)
-            if on_non_divisible == "pad"
-            else n_times // patch_size
-        )
-        self.emb_dim = emb_dim
-        self.n_chans = n_chans
-        self.learned_patcher = learned_patcher
-
-        if learned_patcher:
-            self.patcher = nn.Conv1d(
-                in_channels=1,
-                out_channels=self.emb_dim,
-                kernel_size=self.patch_size,
-                stride=self.patch_size,
-            )
-            self.adding_extra_dim = Rearrange(
-                pattern="batch nchans temporal -> (batch nchans) 1 temporal"
-            )
-
-    def forward(self, x):
-        """
-        Using an 1D convolution to generate segments of EEG signal.
-
-        Parameters:
-        -----------
-        X: Tensor
-            [batch, n_chans, n_times]
-
-        Returns:
-        --------
-        X_patch: Tensor
-            [batch, n_chans, n_patchs, emb_dim] if ``learned_patcher``, else
-            [batch, n_chans, n_patchs, patch_size], where ``n_patchs`` is
-            ``ceil(n_times / patch_size)`` for ``on_non_divisible="pad"`` and
-            ``n_times // patch_size`` otherwise.
-        """
-        x = self.tokenizer.prepare_input(x)
-        batch_size, n_chans_actual, n_times_actual = x.shape
-        # Input shape: [batch, n_chs, n_times]
-
-        # First, rearrange input to treat the channel dimension 'n_chs' as
-        # separate 'dimension' in batch for Conv1d
-        # This requires reshaping x to have a height of 1 for each EEG sample.
-        if self.learned_patcher:
-            x = self.adding_extra_dim(x)
-
-            # Apply the convolution along the temporal dimension
-            # Conv2d output shape: [(batch*n_chs), emb_dim, n_patches]
-            x = self.patcher(x)
-
-            # Now, rearrange output to get back to a batch-first format,
-            # combining embedded patches with channel information
-            # Assuming you want [batch, n_chs, n_patches, emb_dim]
-            # as output, which keeps channel information
-            # This treats each patch embedding as a feature alongside channels
-            # Use actual number of channels from input, not self.n_chans
-            # (batch * nchans, embed, npatchs) -> (batch, nchans, npatchs, embed)
-            x = x.reshape(batch_size, n_chans_actual, x.shape[1], x.shape[2])
-            x = x.permute(0, 1, 3, 2)
-        else:
-            x = x.view(
-                batch_size,
-                n_chans_actual,
-                n_times_actual // self.patch_size,
-                self.patch_size,
-            )
-        return x
-
-
-class _PatchEmbed(nn.Module):
-    r"""EEG to Patch Embedding for Neural Decoder mode.
-
-    This code is used when we want to apply the patch embedding
-    after the codebook layer (Neural Decoder mode).
-
-    The input is expected to be in the format (Batch, n_channels, n_times),
-    but the original LaBraM expects pre-patched data (Batch, n_channels, n_patches, patch_size).
-    This class reshapes the input to the pre-patched format, then applies a 2D
-    convolution to project this pre-patched data to the embedding dimension,
-    and finally averages over grouped channels to produce one embedding per
-    temporal patch.
-
-    Parameters:
-    -----------
-    n_times: int (default=2000)
-        Number of temporal components of the input tensor (used for dimension calculation).
-    patch_size: int (default=200)
-        Size of the patch, default is 1-seconds with 200Hz.
-    in_channels: int (default=1)
-        Number of input channels (from VQVAE codebook).
-    emb_dim: int (default=200)
-        Number of output embedding dimension.
-    on_non_divisible: {"pad", "crop", "error"} (default="pad")
-        Passed to :class:`~braindecode.modules.PatchTokenizer`.
-    """
-
-    def __init__(
-        self,
-        n_times=2000,
-        patch_size=200,
-        in_channels=1,
-        emb_dim=200,
-        n_codebooks=62,
-        on_non_divisible="pad",
-    ):
-        super().__init__()
-        self.n_times = n_times
-        self.patch_size = patch_size
-        # Same pad/crop/error step as the tokenizer mode (no parameters).
-        self.tokenizer = PatchTokenizer(
-            patch_size=patch_size, n_times=n_times, on_non_divisible=on_non_divisible
-        )
-        self.n_patchs = (
-            -(-n_times // patch_size)
-            if on_non_divisible == "pad"
-            else n_times // patch_size
-        )
-        self.patch_shape = (1, self.n_patchs)
-        self.emb_dim = emb_dim
-        self.in_channels = in_channels
-
-        # 2D Conv to project the pre-patched data
-        # Input: (Batch, in_channels, n_patches, patch_size)
-        # After proj: (Batch, emb_dim, n_patches, 1)
-        self.proj = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=emb_dim,
-            kernel_size=(1, self.patch_size),
-            stride=(1, self.patch_size),
-        )
-
-    def forward(self, x):
-        """
-        Apply the temporal projection to the input tensor after grouping channels.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor of shape (Batch, n_channels, n_times) or
-            (Batch, n_channels, n_patches, patch_size).
-
-        Returns
-        -------
-        torch.Tensor
-            Output tensor of shape (Batch, n_patchs, emb_dim).
-        """
-        if x.ndim == 4:
-            batch_size, n_channels, n_patchs, patch_len = x.shape
-            if patch_len != self.patch_size:
-                raise ValueError(
-                    "When providing a 4D tensor, the last dimension "
-                    f"({patch_len}) must match patch_size ({self.patch_size})."
-                )
-            n_times = n_patchs * patch_len
-            x = x.reshape(batch_size, n_channels, n_times)
-        elif x.ndim == 3:
-            batch_size, n_channels, n_times = x.shape
-        else:
-            raise ValueError(
-                "Input must be either 3D (batch, channels, times) or "
-                "4D (batch, channels, n_patches, patch_size)."
-            )
-        x = self.tokenizer.prepare_input(x)
-        n_times = x.shape[-1]
-
-        if n_channels % self.in_channels != 0:
-            raise ValueError(
-                "The input channel dimension "
-                f"({n_channels}) must be divisible by in_channels ({self.in_channels})."
-            )
-
-        group_size = n_channels // self.in_channels
-
-        # Reshape so Conv2d sees `in_channels` feature maps and uses the grouped
-        # EEG channels as the spatial height dimension.
-        # Shape after view: (Batch, in_channels, group_size, n_times)
-        x = x.view(batch_size, self.in_channels, group_size, n_times)
-
-        # Apply the temporal projection per group.
-        # Output shape: (Batch, emb_dim, group_size, n_patchs)
-        x = self.proj(x)
-
-        # THIS IS braindecode's MODIFICATION:
-        # Average over the grouped channel dimension and permute to (Batch, n_patchs, emb_dim)
-        x = x.mean(dim=2)
-        x = x.transpose(1, 2).contiguous()
-
-        return x
-
-
-class _Attention(nn.Module):
-    r"""
-    Attention with the options of Window-based multi-head self attention (W-MSA).
-
-    This code is strong inspired by:
-    https://github.com/microsoft/Swin-Transformer/blob/main/models/swin_transformer.py#L77
-
-    Basically, the attention module is a linear layer that takes the input
-    tensor and returns the output tensor. The input tensor is first passed
-    through a linear layer to get the query, key, and value tensors. Then,
-    the query tensor is multiplied by the scale factor and the result is
-    multiplied by the transpose of the key tensor.
-
-    The flag window_size is used to determine if the attention is
-    window-based or not.
-
-    Parameters:
-    -----------
-    dim: int
-        Number of input features.
-    num_heads: int (default=8)
-        Number of attention heads.
-    qkv_bias: bool (default=False)
-        If True, add a learnable bias to the query, key, and value tensors.
-    qk_norm: nn.LayerNorm (default=None)
-        If not None, apply LayerNorm to the query and key tensors.
-    qk_scale: float (default=None)
-        If not None, use this value as the scale factor. If None,
-        use head_dim**-0.5, where head_dim = dim // num_heads.
-    attn_drop: float (default=0.0)
-        Dropout rate for the attention weights.
-    proj_drop: float (default=0.0)
-        Dropout rate for the output tensor.
-    window_size: bool (default=None)
-        If not None, use window-based multi-head self attention based on Swin Transformer.
-    attn_head_dim: int (default=None)
-        If not None, use this value as the head_dim. If None, use dim // num_heads.
-    """
-
-    def __init__(
-        self,
-        dim,
-        num_heads=8,
-        qkv_bias=False,
-        qk_norm=None,
-        qk_scale=None,
-        attn_drop=0.0,
-        proj_drop=0.0,
-        window_size=None,
-        attn_head_dim=None,
-    ):
-        super().__init__()
-        self.num_heads = num_heads
-        head_dim = dim // num_heads
-        if attn_head_dim is not None:
-            head_dim = attn_head_dim
-        all_head_dim = head_dim * self.num_heads
-        self.scale = qk_scale or head_dim**-0.5
-
-        self.qkv = nn.Linear(dim, all_head_dim * 3, bias=False)
-        if qkv_bias:
-            self.q_bias = nn.Parameter(torch.zeros(all_head_dim))
-            self.v_bias = nn.Parameter(torch.zeros(all_head_dim))
-        else:
-            self.q_bias = None
-            self.v_bias = None
-
-        if qk_norm is not None:
-            self.q_norm = qk_norm(head_dim, eps=1e-6)
-            self.k_norm = qk_norm(head_dim, eps=1e-6)
-        else:
-            self.q_norm = None
-            self.k_norm = None
-
-        if window_size:
-            self.window_size = window_size
-            self.num_relative_distance = (2 * window_size[0] - 1) * (
-                2 * window_size[1] - 1
-            ) + 3
-            self.relative_position_bias_table = nn.Parameter(
-                torch.zeros(self.num_relative_distance, num_heads)
-            )  # 2*Wh-1 * 2*Ww-1, nH
-            # cls to token & token 2 cls & cls to cls
-
-            # get pair-wise relative position index for each token inside the window
-            coords_h = torch.arange(window_size[0])
-            coords_w = torch.arange(window_size[1])
-            coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
-            coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
-            relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
-            # 2, Wh*Ww, Wh*Ww
-            relative_coords = relative_coords.permute(
-                1, 2, 0
-            ).contiguous()  # Wh*Ww, Wh*Ww, 2
-            relative_coords[:, :, 0] += window_size[0] - 1
-            # shift to start from 0
-            relative_coords[:, :, 1] += window_size[1] - 1
-            relative_coords[:, :, 0] *= 2 * window_size[1] - 1
-            relative_position_index = torch.zeros(
-                size=(window_size[0] * window_size[1] + 1,) * 2,
-                dtype=relative_coords.dtype,
-            )
-            relative_position_index[1:, 1:] = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
-            relative_position_index[0, 0:] = self.num_relative_distance - 3
-            relative_position_index[0:, 0] = self.num_relative_distance - 2
-            relative_position_index[0, 0] = self.num_relative_distance - 1
-
-            self.register_buffer("relative_position_index", relative_position_index)
-        else:
-            self.window_size = None
-            self.relative_position_bias_table = None
-            self.relative_position_index = None
-
-        self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(all_head_dim, dim)
-        self.proj_drop = nn.Dropout(proj_drop)
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        return_attention: bool = False,
-        return_qkv: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Apply the attention mechanism to the input tensor.
-
-        Parameters:
-        -----------
-        x: torch.Tensor
-            Input tensor of shape (Batch, N, C).
-        return_attention: bool (default=False)
-            If True, return the attention weights.
-        return_qkv: bool (default=False)
-            If True, return the query, key, and value tensors together with
-            the output tensor.
-        Returns:
-        --------
-        x: torch.Tensor
-            Output tensor of shape (Batch, N, C).
-        qkv: torch.Tensor (optional)
-            Query, key, and value tensors of shape
-            (Batch, N, 3, num_heads, C // num_heads).
-        """
-        B, N, _ = x.shape
-        qkv_bias = None
-        if self.q_bias is not None:
-            qkv_bias = torch.cat(
-                (
-                    self.q_bias,
-                    torch.zeros_like(self.v_bias),
-                    self.v_bias,
-                )
-            )
-        # Call the ``qkv`` module rather than ``linear`` on its weight, so hooks
-        # and adapters attached to it (e.g. LoRA) take part in the forward.
-        qkv = self.qkv(x)
-        if qkv_bias is not None:
-            qkv = qkv + qkv_bias.to(qkv.dtype)  # keep autocast dtype
-        qkv = qkv.reshape(B, N, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv.unbind(0)  # (B, H, N, C); TorchScript cannot unpack qkv
-        if self.q_norm is not None:
-            q = self.q_norm(q).type_as(v)
-        if self.k_norm is not None:
-            k = self.k_norm(k).type_as(v)
-
-        attn_mask: Optional[torch.Tensor] = None
-        if self.relative_position_bias_table is not None:
-            relative_position_bias = self.relative_position_bias_table[
-                self.relative_position_index.view(-1)
-            ].view(
-                self.window_size[0] * self.window_size[1] + 1,
-                self.window_size[0] * self.window_size[1] + 1,
-                -1,
-            )  # Wh*Ww,Wh*Ww,nH
-            attn_mask = (
-                relative_position_bias.permute(2, 0, 1).contiguous().unsqueeze(0)
-            )  # 1, nH, Wh*Ww, Wh*Ww
-
-        # Fused kernel, same math. Not with attention dropout in training (it
-        # would draw other masks). On Gaudi, torch's SDPA trains ~12 % slower
-        # than the plain ops; the bridge's own fused kernel (eager mode, no
-        # mask) is used instead.
-        fused = not return_attention and (self.attn_drop.p == 0.0 or not self.training)
-        out: Optional[torch.Tensor] = None
-        if fused and q.device.type != "hpu":
-            out = nn.functional.scaled_dot_product_attention(
-                q, k, v, attn_mask=attn_mask, scale=self.scale
-            )
-        elif (
-            fused
-            and attn_mask is None
-            and not torch.jit.is_scripting()
-            and (q.dtype == torch.float32 or q.dtype == torch.bfloat16)
-        ):
-            out = _hpu_eager_fused_sdpa(q, k, v, self.scale)
-        if out is None:
-            attn = (q * self.scale) @ k.transpose(-2, -1)
-            if attn_mask is not None:
-                attn = attn + attn_mask
-            attn = self.attn_drop(attn.softmax(dim=-1))
-            if return_attention:
-                return attn
-            x = attn @ v
-        else:
-            x = out
-        x = x.transpose(1, 2).reshape(B, N, -1)
-
-        x = self.proj(x)
-        x = self.proj_drop(x)
-
-        if return_qkv:
-            return x, qkv
-
-        return x
-
-
-class _WindowsAttentionBlock(nn.Module):
-    r"""Blocks of Windows Attention with Layer norm and MLP.
-
-    Notes: This code is strong inspired by:
-    BeiTv2 from Microsoft.
-
-    Parameters:
-    -----------
-    dim: int
-        Number of input features.
-    num_heads: int (default=8)
-        Number of attention heads.
-    mlp_ratio: float (default=4.0)
-        Ratio to increase the hidden features from input features in the MLP layer
-    qkv_bias: bool (default=False)
-        If True, add a learnable bias to the query, key, and value tensors.
-    qk_norm: nn.LayerNorm (default=None)
-        If not None, apply LayerNorm to the query and key tensors.
-    qk_scale: float (default=None)
-        If not None, use this value as the scale factor. If None,
-        use head_dim**-0.5, where head_dim = dim // num_heads.
-    drop: float (default=0.0)
-        Dropout rate for the output tensor.
-    attn_drop: float (default=0.0)
-        Dropout rate for the attention weights.
-    drop_path: float (default=0.0)
-        Dropout rate for the output tensor.
-    init_values: float (default=None)
-        If not None, use this value to initialize the gamma_1 and gamma_2
-        parameters.
-    activation: nn.GELU (default)
-        Activation function.
-    norm_layer: nn.LayerNorm (default)
-        Normalization layer.
-    window_size: bool (default=None)
-        If not None, use window-based multi-head self attention based on
-        Swin Transformer.
-    attn_head_dim: int (default=None)
-        If not None, use this value as the head_dim. If None,
-        the classes use dim // num_heads
-
-    Returns:
-    --------
-    x: torch.Tensor
-        Output tensor of shape (Batch, N, C). [I think]
-
-    """
-
-    def __init__(
-        self,
-        dim: int,
-        num_heads: int,
-        mlp_ratio=4.0,
-        qkv_bias=False,
-        qk_norm=None,
-        qk_scale=None,
-        drop=0.0,
-        attn_drop=0.0,
-        drop_path=0.0,
-        init_values=None,
-        activation: type[nn.Module] = nn.GELU,
-        norm_layer=nn.LayerNorm,
-        window_size=None,
-        attn_head_dim=None,
-    ):
-        super().__init__()
-        self.norm1 = norm_layer(dim, eps=1e-6)
-        self.attn = _Attention(
-            dim,
-            num_heads=num_heads,
-            qkv_bias=qkv_bias,
-            qk_norm=qk_norm,
-            qk_scale=qk_scale,
-            attn_drop=attn_drop,
-            proj_drop=drop,
-            window_size=window_size,
-            attn_head_dim=attn_head_dim,
-        )
-
-        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
-        self.norm2 = norm_layer(dim, eps=1e-6)
-        mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = MLP(
-            in_features=dim,
-            hidden_features=[mlp_hidden_dim],
-            activation=activation,
-            drop=drop,
-        )
-
-        if init_values is not None and init_values > 0:
-            self.gamma_1 = nn.Parameter(
-                init_values * torch.ones((dim)), requires_grad=True
-            )
-            self.gamma_2 = nn.Parameter(
-                init_values * torch.ones((dim)), requires_grad=True
-            )
-        else:
-            self.gamma_1, self.gamma_2 = None, None
-
-    def forward(
-        self, x, return_attention: bool = False, return_qkv: bool = False
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Apply the attention mechanism to the input tensor.
-        Parameters
-        ----------
-        x: torch.Tensor
-            Input tensor of shape (Batch, chs, npatchs, patch).
-        return_attention: bool (default=False)
-            If True, return the attention weights.
-        return_qkv: bool (default=False)
-            If True, return the query, key, and value tensors together with
-            the output tensor.
-
-        Returns
-        -------
-        torch.Tensor
-            Output tensor of shape (Batch, chs, npatchs, patch).
-        """
-
-        if return_attention:
-            return self.attn(self.norm1(x), return_attention=True)
-        if return_qkv:
-            out = self.attn(self.norm1(x), return_qkv=return_qkv)
-            assert isinstance(out, tuple)  # narrows the Union for TorchScript
-            y, qkv = out
-            x = x + self.drop_path(self.gamma_1 * y)
-            x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
-            return x, qkv
-
-        y = self.attn(self.norm1(x))
-        assert isinstance(y, torch.Tensor)  # narrows the Union for TorchScript
-        if self.gamma_1 is None:
-            x = x + self.drop_path(y)
-            x = x + self.drop_path(self.mlp(self.norm2(x)))
-        else:
-            x = x + self.drop_path(self.gamma_1 * y)
-            x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
-        return x
-
-
-class _TemporalConv(nn.Module):
-    r"""
-    Temporal Convolutional Module inspired by Visual Transformer.
-
-    In this module we apply the follow steps three times repeatedly
-    to the input tensor, reducing the temporal dimension only in the first.
-    - Apply a 2D convolution.
-    - Apply a GELU activation function.
-    - Apply a GroupNorm with 4 groups.
-
-    Parameters:
-    -----------
-    in_chans: int (default=1)
-        Number of input channels.
-    out_chans: int (default=8)
-        Number of output channels.
-    num_groups: int (default=4)
-        Number of groups for GroupNorm.
-    kernel_size_1: tuple (default=(1, 15))
-        Kernel size for the first convolution.
-    kernel_size_2: tuple (default=(1, 3))
-        Kernel size for the second and third convolutions.
-    stride_1: tuple (default=(1, 8))
-        Stride for the first convolution.
-    padding_1: tuple (default=(0, 7))
-        Padding for the first convolution.
-    padding_2: tuple (default=(0, 1))
-        Padding for the second and third convolutions.
-    activation: nn.Module, default=nn.GELU
-        Activation function class to apply. Should be a PyTorch activation
-        module class like ``nn.ReLU`` or ``nn.ELU``. Default is ``nn.GELU``.
-
-    Returns:
-    --------
-    x: torch.Tensor
-        Output tensor of shape (Batch, NA, Temporal Channel).
-    """
-
-    def __init__(
-        self,
-        in_channels=1,
-        out_channels=8,
-        num_groups=4,
-        kernel_size_1=(1, 15),
-        stride_1=(1, 8),
-        padding_1=(0, 7),
-        kernel_size_2=(1, 3),
-        padding_2=(0, 1),
-        activation: type[nn.Module] = nn.GELU,
-    ):
-        super().__init__()
-
-        # Here, we use the Rearrange layer from einops to flatten the input
-        # tensor to a 2D tensor, so we can apply 2D convolutions.
-        self.channel_patch_flatten = Rearrange(
-            "Batch chs npat spatch -> Batch () (chs npat) spatch"
-        )
-
-        self.conv1 = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size_1,
-            stride=stride_1,
-            padding=padding_1,
-        )
-        self.act_layer_1 = activation()
-        self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
-
-        self.conv2 = nn.Conv2d(
-            in_channels=out_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size_2,
-            padding=padding_2,
-        )
-        self.act_layer_2 = activation()
-        self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
-
-        self.conv3 = nn.Conv2d(
-            in_channels=out_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size_2,
-            padding=padding_2,
-        )
-        self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
-        self.act_layer_3 = activation()
-
-        self.transpose_temporal_channel = Rearrange("Batch C NA T -> Batch NA (T C)")
-
-    def forward(self, x):
-        """
-        Apply 3 steps of 2D convolution, GELU activation function,
-        and GroupNorm.
-
-        Parameters:
-        -----------
-        x: torch.Tensor
-            Input tensor of shape (Batch, Channels, n_patchs, size_patch).
-
-        Returns:
-        --------
-        x: torch.Tensor
-            Output tensor of shape (Batch, NA, Temporal Channel).
-        """
-        x = self.channel_patch_flatten(x)
-        x = self.act_layer_1(self.norm1(self.conv1(x)))
-        x = self.act_layer_2(self.norm2(self.conv2(x)))
-        x = self.act_layer_3(self.norm3(self.conv3(x)))
-        x = self.transpose_temporal_channel(x)
-        return x
+# Under a channel_strategy the backbone consumes this montage.
+Labram._channel_target = _LABRAM_TARGET_CHS_INFO

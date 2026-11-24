@@ -145,6 +145,7 @@ import sys
 import threading
 import time
 import weakref
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -161,11 +162,14 @@ except ImportError as _missing:
     ) from _missing
 
 import probe
+from probe.generated.records import RunType
 from probe.sdk import errors, fluent
 from probe.sdk.agent_session import ComposedName
 from probe.sdk.artifact import hashing
 from probe.foundation.safe_warn import safe_warn
 from probe.sdk.settings.settings import env_run_id as _env_run_id
+
+from probe.sdk.run import trainer_facts
 
 from . import _checkpoints, _rank_lease
 from ._commands import TrainerCommands, apply_resume_overrides
@@ -266,6 +270,16 @@ def _run_declared(commands: TrainerCommands, run: Any, command: dict, state: Any
 _HF_APPLIERS = {"checkpoint": _apply_checkpoint, "stop": _apply_stop, "config": _apply_config}
 
 
+def _make_applier(commands: TrainerCommands, run: Any, state: Any, control: Any,
+                  kwargs: dict) -> Callable[[dict], None]:  # fmt: skip
+    """Does one command at this hook, with its state, control and optimizer (`_HF_APPLIERS`)."""
+
+    def apply(command: dict) -> None:
+        _HF_APPLIERS.get(command["kind"], _run_declared)(commands, run, command, state, control, kwargs)
+
+    return apply
+
+
 class ProbeCallback(TrainerCallback):
     """Log a Hugging Face Trainer run to Probe. See the module docstring.
 
@@ -330,6 +344,12 @@ class ProbeCallback(TrainerCallback):
         self._checkpoints = _checkpoints.resolve_mode(checkpoints, self._warn_once)
         #: Checkpoint, config and stop asked of the run, taken at a step end every rank reaches (agentic W&B C.1).
         self._commands = TrainerCommands()
+        #: What the Trainer still sends for the step a pause was taken at (`_hold_once_sent`): its epoch end's hooks
+        #: (the step ended an epoch or training), and more eval sets (a dict of them: the next one cannot be told).
+        self._is_epoch_end_due = self._is_eval_set_due = False
+        #: A checkpoint asked during the hold at train() start: the Trainer clears `should_save` at each step begin,
+        #: so it is set again there and saved at the first step's end.
+        self._is_save_carried = False
 
     # -- Trainer hooks ------------------------------------------------------------
     def on_init_end(self, args, state, control, **kwargs):
@@ -348,13 +368,17 @@ class ProbeCallback(TrainerCallback):
         if not self._disabled:
             self._commands.begin(self._run if state.is_world_process_zero else None)
             self._apply_resume(state, kwargs)
+            self._hold(state, control, kwargs)  # a pause the last train() answered but never held at
+            self._is_save_carried = bool(control.should_save)
 
     def on_evaluate(self, args, state, control, **kwargs):
         # The eval dataloader exists only once evaluation runs: its Hub dataset
         # is recorded then (once per run), as `eval`.
-        if not state.is_world_process_zero or self._run is None or self._stands_down(warn=False):
-            return
-        self._record_data(self._run, evaluate=kwargs.get("eval_dataloader"))
+        if state.is_world_process_zero and self._run is not None and not self._stands_down(warn=False):
+            self._record_data(self._run, evaluate=kwargs.get("eval_dataloader"))
+        # One eval set's metrics carry `eval_runtime`; each of a dict of sets carries `eval_<name>_runtime`.
+        self._is_eval_set_due = self._is_eval_set_due or "eval_runtime" not in (kwargs.get("metrics") or {})
+        self._hold_once_sent(state, control, kwargs)  # this eval's row was logged just before this hook
 
     def _begin_on_world_zero(self, args: Any, state: Any, model: Any, hook: dict | None = None) -> None:
         if self._run is None and self._same_trainer_has_one(state):
@@ -391,6 +415,9 @@ class ProbeCallback(TrainerCallback):
             return
         self._train_began_at = time.time()
         self._merge_config(run, args, model)
+        if _is_sft_config(args):
+            trainer_facts.send_run_type(run, RunType.SFT.value)
+        trainer_facts.send_total_steps(run, getattr(state, "max_steps", None))
         self._record_data(
             run,
             model=model,
@@ -402,6 +429,7 @@ class ProbeCallback(TrainerCallback):
         _start_noting_signals()
 
     def on_train_end(self, args, state, control, **kwargs):
+        self._hold(state, control, kwargs)  # every row of training is sent
         if not state.is_world_process_zero or self._run is None or self._stands_down():
             return
         run = self._run
@@ -431,12 +459,11 @@ class ProbeCallback(TrainerCallback):
         _unchain_signal_notes()
 
     def on_log(self, args, state, control, logs=None, model=None, **kwargs):
-        if not state.is_world_process_zero or not logs or self._stands_down():
-            return
-        run = self._ensure_run(args, state, model, merge=True)
-        if run is None:
-            return
-        self._log(run, rewrite_logs(logs), state.global_step)
+        if state.is_world_process_zero and logs and not self._stands_down():
+            run = self._ensure_run(args, state, model, merge=True)
+            if run is not None:
+                self._log(run, rewrite_logs(logs), state.global_step)
+        self._hold_once_sent(state, control, kwargs)
 
     def on_predict(self, args, state, control, metrics=None, **kwargs):
         if not state.is_world_process_zero or not metrics or self._stands_down():
@@ -461,9 +488,23 @@ class ProbeCallback(TrainerCallback):
             path = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
             self._commands.answer_saves(self._run, path, state.global_step, artifact_id)
 
+    def on_step_begin(self, args, state, control, **kwargs):
+        self._hold(state, control, kwargs)  # every row of the last step is sent (a dict of eval sets ends here)
+        if self._is_save_carried:
+            control.should_save, self._is_save_carried = True, False
+
+    def on_epoch_end(self, args, state, control, **kwargs):
+        self._is_epoch_end_due = self._is_eval_set_due = False  # the step's eval sets are all done
+        self._hold_once_sent(state, control, kwargs)  # unless the epoch logs or evaluates (Trainer flags set by now)
+
     def on_step_end(self, args, state, control, **kwargs):
         if not self._disabled:
             self._take_commands(state, control, kwargs)
+            # The step that ends an epoch (or training) is followed by the epoch end's own log, eval and save.
+            self._is_epoch_end_due = bool(control.should_training_stop or control.should_epoch_stop
+                                          or float(state.epoch or 0).is_integer())  # fmt: skip
+            self._is_eval_set_due = False
+            self._hold_once_sent(state, control, kwargs)
         if not state.is_world_process_zero or self._run is None:
             return
         progress = getattr(self._run, "progress", None)
@@ -486,11 +527,25 @@ class ProbeCallback(TrainerCallback):
     def _take_commands(self, state: Any, control: Any, kwargs: dict) -> None:
         """Every rank: rank 0's claimed commands, done at the same step: a checkpoint is the Trainer's own save
         (answered when it saved), a stop ends training, a config sets the learning rate on this rank's optimizer
-        and scheduler; a kind the script declared runs on rank 0."""
+        and scheduler; a kind the script declared runs on rank 0. A pause is answered here and holds every rank once
+        the step's rows are sent (`_hold_once_sent`): the Trainer logs and evaluates after `on_step_end`."""
         run = self._run if state.is_world_process_zero else None
-        for command in self._commands.take(run, state.global_step):
-            apply = _HF_APPLIERS.get(command["kind"], _run_declared)
-            apply(self._commands, run, command, state, control, kwargs)
+        self._commands.run(run, state.global_step, _make_applier(self._commands, run, state, control, kwargs))
+
+    def _hold_once_sent(self, state: Any, control: Any, kwargs: dict) -> None:
+        """Every rank, at a hook after a step's rows: hold for a due pause when the Trainer sends nothing more for
+        this step before the next one starts: no log, eval or epoch end left. A checkpoint or stop asked while held
+        is then still the Trainer's, at the held step."""
+        rows_due = control.should_log or control.should_evaluate or self._is_epoch_end_due or self._is_eval_set_due
+        if not rows_due:
+            self._hold(state, control, kwargs)
+
+    def _hold(self, state: Any, control: Any, kwargs: dict) -> None:
+        """Every rank: a pause `_take_commands` answered holds here until a resume or a stop (D23)."""
+        self._is_epoch_end_due = self._is_eval_set_due = False
+        if self._commands.is_hold_due:
+            run = self._run if state.is_world_process_zero else None
+            self._commands.hold(run, _make_applier(self._commands, run, state, control, kwargs))
 
     # -- the run ------------------------------------------------------------------
     def _ensure_run(self, args: Any, state: Any, model: Any, *, merge: bool = False) -> Any:
@@ -1047,6 +1102,15 @@ def _launcher_run() -> tuple[str, int | None] | None:
         return run_id, int(raw) if raw else None
     except ValueError:
         return run_id, None
+
+
+def _is_sft_config(args: Any) -> bool:
+    """TRL's SFTTrainer runs on an `SFTConfig`: the nearest TRL class along the arguments' chain is that one (GKD's
+    `GKDConfig` subclasses it and stays a distillation run; a script's own subclass of it is still SFT)."""
+    for cls in type(args).__mro__:
+        if str(getattr(cls, "__module__", "")).split(".")[0] == "trl":
+            return cls.__name__ == "SFTConfig"
+    return False
 
 
 def rewrite_logs(logs: dict[str, Any]) -> dict[str, Any]:

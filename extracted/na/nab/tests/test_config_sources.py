@@ -67,13 +67,13 @@ from nab_project.conflicts import (
     ConflictSet,
 )
 from nab_project.workspace import WorkspaceConfig
+from nab_provider.policy import ResolveMode
 from nab_provider.provider import (
     ArchiveSource,
     BuildPolicy,
     DecisionOrder,
     DistPolicy,
     ResolutionStrategy,
-    ResolveMode,
     VcsConfig,
     VcsPolicy,
     VcsSource,
@@ -574,6 +574,19 @@ class TestProjectFileScalarConflict:
         assert eff["resolution"].origin.kind is SourceKind.PYPROJECT
 
 
+@pytest.mark.parametrize(
+    ("table", "field"), [("plans.ci", "dependencies"), ("input-sources.shared", "path")]
+)
+@pytest.mark.parametrize(("first", "second"), [("1", "true"), ("true", "1")])
+def test_named_tables_in_both_project_files_compare_toml_types(
+    tmp_path: Path, table: str, field: str, first: str, second: str
+) -> None:
+    _write(tmp_path / "pyproject.toml", f"[tool.nab.{table}]\n{field}={first}\n")
+    _write(tmp_path / "nab.toml", f"[{table}]\n{field}={second}\n")
+    with pytest.raises(SourceConfigError, match="conflicting values"):
+        _resolve(SourceRoots(project_dir=tmp_path))
+
+
 class TestPyprojectRoot:
     """The pyproject layer reads the named file, not a fixed name."""
 
@@ -1030,6 +1043,7 @@ class TestReproducibilityNotice:
         overrides = build_cli_overrides(
             {
                 "project_resolution": "lowest",
+                "plan": None,
                 "offline": None,
                 "cache_dir": Path("/c"),
                 "http_backend": None,
@@ -1536,6 +1550,8 @@ class TestParserFoldHelpers:
         assert pyproject_registry_keys() == frozenset(
             {
                 "resolution",
+                "plans",
+                "input-sources",
                 "decision-order",
                 "base-group",
                 "build-group",
@@ -1624,6 +1640,7 @@ class TestRegistryShape:
             SourceKind.PYPROJECT: "project",
             SourceKind.SCRIPT: "project",
             SourceKind.PROJECT_TOML: "project",
+            SourceKind.LOCK_PLAN: "plan",
             SourceKind.ENV: "env",
             SourceKind.CLI: "cli",
         }

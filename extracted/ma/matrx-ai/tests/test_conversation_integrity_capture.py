@@ -11,7 +11,9 @@ from matrx_ai.db import _cx_managers_impl as managers
     ("status", "completed_at", "metadata", "expected"),
     [
         ("abandoned", None, {}, True),
-        ("abandoned", "2026-08-29T13:00:00Z", {}, True),
+        # A finalized turn closed on purpose later (paused-request abandonment, parked call
+        # closed, superseded by a newer turn) committed everything: never an integrity alarm.
+        ("abandoned", "2026-08-29T13:00:00Z", {}, False),
         ("abandoned", None, {"watchdog_at": "2026-08-29T13:00:00Z"}, False),
         ("abandoned", None, {"watchdog_reason": "timeout"}, False),
         ("failed", None, {}, True),

@@ -127,6 +127,8 @@ DB_REQUIREMENTS = {
         {"key": "WsTasksBase", "table": "projects.tasks"},
         {"key": "CtxTasksBase", "table": "projects.tasks"},
         {"key": "TasksBase", "table": "projects.tasks"},
+        # projects.projects — the `project` tool (tools/implementations/projects.py).
+        {"key": "ProjectsBase", "table": "projects.projects"},
         # workbench.
         {"key": "NotesBase", "table": "workbench.notes"},
         # agent.

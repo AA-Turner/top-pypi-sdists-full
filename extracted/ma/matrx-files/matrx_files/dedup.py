@@ -662,3 +662,49 @@ __all__ = [
     "resolve_dedup_policy",
     "resolve_async",
 ]
+
+
+# ── Legacy consolidation (admin bulk primitives; the gate package owns the table) ──
+
+
+async def list_consolidation_candidates_async() -> list[Any]:
+    """Every live, top-level, checksummed, not-yet-aliased file row (admin bulk scan).
+
+    Cross-user by design: the one-time duplicate consolidation job groups rows by
+    (scope, checksum) across the whole table, so it can only run as an internal job.
+    """
+    from matrx_files.db.models_files import Files
+
+    return await Files.filter(
+        deleted_at__isnull=True,
+        checksum__isnull=False,
+        parent_file_id__isnull=True,
+        duplicate_of_file_id__isnull=True,
+    ).all()
+
+
+async def mark_duplicates_async(
+    loser_ids: list[Any], keeper_id: Any, note: dict[str, Any]
+) -> int:
+    """Soft-delete each loser as a duplicate of ``keeper_id``; returns how many changed."""
+    from datetime import UTC, datetime
+
+    from matrx_files.db.models_files import Files
+    from matrx_orm import transaction
+
+    changed = 0
+    async with transaction("matrx_files"):
+        for loser_id in loser_ids:
+            loser = await Files.get_or_none(
+                id=loser_id,
+                deleted_at__isnull=True,
+                duplicate_of_file_id__isnull=True,
+            )
+            if loser:
+                await loser.update(
+                    duplicate_of_file_id=keeper_id,
+                    deleted_at=datetime.now(UTC),
+                    metadata={**(loser.metadata or {}), **note},
+                )
+                changed += 1
+    return changed

@@ -202,6 +202,8 @@ class TestWireFormats:
     def test_specials_are_known(self):
         assert "extraction_gliner" in WIRE_FORMATS
         assert "openai_embeddings" in WIRE_FORMATS
+        assert "voyage_embeddings" in WIRE_FORMATS
+        assert "cohere_rerank" in WIRE_FORMATS
         assert "openai_realtime" in WIRE_FORMATS
         assert "xai_realtime" in WIRE_FORMATS
 

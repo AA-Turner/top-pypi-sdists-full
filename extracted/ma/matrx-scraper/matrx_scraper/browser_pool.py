@@ -266,6 +266,9 @@ INSPECT_NAV_TIMEOUT_MS = 15_000
 INSPECT_NETWORK_IDLE_TIMEOUT_MS = 5_000
 INSPECT_SETTLE_SECONDS = 1.5
 INSPECT_HARD_BUDGET_SECONDS = 25.0
+#: How long the scraper lets a caller's measure script run before it stops it and returns NO report. A script that
+#: keeps its own budgets inside this value (kind_preview does) returns partial evidence instead.
+INSPECT_MEASURE_TIMEOUT_MS = 15_000
 
 
 # Exact-render capture (rendered-output standard, guarantee 2: "full page at the
@@ -415,6 +418,34 @@ class PageInspection:
     # The caller's measure_script result (primary navigation only); null when none was asked for or it failed.
     measurements: Any = None
     measure_error: str | None = None
+    # Responses the page received with status >= 400 ("GET <url> -> 400"): a failed READ (a 400 from a data API)
+    # is a delivered response, so `requestfailed` never sees it — and it is the commonest reason a page opens empty.
+    http_errors: list[str] = field(default_factory=list)
+    # `collect_text`: the visible text of EVERY frame (an embedded page renders in its own frame, which the main
+    # frame's DOM cannot read), joined and capped. None when not asked for.
+    visible_text: str | None = None
+    # `press`: what pressing the caller's button did (`page_press.PressOutcome`); None when no press was asked for.
+    press: Any = None
+
+
+#: Visible-text cap for `inspect_url(collect_text=True)` — enough to judge "loaded / empty", never a page dump.
+INSPECT_VISIBLE_TEXT_MAX_CHARS = 6_000
+
+
+async def _frames_visible_text(page: Any, *, max_chars: int = INSPECT_VISIBLE_TEXT_MAX_CHARS) -> str:
+    """The visible text of the page and every child frame, main frame first, capped at ``max_chars``."""
+    parts: list[str] = []
+    for frame in page.frames:
+        try:
+            text = await frame.evaluate("() => (document.body && document.body.innerText) || ''")
+        except Exception:  # noqa: BLE001 — a detached frame has no text; the others still count
+            continue
+        text = (text or "").strip()
+        if text:
+            parts.append(text)
+        if sum(len(x) for x in parts) >= max_chars:
+            break
+    return "\n".join(parts)[:max_chars]
 
 
 # Cookie / consent banners cover the top of a homepage picture and say nothing about the brand. They are HIDDEN
@@ -1075,7 +1106,10 @@ class PlaywrightBrowserPool:
         exact: ExactCaptureSpec | None = None,
         pictures_only: bool = False,
         measure_script: str | None = None,
-        measure_timeout_ms: int = 15_000,
+        measure_timeout_ms: int = INSPECT_MEASURE_TIMEOUT_MS,
+        cookies: list[dict[str, Any]] | None = None,
+        collect_text: bool = False,
+        press: Any = None,
     ) -> PageInspection:
         """Navigate and report what the BROWSER saw — errors, DOM probes, shots.
 
@@ -1122,6 +1156,7 @@ class PlaywrightBrowserPool:
         failed_requests: list[str] = []
         screenshots: list[CapturedScreenshot] = []
         screenshot_failures: list[ScreenshotCaptureFailure] = []
+        http_errors: list[str] = []
         primary: dict[str, Any] = {}
 
         async def _run_profile(
@@ -1142,8 +1177,19 @@ class PlaywrightBrowserPool:
                 # Every request this context makes (navigation, each redirect hop,
                 # every subresource) is checked; a non-public one is aborted.
                 await install_egress_guard(context)
+                if cookies:
+                    # The visitor's own session (the caller opens a page AS a person): set before the first
+                    # request so the very first navigation is already signed in.
+                    await context.add_cookies(cookies)
                 try:
                     page = await context.new_page()
+                    page.on(
+                        "response",
+                        lambda resp: (
+                            http_errors.append(f"{resp.request.method} {resp.url} -> {resp.status}")
+                            if resp.status >= 400 else None
+                        ),
+                    )
                     page.on(
                         "console",
                         lambda msg: (
@@ -1182,9 +1228,13 @@ class PlaywrightBrowserPool:
                             primary["http_status"] = response.status if response else None
                             primary["final_url"] = page.url
                             primary["title"] = await page.title()
+                            if collect_text:
+                                primary["visible_text"] = await _frames_visible_text(page)
                             if expect_text:
                                 content = await page.content()
-                                primary["dom_text_found"] = expect_text in content
+                                primary["dom_text_found"] = expect_text in content or (
+                                    collect_text and expect_text in (primary.get("visible_text") or "")
+                                )
                             if expect_selector:
                                 primary["dom_selector_found"] = (
                                     await page.locator(expect_selector).count()
@@ -1196,6 +1246,18 @@ class PlaywrightBrowserPool:
 
                                 primary["measurements"], primary["measure_error"] = await run_measure_script(
                                     page, measure_script, timeout_ms=measure_timeout_ms
+                                )
+                            if press is not None:
+                                # After settle, on the page as it stands: find the button in any frame, press it,
+                                # record the calls it made, wait, read again (`page_press`).
+                                from matrx_scraper.page_press import press_on_page
+
+                                before = primary.get("visible_text")
+                                if before is None:
+                                    before = await _frames_visible_text(page)
+                                primary["press"] = await press_on_page(
+                                    page, press, console_errors=console_errors, http_errors=http_errors,
+                                    text_before=before,
                                 )
 
                         if isinstance(profile, ExactCaptureSpec):
@@ -1261,6 +1323,9 @@ class PlaywrightBrowserPool:
             screenshot_failures=screenshot_failures,
             measurements=primary.get("measurements"),
             measure_error=primary.get("measure_error"),
+            http_errors=http_errors,
+            visible_text=primary.get("visible_text"),
+            press=primary.get("press"),
         )
 
     async def inspect_inline(

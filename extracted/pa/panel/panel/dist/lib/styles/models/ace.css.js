@@ -1,0 +1,1 @@
+export default `.ace_marker-layer .pn-ace-marker{position:absolute;background:rgba(255, 213, 79, 0.3);}`

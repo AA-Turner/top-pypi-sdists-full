@@ -24,9 +24,8 @@ rebuilds every in-flight sequence from those rows alone.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 from enum import StrEnum
 
 from matrx_runtime import (
@@ -40,7 +39,6 @@ from matrx_ai.browser_handoff.models import (
     CHECKPOINT_KIND,
     SUSPEND_REASON,
     HandoffOpenRequest,
-    HandoffReason,
     HandoffResolution,
     HandoffResolutionKind,
     HandoffSource,
@@ -152,7 +150,16 @@ class BrowserHandoffCoordinator:
         # PersistenceBarrierError inside finalize aborts the handoff (raises);
         # better a loud failure than a human told to act against a ledger that
         # does not exist. We do NOT catch it here.
+        # The live turn's carried owner/org: a brand-new conversation's own row is
+        # still write-behind here, so the ledger must not have to re-read it.
+        from matrx_connect.context.app_context import try_get_app_context
+
+        _ctx = try_get_app_context()
         await get_handoff_ledger().delegate(
+            owner_id=(str(_ctx.user_id) if _ctx and _ctx.user_id else None),
+            organization_id=(
+                str(_ctx.organization_id) if _ctx and _ctx.organization_id else None
+            ),
             call_id=req.pending_call_id,
             conversation_id=req.conversation_id,
             execution_id=req.requested_by_execution_id,

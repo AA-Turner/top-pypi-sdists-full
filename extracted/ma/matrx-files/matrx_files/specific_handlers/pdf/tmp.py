@@ -20,7 +20,6 @@ This module provides:
 
 from __future__ import annotations
 
-import os
 import tempfile
 import time
 import uuid
@@ -32,12 +31,14 @@ from typing import Iterator
 _NAMESPACE = "matrx_pdf"
 
 
+# returns-temp-path(base): the shared folder; every file written under it is removed by its writer
 def pdf_temp_dir() -> Path:
     base = Path(tempfile.gettempdir()) / _NAMESPACE
     base.mkdir(parents=True, exist_ok=True)
     return base
 
 
+# returns-temp-path(file): the caller removes it (pdf_temp_file does in a finally)
 def write_pdf_bytes_to_temp(pdf_bytes: bytes, suffix: str = ".pdf") -> Path:
     name = f"{uuid.uuid4().hex}{suffix}"
     path = pdf_temp_dir() / name

@@ -145,7 +145,42 @@ def agent_call_max_depth() -> int:
     return max(1, min(value, 10))
 
 
+#: Seconds a caller-bounded process tool's dispatch deadline waits PAST the timeout the caller asked
+#: for, so the box's own graceful timeout answer arrives first. Agent-set 2026-11-18: 30.
+PROCESS_TOOL_DEADLINE_GRACE_SECONDS_KEY = "process_tool_deadline_grace_seconds"
+#: KNOB MIRROR of platform.feature_knob "agents.tool_dispatch" "process_tool_deadline_grace_seconds"
+PROCESS_TOOL_DEADLINE_GRACE_SECONDS_MIRROR = 30.0
+#: Seconds the sandbox ``/exec`` HTTP call waits past the command's own timeout. Agent-set 2026-11-18: 10.
+EXEC_HTTP_GRACE_SECONDS_KEY = "exec_http_grace_seconds"
+#: KNOB MIRROR of platform.feature_knob "agents.tool_dispatch" "exec_http_grace_seconds"
+EXEC_HTTP_GRACE_SECONDS_MIRROR = 10.0
+
+
+def exec_http_grace_seconds() -> float:
+    """Live ``/exec`` transport grace; an unusable value answers the mirror."""
+    return _positive_float(
+        tool_dispatch_knob(EXEC_HTTP_GRACE_SECONDS_KEY, EXEC_HTTP_GRACE_SECONDS_MIRROR),
+        EXEC_HTTP_GRACE_SECONDS_MIRROR,
+    )
+
+
+def process_tool_deadline_grace_seconds() -> float:
+    """Live dispatch-deadline grace, never below the transport grace plus one second (the deadline must
+    outlive the box's own answer, whatever the two knobs are set to)."""
+    value = _positive_float(
+        tool_dispatch_knob(PROCESS_TOOL_DEADLINE_GRACE_SECONDS_KEY, PROCESS_TOOL_DEADLINE_GRACE_SECONDS_MIRROR),
+        PROCESS_TOOL_DEADLINE_GRACE_SECONDS_MIRROR,
+    )
+    return max(value, exec_http_grace_seconds() + 1.0)
+
+
 __all__ = [
+    "EXEC_HTTP_GRACE_SECONDS_KEY",
+    "EXEC_HTTP_GRACE_SECONDS_MIRROR",
+    "PROCESS_TOOL_DEADLINE_GRACE_SECONDS_KEY",
+    "PROCESS_TOOL_DEADLINE_GRACE_SECONDS_MIRROR",
+    "exec_http_grace_seconds",
+    "process_tool_deadline_grace_seconds",
     "AGENT_CALL_MAX_DEPTH_KEY",
     "AGENT_CALL_MAX_DEPTH_MIRROR",
     "agent_call_max_depth",

@@ -32,7 +32,7 @@ class _Emitter:
 @pytest.mark.asyncio
 async def test_memory_update_receipt_carries_the_old_text(monkeypatch: pytest.MonkeyPatch) -> None:
     set_app_context(AppContext(emitter=_Emitter(), user_id=USER, organization_id="org-1"))
-    row = type("Row", (), {"id": "mem-1", "content": "Check the insurance card front."})()
+    row = type("Row", (), {"id": "mem-1", "key": "insurance_rule", "content": "Check the insurance card front."})()
     monkeypatch.setattr(cxm.agent_memory, "filter_agent_memories", AsyncMock(return_value=[row]))
     monkeypatch.setattr(memory_module, "queue_agent_memory_update", lambda *_a, **_kw: "queued")
     result = await memory_update(
@@ -80,7 +80,7 @@ async def test_memory_store_on_an_existing_key_is_an_overwrite_with_a_receipt(
     from matrx_ai.tools.implementations.memory import memory_store
 
     set_app_context(AppContext(emitter=_Emitter(), user_id=USER, organization_id="org-1"))
-    row = type("Row", (), {"id": "mem-1", "content": "Call back within 12 hours."})()
+    row = type("Row", (), {"id": "mem-1", "key": "callback_rule", "content": "Call back within 12 hours."})()
     monkeypatch.setattr(cxm.agent_memory, "filter_agent_memories", AsyncMock(return_value=[row]))
     monkeypatch.setattr(memory_module, "queue_agent_memory_update", lambda *_a, **_kw: "queued")
     result = await memory_store(

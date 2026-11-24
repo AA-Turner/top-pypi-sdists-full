@@ -34,11 +34,16 @@ persistence, traces — speaks internal names only.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Iterable
 
 # The strictest provider constraint (OpenAI + Anthropic function names).
 WIRE_SAFE_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+# The strictest provider limit, and how much of a longer name survives beside its digest.
+WIRE_MAX_LEN = 64
+WIRE_DIGEST_LEN = 8
 
 # One namespace separator on the internal plane; its wire spelling.
 CANONICAL_SEPS = (":", ".")
@@ -48,12 +53,19 @@ WIRE_SEP = "__"
 def to_wire_name(name: str) -> str:
     """Return the provider-safe wire form of an internal tool name.
 
-    Idempotent: a name with no canonical separator is returned unchanged, so calling
-    this on an already-wire-safe name (or twice) is a no-op.
+    Idempotent: a name with no canonical separator that fits is returned unchanged, so
+    calling this on an already-wire-safe name (or twice) is a no-op.
+
+    A form past the provider limit keeps its start and ends in a digest of the whole form.
+    Connector tools carry names from someone else's server, so "rename it" is not available
+    to them, and the digest keeps two long names with one prefix as two tools.
     """
     wire = name
     for separator in CANONICAL_SEPS:
         wire = wire.replace(separator, WIRE_SEP)
+    if len(wire) > WIRE_MAX_LEN:
+        digest = hashlib.sha256(wire.encode("utf-8")).hexdigest()[:WIRE_DIGEST_LEN]
+        wire = f"{wire[: WIRE_MAX_LEN - WIRE_DIGEST_LEN - 1]}_{digest}"
     return wire
 
 
@@ -66,9 +78,9 @@ def resolve_wire_name(called_name: str, candidates: Iterable[str]) -> str | None
     """Reverse the wire transform: find the internal name among
     ``candidates`` whose wire form equals ``called_name``.
 
-    Only separator-bearing candidates are considered — a candidate without a
-    colon has an identical wire form and would already have matched by
-    direct lookup, so re-matching it here would only mask lookup bugs.
+    Only candidates whose wire form differs from their name are considered — any
+    other candidate would already have matched by direct lookup, so re-matching
+    it here would only mask lookup bugs.
 
     Returns the first match or ``None``. Ambiguity (two internal names
     sharing one wire form) is guarded at three layers: the merge primitive
@@ -81,12 +93,44 @@ def resolve_wire_name(called_name: str, candidates: Iterable[str]) -> str | None
     is then order-dependent, which is why colliding canonical names must
     never be created.
     """
-    if WIRE_SEP not in called_name:
-        return None
     for candidate in candidates:
-        if (
-            any(separator in candidate for separator in CANONICAL_SEPS)
-            and to_wire_name(candidate) == called_name
-        ):
+        wire = to_wire_name(candidate)
+        if wire != candidate and wire == called_name:
             return candidate
+    return None
+
+
+#: Namespaces a provider's model writes in FRONT of a function name when it names a tool inside an
+#: argument (a gateway's ``job_key``) instead of calling it: OpenAI's models say ``functions.skill``
+#: (measured 2026-11-19, chat-agent-skills FINDINGS 14). Never part of a tool's own name.
+PROVIDER_NAMESPACES: tuple[str, ...] = ("functions",)
+
+
+def strip_provider_namespace(reference: str) -> str:
+    """``reference`` without one leading provider namespace (``functions.skill`` / ``functions__skill`` →
+    ``skill``), stripped of whitespace; unchanged when it carries none."""
+    ref = (reference or "").strip()
+    wire = to_wire_name(ref)
+    for namespace in PROVIDER_NAMESPACES:
+        prefix = f"{namespace}{WIRE_SEP}"
+        if wire.startswith(prefix) and len(wire) > len(prefix):
+            return ref[len(namespace) + (1 if ref[len(namespace) : len(namespace) + 1] in CANONICAL_SEPS else 2) :]
+    return ref
+
+
+def resolve_tool_reference(reference: str, candidates: Iterable[str]) -> str | None:
+    """The candidate (an internal name) a model meant by ``reference`` — the plain name, its wire name,
+    or either behind a provider namespace — or ``None``. Exact identity wins, then the same wire form,
+    then the same after one provider namespace is taken off. Never guesses beyond the candidates."""
+    ref = (reference or "").strip()
+    if not ref:
+        return None
+    names = list(candidates)
+    for form in dict.fromkeys((ref, strip_provider_namespace(ref))):
+        if form in names:
+            return form
+        wire = to_wire_name(form)
+        for candidate in names:
+            if to_wire_name(candidate) == wire:
+                return candidate
     return None

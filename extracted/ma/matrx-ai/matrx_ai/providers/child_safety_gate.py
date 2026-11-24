@@ -56,7 +56,9 @@ class ChildSafetyRefusedError(Exception):
     is_caller_refusal = True
     http_status = 403
 
-    def __init__(self, *, message: str, user_message: str, age_declaration: bool = False) -> None:
+    def __init__(
+        self, *, message: str, user_message: str, age_declaration: bool = False, reason: str | None = None,
+    ) -> None:
         self.code = AGE_DECLARATION_REQUIRED if age_declaration else CHILD_CONSENT_REQUIRED
         self.message = message
         self.user_message = user_message
@@ -66,7 +68,9 @@ class ChildSafetyRefusedError(Exception):
             status_code=self.http_status,
             is_retryable=False,
             user_message=user_message,
-            details={"error": self.code, "message": user_message},
+            # ``reason``: the host's word for which consent state refused (e.g. a parent must approve vs. approval
+            # pending), so a client can name it; absent when the host gave none.
+            details={"error": self.code, "message": user_message, **({"reason": reason} if reason else {})},
         )
         super().__init__(message)
 

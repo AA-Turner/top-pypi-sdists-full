@@ -29,6 +29,7 @@ from typing import IO
 
 from ..run_dirs import multirun_dir as _multirun_dir  # noqa: F401  (its old name)
 from ..run_dirs import reserve_timestamped_dir
+from ..utils.process_group import signal_group
 from .case_paths import _override_label
 from .models import RunProgress, Status
 
@@ -218,12 +219,12 @@ def _stop_requested() -> bool:
 
 
 def _signal_group(pgid: int, sig: int) -> bool:
-    """Send *sig* to the process group *pgid*; ``False`` if none of it is left."""
+    """Send *sig* to the process group *pgid*; ``False`` if none of it is left
+    (:func:`signal_group`), or it may not be signalled."""
     try:
-        os.killpg(pgid, sig)
-    except (ProcessLookupError, PermissionError):
+        return signal_group(pgid, sig)
+    except PermissionError:
         return False
-    return True
 
 
 def _terminate_group(pgid: int, timeout: float) -> None:
@@ -270,12 +271,19 @@ def _claim_run(total: int) -> bool:
         return True
 
 
-def _end_run() -> None:
-    """Mark the run as over, and its progress as ``done`` if it is not yet.
+def _failed_message(failed: int, total: int) -> str:
+    """What a run's ``done`` says of its *failed* jobs of *total*: ``"k of N
+    failed"``, or nothing when none failed (#2440)."""
+    return f"{failed} of {total} failed" if failed > 0 else ""
+
+
+def _end_run(failed: int = 0) -> None:
+    """Mark the run as over, and its progress as ``done`` if it is not yet,
+    with the *failed* jobs it counted (#2440).
 
     The progress stream ends only on ``done``: a run that stops before it
-    publishes one (an exception in the worker, or a worker that never
-    started) must not leave the stream following it forever.
+    publishes one (an exception in the worker, a stopped run, or a worker that
+    never started) must not leave the stream following it forever.
     """
     with _lock:
         global _running  # noqa: PLW0603
@@ -288,7 +296,12 @@ def _end_run() -> None:
             _progress = RunProgress(current=0, total=0, scenario_name="", status="done")
         elif p.status != "done":
             _progress = RunProgress(
-                current=p.current, total=p.total, scenario_name="", status="done"
+                current=p.current,
+                total=p.total,
+                scenario_name="",
+                status="done",
+                message=_failed_message(failed, p.total),
+                failed=failed,
             )
 
 
@@ -305,6 +318,9 @@ def _run_worker(
     """
     total = len(overrides_list)
     cwd = str(base_path) if base_path else None
+    # The jobs that failed, which the run's `done` reports (#2440); a job a
+    # stop ended is not one of them.
+    failed = 0
 
     try:
         # When grouping as multirun, create a shared timestamped directory,
@@ -402,6 +418,8 @@ def _run_worker(
                 # Stopped before this job started: it is not run.
                 stopped = True
                 break
+            if status == "failed" and not _stop_requested():
+                failed += 1
 
             _set_progress(
                 RunProgress(
@@ -417,17 +435,19 @@ def _run_worker(
             logger.info("The run was stopped: the jobs after it do not run")
             return
 
-        # Signal completion
+        # Signal completion, with how many jobs failed ("k of N failed").
         _set_progress(
             RunProgress(
                 current=total,
                 total=total,
                 scenario_name="",
                 status="done",
+                message=_failed_message(failed, total),
+                failed=failed,
             )
         )
     finally:
-        _end_run()
+        _end_run(failed)
 
 
 def _run_job(cmd: list[str], cwd: str | None, log: Path) -> int | None:

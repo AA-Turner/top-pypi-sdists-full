@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/common/v1/query_status.proto\x12\x0f\x63halk.common.v1*\xa3\x02\n\x0bQueryStatus\x12\x1c\n\x18QUERY_STATUS_UNSPECIFIED\x10\x00\x12#\n\x1fQUERY_STATUS_PENDING_SUBMISSION\x10\x01\x12\x1a\n\x16QUERY_STATUS_SUBMITTED\x10\x02\x12\x18\n\x14QUERY_STATUS_RUNNING\x10\x03\x12\x16\n\x12QUERY_STATUS_ERROR\x10\x04\x12\x18\n\x14QUERY_STATUS_EXPIRED\x10\x05\x12\x1a\n\x16QUERY_STATUS_CANCELLED\x10\x06\x12\x1b\n\x17QUERY_STATUS_SUCCESSFUL\x10\x07\x12\x30\n,QUERY_STATUS_SUCCESSFUL_WITH_NONFATAL_ERRORS\x10\x08\x42\x85\x01\n\x13\x63om.chalk.common.v1B\x10QueryStatusProtoP\x01\xa2\x02\x03\x43\x43X\xaa\x02\x0f\x43halk.Common.V1\xca\x02\x0f\x43halk\\Common\\V1\xe2\x02\x1b\x43halk\\Common\\V1\\GPBMetadata\xea\x02\x11\x43halk::Common::V1b\x06proto3'
+    b"\n\"chalk/common/v1/query_status.proto\x12\x0f\x63halk.common.v1*\xa3\x02\n\x0bQueryStatus\x12\x1c\n\x18QUERY_STATUS_UNSPECIFIED\x10\x00\x12#\n\x1fQUERY_STATUS_PENDING_SUBMISSION\x10\x01\x12\x1a\n\x16QUERY_STATUS_SUBMITTED\x10\x02\x12\x18\n\x14QUERY_STATUS_RUNNING\x10\x03\x12\x16\n\x12QUERY_STATUS_ERROR\x10\x04\x12\x18\n\x14QUERY_STATUS_EXPIRED\x10\x05\x12\x1a\n\x16QUERY_STATUS_CANCELLED\x10\x06\x12\x1b\n\x17QUERY_STATUS_SUCCESSFUL\x10\x07\x12\x30\n,QUERY_STATUS_SUCCESSFUL_WITH_NONFATAL_ERRORS\x10\x08*\x82\x02\n\x12\x43\x61ncellationReason\x12#\n\x1f\x43\x41NCELLATION_REASON_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x43\x41NCELLATION_REASON_MANUAL\x10\x01\x12'\n#CANCELLATION_REASON_UPSTREAM_FAILED\x10\x02\x12)\n%CANCELLATION_REASON_UPSTREAM_CANCELED\x10\x03\x12(\n$CANCELLATION_REASON_SCHEDULE_SKIPPED\x10\x04\x12)\n%CANCELLATION_REASON_SCHEDULER_CLEANUP\x10\x05\x42\x85\x01\n\x13\x63om.chalk.common.v1B\x10QueryStatusProtoP\x01\xa2\x02\x03\x43\x43X\xaa\x02\x0f\x43halk.Common.V1\xca\x02\x0f\x43halk\\Common\\V1\xe2\x02\x1b\x43halk\\Common\\V1\\GPBMetadata\xea\x02\x11\x43halk::Common::V1b\x06proto3"
 )
 
 _globals = globals()
@@ -27,4 +27,6 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.common.v1B\020QueryStatusProtoP\001\242\002\003CCX\252\002\017Chalk.Common.V1\312\002\017Chalk\\Common\\V1\342\002\033Chalk\\Common\\V1\\GPBMetadata\352\002\021Chalk::Common::V1"
     _globals["_QUERYSTATUS"]._serialized_start = 56
     _globals["_QUERYSTATUS"]._serialized_end = 347
+    _globals["_CANCELLATIONREASON"]._serialized_start = 350
+    _globals["_CANCELLATIONREASON"]._serialized_end = 608
 # @@protoc_insertion_point(module_scope)

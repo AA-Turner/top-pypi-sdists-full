@@ -113,6 +113,44 @@ def test_union_member_introspection():
     assert members["search"] is _SearchWire
 
 
+class _OneActionArgs(RootModel[Annotated[_ReadWire, Field(discriminator="action")]]):
+    """``Union[(M,)]`` collapses to ``M``: a ONE-action dispatcher (``tables_export``, ``page_check``)."""
+
+
+def test_a_one_action_dispatcher_is_still_a_union():
+    """RED before O1 C5: the collapsed annotation read as no union, so an honest one-action
+    ``$variants`` row was reported as drift."""
+    res = discriminated_union_members(_OneActionArgs)
+    assert res == ("action", {"read": _ReadWire})
+
+
+def _one_action_drift(parameters) -> list[str]:
+    from types import SimpleNamespace
+
+    from matrx_ai.tools.validation import engine
+
+    report = SimpleNamespace(findings=[])
+    engine._diff_args("one", SimpleNamespace(args_model=_OneActionArgs), SimpleNamespace(name="one", parameters=parameters), report)
+    return [f.message for f in report.findings]
+
+
+def test_a_one_action_dispatcher_accepts_its_variants_row_and_its_flat_row():
+    from matrx_ai.tools.validation.params_from_model import build_parameters
+
+    rich = build_parameters(_OneActionArgs, action_description="d")
+    assert set(rich["$variants"]) == {"read"}
+    assert _one_action_drift(rich) == []
+    flat = {  # the shape page_check's live row carries: the one action's whole contract, no $variants
+        "action": {"type": "string", "enum": ["read"], "required": True},
+        "url": {"type": "string", "required": True},
+        "summarize": {"type": "boolean", "default": False},
+        "max_content_length": {"type": "integer", "default": 50000},
+    }
+    assert _one_action_drift(flat) == []
+    flat["url"] = {"type": "integer", "required": True}
+    assert any("'url'" in m for m in _one_action_drift(flat))  # a flat row is still checked, never waved through
+
+
 def test_plain_and_noargs_not_union():
     assert discriminated_union_members(_FlatArgs) is None
     assert discriminated_union_members(NoArgs) is None

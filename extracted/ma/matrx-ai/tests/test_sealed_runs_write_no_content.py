@@ -190,3 +190,32 @@ def test_the_coordinator_seals_a_direct_queue_even_without_ambient_context(monke
     assert deferred, "the structure update must still be queued"
     assert not _contains_canary(deferred[0]) and "execution_events" not in deferred[0]
     assert deferred[0]["status"] == "completed"
+
+
+def test_a_real_blocks_shadow_mismatch_keeps_none_of_the_reply_on_a_sealed_row() -> None:
+    """W4 2026-11-04: the shadow's mismatch summary carries slices of the reply (``*_head``); a sealed
+    ``chat.user_request`` keeps its counts and cause, never those words."""
+    from matrx_ai.processing.blocks.blocks_shadow import _mismatch_head
+
+    head = _mismatch_head(f"<reasoning>{CANARY}</reasoning>answer", "answer")
+    summary = {"text_mismatch": 1, "text_mismatch_causes": {head["cause"]: 1},
+               "last_text_mismatch": {"stream_chars": 60, "response_chars": 6, **head}}
+    assert _contains_canary(summary)  # the summary really carries the words
+    out = seal_payload("chat.user_request", {"id": "u", "metadata": {"blocks_shadow": summary}},
+                       op_type="update", ctx=_ctx())
+    assert out is not None and not _contains_canary(out), out
+    kept = out["metadata"]["blocks_shadow"]
+    assert kept["text_mismatch_causes"] == {head["cause"]: 1}
+    assert kept["last_text_mismatch"]["cause"] == head["cause"]
+    assert kept["last_text_mismatch"]["stream_only_chars"] == head["stream_only_chars"]
+
+
+def test_every_mismatch_key_the_shadow_writes_is_named_structure_or_a_head() -> None:
+    """A new key on ``last_text_mismatch`` must be named here as structure, or it is dropped silently."""
+    from matrx_ai.persistence.sealed import LAST_TEXT_MISMATCH_STRUCTURE
+    from matrx_ai.processing.blocks.blocks_shadow import _mismatch_head
+
+    written = set(_mismatch_head("ab", "ac")) | {"stream_chars", "response_chars", "response_text_parts",
+                                                   "stream_has_reasoning_tag"}
+    heads = {k for k in written if k.endswith("_head")}
+    assert written - heads == set(LAST_TEXT_MISMATCH_STRUCTURE), written - heads ^ set(LAST_TEXT_MISMATCH_STRUCTURE)

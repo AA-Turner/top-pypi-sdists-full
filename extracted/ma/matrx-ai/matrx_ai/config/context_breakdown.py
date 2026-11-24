@@ -18,7 +18,12 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-BREAKDOWN_VERSION = 1
+# v2: each category also lists its parts (every tool definition, every message) so a reader
+# can open a category and see what it holds; v1 records have no `parts` and still read.
+BREAKDOWN_VERSION = 2
+
+# The most parts one category lists; the rest are counted in `parts_omitted`.
+MAX_PARTS = 300
 
 # Category keys, in display order. Labels are short UI text.
 LABELS: dict[str, str] = {
@@ -80,16 +85,59 @@ def _declaration_name(declaration: Any) -> str:
     )
 
 
+def _declaration_items(declared: dict[str, Any]) -> list[Any]:
+    """The per-tool declarations of the first provider in ``tool_declarations``.
+
+    The stored record is ``{provider: {"seq": n, "tools": [{"name", "wire", ...}]}}``
+    (``tools/declaration_ledger.py``); a bare list is the first stored shape. Each
+    item is read as the declaration it SENT (its ``wire`` JSON text), never as the
+    record entry around it: measuring the entry counted the whole tool array as ONE
+    part, its JSON text escaped a second time (live 2026-11-15)."""
+    entry = next(iter(declared.values()), None) or []
+    if isinstance(entry, dict) and "tools" in entry:
+        entry = entry.get("tools") or []
+    if isinstance(entry, (str, dict)):
+        entry = [entry]
+    out: list[Any] = []
+    for item in entry if isinstance(entry, list) else []:
+        if isinstance(item, dict) and isinstance(item.get("wire"), str):
+            try:
+                out.append(json.loads(item["wire"]))
+                continue
+            except ValueError:
+                pass
+        if isinstance(item, dict) and isinstance(item.get("declaration"), dict):
+            out.append(item["declaration"])
+            continue
+        out.append(item)
+    return out
+
+
+def _wire_chars(definition: Any) -> int:
+    """The characters a registered tool puts on the wire: its provider declaration.
+
+    The registry row's ``parameters`` also carries internal contract metadata
+    (``$variants``, ``$envelope``) that the provider build strips; counting the raw
+    row made `records` read 58,559 chars when 4,800 are sent (live 2026-11-15)."""
+    to_wire = getattr(definition, "to_anthropic_format", None)
+    if callable(to_wire):
+        try:
+            return _chars(to_wire())
+        except Exception:  # noqa: BLE001 — fall back to the row, never a guess of zero
+            pass
+    parameters = getattr(definition, "parameters", None) or {}
+    if isinstance(parameters, dict):
+        parameters = {k: v for k, v in parameters.items() if not str(k).startswith("$")}
+    return _chars(getattr(definition, "description", "") or "") + _chars(parameters)
+
+
 def _tool_definitions(config: Any) -> list[tuple[str, int]]:
     """(name, chars) for every tool definition this call declares."""
     out: list[tuple[str, int]] = []
     declared = getattr(config, "tool_declarations", None)
     if isinstance(declared, dict) and declared:
         # The stabilized per-provider declarations ARE what goes on the wire.
-        decls = next(iter(declared.values())) or []
-        if isinstance(decls, (str, dict)):
-            decls = [decls]
-        for d in decls:
+        for d in _declaration_items(declared):
             out.append((_declaration_name(d), _chars(d)))
         if out:
             return out
@@ -107,13 +155,7 @@ def _tool_definitions(config: Any) -> list[tuple[str, int]]:
         if definition is None:
             out.append((name, _chars(name)))
             continue
-        out.append(
-            (
-                name,
-                _chars(getattr(definition, "description", "") or "")
-                + _chars(getattr(definition, "parameters", None) or {}),
-            )
-        )
+        out.append((name, _wire_chars(definition)))
     return out
 
 
@@ -144,30 +186,63 @@ def _message_parts(message: Any) -> tuple[int, int]:
     return convo, tool
 
 
+def _role(message: Any) -> str:
+    role = message.get("role") if isinstance(message, dict) else getattr(message, "role", None)
+    return str(getattr(role, "value", role) or "")
+
+
 def measure(config: Any) -> dict[str, Any]:
-    """The breakdown of ``config`` as a JSON-ready dict (``unit: chars``)."""
+    """The breakdown of ``config`` as a JSON-ready dict (``unit: chars``).
+
+    Each category carries ``parts``: ``{"name", "chars"}`` for every tool definition (largest
+    first) or message (in order, ``name`` = ``"<n> · <role>"``), capped at ``MAX_PARTS`` with
+    the remainder counted in ``parts_omitted``.
+    """
     totals = dict.fromkeys(LABELS, 0)
     items = dict.fromkeys(LABELS, 0)
+    parts: dict[str, list[dict[str, Any]]] = {key: [] for key in LABELS}
 
     system = _system_text(config)
     totals["system_prompt"] = len(system)
+    if system:
+        parts["system_prompt"].append({"name": "Instructions", "chars": len(system)})
 
     for name, size in _tool_definitions(config):
         family = _tool_family(name)
         totals[family] += size
         items[family] += 1
+        parts[family].append({"name": name, "chars": size})
 
     messages = getattr(config, "messages", None) or []
-    for message in messages:
-        role = message.get("role") if isinstance(message, dict) else getattr(message, "role", None)
-        role = str(getattr(role, "value", role) or "")
-        if role in ("system", "developer"):
-            totals["system_prompt"] += sum(_message_parts(message))
-            continue
+    for index, message in enumerate(messages, start=1):
+        role = _role(message)
         convo, tool = _message_parts(message)
+        label = f"{index} · {role or 'message'}"
+        if role in ("system", "developer"):
+            totals["system_prompt"] += convo + tool
+            parts["system_prompt"].append({"name": label, "chars": convo + tool})
+            continue
         totals["messages"] += convo
         totals["tool_activity"] += tool
         items["messages"] += 1
+        if convo:
+            parts["messages"].append({"name": label, "chars": convo})
+        if tool:
+            parts["tool_activity"].append({"name": label, "chars": tool})
+
+    for family in ("system_tools", "mcp_tools", "agent_tools"):
+        parts[family].sort(key=lambda p: -p["chars"])
+
+    def _category(key: str, label: str) -> dict[str, Any]:
+        listed = parts[key]
+        return {
+            "key": key,
+            "label": label,
+            "chars": totals[key],
+            "items": items[key],
+            "parts": listed[:MAX_PARTS],
+            "parts_omitted": max(0, len(listed) - MAX_PARTS),
+        }
 
     total = sum(totals.values())
     return {
@@ -176,11 +251,8 @@ def measure(config: Any) -> dict[str, Any]:
         "measured_at": datetime.now(UTC).isoformat(),
         "model": getattr(config, "model", None),
         "total_chars": total,
-        "categories": [
-            {"key": key, "label": label, "chars": totals[key], "items": items[key]}
-            for key, label in LABELS.items()
-        ],
+        "categories": [_category(key, label) for key, label in LABELS.items()],
     }
 
 
-__all__ = ["BREAKDOWN_VERSION", "LABELS", "measure"]
+__all__ = ["BREAKDOWN_VERSION", "LABELS", "MAX_PARTS", "measure"]

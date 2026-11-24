@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.2001
+Version: 1.4.2061
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -511,6 +511,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.connect_klaviyo_credentials()` | Connect a Klaviyo account |
 | `connect.connect_line_credentials()` | Connect LINE Official Account |
 | `connect.connect_open_ai_ads_credentials()` | Connect an OpenAI Ads account |
+| `connect.connect_outbrain_ads_credentials()` | Connect an Outbrain marketer |
 | `connect.connect_shopify_with_token()` | Connect a Shopify store with a custom-app Admin token |
 | `connect.connect_slack_channel()` | Connect a Slack channel |
 | `connect.connect_snapchat_ads_credentials()` | Connect a Snapchat Ads pixel |
@@ -754,6 +755,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.replace_campaign_negative_keywords()` | Replace campaign-level negative keywords |
 | `ad_campaigns.replace_google_listing_group_filters()` | Replace an asset group's listing-group tree |
 
+### Ad Changes
+| Method | Description |
+|--------|-------------|
+| `ad_changes.list_ad_changes()` | List staged ad changes |
+| `ad_changes.get_ad_change()` | Get a staged ad change |
+| `ad_changes.confirm_ad_change()` | Confirm a staged ad change |
+| `ad_changes.discard_ad_change()` | Discard a staged ad change |
+
 ### Ad Creatives
 | Method | Description |
 |--------|-------------|
@@ -829,6 +838,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `automations.list_automation_actions()` | List automation actions |
 | `automations.list_automation_approvals()` | List an automation's approval requests |
 | `automations.list_automation_checks()` | List an automation's checks |
+| `automations.list_automation_runs()` | List an automation's runs |
 | `automations.list_automation_templates()` | List automation templates |
 | `automations.list_automations()` | List automations |
 | `automations.create_automation()` | Create an automation |
@@ -837,7 +847,9 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `automations.get_automation_approval()` | Get an approval request |
 | `automations.get_automation_catalog()` | Get the automations catalog |
 | `automations.get_automation_controls()` | Get automation controls |
+| `automations.get_automation_run()` | Get one run of an automation |
 | `automations.get_automation_template()` | Get an automation template |
+| `automations.get_automation_test_sample()` | Get a sample test body for an automation |
 | `automations.get_shared_automation_template()` | Get a shared automation template |
 | `automations.get_zernio_automation_template()` | Get a Zernio automation template |
 | `automations.update_automation()` | Edit an automation |
@@ -858,6 +870,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `automations.preview_automation_draft()` | Preview an unsaved automation |
 | `automations.reject_automation_approval()` | Reject an approval request |
 | `automations.take_over_automation()` | Take over an automation |
+| `automations.test_automation()` | Test an automation on a sample event |
 
 ### Blogs
 | Method | Description |

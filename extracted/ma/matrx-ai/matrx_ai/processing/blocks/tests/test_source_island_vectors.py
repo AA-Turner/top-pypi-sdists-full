@@ -31,20 +31,9 @@ from matrx_ai.processing.blocks.source_islands import (
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[4]
 _FIXTURE = _PACKAGE_ROOT / "tests" / "fixtures" / "source_island_vectors.json"
-# In the aidream monorepo the TypeScript source of the vectors sits beside us.
-_TS_SOURCE = _PACKAGE_ROOT.parents[1] / "apps" / "shared" / "content-ir-core" / "__tests__" / "source-island-vectors.json"
 
 _VECTORS = json.loads(_FIXTURE.read_text(encoding="utf-8"))["vectors"]
 
-
-def test_fixture_is_the_generated_typescript_corpus() -> None:
-    if not _TS_SOURCE.exists():
-        pytest.skip("standalone install: the TypeScript corpus is not beside this package")
-    assert _FIXTURE.read_bytes() == _TS_SOURCE.read_bytes(), (
-        "tests/fixtures/source_island_vectors.json drifted from the TypeScript rule's generated corpus — "
-        "copy apps/shared/content-ir-core/__tests__/source-island-vectors.json over it, then make "
-        "source_islands.py pass"
-    )
 
 
 def test_the_corpus_is_not_empty_and_names_every_island_type() -> None:

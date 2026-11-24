@@ -10,6 +10,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 from .session_authority import SessionAuthorityUnavailable
 
@@ -79,7 +80,7 @@ async def fetch_authority_response(
         raise SessionAuthorityUnavailable("Session authority is not configured")
     try:
         async with asyncio.timeout(timeout_seconds):
-            async with httpx.AsyncClient(
+            async with shared_client(
                 timeout=timeout_seconds, follow_redirects=False, trust_env=False
             ) as client:
                 async with client.stream(

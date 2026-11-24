@@ -47,8 +47,9 @@ import asyncio
 import hashlib
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
@@ -132,8 +133,47 @@ def _hash(body: str) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
+def _parse_commit_time(value: Any) -> datetime | None:
+    """An ISO-8601 commit time, or ``None`` when absent or unreadable."""
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def older_source_verdict(row_config: dict[str, Any], source_commit: dict[str, str] | None) -> str | None:
+    """Why a write from ``source_commit`` would DOWNGRADE this row, or ``None`` when it may write.
+
+    THE DOWNGRADE GUARD (O1 C6, 2026-11-03): a server booting from an image built before a skill
+    change re-published its older bundled copy over the newer row. Every row records the commit it
+    was built from (``config.source_commit`` + ``config.source_commit_time``); a source that cannot
+    prove it is at least that new never replaces it. A row with no stamp may be written (it is
+    stamped by that write)."""
+    row_time = _parse_commit_time(row_config.get("source_commit_time"))
+    if row_time is None:
+        return None
+    row_sha = str(row_config.get("source_commit") or "")
+    if source_commit and row_sha and source_commit.get("sha") == row_sha:
+        return None
+    ours = _parse_commit_time((source_commit or {}).get("time"))
+    if ours is None:
+        return (
+            f"the row was built from commit {row_sha[:12] or '?'} ({row_config.get('source_commit_time')}) "
+            "and this source names no commit time, so it cannot prove it is newer"
+        )
+    if ours < row_time:
+        return (
+            f"the row was built from commit {row_sha[:12] or '?'} ({row_config.get('source_commit_time')}), "
+            f"newer than this source's {str(source_commit.get('sha') or '?')[:12]} ({source_commit.get('time')})"
+        )
+    return None
+
+
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # The live `skl_skill_type` enum. Kept here so a bad frontmatter value is
@@ -551,6 +591,31 @@ def _git_ignored_dirs(root: Path) -> set[Path]:
     }
 
 
+#: Directory names that hold copies of work, never a repo's own skills (a task folder, a scratch or temp
+#: tree, a work copy): ``apps/matrx-extend/.matrx/task1-active/cleanup-source-…/.claude/skills`` was
+#: ingested on 2026-11-02 and its 80 stale bodies overrode the fresh canonicals.
+_SCRATCH_NAMES = re.compile(r"^(temp|tmp|scratch|work|worktrees|\.wt|task\d*(-.*)?|.*-active)$", re.IGNORECASE)
+_CONVENTION_HIDDEN = {".claude", ".cursor", ".agent", ".agents", ".matrx"}
+
+
+def _is_scratch_tree(path: Path, start: Path) -> bool:
+    """True when ``path`` (below ``start``) runs through a scratch tree or a hidden folder.
+
+    A hidden folder is allowed only as a convention's own (``.claude`` in ``.claude/skills``):
+    ``.matrx/skills`` is a skills folder, ``.matrx/task1-active/.../skills`` is a leftover."""
+    try:
+        parts = path.relative_to(start).parts
+    except ValueError:
+        return False
+    for i, part in enumerate(parts):
+        nxt = parts[i + 1] if i + 1 < len(parts) else None
+        if part in _CONVENTION_HIDDEN and nxt in (None, "skills"):
+            continue
+        if part.startswith(".") or _SCRATCH_NAMES.match(part):
+            return True
+    return False
+
+
 def discover_skill_roots(
     start: Path | str,
     *,
@@ -650,12 +715,20 @@ def discover_skill_roots(
         s = str(p.resolve())
         # Normalize Windows separators to forward slashes for the check.
         s_norm = s.replace(os.sep, "/")
-        return any(seg in s_norm for seg in excluded_segments)
+        if any(seg in s_norm for seg in excluded_segments):
+            return True
+        return _is_scratch_tree(p.resolve(), start_path)
 
     def _walk(current: Path, depth: int) -> None:
         if depth > max_depth:
             return
         if _is_in_excluded_segment(current):
+            # A refused scratch/leftover tree that holds skills says so — never a silent drop.
+            if _is_scratch_tree(current.resolve(), start_path) and any(
+                next(current.glob(pat), None) is not None
+                for pat in ("*/SKILL.md", "*/*/SKILL.md", "*/*/*/SKILL.md", "*/*/*/*/SKILL.md", "*/*/*/*/*/SKILL.md")
+            ):
+                vcprint(f"[skills.ingest] SKIPPED skills under a scratch/leftover tree: {current}", color="yellow")
             return
         # Probe every convention at this level before descending.
         for convention in _SKILL_DIR_CONVENTIONS:
@@ -712,6 +785,23 @@ _PROXY_EXCLUDED_SEGMENTS = (
     "/.matrx/worktrees/",
     "/worktrees/",
 )
+
+
+async def _proxy_read_text(fs_read: Any, binding: Any, path: str) -> str:
+    """The whole text of one sandbox file, read page by page.
+
+    ``fs_read`` answers ONE bounded page (``SandboxReadResult``), never a
+    bare string; the skill parser needs the full text, so follow
+    ``next_offset`` until the daemon says the file is done.
+    """
+    parts: list[str] = []
+    offset = 0
+    while True:
+        page = await fs_read(binding, path, encoding="utf8", offset=offset)
+        parts.append(page.content)
+        if not page.truncated or page.next_offset <= offset:
+            return "".join(parts)
+        offset = page.next_offset
 
 
 async def walk_via_proxy(
@@ -822,7 +912,7 @@ async def walk_via_proxy(
                 # layout A: <skill_id>/SKILL.md
                 skill_md_path = f"{path.rstrip('/')}/SKILL.md"
                 try:
-                    content = await fs_read(b, skill_md_path, encoding="utf8")
+                    content = await _proxy_read_text(fs_read, b, skill_md_path)
                 except SandboxProxyError as exc:
                     if getattr(exc, "status", None) != 404:
                         vcprint(
@@ -850,7 +940,7 @@ async def walk_via_proxy(
                     continue
                 stem = name[:-3]
                 try:
-                    content = await fs_read(b, path, encoding="utf8")
+                    content = await _proxy_read_text(fs_read, b, path)
                 except Exception as exc:
                     vcprint(
                         f"[skills.ingest] proxy fs_read {path} failed: {exc!r}",
@@ -906,12 +996,33 @@ def walk_paths(
         for parsed in walk_filesystem(root):
             prior = by_id.get(parsed.skill_id)
             if prior is not None and prior.source_hash != parsed.source_hash:
-                collisions.append(
-                    f"{parsed.skill_id}: differing copies — using {parsed.source_path}, "
-                    f"discarding {prior.source_path}"
+                # THE CANONICAL WINS (2026-11-03): a copy's own banner names its canonical
+                # path; the file AT that path beats every other copy, whatever the scan order.
+                # "Later root wins" let a stale leftover tree override the fresh canonical.
+                keep, drop = (
+                    (prior, parsed) if is_canonical_copy(prior) and not is_canonical_copy(parsed) else (parsed, prior)
                 )
-            by_id[parsed.skill_id] = parsed  # later root wins on conflict
+                collisions.append(
+                    f"{parsed.skill_id}: differing copies — using {keep.source_path}, "
+                    f"discarding {drop.source_path}"
+                )
+                by_id[parsed.skill_id] = keep
+                continue
+            if prior is not None and is_canonical_copy(prior):
+                continue  # identical body: keep the canonical's path as the row's source
+            by_id[parsed.skill_id] = parsed  # later root wins between equals
     return list(by_id.values()), roots, collisions
+
+
+_CANONICAL_CLAIM = re.compile(r"^\s*Canonical:\s*(\S+)", re.MULTILINE)
+
+
+def is_canonical_copy(parsed: ParsedSkill) -> bool:
+    """True when this file sits at the path its own synced-copy banner names as canonical."""
+    m = _CANONICAL_CLAIM.search(parsed.body or "")
+    if not m:
+        return False
+    return str(parsed.source_path).replace(os.sep, "/").endswith("/" + m.group(1).lstrip("/"))
 
 
 # ---------------------------------------------------------------------------
@@ -1013,6 +1124,7 @@ async def ingest_filesystem(
     is_system: bool = True,
     prune_scopes: list[str] | None = None,
     adopt: bool = False,
+    source_commit: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Upsert every parsed SKILL.md into ``skill.definition``.
 
@@ -1053,6 +1165,9 @@ async def ingest_filesystem(
             prunes nothing (the sandbox auto-bind path must never prune).
         adopt: Take ownership of DB-native rows that collide with a repo skill
             by name. Off by default — see THE OWNERSHIP GUARD above.
+        source_commit: ``{"sha": ..., "time": <ISO 8601 commit time>}`` of the commit these
+            files are from. Stamped on every row written; a row stamped with a NEWER commit is
+            never replaced or deactivated (:func:`older_source_verdict`).
 
     Returns:
         ``{'parsed': N, 'created': N, 'updated': N, 'unchanged': N,
@@ -1076,7 +1191,11 @@ async def ingest_filesystem(
         visited_roots_for_report = [str(r) for r in visited_path_roots]
 
     norm_scopes = (
-        [str(Path(s).expanduser().resolve()) for s in prune_scopes] if prune_scopes else []
+        await asyncio.to_thread(
+            lambda: [str(Path(s).expanduser().resolve()) for s in prune_scopes]
+        )
+        if prune_scopes
+        else []
     )
 
     def _in_prune_scope(row: Any) -> bool:
@@ -1093,6 +1212,7 @@ async def ingest_filesystem(
         prune_candidate=_in_prune_scope if norm_scopes else None,
         roots=visited_roots_for_report,
         collisions=collisions,
+        source_commit=source_commit,
     )
 
 
@@ -1177,6 +1297,22 @@ async def ensure_skill_category(
     return {"slug": slug, "status": "created", "id": str(getattr(created, "id", ""))}
 
 
+async def _store_search_vectors(written: list[SimpleNamespace]) -> None:
+    """Hand written skills to the host's ``skill_vectors_writer`` seam (unwired: nothing). Never fails a write;
+    a failure is captured to the errors surface."""
+    from matrx_ai._ext import get_ext, has_ext
+
+    if not has_ext("skill_vectors_writer"):
+        return
+    try:
+        await get_ext("skill_vectors_writer")(written)
+    except Exception as exc:  # noqa: BLE001 — the skills are written; their vectors are stored by the next search
+        vcprint(f"[skills.ingest] storing search vectors for {len(written)} skill(s) failed: {exc!r}", color="red")
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(exc, kind="skill_search_vectors_failed", route="matrx_ai.skills.ingest.store_vectors")
+
+
 async def upsert_parsed_skills(
     parsed: list[ParsedSkill],
     *,
@@ -1188,6 +1324,7 @@ async def upsert_parsed_skills(
     prune_candidate: Any = None,
     roots: list[str] | None = None,
     collisions: list[str] | None = None,
+    source_commit: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """The ONE write path into ``skill.definition`` for every file-shaped source.
 
@@ -1201,12 +1338,14 @@ async def upsert_parsed_skills(
     """
     collisions = list(collisions or [])
     visited_roots_for_report = list(roots or [])
+    written: list[SimpleNamespace] = []
     report: dict[str, Any] = {
         "parsed": len(parsed),
         "created": 0,
         "updated": 0,
         "unchanged": 0,
         "skipped_foreign": 0,
+        "skipped_older_source": 0,
         "deactivated": 0,
         "errors": [],
         "skills": [
@@ -1273,7 +1412,9 @@ async def upsert_parsed_skills(
             # kind_keyword_relationship_research each have two rows), so prefer
             # the row this ingest already owns over whichever came back first.
             candidates = rows_by_id.get(p.skill_id, [])
-            owned = [r for r in candidates if owns(r)]
+            # An ACTIVE owned row first: updating an inactive duplicate instead reactivates it beside
+            # the live one (2026-11-19: two active copies of one generated skill).
+            owned = sorted((r for r in candidates if owns(r)), key=lambda r: not getattr(r, "is_active", False))
             row = owned[0] if owned else (candidates[0] if candidates else None)
 
             entry = skills_by_id[p.skill_id]
@@ -1293,6 +1434,40 @@ async def upsert_parsed_skills(
                     f"[skills.ingest] SKIP FOREIGN {p.skill_id}: {entry['reason']}",
                     color="yellow",
                 )
+                continue
+
+            if (
+                row is not None
+                and str(p.source_path).startswith("sandbox://")
+                and _row_config(row).get("ingested_from") not in (None, "sandbox")
+            ):
+                # A copy found on someone's own machine never overwrites the row the REPO
+                # published (2026-11-03: a sandbox's ~/.agents/skills/handoff replaced the
+                # platform's fresh `handoff` minutes after the deployed boot published it).
+                report.setdefault("skipped_repo_owned", 0)
+                report["skipped_repo_owned"] += 1
+                entry["status"] = "skipped_repo_owned"
+                entry["id"] = str(row.id)
+                entry["reason"] = (
+                    f"the repo publishes this skill (ingested_from={_row_config(row).get('ingested_from')}); "
+                    "a sandbox copy never replaces it"
+                )
+                vcprint(f"[skills.ingest] SKIP REPO-OWNED {p.skill_id} from {p.source_path}", color="yellow")
+                continue
+
+            downgrade = older_source_verdict(_row_config(row), source_commit) if row is not None else None
+            if downgrade is not None:
+                if _row_config(row).get("source_hash") == p.source_hash:
+                    # Same bytes: nothing to protect and nothing to say.
+                    report["unchanged"] += 1
+                    entry["status"] = "unchanged"
+                    entry["id"] = str(row.id)
+                    continue
+                report["skipped_older_source"] += 1
+                entry["status"] = "skipped_older_source"
+                entry["id"] = str(row.id)
+                entry["reason"] = downgrade
+                vcprint(f"[skills.ingest] REFUSED DOWNGRADE {p.skill_id}: {downgrade}", color="red")
                 continue
 
             category_id = cat_by_key.get(p.category) if p.category else None
@@ -1328,6 +1503,9 @@ async def upsert_parsed_skills(
                     "ingested_at": _now_iso(),
                 }
             )
+            if source_commit and source_commit.get("sha") and source_commit.get("time"):
+                merged_config["source_commit"] = source_commit["sha"]
+                merged_config["source_commit_time"] = source_commit["time"]
             # A non-repo source (an outside pack) stamps its own provenance —
             # source repo URL, commit, license, authors — over the defaults.
             merged_config.update(p.extra_config)
@@ -1394,6 +1572,10 @@ async def upsert_parsed_skills(
                 if (
                     existing_cfg.get("source_hash") == p.source_hash
                     and getattr(row, "is_active", False)
+                    and (
+                        not (source_commit and source_commit.get("time"))
+                        or existing_cfg.get("source_commit_time") is not None
+                    )
                     and existing_cfg.get("source_path") == p.source_path
                     and existing_cfg.get("ingested_at")
                     and existing_cfg.get("source_repo")
@@ -1425,6 +1607,7 @@ async def upsert_parsed_skills(
                     await defs_mgr.update_item(str(row.id), **row_data)
                 entry["status"] = "updated"
                 report["updated"] += 1
+                written.append(SimpleNamespace(id=str(row.id), skill_id=p.skill_id, label=p.label, description=p.description))
             else:
                 if not dry_run:
                     created = await defs_mgr.create_item(
@@ -1433,6 +1616,7 @@ async def upsert_parsed_skills(
                     entry["id"] = str(getattr(created, "id", ""))
                 entry["status"] = "created"
                 report["created"] += 1
+                written.append(SimpleNamespace(id=entry.get("id") or p.skill_id, skill_id=p.skill_id, label=p.label, description=p.description))
 
         except Exception as exc:
             skills_by_id[p.skill_id]["status"] = "error"
@@ -1455,6 +1639,11 @@ async def upsert_parsed_skills(
                 continue
             if not prune_candidate(row):
                 continue
+            downgrade = older_source_verdict(_row_config(row), source_commit)
+            if downgrade is not None:
+                report["skipped_older_source"] += 1
+                vcprint(f"[skills.ingest] REFUSED DEACTIVATING {sid}: {downgrade}", color="red")
+                continue
             sp = _row_config(row).get("source_path") or ""
             plan_line = f"{sid} ← {sp}"
             report["prune_plan"].append(plan_line)
@@ -1470,12 +1659,18 @@ async def upsert_parsed_skills(
                     report["errors"].append(f"prune {sid}: {exc!r}")
                     vcprint(f"[skills.ingest] prune {sid}: {exc!r}", color="red")
 
+    # A written skill gets its meaning-search vector now, through the host's seam (chat-agent-skills lane D):
+    # search compares only stored vectors, so a skill written without one is invisible to meaning until stored.
+    if written and not dry_run:
+        await _store_search_vectors(written)
+
     roots_str = ", ".join(report["roots"]) if report["roots"] else "(none)"
     vcprint(
         f"[skills.ingest] {'DRY RUN ' if dry_run else ''}roots=[{roots_str}]: "
         f"parsed={report['parsed']} created={report['created']} "
         f"updated={report['updated']} unchanged={report['unchanged']} "
         f"skipped_foreign={report['skipped_foreign']} "
+        f"skipped_older_source={report['skipped_older_source']} "
         f"deactivated={report['deactivated']} errors={len(report['errors'])}",
         color="green",
     )

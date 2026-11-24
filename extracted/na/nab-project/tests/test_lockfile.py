@@ -17,14 +17,27 @@ from typing import Any, ClassVar
 import pytest
 
 from nab_markersets._compat import get_int_max_str_digits
-from nab_project._testing.artifacts import make_sdist_artifact, make_wheel_artifact
+from nab_provider.environment import marker_environment
 from nab_provider.policy import MetadataPolicy
 from nab_provider.value import replace
+
+from .lock_artifacts import make_sdist_artifact, make_wheel_artifact
 
 if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib  # type: ignore[no-redef]
+
+from packaging.markers import Marker, default_environment
+from packaging.pylock import (
+    Package,
+    PackageSdist,
+    PackageWheel,
+    Pylock,
+)
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from nab_index.client import SdistFile, WheelFile, _parse_files
 from nab_index.multi_index import IndexConfig
@@ -45,7 +58,6 @@ from nab_project._lockfile.pylock import (
     _pin_to_package,
     _relativize_path,
 )
-from nab_project._testing.coordinator_fake import make_coordinator
 from nab_project.conflicts import (
     ConflictKind,
     ConflictMember,
@@ -91,11 +103,6 @@ from nab_project.resolve import (
     build_lock_input,
     resolve_with_coordinator,
 )
-from nab_provider._vendor.packaging.markers import Marker, default_environment
-from nab_provider._vendor.packaging.pylock import Package, PackageWheel, Pylock
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.overrides import IndexOverride
 from nab_provider.provider import (
     ArchiveSource,
@@ -114,7 +121,8 @@ from nab_provider.target import (
     micro_boundary_points,
     slices_from_points,
 )
-from nab_provider.testing import make_metadata, make_wheel, pkg_override
+from nab_provider.testing import make_metadata, make_sdist, make_wheel, pkg_override
+from nab_test_support.coordinator import make_coordinator
 
 requires_int_limit = pytest.mark.skipif(
     get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
@@ -483,7 +491,7 @@ class TestPerTargetMarkerSimplification:
             LockInput(
                 targets=_targets(
                     (
-                        _target(platform="linux_x86_64"),
+                        _target("3.10", "linux_x86_64"),
                         {
                             "foo": IndexPin(
                                 name="foo",
@@ -494,7 +502,7 @@ class TestPerTargetMarkerSimplification:
                         },
                     ),
                     (
-                        _target(platform="macos_arm64"),
+                        _target("3.10", "macos_arm64"),
                         {
                             "foo": IndexPin(
                                 name="foo",
@@ -514,6 +522,109 @@ class TestPerTargetMarkerSimplification:
             "foo-1.0-cp310-cp310-linux_x86_64.whl",
             "foo-1.0-cp310-cp310-macosx_11_0_arm64.whl",
         ]
+
+        lock = Pylock.from_dict(data)
+        for platform, expected in (
+            ("linux_x86_64", linux_wheel),
+            ("macos_arm64", macos_wheel),
+        ):
+            target = _target("3.10", platform)
+            [(_, selected)] = lock.select(
+                environment=target.marker_env, tags=target.tags.ordered
+            )
+            assert isinstance(selected, PackageWheel)
+            assert selected.url == expected.url
+
+    def test_tag_compatible_but_python_excluded_wheel_remains_unavailable(self) -> None:
+        wheel = make_wheel(
+            "1", package="demo", requires_python="<3.13", hashes=(("sha256", "a" * 64),)
+        )
+        source = make_sdist("1", package="demo", hashes=(("sha256", "b" * 64),))
+        coordinator = make_coordinator(
+            listings={"demo": [wheel, source]},
+            metadata_text=make_metadata("demo", "1", requires_python="<3.13"),
+            sdist_pkg_info=make_metadata("demo", "1", metadata_version="2.2"),
+        )
+        targets = [_target("3.11"), _target("3.12"), _target("3.13")]
+        result = resolve_with_coordinator(coordinator, targets, [Requirement("demo")])
+        result.raise_for_failure()
+
+        lock = Pylock.from_dict(tomllib.loads(write_lock(build_lock_input(result))))
+        assert len(lock.packages) == 2
+        for target, expected in zip(targets, (wheel, wheel, source), strict=True):
+            [(_, selected)] = lock.select(
+                environment=target.marker_env, tags=target.tags.ordered
+            )
+            assert isinstance(selected, (PackageWheel, PackageSdist))
+            assert selected.url == expected.url
+            assert selected.hashes == dict(expected.hashes)
+
+    def test_same_named_wheels_keep_each_targets_artifact(self) -> None:
+        tag = "cp312-abi3-manylinux_2_17_x86_64"
+        linux312, linux313 = _target("3.12"), _target("3.13")
+        free_threaded = ResolveTarget.for_declared(
+            python_version="3.13", spec=PlatformSpec("linux_x86_64", free_threaded=True)
+        )
+        records = [
+            (linux312, make_wheel_artifact(tag=tag, sha256="a" * 64)),
+            (linux313, make_wheel_artifact(tag=tag, sha256="b" * 64)),
+            (
+                free_threaded,
+                make_wheel_artifact(tag="cp313-cp313t-manylinux_2_17_x86_64"),
+            ),
+        ]
+        locks = _targets(
+            *(
+                (target, {"foo": _index_pin().replace(wheels=(artifact,))})
+                for target, artifact in records
+            )
+        )
+        lock = Pylock.from_dict(tomllib.loads(write_lock(LockInput(targets=locks))))
+
+        assert len(lock.packages) == 2
+        for target, expected in records:
+            [(_, selected)] = lock.select(
+                environment=target.marker_env, tags=target.tags.ordered
+            )
+            assert isinstance(selected, PackageWheel)
+            assert selected.hashes == dict(expected.hashes)
+            assert selected.filename == expected.filename
+
+    def test_marker_overlay_preserves_a_targets_sdist_only_choice(self) -> None:
+        windows = _target("3.12", "windows_amd64")
+        overlay = _target("3.13").with_marker_overrides(
+            {"sys_platform": "win32", "platform_system": "Windows"}
+        )
+        wheel = make_wheel_artifact(tag="cp312-abi3-win_amd64")
+        pin = _index_pin().replace(wheels=(wheel,))
+        locks = _targets(
+            (windows, {"foo": pin}), (overlay, {"foo": pin.replace(wheels=())})
+        )
+        assert not overlay.tags_faithful
+
+        lock = Pylock.from_dict(tomllib.loads(write_lock(LockInput(targets=locks))))
+        consumer = _target("3.13", "windows_amd64")
+        [(_, artifact)] = lock.select(
+            environment=overlay.marker_env, tags=consumer.tags.ordered
+        )
+        assert isinstance(artifact, PackageSdist)
+
+    def test_indistinguishable_builds_cannot_select_different_universal_wheels(
+        self,
+    ) -> None:
+        ordinary = _target("3.13")
+        free_threaded = ResolveTarget.for_declared(
+            python_version="3.13", spec=PlatformSpec("linux_x86_64", free_threaded=True)
+        )
+        first = make_wheel_artifact(sha256="a" * 64)
+        second = make_wheel_artifact(sha256="b" * 64)
+        locks = _targets(
+            (ordinary, {"foo": _index_pin().replace(wheels=(first,))}),
+            (free_threaded, {"foo": _index_pin().replace(wheels=(second,))}),
+        )
+
+        with pytest.raises(LockValidationError, match=re.escape(first.filename)):
+            write_lock(LockInput(targets=locks))
 
     def test_requires_python_drops_when_targets_disagree(self) -> None:
         """``requires_python`` survives merging only when every target agrees."""
@@ -1359,11 +1470,16 @@ class TestConflictForkBaseDepDivergentClosure:
             base_names=frozenset({"foo"}),
         )
         pylock = build_pylock(lock_input)
-        markers = [
-            str(p.marker) for p in pylock.packages if str(p.name) == "telemetrylib"
-        ]
-        assert len(markers) == 2
-        assert all("in extras" in marker for marker in markers)
+
+        environment = marker_environment(self._LINUX.marker_env)
+        for extras, expected in [((), []), (("cpu",), ["1.0"]), (("gpu",), ["2.0"])]:
+            selected = pylock.select(environment=environment, extras=extras)
+            versions = [
+                str(package.version)
+                for package, _ in selected
+                if package.name == "telemetrylib"
+            ]
+            assert versions == expected
 
     def test_base_edge_only_some_forks_carry_stays_member_gated(self) -> None:
         # Only the cpu fork pins cudalib, a base dep of foo. The absent edge in
@@ -1615,8 +1731,8 @@ class TestErrorPaths:
 
         assert "extra '_cli' normalizes to '-cli'" in str(excinfo.value)
 
-    def test_vendored_refusal_reraised_as_lock_validation_error(self) -> None:
-        """A refusal from the vendored validator arrives as nab's own class.
+    def test_packaging_refusal_reraised_as_lock_validation_error(self) -> None:
+        """A refusal from the packaging validator arrives as nab's own class.
 
         Package names are canonicalized on the way in and checked nowhere
         else, so ``_foo`` gets as far as ``Pylock.validate``.
@@ -1797,6 +1913,22 @@ class TestProvenance:
         emitted = tomllib.loads(text)["tool"]["nab"]["created-at"]
         assert emitted == created
         assert emitted.utcoffset() == timedelta(0)
+
+    @pytest.mark.parametrize(
+        "created",
+        [
+            datetime.min.replace(tzinfo=timezone(timedelta(hours=1))),
+            datetime.max.replace(tzinfo=timezone(-timedelta(hours=1))),
+        ],
+    )
+    def test_created_at_outside_utc_range_is_rejected(self, created: datetime) -> None:
+        provenance = Provenance(
+            "1", created, ("nab", "lock"), "pyproject.toml", "specific"
+        )
+        lock = LockInput(targets=_one({}), provenance=provenance)
+
+        with pytest.raises(LockValidationError, match="created-at.*UTC"):
+            write_lock(lock)
 
     def test_naive_created_at_is_stamped_utc(self) -> None:
         """A naive ``created_at`` is stamped UTC rather than read as local time."""
@@ -2599,7 +2731,7 @@ class TestMarkerDisjointness:
         # A collision outside the pruned subspace still raises: cpu/gpu
         # are declared exclusive, but these two entries collide on the
         # cpu point itself (both fire when cpu is selected).
-        with pytest.raises(DisjointnessError, match="foo"):
+        with pytest.raises(DisjointnessError, match="foo") as caught:
             validate_marker_disjointness(
                 [
                     self._pkg("foo", "1.0", "'cpu' in extras"),
@@ -2610,6 +2742,8 @@ class TestMarkerDisjointness:
                 groups=(),
                 exclusive_groups=[frozenset({("extra", "cpu"), ("extra", "gpu")})],
             )
+        assert "extras=['cpu']" in str(caught.value)
+        assert "[tool.nab].conflicts" not in str(caught.value)
 
     def test_collision_hint_points_at_conflicts_key(self) -> None:
         # A membership-driven collision with no declaration surfaces a
@@ -3688,7 +3822,9 @@ class TestBuildTargetLock:
                 ],
             },
         )
-        with pytest.raises(AssertionError, match="not one of the configured indexes"):
+        with pytest.raises(
+            LookupError, match="foo==1.0: no serving index was recorded"
+        ):
             build_target_lock(
                 provider,
                 _HOST,
@@ -4391,7 +4527,9 @@ class TestBuildTargetLock:
             listings={"foo": [(Version("1.0"), _wheel_file())]},
             listing_indexes={"foo": "gone"},
         )
-        with pytest.raises(AssertionError, match="not one of the configured indexes"):
+        with pytest.raises(
+            LookupError, match="foo==1.0: serving index 'gone'.*primary"
+        ):
             build_target_lock(
                 provider,
                 _HOST,
@@ -5413,7 +5551,9 @@ class TestWriteRequirementsWithHashes:
         )
         assert text.strip() == f"-e {tmp_path.resolve().as_uri()}"
 
-    def test_local_pin_subdirectory_renders_fragment(self, tmp_path: Path) -> None:
+    def test_local_pin_url_points_to_the_project_directory(
+        self, tmp_path: Path
+    ) -> None:
         text = write_requirements_without_hashes(
             LockInput(
                 targets=_one(
@@ -5428,8 +5568,8 @@ class TestWriteRequirementsWithHashes:
                 )
             )
         )
-        url = tmp_path.resolve().as_uri()
-        assert text.strip() == f"foo @ {url}#subdirectory=packages/foo"
+        url = (tmp_path / "packages" / "foo").resolve().as_uri()
+        assert text.strip() == f"foo @ {url}"
 
     def test_local_pin_editable_with_subdirectory(self, tmp_path: Path) -> None:
         text = write_requirements_with_hashes(
@@ -5447,15 +5587,11 @@ class TestWriteRequirementsWithHashes:
                 )
             )
         )
-        url = tmp_path.resolve().as_uri()
-        assert text.strip() == f"-e {url}#subdirectory=packages/foo"
+        url = (tmp_path / "packages" / "foo").resolve().as_uri()
+        assert text.strip() == f"-e {url}"
 
     def test_local_pin_subdirectory_encodes_reserved_char(self, tmp_path: Path) -> None:
-        """A subdirectory with a URL-reserved char is percent-encoded.
-
-        An unencoded space terminates the URL token of the PEP 508
-        ``name @ <url>`` line, so the fragment must stay encoded.
-        """
+        """A space in the project's directory name stays inside the file URL."""
         text = write_requirements_without_hashes(
             LockInput(
                 targets=_one(
@@ -5471,7 +5607,7 @@ class TestWriteRequirementsWithHashes:
             )
         )
         url = tmp_path.resolve().as_uri()
-        assert text.strip() == f"foo @ {url}#subdirectory=my%20pkg"
+        assert text.strip() == f"foo @ {url}/my%20pkg"
 
     def test_vcs_pin_round_trips_url(self) -> None:
         text = write_requirements_with_hashes(
@@ -5650,9 +5786,7 @@ class TestDependencyGraph:
 
     def test_umbrella_extra_drops_self_edge(self) -> None:
         wheels = {
-            name: make_wheel(
-                package=name.replace("-", "_"), hashes=(("sha256", "a" * 64),)
-            )
+            name: make_wheel(package=name, hashes=(("sha256", "a" * 64),))
             for name in ("mypkg", "graphviz-lib", "otel-lib")
         }
         metadata = {
@@ -6200,15 +6334,15 @@ _PRUNE_MACOS = ResolveTarget.for_declared(
 )
 
 
-def _pkg_entry(pylock: object) -> object:
+def _pkg_entry(pylock: Pylock) -> Package:
     """The single ``pkg`` package entry of a built pylock."""
-    entries = [p for p in pylock.packages if str(p.name) == "pkg"]  # type: ignore[attr-defined]
+    entries = [package for package in pylock.packages if package.name == "pkg"]
     assert len(entries) == 1
     return entries[0]
 
 
-def _emitted_wheel_names(pkg_entry: object) -> set[str]:
-    return {w.name for w in (pkg_entry.wheels or [])}  # type: ignore[attr-defined]
+def _emitted_wheel_names(pkg_entry: Package) -> set[str | None]:
+    return {wheel.name for wheel in pkg_entry.wheels or ()}
 
 
 class TestLockWheelPrunePredicate:
@@ -7116,7 +7250,6 @@ class TestConflictSetCrossGating:
                     for (name, label), condition in axes.gates.items()
                 },
             },
-            environment_markers={},
         )
         memo = memo_type(expanded, 4_096)
         varying, fixed = axes.exclusion_groups
@@ -7789,6 +7922,34 @@ class TestMarkerCoverage:
         gpu = base.with_selection((("extra", "gpu"),))
         validate_marker_coverage([cpu, gpu], environments=[self._row(base)])
 
+    def test_implementation_bound_cannot_borrow_another_cpython_target(self) -> None:
+        targets = [self._minor("3.11"), self._minor("3.12")]
+        with pytest.raises(CoverageError, match="python_full_version"):
+            validate_marker_coverage(
+                targets, environments=[Marker('implementation_version < "3.12"')]
+            )
+
+    def test_implementation_bound_can_cover_the_rest_of_a_cpython_minor(self) -> None:
+        validate_marker_coverage(
+            [self._minor("3.12")],
+            environments=[
+                Marker('python_full_version < "3.12.4"'),
+                Marker('implementation_version >= "3.12.4.dev0"'),
+            ],
+        )
+
+    def test_pypy_implementation_version_is_independent(self) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.12",
+            spec=PlatformSpec("linux_x86_64"),
+            implementation="pypy",
+            python_full_version="3.12.0",
+        )
+        with pytest.raises(CoverageError):
+            validate_marker_coverage(
+                [target], environments=[Marker('implementation_version == "3.12.0"')]
+            )
+
     def test_cpython_iv_mirror_split_minor_passes(self) -> None:
         target = self._minor("3.13")
         slices, rows = self._split(target, 'implementation_version >= "3.13.2"')
@@ -7852,7 +8013,42 @@ class TestMarkerCoverage:
         monkeypatch.setattr(MarkerSet, "witness", boom)
         target = self._minor("3.13")
         with pytest.raises(IntractableMarkerSet, match="patched"):
-            validate_marker_coverage([target], environments=[self._row(target)])
+            validate_marker_coverage(
+                [target], environments=[Marker('python_version == "3.12"')]
+            )
+
+    def test_cannot_emit_a_lock_with_an_unproven_micro_range(self) -> None:
+        target = self._minor("3.12")
+        row = Marker('"11" not in python_full_version')
+        lock_input = LockInput(
+            targets={
+                target.label: TargetLock(target=target, pins={"foo": _index_pin()})
+            },
+            environments=[row],
+        )
+
+        assert not row.evaluate({**target.marker_env, "python_full_version": "3.12.11"})
+        with pytest.raises(CoverageError, match="cannot verify"):
+            build_pylock(lock_input)
+
+    @pytest.mark.parametrize(
+        ("full_version", "row"),
+        [(None, '"12" in python_version'), ("3.12.11", '"11" in python_full_version')],
+    )
+    def test_version_substrings_can_cover_a_known_value(
+        self, full_version: str | None, row: str
+    ) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.12",
+            spec=PlatformSpec("linux_x86_64"),
+            python_full_version=full_version,
+        )
+        validate_marker_coverage([target], environments=[Marker(row)])
+
+    def test_version_substring_can_cover_the_host(self) -> None:
+        target = ResolveTarget.for_host()
+        row = Marker(f'"{target.python_full_version}" in python_full_version')
+        validate_marker_coverage([target], environments=[row])
 
     def test_build_pylock_non_covering_raises(self) -> None:
         target = self._minor("3.13")

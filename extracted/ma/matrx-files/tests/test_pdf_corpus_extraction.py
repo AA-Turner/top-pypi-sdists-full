@@ -87,6 +87,7 @@ def test_a_planted_change_to_the_extractor_turns_the_runner_red() -> None:
     assert problems and any("text differs" in p for p in problems)
 
 
+@needs_tesseract  # extract_text_pages OCRs the scanned page before `broken` blanks it
 def test_a_planted_ocr_regression_turns_the_runner_red() -> None:
     """A scanned page that comes back as empty native text is caught (the OCR fallback broke)."""
 

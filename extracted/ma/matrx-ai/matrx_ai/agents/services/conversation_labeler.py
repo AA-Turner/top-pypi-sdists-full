@@ -34,15 +34,13 @@ from matrx_connect.context.data_types import ConversationLabeledData
 from matrx_utils import vcprint
 
 from matrx_ai.agent_runners.conversation_labeler import (
-    AGENT_DESCRIPTION_MAX_CHARS,
-    AGENT_NAME_MAX_CHARS,
     LABEL_PROCESS_KEY,
-    USER_PROMPT_MAX_CHARS,
     ConversationLabelResult,
     _bounded_user_variables,
     _format_messages_for_labeling,
     _trim_content,
     label_agent_conversation,
+    label_limit,
     label_chat_conversation,
 )
 from matrx_ai.agents.response_parser import extract_model
@@ -140,6 +138,9 @@ async def _fetch_recent_titles(user_id: str) -> list[dict[str, str]]:
             cxm.conversation.model.filter(created_by=user_id, status="active")
             .order_by("-updated_at")
             .limit(_RECENT_CONVERSATION_COUNT)
+            # Only what the titles need: a whole conversation row carries its metadata, and walking
+            # ten of those on the event loop froze the API for 3-4 s (signature fe7a93000da027c8).
+            .only("id", "title")
             .all()
         )
 
@@ -271,6 +272,42 @@ def _already_labeled(row: Any) -> bool:
     )
 
 
+#: ``chat.conversation.named_by`` — the ONE answer to "did the person name it" (P-032).
+#: The DB trigger ``chat._named_by`` keeps it: any title change that does not declare itself
+#: automatic is a person's ("person"); an automatic writer declares itself with the write-only
+#: value ``NAMED_BY_AUTO_WRITE``, and the trigger keeps a person's title over it.
+NAMED_BY_PERSON = "person"
+NAMED_BY_AUTO_WRITE = "auto_write"
+
+
+def _person_named(row: Any) -> bool:
+    return str(getattr(row, "named_by", "") or "") == NAMED_BY_PERSON
+
+
+def _withdrawn(row: Any) -> bool:
+    """The person took the chat's only turn back (a Stop before any reply, the host's withdraw door):
+    ``metadata.withdrawn``. A withdrawn chat is never named — no model call, no title written."""
+    meta = getattr(row, "metadata", None)
+    return isinstance(meta, dict) and bool(meta.get("withdrawn"))
+
+
+def _needs_title(row: Any) -> bool:
+    """The chat has no title and the person did not name it: clearing a title hands it back to the
+    platform (the trigger stores a blank title as NULL, ``auto``), so the platform names it again.
+
+    The conversation gate's ``Auto: …`` placeholder that no label ever replaced is no title either: a chat whose
+    first turn the host started (Discovery's opening) is never labeled on that turn, and every later turn is
+    retitle-only — so a placeholder that counted as a title was never named (review 8, M-3)."""
+    if _person_named(row):
+        return False
+    title = str(getattr(row, "title", "") or "").strip()
+    if not title:
+        return True
+    from matrx_ai.db.conversation_gate import has_auto_title_prefix
+
+    return has_auto_title_prefix(title) and not _already_labeled(row)
+
+
 async def _seed_label_retry(conversation_id: str, payload: dict[str, Any]) -> None:
     """Seed the durable retry BEFORE the inline attempt (host seam; none on a standalone host).
 
@@ -341,6 +378,15 @@ async def _label_and_apply(
     parsed = extract_model(result.output, ConversationLabelResult)
     if parsed is None:
         return f"failed:unparseable output {result.output[:120]!r}", None
+    if not (parsed.label.strip() or parsed.description.strip() or parsed.keywords):
+        # The model answered valid JSON with nothing in it: a failed label (retried), never a
+        # quiet "skipped" that leaves the conversation unnamed for good (E2).
+        return "failed:empty_label", None
+
+    # A chat withdrawn while the namer ran (the person stopped before any reply) gets no label at all.
+    latest = await _label_row(conversation_id)
+    if latest is not None and _withdrawn(latest):
+        return "skipped:withdrawn", None
 
     update_kwargs: dict[str, Any] = {}
     if parsed.label:
@@ -349,15 +395,24 @@ async def _label_and_apply(
         update_kwargs["description"] = parsed.description
     if parsed.keywords:
         update_kwargs["keywords"] = parsed.keywords
-    if keep_title_unless is not None and "title" in update_kwargs:
+    if "title" in update_kwargs:
         row = await _label_row(conversation_id)
-        if row is None or str(getattr(row, "title", "") or "") != keep_title_unless:
+        if row is None or _person_named(row) or (
+            keep_title_unless is not None and str(getattr(row, "title", "") or "") != keep_title_unless
+        ):
             update_kwargs.pop("title")
     if not update_kwargs:
-        return "skipped:empty_label", None
+        # Only reachable when the person's own title stood and the label carried nothing else.
+        return "skipped:title_kept", None
+    if "title" in update_kwargs:
+        # Declared automatic: the DB keeps a person's title even if they renamed it a moment ago.
+        update_kwargs["named_by"] = NAMED_BY_AUTO_WRITE
 
     await _update_conversation_labels(conversation_id, user_id, update_kwargs)
     _title_cache.invalidate(user_id)
+    if "title" not in update_kwargs:
+        # The person's title stood: the label carries no title, so no client shows one over it.
+        parsed = parsed.model_copy(update={"label": ""})
     return "succeeded", parsed
 
 
@@ -369,14 +424,24 @@ async def _run_labeling(
     agent_description: str | None = None,
     user_variables: dict[str, Any] | None = None,
     user_prompt: str | None = None,
+    retitle_only: bool = False,
 ) -> None:
     """Seed the durable retry, label inline as the platform, and stream the title.
+
+    ``retitle_only`` (a continued turn): label only a chat that has no title (MJ1) — one primary-key
+    read per turn, no model call for a chat that has one.
 
     Invoked by the Rendezvous once the conversation row is CONFIRMED committed
     (via the ORM commit signal, or the DB-fallback verify) — so it never races
     the INSERT. It NEVER raises — all errors are caught and logged.
     """
     try:
+        row = await _label_row(conversation_id)
+        if row is not None and _withdrawn(row):
+            vcprint(f"[ConversationLabeler] {conversation_id}: withdrawn — never named", color="cyan")
+            return
+        if retitle_only and (row is None or not _needs_title(row)):
+            return
         if await _is_staff_channel_conversation(conversation_id):
             vcprint(
                 f"[ConversationLabeler] Skipping Personal Staff thread {conversation_id} "
@@ -386,7 +451,14 @@ async def _run_labeling(
             return
 
         conversation_content = _format_messages_for_labeling(messages)
-        row = await _label_row(conversation_id)
+        if row is not None and not _needs_title(row) and (_already_labeled(row) or _person_named(row)):
+            # A later turn (the executor schedules turns 1 AND 2) never relabels: the label landed,
+            # or the person named the chat themselves (P-032 — "G3A rename check" → "Ping-Pong Test").
+            vcprint(
+                f"[ConversationLabeler] {conversation_id}: already labeled or named by the person — left alone",
+                color="cyan",
+            )
+            return
         # The retry's inputs, bounded exactly as the labeler bounds them (an agent definition can
         # be hundreds of thousands of characters) and JSON-safe for the queue row. The queue keeps
         # them only until the item settles.
@@ -401,10 +473,10 @@ async def _run_labeling(
                     # The subject's own organization (tenancy for the retry's reads and writes).
                     "organization_id": str(getattr(row, "organization_id", "") or "") if row else "",
                     "conversation_content": conversation_content,
-                    "agent_name": _trim_content(agent_name or "", AGENT_NAME_MAX_CHARS),
-                    "agent_description": _trim_content(agent_description or "", AGENT_DESCRIPTION_MAX_CHARS),
+                    "agent_name": _trim_content(agent_name or "", label_limit("agent_name")),
+                    "agent_description": _trim_content(agent_description or "", label_limit("agent_description")),
                     "user_variables": _bounded_user_variables(dict(user_variables or {})),
-                    "user_prompt": _trim_content(user_prompt or "", USER_PROMPT_MAX_CHARS),
+                    "user_prompt": _trim_content(user_prompt or "", label_limit("user_prompt")),
                     "title_before": str(getattr(row, "title", "") or "") if row else "",
                 },
                 default=str,
@@ -412,9 +484,8 @@ async def _run_labeling(
         )
         # The retry is seeded beside the inline attempt, never in front of it: the title must not
         # wait on the queue's round trips (it is due label_retry_delay_seconds() later anyway).
-        _seeded, (outcome, parsed) = await asyncio.gather(
-            _seed_label_retry(conversation_id, retry_payload),
-            _label_and_apply(
+        def _attempt() -> Any:
+            return _label_and_apply(
                 conversation_id=conversation_id,
                 user_id=user_id,
                 conversation_content=conversation_content,
@@ -422,8 +493,21 @@ async def _run_labeling(
                 agent_description=agent_description,
                 user_variables=user_variables,
                 user_prompt=user_prompt,
-            ),
+                # The title is the title (Arman): a rename made while this attempt ran is never
+                # overwritten — the same guard the durable retry uses.
+                keep_title_unless=retry_payload["title_before"],
+            )
+
+        _seeded, (outcome, parsed) = await asyncio.gather(
+            _seed_label_retry(conversation_id, retry_payload),
+            _attempt(),
         )
+        if parsed is None and outcome.startswith("failed:"):
+            # ONE FLAKY REPLY IS TRIED AGAIN AT ONCE (review 15, M7): the provider rejected the namer's reply
+            # ("Parsing failed") and the chat kept "Auto: <agent>" for eight minutes waiting on the durable retry,
+            # which exists for a process that died, not for one bad reply. One more call now; then the retry.
+            vcprint(f"[ConversationLabeler] {conversation_id}: {outcome} — trying once more now", color="yellow")
+            outcome, parsed = await _attempt()
         if parsed is None:
             vcprint(
                 f"[ConversationLabeler] {conversation_id}: {outcome} (the durable retry will try again)",
@@ -432,7 +516,7 @@ async def _run_labeling(
             return
 
         ctx = try_get_app_context()
-        if ctx is not None and ctx.emitter is not None:
+        if ctx is not None and ctx.emitter is not None and parsed.label:
             await ctx.emitter.send_data(
                 ConversationLabeledData(
                     conversation_id=conversation_id,
@@ -469,7 +553,9 @@ async def run_label_retry(payload: dict[str, Any]) -> str:
     if row is None or getattr(row, "deleted_at", None) is not None:
         return "skipped:conversation_gone"
     title_before = str(payload.get("title_before") or "")
-    if _already_labeled(row) or str(getattr(row, "title", "") or "") != title_before:
+    if _person_named(row) or str(getattr(row, "title", "") or "") != title_before or (
+        _already_labeled(row) and not _needs_title(row)
+    ):
         # Labeled, or retitled since the inline attempt began (by it or by the person).
         return "skipped:already_labeled"
     if isinstance(getattr(row, "metadata", None), dict) and row.metadata.get("channel") == "staff":
@@ -502,6 +588,7 @@ def schedule_conversation_labeling(
     agent_description: str | None = None,
     user_variables: dict[str, Any] | None = None,
     user_prompt: str | None = None,
+    retitle_only: bool = False,
 ) -> None:
     """Register conversation labeling to run the instant the conversation row is
     COMMITTED — regardless of arrival order.
@@ -546,6 +633,7 @@ def schedule_conversation_labeling(
             agent_description=agent_description,
             user_variables=user_variables,
             user_prompt=user_prompt,
+            retitle_only=retitle_only,
         )
 
     # coalesce on the conversation id: two messages from the same user used to

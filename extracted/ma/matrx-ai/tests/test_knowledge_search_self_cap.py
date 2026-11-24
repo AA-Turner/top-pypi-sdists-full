@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from matrx_ai.tools.implementations.rag import knowledge_search
+from matrx_ai.tools.implementations.rag import OUTPUT_BUDGET_CHARS, knowledge_search
 from matrx_ai.tools.output_caps import TOOL_RESULT_SOFT_CAP_CHARS
 from matrx_ai.tools.result_gate import (
     _SINKS,
@@ -115,12 +115,15 @@ async def test_limit_50_result_stays_under_the_soft_cap_and_says_what_was_trimme
     assert res.success
     blocks = res.provider_content
     assert blocks is not None
+    # The whole model-facing result is held to the per-call output budget (2026-11-02).
+    assert block_text_chars(blocks) < OUTPUT_BUDGET_CHARS + 1_000
     assert block_text_chars(blocks) < TOOL_RESULT_SOFT_CAP_CHARS
 
     meta = json.loads(blocks[-1].text)
-    trimmed = meta["metadata_trimmed"]
-    assert trimmed["heavy_fields_removed"] > 0
-    assert "smaller limit" in trimmed["note"]
+    budget = meta["output_budget"]
+    assert budget["hits_dropped"] > 0
+    assert "lower limit" in budget["note"]
+    assert "knowledge_open" in budget["read_more"]
     # Identity stays on every surviving hit.
     assert all("chunk_id" in h and "source_id" in h for h in meta["hits"])
 
@@ -136,19 +139,23 @@ async def test_limit_50_result_stays_under_the_soft_cap_and_says_what_was_trimme
     assert gate_events == []  # no blocks_over_cap
 
 
-async def test_lowest_ranked_hits_lose_metadata_first(inject):
+async def test_lowest_ranked_hits_drop_first(inject):
     inject(_prod_shape(14))
     res = await knowledge_search({"query": "q", "limit": 14}, _Ctx())
     meta = json.loads(res.provider_content[-1].text)
-    assert meta["metadata_trimmed"]["entries_dropped"] == 0
-    assert "metadata" in meta["hits"][0]
-    assert "metadata" not in meta["hits"][-1]
-    assert len(meta["hits"]) == 14
+    kept = [h["chunk_id"] for h in meta["hits"]]
+    assert kept[0] == "chunk-000"
+    assert kept == [f"chunk-{i:03d}" for i in range(len(kept))]
+    assert meta["output_budget"].get("hits_dropped", 0) == 14 - len(kept)
 
 
-async def test_small_result_metadata_is_untouched(inject):
+async def test_indexing_metadata_never_reaches_the_model_but_stays_stored(inject):
     inject(_prod_shape(3))
     res = await knowledge_search({"query": "q", "limit": 3}, _Ctx())
     meta = json.loads(res.provider_content[-1].text)
-    assert "metadata_trimmed" not in meta
-    assert all("metadata" in h for h in meta["hits"])
+    assert "hits_dropped" not in meta["output_budget"]
+    assert len(meta["hits"]) == 3
+    assert all("metadata" not in h for h in meta["hits"])
+    assert all(h["title"].startswith("NIST SP 800-61") for h in meta["hits"])
+    # The stored output (UI, lineage) is complete.
+    assert all(h["metadata"] for h in res.output["hits"])

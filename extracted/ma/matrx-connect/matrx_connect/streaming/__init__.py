@@ -10,6 +10,10 @@ from matrx_connect.streaming.run_tracking import (
     configure_shutdown_probe,
     configure_stream_run_opener,
 )
+from matrx_connect.streaming.unread_settle import (
+    RunSettledUnread,
+    configure_run_settled_unread,
+)
 from matrx_connect.streaming.primitives import (
     make_ndjson_response,
     make_sse_response,
@@ -24,6 +28,8 @@ __all__ = [
     "opens_own_root",
     "configure_shutdown_probe",
     "configure_stream_run_opener",
+    "RunSettledUnread",
+    "configure_run_settled_unread",
     "create_prepared_streaming_response",
     "create_streaming_response",
     "open_route_lane",

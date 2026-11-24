@@ -14,6 +14,8 @@ Census over the doors, all through the ONE writer ``_write_request_snapshot``:
 from __future__ import annotations
 
 from types import SimpleNamespace
+
+from matrx_connect.context.run_scope import RunScope
 from uuid import uuid4
 
 import pytest
@@ -43,7 +45,7 @@ async def _stamped(monkeypatch: pytest.MonkeyPatch, **ctx_fields) -> object:
 
     monkeypatch.setattr("matrx_ai.db.persistence.live_version_id_for_agent", fake_live_version)
     monkeypatch.setattr("matrx_ai.db.persistence.conversation_agent_version_id", fake_conv_version)
-    ctx = SimpleNamespace(
+    ctx = SimpleNamespace(run=RunScope(), 
         store=True,
         conversation_id=str(uuid4()),
         request_id=str(uuid4()),
@@ -88,3 +90,19 @@ async def test_child_fork_with_version_cleared(monkeypatch: pytest.MonkeyPatch) 
 @pytest.mark.asyncio
 async def test_continuation_with_only_the_conversation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert await _stamped(monkeypatch) == CONV_VERSION
+
+
+@pytest.mark.asyncio
+async def test_a_resumed_turn_names_the_version_its_turn_started_under(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PB-01e (2026-11-08): the Notes binding pinned v3; after Apply the resumed call's context carried the
+    agent's id and no version (conversation 650a3504, snapshot 4cc4be07). It rendered v3 and was labelled
+    live v5. The turn's own request row (user_request f0edc4bc) names the version it started under: v3."""
+    turn_version = str(uuid4())
+
+    async def fake_request_version(request_id: str) -> str | None:
+        return turn_version
+
+    monkeypatch.setattr(
+        "matrx_ai.db.persistence.user_request_agent_version_id", fake_request_version, raising=False
+    )
+    assert await _stamped(monkeypatch, agent_id=AGENT) == turn_version

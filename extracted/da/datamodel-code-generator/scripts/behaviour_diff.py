@@ -57,17 +57,20 @@ that uses an option, value or input type BASE does not have is `opt-in` and is n
 
 Without `--identity` the change records judge every cell whose facts (`compare_release.cell_facts`) differ. A PR run
 (BASE a revision) compares the merge base of BASE and the candidate and judges by the records whose `id` that base
-lacks; a PR that changes nothing under src/ passes without generating (a record with `[[change.cells]]` fails then),
-and one that changes the gate's own files also runs the base's gate. A release run (BASE a release version or
-`refs/tags/<tag>`) judges by the fragments the tag lacks. Presets come from the latest tag. The run adds the cells the
-records' selectors name and, in a PR run, the nightly cells of the inputs it changes; a differing cell's head runs
-twice, and the records that cover it must admit every kind of its difference with their categories' evidence
-(`_behaviour_classify.judge`: payload cells, rule (b), companion cells). Every selector must match a differing cell
-(in a release run, staleness in a run of the whole nightly or release tier); the stored modules an `output-text`
-record covers, and the changed labels a `harness` record covers in a src PR, are proved by signatures, rule (b) and
-values drawn from their models' schemas (`_stored-module`); `--verdicts OUT` (shard 1) writes the verdicts on those
-`harness` labels by their base and head contents, which `declared_changes.py check --verdicts OUT` reads. The
-report lists the uncovered cells with a starting `[[change.cells]]` block.
+lacks; a PR that changes nothing under src/ passes without generating (a record with `[[change.cells]]` fails then,
+except one whose own `refs` all name pull requests merged after the latest tag up to that base, extending, if it
+extends, a record of the base: a change already on main, whose cells the release runs judge), and one that changes the
+gate's own files also runs the base's gate. A release run (BASE a release version or `refs/tags/<tag>`) judges by the
+fragments the tag lacks. Presets come from the latest tag. The run adds the cells the records' selectors name and, in
+a PR run, the nightly cells of the inputs it changes; a differing cell's head runs twice, and the records that cover
+it must admit every kind of its difference with their categories' evidence (`_behaviour_classify.judge`: payload
+cells, rule (b), companion cells). Every selector must match a differing cell (in a release run, staleness in a run of
+the whole nightly or release tier), judged by the runs that build its label space (fixture paths in every run;
+`payload:` and `project:` cells in the nightly and release tiers); the stored modules an `output-text` record covers,
+and the changed labels a `harness` record covers in a src PR, are proved by signatures, rule (b) and values drawn from
+their models' schemas (`_stored-module`); `--verdicts OUT` (shard 1) writes the verdicts on those `harness` labels by
+their base and head contents, which `declared_changes.py check --verdicts OUT` reads. The report lists the uncovered
+cells with a starting `[[change.cells]]` block.
 
 scripts/behaviour_diff_allowlist.toml holds `base`, `families` and `[[base_skip]]` entries (a test keeps it free of
 `[[accepted]]` entries: the records judge changes, see docs/development-contributing.md "Declared changes"). A
@@ -117,7 +120,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Final, TypedDict
 
 import tomllib
 
@@ -130,7 +133,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts import _behaviour_signature, _cell_catalog, compare_release, declared_changes  # ruff: ignore[module-import-not-at-top-of-file]
+from scripts import _behaviour_signature, _cell_catalog, compare_release, declared_changes, record_prs  # ruff: ignore[module-import-not-at-top-of-file]
 from scripts._behaviour_classify import (  # ruff: ignore[module-import-not-at-top-of-file]
     CLASSES,
     LINE_ASPECT,
@@ -154,11 +157,17 @@ from scripts._behaviour_classify import (  # ruff: ignore[module-import-not-at-t
 )
 from scripts._behaviour_report import compare_records, redact, summarize_gate  # ruff: ignore[module-import-not-at-top-of-file]
 from scripts._change_records import (  # ruff: ignore[module-import-not-at-top-of-file]
+    COMPOSITION_SPACE,
+    FAMILY_SPACE,
+    FIXTURE_SPACE,
+    PAYLOAD_SPACE,
     PRESET_OPTION,
+    PROJECT_SPACE,
     Category,
     owner_of,
     parse_entry,
     read_records,
+    resolved_record,
     rule_problems,
     split_options,
     version_key,
@@ -235,6 +244,7 @@ ORACLE_FILES = (
     "scripts/compile_builtin_templates.py",
     "scripts/declared_changes.py",
     "scripts/fact_tables.py",
+    "scripts/record_prs.py",
     "scripts/select_ci_test_shard.py",
 )
 """The gate's own files: a change to one also runs the base's gate (`base_gate`).
@@ -252,7 +262,7 @@ HEAD_STOPPED = (
 """Set in the environment of the base's gate, so that it does not run its own base's gate again."""
 UNCOVERED = "no record's [[change.cells]] covers the cell"
 FAMILY_KIND = "family"
-FAMILY_PREFIX = f"{FAMILY_KIND}:"
+FAMILY_PREFIX = FAMILY_SPACE
 FAMILY_LIBRARY = "tests/main/shape_families/families.py"
 FAMILY_SPELLINGS = {"jsonschema": "schema.json", "openapi": "openapi.json"}
 """The file of each spelling of a family shape, by its input file type."""
@@ -1069,8 +1079,7 @@ def run_cell(gate: Gate, cell: Cell) -> Result:
 
     The release's output is signed where the candidate refuses it too, so a refusal of an output that failed to
     import is told from one of an output that worked. A release that `[[base_skip]]` names for the input does not
-    run at all. A family cell the run reports only (`in_verdict`) adds nothing to the evidence, and no change record
-    judges it.
+    run at all; the base's output comes from the cache where it has it (`judge_outcomes` judges the two).
     """
     if (project := project_of(gate, cell)) is not None:
         try:
@@ -1088,29 +1097,41 @@ def run_cell(gate: Gate, cell: Cell) -> Result:
         if base is None:
             base = gate.base.generate(args, tmp)
             gate.cache.put(cell.input, args, base, import_check=False)
-        candidate = gate.candidate.generate(args, tmp)
-        if in_verdict(gate, cell):
-            run = f"{cell.label} | {cell.backend} | {cell.option_label}"
-            gate.evidence.add(input_group(cell), run, base, candidate)
-        if gate.identity:
-            return Result(cell, identity_verdict(base, candidate))
-        same = base.ok and candidate.ok and base.tree == candidate.tree
-        sides = [Side(base.ok, base.error), Side(candidate.ok, candidate.error)]
-        valid: frozenset[str] = frozenset()
-        if base.ok and not same:
-            payloads = payloads_for(gate, cell) if candidate.ok else None
-            if payloads is not None:
-                entries = json.loads(payloads.read_text(encoding="utf-8"))
-                valid = frozenset(e["id"] for e in entries if e.get("kind") == "valid" and e.get("expect") == "accept")
-            sides = [
-                Side(
-                    generated=True,
-                    signature=cell_signature(gate, cell, outcome.tree, tmp / f"sig-{side}", payloads),
-                )
-                if outcome.ok
-                else failed
-                for (side, outcome), failed in zip((("base", base), ("cand", candidate)), sides, strict=True)
-            ]
+        return judge_outcomes(gate, cell, (base, gate.candidate.generate(args, tmp)), tmp)
+
+
+def judge_outcomes(
+    gate: Gate, cell: Cell, outcomes: tuple[compare_release.Outcome, compare_release.Outcome], tmp: Path
+) -> Result:
+    """Classify a cell whose base and candidate generated into `tmp` (`run_cell`), signing their trees there.
+
+    It adds the cell to the evidence, then gives the identity verdict, or the classification and, where the sides'
+    facts differ, the verdict of the change records (`judge_cell`). A family cell the run reports only (`in_verdict`)
+    adds nothing to the evidence, and no change record judges it.
+    """
+    base, candidate = outcomes
+    if in_verdict(gate, cell):
+        run = f"{cell.label} | {cell.backend} | {cell.option_label}"
+        gate.evidence.add(input_group(cell), run, base, candidate)
+    if gate.identity:
+        return Result(cell, identity_verdict(base, candidate))
+    same = base.ok and candidate.ok and base.tree == candidate.tree
+    sides = [Side(base.ok, base.error), Side(candidate.ok, candidate.error)]
+    valid: frozenset[str] = frozenset()
+    if base.ok and not same:
+        payloads = payloads_for(gate, cell) if candidate.ok else None
+        if payloads is not None:
+            entries = json.loads(payloads.read_text(encoding="utf-8"))
+            valid = frozenset(e["id"] for e in entries if e.get("kind") == "valid" and e.get("expect") == "accept")
+        sides = [
+            Side(
+                generated=True,
+                signature=cell_signature(gate, cell, outcome.tree, tmp / f"sig-{side}", payloads),
+            )
+            if outcome.ok
+            else failed
+            for (side, outcome), failed in zip((("base", base), ("cand", candidate)), sides, strict=True)
+        ]
     verdict = classify_cell(
         sides[0],
         sides[1],
@@ -1193,7 +1214,10 @@ class Plan:
     `head` and `before` the candidate's and the base's records by id. `presets` are the latest tag's (None: the
     base's own, for a release the repository has no tag of). `changed` are the files below tests/data a PR changes;
     `src` and `oracle` say whether it changes src/ and the gate's own files (a release run always runs); `groups`
-    the (input, output model type) pairs of the run each selector covers, which share a shard (`place`).
+    the (input, output model type) pairs of the run each selector covers, which share a shard (`place`); `spaces` the
+    label spaces whose cells the run builds (`build_cells`), which judge the selectors of those spaces only. `landed`
+    are the records of a PR run that record a change merged before its base (`landed_records`), by id, with the
+    pull requests they name.
     """
 
     base: str | None
@@ -1209,6 +1233,8 @@ class Plan:
     head: dict[str, Record] = field(default_factory=dict)
     before: dict[str, Record] = field(default_factory=dict)
     groups: list[frozenset[tuple[str, str]]] = field(default_factory=list)
+    spaces: frozenset[str] = frozenset({FIXTURE_SPACE})
+    landed: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def selectors(self) -> list[tuple[Record, int, CellSelector]]:
         """Return each selector of the judged records with its record and its 1-based index there."""
@@ -1307,20 +1333,6 @@ def _released_ids(candidate: Candidate, tag: str, commit: str | None) -> set[str
     return None
 
 
-def _resolved(record: Record, records: dict[str, Record], *, added: bool) -> tuple[Record | None, list[str]]:
-    """Return the record a judge reads for one record: an extending record as its target with its own id and cells.
-
-    The cells of an extending record follow its target's rule (`added` as `rule_problems` reads it).
-    """
-    if record.extends is None:
-        return record, []
-    target = records.get(record.extends)
-    if target is None or target.extends is not None or target.category is None:
-        return None, [f"entry {record.id}: extends {record.extends}, which is not an unreleased record of its own"]
-    resolved = replace(target, id=record.id, covers=record.covers, cells=record.cells)
-    return resolved, rule_problems(resolved, fragment=True, added=added)
-
-
 def plan_records(ns: argparse.Namespace, candidate: Candidate) -> Plan:
     """Resolve the base of a gate run's changes and the records it judges by (`Plan`).
 
@@ -1369,15 +1381,45 @@ def plan_records(ns: argparse.Namespace, candidate: Candidate) -> Plan:
             for record_id, record in head.items()
             if record_id in before and set(record.cells) - set(before[record_id].cells)
         ]
+        plan.landed = landed_records(repo, plan, added)
     for record in added:
-        problems += rule_problems(record, fragment=True, added=not plan.release)
-        resolved, found = _resolved(record, head, added=not plan.release)
-        problems += found
+        problems += rule_problems(record, fragment=True, added=not plan.release, records=head)
+        resolved, _ = resolved_record(record, head)
         plan.judged += [resolved] if resolved is not None else []
     if tag_commit:
         plan.presets = tag_presets(repo, tag_commit)
     plan.problems = list(dict.fromkeys(problems))
     return plan
+
+
+def merged_pulls(repo: Path, tag_commit: str | None, base: str) -> set[str]:
+    """Return the pull requests merged after the latest tag up to a PR run's base, as `#n`.
+
+    A squash commit's subject ends with its pull request (`record_prs.PR_SUFFIX`); the first-parent history after the
+    tag (all of it without the tag) holds the changes the release lacks.
+    """
+    span = f"{tag_commit}..{base}" if tag_commit else base
+    subjects = compare_release.git(repo, "log", "--first-parent", "--format=%s", span).stdout.splitlines()
+    return {f"#{found[1]}" for subject in subjects if (found := record_prs.PR_SUFFIX.search(subject.rstrip()))}
+
+
+def landed_records(repo: Path, plan: Plan, added: Sequence[Record]) -> dict[str, tuple[str, ...]]:
+    """Return the records a PR run adds that record a change already merged at its base, with their pull requests.
+
+    A record names its change's pull requests in its own `refs`: where every one of them was merged after the latest
+    tag up to the base (`merged_pulls`), and an extending record's target is a record of the base, the change is
+    already on main and the PR adds only its record. A PR that changes nothing under src/ may name its cells (no
+    cell can differ from the base, `shortcut`); the runs against the release judge them.
+    """
+    candidates = [
+        record
+        for record in added
+        if record.cells and record.refs and (record.extends is None or record.extends in plan.before)
+    ]
+    if not candidates or plan.base is None:
+        return {}
+    merged = merged_pulls(repo, plan.tag_commit, plan.base)
+    return {record.id: record.refs for record in candidates if set(record.refs) <= merged}
 
 
 def surface_problems(plan: Plan, inventory: dict[str, list[str] | None]) -> list[str]:
@@ -1393,6 +1435,19 @@ def surface_problems(plan: Plan, inventory: dict[str, list[str] | None]) -> list
             if (reason := opt_in_reason(option_set, inventory))
         ]
     return list(dict.fromkeys(found))
+
+
+def plan_surface_problems(gate: Gate, inventory: dict[str, list[str] | None] | None, cache_dir: Path) -> list[str]:
+    """Return the selectors of the gate's records that name a surface the latest tag lacks (`surface_problems`).
+
+    `inventory` is the base's options: the released ones for a release plan, else (or None) the latest tag's are read.
+    """
+    plan = gate.plan
+    if plan is None or not any(selector.options or selector.input_file_type for *_, selector in plan.selectors()):
+        return []
+    return surface_problems(
+        plan, inventory if plan.release and inventory is not None else tag_inventory(gate, cache_dir)
+    )
 
 
 def tag_inventory(gate: Gate, cache_dir: Path) -> dict[str, list[str] | None]:
@@ -1786,7 +1841,7 @@ def stored_problems(gate: Gate) -> list[str]:
         for label in record.covers
     ]
     for record_id, record in plan.head.items():
-        target = record if record.extends is None else plan.head.get(record.extends)
+        target, _ = resolved_record(record, plan.head)
         if target is not None and target.category == Category.HARNESS:
             known = set(plan.before[record_id].covers) if record_id in plan.before else set()
             labels += [(label, Category.HARNESS) for label in record.covers if label not in known]
@@ -1878,7 +1933,12 @@ def _extract_gate(base: str, repo: Path, root: Path) -> None:
 
 
 def build_cells(ns: argparse.Namespace, gate: Gate, inventory: dict[str, list[str] | None]) -> list[Cell]:
-    """Return the cells of the selected tier."""
+    """Return the cells of the selected tier, and set the label spaces it builds (`Plan.spaces`).
+
+    Every run builds the fixture cells every selector names; the nightly and release tiers also build the payload
+    and project cells, and the family cells where the run judges them (the PR tier's family cells are a sample of
+    the product, and a report-only run judges none).
+    """
     candidate = gate.candidate_info
     inputs = fixture_inputs(candidate, ns.base)
     types = (
@@ -1912,7 +1972,9 @@ def build_cells(ns: argparse.Namespace, gate: Gate, inventory: dict[str, list[st
                 )
                 raise SystemExit(msg)
             cells += [cell for cell in named if _selected(cell.label, ns.select)]
+    spaces = {FIXTURE_SPACE}
     if ns.tier != "pr":
+        spaces.add(PROJECT_SPACE)
         cells += [
             Cell(candidate.root / name, name, file_type, backend, options, "preset")
             for backend, options in preset_option_sets(presets, types)
@@ -1928,10 +1990,14 @@ def build_cells(ns: argparse.Namespace, gate: Gate, inventory: dict[str, list[st
         gate.projects, projects = load_projects(ns.projects, ns.cache_dir.absolute())
         cells += [cell for cell in projects if cell.backend in types and _selected(cell.label, ns.select)]
         if not ns.select or any(pattern.startswith("payload:") for pattern in ns.select):
+            spaces.add(PAYLOAD_SPACE)
             cells += [cell for cell in payload_cells(gate, types) if _selected(cell.label, ns.select)]
     if ns.families and (not ns.select or any(pattern.startswith(FAMILY_PREFIX) for pattern in ns.select)):
         named = family_cells(family_index(gate), gate.family_root, tier_product(ns.tier, types, presets))
         cells += [cell for cell in named if _selected(cell.label, ns.select)]
+        spaces |= {FAMILY_SPACE} if ns.tier != "pr" and gate.families_judged else set()
+    if plan is not None:
+        plan.spaces = frozenset(spaces)
     cells += picked_cells(gate)
     unique: dict[tuple[str, str, str, tuple[str, ...]], Cell] = {}
     for cell in cells:
@@ -2147,6 +2213,10 @@ def cell_row(result: Result) -> dict[str, Any]:
     }
 
 
+COMPOSITION_PREFIX: Final = COMPOSITION_SPACE
+"""The start of the labels of the random tier's composition cells, which the gate has none of."""
+
+
 def selector_problems(
     plan: Plan, results: list[Result], ns: argparse.Namespace, shards: tuple[Placement, Placement]
 ) -> list[str]:
@@ -2155,6 +2225,8 @@ def selector_problems(
     A PR run judges every selector of its records; a release run judges staleness in a run of the whole nightly or
     release tier only, as the PR tier is a sample. A selection may leave a selector's cells out, so it judges none.
     A selector is judged in the shard that runs its cells (`place`), or in shard 1 where it covers no cell at all.
+    A run judges only the selectors of the label spaces it builds (`Plan.spaces`): the PR tier has no payload or
+    project cells, and no run of this gate the random tier's compositions.
     """
     here, run = shards
     if ns.select or (plan.release and ns.tier == "pr"):
@@ -2163,12 +2235,20 @@ def selector_problems(
     stale = " (stale: edit the record)" if plan.release else ""
     found = []
     for position, (record, index, selector) in enumerate(plan.selectors()):
+        if not selector.spaces <= plan.spaces:
+            continue
         if position not in here.groups and not (lead and position not in run.groups):
             continue
         matched = [result for result in results if covers(selector, result.cell)]
         if not any(result.judged is not None for result in matched):
             what = "only equal cells" if matched else "no cell of the run"
-            found.append(f"entry {record.id}: cells {index} matches {what}{stale}")
+            landed = (
+                f" (it records {', '.join(plan.landed[record.id])}, merged before {(plan.base or '')[:12]}: name its "
+                "cells in a PR that changes nothing under src/)"
+                if record.id in plan.landed
+                else ""
+            )
+            found.append(f"entry {record.id}: cells {index} matches {what}{stale}{landed}")
     return found
 
 
@@ -2375,11 +2455,22 @@ def build_gate(ns: argparse.Namespace) -> Gate:
     return gate
 
 
+def gate_of(argv: Sequence[str]) -> Gate:
+    """Return the gate that `gate ARGV...` runs (`build_gate`), for a caller that generates and judges cells of its own.
+
+    Nothing is generated: the caller runs its cells through `gate.base` and `gate.candidate` and judges them with
+    `judge_outcomes`, by the identity verdict (`--identity`) or by the change records the base lacks.
+    """
+    return build_gate(_parse_args(["gate", *argv]))
+
+
 def shortcut(gate: Gate, plan: Plan, ns: argparse.Namespace) -> int:
     """Pass a PR that changes nothing under src/ without generating: every cell is equal by construction.
 
-    A PR record that names cells fails then, as no cell can differ; the base's gate still runs on a change of the
-    gate's own files (`base_gate`).
+    A PR record that names cells fails then, as no cell can differ, except a record of a change already merged
+    (`Plan.landed`), whose cells the runs against the release judge: its selectors must name released surface only
+    (`plan_surface_problems`), as those runs refuse any other. The base's gate still runs on a change of the gate's
+    own files (`base_gate`).
     """
     base = (plan.base or "")[:12]
     problems = [
@@ -2387,10 +2478,19 @@ def shortcut(gate: Gate, plan: Plan, ns: argparse.Namespace) -> int:
         *(
             f"entry {record.id}: src/ is unchanged since {base}, so its cells cannot differ"
             for record in plan.judged
-            if record.cells
+            if record.cells and record.id not in plan.landed
         ),
+        *plan_surface_problems(gate, None, ns.cache_dir.absolute()),
     ]
     print(f"src/ unchanged since the merge base {base}: every cell is equal")
+    print(
+        "".join(
+            f"records: entry {record_id} records {', '.join(refs)}, merged before {base}: the runs against the release "
+            "judge its cells\n"
+            for record_id, refs in plan.landed.items()
+        ),
+        end="",
+    )
     print("".join(f"records: {problem}\n" for problem in problems), end="")
     status = base_gate(plan, ns, gate.candidate_info.repo)
     return 1 if ns.check and (problems or status) else 0
@@ -2410,9 +2510,8 @@ def gate_main(ns: argparse.Namespace) -> int:
         return shortcut(gate, plan, ns)
     inventory = option_inventory(gate.base.side.python, gate.base.env)
     offered = option_inventory(gate.candidate.side.python, gate.candidate.env) if gate.identity else inventory
-    if plan is not None and any(selector.options or selector.input_file_type for *_, selector in plan.selectors()):
-        released = inventory if plan.release else tag_inventory(gate, ns.cache_dir.absolute())
-        plan.problems += surface_problems(plan, released)
+    if plan is not None:
+        plan.problems += plan_surface_problems(gate, inventory, ns.cache_dir.absolute())
     cells = build_cells(ns, gate, inventory)
     if plan is not None:
         plan.groups = [

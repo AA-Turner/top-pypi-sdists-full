@@ -304,13 +304,15 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         try:
             # The shell is a session, as a terminal is: with no working_dir the command runs where
             # the previous one ended (``cd`` sticks), per conversation (X-Matrx-Shell-Session) on a
-            # cloud box and a desktop. A named folder still wins.
+            # cloud box and a desktop. A named folder still wins. A binding that carries the
+            # conversation's own working folder (a Cloud Computer, zone 2) starts every command
+            # there: the machine keeps no shell session, so "nothing named" would mean the home.
             cwd_path = (
-                None
+                binding.working_dir
                 if parsed.working_dir in ("", ".", "./")
                 else parsed.working_dir
                 if parsed.working_dir.startswith("/") or _is_windows_absolute(parsed.working_dir)
-                else f"{binding.root_path.rstrip('/')}/{parsed.working_dir.lstrip('./')}"
+                else f"{binding.default_dir.rstrip('/')}/{parsed.working_dir.lstrip('./')}"
             )
             result = await _proxy_exec(
                 binding,
@@ -369,7 +371,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     stdout_truncated=stdout_truncated,
                     stderr_truncated=stderr_truncated,
                     exit_code=exit_code,
-                    cwd=str(result.get("cwd") or cwd_path or binding.root_path),
+                    cwd=str(result.get("cwd") or cwd_path or binding.default_dir),
                     log_path=log_path,
                     backend="sandbox",
                 ).model_dump(mode="json"),
@@ -393,7 +395,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         except SandboxProxyError as exc:
             return ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=exc, 
                     error_type=getattr(exc, "error_type", "sandbox_error"),
                     message=str(exc),
                     # A transient orchestrator-restart outage arrives flagged
@@ -423,11 +425,11 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 process.communicate(),
                 timeout=parsed.timeout_seconds,
             )
-        except TimeoutError:
+        except TimeoutError as exc:
             process.kill()
             return ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=exc, 
                     error_type="timeout",
                     message=f"Command timed out after {parsed.timeout_seconds}s",
                     is_retryable=True,
@@ -550,8 +552,9 @@ async def shell_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 binding,
                 "python3 -",
                 # The session's folder (where the last shell command left it), as a script run
-                # from a terminal; sending the root here reset the shell's sticky folder.
-                cwd=None,
+                # from a terminal; sending the root here reset the shell's sticky folder. A
+                # Cloud Computer binding names the conversation's working folder instead.
+                cwd=binding.working_dir,
                 stdin=parsed.code,
                 timeout=parsed.timeout_seconds,
             )
@@ -612,7 +615,7 @@ async def shell_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         except SandboxProxyError as exc:
             return ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=exc, 
                     error_type=getattr(exc, "error_type", "sandbox_error"),
                     message=str(exc),
                     # A transient orchestrator-restart outage arrives flagged
@@ -646,11 +649,11 @@ async def shell_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 process.communicate(),
                 timeout=parsed.timeout_seconds,
             )
-        except TimeoutError:
+        except TimeoutError as exc:
             process.kill()
             return ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=exc, 
                     error_type="timeout",
                     message=f"Python execution timed out after {parsed.timeout_seconds}s",
                     is_retryable=True,

@@ -23,6 +23,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 
 #: The image's one user home; ``--home`` points a test at another tree.
@@ -126,11 +127,20 @@ def _cookies(default: Path, auth_domains: list[str]) -> dict[str, object]:
     per_domain: dict[str, int] = {}
     persistent: dict[str, int] = {}
     names: dict[str, list[str]] = {}
-    for host, name, has_expires, _expires in rows:
+    entries: list[dict[str, object]] = []
+    for host, name, has_expires, expires in rows:
         domain = host.lstrip(".")
         per_domain[domain] = per_domain.get(domain, 0) + 1
         if has_expires:
             persistent[domain] = persistent.get(domain, 0) + 1
+        # Name, session flag and own expiry: the check excuses a cookie that is gone only
+        # because its own expiry passed, or a session cookie a cold start drops.
+        entries.append({
+            "domain": domain,
+            "name": name,
+            "session": not has_expires,
+            "expires": _chrome_time(expires) if has_expires else None,
+        })
         for wanted in auth_domains:
             if domain == wanted or domain.endswith("." + wanted):
                 names.setdefault(wanted, []).append(name)
@@ -140,7 +150,21 @@ def _cookies(default: Path, auth_domains: list[str]) -> dict[str, object]:
         "persistent_by_domain": dict(sorted(persistent.items())),
         "by_domain": dict(sorted(per_domain.items())),
         "auth_cookie_names": {d: sorted(set(names.get(d, []))) for d in auth_domains},
+        "entries": sorted(entries, key=lambda e: (str(e["domain"]), str(e["name"]), str(e["expires"]))),
     }
+
+
+#: Chrome's ``expires_utc``: microseconds since 1601-01-01 UTC.
+_CHROME_EPOCH = datetime(1601, 1, 1, tzinfo=UTC)
+
+
+def _chrome_time(micros: int | None) -> str | None:
+    if not micros:
+        return None
+    try:
+        return (_CHROME_EPOCH + timedelta(microseconds=int(micros))).isoformat()
+    except (OverflowError, ValueError):
+        return None
 
 
 def _bookmarks(default: Path) -> dict[str, object]:
@@ -265,9 +289,11 @@ def chrome_profiles(auth_domains: list[str]) -> list[dict[str, object]]:
         prefs_path = default / "Preferences"
         prefs_sha = None
         prefs_map: dict[str, str] = {}
+        restore_on_startup = None
         if prefs_path.exists():
             try:
                 prefs = json.loads(prefs_path.read_text())
+                restore_on_startup = (prefs.get("session") or {}).get("restore_on_startup")
                 for key in VOLATILE_PREFERENCE_KEYS:
                     _drop(prefs, key)
                 prefs.pop("extensions", None)  # compared as the extension list
@@ -287,6 +313,9 @@ def chrome_profiles(auth_domains: list[str]) -> list[dict[str, object]]:
                 # Per-setting hashes: the check names WHICH setting changed and
                 # holds the one list of settings Chrome rewrites on its own.
                 "preferences": prefs_map,
+                # Chrome keeps session cookies across a restart only with "continue where you
+                # left off" (1); the worker sets 5 (new tab page) on every desktop launch.
+                "restore_on_startup": restore_on_startup,
             }
         )
     return out

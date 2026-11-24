@@ -9,7 +9,7 @@ from bokeh.models import Column as BkColumn, Div, Row as BkRow
 from panel.chat import ChatInterface
 from panel.config import config
 from panel.layout import (
-    Accordion, Card, Column, FlexBox, Row, Spacer, Tabs, WidgetBox,
+    Accordion, Card, Column, FlexBox, FloatPanel, Row, Spacer, Tabs, WidgetBox,
 )
 from panel.layout.base import ListPanel, NamedListPanel
 from panel.pane import Bokeh, Markdown
@@ -636,6 +636,58 @@ def test_pass_objects_ref(document, comm, layout):
     assert isinstance(md3, Markdown)
     assert md3.object == 'foo'
 
+@pytest.mark.parametrize('layout', [Accordion, FloatPanel, Tabs])
+def test_pass_objects_param_ref(layout):
+    class Source(param.Parameterized):
+        value = param.List(default=[Markdown('A', name='a'), Markdown('B', name='b')])
+
+    source = Source()
+    obj = layout(objects=source.param.value)
+
+    assert obj.objects == source.value
+
+    extra = Markdown('C', name='c')
+    source.value = source.value + [extra]
+
+    assert len(obj.objects) == 3
+    assert obj.objects[-1] is extra
+    if layout is not FloatPanel:
+        assert obj._names == ['a', 'b', 'c']
+
+@pytest.mark.parametrize('layout', [Accordion, Tabs])
+def test_pass_objects_param_ref_named_tuples(layout, document, comm):
+    class Source(param.Parameterized):
+        value = param.List(default=[('One', Markdown('A')), ('Two', Markdown('B'))])
+
+    source = Source()
+    obj = layout(objects=source.param.value)
+    obj.get_root(document, comm=comm)
+
+    assert obj._names == ['One', 'Two']
+    assert [o.object for o in obj.objects] == ['A', 'B']
+
+    source.value = [('Three', Markdown('C'))] + source.value
+
+    assert obj._names == ['Three', 'One', 'Two']
+    assert [o.object for o in obj.objects] == ['C', 'A', 'B']
+
+def test_named_list_with_names_parameter():
+    class ParameterizedNames(Tabs):
+        _names = param.List(default=[])
+
+    class Source(param.Parameterized):
+        value = param.List(default=[('One', Markdown('A'))])
+
+    source = Source()
+
+    assert ParameterizedNames(('One', Markdown('A')))._names == ['One']
+
+    obj = ParameterizedNames(objects=source.param.value)
+    assert obj._names == ['One']
+
+    source.value = [('Two', Markdown('B')), ('Three', Markdown('C'))]
+    assert obj._names == ['Two', 'Three']
+
 @pytest.mark.parametrize('dim', ["width", "height"])
 def test_compute_sizing_mode_stretch_margin_none(dim, document, comm):
     md = Markdown(**{dim: 100})
@@ -800,3 +852,232 @@ def test_compute_sizing_mode_inference_downgrade_does_not_warn(document, comm, c
 
     assert root.sizing_mode == 'stretch_both'
     assert 'being overridden' not in caplog.text
+
+
+def _representative_children():
+    return [
+        Markdown('fixed', width=200, height=50),
+        Markdown('width only', width=120),
+        Markdown('height only', height=80),
+        Markdown('unsized'),
+        Markdown('min', min_width=90, min_height=40),
+        Markdown('stretch width', sizing_mode='stretch_width', min_width=150),
+        Markdown('stretch height', sizing_mode='stretch_height', min_height=60),
+        Markdown('stretch both', sizing_mode='stretch_both'),
+        Markdown('scale width', sizing_mode='scale_width'),
+        Markdown('scale height', sizing_mode='scale_height', min_height=30),
+        Markdown('scale both', sizing_mode='scale_both', min_width=10, min_height=20),
+        Spacer(width=25, height=25),
+        Row(Markdown('nested', width=300), Markdown('nested stretch', sizing_mode='stretch_width')),
+        Column(Markdown('nested fixed', width=70, height=35), sizing_mode='stretch_both'),
+        MultiSelect(options=['a', 'b'], width=130),
+    ]
+
+def _reference_sizing_props(child):
+    return tuple(
+        getattr(child, prop, None)
+        for prop in ('sizing_mode', 'width', 'min_width', 'height', 'min_height')
+    )
+
+@pytest.mark.parametrize('layout', [Column, Row, WidgetBox, Card])
+@pytest.mark.parametrize('sizing_mode', [None, 'stretch_width', 'stretch_both', 'scale_height'])
+@pytest.mark.parametrize('margin', [None, 0, 7, (3, 9), (1, 2, 3, 4)])
+def test_compute_sizing_mode_matches_bokeh_property_reads(
+    layout, sizing_mode, margin, document, comm, monkeypatch
+):
+    import panel.layout.base as base
+
+    children = _representative_children()
+    panel = layout(*children, sizing_mode=sizing_mode, margin=margin)
+    root = panel.get_root(document, comm=comm)
+    props = {'sizing_mode': sizing_mode, 'margin': margin}
+
+    fast = panel._compute_sizing_mode(root.children, dict(props))
+    monkeypatch.setattr(base, '_sizing_props', _reference_sizing_props)
+    reference = panel._compute_sizing_mode(root.children, dict(props))
+
+    assert fast == reference
+
+def test_sizing_props_match_property_reads_for_overridden_defaults():
+    from panel.layout.base import _SIZING_PROPS, _sizing_props
+    from panel.models.ace import AcePlot
+
+    model = AcePlot()
+
+    assert model.width == 300
+    assert _sizing_props(model) == tuple(getattr(model, p) for p in _SIZING_PROPS)
+
+    model.width = 50
+    model.sizing_mode = 'stretch_height'
+
+    assert _sizing_props(model) == tuple(getattr(model, p) for p in _SIZING_PROPS)
+
+def test_sizing_props_match_property_reads_for_themed_values(document):
+    from bokeh.themes import Theme
+
+    from panel.layout.base import _SIZING_PROPS, _sizing_props
+
+    div = Div(text='themed')
+    document.theme = Theme(json={'attrs': {'Div': {'width': 123, 'sizing_mode': 'stretch_width'}}})
+    document.add_root(div)
+
+    assert div.width == 123
+    assert _sizing_props(div) == tuple(getattr(div, p) for p in _SIZING_PROPS)
+
+    div.min_width = 10
+
+    assert _sizing_props(div) == tuple(getattr(div, p) for p in _SIZING_PROPS)
+
+
+@pytest.mark.parametrize('layout', [Column, Row])
+def test_layout_keeps_explicit_min_size_over_inferred_one(document, comm, layout):
+    wide = Markdown('wide', min_width=420, min_height=300, sizing_mode='stretch_both')
+    container = layout(wide, min_width=0, min_height=0, sizing_mode='stretch_both')
+
+    model = container.get_root(document, comm=comm)
+
+    assert (model.min_width, model.min_height) == (0, 0)
+
+    container.append(Markdown('more', min_width=500, min_height=400, sizing_mode='stretch_both'))
+
+    assert (model.min_width, model.min_height) == (0, 0)
+
+
+@pytest.mark.parametrize('layout', [Column, Row])
+def test_layout_infers_min_size_without_explicit_one(document, comm, layout):
+    wide = Markdown('wide', min_width=420, min_height=300, sizing_mode='stretch_both')
+    container = layout(wide, sizing_mode='stretch_both')
+
+    model = container.get_root(document, comm=comm)
+
+    assert (model.min_width, model.min_height) == (420, 300)
+
+
+def test_sizing_props_track_theme_changes(document):
+    from bokeh.themes import Theme
+
+    from panel.layout.base import _SIZING_PROPS, _sizing_props
+
+    div = Div(text='themed', height=40)
+    document.add_root(div)
+    assert _sizing_props(div) == tuple(getattr(div, p) for p in _SIZING_PROPS)
+
+    document.theme = Theme(json={'attrs': {'Div': {'width': 123, 'height': 10}}})
+    assert _sizing_props(div) == tuple(getattr(div, p) for p in _SIZING_PROPS)
+
+    document.theme = None
+    assert div.width is None
+    assert _sizing_props(div) == tuple(getattr(div, p) for p in _SIZING_PROPS)
+
+
+_LAYOUT_SIZING = ('sizing_mode', 'width', 'height', 'min_width', 'min_height')
+
+def _sizing_children():
+    return [
+        Markdown('fixed', width=120, height=40),
+        Markdown('unsized'),
+        Markdown('min', min_width=90, min_height=30),
+    ]
+
+def _append(layout, extra):
+    layout.append(extra[0])
+
+def _extend(layout, extra):
+    layout.extend(extra)
+
+def _insert(layout, extra):
+    layout.insert(1, extra[0])
+
+def _pop(layout, extra):
+    layout.append(extra[0])
+    layout.pop(0)
+
+def _remove(layout, extra):
+    layout.extend(extra)
+    layout.remove(extra[0])
+
+def _setitem(layout, extra):
+    layout[1] = extra[0]
+
+def _clear(layout, extra):
+    layout.clear()
+    layout.extend(extra)
+
+def _replace_objects(layout, extra):
+    layout.objects = extra + list(layout.objects)
+
+def _child_sizing_mode(layout, extra):
+    layout[1].sizing_mode = 'stretch_width'
+    layout.append(extra[0])
+
+def _child_width(layout, extra):
+    layout[0].width = 400
+    layout.append(extra[0])
+
+def _child_height(layout, extra):
+    layout[0].height = 300
+    layout.append(extra[0])
+
+def _child_min_width(layout, extra):
+    layout[2].min_width = 500
+    layout.append(extra[0])
+
+_MUTATIONS = [
+    _append, _extend, _insert, _pop, _remove, _setitem, _clear,
+    _replace_objects, _child_sizing_mode, _child_width, _child_height,
+    _child_min_width
+]
+
+_LAYOUT_PARAMS = [
+    {},
+    {'sizing_mode': 'stretch_width'},
+    {'sizing_mode': 'fixed'},
+    {'width': 600},
+    {'min_width': 50, 'min_height': 20},
+    {'margin': (5, 10)},
+]
+
+_EXTRA_SIZING = [
+    {'width': 250},
+    {'sizing_mode': 'stretch_width', 'min_width': 300},
+    {'sizing_mode': 'stretch_both', 'min_height': 150},
+]
+
+def _mutated_layout_sizing(layout, params, mutate, extra_sizing):
+    from bokeh.document import Document
+
+    mutated = layout(*_sizing_children(), **params)
+    model = mutated.get_root(Document())
+    mutate(mutated, [Markdown('extra', **extra_sizing), Markdown('more', height=60)])
+    return mutated, {p: getattr(model, p) for p in _LAYOUT_SIZING}
+
+@pytest.mark.parametrize('layout', [Column, Row])
+@pytest.mark.parametrize('params', _LAYOUT_PARAMS)
+@pytest.mark.parametrize('mutate', _MUTATIONS)
+@pytest.mark.parametrize('extra_sizing', _EXTRA_SIZING)
+def test_layout_sizing_after_mutation_matches_bokeh_property_reads(
+    layout, params, mutate, extra_sizing, monkeypatch
+):
+    import panel.layout.base as base
+
+    _, fast = _mutated_layout_sizing(layout, params, mutate, extra_sizing)
+    monkeypatch.setattr(base, '_sizing_props', _reference_sizing_props)
+    _, reference = _mutated_layout_sizing(layout, params, mutate, extra_sizing)
+
+    assert fast == reference
+
+@pytest.mark.parametrize('layout', [Column, Row])
+@pytest.mark.parametrize('params', _LAYOUT_PARAMS)
+@pytest.mark.parametrize('mutate', [m for m in _MUTATIONS if m not in (_remove, _clear)])
+@pytest.mark.parametrize('extra_sizing', _EXTRA_SIZING)
+def test_layout_sizing_after_mutation_matches_fresh_layout(
+    layout, params, mutate, extra_sizing
+):
+    from bokeh.document import Document
+
+    # Removing a responsive child does not revert a sizing_mode that was
+    # inferred from it, so removals are only covered by the test above.
+    mutated, sizing = _mutated_layout_sizing(layout, params, mutate, extra_sizing)
+    fresh_model = layout(*mutated.objects, **params).get_root(Document())
+
+    assert sizing == {p: getattr(fresh_model, p) for p in _LAYOUT_SIZING}

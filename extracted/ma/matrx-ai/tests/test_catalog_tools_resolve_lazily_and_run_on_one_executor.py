@@ -1,6 +1,6 @@
 """Catalog Tools (source_kind='catalog'): typed CATALOG, never preloaded, one executor.
 
-CONTRACT §4 (common-docs/projects/third-party-services/CONTRACT.md):
+CONTRACT §4 (common-docs/systems/integrations/projects/third-party-services/CONTRACT.md):
   - a catalog row types as ``ToolType.CATALOG`` with ``function_path = catalog:<id>``;
   - no ``ui:*`` keyword reaches a provider tool schema;
   - the lazy resolver pins every definition a request uses on that request, and a

@@ -50,8 +50,11 @@ def _branch_sub_checks(sub_checks: list) -> list[dict]:
     ``expected_value``. The extracted side is ``extracted_value`` for an
     assertion sub-check but ``stored_value`` on a branch condition (auteur's
     blob names the branch's variable reference that way), so both are accepted.
-    ``operator`` defaults to ``contains`` and ``transforms`` to ``["strip"]``,
-    the same defaults the Playwright binding applies.
+    An absent ``operator`` means ``equals`` and absent ``transforms`` mean
+    none (an explicit empty list stays empty), the same defaults the
+    Playwright binding applies, so exported code reaches the verdict the
+    recorded recipe had at authoring. ``json_path``, ``rfc_json_path`` and
+    ``match_mode`` are carried through when present.
     """
     resolved = []
     for sc in sub_checks or []:
@@ -63,9 +66,11 @@ def _branch_sub_checks(sub_checks: list) -> list[dict]:
             "extracted_value": _resolve(
                 sc.get("extracted_value") or sc.get("stored_value") or ""
             ),
-            "operator": sc.get("operator") or "contains",
-            "transforms": sc.get("transforms") or ["strip"],
+            "operator": sc.get("operator") or "equals",
+            "transforms": sc.get("transforms") or [],
             "json_path": sc.get("json_path"),
+            **({"rfc_json_path": sc["rfc_json_path"]} if sc.get("rfc_json_path") else {}),
+            **({"match_mode": sc["match_mode"]} if sc.get("match_mode") else {}),
         })
     return resolved
 

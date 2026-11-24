@@ -24,18 +24,21 @@ from .htmlprocessing import (
     prune_unwanted_nodes,
     tree_cleaning,
 )
-from .main_extractor import _elem_text, extract_comments, extract_content
+from .main_extractor import DEFERRED_ATTR, _elem_text, extract_comments, extract_content
 from .metadata import Document, extract_metadata
-from .settings import DEFAULT_CONFIG, Extractor, use_config
+from .settings import DEFAULT_CONFIG, Extractor, sanitize_source, use_config
 from .utils import (
     LANGID_FLAG,
     HtmlInput,
     check_html_lang,
+    copy_clean_tree,
+    document_base_url,
+    language_classifier,
     language_filter,
     load_html,
     normalize_unicode,
 )
-from .xml import build_json_output, control_xml_output, delete_element, keeps_empty, xmltocsv, xmltotxt
+from .xml import META_ATTRIBUTES, build_json_output, control_xml_output, delete_element, keeps_empty, xmltocsv, xmltotxt
 from .xpaths import (
     RAW_TREE_PRUNE_XPATH,
     REMOVE_COMMENTS_AND_LISTS_XPATH,
@@ -52,11 +55,11 @@ ESCALATION_PAGE_SHARE = 0.2  # ... covering less than this share of the page tex
 ESCALATION_ACCEPT_RATIO = 1.5  # accept the retry if it is this much longer
 # justext tends to over-include (whole pricing tables, unrelated sections) rather than stop at
 # page boundaries the way the rule-based retry does, so it needs a stricter bar than the
-# retry's own 1.5x: swept 1.5-10x, 2.0x is the best balance across the full suite.
+# retry's own 1.5x: swept 1.5-10x, 2.0x is the best balance across the full suite. Re-checked
+# on the built-in jusText without the retry-length gate: 1.5x fails the gate, 3.0x loses on WCXB/WMB.
 ESCALATION_JUSTEXT_RATIO = 2.0
 
 TXT_FORMATS = {"markdown", "txt"}
-_YAML_FIELDS = "title author url hostname description sitename date categories tags fingerprint id license".split()
 
 # Metadata is emitted as a YAML-style Markdown header; values such as a title
 # containing ": " (or a leading indicator, or a reserved word) otherwise produce
@@ -107,7 +110,7 @@ def determine_returnstring(document: Document, options: Extractor) -> str:
             # categories/tags are lists, their repr is a valid flow sequence
             fields = "".join(
                 f"{attr}: {_yaml_scalar(value) if isinstance(value, str) else value}\n"
-                for attr in _YAML_FIELDS
+                for attr in META_ATTRIBUTES
                 if (value := getattr(document, attr))
             )
             header = f"---\n{fields}---\n"
@@ -140,21 +143,16 @@ def _forum_thread_page(tree: HtmlElement) -> bool:
     )
 
 
-def _prepare_tree(tree: HtmlElement, options: Extractor, url: str | None) -> tuple[HtmlElement, HtmlElement]:
-    "Clean and convert a raw tree, returning (converted, pre-conversion backup)."
-    cleaned = tree_cleaning(copy(tree), options)
-    backup = copy(cleaned)
-    cleaned = convert_tags(cleaned, options, url)
-    return cleaned, backup
+def _prepare_tree(tree: HtmlElement, options: Extractor, url: str | None) -> HtmlElement:
+    "Clean and convert a copy of the raw tree."
+    return convert_tags(tree_cleaning(copy(tree), options), options, url)
 
 
-def _extract_and_compare(
-    cleaned_tree: HtmlElement, cleaned_tree_backup: HtmlElement, tree: HtmlElement, options: Extractor
-) -> tuple[_Element, str]:
+def _extract_and_compare(cleaned_tree: HtmlElement, tree: HtmlElement, options: Extractor) -> tuple[_Element, str]:
     "Cascade stages 1-2: main extractor, then the external comparison unless in fast mode."
     postbody, temp_text = extract_content(cleaned_tree, options)
     if not options.fast:
-        postbody, temp_text = compare_extraction(cleaned_tree_backup, copy(tree), postbody, temp_text, options)
+        postbody, temp_text = compare_extraction(tree, postbody, temp_text, options)
     return postbody, temp_text
 
 
@@ -163,7 +161,7 @@ def _recall_retry(esc_tree: HtmlElement, r_options: Extractor, url: str | None) 
     (arrives comment-pruned, or intact on a thread-forum where posts are content).
     Deliberately no comment capture, no baseline (it already ran on the full page; on a
     comment-pruned tree it only yields an indistinguishable boilerplate dump), no escalation."""
-    return _extract_and_compare(*_prepare_tree(esc_tree, r_options, url), esc_tree, r_options)
+    return _extract_and_compare(_prepare_tree(esc_tree, r_options, url), esc_tree, r_options)
 
 
 def trafilatura_sequence(
@@ -177,9 +175,10 @@ def trafilatura_sequence(
     1. main extractor (includes wild-text recovery for short documents)
     2. comparison with external extractors (readability/justext), skipped in fast mode
     3. baseline rescue on the original, uncleaned tree
-    4. recall escalation, if the result still covers little of the page: stages 1-2 re-run
-       in recall mode (_recall_retry), plus a justext candidate tried alongside (a different
-       algorithm, not just stricter rules, so it reaches content the rule-based retry cannot)
+    4. recall escalation in balanced or recall mode, if the result still covers little of the
+       page: try justext first (except in fast mode), which can reach content the rule-based
+       retry misses. If rejected, re-run stages 1-2 only in balanced mode, using recall settings
+       (_recall_retry). Recall mode has already run these stages with the same settings.
     Returns the body and comments elements with their text.
 
     Internal helper: its signature and 4-tuple return are not a stable API — call
@@ -192,38 +191,41 @@ def trafilatura_sequence(
     # comments off: prune the raw tree so all stages inherit it, lists are still ol/ul here
     if not options.comments and (options.focus == "precision" or not is_forum):
         tree = prune_unwanted_nodes(tree, REMOVE_COMMENTS_AND_LISTS_XPATH)
-    cleaned_tree, cleaned_tree_backup = _prepare_tree(tree, options, url)
+    cleaned_tree = _prepare_tree(tree, options, url)
 
     commentsbody, temp_comments = Element("body"), ""
     forum_posts = None
     if options.comments:
         commentsbody, temp_comments, cleaned_tree = extract_comments(cleaned_tree, options)
         if temp_comments and is_forum:
-            # thread-forum: the "comments" are the posts -> route into the body (backup predates
-            # capture); keep the capture aside, salvaged below if the cascade drops the posts
+            # thread-forum: the "comments" are the posts -> rebuild the body from the raw tree;
+            # keep the capture aside, salvaged below if the cascade drops the posts
             forum_posts = commentsbody
             commentsbody, temp_comments = Element("body"), ""
-            cleaned_tree = convert_tags(copy(cleaned_tree_backup), options, url)
+            cleaned_tree = _prepare_tree(tree, options, url)
     if options.focus == "precision" and not is_forum:
         # NOT redundant with the raw-tree prune above: this runs POST-conversion, where lists are <list>
         # and match the xpath's self::list (dl lists, disqus ids, and all lists if comments are on)
         cleaned_tree = prune_unwanted_nodes(cleaned_tree, REMOVE_COMMENTS_XPATH)
 
-    postbody, temp_text = _extract_and_compare(cleaned_tree, cleaned_tree_backup, tree, options)
+    postbody, temp_text = _extract_and_compare(cleaned_tree, tree, options)
 
     # 3. rescue: baseline on the original tree, accepted only if it adds text (#896)
     if len(temp_text) < options.min_extracted_size and options.focus != "precision":
-        b_body, b_text, b_len = baseline(tree)  # baseline copies element inputs
+        # captured comments are output separately, keep them out of the dump (comments off: already pruned)
+        b_tree = prune_unwanted_nodes(copy(tree), REMOVE_COMMENTS_AND_LISTS_XPATH) if temp_comments else tree
+        b_body, b_text, b_len = baseline(b_tree)  # baseline copies element inputs
         LOGGER.debug("non-clean extracted length: %s (extraction)", b_len)
         if b_len > len(temp_text):
             postbody, temp_text = b_body, b_text
             forum_posts = None  # the dump saw the whole page: missing posts are boilerplate, not lost
 
     # 4. recall escalation: a short extraction covering little of the page suggests
-    # under-extraction (non-article layout) — retry in recall mode, keep if clearly bigger.
+    # under-extraction (non-article layout). Try justext, then a recall retry in balanced mode.
     # NOTE: the page measure html2txt(tree) is coupled to BASIC_CLEAN_XPATH — see settings.py.
     if (
-        options.focus == "balanced"
+        options.focus != "precision"
+        and (options.focus == "balanced" or not options.fast)
         and 0 < len(temp_text) < ESCALATION_MAX_LENGTH
         and len(temp_text) < ESCALATION_PAGE_SHARE * len(html2txt(tree))
     ):
@@ -238,29 +240,34 @@ def trafilatura_sequence(
             if is_forum or not options.comments
             else prune_unwanted_nodes(copy(tree), REMOVE_COMMENTS_AND_LISTS_XPATH if temp_comments else REMOVE_COMMENTS_XPATH)
         )
-        r_text = ""
-        try:
-            r_body, r_text = _recall_retry(esc_tree, r_options, url)
-        except Exception as err:  # pragma: no cover
-            LOGGER.warning("recall retry failed: %s %s", err, url)
-        # justext reaches div-buried content the rule retry misses (gated: ungated regressed
-        # own-fallback). No region scoping of its own -> esc_tree is comment-pruned above
+        # justext reaches div-buried content the rule retry misses, accepted when it clearly
+        # outgrows the main text. No region scoping of its own -> esc_tree is comment-pruned above
         j_text = ""
         if not options.fast:
-            try:
-                j_body, j_text = justext_rescue(copy(esc_tree), options)
-            except Exception as err:  # pragma: no cover
-                LOGGER.warning("justext candidate failed: %s %s", err, url)
+            j_body, j_text = justext_rescue(esc_tree, options)
 
         # floor on the retry: a result below the pipeline's own minimum is noise (the retry's
         # former internal baseline used to displace such outputs). cookie/consent banners justext
-        # could pick up are pruned from its input in basic_cleaning. An accepted candidate saw the
+        # could pick up are skipped by its walker (BASIC_CLEAN_XPATH). An accepted candidate saw the
         # full page, so its exclusions are deliberate -> drop the forum-post salvage.
-        len_text, r_len, j_len = len(temp_text), len(r_text), len(j_text)
-        if j_len > r_len and j_len > ESCALATION_JUSTEXT_RATIO * len_text:
+        len_text = len(temp_text)
+        if len(j_text) > ESCALATION_JUSTEXT_RATIO * len_text:
             postbody, temp_text, forum_posts = j_body, j_text, None
-        elif r_len >= options.min_extracted_size and r_len > ESCALATION_ACCEPT_RATIO * len_text:
-            postbody, temp_text, forum_posts = r_body, r_text, None
+        elif options.focus != "recall":
+            r_text = ""
+            try:
+                r_body, r_text = _recall_retry(esc_tree, r_options, url)
+            except Exception as err:  # pragma: no cover
+                LOGGER.warning("recall retry failed: %s %s", err, url)
+            if len(r_text) >= options.min_extracted_size and len(r_text) > ESCALATION_ACCEPT_RATIO * len_text:
+                postbody, temp_text, forum_posts = r_body, r_text, None
+
+    # lists recovered after a colon (#431) stayed out of the lengths above, count them now
+    deferred = postbody.findall(f"list[@{DEFERRED_ATTR}]")
+    if deferred:
+        for elem in deferred:
+            del elem.attrib[DEFERRED_ATTR]
+        temp_text = " ".join(postbody.itertext()).strip()
 
     if forum_posts is not None:
         # a gate (escalation length, precision) blocked the cascade from restoring the posts:
@@ -338,7 +345,7 @@ def bare_extraction(
         A Python dict() containing all the extracted information or None.
 
     Raises:
-        ValueError: Extraction problem.
+        ValueError: Unknown output format.
 
     Note:
         Low-level primitive: returns a Document with an unserialized .body tree; tei_validation only applies when serializing via extract().
@@ -377,6 +384,20 @@ def bare_extraction(
             date_params=date_extraction_params,
         )
 
+    # apply the url argument on a copy of the options
+    if url and url != options.url:
+        options = copy(options)
+        # keep a source set by the caller
+        if not options.source or options.source == sanitize_source(options.url):
+            options.source = sanitize_source(url)
+        options.url = url
+    url = options.url
+
+    # count each text only once per extraction, on a copy to leave the caller's options untouched
+    if options.dedup:
+        options = copy(options)
+        options.dedup_seen = set()
+
     try:
         # load the HTML tree
         tree = load_html(filecontent, options.max_file_size)
@@ -384,7 +405,7 @@ def bare_extraction(
             LOGGER.error("empty HTML tree: %s", url)
             raise ValueError
         if tree is filecontent:
-            tree = copy(tree)
+            tree = copy_clean_tree(tree)
 
         # quick and dirty HTML lang check
         if options.lang and (options.fast or not LANGID_FLAG):
@@ -396,15 +417,15 @@ def bare_extraction(
         if options.with_metadata:
             document = extract_metadata(
                 tree,
-                options.url,
+                url,
                 options.date_params,
                 options.fast,
                 options.author_blacklist,
             )
 
-            # cut short if extracted URL in blacklist
-            if document.url in options.url_blacklist:
-                LOGGER.warning("blacklisted URL: %s", document.url)
+            # cut short if the given or extracted URL is in the blacklist
+            if blacklisted := {url, document.url} & options.url_blacklist:
+                LOGGER.warning("blacklisted URL: %s", blacklisted.pop())
                 raise ValueError
 
             # cut short if core elements are missing
@@ -415,6 +436,12 @@ def bare_extraction(
         else:
             document = Document()
 
+        # resolve links and images against <base href> joined with the page URL, else the page URL (#382)
+        base_url = document_base_url(tree, url or document.url)
+        if base_url != options.url:
+            options = copy(options)
+            options.url = base_url
+
         # prune all xpath expressions that user specified
         # no backup as this is unetre full control of the user
         if prune_xpath is not None:
@@ -422,7 +449,7 @@ def bare_extraction(
                 prune_xpath = [prune_xpath]
             tree = prune_unwanted_nodes(tree, [XPath(x) for x in prune_xpath])
 
-        postbody, temp_text, commentsbody, temp_comments = trafilatura_sequence(tree, options, options.url or document.url)
+        postbody, temp_text, commentsbody, temp_comments = trafilatura_sequence(tree, options, base_url)
         len_text, len_comments = len(temp_text), len(temp_comments)
 
         # tree size sanity check
@@ -460,6 +487,9 @@ def bare_extraction(
             if is_not_target_lang is True:
                 LOGGER.debug("wrong language: %s", options.source)
                 raise ValueError
+        # pass the detected language along with the metadata
+        elif options.with_metadata and LANGID_FLAG:
+            document.language = language_classifier(temp_text, temp_comments)
 
     except (TypeError, ValueError):
         LOGGER.warning("discarding data: %s", options.source)
@@ -545,6 +575,9 @@ def extract(
     Returns:
         A string in the desired format or None.
 
+    Raises:
+        ValueError: Unknown output format.
+
     """
     # must stay the first statement: a signature drift raises TypeError
     document = _internal_extraction(**locals())
@@ -609,6 +642,9 @@ def extract_with_metadata(
 
     Returns:
         Document metadata with content string in the desired format or None.
+
+    Raises:
+        ValueError: Unknown output format.
     """
     return _internal_extraction(**locals(), with_metadata=True)
 
@@ -704,6 +740,7 @@ def _internal_extraction(
     # extraction
     document = bare_extraction(
         filecontent,
+        url=url,
         options=options,
         as_dict=False,
         prune_xpath=prune_xpath,

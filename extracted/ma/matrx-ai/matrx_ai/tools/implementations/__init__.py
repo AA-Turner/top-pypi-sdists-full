@@ -3,22 +3,11 @@ from .code import (
     code_execute_python,
     code_fetch_code,
     code_fetch_tree,
-    code_store_html,
 )
 from .code_ingest import git_ingest, llms_txt_fetch, package_info
 from .ctx import context, ctx_batch, ctx_get
 from .ctx_write import context_patch, ctx_create
 from .database import db_insert, db_query, db_schema, db_update
-from .table_tools import (
-    table_add_rows,
-    table_delete_row,
-    table_get_all,
-    table_get_data,
-    table_get_fields,
-    table_get_metadata,
-    table_search_data,
-    table_update_row,
-)
 from .filesystem import fs_list, fs_mkdir, fs_patch, fs_read, fs_search, fs_write
 from .kind_authoring import (
     kind_add_example,
@@ -79,14 +68,6 @@ from .tool_component import (
     toolcomp_update_code,
     toolcomp_update_settings,
 )
-from .travel import (
-    travel_create_summary,
-    travel_get_activities,
-    travel_get_events,
-    travel_get_location,
-    travel_get_restaurants,
-    travel_get_weather,
-)
 from .user_secrets_tool import user_secret_set
 from .vsc import vsc_get_state
 from .web import research_web, web_read, web_search
@@ -139,21 +120,12 @@ __all__ = [
     "seo_check_meta_tags_batch",
     "seo_get_keyword_data",
     # Code
-    "code_store_html",
     "code_fetch_code",
     "code_fetch_tree",
     "code_execute_python",
     # News
     "news_get_headlines",
     # Datasets (a person's tables, in the record store)
-    "table_get_all",
-    "table_get_metadata",
-    "table_get_fields",
-    "table_get_data",
-    "table_search_data",
-    "table_add_rows",
-    "table_update_row",
-    "table_delete_row",
     # Interaction
     "interaction_ask",
     # Tool Component Agent
@@ -188,13 +160,6 @@ __all__ = [
     "toolcomp_resolve_incident",
     "toolcomp_list_tools",
     "toolcomp_create_component",
-    # Travel
-    "travel_get_location",
-    "travel_get_weather",
-    "travel_get_restaurants",
-    "travel_get_activities",
-    "travel_get_events",
-    "travel_create_summary",
     # VSCode IDE state
     "vsc_get_state",
     # Deferred context — unified reader (get|batch|create) + patch

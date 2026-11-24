@@ -30,6 +30,230 @@ from matrx_ai.tools.document_validation import (
     build_physical_page_ref,
 )
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.output_caps import self_bounded_result
+
+# ---------------------------------------------------------------------------
+# Model-facing size caps (knobs, feature ``agents.knowledge_search``)
+# ---------------------------------------------------------------------------
+# Benchmark P6 (2026-11-02, conversations 34756283 / a4f1287f): 20 calls at limit=3
+# stored 10k-43k chars each — the passages were ~4.5k; the rest was per-hit indexing
+# metadata (4-5k per image hit), the entity_map (9k) and full section JSON (10k), and the
+# model was handed most of it on every iteration. The model now gets a VIEW of the
+# result: each hit as a ranked window around the query's words (with chunk/source id and
+# title), the sections as one line per item, and the whole view held to a per-call
+# budget. The stored ``output`` stays complete for the UI and lineage.
+KNOWLEDGE_SEARCH_KNOB_FEATURE = "agents.knowledge_search"
+SNIPPET_WINDOW_KNOB = (KNOWLEDGE_SEARCH_KNOB_FEATURE, "snippet_window_chars")
+OUTPUT_BUDGET_KNOB = (KNOWLEDGE_SEARCH_KNOB_FEATURE, "output_budget_chars")
+# KNOB MIRROR — the standalone (no host) values; the seeded rows carry the same numbers
+# (db/migrations/ai_137_knowledge_search_output_caps.sql).
+SNIPPET_WINDOW_CHARS = 700
+OUTPUT_BUDGET_CHARS = 12_000
+# The stored hit keeps a wider window (what the person's result card shows).
+STORED_SNIPPET_CHARS = 1500
+
+#: ``async (organization_id) -> {"snippet_window_chars": int, "output_budget_chars": int}``.
+_CAPS_RESOLVER: Any = None
+
+
+def set_knowledge_search_caps_resolver(resolver: Any) -> None:
+    """Install the host's per-organization knob reader (``None`` = standalone)."""
+    global _CAPS_RESOLVER
+    _CAPS_RESOLVER = resolver
+
+
+async def knowledge_search_caps(organization_id: str | None) -> dict[str, int]:
+    """This organization's caps. A resolver failure is announced; the search never fails over it."""
+    caps = {"snippet_window_chars": SNIPPET_WINDOW_CHARS, "output_budget_chars": OUTPUT_BUDGET_CHARS}
+    if _CAPS_RESOLVER is None:
+        return caps
+    try:
+        got = await _CAPS_RESOLVER(organization_id)
+        for key in caps:
+            if got and got.get(key) is not None:
+                caps[key] = max(1, int(got[key]))
+    except Exception as exc:  # noqa: BLE001 — announced, never a failed search
+        import sys
+
+        print(
+            f"[matrx_ai] knowledge_search caps knob read failed ({exc!r}); using the mirrored "
+            f"defaults {caps}",
+            file=sys.stderr,
+        )
+    return caps
+
+
+_STOP = frozenset(
+    "the and for with from that this what which who whom whose are was were has have had "
+    "not but all any can its into onto out our their them they you your about over under".split()
+)
+
+
+def _query_terms(query: str) -> list[str]:
+    import re
+
+    seen: list[str] = []
+    for word in re.findall(r"[\w'-]+", (query or "").lower()):
+        if len(word) >= 3 and word not in _STOP and word not in seen:
+            seen.append(word)
+    return seen
+
+
+def snippet_window(text: str, query: str, window: int) -> str:
+    """The ``window``-char span of ``text`` that holds the most distinct query words
+    (ties: the earliest), snapped to word boundaries and marked with an ellipsis where
+    text was cut. Text that already fits is returned whole."""
+    text = text or ""
+    if window <= 0 or len(text) <= window:
+        return text
+    lower = text.lower()
+    terms = _query_terms(query)
+    positions: list[int] = []
+    phrase = " ".join((query or "").lower().split())
+    for needle in ([phrase] if len(phrase) >= 3 else []) + terms:
+        start = lower.find(needle)
+        while start != -1 and len(positions) < 400:
+            positions.append(start)
+            start = lower.find(needle, start + 1)
+    best_start, best_score = 0, -1
+    for pos in sorted(set(positions)):
+        start = max(0, min(pos - window // 4, len(text) - window))
+        span = lower[start : start + window]
+        score = sum(1 for t in terms if t in span) + (2 if phrase and phrase in span else 0)
+        if score > best_score:
+            best_start, best_score = start, score
+    start = best_start
+    end = start + window
+    if start > 0:
+        space = text.find(" ", start, start + 40)
+        start = space + 1 if space != -1 else start
+    if end < len(text):
+        space = text.rfind(" ", end - 40, end)
+        end = space if space > start else end
+    body = text[start:end].strip()
+    return ("…" if start > 0 else "") + body + ("…" if end < len(text) else "")
+
+
+_VIEW_HIT_FIELDS = (
+    "chunk_id",
+    "source_kind",
+    "source_id",
+    "processed_document_id",
+    "page_numbers",
+    "physical_page_ref",
+    "score",
+    "rerank_score",
+)
+_VIEW_TOP_FIELDS = (
+    "query",
+    "total_candidates",
+    "relevance_verdict",
+    "relevance_floor",
+    "below_floor_dropped",
+    "recall_lane_errors",
+    "recall_lane_note",
+    "no_relevant_matches",
+    "note",
+    "matched_entities",
+    "scope_note",
+    "searched_scope_ids",
+    "searched_source_ids",
+    "data_store_id",
+    "sections_note",
+    "section_errors",
+)
+
+READ_MORE_NOTE = (
+    "Each passage is a window of its Segment around your query's words. Read a whole "
+    "Segment with knowledge_open entity='segment' id=<chunk_id>, a whole Source with "
+    "knowledge_open entity='processed_document' id=<processed_document_id>."
+)
+
+
+def model_view(
+    output: dict[str, Any],
+    *,
+    window_chars: int = SNIPPET_WINDOW_CHARS,
+    budget_chars: int = OUTPUT_BUDGET_CHARS,
+) -> dict[str, Any]:
+    """What the MODEL is handed for one knowledge_search result (pure; ``output`` untouched).
+
+    Each hit → its ids, title and a ranked snippet window; the sections → one line per item;
+    the entity_map and per-hit indexing metadata stay in the stored output only. The whole
+    view (passages + JSON) is held to ``budget_chars``: section lines go first (last
+    sections first), then the lowest-ranked hits whole; every cut is announced in
+    ``output_budget`` with how to read more."""
+    import json
+
+    from matrx_ai.config.citations import passage_source_name
+
+    query = str(output.get("query") or "")
+    view: dict[str, Any] = {k: output[k] for k in _VIEW_TOP_FIELDS if output.get(k) not in (None, [], "")}
+    hits: list[dict[str, Any]] = []
+    for raw in output.get("hits") or []:
+        if not isinstance(raw, dict):
+            continue
+        hit = {k: raw[k] for k in _VIEW_HIT_FIELDS if raw.get(k) not in (None, [], "")}
+        title = passage_source_name(raw)
+        if title:
+            hit["title"] = " ".join(title.split())[:120]
+        snippet = str(raw.get("snippet") or "")
+        hit["snippet"] = snippet_window(snippet, query, window_chars)
+        hits.append(hit)
+    view["hits"] = hits
+    sections_text = render_sections_for_model(output) if output.get("sections") or output.get("section_errors") else None
+    lines = sections_text.split("\n") if sections_text else []
+
+    budget: dict[str, Any] = {
+        "budget_chars": budget_chars,
+        "snippet_window_chars": window_chars,
+        "read_more": READ_MORE_NOTE,
+    }
+    view["output_budget"] = budget
+    note_reserve = 260  # the cut announcement written below, counted before cutting
+
+    def size() -> int:
+        return (
+            len(json.dumps(view, ensure_ascii=False, default=str))
+            + sum(len(x) + 1 for x in lines)
+            + note_reserve
+        )
+
+    hits_dropped = 0
+    lines_dropped = 0
+    # Section lines go first — always the last item of the section with the most items left,
+    # so every section (agents_workflows, records… at the end of the list too) keeps its
+    # header and its best items. Headers stay.
+    while size() > budget_chars:
+        groups: list[list[int]] = []
+        for idx, line in enumerate(lines):
+            if line.startswith("- ") and groups:
+                groups[-1].append(idx)
+            else:
+                groups.append([])
+        biggest = max(groups, key=len, default=[])
+        if not biggest:
+            break
+        lines.pop(biggest[-1])
+        lines_dropped += 1
+    while size() > budget_chars and len(hits) > 1:
+        hits.pop()
+        hits_dropped += 1
+    if lines:
+        view["sections_text"] = "\n".join(lines)
+    if hits_dropped or lines_dropped:
+        budget["hits_dropped"] = hits_dropped
+        budget["section_lines_dropped"] = lines_dropped
+        budget["note"] = (
+            f"This result was held to {budget_chars:,} chars: "
+            + (f"{lines_dropped} section line(s) " if lines_dropped else "")
+            + ("and " if lines_dropped and hits_dropped else "")
+            + (f"{hits_dropped} lowest-ranked hit(s) " if hits_dropped else "")
+            + "were left out. Narrow the query or lower limit to see them."
+        )
+    # Keep the budget block last in the JSON (it reads as the footer).
+    view["output_budget"] = view.pop("output_budget")
+    return view
 
 
 def _get_rag_search():
@@ -48,7 +272,7 @@ def _stamp(result: ToolResult, started_at: float, ctx: ToolContext) -> ToolResul
     return result
 
 
-def _hit_to_dict(h: Any) -> dict[str, Any]:
+def _hit_to_dict(h: Any, query: str = "") -> dict[str, Any]:
     # The injected SearchHit exposes the chunk body as ``content_text``;
     # reading only ``snippet``/``content`` (neither of which exists) is what
     # silently handed the agent empty snippets — a "reference to a PDF" with
@@ -65,7 +289,7 @@ def _hit_to_dict(h: Any) -> dict[str, Any]:
         "chunk_id": getattr(h, "chunk_id", None),
         "source_kind": getattr(h, "source_kind", None),
         "source_id": getattr(h, "source_id", None),
-        "snippet": snippet_text[:1500],
+        "snippet": snippet_window(snippet_text, query, STORED_SNIPPET_CHARS),
         "score": getattr(h, "score", None),
         "vector_rank": getattr(h, "vector_rank", None),
         "lexical_rank": getattr(h, "lexical_rank", None),
@@ -112,6 +336,7 @@ def _entity_map_entry_to_dict(e: Any) -> dict[str, Any]:
     }
 
 
+@self_bounded_result
 async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
 
@@ -121,7 +346,7 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
         return _stamp(
             ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=exc, 
                     error_type="invalid_args",
                     message=format_args_error(exc),
                 ),
@@ -136,6 +361,7 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
             ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="unauthenticated",
                     message="knowledge_search requires an authenticated user.",
                 ),
@@ -161,6 +387,7 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
     )
 
     sections_payload: dict[str, Any] | None = None
+    segment_failure: dict[str, Any] | None = None
     if has_ext("knowledge_search_service"):
         # THE ONE SEARCH SERVICE (Knowledge Hub §3). Old fields map onto the query:
         # data_store_id → within a data store, source_ids → within those Sources,
@@ -222,11 +449,15 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
             segments = next(
                 (s for s in sections_payload.get("sections") or [] if s.get("section") == "segments"), None
             )
-            if segment_error is not None:
+            # Only the passage lane failed (most often its time budget): the other sections answered, and the
+            # person's search shows them — so does this result, with the passage failure named in section_errors.
+            # The whole call fails only when nothing else answered (2026-11-17: a passage timeout used to discard
+            # every answered section and file tool_execution_failed "the other sections are unaffected").
+            if segment_error is not None and not _other_sections(sections_payload):
                 return _stamp(
                     ToolResult(
                         success=False,
-                        error=ToolError(error_type="search_failed", message=str(segment_error.get("message") or "")),
+                        error=ToolError(reported_failure="the knowledge search", error_type="search_failed", message=str(segment_error.get("message") or "")),
                     ),
                     started_at,
                     ctx,
@@ -249,6 +480,8 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
                     started_at,
                     ctx,
                 )
+            if segment_error is not None:
+                segment_failure = segment_error
             response = _EmptyResponse(parsed.query)
     else:
         # A host without the Knowledge search service (matrx-ai standalone): passages
@@ -259,7 +492,7 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
             return _stamp(
                 ToolResult(
                     success=False,
-                    error=ToolError(
+                    error=ToolError.declared(exc=exc, 
                         error_type="unavailable",
                         message=(
                             f"RAG search backend not configured in this host: {exc}. "
@@ -324,7 +557,7 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
                 ctx,
             )
 
-    hits = [_hit_to_dict(h) for h in getattr(response, "hits", [])]
+    hits = [_hit_to_dict(h, parsed.query) for h in getattr(response, "hits", [])]
     entity_map_raw = getattr(response, "entity_map", None) or []
     entity_map = [_entity_map_entry_to_dict(e) for e in entity_map_raw]
     matched_entities = list(getattr(response, "matched_entities", None) or [])
@@ -340,9 +573,12 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
         "validation_guidance": PHYSICAL_PAGE_VALIDATION_GUIDANCE,
     }
     output.update(_relevance_report(response, hits))
+    output.update(_recall_lane_report(response))
     if sections_payload is not None:
         output["sections"] = _other_sections(sections_payload)
         other_errors = [e for e in sections_payload.get("errors") or [] if e.get("section") != "segments"]
+        if segment_failure is not None:
+            other_errors.insert(0, segment_failure)
         if other_errors:
             output["section_errors"] = other_errors
         if sections_payload.get("chips"):
@@ -360,29 +596,38 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
     if scope_document_ids:
         announcements["searched_source_ids"] = scope_document_ids
     output.update(announcements)
+    caps = await knowledge_search_caps(organization_id)
+    # The resend path (a DB-rebuilt conversation) builds the same view from the stored
+    # output, so the caps this call ran with ride on it.
+    output["model_view_caps"] = caps
     result = ToolResult(
         success=True,
         output=output,
     )
-    # CITABLE passages: the model-facing result carries each hit as a
-    # SearchResultContent block (Anthropic `search_result` + citations enabled,
-    # matrx:// identity source) so quotes come back as REAL citations with
-    # file/page click-through. `output` (storage/trace/UI) stays unchanged.
-    provider_blocks = _citable_blocks_for_hits(hits, announcements)
-    if provider_blocks is not None:
-        # The model sees what the person sees: the citable passages AND a compact
-        # rendering of every other section (storage-only sections were invisible to it).
-        sections_text = render_sections_for_model(output)
-        if sections_text:
-            from matrx_ai.config import TextContent
+    # The model is handed a bounded VIEW (``model_view``): CITABLE passages — each hit a
+    # SearchResultContent block (Anthropic `search_result` + citations enabled, matrx://
+    # identity source) so quotes come back as REAL citations with file/page click-through
+    # — plus one line per item of every other section and the match metadata, all inside
+    # the output budget. `output` (storage/trace/UI) stays complete.
+    view = model_view(
+        output,
+        window_chars=caps["snippet_window_chars"],
+        budget_chars=caps["output_budget_chars"],
+    )
+    from matrx_ai.config import TextContent
 
-            provider_blocks.append(TextContent(text=sections_text))
-        result.provider_content = provider_blocks
+    provider_blocks = _citable_blocks_for_hits(view)
+    if provider_blocks is None:
+        import json
+
+        provider_blocks = [TextContent(text=json.dumps(view, ensure_ascii=False, default=str))]
+    result.provider_content = provider_blocks
     return _stamp(result, started_at, ctx)
 
 
 _SECTION_LABELS = {
     "top_hit": "Top hit",
+    "segments": "Segments",
     "sources": "Sources",
     "chats": "Chats",
     "messages": "Messages",
@@ -447,6 +692,26 @@ class _EmptyResponse:
 def _other_sections(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Every typed section except Segments (those are ``hits``, with citations)."""
     return [s for s in payload.get("sections") or [] if s.get("section") != "segments"]
+
+
+def _recall_lane_report(response: Any) -> dict[str, Any]:
+    """Say, in one sentence the model reads, that a retrieval lane timed out.
+
+    ``recall_lane_errors`` (lane -> sentence) is set by the search when the database
+    canceled a lane; the other lanes still answered, so the hits are real but may be
+    incomplete. Empty when every lane answered — nothing is added then."""
+    raw = getattr(response, "recall_lane_errors", None) or {}
+    errors = {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
+    if not errors:
+        return {}
+    lanes = " and ".join(sorted(errors))
+    return {
+        "recall_lane_errors": errors,
+        "recall_lane_note": (
+            f"The {lanes} search lane timed out, so these results may be incomplete; "
+            "retrying the same query may return more."
+        ),
+    }
 
 
 def _relevance_report(response: Any, hits: list[dict[str, Any]]) -> dict[str, Any]:
@@ -599,28 +864,26 @@ async def _resolve_scope_ids(
     )
 
 
-def _citable_blocks_for_hits(
-    hits: list[dict[str, Any]],
-    announcements: dict[str, Any] | None = None,
-) -> list[Any] | None:
-    """One citable SearchResultContent per snippet-bearing hit + a trailing
-    TextContent with the metadata JSON (snippets removed — they live in the
-    citable blocks; sending both would double the tokens)."""
+def _citable_blocks_for_hits(view: dict[str, Any] | list[dict[str, Any]]) -> list[Any] | None:
+    """One citable SearchResultContent per snippet-bearing hit of the model view (or a bare
+    hit list), then the section lines and the rest of the view as JSON (snippets removed —
+    they live in the citable blocks; sending both would double the tokens). ``None`` when
+    no hit has text."""
     import copy
     import json
 
     from matrx_ai.config import SearchResultContent, TextContent
     from matrx_ai.config.citations import passage_page_and_label, passage_source_name
 
-    meta_hits = copy.deepcopy(hits)
+    meta = copy.deepcopy(view) if isinstance(view, dict) else {"hits": copy.deepcopy(view)}
+    sections_text = meta.pop("sections_text", None)
     blocks: list[Any] = []
-    for hit in meta_hits:
+    for hit in meta.get("hits") or []:
         snippet = hit.pop("snippet", "")
         if not snippet:
             continue
         page, page_label = passage_page_and_label(hit.get("page_numbers"))
         name = passage_source_name(hit) or "Knowledge source"
-        title = f"{name}{page_label}"
         file_id = (
             str(hit["source_id"])
             if hit.get("source_kind") == "cld_file" and hit.get("source_id")
@@ -629,7 +892,7 @@ def _citable_blocks_for_hits(
         blocks.append(
             SearchResultContent(
                 texts=[snippet],
-                title=title,
+                title=f"{name}{page_label}",
                 file_id=file_id,
                 document_id=str(hit.get("processed_document_id") or ""),
                 page=page,
@@ -637,19 +900,18 @@ def _citable_blocks_for_hits(
         )
     if not blocks:
         return None
-    payload_meta: dict[str, Any] = {**(announcements or {}), "hits": meta_hits}
     from matrx_ai.config.unified_content import cap_citable_blocks
 
-    blocks = cap_citable_blocks(blocks, payload_meta)
-    payload_meta.update(
-        passages_note=(
-            "The passages above are citable search results (quote them and "
-            "citations attach automatically). This JSON is the match metadata; "
-            "snippets were moved into the passage blocks."
-        ),
+    blocks = cap_citable_blocks(blocks, meta)
+    meta["passages_note"] = (
+        "The passages above are citable search results (quote them and citations attach "
+        "automatically). This JSON is the match metadata; snippets were moved into the "
+        "passage blocks."
     )
     from matrx_ai.config.citations import cap_search_metadata
 
-    cap_search_metadata(payload_meta)
-    blocks.append(TextContent(text=json.dumps(payload_meta, ensure_ascii=False, default=str)))
+    cap_search_metadata(meta)  # backstop for a bare hit list; the view is already in budget
+    if sections_text:
+        blocks.append(TextContent(text=sections_text))
+    blocks.append(TextContent(text=json.dumps(meta, ensure_ascii=False, default=str)))
     return blocks

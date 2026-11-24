@@ -1,7 +1,7 @@
 """Together AI video generation — single adapter across all flagship video
 models with async submit + poll lifecycle.
 
-The Together video API (``client.videos.create`` → ``client.videos.retrieve``)
+The Together video API (``POST /v2/videos`` → ``GET /v2/videos/{id}``)
 exposes one body shape across Veo 3, Sora 2, Kling 2.1, Seedance 1.0,
 Wan 2.7 and others. Per-model param gating lives in the CATALOG —
 ai.api.rules (translator_key ``together_video``) + per-offering overrides
@@ -9,7 +9,7 @@ ai.api.rules (translator_key ``together_video``) + per-offering overrides
 structural media wiring (start image, frame list, references).
 
 Async pattern: create returns a ``VideoJob`` with ``id``; poll
-``client.videos.retrieve(id)`` until ``status == 'completed'``, then
+``GET /v2/videos/{id}`` until ``status == 'completed'``, then
 read ``result.video.url`` (or similar — varies by model).
 """
 
@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from together import AsyncTogether
+from openai import AsyncOpenAI, BaseModel
 
 from matrx_ai.config import UnifiedConfig
 from matrx_ai.config.message_config import (
@@ -30,7 +30,19 @@ from matrx_ai.providers.base_media import (
     GeneratedAsset,
 )
 from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
-from matrx_ai.providers.sdk_drift import route_undeclared_params
+
+from .client import (
+    TOGETHER_API_BASE_URL,
+    TOGETHER_VIDEOS_URL,
+    together_media_timeout_seconds,
+)
+
+
+class TogetherVideoJob(BaseModel):
+    """The job body. Everything else Together sends stays readable as an extra."""
+
+    id: str | None = None
+    status: str | None = None
 
 
 class TogetherVideoGeneration(BaseMediaGeneration):
@@ -40,7 +52,12 @@ class TogetherVideoGeneration(BaseMediaGeneration):
 
     client = keyed_provider_client(
         "TOGETHER_API_KEY",
-        factory=lambda api_key: AsyncTogether(api_key=api_key, max_retries=NO_SDK_RETRIES),
+        factory=lambda api_key: AsyncOpenAI(
+            api_key=api_key,
+            base_url=TOGETHER_API_BASE_URL,
+            max_retries=NO_SDK_RETRIES,
+            timeout=together_media_timeout_seconds(),
+        ),
     )
 
     def _build_kwargs(
@@ -118,9 +135,7 @@ class TogetherVideoGeneration(BaseMediaGeneration):
         return "https://api.together.xyz/v1/videos/generations"
 
     async def _call_provider(self, kwargs: dict[str, Any]) -> Any:
-        return await self.client.videos.create(
-            **route_undeclared_params(self.client.videos.create, kwargs, provider="together")
-        )
+        return await self.client.post(TOGETHER_VIDEOS_URL, body=kwargs, cast_to=TogetherVideoJob)
 
     async def _poll_if_long_running(self, raw: Any) -> Any:
         # raw is a VideoJob with .id; poll until status=='completed'.
@@ -139,7 +154,9 @@ class TogetherVideoGeneration(BaseMediaGeneration):
 
         for _ in range(180):  # up to ~30 minutes
             await asyncio.sleep(10)
-            updated = await self.client.videos.retrieve(job_id)
+            updated = await self.client.get(
+                f"{TOGETHER_VIDEOS_URL}/{job_id}", cast_to=TogetherVideoJob
+            )
             status = getattr(updated, "status", None)
             if status in ("completed", "succeeded"):
                 return updated

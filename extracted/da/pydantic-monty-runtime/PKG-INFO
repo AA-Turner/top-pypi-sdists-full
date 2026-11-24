@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: pydantic-monty-runtime
-Version: 1.6.0
+Version: 1.7.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Rust
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Unix
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Environment :: MacOS X
+License-File: LICENSE
 Summary: The monty CLI binary — spawned as worker subprocesses by pydantic-monty
-Home-Page: https://github.com/pydantic/monty/
-License: MIT
-Requires-Python: >=3.10
+License-Expression: MIT AND Python-2.0.1 AND Apache-2.0
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/pydantic/monty
 Project-URL: Source, https://github.com/pydantic/monty
@@ -23,6 +22,7 @@ The `monty` command-line binary for the
 [Monty](https://github.com/pydantic/monty) sandbox.
 
 Installing the wheel puts the compiled binary in the environment's scripts directory.
+The wheel includes the MIT licence for Monty and the upstream licences and notices for the embedded CPython modules and typeshed stubs.
 
 You normally don't install this directly — the
 [`pydantic-monty`](https://pypi.org/project/pydantic-monty/) metapackage pulls
@@ -83,6 +83,11 @@ Rust embedders can change these defaults with `MontyRun::with_os_policy`; the CL
 requests on stdin, framed events on stdout. This is how `pydantic-monty` runs
 sandboxed code with crash isolation, and is meant to be driven by a client,
 not by hand.
+
+`monty subprocess --prewarm-type-checker` has the worker build a type checker
+with the builtins resolved at startup and between sessions, so a session's first type check
+skips that work; a request arriving mid-build waits for it. It costs about 6 MiB per worker, counted in the worker's
+baseline rather than any session's `max_memory`.
 
 The wheels are built from the
 [`monty-runtime`](https://crates.io/crates/monty-runtime) crate; see its

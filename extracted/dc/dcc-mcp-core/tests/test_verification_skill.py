@@ -80,6 +80,15 @@ def test_read_only_tools_are_limited_to_verification_reads():
     assert read_only == {"capture_review_views", "image_stats", "validate_scene_vs_spec"}
 
 
+def test_comparison_sheet_declares_image_stats_readback():
+    from dcc_mcp_core import parse_skill_md
+
+    meta = parse_skill_md(str(_SKILL_DIR))
+    assert meta is not None
+    comparison = next(tool for tool in meta.tools if tool.name == "make_comparison_sheet")
+    assert comparison.next_tools["on_success"] == ["image_stats"]
+
+
 def _write_ppm(path: Path, color, size: int = 8) -> None:
     r, g, b = color
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -143,10 +152,15 @@ def test_validate_scene_vs_spec_script_reports_uv_gap(tmp_path):
             {"name": "body", "uv_sets": 0, "material": None, "is_non_manifold": False},
         ],
     }
-    spec = {"min_uv_coverage": 1.0, "required_materials": ["mat"]}
+    spec = {
+        "checks": ["materials", "uv_coverage"],
+        "min_uv_coverage": 1.0,
+        "required_materials": ["mat"],
+    }
     result = module.main(scene=scene, spec=spec)
     assert result["success"] is True
     assert result["context"]["result"]["passed"] is False
+    assert result["context"]["result"]["status"] == "fail"
     assert {failure["check"] for failure in result["context"]["result"]["failures"]} == {"uv_coverage", "materials"}
 
 

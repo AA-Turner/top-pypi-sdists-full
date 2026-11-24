@@ -1,7 +1,7 @@
 """Together AI image generation — single adapter across all flagship models.
 
 The Together API exposes one body shape for image generation
-(``client.images.generate``). Per-model param support lives in the CATALOG —
+(``client.images.generate`` on the OpenAI client; Together's own fields ride ``extra_body``). Per-model param support lives in the CATALOG —
 ai.api.rules (translator_key ``together_image``) + each offering's override
 (seeded by db/migrations/_ai_029_seed_media_family_rules.py). This class owns
 only the STRUCTURAL parts: prompt extraction and media-ref -> URL resolution;
@@ -17,7 +17,7 @@ import threading
 import time
 from typing import Any
 
-from together import AsyncTogether
+from openai import AsyncOpenAI
 
 from matrx_ai.config import UnifiedConfig
 from matrx_ai.config.message_config import (
@@ -31,6 +31,8 @@ from matrx_ai.providers.base_media import (
 )
 from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.sdk_drift import route_undeclared_params
+
+from .client import TOGETHER_API_BASE_URL, together_media_timeout_seconds
 
 # Together applies dynamic per-model request limits in one-second windows and
 # explicitly rewards steady traffic over bursts. Reserve image request starts
@@ -64,7 +66,12 @@ class TogetherImageGeneration(BaseMediaGeneration):
 
     client = keyed_provider_client(
         "TOGETHER_API_KEY",
-        factory=lambda api_key: AsyncTogether(api_key=api_key, max_retries=NO_SDK_RETRIES),
+        factory=lambda api_key: AsyncOpenAI(
+            api_key=api_key,
+            base_url=TOGETHER_API_BASE_URL,
+            max_retries=NO_SDK_RETRIES,
+            timeout=together_media_timeout_seconds(),
+        ),
     )
 
     def _build_kwargs(
@@ -165,7 +172,9 @@ class TogetherImageGeneration(BaseMediaGeneration):
     async def _call_provider(self, kwargs: dict[str, Any]) -> Any:
         await _pace_together_image_request()
         return await self.client.images.generate(
-            **route_undeclared_params(self.client.images.generate, kwargs, provider="together")
+            **route_undeclared_params(
+                self.client.images.generate, kwargs, provider="together", body_extras_expected=True
+            )
         )
 
     def _extract_assets(self, raw: Any) -> list[GeneratedAsset]:

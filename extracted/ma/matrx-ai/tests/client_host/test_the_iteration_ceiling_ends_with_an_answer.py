@@ -16,9 +16,10 @@ What each test is FOR (the production change that turns it red):
 * a model that calls a tool anyway runs nothing past the ceiling — drop the
   wrap-up dispatch guard and one more tool call executes;
 * the wrap-up instruction is a HOST notice, never text added to a person's message;
-* a sub-agent's ceiling stop settles terminal-with-reason, a person's chat still
-  pauses — drop the ``resumed_by_caller`` stamp or the PERSON_RESUMES branch and the
-  sub-agent row goes back to ``paused``.
+* a ceiling stop settles terminal-with-reason for every run, a person's chat and a
+  sub-agent alike (2026-11-19: nothing resumes it; Continue is a new turn) — put
+  ``max_iterations_exceeded`` back in RESUMABLE_SUSPEND_STATUSES and the row goes back
+  to ``paused``.
 
 The provider is the in-repo mock (no network). It is made to behave like a real
 model that ALWAYS reaches for a tool while it has one: it emits a tool call on
@@ -224,12 +225,12 @@ async def test_a_model_that_calls_a_tool_anyway_runs_nothing_past_the_ceiling(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("sub_agent", "expected"), [(True, "completed"), (False, "paused")])
-async def test_who_resumes_a_ceiling_stop_decides_how_it_settles(
+@pytest.mark.parametrize(("sub_agent", "expected"), [(True, "completed"), (False, "completed")])
+async def test_a_ceiling_stop_settles_terminal_with_its_reason(
     probe_tool, monkeypatch, sub_agent, expected
 ):
-    """A person's chat pauses (they are there to say continue); a sub-agent's run
-    settles terminal-with-reason (its caller continues it, nobody types in it)."""
+    """Nothing resumes a ceiling stop (/resume refuses it; Continue is a new turn), so a
+    person's chat and a sub-agent's run both settle terminal-with-reason (2026-11-19)."""
     from matrx_ai.orchestrator.executor import execute_ai_request
 
     _tool_hungry_model(monkeypatch, ignores_empty_tool_list=False)
@@ -241,6 +242,7 @@ async def test_who_resumes_a_ceiling_stop_decides_how_it_settles(
 
     assert (completed.metadata or {}).get("status") == "max_iterations_exceeded"
     assert summary["status"] == expected
+    assert summary["metadata"]["stop_status"] == "max_iterations_exceeded"
     assert "iteration ceiling" in str(summary.get("error") or ""), (
         "the ceiling's reason was dropped from the settled row"
     )

@@ -412,6 +412,12 @@ class RemovedTopic(KindSubModel):
     message: str | None = None
 
 
+class LaidOutTopic(KindSubModel):
+    slug: str
+    x: float
+    y: float
+
+
 class EditError(KindSubModel):
     """`patch` only: one edit that did not apply (the rest did)."""
 
@@ -592,6 +598,12 @@ class TopicalMapResult(KindModel):
     gaps: list[TopicGap] | None = None
     #: `map_history`: topics the map no longer shows, newest change first.
     history: list[MapHistoryRow] | None = None
+
+    # the drawing
+    #: `layout`: the topics placed on the drawing (stored layout written).
+    laid_out: list[LaidOutTopic] | None = None
+    #: `layout`: the slugs handed back to the automatic arrangement (stored layout cleared).
+    reset: list[str] | None = None
 
 
 TopicNode.model_rebuild()

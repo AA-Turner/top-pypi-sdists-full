@@ -52,6 +52,7 @@ from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams, check_async, generate
 from dbos._workflow_commands import (
     fork_workflow,
     rewind_workflow,
+    rewind_workflows,
     take_fork_workflow_id,
 )
 
@@ -75,6 +76,7 @@ from ._core import (
     read_stream_offset_async,
     record_sleep,
     record_sleep_suspend,
+    result_suspend_hooks,
     run_step,
     run_step_async,
     send_bulk,
@@ -160,7 +162,7 @@ from ._dbos_config import (
     process_config,
     translate_dbos_config_to_config_file,
 )
-from ._enterprise import AlertHandler, ConductorThread, ExternalStorage
+from ._enterprise import AlertHandler, Archiver, ConductorThread, ExternalStorage
 from ._error import (
     DBOSException,
     DBOSExternalStoreNotConfiguredError,
@@ -183,6 +185,7 @@ from ._logger import (
     teardown_logger,
 )
 from ._shard_keys import bind_shard_keys
+from ._workflow_archive import WorkflowArchive, import_archived_workflow
 from ._workflow_commands import (
     BACKGROUND_JOBS_THREAD_NAME,
     BackgroundLease,
@@ -745,6 +748,10 @@ class DBOS:
             config.get("external_stores")
         )
         self._external_storage_field: Optional[ExternalStorage] = None
+        self._workflow_archive: Optional[WorkflowArchive] = config.get(
+            "workflow_archive"
+        )
+        self._archiver: Optional[Archiver] = None
         self._conductor_executor_metadata: Optional[Dict[str, Any]] = config.get(
             "conductor_executor_metadata"
         )
@@ -952,6 +959,12 @@ class DBOS:
                 self._sys_db.suspend = _enterprise.load(
                     _enterprise.SUSPEND.description
                 ).Suspend(self._sys_db)
+            if self._workflow_archive is not None:
+                # Before any workflow runs, so every terminal transition is queued for archiving.
+                self._sys_db.archive_completions = True
+                self._archiver = _enterprise.load(
+                    _enterprise.WORKFLOW_ARCHIVE.description
+                ).Archiver(self, self._workflow_archive)
 
             # Run migrations for the system database
             if self._config.get("run_migrations", True):
@@ -1046,6 +1059,10 @@ class DBOS:
             )
             jobs_thread.start()
             self._background_threads.append(jobs_thread)
+
+            if self._archiver is not None:
+                dbos_logger.debug("Starting workflow archiver")
+                self._archiver.start()
 
             # Start the conductor thread if requested
             if GlobalParams.dbos_cloud:
@@ -1252,6 +1269,10 @@ class DBOS:
                 else:
                     break
         self._background_jobs_stop_event.set()
+        # Flushes what it has buffered while the system database is still connected.
+        if self._archiver is not None:
+            self._archiver.stop()
+            self._archiver = None
         # The upgrader unlocks its per-application advisory lock before the system database engine is disposed.
         if self.auto_upgrader is not None:
             self.auto_upgrader.stop()
@@ -1953,32 +1974,53 @@ class DBOS:
 
     @classmethod
     def get_result(
-        cls, workflow_id: str, *, shard_key: Optional[str] = None
+        cls,
+        workflow_id: str,
+        *,
+        shard_key: Optional[str] = None,
+        suspend: bool = False,
     ) -> Optional[Any]:
-        """Await and return the result of a workflow execution."""
+        """Await and return the result of a workflow execution.
+
+        With `suspend=True` (Transact Enterprise), a wait parks the calling workflow in the database
+        instead of holding a thread; the awaited workflow's completion re-enqueues it.
+        """
         with bind_shard_keys({workflow_id: shard_key}):
             check_async("get_result")
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            dbos = _get_dbos_instance()
+            hooks = result_suspend_hooks(dbos, step_ctx) if suspend else None
 
             def fn() -> Optional[Any]:
-                return _get_dbos_instance()._sys_db.await_workflow_result(
+                if hooks is not None:
+                    hooks[0].result_suspend(hooks[1], [workflow_id])
+                return dbos._sys_db.await_workflow_result(
                     workflow_id, DEFAULT_POLLING_INTERVAL
                 )
 
-            return _get_dbos_instance()._sys_db.call_function_as_step(
-                fn, "DBOS.getResult", snapshot_step_context(reserve_sleep_id=False)
-            )
+            return dbos._sys_db.call_function_as_step(fn, "DBOS.getResult", step_ctx)
 
     @classmethod
     async def get_result_async(
-        cls, workflow_id: str, *, shard_key: Optional[str] = None
+        cls,
+        workflow_id: str,
+        *,
+        shard_key: Optional[str] = None,
+        suspend: bool = False,
     ) -> Optional[Any]:
         """Await and return the result of a workflow execution."""
         with bind_shard_keys({workflow_id: shard_key}):
             step_ctx = snapshot_step_context(reserve_sleep_id=False)
             await cls._configure_asyncio_thread_pool()
             dbos = _get_dbos_instance()
+            hooks = result_suspend_hooks(dbos, step_ctx) if suspend else None
 
             async def fn() -> Optional[Any]:
+                if hooks is not None:
+                    # to_thread copies the context, so the hook sees this execution's owner token.
+                    await asyncio.to_thread(
+                        hooks[0].result_suspend, hooks[1], [workflow_id]
+                    )
                 return await dbos._sys_db.await_workflow_result_async(
                     workflow_id, DEFAULT_POLLING_INTERVAL
                 )
@@ -1993,11 +2035,15 @@ class DBOS:
         handles: List[WorkflowHandle[Any]],
         *,
         polling_interval_sec: float = DEFAULT_POLLING_INTERVAL,
+        suspend: bool = False,
     ) -> WorkflowHandle[Any]:
         """Wait for any one of the given workflow handles to complete and return it.
 
         Polls the database until at least one workflow's status is no longer
         PENDING, ENQUEUED, DELAYED, or SUSPENDED, then returns the corresponding handle.
+
+        With `suspend=True` (Transact Enterprise), a wait parks the calling workflow in the database
+        instead of holding a thread; the first awaited workflow's completion re-enqueues it.
         """
         check_async("wait_first")
         if not handles:
@@ -2006,15 +2052,20 @@ class DBOS:
         if len(set(workflow_ids)) != len(workflow_ids):
             raise ValueError("handles must not contain duplicate workflow IDs")
         handle_map: Dict[str, WorkflowHandle[Any]] = {h.workflow_id: h for h in handles}
+        step_ctx = snapshot_step_context(reserve_sleep_id=False)
+        dbos = _get_dbos_instance()
+        hooks = result_suspend_hooks(dbos, step_ctx, "wait_first") if suspend else None
 
         def fn() -> str:
-            return _get_dbos_instance()._sys_db.await_first_workflow_id(
+            if hooks is not None:
+                hooks[0].result_suspend(hooks[1], workflow_ids)
+            return dbos._sys_db.await_first_workflow_id(
                 workflow_ids, polling_interval_sec
             )
 
         with bind_shard_keys({h.workflow_id: h.shard_key for h in handles}):
-            completed_id: str = _get_dbos_instance()._sys_db.call_function_as_step(
-                fn, "DBOS.waitFirst", snapshot_step_context(reserve_sleep_id=False)
+            completed_id: str = dbos._sys_db.call_function_as_step(
+                fn, "DBOS.waitFirst", step_ctx
             )
         return handle_map[completed_id]
 
@@ -2024,6 +2075,7 @@ class DBOS:
         handles: List[WorkflowHandleAsync[Any]],
         *,
         polling_interval_sec: float = DEFAULT_POLLING_INTERVAL,
+        suspend: bool = False,
     ) -> WorkflowHandleAsync[Any]:
         """Async version of :meth:`wait_first`.
 
@@ -2041,8 +2093,12 @@ class DBOS:
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
         dbos = _get_dbos_instance()
+        hooks = result_suspend_hooks(dbos, step_ctx, "wait_first") if suspend else None
 
         async def fn() -> str:
+            if hooks is not None:
+                # to_thread copies the context, so the hook sees this execution's owner token.
+                await asyncio.to_thread(hooks[0].result_suspend, hooks[1], workflow_ids)
             return await dbos._sys_db.await_first_workflow_id_async(
                 workflow_ids, polling_interval_sec
             )
@@ -3208,6 +3264,27 @@ class DBOS:
             run_coroutine=self._background_event_loop.submit_coroutine,
         )
 
+    def _rewind_workflows(
+        self,
+        workflow_ids: Sequence[str],
+        start_steps: Sequence[int],
+        *,
+        application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
+    ) -> None:
+        """Rewind each workflow from its own start step, all or nothing."""
+        rewind_workflows(
+            self._sys_db,
+            self._registry.datasources,
+            workflow_ids,
+            start_steps,
+            application_version=application_version,
+            queue_name=queue_name,
+            queue_partition_key=queue_partition_key,
+            run_coroutine=self._background_event_loop.submit_coroutine,
+        )
+
     @classmethod
     def rewind_workflow(
         cls,
@@ -3387,6 +3464,90 @@ class DBOS:
             return WorkflowHandleAsyncPolling(
                 new_id, _get_dbos_instance(), shard_key=fork_key
             )
+
+    @classmethod
+    def import_archived_workflow(
+        cls, workflow_id: str, completed_at: int
+    ) -> WorkflowHandle[Any]:
+        """Copy one archived snapshot of a workflow back into the system database.
+
+        Args:
+            workflow_id: The workflow's ID. It must not already be in the system database.
+            completed_at: The snapshot to import, as its WorkflowStatus.completed_at (Unix epoch ms). The imported workflow's completed_at is the import time, so retention keeps it for its usual period from now.
+
+        Returns:
+            A handle to the imported workflow.
+
+        Raises:
+            DBOSWorkflowArchiveNotConfiguredError: If no workflow_archive is configured.
+            DBOSNonExistentWorkflowError: If the archive has no such snapshot.
+            DBOSWorkflowIDInUseError: If the workflow ID is already in the system database.
+        """
+        check_async("import_archived_workflow")
+
+        def fn() -> None:
+            dbos = _get_dbos_instance()
+            dbos_logger.info(f"Importing archived workflow: {workflow_id}")
+            import_archived_workflow(
+                dbos._sys_db, dbos._workflow_archive, workflow_id, completed_at
+            )
+
+        _get_dbos_instance()._sys_db.call_function_as_step(
+            fn,
+            "DBOS.importArchivedWorkflow",
+            snapshot_step_context(reserve_sleep_id=False),
+        )
+        return cls.retrieve_workflow(workflow_id)
+
+    @classmethod
+    async def import_archived_workflow_async(
+        cls, workflow_id: str, completed_at: int
+    ) -> WorkflowHandleAsync[Any]:
+        """Copy one archived snapshot of a workflow back into the system database.
+
+        Args:
+            workflow_id: The workflow's ID. It must not already be in the system database.
+            completed_at: The snapshot to import, as its WorkflowStatus.completed_at (Unix epoch ms). The imported workflow's completed_at is the import time, so retention keeps it for its usual period from now.
+
+        Returns:
+            A handle to the imported workflow.
+
+        Raises:
+            DBOSWorkflowArchiveNotConfiguredError: If no workflow_archive is configured.
+            DBOSNonExistentWorkflowError: If the archive has no such snapshot.
+            DBOSWorkflowIDInUseError: If the workflow ID is already in the system database.
+        """
+        # Both steps reserved before any await, so concurrent tasks can't shift their IDs.
+        step_ctx_import = snapshot_step_context(reserve_sleep_id=False)
+        step_ctx_status = snapshot_step_context(reserve_sleep_id=False)
+        await cls._configure_asyncio_thread_pool()
+
+        def fn() -> None:
+            dbos = _get_dbos_instance()
+            dbos_logger.info(f"Importing archived workflow: {workflow_id}")
+            import_archived_workflow(
+                dbos._sys_db, dbos._workflow_archive, workflow_id, completed_at
+            )
+
+        await asyncio.to_thread(
+            _get_dbos_instance()._sys_db.call_function_as_step,
+            fn,
+            "DBOS.importArchivedWorkflow",
+            step_ctx_import,
+        )
+
+        def fnret() -> Optional[WorkflowStatus]:
+            return get_workflow(_get_dbos_instance()._sys_db, workflow_id)
+
+        stat = await asyncio.to_thread(
+            _get_dbos_instance()._sys_db.call_function_as_step,
+            fnret,
+            "DBOS.getStatus",
+            step_ctx_status,
+        )
+        if stat is None:
+            raise DBOSNonExistentWorkflowError("target", workflow_id)
+        return WorkflowHandleAsyncPolling(workflow_id, _get_dbos_instance())
 
     @classmethod
     def list_workflows(
@@ -4892,9 +5053,16 @@ class WorkflowHandle(Generic[R], Protocol):
         ...
 
     def get_result(
-        self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
+        self,
+        *,
+        polling_interval_sec: float = DEFAULT_POLLING_INTERVAL,
+        suspend: bool = False,
     ) -> R:
-        """Return the result of the workflow function invocation, waiting if necessary."""
+        """Return the result of the workflow function invocation, waiting if necessary.
+
+        With `suspend=True` (Transact Enterprise), a wait parks the calling workflow in the database
+        instead of holding a thread; the awaited workflow's completion re-enqueues it.
+        """
         ...
 
     def get_status(self) -> WorkflowStatus:
@@ -4924,9 +5092,16 @@ class WorkflowHandleAsync(Generic[R], Protocol):
         ...
 
     async def get_result(
-        self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
+        self,
+        *,
+        polling_interval_sec: float = DEFAULT_POLLING_INTERVAL,
+        suspend: bool = False,
     ) -> R:
-        """Return the result of the workflow function invocation, waiting if necessary."""
+        """Return the result of the workflow function invocation, waiting if necessary.
+
+        With `suspend=True` (Transact Enterprise), a wait parks the calling workflow in the database
+        instead of holding a thread; the awaited workflow's completion re-enqueues it.
+        """
         ...
 
     async def get_status(self) -> WorkflowStatus:

@@ -44,6 +44,7 @@ CollectionOutcomeStatus = Literal["completed", "failed"]
 # returns the FIRST that applies so an alarm names the root cause.
 CollectionProblem = Literal[
     "needs_reconnect",
+    "page_unauditable",
     "failed",
     "zero_rows",
 ]
@@ -73,6 +74,22 @@ _RECONNECT_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"token.*(expired|revoked)",
         r"connection.*(revoked|missing|no longer active)",
         r"was disconnected",
+        # google_integrations' refusal when the site's binding author cannot reach the
+        # connection: only that organization can rebind (14 high/fix rows for one site,
+        # nightly 2026-10-26..2026-11-09).
+        r"bound to this site by someone who cannot reach",
+        # An organization in HIPAA mode: DataForSEO has no BAA, so the platform refuses by design
+        # (`HipaaRefused`). The organization's own compliance state, not a collection defect: 254
+        # high/fix `seo_collection_failed:dataforseo:raw_provider` rows, last 2026-11-13.
+        r"HipaaRefused",
+        # The person's or organization's own search credential is not set: the vault's
+        # "no active secret 'X' for user …, org …" (a person-scoped lookup), or the host's typed
+        # refusal that already gives the member the set-it-up sentence (aidream
+        # seo/credential_refusal.py). Four high/fix rows 2026-11-21 (Brave, SerpAPI, DataForSEO).
+        # A platform-held secret that is missing names no user and stays a platform failure.
+        r"no active secret '[^']+' for (user|org) ",
+        r"SeoCredentialMissingError",
+        r"provider_credential_missing",
     )
 )
 
@@ -155,11 +172,31 @@ class CollectionOutcomeEvent(BaseModel):
         return self.problem == "needs_reconnect"
 
 
+def is_page_verdict(event: CollectionOutcomeEvent) -> bool:
+    """True when a failed PageSpeed run carries Lighthouse's TERMINAL verdict on
+    the page itself (NOT_HTML, FAILED_DOCUMENT_REQUEST, NO_FCP, ...): the
+    provider worked and said "this URL is not an auditable page". That is the
+    page's state — the coverage health ledger quarantines it and records its
+    content type — never a platform defect. Filing it high/fix made
+    `seo_collection_failed:pagespeed_insights:page_performance` read 26 open
+    failures in one evening (2026-11-09) for image and plain-text URLs."""
+    if event.status != "failed" or event.provider != "pagespeed_insights":
+        return False
+    if not isinstance(event.error, dict):
+        return False
+    from .pagespeed_coverage import classify_psi_failure
+
+    message = event.error.get("message")
+    return isinstance(message, str) and classify_psi_failure(message).kind == "terminal"
+
+
 def classify_outcome(event: CollectionOutcomeEvent) -> CollectionProblem | None:
     """The ONE predicate for 'this run is not okay'. Kept pure + importable so
     the host sink, the tests, and any future dashboard agree exactly."""
     if event.status == "failed":
-        return "needs_reconnect" if requires_reconnect(event.error) else "failed"
+        if requires_reconnect(event.error):
+            return "needs_reconnect"
+        return "page_unauditable" if is_page_verdict(event) else "failed"
     if event.reused:
         # A cache hit / re-run of a completed run legitimately creates nothing.
         return None

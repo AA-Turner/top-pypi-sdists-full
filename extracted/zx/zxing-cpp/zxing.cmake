@@ -17,7 +17,8 @@ macro(zxing_add_package_stb)
         if (NOT STB_FOUND)
             include(FetchContent)
             FetchContent_Declare (stb
-                GIT_REPOSITORY https://github.com/nothings/stb.git)
+                GIT_REPOSITORY https://github.com/nothings/stb.git
+            )
             FetchContent_MakeAvailable (stb)
             add_library(stb::stb INTERFACE IMPORTED)
             target_include_directories(stb::stb INTERFACE ${stb_SOURCE_DIR})
@@ -50,6 +51,7 @@ macro(zxing_add_package name depname git_repo git_rev)
             if (${depname} STREQUAL "googletest")
                 # Prevent overriding the parent project's compiler/linker settings on Windows
                 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+                set(BUILD_SHARED_LIBS OFF) # Ensure tests are actually found on Windows
             endif()
 
             FetchContent_MakeAvailable(${depname})

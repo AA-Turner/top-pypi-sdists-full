@@ -991,10 +991,9 @@ class PTOContainer(_Container,Flowable):
             if isinstance(_,PTOContainer):
                 C.extend(_._content)
             elif isinstance(_,ListFlowable):
-                cc = cdeepcopy(_._content)
-                for y in cc:
+                for y in _._content:
                     if not hasattr(y,'_ptoinfo'): y._ptoinfo = I
-                C.extend(cc)
+                    C.append(y)
             else:
                 C.append(_)
                 if not hasattr(_,'_ptoinfo'): _._ptoinfo = I

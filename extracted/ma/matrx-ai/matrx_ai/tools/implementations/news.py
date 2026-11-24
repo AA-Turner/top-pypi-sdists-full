@@ -56,6 +56,7 @@ async def news_get_headlines(args: dict[str, Any], ctx: ToolContext) -> ToolResu
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="Provide at least one of: query, country, sources, or category.",
                 suggested_action="Try country='us' for US headlines, or category='technology' for tech news.",
@@ -112,7 +113,7 @@ async def news_get_headlines(args: dict[str, Any], ctx: ToolContext) -> ToolResu
     except ValueError as e:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=e, 
                 error_type="validation",
                 message=str(e),
             ),

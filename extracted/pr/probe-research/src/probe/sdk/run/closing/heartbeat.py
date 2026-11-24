@@ -208,6 +208,13 @@ class _Progress:
             self._last = now
             self.count += 1
 
+    def restart(self) -> None:
+        """A paused job goes on (D23): the next gap is measured from now, so the time held is never read as idle
+        or learned as a normal gap."""
+        with self._lock:
+            if self._last is not None:
+                self._last = time.monotonic()
+
     def _record(self, now: float, gap: float) -> None:
         hour = int(now // 3600)
         bins, longest = self._hours.get(hour) or ([0] * (self._BINS + 1), 0.0)

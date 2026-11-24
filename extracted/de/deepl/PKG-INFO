@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: deepl
-Version: 1.33.0
+Version: 2.0.0
 Summary: Python library for the DeepL API.
 License: MIT
 Author: DeepL SE
@@ -16,7 +16,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: keyring
 Requires-Dist: keyring (>=25.7.0,<26.0.0) ; extra == "keyring"
@@ -58,6 +59,10 @@ The library can be installed from [PyPI][pypi-project] using pip:
 pip install --upgrade deepl
 ```
 
+If you are upgrading from version 1.x, see
+[Upgrading to 2.0.0](upgrading_to_v2.md) for the breaking changes and how to
+adapt your code.
+
 If you need to modify this source code, install the dependencies using poetry:
 
 ```shell
@@ -70,10 +75,11 @@ explained in this [bug report][bug-report-ubuntu-2204].
 
 ### Requirements
 
-The library is tested with Python versions 3.9 to 3.13.
+The library supports Python 3.9 and later, and is tested with Python versions
+3.9 to 3.15.
 
 The `requests` module is used to perform HTTP requests; the minimum is version
-2.32.4.
+2.32.5.
 
 We periodically drop support for older Python versions that have
 reached official end-of-life. You can find the Python versions and support
@@ -104,15 +110,9 @@ configuration file or environment variable.
 `DeepLClient` accepts additional options, see [Configuration](#configuration)
 for more information.
 
-The `Translator` class is deprecated: it receives no new features and will be
-removed in the next major version. Creating a `Translator` emits a
-`DeprecationWarning`. `DeepLClient` supports all of its functions, so replace
-`deepl.Translator(...)` with `deepl.DeepLClient(...)`.
-
 `deepl.is_free_account_auth_key(auth_key)` returns `True` if the key belongs
-to a DeepL API Free account (it ends with `:fx`). `auth_key_is_free_account()`
-is deprecated in its favour. Leading and trailing whitespace of the key is
-ignored.
+to a DeepL API Free account (it ends with `:fx`). Leading and trailing
+whitespace of the key is ignored.
 
 ### Translating text
 
@@ -132,9 +132,8 @@ variant according to ISO 3166-1, for example `'EN-US'`, or `'PT-BR'`. A target
 language without a variant translates into its default variant, for example
 `'EN'` into `'EN-US'` and `'PT'` into `'PT-PT'`; specify the variant to choose
 explicitly. The full list of supported languages is in the
-[API documentation][api-docs-lang-list]. Language codes are plain strings; the
-language code constants of `deepl.Language` (for example `Language.GERMAN`) are
-deprecated and will be removed in the next major version.
+[API documentation][api-docs-lang-list], and `get_source_languages()` and
+`get_target_languages()` return the supported languages at runtime.
 
 There are additional optional arguments to control translation, see
 [Text translation options](#text-translation-options) below.
@@ -191,8 +190,7 @@ arguments are:
 - `split_sentences`: specify how input text should be split into sentences,
   default: `'1'`.
     - `'1'` (`SplitSentences.ALL`): input text will be split into sentences
-      using both newlines and punctuation. `SplitSentences.DEFAULT` is a
-      deprecated alias of `SplitSentences.ALL`.
+      using both newlines and punctuation.
     - `'0'` (`SplitSentences.OFF`): input text will not be split into
       sentences. Use this for applications where each input text contains only
       one sentence.
@@ -327,13 +325,12 @@ as one of the predefined constants `WritingStyle` and `WritingTone`:
 
 ```python
 result = deepl_client.rephrase_text(
-    "A rainbouw has seven colours.", target_lang="EN-US", writing_style=WritingStyle.BUSINESS
+    "A rainbouw has seven colours.",
+    target_lang="EN-US",
+    writing_style=deepl.WritingStyle.BUSINESS,
 )
 print(result.text)
 ```
-
-The `style` keyword is a deprecated alias of `writing_style`; it still works but
-emits a `DeprecationWarning`.
 
 To only fix spelling and grammar without rewriting the text for style or tone,
 use `correct_text()`, which takes the text and the optional `target_lang`:
@@ -387,27 +384,32 @@ try:
         )
 
 except deepl.DocumentTranslationException as error:
-    # If an error occurs during document translation after the document was
-    # already uploaded, a DocumentTranslationException is raised. The
-    # document_handle property contains the document handle that may be used to
-    # later retrieve the document from the server, or contact DeepL support.
-    doc_id = error.document_handle.document_id
-    doc_key = error.document_handle.document_key
-    print(f"Error after uploading {error}, id: {doc_id} key: {doc_key}")
-except deepl.DeepLException as error:
-    # Errors during upload raise a DeepLException
-    print(error)
+    # Any error during document translation raises a
+    # DocumentTranslationException. If the document was already uploaded, the
+    # document_handle property contains the document handle that may be used
+    # to later retrieve the document from the server, or contact DeepL
+    # support; otherwise it is None.
+    if error.document_handle is not None:
+        doc_id = error.document_handle.document_id
+        doc_key = error.document_handle.document_key
+        print(f"Error after uploading {error}, id: {doc_id} key: {doc_key}")
+    else:
+        print(f"Error before uploading: {error}")
 ```
 
-Errors during upload raise the underlying `DeepLException` subclass, for
-example `AuthorizationException` or `QuotaExceededException`.
-`DocumentTranslationException` copies `http_status_code` and `should_retry`
-from the underlying `DeepLException`, if there is one. If the translation
-fails, it carries the API's error message.
-`translate_document_from_filepath()` raises `FileNotFoundError` before any
-request if the input file does not exist, and the `OSError` that `open()`
-raises (for example `PermissionError` or `IsADirectoryError`) if the input or
-output file cannot be opened.
+`translate_document()` and `translate_document_from_filepath()` raise a
+`DocumentTranslationException` for every failure, including a failed upload
+(for example an authorization or quota error), with `document_handle` set to
+`None` if the document was not uploaded. The underlying exception is its
+`__cause__`. `DocumentTranslationException` copies `http_status_code` and
+`should_retry` from the underlying `DeepLException`, if there is one. If the
+translation fails, it carries the API's error message. Invalid arguments also
+raise a `DocumentTranslationException` with `document_handle` `None` before any
+request, with the `ValueError` or `TypeError` as its `__cause__`.
+`translate_document_from_filepath()` raises `ValueError` before any request if
+the input file does not exist, and a `DocumentTranslationException` with
+`document_handle` `None` if the output file already exists (it is never
+overwritten) or the input or output file cannot be opened.
 
 `translate_document()` and `translate_document_from_filepath()` are convenience
 functions that wrap multiple API calls: uploading, polling status until the
@@ -425,17 +427,15 @@ these steps individually, you can instead use the following functions directly:
 `ok` (translation has not failed) properties. A status value this library
 version does not know is kept as a string in `status`.
 `translate_document_wait_until_done()` polls the status every 5 seconds until
-the translation is done or has failed and returns the final `DocumentStatus`;
-check its `ok` property, and `error_message` if the translation failed. An
-unknown status keeps polling, so pass `timeout_s` to bound the wait. With
+the translation is done and returns the final `DocumentStatus`. If the
+translation fails, it raises a `DeepLException` with the API's error message.
+An unknown status keeps polling, so pass `timeout_s` to bound the wait. With
 `timeout_s` it raises a `DeepLException` once the timeout expires; the last
 wait is shortened so it does not run past `timeout_s`.
 
 `translate_document_download()` writes the translated document to the
 file-like object given as `output_file`, in chunks of `chunk_size` bytes
-(default 64 KiB), without loading the whole document into memory. Calling it without `output_file` returns the streaming
-`requests.Response` instead; this is deprecated, emits a `DeprecationWarning`,
-and `output_file` will be required in the next major version. If the download
+(default 64 KiB), without loading the whole document into memory. If the download
 fails, the raised exception carries the API's error message; a network failure
 while the document is written to `output_file` raises `ConnectionException`.
 
@@ -458,6 +458,10 @@ arguments, the available `translate_document()` and
   file extension of desired format of translated file, for example: `'pdf'`. If
   unspecified, by default the translated file will be in the same format as the
   input file. 
+- `filename`: (`translate_document()` only) file name including extension,
+  sent with the upload instead of the input file object's own name; the API
+  detects the input format from its extension. `translate_document_upload()`
+  takes it too, and requires it for `str` or `bytes` content.
 - `enable_watermark`: set to `True` to add a "Translated by DeepL" watermark to
   the translated document. Only supported for `docx` and `pdf` output; for
   other output formats the API ignores it. If unspecified, the parameter is not
@@ -476,7 +480,7 @@ editing functionality plus support for multilingual glossaries. New methods and
 objects have been created to support interacting with these new glossaries. 
 Due to this  new functionality, users are recommended to utilize these 
 multilingual glossary methods. However, to continue using the `v2` glossary API 
-endpoints, please continue to use the existing endpoints in the `translator.py` 
+endpoints, please continue to use the existing `DeepLClient` methods for them
 (e.g. `create_glossary()`, `get_glossary()`, etc).
 
 To migrate to use the new multilingual glossary methods from the current 
@@ -520,7 +524,7 @@ print(
     f"with {len(my_glossary.dictionaries)} dictionary where "
     f"its language pair is {my_glossary_dict.source_lang}->"
     f"{my_glossary_dict.target_lang} containing "
-    f"{my_glossary.entry_count} entries"
+    f"{my_glossary_dict.entry_count} entries"
 )
 # Example: Created 'My glossary' (559192ed-8e23-...) with 1 dictionary where
 # its language pair is EN->DE containing 2 entries
@@ -530,7 +534,7 @@ You can also upload a glossary downloaded from the DeepL website using
 `create_multilingual_glossary_from_csv()`. Instead of supplying the entries as a 
 dictionary within a MultilingualGlossaryDictionaryEntries object, you can specify 
 the CSV data as `csv` either as a file-like object or string or bytes 
-containing file content (`csv_data` is the deprecated name of this argument):
+containing file content:
 
 ```python
 # Open the CSV file assuming UTF-8 encoding. If your file contains a BOM,
@@ -561,10 +565,13 @@ Functions to get, list, and delete stored glossaries are also provided:
 - `delete_multilingual_glossary()` takes a glossary ID or `MultilingualGlossaryInfo` 
   object and deletes the stored glossary from the server, or raises an 
   exception if no such glossary is found.
-- `delete_multilingual_glossary_dictionary()` takes a glossary ID or `GlossaryInfo` object to 
-  identify the glossary. Additionally takes in a source and target language or a 
-  `MultilingualGlossaryDictionaryInfo` object and deletes the stored dictionary
-   from the server, or raises an exception if no such glossary dictionary is found.
+- `delete_multilingual_glossary_dictionary()` takes a glossary ID or
+  `MultilingualGlossaryInfo` object to identify the glossary, followed by the
+  source and target language of the dictionary, and deletes the stored
+  dictionary from the server, or raises an exception if no such glossary
+  dictionary is found. Instead of the languages, you can pass a
+  `MultilingualGlossaryDictionaryInfo` object as the keyword argument
+  `dictionary`.
 
 ```python
 # Retrieve a stored glossary using the ID
@@ -572,7 +579,11 @@ glossary_id = "559192ed-8e23-..."
 my_glossary = deepl_client.get_multilingual_glossary(glossary_id)
 
 # Delete a glossary dictionary from a stored glossary
-deepl_client.delete_multilingual_glossary_dictionary(my_glossary, my_glossary.dictionaries[0])
+deepl_client.delete_multilingual_glossary_dictionary(my_glossary, "en", "de")
+# or, with a dictionary object
+deepl_client.delete_multilingual_glossary_dictionary(
+    my_glossary, dictionary=my_glossary.dictionaries[0]
+)
 
 # Find and delete glossaries named 'Old glossary'
 glossaries = deepl_client.list_multilingual_glossaries()
@@ -584,27 +595,24 @@ for glossary in glossaries:
 #### Listing entries in a stored glossary
 
 The `MultilingualGlossaryInfo` object does not contain the glossary entries, but
-instead only the number of entries in the `entry_count` property.
+instead only the number of entries of each dictionary, in the `entry_count`
+property of its `dictionaries` (for example
+`glossary.dictionaries[0].entry_count`).
 
 To list the entries of one dictionary within a stored glossary, use
 `get_multilingual_glossary_dictionary_entries()` providing either the
 `MultilingualGlossaryInfo` object or glossary ID, and the source and target
 language. It returns a `MultilingualGlossaryDictionaryEntries` object whose
-`entries` is the TSV string the API returns, and raises a
-`GlossaryNotFoundException` if the glossary has no dictionary for that language
-pair. Use `deepl.util.convert_tsv_to_dict()` to get a dictionary of
-source-target terms:
+`entries` is a dictionary of source-target terms, and raises a
+`NotFoundException` if the glossary has no dictionary for that language pair. The returned object can be passed back to the functions that create,
+update or replace glossaries and dictionaries:
 
 ```python
 dictionary = deepl_client.get_multilingual_glossary_dictionary_entries(
     my_glossary, "EN", "DE"
 )
-print(deepl.util.convert_tsv_to_dict(dictionary.entries))  # "{'artist': 'Maler', 'prize': 'Gewinn'}"
+print(dictionary.entries)  # "{'artist': 'Maler', 'prize': 'Gewinn'}"
 ```
-
-`get_multilingual_glossary_entries()` is deprecated: it returns a
-`MultilingualGlossaryDictionaryEntriesResponse` wrapping a list of
-dictionaries. Use `get_multilingual_glossary_dictionary_entries()` instead.
 
 #### Editing a glossary
 
@@ -630,11 +638,7 @@ Functions to edit stored glossaries are also provided:
 - `update_multilingual_glossary_name()` takes a glossary ID or `MultilingualGlossaryInfo`
   object, plus the new name of the glossary. 
 
-The `*_from_csv()` variants take the entries as `csv` instead. The
-`glossary_dicts` (of `create_multilingual_glossary()`), `glossary_dict` and
-`csv_data` argument names are deprecated; use `dictionaries`, `dictionary` and
-`csv`. `get_multilingual_glossary()` likewise takes `glossary`; its
-`glossary_id` keyword is deprecated.
+The `*_from_csv()` variants take the entries as `csv` instead.
 
 The functions that create, update or replace glossaries and dictionaries
 (`create_multilingual_glossary()`, `create_multilingual_glossary_from_csv()`,
@@ -662,7 +666,7 @@ updated_glossary = deepl_client.update_multilingual_glossary_dictionary(
 )
 
 dictionary = deepl_client.get_multilingual_glossary_dictionary_entries(my_glossary, "EN", "DE")
-print(deepl.util.convert_tsv_to_dict(dictionary.entries))  # "{'artist': 'Maler', 'hello': 'hallo', 'prize': 'Gewinn'}"
+print(dictionary.entries)  # "{'artist': 'Maler', 'hello': 'hallo', 'prize': 'Gewinn'}"
 
 # Update a glossary dictionary from CSV
 # Open the CSV file assuming UTF-8 encoding. If your file contains a BOM,
@@ -683,7 +687,7 @@ updated_glossary = deepl_client.replace_multilingual_glossary_dictionary(
   my_glossary,
   glossary_dict)
 dictionary = deepl_client.get_multilingual_glossary_dictionary_entries(my_glossary, "EN", "DE")
-print(deepl.util.convert_tsv_to_dict(dictionary.entries))  # "{'goodbye': 'Auf Wiedersehen'}"
+print(dictionary.entries)  # "{'goodbye': 'Auf Wiedersehen'}"
 
 # Replace a glossary dictionary from CSV
 # Open the CSV file assuming UTF-8 encoding. If your file contains a BOM,
@@ -751,7 +755,9 @@ per language; a term list is a list of strings. Before sending, the library
 strips leading and trailing whitespace from each term and sends the stripped
 term, then checks it like a glossary term (`validate_glossary_term()`): an
 empty term or one with a control character, such as a newline, raises
-`ValueError`. The API validates the rest (at most 300 characters per list, no
+`ValueError`. An empty language of a term list, or an empty `lang` argument
+of `get_spoken_terms_entries()` and `delete_spoken_terms_list()`, raises
+`ValueError` too. The API validates the rest (at most 300 characters per list, no
 duplicates). Methods that take a collection accept either its ID or a
 `SpokenTerms` object. `create_spoken_terms()`, `update_spoken_terms()` and
 `replace_spoken_terms_list()` accept the keyword argument
@@ -799,30 +805,25 @@ deepl_client.delete_spoken_terms(spoken_terms)
 
 To check account usage, use the `get_usage()` function.
 
-The returned `Usage` object contains three usage subtypes: `character`,
-`document` and `team_document`. Depending on your account type, some usage
-subtypes may be invalid; this can be checked using the `valid` property. For API
-accounts:
+The returned `Usage` object has the `character` usage subtype, the account's
+character usage. If the response does not contain it, the property is `None`.
 
-- `usage.character.valid` is `True`,
-- `usage.document.valid` and `usage.team_document.valid` are `False`.
-
-Each usage subtype (if valid) has `count` and `limit` properties giving the
-amount used and maximum amount respectively, and the `limit_reached` property
-that checks if the usage has reached the limit. The top level `Usage` object has
-the `any_limit_reached` property to check the `character`, `document` and
-`team_document` subtypes. It does not consider the API Pro subtypes described
-below; check `limit_reached` on those directly.
+Each usage subtype has `count` and `limit` properties giving the amount used
+and maximum amount respectively, and the `limit_reached` property that checks
+if the usage has reached the limit. The top level `Usage` object has the
+`any_character_limit_reached` property: `True` if the account's character
+limit or this API key's character limit (`api_key_character`, below) is
+reached. A subtype absent from the response counts as not reached. The speech
+minutes have their own subtypes, described below; check `limit_reached` on
+those directly.
 
 ```python
 usage = deepl_client.get_usage()
-if usage.any_limit_reached:
-    print('Translation limit reached.')
-if usage.character.valid:
+if usage.any_character_limit_reached:
+    print('Character limit reached.')
+if usage.character:
     print(
         f"Character usage: {usage.character.count} of {usage.character.limit}")
-if usage.document.valid:
-    print(f"Document usage: {usage.document.count} of {usage.document.limit}")
 ```
 
 API Pro accounts also receive the following; for other accounts, and whenever
@@ -843,8 +844,9 @@ the response does not contain them, these properties are `None`:
 usage = deepl_client.get_usage()
 if usage.start_time and usage.end_time:
     print(f"Billing period: {usage.start_time} to {usage.end_time}")
-print(f"Account characters: {usage.character.count} of {usage.character.limit}")
-if usage.api_key_character and usage.api_key_character.valid:
+if usage.character:
+    print(f"Account characters: {usage.character.count} of {usage.character.limit}")
+if usage.api_key_character:
     print(
         f"API key characters: {usage.api_key_character.count} of "
         f"{usage.api_key_character.limit}"
@@ -893,7 +895,7 @@ languages and features are returned; pass `include=[LanguageInclude.BETA]` to
 also get beta ones.
 
 ```python
-from deepl.api_data import LanguageResourceName
+from deepl import LanguageResourceName
 
 for language in deepl_client.get_languages_for_resource(
     LanguageResourceName.TRANSLATE_TEXT
@@ -954,6 +956,7 @@ your account, each with a user-specified name and a uniquely-assigned ID.
 
 Use `create_style_rule()` to create a new style rule with a name and language
 code. You can optionally provide `configured_rules` and `custom_instructions`.
+An empty `source_language` in a custom instruction raises `ValueError`.
 
 ```python
 style_rule = deepl_client.create_style_rule(
@@ -973,7 +976,12 @@ corresponding to all of your stored style rules. The method accepts optional
 parameters: `page` (page number for pagination, 0-indexed), `page_size` (number
 of items per page), and `detailed`. When `True`, the response includes
 `configured_rules` and `custom_instructions` for each style rule. When `False`
-(default), these fields are omitted for faster responses.
+(default), these fields are omitted for faster responses. `configured_rules` is
+returned as the API sends it: a dict mapping category names (such as
+`"numbers"`) to dicts of rule names and values, the same shape that
+`create_style_rule()` and `update_style_rule_configured_rules()` take.
+`configured_rules` and `custom_instructions` are `None` when the response omits
+them; an empty dict or list means the style rule has none.
 
 ```python
 # Get a single style rule by ID
@@ -989,7 +997,7 @@ for rule in style_rules:
 style_rules = deepl_client.get_all_style_rules(detailed=True)
 for rule in style_rules:
     if rule.configured_rules:
-        print(f"  Number formatting: {rule.configured_rules.numbers}")
+        print(f"  Number formatting: {rule.configured_rules.get('numbers')}")
 ```
 
 #### Updating a style rule
@@ -1016,7 +1024,8 @@ Custom instructions allow you to add free-text prompts to a style rule. Use
 `delete_style_rule_custom_instruction()` to manage them. The `style_rule`
 argument of every style rule function takes a style rule ID or a
 `StyleRuleInfo` object, and `instruction_id` takes a custom instruction ID or a
-`CustomInstruction` object.
+`CustomInstruction` object. `source_language` is optional; an empty string
+raises `ValueError`.
 
 ```python
 # Create a custom instruction
@@ -1273,10 +1282,11 @@ the job keeps reporting `awaiting_input` for roughly half a minute after the
 upload before completing. Pass `timeout_s` to bound how long to wait.
 
 The file is read before the import job is created: a missing file raises
-`ValueError`, and a file that cannot be read raises the `OSError` that `open()`
-raises (for example `PermissionError` or `IsADirectoryError`), in both cases
-without sending a request. A failed or expired import job raises
-`DeepLException` with the API's error message.
+`ValueError` without sending a request. Every other failure raises a
+`TranslationMemoryJobException` (see [below](#translation-memory-file-errors)):
+a file that cannot be read (with the `OSError` as its `__cause__`, before any
+request), a failed upload, and a failed or expired import job (with the API's
+error message).
 
 The three steps are also available separately, for example to upload the file
 yourself or to poll for progress. `create_translation_memory_import()` returns
@@ -1288,9 +1298,7 @@ optional keyword arguments `content_type`, `display_name` and
 `upload_translation_memory_file()` takes the import job (or its upload URL),
 the file `content` as bytes or a binary file object, and an optional
 `content_type` (default `application/xml`) that must match the one declared
-when creating the job. The keyword `input_file` is a deprecated alias of
-`content`: it emits a `DeprecationWarning` and will be removed in the next
-major version.
+when creating the job.
 
 ```python
 created = deepl_client.create_translation_memory_import(
@@ -1309,9 +1317,9 @@ job = deepl_client.wait_until_translation_memory_job_done(
 ```
 
 `wait_until_translation_memory_job_done()` polls every 5 seconds and returns
-the final job once it is completed, failed or expired; check its `ok` property,
-and `job.result.error_message` if it failed. An unknown status keeps polling,
-so pass `timeout_s` to bound the wait. With `timeout_s` it raises
+the job once it is completed. If the job fails or expires, it raises
+`DeepLException` with the API's error message. An unknown status keeps
+polling, so pass `timeout_s` to bound the wait. With `timeout_s` it raises
 `DeepLException` once the timeout is exceeded, cutting the last sleep short so
 the wait does not run past the timeout.
 
@@ -1343,14 +1351,36 @@ job = deepl_client.export_translation_memory_to_filepath(
 )
 ```
 
-The output path is checked before the export job is created, raising the
-`OSError` that `open()` would raise without sending a request:
-`FileNotFoundError` if its directory does not exist, `IsADirectoryError` if the
-path is a directory and `PermissionError` if it is not writable. If the export
-job fails or expires, `DeepLException` is raised with the API's error message
-and no file is created. If the download fails, `DeepLException` is raised; an
-`OSError` while writing the file is raised as is. In both cases a partially
-written file is removed.
+The output path is checked before the export job is created: if its directory
+does not exist, the path already exists or is a directory, or it is not
+writable, `TranslationMemoryJobException` is raised without sending a request.
+An existing file is never overwritten. If the export job fails or expires,
+`TranslationMemoryJobException` is raised with the API's error message and no
+file is created. If the download or writing the file fails,
+`TranslationMemoryJobException` is raised, with the `OSError` of a write
+failure as its `__cause__`, and a partially written file is removed.
+
+##### Translation memory file errors
+
+`import_translation_memory_from_filepath()` and
+`export_translation_memory_to_filepath()` raise a
+`TranslationMemoryJobException` for every failure except a missing input file,
+like `DocumentTranslationException` for documents. The underlying exception is
+its `__cause__`, and it copies `http_status_code` and `should_retry` from an
+underlying `DeepLException`. `job_id` is the ID of the import or export job, or
+`None` if the job was not created; `job` is the last `TranslationMemoryJob`
+status retrieved, or `None` if none was retrieved yet. Use `job_id` to inspect
+the job with `get_translation_memory_job()`.
+
+```python
+try:
+    deepl_client.import_translation_memory_from_filepath("/path/to/memory.tmx")
+except deepl.TranslationMemoryJobException as error:
+    if error.job_id is not None:
+        print(f"Import job {error.job_id} failed: {error}")
+    else:
+        print(f"Failed before creating the import job: {error}")
+```
 
 As with import, the individual steps are available separately. Note that the
 API may reuse a previously completed export of an unchanged translation memory,
@@ -1367,9 +1397,8 @@ with open("/path/to/exported.tmx", "wb") as output_file:
 
 `download_translation_memory_export()` writes in chunks of `chunk_size` bytes
 (default 64 KiB); a network failure while it writes raises
-`ConnectionException`. Calling it without `output_file` returns the streaming
-`requests.Response` instead; this is deprecated, emits a `DeprecationWarning`,
-and `output_file` will be required in the next major version.
+`ConnectionException`. A job without a download URL (not completed, or not an
+export) raises `DeepLException` before any request.
 
 #### Deleting a translation memory
 
@@ -1553,14 +1582,18 @@ deepl_client = deepl.DeepLClient(...).set_app_info("sample_python_plugin", "1.0.
 
 This information is passed along when the library makes calls to the DeepL API.
 Both name and version are required. Please note that a `User-Agent` header in the
-`headers` option (or the deprecated `deepl.http_client.user_agent`) overrides this
+`headers` option overrides this
 setting; if you need to use one, please manually identify your application in it.
 
 ### Exceptions
 
 All module functions may raise `deepl.DeepLException` or one of its subclasses.
 If invalid arguments are provided, they may raise the standard exceptions
-`ValueError` and `TypeError`.
+`ValueError` and `TypeError`. An empty resource ID, such as `glossary=""`
+or a `GlossaryInfo` without an ID, raises `ValueError` before any request is
+sent. An empty language code, where one is required, or an empty optional
+language such as `source_language`, raises `ValueError` before any request is
+sent.
 
 | Exception | Raised for |
 |---|---|
@@ -1571,10 +1604,8 @@ If invalid arguments are provided, they may raise the standard exceptions
 | `ConnectionException` | no HTTP response, or a network failure while it is read (connection failure, timeout) |
 | `DeepLException` | any other error, including a non-2xx status not listed above (e.g. an HTTP 3xx that is not followed), with `http_status_code` set |
 
-`should_retry` is `True` for HTTP 429 and 5xx errors. `GlossaryNotFoundException`,
-raised for a 404 on glossary functions, is deprecated: it is a subclass of
-`NotFoundException`, catch that instead. It will be removed in the next major
-version.
+`should_retry` is `True` for HTTP 429 and 5xx errors, except for functions
+that create a resource (see [retries](#configure-automatic-retries-and-timeouts)).
 
 ### Configuration
 
@@ -1609,6 +1640,9 @@ A path in the server URL is kept: with `server_url="https://example.com/deepl"`
 requests go to `https://example.com/deepl/v2/...`. The `server_url` property
 returns the URL a client uses.
 
+The `server_url` must be an absolute `http` or `https` URL with a host,
+otherwise the constructor raises `ValueError`.
+
 #### Custom HTTP headers
 
 The `headers` option adds HTTP headers to every request to the DeepL API. A
@@ -1618,8 +1652,8 @@ case-insensitively, including `User-Agent` and `Authorization`. `Content-Type`,
 library builds, and so does an `Accept` header the library sets for a call
 (for example when retrieving v2 glossary entries). Requests to the pre-signed
 translation memory upload and download URLs get no `Authorization` and none of
-these headers, except your `User-Agent` if you set one. `deepl.Translator` and
-`deepl.DeepLAdminClient` accept the option too.
+these headers, except your `User-Agent` if you set one. `deepl.DeepLAdminClient`
+accepts the option too.
 
 ```python
 deepl_client = deepl.DeepLClient(..., headers={"X-My-Header": "value"})
@@ -1637,7 +1671,10 @@ deepl_client = deepl.DeepLClient(..., proxy=proxy)
 
 The proxy argument is passed to the underlying `requests` session, see the
 [documentation for requests][requests-proxy-docs]; a dictionary of schemes to
-proxy URLs is also accepted.
+proxy URLs is also accepted. A proxy URL needs a host and one of the schemes
+`http`, `https`, `socks4`, `socks4a`, `socks5` or `socks5h`; a URL without a
+scheme is used as an `http://` URL. An invalid proxy URL raises `ValueError`
+when the client is constructed.
 
 #### Override SSL verification
 
@@ -1657,12 +1694,14 @@ option, see the [documentation for requests][requests-verify-ssl-docs].
 This SDK will automatically retry failed HTTP requests if the failures could
 be transient: HTTP 429 and 5xx status codes, and network failures such as
 refused or reset connections (also a connection that breaks off while the
-response is read), DNS failures and timeouts. TLS and certificate
-failures, and proxy failures (including a failure to connect to the proxy),
-are not retried. By default a request is retried up to 5 times, and each
+response is read), DNS failures and timeouts. TLS and certificate failures,
+and an error answer from a proxy (a status other than 2xx in reply to
+`CONNECT`, such as 407), are not retried. A failure to connect to the proxy,
+or a reset or timeout before it answers, is retried like the same failure
+without a proxy. By default a request is retried up to 5 times, and each
 attempt has a timeout of at least 10 seconds. You can change both per client
-with the `max_retries` and `timeout_s` options when
-constructing a `deepl.DeepLClient`:
+with the `max_retries` and `timeout_s` options when constructing a
+`deepl.DeepLClient`:
 
 ```python
 deepl_client = deepl.DeepLClient(..., max_retries=3, timeout_s=30.0)
@@ -1670,25 +1709,38 @@ deepl_client = deepl.DeepLClient(..., max_retries=3, timeout_s=30.0)
 
 `max_retries` is the maximum number of retries after the first attempt (0
 disables retries), and `timeout_s` is the minimum timeout in seconds for each
-attempt. Both options are also accepted by `deepl.Translator` and
-`deepl.DeepLAdminClient`.
+attempt. Both options are also accepted by `deepl.DeepLAdminClient`.
 
-`DeepLAdminClient.create_developer_key()` is only retried when the request was
-not sent: after an HTTP 429 status code, a DNS resolution failure, a refused
-connection or a connect timeout. A retry after any other failure could create
-a second key.
+A connection that breaks off while `translate_document_download()` or
+`download_translation_memory_export()` writes the file is not retried
+automatically, because part of the file may already be written. The
+`ConnectionException` has `should_retry` set to `True`; repeat the download
+with a fresh output file.
 
-The module-level settings `deepl.http_client.max_network_retries` and
-`deepl.http_client.min_connection_timeout` are deprecated and will be removed
-in a future major version. Assigning either setting emits a
-`DeprecationWarning`. They still apply to clients created without the
-corresponding option, and affect every client in the process:
+Functions that create a resource are only retried when the request was not
+sent: after an HTTP 429 status code or a network failure while connecting,
+before any request byte is written, such as a DNS resolution failure, a
+refused connection, a connect timeout, or a reset or timeout in the TLS or
+proxy handshake (also through a proxy). A retry after any other failure could
+create the resource twice. These are `create_glossary()`,
+`create_glossary_from_csv()`, `create_multilingual_glossary()`,
+`create_multilingual_glossary_from_csv()`, `create_spoken_terms()`,
+`create_style_rule()`, `create_style_rule_custom_instruction()`,
+`create_style_profile()`, `create_translation_memory_import()`,
+`create_translation_memory_export()`, the document upload of
+`translate_document_upload()`, `translate_document()` and
+`translate_document_from_filepath()`, the job creation of
+`import_translation_memory_from_filepath()` and
+`export_translation_memory_to_filepath()`, and
+`DeepLAdminClient.create_developer_key()`. All other requests, including
+`translate_text()`, `rephrase_text()` and `correct_text()`, are retried after
+every transient failure listed above.
 
-```python
-deepl.http_client.max_network_retries = 3  # deprecated, use max_retries
-deepl.http_client.min_connection_timeout = 30.0  # deprecated, use timeout_s
-```
-
+For these functions, `should_retry` of the raised exception is `True` only
+after a failure that shows the request was not sent (the failures above) or a
+response body cut off mid-read. After an HTTP 5xx status code, a read timeout,
+a reset connection or a broken pipe it is `False`, because the request may
+have been processed and repeating it could create a duplicate.
 
 #### Anonymous platform information
 
@@ -1703,11 +1755,6 @@ You can also replace the whole `User-Agent` with the `headers` option:
 ```python
 deepl_client = deepl.DeepLClient(..., headers={"User-Agent": "my custom user agent"})
 ```
-
-The module-level setting `deepl.http_client.user_agent`, which replaces the
-library part of the `User-Agent` for every client in the process, is deprecated
-in favour of the `headers` option and will be removed in the next major version.
-Assigning it emits a `DeprecationWarning`.
 
 ## Command Line Interface
 

@@ -3,9 +3,7 @@
 
 import grpc
 
-from chalk._gen.chalk.scalinggroup.v1 import (
-    service_pb2 as chalk_dot_scalinggroup_dot_v1_dot_service__pb2,
-)
+from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as chalk_dot_scalinggroup_dot_v1_dot_service__pb2
 
 
 class ScalingGroupManagerServiceStub(object):

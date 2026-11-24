@@ -47,6 +47,8 @@ __all__ = [
     "MAX_SCORE_LEVELS",
     "DecisionAnswer",
     "DecisionAnswers",
+    "DecisionBox",
+    "DecisionImage",
     "DecisionQuestion",
     "DecisionQuestions",
     "DecisionUsage",
@@ -75,12 +77,18 @@ class DecisionQuestion(KindSubModel):
     """One question. Not a kind: it has no meaning outside its batch."""
 
     name: str = Field(min_length=1, max_length=128)
-    type: Literal["noul", "choice", "score"]
+    #: ``box`` asks WHERE something is in an image and is answered with its
+    #: four edges; it needs an image beside the questions.
+    type: Literal["noul", "choice", "score", "box"]
     instructions: str = Field(min_length=1)
     #: ``choice`` → an option map (2–255 named options, values describe them).
     #: ``score``  → an ORDERED list of 2–10 level descriptions.
     #: ``noul``   → optional clarifying text under the keys ``true``/``false``.
+    #: ``box``    → none (what to find is the instruction itself).
     criteria: dict[str, str] | list[str] | None = None
+    #: ``box`` only — which image to look in, by its position among the images
+    #: beside the questions (0 = the first). Default: the first image.
+    image: int | None = Field(default=None, ge=0)
     #: What the author wants the decision to take into account (optional). A typed field, never
     #: appended to ``instructions`` by a caller: every renderer shows it via :meth:`rendered_instructions`.
     guidance: str | None = None
@@ -119,6 +127,12 @@ class DecisionQuestion(KindSubModel):
                     f"Score question {self.name!r} has {len(self.criteria)} levels; "
                     f"a score takes {MIN_SCORE_LEVELS}–{MAX_SCORE_LEVELS}."
                 )
+        elif self.type == "box":
+            if self.criteria:
+                raise ValueError(
+                    f"Box question {self.name!r} takes no criteria: its instruction names "
+                    "what to find, for example 'the coffee mug'."
+                )
         elif isinstance(self.criteria, list):
             raise ValueError(
                 f"Noul question {self.name!r} takes criteria as an optional map with "
@@ -153,6 +167,31 @@ class DecisionQuestion(KindSubModel):
         return []
 
 
+class DecisionImage(KindSubModel):
+    """Which picture an answer is about — a durable handle, never bytes or a signed url."""
+
+    file_id: str | None = None
+    url: str | None = None
+    #: The picture's own size (upright), so a Box can be drawn without loading it first.
+    width: int | None = Field(default=None, ge=1)
+    height: int | None = Field(default=None, ge=1)
+
+
+class DecisionBox(KindSubModel):
+    """Where something is: four edges as fractions of the picture, from its top-left corner."""
+
+    top: float = Field(ge=0.0, le=1.0)
+    bottom: float = Field(ge=0.0, le=1.0)
+    left: float = Field(ge=0.0, le=1.0)
+    right: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _edges_in_order(self) -> DecisionBox:
+        if not (self.left < self.right and self.top < self.bottom):
+            raise ValueError("A box's left edge is left of its right edge and its top above its bottom.")
+        return self
+
+
 class DecisionQuestions(KindModel, kind="decision_questions"):
     """A batch of questions asked of whatever state shares their message."""
 
@@ -177,22 +216,39 @@ class DecisionQuestions(KindModel, kind="decision_questions"):
 class DecisionAnswer(KindModel, kind="decision_answer"):
     """One answer, with the holder's own uncertainty attached."""
 
-    type: Literal["noul", "choice", "score"]
+    type: Literal["noul", "choice", "score", "box"]
     #: noul → bool · choice → the chosen option name · score → the
     #: probability-weighted level (a float, deliberately not an integer: "3.4"
-    #: carries information "3" throws away).
-    answer: bool | float | str
-    #: noul only — P(true).
+    #: carries information "3" throws away) · box → the four edges.
+    answer: DecisionBox | bool | float | str
+    #: noul — P(true) · box — P(the thing is in the picture at all). A Box is
+    #: always four edges, even for something absent, so its presence is asked
+    #: as its own probability and a surface dims a box below its threshold.
     probability: float | None = Field(default=None, ge=0.0, le=1.0)
     #: choice/score — the full distribution. Never a single winner.
     probabilities: dict[str, float] | None = None
-    confidence: float = Field(ge=0.0, le=1.0)
+    #: How sure the holder is. ``None`` ONLY for a box the holder gave no
+    #: confidence for — never read as zero.
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: box only — which image (position among the images beside the questions).
+    image: int | None = Field(default=None, ge=0)
     #: score only — level key → what that level means, echoed so a renderer
     #: never has to hold the question to draw the answer.
     legend: dict[str, str] | None = None
 
     @model_validator(mode="after")
     def _shape_matches_type(self) -> DecisionAnswer:
+        if self.type != "box" and self.confidence is None:
+            raise ValueError(f"A {self.type} answer carries its confidence.")
+        if self.type != "box" and self.image is not None:
+            raise ValueError(f"A {self.type} answer names no image; only a box is found IN one.")
+        if self.type == "box":
+            if not isinstance(self.answer, DecisionBox):
+                raise ValueError("A box answer is the four edges top, bottom, left and right.")
+            if self.probabilities is not None:
+                raise ValueError("A box answer has a presence probability, not a distribution.")
+        elif isinstance(self.answer, DecisionBox):
+            raise ValueError(f"A {self.type} answer is not a box.")
         if self.type == "noul":
             if not isinstance(self.answer, bool):
                 raise ValueError("A noul answer is true or false.")
@@ -200,6 +256,8 @@ class DecisionAnswer(KindModel, kind="decision_answer"):
                 raise ValueError("A noul answer carries its probability of true.")
             if self.probabilities is not None:
                 raise ValueError("A noul answer has one probability, not a distribution.")
+        elif self.type == "box":
+            pass  # checked above
         elif self.type == "choice":
             if not isinstance(self.answer, str) or not self.answer.strip():
                 raise ValueError("A choice answer is the chosen option name.")
@@ -236,6 +294,8 @@ class DecisionAnswers(KindModel, kind="decision_answers"):
     unanswerable: dict[str, str] = Field(default_factory=dict)
     usage: DecisionUsage
     cost_usd: float = Field(ge=0.0)
+    #: The images the questions were asked about, by position — what a box is drawn on.
+    images: list[DecisionImage] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _answered_or_refused(self) -> DecisionAnswers:

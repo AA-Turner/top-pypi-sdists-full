@@ -253,7 +253,7 @@ class _Fleet:
                 return self._late(robot, outside, robots, sorted(put_out))
             self.seats[robot] = _Seat(outside, time.perf_counter())
             log.info("seated a robot %s (%d seated, %d seats)",
-                     "that has reported no round trip yet" if outside is None else f"{outside:.0f} ms away",
+                     "that has reported no round trip yet" if outside is None else "by the round trip it reported",
                      len(self.seats), seats)
             return None
 
@@ -314,27 +314,24 @@ class _Fleet:
                 f"{self._again()}")
 
     def _late(self, robot: str, outside: Optional[float], robots: list, put_out: list) -> str:
-        away = (f"{outside:.0f} ms away" if outside is not None else
-                f"taken as {slack.ROUND_TRIP_MS:.0f} ms away, having reported no round trip")
+        """Why `robot` is not seated, in words its robot is shown: by the round trip it reports, or a default one where
+        it reported none, each said without a number."""
+        away = ("at the round trip it reports" if outside is not None else
+                "at a default round trip, having reported none")
         if put_out:
-            far = " and ".join(f"{_or_default(self.seats[name].outside):.0f} ms" for name in put_out)
-            why = (f"seated beside the {_robots(len(robots))} it serves, this robot, {away}, would leave the "
-                   f"{'one' if len(put_out) == 1 else 'ones'} {far} away without "
-                   f"{'its' if len(put_out) == 1 else 'their'} answers within {self._chunk()}")
+            n = len(put_out)
+            why = (f"seated beside the {_robots(len(robots))} it serves, this robot, {away}, would leave "
+                   f"{'one of them' if n == 1 else f'{n} of them'} without {'its' if n == 1 else 'their'} answers "
+                   f"within {self._chunk()}")
         else:
             why = (f"this server cannot answer this robot within {self._chunk()} beside the {_robots(len(robots))} it "
-                   f"serves, however their requests fall: this robot is {away}")
+                   f"serves, however their requests fall, with this robot {away}")
         return (f"{why} ({self._batches()}). Serve it from a GPU nearer it, or from this one once the others have "
                 f"stopped: {self._again()}")
 
 
 def _robots(n: int) -> str:
     return f"{n} robot" if n == 1 else f"{n} robots"
-
-
-def _or_default(outside: Optional[float]) -> float:
-    """A robot's round trip as a count takes it: slack.ROUND_TRIP_MS for one that reported none."""
-    return slack.ROUND_TRIP_MS if outside is None else outside
 
 
 def _count(seating: "slack.Seating", robots: list) -> tuple:
@@ -690,8 +687,8 @@ class App:
                 self._fleet.timed()
                 seats, _ = await self._fleet.count([])
                 self._fleet.capacity = seats
-                log.info("seats %d robot%s %g ms away, each robot by the round trip it reports", seats,
-                         "" if seats == 1 else "s", slack.ROUND_TRIP_MS)
+                log.info("seats %d robot%s at a default round trip, then each robot by the round trip it reports",
+                         seats, "" if seats == 1 else "s")
         except Exception as e:  # noqa: BLE001 (whatever the policy raised: serve() raises it once the server stops)
             self._fail(e)
             return

@@ -591,6 +591,9 @@ class _Pacer:
         self._clock = clock
         self.next_due: float | None = None
 
+    def reset(self) -> None:
+        self.next_due = None
+
     def wait_deadline(self, period_s: float, *, pace: bool) -> float:
         now = self._clock()
         if not pace or self.next_due is None:
@@ -1167,6 +1170,25 @@ class AsyncPolicy:
             if self._controller is controller:
                 return
             # The link was lost while preparing: open again and send on the new session.
+
+    async def reset_episode(self) -> None:
+        """Reset episode state (queued chunks, in-flight requests, client + server history)
+        without closing the GPU session.
+
+        Used on clutch handback after human takeover and between episodes so the next
+        ``next_action()`` or ``predict()`` predicts cleanly from the current robot pose.
+        """
+        self._guard()
+        controller = self._controller
+        if controller is not None and hasattr(controller, "reset_episode"):
+            await controller.reset_episode()
+        inner = self._inner
+        if inner is not None:
+            history = getattr(inner, "observation_history", None)
+            if history is not None and hasattr(history, "clear"):
+                history.clear()
+        self._predict_receipt = None
+        self._pacer.reset()
 
     async def close(self) -> None:
         """Close the session now. Optional: idle release (after a minute idle; on a deployment
@@ -2082,6 +2104,11 @@ class Policy:
     def _async_policy(self) -> Any:
         """The current inner session (for the shared synchronous run loop)."""
         return self._facade._inner
+
+    def reset_episode(self) -> None:
+        """See ``AsyncPolicy.reset_episode``."""
+        self._guard()
+        self._runner.run(self._facade.reset_episode())
 
     def close(self) -> None:
         _OPEN_POLICIES.discard(self)

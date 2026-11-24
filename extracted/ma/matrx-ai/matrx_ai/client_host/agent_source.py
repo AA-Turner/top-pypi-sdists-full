@@ -42,6 +42,61 @@ class InvalidExecutionAgentDefinition(ValueError):
         )
 
 
+class AgentHasNoMessages(InvalidExecutionAgentDefinition):
+    """A saved agent with zero authored messages: nothing to send, so the run is refused.
+
+    A caller refusal, not a crash: the stream ends with this typed error (its own
+    ``error_type`` and a sentence naming the agent) and files no ``system_error`` —
+    the agent's author fixes it by giving the agent instructions.
+    """
+
+    is_caller_refusal = True
+    code = "agent_has_no_messages"
+
+    def __init__(self, *, definition_id: str, name: str) -> None:
+        label = f"{name!r} ({definition_id})" if name.strip() else repr(definition_id)
+        super().__init__(f"Agent {label} has no instructions or messages; refusing execution.")
+        self.definition_id = definition_id
+        self.agent_name = name
+        shown = name.strip() or "This agent"
+        self.error_info = _AgentDefinitionErrorInfo(
+            error_type="agent_has_no_messages",
+            message=str(self),
+            user_message=(
+                f"{shown} has no instructions or messages yet. "
+                "Open the agent, add its instructions, and try again."
+            ),
+        )
+
+
+class AgentHasNoModel(InvalidExecutionAgentDefinition):
+    """A saved agent with no model: nothing to run on, so the run is refused by name.
+
+    A caller refusal, not a crash: rows written straight to ``agent.definition`` (the
+    client's direct door, a seed script) can carry a NULL ``model_id`` — the server's
+    creation doors fill the platform default, those writers do not. The stream ends with
+    this typed error and files no ``system_error``; the agent's author picks a model.
+    """
+
+    is_caller_refusal = True
+    code = "agent_has_no_model"
+
+    def __init__(self, *, definition_id: str, name: str) -> None:
+        label = f"{name!r} ({definition_id})" if name.strip() else repr(definition_id)
+        super().__init__(f"Agent {label} has no model_id; refusing execution.")
+        self.definition_id = definition_id
+        self.agent_name = name
+        shown = name.strip() or "This agent"
+        self.error_info = _AgentDefinitionErrorInfo(
+            error_type="agent_has_no_model",
+            message=str(self),
+            user_message=(
+                f"{shown} has no AI model chosen yet. "
+                "Open the agent, pick a model, and try again."
+            ),
+        )
+
+
 class ExecutionAgentDefinition(BaseModel):
     """Complete, portable agent definition consumed by every execution host."""
 
@@ -56,7 +111,9 @@ class ExecutionAgentDefinition(BaseModel):
 
     name: str = ""
     model_id: str
-    messages: list[Any] = Field(min_length=1)
+    # Not ``min_length=1``: that field check fires before ``_execution_safety_gate`` and
+    # refuses with pydantic's anonymous "too_short" text instead of AgentHasNoMessages.
+    messages: list[Any] = Field(default_factory=list)
     settings: dict[str, Any] = Field(default_factory=dict)
     tools: list[str] = Field(default_factory=list)
     custom_tools: list[Any] = Field(default_factory=list)
@@ -81,17 +138,17 @@ class ExecutionAgentDefinition(BaseModel):
     # off the portable wire shape and out of ``content_hash`` (installed client hosts validate
     # that shape with ``extra="forbid"``).
     organization_id: str | None = Field(default=None, exclude=True)
+    # The agent's modes (``understanding.modes``, ``config/agent_modes.py``): ``[{key, name, description,
+    # instructions}]``. In-process only like ``organization_id`` — the portable wire shape stays what
+    # installed client hosts validate (``extra="forbid"``).
+    modes: list[dict[str, str]] = Field(default_factory=list, exclude=True)
 
     @model_validator(mode="after")
     def _execution_safety_gate(self) -> ExecutionAgentDefinition:
         if not self.model_id.strip():
-            raise InvalidExecutionAgentDefinition(
-                f"Agent {self.definition_id!r} has no model_id; refusing execution."
-            )
+            raise AgentHasNoModel(definition_id=self.definition_id, name=self.name)
         if not self.messages:
-            raise InvalidExecutionAgentDefinition(
-                f"Agent {self.definition_id!r} has no authored messages; refusing execution."
-            )
+            raise AgentHasNoMessages(definition_id=self.definition_id, name=self.name)
         # Message flags (prefill / example) obey placement rules
         # — a prefill anywhere but the last assistant turn is refused by name.
         from matrx_ai.config.message_flags import InvalidMessageFlags, validate_message_flags
@@ -137,6 +194,12 @@ def validate_execution_agent_definition(raw: Any) -> ExecutionAgentDefinition:
     try:
         return ExecutionAgentDefinition.model_validate(raw)
     except ValidationError as exc:
+        # Pydantic wraps a validator's ValueError; hand back the typed refusal itself
+        # (AgentHasNoMessages keeps its own error_type and caller-refusal mark).
+        for error in exc.errors():
+            original = (error.get("ctx") or {}).get("error")
+            if isinstance(original, InvalidExecutionAgentDefinition):
+                raise original from exc
         raise InvalidExecutionAgentDefinition(str(exc)) from exc
 
 
@@ -173,6 +236,7 @@ async def try_load_from_execution_source(
 
 def definition_from_row(row: Any, *, is_version: bool) -> ExecutionAgentDefinition:
     """Project an ORM-compatible row into the portable canonical definition."""
+    from matrx_ai.config.agent_modes import modes_of_understanding
 
     definition_id = str(row.id)
     agent_id = str(row.agent_id) if is_version else definition_id
@@ -217,19 +281,40 @@ def definition_from_row(row: Any, *, is_version: bool) -> ExecutionAgentDefiniti
             ),
             "skill_config": dict(getattr(row, "skill_config", None) or {}),
             "prompt_blocks": list(getattr(row, "prompt_blocks", None) or []),
-            "created_by": (
-                str(row.created_by) if getattr(row, "created_by", None) else None
-            ),
+            "created_by": (str(row.created_by) if getattr(row, "created_by", None) else None),
             "organization_id": (
                 str(row.organization_id) if getattr(row, "organization_id", None) else None
             ),
+            "modes": modes_of_understanding(getattr(row, "understanding", None)) or [],
         }
     )
     return definition.with_content_hash()
 
 
+def tool_arg_limits(raw: Any) -> dict[str, dict[str, list[str]]] | None:
+    """``{tool: {arg: [allowed values]}}`` from an agent's ``tool_config.arg_limits`` or a surface row's
+    ``arg_defaults``; anything not in that shape is dropped, and nothing left is ``None`` (no limit)."""
+    if not isinstance(raw, dict):
+        return None
+    out: dict[str, dict[str, list[str]]] = {}
+    for tool, args in raw.items():
+        if not isinstance(tool, str) or not isinstance(args, dict):
+            continue
+        # A declared list is KEPT even when some entries are not strings (those are dropped): dropping the whole
+        # list would turn a limited holder into a whole one (review 2026-11-20). The host fails it closed.
+        kept = {
+            str(arg): [str(v) for v in values if isinstance(v, str)] or [""]
+            for arg, values in args.items()
+            if isinstance(values, list) and values
+        }
+        if kept:
+            out[tool] = kept
+    return out or None
+
+
 def definition_to_agent_config(definition: ExecutionAgentDefinition) -> AgentConfig:
     """The one canonical definition -> AgentConfig -> UnifiedConfig mapper."""
+    from matrx_ai.config.agent_modes import normalize_modes
 
     settings = dict(definition.settings)
     if definition.output_schema:
@@ -276,6 +361,9 @@ def definition_to_agent_config(definition: ExecutionAgentDefinition) -> AgentCon
         else []
     )
 
+    config.agent_tool_arg_limits = tool_arg_limits(definition.tool_config.get("arg_limits"))
+    config.agent_modes = normalize_modes(definition.modes)
+
     from matrx_ai.skills.models import SkillConfig
 
     try:
@@ -314,6 +402,7 @@ def definition_to_agent_config(definition: ExecutionAgentDefinition) -> AgentCon
 __all__ = [
     "ExecutionAgentDefinition",
     "ExecutionAgentSource",
+    "AgentHasNoMessages",
     "InvalidExecutionAgentDefinition",
     "definition_from_row",
     "definition_to_agent_config",

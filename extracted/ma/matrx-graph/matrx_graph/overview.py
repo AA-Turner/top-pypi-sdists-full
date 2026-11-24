@@ -29,6 +29,8 @@ re-collapses when EITHER hash differs.
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 import hashlib
 import itertools
 import json
@@ -101,7 +103,7 @@ _PASS_THROUGH_EXACT = frozenset(
 )
 _PASS_THROUGH_PREFIXES = ("text.", "flow.", "control.gather", "control.map", "control.join", "control.merge", "control.loop", "control.branch")
 _PERSIST_WORDS = re.compile(r"(persist|save|upsert|commit|land|store|write|insert|apply)", re.I)
-_INPUT_SPECS = ("io.user_input", "control.human_input", "human.")
+_INPUT_SPECS = ("io.user_input", "io.trigger", "control.human_input", "human.")
 _OUTPUT_PREFIXES = ("output.", "io.output")
 
 
@@ -135,6 +137,7 @@ def definition_structure_hash(definition: Definition) -> str:
     kind). Positions, labels, config, viewport and every other cosmetic field are ignored, so
     moving a node never changes it and adding a connection or changing a step's type always does.
     ``type`` is the effective spec type (``data.spec_type`` when present)."""
+    definition = _information.executable_of(definition)  # a note is not a step
     nodes = sorted((n.id, n.spec_type) for n in definition.nodes)
     edges = sorted((e.source, e.target, e.kind.value) for e in definition.edges)
     payload = json.dumps({"nodes": nodes, "edges": edges}, sort_keys=True, separators=(",", ":"))
@@ -152,6 +155,7 @@ def definition_collapse_hash(
     collapse never reads are ignored, so dragging a node leaves it unchanged while renaming a step changes
     it. Complements ``definition_structure_hash`` (which means STRUCTURE only); bump ``COLLAPSE_VERSION``
     when the collapse starts reading something new."""
+    definition = _information.executable_of(definition)  # a note is not a step
     nodes = [[n.id, n.spec_type, _label_of(n), node_family(n, categories)] for n in definition.nodes]
     edges = sorted((e.source, e.target, e.kind.value) for e in definition.edges)
     payload = json.dumps({"title": title, "nodes": nodes, "edges": edges}, sort_keys=True, separators=(",", ":"))
@@ -237,6 +241,7 @@ def collapse_definition(
 ) -> dict[str, Any]:
     """The Archify workflow-v2 spec for ``definition`` (deterministic, no AI). See the module doc;
     ``collapse_definition_detailed`` also returns the overview-to-real node map."""
+    definition = _information.executable_of(definition)  # a note is not a step
     return collapse_definition_detailed(definition, title=title, categories=categories).spec
 
 
@@ -246,6 +251,7 @@ def collapse_definition_detailed(
     title: str = "Workflow overview",
     categories: dict[str, str] | None = None,
 ) -> CollapseResult:
+    definition = _information.executable_of(definition)  # a note is not a step
     nodes = {n.id: n for n in definition.nodes}
     order = {n.id: i for i, n in enumerate(definition.nodes)}
     structure_hash = definition_structure_hash(definition)

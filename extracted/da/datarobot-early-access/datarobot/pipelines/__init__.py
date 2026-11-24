@@ -38,7 +38,7 @@ import importlib.util
 import sys
 from typing import Any, List, Optional
 
-# REST API client models -- no covalent dependency, importable everywhere.
+# SDK models for the REST API -- no covalent dependency, importable everywhere.
 from datarobot.pipelines.enums import PipelineDispatchStatus as PipelineDispatchStatus
 from datarobot.pipelines.enums import PipelineDispatchTrigger as PipelineDispatchTrigger
 from datarobot.pipelines.enums import PipelineImageStatus as PipelineImageStatus

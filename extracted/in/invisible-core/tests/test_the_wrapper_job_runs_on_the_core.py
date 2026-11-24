@@ -457,20 +457,31 @@ def test_an_unknown_file_and_an_unknown_node_are_handled():
 
 def test_what_cannot_run_on_a_system_is_left_out_by_name_with_its_reason():
     mod = _load_script()
-    fission = "tests/test_fission_strategy1_bench.py"
     posix = "tests/test_juggler_posix_pipe.py"
+    injected = "tests/test_juggler_injected.py"
+    trap = injected + "::test_OUR_CLIENT_DOES_NOT_CROSS_into_the_page_realm"
     assert posix in mod.excluded_nodes("windows")[0] and posix not in mod.excluded_nodes("linux")[0]
-    assert fission + "::test_same_site_other_port_stays_in_process" in mod.excluded_nodes("windows")[1]
-    assert not any(n.startswith(fission) for n in mod.excluded_nodes("linux")[1])
+    assert trap in mod.excluded_nodes("windows")[1] and trap in mod.excluded_nodes("linux")[1]
     assert all(reason.strip() for _, _, reason in mod.EXCLUDED)
     # a whole-file exclusion keeps the file out of the plan; a node exclusion keeps the node out of its chunk
     posix_file = {"parallel": 1.0, "serial": 0.0}
-    table = {fission: {"parallel": 200.0, "serial": 0.0, "nodes": {"test_x": 100.0, "test_y": 100.0}},
+    table = {injected: {"parallel": 200.0, "serial": 0.0, "nodes": {"test_x": 100.0, "test_y": 100.0}},
              posix: posix_file}
-    nodes = [fission + "::test_x", fission + "::test_y", fission + "::test_same_site_other_port_stays_in_process"]
-    plan = mod.plan_parts([fission, posix, "tests/test_other.py"], "windows", 2, lambda f: nodes, table)
+    nodes = [injected + "::test_x", injected + "::test_y", trap]
+    plan = mod.plan_parts([injected, posix, "tests/test_other.py"], "windows", 2, lambda f: nodes, table)
     assert posix not in [f for p in plan for f in p["files"]]
     assert sorted(n for p in plan for n in p["nodes"]) == nodes[:2]
+
+
+def test_the_tests_that_ask_for_the_processes_of_a_site_run_on_windows_too():
+    # The wrapper of firefox-69 reads the type of each process from the engine's log on Windows
+    # (tests/_processes.py), so these tests run there: an exclusion of them hid two tests that run
+    # (core PR #318, wrapper-on-this-core windows: "the reason is gone").
+    mod = _load_script()
+    fission = "tests/test_fission_strategy1_bench.py"
+    for system in ("linux", "windows"):
+        files, nodes = mod.excluded_nodes(system)
+        assert not any(t.startswith(fission) for t in list(files) + list(nodes)), system
 
 
 def test_the_nodes_of_a_file_are_listed_by_pytest_in_the_leg(tmp_path):
@@ -581,19 +592,6 @@ TODAY = {
     "tests/test_juggler_posix_pipe.py": (
         "import sys\nimport pytest\n\npytestmark = pytest.mark.skipif(\n    sys.platform == \"win32\",\n"
         "    reason=\"the POSIX leg does not execute on Windows\")\n\ndef test_the_posix_pipe_carries_messages_both_ways():\n    pass\n"),
-    "tests/_processes.py": (
-        "import sys\nimport pytest\n\ndef site_processes_below(root_pid, site, engine_dir=None):\n"
-        "    import psutil\n\n    if not sys.platform.startswith(\"linux\"):\n"
-        "        pytest.skip(\"only Linux names a content process\")\n    return set()\n"),
-    "tests/test_fission_strategy1_bench.py": (
-        "import pytest\nfrom _processes import site_processes_below\n\n"
-        "def processes_of(site, engine_dir):\n    \"\"\"The pids.\"\"\"\n"
-        "    return site_processes_below(os.getpid(), site, engine_dir)\n\n\n"
-        "@pytest.mark.e2e\ndef test_cross_site_iframe_gets_its_own_process(page, engine_dir):\n"
-        "    here = processes_of(SITE_A, engine_dir)\n\n\n"
-        "@pytest.mark.e2e\ndef test_same_site_other_port_stays_in_process(page, engine_dir):\n"
-        "    before = processes_of(SITE_A, engine_dir)\n\n\n"
-        "@pytest.mark.e2e\ndef test_frame_list_has_real_urls(page):\n    pass\n"),
     "tests/test_the_working_clone_has_the_workbench_next_to_it.py": (
         "import pytest\n\ndef test_the_workbench_inventory_and_the_package_cannot_DRIFT():\n"
         "    tool = pathlib.Path(__file__).resolve().parents[3] / \"scripts\" \\\n        / \"inventario_voce6.py\"\n"
@@ -611,8 +609,6 @@ TODAY = {
 # The same text with the reason taken out of it: what each witness must notice.
 REASON_REMOVED = {
     "tests/test_juggler_posix_pipe.py": lambda t: t.replace("sys.platform == \"win32\"", "False"),
-    "tests/_processes.py": lambda t: t.replace("if not sys.platform.startswith(\"linux\"):", "if False:"),
-    "tests/test_fission_strategy1_bench.py": lambda t: t.replace("return site_processes_below(", "return set(("),
     "tests/test_the_working_clone_has_the_workbench_next_to_it.py": lambda t: t.replace("pytest.skip(", "print("),
     "tests/test_juggler_injected.py": lambda t: t.replace("pytest.skip(", "print("),
 }

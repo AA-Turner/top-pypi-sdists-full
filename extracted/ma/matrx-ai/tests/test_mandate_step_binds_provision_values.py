@@ -17,11 +17,19 @@ class _Resolved:
     consumption_map: dict[str, Any] | None = None
 
 
+def _held(supplied: dict[str, Any]) -> dict[str, Any]:
+    """What the real host's compute rule does to an in-hand offer: each ``given`` value unwraps to itself."""
+    from matrx_ai.mandates import Offered
+
+    return {k: v.build(None) if isinstance(v, Offered) and v.in_hand else v for k, v in supplied.items()}
+
+
 def _inputs(**kw: Any) -> MandateStartInput:
     return MandateStartInput.model_validate({"mandate_key": "feature.job", **kw})
 
 
 async def _bind(state: dict[str, Any]) -> dict[str, Any]:
+    state = _held(state)
     return {"evidence": state["a"] + "\n\n" + state["b"]}
 
 
@@ -54,6 +62,7 @@ def test_a_workflow_holder_gets_the_state_as_its_supplied_offer() -> None:
 
 
 async def _bind_store(state: dict[str, Any]) -> dict[str, Any]:
+    state = _held(state)
     return {"store": '{"items": []}', "evidence": state["a"]}
 
 

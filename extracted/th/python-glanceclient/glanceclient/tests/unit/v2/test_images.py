@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import copy
 import errno
 import hashlib
 import testtools
@@ -69,6 +70,28 @@ data_fixtures = {
                     'color': {'type': 'string', 'is_base': False},
                 },
                 'additionalProperties': {'type': 'string'},
+            },
+        ),
+    },
+    '/v2/info/import/detail': {
+        'GET': (
+            {},
+            {
+                'import-methods': {
+                    'description': 'Import methods available.',
+                    'type': 'array',
+                    'value': ['glance-direct', 'web-download']
+                },
+                'plugins': [
+                    {
+                        'name': 'image_conversion',
+                        'properties': {'output_format': 'raw'}
+                    },
+                    {
+                        'name': 'image_decompression',
+                        'properties': {}
+                    }
+                ]
             },
         ),
     },
@@ -755,6 +778,19 @@ class TestController(testtools.TestCase):
                 '3a4560a1-e585-443e-9b39-553b46ec92d1')
             self.assertEqual(1, len(image_tasks['tasks']))
 
+    def test_get_import_info_detail(self):
+        import_info = self.controller.controller.get_import_info_detail()
+        self.assertEqual(
+            ['glance-direct', 'web-download'],
+            import_info.wrapped['import-methods']['value'])
+        self.assertEqual(
+            ['image_conversion', 'image_decompression'],
+            [plugin['name'] for plugin in import_info.wrapped['plugins']])
+        self.assertEqual(['req-1234'], import_info.request_ids)
+        self.assertEqual(
+            [('GET', '/v2/info/import/detail', {}, None)],
+            self.api.calls)
+
     def test_image_tasks_not_supported(self):
         with mock.patch.object(common_utils,
                                'has_version') as mock_has_version:
@@ -1034,6 +1070,29 @@ class TestController(testtools.TestCase):
         with testtools.ExpectedException(TypeError):
             self.controller.create(**properties)
 
+    def test_create_with_required_schema(self):
+        required_schema = copy.deepcopy(schema_fixtures)
+        required_schema['image']['GET'][1]['required'] = ["name"]
+        schema_api = utils.FakeSchemaAPI(required_schema)
+        controller = base.BaseController(self.api, schema_api,
+                                         images.Controller)
+
+        # With the required property
+        properties = {
+            "id": "3a4560a1-e585-443e-9b39-553b46ec92d1",
+            "name": "image-1"
+        }
+        ret = controller.create(**properties)
+        self.assertEqual("3a4560a1-e585-443e-9b39-553b46ec92d1", ret.id)
+        self.assertEqual("image-1", ret.name)
+
+        # without the required property
+        properties = {
+            "id": "3a4560a1-e585-443e-9b39-553b46ec92d1",
+        }
+        with testtools.ExpectedException(TypeError):
+            controller.create(**properties)
+
     def test_delete_image(self):
         self.controller.delete('87b634c1-f893-33c9-28a9-e5673c99239a')
         expect = [
@@ -1135,6 +1194,9 @@ class TestController(testtools.TestCase):
                                     do_checksum=False)
         body = ''.join([b for b in body])
         self.assertEqual('A', body)
+        self.assertEqual(
+            {'Accept': 'application/octet-stream, application/json'},
+            self.api.calls[-1][2])
 
         body = self.controller.data('5cc4bebc-db27-11e1-a1eb-080027cbe205')
         body = ''.join([b for b in body])

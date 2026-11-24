@@ -48,10 +48,41 @@ async def test_orphan_model_failure_creates_structured_system_error(monkeypatch)
     assert isinstance(error, uc.CatalogOrphanModelsError)
     assert fields["kind"] == "ai_catalog_orphan_models"
     assert fields["route"] == "matrx_ai.config.usage_config.warm_pricing_lookup"
-    assert fields["payload"] == {
-        "orphan_models": ["model-a (id-a)", "model-b (id-b)"],
-        "orphan_count": 2,
-    }
+    assert fields["payload"]["orphan_models"] == ["model-a (id-a)", "model-b (id-b)"]
+    assert fields["payload"]["orphan_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_an_orphan_is_one_grouped_row_naming_the_quarantined_offering(monkeypatch) -> None:
+    """Live 2026-11-18 09:27-09:31: every server process warmed on one catalog reload and each filed
+    its own row (25) for rerank-v4.0-pro, whose offering EXISTED but was quarantined: its api
+    'cohere_rerank' named a translator the deployed build did not know. The row must be one open
+    row (group_open) and must name the quarantine, not only say "no available offering"."""
+    from matrx_ai import _ext
+    from matrx_ai.catalog import manager as catalog_manager_module
+
+    captured: list[tuple[BaseException, dict[str, object]]] = []
+
+    async def record_error(error: BaseException, **kwargs: object) -> None:
+        captured.append((error, kwargs))
+
+    monkeypatch.setattr(_ext, "has_ext", lambda name: name == "record_error")
+    monkeypatch.setattr(_ext, "get_ext", lambda name: record_error)
+    monkeypatch.setattr(
+        catalog_manager_module,
+        "QUARANTINED_ROWS",
+        [catalog_manager_module.QuarantineRecord(
+            kind="api", row_id="api-1", name="cohere_rerank",
+            errors=("unknown translator_key 'cohere_rerank'",),
+        )],
+    )
+
+    await uc._capture_orphan_models(["rerank-v4.0-pro (m-1)"])
+
+    assert len(captured) == 1
+    error, fields = captured[0]
+    assert fields["group_open"] is True
+    assert "cohere_rerank" in str(error) and "quarantined" in str(error)
 
 
 @pytest.mark.asyncio
@@ -99,6 +130,55 @@ async def test_a_parked_model_is_not_an_orphan(monkeypatch) -> None:
 
     assert orphans == [["dead-model (m-dead)"]]
 
+
+
+@pytest.mark.asyncio
+async def test_a_model_catalogued_seconds_ago_is_not_yet_an_orphan(monkeypatch) -> None:
+    """2026-11-18 09:10 UTC: rerank-v4.0-pro's definition was written 7 s before its offering;
+    every process warming in between filed CatalogOrphanModelsError (16 rows). A definition
+    inside the grace window is pending; one older than it with no offering is still filed."""
+    from datetime import UTC, datetime, timedelta
+    from types import SimpleNamespace
+
+    from matrx_ai.catalog import host_catalog
+    from matrx_ai.catalog import manager as catalog_manager_module
+    from matrx_ai.db.ai_models import ai_model_manager as model_manager_module
+
+    now = datetime.now(UTC)
+    models = [
+        SimpleNamespace(id="m-new", name="new-model", is_deprecated=False, retired_at=None,
+                        created_at=now - timedelta(seconds=7)),
+        SimpleNamespace(id="m-old", name="old-model", is_deprecated=False, retired_at=None,
+                        created_at=(now - timedelta(days=2)).isoformat()),
+    ]
+
+    class _Models:
+        async def load_all_models(self):
+            return models
+
+    class _Catalog:
+        async def ensure_loaded(self):
+            return None
+
+        def offerings_for(self, model_id):
+            return []
+
+        def parked_offerings_for(self, model_id):
+            return []
+
+    orphans: list[list[str]] = []
+
+    async def _capture(names):
+        orphans.append(list(names))
+
+    monkeypatch.setattr(host_catalog, "get_model_catalog", lambda: None)
+    monkeypatch.setattr(model_manager_module, "ai_model_manager_instance", _Models())
+    monkeypatch.setattr(catalog_manager_module, "ai_catalog_manager", _Catalog())
+    monkeypatch.setattr(uc, "_capture_orphan_models", _capture)
+
+    await uc.warm_pricing_lookup()
+
+    assert orphans == [["old-model (m-old)"]]
 
 def _tier(input_price: float, output_price: float, usage_basis: str | None = None) -> PricingTier:
     return PricingTier(
@@ -396,3 +476,50 @@ async def test_a_wire_id_prices_exactly_under_its_vendor(monkeypatch) -> None:
     assert uc.lookup_model_pricing(lookup, model_name="grok-voice-latest", api="openai") is None
     assert uc.lookup_model_pricing(lookup, model_name="grok-voice", api="xai") is None
     assert uc.lookup_model_pricing(lookup, model_name="shared-wire", api="xai") is None
+
+
+@pytest.mark.asyncio
+async def test_a_device_only_model_is_not_an_orphan(monkeypatch) -> None:
+    """Feedback 361bd36e: 40 device LLMs (gpt-oss-20b, gemma-3-4b, ...) have a routable DEVICE
+    offering, which offerings_for() leaves out by design, and were filed as orphans every warm."""
+    from types import SimpleNamespace
+
+    from matrx_ai.catalog import host_catalog
+    from matrx_ai.catalog import manager as catalog_manager_module
+    from matrx_ai.db.ai_models import ai_model_manager as model_manager_module
+
+    models = [
+        SimpleNamespace(id="m-device", name="gemma-3-4b", is_deprecated=False, retired_at=None),
+        SimpleNamespace(id="m-dead", name="dead-model", is_deprecated=False, retired_at=None),
+    ]
+
+    class _Models:
+        async def load_all_models(self):
+            return models
+
+    class _Catalog:
+        async def ensure_loaded(self):
+            return None
+
+        def offerings_for(self, model_id):
+            return []
+
+        def device_offering_for(self, model_id):
+            return SimpleNamespace(id="dev") if model_id == "m-device" else None
+
+        def parked_offerings_for(self, model_id):
+            return []
+
+    orphans: list[list[str]] = []
+
+    async def _capture(names):
+        orphans.append(list(names))
+
+    monkeypatch.setattr(host_catalog, "get_model_catalog", lambda: None)
+    monkeypatch.setattr(model_manager_module, "ai_model_manager_instance", _Models())
+    monkeypatch.setattr(catalog_manager_module, "ai_catalog_manager", _Catalog())
+    monkeypatch.setattr(uc, "_capture_orphan_models", _capture)
+
+    await uc.warm_pricing_lookup()
+
+    assert orphans == [["dead-model (m-dead)"]]

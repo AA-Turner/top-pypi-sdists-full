@@ -34,6 +34,71 @@ if TYPE_CHECKING:
 
 MaterializedTable: TypeAlias = pyarrow.RecordBatch | pyarrow.Table
 
+_DataFrameReceiverKind: TypeAlias = typing.Literal["root", "frame", "groupby"]
+_DataFrameResultKind: TypeAlias = typing.Literal["frame", "groupby", "terminal"]
+_DataFrameOperation: TypeAlias = tuple[_DataFrameReceiverKind, _DataFrameResultKind]
+
+# DataFramePlan function names are a wire protocol. Keep this table in sync with
+# every literal recorded below; the source-sync test enforces that invariant.
+_DATAFRAME_PLAN_OPERATIONS: dict[str, tuple[_DataFrameOperation, ...]] = {
+    "agg": (("frame", "frame"), ("groupby", "frame")),
+    "all": (("groupby", "frame"),),
+    "count": (("groupby", "frame"),),
+    "count_distinct": (("groupby", "frame"),),
+    "cube": (("frame", "groupby"),),
+    "deserialize": (("root", "frame"),),
+    "distinct_on": (("frame", "frame"),),
+    "drop": (("frame", "frame"),),
+    "explode": (("frame", "frame"),),
+    "fill_null": (("frame", "frame"),),
+    "filter": (("frame", "frame"),),
+    "from_arrow": (("root", "frame"),),
+    "from_catalog_table": (("root", "frame"),),
+    "from_datasource": (("root", "frame"),),
+    "from_pandas": (("root", "frame"),),
+    "from_python_udf": (("root", "frame"),),
+    "from_sql": (("root", "frame"),),
+    "from_stream_source": (("root", "frame"),),
+    "group_by": (("frame", "groupby"),),
+    "grouping_sets": (("frame", "groupby"),),
+    "head": (("frame", "frame"), ("groupby", "frame")),
+    "iter_columns": (("frame", "terminal"),),
+    "iter_rows": (("frame", "terminal"),),
+    "join": (("frame", "frame"),),
+    "join_asof": (("frame", "frame"),),
+    "max": (("groupby", "frame"),),
+    "mean": (("groupby", "frame"),),
+    "min": (("groupby", "frame"),),
+    "named_table": (("root", "frame"),),
+    "onnx_inference_udf": (("frame", "frame"),),
+    "order_by": (("frame", "frame"),),
+    "project": (("frame", "frame"),),
+    "rename": (("frame", "frame"),),
+    "rollup": (("frame", "groupby"),),
+    "scan": (("root", "frame"),),
+    "scan_delta": (("root", "frame"),),
+    "scan_from_sql": (("root", "frame"),),
+    "scan_glue_iceberg": (("root", "frame"),),
+    "scan_iceberg": (("root", "frame"),),
+    "select": (("frame", "frame"),),
+    "slice": (("frame", "frame"),),
+    "sum": (("groupby", "frame"),),
+    "tail": (("frame", "frame"),),
+    "union": (("frame", "frame"),),
+    "union_all": (("frame", "frame"),),
+    "unpivot": (("frame", "frame"),),
+    "window": (("frame", "frame"),),
+    "with_columns": (("frame", "frame"),),
+    "with_unique_id": (("frame", "frame"),),
+    "write": (("frame", "frame"),),
+    "write_glue_iceberg": (("frame", "frame"),),
+    "write_iceberg": (("frame", "frame"),),
+    "write_lazy": (("frame", "frame"),),
+    "write_parquet": (("frame", "frame"),),
+    "write_parquet_and_load": (("frame", "frame"),),
+    "write_to": (("frame", "frame"),),
+}
+
 
 def _as_key_list(keys: Any) -> Any:
     """Wrap a single join key in a one-element list; pass anything else through unchanged.
@@ -68,35 +133,35 @@ class _LazyFrameGroupBy:
             **kwargs,
         )
 
-    def agg(self, *aggregations: Underscore, pre_grouped_keys: typing.Sequence[str] = ()):
+    def agg(self, *aggregations: Underscore, pre_grouped_keys: typing.Sequence[str] = ()) -> LazyFramePlaceholder:
         """Apply the specified aggregation expressions to the group"""
         return self._construct(function_name="agg", args=aggregations, pre_grouped_keys=list(pre_grouped_keys))
 
-    def all(self):
+    def all(self) -> LazyFramePlaceholder:
         """Apply ``array_agg``"""
         return self._construct(function_name="all")
 
-    def count(self):
+    def count(self) -> LazyFramePlaceholder:
         """Apply ``count``"""
         return self._construct(function_name="count")
 
-    def count_distinct(self):
+    def count_distinct(self) -> LazyFramePlaceholder:
         """Apply ``count_distinct``"""
         return self._construct(function_name="count_distinct")
 
-    def max(self):
+    def max(self) -> LazyFramePlaceholder:
         """Apply ``max``"""
         return self._construct(function_name="max")
 
-    def mean(self):
+    def mean(self) -> LazyFramePlaceholder:
         """Apply ``mean``"""
         return self._construct(function_name="mean")
 
-    def min(self):
+    def min(self) -> LazyFramePlaceholder:
         """Apply ``min``"""
         return self._construct(function_name="min")
 
-    def sum(self):
+    def sum(self) -> LazyFramePlaceholder:
         """Apply ``sum``"""
         return self._construct(function_name="sum")
 
@@ -154,28 +219,28 @@ class _LazyFrameGroupingSetsGroupBy:
             **kwargs,
         )
 
-    def agg(self, *aggregations: Underscore):
+    def agg(self, *aggregations: Underscore) -> LazyFramePlaceholder:
         """Apply the specified aggregation expressions to each (grouping
         set, key-combo) cell."""
         return self._construct(function_name="agg", args=aggregations)
 
-    def count(self):
+    def count(self) -> LazyFramePlaceholder:
         """Apply ``count`` per (grouping set, key-combo) cell."""
         return self._construct(function_name="count")
 
-    def max(self):
+    def max(self) -> LazyFramePlaceholder:
         """Apply ``max`` to every non-by column."""
         return self._construct(function_name="max")
 
-    def mean(self):
+    def mean(self) -> LazyFramePlaceholder:
         """Apply ``mean`` to every non-by column."""
         return self._construct(function_name="mean")
 
-    def min(self):
+    def min(self) -> LazyFramePlaceholder:
         """Apply ``min`` to every non-by column."""
         return self._construct(function_name="min")
 
-    def sum(self):
+    def sum(self) -> LazyFramePlaceholder:
         """Apply ``sum`` to every non-by column."""
         return self._construct(function_name="sum")
 
@@ -311,7 +376,7 @@ class LazyFramePlaceholder:
         )
 
     @classmethod
-    def from_arrow(cls, data: MaterializedTable):
+    def from_arrow(cls, data: MaterializedTable) -> LazyFramePlaceholder:
         """Construct a DataFrame from an in-memory Arrow object.
 
         Parameters
@@ -1632,7 +1697,7 @@ class LazyFramePlaceholder:
             args=expressions,
         )
 
-    def group_by(self, *by: str | Underscore):
+    def group_by(self, *by: str | Underscore) -> _LazyFrameGroupBy:
         """Create a GroupBy object for chained aggregation operations.
 
         This method returns a GroupBy object that can be used to apply
@@ -2362,7 +2427,7 @@ def _convert_from_dataframe_proto(
     """
     Converts a proto into a lazy frame.
     """
-    df_values: list[LazyFramePlaceholder] = []
+    df_values: list[tuple[Any, _DataFrameResultKind]] = []
 
     def _construct_sql_source(kind: str, kwargs: dict[str, Any]) -> Any:
         import chalk.sql as chalk_sql
@@ -2405,29 +2470,40 @@ def _convert_from_dataframe_proto(
             kwargs["name"] = value.database_source.name
         return _construct_sql_source(kind, kwargs)
 
-    def _convert_dataframe_index(df: dataframe_pb2.DataFrameIndex) -> LazyFramePlaceholder:
+    def _convert_dataframe_index(df: dataframe_pb2.DataFrameIndex) -> tuple[Any, _DataFrameResultKind]:
         if df.dataframe_op_index < 0 or df.dataframe_op_index >= len(df_values):
             raise ValueError(
                 f"DataFrame proto message value is invalid - a DataFrame constructor references operator index {df.dataframe_op_index} but only {len(df_values)} dataframe(s) intermediate values have been defined so far."
             )
         return df_values[df.dataframe_op_index]
 
-    def _convert_dataframe(df: dataframe_pb2.DataFrameConstructor) -> LazyFramePlaceholder:
+    def _convert_dataframe(
+        df: dataframe_pb2.DataFrameConstructor,
+    ) -> tuple[Any, _DataFrameResultKind]:
+        operations = _DATAFRAME_PLAN_OPERATIONS.get(df.function_name)
+        if operations is None:
+            raise ValueError(f"Unsupported DataFrame operation: {df.function_name!r}")
+
         if df.HasField("self_operand"):
-            self_operand = _convert_dataframe_index(df.self_operand)
+            self_operand, receiver_kind = _convert_dataframe_index(df.self_operand)
         else:
             self_operand = None
+            receiver_kind = "root"
 
-        # TODO: validate that function_name is legal.
-        if self_operand is None:
-            method = getattr(dataframe_class, df.function_name)
-        else:
-            method = getattr(self_operand, df.function_name)
+        result_kind: _DataFrameResultKind | None = None
+        for expected_receiver, expected_result in operations:
+            if expected_receiver == receiver_kind:
+                result_kind = expected_result
+                break
+        if result_kind is None:
+            raise ValueError(f"DataFrame operation {df.function_name!r} does not accept a {receiver_kind!r} receiver")
 
         args = [_convert_arg(arg) for arg in df.args.list_items]
         kwargs = {_convert_arg(entry.entry_key): _convert_arg(entry.entry_value) for entry in df.kwargs.dict_entries}
 
-        return method(*args, **kwargs)
+        receiver = dataframe_class if self_operand is None else self_operand
+        method = getattr(receiver, df.function_name)
+        return method(*args, **kwargs), result_kind
 
     def _convert_arg(value: dataframe_pb2.DataFrameOperand) -> Any:
         if value.HasField("value_string"):
@@ -2448,7 +2524,10 @@ def _convert_from_dataframe_proto(
                 for entry in value.value_dict.dict_entries
             }
         if value.HasField("value_dataframe_index"):
-            return _convert_dataframe_index(value.value_dataframe_index)
+            dataframe_value, kind = _convert_dataframe_index(value.value_dataframe_index)
+            if kind != "frame":
+                raise ValueError(f"DataFrame argument references a {kind!r} operation result")
+            return dataframe_value
         if value.HasField("arrow_schema"):
             return PrimitiveFeatureConverter.convert_proto_schema_to_pa_schema(value.arrow_schema)
         if value.HasField("arrow_table"):
@@ -2477,4 +2556,4 @@ def _convert_from_dataframe_proto(
             "Could not parse LazyFramePlaceholder from proto expression; no dataframe constructors were present in the provided proto message"
         )
 
-    return df_values[-1]
+    return df_values[-1][0]

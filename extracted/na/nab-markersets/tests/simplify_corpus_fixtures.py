@@ -16,7 +16,7 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterator
 
-from nab_markersets._packaging import Marker
+from packaging.markers import Marker
 
 # The tiers the oracle reaches on FIXTURES, in marker-string characters.
 TOTAL_CHARS = 9742
@@ -77,14 +77,7 @@ def selects(marker_str: str | None, universe: list[dict[str, str]]) -> frozenset
     if marker_str is None:
         return frozenset(range(len(universe)))
     m = Marker(marker_str)
-    hits: list[int] = []
-    for i, env in enumerate(universe):
-        try:
-            if m.evaluate(env):
-                hits.append(i)
-        except Exception:  # noqa: BLE001, S110
-            pass
-    return frozenset(hits)
+    return frozenset(i for i, env in enumerate(universe) if m.evaluate(env))
 
 
 def _clause_to_str(clause: frozenset[str]) -> str:

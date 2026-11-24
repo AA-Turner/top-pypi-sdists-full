@@ -1,7 +1,7 @@
 import ast
 import re
 import weakref
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
@@ -46,7 +46,7 @@ PROPS_PATTERN = re.compile(r'''
             \}                  # Match the closing }
         )
         |                   # or, as a final alternative ....
-        (?P<unquoted>[\w\-.,%:\/=?&;+#@~$]+)  # a value without quotes
+        (?P<unquoted>\S+)   # any other whitespace-free token (also the fallback for unbalanced quotes or brackets)
     )
 )?                          # End of optional non-capturing group for value
 ($|\s)                      # Match end of string or whitespace
@@ -80,7 +80,7 @@ class Props(ObservableDict, Generic[T]):
             self.pop(key, None)
 
     @contextmanager
-    def suspend_updates(self) -> Iterator[None]:
+    def suspend_updates(self) -> Generator[None]:
         """Suspend updates."""
         self._suspend_count += 1
         try:
@@ -152,7 +152,12 @@ class Props(ObservableDict, Generic[T]):
 
             for group in ['single', 'double', 'square', 'curly']:
                 if match_groups[group] is not None:
-                    props[key] = ast.literal_eval(match_groups[group])
+                    try:
+                        props[key] = ast.literal_eval(match_groups[group])
+                    except (ValueError, SyntaxError):
+                        if not key.startswith(':'):
+                            raise
+                        props[key] = match_groups[group]  # Vue bindings may be JS rather than Python literals (#6493)
                     break
             else:
                 if match_groups['unquoted'] is not None:

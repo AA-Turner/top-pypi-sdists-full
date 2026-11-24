@@ -38,6 +38,7 @@ from pathlib import Path
 
 import pytest
 
+import momwire_serve_client
 from momwire.dropin.nec2c import _portal as nec_portal
 from momwire.dropin.nec2c import deck_frame, main, run_deck
 
@@ -2855,7 +2856,9 @@ def test_the_console_script_target_resolves():
     module_name, _, attr = target.partition(":")
     assert attr, f"{target!r} names no callable"
     entry = getattr(importlib.import_module(module_name), attr)
-    assert entry is nec_portal.main
+    # The plain launcher enters at the pin (`momwire_serve_client.stock_main`,
+    # which then runs the portal's `main`; tests/test_stock_launcher_pin.py).
+    assert entry is momwire_serve_client.stock_main
     assert callable(entry)
 
 
@@ -5180,7 +5183,7 @@ def test_every_basis_ships_as_a_named_entry_point():
         and not any(name.endswith(f"-{old}") for old in BASIS_ALIASES)
     }
     for name, target in named.items():
-        assert target == "momwire.dropin.nec2c:main", name
+        assert target == "momwire_serve_client:stock_main", name
         suffix = nec_portal._filename_basis(name)
         assert suffix in NEC2_BASES, name
     assert set(NEC2_BASES) == {nec_portal._filename_basis(n) for n in named}, (

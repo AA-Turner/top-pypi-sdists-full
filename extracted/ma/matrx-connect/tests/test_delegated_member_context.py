@@ -420,3 +420,40 @@ async def test_a_parentless_fork_under_a_member_turn_records_the_member_not_the_
             assert reconcile_origin(child)[0] == ORIGIN_CLASS_DELEGATED_MEMBER
 
     await _in_empty_context(work)
+
+
+# ── Machine work inside a delegated turn (failure register entry 19, 2026-11-15) ──
+
+
+@pytest.mark.asyncio
+async def test_the_turn_itself_can_never_be_minted_as_machine_work() -> None:
+    async def work() -> None:
+        with pytest.raises(ValueError, match="system_run"):
+            async with _open(system_run=True):
+                pass
+
+    await _in_empty_context(work)
+
+
+@pytest.mark.asyncio
+async def test_a_machine_child_of_the_turn_stays_the_member_under_its_own_request() -> None:
+    """Both doors a side-quest takes: the executor's fork + override, and the held call's direct
+    ``with_overrides(system_run=True)`` on the ambient turn. Neither caller steps out of the turn."""
+
+    async def work() -> None:
+        async with _open(conversation_id="33333333-3333-4333-8333-333333333333") as turn:
+            fork = turn.fork_for_child_agent("44444444-4444-4444-8444-444444444444")
+            via_fork = fork.with_overrides(system_run=True, conversation_id=fork.conversation_id)
+            direct = turn.with_overrides(system_run=True)
+            for child in (via_fork, direct):
+                assert isinstance(child, DelegatedMemberAppContext)
+                assert child.system_run is True
+                assert child.organization_admission == "verified"
+                assert child.parent_request_id == turn.request_id
+                assert child.request_id != turn.request_id
+                assert child.conversation_id != turn.conversation_id
+                assert child.tree_request_id == turn.request_id
+            assert direct.parent_conversation_id == turn.conversation_id
+            assert reconcile_origin(direct)[0] == ORIGIN_CLASS_DELEGATED_MEMBER
+
+    await _in_empty_context(work)

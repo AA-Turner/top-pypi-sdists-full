@@ -31,7 +31,6 @@ from matrx_graph import (
 )
 from matrx_graph import kinds as kinds_mod
 from matrx_graph.content_ir.markers import reduce_for_ingestion
-from matrx_graph.content_ir.model import KindModel, kind_of
 from matrx_graph.content_ir.sdk import compatibility_verdict
 from matrx_graph.kinds import KindEntry, invalidate_kind_catalog_cache
 from matrx_graph.types.context import NodeExecutionContext

@@ -16,6 +16,56 @@ from matrx_ai.providers.keys import keyed_provider_client
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 
+PREVIOUS_INTERACTION_NOT_RECORDED = (
+    "That earlier video is not part of this conversation, so it cannot be continued here."
+)
+
+
+def _interaction_ids_in(content: Any) -> set[str]:
+    """The Google interaction ids an assistant message's stored blocks record (``metadata.interaction_id``)."""
+    found: set[str] = set()
+    for block in content if isinstance(content, list) else []:
+        metadata = block.get("metadata") if isinstance(block, dict) else None
+        value = metadata.get("interaction_id") if isinstance(metadata, dict) else None
+        if value:
+            found.add(str(value))
+    return found
+
+
+async def interaction_ids_recorded(conversation_id: str) -> set[str]:
+    """Every interaction id this conversation's own stored answers carry (our record of what we made)."""
+    from matrx_ai.db._registry import get_model
+
+    message = get_model("Message")
+    rows = await message.filter(
+        conversation_id=conversation_id, role="assistant", deleted_at__isnull=True
+    ).values("content")
+    found: set[str] = set()
+    for row in rows:
+        found |= _interaction_ids_in(row.get("content"))
+    return found
+
+
+async def refuse_unrecorded_previous_interaction(unified_config: UnifiedConfig) -> None:
+    """A run continues only an interaction its OWN conversation recorded (CASA 3.1.4).
+
+    Google keeps every interaction under our one API key, so an id is the only thing between one person's
+    video and another's edit of it. The id arrives in the request body; it is forwarded only when an answer
+    stored in the run's conversation (which the route's door already admitted) carries it. Anything else is
+    refused before the paid call, never silently dropped.
+    """
+    wanted = unified_config.previous_interaction_id
+    if not wanted:
+        return
+    from matrx_ai.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    conversation_id = getattr(ctx, "conversation_id", None) if ctx is not None else None
+    if conversation_id and str(wanted) in await interaction_ids_recorded(str(conversation_id)):
+        return
+    raise ValueError(PREVIOUS_INTERACTION_NOT_RECORDED)
+
+
 class GoogleInteractionsVideoGeneration(BaseMediaGeneration):
     provider = "google"
     modality = "video"
@@ -30,6 +80,12 @@ class GoogleInteractionsVideoGeneration(BaseMediaGeneration):
             http_options={"api_version": "v1beta"},
         ),
     )
+
+    async def execute(
+        self, unified_config: UnifiedConfig, profile: Any, debug: bool = False
+    ) -> Any:
+        await refuse_unrecorded_previous_interaction(unified_config)
+        return await super().execute(unified_config, profile, debug)
 
     def _build_kwargs(self, unified_config: UnifiedConfig, profile: Any) -> dict[str, Any]:
         request_input = self._interaction_input(unified_config)

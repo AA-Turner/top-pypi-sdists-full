@@ -1,6 +1,6 @@
 """
-Multiples tables: building machine learning pipelines with DataOps
-==================================================================
+Multiple tables: building machine learning pipelines with DataOps
+=================================================================
 
 In this example, we show how to build a DataOps plan to handle
 pre-processing, validation and hyperparameter tuning of a dataset with **multiple
@@ -60,15 +60,14 @@ baskets = skrub.var("baskets", pd.read_csv(dataset.baskets_path))
 products = skrub.var("products", pd.read_csv(dataset.products_path))
 
 # %%
-# Now we can use the |TableReport| provided by the Data Ops to inspect the two tables.
+# Now we can use the |TableReport| provided by the DataOps to inspect the two tables.
 # The ``baskets`` table contains the list of basket IDs, and a fraud flag indicating
 # whether the basket is fraudulent or not.
 baskets
 # %%
 # We mark the "ID" column of the ``baskets`` table as ``X``, and the
-# ``"fraud_flag"`` column as ``y``. This allows the Data Ops to track the indices
+# ``"fraud_flag"`` column as ``y``. This allows the DataOps to track the indices
 # of the variables when splitting for cross-validation.
-# so that DataOps can use their indices for train-test splitting and cross-validation.
 basket_ids = baskets[["ID"]].skb.mark_as_X()
 fraud_flags = baskets["fraud_flag"].skb.mark_as_y()
 # %%

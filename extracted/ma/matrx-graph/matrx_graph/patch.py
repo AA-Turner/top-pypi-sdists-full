@@ -24,15 +24,18 @@ lets an agent both set and unset config without shipping the whole blob.
 
 from __future__ import annotations
 
+import re
+
 import copy
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from matrx_graph.placement import place_added_node
 from matrx_graph.types.definition import Definition, EdgeDef, NodeDef, Position
 from matrx_graph.types.primitives import EdgeKind
-from matrx_graph.types.variables import VariableSpec
+from matrx_graph.input_declaration import VariableDefinition
+from matrx_graph.types.input_surface import declared_input
 
 # The Studio's presentation vocabulary (apps/workflow-studio/src/lib/node-kinds.ts,
 # features/canvas/groups.ts): sticky notes and group frames are stored under
@@ -151,7 +154,13 @@ class SetVariableOp(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     op: Literal["set_variable"] = "set_variable"
-    variable: VariableSpec
+    variable: VariableDefinition
+
+    @field_validator("variable", mode="before")
+    @classmethod
+    def _declared_variable(cls, value: Any) -> Any:
+        # An old-shape variable dict is read ONLY through the converter.
+        return declared_input(value) if isinstance(value, dict) else value
 
 
 class RemoveVariableOp(BaseModel):
@@ -168,6 +177,19 @@ class MoveNodeOp(BaseModel):
     op: Literal["move_node"] = "move_node"
     node_id: str
     position: Position
+
+
+class SetParentOp(BaseModel):
+    """Put a step, note or frame inside a frame (``parent_id``), or take it out (``None``).
+
+    Stored as the node's ``parentId`` — the same field the canvas and the graph
+    document use (CONTRACTS section 1). Frames contain nodes this way.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["set_parent"] = "set_parent"
+    node_id: str = Field(min_length=1)
+    parent_id: str | None = None
 
 
 class SetEdgeKindOp(BaseModel):
@@ -306,8 +328,82 @@ class SetEntryNodesOp(BaseModel):
     node_ids: list[str]
 
 
+class DescribeWorkflowOp(BaseModel):
+    """Rename the workflow or rewrite its description — the words a person reads on its card and page.
+
+    Both are the workflow's COLUMNS, not graph: :func:`apply_patch` leaves the definition as it was
+    and the save writes them from :func:`io_declaration_columns`. Omit a field to leave it as it is;
+    ``description`` None or "" clears it; ``name`` is never empty."""
+
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["describe_workflow"] = "describe_workflow"
+    name: str | None = Field(default=None, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+
+
+class SetWorkflowSettingOp(BaseModel):
+    """Set one workflow-wide engine setting (``Definition.metadata[key]``); ``value`` None puts it back to
+    its default. Only the settings in :data:`WORKFLOW_SETTINGS` are accepted, each with its allowed values
+    (``durability``: ``every_step`` or ``boundaries``; ``runs_as``: ``standalone`` or ``step``), plus the declared
+    metadata in :data:`DECLARATION_SETTINGS` (``output_kind`` / ``input_kind`` columns); notes and groups have
+    their own ops."""
+
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["set_workflow_setting"] = "set_workflow_setting"
+    key: str = Field(min_length=1)
+    value: str | None = None
+
+
+#: The workflow's DECLARED metadata a ``set_workflow_setting`` may also set or clear (``value`` None clears): the
+#: declaration COLUMNS, never copied into the definition — the save writes them from :func:`io_declaration_columns`,
+#: the ONE home ``set_result`` already uses. A value must be a kind slug (``[a-z0-9_.:-]``, or ``table:<uuid>``);
+#: whether it is registered is the authoring gate's question at publish.
+DECLARATION_SETTINGS: tuple[str, ...] = ("output_kind", "input_kind")
+_KIND_SLUG = re.compile(r"^[a-z0-9][a-z0-9_.:\-]{0,127}$")
+
+
+def _declared_setting_names(variables: list[dict[str, Any]]) -> list[str]:
+    from matrx_graph.workflow_settings import SETTINGS_GROUP
+
+    return [str(v.get("name")) for v in variables if isinstance(v, dict)
+            and str((v.get("hints") or {}).get("group") or "").strip() == SETTINGS_GROUP]
+
+
+def _declared_setting(variables: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
+    if name not in _declared_setting_names(variables):
+        return None
+    return next(v for v in variables if isinstance(v, dict) and v.get("name") == name)
+
+
+def _set_declared_setting(raw_var: dict[str, Any], value: str | None) -> str | None:
+    """Set a declared setting's default from a patch value (text, read by its type); the problem, or None."""
+    from matrx_graph.workflow_settings import coerce_setting_text, setting_value_problem
+
+    var = declared_input(raw_var)
+    if value is None:
+        return f"setting '{var.label or var.name}' always has a value; send the value to use"
+    typed = coerce_setting_text(var, value)
+    problem = setting_value_problem(var, typed)
+    if problem:
+        return problem
+    raw_var["defaultValue"] = typed
+    return None
+
+
+def workflow_settings() -> dict[str, tuple[str, ...]]:
+    """Every workflow-wide setting :class:`SetWorkflowSettingOp` may set, with its allowed values (read from
+    the engine that honours each, never copied)."""
+    from matrx_graph.executor.scheduler import DURABILITY_LEVELS
+
+    from matrx_graph.visible_io import RUNS_AS
+
+    return {"durability": tuple(DURABILITY_LEVELS), "runs_as": RUNS_AS}
+
+
 PatchOp = Annotated[
     SetResultOp
+    | DescribeWorkflowOp
+    | SetWorkflowSettingOp
     | SetEntryNodesOp
     | UpdateNodeDataOp
     | UpdateNodeTypeOp
@@ -320,6 +416,7 @@ PatchOp = Annotated[
     | SetVariableOp
     | RemoveVariableOp
     | MoveNodeOp
+    | SetParentOp
     | SetEdgeKindOp
     | SetEdgeNoteOp
     | UpdateEdgeDataOp
@@ -390,6 +487,38 @@ def apply_patch(definition: Definition, patch: DefinitionPatch) -> Definition:
                 elif data.get("is_primary"):
                     data.pop("is_primary", None)
                 n["data"] = data
+        elif isinstance(op, SetWorkflowSettingOp):
+            if op.key in DECLARATION_SETTINGS:
+                value = (op.value or "").strip()
+                if value and not _KIND_SLUG.match(value):
+                    issues.append(f"{where}: {op.key} must be a kind slug (lowercase letters, digits, _ . : -), "
+                                  f"not '{op.value}'; send null to clear it")
+                continue  # a column, not graph: io_declaration_columns hands it to the save
+            allowed = workflow_settings()
+            if op.key not in allowed:
+                declared = _declared_setting(variables, op.key)
+                if declared is not None:
+                    # A setting the workflow declares (workflow_settings.py): the value becomes its default.
+                    problem = _set_declared_setting(declared, op.value)
+                    if problem:
+                        issues.append(f"{where}: {problem}")
+                    continue
+                issues.append(f"{where}: '{op.key}' is not a workflow setting; settings: "
+                              f"{sorted([*allowed, *DECLARATION_SETTINGS, *_declared_setting_names(variables)])}")
+                continue
+            if op.value is None:
+                metadata.pop(op.key, None)
+            elif op.value not in allowed[op.key]:
+                issues.append(f"{where}: {op.key} must be one of {list(allowed[op.key])}, not '{op.value}'")
+                continue
+            else:
+                metadata[op.key] = op.value
+        elif isinstance(op, DescribeWorkflowOp):
+            if "name" in op.model_fields_set and not (op.name or "").strip():
+                issues.append(f"{where}: a workflow's name is never empty; omit name to keep it")
+            elif not ({"name", "description"} & op.model_fields_set):
+                issues.append(f"{where}: send a name, a description, or both")
+            continue  # columns, not graph: io_declaration_columns hands them to the save
         elif isinstance(op, SetEntryNodesOp):
             step_ids = {n.get("id") for n in nodes}
             missing = [nid for nid in op.node_ids if nid not in step_ids]
@@ -441,7 +570,11 @@ def apply_patch(definition: Definition, patch: DefinitionPatch) -> Definition:
             nodes[:] = [n for n in nodes if n.get("id") != op.node_id]
             edges[:] = [
                 e for e in edges if e.get("source") != op.node_id and e.get("target") != op.node_id
-            ]
+            ]  # relation edges included
+            # A removed frame lets go of what it contained.
+            for n in nodes:
+                if n.get("parentId") == op.node_id:
+                    n.pop("parentId", None)
             # A removed step leaves every group frame that listed it.
             for group in groups:
                 data = group.get("data") or {}
@@ -465,11 +598,12 @@ def apply_patch(definition: Definition, patch: DefinitionPatch) -> Definition:
                 continue
             edges[:] = [e for e in edges if e.get("id") != op.edge_id]
         elif isinstance(op, SetVariableOp):
-            dumped = op.variable.model_dump(mode="python")
+            dumped = op.variable.model_dump(mode="python", exclude_none=True)
             existing = next((v for v in variables if v.get("name") == op.variable.name), None)
             if existing is None:
                 variables.append(dumped)
             else:
+                existing.clear()
                 existing.update(dumped)
         elif isinstance(op, RemoveVariableOp):
             if not any(v.get("name") == op.name for v in variables):
@@ -482,6 +616,21 @@ def apply_patch(definition: Definition, patch: DefinitionPatch) -> Definition:
                 issues.append(f"{where}: node, note or group '{op.node_id}' not found")
                 continue
             target["position"] = op.position.model_dump(mode="python")
+        elif isinstance(op, SetParentOp):
+            target = next((n for n in nodes if n.get("id") == op.node_id), None)
+            if target is None:
+                issues.append(f"{where}: node '{op.node_id}' not found")
+                continue
+            if op.parent_id is None:
+                target.pop("parentId", None)
+            else:
+                if op.parent_id == op.node_id:
+                    issues.append(f"{where}: node '{op.node_id}' cannot be its own parent")
+                    continue
+                if not any(n.get("id") == op.parent_id for n in nodes):
+                    issues.append(f"{where}: parent '{op.parent_id}' not found")
+                    continue
+                target["parentId"] = op.parent_id
         elif isinstance(op, SetEdgeKindOp | SetEdgeNoteOp | UpdateEdgeDataOp):
             edge = next((e for e in edges if e.get("id") == op.edge_id), None)
             if edge is None:
@@ -594,14 +743,21 @@ def apply_patch(definition: Definition, patch: DefinitionPatch) -> Definition:
 
 
 def io_declaration_columns(patch: DefinitionPatch) -> dict[str, str | None]:
-    """The workflow-level declaration columns a patch sets (``set_result``'s
-    ``output_kind`` / ``input_kind``), last op wins; a field the op omitted is
-    absent, so the save leaves that column untouched."""
+    """The workflow-level columns a patch sets (``set_result``'s ``output_kind`` /
+    ``input_kind``, ``describe_workflow``'s ``name`` / ``description``), last op wins;
+    a field the op omitted is absent, so the save leaves that column untouched."""
     columns: dict[str, str | None] = {}
     for op in patch.ops:
+        if isinstance(op, DescribeWorkflowOp):
+            for name in ("name", "description"):
+                if name in op.model_fields_set:
+                    columns[name] = (getattr(op, name) or "").strip() or None
+            continue
         if isinstance(op, SetResultOp):
             for name in ("output_kind", "input_kind"):
                 if name in op.model_fields_set:
                     value = getattr(op, name)
                     columns[name] = (value or "").strip() or None
+        elif isinstance(op, SetWorkflowSettingOp) and op.key in DECLARATION_SETTINGS:
+            columns[op.key] = (op.value or "").strip() or None
     return columns

@@ -422,6 +422,35 @@ class SmokeTestsConfig:
     partition's capabilities. When set, `coord.smoke.partition_command_stages`
     takes over per-partition command construction instead — see that
     function and `coord.smoke._dispatch_smoke_fanout`.
+
+    `cross_platform_checks` (#4098) maps a LOCAL REPO NAME (matching
+    `repos[].name`) to a `{capability: command}` mapping of cheap,
+    COMPILE-ONLY commands — e.g. `quadraui: {win: cargo check -p quadraui
+    --features win --all-targets --target x86_64-pc-windows-msvc}`. Scoped
+    per repo deliberately: the fleet runs many repos against this one
+    `smoke_tests:` block, and a command like `cargo check -p quadraui`
+    only compiles inside quadraui's own checkout — a flat
+    `{capability: command}` map with no repo key would run quadraui's
+    check inside every OTHER repo's worktree too, on any capability-
+    matched machine, and fold the resulting unrelated compile failure onto
+    that repo's row. A Work leg can only build its own platform (a Windows
+    worker cannot build `macos`-feature code and a Linux worker cannot
+    build `win`), so the first time any OTHER platform even compiles the
+    branch used to be inside the full Test-stage fan-out — an ~11-minute,
+    multi-machine run on quadraui. `coord.smoke.dispatch_pending_smoke`
+    now runs each entry for the completed row's own `repo_name` whose
+    capability the Work leg's own machine does NOT declare (`coord.smoke.
+    pending_cross_platform_checks`) on a capability-matched machine OTHER
+    than that one, BEFORE ever dispatching the real fan-out: a compile
+    failure is recorded as a terminal `test_state="failed"` straight away
+    (skipping the fan-out entirely and handing off to `coord drive`'s
+    existing triage-first routing in `_decide_test`, exactly like any other
+    Test-stage failure — no separate triage path of its own), and a pass
+    clears the row back to its pre-dispatch state so the real fan-out runs
+    exactly as it does today. Empty (the default), or a repo name absent
+    from this mapping, means "behaves exactly as before this field
+    existed" — no precheck of any kind, every repo without an entry here
+    is byte-for-byte unaffected.
     """
 
     auto_queue: bool = False
@@ -430,6 +459,7 @@ class SmokeTestsConfig:
     capability_rules: list[SmokeRule] = field(default_factory=list)
     native_execution_capabilities: list[str] = field(default_factory=lambda: ["windows"])
     command_stages: tuple[SmokeStage, ...] = ()
+    cross_platform_checks: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -1082,7 +1112,9 @@ class ModelsConfig:
             return None
         return self.pinned.get(assignment_type)
 
-    def model_for_review(self, review_iteration: int) -> str:
+    def model_for_review(
+        self, review_iteration: int, issue_labels: list[str] | None = None,
+    ) -> str:
         """Return the model alias to dispatch a review leg on.
 
         *review_iteration* is the fix-round counter already carried by the
@@ -1110,10 +1142,35 @@ class ModelsConfig:
         (or different) re-review model still win outright by setting
         ``models.pinned["review_rereview"]`` explicitly, same as any other
         pinned route.
+
+        *issue_labels* (the reviewed issue's GitHub labels) set a floor:
+        when ``labels`` routes the issue to a model higher on
+        ``escalation`` than the one chosen above, that model is used
+        instead. A ``tier:large`` issue routed to ``opus`` therefore gets
+        ``opus`` re-reviews rather than the ``sonnet`` re-review default.
         """
         if review_iteration > 0:
-            return self.pinned.get("review_rereview", "sonnet")
-        return self.model_for_type("review") or self.default
+            model = self.pinned.get("review_rereview", "sonnet")
+        else:
+            model = self.model_for_type("review") or self.default
+        return self.at_least(model, self.model_for_labels(issue_labels or []))
+
+    def at_least(self, model: str | None, floor: str | None) -> str | None:
+        """Return whichever of *model* and *floor* sits higher on ``escalation``.
+
+        A ``None`` on either side yields the other. When either alias is
+        off the ladder there is no order to compare, so *model* is
+        returned unchanged.
+        """
+        if not floor:
+            return model
+        if not model:
+            return floor
+        if model not in self.escalation or floor not in self.escalation:
+            return model
+        if self.escalation.index(floor) > self.escalation.index(model):
+            return floor
+        return model
 
     def next_model(self, current: str) -> str:
         """Return the next model in the escalation ladder.
@@ -4297,6 +4354,13 @@ def _parse_board_doctor_repo_config(raw: Any, repo_index: int) -> BoardDoctorRep
                 "must be a boolean"
             )
         cfg.config_drift_autofix = config_drift_autofix
+    if "mechanic" in raw:
+        mechanic = raw["mechanic"]
+        if not isinstance(mechanic, bool):
+            raise ConfigError(
+                f"repos[{repo_index}].board_doctor.mechanic must be a boolean"
+            )
+        cfg.mechanic = mechanic
     return cfg
 
 
@@ -4819,6 +4883,37 @@ def _parse_smoke_tests(raw: Any) -> SmokeTestsConfig:
             SmokeStage(name=name, command=stage_command, requires=tuple(stage_requires))
         )
     cfg.command_stages = tuple(stages)
+
+    checks_raw = raw.get("cross_platform_checks", {}) or {}
+    if not isinstance(checks_raw, dict):
+        raise ConfigError("smoke_tests.cross_platform_checks must be a mapping")
+    checks: dict[str, dict[str, str]] = {}
+    for repo_name, repo_checks_raw in checks_raw.items():
+        if not isinstance(repo_name, str) or not repo_name.strip():
+            raise ConfigError(
+                "smoke_tests.cross_platform_checks keys must be non-empty "
+                "repo-name strings"
+            )
+        if not isinstance(repo_checks_raw, dict):
+            raise ConfigError(
+                f"smoke_tests.cross_platform_checks[{repo_name!r}] must be a "
+                "mapping of capability to command"
+            )
+        repo_checks: dict[str, str] = {}
+        for capability, command in repo_checks_raw.items():
+            if not isinstance(capability, str) or not capability.strip():
+                raise ConfigError(
+                    f"smoke_tests.cross_platform_checks[{repo_name!r}] keys "
+                    "must be non-empty capability strings"
+                )
+            if not isinstance(command, str) or not command.strip():
+                raise ConfigError(
+                    f"smoke_tests.cross_platform_checks[{repo_name!r}]"
+                    f"[{capability!r}] must be a non-empty command string"
+                )
+            repo_checks[capability] = command
+        checks[repo_name] = repo_checks
+    cfg.cross_platform_checks = checks
     return cfg
 
 

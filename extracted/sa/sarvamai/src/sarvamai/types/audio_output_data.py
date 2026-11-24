@@ -9,7 +9,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class AudioOutputData(UniversalBaseModel):
     content_type: str = pydantic.Field()
     """
-    MIME type of the audio content (e.g., 'audio/mp3', 'audio/wav')
+    MIME type of the audio content, such as `audio/mpeg` for MP3 (the default) or `audio/wav`.
     """
 
     audio: str = pydantic.Field()

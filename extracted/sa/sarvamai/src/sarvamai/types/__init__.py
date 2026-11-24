@@ -56,6 +56,61 @@ if typing.TYPE_CHECKING:
     from .detail import Detail
     from .diarized_entry import DiarizedEntry
     from .diarized_transcript import DiarizedTranscript
+    from .dictate_audio_input import DictateAudioInput
+    from .dictate_callback import DictateCallback
+    from .dictate_config_update import DictateConfigUpdate
+    from .dictate_config_update_mode import DictateConfigUpdateMode
+    from .dictate_config_update_stream_type import DictateConfigUpdateStreamType
+    from .dictate_config_updated import DictateConfigUpdated
+    from .dictate_context import DictateContext
+    from .dictate_correction import DictateCorrection
+    from .dictate_correction_source import DictateCorrectionSource
+    from .dictate_degraded_reason import DictateDegradedReason
+    from .dictate_dictation_final import DictateDictationFinal
+    from .dictate_dictation_final_degraded import DictateDictationFinalDegraded
+    from .dictate_end import DictateEnd
+    from .dictate_error import DictateError
+    from .dictate_flush import DictateFlush
+    from .dictate_job import DictateJob
+    from .dictate_job_create_response import DictateJobCreateResponse
+    from .dictate_job_error import DictateJobError
+    from .dictate_job_result import DictateJobResult
+    from .dictate_job_state import DictateJobState
+    from .dictate_language_code import DictateLanguageCode
+    from .dictate_mode import DictateMode
+    from .dictate_model import DictateModel
+    from .dictate_output import DictateOutput
+    from .dictate_output_degraded_reason import DictateOutputDegradedReason
+    from .dictate_output_final import DictateOutputFinal
+    from .dictate_output_final_degraded import DictateOutputFinalDegraded
+    from .dictate_output_final_usage import DictateOutputFinalUsage
+    from .dictate_output_rules import DictateOutputRules
+    from .dictate_output_usage import DictateOutputUsage
+    from .dictate_ping import DictatePing
+    from .dictate_pong import DictatePong
+    from .dictate_response import DictateResponse
+    from .dictate_section import DictateSection
+    from .dictate_segment import DictateSegment
+    from .dictate_session_begin import DictateSessionBegin
+    from .dictate_session_end import DictateSessionEnd
+    from .dictate_speech_end import DictateSpeechEnd
+    from .dictate_speech_start import DictateSpeechStart
+    from .dictate_streaming_context import DictateStreamingContext
+    from .dictate_streaming_correction import DictateStreamingCorrection
+    from .dictate_streaming_correction_source import DictateStreamingCorrectionSource
+    from .dictate_streaming_style import DictateStreamingStyle
+    from .dictate_streaming_style_preset import DictateStreamingStylePreset
+    from .dictate_streaming_usage import DictateStreamingUsage
+    from .dictate_streaming_vocabulary_entry import DictateStreamingVocabularyEntry
+    from .dictate_style import DictateStyle
+    from .dictate_style_preset import DictateStylePreset
+    from .dictate_transcript_final import DictateTranscriptFinal
+    from .dictate_transcript_partial import DictateTranscriptPartial
+    from .dictate_usage import DictateUsage
+    from .dictate_vad_speech_end import DictateVadSpeechEnd
+    from .dictate_vad_speech_start import DictateVadSpeechStart
+    from .dictate_vocabulary import DictateVocabulary
+    from .dictate_vocabulary_entry import DictateVocabularyEntry
     from .doc_ai_batch_document import DocAiBatchDocument
     from .doc_ai_capabilities_response import DocAiCapabilitiesResponse
     from .doc_ai_capability_limits import DocAiCapabilityLimits
@@ -386,6 +441,61 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Detail": ".detail",
     "DiarizedEntry": ".diarized_entry",
     "DiarizedTranscript": ".diarized_transcript",
+    "DictateAudioInput": ".dictate_audio_input",
+    "DictateCallback": ".dictate_callback",
+    "DictateConfigUpdate": ".dictate_config_update",
+    "DictateConfigUpdateMode": ".dictate_config_update_mode",
+    "DictateConfigUpdateStreamType": ".dictate_config_update_stream_type",
+    "DictateConfigUpdated": ".dictate_config_updated",
+    "DictateContext": ".dictate_context",
+    "DictateCorrection": ".dictate_correction",
+    "DictateCorrectionSource": ".dictate_correction_source",
+    "DictateDegradedReason": ".dictate_degraded_reason",
+    "DictateDictationFinal": ".dictate_dictation_final",
+    "DictateDictationFinalDegraded": ".dictate_dictation_final_degraded",
+    "DictateEnd": ".dictate_end",
+    "DictateError": ".dictate_error",
+    "DictateFlush": ".dictate_flush",
+    "DictateJob": ".dictate_job",
+    "DictateJobCreateResponse": ".dictate_job_create_response",
+    "DictateJobError": ".dictate_job_error",
+    "DictateJobResult": ".dictate_job_result",
+    "DictateJobState": ".dictate_job_state",
+    "DictateLanguageCode": ".dictate_language_code",
+    "DictateMode": ".dictate_mode",
+    "DictateModel": ".dictate_model",
+    "DictateOutput": ".dictate_output",
+    "DictateOutputDegradedReason": ".dictate_output_degraded_reason",
+    "DictateOutputFinal": ".dictate_output_final",
+    "DictateOutputFinalDegraded": ".dictate_output_final_degraded",
+    "DictateOutputFinalUsage": ".dictate_output_final_usage",
+    "DictateOutputRules": ".dictate_output_rules",
+    "DictateOutputUsage": ".dictate_output_usage",
+    "DictatePing": ".dictate_ping",
+    "DictatePong": ".dictate_pong",
+    "DictateResponse": ".dictate_response",
+    "DictateSection": ".dictate_section",
+    "DictateSegment": ".dictate_segment",
+    "DictateSessionBegin": ".dictate_session_begin",
+    "DictateSessionEnd": ".dictate_session_end",
+    "DictateSpeechEnd": ".dictate_speech_end",
+    "DictateSpeechStart": ".dictate_speech_start",
+    "DictateStreamingContext": ".dictate_streaming_context",
+    "DictateStreamingCorrection": ".dictate_streaming_correction",
+    "DictateStreamingCorrectionSource": ".dictate_streaming_correction_source",
+    "DictateStreamingStyle": ".dictate_streaming_style",
+    "DictateStreamingStylePreset": ".dictate_streaming_style_preset",
+    "DictateStreamingUsage": ".dictate_streaming_usage",
+    "DictateStreamingVocabularyEntry": ".dictate_streaming_vocabulary_entry",
+    "DictateStyle": ".dictate_style",
+    "DictateStylePreset": ".dictate_style_preset",
+    "DictateTranscriptFinal": ".dictate_transcript_final",
+    "DictateTranscriptPartial": ".dictate_transcript_partial",
+    "DictateUsage": ".dictate_usage",
+    "DictateVadSpeechEnd": ".dictate_vad_speech_end",
+    "DictateVadSpeechStart": ".dictate_vad_speech_start",
+    "DictateVocabulary": ".dictate_vocabulary",
+    "DictateVocabularyEntry": ".dictate_vocabulary_entry",
     "DocAiBatchDocument": ".doc_ai_batch_document",
     "DocAiCapabilitiesResponse": ".doc_ai_capabilities_response",
     "DocAiCapabilityLimits": ".doc_ai_capability_limits",
@@ -733,6 +843,61 @@ __all__ = [
     "Detail",
     "DiarizedEntry",
     "DiarizedTranscript",
+    "DictateAudioInput",
+    "DictateCallback",
+    "DictateConfigUpdate",
+    "DictateConfigUpdateMode",
+    "DictateConfigUpdateStreamType",
+    "DictateConfigUpdated",
+    "DictateContext",
+    "DictateCorrection",
+    "DictateCorrectionSource",
+    "DictateDegradedReason",
+    "DictateDictationFinal",
+    "DictateDictationFinalDegraded",
+    "DictateEnd",
+    "DictateError",
+    "DictateFlush",
+    "DictateJob",
+    "DictateJobCreateResponse",
+    "DictateJobError",
+    "DictateJobResult",
+    "DictateJobState",
+    "DictateLanguageCode",
+    "DictateMode",
+    "DictateModel",
+    "DictateOutput",
+    "DictateOutputDegradedReason",
+    "DictateOutputFinal",
+    "DictateOutputFinalDegraded",
+    "DictateOutputFinalUsage",
+    "DictateOutputRules",
+    "DictateOutputUsage",
+    "DictatePing",
+    "DictatePong",
+    "DictateResponse",
+    "DictateSection",
+    "DictateSegment",
+    "DictateSessionBegin",
+    "DictateSessionEnd",
+    "DictateSpeechEnd",
+    "DictateSpeechStart",
+    "DictateStreamingContext",
+    "DictateStreamingCorrection",
+    "DictateStreamingCorrectionSource",
+    "DictateStreamingStyle",
+    "DictateStreamingStylePreset",
+    "DictateStreamingUsage",
+    "DictateStreamingVocabularyEntry",
+    "DictateStyle",
+    "DictateStylePreset",
+    "DictateTranscriptFinal",
+    "DictateTranscriptPartial",
+    "DictateUsage",
+    "DictateVadSpeechEnd",
+    "DictateVadSpeechStart",
+    "DictateVocabulary",
+    "DictateVocabularyEntry",
     "DocAiBatchDocument",
     "DocAiCapabilitiesResponse",
     "DocAiCapabilityLimits",

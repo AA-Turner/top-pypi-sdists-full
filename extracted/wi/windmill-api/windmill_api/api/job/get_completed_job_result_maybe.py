@@ -14,11 +14,14 @@ def _get_kwargs(
     id: str,
     *,
     get_started: Union[Unset, None, bool] = UNSET,
+    wait_for_child: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
     params["get_started"] = get_started
+
+    params["wait_for_child"] = wait_for_child
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -62,6 +65,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     get_started: Union[Unset, None, bool] = UNSET,
+    wait_for_child: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetCompletedJobResultMaybeResponse200]:
     """get completed job result if job is completed
 
@@ -69,6 +73,7 @@ def sync_detailed(
         workspace (str):
         id (str):
         get_started (Union[Unset, None, bool]):
+        wait_for_child (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,6 +87,7 @@ def sync_detailed(
         workspace=workspace,
         id=id,
         get_started=get_started,
+        wait_for_child=wait_for_child,
     )
 
     response = client.get_httpx_client().request(
@@ -97,6 +103,7 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     get_started: Union[Unset, None, bool] = UNSET,
+    wait_for_child: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetCompletedJobResultMaybeResponse200]:
     """get completed job result if job is completed
 
@@ -104,6 +111,7 @@ def sync(
         workspace (str):
         id (str):
         get_started (Union[Unset, None, bool]):
+        wait_for_child (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,6 +126,7 @@ def sync(
         id=id,
         client=client,
         get_started=get_started,
+        wait_for_child=wait_for_child,
     ).parsed
 
 
@@ -127,6 +136,7 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     get_started: Union[Unset, None, bool] = UNSET,
+    wait_for_child: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetCompletedJobResultMaybeResponse200]:
     """get completed job result if job is completed
 
@@ -134,6 +144,7 @@ async def asyncio_detailed(
         workspace (str):
         id (str):
         get_started (Union[Unset, None, bool]):
+        wait_for_child (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,6 +158,7 @@ async def asyncio_detailed(
         workspace=workspace,
         id=id,
         get_started=get_started,
+        wait_for_child=wait_for_child,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -160,6 +172,7 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     get_started: Union[Unset, None, bool] = UNSET,
+    wait_for_child: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetCompletedJobResultMaybeResponse200]:
     """get completed job result if job is completed
 
@@ -167,6 +180,7 @@ async def asyncio(
         workspace (str):
         id (str):
         get_started (Union[Unset, None, bool]):
+        wait_for_child (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -182,5 +196,6 @@ async def asyncio(
             id=id,
             client=client,
             get_started=get_started,
+            wait_for_child=wait_for_child,
         )
     ).parsed

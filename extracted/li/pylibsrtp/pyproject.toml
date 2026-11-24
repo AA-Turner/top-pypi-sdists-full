@@ -1,12 +1,12 @@
 [build-system]
-requires = ["cffi>=1.0.0", "setuptools", "wheel"]
+requires = ["cffi>=1.0.0", "setuptools>=70.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pylibsrtp"
 description = "Python wrapper around the libsrtp library"
 readme = "README.rst"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "BSD-3-Clause"
 authors = [
     { name = "Jeremy Lainé", email = "jeremy.laine@m4x.org" },
@@ -17,11 +17,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Communications :: Telephony",
     "Topic :: Security :: Cryptography",
 ]
@@ -35,10 +35,15 @@ dev = [
 
 [project.urls]
 homepage = "https://github.com/aiortc/pylibsrtp"
+changelog = "https://pylibsrtp.readthedocs.io/en/stable/changelog.html"
 documentation = "https://pylibsrtp.readthedocs.io/"
 
 [tool.coverage.run]
 source = ["pylibsrtp"]
+
+[tool.mypy]
+files = ["src", "tests"]
+strict = true
 
 [tool.ruff.lint]
 select = [
@@ -46,6 +51,7 @@ select = [
     "F",  # Pyflakes
     "W",  # pycodestyle
     "I",  # isort
+    "UP",  # pyupgrade
 ]
 
 [tool.setuptools.dynamic]

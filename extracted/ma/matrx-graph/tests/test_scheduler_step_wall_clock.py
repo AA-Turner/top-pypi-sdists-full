@@ -398,3 +398,58 @@ def test_a_malformed_step_clock_fails_compilation():
 
     with pytest.raises(CompilationError):
         compile_graph(_slow_definition({"seconds": 0}), registry=_registry(SlowExecutor()))
+
+
+# ── A TIMEOUT INSIDE THE STEP IS NOT THE STEP CLOCK ──────────────────────────
+#
+# Live runs 7c3032a2 / 6528a8bf (2026-11-01): ``platform.items.find`` failed after
+# ~10 s because ONE database call hit its 10 s driver timeout (asyncpg raises
+# ``TimeoutError``). The step clock caught every ``TimeoutError`` and reported
+# "stopped after 600s because it passed the time limit every step gets" — the
+# wrong cause and the wrong remedy (raising the step clock fixes nothing).
+
+
+class InnerTimeoutExecutor:
+    """A step whose own call (a database driver, an HTTP client) times out fast."""
+
+    spec: ClassVar[NodeSpec] = NodeSpec(
+        type="test.inner_timeout",
+        category=NodeCategory.DATA,
+        display_name="A step whose call times out",
+        description="Raises TimeoutError from inside, well under the step clock.",
+        input_schema=WedgedInput,
+        output_schema=WedgedOutput,
+        config_schema=WedgedConfig,
+        handles=(
+            HandleSpec(id="in", direction=HandleDirection.INPUT),
+            HandleSpec(id="out", direction=HandleDirection.OUTPUT),
+        ),
+        determinism=ActionTier.IDEMPOTENT,
+    )
+
+    async def execute(
+        self,
+        ctx: NodeExecutionContext,
+        inputs: WedgedInput,
+        config: WedgedConfig,
+    ) -> NodeResult[WedgedOutput]:
+        async with asyncio.timeout(0.01):  # the driver's own per-call timeout
+            await asyncio.Event().wait()
+        return success(WedgedOutput())
+
+
+async def test_a_timeout_raised_inside_the_step_is_not_reported_as_the_step_clock(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _pin_ceiling(monkeypatch, 600)
+    registry = _registry(InnerTimeoutExecutor())
+    graph = compile_graph(_definition("test.inner_timeout"), registry=registry)
+    emitter = FakeEmitter()
+    scheduler = Scheduler(graph, MemoryCheckpointer(), make_app_context(emitter), registry=registry)
+    result = await asyncio.wait_for(scheduler.run(run_id="inner-timeout"), timeout=30)
+
+    assert result.status is RunStatus.ERRORED
+    (failed,) = _events_of_kind(emitter, "node_failed")
+    assert failed["error_type"] == "TimeoutError", failed
+    assert "600s" not in failed["error_message"]
+    assert "time limit every step gets" not in failed["error_message"]

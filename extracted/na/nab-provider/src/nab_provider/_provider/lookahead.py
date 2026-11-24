@@ -23,17 +23,18 @@ from __future__ import annotations
 __lazy_modules__ = (
     "collections",
     "nab_provider._provider.listing_diagnosis",
-    "nab_provider._vendor.packaging.ranges",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.errors",
     "nab_resolver.types",
+    "packaging.ranges",
+    "packaging.utils",
 )
 
 from collections import defaultdict
 from typing import TYPE_CHECKING, NamedTuple
 
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.utils import canonicalize_name
+from packaging.ranges import VersionRange
+from packaging.utils import canonicalize_name
+
 from nab_resolver.types import Incompatibility, IncompatibilityCause, Term
 
 from ..errors import MetadataError
@@ -42,7 +43,8 @@ from .listing_diagnosis import MetadataBlock
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from nab_provider._vendor.packaging.version import Version
+    from packaging.version import Version
+
     from nab_resolver.types import RangeProtocol
 
     from ..provider import Provider
@@ -158,24 +160,25 @@ def _blocked_by_solution(
         )
         return True
 
-    # Positive-range disagreement: {candidate==v, dep in pos_range} is
-    # impossible.  Sound across backjumps because the ``dep in pos_range``
-    # term goes UNDETERMINED if the supporting derivation is reverted.
-    pos_range = provider.solution_ranges.get(dep_normalized)
-    if pos_range is None or not dep_range.is_disjoint(pos_range):
+    # The candidate conflicts with the dependency's positive range. Reverting
+    # that range's derivation leaves the corresponding clause term undetermined.
+    positive_range = provider.solution_ranges.get(dep_normalized)
+    if positive_range is None or not dep_range.is_disjoint(positive_range):
         return False
 
     # A self-dependency is grouped by the range it declared, so the merged
     # clause has one edge to name.
     if dep_normalized == package:
-        provider.pending_self_blocks[(package, dep_range, pos_range)].append(version)
+        provider.pending_self_blocks[(package, dep_range, positive_range)].append(
+            version
+        )
         return True
 
-    range_key = (package, dep_normalized, pos_range)
-    provider.pending_range_blocks[range_key].append(version)
-    provider.pending_range_dep_ranges[range_key] = provider.pending_range_dep_ranges[
-        range_key
-    ].record(dep_range)
+    range_block_key = (package, dep_normalized, positive_range)
+    provider.pending_range_blocks[range_block_key].append(version)
+    provider.pending_range_dep_ranges[range_block_key] = (
+        provider.pending_range_dep_ranges[range_block_key].record(dep_range)
+    )
     return True
 
 
@@ -269,7 +272,8 @@ def flush_pending_blocks(provider: Provider) -> None:
         blocker_pkg,
         blocker_version,
     ), versions in provider.pending_blocks.items():
-        range_union = _candidate_union(provider, candidate_pkg, versions)
+        rejected_versions = _candidate_union(provider, candidate_pkg, versions)
+
         # The decided version lies outside every recorded dependency range, so
         # the widening contains it; the check fences a group whose ranges
         # disagree with its blocker.  Asked as a subset test rather than ``in``
@@ -281,17 +285,18 @@ def flush_pending_blocks(provider: Provider) -> None:
             ],
             len(versions),
         )
-        blocker_term = (
+        blocker_constraint = (
             membership
             if membership is not None
             and VersionRange.singleton(blocker_version).is_subset(membership)
             else _widen_or_singleton(provider, blocker_pkg, blocker_version)
         )
+
         provider.pending_clauses.append(
             Incompatibility(
                 [
-                    Term(candidate_pkg, range_union, positive=True),
-                    Term(blocker_pkg, blocker_term, positive=True),
+                    Term(candidate_pkg, rejected_versions, positive=True),
+                    Term(blocker_pkg, blocker_constraint, positive=True),
                 ],
                 cause=IncompatibilityCause.DEPENDENCY,
             )
@@ -303,7 +308,8 @@ def flush_pending_blocks(provider: Provider) -> None:
         blocker_pkg,
         blocker_range,
     ), versions in provider.pending_range_blocks.items():
-        range_union = _candidate_union(provider, candidate_pkg, versions)
+        rejected_versions = _candidate_union(provider, candidate_pkg, versions)
+
         # Every recorded dependency range was disjoint from the positive range,
         # so the widening covers it; the check fences a group whose ranges
         # disagree with its blocker.
@@ -313,16 +319,17 @@ def flush_pending_blocks(provider: Provider) -> None:
             ],
             len(versions),
         )
-        blocker_term = (
+        blocker_constraint = (
             membership
             if membership is not None and (blocker_range - membership).is_empty
             else blocker_range
         )
+
         provider.pending_clauses.append(
             Incompatibility(
                 [
-                    Term(candidate_pkg, range_union, positive=True),
-                    Term(blocker_pkg, blocker_term, positive=True),
+                    Term(candidate_pkg, rejected_versions, positive=True),
+                    Term(blocker_pkg, blocker_constraint, positive=True),
                 ],
                 cause=IncompatibilityCause.DEPENDENCY,
             )

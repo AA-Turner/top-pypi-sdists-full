@@ -26,6 +26,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from matrx_connect import AppContext, context_dep, require_authenticated
 from matrx_connect.middleware import DEFAULT_ORG_EXEMPT_PATHS, AuthMiddleware
 from matrx_orm.secrets_battery import SecretDecryptError, SecretNotFoundError
+from matrx_utils.runtime_env import MatrxStage, declared_stage
 
 from matrx_seo.access import collection_run_readable
 from matrx_seo.adapters_registry import ADAPTER_FACTORIES
@@ -253,13 +254,15 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             "that can never authenticate anyone must not boot"
         )
     bootstrap_db()
-    local_dev = os.environ.get("MATRX_SEO_LOCAL_DEV") == "1"
+    # A laptop is a stage (MATRX_STAGE=local, the host-identity fact every process declares), not a
+    # separate switch: only a process that DECLARES itself local may keep the broad pooled login.
+    local_dev = declared_stage() is MatrxStage.LOCAL
     database_role = await assert_service_role(allow_local_dev=local_dev)
     app.state.local_dev_enabled = local_dev
     local_dev_database_override = local_dev and database_role != SERVICE_ROLE_NAME
     if local_dev_database_override:
         logger.warning(
-            "MATRX_SEO_LOCAL_DEV=1: running on broad database role %r; "
+            "MATRX_STAGE=local: running on broad database role %r; "
             "the supported launcher binds this process to 127.0.0.1 only",
             database_role,
         )
@@ -342,7 +345,14 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict[str, str]:
-        return {"status": "ok", "service": "matrx-seo", "version": package_version}
+        return {
+            "status": "ok",
+            "service": "matrx-seo",
+            "version": package_version,
+            # Built-from commit + source id (Server Manager source deploys).
+            "commit": os.environ.get("MATRX_BUILD_COMMIT") or "unknown",
+            "source_id": os.environ.get("MATRX_SOURCE_ID") or "unknown",
+        }
 
     @app.get("/health/ready")
     async def health_ready() -> JSONResponse:

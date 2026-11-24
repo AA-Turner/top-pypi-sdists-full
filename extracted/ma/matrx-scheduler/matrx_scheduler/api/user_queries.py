@@ -290,12 +290,12 @@ async def soft_delete_task(sb: Any, task_id: str) -> bool:
     rls_session = _rls_session()
     claims = _claims_from_client(sb)
     async with rls_session(claims, role=claims["role"], database=_database()):
-        result = await SchTask.update_where(
-            {"id": task_id, "deleted_at__isnull": True},
-            enabled=False,
-            deleted_at=_now_iso(),
-        )
-    return result.rows_affected > 0
+        # Two statements, one transaction: the archive goes through archive_where, never an UPDATE of
+        # deleted_at — where a SELECT policy hides archived rows that UPDATE is refused as the person
+        # and aborts the transaction (2026-11-13).
+        await SchTask.update_where({"id": task_id, "deleted_at__isnull": True}, enabled=False)
+        archived = await SchTask.archive_where({"id": task_id})
+    return archived > 0
 
 
 async def load_task_fingerprints(sb: Any) -> list[dict[str, Any]]:
@@ -517,12 +517,11 @@ async def delete_trigger(sb: Any, trigger_id: str) -> bool:
     rls_session = _rls_session()
     claims = _claims_from_client(sb)
     async with rls_session(claims, role=claims["role"], database=_database()):
-        result = await SchTrigger.update_where(
-            {"id": trigger_id, "deleted_at__isnull": True},
-            deleted_at=datetime.now(UTC),
-            enabled=False,
-        )
-    return bool(getattr(result, "updated_rows", None))
+        # enabled off, then archive_where — one transaction, so both land together or neither does
+        # (never an UPDATE of deleted_at as the person: see delete_task).
+        await SchTrigger.update_where({"id": trigger_id, "deleted_at__isnull": True}, enabled=False)
+        archived = await SchTrigger.archive_where({"id": trigger_id})
+    return archived > 0
 
 
 # ── Runs (read-only from API) ───────────────────────────────────────────

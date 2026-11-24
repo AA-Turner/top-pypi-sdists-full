@@ -41,8 +41,7 @@ def save_binary_file(file_path: Path, data: bytes) -> None:
 def generate(file_prefix):
     client = google_client()
 
-    # model = "gemini-2.5-pro-preview-tts"
-    model = "gemini-2.5-flash-preview-tts"
+    model = "gemini-3.8-flash-tts"
     contents = [
         types.Content(
             role="user",
@@ -121,10 +120,6 @@ Sarah: See you in the next one.
         if chunk.candidates:
             for cand in chunk.candidates:
                 if cand.finish_reason:
-                    finish_reason = cand.finish_reason
-                    usage_metadata = chunk.usage_metadata
-                    model_version = chunk.model_version
-                    response_id = chunk.response_id
                     last_chunk = chunk
                     
     return last_chunk

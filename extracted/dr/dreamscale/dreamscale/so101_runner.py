@@ -158,6 +158,8 @@ def run_so101(
     hud: bool = False,
     hud_job: str | None = None,
     recorder: Any = None,
+    episode_capture: Any = None,
+    teleop_device: Any = None,
     connect: Callable[..., Any] = aconnect,
     steady_send: int | None = None,
     robot_factory: Callable[[], Any] = _default_robot_factory,
@@ -255,6 +257,8 @@ def run_so101(
             trace_images=trace_images,
             hud=hud_session,
             recorder=recorder,
+            episode_capture=episode_capture,
+            teleop_device=teleop_device,
         )
         return runner
 

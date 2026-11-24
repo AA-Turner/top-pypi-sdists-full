@@ -35,6 +35,19 @@ async def test_git_ingest_local_tree_mode():
     assert "content" not in res.output  # tree mode omits content
 
 
+async def test_git_ingest_never_reads_the_servers_github_token(monkeypatch: pytest.MonkeyPatch):
+    # The server's own GITHUB_TOKEN is never the caller's credential. Upstream gitingest falls back
+    # to it when no `token` arg is given, so a value outside GitHub's PAT format failed even a
+    # local-folder walk ("Invalid GitHub token format") and a valid one rode every caller's clone.
+    monkeypatch.setenv("GITHUB_TOKEN", "not-a-github-token")
+    res = await code_ingest.git_ingest({"source": LOCAL_DIR, "mode": "tree"}, CTX)
+    assert res.success, res.error
+    import gitingest.entrypoint as entry
+
+    assert entry.resolve_token(None) is None
+    assert code_ingest._caller_token_only("") is None
+
+
 async def test_git_ingest_digest_truncates_with_note():
     res = await code_ingest.git_ingest(
         {"source": LOCAL_DIR, "mode": "digest", "max_chars": 500}, CTX
@@ -77,6 +90,70 @@ async def test_git_ingest_large_result_is_structurally_bounded(monkeypatch):
     )
     assert truncated is False
     assert len(content["content"]) < 50_000
+
+
+async def test_git_ingest_reads_no_more_than_its_ceiling(tmp_path, monkeypatch):
+    """A repository bigger than the read ceiling is read only up to it, and the answer says so.
+
+    Live 2026-11-08: archestra-ai/archestra (370 MB) was read, joined and tokenized whole under
+    gitingest's own 500 MB ceiling, ran past the 120 s dispatch ceiling twice and left 4 calls
+    unanswered. Real gitingest walk over a real folder, with the ceiling scaled down.
+    """
+    monkeypatch.setattr(code_ingest, "_GIT_INGEST_MAX_TOTAL_BYTES", 64 * 1024, raising=False)
+    for i in range(20):
+        (tmp_path / f"f{i:02d}.txt").write_text("x" * 16 * 1024)  # 320 KB in all
+
+    res = await code_ingest.git_ingest(
+        {"source": str(tmp_path), "mode": "digest", "max_file_size": 1_024 * 16}, CTX
+    )
+
+    assert res.success, res.error
+    assert res.output["content_total_chars"] < 80 * 1024
+    assert "ceiling" in res.output["read_ceiling_reached"]
+
+
+def test_git_ingest_compiles_its_ignore_patterns_once_not_once_per_path(tmp_path, monkeypatch):
+    """gitingest rebuilt its ~130-pattern ignore spec for every path it visited: 3M pattern
+    compiles and 68 of 76 s on archestra-ai/archestra (2026-11-08). 200 files, one compile."""
+    import pathspec
+
+    if hasattr(code_ingest, "_compiled_spec"):
+        code_ingest._compiled_spec.cache_clear()
+    for i in range(200):
+        (tmp_path / f"f{i:03d}.py").write_text("print(1)\n")
+    real = pathspec.PathSpec.from_lines
+    calls: list[int] = []
+
+    def counting(cls, *args, **kwargs):
+        calls.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(pathspec.PathSpec, "from_lines", classmethod(counting))
+    code_ingest._ingest(str(tmp_path))
+    assert len(calls) <= 2, f"{len(calls)} spec compiles for 200 files"
+
+
+def test_git_ingest_cached_walk_answers_exactly_like_gitingest(tmp_path):
+    import gitingest
+    import gitingest.ingestion as walk
+    from gitingest.utils import ingestion_utils
+
+    (tmp_path / "keep.py").write_text("a = 1\n")
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "skip.js").write_text("x\n")
+    (tmp_path / "notes.log").write_text("skip\n")
+    ours = code_ingest._ingest(str(tmp_path), exclude_patterns={"*.log"})
+    walk._should_exclude = ingestion_utils._should_exclude
+    walk._should_include = ingestion_utils._should_include
+    theirs = gitingest.ingest(str(tmp_path), exclude_patterns={"*.log"})
+    assert ours == theirs
+    assert "keep.py" in ours[1] and "skip.js" not in ours[1] and "notes.log" not in ours[1]
+
+
+async def test_git_ingest_small_folder_reads_whole_and_says_nothing():
+    res = await code_ingest.git_ingest({"source": LOCAL_DIR, "mode": "digest"}, CTX)
+    assert res.success, res.error
+    assert "read_ceiling_reached" not in res.output
 
 
 async def test_git_ingest_keeps_blocking_walk_off_event_loop(monkeypatch):
@@ -134,7 +211,7 @@ class _FakeAsyncClient:
     def __init__(self, responses: dict[str, httpx.Response]):
         self._responses = responses
 
-    async def __aenter__(self) -> "_FakeAsyncClient":
+    async def __aenter__(self) -> _FakeAsyncClient:
         return self
 
     async def __aexit__(self, *_a: Any) -> bool:

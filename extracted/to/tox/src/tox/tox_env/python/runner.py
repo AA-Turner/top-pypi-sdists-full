@@ -2,6 +2,24 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "functools",
+    "logging",
+    "packaging.markers",
+    "packaging.utils",
+    "pathlib",
+    "python_discovery",
+    "tox.config.types",
+    "tox.execute",
+    "tox.report",
+    "tox.session.cmd.run.single",
+    "tox.tox_env.errors",
+    f"{__spec__.parent}.dependency_groups",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}.extras",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}.pip.req_file",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}.pylock",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 import logging
 from abc import ABC
 from functools import partial
@@ -117,7 +135,7 @@ class PythonRun(Python, RunToxEnv, ABC):
             if self.conf["use_develop"] or getattr(self.options, "develop", False):
                 self.conf.add_constant(["package"], desc, "editable")
             else:
-                self.conf.add_config(keys="package", of_type=str, default=self.default_pkg_type, desc=desc)
+                self.conf.add_config(keys="package", of_type=str, default=lambda *_: self.default_pkg_type, desc=desc)
 
         return self.pkg_type != "skip"
 

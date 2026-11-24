@@ -35,6 +35,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from matrx_graph.input_declaration import upgrade_agent_variable
+
 # The select-family components — an option set the user picks ONE value from.
 _SELECT_FAMILY = {"select", "radio", "pill-toggle", "selection-list", "buttons"}
 
@@ -44,6 +46,7 @@ _MEDIA_COMPONENTS = {"image", "audio", "video", "youtube", "document"}
 # String-shaped scalar input components (value is a plain string).
 _STRING_COMPONENTS = {
     "textarea",
+    "text",
     "markdown",
     "datetime",
     "time",
@@ -104,9 +107,13 @@ def variable_definition_to_parameter(entry: dict[str, Any]) -> dict[str, Any]:
     number / slider (+min/max/step)                 number + minimum/maximum/multipleOf
     percent                                         number, 0–100
     media (image/audio/video/youtube/document)      string (URL / file_id note)
+    record (+tokens)                                object {_record_id, token, label}
+    record + multiple                               array of that object
     textarea / typed string components / currency   string
     ==============================================  =================================
     """
+    # Every stored element reads through the one tolerant door (legacy keys mapped).
+    entry = upgrade_agent_variable(entry)
     param = _base_parameter(entry)
 
     binding = entry.get("binding")
@@ -231,6 +238,33 @@ def variable_definition_to_parameter(entry: dict[str, Any]) -> dict[str, Any]:
     if ctype in _MEDIA_COMPONENTS:
         param["type"] = "string"
         return _with_note(param, f"(A {ctype} reference — URL or file id.)")
+
+    if ctype == "record":
+        # A record input: the value is a ``relation`` (one record or platform thing), a list of
+        # them when ``multiple``. Dispatch json.dumps the object, and the prompt door renders it
+        # as "label (token id)".
+        tokens = [t for t in (cc.get("tokens") or []) if isinstance(t, str)]
+        relation: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "_record_id": {"type": "string", "description": "The id of the record."},
+                "token": {"type": "string", "description": "What the id names (note, agent, record, ...)."},
+                "label": {"type": "string", "description": "The record's name."},
+            },
+            "required": ["_record_id"],
+        }
+        if tokens:
+            relation["properties"]["token"]["enum"] = tokens
+        note = "(A record reference" + (f" — one of: {', '.join(tokens)}" if tokens else "") + ".)"
+        if cc.get("multiple"):
+            param["type"] = "array"
+            param["items"] = relation
+            return _with_note(param, note.replace("A record reference", "Record references"))
+        param.update({k: v for k, v in relation.items() if k != "required"})
+        # ``required`` on a parameter is this variable's own flag; the relation's own required
+        # key list rides a nested object only.
+        param["properties"] = relation["properties"]
+        return _with_note(param, note)
 
     if ctype == "table":
         # A table REFERENCE — the server reads the table as the caller and hands the agent its

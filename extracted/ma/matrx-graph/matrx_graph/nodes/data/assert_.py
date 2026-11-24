@@ -14,7 +14,7 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_graph.content_ir.model import KindModel
-from matrx_graph.nodes._sandbox import safe_eval
+from matrx_graph.nodes._sandbox import ExpressionFailure, safe_eval
 from matrx_graph.nodes._template import render_template_string
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
@@ -93,7 +93,11 @@ class AssertExecutor:
     ) -> NodeResult[AssertOutput]:
         _ = ctx
         payload = inputs.model_dump(mode="json")
-        if not safe_eval(config.predicate, payload):
+        try:
+            holds = safe_eval(config.predicate, payload)
+        except ExpressionFailure as e:
+            return e.failure
+        if not holds:
             # Node Result System: a falsy predicate is a genuine node Failure
             # with a stable code (retry_on / ERROR edges can match it).
             # The person reads the author's sentence, filled from the inputs; the

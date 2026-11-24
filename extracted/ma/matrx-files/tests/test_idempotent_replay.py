@@ -130,12 +130,13 @@ def _upload(
     *,
     expected: str,
     key: str = KEY,
-    visibility: str | None = None,
+    legacy_level: str | None = None,
     published_to_web: str | None = None,
 ):
+    """``legacy_level`` is the retiring single level word old clients still send (the T-13 wire door)."""
     data = {"file_path": PATH, "expected_checksum": expected}
-    if visibility is not None:
-        data["visibility"] = visibility
+    if legacy_level is not None:
+        data["visibility"] = legacy_level
     if published_to_web is not None:
         data["published_to_web"] = published_to_web
     return client.post(
@@ -200,8 +201,8 @@ def test_reusing_one_key_for_a_different_access_intent_is_409(
     service = _StubService(_row())
     client = _client(service)
 
-    assert _upload(client, expected=SHA_A, visibility=first_visibility).status_code == 200
-    clash = _upload(client, expected=SHA_A, visibility=replay_visibility)
+    assert _upload(client, expected=SHA_A, legacy_level=first_visibility).status_code == 200
+    clash = _upload(client, expected=SHA_A, legacy_level=replay_visibility)
     assert clash.status_code == 409
     assert clash.json()["detail"]["error"] == "idempotency_key_reuse"
     assert service.uploads == 1
@@ -214,7 +215,7 @@ def test_explicit_private_access_wins_over_legacy_link(
     client = _client(service)
 
     response = _upload(
-        client, expected=SHA_A, visibility="link", published_to_web="false"
+        client, expected=SHA_A, legacy_level="link", published_to_web="false"
     )
     assert response.status_code == 200, response.text
     assert response.json()["share_token"] is None
@@ -231,7 +232,7 @@ def test_legacy_fastapi_boolean_spellings_stay_accepted(
     response = _upload(
         _client(service),
         expected=SHA_A,
-        visibility="link",
+        legacy_level="link",
         published_to_web=spelling,
     )
 
@@ -264,13 +265,13 @@ def test_legacy_link_upload_returns_and_replays_the_created_share_token(
     service = _StubService(_row())
     client = _client(service)
 
-    first = _upload(client, expected=SHA_A, visibility="link")
+    first = _upload(client, expected=SHA_A, legacy_level="link")
     assert first.status_code == 200, first.text
     assert first.json()["share_token"] == "anyone-token"
     assert first.json()["share_url"] == "/share/anyone-token"
     assert service.share_link_creations == 1
 
-    replay = _upload(client, expected=SHA_A, visibility="link")
+    replay = _upload(client, expected=SHA_A, legacy_level="link")
     assert replay.status_code == 200
     assert replay.json() == first.json()
     assert service.share_link_creations == 1, "a replay must not create another Anyone link"

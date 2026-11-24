@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import enum
 
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser
 
 
 class FailureReason(enum.StrEnum):
@@ -87,6 +87,8 @@ BLOCK_BODY_MARKERS = (
     "please complete the security check",          # Cloudflare legacy captcha ("One more step")
     "completing the captcha proves you are a human",  # Cloudflare legacy captcha
     "let's confirm you are human",                 # generic "Human Verification"
+    "checking your browser",                       # Cloudflare legacy / DDoS-Guard wait screen
+    "verify your browser",                         # proof-of-work wait screens (Reddit, 2026-11-17)
     # Owner-approved wall phrases (advanced-reader design, 2026-10-16) — short pages only.
     "verifying you are not a robot",
     "verify you are not a robot",
@@ -118,7 +120,7 @@ SHORT_PAGE_CHARS = 2000
 
 def detect_challenge_reasons(
     *,
-    soup: HTMLParser | None = None,
+    soup: LexborHTMLParser | None = None,
     html: str | None = None,
     title: str | None = None,
 ) -> list[dict]:
@@ -130,7 +132,7 @@ def detect_challenge_reasons(
     """
     if soup is None and html:
         try:
-            soup = HTMLParser(html)
+            soup = LexborHTMLParser(html)
         except Exception:
             soup = None
     reasons: list[dict] = []
@@ -159,6 +161,48 @@ def detect_challenge_reasons(
                 if widget:
                     reasons.append({FailureReason.BLOCKED: f"Short page is a captcha: {widget}"})
     return reasons
+
+
+#: Widgets only a challenge vendor's wall serves (never a site's own comment or sign-up form).
+VENDOR_WALL_WIDGET_SELECTORS = (
+    "#px-captcha",                                  # PerimeterX
+    'script[src*="captcha-delivery.com"]',          # DataDome
+    'iframe[src*="captcha-delivery.com"]',
+)
+
+
+def challenge_evidence(*, html: str | None, title: str | None) -> tuple[str | None, str | None]:
+    """The census split by strength, for a judge that decides on what the page IS (read_judge, 2026-11-17).
+
+    ``strong``: a vendor's wall markup (retry selectors, a vendor-only widget) or a vendor title: the wall
+    whatever else the page holds. ``generic``: a challenge phrase or a generic captcha widget on a short page:
+    an article can say "verify you are human" or embed a reCAPTCHA on its comment form, so the page's structure
+    decides. Same phrase and selector lists as :func:`detect_challenge_reasons` (one census)."""
+    soup = None
+    if html:
+        try:
+            soup = LexborHTMLParser(html)
+        except Exception:
+            soup = None
+    lowered_title = (title or "").strip().lower()
+    if soup is not None:
+        for selector in (*RETRY_CSS_SELECTORS, *VENDOR_WALL_WIDGET_SELECTORS):
+            if soup.css_first(selector):
+                return f"wall markup {selector}", None
+    marker = next((m for m in (*CHALLENGE_TITLE_MARKERS, *BLOCK_TITLE_MARKERS) if lowered_title and m in lowered_title), None)
+    if marker:
+        return f"title {title!s}", None
+    if soup is None:
+        return None, None
+    body = soup.body
+    text = " ".join((body.text(separator=" ") if body is not None else "").split()).lower().replace("\u2019", "'")
+    if len(text) > SHORT_PAGE_CHARS:
+        return None, None
+    phrase = next((m for m in BLOCK_BODY_MARKERS if m in text), None)
+    if phrase:
+        return None, phrase
+    widget = next((sel for sel in BLOCK_WIDGET_SELECTORS if soup.css_first(sel)), None)
+    return None, (f"captcha widget {widget}" if widget else None)
 
 
 def challenge_text_reason(*, title: str | None, text: str | None) -> str | None:
@@ -194,6 +238,8 @@ __all__ = [
     "FailureReason",
     "RETRY_CSS_SELECTORS",
     "SHORT_PAGE_CHARS",
+    "VENDOR_WALL_WIDGET_SELECTORS",
+    "challenge_evidence",
     "challenge_text_reason",
     "detect_challenge_reasons",
 ]

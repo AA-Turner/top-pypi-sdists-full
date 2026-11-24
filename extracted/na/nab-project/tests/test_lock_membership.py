@@ -8,10 +8,10 @@ from contextlib import contextmanager
 from types import FrameType
 
 import pytest
+from packaging.version import Version
 
 from nab_project._lockfile import builder
 from nab_project.lockfile import BASE_MEMBER, build_target_lock
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.provider import Provider
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
@@ -32,7 +32,7 @@ def _provider() -> Provider:
         "fancy-addon": (),
     }
     wheels = {
-        name: make_wheel(package=name.replace("-", "_"), hashes=(("sha256", "a" * 64),))
+        name: make_wheel(package=name, hashes=(("sha256", "a" * 64),))
         for name in requirements
     }
     metadata = {}

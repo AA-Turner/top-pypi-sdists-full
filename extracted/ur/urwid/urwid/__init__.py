@@ -41,6 +41,7 @@ from urwid.canvas import (
     SolidCanvas,
     TextCanvas,
 )
+from urwid.canvas.term import TermCanvas, TermCharset, TermModes
 from urwid.command_map import (
     ACTIVATE,
     CURSOR_DOWN,
@@ -160,6 +161,7 @@ from .widget import (
     TOP,
     WEIGHT,
     AbstractWidget,
+    ActionMenu,
     Align,
     ANSIText,
     AttrMap,
@@ -194,6 +196,7 @@ from .widget import (
     ListBoxError,
     ListWalker,
     ListWalkerError,
+    MenuItem,
     MonitoredDeque,
     MonitoredFocusDeque,
     MonitoredFocusList,
@@ -210,6 +213,7 @@ from .widget import (
     Pile,
     PileError,
     PopUpLauncher,
+    PopUpPlacement,
     PopUpTarget,
     ProgressBar,
     RadioButton,
@@ -232,6 +236,7 @@ from .widget import (
     TableRow,
     Tabs,
     TabsError,
+    TerminalOutput,
     Text,
     TextError,
     TreeListBox,
@@ -309,6 +314,7 @@ __all__: tuple[str, ...] = (
     "YELLOW",
     "ANSIText",
     "AbstractWidget",
+    "ActionMenu",
     "Align",
     "AsyncioEventLoop",
     "AttrMap",
@@ -369,6 +375,7 @@ __all__: tuple[str, ...] = (
     "ListWalker",
     "ListWalkerError",
     "MainLoop",
+    "MenuItem",
     "MetaSignals",
     "MetaSuper",
     "MonitoredDeque",
@@ -387,6 +394,7 @@ __all__: tuple[str, ...] = (
     "Pile",
     "PileError",
     "PopUpLauncher",
+    "PopUpPlacement",
     "PopUpTarget",
     "ProgressBar",
     "RadioButton",
@@ -418,6 +426,10 @@ __all__: tuple[str, ...] = (
     "Tabs",
     "TabsError",
     "TagMarkupException",
+    "TermCanvas",
+    "TermCharset",
+    "TermModes",
+    "TerminalOutput",
     "Text",
     "TextCanvas",
     "TextError",
@@ -515,9 +527,9 @@ else:
 
 # OS Specific
 if sys.platform != "win32":
-    from .vterm import TermCanvas, TermCharset, Terminal, TermModes
+    from .vterm import Terminal
 
-    __all__ += ("TermCanvas", "TermCharset", "TermModes", "Terminal")
+    __all__ += ("Terminal",)
 
     # ZMQEventLoop cause interpreter crash on Windows
     try:

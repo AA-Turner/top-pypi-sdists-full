@@ -8,13 +8,15 @@ import json
 import sys
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 import orjson
 from matrx_utils import vcprint
 
 from matrx_connect.context.data_types import DataPayload
+from matrx_connect.context.graph_ops import GraphOpEvent
+from matrx_connect.emitters.first_words import FirstWordsBeforeFirstTool, FirstWordsCallback
 from matrx_connect.context.events import (
     END_REASON_CANCELLED,
     END_REASON_ERROR,
@@ -44,6 +46,7 @@ from matrx_connect.context.events import (
 )
 from matrx_connect.context.operations import CompletionPayload, InitPayload
 from matrx_connect.context.phases import Phase, PhasePayload
+from matrx_connect.emitters._turn_thinking import turn_thinking_clock
 from matrx_connect.emitters.control_tokens import ControlTokenFilter, ControlTokenHit
 from matrx_connect.emitters.error_guard import ErrorEmissionGuard
 from matrx_connect.emitters.log_truncation import is_scrape_data_log, truncate_strings_for_log
@@ -110,6 +113,9 @@ class ProviderSentSnapshotNotDelta(Exception):
 class StreamEmitter:
     def __init__(self, debug: bool = False, heartbeat_interval: float = 5.0):
         self.queue: asyncio.Queue[str | bytes | None] = asyncio.Queue()
+        # The speaker's first words (``first_words.py``): the same rule the headless
+        # CaptureEmitter keeps, so a live door can acknowledge before the first tool runs.
+        self._first_words = FirstWordsBeforeFirstTool()
         self._latency_emit_clock: RequestLatencyClock | None = None
         # Every live wire item is retained until this emitter settles. A second
         # HTTP connection can replay the exact NDJSON already emitted and then
@@ -118,6 +124,9 @@ class StreamEmitter:
         # recovery path, while this buffer restores token streaming instantly
         # when the detached task is still alive here.
         self._wire_replay: list[bytes] = []
+        # Off for a headless journaled emitter that lives as long as a workflow run (the run tap):
+        # its rejoin is the durable journal, so keeping every frame in RAM buys nothing.
+        self._retain_wire_replay = True
         self._wire_subscribers: set[asyncio.Queue[bytes | None]] = set()
         self._wire_seq = 0
         # Token, tool, and heartbeat producers are independent coroutines.
@@ -150,6 +159,14 @@ class StreamEmitter:
         self._journal_detached_error: BaseException | None = None
         self._journal_detached_sink: StreamJournalSink | None = None
         self._primary_attached = True
+        # UNREAD AT END: True when the END frame was published with no primary
+        # reader and no replay subscriber attached — the work finished for
+        # nobody. Judged at END (not at settle) so a reader that received END
+        # and then hung up never counts as absent. ``_unread_settle_claimed``
+        # makes the host's unread-settle hook fire at most once per stream
+        # (``streaming/unread_settle.py``).
+        self._ended_unread: bool | None = None
+        self._unread_settle_claimed = False
         self.debug = debug
         self._ended = False
         # The reason word of the END frame this emitter published ("complete",
@@ -158,6 +175,20 @@ class StreamEmitter:
         # settles its durable run as failed, never completed.
         self._end_reason: str | None = None
         self.cancelled = False
+        # How long the model thought: 'started' → 'stopped' reasoning signals, summed until a
+        # provider-call reader takes it (`take_reasoning_ms`) and stamps it on the saved thinking
+        # part, so a reloaded "Thought for Ns" says what the live one said (CGU-09 P2-4).
+        self._reasoning_started_at: float | None = None
+        self._reasoning_ms = 0.0
+        # The warnings sent on this stream since the last take (`take_warnings`), repeats collapsed by code: the
+        # executor saves them on the answer they decorate (``chat.message.metadata.warnings``), so a warning the
+        # person saw survives the hand-off to the saved row and a reload (CGU-M3 W4, P-164).
+        self._warnings: list[dict[str, object]] = []
+        # The same clock for a thought that streams INLINE as ``<reasoning>…</reasoning>`` text with no
+        # started/stopped signal (or one sent only once the block closed): read from the chunk frames
+        # themselves, so a turn stopped mid-thought still knows how long it thought (CGU-09 P2-5).
+        self._inline_reasoning_started_at: float | None = None
+        self._inline_reasoning_ms = 0.0
         # When True, a client disconnect MUST NOT cancel the work task. The task
         # keeps running to completion in the background (expensive / durable
         # pipelines: podcast, workflow runs, scraping, media generation). The
@@ -185,6 +216,9 @@ class StreamEmitter:
         # snapshot check off the per-chunk hot path (a true delta is shorter
         # than the text before it, so the join below is never reached).
         self._turn_text_len: int = 0
+        #: Reasoning characters the provider streamed this turn (a length only, never the text): a call
+        #: stopped mid-thinking is billed for them (matrx_ai.providers.stopped_usage).
+        self._turn_reasoning_chars: int = 0
         # The RAW provider text of the current turn — what the provider actually
         # sent, before control-token filtering. The snapshot defense compares
         # against THIS: a cumulative provider repeats its own output, which
@@ -209,7 +243,38 @@ class StreamEmitter:
         # turn's text length on the wire after it.
         self.seen_seq: int | None = None
         self._turn_chunk_marks: list[tuple[int, int]] = []
+        # WHEN the Stop was asked for (wall clock, so a cancel that landed on
+        # another server task can name it too). Text published to the wire
+        # after this moment was generated after Stop: never saved as the
+        # stopped answer (CGU-09 P1-1, P-008). ``_turn_chunk_times[i]`` is
+        # when ``_turn_chunk_marks[i]`` was published.
+        self.stop_requested_at: float | None = None
+        self._turn_chunk_times: list[float] = []
         self._turn_wire_chars: int = 0
+        # THE SEAL (P8-RUNS, stop-is-final): once a Stop is ACCEPTED for this
+        # turn, ``seal_after_stop()`` makes it final on the wire — every later
+        # content frame (``c`` text, ``r`` reasoning text), from any producer,
+        # is DROPPED (never queued), while lifecycle and terminal frames
+        # (phase, info, error, data/close-off frames, END) still go out. The
+        # saved stopped answer is then exactly the text sent before the seal
+        # (``sent_text_snapshot``). ``_seal_closeoff`` holds the callbacks a
+        # block owner registered (``on_sealed``); ``send_end`` runs them once,
+        # after the seal and before the END frame.
+        self._sealed: bool = False
+        self._seal_closeoff: list[Callable[[], Awaitable[None]]] = []
+        self._seal_closeoff_ran: bool = False
+        # blocks-v2 (P1-CHAT T1 v2.1): the live block owner's "last watermark SENT", in turn-text
+        # characters. Set (``set_shown_text_cut``), a sealed turn saves exactly that much — the
+        # client draws only grow text, so the client's ``seen_seq`` does not outrank it.
+        self._shown_cut: Callable[[], int | None] | None = None
+        # STOP CUTS AT THE PRESS (P8-RUNS): each v2 ``block.grow`` / ``reasoning.grow`` frame of this
+        # turn, as (stream_seq, the block owner's shown cut right after it). A Stop that carries the
+        # client's watermark (``seen_seq``) saves only up to the last grow that cursor covers, never
+        # the later watermark the server had sent by the time the cancel arrived.
+        self._turn_grow_marks: list[tuple[int, int]] = []
+        # The block owner FINISHED this turn (``block.close complete: true`` already left): its close-off can no
+        # longer say "stopped here", so the client holds the whole reply and a late Stop's cut equals it.
+        self._shown_final: bool = False
         # Snapshot defense state, both per RUN. Once a provider is caught
         # sending snapshots it keeps doing so, so `_snapshot_mode` drops the
         # length floor for every later turn (repair from the second chunk
@@ -241,6 +306,46 @@ class StreamEmitter:
         leaves the work task running on the event loop until it finishes."""
         self.detach_on_disconnect = value
 
+    def set_wire_replay(self, enabled: bool) -> None:
+        """Keep (default) or stop keeping every published frame in RAM for in-process rejoin.
+
+        Off only for an emitter whose followers read the durable journal (a workflow run tap);
+        ``generate_replay`` then follows new frames only."""
+        self._retain_wire_replay = enabled
+        if not enabled:
+            self._wire_replay = []
+
+    async def hand_over_journal(self, *, continuation: dict[str, Any] | None = None) -> int:
+        """End this stream's journal segment while the work goes on in another segment.
+
+        The sink closes with the host's continuation marker (``sink.hand_over``; a sink without it
+        closes ``failed``), so a rejoin delivers every committed frame and then follows the
+        successor. The emitter keeps sequencing and keeps stamping its ``stream_id``: frames after
+        this (the leg's own ``end``) reach the live reader only, never the journal. Returns the
+        last journaled sequence. A no-op when no journal is attached.
+        """
+        async with self._wire_publish_lock:
+            sink = self._journal_sink
+            if sink is None:
+                return self._wire_seq
+            self._journal_sink = None
+            last_seq = self._wire_seq
+        hand_over = getattr(sink, "hand_over", None)
+        try:
+            if hand_over is not None:
+                await hand_over(last_seq=last_seq, continuation=continuation)
+            else:
+                await sink.close(status="failed", last_seq=last_seq)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - the journal never fails the work
+            vcprint(
+                f"[StreamEmitter] journal handover failed ({type(exc).__name__}: {exc}); "
+                f"the live stream continues.",
+                color="yellow",
+            )
+        return last_seq
+
     def release_primary_reader(self) -> None:
         """No primary HTTP reader will ever drain ``queue`` (the client left
         before the body opened). Frames keep flowing to the replay buffer and
@@ -253,8 +358,9 @@ class StreamEmitter:
 
         A rejoin replays from the first frame, so a live reader means
         everything published so far is (or will be) seen. Cross-replica
-        rejoins read the journal and are invisible here — for those the cut is
-        conservative and the client keeps its longer screen (W-47 capture)."""
+        rejoins read the journal and are invisible here, so this mark is only
+        the fallback cut for a Stop that carried no ``seen_seq``; a cancel's
+        cursor outranks it (``get_seen_turn_text``)."""
         if self._primary_attached or self._wire_subscribers:
             self._unread_from = None
         elif self._unread_from is None:
@@ -263,18 +369,165 @@ class StreamEmitter:
 
     def note_seen_seq(self, seq: int) -> None:
         """The client's last APPLIED wire frame, sent with its Stop."""
-        self.seen_seq = seq
+        self.seen_seq = seq if self.seen_seq is None else min(self.seen_seq, seq)
+
+    def note_stop_cursor(self, *, seen_seq: int | None = None, at: float | None = None) -> None:
+        """Everything a Stop knows about what reached the person.
+
+        ``seen_seq`` — the last frame the client applied (when it said);
+        ``at`` — when the Stop was asked for (``time.time()``). Either may come
+        from the cancel route in this process or, for a cancel that landed on
+        another server task, from the durable stop cursor on the run's spine.
+        Repeated notes keep the earliest: a Stop never widens."""
+        if seen_seq is not None:
+            self.note_seen_seq(seen_seq)
+        if at is not None:
+            self.stop_requested_at = (
+                at if self.stop_requested_at is None else min(self.stop_requested_at, at)
+            )
+
+    # ------------------------------------------------------------------
+    # THE SEAL — Stop is final on the wire (P8-RUNS)
+    # ------------------------------------------------------------------
+
+    def seal_after_stop(self) -> bool:
+        """Make an accepted Stop final: no content frame leaves after this.
+
+        Called by the cancel route the moment it accepts a Stop for a turn
+        whose live emitter is in THIS process, and by the turn itself when it
+        sees the stop (in-process registry or the durable spine stamp of a
+        cancel that landed on another server task). Idempotent; True only on
+        the call that sealed.
+
+        After the seal: ``c`` / ``r`` content frames from any producer are
+        dropped (not queued, not counted); text held in the flush buffer is
+        discarded (it was never sent); lifecycle and terminal frames (phase,
+        info, error, data, the block owner's close-off frames, END) still go
+        out. The order is ALWAYS: seal → close-off frames (``on_sealed``
+        callbacks, run by ``send_end``) → END."""
+        if self._sealed:
+            return False
+        self._sealed = True
+        self._text_buffer.clear()
+        return True
+
+    @property
+    def sealed(self) -> bool:
+        """True once a Stop sealed this stream (``seal_after_stop``)."""
+        return self._sealed
+
+    def on_sealed(self, callback: Callable[[], Awaitable[None]]) -> None:
+        """Register a close-off step for a STOPPED stream (the block owner's hook).
+
+        ``callback`` is awaited exactly once, by ``send_end``, only when the
+        stream was sealed — after the seal and before the END frame. It may
+        emit any NON-content frame (block/region close-off with
+        ``complete: false``, data, info); a ``c`` / ``r`` text frame it sends
+        is dropped like every other content after the seal. A callback that
+        raises is logged and the END still goes out."""
+        self._seal_closeoff.append(callback)
+
+    async def run_seal_closeoff(self) -> None:
+        """Run the registered close-off steps once (sealed streams only).
+
+        ``send_end`` calls this itself; a caller that must emit the close-off
+        before its own final frames (e.g. before a cancelled-run ``info``) may
+        call it earlier — it never runs twice."""
+        if not self._sealed or self._seal_closeoff_ran:
+            return
+        self._seal_closeoff_ran = True
+        for callback in tuple(self._seal_closeoff):
+            try:
+                await callback()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 — a close-off never blocks END
+                vcprint(
+                    f"[StreamEmitter] stop close-off step raised ({type(exc).__name__}: {exc}); "
+                    "END still goes out",
+                    color="red",
+                )
+
+    def set_shown_text_cut(self, cut: Callable[[], int | None] | None) -> None:
+        """blocks-v2: the block owner tells the emitter where its last released watermark sits.
+
+        ``cut()`` returns the number of turn-text characters the client was sent as ``block.grow`` /
+        ``reasoning.grow`` text (``None`` = no v2 cut, e.g. after ``blocks.degraded``). A SEALED turn
+        then saves ``get_turn_text()[:min(sent, cut())]``: "last shown" is the last watermark sent,
+        one number for the wire, the close-off frames and the save (P1-CHAT T1 v2.1). A Stop carrying
+        the client's ``seen_seq`` cuts lower still: at the last grow frame that cursor covers."""
+        self._shown_cut = cut
+
+    def note_shown_final(self) -> None:
+        """The block owner finished this turn's blocks (complete): no Stop cut can be drawn after it (P8-RUNS)."""
+        self._shown_final = True
+
+    def _shown_cut_chars(self) -> int | None:
+        cut = self._shown_cut
+        if cut is None:
+            return None
+        try:
+            value = cut()
+        except Exception:  # noqa: BLE001 — an unreadable cut falls back to the sent frames
+            return None
+        return value if isinstance(value, int) and value >= 0 else None
+
+    def stop_cut_chars(self) -> int | None:
+        """blocks-v2, a SEALED turn: the turn-text characters a Stop keeps — the close-off frames and the save cut here.
+
+        At most the last watermark SENT (P8's ruling for v2) — a client cursor never widens it. A Stop that carried
+        the client's watermark (``seen_seq``) cuts at THE PRESS: the last grow that cursor covers (0 when it covers
+        none of this turn's). None when unsealed or no v2 cut is set (the other rules of ``get_seen_turn_text``)."""
+        shown = self._shown_cut_chars() if self._sealed else None
+        if shown is None:
+            return None
+        if self.seen_seq is not None and not self._shown_final:
+            pressed = 0
+            for seq, chars in self._turn_grow_marks:
+                if seq > self.seen_seq:
+                    break
+                pressed = chars
+            shown = min(shown, pressed)
+        return shown
+
+    def sent_text_snapshot(self) -> str:
+        """The current turn's text that actually LEFT on the wire as ``c`` frames.
+
+        Equals the concatenation of this turn's sent content frames' ``t``:
+        text still in the flush buffer, and anything a producer offered after
+        the seal, is not in it. The stopped turn persists exactly this."""
+        return self.get_turn_text()[: self._turn_wire_chars]
 
     def get_seen_turn_text(self) -> str:
         """The current turn's text the person actually got.
 
-        Cut at the earlier of: where the last live reader left, and the last
-        frame the client says it applied (``seen_seq``). Equals
-        ``get_turn_text()`` while anyone is reading and no cursor was sent.
-        Used ONLY by a Stop: a detached run that finishes keeps everything."""
-        text = self.get_turn_text()
+        Cut at the earliest of: the last frame the client says it applied
+        (``seen_seq``) — or, ONLY when no cursor came, where the last live
+        reader left — and what was on the wire when the Stop was asked for
+        (``stop_requested_at``); never the later point where the provider call
+        actually stopped. Equals ``get_turn_text()`` while anyone is reading
+        and no cursor was noted. Used ONLY by a Stop: a detached run that
+        finishes keeps everything.
+
+        The client's cursor outranks the reader-left mark (P-008, CGU-M2
+        attack 3 MJ1): a reload drops the primary reader and the page rejoins
+        through the journal (often on another server task), which this
+        emitter cannot see, so the reader-left mark stays at the reload moment
+        while the rejoined page goes on applying frames. The cancel's
+        ``seen_seq`` is that rejoined reader's applied frame — the truth.
+
+        A SEALED stream (``seal_after_stop``) starts from what was SENT
+        (``sent_text_snapshot``) and drops the Stop-moment time cut: the seal
+        is where the wire really ended, so the saved stopped answer equals the
+        last content frame sent — never shorter than the screen of a client
+        that kept applying frames until the seal. The client's own cursor and
+        the reader-left mark still cut (text nobody applied is not kept)."""
+        text = self.sent_text_snapshot() if self._sealed else self.get_turn_text()
+        shown = self.stop_cut_chars()
+        if shown is not None:
+            return text[:shown]
         cut = len(text)
-        if self._unread_from is not None:
+        if self.seen_seq is None and self._unread_from is not None:
             turn, chars = self._unread_from
             cut = min(cut, chars if turn == self._turn_index else 0)
         if self.seen_seq is not None:
@@ -284,12 +537,33 @@ class StreamEmitter:
                     break
                 applied = chars
             cut = min(cut, applied)
+        if self.stop_requested_at is not None and not self._sealed:
+            streamed = 0
+            for (_seq, chars), published_at in zip(
+                self._turn_chunk_marks, self._turn_chunk_times, strict=True
+            ):
+                if published_at > self.stop_requested_at:
+                    break
+                streamed = chars
+            cut = min(cut, streamed)
         return text[:cut]
 
     @property
     def stream_id(self) -> str | None:
         """Immutable segment identity assigned by an optional durable sink."""
         return self._stream_id
+
+    @property
+    def ended_unread(self) -> bool | None:
+        """Was END published with nobody reading? ``None`` while the stream is open."""
+        return self._ended_unread
+
+    def claim_unread_settle(self) -> bool:
+        """True exactly once, and only when the stream ended unread."""
+        if self._ended_unread is not True or self._unread_settle_claimed:
+            return False
+        self._unread_settle_claimed = True
+        return True
 
     @property
     def has_ended(self) -> bool:
@@ -506,6 +780,10 @@ class StreamEmitter:
 
     async def _publish_wire_locked(self, item: str | bytes) -> None:
         """Publish while ``_wire_publish_lock`` is held."""
+        if self._sealed and _is_content_frame(item):
+            # THE SEAL: an accepted Stop is final — content from any producer
+            # (a provider still unwinding, a held staged frame) never leaves.
+            return
         if self._wire_staging is not None:
             # The body has not opened yet: hold the frame instead of burning a
             # sequence number the journal attach would then refuse. See
@@ -518,8 +796,21 @@ class StreamEmitter:
             raise TypeError("StreamEmitter wire events must be JSON objects")
         payload["stream_seq"] = self._wire_seq
         if payload.get("e") == "c":
-            self._turn_wire_chars += len(payload.get("t") or "")
+            chunk_text = payload.get("t") or ""
+            if "<reasoning>" in chunk_text and self._inline_reasoning_started_at is None:
+                self._inline_reasoning_started_at = time.monotonic()
+            if "</reasoning>" in chunk_text and self._inline_reasoning_started_at is not None:
+                self._inline_reasoning_ms += (time.monotonic() - self._inline_reasoning_started_at) * 1000
+                self._inline_reasoning_started_at = None
+            self._turn_wire_chars += len(chunk_text)
             self._turn_chunk_marks.append((self._wire_seq, self._turn_wire_chars))
+            self._turn_chunk_times.append(time.time())
+        elif self._shown_cut is not None and payload.get("event") == "data":
+            data = payload.get("data")
+            if isinstance(data, dict) and data.get("type") in _GROW_TYPES:
+                shown = self._shown_cut_chars()
+                if shown is not None:
+                    self._turn_grow_marks.append((self._wire_seq, shown))
         if self._stream_id is not None:
             payload["stream_id"] = self._stream_id
         # LEG 3 of the request's latency (request_latency.RequestLatencyClock): the FIRST
@@ -578,7 +869,8 @@ class StreamEmitter:
 
     async def _publish_committed(self, encoded: bytes) -> None:
         """The sole local fan-out point; journal sinks call only after commit."""
-        self._wire_replay.append(encoded)
+        if self._retain_wire_replay:
+            self._wire_replay.append(encoded)
         if self._latency_emit_clock is not None:
             note_first_emit(self._latency_emit_clock)
             self._latency_emit_clock = None
@@ -622,6 +914,9 @@ class StreamEmitter:
         return str(data)
 
     async def _flush_text(self) -> None:
+        if self._sealed:
+            self._text_buffer.clear()
+            return
         if self._text_buffer:
             combined = "".join(self._text_buffer)
             self._text_buffer.clear()
@@ -651,9 +946,14 @@ class StreamEmitter:
         before each model call so the accumulator holds only the in-flight turn."""
         self._turn_index += 1
         self._turn_chunk_marks = []
+        self._turn_chunk_times = []
+        self._turn_grow_marks = []
+        self._shown_final = False
         self._turn_wire_chars = 0
         self._turn_text_acc = []
         self._turn_text_len = 0
+        self._turn_reasoning_chars = 0
+        turn_thinking_clock(self).reset()
         self._raw_turn_text_acc = []
         self._raw_turn_text_len = 0
         self._control_filter.start_line()
@@ -715,7 +1015,7 @@ class StreamEmitter:
         filtered = self._control_filter.flush()
         if filtered.hits:
             await self._emit_control_tokens(filtered.hits)
-        if filtered.text and not (self._ended or self.cancelled):
+        if filtered.text and not (self._ended or self.cancelled or self._sealed):
             self._text_buffer.append(filtered.text)
             self._turn_text_acc.append(filtered.text)
             self._turn_text_len += len(filtered.text)
@@ -807,7 +1107,7 @@ class StreamEmitter:
             pass
 
     async def send_chunk(self, text: str) -> None:
-        if self._ended or self.cancelled:
+        if self._ended or self.cancelled or self._sealed:
             return
         # THE SNAPSHOT DEFENSE — see SNAPSHOT_MIN_ACCUMULATED above. The length
         # comparison is the whole hot path for a well-behaved provider: a real
@@ -844,10 +1144,21 @@ class StreamEmitter:
             await self._flush_text()
             self._last_chunk_time = now
 
+    def get_turn_thinking_ms(self) -> int:
+        """This provider call's thinking time (reasoning-start frame -> stop, or now): bills hidden thinking."""
+        return turn_thinking_clock(self).elapsed_ms()
+
+    def get_turn_reasoning_chars(self) -> int:
+        """Reasoning characters streamed in the current turn — counted even after a stop sealed the wire,
+        because the provider generated (and bills) them."""
+        return self._turn_reasoning_chars
+
     async def send_reasoning_chunk(self, text: str) -> None:
+        if isinstance(text, str):
+            self._turn_reasoning_chars += len(text)
         if self._text_buffer:
             await self._flush_text()
-        if self._ended or self.cancelled:
+        if self._ended or self.cancelled or self._sealed:
             return
         await self._publish_wire(orjson.dumps({"e": "r", "t": text}) + b"\n")
 
@@ -858,8 +1169,35 @@ class StreamEmitter:
         block open — even when reasoning text is suppressed — so the UI can show
         a thinking state instead of a silent heartbeat gap."""
         vcprint({"state": state}, "[Stream Emitter] Reasoning", color="blue", verbose=self.debug)
+        turn_thinking_clock(self).signal(state)
+        now = time.monotonic()
+        if state == "started":
+            if self._reasoning_started_at is None:
+                self._reasoning_started_at = now
+        elif self._reasoning_started_at is not None:
+            self._reasoning_ms += (now - self._reasoning_started_at) * 1000
+            self._reasoning_started_at = None
         event = build_event(EventType.REASONING, ReasoningPayload(state=state))
         await self._emit_event(event)
+
+    def take_reasoning_ms(self) -> int | None:
+        """The thinking time signalled since the last take (a still-open block counts up to now), then reset.
+        None when the model did not think."""
+        now = time.monotonic()
+        total = self._reasoning_ms
+        if self._reasoning_started_at is not None:
+            total += (now - self._reasoning_started_at) * 1000
+            self._reasoning_started_at = now
+        self._reasoning_ms = 0.0
+        inline = self._inline_reasoning_ms
+        if self._inline_reasoning_started_at is not None:
+            inline += (now - self._inline_reasoning_started_at) * 1000
+            self._inline_reasoning_started_at = now
+        self._inline_reasoning_ms = 0.0
+        # The longer of the two clocks: a provider that signals only when the block closed
+        # measured almost nothing, while the inline text shows how long the thought streamed.
+        total = max(total, inline)
+        return round(total) if total > 0 else None
 
     async def send_phase(self, phase: Phase) -> None:
         vcprint({"phase": phase}, "[Stream Emitter] Phase", color="blue", verbose=self.debug)
@@ -886,8 +1224,39 @@ class StreamEmitter:
             "[Stream Emitter] Warning",
             color="yellow",
         )
+        self._remember_warning(payload)
         event = build_event(EventType.WARNING, payload)
         await self._emit_event(event)
+
+    def _remember_warning(self, payload: WarningPayload) -> None:
+        kept_answer = isinstance(payload.metadata, dict) and payload.metadata.get("answer_kept") is True
+        for saved in self._warnings:
+            if saved.get("code") == payload.code:
+                saved["count"] = int(saved.get("count") or 1) + 1  # type: ignore[call-overload]
+                return
+        entry: dict[str, object] = {
+            "code": payload.code,
+            "user_message": payload.user_message,
+            "system_message": payload.system_message or None,
+            "level": payload.level,
+            "count": 1,
+        }
+        once_key = payload.metadata.get("once_key") if isinstance(payload.metadata, dict) else None
+        saved_meta: dict[str, object] = {}
+        if kept_answer:
+            saved_meta["answer_kept"] = True
+        if isinstance(once_key, str) and once_key:
+            # What the line stands for (input_fit: model|trim): a later turn reads it off the saved
+            # answer and does not say the same thing again.
+            saved_meta["once_key"] = once_key
+        if saved_meta:
+            entry["metadata"] = saved_meta
+        self._warnings.append(entry)
+
+    def take_warnings(self) -> list[dict[str, object]]:
+        """The warnings sent since the last take (one entry per code, ``count`` for repeats), then reset."""
+        taken, self._warnings = self._warnings, []
+        return taken
 
     async def send_info(self, payload: InfoPayload) -> None:
         vcprint(
@@ -900,6 +1269,11 @@ class StreamEmitter:
         await self._emit_event(event)
 
     async def send_data(self, payload: DataPayload | dict[str, Any] | Any) -> None:
+        if self._sealed and not self._seal_closeoff_ran and _is_saved_blocks(payload):
+            # seal → close-off → saved blocks: the stopped reply's ``message_blocks`` is announced by
+            # the save, which lands before ``send_end``; the block owner's close-off frames
+            # (``complete: false``) must reach the client FIRST, so they run here.
+            await self.run_seal_closeoff()
         if isinstance(payload, DataPayload):
             log_payload = payload.model_dump()
             if is_scrape_data_log(log_payload):
@@ -996,14 +1370,35 @@ class StreamEmitter:
             ErrorPayload(
                 error_type=error_type,
                 message=message,
-                user_message=user_message or message,
+                # Only a sentence the caller wrote for a person; none → the generic line (ErrorPayload).
+                user_message=user_message or "",
                 code=code,
                 details=self._serialize(details) if details else None,
             ),
         )
         await self._emit_event(event)
 
+    def on_words_before_first_tool(self, callback: FirstWordsCallback | None) -> None:
+        """``async callback(words)``, called once at the first tool event BEFORE it is emitted:
+        the text the agent said before it, or ``""`` when it went straight to a tool."""
+        self._first_words.on_words(callback)
+
+    def _visible_turn_text(self) -> str:
+        # A wrapper in front of this emitter (the block emitter) may hold the visible text;
+        # read the turn text where the provider writes it, falling back to this emitter's own.
+        try:
+            from matrx_connect.context.app_context import try_get_app_context
+
+            ctx = try_get_app_context()
+            outer = getattr(ctx, "emitter", None) if ctx is not None else None
+            if outer is not None and outer is not self and callable(getattr(outer, "get_turn_text", None)):
+                return str(outer.get_turn_text() or "")
+        except Exception:  # noqa: BLE001 — unreadable wrapper text falls back to our own
+            pass
+        return self.get_turn_text()
+
     async def send_tool_event(self, event_data: ToolEventPayload | dict[str, Any]) -> None:
+        await self._first_words.at_tool_event(self._visible_turn_text)
         if isinstance(event_data, dict):
             payload = ToolEventPayload.model_validate(event_data)
         else:
@@ -1087,6 +1482,16 @@ class StreamEmitter:
         )
         event = build_event(EventType.RESOURCE_CHANGED, payload)
         await self._emit_event(event)
+
+    async def send_graph_op(self, payload: GraphOpEvent) -> None:
+        """Emit a GRAPH_OP event: one op (or a batch's commit/reject) on a graph; journaled, replayed on rejoin."""
+        vcprint(
+            {"graph": payload.graph.id, "phase": payload.phase, "seq": payload.seq, "label": payload.label},
+            "[Stream Emitter] Graph Op",
+            color="cyan",
+            verbose=self.debug,
+        )
+        await self._emit_event(build_event(EventType.GRAPH_OP, payload))
 
     async def send_structured_output(self, payload: StructuredOutputPayload) -> None:
         """Emit a STRUCTURED_OUTPUT event — agent's final assistant text parsed
@@ -1239,6 +1644,10 @@ class StreamEmitter:
             await self.flush_control_tokens()
         if self._text_buffer:
             await self._flush_text()
+        if self._sealed and not self._ended:
+            # seal → close-off (``on_sealed``) → END: the block owner closes
+            # every open block/region before the terminal frame.
+            await self.run_seal_closeoff()
         if not self._ended:
             color = "green" if reason == "complete" else "blue"
             vcprint({"reason": reason}, "[Stream Emitter] End", color=color, verbose=self.debug)
@@ -1247,6 +1656,7 @@ class StreamEmitter:
                     return
                 self._ending = True
                 self._end_reason = reason
+                self._ended_unread = not (self._primary_attached or self._wire_subscribers)
                 event = build_event(EventType.END, EndPayload(reason=reason))
                 await self._publish_wire_locked(event.to_jsonl())
                 self._ended = True
@@ -1336,6 +1746,26 @@ class StreamEmitter:
         # that trusts the terminal event (or whose error frame was suppressed
         # because the stream had already ended) read a clean, empty success.
         await self.send_end(reason=END_REASON_ERROR)
+
+
+#: The frames that move what a blocks-v2 client draws: grow text, and an OPEN kind's ``block.partial`` value
+#: (a client draws an open kind from its last partial, so the cut for a cursor that covers it moves with it).
+_GROW_TYPES = ("block.grow", "reasoning.grow", "block.partial")
+
+
+def _is_saved_blocks(payload: Any) -> bool:
+    """Is this data payload the saved reply's ``message_blocks`` announcement? Read only once sealed."""
+    kind = payload.get("type") if isinstance(payload, dict) else getattr(payload, "type", None)
+    return kind == "message_blocks"
+
+
+def _is_content_frame(item: str | bytes) -> bool:
+    """Is this wire item a ``c`` (text) or ``r`` (reasoning text) content frame? Read only once sealed."""
+    try:
+        payload = orjson.loads(item)
+    except orjson.JSONDecodeError:
+        return False
+    return isinstance(payload, dict) and payload.get("e") in ("c", "r")
 
 
 # Active delivery registry -------------------------------------------------

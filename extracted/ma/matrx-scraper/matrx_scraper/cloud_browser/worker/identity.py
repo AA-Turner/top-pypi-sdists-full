@@ -58,7 +58,7 @@ STEALTH_ARGS: tuple[str, ...] = ("--disable-blink-features=AutomationControlled"
 IGNORED_DEFAULT_ARGS: tuple[str, ...] = ("--enable-automation",)
 # On a person's Cloud Computer the agent's Chrome is THEIR Chrome: Playwright's
 # extension lockout would make the Web Store say "Installation is not enabled".
-# The browser fleet keeps it.
+# A worker with no desktop session keeps it.
 DESKTOP_IGNORED_DEFAULT_ARGS: tuple[str, ...] = (
     "--disable-extensions",
     "--disable-component-extensions-with-background-pages",

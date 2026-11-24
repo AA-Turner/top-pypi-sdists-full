@@ -38,6 +38,14 @@ class DuIN(EEGModuleMixin, nn.Module, license="mit"):
     :bdg-danger:`Foundation Model` :bdg-success:`Convolution`
     :bdg-info:`Attention/Transformer`
 
+    .. figure:: ../_static/model/duin_arch.png
+       :align: center
+       :alt: Du-IN architecture
+       :width: 1000px
+
+       Du-IN VQ-VAE training (a) and Du-IN MAE training (b), reproduced from
+       Fig. 3 of [DuIN2024]_ as shipped in the authors' code repository (MIT).
+
     .. rubric:: Architecture Overview
 
     Du-IN decodes speech from intracranial (sEEG) signals with **region-level**
@@ -187,6 +195,9 @@ class DuIN(EEGModuleMixin, nn.Module, license="mit"):
        https://github.com/liulab-repository/Du-IN (MIT).
     """
 
+    _time_axis = "fixed"  # fixed: head_hidden.0.weight
+    _channel_axis = "fixed"  # fixed: spatial_projection.weight
+
     def __init__(
         self,
         # braindecode parameters
@@ -246,6 +257,7 @@ class DuIN(EEGModuleMixin, nn.Module, license="mit"):
         self.patch_tokenizer = PatchTokenizer(
             patch_size, self.n_times, on_non_divisible=on_non_divisible
         )
+        self._n_times_step = patch_size
         # Time-major flattening of the last convolution: (frames, filters).
         self.embed_dim = n_filters[-1] * (patch_size // math.prod(strides))
 
@@ -346,6 +358,7 @@ class DuIN(EEGModuleMixin, nn.Module, license="mit"):
             None,
         )
         n_features = self.n_patches * self.embed_dim
+        own_head = {}
         if (
             first_head_key is not None
             and state_dict[first_head_key].shape[1] != n_features
@@ -363,7 +376,12 @@ class DuIN(EEGModuleMixin, nn.Module, license="mit"):
                 if k.startswith(("head_hidden.", "final_layer."))
             }
             state_dict = {**state_dict, **own_head}
-        return super().load_state_dict(state_dict, *args, **kwargs)
+        result = super().load_state_dict(state_dict, *args, **kwargs)
+        provenance = self.__dict__.get("_pretrained_provenance")
+        if provenance is not None:
+            # These entries were supplied by this model, not the checkpoint.
+            provenance["loaded"].difference_update(own_head)
+        return result
 
     def reset_head(self, n_outputs: int) -> None:
         """Swap the classification head for a new number of outputs."""
@@ -391,13 +409,6 @@ class DuIN(EEGModuleMixin, nn.Module, license="mit"):
             Class logits of shape ``(batch, n_outputs)``, or the feature dict
             when ``return_features`` is set.
         """
-        # A wrong multiple of patch_size would silently regroup the batch in
-        # to_tokens, so check the length here.
-        if x.shape[-1] != self.n_times:
-            raise ValueError(
-                f"DuIN was configured for {self.n_times} time samples, "
-                f"but received {x.shape[-1]}."
-            )
         # 0. pad, crop or reject a window that is not a multiple of patch_size
         x = self.patch_tokenizer.prepare_input(x)
         # 1. channels -> neural space: (batch, n_neural, n_patches * patch_size)

@@ -9,9 +9,11 @@ answered "Monday, September 28, 2026." Its instructions that turn were live —
 "Today's Monday, September 28, 2026.", unmarked, and the model copied it.
 
 WHAT MUST HOLD. On a permanent thread every earlier assistant text that states a
-date, weekday or clock time is prefixed ``[STALE — said at <its own time> …]``;
-current-turn text and undated earlier text are untouched; the pass is
-idempotent and byte-stable.
+date, weekday or clock time is noted ``[STALE — the reply to this message was said
+at <its own time> …]`` — as a leading block on the PERSON's message it answered,
+never in the assistant's own words (2026-11-06: the model echoed a marker placed
+there; see test_the_model_never_sees_a_stale_note_in_its_own_voice.py). Current-turn
+text and undated earlier text are untouched; the pass is idempotent and byte-stable.
 """
 
 from __future__ import annotations
@@ -44,10 +46,11 @@ def test_the_old_date_answer_is_marked_with_when_it_was_said() -> None:
     messages = _thread()
     report = mark_perishable_state(messages)
 
-    marked = _text(messages[1])
-    assert marked.startswith(STALE_MARKER), marked
-    assert "said at 2026-09-28 22:59 UTC" in marked
-    assert marked.endswith(OLD_ANSWER)
+    note = _text(messages[0])
+    assert note.startswith(STALE_MARKER), note
+    assert "said in an earlier turn" in note and "UTC" not in note
+    assert messages[0].content[1].text == "what's today's date?"  # the person's words, unchanged, after the note
+    assert _text(messages[1]) == OLD_ANSWER  # the assistant's own words are never marked
     assert report.dated_statements_marked == 1
 
 
@@ -56,7 +59,8 @@ def test_undated_text_and_the_current_turn_are_untouched() -> None:
     mark_perishable_state(messages)
     assert _text(messages[3]) == "/home/agent"
     assert _text(messages[4]) == "what's today's date? just the day and date."
-    assert _text(messages[0]) == "what's today's date?"  # the person's words are never marked
+    assert messages[0].content[-1].text == "what's today's date?"  # the person's words are never changed
+    assert len(messages[2].content) == 1  # an undated answer adds no note
 
 
 def test_a_dated_answer_in_the_current_turn_is_this_turns_truth() -> None:
@@ -68,10 +72,10 @@ def test_a_dated_answer_in_the_current_turn_is_this_turns_truth() -> None:
 def test_idempotent_and_byte_stable() -> None:
     first = _thread()
     mark_perishable_state(first)
-    once = _text(first[1])
+    once = [b.text for b in first[0].content]
     mark_perishable_state(first)
-    assert _text(first[1]) == once
+    assert [b.text for b in first[0].content] == once
 
     second = _thread()
     mark_perishable_state(second)
-    assert _text(second[1]) == once, "the stamp must come from the message, never from now"
+    assert [b.text for b in second[0].content] == once, "the stamp must come from the message, never from now"

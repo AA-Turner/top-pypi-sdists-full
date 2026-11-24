@@ -97,3 +97,60 @@ async def test_timeout_head_excludes_recoverable_marker_in_bound_arguments(
     )
 
     assert [row["id"] for row in rows] == ["real-fk-race"]
+
+
+@pytest.mark.asyncio
+async def test_a_timed_out_insert_replays_unless_it_already_landed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Feedback f29cab05: a chat.message INSERT lost to an overload burst (QueryTimeoutError capture)
+    was never replayed. An INSERT is safe to replay once its primary key is read: landed -> marked
+    recovered, missing -> replayed. A timed-out UPDATE stays excluded (unknown COMMIT)."""
+    head = "matrx_orm.exceptions.QueryTimeoutError: Query timed out during execute_query"
+    candidates = [
+        {"id": "lost-insert", "op_type": "insert", "error_text": head, "table_target": "chat.message",
+         "primary_key": {"id": "m-lost"}},
+        {"id": "landed-insert", "op_type": "insert", "error_text": head, "table_target": "chat.message",
+         "primary_key": {"id": "m-landed"}},
+        {"id": "timed-out-update", "op_type": "update", "error_text": head, "table_target": "chat.message",
+         "primary_key": {"id": "m-upd"}},
+    ]
+
+    class _Query:
+        def __init__(self, filters: dict[str, Any]) -> None:
+            self.filters = filters
+
+        def filter(self, **kwargs: Any) -> "_Query":
+            return _Query({**self.filters, **kwargs})
+
+        def order_by(self, *_: str) -> "_Query":
+            return self
+
+        def limit(self, _: int) -> "_Query":
+            return self
+
+        async def values(self, *_: str) -> list[dict[str, Any]]:
+            row_id = self.filters.get("id")
+            if row_id is None:
+                return candidates
+            return [{**next(row for row in candidates if row["id"] == row_id), "payload": {}}]
+
+    class _Failures:
+        @staticmethod
+        def filter(**kwargs: Any) -> _Query:
+            return _Query(kwargs)
+
+    recovered: list[tuple[list[str], str]] = []
+
+    async def fake_landed(row: Any) -> bool:
+        return row["primary_key"]["id"] == "m-landed"
+
+    async def fake_mark(ids: Any, op_id: str) -> None:
+        recovered.append((list(ids), op_id))
+
+    monkeypatch.setattr(replay, "_swf_model", lambda: _Failures)
+    monkeypatch.setattr(replay, "_insert_already_landed", fake_landed)
+    monkeypatch.setattr(replay, "_mark_recovered", fake_mark)
+    rows = await replay._fetch_pending(
+        retry_errors=RECOVERABLE_RETRY_ERRORS, limit=10, max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS
+    )
+    assert [row["id"] for row in rows] == ["lost-insert"]
+    assert recovered == [(["landed-insert"], "already_landed")]

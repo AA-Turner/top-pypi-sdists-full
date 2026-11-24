@@ -33,11 +33,19 @@ from matrx_connect import (
 )
 from matrx_connect.emitters.console_emitter import ConsoleEmitter
 
-PERSON = "4cf62e4e-2679-484f-b652-034e697418df"
+PERSON = "87a6e699-3622-4869-8843-d0867456c0dd"
 DOOR_ORG = "39c38960-d30c-4840-b0c1-c9960de95582"
-TURN_ORG = "5dc930e9-bd65-44a1-8369-af773f6e1a5b"
+TURN_ORG = "7a1b2c3d-4e5f-4061-8a7b-9c0d1e2f3a4b"
 PARKED_REQUEST = "46ae69a6-b92d-4193-93b2-563a28263c05"
 ORIGINAL = {"route": "/ai/conversations/577db529", "auth_type": "token"}
+
+
+@pytest.fixture(autouse=True)
+def _the_door_is_a_persons_own_request(monkeypatch):
+    """The host's person-request seam reads the door (and only the door) as the person's own; nothing is stamped."""
+    from matrx_connect.context import provenance
+
+    monkeypatch.setattr(provenance, "_person_request_resolver", lambda ctx: ctx.route == "/action-requests/complete")
 
 
 def _door() -> AppContext:
@@ -49,7 +57,6 @@ def _door() -> AppContext:
         route="/action-requests/complete",
         auth_type="token",
         is_authenticated=True,
-        origin_class="human",
         request_id="0b0b0b0b-0000-4000-8000-000000000001",
     )
 

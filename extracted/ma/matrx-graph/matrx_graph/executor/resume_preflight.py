@@ -88,18 +88,38 @@ def launch_is_declared(graph: CompiledGraph, registry: Any, source: str, target:
 #: the static declarations alone, so it cannot differ by process age.
 _OBSERVED_LAUNCHERS: set[str] = set()
 
-#: ``MATRX_GRAPH_STRICT_LAUNCHES=1`` turns an undeclared launch into a refusal
-#: (the package's own tests run strict). Production logs it as an ERROR and
-#: allows the run: the run itself is correct, only the declaration is missing,
-#: and refusing a working run over metadata would be the worse failure. The fix
-#: is the declaration; the static census in the host's tests catches it first.
-STRICT_LAUNCHES_ENV = "MATRX_GRAPH_STRICT_LAUNCHES"
+#: Whether an undeclared launch is a refusal. The package reads no environment for it: the host binds
+#: its setting through :func:`configure_strict_launches` (aidream: ``workflow.launches.strict_undeclared``)
+#: and the package's own tests bind ``True``. Unbound = production's behaviour: log it as an ERROR and
+#: allow the run (the run itself is correct, only the declaration is missing, and refusing a working
+#: run over metadata would be the worse failure). The fix is the declaration; the static census in the
+#: host's tests catches it first.
+_strict_launches_reader: Any = None
+
+
+def configure_strict_launches(reader: Any) -> None:
+    """Bind the host's reader (a zero-argument callable answering bool), or ``None`` to unbind."""
+    global _strict_launches_reader
+    _strict_launches_reader = reader
+
+
+def _launches_are_strict() -> bool:
+    if _strict_launches_reader is None:
+        return False
+    try:
+        return bool(_strict_launches_reader())
+    except Exception as exc:  # noqa: BLE001 - announced, never a crash in the scheduler
+        import logging
+
+        logging.getLogger(__name__).error(
+            "[matrx_graph] the strict-launches setting could not be read (%r); undeclared launches are logged, not refused", exc
+        )
+        return False
 
 
 def record_undeclared_launch(spec_type: str, source: str, target: str) -> None:
     """Announce a ``ctx.send`` the graph never declared; raise when strict."""
     import logging
-    import os
 
     first = spec_type not in _OBSERVED_LAUNCHERS
     _OBSERVED_LAUNCHERS.add(spec_type)
@@ -108,7 +128,7 @@ def record_undeclared_launch(spec_type: str, source: str, target: str) -> None:
         "does not declare launches_nodes=True and it is not a dispatcher sending to "
         "its config target — declare it on the node's spec"
     )
-    if os.environ.get(STRICT_LAUNCHES_ENV, "").lower() in {"1", "true", "yes"}:
+    if _launches_are_strict():
         from matrx_graph.errors import ExecutionError
 
         raise ExecutionError(message)

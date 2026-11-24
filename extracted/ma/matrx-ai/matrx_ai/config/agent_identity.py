@@ -52,7 +52,7 @@ from collections.abc import Awaitable, Callable
 
 from matrx_utils import vcprint
 
-#: The turn-context slot the part rides in.
+#: The turn-context policy the part rides in.
 IDENTITY_SLOT = "agent_identity"
 
 #: The organization knobs the host resolves (``platform.feature_knob``).

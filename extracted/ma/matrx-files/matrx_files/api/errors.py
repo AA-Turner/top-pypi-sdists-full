@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Request, status
 
 logger = logging.getLogger(__name__)
 
@@ -215,3 +215,164 @@ def map_exception(
             "request_id": request_id,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# The ApiError envelope — {error, message, user_message, details, request_id}
+# (file-service STATE.md § wire contract). The aidream host renders its own
+# HTTPExceptions into this shape; the standalone service installs the handlers
+# below so BOTH hosts answer every failure identically — never FastAPI's bare
+# ``{"detail": ...}`` or a raw 422 list.
+# ---------------------------------------------------------------------------
+
+_STATUS_CODES: dict[int, str] = {
+    400: "invalid_request",
+    401: "authentication_required",
+    403: "permission_denied",
+    404: "not_found",
+    405: "method_not_allowed",
+    409: "conflict",
+    412: "precondition_failed",
+    413: "payload_too_large",
+    415: "unsupported_media_type",
+    416: "range_not_satisfiable",
+    422: "invalid_request",
+    429: "rate_limited",
+}
+
+_STATUS_USER_MESSAGES: dict[int, str] = {
+    400: "That request was not valid.",
+    401: "Please sign in again.",
+    403: "You do not have access to this file.",
+    404: "That file could not be found.",
+    409: "That conflicts with something that already exists.",
+    413: "That file is too large.",
+    429: "Too many requests. Try again shortly.",
+}
+
+
+def api_error_body(
+    status_code: int, detail: object, *, request_id: str | None = None
+) -> dict[str, object]:
+    """Render any HTTPException ``detail`` as the ONE ApiError envelope."""
+    if isinstance(detail, dict):
+        body = dict(detail)
+        error = body.pop("error", None) or _STATUS_CODES.get(status_code, "internal" if status_code >= 500 else "error")
+        message = body.pop("message", None) or str(detail)
+        user_message = body.pop("user_message", None)
+        details = body.pop("details", None)
+        rid = body.pop("request_id", None) or request_id
+        if body:  # any other keys the raiser named ride in details, never dropped
+            if details is None:
+                details = body
+            elif isinstance(details, dict):
+                details = {**details, **body}
+            else:
+                details = {"details": details, **body}
+    else:
+        error = _STATUS_CODES.get(status_code, "internal" if status_code >= 500 else "error")
+        message = str(detail) if detail is not None else error
+        user_message = None
+        details = None
+        rid = request_id
+    if not user_message:
+        user_message = _STATUS_USER_MESSAGES.get(
+            status_code, "Something went wrong." if status_code >= 500 else message
+        )
+    return {
+        "error": error,
+        "message": message,
+        "user_message": user_message,
+        "details": details,
+        "request_id": rid,
+    }
+
+
+def _request_id_for(request) -> str | None:
+    rid, _ = current_request_context()
+    if rid:
+        return rid
+    try:
+        return request.headers.get("x-request-id")
+    except Exception:  # pragma: no cover
+        return None
+
+
+def install_error_handlers(app) -> None:
+    """Make every failure on ``app`` an ApiError (standalone service)."""
+    from fastapi.exceptions import RequestValidationError
+    from fastapi.responses import JSONResponse
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http(request, exc):  # noqa: ANN001
+        return JSONResponse(
+            api_error_body(exc.status_code, exc.detail, request_id=_request_id_for(request)),
+            status_code=exc.status_code,
+            headers=getattr(exc, "headers", None),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation(request, exc):  # noqa: ANN001
+        errors = exc.errors()
+        first = errors[0] if errors else {}
+        where = ".".join(str(p) for p in first.get("loc", ()) if p != "body")
+        message = f"{where}: {first.get('msg', 'invalid value')}" if where else str(first.get("msg", "invalid request"))
+        body = api_error_body(
+            400,
+            {
+                "error": "invalid_request",
+                "message": message,
+                "details": {"errors": [
+                    {"loc": list(e.get("loc", ())), "msg": e.get("msg"), "type": e.get("type")}
+                    for e in errors
+                ]},
+            },
+            request_id=_request_id_for(request),
+        )
+        return JSONResponse(body, status_code=400)
+
+    @app.exception_handler(Exception)
+    async def _unhandled(request, exc):  # noqa: ANN001
+        mapped = map_exception(exc, operation=f"{request.method} {request.url.path}")
+        return JSONResponse(
+            api_error_body(mapped.status_code, mapped.detail, request_id=_request_id_for(request)),
+            status_code=mapped.status_code,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Malformed ids never reach the ORM. A non-UUID ``file_id`` used to travel into
+# a query and come back as the ORM's ANSI-coloured ParameterError (SQL + args)
+# on the standalone host and a 500 on the aidream host. Every ``*_id`` path
+# parameter on a files router is a UUID; anything else is a 404 ApiError
+# before any handler runs. Mounted as a router dependency by BOTH hosts.
+# ---------------------------------------------------------------------------
+
+
+def is_uuid(value: object) -> bool:
+    import uuid
+
+    if not isinstance(value, str):
+        return False
+    try:
+        uuid.UUID(value)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    return True
+
+
+async def refuse_malformed_path_ids(request: Request) -> None:
+    """Router dependency: every ``*_id`` path param must be a UUID → else 404."""
+    for name, value in (request.path_params or {}).items():
+        if name.endswith("_id") and not is_uuid(value):
+            noun = name[: -len("_id")].replace("_", " ") or "record"
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                {
+                    "error": "not_found",
+                    "message": f"No {noun} with id {value!r} — ids are UUIDs",
+                    "user_message": f"That {noun} could not be found.",
+                    "details": {"param": name},
+                },
+            )

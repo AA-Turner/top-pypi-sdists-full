@@ -21,11 +21,13 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import traceback
 from copy import deepcopy
 from typing import Any
 
 from fastapi import HTTPException, status
+from matrx_connect.chat_timing import chat_timing_mark
 from matrx_utils import vcprint
 
 from matrx_ai.agents import live_structure
@@ -111,6 +113,15 @@ async def _load_tool_declaration_record(conversation_id: str) -> dict[str, Any] 
     return record if isinstance(record, dict) else None
 
 
+def _adopt_tool_record(config: UnifiedConfig, stored: dict[str, Any] | None) -> None:
+    """Apply an already-read tool-declaration record (see :func:`_adopt_newer_tool_record`)."""
+    if not stored:
+        return
+    from matrx_ai.tools.declaration_ledger import newer_record
+
+    config.tool_declarations = newer_record(getattr(config, "tool_declarations", None), stored)
+
+
 async def _adopt_newer_tool_record(config: UnifiedConfig, conversation_id: str) -> None:
     """THE CACHE LINE LAW across servers (adversarial I1, 2026-10-18).
 
@@ -119,12 +130,7 @@ async def _adopt_newer_tool_record(config: UnifiedConfig, conversation_id: str) 
     another server appended a tool since, the row's record has a higher
     ``seq``; sending the stale array would shrink the cached tools head. The
     newer record wins, per provider, before the turn's first send."""
-    stored = await _load_tool_declaration_record(conversation_id)
-    if not stored:
-        return
-    from matrx_ai.tools.declaration_ledger import newer_record
-
-    config.tool_declarations = newer_record(getattr(config, "tool_declarations", None), stored)
+    _adopt_tool_record(config, await _load_tool_declaration_record(conversation_id))
 
 
 async def _load_persisted_messages(conversation_id: str) -> list[UnifiedMessage]:
@@ -222,14 +228,32 @@ class ConversationResolver:
         """
 
         if responder_agent_id:
-            responder = await Agent.from_agent(
-                responder_agent_id,
-                is_version=responder_is_version,
-                variables=dict(responder_variables or {}),
+            # THE CONVERSATION'S OWN READS OVERLAP THE HOLDER BUILD (2026-11-19). The sticky toolset, the
+            # tool-declaration record and the rebuilt history depend only on the conversation id, never on
+            # the Holder, yet they ran one after another AFTER it: on a long staff thread (1,234 messages)
+            # every phone hand-off paid holder + three reads in sequence. They start here as tasks and are
+            # awaited where they are used; the Holder builds in THIS task (its fill may set context
+            # variables the rest of the turn reads). Results and failures are exactly as before.
+            # Guard: tests/test_the_responder_turn_reads_beside_the_holder_build.py.
+            reads = asyncio.gather(
+                _load_sticky_toolset(conversation_id),
+                _load_tool_declaration_record(conversation_id),
+                _load_persisted_messages(conversation_id),
+                return_exceptions=True,
             )
-            # Always filled before the config leaves the Agent (no values still
-            # means defaults, escapes, sections and blocks).
-            await responder.run_first_turn_pass()
+            try:
+                responder = await Agent.from_agent(
+                    responder_agent_id,
+                    is_version=responder_is_version,
+                    variables=dict(responder_variables or {}),
+                )
+                # Always filled before the config leaves the Agent (no values still
+                # means defaults, escapes, sections and blocks).
+                await responder.run_first_turn_pass()
+            except BaseException:
+                reads.cancel()
+                raise
+            chat_timing_mark("h_holder_built", "responder Holder built + first-turn fill")
             # The Holder's fingerprint is taken from its AUTHORED template (kept
             # by the fill as ``_authored_template``), so per-turn framing values
             # never make the Holder look changed.
@@ -253,8 +277,12 @@ class ConversationResolver:
                 # sends is settled at the send boundary against the row's frozen
                 # copy (``send_boundary._settle_held_prompt``).
                 config.held_prompt = {"holder": holder_fp, "stored": responder_held_prompt}
+            sticky, stored_record, persisted_messages = await reads
+            chat_timing_mark("h_messages_loaded", "sticky toolset + tool record + history loaded")
+            if isinstance(sticky, BaseException):  # _load_sticky_toolset never raises; a cancel does
+                raise sticky
             # The conversation's sticky toolset is the conversation's, not the Holder's.
-            sticky_names, sticky_sources = await _load_sticky_toolset(conversation_id)
+            sticky_names, sticky_sources = sticky
             if sticky_names:
                 config.dynamic_tools = list(
                     dict.fromkeys([*sticky_names, *(config.dynamic_tools or [])])
@@ -263,16 +291,18 @@ class ConversationResolver:
                     **sticky_sources,
                     **(config.dynamic_tool_sources or {}),
                 }
-            try:
-                persisted_messages = await _load_persisted_messages(conversation_id)
-            except Exception as exc:
+            if isinstance(persisted_messages, BaseException):
+                if not isinstance(persisted_messages, Exception):
+                    raise persisted_messages
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Conversation not found: {conversation_id}",
-                ) from exc
+                ) from persisted_messages
             config.messages.clear()
             config.messages.extend(deepcopy(persisted_messages))
-            await _adopt_newer_tool_record(config, conversation_id)
+            if isinstance(stored_record, BaseException):  # never raises; a cancel does
+                raise stored_record
+            _adopt_tool_record(config, stored_record)
             if responder_mandate_key:
                 # The held system text keeps the framing values its first turn
                 # rendered; the CURRENT ones (clock, channel, timezone…) ride
@@ -288,6 +318,45 @@ class ConversationResolver:
                 user_input=user_input,
                 config_overrides=config_overrides,
                 model_this_turn_only=model_this_turn_only,
+            )
+
+        # WHERE DOES THIS ROW'S STRUCTURE LIVE — asked FIRST (one primary-key read). A mandate-held row
+        # recurses with its live Holder below and loads its history there; loading the row's own config and
+        # every message before asking read the whole history twice per turn (3.6 s of a phone hand-off's
+        # preparation on a 109-message staff thread, 2026-11-19). Guard:
+        # tests/test_a_mandate_held_thread_loads_its_history_once.py.
+        source = None
+        if not responder_agent_id:
+            source = await live_structure.read_structure_source(conversation_id)
+        if source is not None and source.is_live:
+            live_agent, live_is_version = await live_structure.resolve_live_structure_agent(source)
+            chat_timing_mark("h_structure_read", "structure source read + live Holder resolved")
+            if live_agent:
+                vcprint(
+                    f"[ConversationResolver] {conversation_id} is mandate-held"
+                    + (f" ({source.mandate_key})" if source.mandate_key else "")
+                    + f" — resolving the structural half (prompt, model, tools, "
+                    f"settings) LIVE from Holder {live_agent} while the conversation "
+                    f"supplies the history. The row's own config is never the "
+                    f"authority here.",
+                    color="cyan",
+                )
+                return await ConversationResolver.from_conversation_id(
+                    conversation_id,
+                    user_input=user_input,
+                    config_overrides=config_overrides,
+                    responder_agent_id=live_agent,
+                    responder_is_version=live_is_version,
+                    responder_mandate_key=source.mandate_key,
+                    responder_variables=responder_variables,
+                    responder_held_prompt=source.held_prompt,
+                )
+            vcprint(
+                f"[ConversationResolver] {conversation_id} is marked mandate-held but "
+                f"no Holder could be resolved for it. This turn runs with the "
+                f"conversation's own configuration, which on a mandate-held row is "
+                f"whatever a previous Holder left behind.",
+                color="red",
             )
 
         agent = AgentCache.get(conversation_id)
@@ -393,42 +462,7 @@ class ConversationResolver:
         _structureless = not str(getattr(config, "system_instruction", None) or "").strip() or not (
             getattr(config, "tools", None) or getattr(config, "custom_tools", None)
         )
-        source = None
-        if not responder_agent_id:
-            source = await live_structure.read_structure_source(conversation_id)
-
-        if source is not None and source.is_live:
-            live_agent, live_is_version = await live_structure.resolve_live_structure_agent(
-                source
-            )
-            if live_agent:
-                vcprint(
-                    f"[ConversationResolver] {conversation_id} is mandate-held"
-                    + (f" ({source.mandate_key})" if source.mandate_key else "")
-                    + f" — resolving the structural half (prompt, model, tools, "
-                    f"settings) LIVE from Holder {live_agent} while the conversation "
-                    f"supplies the history. The row's own config is never the "
-                    f"authority here.",
-                    color="cyan",
-                )
-                return await ConversationResolver.from_conversation_id(
-                    conversation_id,
-                    user_input=user_input,
-                    config_overrides=config_overrides,
-                    responder_agent_id=live_agent,
-                    responder_is_version=live_is_version,
-                    responder_mandate_key=source.mandate_key,
-                    responder_variables=responder_variables,
-                    responder_held_prompt=source.held_prompt,
-                )
-            vcprint(
-                f"[ConversationResolver] {conversation_id} is marked mandate-held but "
-                f"no Holder could be resolved for it. This turn runs with the "
-                f"conversation's own configuration, which on a mandate-held row is "
-                f"whatever a previous Holder left behind.",
-                color="red",
-            )
-
+        # The structure source was read before the load (above); a live row with a Holder never gets here.
         if not responder_agent_id and _structureless:
             named = source.named_agent_id if source is not None else None
             named_is_version = source.named_is_version if source is not None else False
@@ -496,6 +530,7 @@ class ConversationResolver:
         # never leaks into this turn: the conversation's own model comes back
         # first, then this turn's overrides apply.
         config.end_model_this_turn_only()
+        config.end_tools_off_this_turn_only()
         if config_overrides is not None:
             if model_this_turn_only and config_overrides.model is not None:
                 config.begin_model_this_turn_only()
@@ -536,9 +571,21 @@ class ConversationResolver:
                 if conv_row is not None and get_conversation_store() is None:
                     # cx_ cache_state is only meaningful on the host DB path.
                     cache_state_dict = getattr(conv_row, "cache_state", None) or None
-            except Exception:
+                _row_known = get_conversation_store() is None
+            except Exception as _row_exc:
                 conv_row = None
                 cache_state_dict = None
+                # A conversation not created yet is known-empty; any other failure is unknown.
+                _row_known = type(_row_exc).__name__ == "DoesNotExist"
+            # The static seal line never treats a conversation whose row it could not read as new
+            # (``providers/final_outbound_snapshot.note_conversation_row_read``).
+            # Import inside the try: an observer that cannot load never stops the resolve.
+            try:
+                from matrx_ai.providers.final_outbound_snapshot import note_conversation_row_read
+
+                note_conversation_row_read(conversation_id, known=_row_known)
+            except Exception:  # noqa: BLE001 — the seal observer never breaks a run
+                pass
 
             await prepare_for_send(
                 config,

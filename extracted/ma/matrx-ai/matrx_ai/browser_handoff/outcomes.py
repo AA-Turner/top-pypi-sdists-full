@@ -64,6 +64,7 @@ def new_error(error_type: str, *, message: str) -> ToolError:
             f"(add it to S6 §5.4 with a DECISIONS.md entry first)."
         )
     return ToolError(
+        refusal=True,
         error_type=error_type,
         message=message,
         is_retryable=False,

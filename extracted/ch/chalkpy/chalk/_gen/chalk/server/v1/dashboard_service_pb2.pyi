@@ -1,3 +1,4 @@
+from chalk._gen.chalk.artifacts.v1 import contentgrant_pb2 as _contentgrant_pb2
 from chalk._gen.chalk.artifacts.v1 import dashboard_pb2 as _dashboard_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
@@ -67,27 +68,33 @@ class DashboardControls(_message.Message):
     ) -> None: ...
 
 class CreateDashboardRequest(_message.Message):
-    __slots__ = ("dashboard", "controls")
+    __slots__ = ("dashboard", "controls", "sharing")
     DASHBOARD_FIELD_NUMBER: _ClassVar[int]
     CONTROLS_FIELD_NUMBER: _ClassVar[int]
+    SHARING_FIELD_NUMBER: _ClassVar[int]
     dashboard: _dashboard_pb2.Dashboard
     controls: DashboardControls
+    sharing: _contentgrant_pb2.ContentSharing
     def __init__(
         self,
         dashboard: _Optional[_Union[_dashboard_pb2.Dashboard, _Mapping]] = ...,
         controls: _Optional[_Union[DashboardControls, _Mapping]] = ...,
+        sharing: _Optional[_Union[_contentgrant_pb2.ContentSharing, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateDashboardResponse(_message.Message):
-    __slots__ = ("dashboard", "controls")
+    __slots__ = ("dashboard", "controls", "sharing")
     DASHBOARD_FIELD_NUMBER: _ClassVar[int]
     CONTROLS_FIELD_NUMBER: _ClassVar[int]
+    SHARING_FIELD_NUMBER: _ClassVar[int]
     dashboard: _dashboard_pb2.Dashboard
     controls: DashboardControls
+    sharing: _contentgrant_pb2.ContentSharing
     def __init__(
         self,
         dashboard: _Optional[_Union[_dashboard_pb2.Dashboard, _Mapping]] = ...,
         controls: _Optional[_Union[DashboardControls, _Mapping]] = ...,
+        sharing: _Optional[_Union[_contentgrant_pb2.ContentSharing, _Mapping]] = ...,
     ) -> None: ...
 
 class GetDashboardRequest(_message.Message):
@@ -103,19 +110,22 @@ class GetDashboardRequest(_message.Message):
     ) -> None: ...
 
 class GetDashboardResponse(_message.Message):
-    __slots__ = ("dashboard", "controls")
+    __slots__ = ("dashboard", "controls", "sharing")
     DASHBOARD_FIELD_NUMBER: _ClassVar[int]
     CONTROLS_FIELD_NUMBER: _ClassVar[int]
+    SHARING_FIELD_NUMBER: _ClassVar[int]
     dashboard: _dashboard_pb2.Dashboard
     controls: DashboardControls
+    sharing: _contentgrant_pb2.ContentSharing
     def __init__(
         self,
         dashboard: _Optional[_Union[_dashboard_pb2.Dashboard, _Mapping]] = ...,
         controls: _Optional[_Union[DashboardControls, _Mapping]] = ...,
+        sharing: _Optional[_Union[_contentgrant_pb2.ContentSharing, _Mapping]] = ...,
     ) -> None: ...
 
 class ListDashboardsRequest(_message.Message):
-    __slots__ = ("limit", "cursor", "read_mask", "search", "created_by", "sort_column", "sort_order")
+    __slots__ = ("limit", "cursor", "read_mask", "search", "created_by", "sort_column", "sort_order", "filters")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     READ_MASK_FIELD_NUMBER: _ClassVar[int]
@@ -123,6 +133,7 @@ class ListDashboardsRequest(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     SORT_COLUMN_FIELD_NUMBER: _ClassVar[int]
     SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
     read_mask: _field_mask_pb2.FieldMask
@@ -130,6 +141,7 @@ class ListDashboardsRequest(_message.Message):
     created_by: _containers.RepeatedScalarFieldContainer[str]
     sort_column: DashboardSortColumn
     sort_order: DashboardSortOrder
+    filters: ListDashboardsFilters
     def __init__(
         self,
         limit: _Optional[int] = ...,
@@ -139,6 +151,19 @@ class ListDashboardsRequest(_message.Message):
         created_by: _Optional[_Iterable[str]] = ...,
         sort_column: _Optional[_Union[DashboardSortColumn, str]] = ...,
         sort_order: _Optional[_Union[DashboardSortOrder, str]] = ...,
+        filters: _Optional[_Union[ListDashboardsFilters, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListDashboardsFilters(_message.Message):
+    __slots__ = ("favorites_only", "search", "created_by")
+    FAVORITES_ONLY_FIELD_NUMBER: _ClassVar[int]
+    SEARCH_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    favorites_only: bool
+    search: str
+    created_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self, favorites_only: bool = ..., search: _Optional[str] = ..., created_by: _Optional[_Iterable[str]] = ...
     ) -> None: ...
 
 class ListDashboardsResponse(_message.Message):
@@ -169,22 +194,48 @@ class UpdateDashboardRequest(_message.Message):
     ) -> None: ...
 
 class UpdateDashboardResponse(_message.Message):
-    __slots__ = ("dashboard", "controls")
+    __slots__ = ("dashboard", "controls", "sharing")
     DASHBOARD_FIELD_NUMBER: _ClassVar[int]
     CONTROLS_FIELD_NUMBER: _ClassVar[int]
+    SHARING_FIELD_NUMBER: _ClassVar[int]
     dashboard: _dashboard_pb2.Dashboard
     controls: DashboardControls
+    sharing: _contentgrant_pb2.ContentSharing
     def __init__(
         self,
         dashboard: _Optional[_Union[_dashboard_pb2.Dashboard, _Mapping]] = ...,
         controls: _Optional[_Union[DashboardControls, _Mapping]] = ...,
+        sharing: _Optional[_Union[_contentgrant_pb2.ContentSharing, _Mapping]] = ...,
     ) -> None: ...
 
-class DeleteDashboardRequest(_message.Message):
-    __slots__ = ("dashboard_id",)
+class UpdateDashboardSharingRequest(_message.Message):
+    __slots__ = ("dashboard_id", "visibility", "grants")
     DASHBOARD_ID_FIELD_NUMBER: _ClassVar[int]
+    VISIBILITY_FIELD_NUMBER: _ClassVar[int]
+    GRANTS_FIELD_NUMBER: _ClassVar[int]
     dashboard_id: str
-    def __init__(self, dashboard_id: _Optional[str] = ...) -> None: ...
+    visibility: _contentgrant_pb2.ContentVisibility
+    grants: _contentgrant_pb2.ContentGrantList
+    def __init__(
+        self,
+        dashboard_id: _Optional[str] = ...,
+        visibility: _Optional[_Union[_contentgrant_pb2.ContentVisibility, str]] = ...,
+        grants: _Optional[_Union[_contentgrant_pb2.ContentGrantList, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateDashboardSharingResponse(_message.Message):
+    __slots__ = ("sharing",)
+    SHARING_FIELD_NUMBER: _ClassVar[int]
+    sharing: _contentgrant_pb2.ContentSharing
+    def __init__(self, sharing: _Optional[_Union[_contentgrant_pb2.ContentSharing, _Mapping]] = ...) -> None: ...
+
+class DeleteDashboardRequest(_message.Message):
+    __slots__ = ("dashboard_id", "dashboard_ids")
+    DASHBOARD_ID_FIELD_NUMBER: _ClassVar[int]
+    DASHBOARD_IDS_FIELD_NUMBER: _ClassVar[int]
+    dashboard_id: str
+    dashboard_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dashboard_id: _Optional[str] = ..., dashboard_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class DeleteDashboardResponse(_message.Message):
     __slots__ = ()
@@ -205,15 +256,21 @@ class ExportDashboardResponse(_message.Message):
     def __init__(self, dashboard_json_string: _Optional[str] = ...) -> None: ...
 
 class ImportDashboardRequest(_message.Message):
-    __slots__ = ("dashboard_json_string", "name", "dry_run")
+    __slots__ = ("dashboard_json_string", "name", "dry_run", "visibility")
     DASHBOARD_JSON_STRING_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     DRY_RUN_FIELD_NUMBER: _ClassVar[int]
+    VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     dashboard_json_string: str
     name: str
     dry_run: bool
+    visibility: _contentgrant_pb2.ContentVisibility
     def __init__(
-        self, dashboard_json_string: _Optional[str] = ..., name: _Optional[str] = ..., dry_run: bool = ...
+        self,
+        dashboard_json_string: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        dry_run: bool = ...,
+        visibility: _Optional[_Union[_contentgrant_pb2.ContentVisibility, str]] = ...,
     ) -> None: ...
 
 class ImportDashboardResponse(_message.Message):

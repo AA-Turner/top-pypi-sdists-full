@@ -14,7 +14,8 @@ it on) or `--` (not something this machine or this server has, or nothing to mea
                         id, how long it has run, policy, the speed-ups it kept) - a server that says nothing of it
                         may be another program at that address; and whether it takes the robot's stream
                         (x-seq-stream/3 in X-Seq-Act-Formats), which connect() sends observations and acts on
-    round trip          the median time of a ping on a kept connection, and of a TCP connect: the network's own part
+    round trip          pings on a kept connection, and a TCP connect, timed: the network's own part, which the
+                        pings in inference are held to
     send window         whether a connection keeps its send window through the robot's pauses between requests: macOS
                         does; Linux does with BBR or net.ipv4.tcp_slow_start_after_idle 0, and otherwise restarts it,
                         so each upload after a pause takes several round trips
@@ -26,8 +27,8 @@ it on) or `--` (not something this machine or this server has, or nothing to mea
                         from going idle; on where the server answers its ping with 200
     pings in inference  whether the server answers pings while its model runs: a server that does not leaves the
                         robot's connection silent for the whole inference
-    server time         whether the server says how long it took (handler_ms in each act's answer), and how much of
-                        an act was outside it: the network, and this machine
+    server time         whether the server says how long it took (handler_ms in each act's answer) of an act, the
+                        rest of which was outside it: the network, and this machine
     first act           how long the first act took, against the next ones: a model compiled on its first inference
 
 The lines that send an act - pings in inference, server time, first act - send it as a robot does, on its stream: the
@@ -220,13 +221,11 @@ def _pings_in_inference(url: str, headers: dict, ping_path: str, act: Any, idle_
         return Row("--", "pings in inference", f"each act took {_ms(statistics.median(t for t, _ in totals))}, too "
                                                "short to tell"), totals
     if 2 * held <= len(slowest):
-        return Row("ok", "pings in inference", f"answered while the model ran: {_ms(statistics.median(during))} "
-                                               f"against {_ms(idle_s)} idle ({len(during)} pings in {len(slowest)} "
-                                               "acts)"), totals
+        return Row("ok", "pings in inference", f"answered while the model ran ({len(during)} pings in "
+                                               f"{len(slowest)} acts)"), totals
     return Row("no", "pings in inference", f"held while the model ran: the slowest ping of {held} of {len(slowest)} "
-                                           f"acts took {_ms(statistics.median(slowest))} against {_ms(idle_s)} idle - "
-                                           "the robot's connection is silent for the whole inference; serve() runs "
-                                           "the model on a thread of its own"), totals
+                                           "acts waited for the act - the robot's connection is silent for the whole "
+                                           "inference; serve() runs the model on a thread of its own"), totals
 
 
 def _ping_status(url: str, headers: dict) -> int | None:
@@ -302,8 +301,8 @@ def run(url: str, *, token: Optional[str] = None, observation: Any = None, pings
                                             "named in its JSON): if serve() was started there, another program answers "
                                             f"at this address; it {stream}"))
         tcp = _tcp_connect_s(url)
-        rows.append(Row("ok", "round trip", f"{_ms(idle)} for a ping on a kept connection (median of {len(answered)})"
-                                            + (f"; {_ms(tcp)} for a TCP connect" if tcp is not None else "")))
+        rows.append(Row("ok", "round trip", f"{len(answered)} pings answered on a kept connection"
+                                            + (", and a TCP connect" if tcp is not None else "")))
         rows += _window_rows()
         rows.append(_wifi_row())
         rows.append(Row("ok", "pings when idle", f"connect() pings after each {_ms(0.1)} of idle time, and the server "
@@ -352,9 +351,8 @@ def run(url: str, *, token: Optional[str] = None, observation: Any = None, pings
             said = sorted((t, server) for t, server in totals if server is not None)
             if said:
                 t, server = said[len(said) // 2]
-                rows.append(Row("ok", "server time", f"the server says it took {_ms(server)} of a {_ms(t)} act: "
-                                                     f"{_ms(max(0.0, t - server))} outside it, on the network and in "
-                                                     "this machine"))
+                rows.append(Row("ok", "server time", f"the server says it took {_ms(server)} of a {_ms(t)} act; "
+                                                     "the rest was outside it, on the network and in this machine"))
             else:
                 rows.append(Row("no", "server time", "the server does not say how long it took (no handler_ms in "
                                                      "its answers' perf): the robot cannot tell its time from the "

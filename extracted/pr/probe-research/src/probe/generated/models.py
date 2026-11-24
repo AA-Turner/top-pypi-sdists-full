@@ -17,6 +17,7 @@ from .enums import (  # noqa: F401 - re-exported
     AckState,
     Action,
     AddressKind,
+    Action1,
     AnchorLevel,
     AnswerStyle,
     ArtifactKind,
@@ -31,6 +32,7 @@ from .enums import (  # noqa: F401 - re-exported
     Authorship,
     BackfillState,
     Fn,
+    BranchCause,
     BranchState,
     CursorParameter,
     BundleKind,
@@ -93,6 +95,7 @@ from .enums import (  # noqa: F401 - re-exported
     Agent,
     DirectionOutput,
     Status3,
+    Kind1,
     DisconnectReason,
     DocRefusal,
     DocState,
@@ -106,9 +109,12 @@ from .enums import (  # noqa: F401 - re-exported
     Ending,
     DisabledFilter,
     EntityType,
+    EpisodeGrouping,
+    EpisodeState,
+    EpisodeStatus,
     ExampleProfile,
     ExampleStage,
-    Kind1,
+    Kind2,
     ExperimentOutcome,
     ExportFormat,
     Nonfinite,
@@ -117,7 +123,7 @@ from .enums import (  # noqa: F401 - re-exported
     FeedbackKind,
     FieldSource,
     Key,
-    FinishReason1,
+    FinishReasonModel,
     Frame,
     GenerationPhase,
     GitHubIntegrationState,
@@ -242,6 +248,7 @@ from .enums import (  # noqa: F401 - re-exported
     RunCodeState,
     RunCompareState,
     LivenessProtocolEnum,
+    RunListOrder,
     RunListView,
     RunStatus,
     RunType,
@@ -292,6 +299,7 @@ from .enums import (  # noqa: F401 - re-exported
     TranscriptState,
     Trigger,
     TriggerClass,
+    TurnState,
     TurnsSource,
     Fn5,
     UpdateLevel,
@@ -351,6 +359,36 @@ class AccountOut(BaseModel):
     customer_id: str | None = Field(None, title='Customer Id')
     email: str | None = Field(None, title='Email')
     role: str | None = Field(None, title='Role')
+
+
+class Body(RootModel[str]):
+    root: str = Field(..., max_length=2000, min_length=1, title='Body')
+
+
+class Override(RootModel[str]):
+    root: str = Field(..., max_length=300, min_length=1, title='Override')
+
+
+class StintId(RootModel[int]):
+    root: int = Field(..., ge=1, title='Stint Id')
+
+
+class AdminComputeMessageIn(BaseModel):
+    """
+    A team admin's own Probe compute message: information (`body`) or a directive (`action`), to the agent
+    session behind one of the team's GPU jobs (`stint_id`) or a session that started one (`session_id`).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    action: Action1 | None = Field(None, title='Action')
+    body: Body | None = Field(None, title='Body')
+    override: Override | None = Field(None, title='Override')
+    reason: str | None = Field('', max_length=1200, title='Reason')
+    session_id: str | None = Field(None, title='Session Id')
+    shutdown_at: str | None = Field('', max_length=40, title='Shutdown At')
+    stint_id: StintId | None = Field(None, title='Stint Id')
 
 
 class AfterHint(BaseModel):
@@ -1440,6 +1478,41 @@ class ComputeClusterOut(BaseModel):
     provider: str | None = Field(..., title='Provider')
 
 
+class ComputeDirectivesIn(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    enabled: bool = Field(..., title='Enabled')
+
+
+class ComputeDirectivesOut(BaseModel):
+    enabled: bool = Field(..., title='Enabled')
+
+
+class ComputeStintOut(BaseModel):
+    """
+    One GPU job of one of the caller's sessions, as `probe compute job` reads it.
+    """
+
+    about: str = Field(..., title='About')
+    agent_session_id: str | None = Field(..., title='Agent Session Id')
+    end_reason: str | None = Field(..., title='End Reason')
+    ended_at: AwareDatetime | None = Field(..., title='Ended At')
+    exe: str | None = Field(..., title='Exe')
+    gpu_index: int | None = Field(..., title='Gpu Index')
+    gpu_utilization_percent: float | None = Field(None, title='Gpu Utilization Percent')
+    hostname: str | None = Field(..., title='Hostname')
+    id: int = Field(..., title='Id')
+    node_activity: dict[str, Any] | None = Field(None, title='Node Activity')
+    node_reported_at: AwareDatetime | None = Field(None, title='Node Reported At')
+    pid: int | None = Field(..., title='Pid')
+    pod_uid: str | None = Field(..., title='Pod Uid')
+    proc_start_ticks: int | None = Field(..., title='Proc Start Ticks')
+    run_name: str | None = Field(..., title='Run Name')
+    slurm_job_id: str | None = Field(..., title='Slurm Job Id')
+    started_at: AwareDatetime = Field(..., title='Started At')
+
+
 class ConfigComparison(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1581,6 +1654,22 @@ class DatasetRow(BaseModel):
 
     file_sha256: str = Field(..., title='File Sha256')
     row: Row | None = Field(None, title='Row')
+
+
+class DayMark(BaseModel):
+    """
+    Where a new UTC day starts in the transcript text.
+    """
+
+    date: str = Field(
+        ...,
+        description='UTC day, YYYY-MM-DD.',
+        pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2}$',
+        title='Date',
+    )
+    line: int = Field(
+        ..., description="1-based line of `content.split('\\n')`.", ge=1, title='Line'
+    )
 
 
 class Rejected(RootModel[str]):
@@ -1885,6 +1974,14 @@ class DirectionPatch(BaseModel):
     status: Status3 | None = Field(None, title='Status')
 
 
+class DirectiveReplyIn(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    body: str = Field(..., max_length=2000, min_length=1, title='Body')
+    kind: Kind1 | None = Field('reply', title='Kind')
+
+
 class DocsSectionOut(BaseModel):
     heading: str = Field(
         ...,
@@ -2136,6 +2233,112 @@ class EntryRefOut(BaseModel):
     id: UUID = Field(..., title='Id')
     name: str = Field(..., title='Name')
     ref: str = Field(..., title='Ref')
+
+
+class Homepage(RootModel[str]):
+    root: str = Field(..., max_length=2048, title='Homepage')
+
+
+class License(RootModel[str]):
+    root: str = Field(..., max_length=200, title='License')
+
+
+class Package(RootModel[str]):
+    root: str = Field(..., max_length=200, title='Package')
+
+
+class Readme(RootModel[str]):
+    root: str = Field(..., max_length=262144, title='Readme')
+
+
+class Tags(RootModel[list[str]]):
+    root: list[str] = Field(..., max_length=20, title='Tags')
+
+
+class Title(RootModel[str]):
+    root: str = Field(..., max_length=500, title='Title')
+
+
+class Version(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Version')
+
+
+class EnvironmentRun(BaseModel):
+    """
+    A run that used the environment: which version, for what.
+    """
+
+    project: dict[str, Any] | None = Field(None, title='Project')
+    roles: list[str] | None = Field(None, title='Roles')
+    run: dict[str, Any] = Field(..., title='Run')
+    version: str = Field(..., title='Version')
+
+
+class Eval(RootModel[int]):
+    root: int = Field(..., ge=0, title='Eval')
+
+
+class Train(RootModel[int]):
+    root: int = Field(..., ge=0, title='Train')
+
+
+class EnvironmentTasks(BaseModel):
+    """
+    How many tasks each part holds: `train` (learned from) and `eval` (held out). None = not known.
+    """
+
+    eval: Eval | None = Field(None, title='Eval')
+    train: Train | None = Field(None, title='Train')
+
+
+class EnvironmentVersion(BaseModel):
+    created: bool | None = Field(None, title='Created')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    description: str | None = Field(None, title='Description')
+    has_readme: bool | None = Field(False, title='Has Readme')
+    homepage: str | None = Field(None, title='Homepage')
+    id: UUID = Field(..., title='Id')
+    license: str | None = Field(None, title='License')
+    name: str = Field(..., title='Name')
+    package: str | None = Field(None, title='Package')
+    provider: str = Field(..., title='Provider')
+    ref: str = Field(..., title='Ref')
+    runs_using: int | None = Field(0, title='Runs Using')
+    tags: list[str] | None = Field(None, title='Tags')
+    tasks: EnvironmentTasks
+    title: str | None = Field(None, title='Title')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    version: str = Field(..., title='Version')
+
+
+class EpisodeGroup(BaseModel):
+    """
+    One pile of the chosen grouping: its key (`minibugs@0.1.0`, '' for none) and how many rows it holds.
+    """
+
+    count: int = Field(..., title='Count')
+    key: str = Field(..., title='Key')
+
+
+class EpisodeLink(BaseModel):
+    """
+    `GET /v1/runs/{id}/episodes/find`: the episode an old rollout, trial or sample link opens (R5).
+    """
+
+    episode_key: str = Field(..., title='Episode Key')
+    sample_id: UUID = Field(..., title='Sample Id')
+    step: int | None = Field(None, title='Step')
+
+
+class EpisodeReward(BaseModel):
+    """
+    An episode's reward: its trained rollouts' (an episode with none trained, such as an eval, scores them all);
+    several = their mean and the best.
+    """
+
+    best: float | None = Field(None, title='Best')
+    count: int | None = Field(0, title='Count')
+    mean: float | None = Field(None, title='Mean')
 
 
 class EventOut(BaseModel):
@@ -3136,6 +3339,15 @@ class KeyDropView(BaseModel):
     status: KeyDropStatus
 
 
+class KeyMetric(BaseModel):
+    """
+    One pinned metric: the `{kind, key}` selector a saved list stores.
+    """
+
+    key: str = Field(..., title='Key')
+    kind: str = Field(..., title='Kind')
+
+
 class Keys(RootModel[list[str]]):
     root: list[str] = Field(..., max_length=200, title='Keys')
 
@@ -3447,6 +3659,10 @@ class Name4(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
+class ResultTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Result Tokens')
+
+
 class ToolCallId(RootModel[str]):
     root: str = Field(..., max_length=256, title='Tool Call Id')
 
@@ -3466,7 +3682,7 @@ class MessageToolCall(BaseModel):
     name: str = Field(..., max_length=256, title='Name')
 
 
-class Kind2(RootModel[str]):
+class Kind3(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Kind')
 
 
@@ -3478,7 +3694,7 @@ class MetricComparison(BaseModel):
         None, title='Dimensions'
     )
     key: str = Field(..., max_length=200, min_length=1, title='Key')
-    kind: Kind2 | None = Field(None, title='Kind')
+    kind: Kind3 | None = Field(None, title='Kind')
     op: Op = Field(..., title='Op')
     value: float = Field(..., title='Value')
 
@@ -4161,13 +4377,13 @@ class Position(RootModel[int]):
     root: int = Field(..., ge=0, le=1000, title='Position')
 
 
-class Title(RootModel[str]):
+class Title1(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Title')
 
 
 class PaneRef(BaseModel):
     """
-    An agent-written pane; its row says whether it sits on the project or an experiment.
+    An agent-written pane; its row says whether it sits on the project, an experiment or a run.
     """
 
     model_config = ConfigDict(
@@ -4360,6 +4576,10 @@ class DiscrepanciesMd(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Discrepancies Md')
 
 
+class Relevance(RootModel[str]):
+    root: str = Field(..., max_length=200, title='Relevance')
+
+
 class RepoUrl(RootModel[str]):
     root: str = Field(..., max_length=2048, title='Repo Url')
 
@@ -4368,7 +4588,7 @@ class SummaryMd(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Summary Md')
 
 
-class Title1(RootModel[str]):
+class Title2(RootModel[str]):
     root: str = Field(..., max_length=500, min_length=1, title='Title')
 
 
@@ -4388,6 +4608,7 @@ class PaperListOut(BaseModel):
     id: UUID = Field(..., title='Id')
     lineage_state: str | None = Field(None, title='Lineage State')
     project_id: UUID = Field(..., title='Project Id')
+    relevance: str | None = Field(None, title='Relevance')
     repo_url: str | None = Field(None, title='Repo Url')
     source_url: str | None = Field(None, title='Source Url')
     summary_md: str | None = Field(None, title='Summary Md')
@@ -4420,6 +4641,7 @@ class PaperOut(BaseModel):
     id: UUID = Field(..., title='Id')
     lineage_state: str | None = Field(None, title='Lineage State')
     project_id: UUID = Field(..., title='Project Id')
+    relevance: str | None = Field(None, title='Relevance')
     repo_url: str | None = Field(None, title='Repo Url')
     session_total: int | None = Field(0, title='Session Total')
     source_url: str | None = Field(None, title='Source Url')
@@ -4462,12 +4684,13 @@ class PaperPatch(BaseModel):
     authors: Authors | None = Field(None, title='Authors')
     discrepancies_md: DiscrepanciesMd | None = Field(None, title='Discrepancies Md')
     document: str | None = Field(None, title='Document')
+    relevance: Relevance | None = Field(None, title='Relevance')
     repo_url: RepoUrl | None = Field(None, title='Repo Url')
     source_url: SourceUrl | None = Field(None, title='Source Url')
     summary_markdown: str | None = Field(None, title='Summary Markdown')
     summary_md: SummaryMd | None = Field(None, title='Summary Md')
     tags: list[str] | None = Field(None, title='Tags')
-    title: Title1 | None = Field(None, title='Title')
+    title: Title2 | None = Field(None, title='Title')
 
 
 class PaperRelatesToIn(BaseModel):
@@ -4872,7 +5095,7 @@ class ProjectContributorOut(BaseModel):
     via_project_id: UUID | None = Field(None, title='Via Project Id')
 
 
-class Description1(RootModel[str]):
+class Description2(RootModel[str]):
     root: str = Field(..., max_length=2000, title='Description')
 
 
@@ -5413,7 +5636,7 @@ class ProjectPatch(BaseModel):
 
     authored_by: Authorship | None = None
     base_version: int | None = Field(None, title='Base Version')
-    description: Description1 | None = Field(None, title='Description')
+    description: Description2 | None = Field(None, title='Description')
     document: Document2 | None = Field(None, title='Document')
     expected_document: ExpectedDocument1 | None = Field(None, title='Expected Document')
     expected_summary_markdown: str | None = Field(
@@ -5517,37 +5740,16 @@ class ProjectUsage(BaseModel):
     project_id: UUID = Field(..., title='Project Id')
 
 
-class ProjectWorkspaceRunsOut(BaseModel):
+class ProjectWorkspaceExperimentMatchOut(BaseModel):
     """
-    The ids of the runs in scope, newest first, one page at a time.
-
-    A page is at most `series_cap` ids -- the number one `POST /v1/series/query`
-    (or `/series/latest`) accepts -- so a page can be charted in one request.
-    `total` says how many exist, so "showing 50 of 838" is exact.
+    An experiment the run search shows: its name matches, or it holds a matching run.
     """
 
-    ids: list[UUID] = Field(
-        ..., description='Run ids, newest first by `created_at`, then id.', title='Ids'
-    )
-    limit: int = Field(..., title='Limit')
-    next_offset: int | None = Field(
+    experiment_id: UUID = Field(..., title='Experiment Id')
+    run_count: int = Field(
         ...,
-        description='Pass as `runs_offset` for the next page; null on the last page.',
-        title='Next Offset',
-    )
-    offset: int = Field(..., title='Offset')
-    rl_ids: list[UUID] | None = Field(
-        None,
-        description='The ids of this page that open the RL workspace (an `rl` run with rollouts or captured samples), in `ids` order, so a page can open one without reading its bundle first.',
-        title='Rl Ids',
-    )
-    series_cap: int | None = Field(
-        50,
-        description='The most run ids one series request accepts; `limit` never exceeds it.',
-        title='Series Cap',
-    )
-    total: int = Field(
-        ..., description='Every run in scope the caller can see.', title='Total'
+        description='How many of its runs match `runs_query` (and `runs_alive`): all of them when its shown name matches.',
+        title='Run Count',
     )
 
 
@@ -5671,6 +5873,7 @@ class PublicExperimentDetailOut(BaseModel):
     created_at: AwareDatetime = Field(..., title='Created At')
     description: str | None = Field(None, title='Description')
     document: str | None = Field(None, title='Document')
+    has_published_note: bool | None = Field(False, title='Has Published Note')
     hierarchy: list[HierarchyPathSegment] | None = Field(None, title='Hierarchy')
     id: UUID = Field(..., title='Id')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
@@ -5686,6 +5889,32 @@ class PublicExperimentDetailOut(BaseModel):
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
     updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class PublicExperimentMatchOut(BaseModel):
+    """
+    A shared experiment the run search shows: its shown name matches, or it holds a matching run.
+    """
+
+    experiment_id: UUID = Field(..., title='Experiment Id')
+    run_count: int = Field(
+        ...,
+        description='How many of its runs match `query` (and `alive`): all of them when its shown name matches.',
+        title='Run Count',
+    )
+
+
+class PublicExperimentMatchesOut(BaseModel):
+    """
+    `GET /public/v1/{projects|experiments}/{id}/experiment-matches` (T7f): the private workspace read's
+    `experiment_matches`, over only what the publication serves.
+    """
+
+    experiment_matches: list[PublicExperimentMatchOut] = Field(
+        ...,
+        description="Every shared experiment the search shows, in the public experiments list's order (newest first), each with how many of its runs match. Empty for a blank `query`.",
+        title='Experiment Matches',
+    )
 
 
 class PublicExperimentOut(BaseModel):
@@ -5869,6 +6098,22 @@ class PublicPaperOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
+class PublicProjectDetailOut(BaseModel):
+    contributor_names: list[str | None] | None = Field(None, title='Contributor Names')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    description: str | None = Field(None, title='Description')
+    document: str | None = Field(None, title='Document')
+    has_published_note: bool | None = Field(False, title='Has Published Note')
+    hierarchy: list[HierarchyPathSegment] | None = Field(None, title='Hierarchy')
+    id: UUID = Field(..., title='Id')
+    kind: str | None = Field('general', title='Kind')
+    metadata: dict[str, Any] | None = Field(None, title='Metadata')
+    name: str = Field(..., title='Name')
+    owner_name: str | None = Field(None, title='Owner Name')
+    slug: str = Field(..., title='Slug')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
 class PublicProjectOut(BaseModel):
     contributor_names: list[str | None] | None = Field(None, title='Contributor Names')
     created_at: AwareDatetime = Field(..., title='Created At')
@@ -6030,9 +6275,20 @@ class Tables(RootModel[list[str]]):
     root: list[str] = Field(..., max_length=30, min_length=1, title='Tables')
 
 
+class QueueReportAck(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    canceled: int = Field(..., title='Canceled')
+    linked: int = Field(..., title='Linked')
+    pending: int = Field(..., title='Pending')
+    skipped: int | None = Field(0, title='Skipped')
+
+
 class RLViews(BaseModel):
     """
-    What an rl run's Rollouts tab, Compute timeline and Trials tab can draw; all false for any other run.
+    What a run's samples view, Rollouts tab, Compute timeline and Trials tab can draw. A run that is not `rl`
+    has only `captured_samples`.
     """
 
     captured_samples: bool | None = Field(False, title='Captured Samples')
@@ -6146,6 +6402,27 @@ class RevokeRequest(BaseModel):
     reason: DisconnectReason | None = 'unspecified'
 
 
+class RolloutActivity(BaseModel):
+    """
+    The Details pane's activity counts.
+    """
+
+    branches: int | None = Field(1, title='Branches')
+    tool_calls: int | None = Field(0, title='Tool Calls')
+    tool_errors: int | None = Field(0, title='Tool Errors')
+    turns: int | None = Field(0, title='Turns')
+
+
+class RolloutUsage(BaseModel):
+    """
+    Tokens over every branch.
+    """
+
+    prompt_tokens: int | None = Field(None, title='Prompt Tokens')
+    response_tokens: int | None = Field(None, title='Response Tokens')
+    total_tokens: int | None = Field(None, title='Total Tokens')
+
+
 class Approximate(RootModel[str]):
     root: str = Field(..., max_length=512, min_length=1, title='Approximate')
 
@@ -6255,6 +6532,10 @@ class LivenessProtocol(RootModel[LivenessProtocolEnum | None]):
 
 class Name13(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
+
+
+class TotalSteps(RootModel[int]):
+    root: int = Field(..., ge=1, le=9007199254740991, title='Total Steps')
 
 
 class RunEditOut(BaseModel):
@@ -6387,6 +6668,11 @@ class RunInputsWriteOut(BaseModel):
     truncated: bool | None = Field(False, title='Truncated')
 
 
+class RunKeyMetricsOut(BaseModel):
+    key_metrics: list[KeyMetric] = Field(..., title='Key Metrics')
+    run_id: UUID = Field(..., title='Run Id')
+
+
 class RunLogOut(BaseModel):
     """
     `GET /v1/runs/{id}/logs`: a window of one stream of one attempt, from the saved file when it
@@ -6501,7 +6787,7 @@ class ProjectId(RootModel[str]):
     )
 
 
-class Version(RootModel[int]):
+class Version1(RootModel[int]):
     root: int = Field(..., ge=0, title='Version')
 
 
@@ -6516,7 +6802,7 @@ class RunRef(BaseModel):
     )
     run_id: UUID = Field(..., title='Run Id')
     step: Step | None = Field(None, title='Step')
-    version: Version | None = Field(None, title='Version')
+    version: Version1 | None = Field(None, title='Version')
 
 
 class ExpectedWriteEpoch(RootModel[int]):
@@ -6622,6 +6908,18 @@ class RunWriterGoneOut(BaseModel):
     status: str = Field(..., title='Status')
 
 
+class RunsKeyMetricsOut(BaseModel):
+    """
+    One entry per visible run asked for; a run the caller cannot see is left out.
+    """
+
+    runs: list[RunKeyMetricsOut] = Field(..., title='Runs')
+
+
+class RunsKeyMetricsRequest(BaseModel):
+    run_ids: list[UUID] = Field(..., max_length=50, min_length=1, title='Run Ids')
+
+
 class SampleBatchOut(BaseModel):
     """
     201, once applied: `unchanged` parts were already stored by an earlier delivery (a retry).
@@ -6646,7 +6944,7 @@ class Detail(RootModel[str]):
     root: str = Field(..., max_length=1024, title='Detail')
 
 
-class Turn(RootModel[int]):
+class Turn1(RootModel[int]):
     root: int = Field(..., ge=0, title='Turn')
 
 
@@ -6746,6 +7044,30 @@ class TrainerRank(RootModel[int]):
 
 class TurnCount(RootModel[int]):
     root: int = Field(..., ge=0, title='Turn Count')
+
+
+class Agent1(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Agent')
+
+
+class EnvironmentName(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Environment Name')
+
+
+class EnvironmentVersion1(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Environment Version')
+
+
+class EpisodeKey(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Episode Key')
+
+
+class ParentBranch(RootModel[int]):
+    root: int = Field(..., ge=0, title='Parent Branch')
+
+
+class ParentTurn(RootModel[int]):
+    root: int = Field(..., ge=0, title='Parent Turn')
 
 
 class SealStep(RootModel[int]):
@@ -6969,7 +7291,7 @@ class ScopedUploadRequest(BaseModel):
     size_bytes: SizeBytes7 | None = Field(None, title='Size Bytes')
 
 
-class Version1(RootModel[str]):
+class Version2(RootModel[str]):
     root: str = Field(..., max_length=256, title='Version')
 
 
@@ -7355,6 +7677,24 @@ class SessionMessageAckIn(BaseModel):
     state: AckState
 
 
+class SessionMessageConsentIn(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    accept: bool = Field(..., title='Accept')
+
+
+class SessionMessageConsentsOut(BaseModel):
+    """
+    Whom the caller accepts messages from into their own agent sessions. `org_directives`: the
+    team's admins let Probe compute direct every member's agent about GPU jobs (their consent stands
+    in for each person's; the Probe hook then adds its standing line).
+    """
+
+    compute: bool = Field(..., title='Compute')
+    org_directives: bool | None = Field(False, title='Org Directives')
+
+
 class SessionMessageIn(BaseModel):
     """
     A message for the session's agent: plain text, at most 2,000 characters.
@@ -7371,6 +7711,7 @@ class SessionMessageOut(BaseModel):
     One message as its sender sees it.
     """
 
+    about: str | None = Field(None, title='About')
     acked_at: AwareDatetime | None = Field(None, title='Acked At')
     body: str = Field(..., title='Body')
     created_at: AwareDatetime = Field(..., title='Created At')
@@ -7386,13 +7727,19 @@ class SessionMessageOut(BaseModel):
 
 class SessionMessageSenderOut(BaseModel):
     """
-    Who the agent is told sent it. `kind` comes from the credential (A26);
-    `session_title` names the sending agent session only when the same person
-    owns it.
+    Who the agent is told sent it. `kind` comes from the credential (A26), or is
+    `compute` for Probe compute's own message (experiment); `session_title` names the
+    sending agent session only when the same person owns it; `about`, compute only,
+    is the GPU job it is about, as the server wrote it.
     """
 
+    about: str | None = Field(None, title='About')
+    directive: bool | None = Field(False, title='Directive')
+    directive_id: UUID | None = Field(None, title='Directive Id')
+    for_admins: bool | None = Field(False, title='For Admins')
     kind: SenderKind
     name: str = Field(..., title='Name')
+    override: str | None = Field(None, title='Override')
     session_title: str | None = Field(None, title='Session Title')
 
 
@@ -7401,6 +7748,7 @@ class SessionMessageSentOut(BaseModel):
     The send's answer: the message, and whether a daemon is listening.
     """
 
+    about: str | None = Field(None, title='About')
     acked_at: AwareDatetime | None = Field(None, title='Acked At')
     body: str = Field(..., title='Body')
     created_at: AwareDatetime = Field(..., title='Created At')
@@ -7464,6 +7812,7 @@ class SessionTranscriptOut(BaseModel):
     body_size_bytes: int = Field(..., ge=0, title='Body Size Bytes')
     chunk_count: int = Field(..., ge=0, title='Chunk Count')
     content: str = Field(..., title='Content')
+    day_marks: list[DayMark] | None = Field(None, title='Day Marks')
     session_id: str = Field(..., title='Session Id')
     title: str | None = Field(None, title='Title')
 
@@ -7559,19 +7908,11 @@ class Citation(RootModel[str]):
     root: str = Field(..., max_length=4000, title='Citation')
 
 
-class Description3(RootModel[str]):
+class Description4(RootModel[str]):
     root: str = Field(..., max_length=4000, title='Description')
 
 
-class Homepage(RootModel[str]):
-    root: str = Field(..., max_length=2048, title='Homepage')
-
-
-class License(RootModel[str]):
-    root: str = Field(..., max_length=200, title='License')
-
-
-class Title3(RootModel[str]):
+class Title4(RootModel[str]):
     root: str = Field(..., max_length=500, title='Title')
 
 
@@ -7832,7 +8173,7 @@ class SubNoteOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class Body(RootModel[str]):
+class Body1(RootModel[str]):
     root: str = Field(..., max_length=150000, title='Body')
 
 
@@ -7840,7 +8181,7 @@ class BodyAppend(RootModel[str]):
     root: str = Field(..., max_length=150000, title='Body Append')
 
 
-class Title4(RootModel[str]):
+class Title5(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Title')
 
 
@@ -7853,12 +8194,12 @@ class SubNotePatch(BaseModel):
     """
 
     base_version: int | None = Field(None, title='Base Version')
-    body: Body | None = Field(None, title='Body')
+    body: Body1 | None = Field(None, title='Body')
     body_append: BodyAppend | None = Field(None, title='Body Append')
     body_edit: NotesEdit | None = None
     force: bool | None = Field(False, title='Force')
     op_key: OpKey | None = Field(None, title='Op Key')
-    title: Title4 | None = Field(None, title='Title')
+    title: Title5 | None = Field(None, title='Title')
 
 
 class SubNoteTitleWrite(BaseModel):
@@ -7871,7 +8212,7 @@ class SubNoteTitleWrite(BaseModel):
     """
 
     base_version: int | None = Field(None, title='Base Version')
-    body: Body | None = Field(None, title='Body')
+    body: Body1 | None = Field(None, title='Body')
     body_append: BodyAppend | None = Field(None, title='Body Append')
     body_edit: NotesEdit | None = None
     force: bool | None = Field(False, title='Force')
@@ -8066,7 +8407,7 @@ class TaskIn(BaseModel):
     """
 
     dataset: DatasetRow | None = None
-    description: Description3 | None = Field(None, title='Description')
+    description: Description4 | None = Field(None, title='Description')
     label: Any = None
     name: Name17 | None = Field(None, title='Name')
     prompt: str | None = Field(None, title='Prompt')
@@ -8231,7 +8572,7 @@ class TeamNoteParagraph(BaseModel):
     text: str = Field(..., max_length=8192, min_length=1, title='Text')
 
 
-class Version2(RootModel[int]):
+class Version3(RootModel[int]):
     root: int = Field(..., ge=0, title='Version')
 
 
@@ -8246,7 +8587,7 @@ class TeamNoteReplace(BaseModel):
     """
 
     body: str = Field(..., max_length=150000, title='Body')
-    version: Version2 | None = Field(None, title='Version')
+    version: Version3 | None = Field(None, title='Version')
 
 
 class TeamNoteSpan(BaseModel):
@@ -8431,6 +8772,21 @@ class ToolCall(BaseModel):
     type: Literal['function'] = Field('function', title='Type')
 
 
+class Description7(RootModel[str]):
+    root: str = Field(..., max_length=4096, title='Description')
+
+
+class ToolDefinition(BaseModel):
+    """
+    One tool the model was offered (OpenAI's function shape, flattened): its name, what it does, and its
+    arguments' JSON schema.
+    """
+
+    description: Description7 | None = Field(None, title='Description')
+    name: str = Field(..., max_length=256, title='Name')
+    parameters: dict[str, Any] | None = Field(None, title='Parameters')
+
+
 class ToolMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
     role: Literal['tool'] = Field(..., title='Role')
@@ -8469,7 +8825,7 @@ class TrashCountOut(BaseModel):
     runs: int = Field(..., title='Runs')
 
 
-class Kind3(RootModel[str]):
+class Kind4(RootModel[str]):
     root: str = Field(..., max_length=32, title='Kind')
 
 
@@ -8487,7 +8843,7 @@ class TrialFile(BaseModel):
     """
 
     artifact_id: UUID = Field(..., title='Artifact Id')
-    kind: Kind3 | None = Field(None, title='Kind')
+    kind: Kind4 | None = Field(None, title='Kind')
     path: str = Field(..., max_length=1024, title='Path')
     role: str = Field(..., max_length=64, title='Role')
     sha256: Sha256 | None = Field(None, title='Sha256')
@@ -8542,7 +8898,7 @@ class TrialOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class Description6(RootModel[str]):
+class Description8(RootModel[str]):
     root: str = Field(..., max_length=2000, title='Description')
 
 
@@ -8570,7 +8926,7 @@ class TrialPatch(BaseModel):
     a training run's own scale.
     """
 
-    description: Description6 | None = Field(None, title='Description')
+    description: Description8 | None = Field(None, title='Description')
     name: Name20 | None = Field(None, title='Name')
 
 
@@ -8588,6 +8944,15 @@ class TurnToolCall(BaseModel):
     id: Id | None = Field(None, title='Id')
     is_ok: bool | None = Field(None, title='Is Ok')
     name: str = Field(..., max_length=256, title='Name')
+
+
+class TurnUsage(BaseModel):
+    """
+    The tokens of the turn's own model call, as the framework counted them; a count it did not give is None.
+    """
+
+    prompt_tokens: PromptTokens | None = Field(None, title='Prompt Tokens')
+    response_tokens: ResponseTokens | None = Field(None, title='Response Tokens')
 
 
 class UnresolvedReference(BaseModel):
@@ -10129,9 +10494,32 @@ class DatasetRegisterOut(BaseModel):
     version: VersionRefOut
 
 
+class DecisionAboutOut(BaseModel):
+    """
+    The experiment or run `about` named, resolved.
+    """
+
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+    type: DecisionTargetType
+
+
 class DecisionActor(BaseModel):
     kind: DecisionActorKind
     name: str = Field(..., title='Name')
+
+
+class DecisionFiltersOut(BaseModel):
+    """
+    The filters a list used, echoed so a client can tell an older server (which ignores them).
+    """
+
+    about: DecisionAboutOut | None
+    include_experiments: bool = Field(..., title='Include Experiments')
+    since: AwareDatetime | None = Field(..., title='Since')
+    team: bool = Field(..., title='Team')
+    until: AwareDatetime | None = Field(..., title='Until')
+    words: list[str] = Field(..., title='Words')
 
 
 class DecisionTarget(BaseModel):
@@ -10428,6 +10816,24 @@ class EntitySearchResult(BaseModel):
     status: str | None = Field(None, title='Status')
 
 
+class EnvironmentIn(BaseModel):
+    """
+    `POST /v1/environments`.
+    """
+
+    description: Description | None = Field(None, title='Description')
+    homepage: Homepage | None = Field(None, title='Homepage')
+    license: License | None = Field(None, title='License')
+    name: str = Field(..., max_length=257, min_length=1, title='Name')
+    package: Package | None = Field(None, title='Package')
+    provider: SourceProvider
+    readme: Readme | None = Field(None, title='Readme')
+    tags: Tags | None = Field(None, title='Tags')
+    tasks: EnvironmentTasks | None = None
+    title: Title | None = Field(None, title='Title')
+    version: Version | None = Field(None, title='Version')
+
+
 class EnvironmentLink(BaseModel):
     """
     The attempt's captured environment: the Harbor trial span and its files (sandbox, verifier, logs), with the
@@ -10438,6 +10844,97 @@ class EnvironmentLink(BaseModel):
     logs: list[TrialFile] | None = Field(None, max_length=256, title='Logs')
     outputs: list[TrialFile] | None = Field(None, max_length=256, title='Outputs')
     span_id: UUID | None = Field(None, title='Span Id')
+
+
+class EnvironmentOut(BaseModel):
+    """
+    One environment version, as every environment read names it.
+    """
+
+    created: bool | None = Field(None, title='Created')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    description: str | None = Field(None, title='Description')
+    has_readme: bool | None = Field(False, title='Has Readme')
+    homepage: str | None = Field(None, title='Homepage')
+    id: UUID = Field(..., title='Id')
+    license: str | None = Field(None, title='License')
+    name: str = Field(..., title='Name')
+    package: str | None = Field(None, title='Package')
+    provider: str = Field(..., title='Provider')
+    ref: str = Field(..., title='Ref')
+    tags: list[str] | None = Field(None, title='Tags')
+    tasks: EnvironmentTasks
+    title: str | None = Field(None, title='Title')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    version: str = Field(..., title='Version')
+
+
+class EnvironmentPage(BaseModel):
+    """
+    `GET /v1/catalog/environments/{name}`: the version asked for (else the latest) and the rest.
+    """
+
+    environment: EnvironmentOut
+    latest: str = Field(..., title='Latest')
+    name: str = Field(..., title='Name')
+    readme: str | None = Field(None, title='Readme')
+    runs: list[EnvironmentRun] = Field(..., title='Runs')
+    runs_truncated: bool | None = Field(False, title='Runs Truncated')
+    versions: list[EnvironmentVersion] = Field(..., title='Versions')
+
+
+class EnvironmentRow(BaseModel):
+    """
+    A row of the Environments list: the newest version, plus what the row says of every version.
+    """
+
+    created: bool | None = Field(None, title='Created')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    description: str | None = Field(None, title='Description')
+    has_readme: bool | None = Field(False, title='Has Readme')
+    homepage: str | None = Field(None, title='Homepage')
+    id: UUID = Field(..., title='Id')
+    last_updated_at: AwareDatetime = Field(..., title='Last Updated At')
+    license: str | None = Field(None, title='License')
+    name: str = Field(..., title='Name')
+    package: str | None = Field(None, title='Package')
+    provider: str = Field(..., title='Provider')
+    ref: str = Field(..., title='Ref')
+    runs_using: int | None = Field(0, title='Runs Using')
+    tags: list[str] | None = Field(None, title='Tags')
+    tasks: EnvironmentTasks
+    title: str | None = Field(None, title='Title')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    version: str = Field(..., title='Version')
+    version_count: int | None = Field(1, title='Version Count')
+
+
+class EpisodeRow(BaseModel):
+    """
+    One row of the Episodes tab: the drawn columns, then the Display popover's extras.
+    """
+
+    branches: int | None = Field(1, title='Branches')
+    created_at: AwareDatetime | None = Field(None, title='Created At')
+    duration_s: float | None = Field(None, title='Duration S')
+    environment_name: str | None = Field(None, title='Environment Name')
+    environment_version: str | None = Field(None, title='Environment Version')
+    episode_key: str = Field(..., title='Episode Key')
+    group_key: str | None = Field(None, title='Group Key')
+    number: int = Field(..., title='Number')
+    reason: str | None = Field(None, title='Reason')
+    reward: EpisodeReward
+    rollouts: int = Field(..., title='Rollouts')
+    split: SampleSplit
+    state: EpisodeState
+    status: EpisodeStatus
+    step: int | None = Field(None, title='Step')
+    task_id: UUID = Field(..., title='Task Id')
+    task_key: str = Field(..., title='Task Key')
+    tokens: int | None = Field(None, title='Tokens')
+    try_count: int | None = Field(None, title='Try Count')
+    try_number: int | None = Field(None, title='Try Number')
+    turns: int | None = Field(None, title='Turns')
 
 
 class ExactHit(BaseModel):
@@ -10642,7 +11139,7 @@ class ExperimentInheritedOut(BaseModel):
     """
 
     items: list[InheritedFileOut] | list[InheritedRunOut] = Field(..., title='Items')
-    kind: Kind1 = Field(..., title='Kind')
+    kind: Kind2 = Field(..., title='Kind')
     next_after: UUID | None = Field(
         None,
         description='Pass as `after` for the next page; null on the last page.',
@@ -11320,6 +11817,7 @@ class Message(BaseModel):
     is_trainable: bool | None = Field(False, title='Is Trainable')
     name: Name4 | None = Field(None, title='Name')
     reasoning: str | None = Field(None, title='Reasoning')
+    result_tokens: ResultTokens | None = Field(None, title='Result Tokens')
     role: str = Field(..., max_length=64, title='Role')
     source: MessageSource
     tool_call_id: ToolCallId | None = Field(None, title='Tool Call Id')
@@ -11794,7 +12292,7 @@ class PickScopeOut(BaseModel):
 
 class PinAnchor(BaseModel):
     """
-    Where a view lives: the project, or one of its experiments.
+    Where a view lives: the project, one of its experiments, or one of its runs (that run's page).
     """
 
     model_config = ConfigDict(
@@ -11819,7 +12317,7 @@ class PointKeyOut(BaseModel):
 
 class ProjectCreate(BaseModel):
     authored_by: Authorship | None = None
-    description: Description1 | None = Field(None, title='Description')
+    description: Description2 | None = Field(None, title='Description')
     document: Document | None = Field(None, title='Document')
     kind: ProjectKind
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
@@ -12009,10 +12507,12 @@ class PublicRunDetailOut(BaseModel):
     config: dict[str, Any] | None = Field(None, title='Config')
     counts: RunCounts | None = None
     created_at: AwareDatetime = Field(..., title='Created At')
+    current_step: int | None = Field(None, title='Current Step')
     description: str | None = Field(None, title='Description')
     ended_at: AwareDatetime | None = Field(None, title='Ended At')
     experiment_id: UUID | None = Field(None, title='Experiment Id')
     group_id: UUID | None = Field(None, title='Group Id')
+    has_published_note: bool | None = Field(False, title='Has Published Note')
     id: UUID = Field(..., title='Id')
     labeled_point_budget: int | None = Field(None, title='Labeled Point Budget')
     labeled_point_count: int | None = Field(0, title='Labeled Point Count')
@@ -12033,6 +12533,7 @@ class PublicRunDetailOut(BaseModel):
     )
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -12070,6 +12571,7 @@ class PublicRunLineageNodeOut(BaseModel):
     )
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -12077,6 +12579,7 @@ class PublicRunOut(BaseModel):
     alive: bool | None = Field(False, title='Alive')
     config: dict[str, Any] | None = Field(None, title='Config')
     created_at: AwareDatetime = Field(..., title='Created At')
+    current_step: int | None = Field(None, title='Current Step')
     description: str | None = Field(None, title='Description')
     ended_at: AwareDatetime | None = Field(None, title='Ended At')
     experiment_id: UUID | None = Field(None, title='Experiment Id')
@@ -12101,6 +12604,7 @@ class PublicRunOut(BaseModel):
     )
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -12218,6 +12722,50 @@ class ResolvedMetricOut(BaseModel):
     )
 
 
+class RolloutResult(BaseModel):
+    """
+    Why it ended as it did: the failure reason, the error, the Harbor trial's files (its outputs: the files after;
+    the task's own files, before, are in `GET /v1/runs/{id}/tasks/{task_id}`) and its test output (verifier logs).
+    """
+
+    error_message: str | None = Field(None, title='Error Message')
+    error_reason: str | None = Field(None, title='Error Reason')
+    failure_reason: str | None = Field(None, title='Failure Reason')
+    files: EnvironmentLink | None = None
+    log_tail: str | None = Field(None, title='Log Tail')
+    test_output: list[TrialFile] | None = Field(None, title='Test Output')
+
+
+class RolloutRow(BaseModel):
+    """
+    One rollout, for the `recent_rollouts` grouping (newest first, not piled into episodes).
+    """
+
+    agent: str | None = Field(None, title='Agent')
+    attempt_key: str = Field(..., title='Attempt Key')
+    branches: int | None = Field(1, title='Branches')
+    created_at: AwareDatetime | None = Field(None, title='Created At')
+    duration_s: float | None = Field(None, title='Duration S')
+    environment_name: str | None = Field(None, title='Environment Name')
+    environment_version: str | None = Field(None, title='Environment Version')
+    episode_key: str = Field(..., title='Episode Key')
+    group_key: str | None = Field(None, title='Group Key')
+    is_trained: bool | None = Field(None, title='Is Trained')
+    number: int = Field(..., title='Number')
+    reason: str | None = Field(None, title='Reason')
+    reward: float | None = Field(None, title='Reward')
+    split: SampleSplit
+    state: EpisodeState
+    status: EpisodeStatus
+    step: int | None = Field(None, title='Step')
+    task_id: UUID = Field(..., title='Task Id')
+    task_key: str = Field(..., title='Task Key')
+    tokens: int | None = Field(None, title='Tokens')
+    try_count: int | None = Field(None, title='Try Count')
+    try_number: int | None = Field(None, title='Try Number')
+    turns: int | None = Field(None, title='Turns')
+
+
 class Rollup(BaseModel):
     """
     How the framework computes the run-level series of one per-sample key (or every key a `*` pattern matches).
@@ -12266,10 +12814,9 @@ class RunCodeOut(BaseModel):
 
 class RunDetailOut(BaseModel):
     """
-    One run as the read routes serve it: every `RunOut` field plus the read-only
-    ones. `slug` is the readable name the dashboard displays; `created_by`, `env_ref`,
-    `foreign_keys` (ids from other systems) and an `updated_at` that follows the
-    run's activity are served here; so is `project_id`, the run's owning project.
+    One run as the read routes serve it: every `RunOut` field plus the read-only ones. `slug` is the readable
+    name the dashboard displays; `created_by`, `env_ref`, `foreign_keys` (ids from other systems), an `updated_at`
+    that follows the run's activity and `project_id`, the run's owning project, are served here.
     """
 
     alive: bool | None = Field(False, title='Alive')
@@ -12278,6 +12825,7 @@ class RunDetailOut(BaseModel):
     counts: RunCounts | None = None
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(None, title='Created By')
+    current_step: int | None = Field(None, title='Current Step')
     customer_id: str = Field(..., title='Customer Id')
     description: str | None = Field(None, title='Description')
     description_customized: bool | None = Field(False, title='Description Customized')
@@ -12321,6 +12869,7 @@ class RunDetailOut(BaseModel):
     )
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
     write_epoch: int | None = Field(1, title='Write Epoch')
 
@@ -12413,6 +12962,7 @@ class RunLineageNodeOut(BaseModel):
     counts: RunCounts | None = None
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(None, title='Created By')
+    current_step: int | None = Field(None, title='Current Step')
     customer_id: str = Field(..., title='Customer Id')
     depth: int = Field(..., ge=1, title='Depth')
     description: str | None = Field(None, title='Description')
@@ -12458,6 +13008,7 @@ class RunLineageNodeOut(BaseModel):
     )
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
     write_epoch: int | None = Field(1, title='Write Epoch')
 
@@ -12473,6 +13024,7 @@ class RunListLightOut(BaseModel):
     attached_at: AwareDatetime | None = Field(None, title='Attached At')
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(None, title='Created By')
+    current_step: int | None = Field(None, title='Current Step')
     ended_at: AwareDatetime | None = Field(None, title='Ended At')
     experiment_id: UUID | None = Field(..., title='Experiment Id')
     group_id: UUID | None = Field(None, title='Group Id')
@@ -12491,6 +13043,7 @@ class RunListLightOut(BaseModel):
     started_at: AwareDatetime | None = Field(None, title='Started At')
     status: RunStatus
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -12503,6 +13056,7 @@ class RunListLightRowOut(BaseModel):
     attached_at: AwareDatetime | None = Field(None, title='Attached At')
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(None, title='Created By')
+    current_step: int | None = Field(None, title='Current Step')
     ended_at: AwareDatetime | None = Field(None, title='Ended At')
     experiment_id: UUID | None = Field(..., title='Experiment Id')
     group_id: UUID | None = Field(None, title='Group Id')
@@ -12526,6 +13080,7 @@ class RunListLightRowOut(BaseModel):
     started_at: AwareDatetime | None = Field(None, title='Started At')
     status: RunStatus
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -12540,6 +13095,7 @@ class RunListRowOut(BaseModel):
     counts: RunCounts | None = None
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(None, title='Created By')
+    current_step: int | None = Field(None, title='Current Step')
     customer_id: str = Field(..., title='Customer Id')
     description: str | None = Field(None, title='Description')
     description_customized: bool | None = Field(False, title='Description Customized')
@@ -12588,6 +13144,7 @@ class RunListRowOut(BaseModel):
     )
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
     write_epoch: int | None = Field(1, title='Write Epoch')
 
@@ -12662,6 +13219,7 @@ class RunPatch(BaseModel):
     summary_markdown: str | None = Field(None, title='Summary Markdown')
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: TotalSteps | None = Field(None, title='Total Steps')
     write_epoch: WriteEpoch | None = Field(None, title='Write Epoch')
 
 
@@ -12752,7 +13310,7 @@ class SampleEvent(BaseModel):
     at: AwareDatetime = Field(..., title='At')
     detail: Detail | None = Field(None, title='Detail')
     kind: SampleEventKind
-    turn: Turn | None = Field(None, title='Turn')
+    turn: Turn1 | None = Field(None, title='Turn')
     weight_version: WeightVersion | None = Field(None, title='Weight Version')
 
 
@@ -12877,7 +13435,7 @@ class SampleSummary(BaseModel):
     engine: Engine | None = Field(None, title='Engine')
     error_message: ErrorMessage | None = Field(None, title='Error Message')
     error_reason: SampleErrorReason | None = None
-    finish_reason: FinishReason1 | None = None
+    finish_reason: FinishReasonModel | None = None
     generated_by: list[Generation] | None = Field(None, title='Generated By')
     group_key: GroupKey | None = Field(None, title='Group Key')
     host: Host4 | None = Field(None, title='Host')
@@ -12963,7 +13521,7 @@ class Scorer(BaseModel):
         None, title='Model'
     )
     name: str = Field(..., max_length=256, min_length=1, title='Name')
-    version: Version1 | None = Field(None, title='Version')
+    version: Version2 | None = Field(None, title='Version')
 
 
 class SearchRequest(BaseModel):
@@ -13064,6 +13622,7 @@ class SessionMessageForDaemonOut(BaseModel):
 
 class SessionMessagesOut(BaseModel):
     messages: list[SessionMessageForDaemonOut] = Field(..., title='Messages')
+    org_directives: bool | None = Field(None, title='Org Directives')
     revoked: list[UUID] | None = Field([], title='Revoked')
 
 
@@ -13083,13 +13642,13 @@ class SourceIn(BaseModel):
     """
 
     citation: Citation | None = Field(None, title='Citation')
-    description: Description3 | None = Field(None, title='Description')
+    description: Description4 | None = Field(None, title='Description')
     homepage: Homepage | None = Field(None, title='Homepage')
     kind: SourceKind | None = None
     license: License | None = Field(None, title='License')
     retrieved_at: AwareDatetime | None = Field(None, title='Retrieved At')
     revision: Revision | None = Field(None, title='Revision')
-    title: Title3 | None = Field(None, title='Title')
+    title: Title4 | None = Field(None, title='Title')
     uri: str = Field(..., max_length=2048, min_length=1, title='Uri')
 
 
@@ -13184,7 +13743,7 @@ class TaskDetail(BaseModel):
     """
 
     dataset: DatasetRow | None = None
-    description: Description3 | None = Field(None, title='Description')
+    description: Description4 | None = Field(None, title='Description')
     files: list[Artifact] | None = Field(None, title='Files')
     label: Any = None
     name: Name17 | None = Field(None, title='Name')
@@ -13258,10 +13817,11 @@ class TrainingPlan(BaseModel):
     )
 
 
-class TurnModel(BaseModel):
+class Turn(BaseModel):
     messages: list[Message] | None = Field(None, title='Messages')
     reward: float | None = Field(None, title='Reward')
     tool_calls: list[TurnToolCall] | None = Field(None, title='Tool Calls')
+    usage: TurnUsage | None = None
 
 
 class UpdateIn(BaseModel):
@@ -13908,9 +14468,11 @@ class Decision(BaseModel):
     decided_by: DecisionActor
     detail: str = Field(..., title='Detail')
     experiment_id: UUID | None = Field(..., title='Experiment Id')
+    experiment_name: str | None = Field(..., title='Experiment Name')
     follows: UUID | None = Field(..., title='Follows')
     id: UUID = Field(..., title='Id')
     project_id: UUID = Field(..., title='Project Id')
+    project_name: str = Field(..., title='Project Name')
     rejected: str | None = Field(..., title='Rejected')
     session: DecisionSession | None
     targets: list[DecisionTarget] = Field(..., title='Targets')
@@ -13939,7 +14501,9 @@ class DecisionCreate(BaseModel):
 
 
 class DecisionListOut(BaseModel):
+    applied: DecisionFiltersOut | None
     decisions: list[Decision] = Field(..., title='Decisions')
+    next_cursor: str | None = Field(..., title='Next Cursor')
 
 
 class DesktopProfile(BaseModel):
@@ -13972,6 +14536,46 @@ class EntitySearchResponse(BaseModel):
     results: list[EntitySearchResult] | None = Field(None, title='Results')
     state: SearchState
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class EnvironmentListOut(BaseModel):
+    items: list[EnvironmentRow] = Field(..., title='Items')
+    next_cursor: str | None = Field(None, title='Next Cursor')
+
+
+class EpisodeList(BaseModel):
+    """
+    `GET /v1/runs/{id}/episodes`: one step's episodes and the step bar's facts.
+    """
+
+    episodes: list[EpisodeRow] | None = Field(None, title='Episodes')
+    group_by: EpisodeGrouping | None = 'episode'
+    groups: list[EpisodeGroup] | None = Field(None, title='Groups')
+    is_truncated: bool | None = Field(False, title='Is Truncated')
+    latest_step: int | None = Field(None, title='Latest Step')
+    next_cursor: str | None = Field(None, title='Next Cursor')
+    rollouts: list[RolloutRow] | None = Field(None, title='Rollouts')
+    step: int | None = Field(None, title='Step')
+    steps: list[int] | None = Field(None, title='Steps')
+
+
+class EpisodeTurn(BaseModel):
+    """
+    One turn as the transcript and timeline read it. Times come from the rollout's events naming the turn; tokens
+    from its own model call (`Turn.usage`), else the branch's counts when this turn was its only model call, else
+    None (never a guess).
+    """
+
+    duration_s: float | None = Field(None, title='Duration S')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    index: int = Field(..., title='Index')
+    prompt_tokens: int | None = Field(None, title='Prompt Tokens')
+    response_tokens: int | None = Field(None, title='Response Tokens')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    state: TurnState
+    tool_calls: int | None = Field(0, title='Tool Calls')
+    tool_errors: int | None = Field(0, title='Tool Errors')
+    turn: Turn
 
 
 class Example(BaseModel):
@@ -14288,7 +14892,7 @@ class PanePut(BaseModel):
     position: Position | None = Field(None, title='Position')
     preview: PanePreviewMode | None = None
     recipe: PaneRecipe
-    title: Title | None = Field(None, title='Title')
+    title: Title1 | None = Field(None, title='Title')
 
 
 class PaneSaved(BaseModel):
@@ -14320,6 +14924,7 @@ class PaperCreate(BaseModel):
     discrepancies_md: DiscrepanciesMd | None = Field(None, title='Discrepancies Md')
     lineage: PaperLineageIn | None = None
     relates_to: PaperRelatesToIn | None = None
+    relevance: Relevance | None = Field(None, title='Relevance')
     repo_url: RepoUrl | None = Field(None, title='Repo Url')
     source_url: str = Field(
         ...,
@@ -14330,7 +14935,7 @@ class PaperCreate(BaseModel):
     )
     summary_md: SummaryMd | None = Field(None, title='Summary Md')
     tags: list[str] | None = Field(None, title='Tags')
-    title: Title1 | None = Field(None, title='Title')
+    title: Title2 | None = Field(None, title='Title')
 
 
 class ParallelCoordinatesRef(BaseModel):
@@ -14361,7 +14966,8 @@ class PinIn(BaseModel):
 class PinOut(BaseModel):
     """
     One pin: its ref and ref key, and `anchor`, where the view lives (a pane pin's is its
-    pane's project or experiment, so a client can read the pane without asking again).
+    pane's project, experiment or run, so a client can read the pane without asking again). A pin
+    anchored to a run is that run's page's, never the project's Pinned area.
     `pane_slug` is a pane pin's slug: `GET /v1/projects/{anchor.id}/panes/{pane_slug}` reads it.
     """
 
@@ -14690,59 +15296,46 @@ class ProjectSharingOut(BaseModel):
     publication: PublicAccessOut | None = None
 
 
-class ProjectWorkspaceOut(BaseModel):
+class ProjectWorkspaceRunsOut(BaseModel):
     """
-    The workspace read: everything a project page needs to draw one
-    scope (the project, one of its experiments, or one run), in one read.
+    The ids of the runs in scope, in `runs_order` (newest first by default), one page at a time.
 
-    The scope selects the runs, the question, the summary and the files; the
-    experiment list is always the whole project's, so a rail can show every
-    experiment whatever is selected.
+    A page is at most `series_cap` ids -- the number one `POST /v1/series/query`
+    (or `/series/latest`) accepts -- so a page can be charted in one request.
+    `total` says how many exist, so "showing 50 of 838" is exact.
     """
 
-    conclusion: str | None = Field(
+    details: list[RunDetailOut] | None = Field(
         None,
-        description="The experiment's conclusion, for an experiment scope that has one; otherwise null.",
-        title='Conclusion',
+        description="With `include_run_details=true`: this page's runs as `GET /v1/runs` rows, so one read draws a page. Keyed by `id`, in `ids` order: a run deleted between the page and this read has no row, so join by `id`, not by position. Omitted otherwise.",
+        title='Details',
     )
-    conclusion_by: str | None = Field(
+    ids: list[UUID] = Field(
+        ...,
+        description='Run ids in `runs_order`: newest first by `created_at`, then id, by default.',
+        title='Ids',
+    )
+    limit: int = Field(..., title='Limit')
+    next_offset: int | None = Field(
+        ...,
+        description='Pass as `runs_offset` for the next page; null on the last page.',
+        title='Next Offset',
+    )
+    offset: int = Field(..., title='Offset')
+    rl_ids: list[UUID] | None = Field(
         None,
-        description="The writer of `conclusion` (see the experiment's `conclusion_by`).",
-        title='Conclusion By',
+        description='The ids of this page that open the RL workspace (an `rl` run with rollouts or captured samples), in `ids` order, so a page can open one without reading its bundle first.',
+        title='Rl Ids',
     )
-    conclusion_source: FieldSource | None = Field(
-        None,
-        description="Who wrote `conclusion` (see the experiment's `conclusion_source`).",
+    series_cap: int | None = Field(
+        50,
+        description='The most run ids one series request accepts; `limit` never exceeds it.',
+        title='Series Cap',
     )
-    experiments: ProjectExperimentListOut | None = Field(
+    total: int = Field(
         ...,
-        description="The project's experiments with run counts, newest first by `created_at`: the first page of `GET /v1/projects/{project_id}/experiments` (500), whatever the scope. Null when the request passed `include_experiments=false`.",
-    )
-    files: ArtifactTreeLevel = Field(
-        ...,
-        description="The root level of the scope's Files tree. Project: the project's own files (an experiment's files are not in it). Experiment: that experiment's files. Run: the run's files. Expand a folder with the scope's tree route and `prefix` (see the route description).",
-    )
-    project_id: UUID = Field(..., title='Project Id')
-    question: str | None = Field(
-        ...,
-        description="The experiment's question, for an experiment scope; otherwise null.",
-        title='Question',
-    )
-    runs: ProjectWorkspaceRunsOut = Field(
-        ...,
-        description="Runs in scope. Project: every run filed under the project, its experiments' included. Experiment: that experiment's runs. Run: just the run.",
-    )
-    scope: AppExperimentsReadSchemasScopeOut = Field(
-        ..., description='The resolved scope, inside `project_id`.'
-    )
-    summary: ProjectWorkspaceSummaryOut | None = Field(
-        ...,
-        description="The scope's overview page status: the project's for a project scope, the experiment's for an experiment scope. Null for a run scope (a run has no overview page).",
-    )
-    writable: bool = Field(
-        ...,
-        description='Whether the caller may edit this project, and so every experiment and run in it.',
-        title='Writable',
+        description='Every run in scope the caller can see that matches `runs_query`, `runs_direct` and `runs_alive`.',
+        title='Total',
     )
 
 
@@ -14770,6 +15363,7 @@ class PublicRunBundle(BaseModel):
     chart_settings: list[ChartSettingsOut] | None = Field(None, title='Chart Settings')
     child_run_ids: list[UUID] | None = Field(None, title='Child Run Ids')
     hierarchy: list[HierarchyPathSegment] | None = Field(None, title='Hierarchy')
+    key_metrics: list[KeyMetric] | None = Field(None, title='Key Metrics')
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     rl_views: RLViews | None = None
     run: PublicRunDetailOut
@@ -14818,8 +15412,10 @@ class RunBundle(BaseModel):
     chart_settings: list[ChartSettingsOut] | None = Field(None, title='Chart Settings')
     child_run_ids: list[UUID] | None = Field(None, title='Child Run Ids')
     hierarchy: list[HierarchyPathSegment] | None = Field(None, title='Hierarchy')
+    key_metrics: list[KeyMetric] | None = Field(None, title='Key Metrics')
     mirror: MirrorBlock | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    pins: list[PinOut] | None = Field(None, title='Pins')
     rl_views: RLViews | None = None
     run: RunDetailOut
     series: list[MetricSeriesOut] = Field(..., title='Series')
@@ -14872,6 +15468,7 @@ class RunCreate(BaseModel):
     started_at: AwareDatetime | None = Field(None, title='Started At')
     summary_markdown: str | None = Field(None, title='Summary Markdown')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: TotalSteps | None = Field(None, title='Total Steps')
     writer: WriterLeaseIn | None = None
 
 
@@ -14919,6 +15516,7 @@ class RunPageDetailOut(BaseModel):
     counts: RunCounts | None = None
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(None, title='Created By')
+    current_step: int | None = Field(None, title='Current Step')
     customer_id: str = Field(..., title='Customer Id')
     description: str | None = Field(None, title='Description')
     description_customized: bool | None = Field(False, title='Description Customized')
@@ -14966,6 +15564,7 @@ class RunPageDetailOut(BaseModel):
     )
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
+    total_steps: int | None = Field(None, title='Total Steps')
     updated_at: AwareDatetime = Field(..., title='Updated At')
     write_epoch: int | None = Field(1, title='Write Epoch')
 
@@ -15042,7 +15641,7 @@ class SampleOut(BaseModel):
     events: list[SampleEvent] | None = Field(None, max_length=256, title='Events')
     extras: dict[str, Any] | None = Field(None, title='Extras')
     failure_reason: FailureReason | None = Field(None, title='Failure Reason')
-    finish_reason: FinishReason1 | None = None
+    finish_reason: FinishReasonModel | None = None
     generated_by: list[Generation] | None = Field(None, title='Generated By')
     group_id: UUID | None = Field(None, title='Group Id')
     group_key: GroupKey | None = Field(None, title='Group Key')
@@ -15091,11 +15690,12 @@ class SampleOut(BaseModel):
     token_stats: TokenStats | None = None
     tokens: BundleRef | None = None
     tool_call_count: ToolCallCount | None = Field(None, title='Tool Call Count')
+    tools: list[ToolDefinition] | None = Field(None, title='Tools')
     trace_span_id: UUID | None = Field(None, title='Trace Span Id')
     trainer_rank: TrainerRank | None = Field(None, title='Trainer Rank')
     trainer_tokens: BundleRef | None = None
     turn_count: TurnCount | None = Field(None, title='Turn Count')
-    turns: list[TurnModel] | None = Field(None, title='Turns')
+    turns: list[Turn] | None = Field(None, title='Turns')
     turns_blob: BlobRef | None = None
     turns_source: TurnsSource | None = None
     worker: Worker | None = Field(None, title='Worker')
@@ -15107,8 +15707,10 @@ class SamplePartIn(BaseModel):
     One part on the wire. The server derives the sample id from `key` and the batch's write epoch.
     """
 
+    agent: Agent1 | None = Field(None, title='Agent')
     attempt_key: AttemptKey | None = Field(None, title='Attempt Key')
     attempt_kind: AttemptKind | None = None
+    branch_started_by: BranchCause | None = None
     consumed_step: ConsumedStep | None = Field(None, title='Consumed Step')
     consumed_until_step: ConsumedUntilStep | None = Field(
         None, title='Consumed Until Step'
@@ -15120,18 +15722,24 @@ class SamplePartIn(BaseModel):
     engine: Engine | None = Field(None, title='Engine')
     engine_stats: EngineStats | None = None
     environment: EnvironmentLink | None = None
+    environment_name: EnvironmentName | None = Field(None, title='Environment Name')
     environment_type: EnvironmentType | None = Field(None, title='Environment Type')
+    environment_version: EnvironmentVersion1 | None = Field(
+        None, title='Environment Version'
+    )
+    episode_key: EpisodeKey | None = Field(None, title='Episode Key')
     error_message: ErrorMessage | None = Field(None, title='Error Message')
     error_reason: SampleErrorReason | None = None
     events: list[SampleEvent] | None = Field(None, max_length=256, title='Events')
     extras: dict[str, Any] | None = Field(None, title='Extras')
     failure_reason: FailureReason | None = Field(None, title='Failure Reason')
-    finish_reason: FinishReason1 | None = None
+    finish_reason: FinishReasonModel | None = None
     generated_by: list[Generation] | None = Field(None, title='Generated By')
     group_key: GroupKey | None = Field(None, title='Group Key')
     heartbeat_at: AwareDatetime | None = Field(None, title='Heartbeat At')
     host: Host4 | None = Field(None, title='Host')
     is_misaligned: bool | None = Field(None, title='Is Misaligned')
+    is_trained: bool | None = Field(None, title='Is Trained')
     key: str = Field(..., max_length=512, min_length=1, title='Key')
     last_command_at: AwareDatetime | None = Field(None, title='Last Command At')
     log: BundleRef | None = None
@@ -15139,6 +15747,8 @@ class SamplePartIn(BaseModel):
     metrics: dict[str, float] | None = Field(None, title='Metrics')
     normalized_reward: float | None = Field(None, title='Normalized Reward')
     occurrence: Occurrence | None = Field(None, title='Occurrence')
+    parent_branch: ParentBranch | None = Field(None, title='Parent Branch')
+    parent_turn: ParentTurn | None = Field(None, title='Parent Turn')
     progress: AttemptProgress | None = None
     prompt_tokens: PromptTokens | None = Field(None, title='Prompt Tokens')
     response: str | None = Field(None, title='Response')
@@ -15165,11 +15775,12 @@ class SamplePartIn(BaseModel):
     token_stats: TokenStats | None = None
     tokens: BundleRef | None = None
     tool_call_count: ToolCallCount | None = Field(None, title='Tool Call Count')
+    tools: list[ToolDefinition] | None = Field(None, title='Tools')
     trace_span_id: UUID | None = Field(None, title='Trace Span Id')
     trainer_rank: TrainerRank | None = Field(None, title='Trainer Rank')
     trainer_tokens: BundleRef | None = None
     turn_count: TurnCount | None = Field(None, title='Turn Count')
-    turns: list[TurnModel] | None = Field(None, title='Turns')
+    turns: list[Turn] | None = Field(None, title='Turns')
     turns_blob: BlobRef | None = None
     turns_source: TurnsSource | None = None
     worker: Worker | None = Field(None, title='Worker')
@@ -15368,10 +15979,62 @@ class BranchesOut(BaseModel):
     )
 
 
+class EpisodeBranch(BaseModel):
+    """
+    One branch: a sample row of the rollout (`segment` i of n), what started it and its turns. A conversation
+    stored as a blob has no turns here: `turns_blob` names it (`GET /v1/samples/{sample_id}` reads it).
+    """
+
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    finish_reason: FinishReasonModel | None = None
+    index: int = Field(..., title='Index')
+    key: str = Field(..., title='Key')
+    parent_branch: int | None = Field(None, title='Parent Branch')
+    parent_turn: int | None = Field(None, title='Parent Turn')
+    prompt_tokens: int | None = Field(None, title='Prompt Tokens')
+    response_tokens: int | None = Field(None, title='Response Tokens')
+    sample_id: UUID = Field(..., title='Sample Id')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    started_by: BranchCause | None = None
+    tools: list[ToolDefinition] | None = Field(None, title='Tools')
+    turn_count: int | None = Field(None, title='Turn Count')
+    turns: list[EpisodeTurn] | None = Field(None, title='Turns')
+    turns_blob: BlobRef | None = None
+    turns_source: TurnsSource | None = None
+
+
+class EpisodeRollout(BaseModel):
+    """
+    One agent's attempt in the play, with its Details (D20): reward and its parts, activity, usage, state, and the
+    JSON the script and environment wrote (`timing`, `metrics`, `extras`).
+    """
+
+    activity: RolloutActivity
+    agent: str | None = Field(None, title='Agent')
+    attempt_key: str = Field(..., title='Attempt Key')
+    branches: list[EpisodeBranch] | None = Field(None, title='Branches')
+    duration_s: float | None = Field(None, title='Duration S')
+    extras: dict[str, Any] | None = Field(None, title='Extras')
+    is_trained: bool | None = Field(None, title='Is Trained')
+    metrics: dict[str, float] | None = Field(None, title='Metrics')
+    normalized_reward: float | None = Field(None, title='Normalized Reward')
+    outcome: SampleOutcome
+    reason: str | None = Field(None, title='Reason')
+    result: RolloutResult
+    reward: float | None = Field(None, title='Reward')
+    reward_parts: dict[str, float] | None = Field(None, title='Reward Parts')
+    scored_by: list[Scorer] | None = Field(None, title='Scored By')
+    state: EpisodeState
+    status: EpisodeStatus
+    timing: Timing | None = None
+    trace_span_id: UUID | None = Field(None, title='Trace Span Id')
+    usage: RolloutUsage
+
+
 class PinList(BaseModel):
     """
-    `GET /v1/projects/{id}/pins`: the pins the project shows, oldest first (at most
-    `MAX_LISTED_PINS`).
+    `GET /v1/projects/{id}/pins`: the pins the project page shows (or, with `run_id`, that run's
+    page), oldest first (at most `MAX_LISTED_PINS`).
     """
 
     pins: list[PinOut] = Field(..., title='Pins')
@@ -15390,6 +16053,67 @@ class PointsCapture(BaseModel):
     run_id: UUID = Field(..., title='Run Id')
     steps: list[StepCapture] | None = Field(None, title='Steps')
     tolerance: float | None = Field(1e-05, title='Tolerance')
+
+
+class ProjectWorkspaceOut(BaseModel):
+    """
+    The workspace read: everything a project page needs to draw one
+    scope (the project, one of its experiments, or one run), in one read.
+
+    The scope selects the runs, the question, the summary and the files; the
+    experiment list is always the whole project's, so a rail can show every
+    experiment whatever is selected.
+    """
+
+    conclusion: str | None = Field(
+        None,
+        description="The experiment's conclusion, for an experiment scope that has one; otherwise null.",
+        title='Conclusion',
+    )
+    conclusion_by: str | None = Field(
+        None,
+        description="The writer of `conclusion` (see the experiment's `conclusion_by`).",
+        title='Conclusion By',
+    )
+    conclusion_source: FieldSource | None = Field(
+        None,
+        description="Who wrote `conclusion` (see the experiment's `conclusion_source`).",
+    )
+    experiment_matches: list[ProjectWorkspaceExperimentMatchOut] | None = Field(
+        None,
+        description='With `runs_query` and the experiment list: every experiment of the project the search shows (the shown name matches, or one of its runs does), newest first as the list pages them, each with how many of its runs match (with `runs_alive`, live ones only). Not only the 500 `experiments` holds: a match past its first page is named too. Whatever the scope; `runs_direct` does not narrow it. Omitted otherwise.',
+        title='Experiment Matches',
+    )
+    experiments: ProjectExperimentListOut | None = Field(
+        ...,
+        description="The project's experiments with run counts, newest first by `created_at`: the first page of `GET /v1/projects/{project_id}/experiments` (500), whatever the scope. Null when the request passed `include_experiments=false`.",
+    )
+    files: ArtifactTreeLevel = Field(
+        ...,
+        description="The root level of the scope's Files tree. Project: the project's own files (an experiment's files are not in it). Experiment: that experiment's files. Run: the run's files. Expand a folder with the scope's tree route and `prefix` (see the route description).",
+    )
+    project_id: UUID = Field(..., title='Project Id')
+    question: str | None = Field(
+        ...,
+        description="The experiment's question, for an experiment scope; otherwise null.",
+        title='Question',
+    )
+    runs: ProjectWorkspaceRunsOut = Field(
+        ...,
+        description="Runs in scope. Project: every run filed under the project, its experiments' included. Experiment: that experiment's runs. Run: just the run.",
+    )
+    scope: AppExperimentsReadSchemasScopeOut = Field(
+        ..., description='The resolved scope, inside `project_id`.'
+    )
+    summary: ProjectWorkspaceSummaryOut | None = Field(
+        ...,
+        description="The scope's overview page status: the project's for a project scope, the experiment's for an experiment scope. Null for a run scope (a run has no overview page).",
+    )
+    writable: bool = Field(
+        ...,
+        description='Whether the caller may edit this project, and so every experiment and run in it.',
+        title='Writable',
+    )
 
 
 class PublicScopeData(BaseModel):
@@ -15488,6 +16212,31 @@ class SessionListOut(BaseModel):
     query_note: str | None = Field(None, title='Query Note')
     sessions: list[SessionRowOut] | None = Field(None, title='Sessions')
     unowned_count: int | None = Field(None, title='Unowned Count')
+
+
+class EpisodeDetail(BaseModel):
+    """
+    `GET /v1/runs/{id}/episodes/{key}`: one episode whole, its rollouts in creation order.
+    """
+
+    created_at: AwareDatetime | None = Field(None, title='Created At')
+    environment_name: str | None = Field(None, title='Environment Name')
+    environment_version: str | None = Field(None, title='Environment Version')
+    episode_key: str = Field(..., title='Episode Key')
+    group_key: str | None = Field(None, title='Group Key')
+    number: int = Field(..., title='Number')
+    reason: str | None = Field(None, title='Reason')
+    reward: EpisodeReward
+    rollouts: list[EpisodeRollout] | None = Field(None, title='Rollouts')
+    run_id: UUID = Field(..., title='Run Id')
+    split: SampleSplit
+    state: EpisodeState
+    status: EpisodeStatus
+    step: int | None = Field(None, title='Step')
+    task_id: UUID = Field(..., title='Task Id')
+    task_key: str = Field(..., title='Task Key')
+    try_count: int | None = Field(None, title='Try Count')
+    try_number: int | None = Field(None, title='Try Number')
 
 
 class BinaryNode(BaseModel):

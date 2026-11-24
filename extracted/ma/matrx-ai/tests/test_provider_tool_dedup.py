@@ -137,6 +137,20 @@ def test_external_mcp_name_is_serialized_instead_of_dropped(monkeypatch) -> None
     assert declaration["function"]["name"] == "mcp__docker-hub__listRepositoryTags"
 
 
+def test_a_name_past_the_limit_is_declared_never_dropped(monkeypatch) -> None:
+    from matrx_ai.config.wire_names import is_wire_safe, to_wire_name
+
+    long_name = "mcp.calendly.event_types-update_event_type_availability_schedule"
+    monkeypatch.setattr(
+        ToolRegistry,
+        "get_provider_tools",
+        lambda self, names, provider: [{"name": names[0], "description": "d", "input_schema": {}}],
+    )
+    declared = _Translator().build_provider_tools(_config([long_name], []), "anthropic")
+    assert [d["name"] for d in declared] == [to_wire_name(long_name)]
+    assert is_wire_safe(declared[0]["name"])
+
+
 def test_unserializable_drop_creates_structured_capture(monkeypatch) -> None:
     captured = []
 
@@ -153,7 +167,7 @@ def test_unserializable_drop_creates_structured_capture(monkeypatch) -> None:
     )
 
     async def exercise() -> None:
-        assert _Translator().build_provider_tools(_config(["x" * 65], []), "anthropic") == []
+        assert _Translator().build_provider_tools(_config(["not a wire name!"], []), "anthropic") == []
         await asyncio.sleep(0)
 
     asyncio.run(exercise())

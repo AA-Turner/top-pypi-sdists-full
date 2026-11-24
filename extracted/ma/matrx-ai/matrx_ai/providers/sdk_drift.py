@@ -36,6 +36,7 @@ exactly once, not once per request.
 
 from __future__ import annotations
 
+import importlib
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -53,6 +54,17 @@ _DECLARED_CACHE: dict[Any, frozenset[str] | None] = {}
 _ANNOUNCED: set[str] = set()
 
 ISSUE_KEY = "provider.sdk_signature_drift"
+
+
+def resolve_sdk_object(path: str) -> Any:
+    """Import ``"module:Attr.attr"`` and return the object. The one place a provider SDK
+    is reached by a computed name, so host code (aidream's wire-validity check) never
+    does its own dynamic provider import."""
+    module, _, attr = path.rpartition(":")
+    obj: Any = importlib.import_module(module)
+    for part in attr.split("."):
+        obj = getattr(obj, part)
+    return obj
 
 
 def _underlying(fn: Callable[..., Any]) -> Any:
@@ -174,6 +186,7 @@ def route_undeclared_params(
     provider: str,
     model: Any = None,
     snapshot: bool = False,
+    body_extras_expected: bool = False,
 ) -> dict[str, Any]:
     """Return ``request`` made safe for ``fn(**...)`` against the INSTALLED SDK
     signature, voicing every change. Never mutates the caller's dict.
@@ -184,9 +197,13 @@ def route_undeclared_params(
     after every translator, send-boundary and grammar-ladder rewrite, so the
     snapshot IS what was sent (defect 30, 2026-10-17: Anthropic's snapshot was
     taken before the grammar ladder appended the answer contract to ``system``).
+
+    ``body_extras_expected=True`` is for a provider reached through ANOTHER
+    vendor's SDK (Together on ``AsyncOpenAI``): its own fields are never declared
+    there, so extra_body is the normal road and there is no drift to voice.
     """
     plan = plan_sdk_kwargs(fn, request)
-    if plan.changed:
+    if plan.changed and not (body_extras_expected and not plan.dropped):
         _voice(plan, fn, provider=provider, model=model or request.get("model") or "?")
     if snapshot:
         from matrx_ai.providers.snapshot import recapture_final_payload

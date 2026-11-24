@@ -53,6 +53,7 @@ class _Row:
     organization_id: str | None = None
     parent_file_id: str | None = None
     derivation_kind: str | None = None
+    current_version: int | None = None
 
 
 class _FakeDB:
@@ -90,6 +91,7 @@ def _row_to_dict(row: _Row) -> dict:
         "shown_to": row.shown_to,
         "metadata": row.metadata,
         "organization_id": row.organization_id,
+        "current_version": row.current_version,
     }
 
 
@@ -140,7 +142,10 @@ class _FakeSyncEngine:
         metadata: dict | None = None,
         parent_file_id: str | None = None,
         derivation_kind: str | None = None,
+        pathway: str | None = None,
     ) -> SyncResult:
+        # Every variant names its declared automated pathway (placement registry § 4.2a).
+        assert pathway == "files.variant", pathway
         owner = user_id or "test-owner"
         self.write_calls.append((file_path, len(content), mime_type))
         existing = self._db.by_owner_path.get((owner, file_path))
@@ -264,6 +269,7 @@ async def test_render_variant_invokes_injected_encoder_on_miss(fm_with_master) -
         "derived_from": master_id,
         "variant_family": "vision",
         "variant_key": "anthropic_opus_hires",
+        "master_version": 1,
     }
 
 
@@ -581,3 +587,52 @@ async def test_variant_of_plain_file_gets_no_phantom_tags(fm_with_master) -> Non
     assert "system_artifact" not in md
     assert "artifact_domain" not in md
     assert "organization_id" not in md  # fixture master carries no org
+
+
+@pytest.mark.asyncio
+async def test_a_master_replaced_in_place_never_serves_its_old_variant(fm_with_master) -> None:
+    """AND-IMG17 #1: a variant is of the master's CURRENT version. A master replaced in place (version 2)
+    gets a variant of its new bytes, at its own path and id; the version-1 variant is never served for it."""
+    fm, master_id, master_bytes = fm_with_master
+    seen: list[bytes] = []
+
+    def _enc(master: bytes, key: str) -> tuple[bytes, str]:
+        seen.append(master)
+        return master[:8] + key.encode(), "image/jpeg"
+
+    register_variant_encoder("vision", _enc)
+    first = await render_variant_async(fm, master_id, variant_key="anthropic_sonnet_default")
+    assert first["metadata"]["master_version"] == 1
+
+    se = fm.sync_engine
+    master = se._db.by_id[master_id]
+    new_bytes = b"\x89PNG-new-version"
+    se._storage[master.storage_uri] = new_bytes
+    master.current_version = 2
+
+    second = await render_variant_async(fm, master_id, variant_key="anthropic_sonnet_default")
+    assert seen == [master_bytes, new_bytes], "the old variant was served for the master's new bytes"
+    assert second["file_id"] != first["file_id"]
+    assert second["metadata"]["master_version"] == 2
+    assert ".v2." in second["file_path"]
+
+    again = await render_variant_async(fm, master_id, variant_key="anthropic_sonnet_default")
+    assert again["file_id"] == second["file_id"] and len(seen) == 2, "the current variant is reused"
+
+
+@pytest.mark.asyncio
+async def test_a_variant_from_before_versions_were_recorded_still_serves_version_one(fm_with_master) -> None:
+    fm, master_id, _ = fm_with_master
+    calls: list[str] = []
+
+    def _enc(master: bytes, key: str) -> tuple[bytes, str]:
+        calls.append(key)
+        return b"V", "image/jpeg"
+
+    register_variant_encoder("vision", _enc)
+    first = await render_variant_async(fm, master_id, variant_key="openai_original")
+    row = fm.sync_engine._db.by_id[first["file_id"]]
+    row.metadata = {k: v for k, v in row.metadata.items() if k != "master_version"}  # a pre-version row
+    again = await render_variant_async(fm, master_id, variant_key="openai_original")
+    assert again["file_id"] == first["file_id"] and calls == ["openai_original"]
+    assert variant_file_path("a/m.jpg", "k", "jpg", "M") == "a/v/M/k.jpg", "version 1 keeps its name"

@@ -6,6 +6,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from packaging.markers import Marker
+from packaging.pylock import (
+    Package,
+    PackageDirectory,
+    Pylock,
+)
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from nab_project._lockfile import validate
 from nab_project._lockfile.validate import (
@@ -14,16 +24,6 @@ from nab_project._lockfile.validate import (
     check_envelope,
 )
 from nab_project.lockfile import LockDisqualification, RootRequirement
-from nab_provider._vendor.packaging.markers import Marker
-from nab_provider._vendor.packaging.pylock import (
-    Package,
-    PackageDirectory,
-    Pylock,
-)
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
 
@@ -445,6 +445,31 @@ def test_direct_pin_with_version_skips_version_check() -> None:
     committed = pylock_of(directory_pin("foo", "1.0"))
     assert (
         check_direct_requirements(committed, [root("foo>=2.0")], marker_env=LINUX_ENV)
+        is None
+    )
+
+
+@pytest.mark.parametrize("local_first", [True, False])
+@pytest.mark.parametrize("local_version", [None, "2"])
+def test_mixed_sources_have_no_single_index_version(
+    *, local_first: bool, local_version: str | None
+) -> None:
+    local = Package(
+        name=canonicalize_name("foo"),
+        version=Version(local_version) if local_version else None,
+        directory=PackageDirectory(path="./foo"),
+        marker=Marker('sys_platform == "linux"'),
+    )
+    index = marked_pin("foo", "1", 'sys_platform == "darwin"')
+    rows = (local, index) if local_first else (index, local)
+    committed = pylock_of(*rows)
+
+    assert (
+        check_direct_requirements(committed, [root("foo>=2")], marker_env=LINUX_ENV)
+        is None
+    )
+    assert (
+        check_constraints(committed, [Requirement("foo>=2")], marker_env=LINUX_ENV)
         is None
     )
 

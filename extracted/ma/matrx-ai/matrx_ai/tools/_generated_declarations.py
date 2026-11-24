@@ -16,10 +16,12 @@ from __future__ import annotations
 import importlib
 from typing import Any, Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, JsonValue
 
 from matrx_ai.tools.arg_models import (
+    AdvancedReadArgs,
     CloudFileArgs,
+    CompareArgs,
     ContextArgs,
     ContextPatchArgs,
     DesktopAppsArgs,
@@ -35,10 +37,15 @@ from matrx_ai.tools.arg_models import (
     DesktopInputArgs,
     DesktopLocationArgs,
     DesktopMailArgs,
-    DesktopOutlookArgs,
     DesktopMessagesArgs,
     DesktopNetArgs,
     DesktopNotesArgs,
+    DesktopStackArgs,
+    CodingSessionsDriveArgs,
+    CodingSessionsReadArgs,
+    DesktopActionNeededArgs,
+    DesktopOutlookArgs,
+    DesktopSemanticFindArgs,
     DesktopPhotosArgs,
     DesktopPowerArgs,
     DesktopProcessArgs,
@@ -61,17 +68,15 @@ from matrx_ai.tools.arg_models import (
     MemoryArgs,
     NoteArgs,
     PickListArgs,
+    ProjectArgs,
     RagSearchArgs,
     SeoArgs,
     ShellExecuteArgs,
     ShellJobArgs,
     ShellPythonArgs,
-    AdvancedReadArgs,
-    CompareArgs,
     SiteDataArgs,
     SkillArgs,
     SqlArgs,
-    TableArgs,
     TaskArgs,
     TextAnalyzeArgs,
     WebArgs,
@@ -118,10 +123,6 @@ class CodeFetchTreeArgs(ToolArgs):
     project_root: str
     subdirectory: str = Field(default="")
     show_all_directories: bool = Field(default=False)
-
-
-class CodeStoreHtmlArgs(ToolArgs):
-    html_input: str
 
 
 # context (get|batch|create) + context_patch wire models are the discriminated
@@ -214,6 +215,11 @@ class LoadChromeToolsArgs(ToolArgs):
         "devtools",
         "webmcp",
         "desktop",
+        "credentials",
+        "crm",
+        "education",
+        "productivity",
+        "records",
     ]
 
 
@@ -225,7 +231,6 @@ class LoadDesktopToolsArgs(ToolArgs):
     # parameters.category.enum.
     category: Literal[
         "desktop",
-        "desktop-web",
     ]
 
 
@@ -330,6 +335,10 @@ class ResearchWebArgs(ToolArgs):
     freshness: Literal["pd", "pm", "pw", "py"] | None = Field(default=None)
     instructions: str
     research_depth: Literal["deep", "medium", "shallow", "very_deep"] = Field(default="medium")
+    # Per-call result size (2026-11-17). Code lands first; the matching `tool.definition.parameters`
+    # entries are declared AFTER this deploys (the order the note below this class requires).
+    listings: Literal["none", "compact", "full"] | None = Field(default=None)
+    page_char_counts: bool | None = Field(default=None)
 
 
 class TextRegexExtractArgs(ToolArgs):
@@ -342,9 +351,9 @@ class TextRegexExtractArgs(ToolArgs):
 class KindCreateArgs(ToolArgs):
     name: str
     label: str
-    json_schema: dict | None = Field(default=None)
-    sample_data: dict | None = Field(default=None)
-    canonical_example: dict | None = Field(default=None)
+    json_schema: dict[str, JsonValue] | None = Field(default=None)
+    sample_data: dict[str, JsonValue] | None = Field(default=None)
+    canonical_example: dict[str, JsonValue] | None = Field(default=None)
     description: str | None = Field(default=None)
     title_key: str | None = Field(default=None)
     # 🚨 THE ORDER FOR ANY ADDITIVE TOOL ARG: land the code → deploy → THEN
@@ -395,36 +404,24 @@ class KindCreateArgs(ToolArgs):
     ) = Field(
         default=None,
         description=(
-            "Loading-library slug rendered the instant this kind is "
-            "identified in a live stream, before its component resolves "
-            "(stored as kind_definition.metadata.loading_component). SET IT "
-            "on every build — pick the slug whose silhouette matches the "
-            "finished component: card, list, table, timeline, chart, deck, "
-            "flashcards, quiz, notes, form, media, stat-grid, document, "
-            "diagram, chat, gallery, kanban, tree, code, map, progress, "
-            "minimal, generic. Unknown slugs are refused."
+            "Skeleton slug shown while the component loads; set on every build, matching the finished component's silhouette."
         ),
     )
     required_fields: list[str] | None = Field(default=None)
     platform_kind: bool = Field(
         default=False,
         description=(
-            "ADMIN-ONLY. True mints a PLATFORM kind: the definition, its new "
-            "child kinds, and every row of the composed create land in the "
-            "Matrx System organization with visibility='public' (no manual "
-            "promotion). Refused for non-admin callers. Omit for normal "
-            "user kinds (caller org, internal)."
+            "Admin only, refused otherwise: mints the kind and every row of the create into the Matrx System org, public. Never for a user's kind."
         ),
     )
     # KINDS-GLUE wave 1b: what the kind's output IS, stated by the caller — never defaulted.
-    # Optional in the CONTRACT only so an omitted value reaches kind_create's plain-sentence
-    # refusal (disposition_refusal, matrx_graph.content_ir.sdk) instead of a pydantic error;
-    # the implementation refuses every create without one. The five literals ARE
+    # REQUIRED in the contract (2026-10-31): declared optional, models left it out and lost a
+    # call to the refusal 7 times in one build; a required arg is one they fill. The
+    # implementation still refuses a create without one (disposition_refusal). The five literals ARE
     # matrx_graph.content_ir.sdk.KIND_DISPOSITIONS, spelled out because a type form cannot be
     # computed; packages/matrx-ai/tests/test_kind_authoring_tools.py pins them equal. ORDER: land this code -> deploy -> THEN declare both args in
     # tool.definition.parameters (see the 🚨 note on loading_component above).
-    disposition: Literal["record", "envelope", "receipt", "proposal", "prose"] | None = Field(
-        default=None,
+    disposition: Literal["record", "envelope", "receipt", "proposal", "prose"] = Field(
         description=(
             "REQUIRED. What this kind's output is: record (structured fields a person "
             "filters by), prose (one text body), proposal (an offer awaiting review), "
@@ -437,9 +434,36 @@ class KindCreateArgs(ToolArgs):
     ) = Field(
         default=None,
         description=(
-            "REQUIRED when the sample marks nested kinds this call will CREATE: "
-            "{child_slug: disposition} for every new child kind. Existing children are "
-            "reused untouched. A create missing one is refused before anything is written."
+            '{child_slug: disposition} for every nested kind this call creates; required when it creates any, else refused before any write. Existing children are reused untouched.'
+        ),
+    )
+    field_rules: dict[str, dict[str, dict[str, JsonValue]]] | None = Field(
+        default=None,
+        description=(
+            "What the example cannot show: {kind_name: {field: {rule: value}}}, keyed by "
+            "the __kind names the example uses (the root by name). Rules: enum, format, "
+            "pattern, minLength, maxLength, minimum, maximum, minItems, maxItems, "
+            "description. E.g. {\"conference_session\": {\"track\": {\"enum\": "
+            "[\"keynote\", \"workshop\"]}, \"starts_on\": {\"format\": \"date\"}}}."
+        ),
+    )
+    # ORDER: land this code -> deploy -> THEN declare it in tool.definition.parameters
+    # (see the 🚨 note on loading_component above).
+    new_kind_reasons: dict[str, str] | None = Field(
+        default=None,
+        description=(
+            "Rarely needed. A name already held by a DIFFERENT shape is refused — use that "
+            "kind or evolve it with kind_update_schema. Only when this really is a different "
+            "thing: {name: why it is not the existing kind}; it is then created under a "
+            "qualified or numbered name and the reason is stored on it."
+        ),
+    )
+    dry_run: bool = Field(
+        default=False,
+        description=(
+            "True plans the create without saving anything: returns the final name of "
+            "the kind and of every nested kind (reused, renamed or new) and every problem "
+            "found. Omit to create."
         ),
     )
 
@@ -544,6 +568,13 @@ class KindcompCreateComponentArgs(ToolArgs):
     # tool.definition.parameters AFTER this code is deployed.
     target: Literal["shared", "mine", "organization"] = Field(default="shared")
     organization_id: str | None = Field(default=None)
+    # A VIEW NEVER ORPHANS A SHAPE (2026-11-10): for target mine/organization on a name that
+    # is registered nowhere, the on-screen instance registers the shape first (kind_layer).
+    # DEPLOY-GATED WIDENING like `loading` above: code first, then tool.definition.parameters.
+    sample: dict[str, JsonValue] | None = Field(default=None)
+    disposition: Literal["record", "envelope", "receipt", "proposal", "prose"] | None = Field(
+        default=None
+    )
 
 
 class KindcompGetCodeArgs(ToolArgs):
@@ -566,6 +597,10 @@ class KindcompUpdateCodeArgs(ToolArgs):
     # tool.definition.parameters AFTER this code is deployed.
     target: Literal["shared", "mine", "organization"] = Field(default="shared")
     organization_id: str | None = Field(default=None)
+    # A VIEW NEVER ORPHANS A SHAPE on edit too (2026-11-11): the on-screen instance registers an
+    # orphan view's shape before the write (kind_layer.register_edited_layer_kind).
+    # DEPLOY-GATED WIDENING like `loading` above: code first, then tool.definition.parameters.
+    sample: dict[str, JsonValue] | None = Field(default=None)
 
 
 class KindcompPatchCodeArgs(ToolArgs):
@@ -579,6 +614,10 @@ class KindcompPatchCodeArgs(ToolArgs):
     # tool.definition.parameters AFTER this code is deployed.
     target: Literal["shared", "mine", "organization"] = Field(default="shared")
     organization_id: str | None = Field(default=None)
+    # A VIEW NEVER ORPHANS A SHAPE on edit too (2026-11-11): the on-screen instance registers an
+    # orphan view's shape before the write (kind_layer.register_edited_layer_kind).
+    # DEPLOY-GATED WIDENING like `loading` above: code first, then tool.definition.parameters.
+    sample: dict[str, JsonValue] | None = Field(default=None)
 
 
 class KindcompUpdateSettingsArgs(ToolArgs):
@@ -678,32 +717,6 @@ class ToolcompUpdateSettingsArgs(ToolArgs):
     component_id: str
 
 
-class TravelCreateSummaryArgs(ToolArgs):
-    events: list
-    location: str
-    activities: list
-    restaurants: list
-    weather_info: dict
-
-
-class TravelGetActivitiesArgs(ToolArgs):
-    city: str
-    weather: str
-
-
-class TravelGetEventsArgs(ToolArgs):
-    city: str
-    weather: str
-
-
-class TravelGetRestaurantsArgs(ToolArgs):
-    city: str
-
-
-class TravelGetWeatherArgs(ToolArgs):
-    city: str
-
-
 # skill (list|get|search) is the discriminated union SkillArgs in
 # arg_models.dispatcher_args. The old flat SkillListArgs / SkillGetArgs /
 # SkillSearchArgs classes were retired with the legacy skill_* rows (migration 0100).
@@ -794,9 +807,6 @@ _MODULE_LOADERS = {
     "matrx_ai.tools.implementations.database": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.database"
     ),
-    "matrx_ai.tools.implementations.table_tools": lambda: importlib.import_module(
-        "matrx_ai.tools.implementations.table_tools"
-    ),
     "matrx_ai.tools.implementations.debug_traces_tools": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.debug_traces_tools"
     ),
@@ -857,14 +867,14 @@ _MODULE_LOADERS = {
     "matrx_ai.tools.implementations.tasks": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.tasks"
     ),
+    "matrx_ai.tools.implementations.projects": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.projects"
+    ),
     "matrx_ai.tools.implementations.text": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.text"
     ),
     "matrx_ai.tools.implementations.tool_component": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.tool_component"
-    ),
-    "matrx_ai.tools.implementations.travel": lambda: importlib.import_module(
-        "matrx_ai.tools.implementations.travel"
     ),
     "matrx_ai.tools.implementations.vsc": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.vsc"
@@ -887,7 +897,7 @@ _MODULE_LOADERS = {
 }
 
 
-def _reg(name, source_kind, executor, args, module, func, *, validate=True, aliases=()):
+def _reg(name, source_kind, executor, args, module, func, *, validate=True, aliases=(), deprecated=False):
     loader = _MODULE_LOADERS.get(module)
     if loader is None:
         # A declaration that names a module with no literal loader entry is a
@@ -911,6 +921,7 @@ def _reg(name, source_kind, executor, args, module, func, *, validate=True, alia
         args=args,
         validate=validate,
         aliases=aliases,
+        deprecated=deprecated,
     )(fn)
 
 
@@ -957,14 +968,6 @@ _reg(
     "code_fetch_tree",
 )
 _reg(
-    "code_store_html",
-    "native",
-    "matrx-ai-core",
-    CodeStoreHtmlArgs,
-    "matrx_ai.tools.implementations.code",
-    "code_store_html",
-)
-_reg(
     "context",
     "native",
     None,
@@ -979,14 +982,6 @@ _reg(
     ContextPatchArgs,
     "matrx_ai.tools.implementations.ctx_write",
     "context_patch",
-)
-_reg(
-    "table",
-    "native",
-    None,
-    TableArgs,
-    "matrx_ai.tools.implementations.table_tools",
-    "table",
 )
 _reg(
     "debug_traces_by_call",
@@ -1376,6 +1371,42 @@ _reg(
     validate=False,
 )
 _reg(
+    "coding_sessions_read",
+    "native",
+    "matrx-ai-core",
+    CodingSessionsReadArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "coding_sessions_read",
+    validate=False,
+)
+_reg(
+    "coding_sessions_drive",
+    "native",
+    "matrx-ai-core",
+    CodingSessionsDriveArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "coding_sessions_drive",
+    validate=False,
+)
+_reg(
+    "desktop_semantic_find",
+    "native",
+    "matrx-ai-core",
+    DesktopSemanticFindArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_semantic_find",
+    validate=False,
+)
+_reg(
+    "desktop_action_needed",
+    "native",
+    "matrx-ai-core",
+    DesktopActionNeededArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_action_needed",
+    validate=False,
+)
+_reg(
     "desktop_messages",
     "native",
     "matrx-ai-core",
@@ -1448,6 +1479,15 @@ _reg(
     validate=False,
 )
 _reg(
+    "desktop_stack",
+    "native",
+    "matrx-ai-core",
+    DesktopStackArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_stack",
+    validate=False,
+)
+_reg(
     "desktop_documents",
     "native",
     "matrx-ai-core",
@@ -1501,6 +1541,7 @@ _reg(
 )
 _reg("sql", "native", None, SqlArgs, "matrx_ai.tools.implementations.database", "sql")
 _reg("task", "native", None, TaskArgs, "matrx_ai.tools.implementations.tasks", "task")
+_reg("project", "native", None, ProjectArgs, "matrx_ai.tools.implementations.projects", "project")
 _reg(
     "text_analyze",
     "native",
@@ -1748,54 +1789,6 @@ _reg(
     ToolcompUpdateSettingsArgs,
     "matrx_ai.tools.implementations.tool_component",
     "toolcomp_update_settings",
-)
-_reg(
-    "travel_create_summary",
-    "native",
-    "matrx-ai-core",
-    TravelCreateSummaryArgs,
-    "matrx_ai.tools.implementations.travel",
-    "travel_create_summary",
-)
-_reg(
-    "travel_get_activities",
-    "native",
-    "matrx-ai-core",
-    TravelGetActivitiesArgs,
-    "matrx_ai.tools.implementations.travel",
-    "travel_get_activities",
-)
-_reg(
-    "travel_get_events",
-    "native",
-    "matrx-ai-core",
-    TravelGetEventsArgs,
-    "matrx_ai.tools.implementations.travel",
-    "travel_get_events",
-)
-_reg(
-    "travel_get_location",
-    "native",
-    "matrx-ai-core",
-    NoArgs,
-    "matrx_ai.tools.implementations.travel",
-    "travel_get_location",
-)
-_reg(
-    "travel_get_restaurants",
-    "native",
-    "matrx-ai-core",
-    TravelGetRestaurantsArgs,
-    "matrx_ai.tools.implementations.travel",
-    "travel_get_restaurants",
-)
-_reg(
-    "travel_get_weather",
-    "native",
-    "matrx-ai-core",
-    TravelGetWeatherArgs,
-    "matrx_ai.tools.implementations.travel",
-    "travel_get_weather",
 )
 _reg(
     "vsc_get_state",

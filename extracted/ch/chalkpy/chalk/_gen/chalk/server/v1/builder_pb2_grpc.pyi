@@ -52,6 +52,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     DeleteTelemetryDeploymentResponse,
     DeployKubeComponentsRequest,
     DeployKubeComponentsResponse,
+    DiffClusterGatewayRequest,
+    DiffClusterGatewayResponse,
     GetAvailableChalkMachineTypesRequest,
     GetAvailableChalkMachineTypesResponse,
     GetBranchProfileRequest,
@@ -90,10 +92,14 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetKarpenterInstallationMetadataResponse,
     GetKarpenterNodepoolsRequest,
     GetKarpenterNodepoolsResponse,
+    GetMaterializedAggregateDiffRequest,
+    GetMaterializedAggregateDiffResponse,
     GetNodepoolsRequest,
     GetNodepoolsResponse,
     GetSearchConfigRequest,
     GetSearchConfigResponse,
+    GetServiceProbeDefaultsRequest,
+    GetServiceProbeDefaultsResponse,
     GetTagWeightsRequest,
     GetTagWeightsResponse,
     GetTelemetryDeploymentAvailabilityRequest,
@@ -260,6 +266,13 @@ class BuilderServiceStub:
         GetDeploymentStepsRequest,
         GetDeploymentStepsResponse,
     ]
+    GetMaterializedAggregateDiff: UnaryUnaryMultiCallable[
+        GetMaterializedAggregateDiffRequest,
+        GetMaterializedAggregateDiffResponse,
+    ]
+    """The materialized aggregate diff a build's diff step computed (UploadSourceRequest.plan_only,
+    or the mat_agg_diff_after_build flag).
+    """
     GetDeploymentLogs: UnaryUnaryMultiCallable[
         GetDeploymentLogsRequest,
         GetDeploymentLogsResponse,
@@ -295,6 +308,10 @@ class BuilderServiceStub:
     GetClusterGateway: UnaryUnaryMultiCallable[
         GetClusterGatewayRequest,
         GetClusterGatewayResponse,
+    ]
+    DiffClusterGateway: UnaryUnaryMultiCallable[
+        DiffClusterGatewayRequest,
+        DiffClusterGatewayResponse,
     ]
     ListClusterGateways: UnaryUnaryMultiCallable[
         ListClusterGatewaysRequest,
@@ -412,6 +429,10 @@ class BuilderServiceStub:
     GetNodepools: UnaryUnaryMultiCallable[
         GetNodepoolsRequest,
         GetNodepoolsResponse,
+    ]
+    GetServiceProbeDefaults: UnaryUnaryMultiCallable[
+        GetServiceProbeDefaultsRequest,
+        GetServiceProbeDefaultsResponse,
     ]
     GetAvailableChalkMachineTypes: UnaryUnaryMultiCallable[
         GetAvailableChalkMachineTypesRequest,
@@ -660,6 +681,15 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetDeploymentStepsResponse: ...
     @abstractmethod
+    def GetMaterializedAggregateDiff(
+        self,
+        request: GetMaterializedAggregateDiffRequest,
+        context: ServicerContext,
+    ) -> GetMaterializedAggregateDiffResponse:
+        """The materialized aggregate diff a build's diff step computed (UploadSourceRequest.plan_only,
+        or the mat_agg_diff_after_build flag).
+        """
+    @abstractmethod
     def GetDeploymentLogs(
         self,
         request: GetDeploymentLogsRequest,
@@ -711,6 +741,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: GetClusterGatewayRequest,
         context: ServicerContext,
     ) -> GetClusterGatewayResponse: ...
+    @abstractmethod
+    def DiffClusterGateway(
+        self,
+        request: DiffClusterGatewayRequest,
+        context: ServicerContext,
+    ) -> DiffClusterGatewayResponse: ...
     @abstractmethod
     def ListClusterGateways(
         self,
@@ -882,6 +918,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: GetNodepoolsRequest,
         context: ServicerContext,
     ) -> GetNodepoolsResponse: ...
+    @abstractmethod
+    def GetServiceProbeDefaults(
+        self,
+        request: GetServiceProbeDefaultsRequest,
+        context: ServicerContext,
+    ) -> GetServiceProbeDefaultsResponse: ...
     @abstractmethod
     def GetAvailableChalkMachineTypes(
         self,

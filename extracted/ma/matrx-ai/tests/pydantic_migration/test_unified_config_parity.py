@@ -31,7 +31,11 @@ def test_same_fields_in_the_same_order():
 
 
 def test_field_count_matches_dataclass():
-    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 119
+    # 124 since c3f6b0576b9 (2026-11-14): agent_tool_arg_limits, twinned.
+    # 130 since 2026-11-21: model_picked_by_person (fc1b3574fbc) twinned, and one more field main added.
+    # 128 since 2026-11-21: agent_mode_known / agent_mode_person_set / agent_mode_settled_request (D17).
+    # 125 since 2026-11-19: agent_modes (understanding_mode renamed agent_mode), twinned.
+    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 130
 
 
 def test_annotations_are_identical_except_the_staged_two():
@@ -46,11 +50,13 @@ def test_annotations_are_identical_except_the_staged_two():
 
 
 # Fields that `__post_init__` NORMALIZES away from their declared default. The
-# twin has the fields and NOT the constructor, so these five diverge by design —
+# twin has the fields and NOT the constructor, so these six diverge by design —
 # see test_post_init_is_not_replicated_and_that_blocks_the_flip.
 POST_INIT_NORMALISED = {
     "messages", "authored_tools", "dynamic_tools",
     "authored_custom_tools", "authored_mcp_servers",
+    # CGU-10 IMG9 #2: the stored route as built (in memory only, never stored).
+    "stored_route_baseline",
 }
 
 

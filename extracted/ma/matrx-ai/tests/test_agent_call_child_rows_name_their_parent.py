@@ -93,6 +93,9 @@ def agents(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             self.name = "Lane Planner" if agent_id == LANE_PLANNER else "Weather Desk"
             self.config = SimpleNamespace(messages=[])
 
+        async def run_first_turn_pass(self):  # the real pass: present on every Agent
+            return self
+
     async def from_agent(_cls: Any, agent_id: str, **_kw: Any) -> _Agent:
         return _Agent(agent_id)
 
@@ -139,7 +142,7 @@ async def test_nested_child_rows_name_the_agent_call_that_ran_them(stored, agent
     from matrx_ai.tools.implementations.agent_call import agent_call
     from matrx_ai.tools.models import ToolContext
 
-    token = set_app_context(AppContext(emitter=None, user_id=USER, conversation_id=PARENT_CONV))
+    token = set_app_context(AppContext(emitter=None, user_id=USER, organization_id="0a900000-0000-4000-8000-00000000a7a7", conversation_id=PARENT_CONV))
     try:
         dispatch_row = await _log_call("agent_call", "call-dispatch-to-lane")
         result = await agent_call(
@@ -178,7 +181,7 @@ async def test_each_child_run_carries_the_call_id_that_started_it(stored, agents
     from matrx_ai.tools.logger import PARENT_TOOL_CALL_ID_KEY
     from matrx_ai.tools.models import ToolContext
 
-    token = set_app_context(AppContext(emitter=None, user_id=USER, conversation_id=PARENT_CONV))
+    token = set_app_context(AppContext(emitter=None, user_id=USER, organization_id="0a900000-0000-4000-8000-00000000a7a7", conversation_id=PARENT_CONV))
     try:
         await _log_call("agent_call", "call-dispatch-to-lane")
         await agent_call(

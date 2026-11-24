@@ -403,6 +403,7 @@ async def random_wheel(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation", message=plan,
                     suggested_action="Provide items (list mode) or seed phrases (web/image).",
                 ),

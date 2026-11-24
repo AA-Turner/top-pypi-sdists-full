@@ -91,8 +91,6 @@ def _get_tool_map() -> dict[str, Any]:
         code_execute_python,
         code_fetch_code,
         code_fetch_tree,
-        # Code
-        code_store_html,
         db_insert,
         # Database
         db_query,
@@ -129,13 +127,6 @@ def _get_tool_map() -> dict[str, Any]:
         # Text
         text_analyze,
         text_regex_extract,
-        travel_create_summary,
-        travel_get_activities,
-        travel_get_events,
-        # Travel
-        travel_get_location,
-        travel_get_restaurants,
-        travel_get_weather,
         web_read,
         # Web
         web_search,
@@ -171,18 +162,11 @@ def _get_tool_map() -> dict[str, Any]:
         "seo_check_meta_descriptions": seo_check_meta_descriptions,
         "seo_check_meta_tags_batch": seo_check_meta_tags_batch,
         "seo_get_keyword_data": seo_get_keyword_data,
-        "code_store_html": code_store_html,
         "code_fetch_code": code_fetch_code,
         "code_fetch_tree": code_fetch_tree,
         "code_execute_python": code_execute_python,
         "news_get_headlines": news_get_headlines,
         "interaction_ask": interaction_ask,
-        "travel_get_location": travel_get_location,
-        "travel_get_weather": travel_get_weather,
-        "travel_get_restaurants": travel_get_restaurants,
-        "travel_get_activities": travel_get_activities,
-        "travel_get_events": travel_get_events,
-        "travel_create_summary": travel_create_summary,
     }
 
 
@@ -635,15 +619,6 @@ async def test_seo_check_meta_descriptions():
 # ============================================================================
 
 
-async def test_code_store_html():
-    return await run_tool(
-        "code_store_html",
-        {
-            "html_input": "<html><body><h1>Test Page</h1><p>Hello world</p></body></html>",
-        },
-    )
-
-
 async def test_code_fetch_code():
     return await run_tool(
         "code_fetch_code",
@@ -715,66 +690,6 @@ async def test_interaction_ask():
                     "component_type": "slider",
                 },
             ],
-        },
-    )
-
-
-# ============================================================================
-# TRAVEL
-# ============================================================================
-
-
-async def test_travel_get_location():
-    return await run_tool("travel_get_location", {})
-
-
-async def test_travel_get_weather():
-    return await run_tool(
-        "travel_get_weather",
-        {
-            "city": "San Francisco",
-        },
-    )
-
-
-async def test_travel_get_restaurants():
-    return await run_tool(
-        "travel_get_restaurants",
-        {
-            "city": "San Francisco",
-        },
-    )
-
-
-async def test_travel_get_activities():
-    return await run_tool(
-        "travel_get_activities",
-        {
-            "city": "San Francisco",
-            "weather": "sunny",
-        },
-    )
-
-
-async def test_travel_get_events():
-    return await run_tool(
-        "travel_get_events",
-        {
-            "city": "San Francisco",
-            "weather": "sunny",
-        },
-    )
-
-
-async def test_travel_create_summary():
-    return await run_tool(
-        "travel_create_summary",
-        {
-            "location": "San Francisco",
-            "weather_info": {"condition": "sunny", "temp": 68},
-            "restaurants": [{"name": "House of Prime Rib", "cuisine": "American"}],
-            "activities": [{"name": "Golden Gate Bridge Walk", "type": "outdoor"}],
-            "events": [{"name": "Outside Lands", "type": "music festival"}],
         },
     )
 
@@ -939,13 +854,10 @@ async def test_code_execute_python_with_markers():
 #               test_pick_list_update_item, test_pick_list_batch_update
 #   SEO:        test_seo_check_meta_titles, test_seo_check_meta_descriptions,
 #               test_seo_check_meta_tags_batch, test_seo_get_keyword_data
-#   Code:       test_code_store_html, test_code_fetch_code, test_code_fetch_tree,
+#   Code:       test_code_fetch_code, test_code_fetch_tree,
 #               test_code_execute_python, test_code_execute_python_with_markers
 #   News:       test_news_get_headlines
 #   Interaction:test_interaction_ask
-#   Travel:     test_travel_get_location, test_travel_get_weather,
-#               test_travel_get_restaurants, test_travel_get_activities,
-#               test_travel_get_events, test_travel_create_summary
 #
 # ============================================================================
 
@@ -985,19 +897,12 @@ ALL_TESTS: list[tuple[str, str, Any]] = [
     ("34", "seo_check_meta_descriptions[SEO]", test_seo_check_meta_descriptions),
     ("35", "seo_check_meta_tags_batch  [SEO]", test_seo_check_meta_tags_batch),
     ("36", "seo_get_keyword_data       [SEO]", test_seo_get_keyword_data),
-    ("37", "code_store_html            [Code]", test_code_store_html),
     ("38", "code_fetch_code            [Code]", test_code_fetch_code),
     ("39", "code_fetch_tree            [Code]", test_code_fetch_tree),
     ("40", "code_execute_python        [Code]", test_code_execute_python),
     ("41", "code_execute_python_markers[Code]", test_code_execute_python_with_markers),
     ("42", "news_get_headlines         [News]", test_news_get_headlines),
     ("53", "interaction_ask            [Interaction]", test_interaction_ask),
-    ("54", "travel_get_location        [Travel]", test_travel_get_location),
-    ("55", "travel_get_weather         [Travel]", test_travel_get_weather),
-    ("56", "travel_get_restaurants     [Travel]", test_travel_get_restaurants),
-    ("57", "travel_get_activities      [Travel]", test_travel_get_activities),
-    ("58", "travel_get_events          [Travel]", test_travel_get_events),
-    ("59", "travel_create_summary      [Travel]", test_travel_create_summary),
 ]
 
 

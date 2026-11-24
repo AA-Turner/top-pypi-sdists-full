@@ -16,6 +16,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import tomli
+from packaging.requirements import InvalidRequirement
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 from nab_markersets._compat import get_int_max_str_digits
 from nab_project.build_backend import (
@@ -27,8 +30,6 @@ from nab_provider._provider.metadata_resolver import (
     extend_with_extras,
     parse_pyproject_deps,
 )
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.metadata import parse_metadata
 from nab_provider.requirements_file import InvalidProjectRequirementError
 
@@ -143,63 +144,49 @@ class TestExtractStaticMetadata:
         _write_pyproject(tmp_path, '[build-system]\nrequires = ["setuptools"]\n')
         assert extract_static_metadata(tmp_path) is None
 
-    def test_dynamic_dependencies_returns_none(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "field", ["dependencies", "optional-dependencies", "requires-python"]
+    )
+    def test_dynamic_resolution_field_requires_backend(
+        self, tmp_path: Path, field: str
+    ) -> None:
         _write_pyproject(
-            tmp_path,
-            """
-            [project]
-            name = "foo"
-            version = "1.0"
-            dynamic = ["dependencies"]
-            """,
+            tmp_path, f'[project]\nname = "foo"\nversion = "1.0"\ndynamic = ["{field}"]'
         )
         assert extract_static_metadata(tmp_path) is None
 
-    def test_dynamic_optional_dependencies_returns_none(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize("version_field", ["", 'version = "0.0.0"'])
+    def test_dynamic_version_requires_backend(
+        self, tmp_path: Path, version_field: str
+    ) -> None:
+        # A backend-computed version can have a placeholder in the checkout.
         _write_pyproject(
-            tmp_path,
-            """
-            [project]
-            name = "foo"
-            version = "1.0"
-            dynamic = ["optional-dependencies"]
-            """,
+            tmp_path, f'[project]\nname = "foo"\n{version_field}\ndynamic = ["version"]'
         )
         assert extract_static_metadata(tmp_path) is None
 
-    def test_dynamic_version_placeholder_returns_none(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "description",
+            "readme",
+            "license",
+            "license-files",
+            "authors",
+            "maintainers",
+            "keywords",
+            "classifiers",
+            "urls",
+            "scripts",
+            "gui-scripts",
+            "entry-points",
+        ],
+    )
+    def test_other_dynamic_fields_allow_static_metadata(
+        self, tmp_path: Path, field: str
+    ) -> None:
         _write_pyproject(
-            tmp_path,
-            """
-            [project]
-            name = "foo"
-            version = "0.0.0"
-            dynamic = ["version"]
-            """,
-        )
-        assert extract_static_metadata(tmp_path) is None
-
-    def test_dynamic_requires_python_returns_none(self, tmp_path: Path) -> None:
-        _write_pyproject(
-            tmp_path,
-            """
-            [project]
-            name = "foo"
-            version = "1.0"
-            dynamic = ["requires-python"]
-            """,
-        )
-        assert extract_static_metadata(tmp_path) is None
-
-    def test_dynamic_non_version_keeps_static_version(self, tmp_path: Path) -> None:
-        _write_pyproject(
-            tmp_path,
-            """
-            [project]
-            name = "foo"
-            version = "1.0"
-            dynamic = ["readme"]
-            """,
+            tmp_path, f'[project]\nname = "foo"\nversion = "1.0"\ndynamic = ["{field}"]'
         )
         meta = extract_static_metadata(tmp_path)
         assert meta is not None
@@ -299,8 +286,9 @@ class TestExtractStaticMetadata:
             f'[project]\nname = "foo"\nversion = "1.0"\n'
             f'dependencies = ["bar ; {over_nested_marker}"]\n',
         )
-        with pytest.raises(InvalidProjectRequirementError, match="invalid requirement"):
+        with pytest.raises(InvalidProjectRequirementError, match="nested") as caught:
             extract_static_metadata(tmp_path)
+        assert isinstance(caught.value.__cause__, InvalidRequirement)
 
     def test_over_nested_marker_on_an_optional_dep_raises(
         self, tmp_path: Path, over_nested_marker: str
@@ -518,9 +506,7 @@ class TestExtractMetadata:
             dynamic = ["dependencies"]
             """,
         )
-        with pytest.raises(
-            BuildBackendError, match="dynamic-metadata path requires a ResolveInputs"
-        ):
+        with pytest.raises(BuildBackendError, match="requires a build backend"):
             extract_metadata(tmp_path)
 
     def test_dynamic_path_with_config_invokes_runner(self, tmp_path: Path) -> None:
@@ -580,6 +566,20 @@ class TestStaticExtractAugmentParity:
     Guards the two places they could silently diverge: extra-name
     normalisation and malformed-dependency handling.
     """
+
+    def test_empty_extra_with_invalid_name_is_rejected(self, tmp_path: Path) -> None:
+        _write_pyproject(
+            tmp_path,
+            """
+            [project]
+            name = "foo"
+            version = "1.0"
+            [project.optional-dependencies]
+            "bad name" = []
+            """,
+        )
+        with pytest.raises(InvalidProjectRequirementError, match="bad name"):
+            extract_static_metadata(tmp_path)
 
     def test_non_canonical_extra_canonicalized(self, tmp_path: Path) -> None:
         _write_pyproject(

@@ -192,6 +192,9 @@ class DIVER1(EEGModuleMixin, nn.Module, license="apache-2.0"):
        https://arxiv.org/abs/2512.19097
     """
 
+    _time_axis = "fixed"  # fixed: final_layer.weight
+    _channel_axis = "fixed"  # fixed: final_layer.weight
+
     def __init__(
         self,
         n_outputs=None,
@@ -353,6 +356,15 @@ class DIVER1(EEGModuleMixin, nn.Module, license="apache-2.0"):
             self.n_chans * self.n_patches * d_model if pooling == "flatten" else d_model
         )
         self.final_layer = nn.Linear(head_in_features, self.n_outputs)
+        self.on_non_divisible = "pad"
+        self._n_times_step = self.patch_size
+
+    def _accepts_any_n_chans(self, args: tuple, kwargs: dict) -> bool:
+        if super()._accepts_any_n_chans(args, kwargs):
+            return True
+        meta = self._call_arg(args, kwargs, "chan_metadata")
+        ret_feat = self._call_arg(args, kwargs, "return_features", False)
+        return meta is not None and (self.pooling == "mean" or bool(ret_feat))
 
     def reset_head(self, n_outputs):
         """Replace the linear classification head for a new ``n_outputs``."""
@@ -365,7 +377,8 @@ class DIVER1(EEGModuleMixin, nn.Module, license="apache-2.0"):
         x: torch.Tensor,
         chan_metadata: torch.Tensor | None = None,
         ch_mask: torch.Tensor | None = None,
-    ) -> torch.Tensor:
+        return_features: bool = False,
+    ) -> torch.Tensor | dict[str, torch.Tensor | None]:
         """Encode an iEEG batch into class logits.
 
         Parameters
@@ -385,11 +398,17 @@ class DIVER1(EEGModuleMixin, nn.Module, license="apache-2.0"):
             ``(batch, n_chans)`` mask of real channels, see
             :func:`~braindecode.functional.check_ch_mask`. Needs per-sample ``chan_metadata`` and
             ``pooling="mean"``.
+        return_features : bool
+            If ``True``, return ``{"features": pooled, "cls_token": None,
+            "tokens": tokens}`` instead of the class logits: the pooled embedding
+            and the encoder tokens without the registers, ``(batch, n_chans,
+            n_patches, d_model)``, zero for padded channels.
 
         Returns
         -------
-        torch.Tensor
-            Class logits of shape ``(batch, n_outputs)``.
+        torch.Tensor or dict
+            Class logits of shape ``(batch, n_outputs)``, or the feature dict
+            when ``return_features`` is set.
         """
         mask = check_ch_mask(ch_mask, x)
         if mask is not None and self.pooling != "mean":
@@ -408,13 +427,6 @@ class DIVER1(EEGModuleMixin, nn.Module, license="apache-2.0"):
             )
         batch, n_chans = x.shape[:2]
         if chan_metadata is None:
-            if n_chans != self.n_chans_grid:
-                raise ValueError(
-                    f"DIVER1 was built for {self.n_chans_grid} channels but got "
-                    f"input with {n_chans}; pass this recording's metadata as "
-                    f"chan_metadata, which channel_metadata_from_chs_info builds from "
-                    f"its chs_info."
-                )
             metadata = self.default_chan_metadata
         else:
             metadata = chan_metadata.to(device=x.device, dtype=x.dtype)
@@ -422,21 +434,6 @@ class DIVER1(EEGModuleMixin, nn.Module, license="apache-2.0"):
                 # Padded rows may hold invalid slots; zero is a valid one.
                 metadata = metadata.masked_fill(~mask[..., None], 0.0)
             _check_channel_metadata(metadata, n_chans, batch)
-        # A flattened head has weights tied to the construction-time montage.
-        if self.pooling == "flatten" and n_chans != self.n_chans_grid:
-            raise ValueError(
-                f"pooling='flatten' ties the read-out to the "
-                f"{self.n_chans_grid} channels it was built for, but got "
-                f"{n_chans}. Build the model with pooling='mean' to encode "
-                f"montages of any size."
-            )
-        # Reject a different patch count before tokenization.
-        if -(-x.shape[-1] // self.patch_size) != self.n_patches:
-            raise ValueError(
-                f"DIVER1 was built for {self.n_patches} temporal patches of "
-                f"{self.patch_size} samples but got input with {x.shape[-1]} "
-                f"samples; rebuild the model for this window length."
-            )
         key_mask: torch.Tensor | None = None
         if mask is not None:
             # Padding may hold NaN, which the CNN would spread.
@@ -493,6 +490,15 @@ class DIVER1(EEGModuleMixin, nn.Module, license="apache-2.0"):
             pooled = tokens.flatten(start_dim=1)
         else:
             pooled = masked_mean(tokens, mask, [1, 2])
+        if return_features:
+            if mask is not None:
+                tokens = tokens.masked_fill(~mask[:, :, None, None], 0.0)
+            out: dict[str, torch.Tensor | None] = {
+                "features": pooled,
+                "cls_token": None,
+                "tokens": tokens,
+            }
+            return out
         return self.final_layer(pooled)
 
     @torch.jit.unused

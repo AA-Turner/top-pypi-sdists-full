@@ -444,6 +444,33 @@ def _build_result_from_response(response: Response, fast: bool = False) -> Scrap
 CHALLENGE_RETRY_DELAY_SECONDS = 2.0
 
 
+async def scrape_supplied_html(url: str, html: str, *, title: str | None = None, fast: bool = False) -> ScrapeResult:
+    """The scraper's own read of HTML already in hand (a browser capture): the same parse a fetched page gets
+    (``_build_result_from_response``), with nothing fetched. ``engine`` is ``supplied``. Empty HTML is an unread
+    page (``low_text_content``), exactly as an empty fetched answer is."""
+    from matrx_scraper.scraper import ContentType, RequestType, extract_publication_dates_from_html
+
+    published_at, modified_at = extract_publication_dates_from_html(html) if html else (None, None)
+    response = Response(
+        request_url=url,
+        proxy_used=False,
+        request_type=RequestType.BROWSER,
+        content_type=ContentType.HTML,
+        extension="html",
+        content_type_raw="text/html",
+        response_url=url,
+        response_headers={},
+        title=title or None,
+        status_code=200,
+        content=html or "",
+        published_at=published_at,
+        modified_at=modified_at,
+    )
+    result = await run_cpu(_build_result_from_response, response, fast)
+    result.engine = "supplied"
+    return result
+
+
 def _apply_content_sanity(result: ScrapeResult) -> None:
     """Never let a result with no content in it claim success. In place."""
     verdict = assess_content(result)
@@ -639,7 +666,7 @@ async def _maybe_escalate_to_browser(
     A hand-off nobody can see is exactly the silent automation the owner has
     told us not to build.
     """
-    policy = EscalationPolicy.from_env()
+    policy = EscalationPolicy.current()
     if escalate is True:
         policy = EscalationPolicy(enabled=True, reasons=policy.reasons)
     elif escalate is False:
@@ -1336,7 +1363,7 @@ async def scrape(
     cache read the carried request context, and a cache operation that finds no
     organization at all REFUSES rather than defaulting one.
 
-    `escalate` overrides the deployment's `SCRAPER_BROWSER_ESCALATION` setting
+    `escalate` overrides the host's `browser_escalation` fetch-policy setting
     for this one call: `True` forces the browser hand-off on a failure the
     browser could plausibly beat, `False` forbids it (a caller reproducing a
     raw HTTP result), `None` follows the setting. The result ALWAYS states

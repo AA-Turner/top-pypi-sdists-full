@@ -41,6 +41,15 @@ class Brant(EEGModuleMixin, nn.Module, license="apache-2.0"):
 
     :bdg-danger:`Foundation Model` :bdg-info:`Attention/Transformer`
 
+    .. figure:: ../_static/model/brant_arch.png
+       :align: center
+       :alt: Brant pre-training framework
+       :width: 1000px
+
+       The pre-training framework of Brant: each channel goes through the temporal
+       encoder, then the spatial encoder mixes channels, and masked patches are
+       reconstructed. Reproduced from Fig. 2 of [Brant2023]_ (copyright of the authors).
+
     .. rubric:: Architecture Overview
 
     Brant models intracranial neural signals (sEEG/iEEG) in four stages
@@ -133,6 +142,9 @@ class Brant(EEGModuleMixin, nn.Module, license="apache-2.0"):
                "braindecode/brant-pretrained", n_outputs=2
            )
 
+       A shorter ``n_times`` keeps the checkpoint's leading temporal
+       positions.
+
     .. versionadded:: 2.0
 
     Parameters
@@ -173,6 +185,9 @@ class Brant(EEGModuleMixin, nn.Module, license="apache-2.0"):
        Thirty-seventh Conference on Neural Information Processing Systems,
        NeurIPS. Code: https://github.com/yzz673/Brant (Apache-2.0).
     """
+
+    _time_axis = "fixed"  # fixed: temporal_encoder.input_embedding.positional_encoding
+    _channel_axis = "free"
 
     # Configs and checkpoints saved before ``on_non_divisible`` existed cropped.
     _legacy_on_non_divisible = "crop"
@@ -278,12 +293,32 @@ class Brant(EEGModuleMixin, nn.Module, license="apache-2.0"):
         # Upstream's seizure head is an MLP trained on private data; braindecode
         # ships a bare linear layer, as for BrainBERT.
         self.final_layer = nn.Linear(self.embed_dim, self.n_outputs)
+        self._n_times_step = self.patch_size
 
     def reset_head(self, n_outputs: int) -> None:
         """Swap the classification head for a new number of outputs."""
         self._set_n_outputs(n_outputs)
         head = nn.Linear(self.final_layer.in_features, n_outputs)
         self.final_layer = head.to(self.final_layer.weight)
+
+    def load_state_dict(self, state_dict, *args, **kwargs):
+        """Also accept a checkpoint saved at a longer ``n_times``.
+
+        Its learned temporal positions are cropped to this model's
+        ``seq_len`` leading ones.
+        """
+        key = "temporal_encoder.input_embedding.positional_encoding"
+        positions = state_dict.get(key)
+        if positions is not None and len(positions) < self.seq_len:
+            raise ValueError(
+                f"The checkpoint holds {len(positions)} temporal positions, but "
+                f"n_times={self.n_times} spans {self.seq_len} patches of "
+                f"{self.patch_size} samples; use n_times <= "
+                f"{len(positions) * self.patch_size}."
+            )
+        if positions is not None:
+            state_dict = {**state_dict, key: positions[: self.seq_len]}
+        return super().load_state_dict(state_dict, *args, **kwargs)
 
     def forward(
         self,
@@ -300,9 +335,11 @@ class Brant(EEGModuleMixin, nn.Module, license="apache-2.0"):
             from the construction one.
         return_features : bool
             If ``True``, return the pooled encoder embedding instead of the
-            class logits, as ``{"features": pooled, "cls_token": None}``
-            (braindecode foundation-model convention). Brant pools over channels
-            and patches and has no class token, hence ``cls_token`` is ``None``.
+            class logits, as ``{"features": pooled, "cls_token": None,
+            "tokens": tokens}`` (braindecode foundation-model convention). Brant
+            pools over channels and patches and has no class token, hence
+            ``cls_token`` is ``None``. ``tokens`` is the spatial encoder output,
+            ``(batch, n_chans, seq_len, embed_dim)``, zero for padded channels.
             A TorchScript-compiled model returns the logits instead.
         ch_mask : torch.Tensor, optional
             ``(batch, n_chans)`` mask of real channels, see
@@ -312,13 +349,9 @@ class Brant(EEGModuleMixin, nn.Module, license="apache-2.0"):
         -------
         torch.Tensor or dict
             Class logits of shape ``(batch, n_outputs)``, or the feature
-            dict ``{"features", "cls_token"}`` when ``return_features`` is set.
+            dict ``{"features", "cls_token", "tokens"}`` when ``return_features``
+            is set.
         """
-        if x.shape[-1] != self.n_times:
-            raise ValueError(
-                f"Brant was configured for {self.n_times} time samples, "
-                f"but received {x.shape[-1]}."
-            )
         mask = check_ch_mask(ch_mask, x)
         n_chans = x.shape[1]
         key_padding_mask: torch.Tensor | None = None
@@ -345,7 +378,9 @@ class Brant(EEGModuleMixin, nn.Module, license="apache-2.0"):
         if return_features:
             if torch.jit.is_scripting():
                 return logits
-            return {"features": pooled, "cls_token": None}  # nosec B105
+            if mask is not None:
+                emb = emb.masked_fill(~mask[:, :, None, None], 0.0)
+            return {"features": pooled, "cls_token": None, "tokens": emb}
         return logits
 
 

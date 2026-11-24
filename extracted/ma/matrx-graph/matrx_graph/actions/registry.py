@@ -33,18 +33,25 @@ class ActionRegistry:
     def __init__(self) -> None:
         self._actions: dict[str, ActionSpec] = {}
         self._sources: dict[str, ActionSource] = {}
+        #: former name -> the Action it collapsed into (``ActionSpec.former_names``)
+        self._former: dict[str, str] = {}
 
     def register(self, action: ActionSpec, *, overwrite: bool = False) -> None:
         if not overwrite and action.name in self._actions:
             raise NodeRegistryError(
                 f"Action '{action.name}' is already registered. Pass overwrite=True to replace."
             )
+        for former in getattr(action, "former_names", ()) or ():
+            if former in self._actions:
+                raise NodeRegistryError(f"Action '{former}' is still registered; it cannot also be a former name of '{action.name}'.")
+            self._former[former] = action.name
         self._actions[action.name] = action
 
     def unregister(self, name: str) -> None:
         self._actions.pop(name, None)
 
     def get(self, name: str) -> ActionSpec:
+        name = self._former.get(name, name)
         try:
             return self._actions[name]
         except KeyError as e:
@@ -67,7 +74,9 @@ class ActionRegistry:
     async def resolve(self, name: str, *, app: Any = None) -> ActionSpec:
         """THE lookup every door uses: a declared Action, else a generated one from the
         source its prefix names (as the caller ``app`` — a row the caller cannot see is
-        not found). Unknown names raise ``NodeRegistryError``, never None."""
+        not found). A former name resolves to the Action it collapsed into. Unknown names
+        raise ``NodeRegistryError``, never None."""
+        name = self._former.get(name, name)
         if name in self._actions:
             return self._actions[name]
         source = self._sources.get(name.split(".", 1)[0])
@@ -79,7 +88,11 @@ class ActionRegistry:
         return self.get(name)
 
     def has(self, name: str) -> bool:
-        return name in self._actions
+        return self._former.get(name, name) in self._actions
+
+    def former_names(self) -> dict[str, str]:
+        """Every former name and the Action it now runs as."""
+        return dict(self._former)
 
     def all(self) -> list[ActionSpec]:
         return list(self._actions.values())
@@ -92,6 +105,7 @@ class ActionRegistry:
 
     def clear(self) -> None:
         self._actions.clear()
+        self._former.clear()
 
 
 _default_action_registry = ActionRegistry()

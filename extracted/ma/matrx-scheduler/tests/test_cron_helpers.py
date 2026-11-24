@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from matrx_scheduler.cron_helpers import (
     fire_count_in_window,
@@ -31,7 +31,7 @@ def test_next_n_returns_n_distinct():
         "0 9 * * 1-5",
         "UTC",
         n=5,
-        start=datetime(2026, 5, 10, 0, 0, 0, tzinfo=timezone.utc),
+        start=datetime(2026, 5, 10, 0, 0, 0, tzinfo=UTC),
     )
     assert len(fires) == 5
     assert all(f.tzinfo is not None for f in fires)
@@ -43,7 +43,7 @@ def test_next_n_returns_n_distinct():
 
 
 def test_fire_count_in_window():
-    start = datetime(2026, 5, 11, 0, 0, 0, tzinfo=timezone.utc)  # Monday
-    end = datetime(2026, 5, 18, 0, 0, 0, tzinfo=timezone.utc)  # next Monday
+    start = datetime(2026, 5, 11, 0, 0, 0, tzinfo=UTC)  # Monday
+    end = datetime(2026, 5, 18, 0, 0, 0, tzinfo=UTC)  # next Monday
     # Mon–Fri at 09:00 UTC → 5 fires in the week.
     assert fire_count_in_window("0 9 * * 1-5", "UTC", start, end) == 5

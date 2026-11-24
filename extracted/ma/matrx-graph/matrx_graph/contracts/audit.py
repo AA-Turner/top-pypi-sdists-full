@@ -28,7 +28,7 @@ import typing
 import uuid
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 if typing.TYPE_CHECKING:  # pragma: no cover
     from matrx_graph.executor.registry import NodeRegistry
@@ -526,7 +526,7 @@ def audit_model(model: type[BaseModel], *, ruleset: Ruleset = RULESET_V3) -> Sch
 
 
 def audit_registry(
-    registry: "NodeRegistry | None" = None, *, ruleset: Ruleset = RULESET_V3
+    registry: NodeRegistry | None = None, *, ruleset: Ruleset = RULESET_V3
 ) -> ContractAuditReport:
     """Audit every registered node's contracts. The single entry point for
     the admin dashboard — derived entirely from live model classes."""

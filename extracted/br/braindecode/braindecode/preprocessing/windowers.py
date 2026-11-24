@@ -33,6 +33,7 @@ from ..datasets.base import (
     EEGWindowsDataset,
     RawDataset,
     WindowsDataset,
+    _misc_mask,
 )
 
 
@@ -540,6 +541,12 @@ def create_fixed_length_windows(
     flat: dict | None
         Epoch rejection parameters based on flatness of signals. If None, no
         rejection based on flatness is done. See mne.Epochs.
+    targets_from : {"metadata", "channels"}
+        Read targets from the recording description or from the selected
+        channels of type ``misc``. The latter are removed from the inputs.
+    last_target_only : bool
+        When reading targets from channels, return the last sample of each
+        target channel. If False, return the full target time series.
     lazy_metadata: bool
         If True, metadata is not computed immediately, but only when accessed
         by using the _LazyDataFrame (experimental). Cannot be used together
@@ -742,7 +749,7 @@ def _create_windows_from_events(
         if not any(extras):
             extras = None
 
-    stops = onsets + (filtered_durations * ds.raw.info["sfreq"]).astype(int)
+    stops = onsets + np.round(filtered_durations * ds.raw.info["sfreq"]).astype(int)
     # XXX This could probably be simplified by using chunk_duration in
     #     `events_from_annotations`
 
@@ -1014,6 +1021,15 @@ def _create_fixed_length_windows(
         window_stride_samples = window_size_samples
 
     last_potential_start = stop - window_size_samples
+    # The caller only compares the window size with the whole recording. A
+    # window that does not fit between the offsets leaves no valid start.
+    if last_potential_start < start_offset_samples:
+        raise ValueError(
+            f"Window size {window_size_samples} exceeds the "
+            f"{stop - start_offset_samples} samples between "
+            f"start_offset_samples ({start_offset_samples}) and "
+            f"stop_offset_samples ({stop})."
+        )
 
     # get targets from dataset description if they exist
     target = -1 if ds.target_name is None else ds.description[ds.target_name]
@@ -1102,14 +1118,10 @@ def _create_fixed_length_windows(
         windows_ds = WindowsDataset(
             mne_epochs,
             ds.description,
+            targets_from=targets_from,
+            last_target_only=last_target_only,
         )
     else:
-        window_kwargs.append(
-            (
-                EEGWindowsDataset.__name__,
-                {"targets_from": targets_from, "last_target_only": last_target_only},
-            )
-        )
         windows_ds = EEGWindowsDataset(
             ds.raw,
             metadata=metadata,
@@ -1117,6 +1129,12 @@ def _create_fixed_length_windows(
             targets_from=targets_from,
             last_target_only=last_target_only,
         )
+    window_kwargs.append(
+        (
+            type(windows_ds).__name__,
+            {"targets_from": targets_from, "last_target_only": last_target_only},
+        )
+    )
     # add window_kwargs and raw_preproc_kwargs to windows dataset
     setattr(windows_ds, "window_kwargs", window_kwargs)
     kwargs_name = "raw_preproc_kwargs"
@@ -1181,7 +1199,8 @@ def _create_windows_from_target_channels(
     window_kwargs = [
         (create_windows_from_target_channels.__name__, _get_windowing_kwargs(locals())),
     ]
-    target = ds.raw.get_data(picks="misc")
+    # picks="misc" raises for an EEG channel that is named "misc"
+    target = ds.raw.get_data(picks=np.flatnonzero(_misc_mask(ds.raw.info)))
 
     # check all misc channels for valid targets, not just the first one.
     # when multiple target channels exist, some may have values at timepoints

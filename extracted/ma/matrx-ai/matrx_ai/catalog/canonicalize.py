@@ -62,6 +62,33 @@ def canonical_settings_from_config(config: Any) -> dict[str, Any]:
     if reasoning_summary is not None:
         out["reasoning_summary"] = reasoning_summary
 
+    # WHERE each depth value came from. A config built from a saved agent keeps the agent's own
+    # layer in ``authored_settings``; a depth value equal to it was NOT set for this run. The
+    # engine lets a value set for this run beat a stored one (``run_value_beats_stored``), so a
+    # person's per-run pick is never lost to a legacy stored number. Metadata, never sent.
+    authored = getattr(config, "authored_settings", None) or {}
+    if authored:
+        stored = [
+            key
+            for key in ("reasoning_effort", "thinking_budget", "thinking_level")
+            if getattr(config, key, None) is not None
+            and authored.get(key) == getattr(config, key, None)
+            and (key != "reasoning_effort" or disable_reasoning is None or authored.get("disable_reasoning") == disable_reasoning)
+        ]
+        # An effort DERIVED from the agent's own stored ``disable_reasoning`` (no effort written) is the
+        # agent's too: unmarked, it counted as set for this run and beat the agent's stored budget, so a
+        # saved agent's depth moved with nobody choosing it (the frozen goldens caught it, 2026-11-10).
+        if (
+            "reasoning_effort" not in stored
+            and out.get("reasoning_effort") is not None
+            and getattr(config, "reasoning_effort", None) is None
+            and disable_reasoning is not None
+            and authored.get("disable_reasoning") == disable_reasoning
+        ):
+            stored.append("reasoning_effort")
+        if stored:
+            out["_depth_stored"] = stored
+
     # verbosity (gpt-5.x text.verbosity) rides only where an api/offering rule
     # declares it — the declared-keys gate drops it loudly everywhere else.
     for key in ("temperature", "top_p", "top_k", "max_output_tokens", "seed", "verbosity",

@@ -24,8 +24,9 @@ def seam(monkeypatch: pytest.MonkeyPatch):
     calls: list[str] = []
     state: dict = {"reply": None, "raises": None}
 
-    async def preview(*, component_id: str, ctx):
+    async def preview(*, component_id: str, ctx, **extra):
         calls.append(component_id)
+        state["extra"] = extra
         if state["raises"]:
             raise state["raises"]
         return state["reply"]
@@ -72,13 +73,34 @@ async def test_a_preview_that_raises_is_reported_beside_the_save_never_instead(s
 
 
 @pytest.mark.asyncio
-async def test_failed_saves_and_layer_targets_are_never_previewed(seam) -> None:
+async def test_failed_saves_are_never_previewed(seam) -> None:
     calls, _state = seam
     failed = ToolResult(success=False, error=ToolError(error_type="validation", message="refused"))
     assert await kc._with_auto_preview(failed, {"component_id": "c-1"}, ctx=None) is failed
-    saved = _saved()
-    assert await kc._with_auto_preview(saved, {"component_id": "c-1", "target": "mine"}, ctx=None) is saved
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_a_layer_save_is_previewed_with_its_target(seam) -> None:
+    """Red before: a mine/organization save was never previewed, so the builder got no screenshots."""
+    calls, state = seam
+    state["reply"] = {"verdict": "pass", "findings": []}
+    out = await kc._with_auto_preview(
+        _saved(), {"component_id": "c-1", "target": "organization", "organization_id": "org-1"}, ctx=None
+    )
+    assert calls == ["c-1"]
+    assert state["extra"] == {"target": "organization", "organization_id": "org-1"}
+    assert out.output["preview"]["verdict"] == "pass"
+    out = await kc._with_auto_preview(_saved(), {"component_id": "c-1", "target": "mine"}, ctx=None)
+    assert state["extra"] == {"target": "mine", "organization_id": None}
+
+
+@pytest.mark.asyncio
+async def test_a_shared_save_passes_no_target_to_the_seam(seam) -> None:
+    _calls, state = seam
+    state["reply"] = {"verdict": "pass", "findings": []}
+    await kc._with_auto_preview(_saved(), {"component_id": "c-1"}, ctx=None)
+    assert state["extra"] == {}
 
 
 @pytest.mark.asyncio

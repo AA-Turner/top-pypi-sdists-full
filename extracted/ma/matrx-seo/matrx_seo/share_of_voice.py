@@ -1,6 +1,6 @@
 """AI share of voice from DataForSEO LLM-mentions cross-aggregated metrics — pure math.
 
-Contract: ``common-docs/projects/outside-skill-packs/OPENSEO-TOOLS-SPEC.md`` §5.6
+Contract: ``common-docs/systems/agents/agent-skills/projects/outside-skill-packs/OPENSEO-TOOLS-SPEC.md`` §5.6
 (census §3.3). Method learned from OpenSEO at ``every-app/open-seo@0ffff93``
 (``src/server/features/ai-search/services/shareOfVoice.ts``) and made ours.
 

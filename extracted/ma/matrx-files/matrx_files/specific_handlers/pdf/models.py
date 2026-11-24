@@ -44,7 +44,7 @@ class PdfPageRange(BaseModel):
     end: int = Field(ge=1)
 
     @model_validator(mode="after")
-    def _validate_order(self) -> "PdfPageRange":
+    def _validate_order(self) -> PdfPageRange:
         if self.start > self.end:
             raise ValueError("Page range start must be <= end.")
         return self
@@ -104,6 +104,12 @@ class PdfPageText(BaseModel):
     source_path: str | None = None
     blocks: list[PdfTextBlock] | None = None
     words: list[PdfTextWord] | None = None
+    #: Set when OCR was wanted for this page and could not run or failed (no Tesseract on the
+    #: host, a render error). The page keeps its native text; the document is never failed for it.
+    ocr_error: str | None = None
+    #: Set when the page had no native text and measured provably blank, so OCR was never run:
+    #: its ink in pixels per million (``BlankPageTest``). A blank page, not a failed read.
+    blank_ink_ppm: int | None = None
 
 
 class PdfExtractStart(BaseModel):

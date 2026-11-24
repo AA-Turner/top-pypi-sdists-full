@@ -5,14 +5,13 @@ from typing import Any, Literal, Optional
 from google.genai.types import Part
 from matrx_utils import vcprint
 
-from matrx_ai.config.decision_input_config import (
-    DecisionAnswersContent,
-    DecisionQuestionsContent,
-)
-from matrx_ai.config.speech_script_config import SpeechScriptContent
 from matrx_ai.config.config_utils import (
     decode_binary_metadata,
     encode_binary_metadata,
+)
+from matrx_ai.config.decision_input_config import (
+    DecisionAnswersContent,
+    DecisionQuestionsContent,
 )
 from matrx_ai.config.extra_config import (
     CodeExecutionContent,
@@ -28,6 +27,8 @@ from matrx_ai.config.media_config import (
     YouTubeVideoContent,
     reconstruct_media_content,
 )
+from matrx_ai.config.progress_updates import REPLAY_AS_KEY
+from matrx_ai.config.speech_script_config import SpeechScriptContent
 from matrx_ai.config.structured_input_config import (
     STRUCTURED_INPUT_TYPE_MAP,
     AgentAppInputContent,
@@ -39,6 +40,7 @@ from matrx_ai.config.structured_input_config import (
     NotesInputContent,
     ProjectInputContent,
     RemarksInputContent,
+    SourceSetInputContent,
     TableInputContent,
     TaskInputContent,
     TranscriptInputContent,
@@ -179,7 +181,11 @@ class TextContent:
         return {"type": text_type, "text": self.text}
 
     def to_anthropic(self) -> dict[str, Any]:
-        """Convert to Anthropic format"""
+        """Convert to Anthropic format. A progress update goes back as the exact block the provider sent
+        (``metadata.replay_as``, config/progress_updates.py) — the history the model wrote is never edited."""
+        replay = self.metadata.get(REPLAY_AS_KEY) if self.metadata else None
+        if isinstance(replay, dict) and replay.get("provider") == "anthropic" and replay.get("signature"):
+            return {"type": "thinking", "thinking": replay.get("thinking", ""), "signature": replay["signature"]}
         return {"type": "text", "text": self.text}
 
     def _sanitize_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
@@ -247,6 +253,32 @@ class TextContent:
         corrections = self.metadata.get("kindCorrections")
         if corrections:
             result["kindCorrections"] = list(corrections)
+        # How long an INLINE thought (``<reasoning>…`` at the top of this text — model-written; a stopped
+        # partial's thought is its own thinking part since AND-V 05r F6) ran, so a reopened row says "Thought for Ns" like the live one did. Only this
+        # key: the rest of the in-memory metadata is provider plumbing, not row data (CGU-09 P2-1).
+        duration_ms = self.metadata.get("duration_ms")
+        if isinstance(duration_ms, int) and not isinstance(duration_ms, bool) and duration_ms > 0:
+            result["metadata"] = {"duration_ms": duration_ms}
+        # A progress update keeps the provider block it replays as (config/progress_updates.py).
+        replay = self.metadata.get(REPLAY_AS_KEY)
+        if isinstance(replay, dict):
+            result.setdefault("metadata", {})[REPLAY_AS_KEY] = dict(replay)
+        # DECIDED EXCEPTION to the "only this key" rule above (config/FEATURE.md, 2026-11-13):
+        # Gemini's thought signature on a text part, and which model produced it
+        # (config/template_thinking.py). The signature is stored under a key NO translator reads
+        # (``stored_google_thought_signature``), so a live conversation's later turns send exactly
+        # what they always did (no text signature); only the template step restores it, for the
+        # model that produced it. Bytes ride ``<key>__b64``; ``reconstruct_content`` decodes them.
+        continuity: dict[str, Any] = {}
+        signature = self.metadata.get("google_thought_signature")
+        if signature is None:
+            signature = self.metadata.get("stored_google_thought_signature")
+        if signature is not None:
+            continuity["stored_google_thought_signature"] = signature
+        if self.metadata.get("produced_by") is not None:
+            continuity["produced_by"] = self.metadata["produced_by"]
+        if continuity:
+            result.setdefault("metadata", {}).update(encode_binary_metadata(continuity))
         return result
 
     def __repr__(self) -> str:
@@ -659,6 +691,13 @@ class ThinkingContent:
 
     def to_google(self) -> dict[str, Any] | None:
         if self.provider == "google" and self.signature is not None:
+            if not self.text:
+                # A signature with no thought: before 2026-11-19 the Google parser stored Gemini's
+                # built-in tool steps (search / URL context) this way, and replaying the signature on
+                # an empty thought made Gemini refuse the whole request ("Invalid thought
+                # signature"). A thought signature is optional on replay; a signature alone is never
+                # sent (second layer to ``google/translator.is_server_tool_invocation``).
+                return None
             part: dict[str, Any] = {"text": self.text, "thought": True}
             part["thoughtSignature"] = self.signature
             return part
@@ -770,7 +809,7 @@ UnifiedContent = (
     | CodeExecutionResultContent
     | WebSearchCallContent
     | HostedToolContent
-    # The full STRUCTURED_INPUT_TYPE_MAP, all fifteen.
+    # The full STRUCTURED_INPUT_TYPE_MAP, all sixteen.
     | WebpageInputContent
     | NotesInputContent
     | TaskInputContent
@@ -786,6 +825,7 @@ UnifiedContent = (
     | WorkbookInputContent
     | DocumentInputContent
     | RemarksInputContent
+    | SourceSetInputContent
     | DecisionQuestionsContent
     | DecisionAnswersContent
     | SpeechScriptContent
@@ -866,7 +906,14 @@ def _decode_content_block(block: dict[str, Any]) -> UnifiedContent:
             sig = base64.b64decode(sig)
             encoding = None
 
-        id_from_metadata = block.get("metadata", {}).get("id")
+        # The whole stored metadata rides back (``produced_by`` — which model wrote this thinking —
+        # is what the send boundary's template step reads; config/template_thinking.py). The
+        # ``to_*`` serializers never emit metadata, so the wire is unchanged.
+        raw_thinking_meta = block.get("metadata")
+        thinking_metadata: dict[str, Any] = (
+            dict(raw_thinking_meta) if isinstance(raw_thinking_meta, dict) else {}
+        )
+        id_from_metadata = thinking_metadata.get("id")
         return ThinkingContent(
             text=block.get("text", ""),
             provider=block.get("provider"),
@@ -874,6 +921,7 @@ def _decode_content_block(block: dict[str, Any]) -> UnifiedContent:
             signature_encoding=encoding,
             summary=block.get("summary", []),
             id=id_from_metadata or block.get("id", ""),
+            metadata=thinking_metadata,
         )
 
     elif block_type == "media":

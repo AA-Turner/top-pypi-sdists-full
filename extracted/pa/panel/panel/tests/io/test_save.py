@@ -1,23 +1,39 @@
+import ast
 import re
+import textwrap
 
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from bokeh.io import browser as bk_browser, webdriver as bk_webdriver
 from bokeh.resources import Resources
+from PIL import Image
 
+import panel.io.save as save_module
+
+from panel import bind
 from panel.config import config
 from panel.io.convert import (
-    PYODIDE_MODULE_URL, PYODIDE_PYC_MODULE_URL, PYODIDE_VERSION,
-    script_to_html,
+    BOKEH_CDN_WHL, BOKEH_VERSION, PANEL_CDN_WHL, PYODIDE_MODULE_URL,
+    PYODIDE_PYC_MODULE_URL, PYODIDE_VERSION, script_to_html,
 )
 from panel.io.resources import CDN_DIST
+from panel.io.state import state
+from panel.layout import Column
+from panel.models.state import State
 from panel.models.vega import VegaPlot
 from panel.pane import Alert, Vega
-from panel.template import BootstrapTemplate
+from panel.template import (
+    BootstrapTemplate, FastGridTemplate, FastListTemplate,
+)
 from panel.tests.util import hv_available
+from panel.widgets import IntSlider
+
+BACKEND_MODULES = {"browser": bk_browser, "webdriver": bk_webdriver}
+
 
 vega_example = {
     'config': {
@@ -67,6 +83,40 @@ def test_pyodide_compiled_worker_uses_module_loader():
     )
 
     assert f'import {{ loadPyodide }} from "{PYODIDE_PYC_MODULE_URL}"' in worker
+
+
+def _install_code(source):
+    """Extracts the Python code that installs the environment."""
+    start = source.rindex('\n', 0, source.index('import micropip')) + 1
+    return textwrap.dedent(source[start:source.index('`', start)])
+
+
+@pytest.mark.parametrize('runtime', ['pyodide', 'pyodide-worker'])
+def test_pyodide_falls_back_to_bokeh_from_pypi(runtime):
+    """The CDN may not host a wheel for the installed Bokeh release."""
+    html, worker = script_to_html(
+        StringIO("import panel as pn\npn.pane.Str('Ready').servable()"),
+        requirements=[BOKEH_CDN_WHL, PANEL_CDN_WHL],
+        runtime=runtime, prerender=False
+    )
+    code = _install_code(worker if runtime == 'pyodide-worker' else html)
+
+    ast.parse(code)
+    assert f"await micropip.install([{BOKEH_CDN_WHL!r}, {PANEL_CDN_WHL!r}])" in code
+    assert f"await micropip.install(['bokeh=={BOKEH_VERSION}', {PANEL_CDN_WHL!r}])" in code
+
+
+@pytest.mark.parametrize('runtime', ['pyodide', 'pyodide-worker'])
+def test_pyodide_without_bokeh_cdn_wheel_has_no_fallback(runtime):
+    html, worker = script_to_html(
+        StringIO("import panel as pn\npn.pane.Str('Ready').servable()"),
+        requirements=[f'bokeh=={BOKEH_VERSION}', 'panel'],
+        runtime=runtime, prerender=False
+    )
+    code = _install_code(worker if runtime == 'pyodide-worker' else html)
+
+    ast.parse(code)
+    assert 'try:' not in code
 
 
 def test_pyodide_worker_uses_configured_cdn_root():
@@ -127,6 +177,17 @@ def test_save_inline_resources():
     assert 'alert-primary' in html
 
 
+def test_save_inline_resources_inlines_component_stylesheets():
+    import pandas as pd
+
+    from panel.widgets import Tabulator
+
+    sio = StringIO()
+    Tabulator(pd.DataFrame({'a': [1, 2, 3]})).save(sio, resources='inline')
+    html = sio.getvalue()
+    assert '"name":"ImportedStyleSheet"' not in html
+
+
 def test_save_cdn_resources():
     alert = Alert('# Save test')
 
@@ -135,6 +196,36 @@ def test_save_cdn_resources():
     sio.seek(0)
     html = sio.read()
     assert re.findall('https://cdn.holoviz.org/panel/(.*)/dist/panel.min.js', html)
+
+
+@pytest.mark.parametrize('resources', ['cdn', 'inline'])
+@pytest.mark.parametrize('embed', [False, True])
+@pytest.mark.parametrize('favicon', [
+    pytest.param('favicon.ico', id='relative'),
+    pytest.param('https://example.org/favicon.ico', id='url'),
+    pytest.param(
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        id='data-uri',
+    ),
+])
+def test_save_custom_favicon(resources, embed, favicon):
+    slider = IntSlider(start=0, end=2)
+    layout = Column(slider, bind(str, slider))
+    template_variables = {'app_favicon': favicon}
+    sio = StringIO()
+
+    layout.save(
+        sio, title='My report', resources=resources, embed=embed,
+        template_variables=template_variables, progress=False,
+    )
+    html = sio.getvalue()
+
+    assert f'<link rel="icon" href="{favicon}">' in html
+    assert html.count('rel="icon"') == 1
+    assert f'{CDN_DIST}images/favicon.ico' not in html
+    assert '<title>My report</title>' in html
+    assert template_variables == {'app_favicon': favicon}
+    assert (f'"name":"{State.__qualified_model__}"' in html) is embed
 
 
 @hv_available
@@ -166,3 +257,83 @@ def test_save_template():
     for doc in template._documents:
         for root in doc.roots:
             assert f"data-root-id=\"{root.ref['id']}\"" in html
+
+
+def _font_links(html):
+    return re.findall(r'href="([^"]*fonts\.googleapis\.com[^"]*)"', html)
+
+
+@pytest.mark.parametrize('template', [FastListTemplate, FastGridTemplate])
+@pytest.mark.parametrize('resources', ['cdn', 'inline'])
+def test_save_fast_template_single_https_font_link(template, resources):
+    sio = StringIO()
+    template(title='Fast').save(sio, resources=resources)
+
+    assert _font_links(sio.getvalue()) == ['https://fonts.googleapis.com/css?family=Open+Sans']
+
+
+def test_save_template_scheme_relative_font_url():
+    sio = StringIO()
+    FastListTemplate(
+        title='Fast', font_url='//fonts.googleapis.com/css?family=Lato'
+    ).save(sio)
+
+    assert _font_links(sio.getvalue()) == [
+        'https://fonts.googleapis.com/css?family=Open+Sans',
+        'https://fonts.googleapis.com/css?family=Lato',
+    ]
+
+
+@pytest.fixture
+def screenshots(monkeypatch):
+    """Record what save_png hands to Bokeh instead of launching a browser."""
+    calls = []
+
+    def fake_screenshot(model, **kwargs):
+        calls.append({
+            **kwargs,
+            "html": {name: module.get_layout_html(model, resources=kwargs["resources"], width=None, height=None)
+                     for name, module in BACKEND_MODULES.items()},
+            "wait": {name: module._WAIT_SCRIPT for name, module in BACKEND_MODULES.items()},
+        })
+        return Image.new("RGB", (10, 10))
+
+    monkeypatch.setattr(save_module, "get_screenshot_as_png", fake_screenshot)
+    monkeypatch.setattr(state, "webdriver", None)
+    monkeypatch.setattr(bk_webdriver.webdriver_control, "create", lambda *a, **k: pytest.fail("Selenium driver created"))
+    return calls
+
+
+@pytest.mark.parametrize("backend", ["argument", "setting"])
+def test_save_png_playwright_does_not_need_selenium(screenshots, monkeypatch, backend):
+    """Saving a PNG with Bokeh's Playwright backend must not create a Selenium driver."""
+    if backend == "argument":
+        Alert('Hello').save(BytesIO(), as_png=True, backend='playwright')
+    else:
+        monkeypatch.setenv("BOKEH_EXPORT_BACKEND", "playwright")
+        Alert('Hello').save(BytesIO(), as_png=True)
+
+    assert screenshots[0]["driver"] is None
+    assert state.webdriver is None
+
+
+def test_save_png_uses_state_webdriver(screenshots, monkeypatch):
+    """A browser set on state.webdriver (Selenium or Playwright) is passed to Bokeh as is."""
+    browser = object()
+    monkeypatch.setattr(state, "webdriver", browser)
+
+    Alert('Hello').save(BytesIO(), as_png=True)
+
+    assert screenshots[0]["driver"] is browser
+
+
+def test_save_png_template_reaches_export_backends(screenshots):
+    """Panel's page template and wait script reach Bokeh's per-backend export modules, and are restored after."""
+    originals = {name: module.get_layout_html for name, module in BACKEND_MODULES.items()}
+
+    Alert('Hello').save(BytesIO(), as_png=True, backend='playwright')
+
+    for name in BACKEND_MODULES:
+        assert "overflow: hidden" in screenshots[0]["html"][name]
+        assert screenshots[0]["wait"][name] == save_module._WAIT_SCRIPT
+    assert {name: module.get_layout_html for name, module in BACKEND_MODULES.items()} == originals

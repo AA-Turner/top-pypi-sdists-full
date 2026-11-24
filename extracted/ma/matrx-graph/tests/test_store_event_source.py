@@ -130,12 +130,38 @@ def test_a_store_payload_is_never_trusted(helper) -> None:
                                event=_store_event(payload))
 
 
-def test_a_table_event_adds_no_record_metadata() -> None:
+ITEM = "5b1f0c2e-8a44-4f7e-9d1b-2f0a6c3e9d71"
+ORG = "39c38960-d30c-4840-b0c1-c9960de95582"
+
+
+def _table_event(entity_key: str, payload: dict[str, Any]) -> TriggerEventRow:
+    return TriggerEventRow.model_validate(
+        {"id": "e1", "trigger_id": "t1", "entity_key": entity_key, "payload": payload}
+    )
+
+
+def test_a_table_event_stamps_the_raw_record_key_and_table() -> None:
+    """"Every run about this record" is metadata->>'record_id' for every lane: a raw-table
+    event stamps the watched row's RAW key (payload.entity_key), never the queue's
+    '<org>:<key>' dedupe handle, plus the watched table."""
+    meta = event_run_metadata(
+        event_source={"table": "workbench.product_capture_item"},
+        event=_table_event(f"{ORG}:{ITEM}", {"table": "workbench.product_capture_item",
+                                             "operation": "update", "entity_key": ITEM,
+                                             "row": {"id": ITEM}}),
+    )
+    # event_id: the queue row the run's loop chain is read back from (Triggers PLAN Rule 9).
+    assert meta == {"event_id": "e1", "record_id": ITEM, "record_table": "workbench.product_capture_item"}
+
+
+def test_a_hand_built_event_without_payload_key_strips_the_org_handle() -> None:
     meta = event_run_metadata(
         event_source={"table": "a.b"},
-        event=_store_event({"row": {"id": "x"}}),
+        event=_table_event(f"{ORG}:{ITEM}", {"row": {"id": ITEM}}),
     )
-    assert meta == {}
+    assert meta == {"event_id": "e1", "record_id": ITEM, "record_table": "a.b"}
+    plain = event_run_metadata(event_source={"table": "a.b"}, event=_table_event("k-42", {}))
+    assert plain == {"event_id": "e1", "record_id": "k-42", "record_table": "a.b"}
 
 
 def test_a_number_that_survives_jsonb_hashes_the_same() -> None:

@@ -96,7 +96,7 @@ def test_unreadable_switch_falls_to_off() -> None:
 
 
 def test_missing_reads_dict_and_model_definitions() -> None:
-    defs = {"a": {"required": True}, "b": AgentVariable(name="b", required=True), "c": {"required": False}}
+    defs = {"a": {"required": True}, "b": AgentVariable(declaration={"name": "b", "required": True}), "c": {"required": False}}
     assert missing_required_variables(defs, {"a": [], "b": None, "c": ""}) == ["a", "b"]
     assert missing_required_variables(defs, {"a": ["x"], "b": False}) == []
 

@@ -21,12 +21,15 @@ class ErrorHandlerConfig:
         extra_args (Union[Unset, ErrorHandlerConfigExtraArgs]): The arguments to pass to the script or flow
         muted_on_cancel (Union[Unset, bool]):
         muted_on_user_path (Union[Unset, bool]):
+        muted_on_ui_runs (Union[Unset, bool]): Skip jobs started from the UI, whose trigger kind is `ui`. Stored only
+            when true.
     """
 
     path: Union[Unset, str] = UNSET
     extra_args: Union[Unset, "ErrorHandlerConfigExtraArgs"] = UNSET
     muted_on_cancel: Union[Unset, bool] = False
     muted_on_user_path: Union[Unset, bool] = False
+    muted_on_ui_runs: Union[Unset, bool] = False
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -37,6 +40,7 @@ class ErrorHandlerConfig:
 
         muted_on_cancel = self.muted_on_cancel
         muted_on_user_path = self.muted_on_user_path
+        muted_on_ui_runs = self.muted_on_ui_runs
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -49,6 +53,8 @@ class ErrorHandlerConfig:
             field_dict["muted_on_cancel"] = muted_on_cancel
         if muted_on_user_path is not UNSET:
             field_dict["muted_on_user_path"] = muted_on_user_path
+        if muted_on_ui_runs is not UNSET:
+            field_dict["muted_on_ui_runs"] = muted_on_ui_runs
 
         return field_dict
 
@@ -70,11 +76,14 @@ class ErrorHandlerConfig:
 
         muted_on_user_path = d.pop("muted_on_user_path", UNSET)
 
+        muted_on_ui_runs = d.pop("muted_on_ui_runs", UNSET)
+
         error_handler_config = cls(
             path=path,
             extra_args=extra_args,
             muted_on_cancel=muted_on_cancel,
             muted_on_user_path=muted_on_user_path,
+            muted_on_ui_runs=muted_on_ui_runs,
         )
 
         error_handler_config.additional_properties = d

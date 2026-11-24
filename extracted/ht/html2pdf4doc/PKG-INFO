@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: html2pdf4doc
-Version: 0.0.35
+Version: 0.0.36
 Summary: Python client for HTML2PDF4Doc JavaScript library.
 Project-URL: Changelog, https://github.com/mettta/html2pdf_python/releases/
 Project-URL: Homepage, https://github.com/mettta/html2pdf_python/

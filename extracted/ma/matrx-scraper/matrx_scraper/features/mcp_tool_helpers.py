@@ -12,6 +12,7 @@ except ImportError:
 
     Emitter = Any
 
+from matrx_scraper.public_routes import fetch_with_public_routes
 from matrx_scraper.scraper import fetch_normally_with_proxy, ContentType
 from matrx_scraper.parser.core import parse_html
 from matrx_scraper.extractors import (
@@ -118,7 +119,7 @@ async def scrape_url_core(
     if stream_handler:
         await _emit_progress(stream_handler, f"Browsing {url}", call_id=call_id)
 
-    response = await fetch_normally_with_proxy(url)
+    response = await fetch_with_public_routes(url, fetch_normally_with_proxy)
 
     has_content = response.content or response.content_bytes
     if response.failed or not has_content:
@@ -175,7 +176,8 @@ async def scrape_url_core(
 
     verdict = judge_read(status=int(getattr(response, "status_code", 0) or 0) or None, text=content,
                          html=response.content if response.content_type == ContentType.HTML else None,
-                         title=getattr(response, "title", None))
+                         title=getattr(response, "title", None),
+                         final_url=getattr(response, "response_url", None), requested_url=url)
     if verdict.failed:
         vcprint(f"SCRAPE FAILED: {redact_url_secrets(url)} ({verdict.reason})", color="cyan")
         return await _judged_failure(url, verdict, failures, good_scrape_threshold)
@@ -203,6 +205,8 @@ async def scrape_url_core(
         "content": content,
         "char_count": char_count,
         "is_good_scrape": is_good_scrape,
+        # The judge could not settle this read: kept, and the words travel with it (sources block, page record).
+        "unsure": verdict.unsure,
     }
 
 

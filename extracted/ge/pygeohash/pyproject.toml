@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pygeohash"
-version = "3.5.1"
+version = "3.6.0"
 description = "Python module for interacting with geohashes"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,19 +13,40 @@ authors = [
     {name = "Will McGinnis", email = "will@mcginniscommawill.com"},
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: GIS",
     "Typing :: Typed",
 ]
-keywords = ["geohash", "gis"]
+keywords = [
+    "geohash",
+    "geospatial",
+    "gis",
+    "spatial indexing",
+    "location",
+    "coordinates",
+    "latitude",
+    "longitude",
+    "geocoding",
+    "proximity search",
+    "bounding box",
+    "geographic data",
+    "mapping",
+    "python geohash",
+    "location encoding",
+]
 dependencies = []
 
 [project.urls]
 "Homepage" = "https://pygeohash.mcginniscommawill.com"
 "Bug Tracker" = "https://github.com/wdm0006/pygeohash/issues"
-"Download" = "https://github.com/wdm0006/pygeohash/tarball/3.5.1"
+"Download" = "https://github.com/wdm0006/pygeohash/tarball/3.6.0"
 
 [tool.setuptools]
 packages = ["pygeohash", "pygeohash.cgeohash"]
@@ -122,15 +143,15 @@ line-ending = "auto"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py310, py311, py312
+envlist = py310, py311, py312, py313, py314
 isolated_build = True
-skip_missing_interpreters = True
+skip_missing_interpreters = False
 
 [testenv]
-# Install the package itself with the 'dev' extras
-deps =
-    .[dev]
+package = editable
+extras = dev,viz
 commands =
+    python -c "import pygeohash.cgeohash.geohash_module"
     pytest {posargs:tests}
 """
 

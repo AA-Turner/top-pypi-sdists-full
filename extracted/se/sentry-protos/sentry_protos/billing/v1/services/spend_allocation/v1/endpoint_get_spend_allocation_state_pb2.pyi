@@ -23,13 +23,22 @@ class GetSpendAllocationStateRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CONTRACT_ID_FIELD_NUMBER: builtins.int
+    SNAPSHOT_ID_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
+    snapshot_id: builtins.int
+    """When set, measure the allocations against this usage snapshot's frozen usage
+    instead of fetching the on-demand period's usage. The snapshot must belong to
+    the contract. Used to invoice a closed period.
+    """
     def __init__(
         self,
         *,
         contract_id: builtins.int = ...,
+        snapshot_id: builtins.int | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_snapshot_id", b"_snapshot_id", "snapshot_id", b"snapshot_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_snapshot_id", b"_snapshot_id", "contract_id", b"contract_id", "snapshot_id", b"snapshot_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_snapshot_id", b"_snapshot_id"]) -> typing.Literal["snapshot_id"] | None: ...
 
 global___GetSpendAllocationStateRequest = GetSpendAllocationStateRequest
 
@@ -47,7 +56,8 @@ class GetSpendAllocationStateResponse(google.protobuf.message.Message):
     def simulated_usage(self) -> sentry_protos.billing.v1.services.usage.v1.endpoint_usage_pb2.GetUsageResponse:
         """The organization's usage this period, with each allocation's unused units
         added as accepted usage on the current day, or the period's last day once it
-        has passed.
+        has passed. With a snapshot_id, the base is the snapshot's organization usage,
+        returned unchanged when the contract has no spend allocations.
         """
 
     def __init__(

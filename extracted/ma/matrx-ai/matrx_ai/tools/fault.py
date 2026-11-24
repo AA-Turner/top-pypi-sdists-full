@@ -65,7 +65,16 @@ _FAULT_BY_ERROR_TYPE: dict[str, str] = {
     "permission": USER,
     "conversation_limit": USER,
     "cost_budget": USER,
+    "connection_credentials_refused": USER,  # the person's own connector key refused by the provider
 }
+
+#: Refusals written to the MODEL (none today; the retired Understanding ask guard had two):
+#: the model reads them in its tool result and asks again. The person never sees that text: the ``tool_error`` event
+#: every client draws carries :data:`MODEL_REFUSAL_PERSON_TEXT` instead (``ToolStreamManager.error``). Twin of the
+#: web's ``REFUSALS_FOR_THE_MODEL`` (``@ai-matrx/tool-cards`` ``correctedFailures.ts``), which hides the card.
+REFUSALS_FOR_THE_MODEL: frozenset[str] = frozenset()
+MODEL_REFUSAL_PERSON_TEXT = "The agent is revising its questions"
+
 
 # Valid values for the DB CHECK constraint / admin filters.
 FAULT_DOMAINS = (OK, MODEL_ERROR, TOOL_DEFECT, INFRA, USER)

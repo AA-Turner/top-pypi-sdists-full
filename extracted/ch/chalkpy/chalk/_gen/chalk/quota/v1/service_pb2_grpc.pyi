@@ -12,6 +12,8 @@ from chalk._gen.chalk.quota.v1.service_pb2 import (
     ClearQuotaResponse,
     GetQuotaRequest,
     GetQuotaResponse,
+    ListGPUTypesRequest,
+    ListGPUTypesResponse,
     ListQuotasRequest,
     ListQuotasResponse,
     RequestQuotaIncreaseRequest,
@@ -38,6 +40,13 @@ class QuotaServiceStub:
         GetQuotaRequest,
         GetQuotaResponse,
     ]
+    ListGPUTypes: UnaryUnaryMultiCallable[
+        ListGPUTypesRequest,
+        ListGPUTypesResponse,
+    ]
+    """Names the GPU types the environment's workloads can be placed on, using the
+    same hosts as scaling-group GPU validation. Names only, no quantities.
+    """
     SetQuota: UnaryUnaryMultiCallable[
         SetQuotaRequest,
         SetQuotaResponse,
@@ -71,6 +80,15 @@ class QuotaServiceServicer(metaclass=ABCMeta):
         request: GetQuotaRequest,
         context: ServicerContext,
     ) -> GetQuotaResponse: ...
+    @abstractmethod
+    def ListGPUTypes(
+        self,
+        request: ListGPUTypesRequest,
+        context: ServicerContext,
+    ) -> ListGPUTypesResponse:
+        """Names the GPU types the environment's workloads can be placed on, using the
+        same hosts as scaling-group GPU validation. Names only, no quantities.
+        """
     @abstractmethod
     def SetQuota(
         self,

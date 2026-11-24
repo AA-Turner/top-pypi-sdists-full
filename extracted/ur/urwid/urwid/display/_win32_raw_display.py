@@ -70,6 +70,8 @@ class Screen(_raw_display_base.Screen):
         extended_keys: bool = False,
         *,
         in_band_resize: bool | None = None,
+        alternate_scroll: bool | None = None,
+        underline_styles: bool | None = None,
     ) -> None:
         """Initialize a screen that directly prints escape codes to an output terminal.
 
@@ -87,6 +89,17 @@ class Screen(_raw_display_base.Screen):
             Ctrl+C and Ctrl+Z then arrive as keys instead of signals; see :ref:`extended-keys`.
         :param in_band_resize: accepted for the same arguments as on POSIX, with no effect:
             the console reports every resize in order with the keys itself; see :ref:`in-band-resize`.
+        :param alternate_scroll: whether the terminal sends the mouse wheel as cursor up and down keys
+            while the screen runs (DEC private mode 1007), which it does only on the alternate screen
+            and while the screen does not track the mouse.
+            None (default) leaves the terminal's own setting.
+            True/False set the mode when the screen starts,
+            and the state the terminal reported is set back when it stops; without a report the mode stays as set.
+        :param underline_styles: draw the underline styles and the underline colors of the display attributes;
+            without them an underline is drawn single and in the text color.
+            None (default) detects them by the terminfo entry of ``TERM`` and by the terminal's environment variables,
+            and turns them on when the terminal's reply to a capability or version query shows them;
+            pass True/False to force it.
         """
         del in_band_resize  # the console implements no mode 2048 to turn on
         if input is None:
@@ -98,6 +111,8 @@ class Screen(_raw_display_base.Screen):
             bracketed_paste_mode=bracketed_paste_mode,
             focus_reporting=focus_reporting,
             extended_keys=extended_keys,
+            alternate_scroll=alternate_scroll,
+            underline_styles=underline_styles,
         )
         # the console title before set_title() changed it, read through the console API
         self._saved_title: str | None = None
@@ -105,6 +120,8 @@ class Screen(_raw_display_base.Screen):
         self._in_band_resize = self._send_input is not None
         # The console implements no mode 2048, so it is not queried: the console reader is what sends the reports.
         self.modes.in_band_resize = False
+        # A start failed before writing to a console without VT processing, so _stop() must not write escape sequences.
+        self._console_without_vt = False
 
     _dwOriginalOutMode: DWORD | None = None
     _dwOriginalInMode: DWORD | None = None
@@ -167,8 +184,45 @@ class Screen(_raw_display_base.Screen):
         :raises TypeError: unexpected positional or keyword arguments were given.
         :raises RuntimeError: the console mode could not be set.
         """
+        self._start_complete = False
+        handle_out = _win32.GetStdHandle(_win32.STD_OUTPUT_HANDLE)
+        handle_in = _win32.GetStdHandle(_win32.STD_INPUT_HANDLE)
+        original_out_mode = DWORD(0)
+        original_in_mode = DWORD(0)
+        # Read before anything can fail: until VT processing is enabled below,
+        # undoing a failed start must not write escape sequences that such a console prints as text.
+        output_is_console = bool(_win32.GetConsoleMode(handle_out, byref(original_out_mode)))
+        self._console_without_vt = output_is_console and not (
+            original_out_mode.value & _win32.ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        )
+
         if args or kwargs:
             raise TypeError(f"start() got unexpected arguments: {args=!r}, {kwargs=!r}")
+
+        # The console mode comes first: a console that cannot enable VT processing would print escape sequences as text.
+        # The standard handles are not consoles when the process runs detached or with redirected streams.
+        # In that case there is no console mode to negotiate, same as a POSIX terminal which is not a tty.
+        if output_is_console and _win32.GetConsoleMode(handle_in, byref(original_in_mode)):
+            dword_out_mode = DWORD(
+                original_out_mode.value | _win32.ENABLE_VIRTUAL_TERMINAL_PROCESSING | _win32.DISABLE_NEWLINE_AUTO_RETURN
+            )
+            dword_in_mode = DWORD(
+                original_in_mode.value | _win32.ENABLE_WINDOW_INPUT | _win32.ENABLE_VIRTUAL_TERMINAL_INPUT
+            )
+
+            if not (ok := _win32.SetConsoleMode(handle_out, dword_out_mode)):
+                raise RuntimeError(f"ConsoleMode set failed for output. Err: {ok!r}")
+
+            # Saved before the input mode is set: undoing a failed start sets the output mode back and checks it.
+            self._dwOriginalOutMode = original_out_mode
+            self._dwOriginalInMode = original_in_mode
+            self._console_mode_active = True
+
+            if not (ok := _win32.SetConsoleMode(handle_in, dword_in_mode)):
+                raise RuntimeError(f"ConsoleMode set failed for input. Err: {ok!r}")
+
+        # from the first escape sequence written on, a stop writes the ones that undo it
+        self._console_without_vt = False
 
         if alternate_buffer:
             # A terminal that reported no alternate screen on an earlier start ignores the switch, and the frames are
@@ -182,34 +236,6 @@ class Screen(_raw_display_base.Screen):
         # after a later exception in this method) has to know to restore the normal buffer.
         self._alternate_buffer = alternate_buffer
 
-        handle_out = _win32.GetStdHandle(_win32.STD_OUTPUT_HANDLE)
-        handle_in = _win32.GetStdHandle(_win32.STD_INPUT_HANDLE)
-        original_out_mode = DWORD(0)
-        original_in_mode = DWORD(0)
-
-        # The standard handles are not consoles when the process runs detached or with redirected streams.
-        # In that case there is no console mode to negotiate, same as a POSIX terminal which is not a tty.
-        if _win32.GetConsoleMode(handle_out, byref(original_out_mode)) and _win32.GetConsoleMode(
-            handle_in, byref(original_in_mode)
-        ):
-            dword_out_mode = DWORD(
-                original_out_mode.value | _win32.ENABLE_VIRTUAL_TERMINAL_PROCESSING | _win32.DISABLE_NEWLINE_AUTO_RETURN
-            )
-            dword_in_mode = DWORD(
-                original_in_mode.value | _win32.ENABLE_WINDOW_INPUT | _win32.ENABLE_VIRTUAL_TERMINAL_INPUT
-            )
-
-            if not (ok := _win32.SetConsoleMode(handle_out, dword_out_mode)):
-                raise RuntimeError(f"ConsoleMode set failed for output. Err: {ok!r}")
-
-            if not (ok := _win32.SetConsoleMode(handle_in, dword_in_mode)):
-                _win32.SetConsoleMode(handle_out, original_out_mode)
-                raise RuntimeError(f"ConsoleMode set failed for input. Err: {ok!r}")
-
-            self._dwOriginalOutMode = original_out_mode
-            self._dwOriginalInMode = original_in_mode
-            self._console_mode_active = True
-
         self._start_input_thread()
         self._detect_terminal_modes()
 
@@ -219,14 +245,19 @@ class Screen(_raw_display_base.Screen):
         if self.modes.focus_reporting:
             self.write(escape.PrivateMode.FOCUS_REPORTING.enable_seq)
 
+        self._write_alternate_scroll(restore=False)
         self._enable_keyboard_protocol()
         self._show_title()
-
-        self._next_timeout = self.max_wait
 
         signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
         # restore mouse tracking to previous state
         self._mouse_tracking(self._mouse_tracking_enabled)
+
+        # The bottom row of an earlier run follows a resize made while the screen was stopped.
+        # A subclass with its own get_cols_rows() sets it there, as the size this screen reads may not be its size.
+        if self.maxrow is not None and type(self).get_cols_rows is Screen.get_cols_rows:
+            self.maxrow = self._read_cols_rows()[1]
+        self._start_complete = True
 
         super()._start()  # type: ignore[safe-super]
 
@@ -244,25 +275,30 @@ class Screen(_raw_display_base.Screen):
         :raises OSError: writing to the output failed; the reader is stopped and the console modes are set back first.
         """
         try:
-            self.clear()
+            # a start that did not enable VT processing wrote nothing, and the console would print these as text
+            if not self._console_without_vt:
+                self.clear()
 
-            if self.modes.bracketed_paste:
-                self.write(escape.PrivateMode.BRACKETED_PASTE.disable_seq)
+                if self.modes.bracketed_paste:
+                    self.write(escape.PrivateMode.BRACKETED_PASTE.disable_seq)
 
-            if self.modes.focus_reporting:
-                self.write(escape.PrivateMode.FOCUS_REPORTING.disable_seq)
+                if self.modes.focus_reporting:
+                    self.write(escape.PrivateMode.FOCUS_REPORTING.disable_seq)
 
-            # before the alternate screen is left: the kitty keyboard flags are kept per screen
-            self._disable_keyboard_protocol()
+                self._write_alternate_scroll(restore=True)
 
-            # before the last writes, so keys typed meanwhile stay in the console for whatever reads it next
-            self._stop_input_thread()
+                # before the alternate screen is left: the kitty keyboard flags are kept per screen
+                self._disable_keyboard_protocol()
 
-            self._stop_restore_palette()
-            # before the console mode is restored: the title is saved through the console API while it is active
-            self._restore_title()
-            self._stop_mouse_restore_buffer()
+                # before the last writes, so keys typed meanwhile stay in the console for whatever reads it next
+                self._stop_input_thread()
+
+                self._stop_restore_palette()
+                # before the console mode is restored: the title is saved through the console API while it is active
+                self._restore_title()
+                self._stop_mouse_restore_buffer()
         finally:
+            self._console_without_vt = False
             # the reader is stopped and the console modes are set back also when a step above failed
             self._stop_input_thread()
             self._restore_console_modes()
@@ -419,9 +455,13 @@ class Screen(_raw_display_base.Screen):
 
     def get_cols_rows(self) -> tuple[int, int]:
         """Return the terminal dimensions (num columns, num rows)."""
-        x, y = self._last_cols_rows = self._console_window_size() or super().get_cols_rows()
+        x, y = self._last_cols_rows = self._read_cols_rows()
         self.maxrow = y
         return x, y
+
+    def _read_cols_rows(self) -> tuple[int, int]:
+        """Return the size :meth:`get_cols_rows` returns, without recording it as the size the application read."""
+        return self._console_window_size() or super().get_cols_rows()
 
 
 class ReadInputThread(threading.Thread):

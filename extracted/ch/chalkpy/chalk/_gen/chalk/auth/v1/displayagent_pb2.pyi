@@ -56,6 +56,7 @@ class DisplayUserAgent(_message.Message):
         "email",
         "team_name",
         "customer_claims",
+        "team_permissions",
     )
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     USER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -66,6 +67,7 @@ class DisplayUserAgent(_message.Message):
     EMAIL_FIELD_NUMBER: _ClassVar[int]
     TEAM_NAME_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     user_id: str
     team_id: str
@@ -75,6 +77,7 @@ class DisplayUserAgent(_message.Message):
     email: str
     team_name: str
     customer_claims: _containers.RepeatedCompositeFieldContainer[DisplayCustomClaim]
+    team_permissions: _containers.RepeatedCompositeFieldContainer[DisplayPermission]
     def __init__(
         self,
         client_id: _Optional[str] = ...,
@@ -86,6 +89,7 @@ class DisplayUserAgent(_message.Message):
         email: _Optional[str] = ...,
         team_name: _Optional[str] = ...,
         customer_claims: _Optional[_Iterable[_Union[DisplayCustomClaim, _Mapping]]] = ...,
+        team_permissions: _Optional[_Iterable[_Union[DisplayPermission, _Mapping]]] = ...,
     ) -> None: ...
 
 class DisplayCustomClaim(_message.Message):

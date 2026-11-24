@@ -26,9 +26,11 @@ from matrx_ai.providers.base_translator import BaseTranslator, record_platform_t
 from matrx_ai.config.cache_marks import (
     MAX_ANTHROPIC_CACHE_MARKS,
     cache_control,
+    system_blocks_with_shared_lead,
     long_cache_note,
 )
 from matrx_ai.providers.cache_guard import PROMPT_CACHING_ENABLED
+from matrx_ai.providers.final_outbound_snapshot import SHAPE_ANTHROPIC, SealLocator
 from matrx_ai.providers.request_capture import note_capture
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 from matrx_ai.providers.structured_output_findings import response_format_identity
@@ -41,10 +43,80 @@ from matrx_ai.providers.structured_output_findings import response_format_identi
 # CAUSE_FAILURES_FOR_TESTING = True  # Set to True to inject fake tool UUIDs and cause API failures for testing error handling
 
 
+#: API version 2026-10-21 (anthropic>=2.0) answers ANY of these with a 400 — on every model,
+#: at any value. The catalog marks them ``supported: false`` on ``anthropic_chat`` (layer 1,
+#: which also tells the client its setting was not applied); this is layer 2.
+_REFUSED_SAMPLING_KEYS = ("temperature", "top_p", "top_k")
+_ANNOUNCED_SAMPLING: set[str] = set()
+
+
+def _no_sampling_parameters(request: dict[str, Any]) -> dict[str, Any]:
+    """Strip sampling parameters the Messages API refuses, top-level or in ``extra_body``.
+
+    Reaching here means a catalog rule still emits one — announced loudly, once per key per
+    process, so the rule gets fixed; the request itself never carries a guaranteed 400.
+    """
+    extra = request.get("extra_body")
+    for container in (request, extra if isinstance(extra, dict) else {}):
+        for key in _REFUSED_SAMPLING_KEYS:
+            if key in container:
+                container.pop(key)
+                if key not in _ANNOUNCED_SAMPLING:
+                    _ANNOUNCED_SAMPLING.add(key)
+                    vcprint(
+                        f"[anthropic] dropped {key!r}: API 2026-10-21 refuses sampling parameters on "
+                        "every model. The catalog (ai.api anthropic_chat rules.params) should mark it "
+                        "supported:false — this is the backstop.",
+                        color="red",
+                    )
+    if isinstance(extra, dict) and not extra:
+        request.pop("extra_body")
+    return request
+
+
+#: Block types the Claude API refuses directly in an assistant message.
+_REFUSED_ON_AN_ASSISTANT_TURN = ("document", "image")
+
+
+def _no_media_on_an_assistant_turn(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Last layer behind the send boundary's carry step and ``messages_for_wire``'s backstop
+    (``config/assistant_turn_media.py``).
+
+    The Claude API refuses a ``document`` (version 2026-10-21) and an ``image`` ("'image' blocks
+    are not permitted within assistant turns", live 2026-11-10) directly in an assistant
+    message. One that still arrives here is replaced by its identity line and staged as a
+    notice on the request snapshot — loud, never a 400.
+    """
+    if not any(block.get("type") in _REFUSED_ON_AN_ASSISTANT_TURN for block in blocks):
+        return blocks
+    from matrx_ai.processing.media_fallback.handler import stage_media_notice
+
+    kept: list[dict[str, Any]] = []
+    for block in blocks:
+        kind = block.get("type")
+        if kind not in _REFUSED_ON_AN_ASSISTANT_TURN:
+            kept.append(block)
+            continue
+        title = block.get("title") or "untitled"
+        kept.append({"type": "text", "text": f'<attachment kind="{kind}" name="{title}" not_resent="assistant turn"/>'})
+        vcprint(f"[anthropic] a {kind} block reached an assistant turn past every earlier layer; named", color="red")
+        stage_media_notice(
+            {
+                "media_kind": kind,
+                "action": "converted",
+                "user_message": f"A {kind} on an earlier reply was referenced by name, not re-sent.",
+                "system_message": f"anthropic: a {kind} block reached an assistant turn past the send boundary",
+                "provider": "anthropic",
+            }
+        )
+    return kept
+
+
 class AnthropicTranslator(BaseTranslator):
     """Translates between unified format and Anthropic Messages API"""
 
     PROVIDER = "anthropic"
+    SUPPORTS_LATE_TOOLS = True  # late tools ride the trailing channel (providers/late_tools.py)
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)
@@ -80,7 +152,16 @@ class AnthropicTranslator(BaseTranslator):
         from matrx_ai.config.cache_marks import template_mark_index
         from matrx_ai.config.cache_plan import MARKS_ALL, MARKS_NONE, marks_for
 
-        long_cache = bool(getattr(config, "extended_prompt_cache", False))
+        # ALWAYS-WARM (providers/prompt_warm.py): an enrolled agent always runs on the long
+        # cache and gets the shared-prefix layout below.
+        from matrx_ai.providers import prompt_warm
+
+        warm_agent_id = prompt_warm.current_agent_id()
+        warm_profile = prompt_warm.profile_for(warm_agent_id)
+        long_cache = bool(getattr(config, "extended_prompt_cache", False)) or (
+            warm_profile is not None and not warm_profile.pending_reason
+        )
+        warm_layout: prompt_warm.WarmLayout | None = None
         # The send boundary's plan: a mark no later call reads is a pure write surcharge
         # (config/cache_plan.py). ``none`` sends no mark, ``prefix`` no rolling mark.
         cache_marks = marks_for(config)
@@ -93,8 +174,14 @@ class AnthropicTranslator(BaseTranslator):
 
         wire_messages = history_system_messages_as_notes(self.messages_for_wire(config), provider="anthropic")
         template_position = template_mark_index(wire_messages) if caching else None
+        # THE STATIC SEAL LINE: stamped in THIS wire list (merges included) for the final outbound
+        # snapshot (``providers/final_outbound_snapshot.py``). Observes only.
+        seal = SealLocator(SHAPE_ANTHROPIC, wire_messages)
         for position, msg in enumerate(wire_messages):
+            seal.before(position, messages)
             message_content = msg.to_anthropic_blocks()
+            if msg.role == "assistant":
+                message_content = _no_media_on_an_assistant_turn(message_content)
             flags = flags_of(msg)
             if message_content and position == template_position:
                 # TEMPLATE MARK: the end of the authored messages the fill left unchanged —
@@ -117,6 +204,7 @@ class AnthropicTranslator(BaseTranslator):
                     messages[-1]["content"].extend(message_content)
                 else:
                     messages.append({"role": role, "content": message_content})
+        seal.finish(messages)
 
         # LAST LINE OF DEFENSE — even if every upstream guard is bypassed (the
         # live-loop `dataclasses.replace` and cache-hit `deepcopy` paths both
@@ -255,6 +343,8 @@ class AnthropicTranslator(BaseTranslator):
         # the newest user-role message, as its own block (see TRAILING below).
         system_text = self.get_stable_system_text(config)
         all_tools = self.build_provider_tools(config, "anthropic")
+        if config.stream:
+            all_tools = with_eager_input_streaming(all_tools)
         if config.internal_web_search and not any(
             isinstance(tool, dict) and tool.get("type") == "web_search_20250305"
             for tool in all_tools
@@ -288,15 +378,12 @@ class AnthropicTranslator(BaseTranslator):
         if caching:
             if system_text:
                 # System must be a block array (not a bare string) to carry
-                # cache_control. This breakpoint caches tools + system.
-                system_blocks: list[dict[str, Any]] = [
-                    {
-                        "type": "text",
-                        "text": system_text,
-                        "cache_control": cache_control(long=long_cache),
-                    }
-                ]
-                anthropic_request["system"] = system_blocks
+                # cache_control. This breakpoint caches tools + system. A per-person tail
+                # (org catalog, saved person context) gets its own block, and the shared lead
+                # its own mark, so every person reads the lead (cache_marks.per_person_split).
+                anthropic_request["system"] = system_blocks_with_shared_lead(
+                    system_text, long=long_cache
+                )
                 if all_tools:
                     anthropic_request["tools"] = all_tools
             elif all_tools:
@@ -318,6 +405,10 @@ class AnthropicTranslator(BaseTranslator):
             # most 3 (system, template, rolling). Anything past 4 (a mark that rode in
             # on a content block) is dropped LOUDLY, never silently.
             self._enforce_breakpoint_ceiling(anthropic_request, messages, template_block)
+            if warm_profile is not None and warm_agent_id:
+                warm_layout = self._apply_warm_layout(
+                    config, anthropic_request, messages, warm_agent_id, warm_profile, system_text
+                )
             if long_cache:
                 note_capture(
                     long_cache_note(
@@ -415,7 +506,48 @@ class AnthropicTranslator(BaseTranslator):
                 else:
                     anthropic_request["output_config"] = {"format": output_format}
 
-        return anthropic_request
+        final_request = _no_sampling_parameters(anthropic_request)
+        if warm_layout is not None:
+            # After params resolve: thinking + effort are part of the replayable prefix.
+            prompt_warm.finish_warm_layout(warm_layout, final_request)
+        return final_request
+
+    @staticmethod
+    def _apply_warm_layout(
+        config: UnifiedConfig,
+        anthropic_request: dict[str, Any],
+        messages: list[dict[str, Any]],
+        agent_id: str,
+        profile: Any,
+        system_text: str | None,
+    ) -> Any:
+        """The shared-prefix layout for an enrolled agent. Never breaks a send: a failure
+        leaves the request exactly as the platform built it and is recorded as a layout miss."""
+        from matrx_ai.providers import prompt_warm
+
+        # Compare in WIRE names: the declarations on the request carry them (``bundle:x`` -> ``bundle__x``).
+        from matrx_ai.providers.base_translator import authored_wire_names
+
+        authored = set(authored_wire_names(config))
+        tools = anthropic_request.get("tools") if isinstance(anthropic_request.get("tools"), list) else []
+        try:
+            return prompt_warm.apply_warm_layout(
+                anthropic_request,
+                messages,
+                agent_id=agent_id,
+                profile=profile,
+                system_text=system_text or "",
+                authored_run=prompt_warm.authored_tool_run(tools, authored),
+            )
+        except Exception as exc:  # noqa: BLE001 — announced; the send proceeds unwarmed
+            vcprint(f"[prompt warm] layout failed for agent {agent_id}: {exc!r}", color="red")
+            return prompt_warm.WarmLayout(
+                agent_id=agent_id,
+                model=str(anthropic_request.get("model") or ""),
+                applied=False,
+                shared_chars=len(getattr(profile, "shared_text", "") or ""),
+                prompt_chars=int(getattr(profile, "prompt_chars", 0) or 0),
+            )
 
     # ── Prompt-cache breakpoint helpers ──────────────────────────────────────
     # Both COPY before mutating: build_provider_tools may return declaration
@@ -518,9 +650,11 @@ class AnthropicTranslator(BaseTranslator):
 
         🚨 When the newest turn carries this send's platform block (placed BEFORE the person's
         typed text — ``messages_for_wire``), the mark goes on the last block BEFORE it: the
-        block is per-turn and never persisted, so a cached prefix that contained it would be
-        unreadable next turn. Everything up to the block caches; the block, the person's
-        attachments and typed text are written on the next turn, in stored order.
+        block is per-turn, so a cached prefix that contained it would be unreadable next turn.
+        Everything up to the block caches; the block, the person's attachments and typed text
+        are written on the next turn, in stored order. A tool-loop send's mark sits on the
+        newest tool result, after the block: that turn's block is kept on her turn and replayed
+        next turn (``send_boundary.keep_turn_context_for_next_turn``), so that prefix is read.
         """
         if not messages:
             return
@@ -1079,3 +1213,22 @@ class AnthropicTranslator(BaseTranslator):
             finish_reason=finish_reason,
             raw_response=response,
         )
+
+
+def with_eager_input_streaming(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A tool that listens to its own streamed arguments (``tools/partial_args.py``) gets them AS
+    THEY ARE WRITTEN. The API buffers a tool's input by default and releases it in one burst when
+    the call is finished, so the Conductor's proposed steps all landed at once ("nothing for 70 s,
+    then everything", live walk 2026-11-17). ``eager_input_streaming`` turns the buffering off for
+    that tool only; the API then no longer validates its input, which the listener already guards
+    (a call that is not one whole JSON object closes as unfinished) and the tool validates again."""
+    from matrx_ai.tools.partial_args import has_partial_args
+
+    out: list[dict[str, Any]] = []
+    for tool in tools:
+        name = tool.get("name") if isinstance(tool, dict) else None
+        if isinstance(name, str) and "type" not in tool and has_partial_args(name):
+            tool = {**tool, "eager_input_streaming": True}
+        out.append(tool)
+    return out
+

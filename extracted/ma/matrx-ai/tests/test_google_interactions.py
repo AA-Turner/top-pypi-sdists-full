@@ -189,3 +189,66 @@ def test_only_the_sdk_experimental_property_warning_is_suppressed() -> None:
 
     assert result == {"model": "m", "input": "x"}
     assert seen == []
+
+
+# ── A previous interaction is continued only when the run's own conversation recorded it (CASA 3.1.4) ──
+
+import matrx_ai.providers.google.google_interactions_api as interactions_api  # noqa: E402
+
+
+def _continuing(previous: str | None) -> UnifiedConfig:
+    return UnifiedConfig(
+        model="gemini-omni-flash-preview",
+        messages=[UnifiedMessage(role="user", content=[TextContent(text="Make it rain")])],
+        previous_interaction_id=previous,
+    )
+
+
+def _in_conversation(monkeypatch: pytest.MonkeyPatch, conversation_id: str | None, recorded: dict[str, set[str]]):
+    ctx = SimpleNamespace(conversation_id=conversation_id) if conversation_id is not None else None
+    monkeypatch.setattr("matrx_ai.context.app_context.try_get_app_context", lambda: ctx)
+
+    async def recorded_ids(cid: str) -> set[str]:
+        return recorded.get(cid, set())
+
+    monkeypatch.setattr(interactions_api, "interaction_ids_recorded", recorded_ids)
+
+
+@pytest.mark.asyncio
+async def test_another_conversations_interaction_is_refused_before_the_paid_call(monkeypatch) -> None:
+    _in_conversation(monkeypatch, "mine", {"theirs": {"interaction-of-someone-else"}})
+    with pytest.raises(ValueError, match="not part of this conversation"):
+        await interactions_api.refuse_unrecorded_previous_interaction(_continuing("interaction-of-someone-else"))
+
+
+@pytest.mark.asyncio
+async def test_a_run_with_no_conversation_cannot_continue_an_interaction(monkeypatch) -> None:
+    _in_conversation(monkeypatch, None, {})
+    with pytest.raises(ValueError, match="not part of this conversation"):
+        await interactions_api.refuse_unrecorded_previous_interaction(_continuing("interaction-x"))
+
+
+@pytest.mark.asyncio
+async def test_the_conversations_own_interaction_is_continued(monkeypatch) -> None:
+    _in_conversation(monkeypatch, "mine", {"mine": {"interaction-made-here"}})
+    await interactions_api.refuse_unrecorded_previous_interaction(_continuing("interaction-made-here"))
+    await interactions_api.refuse_unrecorded_previous_interaction(_continuing(None))
+
+
+@pytest.mark.asyncio
+async def test_execute_asks_before_anything_is_built(monkeypatch) -> None:
+    _in_conversation(monkeypatch, "mine", {})
+
+    def must_not_build(*_a, **_k):
+        raise AssertionError("the request was built for an interaction this conversation never recorded")
+
+    provider = _provider()
+    monkeypatch.setattr(provider, "_build_kwargs", must_not_build)
+    with pytest.raises(ValueError, match="not part of this conversation"):
+        await provider.execute(_continuing("interaction-of-someone-else"), _profile())
+
+
+def test_the_record_is_the_stored_answer_blocks_metadata() -> None:
+    stored = VideoContent(file_id="f1", url="https://example.test/v.mp4", metadata={"interaction_id": "i-1"})
+    assert interactions_api._interaction_ids_in([stored.to_storage_dict(), {"type": "text", "text": "x"}]) == {"i-1"}
+    assert interactions_api._interaction_ids_in(None) == set()

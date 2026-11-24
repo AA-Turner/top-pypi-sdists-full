@@ -14,16 +14,18 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.common.v1 import tag_filter_pb2 as chalk_dot_common_dot_v1_dot_tag__filter__pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as chalk_dot_container_dot_v1_dot_service__pb2
 from chalk._gen.chalk.container.v1 import (
     snapshot_compatibility_pb2 as chalk_dot_container_dot_v1_dot_snapshot__compatibility__pb2,
 )
-from chalk._gen.chalk.flags.v1 import flags_pb2 as chalk_dot_flags_dot_v1_dot_flags__pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as chalk_dot_utils_dot_v1_dot_sensitive__pb2
+from chalk._gen.chalk.volume.v2 import volume_pb2 as chalk_dot_volume_dot_v2_dot_volume__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\'chalk/sandbox/v2/snapshot_service.proto\x12\x10\x63halk.sandbox.v2\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/container/v1/service.proto\x1a/chalk/container/v1/snapshot_compatibility.proto\x1a\x1a\x63halk/flags/v1/flags.proto\x1a\x1fgoogle/protobuf/timestamp.proto"Z\n\x0eGKEPodSnapshot\x12%\n\x0estorage_bucket\x18\x01 \x01(\tR\rstorageBucket\x12!\n\x0cstorage_path\x18\x02 \x01(\tR\x0bstoragePath"\xa7\x01\n\x12HypervisorSnapshot\x12\x1f\n\x0bstorage_uri\x18\x01 \x01(\tR\nstorageUri\x12\x1f\n\x0bsnapshot_id\x18\x02 \x01(\tR\nsnapshotId\x12O\n\rcompatibility\x18\x03 \x01(\x0b\x32).chalk.container.v1.SnapshotCompatibilityR\rcompatibility"\xc4\x01\n\x13SandboxSnapshotSpec\x12L\n\x10gke_pod_snapshot\x18\x01 \x01(\x0b\x32 .chalk.sandbox.v2.GKEPodSnapshotH\x00R\x0egkePodSnapshot\x12W\n\x13hypervisor_snapshot\x18\x02 \x01(\x0b\x32$.chalk.sandbox.v2.HypervisorSnapshotH\x00R\x12hypervisorSnapshotB\x06\n\x04spec"\x8b\x04\n\x0fSandboxSnapshot\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nsandbox_id\x18\x02 \x01(\tR\tsandboxId\x12:\n\x04spec\x18\x03 \x01(\x0b\x32&.chalk.container.v1.ChalkContainerSpecR\x04spec\x12J\n\rsnapshot_spec\x18\x04 \x01(\x0b\x32%.chalk.sandbox.v2.SandboxSnapshotSpecR\x0csnapshotSpec\x12?\n\x06status\x18\x05 \x01(\x0e\x32\'.chalk.sandbox.v2.SandboxSnapshotStatusR\x06status\x12*\n\x0estatus_message\x18\x06 \x01(\tH\x00R\rstatusMessage\x88\x01\x01\x12\x39\n\ncreated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x42\n\x0c\x63ompleted_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x0b\x63ompletedAt\x88\x01\x01\x12"\n\ncreated_by\x18\t \x01(\tH\x02R\tcreatedBy\x88\x01\x01\x42\x11\n\x0f_status_messageB\x0f\n\r_completed_atB\r\n\x0b_created_by"=\n\x1c\x43reateSandboxSnapshotRequest\x12\x1d\n\nsandbox_id\x18\x01 \x01(\tR\tsandboxId"^\n\x1d\x43reateSandboxSnapshotResponse\x12=\n\x08snapshot\x18\x01 \x01(\x0b\x32!.chalk.sandbox.v2.SandboxSnapshotR\x08snapshot"<\n\x19GetSandboxSnapshotRequest\x12\x1f\n\x0bsnapshot_id\x18\x01 \x01(\tR\nsnapshotId"[\n\x1aGetSandboxSnapshotResponse\x12=\n\x08snapshot\x18\x01 \x01(\x0b\x32!.chalk.sandbox.v2.SandboxSnapshotR\x08snapshot"Z\n\x1bListSandboxSnapshotsFilters\x12\x1f\n\x0bsandbox_ids\x18\x01 \x03(\tR\nsandboxIds\x12\x1a\n\x08statuses\x18\x02 \x03(\tR\x08statuses"\xe4\x02\n\x1bListSandboxSnapshotsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x16\n\x06search\x18\x03 \x01(\tR\x06search\x12G\n\x07\x66ilters\x18\x04 \x01(\x0b\x32-.chalk.sandbox.v2.ListSandboxSnapshotsFiltersR\x07\x66ilters\x12L\n\x0bsort_column\x18\x05 \x01(\x0e\x32+.chalk.sandbox.v2.SandboxSnapshotSortColumnR\nsortColumn\x12I\n\nsort_order\x18\x06 \x01(\x0e\x32*.chalk.sandbox.v2.SandboxSnapshotSortOrderR\tsortOrderB\x08\n\x06_limitB\t\n\x07_cursor"\x95\x01\n\x1cListSandboxSnapshotsResponse\x12?\n\tsnapshots\x18\x01 \x03(\x0b\x32!.chalk.sandbox.v2.SandboxSnapshotR\tsnapshots\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"?\n\x1c\x44\x65leteSandboxSnapshotRequest\x12\x1f\n\x0bsnapshot_id\x18\x01 \x01(\tR\nsnapshotId"\x1f\n\x1d\x44\x65leteSandboxSnapshotResponse*\xd9\x01\n\x15SandboxSnapshotStatus\x12\'\n#SANDBOX_SNAPSHOT_STATUS_UNSPECIFIED\x10\x00\x12#\n\x1fSANDBOX_SNAPSHOT_STATUS_PENDING\x10\x01\x12\'\n#SANDBOX_SNAPSHOT_STATUS_IN_PROGRESS\x10\x02\x12%\n!SANDBOX_SNAPSHOT_STATUS_COMPLETED\x10\x03\x12"\n\x1eSANDBOX_SNAPSHOT_STATUS_FAILED\x10\x04*v\n\x19SandboxSnapshotSortColumn\x12,\n(SANDBOX_SNAPSHOT_SORT_COLUMN_UNSPECIFIED\x10\x00\x12+\n\'SANDBOX_SNAPSHOT_SORT_COLUMN_CREATED_AT\x10\x01*\x92\x01\n\x18SandboxSnapshotSortOrder\x12+\n\'SANDBOX_SNAPSHOT_SORT_ORDER_UNSPECIFIED\x10\x00\x12$\n SANDBOX_SNAPSHOT_SORT_ORDER_DESC\x10\x01\x12#\n\x1fSANDBOX_SNAPSHOT_SORT_ORDER_ASC\x10\x02\x32\xe5\x04\n\x16SandboxSnapshotService\x12\xd9\x01\n\x15\x43reateSandboxSnapshot\x12..chalk.sandbox.v2.CreateSandboxSnapshotRequest\x1a/.chalk.sandbox.v2.CreateSandboxSnapshotResponse"_\x80}\x0c\x92\xd3\x0eX\n\x1b\x63ontainer_snapshots_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12t\n\x12GetSandboxSnapshot\x12+.chalk.sandbox.v2.GetSandboxSnapshotRequest\x1a,.chalk.sandbox.v2.GetSandboxSnapshotResponse"\x03\x80}\x0b\x12z\n\x14ListSandboxSnapshots\x12-.chalk.sandbox.v2.ListSandboxSnapshotsRequest\x1a..chalk.sandbox.v2.ListSandboxSnapshotsResponse"\x03\x80}\x0b\x12}\n\x15\x44\x65leteSandboxSnapshot\x12..chalk.sandbox.v2.DeleteSandboxSnapshotRequest\x1a/.chalk.sandbox.v2.DeleteSandboxSnapshotResponse"\x03\x80}\x0c\x42\xa4\x01\n\x14\x63om.chalk.sandbox.v2B\x14SnapshotServiceProtoP\x01Z\x14sandbox/v2;sandboxv2\xa2\x02\x03\x43SX\xaa\x02\x10\x43halk.Sandbox.V2\xca\x02\x10\x43halk\\Sandbox\\V2\xe2\x02\x1c\x43halk\\Sandbox\\V2\\GPBMetadata\xea\x02\x12\x43halk::Sandbox::V2b\x06proto3'
+    b'\n\'chalk/sandbox/v2/snapshot_service.proto\x12\x10\x63halk.sandbox.v2\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/common/v1/tag_filter.proto\x1a chalk/container/v1/service.proto\x1a/chalk/container/v1/snapshot_compatibility.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1c\x63halk/volume/v2/volume.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xdc\x01\n\x17SandboxSnapshotProgress\x12<\n\x05phase\x18\x01 \x01(\x0e\x32&.chalk.sandbox.v2.SandboxSnapshotPhaseR\x05phase\x12\'\n\x0f\x62ytes_completed\x18\x02 \x01(\x04R\x0e\x62ytesCompleted\x12\x1f\n\x0b\x62ytes_total\x18\x03 \x01(\x04R\nbytesTotal\x12\x39\n\nupdated_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt"Z\n\x0eGKEPodSnapshot\x12%\n\x0estorage_bucket\x18\x01 \x01(\tR\rstorageBucket\x12!\n\x0cstorage_path\x18\x02 \x01(\tR\x0bstoragePath"\xa7\x01\n\x12HypervisorSnapshot\x12\x1f\n\x0bstorage_uri\x18\x01 \x01(\tR\nstorageUri\x12\x1f\n\x0bsnapshot_id\x18\x02 \x01(\tR\nsnapshotId\x12O\n\rcompatibility\x18\x03 \x01(\x0b\x32).chalk.container.v1.SnapshotCompatibilityR\rcompatibility"\xc4\x01\n\x13SandboxSnapshotSpec\x12L\n\x10gke_pod_snapshot\x18\x01 \x01(\x0b\x32 .chalk.sandbox.v2.GKEPodSnapshotH\x00R\x0egkePodSnapshot\x12W\n\x13hypervisor_snapshot\x18\x02 \x01(\x0b\x32$.chalk.sandbox.v2.HypervisorSnapshotH\x00R\x12hypervisorSnapshotB\x06\n\x04spec"\xd2\x04\n\x0fSandboxSnapshot\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nsandbox_id\x18\x02 \x01(\tR\tsandboxId\x12:\n\x04spec\x18\x03 \x01(\x0b\x32&.chalk.container.v1.ChalkContainerSpecR\x04spec\x12J\n\rsnapshot_spec\x18\x04 \x01(\x0b\x32%.chalk.sandbox.v2.SandboxSnapshotSpecR\x0csnapshotSpec\x12?\n\x06status\x18\x05 \x01(\x0e\x32\'.chalk.sandbox.v2.SandboxSnapshotStatusR\x06status\x12*\n\x0estatus_message\x18\x06 \x01(\tH\x00R\rstatusMessage\x88\x01\x01\x12\x39\n\ncreated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x42\n\x0c\x63ompleted_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x0b\x63ompletedAt\x88\x01\x01\x12"\n\ncreated_by\x18\t \x01(\tH\x02R\tcreatedBy\x88\x01\x01\x12\x45\n\x08progress\x18\n \x01(\x0b\x32).chalk.sandbox.v2.SandboxSnapshotProgressR\x08progressB\x11\n\x0f_status_messageB\x0f\n\r_completed_atB\r\n\x0b_created_by"e\n\x1bStartSandboxSnapshotRequest\x12\x1d\n\nsandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\'\n\x0fidempotency_key\x18\x02 \x01(\tR\x0eidempotencyKey"]\n\x1cStartSandboxSnapshotResponse\x12=\n\x08snapshot\x18\x01 \x01(\x0b\x32!.chalk.sandbox.v2.SandboxSnapshotR\x08snapshot"=\n\x1c\x43reateSandboxSnapshotRequest\x12\x1d\n\nsandbox_id\x18\x01 \x01(\tR\tsandboxId"^\n\x1d\x43reateSandboxSnapshotResponse\x12=\n\x08snapshot\x18\x01 \x01(\x0b\x32!.chalk.sandbox.v2.SandboxSnapshotR\x08snapshot"<\n\x19GetSandboxSnapshotRequest\x12\x1f\n\x0bsnapshot_id\x18\x01 \x01(\tR\nsnapshotId"[\n\x1aGetSandboxSnapshotResponse\x12=\n\x08snapshot\x18\x01 \x01(\x0b\x32!.chalk.sandbox.v2.SandboxSnapshotR\x08snapshot"\x9a\x02\n\x1bListSandboxSnapshotsFilters\x12\x1f\n\x0bsandbox_ids\x18\x01 \x03(\tR\nsandboxIds\x12\x1e\n\x08statuses\x18\x02 \x03(\tB\x02\x18\x01R\x08statuses\x12L\n\rstatus_values\x18\x03 \x03(\x0e\x32\'.chalk.sandbox.v2.SandboxSnapshotStatusR\x0cstatusValues\x12\x1d\n\ncreated_by\x18\x04 \x03(\tR\tcreatedBy\x12>\n\ntag_filter\x18\x05 \x01(\x0b\x32\x1a.chalk.common.v1.TagFilterH\x00R\ttagFilter\x88\x01\x01\x42\r\n\x0b_tag_filter"\xe4\x02\n\x1bListSandboxSnapshotsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x16\n\x06search\x18\x03 \x01(\tR\x06search\x12G\n\x07\x66ilters\x18\x04 \x01(\x0b\x32-.chalk.sandbox.v2.ListSandboxSnapshotsFiltersR\x07\x66ilters\x12L\n\x0bsort_column\x18\x05 \x01(\x0e\x32+.chalk.sandbox.v2.SandboxSnapshotSortColumnR\nsortColumn\x12I\n\nsort_order\x18\x06 \x01(\x0e\x32*.chalk.sandbox.v2.SandboxSnapshotSortOrderR\tsortOrderB\x08\n\x06_limitB\t\n\x07_cursor"\x95\x01\n\x1cListSandboxSnapshotsResponse\x12?\n\tsnapshots\x18\x01 \x03(\x0b\x32!.chalk.sandbox.v2.SandboxSnapshotR\tsnapshots\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"?\n\x1c\x44\x65leteSandboxSnapshotRequest\x12\x1f\n\x0bsnapshot_id\x18\x01 \x01(\tR\nsnapshotId"\x1f\n\x1d\x44\x65leteSandboxSnapshotResponse"$\n"GetSnapshotStoreCredentialsRequest"\xc6\x02\n#GetSnapshotStoreCredentialsResponse\x12<\n\x07storage\x18\x01 \x01(\x0b\x32".chalk.volume.v2.ObjectStoreConfigR\x07storage\x12\x1a\n\x08prefixes\x18\x02 \x03(\tR\x08prefixes\x12\x39\n\nexpires_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\texpiresAt\x12@\n\x03\x61ws\x18\x04 \x01(\x0b\x32&.chalk.volume.v2.AwsSessionCredentialsB\x04\xd8\xa1\'\x01H\x00R\x03\x61ws\x12\x39\n\x03gcp\x18\x05 \x01(\x0b\x32\x1f.chalk.volume.v2.GcpAccessTokenB\x04\xd8\xa1\'\x01H\x00R\x03gcpB\r\n\x0b\x63redentials*\xd9\x01\n\x15SandboxSnapshotStatus\x12\'\n#SANDBOX_SNAPSHOT_STATUS_UNSPECIFIED\x10\x00\x12#\n\x1fSANDBOX_SNAPSHOT_STATUS_PENDING\x10\x01\x12\'\n#SANDBOX_SNAPSHOT_STATUS_IN_PROGRESS\x10\x02\x12%\n!SANDBOX_SNAPSHOT_STATUS_COMPLETED\x10\x03\x12"\n\x1eSANDBOX_SNAPSHOT_STATUS_FAILED\x10\x04*\xd0\x02\n\x14SandboxSnapshotPhase\x12&\n"SANDBOX_SNAPSHOT_PHASE_UNSPECIFIED\x10\x00\x12"\n\x1eSANDBOX_SNAPSHOT_PHASE_PENDING\x10\x01\x12(\n$SANDBOX_SNAPSHOT_PHASE_CHECKPOINTING\x10\x02\x12$\n SANDBOX_SNAPSHOT_PHASE_UPLOADING\x10\x03\x12%\n!SANDBOX_SNAPSHOT_PHASE_PUBLISHING\x10\x04\x12$\n SANDBOX_SNAPSHOT_PHASE_COMPLETED\x10\x05\x12!\n\x1dSANDBOX_SNAPSHOT_PHASE_FAILED\x10\x06\x12,\n(SANDBOX_SNAPSHOT_PHASE_RECOVERY_REQUIRED\x10\x07*v\n\x19SandboxSnapshotSortColumn\x12,\n(SANDBOX_SNAPSHOT_SORT_COLUMN_UNSPECIFIED\x10\x00\x12+\n\'SANDBOX_SNAPSHOT_SORT_COLUMN_CREATED_AT\x10\x01*\x92\x01\n\x18SandboxSnapshotSortOrder\x12+\n\'SANDBOX_SNAPSHOT_SORT_ORDER_UNSPECIFIED\x10\x00\x12$\n SANDBOX_SNAPSHOT_SORT_ORDER_DESC\x10\x01\x12#\n\x1fSANDBOX_SNAPSHOT_SORT_ORDER_ASC\x10\x02\x32\xaf\x06\n\x16SandboxSnapshotService\x12~\n\x14StartSandboxSnapshot\x12-.chalk.sandbox.v2.StartSandboxSnapshotRequest\x1a..chalk.sandbox.v2.StartSandboxSnapshotResponse"\x07\x80}<\x92}\x01\x0c\x12\x81\x01\n\x15\x43reateSandboxSnapshot\x12..chalk.sandbox.v2.CreateSandboxSnapshotRequest\x1a/.chalk.sandbox.v2.CreateSandboxSnapshotResponse"\x07\x80}<\x92}\x01\x0c\x12x\n\x12GetSandboxSnapshot\x12+.chalk.sandbox.v2.GetSandboxSnapshotRequest\x1a,.chalk.sandbox.v2.GetSandboxSnapshotResponse"\x07\x80};\x92}\x01\x0b\x12~\n\x14ListSandboxSnapshots\x12-.chalk.sandbox.v2.ListSandboxSnapshotsRequest\x1a..chalk.sandbox.v2.ListSandboxSnapshotsResponse"\x07\x80};\x92}\x01\x0b\x12\x81\x01\n\x15\x44\x65leteSandboxSnapshot\x12..chalk.sandbox.v2.DeleteSandboxSnapshotRequest\x1a/.chalk.sandbox.v2.DeleteSandboxSnapshotResponse"\x07\x80}<\x92}\x01\x0c\x12\x92\x01\n\x1bGetSnapshotStoreCredentials\x12\x34.chalk.sandbox.v2.GetSnapshotStoreCredentialsRequest\x1a\x35.chalk.sandbox.v2.GetSnapshotStoreCredentialsResponse"\x06\x90\x02\x01\x80}\x0c\x42\xa4\x01\n\x14\x63om.chalk.sandbox.v2B\x14SnapshotServiceProtoP\x01Z\x14sandbox/v2;sandboxv2\xa2\x02\x03\x43SX\xaa\x02\x10\x43halk.Sandbox.V2\xca\x02\x10\x43halk\\Sandbox\\V2\xe2\x02\x1c\x43halk\\Sandbox\\V2\\GPBMetadata\xea\x02\x12\x43halk::Sandbox::V2b\x06proto3'
 )
 
 _globals = globals()
@@ -34,48 +36,80 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\024com.chalk.sandbox.v2B\024SnapshotServiceProtoP\001Z\024sandbox/v2;sandboxv2\242\002\003CSX\252\002\020Chalk.Sandbox.V2\312\002\020Chalk\\Sandbox\\V2\342\002\034Chalk\\Sandbox\\V2\\GPBMetadata\352\002\022Chalk::Sandbox::V2"
+    _globals["_LISTSANDBOXSNAPSHOTSFILTERS"].fields_by_name["statuses"]._options = None
+    _globals["_LISTSANDBOXSNAPSHOTSFILTERS"].fields_by_name["statuses"]._serialized_options = b"\030\001"
+    _globals["_GETSNAPSHOTSTORECREDENTIALSRESPONSE"].fields_by_name["aws"]._options = None
+    _globals["_GETSNAPSHOTSTORECREDENTIALSRESPONSE"].fields_by_name["aws"]._serialized_options = b"\330\241'\001"
+    _globals["_GETSNAPSHOTSTORECREDENTIALSRESPONSE"].fields_by_name["gcp"]._options = None
+    _globals["_GETSNAPSHOTSTORECREDENTIALSRESPONSE"].fields_by_name["gcp"]._serialized_options = b"\330\241'\001"
+    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["StartSandboxSnapshot"]._options = None
+    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name[
+        "StartSandboxSnapshot"
+    ]._serialized_options = b"\200}<\222}\001\014"
     _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["CreateSandboxSnapshot"]._options = None
     _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name[
         "CreateSandboxSnapshot"
-    ]._serialized_options = b"\200}\014\222\323\016X\n\033container_snapshots_enabled\0229This action is not enabled. Please contact Chalk Support."
+    ]._serialized_options = b"\200}<\222}\001\014"
     _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["GetSandboxSnapshot"]._options = None
-    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["GetSandboxSnapshot"]._serialized_options = b"\200}\013"
+    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name[
+        "GetSandboxSnapshot"
+    ]._serialized_options = b"\200};\222}\001\013"
     _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["ListSandboxSnapshots"]._options = None
-    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["ListSandboxSnapshots"]._serialized_options = b"\200}\013"
+    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name[
+        "ListSandboxSnapshots"
+    ]._serialized_options = b"\200};\222}\001\013"
     _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["DeleteSandboxSnapshot"]._options = None
-    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["DeleteSandboxSnapshot"]._serialized_options = b"\200}\014"
-    _globals["_SANDBOXSNAPSHOTSTATUS"]._serialized_start = 2241
-    _globals["_SANDBOXSNAPSHOTSTATUS"]._serialized_end = 2458
-    _globals["_SANDBOXSNAPSHOTSORTCOLUMN"]._serialized_start = 2460
-    _globals["_SANDBOXSNAPSHOTSORTCOLUMN"]._serialized_end = 2578
-    _globals["_SANDBOXSNAPSHOTSORTORDER"]._serialized_start = 2581
-    _globals["_SANDBOXSNAPSHOTSORTORDER"]._serialized_end = 2727
-    _globals["_GKEPODSNAPSHOT"]._serialized_start = 238
-    _globals["_GKEPODSNAPSHOT"]._serialized_end = 328
-    _globals["_HYPERVISORSNAPSHOT"]._serialized_start = 331
-    _globals["_HYPERVISORSNAPSHOT"]._serialized_end = 498
-    _globals["_SANDBOXSNAPSHOTSPEC"]._serialized_start = 501
-    _globals["_SANDBOXSNAPSHOTSPEC"]._serialized_end = 697
-    _globals["_SANDBOXSNAPSHOT"]._serialized_start = 700
-    _globals["_SANDBOXSNAPSHOT"]._serialized_end = 1223
-    _globals["_CREATESANDBOXSNAPSHOTREQUEST"]._serialized_start = 1225
-    _globals["_CREATESANDBOXSNAPSHOTREQUEST"]._serialized_end = 1286
-    _globals["_CREATESANDBOXSNAPSHOTRESPONSE"]._serialized_start = 1288
-    _globals["_CREATESANDBOXSNAPSHOTRESPONSE"]._serialized_end = 1382
-    _globals["_GETSANDBOXSNAPSHOTREQUEST"]._serialized_start = 1384
-    _globals["_GETSANDBOXSNAPSHOTREQUEST"]._serialized_end = 1444
-    _globals["_GETSANDBOXSNAPSHOTRESPONSE"]._serialized_start = 1446
-    _globals["_GETSANDBOXSNAPSHOTRESPONSE"]._serialized_end = 1537
-    _globals["_LISTSANDBOXSNAPSHOTSFILTERS"]._serialized_start = 1539
-    _globals["_LISTSANDBOXSNAPSHOTSFILTERS"]._serialized_end = 1629
-    _globals["_LISTSANDBOXSNAPSHOTSREQUEST"]._serialized_start = 1632
-    _globals["_LISTSANDBOXSNAPSHOTSREQUEST"]._serialized_end = 1988
-    _globals["_LISTSANDBOXSNAPSHOTSRESPONSE"]._serialized_start = 1991
-    _globals["_LISTSANDBOXSNAPSHOTSRESPONSE"]._serialized_end = 2140
-    _globals["_DELETESANDBOXSNAPSHOTREQUEST"]._serialized_start = 2142
-    _globals["_DELETESANDBOXSNAPSHOTREQUEST"]._serialized_end = 2205
-    _globals["_DELETESANDBOXSNAPSHOTRESPONSE"]._serialized_start = 2207
-    _globals["_DELETESANDBOXSNAPSHOTRESPONSE"]._serialized_end = 2238
-    _globals["_SANDBOXSNAPSHOTSERVICE"]._serialized_start = 2730
-    _globals["_SANDBOXSNAPSHOTSERVICE"]._serialized_end = 3343
+    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name[
+        "DeleteSandboxSnapshot"
+    ]._serialized_options = b"\200}<\222}\001\014"
+    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name["GetSnapshotStoreCredentials"]._options = None
+    _globals["_SANDBOXSNAPSHOTSERVICE"].methods_by_name[
+        "GetSnapshotStoreCredentials"
+    ]._serialized_options = b"\220\002\001\200}\014"
+    _globals["_SANDBOXSNAPSHOTSTATUS"]._serialized_start = 3361
+    _globals["_SANDBOXSNAPSHOTSTATUS"]._serialized_end = 3578
+    _globals["_SANDBOXSNAPSHOTPHASE"]._serialized_start = 3581
+    _globals["_SANDBOXSNAPSHOTPHASE"]._serialized_end = 3917
+    _globals["_SANDBOXSNAPSHOTSORTCOLUMN"]._serialized_start = 3919
+    _globals["_SANDBOXSNAPSHOTSORTCOLUMN"]._serialized_end = 4037
+    _globals["_SANDBOXSNAPSHOTSORTORDER"]._serialized_start = 4040
+    _globals["_SANDBOXSNAPSHOTSORTORDER"]._serialized_end = 4186
+    _globals["_SANDBOXSNAPSHOTPROGRESS"]._serialized_start = 307
+    _globals["_SANDBOXSNAPSHOTPROGRESS"]._serialized_end = 527
+    _globals["_GKEPODSNAPSHOT"]._serialized_start = 529
+    _globals["_GKEPODSNAPSHOT"]._serialized_end = 619
+    _globals["_HYPERVISORSNAPSHOT"]._serialized_start = 622
+    _globals["_HYPERVISORSNAPSHOT"]._serialized_end = 789
+    _globals["_SANDBOXSNAPSHOTSPEC"]._serialized_start = 792
+    _globals["_SANDBOXSNAPSHOTSPEC"]._serialized_end = 988
+    _globals["_SANDBOXSNAPSHOT"]._serialized_start = 991
+    _globals["_SANDBOXSNAPSHOT"]._serialized_end = 1585
+    _globals["_STARTSANDBOXSNAPSHOTREQUEST"]._serialized_start = 1587
+    _globals["_STARTSANDBOXSNAPSHOTREQUEST"]._serialized_end = 1688
+    _globals["_STARTSANDBOXSNAPSHOTRESPONSE"]._serialized_start = 1690
+    _globals["_STARTSANDBOXSNAPSHOTRESPONSE"]._serialized_end = 1783
+    _globals["_CREATESANDBOXSNAPSHOTREQUEST"]._serialized_start = 1785
+    _globals["_CREATESANDBOXSNAPSHOTREQUEST"]._serialized_end = 1846
+    _globals["_CREATESANDBOXSNAPSHOTRESPONSE"]._serialized_start = 1848
+    _globals["_CREATESANDBOXSNAPSHOTRESPONSE"]._serialized_end = 1942
+    _globals["_GETSANDBOXSNAPSHOTREQUEST"]._serialized_start = 1944
+    _globals["_GETSANDBOXSNAPSHOTREQUEST"]._serialized_end = 2004
+    _globals["_GETSANDBOXSNAPSHOTRESPONSE"]._serialized_start = 2006
+    _globals["_GETSANDBOXSNAPSHOTRESPONSE"]._serialized_end = 2097
+    _globals["_LISTSANDBOXSNAPSHOTSFILTERS"]._serialized_start = 2100
+    _globals["_LISTSANDBOXSNAPSHOTSFILTERS"]._serialized_end = 2382
+    _globals["_LISTSANDBOXSNAPSHOTSREQUEST"]._serialized_start = 2385
+    _globals["_LISTSANDBOXSNAPSHOTSREQUEST"]._serialized_end = 2741
+    _globals["_LISTSANDBOXSNAPSHOTSRESPONSE"]._serialized_start = 2744
+    _globals["_LISTSANDBOXSNAPSHOTSRESPONSE"]._serialized_end = 2893
+    _globals["_DELETESANDBOXSNAPSHOTREQUEST"]._serialized_start = 2895
+    _globals["_DELETESANDBOXSNAPSHOTREQUEST"]._serialized_end = 2958
+    _globals["_DELETESANDBOXSNAPSHOTRESPONSE"]._serialized_start = 2960
+    _globals["_DELETESANDBOXSNAPSHOTRESPONSE"]._serialized_end = 2991
+    _globals["_GETSNAPSHOTSTORECREDENTIALSREQUEST"]._serialized_start = 2993
+    _globals["_GETSNAPSHOTSTORECREDENTIALSREQUEST"]._serialized_end = 3029
+    _globals["_GETSNAPSHOTSTORECREDENTIALSRESPONSE"]._serialized_start = 3032
+    _globals["_GETSNAPSHOTSTORECREDENTIALSRESPONSE"]._serialized_end = 3358
+    _globals["_SANDBOXSNAPSHOTSERVICE"]._serialized_start = 4189
+    _globals["_SANDBOXSNAPSHOTSERVICE"]._serialized_end = 5004
 # @@protoc_insertion_point(module_scope)

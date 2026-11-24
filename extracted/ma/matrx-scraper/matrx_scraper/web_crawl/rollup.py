@@ -92,6 +92,20 @@ def _reason_token(row: dict) -> set[str]:
     return {head} if head else set()
 
 
+def _unlinked_dead_address(row: dict) -> set[str]:
+    """Dead addresses NOTHING on the site links to share one story — usually a
+    rebuilt site whose old addresses are gone. One linked from your own pages
+    is its own fix (change that link) and never rolls up."""
+    ev = _evidence(row)
+    # Anything that still vouches for the address NOW (its sitemap, Google,
+    # a past life) makes it that address's own finding, never a rebuild story.
+    if ev.get("inlink_pages") != 0 or ev.get("in_sitemap") or ev.get("google_shows") or ev.get("ever_worked"):
+        return set()
+    if ev.get("formerly_in_sitemap"):
+        return {"addresses your old sitemap listed now go nowhere"}
+    return {"addresses nothing on your site links to now go nowhere"}
+
+
 def _asset_folder(url: str) -> str:
     """Files expire by folder (one server rule), so the folder is the cause."""
     parts = urlsplit(url)
@@ -109,12 +123,51 @@ class RollupRule:
     #: evidence key holding the page's metric value, for the median.
     metric: str | None = None
     unit: str = ""
+    #: The "what this means / what to do" sentence when the generic one
+    #: ("it lives in your theme or hosting") would be false for this check.
+    explain: str | None = None
 
 
 #: Only checks whose cause lives in shared code or hosting. Checks whose fix is
 #: per page by nature — titles, descriptions, Google CTR, word counts, broken
 #: addresses — are never rolled up.
 ROLLUP_RULES: dict[str, RollupRule] = {
+    "broken_page_4xx": RollupRule(
+        _unlinked_dead_address,
+        "pattern",
+        explain=(
+            "None of your pages link to them, so visitors only reach them from old "
+            "bookmarks or search results — usually addresses from before the site was "
+            "rebuilt. Redirect the ones that still get visitors to their new pages; "
+            "the rest need nothing."
+        ),
+    ),
+    "broken_internal_links": RollupRule(
+        _list_tokens("broken_targets"),
+        "broken link",
+        explain=(
+            "The same broken link sits on every one of these pages, so it lives in a part "
+            "they share — usually the menu or footer. Fix or remove it there once."
+        ),
+    ),
+    "h1_presence": RollupRule(
+        _reason_token,
+        "heading problem",
+        explain=(
+            "Pages that share it are often built from one template — check the template "
+            "first; if they are not, fix each page."
+        ),
+    ),
+    "ttfb_server_response": RollupRule(
+        None,
+        "slow server response",
+        metric="ttfb_ms",
+        unit="ms",
+        explain=(
+            "When most pages are slow to start, the cause is the server or hosting plan, "
+            "not the pages — one fix there speeds up every page."
+        ),
+    ),
     "image_dimension_attrs": RollupRule(_list_tokens("missing_dimensions"), "image"),
     "image_lazy_loading": RollupRule(_list_tokens("eager_below_fold"), "image"),
     "caching_policy": RollupRule(_list_tokens("short_ttl_urls", _asset_folder), "file folder"),
@@ -236,8 +289,12 @@ def _plan_shared_causes(
     n_pages = len({str(r["subject_id"]) for r, toks in tokens_by_row if toks & shared})
     reasoning = (
         f"One shared {rule.noun} causes this on {n_pages} pages: {top['cause']}"
-        f" ({top['pages']} pages){more}. It lives in something every page shares — "
-        "your theme, header or footer, or hosting — so fixing it once clears every page."
+        f" ({top['pages']} pages){more}. "
+        + (
+            rule.explain
+            or "It lives in something every page shares — your theme, header or footer, "
+            "or hosting — so fixing it once clears every page."
+        )
     )
     outcome = CheckOutcome(
         worst,
@@ -287,10 +344,10 @@ def _plan_sitewide(
         else failing
     )
     measured = f" (typical value {median})" if median else ""
-    reasoning = (
-        f"{len(failing)} of the {len(judged)} pages we checked have the same {rule.noun}"
-        f"{measured}. When most pages fail together the cause is the shared theme, "
-        "plugins or hosting, not the pages — fix it once there."
+    reasoning = f"{len(failing)} of the {len(judged)} pages we checked have the same {rule.noun}{measured}. " + (
+        rule.explain
+        or "When most pages fail together the cause is the shared theme, plugins or hosting, "
+        "not the pages — fix it once there."
     )
     outcome = CheckOutcome(
         worst,

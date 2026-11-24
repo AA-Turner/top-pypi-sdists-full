@@ -51,8 +51,13 @@ class AgentTask(KindSubModel):
 class AgentTaskList(KindModel):
     ok: bool = True
     action: str | None = None
-    #: The FULL tasklist after the action, in position order.
+    #: The tasks the action changed (``partial`` true), or the FULL tasklist in position order
+    #: (``list``, or ``full`` asked for).
     tasks: list[AgentTask] = []
+    #: One line: how many tasks are done, in progress, still open.
+    summary: str | None = None
+    #: True when ``tasks`` holds only the changed tasks, not the whole list.
+    partial: bool | None = None
     #: ``add`` receipt — just the rows this call created.
     created: list[dict] | None = None
     #: ``remove`` / ``clear_completed`` receipt — the deleted ids.

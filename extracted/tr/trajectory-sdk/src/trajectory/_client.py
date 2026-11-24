@@ -18,12 +18,12 @@ from trajectory._base_client import (
 from trajectory._types import NotGiven, not_given
 
 if TYPE_CHECKING:
-  from trajectory.resources.agents import Agents
+  from trajectory.resources.artemis_sessions import ArtemisSessions
   from trajectory.resources.artifacts import Artifacts
-  from trajectory.resources.benchmarks.benchmarks import Benchmarks
   from trajectory.resources.beta.beta import Beta
   from trajectory.resources.billing import Billing
   from trajectory.resources.chat.chat import Chat
+  from trajectory.resources.datasets.datasets import Datasets
   from trajectory.resources.decisions import Decisions
   from trajectory.resources.deployments import Deployments
   from trajectory.resources.diagnostics import Diagnostics
@@ -31,10 +31,13 @@ if TYPE_CHECKING:
   from trajectory.resources.inference.inference import Inference
   from trajectory.resources.model_slugs import ModelSlugs
   from trajectory.resources.organizations import Organizations
+  from trajectory.resources.projects import Projects
   from trajectory.resources.responses import Responses
+  from trajectory.resources.rl.rl import Rl
   from trajectory.resources.secrets import Secrets
+  from trajectory.resources.sft.sft import Sft
+  from trajectory.resources.specs.specs import Specs
   from trajectory.resources.telemetry import Telemetry
-  from trajectory.resources.training.training import Training
   from trajectory.resources.trajectories.trajectories import Trajectories
 
 
@@ -161,10 +164,10 @@ class Client(APIClient):
   with_options = copy
 
   @cached_property
-  def agents(self) -> Agents:
-    from trajectory.resources.agents import Agents
+  def projects(self) -> Projects:
+    from trajectory.resources.projects import Projects
 
-    return Agents(self)
+    return Projects(self)
 
   @cached_property
   def model_slugs(self) -> ModelSlugs:
@@ -185,10 +188,16 @@ class Client(APIClient):
     return Billing(self)
 
   @cached_property
-  def benchmarks(self) -> Benchmarks:
-    from trajectory.resources.benchmarks.benchmarks import Benchmarks
+  def artemis_sessions(self) -> ArtemisSessions:
+    from trajectory.resources.artemis_sessions import ArtemisSessions
 
-    return Benchmarks(self)
+    return ArtemisSessions(self)
+
+  @cached_property
+  def specs(self) -> Specs:
+    from trajectory.resources.specs.specs import Specs
+
+    return Specs(self)
 
   @cached_property
   def diagnostics(self) -> Diagnostics:
@@ -213,6 +222,12 @@ class Client(APIClient):
     from trajectory.resources.responses import Responses
 
     return Responses(self)
+
+  @cached_property
+  def datasets(self) -> Datasets:
+    from trajectory.resources.datasets.datasets import Datasets
+
+    return Datasets(self)
 
   @cached_property
   def deployments(self) -> Deployments:
@@ -257,10 +272,16 @@ class Client(APIClient):
     return Telemetry(self)
 
   @cached_property
-  def training(self) -> Training:
-    from trajectory.resources.training.training import Training
+  def sft(self) -> Sft:
+    from trajectory.resources.sft.sft import Sft as train_sft
 
-    return Training(self)
+    return train_sft(self)
+
+  @cached_property
+  def rl(self) -> Rl:
+    from trajectory.resources.rl.rl import Rl as train_rl
+
+    return train_rl(self)
 
   @cached_property
   def trajectories(self) -> Trajectories:

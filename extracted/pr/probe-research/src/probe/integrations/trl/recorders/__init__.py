@@ -18,7 +18,7 @@ RECORDERS: tuple[type[Recorder], ...] = (
     GrpoRecorder, AsyncQueueRecorder, DistillationRecorder, GkdRecorder, GoldRecorder, SftRecorder,
 )
 
-__all__ = ["RECORDERS", "pick_recorder"]
+__all__ = ["RECORDERS", "is_sft_trainer", "pick_recorder"]
 
 
 def pick_recorder(trainer: Any, *, should_record_sft: bool) -> type[Recorder] | None:
@@ -31,3 +31,14 @@ def pick_recorder(trainer: Any, *, should_record_sft: bool) -> type[Recorder] | 
         if recorder is not None:
             return recorder
     return None
+
+
+def is_sft_trainer(trainer: Any) -> bool:
+    """Is ``trainer`` an SFTTrainer by the same rule: the nearest class along its chain a recorder names is
+    SFTTrainer (GKD subclasses SFTTrainer and stays a distillation trainer)."""
+    by_name = {name: recorder for recorder in RECORDERS for name in recorder.names}
+    for cls in type(trainer).__mro__:
+        recorder = by_name.get(cls.__name__)
+        if recorder is not None:
+            return recorder is SftRecorder
+    return False

@@ -24,7 +24,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from matrx_graph.types.primitives import RetryPolicy
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 if TYPE_CHECKING:
     from matrx_graph.types.result import NodeResult
@@ -55,9 +56,15 @@ class AiTurnFailedError(RuntimeError):
     (the technical record; ``scheduler.automation_repeat_runs_24h`` reads its error code there).
     """
 
-    def __init__(self, text: str, *, person_message: str | None = None) -> None:
+    def __init__(
+        self, text: str, *, person_message: str | None = None, refusal_code: str | None = None
+    ) -> None:
         super().__init__(text)
         self.person_message = person_message
+        #: The gate's code when the turn was a caller refusal (``providers.caller_refusal.refusal_code``
+        #: reads ``code``), so a consumer recognises the hold by type, never by parsing the text.
+        if refusal_code:
+            self.code = refusal_code
 
 
 # CompletedRequest.metadata statuses that mean "the turn did not do its job".
@@ -83,30 +90,46 @@ _LOOP_STALL_STATUSES: frozenset[str] = frozenset(
 class AiMessage(BaseModel):
     """Single message in the conversation as seen by the workflow.
 
-    Flattens the matrx-ai ``UnifiedMessage`` into a stable JSON shape.
-    Unknown / provider-specific keys land in ``extra`` so consumers can
-    reach them without losing fidelity — ``extra="allow"`` is deliberate
-    and must stay (``to_storage_dict()`` payloads carry provider keys we
-    never declare here).
+    Flattens the matrx-ai ``UnifiedMessage`` into a stable JSON shape. The
+    declared fields are the closed contract; every provider-specific key a
+    ``to_storage_dict()`` payload carries lands, losslessly, in ``extras``
+    (folded in on validation, put back at the top level by :meth:`to_wire`).
 
-    ``content`` / ``tool_calls`` values are genuinely dynamic JSON —
-    provider content blocks and tool-call envelopes whose shape varies per
-    provider — hence ``JsonValue``, never a declared block union that
-    would drift from the providers.
+    ``content`` / ``tool_calls`` / ``extras`` values are genuinely dynamic
+    JSON — provider content blocks, tool-call envelopes and storage keys whose
+    shape varies per provider — hence ``JsonValue``, never a declared block
+    union that would drift from the providers.
     """
 
-    model_config = ConfigDict(
-        extra="allow",
-        json_schema_extra={
-            "x-contract-dynamic": "provider-specific storage keys (to_storage_dict payloads) must survive"
-        },
-    )
+    model_config = ConfigDict(extra="forbid")
 
     role: str
     content: JsonValue = None
     tool_calls: list[dict[str, JsonValue]] = Field(default_factory=list)
     tool_call_id: str | None = None
     name: str | None = None
+    extras: dict[str, JsonValue] = Field(
+        default_factory=dict,
+        description="Provider-specific storage keys, kept so nothing is lost.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fold_unknown_keys(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        declared = set(cls.model_fields)
+        known = {k: v for k, v in data.items() if k in declared}
+        rest = {k: v for k, v in data.items() if k not in declared}
+        if rest:
+            known["extras"] = {**(known.get("extras") or {}), **rest}
+        return known
+
+    def to_wire(self) -> dict[str, Any]:
+        """The message as a provider/storage dict: ``extras`` back at the top level."""
+        dumped = self.model_dump(mode="json")
+        extras = dumped.pop("extras", None) or {}
+        return {**extras, **dumped}
 
 
 class AiModelUsage(BaseModel):
@@ -369,6 +392,9 @@ def normalize_completed_result(
                 "conversation_id": normalized.conversation_id,
                 "request_id": normalized.request_id,
             }
+            rejection = (normalized.metadata or {}).get("structured_output_rejection")
+            if rejection:
+                details["structured_output_rejection"] = rejection
             if was_truncated and normalized.structured_output is not None:
                 details["partial_structured_output"] = normalized.structured_output
                 details["structured_output_partial"] = True
@@ -507,6 +533,21 @@ def ai_output_failure(
     return failure("output_truncated", output_ceiling_message(ceiling, what=what), details=payload)
 
 
+#: AN ANSWER WE CANNOT USE IS ASKED FOR ONCE MORE (2026-10-28). The model answered, but the one parse
+#: funnel (``parse_agent_output``) refused it: malformed JSON, a schema miss, or a DEGENERATE answer
+#: (placeholder filler — "the model abandoned the generation; the run must be retried"). Live: Group
+#: offerings runs 48191b96 and ed375042 each lost the whole run to one Claude Haiku 5.5 call that answered
+#: ``{"groups":[{"keys":[],"label":"Placeholder"}]}``; the other 15 of 16 / 8 of 9 calls were fine. A
+#: second sample of a non-deterministic model is the right repair, so the step retries those codes once
+#: (``structured_output_empty`` is the same "answered, unusable" class). Never ``output_truncated``: the
+#: same ceiling cuts the same answer again. A ``retry_policy`` an author sets on the step still wins.
+#: Guard: tests/test_typed_agent_asks_again_for_an_unusable_answer.py.
+UNUSABLE_ANSWER_RETRY = RetryPolicy(
+    max_attempts=2,
+    retry_on=("structured_output_invalid", "structured_output_empty"),
+)
+
+
 def _requires_structured_output(completed: CompletedRequest) -> bool:
     request = getattr(completed, "request", None)
     config = getattr(request, "config", None)
@@ -562,6 +603,52 @@ def _turn_failure_detail(meta: dict[str, Any], status: str) -> str:
     )
 
 
+#: ``AiExecutionResult.metadata`` key of the swap the person was told about (``told_model_swap``).
+MODEL_SWAPPED_KEY = "model_swapped"
+#: The swaps that tell the person (stream info ``code="model_swapped"``): a free-tier stand-in
+#: (``providers.free_tier_models.tell_model_swapped``) and a HIPAA stand-in (``providers.baa_gate.swap_for_baa``).
+#: An overload or billing reroute is provenance (``usage.reroutes``), not a notice.
+TOLD_SWAP_REASONS = frozenset({"free_tier", "hipaa"})
+
+
+def told_model_swap(completed: Any) -> dict[str, Any] | None:
+    """The model swap this turn told the person about, as data a workflow step can say: ``{message, original_model,
+    model, reason}``, or None. The stream notice (``info:model_swapped``) rides the step's own emitter, which a
+    workflow's caller never hears; the step's result carries the same sentence so any workflow can say it on its
+    own line (research-as-workflow lane F2b, 2026-11-19). Read from the turn's per-call usage (the swap trace
+    ``_stamp_offering_usage`` stamps; the config's trace is cleared when the turn ends). Never raises."""
+    try:
+        request = getattr(completed, "request", None)
+        told: list[dict[str, Any]] = []
+        for usage in getattr(request, "usage_history", None) or []:
+            meta = getattr(usage, "metadata", None)
+            for step in (meta.get("model_swaps") or []) if isinstance(meta, dict) else []:
+                if isinstance(step, dict) and step.get("reason") in TOLD_SWAP_REASONS and step not in told:
+                    told.append(step)
+        if not told:
+            return None
+        first, last = told[0], told[-1]
+        reason = str(last.get("reason"))
+        if reason == "hipaa":
+            from matrx_ai.providers.baa_gate import HIPAA_SWAP_SENTENCE
+
+            message = HIPAA_SWAP_SENTENCE
+        else:
+            from matrx_ai.context.app_context import try_get_app_context
+            from matrx_ai.providers.free_tier_models import MODEL_SWAP_NOTE_KEY
+
+            ctx_meta = getattr(try_get_app_context(), "metadata", None)
+            note = ctx_meta.get(MODEL_SWAP_NOTE_KEY) if isinstance(ctx_meta, dict) else None
+            if not (isinstance(note, str) and note.strip()):
+                # A free-tier swap of a model the person never picked is silent (tell_model_swapped): no
+                # sentence was written, so the workflow step has nothing to say either.
+                return None
+            message = note.strip()
+        return {"message": message, "original_model": first.get("from"), "model": last.get("to"), "reason": reason}
+    except Exception:  # noqa: BLE001 — provenance never fails a finished run
+        return None
+
+
 def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
     """Convert a matrx-ai ``CompletedRequest`` into the canonical result shape.
 
@@ -588,6 +675,7 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
         raise AiTurnFailedError(
             f"AI turn ended with status '{status}' ({error_type}): {error_message}",
             person_message=error_message if refused else None,
+            refusal_code=error_type if refused else None,
         )
 
     request = getattr(completed, "request", None)
@@ -620,8 +708,11 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
     from matrx_ai.agents.run_attribution import run_model_id, run_token_usage
 
     run_metadata = dict(getattr(completed, "metadata", {}) or {})
-    run_metadata["model_id"] = run_model_id(run_metadata, getattr(request, "config", None))
     run_metadata["token_usage"] = run_token_usage(getattr(completed, "total_usage", None))
+    run_metadata["model_id"] = run_model_id(run_metadata, getattr(request, "config", None), run_metadata["token_usage"])
+    swapped = told_model_swap(completed)
+    if swapped is not None:
+        run_metadata[MODEL_SWAPPED_KEY] = swapped
 
     timing = getattr(completed, "timing_stats", {}) or {}
     # ``TimingUsage.aggregate`` reports SECONDS under ``total_duration``; it has
@@ -685,7 +776,7 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
             content=[part],
         )
 
-    structured_output = _extract_structured_output(request, final_text)
+    structured_output = _extract_structured_output(request, final_text, run_metadata)
     return AiExecutionResult(
         conversation_id=getattr(request, "conversation_id", "") or "",
         request_id=getattr(request, "request_id", "") or "",
@@ -754,7 +845,9 @@ def _extract_content(
         return []
 
 
-def _extract_structured_output(request: Any, final_text: str) -> dict[str, Any] | list[Any] | None:
+def _extract_structured_output(
+    request: Any, final_text: str, run_metadata: dict[str, Any] | None = None
+) -> dict[str, Any] | list[Any] | None:
     """Parse ``final_text`` against the request's json_schema response_format.
 
     Mirrors the orchestrator's STRUCTURED_OUTPUT funnel
@@ -786,11 +879,39 @@ def _extract_structured_output(request: Any, final_text: str) -> dict[str, Any] 
 
         extraction = parse_agent_output(final_text, envelope)
         if not extraction.success:
+            # NOTHING FAILS SILENTLY: name the check that refused the answer
+            # (degenerate filler, no JSON, schema mismatch, ...) in the log and
+            # on the run metadata, so the step's ``structured_output_invalid``
+            # failure carries it instead of a bare "could not be parsed".
+            _record_structured_output_rejection(
+                request, run_metadata, extraction.reason or "parse failed (no reason given)"
+            )
             return None
         data = extraction.data
-        return data if isinstance(data, dict | list) else None
-    except Exception:  # noqa: BLE001 — same defensive stance as the rest of this module
+        if isinstance(data, dict | list):
+            return data
+        _record_structured_output_rejection(
+            request, run_metadata, f"parsed value is {type(data).__name__}, not an object or list"
+        )
         return None
+    except Exception as exc:  # noqa: BLE001 — same defensive stance as the rest of this module
+        _record_structured_output_rejection(
+            request, run_metadata, f"extraction raised {type(exc).__name__}: {exc}"
+        )
+        return None
+
+
+def _record_structured_output_rejection(
+    request: Any, run_metadata: dict[str, Any] | None, reason: str
+) -> None:
+    bounded = reason[:1000]
+    logger.warning(
+        "structured output REJECTED (request_id=%s): %s",
+        getattr(request, "request_id", "") or "",
+        bounded,
+    )
+    if run_metadata is not None:
+        run_metadata["structured_output_rejection"] = bounded
 
 
 def _extract_final_text(final_response: Any) -> str:
@@ -1113,6 +1234,83 @@ def failed_turn_failure(completed: Any, *, code: str, model: str) -> Any:
         },
         technical=f"{cause}\n{trace}".strip() if cause else None,
     )
+
+
+#: How much of a model's text answer a "no media came back" failure quotes.
+_NO_MEDIA_TEXT_EXCERPT_CHARS = 240
+
+
+def no_media_reason(completed: Any, *, requested_model: str) -> tuple[str, dict[str, Any]]:
+    """WHY a paid media call came back with no artifact — the provider's own reason.
+
+    A bare "provider returned no images" hid every cause behind one sentence. Live
+    2026-11-02 (workflow runs d38f7bcc…, 5088a12b…): the step had been answered by a CHAT
+    model the free-tier swap substituted, which replied in prose — and the error named the
+    image model that never ran. This names what DID happen: the model that actually ran (and
+    any swap), the finish reason, a provider block or safety verdict, and the text answer.
+
+    Returns ``(sentence, details)``; the sentence is "" when the response says nothing.
+    """
+    response = getattr(completed, "final_response", None)
+    request = getattr(completed, "request", None)
+    config = getattr(request, "config", None)
+    ran_model = str(getattr(config, "model", "") or "")
+    config_meta = getattr(config, "metadata", None) or {}
+    details: dict[str, Any] = {}
+    parts: list[str] = []
+
+    if ran_model and ran_model != requested_model:
+        details["ran_model"] = ran_model
+        swap = config_meta.get("model_swap_reason") if isinstance(config_meta, dict) else None
+        if swap:
+            details["model_swap_reason"] = swap
+            parts.append(f"it ran on '{ran_model}' instead ({swap} swap)")
+        else:
+            parts.append(f"it ran on '{ran_model}'")
+
+    finish = getattr(response, "finish_reason", None) or getattr(response, "stop_reason", None)
+    raw = getattr(response, "raw_response", None) or {}
+    block_reason = None
+    finish_message = None
+    blocked_ratings: list[str] = []
+    if isinstance(raw, dict):
+        feedback = raw.get("prompt_feedback") or {}
+        if isinstance(feedback, dict):
+            block_reason = feedback.get("block_reason")
+        candidates = raw.get("candidates") or []
+        if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict):
+            first = candidates[0]
+            finish = first.get("finish_reason") or finish
+            finish_message = first.get("finish_message")
+            for rating in first.get("safety_ratings") or []:
+                if isinstance(rating, dict) and rating.get("blocked"):
+                    blocked_ratings.append(str(rating.get("category")))
+    if finish:
+        details["finish_reason"] = str(finish)
+        parts.append(f"finish reason {finish}")
+    if block_reason:
+        details["block_reason"] = str(block_reason)
+        parts.append(f"the prompt was blocked ({block_reason})")
+    if blocked_ratings:
+        details["blocked_categories"] = blocked_ratings
+        parts.append(f"safety blocked: {', '.join(blocked_ratings)}")
+    if finish_message:
+        details["finish_message"] = str(finish_message)
+        parts.append(str(finish_message))
+
+    texts: list[str] = []
+    for msg in getattr(response, "messages", None) or []:
+        for block in getattr(msg, "content", None) or []:
+            if getattr(block, "type", None) == "text" and getattr(block, "text", ""):
+                texts.append(str(block.text))
+    if texts:
+        answer = " ".join(" ".join(texts).split())
+        excerpt = answer[:_NO_MEDIA_TEXT_EXCERPT_CHARS]
+        if len(answer) > len(excerpt):
+            excerpt += "…"
+        details["text_answer"] = excerpt
+        parts.append(f'the model answered in text: "{excerpt}"')
+    return "; ".join(parts), details
 
 
 #: A traceback kept on a step failure is cut to its last frames (the raise site and its callers).

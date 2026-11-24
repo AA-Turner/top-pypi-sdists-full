@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import fnmatch
 import logging
 import time
@@ -70,7 +71,16 @@ MAX_READ_SIZE = 1_048_576  # 1 MB
 #: honestly ``output_self_capped``. Production (ops ``tool_result_overflow:fs_read``):
 #: page.html 423,130; content-splitter-v2.ts 76,087; limit=60000 → 53K. A larger
 #: ``limit`` is clamped; ``truncated`` + ``next_offset`` say where to continue.
+#: KNOB MIRROR of platform.feature_knob "tools.fs_read" "read_max_chars" (read via ``tool_knobs``).
 FS_READ_MAX_CHARS = 40_000
+async def fs_read_limit(requested: int, ctx: ToolContext) -> int:
+    """How much one ``fs_read`` page carries: the caller's ``limit`` clamped to this org's knob."""
+    from matrx_ai.tools.tool_knobs import tool_knob_int
+
+    cap = await tool_knob_int("fs_read_max_chars", FS_READ_MAX_CHARS, getattr(ctx, "organization_id", None))
+    return min(requested, cap) if requested > 0 else cap
+
+
 MAX_PATCH_SIZE = 5_242_880  # 5 MB hard cap on file size patches will touch
 MAX_LIST_ENTRIES = 500
 # Keep ample headroom for the listing envelope while staying below the universal
@@ -183,14 +193,15 @@ def _resolve_sandbox_path(binding: SandboxBinding, raw: str) -> str:
     The agent calls ``fs_list("aidream")`` expecting it to mean
     ``/home/agent/aidream`` (the workspace root). Rather than forcing the
     model to always produce absolute paths, we anchor relatives at the
-    binding's ``root_path`` and accept ``""`` / ``"."`` / ``"./"`` as
-    "the root itself". POSIX, Windows drive-letter, and UNC absolute paths
+    binding's working folder (``default_dir``: the conversation's own folder on a
+    Cloud Computer, else ``root_path``) and accept ``""`` / ``"."`` / ``"./"`` as
+    that folder itself; ``~/`` anchors at the home. POSIX, Windows drive-letter, and UNC absolute paths
     pass through verbatim.  This resolver runs on the cloud server, so using
     ``os.path``/``Path`` would incorrectly apply the server OS's path rules to
     a Windows desktop target.
     """
     if not raw or raw in (".", "./", ".\\"):
-        return binding.root_path
+        return binding.default_dir
     windows_path = PureWindowsPath(raw)
     if windows_path.drive and not windows_path.is_absolute():
         raise SandboxProxyError(
@@ -199,13 +210,19 @@ def _resolve_sandbox_path(binding: SandboxBinding, raw: str) -> str:
         )
     if PurePosixPath(raw).is_absolute() or windows_path.is_absolute():
         return raw
+    # ``~/`` is the home (the shared ``Cloud`` folder lives there); any other relative path
+    # starts in this conversation's working folder (``default_dir``; the home when none).
+    base = binding.default_dir
+    if raw in ("~", "~/", "~\\"):
+        return binding.root_path
     if raw.startswith(("~/", "~\\")):
         raw = raw[2:]
+        base = binding.root_path
 
-    root_as_windows = PureWindowsPath(binding.root_path)
-    if root_as_windows.drive or "\\" in binding.root_path:
+    root_as_windows = PureWindowsPath(base)
+    if root_as_windows.drive or "\\" in base:
         return str(root_as_windows / PureWindowsPath(raw))
-    return str(PurePosixPath(binding.root_path) / PurePosixPath(raw))
+    return str(PurePosixPath(base) / PurePosixPath(raw))
 
 
 def _resolve_path(relative: str, ctx: ToolContext) -> Path:
@@ -360,7 +377,7 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if (binding := get_active_sandbox()) is not None:
         try:
             sandbox_path = _resolve_sandbox_path(binding, parsed.path)
-            read_limit = min(parsed.limit, FS_READ_MAX_CHARS) if parsed.limit > 0 else FS_READ_MAX_CHARS
+            read_limit = await fs_read_limit(parsed.limit, ctx)
             page = await _proxy_fs_read(
                 binding,
                 sandbox_path,
@@ -403,13 +420,15 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
 
         size = filepath.stat().st_size
-        read_limit = min(parsed.limit, FS_READ_MAX_CHARS) if parsed.limit > 0 else FS_READ_MAX_CHARS
+        read_limit = await fs_read_limit(parsed.limit, ctx)
 
-        with open(filepath, "rb") as f:
-            if parsed.offset:
-                f.seek(parsed.offset)
-            raw = f.read(read_limit)
-            end = f.tell()
+        def _read_page() -> tuple[bytes, int]:
+            with open(filepath, "rb") as f:
+                if parsed.offset:
+                    f.seek(parsed.offset)
+                return f.read(read_limit), f.tell()
+
+        raw, end = await asyncio.to_thread(_read_page)
         # Never split a UTF-8 sequence at the page edge: back off to a boundary
         # so next_offset (a byte offset) resumes on a whole character.
         cut = len(raw)
@@ -544,8 +563,11 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             filepath.parent.mkdir(parents=True, exist_ok=True)
 
         mode = "a" if parsed.append else "w"
-        with open(filepath, mode, encoding="utf-8") as f:
-            f.write(parsed.content)
+        def _write_content() -> None:
+            with open(filepath, mode, encoding="utf-8") as f:
+                f.write(parsed.content)
+
+        await asyncio.to_thread(_write_content)
 
         new_size = filepath.stat().st_size
         await emit_fs_changed(

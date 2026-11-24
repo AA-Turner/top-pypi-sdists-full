@@ -97,6 +97,7 @@ def outage_result(tool_name: str, ctx: ToolContext, outage: WorkspaceOutage) -> 
     return ToolResult(
         success=False,
         error=ToolError(
+            reported_failure="the workspace (outage)",
             error_type="unavailable",
             message=(
                 f"{outage.sentence}\n\n"

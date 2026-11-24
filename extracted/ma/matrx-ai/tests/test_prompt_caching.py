@@ -320,6 +320,8 @@ def _fresh_guard(monkeypatch) -> _Screams:
     screams = _Screams()
     monkeypatch.setattr(cache_guard, "vcprint", screams)
     cache_guard._LOOPS.clear()
+    if hasattr(cache_guard, "reset_stable_miss_streaks"):
+        cache_guard.reset_stable_miss_streaks()
     return screams
 
 
@@ -663,3 +665,133 @@ def test_guard_no_scream_below_threshold(monkeypatch):
     cache_guard.observe_cache_usage(raw_usage={"input_tokens": 50}, **common)
     cache_guard.observe_cache_usage(raw_usage={"input_tokens": 50}, **common)
     assert screams.red_texts() == []
+
+
+def _openai_round(n_items: int) -> dict:
+    return {
+        "model": "gpt-5-nano",
+        "instructions": "SYS " * 1200,
+        "prompt_cache_key": "matrx_loop",
+        "input": [{"role": "user", "content": f"turn {i}"} for i in range(n_items)],
+    }
+
+
+def test_openai_zero_reads_on_a_proven_stable_wire_are_never_filed(monkeypatch):
+    """OpenAI's automatic cache is best-effort routing, not a promise. Live 2026-11-09..15: gpt-5-nano rows
+    (dc29ebea and siblings), each a call of a loop whose wire prefix was byte-stable (wire_prefix_changed=[]).
+    Proof 2026-11-15: the same 2-call loop replayed straight at the OpenAI Responses API, nothing of ours in
+    the path, read ZERO on call 2 in 4 of 18 runs (3 of 6 in one streamed batch); our server read zero in 3 of
+    5. Misses in one loop are ordinary, so a single loop on a proven-stable prefix files nothing; a streak
+    across loops does (next test), and prefix drift files on its own, as prompt_cache_prefix_drift."""
+    screams = _fresh_guard(monkeypatch)
+    misses: list[int] = []
+    monkeypatch.setattr(cache_guard, "_scream_cache_miss", lambda **kw: misses.append(kw["call_index"]))
+    common = dict(
+        provider="openai",
+        model="gpt-5-nano-2025-08-07",
+        conversation_id="conv-openai-route",
+        request_id="req-openai-route",
+        system_text="SYS " * 1200,
+        tool_names=("a",),
+    )
+    usage = {"input_tokens": 10_803, "input_tokens_details": {"cached_tokens": 0}}
+    for n_items in (2, 4, 6, 8):
+        cache_guard.observe_cache_usage(raw_usage=usage, wire_payload=_openai_round(n_items), **common)
+    assert misses == []
+    assert sum("routing miss" in t for t in screams.yellow_texts()) == 3
+
+
+def test_a_stable_wire_miss_streak_across_loops_is_filed_and_a_hit_resets_it(monkeypatch):
+    """Nothing fails silently (R2 review): a cache that NEVER hits, from a cause outside the compared bytes,
+    must still file. The streak spans loops of one provider + model and resets on any cache hit."""
+    _fresh_guard(monkeypatch)
+    monkeypatch.setattr(cache_guard, "OPENAI_STABLE_MISS_STREAK_TO_FILE", 3, raising=False)
+    filed: list[int | None] = []
+    monkeypatch.setattr(cache_guard, "_scream_cache_miss", lambda **kw: filed.append(kw.get("stable_miss_streak")))
+    miss = {"input_tokens": 10_803, "input_tokens_details": {"cached_tokens": 0}}
+    hit = {"input_tokens": 10_803, "input_tokens_details": {"cached_tokens": 9_000}}
+
+    def loop(conv: str, usages: list[dict]) -> None:
+        common = dict(provider="openai", model="gpt-5-nano", conversation_id=conv, request_id=f"req-{conv}",
+                      system_text="SYS " * 1200, tool_names=("a",))
+        for n, usage in enumerate([miss, *usages]):
+            cache_guard.observe_cache_usage(raw_usage=usage, wire_payload=_openai_round(2 + 2 * n), **common)
+
+    loop("s1", [miss, miss])     # streak 2
+    loop("s2", [hit, miss])      # the hit resets it: streak 1
+    assert filed == []
+    loop("s3", [miss, miss])     # streak 3: filed once, as an escalation
+    assert filed == [3]
+
+
+def test_the_streak_threshold_is_read_from_the_host_knob(monkeypatch):
+    """Every limit is a knob: the host-bound reader's ai.prompt_cache.stable_miss_streak_to_file decides
+    when the streak files, not the package's mirror (12)."""
+    from matrx_ai import knobs
+
+    _fresh_guard(monkeypatch)
+    reads: list[tuple[str, str]] = []
+
+    def reader(feature: str, key: str):
+        reads.append((feature, key))
+        return 2 if (feature, key) == ("ai.prompt_cache", "stable_miss_streak_to_file") else None
+
+    knobs.configure_package_knobs(reader)
+    try:
+        filed: list[int | None] = []
+        monkeypatch.setattr(cache_guard, "_scream_cache_miss", lambda **kw: filed.append(kw.get("stable_miss_streak")))
+        miss = {"input_tokens": 10_803, "input_tokens_details": {"cached_tokens": 0}}
+        common = dict(provider="openai", model="gpt-5-nano", conversation_id="conv-knob", request_id="req-knob",
+                      system_text="SYS " * 1200, tool_names=("a",))
+        for n in range(3):
+            cache_guard.observe_cache_usage(raw_usage=miss, wire_payload=_openai_round(2 + 2 * n), **common)
+        assert filed == [2]
+        assert ("ai.prompt_cache", "stable_miss_streak_to_file") in reads
+    finally:
+        knobs.configure_package_knobs(None)
+
+
+def test_a_changed_reasoning_setting_is_not_a_stable_wire(monkeypatch):
+    """The wire proof covers model / reasoning / include / store (R2 review): a miss after one of them
+    changed is not forgiven as routing."""
+    _fresh_guard(monkeypatch)
+    misses: list[int] = []
+    monkeypatch.setattr(cache_guard, "_scream_cache_miss", lambda **kw: misses.append(kw["call_index"]))
+    common = dict(provider="openai", model="gpt-5-nano", conversation_id="conv-o4", request_id="req-o4",
+                  system_text="SYS " * 1200, tool_names=("a",))
+    usage = {"input_tokens": 10_803, "input_tokens_details": {"cached_tokens": 0}}
+    first = dict(_openai_round(2), reasoning={"effort": "high"})
+    second = dict(_openai_round(4), reasoning={"effort": "low"})
+    cache_guard.observe_cache_usage(raw_usage=usage, wire_payload=first, **common)
+    cache_guard.observe_cache_usage(raw_usage=usage, wire_payload=second, **common)
+    assert misses == [1]
+
+
+def test_an_openai_miss_on_a_moved_wire_prefix_is_still_filed(monkeypatch):
+    _fresh_guard(monkeypatch)
+    misses: list[int] = []
+    monkeypatch.setattr(cache_guard, "_scream_cache_miss", lambda **kw: misses.append(kw["call_index"]))
+    common = dict(
+        provider="openai", model="gpt-5-nano", conversation_id="conv-o3", request_id="req-o3",
+        system_text="SYS " * 1200, tool_names=("a",),
+    )
+    usage = {"input_tokens": 10_803, "input_tokens_details": {"cached_tokens": 0}}
+    cache_guard.observe_cache_usage(raw_usage=usage, wire_payload=_openai_round(2), **common)
+    moved = _openai_round(4)
+    moved["input"][0] = {"role": "user", "content": "turn 0 rewritten"}
+    cache_guard.observe_cache_usage(raw_usage=usage, wire_payload=moved, **common)
+    assert misses == [1]
+
+
+def test_an_openai_miss_with_no_wire_proof_is_still_filed(monkeypatch):
+    _fresh_guard(monkeypatch)
+    misses: list[int] = []
+    monkeypatch.setattr(cache_guard, "_scream_cache_miss", lambda **kw: misses.append(kw["call_index"]))
+    common = dict(
+        provider="openai", model="gpt-5-nano", conversation_id="conv-o2", request_id="req-o2",
+        system_text="SYS " * 1200, tool_names=("a",),
+    )
+    usage = {"input_tokens": 10_803, "input_tokens_details": {"cached_tokens": 0}}
+    cache_guard.observe_cache_usage(raw_usage=usage, **common)
+    cache_guard.observe_cache_usage(raw_usage=usage, **common)
+    assert misses == [1]

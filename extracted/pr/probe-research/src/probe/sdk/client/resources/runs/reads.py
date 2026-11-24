@@ -181,7 +181,7 @@ class RunReadsMixin:
         later reader should distrust about it, and writing the caveat into
         ``description`` means destroying the description to keep it.
 
-        ``run_type`` (``general`` or ``rl``) is a choice and overwrites whatever was declared.
+        ``run_type`` (``general``, ``sft`` or ``rl``) is a choice and overwrites whatever was declared.
 
         Omitting a field leaves it alone; passing ``""`` for ``notes`` clears it."""
         body = {

@@ -495,25 +495,3 @@ async def test_unique_selector_keeps_the_readable_form_when_it_is_already_unique
     page = await _load(browser, "news_article.html")
     report = await _clip(page)
     assert report["root_selector_used"] == "article#story.story"
-
-
-async def test_unique_selector_agrees_with_the_server_root_finder(browser):
-    # One rule, two implementations (clip_page.js and aidream root_candidates.stable_selector): on the same page
-    # both selectors must point at the same single element.
-    pytest.importorskip("lxml")
-    try:
-        from aidream.services.press_clip.root_candidates import root_candidates_from_html
-    except ImportError:
-        pytest.skip("aidream is not importable from the scraper package's environment")
-    html = (FIXTURES / "duplicate_root_class.html").read_text()
-    server = root_candidates_from_html(html, headline="Recycler opens new certified e-waste processing line")
-    page = await _load(browser, "duplicate_root_class.html")
-    js_sel = await page.evaluate(
-        "() => window.__pressClip.uniqueSelector(window.__pressClip.pickContainer(''))"
-    )
-    assert await _count(page, server["suggested_root"]) == 1
-    same = await page.evaluate(
-        "([a, b]) => document.querySelector(a) === document.querySelector(b)",
-        [js_sel, server["suggested_root"]],
-    )
-    assert same, (js_sel, server["suggested_root"])

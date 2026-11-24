@@ -7,6 +7,7 @@ import math
 from typing import TYPE_CHECKING, Optional, Union
 
 from ..conditions.base import BaseCondition
+from ..constants import tick_seconds
 from ..conditions.comparison import ComparisonRule
 from ..conditions.composition.speed import SpeedCondition
 from ..entity.registry import fail_if_pedestrian, find_vehicle_entity
@@ -201,9 +202,10 @@ class SetSpeedAction(BaseAction):
         entity = find_vehicle_entity(self._entity_name)
         if entity is None:
             fail_if_pedestrian(self._entity_name, "set_desired_speed")
-            logger.warning(
-                "SetSpeedAction: entity '%s' not found", str(self._entity_name)
-            )
+            if self._report_missing():
+                logger.warning(
+                    "SetSpeedAction: entity '%s' not found", str(self._entity_name)
+                )
             return
 
         if self._rate_kmh_s is None:
@@ -229,7 +231,7 @@ class SetSpeedAction(BaseAction):
             entity.set_desired_speed(world, self._target_speed_kmh)
             return
 
-        step = self._rate_kmh_s * _tick_seconds(world)
+        step = self._rate_kmh_s * tick_seconds(world)
         entity.set_desired_speed(world, _toward(now_kmh, self._target_speed_kmh, step))
 
 
@@ -243,15 +245,6 @@ def _toward(now_kmh: float, target_kmh: float, step_kmh: float) -> float:
     if target_kmh > now_kmh:
         return min(now_kmh + step_kmh, target_kmh)
     return max(now_kmh - step_kmh, target_kmh)
-
-
-def _tick_seconds(world: "carla.World") -> float:
-    """Return how much simulated time the last tick covered.
-
-    Read from the world rather than from ``fixed_delta_seconds`` so the rate
-    follows what the server actually did.
-    """
-    return float(world.get_snapshot().timestamp.delta_seconds)
 
 
 def _current_speed_kmh(entity: BackendDriven) -> float:

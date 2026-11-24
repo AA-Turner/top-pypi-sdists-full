@@ -189,3 +189,20 @@ def test_sha1_reproduces_the_stored_smart_add_evidence_keys() -> None:
     expr = "[('address:' + sha1(collapse_spaces(lower(t)))[:12]) for t in inputs['t']]"
     assert safe_eval(expr, {"t": texts}) == [field_key("address", t) for t in texts]
     assert safe_eval("sha1(inputs['t'])", {"t": "abc"}) == hashlib.sha1(b"abc").hexdigest()
+
+
+def test_json_text_writes_what_json_dumps_writes() -> None:
+    """A step hands an agent a JSON text byte-equal to the code path's ``json.dumps(value, ensure_ascii=False)``
+    (research's coverage audit keys its replayed answer on it); key order is the order given."""
+    import json
+
+    import pytest
+    from matrx_graph.errors import ExecutionError
+    from matrx_graph.nodes._sandbox import safe_eval
+
+    value = {"sources": [{"url": "https://example.com/a", "title": 'He said "naïve"\n— café', "chars": 12, "ok": None},
+                         {"b": 1.5, "a": [True, False]}]}
+    assert safe_eval("json_text(inputs['v'])", {"v": value}) == json.dumps(value, ensure_ascii=False)
+    assert safe_eval("json_text({'z': 1, 'a': 2})", {}) == '{"z": 1, "a": 2}'
+    with pytest.raises(ExecutionError):
+        safe_eval("json_text(inputs['v'])", {"v": {"when": object()}})

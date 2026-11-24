@@ -45,7 +45,9 @@ def test_count_set_is_sent_and_clamped():
 
 
 def test_count_declared_default_is_sent():
-    rules = {"count": {**COUNT["count"], "processor_config": {"max": 10, "target": "n", "default": 1}}}
+    rules = {
+        "count": {**COUNT["count"], "processor_config": {"max": 10, "target": "n", "default": 1}}
+    }
     assert _compiled(rules).outbound({})[0]["n"] == 1
 
 
@@ -69,3 +71,20 @@ def test_flux_tolerance_reads_declared_default():
     }
     assert _compiled(rules).outbound({})[0]["safety_tolerance"] == 4
     assert _compiled(FLUX).outbound({})[0]["safety_tolerance"] == 5
+
+
+def test_anchor_dimensions_unset_sends_nothing():
+    rules = {
+        "aspect_ratio": {
+            "processor": "media_dims",
+            "processor_config": {
+                "mode": "wh",
+                "arithmetic": "anchor1024",
+                "consumes": ["width", "height"],
+            },
+        }
+    }
+    controls = _compiled(rules)
+    assert controls.outbound({})[0] == {}
+    assert controls.outbound({"aspect_ratio": "16:9"})[0] == {"width": 1824, "height": 1024}
+    assert controls.outbound({"width": 640, "height": 480})[0] == {"width": 640, "height": 480}

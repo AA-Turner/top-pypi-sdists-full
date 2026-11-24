@@ -23,7 +23,7 @@ MAX_OUTLINE_DEPTH = 8
 class PdfOutlineNode(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     page: int | None = Field(default=None, ge=1)
-    children: list["PdfOutlineNode"] = Field(default_factory=list)
+    children: list[PdfOutlineNode] = Field(default_factory=list)
 
 
 PdfOutlineNode.model_rebuild()

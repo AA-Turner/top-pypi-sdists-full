@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "daytona"
-version = "2.1.0"
+version = "2.2.0"
 description = "Daytona Python SDK."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -63,12 +63,12 @@ v0-sdk = [
   "opentelemetry-instrumentation-aiohttp-client>=0.59b0",
   "urllib3>=2.1.0,<3.0.0",
   "python-socketio[asyncio-client,client]>=5.0.0,<6.0.0",
-  "daytona_api_client==0.233.0",
-  "daytona_api_client_async==0.233.0",
-  "daytona_toolbox_api_client==0.233.0",
-  "daytona_toolbox_api_client_async==0.233.0",
-  "daytona_analytics_api_client==0.233.0",
-  "daytona_analytics_api_client_async==0.233.0",
+  "daytona_api_client==0.234.0",
+  "daytona_api_client_async==0.234.0",
+  "daytona_toolbox_api_client==0.234.0",
+  "daytona_toolbox_api_client_async==0.234.0",
+  "daytona_analytics_api_client==0.234.0",
+  "daytona_analytics_api_client_async==0.234.0",
 ]
 otel = [
   "opentelemetry-api>=1.45.2,<2",
@@ -80,9 +80,11 @@ dev = [
   "respx>=0.20",
   # Pin lint rules for reproducible checks; update the version and any required
   # lint fixes together.
-  "ruff==0.17.4",
+  "ruff==0.17.5",
   "mypy>=2.4.1",
   "opentelemetry-sdk>=1.27,<2",
+  # Installed so the tests prove the SDK stays on HTTP/1.1 when h2 is present.
+  "h2>=4",
 ]
 
 [tool.hatch.build]

@@ -23,12 +23,12 @@ as HTML/SVG/JS is always forced to attachment by the shared streamer policy.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
 from ..cloud_sync.permissions import _is_contextual_system_artifact
 from ..service import FileService
-from .errors import map_exception
+from .errors import map_exception, refuse_malformed_path_ids
 
 
 def build_share_router(
@@ -38,7 +38,12 @@ def build_share_router(
     tags: list[str] | None = None,
 ) -> APIRouter:
     """Build the public share-link resolver router. No auth required."""
-    router = APIRouter(prefix=prefix, tags=tags or ["share"])
+    router = APIRouter(
+        prefix=prefix,
+        tags=tags or ["share"],
+        # a non-UUID *_id is a 404 ApiError before any handler (never ORM text)
+        dependencies=[Depends(refuse_malformed_path_ids)],
+    )
 
     async def stream_share(
         token: str,

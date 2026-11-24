@@ -142,8 +142,8 @@ class MandateResolution:
     #: THE JOB'S BINDING FOR A STEP THAT RUNS ITS AGENT DIRECTLY (Run Typed Agent, single and batch): takes the
     #: step's AGENT variables, returns them with every blank one the binding's map fills by itself (an entity-packet
     #: fact, a builder, a fixed value, a default) filled through the same pipeline; a value the step passes always
-    #: wins. aidream ``consumption.fill_unsupplied_variables``. ``None`` = the host offers none, and a step that
-    #: runs as this job refuses rather than run on blanks.
+    #: wins. aidream ``package_mandates._fill_unsupplied`` (``run_variables_for_mandate(fill_blanks_of=)``).
+    #: ``None`` = the host offers none, and a step that runs as this job refuses rather than run on blanks.
     fill_unsupplied: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None
     #: WORKFLOW PARITY for code calls: the host's runner for THIS workflow
     #: resolution — ``(supplied, *, correlation_key, stream) -> answer dict``
@@ -264,6 +264,10 @@ class HolderRef:
     #: The rung whose choice this pick is, for the run record (the try door's candidate provenance:
     #: ``current`` / ``mandate-pinned`` / ``latest`` / ``agent`` / ``version``). ``None`` = ``run``.
     rung: str | None = None
+    #: Who chose it: ``"person"`` (a request body, a record the person edits, their preference) is asked
+    #: ``viewer`` on the agent before the run-scope rung runs it; ``"system"`` (code, or another record's
+    #: author, chose it for this run) is not. Default ``"person"``: an unmarked pick is asked.
+    picked_by: str = "person"
 
     def __post_init__(self) -> None:
         from matrx_ai.config.served_via import refuse_served_via_outside_the_run_request
@@ -286,13 +290,34 @@ class RunOptions:
     #: A raw-request site's own name for itself (the Holder stamp's ``consumer``, refusal sentences).
     consumer: str | None = None
     #: A raw-request site's request metadata (``source_app`` / ``source_feature`` / its own ids),
-    #: merged UNDER the Holder stamp exactly as ``hold_code_call(metadata=)`` always did.
+    #: merged UNDER the Holder stamp exactly as ``hold_code_call(metadata=)`` always did. On ``run()``: the run's own
+    #: request metadata (a self-filing decision run's owner marker), merged UNDER the mandate's stamp by an agent
+    #: Holder's run; a lane that cannot apply it (a typed NamedAgent call, a chat start, a picked or workflow Holder)
+    #: REFUSES, never drops it.
     metadata: Mapping[str, Any] | None = None
     #: Output keys THIS call needs beside the mandate contract's own (the honesty core refuses an answer
     #: missing one). ``None`` = the contract's keys only.
     required_keys: tuple[str, ...] | None = None
     #: A cap on an agent Holder's tool rounds for THIS run (``None`` = the agent's own ceiling).
     max_iterations: int | None = None
+    #: A dollar cap on this ONE run's whole tree: the loop stops at the next iteration boundary once it is spent,
+    #: keeping everything produced (``matrx_ai.orchestrator.cost_budget.set_request_ceiling``). It narrows the tree
+    #: ceiling, never widens it. ``None`` = the tree ceiling only. Carried on the run's request metadata under
+    #: ``max_cost_usd``; a run on a Holder that cannot honor it still carries the key and says so in its record.
+    max_cost_usd: float | None = None
+    #: Config overrides (``{"model": ...}``, …) laid over the Holder's own for THIS run only — the call
+    #: site's one-time pick (a Rulebook's model knob, a fallback model after a provider refusal). Applied
+    #: by an agent Holder's run; an engine or lane that cannot apply them REFUSES, never drops them.
+    #: ``None`` = the Holder's own config.
+    config_overrides: Mapping[str, Any] | None = None
+    #: A turn the HOST writes for a machine-started run (an activation line — ``matrx_ai.config.host_turn.HostTurn``),
+    #: never with ``user_input`` (only what a person typed). Applied by an agent Holder's run; a lane that cannot
+    #: apply it (a typed NamedAgent call, a chat start, a workflow Holder, ``prepare()``) REFUSES, never drops it.
+    host_turn: Any = None
+    #: SERVER context for THIS run (agent lane): entries keyed by name, raw or rich (``{"content": ..., "label":
+    #: ...}``), delivered beside the mandate's own materialized context — e.g. the recent texts of an SMS-started
+    #: turn. Never the person's message. Same refusal rule as ``host_turn``.
+    context: Mapping[str, Any] | None = None
     #: A CHAT START (runner plan 25 step 10): the host's chat-start request (aidream ``AgentStartRequest``) this run
     #: opens a conversation with. ``prepare()`` resolves the Holder, computes the offer under the compute rule and
     #: places the bound values ON this request (mutated in place); ``run()`` also runs the chat on the ambient stream
@@ -306,8 +331,14 @@ class RunOptions:
     #: (artifact, required keys, exemplar) and records it. ``None`` = a raw-request held call.
     door_transport: str | None = None
     #: A Holder resolution this door already holds (``resolve()`` answered it, e.g. ``mandate_call``'s gated
-    #: resolution): ``prepare(door_transport=...)`` places on it instead of resolving again.
+    #: resolution, a sweep's one resolution, a research stage's override): ``prepare(door_transport=...)`` places on
+    #: it and ``run()`` runs it as held, instead of resolving again. Never beside a second choice of Holder or config.
     resolution: Any = None
+    #: ``False`` = the CALLER treats a refusal as non-fatal and records it itself, once (``hold_step``: an
+    #: unbound ``workflow.step_intelligence`` runs the authored step and files one ``mandate_holder_unbound``
+    #: row). The refusal is still RAISED; the runner only skips its own ``refused`` run row and
+    #: ``mandate_refused`` capture. ``True`` (every other caller) = Law 6 exactly as before.
+    refusal_is_fatal: bool = True
 
 
 # ── THE OFFER (runner plan 25 §3) ────────────────────────────────────────────
@@ -516,6 +547,18 @@ class MandateRefused(MandateResolutionUnavailable):
         self.sentence = sentence
         self.missing = tuple(missing)
         self.door = door
+        # The message says what THIS refusal is, never the resolver-missing remedy of the base class: a run
+        # refused for its inputs had a resolver; telling the reader to install one sends the fix the wrong way.
+        self.args = (refusal_message(mandate_key, door or "mandate_runner", code, sentence, self.missing),)
+
+
+def refusal_message(key: str, door: str, code: str, sentence: str, missing: tuple[str, ...] = ()) -> str:
+    """One refusal's message, matching its code: an ``inputs`` refusal names the inputs the caller left out."""
+    head = f"Mandate {key!r} ({door}) refused [{code}]: {sentence.rstrip('.')}."
+    if missing:
+        noun = "input" if len(missing) == 1 else "inputs"
+        head += f" Missing {noun} from the caller: {', '.join(missing)}."
+    return head
 
 
 class MandateRunnerUnavailable(RuntimeError):
@@ -533,6 +576,31 @@ class MandateRunnerPort(Protocol):
     async def finish(self, prepared: Any, result: Any) -> Any: ...
 
     async def resolve(self, key: str, *, who: Principal, holder: HolderRef | None = None) -> Any: ...
+
+
+@runtime_checkable
+class AgentAsToolRunnerPort(Protocol):
+    """The two runner verbs an agent calling an agent uses (runner-boundary wave 4): an agent, not code, chose the
+    child, so it runs as named, never through a mandate. ``prepare_own_agent`` loads it (``holder.version_id`` =
+    that exact version); ``run_agent_as_tool`` runs it as the calling agent's child turn through the execution
+    funnel, ``run`` being the child turn's knobs. Package code never loads or runs an agent itself."""
+
+    async def prepare_own_agent(
+        self, holder: HolderRef, variables: Mapping[str, Any], *, who: Principal, opts: RunOptions
+    ) -> Any: ...
+
+    async def run_agent_as_tool(self, agent: Any, *, who: Principal, opts: RunOptions, **run: Any) -> Any: ...
+
+
+def get_agent_as_tool_runner() -> AgentAsToolRunnerPort:
+    """The installed runner when it serves the agent-as-tool verbs, or a loud refusal naming what is missing."""
+    runner = get_mandate_runner()
+    if not isinstance(runner, AgentAsToolRunnerPort):
+        raise MandateRunnerUnavailable(
+            f"the installed mandate runner ({type(runner).__name__}) serves no prepare_own_agent / "
+            "run_agent_as_tool: an agent cannot call another agent in this host"
+        )
+    return runner
 
 
 _MANDATE_RUNNER: MandateRunnerPort | None = None

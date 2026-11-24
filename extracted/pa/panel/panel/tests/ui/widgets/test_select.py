@@ -5,7 +5,9 @@ pytest.importorskip('playwright')
 from playwright.sync_api import expect
 
 from panel.tests.util import serve_component, wait_until
-from panel.widgets import MultiSelect, NestedSelect, Select
+from panel.widgets import (
+    AutocompleteInput, MultiSelect, NestedSelect, Select,
+)
 
 pytestmark = pytest.mark.ui
 
@@ -25,6 +27,42 @@ def test_select_option(page):
     serve_component(page, select)
 
     wait_until(lambda: page.locator('select').evaluate("(sel)=>sel.value") == 'B', page)
+
+@pytest.mark.parametrize('groups', [
+    {'First': ['A', 'B'], 'Second': ['C', 'D']},
+    {'First': {'Alpha': 'A', 'Beta': 'B'}, 'Second': {'Gamma': 'C', 'Delta': 'D'}},
+])
+def test_select_disabled_group_options(page, groups):
+    select = Select(groups=groups, value='A', disabled_options=['C'])
+    serve_component(page, select)
+
+    options = page.locator('option')
+    expect(options.nth(2)).to_be_disabled()
+    expect(options.nth(1)).to_be_enabled()
+
+    select.disabled_options = ['B']
+    expect(options.nth(1)).to_be_disabled()
+    expect(options.nth(2)).to_be_enabled()
+
+    select.groups = {'Updated': ['A', 'B', 'C', 'D']}
+    expect(options.nth(1)).to_be_disabled()
+    expect(options.nth(2)).to_be_enabled()
+
+@pytest.mark.parametrize('choices', [
+    ['A', 'B', 'C', 'D'],
+    {'Alpha': 'A', 'Beta': 'B', 'Gamma': 'C', 'Delta': 'D'},
+])
+def test_select_disabled_options(page, choices):
+    select = Select(options=choices, value='A', disabled_options=['C'])
+    serve_component(page, select)
+
+    options = page.locator('option')
+    expect(options.nth(2)).to_be_disabled()
+    expect(options.nth(1)).to_be_enabled()
+
+    select.disabled_options = ['B']
+    expect(options.nth(1)).to_be_disabled()
+    expect(options.nth(2)).to_be_enabled()
 
 def test_multi_select_double_click(page):
     clicks = []
@@ -46,3 +84,36 @@ def test_nested_select_update_options(page):
 
     n.options = {"c": {"d": ["e", "f"]}}
     expect(page.locator('option').first).to_have_text("c")
+
+
+def test_autocomplete_max_completions(page):
+    widget = AutocompleteInput(
+        options=[f'Alpha{i:02d}' for i in range(20)],
+        max_completions=3, min_characters=1,
+    )
+    serve_component(page, widget)
+
+    field = page.locator('input')
+    model_id = next(iter(widget._models.values()))[0].id
+    field.press_sequentially('Al')
+    matches = page.locator('.bk-menu > div')
+    expect(matches).to_have_count(3)
+    expect(matches.nth(2)).to_have_text('Alpha02')
+    matches.nth(2).click()
+    wait_until(lambda: widget.value == 'Alpha02', page)
+
+    widget.max_completions = 5
+    page.wait_for_function(
+        f"Bokeh.documents[0].get_model_by_id('{model_id}').max_completions === 5"
+    )
+    field.fill('')
+    field.press_sequentially('Al')
+    expect(matches).to_have_count(5)
+
+    widget.max_completions = None
+    page.wait_for_function(
+        f"Bokeh.documents[0].get_model_by_id('{model_id}').max_completions === null"
+    )
+    field.fill('')
+    field.press_sequentially('Al')
+    expect(matches).to_have_count(20)

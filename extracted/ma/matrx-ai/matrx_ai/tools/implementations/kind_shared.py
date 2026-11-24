@@ -36,6 +36,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
 
+from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
+
 from matrx_ai.db._registry import get_model as get_db_model
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 
@@ -123,6 +125,17 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
         "three",
         "date-fns",
         "lodash",
+        # what an outside AI's answer imports (2026-11-08): small twins in the
+        # one scope, and a company page's own module.
+        "clsx",
+        "tailwind-merge",
+        "class-variance-authority",
+        "next/link",
+        "next/image",
+        "next/navigation",
+        "@ai-matrx/site",
+        "sonner",
+        "framer-motion",
     }
     | {
         f"@/components/ui/{name}"
@@ -153,6 +166,12 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
             "avatar",
             "alert",
             "skeleton",
+            "toggle",
+            "toggle-group",
+            "hover-card",
+            "alert-dialog",
+            "drawer",
+            "command",
         )
     }
 )
@@ -259,6 +278,12 @@ COMPONENT_BANNED_SYNTAX: tuple[str, ...] = ("dynamicImport",)
 COMPONENT_BANNED_WINDOW_CALLS: tuple[str, ...] = ("alert", "confirm", "open", "print", "prompt")
 COMPONENT_BANNED_BARE_CALLS: tuple[str, ...] = ("alert", "confirm", "prompt")
 
+# L1d (2026-11-09): a banned capability reached by a NAME held in a string. `Reflect` is refused as a name anywhere
+# (`Reflect.get(globalThis, "fetch")`, `Reflect.construct(...)`); a timer is refused when its first argument is a
+# string or template (`setTimeout("fetch(...)", 0)` runs the evaluator). No trigger rule yet.
+COMPONENT_BANNED_REFLECTION: tuple[str, ...] = ("Reflect",)
+COMPONENT_BANNED_STRING_TIMERS: tuple[str, ...] = ("setInterval", "setTimeout")
+
 _DYNAMIC_IMPORT_RE = re.compile(r"(?<![.\w$])import\s*\(")
 
 
@@ -298,6 +323,14 @@ def _banned_dialog_message(name: str) -> str:
         "browser dialogs, new windows and printing do nothing. Use the kit instead: a Dialog or "
         'KindActionButton confirm to ask, an <a href> or runAction("open_url") to open a link, '
         'runAction("print") to print and runAction("download") to save a file.'
+    )
+
+
+def _string_timer_message(name: str) -> str:
+    return (
+        f'This component passes code as text to "{name}(", which components stored in the database may not do: a timer '
+        "given a string runs it through the JavaScript evaluator. Pass a function instead: "
+        f"{name}(() => {{ … }}, ms)."
     )
 
 
@@ -346,6 +379,12 @@ def component_globals_lint(source: str) -> str | None:
             rf"\.\s*{re.escape(name)}\s*\[", code
         ):
             return _banned_computed_access_message(name)
+    for name in COMPONENT_BANNED_REFLECTION:
+        if re.search(rf"(?<![\w$]){re.escape(name)}\b", code):
+            return _banned_global_message(name)
+    for name in COMPONENT_BANNED_STRING_TIMERS:
+        if re.search(rf"(?<![\w$]){re.escape(name)}\s*\(\s*['\"`]", code):
+            return _string_timer_message(name)
     return component_dialog_lint(code)
 
 
@@ -355,14 +394,46 @@ _ESBUILD_UNAVAILABLE_NOTE = (
 )
 
 
+_configured_esbuild: str | None = None
+_missing_esbuild_reported = False
+
+
+def configure_esbuild_bin(path: str | None) -> None:
+    """Host injection: the esbuild binary this host provides when it is not on PATH
+    (a dev checkout's node_modules). The image installs it on PATH."""
+    global _configured_esbuild
+    _configured_esbuild = path
+
+
 def _esbuild_bin() -> str | None:
-    """The esbuild binary this host provides, if any. Host installation is a
-    deployment concern (the aidream Dockerfile installs the static binary);
-    the package degrades to a loud skip when it is absent."""
+    """The esbuild binary this host provides, if any. The aidream Dockerfile
+    installs the static binary on PATH; a dev host injects one through
+    ``configure_esbuild_bin``. Absent, the gate reports loudly (a system_error
+    the first time per boot) — it never silently passes."""
     override = os.environ.get("MATRX_ESBUILD_BIN")
     if override and os.path.isfile(override):
         return override
+    if _configured_esbuild and os.path.isfile(_configured_esbuild):
+        return _configured_esbuild
     return shutil.which("esbuild")
+
+
+async def _report_missing_esbuild(reason: str) -> None:
+    """File ONE system_error per boot: the TSX syntax gate is not running."""
+    global _missing_esbuild_reported
+    if _missing_esbuild_reported:
+        return
+    _missing_esbuild_reported = True
+    logger.error("kind component TSX syntax gate is OFF: %s", reason)
+    try:
+        from matrx_utils import capture_error
+
+        await capture_error(
+            RuntimeError(f"kind component TSX syntax gate is OFF: {reason}"),
+            kind="kind_component_esbuild_missing",
+        )
+    except Exception:  # noqa: BLE001 — the report never breaks the save
+        logger.warning("could not file the esbuild-missing system_error", exc_info=True)
 
 
 async def tsx_compile_check(source: str) -> tuple[list[str], bool]:
@@ -377,6 +448,7 @@ async def tsx_compile_check(source: str) -> tuple[list[str], bool]:
     """
     binary = _esbuild_bin()
     if not binary:
+        await _report_missing_esbuild("esbuild is not installed on this host")
         return [], False
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -391,6 +463,7 @@ async def tsx_compile_check(source: str) -> tuple[list[str], bool]:
         _, stderr = await asyncio.wait_for(proc.communicate((source or "").encode()), timeout=15)
     except Exception:  # noqa: BLE001 — a broken/hung binary degrades to "unchecked"
         logger.warning("esbuild syntax gate failed to run", exc_info=True)
+        await _report_missing_esbuild("esbuild failed to run (broken or hung binary)")
         return [], False
     if proc.returncode == 0:
         return [], True
@@ -426,6 +499,442 @@ def bare_media_notices(source: str | None) -> list[str]:
         f"{n} bare media {tags} converted to the kit automatically at render; "
         "use KindImage/KindVideo/KindAudio/KindEmbed directly."
     ]
+
+
+# --- Layout contract (CGU-09 kind shell): the host frame is bare and owns the title row, the side
+# --- inset and full screen. These checks WARN with the fix; they never refuse a save.
+_CAPPED_SCROLLER = re.compile(
+    r"""(?=[^"'`]*\bmax-h-(?:\[[^\]]+\]|[\w./-]+))(?=[^"'`]*\boverflow-y-(?:auto|scroll)\b)[^"'`]*"""
+)
+_OWN_FULL_SCREEN = re.compile(r"""["'`][^"'`]*\bfixed\b[^"'`]*\binset-0\b[^"'`]*["'`]""")
+_OUTER_PADDING = re.compile(r"""\breturn\s*\(?\s*<(?:div|section|main|article)\b[^>]*?\bclassName\s*=\s*(?:\{\s*)?["'`]([^"'`]*)["'`]""")
+_PADDING_CLASS = re.compile(r"(?<![\w:-])(?:p|px|pl|pr)-\d+(?:\.\d+)?(?![\w-])")
+
+
+def component_layout_lint(source: str | None) -> list[str]:
+    """Warnings (never a refusal) for what the frame owns: an inner vertical scroller, an own
+    `fixed inset-0` full screen, and outer side padding on the root element."""
+    code = source or ""
+    notes: list[str] = []
+    if _CAPPED_SCROLLER.search(code):
+        notes.append(
+            "A capped inner scroller (`max-h-* overflow-y-auto`) scrolls inside the answer and traps "
+            "touch on phones. Fix: open the content fully, or wrap the long part in `ChatClamp` / a "
+            "`Collapsible` (Show more); a wide table may keep sideways scroll."
+        )
+    if _OWN_FULL_SCREEN.search(code):
+        notes.append(
+            "`fixed inset-0` builds your own full screen, which is clipped to this block in the island "
+            "and the sandbox frame. Fix: delete it and let `KindHeaderBar` carry the full-screen action "
+            '(or call `runAction("full_screen")`); the host decides how it opens.'
+        )
+    root = _OUTER_PADDING.search(code)
+    if root and _PADDING_CLASS.search(root.group(1)):
+        notes.append(
+            "The root element pads itself, adding side space on top of the host column's own inset. "
+            "Fix: remove `p-*` / `px-*` from the outermost element and keep spacing between sections only."
+        )
+    return notes
+
+
+# --- Unresolved JSX elements (2026-11-17, copperline_job_card drew <RichContent> with no import: the frame
+# --- rendered a 'Not found' stand-in and filed 10 unresolved_import rows from the save's own preview).
+_JSX_ELEMENT = re.compile(r"(?<![\w$.<])<\s*([A-Z][\w$]*)(?=[\s/>.])")
+_COMMENTS = re.compile(r"/\*.*?\*/|(?<![:\"'`])//[^\n]*", re.DOTALL)
+#: Type-position names a `<` can precede in TS (`useRef<HTMLDivElement>`) and React itself (always in scope).
+_NOT_AN_ELEMENT = frozenset({
+    "React", "Record", "Partial", "Pick", "Omit", "ReturnType", "Readonly", "Array", "Promise", "Exclude",
+    "Extract", "NonNullable", "Parameters", "Awaited", "Required", "Set", "Map",
+})
+
+
+def unresolved_jsx_elements(source: str | None) -> list[str]:
+    """Capitalized JSX elements the body draws but never imports, declares or otherwise names.
+
+    A name that appears anywhere outside its own tags (an import, a declaration, a destructured
+    prop such as ``{ icon: Icon }``) counts as bound — this check only flags a name the file never
+    binds at all. Lucide icons are supplied bare by the frame, so they are never flagged."""
+    code = _COMMENTS.sub("", source or "")
+    lucide = _lucide_names()
+    out: list[str] = []
+    for name in dict.fromkeys(m.group(1) for m in _JSX_ELEMENT.finditer(code)):
+        if name in _NOT_AN_ELEMENT or name in lucide or name.startswith("HTML"):
+            continue
+        rest = re.sub(rf"</?\s*{re.escape(name)}(?![\w$])", "", code)
+        if not re.search(rf"(?<![\w$]){re.escape(name)}(?![\w$])", rest):
+            out.append(name)
+    return out
+
+
+def unresolved_jsx_notices(source: str | None) -> list[str]:
+    """The save-time line for elements the file never binds (an offer, never a refusal)."""
+    names = unresolved_jsx_elements(source)
+    if not names:
+        return []
+    listed = ", ".join(f"<{n}>" for n in names)
+    return [
+        f"{listed} is drawn but never imported or declared in this file. Unless it is a design-system part "
+        "the frame supplies bare, it renders as a 'Not found' stand-in. Fix: import it from a path in "
+        f"<available_imports> of the {SHAPE_AUTHORING_SKILL} skill, or define it in the file."
+    ]
+
+
+def component_save_notices(source: str | None) -> list[str]:
+    """Every save-time offer for a component body: bare media, layout, then unbound elements."""
+    return [*bare_media_notices(source), *component_layout_lint(source), *unresolved_jsx_notices(source)]
+
+
+# The platform's own organization: its kinds may use the platform's shortcuts.
+PLATFORM_KIND_ORGANIZATION_ID = SYSTEM_ORGANIZATION_ID
+
+_PLATFORM_ONLY_HANDLERS = re.compile(r"""["'`](run_shortcut|trigger_agent)["'`]""")
+_PINNED_ID = re.compile(
+    r"""["'`][0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}["'`]"""
+)
+_AGENT_ACTION = re.compile(r"""["'`]agent\.id_[0-9a-fA-F-]+["'`]""")
+_RIGHT_BUTTON_SHAPE = (
+    'A button runs the company\'s own job or workflow: runAction("run", { mandate: '
+    '"<feature>.<name>", variables, into: { state: "<key>" } }) or runAction("run", '
+    '{ action: "workflow.id_<hex>", input, into: { state: "<key>" } }). Build the job '
+    "(mandate) or workflow for this organization first, then name it here."
+)
+
+
+def component_binding_lint(source: str, *, organization_id: str | None) -> str | None:
+    """A business's kind button must run something the business owns.
+
+    A component written for an organization's own kind (any org but the
+    platform's) is refused when a button targets platform machinery: the
+    ``run_shortcut`` / ``trigger_agent`` handlers, a pinned id literal, or an
+    ``agent.id_…`` Action. Those bind the business to a platform row it cannot
+    see, change or keep (PF-L4: an image button ran a pinned platform
+    shortcut instead of the company's workflow). Returns the refusal, or None."""
+    if not organization_id or str(organization_id) == PLATFORM_KIND_ORGANIZATION_ID:
+        return None
+    source = source or ""
+    found: list[str] = []
+    for match in _PLATFORM_ONLY_HANDLERS.finditer(source):
+        found.append(f"the platform-only `{match.group(1)}` handler")
+    for match in _PINNED_ID.finditer(source):
+        found.append(f"the pinned id {match.group(0)}")
+    for match in _AGENT_ACTION.finditer(source):
+        found.append(f"the agent Action {match.group(0)}")
+    if not found:
+        return None
+    seen = list(dict.fromkeys(found))
+    return (
+        "This kind belongs to a business, and a button on it may only run that "
+        "business's own job or workflow — nothing was written. The source uses "
+        + "; ".join(seen[:5])
+        + ". "
+        + _RIGHT_BUTTON_SHAPE
+    )
+
+
+_INTO_OPEN = re.compile(r"\binto\s*:\s*\{")
+_INTO_STATE = re.compile(r"""\bstate\s*:\s*["'`]([A-Za-z_$][\w$-]*)["'`]""")
+_INTO_RECORD = re.compile(r"\brecord\s*:")
+
+
+def _balanced_body(source: str, open_at: int) -> str:
+    """The text inside the ``{`` at ``open_at`` up to its matching ``}``."""
+    depth = 0
+    for i in range(open_at, len(source)):
+        ch = source[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return source[open_at + 1 : i]
+    return source[open_at + 1 :]
+
+
+def _record_landed_state_keys(source: str) -> list[str]:
+    """The ``into.state`` keys whose EVERY run also names ``into.record``.
+
+    Such a run keeps only the saved record's ``address`` on the item (kind-run.ts
+    ``KindRunView``, Doctrine R6: kinds hold no data) — its ``output`` is never
+    written. A key that some run fills without ``record`` can carry ``output``,
+    so it is left alone."""
+    seen: dict[str, list[bool]] = {}
+    for match in _INTO_OPEN.finditer(source):
+        body = _balanced_body(source, match.end() - 1)
+        state = _INTO_STATE.search(body)
+        if not state:
+            continue
+        seen.setdefault(state.group(1), []).append(bool(_INTO_RECORD.search(body)))
+    return [key for key, records in seen.items() if records and all(records)]
+
+
+def _output_readers(source: str, key: str) -> bool:
+    """Does the source read ``.output`` off ``itemState.<key>`` (directly, through a
+    variable holding it, or through a destructured name)?"""
+    k = re.escape(key)
+    access = rf"""itemState\s*(?:\?\.\s*{k}\b|\.\s*{k}\b|(?:\?\.)?\[\s*["'`]{k}["'`]\s*\])"""
+    if re.search(rf"{access}\s*(?:\?\.|\.)\s*output\b", source):
+        return True
+    names = {
+        m.group(1)
+        for m in re.finditer(rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:props\s*\.\s*)?{access}", source)
+    }
+    for m in re.finditer(r"\b(?:const|let|var)\s*\{([^}]*)\}\s*=\s*(?:props\s*\.\s*)?itemState\b", source):
+        for part in m.group(1).split(","):
+            bits = [b.strip() for b in part.split(":")]
+            if bits and bits[0] == key:
+                names.add(bits[-1].split("=")[0].strip())
+    return any(re.search(rf"\b{re.escape(n)}\s*(?:\?\.|\.)\s*output\b", source) for n in names if n)
+
+
+def component_run_output_lint(source: str) -> str | None:
+    """The saved-run-read-as-output class (FIX-L7, 2026-11-03): a button runs with
+    ``into: { state: "X", record: {...} }`` — the answer lands as a RECORD and the
+    item keeps only ``itemState.X.address`` — while the component draws
+    ``itemState.X.output``, which that run never writes. Live: a kit business's
+    "Analyse this post" said "Saved" and the card showed nothing, even after reload,
+    so the "Draft post ideas" button it should have drawn never appeared.
+    Returns the refusal (nothing written), or None."""
+    source = source or ""
+    bad = [key for key in _record_landed_state_keys(source) if _output_readers(source, key)]
+    if not bad:
+        return None
+    key = bad[0]
+    named = ", ".join(f"`itemState.{k}`" for k in bad[:5])
+    return (
+        f"{named}: the button saves its answer as a record (`into.record`), so the item keeps only "
+        f"the saved record's address — `itemState.{key}.output` is never written and the card would "
+        "show nothing after the run says Saved. Nothing was written. Draw the saved record as its own "
+        f"kind instead: `<Kind record={{itemState.{key}?.address?._record_id}} />` (import {{ Kind }} from "
+        '"@ai-matrx/applets/react"; its own buttons come with it) — or drop `record` from `into` to keep '
+        "the answer on this item as `output`."
+    )
+
+
+# ── THE BUTTON'S OWN OPTIONS ARE A CLOSED LIST (P5-ACTIONS, 2026-11-16, P8 "Add a care note") ──
+# Company Setup authored `<KindActionButton ask=… />` (an option that did not exist): the button read its props, dropped
+# the unknown one, and rendered a button that ran with no question. The kit now takes `asks` (alias `ask`), and the write
+# gate refuses any prop the button does not read — nothing is saved with an option that silently does nothing.
+# The list is GENERATED into `kind_button_options.json` from KindActionButton.tsx (+ `button-asks.ts`, `handlers/run.ts`) and read by
+# the browser gate too; `tests/test_a_button_option_the_kit_lacks_is_refused_at_save.py` fails when it drifts from the component.
+def _kind_button_options() -> dict:
+    """The button's known options — GENERATED from KindActionButton's real props type, never hand-kept
+    (``apps/shared/rich-content/scripts/kind-button-options.cjs`` writes this file and the browser gate's byte-identical twin)."""
+    import json
+    from pathlib import Path
+
+    return json.loads(Path(__file__).with_name("kind_button_options.json").read_text())
+
+
+_KIND_BUTTON_OPTIONS = _kind_button_options()
+KIND_ACTION_BUTTON_PROPS = frozenset(_KIND_BUTTON_OPTIONS["buttonProps"])
+KIND_ASK_FIELD_KEYS = frozenset(_KIND_BUTTON_OPTIONS["askFieldKeys"])
+_KIND_ACTION_BUTTON_OPEN = re.compile(r"<KindActionButton(?![A-Za-z0-9_$])")
+_KIND_RUN_INPUT_KEYS = frozenset(_KIND_BUTTON_OPTIONS["runInputKeys"])
+
+
+def _skip_jsx_string_or_braces(source: str, i: int) -> int:
+    """Index just past the string / template / balanced ``{…}`` / ``[…]`` / ``(…)`` group that starts at ``i`` (or ``i+1``)."""
+    ch = source[i]
+    if ch in "\"'`":
+        j = i + 1
+        while j < len(source) and source[j] != ch:
+            j += 2 if source[j] == "\\" else 1
+        return j + 1
+    if ch in "{[(":
+        depth = 0
+        j = i
+        while j < len(source):
+            c = source[j]
+            if c in "\"'`":
+                j = _skip_jsx_string_or_braces(source, j)
+                continue
+            if c in "{[(":
+                depth += 1
+            elif c in "}])":
+                depth -= 1
+                if depth == 0:
+                    return j + 1
+            j += 1
+        return j
+    return i + 1
+
+
+def _jsx_attributes(source: str, start: int) -> list[tuple[str, str | None]]:
+    """``(name, value text)`` of each attribute of the JSX tag whose name ends at ``start``; a spread is ``("...", None)``."""
+    out: list[tuple[str, str | None]] = []
+    i = start
+    n = len(source)
+    while i < n:
+        while i < n and source[i].isspace():
+            i += 1
+        if i >= n or source.startswith("/>", i) or source[i] == ">":
+            break
+        if source[i] == "{":
+            out.append(("...", None))
+            i = _skip_jsx_string_or_braces(source, i)
+            continue
+        m = re.match(r"[A-Za-z_$][\w$:.-]*", source[i:])
+        if not m:
+            break
+        name = m.group(0)
+        i += len(name)
+        while i < n and source[i].isspace():
+            i += 1
+        value: str | None = None
+        if i < n and source[i] == "=":
+            i += 1
+            while i < n and source[i].isspace():
+                i += 1
+            if i < n:
+                end = _skip_jsx_string_or_braces(source, i)
+                value = source[i:end]
+                i = end
+        out.append((name, value))
+    return out
+
+
+def _top_level_object_keys(text: str) -> list[str]:
+    """The keys of every top-level ``{ … }`` object literal in ``text`` (a single object or a ``[…]`` list of them)."""
+    keys: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] == "{":
+            end = _skip_jsx_string_or_braces(text, i)
+            body = text[i + 1 : end - 1]
+            depth = 0
+            j = 0
+            expect_key = True
+            while j < len(body):
+                c = body[j]
+                if c in "\"'`":
+                    k = _skip_jsx_string_or_braces(body, j)
+                    if depth == 0 and expect_key and k < len(body) and body[k:].lstrip().startswith(":"):
+                        keys.append(body[j + 1 : k - 1])
+                    expect_key = False
+                    j = k
+                    continue
+                if c in "{[(":
+                    depth += 1
+                elif c in "}])":
+                    depth -= 1
+                elif c == "," and depth == 0:
+                    expect_key = True
+                elif depth == 0 and expect_key and (c.isalpha() or c in "_$"):
+                    m = re.match(r"[A-Za-z_$][\w$]*", body[j:])
+                    assert m is not None
+                    keys.append(m.group(0))
+                    expect_key = False
+                    j += len(m.group(0))
+                    continue
+                elif depth == 0 and c == "." and body.startswith("...", j):
+                    expect_key = False
+                j += 1
+            i = end
+        else:
+            i += 1
+    return keys
+
+
+def _closest(name: str, known: frozenset[str]) -> str | None:
+    flat = re.sub(r"[_\s-]+", "", name).lower()
+    if flat.startswith("ask") or flat.startswith("prompt") or flat in {"question", "questions"}:
+        return "asks"
+    for k in sorted(known):
+        if re.sub(r"[_\s-]+", "", k).lower() == flat:
+            return k
+    return None
+
+
+def component_button_props_lint(source: str) -> str | None:
+    """Every ``<KindActionButton …>`` option must be one the button reads, and an ``asks`` / ``ask`` must have the
+    shape ``{ name, question?, placeholder?, required? }`` (or a list of them). A button saved with an option the kit lacks
+    would draw and do nothing — refused here, naming the option and the one meant (P8: ``ask`` for ``asks``).
+    Also checks the keys of an inline ``runAction("run", { … })`` / ``input={{ … }}`` object. Returns the refusal or None."""
+    source = source or ""
+    problems: list[str] = []
+    for match in _KIND_ACTION_BUTTON_OPEN.finditer(source):
+        for name, value in _jsx_attributes(source, match.end()):
+            if name == "...":
+                continue
+            if name not in KIND_ACTION_BUTTON_PROPS:
+                near = _closest(name, KIND_ACTION_BUTTON_PROPS)
+                hint = f" — did you mean `{near}`?" if near else ""
+                problems.append(f"KindActionButton has no option `{name}`{hint}")
+                continue
+            if name in {"asks", "ask"} and value is not None:
+                inner = value[1:-1].strip() if value.startswith("{") else value
+                if inner[:1] in "\"'`":
+                    problems.append(
+                        f"KindActionButton `{name}` must be {{ name, question?, placeholder?, required? }} (or a list of them), "
+                        f"not text — name the variable the answer rides as: asks={{{{ name: \"note\", question: \"What should it say?\" }}}}"
+                    )
+                elif inner[:1] in "{[":
+                    for key in _top_level_object_keys(inner):
+                        if key not in KIND_ASK_FIELD_KEYS:
+                            problems.append(
+                                f"KindActionButton `{name}` has no option `{key}` (it takes name, question, placeholder, required)"
+                            )
+            if name == "input" and value is not None and value.startswith("{"):
+                # A literal `input={{ mandate|action, … }}` (or `() => ({ … })`) names run-input keys: check the top level.
+                body = value[1:-1].strip()
+                if body.startswith("{"):
+                    keys = _top_level_object_keys(body)
+                    if keys and ({"mandate", "action"} & set(keys)):
+                        for key in keys:
+                            if key not in _KIND_RUN_INPUT_KEYS:
+                                near = _closest(key, _KIND_RUN_INPUT_KEYS)
+                                hint = (
+                                    " — asking first is the button's `asks` option, not part of the run input"
+                                    if near == "asks"
+                                    else (f" — did you mean `{near}`?" if near else "")
+                                )
+                                problems.append(f"the run input has no option `{key}`{hint}")
+    if not problems:
+        return None
+    named = "; ".join(dict.fromkeys(problems[:6]))
+    return (
+        f"{named}. Nothing was written: a button option the kit does not read is dropped at draw time and the button "
+        "would do nothing. KindActionButton takes: "
+        f"{', '.join(sorted(p for p in KIND_ACTION_BUTTON_PROPS if p not in {'key', 'ask'}))} (ask is an alias of asks). "
+        'To ask the person first: asks={{ name: "note", question: "What should it say?" }} — the answer rides as the '
+        'variable `note`; several fields: asks={[{ name: "note", question: "Note" }, { name: "who", question: "For?", required: false }]}.'
+    )
+
+
+# Removed brand icons stay importable: the sandbox serves a neutral stand-in under the old name
+# (apps/shared/code-runtime/src/scope/lucide-brand-aliases.ts). New code is told not to use them.
+_LUCIDE_BRAND_ALIASES = frozenset({
+    "Linkedin", "Twitter", "Facebook", "Instagram", "Youtube", "Twitch", "Github", "Gitlab", "Slack",
+    "Chrome", "Figma", "Framer", "Dribbble", "Codepen", "Codesandbox", "Trello", "Pocket", "RailSymbol",
+})
+_LUCIDE_NAMES: frozenset[str] | None = None
+
+
+def _lucide_names() -> frozenset[str]:
+    """Every name lucide-react exports (lucide_names.json beside this file)."""
+    global _LUCIDE_NAMES
+    if _LUCIDE_NAMES is None:
+        import json
+        from pathlib import Path
+
+        data = json.loads(Path(__file__).with_name("lucide_names.json").read_text())
+        _LUCIDE_NAMES = frozenset(data["names"]) | _LUCIDE_BRAND_ALIASES
+    return _LUCIDE_NAMES
+
+
+def unknown_lucide_imports(source: str) -> list[str]:
+    """Names imported from lucide-react that the library does not export (the 2026-11 `GuitarPick` crash)."""
+    known = _lucide_names()
+    bad: list[str] = []
+    for match in re.finditer(
+        r'import\s*\{(?P<names>[^}]*)\}\s*from\s*["\']lucide-react["\']', source or "", re.DOTALL
+    ):
+        for specifier in match.group("names").split(","):
+            imported = specifier.strip().split(" as ")[0].strip()
+            if imported and imported != "type" and imported not in known and imported not in bad:
+                bad.append(imported)
+    return bad
 
 
 def component_source_lint(source: str) -> str | None:
@@ -471,6 +980,15 @@ def component_source_lint(source: str) -> str | None:
                     f"{local_name}Icon`) and use `<{local_name}Icon />` in JSX."
                 )
 
+    unknown_icons = unknown_lucide_imports(source)
+    if unknown_icons:
+        return (
+            f"lucide-react does not export {', '.join('`' + n + '`' for n in unknown_icons)}, so the import "
+            "resolves to nothing and the component crashes at render. Nothing was written. Replace each with "
+            "an icon lucide-react really exports (brand icons are gone: use a neutral icon and the brand "
+            "name as text)."
+        )
+
     if _DATA_REFERENCE_RE.search(source):
         return None
     return (
@@ -480,10 +998,10 @@ def component_source_lint(source: str) -> str | None:
     )
 
 
-def err(error_type: str, message: str, suggested: str | None = None) -> ToolResult:
+def err(error_type: str, message: str, suggested: str | None = None, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type=error_type, message=message, suggested_action=suggested),
+        error=ToolError.declared(error_type, message, exc=exc, suggested_action=suggested),
     )
 
 
@@ -565,8 +1083,10 @@ def is_uuid(value: str) -> bool:
 def normalize_kind_slug(name: str) -> str:
     """Same normalization the contract publisher uses for slugs
     (``matrx_graph.contract_kinds.contract_kind_slug``): lowercase,
-    non-alphanumeric runs collapsed to ``_``, trimmed."""
-    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "unnamed"
+    non-alphanumeric runs collapsed to ``_``, trimmed. An input with no letters
+    or digits normalizes to ``""`` — never to a made-up stand-in name, which
+    would be a junk kind (``kind_name_problem`` refuses it)."""
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
 
 # The one legal shape for a kind slug — enforced on every path that mints a
@@ -593,6 +1113,64 @@ def validate_kind_slug_format(slug: str) -> ToolResult | None:
             "'resellresearchreport' -> 'resell_research_report'.",
         )
     return None
+
+
+# 🚨 JUNK KIND NAMES (Arman, 2026-10-31): a kind name must say WHAT the shape is.
+# A name made only of filler — "", "unknown", "none", "n/a", "data_2",
+# "my_object", "unknown_kind", "tbd_v1" — is a cheat that hides a missing
+# decision, and is refused on every path that names a kind. The test: split
+# the normalized slug into words, drop filler words, version tokens and
+# numbers; nothing left means junk. Mirrored by the database trigger
+# ``content_ir.refuse_junk_kind_name`` so a path that skips this check still
+# cannot save one — change BOTH together.
+KIND_NAME_FILLER_WORDS = frozenset(
+    {
+        "a", "an", "the", "of", "my", "new", "x", "xx", "xxx", "n", "na",
+        "unknown", "none", "null", "nil", "undefined", "undef", "nan", "tbd", "tba",
+        "todo", "placeholder", "default", "generic", "any", "anything", "something",
+        "whatever", "object", "obj", "data", "item", "items", "thing", "things",
+        "stuff", "kind", "kinds", "type", "types", "value", "values", "result",
+        "results", "output", "outputs", "json", "test", "tests", "testing",
+        "example", "examples", "sample", "samples", "misc", "other", "untitled",
+        "unnamed", "temp", "tmp", "foo", "bar", "baz", "blank", "empty",
+        "missing", "nothing", "dummy", "fake", "mock", "schema", "shape",
+        "record", "records", "entry", "entity", "payload", "response", "info",
+        "details", "struct", "structure", "model", "v",
+    }
+)
+# Numbers, version tokens, single letters, and hex-ish ids (`a1b2c3`) carry no meaning.
+_KIND_NAME_NOISE_TOKEN = re.compile(r"^(v?\d+|[a-z]|(?=[0-9a-f]*\d)[0-9a-f]{4,})$")
+
+
+def kind_name_problem(slug: str) -> str | None:
+    """Why ``slug`` is not an acceptable kind name, or None when it is.
+
+    Runs AFTER ``normalize_kind_slug``. Refuses the empty name, a name that is
+    not snake_case, and a name with no real word in it (filler, single letters,
+    numbers and ``v2``-style tokens do not count)."""
+    if not slug or not slug.strip("_ "):
+        return "an empty kind name is not a name"
+    if not KIND_SLUG_PATTERN.match(slug):
+        return f"'{slug}' is not lowercase snake_case starting with a letter"
+    words = [w for w in slug.split("_") if w]
+    real = [
+        w for w in words if w not in KIND_NAME_FILLER_WORDS and not _KIND_NAME_NOISE_TOKEN.match(w)
+    ]
+    if not real:
+        return (
+            f"'{slug}' says nothing about what the shape is — it is made only of "
+            "filler words (unknown, none, data, item, kind, value, test, …), "
+            "numbers or version tokens"
+        )
+    return None
+
+
+def suggested_kind_name(parent_slug: str | None, field: str | None) -> str | None:
+    """A real name to offer when a nested marker is junk: the containing kind's
+    name plus the field the nested object sits in (``brand_profile`` +
+    ``people`` → ``brand_profile_people``). None when that is junk too."""
+    candidate = normalize_kind_slug("_".join(p for p in (parent_slug, field) if p))
+    return candidate if candidate and kind_name_problem(candidate) is None else None
 
 
 # Slugs shadowed by the /shapes route's static segments (matrx-frontend
@@ -800,6 +1378,7 @@ def refused(noun: str, row_id: str, exc: Exception) -> ToolResult:
         "no_access",
         f"You do not have permission to change {noun} {row_id}; nothing was changed.",
         f"The database refused the write for this person ({exc}).",
+        exc=exc,
     )
 
 
@@ -1032,6 +1611,53 @@ def collect_child_kind_fields(sample: dict[str, Any], root_slug: str) -> dict[st
     return children
 
 
+def child_kind_fields_of_schema(schema: Any, root_slug: str | None = None) -> dict[str, tuple[str, bool]]:
+    """The ROOT-level fields of a (block or wire) JSON Schema that name a child kind —
+    the schema twin of :func:`collect_child_kind_fields`, which reads a marked SAMPLE.
+
+    Returns ``{field: (child_slug, is_list)}`` for every root property that is an object, or an
+    array of objects, whose shape declares ``__kind`` as a ``const`` — inline, or through a
+    ``#/$defs/<name>`` / ``#/definitions/<name>`` reference. A field whose child is the root's
+    own kind (recursion) or that names no kind is not an edge. Pure."""
+    if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
+        return {}
+
+    def resolve(node: Any, depth: int = 0) -> dict[str, Any] | None:
+        if not isinstance(node, dict) or depth > 8:
+            return None
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            m = re.fullmatch(r"#/(?:\$defs|definitions)/([^/]+)", ref)
+            pool = schema.get("$defs") or schema.get("definitions") or {}
+            target = pool.get(m.group(1)) if m and isinstance(pool, dict) else None
+            return resolve(target, depth + 1)
+        return node
+
+    def slug_of(node: Any) -> str | None:
+        shape = resolve(node)
+        if not shape:
+            return None
+        props = shape.get("properties")
+        marker = props.get(KIND_KEY) if isinstance(props, dict) else None
+        const = marker.get("const") if isinstance(marker, dict) else None
+        return const.strip() if isinstance(const, str) and const.strip() else None
+
+    out: dict[str, tuple[str, bool]] = {}
+    for field, prop in schema["properties"].items():
+        if field == KIND_KEY:
+            continue
+        shape = resolve(prop)
+        if not shape:
+            continue
+        if shape.get("type") == "array" or "items" in shape:
+            slug, is_list = slug_of(shape.get("items")), True
+        else:
+            slug, is_list = slug_of(shape), False
+        if slug and slug != root_slug:
+            out[field] = (slug, is_list)
+    return out
+
+
 def inject_kind_markers_into_schema(
     wire_schema: dict[str, Any], marked_sample: Any, root_slug: str
 ) -> dict[str, Any]:
@@ -1233,6 +1859,74 @@ def schema_fingerprint(schema: dict[str, Any]) -> str:
     from matrx_graph.contract_kinds import schema_fingerprint as _fp
 
     return _fp(schema)
+
+
+def schema_structure(schema: Any) -> Any:
+    """The SHAPE of a kind schema, for "does this already exist?" matching:
+    field names and value types only. Descriptions, required lists, formats,
+    key order and the root's own ``__kind`` are ignored; integer and number are
+    one type; null only widens. A nested object that declares its own
+    ``__kind`` const is that kind BY NAME (``"@slug"``), so an outer shape
+    matches an existing outer shape only once its inner kinds resolved to the
+    same names."""
+
+    def types_of(node: dict[str, Any]) -> list[str]:
+        raw = node.get("type")
+        found = [raw] if isinstance(raw, str) else list(raw or [])
+        if not found and "enum" in node:
+            found = sorted({type(v).__name__ for v in node["enum"] if v is not None})
+            found = ["string" if t == "str" else "number" if t in ("int", "float") else t for t in found]
+        out = sorted({"number" if t == "integer" else t for t in found if t != "null"})
+        return out
+
+    def walk(node: Any, root: bool) -> Any:
+        if not isinstance(node, dict) or not node:
+            return "any"
+        for union_key in ("anyOf", "oneOf"):
+            branches = node.get(union_key)
+            if isinstance(branches, list):
+                parts = {
+                    json_dumps_sorted(p): p
+                    for p in (
+                        walk(b, root)
+                        for b in branches
+                        if not (isinstance(b, dict) and b.get("type") == "null")
+                    )
+                }
+                if len(parts) == 1:
+                    return next(iter(parts.values()))
+                return {"union": sorted(parts)}
+        props = node.get("properties")
+        if isinstance(props, dict):
+            marker = props.get(KIND_KEY)
+            if not root and isinstance(marker, dict) and isinstance(marker.get("const"), str):
+                return "@" + marker["const"]
+            return {"object": {k: walk(v, False) for k, v in props.items() if k != KIND_KEY}}
+        types = types_of(node)
+        if types == ["array"] or "items" in node:
+            return {"array": walk(node.get("items") or {}, False)}
+        if types == ["object"]:
+            return {"object": {}}
+        if not types or len(types) >= 5:
+            return "any"
+        return "|".join(types)
+
+    return walk(schema, True)
+
+
+def json_dumps_sorted(value: Any) -> str:
+    import json
+
+    return json.dumps(value, sort_keys=True, default=str)
+
+
+def schema_structure_key(schema: Any) -> tuple[str, int]:
+    """``(structure fingerprint, root field count)`` for ``schema_structure``."""
+    import hashlib
+
+    structure = schema_structure(schema)
+    fields = len(structure["object"]) if isinstance(structure, dict) and "object" in structure else 0
+    return hashlib.sha256(json_dumps_sorted(structure).encode()).hexdigest(), fields
 
 
 # ---------------------------------------------------------------------------

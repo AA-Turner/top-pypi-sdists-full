@@ -68,8 +68,13 @@ def configure(
     source_app=None,
     persistence_policy_registrar=None,
     handoff_ledger=None,
-    relation_words_resolver=None,
     news_search=None,
+    skill_search=None,
+    skill_vectors_writer=None,
+    cost_text=None,
+    platform_texts=None,
+    caller_pick_resolver=None,
+    record_writer=None,
     **ext_kwargs,
 ) -> None:
     """Configure matrx-ai with external dependencies from the host application.
@@ -160,23 +165,33 @@ def configure(
         source_app: Optional app identity stamp (e.g. ``"matrx_local"``) —
             selects which app's tools the server-backed tool fetch returns
             and stamps persisted rows.
-        relation_words_resolver: Optional async callable
-            ``(table_id, rows, *, user_id) -> list[dict]`` that answers the same
-            page of user-table rows with every ``relation`` cell already in
-            WORDS. A relation cell stores a record's id and means that record's
-            name; matrx-ai cannot resolve it itself because the one resolver
-            lives in matrx-records, which depends on THIS package. Consumed by
-            ``matrx_ai.tools.relation_words``; unwired, the dataset tools hand
-            the model raw identifiers and say so once, loudly, with the wiring
-            point (never a silent pass-through).
         news_search: Optional async callable ``(query, *, organization_id,
             limit) -> NewsSearchResult`` used by the legacy headlines tool.
             The host owns the native search engine; this package only maps its
             result into the tool's established output contract.
+        skill_search: Optional async callable ``(query, skills, *, limit) -> list[str]``
+            ranking the given readable skills (``SkillHint``s) by meaning and returning
+            their ids best first. The host owns the stored vectors and the database-side
+            comparison; unwired, ``DbSkillProvider.search`` uses its keyword scoring.
+        skill_vectors_writer: Optional async callable ``(skills) -> None`` the ONE skill
+            write path (``skills.ingest.upsert_parsed_skills``) awaits with every skill it
+            created or updated (``id``, ``skill_id``, ``label``, ``description``), so the
+            host stores its meaning-search vector at write time.
+        cost_text: Optional ``Callable[[Decimal], str]`` — the host's ONE formatter for a cost in a
+            sentence a person reads (``matrx_ai.cost_text.person_cost_text``); without it, points.
+        platform_texts: Optional ``Callable[[str], str | None]`` — the host's ONE resolver for the words matrx-ai
+            puts in front of a model (``matrx_ai.config.platform_texts``); ``None`` for a key means the packaged
+            standalone default. On the platform the host reads them from System Context items.
+        caller_pick_resolver: Optional ``Callable[[AppContext], bool]`` — the host's carrier-only answer to
+            "is this witnessed ``api`` turn the caller's own pick on a chat door?" (a test account standing in
+            for a person). Read only by the mandate carrier (``mandate_bypass_runtime``), never by billing.
         **ext_kwargs: External deps (settings, get_async_supabase_client, etc.).
             ``agent_definition_freshness`` — optional async no-arg callable awaited
             before every ORM-backed ``agx.load_for_execution``; the host bounds the
             cached agent rows' staleness there (``db/_agx_manager_impl.py``).
+            ``platform_key_source`` — optional ``matrx_ai.providers.keys.PlatformKeySource``:
+            where the platform's OWN provider keys come from (step 3 of ``resolve_api_key``,
+            in place of ``os.environ``). Unset = the environment, exactly as before.
     """
     # A normal import — NOT a file-path load. matrx_ai/db/__init__.py resolves
     # its names lazily (PEP 562 __getattr__), so importing _registry through the
@@ -216,13 +231,29 @@ def configure(
         for key, value in _client_seams.items():
             if value is not None:
                 ext_kwargs[key] = value
-    # The relation-words seam (matrx_ai/tools/relation_words.py). An ordinary
-    # _ext entry — declared here rather than left to **ext_kwargs so the one
-    # capability the dataset tools need is visible in this signature.
-    if relation_words_resolver is not None:
-        ext_kwargs["relation_words_resolver"] = relation_words_resolver
     if news_search is not None:
         ext_kwargs["news_search"] = news_search
+    if skill_search is not None:
+        ext_kwargs["skill_search"] = skill_search
+    if skill_vectors_writer is not None:
+        ext_kwargs["skill_vectors_writer"] = skill_vectors_writer
+    # The record-writer seam (matrx_ai/tools/record_writer.py): the host's one record
+    # write through its registered Action. Unset (a CLIENT host) → the task / project
+    # tools write through their own managers.
+    if record_writer is not None:
+        ext_kwargs["record_writer"] = record_writer
+    if cost_text is not None:
+        from matrx_ai.cost_text import configure_cost_text
+
+        configure_cost_text(cost_text)
+    if platform_texts is not None:
+        from matrx_ai.config.platform_texts import configure_platform_texts
+
+        configure_platform_texts(platform_texts)
+    if caller_pick_resolver is not None:
+        from matrx_ai.orchestrator.mandate_carrier import set_caller_pick_resolver
+
+        set_caller_pick_resolver(caller_pick_resolver)
     if ext_kwargs:
         configure_ext(**ext_kwargs)
 

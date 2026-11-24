@@ -119,6 +119,30 @@ def test_clone_with_non_defaults():
     assert ([(k, v) for k, v in sorted(v.param.values().items()) if k not in ('name')] ==
             [(k, v) for k, v in sorted(clone.param.values().items()) if k not in ('name')])
 
+def test_clone_skips_class_level_readonly_after_edit_constant():
+    from panel.widgets import Terminal
+
+    terminal = Terminal()
+    with param.edit_constant(terminal):
+        terminal.param.ncols.readonly = False
+        terminal.ncols = 10
+
+    clone = terminal.clone()
+
+    assert clone.ncols != 10
+    assert clone.param.ncols.readonly
+
+def test_clone_skips_readonly_subclass_parameter():
+    class ReadOnlyViewable(Viewable):
+        value = param.Integer(default=1, readonly=True)
+
+    v = ReadOnlyViewable()
+    with param.edit_constant(v):
+        v.param.value.readonly = False
+        v.value = 5
+
+    assert v.clone().value == 1
+
 def test_is_viewable_parameter():
     class Example(param.Parameterized):
         p_dict = param.Dict()
@@ -163,3 +187,104 @@ def test_is_viewable_parameter():
     assert is_viewable_param(example.param.l_item_types_viewable)
     assert not is_viewable_param(example.param.l_item_types_not_viewable)
     assert not is_viewable_param(example.param.l_item_types_not_viewable2)
+
+
+def test_viewable_design_and_loading_watchers():
+    from panel.io.loading import LOADING_INDICATOR_CSS_CLASS
+    from panel.theme import Bootstrap, Native
+
+    md = Markdown('x')
+    assert getattr(md, '_assigned_design', None) is None
+
+    md.design = Bootstrap
+    assert isinstance(md._design, Bootstrap)
+
+    md.design = None
+    assert isinstance(md._design, Native)
+
+    md.loading = True
+    assert LOADING_INDICATOR_CSS_CLASS in md.css_classes
+
+    md.param.update(loading=False, design=Bootstrap)
+    assert LOADING_INDICATOR_CSS_CLASS not in md.css_classes
+    assert isinstance(md._design, Bootstrap)
+
+
+@pytest.fixture
+def preprocess_hooks_active(monkeypatch):
+    # Make every default preprocessing hook consider walking the tree
+    import panel.models.echarts  # noqa
+
+    from panel.pane.echarts import ECharts
+    from panel.pane.holoviews import HoloViews
+    monkeypatch.setattr(HoloViews, '_instantiated', True)
+    monkeypatch.setattr(ParamMethod, '_instantiated', True)
+    monkeypatch.setattr(ECharts, '_js_args', False)
+
+
+@pytest.fixture
+def select_spy(monkeypatch):
+    called = []
+    original = Markdown.select
+
+    def select(self, selector=None):
+        called.append(self)
+        return original(self, selector)
+
+    monkeypatch.setattr(Markdown, 'select', select)
+    return called
+
+
+@pytest.mark.usefixtures('preprocess_hooks_active')
+def test_preprocess_append_does_not_walk_unchanged_children(document, comm, select_spy):
+    from panel.layout import Column
+
+    old = [Markdown(f'{i}') for i in range(10)]
+    layout = Column(*old)
+    layout.get_root(document, comm)
+
+    select_spy.clear()
+    new = Markdown('new')
+    layout.append(new)
+
+    assert new in select_spy
+    assert not any(md in old for md in select_spy)
+
+
+@pytest.mark.usefixtures('preprocess_hooks_active')
+def test_preprocess_esm_children_does_not_walk_unchanged_children(document, comm, select_spy):
+    from panel.custom import JSComponent
+
+    class ChildrenComponent(JSComponent):
+
+        objects = Children()
+
+        _esm = 'export function render({ model }) {}'
+
+    old = [Markdown(f'{i}') for i in range(10)]
+    component = ChildrenComponent(objects=old)
+    component.get_root(document, comm)
+
+    select_spy.clear()
+    new = Markdown('new')
+    component.objects = old + [new]
+
+    assert new in select_spy
+    assert not any(md in old for md in select_spy)
+
+
+def test_preprocess_caches_hook_signature(document, comm, monkeypatch):
+    import inspect
+
+    from panel.layout import Column
+
+    layout = Column(Markdown('a'))
+    layout.get_root(document, comm)
+    layout.append(Markdown('b'))
+
+    calls = []
+    signature = inspect.signature
+    monkeypatch.setattr(inspect, 'signature', lambda *a, **kw: calls.append(a) or signature(*a, **kw))
+    layout.append(Markdown('c'))
+
+    assert not calls

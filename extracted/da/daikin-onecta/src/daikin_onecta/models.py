@@ -175,6 +175,7 @@ class ScheduleMode(OnectaModel):
     current_schedule: Characteristic[str] | None = None
     enabled: Characteristic[bool] | None = None
     schedules: dict[str, ScheduleDefinition] = field(default_factory=dict)
+    raw_schedules: dict[str, Any] = field(default_factory=dict, repr=False)
 
     class Config(OnectaModel.Config):
         """Mashumaro configuration."""
@@ -225,7 +226,7 @@ class Schedule(OnectaModel):
         for mode_name, mode_data in modes.items():
             if not isinstance(mode_name, str) or not isinstance(mode_data, dict):
                 continue
-            current = mode_data.get("currentSchedule")
+            current = mode_data.get("currentSchedule", mode_data.get("current_schedule"))
             if not isinstance(current, dict):
                 continue
             selected = current.get("value")
@@ -239,6 +240,11 @@ class Schedule(OnectaModel):
             if isinstance(enabled := mode_data.get("enabled"), dict) and isinstance(enabled.get("value"), bool):
                 mode["enabled"] = enabled
             if isinstance(schedules := mode_data.get("schedules"), dict):
+                # Keep the complete API schedule definitions for callers that
+                # need to export, edit, and replace schedules. The typed view
+                # below intentionally remains limited to schedule selection.
+                raw_schedules = mode_data.get("raw_schedules")
+                mode["raw_schedules"] = raw_schedules if isinstance(raw_schedules, dict) else schedules
                 typed_schedules: dict[str, dict[str, Any]] = {}
                 for schedule_id, schedule_data in schedules.items():
                     if not isinstance(schedule_id, str) or not isinstance(schedule_data, dict):

@@ -68,9 +68,7 @@ class BenchmarkOperationError(RuntimeError):
       timeout=BenchmarkOperationError._cap_timeout(client.timeout), max_retries=0
     )
     try:
-      page = client.benchmarks.ingestion.list_items(
-        result.operation.id, "failure", after="", limit=100
-      )
+      page = client.specs.ingestion.list_items(result.operation.id, "failure", after="", limit=100)
       items = [
         BenchmarkIngestionFailure.model_validate(item.model_dump(exclude_unset=True))
         for item in page.items
@@ -118,7 +116,7 @@ class BenchmarkOperation:
     self.status = status
 
   def refresh(self) -> BenchmarkIngestionOperationStatus:
-    self.status = self.client.benchmarks.ingestion.retrieve(self.id)
+    self.status = self.client.specs.ingestion.retrieve(self.id)
     return self.status
 
   def result(
@@ -139,7 +137,7 @@ class BenchmarkOperation:
         else self.client.with_options(timeout=remaining, max_retries=0)
       )
       try:
-        self.status = client.benchmarks.ingestion.retrieve(self.id)
+        self.status = client.specs.ingestion.retrieve(self.id)
       except APITimeoutError as error:
         if deadline is None:
           time.sleep(poll_interval)
@@ -161,7 +159,7 @@ class BenchmarkOperation:
     self, kind: Literal["result", "failure", "runtime", "runtime_task"], *, after: str = ""
   ) -> Iterator[dict[str, Any]]:
     while True:
-      page = self.client.benchmarks.ingestion.list_items(self.id, kind, after=after, limit=100)
+      page = self.client.specs.ingestion.list_items(self.id, kind, after=after, limit=100)
       for item in page.items:
         yield item.model_dump(exclude_unset=True)
       cursor = page.next_cursor

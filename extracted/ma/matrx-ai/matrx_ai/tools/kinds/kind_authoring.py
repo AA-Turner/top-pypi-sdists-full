@@ -10,10 +10,9 @@ Placeholder tier: projections of our own registry rows.
 
 from __future__ import annotations
 
-from pydantic import JsonValue
-
 from matrx_graph.content_ir.model import KindModel, KindSubModel
 from matrx_graph.content_ir.sdk import kind
+from pydantic import JsonValue
 
 
 class KindDefinitionSummary(KindSubModel):
@@ -114,6 +113,9 @@ class KindSurfaceSummary(KindSubModel):
 class KindDefinitionDetail(KindModel):
     """``kind_get`` — one kind's full definition view."""
 
+    #: False when no kind you can see has this name or id — an answer, not an
+    #: error: ``kind_create`` makes it (and never needs this check first).
+    found: bool = True
     kind: KindDefinitionSummary
     #: The canonical example's stored data (markers included); None when the
     #: kind has no canonical example.
@@ -153,14 +155,40 @@ class ComponentAuthoringBundle(KindSubModel):
     compile_gate: str = ""
 
 
+class KindNameResolution(KindSubModel):
+    """What ``kind_create`` decided for one kind position (the root or a nested kind)."""
+
+    #: Where the kind sits in the shape, e.g. ``brand_profile.people[]``.
+    path: str = ""
+    requested: str = ""
+    #: The name to use — emit this exact ``__kind``.
+    kind: str = ""
+    #: created, reused (an existing kind already has this shape) or renamed.
+    status: str = ""
+    kind_definition_id: str | None = None
+    note: str | None = None
+
+
 @kind(
     "kind_create_result",
     disposition="receipt",
     label="Kind Created",
     family="kind_authoring",
     example={
-        "kind_definition_id": "aa11aa11-0000-4000-8000-000000000000",
         "kind": "timeline",
+        "status": "created",
+        "requested_kind": "timeline",
+        "names": [
+            {
+                "path": "timeline",
+                "requested": "timeline",
+                "kind": "timeline",
+                "status": "created",
+                "kind_definition_id": "aa11aa11-0000-4000-8000-000000000000",
+            }
+        ],
+        "dry_run": False,
+        "kind_definition_id": "aa11aa11-0000-4000-8000-000000000000",
         "label": "Timeline",
         "version": 1,
         "organization_id": "bb22bb22-0000-4000-8000-000000000000",
@@ -182,10 +210,17 @@ class ComponentAuthoringBundle(KindSubModel):
     maturity="placeholder",
 )
 class KindCreateResult(KindModel):
-    """Receipt of ``kind_create`` — the authored (inactive) kind and its assets."""
+    """Receipt of ``kind_create`` — the kind to use and every nested kind's name."""
 
-    kind_definition_id: str = ""
+    #: The name to use — always this, never the name that was sent.
     kind: str = ""
+    #: created, reused (nothing new was written) or renamed.
+    status: str = "created"
+    requested_kind: str | None = None
+    #: Every kind position's final name, root first.
+    names: list[KindNameResolution] = []
+    dry_run: bool = False
+    kind_definition_id: str = ""
     label: str | None = None
     version: int | None = None
     organization_id: str | None = None

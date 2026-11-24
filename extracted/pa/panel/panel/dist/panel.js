@@ -45,16 +45,16 @@
 "4e90918c0a": /* index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
-    const Panel = tslib_1.__importStar(require("36236053e8") /* ./models */);
+    const Panel = tslib_1.__importStar(require("606d4d059d") /* ./models */);
     exports.Panel = Panel;
     const base_1 = require("@bokehjs/base");
     (0, base_1.register_models)(Panel);
 },
-"36236053e8": /* models/index.js */ function _(require, module, exports, __esModule, __esExport) {
+"606d4d059d": /* models/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.VizzuChart = exports.VideoStream = exports.Video = exports.VegaPlot = exports.TrendIndicator = exports.TooltipIcon = exports.ToggleIcon = exports.TimePicker = exports.TextToSpeech = void 0;
+    exports.VizzuChart = exports.VideoStream = exports.Video = exports.VegaPlot = exports.TrendIndicator = exports.TooltipIcon = exports.ToggleIcon = exports.TimePicker = exports.TextToSpeech = exports.TextInput = void 0;
     const tslib_1 = require("tslib");
-    var ace_1 = require("7b034b2ba5") /* ./ace */;
+    var ace_1 = require("95cdd35e17") /* ./ace */;
     __esExport("AcePlot", ace_1.AcePlot);
     var anywidget_component_1 = require("f4bc4e23b4") /* ./anywidget_component */;
     __esExport("AnyWidgetComponent", anywidget_component_1.AnyWidgetComponent);
@@ -66,7 +66,7 @@
     __esExport("Button", button_1.Button);
     var button_icon_1 = require("7e77f478cb") /* ./button_icon */;
     __esExport("ButtonIcon", button_icon_1.ButtonIcon);
-    var icon_1 = require("bf77ad153d") /* ./icon */;
+    var icon_1 = require("ac804884fa") /* ./icon */;
     __esExport("ClickableIcon", icon_1.ClickableIcon);
     var card_1 = require("a668a42a0f") /* ./card */;
     __esExport("Card", card_1.Card);
@@ -76,32 +76,32 @@
     __esExport("ChatAreaInput", chatarea_input_1.ChatAreaInput);
     var column_1 = require("3967d78fb5") /* ./column */;
     __esExport("Column", column_1.Column);
-    var comm_manager_1 = require("f8f420cdc3") /* ./comm_manager */;
+    var comm_manager_1 = require("5f6e6991cc") /* ./comm_manager */;
     __esExport("CommManager", comm_manager_1.CommManager);
-    var customselect_1 = require("519009caed") /* ./customselect */;
+    var customselect_1 = require("9bb1156335") /* ./customselect */;
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("8653ba687c") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("381057489b") /* ./tabulator */;
+    var tabulator_1 = require("ccaec0a50f") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     __esExport("TabulatorColumn", tabulator_1.TabulatorColumn);
     var datetime_picker_1 = require("7408873be7") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
     var datetime_slider_1 = require("47671196f6") /* ./datetime_slider */;
     __esExport("DatetimeSlider", datetime_slider_1.DatetimeSlider);
-    var deckgl_1 = require("609f06c18b") /* ./deckgl */;
+    var deckgl_1 = require("2b9c25734d") /* ./deckgl */;
     __esExport("DeckGLPlot", deckgl_1.DeckGLPlot);
     var discrete_player_1 = require("eee856b107") /* ./discrete_player */;
     __esExport("DiscretePlayer", discrete_player_1.DiscretePlayer);
     var echarts_1 = require("df5e7d36e5") /* ./echarts */;
     __esExport("ECharts", echarts_1.ECharts);
-    var feed_1 = require("56255f9c11") /* ./feed */;
+    var feed_1 = require("21518e4c71") /* ./feed */;
     __esExport("Feed", feed_1.Feed);
     var file_download_1 = require("a7746def5a") /* ./file_download */;
     __esExport("FileDownload", file_download_1.FileDownload);
     var file_dropper_1 = require("bff8eeed36") /* ./file_dropper */;
     __esExport("FileDropper", file_dropper_1.FileDropper);
-    var html_1 = require("9012c2f5ae") /* ./html */;
+    var html_1 = require("e40e09e4dd") /* ./html */;
     __esExport("HTML", html_1.HTML);
     var ipywidget_1 = require("fd4c3f6bc4") /* ./ipywidget */;
     __esExport("IPyWidget", ipywidget_1.IPyWidget);
@@ -111,7 +111,7 @@
     __esExport("JSONEditor", jsoneditor_1.JSONEditor);
     var katex_1 = require("052b7b0298") /* ./katex */;
     __esExport("KaTeX", katex_1.KaTeX);
-    var location_1 = require("2116677c2d") /* ./location */;
+    var location_1 = require("cc871e1a06") /* ./location */;
     __esExport("Location", location_1.Location);
     var mathjax_1 = require("07688254ed") /* ./mathjax */;
     __esExport("MathJax", mathjax_1.MathJax);
@@ -123,7 +123,7 @@
     __esExport("Perspective", perspective_1.Perspective);
     var player_1 = require("ed49986321") /* ./player */;
     __esExport("Player", player_1.Player);
-    var plotly_1 = require("39230f6818") /* ./plotly */;
+    var plotly_1 = require("f8b44cbee4") /* ./plotly */;
     __esExport("PlotlyPlot", plotly_1.PlotlyPlot);
     var progress_1 = require("443fb5cf42") /* ./progress */;
     __esExport("Progress", progress_1.Progress);
@@ -131,13 +131,14 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("08a22fed1a") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("e74ecd40bb") /* ./react_component */;
+    var react_component_1 = require("da0e69965d") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
-    var reactive_html_1 = require("61cc258c24") /* ./reactive_html */;
+    var reactive_html_1 = require("44b7d77ba5") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("f3226cbf82") /* ./reactive_esm */;
+    var reactive_esm_1 = require("63ae31d699") /* ./reactive_esm */;
+    __esExport("ESMBundle", reactive_esm_1.ESMBundle);
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
-    var resources_1 = require("3ec7d872e2") /* ./resources */;
+    var resources_1 = require("133ce95cfa") /* ./resources */;
     __esExport("resources", resources_1.resources);
     var singleselect_1 = require("3766e0c917") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -145,7 +146,7 @@
     __esExport("SpeechToText", speech_to_text_1.SpeechToText);
     var state_1 = require("188544eb0b") /* ./state */;
     __esExport("State", state_1.State);
-    var tabs_1 = require("3cba64cc82") /* ./tabs */;
+    var tabs_1 = require("c5ac7daa0f") /* ./tabs */;
     __esExport("Tabs", tabs_1.Tabs);
     var terminal_1 = require("4fecff5c68") /* ./terminal */;
     __esExport("Terminal", terminal_1.Terminal);
@@ -163,7 +164,7 @@
     __esExport("TooltipIcon", tooltip_icon_1.TooltipIcon);
     var trend_1 = require("eb967020e9") /* ./trend */;
     __esExport("TrendIndicator", trend_1.TrendIndicator);
-    var vega_1 = require("03e8d20a08") /* ./vega */;
+    var vega_1 = require("b6824c5110") /* ./vega */;
     __esExport("VegaPlot", vega_1.VegaPlot);
     var video_1 = require("e8830cc759") /* ./video */;
     __esExport("Video", video_1.Video);
@@ -173,30 +174,38 @@
     __esExport("VizzuChart", vizzu_1.VizzuChart);
     tslib_1.__exportStar(require("c51f25e2a7") /* ./vtk */, exports);
 },
-"7b034b2ba5": /* models/ace.js */ function _(require, module, exports, __esModule, __esExport) {
+"95cdd35e17": /* models/ace.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
+    const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
+    const ace_css_1 = tslib_1.__importDefault(require("63195d7453") /* styles/models/ace.css */);
     class AcePlotView extends layout_1.HTMLBoxView {
         _editor;
         _langTools;
         _modelist;
         _container;
+        _marker_ids = [];
+        _gutter_marks = [];
         connect_signals() {
             super.connect_signals();
-            const { code, theme, language, filename, print_margin, annotations, soft_tabs, indent, readonly } = this.model.properties;
+            const { code, theme, language, filename, print_margin, annotations, markers, soft_tabs, indent, readonly, keyboard_accessible, soft_wrap } = this.model.properties;
             this.on_change(code, () => this._update_code_from_model());
             this.on_change(theme, () => this._update_theme());
             this.on_change(language, () => this._update_language());
             this.on_change(filename, () => this._update_filename());
             this.on_change(print_margin, () => this._update_print_margin());
             this.on_change(annotations, () => this._add_annotations());
+            this.on_change(markers, () => this._update_markers());
             this.on_change(indent, () => this._editor.setOptions({ tabSize: this.model.indent }));
             this.on_change(soft_tabs, () => this._editor.setOptions({ useSoftTabs: this.model.soft_tabs }));
-            this.on_change(readonly, () => {
-                this._editor.setReadOnly(this.model.readonly);
-            });
+            this.on_change(keyboard_accessible, () => this._editor.setOptions({ enableKeyboardAccessibility: this.model.keyboard_accessible }));
+            this.on_change(soft_wrap, () => this._editor.setOptions({ wrap: this.model.soft_wrap }));
+            this.on_change(readonly, () => this._update_readonly());
+        }
+        stylesheets() {
+            return [...super.stylesheets(), ace_css_1.default];
         }
         render() {
             super.render();
@@ -218,19 +227,30 @@
                 enableBasicAutocompletion: true,
                 tabSize: this.model.indent,
                 useSoftTabs: this.model.soft_tabs,
+                enableKeyboardAccessibility: this.model.keyboard_accessible,
+                wrap: this.model.soft_wrap,
                 enableSnippets: true,
                 fontFamily: "monospace", //hack for cursor position
             });
             this._update_theme();
             this._update_filename();
             this._update_language();
-            this._editor.setReadOnly(this.model.readonly);
+            this._update_readonly();
+            this._marker_ids = [];
+            this._gutter_marks = [];
+            this._update_markers();
             this._editor.setShowPrintMargin(this.model.print_margin);
-            // if on keyup, update code from editor
-            if (this.model.on_keyup) {
-                this._editor.on("change", () => this._update_code_from_editor());
-            }
-            else {
+            const { on_keyup } = this.model;
+            this._editor.on("change", () => {
+                // code_input must reach the server before code: the server copies
+                // value into value_input, so a trailing code_input could overwrite
+                // a newer value_input set from Python.
+                this._update_code_input_from_editor();
+                if (on_keyup) {
+                    this._update_code_from_editor();
+                }
+            });
+            if (!on_keyup) {
                 this._editor.on("blur", () => this._update_code_from_editor());
                 this._editor.commands.addCommand({
                     name: "updateCodeFromEditor",
@@ -240,7 +260,6 @@
                     },
                 });
             }
-            this._editor.on("change", () => this._update_code_input_from_editor());
         }
         _update_code_from_model() {
             if (this._editor && this._editor.getValue() != this.model.code) {
@@ -265,6 +284,51 @@
                 this._editor.clearSelection();
                 this._editor.session.setScrollTop(scrollTop);
                 this._editor.session.setScrollLeft(scrollLeft);
+            }
+        }
+        _update_readonly() {
+            this._editor.setReadOnly(this.model.readonly);
+            // Ace creates the "Editing is disabled" tooltip on document.body, outside
+            // the shadow root holding Ace's CSS, unless the editor already has one.
+            // It drops the tooltip whenever read-only is turned off, so attach a new
+            // one to the shadow root each time it is turned on.
+            const editor = this._editor;
+            if (this.model.readonly && editor.hoverTooltip == null) {
+                const { HoverTooltip } = ace.require("ace/tooltip");
+                editor.hoverTooltip = new HoverTooltip(this.shadow_el);
+            }
+        }
+        _update_markers() {
+            const session = this._editor.session;
+            for (const id of this._marker_ids) {
+                session.removeMarker(id);
+            }
+            for (const [row, cls] of this._gutter_marks) {
+                session.removeGutterDecoration(row, cls);
+            }
+            this._marker_ids = [];
+            this._gutter_marks = [];
+            const { Range } = ace.require("ace/range");
+            for (const marker of this.model.markers) {
+                const start = marker.start_row;
+                if (typeof start !== "number") {
+                    continue;
+                }
+                const end = marker.end_row ?? start;
+                const cls = marker.class === undefined ? "pn-ace-marker" : marker.class;
+                if (cls != null && cls !== "") {
+                    const type = marker.type ?? "fullLine";
+                    const range = type === "text"
+                        ? new Range(start, marker.start_column ?? 0, end, marker.end_column ?? Infinity)
+                        : new Range(start, 0, end, Infinity);
+                    this._marker_ids.push(session.addMarker(range, cls, type, false));
+                }
+                if (marker.gutter_class != null && marker.gutter_class !== "") {
+                    for (let row = start; row <= end; row++) {
+                        session.addGutterDecoration(row, marker.gutter_class);
+                        this._gutter_marks.push([row, marker.gutter_class]);
+                    }
+                }
             }
         }
         _update_print_margin() {
@@ -326,12 +390,15 @@
                 code_input: [Str, ""],
                 filename: [Nullable(Str), null],
                 indent: [Int, 4],
+                keyboard_accessible: [Bool, false],
                 language: [Str, ""],
+                markers: [List(Any), []],
                 on_keyup: [Bool, true],
                 print_margin: [Bool, false],
                 theme: [Str, "github_light_default"],
                 readonly: [Bool, false],
                 soft_tabs: [Bool, false],
+                soft_wrap: [Bool, false],
             }));
             this.override({
                 height: 300,
@@ -341,16 +408,46 @@
     }
     exports.AcePlot = AcePlot;
 },
-"00beb93e38": /* models/layout.js */ function _(require, module, exports, __esModule, __esExport) {
+"1874377162": /* models/layout.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
+    exports.prepare_nested_layouts = prepare_nested_layouts;
     exports.rerender_view = rerender_view;
+    exports.reset_size = reset_size;
     exports.set_size = set_size;
     const dom_1 = require("@bokehjs/core/dom");
     const types_1 = require("@bokehjs/core/util/types");
     const assert_1 = require("@bokehjs/core/util/assert");
     const widget_1 = require("@bokehjs/models/widgets/widget");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
-    const resources_1 = require("3ec7d872e2") /* ./resources */;
+    const resources_1 = require("133ce95cfa") /* ./resources */;
+    function* unmanaged_layout_views(view) {
+        for (const child of view.children()) {
+            if (child instanceof layout_dom_1.LayoutDOMView && !(view instanceof layout_dom_1.LayoutDOMView)) {
+                yield child;
+            }
+            yield* unmanaged_layout_views(child);
+        }
+    }
+    /**
+     * Lays out the layout views nested in `view` that no layout manages, e.g.
+     * the internal plot of a `SizeBar`, if they have not been laid out yet.
+     *
+     * Such a view only builds its layout in its own `after_render`, but the view
+     * containing it may read that layout in its `update_layout`, which here can
+     * run first. Once the view has been laid out it builds a fresh layout on
+     * every `after_render`, so the caller must lay out `view` again if any of
+     * the returned views ends up with a different layout. Can be removed once
+     * https://github.com/bokeh/bokeh/issues/15794 is fixed.
+     */
+    function prepare_nested_layouts(view) {
+        const nested = [...unmanaged_layout_views(view)];
+        for (const nested_view of nested) {
+            if (nested_view.layout == null) {
+                nested_view.update_layout();
+            }
+        }
+        return nested;
+    }
     /**
      * Re-renders a view, including its layout.
      *
@@ -373,8 +470,13 @@
     function rerender_view(view, layout = true) {
         if (view instanceof layout_dom_1.LayoutDOMView) {
             view.render();
+            const nested = prepare_nested_layouts(view);
             view.update_layout();
+            const nested_layouts = nested.map((nested_view) => nested_view.layout);
             view.r_after_render();
+            if (nested.some((nested_view, i) => nested_view.layout !== nested_layouts[i])) {
+                view.update_layout();
+            }
             if (layout) {
                 view.compute_layout();
             }
@@ -427,7 +529,9 @@
             const { width, height, min_height, max_height, margin, sizing_mode } = this.model.properties;
             this.on_change([width, height, min_height, max_height, margin, sizing_mode], () => {
                 set_size(this.el, this.model);
-                set_size(this.container, this.model, false);
+                if (this.container != null) {
+                    set_size(this.container, this.model, false);
+                }
             });
         }
         async lazy_initialize() {
@@ -494,6 +598,15 @@
         }
     }
     exports.PanelMarkupView = PanelMarkupView;
+    /**
+     * Like `set_size`, for a model whose sizes changed: `set_size` only sets the
+     * sizes that are given, so the sizes that were unset are cleared first.
+     */
+    function reset_size(el, model, adjust_margin = true) {
+        const { style } = el;
+        style.width = style.height = style.minWidth = style.maxWidth = style.minHeight = style.maxHeight = "";
+        set_size(el, model, adjust_margin);
+    }
     function set_size(el, model, adjust_margin = true) {
         let width_policy = model.width != null ? "fixed" : "fit";
         let height_policy = model.height != null ? "fixed" : "fit";
@@ -587,9 +700,9 @@
         _stylesheets_watcher = null;
         connect_signals() {
             super.connect_signals();
-            const { width, height, min_height, max_height, margin, sizing_mode } = this.model.properties;
-            this.on_change([width, height, min_height, max_height, margin, sizing_mode], () => {
-                set_size(this.el, this.model);
+            const { width, height, min_width, max_width, min_height, max_height, margin, sizing_mode } = this.model.properties;
+            this.on_change([width, height, min_width, max_width, min_height, max_height, margin, sizing_mode], () => {
+                reset_size(this.el, this.model);
             });
         }
         async lazy_initialize() {
@@ -661,7 +774,7 @@
     }
     exports.HTMLBox = HTMLBox;
 },
-"3ec7d872e2": /* models/resources.js */ function _(require, module, exports, __esModule, __esExport) {
+"133ce95cfa": /* models/resources.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.cdn_url = cdn_url;
     exports.resource_url = resource_url;
@@ -710,6 +823,43 @@
         url = resource_url(url);
         return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : url_key(url);
     }
+    const EXTENSION_PATH = "static/extensions/";
+    /**
+     * The part of a bundled server extension url
+     * (`static/extensions/<name>/bundled/<path>`) that identifies the file
+     * wherever it is served from. Other extension files, e.g. an `index.js`,
+     * are too generic to match on.
+     */
+    function extension_tail(url) {
+        const match = /static\/extensions\/[^/]+\/(bundled\/.+)$/.exec(url.split(/[?#]/)[0]);
+        return match == null ? null : `/${match[1]}`;
+    }
+    /**
+     * Whether a url is already on the page.
+     *
+     * A host that embeds Panel output itself (Shiny, through jupyter_bokeh)
+     * serves the extension files under its own routes, rewriting the urls the
+     * eager path rendered. Such a url is matched on its `/bundled/...` tail,
+     * which drops the extension name, so a page url ending in the same tail
+     * counts as the same file. Not every bundled file is versioned (jquery,
+     * theme css, font-awesome), so this is only safe because the urls a spec
+     * asks for carry their package version.
+     */
+    function on_page(urls, url) {
+        if (urls.has(url_key(url))) {
+            return true;
+        }
+        const tail = extension_tail(url);
+        if (tail == null) {
+            return false;
+        }
+        for (const existing of urls) {
+            if (existing.split(/[?#]/)[0].endsWith(tail)) {
+                return true;
+            }
+        }
+        return false;
+    }
     function existing_urls(selector, attr) {
         const urls = new Set();
         for (const el of document.querySelectorAll(selector)) {
@@ -721,12 +871,39 @@
         return urls;
     }
     const JUPYTER_ENDPOINT = "/panel-preview/";
+    /** Server extension paths and their CDN urls, from the specs seen so far. */
+    const extension_cdn_map = [];
+    function register_cdn_map(cdn_map) {
+        for (const [prefix, cdn] of cdn_map ?? []) {
+            if (!extension_cdn_map.some(([known]) => known === prefix)) {
+                extension_cdn_map.push([prefix, cdn]);
+            }
+        }
+    }
+    /**
+     * Maps a server extension url to its CDN equivalent, using the map the
+     * resource specs carry in `server` mode, for hosts that serve the page
+     * without Panel's extension routes.
+     */
+    function extension_cdn_url(url) {
+        const index = url.indexOf(EXTENSION_PATH);
+        if (index === -1) {
+            return null;
+        }
+        const path = url.slice(index);
+        for (const [prefix, cdn] of extension_cdn_map) {
+            if (path.startsWith(prefix)) {
+                return cdn + path.slice(prefix.length);
+            }
+        }
+        return null;
+    }
     /**
      * Maps a Jupyter extension endpoint url to its CDN equivalent, using the
      * map of endpoint paths to CDN urls the notebook bootstrap publishes
-     * (Panel's dist, every extension with a CDN and each BokehJS file). Null
-     * if the url is not served by the endpoint or has no CDN equivalent, e.g.
-     * in server/served-app contexts, where the bootstrap never runs.
+     * (Panel's dist, every extension with a CDN and each BokehJS file). Any
+     * other server extension url goes through the map the specs carry. Null
+     * if the url has no CDN equivalent.
      */
     function cdn_url(url) {
         const global = globalThis;
@@ -736,7 +913,7 @@
         }
         const index = url.indexOf(JUPYTER_ENDPOINT);
         if (cdn_map == null || index === -1) {
-            return null;
+            return extension_cdn_url(url);
         }
         const path = url.slice(index + JUPYTER_ENDPOINT.length);
         for (const [prefix, cdn] of cdn_map) {
@@ -744,7 +921,7 @@
                 return cdn + path.slice(prefix.length);
             }
         }
-        return null;
+        return extension_cdn_url(url);
     }
     /**
      * Loads endpoint urls from the CDN where the endpoint cannot serve them:
@@ -774,30 +951,39 @@
     function is_endpoint_url(url) {
         return url.includes(`${JUPYTER_ENDPOINT}static/`);
     }
-    function inject(el) {
+    function inject(el, wrapped) {
         return new Promise((resolve, reject) => {
+            let retried = null;
             const attempt = (element) => {
                 element.addEventListener("load", () => resolve(), { once: true });
                 element.addEventListener("error", () => {
-                    const url = element.src || element.href;
+                    const url = wrapped?.url ?? (element.src || element.href);
                     const fallback = fallback_to_cdn(element, url);
                     if (fallback != null) {
+                        retried = [url, fallback];
                         element.remove();
-                        if (element instanceof HTMLLinkElement) {
-                            element.href = fallback;
+                        // A script element only ever runs once, so changing its src and
+                        // reinserting it never fetches again.
+                        const retry = document.createElement(element.tagName.toLowerCase());
+                        for (const { name, value } of Array.from(element.attributes)) {
+                            retry.setAttribute(name, value);
+                        }
+                        if (retry instanceof HTMLLinkElement) {
+                            retry.href = fallback;
                         }
                         else {
-                            element.src = fallback;
+                            retry.async = element.async;
+                            retry.src = wrapped != null ? wrapped.src(fallback) : fallback;
                         }
-                        attempt(element);
-                        document.head.appendChild(element);
+                        attempt(retry);
+                        document.head.appendChild(retry);
                         return;
                     }
                     if (is_endpoint_url(url)) {
                         const global = globalThis;
                         global.__panel_jupyter_extension_error__?.();
                     }
-                    reject(new Error(`Failed to load ${url}`));
+                    reject(new Error(retried == null ? `Failed to load ${url}` : `Failed to load ${retried[0]} or its CDN fallback ${retried[1]}`));
                 }, { once: true });
             };
             attempt(el);
@@ -900,10 +1086,19 @@
             el.src = resource_url(url);
             return inject(el);
         }
+        const blobs = [];
+        const src = (target) => {
+            const code = `import * as ns from ${JSON.stringify(target)}\nglobalThis[${JSON.stringify(name)}] = ns.default ?? ns\n`;
+            const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+            blobs.push(blob);
+            return blob;
+        };
         url = module_url(url);
-        const code = `import * as ns from ${JSON.stringify(url)}\nglobalThis[${JSON.stringify(name)}] = ns.default ?? ns\n`;
-        el.src = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
-        return inject(el).finally(() => URL.revokeObjectURL(el.src));
+        el.src = src(url);
+        return inject(el, { url, src: (fallback) => {
+                hide_amd_module(fallback);
+                return src(fallback);
+            } }).finally(() => blobs.forEach((blob) => URL.revokeObjectURL(blob)));
     }
     function inject_link(url) {
         const el = document.createElement("link");
@@ -1045,10 +1240,7 @@
             if (urls.length === 0) {
                 return true;
             }
-            return urls.every((url) => {
-                const key = url_key(url);
-                return this.urls.has(key) || (scripts != null && scripts.has(key));
-            });
+            return urls.every((url) => this.urls.has(url_key(url)) || (scripts != null && on_page(scripts, url)));
         }
         /**
          * Loads everything a resource spec declares, skipping what is present.
@@ -1057,6 +1249,7 @@
             if (spec == null) {
                 return;
             }
+            register_cdn_map(spec.cdn);
             const scripts = existing_urls("script[src]", "src");
             const waits = [];
             const js = [];
@@ -1124,7 +1317,7 @@
                 const key = url_key(url);
                 let promise = this.urls.get(key);
                 if (promise == null) {
-                    promise = links.has(key) ? Promise.resolve() : inject_link(url);
+                    promise = on_page(links, url) ? Promise.resolve() : inject_link(url);
                     this.urls.set(key, promise);
                 }
                 return promise.catch((error) => {
@@ -1160,7 +1353,7 @@
             }
             const key = url_key(url);
             const scripts = existing_urls("script[src]", "src");
-            const promise = scripts.has(key) ? Promise.resolve() : inject_script(url);
+            const promise = on_page(scripts, url) ? Promise.resolve() : inject_script(url);
             this.urls.set(key, promise);
             this._shim = promise.catch((e) => {
                 this._shim = null;
@@ -1219,7 +1412,7 @@
                 const key = url_key(url);
                 let promise = this.urls.get(key);
                 if (promise == null) {
-                    promise = scripts.has(key) ? Promise.resolve() : inject_script(url);
+                    promise = on_page(scripts, url) ? Promise.resolve() : inject_script(url);
                     this.urls.set(key, promise);
                     promise.catch(() => this.urls.delete(key));
                 }
@@ -1233,7 +1426,7 @@
                 const key = url_key(url);
                 let promise = this.urls.get(key);
                 if (promise == null) {
-                    promise = scripts.has(key) ? Promise.resolve() : inject_module(url, name);
+                    promise = on_page(scripts, url) ? Promise.resolve() : inject_module(url, name);
                     this.urls.set(key, promise);
                     promise.catch(() => this.urls.delete(key));
                 }
@@ -1584,9 +1777,13 @@
         return visit(input);
     }
 },
+"63195d7453": /* styles/models/ace.css.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    exports.default = `.ace_marker-layer .pn-ace-marker{position:absolute;background:rgba(255, 213, 79, 0.3);}`;
+},
 "f4bc4e23b4": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const reactive_esm_1 = require("f3226cbf82") /* ./reactive_esm */;
+    const reactive_esm_1 = require("63ae31d699") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -1746,7 +1943,7 @@
     }
     exports.AnyWidgetComponent = AnyWidgetComponent;
 },
-"f3226cbf82": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"63ae31d699": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.model_getter = model_getter;
     exports.model_setter = model_setter;
@@ -1771,10 +1968,11 @@
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     const types_1 = require("@bokehjs/core/util/types");
     const ui_element_1 = require("@bokehjs/models/ui/ui_element");
+    const model_1 = require("@bokehjs/model");
     const event_to_object_1 = require("e5a0036205") /* ./event-to-object */;
-    const html_1 = require("9012c2f5ae") /* ./html */;
-    const layout_1 = require("00beb93e38") /* ./layout */;
-    const resources_1 = require("3ec7d872e2") /* ./resources */;
+    const html_1 = require("e40e09e4dd") /* ./html */;
+    const layout_1 = require("1874377162") /* ./layout */;
+    const resources_1 = require("133ce95cfa") /* ./resources */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const esm_css_1 = tslib_1.__importDefault(require("727a14f76b") /* styles/models/esm.css */);
     // Deliberately module local rather than on the shared resource registry:
@@ -2039,11 +2237,22 @@
         connect_signals() {
             super.connect_signals();
             const { esm, importmap, class_name } = this.model.properties;
+            const { width, height, min_width, max_width, min_height, max_height, sizing_mode } = this.model.properties;
+            // render() applies the current size and class to a fresh container
+            this.on_change([width, height, min_width, max_width, min_height, max_height, sizing_mode], () => {
+                if (this.container == null) {
+                    return;
+                }
+                (0, layout_1.reset_size)(this.container, this.model, false);
+            });
             this.on_change([esm, importmap], async () => {
                 this.compiled_module = await this.model.compiled_module;
                 this.invalidate_render();
             });
             this.on_change(class_name, () => {
+                if (this.container == null) {
+                    return;
+                }
                 this.container.className = this.model.class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
             });
             const child_props = this.model.children.map((child) => this.model.data.properties[child]);
@@ -2092,6 +2301,34 @@
                 return true;
             }
             return child_view.el.isConnected;
+        }
+        /**
+         * A child view is built, and so listed in `child_views`, as soon as its
+         * model is added, but it is only rendered once the component mounts it,
+         * which for a React component is a later commit. Bokeh assumes a child it
+         * measures has run `update_layout` (a figure reads the panels of the
+         * layout built there), so a layout pass in between, e.g. from a resize
+         * or from another child mounting, would throw on the unmounted child and
+         * abort the pass for every other view. Layout passes therefore only visit
+         * mounted children; `update_layout` still visits all of them.
+         */
+        get layoutable_views() {
+            return super.layoutable_views.filter((view) => this._is_mountable(view) && view._was_built);
+        }
+        update_layout() {
+            this.update_style();
+            for (const child_view of this.child_views) {
+                child_view.parent_style.clear();
+            }
+            for (const child_view of this.child_views) {
+                if (child_view instanceof layout_dom_1.LayoutDOMView) {
+                    if (!(child_view instanceof ReactiveESMView)) {
+                        (0, layout_1.prepare_nested_layouts)(child_view);
+                    }
+                    child_view.update_layout();
+                }
+            }
+            this._update_layout();
         }
         notify_mount(child, id, remove = false) {
             if (!this._mounted.has(child)) {
@@ -2158,7 +2395,7 @@
         }
         render_error(error) {
             const error_div = (0, dom_1.div)({ class: "error" });
-            error_div.innerHTML = (0, util_1.formatError)(error, this.model.esm);
+            error_div.innerHTML = (0, util_1.formatError)(error, this.model.esm_source);
             this.container.appendChild(error_div);
         }
         render() {
@@ -2498,6 +2735,13 @@
     }
     exports.ReactiveESMView = ReactiveESMView;
     exports.RenderPolicy = (0, kinds_1.Enum)("manual", "children");
+    class ESMBundle extends model_1.Model {
+        static __module__ = "panel.models.esm";
+        static {
+            this.define(({ Str }) => ({ source: [Str, ""] }));
+        }
+    }
+    exports.ESMBundle = ESMBundle;
     class ReactiveESM extends layout_1.HTMLBox {
         compiled = null;
         compiled_module = null;
@@ -2720,13 +2964,16 @@
             module.finally(() => URL.revokeObjectURL(url)).catch(() => { });
             return module;
         }
+        get esm_source() {
+            return typeof this.esm === "string" ? this.esm : this.esm.source;
+        }
         compile() {
             if (this.bundle != null) {
-                return this.esm;
+                return this.esm_source;
             }
             let compiled;
             try {
-                compiled = (0, sucrase_1.transform)(this.esm, {
+                compiled = (0, sucrase_1.transform)(this.esm_source, {
                     transforms: this.sucrase_transforms,
                     filePath: "render.tsx",
                 }).code;
@@ -2749,6 +2996,10 @@
             return compiled;
         }
         get _module_cache_key() {
+            if (this.esm instanceof ESMBundle) {
+                // A rebuilt bundle can have the same path hash and different source.
+                return `${this.bundle}-${source_id(this.esm.source)}`;
+            }
             if (this.bundle === "url") {
                 return this.esm;
             }
@@ -2788,7 +3039,7 @@
                     MODULE_CACHE.set(cache_key, new Promise((res) => { resolve = res; }));
                 }
                 if (this.bundle === "url") {
-                    esm_module = declared.then(() => resources_1.resources.import_module(this.esm, this.external_resources?.shim));
+                    esm_module = declared.then(() => resources_1.resources.import_module(this.esm_source, this.external_resources?.shim));
                 }
                 else {
                     esm_module = declared.then(() => this._import_source(compiled));
@@ -2832,7 +3083,7 @@
         static __module__ = "panel.models.esm";
         static {
             this.prototype.default_view = ReactiveESMView;
-            this.define(({ Any, Array, Bool, Nullable, Str }) => ({
+            this.define(({ Any, Array, Bool, Nullable, Or, Ref, Str }) => ({
                 _defs: [Array(Any), []],
                 css_bundle: [Nullable(Str), null],
                 bundle: [Nullable(Str), null],
@@ -2840,7 +3091,7 @@
                 class_name: [Str, ""],
                 data: [Any],
                 dev: [Bool, false],
-                esm: [Str, ""],
+                esm: [Or(Str, Ref(ESMBundle)), ""],
                 events: [Array(Str), []],
                 importmap: [Any, {}],
                 render_policy: [exports.RenderPolicy, "children"],
@@ -19080,7 +19331,7 @@ ${namesToRegister
         });
     });
 },
-"9012c2f5ae": /* models/html.js */ function _(require, module, exports, __esModule, __esExport) {
+"e40e09e4dd": /* models/html.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.escape_html = escape_html;
     exports.unescape_html = unescape_html;
@@ -19103,9 +19354,54 @@ ${namesToRegister
     const signaling_1 = require("@bokehjs/core/signaling");
     const object_1 = require("@bokehjs/core/util/object");
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const version_1 = require("@bokehjs/version");
+    const layout_1 = require("1874377162") /* ./layout */;
     const event_to_object_1 = require("e5a0036205") /* ./event-to-object */;
+    const util_1 = require("aa07eb54cc") /* ./util */;
     const html_css_1 = tslib_1.__importDefault(require("9b8139e439") /* styles/models/html.css */);
+    // Pairs of the delimiters MathJax's TeX finder processes by default
+    const TEX_DELIMITERS = /\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)/;
+    /**
+     * The url of the bokeh-mathjax bundle matching the BokehJS the page loaded,
+     * whether served by the Bokeh server or the CDN, falling back to the CDN
+     * when BokehJS was inlined.
+     */
+    function mathjax_bundle_url() {
+        for (const script of document.scripts) {
+            const match = /^(.*\/)bokeh(-\d[\w.-]*?)?(\.min)?\.js(?:\?.*)?$/.exec(script.src);
+            if (match != null) {
+                const [, base, version = "", min = ""] = match;
+                return `${base}bokeh-mathjax${version}${min}.js`;
+            }
+        }
+        const channel = /dev|rc/.test(version_1.version) ? "dev" : "release";
+        return `https://cdn.bokeh.org/bokeh/${channel}/bokeh-mathjax-${version_1.version}.min.js`;
+    }
+    let mathjax_loading = null;
+    /**
+     * Loads the bokeh-mathjax bundle for a page that was served without it,
+     * because none of its text contained math when it was rendered, and
+     * points the provider BokehJS widgets share at it.
+     */
+    function load_mathjax(provider) {
+        if (provider.MathJax != null) {
+            return Promise.resolve(true);
+        }
+        if (mathjax_loading == null) {
+            mathjax_loading = (async () => {
+                try {
+                    await (0, util_1.loadScript)("text/javascript", mathjax_bundle_url());
+                }
+                catch {
+                    return false;
+                }
+                provider.status = "not_started";
+                await provider.fetch();
+                return provider.MathJax != null;
+            })();
+        }
+        return mathjax_loading;
+    }
     const COPY_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-clipboard"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"/></svg>`;
     const CHECK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-check"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10"/></svg>`;
     function searchAllDOMs(node, selector) {
@@ -19310,7 +19606,14 @@ ${namesToRegister
         }
     }
     exports.DOMEvent = DOMEvent;
+    // Only the entities emitted by Python's html.escape, which is all a
+    // text containing no markup needs decoding for.
+    const ESCAPE_ENTITIES_ONLY = /^(?:[^&<\r\0]|&(?:amp|lt|gt|quot|#x27);)*$/;
     function html_decode(input) {
+        if (ESCAPE_ENTITIES_ONLY.test(input)) {
+            // Matches the parser, which drops whitespace before the first character
+            return unescape_html(input).replace(/^[\t\n\f\r ]+/, "");
+        }
         const doc = new DOMParser().parseFromString(input, "text/html");
         return doc.documentElement.textContent;
     }
@@ -19337,6 +19640,8 @@ ${namesToRegister
         // Lowest offset of the text modified since the last DOM update
         _dirty = null;
         _frame = null;
+        // Whether this view waits for the lazily loaded MathJax bundle
+        _mathjax_pending = false;
         _event_listeners = new Map();
         connect_signals() {
             super.connect_signals();
@@ -19348,7 +19653,9 @@ ${namesToRegister
                 this.set_html(html);
             });
             this.on_change(visible, () => {
-                if (this.model.visible) {
+                // Parents may build child views without rendering them, e.g. collapsed
+                // containers; render() then sets the visibility.
+                if (this.model.visible && this.container != null) {
                     this.container.style.visibility = "visible";
                 }
             });
@@ -19382,17 +19689,32 @@ ${namesToRegister
                 return;
             }
             const html = this.model.stream_text;
-            if (!this.model.disable_math && this.contains_tex(html)) {
-                this.set_html(this.process_tex());
+            this._ensure_mathjax(html);
+            this._update_blocks(html, dirty);
+        }
+        /**
+         * Fetches MathJax when the text contains math but the page was served
+         * without the bundle, typesetting the text once it is available.
+         */
+        _ensure_mathjax(text) {
+            if (this._mathjax_pending || this.model.disable_math ||
+                this.provider.MathJax != null || !TEX_DELIMITERS.test(text)) {
+                return;
             }
-            else {
-                this._update_blocks(html, dirty);
-            }
+            this._mathjax_pending = true;
+            void load_mathjax(this.provider).then((loaded) => {
+                if (loaded) {
+                    this._dirty = null;
+                    this.set_html(this.process_tex());
+                }
+                this._mathjax_pending = !loaded;
+            });
         }
         /**
          * Re-renders only the top-level blocks at or after the first
          * modified offset, keeping the DOM (and any text selection) of the
-         * preceding blocks intact.
+         * preceding blocks intact. Math is typeset per block, so only the
+         * re-rendered blocks are searched and typeset again.
          */
         _update_blocks(html, dirty) {
             let blocks = this._blocks;
@@ -19417,7 +19739,7 @@ ${namesToRegister
             const parser = document.createElement("div");
             const added = [];
             for (const [start, end] of split_blocks(html, from)) {
-                parser.innerHTML = html.slice(start, end);
+                parser.innerHTML = this.typeset(html.slice(start, end));
                 const nodes = [...parser.childNodes];
                 fragment.append(...nodes);
                 added.push(...nodes);
@@ -19493,34 +19815,38 @@ ${namesToRegister
             this.set_html(html);
         }
         style_redraw() {
-            if (this.model.visible) {
+            if (this.model.visible && this.container != null) {
                 this.container.style.visibility = "visible";
             }
         }
         process_tex() {
-            const decoded = html_decode(this.model.text);
-            const text = decoded ?? this.model.text;
-            if (this.model.disable_math || !this.contains_tex(text)) {
+            const text = html_decode(this.model.text) ?? this.model.text;
+            this._ensure_mathjax(text);
+            return this.typeset(text);
+        }
+        /**
+         * Replaces the TeX found in the text with MathJax SVG output.
+         */
+        typeset(text) {
+            const { MathJax } = this.provider;
+            if (this.model.disable_math || !MathJax) {
                 return text;
             }
-            const tex_parts = this.provider.MathJax.find_tex(text);
+            const tex_parts = MathJax.find_tex(text);
+            if (tex_parts.length === 0) {
+                return text;
+            }
             const processed_text = [];
             let last_index = 0;
             for (const part of tex_parts) {
                 processed_text.push(text.slice(last_index, part.start.n));
-                processed_text.push(this.provider.MathJax.tex2svg(part.math, { display: part.display }).outerHTML);
+                processed_text.push(MathJax.tex2svg(part.math, { display: part.display }).outerHTML);
                 last_index = part.end.n;
             }
             if (last_index < text.length) {
                 processed_text.push(text.slice(last_index));
             }
             return processed_text.join("");
-        }
-        contains_tex(html) {
-            if (!this.provider.MathJax) {
-                return false;
-            }
-            return this.provider.MathJax.find_tex(html).length > 0;
         }
         _remove_event_listeners() {
             for (const [node, callbacks] of this._event_listeners) {
@@ -19624,7 +19950,7 @@ ${namesToRegister
 },
 "fdf76c2b8b": /* models/audio.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     class AudioView extends layout_1.HTMLBoxView {
         audioEl;
         dialogEl;
@@ -19887,7 +20213,7 @@ ${namesToRegister
 },
 "7e77f478cb": /* models/button_icon.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const icon_1 = require("bf77ad153d") /* ./icon */;
+    const icon_1 = require("ac804884fa") /* ./icon */;
     class ButtonIconView extends icon_1.ClickableIconView {
         _click_listener;
         *controls() { }
@@ -19925,7 +20251,7 @@ ${namesToRegister
     }
     exports.ButtonIcon = ButtonIcon;
 },
-"bf77ad153d": /* models/icon.js */ function _(require, module, exports, __esModule, __esExport) {
+"ac804884fa": /* models/icon.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tooltip_1 = require("@bokehjs/models/ui/tooltip");
     const tabler_icon_1 = require("@bokehjs/models/ui/icons/tabler_icon");
@@ -20049,6 +20375,8 @@ ${namesToRegister
                 this.icon_view.remove();
                 this.icon_view = icon_view;
                 this.was_svg_icon = is_svg_icon;
+                // The size may have changed while the new icon view was built
+                this.update_size();
                 this.update_cursor();
                 // We need to re-append the new icon view to the DOM
                 this.row_div.insertBefore(this.icon_view.el, this.label_el);
@@ -20855,7 +21183,7 @@ ${namesToRegister
     }
     exports.TextAreaInput = TextAreaInput;
 },
-"f8f420cdc3": /* models/comm_manager.js */ function _(require, module, exports, __esModule, __esExport) {
+"5f6e6991cc": /* models/comm_manager.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const document_1 = require("@bokehjs/document");
     const view_1 = require("@bokehjs/core/view");
@@ -20895,9 +21223,14 @@ ${namesToRegister
             else {
                 this.ns = window.PyViz;
                 this.ns.comm_manager.register_target(this.plot_id, this.comm_id, (msg) => {
-                    for (const view of this.ns.shared_views.get(this.plot_id)) {
+                    for (const view of this.ns.shared_views.get(this.plot_id) ?? []) {
                         if (view !== this) {
-                            view.msg_handler(msg);
+                            try {
+                                view.msg_handler(msg);
+                            }
+                            catch (e) {
+                                console.error(e);
+                            }
                         }
                     }
                     try {
@@ -20907,17 +21240,52 @@ ${namesToRegister
                         console.error(e);
                     }
                 });
-                this._client_comm = this.ns.comm_manager.get_client_comm(this.plot_id, this.client_comm_id, (msg) => this.on_ack(msg));
+                this._client_comm = this.ns.comm_manager.get_client_comm(this.plot_id, this.client_comm_id, (msg) => {
+                    // Views of the same plot share one client comm and only the view
+                    // that opened it receives the acknowledgements
+                    for (const view of this.ns.shared_views.get(this.plot_id) ?? []) {
+                        if (view !== this) {
+                            try {
+                                view._unblock();
+                            }
+                            catch (e) {
+                                console.error(e);
+                            }
+                        }
+                    }
+                    this.on_ack(msg);
+                });
                 this._reconnect = !this._client_comm?.active || false;
-                if (this.ns.shared_views == null) {
-                    this.ns.shared_views = new Map();
-                }
-                if (this.ns.shared_views.has(this.plot_id)) {
-                    this.ns.shared_views.get(this.plot_id).push(this);
-                }
-                else {
-                    this.ns.shared_views.set(this.plot_id, [this]);
-                }
+                this._register_view();
+            }
+        }
+        _register_view() {
+            if (this.ns == null) {
+                return;
+            }
+            if (this.ns.shared_views == null) {
+                this.ns.shared_views = new Map();
+            }
+            const views = this.ns.shared_views.get(this.plot_id);
+            if (views == null) {
+                this.ns.shared_views.set(this.plot_id, [this]);
+            }
+            else if (!views.includes(this)) {
+                views.push(this);
+            }
+        }
+        _unregister_view() {
+            this.document?.remove_on_change(this._document_listener);
+            const views = this.ns?.shared_views?.get(this.plot_id);
+            if (views == null) {
+                return;
+            }
+            const remaining = views.filter((view) => view !== this);
+            if (remaining.length) {
+                this.ns.shared_views.set(this.plot_id, remaining);
+            }
+            else {
+                this.ns.shared_views.delete(this.plot_id);
             }
         }
         _document_listener = (event) => this._document_changed(event);
@@ -20926,8 +21294,20 @@ ${namesToRegister
             if (this.document != null) {
                 this.document.on_change(this._document_listener);
             }
+            this._register_view();
+        }
+        // Notebook outputs are cleared rather than destroyed, so a disposed view
+        // is only ever detached from its document
+        _doc_detached() {
+            this._unregister_view();
+            super._doc_detached();
         }
         _document_changed(event) {
+            // Changes applied from a Python patch are not synced; echoing them back
+            // would also resend models Python already knows as new models
+            if (!event.sync) {
+                return;
+            }
             // Filter out changes to attributes that aren't server-visible
             if (event instanceof document_1.ModelChangedEvent && !event.model.properties[event.attr].syncable) {
                 return;
@@ -20976,13 +21356,16 @@ ${namesToRegister
             if ((this.document == null) || (this._client_comm == null)) {
                 return;
             }
+            if (this._event_buffer.length === 0) {
+                return;
+            }
             const patch = this.document.create_json_patch(this._event_buffer);
             this._event_buffer = [];
             const message = { ...message_1.Message.create("PATCH-DOC", {}, patch) };
             const buffers = [];
             this._extract_buffers(message.content, buffers);
             this._client_comm.send(message, {}, buffers);
-            for (const view of this.ns.shared_views.get(this.plot_id)) {
+            for (const view of this.ns.shared_views.get(this.plot_id) ?? []) {
                 if (view !== this && view.document != null) {
                     view.document.apply_json_patch(patch, [], this.id);
                 }
@@ -20990,12 +21373,9 @@ ${namesToRegister
         }
         disconnect_signals() {
             super.disconnect_signals();
-            this.ns.shared_views.shared_views.delete(this.plot_id);
+            this._unregister_view();
         }
-        on_ack(msg) {
-            // Receives acknowledgement from Python, processing event
-            // and unblocking Comm if event queue empty
-            const metadata = msg.metadata;
+        _unblock() {
             if (this._event_buffer.length > 0) {
                 this._blocked = true;
                 this._timeout = Date.now() + this.timeout;
@@ -21004,6 +21384,12 @@ ${namesToRegister
             else {
                 this._blocked = false;
             }
+        }
+        on_ack(msg) {
+            // Receives acknowledgement from Python, processing event
+            // and unblocking Comm if event queue empty
+            const metadata = msg.metadata;
+            this._unblock();
             if ((metadata.msg_type == "Ready") && metadata.content) {
                 // eslint-disable-next-line no-console
                 console.log("Python callback returned following output:", metadata.content);
@@ -21067,7 +21453,7 @@ ${namesToRegister
     }
     exports.CommManager = CommManager;
 },
-"519009caed": /* models/customselect.js */ function _(require, module, exports, __esModule, __esExport) {
+"9bb1156335": /* models/customselect.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const select_1 = require("@bokehjs/models/widgets/select");
     class CustomSelectView extends select_1.SelectView {
@@ -21078,24 +21464,25 @@ ${namesToRegister
         }
         options_el() {
             const opts = super.options_el();
-            const { disabled_options } = this.model;
-            opts.forEach((element) => {
-                // XXX: what about HTMLOptGroupElement?
-                if (element instanceof HTMLOptionElement && disabled_options.includes(element.value)) {
-                    element.setAttribute("disabled", "true");
-                }
-            });
+            const elements = opts.flatMap((element) => element instanceof HTMLOptGroupElement
+                ? Array.from(element.querySelectorAll("option")) : [element]);
+            this._set_disabled_options(elements);
             return opts;
         }
         _update_disabled_options() {
-            for (const element of this.input_el.options) {
-                if (this.model.disabled_options.includes(element.value)) {
-                    element.setAttribute("disabled", "true");
+            this._set_disabled_options(Array.from(this.input_el.options));
+        }
+        _set_disabled_options(elements) {
+            const { options, disabled_options } = this.model;
+            const values = Array.isArray(options) ? options : Object.values(options).flat();
+            elements.forEach((element, index) => {
+                const option = values[index];
+                if (option === undefined) {
+                    return;
                 }
-                else {
-                    element.removeAttribute("disabled");
-                }
-            }
+                const value = typeof option === "string" ? option : option[0];
+                element.disabled = disabled_options.includes(String(value));
+            });
         }
     }
     exports.CustomSelectView = CustomSelectView;
@@ -21157,7 +21544,7 @@ ${namesToRegister
     }
     exports.CustomMultiSelect = CustomMultiSelect;
 },
-"381057489b": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"ccaec0a50f": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
@@ -21169,11 +21556,12 @@ ${namesToRegister
     const kinds_1 = require("@bokehjs/core/kinds");
     const model_1 = require("@bokehjs/model");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
+    const events_1 = require("@bokehjs/document/events");
     const debounce_1 = require("99a25e6992") /* debounce */;
     const cell_formatters_1 = require("254387d0dc") /* ./cell_formatters */;
-    const comm_manager_1 = require("f8f420cdc3") /* ./comm_manager */;
-    const data_1 = require("be689f0377") /* ./data */;
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const comm_manager_1 = require("5f6e6991cc") /* ./comm_manager */;
+    const data_1 = require("ce212d2be6") /* ./data */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const tabulator_css_1 = tslib_1.__importDefault(require("b0fdc4e99b") /* styles/models/tabulator.css */);
     class TableEditEvent extends bokeh_events_1.ModelEvent {
@@ -21289,7 +21677,7 @@ ${namesToRegister
                         }
                     }
                 }
-                else {
+                else if (agg) {
                     summary[column.field] = val;
                 }
             }
@@ -21336,7 +21724,7 @@ ${namesToRegister
                 }
             }
             else {
-                aggs.push("sum");
+                aggs.push("");
             }
         }
         summarize(grouped, columns, aggs);
@@ -21547,6 +21935,30 @@ ${namesToRegister
         }
         return { ...group, columns: group_columns };
     }
+    const set_cache = new WeakMap();
+    /** Tabulator queries membership once per row, so index arrays are looked up as sets. */
+    function as_set(indices) {
+        let indices_set = set_cache.get(indices);
+        if (indices_set === undefined) {
+            indices_set = new Set(indices);
+            set_cache.set(indices, indices_set);
+        }
+        return indices_set;
+    }
+    /** Dicts with numeric keys deserialize as Maps, empty ones as plain objects. */
+    function lookup(mapping, key) {
+        if (mapping == null) {
+            return null;
+        }
+        return mapping instanceof Map ? (mapping.get(key) ?? null) : (mapping[key] ?? null);
+    }
+    function stream_length(data) {
+        const columns = data instanceof Map ? [...data.values()] : Object.values(data);
+        for (const column of columns) {
+            return column.shape != null ? column.shape[0] : column.length;
+        }
+        return null;
+    }
     /** Ignore Tabulator redraw after `after_resize` when `this.el` client size changes by at most this many pixels per axis. */
     const EL_CLIENT_RESIZE_EPSILON_PX = 3;
     /**
@@ -21555,6 +21967,7 @@ ${namesToRegister
      * ready chain pending forever, which would otherwise block every later redraw.
      */
     const ROOT_READY_TIMEOUT_MS = 250;
+    const RESIZE_BLOCKED_FRAMES = 10;
     class DataTabulatorView extends layout_1.HTMLBoxView {
         tabulator;
         columns = new Map();
@@ -21568,13 +21981,18 @@ ${namesToRegister
         _selection_updating = false;
         _selection_pending = true;
         _last_selected_row = null;
-        _initializing;
+        _initializing = true;
         _lastVerticalScrollbarTopPosition = 0;
         _lastHorizontalScrollbarLeftPosition = 0;
-        _applied_styles = false;
+        /** Bumped when `cell_styles` changes; cells styled with an older version are restyled when visible. */
+        _styles_version = 0;
+        _styled_cells = new WeakMap();
         _building = false;
         _pending_data = false;
+        /** A data update in flight; its `renderComplete` must not run `postUpdate` a second time. */
+        _updating_data = false;
         _redrawing = false;
+        _resized_columns = new Map();
         /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
         _resize_pending = false;
         _resize_flush = null;
@@ -21610,19 +22028,13 @@ ${namesToRegister
                 if (this.tabulator == null) {
                     return;
                 }
-                // The first cell is the cell of the frozen _index column.
+                const expanded = as_set(this.model.expanded);
+                // The first cell is the cell of the frozen _index column, the second
+                // holds the expand icon, which must follow changes made from Python.
                 for (const row of this.tabulator.rowManager.getRows()) {
-                    if (row.cells.length > 0) {
+                    if (row.cells.length > 1) {
                         row.cells[0].layoutElement();
-                    }
-                }
-                // Make sure the expand icon is changed when expanded is
-                // changed from Python.
-                for (const row of this.tabulator.rowManager.getRows()) {
-                    if (row.cells.length > 0) {
-                        const index = row.data._index;
-                        const icon = this.model.expanded.includes(index) ? "▼" : "►";
-                        row.cells[1].element.innerText = icon;
+                        row.cells[1].element.innerText = expanded.has(row.data._index) ? "▼" : "►";
                     }
                 }
                 // If content is embedded, views may not have been
@@ -21633,18 +22045,12 @@ ${namesToRegister
                 }
             });
             this.on_change(cell_styles, () => {
-                if (this._applied_styles) {
-                    this.record_scroll();
-                    this._updating_scroll = true;
-                    this.tabulator.redraw(true);
-                    this._updating_scroll = false;
-                }
-                this.restore_scroll();
+                this._styles_version += 1;
                 this.setStyles();
             });
             this.on_change(hidden_columns, () => {
                 this.setHidden();
-                this.tabulator.redraw(true);
+                this.tabulator.columnManager.redraw(false);
             });
             this.on_change(page_size, () => this.setPageSize());
             this.on_change(page, () => {
@@ -21658,7 +22064,7 @@ ${namesToRegister
             this.on_change(sorters, () => this.setSorters());
             this.on_change(theme_classes, () => this.setCSSClasses(this.tabulator.element));
             this.on_change(this.model.source.properties.data, () => {
-                if (this.tabulator === undefined) {
+                if (this.tabulator == null) {
                     return;
                 }
                 this._restore_scroll = "horizontal";
@@ -21666,26 +22072,38 @@ ${namesToRegister
                 // The scroll event of a scroll just before may not have been handled yet.
                 this.record_scroll();
                 this._updating_scroll = true;
-                void this.setData().then(() => {
+                this._updating_data = true;
+                void this.setData().finally(() => {
+                    this._updating_data = false;
+                }).then(() => {
                     this._selection_updating = false;
+                    this.refitColumns();
                     this.postUpdate();
                     this.restore_scroll();
                 });
             });
-            this.connect(this.model.source.streaming, () => this.addData());
-            this.connect(this.model.source.patching, () => {
-                const inds = this.model.source.selected.indices;
-                this.record_scroll();
-                this._updating_scroll = true;
-                this.updateOrAddData();
-                this._updating_scroll = false;
-                // Restore indices since updating data may have reset checkbox column
-                this.model.source.selected.indices = inds;
-                this.restore_scroll();
-            });
+            // The streaming signal carries no payload; the document event also tells how
+            // many rows were streamed and the rollover, which decide whether rows can be appended.
+            const doc = this.model.document;
+            if (doc != null) {
+                doc.on_change(this._on_document_change);
+            }
+            else {
+                this.connect(this.model.source.streaming, () => this.addData(null, null));
+            }
+            this.connect(this.model.source.patching, (indices) => this.updateOrAddData(indices));
             this.connect(this.model.source.selected.change, () => this.setSelection());
             this.connect(this.model.source.selected.properties.indices.change, () => this.setSelection());
         }
+        disconnect_signals() {
+            this.model.document?.remove_on_change(this._on_document_change);
+            super.disconnect_signals();
+        }
+        _on_document_change = (event) => {
+            if (event instanceof events_1.ColumnsStreamedEvent && event.model === this.model.source && event.attr === "data") {
+                this.addData(event.data, event.rollover ?? null);
+            }
+        };
         get groupBy() {
             const groupby = (data) => {
                 const groups = [];
@@ -21702,18 +22120,35 @@ ${namesToRegister
             if (this.model.sorters.length > 0) {
                 sorters.push({ column: "_index", dir: "asc" });
             }
-            for (const sort of this.model.sorters.reverse()) {
-                if (sort.column === undefined) {
-                    sort.column = sort.field;
-                }
-                sorters.push(sort);
+            // Copy, the model array must not be reversed in place.
+            for (const sort of [...this.model.sorters].reverse()) {
+                sorters.push(sort.column === undefined ? { ...sort, column: sort.field } : sort);
             }
             return sorters;
         }
         invalidate_render() {
             this.tabulator?.destroy();
             this.tabulator = null;
+            this._resized_columns.clear();
             this.rerender_();
+        }
+        refitColumns(field) {
+            if (this._building || this.tabulator == null || !this.model.layout.startsWith("fit_data")) {
+                return;
+            }
+            if (field != null && this.model.layout !== "fit_data_stretch") {
+                // Measuring a single column costs a fraction of re-measuring them all.
+                const column = this.tabulator.getColumn(field);
+                if (column != null && !this._resized_columns.has(field) && column.getDefinition().width == null) {
+                    column.setWidth(true);
+                }
+                return;
+            }
+            this.tabulator.columnManager.layoutRefresh(true);
+            // The refit discards the widths of columns the user has dragged.
+            for (const [name, width] of this._resized_columns) {
+                this.tabulator.getColumn(name)?.setWidth(width);
+            }
         }
         redraw(columns = true, rows = true) {
             if (this._building || this.tabulator == null || this._redrawing) {
@@ -21779,6 +22214,7 @@ ${namesToRegister
             });
         }
         async _flush_resize_when_root_ready() {
+            let blocked = 0;
             while (true) {
                 if (!this._resize_pending) {
                     return;
@@ -21798,7 +22234,9 @@ ${namesToRegister
                     this.is_drawing ||
                     this._has_active_editor() ||
                     !this.stylesheets_settled) {
-                    await (0, defer_1.defer)();
+                    // `root.ready` is usually already resolved, so a blocking condition that persists
+                    // would otherwise spin this loop; back off once it outlasts a few frames.
+                    await (blocked++ < RESIZE_BLOCKED_FRAMES ? (0, defer_1.paint)() : (0, defer_1.delay)(ROOT_READY_TIMEOUT_MS));
                     continue;
                 }
                 this._resize_pending = false;
@@ -21818,11 +22256,14 @@ ${namesToRegister
             this.record_scroll();
             this._updating_scroll = true;
             this.redraw(true, true);
+            this._updating_scroll = false;
+            this._pending_scroll_restores += 1;
             requestAnimationFrame(() => {
                 this._initializing = false;
                 if (this._selection_pending) {
                     this.setSelection();
                 }
+                this._pending_scroll_restores -= 1;
                 this.restore_scroll();
                 this.recompute_page_size();
             });
@@ -21927,20 +22368,20 @@ ${namesToRegister
             // Rendering callbacks
             this.tabulator.on("selectableRowsCheck", (row) => {
                 const selectable = this.model.selectable_rows;
-                return (selectable == null) || selectable.includes(row._row.data._index);
+                return (selectable == null) || as_set(selectable).has(row._row.data._index);
             });
             this.tabulator.on("tooltips", (cell) => {
                 return `${cell.getColumn().getField()}: ${cell.getValue()}`;
             });
-            this.tabulator.on("scrollVertical", (0, debounce_1.debounce)(() => {
-                this.setStyles();
-            }, 50, false));
+            // Rows scrolled back into view reuse their elements, so restyle them when `cell_styles` changed since.
+            this.tabulator.on("scrollVertical", () => this.setStyles());
             // Sync state with model
             this.tabulator.on("rowSelectionChanged", (data, rows, selected, deselected) => {
                 this.rowSelectionChanged(data, rows, selected, deselected);
             });
             this.tabulator.on("rowClick", (e, row) => this.rowClicked(e, row));
             this.tabulator.on("cellEdited", (cell) => this.cellEdited(cell));
+            this.tabulator.on("columnResized", (column) => this._resized_columns.set(column.getField(), column.getWidth()));
             this.tabulator.on("dataFiltering", (filters) => {
                 this.record_scroll();
                 this.model.filters = filters;
@@ -21962,7 +22403,7 @@ ${namesToRegister
                 this.updatePage(pageno);
             });
             this.tabulator.on("renderComplete", () => {
-                if (this._building) {
+                if (this._building || this._updating_data) {
                     return;
                 }
                 this.postUpdate();
@@ -22005,7 +22446,10 @@ ${namesToRegister
             this._initializing = this._building = false;
             this.setVisibility();
             if (this._pending_data) {
-                void this.setData().then(() => this.postUpdate());
+                this._updating_data = true;
+                void this.setData().finally(() => {
+                    this._updating_data = false;
+                }).then(() => this.postUpdate());
             }
             this._request_resize_redraw();
         }
@@ -22107,7 +22551,8 @@ ${namesToRegister
         }
         getConfiguration() {
             // Only use selectable mode if explicitly requested otherwise manually handle selections
-            const selectableRows = this.model.select_mode === "toggle" ? true : NaN;
+            // Tabulator only skips marking rows as selectable (class and hover styling) for exactly false
+            const selectableRows = this.model.select_mode === "toggle" ? true : (this.model.select_mode === false ? false : NaN);
             const configuration = {
                 ...(0, util_1.transformJsPlaceholders)(this.model.configuration),
                 index: "_index",
@@ -22124,9 +22569,12 @@ ${namesToRegister
                 popupContainer: this.model.container_popup && this.container,
                 groupBy: this.groupBy,
                 frozenRows: (row) => {
-                    return (this.model.frozen_rows.length > 0) ? this.model.frozen_rows.includes(row._row.data._index) : false;
+                    return (this.model.frozen_rows.length > 0) ? as_set(this.model.frozen_rows).has(row._row.data._index) : false;
                 },
-                rowFormatter: (row) => this._render_row(row, false),
+                rowFormatter: (row) => {
+                    this._style_row(row);
+                    this._render_row(row, false);
+                },
             };
             if (this.model.max_height != null) {
                 configuration.maxHeight = this.model.max_height;
@@ -22185,7 +22633,7 @@ ${namesToRegister
         }
         _render_row(row, resize = true) {
             const index = row._row?.data._index;
-            if (!this.model.expanded.includes(index)) {
+            if (!as_set(this.model.expanded).has(index)) {
                 return;
             }
             const model = this.get_child(index);
@@ -22195,8 +22643,6 @@ ${namesToRegister
             }
             (0, util_1.schedule_when)(() => {
                 const rowEl = row.getElement();
-                const style = getComputedStyle(this.tabulator.element.children[1].children[0]);
-                const bg = style.backgroundColor;
                 const neg_margin = rowEl.style.paddingLeft ? `-${rowEl.style.paddingLeft}` : "0";
                 const prev_child = rowEl.children[rowEl.children.length - 1];
                 let viewEl;
@@ -22207,6 +22653,7 @@ ${namesToRegister
                     }
                 }
                 else {
+                    const bg = getComputedStyle(this.tabulator.element.children[1].children[0]).backgroundColor;
                     viewEl = (0, dom_2.div)({ class: "row-content", style: { background_color: bg, margin_left: neg_margin, max_width: "100%", overflow_x: "hidden" } });
                     rowEl.appendChild(viewEl);
                 }
@@ -22232,8 +22679,7 @@ ${namesToRegister
         }
         _expand_render(cell) {
             const index = cell._cell.row.data._index;
-            const icon = this.model.expanded.indexOf(index) < 0 ? "►" : "▼";
-            return icon;
+            return as_set(this.model.expanded).has(index) ? "▼" : "►";
         }
         _update_expand(cell) {
             const index = cell._cell.row.data._index;
@@ -22483,22 +22929,100 @@ ${namesToRegister
                 return this.tabulator.setData(data);
             }
         }
-        addData() {
+        /** Whether rows can be added or updated in place rather than rebuilding the whole table. */
+        get can_update_in_place() {
+            return (this.tabulator != null &&
+                this.tabulator.initialized &&
+                !this._initializing &&
+                !this._building &&
+                !this._pending_data &&
+                !this.model.configuration.dataTree);
+        }
+        /**
+         * Appends the streamed rows. Rolling over drops leading rows and shifts every
+         * `_index`, so that case (and anything out of sync) rebuilds the table.
+         */
+        addData(streamed, rollover) {
+            if (this.tabulator == null) {
+                return;
+            }
             const rows = this.tabulator.rowManager.getRows();
             const last_row = rows[rows.length - 1];
             const start = ((last_row?.data._index) || 0);
+            const total = this.model.source.get_length() ?? 0;
+            const n_streamed = streamed == null ? null : stream_length(streamed);
+            const append = (n_streamed != null &&
+                this.can_update_in_place &&
+                rows.length + n_streamed === total &&
+                (rollover == null || total <= rollover));
             this._updating_page = true;
-            void this.setData().then(() => {
-                if (this.model.follow) {
-                    if (this.model.pagination) {
-                        this.tabulator.setPage(Math.ceil(this.tabulator.rowManager.getDataCount() / (this.model.page_size || 20)));
+            let update;
+            if (append) {
+                this._updating_data = true;
+                try {
+                    this._append_rows((0, data_1.transform_cds_to_records)(this.model.source, true, rows.length));
+                }
+                finally {
+                    this._updating_data = false;
+                }
+                update = Promise.resolve();
+            }
+            else {
+                update = this.setData();
+            }
+            void update.then(async () => {
+                try {
+                    if (!this.model.follow) {
+                        return;
                     }
-                    if (last_row) {
-                        this.tabulator.scrollToRow(start, "top", false);
+                    if (this.model.pagination) {
+                        await this.tabulator.setPage(Math.max(1, Math.ceil(this.tabulator.rowManager.getDataCount() / (this.model.page_size || 20))));
+                    }
+                    // With pagination the previous last row is often on an earlier page than
+                    // the one now shown, and Tabulator rejects scrolling to a row not displayed.
+                    const row = last_row ? this.tabulator.rowManager.findRow(start) : false;
+                    if (row && this.tabulator.rowManager.getDisplayRows().includes(row)) {
+                        await this.tabulator.scrollToRow(start, "top", false);
                     }
                 }
-                this._updating_page = false;
+                finally {
+                    this._updating_page = false;
+                }
             });
+        }
+        /**
+         * Tabulator's `addData` copies the active rows array and, with pagination,
+         * refreshes the whole data pipeline once per added row, which makes appending
+         * a batch slower than rebuilding the table. This appends rows the way
+         * `RowManager.addRows` does but refreshes once.
+         */
+        _append_rows(records) {
+            const manager = this.tabulator.rowManager;
+            // With pagination Tabulator places new rows on the current page unless the
+            // preceding row is given explicitly.
+            let after = this.model.pagination == null ? undefined : manager.rows[manager.rows.length - 1];
+            const { setActiveRows, refreshActiveData } = manager;
+            manager.setActiveRows = () => { };
+            manager.refreshActiveData = () => { };
+            try {
+                for (const record of records) {
+                    const row = manager.addRow(record, false, after, true);
+                    manager.dispatch("row-added", row, record, false, after);
+                    if (after !== undefined) {
+                        after = row;
+                    }
+                }
+            }
+            finally {
+                manager.setActiveRows = setActiveRows;
+                manager.refreshActiveData = refreshActiveData;
+            }
+            manager.setActiveRows(manager.activeRows);
+            manager.refreshActiveData(false, false, true);
+            manager.regenerateRowPositions();
+            if (manager.displayRowsCount) {
+                manager._clearPlaceholder();
+            }
         }
         postUpdate() {
             this.setSelection();
@@ -22508,20 +23032,52 @@ ${namesToRegister
             this.restore_scroll(restore !== "vertical", restore !== "horizontal");
             this._restore_scroll = false;
         }
-        updateOrAddData() {
+        /** Updates the patched rows in place; patches touching most rows rebuild the table instead. */
+        updateOrAddData(indices) {
             // To avoid double updating the tabulator data
-            if (this._tabulator_cell_updating) {
+            if (this._tabulator_cell_updating || this.tabulator == null) {
                 return;
             }
+            const rows = this.tabulator.rowManager.getRows().length;
+            if (this.can_update_in_place &&
+                // Tabulator does not regroup rows whose data is updated in place.
+                !this.tabulator.options.groupBy &&
+                (0, types_1.isArray)(indices) &&
+                indices.length > 0 &&
+                indices.length * 2 < rows &&
+                indices.every(types_1.isNumber)) {
+                const records = (0, data_1.transform_cds_rows_to_records)(this.model.source, indices, true);
+                if (records.length === indices.length) {
+                    // Rows updated in place are not re-sorted or re-filtered, refreshing
+                    // the filter re-runs the filter and sort stages of the data pipeline.
+                    const refresh = this.tabulator.getSorters().length > 0 || this.tabulator.getFilters(true).length > 0;
+                    this.tabulator.updateData(records).then(() => {
+                        if (refresh) {
+                            this.tabulator.refreshFilter();
+                        }
+                    }).catch(() => this.replaceData());
+                    return;
+                }
+            }
+            this.replaceData();
+        }
+        replaceData() {
+            const inds = this.model.source.selected.indices;
+            this.record_scroll();
+            this._updating_scroll = true;
             // Temporarily set minHeight to avoid "scroll-to-top" issues caused
             // by Tabulator JS entirely destroying the table when .setData is called.
             // Inspired by https://github.com/olifolkerd/tabulator/issues/4155
             const prev_minheight = this.tabulator.element.style.minHeight;
             this.tabulator.element.style.minHeight = `${this.tabulator.element.offsetHeight}px`;
-            const data = (0, data_1.transform_cds_to_records)(this.model.source, true);
+            const data = this.getData();
             this.tabulator.setData(data).then(() => {
                 this.tabulator.element.style.minHeight = prev_minheight;
             });
+            this._updating_scroll = false;
+            // Restore indices since updating data may have reset checkbox column
+            this.model.source.selected.indices = inds;
+            this.restore_scroll();
         }
         setFrozen() {
             for (const row of this.model.frozen_rows) {
@@ -22545,41 +23101,54 @@ ${namesToRegister
             }
             this.tabulator.setSort(this.sorters);
         }
+        /** Styles the rendered rows; rows rendered later are styled by the `rowFormatter`. */
         setStyles() {
-            const style_data = this.model.cell_styles.data;
-            if (this.tabulator == null || this.tabulator.getDataCount() == 0 || style_data == null || !style_data.size) {
+            if (this.tabulator == null || this.tabulator.rowManager.renderer == null) {
                 return;
             }
-            this._applied_styles = false;
-            for (const r of style_data.keys()) {
-                const row_style = style_data.get(r);
-                const row = this.tabulator.getRow(r);
-                if (!row) {
+            // Chained so frozen rows, which sit outside the scrolled rows, are included.
+            for (const row of this.tabulator.rowManager.getVisibleRows(true, true)) {
+                if (row.type === "row") {
+                    this._style_row(row.getComponent());
+                }
+            }
+        }
+        _style_row(row) {
+            const version = this._styles_version;
+            const index = row._row?.data._index;
+            const row_style = index == null ? null : lookup(this.model.cell_styles.data, index);
+            for (const cell of row._row?.cells ?? []) {
+                const element = cell.element;
+                if (element == null) {
                     continue;
                 }
-                const cells = row._row.cells;
-                for (const c of row_style.keys()) {
-                    const style = row_style.get(c);
-                    const cell = cells[c];
-                    if (cell == null || !style.length) {
+                const styled = this._styled_cells.get(element);
+                if (styled != null && styled.version === version) {
+                    continue;
+                }
+                if (styled != null) {
+                    for (const prop of styled.props) {
+                        element.style.removeProperty(prop);
+                    }
+                    this._styled_cells.delete(element);
+                }
+                const style = lookup(row_style, cell.column.field);
+                const props = [];
+                for (const s of style ?? []) {
+                    let prop, value;
+                    if ((0, types_1.isArray)(s)) {
+                        [prop, value] = s;
+                    }
+                    else if (!s.includes(":")) {
                         continue;
                     }
-                    const element = cell.element;
-                    for (const s of style) {
-                        let prop, value;
-                        if ((0, types_1.isArray)(s)) {
-                            [prop, value] = s;
-                        }
-                        else if (!s.includes(":")) {
-                            continue;
-                        }
-                        else {
-                            [prop, value] = s.split(":");
-                        }
-                        element.style.setProperty(prop, value.trimLeft());
-                        this._applied_styles = true;
+                    else {
+                        [prop, value] = s.split(":");
                     }
+                    element.style.setProperty(prop, value.trimLeft());
+                    props.push(prop);
                 }
+                this._styled_cells.set(element, { version, props });
             }
         }
         setHidden() {
@@ -22631,10 +23200,13 @@ ${namesToRegister
             this._selection_updating = true;
             this.tabulator.deselectRow();
             this.tabulator.selectRow(indices);
-            for (const index of indices) {
-                const row = this.tabulator.rowManager.findRow(index);
-                if (row) {
-                    this.tabulator.scrollToRow(index, "center", false).catch(() => { });
+            // Scroll once, to the last selected row that is displayed (e.g. on the current page).
+            const displayed = new Set(this.tabulator.rowManager.getDisplayRows());
+            for (let i = indices.length - 1; i >= 0; i--) {
+                const row = this.tabulator.rowManager.findRow(indices[i]);
+                if (row && displayed.has(row)) {
+                    this.tabulator.scrollToRow(indices[i], "center", false).catch(() => { });
+                    break;
                 }
             }
             this._selection_updating = false;
@@ -22756,14 +23328,12 @@ ${namesToRegister
             this._selection_updating = false;
         }
         _filter_selected(indices) {
-            const filtered = [];
-            for (const ind of indices) {
-                if (this.model.selectable_rows == null ||
-                    this.model.selectable_rows.indexOf(ind) >= 0) {
-                    filtered.push(ind);
-                }
+            const selectable = this.model.selectable_rows;
+            if (selectable == null) {
+                return [...indices];
             }
-            return filtered;
+            const selectable_set = as_set(selectable);
+            return indices.filter((ind) => selectable_set.has(ind));
         }
         rowSelectionChanged(data, _row, selected, deselected) {
             if (this._selection_updating ||
@@ -22799,7 +23369,9 @@ ${namesToRegister
             const index = cell.getData()._index;
             const value = cell._cell.value;
             const key = `${field}:${index}`;
-            if (column_def.validator === "numeric" && value === "") {
+            const column = this.model.source.get_column(field);
+            const nullable = Array.isArray(column) || column instanceof Float64Array || column instanceof Float32Array;
+            if (nullable && (column_def.validator === "numeric" || column_def.validator === "integer") && value === "") {
                 // setValue below re-triggers cellEdited recursively for the actual
                 // (NaN) edit. By then cell._cell.oldValue has already been overwritten
                 // with this now-discarded "" attempt, so the true pre-edit value is
@@ -22823,6 +23395,7 @@ ${namesToRegister
                 comm_manager_1.comm_settings.debounce = true;
                 this._tabulator_cell_updating = false;
             }
+            this.refitColumns(field);
             this.tabulator.scrollToRow(index, "top", false);
         }
     }
@@ -23339,38 +23912,68 @@ ${namesToRegister
     };
     module.exports = _;
 },
-"be689f0377": /* models/data.js */ function _(require, module, exports, __esModule, __esExport) {
+"ce212d2be6": /* models/data.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.transform_cds_to_records = transform_cds_to_records;
+    exports.transform_cds_rows_to_records = transform_cds_rows_to_records;
     exports.dict_to_records = dict_to_records;
     const types_1 = require("@bokehjs/core/util/types");
-    function transform_cds_to_records(cds, addId = false, start = 0) {
-        const data = [];
+    function cds_record_builder(cds, addId) {
         const columns = cds.columns();
         const cdsLength = cds.get_length();
         if (columns.length === 0 || cdsLength === null) {
-            return [];
+            return null;
         }
-        for (let i = start; i < cdsLength; i++) {
+        const accessors = [];
+        for (const column of columns) {
+            const array = cds.get_array(column);
+            const shape = (array[0] == null || array[0].shape == null) ? null : array[0].shape;
+            if (shape != null && shape.length > 1 && (0, types_1.isNumber)(shape[0])) {
+                const width = shape[1];
+                accessors.push([column, (i) => array.slice(i * width, i * width + width)]);
+            }
+            else if (array.length != cdsLength && (array.length % cdsLength === 0)) {
+                const offset = array.length / cdsLength;
+                accessors.push([column, (i) => array.slice(i * offset, i * offset + offset)]);
+            }
+            else {
+                accessors.push([column, (i) => array[i]]);
+            }
+        }
+        return (i) => {
             const item = {};
-            for (const column of columns) {
-                const array = cds.get_array(column);
-                const shape = (array[0] == null || array[0].shape == null) ? null : array[0].shape;
-                if (shape != null && shape.length > 1 && (0, types_1.isNumber)(shape[0])) {
-                    item[column] = array.slice(i * shape[1], i * shape[1] + shape[1]);
-                }
-                else if (array.length != cdsLength && (array.length % cdsLength === 0)) {
-                    const offset = array.length / cdsLength;
-                    item[column] = array.slice(i * offset, i * offset + offset);
-                }
-                else {
-                    item[column] = array[i];
-                }
+            for (const [column, get] of accessors) {
+                item[column] = get(i);
             }
             if (addId) {
                 item._index = i;
             }
-            data.push(item);
+            return item;
+        };
+    }
+    function transform_cds_to_records(cds, addId = false, start = 0) {
+        const build = cds_record_builder(cds, addId);
+        if (build === null) {
+            return [];
+        }
+        const data = [];
+        const cdsLength = cds.get_length() ?? 0;
+        for (let i = start; i < cdsLength; i++) {
+            data.push(build(i));
+        }
+        return data;
+    }
+    function transform_cds_rows_to_records(cds, indices, addId = false) {
+        const build = cds_record_builder(cds, addId);
+        if (build === null) {
+            return [];
+        }
+        const cdsLength = cds.get_length() ?? 0;
+        const data = [];
+        for (const i of indices) {
+            if (i >= 0 && i < cdsLength) {
+                data.push(build(i));
+            }
         }
         return data;
     }
@@ -26302,17 +26905,17 @@ ${namesToRegister
     }
     exports.DatetimeSlider = DatetimeSlider;
 },
-"609f06c18b": /* models/deckgl.js */ function _(require, module, exports, __esModule, __esExport) {
+"2b9c25734d": /* models/deckgl.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const types_1 = require("@bokehjs/core/util/types");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const data_1 = require("be689f0377") /* ./data */;
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const data_1 = require("ce212d2be6") /* ./data */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const lumagl_1 = require("16d69e2b49") /* ./lumagl */;
-    const resources_1 = require("3ec7d872e2") /* ./resources */;
+    const resources_1 = require("133ce95cfa") /* ./resources */;
     const tooltips_1 = require("f8f8ea4284") /* ./tooltips */;
     function extractClasses() {
         // Get classes for registration from standalone deck.gl
@@ -26361,7 +26964,11 @@ ${namesToRegister
             super.connect_signals();
             const { data, mapbox_api_key, tooltip, configuration, layers, initialViewState, data_sources } = this.model.properties;
             this.on_change([mapbox_api_key, tooltip, configuration], () => this.rerender_());
-            this.on_change([data, initialViewState], () => this.updateDeck());
+            this.on_change([data], () => this.updateDeck());
+            this.on_change([initialViewState], () => {
+                this.updateDeck();
+                this._jump_map(this.model.initialViewState);
+            });
             this.on_change([layers], () => this._update_layers());
             this.on_change([data_sources], () => this._connect_sources(true));
             this._layer_map = {};
@@ -26489,11 +27096,23 @@ ${namesToRegister
             return data;
         }
         _sync_viewstate(event) {
-            if (this._map) {
-                const { longitude, latitude, ...rest } = event.viewState;
-                this._map.jumpTo({ center: [longitude, latitude], ...rest });
-            }
+            this._jump_map(event.viewState);
             this._view_cb(event);
+        }
+        _map_camera(view_state) {
+            if (view_state?.longitude == null || view_state?.latitude == null) {
+                return {};
+            }
+            const { longitude, latitude, ...rest } = view_state;
+            return { center: [longitude, latitude], ...rest };
+        }
+        _jump_map(view_state) {
+            // deck.gl does not emit onViewStateChange when a new initialViewState is
+            // applied, so the separate MapLibre basemap has to be moved explicitly.
+            const camera = this._map_camera(view_state);
+            if (this._map && camera.center) {
+                this._map.jumpTo(camera);
+            }
         }
         rerender_() {
             // Can be removed when Bokeh>3.7 (see https://github.com/holoviz/panel/pull/7815)
@@ -26536,10 +27155,13 @@ ${namesToRegister
                     props.map = null;
                 }
                 else if (props.mapStyle.includes("carto")) {
+                    // Positioned up front rather than on deck.gl's first view state
+                    // change, which only comes once its WebGL device has initialized.
                     this._map = new window.maplibregl.Map({
                         container,
                         style: props.mapStyle,
                         interactive: false,
+                        ...this._map_camera(props.initialViewState),
                     });
                     props.controller = true;
                     props.map = null;
@@ -28307,7 +28929,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const event_to_object_1 = require("e5a0036205") /* ./event-to-object */;
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const mouse_events = [
         "click", "dblclick", "mousedown", "mousemove", "mouseup", "mouseover", "mouseout",
@@ -28476,7 +29098,7 @@ ${namesToRegister
     }
     exports.ECharts = ECharts;
 },
-"56255f9c11": /* models/feed.js */ function _(require, module, exports, __esModule, __esExport) {
+"21518e4c71": /* models/feed.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
         var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
@@ -28605,7 +29227,9 @@ ${namesToRegister
             return nodes;
         }
         async update_children() {
-            const at_latest = this.distance_from_latest <= 1;
+            // An empty Feed has no latest child to follow, so filling it must not
+            // jump to the end.
+            const at_latest = this.child_views.length > 0 && this.distance_from_latest <= 1;
             const update = this._rebuild_children();
             this._children_update = update;
             try {
@@ -28638,12 +29262,13 @@ ${namesToRegister
             }
         }
         async _rebuild_children() {
+            this._sync = false;
+            const created = await this.build_child_views();
+            // Measured after the build, since the Feed may scroll while it awaits
             const last = this._last_visible;
             const scroll_top = this.el.scrollTop;
             this._reference_view = last;
             this._reference = last?.el.offsetTop || 0;
-            this._sync = false;
-            const created = await this.build_child_views();
             const created_children = new Set(created);
             const createdLength = created.length;
             const views_length = this.child_views.length;
@@ -29022,7 +29647,7 @@ ${namesToRegister
     const input_widget_1 = require("@bokehjs/models/widgets/input_widget");
     const inputs = tslib_1.__importStar(require("@bokehjs/styles/widgets/inputs.css"));
     const filedropper_css_1 = tslib_1.__importDefault(require("c03dd3c931") /* styles/models/filedropper.css */);
-    const resources_1 = require("3ec7d872e2") /* ./resources */;
+    const resources_1 = require("133ce95cfa") /* ./resources */;
     class UploadEvent extends bokeh_events_1.ModelEvent {
         data;
         constructor(data) {
@@ -29327,7 +29952,7 @@ ${namesToRegister
 "fd4c3f6bc4": /* models/ipywidget.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const Jupyter = window.Jupyter;
     class IPyWidgetView extends layout_1.HTMLBoxView {
         ipyview;
@@ -29415,7 +30040,7 @@ ${namesToRegister
     const kinds_1 = require("@bokehjs/core/kinds");
     const markup_1 = require("@bokehjs/models/widgets/markup");
     const json_formatter_js_1 = tslib_1.__importDefault(require("ec9d1ffc2e") /* json-formatter-js */);
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     class JSONView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -29569,7 +30194,7 @@ ${namesToRegister
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const jsoneditor_css_1 = tslib_1.__importDefault(require("317a12d360") /* styles/models/jsoneditor.css */);
     class JSONEditEvent extends bokeh_events_1.ModelEvent {
         data;
@@ -29677,8 +30302,8 @@ ${namesToRegister
 "052b7b0298": /* models/katex.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("00beb93e38") /* ./layout */;
-    const resources_1 = require("3ec7d872e2") /* ./resources */;
+    const layout_1 = require("1874377162") /* ./layout */;
+    const resources_1 = require("133ce95cfa") /* ./resources */;
     class KaTeXView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -29718,7 +30343,7 @@ ${namesToRegister
     }
     exports.KaTeX = KaTeX;
 },
-"2116677c2d": /* models/location.js */ function _(require, module, exports, __esModule, __esExport) {
+"cc871e1a06": /* models/location.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const view_1 = require("@bokehjs/core/view");
     const model_1 = require("@bokehjs/model");
@@ -29789,6 +30414,9 @@ ${namesToRegister
         update(change) {
             const url = `${this.model.pathname}${this.model.search}${this.model.hash}`;
             if (change === "reload") {
+                if (!this.model.reload) {
+                    return;
+                }
                 window.history.pushState({}, "", url);
                 this.model.href = window.location.href;
                 window.location.reload();
@@ -29830,7 +30458,7 @@ ${namesToRegister
 "07688254ed": /* models/mathjax.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     class MathJaxView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -29886,7 +30514,7 @@ ${namesToRegister
     const ui_element_1 = require("@bokehjs/models/ui/ui_element");
     const types_1 = require("@bokehjs/core/util/types");
     const modal_css_1 = tslib_1.__importDefault(require("be4b4352c6") /* styles/models/modal.css */);
-    const resources_1 = require("3ec7d872e2") /* ./resources */;
+    const resources_1 = require("133ce95cfa") /* ./resources */;
     let ModalDialogEvent = ModalDialogEvent_1 = class ModalDialogEvent extends bokeh_events_1.ModelEvent {
         model;
         open;
@@ -30042,8 +30670,8 @@ ${namesToRegister
 "87a65d7fb5": /* models/pdf.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("00beb93e38") /* ./layout */;
-    const html_1 = require("9012c2f5ae") /* ./html */;
+    const layout_1 = require("1874377162") /* ./layout */;
+    const html_1 = require("e40e09e4dd") /* ./html */;
     class PDFView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -30102,7 +30730,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const perspective_css_1 = tslib_1.__importDefault(require("2e2913ea54") /* styles/models/perspective.css */);
     const THEMES = {
         "pro-dark": "Pro Dark",
@@ -30410,8 +31038,9 @@ ${namesToRegister
     .psp-header-group-corner
   ){box-shadow:1px 0px var(--inactive--color, #eaedef), 0px 10px 0 -9px var(--inactive--color, #eaedef);}.psp-header-leaf.psp-header-border{box-shadow:5px -4px 0px -4px var(--inactive--color, #eaedef);}tr:only-child th{box-shadow:none !important;}regular-table tbody tr:hover th.psp-tree-leaf:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover th.psp-tree-label:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover td:not(.psp-row-selected):not(.psp-row-subselected){border-color:var(--rt-hover--border-color, #c5c9d080) !important;background-color:transparent;box-shadow:0px 1px 0px var(--rt-hover--border-color, #c5c9d080), 0px 3px 0px rgba(0, 0, 0, 0.05), 0px 5px 0px rgba(0, 0, 0, 0.01);}regular-table tbody tr:hover + tr th.psp-tree-leaf:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover + tr th.psp-tree-label:not(.psp-row-selected):not(.psp-row-subselected),regular-table tbody tr:hover + tr td:not(.psp-row-selected):not(.psp-row-subselected){border-top-color:transparent;}regular-table tbody tr th:first-child:not(:empty),regular-table tbody tr th:first-child:empty + th:not(:empty),regular-table tbody tr th:first-child:empty ~ th:empty + th:not(:empty),regular-table tbody tr td:first-child{border-left-width:1px;border-left-color:transparent;}regular-table tbody tr th:last-child,regular-table tbody tr td:last-child{border-right-width:1px;border-right-color:transparent;}regular-table tbody tr:hover{color:#161616;}regular-table tbody tr:hover th:first-child:not(:empty),regular-table tbody tr:hover th:first-child:empty + th:not(:empty),regular-table tbody tr:hover th:first-child:empty ~ th:empty + th:not(:empty),regular-table tbody tr:hover td:first-child{border-left-color:var(--rt-hover--border-color, #c5c9d080) !important;}regular-table tbody tr:hover th:last-child,regular-table tbody tr:hover td:last-child{border-right-color:var(--rt-hover--border-color, #c5c9d080) !important;}perspective-viewer[settings] regular-table .psp-header-leaf{height:36px;vertical-align:top;padding-top:2px;}perspective-viewer[settings] regular-table .psp-header-leaf:not(.psp-header-corner):before{font-family:var(--button--font-family, inherit);content:var(--column-style-open-button--content, var(--config-button-icon--content, '\u1f527'));position:absolute;width:calc(100% - 8px);left:5px;bottom:0px;color:var(--inactive--color, #b4b7be);}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-enabled:not(.psp-header-corner):before{color:inherit;cursor:pointer;}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-open:not(.psp-header-corner){pointer-events:none;}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-open:not(.psp-header-corner):before{content:var(--column-style-close-button--content, 'X');}perspective-viewer[settings] regular-table .psp-header-leaf.psp-menu-enabled:hover:before{color:#338dcd;}perspective-viewer[settings] regular-table .psp-header-leaf .rt-column-resize{height:18px;}.psp-row-selected,:hover .psp-row-selected,:hover th.psp-tree-leaf.psp-row-selected,:hover th.psp-tree-label.psp-row-selected{color:white !important;background-color:#ea7319 !important;border-color:#ea7319 !important;}.psp-row-selected.psp-tree-label:not(:hover):before{color:white;}.psp-row-subselected,:hover .psp-row-subselected,:hover th.psp-tree-leaf.psp-row-subselected,:hover th.psp-tree-label.psp-row-subselected{background:rgba(234, 115, 25, 0.2) !important;}.psp-error{color:red;}td:focus{outline:#666;outline-style:dotted;outline-width:1px;}perspective-viewer.dragging regular-table{pointer-events:none;}.psp-header-border:last-child{border-right-width:0px;}.psp-header-sort-desc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-desc--content, '\u2193');}.psp-header-sort-asc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-asc--content, '\u2191');}.psp-header-sort-col-desc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-col-desc--content, '\u2190');}.psp-header-sort-col-asc:after{font-family:var(--button--font-family, inherit);font-size:10px;content:var(--sort-order-col-asc--content, '\u2192');}tbody th:last-of-type{border-right:1px solid #eaedef;overflow:hidden;text-overflow:ellipsis;}tbody th:empty{background-image:linear-gradient(to right, transparent 9px, #eee 10px, transparent 11px);background-repeat:no-repeat;min-width:20px;max-width:20px;pointer-events:none;}.psp-tree-label{max-width:0px;min-width:0px;}.psp-tree-label:before{color:#ccc;font-family:var(--button--font-family, inherit);padding-right:11px;vertical-align:-1px;}.psp-tree-label-expand:before{content:var(--tree-label-expand--content, '+');}.psp-tree-label-collapse:before{content:var(--tree-label-collapse--content, '-');}.psp-tree-label:hover:before{color:#338dcd;text-shadow:0px 0px 5px #338dcd;}regular-table thead tr:last-child th{border-bottom-width:1px;border-bottom-color:var(--inactive--color, #eaedef);}.psp-tree-leaf{padding-left:24px;}.psp-align-right{text-align:right;}.psp-align-left{text-align:left;}.psp-positive:not(:focus){color:var(--rt-pos-cell--color, #338dcd);}.psp-negative:not(:focus){color:var(--rt-neg-cell--color, #ff5942);}regular-table table tbody td{min-width:52px !important;}.psp-is-width-override .rt-column-resize,.rt-column-resize:hover{border:1px dashed #999;border-bottom-width:0px;border-left-width:0px;}.psp-bool-type{font-family:var(--button--font-family, 'Material Icons');}.boolean-editable{cursor:pointer;}regular-table table{user-select:none;color:#161616;border-collapse:separate;}regular-table table th{font-weight:400;}regular-table table td,regular-table table th{border-color:#eaedef;height:23px;}regular-table table .psp-header-group{text-overflow:ellipsis;}regular-table table .psp-header-leaf{border-bottom-width:0px;}regular-table table td,regular-table table th.psp-tree-label,regular-table table th.psp-tree-label,regular-table table th.psp-tree-leaf,regular-table table tbody tr:first-child th{border-style:solid;border-width:0px;border-top-width:1px;}regular-table table tbody th:empty{background-position:0px -10px;}@keyframes pulse_pos{0%{background-color:var(--pulse--background-color-start, rgba(0, 128, 255, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(0, 128, 255, 0));}}@keyframes pulse_pos2{0%{background-color:var(--pulse--background-color-start, rgba(0, 128, 255, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(0, 128, 255, 0));}}@keyframes pulse_neg{0%{background-color:var(--pulse--background-color-start, rgba(255, 25, 0, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(255, 25, 0, 0));}}@keyframes pulse_neg2{0%{background-color:var(--pulse--background-color-start, rgba(255, 25, 0, 0.5));}100%{background-color:var(--pulse--background-color-end, rgba(255, 25, 0, 0));}}`;
 },
-"39230f6818": /* models/plotly.js */ function _(require, module, exports, __esModule, __esExport) {
+"f8b44cbee4": /* models/plotly.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
+    exports.queue_update = queue_update;
     const tslib_1 = require("tslib");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
@@ -30420,7 +31049,7 @@ ${namesToRegister
     const eq_1 = require("@bokehjs/core/util/eq");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const plotly_css_1 = tslib_1.__importDefault(require("3d56c75186") /* styles/models/plotly.css */);
     const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
@@ -30454,6 +31083,97 @@ ${namesToRegister
         }
     }
     exports.PlotlyEvent = PlotlyEvent;
+    const decodeUndefined = (obj) => {
+        if (obj === "_undefined_") {
+            return undefined;
+        }
+        else if (Array.isArray(obj)) {
+            return obj.map(decodeUndefined);
+        }
+        else if ((0, types_1.isPlainObject)(obj)) {
+            return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, decodeUndefined(v)]));
+        }
+        return obj;
+    };
+    const is_descendant = (key, of) => {
+        return key.startsWith(`${of}.`) || key.startsWith(`${of}[`);
+    };
+    const parent_path = (key) => {
+        const index = Math.max(key.lastIndexOf("."), key.lastIndexOf("["));
+        return index < 0 ? "" : key.slice(0, index);
+    };
+    /**
+     * The array an item-level key such as `annotations[0]` writes to. Plotly
+     * treats such a write as an insert (or, with null, a removal) that shifts
+     * the items after it, so it is never superseded and orders later writes.
+     */
+    const item_array = (key) => {
+        return key.endsWith("]") ? key.slice(0, key.lastIndexOf("[")) : null;
+    };
+    const within = (key, path) => key == path || is_descendant(key, path);
+    /**
+     * Whether `key` must be applied after `other` rather than together with it:
+     * keys under a written ancestor, keys next to a sibling such as
+     * `xaxis.range` and `xaxis.autorange` that Plotly resolves together, and
+     * keys in an array that an item-level write shifts.
+     */
+    const conflicts = (key, other) => {
+        if (is_descendant(key, other) || is_descendant(other, key)) {
+            return true;
+        }
+        const key_array = item_array(key);
+        const other_array = item_array(other);
+        if ((key_array != null && within(other, key_array)) || (other_array != null && within(key, other_array))) {
+            return true;
+        }
+        const parent = parent_path(key);
+        return parent !== "" && parent === parent_path(other);
+    };
+    /**
+     * Adds an update to the queue, dropping earlier writes it supersedes (the
+     * same key or a descendant, up to an item-level write that shifted them)
+     * and merging it into the last entry when that entry is of the same kind
+     * and target and none of its keys conflict. Apart from item-level writes,
+     * every key is then pending at most once, which bounds the queue.
+     */
+    function queue_update(queue, update) {
+        const keys = Object.keys(update.data);
+        const same_target = (entry) => {
+            return entry.kind == update.kind && (entry.kind == "relayout" || entry.trace == update.trace);
+        };
+        for (const k of keys) {
+            if (item_array(k) != null) {
+                continue;
+            }
+            for (let i = queue.length - 1; i >= 0; i--) {
+                const entry = queue[i];
+                if (!same_target(entry)) {
+                    continue;
+                }
+                const entry_keys = Object.keys(entry.data);
+                if (entry_keys.some((key) => {
+                    const array = item_array(key);
+                    return array != null && is_descendant(k, array);
+                })) {
+                    break;
+                }
+                for (const key of entry_keys) {
+                    if (within(key, k)) {
+                        delete entry.data[key];
+                    }
+                }
+            }
+        }
+        const pending = queue.filter((entry) => Object.keys(entry.data).length > 0);
+        const last = pending.at(-1);
+        if (last != null && same_target(last) && !Object.keys(last.data).some((key) => keys.some((k) => conflicts(k, key)))) {
+            Object.assign(last.data, update.data);
+        }
+        else {
+            pending.push({ ...update, data: { ...update.data } });
+        }
+        return pending;
+    }
     const filterEventData = (gd, eventData, event) => {
         // Ported from dash-core-components/src/components/Graph.react.js
         const filteredEventData = Array.isArray(eventData) ? [] : {};
@@ -30514,8 +31234,12 @@ ${namesToRegister
                 const pointData = {};
                 for (const property in fullPoint) {
                     const val = fullPoint[property];
+                    // Arrays of primitives (e.g. multicategory x, heatmap pointNumber)
+                    // are safe; arrays holding objects may be circular or huge.
+                    const isPrimitiveArray = Array.isArray(val) &&
+                        val.every((v) => v === null || typeof v !== "object");
                     if (fullPoint.hasOwnProperty(property) &&
-                        !Array.isArray(val) && !(0, types_1.isPlainObject)(val) &&
+                        (isPrimitiveArray || (!Array.isArray(val) && !(0, types_1.isPlainObject)(val))) &&
                         val !== undefined) {
                         pointData[property] = val;
                     }
@@ -30568,13 +31292,19 @@ ${namesToRegister
         _rendered = false;
         _reacting = false;
         _relayouting = false;
+        _model_restyles = 0;
+        _pending_updates = [];
         _hoverdata = null;
         container;
-        _watched_sources;
         _end_relayouting = (0, debounce_1.debounce)(() => {
             this._relayouting = false;
         }, 2000, false);
         _throttled_resize;
+        // Frames handed to Plotly for the current plot
+        _frames = null;
+        _plot_promise = null;
+        _plot_scheduled = false;
+        _new_plot = false;
         initialize() {
             super.initialize();
             this._throttled_resize = (0, util_1.throttle)(() => this.resize_layout(), 25);
@@ -30582,27 +31312,40 @@ ${namesToRegister
         connect_signals() {
             super.connect_signals();
             const { data, data_sources, layout, relayout, restyle, viewport_update_policy, viewport_update_throttle, _render_count, frames, viewport, } = this.model.properties;
-            this.on_change([data, data_sources, layout], () => {
-                const render_count = this.model._render_count;
-                setTimeout(() => {
-                    if (this.model._render_count === render_count) {
-                        this.model._render_count += 1;
-                    }
-                }, 250);
+            this.on_change([data, data_sources, layout, _render_count], () => {
+                // The new state already includes any update sent before render
+                this._pending_updates = [];
+                this._schedule_plot();
+            });
+            this.on_change(frames, () => {
+                this._schedule_plot(true);
             });
             this.on_change(relayout, () => {
-                if (this.model.relayout == null) {
+                const { relayout } = this.model;
+                if (relayout == null) {
                     return;
                 }
-                window.Plotly.relayout(this.container, this.model.relayout);
                 this.model.relayout = null;
+                if (this.container == null) {
+                    this._pending_updates = queue_update(this._pending_updates, { kind: "relayout", data: relayout });
+                }
+                else {
+                    window.Plotly.relayout(this.container, relayout);
+                }
             });
             this.on_change(restyle, () => {
-                if (this.model.restyle == null) {
+                const { restyle } = this.model;
+                if (restyle == null) {
                     return;
                 }
-                window.Plotly.restyle(this.container, this.model.restyle.data, this.model.restyle.traces);
                 this.model.restyle = null;
+                const data = decodeUndefined(restyle.data);
+                if (this.container == null) {
+                    this._queue_restyle(data, restyle.traces);
+                }
+                else {
+                    this._restyle(data, restyle.traces);
+                }
             });
             this.on_change(viewport_update_policy, () => {
                 this._updateSetViewportFunction();
@@ -30610,15 +31353,27 @@ ${namesToRegister
             this.on_change(viewport_update_throttle, () => {
                 this._updateSetViewportFunction();
             });
-            this.on_change(_render_count, () => {
-                this.plot();
-            });
-            this.on_change(frames, () => {
-                this.plot(true);
-            });
             this.on_change(viewport, () => {
                 this._updateViewportFromProperty();
             });
+        }
+        /**
+         * Plots once all changes applied in the current task have been
+         * processed, waiting for a plot in progress to finish first.
+         */
+        _schedule_plot(new_plot = false) {
+            this._new_plot ||= new_plot;
+            if (this._plot_scheduled) {
+                return;
+            }
+            this._plot_scheduled = true;
+            const run = () => {
+                this._plot_scheduled = false;
+                const replot = this._new_plot;
+                this._new_plot = false;
+                this._plot_promise = this.plot(replot);
+            };
+            (this._plot_promise ?? Promise.resolve()).then(run, run);
         }
         stylesheets() {
             return [...super.stylesheets(), plotly_css_1.default];
@@ -30635,14 +31390,82 @@ ${namesToRegister
             (0, layout_1.set_size)(this.container, this.model);
             this._rendered = false;
             this.watch_stylesheets();
-            this.plot(true).then(() => {
+            this._plot_promise = this.plot(true).then(() => {
                 this.shadow_el.appendChild(this.container);
                 this._rendered = true;
                 this.resize_layout();
                 if (this.model.relayout != null) {
                     window.Plotly.relayout(this.container, this.model.relayout);
+                    this.model.relayout = null;
+                }
+                return this._apply_pending_updates();
+            });
+        }
+        _restyle(data, traces) {
+            this._model_restyles += 1;
+            return window.Plotly.restyle(this.container, data, traces).finally(() => {
+                this._model_restyles -= 1;
+            });
+        }
+        /**
+         * Splits a restyle into one update per trace, resolving values the way
+         * Plotly does: arrays are indexed (and wrapped) by position in `traces`,
+         * and undefined values leave the trace unchanged.
+         */
+        _queue_restyle(data, traces) {
+            const ntraces = this.model.data.length;
+            const indices = traces == null ? [...Array(ntraces).keys()] : Array.isArray(traces) ? traces : [traces];
+            indices.forEach((trace, position) => {
+                // Plotly ignores negative trace indices
+                if (trace < 0) {
+                    return;
+                }
+                const update = {};
+                for (const [key, value] of Object.entries(data)) {
+                    const trace_value = Array.isArray(value) ? value[position % value.length] : value;
+                    if (trace_value !== undefined) {
+                        update[key] = trace_value;
+                    }
+                }
+                if (Object.keys(update).length > 0) {
+                    this._pending_updates = queue_update(this._pending_updates, { kind: "restyle", trace, data: update });
                 }
             });
+        }
+        async _apply_pending_updates() {
+            const pending = this._pending_updates;
+            this._pending_updates = [];
+            let i = 0;
+            while (i < pending.length) {
+                const entry = pending[i];
+                if (entry.kind == "relayout") {
+                    await window.Plotly.relayout(this.container, entry.data);
+                    i++;
+                    continue;
+                }
+                // Consecutive restyles of the same keys on different traces go in one call
+                const keys = Object.keys(entry.data).join("\0");
+                const batch = [entry];
+                while (i + batch.length < pending.length) {
+                    const next = pending[i + batch.length];
+                    if (next.kind != "restyle" || Object.keys(next.data).join("\0") != keys || batch.some((e) => e.trace == next.trace)) {
+                        break;
+                    }
+                    batch.push(next);
+                }
+                const data = Object.fromEntries(Object.keys(entry.data).map((key) => [key, batch.map((e) => e.data[key])]));
+                await this._restyle(data, batch.map((e) => e.trace));
+                i += batch.length;
+            }
+        }
+        /**
+         * The plot size derived from the model and the element, or null while
+         * the element is not laid out.
+         */
+        _plot_size() {
+            const width = Math.min(this.model.width || this.el.clientWidth, this.model.max_width || Infinity);
+            const height = Math.min(this.model.height || this.el.clientHeight, this.model.max_height || Infinity);
+            return width > 0 && height > 0 ? [width, height] : null;
         }
         style_redraw() {
             this.resize_layout();
@@ -30653,6 +31476,11 @@ ${namesToRegister
             }
             const width = Math.min(this.model.width || this.el.clientWidth, this.model.max_width || Infinity);
             const height = Math.min(this.model.height || this.el.clientHeight, this.model.max_height || Infinity);
+            // A relayout resets the hover state, dropping clicks right after it
+            const { layout } = this.container;
+            if (layout != null && layout.width === width && layout.height === height) {
+                return;
+            }
             window.Plotly.relayout(this.container, { width, height });
         }
         after_layout() {
@@ -30678,6 +31506,13 @@ ${namesToRegister
                     }
                 }, {});
             }
+            // Sizing the plot up front saves the relayout resize_layout would
+            // otherwise issue after every update.
+            const size = this._rendered ? this._plot_size() : null;
+            if (size != null) {
+                newLayout.width ??= size[0];
+                newLayout.height ??= size[1];
+            }
             return newLayout;
         }
         _install_callbacks() {
@@ -30698,6 +31533,10 @@ ${namesToRegister
             });
             //  - plotly_restyle
             this.container.on("plotly_restyle", (eventData) => {
+                // Echoing a restyle sent by Python could arrive after a newer update and revert it
+                if (this._model_restyles > 0) {
+                    return;
+                }
                 this.model.restyle_data = filterEventData(this.container, eventData, "restyle");
                 this._updateViewportProperty();
             });
@@ -30761,26 +31600,32 @@ ${namesToRegister
             }
             const data = this._trace_data();
             const newLayout = this._layout_data();
+            const { config, frames } = this.model;
             this._reacting = true;
-            if (new_plot) {
-                const obj = { data, layout: newLayout, config: this.model.config, frames: this.model.frames };
-                await window.Plotly.newPlot(this.container, obj);
-            }
-            else {
-                await window.Plotly.react(this.container, data, newLayout, this.model.config);
-                if (this.model.frames != null) {
-                    await window.Plotly.addFrames(this.container, this.model.frames);
+            try {
+                if (new_plot || !this._plotInitialized) {
+                    await window.Plotly.newPlot(this.container, { data, layout: newLayout, config, frames });
+                }
+                else if (frames !== this._frames) {
+                    // Passing frames makes react replace the existing ones
+                    await window.Plotly.react(this.container, { data, layout: newLayout, config, frames });
+                }
+                else {
+                    await window.Plotly.react(this.container, data, newLayout, config);
+                }
+                this._frames = frames;
+                this._updateSetViewportFunction();
+                this._updateViewportProperty();
+                if (!this._plotInitialized) {
+                    this._install_callbacks();
+                }
+                else if (!_isHidden(this.container)) {
+                    this.resize_layout();
                 }
             }
-            this._updateSetViewportFunction();
-            this._updateViewportProperty();
-            if (!this._plotInitialized) {
-                this._install_callbacks();
+            finally {
+                this._reacting = false;
             }
-            else if (!_isHidden(this.container)) {
-                window.Plotly.Plots.resize(this.container);
-            }
-            this._reacting = false;
             this._plotInitialized = true;
         }
         _get_trace(index, update) {
@@ -30903,7 +31748,7 @@ ${namesToRegister
 "443fb5cf42": /* models/progress.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     class ProgressView extends layout_1.HTMLBoxView {
         progressEl;
         connect_signals() {
@@ -30983,7 +31828,7 @@ ${namesToRegister
 "3df70ba3b3": /* models/quill.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     class QuillInputView extends layout_1.HTMLBoxView {
         container;
         _editor;
@@ -31300,7 +32145,7 @@ ${namesToRegister
     }
     exports.RadioButtonGroup = RadioButtonGroup;
 },
-"e74ecd40bb": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"da0e69965d": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const build_views_1 = require("@bokehjs/core/build_views");
     const view_1 = require("@bokehjs/core/view");
@@ -31308,7 +32153,7 @@ ${namesToRegister
     const array_1 = require("@bokehjs/core/util/array");
     const assert_1 = require("@bokehjs/core/util/assert");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("f3226cbf82") /* ./reactive_esm */;
+    const reactive_esm_1 = require("63ae31d699") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
         persistent;
         host_id;
@@ -31385,7 +32230,10 @@ ${namesToRegister
             return this.model.use_shadow_dom || !(this.parent instanceof ReactComponentView);
         }
         render_esm() {
-            if (this.model.compiled === null || this.model.render_module === null || this.container == null) {
+            // A removed view is never mounted and has already settled its promise in
+            // `remove()`, so a new one, e.g. from a parent re-rendering a stale child
+            // view, would block the root's `ready` for good.
+            if (this.is_destroyed || this.model.compiled === null || this.model.render_module === null || this.container == null) {
                 return;
             }
             this._rendered = false;
@@ -31948,6 +32796,61 @@ export default {React, createRoot}`;
     function css_class_name(class_name) {
         return class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
     }
+    // A repeated model shares one view, whose element can only be mounted once.
+    function unique_models(models) {
+        const seen = new Set();
+        return models.filter((model) => {
+            if (seen.has(model.id)) {
+                return false;
+            }
+            seen.add(model.id);
+            return true;
+        });
+    }
+    function model_value(model, attr) {
+        const prop = model.property(attr);
+        return prop.is_unset ? undefined : prop.get_value();
+    }
+    /**
+     * Binds a model property to React through `useSyncExternalStore`, so the
+     * model is the only source of truth: the setter writes to the model and every
+     * render reads the model's current value, including changes that landed
+     * before the subscription was registered.
+     */
+    function use_model_state(React, react_proxy, prop, model, attr) {
+        const subscribe = React.useCallback((notify) => {
+            react_proxy.on(prop, notify, true);
+            return () => react_proxy.off(prop, notify);
+        }, [model, prop]);
+        const value = React.useSyncExternalStore(subscribe, () => model_value(model, attr));
+        const setValue = React.useCallback((update) => {
+            const current = model_value(model, attr);
+            const next = typeof update === "function" ? update(current) : update;
+            if (!Object.is(next, current)) {
+                model.setv({ [attr]: next });
+            }
+        }, [model, attr]);
+        return [value, setValue];
+    }
+    /**
+     * A param.Event is a trigger, not a value, so it is exposed as a local
+     * counter that increments each time the event fires and is never written
+     * back to the model.
+     */
+    function use_event_state(React, react_proxy, prop, model, attr) {
+        const [count, setCount] = React.useState(() => model_value(model, attr));
+        React.useEffect(() => {
+            const cb = () => {
+                if (model_value(model, attr)) {
+                    setCount((v) => v + 1);
+                    model.setv({ [attr]: false });
+                }
+            };
+            react_proxy.on(prop, cb, true);
+            return () => react_proxy.off(prop, cb);
+        }, [model, prop]);
+        return [count, setCount];
+    }
     function react_model_proxy(view, libs, Child) {
         const { React } = libs;
         const react_proxy = new Proxy(view, {
@@ -31975,29 +32878,10 @@ export default {React, createRoot}`;
                         if (model == null || model.attributes == null || !(attr in model.attributes)) {
                             throw ReferenceError(`Could not resolve ${prop} on ${target.model.class_name}`);
                         }
-                        const [value, setValue] = React.useState(model.attributes[attr]);
-                        React.useEffect(() => {
-                            const cb = () => {
-                                if (target.model.events.includes(attr)) {
-                                    model.attributes[attr] && (setValue((v) => v + 1) || model.setv({ [attr]: false }));
-                                }
-                                else {
-                                    setValue(model.attributes[attr]);
-                                }
-                            };
-                            react_proxy.on(prop, cb, true);
-                            return () => react_proxy.off(prop, cb);
-                        }, []);
-                        const initialized = React.useRef(false);
-                        React.useEffect(() => {
-                            if (!target.model.events.includes(attr) && initialized.current) {
-                                model.setv({ [attr]: value });
-                            }
-                            else {
-                                initialized.current = true;
-                            }
-                        }, [value]);
-                        return [value, setValue];
+                        if (target.model.events.includes(attr)) {
+                            return use_event_state(React, react_proxy, prop, model, attr);
+                        }
+                        return use_model_state(React, react_proxy, prop, model, attr);
                     };
                 }
                 else if (name === "get_child") {
@@ -32007,12 +32891,12 @@ export default {React, createRoot}`;
                         if (!(0, types_1.isArray)(value)) {
                             return React.createElement(Child, { parent: target, name: child });
                         }
-                        const [children_state, set_children] = React.useState(() => value.map((model) => React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id, model })));
+                        const [children_state, set_children] = React.useState(() => unique_models(value).map((model) => React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id, model })));
                         React.useEffect(() => {
                             // Compares against the latest state, not the closure's initial
                             // one, and catches lists that only shrank.
                             const cb = () => {
-                                const current_models = data_model.attributes[child];
+                                const current_models = unique_models(data_model.attributes[child]);
                                 set_children((previous) => {
                                     if (previous.length === current_models.length &&
                                         current_models.every((model, i) => model.id === previous[i].props.id)) {
@@ -32149,7 +33033,7 @@ ${compiled}`;
     }
     exports.ReactComponent = ReactComponent;
 },
-"61cc258c24": /* models/reactive_html.js */ function _(require, module, exports, __esModule, __esExport) {
+"44b7d77ba5": /* models/reactive_html.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const preact_1 = require("ed32986312") /* preact */;
     const hooks_1 = require("691acbd345") /* preact/hooks */;
@@ -32161,10 +33045,10 @@ ${compiled}`;
     const object_1 = require("@bokehjs/core/util/object");
     const model_1 = require("@bokehjs/model");
     const ui_element_1 = require("@bokehjs/models/ui/ui_element");
-    const data_1 = require("be689f0377") /* ./data */;
+    const data_1 = require("ce212d2be6") /* ./data */;
     const event_to_object_1 = require("e5a0036205") /* ./event-to-object */;
-    const html_1 = require("9012c2f5ae") /* ./html */;
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const html_1 = require("e40e09e4dd") /* ./html */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     function serialize_attrs(attrs) {
         const serialized = {};
@@ -32394,7 +33278,7 @@ ${compiled}`;
         }
         _render_child(child, el) {
             if ((0, types_1.isString)(child)) {
-                el.innerHTML = (0, html_1.html_decode)(child) ?? child;
+                el.innerHTML = child;
             }
             else {
                 const view = this._child_views.get(child);
@@ -32459,6 +33343,7 @@ ${compiled}`;
             let htm = literal.replace(/[`]/g, "\\$&");
             let collected_callbacks = "";
             const methods = [];
+            const targets = {};
             for (const [el_name, callbacks] of (0, object_1.entries)(this.model.callbacks)) {
                 for (const [cb, method] of callbacks) {
                     let definition;
@@ -32479,21 +33364,9 @@ ${compiled}`;
           `;
                     }
                     else {
-                        definition = `
-          const ${method} = (event) => {
-            let elname = "${el_name}"
-            if (RegExp("\{\{.*loop\.index.*\}\}").test(elname)) {
-              const pattern = RegExp(elname.replace(/\{\{(.+?)\}\}/g, String.fromCharCode(92) + "d+"))
-              for (const p of event.path) {
-                if (pattern.exec(p.id) != null) {
-                  elname = p.id.split("-").slice(null, -1).join("-")
-                  break
-                }
-              }
-            }
-            view._send_event(elname, "${cb}", event)
-          }
-          `;
+                        targets[method] = targets[method] ?? [];
+                        targets[method].push([el_name, cb]);
+                        continue;
                     }
                     if (methods.indexOf(method) > -1) {
                         continue;
@@ -32501,6 +33374,33 @@ ${compiled}`;
                     methods.push(method);
                     collected_callbacks += definition;
                 }
+            }
+            for (const [method, method_targets] of (0, object_1.entries)(targets)) {
+                // Nodes sharing a callback must resolve the node from the event
+                // path, since only a single function is defined per method name.
+                collected_callbacks += `
+      const ${method} = (event) => {
+        const targets = ${JSON.stringify(method_targets)}
+        let [elname, cb] = targets[0]
+        // currentTarget is the node the listener is attached to, which
+        // differs from the innermost path element for nested nodes.
+        const candidates = [event.currentTarget, ...event.composedPath()]
+        const typed = targets.filter(([, c]) => c === "on" + event.type)
+        const options = typed.length ? typed : targets
+        for (const p of candidates) {
+          const match = p == null ? null : options.find(([name]) => {
+            const pattern = name.replace(/\\{\\{(.+?)\\}\\}/g, String.fromCharCode(92) + "d+")
+            return RegExp("^" + pattern + "(-[0-9]+)*-[^-]+$").test(p.id)
+          })
+          if (match != null) {
+            elname = p.id.split("-").slice(null, -1).join("-")
+            cb = match[1]
+            break
+          }
+        }
+        view._send_event(elname, cb, event)
+      }
+      `;
             }
             htm = htm
                 .replaceAll("${model.", "$-{model.")
@@ -33213,7 +34113,7 @@ ${compiled}`;
 },
 "95fa78f501": /* models/speech_to_text.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const iconStarted = `<svg xmlns="http://www.w3.org/2000/svg" height="22px" style="vertical-align: middle;" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
   <path fill-rule="evenodd" d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
   <path fill-rule="evenodd" d="M10 8V3a2 2 0 1 0-4 0v5a2 2 0 1 0 4 0zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
@@ -33500,7 +34400,7 @@ ${compiled}`;
     }
     exports.State = State;
 },
-"3cba64cc82": /* models/tabs.js */ function _(require, module, exports, __esModule, __esExport) {
+"c5ac7daa0f": /* models/tabs.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
     const tabs = tslib_1.__importStar(require("@bokehjs/styles/tabs.css"));
@@ -33522,8 +34422,19 @@ ${compiled}`;
         element.setAttribute("aria-hidden", "true");
     }
     class TabsView extends tabs_1.TabsView {
+        _children_update = Promise.resolve();
+        // build_views is not reentrant
+        update_children() {
+            const update = this._children_update.then(() => super.update_children());
+            this._children_update = update.catch(() => { });
+            return update;
+        }
         connect_signals() {
             super.connect_signals();
+            this.on_transitive_change(this.model.properties.tabs, () => {
+                this._update_headers();
+                this.update_active();
+            }, { signal: (tab) => tab.properties.title.change });
             let view = this;
             while (view != null) {
                 if (view.model.type.endsWith("Tabs")) {
@@ -33629,7 +34540,7 @@ ${compiled}`;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     class KeystrokeEvent extends bokeh_events_1.ModelEvent {
         key;
         constructor(key) {
@@ -33794,7 +34705,7 @@ ${compiled}`;
 },
 "1fb38b62cd": /* models/text_to_speech.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     function toVoicesList(voices) {
         const voicesList = [];
         for (const voice of voices) {
@@ -33980,7 +34891,7 @@ ${compiled}`;
 },
 "49efbd99ad": /* models/toggle_icon.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const icon_1 = require("bf77ad153d") /* ./icon */;
+    const icon_1 = require("ac804884fa") /* ./icon */;
     class ToggleIconView extends icon_1.ClickableIconView {
         *controls() { }
         click() {
@@ -34096,7 +35007,7 @@ ${compiled}`;
 },
 "eb967020e9": /* models/trend.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const build_views_1 = require("@bokehjs/core/build_views");
     const plots_1 = require("@bokehjs/models/plots");
     const glyphs_1 = require("@bokehjs/models/glyphs");
@@ -34320,14 +35231,14 @@ ${compiled}`;
     }
     exports.TrendIndicator = TrendIndicator;
 },
-"03e8d20a08": /* models/vega.js */ function _(require, module, exports, __esModule, __esExport) {
+"b6824c5110": /* models/vega.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const types_1 = require("@bokehjs/core/util/types");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
-    const layout_1 = require("00beb93e38") /* ./layout */;
-    const resources_1 = require("3ec7d872e2") /* ./resources */;
+    const layout_1 = require("1874377162") /* ./layout */;
+    const resources_1 = require("133ce95cfa") /* ./resources */;
     const debounce_1 = require("99a25e6992") /* debounce */;
     class VegaEvent extends bokeh_events_1.ModelEvent {
         data;
@@ -34346,11 +35257,15 @@ ${compiled}`;
     class VegaPlotView extends layout_dom_1.LayoutDOMView {
         vega_view;
         container;
-        _callbacks;
-        _connected;
+        _connected = new Set();
+        _listeners = new Set();
+        _dirty_sources = new Set();
+        _data_update = null;
         _replot;
-        _resize;
-        _rendered = false;
+        _replot_pending = false;
+        _embed_id = 0;
+        _resize_frame = null;
+        _last_size = null;
         async lazy_initialize() {
             await super.lazy_initialize();
             const error = await (0, resources_1.await_resources)(this.model);
@@ -34363,34 +35278,76 @@ ${compiled}`;
             const { data, show_actions, theme, data_sources, events } = this.model.properties;
             this._replot = (0, debounce_1.debounce)(() => this._plot(), 20);
             this.on_change([data, show_actions, theme], () => {
+                this._replot_pending = true;
                 this._replot();
             });
             this.on_change(data_sources, () => this._connect_sources());
-            this.on_change(events, () => {
-                for (const event of this.model.events) {
-                    if (this._callbacks.indexOf(event) > -1) {
-                        continue;
-                    }
-                    this._callbacks.push(event);
-                    const callback = (name, value) => this._dispatch_event(name, value);
-                    const timeout = this.model.throttle[event] || 20;
-                    this.vega_view.addSignalListener(event, (0, debounce_1.debounce)(callback, timeout, false));
-                }
-            });
-            this._connected = [];
+            this.on_change(events, () => this._add_listeners());
             this._connect_sources();
         }
         _connect_sources() {
-            for (const ds in this.model.data_sources) {
-                const cds = this.model.data_sources[ds];
-                if (this._connected.indexOf(ds) < 0) {
-                    this.connect(cds.properties.data.change, () => this._replot());
-                    this._connected.push(ds);
+            for (const name in this.model.data_sources) {
+                const cds = this.model.data_sources[name];
+                if (!this._connected.has(cds)) {
+                    this.connect(cds.properties.data.change, () => this._source_changed(name));
+                    this._connected.add(cds);
                 }
             }
         }
+        /**
+         * Pushes changed datasets into the existing Vega View rather than
+         * recompiling the spec, coalescing changes made in the same patch.
+         */
+        _source_changed(name) {
+            this._dirty_sources.add(name);
+            if (this._data_update == null) {
+                this._data_update = Promise.resolve().then(() => {
+                    this._data_update = null;
+                    this._update_data();
+                });
+            }
+        }
+        _update_data() {
+            if (this._dirty_sources.size === 0 || this._replot_pending) {
+                this._dirty_sources.clear();
+                return;
+            }
+            const view = this.vega_view;
+            if (view == null) {
+                // Applied once the embed in flight resolves, or fetched by render()
+                return;
+            }
+            const names = [...this._dirty_sources];
+            this._dirty_sources.clear();
+            for (const name of names) {
+                const cds = this.model.data_sources[name];
+                if (cds == null) {
+                    continue;
+                }
+                const values = this._fetch_dataset(cds);
+                const dataset = this._store_values(name, values);
+                try {
+                    view.data(dataset, values);
+                }
+                catch {
+                    // The dataset is not part of the compiled dataflow (e.g. the spec
+                    // was restructured), so fall back to re-embedding the spec.
+                    this._replot_pending = true;
+                    this._replot();
+                    return;
+                }
+            }
+            view.runAsync();
+        }
         remove() {
+            // Also discards the result of an embed still in flight
+            this._embed_id++;
+            if (this._resize_frame != null) {
+                cancelAnimationFrame(this._resize_frame);
+                this._resize_frame = null;
+            }
             this.vega_view?.finalize();
+            this.vega_view = null;
             super.remove();
         }
         _dispatch_event(name, value) {
@@ -34413,84 +35370,142 @@ ${compiled}`;
             }
             this.model.trigger_event(new VegaEvent({ type: name, value }));
         }
-        _fetch_datasets() {
-            const datasets = {};
-            for (const ds in this.model.data_sources) {
-                const cds = this.model.data_sources[ds];
-                const data = [];
-                const columns = cds.columns();
-                for (let i = 0; i < cds.get_length(); i++) {
-                    const item = {};
-                    for (const column of columns) {
-                        item[column] = cds.data[column][i];
-                    }
-                    data.push(item);
+        _fetch_dataset(cds) {
+            const data = [];
+            const columns = cds.columns();
+            for (let i = 0; i < cds.get_length(); i++) {
+                const item = {};
+                for (const column of columns) {
+                    item[column] = cds.data[column][i];
                 }
-                datasets[ds] = data;
+                data.push(item);
             }
-            return datasets;
+            return data;
+        }
+        /**
+         * Writes the values of a data source into the spec, returning the name
+         * of the dataset they end up in once the spec is compiled by Vega.
+         */
+        _store_values(name, values) {
+            const { data } = this.model;
+            if (name === "data" && data.data != null && !(0, types_1.isArray)(data.data)) {
+                data.data.values = values;
+                return data.data.name ?? "source_0";
+            }
+            if (data.data != null) {
+                const data_objs = (0, types_1.isArray)(data.data) ? data.data : [data.data];
+                for (const d of data_objs) {
+                    if (d.name === name) {
+                        d.values = values;
+                        return name;
+                    }
+                }
+            }
+            data.datasets = data.datasets ?? {};
+            data.datasets[name] = values;
+            return name;
         }
         get child_models() {
             return [];
         }
         render() {
             super.render();
-            this._rendered = false;
             this.container = (0, dom_1.div)();
             (0, layout_1.set_size)(this.container, this.model);
-            this._callbacks = [];
             this._plot();
             this.shadow_el.append(this.container);
         }
         _plot() {
+            this._replot_pending = false;
             const data = this.model.data;
             if ((data == null) || !window.vegaEmbed) {
                 return;
             }
-            if (this.model.data_sources && (Object.keys(this.model.data_sources).length > 0)) {
-                const datasets = this._fetch_datasets();
-                if ("data" in datasets) {
-                    data.data.values = datasets.data;
-                    delete datasets.data;
-                }
-                if (data.data != null) {
-                    const data_objs = (0, types_1.isArray)(data.data) ? data.data : [data.data];
-                    for (const d of data_objs) {
-                        if (d.name in datasets) {
-                            d.values = datasets[d.name];
-                            delete datasets[d.name];
-                        }
-                    }
-                }
-                this.model.data.datasets = datasets;
+            for (const name in this.model.data_sources) {
+                this._store_values(name, this._fetch_dataset(this.model.data_sources[name]));
             }
+            this._dirty_sources.clear();
             const config = { actions: this.model.show_actions, theme: this.model.theme };
+            // vegaEmbed replaces the container contents but leaves the previous
+            // View (and its timers and listeners) running, so finalize it here.
+            this.vega_view?.finalize();
+            this.vega_view = null;
+            this._listeners.clear();
+            const embed_id = ++this._embed_id;
             window.vegaEmbed(this.container, this.model.data, config).then((result) => {
-                this.vega_view = result.view;
-                this._resize = (0, debounce_1.debounce)(() => this.resize_view(result.view), 50);
-                const callback = (name, value) => this._dispatch_event(name, value);
-                for (const event of this.model.events) {
-                    this._callbacks.push(event);
-                    const timeout = this.model.throttle[event] || 20;
-                    this.vega_view.addSignalListener(event, (0, debounce_1.debounce)(callback, timeout, false));
+                if (embed_id !== this._embed_id) {
+                    result.view.finalize();
+                    return;
                 }
+                this.vega_view = result.view;
+                // The container may have changed size while the spec was compiling
+                this._last_size = null;
+                this._add_listeners();
+                this._update_data();
+                this._schedule_resize();
             });
+        }
+        _add_listeners() {
+            const view = this.vega_view;
+            if (view == null) {
+                return;
+            }
+            for (const event of this.model.events) {
+                if (this._listeners.has(event)) {
+                    continue;
+                }
+                this._listeners.add(event);
+                const callback = (name, value) => this._dispatch_event(name, value);
+                const timeout = this.model.throttle[event] || 20;
+                view.addSignalListener(event, (0, debounce_1.debounce)(callback, timeout, false));
+            }
         }
         after_layout() {
             super.after_layout();
-            if (this.vega_view != null) {
-                this._resize();
-            }
+            this._schedule_resize();
         }
-        resize_view(view) {
-            const canvas = view._renderer.canvas();
-            if (!this._rendered && canvas !== null) {
-                for (const listener of view._eventListeners) {
-                    if (listener.type === "resize") {
-                        listener.handler(new Event("resize"));
-                    }
+        // Bokeh's ResizeObserver calls this whenever the element's box changes,
+        // including CSS-driven changes (flex, splitters) that skip after_layout.
+        _after_resize() {
+            super._after_resize();
+            this._schedule_resize();
+        }
+        _container_size() {
+            return [this.container.clientWidth, this.container.clientHeight];
+        }
+        _schedule_resize() {
+            if (this._resize_frame != null) {
+                return;
+            }
+            this._resize_frame = requestAnimationFrame(() => {
+                this._resize_frame = null;
+                this._resize();
+            });
+        }
+        /**
+         * Container-sized specs only measure their container on window resize
+         * events, so replay those whenever the container itself changes size.
+         * Remembering the measured size breaks the loop where the redraw
+         * resizes the container again.
+         */
+        _resize() {
+            const view = this.vega_view;
+            if (view == null) {
+                return;
+            }
+            const [width, height] = this._container_size();
+            if (width === 0 || height === 0) {
+                return;
+            }
+            const last = this._last_size;
+            if (last != null && last[0] === width && last[1] === height) {
+                return;
+            }
+            this._last_size = [width, height];
+            for (const listener of view._eventListeners) {
+                if (listener.type === "resize") {
+                    listener.handler(new Event("resize"));
                 }
-                this._rendered = true;
             }
         }
     }
@@ -34523,7 +35538,7 @@ ${compiled}`;
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     const video_css_1 = tslib_1.__importDefault(require("dfe21e6f1b") /* styles/models/video.css */);
     class VideoView extends layout_1.HTMLBoxView {
         video_el;
@@ -34683,7 +35698,7 @@ ${compiled}`;
 },
 "73b5826147": /* models/videostream.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     class VideoStreamView extends layout_1.HTMLBoxView {
         videoEl;
         canvasEl;
@@ -34804,7 +35819,7 @@ ${compiled}`;
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const layout_1 = require("00beb93e38") /* ./layout */;
+    const layout_1 = require("1874377162") /* ./layout */;
     class VizzuEvent extends bokeh_events_1.ModelEvent {
         data;
         event_name = "vizzu_event";
@@ -35068,7 +36083,7 @@ ${compiled}`;
     const object_1 = require("@bokehjs/core/util/object");
     const color_mapper_1 = require("@bokehjs/models/mappers/color_mapper");
     const kinds_1 = require("@bokehjs/core/kinds");
-    const layout_1 = require("00beb93e38") /* ../layout */;
+    const layout_1 = require("1874377162") /* ../layout */;
     const util_1 = require("df9946ff52") /* ./util */;
     const vtkcolorbar_1 = require("db98967aab") /* ./vtkcolorbar */;
     const vtkaxes_1 = require("a9b2ad3ad4") /* ./vtkaxes */;
@@ -36636,5 +37651,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"36236053e8","models/ace":"7b034b2ba5","models/layout":"00beb93e38","models/resources":"3ec7d872e2","models/util":"aa07eb54cc","models/anywidget_component":"f4bc4e23b4","models/reactive_esm":"f3226cbf82","models/event-to-object":"e5a0036205","models/html":"9012c2f5ae","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fdf76c2b8b","models/browser":"f25f215a58","models/button":"29120fca73","models/button_icon":"7e77f478cb","models/icon":"bf77ad153d","models/card":"a668a42a0f","models/column":"3967d78fb5","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"138d8a2ed1","models/chatarea_input":"a9ce3554f5","models/textarea_input":"2f8fe6797e","models/comm_manager":"f8f420cdc3","models/customselect":"519009caed","models/multiselect":"8653ba687c","models/tabulator":"381057489b","models/cell_formatters":"254387d0dc","models/data":"be689f0377","styles/models/tabulator.css":"b0fdc4e99b","models/datetime_picker":"7408873be7","models/datetime_slider":"47671196f6","models/deckgl":"609f06c18b","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"eee856b107","models/player":"ed49986321","models/echarts":"df5e7d36e5","models/feed":"56255f9c11","models/file_download":"a7746def5a","models/file_dropper":"bff8eeed36","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"fd4c3f6bc4","models/json":"19285971d9","models/jsoneditor":"372d3e3a52","styles/models/jsoneditor.css":"317a12d360","models/katex":"052b7b0298","models/location":"2116677c2d","models/mathjax":"07688254ed","models/modal":"37ed29726e","styles/models/modal.css":"be4b4352c6","models/pdf":"87a65d7fb5","models/perspective":"7a00e4d590","styles/models/perspective.css":"2e2913ea54","models/plotly":"39230f6818","styles/models/plotly.css":"3d56c75186","models/progress":"443fb5cf42","models/quill":"3df70ba3b3","models/radio_button_group":"08a22fed1a","models/react_component":"e74ecd40bb","models/reactive_html":"61cc258c24","models/singleselect":"3766e0c917","models/speech_to_text":"95fa78f501","models/state":"188544eb0b","models/tabs":"3cba64cc82","models/terminal":"4fecff5c68","models/text_input":"e9d16ed037","models/text_to_speech":"1fb38b62cd","models/time_picker":"5e05e2d651","models/toggle_icon":"49efbd99ad","models/tooltip_icon":"aad04f1876","models/trend":"eb967020e9","models/vega":"03e8d20a08","models/video":"e8830cc759","styles/models/video.css":"dfe21e6f1b","models/videostream":"73b5826147","models/vizzu":"e8cb25b7b8","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"f0476173e2","models/vtk/vtklayout":"d44e946ae8","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"db98967aab","models/vtk/vtkaxes":"a9b2ad3ad4","models/vtk/vtkvolume":"2d0f1e4d96","models/vtk/vtksynchronized":"04077eec70","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"606d4d059d","models/ace":"95cdd35e17","models/layout":"1874377162","models/resources":"133ce95cfa","models/util":"aa07eb54cc","styles/models/ace.css":"63195d7453","models/anywidget_component":"f4bc4e23b4","models/reactive_esm":"63ae31d699","models/event-to-object":"e5a0036205","models/html":"e40e09e4dd","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fdf76c2b8b","models/browser":"f25f215a58","models/button":"29120fca73","models/button_icon":"7e77f478cb","models/icon":"ac804884fa","models/card":"a668a42a0f","models/column":"3967d78fb5","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"138d8a2ed1","models/chatarea_input":"a9ce3554f5","models/textarea_input":"2f8fe6797e","models/comm_manager":"5f6e6991cc","models/customselect":"9bb1156335","models/multiselect":"8653ba687c","models/tabulator":"ccaec0a50f","models/cell_formatters":"254387d0dc","models/data":"ce212d2be6","styles/models/tabulator.css":"b0fdc4e99b","models/datetime_picker":"7408873be7","models/datetime_slider":"47671196f6","models/deckgl":"2b9c25734d","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"eee856b107","models/player":"ed49986321","models/echarts":"df5e7d36e5","models/feed":"21518e4c71","models/file_download":"a7746def5a","models/file_dropper":"bff8eeed36","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"fd4c3f6bc4","models/json":"19285971d9","models/jsoneditor":"372d3e3a52","styles/models/jsoneditor.css":"317a12d360","models/katex":"052b7b0298","models/location":"cc871e1a06","models/mathjax":"07688254ed","models/modal":"37ed29726e","styles/models/modal.css":"be4b4352c6","models/pdf":"87a65d7fb5","models/perspective":"7a00e4d590","styles/models/perspective.css":"2e2913ea54","models/plotly":"f8b44cbee4","styles/models/plotly.css":"3d56c75186","models/progress":"443fb5cf42","models/quill":"3df70ba3b3","models/radio_button_group":"08a22fed1a","models/react_component":"da0e69965d","models/reactive_html":"44b7d77ba5","models/singleselect":"3766e0c917","models/speech_to_text":"95fa78f501","models/state":"188544eb0b","models/tabs":"c5ac7daa0f","models/terminal":"4fecff5c68","models/text_input":"e9d16ed037","models/text_to_speech":"1fb38b62cd","models/time_picker":"5e05e2d651","models/toggle_icon":"49efbd99ad","models/tooltip_icon":"aad04f1876","models/trend":"eb967020e9","models/vega":"b6824c5110","models/video":"e8830cc759","styles/models/video.css":"dfe21e6f1b","models/videostream":"73b5826147","models/vizzu":"e8cb25b7b8","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"f0476173e2","models/vtk/vtklayout":"d44e946ae8","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"db98967aab","models/vtk/vtkaxes":"a9b2ad3ad4","models/vtk/vtkvolume":"2d0f1e4d96","models/vtk/vtksynchronized":"04077eec70","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

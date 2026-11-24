@@ -17,7 +17,14 @@ import torch
 from sklearn.metrics import get_scorer
 from skorch import NeuralNet
 from skorch.callbacks import BatchScoring, EpochScoring, EpochTimer, PrintLog
-from skorch.utils import noop, to_numpy, train_loss_score, valid_loss_score
+from skorch.utils import (
+    data_from_dataset,
+    is_skorch_dataset,
+    noop,
+    to_numpy,
+    train_loss_score,
+    valid_loss_score,
+)
 
 from braindecode.datautil import infer_signal_properties
 
@@ -39,9 +46,16 @@ def _get_model(model: Any) -> Any:
     return model
 
 
+def _select_array(X, indices):
+    """Index arrays and tensors; skorch's default fails on a ``range``."""
+    return X[indices] if isinstance(X, (np.ndarray, torch.Tensor)) else None
+
+
 class _EEGNeuralNet(NeuralNet, abc.ABC):
     signal_args_set_ = False
     _warned_drop_last_ = False
+    cropped: bool = False
+    _last_window_inds_: Any = None
 
     @property
     def log(self):
@@ -55,7 +69,12 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
         If the module is already initialized and no parameter was changed, it
         will be left as is.
         """
-        kwargs = self.get_params_for("module")
+        # The module parameters the user passes take precedence over the ones
+        # inferred from the data at the last fit.
+        kwargs = {
+            **getattr(self, "_inferred_module_kwargs_", {}),
+            **self.get_params_for("module"),
+        }
         module = _get_model(self.module)
         module = self.initialized_instance(module, kwargs)
         # pylint: disable=attribute-defined-outside-init
@@ -130,6 +149,23 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
             (valid_name, valid_scoring, named_by_user),
         ]
         return train_valid_callbacks
+
+    def get_split_datasets(self, X, y=None, **fit_params):
+        """Split the data, then fit the module's graph on the training windows.
+
+        ``fit_loop`` calls this once per fit, and the training windows exist
+        only after the split: ``on_train_begin`` receives the unsplit ``X``.
+        """
+        dataset_train, dataset_valid = super().get_split_datasets(X, y, **fit_params)
+        fit_graph = getattr(getattr(self, "module_", None), "fit_graph", None)
+        if fit_graph is not None and is_skorch_dataset(dataset_train):
+            windows, _ = data_from_dataset(
+                dataset_train, X_indexing=_select_array, y_indexing=noop
+            )
+            # Other inputs, e.g. window datasets, leave the graph to the module.
+            if isinstance(windows, (np.ndarray, torch.Tensor)) and len(windows):
+                fit_graph(torch.as_tensor(windows))
+        return dataset_train, dataset_valid
 
     def on_batch_end(self, net, *batch, training=False, **kwargs):
         # If training is false, assume that our loader has indices for this
@@ -230,6 +266,7 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
         pass
 
     def _set_signal_args(self, X, y, classes):
+        self._inferred_module_kwargs_ = {}
         is_init = isinstance(self.module, torch.nn.Module)
         if is_init:
             self.log.info(
@@ -242,13 +279,12 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
             return
         if classes is None:
             classes = getattr(self, "classes", None)
-        signal_kwargs = infer_signal_properties(X, y, mode=self.mode, classes=classes)
+        # An n_outputs the user passes is used as is, the targets are not read for it.
+        n_outputs = self.get_params_for("module").get("n_outputs")
+        signal_kwargs = infer_signal_properties(
+            X, y, mode=self.mode, classes=classes, n_outputs=n_outputs
+        )
         module = _get_model(self.module)
-        # Model-specific values computed from the data (e.g. GCNsNet's graph);
-        # the signal properties take precedence.
-        infer_model_kwargs = getattr(module, "_infer_model_kwargs", None)
-        if infer_model_kwargs is not None:
-            signal_kwargs = {**infer_model_kwargs(X, y), **signal_kwargs}
         if not signal_kwargs:
             return
 
@@ -264,24 +300,22 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
                 self.log.warning(f"Module {self.module!r} is missing parameter {k!r}.")
 
         # kick out inferred signal kwargs if user specifies kwargs:
-        user_specified_kwargs = self.get_params_for("module").items()
+        user_specified_kwargs = self.get_params_for("module")
         if len(user_specified_kwargs) > 0:
             self.log.info(
                 f"Overriding inferred parameters with user "
-                f"specified parameters{user_specified_kwargs!r}."
+                f"specified parameters{user_specified_kwargs.items()!r}."
             )
-            for k, v in self.get_params_for("module").items():
-                if k in module_kwargs:
-                    module_kwargs.pop(k)
-                    module_kwargs[k] = v
+            for k in user_specified_kwargs:
+                module_kwargs.pop(k, None)
 
-        # save kwargs to self:
+        # Inferred values are fitted state, not estimator parameters. They stay out
+        # of get_params, so clone() and the next fit infer them from their own data.
         self.log.info(
             f"Passing additional parameters {module_kwargs!r} "
             f"to module {self.module!r}."
         )
-        module_kwargs = {f"module__{k}": v for k, v in module_kwargs.items()}
-        self.set_params(**module_kwargs)
+        self._inferred_module_kwargs_ = module_kwargs
 
     def get_dataset(self, X, y=None):
         """Get a dataset that contains the input data and is passed to.
@@ -322,7 +356,7 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
             X = X.get_data(units="uV")
         return super().get_dataset(X, y)
 
-    def get_iterator(self, dataset, training=False):
+    def get_iterator(self, dataset, training=False, drop_index=True):
         iterator = super().get_iterator(dataset, training=training)
         # Warn (once per fit) if drop_last would discard every training batch,
         # e.g. a training set smaller than batch_size. This silently skips
@@ -379,6 +413,8 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
           * other Dataset: ``n_times``, ``n_chans``
           * other types: no parameters are inferred.
 
+        Class probabilities need ``module__n_outputs`` or ``classes``.
+
         Parameters
         ----------
         X : input data, compatible with skorch.dataset.Dataset
@@ -420,7 +456,9 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
         If the module was already initialized, by calling fit, the
         module will be re-initialized (unless ``warm_start`` is True).
         If possible, signal-related parameters are inferred from the
-        data and passed to the module at initialisation.
+        data and passed to the module at initialisation. They are inferred
+        again at every fit that re-initializes the module, and they are not
+        estimator parameters: ``get_params`` and ``clone`` leave them out.
         Depending on the type of input passed, the following parameters
         are inferred:
 
@@ -431,6 +469,8 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
             (or BaseConcatDataset of such datasets): ``n_times``, ``n_chans``, ``n_outputs``
           * other Dataset: ``n_times``, ``n_chans``
           * other types: no parameters are inferred.
+
+        Class probabilities need ``module__n_outputs`` or ``classes``.
 
         Parameters
         ----------
@@ -460,7 +500,9 @@ class _EEGNeuralNet(NeuralNet, abc.ABC):
         """
         # this needs to be executed before the net is initialized:
         self._warned_drop_last_ = False  # re-check on every fresh fit
-        if not self.signal_args_set_:
+        # skorch re-initializes the module unless it warm-starts an initialized
+        # one, so the signal parameters are inferred again from this data.
+        if not self.signal_args_set_ or not (self.warm_start and self.initialized_):
             self._set_signal_args(X, y, classes=None)
             self.signal_args_set_ = True
         return super().fit(X=X, y=y, **fit_params)

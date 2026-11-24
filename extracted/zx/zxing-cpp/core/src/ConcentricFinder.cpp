@@ -5,7 +5,7 @@
 
 #include "ConcentricFinder.h"
 
-#include "LogMatrix.h"
+#include "Log.h"
 #include "RegressionLine.h"
 #include "ZXAlgorithms.h"
 
@@ -21,7 +21,7 @@ static std::optional<ConcentricPattern> AverageEdgePixels(BitMatrixCursorI cur, 
 			return {};
 		totalSteps += steps;
 		sum += centered(cur.p) + centered(cur.p + cur.back());
-		log(cur.p + cur.back(), 2);
+		log(cur.p + cur.back(), LOG_G);
 	}
 	return ConcentricPattern{sum / (2 * numOfEdges), totalSteps};
 }
@@ -75,7 +75,7 @@ std::optional<ConcentricPattern> CenterOfRing(const BitMatrix& image, PointI cen
 	const int maxR = requireCircle ? width + 1 : 2 * width;
 	bool inner = nth < 0;
 	nth = std::abs(nth);
-	log(center, 3);
+	log(center, LOG_B);
 	BitMatrixCursorI cur(image, center, {1, 0});
 	if (!cur.stepToEdge(nth, maxR, inner))
 		return {};
@@ -91,7 +91,7 @@ std::optional<ConcentricPattern> CenterOfRing(const BitMatrix& image, PointI cen
 	double sumR2 = 0, mR = maxR, MR = 0;
 #endif
 	do {
-		log(cur.p, 4);
+		log(cur.p, LOG_R);
 		sumP += centered(cur.p);
 		++nP;
 
@@ -120,9 +120,11 @@ std::optional<ConcentricPattern> CenterOfRing(const BitMatrix& image, PointI cen
 	double centerMove = distance(meanP, PointF(center)) / width; // normalized distance between estimated and calculated center
 #ifdef PRINT_DEBUG
 	auto variation = std::sqrt(sumR2 / nP - meanR * meanR) / meanR;
-	printf("CenterOfRing: center=(%4d,%4d), width=%3d, nth=%d, reqCircle=%d, n=%3d, meanR=%5.2f, var=%5.2f, C=%5.2f, mR=%4.1f, MR=%4.1f, "
-		   "neighbourMask=%x -> res=(%5.1f,%5.1f), delta=%3.1f\n",
-		   center.x*5, center.y*5, width, nth, requireCircle, nP, meanR, variation, C, mR, MR, neighbourMask, meanP.x*5, meanP.y*5, centerMove);
+	log_l(
+		"CenterOfRing: center=(%4d,%4d), width=%3d, nth=%d, reqCircle=%d, n=%3d, meanR=%5.2f, var=%5.2f, C=%5.2f, mR=%4.1f, MR=%4.1f, "
+		"neighbourMask=%x -> res=(%5.1f,%5.1f), delta=%3.1f",
+		center.x * 5 + 2, center.y * 5 + 2, width, nth, requireCircle, nP, meanR, variation, C, mR, MR, neighbourMask, meanP.x * 5,
+		meanP.y * 5, centerMove);
 #endif
 	// C > 12 means that the edge is very irregular, centerMove > 0.5 means the center moved more than half the estimated width of the ring
 	if (requireCircle && (C > 12 || centerMove > 0.5))
@@ -171,7 +173,7 @@ static std::vector<PointF> CollectRingPoints(const BitMatrix& image, PointF cent
 	points.reserve(maxN / 2);
 
 	do {
-		log(cur.p, 4);
+		log(cur.p, LOG_R);
 		points.push_back(centered(cur.p));
 
 		// find out if we come full circle around the center. 8 bits have to be set in the end.
@@ -227,10 +229,8 @@ static std::optional<QuadrilateralF> FitQuadrilateralToPoints(PointF center, std
 		for (const PointF* p = beg[i]; p != end[i]; ++p) {
 			auto len = std::distance(beg[i], end[i]);
 			if (len > 3 && lines[i].distance(*p) > std::max(1., std::min(8., len / 8.))) {
-#ifdef PRINT_DEBUG
-				printf("FitQuadrilateral failed: center=(%3.f,%3.f), i=%d, dist=%.2f > %.2f @ (%3.f,%3.f)\n", center.x, center.y, i,
-					   lines[i].distance(*p), std::distance(beg[i], end[i]) / 8., p->x, p->y);
-#endif
+				log_l("FitQuadrilateral failed: center=(%3.f,%3.f), i=%d, dist=%.2f > %.2f @ (%3.f,%3.f)", center.x, center.y, i,
+					  lines[i].distance(*p), std::distance(beg[i], end[i]) / 8., p->x, p->y);
 				return {};
 			}
 		}
@@ -265,26 +265,28 @@ std::optional<QuadrilateralF> FitSquareToPoints(const BitMatrix& image, PointF c
 	return res;
 }
 
+// Find the corners of a concentric pattern by fitting squares to the ringIndex'th ring around the center.
+// A negative ringIndex finds the switch between 2 rings instead of the center of a ring.
 std::optional<QuadrilateralF> FindConcentricPatternCorners(const BitMatrix& image, PointF center, int width, int ringIndex)
 {
-	auto innerCorners = FitSquareToPoints(image, center, width, ringIndex, false);
+	auto innerCorners = FitSquareToPoints(image, center, width, std::abs(ringIndex), ringIndex < 0);
 	if (!innerCorners)
 		return {};
 
-	auto outerCorners = FitSquareToPoints(image, center, width, ringIndex + 1, true);
+	auto outerCorners = FitSquareToPoints(image, center, width, std::abs(ringIndex) + (ringIndex > 0), ringIndex > 0);
 	if (!outerCorners)
 		return {};
 
 	auto res = Blend(*innerCorners, *outerCorners);
 
 	for (auto p : *innerCorners)
-		log(p, 3);
+		log(p, LOG_B);
 
 	for (auto p : *outerCorners)
-		log(p, 3);
+		log(p, LOG_B);
 
 	for (auto p : res)
-		log(p, 3);
+		log(p, LOG_B);
 
 	return res;
 }

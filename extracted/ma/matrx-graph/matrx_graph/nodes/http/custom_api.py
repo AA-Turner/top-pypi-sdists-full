@@ -40,9 +40,11 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_graph.nodes.http._shared import (
     _DEFAULT_MAX_BYTES,
+    DestinationHopRefused,
     HttpResponse,
     TextOrSecret,
     build_response_from_httpx,
+    destination_hop_failure,
     outbound_client,
     refused_failure,
     resolve_request_secrets,
@@ -243,6 +245,11 @@ class CustomApiExecutor:
     ) -> NodeResult[HttpResponse]:
         from matrx_utils.outbound_guard import OutboundUrlRefused
 
+        from matrx_graph.nodes.http._shared import destination_refused
+
+        if (refused := await destination_refused(inputs.url)) is not None:
+            return refused
+
         prepared = await resolve_request_secrets(
             ctx,
             {
@@ -304,18 +311,20 @@ class CustomApiExecutor:
                 await asyncio.sleep(delay)
                 continue
 
+            except DestinationHopRefused:
+                return destination_hop_failure()
             except OutboundUrlRefused as e:
                 # A refused address is the same on every attempt — never retried.
                 elapsed = int((time.monotonic() - started) * 1000)
-                return found.redact(refused_failure(inputs.url, e, elapsed))
+                return found.redact(refused_failure(e, elapsed))
             except Exception as e:
                 elapsed = int((time.monotonic() - started) * 1000)
                 if attempt == attempts - 1:
                     return found.redact(
-                        transport_failure(inputs.url, f"{type(e).__name__}: {e}", elapsed)
+                        transport_failure(e, elapsed)
                     )
                 delay = _backoff_delay(attempt, config.backoff_base_s, config.max_backoff_s)
                 await asyncio.sleep(delay)
 
         # Unreachable — the final attempt always returns above.
-        return transport_failure(inputs.url, "retry loop exhausted", 0)
+        return transport_failure(RuntimeError(), 0)

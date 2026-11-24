@@ -20,6 +20,8 @@ from pydantic import Field, JsonValue
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.content_ir.sdk import kind
 
+from matrx_ai.tools.kinds.bounded import SelfBoundedFields
+
 
 @kind(
     "task_tool_result",
@@ -39,6 +41,7 @@ class TaskToolResult(KindModel):
     status: str | None = None
     priority: str | None = None
     due_date: str | None = None
+    due_time: str | None = None
     project_id: str | None = None
     parent_task_id: str | None = None
     assignee_id: str | None = None
@@ -58,7 +61,13 @@ class TaskToolResult(KindModel):
     note: str | None = None
     #: `delete` receipt.
     deleted: bool | None = None
+    archived: bool | None = None
     task_id: str | None = None
+    #: UNDO (Planner PS2) on create/update/delete: the row's version after the write, the version it
+    #: replaced (restore with platform.version_restore), and `previous` = old value of each changed field.
+    version: int | None = None
+    previous_version: int | None = None
+    previous: dict | None = None
 
 
 @kind(
@@ -74,7 +83,7 @@ class TaskToolResult(KindModel):
     # PLACEHOLDER — the list/get(full|page)/search union over the skills system.
     maturity="placeholder",
 )
-class SkillToolResult(KindModel):
+class SkillToolResult(KindModel, SelfBoundedFields):
     #: category overview (list with no category).
     categories: list[dict] | None = None
     total_active: int | None = None

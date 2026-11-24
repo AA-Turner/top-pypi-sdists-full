@@ -35,13 +35,14 @@ export type ResourceSpec = {
     shim?: string;
     timeout?: number;
     inline_fallback?: boolean;
+    cdn?: [string, string][];
 };
 /**
  * Maps a Jupyter extension endpoint url to its CDN equivalent, using the
  * map of endpoint paths to CDN urls the notebook bootstrap publishes
- * (Panel's dist, every extension with a CDN and each BokehJS file). Null
- * if the url is not served by the endpoint or has no CDN equivalent, e.g.
- * in server/served-app contexts, where the bootstrap never runs.
+ * (Panel's dist, every extension with a CDN and each BokehJS file). Any
+ * other server extension url goes through the map the specs carry. Null
+ * if the url has no CDN equivalent.
  */
 export declare function cdn_url(url: string): string | null;
 /**

@@ -9,7 +9,7 @@ from scipy import stats
 from sklearn.utils import check_random_state
 
 from .. import _utils
-from ._utils import NULL, OPTIONAL_VALUE
+from ._utils import NULL, OPTIONAL_VALUE, check_if_reserved_name
 
 
 def _with_fields(obj, **fields):
@@ -98,6 +98,7 @@ def _check_name(name):
         raise TypeError(
             f"choice `name` must be a `str` or `None`, got object of type: {type(name)}"
         )
+    check_if_reserved_name(name)
 
 
 class _Ellipsis:
@@ -655,7 +656,7 @@ def choose_bool(*, name=None, default=True):
 
 
 def _check_bounds(low, high, log):
-    if high < low:
+    if high <= low:
         raise ValueError(
             f"'high' must be greater than 'low', got low={low}, high={high}"
         )

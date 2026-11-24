@@ -147,7 +147,9 @@ async def test_the_completion_writes_the_reason(monkeypatch):
     )
     assert applied is True
     merged = writes[0]["metadata"]
-    assert merged.args == ("metadata",) and merged.value == {"stopped": stop}, vars(merged)
+    # The settle-after marker rides the same merge when the host owes after-work (P8-RUNS); the stop is unchanged.
+    stamped = {k: v for k, v in merged.value.items() if k != "_settle_after"}
+    assert merged.args == ("metadata",) and stamped == {"stopped": stop}, vars(merged)
     assert writes[0]["status"] == "completed"
 
     # A later finish with no stop REPLACES the earlier reason (null), never keeps it.
@@ -160,4 +162,4 @@ async def test_the_completion_writes_the_reason(monkeypatch):
         error=None,
         last_checkpoint_id=None,
     )
-    assert writes[1]["metadata"].value == {"stopped": None}, vars(writes[1]["metadata"])
+    assert {k: v for k, v in writes[1]["metadata"].value.items() if k != "_settle_after"} == {"stopped": None}, vars(writes[1]["metadata"])

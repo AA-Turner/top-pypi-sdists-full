@@ -1208,13 +1208,13 @@ def test_throttle_host_compounds_and_floors() -> None:
     from matrx_scraper.rate_limiter import HostRateLimiter
 
     rl = HostRateLimiter(default_rps=4.0, default_burst=8.0)
-    rps1, _ = rl.throttle_host("https://iopbm.com/a", factor=0.5, min_rps=0.5)
+    rps1, _ = rl.throttle_host("https://www.example.com/a", factor=0.5, min_rps=0.5)
     assert rps1 == 2.0
-    rps2, _ = rl.throttle_host("https://iopbm.com/b", factor=0.5, min_rps=0.5)
+    rps2, _ = rl.throttle_host("https://www.example.com/b", factor=0.5, min_rps=0.5)
     assert rps2 == 1.0  # compounds per 429 on the same host
     # Floors — never throttles to zero (which would stall the host forever).
     for _ in range(10):
-        rpsn, _ = rl.throttle_host("https://iopbm.com/c", factor=0.5, min_rps=0.5)
+        rpsn, _ = rl.throttle_host("https://www.example.com/c", factor=0.5, min_rps=0.5)
     assert rpsn == 0.5
 
 
@@ -1227,7 +1227,7 @@ async def test_rate_limited_page_throttles_requeues_then_fails_after_cap(
     It must never emit a page_fetched (a throttled response fetched nothing) and
     must not inflate the failed counter until retries are actually exhausted.
     """
-    from conftest import FAST_CRAWL_KNOBS, bind_crawl_knobs
+    from matrx_scraper.testing_knobs import FAST_CRAWL_KNOBS, bind_crawl_knobs
     from matrx_scraper.host_pacing import PacingKnobs
 
     # Retries per URL are the `crawl.max_retries_per_url` knob (3); the
@@ -1249,7 +1249,7 @@ async def test_rate_limited_page_throttles_requeues_then_fails_after_cap(
     crawler = SiteCrawler(
         run_id="rl-test",
         config=SiteCrawlerConfig(
-            base_url="https://iopbm.com/",
+            base_url="https://www.example.com/",
             render_mode=RENDER_HTTP_ONLY,
             seed_from_sitemap=False,
             host_rps=200.0,
@@ -1282,7 +1282,7 @@ async def test_rate_limited_page_throttles_requeues_then_fails_after_cap(
 
     # Drive one URL through _process MAX+1 times (simulating the requeue loop).
     for _ in range(MAX_RATE_LIMIT_RETRIES + 1):
-        await queue.enqueue(QueueItem("https://iopbm.com/p", 0, None, "seed"))
+        await queue.enqueue(QueueItem("https://www.example.com/p", 0, None, "seed"))
         item = await queue.dequeue()
         assert item is not None
         await crawler._process(item)
@@ -1302,7 +1302,7 @@ async def test_rate_limited_page_throttles_requeues_then_fails_after_cap(
     # throttle factor is what teaches the OTHER lanes. Both must fire.
     from matrx_scraper.rate_limiter import host_key, shared_throttles
 
-    host = host_key("https://iopbm.com/p")
+    host = host_key("https://www.example.com/p")
     assert crawler._rate_limiter._overrides[host][0] < 100.0
     ramp = crawler._ramps[host]
     assert ramp.discovered_limit_rps is not None
@@ -1337,7 +1337,7 @@ async def test_http_first_escalates_blocked_fetch_to_browser(
     crawler = SiteCrawler(
         run_id="fallback-test",
         config=SiteCrawlerConfig(
-            base_url="https://iopbm.com/",
+            base_url="https://www.example.com/",
             seed_from_sitemap=False,
             respect_robots=False,
         ),
@@ -1377,7 +1377,7 @@ async def test_http_first_escalates_blocked_fetch_to_browser(
 
     monkeypatch.setattr(crawler_module, "scrape", blocked_then_browser_ok)
 
-    await queue.enqueue(QueueItem("https://iopbm.com/blocked-page", 0, None, "seed"))
+    await queue.enqueue(QueueItem("https://www.example.com/blocked-page", 0, None, "seed"))
     item = await queue.dequeue()
     assert item is not None
     await crawler._process(item)
@@ -1408,7 +1408,7 @@ async def test_http_first_does_not_browser_retry_a_plain_404(
     crawler = SiteCrawler(
         run_id="no-fallback-404",
         config=SiteCrawlerConfig(
-            base_url="https://iopbm.com/",
+            base_url="https://www.example.com/",
             seed_from_sitemap=False,
             respect_robots=False,
         ),
@@ -1434,7 +1434,7 @@ async def test_http_first_does_not_browser_retry_a_plain_404(
 
     monkeypatch.setattr(crawler_module, "scrape", always_404)
 
-    await queue.enqueue(QueueItem("https://iopbm.com/gone", 0, None, "seed"))
+    await queue.enqueue(QueueItem("https://www.example.com/gone", 0, None, "seed"))
     item = await queue.dequeue()
     assert item is not None
     await crawler._process(item)
@@ -1457,7 +1457,7 @@ async def test_http_first_keeps_original_failure_when_browser_also_fails(
     crawler = SiteCrawler(
         run_id="fallback-both-fail",
         config=SiteCrawlerConfig(
-            base_url="https://iopbm.com/",
+            base_url="https://www.example.com/",
             seed_from_sitemap=False,
             respect_robots=False,
         ),
@@ -1491,7 +1491,7 @@ async def test_http_first_keeps_original_failure_when_browser_also_fails(
 
     monkeypatch.setattr(crawler_module, "scrape", both_fail)
 
-    await queue.enqueue(QueueItem("https://iopbm.com/unreachable", 0, None, "seed"))
+    await queue.enqueue(QueueItem("https://www.example.com/unreachable", 0, None, "seed"))
     item = await queue.dequeue()
     assert item is not None
     await crawler._process(item)

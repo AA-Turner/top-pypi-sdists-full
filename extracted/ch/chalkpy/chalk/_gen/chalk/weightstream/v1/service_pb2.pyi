@@ -1,5 +1,4 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
-from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from chalk._gen.chalk.server.v1 import model_registry_pb2 as _model_registry_pb2
 from chalk._gen.chalk.volume.v2 import volume_pb2 as _volume_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -70,9 +69,7 @@ class WeightStream(_message.Message):
         pinned_version: _Optional[int] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        base_model_version: _Optional[
-            _Union[_model_registry_pb2.ModelVersionKey, _Mapping]
-        ] = ...,
+        base_model_version: _Optional[_Union[_model_registry_pb2.ModelVersionKey, _Mapping]] = ...,
         volume: _Optional[_Union[_volume_pb2.VolumeRef, _Mapping]] = ...,
     ) -> None: ...
 
@@ -136,13 +133,7 @@ class WeightStreamVersion(_message.Message):
     ) -> None: ...
 
 class CreateWeightStreamRequest(_message.Message):
-    __slots__ = (
-        "name",
-        "base_model",
-        "architecture_hash",
-        "base_model_version",
-        "volume",
-    )
+    __slots__ = ("name", "base_model", "architecture_hash", "base_model_version", "volume")
     NAME_FIELD_NUMBER: _ClassVar[int]
     BASE_MODEL_FIELD_NUMBER: _ClassVar[int]
     ARCHITECTURE_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -158,9 +149,7 @@ class CreateWeightStreamRequest(_message.Message):
         name: _Optional[str] = ...,
         base_model: _Optional[str] = ...,
         architecture_hash: _Optional[str] = ...,
-        base_model_version: _Optional[
-            _Union[_model_registry_pb2.ModelVersionKey, _Mapping]
-        ] = ...,
+        base_model_version: _Optional[_Union[_model_registry_pb2.ModelVersionKey, _Mapping]] = ...,
         volume: _Optional[_Union[_volume_pb2.VolumeRef, _Mapping]] = ...,
     ) -> None: ...
 
@@ -168,9 +157,7 @@ class CreateWeightStreamResponse(_message.Message):
     __slots__ = ("weight_stream",)
     WEIGHT_STREAM_FIELD_NUMBER: _ClassVar[int]
     weight_stream: WeightStream
-    def __init__(
-        self, weight_stream: _Optional[_Union[WeightStream, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, weight_stream: _Optional[_Union[WeightStream, _Mapping]] = ...) -> None: ...
 
 class GetWeightStreamRequest(_message.Message):
     __slots__ = ("weight_stream_id", "weight_stream_name")
@@ -178,19 +165,13 @@ class GetWeightStreamRequest(_message.Message):
     WEIGHT_STREAM_NAME_FIELD_NUMBER: _ClassVar[int]
     weight_stream_id: str
     weight_stream_name: str
-    def __init__(
-        self,
-        weight_stream_id: _Optional[str] = ...,
-        weight_stream_name: _Optional[str] = ...,
-    ) -> None: ...
+    def __init__(self, weight_stream_id: _Optional[str] = ..., weight_stream_name: _Optional[str] = ...) -> None: ...
 
 class GetWeightStreamResponse(_message.Message):
     __slots__ = ("weight_stream",)
     WEIGHT_STREAM_FIELD_NUMBER: _ClassVar[int]
     weight_stream: WeightStream
-    def __init__(
-        self, weight_stream: _Optional[_Union[WeightStream, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, weight_stream: _Optional[_Union[WeightStream, _Mapping]] = ...) -> None: ...
 
 class ListWeightStreamsFilters(_message.Message):
     __slots__ = ("names", "base_models")
@@ -199,9 +180,7 @@ class ListWeightStreamsFilters(_message.Message):
     names: _containers.RepeatedScalarFieldContainer[str]
     base_models: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
-        self,
-        names: _Optional[_Iterable[str]] = ...,
-        base_models: _Optional[_Iterable[str]] = ...,
+        self, names: _Optional[_Iterable[str]] = ..., base_models: _Optional[_Iterable[str]] = ...
     ) -> None: ...
 
 class ListWeightStreamsRequest(_message.Message):
@@ -235,17 +214,13 @@ class RecordWeightStreamVersionRequest(_message.Message):
     __slots__ = ("version",)
     VERSION_FIELD_NUMBER: _ClassVar[int]
     version: WeightStreamVersion
-    def __init__(
-        self, version: _Optional[_Union[WeightStreamVersion, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, version: _Optional[_Union[WeightStreamVersion, _Mapping]] = ...) -> None: ...
 
 class RecordWeightStreamVersionResponse(_message.Message):
     __slots__ = ("version",)
     VERSION_FIELD_NUMBER: _ClassVar[int]
     version: WeightStreamVersion
-    def __init__(
-        self, version: _Optional[_Union[WeightStreamVersion, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, version: _Optional[_Union[WeightStreamVersion, _Mapping]] = ...) -> None: ...
 
 class ListWeightStreamVersionsFilters(_message.Message):
     __slots__ = ("kinds", "min_version", "max_version")
@@ -298,17 +273,13 @@ class SetWeightStreamPinRequest(_message.Message):
     VERSION_FIELD_NUMBER: _ClassVar[int]
     weight_stream_id: str
     version: int
-    def __init__(
-        self, weight_stream_id: _Optional[str] = ..., version: _Optional[int] = ...
-    ) -> None: ...
+    def __init__(self, weight_stream_id: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
 class SetWeightStreamPinResponse(_message.Message):
     __slots__ = ("weight_stream",)
     WEIGHT_STREAM_FIELD_NUMBER: _ClassVar[int]
     weight_stream: WeightStream
-    def __init__(
-        self, weight_stream: _Optional[_Union[WeightStream, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, weight_stream: _Optional[_Union[WeightStream, _Mapping]] = ...) -> None: ...
 
 class ClearWeightStreamPinRequest(_message.Message):
     __slots__ = ("weight_stream_id",)
@@ -320,9 +291,7 @@ class ClearWeightStreamPinResponse(_message.Message):
     __slots__ = ("weight_stream",)
     WEIGHT_STREAM_FIELD_NUMBER: _ClassVar[int]
     weight_stream: WeightStream
-    def __init__(
-        self, weight_stream: _Optional[_Union[WeightStream, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, weight_stream: _Optional[_Union[WeightStream, _Mapping]] = ...) -> None: ...
 
 class PromoteWeightStreamVersionRequest(_message.Message):
     __slots__ = ("weight_stream_id", "version", "model_name", "aliases")
@@ -354,7 +323,5 @@ class PromoteWeightStreamVersionResponse(_message.Message):
         self,
         model_version_id: _Optional[str] = ...,
         model_volume_version_id: _Optional[int] = ...,
-        model_version_key: _Optional[
-            _Union[_model_registry_pb2.ModelVersionKey, _Mapping]
-        ] = ...,
+        model_version_key: _Optional[_Union[_model_registry_pb2.ModelVersionKey, _Mapping]] = ...,
     ) -> None: ...

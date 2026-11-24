@@ -376,3 +376,118 @@ async def test_settle_idempotent_and_run_scoped():
     finally:
         await def_store.archive(def_row.id)
         await def_store2.archive(def_row2.id)
+
+
+# ---------------------------------------------------------------------------
+# Firing-scoped release + the claim fence on settle (review of 076b1961)
+# ---------------------------------------------------------------------------
+
+
+async def test_release_frees_only_its_own_firings_claims_and_gives_the_attempt_back():
+    """release_firing_claims matches the claim holder's firing identity —
+    never (run, set, wave) — so another queue on the set, a fan-out sibling
+    or a second delivery keeps its live claims; and the release returns the
+    attempt, so a deploy every 30 minutes never walks an item to dead-letter."""
+    from matrx_graph.workset import work_claim_holder
+
+    store = PostgresWorkSetStore()
+    def_store, def_row, run_id = await _make_run()
+    try:
+        await store.append(
+            run_id,
+            "default",
+            [WorkItemSeed(canonical_key=f"k{i}", max_attempts=2) for i in range(4)],
+        )
+        mine = await store.claim(
+            run_id,
+            "default",
+            limit=2,
+            holder=work_claim_holder("fire-A", "t1"),
+            lease_seconds=600,
+            wave=1,
+        )
+        theirs = await store.claim(
+            run_id,
+            "default",
+            limit=2,
+            holder=work_claim_holder("fire-B", "t2"),
+            lease_seconds=600,
+            wave=1,
+        )
+        assert await store.release_firing_claims(run_id, "default", "fire-A") == len(mine)
+        counts = await store.counts(run_id, "default")
+        assert counts.pending == 2 and counts.in_progress == 2, counts
+
+        # Ten resumes of fire-A: the attempt is handed back every time.
+        for deploy in range(10):
+            again = await store.claim(
+                run_id,
+                "default",
+                limit=2,
+                holder=work_claim_holder("fire-A", f"r{deploy}"),
+                lease_seconds=600,
+                wave=1,
+            )
+            assert {c.id for c in again} == {c.id for c in mine}
+            assert all(c.attempts == 1 for c in again), [c.attempts for c in again]
+            assert await store.release_firing_claims(run_id, "default", "fire-A") == 2
+
+        # fire-B's claims were never touched and still settle under their token.
+        for claim in theirs:
+            assert await store.complete(claim.id, run_id=run_id, claim_token="t2") is True
+        counts = await store.counts(run_id, "default")
+        assert counts.pending == 2 and counts.succeeded == 2 and counts.dead_letter == 0, counts
+    finally:
+        await def_store.archive(def_row.id)
+
+
+async def test_a_worker_whose_claim_was_released_cannot_settle_on_postgres():
+    """complete/fail carry the claim token; a stale worker (its claim was
+    released, then re-claimed by the live execution) is refused by the same
+    guarded UPDATE that would have written — it can never overwrite."""
+    from matrx_graph.workset import work_claim_holder
+
+    store = PostgresWorkSetStore()
+    def_store, def_row, run_id = await _make_run()
+    try:
+        await store.append(run_id, "default", [WorkItemSeed(canonical_key="only")])
+        [stale] = await store.claim(
+            run_id,
+            "default",
+            limit=1,
+            holder=work_claim_holder("fire", "dead"),
+            lease_seconds=600,
+            wave=1,
+        )
+        await store.release_firing_claims(run_id, "default", "fire")
+        assert await store.complete(stale.id, run_id=run_id, claim_token="dead") is False
+        [live] = await store.claim(
+            run_id,
+            "default",
+            limit=1,
+            holder=work_claim_holder("fire", "live"),
+            lease_seconds=600,
+            wave=1,
+        )
+        assert live.id == stale.id
+        assert await store.complete(stale.id, run_id=run_id, claim_token="dead") is False
+        assert await store.fail(stale.id, run_id=run_id, claim_token="dead") is False
+        assert (await store.counts(run_id, "default")).in_progress == 1
+        assert await store.complete(live.id, run_id=run_id, claim_token="live") is True
+        assert (await store.counts(run_id, "default")).succeeded == 1
+
+        # A claim made before firing-scoped holders (holder = the run id)
+        # still settles under any token, and is released by legacy_wave.
+        await store.append(run_id, "default", [WorkItemSeed(canonical_key="old")])
+        [old] = await store.claim(
+            run_id, "default", limit=1, holder=run_id, lease_seconds=600, wave=3
+        )
+        assert await store.release_firing_claims(run_id, "default", "fire", legacy_wave=4) == 0
+        assert await store.release_firing_claims(run_id, "default", "fire", legacy_wave=3) == 1
+        [old] = await store.claim(
+            run_id, "default", limit=1, holder=run_id, lease_seconds=600, wave=3
+        )
+        assert old.attempts == 1
+        assert await store.complete(old.id, run_id=run_id, claim_token="anything") is True
+    finally:
+        await def_store.archive(def_row.id)

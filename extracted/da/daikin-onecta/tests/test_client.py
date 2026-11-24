@@ -239,6 +239,44 @@ async def test_unexpected_api_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_api_error_without_rate_limit_headers_preserves_last_quota() -> None:
+    """Keep the last known quota when an API error omits rate-limit headers."""
+    async with aiohttp.ClientSession() as session:
+        with aioresponses() as mocked:
+            mocked.get(
+                f"{BASE_URL}/v1/gateway-devices",
+                payload=[
+                    {
+                        "id": "gateway-1",
+                        "deviceModel": "test",
+                        "isCloudConnectionUp": {"value": True, "settable": False},
+                        "managementPoints": [],
+                    }
+                ],
+                headers={
+                    "X-RateLimit-Limit-minute": "20",
+                    "X-RateLimit-Limit-day": "200",
+                    "X-RateLimit-Remaining-minute": "7",
+                    "X-RateLimit-Remaining-day": "123",
+                    "RateLimit-Reset": "99",
+                },
+            )
+            mocked.get(f"{BASE_URL}/v1/sites", status=500, body="server error")
+            client = OnectaClient(session, token_provider)
+
+            await client.get_gateway_devices()
+            with pytest.raises(OnectaApiError):
+                await client.get_sites()
+
+    assert client.rate_limit.minute_limit == 20
+    assert client.rate_limit.day_limit == 200
+    assert client.rate_limit.minute_remaining == 7
+    assert client.rate_limit.day_remaining == 123
+    assert client.rate_limit.retry_after is None
+    assert client.rate_limit.reset == 99
+
+
+@pytest.mark.asyncio
 async def test_set_schedule() -> None:
     """Select an existing schedule through the schedule endpoint."""
     async with aiohttp.ClientSession() as session:

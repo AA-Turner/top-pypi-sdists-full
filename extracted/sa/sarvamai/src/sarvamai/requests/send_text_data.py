@@ -5,3 +5,6 @@ import typing_extensions
 
 class SendTextDataParams(typing_extensions.TypedDict):
     text: str
+    """
+    Text to synthesize, up to 2,500 characters per message. Text is buffered until it reaches `min_buffer_size` characters or you send a `flush`. Longer text returns an error.
+    """

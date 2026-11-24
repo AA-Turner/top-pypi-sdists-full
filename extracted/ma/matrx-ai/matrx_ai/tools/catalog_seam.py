@@ -5,7 +5,7 @@ one job ("Domain Authority") run by ONE host executor (the router behind the
 call layer), never a code ``@tool``. Thousands of them exist, so they are never
 preloaded into the registry: whole-catalog readers filter them out and every
 request resolves the few it names, at the async edges, through the host's
-resolver. Contract: common-docs/projects/third-party-services/CONTRACT.md §4.
+resolver. Contract: common-docs/systems/integrations/projects/third-party-services/CONTRACT.md §4.
 
 Both seams are optional. Unconfigured, a catalog definition answers a plain
 ``configuration`` error and a lazy resolve finds nothing (matrx-ai standalone).

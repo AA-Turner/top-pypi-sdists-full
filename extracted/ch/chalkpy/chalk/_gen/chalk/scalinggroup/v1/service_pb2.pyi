@@ -133,16 +133,10 @@ class ScalingSpec(_message.Message):
         target_cpu_utilization_percentage: _Optional[int] = ...,
         shutdown_delay_seconds: _Optional[int] = ...,
         window_seconds: _Optional[int] = ...,
-        function_queue_depth_trigger: _Optional[
-            _Union[FunctionQueueDepthScalingTrigger, _Mapping]
-        ] = ...,
-        gpu_utilization_trigger: _Optional[
-            _Union[GpuUtilizationScalingTrigger, _Mapping]
-        ] = ...,
+        function_queue_depth_trigger: _Optional[_Union[FunctionQueueDepthScalingTrigger, _Mapping]] = ...,
+        gpu_utilization_trigger: _Optional[_Union[GpuUtilizationScalingTrigger, _Mapping]] = ...,
         cron_scaling_trigger: _Optional[_Union[CronScalingTrigger, _Mapping]] = ...,
-        scale_from_zero_request_policy: _Optional[
-            _Union[ScaleFromZeroRequestPolicy, str]
-        ] = ...,
+        scale_from_zero_request_policy: _Optional[_Union[ScaleFromZeroRequestPolicy, str]] = ...,
         task_queue_trigger: _Optional[_Union[TaskQueueScalingTrigger, _Mapping]] = ...,
         termination_grace_period_seconds: _Optional[int] = ...,
     ) -> None: ...
@@ -181,9 +175,7 @@ class CronScalingTrigger(_message.Message):
     timezone: str
     windows: _containers.RepeatedCompositeFieldContainer[CronScalingWindow]
     def __init__(
-        self,
-        timezone: _Optional[str] = ...,
-        windows: _Optional[_Iterable[_Union[CronScalingWindow, _Mapping]]] = ...,
+        self, timezone: _Optional[str] = ..., windows: _Optional[_Iterable[_Union[CronScalingWindow, _Mapping]]] = ...
     ) -> None: ...
 
 class CronScalingWindow(_message.Message):
@@ -195,10 +187,7 @@ class CronScalingWindow(_message.Message):
     end: str
     desired_replicas: int
     def __init__(
-        self,
-        start: _Optional[str] = ...,
-        end: _Optional[str] = ...,
-        desired_replicas: _Optional[int] = ...,
+        self, start: _Optional[str] = ..., end: _Optional[str] = ..., desired_replicas: _Optional[int] = ...
     ) -> None: ...
 
 class ScalingGroupSpec(_message.Message):
@@ -209,9 +198,7 @@ class ScalingGroupSpec(_message.Message):
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
         value: str
-        def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[str] = ...
-        ) -> None: ...
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
     CONTAINER_SPEC_FIELD_NUMBER: _ClassVar[int]
     SCALING_SPEC_FIELD_NUMBER: _ClassVar[int]
@@ -221,9 +208,7 @@ class ScalingGroupSpec(_message.Message):
     metadata: _containers.ScalarMap[str, str]
     def __init__(
         self,
-        container_spec: _Optional[
-            _Union[_service_pb2.ChalkContainerSpec, _Mapping]
-        ] = ...,
+        container_spec: _Optional[_Union[_service_pb2.ChalkContainerSpec, _Mapping]] = ...,
         scaling_spec: _Optional[_Union[ScalingSpec, _Mapping]] = ...,
         metadata: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
@@ -254,9 +239,7 @@ class ScalingGroupResponse(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self,
-            key: _Optional[str] = ...,
-            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
         ) -> None: ...
 
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -315,28 +298,19 @@ class CreateScalingGroupRequest(_message.Message):
     __slots__ = ("spec",)
     SPEC_FIELD_NUMBER: _ClassVar[int]
     spec: ScalingGroupSpec
-    def __init__(
-        self, spec: _Optional[_Union[ScalingGroupSpec, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, spec: _Optional[_Union[ScalingGroupSpec, _Mapping]] = ...) -> None: ...
 
 class CreateScalingGroupResponse(_message.Message):
     __slots__ = ("scaling_group",)
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     scaling_group: ScalingGroupResponse
-    def __init__(
-        self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...) -> None: ...
 
 class ScalingGroupTraffic(_message.Message):
     __slots__ = ("targets",)
     TARGETS_FIELD_NUMBER: _ClassVar[int]
     targets: _containers.RepeatedCompositeFieldContainer[ScalingGroupTrafficTarget]
-    def __init__(
-        self,
-        targets: _Optional[
-            _Iterable[_Union[ScalingGroupTrafficTarget, _Mapping]]
-        ] = ...,
-    ) -> None: ...
+    def __init__(self, targets: _Optional[_Iterable[_Union[ScalingGroupTrafficTarget, _Mapping]]] = ...) -> None: ...
 
 class ScalingGroupTrafficTarget(_message.Message):
     __slots__ = ("scaling_group_revision_id", "latest_revision", "percent")
@@ -375,9 +349,7 @@ class UpdateScalingGroupResponse(_message.Message):
     __slots__ = ("scaling_group",)
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     scaling_group: ScalingGroupResponse
-    def __init__(
-        self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...) -> None: ...
 
 class GetScalingGroupRequest(_message.Message):
     __slots__ = ("id", "name", "visibility", "include_deleted")
@@ -401,20 +373,10 @@ class GetScalingGroupResponse(_message.Message):
     __slots__ = ("scaling_group",)
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     scaling_group: ScalingGroupResponse
-    def __init__(
-        self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...) -> None: ...
 
 class ListScalingGroupsRequest(_message.Message):
-    __slots__ = (
-        "cursor",
-        "limit",
-        "include_deleted",
-        "filters",
-        "search",
-        "sort_column",
-        "sort_order",
-    )
+    __slots__ = ("cursor", "limit", "include_deleted", "filters", "search", "sort_column", "sort_order")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
@@ -448,9 +410,7 @@ class ListScalingGroupsFilters(_message.Message):
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
         value: str
-        def __init__(
-            self, key: _Optional[str] = ..., value: _Optional[str] = ...
-        ) -> None: ...
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
     STATUSES_FIELD_NUMBER: _ClassVar[int]
     VISIBILITY_FIELD_NUMBER: _ClassVar[int]
@@ -482,9 +442,7 @@ class ListScalingGroupsResponse(_message.Message):
     next_cursor: str
     def __init__(
         self,
-        scaling_groups: _Optional[
-            _Iterable[_Union[ScalingGroupResponse, _Mapping]]
-        ] = ...,
+        scaling_groups: _Optional[_Iterable[_Union[ScalingGroupResponse, _Mapping]]] = ...,
         next_cursor: _Optional[str] = ...,
     ) -> None: ...
 
@@ -510,9 +468,7 @@ class ScalingGroupRevisionResponse(_message.Message):
         key: str
         value: _struct_pb2.Value
         def __init__(
-            self,
-            key: _Optional[str] = ...,
-            value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
         ) -> None: ...
 
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -556,12 +512,7 @@ class ScalingGroupRevisionResponse(_message.Message):
     ) -> None: ...
 
 class GetScalingGroupRevisionRequest(_message.Message):
-    __slots__ = (
-        "scaling_group_id",
-        "scaling_group_name",
-        "revision_id",
-        "include_deleted",
-    )
+    __slots__ = ("scaling_group_id", "scaling_group_name", "revision_id", "include_deleted")
     SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
     REVISION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -582,19 +533,10 @@ class GetScalingGroupRevisionResponse(_message.Message):
     __slots__ = ("revision",)
     REVISION_FIELD_NUMBER: _ClassVar[int]
     revision: ScalingGroupRevisionResponse
-    def __init__(
-        self, revision: _Optional[_Union[ScalingGroupRevisionResponse, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, revision: _Optional[_Union[ScalingGroupRevisionResponse, _Mapping]] = ...) -> None: ...
 
 class ListScalingGroupRevisionsRequest(_message.Message):
-    __slots__ = (
-        "scaling_group_id",
-        "scaling_group_name",
-        "cursor",
-        "limit",
-        "filters",
-        "include_deleted",
-    )
+    __slots__ = ("scaling_group_id", "scaling_group_name", "cursor", "limit", "filters", "include_deleted")
     SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
@@ -621,10 +563,7 @@ class ListScalingGroupRevisionsFilters(_message.Message):
     __slots__ = ("visibility",)
     VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     visibility: _containers.RepeatedScalarFieldContainer[ScalingGroupVisibility]
-    def __init__(
-        self,
-        visibility: _Optional[_Iterable[_Union[ScalingGroupVisibility, str]]] = ...,
-    ) -> None: ...
+    def __init__(self, visibility: _Optional[_Iterable[_Union[ScalingGroupVisibility, str]]] = ...) -> None: ...
 
 class ListScalingGroupRevisionsResponse(_message.Message):
     __slots__ = ("revisions", "next_cursor")
@@ -634,9 +573,7 @@ class ListScalingGroupRevisionsResponse(_message.Message):
     next_cursor: str
     def __init__(
         self,
-        revisions: _Optional[
-            _Iterable[_Union[ScalingGroupRevisionResponse, _Mapping]]
-        ] = ...,
+        revisions: _Optional[_Iterable[_Union[ScalingGroupRevisionResponse, _Mapping]]] = ...,
         next_cursor: _Optional[str] = ...,
     ) -> None: ...
 
@@ -646,22 +583,10 @@ class ListScalingGroupReplicasRequest(_message.Message):
     SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
     scaling_group_id: str
     scaling_group_name: str
-    def __init__(
-        self,
-        scaling_group_id: _Optional[str] = ...,
-        scaling_group_name: _Optional[str] = ...,
-    ) -> None: ...
+    def __init__(self, scaling_group_id: _Optional[str] = ..., scaling_group_name: _Optional[str] = ...) -> None: ...
 
 class ScalingGroupReplica(_message.Message):
-    __slots__ = (
-        "id",
-        "name",
-        "revision_id",
-        "status",
-        "reason",
-        "created_at",
-        "namespace",
-    )
+    __slots__ = ("id", "name", "revision_id", "status", "reason", "created_at", "namespace")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     REVISION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -691,10 +616,7 @@ class ListScalingGroupReplicasResponse(_message.Message):
     __slots__ = ("replicas",)
     REPLICAS_FIELD_NUMBER: _ClassVar[int]
     replicas: _containers.RepeatedCompositeFieldContainer[ScalingGroupReplica]
-    def __init__(
-        self,
-        replicas: _Optional[_Iterable[_Union[ScalingGroupReplica, _Mapping]]] = ...,
-    ) -> None: ...
+    def __init__(self, replicas: _Optional[_Iterable[_Union[ScalingGroupReplica, _Mapping]]] = ...) -> None: ...
 
 class DeleteScalingGroupRequest(_message.Message):
     __slots__ = ("id", "name")
@@ -702,17 +624,13 @@ class DeleteScalingGroupRequest(_message.Message):
     NAME_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
-    def __init__(
-        self, id: _Optional[str] = ..., name: _Optional[str] = ...
-    ) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class DeleteScalingGroupResponse(_message.Message):
     __slots__ = ("scaling_group",)
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     scaling_group: ScalingGroupResponse
-    def __init__(
-        self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...) -> None: ...
 
 class UpdateScalingGroupStatusRequest(_message.Message):
     __slots__ = (
@@ -760,14 +678,9 @@ class UpdateScalingGroupStatusRequest(_message.Message):
 class BatchUpdateScalingGroupStatusRequest(_message.Message):
     __slots__ = ("updates",)
     UPDATES_FIELD_NUMBER: _ClassVar[int]
-    updates: _containers.RepeatedCompositeFieldContainer[
-        UpdateScalingGroupStatusRequest
-    ]
+    updates: _containers.RepeatedCompositeFieldContainer[UpdateScalingGroupStatusRequest]
     def __init__(
-        self,
-        updates: _Optional[
-            _Iterable[_Union[UpdateScalingGroupStatusRequest, _Mapping]]
-        ] = ...,
+        self, updates: _Optional[_Iterable[_Union[UpdateScalingGroupStatusRequest, _Mapping]]] = ...
     ) -> None: ...
 
 class BatchUpdateScalingGroupStatusResponse(_message.Message):

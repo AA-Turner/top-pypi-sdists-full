@@ -1,6 +1,15 @@
 import warnings
 
 import pipmaster as pm
+
+# Install required dependencies BEFORE the first llama_index import. A guard
+# placed after it never runs: the import raises ModuleNotFoundError first, so
+# the module is unimportable on exactly the machines the guard exists for.
+# Every sibling provider (ollama, anthropic, bedrock) orders it this way, and
+# tests/llm/test_provider_install_guards.py holds all of them to it.
+if not pm.is_installed("llama-index"):
+    pm.install("llama-index")
+
 from llama_index.core.llms import (
     ChatMessage,
     MessageRole,
@@ -9,25 +18,10 @@ from llama_index.core.llms import (
 from typing import Any, List, Optional
 from lightrag.utils import logger
 
-# Install required dependencies
-if not pm.is_installed("llama-index"):
-    pm.install("llama-index")
-
 from llama_index.core.embeddings import BaseEmbedding
 from llama_index.core.settings import Settings as LlamaIndexSettings
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-)
 from lightrag.utils import (
     wrap_embedding_func_with_attrs,
-)
-from lightrag.exceptions import (
-    APIConnectionError,
-    RateLimitError,
-    APITimeoutError,
 )
 import numpy as np
 
@@ -37,21 +31,24 @@ def configure_llama_index(settings: Any = None, **kwargs):
     Configure LlamaIndex settings.
 
     Args:
-        settings: LlamaIndex Settings instance. If None, uses default settings.
+        settings: Settings object to configure in place. If None, uses the
+            LlamaIndex Settings singleton. Provided objects are not installed
+            as global settings.
         **kwargs: Additional settings to override/configure
     """
     if settings is None:
-        settings = LlamaIndexSettings()
+        settings = LlamaIndexSettings
 
-    # Update settings with any provided kwargs
+    # Update settings with any provided kwargs. Look the name up on the class,
+    # not the instance: hasattr() on the instance runs lazy property getters
+    # (Settings.llm, Settings.embed_model) that load a default OpenAI model and
+    # raise without OPENAI_API_KEY, before the caller's value is assigned.
     for key, value in kwargs.items():
-        if hasattr(settings, key):
+        if hasattr(type(settings), key) or key in getattr(settings, "__dict__", {}):
             setattr(settings, key, value)
         else:
             logger.warning(f"Unknown LlamaIndex setting: {key}")
 
-    # Set as global settings
-    LlamaIndexSettings.set_global(settings)
     return settings
 
 
@@ -84,13 +81,6 @@ def format_chat_messages(messages):
     return formatted_messages
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=60),
-    retry=retry_if_exception_type(
-        (RateLimitError, APIConnectionError, APITimeoutError)
-    ),
-)
 async def llama_index_complete_if_cache(
     model: str,
     prompt: str,
@@ -99,7 +89,13 @@ async def llama_index_complete_if_cache(
     enable_cot: bool = False,
     chat_kwargs={},
 ) -> str:
-    """Complete the prompt using LlamaIndex."""
+    """Complete the prompt using LlamaIndex.
+
+    Retries belong to the llama_index model: this function adds none and
+    lets the provider's exception propagate unchanged. Tune them on the model
+    (for example ``OpenAI(max_retries=...)``); an extra retry layer here would
+    multiply the provider's own attempts.
+    """
     if enable_cot:
         logger.debug(
             "enable_cot=True is not supported for LlamaIndex implementation and will be ignored."
@@ -162,9 +158,17 @@ async def llama_index_complete(
             is ignored.
         entity_extraction: Deprecated compatibility shim. Emits a warning and
             is ignored.
-        settings: Optional LlamaIndex settings
-        **kwargs: Additional arguments. ``response_format`` is not supported by
-            this adapter and is stripped before calling LlamaIndex.
+        settings: Accepted for backward compatibility and ignored. The
+            completion always runs on ``llm_instance``; a LlamaIndex
+            ``Settings`` object is neither installed globally nor consulted,
+            so configure the model on the ``llm_instance`` you pass.
+        **kwargs: Additional arguments. ``llm_instance`` (required) is the
+            LlamaIndex LLM the completion runs on. ``response_format`` is not
+            supported by this adapter and is stripped before calling
+            LlamaIndex.
+            ``max_tokens`` is folded into ``chat_kwargs`` (without overriding
+            an explicit ``chat_kwargs["max_tokens"]``) since llama_index has
+            no top-level parameter for it.
 
     Structured output note:
     - This adapter does not support OpenAI-style ``response_format`` JSON mode.
@@ -190,8 +194,23 @@ async def llama_index_complete(
             stacklevel=2,
         )
     kwargs.pop("response_format", None)
+    # hashing_kv is injected unconditionally by the role LLM wrapper.
+    # Neither it nor streaming is a llama_index_complete_if_cache
+    # parameter, or supported by this adapter -- both are dropped, matching
+    # the explicit-pop pattern in openai.py / ollama.py / anthropic.py.
+    kwargs.pop("hashing_kv", None)
+    kwargs.pop("stream", None)
+    # max_tokens is injected by use_llm_func_with_cache when configured.
+    # llama_index_complete_if_cache has no top-level max_tokens parameter
+    # of its own, but forwards chat_kwargs straight into the underlying
+    # LLM's achat(), so fold it in there instead of discarding it silently.
+    max_tokens = kwargs.pop("max_tokens", None)
+    if max_tokens is not None:
+        chat_kwargs = dict(kwargs.get("chat_kwargs") or {})
+        chat_kwargs.setdefault("max_tokens", max_tokens)
+        kwargs["chat_kwargs"] = chat_kwargs
     result = await llama_index_complete_if_cache(
-        kwargs.get("llm_instance"),
+        kwargs.pop("llm_instance", None),
         prompt,
         system_prompt=system_prompt,
         history_messages=history_messages,
@@ -202,13 +221,6 @@ async def llama_index_complete(
 
 
 @wrap_embedding_func_with_attrs(embedding_dim=1536, max_token_size=8192)
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=60),
-    retry=retry_if_exception_type(
-        (RateLimitError, APIConnectionError, APITimeoutError)
-    ),
-)
 async def llama_index_embed(
     texts: list[str],
     embed_model: BaseEmbedding = None,
@@ -217,6 +229,17 @@ async def llama_index_embed(
 ) -> np.ndarray:
     """
     Generate embeddings using LlamaIndex
+
+    The model's ``embed_batch_size`` and ``embeddings_cache`` apply: each call
+    is split into sub-batches of at most ``embed_batch_size`` texts, sent as
+    concurrent requests. Set ``embed_batch_size >= embedding_batch_num`` to
+    keep one request per call. See "Embedding batch sizes" in
+    docs/ProgramingWithCore.md.
+
+    Retries belong to the llama_index model: this function adds none and
+    lets the provider's exception propagate unchanged. Tune them on the model
+    (for example ``OpenAIEmbedding(max_retries=...)``); an extra retry layer
+    here would multiply the provider's own attempts.
 
     Args:
         texts: List of texts to embed
@@ -230,6 +253,6 @@ async def llama_index_embed(
     if embed_model is None:
         raise ValueError("embed_model must be provided")
 
-    # Use _get_text_embeddings for batch processing
-    embeddings = embed_model._get_text_embeddings(texts)
+    # Preserve the model's batching, cache, and callbacks on the async path.
+    embeddings = await embed_model.aget_text_embedding_batch(texts)
     return np.array(embeddings)

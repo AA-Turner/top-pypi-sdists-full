@@ -2,6 +2,20 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "argparse",
+    "locale",
+    "packaging.requirements",
+    "pathlib",
+    "shlex",
+    "tox.config.loader.str_convert",
+    "tox.util.redact",
+    "urllib.parse",
+    "urllib.request",
+    f"{__spec__.parent}.args",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}.util",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 import codecs
 import locale
 import os
@@ -479,7 +493,7 @@ class RequirementsFile:
         :returns: the redacted text
 
         """
-        secrets: Final = self._secrets | self._req_parser._secrets  # ruff:ignore[private-member-access]  # nested files
+        secrets: Final[dict[str, str]] = self._secrets | self._req_parser._secrets  # ruff:ignore[private-member-access]  # nested files
         for value in sorted(secrets, key=len, reverse=True):  # longest first, as a value may contain another one
             text = text.replace(value, secrets[value])
         return text

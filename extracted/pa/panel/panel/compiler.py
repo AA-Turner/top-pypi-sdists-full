@@ -20,6 +20,8 @@ from urllib.parse import urljoin
 import requests
 
 from bokeh.model import Model
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 from .config import config, panel_extension
 from .io.resources import CDN_DIST, RESOURCE_URLS
@@ -56,6 +58,14 @@ _LICENSE_SOURCES: dict[str, set[str]] = {}
 
 @cache
 def _session():
+    session = requests.Session()
+    # A build downloads hundreds of files, so a single DNS or CDN hiccup
+    # would otherwise fail it.
+    retry = Retry(
+        total=3, backoff_factor=1, status_forcelist=(429, 500, 502, 503, 504),
+        raise_on_status=False
+    )
+    session.mount('https://', HTTPAdapter(max_retries=retry))
     try:
         import platformdirs
 
@@ -63,9 +73,9 @@ def _session():
         from cachecontrol.caches import SeparateBodyFileCache
         cache_dir = platformdirs.user_cache_path() / 'holoviz' / 'panel.compiler'
 
-        return CacheControl(requests.Session(), cache=SeparateBodyFileCache(cache_dir))
+        return CacheControl(session, cache=SeparateBodyFileCache(cache_dir))
     except ImportError:
-        return requests.Session()
+        return session
 
 
 def _download(url):
@@ -290,7 +300,7 @@ def _write_bundled_files(name, files, explicit_dir=None, ext=None):
         filename = str(filename)
         if ext and not str(filename).endswith(ext):
             filename += f'.{ext}'
-        if filename.endswith(('.ttf', '.wasm', '.png', '.gif')):
+        if filename.endswith(('.ttf', '.eot', '.woff', '.woff2', '.wasm', '.png', '.gif')):
             with open(filename, 'wb') as f:
                 f.write(response.content)
         else:

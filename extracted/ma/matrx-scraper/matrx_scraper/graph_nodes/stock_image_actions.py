@@ -20,7 +20,6 @@ license requires attribution.
 
 from __future__ import annotations
 
-import os
 from typing import Any, Literal
 
 from matrx_graph.actions import register_node
@@ -56,7 +55,9 @@ def _resolve_unsplash_key(ctx: NodeExecutionContext | None, explicit: str | None
         host_key = api_keys.get("unsplash") or api_keys.get("UNSPLASH_ACCESS_KEY")
         if host_key:
             return host_key
-    return os.environ.get("UNSPLASH_ACCESS_KEY")
+    from matrx_scraper._ext import provider_secret
+
+    return provider_secret("UNSPLASH_ACCESS_KEY")
 
 
 class StockImage(BaseModel):

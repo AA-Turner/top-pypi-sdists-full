@@ -26,6 +26,10 @@ class STTRequest(BaseModel):
     response_format: Literal["json", "verbose_json", "text"] = "verbose_json"
     temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     timestamp_granularities: list[Literal["word", "segment"]] | None = None
+    #: Spelling hint for names and terms (Whisper ``prompt``). Whisper reads it as text that came
+    #: BEFORE the clip, not as a word list, so a caller sends it only when it has checked the clip
+    #: holds real speech and compares the hinted text against an unhinted pass.
+    prompt: str | None = None
 
 
 class STTUsage(BaseModel):
@@ -84,6 +88,35 @@ def duration_to_stt_input_units(usage_basis: str, billed_seconds: float) -> int:
         f"STT usage basis {usage_basis!r} is unsupported. Add an explicit "
         "duration-to-unit conversion before routing this offering."
     )
+
+
+#: The lowest bitrate a speech file is encoded at (bytes per second; 8 kbps), so ``bytes / this`` bounds its seconds.
+STT_MIN_BYTES_PER_SECOND = 1000
+#: The shortest duration a provider bills one request for (Groq: 10 s).
+STT_MIN_BILLED_SECONDS = 10  # protocol-constant: the provider's own billing minimum (Groq bills at least 10 s per request); the quote must match what the provider charges
+
+
+def stt_quote(profile: Any, request: Any) -> Any:
+    """The worst case of one transcription before it is sent: its audio's seconds at most (the file's bytes at the
+    lowest speech bitrate, never under the billed minimum) in the route's own units, at its catalog price. None
+    when the size is unknown (a URL) or the route is unpriced: the run budget then reserves its unpriced amount."""
+    from matrx_ai.providers.guardrail_gate import _route_tier, quote_units
+
+    source = getattr(request, "audio_source", None)
+    if isinstance(source, (bytes, bytearray)):
+        size = len(source)
+    elif isinstance(source, io.BytesIO):
+        size = len(source.getbuffer())
+    else:
+        return None
+    seconds = max(STT_MIN_BILLED_SECONDS, size / STT_MIN_BYTES_PER_SECOND)
+    try:
+        tier = _route_tier(profile, 1, synthetic_ok=True)
+        basis = getattr(tier, "usage_basis", None) or "audio_second_input"
+        units = duration_to_stt_input_units(basis, seconds)
+    except Exception:  # noqa: BLE001 — an unknown basis is priced as unpriced, never guessed
+        return None
+    return quote_units(profile, units)
 
 
 class STTWord(BaseModel):
@@ -193,6 +226,32 @@ def words_status_for(request: STTRequest, result: STTResult, *, supported: bool)
     return "none_returned" if supported else "unsupported_by_provider"
 
 
+#: Whether ``STTResult`` carries speaker labels. Never a silent empty: an
+#: adapter that cannot label speakers says ``unsupported_by_provider``; one that
+#: can and found none says ``none_returned``.
+SpeakersStatus = Literal["provided", "unsupported_by_provider", "none_returned"]
+
+
+def speakers_status(labelled: bool, *, supported: bool) -> SpeakersStatus:
+    """THE ONE answer to "do these lines carry speakers, and if not, why not".
+
+    ``labelled``: at least one returned word, segment or line names a speaker.
+    ``supported``: the engine can label speakers (``supports_speaker_labels``).
+    Every caller — the engine result here, the host's filtered lines, a chunked
+    file's merged parts — asks this function, so they cannot disagree."""
+    if labelled:
+        return "provided"
+    return "none_returned" if supported else "unsupported_by_provider"
+
+
+def speakers_status_for(result: STTResult, *, supported: bool) -> SpeakersStatus:
+    """A raw engine result's ``speakers_status`` (labels on its words or segments)."""
+    labelled = any(w.speaker for w in result.words or []) or any(
+        isinstance(seg, dict) and seg.get("speaker") is not None for seg in result.segments or []
+    )
+    return speakers_status(labelled, supported=supported)
+
+
 class STTResult(BaseModel):
     text: str
     usage: STTUsage
@@ -202,6 +261,11 @@ class STTResult(BaseModel):
     words: list[STTWord] | None = None
     #: Set by ``execute_stt`` from the request + adapter capability; see ``WordsStatus``.
     words_status: WordsStatus = "not_requested"
+    #: Set by ``execute_stt`` from the result + adapter capability; see ``SpeakersStatus``.
+    speakers_status: SpeakersStatus = "unsupported_by_provider"
+    #: The adapter's ``supports_speaker_labels``, carried so a host that filters
+    #: the result can re-ask ``speakers_status`` with the same capability.
+    speaker_labels_supported: bool = False
     language: str | None = None
     duration: float | None = None
     quality_metrics: dict[str, Any] = Field(default_factory=dict)
@@ -309,11 +373,11 @@ async def prepare_audio_file(
 ) -> tuple[tuple[str, bytes], float]:
     if isinstance(audio_source, str):
         if audio_source.startswith(("http://", "https://")):
-            from matrx_ai.media import fetch_media
+            from matrx_ai.media import fetch_media_async
 
-            audio_data = await asyncio.to_thread(
-                fetch_media, audio_source, target_format="bytes"
-            )
+            # Async resolver, on THIS loop: the sync one in a worker thread cannot see the
+            # database and reported our own CDN file as "cdn_url_not_in_files".
+            audio_data = await fetch_media_async(audio_source, target_format="bytes")
             filename = "audio.wav"
         elif audio_source.startswith("data:"):
             header, _, encoded = audio_source.partition(",")
@@ -326,9 +390,9 @@ async def prepare_audio_file(
             filename = f"audio{_AUDIO_SUFFIX_BY_MIME.get(mime, _suffix_for_unknown_mime(mime))}"
         else:
             path = Path(audio_source)
-            if not path.exists():
+            if not await asyncio.to_thread(path.exists):
                 raise FileNotFoundError(f"Audio file not found: {audio_source}")
-            audio_data = path.read_bytes()
+            audio_data = await asyncio.to_thread(path.read_bytes)
             filename = path.name
     elif isinstance(audio_source, bytes):
         audio_data = audio_source
@@ -358,9 +422,15 @@ async def prepare_audio_file(
 
 async def execute_stt(request: STTRequest) -> STTResult:
     from matrx_ai.catalog.resolve import resolve_call_profile
+    from matrx_ai.providers.baa_gate import stt_model_for_baa
     from matrx_ai.providers.unified_client import UnifiedAIClient
 
     profile = await resolve_call_profile(request.model, offering_id=request.offering_id)
+    # HIPAA mode: a non-covered transcription model runs on the organization's covered stand-in
+    # when one is set; with none, the seam (admit_baa) refuses it as a typed 403, never a crash.
+    standin = await stt_model_for_baa(profile)
+    if standin:
+        profile = await resolve_call_profile(standin)
     if profile.client_attr != "stt":
         raise ValueError(
             f"Model {profile.model_name!r} resolves to {profile.client_attr!r}, not the "
@@ -385,6 +455,7 @@ async def execute_stt(request: STTRequest) -> STTResult:
         profile=profile,
         provider_client=client,
         transient_retries=STT_TRANSIENT_RETRIES,
+        quote=stt_quote(profile, request),
     )
     result.attempts = sends
     # An adapter declares word support with ``supports_word_timestamps = True``;
@@ -392,6 +463,9 @@ async def execute_stt(request: STTRequest) -> STTResult:
     result.words_status = words_status_for(
         request, result, supported=bool(getattr(client, "supports_word_timestamps", False))
     )
+    # An adapter declares speaker labels with ``supports_speaker_labels = True``.
+    result.speaker_labels_supported = bool(getattr(client, "supports_speaker_labels", False))
+    result.speakers_status = speakers_status_for(result, supported=result.speaker_labels_supported)
     if result.words_status == "unsupported_by_provider":
         logging.getLogger(__name__).warning(
             "STT word timestamps requested but provider %r cannot supply them", profile.wire_format
@@ -402,6 +476,9 @@ async def execute_stt(request: STTRequest) -> STTResult:
 __all__ = [
     "DEFAULT_PROVIDER_AUDIO_LIMIT_MB",
     "PROVIDER_ACCEPTED_AUDIO_SUFFIXES",
+    "SpeakersStatus",
+    "speakers_status",
+    "speakers_status_for",
     "STTClient",
     "STTRequest",
     "STTResult",

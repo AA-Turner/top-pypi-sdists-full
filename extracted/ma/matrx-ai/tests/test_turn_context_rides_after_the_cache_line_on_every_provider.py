@@ -164,16 +164,8 @@ def test_turn_context_is_its_own_turn_before_her_words(module: str, cls: str, wi
     assert len(host) == 1 and host[0].startswith("<turn_context") and "live_date" in host[0]
 
 
-@pytest.mark.parametrize(("module", "cls", "wire_format"), ALL)
-def test_mid_loop_the_block_is_never_resent_after_a_tool_result(
-    module: str, cls: str, wire_format: str
-) -> None:
-    """Once per person turn (owner ruling 2026-10-18, PB-05): re-appending the block after
-    each tool result made it read as part of that result, and the model told the person
-    about "the platform block in that last turn". It rides on the send that ends with the
-    person's own message, never on a tool-loop send — and never moves into the system
-    channel instead (the cache line law)."""
-    history = [
+def _weather_loop() -> list[UnifiedMessage]:
+    return [
         _msg("user", "weather?"),
         UnifiedMessage(
             role="assistant",
@@ -184,9 +176,24 @@ def test_mid_loop_the_block_is_never_resent_after_a_tool_result(
             content=[ToolResultContent(tool_use_id="c1", name="get_weather", content="72F")],
         ),
     ]
-    request = _build(module, cls, wire_format, _turn(history, "09:00"))
+
+
+@pytest.mark.parametrize(("module", "cls", "wire_format"), ALL)
+def test_mid_loop_the_block_never_rides_after_a_tool_result(
+    module: str, cls: str, wire_format: str
+) -> None:
+    """Owner ruling 2026-10-18 (PB-05): re-appending the block AFTER each tool result made it
+    read as part of that result, and the model told the person about "the platform block in
+    that last turn". Mid loop it rides where the person's own send put it — before her words,
+    never after the result — and never moves into the system channel (the cache line law).
+    Dropping it instead erased the page values after the first tool call (W1c, 2026-11-02)."""
+    request = _build(module, cls, wire_format, _turn(_weather_loop(), "09:00"))
+    wire = str(request)
     assert "live_date" not in _system_text(cls, request)
-    assert "turn_context" not in str(request), f"{cls} re-sent the per-turn block after a tool result"
+    assert "live_date" in wire, f"{cls} dropped the per-turn block mid loop"
+    assert wire.index("live_date") < wire.index("weather?") < wire.index("72F"), (
+        f"{cls} placed the per-turn block after the tool result"
+    )
 
 
 @pytest.mark.parametrize(("module", "cls", "wire_format"), CHAT_COMPLETIONS)
@@ -232,7 +239,7 @@ def test_a_strict_alternation_model_gets_the_documented_fallback(
         ("matrx_ai.providers.openai.translator", "OpenAITranslator", "openai_responses"),
     ],
 )
-def test_anthropic_and_openai_never_resend_it_after_a_tool_result(
+def test_anthropic_and_openai_never_send_it_after_a_tool_result(
     module: str, cls: str, wire_format: str
 ) -> None:
     history = [
@@ -246,8 +253,9 @@ def test_anthropic_and_openai_never_resend_it_after_a_tool_result(
             content=[ToolResultContent(tool_use_id="c1", name="get_weather", content="72F")],
         ),
     ]
-    mid_loop = _build(module, cls, wire_format, _turn(history, "09:00"))
-    assert "turn_context" not in str(mid_loop), f"{cls} re-sent the per-turn block after a tool result"
+    mid_loop = str(_build(module, cls, wire_format, _turn(history, "09:00")))
+    assert "live_date" in mid_loop, f"{cls} dropped the per-turn block mid loop"
+    assert mid_loop.index("live_date") < mid_loop.index("72F"), f"{cls} re-sent it after a tool result"
     first = _build(module, cls, wire_format, _turn([_msg("user", "weather?")], "09:00"))
     assert "live_date" in str(first), f"{cls} lost the block on the person's own turn"
 

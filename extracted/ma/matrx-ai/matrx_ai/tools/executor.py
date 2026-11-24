@@ -6,7 +6,7 @@ import json
 import logging
 import time
 import traceback as tb
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable, Iterable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, get_args
@@ -14,14 +14,18 @@ from uuid import uuid4
 
 from matrx_utils import detached_task, vcprint
 from pydantic import BaseModel, ValidationError
-from pydantic_core import ErrorType
+from pydantic_core.core_schema import ErrorType
 
 from ._db_log import db_log_event as _db_log
 from ._debug_log import is_verbose as _debug_verbose
 from ._debug_log import log_event as _debug_log
 from .error_remedy import annotate_tool_error, known_outcome_notices
 from .guardrails import GuardrailEngine
-from .knobs import delegated_call_abandon_seconds, dispatch_timeout_ceiling
+from .knobs import (
+    delegated_call_abandon_seconds,
+    dispatch_timeout_ceiling,
+    process_tool_deadline_grace_seconds,
+)
 from .lifecycle import ToolLifecycleManager
 from .logger import ToolExecutionLogger
 from .models import ToolContext, ToolDefinition, ToolError, ToolResult, ToolType
@@ -38,12 +42,19 @@ TOOL_EXECUTION_FAILED_KIND = "tool_execution_failed"
 TOOL_RESULT_KIND_MISSING_KIND = "tool_result_kind_missing"
 TOOL_RESULT_KIND_UNAVAILABLE_KIND = "tool_result_kind_unavailable"
 TOOL_RESULT_SIZE_UNMANAGED_KIND = "tool_result_size_unmanaged"
+TOOL_BATCH_CANCELLED_KIND = "tool_batch_cancelled"
 
 # These tools validate a caller-selected process deadline themselves. The
 # executor's registry default is a dispatch fallback, not a second shorter
 # process limit: otherwise a valid 121–300s shell request is canceled before
 # its own implementation can enforce the declared deadline.
 _CALLER_BOUNDED_PROCESS_TOOLS = frozenset({"shell_execute", "shell_python"})
+#: Seconds the dispatch deadline of a caller-bounded process tool waits PAST the timeout the
+#: caller asked for. Equal deadlines raced: a 120s (or 300s) request was canceled at exactly
+#: 120s (300s) by this executor before the box's own timeout answer could arrive, so the agent
+#: got "canceled, work abandoned" instead of the command's exit code and output so far
+#: (tool_execution_failed, 2026-11-18). A knob: ``agents.tool_dispatch.process_tool_deadline_grace_seconds``
+#: (``matrx_ai.tools.knobs.process_tool_deadline_grace_seconds``, always above the transport grace).
 
 # These are terminal facts about a Cloud Browser session, not failures of the
 # executor.  The next model turn can start/attach a fresh session; an ERROR
@@ -51,8 +62,30 @@ _CALLER_BOUNDED_PROCESS_TOOLS = frozenset({"shell_execute", "shell_python"})
 # normal lifecycle race.  Keep real worker reachability and command failures
 # outside this set so they still scream and capture exactly once.
 _CLOUD_BROWSER_EXPECTED_LIFECYCLE_OUTCOMES = frozenset(
-    {"run_state_conflict", "worker_shutting_down", "unknown_page"}
+    {
+        "run_state_conflict",
+        "worker_shutting_down",
+        "unknown_page",
+        # "This browser is still starting. Retry this same action in a few seconds": the typed,
+        # retryable answer while a session activates (cloud_browser/errors.py); the model retries
+        # it on its next step. Filed as a tool_execution_failed system_error 2026-11-16.
+        "activation_in_progress",
+        # The person's own state, not a platform fault (live 2026-11-16 guided-setup rows): someone else is
+        # driving this browser right now (the model waits or asks), and this person has no Cloud Computer
+        # yet (the refusal carries the set-up link; cloud_browser/errors.py). A worker that cannot be reached
+        # or an action that failed stays filed.
+        "controlled_by_other",
+        "cloud_computer_required",
+        # The person's own browser is open on another of their Cloud Computers (manager.py
+        # ``_require_same_machine``): the sentence tells them to close it there. Filed as
+        # tool_execution_failed until 2026-11-21 (a64d4454, 78461556).
+        "browser_open_on_other_machine",
+    }
 )
+
+
+#: The fixed sentence the browser readiness pre-gate answers when a selector matches nothing.
+_CLOUD_BROWSER_SELECTOR_ABSENT_PREFIX = "Nothing on this page matches "
 
 
 def _candidate_stopped_content(result: ToolResult, stop: dict[str, Any]) -> dict[str, Any]:
@@ -102,7 +135,7 @@ def _dispatch_timeout_seconds(
     requested_timeout = arguments.get("timeout_seconds")
     if not isinstance(requested_timeout, (int, float)) or isinstance(requested_timeout, bool):
         return configured_timeout
-    return max(configured_timeout, float(requested_timeout))
+    return max(configured_timeout, float(requested_timeout) + process_tool_deadline_grace_seconds())
 
 
 def _timeout_safe_to_repeat(tool_def: Any) -> bool:
@@ -119,6 +152,7 @@ def timeout_tool_error(
     dispatch_timeout: float,
     user_message: str,
     safe_to_repeat: bool = True,
+    exc: BaseException | None = None,
 ) -> ToolError:
     """THE HONEST TIMEOUT (2026-09-12).
 
@@ -131,7 +165,9 @@ def timeout_tool_error(
     admin can raise. A function, not an inline literal, so a test can drive the
     real envelope instead of reading the executor's source.
     """
-    return ToolError(
+    return ToolError.declared(
+        exc=exc,
+        reported_failure=None if exc is not None else f"the {dispatch_timeout:.0f}s dispatch ceiling",
         error_type="timeout",
         message=(
             f"Tool '{tool_name}' timed out after {dispatch_timeout:.0f}s "
@@ -151,8 +187,74 @@ def timeout_tool_error(
     )
 
 
-def _is_expected_domain_failure(*, tool_name: str, error_type: str) -> bool:
+#: The records store's DELIBERATE refusals, by SQLSTATE (matrx_records.errors names each):
+#: a stale write, a missing argument, a malformed payload, a wall (check), a duplicate, the
+#: store's own raise and a row that is not there. The ``records*`` tools carry them as
+#: ``store_<sqlstate>`` with the store's sentence, so the model can fix its call — they are
+#: never an operational fault. A lock collision (55P03), an aborted transaction (25P02) or any
+#: other code stays a fault. 2026-11-04: 78 open rows were these refusals, e.g. "You already
+#: have a column called \"Patient\"." (store_23505).
+#: ``22P02`` (a value that is not the column's type, e.g. "`records[0].to` must be an id such as …") and
+#: ``23503`` (a reference to a row that is not there, e.g. "There is no such form in this organization.")
+#: are the caller's own values too: 3 records rows 2026-11-16/17 were these.
+_STORE_REFUSAL_SQLSTATES = frozenset({"PT409", "02000", "22004", "22023", "22P02", "23514", "23503", "23505", "P0001"})
+#: ``42501`` is the store's door refusing this reader ("You do not have access to this
+#: record.") — unless Postgres itself worded it "permission denied for <object>", which is a
+#: connection carrying the wrong role: a fault (matrx_records.errors.is_deliberate_unavailability).
+_STORE_DOOR_CLOSED = "42501"
+
+
+def _is_store_refusal(error_type: str, message: str | None) -> bool:
+    if not error_type.startswith("store_"):
+        return False
+    sqlstate = error_type[len("store_"):].upper()
+    if sqlstate in _STORE_REFUSAL_SQLSTATES:
+        return True
+    if sqlstate == _STORE_DOOR_CLOSED:
+        return not (message or "").strip().lower().startswith("permission denied")
+    return False
+
+
+def _missing_traceback_line(tool_name: str, error: Any, *, expected: bool) -> str:
+    """The failure banner's traceback line when the error carries no stack.
+
+    An expected domain conflict and a declared refusal (``ToolError.refusal``) never had an
+    exception, so the banner says that. Anything else with no stack is named as the tool's
+    defect: it caught an exception and stringified it (PB-08 B10 kept that claim off a deliberate
+    refusal, app_log c7500692)."""
+    if expected:
+        return (
+            "  traceback:  <not applicable — expected domain conflict; "
+            "handled by the tool's expected-domain-failure contract.>"
+        )
+    reported = getattr(error, "reported_failure", None)
+    if reported:
+        return (
+            f"  traceback:  <none — the tool reported a failure from {reported}; "
+            "no Python exception was raised.>"
+        )
+    if getattr(error, "refusal", False):
+        return (
+            "  traceback:  <not applicable — a refusal by the tool (the caller's input, a "
+            "permission, an absent record or a policy); no exception was raised.>"
+        )
+    return (
+        "  traceback:  <none — the tool swallowed its exception and "
+        f"stringified it. Fix '{tool_name}' to let the exception reach the "
+        "executor, or set ToolError.traceback.>"
+    )
+
+
+def _is_expected_domain_failure(*, tool_name: str, error_type: str, message: str | None = None) -> bool:
     """Return true for deliberate tool refusals that are not operational errors."""
+    if _is_store_refusal(error_type, message):
+        return True
+    from matrx_ai.providers.caller_refusal import EXPECTED_HOLD_CODES
+
+    # A run held by a limit or approval someone set (agent_call / mandate_call carry the child's
+    # hold code): expected, with its own human path, never a tool failure.
+    if error_type in EXPECTED_HOLD_CODES:
+        return True
     normalized_error_type = error_type.lower()
     if normalized_error_type in {
         "auth_required",
@@ -165,17 +267,106 @@ def _is_expected_domain_failure(*, tool_name: str, error_type: str) -> bool:
         # refusal that names the right door, never an operational error.
         "record_on_screen",
         "person_declined_this_change",
+        # A store/service refusal in its own words (tables_*, drill, attention,
+        # spend desk): the caller's arguments were wrong and the sentence says
+        # how — the agent's to fix, never an operational error.
+        "refused",
+        # NOT "recursion_limit": the agent nesting limit stays a red failure (owner ruling
+        # 2026-11-08; guard test_a_nesting_refusal_is_never_called_a_swallowed_exception).
+        # A tool the server added read-only for this run refusing a write in words
+        # (scope_system: "read-only in this run … Nothing was written").
+        "read_only",
+        # A client-delegated tool (matrx-desktop) refusing the model's arguments.
+        "invalid_params",
+        # A tool refusing an actor its own policy does not admit (kindcomp_patch_code).
+        "forbidden",
+        # The same refusal under its other name: a tool or Action whose own policy does not let this
+        # caller do this, answered with what to do instead (mail agent_gate "An agent may send mail
+        # only from a named inbox it can open", via actions_run, filed 2026-11-18). A database fault
+        # is typed ``database`` / ``execution`` by its tool, never ``permission``, and stays filed.
+        "permission",
+        # A child agent call with no message (agents/child_turn.py): nothing ran, nothing was
+        # spent, and the sentence tells the calling model what to send (PB-03 r2/r3, 2026-11-08).
+        "missing_user_input",
+        # A child agent refused because the caller left a declared-required input empty
+        # (agents/required_variables.py): nothing ran, and the sentence names the inputs.
+        "required_variables_missing",
+        # The person's own setup, not a fault: a computer tool with no computer connected to
+        # this chat (desktop.py ``_no_computer``), and memory asked for inside a temporary chat
+        # (memory.py ``person_memory_off``). The sentence tells the model what to tell them.
+        "no_computer",
+        "person_memory_off",
+        # A person's own connector that is not connected yet (cerbo.py ``cerbo_not_connected``,
+        # connection_tools.py): the sentence tells the model to send them to Settings → Connectors.
+        "not_connected",
+        # The same for a chat bundle loaded through use_tool (tool_catalog/discovery.py
+        # ``bundle_not_connected``: "The person has not connected Linear…"), filed until 2026-11-20.
+        "bundle_not_connected",
+        # The database refused the caller's own values — a check/foreign-key/unique/not-null
+        # violation or bad enum text (db_hints.is_constraint_refusal). The refusal sentence
+        # names the allowed values; the model corrects it on its next step.
+        "constraint_violation",
+        # A person's own MCP connection credential refused on discovery (401/403): the model tells
+        # them to reconnect (bundle_lister.py). A 5xx / network failure stays ``mcp_no_tools``, filed.
+        "mcp_unauthorized",
+        # A person's own connector credential refused by the provider (cerbo ``cerbo_keys_refused``,
+        # graph_actions/cerbo.py): the sentence sends them to reconnect in Settings → Connectors.
+        # Cerbo unreachable or failing on its side stays ``execution``, filed (live 2026-11-13).
+        "connection_credentials_refused",
+        # A paid call refused at zero cost by the caller's OWN spend arguments (aidream spend desk,
+        # action_requests/spend_ask.py): the estimate is above the max_cost_usd the model passed, or
+        # the spend_approval_id it passed was not issued to this caller. The sentence names the value
+        # to send (four seo_domain rows filed 2026-11-21). ``configuration`` stays filed.
+        "over_max_cost",
+        "spend_approval_not_yours",
+        # An optimistic edit whose anchor text matched nowhere or in several places (fs_edit,
+        # notes, CMS, kind components, context_patch, db patch): nothing was written and the
+        # sentence names the lines; the model re-reads and re-anchors. Filed for fs_edit as
+        # tool_execution_failed until 2026-11-21 (fa3b500f). context_patch keeps its own
+        # context_patch_no_match capture, which does not read this set.
+        "patch_no_match",
+        "patch_ambiguous",
     } or normalized_error_type.endswith("_not_found"):
         return True
     if tool_name == "cloud_browser" and error_type in _CLOUD_BROWSER_EXPECTED_LIFECYCLE_OUTCOMES:
         return True
+    # A selector the readiness pre-gate positively found absent (matrx_scraper ai_browser/actions.py
+    # ``_UNUSABLE_TARGET_MESSAGE["absent"]``): the model aimed at nothing and picks another selector
+    # (filed as system errors until 2026-11-19, guided-setup). Every other action failure stays filed.
+    if (
+        tool_name == "cloud_browser"
+        and error_type == "browser_action_failed"
+        and (message or "").startswith(_CLOUD_BROWSER_SELECTOR_ABSENT_PREFIX)
+    ):
+        return True
     return (tool_name, error_type) in {
         ("code_execute_python", "python_error"),
         ("context", "context_not_attached"),
-        ("context_patch", "patch_no_match"),
+        # The model's ask payload missing a field of its kind (action_requests.payload_refusal): the
+        # refusal names the field and an example, nothing was sent (live 2026-11-09). ``configuration``
+        # (ask_person offered where it cannot park) stays filed: that is the platform's wiring.
+        ("ask_person", "payload_invalid"),
         ("context", "context_create_disabled"),
         ("shell_execute", "exit_code"),
         ("shell_python", "exit_code"),
+        # The sql tool and its read-only sibling refusing a schema/relation that is not application
+        # data, a credential table, or a privilege / RLS denial (42501) — by design, answered to
+        # the model with guidance (db_read's were filed as system_errors until 2026-11-17).
+        ("sql", "permission"),
+        ("db_read", "permission"),
+        # The background-helper cap (agent_harness/children.py ``_background_cap_refusal``): a limit by
+        # design whose sentence tells the model to wait or task_stop one; the sealed real test expects
+        # starts past the cap to end here (filed as system errors until 2026-11-19).
+        ("agent", "limit_reached"),
+        ("send_message", "limit_reached"),
+        # A wake-up refused by its own limits (agent_harness/wakeups.py ``schedule``: too far ahead,
+        # unclear time, bad repeat, daily budget, pending cap): each sentence tells the model what to do
+        # instead (filed as system errors until 2026-11-19, a voice agent asking for 2028).
+        ("schedule_wakeup", "limit_reached"),
+        # git_ingest given a folder path while the turn is bound to a box (code_ingest.py): the tool runs
+        # on the server and cannot see the box's disk; the sentence sends the model to fs_* / shell
+        # (filed as tool_execution_failed until 2026-11-21, 662ec5a4).
+        ("git_ingest", "local_path_on_bound_box"),
     }
 
 
@@ -225,12 +416,59 @@ def _note_tool_argument_refusal(
     )
 
 
+def typed_result_inside_preview_envelope(output: Any) -> dict[str, Any] | None:
+    """The typed result a preview envelope carries, or None when ``output`` is not one.
+
+    ``kind_component._with_auto_preview`` hands a save back in one of two envelopes so the
+    model sees its screenshots: an ``image_ref_list`` whose ``details.save`` is the save, or
+    ``{"save": <save>, "preview": <findings>}``. The save is the result the tool's contracts
+    describe; the envelope is transport. Only a ``save`` that is itself an object counts.
+    """
+    if not isinstance(output, dict):
+        return None
+    if output.get("kind") == "image_ref_list" and isinstance(output.get("items"), list):
+        details = output.get("details")
+        save = details.get("save") if isinstance(details, dict) else None
+        return save if isinstance(save, dict) else None
+    if set(output) == {"save", "preview"} and isinstance(output["save"], dict):
+        return output["save"]
+    return None
+
+
+def arguments_as_meant(arguments: dict[str, Any], args_model: Any) -> dict[str, Any] | None:
+    """The arguments as the tool's own input model reads them, or ``None`` when it refuses them.
+
+    A tool whose input model repairs a call before the body runs (ask_person's ``repair_ask``:
+    an empty ``message`` is filled from the first question) runs the REPAIRED arguments. The
+    Content IR shadow check judges what the tool ran, so a call the model's own repair settled
+    is the model's mistake corrected by the tool's declared repair — never contract drift
+    (live 2026-11-14: ask_person with ``message: ''`` filed tool_input_contract_drift four
+    times while the tool accepted the repaired call). Only fields the model set (or the repair
+    filled) are kept, so defaults the model never sent do not change the verdict.
+    """
+    if args_model is None or not hasattr(args_model, "model_validate"):
+        return None
+    # Only a DECLARED repair (a ``mode="before"`` model validator) counts: a model that merely
+    # ignores a key the contract forbids is still drift (contract and code disagree).
+    decorators = getattr(args_model, "__pydantic_decorators__", None)
+    validators = getattr(decorators, "model_validators", {}) or {}
+    if not any(getattr(getattr(d, "info", None), "mode", None) == "before" for d in validators.values()):
+        return None
+    try:
+        parsed = args_model.model_validate(arguments or {})
+        meant = parsed.model_dump(mode="json", exclude_unset=True)
+    except Exception:  # noqa: BLE001 — a refused call keeps the raw verdict
+        return None
+    return meant if isinstance(meant, dict) else None
+
+
 async def _capture_tool_input_contract_drift(
     *,
     ctx: ToolContext,
     tool_name: str,
     input_kind: str,
     error_count: int,
+    errors: Sequence[str] = (),
 ) -> None:
     """Durably capture a shadow-contract mismatch without retaining tool input."""
     from matrx_connect.streaming.error_capture import capture_error
@@ -251,8 +489,27 @@ async def _capture_tool_input_contract_drift(
             "tool_name": tool_name,
             "input_kind": input_kind,
             "error_count": error_count,
+            # Which field disagreed: the validator's own sentences (path + rule), capped.
+            "validation_errors": [str(e)[:200] for e in list(errors)[:5]],
         },
     )
+
+
+#: Status receipts a catalog Tool hands back INSTEAD of its answer (nothing found, still
+#: running, awaiting approval). They are successful calls whose payload is, by design, not
+#: the Tool's success shape; each validates against its own registered kind.
+CATALOG_STATUS_RECEIPT_KINDS = frozenset(
+    {"catalog_tool_empty", "catalog_tool_pending", "catalog_tool_approval"}
+)
+
+
+def is_catalog_status_receipt(curated_kind: str | None, drift_sources: Sequence[str]) -> bool:
+    """True when a result is a catalog status receipt that passed its OWN kind check.
+
+    Judging it against the Tool's success-output schema filed a false drift row for
+    every empty/pending catalog call (``current_time_in_zone``, 2026-11-15).
+    """
+    return curated_kind in CATALOG_STATUS_RECEIPT_KINDS and "declared_kind" not in drift_sources
 
 
 async def _capture_tool_output_contract_drift(
@@ -262,6 +519,7 @@ async def _capture_tool_output_contract_drift(
     output_kind: str,
     error_count: int,
     validation_sources: tuple[str, ...],
+    errors: Sequence[str] = (),
 ) -> None:
     """Durably capture a successful result that violates its output contract."""
     from matrx_connect.streaming.error_capture import capture_error
@@ -283,6 +541,7 @@ async def _capture_tool_output_contract_drift(
             "output_kind": output_kind,
             "error_count": error_count,
             "validation_sources": list(validation_sources),
+            "validation_errors": [str(e)[:200] for e in list(errors)[:5]],
         },
     )
 
@@ -442,15 +701,27 @@ async def _capture_tool_result_size_unmanaged(*, ctx: ToolContext, tool_name: st
     )
 
 
+_CAPTURED_FAILURE_MESSAGE_CHARS = 1000
+
+
 async def _capture_tool_execution_failed(
-    *, ctx: ToolContext, tool_name: str, error_type: str
+    *,
+    ctx: ToolContext,
+    tool_name: str,
+    error_type: str,
+    message: str | None = None,
+    traceback_text: str | None = None,
 ) -> None:
-    """Capture an unexpected failed tool result without retaining args or output."""
+    """Capture an unexpected failed tool result: the tool's own error sentence and traceback,
+    never its args or output. A row that only said "Tool execution failed: <tool>" left every
+    triage to a join against chat.tool_call (28 tables_automation rows, 2026-11-02)."""
     from matrx_connect.streaming.error_capture import capture_error
 
+    said = (message or "").strip()[:_CAPTURED_FAILURE_MESSAGE_CHARS] or "no error message"
     await capture_error(
-        RuntimeError(f"Tool execution failed: {tool_name}"),
+        RuntimeError(f"Tool execution failed: {tool_name} ({error_type}): {said}"),
         kind=TOOL_EXECUTION_FAILED_KIND,
+        traceback_text=traceback_text or None,
         request_id=ctx.request_id or None,
         user_id=ctx.user_id or None,
         conversation_id=ctx.conversation_id or None,
@@ -491,6 +762,9 @@ DELEGATED_CALL_ABANDON_AFTER_SECONDS: int = 30 * 24 * 60 * 60  # 30 days
 #   ever fires if the emit/commit genuinely deadlocks. DECOUPLED from the
 #   abandonment TTL so a long per-tool wait can never hold the request task open.
 _DELEGATED_DISPATCH_TIMEOUT_SECONDS: float = 60.0 * 60.0  # 1 hour
+# A held stream's wait (tools/delegated_hold.py) runs INSIDE this dispatch, so it must end before the
+# backstop does: the margin is finalize()'s own worst case above (30 s drain + 60 s flush) with room.
+_DELEGATED_HOLD_BACKSTOP_MARGIN_SECONDS: float = 5 * 60.0  # protocol-constant: derived invariant, finalize()'s worst case (30 s drain + 60 s flush) with room; a smaller value lets the backstop cut a held wait mid-finalize
 
 # ── Unknown-tool hint bounds — always on, tune here (never a flag) ─────────────
 # The db_hints pattern applied to tool names: a miss returns did-you-mean +
@@ -761,6 +1035,31 @@ def _validate_against_declared_schema(tool_def: ToolDefinition, args: dict[str, 
     return "; ".join(parts)
 
 
+#: Tools that REPORT state named sibling tools change, mapped to those tools. In a batch, a reporter
+#: runs after its named siblings finish and never waits on any other call: real test PB-08k r19
+#: (2026-11-09) emitted ``list_agents`` then ``task_stop`` in one batch, the two ran concurrently,
+#: and the list read the helper ``running`` 1 ms before the stop landed. A long foreground agent
+#: call in the same batch does not hold the list back. A host registers with
+#: :func:`reads_after_its_batch`.
+_READS_AFTER_ITS_BATCH: dict[str, frozenset[str]] = {}
+
+#: Write tools whose calls in one batch each touch their own target, so they run side by side
+#: instead of in emission order (``task_stop``: each stop waits for its own helper to wind down,
+#: and N stops in one batch must not cost N waits). A host registers with :func:`writes_independently`.
+_INDEPENDENT_WRITES: set[str] = set()
+
+
+def reads_after_its_batch(name: str, *, after: frozenset[str] | set[str]) -> None:
+    """Declare ``name`` a reporter that, in one batch, runs after its ``after`` siblings."""
+    if name:
+        _READS_AFTER_ITS_BATCH[name] = frozenset(after)
+
+
+def writes_independently(*names: str) -> None:
+    """Declare write tools whose calls in one batch never need to run in emission order."""
+    _INDEPENDENT_WRITES.update(n for n in names if n)
+
+
 class ToolExecutor:
     """The single entry point for all tool executions.
 
@@ -922,6 +1221,7 @@ class ToolExecutor:
         result = ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="invalid_arguments",
                 message=f"Invalid arguments for '{tool_name}': {msg}",
                 suggested_action=suggested_action,
@@ -1122,6 +1422,14 @@ class ToolExecutor:
             # bundle from it) — it must carry the internal name.
             ctx = ctx.model_copy(update={"tool_name": tool_name})
 
+        # --- Per-call routing ---
+        # A tool a live client implements on purpose still runs on the server when THIS
+        # call carries an argument its declaration reserves for the server (e.g. a Cloud
+        # Browser session_id). Decided once, here, so every later delegation check agrees.
+        from matrx_ai.tools.declared import client_tools_for_call
+
+        client_tools = client_tools_for_call(tool_name, arguments, client_tools)
+
         # --- Allowlist guard ---
         # Reject any tool the model was not explicitly given in this request.
         # This prevents the model from invoking arbitrary registered tools by
@@ -1163,10 +1471,16 @@ class ToolExecutor:
                     f"Tool '{tool_name}' was not provided to the model for this request "
                     "and cannot be executed."
                 )
-                _action = "Only call tools that were listed in your available tools."
+                # A late tool (``providers/late_tools.py``) is defined in turn context and may stay defined on an earlier
+                # turn after it is no longer offered; the newest turn's context names the ones that are.
+                _action = (
+                    "Only call a tool from your tools list, or one this turn's context names as available now; "
+                    "a tool defined only on an earlier turn and not named there cannot be called."
+                )
             result = ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type=_err_type,
                     message=_message,
                     suggested_action=_action,
@@ -1191,6 +1505,11 @@ class ToolExecutor:
                 error_type=_err_type,
             )
             return result.to_tool_result_content(), result
+
+        # The run's allowed set rides on the context so a gateway (``use_tool``) can run a tool
+        # the run holds — late tools (providers/late_tools.py) — and refuse any other.
+        if allowed_tools is not None and ctx.allowed_tools != allowed_tools:
+            ctx = ctx.model_copy(update={"allowed_tools": allowed_tools})
 
         # --- Resolve tool ---
         # Lookup precedence (Step 2 of the redesign):
@@ -1285,6 +1604,19 @@ class ToolExecutor:
         # unchanged. An envelope that cannot be lifted honestly is left in place
         # and refused below with ``_envelope_problem`` — never silently chosen.
         _envelope = tool_def.args_envelope
+        # THE SAME ENVELOPE ON A FLAT TOOL (2026-11-02, Company Setup efficiency loop). A model
+        # that drives one lean dispatcher (`records`: action + `args`) carries that habit to its
+        # flat siblings: `html_page(action="create", args={}, …)` and
+        # `tables_template(action="list", args={…})` were refused 8 times in 13 runs, each
+        # costing a turn. A flat tool that declares no `args` parameter has no other meaning
+        # for one, so it is lifted the same honest way (clashes still refused, never chosen).
+        if (
+            _envelope is None
+            and isinstance(arguments, dict)
+            and "args" in arguments
+            and "args" not in (tool_def.parameters or {})
+        ):
+            _envelope = "args"
         arguments, _envelope_problem = unwrap_args_envelope(arguments or {}, _envelope)
 
         _alias_recovered = recover_action_type_alias(arguments, tool_def.parameters)
@@ -1318,6 +1650,56 @@ class ToolExecutor:
                     metadata={"alias": "action_to_type"},
                 ),
                 name="tool_db_log_alias_recovered",
+            )
+
+        # ── A JSON STRING where the schema publishes an object/array is decoded FIRST ──
+        # Before the durable row, every guard, the tool's own input repair and the
+        # contract check: a tool whose model repairs its input never raises the
+        # ValidationError the later coercion waits for, and ask_person's repair then
+        # threw the real questions away and showed its lead-in as the only question
+        # (review 12 C1, 2/2; both filed as tool_input_contract_drift). A string that
+        # does not read as one container is left as sent and refused by name.
+        from matrx_ai.tools._dispatch_util import decode_stringified_by_schema
+
+        _schema_decoded: list[str] = []
+        # Decoded by the CONTRACT schema (the flattened per-action map the model is shown
+        # and the Content IR check judges), never the raw row root: a $variants row's root
+        # map can omit ``items`` the per-action contract declares (video_clone gestures).
+        _decoded = decode_stringified_by_schema(
+            arguments or {}, tool_def._build_json_schema(contract=True)
+        )
+        if _decoded is not None:
+            arguments, _schema_decoded = _decoded
+            _decoded_str = ", ".join(_schema_decoded)
+            logger.warning(
+                "[ToolExecutor] decoded JSON-string arg(s) for tool %r: %s",
+                tool_name,
+                _decoded_str,
+            )
+            vcprint(
+                f"[ToolExecutor] COERCED {tool_name}: field(s) [{_decoded_str}] were "
+                "strings where the schema publishes an object/array/number/boolean — decoded.",
+                color="yellow",
+            )
+            _debug_log(
+                "COERCED",
+                tool=tool_name,
+                fields=_decoded_str,
+                conv=(getattr(ctx, "conversation_id", None) or "")[:8],
+                call=ctx.call_id,
+            )
+            detached_task(
+                _db_log(
+                    "COERCED",
+                    tool_name=tool_name,
+                    kind=_dispatch_kind,
+                    args=arguments,
+                    conversation_id=getattr(ctx, "conversation_id", None),
+                    call_id=ctx.call_id,
+                    user_id=getattr(ctx, "user_id", None),
+                    metadata={"coerced_fields": _schema_decoded},
+                ),
+                name="tool_db_log_schema_decoded",
             )
 
         # --- Pinned arguments (the person's per-request limit, arg_pins.py) ---
@@ -1362,20 +1744,18 @@ class ToolExecutor:
             # An admin tool is a capability the admin put on their own agent: it runs
             # for an admin from ANY chat (Arman, 2026-10-07). The admin lane governs
             # what a normal PAGE shows an admin, never a tool they chose.
-            from matrx_connect import admin_tool_authorized
+            from matrx_connect import admin_tool_authorized, admin_tool_refusal_message
 
             try:
                 _is_admin = admin_tool_authorized()
             except Exception:
                 _is_admin = False
             if not _is_admin:
-                _admin_msg = (
-                    f"Tool '{tool_name}' is an admin tool: only a platform admin's agent "
-                    "can use it."
-                )
+                # Honest about WHICH no: "not an admin" vs "this run did not carry your reach".
+                _admin_msg = admin_tool_refusal_message(tool_name)
                 result = ToolResult(
                     success=False,
-                    error=ToolError(error_type="admin_only", message=_admin_msg),
+                    error=ToolError(refusal=True, error_type="admin_only", message=_admin_msg),
                     started_at=started_at,
                     completed_at=time.time(),
                     tool_name=tool_name,
@@ -1419,6 +1799,62 @@ class ToolExecutor:
                 await stream.error(_admin_msg, error_type="admin_only")
                 return result.to_tool_result_content(), result
 
+        # --- Compliance gate (rule H runtime backstop; host-injected, compliance_gate.py) ---
+        # The funnel already removed a regulated run's disallowed tools; this refuses any that
+        # arrived another way (use_tool, a mid-run queue, a nested agent), delegated ones too.
+        from matrx_ai.tools.compliance_gate import (
+            COMPLIANCE_REFUSAL_ERROR_TYPE,
+            tool_compliance_gate_configured,
+            tool_compliance_refusal,
+        )
+
+        if tool_compliance_gate_configured():
+            from matrx_ai.context.app_context import try_get_app_context as _try_gate_app
+
+            _compliance_msg = await tool_compliance_refusal(canonical_name, _try_gate_app())
+            if _compliance_msg:
+                vcprint(f"[ToolExecutor] COMPLIANCE REFUSED {tool_name}: {_compliance_msg}", color="yellow")
+                result = ToolResult(
+                    success=False,
+                    error=ToolError(
+                        refusal=True,
+                        error_type=COMPLIANCE_REFUSAL_ERROR_TYPE,
+                        message=_compliance_msg,
+                        suggested_action="Do not retry this tool; answer without it.",
+                    ),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name=tool_name,
+                    call_id=ctx.call_id,
+                )
+                detached_task(
+                    _db_log(
+                        "FAIL",
+                        tool_name=tool_name,
+                        kind=_dispatch_kind,
+                        args=arguments,
+                        err_type=COMPLIANCE_REFUSAL_ERROR_TYPE,
+                        err_msg=_compliance_msg,
+                        conversation_id=getattr(ctx, "conversation_id", None),
+                        call_id=ctx.call_id,
+                        user_id=getattr(ctx, "user_id", None),
+                    ),
+                    name="tool_db_log_compliance_refused",
+                )
+                result.compute_duration()
+                await self._record_rejected(
+                    ctx,
+                    tool_name=as_called,
+                    arguments=arguments,
+                    result=result,
+                    tool_type=tool_def.tool_type.value,
+                    canonical_name=canonical_name,
+                )
+                stream = ToolStreamManager(ctx.emitter, ctx.call_id, tool_name)
+                await stream.error(_compliance_msg, error_type=COMPLIANCE_REFUSAL_ERROR_TYPE)
+                return result.to_tool_result_content(), result
+
+        on_screen_redirect: dict[str, Any] | None = None
         # --- On-screen write guard (W-60) ---
         # A record the person has open on a page with a live write target is
         # changed only through that page's approval (apply_surface_write) —
@@ -1426,21 +1862,65 @@ class ToolExecutor:
         # person declined it this turn. See matrx_ai/tools/on_screen_write_guard.py.
         if not is_delegated_pre:
             from matrx_ai.context.app_context import try_get_app_context
-            from matrx_ai.tools.on_screen_write_guard import guarded_write_refusal
+            from matrx_ai.tools.on_screen_write_guard import (
+                ON_SCREEN_ERROR_TYPE,
+                ON_SCREEN_SUGGESTED_ACTION,
+                SURFACE_WRITE_DOOR,
+                guarded_write_refusal,
+                on_screen_surface_redirect,
+                writer_key,
+            )
 
             _app = try_get_app_context()
-            _refusal = guarded_write_refusal(
-                canonical_name, arguments, getattr(_app, "metadata", None) if _app else None
+            _app_md = getattr(_app, "metadata", None) if _app else None
+            # Q-05 (2026-11-10): a right edit on the record open on screen IS the
+            # approval card — the same edit goes to the page's apply_surface_write
+            # under this call id, instead of coming back as a failed tool call.
+            _redirect = (
+                on_screen_surface_redirect(canonical_name, arguments, _app_md)
+                if client_tools and SURFACE_WRITE_DOOR in client_tools
+                else None
             )
+            _door_def = self.registry.get(SURFACE_WRITE_DOOR) if _redirect is not None else None
+            _refusal = (
+                None
+                if _door_def is not None
+                else guarded_write_refusal(canonical_name, arguments, _app_md)
+            )
+            if _door_def is not None and _redirect is not None:
+                on_screen_redirect = {
+                    "from_tool": writer_key(canonical_name, arguments) or canonical_name,
+                    # The model called ``as_called``: the rebuilt result answers that name
+                    # (Gemini pairs functionResponse to functionCall by name).
+                    "answers_name": as_called,
+                    "from_arguments": dict(arguments),
+                }
+                logger.warning(
+                    "[ToolExecutor] on-screen write %s sent to the person as %s (call %s)",
+                    on_screen_redirect["from_tool"],
+                    SURFACE_WRITE_DOOR,
+                    ctx.call_id,
+                )
+                tool_name = canonical_name = SURFACE_WRITE_DOOR
+                tool_def = _door_def
+                arguments = _redirect
+                is_delegated_pre = True
+                _dispatch_kind = "DELEGATE"
+                ctx = ctx.model_copy(update={"tool_name": SURFACE_WRITE_DOOR})
             if _refusal is not None:
                 _err_type, _msg = _refusal
                 result = ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type=_err_type,
                         message=_msg,
+                        # A redirect, not a dead end: "or tell the person" read as
+                        # permission to stop (Q-05, 2026-11-09).
                         suggested_action=(
-                            "Use apply_surface_write for the record on screen, or tell the person."
+                            ON_SCREEN_SUGGESTED_ACTION
+                            if _err_type == ON_SCREEN_ERROR_TYPE
+                            else "Tell the person the change was left as it was."
                         ),
                     ),
                     started_at=started_at,
@@ -1474,7 +1954,8 @@ class ToolExecutor:
         # throws (a "tool_defect"). Only server-executed, validate-enabled
         # declared tools are checked; client-delegated tools validate on the
         # client, and tools without a declared model are left untouched.
-        coerced_fields: list[str] = []
+        coerced_fields: list[str] = list(_schema_decoded)
+        respelled_choices: list[tuple[str, Any, Any]] = []
         inferred_discriminator: tuple[str, str] | None = None
         # (discriminator, action, removed fields) when pre-flight stripped
         # arguments another action owns — told to the model on the result.
@@ -1520,7 +2001,16 @@ class ToolExecutor:
             from matrx_ai.tools.declared import get_effective_declared
 
             _declared = get_effective_declared(canonical_name)
-            if _declared is not None and _declared.validate:
+            # A lean row's `guide` is answered from the row at the dispatch edge
+            # (``lean_envelope.row_guide``); the code's union has no such action,
+            # so it is not validated against it.
+            from matrx_ai.tools.lean_envelope import serves_row_guide
+
+            if (
+                _declared is not None
+                and _declared.validate
+                and not serves_row_guide(tool_def, arguments)
+            ):
                 # ── Missing action/command inference (before validate) ───────
                 # A rejected call still costs a full provider turn. When the
                 # discriminator is omitted but variant-unique fields uniquely
@@ -1668,7 +2158,7 @@ class ToolExecutor:
                             _healed = False
                         if _healed:
                             arguments = _cand_args
-                            coerced_fields = _cand_fields
+                            coerced_fields = sorted({*coerced_fields, *_cand_fields})
                             _fields_str = ", ".join(coerced_fields)
                             logger.warning(
                                 "[ToolExecutor] auto-coerced JSON-string arg(s) "
@@ -1759,6 +2249,61 @@ class ToolExecutor:
                                     ),
                                     name="tool_db_log_clamped",
                                 )
+                    # ── Enum spelling (one pass) ─────────────────────────────
+                    # 'Choice' for 'choice', 'choice-many' for 'choice_many', at
+                    # any depth. Spelling only; a synonym is the tool's own call.
+                    if not _healed:
+                        from matrx_ai.tools._dispatch_util import heal_choice_spelling
+
+                        _spelled = heal_choice_spelling(arguments or {}, _ve)
+                        if _spelled is not None:
+                            _cand_args, _spell_changes = _spelled
+                            try:
+                                _declared.args_model.model_validate(_cand_args)
+                                _healed = True
+                            except Exception:
+                                _healed = False
+                            if _healed:
+                                arguments = _cand_args
+                                respelled_choices = _spell_changes
+                                _spell_desc = ", ".join(
+                                    f"{f}={s!r}->{v!r}" for f, s, v in _spell_changes
+                                )
+                                logger.warning(
+                                    "[ToolExecutor] respelled enum value(s) for tool %r: %s",
+                                    tool_name,
+                                    _spell_desc,
+                                )
+                                vcprint(
+                                    f"[ToolExecutor] COERCED {tool_name}: [{_spell_desc}] "
+                                    "differed from a declared value only in spelling.",
+                                    color="yellow",
+                                )
+                                _debug_log(
+                                    "COERCED",
+                                    tool=tool_name,
+                                    fields=_spell_desc,
+                                    conv=(getattr(ctx, "conversation_id", None) or "")[:8],
+                                    call=ctx.call_id,
+                                )
+                                detached_task(
+                                    _db_log(
+                                        "COERCED",
+                                        tool_name=tool_name,
+                                        kind=_dispatch_kind,
+                                        args=arguments,
+                                        conversation_id=getattr(ctx, "conversation_id", None),
+                                        call_id=ctx.call_id,
+                                        user_id=getattr(ctx, "user_id", None),
+                                        metadata={
+                                            "respelled_choices": [
+                                                {"field": f, "supplied": s, "value": v}
+                                                for f, s, v in _spell_changes
+                                            ]
+                                        },
+                                    ),
+                                    name="tool_db_log_respelled",
+                                )
                     if not _healed:
                         # Prefer the action-menu error over Pydantic's
                         # "Unable to extract tag using discriminator …".
@@ -1790,13 +2335,21 @@ class ToolExecutor:
                                 part for part in (_envelope_problem, _msg, _expected) if part
                             )[:1200]
                         else:
-                            from matrx_ai.tools._dispatch_util import flat_required_sentence
+                            from matrx_ai.tools._dispatch_util import (
+                                flat_required_sentence,
+                                other_action_fields_sentence,
+                            )
 
                             _flat = flat_required_sentence(
                                 arguments or {}, _declared.args_model, _ve
                             )
                             if _flat:
                                 _msg = f"{_msg} {_flat}"[:1200]
+                            _owned = other_action_fields_sentence(
+                                arguments or {}, _declared.args_model, _ve
+                            )
+                            if _owned:
+                                _msg = f"{_msg} {_owned}"[:1200]
                         return await self._reject_invalid_arguments(
                             ctx=ctx,
                             tool_name=tool_name,
@@ -1810,12 +2363,16 @@ class ToolExecutor:
                             started_at=started_at,
                         )
 
+        from matrx_ai.tools.implementations.legacy_local import routes_to_matrx2
+
         if (
             tool_def.tool_type == ToolType.LOCAL
             and not is_delegated_pre
             and not (tool_def.function_path or "").strip()
             and tool_def._callable is None
             and not self._has_external_handler(tool_def)
+            # An old local_* name on a Matrx 2 computer: its successor runs it (legacy_local.py).
+            and not routes_to_matrx2(tool_def.name)
         ):
             _debug_log(
                 "NO_EXECUTOR",
@@ -1840,6 +2397,7 @@ class ToolExecutor:
             result = ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="no_viable_executor",
                     message=(
                         f"Tool {tool_name!r} (canonical {canonical_name!r}) "
@@ -1885,7 +2443,32 @@ class ToolExecutor:
 
         input_contract, output_contract = tool_def.content_ir_contracts()
         input_kind_verdict = check_schema(arguments, input_contract.json_schema)
-        if input_kind_verdict.errors:
+        if input_kind_verdict.errors and not is_delegated_pre:
+            # The tool runs what its own input model reads (a declared repair included);
+            # judge THAT, so a call the tool's repair settled is never filed as drift.
+            from matrx_ai.tools.declared import get_effective_declared as _declared_of
+
+            _decl = _declared_of(canonical_name)
+            _meant = arguments_as_meant(arguments or {}, getattr(_decl, "args_model", None)) if _decl else None
+            if _meant is not None and _meant != arguments:
+                _meant_verdict = check_schema(_meant, input_contract.json_schema)
+                if not _meant_verdict.errors:
+                    input_kind_verdict = _meant_verdict
+        # The contract checked here IS the schema the model was shown, so a refusal
+        # alone says only that the model sent what it was not offered. It is DRIFT
+        # (contract and code disagree) when the tool then ACCEPTS those arguments;
+        # when the server-run tool refuses them too, the model got the refusal and
+        # corrects it — a model mistake, never a platform error (live:
+        # hub_page_go_live with confirm_opens, refused by PageGoLiveInput too,
+        # 2026-11-05). Paths that never learn the tool's verdict (delegated,
+        # contained, guardrail-stopped) still file at once.
+        pending_input_drift = bool(input_kind_verdict.errors)
+
+        async def _file_input_drift() -> None:
+            nonlocal pending_input_drift
+            if not pending_input_drift:
+                return
+            pending_input_drift = False
             logger.error(
                 "[Content IR] tool input drift for %s (%s): %s",
                 canonical_name,
@@ -1897,12 +2480,24 @@ class ToolExecutor:
                 tool_name=canonical_name,
                 input_kind=input_contract.kind,
                 error_count=len(input_kind_verdict.errors),
+                errors=input_kind_verdict.errors,
             )
 
         # --- Phase 1: log attempt (fire-and-forget INSERT) ---
         from matrx_ai.tools.execution_authorization import evaluate_tool_authorization
 
         authorization = await evaluate_tool_authorization(tool_def, arguments, ctx)
+        delegated_authorization: dict[str, Any] | None = authorization.metadata or None
+        if on_screen_redirect:
+            # Q-05 (REVIEW-C105): a server write sent to the page as its approval card is
+            # ALWAYS approved by the person, whatever the target's apply policy ("auto"
+            # included). The tool_delegated event and the stored row carry the mark; the
+            # page's apply_surface_write reads it and shows the card.
+            delegated_authorization = {
+                **(delegated_authorization or {}),
+                "on_screen_redirect": True,
+                "requires_person": True,
+            }
         if authorization.requires_confirmation:
             client_tools = frozenset({*(client_tools or frozenset()), tool_name})
             is_delegated_pre = True
@@ -1930,6 +2525,7 @@ class ToolExecutor:
         )
         # ``real`` and ``contained`` dispatch; ``borrowed`` / ``stopped`` never do.
         if containment is not None and containment.disposition not in _CANDIDATE_DISPATCHED:
+            await _file_input_drift()
             return await self._contain_candidate_call(
                 ctx,
                 tool_def,
@@ -1952,8 +2548,9 @@ class ToolExecutor:
             tool_def,
             arguments,
             exposed_name=as_called,
-            authorization_metadata=authorization.metadata or None,
+            authorization_metadata=delegated_authorization,
             candidate_disposition=containment.as_record() if containment is not None else None,
+            **({"on_screen_redirect": on_screen_redirect} if on_screen_redirect else {}),
         )
 
         stream = ToolStreamManager(ctx.emitter, ctx.call_id, tool_name, row_id=str(row_id) if row_id else None)
@@ -1964,6 +2561,7 @@ class ToolExecutor:
             error_result = ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type=guardrail_result.error_type,
                     message=guardrail_result.reason or "Blocked by guardrail",
                     suggested_action=guardrail_result.suggested_action,
@@ -1998,13 +2596,16 @@ class ToolExecutor:
                 coordinator=_gr_coord,
                 name="tool_log_error_guardrail",
             )
+            await _file_input_drift()
             return error_result.to_tool_result_content(), error_result
 
-        self.guardrails.record_call(tool_name, arguments, ctx)
+        self.guardrails.record_call(tool_name, arguments, ctx, tool_def)
 
         # --- Stream started (with full arguments — non-negotiable) ---
         user_message = tool_def.format_user_message(arguments)
-        await stream.started(user_message, arguments=arguments, display_name=tool_def.display_name)
+        await stream.started(
+            user_message, arguments=arguments, display_name=tool_def.display_name, category=tool_def.category
+        )
 
         # Touch lifecycle
         self.lifecycle.touch(ctx.conversation_id)
@@ -2038,7 +2639,7 @@ class ToolExecutor:
                 stream,
                 client_tools,
                 row_id,
-                authorization_metadata=authorization.metadata or None,
+                authorization_metadata=delegated_authorization,
             )
             if tool_def.must_complete and not is_delegated:
                 result, cancellation_after_completion = await _await_must_complete(
@@ -2088,10 +2689,11 @@ class ToolExecutor:
                         color="red",
                     )
             raise
-        except TimeoutError:
+        except TimeoutError as timeout_exc:
             result = ToolResult(
                 success=False,
                 error=timeout_tool_error(
+                    exc=timeout_exc,
                     tool_name=tool_name,
                     dispatch_timeout=dispatch_timeout,
                     user_message=user_message,
@@ -2124,6 +2726,28 @@ class ToolExecutor:
             DISPATCH_ENDS_AT.reset(_ends_token)
 
         result.compute_duration()
+
+        # --- Held stream for a PERSON (RESUME-AND-RECOVERY 1b rule P4): a call parked on an ask waits here,
+        # outside the dispatch's timeout and cancel branch, when the client keeps reading for the answer.
+        if result.delegated_pending and not is_delegated and row_id:
+            held_for_person = await self._hold_for_person(tool_def, ctx, row_id, started_at)
+            if held_for_person is not None:
+                result = held_for_person
+                result.compute_duration()
+
+        # --- Held stream: the client's result landed while this turn waited for it ---
+        # The result POST wrote the row (status, output, kind, trace). Nothing below may write it again,
+        # and the model gets exactly what a rebuild of the stored row gives (RESUME-AND-RECOVERY 1a).
+        if result.client_resolved_content is not None:
+            _debug_log(
+                "DELEGATED_HELD",
+                tool=tool_name,
+                kind=_dispatch_kind,
+                conv=(ctx.conversation_id or "")[:8],
+                call=ctx.call_id,
+            )
+            await _file_input_drift()
+            return result.client_resolved_content, result
 
         # --- Mandate-candidate: a nested run stopped under this call ---
         # The child's stop is terminal for the whole candidate: this call's
@@ -2160,6 +2784,7 @@ class ToolExecutor:
                     completed_at=time.time(),
                 )
                 stopped.compute_duration()
+                await _file_input_drift()
                 return _candidate_stopped_content(stopped, nested_stop), stopped
             result.candidate_disposition = containment.as_record()
 
@@ -2222,6 +2847,7 @@ class ToolExecutor:
                 ),
                 name="tool_db_log_delegated",
             )
+            await _file_input_drift()
             return result.to_tool_result_content(), result
 
         # --- Defense-in-depth: embedded-error-envelope detection ---
@@ -2283,9 +2909,17 @@ class ToolExecutor:
             if isinstance(result.output, BaseModel)
             else result.output
         )
+        # A save that carries an automatic preview (kindcomp_* after a save) is handed
+        # back as a media envelope so the model SEES the screenshots; the typed result
+        # rides inside it. Every contract below judges that typed result, never the
+        # envelope — judging the envelope filed ~650 false drift rows a day.
+        enveloped_result = typed_result_inside_preview_envelope(serialized_output)
+        if enveloped_result is not None:
+            serialized_output = enveloped_result
         curated_kind = kind_of(serialized_output)
         output_drift_sources: list[str] = []
         output_drift_error_count = 0
+        output_drift_errors: list[str] = []
         output_drift_kind: str | None = None
         if curated_kind == "json":
             # 'json' is a format word, never an identity — the same refusal the
@@ -2295,7 +2929,10 @@ class ToolExecutor:
             # Validate the SERIALIZED form: a tool may hand back the KindModel
             # itself, and the registered schema describes the wire shape.
             kind_check = await check_against_kind(serialized_output, curated_kind)
-            if kind_check.degraded_reason is not KindDegradedReason.KIND_NOT_REGISTERED:
+            if (
+                kind_check.degraded_reason is not KindDegradedReason.KIND_NOT_REGISTERED
+                and enveloped_result is None
+            ):
                 # Only a registered kind is stamped (content-ir rule 28); an
                 # unregistered __kind is still screamed below.
                 result.output_kind = curated_kind
@@ -2311,6 +2948,7 @@ class ToolExecutor:
                 )
                 output_drift_sources.append("declared_kind")
                 output_drift_error_count += len(kind_check.errors)
+                output_drift_errors.extend(kind_check.errors)
                 output_drift_kind = curated_kind
             elif not kind_check.checked:
                 degraded_reason = (
@@ -2332,10 +2970,23 @@ class ToolExecutor:
                     degraded_reason=degraded_reason,
                 )
 
+        if result.success:
+            await _file_input_drift()  # the tool accepted what its contract refused: drift
+        elif pending_input_drift:
+            vcprint(
+                f"[ToolExecutor] {canonical_name}: arguments outside its contract were refused "
+                f"by the tool too (the model corrects it), call {ctx.call_id}",
+                color="yellow",
+            )
+
         # Failed tools have no successful output to validate. Their ToolError
         # is the contract; checking ``None`` against the success schema creates
         # a second false drift event that hides the actual failure.
-        if result.success and output_contract is not None:
+        if (
+            result.success
+            and output_contract is not None
+            and not is_catalog_status_receipt(curated_kind, output_drift_sources)
+        ):
             output_kind_verdict = check_schema(serialized_output, output_contract.json_schema)
             if output_kind_verdict.errors:
                 logger.error(
@@ -2346,6 +2997,7 @@ class ToolExecutor:
                 )
                 output_drift_sources.append("generated_output_contract")
                 output_drift_error_count += len(output_kind_verdict.errors)
+                output_drift_errors.extend(output_kind_verdict.errors)
                 output_drift_kind = output_drift_kind or output_contract.kind
 
         # One successful tool result may violate both its self-described kind
@@ -2359,6 +3011,7 @@ class ToolExecutor:
                 output_kind=output_drift_kind,
                 error_count=output_drift_error_count,
                 validation_sources=tuple(output_drift_sources),
+                errors=output_drift_errors,
             )
 
         # The RUNTIME half of the reconciled tool measure (§10g GAP 3). A tool
@@ -2420,6 +3073,12 @@ class ToolExecutor:
                 result.output.setdefault("arg_inference_notice", _infer_notice)
             else:
                 result.model_notices.append(_infer_notice)
+        if respelled_choices:
+            result.model_notices.append(
+                "NOTICE: accepted "
+                + ", ".join(f"{f}={v!r} (you sent {s!r})" for f, s, v in respelled_choices)
+                + ". Next call, use that exact spelling."
+            )
         if pinned_changes:
             result.model_notices.append(
                 f"NOTICE: this chat pins {tool_name}: {'; '.join(pinned_changes)}. "
@@ -2463,6 +3122,7 @@ class ToolExecutor:
             except Exception:
                 output_preview = str(result.output)[:4000]
             result.error = ToolError(
+                reported_failure=f"tool {tool_name!r} itself (success=False with no ToolError)",
                 error_type="missing_error_field",
                 message=(
                     f"Tool {tool_name!r} returned success=False but did not "
@@ -2512,8 +3172,19 @@ class ToolExecutor:
                     "Site icons",
                     data={"icons": result.site_icons},
                 )
-            await stream.completed("Done", result=result)
+            # Self-corrected slips: earlier failed calls this success recovers ride the completion
+            # event (`supersedes`) so a client's failed count is right while the turn runs; the same
+            # ids are stamped on those rows (`metadata.superseded_by`) below.
+            from matrx_ai.tools.turn_ledger import claim_superseded
+
+            _superseded = claim_superseded(ctx.call_id or str(row_id or ""))
+            await stream.completed(
+                "Done",
+                result=result,
+                supersedes=[e.key for e in _superseded],
+            )
         else:
+            _superseded = []
             await stream.error(result.error.message, result.error.error_type)
 
         # --- Phase 2: log result (fire-and-forget UPDATE) ---
@@ -2562,6 +3233,15 @@ class ToolExecutor:
                 self.execution_logger.log_error(row_id, result, events, coordinator=_log_coord),
                 coordinator=_log_coord,
                 name="tool_log_error",
+            )
+
+        if _superseded:
+            await self._persist_tool_outcome(
+                self.execution_logger.mark_superseded(
+                    _superseded, ctx.call_id or str(row_id or ""), coordinator=_log_coord
+                ),
+                coordinator=_log_coord,
+                name="tool_mark_superseded",
             )
 
         if cancellation_after_completion is not None:
@@ -2644,12 +3324,15 @@ class ToolExecutor:
             _expected_domain_failure = _is_expected_domain_failure(
                 tool_name=canonical_name,
                 error_type=_err_type,
+                message=_err_msg,
             )
             if not _expected_domain_failure:
                 await _capture_tool_execution_failed(
                     ctx=ctx,
                     tool_name=canonical_name,
                     error_type=_err_type,
+                    message=_err_msg,
+                    traceback_text=_err_tb,
                 )
 
             # SCREAM. A tool failure is a REAL failure and it goes to the
@@ -2678,13 +3361,8 @@ class ToolExecutor:
                 + (
                     f"  traceback:\n{_err_tb}"
                     if _err_tb
-                    else (
-                        "  traceback:  <not applicable — expected domain conflict; "
-                        "handled by the tool's expected-domain-failure contract.>"
-                        if _expected_domain_failure
-                        else "  traceback:  <none — the tool swallowed its exception and "
-                        f"stringified it. Fix '{tool_name}' to let the exception reach the "
-                        "executor, or set ToolError.traceback.>"
+                    else _missing_traceback_line(
+                        tool_name, result.error, expected=_expected_domain_failure
                     )
                 ),
                 color="yellow" if _expected_domain_failure else "red",
@@ -2831,7 +3509,7 @@ class ToolExecutor:
             return None
         try:
             name = self._normalize_called_name(called)
-            if client_tools and name in client_tools:
+            if (client_tools and name in client_tools) or name in _INDEPENDENT_WRITES:
                 return None
             tool_def = lookup_projected_tool(name)
             canonical = name
@@ -2939,11 +3617,59 @@ class ToolExecutor:
             except Exception as exc:  # noqa: BLE001 — mirrors gather(return_exceptions=True)
                 slots[idx] = exc
 
+        # Reporters (``_READS_AFTER_ITS_BATCH``) wait only for the siblings they report on.
+        names = [self._normalize_called_name(str(tc.get("name", "") or "")) for tc in tool_calls]
+        done = [asyncio.Event() for _ in tool_calls]
+        waits: dict[int, list[int]] = {}
+        if len(tool_calls) > 1 and _READS_AFTER_ITS_BATCH:
+            for idx, name in enumerate(names):
+                after = _READS_AFTER_ITS_BATCH.get(name)
+                if after and chain_of[idx] is None:
+                    siblings = [j for j, other in enumerate(names) if j != idx and other in after]
+                    if siblings:
+                        waits[idx] = siblings
+
+        async def _then(idx: int, unit: Awaitable[None]) -> None:
+            try:
+                await unit
+            finally:
+                done[idx].set()
+
+        async def _chain_then(indices: list[int]) -> None:
+            try:
+                await _run_chain(indices)
+            finally:
+                for idx in indices:
+                    done[idx].set()
+
+        async def _report_after(idx: int) -> None:
+            await asyncio.gather(*(done[j].wait() for j in waits[idx]))
+            await _run_one(idx)
+
         units: list[Awaitable[None]] = [
-            _run_one(idx) for idx, key in enumerate(chain_of) if key is None
+            _report_after(idx) if idx in waits else _then(idx, _run_one(idx))
+            for idx, key in enumerate(chain_of)
+            if key is None
         ]
-        units.extend(_run_chain(indices) for indices in chains.values())
-        await asyncio.gather(*units)
+        units.extend(_chain_then(indices) for indices in chains.values())
+
+        from matrx_ai.tools.host_park import tool_batch_scope
+
+        try:
+            # ONE STEP, ONE ASK: the step's calls share a batch scope, so a host that asks the
+            # person about several of them (the apply gate) asks once (``host_park.ToolBatch``).
+            with tool_batch_scope(ctx.call_id for ctx in child_contexts):
+                await asyncio.gather(*units)
+        except asyncio.CancelledError:
+            # The BATCH was cancelled (client disconnect, shutdown, parent run
+            # stopped). Every call without an outcome ends recorded — never
+            # silent — and then the cancellation propagates unchanged.
+            await asyncio.shield(
+                self._record_cancelled_batch(
+                    tool_calls, child_contexts, slots, ctx_base, client_tools
+                )
+            )
+            raise
         raw_results = slots
 
         content_results: list[dict[str, Any]] = []
@@ -2999,6 +3725,123 @@ class ToolExecutor:
 
         return content_results, full_results
 
+    async def _record_cancelled_batch(
+        self,
+        tool_calls: list[dict[str, Any]],
+        child_contexts: list[ToolContext],
+        slots: list[Any],
+        ctx_base: ToolContext,
+        client_tools: frozenset[str] | None,
+    ) -> None:
+        """Record a terminal ``cancelled`` outcome for every unfinished call.
+
+        2026-11-07: a cancelled archestra batch left no FAIL row and no error.
+        In-flight server calls close their own ledger row inside ``execute``
+        (``log_abandoned``); a call still queued behind a write chain, or
+        cancelled before it reached dispatch, had no row at all and vanished.
+        Here every unfinished call gets a FAIL trace, a call with no ledger row
+        gets a born-terminal ``cancelled`` row, and the batch is captured once.
+        Best-effort: never raises (the caller re-raises the cancellation).
+        Guard: tests/test_cancelled_batch_records_every_call.py.
+        """
+        unfinished: list[str] = []
+        for idx, slot in enumerate(slots):
+            if slot is not None:
+                continue
+            child_ctx = child_contexts[idx]
+            tc = tool_calls[idx]
+            name = tc.get("name", "")
+            call_id = child_ctx.call_id
+            unfinished.append(call_id)
+            message = (
+                f"Tool '{name}' was cancelled with its batch before it returned a "
+                "result (the request was cancelled)."
+            )
+            try:
+                is_delegated = bool(client_tools and name in client_tools)
+                row_id = self.execution_logger.row_id_for_call(child_ctx)
+                if is_delegated and row_id:
+                    # A delegated row stays 'delegated': the client owns it.
+                    continue
+                detached_task(
+                    _db_log(
+                        "FAIL",
+                        tool_name=name,
+                        kind="SERVER",
+                        duration_ms=None,
+                        args=tc.get("arguments", {}),
+                        err_type="cancelled",
+                        err_msg=message,
+                        conversation_id=child_ctx.conversation_id or None,
+                        call_id=call_id,
+                        user_id=child_ctx.user_id or None,
+                    ),
+                    name="tool_db_log_batch_cancelled",
+                )
+                if not row_id:
+                    now = time.time()
+                    await self.execution_logger.log_rejected(
+                        child_ctx,
+                        tool_name=name,
+                        arguments=tc.get("arguments", {}) or {},
+                        result=ToolResult(
+                            success=False,
+                            error=ToolError(refusal=True, error_type="cancelled", message=message),
+                            started_at=now,
+                            completed_at=now,
+                            tool_name=name,
+                            call_id=call_id,
+                        ),
+                    )
+            except Exception as exc:  # noqa: BLE001 — recording must never mask the cancel
+                vcprint(
+                    f"[ToolExecutor] Failed to record cancelled call {call_id} ({name}): {exc}",
+                    color="red",
+                )
+        if not unfinished:
+            return
+        from matrx_connect.streaming.run_tracking import host_is_shutting_down
+
+        if host_is_shutting_down():
+            # A deploy drain cut the batch: the calls are recorded above, and the cut belongs to the
+            # layer that owns the turn — the stream files ``stream_cancelled`` when nothing resumes it,
+            # and a durable run is the run reaper's to judge (``runtime_execution_abandoned`` only when
+            # nothing resumes it). Filing here too alarmed every deploy-cut batch twice, resumed or not
+            # (2026-11-16, 2026-11-19: both ``tool_batch_cancelled`` rows were deploy drains).
+            vcprint(
+                f"[ToolExecutor] Tool batch cut by a server shutdown with {len(unfinished)} unfinished "
+                "call(s); the stream or the run reaper judges the cut",
+                color="yellow",
+            )
+            return
+        try:
+            from matrx_connect.streaming import error_capture as _error_capture
+
+            await _error_capture.capture_error(
+                asyncio.CancelledError(
+                    f"Tool batch cancelled with {len(unfinished)} unfinished call(s)"
+                ),
+                kind=TOOL_BATCH_CANCELLED_KIND,
+                request_id=ctx_base.request_id or None,
+                user_id=ctx_base.user_id or None,
+                conversation_id=ctx_base.conversation_id or None,
+                route="tool_executor.execute_batch",
+                error_type="CancelledError",
+                context={
+                    "unfinished_call_ids": unfinished,
+                    "tool_names": sorted(
+                        {
+                            tool_calls[i].get("name", "")
+                            for i, slot in enumerate(slots)
+                            if slot is None
+                        }
+                    ),
+                    "batch_size": len(tool_calls),
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 — capture is best-effort
+            vcprint(f"[ToolExecutor] Failed to capture cancelled batch: {exc}", color="red")
+
     # ------------------------------------------------------------------
     # Mandate-candidate containment — borrowed / stopped calls never dispatch
     # ------------------------------------------------------------------
@@ -3044,6 +3887,7 @@ class ToolExecutor:
                 provider_content=content,
                 error=(
                     ToolError(
+                        reported_failure="the earlier identical call whose error this borrows",
                         error_type="candidate_borrowed_error",
                         message=(content if isinstance(content, str) else str(content)),
                     )
@@ -3151,18 +3995,38 @@ class ToolExecutor:
         wins (the ContextVar is innermost-first). Canonical account:
         ``common-docs/systems/architecture/provenance/FEATURE.md``.
         """
+        # A lean row's `guide` is the row's own text: answered here, before any
+        # executor or delegated client (neither has a `guide` of its own).
+        from matrx_ai.tools.lean_envelope import row_guide, serves_row_guide
+
+        if serves_row_guide(tool_def, args):
+            return ToolResult(
+                success=True,
+                output=row_guide(tool_def, (args or {}).get("topic")),
+                started_at=time.time(),
+                completed_at=time.time(),
+                tool_name=tool_def.name,
+                call_id=ctx.call_id,
+            )
+
         from matrx_orm import declared_actor
 
+        from matrx_ai.tools.host_park import settle_parked, tool_call_scope
+
+        # A host check below the tool (the Action apply gate) may park THIS call on a person
+        # (``host_park``): its answer then becomes ``delegated_pending``, like ask_person's.
         async with declared_actor("agent", f"tool:{tool_def.name}"):
-            return await self._dispatch_declared(
-                tool_def,
-                args,
-                ctx,
-                stream,
-                client_tools,
-                row_id,
-                authorization_metadata=authorization_metadata,
-            )
+            with tool_call_scope(ctx) as scope:
+                result = await self._dispatch_declared(
+                    tool_def,
+                    args,
+                    ctx,
+                    stream,
+                    client_tools,
+                    row_id,
+                    authorization_metadata=authorization_metadata,
+                )
+            return settle_parked(scope, result)
 
     async def _dispatch_declared(
         self,
@@ -3197,6 +4061,7 @@ class ToolExecutor:
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="validation",
                         message=(
                             f"Arguments for {tool_def.name} do not match its schema "
@@ -3219,6 +4084,13 @@ class ToolExecutor:
                 row_id,
                 authorization_metadata=authorization_metadata,
             )
+
+        # An old Matrx Local name with no Matrx Local attached, on a Matrx 2 computer: the ONE
+        # router hands it to its Matrx 2 successor (matrx_ai/tools/implementations/legacy_local.py).
+        from matrx_ai.tools.implementations.legacy_local import routes_to_matrx2, run_on_matrx2
+
+        if routes_to_matrx2(tool_def.name):
+            return await run_on_matrx2(tool_def.name, args, ctx)
 
         match tool_def.tool_type:
             case ToolType.LOCAL:
@@ -3249,6 +4121,7 @@ class ToolExecutor:
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="configuration",
                         message=f"Unknown tool type: {tool_def.tool_type}",
                     ),
@@ -3288,6 +4161,11 @@ class ToolExecutor:
         from matrx_ai.context.app_context import get_app_context
         from matrx_ai.context.events import ToolEventPayload
 
+        if not row_id:
+            # An UNSAVED run (store=False) has no chat.tool_call row to park on, so the handoff is in
+            # memory, in this process (matrx_ai/tools/in_memory_handoff.py). With NO page attached at all
+            # there is nobody to hand it to: answer the model plainly.
+            return await self._delegate_in_memory(tool_def, args, ctx, authorization_metadata)
         if getattr(get_app_context(), "store", True):
             if ctx.assistant_checkpoint is not None:
                 ctx.message_id = await ctx.assistant_checkpoint()
@@ -3359,11 +4237,30 @@ class ToolExecutor:
         )
 
         emitter = ctx.emitter
+        # THE HELD STREAM: a client that keeps reading gets its result waited for in this stream. The
+        # lease is taken on the durable row BEFORE the event, so no result can land ahead of it.
+        from matrx_ai.tools import delegated_hold
+
+        hold = self._hold_settings(tool_def, emitter)
+        if hold is not None and not await delegated_hold.claim(
+            row_id, conversation_id=ctx.conversation_id or "", hold=hold
+        ):
+            hold = None
         if emitter is not None:
             target_instance_id = (
                 self.execution_logger._desktop_target_instance_id() if is_desktop_bound else None
             )
             event_data: dict[str, Any] = {"arguments": args}
+            if hold is not None:
+                event_data["hold"] = {
+                    "until": (datetime.now(UTC) + timedelta(seconds=hold.seconds)).isoformat(),
+                    "reason": "client_tool",
+                }
+            # THE CALL'S OWN DEADLINE, when its tool declares one (``max_client_wait_seconds``): the client's
+            # turn header keeps "Working" until it (a long recording, a slow upload) instead of its 10-minute
+            # fallback. The default expiry is the 30-day abandon window — no UI deadline — so it is not sent.
+            if tool_def.max_client_wait_seconds:
+                event_data["step_deadline_at"] = expires_at.isoformat()
             if authorization_metadata:
                 event_data["execution_authorization"] = authorization_metadata
             if target_instance_id:
@@ -3379,6 +4276,11 @@ class ToolExecutor:
                 )
             )
 
+        if hold is not None:
+            held = await self._wait_for_client_result(tool_def, ctx, row_id, hold, started_at)
+            if held is not None:
+                return held
+
         # Pending marker — NOT a result. success=False keeps it out of any
         # success path; delegated_pending is the real signal. The caller
         # (execute) returns this without logging so the 'delegated' row stands.
@@ -3389,6 +4291,344 @@ class ToolExecutor:
             call_id=ctx.call_id,
             started_at=started_at,
             completed_at=time.time(),
+        )
+
+    @staticmethod
+    def _hold_settings(tool_def: ToolDefinition, emitter: Any) -> Any:
+        """This delegated call's wait in the open stream; ``None`` means park at once (as before)."""
+        from matrx_ai.context.app_context import get_app_context
+        from matrx_ai.processing.blocks.saved_blocks import client_reads
+        from matrx_ai.tools import delegated_hold
+
+        if emitter is None or not client_reads(get_app_context(), delegated_hold.HOLD_READ):
+            return None
+        return delegated_hold.settings(cap_seconds=tool_def.max_client_wait_seconds or None)
+
+    async def _wait_for_client_result(
+        self,
+        tool_def: ToolDefinition,
+        ctx: ToolContext,
+        row_id: str,
+        hold: Any,
+        started_at: float,
+    ) -> ToolResult | None:
+        """Wait in the open stream for the client's result. A result, or ``None`` when the hold was given up."""
+        from matrx_ai.tools import delegated_hold
+
+        outcome = await delegated_hold.wait_for_result(
+            row_id,
+            conversation_id=ctx.conversation_id or "",
+            call_id=ctx.call_id,
+            hold=hold,
+            stop_reason=self._hold_stop_reason(ctx),
+        )
+        return await self._held_outcome(tool_def, ctx, outcome, started_at, answered_by="the client")
+
+    @staticmethod
+    def _hold_stop_reason(ctx: ToolContext) -> Any:
+        """The run's own stop look (Stop, interrupt, a spine control), asked on every tick of a held wait."""
+        from matrx_ai.tools import delegated_hold
+
+        request_id = str(getattr(ctx, "request_id", "") or "") or None
+
+        async def stop_reason() -> tuple[delegated_hold.ReleaseReason, str] | None:
+            from matrx_ai.orchestrator import executor as loop
+
+            if loop._is_request_cancelled(request_id) or loop._is_request_interrupted(request_id):
+                return "stopped", "the person stopped the turn"
+            spine = await loop._spine_stop_reason()
+            if spine:
+                return ("stopped" if "cancel" in spine.lower() else "control"), spine
+            return None
+
+        return stop_reason
+
+    @staticmethod
+    async def _held_outcome(
+        tool_def: ToolDefinition,
+        ctx: ToolContext,
+        outcome: Any,
+        started_at: float,
+        *,
+        answered_by: str,
+    ) -> ToolResult | None:
+        """THE ONE END OF A HELD WAIT, client tool and person alike (RESUME-AND-RECOVERY 1a, 1b).
+
+        Taken: ``tool_completed`` / ``tool_error`` with ``data.held``, and the stored row's own model-facing
+        content (what a rebuild of the row gives). Given up: ``delegated_hold_released`` and ``None`` (the
+        caller keeps its ``delegated_pending`` result and the turn parks).
+        """
+        from matrx_ai.context.events import InfoPayload, ToolEventPayload
+        from matrx_ai.db._conversation_rebuild_impl import _rebuild_tool_result_content
+
+        emitter = ctx.emitter
+        if not outcome.taken:
+            # The fallback announces itself: the turn parks and the client continues it by /resume.
+            if emitter is not None:
+                await emitter.send_info(
+                    InfoPayload(
+                        code="delegated_hold_released",
+                        system_message=(
+                            f"Stopped waiting in the stream for {tool_def.name} "
+                            f"({outcome.reason}, {outcome.waited_ms} ms); the turn parks."
+                        ),
+                        user_message="",
+                        metadata={
+                            "call_id": ctx.call_id,
+                            "tool_name": tool_def.name,
+                            "reason": outcome.reason,
+                            "waited_ms": outcome.waited_ms,
+                        },
+                    )
+                )
+            return None
+        content = _rebuild_tool_result_content([outcome.row])[0]
+        is_error = bool(getattr(outcome.row, "is_error", False))
+        if emitter is not None:
+            await emitter.send_tool_event(
+                ToolEventPayload(
+                    event="tool_error" if is_error else "tool_completed",
+                    call_id=ctx.call_id,
+                    tool_name=tool_def.name,
+                    message=f"{tool_def.name} answered by {answered_by}",
+                    show_spinner=False,
+                    data=(
+                        {
+                            "error_type": str(getattr(outcome.row, "error_type", None) or "client_tool_error"),
+                            "detail": getattr(outcome.row, "error_message", None),
+                            "held": True,
+                            "waited_ms": outcome.waited_ms,
+                        }
+                        if is_error
+                        else {
+                            "result_omitted": True,
+                            "output_chars": getattr(outcome.row, "output_chars", None),
+                            "tool_call_id": str(outcome.row.id),
+                            "held": True,
+                            "waited_ms": outcome.waited_ms,
+                        }
+                    ),
+                )
+            )
+        return ToolResult(
+            success=not is_error,
+            client_resolved_content=content,
+            output_chars=getattr(outcome.row, "output_chars", None) or 0,
+            output_preview=getattr(outcome.row, "output_preview", None),
+            tool_name=tool_def.name,
+            call_id=ctx.call_id,
+            started_at=started_at,
+            completed_at=time.time(),
+        )
+
+    @staticmethod
+    def _person_hold_allowed() -> bool:
+        """RESUME-AND-RECOVERY 1b rules P2-P3 — the one check lives in ``delegated_hold.person_reads_live``."""
+        from matrx_ai.tools import delegated_hold
+
+        return delegated_hold.person_reads_live()
+
+    async def _hold_for_person(
+        self, tool_def: ToolDefinition, ctx: ToolContext, row_id: str, started_at: float
+    ) -> ToolResult | None:
+        """A call parked on a PERSON, waited for in the open stream (RESUME-AND-RECOVERY 1b rule P4).
+
+        Runs in ``execute`` AFTER the dispatch returned ``delegated_pending`` (outside its timeout and cancel
+        branch). The stored answer when it was taken under the hold; ``None`` means park as before.
+        """
+        from matrx_ai.context.events import InfoPayload
+        from matrx_ai.tools import delegated_hold
+        from matrx_ai.tools.logger import PARKED_ON_KEY
+
+        emitter = ctx.emitter
+        if emitter is None or not row_id or not self._person_hold_allowed():
+            return None
+        # (1) The row by id: still parked on an action request, unresolved.
+        from matrx_ai.db import cxm
+
+        rows = await cxm.tool_call.filter_items(id=row_id)
+        row = rows[0] if rows else None
+        parked_on = (getattr(row, "metadata", None) or {}).get(PARKED_ON_KEY) if row is not None else None
+        if (
+            row is None
+            or str(getattr(row, "status", "")) != "delegated"
+            or not getattr(row, "is_client_delegated", False)
+            or getattr(row, "resolved_at", None) is not None
+            or not isinstance(parked_on, dict)
+            or parked_on.get("kind") != "action_request"
+        ):
+            return None
+        # (2) The assistant tool_use is durable before anything waits.
+        if ctx.assistant_checkpoint is None:
+            return None
+        try:
+            message_id = await ctx.assistant_checkpoint()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - no durable tool_use means no hold: the call parks, announced
+            vcprint(f"[delegated hold] {tool_def.name}: the assistant checkpoint failed ({exc!r}); the call "
+                    "parks without a hold", color="red")
+            try:
+                from matrx_connect.streaming.error_capture import capture_error
+
+                await capture_error(exc, kind="person_hold_checkpoint_failed", route="tools/executor",
+                                    context={"tool_call_id": row_id, "call_id": ctx.call_id})
+            except Exception:  # noqa: BLE001 - the banner above already said it
+                pass
+            return None
+        if not message_id:
+            return None
+        ctx.message_id = message_id
+        # (3) The window: the person knob, and never past the row's own expiry minus one lease (the expiry
+        # sweep must never hand a holder its placeholder).
+        hold = delegated_hold.settings(reason="person")
+        if hold is None:
+            return None
+        expires_at = getattr(row, "expires_at", None)
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if expires_at is not None:
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=UTC)
+            left = (expires_at - datetime.now(UTC)).total_seconds() - hold.lease_seconds
+            hold = replace(hold, seconds=min(hold.seconds, left))
+        if hold.seconds < hold.lease_seconds:
+            return None
+        # (4) The lease; a failed claim means the row changed (answered, closed): park as today.
+        conversation_id = ctx.conversation_id or ""
+        if not await delegated_hold.claim(row_id, conversation_id=conversation_id, hold=hold):
+            return None
+        # (5) An interrupt must never pair this open call with an "interrupted" result.
+        from matrx_ai.orchestrator.execution_state import try_get_execution_state
+
+        state = try_get_execution_state()
+        if state is not None:
+            state.tool_dispatch_response = None
+        # (6) The client is told the stream stays open for the person's answer.
+        from matrx_connect.context.tool_event_data import DelegatedHoldWaitingInfo
+
+        waiting = DelegatedHoldWaitingInfo(
+            call_id=ctx.call_id,
+            tool_name=tool_def.name,
+            until=(datetime.now(UTC) + timedelta(seconds=hold.seconds)).isoformat(),
+            action_request_id=str(parked_on.get("action_request_id") or ""),
+        )
+        await emitter.send_info(
+            InfoPayload(
+                code="delegated_hold_waiting",
+                system_message=f"Waiting in the stream for the person's answer to {tool_def.name}.",
+                user_message="",
+                metadata=waiting.model_dump(),
+            )
+        )
+        # (7) The wait.
+        outcome = await delegated_hold.wait_for_result(
+            row_id,
+            conversation_id=conversation_id,
+            call_id=ctx.call_id,
+            hold=hold,
+            stop_reason=self._hold_stop_reason(ctx),
+        )
+        return await self._held_outcome(tool_def, ctx, outcome, started_at, answered_by="the person")
+
+    async def _delegate_in_memory(
+        self,
+        tool_def: ToolDefinition,
+        args: dict[str, Any],
+        ctx: ToolContext,
+        authorization_metadata: dict[str, Any] | None,
+    ) -> ToolResult:
+        """The unsaved run's client handoff: emit ``tool_delegated`` (same shape), wait on a future, continue in place."""
+        from matrx_ai.context.app_context import get_app_context
+        from matrx_ai.context.events import ToolEventPayload
+        from matrx_ai.tools import in_memory_handoff
+
+        started_at = time.time()
+
+        def refusal(error_type: str, message: str, exc: BaseException | None = None) -> ToolResult:
+            return ToolResult(
+                success=False,
+                error=ToolError.declared(error_type, message, exc=exc),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name=tool_def.name,
+                call_id=ctx.call_id,
+            )
+
+        emitter = ctx.emitter
+        app_ctx = get_app_context()
+        is_desktop_bound = any(
+            b == "matrx-local" or b.startswith("matrx-local.")
+            for b in self.registry.bindings_for_tool(tool_def.name)
+        )
+        if emitter is None or not getattr(app_ctx, "client_tools", None) or is_desktop_bound:
+            return refusal(
+                "client_unavailable",
+                f"{tool_def.name} needs the page open: it runs in the person's browser, and no page is "
+                "attached to this run to hand it to. Tell the person this action needs the page open, "
+                "and answer without it.",
+            )
+
+        # Bounded by the same per-call / knob window as a saved call, and never past the dispatch backstop.
+        wait_seconds = min(
+            float(tool_def.max_client_wait_seconds or delegated_call_abandon_seconds()),
+            _DELEGATED_DISPATCH_TIMEOUT_SECONDS - 30.0,
+        )
+        future = in_memory_handoff.register(
+            ctx.call_id, user_id=str(ctx.user_id or ""), conversation_id=str(ctx.conversation_id or "")
+        )
+        try:
+            event_data: dict[str, Any] = {"arguments": args}
+            if tool_def.max_client_wait_seconds:
+                event_data["step_deadline_at"] = (
+                    datetime.now(UTC) + timedelta(seconds=wait_seconds)
+                ).isoformat()
+            if authorization_metadata:
+                event_data["execution_authorization"] = authorization_metadata
+            await emitter.send_tool_event(
+                ToolEventPayload(
+                    event="tool_delegated",
+                    call_id=ctx.call_id,
+                    tool_name=tool_def.name,
+                    message=f"Delegating {tool_def.name} to client",
+                    show_spinner=True,
+                    data=event_data,
+                )
+            )
+            try:
+                answer = await asyncio.wait_for(future, timeout=wait_seconds)
+            except TimeoutError as timed_out:
+                return refusal(
+                    "client_unavailable",
+                    f"The page did not answer {tool_def.name}. Tell the person it did not respond, and "
+                    "answer without it.",
+                    timed_out,
+                )
+        finally:
+            in_memory_handoff.forget(ctx.call_id)
+
+        if answer.get("is_error"):
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    reported_failure="the client that ran the tool",
+                    error_type="client_tool_error",
+                    message=str(answer.get("error_message") or "Client tool error"),
+                    is_retryable=False,
+                    suggested_action="The client reported an error executing this tool.",
+                ),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name=tool_def.name,
+                call_id=ctx.call_id,
+            )
+        return ToolResult(
+            success=True,
+            output=answer.get("output"),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name=tool_def.name,
+            call_id=ctx.call_id,
         )
 
     async def _execute_local(
@@ -3403,6 +4643,7 @@ class ToolExecutor:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="configuration",
                     message=f"No callable resolved for local tool '{tool_def.name}'",
                 ),
@@ -3413,7 +4654,13 @@ class ToolExecutor:
             )
 
         started_at = time.time()
-        raw_result = await func(args, ctx)
+        from matrx_ai.tools.streaming import CURRENT_TOOL_STREAM
+
+        _stream_token = CURRENT_TOOL_STREAM.set(stream)
+        try:
+            raw_result = await func(args, ctx)
+        finally:
+            CURRENT_TOOL_STREAM.reset(_stream_token)
 
         if isinstance(raw_result, ToolResult):
             raw_result.started_at = raw_result.started_at or started_at
@@ -3433,6 +4680,7 @@ class ToolExecutor:
                     else raw_result.get("error", raw_result.get("result"))
                 ),
                 error=ToolError(
+                    reported_failure=f"local tool {tool_def.name!r} (returned status='error')",
                     error_type="execution",
                     message=str(raw_result.get("error", raw_result.get("result", ""))),
                 )
@@ -3559,6 +4807,7 @@ class ToolExecutor:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Arguments for {tool_def.name} do not match its inputs: {schema_error}",
                     suggested_action="Fix the named input(s) and call the tool again.",
@@ -3573,6 +4822,7 @@ class ToolExecutor:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="configuration",
                     message=f"{tool_def.name} cannot run here: no catalog executor is installed.",
                     suggested_action="Do not retry this tool now.",
@@ -3639,6 +4889,7 @@ class ToolExecutor:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="not_found",
                 message=message or f"Tool '{tool_name}' is not registered.",
                 suggested_action=suggested_action

@@ -65,3 +65,25 @@ def test_the_send_boundary_keeps_the_last_breakdown_until_taken():
     taken = send_boundary.take_context_breakdown("conv-1")
     assert taken is not None and taken["total_chars"] > 0
     assert send_boundary.take_context_breakdown("conv-1") is None
+
+
+def test_each_category_lists_what_it_holds():
+    out = measure(_config())
+    cats = {c["key"]: c for c in out["categories"]}
+    assert cats["system_prompt"]["parts"] == [{"name": "Instructions", "chars": 26}]
+    assert [p["name"] for p in cats["messages"]["parts"]] == ["1 · user", "2 · assistant"]
+    assert cats["tool_activity"]["parts"] == [{"name": "3 · tool", "chars": 11}]
+    assert [p["name"] for p in cats["mcp_tools"]["parts"]] == ["mcp.github.list_repos"]
+    for cat in out["categories"]:
+        assert sum(p["chars"] for p in cat["parts"]) == cat["chars"]
+        assert cat["parts_omitted"] == 0
+
+
+def test_a_long_list_is_capped_and_says_how_many_it_left_out():
+    from matrx_ai.config.context_breakdown import MAX_PARTS
+
+    decls = [{"name": f"tool_{i}", "description": "x" * (i % 7)} for i in range(MAX_PARTS + 5)]
+    out = measure(_config(tool_declarations={"anthropic": decls}))
+    cat = next(c for c in out["categories"] if c["key"] == "system_tools")
+    assert len(cat["parts"]) == MAX_PARTS and cat["parts_omitted"] == 5
+    assert cat["items"] == MAX_PARTS + 5

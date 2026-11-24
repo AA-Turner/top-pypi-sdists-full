@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-braket-sdk
-Version: 1.128.1
+Version: 1.128.2
 Summary: An open source library for interacting with quantum computing devices on Amazon Braket
 Author: Amazon Web Services
 License-Expression: Apache-2.0
@@ -36,7 +36,6 @@ Requires-Dist: openqasm3
 Requires-Dist: sympy
 Provides-Extra: test
 Requires-Dist: botocore; extra == "test"
-Requires-Dist: cloudpickle==2.2.1; python_version < "3.14" and extra == "test"
 Requires-Dist: jsonschema==3.2.0; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

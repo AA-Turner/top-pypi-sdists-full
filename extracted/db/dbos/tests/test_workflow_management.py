@@ -5,6 +5,7 @@ from typing import Any, Callable, List, Optional
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy import event
 from sqlalchemy.exc import OperationalError
 
 from dbos import (
@@ -495,6 +496,125 @@ def test_delete_workflow(dbos: DBOS) -> None:
 
     # Verify deleting a non-existent workflow doesn't error
     DBOS.delete_workflow(parent_wfid2, delete_children=False)
+
+
+def test_delete_children_races_child_start(
+    dbos: DBOS, monkeypatch: pytest.MonkeyPatch, skip_with_sharding: None
+) -> None:
+    """A child started mid-delete fails to start instead of outliving its parent."""
+    parent_id = str(uuid.uuid4())
+    child_id = str(uuid.uuid4())
+    release = threading.Event()
+    attempted = threading.Event()
+    outcome: List[Any] = []
+
+    @DBOS.workflow()
+    def child() -> None:
+        pass
+
+    @DBOS.workflow()
+    def parent() -> None:
+        assert release.wait(timeout=30)
+        try:
+            with SetWorkflowID(child_id):
+                DBOS.start_workflow(child)
+            outcome.append("started")
+        except BaseException as e:
+            outcome.append(e)
+            raise
+        finally:
+            attempted.set()
+
+    original_children = dbos._sys_db._direct_children_txn
+
+    def children_then_start(c: sa.Connection, ids: List[str]) -> List[str]:
+        children = original_children(c, ids)
+        if parent_id in ids and not release.is_set():
+            # Start the child now; listing the tree first would miss it.
+            release.set()
+            attempted.wait(timeout=2)
+        return children
+
+    monkeypatch.setattr(dbos._sys_db, "_direct_children_txn", children_then_start)
+
+    with SetWorkflowID(parent_id):
+        DBOS.start_workflow(parent)
+    DBOS.delete_workflow(parent_id, delete_children=True)
+
+    assert attempted.wait(timeout=30)
+    assert outcome and outcome[0] != "started"
+    assert DBOS.get_workflow_status(parent_id) is None
+    assert DBOS.get_workflow_status(child_id) is None
+    assert DBOS.list_workflows(parent_workflow_id=parent_id) == []
+    assert_no_rows(dbos, [parent_id, child_id])
+
+
+def test_delete_children_waits_for_child_start(
+    dbos: DBOS, monkeypatch: pytest.MonkeyPatch, skip_with_sharding: None
+) -> None:
+    """A delete waits for an in-flight child start, then deletes everything it wrote."""
+    parent_id = str(uuid.uuid4())
+    child_id = str(uuid.uuid4())
+    holding = threading.Event()
+    finished = threading.Event()
+
+    @DBOS.workflow()
+    def child() -> None:
+        pass
+
+    @DBOS.workflow()
+    def parent() -> None:
+        try:
+            with SetWorkflowID(child_id):
+                DBOS.start_workflow(child)
+        finally:
+            finished.set()
+
+    original_insert = dbos._sys_db._insert_workflow_status
+
+    def insert_then_hold(status: Any, conn: Any, **kwargs: Any) -> Any:
+        result = original_insert(status, conn, **kwargs)
+        if status["workflow_uuid"] == child_id:
+            # Hold the parent's row lock while the delete begins.
+            holding.set()
+            time.sleep(1)
+        return result
+
+    monkeypatch.setattr(dbos._sys_db, "_insert_workflow_status", insert_then_hold)
+
+    with SetWorkflowID(parent_id):
+        DBOS.start_workflow(parent)
+    assert holding.wait(timeout=30)
+    DBOS.delete_workflow(parent_id, delete_children=True)
+
+    assert finished.wait(timeout=30)
+    assert DBOS.get_workflow_status(parent_id) is None
+    assert DBOS.get_workflow_status(child_id) is None
+    assert_no_rows(dbos, [parent_id, child_id])
+
+
+def assert_no_rows(dbos: DBOS, workflow_ids: List[str]) -> None:
+    """No table keeps a row of these workflows, nor a step that started one of them."""
+    tables = dbos._sys_db.tables
+    with dbos._sys_db.engine.connect() as c:
+        for table in (
+            tables.workflow_status,
+            tables.workflow_input,
+            tables.workflow_output,
+            tables.operation_outputs,
+        ):
+            rows = c.execute(
+                sa.select(table.c.workflow_uuid).where(
+                    table.c.workflow_uuid.in_(workflow_ids)
+                )
+            ).fetchall()
+            assert rows == [], f"{table.name} kept {rows}"
+        records = c.execute(
+            sa.select(tables.operation_outputs.c.workflow_uuid).where(
+                tables.operation_outputs.c.child_workflow_id.in_(workflow_ids)
+            )
+        ).fetchall()
+        assert records == [], f"operation_outputs kept child records {records}"
 
 
 def test_bulk_cancel(dbos: DBOS) -> None:
@@ -1289,6 +1409,55 @@ def test_restart_fromsteps_childwf(
     assert stepOneCount == 2
     assert childwfCount == 3
     assert stepThreeCount == 4
+
+
+def test_fork_stamps_copied_steps_no_earlier_than_the_fork(
+    dbos: DBOS, skip_with_sqlite: None
+) -> None:
+    """Copied steps take statement time like the fork's status row, so retention never
+    sees a fork's checkpoints as older than the fork."""
+
+    @DBOS.step()
+    def step() -> int:
+        return 1
+
+    @DBOS.workflow()
+    def work() -> int:
+        return step() + step()
+
+    handle = DBOS.start_workflow(work)
+    assert handle.get_result() == 2
+
+    def lag(conn: Any, cursor: Any, statement: str, *args: Any) -> None:
+        # Let the fork transaction's start fall behind the statement clock.
+        if statement.lstrip().upper().startswith("INSERT INTO") and (
+            "workflow_status" in statement
+        ):
+            cursor.execute("SELECT pg_sleep(0.02)")
+
+    engine = dbos._sys_db.engine
+    event.listen(engine, "before_cursor_execute", lag)
+    try:
+        fork = DBOS.fork_workflow(handle.workflow_id, 3)
+    finally:
+        event.remove(engine, "before_cursor_execute", lag)
+    assert fork.get_result() == 2
+    ws, oo = SystemSchema.workflow_status, SystemSchema.operation_outputs
+    with engine.begin() as c:
+        created_at = c.execute(
+            sa.select(ws.c.created_at).where(ws.c.workflow_uuid == fork.workflow_id)
+        ).scalar_one()
+        copied = (
+            c.execute(
+                sa.select(oo.c.retention_timestamp).where(
+                    oo.c.workflow_uuid == fork.workflow_id, oo.c.function_id < 3
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert len(copied) == 2
+    assert min(copied) >= created_at
 
 
 def test_fork_version(

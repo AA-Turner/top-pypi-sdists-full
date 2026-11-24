@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal, Self, cast
 
 from ... import helpers, optional_features
@@ -21,7 +22,7 @@ class AgGrid(Element, component='aggrid.js', esm={'nicegui-aggrid': 'dist'}, def
     @resolve_defaults
     def __init__(self,
                  options: dict, *,
-                 html_columns: list[int] = DEFAULT_PROP | [],
+                 html_columns: Sequence[int] = DEFAULT_PROP | (),
                  theme: Literal['quartz', 'balham', 'material', 'alpine'] | None = None,
                  auto_size_columns: bool | None = None,
                  modules: Literal['community', 'enterprise'] | list[str] = 'community',
@@ -34,7 +35,7 @@ class AgGrid(Element, component='aggrid.js', esm={'nicegui-aggrid': 'dist'}, def
         The methods ``run_grid_method`` and ``run_row_method`` can be used to interact with the AG Grid instance on the client.
 
         :param options: dictionary of AG Grid options
-        :param html_columns: list of columns that should be rendered as HTML (default: ``[]``)
+        :param html_columns: list of columns that should be rendered as HTML (default: ``()``)
         :param theme: AG Grid theme "quartz", "balham", "material", or "alpine" (default: ``options['theme']`` or "quartz")
         :param auto_size_columns: whether to automatically resize columns to fit the grid width (default: ``None``, i.e. fit to width unless columns use ``flex``)
         :param modules: either "community", "enterprise", or a list of `AG Grid Modules <https://www.ag-grid.com/javascript-data-grid/modules/>`_ (default: "community")
@@ -54,7 +55,7 @@ class AgGrid(Element, component='aggrid.js', esm={'nicegui-aggrid': 'dist'}, def
             **({'autoSizeStrategy': {'type': 'fitGridWidth'}} if auto_size_columns else {}),
             **options,
         }
-        self._props['html-columns'] = html_columns[:]
+        self._props['html-columns'] = list(html_columns)
         self._update_method = 'update_grid'
         self._props['modules'] = modules[:]
 
@@ -66,10 +67,10 @@ class AgGrid(Element, component='aggrid.js', esm={'nicegui-aggrid': 'dist'}, def
     @classmethod
     def from_pandas(cls,
                     df: 'pd.DataFrame', *,
-                    html_columns: list[int] = [],  # noqa: B006
+                    html_columns: Sequence[int] = (),
                     theme: Literal['quartz', 'balham', 'material', 'alpine'] | None = None,
                     auto_size_columns: bool | None = None,
-                    options: dict = {},  # noqa: B006
+                    options: dict | None = None,
                     modules: Literal['community', 'enterprise'] | list[str] = 'community',
                     ) -> Self:
         """Create an AG Grid from a Pandas DataFrame.
@@ -85,37 +86,20 @@ class AgGrid(Element, component='aggrid.js', esm={'nicegui-aggrid': 'dist'}, def
         Pass ``df.reset_index(drop=True)`` to drop the index instead.
 
         :param df: Pandas DataFrame
-        :param html_columns: list of columns that should be rendered as HTML (default: ``[]``, *added in version 2.19.0*)
+        :param html_columns: list of columns that should be rendered as HTML (default: ``()``, *added in version 2.19.0*)
         :param theme: AG Grid theme "quartz", "balham", "material", or "alpine" (default: ``options['theme']`` or "quartz")
         :param auto_size_columns: whether to automatically resize columns to fit the grid width (default: ``None``, i.e. fit to width unless columns use ``flex``)
         :param options: dictionary of additional AG Grid options
         :param modules: either "community", "enterprise", or a list of `AG Grid Modules <https://www.ag-grid.com/javascript-data-grid/modules/>`_ (default: "community")
         :return: AG Grid element
         """
-        import pandas as pd  # pylint: disable=import-outside-toplevel
-
-        if not isinstance(df.index, pd.RangeIndex) or df.index.name is not None:
-            df = df.reset_index()
-
-        def is_special_dtype(dtype):
-            return (pd.api.types.is_datetime64_any_dtype(dtype) or
-                    pd.api.types.is_timedelta64_dtype(dtype) or
-                    pd.api.types.is_complex_dtype(dtype) or
-                    pd.api.types.is_object_dtype(dtype) or
-                    isinstance(dtype, (pd.PeriodDtype, pd.IntervalDtype)))
-        special_cols = df.columns[df.dtypes.apply(is_special_dtype)]
-        if not special_cols.empty:
-            df = df.copy()
-            df[special_cols] = df[special_cols].astype(str)
-
-        if isinstance(df.columns, pd.MultiIndex):
-            raise ValueError('MultiIndex columns are not supported. '
-                             'You can convert them to strings using something like '
-                             '`df.columns = ["_".join(col) for col in df.columns.values]`.')
-
+        options = options or {}
+        rows, columns, labels = helpers.pandas_to_records(df)
         return cls({
-            'columnDefs': [{'field': str(col)} for col in df.columns],
-            'rowData': df.to_dict('records'),
+            'columnDefs': [{'field': str(col)} if str(col) == str(label) else
+                           {'field': str(col), 'headerName': helpers.camel_to_title_case(str(label))}
+                           for col, label in zip(columns, labels, strict=True)],
+            'rowData': rows,
             'suppressFieldDotNotation': True,
             **options,
             'theme': theme or options.get('theme', 'quartz'),
@@ -124,30 +108,33 @@ class AgGrid(Element, component='aggrid.js', esm={'nicegui-aggrid': 'dist'}, def
     @classmethod
     def from_polars(cls,
                     df: 'pl.DataFrame', *,
-                    html_columns: list[int] = [],  # noqa: B006
+                    html_columns: Sequence[int] = (),
                     theme: Literal['quartz', 'balham', 'material', 'alpine'] | None = None,
                     auto_size_columns: bool | None = None,
-                    options: dict = {},  # noqa: B006
+                    options: dict | None = None,
                     modules: Literal['community', 'enterprise'] | list[str] = 'community',
                     ) -> Self:
         """Create an AG Grid from a Polars DataFrame.
 
-        If the DataFrame contains non-UTF-8 datatypes, they will be converted to strings.
+        If the DataFrame contains non-serializable columns of type ``Binary``, ``Duration`` or ``Object``,
+        they will be converted to strings.
         To use a different conversion, convert the DataFrame manually before passing it to this method.
 
         *Added in version 2.7.0*
 
         :param df: Polars DataFrame
-        :param html_columns: list of columns that should be rendered as HTML (default: ``[]``, *added in version 2.19.0*)
+        :param html_columns: list of columns that should be rendered as HTML (default: ``()``, *added in version 2.19.0*)
         :param theme: AG Grid theme "quartz", "balham", "material", or "alpine" (default: ``options['theme']`` or "quartz")
         :param auto_size_columns: whether to automatically resize columns to fit the grid width (default: ``None``, i.e. fit to width unless columns use ``flex``)
         :param options: dictionary of additional AG Grid options
         :param modules: either "community", "enterprise", or a list of `AG Grid Modules <https://www.ag-grid.com/javascript-data-grid/modules/>`_ (default: "community")
         :return: AG Grid element
         """
+        options = options or {}
+        rows, columns = helpers.polars_to_records(df)
         return cls({
-            'columnDefs': [{'field': str(col)} for col in df.columns],
-            'rowData': df.to_dicts(),
+            'columnDefs': [{'field': str(col)} for col in columns],
+            'rowData': rows,
             'suppressFieldDotNotation': True,
             **options,
             'theme': theme or options.get('theme', 'quartz'),

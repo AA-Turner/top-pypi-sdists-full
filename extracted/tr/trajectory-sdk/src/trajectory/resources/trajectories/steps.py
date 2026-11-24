@@ -24,6 +24,7 @@ class Steps(APIResource):
     self,
     trajectory_id: str,
     *,
+    include_decisions: bool | Omit = omit,
     start_step_index: int | None | Omit = omit,
     trainable_only: bool | Omit = omit,
     cursor: str | None | Omit = omit,
@@ -36,6 +37,8 @@ class Steps(APIResource):
     """Steps
 
     Args:
+      include_decisions: Include the recorded decision and its choice probabilities.
+
       start_step_index: Begin the page at this step index. Cannot be combined with cursor.
 
       trainable_only: Page only a finalized trajectory's trained steps, one per trained sequence,
@@ -62,9 +65,10 @@ class Steps(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
+            "include_decisions": include_decisions,
             "start_step_index": start_step_index,
             "trainable_only": trainable_only,
-            "cursor": cursor,
+            "cursor": omit if cursor is None else cursor,
             "limit": limit,
           }
         ),

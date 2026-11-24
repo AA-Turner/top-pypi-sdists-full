@@ -636,7 +636,7 @@ async def load_traffic_at_risk(
                     continue
                 if status in THROTTLED_STATUSES:
                     # 429 is a fact about OUR request rate, not about the URL.
-                    # Counting it as at-risk told iopbm.com that 99.18% of its
+                    # Counting it as at-risk told a client site that 99.18% of its
                     # Google traffic was on broken pages when the only thing
                     # that had happened was our own crawler getting throttled.
                     # Reported separately, never silently dropped.

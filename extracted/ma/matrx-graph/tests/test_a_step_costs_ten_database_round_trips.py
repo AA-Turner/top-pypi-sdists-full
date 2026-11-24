@@ -1,4 +1,4 @@
-"""A workflow step's persistence costs a FIXED number of database round trips — ten.
+"""A workflow step's persistence costs a FIXED number of database round trips — eleven, six waited on.
 
 Every step of every run pays this between its own work and the next step's start, so
 each round trip here is paid N times per run (live 2026-10-28: a 600-item data.rules /
@@ -12,8 +12,10 @@ A steady-state step with a large output now costs:
 * the outcome — its new values and the row in ONE transaction: BEGIN, GUCs, values,
   row, COMMIT = 5 (was: the values in their own transaction, 4, then the row, 4);
 * the checkpoint — BEGIN, GUCs, row, run pointer, COMMIT = 5;
-* the pause/cancel poll — 0: the run-pointer UPDATE returns the run's status, and that
-  answer is the next boundary's poll (was: its own status read, 1).
+* the pause/cancel poll — 1: the checkpoint is written BESIDE the next step (PF-WF E8,
+  2026-11-14), so its status read happened mid-step and is never the next boundary's answer;
+  the boundary reads the status itself. The next step waits on six (the outcome's five and this
+  read), not ten: the checkpoint's five land beside it.
 
 Per step is measured as the difference between a 4-step and a 3-step run, so run setup
 and the final save never blur it. A new round trip on this path fails here first.
@@ -41,7 +43,7 @@ from tests._fixtures import FakeEmitter, make_app_context
 
 pytestmark = pytest.mark.asyncio
 
-PER_STEP_ROUND_TRIPS = 10
+PER_STEP_ROUND_TRIPS = 11
 INLINE_MAX = 4096
 
 
@@ -68,7 +70,10 @@ class BigStep:
             HandleSpec(id="in", direction=HandleDirection.INPUT),
             HandleSpec(id="out", direction=HandleDirection.OUTPUT),
         ),
-        determinism=ActionTier.IDEMPOTENT,
+        # The step that writes on its own (never in a chain): since L-SPEED round 6a an IDEMPOTENT
+        # step that spends nothing joins the chain (scheduler.CHAIN_TIERS), so the per-step budget
+        # below is measured on a SIDE_EFFECT step.
+        determinism=ActionTier.SIDE_EFFECT,
     )
 
     async def execute(self, ctx: NodeExecutionContext, inputs: _Any, config: _Cfg) -> NodeResult[_Any]:
@@ -147,6 +152,9 @@ class _Models:
 
     async def upsert(self, *_a: Any, **_kw: Any) -> None:
         self.ledger.statement(write=True)
+
+    async def bulk_upsert(self, *_a: Any, **_kw: Any) -> None:
+        await self.upsert()  # one statement, however many rows
 
     async def bulk_insert_ignore(self, *_a: Any, **_kw: Any) -> None:
         self.ledger.statement(write=True)
@@ -254,8 +262,17 @@ async def test_the_status_the_checkpoint_read_is_the_boundary_poll(ledger: Ledge
 # (Scheduler._step_defers_outcomes, 2026-10-29): one BEGIN / GUCs / COMMIT for the step, not two.
 # Live before: a pure Transform cost ~9 round trips (~63 ms on ECS); the planning sub-run of Smart
 # Add is eleven of them in a row.
-PURE_STEP_ROUND_TRIPS = 6  # BEGIN, GUCs, outcome row, checkpoint row, run pointer, COMMIT
-PURE_BIG_STEP_ROUND_TRIPS = 7  # ... plus the output's by-reference values, in the same transaction
+# Since PF-WF (2026-11-02) consecutive pure steps also SHARE one transaction (a chain lands in one
+# save_checkpoint_chain): one more pure step in a chain adds its outcome row, its checkpoint row and
+# its boundary's pause/cancel read (the chain's save reads no status until it lands) — BEGIN, GUCs,
+# the run pointer and COMMIT are paid once per chain, and its by-reference values ride the chain's
+# one values insert. Before: 6 (7 with large values) per pure step.
+# Since L-SPEED round 6a (3b) a chain's checkpoint rows land in ONE bulk statement: one more pure step
+# adds its outcome row and its boundary's status read only. Before: 3 (its own checkpoint INSERT too).
+# Since L-SPEED 6c part 2 a save's outcome rows land in ONE bulk upsert (and its outcome and checkpoint
+# values in one insert): one more pure step adds only its boundary's status read. Before: 2.
+PURE_STEP_ROUND_TRIPS = 1  # status read
+PURE_BIG_STEP_ROUND_TRIPS = 1  # the same: its values and its row join the chain's bulk statements
 
 
 @pytest.mark.parametrize(
@@ -269,14 +286,16 @@ async def test_a_pure_step_writes_its_outcome_inside_its_checkpoint(ledger: Ledg
     four = await _run(ledger, 4, str(uuid4()), step_type)
 
     assert four - three == budget, (
-        f"one more PURE step cost {four - three} database round trips, not {budget} — its outcome "
-        "went back to a transaction of its own instead of riding the step's checkpoint"
+        f"one more PURE step cost {four - three} database round trips, not {budget} — it no longer rides "
+        "the chain's one transaction (or its outcome went back to a transaction of its own)"
     )
 
 
-async def test_a_pure_steps_outcome_lands_before_its_completion_event(ledger: Ledger) -> None:
-    """The outcome row is written before node_completed leaves, and node_completed before
-    checkpoint_saved — the order every reader of the event stream relies on."""
+async def test_a_pure_steps_outcome_lands_before_its_checkpoint_event(ledger: Ledger) -> None:
+    """node_completed leaves when the step completes (the live feed reads in the order things
+    happened — benchmark ladder, 2026-11-12: completions used to trail a later step's start and
+    even the run's failure); the outcome row rides the step's checkpoint transaction and is
+    durable before ``checkpoint_saved`` — the point a reader may rely on every row of the step."""
     from uuid import uuid4
 
     order: list[str] = []
@@ -311,4 +330,4 @@ async def test_a_pure_steps_outcome_lands_before_its_completion_event(ledger: Le
             graph, module.PostgresCheckpointer(), make_app_context(emitter), registry=reg, fresh_history=True
         ).run(run_id=str(uuid4()))
     assert result.status is RunStatus.COMPLETED, result.error
-    assert order == ["outcome_row", "node_completed", "checkpoint_saved"], order
+    assert order == ["node_completed", "outcome_row", "checkpoint_saved"], order

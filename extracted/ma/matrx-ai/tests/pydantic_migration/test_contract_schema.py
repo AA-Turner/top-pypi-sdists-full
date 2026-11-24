@@ -45,7 +45,7 @@ def test_it_describes_every_twin_including_registry_exported_ones():
         assert name in defs, name
 
     structured = [n for n in defs if n.endswith("InputContentModel")]
-    assert len(structured) == 15, f"expected 15 structured inputs, found {len(structured)}"
+    assert len(structured) == 16, f"expected 16 structured inputs, found {len(structured)}"
 
 
 def test_the_document_is_self_contained():
@@ -84,3 +84,47 @@ def test_the_schema_is_valid_json_and_declares_its_dialect():
     doc = json.loads(emit.OUT.read_text())
     assert doc["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert doc["title"] == "Matrx engine contract"
+
+
+def test_the_schema_does_not_depend_on_what_was_imported_first():
+    """A ``Literal`` compares by its SET of values and ``typing`` caches
+    ``Optional[...]`` by that key (an LRU of 128), so a library that declared the
+    same values in another order shortly before hands ITS object to our twin. The
+    OpenAI SDK's ``Optional[Literal["transparent", "opaque", "auto"]]``
+    (``openai.types.responses.tool``) did exactly that to
+    ``UnifiedConfigModel.background`` and turned nightly level1 red whenever the
+    full suite's collection order put the SDK there first (2026-11-01).
+
+    The collision is staged deterministically — clear the typing caches, declare
+    the SDK's union first, let the twin's own declaration take the cache hit and
+    rebuild the twin with it — and the document must still be the committed bytes.
+    The twin is restored afterwards so no other test sees the staged state."""
+    import typing
+    from typing import Literal
+
+    from matrx_ai.config.models.unified import UnifiedConfigModel as twin
+
+    field = twin.model_fields["background"]
+    original = field.annotation
+    try:
+        for clear in typing._cleanups:
+            clear()
+        # The collision lives in ``Optional``'s cache specifically (the spelling both the
+        # SDK and the twin use); ``X | None`` does not share it, so it cannot stage this.
+        optional = typing.Optional
+        sdk = optional[Literal["transparent", "opaque", "auto"]]  # the SDK's order, declared first
+        ours = optional[Literal["auto", "opaque", "transparent"]]  # what the twin declares
+        assert ours is sdk, "the typing cache no longer collides — the staging is void"
+        field.annotation = ours
+        twin.model_rebuild(force=True)
+        staged = twin.model_json_schema()["properties"]["background"]["anyOf"][0]["enum"]
+        assert staged == ["transparent", "opaque", "auto"], f"collision not staged: {staged}"
+
+        doc, _ = emit.build()
+        text = json.dumps(doc, indent=2, sort_keys=False) + "\n"
+        assert emit.OUT.read_text() == text, (
+            "contract.schema.json changes when another library declared the same Literal first"
+        )
+    finally:
+        field.annotation = original
+        twin.model_rebuild(force=True)

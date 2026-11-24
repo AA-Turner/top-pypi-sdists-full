@@ -223,6 +223,7 @@ SPEC_ROUTES_WITHOUT_SDK = {
     "/api/v1/pipeline/send": "Pipeline send",
     "/api/v1/pipeline/stop": "Pipeline processing cancel",
     "/api/v1/pipeline/cleanup-orphan-fragments": "Pipeline orphan-fragment cleanup",
+    "/api/v1/pipeline/status-only-cleanup": "Pipeline status-only document cleanup (admin, hand-started)",
     # Search API (additional)
     "/api/v1/search_api/index": "Direct OpenSearch indexing",
     "/api/v1/search_api/{ontology}/_count": "Search count",

@@ -5,6 +5,10 @@
 
 from __future__ import annotations
 
+from pipx.animate import hide_cursor, show_cursor
+from pipx.colors import BOLD, GREEN
+from pipx.emojis import HAZARD
+
 __lazy_modules__ = [
     "argcomplete",
     "contextlib",
@@ -59,10 +63,8 @@ import platformdirs
 from packaging.utils import canonicalize_name
 
 from pipx import constants, paths
-from pipx.animate import hide_cursor, show_cursor
 from pipx.backends import KNOWN_BACKENDS, UV
 from pipx.backends.registry import env_default_backend, get_backend, resolve_backend_name
-from pipx.colors import BOLD, GREEN
 from pipx.commands.environment import ENVIRONMENT_VALUE_CHOICES, ENVIRONMENT_VARIABLES
 from pipx.commands.transaction import empty_trash
 from pipx.constants import (
@@ -74,7 +76,6 @@ from pipx.constants import (
     ExitCode,
     FetchPythonOptions,
 )
-from pipx.emojis import HAZARD
 from pipx.fanout import stopping_children_on_signals
 from pipx.interpreter import (
     InterpreterResolutionError,
@@ -125,6 +126,7 @@ if not WINDOWS:
 
 if TYPE_CHECKING:
     from io import TextIOWrapper
+    from typing import BinaryIO
 
     from pipx.commands.cache import CacheData
     from pipx.commands.expose import ExposureData
@@ -139,6 +141,7 @@ if TYPE_CHECKING:
     from pipx.commands.reset import ResetData
     from pipx.commands.uninstall import UninstallData
     from pipx.commands.upgrade import SharedData, UpgradeData
+    from pipx.result import OperationData
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 _LOG_NAME: Final[re.Pattern[str]] = re.compile(
@@ -530,7 +533,7 @@ def _add_python_options(parser: argparse.ArgumentParser) -> None:
         default=_FETCH_PYTHON,
         help=(
             f"When to fetch a standalone Python build from python-build-standalone. "
-            f"'{FetchPythonOptions.ALWAYS}' uses a standalone build even when a system Python matches; "
+            f"'{FetchPythonOptions.ALWAYS}' uses a standalone build for a version passed with --python; "
             f"'{FetchPythonOptions.MISSING}' downloads only when the requested version is not found locally; "
             f"'{FetchPythonOptions.NEVER}' never downloads. "
             "Defaults to PIPX_FETCH_PYTHON, or 'never'."
@@ -953,7 +956,7 @@ def _cmd_pin(args: argparse.Namespace, ctx: _DispatchContext) -> OperationResult
     with ctx.venv_container.venv_lock(venv_dir):
         from pipx.commands.pin import pin
 
-        return pin(venv_dir, ctx.skip_list, verbose=ctx.verbose, injected_only=args.injected_only)
+        return pin(venv_dir, ctx.skip_list, injected_only=args.injected_only)
 
 
 def _add_unpin(subparsers: argparse._SubParsersAction, shared_parser: argparse.ArgumentParser) -> None:
@@ -973,7 +976,7 @@ def _cmd_unpin(args: argparse.Namespace, ctx: _DispatchContext) -> OperationResu
     with ctx.venv_container.venv_lock(venv_dir):
         from pipx.commands.pin import unpin
 
-        return unpin(venv_dir, verbose=ctx.verbose)
+        return unpin(venv_dir)
 
 
 def _add_upgrade(
@@ -2118,7 +2121,7 @@ def _delete_unless_running(log: Path) -> None:
         _remove_log(log)
         return
     try:
-        stream: Final = log.open("rb")
+        stream: Final[BinaryIO] = log.open("rb")
     except OSError:
         # a log this user cannot read (another user's run, chmod 000, a symlink loop or to a directory) cannot be
         # checked for a running owner; it is old enough to rotate, so remove it
@@ -2170,9 +2173,10 @@ def _run_pipx_command(args: argparse.Namespace) -> ExitCode:
 
     output: Final[OutputFormat] = _output_format(args)
     python = get_default_python()
-    if "python" in args:
+    requested_python: Final[str | None] = getattr(args, "python", None)
+    if requested_python:
         try:
-            python = find_python_interpreter(args.python or python, fetch_python=args.fetch_python)
+            python = find_python_interpreter(requested_python, fetch_python=args.fetch_python)
         except InterpreterResolutionError as error:
             _LOGGER.debug("Failed to resolve interpreter:", exc_info=True)
             if output is OutputFormat.JSON:
@@ -2195,7 +2199,7 @@ def _run_pipx_command(args: argparse.Namespace) -> ExitCode:
         venv_container=VenvContainer(CTX.venvs),
         skip_list=[canonicalize_name(name) for name in args.skip] if "skip" in args else [],
         python=python,
-        python_flag_passed=bool(getattr(args, "python", None)),
+        python_flag_passed=bool(requested_python),
         spec=spec,
         backend=backend,
         cooldown=CooldownOptions(
@@ -2208,7 +2212,7 @@ def _run_pipx_command(args: argparse.Namespace) -> ExitCode:
         # pip writes its progress to stdout, which under JSON belongs to the envelope alone
         stream_subprocess_stdout_to_stderr(enabled=output is OutputFormat.JSON),
     ):
-        result: Final = args.func(args, ctx)
+        result: Final[ExitCode | OperationResult[OperationData]] = args.func(args, ctx)
     if isinstance(result, OperationResult):
         return render_result(result, output=output, quiet=getattr(args, "quiet", 0))
     return result

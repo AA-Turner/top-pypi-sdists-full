@@ -14,8 +14,12 @@ from chalk._gen.chalk.sandbox.v2.snapshot_service_pb2 import (
     DeleteSandboxSnapshotResponse,
     GetSandboxSnapshotRequest,
     GetSandboxSnapshotResponse,
+    GetSnapshotStoreCredentialsRequest,
+    GetSnapshotStoreCredentialsResponse,
     ListSandboxSnapshotsRequest,
     ListSandboxSnapshotsResponse,
+    StartSandboxSnapshotRequest,
+    StartSandboxSnapshotResponse,
 )
 from grpc import (
     Channel,
@@ -26,6 +30,13 @@ from grpc import (
 
 class SandboxSnapshotServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    StartSandboxSnapshot: UnaryUnaryMultiCallable[
+        StartSandboxSnapshotRequest,
+        StartSandboxSnapshotResponse,
+    ]
+    """Additive async entry point. Older servers reject this method as unimplemented
+    rather than silently ignoring an async option on the synchronous method.
+    """
     CreateSandboxSnapshot: UnaryUnaryMultiCallable[
         CreateSandboxSnapshotRequest,
         CreateSandboxSnapshotResponse,
@@ -42,8 +53,22 @@ class SandboxSnapshotServiceStub:
         DeleteSandboxSnapshotRequest,
         DeleteSandboxSnapshotResponse,
     ]
+    GetSnapshotStoreCredentials: UnaryUnaryMultiCallable[
+        GetSnapshotStoreCredentialsRequest,
+        GetSnapshotStoreCredentialsResponse,
+    ]
+    """Served by the dataplane API server for the authenticated environment."""
 
 class SandboxSnapshotServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def StartSandboxSnapshot(
+        self,
+        request: StartSandboxSnapshotRequest,
+        context: ServicerContext,
+    ) -> StartSandboxSnapshotResponse:
+        """Additive async entry point. Older servers reject this method as unimplemented
+        rather than silently ignoring an async option on the synchronous method.
+        """
     @abstractmethod
     def CreateSandboxSnapshot(
         self,
@@ -68,5 +93,12 @@ class SandboxSnapshotServiceServicer(metaclass=ABCMeta):
         request: DeleteSandboxSnapshotRequest,
         context: ServicerContext,
     ) -> DeleteSandboxSnapshotResponse: ...
+    @abstractmethod
+    def GetSnapshotStoreCredentials(
+        self,
+        request: GetSnapshotStoreCredentialsRequest,
+        context: ServicerContext,
+    ) -> GetSnapshotStoreCredentialsResponse:
+        """Served by the dataplane API server for the authenticated environment."""
 
 def add_SandboxSnapshotServiceServicer_to_server(servicer: SandboxSnapshotServiceServicer, server: Server) -> None: ...

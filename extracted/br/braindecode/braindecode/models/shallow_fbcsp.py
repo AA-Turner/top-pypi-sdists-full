@@ -10,7 +10,7 @@ from einops.layers.torch import Rearrange
 from torch import nn
 from torch.nn import init
 
-from braindecode.models.base import EEGModuleMixin
+from braindecode.models.base import EEGModuleMixin, deprecated_forward_kwargs
 from braindecode.modules import (
     CombinedConv,
     Ensure4d,
@@ -34,35 +34,35 @@ class ShallowFBCSPNet(EEGModuleMixin, nn.Sequential):
 
     Parameters
     ----------
-    n_filters_time: int
+    n_filters_time : int
         Number of temporal filters.
-    filter_time_length: int
+    filter_time_length : int
         Length of the temporal filter.
-    n_filters_spat: int
+    n_filters_spat : int
         Number of spatial filters.
-    pool_time_length: int
+    pool_time_length : int
         Length of temporal pooling filter.
-    pool_time_stride: int
+    pool_time_stride : int
         Length of stride between temporal pooling filters.
-    final_conv_length: int | str
+    final_conv_length : int | str
         Length of the final convolution layer.
         If set to "auto", length of the input signal must be specified.
-    conv_nonlin: type[nn.Module] | Callable
+    conv_nonlin : type[nn.Module] | Callable
         Non-linear module class to be used after convolution layers.
         For backward compatibility, callables are also accepted and wrapped
         with :class:`~braindecode.modules.Expression`.
-    pool_mode: str
+    pool_mode : str
         Method to use on pooling layers. "max" or "mean".
-    activation_pool_nonlin: type[nn.Module]
+    activation_pool_nonlin : type[nn.Module]
         Non-linear module class to be used after pooling layers.
-    split_first_layer: bool
+    split_first_layer : bool
         Split first layer into temporal and spatial layers (True) or just use temporal (False).
         There would be no non-linearity between the split layers.
-    batch_norm: bool
+    batch_norm : bool
         Whether to use batch normalisation.
-    batch_norm_alpha: float
+    batch_norm_alpha : float
         Momentum for BatchNorm2d.
-    drop_prob: float
+    drop_prob : float
         Dropout probability.
 
     References
@@ -75,6 +75,11 @@ class ShallowFBCSPNet(EEGModuleMixin, nn.Sequential):
        Human Brain Mapping , Aug. 2017.
        Online: http://dx.doi.org/10.1002/hbm.23730
     """
+
+    _time_axis = "dense"
+    _dense_conversion = True
+    _channel_axis = "fixed"  # fixed: conv_time_spat.conv_spat.weight
+    _feature_axis = 1
 
     def __init__(
         self,
@@ -186,9 +191,18 @@ class ShallowFBCSPNet(EEGModuleMixin, nn.Sequential):
         )
         self.add_module("pool_nonlin_exp", self.pool_nonlin())
         self.add_module("drop", nn.Dropout(p=self.drop_prob))
-        self.eval()
         if self.final_conv_length == "auto":
-            self.final_conv_length = self.get_output_shape()[2]
+            # The temporal convolution keeps n_times - filter_time_length + 1
+            # samples; the pooling windows them pool_time_stride apart
+            n_conv = self.n_times - self.filter_time_length + 1
+            self.final_conv_length = (
+                n_conv - self.pool_time_length
+            ) // self.pool_time_stride + 1
+            if self.final_conv_length < 1:
+                raise ValueError(
+                    "The convolutions and poolings leave no time sample: too small "
+                    f"`n_times`/`input_window_seconds` for the input {self.input_shape}."
+                )
 
         # Incorporating classification module and subsequent ones in one final layer
         module = nn.Sequential()
@@ -206,11 +220,24 @@ class ShallowFBCSPNet(EEGModuleMixin, nn.Sequential):
         module.add_module("squeeze", SqueezeFinalOutput())
 
         self.add_module("final_layer", module)
+        self._min_n_times = (
+            (self.final_conv_length - 1) * self.pool_time_stride
+            + self.pool_time_length
+            + self.filter_time_length
+            - 1
+        )
 
         # Initialization, xavier is same as in paper...
         self._init_parameters()
 
         self.train()
+
+    @deprecated_forward_kwargs(input="x")
+    def forward(self, x):
+        """Run the layers in order on ``x``, ``(batch, n_chans, n_times)``."""
+        for module in self:
+            x = module(x)
+        return x
 
     def _init_parameters(self) -> None:
         """Model-specific initialization (see ``reset_parameters``)."""

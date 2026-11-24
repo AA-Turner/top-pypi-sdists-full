@@ -266,6 +266,10 @@ def test_patch_basic_path_returns_file_record():
             async def list_existing_async(record):
                 return {}
 
+            @staticmethod
+            async def list_with_older_async(record):
+                return {}, {}
+
     class _FakeFm:
         sync_engine = _FakeSyncEngine()
 

@@ -2,7 +2,8 @@
 warnings, hardware metrics."""
 
 from __future__ import annotations
-from collections.abc import Mapping
+import contextlib
+from collections.abc import Iterator, Mapping
 import os
 from typing import Any
 
@@ -176,62 +177,85 @@ class MetricsMixin:
         # A SIGTERM handler installed since `probe.init` that runs ours only
         # after its own (Lightning's) gets ours put first (`preempt.run_first`).
         _preempt.run_first()
-        # A safe point: the commands this writer claimed run here, on the training thread (agentic W&B W17).
-        if self._commands.due and kind != "hardware":
-            self._run_due_commands()
-        # Resume guard (research-os#364): a step at or below the resume point is a retry (DESIGN.md).
-        guarded = (
-            kind != "hardware"
-            and self._resume_from_step is not None
-            and step is not _UNSET
-            and step is not None
-        )
-        if guarded and self._resume_key_floors is None and step <= self._resume_from_step:
-            return self._drop_below_resume(step, strict=strict)
-        # Plan (d): only a Mapping value (and any DictConfig) flattens to `/` keys (DESIGN.md).
-        if _is_omegaconf(metrics) or any(isinstance(value, Mapping) for value in metrics.values()):
-            metrics = self._flatten_metrics(metrics)
-        numeric: dict[str, float] = {}
-        other: dict[str, Any] = {}
-        for key, value in metrics.items():
-            as_number = _as_metric_value(value)
-            if as_number is None:
-                other[key] = _json_safe(key, value)
-            else:
-                numeric[key] = as_number
-        if guarded and self._resume_key_floors is not None:
-            # Per key (#364, D18): only the keys the first execution reached at this step drop.
-            numeric, other, dropped = self._keep_above_key_floors(
-                kind, int(step), numeric, other, is_strict=strict
+        # A safe point once this call's row is written (agentic W&B W17): a pause then holds with that step sent (D23).
+        with self._run_commands_after_write(kind):
+            # Resume guard (research-os#364): a step at or below the resume point is a retry (DESIGN.md).
+            guarded = (
+                kind != "hardware"
+                and self._resume_from_step is not None
+                and step is not _UNSET
+                and step is not None
             )
-            if dropped and not numeric and not other:
+            if guarded and self._resume_key_floors is None and step <= self._resume_from_step:
+                return self._drop_below_resume(step, strict=strict)
+            # Plan (d): only a Mapping value (and any DictConfig) flattens to `/` keys (DESIGN.md).
+            if _is_omegaconf(metrics) or any(isinstance(value, Mapping) for value in metrics.values()):
+                metrics = self._flatten_metrics(metrics)
+            numeric: dict[str, float] = {}
+            other: dict[str, Any] = {}
+            for key, value in metrics.items():
+                as_number = _as_metric_value(value)
+                if as_number is None:
+                    other[key] = _json_safe(key, value)
+                else:
+                    numeric[key] = as_number
+            if guarded and self._resume_key_floors is not None:
+                # Per key (#364, D18): only the keys the first execution reached at this step drop.
+                numeric, other, dropped = self._keep_above_key_floors(
+                    kind, int(step), numeric, other, is_strict=strict
+                )
+                if dropped and not numeric and not other:
+                    return None
+
+            # Plan (f): `commit=False`, or a row pending for this kind, takes the buffered path.
+            if commit is False or kind in self._pending_rows:
+                return self._log_pending(
+                    kind, step, numeric, other, dimensions, labels, span_id, agg,
+                    wall_clock, strict, commit,
+                )
+
+            # Split BEFORE drawing a step: a call with nothing to write consumes no index (DESIGN.md).
+            if not numeric and not other:
                 return None
 
-        # Plan (f): `commit=False`, or a row pending for this kind, takes the buffered path.
-        if commit is False or kind in self._pending_rows:
-            return self._log_pending(
-                kind, step, numeric, other, dimensions, labels, span_id, agg,
-                wall_clock, strict, commit,
-            )
+            if step is _UNSET:
+                step = self._next_step(kind)
+            elif step is not None:
+                step = int(step)
+                self._note_step(kind, step)
+            if self._resume_drops and kind != "hardware" and step is not None:
+                self._note_resumed(step)
 
-        # Split BEFORE drawing a step: a call with nothing to write consumes no index (DESIGN.md).
-        if not numeric and not other:
-            return None
+            dims, labs = unit_context.merged(dimensions, labels)
+            if numeric and wall_clock is None:
+                # Plan 1.4: stamp when the loop LOGGED the points, frozen into the journaled body (DESIGN.md).
+                wall_clock = _log_stamp()
+            points = [(key, value, dims, labs, span_id, agg) for key, value in numeric.items()]
+            return self._write_row(kind, step, points, other, wall_clock, strict, stacklevel=3)
 
-        if step is _UNSET:
-            step = self._next_step(kind)
-        elif step is not None:
-            step = int(step)
-            self._note_step(kind, step)
-        if self._resume_drops and kind != "hardware" and step is not None:
-            self._note_resumed(step)
+    @contextlib.contextmanager
+    def _run_commands_after_write(self, kind: str) -> Iterator[None]:
+        """After a `log()` call that returned or raised an error: the commands this writer claimed run here, on the
+        training thread, unless the call only buffered a row (`commit=False`): a pause then holds once that row is
+        sent. Ctrl-C and exits pass untouched. A `with`, not a wrapper, so a warning's stacklevel still names the
+        caller's `log()` line."""
+        written = self._rows_written
+        try:
+            yield
+        except Exception:
+            try:
+                self._run_commands_unless_buffered(kind, written)
+            except Exception as lost:  # noqa: BLE001 -- the call's own error is the one the caller sees
+                _diagnostics.warn(f"probe: this log() raised, and running the run's asks after it failed too "
+                                  f"({type(lost).__name__}: {lost}); asks it had taken may stay unanswered. The "
+                                  "log() error follows.", stacklevel=4)  # fmt: skip
+            raise
+        self._run_commands_unless_buffered(kind, written)
 
-        dims, labs = unit_context.merged(dimensions, labels)
-        if numeric and wall_clock is None:
-            # Plan 1.4: stamp when the loop LOGGED the points, frozen into the journaled body (DESIGN.md).
-            wall_clock = _log_stamp()
-        points = [(key, value, dims, labs, span_id, agg) for key, value in numeric.items()]
-        return self._write_row(kind, step, points, other, wall_clock, strict, stacklevel=3)
+    def _run_commands_unless_buffered(self, kind: str, written: int) -> None:
+        is_buffered = self._rows_written == written and kind in self._pending_rows
+        if self._commands.due and kind != "hardware" and not is_buffered:
+            self._run_due_commands()
 
     def _write_row(
         self,
@@ -254,6 +278,7 @@ class MetricsMixin:
             self._note_forked_writer()
         if kind != "hardware":
             self._progress.bump()  # 2.8: one user row is one unit of progress
+            self._rows_written += 1  # `log()` takes the asks after a call that wrote a row
         result = None
         # What the server cannot store, dropped here with a warning rather than
         # queued: it answered a step past int64 or a key past its index row

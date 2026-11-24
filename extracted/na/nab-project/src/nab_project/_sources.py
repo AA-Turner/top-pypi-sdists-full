@@ -6,22 +6,23 @@ and the policy permits it.  :mod:`nab_provider._provider.sources` validates the
 declarations and turns one materialised tree into a synthetic listing.
 
 Reached only through
-:meth:`~nab_provider.fetch_port.FetchPort.request_source_listing`.
+:meth:`~nab_provider.fetch_port.FetchPort.materialize_source`.
 """
 
 from __future__ import annotations
 
-from nab_resolver.diagnostics import error_message
-
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
+    "hashlib",
     "nab_index",
+    "nab_index.atomic",
     "nab_index.client",
     "nab_project.paths",
     "nab_provider.archive",
     "nab_provider.errors",
     "nab_provider.policy",
+    "nab_provider.records",
     "nab_provider.vcs_request",
+    "nab_resolver.diagnostics",
     "os",
     "pathlib",
     "shutil",
@@ -29,6 +30,7 @@ __lazy_modules__ = (
     "tempfile",
 )
 
+import hashlib
 import os
 import shutil
 import stat
@@ -38,6 +40,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from nab_index import vcs
+from nab_index.atomic import atomic_write_text
 from nab_index.client import extract_sdist_archive, verify_sdist_hash
 from nab_provider.archive import ArchiveRequest
 from nab_provider.errors import SourceBuildPolicyError, UnsupportedSdistError
@@ -47,7 +50,9 @@ from nab_provider.policy import (
     SourceMaterialization,
     VcsSource,
 )
+from nab_provider.records import ACCEPTED_HASH_ALGORITHMS
 from nab_provider.vcs_request import VcsCloneError, VcsRequest
+from nab_resolver.diagnostics import error_message
 
 from .paths import PathState, path_state
 
@@ -392,7 +397,27 @@ def _prepare_archive_tree(
         return _extracted_root(target), parsed
 
     data = _fetch_archive_bytes(request.package, source, parsed, port=port)
-    return _extract_archive(cache_dir, digest, data, parsed.hashes), parsed
+    root = _extract_archive(cache_dir, digest, data, parsed.hashes)
+    if not declared <= _verified_hashes(target):
+        # A previous extraction or a concurrent publisher recorded fewer hashes.
+        _complete_archive_hash_record(target, data, parsed.hashes)
+
+    return root, parsed
+
+
+def _complete_archive_hash_record(
+    target: Path, data: bytes, verified: tuple[tuple[str, str], ...]
+) -> None:
+    """Record every supported digest so concurrent updates agree."""
+    hashes = dict(verified)
+    for algorithm in ACCEPTED_HASH_ALGORITHMS:
+        if algorithm not in hashes:
+            hashes[algorithm] = hashlib.new(algorithm, data).hexdigest()
+
+    record = "\n".join(f"{algo}={hashes[algo]}" for algo in ACCEPTED_HASH_ALGORITHMS)
+    # A read-only cache can still serve the archive verified by this call.
+    with suppress(OSError):
+        atomic_write_text(target / _HASHES_MARKER, record)
 
 
 def _is_published(target: Path) -> bool:

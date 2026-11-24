@@ -167,8 +167,10 @@ class ArmAssessment(BaseModel):
 class _ResolverLlmOutput(BaseModel):
     """What the judge Holder must answer with (strict JSON)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
+    # `__kind` is part of the data: the schema declares it, so a stamped verdict validates as is.
+    kind_marker: str | None = Field(default=None, alias="__kind")
     verdict: ResolveVerdict
     winner_arm_index: int | None = Field(
         default=None,
@@ -459,7 +461,7 @@ async def _run_judge_agent(
         config_overrides=overrides or None,
         max_output_tokens=4096,
     )
-    resolved = await resolve_step_agent_full(step, consumer=f"{NODE_NAME}:{node_id}")
+    resolved = await resolve_step_agent_full(step, consumer=f"{NODE_NAME}:{node_id}", node_ctx=ctx)
     request = build_agent_request(
         ctx,
         step,
@@ -487,9 +489,7 @@ async def _run_judge_agent(
             raw_output=(normalized.final_text or "")[:2000],
         )
     try:
-        answer = _ResolverLlmOutput.model_validate(
-            {k: v for k, v in payload.items() if k != "__kind"}
-        )
+        answer = _ResolverLlmOutput.model_validate(payload)
     except ValueError as exc:
         raise ArmResolverError(
             f"{NODE_NAME}: the judge agent's verdict is outside the contract: {exc}",

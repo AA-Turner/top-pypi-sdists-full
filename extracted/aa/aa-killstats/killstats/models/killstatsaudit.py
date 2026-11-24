@@ -12,18 +12,13 @@ from allianceauth.eveonline.models import (
     EveCharacter,
     EveCorporationInfo,
 )
-from allianceauth.services.hooks import get_extension_logger
 
 # AA Killstats
-from killstats import __title__
 from killstats.helpers.killmailbody import KillmailBody
 from killstats.managers.killboardaudit_manager import (
     AllianceManager,
     CorporationManager,
 )
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
 
 
 class CorporationsAudit(models.Model):

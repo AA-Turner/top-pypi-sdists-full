@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Wand
-Version: 0.7.2
+Version: 0.7.3
 Summary: Ctypes-based simple MagickWand API binding for Python
 Home-page: http://wand-py.org/
 Author: Hong Minhee

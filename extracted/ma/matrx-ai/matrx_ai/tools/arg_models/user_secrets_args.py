@@ -42,9 +42,7 @@ class UserSecretSetArgs(ToolArgs):
     key: str = Field(
         ...,
         description=(
-            "Environment-variable name to store the secret under. Must be a "
-            "valid identifier: letters, digits, and underscores; cannot "
-            "start with a digit. Convention: SCREAMING_SNAKE_CASE."
+            'Env-var name, e.g. GITHUB_TOKEN.'
         ),
         min_length=1,
         max_length=128,
@@ -57,24 +55,19 @@ class UserSecretSetArgs(ToolArgs):
     )
     description: str | None = Field(
         default=None,
-        description="Free-text note about what this secret is for.",
+        description='What the secret is for.',
         max_length=512,
     )
     category: SecretCategory | None = Field(
         default=None,
         description=(
-            "Provider category, used for grouping in the UI. One of: "
-            "github, openai, anthropic, google, aws, stripe, supabase, "
-            "vercel, linear, notion, slack, custom. Defaults to 'custom'."
+            'Provider, for grouping in the UI.'
         ),
     )
     inject_into_sandbox: bool = Field(
         default=True,
         description=(
-            "When true, this secret will be exposed as an environment "
-            "variable in every new sandbox the user creates. Turn off only "
-            "for secrets that should be readable by the user but not by "
-            "anything running inside the sandbox."
+            'Expose as an env var in every new sandbox.'
         ),
     )
 

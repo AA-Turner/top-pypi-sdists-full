@@ -68,6 +68,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from matrx_graph.content_ir.blank_kind import report_blank_kind_string
 from matrx_graph.content_ir.envelope import KIND_KEY
 
 __all__ = [
@@ -253,6 +254,7 @@ def directive_slug_of(obj: object) -> str | None:
     if not isinstance(obj, dict):
         return None
     slug = obj.get(KIND_KEY)
+    report_blank_kind_string("directives.directive_slug_of", slug)
     return slug if is_reserved_directive_slug(slug) else None
 
 

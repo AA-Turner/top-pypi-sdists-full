@@ -156,16 +156,52 @@ def test_an_added_edge_behind_a_finished_step_is_still_refused() -> None:
     assert any("'j' needs input from 'a'" in p and "rerun from 'a'" in p for p in problems)
 
 
-def test_cycle_detection_is_linear() -> None:
-    """A 4,000-edge hub: adjacency is built once, never per child step."""
-    import time
+class _CountingDict(dict):
+    """A dict that counts every lookup, membership test and yielded item."""
 
-    nodes = [_n("hub", "test.echo")] + [_n(f"n{i}", "test.echo") for i in range(4000)]
-    edges = [_e("hub", f"n{i}") for i in range(4000)]
+    def __init__(self, *a: Any, **k: Any) -> None:
+        super().__init__(*a, **k)
+        self.ops = 0
+
+    def __getitem__(self, key: Any) -> Any:
+        self.ops += 1
+        return super().__getitem__(key)
+
+    def __contains__(self, key: Any) -> bool:
+        self.ops += 1
+        return super().__contains__(key)
+
+    def __iter__(self):  # type: ignore[no-untyped-def]
+        for key in super().__iter__():
+            self.ops += 1
+            yield key
+
+    def items(self):  # type: ignore[no-untyped-def]
+        for item in super().items():
+            self.ops += 1
+            yield item
+
+
+def _cycle_detection_ops(children: int) -> int:
+    nodes = [_n("hub", "test.echo")] + [_n(f"n{i}", "test.echo") for i in range(children)]
+    edges = [_e("hub", f"n{i}") for i in range(children)]
     graph = _graph(nodes, edges, ["hub"])
-    started = time.perf_counter()
-    assert _cyclic_nodes(graph) == set()
-    assert time.perf_counter() - started < 0.25
+    counted = SimpleNamespace(
+        nodes=_CountingDict(graph.nodes), edges=_CountingDict(graph.edges)
+    )
+    assert _cyclic_nodes(counted) == set()  # type: ignore[arg-type]
+    return counted.nodes.ops + counted.edges.ops
+
+
+def test_cycle_detection_is_linear() -> None:
+    """A hub fanning out to N children: adjacency is built once, never per
+    child step. Counts graph accesses (not wall-clock, which flakes on loaded
+    runners): doubling N must about double the work; a per-child rescan of the
+    graph would quadruple it."""
+    small = _cycle_detection_ops(1000)
+    large = _cycle_detection_ops(2000)
+    assert small > 1000  # the counter really sees the work
+    assert large / small < 2.5, f"work grew {large / small:.2f}x for 2x the graph"
 
 
 @pytest.mark.asyncio
@@ -262,7 +298,9 @@ def _sender_graph(reg: NodeRegistry) -> Any:
 
 @pytest.mark.asyncio
 async def test_an_undeclared_send_fails_loudly_when_strict(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MATRX_GRAPH_STRICT_LAUNCHES", "1")
+    from matrx_graph.executor.resume_preflight import configure_strict_launches
+
+    configure_strict_launches(lambda: True)
     reg = _registry()
     result = await Scheduler(_sender_graph(reg), MemoryCheckpointer(), _ctx(), registry=reg).run(
         run_id="strict", inputs={}
@@ -277,7 +315,7 @@ async def test_an_undeclared_send_is_announced_and_allowed_in_production(
 ) -> None:
     from matrx_graph.executor import resume_preflight
 
-    monkeypatch.setenv("MATRX_GRAPH_STRICT_LAUNCHES", "0")
+    monkeypatch.setattr(resume_preflight, "_strict_launches_reader", None)
     monkeypatch.setattr(resume_preflight, "_OBSERVED_LAUNCHERS", set())
     from matrx_graph.executor.resume_preflight import can_still_run
 

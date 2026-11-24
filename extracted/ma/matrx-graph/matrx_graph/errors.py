@@ -254,6 +254,32 @@ class GraphInterrupt(MatrxGraphError):
         self.payload = payload
 
 
+class ChildRunPaused(MatrxGraphError):
+    """A run this step waits on (a called workflow, a workflow-held mandate) ended PAUSED: a person paused it.
+
+    The calling run pauses too, at this step — never fails (H3, 2026-11-16: a paused child failed its
+    caller with "child run ended paused"). The scheduler holds the step (it never settles, so nothing is
+    recorded for it) and parks the whole step frontier paused; Resume runs the step again, and the host
+    reattaches the paused child and continues it from its own checkpoint."""
+
+    def __init__(self, child_run_id: str, message: str | None = None) -> None:
+        super().__init__(message or f"child run {child_run_id} is paused")
+        self.child_run_id = child_run_id
+
+
+class ChildRunStopped(MatrxGraphError):
+    """A run this step waits on (a called workflow, a workflow-held mandate) ended CANCELLED: a Stop reached it.
+
+    The stopped twin of :class:`ChildRunPaused` (H12b, 2026-11-16: a held mandate run a Stop ended ``cancelled``
+    parked its caller ``errored``, "child run ended cancelled"). A Stop is never a failure: the scheduler holds
+    the step (it never settles, so nothing is recorded for it), latches the run's cancel so nothing new starts,
+    lets every sibling already working finish, and ends the run ``cancelled`` with the frontier saved."""
+
+    def __init__(self, child_run_id: str, message: str | None = None) -> None:
+        super().__init__(message or f"child run {child_run_id} was stopped")
+        self.child_run_id = child_run_id
+
+
 #: Interrupt-payload marker: the question belongs to someone this step is
 #: waiting on (a called workflow), so the person's answer is HANDED to the step
 #: when it runs again — never recorded as the step's own output. Set by the step
@@ -298,23 +324,36 @@ class NodeTimeoutError(MatrxGraphError):
             "longer than the limit, an admin can raise "
             "'workflow.step_clock.default_step_seconds'."
         ),
+        "engine": (
+            "The engine sets this limit for this kind of step. If the work honestly takes "
+            "this long, an admin can raise {knob}."
+        ),
+    }
+    _LIMIT_WORDS: ClassVar[dict[str, tuple[str, str]]] = {
+        "declared": ("time limit set on this step", "time limit its author set for it"),
+        "platform": ("time limit every step gets", "time limit every step gets"),
+        "engine": ("time limit this kind of step gets", "time limit this kind of step gets"),
     }
 
     def __init__(
-        self, node_id: str, timeout_ms: int, attempt: int, *, source: str = "declared"
+        self, node_id: str, timeout_ms: int, attempt: int, *, source: str = "declared", knob: str | None = None
     ) -> None:
-        remedy = self._REMEDY.get(source, self._REMEDY["declared"])
+        remedy = self._REMEDY.get(source, self._REMEDY["declared"]).replace(
+            "{knob}", f"'workflow.step_clock.{knob}'" if knob else "it under 'workflow.step_clock'"
+        )
+        short_words, long_words = self._LIMIT_WORDS.get(source, self._LIMIT_WORDS["declared"])
         elapsed = f"{timeout_ms}ms" if timeout_ms < 1000 else f"{timeout_ms / 1000:.0f}s"
         super().__init__(
             f"Step '{node_id}' was stopped after {elapsed} "
             f"(attempt {attempt}) — it passed the "
-            f"{'time limit set on this step' if source == 'declared' else 'time limit every step gets'}. "
+            f"{short_words}. "
             f"{remedy}"
         )
         self.node_id = node_id
         self.timeout_ms = timeout_ms
         self.attempt = attempt
         self.source = source
+        self.knob = knob
         #: Honored by ``matrx_graph.failure.failure_from_exception``: an
         #: exception that already knows how to say it in plain English is
         #: believed rather than re-derived. Without this the run's error reads
@@ -323,7 +362,7 @@ class NodeTimeoutError(MatrxGraphError):
         #: the silent-failure shape this whole fix exists to close.
         self.person_message = (
             f"The step '{node_id}' was stopped after {elapsed} because it passed "
-            f"the {'time limit its author set for it' if source == 'declared' else 'time limit every step gets'}. "
+            f"the {long_words}. "
             f"{remedy}"
         )
 

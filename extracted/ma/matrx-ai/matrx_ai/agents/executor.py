@@ -64,6 +64,7 @@ from matrx_ai.config.citations import collect_message_citations
 from matrx_ai.config.host_turn import HostTurn, refuse_both
 from matrx_ai.config.media_config import collect_media_refs
 from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
+from matrx_ai.orchestrator.stop_cause import RunStopCause, stop_cause_from_exception, stop_cause_from_metadata
 
 ParsedT = TypeVar("ParsedT", bound=BaseModel)
 
@@ -215,6 +216,12 @@ class AgentRunResult(BaseModel, Generic[ParsedT]):
     # instead of passing the raw call on as if it were the report.
     stopped_on_tool_calls: list[dict[str, Any]] = Field(default_factory=list)
 
+    # WHICH LIMIT stopped the run before it finished — rounds, time, cost, a cancel, or a host
+    # control — with its numbers (``matrx_ai.orchestrator.stop_cause.RunStopCause``). None when no
+    # limit stopped it. A relay (a delegation desk, agent_call) reads THIS to tell the person the
+    # truth ("used all 12 rounds", "ran out of its 360s budget"), never a guess from the sentence.
+    stop_cause: RunStopCause | None = None
+
 
 def unanswered_tool_calls(message: Any) -> list[dict[str, Any]]:
     """The tool calls ``message`` ended on, when it wrote no answer text.
@@ -350,12 +357,38 @@ def _parse_with_schema(
         # agent answer ever receives the literal text a model escaped twice.
         data = decode_residual_escapes(json.loads(candidate))
     except json.JSONDecodeError as exc:
+        # Strict parse failed: hand the WHOLE response to the ONE LLM-JSON funnel (its faithful repair
+        # reads a stray trailing `]}`, a dropped closing brace, a trailing comma), held to this schema's
+        # top-level shape so a fragment inside a string value never wins. Live 2026-11-12: the Agent
+        # Structure Builder wrote a valid envelope followed by an extra `]}`; this strict path refused
+        # it and the whole paid build was discarded (agent_factory_structured_draft_invalid).
+        from matrx_ai.agents.response_parser import extract_json
+
+        try:
+            shape: dict | None = json_schema.model_json_schema()
+        except Exception:  # noqa: BLE001 - an unrenderable schema still gets the funnel, unfiltered
+            shape = None
+        recovered = extract_json(raw_output, schema=shape)
+        if not isinstance(recovered, (dict, list)):
+            vcprint(
+                raw_output,
+                f"[AgentExecutor:{label}] Error Parsing Agent Response",
+                color="red",
+            )
+            return None, f"JSONDecodeError: {exc.msg} (line {exc.lineno}, col {exc.colno})"
+        data = recovered
+
+    # The same filler-row rule as ``parse_agent_output``: a minority "nothing
+    # found" row in a list is dropped by path, never a reason to refuse the answer.
+    from matrx_ai.agents.response_parser import prune_degenerate_rows
+
+    data, pruned_paths = prune_degenerate_rows(data)
+    if pruned_paths:
         vcprint(
-            raw_output,
-            f"[AgentExecutor:{label}] Error Parsing Agent Response",
-            color="red",
+            f"[AgentExecutor:{label}] dropped {len(pruned_paths)} filler row(s) "
+            f"({', '.join(pruned_paths[:8])}); the rest of the answer is kept",
+            color="yellow",
         )
-        return None, f"JSONDecodeError: {exc.msg} (line {exc.lineno}, col {exc.colno})"
 
     try:
         parsed = json_schema.model_validate(data)
@@ -465,6 +498,7 @@ async def run_agent(
     source_feature: str,
     user_input: str | list[dict[str, Any]] | None = None,
     json_schema: type[ParsedT] | dict[str, Any] | None = None,
+    provider_schema: dict[str, Any] | None = None,
     extra_client_tools: list[str] | None = None,
     conversation_id: str | None = None,
     suppress_stream: bool = False,
@@ -531,6 +565,10 @@ async def run_agent(
                      used to enforce provider-native structured output before
                      the call. Pydantic models also parse and validate the
                      returned text afterward. Always optional.
+        provider_schema: Optional JSON-schema dictionary the PROVIDER is held to
+                     in place of ``json_schema`` (a mandate's declared kind);
+                     ``json_schema`` still parses the answer. A NamedAgent
+                     mandate run binds its kind here and reads with ``cls.Output``.
         extra_client_tools: Optional list of tool names to merge into the
                             forked ``AppContext.client_tools`` for the
                             duration of this agent run. Mirrors what
@@ -600,9 +638,10 @@ async def run_agent(
             mandate_key=getattr(agent, "mandate_key", None),
             metadata=metadata,
         )
-    if json_schema is not None:
+    bound_contract = provider_schema if provider_schema is not None else json_schema
+    if bound_contract is not None:
         try:
-            bind_structured_output(agent, json_schema)
+            bind_structured_output(agent, bound_contract)
         except Exception as exc:
             vcprint(
                 f"[AgentExecutor:{label}] Refusing structured-output call: {exc}",
@@ -627,6 +666,11 @@ async def run_agent(
     _spine_settle = None
     _child_conversation_id: str | None = None
     _child_request_id: str | None = None
+    # The request row THIS run gave birth to (``ensure_user_request_exists`` answered True).
+    # Nobody upstream owns it, so a run that dies before the loop settles it must close it:
+    # a required-input refusal raised in ``apply_variables`` left it 'pending' until the
+    # lifecycle watchdog abandoned it 30 minutes later (2026-11-12, agent_call).
+    _born_request_id: str | None = None
     _contained_incomplete_reason: str | None = None
     # Whatever this run's loop spends is readable here even if it never returns
     # (cancel / time limit / crash) — see execution_state.RunUsageSink.
@@ -668,7 +712,12 @@ async def run_agent(
                 # What PERSISTS on the run's request row is the agent's own
                 # request metadata (Agent.execute → AIMatrixRequest.metadata),
                 # not the context's — so the caller's naming rides both.
-                agent.request_metadata = {**agent.request_metadata, **metadata}
+                # The run-history stamp (``mandate_run``) rides the CONTEXT only: it is moved onto the spine
+                # execution at open, and the request row keeps its own ``mandate_run`` record (the placement).
+                agent.request_metadata = {
+                    **agent.request_metadata,
+                    **{k: v for k, v in metadata.items() if k != "mandate_run"},
+                }
             from matrx_ai.tools.merge import (
                 ACTIVE_TOOL_EXECUTORS_KEY,
                 CLIENT_DELEGATION_DISABLED_KEY,
@@ -782,9 +831,13 @@ async def run_agent(
             # A non-UUID principal never reaches a stored row: the executor's own gate
             # refuses it loudly; this early ensure only runs for a real one.
             if _fresh.request_id and _is_valid_uuid(_fresh.user_id) and _fresh.store:
-                await ensure_user_request_exists(
-                    request_id=_fresh.request_id,
-                    user_id=_fresh.user_id,
+                _born_request_id = (
+                    str(_fresh.request_id)
+                    if await ensure_user_request_exists(
+                        request_id=_fresh.request_id,
+                        user_id=_fresh.user_id,
+                    )
+                    else None
                 )
 
             # Spine tracking (host-injected, mandatory when configured): every internal agent
@@ -839,6 +892,18 @@ async def run_agent(
         # vanished from the run total, the cost tree and the monthly ceiling).
         _spent = _usage_sink.usage_history()
         _stamp_run_usage(_cancel_exc, _spent)
+        if _born_request_id is not None:
+            # The request row this run created leaves `pending` too (feedback d7435c89: a canceled
+            # sub-agent's row sat pending 30 min until the lifecycle watchdog alarmed and abandoned
+            # it). Shielded: a second cancel cannot cut the write short.
+            from matrx_ai.db.conversation_gate import update_user_request_status
+
+            try:
+                await asyncio.shield(
+                    update_user_request_status(_born_request_id, "cancelled", error="The run was cancelled")
+                )
+            except BaseException:  # noqa: BLE001 — the original cancel is re-raised below
+                pass
         if _spine_settle is not None:
             try:
                 await _settle_spine(
@@ -855,6 +920,13 @@ async def run_agent(
             f"[AgentExecutor:{label}] Agent execution failed: {exc}",
             color="red",
         )
+        if _born_request_id is not None:
+            from matrx_ai.db.conversation_gate import update_user_request_status
+
+            # Fire-and-forget safe: it logs and never raises.
+            await update_user_request_status(
+                _born_request_id, "failed", error=str(exc) or type(exc).__name__
+            )
         # A crash out of the loop (a commit barrier, a host hook) still owes
         # every call it made before the crash — same rule as the cancel above.
         _spent = _usage_sink.usage_history()
@@ -895,7 +967,7 @@ async def run_agent(
     # The execution metadata doesn't reliably carry the resolved model slug for
     # programmatic NamedAgent runs (rs_analysis.model_id was NULL while
     # cx_request recorded the model); run_model_id falls back to agent.config.
-    model_id: str | None = run_model_id(execute_result.metadata, agent.config)
+    model_id: str | None = run_model_id(execute_result.metadata, agent.config, usage_dict)
 
     from matrx_ai.tools.candidate_containment import CANDIDATE_STOPPED_STATUS
 
@@ -1000,6 +1072,10 @@ async def run_agent(
         stopped_on_tool_calls=unanswered_tool_calls(
             getattr(execute_result, "assistant_response", None)
         ),
+        # A guardrail refusal raised into the run (its run budget, max turns) names its limit too, never a generic
+        # failure.
+        stop_cause=stop_cause_from_metadata(execute_result.metadata)
+        or (stop_cause_from_exception(getattr(execute_result, "exception", None)) if execution_failed else None),
     )
     if _child_conversation_id:
         result.metadata.setdefault("conversation_id", _child_conversation_id)

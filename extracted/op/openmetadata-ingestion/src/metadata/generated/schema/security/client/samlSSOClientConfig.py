@@ -28,7 +28,10 @@ class Idp(BaseModel):
         ),
     ] = None
     idpX509Certificate: Annotated[
-        str | None, Field(description="X509 Certificate ")
+        str | None,
+        Field(
+            description="IdP signing certificate(s): a PEM certificate or concatenated PEM bundle; a single base64 DER certificate is also accepted. Saving requires at least one currently valid certificate. At runtime every configured certificate is trusted, including expired and future rollover ones, so remove a retired key explicitly."
+        ),
     ] = None
     nameId: Annotated[
         str | None, Field(description="Name ID format for SAML assertions")
@@ -63,7 +66,7 @@ class Security(BaseModel):
     strictMode: Annotated[
         bool | None,
         Field(
-            description="Only accept valid signed and encrypted assertions if the relevant flags are set"
+            description="Enable strict SAML protocol checks and the Want Messages Signed / Want Assertions Signed policies. Require Encrypted Assertions applies independently of strict mode."
         ),
     ] = False
     validateXml: Annotated[
@@ -97,7 +100,9 @@ class Security(BaseModel):
     ] = False
     wantAssertionEncrypted: Annotated[
         bool | None,
-        Field(description="SP requires the assertion received to be encrypted."),
+        Field(
+            description="Reject plaintext assertions even when Strict Mode is off. Optional and disabled by default. Requires an SP private key and matching certificate; configure token encryption at the IdP too. Providing an SP key alone does not require encryption."
+        ),
     ] = False
     keyStoreFilePath: Annotated[str | None, Field(description="KeyStore File Path")] = (
         None

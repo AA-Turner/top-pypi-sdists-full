@@ -1,6 +1,6 @@
 """The landing hook — how a page this package scraped becomes a Source.
 
-SOURCE-CONVERGENCE §3 (common-docs/projects/knowledge-system/SOURCE-CONVERGENCE.md). Every
+SOURCE-CONVERGENCE §3 (common-docs/systems/knowledge/projects/knowledge-system/SOURCE-CONVERGENCE.md). Every
 acquired page becomes ONE ``docproc.processed_documents`` row through the host's landing door.
 This package may not import that host (``scripts/check_package_boundaries.py``), so the door is
 an injected extension point, the same mechanism as the page cache:

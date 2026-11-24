@@ -78,6 +78,7 @@ the agent's tool result must not depend on logging succeeding.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -99,6 +100,12 @@ logger = logging.getLogger(__name__)
 # /home/agent/.matrx/runtime/tool-calls/<conv>/<file>.md.
 _AGENT_HOME = "/home/agent"
 _TOOL_CALL_SUBDIR = ".matrx/runtime/tool-calls"
+
+
+def _write_local_log(abs_path: str, body: str) -> None:
+    p = Path(abs_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(body, encoding="utf-8")
 
 
 def _short_call_id(call_id: str) -> str:
@@ -398,9 +405,7 @@ async def write_tool_call_log(
             )
         else:
             # sandbox-mode: write locally
-            p = Path(abs_path)
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(body, encoding="utf-8")
+            await asyncio.to_thread(_write_local_log, abs_path, body)
     except SandboxProxyError as exc:
         logger.warning("tool-call log write failed (proxy): %s", exc)
         return None
@@ -478,9 +483,7 @@ async def write_action_log(
                 create_parents=True,
             )
         else:
-            p = Path(abs_path)
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(body, encoding="utf-8")
+            await asyncio.to_thread(_write_local_log, abs_path, body)
     except SandboxProxyError as exc:
         logger.warning("action log write failed (proxy): %s", exc)
         return None

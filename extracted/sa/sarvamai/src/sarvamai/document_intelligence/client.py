@@ -75,7 +75,7 @@ class DocumentIntelligenceJob:
         Parameters
         ----------
         file_path : str
-            Path to the file to upload (PDF, PNG, JPG, or ZIP)
+            Path to the file to upload (exactly one PDF, or a ZIP of JPEG/PNG images)
         """
         filename = os.path.basename(file_path)
 
@@ -282,12 +282,15 @@ class DocumentIntelligenceClient:
         ----------
         language : str
             Language code in BCP-47 format (default: "hi-IN")
-            Supported: hi-IN, en-IN, bn-IN, gu-IN, kn-IN, ml-IN, mr-IN, or-IN,
-                      pa-IN, ta-IN, te-IN, ur-IN, as-IN, bodo-IN, doi-IN, ks-IN,
+            Supported: hi-IN, en-IN, bn-IN, gu-IN, kn-IN, ml-IN, mr-IN, od-IN,
+                      pa-IN, ta-IN, te-IN, ur-IN, as-IN, brx-IN, doi-IN, ks-IN,
                       kok-IN, mai-IN, mni-IN, ne-IN, sa-IN, sat-IN, sd-IN
 
         output_format : str
-            Output format: "html" or "md" (default: "html")
+            Output format: "html", "md", or "json" (default: "html").
+            Output is delivered as a ZIP file. Note: the API's own default
+            when no format is sent is "md"; this helper sends "html" unless
+            overridden.
 
         request_options : RequestOptions, optional
             Request-specific configuration
@@ -313,7 +316,7 @@ class DocumentIntelligenceClient:
         job.upload_file("document.pdf")
         job.start()
         job.wait_until_complete()
-        job.download_output("./output.html")
+        job.download_output("./output.zip")
         """
         # Build job parameters
         job_params: DocDigitizationJobParametersParams = {
@@ -342,7 +345,9 @@ class DocumentIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocDigitizationCreateJobResponse:
         """
-        Creates a new document intelligence job.
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
+        Creates a new Document Intelligence job.
 
         **Supported Languages (BCP-47 format):**
         - `hi-IN`: Hindi (default)
@@ -352,13 +357,13 @@ class DocumentIntelligenceClient:
         - `kn-IN`: Kannada
         - `ml-IN`: Malayalam
         - `mr-IN`: Marathi
-        - `or-IN`: Odia
+        - `od-IN`: Odia
         - `pa-IN`: Punjabi
         - `ta-IN`: Tamil
         - `te-IN`: Telugu
         - `ur-IN`: Urdu
         - `as-IN`: Assamese
-        - `bodo-IN`: Bodo
+        - `brx-IN`: Bodo
         - `doi-IN`: Dogri
         - `ks-IN`: Kashmiri
         - `kok-IN`: Konkani
@@ -369,25 +374,15 @@ class DocumentIntelligenceClient:
         - `sat-IN`: Santali
         - `sd-IN`: Sindhi
 
-        **Output Formats:**
-        - `html`: Structured HTML with layout preservation (default)
-        - `md`: Markdown format
-
-        **Prompt Types:**
-        Customize how specific content types are processed:
-        - `default_ocr`: Standard text extraction (default for all text blocks)
-        - `table_to_html`: Convert tables to HTML format
-        - `table_to_markdown`: Convert tables to Markdown format
-        - `chart_to_markdown`: Extract chart data as Markdown table
-        - `chart_to_json`: Extract chart data as JSON
-        - `describe_image`: Generate image caption
-        - `caption_en`: Same as describe_image (English)
-        - `caption_in`: Caption in document language
+        **Output Formats (delivered as ZIP file):**
+        - `html`: Structured HTML files with layout preservation
+        - `md`: Markdown files (default)
+        - `json`: Structured JSON files for programmatic processing
 
         Parameters
         ----------
         job_parameters : typing.Optional[DocDigitizationJobParametersParams]
-            Job configuration parameters. Omit the request body to use defaults.
+            Configuration parameters for the Document Intelligence job including language and output format. Defaults to Hindi (hi-IN) and Markdown output if omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -420,6 +415,8 @@ class DocumentIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocDigitizationUploadFilesResponse:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns presigned URLs for uploading input files.
 
         **File Constraints:**
@@ -464,6 +461,8 @@ class DocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DocDigitizationJobStatusResponse:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Validates the uploaded file and starts processing.
 
         **Validation Checks:**
@@ -473,7 +472,7 @@ class DocumentIntelligenceClient:
         - ZIP must contain only JPEG/PNG images
         - ZIP must be flat (no nested folders beyond one level)
         - ZIP must contain at least one valid image
-        - Page/image count must not exceed 500
+        - Page/image count must not exceed 10 (returns `400` with `invalid_request_error` if exceeded)
         - User must have sufficient credits
 
         **Processing:**
@@ -510,6 +509,8 @@ class DocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DocDigitizationJobStatusResponse:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns the current status of a job with page-level metrics.
 
         **Job States:**
@@ -554,7 +555,11 @@ class DocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DocDigitizationDownloadFilesResponse:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns presigned URLs for downloading output files.
+
+        **Method:** POST only. A GET request to this path returns 405 Method Not Allowed.
 
         **Prerequisites:**
         - Job must be in `Completed` or `PartiallyCompleted` state
@@ -634,7 +639,7 @@ class AsyncDocumentIntelligenceJob:
         Parameters
         ----------
         file_path : str
-            Path to the file to upload (PDF, PNG, JPG, or ZIP)
+            Path to the file to upload (exactly one PDF, or a ZIP of JPEG/PNG images)
         """
         filename = os.path.basename(file_path)
 
@@ -845,12 +850,15 @@ class AsyncDocumentIntelligenceClient:
         ----------
         language : str
             Language code in BCP-47 format (default: "hi-IN")
-            Supported: hi-IN, en-IN, bn-IN, gu-IN, kn-IN, ml-IN, mr-IN, or-IN,
-                      pa-IN, ta-IN, te-IN, ur-IN, as-IN, bodo-IN, doi-IN, ks-IN,
+            Supported: hi-IN, en-IN, bn-IN, gu-IN, kn-IN, ml-IN, mr-IN, od-IN,
+                      pa-IN, ta-IN, te-IN, ur-IN, as-IN, brx-IN, doi-IN, ks-IN,
                       kok-IN, mai-IN, mni-IN, ne-IN, sa-IN, sat-IN, sd-IN
 
         output_format : str
-            Output format: "html" or "md" (default: "html")
+            Output format: "html", "md", or "json" (default: "html").
+            Output is delivered as a ZIP file. Note: the API's own default
+            when no format is sent is "md"; this helper sends "html" unless
+            overridden.
 
         request_options : RequestOptions, optional
             Request-specific configuration
@@ -878,7 +886,7 @@ class AsyncDocumentIntelligenceClient:
             await job.upload_file("document.pdf")
             await job.start()
             await job.wait_until_complete()
-            await job.download_output("./output.html")
+            await job.download_output("./output.zip")
 
         asyncio.run(main())
         """
@@ -909,7 +917,9 @@ class AsyncDocumentIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocDigitizationCreateJobResponse:
         """
-        Creates a new document intelligence job.
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
+        Creates a new Document Intelligence job.
 
         **Supported Languages (BCP-47 format):**
         - `hi-IN`: Hindi (default)
@@ -919,13 +929,13 @@ class AsyncDocumentIntelligenceClient:
         - `kn-IN`: Kannada
         - `ml-IN`: Malayalam
         - `mr-IN`: Marathi
-        - `or-IN`: Odia
+        - `od-IN`: Odia
         - `pa-IN`: Punjabi
         - `ta-IN`: Tamil
         - `te-IN`: Telugu
         - `ur-IN`: Urdu
         - `as-IN`: Assamese
-        - `bodo-IN`: Bodo
+        - `brx-IN`: Bodo
         - `doi-IN`: Dogri
         - `ks-IN`: Kashmiri
         - `kok-IN`: Konkani
@@ -936,25 +946,15 @@ class AsyncDocumentIntelligenceClient:
         - `sat-IN`: Santali
         - `sd-IN`: Sindhi
 
-        **Output Formats:**
-        - `html`: Structured HTML with layout preservation (default)
-        - `md`: Markdown format
-
-        **Prompt Types:**
-        Customize how specific content types are processed:
-        - `default_ocr`: Standard text extraction (default for all text blocks)
-        - `table_to_html`: Convert tables to HTML format
-        - `table_to_markdown`: Convert tables to Markdown format
-        - `chart_to_markdown`: Extract chart data as Markdown table
-        - `chart_to_json`: Extract chart data as JSON
-        - `describe_image`: Generate image caption
-        - `caption_en`: Same as describe_image (English)
-        - `caption_in`: Caption in document language
+        **Output Formats (delivered as ZIP file):**
+        - `html`: Structured HTML files with layout preservation
+        - `md`: Markdown files (default)
+        - `json`: Structured JSON files for programmatic processing
 
         Parameters
         ----------
         job_parameters : typing.Optional[DocDigitizationJobParametersParams]
-            Job configuration parameters. Omit the request body to use defaults.
+            Configuration parameters for the Document Intelligence job including language and output format. Defaults to Hindi (hi-IN) and Markdown output if omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -995,6 +995,8 @@ class AsyncDocumentIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocDigitizationUploadFilesResponse:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns presigned URLs for uploading input files.
 
         **File Constraints:**
@@ -1047,6 +1049,8 @@ class AsyncDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DocDigitizationJobStatusResponse:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Validates the uploaded file and starts processing.
 
         **Validation Checks:**
@@ -1056,7 +1060,7 @@ class AsyncDocumentIntelligenceClient:
         - ZIP must contain only JPEG/PNG images
         - ZIP must be flat (no nested folders beyond one level)
         - ZIP must contain at least one valid image
-        - Page/image count must not exceed 500
+        - Page/image count must not exceed 10 (returns `400` with `invalid_request_error` if exceeded)
         - User must have sufficient credits
 
         **Processing:**
@@ -1103,6 +1107,8 @@ class AsyncDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DocDigitizationJobStatusResponse:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns the current status of a job with page-level metrics.
 
         **Job States:**
@@ -1157,7 +1163,11 @@ class AsyncDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DocDigitizationDownloadFilesResponse:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns presigned URLs for downloading output files.
+
+        **Method:** POST only. A GET request to this path returns 405 Method Not Allowed.
 
         **Prerequisites:**
         - Job must be in `Completed` or `PartiallyCompleted` state

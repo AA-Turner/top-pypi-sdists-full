@@ -39,9 +39,21 @@ class Decisions(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CreateDecisionResponse:
-    """Create Decision
+    """Create a fixed-choice decision with probabilities for each choice.
+
+    Only `type="choice"` is supported: one question with 2–26 distinct, nonempty
+    choice values. Native `predicate` and `score` question types are not supported.
+    For a predicate, use yes/no choices and read the probability of yes. For a
+    numeric rating, use rubric levels as choices and calculate their
+    probability-weighted numeric average in your application.
 
     Args:
+      input: Text or ordered text/image parts. Native `input_json` parts are not
+        supported; serialize JSON evidence to text with `json.dumps(data)`.
+
+      questions: Exactly one choice question. The result contains the selected
+        choice and per-choice probabilities, not a native boolean or numeric score.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request

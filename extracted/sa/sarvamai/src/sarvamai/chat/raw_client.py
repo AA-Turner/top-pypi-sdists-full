@@ -132,17 +132,20 @@ class RawChatClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[HttpResponse[CreateChatCompletionResponse], typing.Iterator[ChatCompletionChunk]]:
         """
+        Creates a model response for the given chat conversation. This endpoint serves **only** `sarvam-105b` and `sarvam-105b-conversations`.
+
         Parameters
         ----------
         messages : typing.Sequence[ChatCompletionRequestMessageParams]
             A list of messages comprising the conversation so far.
 
         model : SarvamModelIds
-            Model ID used to generate the response, like `sarvam-m`.
+            Chat model ID. Use `sarvam-105b` (128K context) for complex reasoning and agentic tasks, or `sarvam-105b-conversations` (32K context) for real-time conversational and voice-agent workloads.
 
         temperature : typing.Optional[float]
-            What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
-            We generally recommend altering this or `top_p` but not both.
+            Sampling temperature between 0 and 2. Higher values increase variation; lower values make output more focused. Output is not bit-reproducible, even at `0`. Prefer changing either `temperature` or `top_p`, not both.
+
+            **Default:** on `sarvam-105b`, `1.0` with reasoning on (the default) and `0.6` with reasoning off (`reasoning_effort` set to `null`). On `sarvam-105b-conversations`, `0.6`.
 
         top_p : typing.Optional[float]
             An alternative to sampling with temperature, called nucleus sampling,
@@ -153,7 +156,7 @@ class RawChatClient:
             We generally recommend altering this or `temperature` but not both.
 
         reasoning_effort : typing.Optional[ReasoningEffort]
-            The effort to use for reasoning
+            The effort to use for reasoning. Set to `null` to turn reasoning off. On `sarvam-105b`, reasoning is on by default. `sarvam-105b-conversations` runs with reasoning off only: a level is accepted but ignored.
 
         max_tokens : typing.Optional[int]
             The maximum number of tokens that can be generated in the chat completion.
@@ -166,7 +169,7 @@ class RawChatClient:
         stop : typing.Optional[StopConfigurationParams]
 
         n : typing.Optional[int]
-            How many chat completion choices to generate for each input message. Note that you will be charged based on the number of generated tokens across all of the choices. Keep `n` as `1` to minimize costs.
+            Number of chat completion choices. Only `1` is supported (the default); values above `1` return `400 invalid_request_error`. Send separate requests for more completions.
 
         seed : typing.Optional[int]
             This feature is in Beta.
@@ -183,7 +186,6 @@ class RawChatClient:
             whether they appear in the text so far, increasing the model's likelihood
             to talk about new topics.
 
-
         tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
             A list of tools the model may call. Currently, only functions are supported as a tool.
 
@@ -191,7 +193,7 @@ class RawChatClient:
             Controls which (if any) tool is called by the model.
 
         response_format : typing.Optional[ResponseFormatParams]
-            Controls text, JSON object, or JSON Schema output.
+            An object specifying the format that the model must output. Setting `{ "type": "json_schema", "json_schema": {...} }` enables Structured Outputs which guarantees the model generates output matching the supplied JSON Schema. Setting `{ "type": "json_object" }` enables the older JSON mode, which guarantees valid JSON but not a specific schema.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -334,6 +336,7 @@ class RawChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = ...,
         temperature: typing.Optional[float] = ...,
         top_p: typing.Optional[float] = ...,
         reasoning_effort: typing.Optional[ReasoningEffort] = ...,
@@ -349,10 +352,11 @@ class RawChatClient:
         response_format: typing.Optional[ResponseFormatParams] = ...,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
         top_k: typing.Optional[int] = ...,
-        min_p: typing.Optional[float] = ...,
         repetition_penalty: typing.Optional[float] = ...,
         parallel_tool_calls: typing.Optional[bool] = ...,
         stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        logprobs: typing.Optional[bool] = ...,
+        top_logprobs: typing.Optional[int] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> typing.Iterator[ChatCompletionChunk]: ...
 
@@ -362,6 +366,7 @@ class RawChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = ...,
         temperature: typing.Optional[float] = ...,
         top_p: typing.Optional[float] = ...,
         reasoning_effort: typing.Optional[ReasoningEffort] = ...,
@@ -377,10 +382,11 @@ class RawChatClient:
         response_format: typing.Optional[ResponseFormatParams] = ...,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
         top_k: typing.Optional[int] = ...,
-        min_p: typing.Optional[float] = ...,
         repetition_penalty: typing.Optional[float] = ...,
         parallel_tool_calls: typing.Optional[bool] = ...,
         stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        logprobs: typing.Optional[bool] = ...,
+        top_logprobs: typing.Optional[int] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> HttpResponse[CreateChatCompletionV2Response]: ...
 
@@ -389,6 +395,7 @@ class RawChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = None,
         temperature: typing.Optional[float] = OMIT,
         top_p: typing.Optional[float] = OMIT,
         reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
@@ -404,16 +411,18 @@ class RawChatClient:
         response_format: typing.Optional[ResponseFormatParams] = OMIT,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         top_k: typing.Optional[int] = OMIT,
-        min_p: typing.Optional[float] = OMIT,
         repetition_penalty: typing.Optional[float] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
         stream_options: typing.Optional[ChatStreamOptionsParams] = OMIT,
+        logprobs: typing.Optional[bool] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[HttpResponse[CreateChatCompletionV2Response], typing.Iterator[ChatCompletionChunk]]:
         if stream is True:
             return self._completions_v2_stream(
                 messages=messages,
                 model=model,
+                session_affinity=session_affinity,
                 temperature=temperature,
                 top_p=top_p,
                 reasoning_effort=reasoning_effort,
@@ -428,10 +437,11 @@ class RawChatClient:
                 response_format=response_format,
                 extra_body=extra_body,
                 top_k=top_k,
-                min_p=min_p,
                 repetition_penalty=repetition_penalty,
                 parallel_tool_calls=parallel_tool_calls,
                 stream_options=stream_options,
+                logprobs=logprobs,
+                top_logprobs=top_logprobs,
                 request_options=request_options,
             )
 
@@ -457,12 +467,16 @@ class RawChatClient:
                 response_format=response_format,
                 extra_body=extra_body,
                 top_k=top_k,
-                min_p=min_p,
                 repetition_penalty=repetition_penalty,
                 parallel_tool_calls=parallel_tool_calls,
                 stream_options=stream_options,
+                logprobs=logprobs,
+                top_logprobs=top_logprobs,
             ),
-            headers={"content-type": "application/json"},
+            headers={
+                "content-type": "application/json",
+                "x-session-affinity": str(session_affinity) if session_affinity is not None else None,
+            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -498,10 +512,11 @@ class RawChatClient:
         response_format: typing.Optional[ResponseFormatParams],
         extra_body: typing.Optional[typing.Dict[str, typing.Any]],
         top_k: typing.Optional[int],
-        min_p: typing.Optional[float],
         repetition_penalty: typing.Optional[float],
         parallel_tool_calls: typing.Optional[bool],
         stream_options: typing.Optional[ChatStreamOptionsParams],
+        logprobs: typing.Optional[bool],
+        top_logprobs: typing.Optional[int],
     ) -> typing.Dict[str, typing.Any]:
         return {
             "messages": convert_and_respect_annotation_metadata(
@@ -531,12 +546,13 @@ class RawChatClient:
             ),
             "extra_body": extra_body,
             "top_k": top_k,
-            "min_p": min_p,
             "repetition_penalty": repetition_penalty,
             "parallel_tool_calls": parallel_tool_calls,
             "stream_options": convert_and_respect_annotation_metadata(
                 object_=stream_options, annotation=ChatStreamOptionsParams, direction="write"
             ),
+            "logprobs": logprobs,
+            "top_logprobs": top_logprobs,
         }
 
     def _completions_v2_stream(
@@ -544,6 +560,7 @@ class RawChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = None,
         temperature: typing.Optional[float] = OMIT,
         top_p: typing.Optional[float] = OMIT,
         reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
@@ -558,10 +575,11 @@ class RawChatClient:
         response_format: typing.Optional[ResponseFormatParams] = OMIT,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         top_k: typing.Optional[int] = OMIT,
-        min_p: typing.Optional[float] = OMIT,
         repetition_penalty: typing.Optional[float] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
         stream_options: typing.Optional[ChatStreamOptionsParams] = OMIT,
+        logprobs: typing.Optional[bool] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[ChatCompletionChunk]:
         with self._client_wrapper.httpx_client.stream(
@@ -586,12 +604,16 @@ class RawChatClient:
                 response_format=response_format,
                 extra_body=extra_body,
                 top_k=top_k,
-                min_p=min_p,
                 repetition_penalty=repetition_penalty,
                 parallel_tool_calls=parallel_tool_calls,
                 stream_options=stream_options,
+                logprobs=logprobs,
+                top_logprobs=top_logprobs,
             ),
-            headers={"content-type": "application/json"},
+            headers={
+                "content-type": "application/json",
+                "x-session-affinity": str(session_affinity) if session_affinity is not None else None,
+            },
             request_options=request_options,
             omit=OMIT,
         ) as response:
@@ -770,17 +792,20 @@ class AsyncRawChatClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[AsyncHttpResponse[CreateChatCompletionResponse], typing.AsyncIterator[ChatCompletionChunk]]:
         """
+        Creates a model response for the given chat conversation. This endpoint serves **only** `sarvam-105b` and `sarvam-105b-conversations`.
+
         Parameters
         ----------
         messages : typing.Sequence[ChatCompletionRequestMessageParams]
             A list of messages comprising the conversation so far.
 
         model : SarvamModelIds
-            Model ID used to generate the response, like `sarvam-m`.
+            Chat model ID. Use `sarvam-105b` (128K context) for complex reasoning and agentic tasks, or `sarvam-105b-conversations` (32K context) for real-time conversational and voice-agent workloads.
 
         temperature : typing.Optional[float]
-            What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
-            We generally recommend altering this or `top_p` but not both.
+            Sampling temperature between 0 and 2. Higher values increase variation; lower values make output more focused. Output is not bit-reproducible, even at `0`. Prefer changing either `temperature` or `top_p`, not both.
+
+            **Default:** on `sarvam-105b`, `1.0` with reasoning on (the default) and `0.6` with reasoning off (`reasoning_effort` set to `null`). On `sarvam-105b-conversations`, `0.6`.
 
         top_p : typing.Optional[float]
             An alternative to sampling with temperature, called nucleus sampling,
@@ -791,7 +816,7 @@ class AsyncRawChatClient:
             We generally recommend altering this or `temperature` but not both.
 
         reasoning_effort : typing.Optional[ReasoningEffort]
-            The effort to use for reasoning
+            The effort to use for reasoning. Set to `null` to turn reasoning off. On `sarvam-105b`, reasoning is on by default. `sarvam-105b-conversations` runs with reasoning off only: a level is accepted but ignored.
 
         max_tokens : typing.Optional[int]
             The maximum number of tokens that can be generated in the chat completion.
@@ -804,7 +829,7 @@ class AsyncRawChatClient:
         stop : typing.Optional[StopConfigurationParams]
 
         n : typing.Optional[int]
-            How many chat completion choices to generate for each input message. Note that you will be charged based on the number of generated tokens across all of the choices. Keep `n` as `1` to minimize costs.
+            Number of chat completion choices. Only `1` is supported (the default); values above `1` return `400 invalid_request_error`. Send separate requests for more completions.
 
         seed : typing.Optional[int]
             This feature is in Beta.
@@ -821,7 +846,6 @@ class AsyncRawChatClient:
             whether they appear in the text so far, increasing the model's likelihood
             to talk about new topics.
 
-
         tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
             A list of tools the model may call. Currently, only functions are supported as a tool.
 
@@ -829,7 +853,7 @@ class AsyncRawChatClient:
             Controls which (if any) tool is called by the model.
 
         response_format : typing.Optional[ResponseFormatParams]
-            Controls text, JSON object, or JSON Schema output.
+            An object specifying the format that the model must output. Setting `{ "type": "json_schema", "json_schema": {...} }` enables Structured Outputs which guarantees the model generates output matching the supplied JSON Schema. Setting `{ "type": "json_object" }` enables the older JSON mode, which guarantees valid JSON but not a specific schema.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -972,6 +996,7 @@ class AsyncRawChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = ...,
         temperature: typing.Optional[float] = ...,
         top_p: typing.Optional[float] = ...,
         reasoning_effort: typing.Optional[ReasoningEffort] = ...,
@@ -987,10 +1012,11 @@ class AsyncRawChatClient:
         response_format: typing.Optional[ResponseFormatParams] = ...,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
         top_k: typing.Optional[int] = ...,
-        min_p: typing.Optional[float] = ...,
         repetition_penalty: typing.Optional[float] = ...,
         parallel_tool_calls: typing.Optional[bool] = ...,
         stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        logprobs: typing.Optional[bool] = ...,
+        top_logprobs: typing.Optional[int] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> typing.AsyncIterator[ChatCompletionChunk]: ...
 
@@ -1000,6 +1026,7 @@ class AsyncRawChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = ...,
         temperature: typing.Optional[float] = ...,
         top_p: typing.Optional[float] = ...,
         reasoning_effort: typing.Optional[ReasoningEffort] = ...,
@@ -1015,10 +1042,11 @@ class AsyncRawChatClient:
         response_format: typing.Optional[ResponseFormatParams] = ...,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
         top_k: typing.Optional[int] = ...,
-        min_p: typing.Optional[float] = ...,
         repetition_penalty: typing.Optional[float] = ...,
         parallel_tool_calls: typing.Optional[bool] = ...,
         stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        logprobs: typing.Optional[bool] = ...,
+        top_logprobs: typing.Optional[int] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> AsyncHttpResponse[CreateChatCompletionV2Response]: ...
 
@@ -1027,6 +1055,7 @@ class AsyncRawChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = None,
         temperature: typing.Optional[float] = OMIT,
         top_p: typing.Optional[float] = OMIT,
         reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
@@ -1042,16 +1071,18 @@ class AsyncRawChatClient:
         response_format: typing.Optional[ResponseFormatParams] = OMIT,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         top_k: typing.Optional[int] = OMIT,
-        min_p: typing.Optional[float] = OMIT,
         repetition_penalty: typing.Optional[float] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
         stream_options: typing.Optional[ChatStreamOptionsParams] = OMIT,
+        logprobs: typing.Optional[bool] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[AsyncHttpResponse[CreateChatCompletionV2Response], typing.AsyncIterator[ChatCompletionChunk]]:
         if stream is True:
             return self._completions_v2_stream(
                 messages=messages,
                 model=model,
+                session_affinity=session_affinity,
                 temperature=temperature,
                 top_p=top_p,
                 reasoning_effort=reasoning_effort,
@@ -1066,10 +1097,11 @@ class AsyncRawChatClient:
                 response_format=response_format,
                 extra_body=extra_body,
                 top_k=top_k,
-                min_p=min_p,
                 repetition_penalty=repetition_penalty,
                 parallel_tool_calls=parallel_tool_calls,
                 stream_options=stream_options,
+                logprobs=logprobs,
+                top_logprobs=top_logprobs,
                 request_options=request_options,
             )
 
@@ -1095,12 +1127,16 @@ class AsyncRawChatClient:
                 response_format=response_format,
                 extra_body=extra_body,
                 top_k=top_k,
-                min_p=min_p,
                 repetition_penalty=repetition_penalty,
                 parallel_tool_calls=parallel_tool_calls,
                 stream_options=stream_options,
+                logprobs=logprobs,
+                top_logprobs=top_logprobs,
             ),
-            headers={"content-type": "application/json"},
+            headers={
+                "content-type": "application/json",
+                "x-session-affinity": str(session_affinity) if session_affinity is not None else None,
+            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -1121,6 +1157,7 @@ class AsyncRawChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = None,
         temperature: typing.Optional[float] = OMIT,
         top_p: typing.Optional[float] = OMIT,
         reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
@@ -1135,10 +1172,11 @@ class AsyncRawChatClient:
         response_format: typing.Optional[ResponseFormatParams] = OMIT,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         top_k: typing.Optional[int] = OMIT,
-        min_p: typing.Optional[float] = OMIT,
         repetition_penalty: typing.Optional[float] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
         stream_options: typing.Optional[ChatStreamOptionsParams] = OMIT,
+        logprobs: typing.Optional[bool] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[ChatCompletionChunk]:
         async with self._client_wrapper.httpx_client.stream(
@@ -1163,12 +1201,16 @@ class AsyncRawChatClient:
                 response_format=response_format,
                 extra_body=extra_body,
                 top_k=top_k,
-                min_p=min_p,
                 repetition_penalty=repetition_penalty,
                 parallel_tool_calls=parallel_tool_calls,
                 stream_options=stream_options,
+                logprobs=logprobs,
+                top_logprobs=top_logprobs,
             ),
-            headers={"content-type": "application/json"},
+            headers={
+                "content-type": "application/json",
+                "x-session-affinity": str(session_affinity) if session_affinity is not None else None,
+            },
             request_options=request_options,
             omit=OMIT,
         ) as response:

@@ -21,6 +21,12 @@ class SupportedModelInfo(BaseModel):
 
   model_name: str
 
+  supports_generations: bool = True
+  """Supports generation APIs."""
+
+  supports_decisions: bool = False
+  """Supports the decisions API."""
+
   pricing: ModelPricing
 
   checkpoint: str | None = None
@@ -37,7 +43,7 @@ class SupportedModelInfo(BaseModel):
     """
 
   input_modalities: list[InputModality]
-  """Content parts the model accepts in chat completions; image marks vision models."""
+  """Content parts the model accepts; image marks vision models."""
 
 
 class ListSupportedModelsResponse(BaseModel):

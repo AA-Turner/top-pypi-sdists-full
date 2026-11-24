@@ -15,6 +15,11 @@ class ChartsServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.GetOfflineStorageHistory = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetOfflineStorageHistory",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetOfflineStorageHistoryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetOfflineStorageHistoryResponse.FromString,
+        )
         self.ListRawMetrics = channel.unary_unary(
             "/chalk.server.v1.ChartsService/ListRawMetrics",
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListRawMetricsRequest.SerializeToString,
@@ -134,6 +139,12 @@ class ChartsServiceStub(object):
 
 class ChartsServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def GetOfflineStorageHistory(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def ListRawMetrics(self, request, context):
         """The three introspection RPCs below expose the raw VictoriaMetrics series
@@ -294,6 +305,11 @@ class ChartsServiceServicer(object):
 
 def add_ChartsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "GetOfflineStorageHistory": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineStorageHistory,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetOfflineStorageHistoryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetOfflineStorageHistoryResponse.SerializeToString,
+        ),
         "ListRawMetrics": grpc.unary_unary_rpc_method_handler(
             servicer.ListRawMetrics,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListRawMetricsRequest.FromString,
@@ -417,6 +433,35 @@ def add_ChartsServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class ChartsService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def GetOfflineStorageHistory(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetOfflineStorageHistory",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetOfflineStorageHistoryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetOfflineStorageHistoryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def ListRawMetrics(

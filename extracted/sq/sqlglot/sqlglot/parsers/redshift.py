@@ -36,7 +36,9 @@ class RedshiftParser(PostgresParser):
     ID_VAR_TOKENS = {*PostgresParser.ID_VAR_TOKENS, TokenType.QUALIFY}
 
     FUNCTIONS = {
-        **{k: v for k, v in PostgresParser.FUNCTIONS.items() if k != "GET_BIT"},
+        **{
+            k: v for k, v in PostgresParser.FUNCTIONS.items() if k not in ("CARDINALITY", "GET_BIT")
+        },
         "ADD_MONTHS": lambda args: exp.TsOrDsAdd(
             this=seq_get(args, 0),
             expression=seq_get(args, 1),
@@ -82,6 +84,13 @@ class RedshiftParser(PostgresParser):
 
     FUNCTION_PARSERS = {
         **PostgresParser.FUNCTION_PARSERS,
+        "DATE_PART": lambda self: self._parse_date_part(
+            # Quoted "date_part" takes an expression, like PGDATE_PART.
+            self._parse_assignment()
+            if self._tokens[self._index - 2].token_type == TokenType.IDENTIFIER
+            else self._parse_var_or_string(upper=True)
+        ),
+        "PGDATE_PART": lambda self: self._parse_date_part(self._parse_assignment()),
         "OBJECT_TRANSFORM": lambda self: self._parse_object_transform(),
     }
 

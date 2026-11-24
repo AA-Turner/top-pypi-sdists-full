@@ -36,17 +36,19 @@ class CreateWorkloadRequest(object):
         'spec': 'object',
         'cloud_id': 'str',
         'project_id': 'str',
-        'name': 'str'
+        'name': 'str',
+        'priority': 'int'
     }
 
     attribute_map = {
         'spec': 'spec',
         'cloud_id': 'cloud_id',
         'project_id': 'project_id',
-        'name': 'name'
+        'name': 'name',
+        'priority': 'priority'
     }
 
-    def __init__(self, spec=None, cloud_id=None, project_id=None, name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, spec=None, cloud_id=None, project_id=None, name=None, priority=None, local_vars_configuration=None):  # noqa: E501
         """CreateWorkloadRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class CreateWorkloadRequest(object):
         self._cloud_id = None
         self._project_id = None
         self._name = None
+        self._priority = None
         self.discriminator = None
 
         self.spec = spec
@@ -64,6 +67,8 @@ class CreateWorkloadRequest(object):
             self.project_id = project_id
         if name is not None:
             self.name = name
+        if priority is not None:
+            self.priority = priority
 
     @property
     def spec(self):
@@ -160,6 +165,29 @@ class CreateWorkloadRequest(object):
         """
 
         self._name = name
+
+    @property
+    def priority(self):
+        """Gets the priority of this CreateWorkloadRequest.  # noqa: E501
+
+        Scheduling priority, an integer in [0, 1000]; higher is admitted first. It orders the workload only against other queued workloads in the same organization. Leave unset for no priority, which ranks as 0.  # noqa: E501
+
+        :return: The priority of this CreateWorkloadRequest.  # noqa: E501
+        :rtype: int
+        """
+        return self._priority
+
+    @priority.setter
+    def priority(self, priority):
+        """Sets the priority of this CreateWorkloadRequest.
+
+        Scheduling priority, an integer in [0, 1000]; higher is admitted first. It orders the workload only against other queued workloads in the same organization. Leave unset for no priority, which ranks as 0.  # noqa: E501
+
+        :param priority: The priority of this CreateWorkloadRequest.  # noqa: E501
+        :type: int
+        """
+
+        self._priority = priority
 
     def to_dict(self):
         """Returns the model properties as a dict"""

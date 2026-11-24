@@ -22,6 +22,7 @@ from ggshield.core.client import (
     safe_response_json,
 )
 from ggshield.core.config import Config, InstanceConfig
+from ggshield.core.config.token_store import KeystoreError
 from ggshield.core.errors import APIKeyCheckError, UnexpectedError
 from ggshield.core.url_utils import urljoin
 from ggshield.utils.datetime import get_pretty_date
@@ -249,7 +250,7 @@ class OAuthClient:
         return self._oauth_client.prepare_request_uri(
             uri=urljoin(self.dashboard_url, self._login_path),
             redirect_uri=self.redirect_uri,
-            scope=unique_scopes,
+            scope=" ".join(unique_scopes),
             code_challenge=self.code_challenge,
             code_challenge_method="S256",
             state=self.state,
@@ -431,7 +432,10 @@ class OAuthClient:
         account = self.instance_config.account
         if account is None or self.instance_config.expired:
             return False
-        if not self.instance_config.token:
+        try:
+            if not self.instance_config.token:
+                return False
+        except KeystoreError:
             return False
 
         # Check our API key is valid, if not forget it

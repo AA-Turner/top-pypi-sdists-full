@@ -33,6 +33,7 @@ Common-docs: systems/agents/typed-messages/FEATURE.md (the Slot).
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -113,11 +114,25 @@ def control_is_bindable(key: str, policy: Any) -> bool:
 
 
 def coerce_control_value(value: Any) -> Any:
-    """Variables travel as text; controls are typed. "" means unset."""
+    """Variables travel as text; controls are typed. "" means unset.
+
+    A structured control (a multi-speaker ``tts_voice`` list, ``camera_control``,
+    ``image_loras``) travels as its JSON text — the client stringifies the literal
+    when it binds the control — so JSON array/object text parses back to the value.
+    Left as text, a speaker list reached the voice check as one voice named
+    ``'[{"name": ...}]'`` and every run failed.
+    """
     if isinstance(value, str):
         text = value.strip()
         if text == "":
             return None
+        if text[0] in "[{":
+            try:
+                parsed = json.loads(text)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, (list, dict)):
+                return parsed
         lowered = text.lower()
         if lowered in ("true", "false"):
             return lowered == "true"

@@ -22,9 +22,13 @@ compile refusal. A headless run missing a require/ask input parks
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints
+
+from matrx_graph.input_declaration import VariableDefinition
+from matrx_graph.input_declaration.upgrade import DEFINITION_KIND, KIND_KEY, upgrade_workflow_input
 
 SourcingRule = Literal["ask", "require", "optional"]
 
@@ -106,51 +110,8 @@ FIELD_TYPE_VARIANTS: dict[str, str | None] = {
 }
 
 
-# THE INPUT HINTS (third-party services lane L6a, 2026-10-16 — common-docs
-# ``projects/third-party-services/INPUT-HINTS.md``). How one input sits in the
-# Google-simple arrangement: the one box, chips, a Tools-style reveal. Every
-# hint is optional and absent means "infer"; the client planner
-# (``@ai-matrx/chat/mandates/invoke/simple-box``) owns the inference so every
-# client arranges one surface the same way.
 ChoiceStyle = Literal["", "chips", "select"]
 DetectType = Literal["handle", "url", "domain", "keyword", "email", "person_name", "phone"]
-
-
-class InputHints(BaseModel):
-    """Presentation hints for one input. Additive on every served shape; the
-    authoring field (``UserInputField``) and the compiled ``InputSpec`` both
-    carry it, so the compiler copies it across with ``hint_values``."""
-
-    primary: bool = Field(default=False, description="This input is THE box (at most one).")
-    advanced: bool | None = Field(
-        default=None,
-        description=(
-            "True: behind the Tools reveal; False: always visible; None: inferred "
-            "(optional, or required with a default, goes behind Tools)."
-        ),
-    )
-    group: str = Field(default="", description="Tools-bar group label, e.g. 'Location'.")
-    order: int | None = Field(default=None, description="Sort key within its zone.")
-    choice_style: ChoiceStyle = Field(
-        default="", description="Options as chips or a select; empty = chips up to six."
-    )
-    inline: bool = Field(
-        default=False, description="A short choice attached to the primary box as a scope picker."
-    )
-    example: str = Field(default="", description="One realistic value; never a default.")
-    option_labels: dict[str, str] = Field(
-        default_factory=dict, description="Friendly words for machine option values."
-    )
-    detect: list[DetectType] = Field(
-        default_factory=list, description="What the primary box accepts; drives smart detection."
-    )
-    required_in_form: bool = Field(
-        default=False,
-        description=(
-            "A person must fill this in on the run form; callers (API, mandate, schedule) "
-            "may still leave it empty. The form enforces it; the engine never does."
-        ),
-    )
 
 
 # A LIST OF WORDS (review gap B2, 2026-10-29): a text input that takes several values is the
@@ -286,15 +247,7 @@ def _warn_unresolved(slug: str, name: str) -> None:
     )
 
 
-HINT_FIELDS: tuple[str, ...] = tuple(InputHints.model_fields)
-
-
-def hint_values(source: Any) -> dict[str, Any]:
-    """The hint fields of any model carrying them, for copying onto a served shape."""
-    return {name: getattr(source, name) for name in HINT_FIELDS if hasattr(source, name)}
-
-
-class InputSpec(InputHints):
+class InputSpec(BaseModel):
     """One entry of the compiled workflow input surface."""
 
     model_config = ConfigDict(frozen=True)
@@ -310,10 +263,6 @@ class InputSpec(InputHints):
         ),
     )
     default: JsonValue = None
-    label: str = ""
-    help: str = ""
-    placeholder: str = ""
-    options: list[str] = Field(default_factory=list)
     # Where the input came from: an io.user_input node field ("field") or a
     # folded Definition.variables declaration ("variable"). Compat plumbing —
     # dies with the $var migration.
@@ -335,6 +284,209 @@ class InputSpec(InputHints):
     # inbound routable edge (the value can arrive mid-run over the edge).
     referenced: bool = True
     edge_fed: bool = False
+    # EVERYTHING A PERSON READS (label, help, placeholder, options, hints, choice style, the
+    # component) lives ONLY here — the one input declaration; read it through the reader API
+    # above (``input_hint``, ``input_options``…), never copy a field of it onto this model.
+    declaration: VariableDefinition
+
+
+# ---------------------------------------------------------------------------
+# THE READER API over the one input declaration (``VariableDefinition``).
+#
+# Every engine behaviour that once read the old per-door copies (a workflow variable, a step
+# form field, its hint block) reads the declaration through these functions — nothing else
+# interprets ``customComponent`` / ``hints``. Old stored shapes enter ONLY through
+# ``upgrade_workflow_input`` (``declared_input``).
+# ---------------------------------------------------------------------------
+
+_TEXT_COMPONENTS = frozenset({"text", "markdown", "email", "url", "phone", "record"})
+_NUMBER_COMPONENTS = frozenset({"number", "slider", "percent", "currency"})
+_YES_NO_COMPONENTS = frozenset({"toggle", "light-switch"})
+_CHOICE_COMPONENTS = frozenset({"select", "pill-toggle", "checkbox", "radio", "selection-list", "buttons"})
+_FILE_COMPONENTS = frozenset({"document", "image", "audio", "video", "youtube"})
+
+_HINT_DEFAULTS: dict[str, Any] = {
+    "primary": False,
+    "advanced": None,
+    "group": "",
+    "order": None,
+    "inline": False,
+    "example": "",
+    "detect": [],
+    "required_in_form": False,
+    "placeholder": "",
+    "written_with": "",
+}
+_HINT_KEYS: dict[str, str] = {"required_in_form": "requiredInForm", "written_with": "writtenWith"}
+
+
+def _flatten_tokens(tokens: Any) -> list[str]:
+    out: list[str] = []
+    for token in tokens or []:
+        token = getattr(token, "root", token)
+        if isinstance(token, list | tuple):
+            out.extend(_flatten_tokens(token))
+        elif token:
+            out.append(str(token))
+    return out
+
+
+def declared_input(raw: Any) -> VariableDefinition:
+    """One stored input in ANY shape -> the declaration. A ``VariableDefinition`` is itself; a dict
+    already carrying ``__kind == "variable_definition"`` is validated as is; any other dict is an
+    old-shape workflow variable or ``io.user_input`` field and is read ONLY through
+    ``upgrade_workflow_input``."""
+    if isinstance(raw, VariableDefinition):
+        return raw
+    if not isinstance(raw, dict):
+        raise TypeError(f"an input declaration is a dict or VariableDefinition, got {type(raw).__name__}")
+    data = raw if raw.get(KIND_KEY) == DEFINITION_KIND else upgrade_workflow_input(raw)
+    component = data.get("customComponent")
+    if isinstance(component, dict) and isinstance(component.get("tokens"), list):
+        # The converter nests a list ``picks`` one level too deep; the schema takes flat tokens.
+        flat = _flatten_tokens(component["tokens"])
+        data = {**data, "customComponent": {**component, "tokens": flat}}
+    return VariableDefinition.model_validate(data)
+
+
+def declared_inputs(raw_list: Any) -> list[VariableDefinition]:
+    return [declared_input(item) for item in (raw_list or [])]
+
+
+_INPUT_NAME = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def check_input_name(name: str) -> str:
+    """An input's name is a short id: letters, digits, underscore, not starting with a digit."""
+    if not _INPUT_NAME.match(name or ""):
+        raise ValueError(
+            f"input name '{name}' must be letters, digits and underscore, not starting with a digit"
+        )
+    return name
+
+
+def _component(d: VariableDefinition) -> Any:
+    return d.customComponent
+
+
+def _component_type(d: VariableDefinition) -> str:
+    component = _component(d)
+    return (component.type or "") if component is not None else ""
+
+
+def input_type(d: VariableDefinition) -> UserInputFieldType | None:
+    """The engine's plain-language type, from ``customComponent.type``; None = free-form JSON."""
+    ctype = _component_type(d)
+    if ctype in _TEXT_COMPONENTS:
+        return "text"
+    if ctype == "textarea":
+        return "long_text"
+    if ctype in _NUMBER_COMPONENTS:
+        return "number"
+    if ctype in _YES_NO_COMPONENTS:
+        return "yes_no"
+    if ctype in _CHOICE_COMPONENTS:
+        return "choice"
+    if ctype in _FILE_COMPONENTS:
+        return "file"
+    if ctype:
+        return "text"
+    if (d.valueKind or "") == "json":
+        return None
+    value = d.defaultValue
+    if isinstance(value, bool):
+        return "yes_no"
+    if isinstance(value, int | float):
+        return "number"
+    if isinstance(value, dict | list):
+        return None
+    return "text"
+
+
+def input_multiple(d: VariableDefinition) -> bool:
+    component = _component(d)
+    if component is None:
+        return False
+    return bool(component.multiple) or component.type == "checkbox"
+
+
+def input_picks(d: VariableDefinition) -> str | list[str] | None:
+    """The record type tokens a ``record`` input points at: one -> a string, several -> a list."""
+    component = _component(d)
+    if component is None or component.type != "record":
+        return None
+    tokens = _flatten_tokens(component.tokens)
+    if not tokens:
+        return None
+    return tokens[0] if len(tokens) == 1 else tokens
+
+
+def input_picks_type_into(d: VariableDefinition) -> str:
+    component = _component(d)
+    return str(getattr(component, "picksTypeInto", None) or "") if component is not None else ""
+
+
+def input_options(d: VariableDefinition) -> list[str]:
+    component = _component(d)
+    return list(component.options or []) if component is not None else []
+
+
+def input_option_labels(d: VariableDefinition) -> dict[str, str]:
+    component = _component(d)
+    labels = (component.optionLabels or {}) if component is not None else {}
+    return {str(k): str(v) for k, v in labels.items()}
+
+
+def input_accept(d: VariableDefinition) -> str:
+    component = _component(d)
+    return (component.accept or "") if component is not None else ""
+
+
+def input_choice_style(d: VariableDefinition) -> ChoiceStyle:
+    ctype = _component_type(d)
+    return "chips" if ctype == "pill-toggle" else "select" if ctype == "select" else ""
+
+
+def input_hint(d: VariableDefinition, key: str) -> Any:  # api-any-ok: one hint, typed by its key
+    """One presentation hint by the OLD snake_case key; the old default when unset."""
+    if key not in _HINT_DEFAULTS:
+        raise KeyError(f"no input hint named '{key}'")
+    hints = d.hints
+    value = getattr(hints, _HINT_KEYS.get(key, key), None) if hints is not None else None
+    if value is None:
+        default = _HINT_DEFAULTS[key]
+        return list(default) if isinstance(default, list) else default
+    return list(value) if isinstance(value, list) else value
+
+
+def input_is_bound(d: VariableDefinition) -> bool:
+    """True when the value is filled from table data (a merge-field binding)."""
+    binding = d.binding
+    return binding is not None and getattr(binding, "kind", None) == "merge_field"
+
+
+def input_binding_dict(d: VariableDefinition) -> dict[str, Any]:  # api-any-ok: the resolver's binding payload
+    """The merge-field binding as the plain dict the host's one resolver takes ({} when unbound)."""
+    if not input_is_bound(d) or d.binding is None:
+        return {}
+    dumped = d.binding.model_dump(mode="json", exclude_none=True)
+    dumped.pop(KIND_KEY, None)
+    return dumped
+
+
+def variable_sourcing(d: VariableDefinition) -> str:
+    """A declared variable's sourcing: explicit wins; then ``required``; else a variable with no
+    default must be supplied (require) and one with a default never blocks (optional)."""
+    if d.sourcing:
+        return d.sourcing
+    if d.required is not None:
+        return "require" if d.required else "optional"
+    return "require" if d.defaultValue is None else "optional"
+
+
+def input_label(d: VariableDefinition) -> str:
+    """What a person reads: the label, else the name."""
+    return d.label or d.name
 
 
 def missing_value(value: Any) -> bool:

@@ -23,7 +23,7 @@ from matrx_ai.providers.typesafe import (
     SystemOneResult,
     call_system_one,
 )
-from matrx_ai.providers.typesafe.client import Answer, Question, SystemOneState
+from matrx_ai.providers.typesafe.client import Answer, ImageAsset, Question, SystemOneState
 
 
 class DecisionAdmissionError(CatalogRoutingError):
@@ -37,6 +37,9 @@ class DecisionRequest:
     model: str
     state: SystemOneState
     questions: dict[str, Question]
+    #: Images by reference (``{"type": "image", "format", "data_base64"}``),
+    #: each placed by its reference string in the state or questions.
+    assets: dict[str, ImageAsset] | None = None
 
 
 @dataclass(frozen=True)
@@ -117,6 +120,7 @@ async def execute_decision(
         state=request.state,
         model=request.model,
         questions=request.questions,
+        assets=request.assets,
     )
     # ``profile`` is passed by UnifiedAIClient, which has already resolved the
     # catalog route for this call. Re-resolving would be a second catalog read
@@ -140,6 +144,9 @@ async def execute_decision(
     try:
         # The shared dispatch seam: admission, the out-of-credit alarm and
         # LAYER 2 — the same pipe every chat and media call takes.
+        from matrx_ai.providers.guardrail_gate import quote_tokens
+
+        ceiling = int(getattr(getattr(profile, "controls", None), "output_maximum", None) or 0)
         raw = await UnifiedAIClient._dispatch_with_billing_net(
             lambda: caller(
                 dispatched,
@@ -148,6 +155,9 @@ async def execute_decision(
                 base_url=profile.base_url or DEFAULT_BASE_URL,
             ),
             profile=profile,
+            # Worst case: the request's tokens at most (one per 2 characters) plus the route's output ceiling; with
+            # no ceiling the run budget reserves its unpriced amount.
+            quote=quote_tokens(profile, max(1, len(dispatched.model_dump_json()) // 2), ceiling) if ceiling else None,
         )
     except Exception as exc:
         # Name the catalog route on whatever usage the adapter attached, so the

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 2.71.0
+Version: 2.73.0
 Summary: AI Agent Framework, the Pydantic way, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -34,7 +34,7 @@ Requires-Dist: genai-prices>=0.2.3
 Requires-Dist: griffelib>=2.0
 Requires-Dist: httpx2>=2.7
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==2.71.0
+Requires-Dist: pydantic-graph==2.73.0
 Requires-Dist: pydantic>=2.12
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: ag-ui
@@ -46,9 +46,9 @@ Provides-Extra: bedrock
 Requires-Dist: boto3<2,>=1.42.63; extra == 'bedrock'
 Provides-Extra: bedrock-mantle
 Requires-Dist: botocore<2,>=1.42.63; extra == 'bedrock-mantle'
-Requires-Dist: openai<4,>=3.31.0; extra == 'bedrock-mantle'
+Requires-Dist: openai<4,>=3.50.0; extra == 'bedrock-mantle'
 Provides-Extra: cerebras
-Requires-Dist: openai<4,>=3.31.0; extra == 'cerebras'
+Requires-Dist: openai<4,>=3.50.0; extra == 'cerebras'
 Provides-Extra: cli
 Requires-Dist: argcomplete>=3.5.0; extra == 'cli'
 Requires-Dist: prompt-toolkit>=3; extra == 'cli'
@@ -58,7 +58,7 @@ Requires-Dist: rich>=13; extra == 'cli'
 Provides-Extra: cohere
 Requires-Dist: cohere<8,>=5.20.6; (platform_system != 'Emscripten') and extra == 'cohere'
 Provides-Extra: crusoe
-Requires-Dist: openai<4,>=3.31.0; extra == 'crusoe'
+Requires-Dist: openai<4,>=3.50.0; extra == 'crusoe'
 Provides-Extra: dbos
 Requires-Dist: dbos>=3.4.0; extra == 'dbos'
 Provides-Extra: duckduckgo
@@ -66,11 +66,11 @@ Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: elevenlabs-agents-realtime
 Requires-Dist: websockets>=14.0; extra == 'elevenlabs-agents-realtime'
 Provides-Extra: elevenlabs-realtime
-Requires-Dist: openai<4,>=3.31.0; extra == 'elevenlabs-realtime'
+Requires-Dist: openai<4,>=3.50.0; extra == 'elevenlabs-realtime'
 Requires-Dist: tiktoken>=0.12.0; extra == 'elevenlabs-realtime'
 Requires-Dist: websockets>=14.0; extra == 'elevenlabs-realtime'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==2.71.0; extra == 'evals'
+Requires-Dist: pydantic-evals==2.73.0; extra == 'evals'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.0.0; extra == 'exa'
 Provides-Extra: google
@@ -94,14 +94,14 @@ Requires-Dist: fastmcp-tasks<5,>=4.0.0; extra == 'mcp-tasks'
 Provides-Extra: mistral
 Requires-Dist: mistralai<4,>=3.1.0; extra == 'mistral'
 Provides-Extra: openai
-Requires-Dist: openai<4,>=3.31.0; extra == 'openai'
+Requires-Dist: openai<4,>=3.50.0; extra == 'openai'
 Requires-Dist: tiktoken>=0.12.0; extra == 'openai'
 Provides-Extra: openai-realtime
-Requires-Dist: openai<4,>=3.31.0; extra == 'openai-realtime'
+Requires-Dist: openai<4,>=3.50.0; extra == 'openai-realtime'
 Requires-Dist: tiktoken>=0.12.0; extra == 'openai-realtime'
 Requires-Dist: websockets>=14.0; extra == 'openai-realtime'
 Provides-Extra: openrouter
-Requires-Dist: openai<4,>=3.31.0; extra == 'openrouter'
+Requires-Dist: openai<4,>=3.50.0; extra == 'openrouter'
 Provides-Extra: prefect
 Requires-Dist: prefect>=3.9.0; extra == 'prefect'
 Provides-Extra: realtime
@@ -112,7 +112,7 @@ Requires-Dist: tenacity>=8.2.3; extra == 'retries'
 Provides-Extra: sentence-transformers
 Requires-Dist: sentence-transformers>=5.2.0; (python_version < '3.14') and extra == 'sentence-transformers'
 Provides-Extra: snowflake
-Requires-Dist: openai<4,>=3.31.0; extra == 'snowflake'
+Requires-Dist: openai<4,>=3.50.0; extra == 'snowflake'
 Provides-Extra: spec
 Requires-Dist: pydantic-handlebars>=0.1.0; extra == 'spec'
 Requires-Dist: pyyaml>=6.0.2; extra == 'spec'
@@ -134,12 +134,12 @@ Requires-Dist: markdownify>=1.2; extra == 'web-fetch'
 Provides-Extra: xai
 Requires-Dist: xai-sdk<2,>=1.21.0; extra == 'xai'
 Provides-Extra: xai-realtime
-Requires-Dist: openai<4,>=3.31.0; extra == 'xai-realtime'
+Requires-Dist: openai<4,>=3.50.0; extra == 'xai-realtime'
 Requires-Dist: tiktoken>=0.12.0; extra == 'xai-realtime'
 Requires-Dist: websockets>=14.0; extra == 'xai-realtime'
 Requires-Dist: xai-sdk<2,>=1.21.0; extra == 'xai-realtime'
 Provides-Extra: zai
-Requires-Dist: openai<4,>=3.31.0; extra == 'zai'
+Requires-Dist: openai<4,>=3.50.0; extra == 'zai'
 Description-Content-Type: text/markdown
 
 # Pydantic AI Slim

@@ -96,3 +96,44 @@ async def test_capture_issue_resolves_system_organization_without_context(
 
     assert len(created) == 1
     assert created[0]["organization_id"] == "system-organization-id"
+
+
+@pytest.mark.asyncio
+async def test_settled_class_is_reopened_and_the_event_still_recorded(monkeypatch: pytest.MonkeyPatch):
+    """Was: a settled (inactive) class made capture return early, hiding the recurrence."""
+    created: list[dict[str, Any]] = []
+    updates: list[dict[str, Any]] = []
+
+    class _Q:
+        def __init__(self, **flt: Any) -> None:
+            self.flt = flt
+
+        async def update(self, **kw: Any) -> None:
+            updates.append({**self.flt, **kw})
+
+    class _OpsIssueEvent:
+        @classmethod
+        async def create(cls, **payload: Any) -> None:
+            created.append(payload)
+
+    class _OpsIssueClass:
+        @classmethod
+        def filter(cls, **flt: Any) -> _Q:
+            return _Q(**flt)
+
+    async def _get_issue_class(_key: str) -> dict[str, Any]:
+        return {"id": "c1", "key": "k", "is_active": False, "disposition": "suppress", "resolution_notes": "done"}
+
+    monkeypatch.setattr(
+        issue_capture, "get_model", lambda n: _OpsIssueEvent if n == "OpsIssueEvent" else _OpsIssueClass
+    )
+    monkeypatch.setattr(issue_registry, "get_model", lambda n: _OpsIssueClass)
+    monkeypatch.setattr(issue_registry, "get_issue_class", _get_issue_class)
+    await issue_capture._capture_impl(
+        "k", error_type="e", provider="p", model=None, status_code=500, is_retryable=False,
+        was_recovered=False, retry_count=0, user_id="u", organization_id="o",
+        conversation_id=None, request_id=None, detail={"error": "boom"},
+    )
+    assert len(created) == 1
+    assert updates and updates[0]["is_active"] is True and updates[0]["id"] == "c1"
+    assert "Previous: done" in updates[0]["resolution_notes"]

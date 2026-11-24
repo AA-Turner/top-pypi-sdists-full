@@ -79,7 +79,7 @@ public:
   int const number_of_events;
   int number_of_timesteps;
   int precon_type;
-  N_Vector yy, yyp, y_cache, avtol;  // y, y', y cache vector, and absolute tolerance
+  N_Vector yy, yyp, y_cache, yp_cache, avtol;  // y, y', their caches, and absolute tolerance
   N_Vector *yyS;
   N_Vector *yypS;
   N_Vector id;              // rhs_alg_id
@@ -178,6 +178,7 @@ public:
   std::vector<int> rootsfound_;
 
   // ── Solve-duration state (valid only during solve()) ──
+  bool save_hermite_sensitivities_ = false;
   bool use_knot_reduction_ = false;
   bool use_upsampling_ = false;
   // Upsampled times go to t_additive, not the states
@@ -249,6 +250,29 @@ public:
     bool save_interp_steps
   ) override;
 
+
+  /**
+   * @brief Take one IDASolve step towards tout, rejecting non-finite residuals
+   * @param tout The time IDASolve integrates towards
+   * @param t_val Set to the time reached
+   * @return The IDASolve return flag
+   */
+  int Step(sunrealtype tout, sunrealtype &t_val);
+
+  /**
+   * @brief Take the first step after a (re)initialization at t_start
+   *
+   * IDA skips events that read yp in this step, whose flag is ignored. With yp
+   * at t_start from it, those events are evaluated at both ends of the step.
+   * One non-positive at t_start returns IDA_ROOT_RETURN there; otherwise, one
+   * at the end makes IDA restart at t_start with that yp and retake the step,
+   * its root search locating the crossing.
+   * @param t_start The time of the (re)initialization
+   * @param tout The time IDASolve integrates towards
+   * @param t_val Set to the time reached
+   * @return The IDASolve return flag
+   */
+  int FirstStep(sunrealtype t_start, sunrealtype tout, sunrealtype &t_val);
 
   /**
    * @brief Concrete implementation of initialization method
@@ -361,6 +385,8 @@ public:
   /**
    * @brief Build the algebraic Newton solver for consistent initial conditions.
    * Only built when mass matrix has zeros in algebraic rows (standard-form).
+   * Not built for a full-system solve with an iterative linear solver, which
+   * leaves the initial conditions to IDACalcIC.
    */
   void BuildAlgebraicSolver(const sunrealtype* id_val);
 

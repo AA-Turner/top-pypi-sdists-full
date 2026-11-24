@@ -35,6 +35,11 @@ class DashboardServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardResponse.FromString,
         )
+        self.UpdateDashboardSharing = channel.unary_unary(
+            "/chalk.server.v1.DashboardService/UpdateDashboardSharing",
+            request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardSharingRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardSharingResponse.FromString,
+        )
         self.DeleteDashboard = channel.unary_unary(
             "/chalk.server.v1.DashboardService/DeleteDashboard",
             request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.DeleteDashboardRequest.SerializeToString,
@@ -90,6 +95,12 @@ class DashboardServiceServicer(object):
 
     def UpdateDashboard(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateDashboardSharing(self, request, context):
+        """Owner-only, enforced in the handler; the annotation is just the coarse gate."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -152,6 +163,11 @@ def add_DashboardServiceServicer_to_server(servicer, server):
             servicer.UpdateDashboard,
             request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardResponse.SerializeToString,
+        ),
+        "UpdateDashboardSharing": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateDashboardSharing,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardSharingRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardSharingResponse.SerializeToString,
         ),
         "DeleteDashboard": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteDashboard,
@@ -298,6 +314,35 @@ class DashboardService(object):
             "/chalk.server.v1.DashboardService/UpdateDashboard",
             chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateDashboardSharing(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DashboardService/UpdateDashboardSharing",
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardSharingRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.UpdateDashboardSharingResponse.FromString,
             options,
             channel_credentials,
             insecure,

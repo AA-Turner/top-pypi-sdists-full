@@ -17,12 +17,12 @@ from matrx_ai.config import (
     UnifiedMessage,
     UnifiedResponse,
     VideoContent,
-    YouTubeVideoContent,
 )
 from matrx_ai.config.media_config import ImageContent
 from matrx_ai.config.usage_config import openai_compatible_usage_counts, serialize_provider_usage
-from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.providers.base_translator import BaseTranslator, append_structured_input_text, finish_message_text, record_unsupported_media_drop
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
+from matrx_ai.providers.final_outbound_snapshot import SHAPE_CHAT, SealLocator
 from matrx_ai.providers.reasoning import openai_compatible_reasoning_text
 
 
@@ -63,7 +63,12 @@ class GenericOpenAITranslator(BaseTranslator):
         if system_text:
             messages.append({"role": "system", "content": system_text})
 
-        for msg in self.messages_for_wire(config, profile):
+        # THE STATIC SEAL LINE: stamped in THIS wire list for the final outbound snapshot
+        # (``providers/final_outbound_snapshot.py``). Observes only.
+        wire_list = self.messages_for_wire(config, profile)
+        seal = SealLocator(SHAPE_CHAT, wire_list)
+        for position, msg in enumerate(wire_list):
+            seal.before(position, messages)
             if msg.role == "tool":
                 # Image-bearing tool results surface their images as a
                 # follow-up user message (Chat Completions role=tool only
@@ -88,6 +93,8 @@ class GenericOpenAITranslator(BaseTranslator):
                 for content in msg.content:
                     if isinstance(content, TextContent):
                         text_parts.append(content.text)
+                    elif append_structured_input_text(text_parts, content):
+                        pass  # input_remarks / input_notes / ...: rendered in place
                     elif isinstance(content, ThinkingContent):
                         reasoning_parts.append(content.text)
                     elif isinstance(content, ImageContent):
@@ -100,11 +107,7 @@ class GenericOpenAITranslator(BaseTranslator):
                             media_parts.append(image_part)
                     elif isinstance(content, VideoContent):
                         if profile.vendor != "moonshot":
-                            vcprint(
-                                f"Video input is not supported by {provider_name}; it will not be sent.",
-                                "Video Input Warning",
-                                color="yellow",
-                            )
+                            record_unsupported_media_drop(content, "openai_compatible")
                             continue
                         media_parts.append(content.to_moonshot_chat())
                     elif isinstance(content, ToolCallContent):
@@ -118,26 +121,22 @@ class GenericOpenAITranslator(BaseTranslator):
                                 },
                             }
                         )
-                    elif isinstance(content, YouTubeVideoContent):
-                        vcprint(
-                            f"YouTube URL '{content.youtube_url}' is not supported by generic OpenAI-compatible endpoints and will be skipped.",
-                            "YouTube URL Warning",
-                            color="yellow",
-                        )
+                    elif record_unsupported_media_drop(content, "openai_compatible"):
+                        pass  # document / audio / video / YouTube: recorded, never silent
 
                 if media_parts:
                     # OpenAI Chat Completions multimodal content array —
                     # llama-server / Ollama / vLLM / LocalAI all accept this
                     # exact shape for their vision-enabled models
                     # (e.g. Qwen2-VL, LLaVA, MiniCPM-V).
-                    combined_text = "".join(text_parts)
+                    combined_text = finish_message_text(text_parts)
                     parts: list[dict[str, Any]] = []
                     if combined_text:
                         parts.append({"type": "text", "text": combined_text})
                     parts.extend(media_parts)
                     message_dict["content"] = parts
                 elif text_parts:
-                    message_dict["content"] = "".join(text_parts)
+                    message_dict["content"] = finish_message_text(text_parts)
                 elif tool_calls:
                     message_dict["content"] = None
                 else:
@@ -167,6 +166,8 @@ class GenericOpenAITranslator(BaseTranslator):
 
         # clear_thinking is a Cerebras-only concept — not forwarded to generic OpenAI providers.
         # disable_reasoning has no generic equivalent — dropped.
+
+        seal.finish(messages)
 
         # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
         # block (live clock, selection, values) plus the tail channel

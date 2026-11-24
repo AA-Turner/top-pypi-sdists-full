@@ -62,6 +62,46 @@ def _env_bool(key: str, default: bool) -> bool:
     return os.getenv(key, str(default)).lower() == "true"
 
 
+#: Platforms that get accessibility autoScan; iOS also needs every listed version at 17+.
+_AUTOSCAN_PLATFORMS = ("android", "ios")
+_AUTOSCAN_MIN_IOS_MAJOR = 17
+
+
+def _autoscan_supported(entry: dict) -> bool:
+    """Real device on Android, or on iOS with every listed version at 17+."""
+    if str(entry.get("is_virtual_device", "")).lower() == "true":
+        return False
+    platform_name = str(entry.get("platform_name", "") or "").lower()
+    if platform_name not in _AUTOSCAN_PLATFORMS:
+        return False
+    if platform_name == "android":
+        return True
+    for part in str(entry.get("platform_version", "") or "").split("|"):
+        major = part.strip().split(".")[0]
+        if not (major.isdigit() and int(major) >= _AUTOSCAN_MIN_IOS_MAJOR):
+            return False
+    return True
+
+
+def _add_accessibility_autoscan(lt: dict, entry: dict) -> None:
+    """Test Manager's Accessibility Testing toggle; ACCESSIBILITY itself is set by
+    code export for single runs with a scan step, so it is not the signal."""
+    if not _env_bool("ACCESSIBILITY_AUTO_SCAN", False):
+        return
+    if not _autoscan_supported(entry):
+        print("[testmu] accessibility auto scan skipped: needs a real Android or iOS 17+ device")
+        return
+    lt["accessibility"] = True
+    lt["accessibility.autoScan"] = True
+    wcag_version = os.getenv("ACCESSIBILITY_WCAG_VERSION", "")
+    if wcag_version:
+        lt["accessibility.wcagVersion"] = wcag_version
+    for env_key, cap in (("ACCESSIBILITY_BEST_PRACTICE", "accessibility.bestPractice"),
+                         ("ACCESSIBILITY_NEEDS_REVIEW", "accessibility.needsReview")):
+        if os.getenv(env_key) is not None:
+            lt[cap] = _env_bool(env_key, False)
+
+
 def _config_value(config: Optional[dict]) -> Optional[str]:
     """A ``{value, isSecretValue}`` pair; a secret value names the env var
     holding the real one."""
@@ -117,6 +157,7 @@ def _build_lt_options(entry: dict) -> dict:
         or entry.get("device_orientation") or "AUTO"
     if entry.get("accessibility") is not None:
         lt["accessibility"] = str(entry.get("accessibility")).lower() == "true"
+    _add_accessibility_autoscan(lt, entry)
 
     # advanced configurations
     if str(os.getenv("TUNNEL", entry.get("tunnel", False))).lower() == "true":

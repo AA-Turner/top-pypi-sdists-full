@@ -645,3 +645,19 @@ def provider_stop(finish_reason: Any) -> ProviderStop:
     except ValueError:
         return _UNKNOWN_STOP
     return _PROVIDER_STOPS.get(reason, _UNKNOWN_STOP)
+
+
+def expected_provider_stop_in_text(text: Any) -> ProviderStop | None:
+    """The EXPECTED provider stop whose own sentence ``text`` carries, else ``None``.
+
+    A failed agent run reports its stop as ``ProviderStop.user_message`` flattened into
+    ``AgentRunResult.error`` (no finish reason rides the result). A caller that must tell
+    "the provider's content rules stopped this" from a platform fault reads it back here,
+    from the ONE table, instead of matching sentences of its own (live 2026-11-20: a
+    content-safety stop on a PDF page filed ``rag_page_clean_degraded`` three times)."""
+    if not isinstance(text, str) or not text:
+        return None
+    for stop in _PROVIDER_STOPS.values():
+        if stop.expected and stop.user_message in text:
+            return stop
+    return None

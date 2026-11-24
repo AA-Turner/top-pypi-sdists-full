@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import weakref
 from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,6 +12,19 @@ from matrx_graph.types.primitives import ActionTier, NodeCategory, RetryPolicy
 InputT = TypeVar("InputT", bound=BaseModel)
 OutputT = TypeVar("OutputT", bound=BaseModel)
 ConfigT = TypeVar("ConfigT", bound=BaseModel)
+
+# A schema model's JSON Schema, built ONCE per class. Pydantic regenerates ``model_json_schema()`` on every call, and
+# the palette, /ai/context/preview and validate_definition ask it for every node spec in a request — that rebuild ran
+# on the event loop and was the named frame of repeated 1-3 s ``event_loop_stall`` rows (2026-11-02/03). Weak keys:
+# a schema class composed at compile time leaves the cache with its class. Callers get their own copy to mutate.
+_JSON_SCHEMAS: weakref.WeakKeyDictionary[type[BaseModel], dict[str, Any]] = weakref.WeakKeyDictionary()
+
+
+def model_json_schema_once(model: type[BaseModel]) -> dict[str, Any]:
+    built = _JSON_SCHEMAS.get(model)
+    if built is None:
+        built = _JSON_SCHEMAS[model] = model.model_json_schema()
+    return copy.deepcopy(built)
 
 
 class EmptyInput(BaseModel):
@@ -89,6 +104,15 @@ class NodeSpec(BaseModel, Generic[InputT, OutputT, ConfigT]):
         ),
     )
 
+    timeout_knob: str | None = Field(
+        default=None,
+        description=(
+            "A key in the 'workflow.step_clock' knob feature whose row is this kind of step's "
+            "per-attempt limit in seconds, so an admin can turn it; timeout_ms is that row's "
+            "mirror when it cannot be read. A node's own data.step_clock still wins."
+        ),
+    )
+
     re_execute_on_resume: bool = Field(
         default=False,
         description=(
@@ -105,6 +129,16 @@ class NodeSpec(BaseModel, Generic[InputT, OutputT, ConfigT]):
 
     emits_stream: bool = False
     can_interrupt: bool = False
+    # INFORMATION NODES (one-graph CONTRACTS §2.1). False = never compiled, never run, never an
+    # entry node or a result: ``matrx_graph.information.split_information`` takes every node of
+    # such a type out of the graph before validation and compile.
+    executes: bool = True
+    # Which faces the type has (``detailed`` / ``map`` / ``essentials`` / ``figure``); empty =
+    # the generic face. Read by canvas hosts; the engine never does.
+    looks: tuple[str, ...] = ()
+    # Where the type may be placed: graph kinds (workflow, orchestra, org_chart, topical_map,
+    # map, board) or ``*``. Empty = its home graph only (workflow).
+    allowed_graphs: tuple[str, ...] = ()
     # WHERE THIS STEP'S OUTPUT VALUES COME FROM (lane 11 round 5) — deny-by-default.
     #   'deterministic' — computed only from its inputs and config (records.*, data/text
     #                     transforms, control.*, flow.*);
@@ -128,6 +162,17 @@ class NodeSpec(BaseModel, Generic[InputT, OutputT, ConfigT]):
     # the ``workflow.run.output`` aggregate gets a small ``{"output_elided": true, …}`` marker naming where it
     # is. Without it a 20-step run wrote ~11 MB into one row and its final write timed out.
     output_in_run_row: bool = True
+    # EMITS ONLY (L-SPEED round 6a): the step's only side effect is a stream emission that is never
+    # load-bearing (Show on Screen). Running it again on a resume only shows the same thing again, so
+    # it may join a chain of re-runnable steps (scheduler ``_step_defers_outcomes``) whatever its
+    # ``determinism`` tier says. Never set it on a step that writes, sends or spends.
+    emits_only: bool = False
+    # SPENDS (2026-11-09 review: category is not a sign of spending — search.decide is DATA and runs an
+    # agent). True: running it can cost money; False: it never does (a pure transform, a database read);
+    # None: inferred — only a PURE data/control/io/info step spends nothing, every other step MAY spend.
+    # The ONE answer for the spend reader (``spend_gate.may_spend``) and chain eligibility (only a step
+    # that spends nothing rides a chain).
+    spends: bool | None = None
     default_join_policy: Literal["all", "any"] | None = Field(
         default=None,
         description=(
@@ -213,13 +258,13 @@ class NodeSpec(BaseModel, Generic[InputT, OutputT, ConfigT]):
     version: str = "1.0.0"
 
     def input_json_schema(self) -> dict[str, Any]:
-        return self.input_schema.model_json_schema()
+        return model_json_schema_once(self.input_schema)
 
     def output_json_schema(self) -> dict[str, Any]:
-        return self.output_schema.model_json_schema()
+        return model_json_schema_once(self.output_schema)
 
     def config_json_schema(self) -> dict[str, Any]:
-        return self.config_schema.model_json_schema()
+        return model_json_schema_once(self.config_schema)
 
     def to_palette_descriptor(self) -> dict[str, Any]:
         """Serializable palette entry for the Studio UI.
@@ -240,6 +285,9 @@ class NodeSpec(BaseModel, Generic[InputT, OutputT, ConfigT]):
             "determinism": self.determinism.value,
             "emits_stream": self.emits_stream,
             "can_interrupt": self.can_interrupt,
+            "executes": self.executes,
+            "looks": list(self.looks),
+            "allowed_graphs": list(self.allowed_graphs),
             "is_source": self.is_source,
             "is_sink": self.is_sink,
             "dynamic_output": self.dynamic_output,
@@ -251,7 +299,21 @@ class NodeSpec(BaseModel, Generic[InputT, OutputT, ConfigT]):
             # DEPRECATED STEPS (matrx_graph.deprecations): Studio marks the step card
             # "Deprecated — replace with …" and never offers it for a new step.
             "deprecation": _palette_deprecation(self.node_type),
+            # THE LIBRARY GROUP AND TIER (matrx_graph.palette_groups): every surface reads
+            # these two fields; none re-derives them.
+            **_palette_placement(self.node_type, self.category.value, self.determinism.value),
         }
+
+
+def _palette_placement(node_type: str, category: str, determinism: str) -> dict[str, str | None]:
+    from matrx_graph.palette_groups import palette_group, step_family, step_tier
+
+    group = palette_group(node_type, category, determinism)
+    return {
+        "group": group,
+        "tier": step_tier(node_type, group),
+        "family": step_family(node_type, group, category),
+    }
 
 
 def _palette_deprecation(node_type: str) -> dict[str, str] | None:

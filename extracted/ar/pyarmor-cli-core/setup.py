@@ -1,7 +1,7 @@
 import sys
 from setuptools import setup
 
-__VERSION__ = '8.2.0'
+__VERSION__ = '8.2.1'
 
 with open('README.rst') as f:
     long_description = f.read()

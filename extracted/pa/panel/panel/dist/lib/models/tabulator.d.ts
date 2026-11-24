@@ -4,7 +4,7 @@ import type * as p from "@bokehjs/core/properties";
 import { Model } from "@bokehjs/model";
 import type { LayoutDOM } from "@bokehjs/models/layouts/layout_dom";
 import { ColumnDataSource } from "@bokehjs/models/sources/column_data_source";
-import type { Attrs } from "@bokehjs/core/types";
+import type { Attrs, Data } from "@bokehjs/core/types";
 import { HTMLBox, HTMLBoxView } from "./layout";
 export declare class TableEditEvent extends ModelEvent {
     readonly column: string;
@@ -44,10 +44,18 @@ export declare class DataTabulatorView extends HTMLBoxView {
     _initializing: boolean;
     _lastVerticalScrollbarTopPosition: number;
     _lastHorizontalScrollbarLeftPosition: number;
-    _applied_styles: boolean;
+    /** Bumped when `cell_styles` changes; cells styled with an older version are restyled when visible. */
+    _styles_version: number;
+    _styled_cells: WeakMap<HTMLElement, {
+        version: number;
+        props: string[];
+    }>;
     _building: boolean;
     _pending_data: boolean;
+    /** A data update in flight; its `renderComplete` must not run `postUpdate` a second time. */
+    _updating_data: boolean;
     _redrawing: boolean;
+    _resized_columns: Map<string, number>;
     /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
     _resize_pending: boolean;
     _resize_flush: Promise<void> | null;
@@ -64,9 +72,12 @@ export declare class DataTabulatorView extends HTMLBoxView {
     _last_after_resize_el_height: number | null;
     _fonts_loaded: (() => void) | null;
     connect_signals(): void;
+    disconnect_signals(): void;
+    private _on_document_change;
     get groupBy(): boolean | ((data: any) => string);
     get sorters(): any[];
     invalidate_render(): void;
+    refitColumns(field?: string): void;
     redraw(columns?: boolean, rows?: boolean): void;
     get is_drawing(): boolean;
     after_layout(): void;
@@ -116,14 +127,31 @@ export declare class DataTabulatorView extends HTMLBoxView {
     _get_formatter(formatter: any): any;
     renderEditor(column: any, cell: any, onRendered: any, success: any, cancel: any): any;
     setData(): Promise<void>;
-    addData(): void;
+    /** Whether rows can be added or updated in place rather than rebuilding the whole table. */
+    get can_update_in_place(): boolean;
+    /**
+     * Appends the streamed rows. Rolling over drops leading rows and shifts every
+     * `_index`, so that case (and anything out of sync) rebuilds the table.
+     */
+    addData(streamed: Data | null, rollover: number | null): void;
+    /**
+     * Tabulator's `addData` copies the active rows array and, with pagination,
+     * refreshes the whole data pipeline once per added row, which makes appending
+     * a batch slower than rebuilding the table. This appends rows the way
+     * `RowManager.addRows` does but refreshes once.
+     */
+    _append_rows(records: any[]): void;
     postUpdate(): void;
-    updateOrAddData(): void;
+    /** Updates the patched rows in place; patches touching most rows rebuild the table instead. */
+    updateOrAddData(indices: unknown): void;
+    replaceData(): void;
     setFrozen(): void;
     updatePage(pageno: number): void;
     setGroupBy(): void;
     setSorters(): void;
+    /** Styles the rendered rows; rows rendered later are styled by the `rowFormatter`. */
     setStyles(): void;
+    _style_row(row: any): void;
     setHidden(): void;
     setMaxPage(): void;
     setPage(): void;

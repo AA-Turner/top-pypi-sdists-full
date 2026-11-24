@@ -38,13 +38,16 @@ class Evals(APIResource):
     self,
     *,
     idempotency_key: str | Omit = omit,
+    preset: Literal["single_turn", "long_horizon_agentic"] | None | Omit = omit,
     bench_id: str | None | Omit = omit,
     agent_name: str | None | Omit = omit,
     benchmark_name: str | None | Omit = omit,
     bypass_ownership: bool | Omit = omit,
     agent_id: str | None | Omit = omit,
     base_model_slug: Literal[
+      "typesafe/jev-1.14",
       "thinkingmachines/Inkling-2-Small",
+      "thinkingmachines/Inkling-2-Mini",
       "deepseek-ai/DeepSeek-V4.1-Flash",
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
@@ -92,6 +95,8 @@ class Evals(APIResource):
         blank or over-long key is rejected. Reuse this key when retrying a submission; the
         SDK generates one per call and reuses it across automatic retries.
 
+      preset: Training preset; explicit options override its defaults.
+
       bench_id: Benchmark ID; use instead of agent_name and benchmark_name.
 
       agent_name: Use with benchmark_name to select its latest benchmark version.
@@ -128,6 +133,7 @@ class Evals(APIResource):
       cast_to=StartEvalResponse,
       body=maybe_transform(
         {
+          "preset": preset,
           "bench_id": bench_id,
           "agent_name": agent_name,
           "benchmark_name": benchmark_name,
@@ -163,7 +169,9 @@ class Evals(APIResource):
     *,
     bench_id: str | None | Omit = omit,
     base_model_slug: Literal[
+      "typesafe/jev-1.14",
       "thinkingmachines/Inkling-2-Small",
+      "thinkingmachines/Inkling-2-Mini",
       "deepseek-ai/DeepSeek-V4.1-Flash",
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",

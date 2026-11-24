@@ -185,7 +185,7 @@ def test_html_sitemap_page_is_not_judged():
 
 # 5 -------------------------------------------------------------------------
 def test_link_equity_needs_thirty_pages():
-    f = facts(noindex=False, link_score=0.1, target_keyword="kw")
+    f = facts(noindex=False, link_score=0.1, primary_keyword_id="kw-id")
     s = site(f, link_equity_percentile_by_page={f"p{i}": 50 for i in range(4)})
     s.link_equity_percentile_by_page["p1"] = 50
     assert valid(A._check_internal_link_equity(f, s)).status == "n_a"

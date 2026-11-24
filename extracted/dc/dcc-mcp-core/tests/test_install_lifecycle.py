@@ -109,6 +109,60 @@ def test_default_registry_dir_has_one_runtime_owner() -> None:
     assert sidecar_lifecycle.default_registry_dir is runtime_lifecycle.default_registry_dir
 
 
+def test_registry_inventory_ignores_redirected_temp(monkeypatch, tmp_path: Path) -> None:
+    user_home = tmp_path / "user"
+    registry = user_home / ".dcc-mcp" / "registry-live"
+    registry.mkdir(parents=True)
+    (registry / "services.json").write_text(
+        json.dumps([{"dcc_type": dcc, "pid": os.getpid()} for dcc in ("houdini", "photoshop")]),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("DCC_MCP_REGISTRY_DIR", raising=False)
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    if os.name == "nt":
+        monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.setenv("USERPROFILE", str(user_home))
+    else:
+        monkeypatch.setenv("HOME", str(user_home))
+    for name in ("TEMP", "TMP", "TMPDIR"):
+        monkeypatch.setenv(name, str(tmp_path / "agent-temp"))
+
+    assert lifecycle.default_registry_dir() == str(registry)
+    result = lifecycle.query_runtime_state()
+    assert {entry["dcc_type"] for entry in result["entries"]} == {"houdini", "photoshop"}
+    assert not (tmp_path / "agent-temp" / "dcc-mcp-registry").exists()
+
+
+def test_registry_override_does_not_require_user_home(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("DCC_MCP_REGISTRY_DIR", str(tmp_path))
+
+    def unavailable_home() -> Path:
+        raise RuntimeError("Cannot determine home directory")
+
+    monkeypatch.setattr(Path, "home", unavailable_home)
+    assert lifecycle.default_registry_dir() == str(tmp_path)
+
+
+def test_registry_does_not_fall_back_to_temp_without_user_home(monkeypatch) -> None:
+    monkeypatch.delenv("DCC_MCP_REGISTRY_DIR", raising=False)
+    monkeypatch.delenv("USERPROFILE", raising=False)
+    monkeypatch.delenv("HOME", raising=False)
+
+    def unavailable_home() -> Path:
+        raise RuntimeError("Cannot determine home directory")
+
+    monkeypatch.setattr(Path, "home", unavailable_home)
+    with pytest.raises(RuntimeError, match="Cannot determine home directory"):
+        lifecycle.default_registry_dir()
+
+
+def test_registry_rejects_relative_user_home(monkeypatch) -> None:
+    monkeypatch.delenv("DCC_MCP_REGISTRY_DIR", raising=False)
+    monkeypatch.setenv("USERPROFILE" if os.name == "nt" else "HOME", "relative-home")
+    with pytest.raises(RuntimeError, match="set DCC_MCP_REGISTRY_DIR explicitly"):
+        lifecycle.default_registry_dir()
+
+
 def test_top_level_lifecycle_export_does_not_load_core_in_fresh_process() -> None:
     script = """
 import json
@@ -2024,3 +2078,90 @@ def test_plan_runtime_updates_marks_host_only_runtime_manual() -> None:
 
     assert plan["plans"][0]["action"] == "manual_restart_required"
     assert plan["plans"][0]["restart_scope"] == "host-process"
+
+
+def test_prepare_runtime_update_stops_only_stale_sidecars(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = {
+        "registry_dir": "C:/registry",
+        "entries": [
+            {
+                "dcc_type": "maya",
+                "instance_id": "old-sidecar",
+                "versions": {"core": "0.17.20"},
+                "sidecar_pid": 1111,
+            },
+            {
+                "dcc_type": "maya",
+                "instance_id": "current-sidecar",
+                "versions": {"core": "0.17.21"},
+                "sidecar_pid": 2222,
+            },
+        ],
+    }
+    monkeypatch.setattr(lifecycle, "query_runtime_state", lambda *args, **kwargs: state)
+    stopped = []
+
+    def fake_stop(*args: object, **kwargs: object) -> dict:
+        stopped.append((args, kwargs))
+        return {"success": True, "status": "stopped", "results": []}
+
+    monkeypatch.setattr(lifecycle, "stop_runtime_entries", fake_stop)
+
+    result = lifecycle.prepare_runtime_update(
+        dcc_type="maya",
+        target_versions={"core": "0.17.21"},
+    )
+
+    assert result["success"] is True
+    assert result["status"] == "ready"
+    assert result["reason"] == "sidecars_stopped"
+    assert len(stopped) == 1
+    assert stopped[0][1]["instance_ids"] == ["old-sidecar"]
+
+
+def test_prepare_runtime_update_blocks_host_owned_runtime_without_stopping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = {
+        "registry_dir": "C:/registry",
+        "entries": [
+            {
+                "dcc_type": "photoshop",
+                "instance_id": "host-owned",
+                "versions": {"core": "0.17.20"},
+                "sidecar_pid": None,
+                "parent_pid": 3333,
+            }
+        ],
+    }
+    monkeypatch.setattr(lifecycle, "query_runtime_state", lambda *args, **kwargs: state)
+    monkeypatch.setattr(
+        lifecycle,
+        "stop_runtime_entries",
+        lambda *args, **kwargs: pytest.fail("host-owned runtime must not be stopped"),
+    )
+
+    result = lifecycle.prepare_runtime_update(
+        dcc_type="photoshop",
+        target_versions={"core": "0.17.21"},
+    )
+
+    assert result["success"] is False
+    assert result["status"] == "blocked"
+    assert result["reason"] == "manual_runtime_action_required"
+    assert result["blocked"][0]["action"] == "manual_restart_required"
+
+
+def test_prepare_runtime_update_requires_target_versions() -> None:
+    result = lifecycle.prepare_runtime_update(target_versions={})
+
+    assert result == {
+        "success": False,
+        "status": "failed",
+        "reason": "missing_target_versions",
+        "plan": None,
+        "stop": None,
+        "blocked": [],
+    }

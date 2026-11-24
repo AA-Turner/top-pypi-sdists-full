@@ -60,7 +60,7 @@ class Element(Visibility):
         self._client = weakref.ref(client)
         self.id = client.next_element_id
         client.next_element_id += 1
-        self.tag = tag if tag else self.component.tag if self.component else 'div'
+        self.tag = tag or (self.component.tag if self.component else 'div')
         if not TAG_PATTERN.match(self.tag):
             raise ValueError(f'Invalid HTML tag: {self.tag}')
         self._classes: Classes[Self] = Classes(self._default_classes, element=cast(Self, self))
@@ -76,19 +76,17 @@ class Element(Visibility):
 
         client.elements[self.id] = self
         self._parent_slot: weakref.ref[Slot] | None = None
+        client.outbox.enqueue_update(self)
         slot_stack = context.slot_stack
         if slot_stack:
             parent_slot = slot_stack[-1]
             parent_slot.children.append(self)
             self._parent_slot = weakref.ref(parent_slot)
-
-        client.outbox.enqueue_update(self)
-        if self._parent_slot:
             client.outbox.enqueue_update(parent_slot.parent)
 
     def __init_subclass__(cls, *,
                           component: str | Path | None = None,
-                          dependencies: list[str | Path] = [],  # noqa: B006
+                          dependencies: list[str | Path] | tuple[str | Path, ...] = (),
                           esm: dict[str, str] | None = None,
                           default_classes: str | None = None,
                           default_style: str | None = None,
@@ -201,8 +199,8 @@ class Element(Visibility):
         Elements can have multiple slots, each possibly with a number of children.
         Most elements only have one slot, e.g. a ``ui.card`` (QCard) only has a default slot.
         But more complex elements like ``ui.table`` (QTable) can have more slots like "header", "body" and so on.
-        If you nest NiceGUI elements via with ``ui.row(): ...`` you place new elements inside of the row's default slot.
-        But if you use with ``table.add_slot(...): ...``, you enter a different slot.
+        If you nest NiceGUI elements via ``with ui.row(): ...`` you place new elements inside of the row's default slot.
+        But if you use ``with table.add_slot(...): ...``, you enter a different slot.
 
         The slot stack helps NiceGUI to keep track of which slot is currently used for new elements.
         The ``parent`` field holds a reference to its element.
@@ -424,7 +422,7 @@ class Element(Visibility):
             listener = EventListener(
                 element_id=self.id,
                 type=helpers.event_type_to_camel_case(type),
-                args=[args] if args and isinstance(args[0], str) else args,  # type: ignore
+                args=[args] if args and isinstance(args[0], str) else args,  # type: ignore[arg-type,list-item]
                 handler=handler,
                 js_handler=None if js_handler == '(...args) => emit(...args)' else js_handler,
                 throttle=throttle,

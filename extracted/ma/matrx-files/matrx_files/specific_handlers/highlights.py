@@ -350,7 +350,7 @@ _READWISE_COLUMNS = {
 }
 
 
-def iter_readwise_csv(handle: "io.TextIOBase | Iterable[str]") -> Iterator[Highlight]:
+def iter_readwise_csv(handle: io.TextIOBase | Iterable[str]) -> Iterator[Highlight]:
     """Every Readwise row, streamed.
 
     THE streaming reader for this format, for the same reason as the Kindle one

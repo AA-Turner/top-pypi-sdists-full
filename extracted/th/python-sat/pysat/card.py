@@ -95,7 +95,6 @@
 
 #
 #==============================================================================
-import math
 from pysat.formula import CNF, CNFPlus, IDPool
 from pysat._utils import MainThread
 import pycard
@@ -226,13 +225,16 @@ class CardEnc(object):
             vpool.top = max(vpool.top, cnf.nv)
             return
 
-        # mapping each auxiliary variable to a free id,
-        # taking into account variables marked as "occupied"
-        vmap = {var: vpool._next() for var in range(top + 1, cnf.nv + 1)}
+        # mapping each auxiliary variable to a free id, taking into
+        # account variables marked as "occupied"; both signs are mapped
+        vmap = {}
+        for var in range(top + 1, cnf.nv + 1):
+            vmap[var] = vpool._next()
+            vmap[-var] = -vmap[var]
 
         # updating the clauses
         for cl in cnf.clauses:
-            cl[:] = map(lambda l: int(math.copysign(vmap[abs(l)], l)) if abs(l) in vmap else l, cl)
+            cl[:] = [vmap.get(l, l) for l in cl]
 
         # updating the number of variables
         cnf.nv = vpool.top
@@ -249,6 +251,9 @@ class CardEnc(object):
 
         if encoding < 0 or encoding > 9:
             raise(NoSuchEncodingError(encoding))
+
+        # making sure we are dealing with a list of literals
+        lits = list(lits)
 
         # checking if the bound is meaningless for any encoding
         if bound < 0:
@@ -271,11 +276,8 @@ class CardEnc(object):
         if vpool:
             top_id = vpool.top
 
-        # making sure we are dealing with a list of literals
-        lits = list(lits)
-
         # choosing the maximum id among the current top and the list of literals
-        top_id = max(map(lambda x: abs(x), lits + [top_id if top_id != None else 0]))
+        top_id = max(map(abs, lits + [top_id if top_id != None else 0]))
 
         # MiniCard's native representation is handled separately
         if encoding == 9:
@@ -346,6 +348,9 @@ class CardEnc(object):
         if encoding < 0 or encoding > 9:
             raise(NoSuchEncodingError(encoding))
 
+        # making sure we are dealing with a list of literals
+        lits = list(lits)
+
         # checking if the bound is meaningless for any encoding
         if bound > len(lits):
             raise ValueError('Wrong bound: {0}'.format(bound))
@@ -367,11 +372,8 @@ class CardEnc(object):
         if vpool:
             top_id = vpool.top
 
-        # making sure we are dealing with a list of literals
-        lits = list(lits)
-
         # choosing the maximum id among the current top and the list of literals
-        top_id = max(map(lambda x: abs(x), lits + [top_id if top_id != None else 0]))
+        top_id = max(map(abs, lits + [top_id if top_id != None else 0]))
 
         # Minicard's native representation is handled separately
         if encoding == 9:
@@ -400,6 +402,9 @@ class CardEnc(object):
             :meth:`CardEnc.atmost`. It shares the arguments and the return type
             with method :meth:`CardEnc.atleast`. Please, see it for details.
         """
+
+        # making sure we are dealing with a list of literals
+        lits = list(lits)
 
         if vpool:
             res1 = cls.atleast(lits, bound=bound, vpool=vpool, encoding=encoding)
@@ -510,7 +515,7 @@ class ITotalizer(object):
 
         self.lits = list(lits)
         self.ubound = ubound
-        self.top_id = max(map(lambda x: abs(x), self.lits + [top_id if top_id != None else 0]))
+        self.top_id = max(map(abs, self.lits + [top_id if top_id != None else 0]))
 
         # creating the object
         self.tobj, clauses, self.rhs, self.top_id = pycard.itot_new(self.lits,
@@ -682,7 +687,7 @@ class ITotalizer(object):
         """
 
         # preparing a new list of distinct input literals
-        lits = sorted(set(lits).difference(set(self.lits)))
+        lits = sorted(set(lits).difference(self.lits))
 
         if not lits:
             # nothing to merge with -> just increase the bound
@@ -691,7 +696,7 @@ class ITotalizer(object):
 
             return
 
-        self.top_id = max(map(lambda x: abs(x), self.lits + [self.top_id, top_id if top_id != None else 0]))
+        self.top_id = max(map(abs, lits + [self.top_id, top_id if top_id != None else 0]))
         self.ubound = max(self.ubound, ubound if ubound != None else 0)
 
         # updating the object and adding more variables and clauses
@@ -869,7 +874,7 @@ class ISeqCounter(object):
         """
 
         self.lits = list(lits)
-        self.top_id = max(map(lambda x: abs(x), self.lits + [top_id if top_id != None else 0]))
+        self.top_id = max(map(abs, self.lits + [top_id if top_id != None else 0]))
 
         # Fail if the bound is negative. ITotalizer does not do this, but I am
         # not sure how or if it is handling it lower down the chain, so I will

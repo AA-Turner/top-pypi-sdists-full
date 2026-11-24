@@ -106,13 +106,19 @@ class Attribute(ABC):
     A compile-time value.
     Attributes are used to represent SSA variable types, and can be attached
     on operations to give extra information.
+    Verification runs in `__post_init__`.
+    A ValueError is raised if the Attribute does not verify.
     """
 
     name: ClassVar[str] = field(init=False, repr=False)
     """The attribute name should be a static field in the attribute classes."""
 
     def __post_init__(self):
-        self._verify()
+        try:
+            self._verify()
+        except VerifyException as e:
+            # Convert to ValueError
+            raise ValueError(str(e)) from e
         if not isinstance(self, Data | ParametrizedAttribute):
             raise TypeError("Attributes should only be Data or ParametrizedAttribute")
 
@@ -342,9 +348,12 @@ class TypedAttribute(ParametrizedAttribute, ABC):
     def print_without_type(self, printer: Printer): ...
 
 
+_IRWithUsesT = TypeVar("_IRWithUsesT", bound="IRWithUses[Any]")
+
+
 @dataclass(repr=False)
-class Use:
-    """The use of a SSA value."""
+class Use(ABC, Generic[_IRWithUsesT]):
+    """One use of an SSA value or successor block by an operation."""
 
     _operation: Operation
     """The operation using the value."""
@@ -352,10 +361,10 @@ class Use:
     _index: int
     """The index of the operand using the value in the operation."""
 
-    _prev_use: Use | None = None
+    _prev_use: Self | None = None
     """The previous use of the value in the use list."""
 
-    _next_use: Use | None = None
+    _next_use: Self | None = None
     """The next use of the value in the use list."""
 
     @property
@@ -365,12 +374,17 @@ class Use:
 
     @property
     def index(self) -> int:
-        """The index of the operand using the value in the operation."""
+        """The index of the use in the operation."""
         return self._index
+
+    @property
+    @abstractmethod
+    def value(self) -> _IRWithUsesT:
+        """The value used."""
 
     def __repr__(self) -> str:
         return (
-            f"<Use {id(self)}(_operation={_short_repr(self.operation)}, "
+            f"<{type(self).__name__} {id(self)}(_operation={_short_repr(self.operation)}, "
             f"_index={self.index}, _prev_use={_short_repr(self._prev_use)}, "
             f"_next_use={_short_repr(self._next_use)})>"
         )
@@ -382,13 +396,83 @@ class Use:
         return self is other
 
 
+@dataclass(eq=False)
+class IRWithUses(ABC, Generic[_IRWithUsesT]):
+    """IRNode which stores a list of its uses."""
+
+    first_use: Use[_IRWithUsesT] | None = field(init=False, default=None, repr=False)
+    """The first use of the value in the use list."""
+
+    @property
+    def uses(self) -> IRUses[_IRWithUsesT]:
+        """Returns an iterable of all uses of the value."""
+        return IRUses(self)
+
+    def add_use(self, use: Use[_IRWithUsesT]):
+        """Add a new use of the value."""
+        first_use = self.first_use
+        use._next_use = first_use  # pyright: ignore[reportPrivateUsage]
+        use._prev_use = None  # pyright: ignore[reportPrivateUsage]
+        if first_use is not None:
+            first_use._prev_use = use  # pyright: ignore[reportPrivateUsage]
+        self.first_use = use
+
+    def remove_use(self, use: Use[_IRWithUsesT]):
+        """Remove a use of the value."""
+        prev_use = use._prev_use  # pyright: ignore[reportPrivateUsage]
+        next_use = use._next_use  # pyright: ignore[reportPrivateUsage]
+        if prev_use is not None:
+            prev_use._next_use = next_use  # pyright: ignore[reportPrivateUsage]
+        if next_use is not None:
+            next_use._prev_use = prev_use  # pyright: ignore[reportPrivateUsage]
+
+        if prev_use is None:
+            self.first_use = next_use
+
+        use._prev_use = None  # pyright: ignore[reportPrivateUsage]
+        use._next_use = None  # pyright: ignore[reportPrivateUsage]
+
+    def has_one_use(self) -> bool:
+        """Returns true if the value has exactly one use."""
+        first_use = self.first_use
+        return (
+            first_use is not None and first_use._next_use is None  # pyright: ignore[reportPrivateUsage]
+        )
+
+    def has_more_than_one_use(self) -> bool:
+        """Returns true if the value has more than one use."""
+        if (first_use := self.first_use) is None:
+            return False
+        return first_use._next_use is not None  # pyright: ignore[reportPrivateUsage]
+
+    def get_unique_use(self) -> Use[_IRWithUsesT] | None:
+        """
+        Returns the single use of the value, or None if there are no uses or
+        more than one use.
+        """
+        if (first_use := self.first_use) is None:
+            return None
+        if first_use._next_use is not None:  # pyright: ignore[reportPrivateUsage]
+            return None
+        return first_use
+
+    def get_user_of_unique_use(self) -> Operation | None:
+        """
+        Returns the user of the single use of the value.
+        If there are no uses or more than one use, returns None.
+        """
+        if (use := self.get_unique_use()) is not None:
+            return use.operation
+        return None
+
+
 @dataclass
-class IRUses(Iterable[Use]):
+class IRUses(Iterable[Use[_IRWithUsesT]], Generic[_IRWithUsesT]):
     """
     Multi-pass iterable of the uses of an IR value (SSAValue or Block).
     """
 
-    ir: IRWithUses
+    ir: IRWithUses[_IRWithUsesT]
 
     def __iter__(self):
         use = self.ir.first_use
@@ -411,73 +495,6 @@ class IRUses(Iterable[Use]):
             count += 1
             use = use._next_use  # pyright: ignore[reportPrivateUsage]
         return count
-
-
-@dataclass(eq=False)
-class IRWithUses(ABC):
-    """IRNode which stores a list of its uses."""
-
-    first_use: Use | None = field(init=False, default=None, repr=False)
-    """The first use of the value in the use list."""
-
-    @property
-    def uses(self) -> IRUses:
-        """Returns an iterable of all uses of the value."""
-        return IRUses(self)
-
-    def add_use(self, use: Use):
-        """Add a new use of the value."""
-        first_use = self.first_use
-        use._next_use = first_use  # pyright: ignore[reportPrivateUsage]
-        use._prev_use = None  # pyright: ignore[reportPrivateUsage]
-        if first_use is not None:
-            first_use._prev_use = use  # pyright: ignore[reportPrivateUsage]
-        self.first_use = use
-
-    def remove_use(self, use: Use):
-        """Remove a use of the value."""
-        prev_use = use._prev_use  # pyright: ignore[reportPrivateUsage]
-        next_use = use._next_use  # pyright: ignore[reportPrivateUsage]
-        if prev_use is not None:
-            prev_use._next_use = next_use  # pyright: ignore[reportPrivateUsage]
-        if next_use is not None:
-            next_use._prev_use = prev_use  # pyright: ignore[reportPrivateUsage]
-
-        if prev_use is None:
-            self.first_use = next_use
-
-    def has_one_use(self) -> bool:
-        """Returns true if the value has exactly one use."""
-        first_use = self.first_use
-        return (
-            first_use is not None and first_use._next_use is None  # pyright: ignore[reportPrivateUsage]
-        )
-
-    def has_more_than_one_use(self) -> bool:
-        """Returns true if the value has more than one use."""
-        if (first_use := self.first_use) is None:
-            return False
-        return first_use._next_use is not None  # pyright: ignore[reportPrivateUsage]
-
-    def get_unique_use(self) -> Use | None:
-        """
-        Returns the single use of the value, or None if there are no uses or
-        more than one use.
-        """
-        if (first_use := self.first_use) is None:
-            return None
-        if first_use._next_use is not None:  # pyright: ignore[reportPrivateUsage]
-            return None
-        return first_use
-
-    def get_user_of_unique_use(self) -> Operation | None:
-        """
-        Returns the user of the single use of the value.
-        If there are no uses or more than one use, returns None.
-        """
-        if (use := self.get_unique_use()) is not None:
-            return use.operation
-        return None
 
 
 _VALUE_NAME_PATTERN = re.compile(r"([A-Za-z_$.-][\w$.-]*)")
@@ -536,7 +553,9 @@ class IRWithName(ABC):
 
 
 @dataclass(eq=False)
-class SSAValue(IRWithUses, IRWithName, ABC, Generic[AttributeCovT]):
+class SSAValue(
+    IRWithUses["SSAValue[Attribute]"], IRWithName, ABC, Generic[AttributeCovT]
+):
     """
     A reference to an SSA variable.
     An SSA variable is either an operation result, or a basic block argument.
@@ -563,7 +582,7 @@ class SSAValue(IRWithUses, IRWithName, ABC, Generic[AttributeCovT]):
         arg: OperandArg, *, type: TypeForm[AttributeInvT] = Attribute
     ) -> SSAValue[AttributeInvT]:
         """
-        Get a new SSAValue from either a SSAValue, or an operation with a single result.
+        Get an SSAValue from an SSAValue, an SSA value use, or a single-result operation.
         Checks that the resulting SSAValue is of the supplied type, if provided.
         """
         from xdsl.utils.hints import isa
@@ -581,6 +600,8 @@ class SSAValue(IRWithUses, IRWithName, ABC, Generic[AttributeCovT]):
                 raise ValueError(
                     "SSAValue.get: expected operation with a single result."
                 )
+            case Use():
+                return SSAValue.get(arg.value, type=type)
 
     def replace_all_uses_with(self, value: SSAValue) -> None:
         """Replace the value by another value in all its uses."""
@@ -593,7 +614,9 @@ class SSAValue(IRWithUses, IRWithName, ABC, Generic[AttributeCovT]):
             value.name_hint = self.name_hint
         assert self.first_use is None, "unexpected error in xdsl"
 
-    def replace_uses_with_if(self, value: SSAValue, predicate: Callable[[Use], bool]):
+    def replace_uses_with_if(
+        self, value: SSAValue, predicate: Callable[[Use[SSAValue]], bool]
+    ):
         """
         Replace the value by another value in all its uses that pass the given test
         function.
@@ -627,6 +650,22 @@ class SSAValue(IRWithUses, IRWithName, ABC, Generic[AttributeCovT]):
 
     def __eq__(self, other: object) -> bool:
         return self is other
+
+
+class _Operand(Use[SSAValue]):
+    """
+    An operation's operand.
+    """
+
+    @property
+    def value(self) -> SSAValue:
+        operation = self._operation
+        index = self._index
+        uses = operation._operand_uses  # pyright: ignore[reportPrivateUsage]
+        assert index < len(uses) and uses[index] is self, (  # noqa: PT018
+            "Attempting to use Operand that has been replaced"
+        )
+        return operation.operands[index]
 
 
 @dataclass(eq=False)
@@ -857,7 +896,7 @@ class Operation(_IRNode):
     _operands: SSAValues = field(default=SSAValues())
     """The operation operands."""
 
-    _operand_uses: tuple[Use, ...] = field(default=())
+    _operand_uses: tuple[_Operand, ...] = field(default=())
     """
     The uses for each operand.
     They are stored separately from the operands to allow for more efficient
@@ -873,7 +912,7 @@ class Operation(_IRNode):
     This list should be empty for non-terminator operations.
     """
 
-    _successor_uses: tuple[Use, ...] = field(default=())
+    _successor_uses: tuple[_Successor, ...] = field(default=())
     """
     The uses for each successor.
     They are stored separately from the successors to allow for more efficient
@@ -995,7 +1034,7 @@ class Operation(_IRNode):
     def set_operands(self, new: Sequence[SSAValue]) -> None:
         """Replace the operands, updating the SSA value uses."""
         new = SSAValues(new)
-        new_uses = tuple(Use(self, idx) for idx in range(len(new)))
+        new_uses = tuple(_Operand(self, idx) for idx in range(len(new)))
         for operand, use in zip(self._operands, self._operand_uses):
             operand.remove_use(use)
         for operand, use in zip(new, new_uses):
@@ -1010,7 +1049,7 @@ class Operation(_IRNode):
     @successors.setter
     def successors(self, new: Sequence[Block]):
         new = tuple(new)
-        new_uses = tuple(Use(self, idx) for idx in range(len(new)))
+        new_uses = tuple(_Successor(self, idx) for idx in range(len(new)))
         for successor, use in zip(self._successors, self._successor_uses):
             successor.remove_use(use)
         for successor, use in zip(new, new_uses):
@@ -1019,7 +1058,7 @@ class Operation(_IRNode):
         self._successor_uses = new_uses
 
     @property
-    def successor_uses(self) -> Sequence[Use]:
+    def successor_uses(self) -> Sequence[Use[Block]]:
         return self._successor_uses
 
     def __post_init__(self):
@@ -1574,7 +1613,7 @@ class BlockOps(Reversible[Operation], Iterable[Operation]):
 
 
 @dataclass(init=False, eq=False, unsafe_hash=False)
-class Block(_IRNode, IRWithUses, IRWithName):
+class Block(_IRNode, IRWithUses["Block"], IRWithName):
     """A sequence of operations"""
 
     _args: tuple[BlockArgument, ...]
@@ -2013,6 +2052,22 @@ class Block(_IRNode, IRWithUses, IRWithName):
             return False
 
         return True
+
+
+class _Successor(Use[Block]):
+    """
+    An operation's successor.
+    """
+
+    @property
+    def value(self) -> Block:
+        operation = self._operation
+        index = self._index
+        uses = operation.successor_uses
+        assert index < len(uses) and uses[index] is self, (  # noqa: PT018
+            "Attempting to use Successor that has been replaced"
+        )
+        return operation.successors[index]
 
 
 @dataclass
@@ -2652,8 +2707,10 @@ class Region(_IRNode):
         return True
 
 
-OperandArg: TypeAlias = SSAValue | Operation
-"""An SSA value or single-result operation accepted by `SSAValue.get`."""
+OperandArg: TypeAlias = SSAValue | Use[SSAValue] | Operation
+"""
+An SSA value, an SSA value use, or single-result operation accepted by `SSAValue.get`.
+"""
 
 
 IRNode: TypeAlias = Operation | Region | Block

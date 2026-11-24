@@ -22,6 +22,8 @@ from chalk._gen.chalk.server.v1.offline_wide_tables_pb2 import (
     ListOfflineWideTableRunsResponse,
     SetOfflineWideTableFeatureWatermarksRequest,
     SetOfflineWideTableFeatureWatermarksResponse,
+    TriggerOfflineStoreMigrationRequest,
+    TriggerOfflineStoreMigrationResponse,
     TriggerOfflineWideTableCompactionRequest,
     TriggerOfflineWideTableCompactionResponse,
     TriggerOfflineWideTableFillRequest,
@@ -75,6 +77,11 @@ class OfflineWideTablesServiceStub:
         TriggerOfflineWideTableCompactionRequest,
         TriggerOfflineWideTableCompactionResponse,
     ]
+    TriggerOfflineStoreMigration: UnaryUnaryMultiCallable[
+        TriggerOfflineStoreMigrationRequest,
+        TriggerOfflineStoreMigrationResponse,
+    ]
+    """Launch a one-off offline-store migration Job against the active deployment."""
     GetOfflineWideTableFeatureWatermarks: UnaryUnaryMultiCallable[
         GetOfflineWideTableFeatureWatermarksRequest,
         GetOfflineWideTableFeatureWatermarksResponse,
@@ -140,6 +147,13 @@ class OfflineWideTablesServiceServicer(metaclass=ABCMeta):
         request: TriggerOfflineWideTableCompactionRequest,
         context: ServicerContext,
     ) -> TriggerOfflineWideTableCompactionResponse: ...
+    @abstractmethod
+    def TriggerOfflineStoreMigration(
+        self,
+        request: TriggerOfflineStoreMigrationRequest,
+        context: ServicerContext,
+    ) -> TriggerOfflineStoreMigrationResponse:
+        """Launch a one-off offline-store migration Job against the active deployment."""
     @abstractmethod
     def GetOfflineWideTableFeatureWatermarks(
         self,

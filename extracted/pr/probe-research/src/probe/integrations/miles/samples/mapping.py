@@ -19,7 +19,7 @@ from probe.generated.samples import MESSAGE_FIELDS, CaptureField, TurnsSource
 from probe.integrations.miles.samples.messages import MESSAGES, MESSAGES_KEY
 from probe.integrations.miles.samples.tokenizer import get_decode
 from probe.sdk.run.samples import to_failure_reason, to_sampling_settings
-from probe.sdk.run.samples.rollout import build_decoded_turns, build_turns
+from probe.sdk.run.samples.rollout import add_reply_usage, build_decoded_turns, build_turns
 
 from ...task_label import TASK_ID_FIELD, get_task_label
 
@@ -73,6 +73,23 @@ GPU_BYPASS = ("this run's generate function ({path}) sends its model calls witho
 #: `utils/workers/types.py:29-30`).
 ENGINE_DEPLOYS = frozenset({"all", "inference"})
 _MISSING = object()
+#: The fork's args field the driver publishes its registered verifiers environment's sample labels on (`miles.py`).
+ENVIRONMENT_ARG = "probe_environment"
+
+
+def read_environment_labels(args: Any) -> dict[str, str]:
+    """The labels the driver published after registering the job's verifiers environment (`ENVIRONMENT_ARG`, the
+    server's spelling). Upstream's frozen args carry none: then the name and version that registration sent, read
+    from the same `VERIFIERS_CONFIG` (`read_config_labels`); none without the CLI package or a config."""
+    published = getattr(args, ENVIRONMENT_ARG, None)
+    if isinstance(published, Mapping):
+        return {str(name): str(value) for name, value in published.items() if value}
+    try:
+        from probe.connectors.verifiers import read_config_labels
+
+        return read_config_labels()
+    except Exception:  # noqa: BLE001 -- no CLI package, or an unreadable config: a label never costs a sample
+        return {}
 
 
 @dataclass(frozen=True)
@@ -90,6 +107,10 @@ class MappingConfig:
     run_id: str | None = None
     #: The tokenizer's checkpoint (`--hf-checkpoint`): decoded turns for samples that kept no messages (D4).
     checkpoint: str | None = None
+    #: A Miles + verifiers job's environment labels (`environment_name` / `environment_version`, D9).
+    environment: Mapping[str, str] = field(default_factory=dict)
+    #: The tools multi_turn offers every prompt (`--generate-tool-specs-path`, `generate_hub/multi_turn.py:39`).
+    tool_specs: tuple = ()
 
     @classmethod
     def from_args(cls, args: Any, *, metric_paths: Mapping[str, str] | None = None, run_id: str | None = None):
@@ -104,7 +125,23 @@ class MappingConfig:
             metric_paths={str(k): str(v) for k, v in paths.items() if isinstance(k, str) and k and v},
             run_id=run_id,
             checkpoint=_get_text(getattr(args, "hf_checkpoint", None)),
+            environment=read_environment_labels(args),
+            tool_specs=load_tool_specs(getattr(args, "generate_tool_specs_path", None)),
         )
+
+
+def load_tool_specs(path: Any) -> tuple:
+    """The tool list a `--generate-tool-specs-path` names, loaded as multi_turn loads it (Miles' `load_function`);
+    none when unset, not a list, or not loadable here."""
+    if not isinstance(path, str) or not path:
+        return ()
+    try:
+        from miles.utils.function_registry import load_function
+
+        specs = load_function(path)
+    except Exception:  # noqa: BLE001 -- a spec Probe cannot load costs the tools, never the sample
+        return ()
+    return tuple(specs) if isinstance(specs, (list, tuple)) else ()
 
 
 def hash_tokens(tokens: Any) -> str:
@@ -166,6 +203,11 @@ def build_generator_part(sample: Any, *, key: str, split: str, step: int, config
     _add_lineage(part, sample)
     _add_response(part, sample)
     part.update(build_turn_fields(sample, metadata, config))
+    tools = metadata.get("tools")  # the dataset's `--tool-key` column (`utils/data.py:216-223`)
+    if isinstance(tools, list) and tools:
+        part["tools"] = tools
+    elif config.tool_specs:
+        part["tools"] = list(config.tool_specs)
     _add_result(part, sample, metadata, config)
     part["generated_by"] = build_generations(sample)
     part["scored_by"] = build_scorers(sample, config)
@@ -173,6 +215,8 @@ def build_generator_part(sample: Any, *, key: str, split: str, step: int, config
     _add_engine_facts(part, sample, metadata)
     part["sampling"] = to_sampling_settings(metadata.get(SAMPLING_KEY))
     part["extras"] = _build_extras(sample, metadata)
+    if config.environment and not get_harbor_key(sample):  # a Harbor try's own part names its dataset
+        part.update(config.environment)
     if drop_reason:
         part["drop_reason"] = drop_reason
     if events:
@@ -198,6 +242,9 @@ def build_turn_fields(sample: Any, metadata: Mapping, config: MappingConfig | No
         messages = MESSAGES.get(sample)
     if isinstance(messages, list):
         turns = build_turns(messages)
+        if turns and (split := _split_tokens(sample)) is not None:
+            prompt_ids, response_ids, mask = split
+            add_reply_usage(turns, response_ids, mask, prompt_length=len(prompt_ids))
         return {"turns": turns, "turns_source": TurnsSource.AS_SENT} if turns else {}
     if get_harbor_key(sample) or config is None:
         return {}
@@ -206,18 +253,26 @@ def build_turn_fields(sample: Any, metadata: Mapping, config: MappingConfig | No
 
 
 def _build_decoded(sample: Any, decode: Any) -> list[dict]:
-    """The sample's prompt and response tokens (`tokens`, its last `response_length` the response) read through the
-    chat template, the response split by `loss_mask` (Miles' is over the response only)."""
+    """The sample's prompt and response tokens read through the chat template, the response split by `loss_mask`."""
+    split = _split_tokens(sample) if decode is not None else None
+    if split is None:
+        return []
+    prompt_ids, response_ids, mask = split
+    return build_decoded_turns(response_ids, mask, decode, prompt_ids=prompt_ids)
+
+
+def _split_tokens(sample: Any) -> tuple[list[int], list[int], list | None] | None:
+    """(prompt ids, response ids, loss mask): `tokens`, its last `response_length` the response (Miles' loss mask is
+    over the response only); None without them."""
     tokens = getattr(sample, "tokens", None)
     length = getattr(sample, "response_length", None)
-    if decode is None or tokens is None or not isinstance(length, int) or length <= 0:
-        return []
+    if tokens is None or not isinstance(length, int) or isinstance(length, bool) or length <= 0:
+        return None
     ids = [int(token) for token in to_list(tokens)]
     if len(ids) < length:
-        return []
+        return None
     mask = getattr(sample, "loss_mask", None)
-    mask = to_list(mask) if mask is not None else None
-    return build_decoded_turns(ids[len(ids) - length:], mask, decode, prompt_ids=ids[:len(ids) - length])
+    return ids[:len(ids) - length], ids[len(ids) - length:], to_list(mask) if mask is not None else None
 
 
 def is_engine_external(args: Any) -> bool:

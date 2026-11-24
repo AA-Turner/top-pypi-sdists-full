@@ -795,6 +795,7 @@ class HasOneFeatureType(_message.Message):
         "attribute_name",
         "unversioned_attribute_name",
         "auxiliary_namespace",
+        "related_may_not_exist",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
@@ -808,6 +809,7 @@ class HasOneFeatureType(_message.Message):
     ATTRIBUTE_NAME_FIELD_NUMBER: _ClassVar[int]
     UNVERSIONED_ATTRIBUTE_NAME_FIELD_NUMBER: _ClassVar[int]
     AUXILIARY_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    RELATED_MAY_NOT_EXIST_FIELD_NUMBER: _ClassVar[int]
     name: str
     namespace: str
     foreign_namespace: str
@@ -820,6 +822,7 @@ class HasOneFeatureType(_message.Message):
     attribute_name: str
     unversioned_attribute_name: str
     auxiliary_namespace: str
+    related_may_not_exist: bool
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -834,6 +837,7 @@ class HasOneFeatureType(_message.Message):
         attribute_name: _Optional[str] = ...,
         unversioned_attribute_name: _Optional[str] = ...,
         auxiliary_namespace: _Optional[str] = ...,
+        related_may_not_exist: bool = ...,
     ) -> None: ...
 
 class HasManyFeatureType(_message.Message):
@@ -1498,6 +1502,7 @@ class StreamResolver(_message.Message):
         "customer_metrics_tags",
         "excluded_aggregation_fqns",
         "source_full",
+        "exactly_once",
     )
     class FeatureExpressionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1538,6 +1543,7 @@ class StreamResolver(_message.Message):
     CUSTOMER_METRICS_TAGS_FIELD_NUMBER: _ClassVar[int]
     EXCLUDED_AGGREGATION_FQNS_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FULL_FIELD_NUMBER: _ClassVar[int]
+    EXACTLY_ONCE_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1567,6 +1573,7 @@ class StreamResolver(_message.Message):
     customer_metrics_tags: _containers.RepeatedScalarFieldContainer[str]
     excluded_aggregation_fqns: _containers.RepeatedScalarFieldContainer[str]
     source_full: _sources_pb2_1.StreamSource
+    exactly_once: bool
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1598,6 +1605,7 @@ class StreamResolver(_message.Message):
         customer_metrics_tags: _Optional[_Iterable[str]] = ...,
         excluded_aggregation_fqns: _Optional[_Iterable[str]] = ...,
         source_full: _Optional[_Union[_sources_pb2_1.StreamSource, _Mapping]] = ...,
+        exactly_once: bool = ...,
     ) -> None: ...
 
 class StreamMessageHeaderEqualityCheck(_message.Message):

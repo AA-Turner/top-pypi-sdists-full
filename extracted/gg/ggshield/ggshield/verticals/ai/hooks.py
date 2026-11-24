@@ -6,6 +6,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Pattern, Sequence, Set, Tuple
 
 import filelock
@@ -13,6 +14,11 @@ from notifypy import Notify
 from pygitguardian.config import DOCUMENT_SIZE_THRESHOLD_BYTES
 
 from ggshield.core import ui
+from ggshield.core.config.token_store import (
+    KeystoreError,
+    KeystoreFailure,
+    keystore_display_name,
+)
 from ggshield.core.dirs import get_cache_dir
 from ggshield.core.errors import AuthError
 from ggshield.core.filter import censor_match
@@ -34,6 +40,36 @@ from .models import (
     Tool,
     markdown_hard_breaks,
 )
+
+
+AI_HOOK_FAILURE_POLICY_ENV_VAR = "GITGUARDIAN_AI_HOOK_FAILURE_POLICY"
+AI_HOOK_FAILURE_POLICIES = ("allow", "block")
+
+
+class UnrecognizedAgentError(ValueError):
+    """No known agent sent this payload, so no agent-shaped answer can be written."""
+
+    def __init__(self) -> None:
+        super().__init__("Unrecognized agent")
+
+
+def resolve_ai_hook_failure_policy(configured: str) -> str:
+    """`secret.ai_hook_failure_policy`, overridden by GITGUARDIAN_AI_HOOK_FAILURE_POLICY.
+
+    An unusable variable is ignored with a warning: exiting non-zero over it
+    would read as a block to agents.
+    """
+    raw = os.getenv(AI_HOOK_FAILURE_POLICY_ENV_VAR, "")
+    value = raw.strip().lower()
+    if not value:
+        return configured
+    if value in AI_HOOK_FAILURE_POLICIES:
+        return value
+    ui.display_warning(
+        f"Ignoring {AI_HOOK_FAILURE_POLICY_ENV_VAR}='{raw}': it must be 'allow' or"
+        " 'block'."
+    )
+    return configured
 
 
 HOOK_NAME_TO_EVENT_TYPE = {
@@ -58,14 +94,22 @@ TOOL_NAME_TO_TOOL = {
 }
 
 
+def _debounce_path() -> Path:
+    return get_cache_dir() / "latest_ai_hook.txt"
+
+
+def _payload_hash(content: str) -> str:
+    return hashlib.sha256(content.strip().encode()).hexdigest()
+
+
 def has_already_been_seen(content: str) -> bool:
     """Return True if the payload is identical to the most recent hook call.
 
     Some agents install hooks from multiple assistants, which can invoke ggshield
     twice with the same payload.
     """
-    payload_hash = hashlib.sha256(content.strip().encode()).hexdigest()
-    debounce_path = get_cache_dir() / "latest_ai_hook.txt"
+    payload_hash = _payload_hash(content)
+    debounce_path = _debounce_path()
     try:
         debounce_path.parent.mkdir(parents=True, exist_ok=True)
     except OSError:
@@ -82,6 +126,21 @@ def has_already_been_seen(content: str) -> bool:
             return True
         debounce_path.write_text(payload_hash)
         return False
+
+
+def forget_seen(content: str) -> None:
+    """Undo has_already_been_seen() for a payload that was never scanned.
+
+    Otherwise an identical retry is answered as a duplicate, exit 0 and no
+    output, which lets through what `ai_hook_failure_policy` just denied.
+    """
+    debounce_path = _debounce_path()
+    try:
+        with filelock.FileLock(debounce_path.with_suffix(".lock")):
+            if debounce_path.read_text() == _payload_hash(content):
+                debounce_path.unlink()
+    except OSError:
+        pass
 
 
 def lookup(data: Dict[str, Any], keys: Sequence[str], default: Any = None) -> Any:
@@ -252,30 +311,70 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
     return payloads
 
 
-def emit_fail_open_response(stdin_content: str, error: Exception) -> int:
-    """Emit an "allow" response carrying a warning instead of crashing.
+def emit_cannot_scan_response(stdin_content: str, error: Exception, fail: bool) -> int:
+    """Answer an event the hook could not scan, as `secret.ai_hook_failure_policy` says.
 
-    A failure to scan (missing or unreadable token, unreachable server...)
-    must never break the agent: agents interpret a non-zero exit or a raw
-    traceback as a block or an error, and the user is never told that
-    scanning is broken. Instead we allow the action and surface a warning
-    through the agent.
+    A failure to scan (unrecognized agent, missing or unreadable token,
+    unreachable server...) must never crash the hook: agents treat a raw
+    traceback or a bare non-zero exit inconsistently, some blocking every
+    action and others running it with no notice. A known agent shows the
+    warning to the user; for an unrecognized agent it goes to stderr only,
+    which most agents do not display on a successful hook.
 
     Returns the exit code to use.
     """
-    warning = _cannot_scan_warning(error)
-    ui.display_warning(warning)
     try:
         payload = parse_hook_input(stdin_content)[-1]
+    except UnrecognizedAgentError as e:
+        # Even with a working token this event could not be scanned.
+        warning = _cannot_scan_warning(e)
+        ui.display_warning(warning)
+        # The agent's response format is unknown: an empty stdout with exit 0
+        # is the most widely understood "allow", exit 2 the most common "block".
+        return 2 if fail else 0
     except Exception:
-        # We can't even tell which agent is calling us, so we can't emit a
-        # well-formed response. Agents treat exit 1 as a non-blocking error.
+        ui.display_warning(_cannot_scan_warning(error))
+        # Not a hook event at all. Agents treat exit 1 as a non-blocking error.
         return 1
+    warning = _cannot_scan_warning(error)
+    ui.display_warning(warning)
+    if fail and payload.event_type == EventType.OTHER:
+        # Nothing to scan, so the answer a working scan would give: blocking a
+        # lifecycle event can stop the agent's whole session.
+        return payload.agent.output_result(HookResult.allow(payload))
+    if fail:
+        return payload.agent.output_result(
+            HookResult(block=True, message=warning, nbr_secrets=0, payload=payload)
+        )
     return payload.agent.output_result(HookResult.allow_with_warning(payload, warning))
 
 
 def _cannot_scan_warning(error: Exception) -> str:
-    if isinstance(error, AuthError):
+    if isinstance(error, UnrecognizedAgentError):
+        return (
+            "ggshield does not recognize the AI agent that called it — this action "
+            "was NOT scanned for secrets. Update ggshield, as this agent may need a "
+            "newer version."
+        )
+    cause = error.__cause__ if isinstance(error, AuthError) else None
+    failure = cause.failure if isinstance(cause, KeystoreError) else None
+    store = keystore_display_name()
+    if failure == KeystoreFailure.NOT_FOUND:
+        reason = f"ggshield's token should be in the {store}, but it is not there"
+        remediation = "Run 'ggshield auth login' to store a new one."
+    elif failure in (KeystoreFailure.DENIED, KeystoreFailure.UNAVAILABLE):
+        reason = f"ggshield could not read its token from the {store}"
+        likely_cause = (
+            "The Keychain may be locked, or its item may not trust this "
+            "ggshield binary."
+            if sys.platform == "darwin"
+            else f"The {store} may be locked."
+        )
+        remediation = (
+            f"{likely_cause} Run 'ggshield auth login' in a terminal to store "
+            "the token again."
+        )
+    elif isinstance(error, AuthError):
         reason = "ggshield could not authenticate to GitGuardian"
         remediation = (
             "Run 'ggshield auth login' to authenticate. If you are already "
@@ -305,7 +404,7 @@ def _detect_agent(data: Dict[str, Any]) -> Agent:
     for agent in AGENTS.values():
         if agent.is_caller(data):
             return agent
-    raise ValueError("Unrecognized agent")
+    raise UnrecognizedAgentError()
 
 
 def build_agent_headers(content: str) -> Dict[str, str]:
@@ -435,7 +534,7 @@ The prompt was not sent to the agent and the {secrets} {were} not leaked.
   1. remove the {secrets} from your prompt.
   2. submit your prompt again.
 
-{false_positive_instructions}"""
+{agent_instructions}"""
 
 _PRE_BASH_TEMPLATE = """\
 **🚨 Detected {count} {secrets} in the command 🚨**
@@ -448,7 +547,7 @@ The command was not executed and the {secrets} {were} not leaked.
   Since the {secrets} {were} detected before the command was run:
   1. consider moving the {secrets} to a secrets manager.
 
-{false_positive_instructions}"""
+{agent_instructions}"""
 
 _PRE_READ_TEMPLATE = """\
 **🚨 Detected {count} {secrets} in {identifier} 🚨**
@@ -462,7 +561,7 @@ The file content was not shown to the agent and the {secrets} {were} not leaked.
   1. avoid sharing this file with the agent.
   2. if the agent needs other values from this file, share only the non-sensitive parts.
 
-{false_positive_instructions}"""
+{agent_instructions}"""
 
 _PRE_OTHER_TEMPLATE = """\
 **🚨 Detected {count} {secrets} in the tool input 🚨**
@@ -475,7 +574,7 @@ The tool call was not executed and the {secrets} {were} not leaked.
   Since the {secrets} {were} detected before the tool call was made:
   1. consider moving the {secrets} to a secrets manager.
 
-{false_positive_instructions}"""
+{agent_instructions}"""
 
 _POST_BASH_TEMPLATE = """\
 **🚨 Detected {count} {secrets} in the command output 🚨**
@@ -488,7 +587,7 @@ The {secrets} {were} exposed to the AI agent and may persist in conversation log
   Since the {secrets} {were} leaked after the command was run:
 {post_remediation_steps}
 
-{false_positive_instructions}"""
+{agent_instructions}"""
 
 _POST_READ_TEMPLATE = """\
 **🚨 Detected {count} {secrets} in {identifier} 🚨**
@@ -501,7 +600,7 @@ The {secrets} {were} exposed to the AI agent and may persist in conversation log
   Since the {secrets} {were} leaked after the file was read:
 {post_remediation_steps}
 
-{false_positive_instructions}"""
+{agent_instructions}"""
 
 _POST_OTHER_TEMPLATE = """\
 **🚨 Detected {count} {secrets} in the tool output 🚨**
@@ -514,7 +613,21 @@ The {secrets} {were} exposed to the AI agent and may persist in conversation log
   Since the {secrets} {were} leaked after the tool call was made:
 {post_remediation_steps}
 
-{false_positive_instructions}"""
+{agent_instructions}"""
+
+# A file change the agent made: its output never reached the model, and the hook
+# redacted it from the stored transcript (see Agent.is_file_change).
+_POST_FILE_CHANGE_TEMPLATE = """\
+**🚨 Detected {count} {secrets} in {file_path} 🚨**
+{secret_lines}
+
+The agent's change to this file went through, and its result did not reach the model.
+The {secrets} {were} removed from the transcript stored on disk.
+
+> How to remediate
+
+  Since the {secrets} {were} found in a file the agent changed:
+  1. consider moving the {secrets} to a secrets manager."""
 
 _PRE_TEMPLATES: Dict[Optional[Tool], str] = {
     Tool.BASH: _PRE_BASH_TEMPLATE,
@@ -524,6 +637,13 @@ _POST_TEMPLATES: Dict[Optional[Tool], str] = {
     Tool.BASH: _POST_BASH_TEMPLATE,
     Tool.READ: _POST_READ_TEMPLATE,
 }
+
+
+def _tool_file_path(payload: HookPayload) -> str:
+    """The path the agent sent in `tool_input`, else the payload identifier."""
+    tool_input = payload.raw.get("tool_input")
+    path = tool_input.get("file_path") if isinstance(tool_input, dict) else None
+    return path if isinstance(path, str) else payload.identifier
 
 
 def _secret_lines(secrets: List[Secret], escape_markdown: bool) -> List[str]:
@@ -568,21 +688,54 @@ def _post_remediation_steps(secrets: List[Secret]) -> str:
     return "\n".join(f"  {i}. {step}" for i, step in enumerate(steps, start=1))
 
 
-def _false_positive_block(secrets: Sequence[Secret]) -> str:
-    """The remediation for a false positive, with the entries it would write.
+_AGENT_INSTRUCTIONS = """\
+> Instructions for the AI agent
 
-    The shas are spelled out because the message censors every match, so the sha
-    is otherwise unknowable and a hand-written `ignored_matches` entry silently
-    never matches. The sha is a digest, not the secret, and `secret ignore`
-    already writes it in clear.
-    """
-    count = len(secrets)
-    this_is_a_false_positive = pluralize(
-        "this is a false positive", count, "these are false positives"
+  Relay this notice to the user. Do not ignore the {secrets} or suggest ignoring {them}, \
+and do not suggest disabling or uninstalling the GitGuardian hook."""
+
+
+def _unchecked_secrets(secrets: Sequence[Secret]) -> List[Secret]:
+    """The secrets a false-positive hint may cover: a working one never is."""
+    return [secret for secret in secrets if secret.validity != "valid"]
+
+
+def _this_is_a_false_positive(secrets: Sequence[Secret]) -> str:
+    unchecked = _unchecked_secrets(secrets)
+    if len(unchecked) == len(secrets):
+        return pluralize(
+            "this is a false positive", len(unchecked), "these are false positives"
+        )
+    return pluralize(
+        "the secret not marked valid is a false positive",
+        len(unchecked),
+        "the secrets not marked valid are false positives",
     )
+
+
+def _false_positive_block(
+    secrets: Sequence[Secret], valid_elsewhere: bool = False
+) -> str:
+    """The false-positive hint for the user's eyes only, with the entries it adds.
+
+    Empty when every secret is valid. `--last-found` ignores every secret of the
+    scan, other documents of the event included, so it is offered only when none
+    is valid (`valid_elsewhere` covers the other documents). The shas are spelled
+    out because the message censors every match, so a hand-written entry
+    otherwise never matches. The sha is a digest, not the secret.
+    """
+    unchecked = _unchecked_secrets(secrets)
+    if not unchecked:
+        return ""
+    this_is_a_false_positive = _this_is_a_false_positive(secrets)
     # dict, not set: one entry per sha, in the order the secrets are reported.
-    shas = dict.fromkeys(secret.get_ignore_sha() for secret in secrets)
+    shas = dict.fromkeys(secret.get_ignore_sha() for secret in unchecked)
     entries = "\n".join(f"    - match: {sha}" for sha in shas)
+    if len(unchecked) < len(secrets) or valid_elsewhere:
+        return f"""\
+> If {this_is_a_false_positive}, add to secret.ignored_matches in .gitguardian.yaml:
+
+{entries}"""
     return f"""\
 > If {this_is_a_false_positive}, run:
 
@@ -591,6 +744,24 @@ def _false_positive_block(secrets: Sequence[Secret]) -> str:
   which adds to secret.ignored_matches in .gitguardian.yaml:
 
 {entries}"""
+
+
+def _notification_hint(secrets: Sequence[Secret], valid_elsewhere: bool = False) -> str:
+    """The one-line false-positive hint for the desktop notification.
+
+    One line: a notification is neither copyable nor long enough for the
+    `ignored_matches` entries. Empty when every secret is valid.
+    """
+    unchecked = _unchecked_secrets(secrets)
+    if not unchecked:
+        return ""
+    this_is_a_false_positive = _this_is_a_false_positive(secrets)
+    if len(unchecked) < len(secrets) or valid_elsewhere:
+        return (
+            f"If {this_is_a_false_positive}, do not run ggshield secret ignore "
+            "--last-found: it would also ignore any secret marked valid."
+        )
+    return f"If {this_is_a_false_positive}, run: ggshield secret ignore --last-found"
 
 
 class AIHookScanner:
@@ -631,13 +802,20 @@ class AIHookScanner:
         if content.strip() and has_already_been_seen(content):
             return 0
 
-        payloads = parse_hook_input(content)
-        result = self._scan_payloads(payloads)
+        try:
+            payloads = parse_hook_input(content)
+            result = self._scan_payloads(payloads)
+        except Exception:
+            forget_seen(content)
+            raise
         payload = result.payload
 
         # Sometimes the secret has already leaked to the agent. Notify the user.
-        if result.block and payload.agent.has_secret_already_leaked(payload):
-            self._send_secret_notification(result)
+        # The banner also carries the false-positive hint where the agent has no
+        # user-only field for the event.
+        leaked = result.block and payload.agent.has_secret_already_leaked(payload)
+        if leaked or (result.block and result.notification_hint):
+            self._send_secret_notification(result, leaked=leaked)
 
         return payload.agent.output_result(result)
 
@@ -709,6 +887,8 @@ class AIHookScanner:
         HookResult per payload, in order.
         """
         results = [HookResult.allow(payload) for payload in payloads]
+        # The secrets of each blocking payload, by index in `payloads`.
+        found: Dict[int, List[Secret]] = {}
 
         # (index in `payloads`, document to scan, verdict cache key).
         to_scan: List[Tuple[int, Scannable, Optional[str]]] = []
@@ -799,26 +979,50 @@ class AIHookScanner:
                     # Scan said nothing about this document (skipped or degraded): not
                     # a verdict, so nothing to cache and nothing to block on.
                     continue
-                secrets: List[Secret] = list(result.secrets)
+                # One document can hold the same value twice (a Claude Code Edit
+                # output has the file and its diff); that is one secret to report,
+                # keyed like `ignored_matches`.
+                unique: Dict[str, Secret] = {}
+                for secret in result.secrets:
+                    unique.setdefault(secret.get_ignore_sha(), secret)
+                secrets: List[Secret] = list(unique.values())
                 if not secrets:
                     # Per-document: cache only if nothing was filtered out locally,
                     # else "no secret" is a verdict about the config, not the content.
                     if key and not result.ignored_secrets_count_by_kind:
                         store_clean_verdict(key)
                     continue
-                payload = payloads[index]
-                results[index] = HookResult(
-                    block=True,
-                    message=self._message_from_secrets(
-                        secrets,
-                        payload,
-                        escape_markdown=True,
-                    ),
-                    nbr_secrets=len(secrets),
-                    payload=payload,
-                )
+                found[index] = secrets
 
             remaining = leftover
+
+        for index, secrets in found.items():
+            # `--last-found` would also ignore a valid secret of another document.
+            valid_elsewhere = any(
+                secret.validity == "valid"
+                for other, others in found.items()
+                if other != index
+                for secret in others
+            )
+            payload = payloads[index]
+            user_only = payload.agent.has_user_only_channel(payload.event_type)
+            results[index] = HookResult(
+                block=True,
+                message=self._message_from_secrets(
+                    secrets,
+                    payload,
+                    escape_markdown=True,
+                ),
+                nbr_secrets=len(secrets),
+                payload=payload,
+                matches=[m.match for secret in secrets for m in secret.matches],
+                user_message=(
+                    _false_positive_block(secrets, valid_elsewhere) if user_only else ""
+                ),
+                notification_hint=(
+                    "" if user_only else _notification_hint(secrets, valid_elsewhere)
+                ),
+            )
 
         return results
 
@@ -850,6 +1054,8 @@ class AIHookScanner:
         # file, not the prompt, so it gets the file wording, not the prompt wording.
         if payload.event_type == EventType.USER_PROMPT and payload.tool != Tool.READ:
             template = _USER_PROMPT_TEMPLATE
+        elif payload.agent.is_file_change(payload):
+            template = _POST_FILE_CHANGE_TEMPLATE
         elif payload.event_type == EventType.POST_TOOL_USE:
             template = _POST_TEMPLATES.get(payload.tool, _POST_OTHER_TEMPLATE)
         else:
@@ -864,9 +1070,12 @@ class AIHookScanner:
             were=pluralize("was", count, "were"),
             them=pluralize("it", count, "them"),
             identifier=payload.identifier,
+            file_path=_tool_file_path(payload),
             secret_lines="\n".join(_secret_lines(secrets, escape_markdown)),
             post_remediation_steps=_post_remediation_steps(secrets),
-            false_positive_instructions=_false_positive_block(secrets),
+            agent_instructions=_AGENT_INSTRUCTIONS.format(
+                secrets=pluralize("secret", count), them=pluralize("it", count, "them")
+            ),
         )
         if escape_markdown:
             message = markdown_hard_breaks(message)
@@ -875,19 +1084,31 @@ class AIHookScanner:
     @staticmethod
     def _send_secret_notification(
         result: HookResult,
+        leaked: bool = True,
     ) -> None:
         """
         Send a best-effort desktop notification when secrets are detected.
 
-        This runs on the security-critical PostToolUse path (the secret has
-        already leaked to the agent), so it must NEVER crash the hook: the
-        whole body is guarded and any failure is swallowed, letting the block
-        decision still be emitted.
+        This runs on the security-critical path, so it must NEVER crash the
+        hook: the whole body is guarded and any failure is swallowed, letting
+        the block decision still be emitted.
 
         Args:
             result: The blocking scan result.
+            leaked: Whether the secret already reached the agent.
         """
         try:
+            title = "ggshield - Secrets Detected"
+            agent = result.payload.agent.display_name
+            secrets = pluralize("secret", result.nbr_secrets)
+            if not leaked:
+                # What happened goes in the title, so the body is the hint alone:
+                # banners truncate long bodies.
+                _send_desktop_notification(
+                    f"ggshield blocked {result.nbr_secrets} {secrets} in {agent}",
+                    result.notification_hint,
+                )
+                return
             tool = result.payload.tool
             source = "using a tool"
             if tool == Tool.READ:
@@ -901,11 +1122,11 @@ class AIHookScanner:
                     if command
                     else "running a command"
                 )
-            title = "ggshield - Secrets Detected"
             message = (
-                f"{result.payload.agent.display_name} got access to {result.nbr_secrets}"
-                f" {pluralize('secret', result.nbr_secrets)} by {source}"
+                f"{agent} got access to {result.nbr_secrets} {secrets} by {source}"
             )
+            if result.notification_hint:
+                message += f". {result.notification_hint}"
             _send_desktop_notification(title, message)
         except Exception:
             # This is best effort, we don't want to propagate an error

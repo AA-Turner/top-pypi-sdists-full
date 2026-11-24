@@ -47,12 +47,13 @@ requires-python = ">=3.11"
 dependencies = [
     "torch>=2.6",
     "torchaudio>=2.6",
-    'mne>=1.11.0',  # we get matplotlib, numpy, scipy from here
+    'mne>=1.13.0',  # we get matplotlib, numpy, scipy from here
     'mne_bids>=0.19', # in theory we get the mne here, but we prefer to have it explicit
     'h5py',
     'skorch>=1.3.1',
     'joblib',
     'torchinfo',
+    'jinja2',  # autoescaped notebook representations, as in MNE
     'pandas',
     'wfdb>=4.3.1',  # requests comes transitively via mne→pooch and wfdb
     'docstring_inheritance',
@@ -74,8 +75,13 @@ documentation = "https://braindecode.org/stable/index.html"
 
 [project.optional-dependencies]
 moabb = ["moabb>=1.4.3"]
-eegprep = ["eegprep[eeglabio]>=0.2.23"]
-hub = ["huggingface_hub[torch]>=0.20.0", "zarr>=3.1"]
+eegprep = [
+    "eegprep[eeglabio]>=0.2.23",
+    # eegprep for Python 3.11 (<= 0.3.0) needs sympy>=1.14, which torch 2.6 rules
+    # out (it pins sympy==1.13.1); eegprep 0.4.0 drops sympy but needs Python 3.12.
+    'torch>=2.7; python_version < "3.12"',
+]
+hub = ["huggingface_hub[torch]>=0.22.0", "zarr>=3.1"]
 viz = ["captum>=0.7.0"]
 sae = ["sae-lens==6.51.3"]  # Optional gallery only; not part of core or all.
 tests = [
@@ -85,10 +91,11 @@ tests = [
     'pytest-timeout',
     'codecov',
     'pytest_cases',
-    'mypy',
+    'ty>=0.0.107',
     'ipython',
     "transformers>=4.57.0",
     "bids_validator",
+    "timescoring==0.0.7",  # oracle for szcore_event_scores; pinned because SzCORE results changed between releases
 ]
 typing = [
     'exca>=0.5.10',
@@ -99,7 +106,6 @@ docs = [
     'pytest<9.1',  # Offline agent documentation contract tests; match the test extra.
     'sphinx-markdown-builder==0.6.11',
     'sphinx_gallery>=0.17',
-    'sphinx_rtd_theme',
     'sphinx-autodoc-typehints',
     'sphinx-autobuild',
     'sphinxcontrib-bibtex',
@@ -107,24 +113,23 @@ docs = [
     'sphinxext-opengraph',
     'pydata_sphinx_theme',
     'numpydoc',
-    'memory_profiler',
     'pillow',
     'ipython',
     'sphinx_design',
+]
+
+docs-gallery = [
     'lightning',
-    'seaborn',
-    'pre-commit',
     'openneuro-py>=2026.4.0',  # 2026.4.0 fixes DatasetFile.key->id after the OpenNeuro 5.0.0 schema change; older versions break against the live GraphQL server
-    'plotly',
+    'seaborn',
     'shap',
-    'nbformat',
-    'transformers',
 ]
 
 all = [
     "braindecode[moabb]",
     "braindecode[tests]",
     "braindecode[docs]",
+    "braindecode[docs-gallery]",
     "braindecode[hub]",
     "braindecode[eegprep]",
     "braindecode[typing]",
@@ -146,19 +151,87 @@ exclude = [] # exclude packages matching these glob patterns (empty by default)
 namespaces = false # to disable scanning PEP 420 namespaces (true by default)
 
 [tool.ruff]
-lint.ignore-init-module-imports = true
 line-length = 88
 target-version = "py311"
 
+[tool.ruff.format]
+exclude = ["test/**", ".github/**", "scripts/**", "benchmarks/**", "CONTRIBUTING.md"]
 
-[tool.isort]
-skip = [".gitignore"]
-skip_glob = ["test/*", "examples/*"]
-py_version = 311
-profile = "black"
-sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
-known_first_party = ["braindecode"]
-lines_between_sections = 1
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "D", "NPY201"]
+ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D105",
+    "D107",
+    "D203",
+    "D205",
+    "D213",
+    "D400",
+    "D415",
+    "D417",
+    "E402",
+    "E501",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["braindecode"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+"!{docs,examples}/**" = ["D", "E712", "E741", "F541", "F841"]
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.src]
+include = ["braindecode", "test", "examples"]
+
+[tool.ty.terminal]
+error-on-warning = false
+output-format = "concise"
+
+[tool.ty.rules]
+# Promote dynamic/erased base classes (e.g. `: Type` on mixins/decorators) to hard errors.
+unsupported-base = "error"
+
+# Optional extras (moabb, sae_lens, timescoring), hardware SDKs (flash_attn,
+# habana_frameworks), and isolated pre-commit environments without torch/mne installed.
+import-not-found = "ignore"
+
+# Legacy gradual-typing noise from PyTorch Module.__getattr__ -> Tensor | Module
+# (register_buffer / dynamic submodules), MNE dynamic FIFF BunchConstNamed constants,
+# optional EEGModuleMixin geometry attributes, and NumPy ArrayLike / pytest parametrize unions.
+invalid-argument-type = "ignore"
+not-callable = "ignore"
+missing-union-attribute = "ignore"
+not-subscriptable = "ignore"
+missing-attribute = "ignore"
+lost-keyword-for-regular-parameter = "ignore"  # PyTorch `def forward(self, x)` vs `input`
+unused-type-ignore-comment = "ignore"  # Retain existing `# type: ignore` directives
+unused-ignore-comment = "ignore"  # Allow `# ty: ignore` on optional-dep imports in isolated CI
+
+# Low-volume legacy typing debt kept visible as non-blocking warnings for incremental cleanup.
+unsupported-operator = "warn"
+no-matching-overload = "warn"
+invalid-assignment = "warn"
+not-iterable = "warn"
+incompatible-method-override = "warn"
+invalid-explicit-return = "warn"
+incompatible-attribute-override = "warn"
+
+[[tool.ty.overrides]]
+include = ["test/**"]
+
+[tool.ty.overrides.rules]
+# Heterogeneous model-registry dicts in test_pretrained_compat.py and __torch_dispatch__ tuple unpacking.
+unknown-argument = "warn"
+index-out-of-bounds = "warn"
+
+[tool.coverage.run]
+core = "sysmon"
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

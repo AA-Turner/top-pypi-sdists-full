@@ -97,6 +97,10 @@ import _session_marker
 # session to the agent, through the ledger the CLI, the SDK and pi share. Sibling import, as above.
 import server_notices
 
+# EXPERIMENT: the one standing line when the team's admins let Probe compute direct this agent
+# about its GPU jobs (research-os compute_messages.py, round 2). Sibling import, as above.
+import compute_directive
+
 TTL = version_policy.TTL
 BACKOFF = version_policy.BACKOFF
 TIMEOUT = version_policy.TIMEOUT
@@ -1078,6 +1082,13 @@ def _profile_items(stale_cli: bool = False) -> str:
     return "; ".join(items)
 
 
+def _directive_line() -> "str | None":
+    """The compute-directive standing line (experiment): at session start only, never with Probe off."""
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT or _probe_state() == _session_marker.STATE_OFF:
+        return None
+    return compute_directive.standing_line()
+
+
 def _final(obj: dict) -> NoReturn:
     """Merge the post-compaction nudge into whatever main() was going to say.
 
@@ -1104,14 +1115,14 @@ def _final(obj: dict) -> NoReturn:
         if notice:
             prior = obj.get("systemMessage")
             obj["systemMessage"] = f"{prior}\n{notice}" if prior else notice
-        context = [c for c in (_inline_reminder(), *notices.agent_lines, *lowered_agent) if c]
+        context = [c for c in (_inline_reminder(), *notices.agent_lines, *lowered_agent, _directive_line()) if c]
         rules = _owed_rules(context)
         if rules:
             context.append(rules)
         if context:
             obj["hookSpecificOutput"] = {"hookEventName": "SessionStart", "additionalContext": "\n\n".join(context)}
         _emit(obj)
-    said = [c for c in (_start_context(), *notices.agent_lines, *lowered_agent) if c]
+    said = [c for c in (_start_context(), *notices.agent_lines, *lowered_agent, _directive_line()) if c]
     # A file keeps the Full profile's rules; the hook owes only the previews line (F7, `take_owed_rules`).
     for ctx in (*said, _owed_rules(said)):
         if not ctx:

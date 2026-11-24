@@ -33,6 +33,7 @@ from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.image_edit_action import image_part
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    assemble_held_step_skills,
     hold_step,
 )
 from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
@@ -144,6 +145,8 @@ async def ai_vision_read(
         metadata=inputs.metadata,
     )
     config = UnifiedConfig.from_dict(held.config)
+    # A vision read is a reasoning turn: the Holder agent's skills ride it, as on ai.llm.chat.
+    await assemble_held_step_skills(held, config)
     completed = await execute_ai_request(
         config,
         max_iterations=1,

@@ -318,7 +318,8 @@ class FakeHandoffLedger:
         self.resolve_calls = 0
 
     async def delegate(
-        self, *, call_id, conversation_id, execution_id, handoff_id, expires_at
+        self, *, call_id, conversation_id, execution_id, handoff_id, expires_at,
+        owner_id=None, organization_id=None,
     ) -> None:
         self.rows[call_id] = {
             "call_id": call_id,

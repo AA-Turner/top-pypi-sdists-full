@@ -21,6 +21,7 @@ class ChatML(ChatTemplate):
     control_tokens = (START, END, END_OF_TEXT, CALL_OPEN, CALL_CLOSE, RESPONSE_OPEN, RESPONSE_CLOSE, THINK_OPEN,
                       THINK_CLOSE)
     role_markers = (START, END)
+    message_starts = (START, RESPONSE_OPEN)  # Qwen 3 holds `<tool_response>` as one token; Qwen 2.5 does not
 
     def read_messages(self, text: str, *, role: str) -> list[dict]:
         pieces = text.split(START)

@@ -245,7 +245,7 @@ class CustomApplication(APIObject):
         if self.resources is None or not isinstance(self.resources, dict):
             return None
 
-        # Resources are already in snake_case format from the API client conversion
+        # Resources are already in snake_case format from the Python SDK's response conversion
         return {
             "resource_label": self.resources.get("resource_label"),
             "memory_request": self.resources.get("memory_request"),

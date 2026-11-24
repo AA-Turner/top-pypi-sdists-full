@@ -71,7 +71,7 @@ class SearchResults(KindModel, kind="search_results"):
 
 class Comment(KindModel, kind="comment"):
     body: str
-    replies: list["Comment"] = []
+    replies: list[Comment] = []
 
 
 Comment.model_rebuild()

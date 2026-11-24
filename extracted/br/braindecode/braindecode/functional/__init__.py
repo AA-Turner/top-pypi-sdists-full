@@ -1,11 +1,13 @@
 from .attention import scaled_dot_product_attention
 from .channel_mask import (
     check_ch_mask,
+    check_n_chans,
     masked_group_norm,
     masked_mean,
     pack_channels,
     unpack_channels,
 )
+from .channels import derivation_matrix, exact_derivation
 from .functions import (
     _get_gaussian_kernel1d,
     apply_rotary,
@@ -40,9 +42,12 @@ __all__ = [
     "_get_gaussian_kernel1d",
     "apply_rotary",
     "check_ch_mask",
+    "check_n_chans",
     "daubechies_filters",
+    "derivation_matrix",
     "drop_path",
     "dwt_max_level",
+    "exact_derivation",
     "fft_conv1d",
     "hilbert_freq",
     "identity",

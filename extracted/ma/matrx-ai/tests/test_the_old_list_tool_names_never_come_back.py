@@ -56,7 +56,7 @@ def test_the_registry_has_one_pick_list_tool_and_no_old_names():
     assert not {"picklist"} & names
     assert not {n for n in names if n.startswith("userlist_")}
     assert not {n for n in names if n.startswith(("usertable_", "user_table_"))}
-    assert "table" in names and "dataset" not in names
+    assert "table" not in names and "dataset" not in names  # `table` retired, custom-data PLAN C.12
     # The rename window is closed: no tool answers to `dataset` any more.
     assert "dataset" not in declared._ALIAS_INDEX
 
@@ -72,20 +72,6 @@ def test_the_guard_sees_the_retired_dataset_result_kinds(tmp_path):
         '@kind("dataset_metadata_result")\n'
     )
     assert len(scan(tmp_path)) == 3
-
-
-def test_every_success_of_the_table_tool_declares_a_table_kind():
-    from matrx_ai.tools.implementations import table_tools
-
-    ctx = type("Ctx", (), {"call_id": "c1"})()
-    ok = table_tools._stamp(table_tools.ToolResult(success=True, output={"rows": []}), 0.0, ctx)
-    assert ok.output_kind == "table_tool_result"
-    held = table_tools._stamp(
-        table_tools.ToolResult(success=True, output={"held_for_approval": True}), 0.0, ctx
-    )
-    assert not held.output_kind
-    failed = table_tools._stamp(table_tools.ToolResult(success=False), 0.0, ctx)
-    assert not failed.output_kind
 
 
 def test_the_guard_sees_a_retired_table_tool_name(tmp_path):

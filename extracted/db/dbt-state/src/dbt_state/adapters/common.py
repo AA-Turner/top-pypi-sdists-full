@@ -17,7 +17,7 @@ from query_cache_common.utils import extract_select_from_ctas
 from sqlglot import exp, parse_one
 from sqlglot.optimizer.qualify_tables import qualify_tables
 
-from dbt_state.utils import find_tables
+from dbt_state.utils import find_table_functions, find_tables
 
 if t.TYPE_CHECKING:
     if sys.version_info >= (3, 11):
@@ -36,7 +36,8 @@ class ViewTraversalResult:
     """A subset of seen_tables whose view definition could not be fetched"""
     unsupported_references: set[str] = field(default_factory=set)
     """Raw text of table references that were skipped because their name is not an identifier,
-    e.g. Snowflake stage paths like '@db.schema.stage/my_file.csv'. Their freshness can't be checked."""
+    e.g. Snowflake stage paths like '@db.schema.stage/my_file.csv', or table-valued functions
+    like table_changes(...). Their freshness can't be checked."""
 
     @property
     def view_definition_sql(self) -> t.Dict[str, str]:
@@ -61,13 +62,20 @@ class ViewDefinition:
 
     def parsed(self) -> exp.Expr:
         if not self._parsed:
-            self._parsed = parse_one(self.definition, dialect=self.dialect)
+            query = parse_one(self.definition, dialect=self.dialect)
+
+            if isinstance(query, exp.Create):
+                query = extract_select_from_ctas(query)
+
+            self._parsed = query
+
         return self._parsed
+
+    def extract_table_functions(self) -> t.Set[str]:
+        return find_table_functions(self.parsed(), self.dialect)
 
     def extract_referenced_tables(self) -> t.Set[exp.Table]:
         query = self.parsed()
-        if isinstance(query, exp.Create):
-            query = extract_select_from_ctas(query)
         tables = find_tables(query)
 
         return {

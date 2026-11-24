@@ -10,7 +10,7 @@ class TextToSpeechResponse(UniversalBaseModel):
     request_id: typing.Optional[str] = None
     audios: typing.List[str] = pydantic.Field()
     """
-     The output audio files in WAV format, encoded as base64 strings. Each string corresponds to one of the input texts.
+    The generated audio as base64-encoded strings, in the format set by `output_audio_codec` (WAV by default).
     """
 
     if IS_PYDANTIC_V2:

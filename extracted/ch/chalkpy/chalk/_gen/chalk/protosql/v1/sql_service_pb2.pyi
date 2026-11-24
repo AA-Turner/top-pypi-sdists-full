@@ -3,6 +3,7 @@ from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v1 import column_profile_pb2 as _column_profile_pb2
 from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
 from chalk._gen.chalk.common.v2 import table_pb2 as _table_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -83,10 +84,12 @@ class ExecuteSqlAsyncQueryRequestOptions(_message.Message):
     ) -> None: ...
 
 class ExecuteSqlResultPersistenceSettings(_message.Message):
-    __slots__ = ("enabled",)
+    __slots__ = ("enabled", "incremental")
     ENABLED_FIELD_NUMBER: _ClassVar[int]
+    INCREMENTAL_FIELD_NUMBER: _ClassVar[int]
     enabled: bool
-    def __init__(self, enabled: bool = ...) -> None: ...
+    incremental: bool
+    def __init__(self, enabled: bool = ..., incremental: bool = ...) -> None: ...
 
 class GetOfflineQueryInputsRequest(_message.Message):
     __slots__ = ("revision_id", "offline_query_id", "resource_group")
@@ -181,6 +184,8 @@ class ExecuteSqlQueryRequest(_message.Message):
         "compilation_options",
         "column_profile_options",
         "tables",
+        "metadata",
+        "use_rust_sql_parser",
     )
     class CompilationOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -202,6 +207,14 @@ class ExecuteSqlQueryRequest(_message.Message):
             self, key: _Optional[str] = ..., value: _Optional[_Union[_table_pb2.Table, _Mapping]] = ...
         ) -> None: ...
 
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     QUERY_FIELD_NUMBER: _ClassVar[int]
     CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
     PERSISTENCE_SETTINGS_FIELD_NUMBER: _ClassVar[int]
@@ -212,6 +225,8 @@ class ExecuteSqlQueryRequest(_message.Message):
     COMPILATION_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     COLUMN_PROFILE_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     TABLES_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    USE_RUST_SQL_PARSER_FIELD_NUMBER: _ClassVar[int]
     query: str
     correlation_id: str
     persistence_settings: ExecuteSqlResultPersistenceSettings
@@ -222,6 +237,8 @@ class ExecuteSqlQueryRequest(_message.Message):
     compilation_options: _containers.MessageMap[str, _struct_pb2.Value]
     column_profile_options: _column_profile_pb2.ColumnProfileOptions
     tables: _containers.MessageMap[str, _table_pb2.Table]
+    metadata: _containers.ScalarMap[str, str]
+    use_rust_sql_parser: bool
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -234,7 +251,19 @@ class ExecuteSqlQueryRequest(_message.Message):
         compilation_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         column_profile_options: _Optional[_Union[_column_profile_pb2.ColumnProfileOptions, _Mapping]] = ...,
         tables: _Optional[_Mapping[str, _table_pb2.Table]] = ...,
+        metadata: _Optional[_Mapping[str, str]] = ...,
+        use_rust_sql_parser: bool = ...,
     ) -> None: ...
+
+class CancelSqlQueryRequest(_message.Message):
+    __slots__ = ("operation_id",)
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
+
+class CancelSqlQueryResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class SignedOutputUris(_message.Message):
     __slots__ = ("uris",)
@@ -308,21 +337,24 @@ class ExecuteSqlQueryStreamRequest(_message.Message):
     def __init__(self, request: _Optional[_Union[ExecuteSqlQueryRequest, _Mapping]] = ...) -> None: ...
 
 class ExecuteSqlQueryStreamResponse(_message.Message):
-    __slots__ = ("query_id", "started", "chunk", "completed")
+    __slots__ = ("query_id", "started", "chunk", "completed", "progress")
     QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     STARTED_FIELD_NUMBER: _ClassVar[int]
     CHUNK_FIELD_NUMBER: _ClassVar[int]
     COMPLETED_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
     query_id: str
     started: SqlQueryStreamStarted
     chunk: SqlQueryResultChunk
     completed: SqlQueryStreamCompleted
+    progress: SqlQueryResultProgress
     def __init__(
         self,
         query_id: _Optional[str] = ...,
         started: _Optional[_Union[SqlQueryStreamStarted, _Mapping]] = ...,
         chunk: _Optional[_Union[SqlQueryResultChunk, _Mapping]] = ...,
         completed: _Optional[_Union[SqlQueryStreamCompleted, _Mapping]] = ...,
+        progress: _Optional[_Union[SqlQueryResultProgress, _Mapping]] = ...,
     ) -> None: ...
 
 class SqlQueryStreamStarted(_message.Message):
@@ -344,35 +376,131 @@ class SqlQueryResultChunk(_message.Message):
     ) -> None: ...
 
 class SqlQueryStreamCompleted(_message.Message):
-    __slots__ = ("errors", "performance_summary", "total_rows")
+    __slots__ = ("errors", "performance_summary", "total_rows", "column_profiles")
     ERRORS_FIELD_NUMBER: _ClassVar[int]
     PERFORMANCE_SUMMARY_FIELD_NUMBER: _ClassVar[int]
     TOTAL_ROWS_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_PROFILES_FIELD_NUMBER: _ClassVar[int]
     errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
     performance_summary: str
     total_rows: int
+    column_profiles: _containers.RepeatedCompositeFieldContainer[_column_profile_pb2.ColumnProfile]
     def __init__(
         self,
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
         performance_summary: _Optional[str] = ...,
         total_rows: _Optional[int] = ...,
+        column_profiles: _Optional[_Iterable[_Union[_column_profile_pb2.ColumnProfile, _Mapping]]] = ...,
+    ) -> None: ...
+
+class SqlQueryResultProgress(_message.Message):
+    __slots__ = ("attempt_id", "partitions", "rows", "completed")
+    ATTEMPT_ID_FIELD_NUMBER: _ClassVar[int]
+    PARTITIONS_FIELD_NUMBER: _ClassVar[int]
+    ROWS_FIELD_NUMBER: _ClassVar[int]
+    COMPLETED_FIELD_NUMBER: _ClassVar[int]
+    attempt_id: str
+    partitions: int
+    rows: int
+    completed: SqlQueryStreamCompleted
+    def __init__(
+        self,
+        attempt_id: _Optional[str] = ...,
+        partitions: _Optional[int] = ...,
+        rows: _Optional[int] = ...,
+        completed: _Optional[_Union[SqlQueryStreamCompleted, _Mapping]] = ...,
+    ) -> None: ...
+
+class ReadSqlQueryResultsRequest(_message.Message):
+    __slots__ = (
+        "operation_id",
+        "attempt_id",
+        "partition",
+        "row_offset",
+        "max_rows",
+        "metadata_only",
+        "after_partitions",
+        "wait_timeout_ms",
+    )
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPT_ID_FIELD_NUMBER: _ClassVar[int]
+    PARTITION_FIELD_NUMBER: _ClassVar[int]
+    ROW_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    MAX_ROWS_FIELD_NUMBER: _ClassVar[int]
+    METADATA_ONLY_FIELD_NUMBER: _ClassVar[int]
+    AFTER_PARTITIONS_FIELD_NUMBER: _ClassVar[int]
+    WAIT_TIMEOUT_MS_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    attempt_id: str
+    partition: int
+    row_offset: int
+    max_rows: int
+    metadata_only: bool
+    after_partitions: int
+    wait_timeout_ms: int
+    def __init__(
+        self,
+        operation_id: _Optional[str] = ...,
+        attempt_id: _Optional[str] = ...,
+        partition: _Optional[int] = ...,
+        row_offset: _Optional[int] = ...,
+        max_rows: _Optional[int] = ...,
+        metadata_only: bool = ...,
+        after_partitions: _Optional[int] = ...,
+        wait_timeout_ms: _Optional[int] = ...,
+    ) -> None: ...
+
+class ReadSqlQueryResultsResponse(_message.Message):
+    __slots__ = ("progress", "arrow_ipc", "next_partition", "next_row_offset", "page_rows")
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    ARROW_IPC_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PARTITION_FIELD_NUMBER: _ClassVar[int]
+    NEXT_ROW_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    PAGE_ROWS_FIELD_NUMBER: _ClassVar[int]
+    progress: SqlQueryResultProgress
+    arrow_ipc: bytes
+    next_partition: int
+    next_row_offset: int
+    page_rows: int
+    def __init__(
+        self,
+        progress: _Optional[_Union[SqlQueryResultProgress, _Mapping]] = ...,
+        arrow_ipc: _Optional[bytes] = ...,
+        next_partition: _Optional[int] = ...,
+        next_row_offset: _Optional[int] = ...,
+        page_rows: _Optional[int] = ...,
+    ) -> None: ...
+
+class SqlQueryResultManifest(_message.Message):
+    __slots__ = ("progress", "output_uri")
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_URI_FIELD_NUMBER: _ClassVar[int]
+    progress: SqlQueryResultProgress
+    output_uri: str
+    def __init__(
+        self, progress: _Optional[_Union[SqlQueryResultProgress, _Mapping]] = ..., output_uri: _Optional[str] = ...
     ) -> None: ...
 
 class PlanSqlQueryRequest(_message.Message):
-    __slots__ = ("query",)
+    __slots__ = ("query", "use_rust_sql_parser")
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    USE_RUST_SQL_PARSER_FIELD_NUMBER: _ClassVar[int]
     query: str
-    def __init__(self, query: _Optional[str] = ...) -> None: ...
+    use_rust_sql_parser: bool
+    def __init__(self, query: _Optional[str] = ..., use_rust_sql_parser: bool = ...) -> None: ...
 
 class PlanSqlQueryResponse(_message.Message):
-    __slots__ = ("logical_plan", "errors")
+    __slots__ = ("logical_plan", "query_plan_json", "errors")
     LOGICAL_PLAN_FIELD_NUMBER: _ClassVar[int]
+    QUERY_PLAN_JSON_FIELD_NUMBER: _ClassVar[int]
     ERRORS_FIELD_NUMBER: _ClassVar[int]
     logical_plan: str
+    query_plan_json: str
     errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
     def __init__(
         self,
         logical_plan: _Optional[str] = ...,
+        query_plan_json: _Optional[str] = ...,
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
     ) -> None: ...
 

@@ -43,7 +43,8 @@ async def test_web_read_adds_one_hint_line_when_failed_pages_are_covered(monkeyp
             "verdict": {"failed": True, "reason": "challenge", "detail": "bot check"}, "coverage": [UNL]}
     monkeypatch.setattr(rp, "read_page_mcp_quick", _reads({"https://a.example/x": wall, "https://b.example/y": wall}))
     res = await web_read({"urls": ["https://a.example/x", "https://b.example/y"]}, _ctx())
-    assert res.success and len(res.model_notices) == 1
+    # Every page failed: a failed call (research-tool-repair E3), and the hint still rides it.
+    assert not res.success and res.error.error_type == "all_pages_failed" and len(res.model_notices) == 1
     line = res.model_notices[0]
     assert line.startswith("2 pages failed") and "advanced_read" in line and "~30 points" in line
     pages = res.output["pages"]
@@ -54,7 +55,7 @@ async def test_web_read_adds_no_hint_when_nothing_failed_or_nothing_covers(monke
     bare = {"status": "error", "result": "Sorry", "text": ""}
     monkeypatch.setattr(rp, "read_page_mcp_quick", _reads({"https://a.example/x": bare}))
     res = await web_read({"urls": ["https://a.example/x"]}, _ctx())
-    assert res.success and res.model_notices == []
+    assert not res.success and res.model_notices == []
 
 
 async def test_advanced_read_tool_calls_the_door_with_fast_by_default():

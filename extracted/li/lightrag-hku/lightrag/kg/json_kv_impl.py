@@ -1,29 +1,42 @@
 import copy
 import os
 from dataclasses import dataclass
-from typing import Any, ClassVar, final
+from typing import Any, AsyncIterator, ClassVar, final
 
 from lightrag.base import (
+    normalize_kv_create_time,
     BaseKVStorage,
 )
 from lightrag.file_atomic import reap_orphan_tmp_files
+from lightrag.config_shards import json_config_dir, probe_snapshot
+from lightrag.namespace import (
+    CONFIG_CONTAINER_TAG,
+    CONFIG_JSON_FILE_NAME,
+    NameSpace,
+)
 from lightrag.utils import (
     _cooperative_yield,
     load_json,
+    log_without_raising,
     logger,
     validate_workspace,
     commit_in_storage_io,
     write_json,
 )
-from lightrag.exceptions import StorageNotInitializedError
+from lightrag.exceptions import (
+    CommitBookkeepingError,
+    CorruptStorageRecordError,
+    StorageNotInitializedError,
+)
 from .shared_storage import (
     get_namespace_data,
     get_namespace_lock,
     get_data_init_lock,
     get_update_flag,
+    leave_namespace_init,
+    namespace_init_claim,
     set_all_update_flags,
     clear_all_update_flags,
-    try_initialize_namespace,
 )
 
 
@@ -32,125 +45,80 @@ from .shared_storage import (
 class JsonKVStorage(BaseKVStorage):
     """JSON-file-backed KV storage with **shared in-memory state across processes**.
 
-    This class uses a *fundamentally different* cross-process model from
-    ``NanoVectorDBStorage`` / ``FaissVectorDBStorage`` / ``NetworkXStorage``
-    (which keep one in-memory copy per process and reconcile via file
-    reloads). Compare carefully before changing either side.
+    A *fundamentally different* cross-process model from
+    ``NanoVectorDBStorage`` / ``FaissVectorDBStorage`` / ``NetworkXStorage``,
+    which keep one in-memory copy per process and reconcile via file reloads.
+    Compare carefully before changing either side.
 
-    Storage model:
-        ``self._data`` is **not** a per-process dict — it is the value
-        returned by ``get_namespace_data(namespace, workspace=...)``, i.e.
-        a reference into ``shared_storage._shared_dicts``. In multi-
-        process mode this is a ``multiprocessing.Manager().dict()`` proxy
-        that every worker sees the **same instance** of; in single-
-        process mode it degrades to a plain ``dict``. Either way, a
-        mutation in any process is *immediately* visible to every other
-        process — there is no reload needed.
+    **Full contract: ``docs/design/FileBackedSnapshotContract.md``** (see its
+    ``JsonKVStorage`` section) -- the reversed flag semantics, lock scope,
+    commit granularity and what it means for chunk tracking, and the caveats.
 
-        The on-disk file at
-        ``working_dir/[workspace/]kv_store_<namespace>.json`` exists for
-        durability only. It is the source of truth at startup and the
-        target of ``index_done_callback`` flushes, but is **not** part of
-        the steady-state read/write path.
+    ``self._data`` is NOT a per-process dict: it is a reference into
+    ``shared_storage._shared_dicts``, a ``Manager().dict()`` proxy every worker
+    sees the same instance of (a plain dict in single-process mode). A mutation
+    in any process is immediately visible in every other -- there is no reload,
+    and adding a ``_get_*`` entry method would be wrong. The on-disk file is
+    for durability only: read once in ``initialize``, written by
+    ``index_done_callback``, and not on the steady-state path.
 
-    First-time load (``initialize``):
-        ``try_initialize_namespace`` is a global init lock that returns
-        ``True`` to exactly one process per ``(namespace, workspace)``.
-        That process reads the JSON file and populates ``self._data``
-        under ``_storage_lock``. Other processes skip the load — they
-        will see the data through the same shared ``self._data`` proxy.
+    ``storage_updated`` means the OPPOSITE of what it means in the file-backed
+    classes: ``True`` is "there is dirty data still to flush", never "there is
+    fresher data on disk to reload".
 
-    Cross-process sync protocol (note: reversed semantics vs file-backed
-    classes):
-        Anyone writing (``upsert`` / ``delete`` / ``drop``):
-            1. Mutate ``self._data`` under ``_storage_lock`` (same lock,
-               same dict, all processes see the change immediately).
-            2. Call ``set_all_update_flags`` to mark **every** process's
-               ``storage_updated`` flag ``True``. Here ``True`` means
-               *"there is dirty data that still needs to be flushed"*,
-               not *"there is fresher data on disk that I need to
-               reload"* as in the file-backed implementations.
-        Commit (``index_done_callback``):
-            1. Under ``_storage_lock``, if ``storage_updated.value`` is
-               ``True``, snapshot ``self._data`` and write it to disk
-               via ``write_json`` (atomic).
-            2. ``clear_all_update_flags`` — wipe every process's flag
-               back to ``False``. Because the in-memory state is already
-               consistent across processes, there is nothing for the
-               *other* processes to do; the clear is just a
-               "the dirty data has been persisted" signal.
+    ``_storage_lock`` is held over EVERY ``self._data`` access, read or write,
+    because the Manager proxy is not free-threaded across processes.
 
-    Lock scope:
-        ``_storage_lock`` is a per-``(namespace, workspace)`` keyed lock
-        spanning intra-process coroutines **and** inter-process workers.
-        Unlike the file-backed classes (which only lock reload/commit
-        critical sections), this class **holds the lock over every
-        ``self._data`` access** — read or write — because the underlying
-        ``Manager().dict()`` is not free-threaded across processes.
+    A commit rewrites the whole namespace, so any writer's flush durably
+    publishes every other writer's pending mutation here. That matters most for
+    the chunk-tracking namespaces, whose rows carry purge attribution.
 
-        Two places intentionally do work outside the lock for latency
-        reasons:
-            * ``upsert`` performs its per-key timestamp prep loop inside
-              the lock but yields to the event loop via
-              ``_cooperative_yield`` between keys (safe: ``NamespaceLock``
-              is non-reentrant, so siblings blocked on it stay blocked).
-            * ``JsonDocStatusStorage.upsert`` prepares its caller-supplied
-              dict outside the lock (it only mutates the input, not the
-              shared store).
-
-    Who can write:
-        Pipeline ``busy`` still serializes the document ingest / purge
-        flows, but the *file-flush trigger* is symmetric: any process
-        whose ``storage_updated.value`` is ``True`` when
-        ``index_done_callback`` fires will perform the write. In a
-        single-writer pipeline this is always the same process; if you
-        ever permit multiple writers, two processes may race to flush
-        the same in-memory state — that race is safe (both flush the
-        same shared dict, ``write_json`` is atomic per file) but
-        wasteful, and the ``clear_all_update_flags`` after each flush
-        means subsequent re-flushes are no-ops.
-
-    Caveats vs file-backed implementations:
-        * **No reload path.** If something writes to the on-disk file
-          out of band, this class will not pick it up until restart.
-          The file is only ever written by ``index_done_callback`` and
-          read once in ``initialize``.
-        * **No ``_get_*`` entry method.** Adding one would be wrong —
-          there's nothing to "get fresher than" since the in-memory
-          state is already the shared, authoritative view.
-        * **``write_json`` may sanitize.** If sanitization happens, the
-          on-disk JSON differs from what was in memory; the callback
-          re-reads the cleaned file back into ``self._data`` under the
-          same lock so the shared view stays consistent with disk.
-
-    Non-pipeline write paths:
-        * ``drop`` — destructive, **not** serialized by this storage
-          class. Currently gated by the API layer
-          (``/documents/clear``); any new caller must hold the pipeline
-          ``busy`` reservation.
-        * ``upsert`` / ``delete`` invoked from non-pipeline admin flows
-          (cache management, etc.) — safe under the shared-lock model,
-          but consumers should still respect the pipeline gate to avoid
-          interleaving with batched ingest work.
+    Supported for small-scale testing and validation only.
     """
 
     supports_strict_point_reads: ClassVar[bool] = True
 
     def __post_init__(self):
-        # Reject path traversal before using workspace in a file path
-        validate_workspace(self.workspace)
         working_dir = self.global_config["working_dir"]
-        if self.workspace:
-            # Include workspace in the file path for data isolation
-            workspace_dir = os.path.join(working_dir, self.workspace)
+        if self.namespace == NameSpace.KV_STORE_CONFIG:
+            # The configuration snapshot of ONE workspace, at the fixed path
+            # ``config_shards.json_config_dir`` derives from ``working_dir``
+            # and the instance's own workspace (``global_config["workspace"]``);
+            # no setting moves it. ``self.workspace`` stays the container tag
+            # the category requires (``create_configuration_storage``); it
+            # addresses nothing.
+            # See *JSON configuration shards* in
+            # docs/design/ConfigurationStorageContract.md.
+            workspace_dir = json_config_dir(
+                working_dir, self.global_config.get("workspace") or ""
+            )
+            self.workspace = CONFIG_CONTAINER_TAG
+            file_name = CONFIG_JSON_FILE_NAME
+            # The shared-namespace bookkeeping (init claim, namespace lock,
+            # update flags, cleanup) is keyed by the PHYSICAL file: several
+            # workspaces' snapshots may be open in one process tree, and a
+            # constant key would alias them into one namespace.
+            self._shared_workspace = (
+                f"{CONFIG_CONTAINER_TAG}@{os.path.realpath(workspace_dir)}"
+            )
         else:
-            # Default behavior when workspace is empty
-            workspace_dir = working_dir
-            self.workspace = ""
+            # Reject path traversal before using workspace in a file path
+            validate_workspace(self.workspace)
+            if self.workspace:
+                # Include workspace in the file path for data isolation
+                workspace_dir = os.path.join(working_dir, self.workspace)
+            else:
+                # Default behavior when workspace is empty
+                workspace_dir = working_dir
+                self.workspace = ""
+            file_name = f"kv_store_{self.namespace}.json"
+            self._shared_workspace = self.workspace
 
         os.makedirs(workspace_dir, exist_ok=True)
-        self._file_name = os.path.join(workspace_dir, f"kv_store_{self.namespace}.json")
+        self._file_name = os.path.join(workspace_dir, file_name)
         self._data = None
+        # Whether THIS instance holds the shared namespace; see ``finalize``.
+        self._holds_namespace = False
         self._storage_lock = None
         self.storage_updated = None
 
@@ -159,52 +127,75 @@ class JsonKVStorage(BaseKVStorage):
     async def initialize(self):
         """Bind to the shared namespace dict and load from disk on first init.
 
-        ``try_initialize_namespace`` is a global init lock that returns
-        ``True`` for exactly one process per ``(namespace, workspace)``;
-        that process reads the JSON file and populates the shared
-        ``self._data`` under ``_storage_lock``. Subsequent processes
-        skip the file read — they will see the same shared dict via
-        ``get_namespace_data``.
+        ``namespace_init_claim`` is a global init lock that yields ``True``
+        to exactly one process per ``(namespace, workspace)``; that process
+        reads the JSON file and populates the shared ``self._data`` under
+        ``_storage_lock``. Subsequent processes skip the file read — they
+        will see the same shared dict via ``get_namespace_data``.
+
+        The load MUST stay inside the claim. Leaving it by exception hands
+        the claim back so the next process reads the file again; a claim
+        kept over an empty dict would make every later instance in this
+        process tree read absence where the file has rows.
 
         For ``*_cache`` namespaces an extra
         ``_migrate_legacy_cache_structure`` pass runs against the loaded
         data and may rewrite the on-disk file if a migration was applied.
         """
-        self._storage_lock = get_namespace_lock(
-            self.namespace, workspace=self.workspace
-        )
-        self.storage_updated = await get_update_flag(
-            self.namespace, workspace=self.workspace
-        )
         async with get_data_init_lock():
+            # A repeated (including concurrent) initialize owns no extra hold
+            # or update flag, and must preserve any pending dirty state.
+            if self._holds_namespace:
+                return
+            self._storage_lock = get_namespace_lock(
+                self.namespace, workspace=self._shared_workspace
+            )
+            self.storage_updated = await get_update_flag(
+                self.namespace, workspace=self._shared_workspace
+            )
             # check need_init must before get_namespace_data
-            need_init = await try_initialize_namespace(
-                self.namespace, workspace=self.workspace
-            )
-            self._data = await get_namespace_data(
-                self.namespace, workspace=self.workspace
-            )
-            if need_init:
-                loaded_data = load_json(self._file_name) or {}
-                async with self._storage_lock:
-                    # Migrate legacy cache structure if needed
-                    if self.namespace.endswith("_cache"):
-                        loaded_data = await self._migrate_legacy_cache_structure(
-                            loaded_data
+            async with namespace_init_claim(
+                self.namespace,
+                workspace=self._shared_workspace,
+                backing=self._file_name,
+            ) as need_init:
+                self._data = await get_namespace_data(
+                    self.namespace, workspace=self._shared_workspace
+                )
+                if need_init:
+                    if self.namespace == NameSpace.KV_STORE_CONFIG:
+                        # Before the open: a FIFO or other non-regular file
+                        # at the snapshot path would block the read forever.
+                        probe_snapshot(self._file_name)
+                    loaded_data = load_json(self._file_name) or {}
+                    async with self._storage_lock:
+                        # Migrate legacy cache structure if needed
+                        if self.namespace.endswith("_cache"):
+                            loaded_data = await self._migrate_legacy_cache_structure(
+                                loaded_data
+                            )
+
+                        self._data.update(loaded_data)
+                        data_count = len(loaded_data)
+
+                        logger.info(
+                            f"[{self.workspace}] Process {os.getpid()} KV load {self.namespace} with {data_count} records"
                         )
 
-                    self._data.update(loaded_data)
-                    data_count = len(loaded_data)
-
-                    logger.info(
-                        f"[{self.workspace}] Process {os.getpid()} KV load {self.namespace} with {data_count} records"
-                    )
+            # Only NOW does this instance hold the namespace. The claim is counted
+            # and the count belongs to whoever took it, so a ``finalize()`` from an
+            # instance that never got one releases somebody else's -- and the last
+            # release empties the shared dict, which the real holder then publishes
+            # over its own file. ``initialize_storages`` adds a storage to its
+            # rollback list BEFORE initializing it, so that finalize is on the
+            # normal path of any refusal here, this claim's own included.
+            self._holds_namespace = True
 
     async def index_done_callback(self) -> None:
         """Flush dirty in-memory state to disk and clear all dirty flags.
 
-        Commit point in the shared-memory protocol (see class docstring,
-        *Cross-process sync protocol*). Steps:
+        Commit point in the shared-memory protocol (see the contract doc,
+        *Reversed flag semantics*). Steps:
             1. Under ``_storage_lock``, check this process's
                ``storage_updated.value``. If ``False``, nothing to do —
                return.
@@ -228,6 +219,8 @@ class JsonKVStorage(BaseKVStorage):
         ``index_done_callback`` does globally is *clear* the dirty
         flags.
         """
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
         async with self._storage_lock:
             if self.storage_updated.value:
                 # DictProxy.copy() is a single Manager RPC that marshals the
@@ -241,7 +234,7 @@ class JsonKVStorage(BaseKVStorage):
                 data_count = len(data_dict)
 
                 logger.debug(
-                    f"[{self.workspace}] Process {os.getpid()} KV writting {data_count} records to {self.namespace}"
+                    f"[{self.workspace}] Process {os.getpid()} KV writing {data_count} records to {self.namespace}"
                 )
 
                 # Off the event loop: this rewrites the whole file, which on a
@@ -250,6 +243,7 @@ class JsonKVStorage(BaseKVStorage):
                 # -- `data_dict` is snapshotted above, on the loop, under the
                 # lock, so the worker thread touches nothing shared.
                 write_outcome: dict[str, bool] = {}
+                reconcile_failure: list[Exception] = []
 
                 def _write() -> None:
                     write_outcome["needs_reload"] = write_json(
@@ -274,18 +268,87 @@ class JsonKVStorage(BaseKVStorage):
                         )
                         cleaned_data = load_json(self._file_name)
                         if cleaned_data is not None:
-                            self._data.clear()
-                            self._data.update(cleaned_data)
+                            try:
+                                self._data.clear()
+                                self._data.update(cleaned_data)
+                            except Exception as exc:
+                                # NOT publication, and not absorbable. On a
+                                # shared ``Manager().dict()`` these are two
+                                # separate RPCs, so a failure between them
+                                # leaves the shared dict EMPTY while the file on
+                                # disk holds the correct sanitized snapshot —
+                                # and the dirty flags are still set, so the next
+                                # flush would write that empty dict straight
+                                # over it, losing every row in the namespace.
+                                # Recorded so the handler below re-raises
+                                # instead of reporting a healthy deferred
+                                # publication.
+                                reconcile_failure.append(exc)
+                                raise
 
                     await clear_all_update_flags(
-                        self.namespace, workspace=self.workspace
+                        self.namespace, workspace=self._shared_workspace
                     )
 
-                await commit_in_storage_io(_write, _committed)
+                try:
+                    await commit_in_storage_io(_write, _committed)
+                except CommitBookkeepingError as e:
+                    if reconcile_failure:
+                        # Fail loud. What is unreliable now is the shared
+                        # in-memory view, and no later flush heals it — a later
+                        # flush is what would PUBLISH it. The file on disk is
+                        # the correct snapshot, so the recovery is to stop
+                        # writing to this workspace and restart the workers,
+                        # which reload it. Re-raised as the original failure
+                        # rather than as CommitBookkeepingError: callers read
+                        # that type as "committed, only publication deferred"
+                        # and some deliberately absorb it.
+                        raise reconcile_failure[0]
+                    # Past the guard above, the only thing that can have
+                    # failed is the dirty-flag clear — the file is published and
+                    # the shared dict matches it. That heals on the next flush:
+                    # the flags stay set, so the next index_done_callback
+                    # rewrites this same snapshot and retries the clear.
+                    #
+                    # Re-raising instead would report a durable write as one that
+                    # never happened, and every caller inherits that: _insert_done
+                    # marks a document FAILED whose rows are on disk, and
+                    # utils_graph's deletion paths turn a chunk-tracking cleanup
+                    # they have already completed into fail/500.
+                    log_without_raising(
+                        logger.error,
+                        f"[{self.workspace}] KV data for {self.namespace} was "
+                        f"written to {self._file_name}, but its post-write "
+                        f"bookkeeping failed: {e.__cause__}. The dirty flags stay "
+                        "set, so the next commit rewrites this snapshot and "
+                        "retries them.",
+                    )
+
+    def _as_row(self, key: str, value: Any) -> Any:
+        """Refuse a stored payload that is not a row, naming it.
+
+        Every read below normalises the row it hands back (``create_time``,
+        ``update_time``, ``_id``), so it calls mapping methods on whatever the
+        file held. A key mapped to a string or a number -- a hand-edited file,
+        a truncated one repaired by hand, a foreign writer -- therefore escaped
+        as ``AttributeError: 'str' object has no attribute 'setdefault'`` from
+        inside this class, which the layer above reads as the STORE failing
+        rather than one row being damaged. Raise the damage by name instead,
+        and let whoever knows the schema decide what it means.
+        """
+        if value is not None and not isinstance(value, dict):
+            raise CorruptStorageRecordError(
+                f"[{self.workspace}] {self.namespace} record {key!r} in "
+                f"{self._file_name} is {type(value).__name__}, not a mapping: "
+                f"{value!r}"
+            )
+        return value
 
     async def get_by_id(self, id: str) -> dict[str, Any] | None:
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
         async with self._storage_lock:
-            result = self._data.get(id)
+            result = self._as_row(id, self._data.get(id))
             if result:
                 # Deep-copy so nested mutable fields (e.g. text_chunks'
                 # llm_cache_list) don't alias the live storage row — a
@@ -309,11 +372,25 @@ class JsonKVStorage(BaseKVStorage):
             raise StorageNotInitializedError("JsonKVStorage")
         return await self.get_by_id(id)
 
+    async def list_keys(self) -> list[str]:
+        """Every key, without reading a value (one Manager RPC under the lock).
+
+        For the configuration snapshot's validation, which must classify
+        every key even when a value is damaged: ``iter_rows`` raises at the
+        first non-mapping payload.
+        """
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
+        async with self._storage_lock:
+            return list(self._data.keys())
+
     async def get_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
         async with self._storage_lock:
             results = []
             for id in ids:
-                data = self._data.get(id, None)
+                data = self._as_row(id, self._data.get(id, None))
                 if data:
                     # Deep-copy — see get_by_id for why a shallow copy isn't
                     # enough to protect nested mutable fields.
@@ -329,6 +406,8 @@ class JsonKVStorage(BaseKVStorage):
             return results
 
     async def filter_keys(self, keys: set[str]) -> set[str]:
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
         async with self._storage_lock:
             return set(keys) - set(self._data.keys())
 
@@ -337,7 +416,14 @@ class JsonKVStorage(BaseKVStorage):
 
         Two side effects under ``_storage_lock``:
             1. Stamp ``create_time`` / ``update_time`` / ``_id`` on each
-               value, then ``self._data.update(data)``. Because
+               value, then ``self._data.update(data)``. Timestamping
+               follows the ``BaseKVStorage.upsert`` contract: a new key
+               gets both stamps, an existing key keeps its stored
+               ``create_time`` (``0`` when the row never had one) and only
+               advances ``update_time``, and a caller-supplied
+               ``create_time`` is ignored. No I/O is needed for that --
+               unlike the remote backends, the previous value is already in
+               shared memory. Because
                ``self._data`` is the shared ``Manager.dict()`` proxy, the
                update is visible to all processes immediately — no
                reload needed.
@@ -345,7 +431,7 @@ class JsonKVStorage(BaseKVStorage):
                ``storage_updated.value`` to ``True``. Here ``True``
                means *"there is dirty data that still needs to be
                flushed to disk"*, **not** *"there is fresher data on
-               disk"* as in the file-backed classes (see class docstring
+               disk"* as in the file-backed classes (see the contract doc
                for the contrast).
 
         Persistence is deferred to the next ``index_done_callback`` (the
@@ -380,9 +466,24 @@ class JsonKVStorage(BaseKVStorage):
                     if "llm_cache_list" not in v:
                         v["llm_cache_list"] = []
 
-                # Add timestamps based on whether key exists
-                if k in self._data:  # Key exists, only update update_time
+                # Timestamps per the BaseKVStorage.upsert contract. A single
+                # ``get`` -- not ``__contains__`` + ``__getitem__`` -- because
+                # on a multi-worker deployment ``self._data`` is a
+                # ``Manager().dict()`` proxy and each subscript is a separate
+                # RPC; ``get`` is what this file's read paths already use.
+                # Values are always dicts, so ``None`` means absent.
+                existing = self._data.get(k)
+                if existing is not None:
+                    # Update: the business value is replaced wholesale, but the
+                    # storage-managed create_time survives it. A legacy row
+                    # without the field records 0 (unknown) -- never a
+                    # fabricated original timestamp.
                     v["update_time"] = current_time
+                    v["create_time"] = normalize_kv_create_time(
+                        existing.get("create_time")
+                        if isinstance(existing, dict)
+                        else None
+                    )
                 else:  # New key, set both create_time and update_time
                     v["create_time"] = current_time
                     v["update_time"] = current_time
@@ -391,7 +492,7 @@ class JsonKVStorage(BaseKVStorage):
                 await _cooperative_yield(i)
 
             self._data.update(data)
-            await set_all_update_flags(self.namespace, workspace=self.workspace)
+            await set_all_update_flags(self.namespace, workspace=self._shared_workspace)
 
     async def delete(self, ids: list[str]) -> None:
         """Remove records from shared memory; mark all processes dirty if any deleted.
@@ -401,12 +502,14 @@ class JsonKVStorage(BaseKVStorage):
         was actually present (avoids creating spurious dirty state for
         no-op deletes).
 
-        See class docstring for the shared-memory + dirty-flag protocol
+        See the contract doc for the shared-memory + dirty-flag protocol
         and the semantic contrast vs file-backed classes.
 
         Args:
             ids: List of document IDs to be deleted from storage
         """
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
         async with self._storage_lock:
             any_deleted = False
             for doc_id in ids:
@@ -415,7 +518,9 @@ class JsonKVStorage(BaseKVStorage):
                     any_deleted = True
 
             if any_deleted:
-                await set_all_update_flags(self.namespace, workspace=self.workspace)
+                await set_all_update_flags(
+                    self.namespace, workspace=self._shared_workspace
+                )
 
     async def is_empty(self) -> bool:
         """Check if the storage is empty
@@ -423,8 +528,49 @@ class JsonKVStorage(BaseKVStorage):
         Returns:
             bool: True if storage contains no data, False otherwise
         """
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
         async with self._storage_lock:
             return len(self._data) == 0
+
+    async def iter_rows(self, *, page_size: int = 200) -> AsyncIterator[dict[str, Any]]:
+        """Stream every row (base contract), a page of keys at a time.
+
+        The key list is one Manager RPC taken under the lock; each page then
+        re-reads its rows under the lock, so a row deleted mid-scan is skipped
+        and a row inserted mid-scan may or may not appear. Rows are deep-copied
+        like ``get_by_ids`` so a caller cannot alias the shared dict.
+
+        The key snapshot is O(namespace) before the first page is yielded, and
+        that is accepted on purpose: this backend is for small-scale testing
+        only, so no change to it may be justified by throughput, and the
+        alternative (iterating the ``Manager().dict()`` proxy lazily) costs one
+        RPC per key and raises when a peer worker resizes the dict mid-scan.
+        Only the row payloads are paged; the keys are not.
+        """
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
+        page_size = max(1, int(page_size))
+        async with self._storage_lock:
+            keys = list(self._data.keys())
+        for start in range(0, len(keys), page_size):
+            page: list[dict[str, Any]] = []
+            async with self._storage_lock:
+                for key in keys[start : start + page_size]:
+                    # Raises on a damaged row rather than yielding it: the base
+                    # contract requires this stream to raise on a failure, and
+                    # a caller that got a string where a row belongs would fail
+                    # further away with nothing naming the key.
+                    data = self._as_row(key, self._data.get(key))
+                    if data is None:
+                        continue
+                    row = copy.deepcopy(data)
+                    row.setdefault("create_time", 0)
+                    row.setdefault("update_time", 0)
+                    row["_id"] = key
+                    page.append(row)
+            for row in page:
+                yield row
 
     async def drop(self) -> dict[str, str]:
         """Clear shared memory and immediately persist the empty state.
@@ -443,7 +589,7 @@ class JsonKVStorage(BaseKVStorage):
             reservation (the ``/documents/clear`` endpoint does this)
             before invoking it — running ``drop`` concurrently with an
             active document pipeline will wipe out in-flight work and
-            silently lose data. See class docstring,
+            silently lose data. See the contract doc,
             *Non-pipeline write paths*.
 
         Returns:
@@ -452,9 +598,13 @@ class JsonKVStorage(BaseKVStorage):
             - On failure: {"status": "error", "message": "<error details>"}
         """
         try:
+            if self._storage_lock is None:
+                raise StorageNotInitializedError("JsonKVStorage")
             async with self._storage_lock:
                 self._data.clear()
-                await set_all_update_flags(self.namespace, workspace=self.workspace)
+                await set_all_update_flags(
+                    self.namespace, workspace=self._shared_workspace
+                )
 
             await self.index_done_callback()
             logger.info(
@@ -536,5 +686,28 @@ class JsonKVStorage(BaseKVStorage):
         Non-cache namespaces don't need this — their writes already
         flow through pipeline-driven ``_insert_done()`` commits.
         """
-        if self.namespace.endswith("_cache"):
-            await self.index_done_callback()
+        try:
+            if self.namespace.endswith("_cache"):
+                await self.index_done_callback()
+        finally:
+            # Give up this instance's hold LAST, after anything that still
+            # needed the shared dict: the last holder's release empties it.
+            #
+            # In a ``finally``, because the flush above can fail (a full disk,
+            # a read-only mount) and ``_finalize_storages_impl`` absorbs that
+            # failure and carries on: the hold would leak silently. A leaked
+            # hold is not a small thing -- it is counted, so no later instance
+            # in this process tree can ever be the last one out, the namespace
+            # is never emptied, and a second ``working_dir`` is refused with
+            # ``SharedNamespaceBackingConflictError`` for the life of the
+            # process. Losing the cache is the lesser of the two.
+            if self._holds_namespace:
+                self._holds_namespace = False
+                await leave_namespace_init(
+                    self.namespace, workspace=self._shared_workspace
+                )
+                # The last release emptied the shared dict. A write through
+                # this instance would land in that empty dict and its flush
+                # would publish it over the file, so every later call raises
+                # ``StorageNotInitializedError`` until ``initialize()`` runs.
+                self._storage_lock = None

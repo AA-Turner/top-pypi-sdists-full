@@ -12,6 +12,8 @@ from matrx_connect.context.app_context import (
     admin_surface_active,
     admin_tool_authorized,
     admin_tool_level,
+    admin_tool_refusal_message,
+    ADMIN_TIER_NOTE_KEY,
     DelegatedMemberAppContext,
     OrganizationFreeAppContext,
     TenantAppContext,
@@ -32,6 +34,7 @@ from matrx_connect.context.app_context import (
     system_app_context,
     try_get_app_context,
 )
+from matrx_connect.context.run_scope import RunScope
 from matrx_connect.context.tenant_provenance import (
     VERIFIED_DELEGATION_CHANNELS,
     AuthorizedResourceAdmission,
@@ -93,6 +96,9 @@ from matrx_connect.context.data_types import (
     DictionaryPublishCompleteData,
     ExtractionIndexCompleteData,
     ExtractionIndexProgressData,
+    DeckMakeProgressData,
+    DeckMadeData,
+    QuizMadeData,
     FileAnalysisCompleteData,
     FileAnalysisStartedData,
     FileDetectorCompletedData,
@@ -123,6 +129,7 @@ from matrx_connect.context.data_types import (
     PdfPageClassificationItem,
     PdfPageClassifiedData,
     PdfPageExtractedData,
+    ScanPdfResultData,
     PdfPipelineResultData,
     PdfReadingOrderBlockItem,
     PdfReadingOrderCompleteData,
@@ -175,6 +182,12 @@ from matrx_connect.context.error_buffer import (
     BufferedErrorEmitter,
     BufferedErrorEvent,
     buffer_error_events,
+)
+from matrx_connect.context.graph_ops import (
+    GraphOp,
+    GraphOpActor,
+    GraphOpEvent,
+    GraphRef,
 )
 from matrx_connect.context.events import (
     PAYLOAD_REGISTRY,
@@ -235,11 +248,14 @@ from matrx_connect.context.tool_event_data import (
 )
 
 __all__ = [
+    "RunScope",
     "AppContext",
     "admin_lane_active",
     "admin_surface_active",
     "admin_tool_authorized",
     "admin_tool_level",
+    "admin_tool_refusal_message",
+    "ADMIN_TIER_NOTE_KEY",
     "DelegatedMemberAppContext",
     "DelegatedMemberAdmissionError",
     "DelegatedMemberTenantProvenance",
@@ -267,6 +283,9 @@ __all__ = [
     "ClaudeManagedWarningData",
     "ExtractionIndexCompleteData",
     "ExtractionIndexProgressData",
+    "DeckMakeProgressData",
+    "DeckMadeData",
+    "QuizMadeData",
     "FileAnalysisCompleteData",
     "FileAnalysisStartedData",
     "FileDetectorCompletedData",
@@ -303,6 +322,7 @@ __all__ = [
     "PdfExtractCompleteData",
     "PdfExtractStartedData",
     "PdfPageExtractedData",
+    "ScanPdfResultData",
     "PdfTableBboxItem",
     "PdfExtractedTableItem",
     "PdfTablesStartedData",
@@ -388,6 +408,10 @@ __all__ = [
     "RecordStatus",
     "RecordUpdatePayload",
     "ResourceAction",
+    "GraphOp",
+    "GraphOpActor",
+    "GraphOpEvent",
+    "GraphRef",
     "ResourceChangedPayload",
     "StreamEvent",
     "StructuredInputWarningData",

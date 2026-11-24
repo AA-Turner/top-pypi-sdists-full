@@ -88,7 +88,7 @@ async def test_run_agent_returns_the_childs_terminal_exception(monkeypatch) -> N
 
     monkeypatch.setattr(definition, "execute_ai_request", fake_execute_ai_request)
     agent = Agent(UnifiedConfig(model="gpt-5.4-nano", messages=MessageList()), name="Action items")
-    token = set_app_context(AppContext(emitter=_QuietEmitter(), user_id=_USER_ID, store=False))  # type: ignore[arg-type]
+    token = set_app_context(AppContext(emitter=_QuietEmitter(), user_id=_USER_ID, organization_id="0a900000-0000-4000-8000-00000000a7a7", store=False))  # type: ignore[arg-type]
     try:
         result = await run_agent(agent, label="action-items", source_feature="agent_call")
     finally:
@@ -132,6 +132,8 @@ async def test_agent_call_hands_the_child_exception_to_the_tool_error(monkeypatc
     class _ChildAgent:
         name = "Action items"
         output_schema = None
+        async def run_first_turn_pass(self):  # the real pass: present on every Agent
+            return self
 
     monkeypatch.setattr(
         Agent, "from_agent", classmethod(lambda _cls, *a, **k: _value(_ChildAgent()))
@@ -148,7 +150,7 @@ async def test_agent_call_hands_the_child_exception_to_the_tool_error(monkeypatc
         )
 
     monkeypatch.setattr(executor_mod, "run_agent", fake_run_agent)
-    token = set_app_context(AppContext(emitter=None, user_id=_USER_ID))
+    token = set_app_context(AppContext(emitter=None, user_id=_USER_ID, organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         result = await agent_call({"agent_id": _AGENT_ID}, ToolContext(call_id="call-1"))
     finally:

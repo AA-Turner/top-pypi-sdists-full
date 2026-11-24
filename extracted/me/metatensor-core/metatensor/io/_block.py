@@ -1,130 +1,33 @@
-# from __future__ import annotations
+from __future__ import annotations
 
 import ctypes
 import io
 import pathlib
 import warnings
-from typing import BinaryIO, Callable, Union
+from typing import BinaryIO, Optional, Union
 
 import numpy as np
-from ctypes_dlpack import DLDataType, DLDataTypeCode
 
 from .._block import TensorBlock
-from .._c_api import (
-    c_uintptr_t,
-    mts_array_t,
-    mts_create_array_callback_t,
-)
+from .._c_api import mts_create_array_callback_t
 from .._c_lib import _get_library
-from .._data._array import _is_numpy_array, _is_torch_array, create_mts_array
-from .._status import catch_exceptions, check_pointer
-from ._labels import _labels_from_mts, _labels_to_mts
-from ._utils import _save_buffer_raw
-
-
-_DLPACK_TO_NUMPY = {
-    (DLDataTypeCode.kDLFloat, 16): np.float16,
-    (DLDataTypeCode.kDLFloat, 32): np.float32,
-    (DLDataTypeCode.kDLFloat, 64): np.float64,
-    (DLDataTypeCode.kDLInt, 8): np.int8,
-    (DLDataTypeCode.kDLInt, 16): np.int16,
-    (DLDataTypeCode.kDLInt, 32): np.int32,
-    (DLDataTypeCode.kDLInt, 64): np.int64,
-    (DLDataTypeCode.kDLUInt, 8): np.uint8,
-    (DLDataTypeCode.kDLUInt, 16): np.uint16,
-    (DLDataTypeCode.kDLUInt, 32): np.uint32,
-    (DLDataTypeCode.kDLUInt, 64): np.uint64,
-    (DLDataTypeCode.kDLBool, 8): np.bool_,
-    (DLDataTypeCode.kDLComplex, 64): np.complex64,
-    (DLDataTypeCode.kDLComplex, 128): np.complex128,
-}
-
-
-def _dlpack_dtype_to_numpy(dtype):
-    """Convert a DLDataType to a numpy dtype."""
-    if dtype.lanes != 1:
-        raise ValueError(f"unsupported DLDataType: lanes={dtype.lanes} (expected 1)")
-    result = _DLPACK_TO_NUMPY.get((dtype.code, dtype.bits))
-    if result is None:
-        raise ValueError(
-            f"unsupported DLDataType: code={dtype.code}, bits={dtype.bits}"
-        )
-    return result
-
-
-def _dlpack_dtype_to_torch(dtype):
-    """Convert a DLDataType to a torch dtype."""
-    if dtype.lanes != 1:
-        raise ValueError(
-            f"unsupported DLDataType for torch: lanes={dtype.lanes} (expected 1)"
-        )
-    import torch
-
-    _MAP = {
-        (DLDataTypeCode.kDLFloat, 16): torch.float16,
-        (DLDataTypeCode.kDLFloat, 32): torch.float32,
-        (DLDataTypeCode.kDLFloat, 64): torch.float64,
-        (DLDataTypeCode.kDLInt, 8): torch.int8,
-        (DLDataTypeCode.kDLInt, 16): torch.int16,
-        (DLDataTypeCode.kDLInt, 32): torch.int32,
-        (DLDataTypeCode.kDLInt, 64): torch.int64,
-        (DLDataTypeCode.kDLUInt, 8): torch.uint8,
-        (DLDataTypeCode.kDLBool, 8): torch.bool,
-        (DLDataTypeCode.kDLComplex, 64): torch.complex64,
-        (DLDataTypeCode.kDLComplex, 128): torch.complex128,
-    }
-    result = _MAP.get((dtype.code, dtype.bits))
-    if result is None:
-        raise ValueError(
-            f"unsupported DLDataType for torch: code={dtype.code}, bits={dtype.bits}"
-        )
-    return result
-
-
-# TODO: use a proper type alias when we drop support for Python <3.10; and remove the
-# quotes around the type annotations using this.
-# https://stackoverflow.com/a/73223518/4692076
-CreateArrayCallback = Callable[
-    [ctypes.POINTER(c_uintptr_t), c_uintptr_t, DLDataType, ctypes.POINTER(mts_array_t)],
-    None,
-]
-
-
-@catch_exceptions
-def create_numpy_array(shape_ptr, shape_count, dtype, array):
-    """
-    Callback function that can be used with
-    :py:func:`metatensor.io.load_custom_array` to load data in numpy arrays.
-    """
-    shape = []
-    for i in range(shape_count):
-        shape.append(shape_ptr[i])
-
-    np_dtype = _dlpack_dtype_to_numpy(dtype)
-    data = np.empty(shape, dtype=np_dtype)
-    array[0] = create_mts_array(data)
-
-
-@catch_exceptions
-def create_torch_array(shape_ptr, shape_count, dtype, array):
-    """
-    Callback function that can be used with
-    :py:func:`metatensor.io.load_custom_array` to load data in torch
-    tensors. The resulting tensors are stored on CPU.
-    """
-    import torch
-
-    shape = []
-    for i in range(shape_count):
-        shape.append(shape_ptr[i])
-
-    torch_dtype = _dlpack_dtype_to_torch(dtype)
-    data = torch.empty(shape, dtype=torch_dtype, device="cpu")
-    array[0] = create_mts_array(data)
+from .._data import ArrayBackend
+from .._data._array import is_numpy_array, is_torch_array
+from .._status import check_pointer
+from ._labels import labels_from_mts, labels_to_mts
+from ._utils import (
+    CreateArrayCallback,
+    array_backend_for_create_array,
+    create_array_for_array_backend,
+    save_buffer_raw,
+)
 
 
 def load_block(
-    file: Union[str, pathlib.Path, BinaryIO], use_numpy=False
+    file: Union[str, pathlib.Path, BinaryIO],
+    use_numpy=False,
+    *,
+    array_backend: ArrayBackend = "numpy",
 ) -> TensorBlock:
     """
     Load a previously saved :py:class:`TensorBlock` from the given file.
@@ -136,57 +39,75 @@ def load_block(
         able to process more dtypes than the native implementation, which is limited to
         float64, but the native implementation is usually faster than going through
         numpy.
+    :param array_backend: array backend to use for all data in the
+        :py:class:`TensorBlock`. See :ref:`python-api-array-backend` for more
+        information.
     """
     if use_numpy:
+        if array_backend != "numpy":
+            raise ValueError("`array_backend` must be 'numpy' when `use_numpy` is True")
         return _block_from_mts(file)
     else:
+        create_array = create_array_for_array_backend(array_backend)
+
         if isinstance(file, (str, pathlib.Path)):
-            return load_block_custom_array(file, create_numpy_array)
+            return load_block_custom_array(file, create_array)
         else:
             # assume we have a file-like object
             buffer = file.read()
             assert isinstance(buffer, bytes)
 
-            return load_block_buffer_custom_array(buffer, create_numpy_array)
+            return load_block_buffer_custom_array(buffer, create_array)
 
 
 def load_block_buffer(
-    buffer: Union[bytes, bytearray, memoryview], use_numpy=False
+    buffer: Union[bytes, bytearray, memoryview],
+    use_numpy=False,
+    *,
+    array_backend: ArrayBackend = "numpy",
 ) -> TensorBlock:
     """
     Load a previously saved :py:class:`TensorBlock` from an in-memory buffer.
 
     :param buffer: In-memory buffer containing a serialized ``TensorBlock``
     :param use_numpy: should we use numpy or the native implementation?
+    :param array_backend: array backend to use for all data in the
+        :py:class:`TensorBlock`. See :ref:`python-api-array-backend` for more
+        information.
     """
     if use_numpy:
+        if array_backend != "numpy":
+            raise ValueError("`array_backend` must be 'numpy' when `use_numpy` is True")
+
         return _block_from_mts(io.BytesIO(buffer))
     else:
-        return load_block_buffer_custom_array(buffer, create_numpy_array)
-    pass
+        create_array = create_array_for_array_backend(array_backend)
+        return load_block_buffer_custom_array(buffer, create_array)
 
 
 def load_block_custom_array(
     path: Union[str, pathlib.Path],
-    create_array: "CreateArrayCallback",
+    create_array: CreateArrayCallback,
+    *,
+    array_backend: Optional[ArrayBackend] = None,
 ) -> TensorBlock:
     """
     Load a previously saved :py:class:`TensorBlock` from the given path using a custom
-    array creation callback.
-
-    This is an advanced functionality, which should not be needed by most users.
-
-    This function allows to specify the kind of array to use when loading the data
-    through the ``create_array`` callback. This callback should take three arguments: a
-    pointer to the shape, the number of elements in the shape, and a pointer to the
-    ``mts_array_t`` to be filled.
+    array creation callback. This advanced functionality should not be needed by most
+    users.
 
     :py:func:`metatensor.io.create_numpy_array` and
-    :py:func:`metatensor.io.create_torch_array` can be used to load data into numpy
-    and torch arrays respectively.
+    :py:func:`metatensor.io.create_torch_array` can be used as callbacks to load data
+    into numpy and torch arrays respectively.
 
     :param path: path of the file to load
     :param create_array: callback used to create arrays as needed
+    :param array_backend: array backend to use for all data in the
+        :py:class:`TensorBlock`. This is required for custom ``create_array`` callbacks,
+        and guessed if the callback is one of
+        :py:func:`metatensor.io.create_numpy_array` or
+        :py:func:`metatensor.io.create_torch_array`. See :ref:`python-api-array-backend`
+        for more information.
     """
 
     lib = _get_library()
@@ -198,30 +119,34 @@ def load_block_custom_array(
 
     ptr = lib.mts_block_load(path, mts_create_array_callback_t(create_array))
     check_pointer(ptr)
-    return TensorBlock.unsafe_from_ptr(ptr)
+    return TensorBlock.unsafe_from_ptr(
+        ptr, array_backend=array_backend_for_create_array(create_array, array_backend)
+    )
 
 
 def load_block_buffer_custom_array(
     buffer: Union[bytes, bytearray, memoryview],
-    create_array: "CreateArrayCallback",
+    create_array: CreateArrayCallback,
+    *,
+    array_backend: Optional[ArrayBackend] = None,
 ) -> TensorBlock:
     """
     Load a previously saved :py:class:`TensorBlock` from the given buffer using a custom
-    array creation callback.
-
-    This is an advanced functionality, which should not be needed by most users.
-
-    This function allows to specify the kind of array to use when loading the data
-    through the ``create_array`` callback. This callback should take three arguments: a
-    pointer to the shape, the number of elements in the shape, and a pointer to the
-    ``mts_array_t`` to be filled.
+    array creation callback. This advanced functionality should not be needed by most
+    users.
 
     :py:func:`metatensor.io.create_numpy_array` and
-    :py:func:`metatensor.io.create_torch_array` can be used to load data into numpy and
-    torch arrays respectively.
+    :py:func:`metatensor.io.create_torch_array` can be used as callbacks to load data
+    into numpy and torch arrays respectively.
 
     :param buffer: in-memory buffer containing a saved :py:class:`TensorBlock`
     :param create_array: callback used to create arrays as needed
+    :param array_backend: array backend to use for all data in the
+        :py:class:`TensorBlock`. This is required for custom ``create_array`` callbacks,
+        and guessed if the callback is one of
+        :py:func:`metatensor.io.create_numpy_array` or
+        :py:func:`metatensor.io.create_torch_array`. See :ref:`python-api-array-backend`
+        for more information.
     """
 
     lib = _get_library()
@@ -233,10 +158,12 @@ def load_block_buffer_custom_array(
         mts_create_array_callback_t(create_array),
     )
     check_pointer(ptr)
-    return TensorBlock.unsafe_from_ptr(ptr)
+    return TensorBlock.unsafe_from_ptr(
+        ptr, array_backend=array_backend_for_create_array(create_array, array_backend)
+    )
 
 
-def _save_block(
+def save_block(
     file: Union[str, pathlib.Path, BinaryIO],
     block: TensorBlock,
     use_numpy=False,
@@ -244,7 +171,7 @@ def _save_block(
     assert isinstance(block, TensorBlock)
 
     if use_numpy:
-        all_entries = _block_to_dict(block, prefix="", is_gradient=False)
+        all_entries = block_to_dict(block, prefix="", is_gradient=False)
         if not hasattr(file, "write"):
             # prevent numpy from adding a .npz extension by opening the file ourself
             with open(file, "wb") as fd:
@@ -276,34 +203,34 @@ def _save_block(
             lib.mts_block_save(path, block._ptr)
         else:
             # assume we have a file-like object
-            buffer = _save_block_buffer_raw(block)
+            buffer = save_block_buffer_raw(block)
             file.write(buffer.raw)
 
 
-def _save_block_buffer_raw(block: TensorBlock) -> ctypes.Array:
+def save_block_buffer_raw(block: TensorBlock) -> ctypes.Array:
     """
     Save a TensorBlock to an in-memory buffer, returning the data as a ctypes array of
     ``ctypes.c_char``.
     """
     lib = _get_library()
 
-    return _save_buffer_raw(lib.mts_block_save_buffer, block._ptr)
+    return save_buffer_raw(lib.mts_block_save_buffer, block._ptr)
 
 
-def _block_to_dict(block, prefix, is_gradient):
+def block_to_dict(block, prefix, is_gradient):
     result = {}
     result[f"{prefix}values"] = _array_to_numpy(block.values)
-    result[f"{prefix}samples"] = _labels_to_mts(block.samples)
+    result[f"{prefix}samples"] = labels_to_mts(block.samples)
     for i, component in enumerate(block.components):
-        result[f"{prefix}components/{i}"] = _labels_to_mts(component)
+        result[f"{prefix}components/{i}"] = labels_to_mts(component)
 
     if not is_gradient:
-        result[f"{prefix}properties"] = _labels_to_mts(block.properties)
+        result[f"{prefix}properties"] = labels_to_mts(block.properties)
 
     # sort the gradients to make sure the same file is generated every time
     for parameter in sorted(block.gradients_list()):
         result.update(
-            _block_to_dict(
+            block_to_dict(
                 block.gradient(parameter),
                 f"{prefix}gradients/{parameter}/",
                 is_gradient=True,
@@ -314,21 +241,21 @@ def _block_to_dict(block, prefix, is_gradient):
 
 
 def _array_to_numpy(array):
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         return array
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         return array.cpu().numpy()
     else:
         raise ValueError("unknown array type passed to `metatensor.save`")
 
 
-def _single_block_from_mts(prefix, dictionary, properties):
+def single_block_from_mts(prefix, dictionary, properties):
     values = dictionary[f"{prefix}values"]
 
-    samples = _labels_from_mts(dictionary[f"{prefix}samples"])
+    samples = labels_from_mts(dictionary[f"{prefix}samples"])
     components = []
     for i in range(len(values.shape) - 2):
-        components.append(_labels_from_mts(dictionary[f"{prefix}components/{i}"]))
+        components.append(labels_from_mts(dictionary[f"{prefix}components/{i}"]))
 
     block = TensorBlock(values, samples, components, properties)
 
@@ -341,7 +268,7 @@ def _single_block_from_mts(prefix, dictionary, properties):
             parameters.add(parameter)
 
     for parameter in parameters:
-        gradient = _single_block_from_mts(
+        gradient = single_block_from_mts(
             f"{prefix}gradients/{parameter}/",
             dictionary,
             properties,
@@ -354,5 +281,5 @@ def _single_block_from_mts(prefix, dictionary, properties):
 def _block_from_mts(file):
     dictionary = np.load(file)
 
-    properties = _labels_from_mts(dictionary["properties"])
-    return _single_block_from_mts("", dictionary, properties)
+    properties = labels_from_mts(dictionary["properties"])
+    return single_block_from_mts("", dictionary, properties)

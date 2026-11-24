@@ -10,11 +10,6 @@ from __future__ import annotations
 
 from typing import Final
 
-from matrx_scraper.cloud_browser.profile_archive_policy import (
-    ARCHIVE_EXCLUDE_NAMES,
-    ARCHIVE_EXCLUDE_PREFIXES,
-    ARCHIVE_EXCLUDE_SUFFIXES,
-)
 
 # ── Format / shape versions ──────────────────────────────────────────────
 MANIFEST_VERSION: Final[int] = 1

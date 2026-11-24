@@ -25,14 +25,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from pydantic import ConfigDict, Field
-
+from matrx_graph.input_declaration import VariableDefinition
 from matrx_graph.types.input_surface import (
-    EntityTypePicks,
-    InputHints,
-    UserInputFieldType,
     apply_kind_value_schema,
     apply_picks_schema,
+    input_accept,
+    input_multiple,
+    input_options,
+    input_picks,
+    input_picks_type_into,
+    input_type,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,105 +95,54 @@ def _scream_var_deprecation(name: str, node_id: str) -> None:
     )
 
 
-class VariableSpec(InputHints):
-    """One declared run variable on a Definition.
-
-    ``default=None`` means "no default" — a reference to this variable with
-    no per-reference default MUST be supplied at run time or the run fails
-    loudly at that node. (A literal None default would be useless anyway:
-    node input schemas want real values.)
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    name: str = Field(min_length=1, pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-    description: str = ""
-    default: Any = None  # api-any-ok: user-defined variable value, any JSON shape
-    # The value type, in the SAME plain-language vocabulary an io.user_input
-    # field uses. None = read it from ``default`` (3 → number, false → yes_no);
-    # a variable with neither is text. Without this every variable reached the
-    # run form as a text box — a number typed as "2", a yes/no as "true".
-    type: UserInputFieldType | None = None
-    options: list[str] = Field(default_factory=list)  # choices for type="choice"
-    # A PERSON'S DOOR into a reference input (generic-only VISION, "Every workflow takes a
-    # person's input too", Arman 2026-10-27). ``picks`` names the platform record type
-    # (``platform.entity_types`` token) an id input points at — or a list of them when it
-    # accepts several kinds of record — so the run form offers a search-by-name picker instead of
-    # a raw id box; ``picks_type_into`` names the input that receives the picked record's type. ``multiple``/``accept`` shape a
-    # ``file`` input: several files at once, and which (``image/*`` lets a phone take a
-    # photo). A file input's value is the stored file's id (file_id is identity), or a list.
-    picks: EntityTypePicks | None = None
-    picks_type_into: str = ""
-    multiple: bool = False
-    accept: str = ""
-    # WHAT A PERSON READS (review gap A1/B1, 2026-10-29). A declared variable carries the same
-    # presentation an input step's field does — a label, help, a placeholder, a kind, and the
-    # input hints it inherits (example, advanced, group, order, detect, primary,
-    # required_in_form) — and ``_build_input_surface`` copies them. Empty label = the run form
-    # shows the name in words, never snake_case. ``help`` empty = ``description``.
-    label: str = ""
-    help: str = ""
-    placeholder: str = ""
-    kind: str = Field(default="", pattern=r"^$|^[a-z][a-z0-9_]*$")
-
-    def effective_type(self) -> UserInputFieldType | None:
-        """The declared type, else the one ``default`` shows; None = free-form JSON."""
-        if self.type is not None:
-            return self.type
-        if self.options:
-            return "choice"
-        value = self.default
-        if isinstance(value, bool):
-            return "yes_no"
-        if isinstance(value, int | float):
-            return "number"
-        if isinstance(value, dict | list):
-            return None
-        return "text"
-
-
-def variable_json_schema(var: VariableSpec) -> dict[str, Any]:
+def variable_json_schema(d: VariableDefinition) -> dict[str, Any]:
     """The value contract of one declared variable — the run form renders from it."""
+    default = d.defaultValue
+    multiple = input_multiple(d)
     # The title is what a person reads: the label when the author wrote one (as a field's is).
-    schema: dict[str, Any] = {"title": var.label or var.name}
-    if var.description:
-        schema["description"] = var.description
-    kind = var.effective_type()
+    schema: dict[str, Any] = {"title": d.label or d.name}
+    description = d.purpose or d.helpText
+    if description:
+        schema["description"] = description
+    kind = input_type(d)
     if kind is None:
-        schema["type"] = "array" if isinstance(var.default, list) else "object"
+        schema["type"] = "array" if isinstance(default, list) else "object"
     elif kind == "number":
         # A whole-number default (3) asks for a whole number; 0.5 asks for any.
-        whole = isinstance(var.default, int) and not isinstance(var.default, bool)
+        whole = isinstance(default, int) and not isinstance(default, bool)
         schema["type"] = "integer" if whole else "number"
     elif kind == "yes_no":
         schema["type"] = "boolean"
     else:
         schema["type"] = "string"
-        if kind == "choice" and var.options:
-            schema["enum"] = list(var.options)
+        options = input_options(d)
+        if kind == "choice" and options:
+            schema["enum"] = options
         if kind == "long_text":
             schema["ui:widget"] = "textarea"
         elif kind == "file":
             schema["ui:widget"] = "file"
-            if var.accept:
-                schema["ui:accept"] = var.accept
-            if var.multiple:
+            accept = input_accept(d)
+            if accept:
+                schema["ui:accept"] = accept
+            if multiple:
                 schema["type"] = "array"
                 schema["items"] = {"type": "string"}
                 schema["ui:multiple"] = True
-        if var.multiple and kind in ("text", "long_text"):
+        if multiple and kind in ("text", "long_text"):
             # Several words, one per line: a list of strings (kind string_list, variant lines).
             schema.pop("ui:widget", None)
             schema["type"] = "array"
             schema["items"] = {"type": "string"}
             schema["ui:multiple"] = True
-        if var.picks and kind != "file":
-            apply_picks_schema(schema, var.picks, var.picks_type_into)
-    if var.kind and (kind is None or kind in ("text", "long_text")):
+        picks = input_picks(d)
+        if picks and kind != "file":
+            apply_picks_schema(schema, picks, input_picks_type_into(d))
+    if d.valueKind and (kind is None or kind in ("text", "long_text")):
         # A variable naming a structured kind takes its value contract from the kind (gap 8).
-        apply_kind_value_schema(schema, var.kind, kind, multiple=var.multiple, name=var.name)
-    if var.default is not None:
-        schema["default"] = var.default
+        apply_kind_value_schema(schema, d.valueKind, kind, multiple=multiple, name=d.name)
+    if default is not None:
+        schema["default"] = default
     return schema
 
 
@@ -247,7 +198,7 @@ def resolve_var_refs(
     obj: Any,
     *,
     run_variables: dict[str, Any],
-    declared: dict[str, VariableSpec],
+    declared: dict[str, VariableDefinition],
     node_id: str,
     strict: bool = True,
     run_inputs: dict[str, Any] | None = None,
@@ -320,6 +271,10 @@ def resolve_var_refs(
         declared_default = getattr(spec, "default", None)
         if declared_default is not None:
             return declared_default
+        if getattr(spec, "sourcing", None) == "optional":
+            # An OPTIONAL input never blocks (input_surface.unsatisfied_inputs): left out, it reads
+            # as nothing and the step decides what nothing means. Only require / ask inputs fail.
+            return None
         if strict:
             raise UnresolvedInputError(
                 f"Node '{node_id}' references workflow input '{name}' but no "
@@ -337,8 +292,8 @@ def resolve_var_refs(
         if "default" in obj and obj["default"] is not None:
             return obj["default"]
         spec = declared.get(name)
-        if spec is not None and spec.default is not None:
-            return spec.default
+        if spec is not None and spec.defaultValue is not None:
+            return spec.defaultValue
         # The surface folds declared variables in, so a landed surface value
         # for this name also satisfies a legacy $var reference (compat until
         # the marker migration runs).

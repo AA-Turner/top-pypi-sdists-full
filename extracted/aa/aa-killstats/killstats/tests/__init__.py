@@ -8,9 +8,6 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.handlers.wsgi import WSGIRequest
 from django.test import RequestFactory, TestCase
 
-# Alliance Auth
-from allianceauth.authentication.models import User
-
 # AA Killstats
 from killstats.tests.testdata.killstats import UserMainFactory
 
@@ -20,16 +17,7 @@ class SocketAccessError(Exception):
 
 
 class NoSocketsTestCase(TestCase):
-    """Variation of Django's TestCase class that prevents any network use.
-
-    Example:
-
-        .. code-block:: python
-
-            class TestMyStuff(BaseTestCase):
-                def test_should_do_what_i_need(self): ...
-
-    """
+    """Variation of Django's TestCase class that prevents any network use."""
 
     @classmethod
     def setUpClass(cls):
@@ -48,27 +36,32 @@ class NoSocketsTestCase(TestCase):
 
 
 class AuthTestCase(NoSocketsTestCase):
-    """Base test case for authentication-related tests that prevents network access."""
+    """
+    Preloaded Testcase class for AllianceAuth tests without Network access.
+
+    Available Request Factory:
+        `self.factory`
+    Available Django Users:
+        `self.user`
+        `self.superuser`
+    Available methods:
+        `_middleware_process_request(request)`
+    """
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
 
-        # Request Factory & Default Request
+        # Request Factory
         cls.factory = RequestFactory()
-        cls.request = cls.factory.get("/")
 
         # User with Standard Access
-        cls.user: User = UserMainFactory()
+        cls.user = UserMainFactory()
 
         # User with Superuser Access
-        cls.superuser: User = UserMainFactory()
+        cls.superuser = UserMainFactory()
         cls.superuser.is_superuser = True
         cls.superuser.save()
-
-    def setUp(self):
-        super().setUp()
-        self.request = self.factory.get("/")
 
     def _middleware_process_request(self, request: WSGIRequest):
         """Helper method to process middleware for a request."""

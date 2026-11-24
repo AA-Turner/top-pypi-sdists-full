@@ -8,10 +8,12 @@
 # License: BSD (3-clause)
 
 import warnings
+from functools import partial
 
 from skorch import NeuralNet
 from skorch.callbacks import EpochScoring
 from skorch.classifier import NeuralNetClassifier
+from torch import Tensor
 from torch.nn import CrossEntropyLoss
 
 from .eegneuralnet import _EEGNeuralNet
@@ -64,6 +66,28 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
         Whether to average cropped predictions to obtain window predictions. Used only in the
         cropped mode.
 
+    compile: bool (default=False)
+        If True, compile the module and the criterion in place with
+        :meth:`torch.nn.Module.compile`, passing the ``compile__*`` options
+        (e.g. ``compile__dynamic=True``). Compilation is not guaranteed to be
+        faster. The module keeps its Parameters, supplied and shared ones
+        included, and its state-dict keys, so ``save_params`` checkpoints load
+        into eager models and back.
+
+        Checkpoints saved through skorch's ``torch.compile`` wrapper (with
+        ``compile=True`` before braindecode 2.0) have keys that start with
+        ``_orig_mod.``, and loading does not strip this prefix. Export
+        ``_orig_mod.state_dict()`` from the wrapped module where it was saved,
+        or remove only that verified prefix, then load the result strictly.
+
+        A pickled, joblib-loaded or deep-copied estimator runs eagerly, and warm
+        start and ``partial_fit`` do not compile again. ``initialize()``
+        compiles again but also re-initializes the module, so call
+        ``load_params`` after it to continue training. An estimator replaces or
+        clears only a compiled call it installed itself. Call
+        ``set_params(compile=False)`` on that estimator before reusing its
+        module eagerly elsewhere.
+
     """  # noqa: E501
     __doc__ = update_estimator_docstring(NeuralNetClassifier, doc)
 
@@ -98,6 +122,16 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
             return ThrowAwayIndexLoader(self, iterator, is_regression=False)
         else:
             return iterator
+
+    def _get_predict_nonlinearity(self):
+        nonlinearity = super()._get_predict_nonlinearity()
+        if self.predict_nonlinearity == "auto" and len(self._criteria) == 1:
+            criterion = getattr(self, self._criteria[0] + "_")
+            if isinstance(getattr(criterion, "_orig_mod", criterion), CrossEntropyLoss):
+                # CrossEntropyLoss reads the classes on axis 1, also for dense outputs
+                # (batch, classes, positions); skorch's softmax uses the last axis.
+                return partial(Tensor.softmax, dim=1)
+        return nonlinearity
 
     def predict_proba(self, X):
         """Return the output of the module's forward method as a numpy.
@@ -146,6 +180,9 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
     def get_loss(self, y_pred, y_true, *args, **kwargs):
         """Return the loss for this batch by calling NeuralNet get_loss.
 
+        A floating ``y_true`` with the shape of ``y_pred`` is read as class
+        probabilities; with any other shape, as class indices, cast to int64.
+
         Parameters
         ----------
         y_pred : torch tensor
@@ -173,6 +210,7 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
         loss : float
             The loss value.
         """
+        y_true = _class_indices(y_pred, y_true)
         return NeuralNet.get_loss(self, y_pred, y_true, *args, **kwargs)
 
     def predict(self, X):
@@ -226,6 +264,14 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
             dimension: ``(n_trials,)`` for scalar targets, with further
             dimensions for multi-value or equal-length sequence targets. If
             trial lengths differ, a list with one target array per trial.
+
+        Notes
+        -----
+        In cropped mode, this calls :func:`braindecode.training.predict_trials`
+        on ``module_`` with the estimator's ``batch_size`` and the
+        ``num_workers`` of its evaluation loader. Other loader settings, such
+        as those of the training loader, are not copied; pass them in
+        ``loader_kwargs``.
         """
         if not self.cropped:
             if loader_kwargs is not None:
@@ -270,3 +316,25 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
                 )
             )
         return callbacks
+
+
+# Helper of EEGClassifier.get_loss, below the class.
+def _class_indices(y_pred, y_true):
+    """Cast a float target to int64 unless it has the shape of ``y_pred``.
+
+    Window datasets slice targets out of the float32 signal, and labels read from
+    a table can be floats: the loader keeps floats, and the shape tells class
+    probabilities (the shape of the predictions) from class indices. A Mixup target
+    ``(y_a, y_b, lam)`` casts ``y_a`` and ``y_b``, never the weights ``lam``.
+    """
+    if isinstance(y_true, (tuple, list)) and len(y_true) == 3:
+        y_a, y_b, lam = y_true
+        return _class_indices(y_pred, y_a), _class_indices(y_pred, y_b), lam
+    if (
+        isinstance(y_pred, Tensor)
+        and isinstance(y_true, Tensor)
+        and y_true.is_floating_point()
+        and y_true.shape != y_pred.shape
+    ):
+        return y_true.long()
+    return y_true

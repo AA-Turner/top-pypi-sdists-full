@@ -158,3 +158,67 @@ async def test_a_following_copy_runs_the_sources_prompt_blocks_and_output_schema
 
     assert config.config.prompt_blocks == ["source_block"]
     assert config.config.response_format == {"type": "json_schema", "json_schema": schema}
+
+
+def test_a_following_copy_keeps_the_tools_it_was_born_with_beside_its_sources() -> None:
+    """A template's assistant is born with ``records`` (``agent.duplicate_agent(..., p_add_tools)``, U7 follow-up): it
+    stays following, and its run must still have the tool — the source's CURRENT tools, then the kept ones."""
+    from matrx_ai.agents.follow_source import followed_row
+
+    records, search, gone = "30cf4ddd-d9e6-4f43-af3a-595f467bd661", "tool-search", "tool-removed-from-source"
+    source = _row(tools=[search])
+    copy = _copy(follows=True)
+    copy.tools = [gone, records]
+    copy.metadata = {"follows_source_keeps_tools": [records]}
+
+    assert followed_row(copy, source).tools == [search, records]  # a tool the source dropped does not come back
+
+    plain = _copy(follows=True)
+    plain.metadata = {}
+    assert followed_row(plain, source).tools == [search]
+
+
+# ── An archived agent named by id still runs (2026-11-08) ─────────────────────────────────────────
+# One Archive (archived-items law item 5, Arman 2026-11-05) keeps ``is_archived`` and ``deleted_at``
+# as ONE state: the ``zz_archive_states_agree_*`` triggers on ``agent.definition`` stamp
+# ``deleted_at`` on every archived agent, at birth too. ``to_config`` refused any row with
+# ``deleted_at`` set, so every agent saved archived (a build's draft until it passes, a proof
+# scaffold, a version kept for history) answered ``agent_not_found`` the moment a step ran it by id
+# (workflow runs 99515d5b / 6d966d09). Archived stays out of lists, pickers and default resolution;
+# a reference that names it resolves. Only an id with no row is "not found".
+
+
+def _archived(row: SimpleNamespace) -> SimpleNamespace:
+    row.is_archived = True
+    row.deleted_at = datetime(2026, 11, 8, 20, 40, tzinfo=UTC)
+    return row
+
+
+@pytest.mark.asyncio
+async def test_an_archived_agent_run_by_id_loads(manager) -> None:
+    mgr, rows = manager
+    rows[SOURCE_ID] = _archived(_row())
+
+    config = await mgr.to_config(SOURCE_ID)
+
+    assert "Source instructions v5." in _system_text(config)
+
+
+@pytest.mark.asyncio
+async def test_a_copy_following_an_archived_source_still_follows_it(manager) -> None:
+    mgr, rows = manager
+    rows[SOURCE_ID] = _archived(_row())
+    rows[COPY_ID] = _copy(follows=True)
+
+    config = await mgr.to_config(COPY_ID)
+
+    assert "Source instructions v5." in _system_text(config)
+
+
+@pytest.mark.asyncio
+async def test_an_agent_with_no_row_is_still_not_found(manager) -> None:
+    from matrx_orm.exceptions import DoesNotExist
+
+    mgr, _rows = manager
+    with pytest.raises(DoesNotExist):
+        await mgr.to_config("09f0e23c-d9f0-445f-a589-172d44ecd435")

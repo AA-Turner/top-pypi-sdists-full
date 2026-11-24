@@ -22,7 +22,6 @@ Usage::
 from __future__ import annotations
 
 import logging
-from importlib.resources import files as pkg_files
 from pathlib import Path
 
 logger = logging.getLogger(__name__)

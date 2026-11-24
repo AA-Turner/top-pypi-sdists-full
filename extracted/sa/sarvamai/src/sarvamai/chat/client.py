@@ -102,17 +102,20 @@ class ChatClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateChatCompletionResponse, typing.Iterator[ChatCompletionChunk]]:
         """
+        Creates a model response for the given chat conversation. This endpoint serves **only** `sarvam-105b` and `sarvam-105b-conversations`.
+
         Parameters
         ----------
         messages : typing.Sequence[ChatCompletionRequestMessageParams]
             A list of messages comprising the conversation so far.
 
         model : SarvamModelIds
-            Model ID used to generate the response, like `sarvam-m`.
+            Chat model ID. Use `sarvam-105b` (128K context) for complex reasoning and agentic tasks, or `sarvam-105b-conversations` (32K context) for real-time conversational and voice-agent workloads.
 
         temperature : typing.Optional[float]
-            What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
-            We generally recommend altering this or `top_p` but not both.
+            Sampling temperature between 0 and 2. Higher values increase variation; lower values make output more focused. Output is not bit-reproducible, even at `0`. Prefer changing either `temperature` or `top_p`, not both.
+
+            **Default:** on `sarvam-105b`, `1.0` with reasoning on (the default) and `0.6` with reasoning off (`reasoning_effort` set to `null`). On `sarvam-105b-conversations`, `0.6`.
 
         top_p : typing.Optional[float]
             An alternative to sampling with temperature, called nucleus sampling,
@@ -123,7 +126,7 @@ class ChatClient:
             We generally recommend altering this or `temperature` but not both.
 
         reasoning_effort : typing.Optional[ReasoningEffort]
-            The effort to use for reasoning
+            The effort to use for reasoning. Set to `null` to turn reasoning off. On `sarvam-105b`, reasoning is on by default. `sarvam-105b-conversations` runs with reasoning off only: a level is accepted but ignored.
 
         max_tokens : typing.Optional[int]
             The maximum number of tokens that can be generated in the chat completion.
@@ -136,7 +139,7 @@ class ChatClient:
         stop : typing.Optional[StopConfigurationParams]
 
         n : typing.Optional[int]
-            How many chat completion choices to generate for each input message. Note that you will be charged based on the number of generated tokens across all of the choices. Keep `n` as `1` to minimize costs.
+            Number of chat completion choices. Only `1` is supported (the default); values above `1` return `400 invalid_request_error`. Send separate requests for more completions.
 
         seed : typing.Optional[int]
             This feature is in Beta.
@@ -153,7 +156,6 @@ class ChatClient:
             whether they appear in the text so far, increasing the model's likelihood
             to talk about new topics.
 
-
         tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
             A list of tools the model may call. Currently, only functions are supported as a tool.
 
@@ -161,7 +163,7 @@ class ChatClient:
             Controls which (if any) tool is called by the model.
 
         response_format : typing.Optional[ResponseFormatParams]
-            Controls text, JSON object, or JSON Schema output.
+            An object specifying the format that the model must output. Setting `{ "type": "json_schema", "json_schema": {...} }` enables Structured Outputs which guarantees the model generates output matching the supplied JSON Schema. Setting `{ "type": "json_object" }` enables the older JSON mode, which guarantees valid JSON but not a specific schema.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -183,13 +185,13 @@ class ChatClient:
         # Non-streaming
         response = client.chat.completions(
             messages=[{"role": "user", "content": "Hello"}],
-            model="sarvam-m",
+            model="sarvam-105b",
         )
 
         # Streaming
         for chunk in client.chat.completions(
             messages=[{"role": "user", "content": "Hello"}],
-            model="sarvam-m",
+            model="sarvam-105b",
             stream=True,
         ):
             print(chunk)
@@ -240,6 +242,7 @@ class ChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = ...,
         temperature: typing.Optional[float] = ...,
         top_p: typing.Optional[float] = ...,
         reasoning_effort: typing.Optional[ReasoningEffort] = ...,
@@ -255,10 +258,11 @@ class ChatClient:
         response_format: typing.Optional[ResponseFormatParams] = ...,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
         top_k: typing.Optional[int] = ...,
-        min_p: typing.Optional[float] = ...,
         repetition_penalty: typing.Optional[float] = ...,
         parallel_tool_calls: typing.Optional[bool] = ...,
         stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        logprobs: typing.Optional[bool] = ...,
+        top_logprobs: typing.Optional[int] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> typing.Iterator[ChatCompletionChunk]: ...
 
@@ -268,6 +272,7 @@ class ChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = ...,
         temperature: typing.Optional[float] = ...,
         top_p: typing.Optional[float] = ...,
         reasoning_effort: typing.Optional[ReasoningEffort] = ...,
@@ -283,10 +288,11 @@ class ChatClient:
         response_format: typing.Optional[ResponseFormatParams] = ...,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
         top_k: typing.Optional[int] = ...,
-        min_p: typing.Optional[float] = ...,
         repetition_penalty: typing.Optional[float] = ...,
         parallel_tool_calls: typing.Optional[bool] = ...,
         stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        logprobs: typing.Optional[bool] = ...,
+        top_logprobs: typing.Optional[int] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> CreateChatCompletionV2Response: ...
 
@@ -295,6 +301,7 @@ class ChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = None,
         temperature: typing.Optional[float] = OMIT,
         top_p: typing.Optional[float] = OMIT,
         reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
@@ -310,17 +317,114 @@ class ChatClient:
         response_format: typing.Optional[ResponseFormatParams] = OMIT,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         top_k: typing.Optional[int] = OMIT,
-        min_p: typing.Optional[float] = OMIT,
         repetition_penalty: typing.Optional[float] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
         stream_options: typing.Optional[ChatStreamOptionsParams] = OMIT,
+        logprobs: typing.Optional[bool] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateChatCompletionV2Response, typing.Iterator[ChatCompletionChunk]]:
-        """Create a V2 chat completion, optionally streamed as SSE chunks."""
+        """
+        Creates a model response for the given chat conversation, using an OpenAI-compatible request and response shape.
+
+        Requires `api-subscription-key`.
+
+        **Streaming is optional.** Default is one JSON response (`stream` omitted or `false`). Set `stream: true` for server-sent events; the stream ends with a `[DONE]` line.
+
+        **Reasoning (`glm5.3`, `glm5.3-flash`, `gemma4`, `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3.1-pro`):** set `reasoning_effort` to **`low`**, **`high`**, or **`max`**. Default when omitted is **`max`**, except **`high`** on `glm5.3-flash`, `deepseekv4.1-flash-1017`, and `deepseekv4-pro`, and no reasoning on `gemma4`. **`none`** turns thinking off on `deepseekv4.1-flash-1017` and `deepseekv4-pro`. `kimi-k3.1-pro` always thinks. The trace is in `choices[].message.reasoning_content` and counts toward `max_tokens`. `gemma4` reasons only when `reasoning_effort` is set.
+
+        Request fields documented on this operation are validated by the API. Other OpenAI-compatible fields may be forwarded to the model when sent.
+
+        Legacy `functions` / `function_call` are rejected — use `tools` and `tool_choice`.
+
+        Parameters
+        ----------
+        messages : typing.Sequence[ChatCompletionRequestMessageParams]
+            Non-empty conversation history. Roles: `system`, `developer`, `user`, `assistant`, `tool`. Content is a string or an array of parts (`text`, `image_url`). Images must use inline `data:image/…;base64,…` URLs — remote HTTP(S) image URLs are rejected.
+
+        model : V2ModelIds
+
+        session_affinity : typing.Optional[str]
+            Optional session ID for a multi-turn conversation. Send the same value on every turn of a conversation so the turns are routed together and can reuse cached prompt context, which lowers latency on later turns. Use a new value for each conversation. The ID is scoped to your API subscription and is never shared with other customers. Use an opaque value such as a UUID, and do not put personal data in it. Requests without this header are unaffected.
+
+        temperature : typing.Optional[float]
+            Sampling temperature from `0` to `2`. Higher values increase variation; lower values focus the output. Output is not guaranteed to be identical across requests, even at `0`. Prefer changing either `temperature` or `top_p`, not both.
+
+        top_p : typing.Optional[float]
+            Nucleus sampling: greater than `0` and at most `1`. On `glm5.3`, `top_p: 0` is rejected. Prefer changing either `top_p` or `temperature`, not both.
+
+        reasoning_effort : typing.Optional[ReasoningEffort]
+            On reasoning models: **`low`**, **`high`**, or **`max`** on every reasoning model, and **`medium`** on `sarvam-105b`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, `kimi-k3.1-pro`, and `qwen38-27b` (`kimi-k3.1-pro` runs `medium` as `high`). Default when omitted is **`max`** on `glm5.3` and `kimi-k3.1-pro`, **`high`** on `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, and no reasoning on `gemma4`; `qwen38-27b` thinks by default. **`none`** turns thinking off on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`. `kimi-k3.1-pro` always thinks: `none`, `minimal`, and `xhigh` return `400`. Trace in `message.reasoning_content`; billed as completion tokens and counts toward `max_tokens`. On `gemma4`, reasoning is off unless this is set (`low`, `high`, or `max`).
+
+        max_tokens : typing.Optional[int]
+            Maximum tokens to generate in the completion, including reasoning tokens on reasoning models. Default `2048`. Set explicitly when you need longer answers — a low limit can yield `finish_reason: "length"` with little or no visible `content` if reasoning consumes the budget.
+
+        stream : typing.Optional[bool]
+            Optional. Default `false` — omit or `false` for one JSON response. If `true`, the response is streamed as server-sent events and ends with a `[DONE]` line. Use `stream_options.include_usage: true` to receive a final usage chunk (including `reasoning_tokens`). That chunk has an empty `choices` array — do not assume `choices[0]` is present on every event.
+            When true, returns an Iterator[ChatCompletionChunk] instead of CreateChatCompletionV2Response.
+
+        stop : typing.Optional[StopConfigurationParams]
+
+        n : typing.Optional[int]
+            Number of chat completion choices. Only `1` is supported (the default); values above `1` return `400 invalid_request_error`. Send separate requests for more completions.
+
+        seed : typing.Optional[int]
+            Optional integer seed for OpenAI SDK compatibility.
+
+        frequency_penalty : typing.Optional[float]
+            Number between -2.0 and 2.0. Positive values penalize new tokens based on
+            their existing frequency in the text so far, decreasing the model's
+            likelihood to repeat the same line verbatim.
+
+        presence_penalty : typing.Optional[float]
+            Number between -2.0 and 2.0. Positive values penalize new tokens based on
+            whether they appear in the text so far, increasing the model's likelihood
+            to talk about new topics.
+
+        tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
+            A list of tools the model may call. Currently, only functions are supported as a tool.
+
+        tool_choice : typing.Optional[ToolChoiceOptionParams]
+            Controls tool calling: `auto`, `none`, `required`, or a named function object. `required` with an empty `tools` array returns `400`. A named function that is not listed in `tools` returns `400`.
+
+        response_format : typing.Optional[ResponseFormatParams]
+            An object specifying the format that the model must output. Setting `{ "type": "json_schema", "json_schema": {...} }` enables Structured Outputs which guarantees the model generates output matching the supplied JSON Schema. Setting `{ "type": "json_object" }` enables the older JSON mode, which guarantees valid JSON but not a specific schema.
+
+        extra_body : typing.Optional[typing.Dict[str, typing.Any]]
+            Additional model-specific options merged into the request. Must not duplicate a top-level field documented on this endpoint; duplicates return `400 invalid_request_error`.
+
+        top_k : typing.Optional[int]
+            Top-k sampling. Omit or set to `-1` to disable. Values `>= 1` enable top-k; `0` is rejected. There is no documented upper bound.
+
+        repetition_penalty : typing.Optional[float]
+            Repetition penalty. Must be greater than 0 and at most 2. `0` and values above 2 are `400`.
+
+        parallel_tool_calls : typing.Optional[bool]
+            **`false`** limits a turn to a single tool call on every model.
+
+        stream_options : typing.Optional[ChatStreamOptionsParams]
+            Only valid with `stream: true` (otherwise `400`). Must be a top-level field, not inside `extra_body`. Use `{"include_usage": true}` to receive token usage in the final SSE chunk.
+
+        logprobs : typing.Optional[bool]
+            If `true`, return log probabilities for output tokens (use with `top_logprobs`). Supported on **`sarvam-105b`**, **`gemma4`**, **`glm5.3-flash`**, **`deepseekv4.1-flash-1017`**, **`deepseekv4.1-flash-1017-interactive`**, **`deepseekv4-pro`**, and **`qwen38-27b`**. Not supported on **`glm5.3`** or **`kimi-k3.1-pro`** (`400` if enabled).
+
+        top_logprobs : typing.Optional[int]
+            How many top token log probabilities to return at each position. Takes effect only when `logprobs` is `true`; without it, some models ignore the field and others return **`400`**. Same model support as `logprobs`: works on `sarvam-105b`, `gemma4`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; on `glm5.3` and `kimi-k3.1-pro`, omit entirely — do not send `0`, since many SDKs add it by default.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateChatCompletionV2Response or Iterator[ChatCompletionChunk]
+            When stream=False (default): CreateChatCompletionV2Response.
+            When stream=True: Iterator yielding ChatCompletionChunk objects.
+        """
         if stream is True:
             return self._raw_client.completions_v2(
                 messages=messages,
                 model=model,
+                session_affinity=session_affinity,
                 temperature=temperature,
                 top_p=top_p,
                 reasoning_effort=reasoning_effort,
@@ -336,16 +440,18 @@ class ChatClient:
                 response_format=response_format,
                 extra_body=extra_body,
                 top_k=top_k,
-                min_p=min_p,
                 repetition_penalty=repetition_penalty,
                 parallel_tool_calls=parallel_tool_calls,
                 stream_options=stream_options,
+                logprobs=logprobs,
+                top_logprobs=top_logprobs,
                 request_options=request_options,
             )
 
         response = self._raw_client.completions_v2(
             messages=messages,
             model=model,
+            session_affinity=session_affinity,
             temperature=temperature,
             top_p=top_p,
             reasoning_effort=reasoning_effort,
@@ -361,10 +467,11 @@ class ChatClient:
             response_format=response_format,
             extra_body=extra_body,
             top_k=top_k,
-            min_p=min_p,
             repetition_penalty=repetition_penalty,
             parallel_tool_calls=parallel_tool_calls,
             stream_options=stream_options,
+            logprobs=logprobs,
+            top_logprobs=top_logprobs,
             request_options=request_options,
         )
         return response.data
@@ -450,17 +557,20 @@ class AsyncChatClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateChatCompletionResponse, typing.AsyncIterator[ChatCompletionChunk]]:
         """
+        Creates a model response for the given chat conversation. This endpoint serves **only** `sarvam-105b` and `sarvam-105b-conversations`.
+
         Parameters
         ----------
         messages : typing.Sequence[ChatCompletionRequestMessageParams]
             A list of messages comprising the conversation so far.
 
         model : SarvamModelIds
-            Model ID used to generate the response, like `sarvam-m`.
+            Chat model ID. Use `sarvam-105b` (128K context) for complex reasoning and agentic tasks, or `sarvam-105b-conversations` (32K context) for real-time conversational and voice-agent workloads.
 
         temperature : typing.Optional[float]
-            What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
-            We generally recommend altering this or `top_p` but not both.
+            Sampling temperature between 0 and 2. Higher values increase variation; lower values make output more focused. Output is not bit-reproducible, even at `0`. Prefer changing either `temperature` or `top_p`, not both.
+
+            **Default:** on `sarvam-105b`, `1.0` with reasoning on (the default) and `0.6` with reasoning off (`reasoning_effort` set to `null`). On `sarvam-105b-conversations`, `0.6`.
 
         top_p : typing.Optional[float]
             An alternative to sampling with temperature, called nucleus sampling,
@@ -471,7 +581,7 @@ class AsyncChatClient:
             We generally recommend altering this or `temperature` but not both.
 
         reasoning_effort : typing.Optional[ReasoningEffort]
-            The effort to use for reasoning
+            The effort to use for reasoning. Set to `null` to turn reasoning off. On `sarvam-105b`, reasoning is on by default. `sarvam-105b-conversations` runs with reasoning off only: a level is accepted but ignored.
 
         max_tokens : typing.Optional[int]
             The maximum number of tokens that can be generated in the chat completion.
@@ -484,7 +594,7 @@ class AsyncChatClient:
         stop : typing.Optional[StopConfigurationParams]
 
         n : typing.Optional[int]
-            How many chat completion choices to generate for each input message. Note that you will be charged based on the number of generated tokens across all of the choices. Keep `n` as `1` to minimize costs.
+            Number of chat completion choices. Only `1` is supported (the default); values above `1` return `400 invalid_request_error`. Send separate requests for more completions.
 
         seed : typing.Optional[int]
             This feature is in Beta.
@@ -501,7 +611,6 @@ class AsyncChatClient:
             whether they appear in the text so far, increasing the model's likelihood
             to talk about new topics.
 
-
         tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
             A list of tools the model may call. Currently, only functions are supported as a tool.
 
@@ -509,7 +618,7 @@ class AsyncChatClient:
             Controls which (if any) tool is called by the model.
 
         response_format : typing.Optional[ResponseFormatParams]
-            Controls text, JSON object, or JSON Schema output.
+            An object specifying the format that the model must output. Setting `{ "type": "json_schema", "json_schema": {...} }` enables Structured Outputs which guarantees the model generates output matching the supplied JSON Schema. Setting `{ "type": "json_object" }` enables the older JSON mode, which guarantees valid JSON but not a specific schema.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -533,13 +642,13 @@ class AsyncChatClient:
             # Non-streaming
             response = await client.chat.completions(
                 messages=[{"role": "user", "content": "Hello"}],
-                model="sarvam-m",
+                model="sarvam-105b",
             )
 
             # Streaming
             async for chunk in client.chat.completions(
                 messages=[{"role": "user", "content": "Hello"}],
-                model="sarvam-m",
+                model="sarvam-105b",
                 stream=True,
             ):
                 print(chunk)
@@ -592,6 +701,7 @@ class AsyncChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = ...,
         temperature: typing.Optional[float] = ...,
         top_p: typing.Optional[float] = ...,
         reasoning_effort: typing.Optional[ReasoningEffort] = ...,
@@ -607,10 +717,11 @@ class AsyncChatClient:
         response_format: typing.Optional[ResponseFormatParams] = ...,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
         top_k: typing.Optional[int] = ...,
-        min_p: typing.Optional[float] = ...,
         repetition_penalty: typing.Optional[float] = ...,
         parallel_tool_calls: typing.Optional[bool] = ...,
         stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        logprobs: typing.Optional[bool] = ...,
+        top_logprobs: typing.Optional[int] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> typing.AsyncIterator[ChatCompletionChunk]: ...
 
@@ -620,6 +731,7 @@ class AsyncChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = ...,
         temperature: typing.Optional[float] = ...,
         top_p: typing.Optional[float] = ...,
         reasoning_effort: typing.Optional[ReasoningEffort] = ...,
@@ -635,10 +747,11 @@ class AsyncChatClient:
         response_format: typing.Optional[ResponseFormatParams] = ...,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
         top_k: typing.Optional[int] = ...,
-        min_p: typing.Optional[float] = ...,
         repetition_penalty: typing.Optional[float] = ...,
         parallel_tool_calls: typing.Optional[bool] = ...,
         stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        logprobs: typing.Optional[bool] = ...,
+        top_logprobs: typing.Optional[int] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> CreateChatCompletionV2Response: ...
 
@@ -647,6 +760,7 @@ class AsyncChatClient:
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
         model: V2ModelIds,
+        session_affinity: typing.Optional[str] = None,
         temperature: typing.Optional[float] = OMIT,
         top_p: typing.Optional[float] = OMIT,
         reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
@@ -662,17 +776,114 @@ class AsyncChatClient:
         response_format: typing.Optional[ResponseFormatParams] = OMIT,
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         top_k: typing.Optional[int] = OMIT,
-        min_p: typing.Optional[float] = OMIT,
         repetition_penalty: typing.Optional[float] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
         stream_options: typing.Optional[ChatStreamOptionsParams] = OMIT,
+        logprobs: typing.Optional[bool] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateChatCompletionV2Response, typing.AsyncIterator[ChatCompletionChunk]]:
-        """Create a V2 chat completion, optionally streamed as SSE chunks."""
+        """
+        Creates a model response for the given chat conversation, using an OpenAI-compatible request and response shape.
+
+        Requires `api-subscription-key`.
+
+        **Streaming is optional.** Default is one JSON response (`stream` omitted or `false`). Set `stream: true` for server-sent events; the stream ends with a `[DONE]` line.
+
+        **Reasoning (`glm5.3`, `glm5.3-flash`, `gemma4`, `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3.1-pro`):** set `reasoning_effort` to **`low`**, **`high`**, or **`max`**. Default when omitted is **`max`**, except **`high`** on `glm5.3-flash`, `deepseekv4.1-flash-1017`, and `deepseekv4-pro`, and no reasoning on `gemma4`. **`none`** turns thinking off on `deepseekv4.1-flash-1017` and `deepseekv4-pro`. `kimi-k3.1-pro` always thinks. The trace is in `choices[].message.reasoning_content` and counts toward `max_tokens`. `gemma4` reasons only when `reasoning_effort` is set.
+
+        Request fields documented on this operation are validated by the API. Other OpenAI-compatible fields may be forwarded to the model when sent.
+
+        Legacy `functions` / `function_call` are rejected — use `tools` and `tool_choice`.
+
+        Parameters
+        ----------
+        messages : typing.Sequence[ChatCompletionRequestMessageParams]
+            Non-empty conversation history. Roles: `system`, `developer`, `user`, `assistant`, `tool`. Content is a string or an array of parts (`text`, `image_url`). Images must use inline `data:image/…;base64,…` URLs — remote HTTP(S) image URLs are rejected.
+
+        model : V2ModelIds
+
+        session_affinity : typing.Optional[str]
+            Optional session ID for a multi-turn conversation. Send the same value on every turn of a conversation so the turns are routed together and can reuse cached prompt context, which lowers latency on later turns. Use a new value for each conversation. The ID is scoped to your API subscription and is never shared with other customers. Use an opaque value such as a UUID, and do not put personal data in it. Requests without this header are unaffected.
+
+        temperature : typing.Optional[float]
+            Sampling temperature from `0` to `2`. Higher values increase variation; lower values focus the output. Output is not guaranteed to be identical across requests, even at `0`. Prefer changing either `temperature` or `top_p`, not both.
+
+        top_p : typing.Optional[float]
+            Nucleus sampling: greater than `0` and at most `1`. On `glm5.3`, `top_p: 0` is rejected. Prefer changing either `top_p` or `temperature`, not both.
+
+        reasoning_effort : typing.Optional[ReasoningEffort]
+            On reasoning models: **`low`**, **`high`**, or **`max`** on every reasoning model, and **`medium`** on `sarvam-105b`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, `kimi-k3.1-pro`, and `qwen38-27b` (`kimi-k3.1-pro` runs `medium` as `high`). Default when omitted is **`max`** on `glm5.3` and `kimi-k3.1-pro`, **`high`** on `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, and no reasoning on `gemma4`; `qwen38-27b` thinks by default. **`none`** turns thinking off on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`. `kimi-k3.1-pro` always thinks: `none`, `minimal`, and `xhigh` return `400`. Trace in `message.reasoning_content`; billed as completion tokens and counts toward `max_tokens`. On `gemma4`, reasoning is off unless this is set (`low`, `high`, or `max`).
+
+        max_tokens : typing.Optional[int]
+            Maximum tokens to generate in the completion, including reasoning tokens on reasoning models. Default `2048`. Set explicitly when you need longer answers — a low limit can yield `finish_reason: "length"` with little or no visible `content` if reasoning consumes the budget.
+
+        stream : typing.Optional[bool]
+            Optional. Default `false` — omit or `false` for one JSON response. If `true`, the response is streamed as server-sent events and ends with a `[DONE]` line. Use `stream_options.include_usage: true` to receive a final usage chunk (including `reasoning_tokens`). That chunk has an empty `choices` array — do not assume `choices[0]` is present on every event.
+            When true, returns an AsyncIterator[ChatCompletionChunk] instead of CreateChatCompletionV2Response.
+
+        stop : typing.Optional[StopConfigurationParams]
+
+        n : typing.Optional[int]
+            Number of chat completion choices. Only `1` is supported (the default); values above `1` return `400 invalid_request_error`. Send separate requests for more completions.
+
+        seed : typing.Optional[int]
+            Optional integer seed for OpenAI SDK compatibility.
+
+        frequency_penalty : typing.Optional[float]
+            Number between -2.0 and 2.0. Positive values penalize new tokens based on
+            their existing frequency in the text so far, decreasing the model's
+            likelihood to repeat the same line verbatim.
+
+        presence_penalty : typing.Optional[float]
+            Number between -2.0 and 2.0. Positive values penalize new tokens based on
+            whether they appear in the text so far, increasing the model's likelihood
+            to talk about new topics.
+
+        tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
+            A list of tools the model may call. Currently, only functions are supported as a tool.
+
+        tool_choice : typing.Optional[ToolChoiceOptionParams]
+            Controls tool calling: `auto`, `none`, `required`, or a named function object. `required` with an empty `tools` array returns `400`. A named function that is not listed in `tools` returns `400`.
+
+        response_format : typing.Optional[ResponseFormatParams]
+            An object specifying the format that the model must output. Setting `{ "type": "json_schema", "json_schema": {...} }` enables Structured Outputs which guarantees the model generates output matching the supplied JSON Schema. Setting `{ "type": "json_object" }` enables the older JSON mode, which guarantees valid JSON but not a specific schema.
+
+        extra_body : typing.Optional[typing.Dict[str, typing.Any]]
+            Additional model-specific options merged into the request. Must not duplicate a top-level field documented on this endpoint; duplicates return `400 invalid_request_error`.
+
+        top_k : typing.Optional[int]
+            Top-k sampling. Omit or set to `-1` to disable. Values `>= 1` enable top-k; `0` is rejected. There is no documented upper bound.
+
+        repetition_penalty : typing.Optional[float]
+            Repetition penalty. Must be greater than 0 and at most 2. `0` and values above 2 are `400`.
+
+        parallel_tool_calls : typing.Optional[bool]
+            **`false`** limits a turn to a single tool call on every model.
+
+        stream_options : typing.Optional[ChatStreamOptionsParams]
+            Only valid with `stream: true` (otherwise `400`). Must be a top-level field, not inside `extra_body`. Use `{"include_usage": true}` to receive token usage in the final SSE chunk.
+
+        logprobs : typing.Optional[bool]
+            If `true`, return log probabilities for output tokens (use with `top_logprobs`). Supported on **`sarvam-105b`**, **`gemma4`**, **`glm5.3-flash`**, **`deepseekv4.1-flash-1017`**, **`deepseekv4.1-flash-1017-interactive`**, **`deepseekv4-pro`**, and **`qwen38-27b`**. Not supported on **`glm5.3`** or **`kimi-k3.1-pro`** (`400` if enabled).
+
+        top_logprobs : typing.Optional[int]
+            How many top token log probabilities to return at each position. Takes effect only when `logprobs` is `true`; without it, some models ignore the field and others return **`400`**. Same model support as `logprobs`: works on `sarvam-105b`, `gemma4`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; on `glm5.3` and `kimi-k3.1-pro`, omit entirely — do not send `0`, since many SDKs add it by default.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateChatCompletionV2Response or AsyncIterator[ChatCompletionChunk]
+            When stream=False (default): CreateChatCompletionV2Response.
+            When stream=True: AsyncIterator yielding ChatCompletionChunk objects.
+        """
         if stream is True:
             return await self._raw_client.completions_v2(
                 messages=messages,
                 model=model,
+                session_affinity=session_affinity,
                 temperature=temperature,
                 top_p=top_p,
                 reasoning_effort=reasoning_effort,
@@ -688,16 +899,18 @@ class AsyncChatClient:
                 response_format=response_format,
                 extra_body=extra_body,
                 top_k=top_k,
-                min_p=min_p,
                 repetition_penalty=repetition_penalty,
                 parallel_tool_calls=parallel_tool_calls,
                 stream_options=stream_options,
+                logprobs=logprobs,
+                top_logprobs=top_logprobs,
                 request_options=request_options,
             )
 
         response = await self._raw_client.completions_v2(
             messages=messages,
             model=model,
+            session_affinity=session_affinity,
             temperature=temperature,
             top_p=top_p,
             reasoning_effort=reasoning_effort,
@@ -713,10 +926,11 @@ class AsyncChatClient:
             response_format=response_format,
             extra_body=extra_body,
             top_k=top_k,
-            min_p=min_p,
             repetition_penalty=repetition_penalty,
             parallel_tool_calls=parallel_tool_calls,
             stream_options=stream_options,
+            logprobs=logprobs,
+            top_logprobs=top_logprobs,
             request_options=request_options,
         )
         return response.data

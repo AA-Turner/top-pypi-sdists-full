@@ -48,6 +48,8 @@ async def test_agent_call_reference_never_stores_incomplete_child(
     class FakeAgent:
         name = "child"
         output_schema = None
+        async def run_first_turn_pass(self):  # the real pass: present on every Agent
+            return self
 
     monkeypatch.setattr(
         Agent,
@@ -73,7 +75,7 @@ async def test_agent_call_reference_never_stores_incomplete_child(
 
     before = ext._registry.get("conversation_value_writer")
     ext.configure_ext(conversation_value_writer=writer)
-    token = set_app_context(AppContext(emitter=None, user_id=user_id))
+    token = set_app_context(AppContext(emitter=None, user_id=user_id, organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         result = await agent_call(
             {"agent_id": agent_id, "result_mode": "reference"},

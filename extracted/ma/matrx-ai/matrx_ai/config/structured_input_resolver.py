@@ -36,10 +36,18 @@ if TYPE_CHECKING:
     from matrx_ai.config.unified_config import UnifiedConfig
 
 
-async def _resolve_one(block: _StructuredInputBase) -> None:
-    """Call block.resolve(), handling optional_context suppression."""
+async def _resolve_one(block: _StructuredInputBase, model_id: str | None = None) -> None:
+    """Call block.resolve(), handling optional_context suppression.
+
+    A ``source_set`` block also receives the turn's ``model_id`` (what media the
+    model takes natively decides how the host delivers each Source)."""
+    from matrx_ai.config.structured_input_config import SourceSetInputContent
+
     try:
-        await block.resolve()
+        if isinstance(block, SourceSetInputContent):
+            await block.resolve(model_id=model_id)
+        else:
+            await block.resolve()
     except NotImplementedError:
         vcprint(
             f"[StructuredInputResolver] No resolver for type {block.type!r} — skipping",
@@ -198,13 +206,18 @@ def collect_read_only_resource_ids(messages: MessageList) -> None:
     from matrx_connect.context.app_context import try_get_app_context
 
     from matrx_ai.config.enums import Role
-    from matrx_ai.config.read_only_resources import set_read_only_resource_ids
+    from matrx_ai.config.read_only_resources import (
+        CONTEXT_READ_ONLY_RESOURCE_IDS_KEY,
+        set_read_only_resource_ids,
+    )
 
     ctx = try_get_app_context()
     if ctx is None:
         return
 
-    locked: set[str] = set()
+    # Refs the host attached through context (not messages) start locked; a later message
+    # decision for the same id still wins, exactly as between two messages.
+    locked: set[str] = {i for i in (ctx.metadata.get(CONTEXT_READ_ONLY_RESOURCE_IDS_KEY) or []) if i}
     for message in messages:
         if message.role != Role.USER:
             continue
@@ -343,7 +356,7 @@ async def _prepare_remarks(
         content[:] = ordered
 
 
-async def resolve_structured_inputs(messages: MessageList) -> None:
+async def resolve_structured_inputs(messages: MessageList, *, model_id: str | None = None) -> None:
     """Resolve all unresolved structured input blocks in the last user message.
 
     Runs all fetches concurrently.  Non-optional failures propagate as
@@ -358,6 +371,8 @@ async def resolve_structured_inputs(messages: MessageList) -> None:
     client-side warning event via the emitter.
     """
     from matrx_ai.config.enums import Role
+
+    await gate_source_set_replay(messages, model_id=model_id)
 
     last_user = messages.get_last_by_role(Role.USER)
     if last_user is None:
@@ -379,7 +394,86 @@ async def resolve_structured_inputs(messages: MessageList) -> None:
         color="cyan",
     )
 
-    await asyncio.gather(*[_resolve_one(b) for b in blocks_to_resolve])
+    await asyncio.gather(*[_resolve_one(b, model_id) for b in blocks_to_resolve])
 
     for block in blocks_to_resolve:
         _emit_block_warnings(block)
+
+    splice_source_set_media(last_user.content)
+
+
+#: Said to the model when a stored set's media is not sent again (the turn's model cannot take it).
+REPLAY_MEDIA_NOTICE = (
+    "> Note: this turn's model cannot take {kinds} directly, so the media these Sources were "
+    "sent as before is not sent again; their text is used instead."
+)
+
+
+async def gate_source_set_replay(messages: MessageList, *, model_id: str | None) -> None:
+    """The TURN's model decides what a stored ``source_set`` replays.
+
+    A reloaded turn re-splices the media its set resolved to (``metadata.resolved_media``), for
+    whatever model answered then. Before every provider call, each already-resolved set whose
+    stored media includes a kind this turn's model cannot take (the ONE capability check,
+    ``provider_io_capabilities.model_media_inputs``) is re-resolved for this model — the host
+    delivers those Sources as text with its own note — and the model is told why. When the
+    re-read fails, the media is withheld and the stored text stays; the notice says so either way.
+    No model named → nothing is decided here.
+    """
+    from matrx_ai.config.structured_input_config import SourceSetInputContent
+    from matrx_ai.providers.provider_io_capabilities import model_media_inputs
+
+    if not model_id:
+        return
+    stored = [
+        (message, block)
+        for message in messages
+        for block in getattr(message, "content", None) or []
+        if isinstance(block, SourceSetInputContent)
+        and "resolved_text" in block.metadata
+        and block.resolved_media_kinds()
+    ]
+    if not stored:
+        return
+    takes = await model_media_inputs(model_id)
+    for message, block in stored:
+        refused = sorted(block.resolved_media_kinds() - takes)
+        if not refused:
+            continue
+        try:
+            await block.resolve(model_id=model_id)
+        except Exception as exc:  # noqa: BLE001 — a past turn never fails this one
+            vcprint(
+                f"[StructuredInputResolver] source_set re-read for {model_id!r} failed, "
+                f"withholding its {', '.join(refused)} media: {exc}",
+                color="yellow",
+            )
+            block.metadata.pop("resolved_media", None)
+        notice = REPLAY_MEDIA_NOTICE.format(kinds=" or ".join(refused))
+        text = str(block.metadata.get("resolved_text") or "")
+        block.metadata["resolved_text"] = f"{text}\n\n{notice}" if text else notice
+        splice_source_set_media(message.content)
+
+
+def splice_source_set_media(content: list[object]) -> None:
+    """Place each source_set block's resolved media right after it, once.
+
+    The spliced contents carry ``SOURCE_SET_MEDIA_MARKER`` so storage skips them
+    (the block's ``metadata.resolved_media`` is the stored truth) and a second
+    call never duplicates them.
+    """
+    from matrx_ai.config.structured_input_config import (
+        SourceSetInputContent,
+        is_source_set_media,
+    )
+
+    if not any(isinstance(item, SourceSetInputContent) for item in content):
+        return
+    rebuilt: list[object] = []
+    for item in content:
+        if is_source_set_media(item):
+            continue
+        rebuilt.append(item)
+        if isinstance(item, SourceSetInputContent):
+            rebuilt.extend(item.media_contents())
+    content[:] = rebuilt

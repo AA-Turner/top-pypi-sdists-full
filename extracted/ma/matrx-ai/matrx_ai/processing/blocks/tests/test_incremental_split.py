@@ -200,3 +200,27 @@ def test_a_200kb_answer_streams_in_linear_time(make) -> None:
     assert full < _BUDGET_S, f"200 KB took {full:.1f}s"
     # Linear work doubles; quadratic quadruples. 3x leaves room for timer noise.
     assert full <= 3 * max(half, 0.05), f"100 KB {half:.2f}s -> 200 KB {full:.2f}s: not linear"
+
+
+def _stream_cpu_seconds(text: str) -> float:
+    """CPU seconds (not wall) to stream ``text`` in 16-char tokens — immune to machine load."""
+    processor = StreamBlockProcessor()
+    started = time.process_time()
+    for start in range(0, len(text), 16):
+        processor.process_token(text[start : start + 16])
+    processor.finalize()
+    return time.process_time() - started
+
+
+def test_streaming_cpu_grows_near_linearly_per_doubling() -> None:
+    """Profile-style guard: CPU per doubling of a markdown answer stays <= 2.3x (linear is 2x).
+
+    Before the settled lists stopped being rebuilt and walked on every token the measured
+    growth per doubling was 2.1x -> 2.4x -> 3.0x (50 KB -> 400 KB), i.e. quadratic.
+    """
+    sizes = (100_000, 200_000, 400_000)
+    # best-of-two per size drops a scheduler hiccup without hiding real growth
+    cpu = [min(_stream_cpu_seconds(_markdown_answer(n)) for _ in range(2)) for n in sizes]
+    ratios = [cpu[i + 1] / cpu[i] for i in range(len(cpu) - 1)]
+    detail = ", ".join(f"{n // 1000}k={c:.2f}s" for n, c in zip(sizes, cpu, strict=True))
+    assert all(r <= 2.3 for r in ratios), f"{detail}; per-doubling growth {[round(r, 2) for r in ratios]} > 2.3x"

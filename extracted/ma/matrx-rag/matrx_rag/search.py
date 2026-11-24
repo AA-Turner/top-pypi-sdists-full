@@ -656,10 +656,17 @@ class SearchResponse:
     #                      RERANK_CONFIDENCE_FLOOR; fused RRF order kept
     #   "failed"         — host reranker call errored; fused RRF order kept
     #   "timeout"        — the caller's rerank_timeout_s passed; fused RRF order kept
+    #   "skipped"        — the host refused the rerank on policy (a caller refusal,
+    #                      e.g. a compliance mode); fused RRF order kept, reason in rerank_error
     #   "off"            — rerank disabled / no host reranker / no candidates
     rerank_status: str = "off"
-    # Why rerank did not apply when rerank_status is "failed" / "timeout" (a sentence).
+    # Why rerank did not apply when rerank_status is "failed" / "timeout" / "skipped" (a sentence).
     rerank_error: str | None = None
+    # The recall lanes the database canceled (SQLSTATE 57014), lane → a sentence: "vector",
+    # "lexical", "entity". Empty when every lane answered. A canceled lane no longer fails the
+    # search — `hits` are fused from the lanes that answered and this says which did not; the
+    # cancel itself is still filed as a db_statement_canceled system error by the ORM door.
+    recall_lane_errors: dict[str, str] = field(default_factory=dict)
     # THE HONESTY CONTRACT (see RELEVANCE_FLOOR). `hits` is already gated on
     # relevance; these three say WHY it looks the way it does, so no caller has
     # to guess whether an empty list means "nothing relevant exists" or "the
@@ -734,8 +741,14 @@ async def search(
     rerank_input_large: int | None = None,
     rerank_input: int | None = None,
     keep_weak: int = 0,
+    include_private_kinds: bool = False,
 ) -> SearchResponse:
     """Run hybrid retrieval for ``query``.
+
+    ``include_private_kinds`` — a person's chats (:data:`PRIVATE_CHUNK_KINDS`) are recalled ONLY when
+    the caller sets it, after deciding the result may carry them (the host's private-class rule:
+    a chat is never handed to an agent in a shared conversation). Default: never, even when
+    ``source_kinds`` names them.
 
     Parameters
     ----------
@@ -828,6 +841,18 @@ async def search(
     # pass blanks — fail fast with an empty result rather than retrieve noise.
     query = query.strip()
     if not query:
+        return SearchResponse(
+            query=query,
+            hits=[],
+            total_candidates=0,
+            embedding_model=embedding_models[0],
+            reranker_model=None,
+            latency_ms=int((time.perf_counter() - started) * 1000),
+        )
+
+    # A person's chats never ride an ordinary search (one home: their own chat search).
+    source_kinds = effective_source_kinds(source_kinds, include_private_kinds=include_private_kinds)
+    if source_kinds == []:
         return SearchResponse(
             query=query,
             hits=[],
@@ -968,65 +993,86 @@ async def search(
         readable = await readable_task
 
     # 2. Recall — vector + lexical + entity in parallel where possible.
-    # One connection shared across all three recall lanes (avoids 3 separate
-    # pool checkouts per search() call) via the ORM's own acquire_connection
-    # primitive; every lane composes its query through typed ORM expressions.
-    async with acquire_connection(database=PACKAGE_DB_NAME) as conn:
-        vector_rankings: dict[str, list[str]] = {}
-        # Per-ranking RRF weights. Defaults to 1.0; HyDE rankings get the
-        # configured (lower) weight.
-        ranking_weights: dict[str, float] = {}
-        hyde_weight = _hyde_rrf_weight()
+    # NO connection is held across the lanes: each recall door is ONE statement on its own
+    # short pool checkout. Holding a lease here while the doors checked out more from the
+    # same pool was hold-and-wait: five concurrent searches in one Knowledge request held
+    # five idle leases and starved their own doors (database_pool_saturation 2026-11-03,
+    # holders matrx_rag/search.py search + _door, pool 10/10). Only the batched candidate
+    # read below takes a lease, for that one statement.
+    vector_rankings: dict[str, list[str]] = {}
+    # Per-ranking RRF weights. Defaults to 1.0; HyDE rankings get the
+    # configured (lower) weight.
+    ranking_weights: dict[str, float] = {}
+    hyde_weight = _hyde_rrf_weight()
 
-        # THE THREE LANES RUN CONCURRENTLY, each ONE statement through its recall door
-        # (rag.recall_vector / recall_lexical / recall_entities + recall_entity_chunks,
-        # migrations 1398/1405) on a pooled connection. The doors apply exactly the
-        # read-access rule and filters the ORM lanes built (144/144 lane answers identical
-        # on the clone, three users, four filter variants, 2026-09-27); the readable set
-        # is computed once per request and bound into each call.
-        filters = recall_filters(
-            only_children=only_children,
-            source_kinds=source_kinds,
-            include_sources=include_sources,
-            library_filter=library_filter,
-            source_ids=validated_source_ids,
-            processed_document_ids=validated_processed_document_ids,
-            scope_ids=validated_scope_ids,
-            scope_document_ids=scope_document_ids,
-            admin_bypass_acl=bool(is_admin and admin_bypass_acl),
-        )
+    # THE THREE LANES RUN CONCURRENTLY, each ONE statement through its recall door
+    # (rag.recall_vector / recall_lexical / recall_entities + recall_entity_chunks,
+    # migrations 1398/1405) on a pooled connection. The doors apply exactly the
+    # read-access rule and filters the ORM lanes built (144/144 lane answers identical
+    # on the clone, three users, four filter variants, 2026-09-27); the readable set
+    # is computed once per request and bound into each call.
+    filters = recall_filters(
+        only_children=only_children,
+        source_kinds=source_kinds,
+        include_sources=include_sources,
+        library_filter=library_filter,
+        source_ids=validated_source_ids,
+        processed_document_ids=validated_processed_document_ids,
+        scope_ids=validated_scope_ids,
+        scope_document_ids=scope_document_ids,
+        admin_bypass_acl=bool(is_admin and admin_bypass_acl),
+    )
 
-        async def _vector_lane() -> None:
-            async def one(model: str, variant_idx: int, qvec: list[float]) -> None:
+    # A lane the database cancels (57014) degrades the search instead of failing it: its
+    # ranking is left out, the other lanes still fuse, and recall_lane_errors says so.
+    recall_lane_errors: dict[str, str] = {}
+    lane_cancels: list[BaseException] = []
+
+    async def _vector_lane() -> None:
+        async def one(model: str, variant_idx: int, qvec: list[float]) -> None:
+            try:
                 ranking = await _recall_vector_door(
                     spec_for(model).table, qvec, user_id=user_id, readable=readable,
                     k=VECTOR_RECALL_K, filters=filters,
                 )
-                is_hyde = hyde_vector_idx is not None and variant_idx == hyde_vector_idx
-                key = f"{model}#v{variant_idx}{'#hyde' if is_hyde else ''}"
-                vector_rankings[key] = ranking
-                ranking_weights[key] = hyde_weight if is_hyde else 1.0
+            except Exception as exc:
+                if not await _canceled_lane(exc, "vector", recall_lane_errors, lane_cancels):
+                    raise
+                return
+            is_hyde = hyde_vector_idx is not None and variant_idx == hyde_vector_idx
+            key = f"{model}#v{variant_idx}{'#hyde' if is_hyde else ''}"
+            vector_rankings[key] = ranking
+            ranking_weights[key] = hyde_weight if is_hyde else 1.0
 
-            jobs = [
-                (model, variant_idx, qvec)
-                for model, vecs in query_vectors.items()
-                for variant_idx, qvec in enumerate(vecs)
-            ]
-            await _asyncio.gather(*(one(*job) for job in jobs))
-            # Keep the fusion's key order identical to the serial loop it replaced.
-            ordered = {f"{m}#v{i}{'#hyde' if (hyde_vector_idx is not None and i == hyde_vector_idx) else ''}": None for m, i, _ in jobs}
-            for key in list(ordered):
+        jobs = [
+            (model, variant_idx, qvec)
+            for model, vecs in query_vectors.items()
+            for variant_idx, qvec in enumerate(vecs)
+        ]
+        await _asyncio.gather(*(one(*job) for job in jobs))
+        # Keep the fusion's key order identical to the serial loop it replaced.
+        ordered = {f"{m}#v{i}{'#hyde' if (hyde_vector_idx is not None and i == hyde_vector_idx) else ''}": None for m, i, _ in jobs}
+        for key in list(ordered):
+            if key in vector_rankings:  # a canceled variant left no ranking
                 ordered[key] = vector_rankings.pop(key)
-            vector_rankings.update(ordered)
+            else:
+                del ordered[key]
+        vector_rankings.update(ordered)
 
-        async def _lexical_lane() -> list[str]:
+    async def _lexical_lane() -> list[str]:
+        try:
             return await _recall_lexical_door(
                 query, user_id=user_id, readable=readable, k=LEXICAL_RECALL_K, filters=filters
             )
+        except Exception as exc:
+            if not await _canceled_lane(exc, "lexical", recall_lane_errors, lane_cancels):
+                raise
+            return []
 
-        # 2c. Entity recall lane — KG entity match → chunk co-occurrence. Admin-bypass
-        # callers get no entity lane (unchanged).
-        async def _entity_lane():
+    # 2c. Entity recall lane — KG entity match → chunk co-occurrence. Admin-bypass
+    # callers get no entity lane (unchanged).
+    async def _entity_lane() -> tuple[list[str], list[str], list[str]]:
+        try:
             return await _recall_entity_door(
                 query,
                 user_id=user_id,
@@ -1034,75 +1080,90 @@ async def search(
                 filters=filters,
                 expand_clusters=expand_entity_clusters,
             )
+        except Exception as exc:
+            if not await _canceled_lane(exc, "entity", recall_lane_errors, lane_cancels):
+                raise
+            return [], [], []
 
-        _, lexical_ranking, (entity_ranking, matched_entity_ids, matched_entity_names) = (
-            await _asyncio.gather(_vector_lane(), _lexical_lane(), _entity_lane())
+    _, lexical_ranking, (entity_ranking, matched_entity_ids, matched_entity_names) = (
+        await _asyncio.gather(_vector_lane(), _lexical_lane(), _entity_lane())
+    )
+    # Every lane that ran was canceled: nothing answered, so this is a failure, not a
+    # degraded result — raise the first cancel exactly as before.
+    some_lane_answered = (
+        bool(vector_rankings) or "lexical" not in recall_lane_errors or "entity" not in recall_lane_errors
+    )
+    if lane_cancels and not some_lane_answered:
+        raise lane_cancels[0]
+
+    # Real per-lane recall sizes (distinct candidates each lane surfaced
+    # before fusion). Surfaced on SearchResponse for the diagnostics UI.
+    vector_candidates = len({cid for r in vector_rankings.values() for cid in r})
+    lexical_candidates = len(lexical_ranking)
+    entity_candidates = len(entity_ranking)
+
+    # 3. RRF fusion with per-ranking weights — HyDE blends at 0.3,
+    # entity lane blends at _ENTITY_LANE_RRF_WEIGHT.
+    additional_rankings: dict[str, list[str]] = {}
+    if entity_ranking:
+        additional_rankings["entity_lane"] = entity_ranking
+        ranking_weights["entity_lane"] = _ENTITY_LANE_RRF_WEIGHT
+
+    fused = _rrf_fuse(
+        {**vector_rankings, **additional_rankings},
+        lexical_ranking,
+        ranking_weights=ranking_weights,
+    )
+    if not fused:
+        # Zero candidates recalled across every lane — there is definitively
+        # nothing relevant, which is a real answer and must be stated as one
+        # (not left as "unscored", which would read as "we didn't check").
+        return SearchResponse(
+            query=query,
+            hits=[],
+            total_candidates=0,
+            embedding_model=embedding_models[0],
+            reranker_model=None,
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            matched_entities=matched_entity_names,
+            vector_candidates=vector_candidates,
+            lexical_candidates=lexical_candidates,
+            entity_candidates=entity_candidates,
+            recall_lane_errors=recall_lane_errors,
+            # A canceled lane might have found something: "nothing relevant" is only true
+            # when every lane answered.
+            relevance_verdict=RELEVANCE_VERDICT_UNSCORED if recall_lane_errors else RELEVANCE_VERDICT_NONE,
         )
 
-        # Real per-lane recall sizes (distinct candidates each lane surfaced
-        # before fusion). Surfaced on SearchResponse for the diagnostics UI.
-        vector_candidates = len({cid for r in vector_rankings.values() for cid in r})
-        lexical_candidates = len(lexical_ranking)
-        entity_candidates = len(entity_ranking)
-
-        # 3. RRF fusion with per-ranking weights — HyDE blends at 0.3,
-        # entity lane blends at _ENTITY_LANE_RRF_WEIGHT.
-        additional_rankings: dict[str, list[str]] = {}
-        if entity_ranking:
-            additional_rankings["entity_lane"] = entity_ranking
-            ranking_weights["entity_lane"] = _ENTITY_LANE_RRF_WEIGHT
-
-        fused = _rrf_fuse(
-            {**vector_rankings, **additional_rankings},
-            lexical_ranking,
-            ranking_weights=ranking_weights,
-        )
-        if not fused:
-            # Zero candidates recalled across every lane — there is definitively
-            # nothing relevant, which is a real answer and must be stated as one
-            # (not left as "unscored", which would read as "we didn't check").
-            return SearchResponse(
-                query=query,
-                hits=[],
-                total_candidates=0,
-                embedding_model=embedding_models[0],
-                reranker_model=None,
-                latency_ms=int((time.perf_counter() - started) * 1000),
-                matched_entities=matched_entity_names,
-                vector_candidates=vector_candidates,
-                lexical_candidates=lexical_candidates,
-                entity_candidates=entity_candidates,
-                relevance_verdict=RELEVANCE_VERDICT_NONE,
-            )
-
-        # 3b. ONE BATCHED READ after the lanes (Knowledge Hub H1, 2026-09-27): chunk bodies,
-        # priority, the entity-importance sum and the Source's name for every fusion
-        # candidate, in a single round trip. It replaced three serial reads (priorities,
-        # importance, hydration) plus the Source-name read the Knowledge service made.
-        #
-        # Phase 2.0b priority boost and Phase 3.0 entity-importance boost are applied
-        # from it exactly as before: priority first (missing/0 = no boost), then
-        # importance (NULL/0 = no boost), both before the RERANK_INPUT cutoff.
+    # 3b. ONE BATCHED READ after the lanes (Knowledge Hub H1, 2026-09-27): chunk bodies,
+    # priority, the entity-importance sum and the Source's name for every fusion
+    # candidate, in a single round trip. It replaced three serial reads (priorities,
+    # importance, hydration) plus the Source-name read the Knowledge service made.
+    #
+    # Phase 2.0b priority boost and Phase 3.0 entity-importance boost are applied
+    # from it exactly as before: priority first (missing/0 = no boost), then
+    # importance (NULL/0 = no boost), both before the RERANK_INPUT cutoff.
+    async with acquire_connection(database=PACKAGE_DB_NAME) as conn:
         candidate_rows = await _hydrate_candidates(conn, [cid for cid, _ in fused[:PRIORITY_FETCH_CAP]])
-        priority_lookup, importance_lookup = _boost_lookups(candidate_rows)
-        if priority_lookup:
-            fused = sorted(
-                (
-                    (cid, _apply_priority(rrf_score, priority_lookup.get(cid, 0)))
-                    for cid, rrf_score in fused
-                ),
-                key=lambda kv: kv[1],
-                reverse=True,
-            )
-        if importance_lookup:
-            fused = sorted(
-                (
-                    (cid, _apply_entity_importance(rrf_score, importance_lookup.get(cid, 0.0)))
-                    for cid, rrf_score in fused
-                ),
-                key=lambda kv: kv[1],
-                reverse=True,
-            )
+    priority_lookup, importance_lookup = _boost_lookups(candidate_rows)
+    if priority_lookup:
+        fused = sorted(
+            (
+                (cid, _apply_priority(rrf_score, priority_lookup.get(cid, 0)))
+                for cid, rrf_score in fused
+            ),
+            key=lambda kv: kv[1],
+            reverse=True,
+        )
+    if importance_lookup:
+        fused = sorted(
+            (
+                (cid, _apply_entity_importance(rrf_score, importance_lookup.get(cid, 0.0)))
+                for cid, rrf_score in fused
+            ),
+            key=lambda kv: kv[1],
+            reverse=True,
+        )
 
     # Build entity rank lookup (1-based position in entity_ranking list).
     entity_rank_lookup: dict[str, int] = {
@@ -1297,15 +1358,23 @@ async def search(
                 context={"documents": len(documents), "timeout_s": rerank_timeout_s},
             )
         except Exception as exc:
-            logger.warning("rag.search: host reranker failed, keeping RRF order: %s", exc)
             reranker_model = None
-            rerank_status = "failed"
-            rerank_error = f"{type(exc).__name__}: {str(exc)[:240]}"
-            await capture_error(
-                exc,
-                kind="rag_rerank_provider_failed",
-                context={"documents": len(documents)},
-            )
+            if getattr(exc, "is_caller_refusal", False):
+                # The HOST refused the rerank on policy (e.g. a compliance mode with no
+                # agreement with the reranker's vendor): not a provider failure, so no
+                # incident — the fused order stands and status + reason say why.
+                logger.warning("rag.search: rerank skipped by host policy, keeping RRF order: %s", exc)
+                rerank_status = "skipped"
+                rerank_error = str(exc)[:400]
+            else:
+                logger.warning("rag.search: host reranker failed, keeping RRF order: %s", exc)
+                rerank_status = "failed"
+                rerank_error = f"{type(exc).__name__}: {str(exc)[:240]}"
+                await capture_error(
+                    exc,
+                    kind="rag_rerank_provider_failed",
+                    context={"documents": len(documents)},
+                )
         # Confidence floor — when even the BEST candidate scores below the
         # floor, Cohere found no confident match and its ordering of uniformly
         # weak candidates is noise. Keep the fused RRF order instead (and
@@ -1495,6 +1564,7 @@ async def search(
         entity_candidates=entity_candidates,
         rerank_status=rerank_status,
         rerank_error=rerank_error,
+        recall_lane_errors=recall_lane_errors,
         relevance_verdict=relevance_verdict,
         relevance_floor=relevance_floor_applied,
         below_floor_dropped=below_floor_dropped,
@@ -1571,10 +1641,53 @@ class ReadableDocuments:
     source_ids: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
-#: The chunk kinds the search asks ``rag.readable_sources`` for. ``cld_file`` is left to
-#: the doors' per-row check on purpose: the file set costs ~5 s for a member of many
-#: organizations, and file passages without a Source are rare (~200 rows, 2026-10-15).
-READABLE_SOURCE_KINDS: tuple[str, ...] = ("note", "task", "project", "library_doc", "document")
+@dataclass(frozen=True)
+class ServerReadable:
+    """The same readable sets as :class:`ReadableDocuments`, left IN THE DATABASE.
+
+    :func:`build_visibility_predicate` given this renders the source lane as
+    ``processed_document_id IN (SELECT unnest(iam.accessible_entity_ids('processed_document',
+    'viewer')))`` and each of ``source_kinds`` as ``source_id IN (SELECT
+    jsonb_array_elements_text(rag.readable_sources(ARRAY[kind]) -> kind))`` — the very
+    functions :func:`resolve_readable_documents` asks, so the answer is identical, but no id
+    list is bound as a parameter. Both functions read the person from ``auth.uid()``, so a
+    statement built with it must run inside the person's claims (:func:`count_visible_chunks`
+    does). For whole-table scans (the search lab's counts): a 27k-id Source set shipped as a
+    ~1.4 MB parameter timed the diagnose count out at 20 s (2026-11-16); left in the database
+    the same count answers in ~5 s.
+    """
+
+    user_id: str
+    source_kinds: tuple[str, ...] = ()
+
+
+#: The chunk kinds the search asks ``rag.readable_sources`` for — every kind the doors would
+#: otherwise decide row by row. ``cld_file`` joined on 2026-11-04: Source-less file passages are
+#: no longer rare (20,316 rows over 5,879 files), and the per-row kernel check cost ~2-10 ms a row
+#: for a member of 320 organizations, so a broad lexical query (18.8k matches, 3.2k of them
+#: Source-less file chunks) spent 7-8 s in the doors' WHERE and timed out (knowledge_search,
+#: 2026-11-03). The file set costs one ~5 s ask for that person, once per search, concurrent with
+#: the documents set; the lexical door then answered the same query in 1.4-2.3 s.
+READABLE_SOURCE_KINDS: tuple[str, ...] = ("note", "task", "project", "cld_file", "library_doc", "document")
+
+#: Every chunk ``source_kind`` (the KgChunks table's ``kg_chunks_source_kind_known`` CHECK).
+CHUNK_KINDS: tuple[str, ...] = (
+    "cld_file", "inline", "legacy", "external_url", "note", "code_file", "scrape_parsed_page", "web_page",
+    "transcript", "library_doc", "scraped", "repository", "task", "project", "cx_message", "research",
+    "document", "workbook", "udt_document", "canvas_item", "deck",
+)
+#: A person's chats (the typed field of a conversation, D-3 2026-11-19): private class, recalled only on request.
+PRIVATE_CHUNK_KINDS: frozenset[str] = frozenset({"cx_message"})
+
+
+def effective_source_kinds(source_kinds: list[str] | None, *, include_private_kinds: bool) -> list[str] | None:
+    """The kinds one search may recall. ``None`` = every kind (only when private kinds are allowed);
+    without permission every private kind is removed, also from an explicit list."""
+    if include_private_kinds:
+        return source_kinds
+    if source_kinds is None:
+        return [k for k in CHUNK_KINDS if k not in PRIVATE_CHUNK_KINDS]
+    return [k for k in source_kinds if k not in PRIVATE_CHUNK_KINDS]
 
 
 def readable_source_kinds_for(source_kinds: list[str] | None) -> tuple[str, ...]:
@@ -1606,12 +1719,30 @@ async def resolve_readable_documents(
 
 
 async def _readable_sources(user_id: str, kinds: tuple[str, ...]) -> dict[str, tuple[str, ...]]:
-    """``rag.readable_sources`` asked as ``user_id``: every requested kind must come back."""
-    from matrx_orm import ArrayArg
+    """``rag.readable_sources`` asked as ``user_id``: every requested kind must come back.
+
+    BOUNDED BY THE SERVER'S CEILING, NOT THE POOL'S 10 s DRIVER TIMEOUT (2026-11-17). The ask is
+    bounded by construction (candidates first: the kernel is asked only about ids with Source-less
+    live passages), but for a member of hundreds of organizations it is a 3-4 s statement warm
+    (agent admin, measured: files ~2.3 s of it — 7.5k candidate files, the kernel 1.45 s over them —
+    library docs 0.7 s, notes 0.4 s). Under load that crossed the pool's 10 s ``command_timeout``
+    while Postgres itself still allowed 30 s, and knowledge_search failed with ``QueryTimeoutError …
+    call_function_as:rag.readable_sources`` (duration 10,084 ms). ``SERVER_CEILING`` lets the
+    statement run to the server's own ``statement_timeout``, whose 57014 is then the true answer.
+    Splitting the kinds into concurrent asks was measured and rejected: 3.13 s vs 3.28 s — the
+    file kind alone is the cost.
+    """
+    from matrx_orm import SERVER_CEILING, ArrayArg
     from matrx_orm.core.db_function import call_function_as
 
     answer = await call_function_as(
-        user_id, PACKAGE_DB_NAME, "rag", "readable_sources", ArrayArg(list(kinds), "text"), mode="scalar"
+        user_id,
+        PACKAGE_DB_NAME,
+        "rag",
+        "readable_sources",
+        ArrayArg(list(kinds), "text"),
+        mode="scalar",
+        timeout=SERVER_CEILING,
     )
     if not isinstance(answer, dict) or any(not isinstance(answer.get(k), list) for k in kinds):
         raise RuntimeError(
@@ -1634,6 +1765,8 @@ _ROW_KERNEL_TOKENS: dict[str, str] = {
     # workbench.udt_workbooks / udt_documents: the kernel decides on the row, same as notes.
     "workbook": "workbook",
     "udt_document": "udt_document",
+    # workbench.presentation (slide decks): the kernel's token is the table's own, ``presentation``.
+    "deck": "presentation",
 }
 
 
@@ -1644,7 +1777,7 @@ def build_visibility_predicate(
     is_admin: bool = False,
     admin_bypass_acl: bool = False,
     chunk_alias: str,
-    readable: ReadableDocuments | None = None,
+    readable: ReadableDocuments | ServerReadable | None = None,
     lanes_only: bool = False,
 ):
     """Build the complete typed read-access predicate for ``rag.kg_chunks``.
@@ -1681,6 +1814,7 @@ def build_visibility_predicate(
         ConstantPredicate,
         DbFunction,
         Exists,
+        InSet,
         JsonPath,
         OuterRef,
         TupleInArrays,
@@ -1704,7 +1838,25 @@ def build_visibility_predicate(
     SystemOrgs = get_db_model("SystemOrgs")
 
     pd_col = F(f"{chunk_alias}.processed_document_id")
-    if readable.processed_document_ids:
+    server_held = isinstance(readable, ServerReadable)
+    member_kinds = (
+        {k for k in readable.source_kinds if k in READABLE_SOURCE_KINDS}
+        if isinstance(readable, ServerReadable)
+        else set(readable.source_ids)
+    )
+    if isinstance(readable, ServerReadable):
+        source_lane = Is(pd_col, None, negated=True) & InSet(
+            pd_col,
+            DbFunction(
+                "unnest",
+                DbFunction(
+                    "iam.accessible_entity_ids",
+                    Cast(Value("processed_document"), "text"),
+                    Cast(Value("viewer"), "permission_level"),
+                ),
+            ),
+        )
+    elif readable.processed_document_ids:
         source_lane = Is(pd_col, None, negated=True) & TupleInArrays(
             (pd_col,), (list(readable.processed_document_ids),), array_types=("uuid[]",)
         )
@@ -1715,14 +1867,7 @@ def build_visibility_predicate(
         # A kind the readable-source set carries is tested by membership, exactly as the
         # recall doors do — a kernel call per row on ~14k note passages timed the search
         # lab inventory out at 30 s (2026-10-24). A kind it does not carry keeps the row check.
-        if kind in readable.source_ids:
-            ids = list(readable.source_ids[kind])
-            if not ids:
-                return ConstantPredicate(False)
-            return Compare(F(f"{chunk_alias}.source_kind"), "=", kind) & ArrayAny(
-                F(f"{chunk_alias}.source_id"), ids, cast="text[]"
-            )
-        return Compare(F(f"{chunk_alias}.source_kind"), "=", kind) & Compare(
+        per_row = Compare(
             DbFunction(
                 "iam.has_access_for",
                 Cast(Value(str(user_id)), "uuid"),
@@ -1733,6 +1878,32 @@ def build_visibility_predicate(
             "=",
             True,
         )
+        of_kind = Compare(F(f"{chunk_alias}.source_kind"), "=", kind)
+        if kind not in member_kinds:
+            return of_kind & per_row
+        # 🚨 THE SET COVERS LIVE PASSAGES ONLY (2026-11-11). ``rag.readable_sources`` lists the
+        # readable ids that have a LIVE Source-less passage (its candidates ride the partial index
+        # kg_chunks_sourceless_live_idx), so a superseded or trashed passage whose record has no
+        # live one is absent from it although the kernel reads the record. Membership decides only
+        # live rows; any other row keeps the per-row kernel check, so the answer is
+        # ``iam.has_access_for``'s on every row (test@test.com: 1,039 trashed note/document passages
+        # the set refused and the kernel allowed). Callers that filter live rows never reach it.
+        live = Is(F(f"{chunk_alias}.valid_to"), None) & Is(F(f"{chunk_alias}.deleted_at"), None)
+        not_live = Is(F(f"{chunk_alias}.valid_to"), None, negated=True) | Is(
+            F(f"{chunk_alias}.deleted_at"), None, negated=True
+        )
+        if server_held:
+            member = InSet(
+                F(f"{chunk_alias}.source_id"),
+                DbFunction(
+                    "jsonb_array_elements_text",
+                    JsonPath(DbFunction("rag.readable_sources", Cast(Value([kind]), "text[]")), kind, as_text=False),
+                ),
+            )
+        else:
+            ids = list(readable.source_ids[kind])
+            member = ArrayAny(F(f"{chunk_alias}.source_id"), ids, cast="text[]") if ids else ConstantPredicate(False)
+        return of_kind & ((live & member) | (not_live & per_row))
 
     row_kinds = list(_ROW_KERNEL_TOKENS)
     row_lane = kernel_row(row_kinds[0], _ROW_KERNEL_TOKENS[row_kinds[0]])
@@ -1864,6 +2035,46 @@ async def visibility_predicate_for(
     )
 
 
+async def count_visible_chunks(
+    *,
+    user_id: str | None,
+    is_admin: bool = False,
+    admin_bypass_acl: bool = False,
+    source_kinds: tuple[str, ...] | list[str] = READABLE_SOURCE_KINDS,
+) -> int:
+    """How many live chunks ``user_id`` may read — the whole-table count, decided in the database.
+
+    The predicate is :func:`build_visibility_predicate`'s, with the readable sets left in the
+    database (:class:`ServerReadable`): one statement, run inside the person's claims so
+    ``iam.accessible_entity_ids`` / ``rag.readable_sources`` answer for her (the connection keeps
+    its own role, exactly as ``call_function_as`` asks them). No id list is ever bound."""
+    from matrx_orm import scoped_transaction
+
+    from matrx_rag.db.models_rag import KgChunks
+
+    chunk_alias = f"{KgChunks._db_schema}.{KgChunks._table_name}"
+    if user_id is None or (is_admin and admin_bypass_acl):
+        predicate = build_visibility_predicate(
+            user_id=user_id,
+            organization_id=None,
+            is_admin=is_admin,
+            admin_bypass_acl=admin_bypass_acl,
+            chunk_alias=chunk_alias,
+        )
+        return await KgChunks.filter(predicate, valid_to__isnull=True, deleted_at__isnull=True).count()
+    readable = ServerReadable(user_id=str(user_id), source_kinds=tuple(source_kinds))
+    predicate = build_visibility_predicate(
+        user_id=str(user_id),
+        organization_id=None,
+        is_admin=is_admin,
+        admin_bypass_acl=admin_bypass_acl,
+        chunk_alias=chunk_alias,
+        readable=readable,
+    )
+    async with scoped_transaction(PACKAGE_DB_NAME, claims={"sub": str(user_id), "role": "authenticated"}):
+        return await KgChunks.filter(predicate, valid_to__isnull=True, deleted_at__isnull=True).count()
+
+
 _build_visibility_clause = build_visibility_predicate
 
 
@@ -1926,11 +2137,38 @@ def _door_filters(filters: dict[str, object], readable: ReadableDocuments | None
     return {**filters, "readable_sources": {k: list(v) for k, v in readable.source_ids.items()}}
 
 
-async def _door(function: str, *args: object) -> list[dict[str, object]]:
+async def _door(
+    function: str,
+    *args: object,
+    timeout: float | None = None,  # noqa: ASYNC109 — the driver's per-statement timeout, passed through
+) -> list[dict[str, object]]:
+    """One recall door. ``timeout`` is the driver's per-statement limit for this call (``None``
+    keeps the pool's ``command_timeout``)."""
     from matrx_orm import ArrayArg, call_function
 
     bound = [ArrayArg(a.values, a.pg_type) if isinstance(a, _Uuids) else a for a in args]
-    return await call_function(PACKAGE_DB_NAME, "rag", function, *bound, mode="rows")
+    return await call_function(PACKAGE_DB_NAME, "rag", function, *bound, mode="rows", timeout=timeout)
+
+
+async def _canceled_lane(
+    exc: BaseException, lane: str, errors: dict[str, str], cancels: list[BaseException]
+) -> bool:
+    """True when ``exc`` is the database canceling one recall door (SQLSTATE 57014, a
+    statement or driver timeout): the lane is noted in ``errors`` and announced, and the
+    search carries on with the other lanes. Anything else is not ours to absorb — False.
+
+    The ORM door already filed the cancel as a ``db_statement_canceled`` system error before
+    it re-raised; an uncaptured one (never expected) is filed here so nothing goes silent."""
+    from matrx_orm.core.db_cancel_capture import db_cancel_already_captured, db_cancel_sqlstate
+
+    if db_cancel_sqlstate(exc) != "57014":
+        return False
+    errors.setdefault(lane, f"The {lane} recall lane timed out in the database; results come from the other lanes.")
+    cancels.append(exc)
+    logger.warning("rag.search: %s recall lane canceled by the database (57014); degraded search: %s", lane, exc)
+    if not db_cancel_already_captured(exc):
+        await capture_error(exc, kind="rag_recall_lane_canceled", context={"lane": lane})
+    return True
 
 
 @dataclass(frozen=True)
@@ -1948,7 +2186,12 @@ async def _recall_vector_door(
     k: int,
     filters: dict[str, object],
 ) -> list[str]:
+    from matrx_rag._ext import get_recall_vector_timeout_seconds
+
     table = embedding_table.split(".")[-1]
+    # The host's time limit (knowledge.search_vector_recall_timeout_s in aidream): a cold vector
+    # index can outlast the pool's 10 s default, and a canceled call drops the meaning lane.
+    timeout = await get_recall_vector_timeout_seconds()
     rows = await _door(
         "recall_vector",
         table,
@@ -1958,6 +2201,7 @@ async def _recall_vector_door(
         k,
         _door_filters(filters, readable),
         40,
+        timeout=timeout,
     )
     return [str(r["chunk_id"]) for r in rows]
 

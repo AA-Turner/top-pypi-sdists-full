@@ -11,7 +11,6 @@ keyword, or pass bytes for a one-shot.
 
 from __future__ import annotations
 
-import asyncio
 import re
 from collections.abc import AsyncIterator, Callable
 from typing import Any
@@ -20,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from ..concurrency import run_in_cpu_executor
 from ..internal import load_pymupdf
+from ..stream_bridge import iter_sync_stream
 
 
 class SearchBbox(BaseModel):
@@ -239,48 +239,25 @@ async def search_text_stream(
     count) the moment the document opens, then a ``SearchPageHits`` per page
     as it finishes scanning (zero-hit pages included).
 
-    Same pattern as ``extract_text_pages_stream``: the whole sync scan runs
+    Runs through the one PDF stream bridge (``stream_bridge.iter_sync_stream``): the whole sync scan runs
     on ONE CPU-executor worker (PyMuPDF thread-safety — the Document never
     leaves its thread); page results cross back to the event loop via a
     queue. A scan error is re-raised here after every already-scanned page
     has been yielded. The scan stops early once ``max_hits`` is reached.
     """
-    loop = asyncio.get_running_loop()
-    queue: asyncio.Queue[SearchStart | SearchPageHits | None] = asyncio.Queue()
+    def _work(emit: Callable[[SearchStart | SearchPageHits], None]) -> object:
+        return search_text(
+            pdf_bytes,
+            query=query,
+            regex=regex,
+            case_sensitive=case_sensitive,
+            max_hits=max_hits,
+            on_open=lambda total_pages: emit(SearchStart(total_pages=total_pages)),
+            on_page=emit,
+        )
 
-    def _on_open(total_pages: int) -> None:
-        loop.call_soon_threadsafe(queue.put_nowait, SearchStart(total_pages=total_pages))
-
-    def _on_page(page_hits: SearchPageHits) -> None:
-        loop.call_soon_threadsafe(queue.put_nowait, page_hits)
-
-    async def _run() -> None:
-        try:
-            await run_in_cpu_executor(
-                lambda: search_text(
-                    pdf_bytes,
-                    query=query,
-                    regex=regex,
-                    case_sensitive=case_sensitive,
-                    max_hits=max_hits,
-                    on_open=_on_open,
-                    on_page=_on_page,
-                )
-            )
-        finally:
-            queue.put_nowait(None)  # sentinel — runs on the event loop already
-
-    worker = asyncio.ensure_future(_run())
-    try:
-        while True:
-            item = await queue.get()
-            if item is None:
-                break
-            yield item
-    finally:
-        # Propagate a scan failure (worker is guaranteed settled once the
-        # sentinel arrived; on generator abandonment this awaits the tail).
-        await worker
+    async for item in iter_sync_stream(run_in_cpu_executor, _work):
+        yield item
 
 
 __all__ = [

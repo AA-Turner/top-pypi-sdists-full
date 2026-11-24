@@ -16,6 +16,8 @@ step layered override dicts with a bare spread).
 from __future__ import annotations
 
 from types import SimpleNamespace
+
+from matrx_connect.context.run_scope import RunScope
 from typing import Any
 
 import pytest
@@ -318,13 +320,15 @@ def test_memory_factory_carries_the_memory_models_class(monkeypatch, catalog) ->
     monkeypatch.setattr(factory, "DbObservationalMemoryStorage", lambda: object())
     om = factory.build_observational_memory(
         SimpleNamespace(
-            memory_enabled=True,
+            run=RunScope(
+                memory_enabled=True,
+                memory_model=QWEN,
+                memory_offering_id=LIGHTNING,
+                memory_scope="thread",
+            ),
             store=True,
             user_id="u1",
             organization_id="o1",
-            memory_model=QWEN,
-            memory_offering_id=LIGHTNING,
-            memory_scope="thread",
         ),
         "conv-1",
     )

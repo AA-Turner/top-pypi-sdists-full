@@ -173,6 +173,11 @@ def _tell_caller_tools_not_available(
     detached_task(emitter.send_warning(payload), name="warn_tools_not_available")
 
 
+#: The one public name for telling the caller which tools it asked for are not in this run (hosts call it for
+#: the tools a person picked that resolve to nothing: switched off, retired, or never registered).
+tell_caller_tools_not_available = _tell_caller_tools_not_available
+
+
 def _schedule_unrunnable_tool_configuration_capture(
     *,
     ctx: AppContext,
@@ -1486,7 +1491,13 @@ def _merge_request_tools(
         dropped_unrunnable: list[str] = []
         dropped_gated: list[str] = []
         unknown_named: list[str] = []
+        #: Sticky conversation tools the registry no longer knows (a tool retired after the
+        #: conversation recorded it — live 2026-11-06: sandbox_maintenance, retired 2026-11-02,
+        #: rode staff thread 3af9e95c's dynamic_tools and warned "not registered" every turn).
+        retired_sticky: list[str] = []
+        _sticky_names = set(canonical_tool_names(list(getattr(config, "dynamic_tools", None) or [])))
         from matrx_ai.tools.agent_projection import PROJECTED_AGENT_TOOLS_KEY
+        from matrx_ai.tools.implementations.legacy_local import routes_to_matrx2
 
         # A request-scoped projection (an agent-as-tool, or a host's dry mount of a page
         # tool on a proof run) is runnable by construction: dispatch reads the projection
@@ -1498,10 +1509,26 @@ def _merge_request_tools(
                 kept_tools.append(_name)
                 continue
             _td = registry.get(_name)
+            if _td is None and isinstance(_name, str) and _name in _sticky_names:
+                # Recorded by an earlier turn, gone from the registry now: it can never be
+                # called again. Forget it from the conversation (the explicit-removal path)
+                # instead of re-offering a dead name every turn; the caller is told below.
+                retired_sticky.append(_name)
+                continue
             if _td is None and isinstance(_name, str) and _name in requested_registered_names:
                 # Named by THIS request but not a known tool: it can never be
                 # called. Keep the prior pass-through behavior, but tell the caller.
                 unknown_named.append(_name)
+            if (
+                _td is not None
+                and _name not in delegated_set
+                and routes_to_matrx2(_td.name, ctx)
+            ):
+                # An old local_* name with no Matrx Local on the request, on a run bound to a
+                # Matrx 2 computer: the dispatch edge runs it as its successor (legacy_local.py),
+                # so it is runnable and the model keeps it.
+                kept_tools.append(_name)
+                continue
             if (
                 _td is not None
                 and _td.tool_type == ToolType.LOCAL
@@ -1572,6 +1599,14 @@ def _merge_request_tools(
                 f"handler, or activate the client surface that delegates it.",
                 color="yellow",
             )
+        if retired_sticky:
+            config.tools = kept_tools
+            forgotten = forget_conversation_tools(config, retired_sticky)
+            vcprint(
+                f"[merge_request_tools] forgot {len(forgotten)} retired tool(s) from this "
+                f"conversation's sticky toolset (no longer registered): {sorted(forgotten)}",
+                color="yellow",
+            )
         _tell_caller_tools_not_available(
             ctx,
             unrunnable=[
@@ -1579,7 +1614,7 @@ def _merge_request_tools(
                 for n in dropped_unrunnable
                 if n in requested_registered_names
             ],
-            unknown=unknown_named,
+            unknown=[*unknown_named, *retired_sticky],
         )
 
     return ctx

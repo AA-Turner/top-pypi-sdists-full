@@ -108,7 +108,7 @@ def _seed_tenant(cur: Any, tag: str) -> dict[str, str]:
     )
     brand = _one(
         cur,
-        "insert into web.brand (organization_id, name) values (%s, %s) returning id",
+        "insert into brand.brand (organization_id, name) values (%s, %s) returning id",
         (org, f"TMDC brand {tag}"),
     )
     host = f"tmdc-{tag.lower()}-{user[:8]}.invalid"
@@ -1176,7 +1176,7 @@ def _plant_world(cur: Any, w: World) -> Hidden:
     brand = str(
         _srv(
             cur,
-            "insert into web.brand (organization_id, name) values (%s, %s) returning id",
+            "insert into brand.brand (organization_id, name) values (%s, %s) returning id",
             (w.me["org"], f"TMDC hidden brand {tag}"),
         )
     )

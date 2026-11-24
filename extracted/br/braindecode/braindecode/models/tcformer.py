@@ -171,6 +171,10 @@ class TCFormer(EEGModuleMixin, nn.Module, license="mit"):
        https://github.com/Altaheri/TCFormer
     """
 
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: conv_block.channel_dw_conv.0.weight
+    _feature_axis = 1
+
     def __init__(
         self,
         # Signal related parameters
@@ -275,6 +279,7 @@ class TCFormer(EEGModuleMixin, nn.Module, license="mit"):
         self.final_layer = _ClassificationHead(
             d_fused, n_groups + 1, self.n_outputs, classifier_max_norm
         )
+        self._min_n_times = max(1, pool_length_1 * pool_length_2)
         self._init_parameters()
 
     def _init_parameters(self) -> None:
@@ -298,10 +303,15 @@ class TCFormer(EEGModuleMixin, nn.Module, license="mit"):
         last_step = decoded[:, :, -1:]  # (batch, d_fused, 1)
         return self.final_layer(last_step)  # (batch, n_outputs)
 
+    def reset_head(self, n_outputs: int) -> None:
+        self._set_n_outputs(n_outputs)
+        head = self.final_layer
+        self.final_layer = _ClassificationHead(
+            head.conv.in_channels, head.n_groups, n_outputs, self.classifier_max_norm
+        )
+
 
 # ----------------------------------------------------------------------------- #
-# Rotary positional embedding (verbatim port of the reference; see plan note on
-# the deliberate NeoX-cache / interleaved-rotate mismatch).
 def _build_rotary_cache(
     head_dim: int,
     seq_len: int,
@@ -310,14 +320,15 @@ def _build_rotary_cache(
 ) -> tuple[Tensor, Tensor]:
     """Return ``(cos, sin)`` each of shape ``(seq_len, head_dim)``.
 
-    Angles are computed in at least float32 for precision; the returned
-    cos/sin are cast to ``dtype`` (the token dtype) so attention stays in the
-    working precision under autocast.
+    TCFormer repeats the half-width angle table across the feature dimension
+    and rotates adjacent feature pairs in queries and keys. Angles use at
+    least float32 precision. The returned tables use the token ``dtype``.
+    The half-split table with pair rotation is intentional: it matches the
+    reference TCFormer and its pretrained weights.
     """
     work = torch.float32 if dtype is None else torch.promote_types(dtype, torch.float32)
     theta = rotary_frequencies(head_dim, device=device, dtype=work)
     seq_idx = torch.arange(seq_len, device=device, dtype=work)
-    # Half-split angle layout with pair rotation, as the reference.
     emb = rotary_angles(seq_idx, theta, interleaved=False)  # (seq_len, head_dim)
     cos, sin = emb.cos(), emb.sin()
     if dtype is not None:

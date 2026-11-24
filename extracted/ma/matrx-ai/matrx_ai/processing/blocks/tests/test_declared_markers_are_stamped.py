@@ -15,13 +15,10 @@ that comes out is the REAL producer's, not a hand-built one.
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from matrx_ai.processing.blocks import envelope as envelope_module
-from matrx_ai.processing.blocks.envelope import _stamp_declared_markers
-from matrx_ai.processing.blocks.stream_processor import process_complete_to_blocks
+from matrx_ai.processing.blocks.envelope import _stamp_declared_markers, envelope_for_block
 
 # Trimmed to the shape under test, but structurally faithful to the LIVE
 # `content_ir.kind_definition.emitted_json_schema` rows: `__kind` required at
@@ -49,88 +46,42 @@ FLASHCARD_SET_SCHEMA = {
     "additionalProperties": False,
 }
 
-QUIZ_SET_SCHEMA = {
-    "type": "object",
-    "required": ["__kind", "title", "questions"],
-    "properties": {
-        "__kind": {"type": "string", "const": "quiz_set"},
-        "title": {"type": "string"},
-        "questions": {"type": "array", "items": {"$ref": "#/$defs/quiz_question"}},
-    },
-    "$defs": {
-        "quiz_question": {
-            "type": "object",
-            "required": ["__kind", "type", "question", "correct_answer"],
-            "properties": {
-                "__kind": {"type": "string", "const": "quiz_question"},
-                "type": {"type": "string"},
-                "question": {"type": "string"},
-                "options": {"type": "array", "items": {"type": "string"}},
-                "correct_answer": {"type": "string"},
-                "explanation": {"type": "string"},
-            },
-            "additionalProperties": False,
-        }
-    },
-    "additionalProperties": False,
+# LEGACY-5: the <flashcards> reader is gone, so the producer is driven at the
+# envelope seam with the value a parser hands it (cards without markers). The
+# stamping and partition under test are generic and unchanged.
+CARDS_VALUE = {
+    "title": "Photosynthesis",
+    "cards": [
+        {"front": "What pigment absorbs light?", "back": "Chlorophyll."},
+        {"front": "Where does the Calvin cycle run?", "back": "In the stroma."},
+    ],
 }
-
-FLASHCARDS_ANSWER = """Here is your deck.
-
-<flashcards>
-Front: What pigment absorbs light?
-Back: Chlorophyll.
-
----
-
-Front: Where does the Calvin cycle run?
-Back: In the stroma of the chloroplast.
-</flashcards>
-"""
-
-QUIZ_ANSWER = "Here is your quiz.\n\n```json\n" + json.dumps(
-    {
-        "quiz_title": "Photosynthesis Quiz",
-        "multiple_choice": [
-            {
-                "question": "Which pigment absorbs light?",
-                "options": ["Chlorophyll", "Carotene"],
-                "correct_answer": "Chlorophyll",
-                "explanation": "It absorbs blue and red wavelengths.",
-            }
-        ],
-    },
-    indent=2,
-) + "\n```\n"
 
 
 @pytest.fixture
-def warm_catalog():
+def warm_catalog(monkeypatch: pytest.MonkeyPatch):
     envelope_module._schema_snapshot["flashcard_set"] = FLASHCARD_SET_SCHEMA
-    envelope_module._schema_snapshot["quiz_set"] = QUIZ_SET_SCHEMA
+    monkeypatch.setitem(envelope_module.BLOCK_KIND_MAP, "flashcards", "flashcard_set")
     yield
     envelope_module.reset_kind_catalog_snapshot()
 
 
-def _stamped(answer: str) -> list[dict]:
-    return [
-        block
-        for block in process_complete_to_blocks(answer)
-        if (block.get("metadata") or {}).get("__ir")
-    ]
-
-
-def test_a_flashcards_block_stamps_an_envelope_at_all(warm_catalog):
-    """The regression itself: this list was EMPTY for every legacy kind."""
-    stamped = _stamped(FLASHCARDS_ANSWER)
-    assert stamped, (
-        "no __ir envelope was stamped for a real <flashcards> answer — the "
+def _value() -> dict:
+    ir = envelope_for_block("flashcards", dict(CARDS_VALUE), source_text="deck")
+    assert ir is not None, (
+        "no __ir envelope was stamped for an unmarked deck — the "
         "structured-content channel is dead again"
     )
+    return ir["root"]["value"]
+
+
+def test_an_unmarked_value_stamps_an_envelope_at_all(warm_catalog):
+    """The regression itself: this was None for every unmarked value."""
+    _value()
 
 
 def test_the_root_and_every_child_carry_the_marker_the_schema_declares(warm_catalog):
-    value = _stamped(FLASHCARDS_ANSWER)[0]["metadata"]["__ir"]["root"]["value"]
+    value = _value()
     assert value["__kind"] == "flashcard_set"
     assert value["cards"], "the deck lost its cards"
     for card in value["cards"]:
@@ -141,15 +92,9 @@ def test_the_root_and_every_child_carry_the_marker_the_schema_declares(warm_cata
 
 def test_the_marker_leads_the_object(warm_catalog):
     """Block-shape doctrine: the discriminator is the FIRST key."""
-    value = _stamped(FLASHCARDS_ANSWER)[0]["metadata"]["__ir"]["root"]["value"]
+    value = _value()
     assert next(iter(value)) == "__kind"
     assert next(iter(value["cards"][0])) == "__kind"
-
-
-def test_a_json_detected_kind_stamps_through_its_adapter_too(warm_catalog):
-    value = _stamped(QUIZ_ANSWER)[0]["metadata"]["__ir"]["root"]["value"]
-    assert value["__kind"] == "quiz_set"
-    assert [q["__kind"] for q in value["questions"]] == ["quiz_question"]
 
 
 def test_an_existing_marker_is_never_overwritten():

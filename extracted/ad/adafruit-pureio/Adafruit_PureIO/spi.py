@@ -29,7 +29,7 @@ import os.path
 from os import environ
 import array
 
-__version__ = "1.1.12"
+__version__ = "1.1.13"
 __repo__ = "https://github.com/adafruit/Adafruit_Python_PureIO.git"
 
 # SPI C API constants (from linux kernel headers)

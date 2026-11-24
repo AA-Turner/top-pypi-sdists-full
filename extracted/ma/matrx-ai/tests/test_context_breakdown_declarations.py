@@ -42,3 +42,46 @@ def test_a_failing_step_is_logged_as_an_error_with_its_traceback(caplog) -> None
     records = [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert records and "context_breakdown" in records[0].getMessage()
     assert records[0].exc_info is not None
+
+
+def _by_name(out: dict) -> dict[str, int]:
+    parts = {c["key"]: c for c in out["categories"]}["system_tools"]["parts"]
+    return {p["name"]: p["chars"] for p in parts}
+
+
+def test_a_stored_record_is_measured_per_tool_from_its_wire_text() -> None:
+    """Live 2026-11-15: the ``{"seq", "tools": [...]}`` record was measured as ONE part
+    holding the whole array, its ``wire`` JSON text escaped a second time."""
+    import json as _json
+
+    a = {"name": "web", "description": "search", "input_schema": {"type": "object", "properties": {}}}
+    b = {"name": "sql", "description": "run", "input_schema": {"type": "object", "properties": {}}}
+    record = {"seq": 3, "tools": [{"name": "web", "wire": _json.dumps(a)}, {"name": "sql", "declaration": b}]}
+    out = measure(_config(record))
+    assert _by_name(out) == {"web": len(_json.dumps(a)), "sql": len(_json.dumps(b))}
+
+
+def test_a_registered_tool_is_measured_as_sent_without_its_contract_metadata(monkeypatch) -> None:
+    """Live 2026-11-15: `records` read 58,559 chars from its row ($variants included); 4,800 go out."""
+    from matrx_ai.tools.models import ToolDefinition
+    from matrx_ai.tools.registry import ToolRegistry
+
+    variants = {"read": {"table_id": {"type": "string", "description": "x" * 5000}}}
+    tool = ToolDefinition(
+        name="lean",
+        description="a lean tool",
+        parameters={
+            "action": {"type": "string", "enum": ["read"]},
+            "args": {"type": "object", "description": "the action's arguments"},
+            "$envelope": "args",
+            "$variants": variants,
+        },
+    )
+    registry = ToolRegistry.get_instance()
+    monkeypatch.setattr(registry, "get", lambda name: tool if name == "lean" else None)
+    config = SimpleNamespace(system_instruction="", tool_declarations=None, tools=["lean"], messages=[], model="m")
+    chars = _by_name(measure(config))["lean"]
+    import json as _json
+
+    assert chars == len(_json.dumps(tool.to_anthropic_format(), ensure_ascii=False))
+    assert chars < 1000

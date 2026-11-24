@@ -15,7 +15,7 @@ the active organization — every check keys on the user.
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol
 
 # The canonical ladder; UI shows view/comment/edit/full. "admin" = item-level

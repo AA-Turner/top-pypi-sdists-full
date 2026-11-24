@@ -25,18 +25,6 @@ def network_query(method, url, index, network_log_id=None, polling_interval=2, m
     _log.info("    [network_query] starting — method=%s, url=%s, index=%s, network_log_id=%s",
               method, url[:80], index, network_log_id)
 
-    if network_log_id:
-        try:
-            resp = requests.get(f"{har_base}/logs/entry?id={network_log_id}", timeout=30)
-            data = resp.json()
-            entry = data.get("entry", {})
-            if entry:
-                _log.info("    [network_query] found entry by network_log_id=%s", network_log_id)
-                return _decode_har_entry(entry)
-            _log.info("    [network_query] entry not found by network_log_id, falling back to polling")
-        except Exception as e:
-            _log.info("    [network_query] network_log_id lookup failed: %s, falling back to polling", e)
-
     num_tries = 0
     max_tries = int(max_polling_time / polling_interval)
 
@@ -49,22 +37,21 @@ def network_query(method, url, index, network_log_id=None, polling_interval=2, m
             entries = data.get("log", {}).get("entries", [])
             _log.info("    [network_query] HAR has %d entries, matching method=%s url=%s",
                       len(entries), method, url[:60])
-            match_index = 0
+            matched = None
             for entry in entries:
                 if entry["request"]["method"] == method and entry["request"]["url"] == url:
-                    match_index += 1
-                    if match_index == int(index):
-                        entry_id = entry.get("_id", "")
-                        _log.info("    [network_query] matched at match_index=%d, entry_id=%s",
-                                  match_index, entry_id)
-                        if entry_id:
-                            resp2 = requests.get(f"{har_base}/logs/entry?id={entry_id}", timeout=30)
-                            full_data = resp2.json()
-                            full_entry = full_data.get("entry", {})
-                            if full_entry:
-                                _log.info("    [network_query] fetched full entry for id=%s", entry_id)
-                                return _decode_har_entry(full_entry)
-                        return _decode_har_entry(entry)
+                    matched = entry
+            if matched is not None:
+                entry_id = matched.get("_id", "")
+                _log.info("    [network_query] matched newest (method, url), entry_id=%s", entry_id)
+                if entry_id:
+                    resp2 = requests.get(f"{har_base}/logs/entry?id={entry_id}", timeout=30)
+                    full_data = resp2.json()
+                    full_entry = full_data.get("entry", {})
+                    if full_entry:
+                        _log.info("    [network_query] fetched full entry for id=%s", entry_id)
+                        return _decode_har_entry(full_entry)
+                return _decode_har_entry(matched)
         except Exception as e:
             _log.info("    [network_query] polling error: %s", e)
         time.sleep(polling_interval)

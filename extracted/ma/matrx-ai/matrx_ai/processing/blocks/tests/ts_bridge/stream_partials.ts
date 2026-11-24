@@ -28,13 +28,13 @@
  *
  * MUST run from the matrx-frontend repo root (or with --tsconfig pointing at
  * it) so package exports resolve from the frontend installation. Invoked by
- * `aidream/packages/matrx-ai/tests/parity/test_partial_value_parity.py`.
+ * `aidream/tests/package_host_contracts/matrx_ai_parity/test_partial_value_parity.py`.
  */
 
 import * as fs from "fs";
 
 import { IR_ENVELOPE_KEY, isCanonicalBlockIR } from "@ai-matrx/content-ir";
-import { StreamBlockAccumulator } from "@ai-matrx/chat/agents/redux/execution-system/utils/stream-block-accumulator";
+import { StreamBlockAccumulator } from "@ai-matrx/rich-content/display/chat-markdown/stream-block-accumulator";
 
 interface Emission {
   blockId: string;

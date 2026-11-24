@@ -1,4 +1,11 @@
-"""Pydantic models for all render block types."""
+"""Pydantic models for the render block types the server engine emits.
+
+The pre-kind display families (flashcards, transcript, tasks, quiz, presentation,
+recipe, timeline, diagram, research, structured_info, resources, progress,
+comparison, troubleshooting, decision_tree, math_problem, questionnaire,
+item_presentation, schema_proposal) were deleted in legacy-shapes step 5
+(LEGACY-5): a kind arrives as a ``__kind`` instance.
+"""
 
 from .base import (
     BlockStatus,
@@ -7,37 +14,11 @@ from .base import (
     RenderBlockState,
     StreamingBehavior,
 )
-from .comparison import ComparisonBlockData, ComparisonCriterion
-from .decision_tree import DecisionNode, DecisionTreeBlockData
-from .diagram import DiagramBlockData, DiagramEdge, DiagramLayout, DiagramNode, Position
-from .flashcards import FlashcardItem, FlashcardsBlockData
-from .math_problem import MathProblemBlockData
 from .media import ImageBlockData, VideoBlockData
 from .mermaid import MermaidBlockData
-from .presentation import PresentationBlockData, Slide, SlideTheme
-from .progress import ProgressCategory, ProgressItem, ProgressTrackerBlockData
-from .questionnaire import QuestionnaireBlockData, QuestionnaireSection
-from .quiz import QuizBlockData, QuizQuestion
-from .recipe import Ingredient, RecipeBlockData, RecipeStep
-from .research import ResearchBlockData, ResearchSection
-from .resources import ResourceCategory, ResourceItem, ResourcesBlockData
-from .structured_info import (
-    StructuredInfoBlockData,
-    StructuredInfoItem,
-    StructuredInfoSection,
-)
 from .table import TableBlockData
-from .tasks import TaskItem, TasksBlockData
 from .text import CodeBlockData, DiffBlockData, TextBlockData
 from .thinking import ConsolidatedReasoningBlockData, ReasoningBlockData, ThinkingBlockData
-from .timeline import TimelineBlockData, TimelineEvent, TimelinePeriod
-from .transcript import TranscriptBlockData, TranscriptSegment
-from .troubleshooting import (
-    TroubleshootingBlockData,
-    TroubleshootingIssue,
-    TroubleshootingSolution,
-    TroubleshootingStep,
-)
 
 __all__ = [
     # Base
@@ -55,50 +36,6 @@ __all__ = [
     "ConsolidatedReasoningBlockData",
     "ImageBlockData",
     "VideoBlockData",
-    "FlashcardItem",
-    "FlashcardsBlockData",
-    "TranscriptSegment",
-    "TranscriptBlockData",
-    "TaskItem",
-    "TasksBlockData",
-    "QuizQuestion",
-    "QuizBlockData",
-    "Slide",
-    "SlideTheme",
-    "PresentationBlockData",
-    "Ingredient",
-    "RecipeStep",
-    "RecipeBlockData",
-    "TimelineEvent",
-    "TimelinePeriod",
-    "TimelineBlockData",
-    "Position",
-    "DiagramNode",
-    "DiagramEdge",
-    "DiagramLayout",
-    "DiagramBlockData",
     "MermaidBlockData",
     "TableBlockData",
-    "ResearchSection",
-    "ResearchBlockData",
-    "StructuredInfoItem",
-    "StructuredInfoSection",
-    "StructuredInfoBlockData",
-    "ResourceItem",
-    "ResourceCategory",
-    "ResourcesBlockData",
-    "ProgressItem",
-    "ProgressCategory",
-    "ProgressTrackerBlockData",
-    "ComparisonCriterion",
-    "ComparisonBlockData",
-    "TroubleshootingStep",
-    "TroubleshootingSolution",
-    "TroubleshootingIssue",
-    "TroubleshootingBlockData",
-    "DecisionNode",
-    "DecisionTreeBlockData",
-    "MathProblemBlockData",
-    "QuestionnaireSection",
-    "QuestionnaireBlockData",
 ]

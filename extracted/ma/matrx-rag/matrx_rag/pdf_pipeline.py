@@ -115,6 +115,7 @@ from matrx_rag.ingestion import (
     upsert_chunks,
 )
 from matrx_rag.llm import (
+    VERBATIM_KINDS,
     CleanedPage,
     PageCleanIncompleteError,
     clean_incomplete_error,
@@ -657,6 +658,26 @@ def chunk_pdf_pages(
     if not triples:
         return []
 
+    # A page kept on its own text (llm.VERBATIM_KINDS: short, or the guard refused its clean) is neutral: it names no section, so it joins
+    # its neighbours — it never forces a parent cut and never wins the dominant-kind vote.
+    # Its effective kind for cutting is the nearest real kind before it (else the next one).
+    effective_kind: dict[int, str] = {}
+    last_real: str | None = None
+    for _, c in triples:
+        if c.section_kind not in VERBATIM_KINDS:
+            last_real = c.section_kind
+        elif last_real is not None:
+            effective_kind[id(c)] = last_real
+    next_real: str | None = None
+    for _, c in reversed(triples):
+        if c.section_kind not in VERBATIM_KINDS:
+            next_real = c.section_kind
+        elif id(c) not in effective_kind and next_real is not None:
+            effective_kind[id(c)] = next_real
+
+    def _cut_kind(c: CleanedPage) -> str:
+        return effective_kind.get(id(c), c.section_kind)
+
     chunks: list[Chunk] = []
     chunk_index = 0
 
@@ -675,7 +696,8 @@ def chunk_pdf_pages(
         subtypes: dict[str, int] = {}
         titles: list[str] = []
         for _, c in parent_buf:
-            kinds[c.section_kind] = kinds.get(c.section_kind, 0) + 1
+            if c.section_kind not in VERBATIM_KINDS:
+                kinds[c.section_kind] = kinds.get(c.section_kind, 0) + 1
             if c.section_subtype:
                 subtypes[c.section_subtype] = subtypes.get(c.section_subtype, 0) + 1
             if c.section_title and c.section_title not in titles:
@@ -743,7 +765,9 @@ def chunk_pdf_pages(
         budget=PARENT_SIZE,
         size_of=lambda t: _tok_len(t[1].text),
         must_cut=lambda prev, t: (
-            t[1].section_kind != prev[1].section_kind and not t[1].is_continuation
+            t[1].section_kind not in VERBATIM_KINDS
+            and _cut_kind(t[1]) != _cut_kind(prev[1])
+            and not t[1].is_continuation
         ),
     ):
         parent_buf = list(part.items)

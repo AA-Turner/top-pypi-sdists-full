@@ -22,7 +22,7 @@ from matrx_files.blocks.sink import (
     make_block_sink,
 )
 from matrx_files.blocks.testing import FakeBlockStore
-from matrx_utils.block_sink import configure_block_sink, current_block_sink
+from matrx_utils.block_sink import configure_block_sink
 
 pytestmark = pytest.mark.asyncio
 

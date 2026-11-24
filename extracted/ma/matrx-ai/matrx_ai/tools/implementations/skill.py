@@ -13,6 +13,9 @@ edited into the system prompt mid-flight.
 
 from __future__ import annotations
 
+from matrx_ai.tools.output_caps import self_bounded_result
+
+
 import time
 import traceback
 from typing import Any
@@ -41,14 +44,10 @@ from matrx_ai.tools.models import (
 # ---------------------------------------------------------------------------
 
 
-def _err(error_type: str, message: str, suggested: str | None = None) -> ToolResult:
+def _err(error_type: str, message: str, suggested: str | None = None, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(
-            error_type=error_type,
-            message=message,
-            suggested_action=suggested,
-        ),
+        error=ToolError.declared(error_type, message, exc=exc, suggested_action=suggested),
     )
 
 
@@ -61,6 +60,16 @@ def _parse_uuid(value: Any) -> UUID | None:
         except ValueError:
             return None
     return None
+
+
+def skill_key_from_reference(raw: str) -> str:
+    """A skill named the way skill bodies link it (`/skills/<id>/SKILL.md`) → its skill_id."""
+    key = raw.strip()
+    if key.endswith("/SKILL.md"):
+        key = key[: -len("/SKILL.md")]
+    if "/skills/" in f"/{key}":
+        key = f"/{key}".rsplit("/skills/", 1)[1]
+    return key.strip("/") or raw
 
 
 def _user_id_from_ctx(ctx: ToolContext) -> UUID | None:
@@ -167,6 +176,7 @@ async def skill_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _err(
             "execution",
             f"skill_list failed: {e}",
+            exc=e,
         )
 
 
@@ -293,12 +303,13 @@ async def skill_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if skill_uuid is not None:
             body = await provider.get_by_id(skill_uuid, user_id=user_id)
         if body is None and isinstance(raw_id, str):
-            # Fallback: look up by skill_id (the human key) via the manager.
+            # Fallback: look up by skill_id (the human key) via the manager; a link
+            # copied from a skill body (`/skills/<id>/SKILL.md`) names the same skill.
             try:
                 from matrx_ai.db._registry import get_instance
 
                 mgr = get_instance("skl_definitions_manager")
-                matches = await mgr.filter_items(skill_id=raw_id, is_active=True)
+                matches = await mgr.filter_items(skill_id=skill_key_from_reference(raw_id), is_active=True)
                 if matches:
                     body = await provider.get_by_id(UUID(str(matches[0].id)), user_id=user_id)
             except Exception:
@@ -457,7 +468,7 @@ async def skill_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
     except Exception as e:
-        return _err("execution", f"skill_search failed: {e}")
+        return _err("execution", f"skill_search failed: {e}", exc=e)
 
 
 # ---------------------------------------------------------------------------
@@ -475,10 +486,10 @@ def _skill_stamp(result: ToolResult, started_at: float, ctx: ToolContext) -> Too
     return result
 
 
-def _skill_validation_error(message: str, started_at: float, ctx: ToolContext) -> ToolResult:
+def _skill_validation_error(message: str, started_at: float, ctx: ToolContext, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="validation", message=message),
+        error=ToolError.declared("validation", message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="skill",
@@ -486,6 +497,7 @@ def _skill_validation_error(message: str, started_at: float, ctx: ToolContext) -
     )
 
 
+@self_bounded_result
 async def skill(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Unified skill-library tool. Dispatches on ``action``:
 
@@ -498,7 +510,7 @@ async def skill(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         parsed = SkillArgs.model_validate(args).root
     except ValidationError as exc:
-        return _skill_validation_error(format_args_error(exc), started_at, ctx)
+        return _skill_validation_error(format_args_error(exc), started_at, ctx, exc=exc)
 
     action = parsed.action
     inner_args = parsed.model_dump(exclude={"action"}, exclude_unset=True)

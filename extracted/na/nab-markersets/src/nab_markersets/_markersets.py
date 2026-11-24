@@ -12,7 +12,6 @@ __lazy_modules__ = (
     "itertools",
     "math",
     "nab_markersets._compat",
-    "nab_markersets._packaging",
     "nab_markersets.errors",
     "nab_markersets.python_versions",
 )
@@ -24,34 +23,41 @@ from enum import Enum, auto
 from functools import lru_cache
 from itertools import islice, pairwise, product
 from math import prod
-from typing import TYPE_CHECKING, Literal, NamedTuple, Protocol, cast
+from typing import TYPE_CHECKING, Final, Literal, NamedTuple, cast
 
-from ._compat import get_int_max_str_digits
-from ._packaging import (
+from packaging._parser import Op, Value, Variable, parse_marker
+from packaging._tokenizer import ParserSyntaxError
+from packaging.markers import (
     InvalidMarker,
-    InvalidSpecifier,
-    InvalidVersion,
-    Op,
-    ParserSyntaxError,
-    Specifier,
+    Marker,
     UndefinedComparison,
     UndefinedEnvironmentName,
-    Value,
-    Variable,
-    Version,
-    _eval_op,
-    canonicalize_name,
-    parse_marker,
+    _eval_op,  # Reuse packaging's marker evaluation semantics.
 )
+from packaging.specifiers import InvalidSpecifier, Specifier
+from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
+
+from ._compat import get_int_max_str_digits
 from .errors import IntractableMarkerSet, UnserializableMarkerSet
 from .python_versions import supports_python_version, validate_python_environment
 
 if TYPE_CHECKING:
-    from collections.abc import Container, Iterable, Iterator, Mapping, Sequence
+    from collections.abc import (
+        Callable,
+        Container,
+        Iterable,
+        Iterator,
+        Mapping,
+        Sequence,
+    )
     from collections.abc import Set as AbstractSet
     from typing import TypeAlias
 
-    from ._packaging import MarkerAtom, MarkerList
+    from packaging._parser import MarkerAtom, MarkerList
+
+    MarkerValue: TypeAlias = "str | AbstractSet[str]"
+    MarkerEnvironment: TypeAlias = "Mapping[str, MarkerValue]"
 
     # The walkers read the parser's recursive node types without mutating them.
     MarkerOperand: TypeAlias = "Variable | Value"
@@ -115,9 +121,14 @@ DOMAIN_REGISTRY: dict[str, str] = {
     "dependency_groups": DOMAIN_SET,
 }
 
-# Stands for both "this environment supplies no value" and "the enumeration
-# found no cell", neither of which None can say.
-_MISSING = object()
+
+class _Missing(Enum):
+    """A marker variable that the caller left unspecified."""
+
+    VALUE = auto()
+
+
+_MISSING: Final = _Missing.VALUE
 
 _MEMBERSHIP = frozenset({"in", "not in"})
 _ORDERED_UNDEFINED = frozenset({"~=", "==="})
@@ -132,12 +143,12 @@ def _domain(variable: str) -> str:
     return DOMAIN_VERSION if kind == DOMAIN_TWIN else kind
 
 
-def is_version_dispatch(variable: str) -> bool:
+def _is_version_dispatch(variable: str) -> bool:
     """Whether a variable dispatches as a version, twins included."""
     return _domain(variable) == DOMAIN_VERSION
 
 
-def is_pure_version(variable: str) -> bool:
+def _is_pure_version(variable: str) -> bool:
     """Whether a variable's domain is version-only, no string fall-through."""
     return DOMAIN_REGISTRY[variable] == DOMAIN_VERSION
 
@@ -177,7 +188,7 @@ def _strict_version(text: str) -> bool:
     return True
 
 
-def derive_major_minor(full: str) -> str:
+def _derive_major_minor(full: str) -> str:
     """A1: ``python_version`` is the major.minor truncation of the full version."""
     try:
         release = Version(full).release
@@ -348,7 +359,7 @@ def _holds_value(atom: Atom, text: str) -> bool:
     """
     op, literal = atom.op, atom.literal
     if atom.derive_mm:
-        mm = derive_major_minor(text)
+        mm = _derive_major_minor(text)
         if atom.swapped:
             return _apply(literal, op, mm, key="python_version")
         return _apply(mm, op, literal, key="python_version")
@@ -499,36 +510,9 @@ def make_not(node: Formula) -> Formula:
 # ------------------------------------------------------------------- construction
 
 
-class MarkerLike(Protocol):
-    """A packaging ``Marker`` from either copy: released, or the fork nab vendors.
-
-    Structural, so a checker admits a ``Marker`` built by the copy the algebra
-    did not bind; :func:`_is_marker` is the same test at runtime.
-    """
-
-    def evaluate(
-        self,
-        environment: Mapping[str, str | AbstractSet[str]] | None = None,
-        context: Literal["metadata", "lock_file", "requirement"] = "metadata",
-    ) -> bool: ...
-
-
-def _is_marker(source: object) -> bool:
-    """Whether ``source`` is a packaging ``Marker``, from either copy.
-
-    Matched on the class rather than by ``isinstance``, because testing against
-    the copy that lost the probe would mean importing its marker stack, which
-    is the second copy this package exists to leave unloaded.
-    """
-    kind = type(source)
-    return kind.__qualname__ == "Marker" and kind.__module__.endswith(
-        "packaging.markers"
-    )
-
-
 def _parse_ast(source: object) -> Sequence[MarkerNode] | None:
     """Parse a marker with packaging; None for an empty marker."""
-    if _is_marker(source):
+    if type(source) is Marker:
         source = str(source)
     elif not isinstance(source, str):
         kind = type(source)
@@ -546,14 +530,14 @@ def _parse_ast(source: object) -> Sequence[MarkerNode] | None:
         raise InvalidMarker(str(exc)) from exc
 
 
-def parse(source: str | MarkerLike) -> Formula:
+def parse(source: str | Marker) -> Formula:
     """Parse a marker into the normalised op-tree."""
     parsed = _parse_ast(source)
     return TRUE if parsed is None else _convert(parsed)
 
 
 def parse_with_variables(
-    source: str | MarkerLike,
+    source: str | Marker,
 ) -> tuple[Formula, frozenset[str]]:
     """Convert a marker and collect names from its original parsed syntax."""
     parsed = _parse_ast(source)
@@ -566,7 +550,7 @@ def parse_with_variables(
     return tree, frozenset(names)
 
 
-def variable_names(source: str | MarkerLike) -> frozenset[str]:
+def variable_names(source: str | Marker) -> frozenset[str]:
     """Return every marker variable ``source`` names, as parsed.
 
     Builds no atoms, so a marker the algebra rejects still yields its names.
@@ -581,7 +565,7 @@ def variable_names(source: str | MarkerLike) -> frozenset[str]:
 
 
 def _parsed_comparisons(node: Sequence[MarkerNode]) -> Iterator[MarkerComparison]:
-    """Walk comparison tuples from either supported parser's recursive syntax."""
+    """Walk comparison tuples from packaging's parsed marker."""
     for item in node:
         if isinstance(item, str):
             continue
@@ -589,8 +573,7 @@ def _parsed_comparisons(node: Sequence[MarkerNode]) -> Iterator[MarkerComparison
             yield from _parsed_comparisons(item)
             continue
 
-        # Parser groups are lists, although its Sequence alias also admits tuples.
-        yield cast("MarkerComparison", item)
+        yield item
 
 
 def _collect_variables(node: Sequence[MarkerNode], names: set[str]) -> None:
@@ -713,13 +696,13 @@ def _make_set_atom(variable: str, op: str, literal: str, *, swapped: bool) -> Fo
     return AtomLeaf(Atom(AXIS_SET, variable, variable, op, name, positive=positive))
 
 
-def reject_oversized_version_literals(variable: str, literals: Sequence[str]) -> None:
+def _reject_oversized_version_literals(variable: str, literals: Sequence[str]) -> None:
     """Raise before an oversized numeric component reaches packaging.
 
     Past ``sys.get_int_max_str_digits()`` digits, packaging's ``Version`` raises
     a bare ValueError.
     """
-    if is_version_dispatch(variable) and any(
+    if _is_version_dispatch(variable) and any(
         _oversized_numeric(literal) for literal in literals
     ):
         msg = (
@@ -734,7 +717,7 @@ def _reject_mint_overflow(literals: Sequence[str]) -> None:
 
     Minting increments a numeric component, so a run at the limit width rolls
     one digit past it: this rejects at the limit, where
-    :func:`reject_oversized_version_literals` rejects past it.
+    :func:`_reject_oversized_version_literals` rejects past it.
     """
     limit = get_int_max_str_digits()
     if limit and any(
@@ -755,7 +738,7 @@ def _reject_undefined_operator(
     """Raise if ``op`` is undefined on ``literal``, tested against ``probe``."""
     if op not in _ORDERED_UNDEFINED:
         return
-    reject_oversized_version_literals(variable, (literal,))
+    _reject_oversized_version_literals(variable, (literal,))
     try:
         if swapped:
             _apply(literal, op, probe, key=variable)
@@ -801,6 +784,7 @@ class Memo:
     """
 
     __slots__ = (
+        "_int_limit",
         "decisions",
         "gap_remaining",
         "gaps",
@@ -830,6 +814,14 @@ class Memo:
         self.row_work: _RowWork | None = None
         self.truths: dict[tuple[Atom, str], bool] = {}
         self.versions: dict[str, Version | None] = {}
+        self._int_limit = get_int_max_str_digits()
+
+    def for_current_parser(self) -> Memo:
+        """Refresh this store if the integer parsing limit has changed."""
+        if self._int_limit != get_int_max_str_digits():
+            # The caller keeps the same store and any subclass state.
+            Memo.__init__(self)
+        return self
 
 
 def _truth(atom: Atom, point: object, memo: Memo) -> bool:
@@ -1091,14 +1083,46 @@ def _version_pool(
     return result
 
 
-def _membership_candidates(atom: Atom, memo: Memo) -> list[str]:
-    subs = _substrings(atom.literal)
-    if atom.derive_mm:
-        # A1 tests a full version's major.minor; only version substrings are realisable.
-        return [
-            s for s in subs if _pooled_version(s.removesuffix(".*"), memo) is not None
-        ]
-    return subs
+def _membership_candidates(
+    atoms: Sequence[Atom], max_cells: int, memo: Memo
+) -> tuple[list[str], set[str]]:
+    """Enumerate bounded substrings and collect the raw members on version axes."""
+    points: list[str] = []
+    version_members: set[str] = set()
+    spent = 0
+    for atom in atoms:
+        if atom.kind != AXIS_VALUE or atom.op not in _MEMBERSHIP:
+            continue
+        spent += _substring_cost(atom.literal)
+        if spent > max_cells:
+            msg = f"substring enumeration exceeds max_cells={max_cells}"
+            raise IntractableMarkerSet(msg)
+
+        subs = _substrings(atom.literal)
+        if atom.derive_mm:
+            # A derived major.minor is always a version.
+            subs = [
+                s
+                for s in subs
+                if _pooled_version(s.removesuffix(".*"), memo) is not None
+            ]
+        elif _is_version_dispatch(atom.variable):
+            version_members.update(subs)
+        points.extend(subs)
+    return points, version_members
+
+
+def _nonmember_versions(members: set[str], memo: Memo) -> Iterator[str]:
+    """Represent each parseable member outside every raw membership literal."""
+    for text in sorted(members):
+        version = _pooled_version(text, memo)
+        if version is None:
+            continue
+        # Leading zeroes preserve the version and the number of release components.
+        alias = str(version)
+        while alias in members:
+            alias = f"0{alias}"
+        yield alias
 
 
 def _dedupe_candidates(
@@ -1110,7 +1134,7 @@ def _dedupe_candidates(
         if candidate in seen:
             continue
         # Python axes exclude versions no supported target can report.
-        if is_pure_version(variable):
+        if _is_pure_version(variable):
             version = _pooled_version(candidate, memo)
             if version is None or not supports_python_version(
                 version, variable=variable
@@ -1186,7 +1210,7 @@ def _reduce_work_exceeds(
     lower-bounds the ``_reduce_cells`` work. A pure-version axis counts only the
     version-parseable literals.
     """
-    pure = is_pure_version(variable)
+    pure = _is_pure_version(variable)
     seen: set[str] = set()
     for literal in literals:
         key = literal.removesuffix(".*") if pure else literal
@@ -1218,7 +1242,7 @@ def _value_candidates(
 ) -> list[str]:
     literals = [atom.literal for atom in atoms]
 
-    reject_oversized_version_literals(variable, literals)
+    _reject_oversized_version_literals(variable, literals)
     if _reduce_work_exceeds(variable, literals, len(atoms), max_cells, memo):
         msg = f"axis work over {len(atoms)} atoms exceeds max_cells={max_cells}"
         raise IntractableMarkerSet(msg)
@@ -1231,19 +1255,11 @@ def _value_candidates(
         candidates.append(_other_representative(literals))
     candidates.extend(literals)
 
-    # Cap substring enumeration across the whole axis, not per literal.
-    spent = 0
-    for atom in atoms:
-        if atom.kind == AXIS_VALUE and atom.op in _MEMBERSHIP:
-            spent += _substring_cost(atom.literal)
-            if spent > max_cells:
-                msg = f"substring enumeration exceeds max_cells={max_cells}"
-                raise IntractableMarkerSet(msg)
-            candidates.extend(_membership_candidates(atom, memo))
-
+    substrings, version_members = _membership_candidates(atoms, max_cells, memo)
+    candidates.extend(substrings)
     candidates.extend(_contains_candidates(atoms, literals, max_cells))
 
-    if is_version_dispatch(variable):
+    if _is_version_dispatch(variable):
         _reject_mint_overflow(literals)
         entries: list[tuple[Version, str]] = []
         for atom in atoms:
@@ -1256,6 +1272,8 @@ def _value_candidates(
                 memo=memo,
             )
         )
+    if version_members:
+        candidates.extend(_nonmember_versions(version_members, memo))
     return _dedupe_candidates(
         candidates,
         variable=variable,
@@ -1428,7 +1446,7 @@ def partition_axis(
     return cached
 
 
-def guarded_product_size(sizes: Iterable[int], max_cells: int) -> int:
+def _guarded_product_size(sizes: Iterable[int], max_cells: int) -> int:
     """Multiply per-axis cell counts, raising past the guard."""
     total = 1
     for size in sizes:
@@ -1442,7 +1460,7 @@ def guarded_product_size(sizes: Iterable[int], max_cells: int) -> int:
 # ------------------------------------------------------------------- evaluation
 
 
-def prepare_environment(env: Mapping[str, object]) -> Mapping[str, object]:
+def prepare_environment(env: MarkerEnvironment) -> MarkerEnvironment:
     """Repair legacy CPython full versions for evaluation and restriction."""
     full = env.get("python_full_version")
     if full is None or full == "":
@@ -1452,14 +1470,14 @@ def prepare_environment(env: Mapping[str, object]) -> Mapping[str, object]:
     return env
 
 
-def as_name_set(value: object) -> frozenset[str]:
+def _as_name_set(value: str | Iterable[str]) -> frozenset[str]:
     """Normalise a set-variable value: a non-empty str is one PEP 685 name."""
     if isinstance(value, str):
         return frozenset({canonicalize_name(value)}) if value else frozenset()
-    return frozenset(canonicalize_name(name) for name in cast("Iterable[str]", value))
+    return frozenset(canonicalize_name(name) for name in value)
 
 
-def _require(env: Mapping[str, object], key: str) -> object:
+def _require(env: MarkerEnvironment, key: str) -> MarkerValue:
     """Look a referenced variable up, matching packaging's missing-key contract."""
     try:
         return env[key]
@@ -1467,7 +1485,7 @@ def _require(env: Mapping[str, object], key: str) -> object:
         raise UndefinedEnvironmentName(key) from None
 
 
-def evaluate_atom(atom: Atom, env: Mapping[str, object]) -> bool:
+def _evaluate_atom(atom: Atom, env: MarkerEnvironment) -> bool:
     """Evaluate one atom against a full environment (extras are sets)."""
     if atom.kind == AXIS_VALUE:
         if atom.derive_mm and "python_full_version" not in env:
@@ -1475,8 +1493,8 @@ def evaluate_atom(atom: Atom, env: Mapping[str, object]) -> bool:
             return atom.holds(_require(env, "python_version"))
         return atom.holds(_require(env, atom.variable))
     if atom.kind == AXIS_SET:
-        return atom.holds(as_name_set(_require(env, atom.origin)))
-    names = cast("Container[str]", _require(env, atom.variable))
+        return atom.holds(_as_name_set(_require(env, atom.origin)))
+    names = _require(env, atom.variable)
     return atom.holds(atom.literal in names)
 
 
@@ -1504,14 +1522,16 @@ def collect_atoms(node: Formula) -> list[Atom]:
     return out
 
 
-def reject_oversized_literals(node: Formula, env: Mapping[str, object]) -> None:
+def reject_oversized_literals(node: Formula, env: MarkerEnvironment) -> None:
     """Raise the bounded guard for an oversized literal or env value in a tree."""
     for atom in collect_atoms(node):
         if atom.kind == AXIS_SET:
             continue
         value = _atom_env_value(atom, env)
         if value is not _MISSING:
-            reject_oversized_version_literals(atom.variable, (atom.literal, str(value)))
+            _reject_oversized_version_literals(
+                atom.variable, (atom.literal, str(value))
+            )
 
 
 def membership_literals_of(node: Formula) -> frozenset[tuple[str, str]]:
@@ -1592,7 +1612,7 @@ def _cell_partitions(
     if deferred is not None:
         for index, size in deferred.items():
             sizes[index] = size
-    units = guarded_product_size((*sizes, leaf_count), max_cells)
+    units = _guarded_product_size((*sizes, leaf_count), max_cells)
 
     if deferred is not None:
         for index in deferred:
@@ -1635,12 +1655,16 @@ def _decide_empty(node: Formula, max_cells: int, store: Memo) -> _Decision:
     """Decide emptiness, returning the verdict with the work charged for it."""
     space = _cell_space(node, max_cells, store)
     size = prod(len(partition) for partition in space.partitions)
+
+    # A quick witness can avoid building masks for a large product.
     if size >= _WITNESS_PROBE_MIN_PRODUCT_CELLS and _has_early_witness(node, space):
         return _Decision(empty=False, units=space.units)
+
     if size < _MASK_CACHE_MIN_CELLS:
         truth, full = _compile_cell_truth_masks(space, size)
     else:
         truth, full = _cell_truth_masks(space, size, store=store)
+
     return _Decision(not _eval_mask(node, truth, full), space.units)
 
 
@@ -1788,6 +1812,7 @@ def is_empty(node: Formula, max_cells: int, store: Memo | None = None) -> bool:
         one_off.mask_remaining = 0
         return _decide_empty(node, max_cells, one_off).empty
 
+    store.for_current_parser()
     key = (node.key(), max_cells)
     decided = store.decisions.get(key)
     if decided is None:
@@ -1807,7 +1832,7 @@ def witness(
     result is never wrong; ``None`` is weaker than empty, because the search
     reads the same cells the decisions do.
     """
-    memo = Memo() if store is None else store
+    memo = Memo() if store is None else store.for_current_parser()
     for cell in _enumerate_cells(node, _cell_space(node, max_cells, memo)):
         env = _materialize(cell)
         try:
@@ -1838,18 +1863,20 @@ def _materialize(
         if variable in env:
             continue
         if variable == "python_version" and "python_full_version" in env:
-            env[variable] = derive_major_minor(str(env["python_full_version"]))
+            env[variable] = _derive_major_minor(str(env["python_full_version"]))
             continue
         env[variable] = "".join(sorted(lit for lit, present in items if present))
     if "python_full_version" in env and "python_version" not in env:
-        env["python_version"] = derive_major_minor(str(env["python_full_version"]))
+        env["python_version"] = _derive_major_minor(str(env["python_full_version"]))
     return env
 
 
 # --------------------------------------------------------------------- restrict
 
 
-def _atom_env_value(atom: Atom, env: Mapping[str, object]) -> object:
+def _atom_env_value(
+    atom: Atom, env: MarkerEnvironment
+) -> MarkerValue | Literal[_Missing.VALUE]:
     """Return the env value the atom reads, or ``_MISSING`` when unprovided."""
     if atom.derive_mm:
         for key in ("python_full_version", "python_version"):
@@ -1860,21 +1887,19 @@ def _atom_env_value(atom: Atom, env: Mapping[str, object]) -> object:
     return env.get(key, _MISSING)
 
 
-def _restrict_value(atom: Atom, env: Mapping[str, object]) -> bool | None:
+def _restrict_value(atom: Atom, env: MarkerEnvironment) -> bool | None:
     """Return the atom's truth under ``env``, or ``None`` when unprovided."""
     value = _atom_env_value(atom, env)
     if value is _MISSING:
         return None
     if atom.kind == AXIS_SET:
-        return atom.holds(as_name_set(value))
+        return atom.holds(_as_name_set(value))
     if atom.kind == AXIS_CONTAINS:
-        return atom.holds(atom.literal in cast("Container[str]", value))
+        return atom.holds(atom.literal in value)
     return atom.holds(value)
 
 
-def _restrict_row_value(
-    atom: Atom, env: Mapping[str, object], store: Memo
-) -> bool | None:
+def _restrict_row_value(atom: Atom, env: MarkerEnvironment, store: Memo) -> bool | None:
     """Read a row predicate through cached truths for string pins."""
     if (
         atom.kind == AXIS_VALUE
@@ -1899,7 +1924,7 @@ def _restrict_row_value(
     return _restrict_value(atom, env)
 
 
-def _restrict_cover_atom(atom: Atom, env: Mapping[str, object], store: Memo) -> Formula:
+def _restrict_cover_atom(atom: Atom, env: MarkerEnvironment, store: Memo) -> Formula:
     """Restrict a cover predicate, wrapping unresolved atoms."""
     resolved = _restrict_row_value(atom, env, store)
     if resolved is None:
@@ -1907,53 +1932,73 @@ def _restrict_cover_atom(atom: Atom, env: Mapping[str, object], store: Memo) -> 
     return TRUE if resolved else FALSE
 
 
-def _restrict_atom(leaf: AtomLeaf, env: Mapping[str, object]) -> Formula:
-    resolved = _restrict_value(leaf.atom, env)
-    if resolved is None:
-        return leaf
-    return TRUE if resolved else FALSE
-
-
-def restrict_tree(node: Formula, env: Mapping[str, object]) -> Formula:
-    """Substitute the variables ``env`` provides, leaving the rest."""
+def _map_leaves(node: Formula, replace: Callable[[AtomLeaf], Formula]) -> Formula:
+    """Substitute predicates and fold the resulting boolean tree."""
     if isinstance(node, BoolConst):
         return node
     if isinstance(node, AtomLeaf):
-        return _restrict_atom(node, env)
+        return replace(node)
     if isinstance(node, NotNode):
-        return make_not(restrict_tree(node.child, env))
+        return make_not(_map_leaves(node.child, replace))
     if isinstance(node, AndNode):
-        return make_and(restrict_tree(child, env) for child in node.children)
-    return make_or(restrict_tree(child, env) for child in node.children)
+        return make_and(_map_leaves(child, replace) for child in node.children)
+    return make_or(_map_leaves(child, replace) for child in node.children)
 
 
-def _restrict_row_tree(
-    node: Formula, env: Mapping[str, object], store: Memo
-) -> Formula:
-    """Restrict a row tree through its operation-owned string truths."""
-    if isinstance(node, BoolConst):
-        return node
-    if isinstance(node, AtomLeaf):
-        resolved = _restrict_row_value(node.atom, env, store)
-        return node if resolved is None else (TRUE if resolved else FALSE)
-    if isinstance(node, NotNode):
-        return make_not(_restrict_row_tree(node.child, env, store))
-    if isinstance(node, AndNode):
-        return make_and(
-            _restrict_row_tree(child, env, store) for child in node.children
+def with_cpython_implementation_version(node: Formula) -> Formula:
+    """Evaluate implementation-version predicates on the full Python version."""
+
+    def substitute(leaf: AtomLeaf) -> Formula:
+        atom = leaf.atom
+        if atom.variable != "implementation_version":
+            return leaf
+
+        return AtomLeaf(
+            Atom(
+                atom.kind,
+                "python_full_version",
+                "python_full_version",
+                atom.op,
+                atom.literal,
+                swapped=atom.swapped,
+                positive=atom.positive,
+            )
         )
-    return make_or(_restrict_row_tree(child, env, store) for child in node.children)
+
+    return _map_leaves(node, substitute)
+
+
+def _substitute_values(node: Formula, lookup: Callable[[Atom], bool | None]) -> Formula:
+    """Keep predicates whose truth is unknown and substitute the rest."""
+
+    def replace(leaf: AtomLeaf) -> Formula:
+        value = lookup(leaf.atom)
+        if value is None:
+            return leaf
+        return TRUE if value else FALSE
+
+    return _map_leaves(node, replace)
+
+
+def restrict_tree(node: Formula, env: MarkerEnvironment) -> Formula:
+    """Substitute the variables ``env`` provides, leaving the rest."""
+    return _substitute_values(node, lambda atom: _restrict_value(atom, env))
+
+
+def _restrict_row_tree(node: Formula, env: MarkerEnvironment, store: Memo) -> Formula:
+    """Restrict a row tree through its operation-owned string truths."""
+    return _substitute_values(node, lambda atom: _restrict_row_value(atom, env, store))
 
 
 # ------------------------------------------------------------------- evaluate
 
 
-def evaluate_tree(node: Formula, env: Mapping[str, object]) -> bool:
+def evaluate_tree(node: Formula, env: MarkerEnvironment) -> bool:
     """Evaluate a tree against a full environment (extras are sets)."""
     if isinstance(node, BoolConst):
         return node.value
     if isinstance(node, AtomLeaf):
-        return evaluate_atom(node.atom, env)
+        return _evaluate_atom(node.atom, env)
     if isinstance(node, NotNode):
         return not evaluate_tree(node.child, env)
     if isinstance(node, AndNode):
@@ -1977,7 +2022,7 @@ def _complement_version(atom: Atom, op: str, var: str) -> Formula:
     # Excluded middle holds for an unswapped ==/!= on a pure-version axis alone.
     # An ordered comparison has the prerelease hole, a twin may hold a
     # non-version, and a swapped literal is the specifier bound.
-    if op in ("==", "!=") and is_pure_version(var) and not atom.swapped:
+    if op in ("==", "!=") and _is_pure_version(var) and not atom.swapped:
         return AtomLeaf(atom.replaced(op="!=" if op == "==" else "=="))
     msg = f"no marker string spells the complement of {_render_atom(atom)}"
     raise UnserializableMarkerSet(msg)
@@ -1991,7 +2036,7 @@ def _flip_string_op(atom: Atom, flipped: str) -> Formula:
     local version where an ordered one does not, so the flipped atom can
     dispatch as a version and denote something else.
     """
-    if is_version_dispatch(atom.variable) and _builds_specifier(flipped, atom.literal):
+    if _is_version_dispatch(atom.variable) and _builds_specifier(flipped, atom.literal):
         msg = f"no marker string spells the complement of {_render_atom(atom)}"
         raise UnserializableMarkerSet(msg)
     return AtomLeaf(atom.replaced(op=flipped))
@@ -2008,7 +2053,7 @@ def _complement_string(atom: Atom, op: str) -> Formula:
     compares as a version wherever that value parses as one, and the table's
     reading holds only on the rest.
     """
-    if atom.swapped and is_version_dispatch(atom.variable):
+    if atom.swapped and _is_version_dispatch(atom.variable):
         msg = f"no marker string spells the complement of {_render_atom(atom)}"
         raise UnserializableMarkerSet(msg)
     if op in ("==", ">=", "<="):
@@ -2027,7 +2072,7 @@ def _complement_leaf(atom: Atom) -> Formula:
     if atom.kind in (AXIS_SET, AXIS_CONTAINS):
         return AtomLeaf(atom.replaced(positive=not atom.positive))
     op, var = atom.op, atom.variable
-    if is_version_dispatch(var) and _builds_specifier(op, atom.literal):
+    if _is_version_dispatch(var) and _builds_specifier(op, atom.literal):
         return _complement_version(atom, op, var)
     return _complement_string(atom, op)
 
@@ -2327,7 +2372,7 @@ def universe_is_empty(
     universe: Formula, max_cells: int, store: Memo | None = None
 ) -> bool:
     """Whether a universe admits no environment: every top-level disjunct is empty."""
-    shared = Memo() if store is None else store
+    shared = Memo() if store is None else store.for_current_parser()
     return all(
         is_empty(disjunct, max_cells, shared)
         for disjunct in _universe_disjuncts(universe)
@@ -2344,24 +2389,25 @@ def equivalent_within_rows(
     max_work: int | None = None,
 ) -> bool:
     """Compare original trees per row, sharing an existing work budget if present."""
-    shared = Memo() if store is None else store
+    shared = Memo() if store is None else store.for_current_parser()
     previous_work = _work_meter.remaining
     if previous_work is None:
         _work_meter.remaining = max_work
     try:
-        left_nodes = _charge_formula_work(left)
-        right_nodes = _charge_formula_work(right)
+        left_work = _charge_formula_work(left)
+        right_work = _charge_formula_work(right)
         if _work_meter.remaining is None:
             _charge_formula_work(universe)
+            universe_units = None
         else:
-            _charge_universe_work(universe, shared)
-        rows = _decompose_rows(universe, shared)
+            universe_units = _charge_universe_work(universe, shared)
+        rows = _decompose_rows(universe, shared, raw_work=universe_units)
         if all(
             isinstance(row.bound, BoolConst) and not row.bound.value for row in rows
         ):
             return True
         result = _independent_rows_equivalent(
-            left, right, rows, left_nodes + right_nodes, max_cells, shared
+            left, right, rows, left_work.nodes + right_work.nodes, max_cells, shared
         )
         if result is not None:
             return result
@@ -2430,7 +2476,7 @@ def _drop_clauses(
     """
     kept = list(clauses)
     for clause in sorted(clauses, key=_clause_key):
-        trial = [other for other in kept if other != clause]
+        trial: list[frozenset[Atom]] = [other for other in kept if other != clause]
         if _rows_cover(_disjunction(trial), rows, original_by_row, max_cells, store):
             kept = trial
     return kept
@@ -2542,18 +2588,6 @@ def _canonical_cover_atom(atom: Atom) -> Atom:
     return atom if atom.op == op else atom.replaced(op=op)
 
 
-def _replace_cover_atoms(node: Formula, replacements: Mapping[Atom, Atom]) -> Formula:
-    """Replace predicates in a nonconstant NNF tree by equivalent encodings."""
-    if isinstance(node, AtomLeaf):
-        return AtomLeaf(replacements.get(node.atom, node.atom))
-    if isinstance(node, AndNode):
-        return make_and(
-            _replace_cover_atoms(child, replacements) for child in node.children
-        )
-    assert isinstance(node, OrNode)
-    return make_or(_replace_cover_atoms(child, replacements) for child in node.children)
-
-
 def _prepare_cover(node: Formula) -> _CoverInput:
     """Collect canonical predicates and price their traversal and ordering."""
     leaves = collect_atoms(node)
@@ -2566,14 +2600,24 @@ def _prepare_cover(node: Formula) -> _CoverInput:
         if canonical is not atom:
             replacements[atom] = canonical
     if replacements:
-        node = _replace_cover_atoms(node, replacements)
+        node = _map_leaves(
+            node, lambda leaf: AtomLeaf(replacements.get(leaf.atom, leaf.atom))
+        )
         unique = {replacements.get(atom, atom) for atom in unique}
     return _CoverInput(node, tuple(sorted(unique, key=_atom_key)), len(leaves))
 
 
-def _charge_formula_work(node: Formula) -> int:
-    """Price a raw walk before preparation and return its node count."""
+class _FormulaWork(NamedTuple):
+    """Node count for comparison and total work charged for the raw traversal."""
+
+    nodes: int
+    units: int
+
+
+def _charge_formula_work(node: Formula) -> _FormulaWork:
+    """Count the work for each node before visiting its children."""
     nodes = 0
+    payload_units = 0
     pending = [node]
     while pending:
         charge_work(1)
@@ -2581,19 +2625,23 @@ def _charge_formula_work(node: Formula) -> int:
         nodes += 1
         if isinstance(current, AtomLeaf):
             atom = current.atom
-            charge_work(
+            size = (
                 len(atom.origin)
                 + len(atom.op)
                 + len(atom.literal)
                 + len(atom.kind)
                 + len(atom.variable)
             )
+            charge_work(size)
+            payload_units += size
         elif isinstance(current, NotNode):
             pending.append(current.child)
         elif isinstance(current, (AndNode, OrNode)):
-            charge_work(len(current.children))
+            size = len(current.children)
+            charge_work(size)
+            payload_units += size
             pending.extend(current.children)
-    return nodes
+    return _FormulaWork(nodes, nodes + payload_units)
 
 
 def _charge_universe_work(universe: Formula, store: Memo) -> int:
@@ -2604,12 +2652,7 @@ def _charge_universe_work(universe: Formula, store: Memo) -> int:
         if record.key is key and record.units is not None:
             charge_work(record.units)
             return record.units
-    before = _work_meter.remaining
-    assert before is not None
-    _charge_formula_work(universe)
-    after = _work_meter.remaining
-    assert after is not None
-    return before - after
+    return _charge_formula_work(universe).units
 
 
 def _fixed_row_pattern(
@@ -2718,11 +2761,17 @@ def _remove_covered_cubes(cubes: Sequence[_CoverCube], full: int) -> list[_Cover
     return kept
 
 
+def _common_atoms(clauses: Sequence[frozenset[Atom]]) -> frozenset[Atom]:
+    """Intersect the atoms in a nonempty disjunction."""
+    first, *others = clauses
+    return first.intersection(*others)
+
+
 def _factor_clauses(clauses: Sequence[frozenset[Atom]]) -> Formula:
     """Render clauses in stable order with their common atoms factored out."""
     if not clauses:
         return FALSE
-    common: frozenset[Atom] = frozenset.intersection(*clauses)
+    common = _common_atoms(clauses)
     residual = sorted((clause - common for clause in clauses), key=_clause_key)
     lead = [AtomLeaf(atom) for atom in sorted(common, key=_atom_key)]
     return make_and([*lead, _disjunction(residual)])
@@ -2767,7 +2816,7 @@ def _factor_membership_clauses(clauses: Sequence[frozenset[Atom]]) -> Formula:
         * max(1, len(clauses).bit_length())
     )
 
-    common: frozenset[Atom] = frozenset.intersection(*clauses)
+    common = _common_atoms(clauses)
     residual = [clause - common for clause in clauses]
     # An empty residual means the common clause covers this whole disjunction.
     if any(not clause for clause in residual):
@@ -3071,6 +3120,7 @@ def _split_row_patterns(
     """Enumerate every source truth pattern, including source-false witnesses."""
     if not row.within:
         return set()
+
     cell_units = max(1, (row.size + _PATTERN_BITS_PER_UNIT) // _PATTERN_BITS_PER_UNIT)
     prefix_units = max(
         1, (len(row.columns) + _PATTERN_BITS_PER_UNIT - 1) // _PATTERN_BITS_PER_UNIT
@@ -3084,8 +3134,10 @@ def _split_row_patterns(
     )
     if minimum > max_cells:
         return None
+
+    # Each region holds cells that agree on the source columns seen so far.
     regions = [(0, row.within)]
-    for position, value in enumerate(row.columns):
+    for position, column_mask in enumerate(row.columns):
         units = _pattern_buffer_units(
             columns=len(row.columns),
             cell_units=cell_units,
@@ -3100,17 +3152,19 @@ def _split_row_patterns(
             + len(regions) * (2 * cell_units + 2 * prefix_units + 3)
             + prefix_units
         )
+
         bit = 1 << position
-        complement = ~value
+        complement = ~column_mask
         refined = []
-        for prefix, region in regions:
-            positive = region & value
-            negative = region & complement
-            if positive:
-                refined.append((prefix | bit, positive))
-            if negative:
-                refined.append((prefix, negative))
+        for prefix, cells in regions:
+            true_cells = cells & column_mask
+            false_cells = cells & complement
+            if true_cells:
+                refined.append((prefix | bit, true_cells))
+            if false_cells:
+                refined.append((prefix, false_cells))
         regions = refined
+
     charge_work(len(regions) * (len(row.columns) + prefix_units + 1))
     return {prefix for prefix, _ in regions}
 
@@ -3187,7 +3241,7 @@ def simplify_within(
     ``max_cells`` bounds each decision and the direct truth-table payload.
     ``max_work`` covers the direct attempt and greedy fallback together.
     """
-    shared = Memo() if store is None else store
+    shared = Memo() if store is None else store.for_current_parser()
     previous_work = _work_meter.remaining
     _work_meter.remaining = max_work
     try:
@@ -3320,19 +3374,6 @@ def _set_assignment_count(atoms: Sequence[Atom], max_cells: int) -> int | None:
     return count if count * (len(atoms) + 1) <= max_cells else None
 
 
-def _replace_observed_atoms(node: Formula, values: Mapping[Atom, bool]) -> Formula:
-    """Substitute observations in a nonconstant NNF tree to obtain a cofactor."""
-    if isinstance(node, AtomLeaf):
-        value = values.get(node.atom)
-        return node if value is None else (TRUE if value else FALSE)
-    if isinstance(node, AndNode):
-        return make_and(
-            _replace_observed_atoms(child, values) for child in node.children
-        )
-    assert isinstance(node, OrNode)
-    return make_or(_replace_observed_atoms(child, values) for child in node.children)
-
-
 def _cofactor_cover(
     node: Formula, patterns: AbstractSet[int] | Sequence[int], atoms: Sequence[Atom]
 ) -> Formula:
@@ -3377,6 +3418,12 @@ def _common_membership_cofactor(
     return _CofactorWitness(selected_members, representative_scalar)
 
 
+def _substitute_pattern(node: Formula, atoms: Sequence[Atom], pattern: int) -> Formula:
+    """Read each predicate's truth from its bit in the observation pattern."""
+    values = {atom: bool(pattern & (1 << index)) for index, atom in enumerate(atoms)}
+    return _substitute_values(node, values.get)
+
+
 def _independent_cover(
     source: _CoverInput, rows: Sequence[_Row], max_cells: int, store: Memo
 ) -> Formula | None:
@@ -3403,20 +3450,8 @@ def _independent_cover(
         (witness.members & -witness.members).bit_length() - 1
     ]
     charge_work(2 * (source.leaf_count + len(source.atoms)))
-    member_tree = _replace_observed_atoms(
-        source.tree,
-        {
-            atom: bool(witness.scalar & (1 << index))
-            for index, atom in enumerate(axis.others)
-        },
-    )
-    scalar_tree = _replace_observed_atoms(
-        source.tree,
-        {
-            atom: bool(representative_member & (1 << index))
-            for index, atom in enumerate(axis.members)
-        },
-    )
+    member_tree = _substitute_pattern(source.tree, axis.others, witness.scalar)
+    scalar_tree = _substitute_pattern(source.tree, axis.members, representative_member)
     return make_and(
         (
             _cofactor_cover(member_tree, member_patterns, axis.members),
@@ -3453,6 +3488,25 @@ def _comparison_buffers(
     return _ComparisonBuffers(cells, scalar_units) if scalar_units >= 0 else None
 
 
+def _membership_columns(atoms: Sequence[Atom], size: int) -> _RowTruth:
+    """Build predicate columns for the admitted powerset of a free set axis."""
+    charge_work(size * (len(atoms) + 1))
+    full = (1 << size) - 1
+    positions: dict[str, int] = {}
+    columns = []
+    for atom in atoms:
+        position = positions.setdefault(atom.literal, len(positions))
+        # In subset order, the name is absent for one run, then present for one.
+        width = 1 << position
+        present = ((1 << width) - 1) << width
+        period = 2 * width
+        while period < size:
+            present |= present << period
+            period *= 2
+        columns.append(present if atom.positive else full ^ present)
+    return _RowTruth(tuple(columns), full, size)
+
+
 def _independent_rows_equivalent(
     left: Formula,
     right: Formula,
@@ -3481,18 +3535,7 @@ def _independent_rows_equivalent(
         if not columns.within:
             continue
         if membership is None:
-            membership = _row_pattern_columns(
-                axis.members,
-                _Row({}, TRUE),
-                max_cells,
-                store,
-                max_buffer_units=2 * len(axis.members)
-                + (2 * len(axis.members) + 3)
-                * _integer_payload_units(buffers.member_cells),
-            )
-            # A free set axis has exactly the preadmitted powerset of observations.
-            assert membership is not None
-            assert membership.size == buffers.member_cells
+            membership = _membership_columns(axis.members, buffers.member_cells)
         if not _compare_independent_row(
             left, right, axis, membership, columns, node_count
         ):
@@ -3512,7 +3555,7 @@ def _compare_independent_row(
     """Evaluate both original trees for every admitted scalar and set assignment."""
     charge_work(len(axis.members) + len(axis.others))
     truth = dict(zip(axis.members, membership.columns, strict=True))
-    full = (1 << membership.size) - 1
+    full = membership.within
     remaining = columns.within
     while remaining:
         charge_work(

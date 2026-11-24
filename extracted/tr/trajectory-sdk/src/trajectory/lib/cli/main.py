@@ -43,7 +43,7 @@ class CLI:
   def parser() -> Parser:
     parser = Parser(
       prog="tj",
-      description="Authenticate, onboard projects, ingest benchmarks, evaluate, and train.",
+      description="Authenticate, onboard projects, ingest specs, evaluate, and train.",
     )
     parser.add_argument(
       "--json",
@@ -79,11 +79,11 @@ class CLI:
     schema = subs.add_parser("schema", help="Machine-readable configuration schemas")
     schema.add_argument(
       "resource",
-      choices=("evals", "training", "benchmark", "commands"),
+      choices=("evals", "training", "spec", "commands"),
       default="commands",
       nargs="?",
     )
-    for kind in ("agents", "benchmarks", "evals", "training", "operations", "diagnostics"):
+    for kind in ("projects", "specs", "evals", "training", "operations", "diagnostics"):
       resource = subs.add_parser(kind)
       actions = resource.add_subparsers(dest="action", required=True)
       if kind != "diagnostics":
@@ -101,10 +101,10 @@ class CLI:
         watch.add_argument("id")
         watch.add_argument("--timeout", type=float, default=60)
         watch.add_argument("--poll-interval", type=float, default=2)
-      if kind == "agents":
+      if kind == "projects":
         create = actions.add_parser("create")
         create.add_argument("--name", required=True)
-      if kind == "benchmarks":
+      if kind == "specs":
         readiness = actions.add_parser("readiness")
         readiness.add_argument("id")
         push = actions.add_parser("push")
@@ -225,8 +225,8 @@ class CLI:
         if menus is None:
           raise ModuleNotFoundError("Interactive setup requires textual", name="textual")
         choices = [
-          ("Try an open-source benchmark", "cookbook"),
-          ("Bring your own benchmark", "benchmark"),
+          ("Try an open-source spec", "cookbook"),
+          ("Bring your own spec", "benchmark"),
         ]
         if previous.get("template"):
           label = previous.get("cookbook") or previous.get("repo") or previous["template"]
@@ -405,7 +405,7 @@ class CLI:
     if args.command == "schema":
       if args.resource in {"evals", "training"}:
         return WorkflowService.run_schema(args.resource)
-      if args.resource == "benchmark":
+      if args.resource == "spec":
         return BenchmarkSpec.model_json_schema()
       return {
         "commands": [
@@ -416,8 +416,8 @@ class CLI:
           "init",
           "docs",
           "schema",
-          "agents",
-          "benchmarks",
+          "projects",
+          "specs",
           "evals",
           "training",
           "operations",
@@ -440,7 +440,7 @@ class CLI:
         "config": WorkflowService.validate_run(args.command, CLI.read_config(args.config)),
         "submitted": False,
       }
-    if args.command == "benchmarks" and args.action == "diagnose" and args.dry_run:
+    if args.command == "specs" and args.action == "diagnose" and args.dry_run:
       config = CLI.read_config(args.config) if args.config else {}
       return {
         "valid": True,
@@ -462,8 +462,8 @@ class CLI:
       if args.action == "watch":
         return service.watch(args.command, args.id, args.timeout, args.poll_interval)
       if args.action == "create":
-        if args.command == "agents":
-          return client.agents.create(name=args.name)
+        if args.command == "projects":
+          return client.projects.create(name=args.name)
         return service.create_run(args.command, CLI.read_config(args.config), args.request_id)
       if args.action == "push":
         project = Project(Path.cwd()).load()
@@ -477,7 +477,7 @@ class CLI:
       if args.action == "diagnose":
         return service.diagnose(args.id, CLI.read_config(args.config) if args.config else {})
       if args.action == "readiness":
-        return client.benchmarks.retrieve_readiness(args.id)
+        return client.specs.retrieve_readiness(args.id)
       if args.action == "results":
         return client.diagnostics.get_diagnostics(args.id)
       if args.action == "cancel":
@@ -487,13 +487,11 @@ class CLI:
       if args.action == "details":
         return service.run_details(args.command, args.id)
       if args.action == "models":
-        return getattr(
-          client, "evals" if args.command == "diagnostics" else args.command
-        ).list_models()
+        return (client.rl if args.command == "training" else client.evals).list_models()
       if args.action == "options":
         if args.command == "diagnostics":
           return service.diagnostic_options(args.bench_id, args.base_model_slug)
-        return getattr(client, args.command).list_options(
+        return (client.rl if args.command == "training" else client.evals).list_options(
           bench_id=args.bench_id, base_model_slug=args.base_model_slug or omit
         )
     raise CLIError("Unsupported command")

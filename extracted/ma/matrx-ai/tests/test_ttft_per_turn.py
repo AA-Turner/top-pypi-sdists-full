@@ -269,3 +269,23 @@ async def test_the_watcher_is_removed_after_the_call() -> None:
     _use(emitter)
     await _iteration(_request(), _Provider(stream=[("c", "x")]), ExecutionState())
     assert get_app_context().emitter is emitter
+
+
+async def test_blocks_shadow_rides_the_same_seam_into_request_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CGU-14 P2: with the shadow switched on, send_once reads the streamed reply into blocks v1
+    and the turn's summary lands in chat.user_request.metadata.blocks_shadow."""
+    from matrx_ai.processing.blocks.blocks_shadow import configure_blocks_shadow
+
+    configure_blocks_shadow(lambda: True)
+    try:
+        _use(StreamEmitter())
+        state, request = ExecutionState(), _request()
+        await _iteration(request, _Provider(stream=[("c", "Revenue "), ("c", "rose.")]), state)
+        completed = await _finalize(monkeypatch, state, request)
+    finally:
+        configure_blocks_shadow(None)
+    shadow = completed.to_storage_dict()["user_request"]["metadata"]["blocks_shadow"]
+    assert (shadow["calls"], shadow["tokens"], shadow["text_mismatch"], shadow["block_divergence"]) == (1, 2, 0, 0)
+    assert shadow["types"] == {"markdown": 1}

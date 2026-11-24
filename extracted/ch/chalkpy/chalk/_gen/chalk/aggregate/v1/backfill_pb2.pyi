@@ -1,4 +1,5 @@
 from chalk._gen.chalk.aggregate.v1 import timeseries_pb2 as _timeseries_pb2
+from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -295,4 +296,49 @@ class CronAggregateBackfill(_message.Message):
         targets: _Optional[_Iterable[_Union[AggregateBackfillTarget, str]]] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class TileSeriesGap(_message.Message):
+    __slots__ = ("materialization_key_hash", "lower_bound", "upper_bound")
+    MATERIALIZATION_KEY_HASH_FIELD_NUMBER: _ClassVar[int]
+    LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    materialization_key_hash: str
+    lower_bound: _timestamp_pb2.Timestamp
+    upper_bound: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        materialization_key_hash: _Optional[str] = ...,
+        lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class TileSeriesGapBackfill(_message.Message):
+    __slots__ = ("features", "resolver", "job", "error")
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    features: _containers.RepeatedScalarFieldContainer[str]
+    resolver: str
+    job: AggregateBackfillJob
+    error: _chalk_error_pb2.ChalkError
+    def __init__(
+        self,
+        features: _Optional[_Iterable[str]] = ...,
+        resolver: _Optional[str] = ...,
+        job: _Optional[_Union[AggregateBackfillJob, _Mapping]] = ...,
+        error: _Optional[_Union[_chalk_error_pb2.ChalkError, _Mapping]] = ...,
+    ) -> None: ...
+
+class TileSeriesGapBackfillResult(_message.Message):
+    __slots__ = ("backfill_index", "error")
+    BACKFILL_INDEX_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    backfill_index: int
+    error: _chalk_error_pb2.ChalkError
+    def __init__(
+        self,
+        backfill_index: _Optional[int] = ...,
+        error: _Optional[_Union[_chalk_error_pb2.ChalkError, _Mapping]] = ...,
     ) -> None: ...

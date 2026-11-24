@@ -13,7 +13,9 @@ from collections.abc import (
 
 import param
 
+from bokeh.core.has_props import HasProps
 from bokeh.models import Row as BkRow
+from param import bind
 from param.parameterized import iscoroutinefunction, resolve_ref
 
 from ..config import config
@@ -43,6 +45,57 @@ _SCROLL_MAPPING = {
 
 _row = namedtuple("row", ["children"]) # type: ignore
 _col = namedtuple("col", ["children"]) # type: ignore
+
+_SIZING_PROPS = ('sizing_mode', 'width', 'min_width', 'height', 'min_height')
+
+_SIZING_DEFAULTS: dict[type, tuple[t.Any, ...]] = {}
+
+
+def _sizing_props(child: t.Any) -> tuple[t.Any, ...]:
+    """
+    Returns the (sizing_mode, width, min_width, height, min_height)
+    of a bokeh model.
+
+    Reading an unset bokeh property resolves its default through the
+    theming machinery on every access, which dominates the cost of a
+    layout update once a layout has hundreds of children, so we look
+    the value up directly and only resolve the default once per class.
+    """
+    if not isinstance(child, HasProps):
+        return tuple(getattr(child, prop, None) for prop in _SIZING_PROPS)
+    cls = type(child)
+    defaults = _SIZING_DEFAULTS.get(cls)
+    if defaults is None:
+        resolved = []
+        for prop in _SIZING_PROPS:
+            descriptor = cls.lookup(prop, raises=False)
+            resolved.append(
+                None if descriptor is None else
+                descriptor.property.themed_default(cls, prop, None)
+            )
+        _SIZING_DEFAULTS[cls] = defaults = tuple(resolved)
+    values = child._property_values
+    # HasProps.themed_values() looks the attribute up through
+    # HasProps.__getattr__, which raises and catches an AttributeError
+    # for the common unthemed model and costs more than everything else
+    # here combined; apply_theme stores it in the instance __dict__.
+    themed = child.__dict__.get('__themed_values__')
+    if themed:
+        return tuple(
+            values[prop] if prop in values else themed.get(prop, default)
+            for prop, default in zip(_SIZING_PROPS, defaults)
+        )
+    # Most children never set a sizing property on their model, so a
+    # single C-level membership check usually settles all five values.
+    if values.keys().isdisjoint(_SIZING_PROPS):
+        return defaults
+    get = values.get
+    sizing_mode, width, min_width, height, min_height = defaults
+    return (
+        get('sizing_mode', sizing_mode), get('width', width),
+        get('min_width', min_width), get('height', height),
+        get('min_height', min_height)
+    )
 
 
 class SizingModeMixin:
@@ -96,7 +149,7 @@ class SizingModeMixin:
         explicit_width = getattr(self, '_explicit_width_policy', False)
         explicit_height = getattr(self, '_explicit_height_policy', False)
         for child in children:
-            smode = child.sizing_mode
+            smode, child_width, child_min_width, child_height, child_min_height = _sizing_props(child)
             if smode and 'scale' in smode:
                 scale = True
 
@@ -105,11 +158,11 @@ class SizingModeMixin:
             expand_width |= width_expanded
             expand_height |= height_expanded
             if width_expanded:
-                width = child.min_width
+                width = child_min_width
             else:
-                width = child.width
-                if not child.width:
-                    width = child.min_width
+                width = child_width
+                if not child_width:
+                    width = child_min_width
             if width:
                 if isinstance(margin, tuple):
                     if len(margin) == 2:
@@ -121,13 +174,13 @@ class SizingModeMixin:
                 widths.append(width)
 
             if height_expanded:
-                height = child.min_height
+                height = child_min_height
             else:
-                height = child.height
+                height = child_height
                 if height:
                     all_expand_height = False
                 else:
-                    height = child.min_height
+                    height = child_min_height
             if height:
                 if isinstance(margin, tuple):
                     if len(margin) == 2:
@@ -210,7 +263,7 @@ class SizingModeMixin:
 
         properties = {'sizing_mode': sizing_mode}
         if (sizing_mode.endswith(("_width", "_both")) and
-            widths and 'min_width' not in properties):
+            widths and getattr(self, 'min_width', None) is None):
             width_op = max if self._direction in ('vertical', None) else sum
             min_width = width_op(widths)
             op_widths = [min_width]
@@ -218,7 +271,7 @@ class SizingModeMixin:
                 op_widths.append(properties['max_width'])
             properties['min_width'] = min(op_widths)
         if (sizing_mode.endswith(("_height", "_both")) and
-            heights and 'min_height' not in properties):
+            heights and getattr(self, 'min_height', None) is None):
             height_op = max if self._direction in ('horizontal', None) else sum
             min_height = height_op(heights)
             op_heights = [min_height]
@@ -337,14 +390,16 @@ class Panel(Reactive, SizingModeMixin):
         from ..pane.base import RerenderError
         new_models, old_models = [], []
 
+        current_objects = list(self.objects)
+        current_ids = {id(obj) for obj in current_objects}
         for obj in old_objects:
-            if obj not in self.objects:
+            if id(obj) not in current_ids:
                 obj._release_model(root, model)
 
-        current_objects = list(self.objects)
+        old_ids = {id(obj) for obj in old_objects}
         ref = root.ref['id']
-        for i, pane in enumerate(self.objects):
-            if pane in old_objects and ref in pane._models:
+        for i, pane in enumerate(current_objects):
+            if id(pane) in old_ids and ref in pane._models:
                 child, _ = pane._models[ref]
                 old_models.append(child)
             else:
@@ -607,9 +662,13 @@ class NamedListLike(param.Parameterized):
                     'as positional arguments or as a keyword, not both.'
                 )
             items = params.pop('objects')
-        params['objects'], names = self._to_objects_and_names(items)
+        self._init_names: list[str] = []
+        if resolve_ref(items):
+            params['objects'] = bind(self._resolve_items, items)
+        else:
+            params['objects'], self._init_names = self._to_objects_and_names(items)
         super().__init__(**params)
-        self._names = names
+        self._names = self._init_names
         self._panels: defaultdict[str, dict[int, Viewable]] = defaultdict(dict)
         self.param.watch(self._update_names, 'objects')
         # ALERT: Ensure that name update happens first, should be
@@ -633,6 +692,17 @@ class NamedListLike(param.Parameterized):
             objects.append(pane)
             names.append(name)
         return objects, names
+
+    def _resolve_items(self, items):
+        # Names must be set before the objects change so _update_names is a no-op,
+        # but subclasses may declare _names as a Parameter, which cannot be set
+        # until __init__ has completed
+        objects, names = self._to_objects_and_names(items)
+        if self._param__private.initialized:
+            self._names = names
+        else:
+            self._init_names = names
+        return objects
 
     def _update_names(self, event: param.parameterized.Event) -> None:
         if len(event.new) == len(self._names):
@@ -729,7 +799,7 @@ class NamedListLike(param.Parameterized):
             overrides = tuple(zip(self._names, self.objects))
         p = dict(self.param.values(), **params)
         del p['objects']
-        return type(self)(*overrides, **params)
+        return type(self)(*overrides, **p)
 
     def append(self, pane: t.Any) -> None:
         """

@@ -167,9 +167,9 @@ def prepare_page_html(html: str) -> str:
     no knobs and no host, so :func:`page_prepass` can run it in a child process."""
     if not html:
         return ""
-    from selectolax.parser import HTMLParser
+    from selectolax.lexbor import LexborHTMLParser
 
-    tree = HTMLParser(html)
+    tree = LexborHTMLParser(html)
     flatten_tel_links(tree)  # before the chrome pass: a lone "(" link looks like chrome and would be dropped
     drop_chrome_nodes(tree)
     return tree.html or html
@@ -191,9 +191,9 @@ def contact_footer_text(html: str) -> str | None:
     """The footer's text (``<footer>`` / ``role=contentinfo``) when it carries contact details, else None."""
     import html as _html
 
-    from selectolax.parser import HTMLParser
+    from selectolax.lexbor import LexborHTMLParser
 
-    tree = HTMLParser(html or "")
+    tree = LexborHTMLParser(html or "")
     decompose_all(tree.css("script, style, noscript, template, svg"))  # a <script> inside an <svg>: html_nodes
     parts: list[str] = []
     for node in tree.css("footer, [role=contentinfo]"):

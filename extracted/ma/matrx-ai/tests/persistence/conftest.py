@@ -44,3 +44,20 @@ def _reset_session_stack():
     token = _session_stack.set(())
     yield
     _session_stack.reset(token)
+
+
+@pytest.fixture(autouse=True)
+def _write_retry_policy_never_reads_the_live_knob_table(monkeypatch: pytest.MonkeyPatch):
+    """The individual-write fallback reads its retry budget from ``platform.feature_knob``.
+
+    When the run also loaded the host conftest (a multi-package invocation), ``import db``
+    has registered the real platform database, so that read dials a live host and can outlast
+    a test's wait window, and the captured failure arrives late. A persistence test pins the
+    recorded starting policy instead; nothing here may depend on a live knob read.
+    """
+    from matrx_orm.core.write_retry import STARTING_POLICY
+
+    async def _starting_policy(config_name: str):
+        return STARTING_POLICY
+
+    monkeypatch.setattr("matrx_orm.core.write_retry.resolve_policy", _starting_policy)

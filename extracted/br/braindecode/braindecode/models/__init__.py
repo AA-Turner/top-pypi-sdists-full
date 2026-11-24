@@ -17,20 +17,24 @@ if TYPE_CHECKING:
     from .axon import AXON
     from .barista import BaRISTA
     from .base import EEGModuleMixin
+    from .bbl import BBL
     from .bendr import BENDR
     from .biot import BIOT
     from .brainbert import BrainBERT
     from .brainmodule import BrainModule
     from .brainomni import BrainOmni, BrainTokenizer
     from .brant import Brant
+    from .caresleepnet import CareSleepNet
     from .cbramod import CBraMod
     from .codebrain import CodeBrain
     from .contrawr import ContraWR
+    from .corteg import CORTEG
     from .csbrain import CSBrain
     from .ctnet import CTNet
     from .dance import DANCE
     from .deep4 import Deep4Net
     from .deepsleepnet import DeepSleepNet
+    from .deepsoz import DeepSOZ
     from .dgcnn import DGCNN
     from .diver1 import DIVER1
     from .duin import DuIN
@@ -52,25 +56,37 @@ if TYPE_CHECKING:
     from .fbcnet import FBCNet
     from .fblightconvnet import FBLightConvNet
     from .fbmsnet import FBMSNet
+    from .fnirs4d import FNIRS4D
+    from .fnirs_cnn1d import FNIRSCNN1D
+    from .fnirs_t import FNIRST, FNIRSPreT
+    from .fnirsnet import FNIRSNet
     from .gcnsnet import GCNsNet
+    from .geonirs import GeoNIRS
     from .guetschel2026 import Guetschel2026
     from .hybrid import HybridNet
     from .ifnet import IFNet
+    from .jung_mae import JungMAE
     from .labram import Labram
     from .luna import LUNA
     from .mapa import MAPA
     from .medformer import MEDFormer
+    from .meggpt import MEGGPT
+    from .megxl import MEGXL
     from .meta_neuromotor import MetaNeuromotorHand
     from .mirepnet import MIRepNet
     from .mscformer import MSCFormer
     from .msvtnet import MSVTNet
+    from .mtrenirs import MtReNIRS
     from .mvpformer import MVPFormer
     from .neuropose import NeuroPose
     from .neurorvq import NeuroRVQ
     from .neurorvq_tokenizer import NeuroRVQTokenizer
+    from .nice import NICE
     from .patchedtransformer import PBT
     from .popt import PopulationTransformer
+    from .pratibha2 import Pratibha2
     from .reve import REVE
+    from .samba import SAMBA
     from .sccnet import SCCNet
     from .seizure_transformer import SeizureTransformer
     from .sensingdynamics import SensingDynamics
@@ -89,10 +105,12 @@ if TYPE_CHECKING:
     from .sstdpn import SSTDPN
     from .steegformer import STEEGFormer
     from .syncnet import SyncNet
+    from .tccnet import TCCNet
     from .tcformer import TCFormer
     from .tcn import BDTCN, TCN
     from .tfm_tokenizer import TFMTokenizer, TFMTokenizerOutput
     from .tidnet import TIDNet
+    from .tinymyo import TinyMyo
     from .tmsanet import TMSANet
     from .tsinception import TSception
     from .usleep import USleep
@@ -108,9 +126,8 @@ if TYPE_CHECKING:
 else:  # hidden from checkers so misspelled names stay errors
 
     def _type_checking_imports():
-        # ponytail: needs this file's source, as get_summary_table needs summary.csv.
-        with open(__file__, "rb") as source:
-            tree = ast.parse(source.read())
+        # The loader reads this source from a directory or a zip archive.
+        tree = ast.parse(__spec__.loader.get_source(__name__))
         block = next(node for node in tree.body if isinstance(node, ast.If))
         return {alias.name: imp.module for imp in block.body for alias in imp.names}
 

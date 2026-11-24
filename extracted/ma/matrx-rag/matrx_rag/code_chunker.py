@@ -280,7 +280,6 @@ def chunk_code_symbols(text: str, *, language: str) -> list[Chunk] | None:
 
     # Pre-collect parent symbols so we can correlate leafs to enclosing parents.
     # We walk depth-first and track the current parent_chunk_id stack.
-    parent_stack: list[tuple[str, str, str]] = []  # (parent_chunk_id, parent_kind, parent_name)
 
     # Module preamble — everything in the root that isn't a symbol or a wrapped symbol.
     preamble_byte_ranges: list[tuple[int, int]] = []

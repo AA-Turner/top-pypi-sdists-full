@@ -1,6 +1,6 @@
 [project]
 name = "azure-kusto-data"
-version = "6.0.4"
+version = "6.0.5"
 description = "Kusto Data Client"
 authors = [
     { name = "Microsoft Corporation", email = "kustalk@microsoft.com" },
@@ -14,7 +14,7 @@ dependencies = [
     "requests>=2.32.4",
     "azure-identity>=1.25.3,<2",
     "msal>=1.35.1,<2",
-    "ijson~=3.4.0",
+    "ijson>=3.4.0,<3.7.0",
     "azure-core>=1.35.0,<2"
 ]
 requires-python = ">= 3.9"

@@ -39,7 +39,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Agent-scan CLI version (replaced by the release pipeline).
-$AGENT_SCAN_VERSION = "0.7.0"
+$AGENT_SCAN_VERSION = "0.7.1"
 
 # Hook API version.
 $VERSION = "2025-11-11"

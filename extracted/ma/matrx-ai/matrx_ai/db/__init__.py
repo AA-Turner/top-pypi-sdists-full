@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:  # import-time only for type checkers; never at runtime
     from .conversation_gate import (
         ConversationGateError,
+        ConversationIdTakenError,
         ConversationRunInFlightError,
         create_new_conversation,
         create_pending_user_request,
@@ -51,9 +52,12 @@ if TYPE_CHECKING:  # import-time only for type checkers; never at runtime
 # heavy manager/gate chain.
 _LAZY_EXPORTS = {
     "ConversationGateError": "conversation_gate",
+    "ConversationIdTakenError": "conversation_gate",
     "ConversationRunInFlightError": "conversation_gate",
     "release_conversation_start_claim": "conversation_gate",
     "release_pending_start_claim": "conversation_gate",
+    "pending_start_conversation_id": "conversation_gate",
+    "record_stopped_before_run": "conversation_gate",
     "create_new_conversation": "conversation_gate",
     "create_pending_user_request": "conversation_gate",
     "ensure_conversation_exists": "conversation_gate",
@@ -77,9 +81,12 @@ _LAZY_EXPORTS = {
 
 __all__ = [
     "ConversationGateError",
+    "ConversationIdTakenError",
     "ConversationRunInFlightError",
     "release_conversation_start_claim",
     "release_pending_start_claim",
+    "pending_start_conversation_id",
+    "record_stopped_before_run",
     "CxAgentMemoryManager",
     "CxConversationManager",
     "CxManagers",

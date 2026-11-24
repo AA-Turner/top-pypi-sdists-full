@@ -141,7 +141,7 @@ def _reference_urls(config: UnifiedConfig) -> list[str]:
     return out
 
 
-def _default_from_output(raw: Any, desc: "ModelDescriptor") -> list[GeneratedAsset]:
+def _default_from_output(raw: Any, desc: ModelDescriptor) -> list[GeneratedAsset]:
     """Universal handler — Replicate models return a string URL, list of
     URLs, or ``FileOutput`` objects with ``.url`` and ``.read()``."""
     items = raw if isinstance(raw, (list, tuple)) else [raw]
@@ -185,7 +185,7 @@ class ModelDescriptor:
     # gpt-image / nano-banana take start + references in ONE list (refs_key).
     start_in_refs: bool = False
     # Optional overrides — defaults below cover URL-only output.
-    from_output: Callable[[Any, "ModelDescriptor"], list[GeneratedAsset]] | None = None
+    from_output: Callable[[Any, ModelDescriptor], list[GeneratedAsset]] | None = None
     notes: str = ""
     default_mime: str = ""
     # Image-generation reference roles -> the input key that carries each.

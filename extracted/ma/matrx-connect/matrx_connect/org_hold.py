@@ -29,7 +29,7 @@ membership-validated — not a user-level fallback.
 Why this lives HERE and not in aidream
 --------------------------------------
 matrx-connect owns the **auth boundary every request crosses first**
-(``middleware/auth.py``, ``service_auth.py``, ``dependencies.py``). Until this
+(``middleware/auth/``, ``service_auth.py``, ``dependencies.py``). Until this
 module existed, that boundary spoke its own refusal strings while aidream spoke
 the typed hold, so the platform had two organization-refusal vocabularies and
 the one a caller actually hit depended on which door it came through. aidream
@@ -48,7 +48,9 @@ The shape (ONE shape, every surface)
       "code": "organization_required",
       "message":      "<developer/agent-facing sentence>",
       "user_message": "<plain English for the person>",
+      "fix_action": "pick_organization",
       "details": {
+        "fix_action": "pick_organization",
         "hold": "organization_required",
         "can_choose": true,
         "set_on": "request" | "mcp_connection" | "coding_session",
@@ -81,6 +83,8 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from fastapi import HTTPException, status
+
+from matrx_connect.fix_actions import FIX_PICK_ORGANIZATION
 
 
 #: The ONE error/code token for "this needs an organization and has none".
@@ -149,6 +153,7 @@ def organization_hold_detail(
         "remedy": remedy or _SET_ON_REMEDY[set_on],
         "organizations": organizations,
         "memberships_url": MEMBERSHIPS_URL,
+        "fix_action": FIX_PICK_ORGANIZATION,
     }
     if extra:
         details.update(extra)
@@ -157,6 +162,7 @@ def organization_hold_detail(
         "code": ORGANIZATION_REQUIRED,
         "message": what,
         "user_message": user_message or _SET_ON_USER_MESSAGE[set_on],
+        "fix_action": FIX_PICK_ORGANIZATION,
         "details": details,
     }
 

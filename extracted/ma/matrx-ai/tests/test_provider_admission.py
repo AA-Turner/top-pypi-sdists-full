@@ -71,7 +71,9 @@ async def test_rate_limit_halves_admission_and_honors_retry_after() -> None:
         error_type="rate_limit",
         message="too many requests",
         status_code=429,
-        retry_after=0.03,
+        # 0.3 s, not 0.03: under a loaded full-suite run the 10 ms margin between the refusal and
+        # the next entry was eaten by scheduling (red in admission 2026-11-15). Still fails at ~0 s.
+        retry_after=0.3,
     )
 
     with pytest.raises(RuntimeError, match="provider refused"):
@@ -82,14 +84,14 @@ async def test_rate_limit_halves_admission_and_honors_retry_after() -> None:
         "openai:endpoint-openai-platform:https://api.openai.com"
     ]
     assert snapshot["current_concurrency"] == 4
-    assert 0 < float(snapshot["cooldown_seconds"] or 0) <= 0.03
+    assert 0 < float(snapshot["cooldown_seconds"] or 0) <= 0.3
 
     entered_at = 0.0
     loop = asyncio.get_running_loop()
     started_at = loop.time()
     async with admit_provider_call(profile):
         entered_at = loop.time()
-    assert entered_at - started_at >= 0.02
+    assert entered_at - started_at >= 0.2
 
 
 @pytest.mark.asyncio

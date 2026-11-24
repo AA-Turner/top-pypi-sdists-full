@@ -46,7 +46,6 @@ SDK_CLIENTS: list[tuple[str, str]] = [
     ("openai", "AsyncOpenAI"),
     ("groq", "AsyncGroq"),
     ("cerebras.cloud.sdk", "AsyncCerebras"),
-    ("together", "AsyncTogether"),
 ]
 
 

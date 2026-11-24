@@ -27,6 +27,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from matrx_ai.config import ImageContent
 from matrx_ai.tools.image_outputs import is_image_shaped_output
 
@@ -39,6 +41,16 @@ SIGNED_URL = (
     "&X-Amz-Date=20260811T000000Z&X-Amz-Expires=3600&X-Amz-Signature=deadbeef"
 )
 DURABLE_CDN = f"https://cdn.matrxserver.com/generations/{FILE_ID}.png"
+
+
+@pytest.fixture(autouse=True)
+def _cdn_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Production always has the CDN configured (``CDN_PUBLIC_BASE_URL`` is in REQUIRED_ENV);
+    without it no URL is a CDN URL and ``cdn_url`` is honestly empty — so the result must not
+    depend on whether the machine running the test happens to have a ``.env``."""
+    from matrx_files.cloud_sync import cdn
+
+    monkeypatch.setattr(cdn, "_cdn_base_url", lambda: "https://cdn.matrxserver.com")
 
 # A 1x1 transparent PNG, base64 — real bytes so b64decode succeeds.
 PNG_B64 = (

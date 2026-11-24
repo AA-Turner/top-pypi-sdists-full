@@ -25,7 +25,6 @@ from __future__ import annotations
 import base64
 import logging
 import mimetypes
-import re
 from typing import TYPE_CHECKING
 
 from .byte_cache import get_byte_cache
@@ -54,7 +53,7 @@ def _guess_mime(path_or_url: str | None) -> str | None:
     return mimetypes.guess_type(path_or_url)[0]
 
 
-def _is_short_circuit(ref: "MediaRef") -> bool:
+def _is_short_circuit(ref: MediaRef) -> bool:
     """Return True iff the ref is already resolved or has no identifier."""
     if ref.is_resolved:
         return True
@@ -64,7 +63,7 @@ def _is_short_circuit(ref: "MediaRef") -> bool:
     return False
 
 
-def _populate_from_resolved_file(ref: "MediaRef", rec) -> None:
+def _populate_from_resolved_file(ref: MediaRef, rec) -> None:
     """Copy canonical metadata from a ResolvedFile onto the MediaRef."""
     if rec.file_id:
         ref.file_id = rec.file_id
@@ -173,7 +172,7 @@ def _no_context_system_or_deny(ref: MediaRef) -> str | None:
     return "access_denied_no_actor"
 
 
-def _authorized_or_error_sync(fm: "FileManager", ref: "MediaRef", *, is_share_link: bool) -> str | None:
+def _authorized_or_error_sync(fm: FileManager, ref: MediaRef, *, is_share_link: bool) -> str | None:
     if is_share_link:
         return None  # a valid share token IS the authorization (even anonymous)
     actor_uid = _authorized_actor_uid_or_deny()
@@ -190,7 +189,7 @@ def _authorized_or_error_sync(fm: "FileManager", ref: "MediaRef", *, is_share_li
     return "access_denied_raw_uri"  # user handed us a raw storage path — never allowed
 
 
-async def _authorized_or_error_async(fm: "FileManager", ref: "MediaRef", *, is_share_link: bool) -> str | None:
+async def _authorized_or_error_async(fm: FileManager, ref: MediaRef, *, is_share_link: bool) -> str | None:
     if is_share_link:
         return None  # a valid share token IS the authorization (even anonymous)
     actor_uid = _authorized_actor_uid_or_deny()
@@ -212,7 +211,7 @@ async def _authorized_or_error_async(fm: "FileManager", ref: "MediaRef", *, is_s
 # =============================================================================
 
 
-def _carry_file_name(ref: "MediaRef", rec: dict) -> None:
+def _carry_file_name(ref: MediaRef, rec: dict) -> None:
     """Keep the file's own name beside its bytes (``metadata.file_name``).
 
     A model reading five attachments must be able to tell which block is which
@@ -230,8 +229,49 @@ def _carry_file_name(ref: "MediaRef", rec: dict) -> None:
         return
 
 
-def _resolve_media_sync(fm: "FileManager", ref: "MediaRef", *, needs_bytes: bool,
-                        presigned_ttl_seconds: int) -> "MediaRef":
+def _carry_master_version(ref: MediaRef, version: object) -> None:
+    """Record WHICH bytes of the file this resolve read (``metadata.master_version``): a master replaced in place
+    keeps its old variants, so a request snapshot names the exact picture only with it (AND-V IMG17 N3)."""
+    try:
+        number = int(version) if version is not None else None
+    except (TypeError, ValueError):
+        return
+    if number and number > 0:
+        try:
+            ref.metadata = {**(ref.metadata or {}), "master_version": number}
+        except Exception:  # noqa: BLE001 — a frozen ref keeps its metadata
+            pass
+
+
+def _carry_dimensions(ref: MediaRef, rec: dict) -> None:
+    """Keep the stored file's own pixel size beside the reference (``ref.width`` / ``ref.height``).
+
+    A caller that resolves a picture WITHOUT its bytes (the AI Dream boundary leaves the bytes to the
+    model's vision pass — AND-IMG17 #1) still needs its size: the prompt estimate counts a picture by
+    it. Read from the row the resolver already loaded; absent on the row → absent here."""
+    width, height = rec.get("width"), rec.get("height")
+    if isinstance(width, int) and isinstance(height, int) and width > 0 and height > 0:
+        try:
+            if getattr(ref, "width", None) is None and getattr(ref, "height", None) is None:
+                ref.width = width  # type: ignore[attr-defined]  # MediaRef is open (extra="allow")
+                ref.height = height  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001 — a size is a courtesy; never fail resolution over it
+            return
+
+
+#: A file id whose row was soft-deleted (the person or a cleanup removed it) — an expected outcome, never a
+#: lookup defect. ``file_not_found`` stays the word for an id no row answers to.
+FILE_DELETED = "file_deleted"
+FILE_NOT_FOUND = "file_not_found"
+
+
+def _missing_file_reason(row_including_deleted: dict | None) -> str:
+    """Why a file id resolved to no live row: deleted (``file_deleted``) or never there (``file_not_found``)."""
+    return FILE_DELETED if row_including_deleted else FILE_NOT_FOUND
+
+
+def _resolve_media_sync(fm: FileManager, ref: MediaRef, *, needs_bytes: bool,
+                        presigned_ttl_seconds: int) -> MediaRef:
     if _is_short_circuit(ref):
         return ref
     if fm._sync_engine is None:
@@ -256,7 +296,7 @@ def _resolve_media_sync(fm: "FileManager", ref: "MediaRef", *, needs_bytes: bool
             ref.resolver_error = f"db_lookup_failed: {type(e).__name__}: {e}"
             return ref
         if not rec:
-            ref.resolver_error = "file_not_found"
+            ref.resolver_error = _missing_file_reason(db.get_file(ref.file_id, include_deleted=True))
             return ref
         ref.is_ours = True
         ref.owner_id = rec.get("owner_id")
@@ -265,8 +305,10 @@ def _resolve_media_sync(fm: "FileManager", ref: "MediaRef", *, needs_bytes: bool
         ref.file_size = rec.get("size_bytes")
         storage_uri = rec.get("storage_uri")
         _carry_file_name(ref, rec)
+        _carry_dimensions(ref, rec)
         row_version, row_size = rec.get("current_version"), rec.get("size_bytes")
         row_file_id = ref.file_id
+        _carry_master_version(ref, row_version)
 
     # ------------------------------------------------------------------
     # 2. url path: classify + DB lookup
@@ -361,8 +403,10 @@ def _resolve_media_sync(fm: "FileManager", ref: "MediaRef", *, needs_bytes: bool
 # =============================================================================
 
 
-async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
-                                     needs_bytes: bool, presigned_ttl_seconds: int) -> "MediaRef":
+async def _resolve_media_async_impl(fm: FileManager, ref: MediaRef, *,
+                                     needs_bytes: bool, presigned_ttl_seconds: int,
+                                     external_max_bytes: int | None = None,
+                                     external_timeout_seconds: float | None = None) -> MediaRef:
     if _is_short_circuit(ref):
         return ref
     if fm._sync_engine is None:
@@ -384,7 +428,7 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
             ref.resolver_error = f"db_lookup_failed: {type(e).__name__}: {e}"
             return ref
         if not rec:
-            ref.resolver_error = "file_not_found"
+            ref.resolver_error = _missing_file_reason(await db.get_file_async(ref.file_id, include_deleted=True))
             return ref
         ref.is_ours = True
         ref.owner_id = rec.get("owner_id")
@@ -393,8 +437,10 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
         ref.file_size = rec.get("size_bytes")
         storage_uri = rec.get("storage_uri")
         _carry_file_name(ref, rec)
+        _carry_dimensions(ref, rec)
         row_version, row_size = rec.get("current_version"), rec.get("size_bytes")
         row_file_id = ref.file_id
+        _carry_master_version(ref, row_version)
 
     elif ref.url and not storage_uri:
         info = classify_url(ref.url)
@@ -415,7 +461,11 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
             # resolved bytes also go into the byte cache (keyed by URL
             # hash) so repeated requests within ~10 minutes hit memory.
             if needs_bytes:
-                await _fetch_external_url_into_ref(ref)
+                await _fetch_external_url_into_ref(
+                    ref,
+                    max_bytes=external_max_bytes,
+                    timeout_seconds=external_timeout_seconds,
+                )
                 # _fetch_external_url_into_ref always sets is_resolved
                 # (success → with bytes; failure → with resolver_error).
             else:
@@ -435,12 +485,16 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
 
     # ------------------------------------------------------------------
     # Variant pivot: when ``ref.vision_class`` is set AND we resolved a
-    # master cld_files row, swap ``storage_uri`` / ``file_id`` /
-    # ``mime_type`` / ``file_size`` to the variant. The cache + read
-    # paths below then operate on the variant's bytes, not the master.
+    # master cld_files row, swap ``storage_uri`` / ``mime_type`` /
+    # ``file_size`` to the variant, and read + cache by the VARIANT's id
+    # (``bytes_file_id``). ``ref.file_id`` is never touched: file_id is
+    # identity — the file the person attached. A resized copy's id leaked
+    # into the attachment label the model reads (real test PB-05,
+    # 2026-11-08: label 86037423 for attached file 4e01f58b).
     # No-op if no encoder for the family is registered (matrx-utils used
     # standalone, e.g.) — falls back to serving the master.
     # ------------------------------------------------------------------
+    bytes_file_id = ref.file_id
     vision_class = getattr(ref, "vision_class", None)
     if vision_class and ref.file_id and storage_uri:
         from .variants import has_variant_encoder, render_variant_async
@@ -454,7 +508,7 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
             except Exception as e:
                 ref.resolver_error = f"variant_render_failed: {type(e).__name__}: {e}"
                 return ref
-            ref.file_id = variant_info["file_id"]
+            bytes_file_id = variant_info["file_id"]
             storage_uri = variant_info["storage_uri"]
             if variant_info.get("mime_type"):
                 ref.mime_type = variant_info["mime_type"]
@@ -467,10 +521,10 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
                 vision_class,
             )
 
-    if needs_bytes and ref.file_id:
-        same_row = ref.file_id == row_file_id
+    if needs_bytes and bytes_file_id:
+        same_row = bytes_file_id == row_file_id
         cached = cache.get(
-            ref.file_id,
+            bytes_file_id,
             version=row_version if same_row else None,
             size_bytes=row_size if same_row else None,
         )
@@ -480,8 +534,8 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
                 ref.mime_type = cached.mime_type
             ref.file_size = cached.file_size
             ref.is_resolved = True
-            logger.info("resolve_media_async: cache hit file_id=%s mime=%s bytes=%d",
-                        ref.file_id, ref.mime_type, cached.file_size)
+            logger.info("resolve_media_async: cache hit file_id=%s bytes_from=%s mime=%s bytes=%d",
+                        ref.file_id, bytes_file_id, ref.mime_type, cached.file_size)
             return ref
 
     if needs_bytes and storage_uri:
@@ -492,14 +546,14 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
             return ref
         ref.base64_data = base64.b64encode(content).decode("ascii")
         if not ref.mime_type:
-            ref.mime_type = _guess_mime(ref.file_id) or "application/octet-stream"
+            ref.mime_type = _guess_mime(bytes_file_id) or "application/octet-stream"
         ref.file_size = len(content)
         ref.is_resolved = True
-        cache.put(ref.file_id, bytes_=content, mime_type=ref.mime_type,
+        cache.put(bytes_file_id, bytes_=content, mime_type=ref.mime_type,
                   owner_id=ref.owner_id, file_path=None,
-                  version=row_version if ref.file_id == row_file_id else None)
-        logger.info("resolve_media_async: cloud read file_id=%s mime=%s bytes=%d",
-                    ref.file_id, ref.mime_type, len(content))
+                  version=row_version if bytes_file_id == row_file_id else None)
+        logger.info("resolve_media_async: cloud read file_id=%s bytes_from=%s mime=%s bytes=%d",
+                    ref.file_id, bytes_file_id, ref.mime_type, len(content))
         return ref
 
     if storage_uri:
@@ -537,8 +591,17 @@ async def _resolve_media_async_impl(fm: "FileManager", ref: "MediaRef", *,
 #          OpenAI / Anthropic accept URLs natively, but bytes always work).
 
 
-async def _fetch_external_url_into_ref(ref: "MediaRef") -> None:
+async def _fetch_external_url_into_ref(
+    ref: MediaRef,
+    *,
+    max_bytes: int | None = None,
+    timeout_seconds: float | None = None,
+) -> None:
     """Download an external URL into ``ref.base64_data``.
+
+    ``max_bytes`` / ``timeout_seconds`` are the CALLER's limits (a host reads them from its
+    knobs); omitted, the package's own ceilings apply. A cached copy larger than ``max_bytes``
+    is refused the same way a fresh download is.
 
     Sets ``ref.is_resolved`` on every exit path. On failure, also sets
     ``ref.resolver_error`` with a short reason string. Never raises.
@@ -551,7 +614,14 @@ async def _fetch_external_url_into_ref(ref: "MediaRef") -> None:
     cache = get_byte_cache()
     url_key = "url:" + hash_text(ref.url, length=32)
 
+    limit_bytes = int(max_bytes) if max_bytes else _EXTERNAL_FETCH_MAX_BYTES
+    limit_seconds = float(timeout_seconds) if timeout_seconds else _EXTERNAL_FETCH_TIMEOUT_SECONDS
+
     cached = cache.get(url_key)
+    if cached is not None and (cached.file_size or 0) > limit_bytes:
+        ref.resolver_error = f"external_fetch_too_large: > {limit_bytes // (1024 * 1024)} MB"
+        ref.is_resolved = True
+        return
     if cached is not None:
         ref.base64_data = base64.b64encode(cached.bytes_).decode("ascii")
         if cached.mime_type and not ref.mime_type:
@@ -569,13 +639,15 @@ async def _fetch_external_url_into_ref(ref: "MediaRef") -> None:
         ref.is_resolved = True
         return
 
-    from matrx_utils.outbound_guard import OutboundUrlRefused, public_only_client
+    from matrx_utils.http_client import shared_client
+    from matrx_utils.outbound_guard import OutboundUrlRefused
 
     try:
         # A genuinely external URL (ours never reach here — they are read from
         # storage): every hop must be a public address, pinned to the checked IP.
-        async with public_only_client(
-            timeout=_EXTERNAL_FETCH_TIMEOUT_SECONDS,
+        async with shared_client(
+            public_only=True,
+            timeout=limit_seconds,
             follow_redirects=True,
             headers={"User-Agent": "matrx-utils/cloud-sync (+https://aimatrx.com)"},
         ) as client:
@@ -601,10 +673,10 @@ async def _fetch_external_url_into_ref(ref: "MediaRef") -> None:
                 received = 0
                 async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
                     received += len(chunk)
-                    if received > _EXTERNAL_FETCH_MAX_BYTES:
+                    if received > limit_bytes:
                         ref.resolver_error = (
                             f"external_fetch_too_large: > "
-                            f"{_EXTERNAL_FETCH_MAX_BYTES // (1024 * 1024)} MB"
+                            f"{limit_bytes // (1024 * 1024)} MB"
                         )
                         ref.is_resolved = True
                         return
@@ -618,7 +690,7 @@ async def _fetch_external_url_into_ref(ref: "MediaRef") -> None:
         return
     except httpx.TimeoutException:
         ref.resolver_error = (
-            f"external_fetch_timeout: > {_EXTERNAL_FETCH_TIMEOUT_SECONDS}s"
+            f"external_fetch_timeout: > {limit_seconds:g}s"
         )
         ref.is_resolved = True
         return

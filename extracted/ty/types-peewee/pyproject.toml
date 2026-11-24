@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-peewee"
-version = "4.5.3.20261122"
+version = "4.5.3.20261124"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for peewee"
@@ -35,7 +35,7 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).
+[`5b7a6f6f4f30b6ffd9f426412e1c9d076a4a3743`](https://github.com/python/typeshed/commit/5b7a6f6f4f30b6ffd9f426412e1c9d076a4a3743).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -59,4 +59,4 @@ include-package-data = false
 
 [tool.setuptools.package-data]
 'peewee-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
-'playhouse-stubs' = ['__init__.pyi', 'flask_utils.pyi', 'METADATA.toml', 'py.typed']
+'playhouse-stubs' = ['__init__.pyi', 'flask_utils.pyi', 'postgres_ext.pyi', 'sqlite_ext.pyi', 'test_utils.pyi', 'METADATA.toml', 'py.typed']

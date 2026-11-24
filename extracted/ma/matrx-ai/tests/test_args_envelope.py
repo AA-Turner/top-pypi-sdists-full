@@ -13,11 +13,13 @@ same envelope call is then refused — so the passing half is about the unwrap, 
 
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated, Any, Literal
 
 import pytest
 from pydantic import Field, RootModel
 
+from matrx_ai.tools import in_memory_handoff
 from matrx_ai.tools.declared import ToolArgs, tool
 from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolResult, ToolType
 
@@ -122,7 +124,9 @@ class _Silent:
         return _noop
 
 
-async def _run(monkeypatch: pytest.MonkeyPatch, arguments: dict[str, Any]) -> ToolResult:
+async def _run(
+    monkeypatch: pytest.MonkeyPatch, arguments: dict[str, Any], *, envelope: bool = True
+) -> ToolResult:
     from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
 
     from matrx_ai.persistence import queue_helpers
@@ -131,7 +135,7 @@ async def _run(monkeypatch: pytest.MonkeyPatch, arguments: dict[str, Any]) -> To
 
     monkeypatch.setattr(queue_helpers, "get_coordinator", lambda: None)
     registry = ToolRegistry()
-    registry.register(_definition())
+    registry.register(_definition(envelope=envelope))
     executor = ToolExecutor(registry=registry, execution_logger=_Silent())
 
     async def _dispatch(tool_def, args, ctx, *a: Any, **k: Any) -> ToolResult:
@@ -184,6 +188,35 @@ async def test_red_without_the_unwrap_the_same_call_is_refused(monkeypatch) -> N
     assert not result.success and SEEN == []
 
 
+async def test_a_flat_tool_lifts_an_args_object_it_never_declared(monkeypatch) -> None:
+    """RED before 2026-11-02: a model that drives one lean dispatcher sends the same `args`
+    object to its flat siblings (`html_page(action="create", args={}, ...)`,
+    `tables_template(action="list", args={...})`) — 8 refusals in 13 Company Setup runs, each a
+    paid turn. A flat tool with no `args` parameter has no other meaning for one."""
+    SEEN.clear()
+    result = await _run(
+        monkeypatch,
+        {"action": "add_visit", "patient": "R. Ortiz", "args": {"minutes": 30}},
+        envelope=False,
+    )
+    assert result.success, result.error
+    assert SEEN[-1] == {"action": "add_visit", "patient": "R. Ortiz", "minutes": 30}
+    SEEN.clear()
+    empty = await _run(monkeypatch, {"action": "list_visits", "args": {}}, envelope=False)
+    assert empty.success, empty.error
+    assert SEEN[-1] == {"action": "list_visits"}
+
+
+async def test_a_flat_tool_still_refuses_a_clashing_args_object(monkeypatch) -> None:
+    SEEN.clear()
+    result = await _run(
+        monkeypatch,
+        {"action": "add_visit", "patient": "R. Ortiz", "args": {"patient": "J. Lee"}},
+        envelope=False,
+    )
+    assert not result.success and SEEN == []
+
+
 async def test_a_double_envelope_is_refused_by_the_executor(monkeypatch) -> None:
     """RED before 2026-10-02: the executor lifted one `args`, the body lifted the second,
     and the call ran as if it had been sent once — silently."""
@@ -213,6 +246,12 @@ async def test_browser_inline_merge_delegates_flat_arguments(monkeypatch) -> Non
         async def send_tool_event(self, event: Any) -> None:
             if event.event == "tool_delegated":
                 self.delegated.append(event.data["arguments"])
+                assert in_memory_handoff.deliver(
+                    event.call_id,
+                    user_id="",
+                    conversation_id="",
+                    answer={"output": {"saved": True}, "is_error": False},
+                )
 
         async def send_phase(self, *_a: Any, **_kw: Any) -> None: ...
 
@@ -221,6 +260,7 @@ async def test_browser_inline_merge_delegates_flat_arguments(monkeypatch) -> Non
     registry.clear()
     definition = _definition()
     definition.tool_type = ToolType.EXTERNAL_HANDLER
+    definition.tags = [browser_dom.ALWAYS_ON_TAG]
     registry.load_from_definitions([definition])
     registry._bindings_by_tool = {TOOL: {"chrome-extension"}}
     browser_dom._specs_cache = None
@@ -237,17 +277,21 @@ async def test_browser_inline_merge_delegates_flat_arguments(monkeypatch) -> Non
         executor = ToolExecutor(registry=registry, execution_logger=_Silent())
         token = set_app_context(ctx)
         try:
-            _, result = await executor.execute(
-                TOOL,
-                {"action": "add_visit", "args": {"patient": "R. Ortiz", "minutes": 30}},
-                ToolContext(call_id="browser-envelope-1", tool_name=TOOL),
-                client_tools=frozenset(ctx.client_tools or []),
-            )
+            async with asyncio.timeout(2):
+                _, result = await executor.execute(
+                    TOOL,
+                    {"action": "add_visit", "args": {"patient": "R. Ortiz", "minutes": 30}},
+                    ToolContext(call_id="browser-envelope-1", tool_name=TOOL),
+                    client_tools=frozenset(ctx.client_tools or []),
+                )
         finally:
             clear_app_context(token)
         assert emitter.delegated == [
             {"action": "add_visit", "patient": "R. Ortiz", "minutes": 30}
         ], (ctx.client_tools, result.error)
+        assert result.success, result.error
+        assert result.output == {"saved": True}
+        assert not in_memory_handoff.has_waiter("browser-envelope-1")
     finally:
         browser_dom._specs_cache = None
         registry.clear()

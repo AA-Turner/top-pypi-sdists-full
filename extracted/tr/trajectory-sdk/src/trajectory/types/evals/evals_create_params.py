@@ -8,6 +8,10 @@ from trajectory.types.run_options_param import RunOptionsParam
 
 
 class EvalsCreateParams(TypedDict, total=False):
+  preset: Literal["single_turn", "long_horizon_agentic"] | None
+  """
+  Training preset; explicit options override its defaults.
+  """
   bench_id: str | None
   """
   Benchmark ID; use instead of agent_name and benchmark_name.
@@ -31,7 +35,9 @@ class EvalsCreateParams(TypedDict, total=False):
   """
   base_model_slug: (
     Literal[
+      "typesafe/jev-1.14",
       "thinkingmachines/Inkling-2-Small",
+      "thinkingmachines/Inkling-2-Mini",
       "deepseek-ai/DeepSeek-V4.1-Flash",
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",

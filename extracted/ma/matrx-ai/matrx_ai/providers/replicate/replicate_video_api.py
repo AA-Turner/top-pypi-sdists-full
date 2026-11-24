@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import replicate
-
 from matrx_ai.config import UnifiedConfig
 from matrx_ai.providers.base_media import (
     BaseMediaGeneration,
@@ -64,9 +62,16 @@ class ReplicateVideoGeneration(BaseMediaGeneration):
         from matrx_ai.providers.replicate.rate_limit import acquire_replicate_slot
 
         await acquire_replicate_slot()
-        return await replicate.async_run(
-            kwargs["ref"], input=kwargs["input"], use_file_output=True
-        )
+        from matrx_ai.providers.replicate.client import create_prediction, get_replicate_client
+
+        # Create only (no ``Prefer: wait``): the POST returns once queued. The wait
+        # happens in ``_poll_if_long_running`` under the video deadline knob.
+        return await create_prediction(get_replicate_client(), kwargs["ref"], kwargs["input"])
+
+    async def _poll_if_long_running(self, raw: Any) -> Any:
+        from matrx_ai.providers.replicate.client import await_prediction
+
+        return await await_prediction(raw, modality="video", ref=str(getattr(raw, "model", "") or ""))
 
     def _extract_assets(self, raw: Any) -> list[GeneratedAsset]:
         descriptor = self._pending_descriptor or _UnknownDescriptor("video")

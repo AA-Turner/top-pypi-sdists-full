@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from matrx_graph.input_bindings import BoundInput, InputBindingBlocked, configure_input_binding_resolver
-from matrx_graph.nodes.io.user_input import UserInputConfig, UserInputExecutor, UserInputInput
+from matrx_graph.nodes.io.user_input import UserInputConfig, UserInputExecutor, UserInputInput, field_sourcing
 
 BINDING = {
     "kind": "merge_field",
@@ -105,5 +105,5 @@ def test_a_bound_field_is_never_asked_for_on_the_run_form() -> None:
     schema = config.effective_output_json_schema()
     assert schema["properties"]["supplies"]["ui:hidden"] is True
     assert schema["required"] == ["topic"]
-    bound = next(f for f in config.fields if f.key == "supplies")
-    assert bound.effective_sourcing() == "optional"
+    bound = next(f for f in config.fields if f.name == "supplies")
+    assert field_sourcing(bound) == "optional"

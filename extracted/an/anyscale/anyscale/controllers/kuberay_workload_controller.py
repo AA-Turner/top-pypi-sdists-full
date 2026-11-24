@@ -30,6 +30,7 @@ class KuberayWorkloadController(BaseController):
         cloud_id: str,
         project_id: Optional[str],
         name: Optional[str],
+        priority: Optional[int] = None,
     ) -> CreateWorkloadResponse:
         """Submit a KubeRay CR to run on the platform; returns the accepted workload.
 
@@ -41,6 +42,7 @@ class KuberayWorkloadController(BaseController):
             cloud_id=cloud_id,
             project_id=project_id,
             name=name,
+            priority=priority,
         )
         response: CreateWorkloadResponse = (
             self.api_client.create_workload_api_v2_kuberay_workloads_create_post(request).result

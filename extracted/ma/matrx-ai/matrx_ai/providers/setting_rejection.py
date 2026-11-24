@@ -1,6 +1,6 @@
 """SETTING REJECTIONS — a provider refusing a request because of one of its SETTINGS.
 
-Settings Translation R1 (contract K10, common-docs/projects/settings-translation/
+Settings Translation R1 (contract K10, common-docs/systems/ai/ai-models/projects/settings-translation/
 CONTRACTS.md). Before this module every provider 400 became ``invalid_request``:
 credit exhaustion, an empty message list, a broken schema and a real settings
 mistake all wore one label, and the machine-readable culprit (``param``/``code``)
@@ -336,6 +336,23 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
             "must be positive."
         ),
     ),
+    # A provider SDK's own pydantic request model refusing a key we built (live
+    # 2026-11-08: google-genai GenerateContentConfig refused ``reasoning_effort``).
+    # Pydantic NAMES the field on the line after the header — never a guess.
+    Recognizer(
+        id="pydantic.extra_forbidden",
+        # Observed on google; matched for every provider (any SDK request model).
+        providers=("google",),
+        pattern=_rx(
+            r"validation errors? for \w+\s*\n(?P<param>[\w.\[\]]+)\s*\n\s*"
+            r"Extra inputs are not permitted"
+        ),
+        shape="unsupported",
+        example=(
+            "1 validation error for GenerateContentConfig\nreasoning_effort\n  Extra inputs "
+            "are not permitted [type=extra_forbidden, input_value='low', input_type=str]"
+        ),
+    ),
     # Google's opaque 400: no param anywhere. A settings rejection we cannot
     # pin to a field — the record carries ``suspect_params`` instead.
     Recognizer(
@@ -418,6 +435,17 @@ def _parse_limit(message: str) -> Any:
             except (TypeError, ValueError):
                 return m.group(1)
     return None
+
+
+#: A pydantic ValidationError names each refused field on the line after its
+#: header ("1 validation error for X\n<field>\n  <why> [type=...]").
+_PYDANTIC_FIELD = re.compile(r"validation errors? for \w+\s*\n(?P<param>[\w.\[\]]+)\s*\n\s+\S")
+
+
+def pydantic_field(message: str) -> str | None:
+    """The first field a pydantic ValidationError names, else None."""
+    m = _PYDANTIC_FIELD.search(message or "")
+    return m.group("param") if m else None
 
 
 def _unwrap_google_message(message: str) -> str:
@@ -552,12 +580,11 @@ def user_message_for(display_name: str | None, rejection: SettingRejection) -> s
     Never the provider's raw sentence: that names wire fields and limits the
     person cannot act on; it stays in the record.
     """
-    who = display_name or "The AI provider"
     label = _setting_label(rejection.provider_param)
     if label and len(label) <= 32:
-        head = f"{who} rejected the {label} setting for this model."
+        head = f"The {label} setting was not accepted."
     else:
-        head = f"{who} rejected a setting for this model."
+        head = "A setting was not accepted."
     text = f"{head} Reported for a fix; try another model."
     if len(text) > USER_MESSAGE_BUDGET:
         text = f"{head} Reported for a fix."
@@ -779,6 +806,35 @@ def suspect_params(provider: str, model: str | None, failed_payload: Any) -> tup
     return keys, "last_passing_in_process"
 
 
+#: Wire paths that carry a response schema (a dict the scalar diff cannot see).
+_RESPONSE_SCHEMA_WIRE_PATHS = (
+    ("config", "response_json_schema"),
+    ("config", "response_schema"),
+    ("generation_config", "response_json_schema"),
+    ("generation_config", "response_schema"),
+    ("response_json_schema",),
+    ("response_schema",),
+)
+
+
+def response_schema_suspects(wire_payload: Any) -> list[str]:
+    """The dotted wire path of each response schema the failed call carried. Never raises."""
+    found: list[str] = []
+    try:
+        for path in _RESPONSE_SCHEMA_WIRE_PATHS:
+            node: Any = wire_payload
+            for part in path:
+                mapping = _as_mapping(node)
+                node = mapping.get(part) if mapping is not None else None
+                if node is None:
+                    break
+            if node:
+                found.append(".".join(path))
+    except Exception:  # noqa: BLE001
+        return found
+    return found
+
+
 #: Wire keys that are the request itself, never a setting: content, tools, the
 #: answer contract, identity and transport. Everything else on the wire is a
 #: setting a provider may refuse.
@@ -980,6 +1036,11 @@ def build_record(
             # No passing call to compare against: EVERY setting the call carried
             # is a suspect (the fixer narrows it), never an empty list.
             suspects, suspect_source = setting_keys_sent(wire_payload, canonical)
+        # A response schema is a dict, so the scalar diff above never sees it —
+        # yet Google's opaque 400 is most often the constrained decoder refusing
+        # a schema it cannot hold (Workflow Recovery Advisor, 2026-11-03: the
+        # rows named response_mime_type while the 41k-char schema was the cause).
+        suspects = [*response_schema_suspects(wire_payload), *suspects]
 
     return {
         "provider": provider,
@@ -1401,6 +1462,9 @@ _NET_NOT_A_SETTING = _rx(
     r"tools?|functions?|tool_use|tool_result|function_call|response_format|json_schema|schema|"
     r"context(?:_| )length|context window|too many tokens|token limit|safety|moderation|policy|"
     r"api key|credit|billing|quota|balance|"
+    # Replayed reasoning material is message CONTENT, never a setting (live 2026-11-19: Gemini's
+    # INVALID_THOUGHT_SIGNATURE was filed as a rejected ``config.automatic_continuation``).
+    r"thought[_ ]signatures?|signatures?|thinking block|encrypted[_ ]content|reasoning item|"
     # Availability, not a setting: a paused/stopped self-hosted endpoint.
     r"endpoint is paused|ask a maintainer to restart)\b"
 )
@@ -1467,9 +1531,14 @@ def net_candidate(info: Any) -> Any:
         if _NET_NOT_A_SETTING.search(inner):
             return None
         provider = provider_key(str(details.get("provider") or ""))
+        # A field the SDK's pydantic model named is the rejected setting itself —
+        # never left to the suspect list (which named the wrong keys, 2026-11-08).
+        named = pydantic_field(inner) or pydantic_field(str(getattr(info, "message", "") or ""))
+        if named is not None and _is_non_setting_param(named):
+            return None
         rejection = SettingRejection(
             provider=provider,
-            provider_param=None,
+            provider_param=named,
             provider_code=str(code) if code not in (None, "") else None,
             provider_type=str(details.get("type")) if details.get("type") else None,
             provider_message=inner[:2000],
@@ -1484,7 +1553,7 @@ def net_candidate(info: Any) -> Any:
             message=getattr(info, "message", "") or inner,
             status_code=getattr(info, "status_code", None),
             is_retryable=False,
-            user_message=getattr(info, "user_message", "") or inner,
+            user_message=getattr(info, "user_message", "") or "A setting was not accepted. Reported for a fix; try another model.",
             details={**details, "provider": provider, "setting_rejection": rej},
         )
     except Exception:  # noqa: BLE001

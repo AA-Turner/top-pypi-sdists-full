@@ -53,19 +53,29 @@ class FeatureMigrateTypeResponse(_message.Message):
     def __init__(self, errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...) -> None: ...
 
 class DeleteFeatureObservationsRequest(_message.Message):
-    __slots__ = ("namespace", "features", "tags", "primary_keys", "retain_online", "retain_offline")
+    __slots__ = (
+        "namespace",
+        "features",
+        "tags",
+        "primary_keys",
+        "retain_online",
+        "retain_offline",
+        "retain_materialized_aggregates",
+    )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     PRIMARY_KEYS_FIELD_NUMBER: _ClassVar[int]
     RETAIN_ONLINE_FIELD_NUMBER: _ClassVar[int]
     RETAIN_OFFLINE_FIELD_NUMBER: _ClassVar[int]
+    RETAIN_MATERIALIZED_AGGREGATES_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     features: _containers.RepeatedScalarFieldContainer[str]
     tags: _containers.RepeatedScalarFieldContainer[str]
     primary_keys: _containers.RepeatedScalarFieldContainer[str]
     retain_online: bool
     retain_offline: bool
+    retain_materialized_aggregates: bool
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -74,13 +84,20 @@ class DeleteFeatureObservationsRequest(_message.Message):
         primary_keys: _Optional[_Iterable[str]] = ...,
         retain_online: bool = ...,
         retain_offline: bool = ...,
+        retain_materialized_aggregates: bool = ...,
     ) -> None: ...
 
 class DeleteFeatureObservationsResponse(_message.Message):
-    __slots__ = ("errors",)
+    __slots__ = ("errors", "materialized_aggregate_keys_deleted")
     ERRORS_FIELD_NUMBER: _ClassVar[int]
+    MATERIALIZED_AGGREGATE_KEYS_DELETED_FIELD_NUMBER: _ClassVar[int]
     errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
-    def __init__(self, errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...) -> None: ...
+    materialized_aggregate_keys_deleted: int
+    def __init__(
+        self,
+        errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+        materialized_aggregate_keys_deleted: _Optional[int] = ...,
+    ) -> None: ...
 
 class GetIncrementalProgressRequest(_message.Message):
     __slots__ = ("resolver_fqn", "query_name", "scheduled_aggregate_backfill_name")

@@ -405,6 +405,40 @@ class PermissionsManager:
             }
         )
 
+    async def _require_resource_exists_async(self, resource_type: str, resource_id: str) -> None:
+        """A grant or link on a file/folder that does not exist is 404, never 403."""
+        getter = {
+            "file": getattr(self._db, "get_file_async", None),
+            "folder": getattr(self._db, "get_folder_async", None),
+        }.get(resource_type)
+        if getter is None:
+            return
+        if not await getter(resource_id):
+            raise FileNotFoundError(f"{resource_type} {resource_id} not found")
+
+    @staticmethod
+    async def _require_grantee_exists_async(grantee_id: str, grantee_type: str) -> None:
+        """A grant to a person who does not exist is refused (404), never a silent 200.
+
+        Only ``user`` grantees are checked here (``auth.users``); organization
+        and group grantees resolve through their own tables' constraints.
+        """
+        if grantee_type != "user":
+            return
+        import uuid as _uuid
+
+        try:
+            _uuid.UUID(str(grantee_id))
+        except ValueError as e:
+            raise ValueError(f"grantee_id {grantee_id!r} is not a user id") from e
+        from matrx_files.db import ensure_bound
+
+        ensure_bound()
+        from matrx_files.db.models import Users
+
+        if not await Users.filter(id=str(grantee_id)).values("id"):
+            raise FileNotFoundError(f"No user {grantee_id} to grant access to")
+
     async def grant_async(
         self,
         resource_type: ResourceType,
@@ -414,7 +448,9 @@ class PermissionsManager:
         grantee_type: Literal["user", "group"] = "user",
         expires_at: str | None = None,
     ) -> dict:
+        await self._require_resource_exists_async(resource_type, resource_id)
         await self.require_async(resource_type, resource_id, "admin")
+        await self._require_grantee_exists_async(grantee_id, grantee_type)
         return await self._db.upsert_permission_async(
             {
                 "resource_id": resource_id,
@@ -487,6 +523,7 @@ class PermissionsManager:
         itself accepts ``admin``. The cap is a product choice about links, not the
         vocabulary; see the CONVERGE note on ``_CreateShareLinkRequest``.
         """
+        validate_share_link_terms(expires_at=expires_at, max_uses=max_uses)
         self.require(resource_type, resource_id, "admin", user_id)
         return self._db.create_share_link(
             {
@@ -508,6 +545,8 @@ class PermissionsManager:
         max_uses: int | None = None,
         user_id: str | None = None,
     ) -> dict:
+        validate_share_link_terms(expires_at=expires_at, max_uses=max_uses)
+        await self._require_resource_exists_async(resource_type, resource_id)
         await self.require_async(resource_type, resource_id, "admin", user_id)
         return await self._db.create_share_link_async(
             {
@@ -561,3 +600,27 @@ class PermissionsManager:
     # NOTE: user-group management (create_group / add_to_group / …) was
     # removed in the 2026 DB canonicalization — the cld_user_groups feature
     # is dead. File ACLs are direct user/org grants on iam.permissions.
+
+
+def validate_share_link_terms(*, expires_at: object = None, max_uses: int | None = None) -> None:
+    """A share link that is dead on arrival is refused (400), never stored.
+
+    ``expires_at`` must be in the future; ``max_uses`` must be at least 1.
+    """
+    if max_uses is not None and int(max_uses) < 1:
+        raise ValueError(f"max_uses must be at least 1, got {max_uses}")
+    if expires_at in (None, ""):
+        return
+    from datetime import UTC, datetime
+
+    when = expires_at
+    if isinstance(when, str):
+        try:
+            when = datetime.fromisoformat(when.replace("Z", "+00:00"))
+        except ValueError as e:
+            raise ValueError(f"expires_at {expires_at!r} is not an ISO-8601 time") from e
+    if isinstance(when, datetime):
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        if when <= datetime.now(UTC):
+            raise ValueError(f"expires_at {expires_at!r} is in the past")

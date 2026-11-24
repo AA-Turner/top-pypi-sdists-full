@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.5.5
+Version: 0.5.6
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License-Expression: AGPL-3.0
@@ -28,6 +28,7 @@ Requires-Dist: openviking-sdk>=0.1.17
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: pyyaml>=6.0
+Requires-Dist: markdown-it-py<5,>=3
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: pdfplumber>=0.10.0
@@ -81,6 +82,9 @@ Requires-Dist: mcp<2,>=1.27
 Requires-Dist: pathspec>=1.1.1
 Requires-Dist: grep-ast==0.9.0
 Requires-Dist: tree-sitter-language-pack==1.13.3
+Provides-Extra: sqlite
+Requires-Dist: aiosqlite<1,>=0.20; extra == "sqlite"
+Requires-Dist: SQLAlchemy[asyncio]<2.1,>=2.0.54; extra == "sqlite"
 Provides-Extra: reporting
 Requires-Dist: kafka-python<4,>=3.0.12; extra == "reporting"
 Provides-Extra: expiry
@@ -88,6 +92,9 @@ Requires-Dist: redis<7,>=5.3.1; extra == "expiry"
 Provides-Extra: gateway-fast
 Requires-Dist: uvloop>=0.21; sys_platform != "win32" and extra == "gateway-fast"
 Requires-Dist: httptools>=0.6; extra == "gateway-fast"
+Provides-Extra: postgres
+Requires-Dist: psycopg[binary]<4,>=3.2; extra == "postgres"
+Requires-Dist: SQLAlchemy[asyncio]<2.1,>=2.0.54; extra == "postgres"
 Provides-Extra: mysql
 Requires-Dist: aiomysql<1,>=0.2.0; extra == "mysql"
 Requires-Dist: PyMySQL<1.2,>=1.1; extra == "mysql"
@@ -97,6 +104,7 @@ Requires-Dist: aiomysql<1,>=0.2.0; extra == "redis-mysql"
 Requires-Dist: redis<7,>=5.3.1; extra == "redis-mysql"
 Requires-Dist: SQLAlchemy[asyncio]<2.1,>=2.0.54; extra == "redis-mysql"
 Provides-Extra: test
+Requires-Dist: aiosqlite<1,>=0.20; extra == "test"
 Requires-Dist: SQLAlchemy[asyncio]<2.1,>=2.0; extra == "test"
 Requires-Dist: redis<7,>=5.3.1; extra == "test"
 Requires-Dist: pytest>=7.0.0; extra == "test"

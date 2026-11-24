@@ -13,6 +13,7 @@ Authored on a node (opt-in, per step)::
                                                    # [] / absent = the whole input is the key
         "scope": "workflow",                       # run | workflow | organization
         "keep_days": 90,                           # absent = knob default; null = no expiry
+        "keep_hours": 1,                           # instead of keep_days: a result kept for hours
         "on_changed_inputs": "run_again",          # run_again (default) | reuse_and_flag
         "share_across_users": false                # default: each person's runs keep their own result
     }}
@@ -85,9 +86,9 @@ class OncePolicy(BaseModel):
 
     key: list[str] = Field(default_factory=list)
     scope: OnceScope = "workflow"
-    #: Days a stored result stays reusable. ``None`` = no expiry. When the author leaves it
-    #: out, ``keep_days_from_knob`` is True and the ``workflow.once`` knob decides.
-    keep_days: int | None = Field(default=None, ge=1, le=36_500)
+    #: Days a stored result stays reusable (a fraction when the author wrote ``keep_hours``). ``None`` = no
+    #: expiry. When the author leaves both out, ``keep_days_from_knob`` is True and the ``workflow.once`` knob decides.
+    keep_days: float | None = Field(default=None, gt=0, le=36_500)
     keep_days_from_knob: bool = True
     on_changed_inputs: Literal["run_again", "reuse_and_flag"] = "run_again"
     #: Off (default): the acting user is part of the key — one person's result is never
@@ -105,6 +106,13 @@ def parse_once(raw: Any) -> OncePolicy | None:
     if not isinstance(raw, dict):
         raise ValueError(f"expected an object or true, got {type(raw).__name__}")
     data = dict(raw)
+    if "keep_hours" in data:
+        if "keep_days" in data:
+            raise ValueError("give keep_days or keep_hours, not both")
+        hours = data.pop("keep_hours")
+        if not isinstance(hours, int | float) or isinstance(hours, bool) or not 0 < hours <= 876_000:
+            raise ValueError("keep_hours must be a number of hours above 0")
+        data["keep_days"] = hours / 24
     keep_from_knob = "keep_days" not in data
     if "keep_days_from_knob" in data:
         raise ValueError("unknown key 'keep_days_from_knob'")
@@ -803,12 +811,12 @@ class PostgresStepResultStore:
     async def _intern_output(self, run_id: str, output: dict[str, Any]) -> dict[str, Any]:
         from matrx_graph.checkpoint.postgres import _value_store_available
         from matrx_graph.checkpoint.value_store import store_run_values
-        from matrx_graph.checkpoint.values import outcome_input_row
+        from matrx_graph.checkpoint.values import outcome_input_row, run_pure_off_loop
         from matrx_graph.knobs import event_inline_value_max_bytes
 
         if not _value_store_available():
             return output
-        interned, values = outcome_input_row(output, await event_inline_value_max_bytes())
+        interned, values = await run_pure_off_loop(outcome_input_row, output, await event_inline_value_max_bytes())
         if values:
             await store_run_values(run_id, values)
         return interned

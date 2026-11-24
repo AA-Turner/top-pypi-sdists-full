@@ -281,6 +281,19 @@ class PresetName(str, Enum):
     PracticalPy31420261120 = "practical-py314-20261120"
     PracticalPy31520261120 = "practical-py315-20261120"
 
+    StandardPy31020261123 = "standard-py310-20261123"
+    StandardPy31120261123 = "standard-py311-20261123"
+    StandardPy31220261123 = "standard-py312-20261123"
+    StandardPy31320261123 = "standard-py313-20261123"
+    StandardPy31420261123 = "standard-py314-20261123"
+    StandardPy31520261123 = "standard-py315-20261123"
+    PracticalPy31020261123 = "practical-py310-20261123"
+    PracticalPy31120261123 = "practical-py311-20261123"
+    PracticalPy31220261123 = "practical-py312-20261123"
+    PracticalPy31320261123 = "practical-py313-20261123"
+    PracticalPy31420261123 = "practical-py314-20261123"
+    PracticalPy31520261123 = "practical-py315-20261123"
+
 
 @dataclass(frozen=True, slots=True)
 class PresetContext:
@@ -665,6 +678,7 @@ _PRACTICAL_EXTRA_OPTION_GROUPS_BY_DATE: dict[str, tuple[PresetOptionGroup, ...]]
     "20261113": _PRACTICAL_20261113_EXTRA_OPTION_GROUPS,
     "20261118": _PRACTICAL_20261113_EXTRA_OPTION_GROUPS,
     "20261120": _PRACTICAL_20261113_EXTRA_OPTION_GROUPS,
+    "20261123": _PRACTICAL_20261113_EXTRA_OPTION_GROUPS,
 }
 """The practical extras of the dates whose extras are not those of 20260619."""
 
@@ -1447,6 +1461,129 @@ _STANDARD_20261120_OPTION_GROUPS: tuple[PresetOptionGroup, ...] = (
 )
 """The 20261118 groups and the opt-in options added after them."""
 
+_STANDARD_20261123_OPTION_GROUPS: tuple[PresetOptionGroup, ...] = (
+    *_STANDARD_20261120_OPTION_GROUPS,
+    PresetOptionGroup(
+        title="Mapping keys by the schema's tag type",
+        config=PresetConfig(read_mapping_keys_by_schema_tag_type=True),
+        description=(
+            "Read the keys of a discriminator mapping as values of the type the schema declares for the tag property, "
+            "such as the integer 2 for the key '2' of an integer enum, also where an earlier discriminated union "
+            "wrote the tag field of the variant or of its base, so the key reads alike whichever union comes first."
+        ),
+    ),
+    PresetOptionGroup(
+        title="Root types for mixed union map keys",
+        config=PresetConfig(use_root_types_for_mixed_union_map_keys=True),
+        description=(
+            "Type the RootModel members of a map key that is a union with a non-RootModel member, such as a "
+            "propertyNames anyOf of an enum, or of a string with a maxLength, and a RootModel, by their root types, "
+            "so a key that only the RootModel matches is accepted, and a key that both match parses as its root "
+            "type, here a UUID for JSON input, as it does where the key names the RootModel alone. A Python dict "
+            "input keeps such a key as a str."
+        ),
+    ),
+    PresetOptionGroup(
+        title="Null kept on nullable items",
+        config=PresetConfig(keep_null_of_nullable_items=True),
+        description=(
+            "Under --strict-nullable, write the null that nullable: true declares on an array item, a tuple item, a "
+            "map value of any form, a nested array, a map or an allOf of one $ref included, as it "
+            "is written for a scalar or an object. The option adds no null to an enum or a const; an enum that "
+            "lists null admits it with or without the option."
+        ),
+    ),
+    PresetOptionGroup(
+        title="String keywords kept beside formats",
+        config=PresetConfig(keep_string_keywords_beside_formats=True),
+        description=(
+            "Keep the minLength, maxLength and pattern beside a string format that Pydantic output writes as a "
+            "class no constr call constrains: an email takes them in Annotated[EmailStr, Field(...)], "
+            "a byte writes them in front of the base64 decoding and a uri is the plain string they check; an output "
+            "that writes a date or UUID format as str, as msgspec does, keeps the keywords an allOf member adds "
+            "beside a $ref to it."
+        ),
+    ),
+    PresetOptionGroup(
+        title="Merged allOf members intersected",
+        config=PresetConfig(intersect_merged_allof_members=True),
+        description=(
+            "Read the allOf members the generator merges into one schema keyword by keyword, as JSON Schema "
+            "validates them: a property several merged object members declare takes the type, null and multipleOf "
+            "they all admit and the members' own allOf members, a named allOf of a $ref and value members keeps the "
+            "enum of every member, a map $ref beside property counts stays a map with the counts, and in Pydantic v2 "
+            "output a length or pattern beside a $ref to base64 text is checked on the text."
+        ),
+    ),
+    PresetOptionGroup(
+        title="allOf parents read as their models",
+        config=PresetConfig(read_allof_parents_as_their_models=True),
+        description=(
+            "Read each allOf parent as its model holds it: a parent written as a $ref beside sibling keywords with the "
+            "schema its $ref names, so a model written before that parent types and requires an inherited property "
+            "as it does after it; keep every property some parent requires required where another parent declares "
+            "it optional; and read an alias member beside a member that adds only a type or required names as alias "
+            "members are read elsewhere, so such a model keeps the fields of the schema the alias names."
+        ),
+    ),
+    PresetOptionGroup(
+        title="Set item fields read in class order",
+        config=PresetConfig(read_set_item_fields_in_class_order=True),
+        description=(
+            "Under --use-unique-items-as-set-by-value, also read the fields a set item model takes in the order of its "
+            "class bases, so a uniqueItems array of models whose class takes an inherited field that does not hash "
+            "stays a list instead of a set those items cannot be added to."
+        ),
+    ),
+    PresetOptionGroup(
+        title="References in their schema resources",
+        config=PresetConfig(read_refs_in_their_resources=True),
+        description=(
+            "Read every $id, $anchor and $dynamicAnchor wherever a document holds schemas ($defs members, inline "
+            "OpenAPI operation and component schemas) and each $ref in the schema resource that encloses it, so a "
+            "pointer inside a bundled $id resource names that resource's definitions, a plain-name anchor of another "
+            "document names its schema, and a resource the run holds is never fetched."
+        ),
+    ),
+    PresetOptionGroup(
+        title="Configured bases beside the generic base class",
+        config=PresetConfig(keep_bases_beside_generic_base_class=True),
+        description=(
+            "Keep the classes a model is configured to inherit, from --base-class-map, customBasePath, --base-class "
+            "or the class an --external-ref-mapping or x-python-import schema stands for, beside the generated base "
+            "class of --use-generic-base-class, so the model keeps their members and their import is used."
+        ),
+    ),
+    PresetOptionGroup(
+        title="Redeclared fields renamed with their base",
+        config=PresetConfig(rename_redeclared_fields_hiding_types=True),
+        description=(
+            "Give a field that a subclass redeclares the name its base's field was given where that field is renamed "
+            "because it is named like its type, so the subclass holds one field for the key instead of its own "
+            "beside the inherited renamed one."
+        ),
+    ),
+    PresetOptionGroup(
+        title="Fields named like their types told apart for type checkers",
+        config=PresetConfig(rename_fields_hiding_types_from_type_checkers=True),
+        description=(
+            "Rename a msgspec field, or a dataclass type, that a field the class body assigns hides from type "
+            "checkers because it is named like it, the way Pydantic output renames the field: the msgspec field keeps "
+            "the wire name in name=, and a dataclass, which has no alias, renames the type."
+        ),
+    ),
+    PresetOptionGroup(
+        title="str for the formats msgspec cannot decode",
+        config=PresetConfig(use_str_for_formats_msgspec_cannot_decode=True),
+        description=(
+            "Under --use-standard-primitive-types, write str for ipv4, ipv6, ipv4-network, ipv6-network and path in "
+            "msgspec.Struct output, whose msgspec has no decoder for IPv4Address, IPv6Address, IPv4Network, "
+            "IPv6Network and Path, so a document that holds them decodes."
+        ),
+    ),
+)
+"""The 20261120 groups and the opt-in options added after them."""
+
 _STANDARD_OPTION_GROUPS_BY_DATE: dict[str, tuple[PresetOptionGroup, ...]] = {
     "20260619": _STANDARD_20260619_OPTION_GROUPS,
     "20260826": _STANDARD_20260826_OPTION_GROUPS,
@@ -1461,6 +1598,7 @@ _STANDARD_OPTION_GROUPS_BY_DATE: dict[str, tuple[PresetOptionGroup, ...]] = {
     "20261113": _STANDARD_20261113_OPTION_GROUPS,
     "20261118": _STANDARD_20261118_OPTION_GROUPS,
     "20261120": _STANDARD_20261120_OPTION_GROUPS,
+    "20261123": _STANDARD_20261123_OPTION_GROUPS,
 }
 
 

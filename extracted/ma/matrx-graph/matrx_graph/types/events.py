@@ -36,6 +36,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from matrx_graph.says import SaidLine
 from matrx_graph.types.primitives import RunStatus
 
 logger = logging.getLogger(__name__)
@@ -237,6 +238,9 @@ class NodeStartedEvent(_EventBase):
     # self-description fallback and drift verdict) still arrives on
     # NodeCompletedEvent. None = kindless node.
     output_kind: str | None = None
+    #: What the step says at this moment (``data.says``, matrx_graph/says.py): rendered lines
+    #: ``[{event, message}]``. None when the step says nothing here.
+    says: list[SaidLine] | None = None
 
 
 class NodeCompletedEvent(_EventBase):
@@ -311,6 +315,9 @@ class NodeCompletedEvent(_EventBase):
     withheld: list[WithheldValue] | None = None
     # How many further cuts were left out of ``withheld`` (it lists at most the ``workflow.event_payload.withheld_list_max`` knob).
     withheld_more: int | None = None
+    #: What the step says at this moment (``data.says``, matrx_graph/says.py): rendered lines
+    #: ``[{event, message}]``. None when the step says nothing here.
+    says: list[SaidLine] | None = None
 
 
 class NodeSkippedEvent(_EventBase):
@@ -372,6 +379,9 @@ class NodeFailedEvent(_EventBase):
     # wrapper renders failures through the identical path instead of needing a
     # second, untyped branch. Additive; ``None`` = assembly loudly failed open.
     wrapper: dict[str, Any] | None = None
+    #: What the step says at this moment (``data.says``, matrx_graph/says.py): rendered lines
+    #: ``[{event, message}]``. None when the step says nothing here.
+    says: list[SaidLine] | None = None
 
 
 class NodeRetryScheduledEvent(_EventBase):
@@ -799,6 +809,39 @@ class WorkSetProgressEvent(_EventBase):
     done: bool = False
 
 
+class ItemSettledEvent(_EventBase):
+    """One item of a For each (any fanned-out step) has settled (G4, 2026-11-01).
+
+    Emitted once per item, the moment its step finishes — so a screen shows each read or analysis
+    as it lands, not when the whole list is done. ``saved`` names the rows the item's whole branch
+    wrote (``matrx_graph.saved_records``: table → ids, a called workflow's saves included).
+    ``outcome``: ``succeeded`` · ``failed`` (the step failed, as a hole or parking the run) ·
+    ``skipped`` (a person skipped the step) · ``reused`` (a stored result was reused, nothing paid).
+    An item a Stop held back never started and has no event; a replayed item already had one.
+    Recorded in wf_node_events, so a re-opened run lists the same items."""
+
+    event: Literal["item_settled"] = "item_settled"
+    run_id: str
+    step: int
+    node_id: str
+    dispatch_id: str
+    item_index: int
+    attempt: int = 1
+    outcome: Literal["succeeded", "failed", "skipped", "reused"]
+    saved: dict[str, list[str]] = Field(default_factory=dict)
+    error_message: str | None = None
+    #: The engine's count of this step's items so far, this one included (matrx_graph/says.py
+    #: ``ItemTally``): ``done`` succeeded or reused, ``failed`` failed (a skipped item counts in
+    #: neither), ``total`` how many the For each sent — None for a paced ``until`` For each, which
+    #: stops when its condition is met. Rebuilt from recorded outcomes on a resume.
+    done: int = 0
+    failed: int = 0
+    total: int | None = None
+    #: What the step says at this moment (``data.says``, matrx_graph/says.py): rendered lines
+    #: ``[{event, message}]``. None when the step says nothing here.
+    says: list[SaidLine] | None = None
+
+
 WorkflowEvent = (
     RunStartedEvent
     | NodeStartedEvent
@@ -819,4 +862,5 @@ WorkflowEvent = (
     | NodeCostEvent
     | WorkSetProgressEvent
     | SubgraphRunLinkedEvent
+    | ItemSettledEvent
 )

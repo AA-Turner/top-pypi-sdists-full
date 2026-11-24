@@ -40,12 +40,11 @@ Tool sets injected per type when editable=True:
 from __future__ import annotations
 
 import json
-
-from matrx_graph.content_ir.directives import build_directive_slug
-from matrx_graph.content_ir.envelope import KIND_KEY
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from matrx_graph.content_ir.directives import build_directive_slug
+from matrx_graph.content_ir.envelope import KIND_KEY
 from matrx_utils import vcprint
 
 from matrx_ai.config.remarks import REMARKS_PART_TYPE
@@ -378,6 +377,10 @@ def _with_source_identity(
 
     attrs: dict[str, str] = {"kind": kind}
     clean = (name or "").strip()
+    if clean and kind == "file":
+        from matrx_ai.config.attached_files import attachment_label_name
+
+        clean = attachment_label_name(clean, ident) or ""  # a storage-made ``<id>.<ext>`` is no name
     if clean:
         attrs["name"] = clean
     else:
@@ -838,8 +841,10 @@ class TaskInputContent(_StructuredInputBase):
 class TableInputContent(_StructuredInputBase):
     type: Literal["input_table"] = "input_table"
     bookmarks: list[dict[str, Any]] = field(default_factory=list)
+    # `records` edits a person's tables (the `table` tool was retired, custom-data PLAN C.12 step 9);
+    # it refuses a write to a table the turn attached read-only.
     _editable_tools: frozenset[str] = field(
-        default=frozenset({"table"}),
+        default=frozenset({"records"}),
         init=False,
         repr=False,
         compare=False,
@@ -1381,6 +1386,132 @@ class RemarksInputContent(_StructuredInputBase):
 
 
 # ---------------------------------------------------------------------------
+# source_set
+# A turn's attachments as ONE source_set (One Source contract). Resolution to
+# text + media is the HOST's one resolver, reached through the injected
+# ``source_set_resolver`` seam (matrx_ai._ext). The resolved text rides
+# ``metadata.resolved_text`` like every other block; resolved media ride
+# ``metadata.resolved_media`` and are spliced into the message as real media
+# contents marked ``SOURCE_SET_MEDIA_MARKER`` — never stored as parts of their
+# own (``UnifiedMessage.to_storage_dict`` skips them; read-back re-splices them).
+# ---------------------------------------------------------------------------
+
+SOURCE_SET_PART_TYPE = "source_set"
+#: Metadata key on a media content spliced in from a source_set block.
+SOURCE_SET_MEDIA_MARKER = "source_set_media"
+
+
+def _validated_source_set(value: Any) -> dict[str, Any]:
+    from matrx_ai.db.content_types.source_set import SourceSet, dump_source_set
+
+    return dump_source_set(SourceSet.model_validate(value))
+
+
+@dataclass
+class SourceSetInputContent(_StructuredInputBase):
+    type: Literal["source_set"] = "source_set"
+    source_set: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Refuse an invalid set here, before it can be persisted or resolved.
+        self.source_set = _validated_source_set(self.source_set)
+
+    def resource_ids(self) -> frozenset[str]:
+        return frozenset(
+            str(ref["resource_id"])
+            for ref in self.source_set.get("sources") or []
+            if isinstance(ref, dict) and ref.get("resource_id")
+        )
+
+    async def resolve(self, *, model_id: str | None = None) -> None:
+        """Resolve through the host seam. ``model_id`` is the turn's model and it
+        DECIDES: the set is resolved for it (a stored ``target_model_id`` never
+        outranks the model that will read the answer), so the host delivers media
+        only that model takes natively. The stored set is unchanged."""
+        from matrx_connect.context.app_context import try_get_app_context
+
+        from matrx_ai._ext import SourceSetResolverUnavailable, get_source_set_resolver
+        from matrx_ai.db.content_types.source_set import SourceSetResolution
+
+        resolver = get_source_set_resolver()
+        if resolver is None:
+            message = (
+                "a source_set part reached a host with no resolver — register one with "
+                "matrx_ai.configure(source_set_resolver=...)"
+            )
+            vcprint(f"[source_set] {message}", color="red")
+            raise SourceSetResolverUnavailable(message)
+
+        ctx = try_get_app_context()
+        user_id = (ctx.user_id or None) if ctx is not None else None
+        payload = dict(self.source_set)
+        if model_id:
+            payload["target_model_id"] = model_id
+        raw = await resolver(payload, user_id=user_id)
+        result = (
+            raw
+            if isinstance(raw, SourceSetResolution)
+            else SourceSetResolution.model_validate(raw)
+        )
+        # Set or cleared, never left over: a re-resolve for another model must not
+        # keep the media (or drops) an earlier resolution recorded.
+        if result.media:
+            self.metadata["resolved_media"] = [dict(m) for m in result.media]
+        else:
+            self.metadata.pop("resolved_media", None)
+        if result.dropped:
+            self.metadata["dropped"] = [dict(d) for d in result.dropped]
+        else:
+            self.metadata.pop("dropped", None)
+        # Always set (even "") so a resolved block is never resolved twice and a
+        # set of media only still counts as resolved.
+        self.metadata["resolved_text"] = result.text
+
+    def resolved_media_kinds(self) -> frozenset[str]:
+        """The media kinds (``image`` · ``audio`` · …) this block's stored resolution delivers."""
+        return frozenset(
+            str(m.get("kind") or "").strip().lower()
+            for m in self.metadata.get("resolved_media") or []
+            if isinstance(m, dict)
+        )
+
+    def media_contents(self) -> list[Any]:
+        """The resolved media as content objects, each marked as spliced."""
+        from matrx_ai.config.unified_content import reconstruct_content
+
+        out: list[Any] = []
+        for media in self.metadata.get("resolved_media") or []:
+            if not isinstance(media, dict):
+                continue
+            obj = reconstruct_content(dict(media))
+            meta = getattr(obj, "metadata", None)
+            if isinstance(meta, dict):
+                meta[SOURCE_SET_MEDIA_MARKER] = True
+                out.append(obj)
+        return out
+
+    def to_storage_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "type": SOURCE_SET_PART_TYPE,
+            "source_set": dict(self.source_set),
+            "convert_to_text": self.convert_to_text,
+            "optional_context": self.optional_context,
+            "keep_fresh": self.keep_fresh,
+        }
+        if self.editable is not None:
+            result["editable"] = self.editable
+        if self.metadata:
+            result["metadata"] = {**self.metadata}
+        return result
+
+
+def is_source_set_media(content: Any) -> bool:
+    """True for a media content spliced in from a source_set block."""
+    meta = getattr(content, "metadata", None)
+    return isinstance(meta, dict) and meta.get(SOURCE_SET_MEDIA_MARKER) is True
+
+
+# ---------------------------------------------------------------------------
 # Union type for all structured input content
 # ---------------------------------------------------------------------------
 
@@ -1400,6 +1531,7 @@ StructuredInputContent = (
     | WorkbookInputContent
     | DocumentInputContent
     | RemarksInputContent
+    | SourceSetInputContent
 )
 
 # Canonical type string → class mapping (used by parse_content and reconstruct)
@@ -1419,6 +1551,7 @@ STRUCTURED_INPUT_TYPE_MAP: dict[str, type] = {
     "input_workbook": WorkbookInputContent,
     "input_document": DocumentInputContent,
     REMARKS_PART_TYPE: RemarksInputContent,
+    SOURCE_SET_PART_TYPE: SourceSetInputContent,
 }
 
 
@@ -1516,6 +1649,9 @@ def reconstruct_structured_input(block: dict[str, Any]) -> StructuredInputConten
 
     if block_type == "input_document":
         return DocumentInputContent(document_ids=block.get("document_ids", []), **common)
+
+    if block_type == SOURCE_SET_PART_TYPE:
+        return SourceSetInputContent(source_set=block.get("source_set") or {}, **common)
 
     if block_type == REMARKS_PART_TYPE:
         items = block.get("items") or []

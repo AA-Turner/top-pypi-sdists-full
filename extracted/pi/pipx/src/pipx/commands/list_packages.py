@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from pipx.colors import BOLD
+from pipx.constants import EXIT_CODE_LIST_PROBLEM, EXIT_CODE_OK, WINDOWS, ExitCode
+from pipx.emojis import SLEEP
+
 __lazy_modules__ = [
     "json",
+    "packaging.utils",
     "pipx.commands.common",
     "pipx.commands.transaction",
     "pipx.paths",
@@ -15,18 +20,17 @@ import logging
 import sys
 from typing import TYPE_CHECKING, Final, NamedTuple
 
-from pipx.colors import BOLD
+from packaging.utils import canonicalize_name
+
 from pipx.commands.common import VenvProblems, get_venv_summary, reuse_resource_dir_scans, venv_health_check
 from pipx.commands.transaction import is_unfinished
-from pipx.constants import EXIT_CODE_LIST_PROBLEM, EXIT_CODE_OK, WINDOWS, ExitCode
-from pipx.emojis import SLEEP
 from pipx.paths import CTX
 from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PipxMetadata
 from pipx.self_install import backs_self_managed_venv
 from pipx.venv import Venv, VenvContainer
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Iterable
+    from collections.abc import Collection, Generator, Iterable
     from pathlib import Path
 
     from pipx.options import ListOptions
@@ -47,7 +51,9 @@ def list_packages(venv_container: VenvContainer, venv_dirs: Collection[Path], op
             f"nothing has been installed with pipx {SLEEP}", file=sys.stderr
         )
 
-    locked_venv_dirs: Final = venv_container.iter_locked_venv_dirs(venv_dirs, allow_permission_error=True)
+    locked_venv_dirs: Final[Generator[Path, None, None]] = venv_container.iter_locked_venv_dirs(
+        venv_dirs, allow_permission_error=True
+    )
     if options.json_format:
         all_venv_problems = _list_json(locked_venv_dirs)
     elif options.short_format:
@@ -139,7 +145,7 @@ def _list_short(venv_dirs: Iterable[Path], *, include_injected: bool) -> VenvPro
             _LOGGER.warning(warning_message)
         else:
             print(  # ruff:ignore[print]  # user-facing CLI output
-                venv_metadata.main_package.package,
+                _environment_name(venv_metadata),
                 venv_metadata.main_package.package_version,
             )
             if include_injected:
@@ -152,6 +158,12 @@ def _list_short(venv_dirs: Iterable[Path], *, include_injected: bool) -> VenvPro
     return all_venv_problems
 
 
+def _environment_name(metadata: PipxMetadata) -> str:
+    package = metadata.main_package
+    name = f"{package.package}{package.exposure.suffix}"
+    return name if canonicalize_name(name) == metadata.venv_dir.name else metadata.venv_dir.name
+
+
 def _list_pinned(venv_dirs: Iterable[Path], *, include_injected: bool) -> VenvProblems:
     all_venv_problems = VenvProblems()
     for venv_dir in venv_dirs:
@@ -161,7 +173,7 @@ def _list_pinned(venv_dirs: Iterable[Path], *, include_injected: bool) -> VenvPr
         else:
             if venv_metadata.main_package.pinned:
                 print(  # ruff:ignore[print]  # user-facing CLI output
-                    venv_metadata.main_package.package,
+                    _environment_name(venv_metadata),
                     venv_metadata.main_package.package_version,
                 )
             if include_injected:

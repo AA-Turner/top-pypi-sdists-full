@@ -66,6 +66,7 @@ class WeightStreamServiceStub:
         PromoteWeightStreamVersionRequest,
         PromoteWeightStreamVersionResponse,
     ]
+    """Registry-only: model deployments reject alias selectors, so promoted aliases do not reach serving."""
 
 class WeightStreamServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -115,8 +116,7 @@ class WeightStreamServiceServicer(metaclass=ABCMeta):
         self,
         request: PromoteWeightStreamVersionRequest,
         context: ServicerContext,
-    ) -> PromoteWeightStreamVersionResponse: ...
+    ) -> PromoteWeightStreamVersionResponse:
+        """Registry-only: model deployments reject alias selectors, so promoted aliases do not reach serving."""
 
-def add_WeightStreamServiceServicer_to_server(
-    servicer: WeightStreamServiceServicer, server: Server
-) -> None: ...
+def add_WeightStreamServiceServicer_to_server(servicer: WeightStreamServiceServicer, server: Server) -> None: ...

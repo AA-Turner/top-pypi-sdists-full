@@ -51,8 +51,14 @@ from typing import Any
 # jobs below run EXCLUSIVELY through the host's agx agent system.
 from matrx_utils import vcprint
 
-from matrx_rag._ext import RagAgentRunner, get_rag_agent_runner
+from matrx_rag._ext import (
+    RagAgentRunner,
+    get_clean_min_page_chars,
+    get_context_window_chars,
+    get_rag_agent_runner,
+)
 from matrx_rag.text_hygiene import strip_control_chars
+from matrx_utils.splitting import count_tokens, split_text
 
 logger = logging.getLogger(__name__)
 
@@ -132,19 +138,55 @@ class CleanedPage:
     failure_reason: str = ""
     refused: bool = False
     failure: BaseException | None = field(default=None, repr=False, compare=False)
+    # The output guard REFUSED the cleaner's answer and the page kept its own text (a written page,
+    # never degraded): WHY. ``clean_pdf_pages`` files these as one ``rag_page_clean_kept_raw`` row.
+    kept_raw_reason: str = ""
+    # True once clean_pdf_pages filed this page's failure to system_error (its one
+    # PageCleanDegraded row), so the stage that fails on it does not file it again.
+    recorded: bool = field(default=False, compare=False)
 
 
 class PageCleanDegradedError(RuntimeError):
     """Pages whose cleaner call failed — recorded to ``system_error``, never raised."""
 
-    def __init__(self, degraded: int, attempted: int, *, all_failed: bool) -> None:
+    def __init__(
+        self,
+        degraded: int,
+        attempted: int,
+        *,
+        all_failed: bool,
+        guard_rejected: bool = False,
+        reasons: list[str] | None = None,
+    ) -> None:
         self.degraded = degraded
         self.attempted = attempted
         self.all_failed = all_failed
+        self.guard_rejected = guard_rejected
+        why = "; ".join(reasons or [])[:300]
+        if guard_rejected:
+            # The provider ANSWERED; the output guard refused the answer.
+            detail = f" (the cleaner's answer was rejected by the output guard: {why})"
+        elif all_failed:
+            detail = " (every page" + (f": {why}" if why else "") + ")"
+        else:
+            detail = ""
         super().__init__(
-            f"{degraded}/{attempted} pages failed to clean"
-            + (" (every page — the cleaner never reached a provider)" if all_failed else "")
-            + "; they were left uncleaned so a re-run retries them"
+            f"{degraded}/{attempted} pages failed to clean{detail}"
+            "; they were left uncleaned so a re-run retries them"
+        )
+
+
+class PageCleanKeptRawError(RuntimeError):
+    """Pages whose cleaner answer the output guard refused; each kept its own text as its clean text
+    (``CLEAN_REJECTED_KIND`` / ``SHORT_PAGE_KIND``). Recorded to ``system_error``, never raised."""
+
+    def __init__(self, page_indexes: list[int], reasons: list[str]) -> None:
+        self.page_indexes = page_indexes
+        self.reasons = reasons
+        why = "; ".join(reasons)[:300]
+        super().__init__(
+            f"{len(page_indexes)} page(s) kept their own text as clean text — the output guard "
+            f"refused the cleaner's answer: {why}"
         )
 
 
@@ -164,12 +206,18 @@ class PageCleanIncompleteError(RuntimeError):
     so a stream ending on this exception shows the gate's sentence.
     """
 
-    def __init__(self, degraded: int, attempted: int, *, reason: str, refused: bool) -> None:
+    def __init__(
+        self, degraded: int, attempted: int, *, reason: str, refused: bool, already_recorded: bool = False
+    ) -> None:
         self.degraded = degraded
         self.attempted = attempted
         self.reason = reason
         self.refused = refused
         self.is_caller_refusal = refused
+        # The failure already has its system_error row (clean_pdf_pages' PageCleanDegraded);
+        # a host that files failed stages skips this one (2026-11-18: one guard rejection
+        # filed twice, as PageCleanDegraded and as PageCleanIncompleteError).
+        self.already_recorded = already_recorded
         label = "AI usage limit reached" if refused else "the page cleaner failed"
         super().__init__(
             f"{degraded} of {attempted} pages not cleaned — {label}: "
@@ -195,6 +243,7 @@ def clean_incomplete_error(
         len(attempted),
         reason=lead.failure_reason,
         refused=bool(refusals),
+        already_recorded=any(c.recorded for c in degraded),
     )
     if lead.failure is not None:
         err.__cause__ = lead.failure
@@ -210,6 +259,98 @@ def _failure_reason(exc: BaseException) -> str:
 
 
 CLEAN_FAILED_KIND = "clean_failed"
+
+#: ``section_kind`` of a page kept VERBATIM by :func:`short_page_verbatim` (no cleaner asked).
+#: It names no section: ``pdf_pipeline.chunk_pdf_pages`` treats it as neutral (it joins its
+#: neighbours, never forces a parent cut, never wins the dominant-kind vote) and the host never
+#: shows it to a person as a page label.
+SHORT_PAGE_KIND = "short_page_verbatim"
+
+
+def short_page_verbatim(raw: str, min_chars: int) -> CleanedPage | None:
+    """THE ONE answer to "is this page kept verbatim instead of cleaned?" — shared by the live
+    lane (``clean_pdf_text``) and the host's batch lane (submit and result handler), so both treat
+    a short page identically. The threshold is the HOST's (``configure(clean_min_page_chars=...)``,
+    ``get_clean_min_page_chars``); with none, ``min_chars`` is 0 and every page is cleaned.
+
+    ``None`` when the page goes to the cleaner (``min_chars`` <= 0, a blank page, or a page at or
+    over ``min_chars`` characters); else the page, its own text stripped, marked
+    :data:`SHORT_PAGE_KIND` — a written page (``page_is_cleaned``), never a degraded one."""
+    text = strip_control_chars(raw or "").strip()
+    if min_chars <= 0 or not text or len(text) >= min_chars:
+        return None
+    return CleanedPage(text=text, section_kind=SHORT_PAGE_KIND)
+
+
+#: Absolute floor under the output guard: a page shorter than this whose cleaner answer the guard
+#: REJECTED keeps its own text verbatim (:data:`SHORT_PAGE_KIND`) instead of failing. A ratio is
+#: meaningless on a few dozen chars — live 2026-11-18: a 44-char page came back 463 chars (the model
+#: wrote ABOUT the page), the growth check rightly refused it, and the document was left degraded on
+#: every retry. Such a page has nothing a cleaner could fix, so its raw text IS its cleaned text.
+#: Holds whatever the host's ``clean_min_page_chars`` is (live it is seeded 0, so every page is sent).
+#: 400, not 200 (live 2026-11-20, rag_page_clean_kept_raw x6 on one slide deck): pages of 217-270
+#: chars — an exit ticket of three questions the cleaner ANSWERED, a section title under a copyright
+#: stamp the cleaner rightly dropped ("content lost" by ratio), a blank worksheet it emptied — were
+#: refused and kept their own text, correctly, but each filed a system error. A heading and a handful
+#: of short lines (a slide, a worksheet, a stamped title) is still a page the ratio cannot judge and a
+#: cleaner cannot improve; ordinary prose pages run well past 400 and still file their refusal.
+TINY_PAGE_FLOOR_CHARS = 400
+
+
+#: ``section_kind`` of a page whose cleaner answer the output guard REFUSED and which keeps its own
+#: (raw) text as its clean text — "not cleaned", written and done, never empty (2026-11-18: a refused
+#: page used to be left unwritten and the whole document's clean text was never written, on every
+#: retry). Neutral like :data:`SHORT_PAGE_KIND`; chunks built from it are raw-based
+#: (:func:`page_text_is_raw`), so a later successful forced clean rebuilds them.
+CLEAN_REJECTED_KIND = "clean_rejected_raw"
+
+#: Kinds that name no section: the page's text is its own raw text, kept on purpose.
+VERBATIM_KINDS = frozenset({SHORT_PAGE_KIND, CLEAN_REJECTED_KIND})
+
+
+def page_kept_on_rejection(raw: str, rejection: str) -> CleanedPage:
+    """THE ONE answer, on both lanes, to "the guard refused this page's cleaned text": the page keeps
+    its own text as its clean text — :data:`SHORT_PAGE_KIND` under :data:`TINY_PAGE_FLOOR_CHARS`,
+    else :data:`CLEAN_REJECTED_KIND` — carrying the refusal in ``kept_raw_reason`` so it is recorded.
+    Never degraded: a refused answer is deterministic junk, and a retry asks the same cleaner again."""
+    tiny = tiny_page_kept_on_rejection(raw)
+    if tiny is not None:
+        # A near-empty page has nothing to clean: its own text IS the right answer, so this is not
+        # a system error (live 2026-11-18: 44-char pages filed rag_page_clean_kept_raw). No reason
+        # is carried, so nothing is filed; the refusal is still in the caller's log line.
+        return tiny
+    page = CleanedPage(text=strip_control_chars(raw or "").strip(), section_kind=CLEAN_REJECTED_KIND)
+    page.kept_raw_reason = rejection
+    return page
+
+
+def tiny_page_kept_on_rejection(raw: str) -> CleanedPage | None:
+    """THE ONE answer, on both lanes, to "the guard refused this page's cleaned text — keep it
+    verbatim or fail it?": a page under :data:`TINY_PAGE_FLOOR_CHARS` is kept verbatim (a written
+    page, never degraded); a longer one returns ``None`` and stays a failed page."""
+    return short_page_verbatim(raw, TINY_PAGE_FLOOR_CHARS)
+
+
+class PageCleanProviderStop(RuntimeError):
+    """The provider's own content rules stopped the cleaner on this page (a content-safety,
+    recitation or refusal stop — expected provider control flow, never a platform fault).
+
+    Raised by the host runner. Asking again sends the same page to the same rules, so the page
+    keeps its own text as its clean text (:data:`CLEAN_REJECTED_KIND`, a written page, never
+    degraded) and nothing is filed to ``system_error`` (live 2026-11-20: one page stopped by a
+    content-safety filter filed ``rag_page_clean_degraded`` on each of three re-runs)."""
+
+    is_expected_provider_stop = True
+
+
+def page_kept_on_provider_stop(raw: str) -> CleanedPage:
+    """THE ONE answer to "the provider stopped the cleaner on this page": the page keeps its own
+    text, marked :data:`CLEAN_REJECTED_KIND` (or :data:`SHORT_PAGE_KIND` when tiny), and carries
+    no ``kept_raw_reason`` — expected provider control flow is not an incident."""
+    tiny = tiny_page_kept_on_rejection(raw)
+    if tiny is not None:
+        return tiny
+    return CleanedPage(text=strip_control_chars(raw or "").strip(), section_kind=CLEAN_REJECTED_KIND)
 
 
 class CleanedOutputRejected(ValueError):
@@ -240,7 +381,7 @@ def page_text_is_raw(page: Mapping[str, Any]) -> bool:
     """True when ``page_text_for_downstream(page)`` falls back to the page's RAW text
     (the page was never cleaned, or the cleaner gave up on it). Chunks built from such
     text are marked ``text_basis='raw'`` so a later successful clean rebuilds them."""
-    return page.get("section_kind") == CLEAN_FAILED_KIND or not page_is_cleaned(
+    return page.get("section_kind") in (CLEAN_FAILED_KIND, CLEAN_REJECTED_KIND) or not page_is_cleaned(
         page.get("cleaned_text"), page.get("section_kind")
     )
 
@@ -304,6 +445,28 @@ _GROWTH_SLACK_CHARS = 200
 #: Only judged on pages long enough for the ratio to mean something.
 MIN_CLEANED_SHARE = 0.2
 _SHRINK_MIN_RAW_CHARS = 200
+#: A page's SIGNAL is the text a cleaner is expected to keep: words of three or more letters. OCR of a screenshot or
+#: a photo is mostly interface chrome and noise ("Gq", "~ (EK) ¢:", "Q &€ WBo"); a cleaner rightly drops that, so the
+#: shrink check measures against the signal, never the raw length (live 2026-11-18: 1463 raw chars of a screenshot,
+#: ~700 of signal, cleaned to 255 — a faithful cleanup judged as "content lost"). A prose page the cleaner empties
+#: out still has signal ~= raw, so it is rejected exactly as before.
+_SIGNAL_WORD = re.compile(r"[^\W\d_]{3,}")
+#: Only a line carrying at least this many signal words is running text. A screenshot's sidebar and toolbar are one
+#: or two real words a line ("Workflows", "Schedules", "Next run Last fired") — real words, but chrome the cleaner
+#: rightly drops (live 2026-11-18 doc 78629ca1: a 1960-char app screenshot, 1537 chars of 3+-letter words, 26 lines of
+#: running text, cleaned to 251 chars and judged "content lost"). Prose lines carry ~10 words, so a prose page's
+#: signal is unchanged.
+_SIGNAL_LINE_MIN_WORDS = 4
+
+
+def _signal_chars(raw: str) -> int:
+    """Characters of ``raw`` carried by words of 3+ letters on lines of running text (each word with its separator)."""
+    total = 0
+    for line in raw.splitlines():
+        words = _SIGNAL_WORD.findall(line)
+        if len(words) >= _SIGNAL_LINE_MIN_WORDS:
+            total += sum(len(w) + 1 for w in words)
+    return total
 #: Kinds whose cleaned text is legitimately (near) empty.
 _EMPTY_OK_KINDS = frozenset({"illegible_scan", "blank_page", "blank_or_garbage", CLEAN_FAILED_KIND})
 
@@ -357,15 +520,13 @@ def cleaned_output_rejection(raw: str, cleaned_text: str, section_kind: str = ""
             f"cleaner output is {len(out)} chars for {len(raw_s)} raw chars "
             f"(more than {MAX_CLEANED_GROWTH}x) — not a cleanup"
         )
-    if (
-        kind not in _EMPTY_OK_KINDS
-        and len(raw_s) >= _SHRINK_MIN_RAW_CHARS
-        and len(out) < len(raw_s) * MIN_CLEANED_SHARE
-    ):
-        return (
-            f"cleaner output is {len(out)} chars for {len(raw_s)} raw chars "
-            f"(less than {MIN_CLEANED_SHARE}x) — content lost"
-        )
+    if kind not in _EMPTY_OK_KINDS and len(raw_s) >= _SHRINK_MIN_RAW_CHARS:
+        signal = _signal_chars(raw_s)
+        if len(out) < signal * MIN_CLEANED_SHARE:
+            return (
+                f"cleaner output is {len(out)} chars for {len(raw_s)} raw chars "
+                f"({signal} of them words) (less than {MIN_CLEANED_SHARE}x) — content lost"
+            )
     return None
 
 
@@ -388,22 +549,103 @@ def _assemble_expansions(query: str, lines: list[str], n: int) -> list[str]:
     return out
 
 
-async def clean_pdf_text(raw: str, *, timeout: float = 60.0) -> CleanedPage:
+PAGE_CLEAN_MAX_INPUT_TOKENS = 6000
+"""A page longer than this is cleaned in parts, never in one call. The cleaned
+page comes back inside a JSON envelope and is about as long as the raw page, so
+the call needs room for roughly the whole page again; the page-cleaner's model
+tops out at 16,384 output tokens, and 6,000 in leaves it more than 2x headroom.
+Live 2026-10: a 95,926-token page asked for 22,939 tokens out."""
+
+PAGE_CLEAN_MIN_SPLIT_TOKENS = 400
+"""Below this a page is not halved any further: the cut would be smaller than a
+sentence-sized piece and the failure is not about length."""
+
+PAGE_CLEAN_MAX_SPLIT_DEPTH = 4
+"""A page is halved at most this many times (16 parts), then it fails by name."""
+
+
+class PageOutputTruncated(RuntimeError):
+    """The page cleaner's answer hit the model's output limit. Raised by the host
+    runner so ``clean_pdf_text`` can halve the page and clean the parts, instead
+    of storing a cut-off page (or a runaway repeat) as the cleaned text."""
+
+
+def _halves(raw: str) -> list[str]:
+    """The page cut in two at the strongest natural break, in order."""
+    budget = count_tokens(raw) // 2 + 1
+    parts = [p for p in split_text(raw, budget, measure="tokens") if p.strip()]
+    return parts
+
+
+async def _clean_in_parts(
+    runner: RagAgentRunner, raw: str, *, wait_s: float, depth: int = 0
+) -> dict[str, Any]:
+    """Clean ``raw`` in one call when it fits, else clean halves and join them in
+    order. The first part names the page (kind, title); later parts only add text.
+    A part that fails raises, so the page degrades as a whole - never half-cleaned."""
+    tokens = count_tokens(raw)
+    too_long = tokens > PAGE_CLEAN_MAX_INPUT_TOKENS
+    if not too_long:
+        try:
+            return await runner.clean_page(raw, timeout=wait_s)
+        except PageOutputTruncated:
+            if depth >= PAGE_CLEAN_MAX_SPLIT_DEPTH or tokens < PAGE_CLEAN_MIN_SPLIT_TOKENS:
+                raise
+            logger.warning(
+                "rag.llm: page cleaner hit its output limit on a %d-token page; halving (depth %d)",
+                tokens,
+                depth + 1,
+            )
+    elif depth >= PAGE_CLEAN_MAX_SPLIT_DEPTH:
+        raise PageOutputTruncated(
+            f"page of {tokens} tokens is still over {PAGE_CLEAN_MAX_INPUT_TOKENS} after "
+            f"{depth} halvings"
+        )
+    parts = _halves(raw)
+    if len(parts) < 2:
+        raise PageOutputTruncated(f"page of {tokens} tokens could not be cut into parts")
+    done: list[dict[str, Any]] = []
+    for part in parts:  # in order, one at a time: the join order is the page order
+        done.append(await _clean_in_parts(runner, part, wait_s=wait_s, depth=depth + 1))
+    merged = dict(done[0])
+    merged["text"] = "\n\n".join(str(d.get("text") or "").strip() for d in done)
+    return merged
+
+
+async def clean_pdf_text(raw: str, *, timeout: float = 60.0, min_chars: int = 0) -> CleanedPage:
     """Run one cleanup + classification pass over a single page through the
     host's page-cleaner agent.
 
-    Provider admission is owned centrally by the agent runner. A page falls
-    back to its raw text on failure, logged loudly so an incomplete page is
-    never silent."""
+    A page shorter than ``min_chars`` characters is kept verbatim and never
+    sent (:func:`short_page_verbatim`). Provider admission is owned centrally
+    by the agent runner. A page falls back to its raw text on failure, logged
+    loudly so an incomplete page is never silent."""
     raw = strip_control_chars(raw)
     if not raw or not raw.strip():
         return CleanedPage(text="", section_kind="blank_or_garbage")
 
+    short = short_page_verbatim(raw, min_chars)
+    if short is not None:
+        logger.info(
+            "rag.llm.clean_pdf_text: page of %d chars is under %d — kept verbatim, cleaner not called",
+            len(raw.strip()),
+            min_chars,
+        )
+        return short
+
     runner = _require_runner()
 
     try:
-        parsed = await runner.clean_page(raw, timeout=timeout)
+        parsed = await _clean_in_parts(runner, raw, wait_s=timeout)
     except Exception as exc:  # noqa: BLE001
+        if getattr(exc, "is_expected_provider_stop", False):
+            logger.warning(
+                "rag.llm.clean_pdf_text: the provider stopped the cleaner on a %d-char page (%s) — "
+                "kept its own text as its clean text",
+                len(raw),
+                exc,
+            )
+            return page_kept_on_provider_stop(raw)
         refused = bool(getattr(exc, "is_caller_refusal", False))
         logger.warning(
             "rag.llm.clean_pdf_text: agent %s (%s: %s); returning raw text",
@@ -422,16 +664,17 @@ async def clean_pdf_text(raw: str, *, timeout: float = 60.0) -> CleanedPage:
     cleaned = normalize_cleaned_page(parsed)
     rejection = cleaned_output_rejection(raw, cleaned.text, cleaned.section_kind)
     if rejection is not None:
-        # A FAILED page, never a cleaned one: degraded pages are not persisted,
-        # so junk can never overwrite a page's good cleaned text.
-        logger.warning("rag.llm.clean_pdf_text: output REJECTED (%s); returning raw text", rejection)
-        return CleanedPage(
-            text=raw,
-            section_kind="",
-            degraded=True,
-            failure_reason=rejection,
-            failure=CleanedOutputRejected(rejection),
+        # The page keeps its own text as its clean text, marked, and the reason rides
+        # ``kept_raw_reason`` into the run's ``rag_page_clean_kept_raw`` record — never a failed
+        # page that leaves the document without clean text forever.
+        kept = page_kept_on_rejection(raw, rejection)
+        logger.warning(
+            "rag.llm.clean_pdf_text: output REJECTED (%s) on a %d-char page — kept its own text (%s)",
+            rejection,
+            len(kept.text),
+            kept.section_kind,
         )
+        return kept
     return cleaned
 
 
@@ -452,8 +695,14 @@ async def clean_pdf_pages(
     was lost), that page is NOT cleaned and the exception fails the run — it is
     never turned into a degraded page.
 
-    ``concurrency`` remains only for API compatibility and is ignored. The
-    central matrx-ai provider admission gate owns provider-safe pacing.
+    ``concurrency`` bounds how many pages are IN FLIGHT at once (minimum 1).
+    The matrx-ai provider admission gate paces the provider call, but each page
+    also does its own database work around that call (request rows, error
+    capture, ``persist_one``) BEFORE reaching that gate. Unbounded, a 300-page
+    PDF opened 300 page tasks at once and they drained the process's 10-slot
+    database pool: 3,900 of the pool-saturation holders recorded 2026-10-27 to
+    2026-11-03 sat in this function (system_error kind
+    ``database_pool_saturation``).
 
     ``on_progress(done, total)`` fires after every page so the caller can
     emit live progress events to the UI.
@@ -485,6 +734,8 @@ async def clean_pdf_pages(
     done_counter = {"n": 0}
     skip_set = skip_indexes or set()
     refusal: dict[str, CleanedPage | None] = {"page": None}
+    # The host's short-page threshold, read once per run (0 = clean every page).
+    min_chars = await get_clean_min_page_chars()
 
     async def one(idx: int, text: str) -> CleanedPage:
         # Skip-already-cleaned: don't burn LLM tokens twice.
@@ -499,8 +750,7 @@ async def clean_pdf_pages(
             # already has the real cleaned content.
             return CleanedPage(text=text, section_kind="")
 
-        # All independent page tasks start immediately. UnifiedAIClient queues
-        # only at the provider boundary when the provider requires it.
+        # At most ``concurrency`` pages run this body at once (see ``bounded``).
         if before_page is not None and refusal["page"] is None:
             await before_page(idx)
         cleaned: CleanedPage | None = None
@@ -519,7 +769,7 @@ async def clean_pdf_pages(
                     failure=prior.failure,
                 )
             else:
-                cleaned = await clean_pdf_text(text)
+                cleaned = await clean_pdf_text(text, min_chars=min_chars)
                 if cleaned.refused and refusal["page"] is None:
                     refusal["page"] = cleaned
         except Exception as exc:  # noqa: BLE001
@@ -564,9 +814,45 @@ async def clean_pdf_pages(
         assert cleaned is not None
         return cleaned
 
+    in_flight = asyncio.Semaphore(max(1, int(concurrency)))
+
+    async def bounded(idx: int, text: str) -> CleanedPage:
+        async with in_flight:
+            return await one(idx, text)
+
     results: list[CleanedPage] = list(
-        await asyncio.gather(*(one(i, p) for i, p in enumerate(pages)))
+        await asyncio.gather(*(bounded(i, p) for i, p in enumerate(pages)))
     )
+
+    # ── Layer 1b: pages the guard refused, kept on their own text ───────────
+    # Written and done (clean text = raw text, marked), but not the quality billed for: one
+    # record per run, with every reason, so a refusal is never silent.
+    kept_raw = [i for i in range(total) if i not in skip_set and results[i].kept_raw_reason]
+    if kept_raw:
+        kept_reasons = sorted({results[i].kept_raw_reason for i in kept_raw})[:5]
+        logger.error(
+            "rag.llm.clean_pdf_pages: %d page(s) kept their own text — the output guard refused the "
+            "cleaner's answer: %s",
+            len(kept_raw),
+            "; ".join(kept_reasons)[:300],
+        )
+        from matrx_orm import record_error
+
+        await record_error(
+            PageCleanKeptRawError(kept_raw, kept_reasons),
+            kind="rag_page_clean_kept_raw",
+            source_app="matrx-rag",
+            source_feature="rag.clean_pdf_pages",
+            user_id=(error_context or {}).get("owner_id"),
+            organization_id=(error_context or {}).get("organization_id"),
+            error_type="PageCleanKeptRaw",
+            context={
+                **(error_context or {}),
+                "kept_raw_page_indexes": kept_raw[:50],
+                "kept_raw_kinds": sorted({results[i].section_kind for i in kept_raw}),
+                "failure_reasons": kept_reasons,
+            },
+        )
 
     # ── Layer 2: the degradation alarm ───────────────────────────────────────
     # Each page's fallback ("agent failed → keep the RAW text") is correct: a raw
@@ -581,6 +867,8 @@ async def clean_pdf_pages(
     if degraded:
         all_failed = len(degraded) == len(attempted)
         all_refused = all(results[i].refused for i in degraded)
+        reasons = sorted({results[i].failure_reason for i in degraded if results[i].failure_reason})[:5]
+        guard_rejected = all(isinstance(results[i].failure, CleanedOutputRejected) for i in degraded)
         vcprint(
             data={
                 "pages_attempted": len(attempted),
@@ -593,9 +881,11 @@ async def clean_pdf_pages(
                 "likely_cause": (
                     f"CALLER REFUSAL (not retried): {results[degraded[0]].failure_reason}"
                     if all_refused
+                    else f"The cleaner answered but the output guard rejected it: {reasons[:1]}"
+                    if guard_rejected
                     else "EVERY page failed — this is a WIRING bug, not an LLM one. The "
                     "usual culprit: no ambient AppContext (background/detached task), "
-                    "so every agent run died before reaching a provider. Wrap the entry "
+                    "so every agent run died before reaching a provider (see failure_reasons). Wrap the entry "
                     "point in matrx_connect.system_app_context."
                     if all_failed
                     else "Per-page agent failures (provider errors / timeouts) after the runner's own retries."
@@ -613,7 +903,7 @@ async def clean_pdf_pages(
             "rag.llm.clean_pdf_pages: %d/%d pages fell back to RAW text%s",
             len(degraded),
             len(attempted),
-            " — ALL of them; the cleaner never reached a provider" if all_failed else "",
+            f" — ALL of them: {'; '.join(reasons)[:200]}" if all_failed else "",
         )
         # A log line is not a record. File ONE system_error per degraded run so
         # the error queue shows it; the pages stay uncleaned in the DB (never
@@ -625,7 +915,13 @@ async def clean_pdf_pages(
         if all_refused:
             return results
         await record_error(
-            PageCleanDegradedError(len(degraded), len(attempted), all_failed=all_failed),
+            PageCleanDegradedError(
+                len(degraded),
+                len(attempted),
+                all_failed=all_failed,
+                guard_rejected=guard_rejected,
+                reasons=reasons,
+            ),
             kind="rag_page_clean_degraded",
             source_app="matrx-rag",
             source_feature="rag.clean_pdf_pages",
@@ -638,8 +934,13 @@ async def clean_pdf_pages(
                 "pages_degraded": len(degraded),
                 "degraded_page_indexes": degraded[:50],
                 "all_failed": all_failed,
+                # WHY the cleaner failed — the row is undiagnosable without it (2026-11-02:
+                # 24 rows a day said "never reached a provider" and nothing else).
+                "failure_reasons": reasons,
             },
         )
+        for i in degraded:
+            results[i].recorded = True
 
     return results
 
@@ -647,6 +948,138 @@ async def clean_pdf_pages(
 # ---------------------------------------------------------------------------
 # Contextual retrieval (Anthropic technique)
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ContextWindow:
+    """What part of the document one chunk was situated against.
+
+    ``windowed`` is False when the whole document fit. When True, ``text`` is the document head
+    plus the chunk's own neighbourhood, each run of omitted characters marked in the text, and
+    ``record()`` is what the chunk carries (``metadata['context_window']``) so the cut survives
+    as a fact, not only as words inside a prompt."""
+
+    text: str
+    windowed: bool
+    document_chars: int
+    head_chars: int = 0
+    #: The neighbourhood ``[start, end)`` in document characters (0, 0 when none was sent).
+    span_start: int = 0
+    span_end: int = 0
+    #: False when the chunk's text could not be found in the document: only the head was sent.
+    chunk_located: bool = True
+
+    @property
+    def chars_sent(self) -> int:
+        return self.head_chars + (self.span_end - self.span_start)
+
+    def record(self) -> dict[str, Any]:
+        return {
+            "document_chars": self.document_chars,
+            "chars_sent": self.chars_sent,
+            "head_chars": self.head_chars,
+            "span_start": self.span_start,
+            "span_end": self.span_end,
+            "chunk_located": self.chunk_located,
+        }
+
+
+#: Share of the window given to the document head when the chunk sits past it (the title,
+#: abstract and headings that say what the whole document is); the rest is the chunk's
+#: neighbourhood.
+CONTEXT_HEAD_SHARE = 0.25
+
+
+def _locate_chunk(document: str, chunk: str) -> int:
+    """The chunk's first character in ``document``, or -1. Tries the whole chunk, then its first line."""
+    pos = document.find(chunk)
+    if pos >= 0:
+        return pos
+    probe = chunk.strip()[:200]
+    return document.find(probe) if len(probe) >= 40 else -1
+
+
+def situating_window(document: str, chunk: str, max_chars: int) -> ContextWindow:
+    """The document context for ``chunk`` within ``max_chars``: the whole document when it fits;
+    else the head plus the chunk's own neighbourhood, never the head alone for a late chunk.
+
+    A chunk past the limit used to be situated against ``document[:60_000]`` — text that does not
+    contain it — and nothing recorded that. Every omission is now marked in the text."""
+    total = len(document)
+    if total <= max_chars:
+        return ContextWindow(text=document, windowed=False, document_chars=total)
+    pos = _locate_chunk(document, chunk)
+    if pos < 0:
+        head = document[:max_chars]
+        return ContextWindow(
+            text=(
+                f"[Document capped: the first {max_chars:,} of {total:,} characters; "
+                f"this passage's place in the document could not be found]\n{head}"
+            ),
+            windowed=True,
+            document_chars=total,
+            head_chars=max_chars,
+            chunk_located=False,
+        )
+    end_of_chunk = min(total, pos + len(chunk))
+    if end_of_chunk <= max_chars:
+        # The chunk sits inside the first ``max_chars``: one contiguous run from the start.
+        return ContextWindow(
+            text=(
+                f"{document[:max_chars]}\n"
+                f"[... characters {max_chars + 1:,}-{total:,} of {total:,} omitted ...]"
+            ),
+            windowed=True,
+            document_chars=total,
+            head_chars=max_chars,
+        )
+    head_n = int(max_chars * CONTEXT_HEAD_SHARE)
+    budget = max_chars - head_n
+    # Centre the chunk in its neighbourhood, clamped to the document's end and after the head.
+    slack = max(0, budget - (end_of_chunk - pos))
+    start = max(head_n, pos - slack // 2)
+    end = min(total, start + budget)
+    start = max(head_n, end - budget)
+    parts = [
+        f"[Document head: characters 1-{head_n:,} of {total:,}]",
+        document[:head_n],
+    ]
+    if start > head_n:
+        parts.append(f"[... characters {head_n + 1:,}-{start:,} omitted ...]")
+    parts.append(f"[The part of the document around this passage: characters {start + 1:,}-{end:,} of {total:,}]")
+    parts.append(document[start:end])
+    if end < total:
+        parts.append(f"[... characters {end + 1:,}-{total:,} omitted ...]")
+    return ContextWindow(
+        text="\n".join(parts),
+        windowed=True,
+        document_chars=total,
+        head_chars=head_n,
+        span_start=start,
+        span_end=end,
+    )
+
+
+async def contextualize_chunk_windowed(
+    document: str,
+    chunk: str,
+    *,
+    timeout: float = 30.0,
+) -> tuple[str, ContextWindow | None]:
+    """``contextualize_chunk`` plus the window the chunk was situated against
+    (``None`` for a blank chunk, where nothing was sent)."""
+    if not chunk.strip():
+        return "", None
+    # The document context is bounded HERE (shared assembly) so the window lives in one place.
+    window = situating_window(document, chunk, await get_context_window_chars())
+
+    runner = _require_runner()
+    try:
+        out = await runner.contextualize(window.text, chunk, timeout=timeout)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("rag.llm.contextualize_chunk: %s", exc)
+        return "", window
+    return out.strip(), window
 
 
 async def contextualize_chunk(
@@ -657,21 +1090,11 @@ async def contextualize_chunk(
 ) -> str:
     """Generate the 1-2 sentence prefix that situates ``chunk`` within
     ``document`` via the host's contextualizer agent. Used by ``rag.enrich``
-    to prepend before embedding. Empty string on failure.
+    to prepend before embedding. Empty string on failure. A document longer than the host's
+    window is sent as its head plus the chunk's neighbourhood (``situating_window``).
     """
-    if not chunk.strip():
-        return ""
-    # Truncate the document HERE (shared assembly) so the system-prompt context
-    # window is capped in exactly one place.
-    doc = document[:60_000]
-
-    runner = _require_runner()
-    try:
-        out = await runner.contextualize(doc, chunk, timeout=timeout)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("rag.llm.contextualize_chunk: %s", exc)
-        return ""
-    return out.strip()
+    prefix, _window = await contextualize_chunk_windowed(document, chunk, timeout=timeout)
+    return prefix
 
 
 # ---------------------------------------------------------------------------
@@ -736,9 +1159,19 @@ __all__ = [
     "CleanedPage",
     "cleaned_output_rejection",
     "normalize_cleaned_page",
+    "short_page_verbatim",
+    "tiny_page_kept_on_rejection",
+    "page_kept_on_rejection",
+    "CLEAN_REJECTED_KIND",
+    "VERBATIM_KINDS",
+    "PageCleanKeptRawError",
+    "SHORT_PAGE_KIND",
     "clean_pdf_pages",
     "clean_pdf_text",
+    "ContextWindow",
     "contextualize_chunk",
+    "contextualize_chunk_windowed",
+    "situating_window",
     "expand_query",
     "hyde_passage",
 ]

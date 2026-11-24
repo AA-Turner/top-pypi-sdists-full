@@ -37,7 +37,7 @@ from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
 )
-from matrx_ai.graph_nodes.shared import _extract_usage, failed_turn_failure
+from matrx_ai.graph_nodes.shared import _extract_usage, failed_turn_failure, no_media_reason
 
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 _DATA_URI = re.compile(r"^data:([\w.+/-]+);base64,(.+)$", re.DOTALL)
@@ -169,10 +169,12 @@ async def ai_image_edit(
         images = _shape_image_blocks(getattr(completed, "final_response", None))
         usage = _extract_usage(getattr(completed, "total_usage", None))
         if not images:
+            reason, why = no_media_reason(completed, requested_model=inputs.model)
             return failure(
                 "edit_failed",
-                f"ai.image.edit: model '{inputs.model}' returned no images.",
-                details={"model": inputs.model, "usage": usage.model_dump(mode="json")},
+                f"ai.image.edit: no image came back for model '{inputs.model}'"
+                + (f": {reason}." if reason else "."),
+                details={"model": inputs.model, "usage": usage.model_dump(mode="json"), **why},
             )
         return success(
             GenerateImageOutput(images=images, count=len(images), model=inputs.model, usage=usage)

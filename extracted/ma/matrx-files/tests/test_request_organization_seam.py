@@ -148,7 +148,10 @@ def test_buffered_upload_edge_resolves_the_organization_once_and_threads_it():
         __import__("matrx_files").__file__
     ).parent / "api" / "router_files.py"
     text = source.read_text()
-    upload = text[text.index("async def upload_file(") : text.index("@router.get(\"/sync/changes\"")]
+    start = text.index("async def upload_file(")
+    # The function ends at the NEXT route decorator — never at a named later route, which a route added
+    # in between (POST /import-url, 2026-11-03) would silently pull into the slice.
+    upload = text[start : text.index("@router.", start)]
     assert "admitted_organization_id()" in upload, (
         "the upload edge must resolve the request's organization itself — "
         "leaving it to an ambient read deep in the write path is the 2026-09-19 outage"

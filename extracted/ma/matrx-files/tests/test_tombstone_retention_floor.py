@@ -23,7 +23,6 @@ modified. The owner and organization are read, never written.
 from __future__ import annotations
 
 import os
-import re
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -31,7 +30,6 @@ from pathlib import Path
 import pytest
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = PACKAGE_ROOT.parents[1]
 
 _REQUIRED_ENV = ("SUPABASE_MATRIX_HOST", "SUPABASE_MATRIX_PASSWORD")
 _RESTRICT_VIOLATION = "23001"
@@ -297,46 +295,3 @@ async def test_a_parent_chain_cycle_stops_at_64_hops_and_refuses() -> None:
         with pytest.raises(asyncpg.PostgresError) as caught:
             await conn.execute("DELETE FROM files.files WHERE id = $1", first)
         assert caught.value.sqlstate == _RESTRICT_VIOLATION
-
-
-# ---------------------------------------------------------------------------
-# Who is allowed to set the escape
-# ---------------------------------------------------------------------------
-
-# ``purge_escape.py`` owns the GUC; ``sync_engine.py`` and the migration record
-# name it in prose; this test names it to assert the rule. Anything else that
-# sets it is a second delete-forever route the guard was written to prevent.
-_GUC_ALLOWED = {
-    "packages/matrx-files/matrx_files/cloud_sync/purge_escape.py",
-    "packages/matrx-files/matrx_files/cloud_sync/sql/033_tombstone_retention_floor.sql",
-    "packages/matrx-files/tests/test_tombstone_retention_floor.py",
-}
-_SETS_THE_GUC = re.compile(r"""set_config\s*\(\s*["']matrx\.purge_root_id["']""")
-_SEARCH_ROOTS = ("aidream", "packages", "apps", "scripts", "db", "standalone")
-_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build"}
-
-
-def test_no_call_site_outside_the_purge_escape_sets_the_guc() -> None:
-    """Red the moment a second route starts escaping the retention floor."""
-    offenders: list[str] = []
-    for root in _SEARCH_ROOTS:
-        base = REPO_ROOT / root
-        if not base.exists():
-            continue
-        for path in base.rglob("*"):
-            if path.is_dir() or path.suffix not in {".py", ".sql", ".ts", ".tsx", ".mjs"}:
-                continue
-            if any(part in _SKIP_DIRS for part in path.parts):
-                continue
-            rel = path.relative_to(REPO_ROOT).as_posix()
-            if rel in _GUC_ALLOWED:
-                continue
-            if _SETS_THE_GUC.search(path.read_text(encoding="utf-8", errors="replace")):
-                offenders.append(rel)
-    assert not offenders, (
-        "matrx.purge_root_id is set outside the one delete-forever escape "
-        f"({offenders}). Route the delete through "
-        "SyncEngine.hard_delete_and_purge[_async], which reaches the escape via "
-        "DatabaseClient.hard_delete_file[_fallback]_async, instead of opening a "
-        "second way past the D23 retention floor."
-    )

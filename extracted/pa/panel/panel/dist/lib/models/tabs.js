@@ -17,8 +17,19 @@ function hide(element) {
     element.setAttribute("aria-hidden", "true");
 }
 export class TabsView extends BkTabsView {
+    _children_update = Promise.resolve();
+    // build_views is not reentrant
+    update_children() {
+        const update = this._children_update.then(() => super.update_children());
+        this._children_update = update.catch(() => { });
+        return update;
+    }
     connect_signals() {
         super.connect_signals();
+        this.on_transitive_change(this.model.properties.tabs, () => {
+            this._update_headers();
+            this.update_active();
+        }, { signal: (tab) => tab.properties.title.change });
         let view = this;
         while (view != null) {
             if (view.model.type.endsWith("Tabs")) {

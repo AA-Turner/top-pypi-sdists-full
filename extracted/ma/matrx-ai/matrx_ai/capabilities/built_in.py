@@ -19,9 +19,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from matrx_ai.tools.specs import RegisteredToolSpec, ToolSpec
+from matrx_ai.tools.specs import RegisteredToolSpec
 
 from .models import Capability
 from .registry import register_capability
@@ -37,11 +37,25 @@ class SandboxFsPayload(BaseModel):
     """
 
     sandbox_id: str = Field(min_length=1)
-    base_url: str = Field(min_length=1)
-    access_token: str = Field(min_length=1)
+    base_url: str = ""
+    access_token: str = ""
     root_path: str = "/home/agent"
     target_kind: Literal["sandbox", "local_machine"] = "sandbox"
     """Semantic target namespace; never infer it from OS-specific paths."""
+    working_dir: str | None = None
+    """The conversation's own working folder on the target (Cloud Computer zone 2)."""
+    wake_on_first_use: bool = False
+    """A PARKED machine: no endpoint yet; the first proxied call wakes it (``_ready_binding``)."""
+
+    @model_validator(mode="after")
+    def _routable(self) -> SandboxFsPayload:
+        if self.wake_on_first_use:
+            if self.target_kind != "sandbox":
+                raise ValueError("only a sandbox can wake on first use")
+            return self
+        if not self.base_url or not self.access_token:
+            raise ValueError("a live sandbox-fs binding needs base_url and access_token")
+        return self
 
 
 # The coding toolset auto-armed whenever a sandbox is attached. These are
@@ -68,10 +82,6 @@ _SANDBOX_FS_TOOLS = (
     # of git's credential helper (live ledger, conversation 99d5b990, 2026-09-13).
     # Read-only inventory of the user's GitHub connection; never a credential.
     RegisteredToolSpec(name="github_repositories"),
-    # The box itself: its image vs current, health, an update that keeps /home/agent, and
-    # its own logs. Without it an agent in a stale box could only ask the owner to press
-    # Reset (conversation 9b224bf5, 2026-10-22).
-    RegisteredToolSpec(name="sandbox_maintenance"),
 )
 
 _SANDBOX_FS = Capability(

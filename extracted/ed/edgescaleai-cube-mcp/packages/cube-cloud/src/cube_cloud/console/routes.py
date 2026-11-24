@@ -712,6 +712,94 @@ async def manage_products(request: Request) -> Response:
     return _json(payload)
 
 
+async def manage_product_details(request: Request) -> Response:
+    """`GET /console/api/manage/products/details?product=<productId>` — one product's
+    releases and installs (spec §4.30), read when a person opens it.
+
+    A surface over `manage.product_details`, which owns the authorization and checks the
+    product against the catalog. A refused caller gets the section's 404; a product not
+    in the catalog gets a 404 that says so. A failed release or install read is a state
+    inside the payload, not an error here; only the catalog read failing is a 502.
+    """
+    if not is_enabled() or not rbac_service.is_enabled():
+        return _disabled_response(request.url.path)
+    if (blocked := guard_read(request)) is not None:
+        return blocked
+
+    state = request.state
+    profile = getattr(state, "profile", "?")
+    email = console_user_email(state)
+    if not manage.is_offered(email):
+        return _disabled_response(request.url.path)
+    product = request.query_params.get("product")
+    try:
+        async with ApolloClient(state.apollo_client_id, state.apollo_client_secret) as client:
+            payload = await manage.product_details(client, profile, email, product)
+    except manage.NotPermitted:
+        return _disabled_response(request.url.path)
+    except manage.UnknownProduct:
+        return _json({"error": "There is no such product."}, status_code=404)
+    except rbac_service.RbacServiceError as e:
+        logger.warning("console manage/products/details: rbac-service refused or failed for profile=%s: %s", profile, e)
+        return _json({"error": "Could not check access to product details."}, status_code=502)
+    except manage.CatalogIncomplete:
+        logger.warning("console manage/products/details: product not in a truncated catalog for profile=%s", profile)
+        return _json({"error": "Could not read the product details."}, status_code=502)
+    except ApolloError as e:
+        # Class only: an ApolloError's text is the raw response body.
+        logger.warning("console manage/products/details: Apollo read failed for profile=%s (%s)",
+                       profile, type(e).__name__)
+        return _json({"error": "Could not read the product details."}, status_code=502)
+    except Exception as e:
+        logger.error("console manage/products/details errored for profile=%s (%s)", profile, type(e).__name__)
+        return _json({"error": "Could not read the product details."}, status_code=500)
+    return _json(payload)
+
+
+async def manage_install_facts(request: Request) -> Response:
+    """`GET /console/api/manage/products/install-facts?product=<productId>` — the second
+    request of a product's details panel (spec §4.30): the last change of its most
+    recently updated installs, and an inventory company hint for its first installs.
+
+    A surface over `manage.install_facts`, which authorizes exactly as the details route
+    does (it calls `product_details`), so the same refusals map to the same responses.
+    Each part's failure is a state inside the payload.
+    """
+    if not is_enabled() or not rbac_service.is_enabled():
+        return _disabled_response(request.url.path)
+    if (blocked := guard_read(request)) is not None:
+        return blocked
+
+    state = request.state
+    profile = getattr(state, "profile", "?")
+    email = console_user_email(state)
+    if not manage.is_offered(email):
+        return _disabled_response(request.url.path)
+    product = request.query_params.get("product")
+    try:
+        async with ApolloClient(state.apollo_client_id, state.apollo_client_secret) as client:
+            payload = await manage.install_facts(client, profile, email, product)
+    except manage.NotPermitted:
+        return _disabled_response(request.url.path)
+    except manage.UnknownProduct:
+        return _json({"error": "There is no such product."}, status_code=404)
+    except rbac_service.RbacServiceError as e:
+        logger.warning("console manage/products/install-facts: rbac-service refused or failed for profile=%s: %s", profile, e)
+        return _json({"error": "Could not check access to product details."}, status_code=502)
+    except manage.CatalogIncomplete:
+        logger.warning("console manage/products/install-facts: product not in a truncated catalog for profile=%s", profile)
+        return _json({"error": "Could not read the product details."}, status_code=502)
+    except ApolloError as e:
+        # Class only: an ApolloError's text is the raw response body.
+        logger.warning("console manage/products/install-facts: Apollo read failed for profile=%s (%s)",
+                       profile, type(e).__name__)
+        return _json({"error": "Could not read the product details."}, status_code=502)
+    except Exception as e:
+        logger.error("console manage/products/install-facts errored for profile=%s (%s)", profile, type(e).__name__)
+        return _json({"error": "Could not read the product details."}, status_code=500)
+    return _json(payload)
+
+
 async def manage_access(request: Request) -> Response:
     """`GET /console/api/manage/access` — `{view, edit}`: whether to offer this person the
     Manage section and its tag edits, as the rbac-service answers (spec §4.30).
@@ -803,7 +891,10 @@ async def _manage_tag_write(request: Request, action: str) -> Response:
     pid, company = body.get("productId"), body.get("company")
     try:
         async with ApolloClient(state.apollo_client_id, state.apollo_client_secret) as client:
-            if action == "owner":
+            if action == "bulk":
+                payload = await manage.bulk_edit(client, profile, email, body.get("action"), body.get("productIds"),
+                                                 company, role=body.get("role"), expected=body.get("expected"))
+            elif action == "owner":
                 payload = await manage.set_owner(client, profile, email, pid, company, body.get("expected"))
             elif action == "share":
                 payload = await manage.share(client, profile, email, pid, company, body.get("role"))
@@ -849,6 +940,14 @@ async def manage_share(request: Request) -> Response:
 async def manage_unshare(request: Request) -> Response:
     """`POST /console/api/manage/products/unshare` — `{productId, company}`."""
     return await _manage_tag_write(request, "unshare")
+
+
+async def manage_bulk_edit(request: Request) -> Response:
+    """`POST /console/api/manage/products/bulk` — `{action, productIds, company, role?,
+    expected?}`: one tag edit on several products, each written as the caller (spec
+    §4.30 "Bulk edits"). `expected` maps each product to the owner the page showed, for
+    `owner`. 200 with a per-product `results` list whatever the products' outcomes."""
+    return await _manage_tag_write(request, "bulk")
 
 
 async def cube_detail(request: Request, cube: str) -> Response:

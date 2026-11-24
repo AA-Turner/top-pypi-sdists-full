@@ -1,6 +1,6 @@
 """Initialize the app"""
 
-__version__ = "4.0.1"
+__version__ = "5.0.0"
 __title__ = "Killstats"
 
 __package_name__ = "aa-killstats"
@@ -12,7 +12,7 @@ __github_url__ = f"https://github.com/Geuthur/{__package_name__}"
 
 USER_AGENT_TEXT = f"{__app_name_useragent__} v{__version__} @ {__github_url__}"
 
-__killmail_operations__ = [
+__operations__ = [
     "GetKillmailsKillmailIdKillmailHash",
     "PostUniverseNames",
 ]

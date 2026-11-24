@@ -159,6 +159,15 @@ AssignmentProgressCallback = Callable[[int, int], Awaitable[None]]
 AssignmentSessionCallback = Callable[[AssignmentSessionSummary], Awaitable[None]]
 
 
+class _AppOnly:
+    """A batch started outside a workflow step: the named-agent door sees only the request's context."""
+
+    workflow_id = None
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+
 async def run_agent_assignment_batch(
     app: AppContext,
     inputs: AgentAssignmentBatchInput,
@@ -168,8 +177,10 @@ async def run_agent_assignment_batch(
     holder: str,
     progress: AssignmentProgressCallback | None = None,
     session_started: AssignmentSessionCallback | None = None,
+    node_ctx: Any = None,
 ) -> AssignmentBatchResult:
-    """Run or resume one durable batch through the ordinary agent executor."""
+    """Run or resume one durable batch through the ordinary agent executor (``node_ctx``: the workflow step's
+    context when a step runs it, so the host's named-agent door knows the workflow)."""
 
     required = (
         "agent_runner",
@@ -212,7 +223,7 @@ async def run_agent_assignment_batch(
     # batch (every item runs the same job, so resolving per item would let a
     # mid-batch rebind split one batch across two agents).
     agent_id, agent_is_version, agent_mandate_overrides = await resolve_step_agent(
-        inputs.agent, consumer=f"ai.agent.assignment_batch:{holder}"
+        inputs.agent, consumer=f"ai.agent.assignment_batch:{holder}", node_ctx=node_ctx or _AppOnly(app)
     )
 
     # ONE limit for the whole batch, resolved once like the agent above.
@@ -347,5 +358,6 @@ async def agent_assignment_batch(
         idempotency_key=idempotency_key,
         holder=f"workflow:{ctx.run_id}:{ctx.node_id}:{ctx.attempt}",
         progress=report_progress,
+        node_ctx=ctx,
     )
     return success(result)

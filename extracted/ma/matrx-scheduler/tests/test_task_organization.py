@@ -22,7 +22,7 @@ async def test_task_and_trigger_carry_the_request_organization(client, fake_supa
     payload = {
         "kind": "agent",
         "title": "Morning digest",
-        "agent_task": {"agent_id": "agent-1", "prompt": "Summarize"},
+        "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "Summarize"},
         "trigger": _CRON,
     }
     async with client:
@@ -36,7 +36,7 @@ async def test_a_trigger_added_later_inherits_its_task_organization(client, fake
     async with client:
         res = await client.post(
             "/scheduler/tasks",
-            json={"kind": "agent", "title": "t", "agent_task": {"agent_id": "a", "prompt": "p"}},
+            json={"kind": "agent", "title": "t", "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "p"}},
         )
         assert res.status_code == 201, res.text
         task_id = res.json()["task"]["id"]
@@ -51,7 +51,7 @@ async def test_no_organization_is_held_at_the_one_door(no_org_client, fake_supab
     async with no_org_client:
         res = await no_org_client.post(
             "/scheduler/tasks",
-            json={"kind": "agent", "title": "t", "agent_task": {"agent_id": "a", "prompt": "p"}},
+            json={"kind": "agent", "title": "t", "agent_task": {"agent_id": "0d1a7e5c-1111-4a11-8a11-000000000001", "prompt": "p"}},
         )
     assert res.status_code == 400, res.text
     assert "organization_required" in res.text

@@ -635,6 +635,38 @@ def test_video_second_billing_reads_nested_provider_config(warm_pricing):
     assert usage.calculate_cost() == pytest.approx(3.2)
 
 
+def test_video_second_billing_reads_replicate_nested_input(warm_pricing):
+    """Replicate requests are ``{"ref", "input": {...}}``: the duration lives in ``input``.
+    Live 2026-11-10 (google/veo-3.1-fast on Replicate): billed as 1 s per clip and screamed."""
+    uc._pricing_lookup_cache["vid-model"] = ModelPricing(
+        "vid-model", "replicate",
+        [PricingTier(None, 0, 0.4, 0, usage_basis="video_second_output")],
+    )
+    gen = _MediaStub("replicate", "video")
+    cfg = UnifiedConfig(model="vid-model", messages=[])
+
+    usage = gen._build_usage(
+        cfg, {"ref": "google/veo-3.1-fast", "input": {"prompt": "x", "duration": 8}},
+        types.SimpleNamespace(), [GeneratedAsset(data=b"x")],
+    )
+
+    assert usage.output_tokens == 8 * 1_000_000
+    assert usage.calculate_cost() == pytest.approx(3.2)
+
+
+def test_megapixel_billing_reads_replicate_nested_input(warm_pricing):
+    uc._pricing_lookup_cache["mp-model"] = ModelPricing(
+        "mp-model", "replicate",
+        [PricingTier(None, 0, 0.03, 0, usage_basis="megapixel_output")],
+    )
+    gen = _MediaStub("replicate", "image")
+    usage = gen._build_usage(
+        _cfg("mp-model"), {"ref": "x/y", "input": {"width": 1024, "height": 1024}},
+        types.SimpleNamespace(), [GeneratedAsset(data=b"x")],
+    )
+    assert usage.output_tokens == 1024 * 1024
+
+
 @pytest.mark.asyncio
 async def test_missing_billing_unit_creates_structured_error(monkeypatch, warm_pricing):
     captured: list[dict[str, object]] = []

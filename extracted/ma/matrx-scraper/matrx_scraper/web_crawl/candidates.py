@@ -7,7 +7,7 @@ from typing import Any, Literal
 from urllib.parse import urljoin, urlparse
 
 from pydantic import BaseModel, Field
-from selectolax.parser import HTMLParser, Node
+from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 from matrx_scraper.clean_content import looks_like_address, street_addresses_in
 from matrx_scraper.events import PageSummary
@@ -350,7 +350,7 @@ def _schema_url(value: Any, base_url: str) -> str | None:
     return None
 
 
-def _int_attr(node: Node, name: str) -> int | None:
+def _int_attr(node: LexborNode, name: str) -> int | None:
     raw = (node.attributes.get(name) or "").strip().lower().removesuffix("px")
     try:
         return int(float(raw))
@@ -358,7 +358,7 @@ def _int_attr(node: Node, name: str) -> int | None:
         return None
 
 
-def _ancestor_is_header_or_nav(node: Node) -> bool:
+def _ancestor_is_header_or_nav(node: LexborNode) -> bool:
     parent = node.parent
     for _ in range(6):
         if parent is None:
@@ -381,7 +381,7 @@ _LOGO_WALL_DEPTH = 3
 _HEADER_CLASS_WORDS = ("header", "navbar", "nav-", "-nav", "masthead", "site-brand", "w-nav")
 
 
-def _in_site_header(node: Node) -> bool:
+def _in_site_header(node: LexborNode) -> bool:
     """The image sits in the site header / nav bar (a tag, or a container named like one)."""
     parent = node.parent
     for _ in range(8):
@@ -406,7 +406,7 @@ def names_social_icon(hints: str) -> bool:
     return bool(_SOCIAL_ICON_RE.search(hints.lower()))
 
 
-def is_logo_wall_image(node: Node) -> bool:
+def is_logo_wall_image(node: LexborNode) -> bool:
     """True when ``node`` (an ``img``) sits in a strip/grid of other brands' marks — a clients, partners, press or
     sponsors section — rather than being the site's own brand mark. Images in the site header/nav never are."""
     if _in_site_header(node):
@@ -446,7 +446,7 @@ def extract_homepage_candidates(
     base_url: str,
     summary: PageSummary,
 ) -> list[DiscoveredCandidate]:
-    tree = HTMLParser(html)
+    tree = LexborHTMLParser(html)
     candidates: list[DiscoveredCandidate] = []
 
     def add(

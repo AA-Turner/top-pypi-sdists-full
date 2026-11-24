@@ -20,6 +20,13 @@ The funnel is process-wide. Its callers today:
 - `aidream/services/cloud_browser/tools.py::cloud_browser` (action=screenshot) — the
   server-side tool (host-registered; matrx-ai has no in-package browser tools).
 
+A second accepted shape is the ALREADY-PERSISTED image: a dict with an
+``image/*`` ``media_type`` (or ``mime_type``), NO ``*_base64`` blob, and a
+non-empty string ``file_id`` — the producer (the Chrome extension's
+``computer`` screenshot) saved the picture itself. It is rewritten to the same
+``image_ref`` shape WITHOUT re-uploading (``is_persisted_image_output``); signed
+urls are stripped because they die, the ``file_id`` is the identity.
+
 Every future image-producing tool inherits the behavior for free. AI image
 GENERATION is a separate path (`providers/base_media.py::_persist_asset`),
 which persists and emits an `ImageContent` block carrying the `file_id`.
@@ -32,6 +39,8 @@ import logging
 import re
 import uuid
 from typing import Any
+
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
 
 from matrx_ai._ext import get_ext, has_ext
 
@@ -90,6 +99,58 @@ def is_image_shaped_output(output: Any) -> bool:
     return any(k in output for k in _IMAGE_BASE64_KEYS)
 
 
+def _persisted_image_file_id(output: Any) -> str | None:
+    if not isinstance(output, dict):
+        return None
+    media_type = output.get("media_type") or output.get("mime_type") or ""
+    if not isinstance(media_type, str) or not media_type.lower().startswith("image/"):
+        return None
+    if any(k in output for k in _IMAGE_BASE64_KEYS):
+        return None
+    file_id = output.get("file_id")
+    if isinstance(file_id, str) and file_id.strip():
+        return file_id.strip()
+    return None
+
+
+def is_persisted_image_output(output: Any) -> bool:
+    """True iff ``output`` is an image the producer already saved to cloud storage.
+
+    A dict with an ``image/*`` ``media_type``/``mime_type``, no ``*_base64``
+    blob, and a non-empty string ``file_id`` (also true for a nested ``image``
+    envelope of that shape). An output already ``kind == "image_ref"`` is not.
+    """
+    if not isinstance(output, dict) or output.get("kind") == "image_ref":
+        return False
+    nested = output.get("image")
+    if isinstance(nested, dict) and is_persisted_image_output(nested):
+        return True
+    return _persisted_image_file_id(output) is not None
+
+
+def rewrite_persisted_image(output: dict) -> dict:
+    """Rewrite a persisted-image dict to ``image_ref`` with no upload."""
+    file_id = _persisted_image_file_id(output)
+    if file_id is None:
+        return output
+    media_type = output.get("media_type") or output.get("mime_type")
+    rewritten: dict[str, Any] = {
+        k: v for k, v in output.items() if k not in _STRIP_ON_REWRITE
+    }
+    rewritten.pop("file_url", None)
+    rewritten["kind"] = "image_ref"
+    rewritten["media_type"] = media_type
+    rewritten["media_ref"] = {"file_id": file_id, "vision_class": None}
+    rewritten["file_id"] = file_id
+    if "width" in output and "source_width" not in rewritten:
+        rewritten["source_width"] = output["width"]
+    if "height" in output and "source_height" not in rewritten:
+        rewritten["source_height"] = output["height"]
+    if "size_bytes" not in rewritten and isinstance(output.get("byte_length"), int):
+        rewritten["size_bytes"] = output["byte_length"]
+    return rewritten
+
+
 def _extract_image_blob(output: dict) -> tuple[str, bytes] | None:
     """Pull out the first base64 image blob — returns (mime_type, bytes).
 
@@ -136,7 +197,7 @@ async def upload_image_master(
     output: dict,
     *,
     tool_name: str = "",
-    folder: str = "tool-images",
+    folder: str | None = None,
 ) -> dict:
     """Upload an image-shaped tool output's master to cloud storage.
 
@@ -196,6 +257,13 @@ async def upload_image_master(
     # A caller that knows what the picture IS names it ("Binary cards screenshot.png");
     # everything else keeps the anonymous master name. The name is the file's name
     # everywhere it is shown (chips, Files), so it is never left as "master.png".
+    # Placement registry: the master files through pathway ``agent.tool_image``, under its folder
+    # (``system-files/tool-images``) unless a caller names another System folder.
+    from matrx_files.placement import pathway_base_folder
+
+    from matrx_ai.tools.file_pathways import TOOL_IMAGE_PATHWAY
+
+    folder = folder or pathway_base_folder(TOOL_IMAGE_PATHWAY)
     file_path = f"{folder}/{master_uuid}/{_master_stem(output.get('file_name'), ext)}.{ext}"
 
     try:
@@ -204,13 +272,14 @@ async def upload_image_master(
             blob_bytes,
             mime_type=mime_type,
             published_to_web=False,
-            shown_to="only_me",
+            shown_to=SHOWN_TO_TYPE_DEFAULT,
             change_summary=f"tool image master ({tool_name})" if tool_name else "tool image master",
             metadata={
                 "source": "tool_image_master",
                 "tool_name": tool_name,
                 "media_type": mime_type,
             },
+            pathway=TOOL_IMAGE_PATHWAY,
         )
     except Exception as exc:
         logger.warning(
@@ -229,20 +298,89 @@ async def upload_image_master(
     return rewritten
 
 
+def _picture_file_id(item: Any) -> str | None:
+    if not isinstance(item, dict):
+        return None
+    media_type = item.get("media_type") or item.get("mime_type") or ""
+    if not isinstance(media_type, str) or not media_type.lower().startswith("image/"):
+        return None
+    if any(k in item for k in _IMAGE_BASE64_KEYS):
+        return None
+    ref = item.get("media_ref")
+    for candidate in (item.get("file_id"), ref.get("file_id") if isinstance(ref, dict) else None):
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+    return None
+
+
+def has_picture_list(output: Any) -> bool:
+    """True iff ``output`` carries ``pictures``: a list holding at least one image the producer
+    already saved (``image/*`` media type, a ``file_id``, no base64). The Chrome extension's
+    automatic pictures after a navigation or a visible change (one per changing batch step)."""
+    if not isinstance(output, dict):
+        return False
+    pictures = output.get("pictures")
+    return isinstance(pictures, list) and any(_picture_file_id(p) for p in pictures)
+
+
+def rewrite_picture_list(output: dict) -> dict:
+    """``{..., pictures: [...]}`` → ``image_ref_list``: one ``image_ref`` per saved picture, in order,
+    each keeping its ``label`` and ``auto`` flag; signed urls dropped (the ``file_id`` is the
+    identity); the rest of the tool's output rides as ``details`` so the model reads both."""
+    items: list[dict[str, Any]] = []
+    for pic in output.get("pictures") or []:
+        file_id = _picture_file_id(pic)
+        if file_id is None:
+            continue
+        item: dict[str, Any] = {
+            "kind": "image_ref",
+            "media_ref": {"file_id": file_id, "vision_class": None},
+            "file_id": file_id,
+            "media_type": pic.get("media_type") or pic.get("mime_type"),
+        }
+        for key in ("source_width", "source_height", "size_bytes", "label", "page_url"):
+            if pic.get(key) is not None:
+                item[key] = pic[key]
+        if "source_width" not in item and pic.get("width") is not None:
+            item["source_width"] = pic["width"]
+        if "source_height" not in item and pic.get("height") is not None:
+            item["source_height"] = pic["height"]
+        if pic.get("auto") is True:
+            item["auto"] = True
+        items.append(item)
+    details = {k: v for k, v in output.items() if k != "pictures"}
+    return {"kind": "image_ref_list", "items": items, "count": len(items), "details": details}
+
+
 async def normalize_tool_output_async(output: Any, *, tool_name: str = "") -> Any:
     """Top-level entry: detect image-shaped dicts and rewrite to ``image_ref``.
 
     Accepts any tool ``output`` value. When it isn't an image-shaped dict,
     returns the input unchanged. When it is, returns a new dict with the
     base64 stripped and a ``media_ref`` key pointing at the cloud master.
+    An output carrying ``pictures`` (several saved images) becomes an
+    ``image_ref_list`` (``rewrite_picture_list``).
 
     Idempotent: a dict whose ``kind`` is already ``"image_ref"`` is
     returned unchanged.
     """
     if isinstance(output, dict) and output.get("kind") == "image_ref":
         return output
+    if has_picture_list(output):
+        return rewrite_picture_list(output)
     if not is_image_shaped_output(output):
-        return output
+        if not is_persisted_image_output(output):
+            return output
+        nested = output.get("image")
+        if isinstance(nested, dict) and is_persisted_image_output(nested):
+            rewritten = rewrite_persisted_image(nested)
+            for key in ("text", "output"):
+                if isinstance(output.get(key), str) and output[key]:
+                    rewritten["text"] = output[key]
+            if isinstance(output.get("metadata"), dict):
+                rewritten["metadata"] = output["metadata"]
+            return rewritten
+        return rewrite_persisted_image(output)
     nested = output.get("image") if isinstance(output, dict) else None
     if isinstance(nested, dict) and is_image_shaped_output(nested):
         rewritten = await upload_image_master(nested, tool_name=tool_name)
@@ -274,7 +412,7 @@ async def upload_image_masters(
     items: list[dict],
     *,
     tool_name: str = "",
-    folder: str = "tool-images",
+    folder: str | None = None,
 ) -> dict:
     """Multi-image sibling of ``upload_image_master`` — for a tool call that
     produces several screenshots/images in one result (e.g. multi-viewport
@@ -307,7 +445,11 @@ def is_image_ref_list_output(output: Any) -> bool:
 
 
 __all__ = [
+    "has_picture_list",
+    "rewrite_picture_list",
     "is_image_shaped_output",
+    "is_persisted_image_output",
+    "rewrite_persisted_image",
     "is_image_ref_output",
     "is_image_ref_list_output",
     "upload_image_master",

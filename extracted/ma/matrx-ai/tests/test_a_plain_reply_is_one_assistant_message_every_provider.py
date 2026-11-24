@@ -13,7 +13,6 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace as NS
 
-from matrx_ai.config.message_config import ThinkingContent, TextContent
 
 
 def _kinds(msgs):

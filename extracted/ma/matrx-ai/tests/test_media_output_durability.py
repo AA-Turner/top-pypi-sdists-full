@@ -37,7 +37,7 @@ SIGNED_V2 = (
     f"https://matrx-user-files.s3.amazonaws.com/{OWNER}/{FILE_ID}"
     "?response-content-disposition=inline%3B%20filename%3D%22x.png%22"
     "&response-content-type=image%2Fpng"
-    "&AWSAccessKeyId=AKIA4WJPWQC7PVFDDC42&Signature=RpqmXw%3D&Expires=1786485620"
+    "&AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Signature=RpqmXw%3D&Expires=1786485620"
 )
 SIGNED_V4 = (
     f"https://matrx-user-files.s3.amazonaws.com/{OWNER}/{FILE_ID}"

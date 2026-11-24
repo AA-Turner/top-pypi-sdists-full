@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from ....values import values as _coerce
 from ....values.times import to_iso_time
 from ....values.run_type import to_run_type
+from ....values.total_steps import to_total_steps
 from .....generated.models import (
     RunBundle,
     RunCountsOut,
@@ -166,6 +167,7 @@ class RunsMixin:
         workspace: str | None = None,
         started_at: str | datetime | None = None,
         run_type: str | None = None,
+        total_steps: int | None = None,
         **run_kw,
     ) -> Run:
         """Open a run — full resolution/creation/``on_conflict`` semantics in
@@ -175,8 +177,10 @@ class RunsMixin:
         none set files into your home workspace, and raises ``WorkspaceRequired``
         before anything is created when you have none. ``started_at`` (ISO 8601 with an
         offset, or an aware datetime) is a re-logged past run's real start; close it with
-        ``run.set_status(status, ended_at=...)``. ``run_type="rl"`` declares an RL training or agent-eval
-        run (RL tabs and Trials); omitted, the run reads ``general`` until RL data marks it. ``hw=True`` (or ``PROBE_HW=1``) also
+        ``run.set_status(status, ended_at=...)``. ``run_type`` says what the run is: ``"sft"`` for supervised
+        fine-tuning, ``"rl"`` for RL training or an agent eval (RL tabs and Trials), ``"general"`` for anything else;
+        omitted, the run reads ``general`` until RL data marks it. ``total_steps`` is the step the run is set to end
+        at (its progress reads ``current/total``); a trainer integration fills it when it knows its own count. ``hw=True`` (or ``PROBE_HW=1``) also
         starts the opt-in hardware collector when this process is the
         node-local leader. Best-effort by contract: a broken collector never
         touches the run (agent/src/probe/sdk/hardware/DESIGN.md). ``snapshot``
@@ -234,6 +238,8 @@ class RunsMixin:
         if run_type is not None:
             # Checked before any request, so a typo creates no project either.
             run_kw["run_type"] = to_run_type(run_type)
+        if total_steps is not None:
+            run_kw["total_steps"] = to_total_steps(total_steps)
         if ignore is not None:
             # Checked before the run exists, so a bad value opens nothing.
             from ....recording_rules import recording_rules as _ignore

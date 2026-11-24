@@ -71,8 +71,12 @@ def required_node_types(definition: Definition) -> list[str]:
     from matrx_graph.executor.registry import canonical_spec_type
     from matrx_graph.validation import REMOVED_NODE_TYPES
 
+    from matrx_graph.information import executable_node_types
+
     types: set[str] = set()
-    for node in definition.nodes:
+    # An information node never runs, so no worker needs its type (a note must not make a job
+    # unclaimable by a worker that predates info.* types).
+    for node in executable_node_types(definition):
         spec_type = str(node.spec_type or "")
         if not spec_type or spec_type in REMOVED_NODE_TYPES:
             continue

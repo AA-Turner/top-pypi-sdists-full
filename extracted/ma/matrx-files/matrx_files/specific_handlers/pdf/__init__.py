@@ -93,7 +93,11 @@ from .redact import (
 from .extract.ocr import ocr_image_bytes, ocr_pymupdf_page
 from .extract.tables import extract_tables, extract_tables_async
 from .extract.text import (
+    BlankPageTest,
+    PdfHasNoPagesError,
+    page_ink_ppm,
     PdfPageRangeError,
+    PdfPagesMissingError,
     resolve_page_range,
     extract_text_from_bytes_sync,
     extract_text_from_image_bytes,
@@ -359,10 +363,14 @@ __all__ = [
     "extract_reading_order",
     "extract_reading_order_async",
     "extract_reading_order_stream",
+    "BlankPageTest",
+    "page_ink_ppm",
     "extract_text_pages",
     "extract_text_pages_async",
     "extract_text_pages_stream",
+    "PdfHasNoPagesError",
     "PdfPageRangeError",
+    "PdfPagesMissingError",
     "resolve_page_range",
     "extract_text_pages_from_bytes",
     "extract_text_pages_from_bytes_async",

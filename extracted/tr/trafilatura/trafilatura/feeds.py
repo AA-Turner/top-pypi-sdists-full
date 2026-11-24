@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from configparser import ConfigParser
+from html import unescape
 from itertools import islice
 from time import sleep
 
@@ -20,7 +21,7 @@ from courlan import (
 from .deduplication import is_similar_domain
 from .downloads import fetch_url
 from .settings import DEFAULT_CONFIG, MAX_FEEDS_CHECKED, MAX_LINKS
-from .utils import load_html, safe_relative_url
+from .utils import document_base_url, load_html, safe_relative_url
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,12 +50,15 @@ FEED_TYPES = {
 }
 
 FEED_OPENING = re.compile(r"<(feed|rss|\?xml)")
+CHAR_REF = re.compile(r"&#?\w+;")
+RSS_ROOT = re.compile(r"<(?:rss|(?:\w+:)?RDF)\b")
+FEED_ITEM = re.compile(r"<(?:[\w.-]+:)?(?:item|entry)\b")
 
 LINK_ATTRS = re.compile(r"""<link\s+(?:[^>"']|"[^"]*"|'[^']*')*["']?/?>""")
 LINK_ATTRIBUTES = re.compile(r"""\s([\w:-]+)\s*=\s*(["'])(.*?)\2""", re.DOTALL)
 LINK_ELEMENTS = re.compile(r"<link>(?:\s*)(?:<!\[CDATA\[)?(.+?)(?:\]\]>)?(?:\s*)</link>", re.DOTALL)
 
-BLACKLIST = re.compile(r"\bcomments\b")  # no comment feed
+BLACKLIST = re.compile(r"\bcomments\b|/wp-json/|[?&]rest_route=")  # no comment feed, no WordPress REST API
 
 LINK_VALIDATION_RE = re.compile(
     r"\.(?:atom|rdf|rss|xml)$|"
@@ -88,10 +92,26 @@ class FeedParameters:
 
 def is_potential_feed(feed_string: str) -> bool:
     "Check if the string could be a feed."
-    if FEED_OPENING.match(feed_string):
+    if FEED_OPENING.match(feed_string) or has_rss_root(feed_string):
         return True
     beginning = feed_string[:100]
     return "<rss" in beginning or "<feed" in beginning
+
+
+def has_rss_root(feed_string: str) -> bool:
+    "Check if the root element, after the XML declaration, comments and doctype, is an RSS one."
+    # a linear scan: a regex with nested repetitions can backtrack exponentially
+    pos, length = 0, len(feed_string)
+    while True:
+        while pos < length and (feed_string[pos].isspace() or feed_string[pos] == "\ufeff"):
+            pos += 1
+        if not feed_string.startswith(("<?", "<!"), pos):
+            return RSS_ROOT.match(feed_string, pos) is not None
+        closing = "-->" if feed_string.startswith("<!--", pos) else ">"
+        end = feed_string.find(closing, pos)
+        if end == -1:
+            return False
+        pos = end + len(closing)
 
 
 def handle_link_list(linklist: list[str], params: FeedParameters) -> list[str]:
@@ -141,18 +161,30 @@ def find_links(feed_string: str, params: FeedParameters) -> list[str]:
             LOGGER.debug("Possibly invalid feed: %s", params.domain)
         return []
 
+    # skip the links of the feed itself
+    first_item = FEED_ITEM.search(feed_string)
+    start = first_item.start() if first_item else 0
+
+    # RSS first when the root says so: the HTML of its items can contain <link .../> tags
+    if "<link>" in feed_string and has_rss_root(feed_string):
+        return [m[1].strip() for m in islice(LINK_ELEMENTS.finditer(feed_string, start), MAX_LINKS)]
+
     # Atom
     if LINK_ATTRS.search(feed_string):
         links = []
-        for match in islice(LINK_ATTRS.finditer(feed_string), MAX_LINKS):
+        for match in islice(LINK_ATTRS.finditer(feed_string, start), MAX_LINKS):
             attributes = {attr[1]: attr[3] for attr in LINK_ATTRIBUTES.finditer(match[0])}
-            if attributes.get("href") and attributes.get("rel") != "self" and "atom+xml" not in attributes.get("type", ""):
+            # only candidates for page links: e.g. rel="self" is the feed itself,
+            # rel="replies" is the comments link WordPress adds to every entry,
+            # link blogs put the external link in rel="alternate" and the post itself in rel="related"
+            rel = attributes.get("rel", "").strip().lower()
+            if attributes.get("href") and rel in ("", "alternate", "related") and "atom+xml" not in attributes.get("type", ""):
                 links.append(attributes["href"])
         return links
 
     # RSS
     if "<link>" in feed_string:
-        return [m[1].strip() for m in islice(LINK_ELEMENTS.finditer(feed_string), MAX_LINKS)]
+        return [m[1].strip() for m in islice(LINK_ELEMENTS.finditer(feed_string, start), MAX_LINKS)]
 
     return []
 
@@ -163,7 +195,7 @@ def extract_links(feed_string: str, params: FeedParameters) -> list[str]:
         LOGGER.debug("Empty feed: %s", params.domain)
         return []
 
-    feed_links = find_links(feed_string.strip(), params)
+    feed_links = [CHAR_REF.sub(lambda m: unescape(m[0]), link) for link in find_links(feed_string.strip(), params)]
 
     output_links = [link for link in handle_link_list(feed_links, params) if link != params.ref and link.count("/") > 2]
 
@@ -186,9 +218,13 @@ def determine_feed(htmlstring: str, params: FeedParameters) -> list[str]:
     # most common case + websites like geo.de
     feed_urls = [
         link.get("href", "")
-        for link in tree.xpath('//link[@rel="alternate"][@href]')
+        for link in tree.xpath("//link[@rel][@href]")
+        # rel is a case-insensitive list of space-separated keywords (e.g. "Alternate", "alternate feed")
+        if "alternate" in link.get("rel", "").lower().split()
         # normalize the type attribute (e.g. "application/rss+xml; charset=UTF-8")
-        if link.get("type", "").split(";")[0].strip().lower() in FEED_TYPES or LINK_VALIDATION_RE.search(link.get("href", ""))
+        and (
+            link.get("type", "").split(";")[0].strip().lower() in FEED_TYPES or LINK_VALIDATION_RE.search(link.get("href", ""))
+        )
     ]
 
     # backup
@@ -198,9 +234,10 @@ def determine_feed(htmlstring: str, params: FeedParameters) -> list[str]:
         ]
 
     # refine
+    base_url = document_base_url(tree, params.base) or params.base
     output_urls = []
     for link in dict.fromkeys(feed_urls):
-        link = safe_relative_url(params.base, link)
+        link = safe_relative_url(base_url, link)
         link = clean_url(link)
         if link and link != params.ref and is_valid_url(link) and not BLACKLIST.search(link):
             output_urls.append(link)
@@ -229,7 +266,7 @@ def find_feed_urls(
     url: str,
     target_lang: str | None = None,
     external: bool = False,
-    sleep_time: float = 2.0,
+    sleep_time: float | None = None,
     config: ConfigParser = DEFAULT_CONFIG,
 ) -> list[str]:
     """Try to find feed URLs.
@@ -241,7 +278,8 @@ def find_feed_urls(
                      (two-letter string, ISO 639-1 format).
         external: Similar hosts only or external URLs
                   (boolean, defaults to False).
-        sleep_time: Wait between requests on the same website.
+        sleep_time: Wait between requests on the same website
+                    (defaults to SLEEP_TIME in the config).
         config: Pass configuration values for download control.
 
     Returns:
@@ -253,7 +291,11 @@ def find_feed_urls(
         LOGGER.warning("Invalid URL: %s", url)
         return []
 
-    params = FeedParameters(baseurl, domain, url, external, target_lang)
+    if sleep_time is None:
+        sleep_time = config.getfloat("DEFAULT", "SLEEP_TIME")
+
+    # relative links are resolved against the page or feed URL
+    params = FeedParameters(url, domain, url, external, target_lang)
     urlfilter = None
     downloaded = fetch_url(url, config=config)
 
@@ -267,7 +309,8 @@ def find_feed_urls(
                     sleep(sleep_time)
                 feed_string = fetch_url(feed, config=config)
                 if feed_string:
-                    feed_links.extend(extract_links(feed_string, params))
+                    feed_params = FeedParameters(feed, domain, url, external, target_lang)
+                    feed_links.extend(extract_links(feed_string, feed_params))
             # filter triggered, prepare it
             if len(url) > len(baseurl) + 2:
                 urlfilter = url

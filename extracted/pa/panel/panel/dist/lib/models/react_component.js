@@ -80,7 +80,10 @@ export class ReactComponentView extends ReactiveESMView {
         return this.model.use_shadow_dom || !(this.parent instanceof ReactComponentView);
     }
     render_esm() {
-        if (this.model.compiled === null || this.model.render_module === null || this.container == null) {
+        // A removed view is never mounted and has already settled its promise in
+        // `remove()`, so a new one, e.g. from a parent re-rendering a stale child
+        // view, would block the root's `ready` for good.
+        if (this.is_destroyed || this.model.compiled === null || this.model.render_module === null || this.container == null) {
             return;
         }
         this._rendered = false;
@@ -642,6 +645,61 @@ function define_component(React, ErrorBoundary, createCache, CacheProvider) {
 function css_class_name(class_name) {
     return class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
+// A repeated model shares one view, whose element can only be mounted once.
+function unique_models(models) {
+    const seen = new Set();
+    return models.filter((model) => {
+        if (seen.has(model.id)) {
+            return false;
+        }
+        seen.add(model.id);
+        return true;
+    });
+}
+function model_value(model, attr) {
+    const prop = model.property(attr);
+    return prop.is_unset ? undefined : prop.get_value();
+}
+/**
+ * Binds a model property to React through `useSyncExternalStore`, so the
+ * model is the only source of truth: the setter writes to the model and every
+ * render reads the model's current value, including changes that landed
+ * before the subscription was registered.
+ */
+function use_model_state(React, react_proxy, prop, model, attr) {
+    const subscribe = React.useCallback((notify) => {
+        react_proxy.on(prop, notify, true);
+        return () => react_proxy.off(prop, notify);
+    }, [model, prop]);
+    const value = React.useSyncExternalStore(subscribe, () => model_value(model, attr));
+    const setValue = React.useCallback((update) => {
+        const current = model_value(model, attr);
+        const next = typeof update === "function" ? update(current) : update;
+        if (!Object.is(next, current)) {
+            model.setv({ [attr]: next });
+        }
+    }, [model, attr]);
+    return [value, setValue];
+}
+/**
+ * A param.Event is a trigger, not a value, so it is exposed as a local
+ * counter that increments each time the event fires and is never written
+ * back to the model.
+ */
+function use_event_state(React, react_proxy, prop, model, attr) {
+    const [count, setCount] = React.useState(() => model_value(model, attr));
+    React.useEffect(() => {
+        const cb = () => {
+            if (model_value(model, attr)) {
+                setCount((v) => v + 1);
+                model.setv({ [attr]: false });
+            }
+        };
+        react_proxy.on(prop, cb, true);
+        return () => react_proxy.off(prop, cb);
+    }, [model, prop]);
+    return [count, setCount];
+}
 function react_model_proxy(view, libs, Child) {
     const { React } = libs;
     const react_proxy = new Proxy(view, {
@@ -669,29 +727,10 @@ function react_model_proxy(view, libs, Child) {
                     if (model == null || model.attributes == null || !(attr in model.attributes)) {
                         throw ReferenceError(`Could not resolve ${prop} on ${target.model.class_name}`);
                     }
-                    const [value, setValue] = React.useState(model.attributes[attr]);
-                    React.useEffect(() => {
-                        const cb = () => {
-                            if (target.model.events.includes(attr)) {
-                                model.attributes[attr] && (setValue((v) => v + 1) || model.setv({ [attr]: false }));
-                            }
-                            else {
-                                setValue(model.attributes[attr]);
-                            }
-                        };
-                        react_proxy.on(prop, cb, true);
-                        return () => react_proxy.off(prop, cb);
-                    }, []);
-                    const initialized = React.useRef(false);
-                    React.useEffect(() => {
-                        if (!target.model.events.includes(attr) && initialized.current) {
-                            model.setv({ [attr]: value });
-                        }
-                        else {
-                            initialized.current = true;
-                        }
-                    }, [value]);
-                    return [value, setValue];
+                    if (target.model.events.includes(attr)) {
+                        return use_event_state(React, react_proxy, prop, model, attr);
+                    }
+                    return use_model_state(React, react_proxy, prop, model, attr);
                 };
             }
             else if (name === "get_child") {
@@ -701,12 +740,12 @@ function react_model_proxy(view, libs, Child) {
                     if (!isArray(value)) {
                         return React.createElement(Child, { parent: target, name: child });
                     }
-                    const [children_state, set_children] = React.useState(() => value.map((model) => React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id, model })));
+                    const [children_state, set_children] = React.useState(() => unique_models(value).map((model) => React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id, model })));
                     React.useEffect(() => {
                         // Compares against the latest state, not the closure's initial
                         // one, and catches lists that only shrank.
                         const cb = () => {
-                            const current_models = data_model.attributes[child];
+                            const current_models = unique_models(data_model.attributes[child]);
                             set_children((previous) => {
                                 if (previous.length === current_models.length &&
                                     current_models.every((model, i) => model.id === previous[i].props.id)) {

@@ -70,7 +70,7 @@ class _Model:
 def _doc(id, type_id, title, body="", fmt="markdown", **kw):
     return {
         "id": id, "created_by": OWNER, "organization_id": ORG, "document_type_id": type_id,
-        "title": title, "format": fmt, "body": body, "content_version": 3, "visibility": "internal",
+        "title": title, "format": fmt, "body": body, "content_version": 3, "published_to_web": False, "shown_to": None,
         "metadata": {}, "deleted_at": None, "archived_at": None, **kw,
     }
 
@@ -153,3 +153,15 @@ def test_the_document_kind_is_a_chunk_kind_with_a_kernel_read_lane():
 
     assert "document" in typing.get_args(sources.SourceKind)
     assert search._ROW_KERNEL_TOKENS["document"] == "document"
+
+
+@pytest.fixture(autouse=True)
+def _the_access_check_lets_the_reader_in(monkeypatch):
+    """Indexing follows ``iam.has_access_for`` (matrx_orm.platform_access_check), not ``created_by``;
+    the policy itself is proved in test_resolvers_follow_the_access_check.py."""
+    import matrx_orm
+
+    async def _allowed(actor, *_a, **_k):
+        return actor == OWNER
+
+    monkeypatch.setattr(matrx_orm, "platform_access_check", _allowed)

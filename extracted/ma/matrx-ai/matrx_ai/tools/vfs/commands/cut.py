@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from matrx_ai.tools.vfs.commands.base import CommandContext, encode, fail, ok, resolve_cwd
+from matrx_ai.tools.vfs.commands.base import CommandContext, encode, fail, resolve_cwd
 from matrx_ai.tools.vfs.commands.registry import register
 from matrx_ai.tools.vfs.shell.runner import CommandResult
 

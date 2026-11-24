@@ -48,6 +48,28 @@ TRIGGER_WATCHED_FIELDS: tuple[str, ...] = (
 # What a variable keeps from the COPY: the person's own binding (her tables).
 OWN_VARIABLE_KEYS: tuple[str, ...] = ("binding", "defaultValue")
 
+# The tools a copy was BORN with beyond its source's (``agent.duplicate_agent(..., p_add_tools)`` writes their ids here —
+# a template's assistant is born with ``records``). A following run keeps them beside the source's current tools; a
+# tool added by a later edit is an edit, and the copy no longer follows.
+KEPT_TOOLS_METADATA_KEY = "follows_source_keeps_tools"
+
+
+def kept_tools(copy: Any) -> list[str]:
+    metadata = getattr(copy, "metadata", None)
+    kept = metadata.get(KEPT_TOOLS_METADATA_KEY) if isinstance(metadata, dict) else None
+    return [str(t) for t in kept if t] if isinstance(kept, list) else []
+
+
+def followed_tools(source_tools: Any, copy: Any) -> list[Any]:
+    """The source's current tools, then each tool the copy was born with that the source lacks (order kept)."""
+    out = list(source_tools or [])
+    have = {str(t) for t in out}
+    for t in kept_tools(copy):
+        if t not in have:
+            out.append(t)
+            have.add(t)
+    return out
+
 
 def follows_its_source(row: Any) -> bool:
     return bool(getattr(row, "follows_source", False)) and bool(getattr(row, "source_agent_id", None))
@@ -88,6 +110,8 @@ class FollowedRow:
         )
 
     def __getattr__(self, name: str) -> Any:
+        if name == "tools":
+            return followed_tools(getattr(self._source, "tools", None), self._copy)
         if name in FOLLOWED_FIELDS:
             return getattr(self._source, name)
         return getattr(self._copy, name)
@@ -103,7 +127,9 @@ async def resolve_followed_row(row: Any, load_source: Callable[[str], Awaitable[
         return row
     source_id = str(row.source_agent_id)
     source = await load_source(source_id)
-    if source is None or getattr(source, "deleted_at", None) is not None:
+    # An archived source is still the source (One Archive: ``deleted_at`` means archived); only a
+    # source with no row leaves the copy on its own content.
+    if source is None:
         vcprint(
             {"agent_id": str(getattr(row, "id", "?")), "source_agent_id": source_id},
             "[follow_source] The source agent is gone — running the copy's own content",

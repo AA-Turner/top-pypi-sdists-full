@@ -1,6 +1,7 @@
 """Audio playback utility."""
 
 import io
+import shutil
 import subprocess
 from collections.abc import Iterable
 from typing import Union
@@ -10,11 +11,7 @@ from fishaudio.exceptions import DependencyError
 
 def _is_installed(command: str) -> bool:
     """Check if a command is available in PATH."""
-    try:
-        subprocess.run(["which", command], capture_output=True, check=True)
-        return True
-    except subprocess.CalledProcessError:
-        return False
+    return shutil.which(command) is not None
 
 
 def play(
@@ -94,7 +91,7 @@ def play(
     except ImportError:
         raise DependencyError(
             "sounddevice and soundfile",
-            "pip install 'fishaudio[utils]'  # or\npip install sounddevice soundfile",
+            "pip install 'fish-audio-sdk[utils]'  # or\npip install sounddevice soundfile",
         )
 
     # Load and play audio

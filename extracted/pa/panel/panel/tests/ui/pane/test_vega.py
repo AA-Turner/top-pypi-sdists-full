@@ -13,6 +13,7 @@ import pandas as pd
 
 from playwright.sync_api import expect
 
+from panel.layout import Column
 from panel.pane import Vega
 from panel.tests.util import serve_component, wait_until
 
@@ -175,3 +176,150 @@ def test_altair_select_agg(page, dataframe):
     page.mouse.click(bbox['x']+50, bbox['y']+10)
 
     wait_until(lambda: pane.selection.multi_bar_ref == [{'str': 'C'}, {'str': 'A'}], page)
+
+
+def test_vega_update_data_without_reembedding(page):
+    obj = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "mark": "bar",
+        "encoding": {
+            "x": {"field": "month", "type": "ordinal"},
+            "y": {"field": "revenue", "type": "quantitative"},
+        },
+        "data": {
+            "values": pd.DataFrame(
+                {"month": ["Jan", "Feb", "Mar"], "revenue": [100000, 125000, 150000]}
+            )
+        },
+    }
+    vega = Vega(obj)
+
+    serve_component(page, vega)
+
+    vega_plot = page.locator('.vega-embed')
+    wait_until(lambda: vega_plot.locator('path[aria-label*="Jan"]').count() > 0, page)
+
+    page.evaluate("""() => {
+      window.__embeds = 0
+      const embed = window.vegaEmbed
+      window.vegaEmbed = (...args) => { window.__embeds += 1; return embed(...args) }
+    }""")
+
+    new_values = pd.DataFrame({"month": ["Apr", "May", "Jun"], "revenue": [175000, 200000, 225000]})
+    vega.object = {**obj, "data": {"values": new_values}}
+    wait_until(lambda: vega_plot.locator('path[aria-label*="Apr"]').count() > 0, page)
+    wait_until(lambda: vega_plot.locator('path[aria-label*="Jan"]').count() == 0, page)
+    # The data is pushed into the existing view instead of recompiling the spec
+    assert page.evaluate("() => window.__embeds") == 0
+
+    vega.object = {**obj, "mark": "point", "data": {"values": new_values}}
+    wait_until(lambda: page.evaluate("() => window.__embeds") == 1, page)
+    wait_until(lambda: vega_plot.locator('path[aria-label*="Apr"]').count() > 0, page)
+
+
+def _bar_spec(renderer, **size):
+    return {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "mark": "bar",
+        "encoding": {
+            "x": {"field": "x", "type": "ordinal"},
+            "y": {"field": "y", "type": "quantitative"},
+        },
+        "data": {"values": [{"x": "A", "y": 5}, {"x": "B", "y": 3}]},
+        "usermeta": {"embedOptions": {"renderer": renderer}},
+        **size,
+    }
+
+
+def _css_sized_column(vega, height):
+    # The height comes from a CSS variable on the document, so changing it
+    # resizes the column without going through Bokeh's layout, like a
+    # splitter or a docked panel does.
+    return Column(
+        vega, width=400,
+        stylesheets=[f':host {{ height: var(--vega-test-height, {height}) !important; }}']
+    )
+
+
+def _set_css_height(page, height):
+    page.evaluate(f"() => document.documentElement.style.setProperty('--vega-test-height', '{height}')")
+
+
+def _chart(page, renderer):
+    return page.locator(f'.vega-embed {renderer}.marks')
+
+
+def _chart_size(page, renderer):
+    bbox = _chart(page, renderer).bounding_box()
+    return bbox['width'], bbox['height']
+
+
+def _fills_container(page, renderer, height=None):
+    width, chart_height = _chart_size(page, renderer)
+    bbox = page.locator('.vega-embed').bounding_box()
+    if height is not None and abs(bbox['height'] - height) > 2:
+        return False
+    return chart_height > 0 and abs(width - bbox['width']) <= 2 and abs(chart_height - bbox['height']) <= 2
+
+
+# Vertical space taken by the pane's margin and the vega-embed padding
+MARGIN = 20
+
+
+@pytest.mark.parametrize('renderer', ['canvas', 'svg'])
+def test_vega_container_size_follows_css_resize(page, renderer):
+    vega = Vega(_bar_spec(renderer, width="container", height="container"))
+
+    serve_component(page, _css_sized_column(vega, '200px'))
+
+    expect(_chart(page, renderer)).to_have_count(1)
+    wait_until(lambda: _fills_container(page, renderer, 200 - MARGIN), page)
+
+    for height in (400, 250, 350):
+        _set_css_height(page, f'{height}px')
+        wait_until(lambda h=height: _fills_container(page, renderer, h - MARGIN), page)
+
+
+@pytest.mark.parametrize('renderer', ['canvas', 'svg'])
+def test_vega_container_size_embedded_at_zero_height(page, renderer):
+    vega = Vega(_bar_spec(renderer, width="container", height="container"))
+
+    serve_component(page, _css_sized_column(vega, '0px'))
+
+    expect(_chart(page, renderer)).to_have_count(1)
+    page.wait_for_timeout(200)
+
+    for height in (300, 200):
+        _set_css_height(page, f'{height}px')
+        wait_until(lambda h=height: _fills_container(page, renderer, h - MARGIN), page)
+
+
+@pytest.mark.parametrize('renderer', ['canvas', 'svg'])
+def test_vega_container_size_follows_layout_resize(page, renderer):
+    vega = Vega(_bar_spec(renderer, width="container", height="container"))
+    col = Column(vega, width=400, height=200)
+
+    serve_component(page, col)
+
+    expect(_chart(page, renderer)).to_have_count(1)
+    wait_until(lambda: _fills_container(page, renderer, 200 - MARGIN), page)
+
+    for height in (400, 300):
+        col.height = height
+        wait_until(lambda h=height: _fills_container(page, renderer, h - MARGIN), page)
+
+
+@pytest.mark.parametrize('renderer', ['canvas', 'svg'])
+def test_vega_fixed_size_ignores_container_resize(page, renderer):
+    vega = Vega(_bar_spec(renderer, width=200, height=150))
+
+    serve_component(page, _css_sized_column(vega, '300px'))
+
+    expect(_chart(page, renderer)).to_have_count(1)
+    page.wait_for_timeout(200)
+    initial = _chart_size(page, renderer)
+
+    _set_css_height(page, '500px')
+    page.wait_for_timeout(500)
+
+    assert _chart_size(page, renderer) == initial

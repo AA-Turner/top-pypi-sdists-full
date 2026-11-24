@@ -138,7 +138,7 @@ static std::tuple<BitArray, int, double> CorrectBits(const DetectorResult& ddata
 	int numECCodewords = numCodewords - numDataCodewords;
 
 	if (numCodewords < numDataCodewords)
-		throw FormatError("Invalid number of code words");
+		throw FormatError("Invalid number of codewords");
 
 	auto dataWords = ToInts<int>(rawbits, codewordSize, numCodewords, Size(rawbits) % codewordSize);
 	auto uec = ReedSolomonDecode(GF2nAztec(codewordSize), dataWords, numECCodewords);
@@ -209,7 +209,12 @@ static ECI ParseECIValue(BitArrayView& bits, const int flg)
 {
 	int eci = 0;
 	for (int i = 0; i < flg; i++)
-		eci = 10 * eci + bits.readBits(4) - 2;
+	{
+		int digit = bits.readBits(4) - 2; // ECI digits use the DIGIT_TABLE 2...11 -> '0'..'9'
+		if (digit < 0 || digit > 9)
+			throw FormatError("Invalid ECI digit");
+		eci = 10 * eci + digit;
+	}
 	return ECI(eci);
 }
 
@@ -308,6 +313,8 @@ DecoderResult Decode(const BitArray& bits)
 		DecodeContent(bits, res, haveFNC1);
 	} catch (std::out_of_range&) { // see BitArrayView::readBits
 		return FormatError("Truncated bit stream");
+	} catch (const Error& e) { // invalid ECI value
+		return e;
 	}
 
 	if (res.bytes.empty())
@@ -356,7 +363,7 @@ DecoderResult DecodeRune(const DetectorResult& detectorResult) {
 	auto runeString = ToString(detectorResult.runeValue(), 3);
 	res.append(runeString);
 
-	return DecoderResult(std::move(res));
+	return DecoderResult(std::move(res)).addExtra(BarcodeExtra::UEC, *detectorResult.uec(), -1.0);
 }
 
 DecoderResult Decode(const DetectorResult& detectorResult)

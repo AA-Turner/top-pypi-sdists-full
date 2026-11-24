@@ -31,6 +31,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 from matrx_scraper.source_landing import SourceLandingFailed
 
@@ -131,7 +132,7 @@ def make_http_landing_hook(
                 remedy=_NOT_CONFIGURED_REMEDY,
             )
         try:
-            async with httpx.AsyncClient(timeout=LANDING_TIMEOUT_SECONDS) as http:
+            async with shared_client(timeout=LANDING_TIMEOUT_SECONDS) as http:
                 response = await http.post(url, json=landing, headers=headers)
                 if response.status_code == 401 and jwt and bridge_token:
                     # A long-running producer (a site crawl runs for hours) outlives the login it

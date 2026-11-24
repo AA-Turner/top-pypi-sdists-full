@@ -8,9 +8,69 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from lightrag.base import DeletionResult
+from lightrag.exceptions import (
+    AdminWriteHoldExceededError,
+    PipelineReservationConflictError,
+)
 from lightrag.utils import logger
+from lightrag.utils_graph import resolve_entity_name_for_lookup
 from ..utils_api import get_combined_auth_dependency, internal_server_error
 from .document_routes import check_pipeline_busy_or_raise
+
+
+def _gate_refusal_to_http(exc: PipelineReservationConflictError) -> HTTPException:
+    """Map a core-level admin-write gate refusal to the HTTP status it means.
+
+    ``LightRAG._admin_write_gate`` raises
+    ``AdminWriteGateRefusedError`` -- a ``PipelineReservationConflictError`` --
+    when an admin write cannot proceed: another admin write held the workspace
+    admin lock past its acquire timeout, or the pipeline holds ``busy`` /
+    ``scanning``. Both are bounded windows the client should retry (409), told
+    apart by the stable leading phrase of the ``detail`` text
+    (``ADMIN_WRITE_LOCK_BUSY_PREFIX`` vs ``ADMIN_WRITE_PIPELINE_BUSY_PREFIX`` in
+    ``lightrag.exceptions``); a workspace fenced for recovery is 503, as in
+    ``check_pipeline_busy_or_raise``. The message is the gate's own wording,
+    which names no internal paths or hosts.
+    """
+    return HTTPException(
+        status_code=503 if exc.recovery_required else 409, detail=str(exc)
+    )
+
+
+def _hold_exceeded_to_http(
+    exc: AdminWriteHoldExceededError, context: str
+) -> HTTPException:
+    """Map the admin-write hold ceiling's expiry to an ACTIONABLE HTTP 500.
+
+    ``AdminWriteHoldExceededError`` is a ``TimeoutError``, so it is not a
+    ``PipelineReservationConflictError`` and the generic ``except Exception``
+    below would otherwise route it through ``internal_server_error`` -- whose
+    body is a generic message plus a correlation id, by design. That would drop
+    the one thing the caller has to act on: whether the storage commit was
+    allowed to finish, and that the object must be re-read before the edit is
+    retried. A client does not read server logs, so a blind retry into "entity
+    already exists" or a re-applied edit is exactly what it would do next.
+
+    500, not 503 or 504: the operation failed loud, and a
+    retry-suggesting status is the wrong signal for a write that may already be
+    durable.
+
+    Exposing the message is safe and is not the CWE-209 case
+    ``internal_server_error`` guards: this text is entirely self-authored --
+    the operation name, the ceiling in seconds, the environment variable that
+    sets it, and what to do next -- and names no host, path, credential or
+    query. The 400 and 409 paths in this module already pass self-authored
+    messages through the same way. The full exception is still logged
+    server-side by the caller.
+    """
+    logger.error(f"Admin-write hold ceiling exceeded {context}: {exc}")
+    return HTTPException(status_code=500, detail=str(exc))
+
+
+def _failed_deletion_status(result: DeletionResult) -> int:
+    """HTTP status for a ``fail`` deletion: 400 when it was refused on its
+    arguments (the helper says so through ``status_code``), else 500."""
+    return 400 if result.status_code == 400 else 500
 
 
 def _require_nonempty_entity_name(entity_name: str) -> str:
@@ -278,7 +338,12 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             Dict[str, bool]: Dictionary with 'exists' key indicating if entity exists
         """
         try:
-            exists = await rag.chunk_entity_relation_graph.has_node(name)
+            # Same resolution as the write paths, so a name POST /graph/entity/create
+            # accepted reports as existing.
+            resolved = await resolve_entity_name_for_lookup(
+                rag.chunk_entity_relation_graph, name
+            )
+            exists = await rag.chunk_entity_relation_graph.has_node(resolved)
             return {"exists": exists}
         except Exception as e:
             logger.error(f"Error checking entity existence for '{name}': {str(e)}")
@@ -469,6 +534,12 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             }
         except HTTPException:
             raise
+        except PipelineReservationConflictError as gate_refusal:
+            raise _gate_refusal_to_http(gate_refusal)
+        except AdminWriteHoldExceededError as hold_exceeded:
+            raise _hold_exceeded_to_http(
+                hold_exceeded, f"updating entity '{request.entity_name}'"
+            )
         except ValueError as ve:
             logger.error(
                 f"Validation error updating entity '{request.entity_name}': {str(ve)}"
@@ -510,6 +581,16 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             }
         except HTTPException:
             raise
+        except PipelineReservationConflictError as gate_refusal:
+            raise _gate_refusal_to_http(gate_refusal)
+        except AdminWriteHoldExceededError as hold_exceeded:
+            raise _hold_exceeded_to_http(
+                hold_exceeded,
+                (
+                    f"updating relation between '{request.source_id}' and "
+                    f"'{request.target_id}'"
+                ),
+            )
         except ValueError as ve:
             logger.error(
                 f"Validation error updating relation between '{request.source_id}' and '{request.target_id}': {str(ve)}"
@@ -587,6 +668,12 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             }
         except HTTPException:
             raise
+        except PipelineReservationConflictError as gate_refusal:
+            raise _gate_refusal_to_http(gate_refusal)
+        except AdminWriteHoldExceededError as hold_exceeded:
+            raise _hold_exceeded_to_http(
+                hold_exceeded, f"creating entity '{request.entity_name}'"
+            )
         except ValueError as ve:
             logger.error(
                 f"Validation error creating entity '{request.entity_name}': {str(ve)}"
@@ -679,6 +766,16 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             }
         except HTTPException:
             raise
+        except PipelineReservationConflictError as gate_refusal:
+            raise _gate_refusal_to_http(gate_refusal)
+        except AdminWriteHoldExceededError as hold_exceeded:
+            raise _hold_exceeded_to_http(
+                hold_exceeded,
+                (
+                    f"creating relation between '{request.source_entity}' and "
+                    f"'{request.target_entity}'"
+                ),
+            )
         except ValueError as ve:
             logger.error(
                 f"Validation error creating relation between '{request.source_entity}' and '{request.target_entity}': {str(ve)}"
@@ -765,6 +862,16 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             }
         except HTTPException:
             raise
+        except PipelineReservationConflictError as gate_refusal:
+            raise _gate_refusal_to_http(gate_refusal)
+        except AdminWriteHoldExceededError as hold_exceeded:
+            raise _hold_exceeded_to_http(
+                hold_exceeded,
+                (
+                    f"merging entities {request.entities_to_change} into "
+                    f"'{request.entity_to_change_into}'"
+                ),
+            )
         except ValueError as ve:
             logger.error(
                 f"Validation error merging entities {request.entities_to_change} into '{request.entity_to_change_into}': {str(ve)}"
@@ -793,7 +900,8 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             DeletionResult: An object containing the outcome of the deletion process.
 
         Raises:
-            HTTPException: If the entity is not found (404) or an error occurs (500).
+            HTTPException: If the entity is not found (404), an entity name
+                cannot address any entity (400), or an error occurs (500).
         """
         try:
             await check_pipeline_busy_or_raise(rag)
@@ -801,12 +909,20 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             if result.status == "not_found":
                 raise HTTPException(status_code=404, detail=result.message)
             if result.status == "fail":
-                raise HTTPException(status_code=500, detail=result.message)
+                raise HTTPException(
+                    status_code=_failed_deletion_status(result), detail=result.message
+                )
             # Set doc_id to empty string since this is an entity operation, not document
             result.doc_id = ""
             return result
         except HTTPException:
             raise
+        except PipelineReservationConflictError as gate_refusal:
+            raise _gate_refusal_to_http(gate_refusal)
+        except AdminWriteHoldExceededError as hold_exceeded:
+            raise _hold_exceeded_to_http(
+                hold_exceeded, f"deleting entity '{request.entity_name}'"
+            )
         except Exception as e:
             error_msg = f"Error deleting entity '{request.entity_name}': {str(e)}"
             logger.error(error_msg)
@@ -829,7 +945,8 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             DeletionResult: An object containing the outcome of the deletion process.
 
         Raises:
-            HTTPException: If the relation is not found (404) or an error occurs (500).
+            HTTPException: If the relation is not found (404), an entity name
+                cannot address any entity (400), or an error occurs (500).
         """
         try:
             await check_pipeline_busy_or_raise(rag)
@@ -840,12 +957,24 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             if result.status == "not_found":
                 raise HTTPException(status_code=404, detail=result.message)
             if result.status == "fail":
-                raise HTTPException(status_code=500, detail=result.message)
+                raise HTTPException(
+                    status_code=_failed_deletion_status(result), detail=result.message
+                )
             # Set doc_id to empty string since this is a relation operation, not document
             result.doc_id = ""
             return result
         except HTTPException:
             raise
+        except PipelineReservationConflictError as gate_refusal:
+            raise _gate_refusal_to_http(gate_refusal)
+        except AdminWriteHoldExceededError as hold_exceeded:
+            raise _hold_exceeded_to_http(
+                hold_exceeded,
+                (
+                    f"deleting relation from '{request.source_entity}' to "
+                    f"'{request.target_entity}'"
+                ),
+            )
         except Exception as e:
             error_msg = f"Error deleting relation from '{request.source_entity}' to '{request.target_entity}': {str(e)}"
             logger.error(error_msg)

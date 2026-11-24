@@ -3,7 +3,7 @@ DB sink and the local .matrx-debug file sink.
 
 These tools are the registered counterparts of the 6 admin REST routes
 in [aidream/api/routers/admin_debug_traces.py](../../../../../aidream/api/routers/admin_debug_traces.py)
-and the 6 MCP tools in [aidream/api/mcp/debug_traces_server.py](../../../../../aidream/api/mcp/debug_traces_server.py).
+and the AI Matrx MCP `errors` tool (`trace_*` actions).
 Same logic, different surface — these run inside an agent's tool loop
 via the standard matrx-ai dispatch path.
 
@@ -34,6 +34,7 @@ from matrx_ai.tools.kinds.tool_traces import (
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 
 _ADMIN_ERR = ToolError(
+    refusal=True,
     error_type="not_allowed",
     message=(
         "debug_traces_* are admin tools: they work only from the admin app "
@@ -189,7 +190,7 @@ async def debug_traces_list_files(
     except Exception as e:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="configuration", message=str(e)),
+            error=ToolError.declared(exc=e, error_type="configuration", message=str(e)),
         )
 
     path = log_path()
@@ -246,12 +247,13 @@ async def debug_traces_get_file(
     if not filename:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="filename is required"),
+            error=ToolError(refusal=True, error_type="validation", message="filename is required"),
         )
     if "/" in filename or "\\" in filename or filename.startswith("."):
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="filename must be a bare basename (no path components)",
             ),
@@ -260,6 +262,7 @@ async def debug_traces_get_file(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="filename must match tool-trace-*.log",
             ),
@@ -272,6 +275,7 @@ async def debug_traces_get_file(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="not_found",
                 message="no active .matrx-debug directory on this server",
             ),
@@ -281,6 +285,7 @@ async def debug_traces_get_file(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="not_found",
                 message=f"no such trace file: {filename}",
             ),
@@ -291,7 +296,7 @@ async def debug_traces_get_file(
     except OSError as e:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="execution", message=str(e)),
+            error=ToolError.declared(exc=e, error_type="execution", message=str(e)),
         )
 
     # A trace file is unbounded by size (verbose logging grows them to many MB).
@@ -304,10 +309,10 @@ async def debug_traces_get_file(
     try:
         offset = max(0, int(args.get("offset", 0) or 0))
         max_chars = int(args.get("max_chars") or TOOL_RESULT_SOFT_CAP_CHARS)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="offset/max_chars must be int"),
+            error=ToolError.declared(exc=exc, error_type="validation", message="offset/max_chars must be int"),
         )
     max_chars = max(1, min(TOOL_RESULT_SOFT_CAP_CHARS, max_chars))
     window, info = cap_text(text[offset:], limit=max_chars)
@@ -355,10 +360,10 @@ async def debug_traces_recent(
     tool_name_filter = args.get("tool_name")
     try:
         limit = int(args.get("limit", 200))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="limit must be int"),
+            error=ToolError.declared(exc=exc, error_type="validation", message="limit must be int"),
         )
     limit = max(1, min(1000, limit))
     verbose = bool(args.get("verbose"))
@@ -369,7 +374,7 @@ async def debug_traces_recent(
         except (ValueError, TypeError) as e:
             return ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=e, 
                     error_type="validation",
                     message=f"invalid 'since' timestamp: {e}",
                 ),
@@ -389,7 +394,7 @@ async def debug_traces_recent(
     except Exception as e:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="database", message=str(e)),
+            error=ToolError.declared(exc=e, error_type="database", message=str(e)),
         )
 
     summary_parts = [f"ts > {cutoff.isoformat()}"]
@@ -427,6 +432,7 @@ async def debug_traces_failures_since(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="iso_ts is required and must be an ISO-8601 string",
             ),
@@ -436,7 +442,7 @@ async def debug_traces_failures_since(
     except (ValueError, TypeError) as e:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=e, 
                 error_type="validation",
                 message=f"invalid iso_ts: {e}",
             ),
@@ -444,10 +450,10 @@ async def debug_traces_failures_since(
     verbose = bool(args.get("verbose"))
     try:
         limit = int(args.get("limit", 300))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="limit must be int"),
+            error=ToolError.declared(exc=exc, error_type="validation", message="limit must be int"),
         )
     limit = max(1, min(1000, limit))
 
@@ -463,7 +469,7 @@ async def debug_traces_failures_since(
     except Exception as e:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="database", message=str(e)),
+            error=ToolError.declared(exc=e, error_type="database", message=str(e)),
         )
 
     return _events_result(
@@ -495,16 +501,17 @@ async def debug_traces_by_conv(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="conversation_id is required",
             ),
         )
     try:
         limit = int(args.get("limit", 300))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="limit must be int"),
+            error=ToolError.declared(exc=exc, error_type="validation", message="limit must be int"),
         )
     limit = max(1, min(2000, limit))
     verbose = bool(args.get("verbose"))
@@ -523,7 +530,7 @@ async def debug_traces_by_conv(
     except Exception as e:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="database", message=str(e)),
+            error=ToolError.declared(exc=e, error_type="database", message=str(e)),
         )
 
     return _events_result(
@@ -556,6 +563,7 @@ async def debug_traces_by_call(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="call_id is required",
             ),
@@ -578,7 +586,7 @@ async def debug_traces_by_call(
     except Exception as e:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="database", message=str(e)),
+            error=ToolError.declared(exc=e, error_type="database", message=str(e)),
         )
 
     # Forensic detail view — a SINGLE call_id, so verbose rows are appropriate.

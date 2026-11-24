@@ -580,7 +580,7 @@ class _Page:
     content_type_last: str | None = None
     latest_snapshot_id: str | None = None
     link_score: float | None = None
-    target_keyword: str | None = None
+    desired_values: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
     deleted_at: Any = None
 

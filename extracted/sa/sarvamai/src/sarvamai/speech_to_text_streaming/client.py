@@ -112,10 +112,10 @@ class SpeechToTextStreamingClient:
 
             - **saaras:v4** (default, recommended, latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
-            - **saaras:v3**: State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+            - **saaras:v3** (legacy; use saaras:v4): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
         mode : typing.Optional[SpeechToTextStreamingMode]
-            Mode of operation. **Only applicable when using saaras:v3 or saaras:v4 models.**
+            Mode of operation. **Only applicable when using saaras:v3 (legacy) or saaras:v4 models.**
 
             Example audio: 'मेरा फोन नंबर है 9840950950'
 
@@ -354,10 +354,10 @@ class AsyncSpeechToTextStreamingClient:
 
             - **saaras:v4** (default, recommended, latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
-            - **saaras:v3**: State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+            - **saaras:v3** (legacy; use saaras:v4): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
         mode : typing.Optional[SpeechToTextStreamingMode]
-            Mode of operation. **Only applicable when using saaras:v3 or saaras:v4 models.**
+            Mode of operation. **Only applicable when using saaras:v3 (legacy) or saaras:v4 models.**
 
             Example audio: 'मेरा फोन नंबर है 9840950950'
 

@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+from packaging.version import Version
 
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.errors import (
     ForeignMetadataError,
     IncompatiblePythonError,
@@ -354,7 +354,7 @@ def test_explicit_yank_admission_is_retained_when_reusing_metadata() -> None:
         fetch, target("linux_x86_64"), assume_consistent_metadata=True
     ).get_dependencies("pkg", VERSION)
     windows = Provider(fetch, target("windows_amd64"), assume_consistent_metadata=True)
-    windows.yank_admissions = frozenset({("pkg", VERSION)})
+    windows.yank_admissions = {("pkg", VERSION): ()}
 
     assert set(windows.get_dependencies("pkg", VERSION)) == {"dep"}
     assert not fetch.index.has_metadata("pkg", "1.0", WINDOWS.metadata_url)

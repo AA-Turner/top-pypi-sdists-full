@@ -28,8 +28,12 @@ it is enforced HERE, in the tool executor, for every server-side surface writer:
   Ids are UUIDs, so one flat set serves every resource family without collision
   (the same reasoning as ``config.read_only_resources``).
 
-A guarded write is refused with a tool result naming the reason and the right
-door (``apply_surface_write``). After the person DECLINES an
+A guarded write that is one exact anchored edit on a [patchable] target, while the
+page offers ``apply_surface_write`` this turn, IS sent to the person as that approval
+card: the executor delegates the same edit to ``apply_surface_write`` under the same
+call id (``on_screen_surface_redirect``), so the right call never comes back as a
+failed one (Q-05, 2026-11-10). Any other guarded write is refused with a tool result
+naming the reason and the right door (``apply_surface_write``). After the person DECLINES an
 ``apply_surface_write`` in the turn, the refusal says so instead: nothing may
 write that record another way in the same turn.
 
@@ -39,6 +43,7 @@ one, and it is the door.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -132,27 +137,114 @@ def _strings(value: Any, depth: int = 0) -> Iterable[str]:
             yield from _strings(item, depth + 1)
 
 
-def guarded_write_refusal(
+def _guarded_hit(
     tool_name: str,
     arguments: Mapping[str, Any] | None,
     metadata: Mapping[str, Any] | None,
-) -> tuple[str, str] | None:
-    """``(error_type, message)`` when this server call writes an on-screen record, else None."""
+) -> tuple[str, str, Mapping[str, Any]] | None:
+    """``(writer_key, record_id, record)`` when this server call writes an on-screen record."""
     records = (metadata or {}).get(ON_SCREEN_RECORDS_KEY)
     if not records:
         return None
     key = writer_key(tool_name, arguments)
     if key is None:
         return None
-    hit: str | None = None
     for text in _strings(dict(arguments or {})):
         candidate = text.strip().lower()
         if candidate in records:
-            hit = candidate
-            break
+            return key, candidate, records[candidate]
+    return None
+
+
+def on_screen_surface_redirect(
+    tool_name: str,
+    arguments: Mapping[str, Any] | None,
+    metadata: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    """The ``apply_surface_write`` arguments that ARE this server write, when it can go to the card.
+
+    Q-05 (2026-11-10, conversation 12c200b3): the model's ``note`` patch on the note open
+    on screen was the right edit, yet it came back as a failed tool call and the model had
+    to repeat it through ``apply_surface_write``. A right call must succeed the first time,
+    so the executor sends this same edit to the person as the approval card in place of the
+    server write (``ToolExecutor`` on-screen block). None — and the refusal stands — when the
+    person declined a change this turn, or the call is not one exact anchored edit on a
+    [patchable] target (a whole rewrite, a many-match edit, no patchable target).
+    """
+    if (metadata or {}).get(ON_SCREEN_DECLINED_KEY):
+        return None
+    hit = _guarded_hit(tool_name, arguments, metadata)
     if hit is None:
         return None
-    record = records[hit]
+    if not _is_only_an_edit_of_its_subject(tool_name, arguments, hit[1]):
+        return None
+    ready, _note = _ready_surface_call(arguments, hit[2])
+    return ready
+
+
+#: The top-level argument that names the record a server writer changes (its SUBJECT), per tool.
+#: A tool not listed here names it in a top-level ``id`` or ``*_id`` argument.
+_SUBJECT_KEYS: dict[str, tuple[str, ...]] = {
+    "note": ("note_id",),
+    "data": ("id",),
+    "document": ("document_id", "id"),
+}
+
+
+def _subject_keys(tool_name: str, args: Mapping[str, Any]) -> tuple[str, ...]:
+    from matrx_ai.tools.declared import code_name_for
+
+    declared = _SUBJECT_KEYS.get(code_name_for(tool_name))
+    if declared is not None:
+        return declared
+    return tuple(k for k in args if k == "id" or k.endswith("_id"))
+
+
+def _is_only_an_edit_of_its_subject(
+    tool_name: str, arguments: Mapping[str, Any] | None, record_id: str
+) -> bool:
+    """True when the call is exactly "this find/replace on the on-screen record", nothing more.
+
+    REVIEW-C105: the redirect turned ANY census writer carrying a find/replace pair and the
+    on-screen id anywhere in its arguments into the card, silently dropping every other
+    argument (a title, a regex or case flag, another field), and a call on ANOTHER record
+    that merely mentioned the on-screen id became a card patching it. The card must be the
+    call the model made, so the redirect happens only when (1) the on-screen id is the call's
+    own top-level SUBJECT and (2) the find/replace pair is the only edit-bearing argument.
+    Anything else keeps the refusal, which names the door and the shape.
+    """
+    args = arguments or {}
+    subject = next(
+        (
+            k
+            for k in _subject_keys(tool_name, args)
+            if isinstance(args.get(k), str) and args[k].strip().lower() == record_id
+        ),
+        None,
+    )
+    if subject is None:
+        return False
+    pair = next(
+        ((f, r) for f, r in _ANCHORED_EDIT_PAIRS if isinstance(args.get(f), str) and args.get(f)),
+        None,
+    )
+    if pair is None:
+        return False
+    allowed = {*_DISPATCH_FIELDS, subject, *pair, "resource_type", *_MANY_MATCH_KEYS}
+    # A key sent as null carries nothing (models often echo optional fields as null).
+    return all(key in allowed or args[key] is None for key in args)
+
+
+def guarded_write_refusal(
+    tool_name: str,
+    arguments: Mapping[str, Any] | None,
+    metadata: Mapping[str, Any] | None,
+) -> tuple[str, str] | None:
+    """``(error_type, message)`` when this server call writes an on-screen record, else None."""
+    found = _guarded_hit(tool_name, arguments, metadata)
+    if found is None:
+        return None
+    key, hit, record = found
     kind = str(record.get("resource_type") or "record")
     targets = [str(t) for t in record.get("targets") or () if t]
     door = (
@@ -169,11 +261,105 @@ def guarded_write_refusal(
     # model used to resend the whole note as the surface value. A text target
     # that is [patchable] takes the anchored edit the frontend seam resolves
     # (``surface-write-patch.ts``), so the redirect names that shape.
-    return (
-        ON_SCREEN_ERROR_TYPE,
-        f"Refused: this {kind} ({hit}) is open on the person's screen, so {key} cannot change it "
-        f"directly. Nothing was changed. Propose the change with {door} so they can confirm it. "
-        "For a small edit send the edit, not the whole text: value "
-        '{"command": "str_replace", "old_str": "<exact text now there, unique>", '
-        '"new_str": "<replacement>"}.',
+    #
+    # Q-05 (2026-11-09, conversation 7f041c85): an agent told "if the patch
+    # fails, say so and stop" read the old "Refused: ... cannot change it" as a
+    # failed patch and stopped, so the person never got the approval card. The
+    # refusal states FACTS only (review C74: a tool result never tells the model
+    # to set aside its operator's instructions): this was not a failed edit, the
+    # change can go to the person as an approval card, and — when the refused
+    # call carried one anchored edit and the record has a [patchable] target —
+    # the ready call for that same edit on that target.
+    ready, note = _ready_surface_call(arguments, record)
+    lead = (
+        f"Not a failed edit: this {kind} ({hit}) is open on the person's screen, and edits to an open "
+        f"{kind} are made through the page, where the person approves them on a card. "
     )
+    if ready:
+        body = (
+            f"This same edit, as that approval card: {SURFACE_WRITE_DOOR} "
+            f"{json.dumps(ready, ensure_ascii=False)}. "
+            "It is the same patch (one exact str_replace), not an update or a rewrite. "
+            f"Nothing was changed yet; {key} does not write a {kind} that is open on screen."
+        )
+    else:
+        body = (
+            f"The door is {door}. Nothing was changed yet; {key} does not write a {kind} that is open "
+            "on screen. "
+            + (
+                note
+                or "For a small edit the value is the edit, not the whole text: "
+                '{"command": "str_replace", "old_str": "<exact text now there, unique>", '
+                '"new_str": "<replacement>"}.'
+            )
+        )
+    return ON_SCREEN_ERROR_TYPE, lead + body
+
+
+#: Argument pairs a server writer uses for an anchored edit: (find, replace).
+_ANCHORED_EDIT_PAIRS: tuple[tuple[str, str], ...] = (
+    ("search_text", "replacement_text"),
+    ("old_str", "new_str"),
+    ("old_text", "new_text"),
+    ("find", "replace"),
+    ("search", "replace"),
+)
+
+#: Arguments asking for more than one match. The page's anchored edit replaces
+#: EXACTLY one match (``surface-write-patch.ts``: "Must match exactly once"), so a
+#: call carrying one of these is never handed back as a single str_replace.
+_MANY_MATCH_KEYS: tuple[str, ...] = ("replace_all", "all_occurrences", "occurrence", "occurrences", "count")
+
+#: Suggested-action line the executor attaches to a ``record_on_screen`` refusal (facts only).
+ON_SCREEN_SUGGESTED_ACTION = (
+    "apply_surface_write sends this change to the person as an approval card."
+)
+
+
+def _asks_many(args: Mapping[str, Any]) -> bool:
+    for key in _MANY_MATCH_KEYS:
+        value = args.get(key)
+        if value is True:
+            return True
+        if key != "replace_all" and isinstance(value, (int, str)) and not isinstance(value, bool):
+            if str(value).strip().lower() not in ("", "1", "first"):
+                return True
+    return False
+
+
+def _ready_surface_call(
+    arguments: Mapping[str, Any] | None, record: Mapping[str, Any]
+) -> tuple[dict[str, Any] | None, str | None]:
+    """``(ready_call, note)`` for the refused edit: the ``apply_surface_write`` arguments.
+
+    The ready call names the record's [patchable] target — the one that takes an
+    anchored edit — never simply its first target (a title target listed first
+    would turn a body edit into a title write). No patchable target, no anchored
+    pair, or a many-match edit: no ready call; ``note`` says why when it matters.
+    """
+    args = arguments or {}
+    pair = next(
+        (
+            (args.get(f), args.get(r))
+            for f, r in _ANCHORED_EDIT_PAIRS
+            if isinstance(args.get(f), str) and args.get(f) and isinstance(args.get(r), str)
+        ),
+        None,
+    )
+    if pair is None:
+        return None, None
+    patchable = [str(t) for t in record.get("patchable_targets") or () if t]
+    if not patchable:
+        return None, None
+    if _asks_many(args):
+        return None, (
+            f"The page's edit replaces exactly one match: for several places, one {SURFACE_WRITE_DOOR} "
+            f'per place on target {patchable[0]}, value {{"command": "str_replace", "old_str": '
+            '"<text unique to that place>", "new_str": "<replacement>"}.'
+        )
+    old, new = pair
+    call = {
+        "target": patchable[0],
+        "value": {"command": "str_replace", "old_str": old, "new_str": new},
+    }
+    return call, None

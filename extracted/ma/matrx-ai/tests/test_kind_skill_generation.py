@@ -133,3 +133,33 @@ def test_human_edited_description_survives_regeneration():
     d = decide_refresh(s, kd, EXAMPLE)
     assert d.action == "regenerate"
     assert d.description == "A person wrote this."
+
+
+BLANK_NESTED = {
+    "__kind": "revenue_card",
+    "title": "Q3 revenue",
+    "lines": [{"__kind": "", "label": "North", "amount": 12}, {"__kind": " ", "label": "South", "amount": 9}],
+    "owner": {"__kind": "", "name": "Dana"},
+}
+
+
+def test_skill_body_never_teaches_a_blank_kind():
+    """Content-ir rule 31: the canonical example's nested blanks never reach the skill body
+    (2026-11-01: the weekly refresh wrote 85 skill bodies teaching ``"__kind": ""``)."""
+    body = render_skill_body(make_kd(), BLANK_NESTED, None)
+    assert '"__kind": ""' not in body and '"__kind": " "' not in body
+    assert '"__kind": "revenue_card"' in body
+    assert '"label": "North"' in body and '"name": "Dana"' in body
+
+
+def test_a_stored_body_with_blanks_is_regenerated_clean():
+    """A generated skill nobody edited, written with the blanks, is rewritten by the refresh."""
+    kd = make_kd()
+    stale = (
+        render_skill_body(kd, {"title": "x"}, None)
+        .replace('"title": "x"', '"title": "x",\n  "owner": {\n    "__kind": "",\n    "name": "Dana"\n  }')
+    )
+    existing = skill_from(kd, body=stale)
+    decision = decide_refresh(existing, kd, BLANK_NESTED)
+    assert decision.action == "regenerate"
+    assert '"__kind": ""' not in (decision.body or "")

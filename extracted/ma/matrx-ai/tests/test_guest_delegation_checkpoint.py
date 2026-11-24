@@ -16,29 +16,34 @@ from matrx_ai.tools.registry import ToolRegistry
 
 
 @pytest.mark.asyncio
-async def test_ephemeral_client_handoff_does_not_require_a_stored_message():
+async def test_unsaved_run_client_handoff_answers_the_model_plainly():
+    """P8-RUNS: a store:false run has no chat.tool_call row. The real logger's park read-back used to
+    crash on id '' ("invalid input syntax for type uuid") and the agent told the person "internal error".
+    The model now gets a typed 'needs the page open' result, and nothing is delegated."""
+    from matrx_ai.tools.logger import ToolExecutionLogger
+
     events = []
 
     class Emitter:
         async def send_tool_event(self, event):
             events.append(event)
 
-    class Logger:
-        async def delegate_durably(self, row_id, **kwargs):
-            pass
-
     token = set_app_context(AppContext(emitter=Emitter(), store=False))
     try:
         executor = ToolExecutor(
             registry=SimpleNamespace(bindings_for_tool=lambda _name: []),
-            execution_logger=Logger(),
+            execution_logger=ToolExecutionLogger(),  # the REAL logger, not a stub
         )
         result = await executor._execute_delegated(
-            ToolDefinition(name="get_page_text"), {},
-            ToolContext(call_id="call-ephemeral", tool_name="get_page_text"),
+            ToolDefinition(name="apply_surface_write"), {},
+            ToolContext(call_id="call-ephemeral", tool_name="apply_surface_write"),
+            row_id="",
         )
-        assert result.delegated_pending is True
-        assert [event.event for event in events] == ["tool_delegated"]
+        assert result.delegated_pending is not True
+        assert result.success is False
+        assert result.error.error_type == "client_unavailable"
+        assert "needs the page open" in result.error.message
+        assert events == []
     finally:
         clear_app_context(token)
 
@@ -464,3 +469,89 @@ async def test_client_handoff_refuses_foreign_or_occupied_reservation(
         await _ensure_assistant_tool_use_on_disk(
             "message-id", response, SimpleNamespace(), conversation_id="expected"
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("declared", [None, 3600])
+async def test_a_delegated_call_carries_its_own_deadline_only_when_its_tool_declares_one(declared):
+    """A device step longer than the client's 10-minute fallback (a tab recording) keeps the turn "Working"
+    until the call's own expiry; the default expiry is the 30-day abandon window, never a UI deadline."""
+    from datetime import UTC, datetime
+
+    events = []
+    parks = []
+
+    class Emitter:
+        async def send_tool_event(self, event):
+            events.append(event)
+
+    class Logger:
+        async def delegate_durably(self, row_id, **kwargs):
+            parks.append(kwargs["expires_at"])
+
+    token = set_app_context(AppContext(emitter=Emitter(), store=False))
+    try:
+        executor = ToolExecutor(
+            registry=SimpleNamespace(bindings_for_tool=lambda _name: []),
+            execution_logger=Logger(),
+        )
+        await executor._execute_delegated(
+            ToolDefinition(name="chrome_record_tab_video", max_client_wait_seconds=declared), {},
+            ToolContext(call_id="call-rec", tool_name="chrome_record_tab_video"),
+            row_id="tool-row",
+        )
+        [event] = events
+        if declared is None:
+            assert "step_deadline_at" not in event.data
+        else:
+            assert event.data["step_deadline_at"] == parks[0].isoformat()
+            ahead = (datetime.fromisoformat(event.data["step_deadline_at"]) - datetime.now(UTC)).total_seconds()
+            assert declared - 60 < ahead <= declared
+    finally:
+        clear_app_context(token)
+
+
+@pytest.mark.asyncio
+async def test_unsaved_run_with_a_page_attached_receives_the_result_in_memory():
+    """P8-RUNS: store:false + a client attached -> the same tool_delegated event, the turn waits in this
+    process, the result-post delivers it, and the call finishes with the page's output."""
+    import asyncio
+
+    from matrx_ai.tools import in_memory_handoff
+
+    events = []
+
+    class Emitter:
+        async def send_tool_event(self, event):
+            events.append(event)
+
+    token = set_app_context(AppContext(
+        emitter=Emitter(), store=False, client_tools=["get_page_text"], user_id="u1", conversation_id="c1"
+    ))
+    try:
+        executor = ToolExecutor(
+            registry=SimpleNamespace(bindings_for_tool=lambda _name: []),
+            execution_logger=SimpleNamespace(),
+        )
+        task = asyncio.create_task(
+            executor._execute_delegated(
+                ToolDefinition(name="get_page_text"), {"x": 1},
+                ToolContext(call_id="call-mem", tool_name="get_page_text"),
+                row_id="",
+            )
+        )
+        for _ in range(50):
+            if events:
+                break
+            await asyncio.sleep(0.01)
+        assert events and events[0].event == "tool_delegated" and events[0].data["arguments"] == {"x": 1}
+        # another person, or another chat, cannot answer it
+        assert not in_memory_handoff.deliver("call-mem", user_id="u2", conversation_id="c1", answer={})
+        assert in_memory_handoff.deliver(
+            "call-mem", user_id="u1", conversation_id="c1", answer={"output": {"text": "hi"}, "is_error": False}
+        )
+        result = await task
+        assert result.success is True and result.output == {"text": "hi"}
+        assert not in_memory_handoff.has_waiter("call-mem")
+    finally:
+        clear_app_context(token)

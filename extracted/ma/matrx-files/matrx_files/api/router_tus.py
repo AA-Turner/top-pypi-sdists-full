@@ -77,9 +77,15 @@ from ..cloud_sync.transports.tus import (
     UploadIncomplete,
     UploadNotFound,
 )
-from matrx_utils.row_access import LEGACY_LEVEL_VALUES, SHOWN_TO_VALUES, RowAccess, reconcile_row_access
+from matrx_utils.row_access import (
+    LEGACY_LEVEL_VALUES,
+    SHOWN_TO_TYPE_DEFAULT,
+    SHOWN_TO_VALUES,
+    RowAccess,
+    reconcile_row_access,
+)
 
-from ..derivations import ClientPolicyMetadataError, assert_no_client_policy_metadata
+from ..derivations import reserved_upload_metadata_keys, ClientPolicyMetadataError, assert_no_client_policy_metadata
 from ..request_organization import admitted_organization_id
 from ..path_safety import sanitize_logical_path
 from ..service import FileService
@@ -139,8 +145,20 @@ def _tus_error(
     return HTTPException(status_code, detail, headers=_tus_headers(extra_headers))
 
 
-def _check_tus_version(request: Request) -> None:
+def _check_tus_version(request: Request, *, required: bool = False) -> None:
     v = request.headers.get("tus-resumable")
+    if required and not v:
+        # Spec: every request except OPTIONS carries Tus-Resumable. Creation is
+        # where a session is born, so a client that names no protocol version is
+        # refused there (black-box finding 14) — never guessed at.
+        raise _tus_error(
+            status.HTTP_412_PRECONDITION_FAILED,
+            {
+                "error": "tus_version_missing",
+                "message": f"Send Tus-Resumable: {TUS_VERSION} on every TUS request",
+            },
+            {"Tus-Version": TUS_SUPPORTED_VERSIONS},
+        )
     if v and v != TUS_VERSION:
         # Spec: a 412 version mismatch MUST include Tus-Version.
         raise _tus_error(
@@ -212,7 +230,7 @@ def merge_metadata_json(metadata: dict[str, str]) -> dict[str, object]:
             raise ValueError("metadata_json must decode to an object")
     except (json.JSONDecodeError, ValueError) as e:
         raise _tus_error(400, {"error": "invalid_metadata", "message": str(e)})
-    reserved = [k for k in parsed if isinstance(k, str) and k.startswith("_")]
+    reserved = reserved_upload_metadata_keys(parsed)
     if reserved:
         raise _tus_error(
             400,
@@ -400,7 +418,7 @@ def build_tus_router(
         user_id: str = Depends(user_id_dep),
         check_quota: QuotaChecker = Depends(quota_checker_dep),
     ):
-        _check_tus_version(request)
+        _check_tus_version(request, required=True)
 
         # Parse + validate the TUS-side headers.
         upload_length_header = request.headers.get("upload-length")
@@ -466,7 +484,8 @@ def build_tus_router(
             ),
             shown_to=raw_shown if raw_shown in SHOWN_TO_VALUES else None,
             legacy_level=raw_legacy if raw_legacy in LEGACY_LEVEL_VALUES else None,
-            default=RowAccess(shown_to="only_me"),
+            # Unstated → the file type's "Shown to" knob (stored NULL), never a hand-written label.
+            default=RowAccess(shown_to=SHOWN_TO_TYPE_DEFAULT),
             boundary="POST /files/tus",
         )
         mime_type = metadata.get("mimetype") or metadata.get("filetype") or None

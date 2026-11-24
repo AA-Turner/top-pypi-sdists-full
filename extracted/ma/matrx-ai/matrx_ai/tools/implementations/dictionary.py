@@ -54,10 +54,10 @@ def _rows(rows: Any) -> list[dict[str, Any]]:
     return [json.loads(json.dumps(dict(r), default=str)) for r in rows]
 
 
-def _err(ctx: ToolContext, started: float, etype: str, msg: str) -> ToolResult:
+def _err(ctx: ToolContext, started: float, etype: str, msg: str, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type=etype, message=msg),
+        error=ToolError.declared(etype, msg, exc=exc),
         started_at=started,
         completed_at=time.time(),
         tool_name="dictionary",
@@ -123,7 +123,7 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         parsed = DictionaryArgs(**args).root
     except Exception as exc:  # noqa: BLE001 — surfaced as a clean tool error
-        return _err(ctx, started, "invalid_arguments", f"dictionary: {exc}")
+        return _err(ctx, started, "invalid_arguments", f"dictionary: {exc}", exc=exc)
 
     user_id = ctx.user_id
     if not user_id:
@@ -276,7 +276,7 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         msg = str(exc)
         etype = "permission_denied" if db_sqlstate(exc) == "42501" else "db_error"
         logger.warning("[dictionary] %s failed: %s", action, msg)
-        return _err(ctx, started, etype, msg)
+        return _err(ctx, started, etype, msg, exc=exc)
 
     return _err(ctx, started, "invalid_arguments", f"dictionary: unknown action {action!r}")
 

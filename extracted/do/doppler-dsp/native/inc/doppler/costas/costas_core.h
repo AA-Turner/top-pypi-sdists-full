@@ -243,7 +243,12 @@ costas_update(dp_costas_state_t *s, float _Complex P)
 /**
  * @brief Create a Costas instance.
  *
- * @param bn              Loop noise bandwidth (default 0.05).
+ * @param bn              Loop noise bandwidth (default 0.05), of the
+ *                        closed loop given a unit-slope detector (see
+ *                        LoopFilter). The detector's slope is 1 per radian
+ *                        at every signal level and falls below 1 as the SNR
+ *                        per symbol falls (about 0.6 at 0 dB for BPSK), so
+ *                        the delivered loop is narrower at low SNR.
  * @param zeta            Damping factor (default 0.707).
  * @param init_norm_freq  Seed carrier frequency, cycles/sample (default 0.0).
  * @param tsamps          Samples per symbol (default 64).
@@ -475,6 +480,25 @@ double dp_costas_get_norm_freq(const dp_costas_state_t *state);
  * @return norm_freq + kp * last_error / (2 pi tsamps), in cycles/sample;
  *         equals the seed frequency before the first symbol. */
 double dp_costas_get_nco_freq(const dp_costas_state_t *state);
+
+/**
+ * @brief The carrier phase the NCO will apply @p ahead samples from now,
+ *        with no loop update in between.
+ *
+ * The phase costas_wipeoff() de-rotates the next sample by is the NCO's
+ * accumulator; @p ahead samples later it is that plus @p ahead
+ * increments, in the NCO's own 32-bit arithmetic, so the answer is exact
+ * for every sample before the next costas_update(). A composition that
+ * carries samples not yet wiped asks this for the phase at the newest
+ * sample it holds, which is what a caller comparing against the truth at
+ * that sample needs.
+ *
+ * @param state  Must be non-NULL.
+ * @param ahead  Samples from the next one to be wiped (0 = that one).
+ * @return Phase in cycles, in [0, 1).
+ */
+double dp_costas_get_nco_phase_ahead(const dp_costas_state_t *state,
+                                     size_t ahead);
 /**
  * @brief Re-seed the loop at a new carrier frequency.
  *
@@ -647,6 +671,13 @@ void dp_costas_configure_lock(dp_costas_state_t *state, double up_thresh,
  *  @param state  Must be non-NULL.
  *  @return 1 when locked, 0 otherwise (0 after create/reset). */
 int dp_costas_get_locked(const dp_costas_state_t *state);
+
+/** @brief The rule the carrier lock decision is made by: the lock metric's
+ *         declare and drop levels and their verify counts, as
+ *         dp_costas_configure_lock() last set them.
+ *  @param state  Must be non-NULL.
+ *  @return The rule (dp_lockdet_rule()). */
+dp_lockdet_rule_t dp_costas_get_lock_rule(const dp_costas_state_t *state);
 
 /**
  * @brief Attach (or detach) a telemetry context and register the carrier

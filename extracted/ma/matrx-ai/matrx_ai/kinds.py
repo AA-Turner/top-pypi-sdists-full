@@ -36,6 +36,9 @@ import logging
 from typing import Any
 
 from matrx_graph.content_ir.envelope import KIND_KEY
+from matrx_graph.content_ir.markers import (
+    without_blank_kind_slots,  # rule 31: one home for the blank-slot rule
+)
 from matrx_graph.contract_kinds import (
     ContractDefinition,
     ContractDirection,
@@ -183,6 +186,10 @@ async def response_format_for_kind(
         if control_keys and applies_to(entry.disposition)
         else entry.json_schema
     )
+    # A nested non-kind carries NO ``__kind`` (content-ir rule 31): a stored kind schema still
+    # declares a blank slot on its nested objects, and a strict provider would make the model fill
+    # it with "" on every one. The bound schema never offers the slot.
+    kind_schema = without_blank_kind_slots(kind_schema)
     # The envelope carries the KIND's own schema — the author's contract, which
     # the answer is checked against and pruned back to. Each provider translator
     # derives its wire copy from it (``schema.lint.make_portable``); the lint

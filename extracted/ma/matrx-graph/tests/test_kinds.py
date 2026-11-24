@@ -145,6 +145,53 @@ async def test_canonical_organization_wins_same_slug_public_collision(monkeypatc
     assert resolved.json_schema == {"required": ["text"]}
 
 
+@pytest.mark.asyncio
+async def test_warming_many_kinds_is_one_read_and_covers_the_unregistered(monkeypatch) -> None:
+    """The provision sync's 255 kinds cost one read, and per-slug resolves after it read nothing."""
+    calls: list[dict[str, Any]] = []
+    registered = SimpleNamespace(
+        id="k1", kind="warm.registered", version=3, label="Registered",
+        published_to_web=True, organization_id="system-org", is_active=True,
+        emitted_json_schema={"type": "object"}, metadata={},
+    )
+
+    class _Mgr:
+        model = None
+
+        @staticmethod
+        async def load_items(**kwargs):
+            calls.append(kwargs)
+            return [registered]
+
+    monkeypatch.setattr(kinds_mod, "_manager", lambda: _Mgr())
+
+    await kinds_mod.warm_kinds(["warm.registered", "warm.unregistered", "warm.registered", "table:7d9f2c3e-1111-4a2b-9c3d-222233334444"])
+    assert calls == [{"kind__in": ["warm.registered", "warm.unregistered"]}]
+
+    entry = await kinds_mod.get_kind("warm.registered")
+    assert entry is not None and entry.version == 3
+    assert await kinds_mod.get_kind("warm.unregistered") is None
+    assert len(calls) == 1, "a warmed slug read the catalog again"
+
+    await kinds_mod.warm_kinds(["warm.registered"])
+    assert len(calls) == 1, "a slug still fresh in the cache was read again"
+
+
+@pytest.mark.asyncio
+async def test_warming_during_an_outage_caches_nothing(monkeypatch) -> None:
+    class _Mgr:
+        model = None
+
+        @staticmethod
+        async def load_items(**_kwargs):
+            raise ConnectionError("catalog down")
+
+    monkeypatch.setattr(kinds_mod, "_manager", lambda: _Mgr())
+    await kinds_mod.warm_kinds(["warm.outage"])
+    assert "warm.outage" not in kinds_mod._cache
+
+
+@pytest.mark.asyncio
 async def test_catalog_projection_keeps_org_for_canonical_selection(monkeypatch) -> None:
     """The optimized ORM listing retains the field the preference consumes."""
     rows = [
@@ -304,7 +351,7 @@ def test_builtin_specs_declare_output_kinds():
     untyped = [
         s.node_type
         for s in by_type.values()
-        if s.output_kind is None and not s.dynamic_output and s.node_type not in PASS_THROUGHS
+        if s.output_kind is None and not s.dynamic_output and s.executes and s.node_type not in PASS_THROUGHS
     ]
     assert untyped == [], f"kind-less builtin specs: {untyped}"
 

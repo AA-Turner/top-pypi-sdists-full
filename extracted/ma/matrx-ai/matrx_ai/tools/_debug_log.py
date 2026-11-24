@@ -63,6 +63,16 @@ _path_lock = threading.Lock()
 _linked_convs: set[str] = set()
 _linked_convs_lock = threading.Lock()
 
+# The file sink is BOUNDED: one process appends to one file for its whole life, and a production server lives for
+# days. Past FILE_CAP_BYTES the sink rolls to a new file; only the newest FILE_KEEP tool-trace files stay in the
+# directory (it sits on the task disk every request shares; an unbounded debug file is a full-disk outage waiting).
+FILE_CAP_BYTES = 64 * 1024 * 1024
+FILE_KEEP = 6
+#: The size is checked every this many writes (a stat per event would be waste).
+_SIZE_CHECK_EVERY = 200
+_writes_since_check = 0
+_roll_seq = 0
+
 # Set ONLY by `trace_sinks_enabled()` — the escape hatch for tests that assert
 # on the sinks themselves. See `sinks_disabled_by_stage`.
 _sinks_forced = False
@@ -347,6 +357,35 @@ def log_event(event: str, /, **fields: Any) -> None:
             parts.append(f"{key}={_truncate(val)}")
         with path.open("a", encoding="utf-8") as f:
             f.write(" ".join(parts) + "\n")
+    except OSError:
+        return
+    _roll_if_full(path)
+
+
+def _roll_if_full(path: Path) -> None:
+    """Start a new file once the active one passes ``FILE_CAP_BYTES``; keep only the newest ``FILE_KEEP``. Never raises."""
+    global _writes_since_check, _log_file_path, _roll_seq
+    _writes_since_check += 1
+    if _writes_since_check < _SIZE_CHECK_EVERY:
+        return
+    _writes_since_check = 0
+    try:
+        if path.stat().st_size < FILE_CAP_BYTES:
+            return
+        with _path_lock:
+            if _log_file_path != path:
+                return  # another thread rolled already
+            _roll_seq += 1
+            timestamp = _PROCESS_START.strftime("%Y-%m-%d_%H-%M-%S")
+            nxt = path.parent / f"tool-trace-{timestamp}-{_roll_seq}.log"
+            nxt.write_text(f"# tool-trace log continued from {path.name} (cap {FILE_CAP_BYTES} bytes)\n", encoding="utf-8")
+            _log_file_path = nxt
+        with _linked_convs_lock:
+            _linked_convs.clear()  # conversation links re-point at the new file on their next event
+        _maintain_symlink(path.parent / "current.log", nxt.name)
+        files = sorted(path.parent.glob("tool-trace-*.log"), key=lambda f: f.stat().st_mtime, reverse=True)
+        for old in files[FILE_KEEP:]:
+            old.unlink(missing_ok=True)
     except OSError:
         return
 

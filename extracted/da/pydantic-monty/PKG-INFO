@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-monty
-Version: 1.6.0
+Version: 1.7.0
 Summary: Monty, the Python sandbox: bindings plus the worker binary
 Project-URL: Homepage, https://github.com/pydantic/monty
 Project-URL: Source, https://github.com/pydantic/monty
@@ -16,7 +16,6 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -25,9 +24,9 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
-Requires-Dist: pydantic-monty-client==1.6.0
-Requires-Dist: pydantic-monty-runtime==1.6.0
+Requires-Python: >=3.11
+Requires-Dist: pydantic-monty-client==1.7.0
+Requires-Dist: pydantic-monty-runtime==1.7.0
 Provides-Extra: opentelemetry
 Requires-Dist: pydantic-monty-client[opentelemetry]; extra == 'opentelemetry'
 Description-Content-Type: text/markdown
@@ -470,10 +469,16 @@ instrument_telemetry(
 ```
 
 Each component is optional. A configured tracer records each checkout as a
-session span with nested feed and suspension spans. A logger records exceptions
+session span, and each feed as a span under the span it was called from, with
+nested suspension spans. A logger records exceptions
 and `print` output under those spans. An `AsyncMontyRemote` checkout also
 sends the active context as W3C `traceparent`/`tracestate` metadata on its
-session stream, so a server that honours them can join the same trace. A meter
+session stream, so a server that honours them can join the same trace. Each
+feed sends the `traceparent` of the span it was called from, when
+`opentelemetry-api` is installed and a span is current, whether or not
+instrumentation is installed. Against a server that records the session itself, a
+tracer records every span twice; pass only `meter=` there (and `logger=`, for
+Monty's logs) to keep client metrics. A meter
 records live, immediately available and host-blocked worker counts, checkout
 waits, worker deaths by reason, run durations and the sandbox execution time of
 each feed.

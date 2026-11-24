@@ -8,6 +8,7 @@ import logging
 import os
 from typing import Any
 
+from probe.sdk.run import trainer_facts
 from probe.integrations.miles.scrub import _capture_config, _to_scalar
 from probe.integrations.miles.spec import set_arg
 
@@ -36,6 +37,24 @@ def _is_disabled() -> bool:
     from probe.sdk.settings.settings import Mode, resolve_mode
 
     return resolve_mode(None) is Mode.DISABLED
+
+
+def get_logged_step_count(args: Any) -> int | None:
+    """How many steps a Miles run logs, 0..count-1 on the `train/step` axis its charts and `current_step` read:
+    rollouts x optimizer updates per rollout, since Miles logs `train/*` at rollout x updates + update
+    (`backends/megatron_utils/model.py:858`; rollout ids count from 0). Updates per rollout are Miles' own:
+    `--num-steps-per-rollout`, else rollout_batch_size x n_samples_per_prompt // global_batch_size
+    (`utils/arguments.py:4031`). None when the arguments do not say."""
+
+    def get_whole(name: str) -> int | None:
+        value = getattr(args, name, None)
+        return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+    rollouts, updates = get_whole("num_rollout"), get_whole("num_steps_per_rollout")
+    prompts, per_prompt, batch = get_whole("rollout_batch_size"), get_whole("n_samples_per_prompt"), get_whole("global_batch_size")
+    if updates is None and prompts and per_prompt and batch:
+        updates = prompts * per_prompt // batch or None
+    return rollouts * updates if rollouts and updates else None
 
 
 class ProbeTracker:
@@ -85,7 +104,9 @@ class ProbeTracker:
         rollout_count = getattr(args, "num_rollout", None)
         if isinstance(rollout_count, int) and not isinstance(rollout_count, bool) and rollout_count > 0:
             run.samples.plan(expected_steps=rollout_count)
+        trainer_facts.send_total_steps(run, get_logged_step_count(args), is_zero_based=True)
         self._record_base_model(args, run)
+        self._record_environment(args, run)
         self._start_dashboard_export(args, run)
         self._compute = start_compute_timeline(run, args)
 
@@ -105,6 +126,20 @@ class ProbeTracker:
             record_base_model(run, args)
         except Exception:  # noqa: BLE001 -- lineage is a convenience
             logger.warning("Probe could not record the Miles run's base model; Miles continues", exc_info=True)
+
+    def _record_environment(self, args, run: Any) -> None:
+        """The verifiers environment a Miles + verifiers job trains on (`VERIFIERS_CONFIG`), registered and used by
+        the run, then its labels published on the fork's args (`ENVIRONMENT_ARG`) for the rollout actor to stamp on
+        each sample; nothing without that config; never a reason to stop."""
+        try:
+            from probe.connectors.verifiers import register_from_config
+            from probe.integrations.miles.samples.mapping import ENVIRONMENT_ARG
+
+            found = register_from_config(run)
+            if found is not None:  # registered, or unsent with the name and version it was sent (never raises)
+                set_arg(args, ENVIRONMENT_ARG, found.sample_labels())
+        except Exception:  # noqa: BLE001 -- lineage is a convenience
+            logger.warning("Probe could not record the Miles run's environment; Miles continues", exc_info=True)
 
     def _start_dashboard_export(self, args, run: Any) -> None:
         if not getattr(args, "dump_details", None):

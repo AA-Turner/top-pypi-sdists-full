@@ -98,7 +98,7 @@ def acts_as_the_person(
             except PersonSessionUnavailable as e:
                 return ToolResult(
                     success=False,
-                    error=ToolError(error_type="unavailable", message=str(e)),
+                    error=ToolError.declared(exc=e, error_type="unavailable", message=str(e)),
                     started_at=started_at, completed_at=time.time(),
                     tool_name=tool_name, call_id=ctx.call_id,
                 )

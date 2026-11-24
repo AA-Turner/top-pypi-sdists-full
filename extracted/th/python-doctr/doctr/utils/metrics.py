@@ -4,10 +4,13 @@
 # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
 
 
+from collections import Counter
+
 import numpy as np
 from anyascii import anyascii
+from rapidfuzz.distance import Levenshtein
 from scipy.optimize import linear_sum_assignment
-from shapely import STRtree, area, intersection, polygons
+from shapely import STRtree, area, convex_hull, intersection, is_valid, polygons
 
 __all__ = [
     "TextMatch",
@@ -19,6 +22,7 @@ __all__ = [
     "DetectionMetric",
     "ObjectDetectionMetric",
     "TableCellMetric",
+    "FormulaMetric",
 ]
 
 
@@ -151,6 +155,23 @@ def box_iou(boxes_1: np.ndarray, boxes_2: np.ndarray) -> np.ndarray:
     return iou_mat
 
 
+def _check_gt_polygons(polys: np.ndarray) -> None:
+    """Raise a `ValueError` for ground-truth boxes (N, 4, 2) whose points cross each other, i.e. are not in order.
+
+    Degenerate boxes (repeated or collinear points) are accepted: their IoU is 0.
+    """
+    if polys.ndim != 3 or polys.shape[0] == 0:
+        return
+    geoms = polygons(polys)
+    # An invalid polygon with a non-zero hull area is a real box whose points are out of order
+    crossed = np.flatnonzero(~is_valid(geoms) & (area(convex_hull(geoms)) > 0))
+    if crossed.size > 0:
+        raise ValueError(
+            f"Ground truth boxes at indices {crossed.tolist()} are self-intersecting "
+            "(points not in TL, TR, BR, BL order); please fix the annotations."
+        )
+
+
 def polygon_iou(polys_1: np.ndarray, polys_2: np.ndarray) -> np.ndarray:
     """Computes the IoU between two sets of rotated bounding boxes
 
@@ -212,7 +233,9 @@ def nms(boxes: np.ndarray, thresh: float = 0.5) -> list[int]:
         w = np.maximum(0.0, xx2 - xx1)
         h = np.maximum(0.0, yy2 - yy1)
         inter = w * h
-        ovr = inter / (areas[i] + areas[order[1:]] - inter)
+        union = areas[i] + areas[order[1:]] - inter
+        # Two boxes without any area (e.g. collapsed to a point) do not overlap, instead of 0 / 0 suppressing one
+        ovr = np.divide(inter, union, out=np.zeros_like(inter), where=union > 0)
 
         inds = np.where(ovr <= thresh)[0]
         order = order[inds + 1]
@@ -272,6 +295,8 @@ class LocalizationConfusion:
             gts: a set of relative bounding boxes either of shape (N, 4) or (N, 5) if they are rotated ones
             preds: a set of relative bounding boxes either of shape (M, 4) or (M, 5) if they are rotated ones
         """
+        if self.use_polygons:
+            _check_gt_polygons(gts)
         if gts.shape[0] > 0 and preds.shape[0] > 0:
             # Compute IoU
             if self.use_polygons:
@@ -356,6 +381,8 @@ class TableCellMetric:
             pred_cells: predicted cells, shape (M, 4) or (M, 4, 2) when `use_polygons=True`
             pred_logic: predicted logical coordinates, shape (M, 4)
         """
+        if self.use_polygons:
+            _check_gt_polygons(gt_cells)
         self.num_gts += gt_cells.shape[0]
         self.num_preds += pred_cells.shape[0]
         if gt_cells.shape[0] == 0 or pred_cells.shape[0] == 0:
@@ -380,11 +407,10 @@ class TableCellMetric:
         """
         recall = self.matches / self.num_gts if self.num_gts > 0 else None
         precision = self.matches / self.num_preds if self.num_preds > 0 else None
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if precision is not None and recall is not None and (precision + recall) > 0
-            else None
-        )
+        f1 = None
+        if precision is not None and recall is not None:
+            # No match at all gives a precision and a recall of 0, so an F1 of 0
+            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
         structure_acc = self.struct_matches / self.matches if self.matches > 0 else None
         return {"recall": recall, "precision": precision, "f1": f1, "structure_acc": structure_acc}
 
@@ -393,6 +419,102 @@ class TableCellMetric:
         self.num_preds = 0
         self.matches = 0
         self.struct_matches = 0
+
+
+class FormulaMetric:
+    r"""Implements formula recognition metrics, computed on LaTeX tokens (cf. :func:`doctr.datasets.tokenize_latex`),
+    so they do not depend on the whitespaces of the LaTeX sources.
+
+    It reports the **exact match** rate (the share of formulas whose token sequences are identical), the **edit
+    similarity** (the mean over formulas of :math:`1 - \frac{d(X, Y)}{\max(|X|, |Y|)}` with :math:`d` the
+    token-level Levenshtein distance) and the corpus-level **BLEU-4** score (geometric mean of the 1- to 4-gram
+    precisions with a brevity penalty, without smoothing).
+
+    >>> from doctr.utils import FormulaMetric
+    >>> metric = FormulaMetric()
+    >>> metric.update([r"\frac{a}{b}"], [r"\frac { a } { c }"])
+    >>> metric.summary()
+    """
+
+    max_order: int = 4
+    # Scalar accumulators, which can be summed over several processes
+    counters: tuple[str, ...] = (
+        "exact",
+        "edit_similarity",
+        "total",
+        "pred_len",
+        "gt_len",
+        *(f"ngram_matches_{n}" for n in range(1, max_order + 1)),
+        *(f"ngram_totals_{n}" for n in range(1, max_order + 1)),
+    )
+
+    def __init__(self) -> None:
+        self.reset()
+
+    def update(self, gt: list[str], pred: list[str]) -> None:
+        """Update the state of the metric with new predictions
+
+        Args:
+            gt: list of ground-truth LaTeX strings
+            pred: list of predicted LaTeX strings
+        """
+        from doctr.datasets import tokenize_latex
+
+        if len(gt) != len(pred):
+            raise AssertionError("prediction size does not match with ground-truth labels size")
+
+        for gt_latex, pred_latex in zip(gt, pred):
+            gt_tokens, pred_tokens = tokenize_latex(gt_latex), tokenize_latex(pred_latex)
+            self.exact += int(gt_tokens == pred_tokens)
+            length = max(len(gt_tokens), len(pred_tokens))
+            self.edit_similarity += 1 - Levenshtein.distance(gt_tokens, pred_tokens) / length if length > 0 else 1.0
+            self.pred_len += len(pred_tokens)
+            self.gt_len += len(gt_tokens)
+            for n in range(1, self.max_order + 1):
+                gt_ngrams = Counter(tuple(gt_tokens[i : i + n]) for i in range(len(gt_tokens) - n + 1))
+                pred_ngrams = Counter(tuple(pred_tokens[i : i + n]) for i in range(len(pred_tokens) - n + 1))
+                matches = sum((gt_ngrams & pred_ngrams).values())
+                setattr(self, f"ngram_matches_{n}", getattr(self, f"ngram_matches_{n}") + matches)
+                setattr(
+                    self, f"ngram_totals_{n}", getattr(self, f"ngram_totals_{n}") + max(len(pred_tokens) - n + 1, 0)
+                )
+        self.total += len(gt)
+
+    def summary(self) -> dict[str, float]:
+        """Computes the aggregated metrics
+
+        Returns:
+            a dictionary with the `exact_match` rate, the mean `edit_similarity` and the corpus `bleu` score
+        """
+        if self.total == 0:
+            raise AssertionError("you need to update the metric before getting the summary")
+
+        precisions = [
+            getattr(self, f"ngram_matches_{n}") / getattr(self, f"ngram_totals_{n}")
+            if getattr(self, f"ngram_totals_{n}") > 0
+            else 0.0
+            for n in range(1, self.max_order + 1)
+        ]
+        if min(precisions) > 0 and self.pred_len > 0:
+            brevity_penalty = 1.0 if self.pred_len > self.gt_len else float(np.exp(1 - self.gt_len / self.pred_len))
+            bleu = brevity_penalty * float(np.exp(np.mean(np.log(precisions))))
+        else:
+            bleu = 0.0
+        return dict(
+            exact_match=self.exact / self.total,
+            edit_similarity=self.edit_similarity / self.total,
+            bleu=bleu,
+        )
+
+    def reset(self) -> None:
+        self.exact = 0
+        self.edit_similarity = 0.0
+        self.total = 0
+        self.pred_len = 0
+        self.gt_len = 0
+        for n in range(1, self.max_order + 1):
+            setattr(self, f"ngram_matches_{n}", 0)
+            setattr(self, f"ngram_totals_{n}", 0)
 
 
 class OCRMetric:
@@ -460,6 +582,8 @@ class OCRMetric:
             gt_labels: a list of N string labels
             pred_labels: a list of M string labels
         """
+        if self.use_polygons:
+            _check_gt_polygons(gt_boxes)
         if gt_boxes.shape[0] != len(gt_labels) or pred_boxes.shape[0] != len(pred_labels):
             raise AssertionError(
                 "there should be the same number of boxes and string both for the ground truth and the predictions"
@@ -589,6 +713,8 @@ class DetectionMetric:
             gt_labels: an array of class indices of shape (N,)
             pred_labels: an array of class indices of shape (M,)
         """
+        if self.use_polygons:
+            _check_gt_polygons(gt_boxes)
         if gt_boxes.shape[0] != gt_labels.shape[0] or pred_boxes.shape[0] != pred_labels.shape[0]:
             raise AssertionError(
                 "there should be the same number of boxes and string both for the ground truth and the predictions"
@@ -661,8 +787,7 @@ class ObjectDetectionMetric:
         - :math:`\mathcal{C}` is the set of possible class indices,
         - :math:`S` are confidence scores associated to predictions,
         - :math:`\mathcal{T} = \{0.5, 0.55, \dots, 0.95\}` is the set of IoU thresholds,
-        - :math:`AP_t(c)` is the Average Precision for class :math:`c`
-        at IoU threshold :math:`t`.
+        - :math:`AP_t(c)` is the Average Precision for class :math:`c` at IoU threshold :math:`t`.
 
     For a given class and IoU threshold, predictions from all images are
     aggregated and sorted globally by decreasing confidence score.
@@ -718,6 +843,8 @@ class ObjectDetectionMetric:
         pred_labels: np.ndarray,
         pred_scores: np.ndarray,
     ) -> None:
+        if self.use_polygons:
+            _check_gt_polygons(gt_boxes)
         if (
             gt_boxes.shape[0] != gt_labels.shape[0]
             or pred_boxes.shape[0] != pred_labels.shape[0]
@@ -822,12 +949,13 @@ class ObjectDetectionMetric:
                             np.expand_dims(pred_box, axis=0),
                         )
 
-                    ious = iou_mat[:, 0]
+                    # Ground truths already matched by a higher-scored detection are not candidates anymore
+                    ious = np.where(gt_data["matched"], -1.0, iou_mat[:, 0])
 
                     best_gt = np.argmax(ious)
                     best_iou = ious[best_gt]
 
-                    if best_iou >= iou_thresh and not gt_data["matched"][best_gt]:
+                    if best_iou >= iou_thresh:
                         tp[det_idx] = 1
                         gt_data["matched"][best_gt] = True
                     else:
@@ -846,8 +974,10 @@ class ObjectDetectionMetric:
             ap_per_iou[float(iou_thresh)] = float(np.mean(class_aps)) if len(class_aps) > 0 else 0.0
 
         map_value = float(np.mean(list(ap_per_iou.values())))
-        ap50 = ap_per_iou.get(0.5, 0.0)
-        ap75 = ap_per_iou.get(0.75, 0.0)
+        # Match the thresholds with a tolerance: user-provided ones may carry floating-point noise
+        # (e.g. `np.arange(0.5, 1.0, 0.05)` yields 0.7500000000000002 instead of 0.75)
+        ap50 = next((ap for thresh, ap in ap_per_iou.items() if np.isclose(thresh, 0.5)), 0.0)
+        ap75 = next((ap for thresh, ap in ap_per_iou.items() if np.isclose(thresh, 0.75)), 0.0)
 
         return {
             "mAP@[.5:.95]": map_value,

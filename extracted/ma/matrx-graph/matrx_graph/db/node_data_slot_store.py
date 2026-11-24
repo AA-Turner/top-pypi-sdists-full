@@ -14,6 +14,7 @@ creates the table.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import UTC, datetime
@@ -97,60 +98,29 @@ class NodeDataSlotStore:
         Raises ``ValueError`` on an unknown slot name and
         :class:`SlotValueTooLargeError` when ``value``/``emissions`` exceed
         the serialized-size cap."""
-        if slot not in VALID_SLOTS:
-            raise ValueError(f"unknown node_data_slot {slot!r} (valid: {', '.join(VALID_SLOTS)})")
-        if not user_id:
-            # A NULL/blank owner would violate NOT NULL anyway — fail with a
-            # message that names the actual bug (per-user ownership contract).
-            raise ValueError("node_data_slot.created_by is required — refusing ownerless write")
+        # Validate (slot name, owner, size cap) BEFORE the model is resolved:
+        # these gates must fire without a configured database.
+        write = _slot_write(
+            definition_id=definition_id,
+            node_id=node_id,
+            slot=slot,
+            value=value,
+            emissions=emissions,
+            output_kind=output_kind,
+            source=source,
+            user_id=user_id,
+            captured_by=captured_by,
+        )
 
-        # Pre-serialize to a JSON string BEFORE it reaches the ORM: `value` may
-        # legitimately be JSON null ('null'::jsonb, a NOT NULL jsonb column),
-        # and the ORM write path drops a Python `None` field value from the
-        # INSERT entirely (SQL NULL -> would violate the NOT NULL constraint).
-        # `_bounded_dumps` always returns a non-None `str` (json.dumps(None)
-        # == "null"), so the field-prep layer never sees a None to drop. The
-        # text goes in as RawJson: a plain `str` in a json field is stored as a
-        # JSON STRING (matrx-orm c73b6d29), which would quote the whole value.
-        from matrx_orm import RawJson
-
-        value_json = RawJson(_bounded_dumps(value, field="value"))
-        emissions_json = RawJson(_bounded_dumps(emissions or {}, field="emissions"))
-
-        from matrx_orm import Excluded
         from matrx_orm.operations.conflict_writes import upsert_with_conflict
 
         from matrx_graph.db._registry import get_model
 
         row = await upsert_with_conflict(
             get_model("WfNodeDataSlot"),
-            {
-                "definition_id": UUID(definition_id),
-                "node_id": node_id,
-                "slot": slot,
-                "value": value_json,
-                "emissions": emissions_json,
-                "output_kind": output_kind,
-                "source": source,
-                "captured_at": datetime.now(UTC),
-                "captured_by": _to_uuid(captured_by),
-                "created_by": UUID(user_id),
-            },
-            on_conflict=["definition_id", "node_id", "slot"],
-            set_fields={
-                # Every non-key column is set unconditionally on conflict —
-                # including captured_by, which the ORM would otherwise omit
-                # from the SET clause when it resolves to None (dropped from
-                # the INSERT's own column list) — matching the raw SQL's
-                # unconditional `captured_by = EXCLUDED.captured_by`.
-                "value": Excluded("value"),
-                "emissions": Excluded("emissions"),
-                "output_kind": Excluded("output_kind"),
-                "source": Excluded("source"),
-                "captured_at": Excluded("captured_at"),
-                "captured_by": Excluded("captured_by"),
-                "created_by": Excluded("created_by"),
-            },
+            write,
+            on_conflict=list(_SLOT_KEY),
+            set_fields=_slot_set_fields(),
         )
         return _row_to_slot(row)
 
@@ -225,13 +195,11 @@ class NodeDataSlotStore:
         So the stored sizes are read first in ONE query, a step whose referenced values alone already exceed
         the cap is left out without reading them, and the rest resolve in ONE read for the whole run.
 
-        Returns the number of node slots written."""
+        Returns the number of node slots that actually landed."""
         from matrx_graph.checkpoint.value_store import MAX_HASHES_PER_READ, load_run_values
         from matrx_graph.checkpoint.values import (
             _REF_BYTES,
-            MissingCheckpointValueError,
             referenced_hashes,
-            resolve_values,
         )
         from matrx_graph.db._registry import get_model
 
@@ -271,16 +239,99 @@ class NodeDataSlotStore:
         for i in range(0, len(readable), MAX_HASHES_PER_READ):
             store.update(await load_run_values(run_id, readable[i : i + MAX_HASHES_PER_READ]))
 
-        written = 0
-        for node_id, row in latest.items():
-            if node_id in too_large:
-                continue
-            value, emissions = decoded[node_id]
+        # ONE statement for the whole run (L-SPEED 6k): one upsert per step was ~71 single-row writes
+        # per research run on the shared pool.
+        # 🚨 OFF THE EVENT LOOP (2026-11-17): resolving every step's references and serialising its whole
+        # result is pure CPU — live it froze the server's loop for 1,129 ms (json.dumps in _bounded_dumps,
+        # task wf_slot_adoption), so no request was served meanwhile. It runs in a worker thread.
+        writes = await asyncio.to_thread(
+            _build_live_writes,
+            latest=latest,
+            decoded=decoded,
+            refs=refs,
+            too_large=too_large,
+            store=store,
+            definition_id=definition_id,
+            user_id=user_id,
+            run_id=run_id,
+        )
+        # A result that IS JSON null cannot ride the bulk write (its prep drops a None column, and the
+        # column is NOT NULL); those few go one at a time through the single write, which keeps it.
+        bulk = [w for w in writes if w["value"].text != "null"]
+        singles = [w for w in writes if w["value"].text == "null"]
+        landed = 0
+        if bulk:
+            from matrx_orm.operations.create import bulk_upsert
+
             try:
-                if refs[node_id]:
-                    value = resolve_values(value, store)
-                    emissions = resolve_values(emissions, store)
-                await self.upsert_slot(
+                # The bulk write sets every column exactly as the single write does: a column a row has as
+                # None (no output kind, no capturer) is written NULL, never COALESCEd to the stored value.
+                rows = await bulk_upsert(
+                    get_model("WfNodeDataSlot"),
+                    bulk,
+                    list(_SLOT_KEY),
+                    list(_slot_set_fields()),
+                    returning=["id"],
+                    clear_when_empty=_SLOT_NULLABLE,
+                )
+                landed += len(rows)
+            except Exception:
+                # One bad row fails the whole statement; every other step's sample still lands, one at a time.
+                logger.warning(
+                    "[wf-slots] run %s: the bulk sample write failed — writing %d samples one at a time",
+                    run_id[:8],
+                    len(bulk),
+                    exc_info=True,
+                )
+                singles = bulk + singles
+        if singles:
+            from matrx_orm.operations.conflict_writes import upsert_with_conflict
+
+            for write in singles:
+                try:
+                    await upsert_with_conflict(
+                        get_model("WfNodeDataSlot"),
+                        write,
+                        on_conflict=list(_SLOT_KEY),
+                        set_fields=_slot_set_fields(),
+                    )
+                    landed += 1
+                except Exception:
+                    logger.warning(
+                        "[wf-slots] run %s step %s: sample write failed — slot keeps what it had",
+                        run_id[:8],
+                        write["node_id"],
+                        exc_info=True,
+                    )
+        return landed
+
+
+
+def _build_live_writes(
+    *,
+    latest: dict[str, dict[str, Any]],
+    decoded: dict[str, tuple[Any, Any]],
+    refs: dict[str, set[str]],
+    too_large: set[str],
+    store: dict[str, Any],
+    definition_id: str,
+    user_id: str,
+    run_id: str,
+) -> list[dict[str, Any]]:
+    """Every adopted step's slot row, resolved and serialised (sync, CPU-bound — run in a thread)."""
+    from matrx_graph.checkpoint.values import MissingCheckpointValueError, resolve_values
+
+    writes: list[dict[str, Any]] = []
+    for node_id, row in latest.items():
+        if node_id in too_large:
+            continue
+        value, emissions = decoded[node_id]
+        try:
+            if refs[node_id]:
+                value = resolve_values(value, store)
+                emissions = resolve_values(emissions, store)
+            writes.append(
+                _slot_write(
                     definition_id=definition_id,
                     node_id=node_id,
                     slot="last_live_output",
@@ -291,18 +342,71 @@ class NodeDataSlotStore:
                     user_id=user_id,
                     captured_by=user_id,
                 )
-            except SlotValueTooLargeError:
-                continue
-            except MissingCheckpointValueError:
-                logger.warning(
-                    "[wf-slots] run %s step %s: a stored value of its result is gone — sample not adopted",
-                    run_id[:8],
-                    node_id,
-                )
-                continue
-            written += 1
-        return written
+            )
+        except SlotValueTooLargeError:
+            continue
+        except MissingCheckpointValueError:
+            logger.warning(
+                "[wf-slots] run %s step %s: a stored value of its result is gone — sample not adopted",
+                run_id[:8],
+                node_id,
+            )
+            continue
+    return writes
 
+
+_SLOT_KEY: tuple[str, ...] = ("definition_id", "node_id", "slot")
+
+_SLOT_NULLABLE: tuple[str, ...] = ("output_kind", "captured_by")
+"""The slot columns a write may carry as None; the bulk write must clear them, as the single write does."""
+
+
+def _slot_set_fields() -> dict[str, Any]:
+    """Every non-key column is set unconditionally on conflict — captured_by included, which the ORM would
+    otherwise leave out of the SET clause when it is None."""
+    from matrx_orm import Excluded
+
+    cols = ("value", "emissions", "output_kind", "source", "captured_at", "captured_by", "created_by")
+    return {col: Excluded(col) for col in cols}
+
+
+def _slot_write(
+    *,
+    definition_id: str,
+    node_id: str,
+    slot: str,
+    value: Any,
+    emissions: dict[str, Any] | None,
+    output_kind: str | None,
+    source: str,
+    user_id: str,
+    captured_by: str | None,
+) -> dict[str, Any]:
+    """One slot row, checked and serialised — the single shape every slot write sends.
+
+    Raises ``ValueError`` (unknown slot, no owner) and :class:`SlotValueTooLargeError`.
+
+    ``value`` is serialised BEFORE it reaches the ORM: it may legitimately be JSON null ('null'::jsonb in a
+    NOT NULL column), and the ORM write path drops a Python ``None`` from the INSERT. The text goes in as
+    ``RawJson`` (a plain ``str`` in a json field is stored as a JSON string, matrx-orm c73b6d29)."""
+    if slot not in VALID_SLOTS:
+        raise ValueError(f"unknown node_data_slot {slot!r} (valid: {', '.join(VALID_SLOTS)})")
+    if not user_id:
+        raise ValueError("node_data_slot.created_by is required — refusing ownerless write")
+    from matrx_orm import RawJson
+
+    return {
+        "definition_id": UUID(definition_id),
+        "node_id": node_id,
+        "slot": slot,
+        "value": RawJson(_bounded_dumps(value, field="value")),
+        "emissions": RawJson(_bounded_dumps(emissions or {}, field="emissions")),
+        "output_kind": output_kind,
+        "source": source,
+        "captured_at": datetime.now(UTC),
+        "captured_by": _to_uuid(captured_by),
+        "created_by": UUID(user_id),
+    }
 
 def _holds_run_reference(slot: NodeDataSlotRow) -> bool:
     """A slot adopted before 2026-10-28 may hold a run's reference marker instead of the value; the

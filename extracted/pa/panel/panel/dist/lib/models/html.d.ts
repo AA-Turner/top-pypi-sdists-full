@@ -45,15 +45,22 @@ export declare class HTMLView extends PanelMarkupView {
     protected _blocks: Block[] | null;
     protected _dirty: number | null;
     protected _frame: number | null;
+    protected _mathjax_pending: boolean;
     protected readonly _event_listeners: Map<string, Map<string, (event: Event) => void>>;
     connect_signals(): void;
     remove(): void;
     stylesheets(): StyleSheetLike[];
     protected _flush_stream(): void;
     /**
+     * Fetches MathJax when the text contains math but the page was served
+     * without the bundle, typesetting the text once it is available.
+     */
+    protected _ensure_mathjax(text: string): void;
+    /**
      * Re-renders only the top-level blocks at or after the first
      * modified offset, keeping the DOM (and any text selection) of the
-     * preceding blocks intact.
+     * preceding blocks intact. Math is typeset per block, so only the
+     * re-rendered blocks are searched and typeset again.
      */
     protected _update_blocks(html: string, dirty: number): void;
     set_html(html: string | null): void;
@@ -61,7 +68,10 @@ export declare class HTMLView extends PanelMarkupView {
     render(): void;
     style_redraw(): void;
     process_tex(): string;
-    private contains_tex;
+    /**
+     * Replaces the TeX found in the text with MathJax SVG output.
+     */
+    typeset(text: string): string;
     private _remove_event_listeners;
     private _setup_event_listeners;
 }

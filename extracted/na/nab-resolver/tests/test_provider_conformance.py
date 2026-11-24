@@ -1,17 +1,19 @@
 """Run real resolver entry points against an independent finite-domain oracle."""
 
 from collections.abc import Mapping
-from math import prod
 
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
 
 from nab_resolver._compat import override
 from nab_resolver.errors import ResolutionError, ResolutionLimitError
 from nab_resolver.ranges import Range
-from nab_resolver.resolver import BaseProvider
-from nab_resolver.testing import ProviderScenario, check_provider
+from nab_resolver.resolver import Solution
+from nab_resolver.testing import (
+    ProviderConformanceError,
+    ProviderScenario,
+    _check_solution,
+    check_provider,
+)
 from nab_resolver.types import (
     Incompatibility,
     IncompatibilityCause,
@@ -19,69 +21,8 @@ from nab_resolver.types import (
     Term,
 )
 
+from .conformance_fixture import FixtureProvider, Graph, check_fixture
 from .property.providers import FuzzProvider
-
-Graph = dict[str, dict[int, dict[str, Range[int]]]]
-
-
-class FixtureProvider(BaseProvider[str, int]):
-    """Adapt a finite fixture with ordinary newest-first candidate ordering."""
-
-    def __init__(self, graph: Graph) -> None:
-        self.graph = graph
-
-    def choose_version(
-        self, package: str, version_range: RangeProtocol[int]
-    ) -> int | None:
-        return next(
-            (
-                version
-                for version in sorted(self.graph.get(package, {}), reverse=True)
-                if version in version_range
-            ),
-            None,
-        )
-
-    def has_satisfying_version(
-        self, package: str, version_range: RangeProtocol[int]
-    ) -> bool:
-        return self.choose_version(package, version_range) is not None
-
-    def get_dependencies(
-        self, package: str, version: int
-    ) -> Mapping[str, RangeProtocol[int]]:
-        return self.graph[package][version]
-
-    def prioritize(
-        self,
-        package: str,
-        version_range: RangeProtocol[int],
-        conflict_counts: Mapping[str, int],
-        culprit_counts: Mapping[str, int] | None = None,
-    ) -> int:
-        return len(self.graph.get(package, {}))
-
-    def widen_decision(self, package: str, version: int) -> RangeProtocol[int] | None:
-        return None
-
-
-def check_fixture(
-    graph: Graph,
-    provider: type[FixtureProvider] = FixtureProvider,
-    *,
-    constraints: dict[str, Range[int]] | None = None,
-) -> None:
-    """Exercise one test provider through the public third-party check."""
-    scenario = ProviderScenario[str, int](
-        "custom", {"app": Range.full()}, graph, constraints=constraints
-    )
-    check_provider(
-        lambda _scenario: provider(graph),
-        scenario,
-        range_type=Range,
-        root_version=0,
-        max_combinations=prod(max(1, len(versions)) for versions in graph.values()),
-    )
 
 
 @pytest.mark.parametrize(
@@ -138,8 +79,19 @@ def test_omitted_feasible_version_is_detected() -> None:
         ) -> int | None:
             return 2 if 2 in version_range else None
 
-    with pytest.raises(AssertionError, match="rejected a satisfiable fixture"):
+    with pytest.raises(
+        ProviderConformanceError, match="rejected a satisfiable fixture"
+    ):
         check_fixture({"app": {1: {}, 2: {}}}, MissingVersion)
+
+
+def test_solution_pin_outside_fixture_reports_the_selection() -> None:
+    solution = Solution({"app": 2}, (), ("app",))
+    with pytest.raises(ProviderConformanceError, match="bad pin.*app.*2") as caught:
+        _check_solution(
+            "bad pin", solution, {"app": frozenset({1})}, {"app": {1: {}}}, {}
+        )
+    assert caught.value.scenario == "bad pin"
 
 
 def test_probe_disagreement_is_detected() -> None:
@@ -150,7 +102,7 @@ def test_probe_disagreement_is_detected() -> None:
         ) -> bool:
             return False
 
-    with pytest.raises(AssertionError, match="probe disagrees"):
+    with pytest.raises(ProviderConformanceError, match="probe disagrees"):
         check_fixture({"app": {1: {}}}, FalseProbe)
 
 
@@ -162,8 +114,23 @@ def test_unknown_candidate_is_detected() -> None:
         ) -> int:
             return 9
 
-    with pytest.raises(AssertionError, match="outside fixture"):
+    with pytest.raises(ProviderConformanceError, match="outside fixture"):
         check_fixture({"app": {1: {}}}, Unknown)
+
+
+def test_known_candidate_outside_the_query_is_detected() -> None:
+    class IgnoresRange(FixtureProvider):
+        @override
+        def choose_version(
+            self, package: str, version_range: RangeProtocol[int]
+        ) -> int:
+            return 1
+
+    with pytest.raises(
+        ProviderConformanceError, match="outside query.*app.*1"
+    ) as caught:
+        check_fixture({"app": {1: {}, 2: {}}}, IgnoresRange)
+    assert caught.value.scenario == "custom"
 
 
 def test_wrong_dependencies_are_detected() -> None:
@@ -172,7 +139,7 @@ def test_wrong_dependencies_are_detected() -> None:
         def get_dependencies(self, package: str, version: int) -> dict[str, Range[int]]:
             return {}
 
-    with pytest.raises(AssertionError, match="wrong dependencies"):
+    with pytest.raises(ProviderConformanceError, match="wrong dependencies"):
         check_fixture(
             {"app": {1: {"lib": Range.full()}}, "lib": {1: {}}}, MissingDependency
         )
@@ -189,7 +156,7 @@ def test_repeated_metadata_change_is_detected() -> None:
             self.reads += 1
             return super().get_dependencies(package, version) if self.reads == 1 else {}
 
-    with pytest.raises(AssertionError, match="dependencies changed"):
+    with pytest.raises(ProviderConformanceError, match="dependencies changed"):
         check_fixture({"app": {1: {"lib": Range.full()}}, "lib": {1: {}}}, Changing)
 
 
@@ -210,7 +177,7 @@ def test_returned_mapping_mutation_is_detected() -> None:
 
             return answer
 
-    with pytest.raises(AssertionError, match="mapping was mutated"):
+    with pytest.raises(ProviderConformanceError, match="mapping was mutated"):
         check_fixture({"app": {1: {"lib": Range.full()}}, "lib": {1: {}}}, Mutating)
 
 
@@ -227,10 +194,12 @@ def test_widening_contracts_are_checked() -> None:
 
     graph = {"app": {2: {"missing": Range.full()}, 1: {}}}
 
-    with pytest.raises(AssertionError, match="excludes decision"):
+    with pytest.raises(ProviderConformanceError, match="excludes decision"):
         check_fixture(graph, Excluding)
 
-    with pytest.raises(AssertionError, match="rejected a satisfiable fixture"):
+    with pytest.raises(
+        ProviderConformanceError, match="rejected a satisfiable fixture"
+    ):
         check_fixture(graph, Unequal)
 
 
@@ -242,21 +211,8 @@ def test_display_membership_is_checked() -> None:
         ) -> Range[int]:
             return Range.empty()
 
-    with pytest.raises(AssertionError, match="display narrowing"):
+    with pytest.raises(ProviderConformanceError, match="display narrowing"):
         check_fixture({"app": {1: {"missing": Range.full()}}}, Dropping)
-
-
-@given(
-    st.lists(st.tuples(st.integers(0, 3), st.integers(0, 3)), min_size=2, max_size=2)
-)
-def test_generated_backtracking_fixtures(bounds: list[tuple[int, int]]) -> None:
-    graph: Graph = {"app": {}, "lib": {1: {}, 2: {}}}
-
-    for version, interval_bounds in enumerate(bounds, start=1):
-        lower, upper = sorted(interval_bounds)
-        graph["app"][version] = {"lib": Range.between(lower, upper)}
-
-    check_fixture(graph)
 
 
 def test_full_query_cannot_invent_an_unlisted_version() -> None:
@@ -274,7 +230,7 @@ def test_full_query_cannot_invent_an_unlisted_version() -> None:
         def get_dependencies(self, package: str, version: int) -> dict[str, Range[int]]:
             return self.graph.get(package, {}).get(version, {})
 
-    with pytest.raises(AssertionError, match="outside fixture"):
+    with pytest.raises(ProviderConformanceError, match="outside fixture"):
         check_fixture({"app": {1: {}}}, Inventing)
 
 
@@ -415,13 +371,13 @@ def test_candidate_hashes_remain_stable() -> None:
             version.salt += 1
             return constraint
 
-    with pytest.raises(AssertionError, match="candidate hash changed"):
+    with pytest.raises(ProviderConformanceError, match="candidate hash changed"):
         check_fixture({"app": {version: {"missing": Range.full()}}}, HashChanging)
 
 
-@pytest.mark.parametrize("widen_all", [False, True])
+@pytest.mark.parametrize("widen_versions", [(), (2,), (1, 2)])
 def test_widening_is_checked_when_another_version_is_actually_chosen(
-    widen_all: bool,
+    widen_versions: tuple[int, ...],
 ) -> None:
     class OldestWithBroadFacts(FixtureProvider):
         @override
@@ -449,7 +405,9 @@ def test_widening_is_checked_when_another_version_is_actually_chosen(
 
         @override
         def widen_decision(self, package: str, version: int) -> Range[int]:
-            return Range.full() if widen_all else Range.singleton(version)
+            return (
+                Range.full() if version in widen_versions else Range.singleton(version)
+            )
 
     graph: Graph = {
         "app": {1: {"lib": Range.singleton(1)}, 2: {"lib": Range.full()}},
@@ -469,9 +427,9 @@ def test_widening_is_checked_when_another_version_is_actually_chosen(
             max_combinations=4,
         )
 
-    if widen_all:
+    if widen_versions:
         with pytest.raises(
-            AssertionError, match="widening merges unequal dependencies"
+            ProviderConformanceError, match="widening merges unequal dependencies"
         ):
             run()
     else:
@@ -491,7 +449,7 @@ def test_display_callback_cannot_mutate_its_input(return_input: bool) -> None:
             constraint._hash = 0
             return constraint if return_input else original
 
-    with pytest.raises(AssertionError, match="display narrowing"):
+    with pytest.raises(ProviderConformanceError, match="display narrowing"):
         check_fixture({"app": {1: {"missing": Range.full()}}}, MutatingDisplay)
 
 
@@ -523,5 +481,5 @@ def test_provider_cannot_mutate_the_query_range(phase: str) -> None:
                 self.change_full_range(version_range)
             return super().choose_version(package, version_range)
 
-    with pytest.raises(AssertionError, match="mutated.*range"):
+    with pytest.raises(ProviderConformanceError, match="mutated.*range"):
         check_fixture({"app": {1: {}, 2: {}}}, MutatingQuery)

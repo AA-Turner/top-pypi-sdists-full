@@ -16134,7 +16134,7 @@ mod a_part_at_a_time {
     }
 
     /// The JSON values, `μj. None | bool | int | float | str | list[j] | dict[str, j]`.
-    fn json() -> (Schema, Vec<Schema>) {
+    pub(super) fn json() -> (Schema, Vec<Schema>) {
         let at = Schema::Ref(DefIx::new(0));
         let body = Schema::union([
             Schema::NoneType,
@@ -16172,6 +16172,126 @@ mod a_part_at_a_time {
         assert_ne!(
             one.subtype_relation_under(&meet, &Pure, &defs),
             Relation::Fails
+        );
+    }
+}
+
+/// A meet holding complements, read as its rest below each complement's inner
+/// set in turn: `R ∩ ¬I ∩ ¬J` is empty exactly where `R ∩ ¬I ⊆ J`, and exactly
+/// where `R ∩ ¬J ⊆ I` [FCB08, §4.1].
+mod a_meet_holding_complements {
+    use super::a_part_at_a_time::json;
+    use super::*;
+
+    fn list_of(item: Schema) -> Schema {
+        Schema::list(SeqShape::homogeneous(item))
+    }
+
+    fn str_map(value: Schema) -> Schema {
+        Schema::keyed_map(
+            Vec::new(),
+            vec![MapClause {
+                key: Schema::Str,
+                value,
+            }],
+        )
+    }
+
+    /// The meet as written, the complements in the order given.
+    fn met(members: Vec<Schema>) -> Schema {
+        Schema::Intersection(members.into())
+    }
+
+    // THEORY: semantic-subtyping
+    /// A container, the complement of another and the complement of the JSON
+    /// values: empty, the container being below the JSON values once the other
+    /// complement is beside it, a fixpoint's relation the emptiness of the
+    /// difference alone does not settle. `is_empty` and the relation below
+    /// `nothing` read it alike, whichever complement comes first.
+    #[test]
+    fn a_meet_holding_the_complement_of_the_json_values_is_empty_below_them() {
+        let (json, defs) = json();
+        for (base, other) in [
+            (list_of(json.clone()), list_of(Schema::Int)),
+            (str_map(Schema::Int), str_map(Schema::Bool)),
+        ] {
+            let complements = [other.complement(), json.clone().complement()];
+            for (first, second) in [(0, 1), (1, 0)] {
+                let meet = met(vec![
+                    base.clone(),
+                    complements[first].clone(),
+                    complements[second].clone(),
+                ]);
+                assert!(meet.is_empty_with(&NoLeafRelations, &defs), "{meet:?}");
+                assert_eq!(
+                    meet.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &defs),
+                    Relation::Holds,
+                    "{meet:?}"
+                );
+            }
+        }
+    }
+
+    // THEORY: semantic-subtyping
+    /// The rest keeps the other complements: `(dict[str, int] ∪ bytes) ∩ ¬bytes
+    /// ∩ ¬J` is empty because the map is below the JSON values once `¬bytes`
+    /// leaves the byte strings out, and `dict[str, int] ∪ bytes` alone is not
+    /// below them.
+    #[test]
+    fn the_rest_holds_the_other_complements() {
+        let (json, defs) = json();
+        let bytes = Schema::Bytes;
+        let either = Schema::union([str_map(Schema::Int), bytes.clone()]);
+        let meet = met(vec![
+            either.clone(),
+            bytes.complement(),
+            json.clone().complement(),
+        ]);
+        assert!(meet.is_empty_with(&NoLeafRelations, &defs), "{meet:?}");
+        assert_ne!(
+            either.subtype_relation_under(&json, &NoLeafRelations, &defs),
+            Relation::Holds
+        );
+    }
+
+    // THEORY: semantic-subtyping
+    /// A meet whose rest holds a value outside a complement's inner set holds
+    /// that value: `dict[str, int] ∩ ¬dict[str, bool] ∩ ¬list[int]` holds
+    /// `{"a": 1}`, and is neither empty nor below `nothing`.
+    #[test]
+    fn a_value_of_the_rest_outside_one_inner_set_is_a_value_of_the_meet() {
+        let meet = met(vec![
+            str_map(Schema::Int),
+            str_map(Schema::Bool).complement(),
+            list_of(Schema::Int).complement(),
+        ]);
+        assert!(!meet.is_empty_with(&NoLeafRelations, &[]));
+        assert_ne!(
+            meet.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &[]),
+            Relation::Holds
+        );
+    }
+
+    // THEORY: semantic-subtyping
+    /// The complement of a predicate is never taken as `¬I`, and stays in the
+    /// rest: `p ∩ ¬p ∩ ¬str` may hold an integer, a callback answering its two
+    /// occurrences apart, so taking `¬p` would read the rest `p ∩ ¬str` below
+    /// `p` and call the meet empty.
+    #[test]
+    fn the_complement_of_a_predicate_is_kept_in_the_rest() {
+        let opaque = Schema::Refine {
+            base: Arc::new(Schema::Int),
+            constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+        };
+        let meet = met(vec![
+            opaque.clone(),
+            opaque.complement(),
+            Schema::Str.complement(),
+        ]);
+        assert!(!meet.is_empty_with(&NoLeafRelations, &[]));
+        assert_ne!(
+            meet.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &[]),
+            Relation::Holds
         );
     }
 }
@@ -17898,6 +18018,135 @@ fn guarded_records(rest: &Schema) -> [Schema; 6] {
             field("b", rest.clone(), true),
         ]),
     ]
+}
+
+/// Two records of `a` and `b`, one whose sides differ and one whose sides match,
+/// each a record of two `int | str` fields met with a union of guarded records met
+/// with their kind, `({a?, b?} | ~dict) & dict`, the shape a translation of an
+/// `anyOf` of records beside `properties` writes: a meet holding a union whose
+/// every branch is a meet holding a union.
+fn sides(pairs: &[(Schema, Schema)]) -> Schema {
+    let every_dict = Schema::mapping(MapClause {
+        key: Schema::ANYTHING,
+        value: Schema::ANYTHING,
+    });
+    let side = Schema::union([Schema::Int, Schema::Str]);
+    let branches = pairs.iter().map(|(a, b)| {
+        Schema::meet([
+            Schema::union([
+                closed(vec![
+                    field("a", a.clone(), false),
+                    field("b", b.clone(), false),
+                ]),
+                every_dict.clone().complement(),
+            ]),
+            every_dict.clone(),
+        ])
+    });
+    Schema::meet([
+        closed(vec![field("a", side.clone(), true), field("b", side, true)]),
+        Schema::union(branches),
+    ])
+}
+
+/// The meet of the records whose sides differ with those whose sides match, the
+/// pair a translation of two `anyOf`s writes.
+fn sides_that_differ_and_match() -> Schema {
+    let differ = sides(&[(Schema::Int, Schema::Str), (Schema::Str, Schema::Int)]);
+    let matching = sides(&[(Schema::Int, Schema::Int)]);
+    Schema::meet([differ, matching])
+}
+
+/// A meet holding a union whose branches are meets holding a union is read empty
+/// by its clauses, a meet distributing over a union [FCB08, Def. 4.1], in the
+/// further asking `is_empty`, the relation below `nothing` and the universe below
+/// the meet's complement each ask, so the three answer alike. Its clauses are past
+/// the four the first askings distribute, so each of the three declined it.
+// THEORY: a-meet-is-distributed-four-clauses-wide
+#[test]
+fn a_meet_whose_union_s_branches_hold_a_union_is_read_empty_by_its_clauses() {
+    let meet = sides_that_differ_and_match();
+    assert!(matches!(&meet, Schema::Intersection(members)
+        if members.iter().any(|member| matches!(member, Schema::Union(branches)
+            if branches.iter().all(|branch| matches!(branch, Schema::Intersection(_)))))));
+    assert!(meet.is_empty_with(&NoLeafRelations, &[]));
+    assert!(!DISTRIBUTING.with(Cell::get));
+    assert_eq!(
+        meet.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    assert_eq!(
+        Schema::ANYTHING.subtype_relation_under(&meet.clone().complement(), &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    assert!(!DISTRIBUTING.with(Cell::get));
+}
+
+/// The further asking is a meet's alone, as the relation's is of a meet subject: a
+/// union of two such meets, read a member at a time, is asked none by `is_empty`,
+/// below `nothing` or as the complement the universe is asked below, so its cost
+/// falls on a meet's question, and the three still answer alike.
+#[test]
+fn a_union_of_such_meets_is_asked_no_further_asking() {
+    let union = Schema::union([
+        sides_that_differ_and_match(),
+        Schema::meet([
+            sides(&[(Schema::Str, Schema::Str)]),
+            sides(&[(Schema::Int, Schema::Int), (Schema::Int, Schema::Str)]),
+        ]),
+    ]);
+    assert!(matches!(&union, Schema::Union(_)));
+    assert!(!union.is_empty_with(&NoLeafRelations, &[]));
+    assert_eq!(
+        union.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &[]),
+        Relation::Unknown
+    );
+    assert_eq!(
+        Schema::ANYTHING.subtype_relation_under(&union.clone().complement(), &NoLeafRelations, &[]),
+        Relation::Unknown
+    );
+}
+
+/// A meet the emptiness reads empty by its clauses is below `nothing` too: the
+/// relation's further asking below `nothing` is the emptiness's, so the two
+/// procedures answer alike. The meet's only common value of its two unions,
+/// the empty bytes, lies in the union its complement excludes.
+#[test]
+fn a_meet_read_empty_by_its_clauses_is_below_nothing() {
+    let _allowance = crate::descr::budget::law();
+    let meet = Schema::meet(vec![
+        Schema::complement(Schema::union(vec![
+            Schema::Int,
+            Schema::refine(Schema::Bytes, vec![Constraint::MaxLen(2)]),
+        ])),
+        Schema::union(vec![
+            Schema::Int,
+            Schema::Float,
+            Schema::refine(Schema::Int, vec![Constraint::MultipleOf(OperandIx::new(0))]),
+            Schema::refine(Schema::Bytes, vec![Constraint::MaxLen(0)]),
+        ]),
+        Schema::union(vec![Schema::Str, Schema::Bytes]),
+    ]);
+    assert!(meet.is_empty_with(&NoLeafRelations, &[]));
+    let below = meet.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &[]);
+    assert_eq!(below, Relation::Holds, "{meet:?} below nothing");
+}
+
+/// A further asking opened inside another leaves the outer one open when it
+/// closes, and the outer one closes to none: an emptiness asked inside a further
+/// asking asks one of its own.
+#[test]
+fn a_further_asking_inside_another_leaves_it_open() {
+    assert!(!DISTRIBUTING.with(Cell::get));
+    {
+        let _outer = Distributing::open();
+        {
+            let _inner = Distributing::open();
+            assert!(DISTRIBUTING.with(Cell::get));
+        }
+        assert!(DISTRIBUTING.with(Cell::get));
+    }
+    assert!(!DISTRIBUTING.with(Cell::get));
 }
 
 /// A meet subject holding a union is below a supertype where each clause of its

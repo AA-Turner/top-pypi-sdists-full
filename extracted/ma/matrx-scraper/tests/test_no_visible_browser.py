@@ -15,7 +15,7 @@ pytest.importorskip("playwright", reason="playwright not installed (browser extr
 
 
 def test_the_launch_wrapper_forces_headless_and_records_the_request() -> None:
-    import conftest
+    from matrx_scraper import testing_knobs as conftest
 
     seen: dict = {}
 
@@ -46,7 +46,7 @@ def test_the_guard_is_installed_on_every_playwright_launch_door() -> None:
 @pytest.mark.headed_request_expected
 @pytest.mark.asyncio
 async def test_a_real_headed_request_launches_headless() -> None:
-    import conftest
+    from matrx_scraper import testing_knobs as conftest
     from playwright.async_api import async_playwright
 
     async with async_playwright() as pw:

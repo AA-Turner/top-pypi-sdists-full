@@ -98,10 +98,32 @@ async def test_is_a_no_op_when_the_ambient_context_is_the_requested_identity():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("user_id", "organization_id"), [("real-user", ORG_B), ("someone-else", ORG_A), ("someone-else", ORG_B)]
+)
+async def test_a_changed_identity_never_borrows_the_ambient_request_id(user_id, organization_id):
+    """THE 2026-11-07 CLASS: one request id belongs to one actor and one organization on the
+    spine. Work derived for another organization that kept the id claimed it first, and the
+    person's own turn then failed its mandatory open. The lineage stays on the parent link."""
+    request_ctx = _request_context()
+    token = set_app_context(request_ctx)
+    try:
+        async with system_app_context("upload", user_id=user_id, organization_id=organization_id) as ctx:
+            assert ctx.request_id not in ("", "req-abc")
+            assert ctx.parent_request_id == "req-abc"
+            assert ctx.tree_request_id == "req-abc"
+        assert request_ctx.request_id == "req-abc"
+    finally:
+        from matrx_connect import clear_app_context
+
+        clear_app_context(token)
+
+
+@pytest.mark.asyncio
 async def test_a_different_requested_identity_is_installed_not_dropped():
     """THE 2026-09-17 CLASS: a record's organization differs from the one the
-    triggering request selected. The record wins for the block; the request
-    carriers (emitter, request id) survive; the ambient context is restored."""
+    triggering request selected. The record wins for the block; the emitter
+    survives; the ambient context is restored."""
     request_ctx = _request_context()
     token = set_app_context(request_ctx)
     try:
@@ -113,7 +135,6 @@ async def test_a_different_requested_identity_is_installed_not_dropped():
             assert ctx.user_id == "real-user"
             assert ctx.organization_admission == "none"
             assert ctx.emitter is request_ctx.emitter
-            assert ctx.request_id == "req-abc"
             assert ctx.system_run is True
             assert ctx.source_feature == "sweep"
             assert get_app_context() is ctx

@@ -38,6 +38,7 @@ from typing import Any
 
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.content_ir.sdk import kind
+from pydantic import Field
 
 
 @kind(
@@ -156,7 +157,7 @@ class ToolTraceFile(KindModel):
 
     name: str = ""
     size_bytes: int = 0
-    modified_at: str = ""
+    modified_at: str = Field(default="", json_schema_extra={"format": "date-time"})
     #: A file at or under 100 bytes holds only its header — no events were logged.
     is_header_only: bool = False
 

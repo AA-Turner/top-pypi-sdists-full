@@ -233,7 +233,7 @@ def non_retryable_after_paid_call(
             status_code=error_info.status_code,
             is_retryable=False,
             user_message=(
-                f"{modality.title()} generation finished at {provider}, but "
+                f"{modality.title()} generation finished, but "
                 "processing the result failed. It has been recorded — please try again."
                 if generic
                 else error_info.user_message
@@ -245,7 +245,7 @@ def non_retryable_after_paid_call(
         message=message,
         is_retryable=False,
         user_message=(
-            f"{modality.title()} generation finished at {provider}, but "
+            f"{modality.title()} generation finished, but "
             "processing the result failed. It has been recorded — please try again."
         ),
         details=details,

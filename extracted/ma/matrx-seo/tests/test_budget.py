@@ -1,6 +1,7 @@
 """WS-7 spend/quota enforcement tests.
 
-Covers: spend aggregation math (in-memory + live ORM), under-ceiling pass,
+Covers: spend aggregation math (in-memory; the live ORM aggregation is a host contract —
+tests/package_host_contracts/matrx_seo/test_budget_live.py), under-ceiling pass,
 over-ceiling reject BEFORE any provider call (with the typed streamed
 event), and the four independent ceilings each firing on their own scope.
 """
@@ -654,106 +655,6 @@ async def test_enforce_collection_budget_checks_org_scope_first(knobs) -> None:
     with pytest.raises(BudgetExceededError) as excinfo:
         await enforce_collection_budget(repository, request, "dataforseo")
     assert excinfo.value.ceiling == "org_provider_monthly"
-
-
-# --------------------------------------------------------------------------
-# live ORM aggregation — skips cleanly without a DB environment
-# --------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def live_user(isolated_host_database: tuple[str, str] | None) -> str:
-    if isolated_host_database is None:
-        pytest.skip("live DB env unavailable (AGENT_USER_ID / DB registration missing)")
-    return isolated_host_database[0]
-
-
-async def _organization_for(user_id: str) -> str:
-    """The organization this live test acts in — READ from the user's own active
-    membership row (a durable record). Never a personal-organization resolver
-    choosing tenancy for it; no membership is a refusal that names the user.
-    """
-    from db.models.iam import Memberships
-
-    rows = (
-        await Memberships.filter(
-            user_id=user_id, status="active", deleted_at__isnull=True
-        )
-        .limit(1)
-        .all()
-    )
-    if not rows:
-        raise RuntimeError(
-            f"No active organization membership for user {user_id} — this live test "
-            "needs a real organization to act in; it never falls back to a personal one."
-        )
-    return str(rows[0].organization_id)
-
-
-@pytest.mark.asyncio
-async def test_orm_spend_summary_aggregates_live(live_user: str) -> None:
-    """Seeds two bare ``seo.collection_run`` rows directly (no observation
-    tables touched — this test is deliberately independent of any provider
-    or identity-resolution code path) and proves ``OrmSeoRepository.
-    spend_summary`` aggregates them correctly via a real SQL query."""
-    from matrx_seo.contracts import SpendQuery as SQ
-    from matrx_seo.db import models_seo as m
-    from matrx_seo.orm_repository import OrmSeoRepository
-
-    organization_id = await _organization_for(live_user)
-    now = datetime.now(UTC)
-    provider = f"budget-live-test-{uuid4()}"
-    run_ids: list[str] = []
-    try:
-        for suffix, reported, estimated in (
-            ("a", Decimal("1.23"), None),
-            ("b", None, Decimal("0.50")),
-        ):
-            run_id = str(uuid4())
-            run_ids.append(run_id)
-            await m.CollectionRun.create(
-                id=run_id,
-                organization_id=organization_id,
-                created_by=live_user,
-                provider=provider,
-                capability=SeoCapability.SERP_RANK.value,
-                operation="budget.live.test",
-                trigger=CollectionTrigger.TEST.value,
-                status="completed",
-                target_ref=f"budget-live-{suffix}",
-                observation_period="live-budget-test",
-                settings={},
-                settings_hash=f"budget-live-{suffix}-{uuid4()}",
-                idempotency_key=f"budget-live-{suffix}-{uuid4()}",
-                requested_at=now,
-                started_at=now,
-                completed_at=now,
-                request_count=1,
-                reported_cost=reported,
-                estimated_cost=estimated,
-                currency="USD",
-                created_at=now,
-                updated_at=now,
-            )
-        repository = OrmSeoRepository()
-        start, end = current_month_bounds(now)
-        summary = await repository.spend_summary(
-            SQ(
-                organization_id=organization_id,
-                provider=provider,
-                period_start=start,
-                period_end=end,
-            )
-        )
-        assert summary.reported_cost == Decimal("1.23")
-        assert summary.estimated_cost == Decimal("0.50")
-        assert summary.effective_cost == Decimal("1.73")
-        assert summary.run_count == 2
-    finally:
-        for run_id in run_ids:
-            row = await m.CollectionRun.load_by_id_or_none(run_id)
-            if row is not None:
-                await row.delete()
 
 
 # --------------------------------------------------------------------------

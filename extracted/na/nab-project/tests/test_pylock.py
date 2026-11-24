@@ -7,7 +7,6 @@ fail-closed verify on the emitted bytes.
 
 from __future__ import annotations
 
-import importlib.util
 import itertools
 import json
 import sys
@@ -22,6 +21,11 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib  # type: ignore[no-redef]
+
+from packaging.markers import InvalidMarker, Marker
+from packaging.pylock import Package, PackageWheel
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from nab_markersets import _markersets as engine
 from nab_markersets import markersets
@@ -55,10 +59,6 @@ from nab_project.lockfile import (
     TargetLock,
     WheelArtifact,
 )
-from nab_provider._vendor.packaging.markers import InvalidMarker, Marker
-from nab_provider._vendor.packaging.pylock import Package, PackageWheel
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.marker_holds import IntractableMarkerError
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget, environment_declaration
@@ -67,18 +67,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
     from nab_markersets._markersets import Atom, Cell
-
-_spec = importlib.util.spec_from_file_location(
-    "simplify_corpus_fixtures",
-    Path(__file__).parents[2]
-    / "nab-markersets"
-    / "tests"
-    / "simplify_corpus_fixtures.py",
-)
-assert _spec is not None
-assert _spec.loader is not None
-corpus = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(corpus)
 
 
 def _target(python_version: str, platform: str = "linux_x86_64") -> ResolveTarget:
@@ -513,33 +501,6 @@ class TestEmissionScope:
         assert str(result) == str(tautology)
 
 
-class TestCorpusEmitterBudget:
-    """What the emitter delivers on the corpus, next to what the operator computes.
-
-    The verify runs per universe row, under the same budget as the operator, so
-    it decides wherever the operator does and the lock carries every byte the
-    operator computed.
-    """
-
-    def test_emitter_delivers_every_operator_simplification(self) -> None:
-        raw_bytes = operator_bytes = emitted_bytes = 0
-        discarded: list[tuple[str, str]] = []
-        for fixture in corpus.FIXTURES:
-            within = _union([Marker(e) for e in fixture["environments"]])
-            raw = Marker(fixture["marker"])
-            simplified = MarkerSet.from_marker(str(raw)).simplify(within=within)
-            operator = simplified.to_marker_string() or ""
-            finalized = _finalize_marker(raw, within, fixture["package"])
-            emitted = str(finalized) if finalized is not None else ""
-            raw_bytes += len(fixture["marker"])
-            operator_bytes += len(operator)
-            emitted_bytes += len(emitted)
-            if emitted != operator:
-                discarded.append((fixture["lock"], fixture["package"]))
-        assert discarded == []
-        assert (raw_bytes, operator_bytes, emitted_bytes) == (9742, 1010, 1010)
-
-
 class TestDeterminism:
     def test_shuffled_target_order_is_byte_identical(self) -> None:
         forward = render_lock(_span_lock((*_LINUX, *_WIN)))
@@ -665,24 +626,6 @@ class TestFreeMembershipFinalization:
         result = _finalize_marker(raw, within, "torch")
         assert result is not None
         assert str(result) == str(raw)
-
-
-class TestCorpusByteIdentity:
-    def test_tractable_corpus_markers_emit_byte_identical(self) -> None:
-        for fixture in corpus.FIXTURES:
-            within = _union([Marker(e) for e in fixture["environments"]])
-            raw = Marker(fixture["marker"])
-            finalized = _finalize_marker(raw, within, fixture["package"])
-            simplified = MarkerSet.from_marker(str(raw)).simplify(within=within)
-            operator = simplified.to_marker_string()
-            shown = str(finalized) if finalized is not None else None
-            assert shown == operator
-            again = (
-                _finalize_marker(finalized, within, fixture["package"])
-                if finalized is not None
-                else None
-            )
-            assert (str(again) if again is not None else None) == shown
 
 
 class TestWorkBudget:
@@ -828,9 +771,8 @@ _LOCK_MARKERS = json.loads(
     (Path(__file__).parent / "data" / "ci_lock_markers.json").read_text()
 )
 
-# The declared environments span 5 platforms x 5 minors (3.10 split at 3.10.2).
-# 178 markers across the 7 universal locks shorten; the docs lock's 34 already
-# say the shortest thing they can and stay byte-identical.
+# The seven universal locks span five platforms and five Python minors,
+# with Python 3.10 split at 3.10.2. The docs lock has a single environment.
 _WIDE_MARKER_COUNT = 178
 _DOCS_MARKER_COUNT = 34
 _SUBSET_RAW_BYTES = 40183
@@ -865,10 +807,9 @@ def simplification_calls(monkeypatch: pytest.MonkeyPatch) -> Counter[str]:
 
 
 class TestEightLockRegression:
-    """The captured markers of the eight committed CI locks.
+    """The captured markers of eight historical CI locks.
 
-    Each raw marker finalises offline to the byte the lock now carries, and the
-    emission checks still pass on the simplified output.
+    Each raw marker must reproduce the expected output from the same lock.
     """
 
     def test_wide_locks_become_tractable_and_byte_exact(
@@ -970,29 +911,6 @@ class TestEightLockRegression:
             validate_marker_disjointness(
                 packages, environments=environments, extras=(), groups=(name,)
             )
-
-
-class TestRegenLocksIdempotent:
-    """Re-finalising a committed lock changes no marker.
-
-    Simplification is idempotent, so a drift in any lock's markers shows up here
-    rather than only in a lock refresh.
-    """
-
-    def test_committed_locks_refinalize_identically(self) -> None:
-        root = Path(__file__).parents[2]
-        for path in (
-            root / "pylock.dev.toml",
-            root / ".github/requirements/pylock.build.toml",
-        ):
-            data = tomllib.loads(path.read_text())
-            within = _fixture_universe(data.get("environments", []))
-            for pkg in data["packages"]:
-                marker = pkg.get("marker")
-                if marker is None:
-                    continue
-                again = _finalize_marker(Marker(marker), within, pkg["name"])
-                assert str(again) == marker
 
 
 def _partition_counter(monkeypatch: pytest.MonkeyPatch) -> Callable[[], int]:

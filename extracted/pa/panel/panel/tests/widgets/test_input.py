@@ -10,9 +10,10 @@ from bokeh.models.widgets import FileInput as BkFileInput
 from panel import config
 from panel.models.widgets import EnterEvent
 from panel.widgets import (
-    ArrayInput, Checkbox, DatePicker, DateRangePicker, DatetimeInput,
-    DatetimePicker, DatetimeRangeInput, DatetimeRangePicker, FileInput,
-    FloatInput, IntInput, LiteralInput, StaticText, TextInput, TimePicker,
+    ArrayInput, Checkbox, ColorPicker, DatePicker, DateRangePicker,
+    DatetimeInput, DatetimePicker, DatetimeRangeInput, DatetimeRangePicker,
+    FileInput, FloatInput, IntInput, LiteralInput, PasswordInput, StaticText,
+    TextAreaInput, TextInput, TimePicker,
 )
 
 
@@ -328,6 +329,41 @@ def test_text_input(document, comm):
     text.value = 'A'
     assert widget.value == 'A'
 
+@pytest.mark.parametrize('widget_type', [TextInput, TextAreaInput, PasswordInput])
+def test_text_input_set_value_none(widget_type, document, comm):
+    text = widget_type(value='ABC')
+
+    widget = text.get_root(document, comm=comm)
+
+    text.value = None
+    assert text.value is None
+    assert text.value_input is None
+    assert widget.value == ''
+    assert widget.value_input == ''
+
+def test_text_input_value_syncs_value_input_in_one_update(document, comm):
+    text = TextInput(value='ABC')
+    text.get_root(document, comm=comm)
+
+    # A Python-side value change carries value_input in the same update,
+    # a frontend change leaves value_input to the frontend
+    assert text._process_param_change({'value': 'X'}) == {'value': 'X', 'value_input': 'X'}
+    text._param__private.syncing.add('value')
+    try:
+        assert text._process_param_change({'value': 'X'}) == {'value': 'X'}
+    finally:
+        text._param__private.syncing.discard('value')
+
+def test_color_picker_set_value_none(document, comm):
+    picker = ColorPicker(value='#ff0000')
+
+    widget = picker.get_root(document, comm=comm)
+    assert widget.color == '#ff0000'
+
+    picker.value = None
+    assert picker.value is None
+    assert widget.color == '#000000'
+
 def test_text_input_value_input_synced_with_value(document, comm):
     text = TextInput(value='ABC')
 
@@ -380,6 +416,21 @@ def test_datetime_input(document, comm):
         dt_input.value = datetime(2017, 12, 30)
 
 
+@pytest.mark.parametrize('bounds, value, message', [
+    ({'start': datetime(2020, 1, 1)}, datetime(2019, 1, 1), 'on or after 2020-01-01 00:00:00'),
+    ({'end': datetime(2022, 1, 1)}, datetime(2023, 1, 1), 'on or before 2022-01-01 00:00:00'),
+])
+def test_datetime_input_one_sided_bounds(bounds, value, message):
+    dt_input = DatetimeInput(value=datetime(2021, 1, 1), **bounds)
+
+    with pytest.raises(ValueError, match=message):
+        dt_input.value = value
+    assert dt_input.value == datetime(2021, 1, 1)
+
+    with pytest.raises(ValueError, match=message):
+        DatetimeInput(value=value, **bounds)
+
+
 def test_datetime_range_input(document, comm):
     dt_input = DatetimeRangeInput(
         value=(datetime(2018, 1, 1), datetime(2018, 1, 3)),
@@ -422,6 +473,19 @@ def test_datetime_range_input(document, comm):
     dt_input._start._process_events({'value': '2018-01-01 00:00:00'})
     assert dt_input.value == (datetime(2018, 1, 1), datetime(2018, 1, 3))
     assert label.text == '<b>Datetime</b>: '
+
+
+@pytest.mark.parametrize('bounds', [
+    {},
+    {'start': datetime(2018, 1, 1)},
+    {'end': datetime(2018, 1, 10)},
+], ids=['no_bounds', 'start_only', 'end_only'])
+def test_datetime_range_input_without_value(bounds):
+    dt_input = DatetimeRangeInput(**bounds)
+
+    expected = (bounds.get('start'), bounds.get('end'))
+    assert dt_input.value == expected
+    assert (dt_input._start.value, dt_input._end.value) == expected
 
 
 def test_int_input(document, comm):

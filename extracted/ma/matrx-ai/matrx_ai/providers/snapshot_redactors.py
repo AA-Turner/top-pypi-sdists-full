@@ -169,10 +169,13 @@ class Redactor(Protocol):
 
 #: Keys at which provider formats put inline file data (Anthropic
 #: ``source.data``, OpenAI ``image_url.url`` / ``input_audio.data`` /
-#: ``file_data``, Google ``inline_data.data`` / ``inlineData.data``, the
-#: unified ``base64_data``).
+#: ``file_data``, Google ``inline_data.data`` / ``inlineData.data``, TypeSafe
+#: ``assets.<ref>.data_base64``, the unified ``base64_data``).
 _BLOB_KEYS = frozenset(
-    {"data", "base64_data", "base64", "b64_json", "bytes", "file_data", "url", "image_url", "audio", "image"}
+    {
+        "data", "base64_data", "data_base64", "base64", "b64_json", "bytes",
+        "file_data", "url", "image_url", "audio", "image",
+    }
 )
 #: Sibling keys that name the same file elsewhere (unified media blocks).
 _REFERENCE_KEYS = ("file_id", "file_uri", "url", "resolved_url")
@@ -294,6 +297,9 @@ class LargeBinaryStringRedactor:
     #: path -> (file_id, sha256 of the DECODED bytes) for blobs the host store
     #: already saved (see ``redactors_with_stored_blobs``).
     stored_refs: dict[str, tuple[str, str]] = field(default_factory=dict)
+    #: path -> the stored picture those bytes ARE (``known_media_blobs``): its own file, and the vision
+    #: class the bytes were encoded under (re-rendered from that file on demand). Never a new upload.
+    media_refs: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def _classify(self, value: Any, path: str) -> tuple[str, str] | None:
         """``(mime, base64_payload)`` when this leaf is inline file data to replace."""
@@ -334,9 +340,14 @@ class LargeBinaryStringRedactor:
             "mime": mime or "unknown",
         }
         stored = self.stored_refs.get(path)
+        media = self.media_refs.get(path)
         if refs:
             fields["reference"] = "file_ref"
             fields.update({f"ref_{k}": v for k, v in refs.items()})
+        elif media:
+            fields["reference"] = "file_ref"
+            fields.update({f"ref_{k}": v for k, v in media.items()})
+            fields["stored_by"] = "media_item"
         elif stored:
             fields["reference"] = "file_ref"
             fields["ref_file_id"] = stored[0]
@@ -648,6 +659,70 @@ def _decode_b64(payload: str) -> bytes:
         return b""
 
 
+def names_a_stored_file(file_id: Any) -> bool:
+    """False for a person's attachment whose upload failed or still runs beside the call: its minted id names
+    no stored file, so its inline bytes are the only copy and the snapshot must keep them (CGU-10 IMG17 N1)."""
+    if not (isinstance(file_id, str) and file_id):
+        return False
+    from matrx_ai.persistence.sealed import (
+        person_media_upload_failed,
+        person_media_upload_in_flight,
+    )
+
+    return not (person_media_upload_failed(file_id) or person_media_upload_in_flight(file_id))
+
+
+def media_blob_ref(
+    data: str, file_id: str, vision_class: Any = None, master_version: Any = None
+) -> tuple[str | None, dict[str, Any]]:
+    """``(sha256 of the decoded bytes, {file_id, vision_class, master_version})`` for one stored picture's inline
+    bytes. ``master_version`` names WHICH bytes of the file they are: a replaced master keeps its old variant
+    beside the new one (``{key}.v{N}``), so ``file_id + class`` alone names a different picture afterwards
+    (CGU-10 AND-V IMG17 N3)."""
+    raw = _decode_b64(data)
+    ref: dict[str, Any] = {"file_id": file_id}
+    if isinstance(vision_class, str) and vision_class:
+        ref["vision_class"] = vision_class
+    try:
+        version = int(master_version) if master_version is not None else None
+    except (TypeError, ValueError):
+        version = None
+    if version is not None and version > 0:
+        ref["master_version"] = version
+    return (hashlib.sha256(raw).hexdigest() if raw else None), ref
+
+
+def known_media_blobs(tree: Any) -> dict[str, dict[str, str]]:
+    """``sha256 of the bytes -> {file_id, vision_class}`` for every media item in ``tree`` (the unified copy of a
+    request) that carries inline bytes AND names its stored file.
+
+    The provider-shaped copy of the same request carries the SAME bytes with no file beside them, so without this
+    the snapshot writer uploaded every picture of every turn again as a new file — ~0.9 s each, one after
+    another, before the turn's save (live AND-IMG17: 5 history photos, 4.8 s on a cold server task; 20, 17 s).
+    The bytes are the picture's own file, or that file's vision variant (the class says which)."""
+    known: dict[str, dict[str, str]] = {}
+
+    def _visit(value: Any) -> None:
+        if isinstance(value, dict):
+            data, file_id = value.get("base64_data"), value.get("file_id")
+            if isinstance(data, str) and data and names_a_stored_file(file_id):
+                meta = value.get("metadata") if isinstance(value.get("metadata"), dict) else {}
+                sha, ref = media_blob_ref(
+                    data, file_id, value.get("vision_class") or meta.get("vision_class"),
+                    value.get("master_version") or meta.get("master_version"),
+                )
+                if sha:
+                    known.setdefault(sha, ref)
+            for v in value.values():
+                _visit(v)
+        elif isinstance(value, list):
+            for v in value:
+                _visit(v)
+
+    _visit(tree)
+    return known
+
+
 async def redactors_with_stored_blobs(
     tree: Any,
     *,
@@ -655,6 +730,7 @@ async def redactors_with_stored_blobs(
     organization_id: str | None = None,
     on_error: Callable[[BaseException, dict[str, Any]], Awaitable[None]] | None = None,
     store: SnapshotBlobStore | None = None,
+    known: dict[str, dict[str, str]] | None = None,
 ) -> list[Redactor]:
     """The default redactors, with every unreferenced blob in ``tree`` saved first.
 
@@ -670,6 +746,7 @@ async def redactors_with_stored_blobs(
     if base is None:
         return DEFAULT_SNAPSHOT_REDACTORS
     refs: dict[str, tuple[str, str]] = {}
+    media: dict[str, dict[str, str]] = {}
     by_sha: dict[str, str] = {}
 
     async def _visit(value: Any, path: str, siblings: dict[str, Any] | None) -> None:
@@ -690,6 +767,9 @@ async def redactors_with_stored_blobs(
             if not raw:
                 return
             sha = hashlib.sha256(raw).hexdigest()
+            if known and sha in known:
+                media[path] = known[sha]  # a stored picture's own bytes: reference it, never upload again
+                return
             if sha not in by_sha:
                 mime = mime or _sniff_mime(payload) or next(
                     (siblings[k] for k in _MIME_KEYS if siblings and isinstance(siblings.get(k), str)), ""
@@ -708,12 +788,12 @@ async def redactors_with_stored_blobs(
                     pass
 
     await _visit(tree, "$", None)
-    if not refs:
+    if not refs and not media:
         return DEFAULT_SNAPSHOT_REDACTORS
     out: list[Redactor] = [
         LargeBinaryStringRedactor(
             max_bytes=base.max_bytes, head_chars=base.head_chars, tail_chars=base.tail_chars,
-            stored_refs=refs,
+            stored_refs=refs, media_refs=media,
         )
     ]
     return out

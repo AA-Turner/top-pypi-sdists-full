@@ -14,10 +14,12 @@ claims raise unique-violation and lose the race cleanly.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 from matrx_utils import supervised_task
@@ -105,7 +107,7 @@ async def _sweep_dark_tasks() -> None:
     Throttled to ``DARK_TASK_SWEEP_SECONDS``. Never raises: an alarm is not
     allowed to stop the scanner that carries every scheduled run in the system.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     last = _status.dark_tasks_checked_at
     if last is not None and (now - last).total_seconds() < DARK_TASK_SWEEP_SECONDS:
         return
@@ -127,9 +129,77 @@ async def _sweep_dark_tasks() -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# Tick hooks: the one clock lends its beat to durable due-work.
+#
+# A durable row that becomes due at a moment (a runtime work item with ``not_before``, a timed
+# Action) needs SOMETHING to look at it at that moment, after any restart. That something is this
+# scanner's tick -- the platform's one clock -- never a second timer loop. A host registers a cheap
+# "wake whatever is due" coroutine once at startup; every tick runs each one, isolated: a hook that
+# raises or hangs is reported and timed out, and never stops the scanner or another hook.
+# Granularity is the scan interval (5 s on the brain). No new schedule exists: the hook rides the
+# scanner's own approved cadence, exactly as the agent wake-ups ride the inbox delivery sweep.
+# ---------------------------------------------------------------------------
+
+TickHook = Callable[[], Awaitable[Any]]
+
+#: A hook is a wake, not the work: it must hand real work to its own detached tasks.
+TICK_HOOK_TIMEOUT_SECONDS = 30.0
+
+_tick_hooks: dict[str, TickHook] = {}
+
+
+def register_tick_hook(name: str, hook: TickHook) -> None:
+    """Run ``hook()`` on every scanner tick (idempotent by ``name``: re-registering replaces)."""
+    if not name:
+        raise ValueError("a tick hook needs a name")
+    _tick_hooks[name] = hook
+
+
+def unregister_tick_hook(name: str) -> None:
+    _tick_hooks.pop(name, None)
+
+
+def tick_hook_names() -> list[str]:
+    return sorted(_tick_hooks)
+
+
+async def run_tick_hooks() -> dict[str, str]:
+    """Run every registered hook once. Returns ``{name: "ok" | "error" | "timeout"}``. Never raises."""
+    outcomes: dict[str, str] = {}
+    for name, hook in list(_tick_hooks.items()):
+        try:
+            woken = hook()
+            if not inspect.isawaitable(woken):
+                # A sync hook ran (its side effect happened) but broke the contract: name it, plainly.
+                raise TypeError(
+                    f"tick hook {name!r} returned {type(woken).__name__}, not an awaitable -- "
+                    "register an async function (async def ...), never a sync one"
+                )
+            await asyncio.wait_for(woken, timeout=TICK_HOOK_TIMEOUT_SECONDS)
+            outcomes[name] = "ok"
+        except TimeoutError as exc:
+            outcomes[name] = "timeout"
+            log.error("scanner: tick hook %s took over %.0fs", name, TICK_HOOK_TIMEOUT_SECONDS)
+            await report_operational_failure(exc, operation="tick_hook_timeout", context={"hook": name})
+        except Exception as exc:  # noqa: BLE001 -- one hook never stops the clock
+            outcomes[name] = "error"
+            log.exception("scanner: tick hook %s failed", name)
+            await report_operational_failure(exc, operation="tick_hook", context={"hook": name})
+    return outcomes
+
+
 async def _tick() -> None:
+    try:
+        await _tick_schedules()
+    finally:
+        # Due work wakes even on a tick whose schedule passes failed.
+        await run_tick_hooks()
+
+
+async def _tick_schedules() -> None:
     tick_started = time.perf_counter()
-    _status.last_tick_at = datetime.now(timezone.utc)
+    _status.last_tick_at = datetime.now(UTC)
 
     expired = await queries.sweep_expired_leases()
     _status.last_tick_expired_sweeps = expired
@@ -248,7 +318,7 @@ async def run_forever() -> None:
         )
 
     interval = float(get_ext("scan_interval_seconds"))
-    _status.started_at = datetime.now(timezone.utc)
+    _status.started_at = datetime.now(UTC)
     _status.running = True
     log.info(
         "matrx-scheduler scanner started — interval=%.1fs surface=%s",

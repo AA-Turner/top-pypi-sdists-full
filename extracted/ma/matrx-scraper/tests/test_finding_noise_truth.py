@@ -9,7 +9,7 @@ Real rows quoted here:
   anchor Facebook/Twitter/Pinterest/LinkedIn/Email) on 578 pages -> 372 of the 437
   open nofollow findings; "Cancel reply" comment-form links; and one real content
   link (datadestruction.com -> /compliance/nist-800-88) that IS an actual defect.
-- `web.snapshot.structured_data` for iopbm.com `/`: the LEGACY shape
+- `web.snapshot.structured_data` for example.com `/`: the LEGACY shape
   `{"schema_org": {}, "schema_types": ["http://schema.org/Organization"]}`; the
   live page declares `MedicalClinic`.
 - datadestruction.com/author/arman-sadeghi: 12 <img>, 11 with `alt=""`; the stored
@@ -150,13 +150,13 @@ def test_capture_flags_data_src_and_lazyload_class_images():
 
 # ------------------------------------------------------------ local_business_markup
 
-LEGACY_IOPBM = {"schema_org": {}, "schema_types": ["http://schema.org/Organization"]}
+LEGACY_Northgate = {"schema_org": {}, "schema_types": ["http://schema.org/Organization"]}
 
 MEDICAL_CLINIC = json.dumps(
     {
         "@context": "https://schema.org",
         "@type": "MedicalClinic",
-        "name": "Institute of Plant-Based Medicine",
+        "name": "Northgate Services",
         "address": {"@type": "PostalAddress", "streetAddress": "1 Way", "addressLocality": "Newport Beach"},
         "telephone": "+1-949-555-0100",
     }
@@ -168,8 +168,8 @@ def _facts(url: str, structured_data: dict | None, **kw) -> PageFacts:
 
 
 def test_legacy_capture_naming_organization_is_unknown_not_absent():
-    assert legacy_business_types_in(LEGACY_IOPBM) == ["Organization"]
-    pages = [_facts("https://iopbm.com/", LEGACY_IOPBM), _facts("https://iopbm.com/a", {"schema_org": {}, "schema_types": []})]
+    assert legacy_business_types_in(LEGACY_Northgate) == ["Organization"]
+    pages = [_facts("https://www.example.com/", LEGACY_Northgate), _facts("https://www.example.com/a", {"schema_org": {}, "schema_types": []})]
     site = SiteAggregates()
     index_page_facts(pages, site)
     outcome = local_business_outcome(site)
@@ -178,7 +178,7 @@ def test_legacy_capture_naming_organization_is_unknown_not_absent():
 
 
 def test_medical_clinic_counts_as_a_business_entity():
-    page = page_with_ld(MEDICAL_CLINIC, "https://iopbm.com/")
+    page = page_with_ld(MEDICAL_CLINIC, "https://www.example.com/")
     site = SiteAggregates()
     index_page_facts([page], site)
     assert [e["types"] for e in site.business.entities] == [["MedicalClinic"]]
@@ -217,7 +217,7 @@ def test_a_site_level_check_is_not_run_per_page():
 
 
 def test_two_pages_produce_one_local_business_verdict():
-    pages = [_facts(f"https://iopbm.com/{n}", LEGACY_IOPBM) for n in range(2)]
+    pages = [_facts(f"https://www.example.com/{n}", LEGACY_Northgate) for n in range(2)]
     site = SiteAggregates()
     index_page_facts(pages, site)
     per_page_rows = [

@@ -126,7 +126,7 @@ class NotesInputContentModel(StructuredInputBaseModel):
 class TableInputContentModel(StructuredInputBaseModel):
     type: Literal["input_table"] = "input_table"
     bookmarks: list[dict[str, Any]] = Field(default_factory=list)
-    _editable_tools: frozenset[str] = PrivateAttr(default=frozenset({"table"}))
+    _editable_tools: frozenset[str] = PrivateAttr(default=frozenset({"records"}))
 
 
 class TaskInputContentModel(StructuredInputBaseModel):
@@ -152,6 +152,11 @@ class RemarksInputContentModel(StructuredInputBaseModel):
     items: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class SourceSetInputContentModel(StructuredInputBaseModel):
+    type: Literal["source_set"] = "source_set"
+    source_set: dict[str, Any] = Field(default_factory=dict)
+
+
 # Wire discriminator -> twin, mirroring STRUCTURED_INPUT_TYPE_MAP exactly. The
 # reconciliation test asserts the two maps stay in lockstep; a new registered
 # input type with no twin fails there rather than silently missing one.
@@ -171,4 +176,5 @@ STRUCTURED_INPUT_MODEL_MAP: dict[str, type[StructuredInputBaseModel]] = {
     "input_workbook": WorkbookInputContentModel,
     "input_document": DocumentInputContentModel,
     "input_remarks": RemarksInputContentModel,
+    "source_set": SourceSetInputContentModel,
 }

@@ -29,6 +29,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ async def probe_control_plane(
     body = {"run_id": run_id, "activation_key": activation_key, "worker_id": worker_id}
     try:
         if client is None:
-            async with httpx.AsyncClient(timeout=timeout_seconds) as owned:
+            async with shared_client(timeout=timeout_seconds) as owned:
                 response = await owned.post(url, json=body)
         else:
             response = await client.post(url, json=body, timeout=timeout_seconds)

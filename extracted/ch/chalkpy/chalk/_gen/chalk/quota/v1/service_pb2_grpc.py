@@ -25,6 +25,11 @@ class QuotaServiceStub(object):
             request_serializer=chalk_dot_quota_dot_v1_dot_service__pb2.GetQuotaRequest.SerializeToString,
             response_deserializer=chalk_dot_quota_dot_v1_dot_service__pb2.GetQuotaResponse.FromString,
         )
+        self.ListGPUTypes = channel.unary_unary(
+            "/chalk.quota.v1.QuotaService/ListGPUTypes",
+            request_serializer=chalk_dot_quota_dot_v1_dot_service__pb2.ListGPUTypesRequest.SerializeToString,
+            response_deserializer=chalk_dot_quota_dot_v1_dot_service__pb2.ListGPUTypesResponse.FromString,
+        )
         self.SetQuota = channel.unary_unary(
             "/chalk.quota.v1.QuotaService/SetQuota",
             request_serializer=chalk_dot_quota_dot_v1_dot_service__pb2.SetQuotaRequest.SerializeToString,
@@ -53,6 +58,14 @@ class QuotaServiceServicer(object):
 
     def GetQuota(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListGPUTypes(self, request, context):
+        """Names the GPU types the environment's workloads can be placed on, using the
+        same hosts as scaling-group GPU validation. Names only, no quantities.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -89,6 +102,11 @@ def add_QuotaServiceServicer_to_server(servicer, server):
             servicer.GetQuota,
             request_deserializer=chalk_dot_quota_dot_v1_dot_service__pb2.GetQuotaRequest.FromString,
             response_serializer=chalk_dot_quota_dot_v1_dot_service__pb2.GetQuotaResponse.SerializeToString,
+        ),
+        "ListGPUTypes": grpc.unary_unary_rpc_method_handler(
+            servicer.ListGPUTypes,
+            request_deserializer=chalk_dot_quota_dot_v1_dot_service__pb2.ListGPUTypesRequest.FromString,
+            response_serializer=chalk_dot_quota_dot_v1_dot_service__pb2.ListGPUTypesResponse.SerializeToString,
         ),
         "SetQuota": grpc.unary_unary_rpc_method_handler(
             servicer.SetQuota,
@@ -162,6 +180,35 @@ class QuotaService(object):
             "/chalk.quota.v1.QuotaService/GetQuota",
             chalk_dot_quota_dot_v1_dot_service__pb2.GetQuotaRequest.SerializeToString,
             chalk_dot_quota_dot_v1_dot_service__pb2.GetQuotaResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListGPUTypes(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.quota.v1.QuotaService/ListGPUTypes",
+            chalk_dot_quota_dot_v1_dot_service__pb2.ListGPUTypesRequest.SerializeToString,
+            chalk_dot_quota_dot_v1_dot_service__pb2.ListGPUTypesResponse.FromString,
             options,
             channel_credentials,
             insecure,

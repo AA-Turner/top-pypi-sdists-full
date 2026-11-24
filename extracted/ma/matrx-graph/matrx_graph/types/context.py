@@ -130,6 +130,17 @@ class NodeExecutionContext:
     # when the run resumes with the person's answer: the step hands it on
     # (``subgraph.call`` resumes its waiting child with it). None otherwise.
     resume_answer: ResumeAnswer | None = None
+    # The source paths this step's outgoing connections read out of its output
+    # (``CompiledGraph.output_reads``); None = the whole output is read, or unknown (a
+    # hand-built context). A step whose output is a copy of something larger hands on
+    # only what is read (``subgraph.call``: a called workflow hands back only the step
+    # outputs its caller's connections read — Arman, 2026-11-02).
+    output_reads: tuple[str, ...] | None = None
+    # Execution provenance is host-supplied fact, not an authorization capability.
+    execution_job_id: str | None = field(default=None, kw_only=True)
+    execution_job_kind: str | None = field(default=None, kw_only=True)
+    definition_version_id: str | None = field(default=None, kw_only=True)
+    definition_hash: str | None = field(default=None, kw_only=True)
     _sends: list[Send] = field(default_factory=list)
     _emissions: dict[str, Any] = field(default_factory=dict)
     # Fan-out correlation (ENGINE_SPEC §4.1): ONE dispatch_id minted lazily
@@ -140,6 +151,11 @@ class NodeExecutionContext:
     # Billed AI usage this invocation actually spent, recorded by the executor
     # (see ``record_billed_usage``). Engine-plane, never data-plane.
     _billed_usage: dict[str, Any] | None = None
+    # Writes this invocation's OUTCOME must wait for (see ``hold_outcome_until``). Engine-plane.
+    _outcome_waits: list[Any] = field(default_factory=list)
+    # True only on a context a Scheduler built for a step it runs (it awaits what was held); elsewhere
+    # (an isolated node run, a test) ``hold_outcome_until`` refuses and the caller awaits its own write.
+    _outcome_waits_honored: bool = False
     # Top-level payload keys this invocation hands over BESIDE its kind (see
     # ``declare_beside_kind``). Engine-plane: the kind check ignores them.
     _beside_kind: frozenset[str] = frozenset()
@@ -252,6 +268,28 @@ class NodeExecutionContext:
         """The keys :meth:`declare_beside_kind` named (scheduler-only)."""
         return self._beside_kind
 
+    def hold_outcome_until(self, write: Any) -> bool:
+        """Hand the scheduler a durable write (an ``asyncio`` task or future) that must land BEFORE this step's
+        outcome does, instead of awaiting it before returning (P8-RUNS lever 2: a called child's event flush and
+        terminal write). The step's answer goes on at once; the scheduler awaits every held write before it writes
+        this run's next outcome or checkpoint and before the run ends, and a held write that failed raises there
+        (loud, never dropped). Only for a write whose step re-runs safely if the run dies before it lands.
+        Returns False — nothing held — when no scheduler awaits this context's held writes; the caller awaits it."""
+        if not self._outcome_waits_honored:
+            return False
+        self._outcome_waits.append(write)
+        return True
+
+    @property
+    def holds_outcome_writes(self) -> bool:
+        """Whether :meth:`hold_outcome_until` would hold (a scheduler runs this step and awaits held writes)."""
+        return self._outcome_waits_honored
+
+    def drain_outcome_waits(self) -> list[Any]:
+        """Take the held writes (scheduler-only), clearing them."""
+        held, self._outcome_waits = self._outcome_waits, []
+        return held
+
     def drain_billed_usage(self) -> dict[str, Any] | None:
         """Take the declared spend (scheduler-only), clearing it."""
         recorded, self._billed_usage = self._billed_usage, None
@@ -357,12 +395,23 @@ class NodeExecutionContext:
                 exc_info=True,
             )
 
+    def outbound_dispatch_id(self) -> str:
+        """The dispatch id every Send of THIS execution carries — minted on
+        first use, so a node can stamp it before its first ``send`` (a
+        ``control.work_queue`` claim token: each worker invocation carries it
+        back as its ``dispatch_id``). Fresh per execution; crash-replay of a
+        recorded outcome reuses the recorded Sends, never this."""
+        if not self._dispatch_id:
+            self._dispatch_id = str(uuid4())
+        return self._dispatch_id
+
     def send(
         self,
         target_node_id: str,
         payload: dict[str, Any] | BaseModel | None = None,
         *,
         work_item_id: str = "",
+        pace: dict[str, Any] | None = None,
     ) -> None:
         """Queue a Send directive. Applied by the scheduler after execute() returns.
 
@@ -372,15 +421,14 @@ class NodeExecutionContext:
         per calling invocation, item_index auto-incremented — so dynamic
         fanout is idempotent under replay and retries stay per-item.
         """
-        if not self._dispatch_id:
-            self._dispatch_id = str(uuid4())
         self._sends.append(
             Send.create(
                 target_node_id=target_node_id,
                 payload=payload,
-                dispatch_id=self._dispatch_id,
+                dispatch_id=self.outbound_dispatch_id(),
                 item_index=len(self._sends),
                 work_item_id=work_item_id,
+                pace=pace,
             )
         )
 

@@ -25,8 +25,6 @@ from matrx_ai.processing.blocks.tree_line import MIN_TREE_LINES, is_tree_line
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[4]
 _FIXTURE = _PACKAGE_ROOT / "tests" / "fixtures" / "tree_line_vectors.json"
-# In the aidream monorepo the TypeScript source of the vectors sits beside us.
-_TS_SOURCE = _PACKAGE_ROOT.parents[1] / "apps" / "shared" / "content-ir-core" / "__tests__" / "tree-line-vectors.json"
 
 _VECTORS = json.loads(_FIXTURE.read_text(encoding="utf-8"))
 
@@ -45,11 +43,3 @@ def test_an_ascii_tree_is_one_tree_block_with_its_root() -> None:
     trees = [b for b in split_content_into_blocks(text) if b.type == "tree"]
     assert [b.content for b in trees] == ["matrx-sync/\n|-- bin\n|   `-- sync\n+-- lib\n`-- README.md"]
 
-
-def test_fixture_is_the_generated_typescript_corpus() -> None:
-    if not _TS_SOURCE.exists():
-        pytest.skip("standalone install: the TypeScript corpus is not beside this package")
-    assert _FIXTURE.read_bytes() == _TS_SOURCE.read_bytes(), (
-        "tests/fixtures/tree_line_vectors.json drifted from the TypeScript rule's corpus: "
-        "regenerate it (UPDATE_TREE_VECTORS=1 in apps/shared/content-ir-core) and copy it here"
-    )

@@ -4,7 +4,7 @@ Proof case: a saved default "Gold", the person cleared the field, the server sti
 
 from matrx_ai.agents.variables import AgentVariable, compose_variable_values
 
-DEFS = {"service_tier": AgentVariable(name="service_tier", default_value="Gold")}
+DEFS = {"service_tier": AgentVariable(declaration={"name": "service_tier", "defaultValue": "Gold"})}
 
 
 def test_cleared_is_empty_not_default() -> None:

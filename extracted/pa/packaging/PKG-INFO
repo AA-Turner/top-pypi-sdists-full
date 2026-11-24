@@ -1,9 +1,9 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: packaging
-Version: 26.3
+Version: 26.4
 Summary: Core utilities for Python packages
 Author-email: Donald Stufft <donald@stufft.io>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-Expression: Apache-2.0 OR BSD-2-Clause
 Classifier: Development Status :: 5 - Production/Stable
@@ -11,7 +11,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -27,6 +26,7 @@ License-File: LICENSE.APACHE
 License-File: LICENSE.BSD
 Project-URL: Documentation, https://packaging.pypa.io/
 Project-URL: Source, https://github.com/pypa/packaging
+Import-Name: packaging
 
 packaging
 =========
@@ -77,11 +77,12 @@ Discussion
 
 If you run into bugs, you can file them in our `issue tracker`_.
 
-You can also join discussions on `GitHub Discussions`_ to ask questions or get involved.
+You can also ask questions or get involved in the `Packaging category`_ on
+discuss.python.org.
 
 .. _`documentation`: https://packaging.pypa.io/
 .. _`issue tracker`: https://github.com/pypa/packaging/issues
-.. _`GitHub Discussions`: https://github.com/pypa/packaging/discussions
+.. _`Packaging category`: https://discuss.python.org/c/packaging/14
 
 
 Code of Conduct

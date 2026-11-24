@@ -13,17 +13,14 @@ from nab_resolver.ranges import Range
 from nab_resolver.resolver import Resolver
 from nab_resolver.types import Incompatibility, IncompatibilityCause, Term
 
+from .solver_fixtures import DictProvider, FlaggedRange
+
 
 @pytest.mark.parametrize("range_name", ["Range", "FlaggedRange"])
 @pytest.mark.parametrize("positive", [False, True])
 def test_propagation_does_not_reread_the_derived_range(
     monkeypatch: pytest.MonkeyPatch, range_name: str, positive: bool
 ) -> None:
-    # Workspace suites share the tests namespace; wait until collection has
-    # registered the sibling helper modules before importing them.
-    from .test_range_contract import FlaggedRange
-    from .test_resolver import DictProvider
-
     range_type: Any = Range if range_name == "Range" else FlaggedRange
     resolver = Resolver(DictProvider({}), range_type=range_type)
     constraint = range_type.singleton(2)
@@ -42,9 +39,9 @@ def test_propagation_does_not_reread_the_derived_range(
     monkeypatch.setattr(resolver.solution, "get", record_get)
 
     assert propagate.unit_propagation(resolver, "foo") is None
-    # Evaluate before/after, read the old range, and compute the new range.
-    # Fetching that result again after derive() would add a fifth lookup.
-    assert lookups == ["foo"] * 4
+    # Two evaluations and the old range lookup. The new trail entry supplies
+    # the result of derive() directly.
+    assert lookups == ["foo"] * 3
     assert resolver.stats.derivations == 1
     assert get("foo") == (constraint if positive else ~constraint)
 

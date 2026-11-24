@@ -285,3 +285,38 @@ async def test_an_unknown_conversation_still_takes_the_ambient_organization(monk
         assert _queued_org(coord, row_id) == ACTIVE_ORG
     finally:
         queue_helpers._coordinator_cv.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_a_parent_org_child_on_a_cache_miss_leaves_the_org_to_the_parent(monkeypatch):
+    """Feedback 1f2411d6: the executor stamps chat.request_snapshot with the
+    run's AMBIENT organization. When this process never read the conversation,
+    that guess used to ride to the database, where refuse_org_foreign_to_parent
+    rejected it whenever the conversation lives elsewhere — the write was lost.
+    On a miss the door must leave organization_id unset so the database's
+    inherit_org_from_parent trigger stamps the conversation's own."""
+    from matrx_ai.persistence.coordinator import Coordinator
+    from matrx_ai.persistence.queue_helpers import _coordinator_cv, queue_request_snapshot_create
+    from matrx_ai.persistence.registry import override_table
+
+    class _SnapMeta(_MessageMeta):
+        table_name = "request_snapshot"
+
+    class _Snap:
+        _meta = _SnapMeta()
+
+    _ambient_context(monkeypatch, ACTIVE_ORG)
+    coord = Coordinator(request_id=str(uuid4()))
+    token = _coordinator_cv.set(coord)
+    try:
+        with override_table("chat.request_snapshot", _Snap):
+            row_id = str(uuid4())
+            queue_request_snapshot_create(
+                id=row_id,
+                user_request_id=str(uuid4()),
+                conversation_id=str(uuid4()),
+                organization_id=ACTIVE_ORG,
+            )
+            assert _queued_org(coord, row_id) is None
+    finally:
+        _coordinator_cv.reset(token)

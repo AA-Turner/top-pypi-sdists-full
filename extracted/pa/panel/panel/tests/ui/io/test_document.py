@@ -17,6 +17,7 @@ from panel.io.state import state
 from panel.layout import Column
 from panel.pane import Markdown
 from panel.tests.util import serve_component, wait_until
+from panel.widgets import Button
 
 pytestmark = pytest.mark.ui
 
@@ -144,3 +145,60 @@ def test_immediate_dispatch_reaches_client_while_document_held(page):
     assert not info['queued']
     # The events the hold collected were restored, not dispatched
     assert info['held_after'] == info['held_before']
+
+
+def test_sync_callback_updates_are_sent_before_it_returns(page):
+    """
+    Bokeh runs a synchronous event callback on a worker thread and only
+    writes its own pending patches once it returns, so updates made
+    while it is still running must be written by Panel directly.
+    """
+    button = Button(label='Click')
+    md = Markdown('Idle')
+    release = threading.Event()
+
+    def cb(event):
+        md.object = 'Running'
+        # Outlasts the expectation below, so 'Running' can only be seen
+        # if it was sent while the callback is still running.
+        release.wait(timeout=30)
+        md.object = 'Done'
+
+    button.on_click(cb)
+
+    serve_component(page, Column(button, md))
+
+    page.locator('.bk-btn').click()
+
+    try:
+        expect(page.locator('.markdown')).to_have_text('Running', timeout=10000)
+    finally:
+        release.set()
+    expect(page.locator('.markdown')).to_have_text('Done')
+
+
+def test_threaded_periodic_updates_reach_client_without_loss(page, threads):
+    """
+    A periodic callback running on the thread pool updates a different
+    widget on every tick. The updates are applied by locked callbacks
+    the pool thread does not own, which must neither drop nor merge
+    them, so every widget ends up showing its own value.
+    """
+    n = 20
+    panes = [Markdown('pending', css_classes=[f'target-{i}']) for i in range(n)]
+    ticks = {'i': 0}
+
+    def cb():
+        i = ticks['i']
+        ticks['i'] += 1
+        panes[i].object = f'value {i}'
+
+    def app():
+        state.onload(lambda: state.add_periodic_callback(cb, period=1, count=n))
+        return Column(*panes)
+
+    serve_component(page, app)
+
+    for i in range(n):
+        expect(page.locator(f'.target-{i}')).to_have_text(f'value {i}')
+    wait_until(lambda: ticks['i'] == n, page)

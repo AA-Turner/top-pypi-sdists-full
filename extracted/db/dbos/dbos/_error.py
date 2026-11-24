@@ -1,7 +1,7 @@
 """Errors thrown by DBOS."""
 
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Sequence
 
 
 class DBOSException(Exception):
@@ -74,6 +74,7 @@ class DBOSErrorCode(Enum):
     ExternalObjectMissing = 31
     ExternalObjectIntegrity = 32
     ExternalStoreFailed = 33
+    WorkflowArchiveNotConfigured = 34
 
 
 #######################################
@@ -435,6 +436,19 @@ class DBOSExternalStoreNotConfiguredError(DBOSException):
         return (self.__class__, (self.store_id, self.configured_store_ids))
 
 
+class DBOSWorkflowArchiveNotConfiguredError(DBOSException):
+    """Exception raised when reading from the workflow archive with none configured."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "No workflow archive is configured: set workflow_archive in the DBOS configuration or DBOSClient",
+            dbos_error_code=DBOSErrorCode.WorkflowArchiveNotConfigured.value,
+        )
+
+    def __reduce__(self) -> Any:
+        return (self.__class__, ())
+
+
 class DBOSExternalObjectMissingError(DBOSException):
     """Exception raised when an external object's ref is valid but its object no longer exists."""
 
@@ -507,8 +521,18 @@ class DBOSWorkflowSuspendedError(DBOSBaseException):
     of the sleep re-enqueues the workflow.
     """
 
-    def __init__(self, workflow_id: str, topic: Optional[str]) -> None:
-        if topic is None:
+    def __init__(
+        self,
+        workflow_id: str,
+        topic: Optional[str],
+        *,
+        awaited_workflow_ids: Sequence[str] = (),
+    ) -> None:
+        if len(awaited_workflow_ids) == 1:
+            waiting = f"awaiting the result of workflow {awaited_workflow_ids[0]}"
+        elif awaited_workflow_ids:
+            waiting = f"awaiting the first of {len(awaited_workflow_ids)} workflows"
+        elif topic is None:
             waiting = "sleeping"
         elif topic == "__null__topic__":
             # A recv with no topic waits on the system database's null topic.

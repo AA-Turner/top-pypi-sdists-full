@@ -141,6 +141,36 @@ def test_a_read_only_call_is_not_a_write_when_the_writers_are_declared() -> None
     assert report.unbacked is True, "reading the catalog is not saving the desk"
 
 
+def test_a_read_through_a_tool_that_also_writes_is_not_a_write() -> None:
+    """One tool that reads AND writes (``records``) is declared by its writing actions (``tool:action``), so a
+    successful read never passes as a save. RED before: the ledger was matched by tool name alone, so any
+    successful ``records`` call, a ``record_read`` included, backed the claim."""
+    policy = AuthoringPolicy(
+        mandate_key="brand.intake",
+        write_tools=frozenset({"records:record_write", "records:table_propose", "spaces"}),
+        correction_turns=1,
+    )
+
+    def ledger(name: str, action: str | None, *, enveloped: bool = False) -> list[ToolCallUsage]:
+        arguments = {} if action is None else {"action": action, **({"args": {"table_id": "t"}} if enveloped else {})}
+        return [
+            ToolCallUsage(
+                iteration=1,
+                tool_calls_count=1,
+                tool_calls_details=[{"name": name, "success": True, "arguments": arguments}],
+            )
+        ]
+
+    read = evaluate_change_claims(policy, ledger("records", "record_read"), LIVE_2319Z_REPLY)
+    assert read is not None and read.unbacked is True, "reading a table is not saving it"
+    wrote = evaluate_change_claims(policy, ledger("records", "record_write", enveloped=True), LIVE_2319Z_REPLY)
+    assert wrote is not None and wrote.wrote is True and wrote.successful_tools == ("records",)
+    # A call that names no action cannot be shown to have written.
+    assert evaluate_change_claims(policy, ledger("records", None), LIVE_2319Z_REPLY).unbacked is True
+    # A plain name beside it still counts for any successful call.
+    assert evaluate_change_claims(policy, ledger("spaces", None), LIVE_2319Z_REPLY).wrote is True
+
+
 def test_a_failed_write_is_not_a_write() -> None:
     """23:23Z/23:24Z: workflow_plan timed out after 120s — success=False."""
     report = evaluate_change_claims(
@@ -268,3 +298,25 @@ async def test_the_executor_gate_forces_a_turn_through_the_injected_host_seam(
     assert action == "proceed"
     assert report is None
     assert seen == {}, "a turn that made no claim must not pay for a policy lookup"
+
+
+def test_a_resumed_turn_counts_records_only_by_its_writing_actions() -> None:
+    """The second reader (a run resumed after a client-run tool reads the turn's earlier segments from the messages)
+    counts `records` by the action of the call each result answers. RED before: it matched by name only, and
+    `write_tools` holds `records:<action>` entries, so an earlier real write was never counted."""
+    from matrx_ai.orchestrator.change_claims import successful_writes_in_turn
+
+    policy = frozenset({"records:record_write", "spaces"})
+
+    def turn(action: str) -> list[dict]:
+        return [
+            {"role": "user", "content": [{"type": "text", "text": "build it"}], "metadata": {}},
+            {"role": "assistant", "content": [{"type": "tool_call", "id": "c1", "name": "records",
+                                               "arguments": {"action": action, "args": {}}}]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "c1", "name": "records",
+                                          "content": "ok", "is_error": False}]},
+        ]
+
+    assert successful_writes_in_turn(turn("record_write"), policy) == ("records",)
+    assert successful_writes_in_turn(turn("record_read"), policy) == ()
+

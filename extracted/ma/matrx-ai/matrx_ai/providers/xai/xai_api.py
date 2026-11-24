@@ -9,8 +9,6 @@ from matrx_utils import vcprint
 
 from matrx_ai.config import (
     AudioContent,
-    TextContent,
-    ThinkingContent,
     TokenUsage,
     ToolCallContent,
     UnifiedConfig,
@@ -23,7 +21,7 @@ from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
 )
-from matrx_ai.providers.reasoning import emit_complete_reasoning_block
+from matrx_ai.providers.reasoning import emit_settled_content
 from matrx_ai.providers.reasoning_stream_state import (
     reset_reasoning_state,
 )
@@ -196,6 +194,15 @@ class XAIChat:
             route_chat_to_conversation(chat, get_app_context().conversation_id)
             from matrx_ai.providers.request_capture import capture_grpc_request, is_capturing
 
+            if not is_capturing():
+                # THE FINAL OUTBOUND SNAPSHOT (always on): the request proto the stub sends,
+                # fingerprinted for the static seal check. Report only; never fails the send.
+                try:
+                    from matrx_ai.providers.final_outbound_snapshot import observe_xai_request
+
+                    observe_xai_request(chat)
+                except Exception:  # noqa: BLE001, S110 — the observer never breaks a send
+                    pass
             if is_capturing():
                 # The exact request proto the stub would send (GetCompletion / GetCompletionChunk).
                 capture_grpc_request(
@@ -234,7 +241,7 @@ class XAIChat:
         """
         from matrx_ai.catalog.resolve import resolve_tts_voice
         from matrx_ai.config.dictionary_config import apply_tts_dictionary
-        from matrx_ai.config.tts_config import XAITTSRegistry
+        from matrx_ai.config.tts_config import capture_spoken_text_cut, XAITTSRegistry
 
         tts = unified_config.tts_voice_config
         voice = resolve_tts_voice(profile, tts._primary_voice() if tts else None)
@@ -264,7 +271,11 @@ class XAIChat:
             unified_config.dictionary, raw_text, provider="xai", model=matrx_model_name
         )
 
-        input_text = XAITTSRegistry.validate_text_length(raw_text, truncate=True)
+        # Over xAI's maximum the text is cut LOUDLY: recorded, captured, and stated on the
+        # audio's metadata (``speech_input``) — never a silent chop.
+        input_fit = XAITTSRegistry.fit_text(raw_text)
+        input_text = input_fit.text
+        await capture_spoken_text_cut(input_fit, provider="xai", model=matrx_model_name)
 
         api_key = resolve_api_key("XAI_API_KEY") or ""
         payload: dict[str, Any] = {
@@ -277,6 +288,8 @@ class XAIChat:
         vcprint(f"[xAI TTS] voice={voice} codec={codec}", color="blue")
 
         stamp_call_meta(provider="xai", model=matrx_model_name, is_streaming=False)
+        # The speech request's snapshot (the chat seam's). "Request sent" is stamped by the transport (wire_sent.py).
+        capture_request_payload(payload, provider="xai")
         async with make_capture_http_client(timeout=120.0) as http:
             resp = await http.post(
                 "https://api.x.ai/v1/tts",
@@ -356,7 +369,10 @@ class XAIChat:
                 mime_type=mime_type,
                 file_size=envelope.size_bytes,
                 duration_ms=envelope.duration_ms,
-                metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+                metadata={
+                    "generation": gen_meta.model_dump(exclude_none=True),
+                    **({"speech_input": input_fit.record()} if input_fit.truncated else {}),
+                },
             )
             msg = UnifiedMessage(role="assistant", content=[audio_content])
 
@@ -407,7 +423,7 @@ class XAIChat:
         response = await chat.sample()
 
         vcprint("[xAI] API call completed, processing response...", color="cyan")
-        vcprint(response.content, "xAI Response", color="green", verbose=self.debug)
+        vcprint(f"{len(response.content or '')} chars", "xAI Response", color="green", verbose=self.debug)
 
         converted_response = self.translator.from_xai(response)
 
@@ -419,14 +435,8 @@ class XAIChat:
         await emit_citations_from_response(converted_response, emitter, "XAI")
 
         # Emit content (non-streaming has no live deltas, so push it now).
-        for message in converted_response.messages:
-            for content in message.content:
-                if isinstance(content, ThinkingContent):
-                    await emit_complete_reasoning_block(emitter, content.text)
-                elif isinstance(content, TextContent):
-                    await emitter.send_chunk(content.text)
-                elif isinstance(content, ToolCallContent):
-                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        await emit_settled_content(emitter, converted_response)
 
         vcprint("[xAI] Non-streaming execution completed successfully", color="green")
         return converted_response

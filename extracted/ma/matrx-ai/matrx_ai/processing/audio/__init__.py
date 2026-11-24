@@ -2,6 +2,7 @@ from .audio_preprocessing import preprocess_audio_in_messages, should_preprocess
 from .stt import (
     DEFAULT_PROVIDER_AUDIO_LIMIT_MB,
     PROVIDER_ACCEPTED_AUDIO_SUFFIXES,
+    SpeakersStatus,
     STTClient,
     STTRequest,
     STTResult,
@@ -13,6 +14,7 @@ from .stt import (
     execute_stt,
     provider_accepts_audio_container,
     provider_audio_limit_mb,
+    speakers_status,
 )
 from .transcription_cache import CachedTranscription, TranscriptionCache, clear_cache, get_cache
 
@@ -37,6 +39,7 @@ __all__ = [
     "preprocess_audio_in_messages",
     "should_preprocess_audio",
     "GroqSTT",
+    "SpeakersStatus",
     "STTClient",
     "STTRequest",
     "STTResult",
@@ -45,6 +48,7 @@ __all__ = [
     "WordsStatus",
     "clamp_words_monotonic",
     "execute_stt",
+    "speakers_status",
     "duration_to_stt_input_units",
     "provider_accepts_audio_container",
     "provider_audio_limit_mb",

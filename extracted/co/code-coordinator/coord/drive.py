@@ -130,6 +130,20 @@ from coord.failure_class import (
     environmental_backoff_secs,
     plan_usage_limit_resume,
 )
+# #4093: the two buckets that qualify for #3714's one-shot pre-fix-round
+# retry — see `MergeVerifier.triage_test_failure` / `_decide_test` below.
+# Just the constants, not `triage_failure` itself: the actual classifier
+# call (a subprocess, possibly a `claude -p` model call) is lazily
+# imported inside `GitMergeVerifier.triage_test_failure`, same posture as
+# the `github_ops` imports elsewhere in this module.
+from coord.failure_triage import (
+    BUCKET_FLAKY,
+    BUCKET_HUMAN,
+    BUCKET_INFRA,
+    BUCKET_MECHANICAL,
+    BUCKET_SUBSTANTIVE,
+    is_degraded_verdict,
+)
 from coord import machine_fault
 from coord.models import (
     DELIVERABLE_ANALYSIS_LABEL,
@@ -179,6 +193,7 @@ from coord.merge_queue import (
 
 if TYPE_CHECKING:  # avoid a hard import cycle / heavy load-time import
     from coord.entry_truth import EntryTruth
+    from coord.failure_triage import TriageVerdict
 
 # ── exit codes (unchanged from drive-issue.sh) ───────────────────────────────
 
@@ -619,11 +634,33 @@ class DriveCounters:
     # #3713: SHA for which we already gave one free empty-fix-round retry.
     # Prevents infinite undo→redispatch when a fix worker never pushes.
     empty_fix_retried_sha: str = ""
-    # #3714: one-shot retry latch — the branch SHA for which we already
-    # retried the test stage before dispatching a fix round.  A first
-    # test failure at a given SHA retries the test; only the second
-    # failure at the same SHA proceeds to a fix round.
+    # #3714/#4093: one-shot retry latch — the branch SHA for which we have
+    # already EITHER retried the test stage OR decided (via the #4093
+    # triage classifier) that a retry isn't worth spending. A first test
+    # failure at a given SHA gets this decision made once; any repeat
+    # `decide()` call at the same SHA goes straight to the fix round. An
+    # `infra` triage verdict is the one exception — see `_decide_test`'s
+    # `BUCKET_INFRA` arm — it retries WITHOUT setting this latch.
     test_retry_sha: str = ""
+    # #4093 review (blocking finding 2): the `BUCKET_INFRA` arm's OWN budget
+    # — it does not set `test_retry_sha`, so without this it is an unbounded
+    # re-test loop that never reaches `fix_rounds`/`_die()` for as long as
+    # triage keeps answering `infra` at the same SHA (a real multi-hour
+    # usage limit, a persistently UNMET capability, or one repeating
+    # misclassification). Bounded the same way `work_retries` is — `opts.
+    # max_work_retries`, the established "how many times do we retry a
+    # flaky infra thing" budget — scoped to ONE SHA via
+    # `test_infra_retries_sha` below, same "a fresh SHA gets its own full
+    # budget" shape as `acceptance_gate_attempts`/`acceptance_gate_attempts_
+    # sha`. Once spent, `_decide_test` falls through to the ordinary
+    # mechanical/substantive path: set `test_retry_sha` and dispatch the fix
+    # round (or `_die()`, if `fix_rounds` is also exhausted) instead of
+    # looping forever.
+    test_infra_retries: int = 0
+    # #4093 review: the SHA `test_infra_retries` above is counting retries
+    # FOR — mirrors `acceptance_gate_attempts_sha`'s role for `acceptance_
+    # gate_attempts`.
+    test_infra_retries_sha: str = ""
     merge_attempts: int = 0
     review_dispatches: int = 0
     # #1584: bounded retry for a review WORKER that died (transient API
@@ -1927,6 +1964,8 @@ class MergeVerifier(Protocol):
 
     def set_config(self, config: Any) -> None: ...
 
+    def triage_test_failure(self, state: IssueState) -> "TriageVerdict | None": ...
+
 
 def _remote_matches_repo(remote_url: str, repo_github: str) -> bool:
     """Loosely compare a ``git remote get-url origin`` URL against the
@@ -2272,6 +2311,55 @@ class GitMergeVerifier:
         `__post_init__` only sets ``self.config`` once, at construction.
         """
         self.config = config
+
+    def triage_test_failure(self, state: IssueState) -> "TriageVerdict | None":
+        """WHY the Test stage failed, per :func:`coord.failure_triage.
+        triage_failure` (#4093) — the one question "is this failure even
+        the work's fault", answered once and reused here rather than
+        re-derived (#2096). :func:`_decide_test` consults this both for
+        #3714's one-shot retry decision and (#4095) for the rest of the
+        bucket→route table — so this returns the FULL verdict (bucket,
+        diagnosis, confidence, ``via``, the repro capability/proposed-scope
+        guess), not just the bucket, letting the mechanic-leg dispatch and
+        the human-stop/alert paths quote the SAME classification the retry
+        gate already decided on, instead of re-running the classifier (a
+        second, possibly DIFFERENT, model call) a second time for the same
+        SHA.
+
+        ``None`` (nothing to classify, an import/classifier exception, or a
+        verdict :func:`~coord.failure_triage.is_degraded_verdict` reports as
+        the classifier having nothing usable to say) degrades to the
+        pre-#4093 behaviour of an unconditional retry — never a worse
+        outcome than today's. A REAL verdict — including the ``"model:
+        compile_error_guard"`` override, which is a confident decision about
+        the code, not a degraded one — is always returned as its own
+        verdict, so a genuine ``substantive``/``mechanical`` call still skips
+        the retry rather than being mistaken for "no verdict available".
+
+        Evidence is built from ``state.work_test_reason`` alone — the one
+        failure text `coord drive` already has on hand for this issue,
+        without a second log fetch. ``diff_stat``/``declared_files``/
+        ``machine_capabilities`` are left at their empty defaults, same as
+        every other optional :func:`triage_failure` input this verifier has
+        no cheap way to produce; the deterministic infra/mechanical tiers
+        and the model tier all degrade gracefully without them.
+        """
+        reason = (state.work_test_reason or "").strip()
+        if not reason:
+            return None
+        try:
+            from coord.failure_evidence import extract_failure_evidence  # noqa: PLC0415
+            from coord.failure_triage import triage_failure  # noqa: PLC0415
+        except Exception:  # noqa: BLE001 — fail closed: no verdict, not a guess
+            return None
+        try:
+            evidence = extract_failure_evidence(reason)
+            verdict = triage_failure(evidence=evidence)
+        except Exception:  # noqa: BLE001 — classifier trouble must never block drive
+            return None
+        if is_degraded_verdict(verdict):
+            return None
+        return verdict
 
 
 # ── preflight (pure) ─────────────────────────────────────────────────────────
@@ -3889,6 +3977,31 @@ def _decide_acceptance_gate(
     )
 
 
+# #4093 review (nit): the buckets that explicitly skip #3714's retry,
+# matched by name rather than "anything that isn't flaky/infra/None" — so a
+# bucket #4093 grows later that this module doesn't recognize degrades to
+# the SAFER default (retry once, same as `None`) instead of silently
+# skipping straight to the fix round.
+_TEST_SKIP_RETRY_BUCKETS = frozenset({BUCKET_SUBSTANTIVE})
+
+
+def _triage_route_label(verdict: "TriageVerdict | None", route: str) -> str:
+    """#4095: the drive-pane line a Test-stage triage decision prints BEFORE
+    the route's own detail — ``TEST: failed → triage=<bucket> (<diagnosis
+    first line>) → <route>`` — so the reaction to a failure is legible from
+    the pane alone, without cross-referencing the classifier's own log.
+
+    ``verdict=None`` covers every "nothing to classify" degrade
+    :meth:`GitMergeVerifier.triage_test_failure` documents (no reason text,
+    an unusable classifier, a degraded verdict) — rendered as
+    ``triage=none``, never a guess at a bucket nothing actually assigned.
+    """
+    bucket = verdict.bucket if verdict is not None else None
+    diagnosis = (verdict.diagnosis if verdict is not None else "").strip()
+    diag_line = diagnosis.splitlines()[0] if diagnosis else "no verdict available"
+    return f"TEST: failed → triage={bucket or 'none'} ({diag_line}) → {route}"
+
+
 def _decide_test(
     state: IssueState,
     opts: DriveOptions,
@@ -3904,6 +4017,15 @@ def _decide_test(
     below.  ``--skip-test`` is the one Test-stage action taken here, and it is
     a ``coord test --skipped`` CLI call — never a direct
     ``record_test_verdict()`` (#1384).
+
+    #4098: a repo with ``smoke_tests.cross_platform_checks`` configured may
+    reach ``test_state == "failed"`` below from a cheap, compile-only
+    pre-Test cross-platform check rather than the full Test-stage fan-out —
+    ``coord.smoke._resolve_cross_platform_precheck`` folds that failure onto
+    this SAME field with a non-empty reason, before ``dispatch_pending_
+    smoke`` ever dispatches the real fan-out. This gate does not — and must
+    not — distinguish the two: a failed cross-check is a failed Test stage,
+    and gets the identical triage-first routing below.
     """
     test_state = state.work_test_state
     if test_state in ("passed", "skipped"):
@@ -4018,28 +4140,195 @@ def _decide_test(
                 f"{state.work_aid}"
             )
 
-        # #3714: retry the test once before consuming a fix round.  A
-        # first failure at a given SHA gets one automatic retest; only the
-        # second failure at the same SHA dispatches the fix worker.  This
-        # avoids burning a fix slot on a transient / flaky failure.
+        # #4095: triage-FIRST routing. A first failure at a given SHA asks
+        # #4093's triage classifier WHY it failed, then routes on the
+        # bucket — never a fixed retry→fix→retest recipe regardless of
+        # cause:
+        #   infra       — retest, bounded by its own budget (#4093 review),
+        #                 never spending the #3714 one-shot retry latch or
+        #                 a fix round.
+        #   flaky/None  — #3714's one-shot retry (`None` — no verdict
+        #                 available — degrades to this too: never a worse
+        #                 outcome than the pre-#4093 unconditional retry).
+        #   mechanical  — `coord mechanic-dispatch` (#4094), a bounded
+        #                 pre-review fixer; a confirmed dispatch spends
+        #                 NEITHER the retry latch nor a fix round. A
+        #                 decline (tier off, no capable machine, budget
+        #                 already spent at this SHA, ...) falls through to
+        #                 an ordinary fix round next poll, exactly like
+        #                 `substantive` — never a worse outcome than
+        #                 today's.
+        #   substantive — `coord fix`, as always.
+        #   human       — stop the row with the diagnosis as the reason and
+        #                 alert once (`coord escalate record`), the same
+        #                 mechanism `_escalate_merge` uses — never spend a
+        #                 fix round re-briefing a worker on something only a
+        #                 human can decide.
+        # `infra`'s own exhausted-budget fallthrough is unchanged: it still
+        # lands on the ordinary fix round below, never looping until
+        # `deadline_mins` with nothing actionable surfaced (#4093 review
+        # finding 2).
         branch_sha = current_sha or (
             verifier.branch_head_sha(state) if verifier is not None else None
         )
+        verdict: "TriageVerdict | None" = None
         if branch_sha and counters.test_retry_sha != branch_sha:
-            counters.test_retry_sha = branch_sha
-            return Action(
-                kind=RUN,
-                label="TEST: failed — retrying once before fix round (#3714)",
-                command=(
-                    "diagnose", state.repo, str(state.issue),
-                    "--stage", "test", "--reset",
-                ),
-                error_message=(
-                    f"coord diagnose {state.repo} {state.issue} "
-                    "--stage test --reset failed."
-                ),
-                sleep_after=10.0,
+            verdict = (
+                verifier.triage_test_failure(state) if verifier is not None else None
             )
+            bucket = verdict.bucket if verdict is not None else None
+            # Skip-the-retry buckets fall through to this: True once the
+            # verdict (or the `infra` lane's own exhausted budget) says the
+            # fix round is the only thing left worth dispatching.
+            skip_retry = False
+            if bucket == BUCKET_INFRA:
+                if counters.test_infra_retries_sha != branch_sha:
+                    counters.test_infra_retries_sha = branch_sha
+                    counters.test_infra_retries = 0
+                if counters.test_infra_retries < opts.max_work_retries:
+                    counters.test_infra_retries += 1
+                    return Action(
+                        kind=RUN,
+                        label=_triage_route_label(
+                            verdict,
+                            "re-testing (#4093) (attempt "
+                            f"{counters.test_infra_retries}/{opts.max_work_retries})",
+                        ),
+                        command=(
+                            "diagnose", state.repo, str(state.issue),
+                            "--stage", "test", "--reset",
+                        ),
+                        error_message=(
+                            f"coord diagnose {state.repo} {state.issue} "
+                            "--stage test --reset failed."
+                        ),
+                        sleep_after=10.0,
+                    )
+                # Budget spent: an `infra` verdict that keeps repeating at
+                # this SHA is no longer worth another retest.
+                skip_retry = True
+            elif bucket == BUCKET_HUMAN:
+                counters.test_retry_sha = branch_sha
+                diagnosis = verdict.diagnosis.strip() if verdict is not None else ""
+                reason = (
+                    "test_triage_human — "
+                    f"{diagnosis or 'no diagnosis text'} (confidence="
+                    f"{verdict.confidence:.2f}, via={verdict.via})"
+                    if verdict is not None
+                    else "test_triage_human"
+                )
+                inspect_cmd = (
+                    f"coord log {state.work_aid} --machine "
+                    f"{state.work_machine or machine}"
+                )
+                return Action(
+                    kind=EXIT,
+                    exit_code=EXIT_ESCALATED,
+                    message=(
+                        f"{_triage_route_label(verdict, 'stopping — human required')}\n"
+                        f"   Reason: {state.work_test_reason or 'none recorded'}\n"
+                        f"   Inspect: {inspect_cmd}\n"
+                        "   Recorded on the board — see: coord escalate list "
+                        f"--repo {state.repo}"
+                    ),
+                    command=(
+                        "escalate", "record", state.repo, str(state.issue),
+                        "--stage", "test",
+                        "--reason", reason,
+                        "--gate", f"test_reason={state.work_test_reason or '(none)'}",
+                        "--command", inspect_cmd,
+                        "--assignment", state.work_aid,
+                        # #4095: persist the SAME verdict onto the work
+                        # row's own `test_reason` (not just the separate
+                        # escalation record above), so `coord gates` shows
+                        # WHY Test failed without a second lookup.
+                        "--annotate-test-reason", reason,
+                    ),
+                    error_message=(
+                        "failed to record the escalation on the board (exiting "
+                        "anyway — resolve by hand: coord escalate record "
+                        f"{state.repo} {state.issue} --stage test --reason ... "
+                        "--command ...)"
+                    ),
+                )
+            elif bucket == BUCKET_MECHANICAL:
+                counters.test_retry_sha = branch_sha
+                mech_command: list[str] = [
+                    "mechanic-dispatch", state.repo, str(state.issue), branch_sha,
+                    "--diagnosis", verdict.diagnosis if verdict is not None else "",
+                    "--confidence", f"{verdict.confidence if verdict is not None else 0.0}",
+                    "--via", verdict.via if verdict is not None else "",
+                ]
+                if verdict is not None and verdict.repro_capability:
+                    mech_command += ["--repro-capability", verdict.repro_capability]
+                if verdict is not None:
+                    for proposed_file in verdict.proposed_scope.files:
+                        mech_command += ["--proposed-file", proposed_file]
+                    if verdict.proposed_scope.estimated_line_delta:
+                        mech_command += [
+                            "--proposed-line-delta",
+                            str(verdict.proposed_scope.estimated_line_delta),
+                        ]
+                # Carry the SAME failure text the triage call above already
+                # classified, and this repo's own configured test command —
+                # both already in hand here (`work_test_reason` is
+                # guaranteed non-empty by the #2596 guard above;
+                # `repo_test_command` is a populated `IssueState` field) —
+                # so the dispatched leg's briefing can tell it to reproduce
+                # via ONLY that command rather than the full suite, instead
+                # of getting zero failure output.
+                reason_text = (state.work_test_reason or "").strip()
+                if reason_text:
+                    mech_command += ["--evidence", reason_text[:4000]]
+                test_command = (state.repo_test_command or "").strip()
+                if test_command:
+                    mech_command += ["--failed-stage-command", test_command]
+                return Action(
+                    kind=RUN,
+                    label=_triage_route_label(
+                        verdict, "dispatching a mechanic leg (#4094)",
+                    ),
+                    command=tuple(mech_command),
+                    # #4095: a decline (tier off, no capable machine, budget
+                    # already spent at this SHA, ...) is an ordinary,
+                    # expected outcome — NOT a reason to kill the run. The
+                    # next poll re-enters this branch with `test_retry_sha`
+                    # already latched (set above), so it falls straight
+                    # through to the ordinary fix round below — never a
+                    # worse outcome than today's.
+                    on_error="warn",
+                    error_message=(
+                        f"coord mechanic-dispatch {state.repo} {state.issue} "
+                        "declined or failed to dispatch — falling back to an "
+                        "ordinary fix round next poll"
+                    ),
+                    sleep_after=10.0,
+                )
+            elif bucket in _TEST_SKIP_RETRY_BUCKETS:
+                # substantive: the quadraui#2992 shape, where retrying
+                # cannot change the outcome.
+                skip_retry = True
+            if not skip_retry:
+                counters.test_retry_sha = branch_sha
+                return Action(
+                    kind=RUN,
+                    label=_triage_route_label(
+                        verdict, "retrying once before fix round (#3714)",
+                    ),
+                    command=(
+                        "diagnose", state.repo, str(state.issue),
+                        "--stage", "test", "--reset",
+                    ),
+                    error_message=(
+                        f"coord diagnose {state.repo} {state.issue} "
+                        "--stage test --reset failed."
+                    ),
+                    sleep_after=10.0,
+                )
+            # Record the SHA so a repeat `decide()` call before the fix
+            # dispatch below actually executes doesn't re-run the
+            # classifier, then fall straight through to the fix round.
+            counters.test_retry_sha = branch_sha
 
         counters.fix_rounds += 1
         # Record the branch SHA so #3713 can detect an empty fix round.
@@ -4053,13 +4342,30 @@ def _decide_test(
         # iteration and not a dead end.  (The interactive `--fix-of` and `coord
         # bounce` paths are NOT usable here: `--fix-of` requires --interactive,
         # and `bounce` needs a request-changes REVIEW id, not a failed test.)
+        fix_command: list[str] = ["fix", state.work_aid]
+        if verdict is not None and verdict.bucket == BUCKET_SUBSTANTIVE:
+            # Carry the SAME verdict just classified above into the fix
+            # briefing (`coord fix --diagnosis ...`), mirroring the
+            # `BUCKET_MECHANICAL` arm's own verdict-to-CLI-options mapping
+            # above — so the fix worker gets the diagnosis + evidence
+            # record instead of re-deriving a hypothesis from raw output.
+            fix_command += ["--diagnosis", verdict.diagnosis]
+            fix_command += ["--triage-confidence", f"{verdict.confidence}"]
+            for proposed_file in verdict.proposed_scope.files:
+                fix_command += ["--proposed-file", proposed_file]
+            if verdict.proposed_scope.estimated_line_delta:
+                fix_command += [
+                    "--proposed-line-delta",
+                    str(verdict.proposed_scope.estimated_line_delta),
+                ]
         return Action(
             kind=RUN,
-            label=(
-                f"TEST: failed → fix round {counters.fix_rounds}/"
-                f"{opts.max_fix_rounds} (coord fix {state.work_aid})"
+            label=_triage_route_label(
+                verdict,
+                f"fix round {counters.fix_rounds}/{opts.max_fix_rounds} "
+                f"(coord fix {state.work_aid})",
             ),
-            command=("fix", state.work_aid),
+            command=tuple(fix_command),
             error_message=(
                 f"coord fix {state.work_aid} failed to dispatch.\n"
                 "   Most likely the assignment's legacy smoke_test field is not "

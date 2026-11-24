@@ -111,7 +111,6 @@ class TableCp(BaseModel):
         list[str],
         Field(
             description="List of column names defined at the entity type level.",
-            max_length=3,
             min_length=1,
         ),
     ]

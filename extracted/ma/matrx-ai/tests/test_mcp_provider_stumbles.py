@@ -216,7 +216,10 @@ async def test_a_hung_read_is_asked_again_and_answers_inside_the_budget(monkeypa
     import asyncio as aio
     import time as clock
 
-    monkeypatch.setattr("matrx_ai.tools.mcp_resilience.wait_before", lambda attempt: 0.05)
+    # Deadline.end = budget - wait_before(1): the stubbed wait IS the call's headroom under the bound below.
+    # At 0.05 the call answered at 3.95s against `< 4` and a loaded run flipped it; 0.25 keeps the same
+    # bound with room to be scheduled.
+    monkeypatch.setattr("matrx_ai.tools.mcp_resilience.wait_before", lambda attempt: 0.25)
     client = ExternalMCPClient(timeout=120, budget_seconds=4)
     sent: list = []
 

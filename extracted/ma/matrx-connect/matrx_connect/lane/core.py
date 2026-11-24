@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import contextvars
 import logging
 import time
@@ -668,7 +667,7 @@ class RequestLane:
             self._records.pop(r.id, None)
 
     # ---------------------- open / close ----------------------------------
-    def __enter__(self) -> "RequestLane":
+    def __enter__(self) -> RequestLane:
         self._ctx_token = set_current_lane(self)
         return self
 
@@ -681,7 +680,7 @@ class RequestLane:
             reset_current_lane(self._ctx_token)
             self._ctx_token = None
 
-    async def __aenter__(self) -> "RequestLane":
+    async def __aenter__(self) -> RequestLane:
         self._ctx_token = set_current_lane(self)
         return self
 
@@ -703,7 +702,7 @@ class RequestLane:
         context_snapshot: Mapping[str, Any] | None = None,
         config: LaneConfig | None = None,
         bucket_caps: Mapping[str, int] | None = None,
-    ) -> "RequestLane":
+    ) -> RequestLane:
         """Open a new lane and install it as the current ContextVar.
 
         Use as a context manager:

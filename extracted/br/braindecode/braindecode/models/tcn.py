@@ -25,15 +25,15 @@ class BDTCN(EEGModuleMixin, nn.Module):
 
     Parameters
     ----------
-    n_filters: int
+    n_filters : int
         number of output filters of each convolution
-    n_blocks: int
+    n_blocks : int
         number of temporal blocks in the network
-    kernel_size: int
+    kernel_size : int
         kernel size of the convolutions
-    drop_prob: float
+    drop_prob : float
         dropout probability
-    activation: nn.Module, default=nn.ReLU
+    activation : nn.Module, default=nn.ReLU
         Activation function class to apply. Should be a PyTorch activation
         module class like ``nn.ReLU`` or ``nn.ELU``. Default is ``nn.ReLU``.
 
@@ -43,6 +43,10 @@ class BDTCN(EEGModuleMixin, nn.Module):
        Boedecker, J., Schulze-Bonhage, A., ... & Ball, T. (2020). Machine-learning-based
        diagnostics of EEG pathology. NeuroImage, 220, 117021.
     """
+
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: base_tcn.temporal_blocks.temporal_block_0.conv1.parametrizations.weight.original1
+    _feature_axis = 1
 
     def __init__(
         self,
@@ -88,11 +92,27 @@ class BDTCN(EEGModuleMixin, nn.Module):
         self.final_layer = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool1d(1), torch.nn.Flatten()
         )
+        self._min_n_times = self.base_tcn.min_len
 
-    def forward(self, x):
+    def forward(self, x, return_features: bool = False):
+        if not torch.jit.is_scripting() and return_features:
+            features = self.base_tcn.temporal_blocks(
+                self.base_tcn.ensuredims(x).squeeze(3)
+            )
+            # The classifier reads only the steps after the min_len warm-up.
+            n_steps = 1 + max(0, features.shape[-1] - self.base_tcn.min_len)
+            return {
+                "features": features[..., -n_steps:],
+                "cls_token": None,
+            }
         x = self.base_tcn(x)
         x = self.final_layer(x)
         return x
+
+    def reset_head(self, n_outputs: int) -> None:
+        self._set_n_outputs(n_outputs)
+        head = self.base_tcn.final_layer
+        head.fc = nn.Linear(head.fc.in_features, n_outputs)
 
 
 class TCN(nn.Module):
@@ -182,7 +202,6 @@ class TCN(nn.Module):
         x = self.ensuredims(x)
         # x is in format: B x C x T x 1
         (batch_size, _, time_size, _) = x.size()
-        assert time_size >= self.min_len
         # remove empty trailing dimension
         x = x.squeeze(3)
         x = self.temporal_blocks(x)

@@ -9,9 +9,48 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from matrx_ai.code_call_mandate_keys import MEMORY_OBSERVER_MANDATE, MEMORY_REFLECTOR_MANDATE
+
+_MEDIA_TYPES = frozenset(
+    {"image", "input_image", "audio", "input_audio", "video", "document", "file", "input_file"}
+)
+
+
+def to_json_safe(value: Any) -> Any:
+    """Plain JSON form of a tool arg/result; media (ImageContent etc.) becomes a placeholder."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        kind = value.get("type")
+        if isinstance(kind, str) and kind.lower() in _MEDIA_TYPES:
+            return f"[{kind.lower()} content]"
+        return {str(k): to_json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [to_json_safe(v) for v in value]
+    kind = getattr(value, "type", None)
+    if isinstance(kind, str):
+        if kind.lower() in _MEDIA_TYPES:
+            return f"[{kind.lower()} content]"
+        text = getattr(value, "text", None)
+        if kind.lower() == "text" and isinstance(text, str):
+            return text
+    for attr in ("to_storage_dict", "to_dict", "model_dump"):
+        fn = getattr(value, attr, None)
+        if callable(fn):
+            try:
+                return to_json_safe(fn())
+            except Exception:
+                break
+    return str(value)
+
+
+def dumps_safe(value: Any, **kwargs: Any) -> str:
+    """json.dumps that never raises on non-JSON values."""
+    import json
+
+    return json.dumps(to_json_safe(value), default=str, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -208,8 +247,7 @@ class Message:
             if isinstance(part, TextPart):
                 parts.append(part.text)
             elif isinstance(part, ToolCallPart):
-                import json
-                parts.append(f"[Tool Call: {part.tool_name}({json.dumps(part.args)})]")
+                parts.append(f"[Tool Call: {part.tool_name}({dumps_safe(part.args)})]")
             elif isinstance(part, ToolResultPart):
                 parts.append(f"[Tool Result: {part.tool_name}: {part.result}]")
         return "\n".join(parts)

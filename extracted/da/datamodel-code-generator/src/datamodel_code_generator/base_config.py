@@ -368,6 +368,7 @@ class BaseGenerateConfig(BaseModel):
     allow_extra_fields: bool = False
     extra_fields: str | None = None
     use_generic_base_class: bool = False
+    keep_bases_beside_generic_base_class: bool = False
     class_name: str | None = None
     allow_leading_underscore_class_name: bool = False
     class_name_prefix: str | None = None
@@ -397,10 +398,15 @@ class BaseGenerateConfig(BaseModel):
     use_enum_values_in_discriminator: bool = False
     merge_shared_variant_tags: bool = False
     use_unmapped_variant_tag_values: bool = False
+    read_mapping_keys_by_schema_tag_type: bool = False
+    use_root_types_for_mixed_union_map_keys: bool = False
+    rename_redeclared_fields_hiding_types: bool = False
+    rename_fields_hiding_types_from_type_checkers: bool = False
     read_schema_version_per_document: bool = False
     read_escaped_ref_pointers: bool = False
     read_dynamic_anchors_in_document_order: bool = False
     read_ids_with_empty_fragment: bool = False
+    read_refs_in_their_resources: bool = False
     read_single_allof_refs_in_their_documents: bool = False
     read_ref_siblings_in_closed_allof_members: bool = False
     ignore_ref_siblings_by_schema_version: bool = False
@@ -422,9 +428,12 @@ class BaseGenerateConfig(BaseModel):
     intersect_allof_keywords: bool = False
     intersect_combined_schema_keywords: bool = False
     distribute_allof_over_unions: bool = False
+    intersect_merged_allof_members: bool = False
+    read_allof_parents_as_their_models: bool = False
     read_allof_parents_in_mro_order: bool = False
     read_inherited_property_schemas_in_mro_order: bool = False
     read_nullable_beside_type_list: bool = False
+    keep_null_of_nullable_items: bool = False
     keep_field_defaults_off_branch_roots: bool = False
     keep_enum_member_values: bool = False
     set_default_enum_member: bool = False
@@ -457,6 +466,7 @@ class BaseGenerateConfig(BaseModel):
     use_operation_id_as_name: bool = False
     use_unique_items_as_set: bool = False
     use_unique_items_as_set_by_value: bool = False
+    read_set_item_fields_in_class_order: bool = False
     use_tuple_for_fixed_items: bool = False
     use_tuple_for_closed_arrays: bool = False
     use_tuple_for_fixed_length_arrays: bool = False
@@ -508,6 +518,7 @@ class BaseGenerateConfig(BaseModel):
     read_length_keywords_by_type: bool = False
     read_object_keywords_by_type: bool = False
     read_msgspec_union_bounds_exactly: bool = False
+    keep_string_keywords_beside_formats: bool = False
     read_input_model_dataclass_fields_by_alias: bool = False
     reuse_every_reached_input_model_type: bool = False
     use_site_models_for_constrained_refs: bool = False
@@ -547,6 +558,7 @@ class BaseGenerateConfig(BaseModel):
     custom_formatters: list[str] | None = None
     use_pendulum: bool = False
     use_standard_primitive_types: bool = False
+    use_str_for_formats_msgspec_cannot_decode: bool = False
     use_object_type: bool = False
     untyped_value_type: str | None = None
     http_query_parameters: Sequence[tuple[str, str]] | None = None

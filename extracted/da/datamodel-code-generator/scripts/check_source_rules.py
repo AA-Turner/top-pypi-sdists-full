@@ -69,6 +69,11 @@ SLEEP_ALLOWLIST = "scripts/test_sleep_allowlist.toml"
 RERUN_MODULES = frozenset({"flaky", "pytest_rerunfailures", "rerunfailures"})
 TEST_DATA = "tests/data/"
 CAPABILITY_HOME = "tests/capabilities.py"
+CHECKOUT_INPUTS = ("pyproject.toml", CAPABILITY_HOME)
+"""Files this script reads from its own checkout where a counted tree lacks them or they give no answer.
+
+``_floor`` falls back to the ``requires-python`` of that checkout, and ``_table_of`` to its capability table.
+"""
 CAPABILITY_TABLE = "CAPABILITIES"
 NEEDS = "tests.capabilities.needs"
 SKIP_ORIGINS = frozenset({
@@ -807,13 +812,20 @@ class _Capabilities:
     problems: list[Finding]
     lanes: list[Lane]
 
-    def lanes_with(self, names: Iterable[str]) -> list[Lane]:
-        """Return the lanes that have every named capability; an unknown name holds on none."""
+    def lanes_with(self, names: Iterable[str], node: str | None = None) -> list[Lane]:
+        """Return the lanes that have every named capability, and run ``node`` if given; an unknown name holds on none.
+
+        A subset lane (a fixed list of tests) runs only what it selects (`Lane.runs`).
+        """
         wanted = list(dict.fromkeys(names))
         if any(name not in self.table for name in wanted):
             return []
         clauses = [clause for name in wanted for clause in self.table[name][0]]
-        return [lane for lane in self.lanes if all(condition_holds(clause, lane.facts) for clause in clauses)]
+        return [
+            lane
+            for lane in self.lanes
+            if all(condition_holds(clause, lane.facts) for clause in clauses) and (node is None or lane.runs(node))
+        ]
 
 
 def _table_shape(value: object) -> str | None:
@@ -853,11 +865,11 @@ def dead_capability(tree: Tree, _base: Tree | None) -> Iterator[Finding]:
     """Report a capability of the table that no lane of the CI matrix has, or every lane has, or only subset lanes lack.
 
     Also a malformed one and an unreadable lane. A capability every lane has never skips; one only subset lanes lack
-    (lanes that run a fixed list of tests, e.g. the formatter subset) skips no test of the suite. The lane reader
-    knows which lanes are subset lanes, not which tests a subset lane lists, so the second case is refused outright.
+    (lanes that run a fixed list of tests, e.g. the formatter subset) skips no test of the suite. The rule does not
+    ask which tests a subset lane lists (`Lane.runs`), so the second case is refused outright.
 
-    The lanes and their facts are read from the workflow, ``tox.ini``, ``pyproject.toml`` and ``uv.lock``
-    (`scripts/_ci_lanes.py`); a tree without the workflow has no lanes and nothing is judged.
+    The lanes and their facts are read from the workflows, ``tox.ini``, ``pyproject.toml`` and ``uv.lock``
+    (`scripts/_ci_lanes.py`); a tree without workflows has no lanes and nothing is judged.
 
     Review class: a skip that guards against an environment no lane installs (black 19, Pydantic 1), so it says what
     the suite covers and covers nothing.
@@ -945,11 +957,13 @@ def _with_referenced_values(model: SourceModule, decorator: ast.expr) -> Iterato
 
 
 def never_run(tree: Tree, _base: Tree | None) -> Iterator[Finding]:
-    """Report a test, or a ``pytest.param`` of one, whose capabilities together hold on no lane of the CI matrix.
+    """Report a test, or a ``pytest.param`` of one, whose capabilities together hold on no lane of the CI that runs it.
 
     A test's capabilities are those its module's and its classes' ``pytestmark`` and decorators name and its own
-    decorators; a ``pytest.param`` adds those of its ``marks`` to those of each test that parametrizes over it. An
-    unknown capability holds on no lane. A lane that selects only some tests is counted as running every test.
+    decorators; a ``pytest.param`` adds those of its ``marks`` to those of each test that parametrizes over it (a
+    param no test's decorator reaches is judged with the module's marks, on a lane that runs some test of the module).
+    An unknown capability holds on no lane. A lane that selects only some tests runs only those (`Lane.runs`), so a
+    capability that only such a lane has keeps a test it does not list from running anywhere.
 
     Review class: a test that no lane runs, kept only because its skip hides that.
     """
@@ -957,14 +971,15 @@ def never_run(tree: Tree, _base: Tree | None) -> Iterator[Finding]:
         return
     for module in _test_modules(tree):
         model = module.model
-        owners: dict[ast.AST, list[list[str]]] = {}
+        owners: dict[ast.AST, list[tuple[str, list[str]]]] = {}
         for scope in model.scopes:
             if (names := _test_marks(model, scope)) is None:
                 continue
+            test = f"{module.rel}::{scope.qualname.replace('.', '::')}"
             for decorator in getattr(scope.node, "decorator_list", []):
                 for node in _with_referenced_values(model, decorator):
-                    owners.setdefault(node, []).append(names)
-            if names and not found.lanes_with(names):
+                    owners.setdefault(node, []).append((test, names))
+            if names and not found.lanes_with(names, test):
                 yield Finding(module.rel, scope.line, "never-run", f"{scope.qualname} needs {', '.join(names)}")
         module_names = _marks_of(model, model.module_scope)
         for node in module.nodes:
@@ -973,8 +988,8 @@ def never_run(tree: Tree, _base: Tree | None) -> Iterator[Finding]:
             marks = next((keyword.value for keyword in node.keywords if keyword.arg == "marks"), None)
             if not (added := _needed(model, marks)):
                 continue
-            for consumer in owners.get(node, [module_names]):
-                if not found.lanes_with([*consumer, *added]):
+            for test, consumer in owners.get(node, [(module.rel, module_names)]):
+                if not found.lanes_with([*consumer, *added], test):
                     names = ", ".join(dict.fromkeys([*consumer, *added]))
                     yield Finding(module.rel, node.lineno, "never-run", f"pytest.param needs {names}")
                     break
@@ -1894,15 +1909,15 @@ RULES: tuple[Rule, ...] = (
     Rule(
         "dead-capability",
         dead_capability,
-        "delete the capability and its uses (no lane of .github/workflows/test.yaml has it, so the tests it guards "
-        "always run, or never), or fix the clause or the lane the message names",
+        "delete the capability and its uses (no lane of a workflow matrix in .github/workflows has it, so the tests it "
+        "guards always run, or never), or fix the clause or the lane the message names",
         absolute=True,
     ),
     Rule(
         "never-run",
         never_run,
-        "delete the test, or the capability that excludes every lane; a test no lane of .github/workflows/test.yaml "
-        "runs checks nothing",
+        "delete the test, or the capability that excludes every lane that runs it, or list the test in a lane that has "
+        "the capability; a test no lane of a workflow matrix in .github/workflows runs checks nothing",
         absolute=True,
     ),
     Rule(

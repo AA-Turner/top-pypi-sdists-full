@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from typing import Any, Union
 from collections import defaultdict
@@ -131,7 +132,8 @@ class Image(BaseContent):
             "height": self.height,
             "title": self.title,
             "caption": self.caption,
-            "srcset": list(set(self.all_sources)),
+            # The page's order, once each — a set's order changes with every process (L7i).
+            "srcset": list(dict.fromkeys(self.all_sources)),
         }
 
     def to_content(self, settings: "ExtractionSettings") -> str:
@@ -228,6 +230,25 @@ class Video(BaseContent):
         return ""
 
 
+def _code_in_list_item(code: str) -> str:
+    """A code block as the text of a list item.
+
+    The item is written ``- <text>``, so a fence placed there opens INSIDE the
+    item; a closing fence at column 0 then does not close it and everything
+    after renders as one code block (Wikipedia's reference list holds
+    ``<code>{{cite book}}</code>``: 14k characters of the page went raw,
+    2026-10-30). One line becomes inline code; several keep their fence,
+    indented under the item so it opens and closes inside it.
+    """
+    body = code.strip("\n")
+    if "\n" not in body:
+        ticks = "``" if "`" in body else "`"
+        pad = " " if ticks == "``" else ""
+        return f"{ticks}{pad}{body}{pad}{ticks}"
+    inner = "\n".join(f"  {line}" for line in body.splitlines())
+    return f"```\n{inner}\n  ```"
+
+
 @dataclass
 class ListElement(BaseContent):
     type: str = field(default="list", init=False)
@@ -240,7 +261,7 @@ class ListElement(BaseContent):
             if isinstance(item, CodeBlock):
                 code_content = item.to_content(settings)
                 if code_content:
-                    texts.append(code_content)
+                    texts.append(_code_in_list_item(item.content))
                 continue
 
             if hasattr(item, "to_content"):
@@ -381,6 +402,9 @@ class Table(BaseContent):
 
         return {
             "type": "table",
+            # The column order as a list: a stored parse (jsonb) re-sorts each row's keys, so the
+            # rows alone cannot say it (L7i: one page landed as two texts).
+            "columns": list(all_columns),
             "rows": normalized_rows,
             "before": "",
             "after": "",
@@ -410,8 +434,9 @@ class Table(BaseContent):
 
         if settings.remove_formatting:
             return tabulate(normalized_rows, tablefmt="plain", headers="keys")
-        else:
-            return tabulate(normalized_rows, tablefmt="simple", headers="keys")
+        if getattr(settings, "markdown_tables", False):
+            return markdown_table(normalized_rows)
+        return tabulate(normalized_rows, tablefmt="simple", headers="keys")
 
     def _extract_nested_allowed_content(self, settings):
         items = []
@@ -577,6 +602,8 @@ class ExtractionSettings:
         self.use_content_format = False
         self.use_data_format = False
         self.organize_content_by_headers = "organize_content_by_headers" in options
+        # Markdown outputs write tables as GitHub pipe tables, so a renderer draws a real table.
+        self.markdown_tables = "markdown_tables" in options
 
         for opt in options:
             if opt == "content":
@@ -702,3 +729,23 @@ class OrganizedData(BaseContent):
             output[rule["name"]] = self._extract_by_rule(rule)
 
         return output
+
+
+#: A column name the extractor invented for a table with no header row ("col1", "col2", ...).
+_SYNTHETIC_HEADER = re.compile(r"^col\d+$")
+
+
+def markdown_table(rows: list[dict[str, str]]) -> str:
+    """Rows -> one GitHub pipe table. An invented ``colN`` header reads blank; a cell stays on one line."""
+    if not rows:
+        return ""
+    columns = list(rows[0].keys())
+
+    def cell(value: str) -> str:
+        return " ".join(str(value).split()).replace("|", "\\|")
+
+    head = ["" if _SYNTHETIC_HEADER.match(c) else cell(c) for c in columns]
+    lines = ["| " + " | ".join(head) + " |", "| " + " | ".join("---" for _ in columns) + " |"]
+    lines.extend("| " + " | ".join(cell(row.get(c, "")) for c in columns) + " |" for row in rows)
+    # Blank lines around it: a table never runs into the paragraph before or after.
+    return "\n" + "\n".join(lines) + "\n"

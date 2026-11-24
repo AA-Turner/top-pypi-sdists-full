@@ -3,8 +3,9 @@
 agree with the applied definitions (slice C1, PPY-2a53cd, ``schedules.py``).
 
 ``set-rung`` sets an agent's rung in the site's policy document (slice H3, PPY-e6f31e, ``agent_policy/set_rung.py``). ``set-budget`` sets the site's AI budget
-and releases the paid wakes that waited for it (slice G2, PPY-9376f8, ``spend_stop.py``). Later slices add the other
-``papyrus agents`` commands (pause, resume, wake, runbook, explain) to this group.
+and releases the paid wakes that waited for it (slice G2, PPY-9376f8, ``spend_stop.py``). ``pause``, ``resume``, ``pauses`` and ``wake`` are rows of the one
+operation table (group ``agents``; ``agent_poke_in.py``), run by the table's adapter so the newsroom and the command line share their names and answers.
+Later slices add the other ``papyrus agents`` commands (redirect, undo, runbook, explain) to this group.
 """
 from __future__ import annotations
 
@@ -46,6 +47,9 @@ LISTENERS_USAGE = ("Usage: papyrus agents listeners [--dir DIR] [--core DIR] [--
                    "  Automation table or any other. It is run by the deploy right after `papyrus agents schedules`; the same definitions write nothing, a changed set\n"
                    "  writes the next version. It holds no rung, pause or budget (those are the agent policy). --dir, --core and --root are as for `papyrus agents apply`.\n"
                    "  --dry-run reads and says what would change; --check also exits 2 when the index differs. Run it as the operator (PAPYRUS_GRAPHQL_AUTH=iam).")
+#: The admin group reads the site documents and writes none of them (PPY-1ea28b), so a signed-in session is refused before anything is read or written.
+LISTENERS_WRITTEN_BY_THE_DEPLOY = ("A signed-in session reads the listener index but cannot write it: the admin group holds no write on the site documents. "
+                                   "The deploy writes it as its own role (PAPYRUS_GRAPHQL_AUTH=iam papyrus agents listeners); --dry-run and --check read it here.")
 
 
 SCHEDULES_USAGE = ("Usage: papyrus agents schedules --site SITE [--dry-run | --check]\n"
@@ -83,12 +87,16 @@ SET_BUDGET_USAGE = ("Usage: papyrus --site SITE agents set-budget --amount USD -
 
 
 def route_tree() -> dict:
-    return {"validate": {}, "apply": {}, "schedules": {}, "listeners": {}, "set-rung": {}, "set-budget": {}}
+    from papyrus_content.images import cli as images_cli
+
+    return {"validate": {}, "apply": {}, "schedules": {}, "listeners": {}, "set-rung": {}, "set-budget": {}, **images_cli.route_tree(GROUP)}
 
 
 def usage_for(words: list[str]) -> str | None:
+    from papyrus_content.images import cli as images_cli
+
     return {"validate": VALIDATE_USAGE, "apply": APPLY_USAGE, "schedules": SCHEDULES_USAGE, "listeners": LISTENERS_USAGE, "set-rung": SET_RUNG_USAGE,
-            "set-budget": SET_BUDGET_USAGE}.get(" ".join(words))
+            "set-budget": SET_BUDGET_USAGE}.get(" ".join(words)) or images_cli.usage_for(words, GROUP)
 
 
 def validate_command(argv: list[str], stdout: TextIO | None = None) -> int:
@@ -264,6 +272,10 @@ def listeners_command(argv: list[str], stdout: TextIO | None = None, client_fact
             return refuse(f"{word} is not a flag of agents listeners, or has no value.", path=word)
     if dry_run and check:
         return refuse("agents listeners takes --check or --dry-run, not both: both read only, --check also fails on a difference.")
+    from papyrus_content.user_auth_mode import user_auth_requested
+
+    if not (dry_run or check) and user_auth_requested():
+        return refuse(LISTENERS_WRITTEN_BY_THE_DEPLOY, "not_authorized")
     root = Path(values.get("--root", "."))
     site_folder = Path(values["--dir"]) if "--dir" in values else root / release.SITE_FOLDER
     if "--dir" in values and not site_folder.is_dir():
@@ -530,6 +542,10 @@ def _wake_sender():
 
 
 def command(argv: list[str], stdout: TextIO | None = None) -> int:
+    from papyrus_content.images import cli as images_cli
+
+    if argv[:1] and argv[0] in images_cli.route_tree(GROUP):
+        return images_cli.command(argv, group=GROUP, stdout=stdout)
     if argv[:1] == ["set-budget"]:
         return set_budget_command(argv[1:], stdout)
     if argv[:1] == ["set-rung"]:
@@ -543,5 +559,5 @@ def command(argv: list[str], stdout: TextIO | None = None) -> int:
     if argv[:1] == ["listeners"]:
         return listeners_command(argv[1:], stdout)
     out = stdout or sys.stdout
-    out.write(json.dumps(error_envelope("agents", "unknown_operation", f"{' '.join(argv) or '(nothing)'} is not an agents command; try: validate, apply, schedules, listeners, set-rung, set-budget.", details={"command": " ".join(argv)}), indent=2) + "\n")
+    out.write(json.dumps(error_envelope("agents", "unknown_operation", f"{' '.join(argv) or '(nothing)'} is not an agents command; try: validate, apply, schedules, listeners, set-rung, set-budget, pause, resume, pauses, wake, wake-overdue.", details={"command": " ".join(argv)}), indent=2) + "\n")
     return ERROR_EXIT_CODE

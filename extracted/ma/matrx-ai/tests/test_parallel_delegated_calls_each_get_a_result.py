@@ -110,3 +110,23 @@ async def test_a_turn_ending_on_the_pending_calls_is_left_untouched() -> None:
     messages = [_msg(id=ASSISTANT, role="assistant", position=0, content=_calls(2))]
     rows = [_row(f"toolu_{i}", "delegated", i) for i in range(2)]
     assert _results(await rebuild_conversation_messages(messages, rows, [])) == []
+
+
+@pytest.mark.asyncio
+async def test_a_call_parked_on_a_person_gets_a_waiting_result_even_when_its_turn_ended_on_it() -> None:
+    """Conversation 672f953e (2026-11-19): ``credential_login`` parked on a credential-capture card, then the
+    person typed a new message. That message is appended AFTER the rebuild, so the parked call was the last
+    thing in history; left bare, the sanitizer told the model "TOOL NEVER ANSWERED" and filed an orphan row
+    on every step of the new turn. A person park is answered only by the person: it reads as waiting."""
+    messages = [_msg(id=ASSISTANT, role="assistant", position=0, content=_calls(1))]
+    row = _row("toolu_0", "delegated", 0)
+    row.tool_name = "credential_login"
+    row.metadata = {"parked_on": {"kind": "action_request", "action_request_id": "ar-1"}}
+
+    results = _results(await rebuild_conversation_messages(messages, [row], []))
+
+    assert [r["tool_use_id"] for r in results] == ["toolu_0"]
+    text = str(results[0]["content"])
+    assert "WAITING ON THE PERSON [credential_login]" in text
+    assert "Apply" not in text and "NEVER ANSWERED" not in text
+    assert not results[0].get("is_error")

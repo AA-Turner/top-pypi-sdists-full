@@ -17,6 +17,10 @@ To regenerate TypeScript types:
 import base64
 from typing import Annotated, Any, Literal
 
+from matrx_connect.context.reply_blocks import (
+    SavedBlock,  # the saved and streamed block shape (PF-1)
+    SavedBlocks2,  # the full v2 reading (P1-CHAT T1 v2.1)
+)
 from matrx_graph.content_ir.envelope import KIND_KEY
 from pydantic import (
     BaseModel,
@@ -34,7 +38,8 @@ from pydantic_core import core_schema, to_jsonable_python
 from matrx_ai.config.citations import NormalizedCitation
 from matrx_ai.config.remarks import RemarkItem
 from matrx_ai.db.content_types.data_ref import DataRef
-from matrx_ai.decisions.kinds import DecisionAnswer, DecisionQuestion, DecisionUsage
+from matrx_ai.db.content_types.source_set import SourceSet
+from matrx_ai.decisions.kinds import DecisionAnswer, DecisionImage, DecisionQuestion, DecisionUsage
 from matrx_ai.media.image_reference_roles import ImageReferenceRole
 from matrx_ai.media.video_reference_roles import (
     AudioReferenceRole,
@@ -96,6 +101,23 @@ class TextPart(_MessagePartBase):
     # is strict on purpose — a raw provider citation reaching persistence is a
     # bug (the parse_content/reconstruct_content recovery coerces legacy items).
     citations: list[NormalizedCitation] = Field(default_factory=list)
+    # Saved reply blocks (PF-1): the server splitter's reading of `text`, `start`/`end` UTF-8 byte
+    # offsets that tile it; `blocks_of` = md5(text) as stored — the database drops blocks whose text
+    # changed (trigger chat.zz_blocks_are_derived). All three present, or none. A null field may be
+    # absent from a stored block (dumps exclude None).
+    blocks_version: int | None = Field(default=None, ge=1)
+    blocks_of: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    blocks: list[SavedBlock] | None = None
+    # True when a tool call follows this text in the same assistant message: a note the model wrote
+    # between steps ("Add a services section to the Home draft."), drawn as a progress note and never
+    # as the answer. Set by the save funnel (processing/blocks/interim_text.py); absent otherwise and
+    # on every row saved before it existed. Display data: no provider translator reads it.
+    interim: bool | None = None
+    # The server's FULL reading of `text` (P1-CHAT T1 v2.1): region kinds / drawers / nesting / completeness, kind
+    # statuses, the digest's label, citations, every block's `complete` and a stopped reply's mark. A sibling of the
+    # v1 fields, never inside them; `of` = md5(text) (the database drops it for other text). Written only while
+    # `platform.debug.blocks_v2_save_enabled` is on; absent otherwise. Display data: no provider translator reads it.
+    blocks2: SavedBlocks2 | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +157,7 @@ class ThinkingPart(_MessagePartBase):
     # bytes input is accepted and normalized to base64 by _normalize_signature.
     signature: str | None = None
     signature_encoding: Literal["base64"] | None = None
-    summary: list[Any] = Field(default_factory=list)
+    summary: list[JsonValue] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -396,6 +418,19 @@ class HostedToolPart(_MessagePartBase):
     type: Literal["hosted_tool"] = "hosted_tool"
     provider: str = ""
     block: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProviderToolActivityPart(_MessagePartBase):
+    """A provider-side tool (built-in web search / url context) that ran inside the provider call,
+    stored on the answer row so its working card survives a reload (feedback 017807f4). DISPLAY ONLY:
+    the DB-load funnel drops it, so it is never replayed to any model."""
+
+    type: Literal["provider_tool_activity"] = "provider_tool_activity"
+    call_id: str
+    name: str
+    message: str = ""
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    result: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -710,6 +745,32 @@ class RemarksInputPart(_MessagePartBase):
 
 
 # ---------------------------------------------------------------------------
+# SourceSetPart
+# Stored as: { "type": "source_set",
+#              "source_set": { "envelope": "source_set", "version": 1,
+#                              "sources": [ {envelope:"resource_ref", resource_type,
+#                                            resource_id, ...} ], "grounding": "whole", ... },
+#              "convert_to_text": true, "optional_context": false, "keep_fresh": false,
+#              "metadata": { "resolved_text"?, "resolved_media"?, "dropped"? } }
+#
+# A turn's attachments as ONE source_set (One Source contract,
+# common-docs/systems/knowledge/projects/unified-source-input/CONTRACT.md). The inner set is the
+# matrx-ai twin of the host's SourceSet, so a stored part validates by the same
+# rules the host's door applies. Stored ``input_*`` parts stay readable forever
+# beside it — one deserializer, no data migration.
+# ---------------------------------------------------------------------------
+
+
+class SourceSetPart(_MessagePartBase):
+    type: Literal["source_set"] = "source_set"
+    source_set: SourceSet
+    convert_to_text: bool = True
+    optional_context: bool = False
+    keep_fresh: bool = False
+    editable: bool | None = None
+
+
+# ---------------------------------------------------------------------------
 # DecisionQuestionsPart
 # Stored as: { "type": "decision_questions", "__kind": "decision_questions",
 #              "questions": [ {name, type, instructions, criteria, ...} ] }
@@ -782,6 +843,9 @@ class DecisionAnswersPart(_MessagePartBase):
     unanswerable: dict[str, str] = Field(default_factory=dict)
     usage: DecisionUsage
     cost_usd: float = Field(ge=0.0)
+    # The pictures the questions were asked about, by position (DecisionAnswers.images
+    # dumps into the stored part, so the part must declare it or persistence refuses it).
+    images: list[DecisionImage] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -828,6 +892,7 @@ MessagePart = (
     | CodeResultPart
     | WebSearchPart
     | HostedToolPart
+    | ProviderToolActivityPart
     | WebpageInputPart
     | NotesInputPart
     | TaskInputPart
@@ -843,6 +908,7 @@ MessagePart = (
     | DataInputPart
     | ContextInputPart
     | RemarksInputPart
+    | SourceSetPart
     | DecisionQuestionsPart
     | DecisionAnswersPart
     | SpeechScriptPart
@@ -974,6 +1040,7 @@ _UserInputPartModel = (
     | DataInputPart
     | ContextInputPart
     | RemarksInputPart
+    | SourceSetPart
     | DecisionQuestionsPart
     | DecisionAnswersPart
     | SpeechScriptPart
@@ -1074,6 +1141,7 @@ MESSAGE_PART_REGISTRY: dict[str, type[_MessagePartBase]] = {
     "code_result": CodeResultPart,
     "web_search": WebSearchPart,
     "hosted_tool": HostedToolPart,
+    "provider_tool_activity": ProviderToolActivityPart,
     "input_webpage": WebpageInputPart,
     "input_notes": NotesInputPart,
     "input_task": TaskInputPart,
@@ -1089,6 +1157,7 @@ MESSAGE_PART_REGISTRY: dict[str, type[_MessagePartBase]] = {
     "input_data": DataInputPart,
     "input_context": ContextInputPart,
     "input_remarks": RemarksInputPart,
+    "source_set": SourceSetPart,
     "decision_questions": DecisionQuestionsPart,
     "decision_answers": DecisionAnswersPart,
     "speech_script": SpeechScriptPart,
@@ -1109,6 +1178,7 @@ MESSAGE_PART_MODELS: list[type[_MessagePartBase]] = [
     CodeResultPart,
     WebSearchPart,
     HostedToolPart,
+    ProviderToolActivityPart,
     WebpageInputPart,
     NotesInputPart,
     TaskInputPart,
@@ -1124,6 +1194,7 @@ MESSAGE_PART_MODELS: list[type[_MessagePartBase]] = [
     DataInputPart,
     ContextInputPart,
     RemarksInputPart,
+    SourceSetPart,
     DecisionQuestionsPart,
     DecisionAnswersPart,
     SpeechScriptPart,

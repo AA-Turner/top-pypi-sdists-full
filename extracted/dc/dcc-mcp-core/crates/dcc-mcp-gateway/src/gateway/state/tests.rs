@@ -686,6 +686,84 @@ async fn test_instance_json_reports_ui_control_availability_from_capabilities() 
 }
 
 #[tokio::test]
+async fn test_instance_json_projects_indexed_capabilities() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry = Arc::new(FileRegistry::new(dir.path()).unwrap());
+    let mut entry = ServiceEntry::new("houdini", "127.0.0.1", 18812);
+    entry.instance_id = uuid::Uuid::parse_str("bbbbbbbb-0000-0000-0000-000000000001").unwrap();
+    entry
+        .metadata
+        .insert("mcp_url".into(), "http://127.0.0.1:18812/mcp".into());
+    entry
+        .metadata
+        .insert("dispatch_status".into(), "ready".into());
+    {
+        let r = &registry;
+        r.register(entry.clone()).unwrap();
+    }
+    let gs = test_gateway_state(registry.clone());
+    let make_record = |tool: &str, skill: &str, loaded: bool| {
+        crate::gateway::capability::CapabilityRecord::new(
+            crate::gateway::capability::tool_slug(&entry.dcc_type, &entry.instance_id, tool),
+            tool.into(),
+            tool.into(),
+            Some(skill.into()),
+            tool.into(),
+            vec![],
+            entry.dcc_type.clone(),
+            entry.instance_id,
+            true,
+            loaded,
+            None,
+        )
+    };
+    gs.capability_index.upsert_instance(
+        entry.instance_id,
+        vec![
+            make_record("run_python_file", "houdini-automation", true),
+            make_record("save_hip", "houdini-automation", true),
+            make_record("render_rop", "houdini-render", false),
+        ],
+        crate::gateway::capability::InstanceFingerprint(1),
+    );
+
+    let row = gs.instance_json(&entry);
+
+    assert_eq!(row["dispatch"]["ready"], true);
+    assert_eq!(row["dispatch_ready"], true);
+    assert_eq!(row["transport"]["ready"], true);
+    assert_eq!(
+        row["capabilities"]["loaded_skills"],
+        json!(["houdini-automation"])
+    );
+    assert_eq!(row["capabilities"]["loaded_skill_count"], 1);
+    assert_eq!(row["capabilities"]["tool_count"], 2);
+    assert_eq!(row["capabilities"]["source"], "capability_index");
+}
+
+#[test]
+fn test_verbose_row_derives_endpoint_and_transport_readiness_for_busy_entry() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry = Arc::new(FileRegistry::new(dir.path()).unwrap());
+    let mut entry = ServiceEntry::new("maya", "127.0.0.1", 28812);
+    entry.status = ServiceStatus::Busy;
+    entry.metadata.insert("mcp_url".into(), "   ".into());
+    entry
+        .metadata
+        .insert("dispatch_status".into(), "ready".into());
+
+    let gs = test_gateway_state(registry);
+    let row = gs.instance_json(&entry);
+
+    assert_eq!(row["mcp_url"], "http://127.0.0.1:28812/mcp");
+    assert_eq!(row["status"], "busy");
+    assert_eq!(row["dispatch"]["ready"], true);
+    assert_eq!(row["dispatch_ready"], true);
+    assert_eq!(row["transport"]["ready"], true);
+    assert_eq!(row["transport"]["has_endpoint"], true);
+}
+
+#[tokio::test]
 async fn test_instance_json_reports_ui_control_disabled_by_policy() {
     let dir = tempfile::tempdir().unwrap();
     let registry = Arc::new(FileRegistry::new(dir.path()).unwrap());

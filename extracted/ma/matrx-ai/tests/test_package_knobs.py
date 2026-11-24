@@ -37,6 +37,24 @@ def test_unbound_answers_the_mirror_and_bound_answers_the_row(monkeypatch: pytes
     assert knobs.package_knob_number("f", "k", 5, low=0, high=10) == 5, "not a number: the mirror"
 
 
+@pytest.mark.parametrize("raw", ["NaN", "nan", float("nan"), " -nan "])
+def test_a_nan_knob_is_malformed_never_a_crash_or_a_silent_nan(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], raw: Any
+) -> None:
+    """CGU-10 IMG9 #4: NaN slipped past the clamp — an int knob raised ValueError to the caller, a
+    float knob returned nan silently. Both now answer the mirror and say so."""
+    import math
+
+    monkeypatch.setattr(knobs, "_malformed", set())
+    _bind(monkeypatch, {("f", "int"): raw, ("f", "float"): raw})
+    assert knobs.package_knob_number("f", "int", 5, low=0, high=10) == 5
+    share = knobs.package_knob_number("f", "float", 0.25, low=0.0, high=1.0)
+    assert not math.isnan(share) and share == 0.25
+    assert "malformed" in capsys.readouterr().err
+    _bind(monkeypatch, {("f", "inf"): "inf"})
+    assert knobs.package_knob_number("f", "inf", 5, low=0, high=10) == 10, "±inf still clamps"
+
+
 def test_a_failing_reader_answers_the_mirror(monkeypatch: pytest.MonkeyPatch) -> None:
     def broken(_f: str, _k: str) -> Any:
         raise RuntimeError("not primed")
@@ -97,3 +115,23 @@ def test_the_default_music_length_is_the_knob(monkeypatch: pytest.MonkeyPatch) -
     _bind(monkeypatch, {("ai.music", "default_length_seconds"): 90})
     assert music_api.music_length_seconds(SimpleNamespace(duration_seconds=None)) == 90
     assert music_api.music_length_seconds(SimpleNamespace(duration_seconds=12)) == 12, "an asked length wins"
+
+
+def test_together_media_timeout_and_media_pass_attempts_are_the_knobs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ai.media_providers (db/migrations/ai_media_providers_limit_knobs.sql): the Together image/video
+    timeout and the picture-read attempts come from the row; unbound they are the seeded values."""
+    from matrx_ai.providers import unified_client
+    from matrx_ai.providers.together import client as together_client
+
+    monkeypatch.setattr(knobs, "_reader", None)
+    assert together_client.together_media_timeout_seconds() == 60.0
+    assert unified_client.media_pass_read_attempts() == 2
+    _bind(
+        monkeypatch,
+        {
+            ("ai.media_providers", "together_media_timeout_seconds"): 90,
+            ("ai.media_providers", "media_pass_read_attempts"): 4,
+        },
+    )
+    assert together_client.together_media_timeout_seconds() == 90.0
+    assert unified_client.media_pass_read_attempts() == 4

@@ -196,6 +196,37 @@ def classify_url(url: str) -> dict[str, Any]:
     return {"kind": "external_our_host", "path": parsed.path}
 
 
+def is_public_media_url(url: str | None) -> bool:
+    """True when ``url`` loads for ANYONE, with no authorization and no expiry.
+
+    THE rule for a ``cdn_url`` field ("present only when the media is public"). A durable
+    URL is not necessarily public: our own ``/files/{id}/download`` route never expires but
+    answers only the reader it authorizes (a private file is a 404 to everyone else), so
+    calling it a CDN URL sent renderers to fetch it anonymously (2026-11-03: the Bouquet
+    Chain picture went through the web image proxy and 404'd).
+
+    FAILS CLOSED on our own hosts: on a host in ``_our_hosts()`` ONLY the configured CDN
+    (``parse_cdn_url``) is public — every route there, known or not (``/files/{id}/thumbnail``,
+    ``/api/files/{id}``, a share link) is the authenticated app. An S3 object is public only
+    in the configured public bucket. An expiring URL is never public. An outside web address
+    (``classify_url`` kind ``external``) is.
+    """
+    from .durability import is_durable_media_url
+
+    if not url or not is_durable_media_url(url):
+        return False
+    info = classify_url(url)
+    kind = info.get("kind")
+    if kind == "cdn":
+        return True
+    if kind == "s3":
+        from .cdn import public_bucket
+
+        bucket = info.get("bucket")
+        return bool(bucket) and bucket == public_bucket()
+    return kind == "external"
+
+
 def file_id_from_our_url(url: str | None) -> str | None:
     """Recover the ``cld_files`` id from a URL WE minted, else ``None``.
 
@@ -424,4 +455,4 @@ async def resolve_file_url_async(url: str, db: Any) -> ResolvedFile:
     return rf
 
 
-__all__ = ["ResolvedFile", "classify_url", "resolve_file_url", "resolve_file_url_async"]
+__all__ = ["ResolvedFile", "classify_url", "is_public_media_url", "resolve_file_url", "resolve_file_url_async"]

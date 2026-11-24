@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from matrx_scheduler.next_due import compute_next_due_at
 
 
-NOW = datetime(2026, 5, 10, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 10, 12, 0, 0, tzinfo=UTC)
 
 
 def test_one_shot_returns_at():
@@ -24,12 +24,12 @@ def test_one_shot_invalid_returns_none():
 
 def test_interval_adds_seconds():
     out = compute_next_due_at("interval", {"every_seconds": 3600}, now=NOW)
-    assert out == datetime(2026, 5, 10, 13, 0, 0, tzinfo=timezone.utc)
+    assert out == datetime(2026, 5, 10, 13, 0, 0, tzinfo=UTC)
 
 
 def test_heartbeat_treats_same_as_interval():
     out = compute_next_due_at("heartbeat", {"every_seconds": 60}, now=NOW)
-    assert out == datetime(2026, 5, 10, 12, 1, 0, tzinfo=timezone.utc)
+    assert out == datetime(2026, 5, 10, 12, 1, 0, tzinfo=UTC)
 
 
 def test_interval_under_minimum_returns_none():
@@ -45,7 +45,7 @@ def test_cron_5_field_la():
     assert out is not None
     # NOW is Sunday 2026-05-10 noon UTC → 5am PDT.
     # Next weekday 9am PDT = Mon 2026-05-11 09:00 PDT = 16:00 UTC.
-    assert out == datetime(2026, 5, 11, 16, 0, 0, tzinfo=timezone.utc)
+    assert out == datetime(2026, 5, 11, 16, 0, 0, tzinfo=UTC)
 
 
 def test_context_match_returns_none():

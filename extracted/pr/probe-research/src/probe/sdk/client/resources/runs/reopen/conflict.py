@@ -212,7 +212,7 @@ class ReopenConflictMixin:
         status = old.get("status")
         if isinstance(on_conflict, Rewind):
             # Rewind: `completed` is ALLOWED (naming the step is the consent); a live writer still refuses.
-            takeover = status == "running" and self._supports_takeover()
+            takeover = status in self._LIVE_RUN_STATUSES and self._supports_takeover()
             if status not in self._DEAD_RUN_STATUSES and status != "completed" and not takeover:
                 raise errors.ConflictError(
                     f"run {base!r} is {status} and its writer may still be "
@@ -232,7 +232,7 @@ class ReopenConflictMixin:
         if on_conflict in ("auto", "resume"):
             if status in self._DEAD_RUN_STATUSES:
                 return self._resume_run(old, run_kw)
-            if status == "running" and self._supports_takeover():
+            if status in self._LIVE_RUN_STATUSES and self._supports_takeover():
                 # 2.3: a requeued job; the server takes the run over once it has been silent long enough.
                 return self._resume_run(old, run_kw, takeover=True)
             if status == "completed":

@@ -92,8 +92,6 @@ class LinkNetPostProcessor(DetectionPostProcessor):
         Args:
             pred: Pred map from differentiable linknet output
             bitmap: Bitmap map computed from pred (binarized)
-            angle_tol: Comparison tolerance of the angle with the median angle across the page
-            ratio_tol: Under this limit aspect ratio, we cannot resolve the direction of the crop
 
         Returns:
             np tensor boxes for the bitmap, each box is a 6-element list
@@ -154,6 +152,8 @@ class _LinkNet(BaseModel):
 
     min_size_box: int = 3
     assume_straight_pages: bool = True
+    mask_empty_classes: bool = False
+    class_names: list[str]  # set by the framework model
     shrink_ratio = 0.5
 
     def build_target(
@@ -185,10 +185,22 @@ class _LinkNet(BaseModel):
         seg_mask: np.ndarray = np.ones(target_shape, dtype=bool)
 
         for idx, tgt in enumerate(target):
-            for class_idx, _tgt in enumerate(tgt.values()):
+            unknown = set(tgt) - set(self.class_names)
+            missing = set(self.class_names) - set(tgt)
+            if unknown or missing:
+                raise ValueError(
+                    f"target classes {sorted(tgt)} do not match the model classes {list(self.class_names)}"
+                    + (f" (unknown: {sorted(unknown)})" if unknown else "")
+                    + (f" (missing: {sorted(missing)})" if missing else "")
+                )
+            # Channels follow the order of the model's class names, whatever the order of the target dict
+            for class_idx, class_name in enumerate(self.class_names):
+                _tgt = tgt[class_name]
                 # Draw each polygon on gt
-                if _tgt.shape[0] == 0:
-                    # Empty image, full masked
+                if _tgt.shape[0] == 0 and self.mask_empty_classes:
+                    # No box for this class: with `mask_empty_classes` the channel is ignored by the loss (partially
+                    # annotated data); by default it is supervised as background, an image without any box being
+                    # a true negative
                     seg_mask[idx, class_idx] = False
 
                 # Absolute bounding boxes

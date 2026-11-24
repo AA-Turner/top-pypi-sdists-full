@@ -321,14 +321,15 @@ async def rag_health_endpoint(
         )
     # The probe counts the caller's own chunks across ALL their organizations —
     # the selected organization never narrows a read (access-belongs-to-the-person).
-    chunks_in_scope = int(await get_db_model("KgChunks").count(created_by=ctx.user_id))
+    # Trashed chunks are not counted: a count is a promise too (shown means usable, 2026-11-07).
+    chunks_in_scope = int(await get_db_model("KgChunks").count(created_by=ctx.user_id, deleted_at__isnull=True))
     # COUNT(DISTINCT (source_kind, source_id)) — the tuple-distinct count.
     # Count(*fields, distinct=True) now accepts multiple fields and renders
     # exactly this composite-DISTINCT shape (matrx-orm BASE_CLASS_METHODS.md
     # "Count — composite (multi-column) DISTINCT").
     agg = await (
         get_db_model("KgChunks")
-        .filter(created_by=ctx.user_id)
+        .filter(created_by=ctx.user_id, deleted_at__isnull=True)
         .aggregate(distinct_sources=Count("source_kind", "source_id", distinct=True))
     )
     distinct_sources = int(agg.get("distinct_sources") or 0)

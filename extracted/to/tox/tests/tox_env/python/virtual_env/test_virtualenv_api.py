@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture, MockType
 
     from tox.execute import ExecuteRequest
-    from tox.pytest import MonkeyPatch, ToxProject, ToxProjectCreator
+    from tox.pytest import MonkeyPatch, ToxProject, ToxProjectCreator, ToxRunOutcome
 
 
 @pytest.fixture
@@ -159,13 +159,15 @@ def test_virtualenv_base_python_entries_whole_and_in_order(
     monkeypatch: MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("VIRTUALENV_PYTHON", "from-env")
-    get_interpreter: Final = mocker.patch(
+    get_interpreter: Final[MockType] = mocker.patch(
         "virtualenv.discovery.builtin.get_interpreter", autospec=True, return_value=None
     )
-    base_python: Final = [f"first{os.pathsep}a", "second,b", ">=3.99,<4"]
-    proj: Final = tox_project({"tox.toml": f"[env_run_base]\npackage = 'skip'\nbase_python = {base_python}"})
+    base_python: Final[list[str]] = [f"first{os.pathsep}a", "second,b", ">=3.99,<4"]
+    proj: Final[ToxProject] = tox_project({
+        "tox.toml": f"[env_run_base]\npackage = 'skip'\nbase_python = {base_python}"
+    })
 
-    result: Final = proj.run("r", "-e", "py")
+    result: Final[ToxRunOutcome] = proj.run("r", "-e", "py")
 
     result.assert_failed()
     assert [call.args for call in get_interpreter.call_args_list if call.args[0] != "<0"] == [
@@ -178,10 +180,12 @@ def test_virtualenv_config_file_cannot_override_base_python(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    config: Final = tmp_path / "virtualenv.ini"
+    config: Final[Path] = tmp_path / "virtualenv.ini"
     config.write_text(f"[virtualenv]\npython = {sys.executable}\n")
     monkeypatch.setenv("VIRTUALENV_CONFIG_FILE", str(config))
-    result: Final = tox_project({"tox.ini": "[testenv]\npackage=skip\nbase_python=python3.99"}).run("r", "-e", "py")
+    result: Final[ToxRunOutcome] = tox_project({"tox.ini": "[testenv]\npackage=skip\nbase_python=python3.99"}).run(
+        "r", "-e", "py"
+    )
 
     result.assert_failed()
     assert "could not find python interpreter matching any of the specs python3.99" in result.out
@@ -335,16 +339,16 @@ def test_pip_user_disabled(tox_project: ToxProjectCreator) -> None:
 
 
 def test_pip_seeder_debug_redacts_secret_env_vars(tox_project: ToxProjectCreator, monkeypatch: MonkeyPatch) -> None:
-    value: Final = "s3cr3t-value"
+    value: Final[str] = "s3cr3t-value"
     monkeypatch.setenv("VIRTUALENV_SEEDER", "pip")
     monkeypatch.setenv("DEPLOY_TOKEN", value)
     monkeypatch.setenv("VISIBLE", "public-value")
-    result: Final = tox_project(
+    result: Final[ToxRunOutcome] = tox_project(
         {"tox.toml": '[env_run_base]\npackage = "skip"\npass_env = ["DEPLOY_TOKEN", "VISIBLE"]'},
     ).run("r", "-e", "py", "-vv")
 
     result.assert_success()
-    seeder_line: Final = next(line for line in result.out.splitlines() if "pip seed by running:" in line)
+    seeder_line: Final[str] = next(line for line in result.out.splitlines() if "pip seed by running:" in line)
     assert "'DEPLOY_TOKEN': '************'" in seeder_line
     assert "'VISIBLE': 'public-value'" in seeder_line
     assert value not in result.out
@@ -534,3 +538,156 @@ def test_virtualenv_spec_subprocess_missing_interpreter(
     result.assert_failed()
     assert "could not find python interpreter" in result.out
     ensure_bootstrap.assert_not_called()  # a missing interpreter must skip without bootstrapping
+
+
+@pytest.mark.parametrize(
+    ("package_root", "package", "build_dir"),
+    [
+        pytest.param("service root/.pkg", "", ".pkg", id="plain"),
+        pytest.param(r"service root/\\{project\\}", "", "{project}", id="escaped-braces"),
+        pytest.param("service root/{package_env}", 'package = "sdist"', ".pkg", id="substitution-explicit-package"),
+        pytest.param("service root/{[env.py]package_env}", 'package = "sdist"', ".pkg", id="cross-env-reference"),
+        pytest.param("service root/{[env.preflight]package}", 'package = "sdist"', "skip", id="package-reference"),
+    ],
+)
+def test_install_from_package_root(
+    tox_project: ToxProjectCreator, demo_pkg_inline: Path, package_root: str, package: str, build_dir: str
+) -> None:
+    toml = f"""
+        env_list = ["preflight", "py"]
+        package_root = "{package_root}"
+        [env.preflight]
+        [env.py]
+        {package}
+        commands = [["python", "-c", "from demo_pkg_inline import do; do()"]]
+    """
+    result = tox_project({
+        "tox.toml": toml,
+        "service root": {
+            build_dir: {
+                "build.py": (demo_pkg_inline / "build.py").read_text(encoding="utf-8"),
+                "pyproject.toml": (demo_pkg_inline / "pyproject.toml").read_text(encoding="utf-8"),
+            },
+        },
+    }).run("r")
+    result.assert_success()
+    assert "greetings from demo_pkg_inline" in result.out
+
+
+@pytest.mark.parametrize(
+    ("files", "expected"),
+    [
+        pytest.param({"tox.ini": ""}, "skip", id="no-project"),
+        pytest.param({"tox.ini": "", "pyproject.toml": ""}, "sdist", id="project-in-tox-root"),
+        pytest.param({"tox.ini": "[tox]\npackage_root = sub", "sub": {"pyproject.toml": ""}}, "sdist", id="pyproject"),
+        pytest.param({"tox.ini": "[tox]\npackage_root = sub", "sub": {"setup.py": ""}}, "sdist", id="setup-py"),
+        pytest.param({"tox.ini": "[tox]\nsetupdir = sub", "sub": {"setup.cfg": ""}}, "sdist", id="setupdir-alias"),
+        pytest.param({"tox.toml": 'package_root = "sub"', "sub": {"pyproject.toml": ""}}, "sdist", id="toml"),
+        pytest.param(
+            {"tox.ini": "[tox]\npackage_root =\n    py: missing\n\n    {tox_root}/sub", "sub": {"setup.py": ""}},
+            "sdist",
+            id="ini-multiline-factors",
+        ),
+        pytest.param(
+            {
+                "tox.ini": "[tox]\npackage_root = {[tox:other]package:sub}\n[testenv:other]\npackage = skip",
+                "sub": {"pyproject.toml": ""},
+            },
+            "skip",
+            id="ini-env-reference-with-fallback",
+        ),
+        pytest.param(
+            {
+                "tox.ini": "[tox]\npackage_root = sub\n[testenv:.pkg]\npackage_root = service",
+                "pyproject.toml": "",
+                "sub": {"README": ""},
+                "service": {"pyproject.toml": ""},
+            },
+            "sdist",
+            id="package-env-override",
+        ),
+        pytest.param({"tox.ini": "[tox]\npackage_root = missing"}, "skip", id="missing-package-root"),
+        pytest.param(
+            {"tox.toml": 'package_root = "service/{package_env}"', "service": {".pkg": {"pyproject.toml": ""}}},
+            "skip",
+            id="package-env-unavailable-until-build-config",
+        ),
+        pytest.param(
+            {"tox.toml": 'package_root = "{package_env:sub}"', "sub": {"setup.py": ""}},
+            "skip",
+            id="package-env-fallback",
+        ),
+        pytest.param(
+            {"tox.ini": "[tox]\npackage_root = {package_env:sub}", "sub": {"setup.py": ""}},
+            "skip",
+            id="ini-package-env-fallback",
+        ),
+        pytest.param(
+            {"tox.ini": "[tox]\npackage_root = {missing:sub}", "sub": {"setup.py": ""}},
+            "sdist",
+            id="ini-missing-key-fallback",
+        ),
+        pytest.param(
+            {"tox.toml": 'package_root = "{missing:sub}"', "sub": {"setup.py": ""}},
+            "sdist",
+            id="toml-missing-key-fallback",
+        ),
+        pytest.param(
+            {"tox.toml": 'package_root = "{unresolved,token}"', "{unresolved,token}": {"setup.py": ""}},
+            "skip",
+            id="unresolved-non-reference",
+        ),
+        pytest.param(
+            {
+                "tox.toml": """package_root = { replace = "if", condition = "'x' == 'x'", then = "sub" }""",
+                "sub": {"pyproject.toml": ""},
+            },
+            "sdist",
+            id="toml-substitution-table",
+        ),
+    ],
+)
+def test_default_package_follows_package_root(
+    tox_project: ToxProjectCreator, files: dict[str, str | dict[str, str]], expected: str
+) -> None:
+    result = tox_project(files).run("c", "-e", "py", "-k", "package")
+    result.assert_success()
+    assert result.env_conf("py")["package"] == expected
+
+
+@pytest.mark.parametrize(
+    ("ini", "override", "expected"),
+    [
+        pytest.param("[tox]\npackage_root = missing", "tox.setupdir=service root", "sdist", id="replace-alias"),
+        pytest.param("[tox]", "tox.setupdir+=service root", "sdist", id="append-without-value"),
+        pytest.param("[tox]\npackage_root = missing", "tox.setupdir+=service root", "skip", id="invalid-append"),
+    ],
+)
+def test_default_package_uses_package_root_override(
+    tox_project: ToxProjectCreator, ini: str, override: str, expected: str
+) -> None:
+    project = tox_project({
+        "tox.ini": ini,
+        "service root": {"pyproject.toml": ""},
+    })
+    result = project.run("-x", override, "c", "-e", "py", "-k", "package")
+    result.assert_success()
+    assert result.env_conf("py")["package"] == expected
+
+
+@pytest.mark.parametrize(
+    "envs", [pytest.param("preflight,py", id="implicit-first"), pytest.param("py,preflight", id="explicit-first")]
+)
+def test_package_root_discovery_does_not_depend_on_env_order(tox_project: ToxProjectCreator, envs: str) -> None:
+    project = tox_project({
+        "tox.toml": """
+            package_root = "service/{package_env}"
+            [env.preflight]
+            [env.py]
+            package = "sdist"
+        """,
+        "service": {".pkg": {"pyproject.toml": ""}},
+    })
+    result = project.run("c", "-e", envs, "-k", "package")
+    result.assert_success()
+    assert result.env_conf("preflight")["package"] == "skip"

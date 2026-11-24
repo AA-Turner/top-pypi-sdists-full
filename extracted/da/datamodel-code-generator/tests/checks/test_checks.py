@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 from pathlib import Path
 from typing import Any
@@ -48,6 +51,66 @@ try:
 except CheckFailure as error:
     print(error)
 """
+
+
+_APPENDS_ONCE_STARTED = """
+import sys
+from pathlib import Path
+
+from tests.checks.areas import Area, Mode
+
+print("ready", flush=True)
+sys.stdin.read()
+mode = Mode(Area.FACT_FINALITY, Path(sys.argv[1]))
+for index in range(int(sys.argv[3])):
+    mode.record("appended", writer=sys.argv[2], index=index, padding="x" * 4096)
+"""
+"""Says it is ready, then appends lines to a report once every writer has started: when the test closes the pipe of
+its standard input."""
+
+
+def test_concurrent_appends_write_whole_lines(tmp_path: Path) -> None:
+    """Processes and threads that append to one report at once each write every line of theirs whole (#7374).
+
+    The determinism tests ran two generator processes that reported into the file of their test process. The CRT's
+    append on Windows is a seek to the end and then a write, so two writers wrote at the same offset and broke their
+    lines.
+
+    Each process reads a start pipe of its own (#7404). Windows runs the calls on a synchronous pipe one at a time,
+    across every handle inherited from it: while one process waited in its read of a shared start pipe, the next one
+    stopped in its startup's ``GetFileType`` on that pipe before it said it was ready, and the test waited for it.
+    """
+    report, lines = tmp_path / "report.jsonl", 100
+    starts, readies = [os.pipe() for _ in range(4)], [os.pipe() for _ in range(4)]
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", _APPENDS_ONCE_STARTED, str(report), f"process {number}", str(lines)],
+            cwd=Path(__file__).parents[2],
+            stdin=start_read,
+            stdout=ready_write,
+        )
+        for number, ((start_read, _), (_, ready_write)) in enumerate(zip(starts, readies, strict=True))
+    ]
+    for (start_read, _), (_, ready_write) in zip(starts, readies, strict=True):
+        os.close(start_read)
+        os.close(ready_write)
+    mode = Mode(Area.FACT_FINALITY, report)
+
+    def append(writer: str) -> None:
+        for index in range(lines):
+            mode.record("appended", writer=writer, index=index, padding="x" * 4096)
+
+    for ready_read, _ in readies:
+        os.read(ready_read, 64)
+        os.close(ready_read)
+    for _, start_write in starts:
+        os.close(start_write)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(append, [f"thread {number}" for number in range(4)]))
+    statuses = [process.wait() for process in processes]
+    records = [json.loads(line) for line in report.read_text(encoding="utf-8").splitlines()]
+    counts = Counter(record["writer"] for record in records)
+    assert_output(f"exit statuses {statuses}\n" + "".join(f"{writer}: {counts[writer]}\n" for writer in sorted(counts)))
 
 
 def test_check_seams() -> None:

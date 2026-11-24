@@ -108,7 +108,7 @@ def _install_resolver(monkeypatch: pytest.MonkeyPatch, source: _ResolvedRecordSo
 @pytest.mark.asyncio
 async def test_validate_passes_against_the_resolved_agents_contract(monkeypatch) -> None:
     source = _ResolvedRecordSource(
-        "live-id", _LoadedAgent([AgentVariable(name="topic", required=True)])
+        "live-id", _LoadedAgent([AgentVariable(declaration={"name": "topic", "required": True})])
     )
     asked = _install_resolver(monkeypatch, source)
 
@@ -130,8 +130,8 @@ async def test_validate_fails_when_the_resolved_agent_requires_an_unsupplied_var
         "live-id",
         _LoadedAgent(
             [
-                AgentVariable(name="topic", required=True),
-                AgentVariable(name="audience", required=True),
+                AgentVariable(declaration={"name": "topic", "required": True}),
+                AgentVariable(declaration={"name": "audience", "required": True}),
             ]
         ),
     )

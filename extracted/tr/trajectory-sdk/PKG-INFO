@@ -1,7 +1,8 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.10.25
+Version: 0.11.0
 Summary: Generated Trajectory API client and high-level workflows
+Project-URL: Homepage, https://www.trajectory.ai/
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
 Requires-Python: >=3.11
@@ -20,7 +21,7 @@ Dynamic: license-file
 # Trajectory SDK
 
 Generated Python client for the Trajectory API, with high-level workflows for uploading
-trajectories, telemetry, and runtime-backed specs (benchmarks).
+trajectories, telemetry, and runtime-backed specs.
 
 ## Install
 
@@ -56,7 +57,7 @@ Set `TRAJECTORY_API_KEY`, then create a client:
 from trajectory import Client
 
 client = Client()
-benchmarks = client.benchmarks.list(limit=10)
+specs = client.specs.list(limit=10)
 ```
 
 For task execution, follow the [native spec harness](#native-spec-harness) and
@@ -124,11 +125,11 @@ reward zero and `ENV_DONE`. Process exit alone does not complete a trajectory.
 
 ## Registration and image builds
 
-Define a `BenchmarkSpec` named `benchmark` with your tasks, distinct `train`/`test` splits,
+Define a `BenchmarkSpec` named `spec` with your tasks, distinct `train`/`test` splits,
 and a runtime such as `DockerfileBuild("Dockerfile")`. With the Dockerfile and harness under
-the local `benchmark/` directory,
-[choose or create an agent](https://docs.trajectory.ai/agent), then register the
-spec and build its runtime. Replace `YOUR_AGENT_NAME` with that agent's name:
+the local `spec/` directory,
+[choose or create a project](https://docs.trajectory.ai/projects), then register the
+spec and build its runtime. Replace `YOUR_AGENT_NAME` with that project's name:
 
 ```python registration.py
 from pathlib import Path
@@ -138,11 +139,11 @@ from trajectory.lib import push
 
 client = Client()
 result = push(
-    client, benchmark, agent_name="YOUR_AGENT_NAME", root=Path("benchmark"), build_images=True
+    client, spec, agent_name="YOUR_AGENT_NAME", root=Path("spec"), build_images=True
 )
 ```
 
-The spec name comes from `manifest.name`: reusing a name under the same agent pushes
+The spec name comes from `manifest.name`: reusing a name under the same project pushes
 a new version.
 Every new submission returns a new spec ID. Uploads do not accept a spec ID.
 

@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 from nab_index.transport import HttpError
-from nab_project._testing.artifacts import make_sdist_artifact, make_wheel_artifact
 from nab_project.download import (
     DownloadEntry,
     DownloadError,
@@ -32,6 +32,8 @@ from nab_project.lockfile import (
 )
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
+
+from .lock_artifacts import make_sdist_artifact, make_wheel_artifact
 
 
 def _target(
@@ -109,7 +111,7 @@ class _FakeResponse:
     def text(self) -> str:
         return self.content.decode()
 
-    def json(self) -> object:
+    def json(self) -> None:
         return None
 
     def raise_for_status(self) -> None:
@@ -254,7 +256,7 @@ class TestDownloadLock:
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
             transport,
-            tmp_path,  # type: ignore[arg-type]
+            tmp_path,
         )
         assert isinstance(result, DownloadResult)
         assert sorted(p.name for p in result.written) == [
@@ -265,6 +267,21 @@ class TestDownloadLock:
 
         assert transport.closed
         assert transport.close_calls == 1
+
+    @pytest.mark.parametrize("limit", [0, -1])
+    def test_nonpositive_concurrency_closes_transport(
+        self, tmp_path: Path, limit: int
+    ) -> None:
+        transport = _FakeTransport({})
+        output = tmp_path / "wheels"
+        with pytest.raises(ValueError, match="max_concurrency"):
+            download_lock(
+                LockInput(targets=_one({})), transport, output, max_concurrency=limit
+            )
+
+        assert transport.close_calls == 1
+        assert transport.requested == []
+        assert not output.exists()
 
     @pytest.mark.parametrize("child", ["", "wheels"], ids=["output", "parent"])
     def test_output_directory_failure_closes_transport(
@@ -320,6 +337,32 @@ class TestDownloadLock:
         assert transport.closed
         assert transport.close_calls == 1
 
+    def test_offline_download_uses_local_copy_with_matching_hash(
+        self, tmp_path: Path
+    ) -> None:
+        content = b"mirrored wheel"
+        digest = hashlib.sha256(content).hexdigest()
+        remote = make_wheel_artifact("foo", "1.0", sha256=digest, size=len(content))
+        source = tmp_path / "FOO-1.0-py3-none-any.whl"
+        source.write_bytes(content)
+        local = WheelArtifact(
+            filename=source.name,
+            url=source.as_uri(),
+            hashes=remote.hashes,
+            local_path=source,
+        )
+        pin = IndexPin(name="foo", version="1.0", index="local", wheels=(remote, local))
+        transport = _FakeTransport({})
+        output = tmp_path / "downloads"
+
+        result = download_lock(
+            LockInput(targets=_one({"foo": pin})), transport, output, offline=True
+        )
+
+        assert result.written == (output / remote.filename,)
+        assert result.written[0].read_bytes() == content
+        assert transport.requested == []
+
     def test_idempotent_skip_when_sha_matches(self, tmp_path: Path) -> None:
         wheel_bytes = b"BYTES"
         wheel_sha = hashlib.sha256(wheel_bytes).hexdigest()
@@ -329,7 +372,7 @@ class TestDownloadLock:
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
             transport,
-            tmp_path,  # type: ignore[arg-type]
+            tmp_path,
         )
         assert result.written == ()
         assert len(result.skipped) == 1
@@ -344,7 +387,7 @@ class TestDownloadLock:
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
             transport,
-            tmp_path,  # type: ignore[arg-type]
+            tmp_path,
         )
         assert (tmp_path / "foo-1.0-py3-none-any.whl").read_bytes() == wheel_bytes
         assert len(result.written) == 1
@@ -366,7 +409,7 @@ class TestDownloadLock:
         with pytest.raises(OSError, match="interrupted mid-write"):
             download_lock(
                 LockInput(targets=_one({"foo": pin})),
-                transport,  # type: ignore[arg-type]
+                transport,
                 tmp_path,
             )
         assert not (tmp_path / "foo-1.0-py3-none-any.whl").exists()
@@ -380,7 +423,7 @@ class TestDownloadLock:
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
             transport,
-            tmp_path,  # type: ignore[arg-type]
+            tmp_path,
         )
         assert len(result.written) == 1
         assert (tmp_path / "foo-1.0-py3-none-any.whl").read_bytes() == wheel_bytes
@@ -396,7 +439,7 @@ class TestDownloadLock:
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
             transport,
-            tmp_path,  # type: ignore[arg-type]
+            tmp_path,
         )
         assert result.written == ()
         assert len(result.skipped) == 1
@@ -409,7 +452,7 @@ class TestDownloadLock:
         with pytest.raises(DownloadError, match="sha256 mismatch"):
             download_lock(
                 LockInput(targets=_one({"foo": pin})),
-                transport,  # type: ignore[arg-type]
+                transport,
                 tmp_path,
             )
         assert transport.closed
@@ -423,7 +466,7 @@ class TestDownloadLock:
         with pytest.raises(DownloadError, match="failed to fetch foo-1.0-py3-none-any"):
             download_lock(
                 LockInput(targets=_one({"foo": pin})),
-                transport,  # type: ignore[arg-type]
+                transport,
                 tmp_path,
             )
 
@@ -449,13 +492,13 @@ class TestDownloadLock:
                 del headers
                 self.requested.append(url)
                 if "fail" in url:
-                    return _FakeResponse(content=b"REAL")
+                    return _FakeResponse(content=b"REAL", url=url)
                 try:
                     await asyncio.sleep(60)
                 except asyncio.CancelledError:
                     cancelled.set()
                     raise
-                return _FakeResponse(content=b"slow")  # pragma: no cover
+                return _FakeResponse(content=b"slow", url=url)  # pragma: no cover
 
             async def aclose(self) -> None:
                 self.close_calls += 1
@@ -465,7 +508,7 @@ class TestDownloadLock:
         with pytest.raises(DownloadError, match="sha256 mismatch"):
             download_lock(
                 LockInput(targets=_one({"fail": fail_pin, "slow": slow_pin})),
-                transport,  # type: ignore[arg-type]
+                transport,
                 tmp_path,
                 max_concurrency=2,
             )
@@ -479,7 +522,7 @@ class TestDownloadLock:
         download_lock(
             LockInput(targets=_one({})),
             _FakeTransport({}),
-            target,  # type: ignore[arg-type]
+            target,
         )
         assert target.is_dir()
 
@@ -500,7 +543,7 @@ class TestDownloadLock:
         with pytest.raises(DownloadError, match="unsafe"):
             download_lock(
                 LockInput(targets=_one({"foo": pin})),
-                transport,  # type: ignore[arg-type]
+                transport,
                 output_dir,
             )
         assert not (tmp_path / "escaped.whl").exists()
@@ -524,7 +567,7 @@ class TestDownloadLock:
         with pytest.raises(DownloadError, match="unsafe"):
             download_lock(
                 LockInput(targets=_one({"foo": pin})),
-                transport,  # type: ignore[arg-type]
+                transport,
                 tmp_path / "wheels",
             )
         assert not (tmp_path.parent / "evil.whl").exists()
@@ -576,7 +619,7 @@ class TestLocalIndexArtefacts:
         )
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
-            transport,  # type: ignore[arg-type]
+            transport,
             out,
         )
         assert (out / "foo-1.0-py3-none-any.whl").read_bytes() == wheel_bytes
@@ -600,7 +643,7 @@ class TestLocalIndexArtefacts:
         transport = _FakeTransport({archive_file.as_uri(): b"WRONG"})
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
-            transport,  # type: ignore[arg-type]
+            transport,
             out,
         )
         assert (out / "foo-1.0.0.tar.gz").read_bytes() == archive_bytes
@@ -619,7 +662,7 @@ class TestLocalIndexArtefacts:
         with pytest.raises(DownloadError, match="failed to read foo-1.0-py3-none-any"):
             download_lock(
                 LockInput(targets=_one({"foo": pin})),
-                _FakeTransport({}),  # type: ignore[arg-type]
+                _FakeTransport({}),
                 tmp_path / "out",
             )
 
@@ -640,7 +683,7 @@ class TestOffline:
         ):
             download_lock(
                 LockInput(targets=_one({"foo": pin})),
-                transport,  # type: ignore[arg-type]
+                transport,
                 tmp_path,
                 offline=True,
             )
@@ -654,7 +697,7 @@ class TestOffline:
         transport = _FakeTransport({})
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
-            transport,  # type: ignore[arg-type]
+            transport,
             tmp_path,
             offline=True,
         )
@@ -678,7 +721,7 @@ class TestOffline:
         pin = IndexPin(name="foo", version="1.0", index="local", wheels=(wheel,))
         result = download_lock(
             LockInput(targets=_one({"foo": pin})),
-            _FakeTransport({}),  # type: ignore[arg-type]
+            _FakeTransport({}),
             out,
             offline=True,
         )
@@ -707,8 +750,41 @@ def test_download_entry_is_a_dataclass() -> None:
     assert hash(e)
 
 
-def test_download_event_loop_runs(tmp_path: Path) -> None:
-    """Cover the asyncio.run() branch by exercising it with no work."""
-    # download_lock spins up its own loop; make sure repeated calls work.
-    asyncio.run(asyncio.sleep(0))
-    download_lock(LockInput(targets=_one({})), _FakeTransport({}), tmp_path)  # type: ignore[arg-type]
+def test_download_from_a_running_event_loop(tmp_path: Path) -> None:
+    payload = b"wheel bytes"
+    pin = _index_pin(wheel_sha=hashlib.sha256(payload).hexdigest())
+    (wheel,) = pin.wheels
+    request_id: ContextVar[str] = ContextVar("request_id")
+
+    class Transport(_FakeTransport):
+        async def get(
+            self, url: str, *, headers: dict[str, str] | None = None
+        ) -> _FakeResponse:
+            assert request_id.get() == "wheel download"
+            return await super().get(url, headers=headers)
+
+    transport = Transport({wheel.url: payload})
+
+    async def download() -> None:
+        request_id.set("wheel download")
+        result = download_lock(
+            LockInput(targets=_one({"foo": pin})), transport, tmp_path
+        )
+        assert result.written == (tmp_path / wheel.filename,)
+
+    asyncio.run(download())
+    assert (tmp_path / wheel.filename).read_bytes() == payload
+    assert transport.close_calls == 1
+
+
+def test_invalid_download_from_a_running_loop_closes_its_transport(
+    tmp_path: Path,
+) -> None:
+    transport = _FakeTransport({})
+
+    async def attempt() -> None:
+        with pytest.raises(ValueError, match="max_concurrency"):
+            download_lock(LockInput(), transport, tmp_path, max_concurrency=0)
+
+    asyncio.run(attempt())
+    assert transport.close_calls == 1

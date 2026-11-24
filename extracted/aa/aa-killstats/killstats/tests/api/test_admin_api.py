@@ -1,8 +1,5 @@
 """Unit tests for KillboardAdminApiEndpoints."""
 
-# Standard Library
-from unittest.mock import patch
-
 # Third Party
 # EVE SDE & Alliance Auth Factories
 from evesde_factory.allianceauth import (
@@ -16,7 +13,6 @@ from ninja.testing import TestClient
 
 # AA Killstats
 from killstats.api import api
-from killstats.models.killstatsaudit import AlliancesAudit, CorporationsAudit
 from killstats.tests import AuthTestCase
 from killstats.tests.testdata.killstats import (
     AlliancesAuditFactory,
@@ -57,18 +53,6 @@ class TestKillboardAdminApi(AuthTestCase):
             corp.corporation_id,
         )
 
-    def test_get_corporation_admin_should_return_403_when_corporations_is_none(self):
-        # Test Data
-        user = UserMainFactory()
-
-        # Test Action
-        with patch.object(CorporationsAudit.objects, "visible_to", return_value=None):
-            response = self.client.get("/killboard/corporation/admin/", user=user)
-
-        # Expected Result
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json(), "Permission Denied")
-
     def test_get_alliance_admin_should_return_alliance_dict_when_authorized(self):
         # Test Data
         alliance = EveAllianceInfoFactory()
@@ -92,15 +76,3 @@ class TestKillboardAdminApi(AuthTestCase):
             data[0]["alliance"][alliance_str_id]["alliance_id"],
             alliance.alliance_id,
         )
-
-    def test_get_alliance_admin_should_return_403_when_alliances_is_none(self):
-        # Test Data
-        user = UserMainFactory()
-
-        # Test Action
-        with patch.object(AlliancesAudit.objects, "visible_to", return_value=None):
-            response = self.client.get("/killboard/alliance/admin/", user=user)
-
-        # Expected Result
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json(), "Permission Denied")

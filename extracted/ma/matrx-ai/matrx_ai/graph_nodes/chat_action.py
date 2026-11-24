@@ -155,7 +155,7 @@ async def chat_manual(
         ctx.app = ctx.app.with_overrides(conversation_id=inputs.conversation_id)
         set_app_context(ctx.app)
 
-    messages: list[dict[str, Any]] = [m.model_dump(mode="json") for m in inputs.messages]
+    messages: list[dict[str, Any]] = [m.to_wire() for m in inputs.messages]
     if not messages and inputs.user_input:
         messages = [{"role": "user", "content": inputs.user_input}]
 

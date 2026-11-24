@@ -69,7 +69,7 @@ from datamodel_code_generator._mro import c3_merge as c3_merge
 from datamodel_code_generator._name_words import pascal_words
 from datamodel_code_generator._parse_memo import PARSE_MEMO, MemoTable
 from datamodel_code_generator._parser_context import ParserSourceContext
-from datamodel_code_generator._paths import files_under
+from datamodel_code_generator._paths import input_files_under
 from datamodel_code_generator._python_syntax import normalize_newlines as normalize_newlines
 from datamodel_code_generator._python_target_names import target_builtin_names
 from datamodel_code_generator._records import mutable_record, record
@@ -1111,9 +1111,13 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         )
         self.data_type_manager.use_untyped_value_type(config.untyped_value_type)
         self.data_type_manager.use_target_pydantic_version(config.target_pydantic_version)
+        self.data_type_manager.use_str_for_formats_msgspec_cannot_decode(
+            enabled=config.use_str_for_formats_msgspec_cannot_decode
+        )
         self.data_type_manager.omit_redundant_constraints = config.omit_redundant_constraints
         self.data_type_manager.read_length_keywords_by_type = config.read_length_keywords_by_type
         self.data_type_manager.read_msgspec_union_bounds_exactly = config.read_msgspec_union_bounds_exactly
+        self.data_type_manager.keep_string_keywords_beside_formats = config.keep_string_keywords_beside_formats
         self.data_type_manager.use_decimal_in_field_forms = config.use_decimal_in_field_forms
         self.data_type_manager.use_encoded_str_for_constrained_base64 = config.use_encoded_str_for_constrained_base64
         self.data_type_manager.use_strict_str_for_base64 = config.use_strict_str_for_base64
@@ -1307,6 +1311,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         )
 
         self.use_generic_base_class: bool = config.use_generic_base_class
+        self.keep_bases_beside_generic_base_class: bool = config.keep_bases_beside_generic_base_class
         self.generic_base_class_config = prepare_output_model_config(
             self.extra_template_data,
             validators=config.validators,
@@ -1429,6 +1434,10 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_enum_values_in_discriminator = config.use_enum_values_in_discriminator
         self.merge_shared_variant_tags = config.merge_shared_variant_tags
         self.use_unmapped_variant_tag_values = config.use_unmapped_variant_tag_values
+        self.read_mapping_keys_by_schema_tag_type = config.read_mapping_keys_by_schema_tag_type
+        self.use_root_types_for_mixed_union_map_keys = config.use_root_types_for_mixed_union_map_keys
+        self.rename_redeclared_fields_hiding_types = config.rename_redeclared_fields_hiding_types
+        self.rename_fields_hiding_types_from_type_checkers = config.rename_fields_hiding_types_from_type_checkers
         self.use_msgspec_tagged_unions = config.use_msgspec_tagged_unions
         self.tag_msgspec_by_payload_name = config.tag_msgspec_by_payload_name
         self.use_msgspec_nullable_enum_alias = config.use_msgspec_nullable_enum_alias
@@ -1690,7 +1699,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
 
         The generator's own output and model metadata inside the directory are not inputs (``DirectoryInputFilter``).
         """
-        files = files_under(directory, order="name")
+        files = input_files_under(directory, order="name", encoding=self.encoding)
         if (input_filter := self._source_context.directory_input_filter) is None:
             return ((path, None) for path in files)
         return input_filter.iter_files(files, self.encoding)

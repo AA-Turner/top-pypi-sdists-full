@@ -8,14 +8,17 @@ on:
 env:
   UV_VERSION: 0.10.8
 
+permissions: {}
+
 jobs:
   build_release_assets:
+    permissions:
+      contents: read
     uses: ./.github/workflows/build_release_assets.yml
     secrets:
       GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
       GITGUARDIAN_API_URL: ${{ secrets.GITGUARDIAN_API_URL }}
       TEST_KNOWN_SECRET: ${{ secrets.TEST_KNOWN_SECRET }}
-      TEST_UNKNOWN_SECRET: ${{ secrets.TEST_UNKNOWN_SECRET }}
       TEST_GG_VALID_TOKEN: ${{ secrets.TEST_GG_VALID_TOKEN }}
       TEST_GG_VALID_TOKEN_IGNORE_SHA: ${{ secrets.TEST_GG_VALID_TOKEN_IGNORE_SHA }}
     with:
@@ -25,11 +28,13 @@ jobs:
   build_signed_os_packages:
     name: Build packages
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     environment: release
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, macos-15-intel, macos-14]
+        os: [windows-2022, macos-15-intel, macos-26]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,18 +55,21 @@ jobs:
           gitguardian-api-key: ${{ secrets.GITGUARDIAN_API_KEY }}
           gitguardian-api-url: ${{ secrets.GITGUARDIAN_API_URL }}
           test-known-secret: ${{ secrets.TEST_KNOWN_SECRET }}
-          test-unknown-secret: ${{ secrets.TEST_UNKNOWN_SECRET }}
           test-gg-valid-token: ${{ secrets.TEST_GG_VALID_TOKEN }}
           test-gg-valid-token-ignore-sha: ${{ secrets.TEST_GG_VALID_TOKEN_IGNORE_SHA }}
 
   scan_vulnerabilities:
     needs: [build_release_assets, build_signed_os_packages]
+    permissions:
+      contents: read
     uses: ./.github/workflows/scan_packages.yml
 
   # The platform wheels carrying the Rust `ggshield`. Called from here rather
   # than triggered on the tag itself, so its artifacts land in this run and
   # `push_to_pypi` below can download them.
   build_platform_wheels:
+    permissions:
+      contents: read
     uses: ./.github/workflows/wheels.yml
     with:
       skip_macos_windows: true
@@ -69,12 +77,14 @@ jobs:
   build_signed_wheels:
     name: wheel ${{ matrix.wheel }}
     runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
     environment: release
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { runs-on: macos-14, wheel: macos-universal2 }
+          - { runs-on: macos-26, wheel: macos-universal2 }
           - { runs-on: windows-latest, wheel: windows-amd64 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -101,7 +111,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
 
@@ -109,20 +119,20 @@ jobs:
       # `ggshield-<version>-py3-none-any.whl`, so only `build_wheel_sdist`
       # builds one. See .github/workflows/wheels.yml.
       - name: Download the sdist and the pure-Python wheel
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
           path: dist
 
       - name: Download the platform wheels
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: wheel-*
           path: dist
           merge-multiple: true
 
       - name: Publish distribution 📦 to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           # A release now uploads eight files from two jobs instead of two from
           # one. PyPI takes them one at a time and refuses a filename it already
@@ -157,11 +167,19 @@ jobs:
       - name: Read info
         id: tags
         shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          echo "tag=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+          # A ref name may hold shell metacharacters, and the tag reaches the
+          # downstream PRs: accept release versions only.
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$ ]]; then
+            echo "::error::Not a release tag: $TAG"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Download OS packages
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: os-packages-*
           path: dist
@@ -178,27 +196,31 @@ jobs:
             dist/ggshield.*.nupkg
             dist/ggshield-*.gz
             dist/ggshield-*.msi
+            dist/ggshield-*.cdx.json
 
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRERELEASE_FLAG: ${{ contains(github.ref_name, 'rc') && '--prerelease' || '' }}
+          TAG: ${{ steps.tags.outputs.tag }}
         run: |
-          gh release create --draft $PRERELEASE_FLAG ${{ steps.tags.outputs.tag }}
+          gh release create --draft $PRERELEASE_FLAG "$TAG"
 
       - name: Upload release assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tags.outputs.tag }}
         run: |
           gh release upload \
-            ${{ steps.tags.outputs.tag }} \
+            "$TAG" \
             dist/ggshield-*.pkg \
             dist/ggshield_*.deb \
             dist/ggshield-*.rpm \
             dist/ggshield-*.zip \
             dist/ggshield.*.nupkg \
             dist/ggshield-*.gz \
-            dist/ggshield-*.msi
+            dist/ggshield-*.msi \
+            dist/ggshield-*.cdx.json
 
   update_downstream:
     needs: release
@@ -216,6 +238,9 @@ jobs:
     runs-on: ubuntu-22.04
     environment: release
     if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Docker meta
         id: meta
@@ -230,13 +255,13 @@ jobs:
             latest=${{ !contains(github.ref_name, 'rc') }}
 
       - name: Login to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -260,19 +285,21 @@ jobs:
     runs-on: ubuntu-22.04
     environment: release
     if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags') && !contains(github.ref_name, 'rc')
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download packages
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: os-packages-*
           path: dist
           merge-multiple: true
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
 
@@ -296,12 +323,14 @@ jobs:
     runs-on: windows-latest
     environment: release
     if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download Windows artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: os-packages-windows-*
           path: dist

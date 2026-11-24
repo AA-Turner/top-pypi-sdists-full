@@ -1,16 +1,19 @@
 # Authors: Tao Yang <sheeptao@outlook.com>
 #          Bruno Aristimunha <b.aristimunha@gmail.com> (braindecode adaptation)
 #
-from typing import Tuple, Type, Union
+from typing import Dict, Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops.layers.torch import Rearrange
 
-from braindecode.models.base import EEGModuleMixin, _too_short_input_error
+from braindecode.models.base import EEGModuleMixin, deprecated_init_flags
 
 
+@deprecated_init_flags(
+    return_features=("logits", "branch_logits"),
+)
 class MSVTNet(EEGModuleMixin, nn.Module):
     r"""MSVTNet model from Liu K et al (2024) from [msvt2024]_.
 
@@ -51,6 +54,7 @@ class MSVTNet(EEGModuleMixin, nn.Module):
     activation : Type[nn.Module], optional
         Activation function class to use, by default nn.ELU.
     return_features : bool, optional
+        Deprecated, removed in 2.3: call ``model(x, return_features=True)`` instead.
         Whether to return predictions from branch classifiers, by default False.
 
     Notes
@@ -67,6 +71,9 @@ class MSVTNet(EEGModuleMixin, nn.Module):
        Transformer Neural Network for EEG-Based Motor Imagery Decoding.
        Source Code: https://github.com/SheepTAO/MSVTNet
     """
+
+    _time_axis = "fixed"  # fixed: transformer.pos_embedding.pe is sized by n_times
+    _channel_axis = "fixed"  # fixed: mstsconv.0.0.2.weight is sized by n_chans
 
     def __init__(
         self,
@@ -102,7 +109,6 @@ class MSVTNet(EEGModuleMixin, nn.Module):
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
 
-        self.return_features = return_features
         assert len(n_filters_list) == len(conv1_kernels_size), (
             "The length of n_filters_list and conv1_kernel_sizes should be equal."
         )
@@ -127,15 +133,21 @@ class MSVTNet(EEGModuleMixin, nn.Module):
                 for b in range(len(n_filters_list))
             ]
         )
-        branch_linear_in = self._forward_flatten(cat=False)
+        # Each branch keeps time through its "same" convolutions and divides it
+        # by the two poolings; its tokens have n_filters * depth_multiplier features
+        seq_len = self.n_times // pool1_size // pool2_size
+        if seq_len < 1:
+            raise ValueError(
+                "The two poolings leave no token: too small "
+                f"`n_times`/`input_window_seconds` for the input {self.input_shape}."
+            )
+        branch_dims = [n_filters * depth_multiplier for n_filters in n_filters_list]
         self.branch_head = nn.ModuleList(
-            [
-                _DenseLayers(branch_linear_in[b].shape[1], self.n_outputs)
-                for b in range(len(n_filters_list))
-            ]
+            [_DenseLayers(seq_len * dim, self.n_outputs) for dim in branch_dims]
         )
 
-        seq_len, d_model = self._forward_mstsconv().shape[1:3]  # type: ignore
+        # The branches' tokens are concatenated feature-wise
+        d_model = sum(branch_dims)
         self.transformer = _Transformer(
             seq_len,
             d_model,
@@ -145,60 +157,43 @@ class MSVTNet(EEGModuleMixin, nn.Module):
             num_layers,
         )
 
-        linear_in = self._forward_flatten().shape[1]  # type: ignore
+        # The transformer returns its class token
+        linear_in = d_model
         self.flatten_layer = nn.Flatten()
         self.final_layer = nn.Linear(linear_in, self.n_outputs)
 
-    def _forward_mstsconv(
-        self, cat: bool = True
-    ) -> Union[torch.Tensor, list[torch.Tensor]]:
-        x = torch.randn(1, 1, self.n_chans, self.n_times)
-        try:
-            x = [tsconv(x) for tsconv in self.mstsconv]
-        except RuntimeError as exc:
-            raise _too_short_input_error(exc, self.input_shape) or exc
-        if cat:
-            x = torch.cat(x, dim=2)
-        return x
-
-    def _forward_flatten(
-        self, cat: bool = True
-    ) -> Union[torch.Tensor, list[torch.Tensor]]:
-        x = self._forward_mstsconv(cat)
-        if cat:
-            x = self.transformer(x)
-            x = x.flatten(start_dim=1, end_dim=-1)
-        else:
-            x = [_.flatten(start_dim=1, end_dim=-1) for _ in x]
-        return x
+    def _head_swap_refusal(self) -> str | None:
+        # branch_head is also sized by n_outputs, outside final_layer.
+        return "its branch heads are sized by n_outputs"
 
     def forward(
-        self, x: torch.Tensor
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        self, x: torch.Tensor, return_features: bool = False
+    ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
         # x with shape: (batch, n_chans, n_times)
         x = self.ensure_dim(x)
         # x with shape: (batch, 1, n_chans, n_times)
         x_list = [tsconv(x) for tsconv in self.mstsconv]
         # x_list contains 4 tensors, each of shape: [batch_size, seq_len, embed_dim]
-        x = torch.stack(x_list, dim=2)
-        x = x.view(x.size(0), x.size(1), -1)
+        x = torch.cat(x_list, dim=2)
         # x shape after concatenation: [batch_size, seq_len, total_embed_dim]
-        x = self.transformer(x)
-        # x shape after transformer: [batch_size, embed_dim]
+        feat = self.transformer(x)
+        # feat shape after transformer: [batch_size, embed_dim]
 
-        x = self.final_layer(x)
-        if self.return_features:
-            # Return BOTH the main-head logits and the stacked branch logits, as
-            # in the authors' implementation (``return x, bx``). This is required
-            # for the paper's joint deep-supervision loss
-            # ``lambda * CE(main) + (1 - lambda) * sum_i CE(branch_i)`` and lets
-            # callers score on the main head.
-            # x: [batch_size, n_classes]; branches: [n_branches, batch_size, n_classes]
+        logits = self.final_layer(feat)
+        if return_features:
+            # The branch logits feed the paper's joint deep-supervision loss
+            # ``lambda * CE(main) + (1 - lambda) * sum_i CE(branch_i)``.
             branch_preds = [
                 branch(x_list[idx]) for idx, branch in enumerate(self.branch_head)
             ]
-            return x, torch.stack(branch_preds)
-        return x
+            out: Dict[str, Optional[torch.Tensor]] = {
+                "features": feat,
+                "cls_token": feat,
+                "logits": logits,
+                "branch_logits": torch.stack(branch_preds),
+            }
+            return out
+        return logits
 
 
 class _TSConv(nn.Sequential):

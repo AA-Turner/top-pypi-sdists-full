@@ -10,23 +10,21 @@ be read directly without a second fetch.  This module also owns the
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_index.urls",
-    "nab_resolver.diagnostics",
     "collections",
     "datetime",
+    "nab_index.urls",
     "nab_project",
     "nab_project._lockfile.groups",
-    "nab_project._toml",
     "nab_project.paths",
-    "nab_provider._vendor.packaging.pylock",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.digest",
     "nab_provider.extra_keys",
     "nab_provider.iso8601",
     "nab_provider.metadata",
     "nab_provider.policy",
     "nab_provider.records",
+    "nab_resolver.diagnostics",
+    "packaging.specifiers",
+    "packaging.utils",
     "pathlib",
     "tomli",
     "urllib.parse",
@@ -41,11 +39,10 @@ from typing import TYPE_CHECKING, Protocol, TypeVar
 from urllib.parse import quote
 
 import tomli
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
 
 from nab_index.urls import strip_userinfo
-from nab_provider._vendor.packaging.pylock import Pylock, PylockValidationError
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.utils import canonicalize_name
 from nab_provider.digest import is_hex_digest
 from nab_provider.extra_keys import split_extra
 from nab_provider.iso8601 import parse_iso_datetime
@@ -55,15 +52,15 @@ from nab_provider.records import SdistFile, WheelFile
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 
 from .. import toml_io
-from .._toml import tool_nab_section
 from ..paths import path_state
 from .groups import BASE_MEMBER
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
-    from nab_provider._vendor.packaging.utils import NormalizedName
-    from nab_provider._vendor.packaging.version import Version
+    from packaging.utils import NormalizedName
+    from packaging.version import Version
+
     from nab_provider.policy import ArchiveSource, LocalSource, VcsSource
     from nab_provider.records import IndexConfig
     from nab_provider.target import ResolveTarget
@@ -80,6 +77,10 @@ if TYPE_CHECKING:
         WheelArtifact,
     )
 
+    _ArtifactKey = tuple[
+        str, str, tuple[tuple[str, str], ...], int | None, str | None, Path | None
+    ]
+
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,6 @@ __all__ = [
     "build_target_lock",
     "collect_dependency_requirements",
     "read_lockfile_anchor",
-    "read_lockfile_packages",
     "require_artifact_hashes",
     "strip_userinfo",
     "validate_artifact_hashes",
@@ -202,13 +202,13 @@ class DependencyRequirementProvider(Protocol):
 
 
 class ArtifactMemo:
-    """Lock artifacts shared by one resolve, keyed by listing URL."""
+    """Lock artifacts shared by one resolve when their listing fields agree."""
 
     __slots__ = ("sdists", "wheels")
 
     def __init__(self) -> None:
-        self.wheels: dict[str, WheelArtifact] = {}
-        self.sdists: dict[str, SdistArtifact] = {}
+        self.wheels: dict[_ArtifactKey, WheelArtifact] = {}
+        self.sdists: dict[_ArtifactKey, SdistArtifact] = {}
 
 
 class MissingHashError(ValueError):
@@ -261,7 +261,7 @@ def read_lockfile_anchor(path: Path) -> datetime | None:
             data = toml_io.load(f)
     except (OSError, UnicodeDecodeError, tomli.TOMLDecodeError):
         return None
-    nab = tool_nab_section(data)
+    nab = toml_io.tool_nab_section(data)
     raw = nab.get("created-at") if isinstance(nab, dict) else None
     if isinstance(raw, datetime):
         return raw if raw.tzinfo else raw.replace(tzinfo=timezone.utc)
@@ -272,30 +272,6 @@ def read_lockfile_anchor(path: Path) -> datetime | None:
             return None
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     return None
-
-
-def read_lockfile_packages(path: Path) -> dict[str, Version] | None:
-    """Return the ``name -> version`` map from a prior pylock at ``path``.
-
-    Used by ``nab lock`` to diff a re-lock against the previous result.
-    Packages without a recorded version (direct-reference entries that
-    omit it) are skipped.
-
-    Returns ``None`` when ``path`` does not exist, cannot be read, is
-    not valid TOML, or is not a spec-compliant PEP 751 lockfile; the
-    caller falls back to a no-diff summary line.
-    """
-    if not path_state(path).should_read:
-        return None
-    try:
-        with path.open("rb") as f:
-            data = toml_io.load(f)
-        pylock = Pylock.from_dict(data)
-    except (OSError, UnicodeDecodeError, tomli.TOMLDecodeError, PylockValidationError):
-        return None
-    return {
-        str(pkg.name): pkg.version for pkg in pylock.packages if pkg.version is not None
-    }
 
 
 def build_target_lock(
@@ -330,6 +306,10 @@ def build_target_lock(
     it does not stand in for ``None``: omitting it while passing selector
     roots raises.
 
+    When indexes are supplied, each index pin must name its serving index.
+    A missing or unknown index raises LookupError. Without configured indexes,
+    index pins use the default index URL.
+
     Artifacts follow each release's distribution policy.
     ``artifacts`` is the :class:`ArtifactMemo` the
     run's targets share; a call without one gets a memo of its own.
@@ -346,6 +326,7 @@ def build_target_lock(
         )
         raise ValueError(msg)
 
+    index_urls = {index.name: index.url for index in indexes}
     lock_pins: dict[str, PinShape] = {}
     normalized_names: dict[str, NormalizedName] = {}
     for raw_name, version in pins.items():
@@ -388,7 +369,7 @@ def build_target_lock(
             continue
 
         lock_pins[canonical] = _index_pin_from_listing(
-            provider, target, canonical, version, indexes, artifacts
+            provider, target, canonical, version, index_urls, artifacts
         )
 
     dependencies, base_dependencies = _forward_dependency_graph(
@@ -614,7 +595,7 @@ def _index_pin_from_listing(
     target: ResolveTarget,
     canonical: str,
     version: Version,
-    indexes: Sequence[IndexConfig],
+    index_urls: Mapping[str, str],
     artifacts: ArtifactMemo,
 ) -> IndexPin:
     """Build a pin with its serving index and effective Python requirement.
@@ -680,20 +661,19 @@ def _index_pin_from_listing(
         override_rp if override_rp is not None else _common_requires_python(files)
     )
 
-    serving_name = provider.coordinator.index.get_listing_index(canonical)
-    by_name = {ix.name: ix.url for ix in indexes}
-    index_url = by_name.get(serving_name) if serving_name is not None else None
-    if index_url is None:
-        if by_name:
-            # Can't happen for a real pin (the serving index is always
-            # recorded and configured); raise, don't guess.
+    index_url = DEFAULT_INDEX_URL
+    if index_urls:
+        if serving is None:
+            msg = f"cannot lock {canonical}=={version}: no serving index was recorded"
+            raise LookupError(msg)
+        try:
+            index_url = index_urls[serving]
+        except KeyError as exc:
             msg = (
-                f"{canonical}: recorded serving index {serving_name!r} is "
-                "not one of the configured indexes"
+                f"cannot lock {canonical}=={version}: serving index {serving!r} "
+                f"is missing from the configured indexes {tuple(index_urls)!r}"
             )
-            raise AssertionError(msg)
-        # No indexes configured (unit tests only); use the default root.
-        index_url = DEFAULT_INDEX_URL
+            raise LookupError(msg) from exc
     return IndexPin(
         name=canonical,
         version=str(version),
@@ -729,18 +709,28 @@ def _known_wheel_python_requirements(
 def _build_artifact(
     source: WheelFile | SdistFile,
     cls: type[_Artifact],
-    memo: dict[str, _Artifact],
+    memo: dict[_ArtifactKey, _Artifact],
 ) -> _Artifact:
-    """Build or reuse the artifact for ``source.url``."""
-    artifact = memo.get(source.url)
+    """Build or reuse an artifact from the fields recorded in the lock."""
+    # A content-addressed index can serve different wheel filenames at one URL.
+    key = (
+        source.filename,
+        source.url,
+        source.hashes,
+        source.size,
+        source.upload_time,
+        source.local_path,
+    )
+    artifact = memo.get(key)
     if artifact is None:
-        artifact = memo[source.url] = cls(
-            filename=source.filename,
-            url=strip_userinfo(source.url),
-            hashes=_filter_acceptable_hashes(source.hashes),
-            size=source.size,
-            upload_time=_parse_upload_time(source.upload_time),
-            local_path=source.local_path,
+        filename, url, hashes, size, upload_time, local_path = key
+        artifact = memo[key] = cls(
+            filename=filename,
+            url=strip_userinfo(url),
+            hashes=_filter_acceptable_hashes(hashes),
+            size=size,
+            upload_time=_parse_upload_time(upload_time),
+            local_path=local_path,
         )
     return artifact
 

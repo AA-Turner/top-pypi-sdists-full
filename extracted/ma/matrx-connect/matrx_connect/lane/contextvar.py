@@ -12,12 +12,12 @@ if TYPE_CHECKING:
 # child agents and tasks spawned during a request automatically inherit
 # the parent lane. Intermediate set_app_context() / clear_app_context()
 # calls only touch _app_context; they leave _request_lane untouched.
-_request_lane: ContextVar["RequestLane | None"] = ContextVar(
+_request_lane: ContextVar[RequestLane | None] = ContextVar(
     "matrx_connect.lane.request_lane", default=None
 )
 
 
-def get_current_lane() -> "RequestLane | None":
+def get_current_lane() -> RequestLane | None:
     """Return the lane in the current ContextVar, or None if not in a lane scope.
 
     Returning None is a *normal* outcome — non-HTTP scripts, migrations, and
@@ -27,7 +27,7 @@ def get_current_lane() -> "RequestLane | None":
     return _request_lane.get()
 
 
-def set_current_lane(lane: "RequestLane | None"):
+def set_current_lane(lane: RequestLane | None):
     """Install a lane in the current ContextVar. Returns the reset token.
 
     Only the lane's own context-manager / open()/close() should call this.

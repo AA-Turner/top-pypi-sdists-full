@@ -4,9 +4,9 @@ import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
-import together as together_sdk
+import openai as openai_sdk
 from matrx_utils import vcprint
-from together import AsyncTogether
+from openai import AsyncOpenAI
 
 from matrx_ai.config import (
     FinishReason,
@@ -27,12 +27,14 @@ from matrx_ai.providers.outbound_capture import (
     stamp_call_meta,
 )
 from matrx_ai.providers.reasoning import (
-    emit_complete_reasoning_block,
+    emit_settled_content,
     openai_compatible_reasoning_text,
+    reasoning_opener,
 )
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
+from .client import TOGETHER_INFERENCE_BASE_URL
 from .translator import TogetherTranslator
 
 if TYPE_CHECKING:  # circular-by-design: catalog.models imports providers.resolved_capabilities
@@ -50,10 +52,11 @@ class TogetherChat:
     # fresh SDK client on the next request (no process restart).
     client = keyed_provider_client(
         "TOGETHER_API_KEY",
-        factory=lambda api_key: AsyncTogether(
+        factory=lambda api_key: AsyncOpenAI(
             api_key=api_key,
+            base_url=TOGETHER_INFERENCE_BASE_URL,
             max_retries=NO_SDK_RETRIES,
-            http_client=make_capture_http_client(sdk=together_sdk),
+            http_client=make_capture_http_client(sdk=openai_sdk),
         ),
     )
 
@@ -136,7 +139,7 @@ class TogetherChat:
 
         # Native async API call
         response = await self.client.chat.completions.create(
-            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="together", snapshot=True)
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="together", snapshot=True, body_extras_expected=True)
         )
 
         vcprint("[Together] API call completed, processing response...", color="cyan")
@@ -152,14 +155,8 @@ class TogetherChat:
 
         # Send content through emitter
         vcprint("[Together] Sending content to stream handler...", color="cyan")
-        for message in converted_response.messages:
-            for content in message.content:
-                if isinstance(content, ThinkingContent):
-                    await emit_complete_reasoning_block(emitter, content.text)
-                elif isinstance(content, TextContent):
-                    await emitter.send_chunk(content.text)
-                elif isinstance(content, ToolCallContent):
-                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        await emit_settled_content(emitter, converted_response)
 
         vcprint(
             "[Together] Non-streaming execution completed successfully", color="green"
@@ -178,7 +175,7 @@ class TogetherChat:
 
         # Native async streaming
         stream = await self.client.chat.completions.create(
-            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="together", snapshot=True)
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="together", snapshot=True, body_extras_expected=True)
         )
 
         vcprint(
@@ -219,7 +216,7 @@ class TogetherChat:
                 accumulated_reasoning += reasoning_chunk
                 if not in_think_block:
                     await emitter.send_reasoning_state("started")
-                    await emitter.send_chunk("<reasoning>")
+                    await emitter.send_chunk(reasoning_opener(accumulated_content))
                     in_think_block = True
                 await emitter.send_chunk(reasoning_chunk)
                 await asyncio.sleep(0)

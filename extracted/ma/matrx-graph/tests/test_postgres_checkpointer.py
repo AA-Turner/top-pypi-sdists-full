@@ -89,7 +89,6 @@ def _bootstrap_db() -> None:
 async def test_definition_store_roundtrip():
     from matrx_graph import Definition, NodeDef, Position
     from matrx_graph.db import DefinitionStore
-    from matrx_graph.types.variables import VariableSpec
 
     store = DefinitionStore()
     name = f"test-wf-{uuid4()}"
@@ -103,8 +102,8 @@ async def test_definition_store_roundtrip():
             )
         ],
         variables=[
-            VariableSpec(name="topic", description="Subject", default="physics"),
-            VariableSpec(name="audience"),
+            {"name": "topic", "description": "Subject", "default": "physics"},
+            {"name": "audience"},
         ],
     )
 
@@ -121,7 +120,7 @@ async def test_definition_store_roundtrip():
         # Declared run variables must survive the round-trip — the store
         # silently DROPPED them before 0024_definition_variables.sql.
         assert [v.name for v in loaded.definition.variables] == ["topic", "audience"]
-        assert loaded.definition.variables[0].default == "physics"
+        assert loaded.definition.variables[0].defaultValue == "physics"
 
         # Save draft — `version` is the canonical ROW REVISION, not a publish
         # counter, so every content write bumps it (platform._touch_row hosted,
@@ -147,10 +146,10 @@ async def test_definition_store_roundtrip():
         assert v1_vars is not None
         assert [v.name for v in v1_vars.definition.variables] == ["topic", "audience"]
 
-        # Publish — bumps the revision again and snapshots it under that number;
-        # the original v1 snapshot is preserved untouched.
+        # Publish — snapshots the SAVED revision under its own number (never a
+        # new one); the original v1 snapshot is preserved untouched.
         published = await store.publish(created.id, change_note="second version")
-        assert published.version == 3
+        assert published.version == 2
 
         v1 = await store.load(created.id, is_version=True, version_number=1)
         assert v1 is not None
@@ -159,7 +158,7 @@ async def test_definition_store_roundtrip():
 
         versions = await store.list_versions(created.id)
         assert len(versions) == 2
-        assert [v.version_number for v in versions] == [3, 1]
+        assert [v.version_number for v in versions] == [2, 1]
     finally:
         await store.archive(created.id)
 

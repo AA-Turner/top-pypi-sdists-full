@@ -24,6 +24,7 @@ Output shape is plain Python dicts — Pydantic shaping happens upstream in
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -154,6 +155,87 @@ def chunk_text(text: str, *, language: str | None = None) -> list[Chunk]:
 
 
 # ---------------------------------------------------------------------------
+# sections — workbook sheets, document sections, deck slides
+# ---------------------------------------------------------------------------
+
+#: Source kinds whose resolved text is a sequence of titled sections (workbook sheets,
+#: document headings, deck slides): chunked one section at a time, never across a boundary.
+SECTIONED_KINDS: frozenset[str] = frozenset({"workbook", "udt_document", "deck"})
+
+_SECTION_HEADING = re.compile(r"^(#{1,6})\s+(\S.*)$")
+
+
+def split_sections(text: str, *, kind: str) -> list[tuple[str, str]]:
+    """Split rendered text into ``(heading_trail, body)`` sections.
+
+    ``workbook`` / ``deck``: every ``## `` line opens a sheet / slide (``#`` is the record's own title
+    and prefixes every section's trail). ``udt_document``: every heading of any level opens a section;
+    the trail is the heading path (``Title > H1 > H2``). Text before the first heading is its own
+    section under the title. Fenced code is not special: renderers never emit fences.
+    """
+    lines = (text or "").strip().splitlines()
+    title = ""
+    trail: list[tuple[int, str]] = []
+    sections: list[tuple[str, list[str]]] = []
+    current: list[str] = []
+    current_trail = ""
+
+    def flush() -> None:
+        nonlocal current
+        body = "\n".join(current).strip()
+        if body:
+            sections.append((current_trail, [body]))
+        current = []
+
+    for line in lines:
+        m = _SECTION_HEADING.match(line)
+        if m is None:
+            current.append(line)
+            continue
+        level, name = len(m.group(1)), m.group(2).strip()
+        if level == 1 and not title and not sections and not "".join(current).strip():
+            title = name
+            current_trail = title
+            continue
+        if kind in ("workbook", "deck") and level != 2:
+            current.append(line)
+            continue
+        if level == 1 and name == title and not trail:
+            flush()  # the document body repeats its own title as the first heading
+            continue
+        flush()
+        trail = [(lv, nm) for lv, nm in trail if lv < level] + [(level, name)]
+        current_trail = " > ".join(([title] if title else []) + [nm for _lv, nm in trail])
+    flush()
+    return [(t, b[0]) for t, b in sections]
+
+
+def chunk_sections(text: str, *, kind: str, language: str | None = None) -> list[Chunk]:
+    """Hierarchical chunking per section (:func:`split_sections`), reusing :func:`chunk_text`.
+
+    Each section is chunked on its own, so a chunk never straddles two sheets, sections or slides, and
+    every chunk's text opens with its section trail (``Title > Sheet``) — that line is what lets a hit
+    name where it came from. ``metadata['section']`` carries the trail. Falls back to plain
+    :func:`chunk_text` when the text has no sections.
+    """
+    sections = split_sections(text, kind=kind)
+    if not sections:
+        return chunk_text(text, language=language)
+    out: list[Chunk] = []
+    for trail, body in sections:
+        section_text = f"[{trail}]\n{body}" if trail else body
+        for ch in chunk_text(section_text, language=language):
+            ch.chunk_index = len(out)
+            ch.metadata = {**(ch.metadata or {}), "section": trail}
+            if trail and not ch.content_text.startswith(f"[{trail}]"):
+                # A later child of a long section: carry the trail so the hit still names its sheet / slide.
+                ch.content_text = f"[{trail}]\n{ch.content_text}"
+                ch.token_count = _tok_len(ch.content_text)
+            out.append(ch)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # code_lines — naive line-based code chunking until tree-sitter lands
 # ---------------------------------------------------------------------------
 
@@ -242,9 +324,86 @@ def _windows(lines: list[str], window: int, overlap: int) -> Iterator[tuple[int,
             return
 
 
+# ---------------------------------------------------------------------------
+# Bounded chunk-row writes
+# ---------------------------------------------------------------------------
+
+# One kg_chunks INSERT statement carries at most this many rows and this
+# many bytes of content_text. Every inserted row runs five row triggers and
+# feeds two GIN indexes over its text (trigram + tsvector), so the cost of one
+# statement grows with the TEXT it carries, not the row count: a single
+# 1,400-page note sent as ONE multi-row INSERT ran past the pool's 10 s
+# statement timeout (ops.system_error 57014 on kg_chunks, 2026-11-02..13)
+# and the note never became searchable. Code-reviewed constants, not env vars.
+CHUNK_WRITE_BATCH_ROWS = 100
+CHUNK_WRITE_BATCH_BYTES = 200_000
+
+
+def chunk_row_write_batches(
+    rows: list[dict],
+    *,
+    max_rows: int | None = None,
+    max_bytes: int | None = None,
+) -> list[list[dict]]:
+    """Split kg_chunks rows into insert batches bounded by row count AND text size.
+
+    Every writer of the chunk table (``KgChunks``) sends its rows through this, one INSERT
+    per batch, inside its own transaction (atomicity is unchanged: the batches
+    share the caller's transaction). Parents are ordered before their children
+    (``parent_chunk_id`` is a self-referencing foreign key checked at the end
+    of each statement, so a child may never land in an earlier batch than its
+    parent). A single row larger than ``max_bytes`` gets a batch of its own.
+    """
+    max_rows = CHUNK_WRITE_BATCH_ROWS if max_rows is None else max_rows
+    max_bytes = CHUNK_WRITE_BATCH_BYTES if max_bytes is None else max_bytes
+    if max_rows < 1 or max_bytes < 1:
+        raise ValueError("chunk_row_write_batches: max_rows and max_bytes must be positive")
+
+    # Parent-first order, stable otherwise: a row is emitted once the parent
+    # it names is either outside this set (already stored) or emitted.
+    ids_in_set = {str(r.get("id")) for r in rows if r.get("id") is not None}
+    ordered: list[dict] = []
+    emitted: set[str] = set()
+    pending = list(rows)
+    while pending:
+        remaining: list[dict] = []
+        for row in pending:
+            parent = row.get("parent_chunk_id")
+            parent_key = str(parent) if parent is not None else None
+            if parent_key is None or parent_key not in ids_in_set or parent_key in emitted:
+                ordered.append(row)
+                if row.get("id") is not None:
+                    emitted.add(str(row["id"]))
+            else:
+                remaining.append(row)
+        if len(remaining) == len(pending):
+            # A parent cycle inside one write cannot be satisfied by any order;
+            # keep the caller's order and let the database name the defect.
+            ordered.extend(remaining)
+            break
+        pending = remaining
+
+    batches: list[list[dict]] = []
+    current: list[dict] = []
+    current_bytes = 0
+    for row in ordered:
+        size = len((row.get("content_text") or "").encode("utf-8"))
+        if current and (len(current) >= max_rows or current_bytes + size > max_bytes):
+            batches.append(current)
+            current, current_bytes = [], 0
+        current.append(row)
+        current_bytes += size
+    if current:
+        batches.append(current)
+    return batches
+
+
 __all__ = [
     "CHUNKER_VERSION",
+    "CHUNK_WRITE_BATCH_BYTES",
+    "CHUNK_WRITE_BATCH_ROWS",
     "Chunk",
     "chunk_code",
+    "chunk_row_write_batches",
     "chunk_text",
 ]

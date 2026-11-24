@@ -57,7 +57,7 @@ def raise_if_truncated_take(
         message=str(truncated),
         retry_after=2.0,
         is_retryable=True,
-        user_message=f"The voice from {provider} was cut off before it finished.",
+        user_message="The voice was cut off before it finished.",
         details={
             "provider": provider,
             "modality": "audio",
@@ -111,7 +111,7 @@ def raise_if_truncated_music(
         message=str(truncated),
         retry_after=2.0,
         is_retryable=True,
-        user_message=f"The music from {provider} was cut off before it finished.",
+        user_message="The music was cut off before it finished.",
         details={"provider": provider, "modality": "audio", "audio_bytes": audio_size_bytes, "seconds": float(seconds)},
     )
     if usage is not None:

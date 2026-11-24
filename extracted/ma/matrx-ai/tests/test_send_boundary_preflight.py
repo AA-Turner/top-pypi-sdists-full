@@ -83,8 +83,9 @@ async def test_over_window_prompt_is_refused_before_the_provider(_window) -> Non
     assert "conversation conv-preflight" in message  # WHICH step/call
     assert "1,100,0" in message and "1,000,000" in message  # the numbers
     assert "claude-opus-4-5" in message  # the model
-    assert "select the field" in message  # the remedy
-    assert "structured_outputs" in message  # and where to point the edge
+    # A chat (no workflow node) gets a chat remedy, never the workflow edge advice.
+    assert "Start a new conversation" in message
+    assert "select the field" not in message
 
 
 @pytest.mark.asyncio
@@ -103,6 +104,9 @@ async def test_the_refusal_names_the_workflow_step(_window, monkeypatch) -> None
         )
     assert "n_cross" in str(excinfo.value)
     assert "cdde033d" in str(excinfo.value)
+    # A workflow step keeps the edge-mapping remedy.
+    assert "select the field" in str(excinfo.value)
+    assert "structured_outputs" in str(excinfo.value)
 
 
 @pytest.mark.asyncio

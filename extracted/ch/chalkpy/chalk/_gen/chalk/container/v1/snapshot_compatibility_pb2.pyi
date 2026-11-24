@@ -145,6 +145,7 @@ class SnapshotHostCapabilities(_message.Message):
         "peer_links",
         "inventory_generation",
         "gpu_backends",
+        "vm_runtime_class",
     )
     SUPPORTED_SCHEMA_VERSIONS_FIELD_NUMBER: _ClassVar[int]
     MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -155,6 +156,7 @@ class SnapshotHostCapabilities(_message.Message):
     PEER_LINKS_FIELD_NUMBER: _ClassVar[int]
     INVENTORY_GENERATION_FIELD_NUMBER: _ClassVar[int]
     GPU_BACKENDS_FIELD_NUMBER: _ClassVar[int]
+    VM_RUNTIME_CLASS_FIELD_NUMBER: _ClassVar[int]
     supported_schema_versions: _containers.RepeatedScalarFieldContainer[int]
     machine_type: SnapshotMachineType
     cpu_class: str
@@ -164,6 +166,7 @@ class SnapshotHostCapabilities(_message.Message):
     peer_links: _containers.RepeatedCompositeFieldContainer[SnapshotGpuPeerLink]
     inventory_generation: str
     gpu_backends: _containers.RepeatedCompositeFieldContainer[SnapshotGpuBackendCapability]
+    vm_runtime_class: str
     def __init__(
         self,
         supported_schema_versions: _Optional[_Iterable[int]] = ...,
@@ -175,6 +178,7 @@ class SnapshotHostCapabilities(_message.Message):
         peer_links: _Optional[_Iterable[_Union[SnapshotGpuPeerLink, _Mapping]]] = ...,
         inventory_generation: _Optional[str] = ...,
         gpu_backends: _Optional[_Iterable[_Union[SnapshotGpuBackendCapability, _Mapping]]] = ...,
+        vm_runtime_class: _Optional[str] = ...,
     ) -> None: ...
 
 class SnapshotGpuBackendCapability(_message.Message):

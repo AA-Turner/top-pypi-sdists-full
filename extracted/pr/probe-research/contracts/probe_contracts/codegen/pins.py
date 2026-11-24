@@ -25,7 +25,7 @@ _TS_HEADER = (
 #: (class name, the list's field, the class doc), in the order every target writes them.
 _ENUMS = (
     ("PinKind", "kinds", "What a pin shows: one view kind, the `kind` of its ref."),
-    ("PinAnchorKind", "anchor_kinds", "Where a view lives: the project or one of its experiments."),
+    ("PinAnchorKind", "anchor_kinds", "Where a view lives: the project, one of its experiments or one of its runs."),
     ("PinMetricKind", "metric_kinds", "The metric kinds Probe names; a chart pin takes any kind a run logs."),
     ("PinErrorCode", "error_codes", "A refused pin call's `detail.code`."),
 )

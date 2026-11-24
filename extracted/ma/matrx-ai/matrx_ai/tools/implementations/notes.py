@@ -26,6 +26,7 @@ from matrx_ai.tools.organization_hold import carried_organization_id, organizati
 from matrx_ai.tools.implementations.note_homes import home_names, resolve_home
 from matrx_ai.tools.person_session import acts_as_the_person
 from matrx_ai.tools.surface_write import attach_surface_write
+from matrx_ai.utils.carried_failure import carried_exception
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +36,21 @@ _ACCESS_ERROR_TYPES = frozenset({"not_found", "no_access"})
 
 def _manager_error(result: dict[str, Any], default: str, fallback: str) -> ToolError:
     """Carry the manager's access answer (not_found / no_access, naming the id)
-    through unchanged; anything else keeps the caller's default type."""
+    through unchanged; anything else keeps the caller's default type. A failure
+    the manager caught carries its exception (``FailureDict``); every other
+    manager failure is a refusal (absent note, no access, missing input)."""
     error_type = result.get("error_type")
-    return ToolError(
-        error_type=error_type if error_type in _ACCESS_ERROR_TYPES else default,
-        message=result.get("error") or fallback,
+    return ToolError.declared(
+        error_type if error_type in _ACCESS_ERROR_TYPES else default,
+        result.get("error") or fallback,
+        exc=carried_exception(result),
     )
 
 
 def _read_only_result(tool_name: str, started_at: float, ctx: ToolContext) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
+        error=ToolError(refusal=True, error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
         started_at=started_at,
         completed_at=time.time(),
         tool_name=tool_name,
@@ -61,7 +65,7 @@ async def note_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if not note_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="note_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="note_id is required."),
             started_at=started_at, completed_at=time.time(),
             tool_name="note_get", call_id=ctx.call_id,
         )
@@ -116,7 +120,7 @@ async def note_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if not result.get("success"):
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="execution", message=result.get("error", "Failed to list notes.")),
+                error=ToolError.declared("execution", result.get("error", "Failed to list notes."), exc=carried_exception(result)),
                 started_at=started_at, completed_at=time.time(),
                 tool_name="note_list", call_id=ctx.call_id,
             )
@@ -163,7 +167,7 @@ async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if not label:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="label is required.", suggested_action="Provide a title for the note."),
+            error=ToolError(refusal=True, error_type="validation", message="label is required.", suggested_action="Provide a title for the note."),
             started_at=started_at, completed_at=time.time(),
             tool_name="note_create", call_id=ctx.call_id,
         )
@@ -184,7 +188,7 @@ async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             if choice.error:
                 return ToolResult(
                     success=False,
-                    error=ToolError(error_type="validation", message=choice.error, suggested_action="Omit home to use the organization's General."),
+                    error=ToolError(refusal=True, error_type="validation", message=choice.error, suggested_action="Omit home to use the organization's General."),
                     started_at=started_at, completed_at=time.time(),
                     tool_name="note_create", call_id=ctx.call_id,
                 )
@@ -201,7 +205,7 @@ async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if not result.get("success"):
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="execution", message=result.get("error", "Failed to create note.")),
+                error=ToolError.declared("execution", result.get("error", "Failed to create note."), exc=carried_exception(result)),
                 started_at=started_at, completed_at=time.time(),
                 tool_name="note_create", call_id=ctx.call_id,
             )
@@ -209,7 +213,9 @@ async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         names = await home_names([n.get("home_scope_id")])
         return ToolResult(
             success=True,
-            output={"id": n.get("id"), "label": n.get("label"), "home": names.get(str(n.get("home_scope_id"))), "created_at": n.get("created_at")},
+            output={"id": n.get("id"), "label": n.get("label"), "home": names.get(str(n.get("home_scope_id"))), "created_at": n.get("created_at"),
+                    # UNDO of a create is a delete: no earlier version.
+                    "version": n.get("version"), "previous_version": None},
             started_at=started_at, completed_at=time.time(),
             tool_name="note_create", call_id=ctx.call_id,
         )
@@ -237,7 +243,7 @@ async def _note_update_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
     if not note_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="note_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="note_id is required."),
             started_at=started_at, completed_at=time.time(),
             tool_name="note_update", call_id=ctx.call_id,
         )
@@ -248,7 +254,7 @@ async def _note_update_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
     if not updates and not home_arg:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="At least one field to update is required.", suggested_action="Provide one or more of: label, content, home, tags, is_public."),
+            error=ToolError(refusal=True, error_type="validation", message="At least one field to update is required.", suggested_action="Provide one or more of: label, content, home, tags, is_public."),
             started_at=started_at, completed_at=time.time(),
             tool_name="note_update", call_id=ctx.call_id,
         )
@@ -269,7 +275,7 @@ async def _note_update_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
             if choice.error:
                 return ToolResult(
                     success=False,
-                    error=ToolError(error_type="validation", message=choice.error),
+                    error=ToolError(refusal=True, error_type="validation", message=choice.error),
                     started_at=started_at, completed_at=time.time(),
                     tool_name="note_update", call_id=ctx.call_id,
                 )
@@ -296,7 +302,12 @@ async def _note_update_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
                 )
             result = {**result, "note": {**result["note"], **moved["note"]} if isinstance(result["note"], dict) else moved["note"]}
         n = result["note"]
-        out: dict[str, Any] = {"id": n.get("id"), "label": n.get("label"), "updated_at": n.get("updated_at")}
+        out: dict[str, Any] = {
+            "id": n.get("id"), "label": n.get("label"), "updated_at": n.get("updated_at"),
+            # UNDO (Planner PS2): restore with platform.version_restore('note', id, previous_version).
+            "version": n.get("version"), "previous_version": prior.get("version"),
+            "previous": {k: prior.get(k) for k in updates if k in prior and prior.get(k) != n.get(k)},
+        }
         if home_arg:
             out["home"] = (await home_names([n.get("home_scope_id")])).get(str(n.get("home_scope_id")))
         if result.get("warning_stripped_immutable"):
@@ -345,7 +356,7 @@ async def _note_patch_as_the_person(args: dict[str, Any], ctx: ToolContext) -> T
     if not note_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="note_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="note_id is required."),
             started_at=started_at, completed_at=time.time(),
             tool_name="note_patch", call_id=ctx.call_id,
         )
@@ -354,7 +365,7 @@ async def _note_patch_as_the_person(args: dict[str, Any], ctx: ToolContext) -> T
     if not search_text:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="search_text is required.", suggested_action="Provide a verbatim excerpt from the note content to find and replace."),
+            error=ToolError(refusal=True, error_type="validation", message="search_text is required.", suggested_action="Provide a verbatim excerpt from the note content to find and replace."),
             started_at=started_at, completed_at=time.time(),
             tool_name="note_patch", call_id=ctx.call_id,
         )
@@ -382,6 +393,7 @@ async def _note_patch_as_the_person(args: dict[str, Any], ctx: ToolContext) -> T
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type=error_type,
                     message=result.get("message", "No match found for the search text."),
                     suggested_action=(
@@ -403,6 +415,8 @@ async def _note_patch_as_the_person(args: dict[str, Any], ctx: ToolContext) -> T
                     "id": n.get("id"),
                     "matched_at_pass": result.get("matched_at_pass"),
                     "updated_at": n.get("updated_at"),
+                    "version": n.get("version"),
+                    "previous_version": prior.get("version"),
                 },
                 started_at=started_at, completed_at=time.time(),
                 tool_name="note_patch", call_id=ctx.call_id,
@@ -440,7 +454,7 @@ async def _note_delete_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
     if not note_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="note_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="note_id is required."),
             started_at=started_at, completed_at=time.time(),
             tool_name="note_delete", call_id=ctx.call_id,
         )
@@ -448,6 +462,8 @@ async def _note_delete_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
         return _read_only_result("note_delete", started_at, ctx)
     try:
         from matrx_ai.db.content_types.notes import notes_manager_instance
+        before = await notes_manager_instance.get_note(note_id)
+        prior = before.get("note") if isinstance(before, dict) and before.get("success") else None
         result = await notes_manager_instance.delete_note(note_id)
         if not result.get("success"):
             return ToolResult(
@@ -464,6 +480,7 @@ async def _note_delete_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
                 "archived": True,
                 "note_id": note_id,
                 "message": "Note archived (recoverable) — it no longer appears in note lists.",
+                "previous_version": prior.get("version") if isinstance(prior, dict) else None,
             },
             started_at=started_at, completed_at=time.time(),
             tool_name="note_delete", call_id=ctx.call_id,
@@ -495,10 +512,10 @@ def _note_stamp(result: ToolResult, started_at: float, ctx: ToolContext) -> Tool
     return result
 
 
-def _note_validation_error(message: str, started_at: float, ctx: ToolContext) -> ToolResult:
+def _note_validation_error(message: str, started_at: float, ctx: ToolContext, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="validation", message=message),
+        error=ToolError.declared("validation", message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="note",
@@ -511,7 +528,7 @@ async def note(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         parsed = NoteArgs.model_validate(args).root
     except ValidationError as exc:
-        return _note_validation_error(format_args_error(exc), started_at, ctx)
+        return _note_validation_error(format_args_error(exc), started_at, ctx, exc=exc)
 
     action = parsed.action
     inner_args = parsed.model_dump(exclude={"action"}, exclude_unset=True)

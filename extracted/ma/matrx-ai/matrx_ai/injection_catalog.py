@@ -8,6 +8,9 @@ name, and validates each resolves in the live ``tool_def`` catalog.
 
 Used by ``scripts/validate_tools.py`` (release), ``aidream/startup/tools_check.py``
 (boot), and ``scripts/list_hardcoded_injection_tools.py`` (operator listing).
+
+The package never looks for its host (``scripts/check_package_boundaries.py``): every entry point
+takes ``repo_root`` — the checkout whose files ``INJECTION_SOURCES`` names — from its caller.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ _SHORT_TOOL_NAMES = frozenset(
         "document",
         "note",
         "pick_list",
+        "records",
         "skill",
         "sql",
         "table",
@@ -36,16 +40,6 @@ _SHORT_TOOL_NAMES = frozenset(
         "workbook",
     }
 )
-
-
-def find_repo_root(start: Path | None = None) -> Path:
-    """Walk parents until the monorepo root (pyproject.toml + aidream/) is found."""
-    here = (start or Path(__file__)).resolve()
-    for parent in (here, *here.parents):
-        if (parent / "pyproject.toml").is_file() and (parent / "aidream").is_dir():
-            return parent
-    # Standalone matrx-ai install — fall back to cwd.
-    return Path.cwd()
 
 
 def _is_tool_name(s: str) -> bool:
@@ -344,10 +338,10 @@ class InjectionValidationResult:
 
 def collect_hardcoded_injection_tool_names(
     *,
-    repo_root: Path | None = None,
+    repo_root: Path,
 ) -> dict[str, frozenset[str]]:
     """Return repo-relative source path -> tool names hardcoded for auto-injection."""
-    root = repo_root or find_repo_root()
+    root = repo_root
     by_file: dict[str, frozenset[str]] = {}
     for rel, extractor in INJECTION_SOURCES.items():
         path = root / rel
@@ -358,7 +352,7 @@ def collect_hardcoded_injection_tool_names(
     return by_file
 
 
-def hardcoded_injection_tool_names(*, repo_root: Path | None = None) -> frozenset[str]:
+def hardcoded_injection_tool_names(*, repo_root: Path) -> frozenset[str]:
     """Union of every hardcoded auto-injection tool name across INJECTION_SOURCES."""
     names: set[str] = set()
     for file_names in collect_hardcoded_injection_tool_names(repo_root=repo_root).values():
@@ -373,11 +367,11 @@ def _sources_for_tool(tool_name: str, by_source: dict[str, frozenset[str]]) -> l
 def validate_injection_tool_catalog(
     live_tool_names: set[str],
     *,
-    repo_root: Path | None = None,
+    repo_root: Path,
     emit: bool = False,
 ) -> InjectionValidationResult:
     """Verify hardcoded auto-injection tool names resolve in the live tool_def catalog."""
-    root = repo_root or find_repo_root()
+    root = repo_root
     by_source = collect_hardcoded_injection_tool_names(repo_root=root)
     missing_source_files = tuple(
         sorted(rel for rel in INJECTION_SOURCES if not (root / rel).is_file())

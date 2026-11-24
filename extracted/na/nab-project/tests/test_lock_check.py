@@ -11,10 +11,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from packaging.pylock import Pylock
+from packaging.ranges import VersionRange
+from packaging.version import Version
 
 from nab_project import toml_io, toml_writer
 from nab_project._resolve.engine import InstallContexts
-from nab_project._testing.coordinator_fake import make_coordinator
 from nab_project.inputs import ResolveInputs
 from nab_project.lock_check import (
     LockConsistencyError,
@@ -35,9 +37,6 @@ from nab_project.resolve import (
     plan_project_inputs,
     resolve_with_coordinator,
 )
-from nab_provider._vendor.packaging.pylock import Pylock
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.metadata import parse_metadata
 from nab_provider.overrides import PackageOverride
 from nab_provider.pep508 import parse_requirement
@@ -46,6 +45,7 @@ from nab_provider.records import IndexConfig
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import Matrix, MatrixInclude, ResolveTarget
 from nab_provider.testing import make_metadata, make_wheel, pkg_override
+from nab_test_support.coordinator import make_coordinator
 
 
 def _saved(
@@ -634,16 +634,19 @@ def test_standard_requires_python_keeps_every_admitted_micro_slice(
     ] == ["3.14.3", "3.14.5"]
 
 
-def test_reuse_policy_preserves_the_standard_saved_check(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("bound", "reusable"), [("==1", True), (">=2", False)])
+def test_reuse_policy_preserves_the_standard_saved_check(
+    tmp_path: Path, bound: str, *, reusable: bool
+) -> None:
     lock, path, inputs, targets = _saved(tmp_path)
     current = snapshot_inputs(path, inputs, targets)
 
     assert can_reuse_saved_lock(lock, path, current, inputs, targets)
 
-    path.write_text(path.read_text().replace("demo>=1", "demo>=2"))
+    path.write_text(path.read_text().replace("demo>=1", f"demo{bound}"))
     current = snapshot_inputs(path, inputs, targets)
 
-    assert not can_reuse_saved_lock(lock, path, current, inputs, targets)
+    assert can_reuse_saved_lock(lock, path, current, inputs, targets) is reusable
 
 
 @pytest.mark.parametrize(

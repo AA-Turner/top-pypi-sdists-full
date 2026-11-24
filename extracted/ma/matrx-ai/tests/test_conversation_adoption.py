@@ -190,7 +190,7 @@ async def test_started_conversation_is_never_adopted(monkeypatch):
     conversation = _ConversationManager(_shell(user_id, message_count=4))
     _wire(monkeypatch, conversation, _MessageManager())
 
-    with pytest.raises(gate.ConversationGateError) as exc:
+    with pytest.raises(gate.ConversationIdTakenError) as exc:  # typed: the boundary's 409, never a 500
         await _adopt(conversation_id, user_id, {"title": "x"}, _shell(user_id, message_count=4))
 
     assert "duplicate key" in str(exc.value)

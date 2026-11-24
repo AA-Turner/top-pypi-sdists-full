@@ -379,9 +379,12 @@ def _decorate_explain_lines(
 
     if node_info.dev_clone:
         _apply_dev_clone_modifications(
-            clone_incremental_in_dev=run_config.clone_incremental_in_dev,
+            # entries written before the node's own mode was recorded fall back to the run's mode
+            clone_incremental_in_dev=node_info.dev_clone.clone_incremental_in_dev
+            or run_config.clone_incremental_in_dev,
             source_table_fqn=node_info.dev_clone.source_table_fqn,
             lines=lines,
+            replaced_existing_table=node_info.dev_clone.replaced_existing_table,
         )
 
     if node_info.deferrals:
@@ -411,21 +414,40 @@ def _apply_target_name_to_table_exists(target_name: str, lines: list[ExplainLine
                     ta_line.text = ta_line.text + f" in '{target_name}'"
 
 
+def _dev_clone_reason(
+    clone_incremental_in_dev: CloneIncrementalInDev, replaced_existing_table: t.Optional[bool]
+) -> t.Optional[str]:
+    """Why the model table was cloned in dev, or None if that can't be told from the log entry."""
+    if replaced_existing_table is None:
+        # entries written before replaced_existing_table was recorded: only if_table_missing
+        # implies the table was missing
+        if clone_incremental_in_dev == CloneIncrementalInDev.IF_TABLE_MISSING:
+            return "the model table did not exist"
+        return None
+    if not replaced_existing_table:
+        return "the model table did not exist"
+    if clone_incremental_in_dev == CloneIncrementalInDev.IF_CHANGED:
+        return "the production table has changed since the model table was last cloned from it"
+    if clone_incremental_in_dev == CloneIncrementalInDev.ALWAYS:
+        return "the model table already existed, but it is re-cloned on every run"
+    return None
+
+
 def _apply_dev_clone_modifications(
     clone_incremental_in_dev: CloneIncrementalInDev,
     source_table_fqn: str,
     lines: list[ExplainLine],
+    replaced_existing_table: t.Optional[bool] = None,
 ) -> None:
+    reason = _dev_clone_reason(clone_incremental_in_dev, replaced_existing_table)
+    clone_purpose = "replace it" if replaced_existing_table else "create it"
     for line in lines:
         if line.text.startswith("table analysis"):
-            if clone_incremental_in_dev == CloneIncrementalInDev.IF_TABLE_MISSING:
-                line.children.insert(
-                    0,
-                    ExplainLine(text="the model table did not exist", marker=ExplainMarker.INFO),
-                )
+            if reason:
+                line.children.insert(0, ExplainLine(text=reason, marker=ExplainMarker.INFO))
             for ta_line in line.children:
                 if ta_line.badge == ExplainBadge.TARGET_TABLE_EXISTS:
-                    ta_line.text = f"we cloned from {source_table_fqn} to create it"
+                    ta_line.text = f"we cloned from {source_table_fqn} to {clone_purpose}"
                     ta_line.marker = ExplainMarker.SUCCESS
                     ta_line.badge = None
 

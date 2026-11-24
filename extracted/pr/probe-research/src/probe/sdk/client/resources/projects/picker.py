@@ -23,7 +23,6 @@ SHOWN_PROJECTS = 10
 KIND_HINTS = (
     (ProjectKind.training, "weights move"),
     (ProjectKind.evaluation, "sweeps, evals"),
-    (ProjectKind.research, "papers, design"),
     (ProjectKind.general, "anything else"),
 )
 DEFAULT_KIND = ProjectKind.general

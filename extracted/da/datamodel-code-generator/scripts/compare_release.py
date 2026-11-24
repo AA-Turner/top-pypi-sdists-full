@@ -2000,6 +2000,12 @@ class Evidence:
             if probe["unit"] == unit["index"] and index not in self.ran[unit["side"]]
         ]
 
+    def group_problems(self) -> list[str]:
+        """Return why the input groups are incomplete: some compared nothing, or none ran."""
+        empty = sum(not counts[0] for counts in self.groups.values())
+        problems = [f"input groups that compared nothing: {empty}"] if empty else []
+        return [*problems, *([] if self.groups else ["no input group"])]
+
     def report(self, tests: dict[str, set[int]] | None) -> list[str]:
         """Print the evidence and return why it is incomplete.
 
@@ -2015,11 +2021,9 @@ class Evidence:
                 if shown or count
             )
             print(f"evidence: input group {name}: {text}{nothing}")
-        empty = sum(not counts[0] for counts in self.groups.values())
-        problems = [f"input groups that compared nothing: {empty}"] if empty else []
+        problems = self.group_problems()
         if not self.groups:
             print("evidence: input groups: none, the selection matched no input")
-            problems.append("no input group")
         problems += self._report_units(tests)
         for refusal in sorted(self.refused):
             print(f"evidence: refused on head only: {refusal}")
@@ -2077,7 +2081,10 @@ class Evidence:
         return [f"changed code objects no compared cell ran: {not_run}"] if not_run else []
 
     def write(self, path: Path) -> None:
-        """Write what each run proved, and whether a compared run ran each changed code object, as JSON."""
+        """Write what each run proved, and whether a compared run ran each changed code object, as JSON.
+
+        Each changed code object also lists the source spans of its probes that no compared run ran (`missing`).
+        """
 
         def side(facts: Facts) -> dict[str, object]:
             code, files, warned, other = facts
@@ -2088,7 +2095,8 @@ class Evidence:
             for name, (group, compared, base, candidate) in sorted(self.cells.items())
         ]
         units = [
-            {key: unit[key] for key in ("side", "path", "qualname")} | {"ran": not self._missing(unit)}
+            {key: unit[key] for key in ("side", "path", "qualname")}
+            | {"ran": not (missing := self._missing(unit)), "missing": [probe["where"] for probe in missing]}
             for unit in (self.units.units if self.units else [])
         ]
         path.write_text(json.dumps({"cells": cells, "units": units}) + "\n", encoding="utf-8")
@@ -2107,7 +2115,8 @@ def add_evidence_args(parser: argparse.ArgumentParser) -> None:
         "--evidence",
         type=Path,
         help="write what each run proved (exit status, a hash of each output file, of its warnings and of its other "
-        "facts, per side) and whether a compared run ran each changed code object to this JSON file",
+        "facts, per side) and whether a compared run ran each changed code object (the spans of its probes none ran) "
+        "to this JSON file",
     )
 
 

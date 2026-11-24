@@ -25,9 +25,21 @@ from pydantic import BaseModel, Field
 
 from late.client.base import _retry_after_seconds
 from late.mcp.auth import build_auth_provider, forget_rejected_token
+from late.mcp.chatgpt_tools import (
+    CHATGPT_GENERATED_TOOLS,
+    oauth_scopes_of,
+    register_chatgpt_generated_tools,
+)
+from late.mcp.generated_tools import TOOL_OAUTH_SCOPES
 from late.mcp.media_items import media_item
-from late.mcp.middleware import WellFormedOutputMiddleware, WellFormedOutputTransform
+from late.mcp.middleware import (
+    MissingScopeMiddleware,
+    RateLimitGuidanceMiddleware,
+    WellFormedOutputMiddleware,
+    WellFormedOutputTransform,
+)
 from late.mcp.middleware.rate_limit import wait_hint
+from late.mcp.server import _get_client
 from late.mcp.user_agent import mcp_user_agent
 
 API_BASE = (
@@ -48,9 +60,15 @@ _DAY_NAMES = [
     "Saturday",
     "Sunday",
 ]
-# Everything this surface can do fits these four; ChatGPT asks the user to
-# grant every scope the discovery document advertises.
-CHATGPT_SCOPES = ["posts:read", "posts:write", "accounts:read", "analytics:read"]
+# The hand-shaped tools need the first four; the generated ones add theirs.
+# ChatGPT asks the user to grant every scope the discovery document advertises,
+# so a scope no listed tool needs must not be here.
+CHATGPT_SCOPES = list(
+    dict.fromkeys(
+        ["posts:read", "posts:write", "accounts:read", "analytics:read"]
+        + oauth_scopes_of(CHATGPT_GENERATED_TOOLS)
+    )
+)
 
 PostStatus = Literal["draft", "scheduled", "published", "failed"]
 
@@ -355,7 +373,9 @@ async def _posting_accounts_page(
 
 async def _find_posting_account(account_id: str) -> dict[str, Any] | None:
     data = await _api(
-        "GET", "/v1/accounts", params={"search": account_id, "limit": _ACCOUNT_LOOKUP_LIMIT}
+        "GET",
+        "/v1/accounts",
+        params={"search": account_id, "limit": _ACCOUNT_LOOKUP_LIMIT},
     )
     return next(
         (
@@ -443,8 +463,7 @@ async def _usernames(posts: list[dict[str, Any]]) -> dict[str, str]:
     except (ToolError, httpx.HTTPError):
         return {}
     return {
-        str(a["_id"]): a.get("username") or a.get("displayName") or ""
-        for a in accounts
+        str(a["_id"]): a.get("username") or a.get("displayName") or "" for a in accounts
     }
 
 
@@ -536,6 +555,8 @@ chatgpt_mcp = FastMCP(
     auth=build_auth_provider(scopes=CHATGPT_SCOPES),
 )
 chatgpt_mcp.add_middleware(WellFormedOutputMiddleware())
+chatgpt_mcp.add_middleware(RateLimitGuidanceMiddleware())
+chatgpt_mcp.add_middleware(MissingScopeMiddleware(scopes_by_tool=TOOL_OAUTH_SCOPES))
 chatgpt_mcp.add_transform(WellFormedOutputTransform())
 
 
@@ -1126,3 +1147,6 @@ async def get_best_time_to_post(
         for s in slots[:5]
     ]
     return _result(best, "Best times to post (UTC):\n" + "\n".join(lines))
+
+
+register_chatgpt_generated_tools(chatgpt_mcp, _get_client)

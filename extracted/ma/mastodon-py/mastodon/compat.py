@@ -32,9 +32,11 @@ try:
 except ImportError:
     from urlparse import urlparse # type: ignore
 
+IMPL_HAS_MAGIC = True
 try:
     import magic
 except ImportError:
+    IMPL_HAS_MAGIC = False
     magic = None
 
 try:
@@ -58,3 +60,15 @@ try:
 except ImportError:
     IMPL_HAS_WEBSOCKET = False
     websocket = None
+
+try:
+    from enum import StrEnum
+    StringEnum = StrEnum
+except ImportError:
+    from enum import Enum
+    class StringEnum(str, Enum):
+        def __str__(self):
+            return self.value
+        @staticmethod
+        def _generate_next_value_(name, start, count, last_values):
+            return name.lower()

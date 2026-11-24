@@ -499,6 +499,30 @@ def Y(key: str, label: str, clause: str, expected: Any, build: Callable[[], tupl
     CASES.append(Case(key, label, clause, expected, run))
 
 
+def _canon(target_kw: dict | None = None, *, sitemap: bool = False, me_url: str = "https://example.com/c/products/mug?sort=new", canonical: str = "https://example.com/products/mug"):
+    """A variant page whose canonical names another URL, judged by its target (2026-10-30)."""
+
+    def build():
+        me = facts("me", url=me_url, http_status=200, canonical_url=canonical, canonical_matches=False)
+        site = SiteAggregates()
+        site.sitemap_page_ids = {"me"} if sitemap else set()
+        if target_kw is not None:
+            tgt = facts("tgt", url=canonical, http_status=200, canonical_url=canonical, canonical_matches=True)
+            for k, v in target_kw.items():
+                setattr(tgt, k, v)
+            A.index_page_facts([me, tgt], site)
+        return me, site
+
+    return build
+
+
+Y("canonical_conflicts", "variant names its working clean page", "No conflicts", 100, _canon({}))
+Y("canonical_conflicts", "target 404", "Canonical target returns 4xx/5xx or is noindexed/robots-blocked", 10, _canon({"http_status": 404}))
+Y("canonical_conflicts", "target noindexed", "Canonical target returns 4xx/5xx or is noindexed/robots-blocked", 10, _canon({"noindex": True}))
+Y("canonical_conflicts", "target redirects", "Canonical target redirects (chain) or itself canonicalizes elsewhere", 30, _canon({"redirect_chain": [{"url": "https://example.com/products/mug", "status": 301}]}))
+Y("canonical_conflicts", "content page names the homepage", "A content page (no query string) names the homepage as its canonical", 45, _canon({}, me_url="https://example.com/blog/post", canonical="https://example.com/"))
+Y("canonical_conflicts", "sitemap lists the variant", "Canonical contradicts og:url, hreflang self-reference, or sitemap URL form", 55, _canon({}, sitemap=True))
+
 Y("broken_page_4xx", "10 inlinks", "4xx with >=10 internal inlinks or in sitemap", 5, _broken(inlinks=10))
 Y("broken_page_4xx", "in sitemap", "4xx with >=10 internal inlinks or in sitemap", 5, _broken(sitemap=True))
 Y("broken_page_4xx", "9 inlinks", "4xx with 1-9 internal inlinks", 15, _broken(inlinks=9))
@@ -848,10 +872,10 @@ for n, exp, why in [
     X("internal_inlink_coverage", f"{n} inlinks", why, exp, _graph(inlinks=n))
 
 
-# internal_link_equity -- only prioritized pages (target_keyword set) are judged; others 100; n_a under 30 scored pages
+# internal_link_equity -- only prioritized pages (plan primary set) are judged; others 100; n_a under 30 scored pages
 def _equity(percentile: int, keyword: str | None, scored: int = 41):
     def build():
-        me = facts("me", link_score=0.5, target_keyword=keyword)
+        me = facts("me", link_score=0.5, primary_keyword_id=keyword)
         site = SiteAggregates()
         site.link_equity_percentile_by_page = {f"q{i}": 50 for i in range(scored - 1)}
         site.link_equity_percentile_by_page["me"] = percentile
@@ -1234,9 +1258,6 @@ UNREACHABLE_BANDS: dict[tuple[str, str], str] = {
     ("title_presence", "Title present but only site/brand name (no page-specific words)"): "no brand/site-name evidence reaches the check",
     ("canonical_presence", "Multiple canonical tags with different targets"): "PageEvidence carries one canonical_url, no tag count",
     ("meta_description_presence", "Multiple meta description tags"): "PageEvidence carries one description string, no tag count",
-    ("canonical_conflicts", "Canonical target returns 4xx/5xx or is noindexed/robots-blocked"): "needs a fetch of the canonical target; page evidence has none",
-    ("canonical_conflicts", "Canonical target redirects (chain) or itself canonicalizes elsewhere"): "needs a fetch of the canonical target; page evidence has none",
-    ("canonical_conflicts", "Canonical contradicts og:url, hreflang self-reference, or sitemap URL form"): "check only has canonical_matches; code scores off-domain 25 / noindex 20 / other 55, none of which the contract names",
     ("temporary_redirect_usage", "302/307 stable across >=3 crawl sessions"): "crawl-session history never reaches the check",
     ("h1_presence", "H1 duplicated on other pages of the site"): "H1 text is not collected and the check is per-page, so duplicates are never detected",
     ("og_image_validity", "Image below recommended 1200x630"): "image dimensions never reach the check; a valid-looking og:image always scores 100",

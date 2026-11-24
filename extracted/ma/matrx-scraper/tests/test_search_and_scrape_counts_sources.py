@@ -47,7 +47,7 @@ def _page(url: str, ok: bool) -> ScrapeResult:
 
 @pytest.fixture
 def world(monkeypatch: pytest.MonkeyPatch):
-    async def no_failure_log(_result: Any) -> None:
+    async def no_failure_log(_result: Any, _organization_id: str | None = None) -> None:
         return None
 
     monkeypatch.setattr(svc, "_fire_and_forget_failure_log", no_failure_log)

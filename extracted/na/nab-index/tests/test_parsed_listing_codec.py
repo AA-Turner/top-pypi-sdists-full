@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Callable
-from contextlib import AbstractContextManager
 
 import pytest
 
@@ -30,8 +28,6 @@ from nab_provider.value import replace
 
 DIGEST = "a" * 64
 
-# Stands in for a body nested past the decoder's guard (``refuse_over_nested``).
-OVER_NESTED = b"[[[]]]"
 
 SHA256 = sys.intern("sha256")
 SHA512 = sys.intern("sha512")
@@ -41,7 +37,9 @@ RP = sys.intern(">=3.8")
 _H_FORMAT = 0
 _H_CODEC = 1
 _H_KEY_SCHEME = 2
+_H_DIGEST = 3
 _H_ZIP_SDISTS = 4
+_H_ALL_YANKED = 7
 
 # An sdist row is tag plus seven fields; the unknown-tag case relies on keeping
 # that arity so the tag check is what rejects it, not the unpack.
@@ -175,7 +173,7 @@ def test_lone_surrogate_in_field_round_trips() -> None:
 def test_blob_is_portable_json() -> None:
     """The wire form carries no interpreter tag, so any reader can decode it."""
     header, rows = json.loads(encode(SAMPLE, DIGEST))
-    assert header == [FORMAT_VERSION, CODEC, KEY_SCHEME, DIGEST, [], {}, None]
+    assert header == [FORMAT_VERSION, CODEC, KEY_SCHEME, DIGEST, [], {}, None, False]
     assert [row[0] for row in rows] == [_TAG_WHEEL, _TAG_SDIST, _TAG_WHEEL, _TAG_SDIST]
 
 
@@ -234,6 +232,27 @@ def _sdist_row_with(index: int, value: object) -> bytes:
 
 def test_valid_blob_decodes() -> None:
     assert decode(encode(SAMPLE, DIGEST), _policy()) is not None
+
+
+@pytest.mark.parametrize(
+    ("position", "value"),
+    [
+        (_H_FORMAT, float(FORMAT_VERSION)),
+        (_H_CODEC, True),
+        (_H_KEY_SCHEME, False),
+        (_H_CODEC, "one"),
+        (_H_DIGEST, None),
+        (_H_DIGEST, "short"),
+        (_H_DIGEST, "z" * 64),
+        (_H_ALL_YANKED, 1),
+    ],
+)
+def test_malformed_header_is_reported_and_treated_as_a_miss(
+    position: int, value: object
+) -> None:
+    blob = _tamper_header(position, value)
+    assert decode(blob, _policy()) is None
+    assert corruption_reason(blob) == "unexpected header shape"
 
 
 def test_format_mismatch_is_miss() -> None:
@@ -322,6 +341,7 @@ def test_unknown_tag_on_a_well_formed_row_is_miss(tag: object) -> None:
         (_W_HAS_METADATA, 1),
         (_W_UPLOAD_TIME, 20230101),
         (_W_SIZE, "1024"),
+        (_W_SIZE, -1),
         # ... nor a bool as a count.
         (_W_SIZE, True),
         (_W_HASHES, True),
@@ -332,8 +352,7 @@ def test_unknown_tag_on_a_well_formed_row_is_miss(tag: object) -> None:
         (_W_METADATA_HASH, ["sha256", "dead", "extra"]),
     ],
 )
-def test_wrong_field_type_is_miss(index: int, value: object) -> None:
-    """A field JSON allows but the record does not never reaches a record."""
+def test_invalid_wheel_field_is_miss(index: int, value: object) -> None:
     assert decode(_wheel_row_with(index, value), _policy()) is None
 
 
@@ -347,13 +366,13 @@ def test_wrong_field_type_is_miss(index: int, value: object) -> None:
         (_S_REQUIRES_PYTHON, 3),
         (_S_UPLOAD_TIME, 20230101),
         (_S_SIZE, "10"),
+        (_S_SIZE, -1),
         # bool is a subclass of int here too.
         (_S_SIZE, True),
         (_S_SIZE, 1.5),
     ],
 )
-def test_wrong_sdist_field_type_is_miss(index: int, value: object) -> None:
-    """An sdist row is checked on its own fields, not through the wheel's."""
+def test_invalid_sdist_field_is_miss(index: int, value: object) -> None:
     assert decode(_sdist_row_with(index, value), _policy()) is None
 
 
@@ -366,19 +385,13 @@ def test_absent_optional_fields_decode_as_none() -> None:
     assert wheel.metadata_hash is None
 
 
-def test_over_nested_blob_is_miss(
-    refuse_over_nested: Callable[[bytes], AbstractContextManager[None]],
-) -> None:
+def test_over_nested_blob_is_miss(over_nested_json: bytes) -> None:
     """A blob nested past the JSON decoder's guard is a miss, not a raise."""
-    with refuse_over_nested(OVER_NESTED):
-        assert decode(OVER_NESTED, _policy()) is None
+    assert decode(over_nested_json, _policy()) is None
 
 
-def test_over_nested_blob_names_its_depth(
-    refuse_over_nested: Callable[[bytes], AbstractContextManager[None]],
-) -> None:
-    with refuse_over_nested(OVER_NESTED):
-        assert corruption_reason(OVER_NESTED) == "nested too deeply to decode"
+def test_over_nested_blob_names_its_depth(over_nested_json: bytes) -> None:
+    assert corruption_reason(over_nested_json) == "nested too deeply to decode"
 
 
 @pytest.mark.parametrize(

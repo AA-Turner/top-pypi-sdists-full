@@ -56,7 +56,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from .models import RUN_STOPPED_EARLY_KEY, RUN_UNITS_DONE_KEY
+from .models import RUN_FRESH_UNITS_KEY, RUN_STOPPED_EARLY_KEY, RUN_UNITS_DONE_KEY
 
 log = logging.getLogger("matrx_scheduler.lease")
 
@@ -109,6 +109,8 @@ class RunLease:
         self.lost: bool = False
         self.lost_reason: str | None = None
         self.units_done: int = 0
+        #: NEW work committed this run, when the handler says so (``progress(fresh_units=)``).
+        self.fresh_units: int | None = None
         self.progress_metadata: dict[str, Any] = {}
         self.renewals: int = 0
         self.progress_writes: int = 0
@@ -166,17 +168,28 @@ class RunLease:
         return None
 
     async def progress(
-        self, *, units_done: int, metadata: dict[str, Any] | None = None
+        self,
+        *,
+        units_done: int,
+        metadata: dict[str, Any] | None = None,
+        fresh_units: int | None = None,
     ) -> bool:
         """Report committed work so far. Writes it onto the ledger row under the
         claim token and renews the lease. Returns False when the lease is lost —
         the handler should stop; anything it commits after that point belongs to
-        a run the ledger no longer credits to it."""
+        a run the ledger no longer credits to it.
+
+        ``fresh_units`` is how many of those units are NEW work this run, for a
+        handler whose ``units_done`` also counts what it re-verified after an
+        interruption. It is what the continuation budget judges progress by
+        (``continuation.py``); omitted, the last value given stands."""
         now_mono = time.monotonic()
         self.last_unit_seconds = max(0.0, now_mono - self._last_unit_started)
         self.longest_unit_seconds = max(self.longest_unit_seconds, self.last_unit_seconds)
         self._last_unit_started = now_mono
         self.units_done = max(0, int(units_done))
+        if fresh_units is not None:
+            self.fresh_units = max(0, int(fresh_units))
         if metadata:
             self.progress_metadata = dict(metadata)
         self.progress_writes += 1
@@ -211,6 +224,8 @@ class RunLease:
         them — the repeat guard reads exactly these keys back."""
         meta = dict(self.progress_metadata)
         meta[RUN_UNITS_DONE_KEY] = self.units_done
+        if self.fresh_units is not None:
+            meta[RUN_FRESH_UNITS_KEY] = self.fresh_units
         meta[RUN_STOPPED_EARLY_KEY] = stopped_early
         meta[RUN_PROGRESS_AT_KEY] = datetime.now(UTC).isoformat()
         return meta
@@ -269,6 +284,43 @@ def current_run_lease() -> RunLease:
     ``NoLease`` when there is none. Never raises, never None."""
     lease = _current.get()
     return lease if lease is not None else NoLease()
+
+
+class StepTimedOut(TimeoutError):
+    """One named step of a run did not finish inside its slice of the run's time limit."""
+
+    def __init__(self, step: str, seconds: float) -> None:
+        super().__init__(f"step {step!r} did not finish within {seconds:.1f}s of this run's time limit")
+        self.step = step
+        self.seconds = seconds
+
+
+def step_budget_seconds(*, share: float, reserve_seconds: float = 2.0) -> float:
+    """The slice :func:`within_run` gives a step called NOW with the same ``share`` and
+    ``reserve_seconds`` — ``inf`` outside a bounded run. A step that can hand slow work
+    off (rather than be cancelled in the middle of it) reads this to know when to stop
+    waiting and return what it has."""
+    remaining = current_run_lease().remaining_seconds()
+    if remaining == float("inf"):
+        return remaining
+    return max(0.5, (remaining - reserve_seconds) * max(0.0, min(1.0, share)))
+
+
+async def within_run(step: str, awaitable: Any, *, share: float, reserve_seconds: float = 2.0) -> Any:
+    """Await ``awaitable`` bounded by ``share`` of what is left of the current run's time limit
+    (minus ``reserve_seconds`` kept for the steps after it). Raises :class:`StepTimedOut` naming
+    the step instead of letting one hung call spend the whole run and end at the run ceiling.
+
+    Outside a bounded run (no lease, or no limit) it simply awaits."""
+    seconds = step_budget_seconds(share=share, reserve_seconds=reserve_seconds)
+    if seconds == float("inf"):
+        return await awaitable
+    try:
+        return await asyncio.wait_for(awaitable, timeout=seconds)
+    except TimeoutError as exc:
+        if isinstance(exc, StepTimedOut):
+            raise
+        raise StepTimedOut(step, seconds) from None
 
 
 def bind_run_lease(lease: RunLease | None) -> contextvars.Token[RunLease | None]:
@@ -345,8 +397,11 @@ __all__ = [
     "UNIT_SAFETY_FACTOR",
     "NoLease",
     "RunLease",
+    "StepTimedOut",
     "bind_run_lease",
     "current_run_lease",
     "heartbeat_until_stopped",
+    "step_budget_seconds",
     "unbind_run_lease",
+    "within_run",
 ]

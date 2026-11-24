@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from collections import OrderedDict
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
@@ -78,6 +79,44 @@ _STRUCTURAL_CANONICAL_KEYS: tuple[str, ...] = (
 )
 
 
+#: Request id -> signatures already said (a bounded process-level memory). It lives HERE and not on
+#: ``AppContext.metadata`` because tools/merge.py and tools/dynamic_drain.py rebuild that dict mid-run
+#: (``ctx.with_overrides(metadata=...)``), which would forget it; the request id survives every fork.
+_SAID_BY_REQUEST: OrderedDict[str, set[str]] = OrderedDict()
+_SAID_MAX_REQUESTS = 2048
+_SAID_NO_CONTEXT: ContextVar[set[str] | None] = ContextVar("matrx_ai_said_without_context", default=None)
+
+
+def _first_time_this_request(namespace: str, signature: str) -> bool:
+    """True the first time ``signature`` is seen in this request (or, with no context, this task)."""
+    entry = f"{namespace}:{signature}"
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+        request_id = str(getattr(ctx, "request_id", "") or "")
+    except Exception:  # noqa: BLE001 — telling must never break a request
+        request_id = ""
+    if not request_id:
+        said = _SAID_NO_CONTEXT.get()
+        if said is None:
+            said = set()
+            _SAID_NO_CONTEXT.set(said)
+        if entry in said:
+            return False
+        said.add(entry)
+        return True
+    said = _SAID_BY_REQUEST.get(request_id)
+    if said is None:
+        said = _SAID_BY_REQUEST[request_id] = set()
+        while len(_SAID_BY_REQUEST) > _SAID_MAX_REQUESTS:
+            _SAID_BY_REQUEST.popitem(last=False)
+    if entry in said:
+        return False
+    said.add(entry)
+    return True
+
+
 # Actions that mean "the caller's value did not make it onto the wire".
 _DROP_ACTIONS = frozenset({"dropped", "omitted", "unsupported_value"})
 
@@ -112,6 +151,17 @@ def warn_client_about_dropped_settings(adjustments: list[Any], *, model: Any = "
     from matrx_connect.context.events import WarningPayload
 
     keys = sorted({str(a.key) for a in lost})
+    # ONCE PER REQUEST: every loop iteration of a run re-runs the outbound seam in a fresh
+    # task copy and would repeat the identical warning (PB-03 t, 2026-11-09: clear_thinking
+    # three times per run). The key carries the dropped values and reasons like the sibling
+    # settings_adjusted key, so a CHANGED value still warns; nothing is lost, the first warning
+    # carries the whole fact.
+    signature = json.dumps(
+        [str(model), sorted((str(a.key), str(a.canonical_value), str(a.reason)) for a in lost)],
+        default=str,
+    )
+    if not _first_time_this_request("setting_not_supported", signature):
+        return
     send_client_warning(
         WarningPayload(
             code="setting_not_supported",
@@ -272,7 +322,7 @@ def publish_settings_adjustments(
         InfoPayload(
             code="settings_adjusted",
             system_message=f"{len(rows)} setting(s) adjusted for {model}: {summary}",
-            user_message=f"Some settings were adjusted to fit {model}.",
+            user_message="Some settings were adjusted to fit the selected model.",
             metadata={"model": str(model), "seam": seam, "settings_adjustments": rows},
         ),
         name="outbound_params_settings_adjusted",
@@ -306,8 +356,9 @@ def send_client_warning(payload: Any, *, name: str) -> None:
     Every server-side step that drops or rewrites a setting the request carried
     — an unsupported key here, a ceiling the send boundary raises — tells the
     CALLER through the stream as a ``warning`` event, not only the server log.
-    Fire-and-forget: telling the user must never delay or break the run; with no
-    emitter or no running loop the server log (written by the caller) still has it.
+    Fire-and-forget: telling the user must never delay or break the run. With no
+    emitter, no context or no running loop (a headless or batch run) the line is
+    LOGGED here, never silently dropped.
     """
     try:
         import asyncio
@@ -317,19 +368,35 @@ def send_client_warning(payload: Any, *, name: str) -> None:
         ctx = get_app_context()
         emitter = getattr(ctx, "emitter", None)
         if emitter is None:
+            _log_unsent_warning(payload, name, "no emitter")
             return
         asyncio.get_running_loop()
         from matrx_utils import detached_task
 
         detached_task(emitter.send_warning(payload), name=name)
-    except RuntimeError:
-        return  # no running loop / no context (sync/offline) — the log still has it
+    except RuntimeError as exc:
+        _log_unsent_warning(payload, name, f"no stream ({exc})")
     except Exception as exc:  # noqa: BLE001 — telling the user must never break the run
         vcprint(
             f"[outbound_params] could not emit client warning {name!r} ({exc!r}); "
             "the detail is still in the server log.",
             color="yellow",
         )
+
+
+def _log_unsent_warning(payload: Any, name: str, why: str) -> None:
+    """A warning no stream carried: in the log, with what the person would have read."""
+    code = getattr(payload, "code", None)
+    user_message = getattr(payload, "user_message", None)
+    system_message = getattr(payload, "system_message", None)
+    vcprint(
+        f"[outbound_params] warning {name!r} ({code}) not streamed — {why}: "
+        f"{user_message or ''} {('— ' + system_message) if system_message else ''}".rstrip(),
+        color="yellow",
+    )
+    import logging
+
+    logging.getLogger(__name__).warning("client warning %s (%s) not streamed (%s): %s", name, code, why, user_message)
 
 
 def drop_foreign_canonical_keys(
@@ -603,6 +670,31 @@ def preview_outbound_translation(
     adjustment (``settings_adjustment_rows`` shape, ``faithful`` included), so a
     settings screen can show a kept value beside what it is sent as.
     """
+    _params, adjustments = _quiet_outbound(config, controls, context=context)
+    return settings_adjustment_rows(adjustments)
+
+
+def preview_outbound_params(
+    config: Any,
+    controls: CompiledControlsMap,
+    *,
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """The provider params a request with ``config`` would carry (``thinking``,
+    ``max_tokens``, ``reasoning`` …) — the same gate and outbound pass as
+    ``preview_outbound_translation``, nothing published, remembered or warned.
+    The send boundary reads it to see what thinking a call will really carry
+    (``config/answer_room.py``)."""
+    params, _adjustments = _quiet_outbound(config, controls, context=context)
+    return params
+
+
+def _quiet_outbound(
+    config: Any,
+    controls: CompiledControlsMap,
+    *,
+    context: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], list[Any]]:
     from matrx_ai.catalog import translation_defaults as _D
     from matrx_ai.catalog.canonicalize import canonical_settings_from_config
 
@@ -610,15 +702,15 @@ def preview_outbound_translation(
     canonical = canonical_settings_from_config(config)
     for key in _STRUCTURAL_CANONICAL_KEYS:
         canonical.pop(key, None)
-    gate: list[Any] = []
     translated, gate_adjustments, _removed = controls.translate_foreign(
         canonical, model=getattr(config, "model", "?")
     )
-    gate.extend(gate_adjustments)
     if getattr(config, "tool_choice", None) in _D.FORCED_TOOL_CHOICES:
         translated = {**translated, _D.FORCED_TOOL_CHOICE_KEY: True}
-    _params, adjustments = controls.outbound(translated, context=context)
-    return settings_adjustment_rows(gate + adjustments)
+    params, adjustments = controls.outbound(translated, context=context)
+    for key in _STRUCTURAL_CANONICAL_KEYS:
+        params.pop(key, None)
+    return params, [*gate_adjustments, *adjustments]
 
 
 def translate_session_settings(
@@ -749,5 +841,6 @@ __all__ = [
     "send_client_warning",
     "translate_session_settings",
     "warn_client_about_dropped_settings",
+    "preview_outbound_params",
     "preview_outbound_translation",
 ]

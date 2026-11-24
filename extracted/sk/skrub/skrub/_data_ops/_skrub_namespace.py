@@ -55,7 +55,12 @@ from ._inspection import (
 )
 from ._optuna import OptunaParamSearch
 from ._subsampling import SubsamplePreviews, env_with_subsampling
-from ._utils import IS_PREVIEW_DATA_ENV_NAME, NULL, attribute_error
+from ._utils import (
+    IS_PREVIEW_DATA_ENV_NAME,
+    NULL,
+    USE_VAR_VALUES_NAME,
+    attribute_error,
+)
 
 # By default, select all columns
 _SELECT_ALL_COLUMNS = s.all()
@@ -208,7 +213,9 @@ class SkrubNamespace:
         Parameters
         ----------
         estimator : scikit-learn estimator
-            The transformer or predictor to apply.
+            The transformer or predictor to apply. Note this can be an
+            estimator created from another DataOp with
+            ``.skb.make_learner().with_sklearn_interface()``.
 
         y : dataframe, column or numpy array, optional
             The prediction targets when ``estimator`` is a supervised estimator.
@@ -292,6 +299,9 @@ class SkrubNamespace:
         --------
         skrub.DataOp.skb.make_learner :
             Get a skrub learner for this DataOp.
+        skrub.SkrubLearner.with_sklearn_interface :
+            Turn a skrub learner into a standard scikit-learn estimator, which
+            can be applied in another DataOp.
         skrub.ApplyToCols :
             Transformer that applies a given estimator to selected columns of a
             dataframe.
@@ -1147,7 +1157,7 @@ class SkrubNamespace:
         else:
             environment = {
                 **environment,
-                "_skrub_use_var_values": not _var_values_provided(
+                USE_VAR_VALUES_NAME: not _var_values_provided(
                     self._data_op, environment
                 ),
             }
@@ -1445,6 +1455,9 @@ class SkrubNamespace:
         DataOp.skb.set_name :
             Assign a name to a DataOp.
 
+        DataOp.skb.get_choices :
+            Similar function for getting the choices contained in the DataOp.
+
         Examples
         --------
         >>> import skrub
@@ -1502,7 +1515,19 @@ class SkrubNamespace:
 
         >>> learner.fit({'a': 2, 'b': 3})
         SkrubLearner(data_op=<BinOp: add>)
-        """
+
+        Similarly, choices can be obtained with ``get_choices``
+
+        >>> f = d + skrub.choose_from([1, 2], name='e')
+        >>> f.skb.get_choices()
+        {'e': choose_from([1, 2], name='e')}
+
+        So all the names that can be passed in an env, merging named DataOps
+        and choices, are obtained with:
+
+        >>> list(f.skb.get_vars(all_named_ops=True) | f.skb.get_choices(named_only=True))
+        ['a', 'b', 'c', 'e']
+        """  # noqa: E501
         from ._data_ops import Var
 
         found_nodes = named_nodes(self._data_op)
@@ -1515,8 +1540,87 @@ class SkrubNamespace:
         }
 
     @_check_before
+    def get_choices(self, named_only=False):
+        """
+        Get all the choices used in the DataOp.
+
+        Parameters
+        ----------
+        named_only : bool, default = False
+            If True, only choices that have their ``name`` attribute set are
+            returned. Those are the only names for which a value can be passed
+            in the environment passed to ``eval()``.
+
+            If False, all choices are returned. For choices that have a
+            ``name``, that ``name`` is their key in the returned dictionary.
+            For other choices, the key is arbitrary but stable for a same
+            DataOp and its clones, and is the same string that is used in the
+            parallel coordinate plots produced by
+            :meth:`ParamSearch.plot_results`.
+
+        Returns
+        -------
+        dict :
+            Keys are names, and values the corresponding choice object.
+
+        See Also
+        --------
+        DataOp.skb.get_vars :
+            Similar function for getting variables created with :func:`var` and
+            DataOps whose name was set with :meth:`.skb.set_name
+            <DataOp.skb.set_name>`.
+
+        DataOp.skb.describe_defaults :
+            Get a dictionary showing the default values for choices. Only
+            choices that actually get used in the default configuration are
+            shown.
+
+        SkrubLearner.get_named_params :
+            Get a dictionary mapping choice name to value in a SkrubLearner.
+
+        SkrubLearner.set_named_params :
+            Set choice values by name on a SkrubLearner.
+
+        Examples
+        --------
+        >>> import skrub
+        >>> dop = (
+        ...     skrub.var("a")
+        ...     + skrub.choose_int(0, 10, name="b")
+        ...     + skrub.choose_float(0.0, 1.0)
+        ... )
+        >>> dop.skb.get_choices()
+        {'b': choose_int(0, 10, name='b'), 'choose_float(0.0, 1.0)': choose_float(0.0, 1.0)}
+
+        With ``named_only`` we can restrict to choices that have an actual name
+        (only choices with a name can be passed in an environment, and to
+        :meth:`SkrubLearner.set_named_params`):
+
+        >>> dop.skb.get_choices(named_only=True)
+        {'b': choose_int(0, 10, name='b')}
+
+        Similarly, vars can be obtained:
+
+        >>> dop.skb.get_vars()
+        {'a': <Var 'a'>}
+
+        All the names that can be passed in the environment are thus obtained with:
+
+        >>> list(dop.skb.get_vars(all_named_ops=True) | dop.skb.get_choices(named_only=True))
+        ['a', 'b']
+        """  # noqa: E501
+        from ._evaluation import choice_graph
+
+        g = choice_graph(self._data_op, check_Xy=False)
+        if named_only:
+            return {c.name: c for c in g["choices"].values() if c.name is not None}
+        return {
+            name: g["choices"][c_id] for c_id, name in g["choice_display_names"].items()
+        }
+
+    @_check_before
     def draw_graph(self, *, show_ids=False):
-        """Get an SVG string representing the computation graph.
+        """Get a drawing of the computation graph.
 
         In addition to the usual ``str`` methods, the result has an ``open()``
         method which displays it in a web browser window.
@@ -1528,6 +1632,16 @@ class SkrubNamespace:
            ``svg`` and ``png``, containing representations of the graph in
            those formats (as ``bytes`` objects), and a method ``.open()`` to
            display it in a browser window.
+
+        Notes
+        -----
+        The graph is drawn by `Graphviz <https://graphviz.org/download/>`_,
+        which must be installed on the system with its package manager (not
+        with pip). If it is not installed, the ``svg`` and ``png`` attributes
+        raise an error, but the graph is still displayed by ``open()`` and in
+        notebooks: it is then drawn by the web browser, so JavaScript must be
+        enabled. In a notebook, the browser needs an internet connection to
+        download the library that draws the graph.
         """
 
         return draw_data_op_graph(self._data_op, show_ids=show_ids)
@@ -1727,6 +1841,10 @@ class SkrubNamespace:
         intermediate result (or error). By default, the report is stored in
         a timestamped subdirectory of the skrub data folder.
 
+        The graph is drawn by `Graphviz <https://graphviz.org/download/>`_ if it is
+        installed. Otherwise it is drawn by the web browser, so JavaScript must be
+        enabled; the report does not need an internet connection.
+
         .. note::
             When this function is invoked reports starting with ``full_data_op_report_``
             that are stored in the skrub data folder are automatically deleted after
@@ -1802,17 +1920,14 @@ class SkrubNamespace:
 
         Examples
         --------
-        >>> # ignore this line:
-        >>> import pytest; pytest.skip('graphviz may not be installed')
-
         >>> import skrub
         >>> c = skrub.var('a', 1) / skrub.var('b', 2)
         >>> report = c.skb.report(open=False)
         >>> report['result']
         0.5
         >>> report['error']
-        >>> report['report_path']
-        PosixPath('.../skrub_data/execution_reports/full_data_op_report_.../index.html')
+        >>> report['report_path'].name
+        'index.html'
 
         We pass data:
 
@@ -1826,8 +1941,8 @@ class SkrubNamespace:
         >>> report['result']
         >>> report['error']
         ZeroDivisionError('division by zero')
-        >>> report['report_path']
-        PosixPath('.../skrub_data/execution_reports/full_data_op_report_.../index.html')
+        >>> report['report_path'].name
+        'index.html'
         """
 
         data_op = self._data_op
@@ -1867,8 +1982,12 @@ class SkrubNamespace:
 
         Returns a :class:`SkrubLearner` with a ``fit()`` method so it can be fit
         to some training data and then apply it to unseen data by calling
-        ``transform()`` or ``predict()``. Unlike scikit-learn estimators, skrub
-        learners accept a dictionary of inputs rather than ``X`` and ``y`` arguments.
+        ``transform()`` or ``predict()``.
+
+        Unlike scikit-learn estimators, skrub learners accept a dictionary of
+        inputs rather than ``X`` and ``y`` arguments. To get an estimator with
+        the scikit-learn ``fit(X, y)`` interface, see
+        :meth:`SkrubLearner.with_sklearn_interface`.
 
         .. warning::
 
@@ -1933,6 +2052,16 @@ class SkrubNamespace:
             A skrub learner with an interface similar to scikit-learn's, except
             that its methods accept a dictionary of named inputs rather than
             ``X`` and ``y`` arguments.
+
+        See Also
+        --------
+        SkrubLearner.with_sklearn_interface :
+            Wrap a learner in an estimator that has the standard scikit-learn
+            ``fit(X, y)`` interface.
+        DataOp.skb.make_grid_search :
+            Find the best parameters with grid search.
+        DataOp.skb.make_randomized_search :
+            Find the best parameters with randomized search.
 
         Examples
         --------
@@ -2196,16 +2325,6 @@ class SkrubNamespace:
         overrides ``mark_as_X``: the splitter defined in ``mark_as_X`` is
         ignored, and the function passed to ``train_test_split`` is used instead.
         """
-        if (splitter := split_func_kwargs.pop("splitter", None)) is not None:
-            warnings.warn(
-                (
-                    "The `splitter` parameter of `.skb.train_test_split` has been"
-                    " renamed `split_func`. Using it will raise an error in a future"
-                    " release of skrub."
-                ),
-                category=FutureWarning,
-            )
-            split_func = splitter
         environment = self._get_env(environment)
         return train_test_split(
             self._data_op,
@@ -2298,7 +2417,8 @@ class SkrubNamespace:
         scikit-learn's :class:`~sklearn.model_selection.GridSearchCV`, where
         the main difference is that ``fit()`` and ``predict()`` accept a
         dictionary of inputs rather than ``X`` and ``y``. The best learner can
-        be returned by calling ``.best_learner_``.
+        be returned by calling ``.best_learner_``. To get the standard
+        ``fit(X, y)`` interface, see :meth:`ParamSearch.with_sklearn_interface`.
 
         Parameters
         ----------
@@ -2319,7 +2439,7 @@ class SkrubNamespace:
 
         kwargs : dict
             All other named arguments are forwarded to
-            ``sklearn.search.GridSearchCV``.
+            ``sklearn.model_selection.GridSearchCV``.
 
         Returns
         -------
@@ -2332,6 +2452,9 @@ class SkrubNamespace:
         --------
         skrub.DataOp.skb.make_randomized_search :
             Find the best parameters with randomized search.
+        skrub.ParamSearch.with_sklearn_interface :
+            Wrap the search in an estimator that has the standard scikit-learn
+            ``fit(X, y)`` interface.
 
         Examples
         --------
@@ -2432,7 +2555,10 @@ class SkrubNamespace:
         scikit-learn's :class:`~sklearn.model_selection.RandomizedSearchCV`, where
         the main difference is ``fit()`` and ``predict()`` accept a
         dictionary of inputs rather than ``X`` and ``y``. The best learner is stored
-        in the attribute ``.best_learner_``.
+        in the attribute ``.best_learner_``. To get the standard ``fit(X, y)``
+        interface, see :meth:`ParamSearch.with_sklearn_interface` (or
+        :meth:`OptunaParamSearch.with_sklearn_interface` when using
+        ``backend='optuna'``).
 
         Parameters
         ----------
@@ -2572,6 +2698,9 @@ class SkrubNamespace:
         --------
         skrub.DataOp.skb.make_grid_search :
             Find the best parameters with grid search.
+        skrub.ParamSearch.with_sklearn_interface :
+            Wrap the search in an estimator that has the standard scikit-learn
+            ``fit(X, y)`` interface.
         skrub.DataOp.skb.make_learner :
             Make a :class:`SkrubLearner` without actually searching for the
             best hyperparameters. The strategy to resolve choices can be use
@@ -3231,10 +3360,10 @@ class SkrubNamespace:
         -----
         If this method is used several times, all calls to it must be grouped
         -- there can be no other nodes in-between. For example
-        ``pred.skb.score_with('accuracy').skb.score_with('roc_auc')`` is allowed,
+        ``pred.skb.with_scoring('accuracy').skb.with_scoring('roc_auc')`` is allowed,
         whereas
-        ``pred.skb.score_with('accuracy').skb.apply_func(a_function).skb.score_with('roc_auc')`` is not.
-        Typically all the ``score_with`` calls happen at the very end of the
+        ``pred.skb.with_scoring('accuracy').skb.apply_func(a_function).skb.with_scoring('roc_auc')`` is not.
+        Typically all the ``with_scoring`` calls happen at the very end of the
         DataOp construction.
 
         Examples
@@ -3315,7 +3444,7 @@ class SkrubNamespace:
         ----------
         name : str
             The name for this step. Must be unique within a learner. Cannot
-            start with ``"_skrub_"``.
+            start with ``"skrub"`` or ``"_skrub"``.
 
         Returns
         -------
@@ -3819,6 +3948,6 @@ class SkrubNamespace:
         ... )
         >>> pred = X.skb.apply(DummyClassifier(), y=y)
         >>> pred.skb.find_X_y()
-        {'X': <X>, 'cv': LeaveOneGroupOut(), 'split_kwargs': {'groups': <GetItem 'seller'>}, 'y': <GetItem 'category'>}
+        {'X': <X>..., 'cv': LeaveOneGroupOut(), 'split_kwargs': {'groups': <GetItem 'seller'>}, 'y': <GetItem 'category'>}
         """  # noqa: E501
         return find_X_y_and_cv(self._data_op)

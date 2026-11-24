@@ -38,10 +38,10 @@ use super::records::{
     empty_without_the_maps_unread, keyed_map_meet_verdict, keyed_map_minus_keyed_maps,
 };
 use super::{
-    Budget, Cx, DECISION_BUDGET, LEAF_READING, LeafRelations, NARROWING, NoLeafRelations,
-    READINGS_HELD, a_bound_is_met, asked_again, asks_again, bounds_met, descending,
-    has_complementary_pair, has_disjoint_pair, pushed_complement_is_placed, respelling, spend,
-    spend_at_once,
+    Budget, Cx, DECISION_BUDGET, DISTRIBUTING, LEAF_READING, LeafRelations, NARROWING,
+    NoLeafRelations, READINGS_HELD, a_bound_is_met, a_meet_holding_a_union, asked_again,
+    asked_distributed, asks_again, bounds_met, descending, has_complementary_pair,
+    has_disjoint_pair, pushed_complement_is_placed, respelling, spend, spend_at_once,
 };
 
 /// The nodes of a refinement the sets read for a value that one step of the query
@@ -95,10 +95,28 @@ impl Schema {
         let met = bounds_met();
         let budget = Budget::new(DECISION_BUDGET);
         let first = self.emptiness_on(oracle, defs, &budget);
-        if first == Verdict::Unknown && asks_again(met, &budget) {
-            return asked_again(|budget| self.emptiness_on(oracle, defs, budget)) == Verdict::Empty;
+        let answer = if first == Verdict::Unknown && asks_again(met, &budget) {
+            asked_again(|budget| self.emptiness_on(oracle, defs, budget))
+        } else {
+            first
+        };
+        match answer {
+            Verdict::Unknown => self.empty_asked_further(oracle, defs),
+            answer => answer == Verdict::Empty,
         }
-        first == Verdict::Empty
+    }
+
+    /// Whether a set every asking left undecided is empty, asked once more
+    /// ([`asked_distributed`]) where it is a meet holding a union; `false` for any
+    /// other set. Out of line and cold, as the relation's own further asking is,
+    /// so `is_empty` holds one test for it.
+    #[cold]
+    #[inline(never)]
+    pub(super) fn empty_asked_further(&self, oracle: &dyn LeafRelations, defs: &[Schema]) -> bool {
+        if !a_meet_holding_a_union(self) {
+            return false;
+        }
+        asked_distributed(|budget| self.emptiness_on(oracle, defs, budget)) == Verdict::Empty
     }
 
     /// The verdict [`is_empty_with`](Self::is_empty_with) reads, in one
@@ -143,9 +161,11 @@ impl Schema {
         }
     }
 
-    /// A meet holding one complement, read as the relation it is, at the root
-    /// of a question every decider declined: `R ∩ ¬I` is empty exactly where
-    /// `R ⊆ I` [FCB08, §4.1], `R` the meet of the other members. The relation's
+    /// A meet holding complements, read as the relations it is, at the root of
+    /// a question every decider declined: `R ∩ ¬I` is empty exactly where
+    /// `R ⊆ I` [FCB08, §4.1], `R` the meet of the other members, each
+    /// complement of a set taken in turn as `¬I`
+    /// ([`below_one_complement`](Self::below_one_complement)). The relation's
     /// rules read a record below a record field by field where the meet's
     /// readings distribute it, so a meet of records over the JSON value whose
     /// field holds a `complex`, met with the complement of the record of JSON
@@ -157,12 +177,14 @@ impl Schema {
     /// complement; asked inside every meet a question reaches, it took the
     /// steps the questions around it decided with.
     ///
-    /// One complement, so the pair asked is the one the relation asks of the
-    /// same terms, and a meet of the members against one of their inner sets,
-    /// so a query's goals stay drawn from its own terms. `I` must denote a set:
-    /// a callback, or a class whose `isinstance` is code, may answer its two
-    /// occurrences apart, so `P ∩ ¬P` holds a value the relation `P ⊆ P` says
-    /// nothing about.
+    /// One complement at a time, so each pair asked is one the relation asks of
+    /// the same terms, a meet of the members against one of their inner sets,
+    /// and a query's goals stay drawn from its own terms: the union of the
+    /// inner sets, which `R ∩ ¬I ∩ ¬J ⊆ ∅` is too as `R ⊆ I ∪ J`, is a term
+    /// none of them wrote. `I` must denote a set: a callback, or a class whose
+    /// `isinstance` is code, may answer its two occurrences apart, so `P ∩ ¬P`
+    /// holds a value the relation `P ⊆ P` says nothing about. A complement of
+    /// such a set stays in `R` as written, a member like any other.
     ///
     /// Asked under the steps the question has left, as the relation of the same
     /// pair is, so the two spellings decide alike: under
@@ -170,9 +192,11 @@ impl Schema {
     /// length bounds below another that the relation proves, and the meet of
     /// the one with the other's complement was `undecided` beside a `subset`.
     /// The steps are an allowance of its own, charged to nothing, so they
-    /// starve no reading after it; the rules it asks never ask it again, so a
-    /// query asks it a fixed number of times and spends at most that multiple
-    /// of its budget. The relation's readings past the sets are not asked here:
+    /// starve no reading after it, and one allowance for all the complements a
+    /// meet holds, so a meet holding several spends at most what a meet holding
+    /// one does; the rules it asks never ask it again, so a query asks it a
+    /// fixed number of times and spends at most that multiple of its budget.
+    /// The relation's readings past the sets are not asked here:
     /// they reach this reading again through the respellings, each time under
     /// steps of its own and at no depth, and drawn questions overflowed the
     /// stack. The sets themselves are, of the branches of `I` the rest meets
@@ -184,28 +208,53 @@ impl Schema {
         let Schema::Intersection(members) = self else {
             return Relation::Unknown;
         };
-        let mut complements = members.iter().filter_map(|member| match member {
-            Schema::Complement(inner) => Some(inner),
-            _ => None,
-        });
-        let (Some(inner), None) = (complements.next(), complements.next()) else {
-            return Relation::Unknown;
-        };
-        if !denotes_a_set_within(inner, cx.oracle, cx.defs) {
-            return Relation::Unknown;
+        // One allowance for every complement asked, so a meet holding several
+        // spends what a meet holding one may.
+        let allowance = Budget::new(cx.budget.left());
+        for (at, member) in members.iter().enumerate() {
+            let Schema::Complement(inner) = member else {
+                continue;
+            };
+            if !denotes_a_set_within(inner, cx.oracle, cx.defs) {
+                continue;
+            }
+            let answer = Self::below_one_complement(members, at, inner, cx, &allowance);
+            if answer != Relation::Unknown {
+                return answer;
+            }
         }
+        Relation::Unknown
+    }
+
+    /// The members of a meet but the complement at `at`, asked below its inner
+    /// set: `R ∩ ¬I` is empty exactly where `R ⊆ I` [FCB08, §4.1], `R` the meet
+    /// of every other member, the other complements among them. A meet holding
+    /// two, `R ∩ ¬I ∩ ¬J`, is `R ∩ ¬I` below `J` and `R ∩ ¬J` below `I`, and
+    /// either answers it: the emptiness of a meet holding a list, the complement
+    /// of a list and the complement of the JSON values is that list below the
+    /// JSON values once the other complement is beside it, a fixpoint's
+    /// relation the rules' coinductive hypothesis proves and the emptiness of
+    /// the difference alone does not. A value of `R` outside `I` is a value of
+    /// the meet, so a refutation answers it too.
+    fn below_one_complement(
+        members: &[Schema],
+        at: usize,
+        inner: &Schema,
+        cx: &Cx<'_>,
+        allowance: &Budget,
+    ) -> Relation {
         let rest = Schema::meet_within(
             members
                 .iter()
-                .filter(|member| !matches!(member, Schema::Complement(_)))
-                .cloned(),
+                .enumerate()
+                .filter(|&(other, _)| other != at)
+                .map(|(_, member)| member.clone()),
             cx.defs,
         );
-        let allowance = Budget::new(cx.budget.left());
-        rest.is_subtype_rec(inner, &mut cx.within_this_query(&allowance))
+        rest.is_subtype_rec(inner, &mut cx.within_this_query(allowance))
             .or_else(|| rest.decided_by_its_leaves(inner, cx, false))
             .or_else(|| {
-                rest.below_the_branches_it_meets(inner, &mut cx.within_this_query(&allowance))
+                rest.below_the_branches_it_meets(inner, &mut cx.within_this_query(allowance))
             })
     }
 
@@ -1620,6 +1669,14 @@ fn has_a_pattern_and_its_complement(members: &[Schema], cx: &mut Cx<'_>) -> bool
 /// reference already being resolved -- pushing it on `visiting` here -- reads
 /// the key, and the meet holding `{"a": None}`, empty.
 ///
+/// **In a root question's further asking a union is distributed past the
+/// bound.** The asking ([`asked_distributed`]) has steps of its own, so a meet in
+/// it is read by its clauses lazily, a clause's unions distributed in its own
+/// turn [BBC+26, §6], a branch that is a meet holding a union spliced into its
+/// clause, as the relation's further asking reads a meet subject: the meet of two
+/// translations of an `anyOf` of records, each branch `(R | ~dict) & dict`, is
+/// read empty clause by clause.
+///
 /// Asked only where the rules decline, so a meet they decide keeps its answer.
 fn meet_through_a_reference(members: &[Schema], cx: &mut Cx<'_>) -> Verdict {
     let defs = cx.defs;
@@ -1651,7 +1708,10 @@ fn meet_through_a_reference(members: &[Schema], cx: &mut Cx<'_>) -> Verdict {
             .iter()
             .any(|branch| matches!(branch, Schema::Ref(_)));
         let unfolds = holds_a_reference || OpenMeet::any_open(cx.budget);
-        if !(unfolds || normal_form_within(members, MAX_DISTRIBUTED_TERMS)) {
+        if !(unfolds
+            || DISTRIBUTING.with(Cell::get)
+            || normal_form_within(members, MAX_DISTRIBUTED_TERMS))
+        {
             return Verdict::Unknown;
         }
         (at, branches, unfolds)

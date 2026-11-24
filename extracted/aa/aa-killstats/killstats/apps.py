@@ -7,7 +7,7 @@ from django.apps import AppConfig
 from killstats import __version__
 
 
-class KillstatsrConfig(AppConfig):
+class KillstatsConfig(AppConfig):
     """App Config"""
 
     default_auto_field = "django.db.models.AutoField"

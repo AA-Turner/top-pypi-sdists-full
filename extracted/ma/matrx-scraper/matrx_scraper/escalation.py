@@ -23,7 +23,8 @@ inherits (`orchestrator.scrape()`), not in an endpoint. Three rules:
 
 from __future__ import annotations
 
-import os
+import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 
 #: Engine names carried on every result. Closed vocabulary.
@@ -63,8 +64,32 @@ NON_RENDERABLE_CONTENT_TYPES: frozenset[str] = frozenset(
     {"pdf", "json", "xml", "txt", "image", "unknown"}
 )
 
-_TRUE = {"1", "true", "yes", "on"}
-_FALSE = {"0", "false", "no", "off"}
+#: The two fetch-policy switches, set by the HOST (a settings register, never the environment): ``direct_fallback``
+#: (may a proxy-refused request be retried on a direct connection, announced) and ``browser_escalation`` (may a
+#: failed HTTP scrape reach for the server browser). Standalone default: both on — the behaviour every deployment
+#: ran before the switches moved off ``SCRAPER_DIRECT_FALLBACK`` / ``SCRAPER_BROWSER_ESCALATION`` (2026-11-20).
+FETCH_POLICY_DEFAULTS: dict[str, bool] = {"direct_fallback": True, "browser_escalation": True}
+
+_FETCH_POLICY_SOURCE: Callable[[], dict[str, bool]] | None = None
+
+
+def set_fetch_policy_source(source: Callable[[], dict[str, bool]] | None) -> None:
+    """Install the host's SYNC reader of the fetch-policy switches (``None`` = the standalone defaults)."""
+    global _FETCH_POLICY_SOURCE
+    _FETCH_POLICY_SOURCE = source
+
+
+def fetch_policy() -> dict[str, bool]:
+    """The live switches. A reader failure is announced in red and the defaults hold for this read."""
+    if _FETCH_POLICY_SOURCE is None:
+        return dict(FETCH_POLICY_DEFAULTS)
+    try:
+        got = _FETCH_POLICY_SOURCE() or {}
+        return {k: bool(got[k]) if got.get(k) is not None else d for k, d in FETCH_POLICY_DEFAULTS.items()}
+    except Exception as exc:  # noqa: BLE001 — one failure shape, said out loud
+        print(f"[escalation] fetch-policy switches could not be read ({type(exc).__name__}: {exc}); "
+              "using the package defaults. Fix the setting rows or the host reader.", file=sys.stderr)
+        return dict(FETCH_POLICY_DEFAULTS)
 
 
 @dataclass(frozen=True)
@@ -75,18 +100,15 @@ class EscalationPolicy:
     reasons: frozenset[str] = ESCALATABLE_REASONS
 
     @classmethod
-    def from_env(cls) -> EscalationPolicy:
-        """`SCRAPER_BROWSER_ESCALATION` — the deployment-level knob.
+    def current(cls) -> EscalationPolicy:
+        """The ``browser_escalation`` switch — one place every caller follows.
 
         Default ON: the whole point of owning a server browser is that the
         person asking for a page does not have to know it exists. An operator
         who needs to protect the browser pool (or reproduce a raw HTTP result)
-        turns it off in one place, and every caller follows.
+        turns it off in one place (the host's setting), and every caller follows.
         """
-        raw = (os.getenv("SCRAPER_BROWSER_ESCALATION") or "").strip().lower()
-        if raw in _FALSE:
-            return cls(enabled=False)
-        return cls(enabled=True)
+        return cls(enabled=fetch_policy()["browser_escalation"])
 
     def wants(self, reason: str | None) -> bool:
         return bool(self.enabled and reason and reason in self.reasons)

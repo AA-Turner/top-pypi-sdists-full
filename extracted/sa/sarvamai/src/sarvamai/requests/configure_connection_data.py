@@ -11,10 +11,7 @@ from ..types.configure_connection_data_speaker import ConfigureConnectionDataSpe
 class ConfigureConnectionDataParams(typing_extensions.TypedDict):
     model: typing_extensions.NotRequired[ConfigureConnectionDataModel]
     """
-    Specifies the model to use for text-to-speech conversion.
-    - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-    - **bulbul:v4-flash**: Latest model, recommended for new integrations — same contract as bulbul:v3, with a 200+ voice persona catalog
-    - **bulbul:v3**: Stable model (API default when omitted) with temperature control (no pitch/loudness)
+    Ignored in the config message. Set the model with the `model` query parameter on the connection URL (`bulbul:v3` or `bulbul:v4-flash`). A speaker that does not belong to the connection's model returns an error.
     """
 
     language_code: ConfigureConnectionDataLanguageCode
@@ -26,14 +23,11 @@ class ConfigureConnectionDataParams(typing_extensions.TypedDict):
     """
     The speaker voice to be used for the output audio.
     
-    **Default:** shubh (for bulbul:v3), anushka (for bulbul:v2). For **bulbul:v4-flash**, set `speaker` to a persona ID from the Voices guide (v3/v2 defaults are not valid).
+    **Default:** shubh (for bulbul:v3). For **bulbul:v4-flash**, set `speaker` to a persona ID from the Voices guide (the v3 default is not valid).
     
     **Model Compatibility (Speakers compatible with respective model):**
     - **bulbul:v3:** shubh (default), aditya, ritu, priya, neha, rahul, pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, ashutosh, advait, anand, tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit, kavitha, rehan, soham, rupali
     - **bulbul:v4-flash:** 200+ persona voices named `<name>_<language>_<style>` (e.g. `shubh_hi_devotional`, `simran_en_customer`); see the Voices guide for the full catalog
-    - **bulbul:v2:**
-      - Female: anushka (default), manisha, vidya, arya
-      - Male: abhilash, karun, hitesh
     
     **Note:** Speaker selection must match the chosen model version.
     
@@ -43,10 +37,10 @@ class ConfigureConnectionDataParams(typing_extensions.TypedDict):
     pitch: typing_extensions.NotRequired[float]
     """
     Controls the pitch of the audio. Lower values result in a deeper voice, 
-    while higher values make it sharper. The suitable range is between -0.75 
-    and 0.75. Default is 0.0.
+    while higher values make it sharper. The suitable range is between -0.5 
+    and 0.5. Default is 0.0.
     
-    **Note:** NOT supported for bulbul:v3 or bulbul:v4-flash. Will be ignored if provided.
+    **Note:** Supported on bulbul:v3 and bulbul:v4-flash.
     """
 
     pace: typing_extensions.NotRequired[float]
@@ -55,7 +49,6 @@ class ConfigureConnectionDataParams(typing_extensions.TypedDict):
     while higher values make it faster. Default is 1.0.
     
     **Model-specific ranges:**
-    - **bulbul:v2:** 0.3 to 3.0
     - **bulbul:v3:** 0.5 to 2.0
     - **bulbul:v4-flash:** 0.5 to 2.0
     """
@@ -63,10 +56,10 @@ class ConfigureConnectionDataParams(typing_extensions.TypedDict):
     loudness: typing_extensions.NotRequired[float]
     """
     Controls the loudness of the audio. Lower values result in quieter audio, 
-    while higher values make it louder. The suitable range is between 0.3 
-    and 3.0. Default is 1.0.
+    while higher values make it louder. The suitable range is between 0.1 
+    and 2.5. Default is 1.0.
     
-    **Note:** NOT supported for bulbul:v3 or bulbul:v4-flash. Will be ignored if provided.
+    **Note:** Supported on bulbul:v3 and bulbul:v4-flash.
     """
 
     temperature: typing_extensions.NotRequired[float]
@@ -75,7 +68,7 @@ class ConfigureConnectionDataParams(typing_extensions.TypedDict):
     focused and deterministic, while higher values make it more random. 
     The suitable range is between 0.01 and 1.0. Default is 0.6.
     
-    **Note:** Only supported for bulbul:v3 and bulbul:v4-flash. Will be ignored for bulbul:v2.
+    **Note:** Only supported for bulbul:v3 and bulbul:v4-flash.
     """
 
     speech_sample_rate: typing_extensions.NotRequired[int]
@@ -83,29 +76,25 @@ class ConfigureConnectionDataParams(typing_extensions.TypedDict):
     Specifies the sample rate of the output audio. Supported values are 
     8000, 16000, 22050, 24000 Hz.
     
-    **Default when omitted:** 22050 Hz for all models (`bulbul:v2`, `bulbul:v3`, and `bulbul:v4-flash`).
+    **Default when omitted:** 22050 Hz for all models (`bulbul:v3` and `bulbul:v4-flash`). Higher rates such as 32000 or 48000 return an error with code 400.
     """
 
     enable_preprocessing: typing_extensions.NotRequired[bool]
     """
     Controls whether normalization of English words and numeric entities 
-    (e.g., numbers, dates) is performed. Set to true for better handling 
-    of mixed-language text.
+    (e.g., numbers, dates) is performed.
     
-    **Model-specific defaults:**
-    - **bulbul:v2:** false (optional)
-    - **bulbul:v3:** Always enabled (cannot be disabled)
-    - **bulbul:v4-flash:** Always enabled (cannot be disabled)
+    Accepted on bulbul:v3 and bulbul:v4-flash. Default is false.
     """
 
     output_audio_codec: typing_extensions.NotRequired[ConfigureConnectionDataOutputAudioCodec]
     """
-    Audio codec (currently supports MP3 only, optimized for real-time playback)
+    The audio format of each `audio` message. Default is `mp3`. All eight formats work. `opus` needs `speech_sample_rate` 8000, 16000 or 24000, and returns an error at 22050.
     """
 
     output_audio_bitrate: typing_extensions.NotRequired[ConfigureConnectionDataOutputAudioBitrate]
     """
-    Audio bitrate (choose from 5 supported bitrate options)
+    The bitrate of the streamed audio. One of 32k, 64k, 96k, 128k or 192k. Default is 128k. Other values return an error.
     """
 
     dict_id: typing_extensions.NotRequired[str]
@@ -121,10 +110,10 @@ class ConfigureConnectionDataParams(typing_extensions.TypedDict):
 
     min_buffer_size: typing_extensions.NotRequired[int]
     """
-    Minimum character length that triggers buffer flushing for TTS model processing
+    Minimum number of buffered characters that triggers synthesis. Text shorter than this stays in the buffer until you send more text or a `flush`.
     """
 
     max_chunk_length: typing_extensions.NotRequired[int]
     """
-    Maximum length for sentence splitting (adjust based on content length)
+    Maximum length, in characters, of each chunk when long text is split into sentences.
     """

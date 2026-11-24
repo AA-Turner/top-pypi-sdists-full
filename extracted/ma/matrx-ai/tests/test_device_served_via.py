@@ -436,7 +436,7 @@ async def test_g14_a_child_agent_runs_its_own_model(monkeypatch) -> None:
         return AgentRunResult(success=True, output="done", metadata={})
 
     monkeypatch.setattr(executor_mod, "run_agent", fake_run_agent)
-    token = set_app_context(AppContext(emitter=None, user_id=DEVICE))
+    token = set_app_context(AppContext(emitter=None, user_id=DEVICE, organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         await agent_call(
             {"agent_id": MODEL_ID, "settings": {"served_via": SV, "model": MODEL_ID}},
@@ -461,7 +461,7 @@ def test_the_cx_request_row_carries_where_the_call_ran() -> None:
         conversation_id="c1", config=_config(served_via=ServedVia.model_validate(SV)),
         usage_history=[usage],
     )
-    token = set_app_context(AppContext(emitter=None, user_id="u1"))
+    token = set_app_context(AppContext(emitter=None, user_id="u1", organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         row = CompletedRequest(request=request, iterations=1, final_response=None).to_storage_dict()[
             "requests"

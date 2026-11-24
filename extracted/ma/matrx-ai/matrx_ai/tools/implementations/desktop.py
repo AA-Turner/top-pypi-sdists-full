@@ -23,6 +23,10 @@ from matrx_ai.tools._sandbox_proxy import (
     get_active_sandbox,
 )
 from matrx_ai.tools.arg_models.desktop_args import (
+    CodingSessionsDriveArgs,
+    CodingSessionsReadArgs,
+    DesktopActionNeededArgs,
+    DesktopSemanticFindArgs,
     DesktopAppsArgs,
     DesktopAudioArgs,
     DesktopAutomationArgs,
@@ -39,6 +43,7 @@ from matrx_ai.tools.arg_models.desktop_args import (
     DesktopMessagesArgs,
     DesktopNetArgs,
     DesktopNotesArgs,
+    DesktopStackArgs,
     DesktopOutlookArgs,
     DesktopPhotosArgs,
     DesktopPowerArgs,
@@ -150,6 +155,30 @@ async def desktop_process(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     binding = get_active_sandbox()
     if binding is None or binding.target_kind != "local_machine":
         return _no_computer("desktop_process", ctx.call_id, started_at)
+    if parsed.action in ("signal", "sample"):
+        if parsed.pid is None:
+            plan: tuple[str, dict[str, Any], float] | str = (
+                f"{parsed.action} needs the pid (from list or ports)"
+            )
+        elif parsed.action == "signal":
+            plan = (
+                "signal needs the signal name, such as SIGSTOP"
+                if parsed.signal is None
+                else (
+                    "proc.signal",
+                    {
+                        "pid": parsed.pid,
+                        "signal": parsed.signal,
+                        "tree": parsed.tree,
+                        **({"seen": parsed.seen} if parsed.seen is not None else {}),
+                        **({"tree_seen": parsed.tree_seen} if parsed.tree_seen is not None else {}),
+                    },
+                    60,
+                )
+            )
+        else:
+            plan = ("proc.sample", {"pid": parsed.pid, "seconds": parsed.seconds}, parsed.seconds + 60)
+        return await _call_ops("desktop_process", ctx, started_at, plan, action=parsed.action)
     op: str
     params: dict[str, Any]
     if parsed.action == "list":
@@ -457,6 +486,13 @@ async def desktop_resources(args: dict[str, Any], ctx: ToolContext) -> ToolResul
     """CPU, memory and disks of the user's computer (op ``resources.snapshot``)."""
     started_at = time.time()
     a = DesktopResourcesArgs(**args)
+    if a.action == "processes":
+        params: dict[str, Any] = {"include": list(a.include)}
+        if a.detail_pid is not None:
+            params["detail_pid"] = a.detail_pid
+        return await _call_ops(
+            "desktop_resources", ctx, started_at, ("resources.processes", params, 90), action=a.action
+        )
     return await _call_ops(
         "desktop_resources", ctx, started_at, ("resources.snapshot", {}, 60), action=a.action
     )
@@ -994,6 +1030,27 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
         "list": _Act("outlook.list", ("folder", "account", "unread_only", "limit"), timeout_s=150),
         "read": _Act("outlook.read", ("id",), ("id",), 90),
     },
+    "desktop_semantic_find": {
+        "search": _Act(
+            "fs.search_semantic", ("query", "scope", "max_results"), ("query",), 90
+        ),
+        "status": _Act("fs.semantic_status", timeout_s=30),
+    },
+    "desktop_action_needed": {
+        "raise": _Act(
+            "action_needed.raise",
+            (
+                "fingerprint", "source", "feature", "kind", "title", "message", "choices",
+                "allow_text", "remedy", "expires_in_s", "details",
+            ),
+            ("fingerprint", "source", "feature", "kind", "title"),
+            30,
+        ),
+        "wait": _Act("action_needed.wait", ("id", "timeout_s"), ("id",), 70),
+        "get": _Act("action_needed.get", ("id",), ("id",), 30),
+        "cancel": _Act("action_needed.cancel", ("id", "fingerprint", "reason"), timeout_s=30),
+        "list": _Act("action_needed.list", ("include_closed", "source", "limit"), timeout_s=30),
+    },
     "desktop_messages": {
         "chats": _Act("messages.chats", ("limit",), timeout_s=60),
         "list": _Act(
@@ -1094,6 +1151,25 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
         ),
         "search": _Act("notes.search", ("query", "limit"), ("query",), 120),
     },
+    "desktop_stack": {
+        "list": _Act("stack.state", timeout_s=60),
+        # With a name, _sidecar_plan sends stack.server.action instead (one server).
+        "start": _Act("stack.start", timeout_s=60),
+        "stop": _Act("stack.stop", timeout_s=60),
+        "restart": _Act("stack.server.action", {"name": "name", "action": "verb"}, ("name",), 90),
+        "logs": _Act(
+            "stack.logs",
+            {
+                "name": "name",
+                "lines": "lines",
+                "offset": "offset",
+                "since_offset": "since",
+                "wait_ms": "wait_ms",
+            },
+            ("name",),
+            90,
+        ),
+    },
     "desktop_documents": {
         "pdf_text": _Act(
             "documents.pdf_text", ("path", "first_page", "last_page", "max_chars"), ("path",), 150
@@ -1119,7 +1195,7 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
 }
 
 #: The protocol param names whose values are file paths (args mapped onto them are resolved).
-_PATH_PARAMS = frozenset({"path", "out_path"})
+_PATH_PARAMS = frozenset({"path", "out_path", "scope"})
 #: Tools whose `path` is relative to their own folder on the computer, never to its home.
 _RELATIVE_PATH_TOOLS = frozenset({"desktop_notes"})
 
@@ -1145,6 +1221,8 @@ def _sidecar_plan(tool: str, action: str, a: Any) -> tuple[str, dict[str, Any], 
     missing = [f for f in spec.required if getattr(a, f, None) in (None, "", [])]
     if missing:
         return f"{action} needs {', '.join(missing)}"
+    if tool == "desktop_stack" and action in ("start", "stop") and getattr(a, "name", None):
+        return ("stack.server.action", {"name": a.name, "verb": action}, 90)
     params: dict[str, Any] = {}
     for arg, param in spec.fields.items():
         value = getattr(a, arg, None)
@@ -1251,6 +1329,11 @@ async def desktop_notes(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     return await _sidecar("desktop_notes", DesktopNotesArgs, args, ctx)
 
 
+async def desktop_stack(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The user's local AI Matrx servers (ops ``stack.*``): list, start, stop, read a log."""
+    return await _sidecar("desktop_stack", DesktopStackArgs, args, ctx)
+
+
 async def desktop_documents(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """PDF text, OCR, images and Office files on the user's computer (ops ``documents.*``)."""
     return await _sidecar("desktop_documents", DesktopDocumentsArgs, args, ctx)
@@ -1259,6 +1342,172 @@ async def desktop_documents(args: dict[str, Any], ctx: ToolContext) -> ToolResul
 async def desktop_entities(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Names and private data in a text, found on the user's computer (ops ``entities.*``)."""
     return await _sidecar("desktop_entities", DesktopEntitiesArgs, args, ctx)
+
+
+# ── Claude Code and Codex on the person's computer (ops ``coding.*``) ─────────────────────────────
+
+#: coding_sessions_read: action → (op, the args that become its params, the ones it cannot go without).
+_CODING_READ: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
+    "providers": ("coding.providers", (), ()),
+    "sessions": ("coding.sessions.list", (), ()),
+    "discover": ("coding.discover", ("limit",), ()),
+    "runs": ("coding.runs.list", ("session_id",), ("session_id",)),
+    "history": ("coding.history", ("session_id", "max_bytes"), ("session_id",)),
+    "transcript": (
+        "coding.transcript.read",
+        ("provider", "provider_session_id", "max_bytes"),
+        ("provider", "provider_session_id"),
+    ),
+    "item_full": (
+        "coding.item.full",
+        ("provider", "provider_session_id", "item_id"),
+        ("provider", "provider_session_id", "item_id"),
+    ),
+    "activity": (
+        "coding.activity",
+        ("provider", "provider_session_id"),
+        ("provider", "provider_session_id"),
+    ),
+    "folders_recent": ("coding.folders.recent", (), ()),
+    "folders_check": ("coding.folders.check", ("path",), ("path",)),
+    "agents_access": ("coding.agents.access", (), ()),
+    "titles_status": ("coding.titles.status", (), ()),
+    "prefs": ("coding.prefs.list", (), ()),
+    "search": ("coding.search", ("query", "limit", "cursor"), ("query",)),
+    "assets_list": ("coding.assets.list", ("fresh",), ()),
+    "assets_get": ("coding.assets.get", ("id", "path"), ()),
+    "recent_seen": ("coding.recent.seen", ("target",), ("target",)),
+    "session_watch": ("coding.session.watch", ("session_id", "since_seq"), ("session_id",)),
+}
+
+#: coding_sessions_drive: action → (op, args that become params, required args).
+_CODING_DRIVE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
+    "start": (
+        "coding.start",
+        ("provider", "cwd", "prompt", "model", "effort", "account_profile_id"),
+        ("provider", "cwd", "prompt"),
+    ),
+    "takeover": (
+        "coding.takeover",
+        ("provider", "provider_session_id", "cwd", "confirm_elsewhere"),
+        ("provider", "provider_session_id", "cwd"),
+    ),
+    "send": ("coding.send", ("session_id", "prompt", "deliver"), ("session_id", "prompt")),
+    "queue_change": (
+        "coding.queue.change",
+        ("session_id", "queue_index"),
+        ("session_id", "queue_index", "change", "expected"),
+    ),
+    "stop": ("coding.stop", ("run_id",), ("run_id",)),
+    "stop_elsewhere": (
+        "coding.stop_elsewhere",
+        ("provider", "provider_session_id", "pid"),
+        ("provider", "provider_session_id", "pid"),
+    ),
+    "options_set": ("coding.options.set", ("session_id", "model", "effort"), ("session_id",)),
+    "account_continue": (
+        "coding.account.continue",
+        ("session_id", "account_profile_id"),
+        ("session_id",),
+    ),
+    "agent_set": ("coding.agent.set", ("session_id",), ("session_id",)),
+    "folders_create": ("coding.folders.create", ("cwd",), ("cwd",)),
+    "prefs_set": ("coding.prefs.set", ("key", "title", "pinned", "hidden"), ("key",)),
+    "reconcile": (
+        "coding.reconcile",
+        ("provider", "provider_session_id"),
+        ("provider", "provider_session_id"),
+    ),
+}
+_CODING_RUN_OPS = {"coding.start": 120.0, "coding.send": 120.0, "coding.takeover": 120.0}
+
+
+def _coding_plan(
+    table: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]],
+    tool: str,
+    a: Any,
+    call_id: str = "",
+) -> tuple[str, dict[str, Any], float] | str:
+    """One coding_sessions_* action as its op, params exactly the op's schema, or why it is not a call.
+
+    ``call_id`` is the tool call's own id: the run's ``client_request_id`` is derived from it, so a
+    retried call carries the SAME id and the computer's once-only check catches the repeat.
+    """
+    import uuid
+
+    action = a.action
+    op, fields, required = table[action]
+    missing = [f for f in required if getattr(a, f, None) in (None, "", [])]
+    if missing:
+        return f"{action} needs {', '.join(missing)}"
+    params: dict[str, Any] = {}
+    for f in fields:
+        value = getattr(a, f, None)
+        if value is None:
+            continue
+        name = "path" if (op == "coding.folders.create" and f == "cwd") else f
+        if name == "path" and isinstance(value, str) and tool == "coding_sessions_read":
+            pass  # a folder or an asset id, passed as the person's computer reports it
+        elif f == "cwd" and isinstance(value, str):
+            value = _path(value)
+        params[name] = value
+    if op == "coding.queue.change":
+        change: dict[str, Any] = {"action": a.change, "expected": a.expected}
+        if a.change == "edit":
+            if not a.text:
+                return "queue_change with change=edit needs text"
+            change["text"] = a.text
+        params["change"] = change
+    if op == "coding.assets.get":
+        # the asset's id (``id``); ``path`` is the older spelling of the same value
+        asset = params.pop("id", None) or params.pop("path", None)
+        if not asset:
+            return "assets_get needs id"
+        params.pop("path", None)
+        params["id"] = asset
+    if op in ("coding.start", "coding.send", "coding.account.continue"):
+        params["client_request_id"] = call_id or uuid.uuid4().hex
+    if op in ("coding.start", "coding.takeover", "coding.agent.set") and getattr(a, "agent_id", None):
+        params["agent"] = {"agent_id": a.agent_id}
+    if op == "coding.prefs.set" and not any(k in params for k in ("title", "pinned", "hidden")):
+        return "prefs_set needs title, pinned or hidden"
+    return (op, params, _CODING_RUN_OPS.get(op, 90.0))
+
+
+async def coding_sessions_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Claude Code and Codex sessions on the user's computer, read-only (ops ``coding.*``)."""
+    started_at = time.time()
+    a = CodingSessionsReadArgs(**args)
+    return await _call_ops(
+        "coding_sessions_read",
+        ctx,
+        started_at,
+        _coding_plan(_CODING_READ, "coding_sessions_read", a, ctx.call_id),
+        action=a.action,
+    )
+
+
+async def coding_sessions_drive(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Start and steer Claude Code and Codex sessions on the user's computer (ops ``coding.*``)."""
+    started_at = time.time()
+    a = CodingSessionsDriveArgs(**args)
+    return await _call_ops(
+        "coding_sessions_drive",
+        ctx,
+        started_at,
+        _coding_plan(_CODING_DRIVE, "coding_sessions_drive", a, ctx.call_id),
+        action=a.action,
+    )
+
+
+async def desktop_semantic_find(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Find files on the user's computer by meaning (ops ``fs.search_semantic``, ``fs.semantic_status``)."""
+    return await _sidecar("desktop_semantic_find", DesktopSemanticFindArgs, args, ctx)
+
+
+async def desktop_action_needed(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Ask the person on their computer for what only they can give (ops ``action_needed.*``)."""
+    return await _sidecar("desktop_action_needed", DesktopActionNeededArgs, args, ctx)
 
 
 #: The tools desktop_schedule can put on an interval (their actions' plans, run by the device).
@@ -1406,8 +1655,14 @@ async def create_device_op_task(
     description: str | None = None,
     homes: list[dict[str, Any]] | None = None,
     agent: dict[str, Any] | None = None,
+    enabled: bool = True,
+    window_claim: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """THE one writer of a ``device_op`` task on a chosen computer (sch_task + its one sch_trigger).
+
+    ``enabled`` False saves the task OFF (it never fires until switched on). ``window_claim``
+    ({task_key, window, lease_minutes}) is stored as ``device_op.window_claim``: the computer's schedule
+    host claims that cadence window before the run, so one run per window happens across every host.
 
     Both doors call it: the ``desktop_schedule`` tool (an agent) and aidream's
     ``POST /scheduling/device-tasks`` (the web's schedule form). The task is filed in the COMPUTER's
@@ -1451,6 +1706,8 @@ async def create_device_op_task(
     device_op: dict[str, Any] = {"op": op, "params": params, "tool": a.tool, "max_runs": a.max_runs}
     if homes:
         device_op["homes"] = homes
+    if window_claim and agent is None:
+        device_op["window_claim"] = window_claim
     task = await sch_task.create_item(
         user_id=user_id,
         organization_id=org,
@@ -1458,7 +1715,7 @@ async def create_device_op_task(
         title=a.name,
         description=description,
         surfaces=["desktop"],
-        enabled=True,
+        enabled=enabled,
         target_device_id=device_id,
         metadata={"created_via": created_via} if agent is not None else {"created_via": created_via, "device_op": device_op},
     )

@@ -203,6 +203,9 @@ class ToolRegistry:
         # walk that decides which client executor names are ACTIVE for a
         # request. None / missing parent ends the chain.
         self._executor_parents: dict[str, str | None] = {}
+        # Names registered AT RUNTIME (``register`` / ``register_local`` / ``ensure_registered`` /
+        # ``register_mcp_server``) rather than loaded from tool rows: a reload carries them over.
+        self._runtime_names: set[str] = set()
         self._loaded: bool = False
 
     @classmethod
@@ -220,6 +223,7 @@ class ToolRegistry:
         self._tools_by_id.clear()
         self._bindings_by_tool.clear()
         self._executor_parents.clear()
+        self._runtime_names.clear()
         self._loaded = False
 
     # ------------------------------------------------------------------
@@ -266,6 +270,19 @@ class ToolRegistry:
                 color="red",
             )
             return len(self._tools)
+        # A tool registered AT RUNTIME has no row, so the replacement never has it: carry it over (a row of
+        # the same name wins). Live 2026-11-02: a tool-row NOTIFY reloaded every process mid-run, and an
+        # agent's declared Action tools (registered by the Action tool door) vanished — the model was told
+        # "12 requested tool(s) not found" and its next call failed "Tool 'org_section_place' is not registered".
+        for name in sorted(self._runtime_names):
+            kept = self._tools.get(name)
+            if kept is None or name in replacement._tools:
+                continue
+            replacement._tools[name] = kept
+            replacement._runtime_names.add(name)
+            if kept.tool_id and kept.tool_id not in replacement._tools_by_id:
+                replacement._tools_by_id[kept.tool_id] = name
+        self._runtime_names = replacement._runtime_names
         self.load_failed = replacement.load_failed
         self._tools = replacement._tools
         self._tools_by_id = replacement._tools_by_id
@@ -626,11 +643,13 @@ class ToolRegistry:
         )
         tool_def._callable = func
         self._tools[name] = tool_def
+        self._runtime_names.add(name)
         return tool_def
 
     def register(self, tool_def: ToolDefinition) -> None:
         """Register a pre-built ToolDefinition (e.g. from agent-as-tool setup)."""
         self._tools[tool_def.name] = tool_def
+        self._runtime_names.add(tool_def.name)
         if tool_def.tool_id:
             self._tools_by_id[tool_def.tool_id] = tool_def.name
 
@@ -711,6 +730,7 @@ class ToolRegistry:
             category=category,
         )
         self._tools[name] = synthesized
+        self._runtime_names.add(name)
         if synthesized.tool_id:
             self._tools_by_id[synthesized.tool_id] = name
         vcprint(
@@ -901,8 +921,11 @@ class ToolRegistry:
                 await emitter.send_warning(
                     WarningPayload(
                         code="tools_missing",
-                        system_message=f"{len(missing)} requested tool(s) not found in registry and will not be available to the model.",
-                        user_message="Some tools configured for this request are not registered and will be unavailable.",
+                        system_message=(
+                            f"{len(missing)} requested tool(s) not found in registry and will not be "
+                            f"available to the model: {', '.join(missing)}."
+                        ),
+                        user_message=f"Not registered, so unavailable this turn: {', '.join(missing)}.",
                         level="medium",
                         recoverable=True,
                         metadata={
@@ -990,7 +1013,10 @@ class ToolRegistry:
         Otherwise a code-declared server tool is always server-owned.  Its declaration is
         the runtime's source of truth for the callable and its owning executor;
         an accidental additional client binding must not turn a native tool
-        into an unanswered client delegation.  For tools without a server
+        into an unanswered client delegation — unless the declaration names
+        that client in ``client_executors`` (it implements the tool on purpose,
+        e.g. Matrx Extend's ``credential_login``) and the client is live and
+        bound for this request: then the call is delegated there.  For tools without a server
         declaration, client > MCP > server: a tool is delegated iff one of its
         ``tool_binding`` rows names a client executor that is in
         ``active_executors`` for this request.
@@ -1030,6 +1056,13 @@ class ToolRegistry:
         if declared is not None and declared.executor and not _is_client_executor(
             declared.executor
         ):
+            # A client that implements this server tool ON PURPOSE (declared in code AND
+            # bound in the DB) answers it when that client is the run's live surface:
+            # routing follows where the call came from, never a guess from arguments.
+            # An accidental binding (no declaration) still loses to the server.
+            for binding in bindings & set(active_executors) & set(declared.client_executors):
+                if _is_client_executor(binding):
+                    return "surface"
             return "server"
 
         # Client executors take priority. We treat any executor that begins
@@ -1377,6 +1410,12 @@ class ToolRegistry:
             raw_required = raw_params.get("required")
             if isinstance(raw_required, list):
                 required_params = [str(k) for k in raw_required]
+            # 3. the ``$defs`` block every ``#/$defs/X`` pointer resolves against —
+            #    carried as a ``$`` key (never a parameter) and inlined by
+            #    ``_build_json_schema``; dropped, each pointer dangles and the
+            #    contract check fails open.
+            if isinstance(raw_params.get("$defs"), dict):
+                params["$defs"] = raw_params["$defs"]
         else:
             params = raw_params
 
@@ -1588,6 +1627,7 @@ class ToolRegistry:
             namespaced = f"mcp.{server_name}.{tool_def.name}"
             tool_def.name = namespaced
             self._tools[namespaced] = tool_def
+            self._runtime_names.add(namespaced)
             registered.append(namespaced)
 
         return registered

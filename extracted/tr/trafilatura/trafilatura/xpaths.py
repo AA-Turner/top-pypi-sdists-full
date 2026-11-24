@@ -4,9 +4,16 @@ X-Path expressions used to extract or filter the main text content,
 and to extract metadata.
 """
 
-from lxml.etree import XPath
+import re
+from collections.abc import Callable
+from typing import Any
+
+from lxml.etree import Element, XPath
+from lxml.html import HtmlElement
 
 REGEXP_NS = "http://exslt.org/regular-expressions"
+# re:test() is a Python callback even on a missing attribute: "(@id and re:test(@id, ...))" skips
+# it (up to -30% per expression). Left out where it measured slower (COMMENTS_XPATH[0:2], PRECISION_DISCARD_XPATH[1]).
 
 
 def _alt(tokens: tuple[str, ...]) -> str:
@@ -65,8 +72,8 @@ BODY_XPATH = [
         .//*[self::article or self::div or self::main or self::section][
         @class='post' or @class='entry' or
         @itemprop='articleBody' or @id='articleContent' or
-        re:test(@id, '{_alt(_ARTICLE_CONTENT_ID_TOKENS)}') or
-        re:test(@class, '{_alt(_ARTICLE_CONTENT_CLASS_TOKENS)}')
+        (@id and re:test(@id, '{_alt(_ARTICLE_CONTENT_ID_TOKENS)}')) or
+        (@class and re:test(@class, '{_alt(_ARTICLE_CONTENT_CLASS_TOKENS)}'))
         ][1]
         """,
         namespaces={"re": REGEXP_NS},
@@ -79,9 +86,9 @@ BODY_XPATH = [
         @role='article' or
         @id='article' or @id='story' or
         @class='postarea' or @class='art-postcontent' or @class='text' or @class='cell' or @class='story' or
-        re:test(@id, '{_alt(_STORY_ID_TOKENS)}') or
-        re:test(@class, 'fulltext', 'i') or
-        re:test(@class, '{_alt(_STORY_CLASS_TOKENS)}')
+        (@id and re:test(@id, '{_alt(_STORY_ID_TOKENS)}')) or
+        (@class and re:test(@class, 'fulltext', 'i')) or
+        (@class and re:test(@class, '{_alt(_STORY_CLASS_TOKENS)}'))
         ])[1]
         """,
         namespaces={"re": REGEXP_NS},
@@ -90,8 +97,8 @@ BODY_XPATH = [
         f"""
         (.//*[self::article or self::div or self::main or self::section][
         @id='content' or @class='content' or
-        re:test(@id, '{_alt(_MAIN_CONTENT_ID_TOKENS)}') or
-        re:test(@class, '{_alt(_MAIN_CONTENT_CLASS_TOKENS)}') or
+        (@id and re:test(@id, '{_alt(_MAIN_CONTENT_ID_TOKENS)}')) or
+        (@class and re:test(@class, '{_alt(_MAIN_CONTENT_CLASS_TOKENS)}')) or
         contains(translate(@id, 'CM','cm'), 'main-content') or contains(translate(@class, 'CM','cm'), 'main-content') or
         contains(translate(@class, 'CP','cp'), 'page-content')
         ])[1]
@@ -136,7 +143,7 @@ COMMENTS_XPATH = [
     XPath(
         """
         .//*[self::div or self::section or self::list][
-        re:test(@id, '^(?:comol|disqus_thread|dsq-comments)')]
+        (@id and re:test(@id, '^(?:comol|disqus_thread|dsq-comments)'))]
         """,
         namespaces={"re": REGEXP_NS},
     ),
@@ -155,8 +162,8 @@ REMOVE_COMMENTS_XPATH = [
     XPath(
         f"""
         .//*[self::div or self::list or self::section or self::details][
-        re:test(@id, '^(?:{_COMMENTS_ID}|disqus_thread|dsq-comments)') or
-        re:test(@class, '{_COMMENTS_CLASS}')]
+        (@id and re:test(@id, '^(?:{_COMMENTS_ID}|disqus_thread|dsq-comments)')) or
+        (@class and re:test(@class, '{_COMMENTS_CLASS}'))]
         """,
         namespaces={"re": REGEXP_NS},
     )
@@ -166,9 +173,10 @@ REMOVE_COMMENTS_AND_LISTS_XPATH = [
     XPath(
         f"""
         .//*[self::div or self::list or self::section or self::details or self::ol or self::ul][
-        re:test(@id, '^(?:{_COMMENTS_ID}|disqus_thread|dsq-comments)') or
-        re:test(@class, '{_COMMENTS_CLASS}')][
-        not(self::ol or self::ul) or re:test(@id, '^(?:{_COMMENTS_ID})') or re:test(@class, '{_COMMENTS_CLASS}')]
+        (@id and re:test(@id, '^(?:{_COMMENTS_ID}|disqus_thread|dsq-comments)')) or
+        (@class and re:test(@class, '{_COMMENTS_CLASS}'))][
+        not(self::ol or self::ul) or (@id and re:test(@id, '^(?:{_COMMENTS_ID})')) or (@class and re:test(@class, '{_COMMENTS_CLASS}'))][
+        not(.//h1)]
         """,
         namespaces={"re": REGEXP_NS},
     )
@@ -178,14 +186,16 @@ REMOVE_COMMENTS_AND_LISTS_XPATH = [
 
 # Raw-tree prune, kept out of OVERALL_DISCARD_XPATH because its over-pruning guard would revert it.
 RAW_TREE_PRUNE_XPATH = [
-    # infinite-scroll containers holding whole follow-up articles ("mvp-post-add": Zox News theme),
-    # such pages are mostly appended articles, a generic container holding the h1 is the real one
+    # Keep an infinite-scroll shell holding an h1, or the first h2 if no h1
+    # exists in the document. Always remove Zox News follow-up boxes.
     XPath(
         """
         .//*[self::div or self::section or self::aside][
-        re:test(@id, 'mvp-post-add-(?:box|wrap)|infinite-?scroll') or
-        re:test(@class, 'mvp-post-add-(?:box|wrap)|infinite-?scroll')][
-        not(.//h1) or re:test(@id, 'mvp-post-add-(?:box|wrap)') or re:test(@class, 'mvp-post-add-(?:box|wrap)')]
+        (@id and re:test(@id, 'mvp-post-add-(?:box|wrap)|infinite-?scroll')) or
+        (@class and re:test(@class, 'mvp-post-add-(?:box|wrap)|infinite-?scroll'))][
+        (@id and re:test(@id, 'mvp-post-add-(?:box|wrap)')) or
+        (@class and re:test(@class, 'mvp-post-add-(?:box|wrap)')) or
+        (not(.//h1) and not(.//h2[not(//h1) and not(preceding::h2)]))]
         """,
         namespaces={"re": REGEXP_NS},
     ),
@@ -290,9 +300,9 @@ OVERALL_DISCARD_XPATH = [
         @data-lp-replacement-content or
         contains(translate(@role, 'N', 'n'), 'nav') or
         contains(@data-component, 'MostPopularStories') or
-        re:test(@id|@class, '{_alt(_CONSENT_ID_CLASS_TOKENS)}') or
-        re:test(@id, '{_alt(_OVERALL_DISCARD_BOTH_TOKENS + _OVERALL_DISCARD_ID_TOKENS)}') or
-        re:test(@class, '{_alt(_OVERALL_DISCARD_BOTH_TOKENS + _OVERALL_DISCARD_CLASS_TOKENS)}')]
+        ((@id or @class) and re:test(@id|@class, '{_alt(_CONSENT_ID_CLASS_TOKENS)}')) or
+        (@id and re:test(@id, '{_alt(_OVERALL_DISCARD_BOTH_TOKENS + _OVERALL_DISCARD_ID_TOKENS)}')) or
+        (@class and re:test(@class, '{_alt(_OVERALL_DISCARD_BOTH_TOKENS + _OVERALL_DISCARD_CLASS_TOKENS)}'))]
         """,
         namespaces={"re": REGEXP_NS},
     ),
@@ -300,10 +310,10 @@ OVERALL_DISCARD_XPATH = [
         """
         .//*[@class='comments-title' or
         starts-with(@id|@class, 'reply-') or
-        re:test(@id|@style, 'hidden') or
+        ((@id or @style) and re:test(@id|@style, 'hidden')) or
         contains(@style, 'display:none') or contains(@style, 'display: none') or
-        re:test(@id, 'reader-comments|akismet') or
-        re:test(@class, '^hide-|comments-title|nocomments|-reply-|message|akismet|suggest-links|-hide-|hide-print| hidden| hide|noprint|notloaded') or @aria-hidden='true']
+        (@id and re:test(@id, 'reader-comments|akismet')) or
+        (@class and re:test(@class, '^hide-|comments-title|nocomments|-reply-|message|akismet|suggest-links|-hide-|hide-print| hidden| hide|noprint|notloaded')) or @aria-hidden='true']
         """,
         namespaces={"re": REGEXP_NS},
     ),
@@ -368,98 +378,124 @@ COMMENTS_DISCARD_XPATH = [
         .//*[
         @class='comments-title' or
         contains(@style, 'display:none') or
-        re:test(@class, 'comments-title|nocomments|-reply-|message|signin') or
-        re:test(@id|@class, '^reply-|akismet')]
+        (@class and re:test(@class, 'comments-title|nocomments|-reply-|message|signin')) or
+        ((@id or @class) and re:test(@id|@class, '^reply-|akismet'))]
         """,
         namespaces={"re": REGEXP_NS},
     ),
 ]
+
+
+# comment text held directly in divs
+COMMENTS_DIV_TEXT_XPATH = XPath(".//div[not(.//div or .//p or .//list)][string-length(normalize-space()) >= 80]")
 
 
 ### 2. METADATA
 
 
 # the order or depth of XPaths could be changed after exhaustive testing
-AUTHOR_XPATHS = [
-    XPath(
-        # specific and almost specific
-        """
-        //*[self::a or self::address or self::div or self::link or self::p or self::span or self::strong][
-        @rel='author' or @id='author' or @class='author' or @itemprop='author name' or rel='me' or
-        @data-testid='AuthorCard' or @data-testid='AuthorURL' or
-        re:test(@class, 'author-?name|AuthorName|authorName')]|//author
-        """,
-        namespaces={"re": REGEXP_NS},
-    ),
-    XPath(
-        # almost generic and generic, last ones not common
-        """
-        //*[self::a or self::div or self::h3 or self::h4 or self::p or self::span][
-        @class='byline' or @class='username' or @class='byl' or @class='BBL' or
-        contains(@itemprop, 'author') or
-        re:test(@id, 'author|zuozhe|bianji|xiaobian') or
-        re:test(@class, 'author|channel-name|zuozhe|bianji|xiaobian|submitted-by|posted-by|journalist-name')]
-        """,
-        namespaces={"re": REGEXP_NS},
-    ),
-    XPath(
-        # last resort: any element
-        """
-        //*[
-        contains(@data-component, 'Byline') or contains(@itemprop, 'author') or
-        re:test(@id, '[Aa]uthor') or
-        re:test(@class, '[Aa]uthor|screenname|writer|[Bb]yline')]
-        """,
-        namespaces={"re": REGEXP_NS},
-    ),
-]
+# Python ports of the author XPaths (re:test() callbacks are slow).
+# Unlike "//" XPaths, they skip document-level siblings of the root.
+AUTHOR_DISCARD_ID = re.compile("^comments|comment-?list|ProductReviews")
+AUTHOR_DISCARD_CLASS = re.compile(
+    "^[Cc]omments|commentlist|comments-list|sidebar|is-hidden|quote|embedly-instagram|"
+    "article-(?:share|support)|print|category|meta-date|meta-reviewer"
+)
+AUTHOR_CLASS_SPECIFIC = re.compile("author[- ]?name|AuthorName|authorName")
+AUTHOR_ID_GENERIC = re.compile("author|zuozhe|bianji|xiaobian")
+AUTHOR_CLASS_GENERIC = re.compile("author|channel-name|zuozhe|bianji|xiaobian|submitted-by|posted-by|journalist-name")
+AUTHOR_ID_ANY = re.compile("[Aa]uthor")
+AUTHOR_CLASS_ANY = re.compile("[Aa]uthor|screenname|writer|[Bb]yline")
 
 
-AUTHOR_DISCARD_XPATHS = [
-    XPath(
-        """
-        .//*[self::a or self::div or self::section or self::span][
-        @id='comments' or @class='comments' or @class='title' or @class='date' or
-        re:test(@id, '^comments|comment-?list|ProductReviews') or
-        re:test(@class, '^[Cc]omments|commentlist|comments-list|sidebar|is-hidden|quote|embedly-instagram|article-(?:share|support)|print|category|meta-date|meta-reviewer') or
-        contains(@data-component, 'Figure')]
-        """,
-        namespaces={"re": REGEXP_NS},
-    ),
-    XPath("//time|//figure"),
-]
+def _author_specific(tree: HtmlElement) -> list[HtmlElement]:
+    "Specific and almost specific author markers."
+    return [
+        elem
+        for elem in tree.iter("a", "address", "div", "link", "p", "span", "strong", "author")
+        if elem.tag == "author"
+        or elem.get("rel") == "author"
+        or elem.get("id") == "author"
+        or elem.get("class") == "author"
+        or elem.get("itemprop") == "author name"
+        or elem.get("data-testid") in ("AuthorCard", "AuthorURL")
+        or AUTHOR_CLASS_SPECIFIC.search(elem.get("class", ""))
+    ]
 
 
+def _author_generic(tree: HtmlElement) -> list[HtmlElement]:
+    "Almost generic and generic author markers, last ones not common."
+    return [
+        elem
+        for elem in tree.iter("a", "div", "h3", "h4", "p", "span")
+        if elem.get("class") in ("byline", "username", "byl", "BBL")
+        or "author" in elem.get("itemprop", "")
+        or AUTHOR_ID_GENERIC.search(elem.get("id", ""))
+        or AUTHOR_CLASS_GENERIC.search(elem.get("class", ""))
+    ]
+
+
+def _author_any(tree: HtmlElement) -> list[HtmlElement]:
+    "Last resort: any element."
+    return [
+        elem
+        for elem in tree.iter(Element)
+        if "Byline" in elem.get("data-component", "")
+        or "author" in elem.get("itemprop", "")
+        or AUTHOR_ID_ANY.search(elem.get("id", ""))
+        or AUTHOR_CLASS_ANY.search(elem.get("class", ""))
+    ]
+
+
+def _author_discard(tree: HtmlElement) -> list[HtmlElement]:
+    "Comments, titles, dates and other sections misleading author detection."
+    return [
+        elem
+        for elem in tree.iter("a", "div", "section", "span")
+        if elem.get("class") in ("title", "date")
+        or AUTHOR_DISCARD_ID.search(elem.get("id", ""))
+        or AUTHOR_DISCARD_CLASS.search(elem.get("class", ""))
+        or "Figure" in elem.get("data-component", "")
+    ]
+
+
+AUTHOR_XPATHS: list[Callable[[HtmlElement], list[HtmlElement]]] = [_author_specific, _author_generic, _author_any]
+AUTHOR_DISCARD_XPATHS: list[Callable[[HtmlElement], Any]] = [_author_discard, XPath("//time|//figure")]
+
+
+# links under a block: /descendant::a walks each block once, whereas //a expands to
+# descendant-or-self::node()/child::a and libxml2 merges every node with a duplicate check,
+# quadratic on pages with many matching blocks (grids of div.row)
 CATEGORIES_XPATHS = [
     XPath(
         """
         //div[
-        re:test(@class, '^(?:post-?info|post-?meta|meta|entry-meta|entry-info|entry-utility)') or
-        starts-with(@id, 'postpath')]//a[@href]
+        (@class and re:test(@class, '^(?:post-?info|post-?meta|meta|entry-meta|entry-info|entry-utility)')) or
+        starts-with(@id, 'postpath')]/descendant::a[@href]
         """,
         namespaces={"re": REGEXP_NS},
     ),
     XPath("""//p[starts-with(@class, 'postmeta') or starts-with(@class, 'entry-categories') or
-     @class='postinfo' or @id='filedunder']//a[@href]"""),
-    XPath("""//footer[starts-with(@class, 'entry-meta') or starts-with(@class, 'entry-footer')]//a[@href]"""),
+     @class='postinfo' or @id='filedunder']/descendant::a[@href]"""),
+    XPath("""//footer[starts-with(@class, 'entry-meta') or starts-with(@class, 'entry-footer')]/descendant::a[@href]"""),
     XPath("""//*[self::li or self::span][@class='post-category' or @class='postcategory' or
-     @class='entry-category' or contains(@class, 'cat-links')]//a[@href]"""),
-    XPath("""//header[@class='entry-header']//a[@href]"""),
-    XPath("""//div[@class='row' or @class='tags']//a[@href]"""),
+     @class='entry-category' or contains(@class, 'cat-links')]/descendant::a[@href]"""),
+    XPath("""//header[@class='entry-header']/descendant::a[@href]"""),
+    XPath("""//div[@class='row' or @class='tags']/descendant::a[@href]"""),
 ]
 # "//*[self::div or self::p][contains(@class, 'byline')]",
 
 
 TAGS_XPATHS = [
-    XPath("""//div[@class='tags']//a[@href]"""),
-    XPath("""//p[starts-with(@class, 'entry-tags')]//a[@href]"""),
+    XPath("""//div[@class='tags']/descendant::a[@href]"""),
+    XPath("""//p[starts-with(@class, 'entry-tags')]/descendant::a[@href]"""),
     XPath(
         """//div[@class='row' or @class='jp-relatedposts' or @class='entry-utility' or
-    re:test(@class, '^(?:tag|postmeta|meta)')]//a[@href]""",
+    (@class and re:test(@class, '^(?:tag|postmeta|meta)'))]/descendant::a[@href]""",
         namespaces={"re": REGEXP_NS},
     ),
     XPath("""//*[@class='entry-meta' or contains(@class, 'topics') or
-     contains(@class, 'tags-links')]//a[@href]"""),
+     contains(@class, 'tags-links')]/descendant::a[@href]"""),
 ]
 # "related-topics"
 # https://github.com/grangier/python-goose/blob/develop/goose/extractors/tags.py
@@ -469,7 +505,7 @@ TITLE_XPATHS = [
     XPath(
         """
         //*[self::h1 or self::h2][
-        re:test(@class, '(?:post-|entry-|article-|post__)title|headline') or
+        (@class and re:test(@class, '(?:post-|entry-|article-|post__)title|headline')) or
         contains(@id, 'headline') or contains(@itemprop, 'headline')]
         """,
         namespaces={"re": REGEXP_NS},

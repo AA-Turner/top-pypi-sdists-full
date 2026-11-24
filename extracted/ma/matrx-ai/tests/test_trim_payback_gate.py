@@ -3,7 +3,7 @@
 A trim rewrites history, so every token after its first rewritten block is
 written again at the cache-WRITE price. Cora's 2026-10-15 Opus 5.5 job paid
 ~1046 ¢ of such rewrites to free context worth at most ~271 ¢ (common-docs
-projects/agent-evaluation/research/real-jobs-cache-review.md). ``payback``
+systems/agents/projects/agent-evaluation/research/real-jobs-cache-review.md). ``payback``
 holds a warm trim unless
     freed × read × expected_remaining_calls ≥ rewrite × (write − read)
 and takes held trims at the next cold cache, or at once near the window.

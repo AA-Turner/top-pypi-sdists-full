@@ -22,6 +22,12 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class EnvironmentSuspensionSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    ENVIRONMENT_SUSPENSION_SOURCE_UNSPECIFIED: _ClassVar[EnvironmentSuspensionSource]
+    ENVIRONMENT_SUSPENSION_SOURCE_CUSTOMER: _ClassVar[EnvironmentSuspensionSource]
+    ENVIRONMENT_SUSPENSION_SOURCE_ADMIN: _ClassVar[EnvironmentSuspensionSource]
+
 class CloudProviderKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     CLOUD_PROVIDER_KIND_UNSPECIFIED: _ClassVar[CloudProviderKind]
@@ -94,6 +100,9 @@ class DiscoveredBucketRole(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DISCOVERED_BUCKET_ROLE_STREAMING_LOG: _ClassVar[DiscoveredBucketRole]
     DISCOVERED_BUCKET_ROLE_OTHER: _ClassVar[DiscoveredBucketRole]
 
+ENVIRONMENT_SUSPENSION_SOURCE_UNSPECIFIED: EnvironmentSuspensionSource
+ENVIRONMENT_SUSPENSION_SOURCE_CUSTOMER: EnvironmentSuspensionSource
+ENVIRONMENT_SUSPENSION_SOURCE_ADMIN: EnvironmentSuspensionSource
 CLOUD_PROVIDER_KIND_UNSPECIFIED: CloudProviderKind
 CLOUD_PROVIDER_KIND_UNKNOWN: CloudProviderKind
 CLOUD_PROVIDER_KIND_GCP: CloudProviderKind
@@ -238,6 +247,7 @@ class Environment(_message.Message):
         "description",
         "default_engine_base_image",
         "default_ai_provider_connection_id",
+        "suspension_source",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -354,6 +364,7 @@ class Environment(_message.Message):
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_ENGINE_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_AI_PROVIDER_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
+    SUSPENSION_SOURCE_FIELD_NUMBER: _ClassVar[int]
     name: str
     project_id: str
     id: str
@@ -423,6 +434,7 @@ class Environment(_message.Message):
     description: str
     default_engine_base_image: str
     default_ai_provider_connection_id: str
+    suspension_source: EnvironmentSuspensionSource
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -494,6 +506,7 @@ class Environment(_message.Message):
         description: _Optional[str] = ...,
         default_engine_base_image: _Optional[str] = ...,
         default_ai_provider_connection_id: _Optional[str] = ...,
+        suspension_source: _Optional[_Union[EnvironmentSuspensionSource, str]] = ...,
     ) -> None: ...
 
 class CreateEnvironmentV2Request(_message.Message):
@@ -507,6 +520,45 @@ class CreateEnvironmentV2Response(_message.Message):
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     environment: Environment
     def __init__(self, environment: _Optional[_Union[Environment, _Mapping]] = ...) -> None: ...
+
+class SelfServiceCreateTeamAndEnvironmentRequest(_message.Message):
+    __slots__ = ("user_id", "team_name", "signup_link_attempt_id", "environment_name", "region", "company_name")
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    TEAM_NAME_FIELD_NUMBER: _ClassVar[int]
+    SIGNUP_LINK_ATTEMPT_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_NAME_FIELD_NUMBER: _ClassVar[int]
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    COMPANY_NAME_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    team_name: str
+    signup_link_attempt_id: str
+    environment_name: str
+    region: str
+    company_name: str
+    def __init__(
+        self,
+        user_id: _Optional[str] = ...,
+        team_name: _Optional[str] = ...,
+        signup_link_attempt_id: _Optional[str] = ...,
+        environment_name: _Optional[str] = ...,
+        region: _Optional[str] = ...,
+        company_name: _Optional[str] = ...,
+    ) -> None: ...
+
+class SelfServiceCreateTeamAndEnvironmentResponse(_message.Message):
+    __slots__ = ("team_id", "project_id", "environment")
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    project_id: str
+    environment: Environment
+    def __init__(
+        self,
+        team_id: _Optional[str] = ...,
+        project_id: _Optional[str] = ...,
+        environment: _Optional[_Union[Environment, _Mapping]] = ...,
+    ) -> None: ...
 
 class UpdateEnvironmentV2Request(_message.Message):
     __slots__ = ("environment", "update_mask")
@@ -543,6 +595,35 @@ class DeleteEnvironmentRequest(_message.Message):
 class DeleteEnvironmentResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class DeleteSelfSignupTeamRequest(_message.Message):
+    __slots__ = ("team_id",)
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
+
+class DeleteSelfSignupTeamResponse(_message.Message):
+    __slots__ = (
+        "archived_environment_ids",
+        "archived_project_ids",
+        "deleted_user_count",
+        "deleted_role_assignment_count",
+    )
+    ARCHIVED_ENVIRONMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_PROJECT_IDS_FIELD_NUMBER: _ClassVar[int]
+    DELETED_USER_COUNT_FIELD_NUMBER: _ClassVar[int]
+    DELETED_ROLE_ASSIGNMENT_COUNT_FIELD_NUMBER: _ClassVar[int]
+    archived_environment_ids: _containers.RepeatedScalarFieldContainer[str]
+    archived_project_ids: _containers.RepeatedScalarFieldContainer[str]
+    deleted_user_count: int
+    deleted_role_assignment_count: int
+    def __init__(
+        self,
+        archived_environment_ids: _Optional[_Iterable[str]] = ...,
+        archived_project_ids: _Optional[_Iterable[str]] = ...,
+        deleted_user_count: _Optional[int] = ...,
+        deleted_role_assignment_count: _Optional[int] = ...,
+    ) -> None: ...
 
 class SetDefaultEnvironmentRequest(_message.Message):
     __slots__ = ("id",)

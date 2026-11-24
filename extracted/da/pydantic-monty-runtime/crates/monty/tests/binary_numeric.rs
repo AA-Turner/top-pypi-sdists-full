@@ -1,5 +1,5 @@
 use monty::MontyRun;
-use monty_types::CompileOptions;
+use monty_types::{CompileOptions, ExcType};
 
 #[test]
 fn numeric_fast_paths_and_fallbacks() {
@@ -196,4 +196,224 @@ fn run_checked(code: &str) {
 
     #[cfg(not(feature = "ref-count-return"))]
     runner.run_no_limits(vec![]).unwrap();
+}
+
+#[test]
+fn test_int_bit_length() {
+    run_checked(
+        r"
+assert (0).bit_length() == 0
+assert (1).bit_length() == 1
+assert (-1).bit_length() == 1
+assert (2).bit_length() == 2
+assert (-2).bit_length() == 2
+assert (37).bit_length() == 6
+assert (-37).bit_length() == 6
+assert (1024).bit_length() == 11
+assert (2**62).bit_length() == 63
+assert (2**63 - 1).bit_length() == 63
+assert (-(2**63 - 1)).bit_length() == 63
+assert (-9223372036854775808).bit_length() == 64
+assert (2**63).bit_length() == 64
+assert (-(2**63)).bit_length() == 64
+assert (2**100).bit_length() == 101
+assert (-2**100).bit_length() == 101
+assert (True).bit_length() == 1
+assert (False).bit_length() == 0
+",
+    );
+}
+
+#[test]
+fn test_int_bit_count() {
+    run_checked(
+        r"
+assert (0).bit_count() == 0
+assert (1).bit_count() == 1
+assert (-1).bit_count() == 1
+assert (2).bit_count() == 1
+assert (3).bit_count() == 2
+assert (37).bit_count() == 3
+assert (-37).bit_count() == 3
+assert (15).bit_count() == 4
+assert (-15).bit_count() == 4
+assert (-9223372036854775808).bit_count() == 1
+assert (2**63 - 1).bit_count() == 63
+assert (-(2**63 - 1)).bit_count() == 63
+assert (2**100).bit_count() == 1
+assert (-2**100).bit_count() == 1
+assert (2**100 - 1).bit_count() == 100
+assert (-(2**100 - 1)).bit_count() == 100
+assert (True).bit_count() == 1
+assert (False).bit_count() == 0
+",
+    );
+}
+
+#[test]
+fn test_int_bit_methods_arguments() {
+    for code in [
+        "(37).bit_length(1)",
+        "(37).bit_count(1)",
+        "(2**100).bit_length(1)",
+        "(2**100).bit_count(1)",
+        "True.bit_length(1)",
+        "True.bit_count(1)",
+        "(37).bit_length(x=1)",
+        "(37).bit_count(x=1)",
+    ] {
+        let mut ex = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
+        let err = ex.run_no_limits(vec![]).unwrap_err();
+        assert_eq!(err.exc_type(), ExcType::TypeError, "failed for code: {code}");
+    }
+
+    for code in ["(37).foo()", "(2**100).foo()", "True.foo()"] {
+        let mut ex = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
+        let err = ex.run_no_limits(vec![]).unwrap_err();
+        assert_eq!(err.exc_type(), ExcType::AttributeError, "failed for code: {code}");
+    }
+}
+
+#[test]
+fn test_as_integer_ratio_errors() {
+    for (code, expected_exc, expected_msg) in [
+        (
+            "float('inf').as_integer_ratio()",
+            ExcType::OverflowError,
+            "cannot convert Infinity to integer ratio",
+        ),
+        (
+            "float('-inf').as_integer_ratio()",
+            ExcType::OverflowError,
+            "cannot convert Infinity to integer ratio",
+        ),
+        (
+            "float('nan').as_integer_ratio()",
+            ExcType::ValueError,
+            "cannot convert NaN to integer ratio",
+        ),
+        (
+            "(1.5).as_integer_ratio(1)",
+            ExcType::TypeError,
+            "float.as_integer_ratio() takes no arguments (1 given)",
+        ),
+        (
+            "(1.5).as_integer_ratio(x=1)",
+            ExcType::TypeError,
+            "float.as_integer_ratio() takes no keyword arguments",
+        ),
+        (
+            "(1).as_integer_ratio(1)",
+            ExcType::TypeError,
+            "int.as_integer_ratio() takes no arguments (1 given)",
+        ),
+        (
+            "(1).as_integer_ratio(x=1)",
+            ExcType::TypeError,
+            "int.as_integer_ratio() takes no keyword arguments",
+        ),
+        (
+            "True.as_integer_ratio(1)",
+            ExcType::TypeError,
+            "int.as_integer_ratio() takes no arguments (1 given)",
+        ),
+        (
+            "(1.5).is_integer(1)",
+            ExcType::TypeError,
+            "float.is_integer() takes no arguments (1 given)",
+        ),
+        (
+            "(1.5).is_integer(x=1)",
+            ExcType::TypeError,
+            "float.is_integer() takes no keyword arguments",
+        ),
+        (
+            "(1).is_integer(1)",
+            ExcType::TypeError,
+            "int.is_integer() takes no arguments (1 given)",
+        ),
+        (
+            "(1).is_integer(x=1)",
+            ExcType::TypeError,
+            "int.is_integer() takes no keyword arguments",
+        ),
+        (
+            "False.is_integer(1)",
+            ExcType::TypeError,
+            "int.is_integer() takes no arguments (1 given)",
+        ),
+        (
+            "False.is_integer(x=1)",
+            ExcType::TypeError,
+            "int.is_integer() takes no keyword arguments",
+        ),
+    ] {
+        let mut ex = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
+        let err = ex.run_no_limits(vec![]).unwrap_err();
+        assert_eq!(err.exc_type(), expected_exc, "wrong exception type for code: {code}");
+        assert_eq!(err.message(), Some(expected_msg), "wrong message for code: {code}");
+    }
+}
+
+#[test]
+fn float_hex_and_fromhex_integration() {
+    let code = r"
+assert (0.0).hex() == '0x0.0p+0'
+assert (-0.0).hex() == '-0x0.0p+0'
+assert (1.5).hex() == '0x1.8000000000000p+0'
+assert float.fromhex('0x1.8p+0') == 1.5
+assert (0.0).fromhex('0x1.8p+0') == 1.5
+assert float.fromhex('ff') == 255.0
+assert float.fromhex('-0x1p-2000').hex() == '-0x0.0p+0'
+";
+    let mut ex = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
+    ex.run_no_limits(vec![]).unwrap();
+
+    for (code, expected_exc, expected_msg) in [
+        (
+            "(1.5).hex(1)",
+            ExcType::TypeError,
+            "float.hex() takes no arguments (1 given)",
+        ),
+        (
+            "(1.5).hex(x=1)",
+            ExcType::TypeError,
+            "float.hex() takes no keyword arguments",
+        ),
+        (
+            "float.fromhex()",
+            ExcType::TypeError,
+            "float.fromhex() takes exactly one argument (0 given)",
+        ),
+        (
+            "float.fromhex('1', '2')",
+            ExcType::TypeError,
+            "float.fromhex() takes exactly one argument (2 given)",
+        ),
+        (
+            "float.fromhex(string='0x1p0')",
+            ExcType::TypeError,
+            "float.fromhex() takes no keyword arguments",
+        ),
+        (
+            "float.fromhex(123)",
+            ExcType::TypeError,
+            "bad argument type for built-in operation",
+        ),
+        (
+            "float.fromhex('0x1p1024')",
+            ExcType::OverflowError,
+            "hexadecimal value too large to represent as a float",
+        ),
+        (
+            "float.fromhex('invalid')",
+            ExcType::ValueError,
+            "invalid hexadecimal floating-point string",
+        ),
+    ] {
+        let mut ex = MontyRun::new(code.to_owned(), "test.py", vec![], CompileOptions::default()).unwrap();
+        let err = ex.run_no_limits(vec![]).unwrap_err();
+        assert_eq!(err.exc_type(), expected_exc, "wrong exception type for code: {code}");
+        assert_eq!(err.message(), Some(expected_msg), "wrong message for code: {code}");
+    }
 }

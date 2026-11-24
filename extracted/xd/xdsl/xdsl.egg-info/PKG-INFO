@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdsl
-Version: 0.76.0
+Version: 0.77.0
 Summary: xDSL
 Author-email: Mathieu Fehr <mathieu.fehr@ed.ac.uk>
 License-Expression: Apache-2.0 WITH LLVM-exception
@@ -29,10 +29,10 @@ Requires-Dist: filecheck==1.0.6; extra == "dev"
 Requires-Dist: lit<24; extra == "dev"
 Requires-Dist: marimo<0.26,>=0.25.2; extra == "dev"
 Requires-Dist: prek~=0.5.5; extra == "dev"
-Requires-Dist: pytest<9.2; extra == "dev"
+Requires-Dist: pytest<9.3; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: ruff==0.17.4; extra == "dev"
+Requires-Dist: ruff==0.17.5; extra == "dev"
 Requires-Dist: sympy==1.14; extra == "dev"
 Requires-Dist: textual-dev==1.8; extra == "dev"
 Requires-Dist: toml<0.11; extra == "dev"

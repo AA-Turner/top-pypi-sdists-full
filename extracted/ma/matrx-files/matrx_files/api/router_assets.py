@@ -16,14 +16,14 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Literal
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 
 from ..asset_envelope import Asset
 from matrx_utils.row_access import LegacyLevelInput, RowAccess, ShownToLiteral, reconcile_row_access
 from ..media_sniff import SNIFF_HEAD_BYTES, sniff_mime_type
 from ..service import FileService
-from .errors import map_exception
+from .errors import map_exception, refuse_malformed_path_ids
 from .read_by_access import file_read_decided_by_access
 
 
@@ -82,7 +82,12 @@ def build_asset_router(
     user_id. The router mounts BOTH ``/assets`` AND ``/files/{id}/asset``
     so a single include_router call gets the click-to-render primitive.
     """
-    router = APIRouter(prefix=prefix, tags=tags or ["assets"])
+    router = APIRouter(
+        prefix=prefix,
+        tags=tags or ["assets"],
+        # a non-UUID *_id is a 404 ApiError before any handler (never ORM text)
+        dependencies=[Depends(refuse_malformed_path_ids)],
+    )
 
     if user_id_dep is None:
         def user_id_dep() -> str:  # noqa: E306

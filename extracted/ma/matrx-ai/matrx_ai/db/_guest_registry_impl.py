@@ -54,6 +54,9 @@ personal-organization or ownership write downstream.
 
 from __future__ import annotations
 
+from matrx_utils.http_client import shared_client
+import asyncio
+
 import inspect
 import re
 import time
@@ -141,7 +144,6 @@ async def _gotrue_anonymous_signup() -> dict[str, Any]:
     """
     import os
 
-    import httpx
 
     url = os.environ.get("SUPABASE_MATRIX_URL")
     key = os.environ.get("SUPABASE_MATRIX_SECRET_KEY")
@@ -152,7 +154,7 @@ async def _gotrue_anonymous_signup() -> dict[str, Any]:
         )
 
     signup_url = f"{url.rstrip('/')}/auth/v1/signup"
-    async with httpx.AsyncClient(timeout=10.0) as http:
+    async with shared_client(timeout=10.0) as http:
         resp = await http.post(
             signup_url,
             headers={"apikey": key, "Content-Type": "application/json"},
@@ -310,6 +312,26 @@ async def guest_has_identity(fingerprint: str) -> bool:
     return bool(rows and getattr(rows[0], "auth_user_id", None))
 
 
+async def guest_for_visitor_id(fingerprint: str) -> str | None:
+    """The guest (``auth.users`` id) this visitor id's registry row names, or ``None``.
+
+    Read-only. A row stamped converted (its guest claimed into an account) names no guest, so a
+    claimed visitor id answers ``None``. Raises ``GuestIdentityUnavailableError`` when the
+    registry cannot be read (never answers a guess).
+    """
+    try:
+        rows = await _gm.filter_all_guest_executions(fingerprint=fingerprint)
+    except Exception as exc:
+        raise GuestIdentityUnavailableError(
+            "Guest registry could not be read."
+        ) from exc
+    guest = getattr(rows[0], "auth_user_id", None) if rows else None
+    return str(guest) if guest else None
+
+
+_FINGERPRINT_LOCKS: dict[str, tuple[asyncio.Lock, int]] = {}
+
+
 async def resolve_guest_uuid(
     fingerprint: str,
     ip_address: str | None = None,
@@ -317,6 +339,37 @@ async def resolve_guest_uuid(
     minted_route: str | None = None,
     agent_traffic: str | None = None,
     on_agent_minted: Callable[[str, str], Awaitable[None]] | None = None,
+    on_minted: Callable[[str], Awaitable[None]] | None = None,
+) -> str:
+    """Return the stable auth.users UUID for this fingerprint (see ``_resolve_guest_uuid_unlocked``).
+
+    Concurrent first requests for ONE fingerprint in this process are serialized, so the first mints
+    and every other finds its identity on the fast path: no orphan anonymous user is minted. The
+    atomic claim inside remains the cross-process backstop (a lost race there is still recorded).
+    """
+    lock, users = _FINGERPRINT_LOCKS.get(fingerprint) or (asyncio.Lock(), 0)
+    _FINGERPRINT_LOCKS[fingerprint] = (lock, users + 1)
+    try:
+        async with lock:
+            return await _resolve_guest_uuid_unlocked(
+                fingerprint, ip_address, user_agent, minted_route, agent_traffic, on_agent_minted, on_minted
+            )
+    finally:
+        lock_, users_ = _FINGERPRINT_LOCKS[fingerprint]
+        if users_ <= 1:
+            _FINGERPRINT_LOCKS.pop(fingerprint, None)
+        else:
+            _FINGERPRINT_LOCKS[fingerprint] = (lock_, users_ - 1)
+
+
+async def _resolve_guest_uuid_unlocked(
+    fingerprint: str,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    minted_route: str | None = None,
+    agent_traffic: str | None = None,
+    on_agent_minted: Callable[[str, str], Awaitable[None]] | None = None,
+    on_minted: Callable[[str], Awaitable[None]] | None = None,
 ) -> str:
     """Return the stable auth.users UUID for this fingerprint.
 
@@ -325,6 +378,10 @@ async def resolve_guest_uuid(
     ``on_agent_minted(user_id, tool)`` runs for an identity THIS call minted and won (the host
     tags it with a test-fixture expiry). The hook never fails the request: an error is logged
     loudly and the identity is still returned.
+
+    ``on_minted(user_id)`` runs, awaited, for EVERY identity this call minted (winner or orphan) and never
+    for an identity that already existed: the host makes a guest minted by a test-stamped request a test
+    fixture of that run before the request goes on. It never fails the request either.
 
     Resolving is NOT executing: no counter or execution timestamp moves here
     (they move only in the execution gate / ``record_guest_execution``). A
@@ -399,9 +456,9 @@ async def resolve_guest_uuid(
             if winner != minted:
                 await _record_race_loser(fingerprint, loser=minted, winner=winner, branch="backfill")
                 # The orphan is still an account our agent minted: tag it so the sweep removes it.
-                await _after_agent_mint(minted, agent_traffic, on_agent_minted)
+                await _after_mint(minted, agent_traffic, on_agent_minted, on_minted)
                 return winner
-            await _after_agent_mint(minted, agent_traffic, on_agent_minted)
+            await _after_mint(minted, agent_traffic, on_agent_minted, on_minted)
             vcprint(
                 f"[GuestRegistry] Backfilled auth_user_id for existing guest: "
                 f"{minted[:8]}… fingerprint={fingerprint[:12]}…",
@@ -440,9 +497,9 @@ async def resolve_guest_uuid(
                     fingerprint, loser=auth_user_id, winner=winner, branch="first_visit"
                 )
             # Winner or orphan, this call minted it: tag it so the sweep can remove it.
-            await _after_agent_mint(auth_user_id, agent_traffic, on_agent_minted)
+            await _after_mint(auth_user_id, agent_traffic, on_agent_minted, on_minted)
             return winner
-        await _after_agent_mint(auth_user_id, agent_traffic, on_agent_minted)
+        await _after_mint(auth_user_id, agent_traffic, on_agent_minted, on_minted)
         vcprint(
             f"[GuestRegistry] Created new guest: "
             f"{auth_user_id[:8]}… fingerprint={fingerprint[:12]}…",
@@ -461,6 +518,21 @@ async def resolve_guest_uuid(
         raise GuestIdentityUnavailableError(
             "Guest identity could not be resolved to an auth.users row."
         ) from exc
+
+
+async def _after_mint(
+    user_id: str,
+    agent_traffic: str | None,
+    on_agent_minted: Callable[[str, str], Awaitable[None]] | None,
+    on_minted: Callable[[str], Awaitable[None]] | None,
+) -> None:
+    """Every hook for an identity THIS call minted. Never raises."""
+    if on_minted is not None:
+        try:
+            await on_minted(user_id)
+        except Exception as exc:  # a label never fails the guest's request
+            vcprint(f"[GuestRegistry] minted guest {user_id}: the host's mint hook failed: {exc!r}", color="red")
+    await _after_agent_mint(user_id, agent_traffic, on_agent_minted)
 
 
 async def _after_agent_mint(

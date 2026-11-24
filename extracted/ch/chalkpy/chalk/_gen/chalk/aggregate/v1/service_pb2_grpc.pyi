@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.aggregate.v1.service_pb2 import (
+    BackfillTileSeriesGapsRequest,
+    BackfillTileSeriesGapsResponse,
     CreateAggregateBackfillJobRequest,
     CreateAggregateBackfillJobResponse,
     CreateAggregateBackfillV2Request,
@@ -90,6 +92,11 @@ class AggregateServiceStub:
     plan-then-create-each-sub-backfill loop that PlanAggregateBackfill plus
     CreateAggregateBackfillJob require.
     """
+    BackfillTileSeriesGaps: UnaryUnaryMultiCallable[
+        BackfillTileSeriesGapsRequest,
+        BackfillTileSeriesGapsResponse,
+    ]
+    """Fills offline tile series gaps by hash, rewriting every series the gap's features write over its range, empty tiles allowed."""
 
 class AggregateServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -164,5 +171,12 @@ class AggregateServiceServicer(metaclass=ABCMeta):
         plan-then-create-each-sub-backfill loop that PlanAggregateBackfill plus
         CreateAggregateBackfillJob require.
         """
+    @abstractmethod
+    def BackfillTileSeriesGaps(
+        self,
+        request: BackfillTileSeriesGapsRequest,
+        context: ServicerContext,
+    ) -> BackfillTileSeriesGapsResponse:
+        """Fills offline tile series gaps by hash, rewriting every series the gap's features write over its range, empty tiles allowed."""
 
 def add_AggregateServiceServicer_to_server(servicer: AggregateServiceServicer, server: Server) -> None: ...

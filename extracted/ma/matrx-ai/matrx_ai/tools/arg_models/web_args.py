@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, RootModel
+from pydantic import BaseModel, Field, RootModel, field_validator
 
 from matrx_ai.tools.declared import ToolArgs
 
@@ -9,8 +9,34 @@ _DEFAULT_CHARS = 8_000
 _MAX_CHARS = 40_000
 
 
+def one_query_is_a_list(value: Any) -> Any:
+    """One plain query string is a one-query list (models send ``"queries": "boise population"``).
+
+    Only a plain one-line string: one holding a quote or a line break, starting with ``[`` or ``{``,
+    or a null word (None, null, undefined, nan) is left as sent, for the stringified-JSON reading or
+    a refusal, so a broken array or a stand-in is never run as a query.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if (
+        not text
+        or '"' in text
+        or "\n" in value
+        or "\r" in value
+        or text[0] in "[{"
+        or text.casefold() in _NOT_A_QUERY
+    ):
+        return value
+    return [text]
+
+
+_NOT_A_QUERY = frozenset({"none", "null", "undefined", "nan", "n/a"})
+
+
 class WebSearchArgs(BaseModel):
     queries: list[str] = Field(min_length=1, max_length=5)
+    _one_query = field_validator("queries", mode="before")(one_query_is_a_list)
     freshness: str | None = None
     max_results_per_query: int = Field(default=5, ge=1, le=20)
 
@@ -32,12 +58,22 @@ RESEARCH_DEPTH_CONFIG: dict[str, dict[str, int]] = {
 }
 
 
+#: The most queries one research_web call takes: they are condensed in groups of at most 3
+#: (``matrx_scraper.features.research_budget.group_queries``), so 10 is four reports.
+MAX_RESEARCH_QUERIES = 10
+
+
 class WebResearchArgs(BaseModel):
-    queries: list[str] = Field(min_length=1, max_length=5)
+    queries: list[str] = Field(min_length=1, max_length=MAX_RESEARCH_QUERIES)
+    _one_query = field_validator("queries", mode="before")(one_query_is_a_list)
     instructions: str
     freshness: str | None = None
     research_depth: Literal["shallow", "medium", "deep", "very_deep"] = "medium"
     country: str = "us"
+    #: Per call: how much of the search listings the result carries. ``None`` = the organization knob.
+    listings: Literal["none", "compact", "full"] | None = None
+    #: Per call: per-page character counts in the result. ``None`` = the organization knob.
+    page_char_counts: bool | None = None
 
 
 # ── Per-action wire contract for the `web` dispatcher ───────────────────────
@@ -49,9 +85,16 @@ class WebResearchArgs(BaseModel):
 # No Field(description=...) here — descriptions live only in the DB (Rule 4).
 
 
+#: The most queries one search runs. The contract advertises it (maxItems), but OpenAI strict mode strips
+#: maxItems and models still send 6-10 (C87/C94, live 2026-11-09): the wire takes them and the search runs the
+#: first ``MAX_SEARCH_QUERIES``, naming the rest in its answer (``implementations.web.web_search``).
+MAX_SEARCH_QUERIES = 5
+
+
 class WebSearchWire(ToolArgs):
     action: Literal["search"]
-    queries: list[str] = Field(min_length=1, max_length=5)
+    queries: list[str] = Field(min_length=1, json_schema_extra={"maxItems": MAX_SEARCH_QUERIES})
+    _one_query = field_validator("queries", mode="before")(one_query_is_a_list)
     freshness: str | None = None
     max_results_per_query: int = Field(default=5, ge=1, le=20)
 

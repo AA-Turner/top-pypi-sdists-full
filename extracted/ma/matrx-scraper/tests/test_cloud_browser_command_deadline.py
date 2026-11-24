@@ -222,3 +222,96 @@ async def test_the_command_lock_is_free_after_a_deadline_so_the_browser_stays_us
     follow_up = await asyncio.wait_for(worker.command(_type_request("ok")), timeout=5.0)
     assert follow_up.ok is True
     assert "".join(follow_up.result.typed if follow_up.result else "") == "ok"
+
+
+class _HiddenTabPage(_Page):
+    """A background tab: it never paints, so a bare ``requestAnimationFrame``
+    promise never resolves. Real Chromium throttles rAF to zero on hidden
+    pages; this double hangs on any script that waits on rAF alone and
+    resolves only when the script also races a timer."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.scripts: list[str] = []
+
+    async def evaluate(self, script: str) -> None:
+        self.scripts.append(script)
+        if "setTimeout" not in script:
+            await asyncio.Event().wait()  # never set: the frame never comes
+
+    def locator(self, selector: str) -> _CountedLocator:
+        return _CountedLocator()
+
+
+class _CountedLocator(_Locator):
+    def __init__(self) -> None:
+        super().__init__(None)
+
+    async def count(self) -> int:
+        return 0
+
+
+def _click_request() -> M.CommandRequest:
+    return M.CommandRequest(
+        run_id="run-harbor-dental",
+        profile_id="profile-harbor-dental",
+        fencing_token="fence",
+        fencing_revision=1,
+        sequence=2,
+        issued_at=datetime.now(UTC),
+        origin="agent",
+        command=C.ClickCommand(selector="#submit-claim"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_click_on_a_hidden_tab_is_not_held_by_the_login_form_check(monkeypatch) -> None:
+    """Break caught (2026-11-18, ``command_deadline_exceeded`` during
+    ``login_form_detection``): the post-click login check waited on
+    ``requestAnimationFrame``, which never fires on a background tab, so a
+    click that had already succeeded held the command until the 55 s ceiling."""
+    monkeypatch.setattr(M, "COMMAND_TOTAL_TIMEOUT_SECONDS", 3.0)
+    worker, _ = _humanised_type_worker(monkeypatch)
+    page = _HiddenTabPage()
+    worker._session.page = page
+    worker._pages["page-1"].page = page
+    worker.run_mode = "handoff_capable"
+    worker._policy = M.LaunchPolicy(run_mode="handoff_capable", humanize_input=False)
+
+    async def _clicked(*args, **kwargs):
+        return runtime.A.ClickResult(success=True, selector="#submit-claim", url=page.url)
+
+    monkeypatch.setattr(runtime.A, "click", _clicked)
+
+    response = await worker.command(_click_request())
+
+    assert response.ok is True, (
+        f"the click succeeded; the login check must not turn it into "
+        f"{response.error.code if response.error else None}"
+    )
+    assert page.scripts, "the login-form check did not run at all"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_commands_each_keep_their_own_stage() -> None:
+    """Break caught (2026-11-18, "still running idle when the worker gave up"):
+    agent commands run concurrently outside the command lock, and the stage was
+    ONE worker attribute, so one command finishing reset it to ``idle`` under a
+    command that was still running."""
+    worker = BrowserWorker(worker_id="worker-stage")
+    finished = asyncio.Event()
+
+    async def _long_command() -> str:
+        worker._command_stage = "humanize_type"
+        await finished.wait()
+        return worker._command_stage
+
+    async def _short_command() -> None:
+        worker._command_stage = "navigate_load"
+        worker._command_stage = "idle"  # what command() does on its way out
+        finished.set()
+
+    long_task = asyncio.create_task(_long_command())
+    await asyncio.sleep(0)
+    await asyncio.create_task(_short_command())
+    assert await long_task == "humanize_type"

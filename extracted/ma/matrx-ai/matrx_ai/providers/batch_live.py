@@ -43,6 +43,12 @@ async def send_live(
     from matrx_ai.providers.guardrail_gate import admit_call_spend_cap
 
     admit_call_spend_cap(None, None)
+    # THE RUNTIME METER BACKSTOP (providers/meter_scope.py): this lane sends beside the unified client's seam, so it
+    # asks itself. matrx-batch's poller meters a SUBMITTED batch; a live body is metered only inside a run or a
+    # declared direct-spend scope. None open: sent anyway, WARNING + filed (its cost is not priced here).
+    from matrx_ai.providers.meter_scope import note_send
+
+    note_send(f"batch_live.send_live:{endpoint}", provider=provider, model=payload.get("model"))
     if provider == "openai":
         openai_client = cast("AsyncOpenAI", client)
         if endpoint == "/v1/responses":

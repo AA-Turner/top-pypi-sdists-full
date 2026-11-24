@@ -170,4 +170,14 @@ def test_an_input_step_field_may_pick_from_several_record_types() -> None:
     prop = cfg.effective_output_json_schema()["properties"]["source_id"]
     assert prop["ui:widget"] == "record_picker"
     assert prop["ui:entity_type"] == ["note", "file"]
+
+
+def test_an_input_step_field_names_where_the_picked_type_goes() -> None:
+    from matrx_graph.nodes.io.user_input import UserInputConfig
+
+    cfg = UserInputConfig(fields=[
+        {"key": "source_kind", "label": "Kind", "required": False, "default": ""},
+        {"key": "source_id", "label": "Source", "picks": ["note", "file"], "picks_type_into": "source_kind"},
+    ])
+    prop = cfg.effective_output_json_schema()["properties"]["source_id"]
     assert prop["ui:entity_type_field"] == "source_kind"

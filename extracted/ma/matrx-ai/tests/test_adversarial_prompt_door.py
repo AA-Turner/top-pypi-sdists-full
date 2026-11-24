@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
 from matrx_ai.agents.definition import Agent
@@ -49,7 +48,7 @@ def _agent_with_template() -> Agent:
     config.append_user_message("User data: {{payload}}")
     return Agent(
         config=config,
-        variable_defaults={"payload": AgentVariable(name="payload")},
+        variable_defaults={"payload": AgentVariable(declaration={"name": "payload"})},
     )
 
 
@@ -60,31 +59,25 @@ def _agent_with_template() -> Agent:
 
 def test_held_dict_default_is_stripped_at_every_depth() -> None:
     """Default-value dicts: markers removed root and nested; data intact."""
-    var = AgentVariable(
-        name="a",
-        default_value={
+    var = AgentVariable(declaration={"name": "a", "defaultValue": {
             WIRE_KEY: "website",
             "url": "x",
             "nested": {WIRE_KEY: "inner", "k": 1},
-        },
-    )
+        }})
     rendered = var.get_value()
     assert WIRE_KEY not in rendered
     assert json.loads(rendered) == {"url": "x", "nested": {"k": 1}}
 
 
 def test_held_list_value_strips_each_element() -> None:
-    var = AgentVariable(
-        name="a",
-        value=[{WIRE_KEY: "website", "url": "x"}, {WIRE_KEY: "y"}, [{WIRE_KEY: "z"}]],
-    )
+    var = AgentVariable(declaration={"name": "a"}, value=[{WIRE_KEY: "website", "url": "x"}, {WIRE_KEY: "y"}, [{WIRE_KEY: "z"}]])
     rendered = var.get_value()
     assert WIRE_KEY not in rendered
     assert json.loads(rendered) == [{"url": "x"}, {}, [{}]]
 
 
 def test_held_structured_values_render_as_canonical_json_not_repr() -> None:
-    var = AgentVariable(name="a", value={"key": "va'l", "n": 1})
+    var = AgentVariable(declaration={"name": "a"}, value={"key": "va'l", "n": 1})
     assert json.loads(var.get_value()) == {"key": "va'l", "n": 1}
 
 
@@ -104,7 +97,7 @@ def test_held_structured_values_render_as_canonical_json_not_repr() -> None:
 # FIXED (round-1 triage, 2026-08-21): prompt_safe_value is the one door;
 # this test now guards it.
 def test_tuple_of_kind_instances_does_not_leak() -> None:
-    var = AgentVariable(name="a", value=({WIRE_KEY: "website", "url": "x"},))
+    var = AgentVariable(declaration={"name": "a"}, value=({WIRE_KEY: "website", "url": "x"},))
     assert WIRE_KEY not in var.get_value()
 
 
@@ -136,7 +129,7 @@ class _KindShapedModel(BaseModel):
 # FIXED (round-1 triage, 2026-08-21): prompt_safe_value is the one door;
 # this test now guards it.
 def test_pydantic_model_value_renders_as_stripped_json() -> None:
-    var = AgentVariable(name="a", value=_KindShapedModel())
+    var = AgentVariable(declaration={"name": "a"}, value=_KindShapedModel())
     rendered = var.get_value()
     parsed = json.loads(rendered)  # repr raises here
     assert WIRE_KEY not in parsed

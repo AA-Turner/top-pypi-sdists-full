@@ -37,7 +37,6 @@ the same envelope shape end-to-end without re-defining the contract.
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Literal
 
 from matrx_utils import VisibilityLiteral
@@ -504,18 +503,28 @@ class BulkOperationResult(BaseModel):
     """One row's result inside a BulkOperationResponse."""
 
     file_id: str
-    success: bool
+    ok: bool
     error: str | None = None
+    # op=move only — the receipt of where the file went.
+    old_path: str | None = None
+    new_path: str | None = None
 
 
 class BulkOperationResponse(BaseModel):
-    """Response from POST /files/bulk (discriminator: move|delete|restore|publish|share)."""
+    """Response from POST /files/bulk (discriminator: move|delete|restore|publish|shown_to|share).
+
+    THE one shape on BOTH hosts (file-service STATE.md): ``succeeded`` and
+    ``failed`` are COUNTS; per-item detail lives in ``results``; ``errors``
+    holds operation-level (non-per-id) failures. ``FileService.bulk_op``
+    builds it — routers return it as-is.
+    """
 
     op: str
     total: int
     succeeded: int
     failed: int
     results: list[BulkOperationResult]
+    errors: list[dict] = []
 
 
 __all__ = [

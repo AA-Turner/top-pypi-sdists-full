@@ -49,6 +49,9 @@ class FakePage:
         self._lands_on = lands_on
         self.goto_calls: list[str] = []
 
+    async def wait_for_load_state(self, state: str, **kwargs: Any) -> None:
+        return None
+
     async def goto(self, url: str, **kwargs: Any) -> _Resp:
         self.goto_calls.append(url)
         # `lands_on` models a redirect / DNS rebind: we asked for one address

@@ -69,16 +69,16 @@ class TestStreamBlockProcessor:
         final2 = proc.finalize()
         assert len(final2) == 0  # Second call returns nothing
 
-    def test_xml_block_with_parser(self):
-        md = "<flashcards>\nFront: Q1\nBack: A1\n</flashcards>"
+    def test_mermaid_block_with_parser(self):
+        md = "```mermaid\ngraph TD\n  A --> B\n```\n"
         proc = StreamBlockProcessor()
         events = proc.process_token(md)
         final = proc.finalize()
         all_events = events + final
-        flashcard_events = [e for e in all_events if e.type == "flashcards"]
-        assert len(flashcard_events) > 0
+        mermaid_events = [e for e in all_events if e.type == "mermaid"]
+        assert len(mermaid_events) > 0
         # Should have parsed data
-        complete = [e for e in flashcard_events if e.status == BlockStatus.COMPLETE]
+        complete = [e for e in mermaid_events if e.status == BlockStatus.COMPLETE]
         assert len(complete) > 0
         assert complete[-1].data is not None
 

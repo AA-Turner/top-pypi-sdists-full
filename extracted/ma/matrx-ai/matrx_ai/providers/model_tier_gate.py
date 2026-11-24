@@ -47,7 +47,8 @@ class TopTierModelRefusedError(Exception):
         self.model_id = model_id
         self.user_id = user_id
         self.code = TOP_TIER_MODEL_REFUSED
-        self.message = f"{TOP_TIER_MESSAGE} ({model_name or model_id}). Not run; no other model was used."
+        # The person's sentence never names a model (Arman, 2026-11-18); the model rides ``envelope()``.
+        self.message = f"{TOP_TIER_MESSAGE}. Not run; no other model was used."
         self.error_info = RetryableError(
             error_type=self.code,
             message=self.message,

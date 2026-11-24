@@ -53,6 +53,12 @@ TREE_COST_CEILING_USD: float | None = 25.0
 _MAX_TREES = 50_000
 
 _accrued: OrderedDict[str, float] = OrderedDict()
+#: A per-run dollar cap a caller asked for (``RunOptions.max_cost_usd``), keyed by the tree root it was set on.
+#: It only ever NARROWS the tree ceiling; the loop stops at it (``ceiling_stop_reason``) at the next iteration
+#: boundary, keeping everything produced, exactly like the iteration ceiling.
+_ceiling_of: dict[str, float] = {}
+#: The run-metadata key that carries the cap into ``execute_ai_request`` (the host sets it from ``max_cost_usd``).
+MAX_COST_METADATA_KEY = "max_cost_usd"
 #: Every child agent run owns its own request id and spends against its ROOT tree's
 #: cap (R38). ``_root_of`` maps such a request id to the root request whose
 #: accumulator it shares; ``_members`` is the reverse map (the refcount), dropped with
@@ -175,12 +181,51 @@ def remaining_budget(
     (disabled, or unknown request id). ``None`` means the guardrail treats the budget
     as absent — never as exhausted. A child that has not spent yet reads its ROOT's
     total (``root_request_id``, default: the ambient context's)."""
-    if TREE_COST_CEILING_USD is None or not user_request_id:
+    if not user_request_id:
         return None
     root_request_id = root_request_id or _ambient_root(user_request_id)
     with _lock:
         root = _root(root_request_id or user_request_id)
-        return TREE_COST_CEILING_USD - _accrued.get(root, 0.0)
+        caps = [c for c in (TREE_COST_CEILING_USD, _ceiling_of.get(root)) if c is not None]
+        if not caps:
+            return None
+        return min(caps) - _accrued.get(root, 0.0)
+
+
+def set_request_ceiling(user_request_id: str | None, usd: float | None) -> None:
+    """Cap the dollars this request's tree may spend (narrows the tree ceiling, never widens it). No-op on None / <= 0."""
+    if not user_request_id or usd is None or float(usd) <= 0:
+        return
+    with _lock:
+        root = _root(user_request_id)
+        old = _ceiling_of.get(root)
+        _ceiling_of[root] = float(usd) if old is None else min(old, float(usd))
+
+
+def ceiling_stop_reason(user_request_id: str | None) -> str | None:
+    """A plain reason when a caller-set dollar cap (not the global tree ceiling) is spent, else None."""
+    if not user_request_id:
+        return None
+    with _lock:
+        root = _root(user_request_id)
+        cap = _ceiling_of.get(root)
+        spent = _accrued.get(root, 0.0)
+    if cap is not None and spent >= cap:
+        return f"this run's dollar cap ${cap:.4f} is spent (${spent:.4f})"
+    return None
+
+
+def spent_ceiling(user_request_id: str | None) -> tuple[float, float] | None:
+    """``(cap, spent)`` when a caller-set dollar cap is spent (the numbers behind :func:`ceiling_stop_reason`)."""
+    if not user_request_id:
+        return None
+    with _lock:
+        root = _root(user_request_id)
+        cap = _ceiling_of.get(root)
+        spent = _accrued.get(root, 0.0)
+    if cap is not None and spent >= cap:
+        return cap, spent
+    return None
 
 
 def accrued_cost(user_request_id: str | None) -> float:
@@ -200,6 +245,7 @@ def forget_tree(user_request_id: str | None) -> None:
     with _lock:
         root = _root(user_request_id)
         _accrued.pop(root, None)
+        _ceiling_of.pop(root, None)
         _closing.discard(root)
         for member in _members.pop(root, set()):
             _root_of.pop(member, None)
@@ -222,6 +268,7 @@ def release_tree_budget(user_request_id: str | None) -> None:
                 _closing.discard(root)
                 _members.pop(root, None)
                 _accrued.pop(root, None)
+                _ceiling_of.pop(root, None)
             return
         if _members.get(user_request_id):
             _closing.add(user_request_id)
@@ -229,3 +276,4 @@ def release_tree_budget(user_request_id: str | None) -> None:
         _closing.discard(user_request_id)
         _members.pop(user_request_id, None)
         _accrued.pop(user_request_id, None)
+        _ceiling_of.pop(user_request_id, None)

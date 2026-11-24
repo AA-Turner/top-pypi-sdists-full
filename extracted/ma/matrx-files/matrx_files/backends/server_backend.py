@@ -23,7 +23,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import requests
+import httpx
+from matrx_utils.http_client import shared_client
 
 from .base_backend import StorageBackend
 from ..content_headers import resolve_object_headers
@@ -38,7 +39,7 @@ class ServerBackend(StorageBackend):
         self._api_key: str = ""
         self._timeout: int = _DEFAULT_TIMEOUT
         self._configured: bool = False
-        self._session: requests.Session | None = None
+        self._session: httpx.Client | None = None
         self._init_from_settings()
 
     # ------------------------------------------------------------------
@@ -76,9 +77,10 @@ class ServerBackend(StorageBackend):
         except Exception:
             return ""
 
-    def _get_session(self) -> requests.Session:
+    def _get_session(self) -> httpx.Client:
         if self._session is None:
-            session = requests.Session()
+            # follow_redirects: the requests.Session this replaced followed them by default.
+            session = httpx.Client(follow_redirects=True)
             session.headers.update({
                 "Authorization": f"Bearer {self._api_key}",
                 "Accept": "application/octet-stream",
@@ -116,7 +118,7 @@ class ServerBackend(StorageBackend):
         session = self._get_session()
         resolved = resolve_object_headers(mime_type=content_type, file_name=path)
         headers = {"Content-Type": resolved.content_type}
-        response = session.put(url, data=content, headers=headers, timeout=self._timeout)
+        response = session.put(url, content=content, headers=headers, timeout=self._timeout)
         self._raise_for_status(response, f"write '{path}'")
         return True
 
@@ -138,7 +140,7 @@ class ServerBackend(StorageBackend):
         response = session.patch(
             url,
             params={"append": "1"},
-            data=content,
+            content=content,
             headers=headers,
             timeout=self._timeout,
         )
@@ -228,8 +230,8 @@ class ServerBackend(StorageBackend):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _raise_for_status(response: requests.Response, context: str) -> None:
-        if not response.ok:
+    def _raise_for_status(response: httpx.Response, context: str) -> None:
+        if not response.is_success:
             raise RuntimeError(
                 f"ServerBackend {context} failed with HTTP {response.status_code}: "
                 f"{response.text[:200]}"
@@ -243,7 +245,7 @@ class ServerBackend(StorageBackend):
                 f"{self._base_url}/health",
                 timeout=self._timeout,
             )
-            return response.ok
+            return response.is_success
         except Exception:
             return False
 
@@ -259,8 +261,7 @@ class ServerBackend(StorageBackend):
 
     async def read_async(self, path: str) -> bytes:
         self._require_configured()
-        import httpx
-        async with httpx.AsyncClient(headers=self._async_headers(), timeout=self._timeout) as client:
+        async with shared_client(headers=self._async_headers(), timeout=self._timeout) as client:
             response = await client.get(self._file_url(path))
             self._raise_for_status(response, f"read_async '{path}'")  # type: ignore[arg-type]
             return response.content
@@ -269,10 +270,9 @@ class ServerBackend(StorageBackend):
         self._require_configured()
         if isinstance(content, str):
             content = content.encode()
-        import httpx
         resolved = resolve_object_headers(mime_type=content_type, file_name=path)
         headers = {**self._async_headers(), "Content-Type": resolved.content_type}
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with shared_client(timeout=self._timeout) as client:
             response = await client.put(self._file_url(path), content=content, headers=headers)
             self._raise_for_status(response, f"write_async '{path}'")  # type: ignore[arg-type]
             return True
@@ -281,9 +281,8 @@ class ServerBackend(StorageBackend):
         self._require_configured()
         if isinstance(content, str):
             content = content.encode()
-        import httpx
         headers = {**self._async_headers(), "Content-Type": "application/octet-stream"}
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with shared_client(timeout=self._timeout) as client:
             # Try server-side append first
             response = await client.patch(
                 self._file_url(path),
@@ -302,8 +301,7 @@ class ServerBackend(StorageBackend):
 
     async def delete_async(self, path: str) -> bool:
         self._require_configured()
-        import httpx
-        async with httpx.AsyncClient(headers=self._async_headers(), timeout=self._timeout) as client:
+        async with shared_client(headers=self._async_headers(), timeout=self._timeout) as client:
             response = await client.delete(self._file_url(path))
             self._raise_for_status(response, f"delete_async '{path}'")  # type: ignore[arg-type]
             return True
@@ -317,10 +315,10 @@ class ServerBackend(StorageBackend):
         response_content_type: str | None = None,
     ) -> str:
         self._require_configured()
-        import httpx, json as _json
+        import json as _json
         url = self._file_url(path)
         headers = {**self._async_headers(), "Accept": "application/json"}
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with shared_client(timeout=self._timeout) as client:
             response = await client.get(url, params={"url": "1", "expires": str(expires_in)}, headers=headers)
             if response.status_code == 200:
                 try:
@@ -333,11 +331,10 @@ class ServerBackend(StorageBackend):
 
     async def list_files_async(self, prefix: str = "") -> list[str]:
         self._require_configured()
-        import httpx
         base = f"{self._base_url}/files"
         params: dict[str, str] = {"prefix": prefix} if prefix else {}
         headers = {**self._async_headers(), "Accept": "application/json"}
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with shared_client(timeout=self._timeout) as client:
             response = await client.get(base, params=params, headers=headers)
             self._raise_for_status(response, f"list_files_async prefix='{prefix}'")  # type: ignore[arg-type]
             data = response.json()
@@ -350,8 +347,7 @@ class ServerBackend(StorageBackend):
     async def health_check_async(self) -> bool:
         try:
             self._require_configured()
-            import httpx
-            async with httpx.AsyncClient(headers=self._async_headers(), timeout=self._timeout) as client:
+            async with shared_client(headers=self._async_headers(), timeout=self._timeout) as client:
                 response = await client.get(f"{self._base_url}/health")
                 return response.is_success
         except Exception:

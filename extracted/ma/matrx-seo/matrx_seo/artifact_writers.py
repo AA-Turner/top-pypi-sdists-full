@@ -464,7 +464,7 @@ async def _topic_node_types(topic_ids: set[str]) -> dict[str, str]:
 async def _site_available_offering(site_id: str, topic_id: str) -> str | None:
     """This site's brand offering for an offering topic, ONLY when the site
     offers it now. Every product/service ``seo.topic`` id is also its
-    ``web.offering_template`` id (guarded in migration
+    ``brand.brand_offering_template`` id (guarded in migration
     ``brand_offerings_step6g_assigner_proposes_availability.sql``). ``None``
     means the site does not offer it, and an agent never changes that (D2)."""
     offering_id = await call_function(
@@ -509,7 +509,7 @@ def _proposal_skip_reason(exc: BaseException) -> str:
     🚨 ONE UNRESOLVABLE ITEM NEVER FAILS THE SITE. From 2026-09-15 the assigner
     grew five product/service topics lazily (``metadata.proposed_by =
     'topicassign-v1'``). The "every product/service topic id is also its
-    ``web.offering_template`` id" identity this path relies on was only ever
+    ``brand.brand_offering_template`` id" identity this path relies on was only ever
     checked ONCE, by the step-6g migration's guard, and the brand-offerings
     model is being collapsed into the topical map (Arman, 2026-09-17), so no
     template is minted for a new topic. ``propose_site_offering_from_template``

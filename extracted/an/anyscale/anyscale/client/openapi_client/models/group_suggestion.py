@@ -100,7 +100,7 @@ class GroupSuggestion(object):
     def kind(self):
         """Gets the kind of this GroupSuggestion.  # noqa: E501
 
-        cluster: users who hold the same direct role bindings share one new group. merge_same_members: user groups with the same members become one holding all of their role bindings. merge_same_bindings: user groups with the same role bindings become one holding all of their members. add_to_group: users who directly hold every role binding of a group join it in place of those bindings. empty_group: the user groups with no members or no role bindings are deleted. single_member_group: a user group with one member is deleted once that member holds its role bindings directly.  # noqa: E501
+        cluster: users who hold the same direct role bindings share one new group. merge_same_members: user groups with the same members become one holding all of their role bindings. merge_same_bindings: user groups with the same role bindings become one holding all of their members. add_to_group: users who directly hold every role binding of a group join it in place of those bindings. empty_group: the user groups with no members are deleted. single_member_group: a user group with one member is deleted once that member holds its role bindings directly.  # noqa: E501
 
         :return: The kind of this GroupSuggestion.  # noqa: E501
         :rtype: GroupSuggestionKind
@@ -111,7 +111,7 @@ class GroupSuggestion(object):
     def kind(self, kind):
         """Sets the kind of this GroupSuggestion.
 
-        cluster: users who hold the same direct role bindings share one new group. merge_same_members: user groups with the same members become one holding all of their role bindings. merge_same_bindings: user groups with the same role bindings become one holding all of their members. add_to_group: users who directly hold every role binding of a group join it in place of those bindings. empty_group: the user groups with no members or no role bindings are deleted. single_member_group: a user group with one member is deleted once that member holds its role bindings directly.  # noqa: E501
+        cluster: users who hold the same direct role bindings share one new group. merge_same_members: user groups with the same members become one holding all of their role bindings. merge_same_bindings: user groups with the same role bindings become one holding all of their members. add_to_group: users who directly hold every role binding of a group join it in place of those bindings. empty_group: the user groups with no members are deleted. single_member_group: a user group with one member is deleted once that member holds its role bindings directly.  # noqa: E501
 
         :param kind: The kind of this GroupSuggestion.  # noqa: E501
         :type: GroupSuggestionKind

@@ -107,9 +107,7 @@ from trilogy.core.models.execute import (
     SemiJoinFilter,
     UnionCTE,
     UnnestJoin,
-)
-from trilogy.core.processing.condition_utility import (
-    condition_implies,
+    filter_case_elided,
 )
 from trilogy.core.processing.utility import sort_select_output_processed
 from trilogy.core.query_processor import (
@@ -1574,76 +1572,14 @@ class BaseDialect:
                 siblings.append(other)
         return siblings
 
-    def _filter_guaranteed_by_parents(
-        self, lineage: BuildFilterItem, cte: CTE | UnionCTE
-    ) -> bool:
-        """A filter-item's per-row CASE is redundant when the parents already
-        guarantee the filter's predicate, e.g. when predicate pushdown places
-        the filter's aggregate condition in a group parent's HAVING, or the
-        filter's own predicate in every scan it reads. Rendering the content
-        bare also lets CollapseSingleParent fold a passthrough into its parent.
-
-        Gated to plain-CTE parents whose condition implies the where, supplying
-        every column the filter references between them, under no join that
-        could NULL-pad a row (INNER only): then every row of this CTE is built
-        from parent rows that each satisfy the predicate."""
-        if not cte.parent_ctes:
-            return False
-        if isinstance(cte, CTE) and any(
-            not isinstance(join, Join) or join.join_type != JoinType.INNER
-            for join in cte.joins
-        ):
-            return False
-        where_cond = lineage.where.conditional
-        guaranteeing = {
-            parent.name
-            for parent in cte.parent_ctes
-            if isinstance(parent, CTE)
-            and parent.condition is not None
-            and (
-                where_cond == parent.condition
-                or condition_implies(parent.condition, where_cond)
-            )
-        }
-        if not guaranteeing:
-            return False
-        refs = {a.address for a in lineage.content_concept_arguments}
-        refs |= {a.address for a in lineage.where.row_arguments}
-        return all(
-            (sources := cte.source_map.get(r)) and set(sources) <= guaranteeing
-            for r in refs
-        )
-
     def safe_get_cte_value(
         self, cte: CTE | UnionCTE, c: BuildConcept, raise_invalid: bool = False
     ) -> str | None:
-        address = c.address
-        sources = list(cte.source_map.get(address, []))
         if isinstance(cte, CTE):
-            key_class = cte.outer_join_key_class(address)
-            if len(key_class) > 1:
-                from_scope = cte.from_scope_aliases()
-                renders: list[str] = []
-                for member in key_class:
-                    for source in cte.source_map.get(member.address, []):
-                        if cte.source_key_for(source) not in from_scope:
-                            continue
-                        rendered = cte.get_alias(member, source)
-                        if isinstance(rendered, str) and rendered.startswith(
-                            INVALID_ALIAS_PREFIX
-                        ):
-                            continue
-                        self.used_map[source].add(member.address)
-                        renders.append(
-                            self._format_cte_column(
-                                cte, source, rendered, raise_invalid
-                            )
-                        )
-                unique_renders = sorted(set(renders))
-                if len(unique_renders) > 1:
-                    return self.FUNCTION_MAP[FunctionType.COALESCE](unique_renders, [])
-
-        if not sources:
+            reads = cte.column_reads(c)
+        else:
+            reads = [(c, s) for s in cte.source_map.get(c.address, [])]
+        if not reads:
             # No explicit source, but an inlined datasource may still expose this
             # concept as a raw column (not in its pruned projection).
             if isinstance(cte, CTE):
@@ -1654,31 +1590,17 @@ class BaseDialect:
                         cte, inlined.name, inlined.consumer_column(c), raise_invalid
                     )
             return None
-
-        if isinstance(cte, CTE) and len(sources) > 1:
-            from_scope = cte.from_scope_aliases()
-            in_scope = [s for s in sources if cte.source_key_for(s) in from_scope]
-            # An existence-only parent (e.g. the HAVING semijoin CTE) can leak into
-            # source_map; prefer FROM-scope providers whenever any exist.
-            if in_scope:
-                sources = in_scope
-            # Sources an INNER join equates on this very key carry one value
-            # per row; no side is padded, so the first spells the coalesce.
-            if len(sources) > 1 and cte.inner_join_key_sources(address) >= set(sources):
-                sources = sorted(sources)[:1]
-        for x in sources:
-            self.used_map[x].add(c.address)
-        if len(sources) == 1:
-            return self._format_cte_column(
-                cte, sources[0], cte.get_alias(c, sources[0]), raise_invalid
+        renders = set()
+        for member, source in reads:
+            self.used_map[source].add(member.address)
+            renders.add(
+                self._format_cte_column(
+                    cte, source, cte.get_alias(member, source), raise_invalid
+                )
             )
-        return self.FUNCTION_MAP[FunctionType.COALESCE](
-            sorted(
-                self._format_cte_column(cte, x, cte.get_alias(c, x), raise_invalid)
-                for x in sources
-            ),
-            [],
-        )
+        if len(renders) == 1:
+            return renders.pop()
+        return self.FUNCTION_MAP[FunctionType.COALESCE](sorted(renders), [])
 
     def _format_cte_column(
         self, cte: CTE | UnionCTE, source: str, rendered: Any, raise_invalid: bool
@@ -1800,7 +1722,7 @@ class BaseDialect:
             # a pre-aggregated COUNT rolled up through a join that padded it
             # (a sparse summary table beside its dimension): the group of one
             # padded row counts nothing, 0, as the granular path says
-            if isinstance(cte, CTE) and cte.zero_fills_count(c, rolled_up=True):
+            if isinstance(cte, CTE) and cte.zero_fills_count(c):
                 return self.FUNCTION_MAP[FunctionType.COALESCE]([summed, "0"], [])
             return summed
 
@@ -1844,17 +1766,7 @@ class BaseDialect:
                         c.lineage.offset,
                     )
             elif isinstance(c.lineage, FILTER_ITEMS):
-                # The per-row CASE WHEN is redundant when the CTE's WHERE implies
-                # the filter's predicate, or when its parents guarantee it
-                # (_filter_guaranteed_by_parents): emit just the content.
-                where_cond = c.lineage.where.conditional
-                if (
-                    cte.condition is not None
-                    and (
-                        cte.condition == where_cond
-                        or condition_implies(cte.condition, where_cond)
-                    )
-                ) or self._filter_guaranteed_by_parents(c.lineage, cte):
+                if filter_case_elided(cte, c.lineage):
                     rval = self.render_expr(
                         c.lineage.content, cte=cte, raise_invalid=raise_invalid
                     )

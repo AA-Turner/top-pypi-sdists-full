@@ -75,6 +75,21 @@ class _TextInputBase(Widget):
             self.param.watch(self._sync_value_input, 'value')
         )
 
+    def _process_param_change(self, params: dict[str, t.Any]) -> dict[str, t.Any]:
+        if (
+            'value' in params and 'value_input' not in params and
+            'value' not in self._param__private.syncing
+        ):
+            # _sync_value_input updates the parameter afterwards, syncing
+            # the model here sends both in one message.
+            params = dict(params, value_input=params['value'])
+        params = super()._process_param_change(params)
+        # The bokeh model only accepts str, None renders as an empty input
+        for key in ('value', 'value_input'):
+            if key in params and params[key] is None:
+                params[key] = ''
+        return params
+
     def _sync_value_input(self, event):
         # A `value` assigned from Python must also update `value_input`,
         # otherwise pressing Enter in the browser submits the stale
@@ -946,6 +961,13 @@ class ColorPicker(Widget):
 
     _rename: t.ClassVar[Mapping[str, str | None]] = {'value': 'color'}
 
+    def _process_param_change(self, params: dict[str, t.Any]) -> dict[str, t.Any]:
+        params = super()._process_param_change(params)
+        # The bokeh model needs a color, None shows its default like on creation
+        if 'color' in params and params['color'] is None:
+            params['color'] = '#000000'
+        return params
+
 
 class _NumericInputBase(Widget):
 
@@ -1399,11 +1421,17 @@ class DatetimeInput(LiteralInput):
         if new is not None and ((self.start is not None and self.start > new) or
                                 (self.end is not None and self.end < new)):
             value = datetime.strftime(new, self.format)
-            start = datetime.strftime(self.start, self.format)
-            end = datetime.strftime(self.end, self.format)
+            start = None if self.start is None else datetime.strftime(self.start, self.format)
+            end = None if self.end is None else datetime.strftime(self.end, self.format)
+            if start is None:
+                bounds = f'on or before {end}'
+            elif end is None:
+                bounds = f'on or after {start}'
+            else:
+                bounds = f'between {start} and {end}'
             if event:
                 self.value = event.old
-            raise ValueError(f'DatetimeInput value must be between {start} and {end}, '
+            raise ValueError(f'DatetimeInput value must be {bounds}, '
                              f'supplied value is {value}')
 
     def _process_property_change(self, props: dict[str, t.Any]) -> dict[str, t.Any]:
@@ -1473,7 +1501,7 @@ class DatetimeRangeInput(CompositeWidget):
         self._start = DatetimeInput(sizing_mode='stretch_width', margin=(5, 0, 0, 0))
         self._end = DatetimeInput(sizing_mode='stretch_width', margin=(5, 0, 0, 0))
         if 'value' not in params:
-            params['value'] = (params['start'], params['end'])
+            params['value'] = (params.get('start'), params.get('end'))
         super().__init__(**params)
         self._msg = ''
         self._composite.extend([self._text, self._start, self._end])

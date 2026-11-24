@@ -14,11 +14,16 @@ from jwcrypto import jwe
 from jwcrypto import jwk
 from jwcrypto import jws
 from jwcrypto import jwt
+from jwcrypto.common import InvalidJWSEHeader
 from jwcrypto.common import InvalidJWSERegOperation
 from jwcrypto.common import JWKeyNotFound
 from jwcrypto.common import JWSEHeaderParameter
+from jwcrypto.common import JWSEHeaderRegistry
 from jwcrypto.common import base64url_decode, base64url_encode
+from jwcrypto.common import check_crit
 from jwcrypto.common import json_decode, json_encode
+from jwcrypto.common import merge_and_check_headers, merge_headers
+from jwcrypto.common import validate_headers
 
 
 jwe_algs_and_rsa1_5 = jwe.default_allowed_algs + ['RSA1_5']
@@ -506,6 +511,64 @@ class TestJWK(unittest.TestCase):
         k = jwk.JWK.generate(kty='oct', size=256)
         y = jwk.JWK.from_json(k.export())
         self.assertEqual(k.export(), y.export())
+
+        with self.assertRaises(jwk.InvalidJWKValue):
+            jwk.JWK.from_json('1')
+
+    def test_generate_similar(self):
+        key_params = [
+            {
+                "kty": "oct",
+                "size": 192
+            },
+            {
+                "kty": "RSA",
+                "size": 3072
+            },
+            {
+                "kty": "EC",
+                "crv": "P-256"
+            },
+            {
+                "kty": "EC",
+                "crv": "P-384",
+            },
+            {
+                "kty": "OKP",
+                "crv": "Ed25519"
+            },
+            {
+                "kty": "OKP",
+                "crv": "Ed448"
+            },
+            {
+                "kty": "OKP",
+                "crv": "X25519"
+            },
+            {
+                "kty": "OKP",
+                "crv": "X448"
+            },
+            {
+                "kty": "RSA",
+                "size": 3072,
+                "use": "sig"
+            },
+            {
+                "kty": "oct",
+                "size": 256,
+                "key_ops": "sign"
+            },
+        ]
+        for params in key_params:
+            key1 = jwk.JWK.generate(**params)
+            key2 = jwk.JWK.generate_similar(key1)
+            for prop in ["kty", "crv", "use", "key_ops"]:
+                self.assertEqual(key1.get(prop), key2.get(prop))
+            self.assertEqual(
+                type(key1.get_op_key("sign")),
+                type(key2.get_op_key("sign"))
+            )
 
     def test_jwkset(self):
         k = jwk.JWK(**RSAPrivateKey)
@@ -1265,6 +1328,22 @@ class TestJWS(unittest.TestCase):
         with self.assertRaises(JWKeyNotFound):
             s3.deserialize(serialized, ks_swapped)
 
+    def test_wycheproof_tcId_374(self):
+        # Wycheproof testvectors_v1/json_web_signature_test.json, tcId 374
+        compact = (
+            "eyJraWQiOiJoczI1Ni1rZXkiLCJhbGciOiJIUzI1NiJ9.AB."
+            "8sL_ycV8G_D-K_2A3I0EW3NoPMeQzv13cAzuHlQ5TAE"
+        )
+        key = jwk.JWK.from_json(
+            '{"kty":"oct","kid":"hs256-key","use":"sig","alg":"HS256",'
+            '"k":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}'
+        )
+        obj = jws.JWS()
+        with self.assertRaises(jws.InvalidJWSObject):
+            obj.deserialize(compact)
+        with self.assertRaises(jws.InvalidJWSObject):
+            obj.deserialize(compact, key)
+
 
 E_A1_plaintext = \
     [84, 104, 101, 32, 116, 114, 117, 101, 32, 115, 105, 103, 110, 32,
@@ -1698,6 +1777,168 @@ class TestJWE(unittest.TestCase):
         self.assertNotIn('recipients', e.objects)
         self.assertNotIn('recipients', e.serialize())
 
+    def test_decrypt_early_exit_on_success(self):
+        key = jwk.JWK.from_password('password')
+        wrong = jwk.JWK.from_password('other-password')
+        payload = b'early-exit'
+        enc = jwe.JWE(plaintext=payload,
+                      protected={"alg": "PBES2-HS256+A128KW",
+                                 "enc": "A128GCM",
+                                 "p2c": 1000,
+                                 "p2s": base64url_encode(b"s" * 16)},
+                      flattened=False)
+        # First recipient uses the correct password; later ones do not.
+        enc.add_recipient(key)
+        enc.add_recipient(wrong)
+        enc.add_recipient(wrong)
+        token = enc.serialize()
+
+        check = jwe.JWE()
+        check.deserialize(token)
+        check.decrypt(key)
+        self.assertEqual(check.payload, payload)
+        # Only the successful recipient is attempted; later failures are not
+        # recorded because decrypt stops after the first plaintext.
+        self.assertEqual(check.decryptlog, ['Success'])
+
+        # When the matching recipient is last, prior failures are logged and
+        # decrypt still succeeds.
+        enc2 = jwe.JWE(plaintext=payload,
+                       protected={"alg": "PBES2-HS256+A128KW",
+                                  "enc": "A128GCM",
+                                  "p2c": 1000,
+                                  "p2s": base64url_encode(b"s" * 16)},
+                       flattened=False)
+        enc2.add_recipient(wrong)
+        enc2.add_recipient(key)
+        check2 = jwe.JWE()
+        check2.deserialize(enc2.serialize())
+        check2.decrypt(key)
+        self.assertEqual(check2.payload, payload)
+        self.assertEqual(len(check2.decryptlog), 2)
+        self.assertTrue(check2.decryptlog[0].startswith('Failed:'))
+        self.assertEqual(check2.decryptlog[1], 'Success')
+
+    def test_decrypt_max_recipients(self):
+        key = jwk.JWK.generate(kty='oct', size=256)
+        shared = {
+            "alg": "A256KW",
+            "enc": "A256GCM",
+        }
+        # More than the default limit is rejected for non-PBES2 as well.
+        tok = json_encode({
+            "unprotected": shared,
+            "recipients": [{}] * (jwe.default_max_recipients + 1),
+            "iv": base64url_encode(b'0' * 12),
+            "ciphertext": base64url_encode(b'x' * 16),
+            "tag": base64url_encode(b'0' * 16),
+        })
+        check = jwe.JWE()
+        check.deserialize(tok)
+        with self.assertRaisesRegex(jwe.InvalidJWEData, 'Too many recipients'):
+            check.decrypt(key)
+
+        # Exactly the default limit decrypts successfully.
+        payload = b'at-limit'
+        enc = jwe.JWE(plaintext=payload,
+                      protected={'enc': 'A256GCM'},
+                      flattened=False)
+        for i in range(jwe.default_max_recipients):
+            enc.add_recipient(key, header={'alg': 'A256KW', 'kid': str(i)})
+        check2 = jwe.JWE()
+        check2.deserialize(enc.serialize())
+        check2.decrypt(key)
+        self.assertEqual(check2.payload, payload)
+
+        # Overriding the module default allows more recipients.
+        old = jwe.default_max_recipients
+        try:
+            jwe.default_max_recipients = 11
+            check3 = jwe.JWE()
+            check3.deserialize(tok)
+            with self.assertRaises(jwe.InvalidJWEData) as ctx3:
+                check3.decrypt(key)
+            self.assertNotIn('Too many recipients', str(ctx3.exception))
+        finally:
+            jwe.default_max_recipients = old
+
+    def test_decrypt_mixed_multi_recipient(self):
+        payload = b'mixed-recipients'
+        key_aes = jwk.JWK.generate(kty='oct', size=256)
+        key_pbes = jwk.JWK.from_password('mixed-pass')
+        enc = jwe.JWE(plaintext=payload,
+                      protected={'enc': 'A256GCM'},
+                      flattened=False)
+        enc.add_recipient(key_aes, header={'alg': 'A256KW', 'kid': 'aes'})
+        enc.add_recipient(
+            key_pbes,
+            header={"alg": "PBES2-HS256+A128KW",
+                    "kid": "pbes",
+                    "p2c": 1024,
+                    "p2s": base64url_encode(b"t" * 16)})
+        token = enc.serialize()
+
+        # Decrypt with AES key (first recipient).
+        a = jwe.JWE()
+        a.deserialize(token)
+        a.decrypt(key_aes)
+        self.assertEqual(a.payload, payload)
+
+        # Decrypt with PBES2 password (second recipient); first fails quickly.
+        b = jwe.JWE()
+        b.deserialize(token)
+        b.decrypt(key_pbes)
+        self.assertEqual(b.payload, payload)
+
+    def test_jwe_zip_in_unprotected_header(self):
+        payload = b'test-zip'
+        key = jwk.JWK.generate(kty='oct', size=128)
+        # In per-recipient header
+        e = jwe.JWE(plaintext=payload,
+                    protected={'alg': 'A128KW', 'enc': 'A128GCM'})
+        with self.assertRaises(jwe.InvalidJWEData):
+            e.add_recipient(key, header={'zip': 'DEF'})
+
+        # In shared unprotected header
+        with self.assertRaises(jwe.InvalidJWEData):
+            jwe.JWE(plaintext=payload,
+                    protected={'alg': 'A128KW', 'enc': 'A128GCM'},
+                    unprotected={'zip': 'DEF'},
+                    recipient=key)
+
+    def test_jwe_crit_in_unprotected_header(self):
+        payload = b'test-crit'
+        key = jwk.JWK.generate(kty='oct', size=128)
+        e = jwe.JWE(plaintext=payload,
+                    protected={'alg': 'A128KW', 'enc': 'A128GCM'})
+        with self.assertRaises(jwe.InvalidJWEData):
+            e.add_recipient(key, header={'crit': ['custom']})
+
+    def test_jwe_crit_validation(self):
+        payload = b'test-crit-val'
+        key = jwk.JWK.generate(kty='oct', size=128)
+        # Empty crit
+        with self.assertRaises(jwe.InvalidJWEData):
+            jwe.JWE(plaintext=payload,
+                    protected={'alg': 'A128KW', 'enc': 'A128GCM',
+                               'crit': []},
+                    recipient=key)
+
+        # Crit item not in headers
+        with self.assertRaises(jwe.InvalidJWEData):
+            jwe.JWE(plaintext=payload,
+                    protected={'alg': 'A128KW', 'enc': 'A128GCM',
+                               'crit': ['kid']},
+                    recipient=key)
+
+        # Unknown crit header
+        with self.assertRaises(jwe.InvalidJWEData):
+            jwe.JWE(plaintext=payload,
+                    protected={'alg': 'A128KW', 'enc': 'A128GCM',
+                               'crit': ['unknown_hdr'],
+                               'unknown_hdr': 'val'},
+                    recipient=key)
+
 
 MMA_vector_key = jwk.JWK(**E_A2_key)
 MMA_vector_ok_cek =  \
@@ -2074,6 +2315,44 @@ class TestJWT(unittest.TestCase):
         check_claim = {"aud": ["www.example.com", "123"]}
         jwt.JWT(key=key, jwt=sertok, check_claims=check_claim)
 
+    def test_claim_integer_format(self):
+        claims = {"exp": 1300819380}
+        key = jwk.JWK(generate='oct', size=256)
+        token = jwt.JWT(header={"alg": "HS256"}, claims=claims)
+        token.make_signed_token(key)
+        sertok = token.serialize()
+        for invalid in ["123", True, False, 12.34, [1], {"a": 1}]:
+            self.assertRaises(jwt.JWTInvalidClaimFormat, jwt.JWT, key=key,
+                              jwt=sertok, check_claims={"exp": invalid})
+            self.assertRaises(jwt.JWTInvalidClaimFormat, jwt.JWT, key=key,
+                              jwt=sertok, check_claims={"nbf": invalid})
+            self.assertRaises(jwt.JWTInvalidClaimFormat, jwt.JWT, key=key,
+                              jwt=sertok, check_claims={"iat": invalid})
+
+    def test_payload_claims_format(self):
+        key = jwk.JWK(generate='oct', size=256)
+        bad_payloads = [
+            '{"iss": null}',
+            '{"sub": null}',
+            '{"aud": null}',
+            '{"jti": null}',
+            '{"typ": null}',
+            '{"exp": null}',
+            '{"nbf": null}',
+            '{"iat": null}',
+            '{"custom": null}',
+            '{"iat": true}',
+            '{"nbf": false}',
+            '{"exp": "9999999999"}',
+            '{"exp": [1]}',
+        ]
+        for bad in bad_payloads:
+            s = jws.JWS(bad)
+            s.add_signature(key, protected={"alg": "HS256"})
+            tok = s.serialize(compact=True)
+            self.assertRaises(jwt.JWTInvalidClaimFormat, jwt.JWT,
+                              jwt=tok, key=key)
+
     def test_unexpected(self):
         key = jwk.JWK(generate='oct', size=256)
         claims = {"testclaim": "test"}
@@ -2222,7 +2501,8 @@ class TestJWT(unittest.TestCase):
 class ConformanceTests(unittest.TestCase):
 
     def test_unknown_key_params(self):
-        key = jwk.JWK(kty='oct', k='secret', unknown='mystery')
+        key = jwk.JWK(kty='oct', k=base64url_encode(b'secret'),
+                      unknown='mystery')
         self.assertEqual('mystery', key.get('unknown'))
 
     def test_key_ops_values(self):
@@ -2820,3 +3100,135 @@ class TestRfc9864(unittest.TestCase):
                 self.assertEqual(len(w), 0)
         finally:
             jwa.default_warn_deprecated_algorithms = old
+
+
+class TestCommonHeaderFunctions(unittest.TestCase):
+
+    def test_merge_headers(self):
+        p = {'alg': 'A128KW'}
+        u1 = {'kid': 'k1'}
+        u2 = {'cty': 'text/plain'}
+        merged = merge_headers(p, u1, u2)
+        self.assertEqual(merged, {'alg': 'A128KW', 'kid': 'k1',
+                                  'cty': 'text/plain'})
+
+        # Duplicates across headers
+        with self.assertRaises(InvalidJWSEHeader):
+            merge_headers({'a': 1}, {'a': 2})
+
+        # Mustprotect check
+        reg = JWSEHeaderRegistry(
+            {'must': JWSEHeaderParameter('Must', True, True, None)})
+        with self.assertRaises(InvalidJWSEHeader):
+            merge_headers(None, {'must': 'val'}, registry=reg)
+
+    def test_check_crit(self):
+        reg = JWSEHeaderRegistry(
+            {'c1': JWSEHeaderParameter('C1', True, True, None),
+             'c2': JWSEHeaderParameter('C2', True, False, None)})
+
+        # Non-string header name in crit
+        with self.assertRaises(InvalidJWSEHeader):
+            check_crit(
+                {'crit': [123], 123: 'val'},
+                {'crit': [123], 123: 'val'},
+                registry=reg)
+
+        # Unsupported crit header
+        with self.assertRaises(InvalidJWSEHeader):
+            check_crit(
+                {'crit': ['c2'], 'c2': 'val'},
+                {'crit': ['c2'], 'c2': 'val'},
+                registry=reg)
+
+        # Valid crit
+        check_crit({'crit': ['c1'], 'c1': 'val'}, protected={'crit': ['c1']},
+                   registry=reg)
+
+    def test_validate_headers(self):
+        # b64 boolean check
+        with self.assertRaises(InvalidJWSEHeader):
+            validate_headers({'b64': 'not-a-bool'})
+
+        # check_fn callback check
+        def chk_fn(val):
+            return val == 'ok'
+        reg = JWSEHeaderRegistry(
+            {'custom': JWSEHeaderParameter('Custom', False, True, chk_fn)})
+        validate_headers({'custom': 'ok'}, registry=reg, target='ok')
+        with self.assertRaises(InvalidJWSEHeader):
+            validate_headers({'custom': 'bad'}, registry=reg, target='wrong')
+
+    def test_merge_and_check_headers(self):
+        p = {'alg': 'A128KW', 'crit': ['kid'], 'kid': 'key1'}
+        reg = JWSEHeaderRegistry(
+            {'alg': JWSEHeaderParameter('Alg', False, True, None),
+             'kid': JWSEHeaderParameter('Kid', False, True, None),
+             'crit': JWSEHeaderParameter('Crit', True, True, None)})
+        merged = merge_and_check_headers(p, None, registry=reg)
+        self.assertEqual(merged['kid'], 'key1')
+
+
+class TestBase64URL(unittest.TestCase):
+
+    def test_base64url_decode_valid(self):
+        # Empty string
+        self.assertEqual(base64url_decode(''), b'')
+        # 1 byte
+        self.assertEqual(base64url_decode('AQ'), b'\x01')
+        # 2 bytes
+        self.assertEqual(base64url_decode('AQI'), b'\x01\x02')
+        # 3 bytes
+        self.assertEqual(base64url_decode('AQID'), b'\x01\x02\x03')
+        # URL-safe characters
+        self.assertEqual(base64url_decode('-_-_'), b'\xfb\xff\xbf')
+
+    def test_base64url_decode_non_canonical(self):
+        # Trailing padding '=' is non-canonical
+        with self.assertRaises(ValueError) as ctx:
+            base64url_decode('AQ==')
+        self.assertIn('canonical', str(ctx.exception).lower())
+
+        with self.assertRaises(ValueError) as ctx:
+            base64url_decode('AQI=')
+        self.assertIn('canonical', str(ctx.exception).lower())
+
+        with self.assertRaises(ValueError) as ctx:
+            base64url_decode('AQ=')
+        self.assertIn('canonical', str(ctx.exception).lower())
+
+        # Non-zero padding bits
+        # 'AQ' decodes to b'\x01' with 0000 in unused bits.
+        # 'AR' decodes to b'\x01' with 0001 in unused bits.
+        with self.assertRaises(ValueError) as ctx:
+            base64url_decode('AR')
+        self.assertIn('canonical', str(ctx.exception).lower())
+
+        # Non-URL-safe standard base64 characters (+ and /)
+        with self.assertRaises(ValueError) as ctx:
+            base64url_decode('AQ+A')
+        self.assertIn('canonical', str(ctx.exception).lower())
+
+        with self.assertRaises(ValueError) as ctx:
+            base64url_decode('AQ/A')
+        self.assertIn('canonical', str(ctx.exception).lower())
+
+        # Decodes to the same value but not canonical: AA vs AB
+        with self.assertRaises(ValueError) as ctx:
+            base64url_decode('AB')
+        self.assertIn('canonical', str(ctx.exception).lower())
+
+    def test_base64url_decode_invalid(self):
+        # Invalid length (% 4 == 1)
+        with self.assertRaises(ValueError):
+            base64url_decode('A')
+
+        with self.assertRaises(ValueError):
+            base64url_decode('AAAAA')
+
+    def test_jwk_non_canonical_b64(self):
+        # 'secret' has non-zero padding bits in base64url
+        with self.assertRaises(jwk.InvalidJWKValue):
+            jwk.JWK(kty='oct', k='secret')
+        with self.assertRaises(jwk.InvalidJWKValue):
+            jwk.JWK(kty='oct', k='AQ==')

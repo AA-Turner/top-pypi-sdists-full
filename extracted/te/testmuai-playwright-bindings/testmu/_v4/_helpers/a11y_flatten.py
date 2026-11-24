@@ -18,9 +18,11 @@ Async because Playwright's API is. Returns a list of sparse dicts in DFS order
 with a 1-based `index`, or [] on any unrecoverable error: a locate call must
 never fail because of a11y.
 """
+import asyncio
 import json
 import logging
 import time
+import uuid
 
 from testmu._v4._helpers.vision import _load_runtime_snapshot_asset
 
@@ -45,28 +47,187 @@ async def _open_cdp(page):
     return await page.context.new_cdp_session(page)
 
 
-def _supports_cdp(page) -> bool:
-    """True when this session can speak CDP (Chromium family only).
-
-    Mirrors the reasoning in _helpers/vision's capture route: the REQUESTED
-    browser wins over the local engine identity, because cloud runs go through a
-    relay that reports Chromium regardless of the real engine.
-    """
-    import os
-
-    requested = (os.getenv("smart_browser_name") or "").strip().lower()
-    if requested in ("pw-webkit", "pw-firefox", "webkit", "firefox", "safari"):
-        return False
-    if requested in ("chrome", "chromium", "googlechrome", "microsoftedge",
-                     "edge", "msedge", "pw-chromium", "island"):
-        return True
+def _runtime_asset_available() -> bool:
+    """True when the grid-provisioned aria-snap runtime can be loaded."""
     try:
-        engine = str(page.context.browser.browser_type.name or "").strip().lower()
-    except Exception:  # noqa: BLE001
-        engine = ""
-    if engine in ("webkit", "firefox"):
+        _load_runtime_snapshot_asset()
+        return True
+    except RuntimeError:
         return False
-    return True
+
+
+_VP_ATTR = "data-testmu-vp"
+
+# Marks (mark=true) or unmarks the elements inside this frame's own viewport,
+# open shadow roots included. A superset of what is on screen: the caller's
+# box check decides.
+_VP_MARK_JS = """([attr, tag, mark]) => {
+    const walk = (root) => {
+        for (const el of root.querySelectorAll('*')) {
+            if (!mark) {
+                if (el.getAttribute(attr) === tag) el.removeAttribute(attr);
+            } else {
+                const r = el.getBoundingClientRect();
+                if (r.right >= 0 && r.bottom >= 0 && r.left <= innerWidth && r.top <= innerHeight)
+                    el.setAttribute(attr, tag);
+            }
+            if (el.shadowRoot) walk(el.shadowRoot);
+        }
+    };
+    walk(document);
+}"""
+
+
+async def _viewport_candidates(page, handles: list, budget_s: float, group_size: int = 50) -> list:
+    """The handles whose element may be in the viewport, in page order. One
+    script per frame marks the elements in view; one count per group of refs
+    (aria-ref OR-chain AND the mark) keeps the groups that hit. On any failure
+    every handle is kept."""
+    from testmu._v4._helpers.aria_perception import frame_id_for_ref, handle_to_aria_ref
+
+    tag = uuid.uuid4().hex[:12]
+    frames = list(page.frames)
+    try:
+        await asyncio.gather(*(f.evaluate(_VP_MARK_JS, [_VP_ATTR, tag, True]) for f in frames),
+                             return_exceptions=True)
+        marked = page.locator(f"[{_VP_ATTR}='{tag}']")
+        by_frame: dict = {}
+        for h in handles:
+            ref = handle_to_aria_ref(h)
+            by_frame.setdefault(frame_id_for_ref(ref), {})[ref] = None
+        groups = []
+        for refs in by_frame.values():
+            refs = list(refs)
+            groups += [refs[i:i + group_size] for i in range(0, len(refs), group_size)]
+
+        async def _hits(group):
+            loc = page.locator(f"aria-ref={group[0]}")
+            for ref in group[1:]:
+                loc = loc.or_(page.locator(f"aria-ref={ref}"))
+            return await loc.and_(marked).count() > 0
+
+        hits = await asyncio.wait_for(asyncio.gather(*(_hits(g) for g in groups)), timeout=budget_s)
+        in_view = {ref for group, hit in zip(groups, hits) if hit for ref in group}
+        return [h for h in handles if handle_to_aria_ref(h) in in_view]
+    except Exception as e:  # noqa: BLE001
+        _log.debug("portable flatten: viewport pre-filter failed (keeping all): %s", e)
+        return handles
+    finally:
+        await asyncio.gather(*(f.evaluate(_VP_MARK_JS, [_VP_ATTR, tag, False]) for f in frames),
+                             return_exceptions=True)
+
+
+async def _get_flat_a11y_tree_portable(page, viewport_only: bool = True, logger=None,
+                                       max_boxes: int = 400, budget_s: float = 2.0) -> list:
+    """Local non-CDP capture (Firefox without the grid runtime asset).
+
+    Same output contract as ``_get_flat_a11y_tree_via_js`` (sparse dicts, DFS
+    order, 1-based index, `ref` instead of `backend_dom_node_id`), built from the
+    portable aria snapshot. Boxes come from the aria-ref locators, fetched
+    concurrently under a budget; text leaves carry their owning element's box.
+    """
+    from testmu._aria_perception._snapshot import PlaywrightInternalsError
+    from testmu._v4._helpers.aria_perception import (
+        anchor_locator, capture_tree_portable, handle_to_aria_ref, is_portable_handle,
+    )
+
+    log = logger or logging.getLogger(__name__)
+    t_total = time.monotonic()
+    try:
+        tree = await capture_tree_portable(page)
+        if tree is None:
+            return []
+        nodes = []
+
+        def _collect(node):
+            nodes.append(node)
+            for child in node.children or []:
+                _collect(child)
+
+        _collect(tree)
+
+        handles, seen = [], set()
+        for n in nodes:
+            h = n.backend_dom_node_id
+            if is_portable_handle(h) and h not in seen:
+                seen.add(h)
+                handles.append(h)
+        if viewport_only:
+            handles = await _viewport_candidates(page, handles, budget_s)
+        handles = handles[:max_boxes]
+        boxes = {}
+
+        async def _box(h):
+            try:
+                boxes[h] = await anchor_locator(page, h).bounding_box(timeout=budget_s * 1000)
+            except Exception:  # noqa: BLE001
+                boxes[h] = None
+
+        tasks = [asyncio.ensure_future(_box(h)) for h in handles]
+        if tasks:
+            _done, pending = await asyncio.wait(tasks, timeout=budget_s)
+            for t in pending:
+                t.cancel()
+
+        viewport = None
+        if viewport_only:
+            try:
+                size = await page.evaluate("() => [window.innerWidth, window.innerHeight]")
+                viewport = (0.0, 0.0, float(size[0]), float(size[1]))
+            except Exception:
+                viewport = None
+
+        elements = []
+        for node in nodes:
+            role = (node.role or "").strip().lower()
+            if role == "text":
+                role = "statictext"
+            h = node.backend_dom_node_id
+            box = boxes.get(h)
+            bbox = ({"x": float(box["x"]), "y": float(box["y"]),
+                     "width": float(box["width"]), "height": float(box["height"])}
+                    if box else None)
+            skip = role in _A11Y_SKIP_ROLES or role in ("fragment",) or not role
+            if not skip and viewport is not None:
+                if bbox is None:
+                    skip = True
+                else:
+                    vp_x, vp_y, vp_w, vp_h = viewport
+                    if (bbox["x"] + bbox["width"] <= vp_x or bbox["x"] >= vp_x + vp_w or
+                            bbox["y"] + bbox["height"] <= vp_y or bbox["y"] >= vp_y + vp_h):
+                        skip = True
+            if skip:
+                continue
+            element = {"index": len(elements) + 1, "role": role, "name": node.name or ""}
+            if node.value and role in _A11Y_INPUT_LIKE_ROLES:
+                element["value"] = node.value
+            if node.description:
+                element["description"] = node.description
+            if node.disabled:
+                element["disabled"] = True
+            if node.focused:
+                element["focused"] = True
+            if node.required:
+                element["required"] = True
+            if node.readonly:
+                element["readonly"] = True
+            for tri in ("checked", "expanded", "selected", "pressed"):
+                tri_value = getattr(node, tri, None)
+                if tri_value is not None and tri_value is not False and tri_value != "false":
+                    element[tri] = "mixed" if tri_value == "mixed" else "true"
+            if bbox:
+                element["bounding_box"] = bbox
+            if is_portable_handle(h):
+                element["ref"] = handle_to_aria_ref(h)
+            elements.append(element)
+        log.info("portable flatten: %d elements in %.0fms (viewport_only=%s)",
+                 len(elements), (time.monotonic() - t_total) * 1000, viewport_only)
+        return elements
+    except PlaywrightInternalsError:
+        raise
+    except Exception as e:
+        log.warning("portable flatten: capture failed (continuing without): %s", e)
+        return []
 
 
 async def _aria_exec(page, expr):
@@ -516,6 +677,22 @@ async def _get_flat_a11y_tree_via_js(page, viewport_only: bool = True, logger=No
 
 
 async def get_flat_a11y_tree(page, viewport_only: bool = True, logger=None) -> list:
+    """Canonical flat a11y-tree capture for /v2/locate/desktop grounding,
+    by the page's perception backend (``_get_flat_a11y_tree_cdp`` on Chromium,
+    ``_get_flat_a11y_tree_non_cdp`` on Firefox; same output contract)."""
+    from testmu._v4._helpers._perception import perception_for
+    return await perception_for(page).flat_a11y(viewport_only=viewport_only, logger=logger)
+
+
+async def _get_flat_a11y_tree_non_cdp(page, viewport_only: bool = True, logger=None) -> list:
+    """Firefox: the grid-provisioned aria-snap bundle when the worker
+    has it, else the portable aria snapshot (local runs)."""
+    log = logger or logging.getLogger(__name__)
+    capture = _get_flat_a11y_tree_via_js if _runtime_asset_available() else _get_flat_a11y_tree_portable
+    return await capture(page, viewport_only=viewport_only, logger=log)
+
+
+async def _get_flat_a11y_tree_cdp(page, viewport_only: bool = True, logger=None) -> list:
     """Canonical flat a11y-tree capture for /v2/locate/desktop grounding.
 
     Same algorithm as ChromeCDP.get_flat_a11y_tree but speaks CDP via
@@ -533,10 +710,6 @@ async def get_flat_a11y_tree(page, viewport_only: bool = True, logger=None) -> l
     a11y.
     """
     log = logger or logging.getLogger(__name__)
-    if not _supports_cdp(page):
-        # Non-CDP browser: previously returned [] here (Safari sent no a11y at
-        # all to /v2/locate); the injected aria-snap bundle now covers it.
-        return await _get_flat_a11y_tree_via_js(page, viewport_only=viewport_only, logger=log)
     session = await _open_cdp(page)
     t_total = time.monotonic()
     # Per-stage wall times (ms). The grand total in the summary log = sum(timings.values())

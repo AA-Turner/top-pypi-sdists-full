@@ -28,18 +28,20 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING, NamedTuple
 
+from packaging.ranges import VersionRange
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
+
 from nab_index.client import WheelFile
-from nab_project._testing.coordinator_fake import make_coordinator
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.provider import Provider
 from nab_provider.target import ResolveTarget
 from nab_provider.testing import make_metadata
-from nab_resolver.errors import ResolutionError
 from nab_resolver.resolver import Resolver
 from nab_resolver.types import Incompatibility
+from nab_test_support.coordinator import make_coordinator
+
+from .packaging_provider import resolve_or_prove_conflict
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -204,10 +206,7 @@ def _resolve(graph: _Graph, provider_type: type[_CountingProvider]) -> _Run:
     )
     resolver = Resolver(provider, range_type=VersionRange, root_version="0")
 
-    try:
-        pins = resolver.resolve(dict(graph.root_requirements))
-    except ResolutionError:
-        pins = None
+    pins = resolve_or_prove_conflict(resolver, graph.root_requirements)
     return _Run(
         pins,
         provider.stats.look_ahead_rejections,

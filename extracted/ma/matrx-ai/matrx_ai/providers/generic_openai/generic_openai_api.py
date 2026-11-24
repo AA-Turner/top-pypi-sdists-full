@@ -26,8 +26,9 @@ from matrx_ai.providers.outbound_capture import (
     stamp_call_meta,
 )
 from matrx_ai.providers.reasoning import (
-    emit_complete_reasoning_block,
+    emit_settled_content,
     openai_compatible_reasoning_text,
+    reasoning_opener,
 )
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
@@ -63,6 +64,10 @@ class GenericOpenAIChat:
     endpoint_name: str
     provider_name: str
     debug: bool
+    #: True for a server whose own request fields (llama.cpp / vLLM
+    #: ``chat_template_kwargs``) the OpenAI SDK never declares: extra_body is
+    #: their normal road, not SDK drift. A key the SDK cannot carry still voices.
+    body_extras_expected: bool = False
 
     def __init__(
         self,
@@ -194,6 +199,7 @@ class GenericOpenAIChat:
                 config_data,
                 provider=self.provider_name,
                 snapshot=True,
+                body_extras_expected=self.body_extras_expected,
             )
         )
 
@@ -214,14 +220,8 @@ class GenericOpenAIChat:
             converted_response, emitter, self.provider_name.upper()
         )
 
-        for message in converted_response.messages:
-            for content in message.content:
-                if isinstance(content, ThinkingContent):
-                    await emit_complete_reasoning_block(emitter, content.text)
-                elif isinstance(content, TextContent):
-                    await emitter.send_chunk(content.text)
-                elif isinstance(content, ToolCallContent):
-                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
+        await emit_settled_content(emitter, converted_response)
 
         vcprint(f"{self.endpoint_name} Non-streaming execution completed successfully", color="green")
         return converted_response
@@ -241,6 +241,7 @@ class GenericOpenAIChat:
                 config_data,
                 provider=self.provider_name,
                 snapshot=True,
+                body_extras_expected=self.body_extras_expected,
             )
         )
 
@@ -300,7 +301,7 @@ class GenericOpenAIChat:
                 accumulated_reasoning += reasoning_chunk
                 if not in_think_block:
                     await emitter.send_reasoning_state("started")
-                    await emitter.send_chunk("<reasoning>")
+                    await emitter.send_chunk(reasoning_opener(accumulated_content))
                     in_think_block = True
                 await emitter.send_chunk(reasoning_chunk)
                 await asyncio.sleep(0)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wfdb
-Version: 5.0.0
+Version: 5.2.0
 Summary: The WFDB Python package: tools for reading, writing, and processing physiologic signals and annotations.
 Author: The Laboratory for Computational Physiology
 Author-email: The Laboratory for Computational Physiology <contact@physionet.org>
@@ -12,8 +12,9 @@ Requires-Dist: pandas>=2.2.3
 Requires-Dist: soundfile>=0.12.1
 Requires-Dist: matplotlib>=3.8.0
 Requires-Dist: requests>=2.31.0
-Requires-Dist: fsspec>=2023.10.0
+Requires-Dist: fsspec>=2025.7.0
 Requires-Dist: aiohttp>=3.10.11
+Requires-Dist: physionet>=0.7.2
 Requires-Python: >=3.11
 Project-URL: homepage, https://github.com/MIT-LCP/wfdb-python/
 Project-URL: repository, https://github.com/MIT-LCP/wfdb-python/

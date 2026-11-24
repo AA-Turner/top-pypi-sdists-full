@@ -60,11 +60,22 @@ fwd_viewer/org_id:
 # Each nests an _org/org_id sub-role that carries its grants, so they survive scoping a token to an org.
 staff_member:
     - staff_member_org/*
-staff_member_org/org_id: []
+# Baseline for every employee: list organizations and their workspaces, read every workspace's
+# record and modules, and file access requests. No users, no flows, no customer data.
+staff_member_org/org_id:
+    - r:organization_directory/org_id
+    - r+w+d:access_request/org_id
+    - r:workspace_overview/org_id,*
+    - r:workspace_module/org_id,*
 staff_access_approver:
     - staff_member
     - staff_access_approver_org/*
-staff_access_approver_org/org_id: []
+staff_access_approver_org/org_id:
+    - r:access_request/org_id
+    - r+w+d:access_request_decision/org_id
+    - w:workspace_category/org_id,*
+# The shift roles read only. Whoever is on shift approves their own access request for a
+# role of a tier the shift covers: support for inspect and config, on-call for every tier.
 staff_support:
     - staff_member
     - staff_support_org/*
@@ -76,18 +87,57 @@ staff_oncall:
     - staff_oncall_org/*
 staff_oncall_org/org_id:
     - w:staff_break_glass/org_id,{tier=*}
+# The only fleet role that writes: config, feature gates and release versions of every
+# workspace and module. No customer data.
 staff_config_manager:
     - staff_member
     - staff_config_manager_org/*
-staff_config_manager_org/org_id: []
+staff_config_manager_org/org_id:
+    - w:workspace_config/org_id,*
+    - w:workspace_release/org_id,*
+# Requested like staff_config_manager, with no org or workspace. The only fleet role that reads the
+# admin panel lists of every org: users (names and emails), sessions and API keys. Read only.
+staff_user_viewer:
+    - staff_member
+    - staff_user_viewer_org/*
+staff_user_viewer_org/org_id:
+    - r:admin_panel/org_id
 # Scoped staff roles: time-limited access to one org or workspace through access requests.
 # The tiers nest each other; staff_org_viewer is nested in all of them and can also be requested on its own.
-staff_org_viewer/org_id: []
+# Reads an organization's settings. No workspace access, no writes.
+staff_org_viewer/org_id:
+    - org_member/org_id
+# Configures an organization: settings, users, login. No workspace config or content;
+# workspace_lifecycle (data deletion) is the only workspace permission it holds.
 staff_org_admin/org_id:
     - staff_org_viewer/org_id
+    - r:admin_panel/org_id
+    - w:organization/org_id
+    # user groups are part of an organization's users; every organization writer holds it
+    - r+w:user_groups/org_id
+    - w+d:infrastructure/org_id
+    - w:workspace_lifecycle/org_id,*
+# Sees how a workspace is set up: flows, connections, jobs. No decisions, records, files or cases.
 staff_ws_inspector/org_id,ws_id:
     - staff_org_viewer/org_id
+    - ws_member/org_id,ws_id
+    - flow_viewer/org_id,ws_id,*
+    - connection_viewer/org_id,ws_id
+    - r:workspace_job/org_id,ws_id
+# Reads customer data: decisions, history, records, files and cases. Sensitive fields stay masked.
 staff_ws_data_viewer/org_id,ws_id:
     - staff_ws_inspector/org_id,ws_id
+    - ws_viewer/org_id,ws_id
+    - dh_viewer_live/org_id,ws_id
+    - chart_viewer_live/org_id,ws_id
+    - session_viewer_live/org_id,ws_id
+    - file_viewer_sandbox/org_id,ws_id
+    - file_viewer_live/org_id,ws_id
+    - r:workspace_record/org_id,ws_id,{env=*,type=*}
+    - r:workspace_case/org_id,ws_id
+    - r:workspace_review_case/org_id,ws_id,{env=*}
+# Everything the customer's workspace admin can do, plus workspace config. No workspace_release.
 staff_ws_admin/org_id,ws_id:
     - staff_ws_data_viewer/org_id,ws_id
+    - ws_admin/org_id,ws_id
+    - w:workspace_config/org_id,ws_id

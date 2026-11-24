@@ -36,6 +36,8 @@ _LAZY: dict[str, str] = {
     "Pin": "client",
     "SourceRef": "catalog",
     "source": "catalog",
+    "EnvironmentRef": "catalog",
+    "environment": "catalog",
     "Rewind": "client.resources.runs.reopen.conflict",
     "Edit": "client",
     "CommandKind": "run.commands.commands",
@@ -79,6 +81,7 @@ if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at run
     from .reads.compare import Aligned, Comparison
     from .catalog.refs import DatasetRef, SourceRef
     from .catalog.catalog import source
+    from .catalog.environments import EnvironmentRef, environment
     from .capture.capture import (
         CaptureLedger,
         CaptureState,
@@ -131,6 +134,7 @@ __all__ = [
     "Rewind",
     "Edit",
     "CommandKind",
+    "EnvironmentRef",
     "Run",
     "Settings",
     "SourceRef",
@@ -138,6 +142,7 @@ __all__ = [
     "UnitContext",
     "active_run",
     "context",
+    "environment",
     "expect",
     "finish",
     "init",

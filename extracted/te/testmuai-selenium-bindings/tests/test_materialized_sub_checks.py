@@ -86,6 +86,19 @@ def test_string_to_float_transform_handles_currency():
     assert node.evaluate({}, _gv({"{{ev}}": "$1,200.50"}))[0] is True
 
 
+@pytest.mark.parametrize("read, expected, operator, passed", [
+    # kane-cli#239: the integer-only match made both sides 0, so a wrong amount passed.
+    ("You pay 0.05 ETH", "0.5", "equals", False),
+    ("$49.99", "49.99", "equals", True),
+    ("Total 1,234.56 USD", "1234.5", "gt", True),
+    ("Qty: 12 items", "12", "equals", True),
+])
+def test_extract_number_keeps_decimals(read, expected, operator, passed):
+    check = _sc("{{ev}}", expected, operator=operator, transforms=["extract_number"])
+    node = Assertion.from_json(_tree([check]))
+    assert node.evaluate({}, _gv({"{{ev}}": read}))[0] is passed
+
+
 def test_ordering_operator_is_numeric_not_lexical():
     check = _sc("{{ev}}", "9", operator="gt")
     node = Assertion.from_json(_tree([check]))

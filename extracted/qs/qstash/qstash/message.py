@@ -12,7 +12,7 @@ from typing import (
 
 from qstash.chat import LlmProvider
 from qstash.errors import QStashError
-from qstash.http import HttpClient, HttpMethod
+from qstash.http import destination_path, HttpClient, HttpMethod, path_segment
 
 
 class LlmApi(TypedDict):
@@ -786,6 +786,9 @@ def convert_to_batch_messages(
         if "retries" in msg:
             batch_msg["retries"] = msg["retries"]
 
+        if "retry_delay" in msg:
+            batch_msg["retry_delay"] = msg["retry_delay"]
+
         if "callback" in msg:
             batch_msg["callback"] = msg["callback"]
 
@@ -995,7 +998,7 @@ class MessageApi:
         )
 
         response = self._http.request(
-            path=f"/v2/publish/{destination}",
+            path=f"/v2/publish/{destination_path(destination)}",
             method="POST",
             headers=req_headers,
             body=body,
@@ -1247,7 +1250,7 @@ class MessageApi:
         )
 
         response = self._http.request(
-            path=f"/v2/enqueue/{queue}/{destination}",
+            path=f"/v2/enqueue/{path_segment(queue, 'Queue name')}/{destination_path(destination)}",
             method="POST",
             headers=req_headers,
             body=body,
@@ -1421,7 +1424,7 @@ class MessageApi:
         Gets the message by its id.
         """
         response = self._http.request(
-            path=f"/v2/messages/{message_id}",
+            path=f"/v2/messages/{path_segment(message_id, 'Message id')}",
             method="GET",
         )
 
@@ -1436,7 +1439,7 @@ class MessageApi:
         it might be too late to cancel.
         """
         self._http.request(
-            path=f"/v2/messages/{message_id}",
+            path=f"/v2/messages/{path_segment(message_id, 'Message id')}",
             method="DELETE",
             parse_response=False,
         )

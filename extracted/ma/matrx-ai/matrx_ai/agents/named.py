@@ -70,7 +70,6 @@ from enum import StrEnum
 from typing import Annotated, Any, ClassVar, Generic, Literal, TypeVar
 
 from matrx_utils import vcprint
-from matrx_utils.text_case import humanize_identifier
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
 
 from matrx_ai.agents.definition import Agent
@@ -244,6 +243,24 @@ class DirectValueMapping(BaseModel):
     deliver: Literal["variable", "context"] = "variable"
 
 
+class SurfaceValueMapping(BaseModel):
+    """A BROWSER-FILLED entry: the page reads ``target`` from its own scope (``selection``, ``content``…)
+    and sends the value under the map KEY's name (``surface-agents/utils/value-mapping-resolver.ts``).
+
+    Stored by shortcuts: ``mandate.vw_shortcut.value_mappings`` IS ``definition.default_consumption_map``,
+    so the browser's surface map and the server's consumption map are one column (2026-11-21: a lane
+    rewrote nine shortcut maps to ``offered_value`` to leave the by-name legacy lane, and the browser —
+    which refuses ``offered_value`` — stopped sending the selection). The server never reads the page's
+    scope, so :func:`parse_value_mapping` normalizes this entry to "the offered value of the key's own
+    name" (``OfferedValueMapping(target=<key>)``): what the browser sends is what the server consumes,
+    and no stored map has to change shape for the server to understand it.
+    """
+
+    mapType: Literal["surface_value"] = "surface_value"
+    target: str
+    required: bool = False
+
+
 class UnmappedValueMapping(BaseModel):
     mapType: Literal["unmapped"] = "unmapped"
 
@@ -273,6 +290,7 @@ class PromptUserValueMapping(BaseModel):
 
 ValueMapping = Annotated[
     CodeValueMapping
+    | SurfaceValueMapping
     | OfferedValueMapping
     | DirectValueMapping
     | UnmappedValueMapping
@@ -303,6 +321,7 @@ VALUE_MAPPING_SOURCE_WORDS = (
 _FIELD_WORDS: dict[tuple[str, str], str] = {
     ("offered_value", "target"): "it does not say WHICH offered value to take",
     ("code_value", "target"): "it does not say WHICH offered value to take",
+    ("surface_value", "target"): "it does not say WHICH page value the browser reads",
     ("direct_value", "target"): "it has no fixed value to write — a 'direct_value' source IS its value",
     ("prompt_user", "prompt"): "it has no question to ask — a blank box nobody can answer",
 }
@@ -341,7 +360,7 @@ class ValueMappingParseError(ValueError):
     """
 
 
-def parse_value_mapping(raw: Any) -> ParsedValueMapping:
+def parse_value_mapping(raw: Any, *, name: str = "") -> ParsedValueMapping:
     """THE one deserializer for a persisted ValueMapping entry.
 
     Every read of a stored mapping (mandate ``contract.variable_mapping``,
@@ -350,12 +369,20 @@ def parse_value_mapping(raw: Any) -> ParsedValueMapping:
     ``offered_value`` shape, so no consumer ever branches on the legacy
     spelling — normalize on read, ONE funnel, no second parser.
 
+    A browser-filled ``surface_value`` entry (:class:`SurfaceValueMapping`) is
+    normalized to the offered value the browser sends: the one named ``name``
+    (the map key the entry sits under). Without ``name`` its ``target`` is
+    left empty, which every consumer reads as "the key's own name"
+    (``mapping.target or name``). An absent page value skips, as the browser
+    skips it; a stored ``required`` fails, as the browser refuses the launch.
+
     Raises :class:`ValueMappingParseError` — a worded refusal naming the tag it
     found and the sources that exist — for anything it cannot read.
     """
     if isinstance(
         raw,
         CodeValueMapping
+        | SurfaceValueMapping
         | OfferedValueMapping
         | DirectValueMapping
         | UnmappedValueMapping
@@ -399,6 +426,13 @@ def parse_value_mapping(raw: Any) -> ParsedValueMapping:
             ) from exc
     if isinstance(value, CodeValueMapping):
         return OfferedValueMapping(target=value.target, required=value.required)
+    if isinstance(value, SurfaceValueMapping):
+        return OfferedValueMapping(
+            target=str(name or ""),
+            required=value.required,
+            deliver="variable",
+            when_absent="fail" if value.required else "skip",
+        )
     return value
 
 
@@ -451,7 +485,7 @@ def _coerce_declared_value(
     variable: AgentVariable, value: Any
 ) -> tuple[Any, bool, bool, str | None]:
     """Return value, mismatched, lossy, note. Only proven lossless casts pass."""
-    extra = variable.model_extra or {}
+    extra = variable.declaration
     expected = extra.get("dataType") or extra.get("data_type") or extra.get("type")
     if expected in (None, "string", "text"):
         if expected and not isinstance(value, str):
@@ -507,7 +541,7 @@ def resolve_variable_mapping(
     """Resolve ValueMapping against one agent; mapping keys are agent variables."""
     parsed: dict[str, ParsedValueMapping] = {}
     for agent_name, raw in (mapping or {}).items():
-        value = parse_value_mapping(raw)
+        value = parse_value_mapping(raw, name=str(agent_name))
         if isinstance(value, PromptUserValueMapping):
             raise ValueError(
                 f"mapping for {agent_name!r} uses prompt_user, but a server-side "
@@ -973,6 +1007,10 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
         spill_variables: set[str] | None = None,
         consumed_variables: dict[str, Any] | None = None,
         store: bool | None = None,
+        conversation_id: str | None = None,
+        allow_client_delegation: bool = True,
+        provider_schema: dict[str, Any] | None = None,
+        run_metadata: dict[str, Any] | None = None,
     ) -> AgentRunResult:
         """Load -> apply variables -> apply overrides -> execute.
 
@@ -990,6 +1028,16 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
                              (``topic.agent_config.<key>``) flows in here.
             config_overrides: ``LLMParams`` or kwargs dict applied to the
                               agent's UnifiedConfig before execution.
+            conversation_id: Continue THIS existing conversation instead of
+                             opening a new one (a follow-up turn on a thread
+                             a prior run of this agent started). ``None`` =
+                             a new conversation.
+            allow_client_delegation: ``False`` keeps every tool server-side
+                             for this run (no client round trip).
+            provider_schema: The mandate's declared kind schema the host binds at
+                             the provider boundary (the same one every mandate
+                             door binds). ``None`` binds ``cls.Output``; either
+                             way ``cls.Output`` parses the answer.
             user_input: Optional user message (string or rich content
                         blocks — images, files, multimodal). Appended
                         verbatim to the conversation.
@@ -1003,6 +1051,8 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
             client_tools: Optional list of additional client-delegated
                           tool names. Merged into the forked
                           ``AppContext.client_tools``.
+            run_metadata: Optional host facts for the run's CONTEXT (``run_agent(metadata=...)``), e.g. a
+                          run-history stamp the host's spine open reads. Never persisted on the request row.
             request_metadata: Optional dict merged into
                               ``agent.request_metadata`` (flows to
                               ``execute_ai_request(metadata=...)``).
@@ -1122,10 +1172,16 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
             user_input=user_input,
             host_turn=host_turn,
             json_schema=cls.Output,
+            # The mandate's declared kind, when the host bound one (rule 30): the provider is held to
+            # the kind, and ``cls.Output`` still reads the answer.
+            provider_schema=provider_schema,
             extra_client_tools=extra_client_tools or None,
             suppress_stream=suppress_stream,
             stream_data_types=stream_data_types,
             store=store,
+            conversation_id=conversation_id,
+            allow_client_delegation=allow_client_delegation,
+            metadata=run_metadata,
         )
 
         if result.parsed is not None:

@@ -39,6 +39,8 @@ caller and passed in via ``extra_consumed``. The API layer does exactly that.
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 from collections import defaultdict
 from typing import Any
 
@@ -117,6 +119,7 @@ def declarations_from_definition(
     definition: Definition, registry: Any = None
 ) -> list[NodeKindDeclaration]:
     """Turn an authored definition into index declarations."""
+    definition = _information.executable_of(definition)  # a note is not a step
     flow_edges = [
         (edge.source, edge.target) for edge in definition.edges if edge.kind in _FLOW_EDGE_KINDS
     ]

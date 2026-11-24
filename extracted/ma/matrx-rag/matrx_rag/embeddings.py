@@ -29,11 +29,16 @@ Hosts override via :func:`matrx_rag.configure(embedding_provider=...)`.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager, nullcontext
 from dataclasses import dataclass
+
+from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
+
+_cache_log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # SQL-injection defense — table name validation
@@ -152,6 +157,7 @@ class DefaultOpenAIVoyageProvider:
     ) -> None:
         self._openai_client: object | None = None
         self._voyage_client: object | None = None
+        self._voyage_key: str | None = None  # the key _voyage_client was built with
         self._admission = admission
 
     def _admit(self, model: str) -> AbstractAsyncContextManager[object]:
@@ -217,23 +223,35 @@ class DefaultOpenAIVoyageProvider:
         if self._openai_client is None:
             # Lazy import: matrx-local with its own provider never
             # pays the openai SDK import cost.
-            from openai import AsyncOpenAI  # noqa: PLC0415
+            from openai import OpenAI  # noqa: PLC0415
 
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 raise RuntimeError("OPENAI_API_KEY not set")
-            self._openai_client = AsyncOpenAI(api_key=api_key)
+            # Sync client behind the off-loop adapter: the SDK parses the
+            # response and base64-decodes every vector inside ``create``, and
+            # the async client does that on the event loop (same stall class
+            # as Voyage, event_loop_stall 0772f6de).
+            self._openai_client = _OffLoopOpenAI(OpenAI(api_key=api_key))
         return self._openai_client
 
     def _voyage(self):
-        # No lock needed — same reasoning as _openai above.
-        if self._voyage_client is None:
+        # No lock needed — same reasoning as _openai above. The key is read on EVERY call (the
+        # host's secret_source, else the environment) and the client is rebuilt when it changed,
+        # so a rotated key takes effect on the next embedding with no restart.
+        from matrx_rag._ext import provider_secret  # noqa: PLC0415
+
+        api_key = provider_secret("VOYAGE_API_KEY")
+        if not api_key:
+            raise RuntimeError("VOYAGE_API_KEY not set")
+        if self._voyage_client is None or self._voyage_key != api_key:
             import voyageai  # type: ignore[import-untyped]  # noqa: PLC0415
 
-            api_key = os.environ.get("VOYAGE_API_KEY")
-            if not api_key:
-                raise RuntimeError("VOYAGE_API_KEY not set")
-            self._voyage_client = voyageai.AsyncClient(api_key=api_key)
+            self._voyage_key = api_key
+            # The sync client behind the off-loop adapter: the async client
+            # parsed and decoded every vector on the event loop, freezing the
+            # workflow worker ~2s (event_loop_stall 0772f6de, 2026-11-12).
+            self._voyage_client = _OffLoopVoyage(voyageai.Client(api_key=api_key))
         return self._voyage_client
 
     # ── Adapter implementations ─────────────────────────────────────
@@ -254,10 +272,11 @@ class DefaultOpenAIVoyageProvider:
                     texts=chunk,
                 ) as state:
                     resp = await client.embeddings.create(model=OPENAI_MODEL, input=chunk)
-                    vectors = [d.embedding for d in resp.data]
-                    state["vectors_returned"] = len(vectors)
+                    state["provider_returned"] = True  # billed from here on, even if reading it fails
                     usage = getattr(resp, "usage", None)
                     state["actual_tokens"] = int(getattr(usage, "total_tokens", 0) or 0)
+                    vectors = [d.embedding for d in resp.data]
+                    state["vectors_returned"] = len(vectors)
                 return vectors
 
         results = await asyncio.gather(*map(embed_batch, _batches(texts, info.batch_size)))
@@ -296,12 +315,40 @@ class DefaultOpenAIVoyageProvider:
                         model=voyage_model,
                         input_type=voyage_input_type,
                     )
+                    state["provider_returned"] = True  # billed from here on, even if reading it fails
                     state["vectors_returned"] = len(resp.embeddings)
                     state["actual_tokens"] = int(getattr(resp, "total_tokens", 0) or 0)
                 return list(resp.embeddings)
 
         results = await asyncio.gather(*map(embed_batch, _batches(texts, info.batch_size)))
         return [vector for batch in results for vector in batch]
+
+
+class _OffLoopOpenAI:
+    """``client.embeddings.create`` awaitable over the sync OpenAI client, on a worker thread."""
+
+    def __init__(self, sync_client: object) -> None:
+        self._sync = sync_client
+        self.embeddings = self
+
+    async def create(self, **kwargs: object) -> object:
+        return await asyncio.to_thread(self._sync.embeddings.create, **kwargs)  # type: ignore[attr-defined]
+
+
+class _OffLoopVoyage:
+    """Awaitable ``embed`` over the sync Voyage client, run on a worker thread.
+
+    The SDK parses the response JSON and decodes each base64 vector
+    (numpy ``.tolist()``) inside ``embed``; the async client does that on the
+    event loop. In a thread the interpreter's switch interval keeps the loop
+    running while the decode finishes.
+    """
+
+    def __init__(self, sync_client: object) -> None:
+        self._sync = sync_client
+
+    async def embed(self, texts: list[str], **kwargs: object) -> object:
+        return await asyncio.to_thread(self._sync.embed, texts, **kwargs)  # type: ignore[attr-defined]
 
 
 def _batches(items: list[str], size: int) -> list[list[str]]:
@@ -408,7 +455,7 @@ async def embed(
     cache = get_embedding_cache()
     if cache is None:
         return await provider.embed(model, texts, input_type=input_type)
-    stamped_org = organization_id or "39c38960-d30c-4840-b0c1-c9960de95582"
+    stamped_org = organization_id or SYSTEM_ORGANIZATION_ID
 
     # ── Cache-aware path ────────────────────────────────────────────
     info = provider.spec_for(model)
@@ -421,16 +468,30 @@ async def embed(
     hit_count = 0
     hit_chars = 0
 
+    # ONE failed cache read ends cache reads for this call (2026-11-13). Reading on
+    # per text after a failure made every text wait out its own failure in turn and log
+    # its own full traceback — three handlers each formatting a chained ORM traceback on
+    # the event loop froze aidream-api ~2.1 s inside tool_search (event_loop_stall
+    # 8c10d28f). The rest of the batch is embedded uncached; one warning names the count.
+    read_failed = False
     for i, text in enumerate(texts):
         if not text or not text.strip():
             results[i] = [0.0] * (dim or 0)
             continue
-        try:
-            hit = await cache.get_cached(text, model)
-        except Exception:
-            # Cache failures must NEVER block embedding. Degrade to the
-            # uncached path for this index.
-            hit = None
+        hit = None
+        if not read_failed:
+            try:
+                hit = await cache.get_cached(text, model)
+            except Exception:
+                # Cache failures must NEVER block embedding. Degrade to the
+                # uncached path for the rest of the batch — but say so, loudly.
+                read_failed = True
+                _cache_log.warning(
+                    "embedding cache read failed (model=%s); embedding the remaining %d text(s) uncached",
+                    model,
+                    sum(1 for t in texts[i:] if t and t.strip()),
+                    exc_info=True,
+                )
         if hit is not None:
             results[i] = hit
             hit_count += 1
@@ -460,10 +521,14 @@ async def embed(
     # Second pass — one batched provider call for all misses.
     if miss_texts:
         miss_vectors = await provider.embed(model, miss_texts, input_type=input_type)
-        # Write-back. Each cache insert is independent — one failure
-        # does not bring down the next.
-        for idx, vec, text in zip(miss_indexes, miss_vectors, miss_texts, strict=True):
+        # Write-back. The first failed insert ends write-back for this call (the
+        # same loop-freeze as a failed read: one traceback per text); one warning
+        # names how many vectors were left unwritten.
+        write_failed = False
+        for n, (idx, vec, text) in enumerate(zip(miss_indexes, miss_vectors, miss_texts, strict=True)):
             results[idx] = vec
+            if write_failed:
+                continue
             try:
                 # The EmbeddingCache.get_or_compute path doesn't fit here
                 # (we already have the vector); fall back to the private
@@ -489,9 +554,17 @@ async def embed(
                         organization_id=stamped_org,
                     )
             except Exception:
-                # Cache-write failure is non-fatal — the next call will
-                # retry. Don't propagate.
-                pass
+                # Cache-write failure is non-fatal, but never silent: a write
+                # that always fails (e.g. a vector width the column refuses)
+                # means every caller pays to re-embed forever.
+                write_failed = True
+                _cache_log.warning(
+                    "embedding cache write failed (model=%s, dim=%s); %d vector(s) left unwritten, next call re-embeds",
+                    model,
+                    len(vec) if vec is not None else None,
+                    len(miss_texts) - n,
+                    exc_info=True,
+                )
 
     # results must now be fully populated.
     return [r if r is not None else [0.0] * (dim or 0) for r in results]
@@ -505,8 +578,6 @@ def _cache_key(text: str, model: str) -> str:
     import hashlib
 
     return hashlib.sha256(f"{model}::{text}".encode()).hexdigest()
-
-
 
 
 __all__ = [

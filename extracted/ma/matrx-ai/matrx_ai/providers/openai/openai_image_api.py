@@ -158,8 +158,11 @@ class OpenAIImageGeneration(BaseMediaGeneration):
         mask_ref = pick_image_by_role(unified_config.messages, "mask") or unified_config.mask
         if mask_ref is not None:
             mask_file = self.translator._mediaref_to_file_tuple(mask_ref)
-            if mask_file is not None:
-                kwargs["mask"] = mask_file
+            if mask_file is None:
+                # Never drop it: without the mask the call becomes a paid
+                # whole-picture edit nobody asked for.
+                raise ValueError("The mask could not be read. Re-upload it and run again.")
+            kwargs["mask"] = mask_file
         return kwargs
 
     #: Roles the images.edit endpoint carries: the base image(s) + references

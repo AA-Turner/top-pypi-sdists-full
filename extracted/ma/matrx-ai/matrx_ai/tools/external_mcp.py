@@ -163,10 +163,10 @@ class ExternalMCPClient:
             ToolDefinition(
                 name=tool.name,
                 description=tool.description or "",
-                parameters=self._schema_to_params(tool.inputSchema or {}),
-                output_schema=tool.outputSchema,
+                parameters=self._schema_to_params(tool.input_schema or {}),
+                output_schema=tool.output_schema,
                 annotations=_mcp_annotations(
-                    tool.annotations.model_dump(exclude_none=True)
+                    tool.annotations.model_dump(exclude_none=True, by_alias=True)
                     if getattr(tool, "annotations", None) is not None
                     else None
                 ),
@@ -196,7 +196,7 @@ class ExternalMCPClient:
         except Exception as exc:
             return ToolResult(
                 success=False,
-                error=ToolError(
+                error=ToolError.declared(exc=exc, 
                     error_type="configuration",
                     message=f"MCP runtime resolution failed for '{tool_def.name}': {exc}",
                 ),
@@ -211,6 +211,7 @@ class ExternalMCPClient:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="not_allowed",
                     message=f"MCP tool '{local_name}' is outside the server allowlist",
                 ),
@@ -228,6 +229,7 @@ class ExternalMCPClient:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="configuration",
                     message=f"No MCP server URL configured for tool '{tool_def.name}'",
                 ),
@@ -346,14 +348,14 @@ class ExternalMCPClient:
                                                                    why=mcp_resilience.cause(None, reply=str(output)),
                                                                    tries=attempt, repeatable=repeatable)
                     return ToolResult(success=False, output=output,
-                                      error=ToolError(error_type="provider_unavailable", message=message, is_retryable=True,
+                                      error=ToolError(reported_failure="the MCP server", error_type="provider_unavailable", message=message, is_retryable=True,
                                                       suggested_action=action),
                                       started_at=started_at, completed_at=time.time(), tool_name=tool_def.name, call_id=ctx.call_id)
                 return ToolResult(
                     success=not is_error,
                     output=output,
                     error=(
-                        ToolError(error_type="mcp_remote", message=str(output))
+                        ToolError(reported_failure="the MCP server", error_type="mcp_remote", message=str(output))
                         if is_error
                         else None
                     ),
@@ -431,28 +433,23 @@ class ExternalMCPClient:
                 # applies that extra client gate, so stdio preserves parity by
                 # reading the typed MCP result without re-validating it here.
                 result = await session.send_request(
-                    types.ClientRequest(
-                        types.CallToolRequest(
-                            params=types.CallToolRequestParams(
-                                name=local_name,
-                                arguments=args,
-                            )
-                        )
+                    types.CallToolRequest(
+                        params=types.CallToolRequestParams(name=local_name, arguments=args)
                     ),
                     types.CallToolResult,
                 )
         text_parts = self._content_text_parts(result.content)
         output: Any
-        if result.structuredContent is not None:
-            output = result.structuredContent
+        if result.structured_content is not None:
+            output = result.structured_content
         else:
             output = "\n".join(text_parts)
-        is_error = bool(result.isError)
+        is_error = bool(result.is_error)
         return ToolResult(
             success=not is_error,
             output=output,
             error=(
-                ToolError(error_type="mcp_remote", message=str(output))
+                ToolError(reported_failure="the MCP server", error_type="mcp_remote", message=str(output))
                 if is_error
                 else None
             ),
@@ -576,12 +573,12 @@ class ExternalMCPClient:
         if is_ucp:
             headers["User-Agent"] = UCP_USER_AGENT
 
-        from matrx_utils.outbound_guard import public_only_client
+        from matrx_utils.http_client import shared_client
 
         # The endpoint is a person's (tool.mcp_server row or a tool definition):
         # never an address inside our network, pinned to the IP that was checked.
         # Applies on every host: no environment value switches it off.
-        async with public_only_client(timeout=self._timeout) as client:
+        async with shared_client(public_only=True, timeout=self._timeout) as client:
             if is_ucp:
                 data, _, _ = await self._post_rpc(client, server_url, payload, headers)
                 return data

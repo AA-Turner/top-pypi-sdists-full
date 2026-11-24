@@ -860,10 +860,10 @@ async def test_cerebras_validation_range_refusal_heals(captured) -> None:
 
 async def test_together_model_range_refusal_heals(captured) -> None:
     """Live 2026-10-04 probe: Kimi-K3 on Together takes temperature in [0, 1]."""
-    import together
+    import openai
 
     body = {"error": {"type": "Bad Request", "code": "invalid_temperature", "message": "temperature must be within [0, 1], got 2", "param": None}}
-    exc = _stainless(together, "BadRequestError", 400, body)
+    exc = _stainless(openai, "BadRequestError", 400, body)
     profile = make_profile(model_name="moonshotai/Kimi-K3", wire_format="together_chat", vendor="together", rules={"temperature": {}})
     config = UnifiedConfig(model="moonshotai/Kimi-K3", messages=[], temperature=2)
     sent, result = await _run(profile, config, [exc, _OK], emitter=_Emitter())

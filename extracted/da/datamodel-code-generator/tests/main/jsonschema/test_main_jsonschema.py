@@ -7359,12 +7359,17 @@ def test_main_strict_types(output_file: Path) -> None:
 
 @pytest.mark.cli_doc(
     options=["--strict-types"],
-    option_description="""Enable strict type validation for specified Python types.
+    option_description="""Enable strict type validation for str, bytes, int, float, bool, datetime, date and time.
 
 The --strict-types option enforces stricter type checking by preventing implicit
 type coercion for the specified types (str, bytes, int, float, bool). This
 generates StrictStr, StrictBytes, StrictInt, StrictFloat, and StrictBool types
-in Pydantic models, ensuring values match exactly without automatic conversion.""",
+in Pydantic models, ensuring values match exactly without automatic conversion.
+
+`datetime`, `date` and `time` write the date and time string formats as
+`Annotated[<type>, Strict()]`, so `-1` is no longer read as a Unix time. JSON input
+still accepts ISO strings, but Python input must be `datetime`, `date` or `time`
+objects (see the type mappings page).""",
     input_schema="jsonschema/strict_types.json",
     cli_args=["--strict-types", "str", "bytes", "int", "float", "bool"],
     golden_output="main/jsonschema/main_jsonschema/main_strict_types_all.py",
@@ -7374,12 +7379,17 @@ in Pydantic models, ensuring values match exactly without automatic conversion."
     reason="Installed black doesn't support the old style",
 )
 def test_main_strict_types_all(output_file: Path) -> None:
-    """Enable strict type validation for specified Python types.
+    """Enable strict type validation for str, bytes, int, float, bool, datetime, date and time.
 
     The --strict-types option enforces stricter type checking by preventing implicit
     type coercion for the specified types (str, bytes, int, float, bool). This
     generates StrictStr, StrictBytes, StrictInt, StrictFloat, and StrictBool types
     in Pydantic models, ensuring values match exactly without automatic conversion.
+
+    `datetime`, `date` and `time` write the date and time string formats as
+    `Annotated[<type>, Strict()]`, so `-1` is no longer read as a Unix time. JSON input
+    still accepts ISO strings, but Python input must be `datetime`, `date` or `time`
+    objects (see the type mappings page).
     """
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "strict_types.json",
@@ -7474,6 +7484,517 @@ def test_main_strict_types_time(output_file: Path) -> None:
         input_file_type="jsonschema",
         extra_args=["--strict-types", "str", "bytes", "int", "float", "bool"],
     )
+
+
+_STRICT_DATE_TIME = ("--strict-types", "datetime", "date", "time")
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param([], id="lax"),
+        pytest.param([*_STRICT_DATE_TIME], id="strict"),
+        pytest.param(["--use-annotated", *_STRICT_DATE_TIME], id="annotated"),
+        pytest.param(["--use-root-model-type-alias", *_STRICT_DATE_TIME], id="root-model-type-alias"),
+        pytest.param(
+            ["--output-datetime-class", "datetime", "--output-date-class", "PastDate", *_STRICT_DATE_TIME],
+            id="date-classes",
+        ),
+        pytest.param(["--output-model-type", "pydantic_v2.dataclass", *_STRICT_DATE_TIME], id="pydantic-dataclass"),
+    ],
+)
+def test_main_strict_types_date_time(output_file: Path, extra_args: list[str]) -> None:
+    """Test strict date and time types reject the numbers lax mode reads as times and keep ISO strings in JSON.
+
+    In Python input strict mode rejects ISO strings too.
+    """
+    name = "strict_types_date_time"
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *extra_args,
+            *("--formatters", "builtin", "--disable-timestamp", "--target-python-version", "3.11"),
+        ],
+        force_exec_validation=True,
+    )
+    payloads = json.loads((DATA_PATH / f"payloads/{name}.json").read_text())
+    with _generated_model(output_file, name, "Schedule") as model:
+        validate = _model_json_validator(model)
+        validate(json.dumps(payloads["valid"]))
+
+        def accepts(field_name: str, value: object) -> bool:
+            with suppress(ValidationError):
+                return validate(json.dumps(payloads["valid"] | {field_name: value})) is not None
+            return False
+
+        rejected = [field_name for field_name, value in payloads["invalid"].items() if not accepts(field_name, value)]
+        python_iso = "rejected"
+        with suppress(ValidationError):
+            TypeAdapter(model).validate_python(payloads["valid"])
+            python_iso = "accepted"
+    assert_output("\n".join([*rejected, f"python input of the valid payload: {python_iso}"]) + "\n", name="rejected")
+
+
+def test_main_strict_types_date_time_beside_fields_named_like_them(output_file: Path) -> None:
+    """Test strict date and time types keep their base when fields named like ``date``, ``time`` and ``datetime``."""
+    _run_jsonschema_dict(
+        {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Event",
+            "type": "object",
+            "properties": {
+                "date": {"type": "string", "format": "date"},
+                "time": {"type": "string", "format": "time"},
+                "datetime": {"type": "string", "format": "date-time"},
+            },
+        },
+        output_file,
+        extra_args=[*_STRICT_DATE_TIME, "--formatters", "builtin", "--target-python-version", "3.11"],
+        force_exec_validation=True,
+    )
+
+
+def test_main_strict_types_date_time_numbers(output_file: Path) -> None:
+    """Test strict date and time types leave the numbers of a date-time or time format lax, which hold Unix times."""
+    _run_jsonschema_dict(
+        {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Reading",
+            "type": "object",
+            "properties": {
+                "unix_at": {"type": "integer", "format": "date-time"},
+                "epoch": {"type": "number", "format": "date-time"},
+                "seconds": {"type": "number", "format": "time"},
+                "at_or_unix": {"type": ["string", "integer"], "format": "date-time"},
+            },
+        },
+        output_file,
+        extra_args=[*_STRICT_DATE_TIME, "--formatters", "builtin", "--target-python-version", "3.11"],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "strict_types_date_time_numbers", "Reading") as model:
+        validate = _model_json_validator(model)
+        validate(json.dumps({"unix_at": 1600000000, "epoch": 1.5, "seconds": 3600, "at_or_unix": 1600000000}))
+        validate(json.dumps({"at_or_unix": "2020-01-01T00:00:00Z"}))
+
+
+def test_main_strict_types_date_time_root_model_regex_engine(output_file: Path) -> None:
+    """Test a root model that needs a regex engine keeps the strict date and time type in its base."""
+    _run_jsonschema_dict(
+        {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Stamp",
+            "anyOf": [{"type": "string", "format": "date-time"}, {"type": "string", "pattern": "^(?=x).*"}],
+        },
+        output_file,
+        extra_args=[*_STRICT_DATE_TIME, "--formatters", "builtin", "--target-python-version", "3.11"],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "strict_types_date_time_root_model_regex_engine", "Stamp") as model:
+        validate = _model_json_validator(model)
+        validate(json.dumps("2020-01-01T00:00:00Z"))
+        validate(json.dumps("x"))
+        with pytest.raises(ValidationError):
+            validate(json.dumps(-1))
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param(["--use-pendulum"], id="pendulum"),
+        pytest.param(["--output-model-type", "dataclasses.dataclass"], id="dataclass"),
+        pytest.param(["--output-model-type", "msgspec.Struct"], id="msgspec"),
+    ],
+)
+def test_main_strict_types_date_time_kept(output_file: Path, extra_args: list[str]) -> None:
+    """Test strict date and time types leave pendulum types and the outputs without strict types as they are."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "strict_types_date_time.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *extra_args,
+            *_STRICT_DATE_TIME,
+            *("--formatters", "builtin", "--disable-timestamp", "--target-python-version", "3.11"),
+        ],
+        skip_code_validation="--use-pendulum" in extra_args,
+    )
+
+
+_BINARY: dict[str, object] = {"type": "string", "format": "binary"}
+_STRICT_DEFAULTS: dict[str, object] = {
+    "checksum": "",
+    "day": "2020-01-01",
+    "clock": "10:20:30",
+    "stamp": "2020-01-01T00:00:00Z",
+    "stamp_offset": "2020-01-01 10:00:00.5+01:00",
+    "nested": "abc",
+    "wrapped": "w",
+    "rec": {"data": "xy", "on": "2020-01-02", "nm": "n"},
+    "child": {"data": "c", "created-at": "2020-01-01T00:00:00+01:00"},
+    "days": ["2020-01-01", "2020-01-03"],
+    "by_key": {"a": "2020-01-01T00:00:00Z"},
+    "pair": ["2020-01-04", 3],
+    "digest": "abc",
+    "amount": 1.5,
+    "name": "x",
+    "encoded": "aGk=",
+    "unique_days": ["2020-01-05"],
+}
+_STRICT_DEFAULTS_SCHEMA: dict[str, object] = {
+    "title": "Top",
+    "type": "object",
+    "$defs": {
+        "Checksum": {"type": "string", "format": "binary", "default": ""},
+        "Day": {"type": "string", "format": "date"},
+        "Clock": {"type": "string", "format": "time"},
+        "Stamp": {"type": "string", "format": "date-time"},
+        "Nested": {"$ref": "#/$defs/Checksum"},
+        "Wrapped": {"$ref": "#/$defs/Checksum", "default": "w"},
+        "Rec": {
+            "type": "object",
+            "properties": {
+                "data": {"type": "string", "format": "binary"},
+                "on": {"type": "string", "format": "date"},
+                "nm": {"type": "string"},
+            },
+        },
+        "Child": {
+            "allOf": [
+                {"$ref": "#/$defs/Rec"},
+                {"type": "object", "properties": {"created-at": {"type": "string", "format": "date-time"}}},
+            ]
+        },
+        "Digest": {"type": "string", "format": "binary", "maxLength": 8},
+        "Amount": {"type": "number", "multipleOf": 0.01},
+        "Name": {"type": "string"},
+        "Encoded": {"type": "string", "format": "byte"},
+    },
+    "properties": {
+        "checksum": {"$ref": "#/$defs/Checksum"},
+        "day": {"$ref": "#/$defs/Day", "default": _STRICT_DEFAULTS["day"]},
+        "clock": {"$ref": "#/$defs/Clock", "default": _STRICT_DEFAULTS["clock"]},
+        "stamp": {"$ref": "#/$defs/Stamp", "default": _STRICT_DEFAULTS["stamp"]},
+        "stamp_offset": {"$ref": "#/$defs/Stamp", "default": _STRICT_DEFAULTS["stamp_offset"]},
+        "nested": {"$ref": "#/$defs/Nested", "default": _STRICT_DEFAULTS["nested"]},
+        "wrapped": {"$ref": "#/$defs/Wrapped"},
+        "rec": {"$ref": "#/$defs/Rec", "default": _STRICT_DEFAULTS["rec"]},
+        "child": {"$ref": "#/$defs/Child", "default": _STRICT_DEFAULTS["child"]},
+        "days": {"type": "array", "items": {"$ref": "#/$defs/Day"}, "default": _STRICT_DEFAULTS["days"]},
+        "by_key": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/$defs/Stamp"},
+            "default": _STRICT_DEFAULTS["by_key"],
+        },
+        "pair": {
+            "type": "array",
+            "prefixItems": [{"$ref": "#/$defs/Day"}, {"type": "integer"}],
+            "minItems": 2,
+            "maxItems": 2,
+            "default": _STRICT_DEFAULTS["pair"],
+        },
+        "digest": {"$ref": "#/$defs/Digest", "default": _STRICT_DEFAULTS["digest"]},
+        "amount": {"$ref": "#/$defs/Amount", "default": _STRICT_DEFAULTS["amount"]},
+        "name": {"$ref": "#/$defs/Name", "default": _STRICT_DEFAULTS["name"]},
+        "encoded": {"$ref": "#/$defs/Encoded", "default": _STRICT_DEFAULTS["encoded"]},
+        "unique_days": {
+            "type": "array",
+            "uniqueItems": True,
+            "items": {"$ref": "#/$defs/Day"},
+            "default": _STRICT_DEFAULTS["unique_days"],
+        },
+    },
+}
+_STRICT_DEFAULT_TYPES = ("--strict-types", "bytes", "date", "time", "datetime", "float")
+_DECIMAL_FORMS = ("--use-decimal-for-multiple-of", "--use-decimal-in-field-forms")
+
+
+def _loaded_defaults(built: object, given: object) -> str:
+    """Return each field of ``built`` and, where it differs, the value ``given`` holds for it.
+
+    Root models in a set hash by identity, so equal sets of them compare by their text.
+    """
+    return "".join(
+        f"{name}: {value!r}"
+        + ("" if value == (read := getattr(given, name)) or repr(value) == repr(read) else f" (JSON input: {read!r})")
+        + "\n"
+        for name, value in vars(built).items()
+    )
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param([], id="default"),
+        pytest.param(["--use-annotated"], id="annotated"),
+        pytest.param(["--use-root-model-type-alias", "--use-validate-default-for-root-model-type-aliases"], id="alias"),
+        pytest.param(list(_DECIMAL_FORMS), id="decimal"),
+        pytest.param(["--use-unique-items-as-set"], id="set"),
+        pytest.param(["--type-mappings", "string+byte=binary"], id="base64-bytes"),
+        pytest.param(["--output-model-type", "pydantic_v2.dataclass"], id="dataclass"),
+    ],
+)
+def test_main_strict_types_default_of_a_referenced_type(output_file: Path, extra_args: list[str]) -> None:
+    """Test a default Pydantic validates holds the Python values a strict type reads from its JSON text (#7380).
+
+    Pydantic validates the default as Python input, where a strict bytes, date, time, datetime or Decimal type
+    refuses the JSON value, so every instance that left such a field out failed. The default is written as the value
+    Pydantic reads from the JSON default: each field of ``Top()`` equals the field read from the JSON defaults as
+    input, through root models, a root of a root, a root model's own default, objects with inherited and aliased
+    fields, lists, sets, mappings and a tuple read by position. A lax type (``name``, ``encoded`` as ``Base64Str``
+    or, under the type mapping, ``Base64Bytes``, which reads text in Python input too, and ``amount`` where no
+    Decimal is strict) keeps its default as written, and so do the outputs that do not validate it (the dataclass
+    type aliases).
+    """
+    _run_jsonschema_dict(
+        _STRICT_DEFAULTS_SCHEMA,
+        output_file,
+        extra_args=[
+            *extra_args,
+            *_STRICT_DEFAULT_TYPES,
+            *("--formatters", "builtin", "--target-python-version", "3.11"),
+        ],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "strict_types_default_of_a_referenced_type", "Top") as model:
+        built = model()
+        given = _model_json_validator(model)(json.dumps(_STRICT_DEFAULTS))
+    assert_output(_loaded_defaults(built, given), name="loaded")
+
+
+_KEY_NAME_FILES: dict[str, object] = {"--aliases": {"rawData": ["raw_data", "rawData"]}}
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param([], id="alias"),
+        pytest.param(["--no-alias"], id="no-alias"),
+        pytest.param(["--aliases"], id="validation-aliases"),
+        pytest.param(["--use-serialization-alias"], id="serialization-alias"),
+        pytest.param(["--alias-generator", "to_camel"], id="alias-generator"),
+    ],
+)
+def test_main_strict_types_default_keys_read_by_the_field(output_file: Path, extra_args: list[str]) -> None:
+    """Test an object default is followed only under the keys its fields read whatever the config.
+
+    The default names ``rawData``. A field written to read it (its alias, also where an alias generator reproduces
+    it, a validation alias) takes the bytes. A field that reads another name (``--no-alias``, a serialization-only
+    alias) leaves the key as written, which Pydantic ignores, as before.
+    """
+    args = list(extra_args)
+    if args and (content := _KEY_NAME_FILES.get(args[-1])) is not None:
+        path = output_file.with_name("key_names.json")
+        path.write_text(json.dumps(content), encoding="utf-8")
+        args.append(str(path))
+    _run_jsonschema_dict(
+        {
+            "title": "Top",
+            "type": "object",
+            "$defs": {"Blob": {"type": "object", "properties": {"rawData": _BINARY}}},
+            "properties": {"blob": {"$ref": "#/$defs/Blob", "default": {"rawData": "x"}}},
+        },
+        output_file,
+        extra_args=[
+            *args,
+            *("--snake-case-field", "--strict-types", "bytes"),
+            *("--formatters", "builtin", "--target-python-version", "3.11"),
+        ],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "strict_types_default_keys_read_by_the_field", "Top") as model:
+        loaded = repr(model().blob)
+    assert_output(f"blob: {loaded}\n", name="loaded")
+
+
+def test_main_strict_types_default_of_a_model_in_another_module(output_dir: Path, tmp_path: Path) -> None:
+    """Test a default read through a recursive model of another module takes the values of its strict types.
+
+    The module that holds the field imports the ``datetime`` module its default builds dates with; the nested object
+    defaults follow the recursive model by reference, item by item.
+    """
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    (inputs / "common.json").write_text(
+        json.dumps({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "title": "Common",
+            "type": "object",
+            "$defs": {
+                "Day": {"type": "string", "format": "date"},
+                "Node": {
+                    "type": "object",
+                    "properties": {
+                        "on": {"$ref": "#/$defs/Day"},
+                        "data": _BINARY,
+                        "next": {"$ref": "#/$defs/Node"},
+                        "kids": {"type": "array", "items": {"$ref": "#/$defs/Node"}},
+                    },
+                },
+            },
+        }),
+        encoding="utf-8",
+    )
+    node = {"on": "2020-01-02", "data": "x", "next": {"on": "2020-01-03"}, "kids": [{"data": "k"}]}
+    (inputs / "top.json").write_text(
+        json.dumps({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "title": "Top",
+            "type": "object",
+            "properties": {
+                "day": {"$ref": "common.json#/$defs/Day", "default": "2020-01-01"},
+                "node": {"$ref": "common.json#/$defs/Node", "default": node},
+            },
+        }),
+        encoding="utf-8",
+    )
+    run_main_and_assert(
+        input_path=inputs,
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--strict-types", "bytes", "date"),
+            *("--disable-timestamp", "--formatters", "builtin", "--target-python-version", "3.11"),
+        ],
+    )
+    sys.path.insert(0, str(output_dir.parent))
+    try:
+        with _generated_model(output_dir / "top.py", f"{output_dir.name}.top", "Top") as top:
+            loaded = _loaded_defaults(top(), top.model_validate_json(json.dumps({"day": "2020-01-01", "node": node})))
+    finally:
+        sys.path.remove(str(output_dir.parent))
+        for loaded_module in tuple(sys.modules):
+            if loaded_module == output_dir.name or loaded_module.startswith(f"{output_dir.name}."):
+                del sys.modules[loaded_module]
+    assert_output(loaded, name="loaded")
+
+
+@pytest.mark.parametrize(
+    ("defs", "default", "extra_args"),
+    [
+        pytest.param(
+            {"Rec": {"type": "object", "properties": {"data": _BINARY, "count": {"type": "integer"}}}},
+            {"data": "", "count": True},
+            ["--strict-types", "bytes", "int"],
+            id="bool-for-int",
+        ),
+        pytest.param(
+            {"Day": {"type": "string", "format": "date"}},
+            "not-a-date",
+            ["--strict-types", "date"],
+            id="no-date",
+        ),
+        pytest.param(
+            {"Day": {"type": "string", "format": "date"}},
+            "20200101",
+            ["--strict-types", "date"],
+            id="basic-date",
+        ),
+        pytest.param(
+            {"Stamp": {"type": "string", "format": "date-time"}},
+            "2020-01-01T24:00:00Z",
+            ["--strict-types", "datetime"],
+            id="hour-24",
+        ),
+        pytest.param(
+            {"Rec": {"type": "object", "properties": {"data": _BINARY, "count": {"type": "integer", "maximum": 10}}}},
+            {"data": "", "count": 500},
+            ["--strict-types", "bytes"],
+            id="over-maximum",
+        ),
+        pytest.param(
+            {"Rec": {"type": "object", "properties": {"data": _BINARY, "name": {"type": "string"}}}},
+            {"data": "", "name": 5},
+            ["--strict-types", "bytes"],
+            id="number-for-str",
+        ),
+        pytest.param(
+            {"Rec": {"type": "object", "properties": {"data": _BINARY, "color": {"enum": ["red", "blue"]}}}},
+            {"data": "", "color": "green"},
+            ["--strict-types", "bytes"],
+            id="enum-miss",
+        ),
+        pytest.param(
+            {"Rec": {"type": "object", "properties": {"data": _BINARY}, "additionalProperties": False}},
+            {"data": "", "other": 1},
+            ["--strict-types", "bytes", "--extra-fields", "forbid"],
+            id="extra-forbid",
+        ),
+        pytest.param(
+            {"Rec": {"type": "object", "properties": {"data": {**_BINARY, "maxLength": 2}}}},
+            {"data": "abcdef"},
+            ["--strict-types", "bytes"],
+            id="too-long",
+        ),
+        pytest.param(
+            {"Either": {"anyOf": [{"type": "string", "format": "date"}, {"type": "integer"}]}},
+            "2020-01-01",
+            ["--strict-types", "date"],
+            id="two-members",
+        ),
+        pytest.param(
+            {"Rec": {"type": "object", "properties": {"data": _BINARY}}},
+            {"data": ""},
+            ["--strict-types", "bytes", "--base-class", "explicit_alias_base.NamespaceBase"],
+            id="opaque-base",
+        ),
+        pytest.param(
+            {"Checksum": {**_BINARY, "default": ""}},
+            True,
+            ["--strict-types", "bytes"],
+            id="bool-for-bytes",
+        ),
+        pytest.param(
+            {"Rec": {"type": "object", "properties": {"data": _BINARY}}},
+            "data",
+            ["--strict-types", "bytes"],
+            id="text-for-object",
+        ),
+        pytest.param(
+            {"Amount": {"type": "number", "multipleOf": 0.01}},
+            1.5,
+            [*_STRICT_DEFAULT_TYPES, *_DECIMAL_FORMS, "--import-overrides", '{"Decimal": "decimal_compat"}'],
+            id="import-override",
+        ),
+    ],
+)
+def test_main_strict_types_default_left_to_pydantic(
+    output_file: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    defs: dict[str, object],
+    default: object,
+    extra_args: list[str],
+) -> None:
+    """Test a default that is no valid input, or whose reading is Pydantic's choice, is refused at construction.
+
+    Only a value a strict type reads from JSON text is written as its Python value, and Pydantic still validates the
+    default, so a schema default its own model refuses fails as before: a bool for a strict int, text that is no
+    RFC 3339 date or time (Python reads ``20200101`` and ``24:00``, Pydantic refuses them), a constraint, a plain
+    ``str`` field, an enum, an extra key or a length. A union of two members (which member takes the text is
+    Pydantic's choice), bytes under a configured base class the generator does not read (its config may read JSON
+    bytes as base64), a bool for bytes, text for an object and a Decimal whose import an override redirects keep the
+    value as written. A payload that gives the field still validates.
+    """
+    monkeypatch.syspath_prepend(str(DATA_PATH / "python"))
+    _run_jsonschema_dict(
+        {
+            "title": "Top",
+            "type": "object",
+            "$defs": defs,
+            "properties": {"f": {"$ref": f"#/$defs/{next(iter(defs))}", "default": default}},
+        },
+        output_file,
+        extra_args=[*extra_args, *("--formatters", "builtin", "--target-python-version", "3.11")],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "strict_types_default_left_to_pydantic", "Top") as model:
+        with pytest.raises(ValidationError) as refused:
+            model()
+        given = _model_json_validator(model)(json.dumps({"f": None}))
+    errors = ", ".join(f"{'.'.join(map(str, item['loc']))} {item['type']}" for item in refused.value.errors())
+    assert_output(f"refused: {errors}\ngiven: {given!r}\n", name="loaded")
 
 
 @LEGACY_BLACK_SKIP
@@ -8461,13 +8982,48 @@ def test_main_unique_items_as_set_by_value(extra_args: list[str], expected_repr:
     )
 
 
-def test_main_unique_items_as_set_by_value_inherited_fields(output_file: Path) -> None:
-    """Read the fields a frozen dataclass set item inherits nearest first, each model once, under by-value sets.
+@pytest.mark.cli_doc(
+    options=["--read-set-item-fields-in-class-order"],
+    option_description="""Read the fields a set item inherits in its class's order, so an unhashable one keeps a list.
 
-    Row ``legacy-unique-sets-level-order``: ``Levels`` inherits ``x`` from ``B``, a direct base, and from ``Z``, the
-    base of ``A``; the fields are read nearest first, so ``x`` is ``B``'s string and ``levels`` is a set, where the
-    class takes ``Z``'s list (C3). ``Diamond`` reaches ``Y`` through ``P`` and ``Q`` and reads it once; its fields hash,
-    so ``diamond`` is a set.
+A frozen dataclass item of a `--use-unique-items-as-set` set is a set only if its fields hash. A field the class
+inherits from two bases is read nearest base first by default, which can find a hashable `str` where the class itself
+takes a base's unhashable list; the generated set then fails to build from a payload with that field. With
+`--read-set-item-fields-in-class-order` the fields are read in the class's own order (C3), so such a field is a list
+and the array stays a list.""",
+    input_schema="jsonschema/unique_items_by_value_inherited_fields.json",
+    cli_args=[
+        "--output-model-type",
+        "dataclasses.dataclass",
+        "--frozen-dataclasses",
+        "--use-unique-items-as-set",
+        "--read-set-item-fields-in-class-order",
+    ],
+    golden_output=(
+        "main/preset_opt_in_options/preset_sets_opt_in_option[read-set-item-fields-in-class-order-practical].model.py"
+    ),
+    comparison_output=(
+        "main/preset_opt_in_options/preset_option_turned_off[read-set-item-fields-in-class-order-command-line].model.py"
+    ),
+    related_options=["--use-unique-items-as-set"],
+)
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param([], id="without-option"),
+        pytest.param(["--read-set-item-fields-in-class-order"], id="class-order"),
+    ],
+)
+def test_main_unique_items_as_set_by_value_inherited_fields(output_file: Path, extra_args: list[str]) -> None:
+    """Read the fields a frozen dataclass set item inherits nearest first, and in its class's order with the option.
+
+    ``Levels`` inherits ``x`` from ``B``, a direct base, and from ``Z``, the base of ``A``: the class takes ``Z``'s list
+    (C3), which does not hash. Nearest first ``x`` is ``B``'s string, so without the option (row
+    ``legacy-unique-sets-class-fields-unread``) ``levels`` is a set that a payload with ``x`` fails to build, as in
+    0.100.0 (#6997); --read-set-item-fields-in-class-order also reads the class's fields, so ``levels`` is a list.
+    ``Reverse`` is the other way round: the class takes ``W``'s string, nearest first reads ``U``'s list (row
+    ``legacy-unique-sets-level-order``), so ``reverse`` stays a list either way. ``Diamond`` reaches ``Y`` through
+    ``P`` and ``Q`` and reads it once; its fields hash, so ``diamond`` is a set.
     """
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "unique_items_by_value_inherited_fields.json",
@@ -8482,8 +9038,41 @@ def test_main_unique_items_as_set_by_value_inherited_fields(output_file: Path) -
             "--formatters",
             "builtin",
             "--disable-timestamp",
+            *extra_args,
         ],
         force_exec_validation=True,
+    )
+
+
+def test_main_unique_items_as_set_by_value_inherited_fields_pydantic_dataclass(output_file: Path) -> None:
+    """Keep a list of Pydantic dataclass items whose class takes an inherited field that does not hash (#6997).
+
+    Under --read-set-item-fields-in-class-order ``Levels`` takes ``Z``'s list ``x`` in its class's order, so ``levels``
+    is a list and a payload whose item holds ``x`` parses; a set of such items fails to build.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "unique_items_by_value_inherited_fields.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--frozen-dataclasses",
+            "--use-unique-items-as-set",
+            "--use-unique-items-as-set-by-value",
+            "--read-set-item-fields-in-class-order",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="unique_items_by_value_inherited_fields",
+        model_name="Holder",
+        valid_json='{"levels": [{"x": ["a"]}], "diamond": [{"y": "b"}], "reverse": [{"w": "c"}]}',
+        invalid_json='{"levels": [{"x": "a"}]}',
+        expected_error_type="list_type",
     )
 
 
@@ -15512,6 +16101,277 @@ def test_main_jsonschema_read_ref_siblings_in_closed_allof_members(output_file: 
         valid_json=json.dumps(valid),
         invalid_json=json.dumps(invalid),
         expected_error_type="string_type",
+    )
+
+
+def test_main_jsonschema_allof_merged_member_values(output_file: Path) -> None:
+    """Test allOf members merged into one object keep their merge row without the option (#7171, #7096).
+
+    The later member's ``type`` and ``multipleOf`` of a property both declare win, a later ``true`` declaration
+    replaces the schema, and the allOf members of a member are dropped (row ``legacy-all-of-object-merge-row``).
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_merged_member_values.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", "--disable-timestamp"],
+    )
+
+
+@pytest.mark.cli_doc(
+    options=["--intersect-merged-allof-members"],
+    option_description="""Read the allOf members that are merged into one schema keyword by keyword.
+
+Where several `$ref` members declare one property differently, the members are merged into one model. Without this
+option the later member's `type`, null and `multipleOf` win and a member's own allOf members are dropped, as in
+0.100.0: `count` is a `float` though one member admits integers only, `step` a multiple of 2 though the other member
+asks for a multiple of 3, and `status`, which a member's own allOf adds, is missing, so `{"status": "s"}` is rejected
+by the closed model. With it the property takes what every declaration admits (`int`, a multiple of 6, `int`) and the
+members' own allOf members are merged too. A property a member declares `false` (`legacy`) is written as `Any`, as
+the same property written without allOf is, so the model does not reject its values. The option also keeps the `enum`
+of every member of a named allOf of a `$ref` and value members, keeps a `$ref` to a map beside property counts or
+`propertyNames` a map with them, and checks a length or `pattern` beside a `$ref` to base64 text on the text where the
+output checks base64 constraints on the text.""",
+    input_schema="jsonschema/allof_merged_member_values.json",
+    cli_args=["--intersect-merged-allof-members"],
+    golden_output="main/jsonschema/main_jsonschema/intersect_merged_allof_members[pydantic_v2.BaseModel].py",
+    comparison_output="main/jsonschema/main_jsonschema/allof_merged_member_values.py",
+)
+@pytest.mark.parametrize(
+    ("output_model_type", "extra_args"),
+    [
+        pytest.param("pydantic_v2.BaseModel", [], id="pydantic_v2.BaseModel"),
+        pytest.param("msgspec.Struct", [], id="msgspec.Struct"),
+        pytest.param("dataclasses.dataclass", [], id="dataclasses.dataclass"),
+        pytest.param("typing.TypedDict", [], id="typing.TypedDict"),
+        pytest.param(
+            "pydantic_v2.BaseModel", ["--read-only-write-only-model-type", "all"], id="read-only-write-only-model-type"
+        ),
+        pytest.param("pydantic_v2.BaseModel", ["--allof-merge-mode", "none"], id="allof-merge-mode-none"),
+    ],
+)
+def test_main_jsonschema_intersect_merged_allof_members(
+    output_file: Path, output_model_type: str, extra_args: list[str]
+) -> None:
+    """Test a property several merged allOf members declare takes what every declaration admits, opt-in (#7171, #7096).
+
+    ``count`` is an integer (one declaration through a ``$ref`` to a number), ``step`` a multiple of 6, ``code`` an
+    integer, ``kind`` keeps ``maxLength`` beside a ``true`` declaration, and ``status`` comes from the allOf of the
+    closed member and of an items member. Under ``--allof-merge-mode none`` nothing is intersected.
+    """
+    input_path = JSON_SCHEMA_DATA_PATH / "allof_merged_member_values.json"
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--output-model-type", output_model_type, "--formatters", "builtin", "--disable-timestamp"),
+            *("--intersect-merged-allof-members", *extra_args),
+        ],
+        force_exec_validation=True,
+    )
+    if output_model_type != "pydantic_v2.BaseModel" or extra_args:
+        return
+    validator = Draft202012Validator(json.loads(input_path.read_text(encoding="utf-8")))
+    valid, invalid = {"count": 2, "step": 6, "code": 1, "kind": "abc", "status": "s"}, {"count": 1.5}
+    validator.validate(valid)
+    with pytest.raises(SchemaValidationError):
+        validator.validate(invalid)
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="intersect_merged_allof_members_objects",
+        model_name="Order",
+        valid_json=json.dumps(valid),
+        invalid_json=json.dumps(invalid),
+        expected_error_type="int_from_float",
+    )
+
+
+@pytest.mark.parametrize(
+    "output_model_type",
+    ["pydantic_v2.BaseModel", "msgspec.Struct", "dataclasses.dataclass", "typing.TypedDict", "pydantic_v2.dataclass"],
+)
+@pytest.mark.parametrize("intersected", [False, True], ids=["released", "intersected"])
+def test_main_jsonschema_allof_enum_member_of_constrained_ref(
+    output_file: Path, output_model_type: str, *, intersected: bool
+) -> None:
+    """Test a named allOf of a ``$ref`` and a typed enum member keeps the enum (#7314, #7315).
+
+    ``Settlement`` names an untyped constraint ``$ref``, so the enum member is the first typed one: it is written as
+    its enum class in every output that reads the annotations, where it used to name itself and stop the run (#7314);
+    standard dataclasses keep ``Any`` without the option (row ``legacy-all-of-enum-root-self-alias``). ``Currency``
+    names a typed ``$ref``: without ``--intersect-merged-allof-members`` it is that ``$ref``'s string (row
+    ``legacy-all-of-root-first-typed-member``), with it the enum (#7315).
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_enum_member_of_constrained_ref.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--output-model-type", output_model_type, "--formatters", "builtin", "--disable-timestamp"),
+            *(["--intersect-merged-allof-members"] if intersected else []),
+        ],
+        force_exec_validation=True,
+    )
+    if output_model_type != "pydantic_v2.BaseModel":
+        return
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"allof_enum_member_of_constrained_ref_{intersected}",
+        model_name="Payment",
+        valid_json=json.dumps({"currency": "USD", "settlement": "GBP"}),
+        invalid_json=json.dumps({"currency": "ABC"} if intersected else {"settlement": "ABC"}),
+        expected_error_type="enum",
+    )
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "extra_args"),
+    [
+        pytest.param("pydantic_v2.BaseModel", ["--collapse-root-models"], id="pydantic_v2.BaseModel-collapse"),
+        pytest.param("msgspec.Struct", ["--collapse-root-models"], id="msgspec.Struct-collapse"),
+        pytest.param(
+            "pydantic_v2.BaseModel",
+            ["--target-python-version", "3.12", "--preset", "standard-py312-20261120"],
+            id="preset-20261120",
+        ),
+    ],
+)
+def test_main_jsonschema_allof_enum_member_of_untyped_ref_forms(
+    output_file: Path, output_model_type: str, extra_args: list[str]
+) -> None:
+    """Test the enum root of a named allOf of an untyped constraint ``$ref`` and a typed enum in other forms (#7314).
+
+    Without ``--intersect-merged-allof-members`` such a root named itself: under --collapse-root-models its users
+    admitted only null, under the 20261120 presets it was a root model of itself that no value validates; it is its
+    enum class.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_enum_member_of_constrained_ref.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--output-model-type", output_model_type, "--formatters", "builtin", "--disable-timestamp"),
+            *extra_args,
+        ],
+        force_exec_validation=True,
+    )
+    if output_model_type != "pydantic_v2.BaseModel":
+        return
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"allof_enum_member_of_untyped_ref_forms_{extra_args[-1].replace('-', '_')}",
+        model_name="Payment",
+        valid_json=json.dumps({"settlement": "GBP"}),
+        invalid_json=json.dumps({"settlement": "ABC"}),
+        expected_error_type="enum",
+    )
+
+
+@pytest.mark.parametrize(
+    "output_model_type", ["pydantic_v2.BaseModel", "msgspec.Struct", "dataclasses.dataclass", "typing.TypedDict"]
+)
+@pytest.mark.parametrize("intersected", [False, True], ids=["released", "intersected"])
+def test_main_jsonschema_allof_map_member_counts(
+    output_file: Path, output_model_type: str, *, intersected: bool
+) -> None:
+    """Test an allOf of a map ``$ref`` and members that add property counts or ``propertyNames`` (#7340).
+
+    Without ``--intersect-merged-allof-members`` a definition is a model without fields, which drops every entry, and
+    the other sites name the map without the counts (row ``legacy-all-of-map-counts-dropped``); with it every site is
+    the map with them, at a definition, a property, array items and map values.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_map_member_counts.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--output-model-type", output_model_type, "--formatters", "builtin", "--disable-timestamp"),
+            *(["--intersect-merged-allof-members"] if intersected else []),
+        ],
+        force_exec_validation=True,
+    )
+    if output_model_type != "pydantic_v2.BaseModel" or not intersected:
+        return
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="allof_map_member_counts",
+        model_name="Item",
+        valid_json=json.dumps({"labels": {"a": "x"}, "history": [{"a": "x", "b": "y"}]}),
+        invalid_json=json.dumps({"history": [{"a": "x", "b": "y", "c": "z"}]}),
+        expected_error_type="too_long",
+        expected_attribute_path=("labels", "root"),
+        expected_attribute_value={"a": "x"},
+    )
+
+
+def test_main_jsonschema_allof_map_member_counts_no_merge(output_file: Path) -> None:
+    """Test a map allOf under --allof-merge-mode none is merged as without --intersect-merged-allof-members.
+
+    That mode intersects no constraint, so the option neither narrows the site's ``maxProperties: 10`` to the 2 of a
+    map member (a map of three entries is accepted) nor merges a member that adds only counts into the map, whose
+    merge row would be the site's own keywords: ``labels`` stays the reference to ``Labels`` and its string values.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_map_member_counts_no_merge.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", "--disable-timestamp"),
+            *("--allof-merge-mode", "none", "--intersect-merged-allof-members"),
+        ],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="allof_map_member_counts_no_merge",
+        model_name="Holder",
+        valid_json=json.dumps({"few": {"a": "x", "b": "y", "c": "z"}, "labels": {"a": "x"}}),
+        invalid_json=json.dumps({"few": {str(index): "x" for index in range(11)}}),
+        expected_error_type="too_long",
+        invalid_keyword_arguments=[({"labels": {"a": 1}}, "string_type")],
+    )
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param(["--field-constraints"], id="field-constraints"),
+        pytest.param(["--field-constraints", "--use-site-models-for-constrained-refs"], id="site-models"),
+        pytest.param(["--use-annotated", "--collapse-root-models"], id="collapse-root-models"),
+    ],
+)
+@pytest.mark.parametrize("intersected", [False, True], ids=["released", "intersected"])
+def test_main_jsonschema_allof_base64_member_constraints(
+    output_file: Path, extra_args: list[str], *, intersected: bool
+) -> None:
+    """Test a length an allOf member adds to a ``$ref`` to base64 text, checked on the text (#7341).
+
+    Under --use-encoded-str-for-constrained-base64 the keyword beside the format is checked on the base64 text. Without
+    ``--intersect-merged-allof-members`` the allOf site writes it beside the reference, checked on the decoded value,
+    or leaves it out (row ``legacy-all-of-base64-reference-layered``); with it the site is written as the keyword
+    beside the format, at a property and in array items.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_base64_member_constraints.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", "--disable-timestamp"),
+            *("--use-encoded-str-for-constrained-base64", *extra_args),
+            *(["--intersect-merged-allof-members"] if intersected else []),
+        ],
+        force_exec_validation=True,
+    )
+    if not intersected:
+        return
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"allof_base64_member_constraints_{extra_args[-1].strip('-').replace('-', '_')}",
+        model_name="Upload",
+        valid_json=json.dumps({"thumbnail": "YWJj", "parts": ["YWJjZA=="]}),
+        invalid_json=json.dumps({"parts": ["YWJjZGVmZ2g="]}),
+        expected_error_type="string_too_long",
     )
 
 
@@ -38200,6 +39060,7 @@ def test_root_alias_constraints(
         args = ["--disable-timestamp"]
         args.extend(f"--{name.replace('_', '-')}" for name, enabled in options.items() if enabled)
         run_main_and_assert(
+            varies_with=("black-before-24",),
             input_path=source,
             output_path=output_file,
             input_file_type="jsonschema",
@@ -38207,6 +39068,7 @@ def test_root_alias_constraints(
         )
     else:
         run_generate_and_assert(
+            varies_with=("black-before-24",),
             input_=json.loads(source.read_text()),
             input_file_type=InputFileType.JsonSchema,
             input_filename=source.name,
@@ -40953,3 +41815,209 @@ def test_main_enum_literal_of_collapsed_alias_modules(
         runtime_validation_model_name=model_name,
         runtime_validation_data=payload,
     )
+
+
+@pytest.mark.cli_doc(
+    options=["--read-refs-in-their-resources"],
+    option_description="""Read each `$ref` in the schema resource that encloses it, and every `$id`, `$anchor` and
+`$dynamicAnchor` wherever a document holds schemas.
+
+A `$defs` member with its own `$id` is a schema resource: a pointer written inside it, such as `#/$defs/Code`, names
+that resource's `$defs`. Without this option a `$defs` member that holds definitions but no schema keywords is read
+for its entries alone, so its `$id` declares nothing and the pointer names the root's `Code`; the field then accepts
+the root's values instead of the resource's. The option also reads a schema an OpenAPI operation, webhook or component
+holds inline as a resource of its own, names the schema a plain-name anchor of another document declares (a
+`$dynamicAnchor`, an anchor in a version namespace, a draft-07 `$id: "#name"`, an OpenAPI component's `$anchor`), and
+never fetches a URL a document of the run declares; without it those give `Any` models or a request, as in 0.100.0.""",
+    input_schema="jsonschema/embedded_resource_definitions.json",
+    cli_args=["--read-refs-in-their-resources"],
+    golden_output="main/jsonschema/main_jsonschema/read_refs_in_their_resources[option].py",
+    comparison_output="main/jsonschema/main_jsonschema/read_refs_in_their_resources[default].py",
+    primary=True,
+)
+@pytest.mark.parametrize("option", ["default", "option"])
+def test_read_refs_in_their_resources(option: str, output_file: Path) -> None:
+    """Read a pointer inside a `$defs` member that declares its own `$id` against that member (#6946).
+
+    `Wrap` bundles a schema resource (`$id: https://example.com/wrap.json`) whose `Status` and `Alias` refer to
+    `#/$defs/Code`, the resource's own `Code`. It is reached by `<id>#/$defs/Status`, by the pointer
+    `#/$defs/Wrap/$defs/Status` and through an allOf. Without the option the pointer names the root's `Code` (x, y);
+    under --read-refs-in-their-resources it names the resource's (a, b).
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "embedded_resource_definitions.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            *(["--read-refs-in-their-resources"] if option == "option" else []),
+        ],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize("document", ["local_document_from_remote", "local_document_from_remote_embedded"])
+def test_local_document_entered_from_remote(document: str, output_file: Path) -> None:
+    """Resolve the references of a local document from its own location where a remote one refers back to it (#6999).
+
+    `in/a.json` declares `$id: https://example.com/schemas/a.json` and refers to `b.json`, which `--http-local-ref-path`
+    reads from the store; `b.json` refers back to `a.json` by an anchor and by pointers. The references inside `a.json`
+    resolve as they do when it is the input, also through an embedded `$id`, instead of against its `$id` URL, which
+    the store does not hold (up to 0.100.0 the run failed).
+    """
+    root = JSON_SCHEMA_DATA_PATH / document
+    run_main_and_assert(
+        input_path=root / "in" / "a.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--http-local-ref-path",
+            str(root / "store"),
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize("option", ["default", "option"])
+@pytest.mark.parametrize("order", ["before", "after"])
+def test_held_root_ids_named_by_url(
+    order: str, option: str, mock_httpx_get: HttpxGetMockFactory, output_dir: Path
+) -> None:
+    """Read the input that declares the `$id` URL another input of the directory refers to, without fetching it.
+
+    `owner.json` refers to the `$id` of a sibling input by its absolute URL, which answers 404. Up to 0.100.0 the run
+    fetched the URL and failed. Without the option the sibling is read where it is parsed first (`before`) and the
+    URL is still requested; where it is parsed later (`after`) the run fails as before (row
+    `legacy-inputs-prepared-as-parsed`). Under --read-refs-in-their-resources every input is read first and nothing
+    is requested.
+    """
+    url = f"https://example.com/schemas/{'pet' if order == 'before' else 'animal'}.json"
+    fetches = option == "default"
+    httpx_get_mock = mock_httpx_get(*([MockHttpxResponse(url, "", 404)] * 2 if fetches else []))
+    with pytest.warns(FutureWarning, match="Remote \\$ref fetching") if fetches else nullcontext():
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "held_root_ids" / order,
+            output_path=output_dir,
+            input_file_type="jsonschema",
+            extra_args=[
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--disable-timestamp",
+                "--formatters",
+                "builtin",
+                *(["--read-refs-in-their-resources"] if option == "option" else []),
+            ],
+            expected_exit=Exit.ERROR if fetches and order == "after" else Exit.OK,
+        )
+    assert_httpx_get_kwargs(httpx_get_mock, called=fetches)
+
+
+@pytest.mark.parametrize("option", ["default", "option"])
+def test_held_root_id_served_by_local_store(option: str, output_dir: Path) -> None:
+    """Read the `$id` URL another input declares from --http-local-ref-path where the store serves it, as released.
+
+    `user.json` refers to the `$id` of the sibling input `a_kept.json`, and the store holds a copy of that URL with one
+    more property. Without the option the store copy is read even under --no-allow-remote-refs, as in 0.100.0 (row
+    `legacy-held-resource-fetched`); under --read-refs-in-their-resources the input that declares the URL is read.
+    """
+    root = JSON_SCHEMA_DATA_PATH / "held_root_ids_store"
+    run_main_and_assert(
+        input_path=root / "in",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--no-allow-remote-refs",
+            "--http-local-ref-path",
+            str(root / "store"),
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            *(["--read-refs-in-their-resources"] if option == "option" else []),
+        ],
+    )
+
+
+@pytest.mark.parametrize("option", ["default", "option"])
+def test_held_root_anchor_named_by_url(option: str, output_dir: Path) -> None:
+    """Read an anchor of the input that declares the `$id` URL another input of the directory refers to.
+
+    `owner.json` refers to `https://example.com/schemas/pet.json#name`, an `$anchor` below the root `$id` of the
+    sibling `a_pet.json`, which no document embeds. Under --no-allow-remote-refs the URL is not read, so the anchor
+    names the sibling's `Name` instead of the run failing on the refused read (up to 0.100.0), with and without
+    --read-refs-in-their-resources.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "held_root_anchor",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--no-allow-remote-refs",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            *(["--read-refs-in-their-resources"] if option == "option" else []),
+        ],
+    )
+
+
+def test_read_refs_in_their_resources_numbered_definitions(output_file: Path) -> None:
+    """Read numbered definitions of a YAML document, a boolean definition and a version namespace, under the option.
+
+    `$defs` holds `1` and `2`, YAML integers, one with an `$anchor`, and `Anything: true`. Under
+    --read-refs-in-their-resources each is read as the schema it is, as without the option. The version namespace
+    `v1` declares `$id`, so its member `Entry` is read in that resource: its `$anchor` names
+    `https://example.com/v1.json#entry` and its `#/$defs/Code` names the namespace's `Code`.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "numbered_definitions.yaml",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--read-refs-in-their-resources",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+def test_read_refs_in_their_resources_first_input_dialect(tmp_path: Path, output_dir: Path) -> None:
+    """Read the schema version of the first input for the run when every input is read first, under the option.
+
+    `a_owner.json` declares draft-04 and `b_pet.json` declares no version, so under --schema-version-mode strict the
+    run reads draft-04 `definitions` (`Tag`) and no draft-04 warning, as without --read-refs-in-their-resources. An
+    input that holds a list is skipped with a warning, as without the option.
+    """
+    shutil.copytree(JSON_SCHEMA_DATA_PATH / "first_input_dialect", input_dir := tmp_path / "in")
+    (input_dir / "z_list.json").write_text("[]", encoding="utf-8")
+    with pytest.warns(UserWarning, match="is empty or not a dict"):
+        run_main_and_assert(
+            input_path=input_dir,
+            output_path=output_dir,
+            input_file_type="jsonschema",
+            extra_args=[
+                "--read-refs-in-their-resources",
+                "--schema-version-mode",
+                "strict",
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--disable-timestamp",
+                "--formatters",
+                "builtin",
+            ],
+        )

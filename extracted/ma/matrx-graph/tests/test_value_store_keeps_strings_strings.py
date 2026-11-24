@@ -138,3 +138,24 @@ def test_the_value_field_declares_its_strings_are_values() -> None:
         assert model._fields["value"].strings_are_values is True
     finally:
         reset_for_tests()
+
+
+async def test_a_rolled_back_value_can_be_written_again(table: _PostgresLikeValueTable, monkeypatch) -> None:
+    from matrx_graph.checkpoint.value_store import load_run_values, store_run_values
+    from matrx_orm.core import transaction as transaction_module
+
+    run_id, org = str(uuid.uuid4()), str(uuid.uuid4())
+    value = {"h1": "synthetic input"}
+    connection = object()
+    active = connection
+    monkeypatch.setattr(transaction_module, "get_active_connection", lambda: active)
+
+    assert await store_run_values(run_id, value, organization_id=org) == {"h1"}
+    # Model the database rollback at the fake storage boundary. The real
+    # in-process value-store memo must never outlive a rolled-back write.
+    table.rows.clear()
+    active = None
+
+    assert await store_run_values(run_id, value, organization_id=org) == {"h1"}
+    assert await load_run_values(run_id, ["h1"]) == value
+    assert await store_run_values(run_id, value, organization_id=org) == set()

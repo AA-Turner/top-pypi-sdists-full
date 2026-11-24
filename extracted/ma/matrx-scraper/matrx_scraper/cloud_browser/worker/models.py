@@ -464,6 +464,12 @@ class HeartbeatRequest(WorkerCallEnvelope):
     # Knob ``cloud_browser.worker_liveness.probe_timeout_ms``. Omitted for an
     # older worker (its strict schema predates it; /health ``browser_liveness``).
     liveness_probe_timeout_ms: int | None = Field(default=None, ge=100, le=60000)
+    # WORKER TUNING (2026-11-20): the control plane's settings, sent so the worker reads no
+    # environment for them. ``cloud_browser.worker_tuning.lease_watchdog_grace_seconds`` and
+    # ``...leftover_chrome_grace_seconds``. Omitted for an older worker (its strict schema
+    # predates them; /health ``worker_tuning``): it keeps its built-in values.
+    lease_watchdog_grace_seconds: int | None = Field(default=None, ge=1, le=3600)
+    leftover_chrome_grace_seconds: int | None = Field(default=None, ge=1, le=120)
 
 
 #: What a heartbeat found the browser doing. ``running``: it answered.

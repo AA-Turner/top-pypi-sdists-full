@@ -2,7 +2,7 @@
 
 Review 2026-10-29 (smart-add workflows, gaps A1/A2/B1/B2/B7): every declared variable
 compiled to ``label=<snake_case name>`` with no help, placeholder, example, group, order or
-Advanced flag, because ``VariableSpec`` could not carry them; a "several values" text input
+Advanced flag, because the old variable shape could not carry them; a "several values" text input
 compiled to plain ``text`` (one box, no list); and there was no way to say "a person must
 fill this in, but a caller may leave it empty".
 """
@@ -10,7 +10,7 @@ fill this in, but a caller may leave it empty".
 import pytest
 
 from matrx_graph import Definition, compile_graph, register_builtin_nodes
-from matrx_graph.types.input_surface import LIST_KIND, LIST_VARIANT, unsatisfied_inputs
+from matrx_graph.types.input_surface import LIST_KIND, LIST_VARIANT, input_hint, unsatisfied_inputs
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -59,25 +59,27 @@ def test_a_variable_carries_label_hints_and_kind_onto_the_surface() -> None:
         ]
     )
     spec = surface["brand_site"]
-    assert spec.label == "Brand website"
-    assert spec.help == "The site the brand owns."
-    assert spec.placeholder == "acme.com"
-    assert spec.example == "acme.com"
-    assert spec.advanced is True and spec.group == "Brand" and spec.order == 2
-    assert spec.detect == ["domain"]
+    d = spec.declaration
+    assert d.label == "Brand website"
+    assert d.helpText == "The site the brand owns."
+    assert input_hint(d, "placeholder") == "acme.com"
+    assert input_hint(d, "example") == "acme.com"
+    assert input_hint(d, "advanced") is True
+    assert input_hint(d, "group") == "Brand" and input_hint(d, "order") == 2
+    assert input_hint(d, "detect") == ["domain"]
     assert spec.kind == "brand_basics"
 
 
 def test_an_unlabelled_variable_sends_no_snake_case_label() -> None:
     """No label declared → empty, so every client shows the name in words."""
     spec = _surface([{"name": "person_name", "default": ""}])["person_name"]
-    assert spec.label != "person_name"
-    assert spec.label == ""
+    assert spec.declaration.label != "person_name"
+    assert not spec.declaration.label
 
 
 def test_description_still_reads_as_help() -> None:
     spec = _surface([{"name": "n", "description": "How many.", "default": 3}])["n"]
-    assert spec.help == "How many."
+    assert spec.declaration.helpText == "How many."
 
 
 @pytest.mark.parametrize("field_type", ["text", "long_text"])
@@ -102,7 +104,7 @@ def test_required_in_form_is_carried_and_the_engine_ignores_it() -> None:
         [{"name": "subject", "default": "", "required_in_form": True}],
         fields=[{"key": "topic", "required_in_form": True}],
     )
-    assert surface["subject"].required_in_form is True
-    assert surface["topic"].required_in_form is True
+    assert input_hint(surface["subject"].declaration, "required_in_form") is True
+    assert input_hint(surface["topic"].declaration, "required_in_form") is True
     # A caller passing nothing is NOT parked: the gate is the form's, never the engine's.
     assert unsatisfied_inputs(surface, {"subject": "", "topic": ""}) == []

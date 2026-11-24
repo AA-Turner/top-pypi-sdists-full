@@ -16,6 +16,7 @@ from __future__ import annotations
 
 __lazy_modules__ = (
     "collections",
+    "nab_resolver.errors",
     "operator",
     "weakref",
 )
@@ -23,17 +24,19 @@ __lazy_modules__ = (
 import operator
 from collections import defaultdict
 from collections.abc import Mapping
+from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Final, Generic, TypeVar, cast, overload
 from weakref import ref
 
 from ._compat import override
+from .errors import ResolutionInvariantError
 from .ranges import Range
 from .types import PackageType, RangeProtocol, VersionType
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
     from collections.abc import Set as AbstractSet
-    from typing import TypeAlias
+    from typing import Literal, TypeAlias
 
     from .types import Incompatibility, Term
 
@@ -52,11 +55,16 @@ __all__ = [
 # instead of holding every operand to the end.
 RANGE_OP_MEMO_MAX = 2_048
 
-# Marks a missing map entry, where None can itself be the stored value.
-_UNSET = object()
 
-# Marks a package that the live map did not hold when a snapshot was taken.
-_ABSENT = object()
+class _SnapshotState(Enum):
+    """Distinguish an uncaptured key from one absent when the snapshot was taken."""
+
+    UNSET = auto()
+    ABSENT = auto()
+
+
+_UNSET: Final[Literal[_SnapshotState.UNSET]] = _SnapshotState.UNSET
+_ABSENT: Final[Literal[_SnapshotState.ABSENT]] = _SnapshotState.ABSENT
 
 _ValueType = TypeVar("_ValueType")
 _DefaultType = TypeVar("_DefaultType")
@@ -74,9 +82,9 @@ class _Snapshot(Mapping[PackageType, _ValueType]):
 
     def __init__(self, live: dict[PackageType, _ValueType]) -> None:
         self._live: dict[PackageType, _ValueType] = live
-        # A value or _ABSENT. Any rather than that union, which no checker
-        # narrows the sentinel back out of.
-        self._shadow: dict[PackageType, Any] = {}
+        self._shadow: dict[
+            PackageType, _ValueType | Literal[_SnapshotState.ABSENT]
+        ] = {}
 
     def freeze(self, package: PackageType) -> None:
         """Keep the package's current value before the live map moves on."""
@@ -105,7 +113,7 @@ class _Snapshot(Mapping[PackageType, _ValueType]):
             return self._live[package]
         if frozen is _ABSENT:
             raise KeyError(package)
-        return cast("_ValueType", frozen)
+        return frozen
 
     # ``object`` rather than ``PackageType``: narrowing the key would not
     # substitute for ``Mapping.get``.
@@ -129,7 +137,7 @@ class _Snapshot(Mapping[PackageType, _ValueType]):
             return self._live.get(package, default)
         if frozen is _ABSENT:
             return default
-        return cast("_ValueType", frozen)
+        return frozen
 
     @override
     def __contains__(self, package: object) -> bool:
@@ -309,7 +317,7 @@ class PartialSolution(Generic[PackageType, VersionType]):
 
     def __init__(
         self,
-        range_type: type[RangeProtocol[Any]] = Range,
+        range_type: type[RangeProtocol[VersionType]] = Range,
         *,
         contradiction_epoch: int = 0,
     ) -> None:
@@ -335,9 +343,7 @@ class PartialSolution(Generic[PackageType, VersionType]):
         self._changed: set[PackageType] = set()
 
         # Memoises positive - negative per package.
-        self._effective_range_cache: dict[
-            PackageType, RangeProtocol[VersionType] | None
-        ] = {}
+        self._effective_range_cache: dict[PackageType, RangeProtocol[VersionType]] = {}
 
         # Per-package index of trail entries; lets satisfier() avoid the full scan.
         self._assignments_by_package: defaultdict[
@@ -424,37 +430,48 @@ class PartialSolution(Generic[PackageType, VersionType]):
 
         Computes ``positive - negative``, cached per package.
         """
-        # ``None`` is a cached answer, so membership decides the hit.
-        cache = self._effective_range_cache
-        if package in cache:
-            return cache[package]
+        cached = self._effective_range_cache.get(package)
+        if cached is not None:
+            return cached
 
-        positive = self._positive_ranges.get(package)
-        negative = self._negative_ranges.get(package)
+        # Backtracking invalidates the cache but retains the surviving trail prefix.
+        entries = self._assignments_by_package.get(package)
+        if not entries:
+            return None
+        effective = self._range_at(entries[-1])
+        self._effective_range_cache[package] = effective
+        return effective
 
-        if positive is None and negative is None:
-            result: RangeProtocol[VersionType] | None = None
-        elif positive is None:
-            # No requirement to subtract from. An exclusion-only package is
-            # never offered for selection, so the plain complement is enough.
-            assert negative is not None
-            result = ~negative
-        elif negative is None:
-            result = positive
-        else:
-            result = self._combine(operator.sub, positive, negative)
-
-        cache[package] = result
-        return result
-
-    def _refresh_effective_range(
-        self, package: PackageType
+    def _range_at(
+        self, assignment: Assignment[PackageType, VersionType]
     ) -> RangeProtocol[VersionType]:
-        """Recompute the package's range, advancing the epoch if it emptied."""
-        self._effective_range_cache.pop(package, None)
+        """Recover the effective range when this assignment was recorded."""
+        positive = assignment.cum_positive
+        negative = assignment.cum_negative
+        if positive is None:
+            if negative is None:
+                msg = (
+                    f"assignment {assignment.trail_index} for {assignment.package!r} "
+                    "has no recorded range"
+                )
+                raise ResolutionInvariantError(msg)
+            return ~negative
+
+        if negative is None:
+            return positive
+        return self._combine(operator.sub, positive, negative)
+
+    def _record_assignment(
+        self, assignment: Assignment[PackageType, VersionType]
+    ) -> RangeProtocol[VersionType]:
+        """Index the trail entry and make its effective range current."""
+        package = assignment.package
+        effective = self._range_at(assignment)
+        self._assignments.append(assignment)
+        self._assignments_by_package[package].append(assignment)
+
+        self._effective_range_cache[package] = effective
         self._changed.add(package)
-        effective = self.get(package)
-        assert effective is not None
         if effective.is_empty:
             self._contradiction_epoch += 1
         return effective
@@ -470,7 +487,6 @@ class PartialSolution(Generic[PackageType, VersionType]):
         self._freeze_decisions(package)
         self._positive_ranges[package] = exact_range
         self._decided_versions[package] = version
-        self._refresh_effective_range(package)
         self._undecided.discard(package)
 
         assignment: Assignment[PackageType, VersionType] = Assignment(
@@ -484,8 +500,7 @@ class PartialSolution(Generic[PackageType, VersionType]):
             cum_positive=exact_range,
             cum_negative=self._negative_ranges.get(package),
         )
-        self._assignments.append(assignment)
-        self._assignments_by_package[package].append(assignment)
+        self._record_assignment(assignment)
         return exact_range
 
     def derive(
@@ -527,8 +542,6 @@ class PartialSolution(Generic[PackageType, VersionType]):
             )
             self._negative_ranges[package] = new_range
 
-        effective = self._refresh_effective_range(package)
-
         assignment = Assignment(
             package=package,
             accumulated_range=new_range,
@@ -540,9 +553,7 @@ class PartialSolution(Generic[PackageType, VersionType]):
             cum_positive=self._positive_ranges.get(package),
             cum_negative=self._negative_ranges.get(package),
         )
-        self._assignments.append(assignment)
-        self._assignments_by_package[package].append(assignment)
-        return effective
+        return self._record_assignment(assignment)
 
     def backtrack(self, target_level: int) -> None:
         """Remove all assignments above target_level.
@@ -696,21 +707,9 @@ class PartialSolution(Generic[PackageType, VersionType]):
         Positive terms need a positive assignment first; negatives alone
         only exclude versions.
         """
-        cum_positive = assignment.cum_positive
-        if is_positive and cum_positive is None:
+        if is_positive and assignment.cum_positive is None:
             return False
-
-        if cum_positive is None:
-            assert assignment.cum_negative is not None
-            effective = ~assignment.cum_negative
-        elif assignment.cum_negative is None:
-            effective = cum_positive
-        else:
-            effective = self._combine(
-                operator.sub, cum_positive, assignment.cum_negative
-            )
-
-        return term.satisfies(effective)
+        return term.satisfies(self._range_at(assignment))
 
     def satisfier(
         self, term: Term[PackageType, VersionType]

@@ -1,9 +1,11 @@
-"""Turns: a multi-turn attempt's messages (each with its source, trainable flag, tool calls and reasoning), plus its
-lifecycle events."""
+"""Turns: a multi-turn attempt's messages (each with its source, trainable flag, tool calls and reasoning) and each
+model call's tokens, the tools the model was offered, plus its lifecycle events."""
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field, FiniteFloat
 
@@ -11,6 +13,12 @@ from ...compat import StrEnum
 
 #: An event's `detail` and a tool call's `error`: one short line each.
 MAX_DETAIL_CHARS = 1024
+#: Tools one sample names, and the bytes their definitions hold together (JSON); past either the SDK cuts them.
+MAX_TOOLS = 128
+MAX_TOOLS_BYTES = 32 * 1024
+#: A tool's name; its description is cut to `MAX_TOOL_DESCRIPTION_CHARS`.
+MAX_TOOL_NAME_CHARS = 256
+MAX_TOOL_DESCRIPTION_CHARS = 4096
 
 
 class MessageSource(StrEnum):
@@ -56,6 +64,9 @@ class Message(BaseModel):
     #: The model's reasoning, apart from `content`, only where the model or engine gives it (None, never "").
     reasoning: str | None = None
     tool_calls: list[MessageToolCall] = Field(default_factory=list)
+    #: A tool result's or observation's own tokens, from the template marker that opens it to the next message's,
+    #: where the token ids fix them exactly (decoded turns); None: unknown, never a guess.
+    result_tokens: int | None = Field(default=None, ge=0)
 
 
 class TurnToolCall(BaseModel):
@@ -69,11 +80,40 @@ class TurnToolCall(BaseModel):
     error: str | None = Field(default=None, max_length=MAX_DETAIL_CHARS)
 
 
+class TurnUsage(BaseModel):
+    """The tokens of the turn's own model call, as the framework counted them; a count it did not give is None."""
+
+    #: What the model read for this call (the conversation so far), cache hits included.
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    #: What the model wrote in this call.
+    response_tokens: int | None = Field(default=None, ge=0)
+
+
 class Turn(BaseModel):
     messages: list[Message] = Field(default_factory=list)
     #: A process or step-wise reward for this turn alone.
     reward: FiniteFloat | None = None
     tool_calls: list[TurnToolCall] = Field(default_factory=list)
+    #: Its model call's tokens, where the integration recorded them (None: unknown, never a guess).
+    usage: TurnUsage | None = None
+
+
+class ToolDefinition(BaseModel):
+    """One tool the model was offered (OpenAI's function shape, flattened): its name, what it does, and its
+    arguments' JSON schema."""
+
+    name: str = Field(max_length=MAX_TOOL_NAME_CHARS)
+    description: str | None = Field(default=None, max_length=MAX_TOOL_DESCRIPTION_CHARS)
+    parameters: dict[str, Any] | None = None
+
+
+def check_tools(tools: list[ToolDefinition]) -> list[ToolDefinition]:
+    if len(tools) > MAX_TOOLS:
+        raise ValueError(f"over {MAX_TOOLS} tools: send the first {MAX_TOOLS}")
+    size = len(json.dumps([tool.model_dump(exclude_none=True) for tool in tools], default=str).encode("utf-8"))
+    if size > MAX_TOOLS_BYTES:
+        raise ValueError("tool definitions are over 32 KiB: drop the last tools' parameters")
+    return tools
 
 
 class SampleEventKind(StrEnum):

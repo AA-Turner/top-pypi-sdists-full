@@ -7,7 +7,10 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class SendTextData(UniversalBaseModel):
-    text: str
+    text: str = pydantic.Field()
+    """
+    Text to synthesize, up to 2,500 characters per message. Text is buffered until it reaches `min_buffer_size` characters or you send a `flush`. Longer text returns an error.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -12,20 +12,27 @@ class ListOAuthConnectsResponse200Item:
     Attributes:
         name (str):
         supports_client_credentials (bool):
+        supports_authorization_code (bool): The instance entry declares the authorization-code grant, so users can sign
+            in with their own account when has_shared_credentials is also true.
         has_shared_credentials (bool): The instance entry holds a client id and secret users can connect with, for sign-
-            in or as a shared service account. Whether client credentials are shared is get_connect's
-            client_credentials_configured.
+            in or as a shared service account.
+        shares_client_credentials (bool): Users may connect as the instance entry's own app with its shared client
+            credentials, with no sign-in.
     """
 
     name: str
     supports_client_credentials: bool
+    supports_authorization_code: bool
     has_shared_credentials: bool
+    shares_client_credentials: bool
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
         supports_client_credentials = self.supports_client_credentials
+        supports_authorization_code = self.supports_authorization_code
         has_shared_credentials = self.has_shared_credentials
+        shares_client_credentials = self.shares_client_credentials
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -33,7 +40,9 @@ class ListOAuthConnectsResponse200Item:
             {
                 "name": name,
                 "supports_client_credentials": supports_client_credentials,
+                "supports_authorization_code": supports_authorization_code,
                 "has_shared_credentials": has_shared_credentials,
+                "shares_client_credentials": shares_client_credentials,
             }
         )
 
@@ -46,12 +55,18 @@ class ListOAuthConnectsResponse200Item:
 
         supports_client_credentials = d.pop("supports_client_credentials")
 
+        supports_authorization_code = d.pop("supports_authorization_code")
+
         has_shared_credentials = d.pop("has_shared_credentials")
+
+        shares_client_credentials = d.pop("shares_client_credentials")
 
         list_o_auth_connects_response_200_item = cls(
             name=name,
             supports_client_credentials=supports_client_credentials,
+            supports_authorization_code=supports_authorization_code,
             has_shared_credentials=has_shared_credentials,
+            shares_client_credentials=shares_client_credentials,
         )
 
         list_o_auth_connects_response_200_item.additional_properties = d

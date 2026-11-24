@@ -25,6 +25,35 @@ from .types import (
 
 logger = logging.getLogger(__name__)
 
+#: ``system_error`` kind for a memory pass (buffer / observe / reflect) that failed. The pass is
+#: degraded (the conversation keeps its older observations), never silent: a log line is not
+#: capture (2026-11-15, "[OM] Observer failed: ImageContent is not JSON serializable" was only logged).
+MEMORY_PASS_FAILED_KIND = "observational_memory_pass_failed"
+
+
+async def _capture_memory_failure(exc: BaseException, *, stage: str, thread_id: str, resource_id: str) -> None:
+    """Capture a failed memory pass as a system error. Never raises.
+
+    A pass HELD by a spend cap, approval or usage limit is an expected refusal (the gate recorded
+    it with its own human path): it is logged as a refusal with its code and reason, never filed.
+    """
+    from matrx_ai.providers.caller_refusal import expected_hold_code
+
+    hold = expected_hold_code(exc)
+    if hold:
+        logger.warning(f"[OM] {stage} pass held ({hold}) for thread {thread_id}: {exc}")
+        return
+    try:
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            exc,
+            kind=MEMORY_PASS_FAILED_KIND,
+            payload={"stage": stage, "thread_id": thread_id, "resource_id": resource_id},
+        )
+    except Exception as cap_exc:  # noqa: BLE001 — capture must never break the pass it reports
+        logger.error(f"[OM] capture of the {stage} failure failed too: {cap_exc}")
+
 
 class ObservationalMemory:
     """
@@ -252,6 +281,7 @@ class ObservationalMemory:
             await self.storage.upsert_record(record)
         except Exception as e:
             logger.error(f"[OM:buffer] Failed background observation: {e}")
+            await _capture_memory_failure(e, stage="buffer", thread_id=thread_id, resource_id=resource_id)
             await self.storage.set_buffering_observation_flag(record.id, False)
 
     async def activate(self, thread_id: str, resource_id: str) -> None:
@@ -329,6 +359,7 @@ class ObservationalMemory:
 
             except Exception as e:
                 logger.error(f"[OM] Observer failed: {e}")
+                await _capture_memory_failure(e, stage="observe", thread_id=thread_id, resource_id=resource_id)
 
         # Re-fetch status to check reflection threshold post-observation
         status = await self.get_status(thread_id, resource_id, messages)
@@ -392,3 +423,4 @@ class ObservationalMemory:
 
             except Exception as e:
                 logger.error(f"[OM] Reflector failed: {e}")
+                await _capture_memory_failure(e, stage="reflect", thread_id=thread_id, resource_id=resource_id)

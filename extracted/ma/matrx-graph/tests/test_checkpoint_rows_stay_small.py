@@ -37,7 +37,12 @@ from matrx_graph.checkpoint.values import (
     resolve_values,
     row_bytes,
 )
-from matrx_graph.knobs import STARTING_CHECKPOINT_POLICY
+from matrx_graph.knobs import STARTING_CHECKPOINT_POLICY, STARTING_EVENT_INLINE_VALUE_MAX_BYTES
+
+# THE ONE INTERNING GRAIN (L-SPEED round 6a, knobs.interning_grain): checkpoints intern at the same
+# grain as events and outcome rows (32 KB, was 4 KB here), so a value is stored once at one digest.
+# Updated consciously: the rows must still fit warn_bytes at the coarser grain.
+GRAIN = STARTING_EVENT_INLINE_VALUE_MAX_BYTES
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
@@ -147,7 +152,7 @@ async def _run(max_inline_bytes: int) -> _Measuring:
 
 async def test_every_checkpoint_row_of_a_wide_round_stays_under_the_knob() -> None:
     limit = STARTING_CHECKPOINT_POLICY.warn_bytes
-    cp = await _run(STARTING_CHECKPOINT_POLICY.inline_value_max_bytes)
+    cp = await _run(GRAIN)
     assert cp.rows, "the round saved no checkpoint"
     assert max(cp.rows) <= limit, (
         f"a checkpoint row is {max(cp.rows):,} bytes — over the warn_bytes knob ({limit:,}); "
@@ -167,7 +172,7 @@ async def test_the_same_round_without_references_breaks_the_knob() -> None:
 
 
 async def test_a_stored_row_resolves_back_to_the_checkpoint_it_came_from() -> None:
-    cp = await _run(STARTING_CHECKPOINT_POLICY.inline_value_max_bytes)
+    cp = await _run(GRAIN)
     for checkpoint, columns in cp.round_trips:
         original, _ = checkpoint_columns(checkpoint, 0)
         for col in ("channel_values", "pending_bindings", "next_invocations"):
@@ -199,7 +204,7 @@ def _wide_binding_columns(limit: int) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def test_a_binding_of_many_mid_size_values_goes_by_reference() -> None:
-    limit = STARTING_CHECKPOINT_POLICY.inline_value_max_bytes
+    limit = 4096  # the fixture is sized for a 4 KB limit; the mechanics hold at any grain
     inline_cols, _ = _wide_binding_columns(0)
     cols, store = _wide_binding_columns(limit)
     before = len(json.dumps(inline_cols["pending_bindings"]))
@@ -235,7 +240,7 @@ def _shared_edge_map_columns(limit: int) -> tuple[dict[str, Any], dict[str, Any]
 
 
 def test_identical_edge_maps_on_many_nodes_are_stored_once_and_the_column_fits_the_knob() -> None:
-    limit = STARTING_CHECKPOINT_POLICY.inline_value_max_bytes
+    limit = 4096  # the fixture is sized for a 4 KB limit; the mechanics hold at any grain
     inline_cols, _ = _shared_edge_map_columns(0)
     cols, store = _shared_edge_map_columns(limit)
     before = len(json.dumps(inline_cols["pending_bindings"]))

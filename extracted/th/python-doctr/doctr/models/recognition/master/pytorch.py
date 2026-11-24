@@ -5,8 +5,9 @@
 
 from collections.abc import Callable
 from copy import deepcopy
-from typing import Any
+from typing import Any, cast
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -14,8 +15,9 @@ from torchvision.models._utils import IntermediateLayerGetter
 
 from doctr.datasets import VOCABS
 from doctr.models.classification import magc_resnet31
-from doctr.models.modules.transformer import Decoder, PositionalEncoding
+from doctr.models.modules.transformer import Decoder, MultiHeadAttention, PositionalEncoding
 
+from ..._utils import ConfidenceAggregation, aggregate_confidence
 from ...utils import _bf16_to_float32, load_pretrained_params
 from .base import _MASTER, _MASTERPostProcessor
 
@@ -49,6 +51,7 @@ class MASTER(_MASTER, nn.Module):
         input_shape: size of the image inputs
         exportable: onnx exportable returns only logits
         cfg: dictionary containing information about the model
+        confidence_aggregation: aggregation method of the character probabilities into the word confidence
     """
 
     def __init__(
@@ -64,6 +67,7 @@ class MASTER(_MASTER, nn.Module):
         input_shape: tuple[int, int, int] = (3, 32, 128),  # different from the paper
         exportable: bool = False,
         cfg: dict[str, Any] | None = None,
+        confidence_aggregation: ConfidenceAggregation = "min",
     ) -> None:
         super().__init__()
 
@@ -88,7 +92,7 @@ class MASTER(_MASTER, nn.Module):
         )
 
         self.linear = nn.Linear(self.d_model, self.vocab_size + 3)
-        self.postprocessor = MASTERPostProcessor(vocab=self.vocab)
+        self.postprocessor = MASTERPostProcessor(vocab=self.vocab, confidence_aggregation=confidence_aggregation)
 
         for n, m in self.named_modules():
             # Don't override the initialization of the backbone
@@ -243,17 +247,71 @@ class MASTER(_MASTER, nn.Module):
         ys = torch.full((b, self.max_length), self.vocab_size + 2, dtype=torch.long, device=encoded.device)  # pad
         ys[:, 0] = self.vocab_size + 1  # sos
 
-        # Final dimension include EOS/SOS/PAD
-        for i in range(self.max_length - 1):
-            source_mask, target_mask = self.make_source_and_target_mask(encoded, ys)
-            output = self.decoder(ys, encoded, source_mask, target_mask)
-            # update ys with the next token and ignore the first token (SOS)
-            ys[:, i + 1] = self.linear(output[:, i]).argmax(-1)
-            if (ys == self.vocab_size).any(dim=-1).all():  # every sequence has emitted EOS
-                break
+        if torch.compiler.is_exporting():
+            return self._decode_loop(encoded, ys)
 
-        # Shape (N, max_length, vocab_size + 1)
-        return self.linear(output)
+        # Incremental decoding: each step only decodes the last token, the previous ones are cached
+        cache: list[dict[str, tuple[torch.Tensor, torch.Tensor]]] = []
+        logits = []
+        for i in range(self.max_length):
+            step_logits = self.linear(self.decoder(ys[:, i : i + 1], encoded, cache=cache))
+            logits.append(step_logits)
+            if i + 1 < self.max_length:
+                # update ys with the next token
+                ys[:, i + 1] = step_logits[:, 0].argmax(-1)
+                # Stop decoding if all sequences have reached the EOS token
+                # NOTE: `break` isn't correctly translated to Onnx so we don't break here if we want to export
+                if not self.exportable and (ys == self.vocab_size).any(dim=-1).all():
+                    break
+
+        out = torch.cat(logits, dim=1)
+        # Shape (N, max_length, vocab_size + 1): the positions after an early stop come after the EOS of every
+        # sequence, and are not decoded
+        return F.pad(out, (0, 0, 0, self.max_length - out.size(1)))
+
+    def _decode_loop(self, encoded: torch.Tensor, ys: torch.Tensor) -> torch.Tensor:
+        """Greedy decoding with `torch.while_loop`, used when the model is traced by `torch.export` (e.g.
+        `export_model_to_onnx(..., dynamo=True)`): it is exported as an ONNX `Loop`, which stops once every sequence is
+        complete, instead of the `max_length` unrolled steps of the tracing exporter
+
+        Args:
+            encoded: the encoded images
+            ys: the initial tokens (SOS, then padding), of shape (N, max_length)
+
+        Returns:
+            the logits, of shape (N, max_length, vocab_size + 3), zeros after the end of every sequence (as `decode`)
+        """
+        from torch._higher_order_ops.while_loop import while_loop
+
+        decoder = self.decoder
+        attentions = [cast(MultiHeadAttention, attention) for attention in decoder.attention]
+        # Keys transposed once: no transpose in the loop
+        source_kv = []
+        for attention in decoder.source_attention:
+            key, value = cast(MultiHeadAttention, attention).project_kv(encoded, encoded)
+            source_kv.append((key.transpose(-2, -1).contiguous(), value))
+        num_layers, heads, head_dim = len(attentions), attentions[0].num_heads, attentions[0].d_k
+        length, eos = self.max_length, self.vocab_size
+        positions = torch.arange(length, device=encoded.device).view(1, -1)
+
+        def cond_fn(step: torch.Tensor, ys: torch.Tensor, logits: torch.Tensor, *buffers: torch.Tensor):
+            # Stop once every sequence has reached the EOS token
+            return (step < length) & ~(ys == eos).any(dim=-1).all()
+
+        def body_fn(step: torch.Tensor, ys: torch.Tensor, logits: torch.Tensor, *buffers: torch.Tensor):
+            output, keys, values = decoder.decode_step(
+                ys.index_select(1, step.view(1)), step, source_kv, buffers[:num_layers], buffers[num_layers:]
+            )
+            step_logits = self.linear(output)
+            # Write the next token (none after the last step)
+            ys = torch.where(positions == step + 1, step_logits[:, 0].argmax(-1, keepdim=True), ys)
+            return step + 1, ys, logits.index_copy(1, step.view(1), step_logits), *keys, *values
+
+        buffers = [encoded.new_zeros(encoded.size(0), heads, head_dim, length) for _ in range(num_layers)]
+        buffers += [encoded.new_zeros(encoded.size(0), heads, length, head_dim) for _ in range(num_layers)]
+        logits = encoded.new_zeros(encoded.size(0), length, self.linear.out_features)
+        step = torch.zeros((), dtype=torch.long, device=encoded.device)
+        return while_loop(cond_fn, body_fn, (step, ys, logits, *buffers))[2]
 
 
 class MASTERPostProcessor(_MASTERPostProcessor):
@@ -264,19 +322,24 @@ class MASTERPostProcessor(_MASTERPostProcessor):
         logits: torch.Tensor,
     ) -> list[tuple[str, float]]:
         # compute pred with argmax for attention models
-        out_idxs = logits.argmax(-1)
+        out_idxs = logits.argmax(-1).detach().cpu().numpy()
         # N x L
-        probs = torch.gather(torch.softmax(logits, -1), -1, out_idxs.unsqueeze(-1)).squeeze(-1)
-        # Take the minimum confidence of the sequence
-        probs = probs.min(dim=1).values.detach().cpu()
+        preds_prob = torch.softmax(logits, -1).max(dim=-1)[0].detach().cpu().numpy()
 
         # Manual decoding
         word_values = [
-            "".join(self._embedding[idx] for idx in encoded_seq).split("<eos>")[0]
-            for encoded_seq in out_idxs.detach().cpu().numpy()
+            "".join(self._embedding[idx] for idx in encoded_seq).split("<eos>")[0] for encoded_seq in out_idxs
+        ]
+        # aggregate the character probabilities of each word up to the EOS token: the number of predicted tokens is
+        # used since the <sos> and <pad> tokens are decoded as several characters
+        is_eos = out_idxs == len(self.vocab)
+        seq_lens = np.where(is_eos.any(axis=-1), is_eos.argmax(axis=-1), out_idxs.shape[-1])
+        probs = [
+            aggregate_confidence(preds_prob[i, :seq_len], self.confidence_aggregation)
+            for i, seq_len in enumerate(seq_lens)
         ]
 
-        return list(zip(word_values, probs.numpy().clip(0, 1).tolist()))
+        return list(zip(word_values, probs))
 
 
 def _master(

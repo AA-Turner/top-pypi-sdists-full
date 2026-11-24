@@ -21,7 +21,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from .asset_envelope import FileRef
 from .derivations import FileDerivationKind, inherit_derived_file_policy
@@ -165,6 +165,7 @@ async def convert_office_pdf(
         file_path,
         pdf_bytes,
         mime_type="application/pdf",
+        pathway="office.pdf_conversion",  # placement registry: the declared automated pathway
         published_to_web=access.published_to_web,
         shown_to=access.shown_to,
         change_summary=f"PDF conversion of {source_name}",

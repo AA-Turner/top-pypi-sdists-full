@@ -61,6 +61,7 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from matrx_ai.config.finish_reason import FinishReason
 from matrx_ai.config.message_config import host_authored_user_turn
 from matrx_ai.graph_nodes.mandates import hold_ambient_workflow_strict_json
 from matrx_ai.orchestrator.mandate_carrier import HolderCarrier
@@ -151,6 +152,44 @@ class StrictJsonTruncatedError(StrictJsonError):
     """
 
 
+class LlmAnswerStoppedError(StrictJsonError):
+    """The provider ended the answer before the model finished it.
+
+    ``finish_reason`` names why: a token cap (``max_tokens`` / ``length``) or the provider's own
+    content filter (``recitation``, ``safety``, ...). ``provider_stopped`` is True for the latter: a
+    fact about THIS input, which a caller may record against the input instead of as a defect.
+    Raised only when a caller asks (``refuse_incomplete=True``); the text-only callers keep the
+    fragment as before.
+    """
+
+    def __init__(self, message: str, *, finish_reason: str, raw_output: str = "") -> None:
+        super().__init__(message, raw_output=raw_output)
+        self.finish_reason = finish_reason
+        self.provider_stopped = _unified_finish(finish_reason) not in (None, FinishReason.MAX_TOKENS)
+
+
+def _unified_finish(reason: str) -> FinishReason | None:
+    """The unified finish reason when it says the answer was cut off, else None."""
+    if reason in _TRUNCATION_REASONS:
+        return FinishReason.MAX_TOKENS
+    try:
+        unified = FinishReason(reason.lower())
+    except ValueError:
+        return None
+    return unified if unified.is_truncated() or unified.is_error() else None
+
+
+def refuse_incomplete_answer(text: str, finish_reason: str | None) -> None:
+    """Raise :class:`LlmAnswerStoppedError` when ``finish_reason`` says the answer was cut off."""
+    reason = str(finish_reason or "")
+    if _unified_finish(reason) is not None:
+        raise LlmAnswerStoppedError(
+            f"the provider stopped the answer before it was finished (finish_reason={reason})",
+            finish_reason=reason,
+            raw_output=text,
+        )
+
+
 def _pin(offering_id: str | None) -> dict[str, Any]:
     """Forward a class pin only when one is set — callers (and test doubles)
     that never pin see the exact signature they always saw."""
@@ -222,8 +261,12 @@ async def _run_completion_measured(
     metadata: HolderCarrier[dict[str, Any] | None] = None,
     store: bool | None = None,
     conversation_id: str | None = None,
+    reasoning_effort: str | None = None,
 ) -> Any:
     """The same one turn, returning the whole normalized ``AiExecutionResult``.
+
+    ``reasoning_effort`` is the HOLDER's own setting carried by a held call (``"none"`` turns thinking off); unset
+    leaves the model's default.
 
     Exists because usage is not an afterthought for every caller: a benchmark
     harness has to report input/output tokens, dollars and seconds PER CALL,
@@ -257,6 +300,8 @@ async def _run_completion_measured(
         cfg["response_format"] = response_format
     if internal_web_search:
         cfg["internal_web_search"] = True
+    if reasoning_effort:
+        cfg["reasoning_effort"] = reasoning_effort
     # A graph action may call this generic funnel directly rather than through
     # a typed ai.* node.  When its real runtime is a workflow step, resolve the
     # same Holder those nodes use; do not manufacture a carrier for any other
@@ -697,6 +742,7 @@ async def _wrapped_completion_measured(
     metadata: dict[str, Any] | None,
     store: bool | None,
     conversation_id: str | None,
+    reasoning_effort: str | None = None,
 ) -> Any:
     """The same turn, returning the whole normalized ``AiExecutionResult``.
 
@@ -731,6 +777,7 @@ async def _wrapped_completion_measured(
             metadata=metadata,
             store=store,
             conversation_id=conversation_id,
+            reasoning_effort=reasoning_effort,
         )
         if not (result.final_text or ""):
             # The answer chunks went into OUR wrapper, not the context emitter,
@@ -777,6 +824,7 @@ async def llm_stream_messages(
     metadata: dict[str, Any] | None = None,
     store: bool | None = None,
     conversation_id: str | None = None,
+    refuse_incomplete: bool = False,
 ) -> str:
     """Funnel call over pre-built provider-neutral messages, with the emitter WRAPPED.
 
@@ -791,8 +839,11 @@ async def llm_stream_messages(
 
     ``on_reset`` fires if the orchestrator retries the turn after a partial
     stream — the caller should tell its client to discard what it already showed.
+
+    ``refuse_incomplete=True`` raises :class:`LlmAnswerStoppedError` when the provider cut the answer
+    off (token cap or its own content filter) instead of returning the fragment as if it were whole.
     """
-    text, _finish = await _wrapped_completion(
+    text, finish = await _wrapped_completion(
         model=model,
         **_pin(offering_id),
         system=system,
@@ -809,6 +860,8 @@ async def llm_stream_messages(
         store=store,
         conversation_id=conversation_id,
     )
+    if refuse_incomplete:
+        refuse_incomplete_answer(text, finish)
     return text
 
 
@@ -872,6 +925,7 @@ async def llm_messages_to_pydantic_measured(
     on_delta: Callable[[str], Awaitable[None]] | None = None,
     on_reset: Callable[[], Awaitable[None]] | None = None,
     wire_kind: str | None = None,
+    reasoning_effort: str | None = None,
 ) -> MeasuredStrictJson[T]:
     """Validate structured output from multimodal or multi-turn messages.
 
@@ -953,6 +1007,7 @@ async def llm_messages_to_pydantic_measured(
             metadata=metadata,
             store=store,
             conversation_id=conversation_id,
+            reasoning_effort=reasoning_effort,
         )
         # Every turn is recorded the moment it returns — a repair retry is a
         # second PAID call and the measurement must carry it.

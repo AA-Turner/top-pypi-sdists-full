@@ -48,6 +48,8 @@ class HandoffLedger(Protocol):
         execution_id: str,
         handoff_id: str,
         expires_at: datetime,
+        owner_id: str | None = None,
+        organization_id: str | None = None,
     ) -> None:
         """P3: durably mark the pending tool call delegated + finalize. Raises
         (aborting the handoff) if the pre-suspend commit fails — better a loud

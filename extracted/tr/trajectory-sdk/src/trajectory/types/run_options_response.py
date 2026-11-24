@@ -6,23 +6,7 @@ from typing import Literal, TypeAlias
 
 from trajectory._models import BaseModel
 from trajectory.types.base_model_slug import BaseModelSlug
-
-
-class RunOptionMetadata(BaseModel):
-  type: Literal["integer", "number", "boolean", "string"]
-
-  min: float | None = None
-
-  max: float | None = None
-
-  default: bool | int | float | str | None
-
-  choices: list[str] | None = None
-
-  default_kind: Literal["fixed", "computed"]
-
-  description: str
-
+from trajectory.types.run_option_metadata import RunOptionMetadata
 
 TrainingOptionKey: TypeAlias = Literal[
   "density_aware_training",

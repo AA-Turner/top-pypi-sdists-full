@@ -92,17 +92,17 @@ class _TrackingPredicate:
     returned true.
     """
 
-    predicate: Callable[[Use], bool]
+    predicate: Callable[[Use[SSAValue]], bool]
     """The original predicate to call."""
 
     modified_ops: list[Operation]
     """The operations for which the predicate returned true."""
 
-    def __init__(self, predicate: Callable[[Use], bool]):
+    def __init__(self, predicate: Callable[[Use[SSAValue]], bool]):
         self.predicate = predicate
         self.modified_ops = []
 
-    def __call__(self, use: Use) -> bool:
+    def __call__(self, use: Use[SSAValue]) -> bool:
         if self.predicate(use):
             self.modified_ops.append(use.operation)
             return True
@@ -190,7 +190,7 @@ class PatternRewriter(Builder, PatternRewriterListener):
         self,
         from_value: SSAValue,
         to_value: SSAValue,
-        predicate: Callable[[Use], bool],
+        predicate: Callable[[Use[SSAValue]], bool],
     ):
         """Replace uses of `old` satisfying `predicate` with `new`."""
         if from_value is to_value:

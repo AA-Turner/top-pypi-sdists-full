@@ -138,6 +138,11 @@ async def _safe_resolve(
     try:
         return await resolver(content, ctx)
     except Exception as exc:  # noqa: BLE001 — a resolver failure must degrade to a clean drop
+        # A caller refusal (HIPAA/BAA, allowance, ...) is a decision, not a conversion failure:
+        # it keeps its own type and honest message instead of becoming a "dropped" result that
+        # the error classifier then reads as a connection failure.
+        if getattr(exc, "is_caller_refusal", False):
+            raise
         return ResolverResult(
             replacement=None,
             action="dropped",
@@ -178,8 +183,49 @@ def stage_media_notice(record: dict[str, Any]) -> None:
     metadata[REQUEST_SNAPSHOT_METADATA_KEY] = staged
 
 
+#: Keys on a media item's own ``metadata`` (persisted with the item by ``to_storage_dict``, so a
+#: reloaded history carries them): the converted text, and that the person has been told once.
+CONVERSION_CACHE_KEY = "media_conversion"
+CONVERSION_SAID_KEY = "media_conversion_said"
+
+
+def _item_metadata(content: Any) -> dict[str, Any] | None:
+    metadata = getattr(content, "metadata", None)
+    return metadata if isinstance(metadata, dict) else None
+
+
+def _cached_replacement(content: Any) -> TextContent | None:
+    """The text a past turn already made of this item, or None. Never re-converts (an image's
+    OCR, a video's paid transcript) on every later turn to a model that cannot take the media."""
+    cached = (_item_metadata(content) or {}).get(CONVERSION_CACHE_KEY)
+    if not isinstance(cached, dict) or not isinstance(cached.get("text"), str) or not cached["text"]:
+        return None
+    meta = cached.get("metadata")
+    return TextContent(text=cached["text"], metadata=dict(meta) if isinstance(meta, dict) else {})
+
+
+def _remember_conversion(content: Any, result: ResolverResult) -> None:
+    """Write the conversion onto the item (in place: the message object stays the same one, so
+    the turn barrier still finds its trigger) and mark it announced."""
+    metadata = _item_metadata(content)
+    if metadata is None:
+        return
+    metadata[CONVERSION_SAID_KEY] = True
+    replacement = result.replacement
+    if replacement is None or not replacement.text:
+        return
+    rmeta = dict(replacement.metadata or {})
+    if rmeta.get("conversion") == "described":
+        return  # names the model that could not see it; cheap, so recomputed per model
+    metadata[CONVERSION_CACHE_KEY] = {"text": replacement.text, "metadata": rmeta}
+
+
 async def _emit_and_log(
-    result: ResolverResult, container: MediaContainer, ctx: MediaResolveContext
+    result: ResolverResult,
+    container: MediaContainer,
+    ctx: MediaResolveContext,
+    *,
+    announce: bool = True,
 ) -> None:
     color = "green" if result.replacement is not None else "yellow"
     vcprint(
@@ -221,6 +267,75 @@ async def _emit_and_log(
             )
     except Exception as exc:  # noqa: BLE001 — emitting a notice must never break dispatch
         vcprint(f"[media_fallback] failed to emit media notice: {exc}", color="yellow")
+    if (
+        announce
+        and result.replacement is not None
+        and result.user_message
+        and _first_time_this_request(result.user_message)
+    ):
+        # The person's ONE line (one-chat C2: an image to a model that cannot see it). The
+        # ``media_notice`` data event above has no chat renderer; a warning is drawn live and
+        # saved on the answer (``metadata.warnings``), so a reload still says it.
+        from matrx_connect.context.events import WarningPayload
+
+        from matrx_ai.providers.outbound_params import send_client_warning
+
+        send_client_warning(
+            WarningPayload(
+                code=MEDIA_CONVERTED_CODE,
+                system_message=result.system_message or result.user_message,
+                user_message=result.user_message,
+                level="medium",
+                recoverable=True,
+                metadata={"media_kind": container.value, "action": result.action, "model": ctx.model_name},
+            ),
+            name="media_fallback_notice",
+        )
+
+
+#: The warning code of the line a converted media item shows in the chat (promoted to a visible
+#: line by @ai-matrx/chat ``PROMOTED_WARNING_CODES``).
+MEDIA_CONVERTED_CODE = "media_converted"
+
+
+def _first_time_this_request(line: str) -> bool:
+    """A loop converts the same item on every provider call; the person reads its line once
+    (the request holder: with or without an app context, never "say it again")."""
+    from matrx_ai.context.request_once import first_time_this_request
+
+    return first_time_this_request("media_converted", line)
+
+
+async def _persist_conversion_on_saved_message(message: Any) -> None:
+    """A message saved on an EARLIER turn (it carries its row id and position) gets the conversion
+    written onto its stored row, so a fresh server load reads the cached text and the "said" mark
+    instead of converting and announcing again. A message new this turn needs nothing: the turn
+    barrier writes it, item metadata included. keep_fresh blocks are never stored (re-fetched each
+    turn), so they are left out here as the finalize leaves them out."""
+    row_id = getattr(message, "id", None)
+    if not row_id or getattr(message, "position", None) is None:
+        return
+    try:
+        import copy
+
+        from matrx_ai.config.structured_input_config import _StructuredInputBase
+        from matrx_ai.persistence.queue_helpers import queue_message_update
+        from matrx_ai.persistence.sealed import stored_message_content
+
+        stored = copy.copy(message)
+        stored.content = [
+            item
+            for item in (getattr(message, "content", None) or [])
+            if not (isinstance(item, _StructuredInputBase) and getattr(item, "keep_fresh", False))
+        ]
+        content = await stored_message_content(stored.to_storage_dict().get("content") or [])
+        queue_message_update(str(row_id), content=content)
+    except Exception as exc:  # noqa: BLE001 — the conversion still went to the model; said in the log
+        vcprint(
+            f"[media_fallback] conversion not stored on message {row_id} ({type(exc).__name__}: {exc}); "
+            "a later turn converts it again",
+            color="yellow",
+        )
 
 
 def _collect_user_text(messages: MessageList) -> str:
@@ -287,6 +402,99 @@ async def _name_media_by_file_id(messages: MessageList) -> None:
             content.metadata["file_name"] = name
 
 
+def _set_off_converted_text(parts: list[Any], converted_at: list[int]) -> None:
+    """Put a blank line between a converted attachment and the parts beside it.
+
+    Chat-Completions translators join a message's text parts with ``""``: an extracted file
+    landed glued to the person's question ("...the word.[Document extracted...") and a text-only
+    model did not see it as the attachment (live, gpt-oss-20b, 3 of 4 runs). The boundary is
+    decided HERE, once, by position, so every provider style and every resolver (document,
+    video, YouTube) inherits it; block-per-part providers just get surrounding whitespace.
+    """
+    for index in converted_at:
+        part = parts[index]
+        text = getattr(part, "text", None)
+        if not isinstance(text, str):
+            continue
+        core = text.strip("\n")
+        before = "\n\n" if index > 0 else ""
+        after = "\n\n" if index < len(parts) - 1 else ""
+        parts[index] = TextContent(text=f"{before}{core}{after}", metadata=getattr(part, "metadata", None) or {})
+
+
+def _open_with_source_label(original: Any, replacement: TextContent, role: Any) -> TextContent:
+    """Open converted text with the ORIGINAL item's ``<attachment kind name id converted_to/>``.
+
+    The serializers label only media parts, so a conversion used to drop the file's kind and id:
+    PB-05 (2026-11-08) sent four attachments behind their label and the converted .docx as bare
+    text. Applied here, once, to fresh and reused conversions alike, so every provider style and
+    every resolver inherits it. The cache keeps the unlabelled text; the label is added per use.
+    """
+    from matrx_ai.config.message_config import _media_identity_label
+
+    text = replacement.text or ""
+    if text.lstrip().startswith("<attachment "):
+        return replacement
+    if not (getattr(original, "file_id", None) or getattr(original, "url", None)):
+        return replacement  # no identity to carry; the "[Attached file: name]" header names it
+    label = _media_identity_label(original, role, converted_to="text")
+    if not label:
+        return replacement
+    return TextContent(text=f"{label}\n{text}", metadata=dict(replacement.metadata or {}))
+
+
+def _skip_automatic_pictures(messages: MessageList, model_name: str) -> MessageList:
+    """A model that cannot read images never receives an AUTOMATIC picture (one a tool attached
+    without being asked: ``ImageContent.metadata.auto_picture``) nor a paid or OCR conversion of
+    it: each becomes one line saying it was skipped and why. Copy-on-write: the saved history and
+    any cached message keep the picture, so a later turn on a model that sees gets it."""
+    from dataclasses import replace
+
+    def _is_auto(block: Any) -> bool:
+        return container_for_content(block) is MediaContainer.IMAGE and bool(
+            (_item_metadata(block) or {}).get("auto_picture")
+        )
+
+    note = TextContent(
+        text=(
+            f"[Picture skipped: {model_name} cannot read images. Read the page as text or as its "
+            "element list instead.]"
+        )
+    )
+    changed = False
+    out: list[UnifiedMessage] = []
+    # Same tolerance as ``_collect_user_text`` / ``_name_media_by_file_id`` beside it: a caller
+    # holding a plain list of messages (not yet a MessageList) is read, never crashed on.
+    for message in (messages.to_list() if hasattr(messages, "to_list") else list(messages)):
+        parts = list(getattr(message, "content", None) or [])
+        new_parts: list[Any] = []
+        touched = False
+        for part in parts:
+            inner = getattr(part, "content", None)
+            if getattr(part, "type", None) == "tool_result" and isinstance(inner, list) and any(
+                _is_auto(b) for b in inner
+            ):
+                new_parts.append(replace(part, content=[note if _is_auto(b) else b for b in inner]))
+                touched = True
+            else:
+                new_parts.append(part)
+        if touched:
+            changed = True
+            out.append(
+                UnifiedMessage(
+                    role=message.role,
+                    content=new_parts,
+                    id=getattr(message, "id", None),
+                    name=getattr(message, "name", None),
+                    timestamp=getattr(message, "timestamp", None),
+                    metadata=getattr(message, "metadata", None) or {},
+                )
+            )
+        else:
+            out.append(message)
+    return MessageList(_messages=out) if changed else messages
+
+
 async def preprocess_unsupported_media(
     messages: MessageList,
     endpoint: str | None,
@@ -296,6 +504,8 @@ async def preprocess_unsupported_media(
     debug: bool = False,
 ) -> tuple[MessageList, list[TokenUsage]]:
     """Convert every unsupported media item or raise before provider dispatch."""
+    if model_supports_vision is False:
+        messages = _skip_automatic_pictures(messages, model_name)
     await _name_media_by_file_id(messages)
     unsupported = find_unsupported_media(
         messages,
@@ -315,13 +525,26 @@ async def preprocess_unsupported_media(
     all_usage: list[TokenUsage] = []
     for message in messages.to_list():
         new_content: list[Any] = []
-        for content in getattr(message, "content", None) or []:
+        converted_at: list[int] = []
+        remembered = False
+        source_content = list(getattr(message, "content", None) or [])
+        for content in source_content:
             container = container_for_content(content)
             if container is not None and content_needs_fallback(
-                content, endpoint, model_supports_vision=model_supports_vision
+                content,
+                endpoint,
+                model_supports_vision=model_supports_vision,
+                role=getattr(message, "role", None),
             ):
+                cached = _cached_replacement(content)
+                if cached is not None:
+                    # Converted on an earlier turn: reuse the stored text, say nothing again.
+                    new_content.append(_open_with_source_label(content, cached, message.role))
+                    converted_at.append(len(new_content) - 1)
+                    continue
                 result = await _safe_resolve(container, content, ctx)
-                await _emit_and_log(result, container, ctx)
+                said = bool((_item_metadata(content) or {}).get(CONVERSION_SAID_KEY))
+                await _emit_and_log(result, container, ctx, announce=not said)
                 if result.replacement is None:
                     raise MediaFallbackResolutionError(
                         container,
@@ -329,10 +552,16 @@ async def preprocess_unsupported_media(
                         endpoint=ctx.endpoint,
                         detail=result.system_message or result.user_message,
                     )
-                new_content.append(result.replacement)
+                _remember_conversion(content, result)
+                remembered = True
+                new_content.append(_open_with_source_label(content, result.replacement, message.role))
                 all_usage.extend(result.usage)
+                converted_at.append(len(new_content) - 1)
             else:
                 new_content.append(content)
+        _set_off_converted_text(new_content, converted_at)
+        if remembered:
+            await _persist_conversion_on_saved_message(message)
         processed.append(
             UnifiedMessage(
                 role=message.role,

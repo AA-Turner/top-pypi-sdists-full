@@ -28,9 +28,14 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     DescribeBackupsPaginator,
+    DescribeClusterPeersPaginator,
     DescribeFileSystemsPaginator,
     DescribeS3AccessPointAttachmentsPaginator,
+    DescribeSnapmirrorPoliciesPaginator,
+    DescribeSnapmirrorRelationshipsPaginator,
+    DescribeSnapshotPoliciesPaginator,
     DescribeSnapshotsPaginator,
+    DescribeStorageVirtualMachinePeersPaginator,
     DescribeStorageVirtualMachinesPaginator,
     DescribeVolumesPaginator,
     ListTagsForResourcePaginator,
@@ -48,6 +53,8 @@ from .type_defs import (
     CreateAndAttachS3AccessPointResponseTypeDef,
     CreateBackupRequestTypeDef,
     CreateBackupResponseTypeDef,
+    CreateClusterPeerRequestTypeDef,
+    CreateClusterPeerResponseTypeDef,
     CreateDataRepositoryAssociationRequestTypeDef,
     CreateDataRepositoryAssociationResponseTypeDef,
     CreateDataRepositoryTaskRequestTypeDef,
@@ -58,8 +65,16 @@ from .type_defs import (
     CreateFileSystemFromBackupResponseTypeDef,
     CreateFileSystemRequestTypeDef,
     CreateFileSystemResponseTypeDef,
+    CreateSnapmirrorPolicyRequestTypeDef,
+    CreateSnapmirrorPolicyResponseTypeDef,
+    CreateSnapmirrorRelationshipRequestTypeDef,
+    CreateSnapmirrorRelationshipResponseTypeDef,
+    CreateSnapshotPolicyRequestTypeDef,
+    CreateSnapshotPolicyResponseTypeDef,
     CreateSnapshotRequestTypeDef,
     CreateSnapshotResponseTypeDef,
+    CreateStorageVirtualMachinePeerRequestTypeDef,
+    CreateStorageVirtualMachinePeerResponseTypeDef,
     CreateStorageVirtualMachineRequestTypeDef,
     CreateStorageVirtualMachineResponseTypeDef,
     CreateVolumeFromBackupRequestTypeDef,
@@ -68,20 +83,32 @@ from .type_defs import (
     CreateVolumeResponseTypeDef,
     DeleteBackupRequestTypeDef,
     DeleteBackupResponseTypeDef,
+    DeleteClusterPeerRequestTypeDef,
+    DeleteClusterPeerResponseTypeDef,
     DeleteDataRepositoryAssociationRequestTypeDef,
     DeleteDataRepositoryAssociationResponseTypeDef,
     DeleteFileCacheRequestTypeDef,
     DeleteFileCacheResponseTypeDef,
     DeleteFileSystemRequestTypeDef,
     DeleteFileSystemResponseTypeDef,
+    DeleteSnapmirrorPolicyRequestTypeDef,
+    DeleteSnapmirrorPolicyResponseTypeDef,
+    DeleteSnapmirrorRelationshipRequestTypeDef,
+    DeleteSnapmirrorRelationshipResponseTypeDef,
+    DeleteSnapshotPolicyRequestTypeDef,
+    DeleteSnapshotPolicyResponseTypeDef,
     DeleteSnapshotRequestTypeDef,
     DeleteSnapshotResponseTypeDef,
+    DeleteStorageVirtualMachinePeerRequestTypeDef,
+    DeleteStorageVirtualMachinePeerResponseTypeDef,
     DeleteStorageVirtualMachineRequestTypeDef,
     DeleteStorageVirtualMachineResponseTypeDef,
     DeleteVolumeRequestTypeDef,
     DeleteVolumeResponseTypeDef,
     DescribeBackupsRequestTypeDef,
     DescribeBackupsResponseTypeDef,
+    DescribeClusterPeersRequestTypeDef,
+    DescribeClusterPeersResponseTypeDef,
     DescribeDataRepositoryAssociationsRequestTypeDef,
     DescribeDataRepositoryAssociationsResponseTypeDef,
     DescribeDataRepositoryTasksRequestTypeDef,
@@ -95,8 +122,16 @@ from .type_defs import (
     DescribeS3AccessPointAttachmentsRequestTypeDef,
     DescribeS3AccessPointAttachmentsResponseTypeDef,
     DescribeSharedVpcConfigurationResponseTypeDef,
+    DescribeSnapmirrorPoliciesRequestTypeDef,
+    DescribeSnapmirrorPoliciesResponseTypeDef,
+    DescribeSnapmirrorRelationshipsRequestTypeDef,
+    DescribeSnapmirrorRelationshipsResponseTypeDef,
+    DescribeSnapshotPoliciesRequestTypeDef,
+    DescribeSnapshotPoliciesResponseTypeDef,
     DescribeSnapshotsRequestTypeDef,
     DescribeSnapshotsResponseTypeDef,
+    DescribeStorageVirtualMachinePeersRequestTypeDef,
+    DescribeStorageVirtualMachinePeersResponseTypeDef,
     DescribeStorageVirtualMachinesRequestTypeDef,
     DescribeStorageVirtualMachinesResponseTypeDef,
     DescribeVolumesRequestTypeDef,
@@ -115,6 +150,8 @@ from .type_defs import (
     StartMisconfiguredStateRecoveryResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateClusterPeerRequestTypeDef,
+    UpdateClusterPeerResponseTypeDef,
     UpdateDataRepositoryAssociationRequestTypeDef,
     UpdateDataRepositoryAssociationResponseTypeDef,
     UpdateFileCacheRequestTypeDef,
@@ -123,8 +160,16 @@ from .type_defs import (
     UpdateFileSystemResponseTypeDef,
     UpdateSharedVpcConfigurationRequestTypeDef,
     UpdateSharedVpcConfigurationResponseTypeDef,
+    UpdateSnapmirrorPolicyRequestTypeDef,
+    UpdateSnapmirrorPolicyResponseTypeDef,
+    UpdateSnapmirrorRelationshipRequestTypeDef,
+    UpdateSnapmirrorRelationshipResponseTypeDef,
+    UpdateSnapshotPolicyRequestTypeDef,
+    UpdateSnapshotPolicyResponseTypeDef,
     UpdateSnapshotRequestTypeDef,
     UpdateSnapshotResponseTypeDef,
+    UpdateStorageVirtualMachinePeerRequestTypeDef,
+    UpdateStorageVirtualMachinePeerResponseTypeDef,
     UpdateStorageVirtualMachineRequestTypeDef,
     UpdateStorageVirtualMachineResponseTypeDef,
     UpdateVolumeRequestTypeDef,
@@ -149,6 +194,7 @@ class Exceptions(BaseClientExceptions):
     BackupRestoring: type[BotocoreClientError]
     BadRequest: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ClusterPeerNotFound: type[BotocoreClientError]
     DataRepositoryAssociationNotFound: type[BotocoreClientError]
     DataRepositoryTaskEnded: type[BotocoreClientError]
     DataRepositoryTaskExecuting: type[BotocoreClientError]
@@ -176,9 +222,13 @@ class Exceptions(BaseClientExceptions):
     ResourceNotFound: type[BotocoreClientError]
     S3AccessPointAttachmentNotFound: type[BotocoreClientError]
     ServiceLimitExceeded: type[BotocoreClientError]
+    SnapmirrorPolicyNotFound: type[BotocoreClientError]
+    SnapmirrorRelationshipNotFound: type[BotocoreClientError]
     SnapshotNotFound: type[BotocoreClientError]
+    SnapshotPolicyNotFound: type[BotocoreClientError]
     SourceBackupUnavailable: type[BotocoreClientError]
     StorageVirtualMachineNotFound: type[BotocoreClientError]
+    StorageVirtualMachinePeerNotFound: type[BotocoreClientError]
     TooManyAccessPoints: type[BotocoreClientError]
     UnsupportedOperation: type[BotocoreClientError]
     VolumeNotFound: type[BotocoreClientError]
@@ -284,6 +334,17 @@ class FSxClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_backup)
         """
 
+    def create_cluster_peer(
+        self, **kwargs: Unpack[CreateClusterPeerRequestTypeDef]
+    ) -> CreateClusterPeerResponseTypeDef:
+        """
+        Creates a cluster peer relationship between an Amazon FSx for NetApp ONTAP file
+        system and another ONTAP cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/create_cluster_peer.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_cluster_peer)
+        """
+
     def create_data_repository_association(
         self, **kwargs: Unpack[CreateDataRepositoryAssociationRequestTypeDef]
     ) -> CreateDataRepositoryAssociationResponseTypeDef:
@@ -335,14 +396,48 @@ class FSxClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_file_system_from_backup)
         """
 
+    def create_snapmirror_policy(
+        self, **kwargs: Unpack[CreateSnapmirrorPolicyRequestTypeDef]
+    ) -> CreateSnapmirrorPolicyResponseTypeDef:
+        """
+        Creates a SnapMirror policy for an Amazon FSx for NetApp ONTAP file system or
+        storage virtual machine (SVM).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/create_snapmirror_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_snapmirror_policy)
+        """
+
+    def create_snapmirror_relationship(
+        self, **kwargs: Unpack[CreateSnapmirrorRelationshipRequestTypeDef]
+    ) -> CreateSnapmirrorRelationshipResponseTypeDef:
+        """
+        Creates a SnapMirror relationship that replicates data from a source volume to
+        a destination volume on an Amazon FSx for NetApp ONTAP file system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/create_snapmirror_relationship.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_snapmirror_relationship)
+        """
+
     def create_snapshot(
         self, **kwargs: Unpack[CreateSnapshotRequestTypeDef]
     ) -> CreateSnapshotResponseTypeDef:
         """
-        Creates a snapshot of an existing Amazon FSx for OpenZFS volume.
+        Creates a snapshot of an existing Amazon FSx for OpenZFS or Amazon FSx for
+        NetApp ONTAP volume.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/create_snapshot.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_snapshot)
+        """
+
+    def create_snapshot_policy(
+        self, **kwargs: Unpack[CreateSnapshotPolicyRequestTypeDef]
+    ) -> CreateSnapshotPolicyResponseTypeDef:
+        """
+        Creates a snapshot policy for an Amazon FSx for NetApp ONTAP file system or
+        storage virtual machine (SVM).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/create_snapshot_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_snapshot_policy)
         """
 
     def create_storage_virtual_machine(
@@ -353,6 +448,17 @@ class FSxClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/create_storage_virtual_machine.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_storage_virtual_machine)
+        """
+
+    def create_storage_virtual_machine_peer(
+        self, **kwargs: Unpack[CreateStorageVirtualMachinePeerRequestTypeDef]
+    ) -> CreateStorageVirtualMachinePeerResponseTypeDef:
+        """
+        Creates a storage virtual machine (SVM) peer relationship between an SVM on an
+        Amazon FSx for NetApp ONTAP file system and another SVM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/create_storage_virtual_machine_peer.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#create_storage_virtual_machine_peer)
         """
 
     def create_volume(
@@ -386,6 +492,16 @@ class FSxClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_backup)
         """
 
+    def delete_cluster_peer(
+        self, **kwargs: Unpack[DeleteClusterPeerRequestTypeDef]
+    ) -> DeleteClusterPeerResponseTypeDef:
+        """
+        Deletes an Amazon FSx for NetApp ONTAP cluster peer relationship.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/delete_cluster_peer.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_cluster_peer)
+        """
+
     def delete_data_repository_association(
         self, **kwargs: Unpack[DeleteDataRepositoryAssociationRequestTypeDef]
     ) -> DeleteDataRepositoryAssociationResponseTypeDef:
@@ -416,14 +532,44 @@ class FSxClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_file_system)
         """
 
+    def delete_snapmirror_policy(
+        self, **kwargs: Unpack[DeleteSnapmirrorPolicyRequestTypeDef]
+    ) -> DeleteSnapmirrorPolicyResponseTypeDef:
+        """
+        Deletes an Amazon FSx for NetApp ONTAP SnapMirror policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/delete_snapmirror_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_snapmirror_policy)
+        """
+
+    def delete_snapmirror_relationship(
+        self, **kwargs: Unpack[DeleteSnapmirrorRelationshipRequestTypeDef]
+    ) -> DeleteSnapmirrorRelationshipResponseTypeDef:
+        """
+        Deletes an Amazon FSx for NetApp ONTAP SnapMirror relationship.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/delete_snapmirror_relationship.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_snapmirror_relationship)
+        """
+
     def delete_snapshot(
         self, **kwargs: Unpack[DeleteSnapshotRequestTypeDef]
     ) -> DeleteSnapshotResponseTypeDef:
         """
-        Deletes an Amazon FSx for OpenZFS snapshot.
+        Deletes an Amazon FSx for OpenZFS or Amazon FSx for NetApp ONTAP snapshot.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/delete_snapshot.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_snapshot)
+        """
+
+    def delete_snapshot_policy(
+        self, **kwargs: Unpack[DeleteSnapshotPolicyRequestTypeDef]
+    ) -> DeleteSnapshotPolicyResponseTypeDef:
+        """
+        Deletes an Amazon FSx for NetApp ONTAP snapshot policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/delete_snapshot_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_snapshot_policy)
         """
 
     def delete_storage_virtual_machine(
@@ -434,6 +580,17 @@ class FSxClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/delete_storage_virtual_machine.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_storage_virtual_machine)
+        """
+
+    def delete_storage_virtual_machine_peer(
+        self, **kwargs: Unpack[DeleteStorageVirtualMachinePeerRequestTypeDef]
+    ) -> DeleteStorageVirtualMachinePeerResponseTypeDef:
+        """
+        Deletes an Amazon FSx for NetApp ONTAP storage virtual machine (SVM) peer
+        relationship.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/delete_storage_virtual_machine_peer.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#delete_storage_virtual_machine_peer)
         """
 
     def delete_volume(
@@ -455,6 +612,17 @@ class FSxClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/describe_backups.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#describe_backups)
+        """
+
+    def describe_cluster_peers(
+        self, **kwargs: Unpack[DescribeClusterPeersRequestTypeDef]
+    ) -> DescribeClusterPeersResponseTypeDef:
+        """
+        Returns the description of specific Amazon FSx for NetApp ONTAP cluster peers,
+        if a <code>ClusterPeerIds</code> value is provided.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/describe_cluster_peers.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#describe_cluster_peers)
         """
 
     def describe_data_repository_associations(
@@ -534,15 +702,60 @@ class FSxClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#describe_shared_vpc_configuration)
         """
 
+    def describe_snapmirror_policies(
+        self, **kwargs: Unpack[DescribeSnapmirrorPoliciesRequestTypeDef]
+    ) -> DescribeSnapmirrorPoliciesResponseTypeDef:
+        """
+        Returns the description of specific Amazon FSx for NetApp ONTAP SnapMirror
+        policies, if a <code>SnapmirrorPolicyIds</code> value is provided.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/describe_snapmirror_policies.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#describe_snapmirror_policies)
+        """
+
+    def describe_snapmirror_relationships(
+        self, **kwargs: Unpack[DescribeSnapmirrorRelationshipsRequestTypeDef]
+    ) -> DescribeSnapmirrorRelationshipsResponseTypeDef:
+        """
+        Returns the description of specific Amazon FSx for NetApp ONTAP SnapMirror
+        relationships, if a <code>SnapmirrorRelationshipIds</code> value is provided.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/describe_snapmirror_relationships.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#describe_snapmirror_relationships)
+        """
+
+    def describe_snapshot_policies(
+        self, **kwargs: Unpack[DescribeSnapshotPoliciesRequestTypeDef]
+    ) -> DescribeSnapshotPoliciesResponseTypeDef:
+        """
+        Returns the description of specific Amazon FSx for NetApp ONTAP snapshot
+        policies, if a <code>SnapshotPolicyIds</code> value is provided.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/describe_snapshot_policies.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#describe_snapshot_policies)
+        """
+
     def describe_snapshots(
         self, **kwargs: Unpack[DescribeSnapshotsRequestTypeDef]
     ) -> DescribeSnapshotsResponseTypeDef:
         """
-        Returns the description of specific Amazon FSx for OpenZFS snapshots, if a
-        <code>SnapshotIds</code> value is provided.
+        Returns the description of specific Amazon FSx for OpenZFS and Amazon FSx for
+        NetApp ONTAP snapshots, if a <code>SnapshotIds</code> value is provided.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/describe_snapshots.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#describe_snapshots)
+        """
+
+    def describe_storage_virtual_machine_peers(
+        self, **kwargs: Unpack[DescribeStorageVirtualMachinePeersRequestTypeDef]
+    ) -> DescribeStorageVirtualMachinePeersResponseTypeDef:
+        """
+        Returns the description of specific Amazon FSx for NetApp ONTAP storage virtual
+        machine (SVM) peers, if a <code>StorageVirtualMachinePeerIds</code> value is
+        provided.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/describe_storage_virtual_machine_peers.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#describe_storage_virtual_machine_peers)
         """
 
     def describe_storage_virtual_machines(
@@ -648,6 +861,16 @@ class FSxClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#untag_resource)
         """
 
+    def update_cluster_peer(
+        self, **kwargs: Unpack[UpdateClusterPeerRequestTypeDef]
+    ) -> UpdateClusterPeerResponseTypeDef:
+        """
+        Updates an Amazon FSx for NetApp ONTAP cluster peer relationship.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/update_cluster_peer.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#update_cluster_peer)
+        """
+
     def update_data_repository_association(
         self, **kwargs: Unpack[UpdateDataRepositoryAssociationRequestTypeDef]
     ) -> UpdateDataRepositoryAssociationResponseTypeDef:
@@ -692,14 +915,44 @@ class FSxClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#update_shared_vpc_configuration)
         """
 
+    def update_snapmirror_policy(
+        self, **kwargs: Unpack[UpdateSnapmirrorPolicyRequestTypeDef]
+    ) -> UpdateSnapmirrorPolicyResponseTypeDef:
+        """
+        Updates an Amazon FSx for NetApp ONTAP SnapMirror policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/update_snapmirror_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#update_snapmirror_policy)
+        """
+
+    def update_snapmirror_relationship(
+        self, **kwargs: Unpack[UpdateSnapmirrorRelationshipRequestTypeDef]
+    ) -> UpdateSnapmirrorRelationshipResponseTypeDef:
+        """
+        Updates an Amazon FSx for NetApp ONTAP SnapMirror relationship.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/update_snapmirror_relationship.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#update_snapmirror_relationship)
+        """
+
     def update_snapshot(
         self, **kwargs: Unpack[UpdateSnapshotRequestTypeDef]
     ) -> UpdateSnapshotResponseTypeDef:
         """
-        Updates the name of an Amazon FSx for OpenZFS snapshot.
+        Updates an Amazon FSx for OpenZFS or Amazon FSx for NetApp ONTAP snapshot.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/update_snapshot.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#update_snapshot)
+        """
+
+    def update_snapshot_policy(
+        self, **kwargs: Unpack[UpdateSnapshotPolicyRequestTypeDef]
+    ) -> UpdateSnapshotPolicyResponseTypeDef:
+        """
+        Updates an Amazon FSx for NetApp ONTAP snapshot policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/update_snapshot_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#update_snapshot_policy)
         """
 
     def update_storage_virtual_machine(
@@ -710,6 +963,17 @@ class FSxClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/update_storage_virtual_machine.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#update_storage_virtual_machine)
+        """
+
+    def update_storage_virtual_machine_peer(
+        self, **kwargs: Unpack[UpdateStorageVirtualMachinePeerRequestTypeDef]
+    ) -> UpdateStorageVirtualMachinePeerResponseTypeDef:
+        """
+        Updates an Amazon FSx for NetApp ONTAP storage virtual machine (SVM) peer
+        relationship.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/update_storage_virtual_machine_peer.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#update_storage_virtual_machine_peer)
         """
 
     def update_volume(
@@ -727,6 +991,17 @@ class FSxClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_backups"]
     ) -> DescribeBackupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_cluster_peers"]
+    ) -> DescribeClusterPeersPaginator:
         """
         Create a paginator for an operation.
 
@@ -758,8 +1033,52 @@ class FSxClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_snapmirror_policies"]
+    ) -> DescribeSnapmirrorPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_snapmirror_relationships"]
+    ) -> DescribeSnapmirrorRelationshipsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_snapshot_policies"]
+    ) -> DescribeSnapshotPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_snapshots"]
     ) -> DescribeSnapshotsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_storage_virtual_machine_peers"]
+    ) -> DescribeStorageVirtualMachinePeersPaginator:
         """
         Create a paginator for an operation.
 

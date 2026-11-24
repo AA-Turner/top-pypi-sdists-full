@@ -66,7 +66,7 @@ def _xml_attr(s: str) -> str:
 #
 # The old request-hot-path builder ``build_rag_awareness_block`` was DELETED
 # (2026-07-09, raw-SQL campaign): dormant since the auto-injection incident
-# ( /Users/armanisadeghi/code/common-docs/projects/knowledge-system/README.md §6), zero importers. Awareness blocks are
+# ( /Users/armanisadeghi/code/common-docs/systems/knowledge/projects/knowledge-system/README.md §6), zero importers. Awareness blocks are
 # STATIC fragments cached on the agent row (agx_agent.rag_awareness_fragment).
 #
 # The new builder runs at agent SAVE time and on data_store_changed

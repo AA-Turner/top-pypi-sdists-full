@@ -80,6 +80,33 @@ class TestCocoUtils:
         cocovid.add_categories_from_coco_category_list([{"id": 0, "name": "cat"}, {"id": 1, "name": "dog"}])
         assert cocovid.category_mapping == {1: "cat", 2: "dog"}
 
+    def test_coco_remapping_dict_keeps_input_dict(self) -> None:
+        """Test that remapping category ids leaves the given dict as it was, so it can be loaded again."""
+        import copy
+
+        from sahi.utils.coco import Coco, CocoVid
+
+        coco_dict = {
+            "images": [{"id": 1, "file_name": "a.jpg", "height": 100, "width": 100}],
+            "categories": [{"id": 1, "name": "cat"}, {"id": 2, "name": "dog"}],
+            "annotations": [
+                {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 10, 10], "segmentation": [], "area": 100},
+                {"id": 2, "image_id": 1, "category_id": 2, "bbox": [20, 20, 10, 10], "segmentation": [], "area": 100},
+            ],
+        }
+        original_coco_dict = copy.deepcopy(coco_dict)
+
+        for _ in range(2):
+            coco = Coco.from_coco_dict_or_path(coco_dict, remapping_dict={1: 0, 2: 1})
+            assert coco.category_mapping == {0: "cat", 1: "dog"}
+            assert [a.category_id for a in coco.images[0].annotations] == [0, 1]
+        assert coco_dict == original_coco_dict
+
+        category_list = [{"id": 1, "name": "cat"}, {"id": 2, "name": "dog"}]
+        cocovid = CocoVid(remapping_dict={1: 0, 2: 1})
+        cocovid.add_categories_from_coco_category_list(category_list)
+        assert category_list == [{"id": 1, "name": "cat"}, {"id": 2, "name": "dog"}]
+
     def test_coco_annotation(self) -> None:
         """Test CocoAnnotation creation from segmentation and bounding box."""
         from sahi.utils.coco import CocoAnnotation
@@ -345,6 +372,17 @@ class TestCocoUtils:
         assert coco1.stats["num_images"] == len(coco1.images)
         assert coco1.stats["num_annotations"] == len(coco1.json["annotations"])
 
+    def test_coco_with_threads(self) -> None:
+        """Test that loading with threads keeps every image and annotation."""
+        from sahi.utils.coco import Coco
+
+        coco_path = "tests/data/coco_utils/terrain_all_coco.json"
+        threaded_coco = Coco.from_coco_dict_or_path(coco_path, use_threads=True)
+        coco = Coco.from_coco_dict_or_path(coco_path)
+
+        assert len(threaded_coco.images) == 3
+        assert threaded_coco.stats == coco.stats
+
     def test_split_coco_as_train_val(self) -> None:
         """Test splitting COCO dataset into train and validation sets."""
         from sahi.utils.coco import Coco
@@ -419,6 +457,31 @@ class TestCocoUtils:
             assert values[0] == "0"
             assert [float(value) for value in values[1:]] == pytest.approx([0.25, 0.4, 0.3, 0.4])
             assert (output / image_name).read_bytes() == source.read_bytes()
+
+    def test_yolo_class_ids_are_positions_in_names(self, tmp_path: Path) -> None:
+        """Write each label with the position of its category in the data yaml names list."""
+        import yaml
+        from PIL import Image
+
+        from sahi.utils.coco import Coco
+
+        Image.new("RGB", (100, 100)).save(tmp_path / "photo.jpg")
+        coco_dict = {
+            "images": [{"id": 1, "file_name": "photo.jpg", "height": 100, "width": 100}],
+            "categories": [{"id": 1, "name": "human"}, {"id": 7, "name": "car"}],
+            "annotations": [
+                {"id": 1, "image_id": 1, "category_id": 1, "bbox": [10, 20, 30, 40], "segmentation": []},
+                {"id": 2, "image_id": 1, "category_id": 7, "bbox": [50, 50, 20, 20], "segmentation": []},
+            ],
+        }
+        output = tmp_path / "export"
+        coco = Coco.from_coco_dict_or_path(coco_dict, image_dir=str(tmp_path))
+
+        coco.export_as_yolo(output_dir=str(output), disable_symlink=True)
+
+        names = yaml.safe_load((output / "data.yml").read_text())["names"]
+        class_ids = [int(line.split()[0]) for line in (output / "train" / "photo.txt").read_text().splitlines()]
+        assert [names[class_id] for class_id in class_ids] == ["human", "car"]
 
     def test_update_categories(self) -> None:
         """Test updating categories in COCO dataset."""
@@ -771,6 +834,37 @@ class TestCocoUtils:
         assert area_filtered_coco.stats["num_images"] == len(area_filtered_coco.images)
         assert area_filtered_coco.stats["num_annotations"] == len(area_filtered_coco.json["annotations"])
 
+    def test_coco2yolo_copies_images_when_symlinks_fail(self) -> None:
+        """Test that images are copied when the platform refuses to create symlinks."""
+        import os
+        import shutil
+        from unittest import mock
+
+        import pytest
+
+        from sahi.utils.coco import Coco
+
+        coco_dict_path = "tests/data/coco_utils/combined_coco.json"
+        image_dir = "tests/data/coco_utils/"
+        output_dir = "tests/data/coco2yolo_no_symlink/"
+        if os.path.isdir(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        coco = Coco.from_coco_dict_or_path(coco_dict_path, image_dir=image_dir)
+
+        error = OSError("A required privilege is not held by the client")
+        with mock.patch("os.symlink", side_effect=error), pytest.warns(UserWarning, match="copying images"):
+            coco.export_as_yolo(output_dir=output_dir, train_split_rate=0.5, numpy_seed=0)
+
+        image_paths = [
+            os.path.join(root, name)
+            for root, _, names in os.walk(output_dir)
+            for name in names
+            if name.lower().endswith((".jpg", ".jpeg", ".png"))
+        ]
+        assert len(image_paths) == len(coco.images)
+        assert not any(os.path.islink(path) for path in image_paths)
+        shutil.rmtree(output_dir, ignore_errors=True)
+
     def test_export_coco_as_yolo(self) -> None:
         """Test exporting COCO dataset as YOLO format."""
         from sahi.utils.coco import Coco, export_coco_as_yolo
@@ -893,6 +987,46 @@ class TestCocoUtils:
 
         clipped_coco = Coco.from_coco_dict_or_path(get_coco_dict(), clip_bboxes_to_img_dims=True)
         assert [annotation["iscrowd"] for annotation in clipped_coco.json["annotations"]] == [0, 1]
+
+    def test_bbox_clipping_keeps_segmentation(self) -> None:
+        """Test that polygon annotations stay polygons when clipped to the image."""
+        from sahi.utils.coco import Coco
+
+        def get_coco_dict() -> dict:
+            return {
+                "images": [{"id": 1, "file_name": "a.jpg", "height": 100, "width": 100}],
+                "categories": [{"id": 1, "name": "person"}],
+                "annotations": [
+                    {
+                        "id": 1,
+                        "image_id": 1,
+                        "category_id": 1,
+                        "bbox": [50, 50, 20, 20],
+                        "segmentation": [[50, 50, 70, 50, 60, 70]],
+                    },
+                    {
+                        "id": 2,
+                        "image_id": 1,
+                        "category_id": 1,
+                        "bbox": [80, 10, 40, 20],
+                        "segmentation": [[80, 10, 120, 10, 120, 30, 80, 30]],
+                    },
+                    {"id": 3, "image_id": 1, "category_id": 1, "bbox": [0, 0, 10, 10], "segmentation": []},
+                ],
+            }
+
+        coco = Coco.from_coco_dict_or_path(get_coco_dict())
+        clipped_coco = Coco.from_coco_dict_or_path(get_coco_dict(), clip_bboxes_to_img_dims=True)
+        inside, overflowing, box_only = clipped_coco.images[0].annotations
+
+        assert sorted(zip(*[iter(inside.segmentation[0])] * 2)) == [(50, 50), (60, 70), (70, 50)]
+        assert inside.bbox == coco.images[0].annotations[0].bbox
+        assert inside.area == coco.images[0].annotations[0].area == 200
+        assert sorted(zip(*[iter(overflowing.segmentation[0])] * 2)) == [(80, 10), (80, 30), (100, 10), (100, 30)]
+        assert overflowing.bbox == [80, 10, 20, 20]
+        assert overflowing.area == 400
+        assert box_only.segmentation == []
+        assert box_only.bbox == [0, 0, 10, 10]
 
     def test_remove_invalid_coco_results_short_bbox(self) -> None:
         from sahi.utils.coco import remove_invalid_coco_results

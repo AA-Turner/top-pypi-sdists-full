@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Annotated
 from uuid import UUID
 
@@ -153,16 +153,49 @@ async def require_authenticated(request: Request) -> None:
         )
 
 
+def credential_refusal(ctx: AppContext | None) -> dict[str, str | None] | None:
+    """WHY the middleware refused a presented credential, or ``None`` when none was refused.
+
+    ``{"error", "reason", "message"}``: an API key of ours that stopped working (revoked / expired) is
+    ``api_key_refused``; a Supabase sign-in that stopped working (expired / session ended) is
+    ``token_required`` with the token's reason. Every gate that answers 401 reads it here, so no gate
+    drops the reason the middleware already found.
+    """
+    metadata = (getattr(ctx, "metadata", None) or {}) if ctx is not None else {}
+    refused = metadata.get("credential_refused")
+    if refused:
+        return {"error": "api_key_refused", "reason": "api_key_refused", "message": str(refused)}
+    token_refused = metadata.get("token_refused")
+    if isinstance(token_refused, dict) and token_refused.get("message"):
+        return {
+            "error": "token_required",
+            "reason": token_refused.get("reason"),
+            "message": str(token_refused["message"]),
+        }
+    return None
+
+
 def _require_verified_identity(request: Request) -> None:
     """Reject any request that isn't authenticated (guest tokens included as authenticated)."""
     ctx: AppContext | None = getattr(request.state, "context", None)
     if ctx is None or not ctx.is_authenticated:
-        refused = (getattr(ctx, "metadata", None) or {}).get("credential_refused") if ctx else None
-        if refused:
+        refusal = credential_refusal(ctx)
+        if refusal is not None and refusal["error"] == "api_key_refused":
             # A key of ours that stopped working says WHY (revoked / expired), never "sign in".
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"error": "api_key_refused", "message": refused, "user_message": refused},
+                detail={"error": "api_key_refused", "message": refusal["message"], "user_message": refusal["message"]},
+            )
+        if refusal is not None:
+            # A Supabase sign-in of ours that stopped working says WHY (expired / session ended), same 401 and code.
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error": "token_required",
+                    "reason": refusal["reason"],
+                    "message": refusal["message"],
+                    "user_message": refusal["message"],
+                },
             )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -221,6 +254,28 @@ async def authenticated_resource_bootstrap(request: Request) -> str | None:
         ) from None
 
 
+#: Host-injected ``(ctx) -> str | None``: the one-line fix for a refused admin (e.g. a missing second factor).
+AdminRefusalHint = Callable[[AppContext], Awaitable[str | None]]
+_admin_refusal_hint: AdminRefusalHint | None = None
+
+
+def configure_admin_refusal_hint(hint: AdminRefusalHint | None) -> None:
+    """Let the host name the fix when ``require_admin`` refuses (aidream: the two-step session doors)."""
+    global _admin_refusal_hint
+    _admin_refusal_hint = hint
+
+
+async def admin_refusal_message(ctx: AppContext | None, default: str) -> str:
+    """``default``, or the host's one-line fix for this refused caller. A failing hint never changes the refusal."""
+    if _admin_refusal_hint is None or ctx is None:
+        return default
+    try:
+        hint = await _admin_refusal_hint(ctx)
+    except Exception:  # noqa: BLE001 — the hint only explains a refusal that stands either way
+        return default
+    return f"{default}: {hint}" if hint else default
+
+
 async def require_admin(request: Request) -> None:
     """Reject anything that isn't an authenticated admin (401 or 403)."""
     ctx: AppContext | None = getattr(request.state, "context", None)
@@ -237,6 +292,6 @@ async def require_admin(request: Request) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "error": "admin_required",
-                "message": "Admin access required",
+                "message": await admin_refusal_message(ctx, "Admin access required"),
             },
         )

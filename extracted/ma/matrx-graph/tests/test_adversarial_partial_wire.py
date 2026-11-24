@@ -23,7 +23,6 @@ delete the marker so the test guards it.
 
 from __future__ import annotations
 
-import pytest
 from matrx_graph.content_ir.partial import partial_kind_event
 
 

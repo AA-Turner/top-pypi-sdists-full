@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
+    CancelSqlQueryRequest,
+    CancelSqlQueryResponse,
     ExecuteSqlQueryRequest,
     ExecuteSqlQueryResponse,
     ExecuteSqlQueryStreamRequest,
@@ -28,6 +30,8 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
     PlanSqlQueryResponse,
     PollSqlQueryRequest,
     PollSqlQueryResponse,
+    ReadSqlQueryResultsRequest,
+    ReadSqlQueryResultsResponse,
 )
 from collections.abc import (
     Iterator,
@@ -67,19 +71,21 @@ class SqlServiceStub:
         ExecuteSqlQueryStreamRequest,
         ExecuteSqlQueryStreamResponse,
     ]
-    """Execute a SQL query, emitting each chunk of the result as the plan produces it instead of
-    gathering the whole result first. Same request as ExecuteSqlQuery and the same execution;
-    only the delivery differs, so a query whose leading rows are cheap becomes visible while
-    its expensive tail is still running.
-
-    Rows are streamed, never persisted, and never profiled: async_options,
-    persistence_settings.enabled and column_profile_options.enabled are each rejected, since
-    each of them replaces the plan's row output with something else (an operation id to poll,
-    a write summary, an aggregation over the whole result). Use ExecuteSqlQuery for those.
+    """Execute a persisted query and stream committed-partition availability. A sync
+    reader owns execution and disconnecting cancels it. Async execution is owned by
+    its existing job and survives the reader. Fetch rows through ReadSqlQueryResults.
     """
+    ReadSqlQueryResults: UnaryUnaryMultiCallable[
+        ReadSqlQueryResultsRequest,
+        ReadSqlQueryResultsResponse,
+    ]
     PlanSqlQuery: UnaryUnaryMultiCallable[
         PlanSqlQueryRequest,
         PlanSqlQueryResponse,
+    ]
+    CancelSqlQuery: UnaryUnaryMultiCallable[
+        CancelSqlQueryRequest,
+        CancelSqlQueryResponse,
     ]
     PollSqlQuery: UnaryUnaryMultiCallable[
         PollSqlQueryRequest,
@@ -135,22 +141,28 @@ class SqlServiceServicer(metaclass=ABCMeta):
         request: ExecuteSqlQueryStreamRequest,
         context: ServicerContext,
     ) -> Iterator[ExecuteSqlQueryStreamResponse]:
-        """Execute a SQL query, emitting each chunk of the result as the plan produces it instead of
-        gathering the whole result first. Same request as ExecuteSqlQuery and the same execution;
-        only the delivery differs, so a query whose leading rows are cheap becomes visible while
-        its expensive tail is still running.
-
-        Rows are streamed, never persisted, and never profiled: async_options,
-        persistence_settings.enabled and column_profile_options.enabled are each rejected, since
-        each of them replaces the plan's row output with something else (an operation id to poll,
-        a write summary, an aggregation over the whole result). Use ExecuteSqlQuery for those.
+        """Execute a persisted query and stream committed-partition availability. A sync
+        reader owns execution and disconnecting cancels it. Async execution is owned by
+        its existing job and survives the reader. Fetch rows through ReadSqlQueryResults.
         """
+    @abstractmethod
+    def ReadSqlQueryResults(
+        self,
+        request: ReadSqlQueryResultsRequest,
+        context: ServicerContext,
+    ) -> ReadSqlQueryResultsResponse: ...
     @abstractmethod
     def PlanSqlQuery(
         self,
         request: PlanSqlQueryRequest,
         context: ServicerContext,
     ) -> PlanSqlQueryResponse: ...
+    @abstractmethod
+    def CancelSqlQuery(
+        self,
+        request: CancelSqlQueryRequest,
+        context: ServicerContext,
+    ) -> CancelSqlQueryResponse: ...
     @abstractmethod
     def PollSqlQuery(
         self,

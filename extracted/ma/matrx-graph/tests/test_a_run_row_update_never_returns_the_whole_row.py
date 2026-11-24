@@ -9,8 +9,8 @@ Every event (seq bump), checkpoint (``last_checkpoint_id``) and ``steps_executed
 The guard reads the source of the writers that run once PER STEP or PER EVENT (the event store,
 the checkpointer, ``RunStore.merge_metadata``): none says
 ``update_where`` (RETURNING *); they name their columns (``run_store.update_run`` or
-``.returning(...)``). The host's per-checkpoint ``steps_executed`` bump never uses ``update_item``
-(SELECT + RETURNING * of the whole row). The once-per-run status writers (``mark_*``,
+``.returning(...)``). The host's per-checkpoint ``steps_executed`` check is a host contract
+(tests/package_host_contracts/test_matrx_graph_host.py). The once-per-run status writers (``mark_*``,
 ``transition``) still return the row; they cost one fat read per transition, not per step.
 """
 
@@ -22,7 +22,6 @@ from pathlib import Path
 import pytest
 
 ENGINE = Path(__file__).resolve().parents[1] / "matrx_graph"
-HOST_EVENTS = Path(__file__).resolve().parents[3] / "aidream" / "services" / "runtime" / "workflow_events.py"
 
 _WHOLE_ROW_UPDATE = re.compile(r'get_model\(\s*"WfRun"\s*\)\s*\.update_where\(|wf_run\.update_where\(')
 
@@ -83,14 +82,3 @@ async def test_update_run_names_its_returning_columns(monkeypatch: pytest.Monkey
     assert seen["returning"] == ("id",) and seen["updates"] == {"steps_executed": 3}
     await run_store.update_run({"id": "r"}, returning=("id", "event_seq"), event_seq=1)
     assert seen["returning"] == ("id", "event_seq")
-
-
-def test_host_steps_executed_rides_the_checkpoint_never_a_write_of_its_own() -> None:
-    """Live progress lands with each checkpoint (its run-pointer UPDATE sets ``steps_executed``);
-    the host's event writer no longer writes the run row a second time for it (2026-10-29)."""
-    if not HOST_EVENTS.exists():
-        pytest.skip("host app not beside the package")
-    text = HOST_EVENTS.read_text(encoding="utf-8")
-    assert "_bump_run_steps_executed" not in text and "bump_steps_executed(" not in text
-    checkpointer = (Path(__file__).resolve().parents[1] / "matrx_graph" / "checkpoint" / "postgres.py").read_text()
-    assert "update(last_checkpoint_id=checkpoint.checkpoint_id, steps_executed=checkpoint.step + 1)" in checkpointer

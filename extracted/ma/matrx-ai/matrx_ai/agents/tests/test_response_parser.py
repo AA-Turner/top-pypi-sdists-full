@@ -8,7 +8,6 @@ Run with::
 
 from __future__ import annotations
 
-import pytest
 
 from matrx_ai.agents.output import parse_agent_output, resolve_output_schema
 from matrx_ai.agents.response_parser import (

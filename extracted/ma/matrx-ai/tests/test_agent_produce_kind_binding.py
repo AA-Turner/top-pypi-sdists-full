@@ -51,13 +51,20 @@ def _ctx(output_kind: str | None):
         output_kind=output_kind,
     )
 
+def _held(supplied: dict[str, Any]) -> dict[str, Any]:
+    """What the real host's compute rule does to an in-hand offer: each ``given`` value unwraps to itself."""
+    from matrx_ai.mandates import Offered
+
+    return {k: v.build(None) if isinstance(v, Offered) and v.in_hand else v for k, v in supplied.items()}
+
+
 
 @pytest.fixture
 def bound_mandate(monkeypatch):
     """A mandate whose declared output kind agrees with the node's."""
 
     async def _passthrough(supplied: dict[str, Any]) -> dict[str, Any]:
-        return dict(supplied)
+        return _held(supplied)
 
     async def _resolver(mandate_key: str) -> mandates.MandateResolution:
         return mandates.MandateResolution(
@@ -286,8 +293,8 @@ async def test_a_mandate_step_runs_its_values_through_the_BINDING_and_is_RECORDE
     stamp = {"mandate_key": "education.x", "rung": "system", "holder_type": "agent"}
 
     async def _binding_map(supplied: dict[str, Any]) -> dict[str, Any]:
-        seen["offer"] = dict(supplied)
-        return {"source_material": supplied["topic"]}
+        seen["offer"] = _held(supplied)
+        return {"source_material": seen["offer"]["topic"]}
 
     async def _resolver(mandate_key: str) -> mandates.MandateResolution:
         return mandates.MandateResolution(

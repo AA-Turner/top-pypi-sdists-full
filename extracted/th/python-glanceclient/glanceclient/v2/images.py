@@ -262,7 +262,9 @@ class Controller(object):
         if params:
             url = '%s?%s' % (url, urllib.parse.urlencode(params))
 
-        resp, body = self.http_client.get(url)
+        resp, body = self.http_client.get(
+            url,
+            headers={'Accept': 'application/octet-stream, application/json'})
         if resp.status_code == codes.no_content:
             return None, resp
 
@@ -327,6 +329,13 @@ class Controller(object):
     def get_import_info(self):
         """Get Import info from discovery endpoint."""
         url = '/v2/info/import'
+        resp, body = self.http_client.get(url)
+        return body, resp
+
+    @utils.add_req_id_to_object()
+    def get_import_info_detail(self):
+        """Get detailed import info from discovery endpoint."""
+        url = '/v2/info/import/detail'
         resp, body = self.http_client.get(url)
         return body, resp
 
@@ -419,12 +428,10 @@ class Controller(object):
         if backend is not None:
             headers['x-image-meta-store'] = backend
 
-        image = self.model()
-        for (key, value) in kwargs.items():
-            try:
-                setattr(image, key, value)
-            except warlock.InvalidOperation as e:
-                raise TypeError(str(e))
+        try:
+            image = self.model(**kwargs)
+        except ValueError as e:
+            raise TypeError(str(e))
 
         resp, body = self.http_client.post(url, headers=headers, data=image)
         # NOTE(esheffield): remove 'self' for now until we have an elegant

@@ -1,10 +1,8 @@
 """Evaluate a PEP 508 dependency marker for a resolve-time environment.
 
-``packaging.markers.Marker.evaluate`` binds ``extra`` to a single string and
-cannot say that several extras are active, so this goes through
-:class:`~nab_markersets.markersets.MarkerSet` instead.  Its own module so the resolve
-engine reaches no marker-set definition; ``tasks/check_engine_markersets.py``
-holds the import closure to a named list this module is on.
+The provider uses :class:`~nab_markersets.markersets.MarkerSet` to evaluate
+dependencies against an explicit target environment and its active extras.
+This module translates marker algebra errors into provider errors.
 """
 
 from __future__ import annotations
@@ -13,21 +11,22 @@ __lazy_modules__ = (
     "nab_markersets.conversions",
     "nab_markersets.errors",
     "nab_markersets.markersets",
-    "nab_provider._vendor.packaging.markers",
     "nab_provider.conflict_kind",
     "nab_provider.environment",
+    "packaging.markers",
 )
 
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-from nab_markersets.conversions import MarkerSetCache
-from nab_markersets.errors import IntractableMarkerSet
-from nab_markersets.markersets import MarkerSet
-from nab_provider._vendor.packaging.markers import (
+from packaging.markers import (
     Marker,
     UndefinedComparison,
 )
+
+from nab_markersets.conversions import MarkerSetCache
+from nab_markersets.errors import IntractableMarkerSet
+from nab_markersets.markersets import MarkerSet, variable_names
 
 from .conflict_kind import EMPTY_MEMBERSHIP_SETS
 from .environment import (
@@ -48,6 +47,7 @@ __all__ = [
     "evaluate_prepared",
     "intractable_as_error",
     "marker_set",
+    "marker_uses_extra",
 ]
 
 
@@ -81,6 +81,13 @@ def marker_set(marker: Marker) -> MarkerSet:
         raise marker_evaluation_error(marker, exc) from exc
 
 
+def marker_uses_extra(marker: Marker) -> bool:
+    """Return whether the marker tests the active dependency extra."""
+    # Most environment markers can be ruled out without parsing their variables.
+    text = str(marker)
+    return "extra" in text and "extra" in variable_names(text)
+
+
 def dependency_marker_holds(
     marker: Marker, environment: Mapping[str, str | AbstractSet[str]]
 ) -> bool:
@@ -91,8 +98,9 @@ def dependency_marker_holds(
     normalised.  It defaults to the empty set when ``environment`` omits it.
 
     A standard variable a marker names but ``environment`` omits raises
-    ``UndefinedEnvironmentName``.  The lockfile-only set variables are seeded
-    empty, so a marker that tests one evaluates to False rather than raising.
+    ``UndefinedEnvironmentName``. The lockfile-only sets ``extras`` and
+    ``dependency_groups`` are empty during resolution, so membership is false
+    and non-membership is true.
 
     A clause no comparison decides raises :class:`UnevaluableMarkerError`, and
     a marker that overruns a budget raises :class:`IntractableMarkerError`.

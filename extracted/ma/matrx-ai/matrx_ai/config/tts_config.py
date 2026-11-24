@@ -571,10 +571,93 @@ class GroqTTSRegistry:
         return "wav"
 
     @classmethod
+    def fit_input(cls, text: str) -> SpokenTextFit:
+        """Orpheus takes at most ``MAX_INPUT_LENGTH`` characters: a longer text is cut LOUDLY
+        (``fit_spoken_text``), never silently."""
+        return fit_spoken_text(text, cls.MAX_INPUT_LENGTH, provider="groq")
+
+    @classmethod
     def validate_input_length(cls, text: str) -> str:
-        if len(text) > cls.MAX_INPUT_LENGTH:
-            return text[: cls.MAX_INPUT_LENGTH]
-        return text
+        return cls.fit_input(text).text
+
+
+# ============================================================================
+# fit_spoken_text — the ONE loud cut of text a speech provider will not take whole.
+#
+# The speech callers produce ONE audio file per request; they cannot yet play
+# provider-sized parts in order, so text over a provider's hard maximum is cut,
+# never refused — and never silently: the cut ends on a whole sentence where it
+# can (the tail loses least), and the result carries the facts for the caller to
+# put on the audio's metadata and capture.
+# ============================================================================
+
+_SENTENCE_END = re.compile(r"[.!?…][\"')\]]*\s")
+
+
+@dataclass(frozen=True)
+class SpokenTextFit:
+    text: str
+    truncated: bool
+    chars_total: int
+    chars_kept: int
+    limit: int
+
+    def record(self) -> dict[str, Any]:
+        """``metadata['speech_input']`` on the audio: what was spoken of what was asked."""
+        return {
+            "truncated": self.truncated,
+            "chars_total": self.chars_total,
+            "chars_kept": self.chars_kept,
+            "limit": self.limit,
+        }
+
+
+def fit_spoken_text(text: str, limit: int, *, provider: str) -> SpokenTextFit:
+    """``text`` within ``limit`` characters: whole when it fits, else cut at the last sentence end
+    (or word break) inside the limit. A cut is recorded (``record_cut``) and said in red."""
+    total = len(text)
+    if total <= limit:
+        return SpokenTextFit(text=text, truncated=False, chars_total=total, chars_kept=total, limit=limit)
+    window = text[: limit + 1]
+    cut = 0
+    for m in _SENTENCE_END.finditer(window):
+        cut = m.end()
+    if cut < limit // 2:
+        space = window.rfind(" ")
+        cut = space if space >= limit // 2 else limit
+    kept = text[: min(cut, limit)].rstrip()
+    from matrx_utils.raw_capture import record_cut
+
+    record_cut(
+        where=f"{provider} speech input",
+        before=total,
+        after=len(kept),
+        limit_name=f"{provider}_tts_max_input_chars",
+        limit=limit,
+        original=text,
+    )
+    vcprint(
+        f"[{provider} TTS] spoken text cut to {len(kept):,} of {total:,} characters "
+        f"(provider maximum {limit:,}); the audio says only the kept part.",
+        color="red",
+    )
+    return SpokenTextFit(text=kept, truncated=True, chars_total=total, chars_kept=len(kept), limit=limit)
+
+
+async def capture_spoken_text_cut(fit: SpokenTextFit, *, provider: str, model: str | None) -> None:
+    """File a cut as a captured fact (kind ``tts_input_truncated``); a no-op when nothing was cut."""
+    if not fit.truncated:
+        return
+    from matrx_connect.streaming.error_capture import capture_error
+
+    await capture_error(
+        ValueError(
+            f"{provider} speech input cut to {fit.chars_kept:,} of {fit.chars_total:,} characters "
+            f"(provider maximum {fit.limit:,})"
+        ),
+        kind="tts_input_truncated",
+        payload={"provider": provider, "model": model, **fit.record()},
+    )
 
 
 # ============================================================================
@@ -669,11 +752,16 @@ class XAITTSRegistry:
         return dict(cls._LANGUAGES)
 
     @classmethod
+    def fit_text(cls, text: str) -> SpokenTextFit:
+        """xAI takes at most ``MAX_TEXT_LENGTH`` characters: a longer text is cut LOUDLY."""
+        return fit_spoken_text(text, cls.MAX_TEXT_LENGTH, provider="xai")
+
+    @classmethod
     def validate_text_length(cls, text: str, truncate: bool = False) -> str:
         if len(text) <= cls.MAX_TEXT_LENGTH:
             return text
         if truncate:
-            return text[: cls.MAX_TEXT_LENGTH]
+            return cls.fit_text(text).text
         raise ValueError(
             f"Text length {len(text):,} exceeds the {cls.MAX_TEXT_LENGTH:,} "
             f"character limit. Use truncate=True or the WebSocket endpoint."

@@ -120,6 +120,11 @@ class LinkedPullRequest:
                 holding a workflow run on the head commit until someone approves
                 it. A client says "waiting for approval" rather than "check
                 failed" while it is true. Always present; false on Forgejo.
+            checks_incomplete (bool): The same flag as on the pull request itself: true while the forge
+                has not yet listed every check of the head commit, so `checks`
+                counts some of them. A fact only; the client decides how to say it.
+                Always present, and false when the list is complete or the forge
+                can't tell.
             title (str | Unset): The pull request's title, so a client can show it on hover. Text,
                 never markup. Left out when empty.
      """
@@ -132,6 +137,7 @@ class LinkedPullRequest:
     ci: CIStatus
     checks: CheckCounts
     awaiting_workflow_approval: bool
+    checks_incomplete: bool
     title: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -157,6 +163,8 @@ class LinkedPullRequest:
 
         awaiting_workflow_approval = self.awaiting_workflow_approval
 
+        checks_incomplete = self.checks_incomplete
+
         title = self.title
 
 
@@ -171,6 +179,7 @@ class LinkedPullRequest:
             "ci": ci,
             "checks": checks,
             "awaitingWorkflowApproval": awaiting_workflow_approval,
+            "checksIncomplete": checks_incomplete,
         })
         if title is not UNSET:
             field_dict["title"] = title
@@ -208,6 +217,8 @@ class LinkedPullRequest:
 
         awaiting_workflow_approval = d.pop("awaitingWorkflowApproval")
 
+        checks_incomplete = d.pop("checksIncomplete")
+
         title = d.pop("title", UNSET)
 
         linked_pull_request = cls(
@@ -219,6 +230,7 @@ class LinkedPullRequest:
             ci=ci,
             checks=checks,
             awaiting_workflow_approval=awaiting_workflow_approval,
+            checks_incomplete=checks_incomplete,
             title=title,
         )
 

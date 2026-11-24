@@ -530,34 +530,49 @@ def redact_wire_payload(payload: Any) -> Any | None:
         # swapped back (checked below — then the whole payload fails closed). One
         # that never appears has nothing to hide, and refusing on it dropped whole
         # snapshots to {} (empty-snapshots report, 2026-10-22).
+        all_keys = list(swaps)
         short = [v for v in swaps.values() if 0 < len(v) < 16]
         swaps = {k: v for k, v in swaps.items() if len(v) >= 16}
-        # Longest value first: when one swap value is a substring of another
-        # (a field-narrowed fence + the whole-value fence of the same json in
-        # one request), replacing the shorter first would corrupt the longer.
-        ordered = sorted(swaps.items(), key=lambda kv: len(kv[1]), reverse=True)
-        for token, value in ordered:
-            token_esc = _esc(token)
-            # Single-escaped occurrence (a normal JSON string field) AND the
-            # double-escaped occurrence (the value nested inside a JSON-string
-            # field, e.g. OpenAI function.arguments / dumped tool content).
-            for form_value, form_token in (
-                (_esc(value), token_esc),
-                (_esc(_esc(value)), _esc(token_esc)),
-            ):
-                if form_value in s:
-                    s = s.replace(form_value, form_token)
+        # ONE pass, longest form first (like ``_swap_text``): when one swap value is a
+        # substring of another the longer wins at each position, and a key just put back
+        # is never re-scanned — a per-value ``str.replace`` loop rewrote a shorter value
+        # found INSIDE a restored key and mangled it. Each value is matched in its
+        # single-escaped form (a normal JSON string field) AND its double-escaped form
+        # (the value nested inside a JSON-string field, e.g. OpenAI function.arguments
+        # / dumped tool content).
+        forms: dict[str, str] = {}
+        for token, value in swaps.items():
+            # Single form first: a value with nothing to escape has ONE form, and it is a
+            # plain JSON string field, so its key goes back single-escaped.
+            forms.setdefault(_esc(value), _esc(token))
+            forms.setdefault(_esc(_esc(value)), _esc(_esc(token)))
+        if forms:
+            ordered_forms = sorted(forms, key=len, reverse=True)
+            pattern = _re.compile("|".join(_re.escape(f) for f in ordered_forms))
+            s = pattern.sub(lambda m: forms[m.group(0)], s)
         # Verify against the ESCAPED forms (the raw value can never appear in
         # a JSON dump once it contains a newline/quote/backslash — comparing
-        # raw was a vacuous check). Any surviving occurrence ⇒ drop.
+        # raw was a vacuous check). Any surviving occurrence ⇒ drop. What sits
+        # INSIDE a restored key is not a survivor: keys are exactly what
+        # persistence stores, so a key that names another swap's value (a fence
+        # whose text carries the string a sibling fence resolves to) hides nothing
+        # (request_snapshot_dropped, conversation.label_agent_run, 2026-11-10).
+        residue = s
+        all_tokens = sorted(
+            {f for t in all_keys if t for f in (_esc(_esc(t)), _esc(t))},
+            key=len,
+            reverse=True,
+        )
+        if all_tokens:
+            residue = _re.compile("|".join(_re.escape(t) for t in all_tokens)).sub("", residue)
         for value in swaps.values():
             single = _esc(value)
-            if single in s or _esc(single) in s:
+            if single in residue or _esc(single) in residue:
                 _announce_dropped_snapshot("a swapped value survived the reverse swap", value_chars=len(value))
                 return None
         for value in short:
             single = _esc(value)
-            if single in s or _esc(single) in s:
+            if single in residue or _esc(single) in residue:
                 _announce_dropped_snapshot(
                     "a value too short to swap unambiguously appears on the wire", value_chars=len(value)
                 )

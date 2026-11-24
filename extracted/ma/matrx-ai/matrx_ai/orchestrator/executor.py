@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import time
 import traceback
+from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
@@ -33,6 +34,7 @@ from matrx_ai.config import (
     UnifiedResponse,
     host_authored_user_turn,
 )
+from matrx_ai.config.agent_modes import running_modes_for
 from matrx_ai.config.finish_reason import (
     CONTINUABLE_METADATA_KEY,
     TRUNCATION_METADATA_KEY,
@@ -75,11 +77,12 @@ from matrx_ai.orchestrator.mandate_carrier import (
 from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
 from matrx_ai.orchestrator.reroute_alarm import record_provider_reroute
 from matrx_ai.orchestrator.tracking import TimingUsage, ToolCallUsage
-from matrx_ai.providers.errors import RetryableError, classify_provider_error
+from matrx_ai.providers.errors import RetryableError, classify_provider_error, input_refusal_info
 from matrx_ai.providers.failure_report import PROVIDER_OUT_OF_CREDIT_KIND  # noqa: F401 — re-export
 from matrx_ai.providers.snapshot_redactors import (
     apply_redactors,
     apply_response_redactors,
+    known_media_blobs,
     redactors_with_stored_blobs,
 )
 from matrx_ai.tools.handle_tool_calls import handle_tool_calls_v2
@@ -99,7 +102,13 @@ if TYPE_CHECKING:
 # Appended to a partial assistant message when a run is interrupted mid-stream,
 # so both the user and the model see exactly what happened (the turn was cut off
 # before completion). Kept short and self-explanatory.
-_INTERRUPT_MARKER = "\n\n[⚠️ Response interrupted by the user before completion.]"
+#: The closing sentence of a partial kept after a cancel. It claims no stopper unless one is known: this handler
+#: also runs for a dropped connection and a deploy, so "by the user" was often untrue (PB-08k r11).
+_INTERRUPT_MARKER = "\n\n[⚠️ Response interrupted before completion.]"
+_STOP_MARKERS = {
+    "person": "\n\n[⚠️ Response stopped by the person before completion.]",
+    "agent": "\n\n[⚠️ Response stopped by the agent that started it, before completion.]",
+}
 
 LOCAL_DEBUG = False
 PROVIDER_OVERLOAD_RETRY_DELAYS: tuple[float, ...] = (2.0, 5.0, 10.0, 30.0, 60.0)
@@ -292,6 +301,129 @@ def _is_request_cancelled(request_id: str | None) -> bool:
     return RequestControlRegistry.get_instance().is_cancelled(request_id)
 
 
+def _take_reasoning_ms(emitter: Any) -> int | None:
+    """How long the model thought during the provider call just made (the stream emitter's
+    reasoning started/stopped clock), resetting it. None for an emitter without that clock."""
+    take = getattr(emitter, "take_reasoning_ms", None)
+    if not callable(take):
+        return None
+    try:
+        value = take()
+    except Exception:  # noqa: BLE001 — a display figure never fails a run
+        return None
+    return value if isinstance(value, int) and value > 0 else None
+
+
+def _current_emitter() -> Any:
+    try:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        return getattr(try_get_app_context(), "emitter", None)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _is_new_person_message(trigger: Any) -> bool:
+    """A turn's trigger is the person's NEW message (a fresh send) when it is a user row not yet saved.
+    Anything else (a rebuilt tool result, a saved user row) continues a turn sent earlier."""
+    if trigger is None:
+        return True
+    role = getattr(trigger, "role", None)
+    return (role.value if hasattr(role, "value") else role) == "user" and not getattr(trigger, "id", None)
+
+
+def _stamp_answer_notes(
+    messages: Any, iteration: int, emitter: Any, *, state: Any = None, timing_history: Any = (),
+) -> None:
+    """Stamp what a provider call's answers carry into their saved rows: ``provider_iteration`` (the cost link), the
+    free-tier swap sentence (``model_swap``), and the stream warnings sent since the last call (``warnings``, on the
+    first answer only) — a warning the person saw is part of the answer and survives the hand-off to the saved row and
+    a reload (CGU-M3 W4, P-164's retired-box notice). A call whose answer began (``state.answer_began_at``, no tool
+    call after it) also stamps WORKED FOR (``work_ms``) on it HERE, before the row is committed mid-turn — the final
+    persist only writes rows past ``committed_position``, so a stamp at finalize never lands (CGU-09 lane C4)."""
+    from matrx_ai.orchestrator.first_output import stamp_work_ms, turn_work_ms
+
+    if state is not None and getattr(state, "answer_began_at", None) is not None:
+        stamp_work_ms(messages, turn_work_ms(state, timing_history), result_start_position=0)
+    call_warnings = _take_warnings(emitter)
+    for provider_message in messages:
+        provider_role = getattr(provider_message, "role", None)
+        provider_role_value = provider_role.value if hasattr(provider_role, "value") else provider_role
+        if provider_role_value == "assistant":
+            provider_message.metadata = {
+                **(provider_message.metadata or {}),
+                "provider_iteration": iteration,
+                **_model_swap_stamp(),
+                **({"warnings": call_warnings} if call_warnings else {}),
+            }
+            call_warnings = []
+
+
+async def _stamp_leftover_warnings(current_request: Any, committed_position: int, emitter: Any) -> None:
+    """Warnings sent after the last provider call's take (a detached send that had not landed, a
+    line from the last iteration's tools) go on this turn's newest unsaved answer before it is
+    written, so the saved row says what the live stream said. Logged when there is no such answer."""
+    if emitter is None or not callable(getattr(emitter, "take_warnings", None)):
+        return
+    import asyncio
+
+    await asyncio.sleep(0)  # a detached send_warning records its line on its first step
+    left = _take_warnings(emitter)
+    if not left:
+        return
+    messages = list(getattr(getattr(current_request, "config", None), "messages", None) or [])
+    for position in range(len(messages) - 1, committed_position, -1):
+        message = messages[position]
+        role = getattr(message, "role", None)
+        if getattr(role, "value", role) != "assistant":
+            continue
+        metadata = dict(getattr(message, "metadata", None) or {})
+        metadata["warnings"] = [*(metadata.get("warnings") or []), *left]
+        message.metadata = metadata
+        return
+    vcprint(
+        f"[Executor] {len(left)} warning(s) sent after the last answer was saved; shown live only: "
+        + ", ".join(str(w.get("code")) for w in left),
+        color="yellow",
+    )
+
+
+def _take_warnings(emitter: Any) -> list[dict[str, Any]]:
+    """The stream warnings sent since the last take (the stream emitter's ``take_warnings``), else []."""
+    take = getattr(emitter, "take_warnings", None)
+    if not callable(take):
+        return []
+    try:
+        taken = take()
+    except Exception:  # noqa: BLE001 — a saved notice never fails a run
+        return []
+    return [w for w in taken if isinstance(w, dict) and w.get("code")] if isinstance(taken, list) else []
+
+
+def _stamp_thinking_duration(response: Any, reasoning_ms: int | None) -> None:
+    """Save how long the model thought on the response's first thinking part
+    (``metadata.duration_ms``), so a reloaded turn still says "Thought for Ns" — the live
+    row said it from the stream's reasoning events (CGU-09 P2-4)."""
+    if not reasoning_ms:
+        return
+    inline: Any = None
+    for message in getattr(response, "messages", None) or []:
+        for content in getattr(message, "content", None) or []:
+            if isinstance(content, ThinkingContent):
+                content.metadata = {**(content.metadata or {}), "duration_ms": reasoning_ms}
+                return
+            if (
+                inline is None
+                and isinstance(content, TextContent)
+                and (content.text or "").lstrip().startswith("<reasoning>")
+            ):
+                inline = content
+    # A text part that still OPENS with ``<reasoning>`` (model-written; a turn saved from the
+    # stream has its thought lifted into a thinking part, AND-V 05r F6) carries it on that part.
+    if inline is not None:
+        inline.metadata = {**(getattr(inline, "metadata", None) or {}), "duration_ms": reasoning_ms}
+
+
 class ProviderCallStopped(Exception):
     """The person stopped the run WHILE the provider was generating."""
 
@@ -301,10 +433,36 @@ class ProviderCallStopped(Exception):
 
 
 # How often a running provider call re-checks the stop layers. The in-process
-# registry is a dict read (cheap, every tick); the runtime spine is a DB read
-# (cross-process — a cancel POST can land on another worker), polled slower.
+# registry is a dict read (cheap, every tick); the runtime spine is one indexed
+# DB read (cross-process — a cancel POST can land on another worker). Half a
+# second: a Stop pressed right after Send reaches the control row a moment after
+# the run's first boundary check, and at 2 s a fast model wrote its whole reply
+# before the next look (CGU-09 P1-2, live 2026-10-31).
 _STOP_POLL_SECONDS = 0.25
-_SPINE_STOP_POLL_SECONDS = 2.0
+_SPINE_STOP_POLL_SECONDS = 0.5
+# STOP IS FINAL (P8-RUNS, 2026-11-15): a Stop that lands on another server task reaches this loop by
+# the host's push (a NOTIFY doorbell fires this process's registry) or the host's throttled spine read;
+# both are only as fast as this loop looks. The loop now looks every TICK — the registry is a dict read,
+# and the spine seam is the HOST's to throttle (aidream reads the control row at most every
+# ``runtime.stop_poll_ms``; a rung doorbell answers with no read at all). Measured before: a cancel
+# POST of 0.53 s plus up to 0.5 s of poll let gpt-oss-20b stream 290 → 3077 bytes past the press.
+_STOP_TICK_SECONDS = 0.05  # protocol-constant: scheduler tick of an in-process stop poll; a latency/CPU trade-off with no admin-facing meaning
+
+
+def _seal_stopped_stream(emitter: Any) -> None:
+    """Seal the turn's live wire the moment this loop sees a stop (P8-RUNS).
+
+    The cancel route seals the emitter itself when the turn runs in ITS process; a Stop that
+    landed on another server task reaches this loop only through the spine stamp, so the loop
+    seals its own emitter here. Idempotent; emitters without a wire (console, capture) have no
+    ``seal_after_stop`` and are left alone. Never raises."""
+    seal = getattr(emitter, "seal_after_stop", None)
+    if not callable(seal):
+        return
+    try:
+        seal()
+    except Exception as exc:  # noqa: BLE001 — the stop itself proceeds
+        vcprint(f"[Executor] could not seal the stopped stream: {exc}", color="yellow")
 
 
 async def _execute_stoppable(call: Any, request_id: str | None) -> Any:
@@ -318,23 +476,64 @@ async def _execute_stoppable(call: Any, request_id: str | None) -> Any:
     the durable spine row from another worker) cancels the provider stream —
     generation actually stops — and raises ``ProviderCallStopped`` for the
     caller's cancelled-run path.
+
+    A stop already known when the call would start ends it BEFORE it starts (live 2026-11-16, F2/F4: the Stop's stamp
+    landed while the send boundary built the payload, after the loop's last look; the call went out, was cut 50-170 ms
+    later and billed the whole prompt). The look is the in-process registry only — a Stop from another server task
+    fires it through the host's doorbell — so it adds no read to a call nobody stopped.
     """
+    if _is_request_cancelled(request_id):
+        _seal_stopped_stream(_current_emitter())
+        if isinstance(call, asyncio.Future):
+            call.cancel()
+        elif callable(getattr(call, "close", None)):
+            call.close()  # never started: nothing reached the provider, nothing is billed
+        raise ProviderCallStopped("Request canceled before the model call.")
     task = asyncio.ensure_future(call)
-    last_spine = time.monotonic()
     try:
         while True:
-            done, _ = await asyncio.wait({task}, timeout=_STOP_POLL_SECONDS)
+            done, _ = await asyncio.wait({task}, timeout=_STOP_TICK_SECONDS)
             if done:
-                return task.result()
+                result = task.result()
+                # A Stop that reached the run while the call was still generating is a live Stop even when the call
+                # finished before the next poll saw it (CGU-09 stop-during-thinking, live 2026-11-12: the control row
+                # was stamped 0.5 s before a short answer arrived all at once; the call was recorded complete, its
+                # whole answer saved and streamed after Stop). One last look at both layers before the answer counts.
+                reason = None
+                if _is_request_cancelled(request_id):
+                    reason = "Request canceled while the model was generating."
+                else:
+                    spine = await _spine_stop_reason()
+                    if spine:
+                        reason = f"Request stopped by execution control: {spine}"
+                if reason:
+                    _seal_stopped_stream(_current_emitter())
+                    from matrx_ai.config import TokenUsage
+                    from matrx_ai.providers.errors import attach_billed_usage
+
+                    stopped = ProviderCallStopped(reason)
+                    usage = getattr(result, "usage", None)
+                    # The call ran to the end: the provider billed all of it, and the stopped run's cost carries it.
+                    attach_billed_usage(stopped, usage if isinstance(usage, TokenUsage) else None)
+                    raise stopped
+                return result
             reason: str | None = None
             if _is_request_cancelled(request_id):
                 reason = "Request canceled while the model was generating."
-            elif time.monotonic() - last_spine >= _SPINE_STOP_POLL_SECONDS:
-                last_spine = time.monotonic()
-                spine = await _spine_stop_reason()
+            else:
+                from matrx_ai._ext import _SPINE_MID_CALL_POLL
+
+                mid_call = _SPINE_MID_CALL_POLL.set(True)
+                try:
+                    spine = await _spine_stop_reason()
+                finally:
+                    _SPINE_MID_CALL_POLL.reset(mid_call)
                 if spine:
                     reason = f"Request stopped by execution control: {spine}"
             if reason:
+                # STOP IS FINAL on the wire before the provider task unwinds: whatever it still
+                # pushes through send_chunk while cancelling is dropped, never streamed (P8-RUNS).
+                _seal_stopped_stream(_current_emitter())
                 task.cancel()
                 stopped = ProviderCallStopped(reason)
                 try:
@@ -437,9 +636,35 @@ def _subtree_budget_stop_reason() -> str | None:
         return None
 
 
+def _execution_control_stop_cause(request_id: str | None, reason: str) -> Any:
+    """The structured cause behind an execution-control stop: the subtree time budget, the
+    caller's dollar cap, or a host control whose axis is not named. Never raises."""
+    from matrx_ai.orchestrator.stop_cause import RunStopCause, cost_cause, time_cause
+    from matrx_ai.orchestrator.subtree_budget import SUBTREE_BUDGET_STOP_MARKER, expired_budget
+
+    try:
+        if SUBTREE_BUDGET_STOP_MARKER in reason:
+            from matrx_connect.context.app_context import try_get_app_context
+
+            budget = expired_budget(getattr(try_get_app_context(), "metadata", None))
+            if budget is not None:
+                return time_cause(budget).model_copy(update={"detail": reason})
+        if reason.startswith("dollar cap:"):
+            from matrx_ai.orchestrator.cost_budget import spent_ceiling
+
+            numbers = spent_ceiling(request_id)
+            allowed, used = numbers if numbers is not None else (None, None)
+            return cost_cause(allowed=allowed, used=used, detail=reason)
+    except Exception as exc:  # noqa: BLE001 — naming the cause must never break the stop itself
+        vcprint(f"[Executor] stop cause could not be read ({type(exc).__name__}: {exc})", color="yellow")
+    return RunStopCause(kind="execution_control", detail=reason)
+
+
 def _spine_meter_call(usage) -> None:
     """Hand one billed provider call's usage to the host-injected spine meter hook
-    (detached write inside the hook — zero hot-path cost). Best-effort, never raises."""
+    (detached write inside the hook — zero hot-path cost). Never raises into the loop;
+    a hook that raises is CAPTURED — the call it failed to meter is spend the host's
+    ledger may never see, so it is an incident, not a yellow line."""
     try:
         from matrx_ai._ext import get_spine_call_meter
 
@@ -447,7 +672,20 @@ def _spine_meter_call(usage) -> None:
         if meter is not None:
             meter(usage)
     except Exception as exc:  # noqa: BLE001 — metering must never break the loop
-        vcprint(f"[Executor] spine call meter failed (harmless): {exc}", color="yellow")
+        vcprint(f"[Executor] spine call meter failed — call not metered live: {exc}", color="red")
+        try:
+            from matrx_connect.streaming.error_capture import capture_error
+
+            detached_task(
+                capture_error(
+                    exc,
+                    kind="spine_call_meter_failed",
+                    model=str(getattr(usage, "matrx_model_name", "") or "unknown"),
+                ),
+                name="capture_spine_call_meter_failed",
+            )
+        except Exception as capture_exc:  # noqa: BLE001 — no loop / no sink: the red line stands
+            vcprint(f"[Executor] spine call meter failure not captured: {capture_exc}", color="red")
 
 
 def _cache_prefix_is_frozen(config: Any) -> bool:
@@ -463,15 +701,83 @@ def _cache_prefix_is_frozen(config: Any) -> bool:
     return bool(isinstance(held, dict) and held.get("settled"))
 
 
-def _strip_ephemeral_for_storage(config: UnifiedConfig) -> None:
+def _shift_reply_reservation_past_drained(
+    state: ExecutionState | None, *, reply_position: int, before: int, after: int
+) -> int:
+    """Keep the reply's reserved row on the reply when a turn-boundary drain appends messages.
+
+    The reply row is reserved at loop start for logical index ``reply_position`` (the slot the
+    first answer takes). A drain that appends inbox messages (a steer, a report, a host
+    ``system_message``) BEFORE that answer exists pushes the answer to ``reply_position + n``;
+    left keyed at the old index, the reservation was taken by the drained message and the real
+    answer was INSERTed as a second row, so the reserved assistant row sat ``pending`` with
+    ``[]`` until the watchdog swept it to ``abandoned`` (conversation 9b2bbbb9…, 2026-11-18:
+    three turns, each with an ``injection:system_message``). Returns the reply's position now.
+    """
+    if state is None or after <= before or reply_position != before:
+        return reply_position
+    reserved = state.reserved_message_ids
+    row_id = reserved.pop(reply_position, None)
+    if not row_id:
+        return reply_position
+    shifted = reply_position + (after - before)
+    reserved[shifted] = row_id
+    return shifted
+
+
+def _persist_kept_turn_context(at: int, message: Any, *, state: ExecutionState | None) -> None:
+    """Write her turn's kept block (``turn_context_in_cache``) onto its ``cx_message`` row.
+
+    Her row is usually committed by an earlier iteration's barrier, so the end-of-turn persist no
+    longer rewrites it: this is a metadata-only UPDATE carrying the whole stored metadata (the
+    promoted call-record keys stay in their columns). A row not reserved yet is INSERTed by the
+    end-of-turn persist, which writes the same metadata.
+    """
+    row_id = getattr(message, "id", None)
+    if not row_id and state is not None:
+        position = getattr(message, "position", None)
+        position = at if position is None else position
+        reserved = getattr(state, "reserved_message_ids", None) or {}
+        row_id = reserved.get(position) or reserved.get(str(position))
+    if not row_id:
+        vcprint(
+            f"[Executor] turn context kept on the person turn at {at} in memory only — no row id; "
+            "the end-of-turn persist writes it with the row",
+            color="yellow",
+        )
+        return
+    from matrx_ai.db.persistence import lift_promoted_message_columns
+    from matrx_ai.persistence.queue_helpers import queue_message_update
+
+    clean, _promoted = lift_promoted_message_columns(getattr(message, "metadata", None))
+    if clean:
+        queue_message_update(str(row_id), metadata=clean)
+
+
+def _strip_ephemeral_for_storage(
+    config: UnifiedConfig, state: ExecutionState | None = None
+) -> None:
     """Remove this turn's transient context channel from a config before persistence.
 
     The per-turn context blocks (``MessageList.attach_turn_context``) are
-    re-attached fresh next turn, so they must not survive into ``cx_message``.
+    re-attached fresh next turn, so the channel never survives into ``cx_message``.
+    ONE exception, for the prompt cache: when a send of this turn held the block
+    inside its cached prefix (any tool loop), the block is kept on her turn
+    (``send_boundary.keep_turn_context_for_next_turn``) so the next turn's history
+    is byte-identical to that prefix and reads it from cache.
     The turn-one context block on ``SystemInstruction`` (the organization
     catalog) is NOT transient: it is part of the frozen prompt and stays.
     Idempotent — safe to call when nothing is attached.
     """
+    from matrx_ai.config.send_boundary import keep_turn_context_for_next_turn
+
+    kept = keep_turn_context_for_next_turn(config)
+    if kept is not None:
+        _persist_kept_turn_context(*kept, state=state)
+    # Earlier person turns of this request that a queued turn replaced mid-loop (C116).
+    take = getattr(config.messages, "take_kept_replaced_turns", None)
+    for at, message in take() if callable(take) else ():
+        _persist_kept_turn_context(at, message, state=state)
     config.messages.clear_turn_context()
     # 🚨 THE SYSTEM CONTEXT BLOCK IS NEVER CLEARED HERE (cache line law,
     # 2026-10-16). It is injected on turn ONE only (``apply_context_objects``
@@ -667,6 +973,7 @@ async def execute_ai_request(
             if held_type == "standard":
                 # "subagent" means "has a parent conversation"; a root held call is ``auto``.
                 held_type = "subagent" if surrounding else "auto"
+            # conversation-row: execute_ai_request below runs the held call AT this id
             token = set_app_context(
                 ctx.with_overrides(
                     conversation_id=own_conversation_id,
@@ -725,6 +1032,12 @@ async def execute_ai_request(
 
     join_tree(ctx)
     register_request_tree(ctx)
+    # A caller's own dollar cap for THIS run (``RunOptions.max_cost_usd`` -> metadata): narrows the tree ceiling.
+    from matrx_ai.orchestrator.cost_budget import MAX_COST_METADATA_KEY, set_request_ceiling
+
+    _cap = metadata.get(MAX_COST_METADATA_KEY) if isinstance(metadata, dict) else None
+    if isinstance(_cap, int | float) and not isinstance(_cap, bool):
+        set_request_ceiling(request_id, float(_cap))
 
     # ── Resolve the conversation + persistence intent ONCE, here, for EVERY
     # caller — internal or API. Explicit args win, then the context, then the
@@ -780,11 +1093,21 @@ async def execute_ai_request(
             return await invoke_provider()
         return await hook(invoke_provider, ctx=ctx)
 
+    # An exception that escapes after a provider request was sent carries ``was_request_sent`` (one raised while the
+    # request was still being built does not: nothing reached the provider) — pass 6, N2.
+    from matrx_ai.providers.errors import stamp_request_sent_on_failure
+
     settle = await _open_one_shot_ledger(ctx, request.metadata, mandate_key)
     if settle is None:
-        return await invoke()
+        with stamp_request_sent_on_failure():
+            return await invoke()
+    from matrx_ai.providers.meter_scope import direct_spend_scope
+
     try:
-        completed = await invoke()
+        # The one-shot ledger banks every call of this request (its settle records the usage history): the runtime
+        # meter backstop reads it as an open meter, never "unmetered" (providers/meter_scope.py).
+        with direct_spend_scope(f"one_shot_ledger:{mandate_key or 'ai_call'}"), stamp_request_sent_on_failure():
+            completed = await invoke()
     except BaseException as exc:
         await _settle_one_shot(settle, "cancelled" if isinstance(exc, asyncio.CancelledError) else "failed",
                                request.usage_history, error=str(exc) or type(exc).__name__)
@@ -846,6 +1169,45 @@ def _accepts_standalone_only(tracker: Any) -> bool:
     return "standalone_only" in params or any(p.kind is p.VAR_KEYWORD for p in params.values())
 
 
+@asynccontextmanager
+async def metered_one_shot(ctx: Any, *, feature: str, label: str):
+    """Bank a priced call made OUTSIDE the engine loop, once: the engine's own one-shot path, for a caller that sends
+    through ``UnifiedAIClient`` / ``execute_stt`` / ``execute_decision`` directly (memory, the ai.transcribe graph
+    node). Yields a list; append each billed ``TokenUsage`` (a failed call's ``get_billed_usage`` too). On exit every
+    usage is metered live onto the run that owns the call (``_spine_meter_call``), and a ROOT ledger is opened first
+    when no tracked run is open (the host's tracker declines inside one) and settled with the same usage. The host
+    books each call once: its live meter skips a call another run's settle owns (a workflow step), and a root's settle
+    records only what did not land live. Never raises from the meter; the caller's exception passes through."""
+    settle = await _open_one_shot_ledger(ctx, {"source_feature": feature}, label)
+    billed: list[Any] = []
+    status = "completed"
+    error: str | None = None
+    from contextlib import nullcontext
+
+    from matrx_ai.providers.meter_scope import direct_spend_scope
+
+    # A ledger opened here banks what the caller appends: the runtime meter backstop reads it as an open meter.
+    # With none opened, the call is banked only when a live meter targets the run (the backstop asks the host).
+    banked_here = direct_spend_scope(f"one_shot_ledger:{label}") if settle is not None else nullcontext()
+    try:
+        with banked_here:
+            yield billed
+    except BaseException as exc:
+        from matrx_ai.providers.errors import get_billed_usage
+
+        status = "cancelled" if isinstance(exc, asyncio.CancelledError) else "failed"
+        error = str(exc) or type(exc).__name__
+        failed_usage = get_billed_usage(exc)
+        if failed_usage is not None and all(u is not failed_usage for u in billed):
+            billed.append(failed_usage)
+        raise
+    finally:
+        for usage in billed:
+            _spine_meter_call(usage)
+        if settle is not None:
+            await asyncio.shield(_settle_one_shot(settle, status, billed, error=error))
+
+
 async def _settle_one_shot(
     settle: Any, status: str, usage_history: list[Any], *, error: str | None = None
 ) -> None:
@@ -854,8 +1216,11 @@ async def _settle_one_shot(
             await settle(status, error=error, usage_history=list(usage_history or []))
         else:
             await settle(status, error=error)
-    except Exception as exc:  # noqa: BLE001 — the host's reaper is the backstop
+    except Exception as exc:  # noqa: BLE001 — never fail the call; the host's reaper settles the row
         vcprint(f"[execute_ai_request] cost ledger settle failed: {exc}", color="red")
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(exc, kind="one_shot_cost_ledger_settle_failed", status=status)
 
 
 def _build_skipped_tool_results(
@@ -1031,27 +1396,40 @@ def _attach_interrupted_tool_turn(
 CEILING_WARNING_ROUNDS = 2
 
 
-def _ceiling_approaching_notice(max_iterations: int, rounds_left: int) -> str:
-    """The one-time heads-up a few rounds before the iteration ceiling."""
+def _ceiling_approaching_notice(
+    max_iterations: int, rounds_left: int, *, time_left: tuple[float, dict[str, Any]] | None = None
+) -> str:
+    """The one-time heads-up a few rounds before the iteration ceiling.
+
+    Role-neutral (a builder, an investigator and a writer all read it), and it names every limit in
+    force with its numbers: the rounds, and a subtree time budget when one is running."""
+    limits = f"this run may take {max_iterations} tool rounds and you have {rounds_left} left"
+    time_note = ""
+    if time_left is not None:
+        seconds_left, budget = time_left
+        time_note = (
+            f" This run also has a time budget of {int(budget.get('seconds') or 0)}s, with about "
+            f"{int(seconds_left)}s left; if the time runs out first the run stops after the step in "
+            "hand, with no final turn, so write down what matters as you go."
+        )
     return (
-        f"⚠️ SYSTEM NOTICE (not from the user): this run may take {max_iterations} tool "
-        f"rounds and you have {rounds_left} left. After that your tools are switched off "
-        "and you get one final response to report your result. Use the rounds you have "
-        "to save or commit what is done; do not start anything new you cannot finish."
+        f"⚠️ SYSTEM NOTICE (not from the user): {limits}. After that your tools are switched off "
+        f"and you get one final response to report your result.{time_note} Complete the step you "
+        "are on so what you have is whole and usable, and start nothing new; then report what you "
+        "did or found, what is left, and the next step."
     )
 
 
 def _ceiling_wrap_up_notice(max_iterations: int) -> str:
-    """The directive for the ceiling's one tool-less wrap-up turn."""
+    """The directive for the ceiling's one tool-less wrap-up turn — the binding limit is rounds."""
     return (
-        f"⚠️ SYSTEM NOTICE (not from the user): you have reached this run's limit of "
-        f"{max_iterations} tool rounds. ALL TOOLS ARE NOW DISABLED — do not attempt any "
-        "tool call.\n\n"
+        f"⚠️ SYSTEM NOTICE (not from the user): this run has used all {max_iterations} tool "
+        "rounds it allows. ALL TOOLS ARE NOW DISABLED — do not attempt any tool call.\n\n"
         "Write your final response now, as your result:\n"
-        "  • what you finished (with the concrete outcome: files, commits, values);\n"
-        "  • what is left undone;\n"
+        "  • what you completed or found, with the concrete results (values, findings, changes, links);\n"
+        "  • what is left undone or unanswered;\n"
         "  • exactly where you stopped and the next step, so the work can be continued.\n\n"
-        "Say plainly that you stopped at the step limit and did not finish."
+        f"Say plainly that you stopped at the {max_iterations}-round limit and did not finish."
     )
 
 
@@ -1151,6 +1529,43 @@ async def _exit_with_loop_guard(
         debug=debug,
         state=state,
     )
+
+
+async def _take_answers_landed_before_park(
+    current_request: AIMatrixRequest,
+    pending_call_ids: list[str],
+    *,
+    exec_ctx: Any,
+) -> AIMatrixRequest | None:
+    """The request carrying every pending call's stored answer, or None when any call is still open.
+
+    Read after the turn's barrier, immediately before the park. Partly answered batches still park: the
+    answered rows are rebuilt by /resume with the rest. Never raises (``answered_meanwhile`` swallows and
+    announces a failed read, and the turn then parks as it would have).
+    """
+    from matrx_ai.tools.delegated_hold import answered_meanwhile
+
+    conversation_id = getattr(get_app_context(), "conversation_id", None) or current_request.conversation_id
+    taken = await answered_meanwhile(conversation_id, list(pending_call_ids))
+    if not taken or any(call_id not in taken for call_id in pending_call_ids):
+        return None
+    results = [
+        ToolResultContent(**{k: v for k, v in taken[call_id].items() if k != "error"})
+        for call_id in pending_call_ids
+    ]
+    await exec_ctx.emitter.send_info(
+        InfoPayload(
+            code="delegated_answer_taken_before_park",
+            system_message=(
+                f"{len(results)} client tool result(s) landed before the turn parked; continuing in this stream."
+            ),
+            user_message="",
+            metadata={"call_ids": list(pending_call_ids)},
+        )
+    )
+    messages = current_request.config.messages
+    messages.append(UnifiedMessage(role="tool", content=results))
+    return current_request
 
 
 async def _suspend_for_delegation(
@@ -1274,6 +1689,21 @@ async def _stop_for_candidate(
     )
 
 
+async def _apply_batch_tool_changes(config: UnifiedConfig) -> None:
+    """Apply the tool changes a just-finished tool batch queued, through the ONE
+    in-loop drain (``drain_tool_mutations``), and rebind the ambient context."""
+    from matrx_connect.context.app_context import set_app_context, try_get_app_context
+
+    from matrx_ai.tools.dynamic_drain import drain_tool_mutations
+
+    app_ctx = try_get_app_context()
+    if app_ctx is None:
+        return
+    new_ctx = await drain_tool_mutations(config, app_ctx)
+    if new_ctx is not app_ctx:
+        set_app_context(new_ctx)
+
+
 def _resolve_allowed_tools(config: UnifiedConfig) -> frozenset[str] | None:
     """Return the set of tool names that were actually sent to the model.
 
@@ -1329,6 +1759,28 @@ def _tool_ledger_conversation_id(request: Any) -> str | None:
     return current_conversation_id() or getattr(request, "conversation_id", None)
 
 
+def _end_tool_ledger_loop(initial_request: Any) -> None:
+    """Run end: drop the loop's undrained ledger events, KEEP the ledger.
+
+    The ledger used to be forgotten here, trusting the next loop to hydrate the
+    durable record. A follow-up turn that arrives before that record is on the
+    row (a first turn's save is skipped until the conversation's INSERT lands)
+    or on a path that never loads it then started a FRESH ledger in upstream
+    order, and a tool new on turn 2 landed ahead of the tool turn 1 sent — the
+    cached prefix rewritten (system_error prompt_cache_tool_list_changed /
+    tool_inserted_before_existing_tools, matrx-android, 2026-11-05). The ledger
+    is LRU-bounded and the newer ``seq`` of memory and record always wins on
+    hydrate, so keeping it is never staler than the row."""
+    try:
+        from matrx_ai.tools.declaration_ledger import end_loop
+
+        _done_conversation = _tool_ledger_conversation_id(initial_request)
+        if _done_conversation:
+            end_loop(_done_conversation)
+    except Exception as _end_exc:  # noqa: BLE001 — memory hygiene only; announced
+        vcprint(f"[tools] ledger loop end not recorded: {_end_exc}", color="yellow")
+
+
 def _hydrate_tool_ledger(conversation_id: str | None, config: Any) -> None:
     try:
         from matrx_ai.tools.declaration_ledger import hydrate_from_record
@@ -1379,29 +1831,60 @@ _TOOL_LEDGER_EVENT_TEXT = {
         "This conversation switched to a different set of tools ({tool}); earlier context is re-read once.",
         "whole tools array replaced (no tool in common with the previous one): one deliberate prompt-cache rewrite",
     ),
+    "native_tool_withdrawn": (
+        "A built-in model tool was turned off for this conversation ({tool}).",
+        "provider-native tool withdrawn (never retained: the provider runs it): one deliberate prompt-cache rewrite",
+    ),
 }
 
 
+def _tool_ledger_event_needs_repair(event: dict[str, Any]) -> bool:
+    """Is this tools-array break something to REPAIR, or the ledger doing its job?
+
+    Adopting a changed definition, re-describing a recycled name, swapping the
+    whole belt and evicting retained tools under the provider ceiling are each
+    the LAWFUL path (one cache rewrite, announced to the client and the server
+    log). Filing them as ``system_error`` drowned the queue: on 2026-11-03, 84
+    open rows, every one ``tool_definition_updated`` (``apply_surface_write``'s
+    write-target enum following the person's open screens, ``load_tools``,
+    registry edits) — nothing anyone could fix. A row lands only when the
+    break could not do its job: eviction left the array STILL over the
+    provider's tool ceiling, so the provider will refuse the request.
+    """
+    from matrx_ai.tools.declaration_ledger import EVENT_CEILING_EVICTION
+
+    return event.get("kind") == EVENT_CEILING_EVICTION and bool(event.get("still_over"))
+
+
 async def _announce_tool_ledger_events(conversation_id: str | None, exec_ctx: Any) -> None:
-    """Announce every deliberate tools-array cache break: capture + client warning."""
+    """Announce every deliberate tools-array cache break: server log + client warning.
+
+    A ``system_error`` lands only for a break that needs repair
+    (``_tool_ledger_event_needs_repair``).
+    """
     from matrx_ai.tools.declaration_ledger import drain_events
 
     for event in drain_events(conversation_id):
         kind = str(event.get("kind") or "tool_ledger_event")
         user_text, system_text = _TOOL_LEDGER_EVENT_TEXT.get(kind, ("", kind))
         detail = event.get("tool") or ", ".join(event.get("tools") or [])
-        try:
-            from matrx_connect.streaming.error_capture import capture_error
+        vcprint(
+            f"[tools] deliberate prompt-cache break: {system_text} ({detail}) conversation={conversation_id}",
+            color="yellow",
+        )
+        if _tool_ledger_event_needs_repair(event):
+            try:
+                from matrx_connect.streaming.error_capture import capture_error
 
-            await capture_error(
-                RuntimeError(f"prompt cache: deliberate tools-array break ({kind})"),
-                kind="prompt_cache_tool_list_deliberate_break",
-                error_type=kind,
-                route="matrx_ai.tools.declaration_ledger",
-                payload={"conversation_id": conversation_id, **event},
-            )
-        except Exception:
-            pass
+                await capture_error(
+                    RuntimeError(f"prompt cache: tools array still over the provider ceiling ({kind})"),
+                    kind="prompt_cache_tool_list_deliberate_break",
+                    error_type=kind,
+                    route="matrx_ai.tools.declaration_ledger",
+                    payload={"conversation_id": conversation_id, **event},
+                )
+            except Exception:
+                pass
         try:
             await exec_ctx.emitter.send_warning(
                 WarningPayload(
@@ -1523,6 +2006,54 @@ _EMPTY_REPLY_CONTINUATION_NOTICE = (
     "any visible reply. Using everything above, including any tool results, "
     "write your answer to the person now, in plain text. Do not finish silently."
 )
+
+
+#: Warning code announced (Watch AI) when a turn that thought until its output
+#: limit is retried once with reasoning off.
+EMPTY_REPLY_REASONING_OFF_RETRY_CODE = "empty_reply_reasoning_off_retry"
+
+
+def _turn_reasoning_off_for_retry(current_request: Any, state: Any) -> bool:
+    """Prepare ONE retry of a call whose whole output limit went to reasoning.
+
+    THINKING NEVER STARVES THE ANSWER. An adaptive-thinking model has no
+    separate thinking budget: ``max_tokens`` caps thinking AND answer together,
+    so at a modest cap it can think until the cap and write nothing (live
+    2026-11-04: Claude Haiku 5.5, cap 1,500, ``thinking_tokens`` 1,500, no text,
+    three of the iPhone's story requests). Asking it to "continue" re-spends the
+    same allowance on thinking; the cap is the author's and is honored. The
+    nearest honest equivalent is the same call with reasoning switched off, so
+    the visible answer gets the whole limit. ``reasoning_effort="none"`` is the
+    cross-provider off switch; a model whose thinking cannot be disabled maps it
+    to its lowest effort in the catalog (the always-on floor).
+
+    Returns False (touching nothing) when the run already spent its retry or
+    reasoning is already off — a retry would only repeat the same call, so the
+    caller falls through to the honest failure.
+
+    THE CHAT KEEPS ITS THINKING (CGU-10 IMG6 #1): reasoning goes off for that ONE
+    send only — ``state.one_call_settings``, which ``send_once`` hands to
+    ``prepare_for_send(one_call=...)`` for the wire copy. The canonical config is
+    never touched; it was stored with the chat, so one empty reply used to switch
+    thinking off for every later turn.
+    """
+    if state is None or state.empty_reply_reasoning_off_retries >= 1:
+        return False
+    config = current_request.config
+    already_off = (
+        config.reasoning_effort == "none"
+        and not config.thinking_budget
+        and config.thinking_level is None
+    )
+    if already_off:
+        return False
+    state.empty_reply_reasoning_off_retries += 1
+    state.one_call_settings = {
+        "reasoning_effort": "none",
+        "thinking_budget": None,
+        "thinking_level": None,
+    }
+    return True
 
 
 def _drop_blank_turn_for_continuation(current_request: Any, state: Any) -> bool:
@@ -1890,6 +2421,46 @@ async def _flush_assistant_message_mid_loop(
                     color="yellow",
                 )
 
+    # ── EVERYTHING DELIVERED ABOVE THE TRIGGER, BEFORE THE ASSISTANT ──────────────────────────────
+    # The caller moves ``state.committed_position`` past this assistant row, and no later barrier
+    # writes below the mark. A message delivered at a boundary (a person's steer, a helper's report,
+    # a wake note) sits between the mark and this row, so it has to be written here or never: Q-03,
+    # 2026-11-08, conversation 2411986b — the steer was consumed and obeyed, and left no row. Queued
+    # first, so the database appends it before the assistant. A failure here is a lost write: it
+    # raises and stops the turn like every barrier. (Persistence contract — CLAUDE.md.)
+    if state is not None:
+        _history = current_request.config.messages.to_list()
+        _floor = max(state.committed_position, -1 if trigger_position is None else trigger_position)
+        for _delivered_position in range(_floor + 1, position):
+            _delivered = _history[_delivered_position]
+            _delivered_role = getattr(_delivered, "role", None)
+            _delivered_role = _delivered_role.value if hasattr(_delivered_role, "value") else _delivered_role
+            if _delivered_role != "user" or getattr(_delivered, "id", None):
+                continue
+            from matrx_ai.db.persistence import lift_promoted_message_columns
+            from matrx_ai.persistence.sealed import stored_message_content
+
+            _delivered_storage = _delivered.to_storage_dict()
+            _delivered_meta, _delivered_promoted = lift_promoted_message_columns(_delivered_storage.get("metadata"))
+            _delivered_extra = dict(_delivered_promoted)
+            if _delivered_meta:
+                _delivered_extra["metadata"] = _delivered_meta
+            _delivered_pristine = _delivered_storage.get("user_content")
+            if _delivered_pristine is not None:
+                _delivered_extra["user_content"] = await stored_message_content(_delivered_pristine)
+            _delivered_id = str(uuid4())
+            queue_message_create(
+                id=_delivered_id,
+                conversation_id=exec_ctx.conversation_id,
+                role="user",
+                position=APPEND_MESSAGE_POSITION,
+                status="active",
+                content=await stored_message_content(_delivered_storage.get("content", [])),
+                created_by=exec_ctx.user_id or None,
+                **_delivered_extra,
+            )
+            reserved_messages[_delivered_position] = _delivered_id
+
     # THE ROW'S TIME IS STAMPED HERE AND SENT ON THE WIRE — the same instant the row stores, exactly
     # as `persist_completed_request` does for the rows it writes. Before, this checkpoint wrote its
     # rows with the database's own `now()` and announced none of it, so a live client kept its own
@@ -1919,7 +2490,10 @@ async def _flush_assistant_message_mid_loop(
                 pass
             return reserved_id
 
-        message_id = str(uuid4())
+        # LIVE BLOCKS: the id a blocks-v1 stream already used for this answer, else a fresh one.
+        message_id = (
+            state.streamed_message_ids.pop(position, None) if state is not None else None
+        ) or str(uuid4())
         # Mid-loop INSERT for a path that didn't reserve at iteration start
         # (client-delegated tool case). Idempotent absorption is no longer
         # needed because the coordinator coalesces duplicates at flush time
@@ -2251,6 +2825,8 @@ async def handle_tool_calls(
         # The agent's CURRENT NEED, carried to the tool-result content gate. It
         # has always existed here and was always dropped at this line.
         gate_context=_build_gate_context(request, iteration),
+        # The turn's agent modes on the LIVE config: ``set_mode`` switches the mode the next call is sent.
+        running_modes=running_modes_for(request.config),
     )
 
     results = [
@@ -3026,11 +3602,37 @@ def _partial_response_from_emitter(exec_ctx: Any, *, seen_only: bool = False) ->
             text = getter() or ""
     except Exception:
         text = ""
-    if text.strip():
-        return UnifiedResponse(
-            messages=[UnifiedMessage(role="assistant", content=[TextContent(text=text)])]
-        )
+    # The streamed text carries the thought INLINE (``<reasoning>…`` at its front); the saved turn
+    # holds it as its own thinking part, the shape a finished turn has (AND-V 05r F6).
+    from matrx_ai.processing.blocks.reasoning_parts import inline_reasoning_parts
+
+    parts = inline_reasoning_parts(text)
+    if parts:
+        return UnifiedResponse(messages=[UnifiedMessage(role="assistant", content=parts)])
     return UnifiedResponse(messages=[])
+
+
+async def _adopt_spine_stop_cursor(exec_ctx: Any) -> None:
+    """Hand the emitter the Stop cursor a cancel on ANOTHER server task noted.
+
+    ``POST /ai/cancel`` lands on any task; only the task running the turn has
+    the wire. The cancel route notes what the person had seen (their last
+    applied frame, the moment they pressed Stop) on the run's spine; this reads
+    it back so ``get_seen_turn_text`` cuts there instead of where the provider
+    call happened to stop (CGU-09 P1-1, parity P-008). Never raises."""
+    try:
+        from matrx_ai._ext import get_spine_stop_cursor
+
+        read = get_spine_stop_cursor()
+        note = getattr(getattr(exec_ctx, "emitter", None), "note_stop_cursor", None)
+        if read is None or not callable(note):
+            return
+        cursor = await read()
+        if not cursor:
+            return
+        note(seen_seq=cursor.get("seen_seq"), at=cursor.get("at"))
+    except Exception as exc:  # noqa: BLE001 — the stop still saves the local cut
+        vcprint(f"[Executor] stop cursor not adopted (keeping the local cut): {exc}", color="yellow")
 
 
 def _stopped_call_response(exec_ctx: Any, request_id: str | None) -> UnifiedResponse:
@@ -3051,6 +3653,8 @@ def _stopped_call_response(exec_ctx: Any, request_id: str | None) -> UnifiedResp
     answer grow after Stop and on reload (bench 2026-10-01, 360f1626…).
     """
     partial = _partial_response_from_emitter(exec_ctx, seen_only=True)
+    # A stopped thought keeps its "Thought for Ns" on reload (CGU-09 P2-5).
+    _stamp_thinking_duration(partial, _take_reasoning_ms(getattr(exec_ctx, "emitter", None)))
     # The saved answer SAYS it was stopped (PB-05 run 2, ac170b56…): without
     # this a reloaded stopped answer just ends mid-sentence, indistinguishable
     # from a finished one. The client renders its "Stopped here" marker from it.
@@ -3095,9 +3699,12 @@ def _announce_truncation(
         existing = [c for c in (assistant.content or []) if getattr(c, "type", None) == "text"]
         separator = "\n\n" if existing and (existing[-1].text or "").strip() else ""
         assistant.content = [*(assistant.content or []), TextContent(text=f"{separator}{notice}")]
+        # The mark carries the sentence too: a Stop that lands after the reply finished cuts the saved text to what
+        # the screen applied (late_stop.py), taking this paragraph with it while the mark stays — the client says
+        # the sentence again from the mark, in the server's own words (CGU-09 seventh verification P2-3).
         assistant.metadata = {
             **(assistant.metadata or {}),
-            TRUNCATION_METADATA_KEY: truncation,
+            TRUNCATION_METADATA_KEY: {**truncation, "notice": notice},
         }
     except Exception as exc:  # noqa: BLE001 — see docstring
         vcprint(
@@ -3149,6 +3756,48 @@ def _append_partial_response(
             color="yellow",
         )
         return current_request
+
+
+async def _send_once_banking_discarded_attempts(send: Any, *args: Any, **kwargs: Any) -> Any:
+    """``send_once`` with ``BANKS_DISCARDED_ATTEMPTS`` set for THIS send only: the loop banks the result's
+    ``discarded_attempt_usages`` itself. Reset in ``finally``, so a later non-executor dispatch in the same context
+    is never treated as banked (its discarded attempts are filed as unbanked)."""
+    from matrx_ai.providers.unified_client import BANKS_DISCARDED_ATTEMPTS
+
+    token = BANKS_DISCARDED_ATTEMPTS.set(True)
+    try:
+        return await send(*args, **kwargs)
+    finally:
+        BANKS_DISCARDED_ATTEMPTS.reset(token)
+
+
+def _record_billed_discarded_attempt(
+    current_request: AIMatrixRequest,
+    usage: Any,
+    *,
+    iteration: int | None = None,
+    provider_attempt: int | None = None,
+) -> None:
+    """Bank one billed attempt the dispatch discarded and sent again (an empty 200 retried at the safe minimum):
+    the same three steps as a billed failed attempt (``_record_billed_usage_on_failure``). Never raises."""
+    try:
+        if usage is None or getattr(usage, "metadata", None) is None:
+            return
+        if iteration is not None:
+            usage.metadata["iteration"] = iteration
+        if provider_attempt is not None:
+            usage.metadata["provider_attempt"] = provider_attempt
+        usage.metadata["attempt_outcome"] = "discarded_empty_answer"
+        current_request.add_usage(usage)
+        try:
+            from matrx_ai.orchestrator.cost_budget import record_tree_cost
+
+            record_tree_cost(current_request.request_id, usage.calculate_cost())
+        except Exception:
+            pass
+        _spine_meter_call(usage)
+    except Exception as exc:  # noqa: BLE001
+        vcprint(f"[Executor] could not bank a discarded billed attempt: {exc!r}", color="red")
 
 
 def _record_billed_usage_on_failure(
@@ -3227,6 +3876,7 @@ async def _finalize_and_persist(
     debug: bool = False,
     state: ExecutionState | None = None,
     skip_structured_output: bool = False,
+    wind_down: StopWindDown | None = None,
 ) -> CompletedRequest:
     """Build a CompletedRequest and persist it to the database.
 
@@ -3241,6 +3891,17 @@ async def _finalize_and_persist(
     but never propagated. The CompletedRequest is always returned.
     """
     await _scream_if_history_shifted(current_request, state, seam="finalize")
+    _wind_mark = wind_down.mark if wind_down is not None else (lambda _phase: None)
+    _wind_mark("history_check_s")
+    # Every stop exit carries whether it was an INTERRUPT, so persistence closes an
+    # unfilled reply reservation hidden from the person too (CGU-09 P2-3) — one stamp
+    # here instead of trusting each of the cancel exits to remember it.
+    if (
+        metadata.get("status") == "cancelled"
+        and "interrupted" not in metadata
+        and _is_request_interrupted(current_request.request_id)
+    ):
+        metadata = {**metadata, "interrupted": True}
     post_count = len(current_request.config.messages)
     has_new_messages = post_count > pre_execution_message_count
 
@@ -3255,10 +3916,10 @@ async def _finalize_and_persist(
 
     # Mandate-candidate runs expose what containment decided on EVERY exit
     # (completed, failed, stopped): the executor lane records these on the pair.
-    # A sub-agent run (forked by another agent or a tool) is resumed by its CALLER,
-    # never by a person typing "continue" in its conversation — so a limit stop
-    # settles terminal-with-reason there, not "paused" (requests.py
-    # PERSON_RESUMES_STATUSES). Stamped from the forked context's own lineage.
+    # A sub-agent run (forked by another agent or a tool) is continued by its CALLER,
+    # never by a person typing "continue" in its conversation; the stamp marks it so
+    # (requests.py CALLER_RESUMES_KEY). Every limit stop is terminal for every run
+    # (FINISHED_WITH_STOP_STATUSES). Stamped from the forked context's own lineage.
     from matrx_connect.context.app_context import try_get_app_context as _try_get_ctx
 
     from matrx_ai.tools.candidate_containment import candidate_outcome
@@ -3289,6 +3950,11 @@ async def _finalize_and_persist(
     if _ttft_ms is not None:
         metadata = {**metadata, "ttft_ms": _ttft_ms}
         _timing_stats = {**_timing_stats, "first_token_seconds": _ttft_ms / 1000}
+    from matrx_ai.processing.blocks.blocks_shadow import METADATA_KEY, take_summary
+
+    _blocks_shadow = take_summary(state or try_get_execution_state())
+    if _blocks_shadow is not None:
+        metadata = {**metadata, METADATA_KEY: _blocks_shadow}
 
     completed = CompletedRequest(
         request=current_request,
@@ -3381,7 +4047,7 @@ async def _finalize_and_persist(
     # the injected Tier 1 context block from the system instruction. Both are
     # re-attached fresh on every turn by apply_context_objects() — we never
     # want stale or duplicated context surviving in the DB.
-    _strip_ephemeral_for_storage(completed.request.config)
+    _strip_ephemeral_for_storage(completed.request.config, state)
 
     # Persist the request-level rollup, then COMMIT synchronously at the
     # barrier. Per the persistence contract (CLAUDE.md): a failed commit is
@@ -3401,12 +4067,14 @@ async def _finalize_and_persist(
     # failed, cancelled). Loud when it settles anything.
     from matrx_ai.tools.logger import ToolExecutionLogger
 
+    _wind_mark("build_s")
     await ToolExecutionLogger().settle_open_rows_at_run_end(
         outcome=str(metadata.get("status") or "completed"),
         conversation_id=conv_id,
         request_id=current_request.request_id,
         coordinator=_get_coord(),
     )
+    _wind_mark("tool_sweep_s")
 
     try:
         await persist_completed_request(
@@ -3418,10 +4086,22 @@ async def _finalize_and_persist(
             since_iteration=state.committed_iteration if state is not None else None,
             is_final=True,
         )
+        _wind_mark("persist_s")
         _coord = _get_coord()
         if _coord is not None:
             await _coord.finalize(reason="request_final_commit")
+        _wind_mark("final_commit_s")
     except Exception as _history_exc:
+        # THE REQUEST NEVER STAYS PENDING: the closing UPDATE rode the batch that
+        # failed, and the errored Coordinator captures (never writes) anything
+        # queued after it — so the terminal status lands on its OWN small write.
+        if req_id:
+            from matrx_ai.db.conversation_gate import settle_user_request_failed_after_barrier
+
+            await settle_user_request_failed_after_barrier(
+                req_id,
+                f"The final save failed ({type(_history_exc).__name__}); see system_write_failure.",
+            )
         # A stored run whose history could not land is a counted alarm with
         # its own kind (system runs have no streaming handler to record it);
         # the contract still propagates the failure.
@@ -3478,11 +4158,127 @@ async def _finalize_and_persist(
         # apply-envelope can be applied (e.g. create a project tree) before the
         # stream closes. Awaited (so it has the last word) but never fatal.
         await _apply_output_directive_if_present(parsed_output)
+    _wind_mark("structured_output_s")
 
     return completed
 
 
+class StopWindDown:
+    """Seconds each phase of a stopped run's wind-down took, from the moment the loop saw the Stop.
+
+    ``mark(phase)`` records the time since the previous mark; ``attach(completed)`` puts the phases on
+    ``completed.metadata["stop_wind_down"]`` — the completion frame carries them (journaled in the stream), and the
+    host adds its own settle phase before that frame goes out. Observability only: never raises."""
+
+    def __init__(self) -> None:
+        self._last = time.monotonic()
+        self.phases: dict[str, float] = {}
+
+    def mark(self, phase: str) -> None:
+        now = time.monotonic()
+        self.phases[phase] = round(self.phases.get(phase, 0.0) + (now - self._last), 4)
+        self._last = now
+
+    def attach(self, completed: Any) -> None:
+        try:
+            meta = getattr(completed, "metadata", None)
+            if isinstance(meta, dict):
+                meta["stop_wind_down"] = self.phases
+        except Exception:  # noqa: BLE001 — observability only
+            pass
+
+
 HISTORY_SHIFTED_KIND = "persisted_history_shifted"
+
+
+def _role_of(message: Any) -> str:
+    role = message.get("role") if isinstance(message, dict) else getattr(message, "role", "")
+    return str(getattr(role, "value", role) or "").lower()
+
+
+def _person_ask_answers_after(items: list[Any], anchor: Any) -> str:
+    """The person's answers to the agent's questions after ``anchor``, as plain "question: answer" lines.
+
+    A person-ask tool call (``tool_result_guard.PERSON_ASK_TOOLS``) with ``payload.questions`` and its result's
+    ``result.answers`` (by position). Skipped answers and anything unreadable add nothing; "" when none."""
+    import json
+
+    from matrx_ai.config.tool_result_guard import PERSON_ASK_TOOLS
+    from matrx_ai.tools.person_answer_words import answer_words
+
+    def field(block: Any, name: str) -> Any:
+        return block.get(name) if isinstance(block, dict) else getattr(block, name, None)
+
+    def blocks(message: Any) -> list[Any]:
+        content = field(message, "content")
+        return list(content) if isinstance(content, list) else []
+
+    def as_dict(value: Any) -> dict[str, Any]:
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, list):
+            for part in value:
+                found = as_dict(field(part, "text") if not isinstance(part, str) else part)
+                if found:
+                    return found
+            return {}
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except ValueError:
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        return {}
+
+    start = next((i for i, m in enumerate(items) if m is anchor), None)
+    if start is None:
+        return ""
+    asked: dict[str, list[str]] = {}
+    lines: list[str] = []
+    for message in items[start + 1:]:
+        for block in blocks(message):
+            kind = field(block, "type")
+            name = str(field(block, "name") or "")
+            if name not in PERSON_ASK_TOOLS:
+                continue
+            if kind in ("tool_call", "function_call"):
+                payload = (field(block, "arguments") or {}).get("payload") or {}
+                questions = payload.get("questions") if isinstance(payload, dict) else None
+                asked[str(field(block, "id") or "")] = [
+                    str(q.get("question") or "") if isinstance(q, dict) else "" for q in questions or []
+                ]
+            elif kind == "tool_result":
+                questions = asked.get(str(field(block, "tool_use_id") or field(block, "call_id") or ""), [])
+                answers = (as_dict(field(block, "content")).get("result") or {}).get("answers") or []
+                for index, answer in enumerate(answers if isinstance(answers, list) else []):
+                    if not isinstance(answer, dict) or answer.get("cancelled"):
+                        continue
+                    said = answer_words(answer)  # the person's words, never the card's "Other" label
+                    if not said:
+                        continue
+                    question = questions[index] if index < len(questions) else ""
+                    lines.append(f"{question}: {said.strip()}" if question else said.strip())
+    return "\n".join(lines)
+
+
+def _is_host_authored(message: Any) -> bool:
+    """A user-role turn the HOST wrote (``metadata.authored_by == 'host'``, ``host_authored_user_turn``)."""
+    from matrx_ai.config.message_config import HOST_AUTHORED_BY
+
+    metadata = message.get("metadata") if isinstance(message, dict) else getattr(message, "metadata", None)
+    return isinstance(metadata, dict) and metadata.get("authored_by") == HOST_AUTHORED_BY
+
+
+def user_frame_host_flags(message: Any) -> dict[str, Any]:
+    """The host flags a host-written user row's reservation frame carries (empty for the person's own turn): the
+    client's shared host checks read them before the row is re-read (apps/shared/chat user-frame-host-flags.ts)."""
+    if not _is_host_authored(message):
+        return {}
+    metadata = message.get("metadata") if isinstance(message, dict) else getattr(message, "metadata", None)
+    flags = {k: metadata[k] for k in ("authored_by", "authored_reason", "visible_to_person", "injection_source") if k in metadata}
+    if metadata.get("is_visible_to_user") is False:
+        flags["is_visible_to_user"] = False
+    return flags
 
 
 def _is_compaction_summary(message: Any) -> bool:
@@ -3682,6 +4478,7 @@ async def _persist_turn_and_commit(
     # Nothing new beyond what a prior barrier already committed.
     if post_count - 1 <= state.committed_position:
         return
+    await _stamp_leftover_warnings(current_request, state.committed_position, _current_emitter())
 
     # LEDGER TRUTH, DURABLE HALF. This barrier is where a turn's assistant text
     # becomes permanent, so the correction happens HERE — before the write, not
@@ -3839,6 +4636,21 @@ def _resolve_structured_contract(config: Any) -> tuple[dict, dict, bool] | None:
     if not isinstance(schema, dict):
         return None
     return envelope, schema, standing
+
+
+def _reply_contract_for_run(request: Any, ctx: Any) -> Any:
+    """This run's structured contract for the saved reply's blocks (PF-1 D3b), or None. Never raises."""
+    try:
+        resolved = _resolve_structured_contract(getattr(request, "config", None))
+        if resolved is None:
+            return None
+        from matrx_ai.processing.blocks.saved_blocks import reply_contract_for
+
+        metadata = getattr(ctx, "metadata", None)
+        return reply_contract_for(resolved[0], metadata if isinstance(metadata, dict) else None)
+    except Exception as exc:  # noqa: BLE001 — without a contract the splitter alone decides; said
+        vcprint(f"[execute_until_complete] reply contract not resolved ({exc!r}); blocks from text only", color="yellow")
+        return None
 
 
 def _apply_kind_corrections_to_turn_text(current_request: Any, final_response: Any = None) -> bool:
@@ -4212,6 +5024,21 @@ async def _apply_output_directive_if_present(parsed: Any) -> None:
 # ============================================================================
 
 
+#: How many of the latest messages a continued turn's retitle reads (the namer bounds them to 5,000 characters).
+RETITLE_RECENT_MESSAGES = 12
+
+
+def _model_swap_stamp() -> dict[str, str]:
+    """``{"model_swap": <sentence>}`` when this request's model was swapped down for its tier, else ``{}``."""
+    from matrx_ai.providers.free_tier_models import MODEL_SWAP_NOTE_KEY
+
+    try:
+        note = (get_app_context().metadata or {}).get(MODEL_SWAP_NOTE_KEY)
+    except Exception:  # noqa: BLE001 — no context: nothing to say
+        return {}
+    return {"model_swap": note} if isinstance(note, str) and note.strip() else {}
+
+
 def _schedule_labeling_if_new(exec_ctx: Any, config: UnifiedConfig) -> None:
     """Schedule labeling for new conversations only.
 
@@ -4266,20 +5093,52 @@ def _schedule_labeling_if_new(exec_ctx: Any, config: UnifiedConfig) -> None:
         raw_messages = config.messages
         if not raw_messages:
             return
+        # A HOST TURN NEVER NAMES THE CHAT: the activation line the host wrote ("Discovery is on. Open with your quick
+        # questions.") is not the person's words, so it is never what the chat is about (review 7: a Discovery chat
+        # titled itself "Discovery Kickoff Conversation"). A turn the host started is not labeled; the first turn the
+        # person writes is (a later turn labels only while the chat has no title), and host lines are never read.
+        raw_items = raw_messages.to_list() if hasattr(raw_messages, "to_list") else list(raw_messages)
+        last_user = next((m for m in reversed(raw_items) if _role_of(m) == "user"), None)
+        if last_user is None:
+            return
+        if _is_host_authored(last_user):
+            # THE PERSON'S FIRST WORDS MAY BE CARD ANSWERS (review 9, M-A): after a host-started turn (Discovery's
+            # opening) the first thing the person says is their answers to the agent's cards, resumed into this same
+            # turn. Those name the chat — the placeholder no longer waits for the person to type (seven minutes live).
+            # Only a chat still without a real title is named (retitle_only); host lines are never read.
+            answered = _person_ask_answers_after(raw_items, last_user)
+            if not answered:
+                return
+            schedule_conversation_labeling(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                messages=[{"role": "user", "content": answered}],
+                agent_name=exec_ctx.metadata.get("agent_name") or None,
+                agent_description=exec_ctx.metadata.get("agent_description") or None,
+                user_variables=None,
+                user_prompt=answered if exec_ctx.metadata.get("agent_name") else None,
+                retitle_only=True,
+            )
+            return
 
-        # Only label on the first turn — if there are already more than a couple
-        # of messages (user + assistant from a prior turn), this is a continuation.
-        if len(raw_messages) > 3:
-            return
-        # A condensed history is never a first turn — and its summary row (stored as ``user`` for
+        # More than a couple of messages (user + assistant from a prior turn) is a continuation: it
+        # is labeled only when the chat has no title — a person cleared it, handing the name back to
+        # the platform (MJ1). The labeler decides that from one primary-key read, no model call.
+        # A condensed history is never a first turn, and its summary row (stored as ``user`` for
         # provider alternation, ``metadata.compaction_summary``) is never the person's words.
-        if any(_is_compaction_summary(m) for m in raw_messages):
-            return
+        retitle_only = len(raw_messages) > 3 or any(_is_compaction_summary(m) for m in raw_messages)
 
         if isinstance(raw_messages, MessageList):
-            messages: list[dict] = raw_messages.to_dict_list()
+            messages: list[dict] = [
+                d for m, d in zip(raw_items, raw_messages.to_dict_list(), strict=True) if not _is_host_authored(m)
+            ]
         else:
-            messages = [m if isinstance(m, dict) else m for m in raw_messages]
+            messages = [m for m in raw_items if not _is_host_authored(m)]
+        if retitle_only:
+            # The namer reads at most 5,000 characters; the latest turns name what the chat is now.
+            messages = [m for m in messages if not _is_compaction_summary(m)][-RETITLE_RECENT_MESSAGES:]
+            if not messages:
+                return
 
         agent_name: str | None = exec_ctx.metadata.get("agent_name") or None
         agent_description: str | None = exec_ctx.metadata.get("agent_description") or None
@@ -4306,6 +5165,7 @@ def _schedule_labeling_if_new(exec_ctx: Any, config: UnifiedConfig) -> None:
             agent_description=agent_description,
             user_variables=user_variables,
             user_prompt=user_prompt,
+            retitle_only=retitle_only,
         )
     except Exception as exc:
         vcprint(
@@ -4501,10 +5361,77 @@ def _caller_can_continue(current_request: AIMatrixRequest) -> bool:
     return meta.get(CONTINUABLE_METADATA_KEY, True) is not False
 
 
+def _truncation_repair_reason(
+    *,
+    max_output_tokens: int | None,
+    interrupted_tool_calls: list[str],
+    continuable: bool,
+    empty_reply: bool,
+) -> str | None:
+    """Is this truncation something to REPAIR, or the configured cap doing its job?
+
+    A visible answer that reached the cap its agent set, in a conversation where
+    the person is told and can say "keep going", is the setting working as
+    designed — it is already announced in the stream and stored on the turn
+    (``status="truncated"``). Filing it as a ``system_error`` drowned the queue:
+    on 2026-11-03, 287 open rows, ~95% of them the cheap "Test Reply" test agent
+    (1,500 tokens, gpt-oss-20b) asked for a 2,000-word story, i.e. a test
+    proving the continue notice. A row lands only when something was LOST or
+    nobody chose the limit:
+
+    * ``empty_reply`` — the whole limit went to reasoning; no answer at all.
+    * ``interrupted_tool_call`` — a tool call died with the turn; nothing saved.
+    * ``not_continuable`` — a headless caller (workflow step, batch) has nobody
+      to ask for the rest, so the output is simply short.
+    * ``no_limit_set`` — no cap was sent; the provider's own ceiling cut it.
+    """
+    if empty_reply:
+        return "empty_reply"
+    if interrupted_tool_calls:
+        return "interrupted_tool_call"
+    if not continuable:
+        return "not_continuable"
+    if max_output_tokens is None:
+        return "no_limit_set"
+    return None
+
+
+def _sent_output_limit(sent: Any, current_request: Any) -> int | None:
+    """The ``max_output_tokens`` the provider actually received on this call.
+
+    The send boundary raises a limit on ``prep.wire_config`` only; after ``send_once`` the request
+    holds the canonical (authored) config again, so reading it names the wrong number.
+    """
+    wire = getattr(getattr(sent, "prep", None), "wire_config", None)
+    source = wire if wire is not None else current_request.config
+    authored = getattr(source, "max_output_tokens", None)
+    if authored is not None:
+        return authored
+    # No author's limit: the outbound pass still sent one when the provider requires it (Anthropic's
+    # ``max_tokens`` defaults to the model's real maximum). Reading None here called a cut at that
+    # ceiling "no limit set" and filed it as a system_error (live 2026-11-19, research.report).
+    from matrx_ai.providers.outbound_params import last_outbound_params
+
+    wire_params = last_outbound_params(getattr(current_request.config, "model", None)) or {}
+    for key in ("max_tokens", "max_output_tokens", "max_completion_tokens"):
+        value = wire_params.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+    return None
+
+
 async def _capture_truncated_response(
-    *, exec_ctx: Any, current_request: AIMatrixRequest, iteration: int
+    *,
+    exec_ctx: Any,
+    current_request: AIMatrixRequest,
+    max_output_tokens: int | None,
+    iteration: int,
+    repair_reason: str | None = None,
 ) -> None:
-    """Record a user-visible token-limit truncation without retaining content."""
+    """Record a token-limit truncation that needs repair, without retaining content.
+
+    ``max_output_tokens`` is the value SENT (``_sent_output_limit``), never the canonical config's.
+    """
     from matrx_connect.streaming.error_capture import capture_error
 
     model = current_request.config.model or "unknown model"
@@ -4518,10 +5445,16 @@ async def _capture_truncated_response(
         or getattr(exec_ctx, "conversation_id", None),
         route="orchestrator/provider_response",
         error_type="truncated_response",
+        # WHO set the cap (feedback 8f6837d6): the agent and the Mandate holding the call, beside the
+        # max_output_tokens actually sent, so a cut reply points at the setting to change.
+        agent_id=getattr(exec_ctx, "agent_id", None),
         payload={
             "model": model,
-            "max_output_tokens": current_request.config.max_output_tokens,
+            "max_output_tokens": max_output_tokens,
             "iteration": iteration,
+            "agent_id": getattr(exec_ctx, "agent_id", None),
+            "mandate_key": (getattr(current_request, "metadata", None) or {}).get(MANDATE_KEY_METADATA_KEY),
+            "repair_reason": repair_reason,
         },
     )
 
@@ -4656,6 +5589,30 @@ async def _record_snapshot_capture_failure(exc: BaseException, context: dict[str
         pass
 
 
+async def _unified_snapshot(request: Any, *, iteration: int | None, path: str) -> dict[str, Any] | None:
+    """``request.to_dict()`` for ``chat.request_snapshot.unified_payload``, or None — never silently.
+
+    The canonical view is what the live typed-text guard and wire replay read to know what a send's
+    newest message was; a ``to_dict`` failure used to drop it with no trace (``unified_payload`` NULL
+    on every send of conversation 5ae00046 from 2026-11-14 20:04, cause unrecorded). A failure is
+    counted through the same durable seam as every other snapshot-capture failure, naming the error.
+    """
+    try:
+        return request.to_dict()
+    except Exception as exc:  # noqa: BLE001 — capture must not perturb the live request
+        await _record_snapshot_capture_failure(
+            exc,
+            {
+                "path_kind": "unified_payload",
+                "path": path,
+                "iteration": iteration,
+                "conversation_id": str(getattr(request, "conversation_id", "") or "") or None,
+                "request_id": str(getattr(request, "request_id", "") or "") or None,
+            },
+        )
+        return None
+
+
 async def _agent_version_for_snapshot(exec_ctx: Any) -> str | None:
     """THE agent version that ran, for every door (L48, defect 79).
 
@@ -4677,6 +5634,15 @@ async def _agent_version_for_snapshot(exec_ctx: Any) -> str | None:
         return None
 
     from matrx_ai.db import persistence
+
+    # A later call of a turn that started pinned (a resume after a client tool result) can carry the
+    # agent's id without its version; it still runs the turn's config, so the turn's own request row
+    # names the version, never the master's live one (PB-01e: rendered v3, labelled live v5).
+    request_id = getattr(exec_ctx, "request_id", None)
+    if request_id:
+        started = await persistence.user_request_agent_version_id(str(request_id))
+        if started:
+            return started
 
     agent_id = getattr(exec_ctx, "agent_id", None)
     if agent_id:
@@ -4705,6 +5671,7 @@ async def _write_request_snapshot(
     snapshot_id: str | None = None,
     settings_adjustments: list[dict[str, Any]] | None = None,
     platform_text_placements: list[dict[str, Any]] | None = None,
+    media_blobs: dict[str, dict[str, str]] | None = None,
 ) -> None:
     """Persistence of the full provider request/response for one iteration.
 
@@ -4805,9 +5772,14 @@ async def _write_request_snapshot(
         async def _blob_failed(exc: BaseException, ctx: dict[str, Any]) -> None:
             await _record_snapshot_capture_failure(exc, {**ctx, "path_kind": "blob_store"})
 
+        # A stored picture's bytes (its own file, or that file's vision variant) are referenced by that file,
+        # never uploaded again as a new one each turn (AND-IMG17).
+        known_media = {**(known_media_blobs(safe_unified) if safe_unified is not None else {}), **(media_blobs or {})}
+
         def _blob_redactors(tree: Any) -> Any:
             return redactors_with_stored_blobs(
                 tree,
+                known=known_media,
                 user_id=getattr(exec_ctx, "user_id", None),
                 organization_id=getattr(exec_ctx, "organization_id", None)
                 or getattr(exec_ctx, "metadata", {}).get("organization_id"),
@@ -4867,9 +5839,7 @@ async def _write_request_snapshot(
             # has no agent version, and a run started from a FLOATING
             # definition pins no workflow version row.
             "agent_definition_version": await _agent_version_for_snapshot(exec_ctx),
-            "workflow_definition_version": (
-                getattr(exec_ctx, "workflow_definition_version_id", None) or None
-            ),
+            "workflow_definition_version": exec_ctx.run.workflow_definition_version_id or None,
         }
 
         # Host-staged metadata (aidream: the turn's on-request context texts), first iteration
@@ -4945,11 +5915,20 @@ async def _write_request_snapshot(
             from matrx_ai.db.cx_managers import cxm
 
             direct_fields = dict(snapshot_fields)
-            # Mirror the queue path's org stamp; the empty-string sentinel is a
-            # queue-dependency artifact — a direct insert uses honest NULL.
-            org_id = direct_fields.get("organization_id")
-            if org_id:
-                direct_fields.setdefault("organization_id", org_id)
+            # THE SAME ORG RULE AS THE QUEUE PATH (queue_helpers._queue_or_drop): a
+            # snapshot lives in its PARENT conversation's organization. The payload's
+            # org is read off the request object, whose ``metadata`` a workflow step
+            # running in another organization (``workflow.in_organization``) carries
+            # over from the OUTER run — 7 snapshots refused ``org_foreign_to_parent``
+            # 2026-10-28..11-01 on this out-of-lane path, which consulted nothing.
+            # Known parent org wins; unknown → leave it to ``inherit_org_from_parent``.
+            from matrx_ai.persistence.conversation_org import conversation_organization
+
+            parent_org = conversation_organization(snap_conv_id)
+            if parent_org:
+                direct_fields["organization_id"] = parent_org
+            else:
+                direct_fields.pop("organization_id", None)
             creator = getattr(exec_ctx, "user_id", None)
             if creator:
                 direct_fields.setdefault("created_by", creator)
@@ -5134,10 +6113,7 @@ async def _write_request_snapshot_on_failure(
         state.platform_text_placements = None
         pre_allocated_snapshot_id = state.failure_snapshot_id
         state.failure_snapshot_id = None
-        try:
-            unified_snap = current_request.to_dict()
-        except Exception:
-            unified_snap = None
+        unified_snap = await _unified_snapshot(current_request, iteration=iteration, path="provider_failure")
         model = getattr(current_request.config, "model", None)
         provider = await _catalog_vendor_for(current_request.config)
         await _write_request_snapshot(
@@ -5155,6 +6131,7 @@ async def _write_request_snapshot_on_failure(
             snapshot_id=pre_allocated_snapshot_id,
             settings_adjustments=snap_adjustments,
             platform_text_placements=snap_placements,
+            media_blobs=dict(state.snapshot_media_blobs),
         )
     except Exception as exc:
         # Capturing the failure must never mask or replace the failure itself.
@@ -5177,6 +6154,21 @@ async def _write_request_snapshot_on_failure(
 # ============================================================================
 # MAIN EXECUTION FUNCTIONS
 # ============================================================================
+
+
+#: A boundary longer than this is not one request's boundary (a resumed or queued run kept its stamp): not counted.
+_MAX_BOUNDARY_SECONDS = 120.0  # protocol-constant: sanity bound on a measured lead time (a larger reading is a clock artifact and is ignored), not a behavior
+
+
+def _request_boundary_seconds() -> float:
+    """Seconds since the HTTP request reached the server, for the request's own timer (AND-IMG18 N7)."""
+    try:
+        from matrx_connect.chat_timing import take_inbound_lead_seconds
+
+        lead = take_inbound_lead_seconds()
+    except Exception:  # noqa: BLE001 — timing never touches the call
+        return 0.0
+    return lead if lead is not None and 0.0 < lead < _MAX_BOUNDARY_SECONDS else 0.0
 
 
 async def execute_until_complete(
@@ -5211,6 +6203,7 @@ async def execute_until_complete(
     state.request_metadata = (
         initial_request.metadata if isinstance(getattr(initial_request, "metadata", None), dict) else None
     )
+    state.reply_contract = _reply_contract_for_run(initial_request, exec_ctx)
     state_token = set_execution_state(state)
     # The enclosing run_agent reads this run's spend through the sink when the
     # run ends early (cancel / crash) and never returns a CompletedRequest.
@@ -5222,6 +6215,13 @@ async def execute_until_complete(
     # every tool call this run makes is recorded where the structured-output
     # chokepoint can read it — and a sub-agent's calls land in the sub-agent's
     # own ledger, never in its parent's report.
+    # A turn (her message, a woken turn, a resumed run) freezes its OWN block on its first send:
+    # a freeze left by an earlier turn whose end never ran is dropped here, never replayed.
+    _forget_freeze = getattr(
+        getattr(getattr(initial_request, "config", None), "messages", None), "forget_turn_freeze", None
+    )
+    if callable(_forget_freeze):
+        _forget_freeze()
     ledger_token = start_turn_ledger()
     try:
         return await _execute_until_complete_inner(
@@ -5321,10 +6321,22 @@ async def execute_until_complete(
                     )
                     _interrupt_final_resp = UnifiedResponse(messages=[])
             elif _partial_text.strip():
-                _partial_msg = UnifiedMessage(
-                    role="assistant",
-                    content=[TextContent(text=_partial_text + _INTERRUPT_MARKER)],
-                )
+                # The thought streamed inline is saved as its own thinking part (AND-V 05r F6);
+                # the marker always ends a text part, never the thought.
+                from matrx_ai.orchestrator.stop_origin import stopped_by
+                from matrx_ai.processing.blocks.reasoning_parts import inline_reasoning_parts
+
+                _stopper = stopped_by()
+                _marker = _STOP_MARKERS.get(_stopper or "", _INTERRUPT_MARKER)
+                _partial_parts: list[Any] = inline_reasoning_parts(_partial_text)
+                if _partial_parts and isinstance(_partial_parts[-1], TextContent):
+                    _partial_parts[-1].text += _marker
+                else:
+                    _partial_parts.append(TextContent(text=_marker.lstrip("\n")))
+                # ``metadata.stopped`` is the marker every stopped partial carries (the live Stop path, the late
+                # cut, the empty reply row): without it a helper stopped by ``task_stop`` kept its streamed text
+                # as an ordinary 'active' assistant row, readable as a finished answer (PB-08k r11).
+                _partial_msg = UnifiedMessage(role="assistant", content=_partial_parts, metadata={"stopped": True, **({"stopped_by": _stopper} if _stopper else {})})
                 _interrupt_final_resp = UnifiedResponse(messages=[_partial_msg])
                 try:
                     # Append it exactly like a normal turn so the existing
@@ -5440,17 +6452,7 @@ async def execute_until_complete(
                 f"{type(_release_exc).__name__}: {_release_exc}",
                 color="red",
             )
-        # The tools-array record is durable on the conversation config; release
-        # this worker's memory for it (the next loop, here or on any server,
-        # hydrates the newer record before its first send).
-        try:
-            from matrx_ai.tools.declaration_ledger import forget_conversation
-
-            _done_conversation = _tool_ledger_conversation_id(initial_request)
-            if _done_conversation:
-                forget_conversation(_done_conversation)
-        except Exception as _forget_exc:  # noqa: BLE001 — memory hygiene only; announced
-            vcprint(f"[tools] ledger memory not released: {_forget_exc}", color="yellow")
+        _end_tool_ledger_loop(initial_request)
 
 
 async def _execute_until_complete_inner(
@@ -5559,6 +6561,15 @@ async def _execute_until_complete_inner(
         if 0 <= trigger_position < pre_execution_message_count
         else None
     )
+    # WORKED FOR ACROSS STREAMS: a run whose trigger is a SAVED row (a resume after a device tool or an
+    # answered ask, a held step, a reconnect) continues a turn the person sent earlier, on a new HTTP
+    # request. Its "Worked for" runs from that send, less the person's answering time — never from this
+    # request's arrival (conversation bf84b149: a 12-minute browser turn stored "Worked for 11s").
+    # The read is LAZY: marked here, done by ``ensure_turn_clock`` only when an answer is stamped — a
+    # device-step stream that only calls a tool never pays two DB reads before its first token.
+    if _request_id and exec_ctx.store and not getattr(exec_ctx, "is_internal_agent", False):
+        if not _is_new_person_message(state.trigger_message):
+            state.turn_clock_request_id = str(_request_id)
     state.recorded_history = list(current_request.config.messages)
     # Messages already persisted (loaded from the DB) at execution start carry
     # their real cx_message.id. Persistence skips re-INSERTing these so a retry
@@ -5621,6 +6632,28 @@ async def _execute_until_complete_inner(
     # System runs reserve too: they write their messages like any chat, and a
     # reservation is a queued op coalesced into the same single flush (no extra
     # round trip) — one behavior for every stored run.
+    # ONE UPLOAD PER ATTACHMENT PER TURN (CGU-10 AND-IMG13 #1). A person's inline-only media (a
+    # pasted picture, a recorded clip) is stored HERE, once, before anything serializes the message:
+    # the id lands on the ONE part object the reservation below, the send boundary and the end save
+    # all read, and the pristine ``user_content`` copy of the same bytes takes the same id. Before,
+    # the reservation stored storage-dict COPIES (content and user_content, never written back), the
+    # send boundary stored the id-less part again and the end save the pristine copy again: one
+    # picture, 4 files, 1 used. An unsaved run (``store: false``) and a blanking confidential chat
+    # store nothing. A failed upload is captured and never blocks the send.
+    from matrx_ai.persistence.sealed import keep_inline_person_media_or_capture
+
+    _person_media_store_failed = (
+        await keep_inline_person_media_or_capture(current_request.config.messages, exec_ctx, where="executor")
+        is None
+    )
+    # THE UPLOAD RUNS BESIDE THE PROVIDER CALL (CGU-10 AND-IMG14 #3): the id above is minted, the
+    # bytes are still moving. The reservation below queues an INSERT that names that id WITHOUT
+    # waiting (``settle=False``); the turn's own save re-serializes the row after waiting for the
+    # upload, and its UPDATE coalesces with the INSERT. A child run commits its reservation BEFORE
+    # its model call (the helper start commit below), so it waits here instead — nothing it commits
+    # names a file that is not stored yet.
+    _reservation_settles = bool(getattr(exec_ctx, "parent_conversation_id", None))
+
     if exec_ctx.store and get_coordinator() is not None:
         # Reserve user and assistant message rows via the WriteCoordinator.
         # These were previously blocking pre-API INSERTs; they are now fire-
@@ -5682,14 +6715,20 @@ async def _execute_until_complete_inner(
                 _trigger_storage = _trigger_msg.to_storage_dict()
                 from matrx_ai.persistence.sealed import stored_message_content
 
-                _trigger_user_content = await stored_message_content(
-                    _trigger_storage.get("content") or []
-                )
-                _trigger_pristine_user_content = _trigger_storage.get("user_content")
-                if _trigger_pristine_user_content is not None:
-                    _trigger_pristine_user_content = await stored_message_content(
-                        _trigger_pristine_user_content
+                # STORAGE DOWN NEVER STOPS THE SEND (CGU-10 AND-IMG13 #4): the store above failed
+                # and was captured, so the part still holds only its bytes — serializing it here
+                # would upload again and RAISE, killing the turn before the model is asked. The
+                # row is reserved as the empty 'pending' placeholder instead; the end save writes
+                # its content (and raises loudly if storage is still down — nothing lost silently).
+                if not _person_media_store_failed:
+                    _trigger_user_content = await stored_message_content(
+                        _trigger_storage.get("content") or [], settle=_reservation_settles
                     )
+                    _trigger_pristine_user_content = _trigger_storage.get("user_content")
+                    if _trigger_pristine_user_content is not None:
+                        _trigger_pristine_user_content = await stored_message_content(
+                            _trigger_pristine_user_content, settle=_reservation_settles
+                        )
                 # Only flip to 'active' when we actually have content blocks
                 # to write. An empty list would leave the row equivalent to
                 # the legacy placeholder; let the downstream UPDATE finalize
@@ -5713,11 +6752,17 @@ async def _execute_until_complete_inner(
             _authored_role = getattr(_authored_role, "value", _authored_role)
             from matrx_ai.persistence.sealed import stored_message_content
 
-            _authored_content = await stored_message_content(_authored_storage.get("content") or [])
+            # A picture inside an AUTHORED turn (an earlier assistant message a client sends as its
+            # own history) is client-authored content, not a person's attachment: it is stored (a
+            # stored media part must name its file) under its own source (CGU-10 AND-IMG14 #6).
+            _authored_source = None if _authored_role == "user" else "authored_inline_media"
+            _authored_content = await stored_message_content(
+                _authored_storage.get("content") or [], settle=_reservation_settles, source=_authored_source
+            )
             _authored_extra: dict[str, Any] = {}
             if _authored_storage.get("user_content") is not None:
                 _authored_extra["user_content"] = await stored_message_content(
-                    _authored_storage["user_content"]
+                    _authored_storage["user_content"], settle=_reservation_settles, source=_authored_source
                 )
             if _authored_storage.get("metadata"):
                 _authored_extra["metadata"] = _authored_storage["metadata"]
@@ -5752,6 +6797,15 @@ async def _execute_until_complete_inner(
                 created_by=exec_ctx.user_id or None,
             )
             reserved_messages[trigger_position] = user_msg_id
+            _user_frame_meta = {
+                "role": "user",
+                "position": trigger_position,
+                "position_kind": "logical_index",
+            }
+            # A row the HOST wrote (a builder's launch or fix round, a steer) says so on its first frame, so the
+            # live transcript hides it like a reloaded one instead of drawing an empty bubble (med-concierge
+            # 2026-11-12: "This message has no displayable text." in the Applet Builder).
+            _user_frame_meta.update(user_frame_host_flags(_trigger_msg))
             try:
                 await tracker.reserve(
                     emitter=exec_ctx.emitter,
@@ -5759,11 +6813,10 @@ async def _execute_until_complete_inner(
                     table="message",
                     parent_refs=_parent_refs,
                     metadata={
-                        "role": "user",
-                        "position": trigger_position,
-                        "position_kind": "logical_index",
+                        **_user_frame_meta,
                         # A page rejoining mid-answer replays this frame; the
-                        # person's own words ride on it (user_turn_echo.py).
+                        # person's own words ride on it (user_turn_echo.py) —
+                        # a part whose file is still being stored says so.
                         **user_turn_echo(_trigger_pristine_user_content),
                     },
                     record_id=user_msg_id,
@@ -5771,6 +6824,28 @@ async def _execute_until_complete_inner(
             except Exception as exc:
                 vcprint(
                     f"[Executor] Failed to announce user message reservation: {exc}", color="yellow"
+                )
+            # Each attachment still uploading gets a follow-up frame when it lands (or fails), so a
+            # rejoined bubble turns its placeholder into the picture or the stand-in (CGU-10 AND-IMG15 #1).
+            from matrx_ai.orchestrator.user_turn_echo import (
+                echo_settled_uploads,
+                pending_upload_ids,
+            )
+
+            _echo_pending = pending_upload_ids(_trigger_pristine_user_content)
+            if _echo_pending and _trigger_pristine_user_content is not None:
+                from matrx_utils import detached_task
+
+                detached_task(
+                    echo_settled_uploads(
+                        exec_ctx.emitter,
+                        record_id=user_msg_id,
+                        parent_refs=_parent_refs,
+                        metadata=_user_frame_meta,
+                        pristine_user_content=_trigger_pristine_user_content,
+                        file_ids=_echo_pending,
+                    ),
+                    name=f"user_turn_echo_settled:{user_msg_id}",
                 )
 
         # RESUME ORDER (F17, 2026-10-09): a resumed turn's trigger is the TOOL
@@ -5836,6 +6911,18 @@ async def _execute_until_complete_inner(
     # each iteration generates its cx_request UUID.
     state.reserved_message_ids = reserved_messages
 
+    # A HELPER IS SAVED WHEN IT STARTS (P-014/P-022). A child run owns its own
+    # Coordinator (queue_helpers._child_coordinator_scope), and its first turn
+    # barrier comes only after its first model call — so a one-turn helper wrote
+    # its conversation row at the END, and the person saw no sidebar row while it
+    # ran. Fire its conversation + reserved rows now, through the same
+    # fire-and-verify path: the first barrier's check_pending verifies it landed.
+    if exec_ctx.store and getattr(exec_ctx, "parent_conversation_id", None):
+        _start_coord = get_coordinator()
+        if _start_coord is not None:
+            await _start_coord.acquire_commit_slot()
+            _start_coord.commit_async(reason="child_run_start_commit")
+
     chat_timing_mark("reservations_complete", "message reservations complete")
 
     # Bind the barrier exception locally (lazy import avoids the persistence ↔
@@ -5868,14 +6955,24 @@ async def _execute_until_complete_inner(
         # already finished, its messages are kept, and the best answer so far is
         # persisted and returned. Nothing paid for is ever thrown away.
         _stop_reason: str | None = None
+        _stop_cause: Any = None
         _poll_request_id = current_request.request_id or getattr(exec_ctx, "request_id", None)
         if _is_request_cancelled(_poll_request_id):
             _stop_reason = "Request canceled before the next provider call."
+            from matrx_ai.orchestrator.stop_cause import RunStopCause
+
+            _stop_cause = RunStopCause(kind="cancelled", detail=_stop_reason)
         else:
-            _subtree_reason = _subtree_budget_stop_reason()
+            from matrx_ai.orchestrator.cost_budget import ceiling_stop_reason
+
+            _cost_cap = ceiling_stop_reason(_poll_request_id)
+            _subtree_reason = _subtree_budget_stop_reason() or (
+                f"dollar cap: {_cost_cap}" if _cost_cap else None
+            )
             _spine_reason = _subtree_reason or await _spine_stop_reason()
             if _spine_reason:
                 _stop_reason = f"Request stopped by execution control: {_spine_reason}"
+                _stop_cause = _execution_control_stop_cause(_poll_request_id, _spine_reason)
         if _stop_reason:
             _interrupted = _is_request_interrupted(_poll_request_id)
             _hidden_count = 0
@@ -5903,6 +7000,7 @@ async def _execute_until_complete_inner(
                 metadata={
                     "status": "cancelled",
                     "error": _stop_reason,
+                    **({"stop_cause": _stop_cause.model_dump()} if _stop_cause is not None else {}),
                     "cancelled_iteration": iteration + 1,
                     **(
                         {"interrupted": True, "hidden_tail_messages": _hidden_count}
@@ -5927,6 +7025,8 @@ async def _execute_until_complete_inner(
         # next turn. The outer cancel handler reads state.current_request.
         state.current_request = current_request
         current_timing = TimingUsage(start_time=time.time(), iteration=iteration)
+        if iteration == 1:
+            current_timing.boundary_duration = _request_boundary_seconds()
 
         vcprint(
             f"\n{'=' * 60}\nIteration {iteration}\n{'=' * 60}",
@@ -5979,6 +7079,9 @@ async def _execute_until_complete_inner(
         # Retry loop for recoverable errors
         response = None
         last_error: Exception | None = None
+        # Bound before the loop: a recovered retry reads it (the catalog vendor of the failed attempt, set in the except);
+        # a retry reached by another path must never raise NameError there (ruff F821, found 2026-11-16).
+        provider: str = ""
 
         # Overload-class reroute bookkeeping (sibling-offering ladder + the
         # model-level retry_max_attempts / retry_fallback_id policy — see
@@ -6006,12 +7109,12 @@ async def _execute_until_complete_inner(
                 request_control_id = current_request.request_id or getattr(
                     exec_ctx, "request_id", None
                 )
-                if _is_request_cancelled(request_control_id):
+                async def _cancelled_before_the_call(why: str) -> Any:
                     await exec_ctx.emitter.send_phase("complete")
                     await exec_ctx.emitter.send_info(
                         InfoPayload(
                             code="request_cancelled",
-                            system_message="Request canceled before the next retry attempt.",
+                            system_message=why,
                             user_message="Request canceled.",
                             metadata={"iteration": iteration, "retry_attempt": retry_attempt},
                         )
@@ -6022,13 +7125,18 @@ async def _execute_until_complete_inner(
                         final_response=UnifiedResponse(messages=[]),
                         metadata={
                             "status": "cancelled",
-                            "error": "Request canceled before the next retry attempt.",
+                            "error": why,
                             "cancelled_iteration": iteration,
                         },
                         trigger_position=trigger_position,
                         pre_execution_message_count=pre_execution_message_count,
                         debug=debug,
                         state=state,
+                    )
+
+                if _is_request_cancelled(request_control_id):
+                    return await _cancelled_before_the_call(
+                        "Request canceled before the next retry attempt."
                     )
 
                 # Resolve any structured input blocks (notes, tasks, etc.) in the
@@ -6050,7 +7158,10 @@ async def _execute_until_complete_inner(
 
                     inject_editable_tools(current_request.config.messages, current_request.config)
                     collect_read_only_resource_ids(current_request.config.messages)
-                    await resolve_structured_inputs(current_request.config.messages)
+                    await resolve_structured_inputs(
+                        current_request.config.messages,
+                        model_id=current_request.config.model,
+                    )
 
                     # Turn-boundary drain (once per iteration, before the API
                     # call). Two sources, one point:
@@ -6062,19 +7173,42 @@ async def _execute_until_complete_inner(
                     #      this turn's API call, without canceling the run.
                     _app_ctx = try_get_app_context()
                     if _app_ctx is not None:
+                        _n_before_drain = len(current_request.config.messages)
                         _new_ctx = await drain_pending(current_request.config, _app_ctx)
                         if _new_ctx is not _app_ctx:
                             set_app_context(_new_ctx)
+                        # A message drained ahead of the first answer moves the answer
+                        # down: its reserved row moves with it.
+                        first_assistant_position = _shift_reply_reservation_past_drained(
+                            state,
+                            reply_position=first_assistant_position,
+                            before=_n_before_drain,
+                            after=len(current_request.config.messages),
+                        )
                     if state.ceiling_wrap_up:
                         # The ceiling's wrap-up turn is tool-less no matter what
                         # the drain just loaded: a queued tool add from the last
                         # round must not hand the model a tool past its ceiling.
-                        current_request.config.tools = []
-                        current_request.config.custom_tools = []
+                        current_request.config.tools_off_this_turn_only()  # never stored (IMG7 #2)
                     chat_timing_mark(
                         "structured_inputs_resolved",
                         "structured inputs + drain_pending complete",
                     )
+
+                # NO PROVIDER CALL AFTER A STOP. The turn-boundary drain above can HOLD
+                # (a paused turn) and a Stop ends that hold; the cancel check at the top of
+                # this attempt ran BEFORE the drain, so without this one a model call would
+                # start (and bill) only to be cancelled at once by the in-call poll.
+                if _is_request_cancelled(request_control_id):
+                    return await _cancelled_before_the_call(
+                        "Request canceled before the model call."
+                    )
+                if retry_attempt == 0:
+                    _spine_reason = await _spine_stop_reason()
+                    if _spine_reason:
+                        return await _cancelled_before_the_call(
+                            f"Request stopped by execution control: {_spine_reason}"
+                        )
 
                 # Reset the emitter's per-turn text accumulator so it holds only
                 # THIS model call's streamed assistant text. If the run is
@@ -6154,18 +7288,34 @@ async def _execute_until_complete_inner(
                 # continues the exact array the provider last saw.
                 _ledger_conversation = _tool_ledger_conversation_id(current_request)
                 _hydrate_tool_ledger(_ledger_conversation, current_request.config)
+                _take_reasoning_ms(exec_ctx.emitter)  # this call's clock starts here
+                round_trimmed_blocks = 0
+                # Closes the span from the inbox drain to the send boundary (block "send_prep"): the spine
+                # stop check and the tool-ledger hydrate are named, never folded into "wire_config".
+                chat_timing_mark("pre_send_checks", "stop checks + tool ledger hydrated — send boundary next")
+                # BANKS_DISCARDED_ATTEMPTS is set for THIS send only, inside the wrapper (an unconditional set here
+                # made the wrapper's reset restore True: cost adversary pass 5, F7).
                 try:
-                    api_response: UnifiedResponse = (
-                        await send_once(
-                            client,
-                            current_request,
-                            state=state,
-                            iteration=iteration,
-                            around=_stoppable,
-                            stop_exceptions=(ProviderCallStopped,),
-                            on_provider_error=_on_provider_error,
-                        )
-                    ).response
+                    _sent = await _send_once_banking_discarded_attempts(
+                        send_once,
+                        client,
+                        current_request,
+                        state=state,
+                        iteration=iteration,
+                        around=_stoppable,
+                        stop_exceptions=(ProviderCallStopped,),
+                        on_provider_error=_on_provider_error,
+                    )
+                    api_response: UnifiedResponse = _sent.response
+                    # What THIS call sent (CGU-10 IMG6 #2): a raised limit rides the wire copy and the
+                    # canonical config is back on the request, so every notice reads the sent value.
+                    sent_max_output_tokens = _sent_output_limit(_sent, current_request)
+                    # The send boundary's own trim reports: the one declared change to old
+                    # history items, which the cache guard's wire layer accepts as lawful.
+                    from matrx_ai.providers.cache_guard import declared_history_rewrites
+
+                    round_trimmed_blocks = declared_history_rewrites(getattr(_sent, "prep", None))
+                    _stamp_thinking_duration(api_response, _take_reasoning_ms(exec_ctx.emitter))
                     if state is not None:
                         # Accepted: no failure snapshot will carry this id.
                         state.failure_snapshot_id = None
@@ -6178,9 +7328,17 @@ async def _execute_until_complete_inner(
                     )
                     await _announce_tool_ledger_events(_ledger_conversation, exec_ctx)
                 except ProviderCallStopped as _stopped:
+                    # STOP WIND-DOWN CLOCK (P1-CHAT 2026-11-16): a stopped run's stream closed 2-3.6 s after
+                    # the stop on live (request 24a11352: stop seen 52.10, completion frame 55.99) with no
+                    # record of where. Every phase from here to the completion frame is timed into
+                    # ``metadata.stop_wind_down`` (journaled with the completion frame; the host adds settle_s).
+                    _wind = StopWindDown()
                     # The stopped call's billed usage (if the adapter saw any
                     # before the stop) joins the request's spend.
                     _record_billed_usage_on_failure(current_request, _stopped, iteration=iteration)
+                    # Seal first (idempotent): nothing more streams, and the saved partial below
+                    # is exactly the text that was sent (``sent_text_snapshot`` via the cut).
+                    _seal_stopped_stream(exec_ctx.emitter)
                     await exec_ctx.emitter.send_phase("complete")
                     await exec_ctx.emitter.send_info(
                         InfoPayload(
@@ -6190,8 +7348,12 @@ async def _execute_until_complete_inner(
                             metadata={"iteration": iteration, "retry_attempt": retry_attempt},
                         )
                     )
+                    _wind.mark("announce_s")
                     # What streamed before Stop persists (W-47): the partial
-                    # joins the request so the persistence window holds it.
+                    # joins the request so the persistence window holds it —
+                    # cut where the person's screen was, wherever the cancel landed.
+                    await _adopt_spine_stop_cursor(exec_ctx)
+                    _wind.mark("stop_cursor_s")
                     _stopped_resp = _stopped_call_response(exec_ctx, request_control_id)
                     if _stopped_resp.messages:
                         try:
@@ -6209,7 +7371,8 @@ async def _execute_until_complete_inner(
                                 color="red",
                             )
                             _stopped_resp = UnifiedResponse(messages=[])
-                    return await _finalize_and_persist(
+                    _wind.mark("partial_s")
+                    _stopped_completed = await _finalize_and_persist(
                         current_request=current_request,
                         iteration=iteration,
                         final_response=_stopped_resp,
@@ -6222,7 +7385,10 @@ async def _execute_until_complete_inner(
                         pre_execution_message_count=pre_execution_message_count,
                         debug=debug,
                         state=state,
+                        wind_down=_wind,
                     )
+                    _wind.attach(_stopped_completed)
+                    return _stopped_completed
                 chat_timing_mark(
                     "provider_execute_complete",
                     "UnifiedAIClient.execute complete",
@@ -6254,6 +7420,9 @@ async def _execute_until_complete_inner(
                 state.settings_adjustments = None
                 snap_placements = state.platform_text_placements
                 state.platform_text_placements = None
+                # The literal wire body, for the cache guard's whole-prefix layer (read
+                # before the snapshot step below clears it).
+                wire_for_cache_guard = state.snapshot_payload
                 if _request_snapshot_enabled(exec_ctx):
                     # Pull the payload captured by the provider's execute()
                     # just before the SDK call. Clear it so we don't carry it
@@ -6269,10 +7438,9 @@ async def _execute_until_complete_inner(
                     # Best-effort: never let a to_dict() bug break the live
                     # request — fall back to None and the writer just leaves
                     # unified_payload empty for that row.
-                    try:
-                        unified_snap = current_request.to_dict()
-                    except Exception:
-                        unified_snap = None
+                    unified_snap = await _unified_snapshot(
+                        current_request, iteration=iteration, path="success"
+                    )
                     # Take a frozen snapshot of execution state NOW so capture
                     # reads owned copies, not live dicts the loop will mutate.
                     _state_snapshot = state.snapshot()
@@ -6299,6 +7467,7 @@ async def _execute_until_complete_inner(
                         model=current_request.config.model,
                         settings_adjustments=snap_adjustments,
                         platform_text_placements=snap_placements,
+                        media_blobs=dict(state.snapshot_media_blobs),
                     )
 
                 if debug:
@@ -6309,16 +7478,13 @@ async def _execute_until_complete_inner(
                 # Persistence uses this durable semantic association to link the
                 # request cost to the correct assistant row; list order is not a
                 # billing key because one response may contain multiple messages.
-                for provider_message in api_response.messages:
-                    provider_role = getattr(provider_message, "role", None)
-                    provider_role_value = (
-                        provider_role.value if hasattr(provider_role, "value") else provider_role
-                    )
-                    if provider_role_value == "assistant":
-                        provider_message.metadata = {
-                            **(provider_message.metadata or {}),
-                            "provider_iteration": iteration,
-                        }
+                from matrx_ai.orchestrator.first_output import ensure_turn_clock
+
+                await ensure_turn_clock(state)
+                _stamp_answer_notes(
+                    api_response.messages, iteration, exec_ctx.emitter,
+                    state=state, timing_history=[*current_request.timing_history, current_timing],
+                )
 
                 # Keep every paid provider call, including retries, at call
                 # grain. Persistence groups these by iteration for the legacy
@@ -6336,6 +7502,42 @@ async def _execute_until_complete_inner(
                         iteration=iteration,
                     )
                 current_request.add_usage(api_response.usage)
+                # Attempts the dispatch threw away and sent again (the empty-answer retry) were billed: each is
+                # banked like a billed failed attempt (usage history, the tree's cost, the spine meter).
+                for _discarded in getattr(api_response, "discarded_attempt_usages", None) or []:
+                    _record_billed_discarded_attempt(
+                        current_request, _discarded, iteration=iteration, provider_attempt=retry_attempt + 1
+                    )
+
+                # Provider-side tools (built-in web search / url context) ran inside the call: put them
+                # on the working block as tool frames, the way every other tool shows (feedback 017807f4).
+                if api_response.usage is not None and api_response.usage.metadata.get("builtin_tool_use"):
+                    from matrx_ai.config.builtin_tool_use import (
+                        PROVIDER_TOOL_ACTIVITY,
+                        announce_builtin_tool_use,
+                        builtin_tool_activity,
+                    )
+
+                    _builtin_key = f"{str(getattr(exec_ctx, 'request_id', '') or '')[:8]}-{iteration}-{retry_attempt + 1}"
+                    await announce_builtin_tool_use(
+                        exec_ctx.emitter,
+                        api_response.usage.metadata["builtin_tool_use"],
+                        call_key=_builtin_key,
+                    )
+                    # The same cards after a reload: the answer row stores them as display-only
+                    # provider_tool_activity blocks (+ chat.tool_call rows) at persistence.
+                    _answer = next(
+                        (m for m in reversed(api_response.messages)
+                         if getattr(getattr(m, "role", None), "value", getattr(m, "role", None)) == "assistant"),
+                        None,
+                    )
+                    if _answer is not None:
+                        _answer.metadata = {
+                            **(_answer.metadata or {}),
+                            PROVIDER_TOOL_ACTIVITY: builtin_tool_activity(
+                                api_response.usage.metadata["builtin_tool_use"], call_key=_builtin_key
+                            ),
+                        }
 
                 # Prompt-cache observability guard. Ground-truth check on the
                 # provider's own usage: screams (big RED banner + app_log ERROR)
@@ -6363,6 +7565,8 @@ async def _execute_until_complete_inner(
                         raw_usage=api_response.usage.raw_usage or {},
                         prefix_frozen=_cache_prefix_is_frozen(current_request.config),
                         marks_withheld=getattr(current_request.config, "prompt_cache_marks", None) == "none",
+                        wire_payload=wire_for_cache_guard,
+                        trimmed_blocks=round_trimmed_blocks,
                     )
 
                 # Fold this call's cost into the tree-wide dollar budget. Every
@@ -6492,7 +7696,7 @@ async def _execute_until_complete_inner(
                     # already received and already paid for.
                     # See StreamEmitter.send_error docstring for the rule.
                     model = current_request.config.model or "unknown model"
-                    max_tokens = current_request.config.max_output_tokens
+                    max_tokens = sent_max_output_tokens
 
                     # NOTHING FAILS SILENTLY. A warning event is a caveat the
                     # UI may or may not show; the person in the conversation
@@ -6526,6 +7730,32 @@ async def _execute_until_complete_inner(
                     empty_reply = (
                         not interrupted and _terminal_response_problem(api_response) is not None
                     )
+                    if empty_reply and _turn_reasoning_off_for_retry(current_request, state):
+                        # THINKING NEVER STARVES THE ANSWER: the same call once more
+                        # with reasoning off, before any notice or failure. The blank
+                        # turn was never appended, so the history is unchanged.
+                        await exec_ctx.emitter.send_phase("processing")
+                        await exec_ctx.emitter.send_warning(
+                            WarningPayload(
+                                code=EMPTY_REPLY_REASONING_OFF_RETRY_CODE,
+                                system_message=(
+                                    f"Model '{model}' spent its whole output limit "
+                                    f"(max_output_tokens={max_tokens}) reasoning and wrote no "
+                                    "answer; retrying the same call once with reasoning off."
+                                ),
+                                user_message=None,
+                                level="low",
+                                recoverable=True,
+                                metadata={
+                                    "model": model,
+                                    "max_output_tokens": max_tokens,
+                                    "finish_reason": str(api_response.finish_reason),
+                                    "iteration": iteration,
+                                },
+                            )
+                        )
+                        retry_loop_ceiling = max(retry_loop_ceiling, retry_attempt + 1)
+                        continue
                     notice = truncation_notice(
                         model=model,
                         max_output_tokens=max_tokens,
@@ -6542,11 +7772,20 @@ async def _execute_until_complete_inner(
                             color="yellow",
                         )
 
-                    await _capture_truncated_response(
-                        exec_ctx=exec_ctx,
-                        current_request=current_request,
-                        iteration=iteration,
+                    repair_reason = _truncation_repair_reason(
+                        max_output_tokens=max_tokens,
+                        interrupted_tool_calls=interrupted,
+                        continuable=continuable,
+                        empty_reply=empty_reply,
                     )
+                    if repair_reason is not None:
+                        await _capture_truncated_response(
+                            exec_ctx=exec_ctx,
+                            current_request=current_request,
+                            max_output_tokens=max_tokens,
+                            iteration=iteration,
+                            repair_reason=repair_reason,
+                        )
 
                     print("\n")
                     print("=" * 70)
@@ -6811,11 +8050,14 @@ async def _execute_until_complete_inner(
                 if retry_attempt > 0 and last_error is not None:
                     _recovered_info: RetryableError | None = getattr(last_error, "error_info", None)
                     if _recovered_info:
-                        _rec_provider = (
-                            _recovered_info.details.get("provider")
-                            if _recovered_info.details
-                            else None
-                        ) or "unknown"
+                        # The same attribution as the terminal path: the error's own
+                        # provider, else the RESOLVED CATALOG vendor the failed attempt
+                        # was classified under (``provider``, set in the except below).
+                        # Reading only details.provider filed every recovered failure
+                        # whose classifier left it out as ``unknown.<type>`` — Google
+                        # 504s and Groq tool-call validation among them (live
+                        # 2026-11-12: 21 recovered events under unknown.* in 7 days).
+                        _rec_provider = _provider_name_for_event(_recovered_info, provider)
                         await capture_issue(
                             f"{_rec_provider}.{_recovered_info.error_type}",
                             error_type=_recovered_info.error_type,
@@ -6862,6 +8104,11 @@ async def _execute_until_complete_inner(
                     error_info = attached
                 else:
                     error_info = classify_provider_error(provider, e)
+                # The provider could not read an input (an image): the input's refusal, typed and shown to
+                # the person, never filed as a platform failure (providers/errors.input_refusal_info).
+                _input_refusal = input_refusal_info(e, provider)
+                if _input_refusal is not None:
+                    error_info = _input_refusal
 
                 # Paid failed attempts are usage, even when a later retry
                 # succeeds. Harvest each one immediately and mark the exception
@@ -7090,8 +8337,12 @@ async def _execute_until_complete_inner(
                         # restore the canonical model ref so resolution can't
                         # trip on a diverging provider_model_id. The sibling
                         # gets a full same-model budget.
-                        current_request.config.runtime_offering_id = _ov_decision.to_offering_id
-                        current_request.config.model = _ov_ladder.canonical_model_id
+                        current_request.config.model_this_turn_only(  # the row keeps its own model
+                            _ov_ladder.canonical_model_id,
+                            swap_reason="overload_offering",
+                            runtime_offering_id=_ov_decision.to_offering_id,
+                            keep_person_pin=True,
+                        )
                         retry_loop_ceiling = max(
                             retry_loop_ceiling,
                             retry_attempt + 1 + len(PROVIDER_OVERLOAD_RETRY_DELAYS),
@@ -7194,9 +8445,15 @@ async def _execute_until_complete_inner(
                         # runtime) belongs to the ABANDONED model — clear both
                         # or the fallback model's resolution raises on a
                         # cross-model pin.
-                        current_request.config.model = _ov_decision.to_model
-                        current_request.config.offering_id = None
-                        current_request.config.runtime_offering_id = None
+                        # THE CHAT KEEPS THE PERSON'S MODEL (CGU-10 IMG7 #2): the fallback runs
+                        # THIS turn only. The snapshot is what the row stores (``to_storage_dict``)
+                        # and what the next turn starts from (the resolver's
+                        # ``end_model_this_turn_only``) — before, the cleared pin was stored and
+                        # the person's own offering was erased by one provider overload.
+                        current_request.config.model_this_turn_only(
+                            _ov_decision.to_model,
+                            swap_reason="billing" if error_info.error_type == "billing_error" else "overload",
+                        )
                         retry_loop_ceiling = max(
                             retry_loop_ceiling,
                             retry_attempt + 1 + len(PROVIDER_OVERLOAD_RETRY_DELAYS),
@@ -7403,7 +8660,20 @@ async def _execute_until_complete_inner(
 
                     # Non-retryable or max retries exceeded
                     _retries_exhausted = error_info.is_retryable
-                    if not _retries_exhausted:
+                    if not _retries_exhausted and (
+                        getattr(e, "is_caller_refusal", False) or _input_refusal is not None
+                    ):
+                        # A caller refusal (spend hold, run approval, guest allowance) is decided
+                        # BEFORE the provider and is an expected answer to this caller, not a
+                        # server failure: a named WARNING, never an ERROR line (73 held
+                        # agent-test judge calls filed as ERROR on 2026-11-12).
+                        vcprint(
+                            f"Caller refused (reason={error_info.error_type}): {error_info.message}",
+                            "[AI REQUESTS EXECUTE UNTIL COMPLETE] Caller Refused",
+                            color="yellow",
+                            log_level="WARNING",
+                        )
+                    elif not _retries_exhausted:
                         vcprint(
                             f"✗ Non-retryable error: {error_info.message}",
                             "[AI REQUESTS EXECUTE UNTIL COMPLETE] Non-retryable Error",
@@ -7420,7 +8690,7 @@ async def _execute_until_complete_inner(
                     # the provider and is an expected outcome, not a provider
                     # failure: no ops issue, no provider-failure record, and its
                     # numbers ride the error event so the client can show them.
-                    _caller_refusal = bool(getattr(e, "is_caller_refusal", False))
+                    _caller_refusal = bool(getattr(e, "is_caller_refusal", False)) or _input_refusal is not None
                     # A device-served failure (providers/device/errors.py) is typed: its code
                     # and details (details.code = the reason) ride the error event (L5 D3).
                     _device_error = (getattr(error_info, "details", None) or {}).get(
@@ -7671,11 +8941,15 @@ async def _execute_until_complete_inner(
         if state is not None and state.required_member_forced_pending:
             _rm_saved = state.required_member_saved_tools
             if _rm_saved is not None:
-                (
-                    current_request.config.tools,
-                    current_request.config.custom_tools,
-                    current_request.config.tool_choice,
-                ) = _rm_saved
+                _rm_tools, _rm_custom, _rm_choice, _rm_opened = _rm_saved
+                if _rm_opened:
+                    # The gate opened the turn-only snapshot: closing it gives back the same lists.
+                    current_request.config.end_tools_off_this_turn_only()
+                else:
+                    # An earlier strip this turn owns the snapshot; put back what the gate narrowed.
+                    current_request.config.tools_narrowed_this_turn_only(
+                        _rm_tools, _rm_custom, tool_choice=_rm_choice
+                    )
             state.required_member_forced_pending = False
             state.required_member_saved_tools = None
 
@@ -7719,10 +8993,13 @@ async def _execute_until_complete_inner(
                 status="max_iterations_exceeded",
                 code="max_iterations_exceeded",
                 user_message=(
-                    f"Stopped after {max_iterations} iterations to avoid a runaway loop. "
+                    "Stopped at this run's budget. Reply with 'continue' to carry on."
+                    if state.budget_wrap_up
+                    else f"Stopped after {max_iterations} iterations to avoid a runaway loop. "
                     "Reply with 'continue' or new guidance to resume."
                 ),
-                extra_metadata={"max_iterations": max_iterations, "ceiling_wrap_up": True},
+                extra_metadata={"max_iterations": max_iterations, "ceiling_wrap_up": True,
+                                "budget_wrap_up": state.budget_wrap_up},
             )
 
         # Process tool calls
@@ -7778,6 +9055,21 @@ async def _execute_until_complete_inner(
             # the full accumulated cost.
             state.current_request = current_request
             state.tool_dispatch_response = None
+
+            # ── THIS BATCH'S QUEUED TOOL CHANGES LAND NOW ─────────────────
+            # A tool in this batch (load_chrome_tools, a bundle lister) may have
+            # queued tool additions/removals. The loop top drains them only if the
+            # loop comes round again; every exit below (a delegated suspend, a
+            # handoff, a candidate stop, the iteration ceiling) ends the request
+            # first, and the queue — held only on this request's metadata — died
+            # with it. The stored conversation config then lacked the loaded tools
+            # and the resumed turn refused them (conversation 318c8f35, 2026-11-18:
+            # load_chrome_tools + delegated `tabs` in one batch, then data_patterns
+            # "was not provided to the model"). Applying them here, before the
+            # barrier commits the config, keeps them in the conversation's sticky
+            # toolset (TOOL-SOURCES.md) for /resume and every later turn. The loop
+            # top's own drain then finds an empty queue.
+            await _apply_batch_tool_changes(current_request.config)
 
             # Turn-directive scan (host seam) — the model can groom context
             # mid-prose via an inline fence without spending a tool call; the
@@ -7914,6 +9206,26 @@ async def _execute_until_complete_inner(
                 )
                 continue  # one continuation turn — honest failure follows if blank again
 
+            # A run that did real work the host can name (a saved workflow) and ended on a blank turn
+            # closes with the host's honest system summary instead of reading as nothing
+            # (``turn_closing.py``): stored and streamed, so a reload shows the same line.
+            if terminal_problem is not None and terminal_problem[0] == "empty_assistant_response":
+                from matrx_ai.orchestrator.turn_closing import closing_summary_for_turn
+
+                _closing = await closing_summary_for_turn()
+                if _closing:
+                    _append_turn_note(current_request, response, _closing)
+                    await exec_ctx.emitter.send_chunk(_closing)
+                    await exec_ctx.emitter.send_info(
+                        InfoPayload(
+                            code="turn_closing_summary",
+                            system_message="The model wrote no closing message; the host wrote a system summary of the saved work.",
+                            user_message="",
+                            metadata={"iteration": iteration},
+                        )
+                    )
+                    terminal_problem = None
+
             if terminal_problem is not None:
                 error_type, user_message = terminal_problem
                 # Mark before the final persistence barrier so a cold reload
@@ -7999,6 +9311,19 @@ async def _execute_until_complete_inner(
             # structurally kills the runaway-tool-call loop.
             # (docs/tool_delegation/DELEGATION_LOOP_BUGS.md)
             if pending_call_ids:
+                # ONE LAST LOOK BEFORE PARKING (RESUME-AND-RECOVERY 1a rule 4a): a client that answers in
+                # under a second lands its result DURING the barrier above, after the batch's own look
+                # (``answered_meanwhile`` in handle_tool_calls). Its /resume meets this still-RUNNING run
+                # (409) and the turn parked over calls nobody had open (conversation 101a5675, 2026-11-19/20:
+                # get_page_text answered 0.4 s after the call, the run parked 0.2 s later). Every pending call
+                # answered by now → the turn continues here, in its own stream.
+                taken_late = await _take_answers_landed_before_park(
+                    current_request, pending_call_ids, exec_ctx=exec_ctx
+                )
+                if taken_late is not None:
+                    current_request = taken_late
+                    state.current_request = current_request
+                    continue
                 return await _suspend_for_delegation(
                     exec_ctx=exec_ctx,
                     state=state,
@@ -8088,10 +9413,14 @@ async def _execute_until_complete_inner(
                         list(current_request.config.tools or []),
                         list(current_request.config.custom_tools or []),
                         current_request.config.tool_choice,
+                        # Whether THIS gate opened the turn-only snapshot (it then closes it).
+                        current_request.config.tools_turn_only_restore is None,
                     )
-                    current_request.config.tools = list(_rm_report.forceable_names)
-                    current_request.config.custom_tools = []
-                    current_request.config.tool_choice = "required"
+                    # THIS SEND ONLY (CGU-10 IMG8 #3): a failed or cancelled forced send stores the
+                    # chat's own tools and tool_choice, never the narrowed list.
+                    current_request.config.tools_narrowed_this_turn_only(
+                        list(_rm_report.forceable_names), [], tool_choice="required"
+                    )
 
                     _rm_titles = ", ".join(m.display for m in _rm_report.missing)
                     _rm_notice = (
@@ -8450,7 +9779,10 @@ async def _execute_until_complete_inner(
                 # tools off, but the JOB did not finish inside the ceiling. It is
                 # recorded as the ceiling stop it is (never a clean 'completed'),
                 # carrying the same reason sentence as the backstop exit.
-                if state is not None and state.ceiling_wrap_up:
+                if state is not None and state.budget_wrap_up:
+                    # The model wrote its closing reply inside the run's budget: what is built, what is left.
+                    _completion_meta["budget_wrap_up"] = True
+                elif state is not None and state.ceiling_wrap_up:
                     _completion_meta.update(
                         _loop_guard_meta(
                             status="max_iterations_exceeded",
@@ -8510,10 +9842,43 @@ async def _execute_until_complete_inner(
             # Before this, the loop just fell out here and the run's last turn
             # was a bare tool call: a background helper's caller got raw
             # tool-call JSON as its "answer" (2026-10-21 audit, 2 helpers parked).
+            # THE BUDGET STOP NEVER LANDS PAST THE LINE IN SILENCE (P8-RUNS 2026-11-15): when the host says only
+            # one more call fits the run's per-run budget, that call is the wrap-up — tools off, the model says
+            # what is built, what is left, and offers to continue — exactly like the iteration ceiling below.
+            if not state.ceiling_wrap_up:
+                from matrx_ai.providers.guardrail_gate import budget_wrap_up_notice
+
+                _budget_notice = budget_wrap_up_notice()
+                if _budget_notice:
+                    state.ceiling_wrap_up = True
+                    state.budget_wrap_up = True
+                    current_request.config.tools_off_this_turn_only()
+                    current_request.config.messages.append(
+                        host_authored_user_turn(_budget_notice, reason="budget_wrap_up")
+                    )
+                    await exec_ctx.emitter.send_warning(
+                        WarningPayload(
+                            code="budget_wrap_up",
+                            system_message="Run budget nearly reached; tools disabled for one final turn.",
+                            user_message="",
+                            level="low",
+                            recoverable=True,
+                            metadata={"iteration": iteration, "tools_disabled": True},
+                        )
+                    )
+                    continue
+                # A FEW CALLS BEFORE THAT, ONCE (tools stay ON): finish the unit in hand, start nothing new — so the
+                # wrap-up lands at a natural boundary (a whole table, a whole page), never mid-table.
+                from matrx_ai.providers.guardrail_gate import budget_finish_unit_notice
+
+                _finish_notice = budget_finish_unit_notice()
+                if _finish_notice:
+                    current_request.config.messages.append(
+                        host_authored_user_turn(_finish_notice, reason="budget_finish_unit")
+                    )
             if iteration >= max_iterations and not state.ceiling_wrap_up:
                 state.ceiling_wrap_up = True
-                current_request.config.tools = []
-                current_request.config.custom_tools = []
+                current_request.config.tools_off_this_turn_only()  # this turn only; never stored (IMG7 #2)
                 current_request.config.messages.append(
                     host_authored_user_turn(
                         _ceiling_wrap_up_notice(max_iterations), reason="iteration_ceiling_wrap_up"
@@ -8543,9 +9908,18 @@ async def _execute_until_complete_inner(
                 and max_iterations - iteration == CEILING_WARNING_ROUNDS
             ):
                 state.ceiling_warned = True
+                from matrx_ai.orchestrator.subtree_budget import time_left as _subtree_time_left
+
+                from matrx_connect.context.app_context import try_get_app_context as _try_ctx
+
+                _time_ctx = _try_ctx()
                 current_request.config.messages.append(
                     host_authored_user_turn(
-                        _ceiling_approaching_notice(max_iterations, CEILING_WARNING_ROUNDS),
+                        _ceiling_approaching_notice(
+                            max_iterations,
+                            CEILING_WARNING_ROUNDS,
+                            time_left=_subtree_time_left(getattr(_time_ctx, "metadata", None)),
+                        ),
                         reason="iteration_ceiling_approaching",
                     )
                 )
@@ -8684,6 +10058,31 @@ async def _execute_until_complete_inner(
                         color="yellow",
                     )
 
+                    from matrx_ai.orchestrator.loop_guard import standoff_fallback_note
+
+                    _fallback_note = standoff_fallback_note(
+                        _verdict, tool_name=_failing_tool, iteration=iteration
+                    )
+                    if _fallback_note is not None:
+                        # THE RUN SAYS IT (Law 4): the count rule decided, not the mandate.
+                        state.loop_guard_evidence = {
+                            **(state.loop_guard_evidence or {}),
+                            "standoff_fallback": _fallback_note,
+                        }
+                        await exec_ctx.emitter.send_warning(
+                            WarningPayload(
+                                code=_fallback_note["code"],
+                                system_message=(
+                                    f"The standoff on '{_failing_tool}' was decided by the failure-count "
+                                    f"rule: {_fallback_note['mandate_key']} has no holder."
+                                ),
+                                user_message="",
+                                level="low",
+                                recoverable=True,
+                                metadata=dict(_fallback_note),
+                            )
+                        )
+
                     _branch = standoff_branch(
                         _verdict.action,
                         already_continued=state.loop_guard_standoff_continued,
@@ -8805,8 +10204,7 @@ async def _execute_until_complete_inner(
                     # providers treat an explicit tool_choice inconsistently,
                     # and Anthropic already defaults to 'none' with no tools.
                     state.loop_guard_intervened = True
-                    current_request.config.tools = []
-                    current_request.config.custom_tools = []
+                    current_request.config.tools_off_this_turn_only()  # this turn only; never stored (IMG7 #2)
 
                     _directive = (
                         f"⚠️ SYSTEM NOTICE (not from the user): {health.failures_in_window} of your "
@@ -8896,6 +10294,18 @@ async def _execute_until_complete_inner(
             # propagate to the streaming handler (fatal_error + system_error).
             # Do NOT route through the soft error-persist path below.
             await _degrade_and_secure(reason="barrier_failed")
+            # THE REQUEST NEVER STAYS PENDING: the run ends here, and the errored
+            # Coordinator captures (never writes) anything queued after it — so the
+            # terminal status lands on its OWN small write, as on the final-commit
+            # path. Without it the row sat 'pending' until the lifecycle watchdog
+            # abandoned it 30 min later (2026-11-20, tidy_topics 701b5856/6c85067e).
+            from matrx_ai.db.conversation_gate import settle_user_request_failed_after_barrier
+
+            await settle_user_request_failed_after_barrier(
+                current_request.request_id or getattr(exec_ctx, "request_id", None),
+                f"A save failed and the run stopped ({type(_barrier_exc).__name__}: "
+                f"{getattr(_barrier_exc, 'reason', '')}); see system_write_failure.",
+            )
             if getattr(exec_ctx, "store", True):
                 from matrx_ai.db.persistence import record_run_history_write_failure
 

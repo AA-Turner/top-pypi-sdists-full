@@ -41,21 +41,72 @@ _BLOCK_TYPE_BY_MIME_PREFIX: dict[str, str] = {
     "audio/": "audio",
     "video/": "video",
     "image/": "image",
+    # A text file (plain, markdown, csv, html) is a ``document``: ``DocumentContent`` decodes it to text for every
+    # provider (``to_openai`` / ``to_anthropic``; Google takes the text mime inline). Labelled ``image`` it reached
+    # the model as a broken picture (review of 1f0b51a3c0b, finding 4).
+    "text/": "document",
 }
 
 
-def block_type_for_mime(mime_type: str | None) -> str:
-    """The runtime block ``type`` for a resolved mime. Unknown → ``image``.
+#: exact mime → block ``type``. A PDF is a ``document`` (``DocumentContent``): labelled ``image`` it reached the
+#: provider as a broken picture (Matrx Scan helpers, 2026-11-19: every saved scan is a PDF and the counter answered
+#: "the attached photo could not be read").
+_BLOCK_TYPE_BY_EXACT_MIME: dict[str, str] = {"application/pdf": "document"}
 
-    Unknown falls back to ``image`` because that is what this builder always
-    emitted and what every picture call site relies on; a mime we DO recognize
-    is never mislabelled again.
+
+def block_type_for_mime(mime_type: str | None, *, unknown: str = "image") -> str:
+    """The runtime block ``type`` for a mime — THE one mime → media-kind table (``agent_testing.input_parts.kind_for``
+    in aidream asks here too).
+
+    ``audio/*`` / ``video/*`` / ``image/*`` by prefix; PDF, Office (docx/pptx/xlsx and legacy doc/ppt/xls), HTML and
+    text formats → ``document``, exactly the families the media fallback's extractor reads
+    (``processing/media_fallback/resolvers.document_format``): a provider that takes the format natively gets it
+    natively, any other gets the extracted text (``content_needs_fallback`` per item). Labelled ``image`` a docx
+    reached the model as a broken picture. Anything else → ``unknown``, which stays ``image`` for this builder because
+    that is what it always emitted and every picture call site relies on.
     """
     lowered = (mime_type or "").strip().lower()
+    bare = lowered.split(";", 1)[0].strip()
+    exact = _BLOCK_TYPE_BY_EXACT_MIME.get(bare)
+    if exact:
+        return exact
     for prefix, block_type in _BLOCK_TYPE_BY_MIME_PREFIX.items():
         if lowered.startswith(prefix):
             return block_type
-    return "image"
+    if bare:
+        from matrx_ai.processing.media_fallback.resolvers import document_format
+
+        if document_format(bare, ""):
+            return "document"
+    return unknown
+
+
+#: A mime that names no type at all: the media kind cannot be decided from it.
+_NO_TYPE_MIMES = frozenset({"", "application/octet-stream", "binary/octet-stream"})
+
+
+def known_mime(mime_type: str | None, name: str | None = None) -> str | None:
+    """The media's real mime, or ``None`` when nothing says what it is.
+
+    A stated mime wins unless it names no type (absent / ``application/octet-stream``); then the file name's or the
+    url path's extension decides, through matrx-files' upload sniff (``media_sniff.sniff_mime_type`` — the same
+    extension table every upload is stamped with; no bytes are fetched). ``None`` means the kind CANNOT be known:
+    a caller that saves a reference refuses it in plain words then, never labels it a guess that fails at replay
+    (re-verify of 2c1bef229b6: a mime-less photo url was saved as a ``document``).
+    """
+    stated = (mime_type or "").strip().lower().split(";", 1)[0].strip()
+    if stated not in _NO_TYPE_MIMES:
+        return stated
+    if not name or not str(name).strip():
+        return None
+    from urllib.parse import urlsplit
+
+    from matrx_files.media_sniff import sniff_mime_type
+
+    raw = str(name).strip()
+    path = urlsplit(raw).path if "://" in raw else raw
+    guessed = sniff_mime_type(claimed=None, head_bytes=b"", filename=path.rsplit("/", 1)[-1])
+    return None if guessed in _NO_TYPE_MIMES else guessed
 
 
 async def resolve_media_block(
@@ -154,4 +205,4 @@ def _describe(ref: Any) -> str:
     return "no identifier"
 
 
-__all__ = ["block_type_for_mime", "resolve_media_block"]
+__all__ = ["block_type_for_mime", "known_mime", "resolve_media_block"]

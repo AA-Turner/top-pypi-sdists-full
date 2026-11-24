@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, TypedDict
 
 from google.genai import types
@@ -31,6 +32,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.citations import normalize_google_grounding
 from matrx_ai.providers.base_translator import BaseTranslator, record_platform_text_placement
+from matrx_ai.providers.final_outbound_snapshot import SHAPE_GOOGLE, SealLocator
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 from matrx_ai.schema.rules import (
     gemini_ref_loop_violations,
@@ -143,6 +145,14 @@ def safety_settings_for_request() -> list[types.SafetySetting]:
 MIN_MUSIC_TRACK_SECONDS = 3.0
 
 
+def is_server_tool_invocation(part: Any) -> bool:
+    """True for Gemini's own built-in tool step in a response (``tool_call`` / ``tool_response`` parts:
+    Google Search or URL context run beside function calling). Such a part's thought signature belongs to
+    that part alone and is never replayed as anything else (an empty signed thought is refused with
+    "Invalid thought signature")."""
+    return getattr(part, "tool_call", None) is not None or getattr(part, "tool_response", None) is not None
+
+
 class GoogleProviderConfig(TypedDict):
     """Type hint for Google API configuration dictionary"""
 
@@ -156,6 +166,7 @@ class GoogleTranslator(BaseTranslator):
 
     #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
     PROVIDER = "google"
+    SUPPORTS_LATE_TOOLS = True  # late tools ride the trailing channel (providers/late_tools.py)
 
     from google.genai import types
 
@@ -193,6 +204,44 @@ class GoogleTranslator(BaseTranslator):
     def _assemble_request(self, config: UnifiedConfig, route_ctx: Any = ""):
         return self.to_google(config, self.require_profile(route_ctx))
 
+    @staticmethod
+    def _only_google_config_fields(params: dict[str, Any], *, model: str) -> dict[str, Any]:
+        """Keep only keys ``GenerateContentConfig`` defines; announce any other.
+
+        An offering with no rule for a canonical setting (a Gemma/new-family
+        offering with no ``reasoning_effort`` rule) lets the raw key reach the
+        request, and pydantic then rejects the WHOLE config (``extra_forbidden``)
+        so the call never leaves. The key is dropped here, said out loud as a
+        settings_adjusted notice, and the call proceeds without it.
+        """
+        known = set(types.GenerateContentConfig.model_fields)
+        foreign = [k for k in params if k not in known]
+        if not foreign:
+            return params
+        from matrx_ai.catalog.models import Adjustment
+        from matrx_ai.providers.outbound_params import publish_settings_adjustments
+
+        publish_settings_adjustments(
+            [
+                Adjustment(
+                    key=k,
+                    action="dropped",
+                    canonical_value=params[k],
+                    sent_value=None,
+                    reason=(
+                        f"{k} was not sent: this Gemini model's offering declares no "
+                        "Google request field for it"
+                    ),
+                    expected=False,
+                    provenance="computed",
+                )
+                for k in foreign
+            ],
+            model=model,
+            seam="chat",
+        )
+        return {k: v for k, v in params.items() if k in known}
+
     def to_google(self, config: UnifiedConfig, profile: Any) -> GoogleProviderConfig:
         """
         Convert unified request to Google provider format efficiently.
@@ -215,7 +264,9 @@ class GoogleTranslator(BaseTranslator):
                 - config: types.GenerateContentConfig object ready for API call
         """
         caps = profile.capabilities
-        is_tts = caps.produces_audio and not caps.produces_text
+        from matrx_ai.schema.answer_contract import is_audio_only_output
+
+        is_tts = is_audio_only_output(caps)
         # ========================
         # STEP 1: Build contents (from messages)
         # ========================
@@ -231,7 +282,12 @@ class GoogleTranslator(BaseTranslator):
         wire_messages = history_system_messages_as_notes(wire_base, provider="google")
         originals = {id(m) for m in wire_base}
         previous_was_note = False
-        for msg in wire_messages:
+        # THE STATIC SEAL LINE: stamped in THIS wire list for the final outbound snapshot
+        # (``providers/final_outbound_snapshot.py``). Observes only.
+        seal = SealLocator(SHAPE_GOOGLE, wire_messages) if not is_tts else None
+        for position, msg in enumerate(wire_messages):
+            if seal is not None:
+                seal.before(position, contents)
             is_note = id(msg) not in originals
             google_content: Content | None = msg.to_google_content()
             if google_content:
@@ -247,6 +303,8 @@ class GoogleTranslator(BaseTranslator):
                 else:
                     contents.append(google_content)
                 previous_was_note = is_note
+        if seal is not None:
+            seal.finish(contents)
 
         # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
         # block (live clock, selection, values) plus the tail channel
@@ -282,7 +340,11 @@ class GoogleTranslator(BaseTranslator):
                 # would end it, so the block is its OWN user turn just BEFORE the
                 # prefill — never the system channel, which heads the cached prefix
                 # (adversarial M1, 2026-10-18), and never inside the person's turn.
-                prefill_block = self.get_turn_context_text(config)
+                prefill_block = "\n\n".join(
+                    part
+                    for part in (self.get_turn_context_text(config), self.get_late_tools_text(config))
+                    if part
+                ) or None
                 if prefill_block and contents:
                     contents.insert(len(contents) - 1, {"role": "user", "parts": [{"text": prefill_block}]})
                     record_platform_text_placement("google", "own_host_turn", prefill_block)
@@ -341,7 +403,12 @@ class GoogleTranslator(BaseTranslator):
             # thinking_config fragment written by the ``google_thinking``
             # processor (mode legacy|gemini_3 + flash/pro family are
             # per-offering processor_config data).
-            generation_config_kwargs.update(resolve_outbound_params(config, profile.controls))
+            generation_config_kwargs.update(
+                self._only_google_config_fields(
+                    resolve_outbound_params(config, profile.controls),
+                    model=getattr(config, "model", "?"),
+                )
+            )
 
             # TTS / Speech config
             if is_tts:
@@ -423,14 +490,19 @@ class GoogleTranslator(BaseTranslator):
             # _native_schema_tool_conflict) and STEP 3 sends them.
             raw_tools = self.build_provider_tools(config, "google")
             reasoning_rule = profile.controls.rule_for("reasoning_effort")
-            is_gemini_3 = (
-                reasoning_rule.processor == "google_thinking"
-                and reasoning_rule.processor_config.get("mode") == "gemini_3"
+            from matrx_ai.catalog.gemini_mode_truth import is_gemini_3_dialect
+
+            is_gemini_3 = is_gemini_3_dialect(
+                reasoning_rule.processor_config.get("mode")
+                if reasoning_rule.processor == "google_thinking"
+                else None,
+                getattr(profile, "provider_model_id", None),
             )
             if config.response_format and not is_tts:
                 google_schema = self._build_google_response_schema(config.response_format)
                 tool_conflict = (
                     self._native_schema_tool_conflict(raw_tools, is_gemini_3=is_gemini_3)
+                    or self._native_schema_too_complex(google_schema)
                     if google_schema is not None
                     else None
                 )
@@ -469,9 +541,9 @@ class GoogleTranslator(BaseTranslator):
                     from matrx_ai.schema.answer_contract import mark_enforcement_dropped
 
                     mark_enforcement_dropped(
-                        "Gemini's native schema switch was left off because of a tool "
-                        f"conflict ({tool_conflict['reason']}); the schema traveled as a "
-                        "JSON text contract in the system instruction"
+                        "Gemini's native schema switch was left off because Google "
+                        f"refuses it here ({tool_conflict['reason']}); the schema traveled "
+                        "as a JSON text contract in the system instruction"
                     )
                     contract = self._tool_json_text_contract(google_schema)
                     existing_system = generation_config_kwargs.get("system_instruction")
@@ -571,9 +643,20 @@ class GoogleTranslator(BaseTranslator):
                 # Gemini 2.5-class models 400 on a built-in tool beside function tools, so the
                 # hosted tool is not sent. Real reason, said out loud (PB-03 defect 53): a
                 # settings_adjusted drop, never a silent skip.
+                from matrx_ai.catalog.gemini_mode_truth import is_known_pre_gemini_3
                 from matrx_ai.catalog.models import Adjustment
-                from matrx_ai.providers.outbound_params import publish_settings_adjustments
+                from matrx_ai.providers.outbound_params import (
+                    publish_settings_adjustments,
+                    warn_client_about_dropped_settings,
+                )
 
+                # EXPECTED only when we positively know this is a Gemini 1.x/2.x model. An id we cannot
+                # place (no catalog mode, not a known older generation) is a drop we cannot justify, so
+                # it is NOT "expected": the person is warned (setting_not_supported), never left silent.
+                known_older = (
+                    reasoning_rule.processor == "google_thinking"
+                    and reasoning_rule.processor_config.get("mode") == "legacy"
+                ) or is_known_pre_gemini_3(getattr(profile, "provider_model_id", None))
                 skipped = [
                     Adjustment(
                         key=flag,
@@ -583,15 +666,21 @@ class GoogleTranslator(BaseTranslator):
                         reason=(
                             f"{flag} was not sent: this Gemini model cannot run a built-in tool in "
                             "the same request as the agent's function tools (Google answers 400)"
+                            if known_older
+                            else f"{flag} was not sent: this model's generation could not be placed from the "
+                            "catalog or its id, so it was treated as unable to mix a built-in tool "
+                            "with function tools"
                         ),
-                        expected=True,
-                        provenance="declared",
+                        expected=known_older,
+                        provenance="declared" if known_older else "computed",
                     )
                     for flag in ("internal_web_search", "internal_url_context")
                     if getattr(config, flag, None)
                 ]
                 if skipped:
-                    publish_settings_adjustments(skipped, model=getattr(config, "model", "?"), seam="chat")
+                    model_label = getattr(config, "model", "?")
+                    publish_settings_adjustments(skipped, model=model_label, seam="chat")
+                    warn_client_about_dropped_settings(skipped, model=model_label)
 
             if tools_list:
                 generated_config.tools = tools_list
@@ -642,6 +731,7 @@ class GoogleTranslator(BaseTranslator):
         # ========================
         # STEP 4: Return final structure
         # ========================
+        _drop_part_resolution_before_gemini_3(contents, config.model)
         return {
             "model": config.model,
             "contents": contents,
@@ -707,6 +797,58 @@ class GoogleTranslator(BaseTranslator):
     # the platform's next-largest tool (content_plan) names 46.
     GEMINI_SCHEMA_TOOL_PARAM_BUDGET = 64
 
+    # The same decoder also refuses a request whose declarations are too big IN
+    # TOTAL, however small each one is — the same bare 400 "Request contains an
+    # invalid argument." Measured 2026-11-03 on gemini-3.8-flash replaying the
+    # recorded Sandbox Specialist turn (53 tools): the first 52 declarations
+    # (66.2k chars of JSON) pass, the 53rd added (69.2k) fails, every one of the 53
+    # passes alone, and dropping any ~1.1k-char tool from the 53 makes it pass while
+    # dropping a 1.0k one does not — so the edge is ~67-68k chars of declaration JSON
+    # (json.dumps of the wrapped declarations), not the name count (334 vs 322) and
+    # not any one tool. Without the response schema all 53 pass. Google publishes no
+    # number; 60k sits safely under the measured edge, and no agent that works today
+    # carries more.
+    GEMINI_SCHEMA_TOOL_TOTAL_CHARS_BUDGET = 60_000  # protocol-constant: Gemini's own schema-size ceiling; a larger value is rejected by the provider
+
+    # The decoder also refuses a response schema that is too big ON ITS OWN — no
+    # tools needed — with the same bare 400. Measured 2026-11-03 on
+    # gemini-3.8-flash replaying the Workflow Recovery Advisor (every run failed
+    # since 2026-11-02): its RecoveryAdvice schema carries a DefinitionPatch union
+    # of 22 ops. Every op passes alone; any 6-10 pass; with SetVariableOp (whose
+    # VariableDefinition grew deep bindings) the first 11 fail. Stripping every
+    # description, title, default, pattern, bound and the discriminator still
+    # fails, so it is the SIZE OF THE EXPANDED SCHEMA (each ``$ref`` inlined where
+    # it is used), not keywords: 28.8k chars of expanded JSON passed, 33.6k
+    # failed, and the advisor's own earlier schema (24.0k expanded) passed live.
+    # Google publishes no number; 30k sits under the measured edge and above
+    # every schema that passed in production.
+    GEMINI_RESPONSE_SCHEMA_EXPANDED_CHARS_BUDGET = 30_000  # protocol-constant: Gemini's own schema-size ceiling; a larger value is rejected by the provider
+
+    @staticmethod
+    def _expanded_schema_chars(schema: Any) -> int:
+        """Characters of ``schema`` with every local ``$ref`` inlined where it is used."""
+        from matrx_ai.tools.validation.schema import inline_local_refs
+
+        defs = schema.get("$defs") if isinstance(schema, dict) else None
+        expanded = inline_local_refs(schema, defs if isinstance(defs, dict) else None)
+        return len(json.dumps(expanded, default=str))
+
+    @staticmethod
+    def _native_schema_too_complex(schema: Any) -> dict[str, Any] | None:
+        """Why Google will refuse this response schema on its own, or None."""
+        budget = GoogleTranslator.GEMINI_RESPONSE_SCHEMA_EXPANDED_CHARS_BUDGET
+        chars = GoogleTranslator._expanded_schema_chars(schema)
+        if chars <= budget:
+            return None
+        return {
+            "reason": (
+                f"Google refuses a response schema of {chars} characters once its "
+                f"references are expanded (budget {budget})."
+            ),
+            "expanded_chars": chars,
+            "budget": budget,
+        }
+
     @staticmethod
     def _count_param_names(schema: Any) -> int:
         """Every property name in a declaration's parameter schema, at any depth."""
@@ -734,7 +876,8 @@ class GoogleTranslator(BaseTranslator):
           type ("Function calling with a response mime type: 'application/json'
           is unsupported" — gemini-2.5-flash and -pro, 2026-09-22).
         * Gemini 3 rejects a declaration naming more than the constrained
-          decoder can hold (GEMINI_SCHEMA_TOOL_PARAM_BUDGET).
+          decoder can hold (GEMINI_SCHEMA_TOOL_PARAM_BUDGET), and declarations
+          that are too big in total (GEMINI_SCHEMA_TOOL_TOTAL_CHARS_BUDGET).
         """
         if not declarations:
             return None
@@ -744,6 +887,21 @@ class GoogleTranslator(BaseTranslator):
                     "this Gemini generation rejects function calling together with "
                     "a JSON response schema."
                 ),
+                "tools": [d.get("name") for d in declarations],
+            }
+        total_budget = GoogleTranslator.GEMINI_SCHEMA_TOOL_TOTAL_CHARS_BUDGET
+        total_chars = sum(
+            len(json.dumps({"function_declarations": [d]}, default=str)) for d in declarations
+        )
+        if total_chars > total_budget:
+            return {
+                "reason": (
+                    f"Google refuses a response schema beside tool declarations "
+                    f"totalling {total_chars} characters (budget {total_budget}) "
+                    f"across {len(declarations)} tools."
+                ),
+                "total_chars": total_chars,
+                "total_budget": total_budget,
                 "tools": [d.get("name") for d in declarations],
             }
         budget = GoogleTranslator.GEMINI_SCHEMA_TOOL_PARAM_BUDGET
@@ -780,12 +938,6 @@ class GoogleTranslator(BaseTranslator):
 
         return json_text_contract(schema)
 
-    # Markers the grounded-JSON containment wraps its payload in. The digest
-    # before MATRX_JSON_BEGIN is what absorbs Google's dropped span; extract_json
-    # ignores the envelope and selects the schema-matching fenced object.
-    _GROUNDED_JSON_BEGIN = "MATRX_JSON_BEGIN"
-    _GROUNDED_JSON_END = "MATRX_JSON_END"
-
     @staticmethod
     def _grounded_json_text_contract(schema: dict[str, Any]) -> str:
         """The one-call text envelope for grounded Gemini JSON responses.
@@ -796,21 +948,37 @@ class GoogleTranslator(BaseTranslator):
         2026-09-11 (N=96/model): fixed intro/outro filler and a provider-enforced
         preamble FIELD both still reproduced the truncation; a substantive
         grounded digest before the JSON did not (0/96 on 3.7 and 3.8).
+
+        The digest and the payload are separated by the ```json fence alone:
+        extract_json selects the schema-matching fenced object. Until
+        2026-11-01 the model was also asked to write MATRX_JSON_BEGIN /
+        MATRX_JSON_END lines around it; nothing read them, and they were saved
+        into the answer text where every client drew, copied and read them
+        aloud (P-057). Old saved rows still carry them; the client splitter
+        drops those lines (content-ir ``stripGroundedJsonMarkers``).
+
+        The heading is ``matrx_ai.schema.answer_contract.GROUNDED_DIGEST_HEADING``: the ONE
+        token. The blocks splitter (``processing/blocks/blocks_v1.py``) reads exactly it as the
+        reply's working text — a ``reasoning`` block (tag ``digest``) from the heading to the
+        ```json fence — so the digest is never drawn as the answer. Change the heading there only.
         """
         import json as _json
 
+        from matrx_ai.schema.answer_contract import (
+            GROUNDED_DIGEST_HEADING,
+            GROUNDED_JSON_CONTRACT_OPEN,
+            GROUNDED_JSON_CONTRACT_SCHEMA_LABEL,
+        )
+
         compact_schema = _json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
-        begin = GoogleTranslator._GROUNDED_JSON_BEGIN
-        end = GoogleTranslator._GROUNDED_JSON_END
-        return f"""GEMINI GROUNDED-JSON STREAM CONTRACT:
+        return f"""{GROUNDED_JSON_CONTRACT_OPEN}
 This is still ONE response and ONE Google Search-grounded model call.
 1. Use Google Search whenever the request benefits from current or sourced facts.
-2. Start the response with the heading `GROUNDED RESEARCH DIGEST` and write at least 150 words of substantive prose summarizing the searched facts. Put source attribution, Google citation markers, and grounding-dependent explanations in this section before starting the JSON.
-3. After the digest is complete, write the marker `{begin}` on its own line.
-4. Immediately after that marker, write exactly one fenced `json` object conforming to the JSON Schema below. Do not truncate or omit any field. Keep source URLs when the schema asks for them, but do not add citation-marker syntax that violates the schema.
-5. After the closing fence, write `{end}` on its own line and nothing else.
+2. Start the response with the heading `{GROUNDED_DIGEST_HEADING}` and write at least 150 words of substantive prose summarizing the searched facts. Put source attribution, Google citation markers, and grounding-dependent explanations in this section before starting the JSON.
+3. After the digest is complete, write exactly one fenced `json` object conforming to the JSON Schema below. Do not truncate or omit any field. Keep source URLs when the schema asks for them, but do not add citation-marker syntax that violates the schema.
+4. Write nothing after the closing fence.
 
-JSON Schema:
+{GROUNDED_JSON_CONTRACT_SCHEMA_LABEL}
 {compact_schema}"""
 
     @staticmethod
@@ -1539,6 +1707,15 @@ JSON Schema:
                                 if converted:
                                     content.append(converted)
 
+                            elif is_server_tool_invocation(part):
+                                # Gemini's own built-in tool step (Google Search / URL context run
+                                # with function calling: ``include_server_side_tool_invocations``).
+                                # Its signature belongs to THAT part; stored as a thinking part it
+                                # replayed as an empty signed thought and Gemini refused the whole
+                                # next request ("Invalid thought signature", 2026-11-19). Not
+                                # replayed: what it found is already in the text and its grounding.
+                                continue
+
                             elif part.thought_signature:
                                 content.append(ThinkingContent.from_google(part))
 
@@ -1640,4 +1817,28 @@ JSON Schema:
             usage=token_usage,
             finish_reason=finish_reason,
             raw_response=raw_response,
+        )
+
+
+def _drop_part_resolution_before_gemini_3(contents: list[Any], model: str | None) -> None:
+    """A Gemini that does not count by media resolution refuses a per-part ``mediaResolution`` — the
+    whole call 400s INVALID_ARGUMENT (measured 2026-11-11: every 2.x, and a picture/video-MAKING Gemini
+    of any generation — 3.1-flash-image, 3-pro-image, nano-banana, omni; CGU-10 IMG7/IMG8). The picture
+    still goes, at the model's own resolution; the removal is announced, never silent. The answer is the
+    vision class's own (``gemini_takes_part_media_resolution``): kept only where it is KNOWN to be taken
+    (CGU-10 IMG9 #5 — with no catalog, a picture maker was classed a resolution reader and the call 400'd)."""
+    from matrx_ai.processing.vision.vision_classes import gemini_takes_part_media_resolution
+
+    if gemini_takes_part_media_resolution(model):
+        return
+    dropped = 0
+    for content in contents or []:
+        for part in (content.get("parts") if isinstance(content, dict) else None) or []:
+            if isinstance(part, dict) and part.pop("mediaResolution", None) is not None:
+                dropped += 1
+    if dropped:
+        vcprint(
+            f"[google translator] {model} takes no per-picture media resolution: removed it from {dropped} "
+            "part(s); the pictures are sent at the model's own resolution.",
+            color="yellow",
         )

@@ -6,19 +6,12 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
-
 # Alliance Auth (External Libs)
 from eve_sde.models.types import ItemType
 
 # AA Killstats
-from killstats import __title__
 from killstats.managers.killboard_manager import AttackerManager, KillmailManager
 from killstats.models.general import EveEntity
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
 
 
 class Killmail(models.Model):

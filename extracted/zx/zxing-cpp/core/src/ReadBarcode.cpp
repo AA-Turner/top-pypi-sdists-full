@@ -23,6 +23,10 @@
 #include <memory>
 #include <stdexcept>
 
+#ifdef PRINT_DEBUG
+#include "BitMatrixIO.h"
+#endif
+
 namespace ZXing {
 
 // ==============================================================================
@@ -35,9 +39,7 @@ struct ReaderOptions::Data
 	bool tryRotate                : 1 = true;
 	bool tryInvert                : 1 = true;
 	bool tryDownscale             : 1 = true;
-#ifdef ZXING_EXPERIMENTAL_API
 	bool tryDenoise               : 1 = false;
-#endif
 	bool isPure                   : 1 = false;
 	bool validateOptionalChecksum : 1 = false;
 	bool returnErrors             : 1 = false;
@@ -82,9 +84,7 @@ ZX_PROPERTY(bool, tryHarder, setTryHarder)
 ZX_PROPERTY(bool, tryRotate, setTryRotate)
 ZX_PROPERTY(bool, tryInvert, setTryInvert)
 ZX_PROPERTY(bool, tryDownscale, setTryDownscale)
-#ifdef ZXING_EXPERIMENTAL_API
 ZX_PROPERTY(bool, tryDenoise, setTryDenoise)
-#endif
 ZX_PROPERTY(Binarizer, binarizer, setBinarizer)
 ZX_PROPERTY(bool, isPure, setIsPure)
 ZX_PROPERTY(uint16_t, downscaleThreshold, setDownscaleThreshold)
@@ -257,26 +257,32 @@ Barcodes ReadBarcodes(const ImageView& _iv, const ReaderOptions& opts)
 	ImageView iv = SetupLumImageView(_iv, lum, opts);
 	MultiFormatReader reader(opts);
 
-	if (opts.isPure())
-		return {FirstOrDefault(reader.read(*CreateBitmap(opts.binarizer(), iv), 1)).setReaderOptions(opts)};
+	if (opts.isPure()) {
+		auto res = reader.read(*CreateBitmap(opts.binarizer(), iv), 1);
+		if (!res.empty())
+			res.front().setReaderOptions(opts);
+		return res;
+	}
 
 	std::unique_ptr<MultiFormatReader> closedReader;
-#ifdef ZXING_EXPERIMENTAL_API
 	using enum BarcodeFormat;
 	BarcodeFormats formatsBenefittingFromClosing = Aztec | DataMatrix | QRCode;
 	ReaderOptions closedOptions = opts;
-	if (opts.tryDenoise() && opts.hasAnyFormat(formatsBenefittingFromClosing) && _iv.height() >= 3) {
+	if (opts.tryDenoise() && opts.hasAnyFormat(formatsBenefittingFromClosing)) {
 		closedOptions.formats(opts.formats().empty() ? formatsBenefittingFromClosing : formatsBenefittingFromClosing & opts.formats());
 		closedReader = std::make_unique<MultiFormatReader>(closedOptions);
 	}
-#endif
 	LumImagePyramid pyramid(iv, opts.downscaleThreshold() * opts.tryDownscale(), opts.downscaleFactor());
 
 	Barcodes res;
 	int maxSymbols = opts.maxNumberOfSymbols() ? opts.maxNumberOfSymbols() : INT_MAX;
 	for (auto&& iv : pyramid.layers) {
 		auto bitmap = CreateBitmap(opts.binarizer(), iv);
-		for (int close = 0; close <= (closedReader ? 1 : 0); ++close) {
+#ifdef PRINT_DEBUG_
+		static int l = 0;
+		SaveAsPBM(*bitmap->getBitMatrix(), "layer-" + std::to_string(l++) + ".pnm");
+#endif
+		for (int close = 0; close <= (closedReader && iv.height() >= 3 ? 1 : 0); ++close) {
 			if (close) {
 				// if we already inverted the image in the first round, we need to undo that first
 				if (bitmap->inverted())

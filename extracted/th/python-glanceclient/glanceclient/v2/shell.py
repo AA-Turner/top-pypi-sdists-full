@@ -618,10 +618,16 @@ def do_explain(gc, args):
         utils.print_list(schema.properties, columns, formatters)
 
 
+@utils.arg('--detail', default=False, action='store_true',
+           help='Shows details of import methods and configured plugins. '
+                'Admin only.')
 def do_import_info(gc, args):
-    """Print import methods available from Glance."""
+    """Print import methods and plugin info available from Glance."""
     try:
-        import_info = gc.images.get_import_info()
+        if args.detail:
+            import_info = gc.images.get_import_info_detail()
+        else:
+            import_info = gc.images.get_import_info()
     except exc.HTTPNotFound:
         utils.exit('Target Glance does not support Image Import workflow')
     else:

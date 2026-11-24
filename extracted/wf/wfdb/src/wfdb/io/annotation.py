@@ -1,15 +1,13 @@
 import copy
 import os
-import posixpath
 import re
 import sys
 
-import fsspec
 import numpy as np
 import pandas as pd
 
 from wfdb.io import _header, download, record, util
-from wfdb.io._coreio import CLOUD_PROTOCOLS
+from wfdb.io._coreio import _fsspec_open
 from wfdb.io.archive import WFDBArchive, is_archive_path
 
 
@@ -146,9 +144,10 @@ class Annotation:
 
     Examples
     --------
+    >>> import wfdb
     >>> ann1 = wfdb.Annotation(record_name='rec1', extension='atr',
-                               sample=[10,20,400], symbol=['N','N','['],
-                               aux_note=[None, None, 'Serious Vfib'])
+    ...                        sample=[10, 20, 400], symbol=['N', 'N', '['],
+    ...                        aux_note=[None, None, 'Serious Vfib'])
 
     """
 
@@ -237,26 +236,51 @@ class Annotation:
     def apply_range(self, sampfrom=0, sampto=None):
         """Keep only the annotation items between the desired sample values.
 
+        Every field with one value per annotation that is set (such as
+        `symbol` and `aux_note`) is kept for the same annotations. Fields that
+        are not set are left as None. If the labels have been summarized in
+        `contained_labels`, the summary is made again for the annotations that
+        are kept.
+
         Parameters
         ----------
         sampfrom : int, optional
-            The minimum sample number for annotations to be returned.
+            The first sample number for annotations to be kept.
         sampto : int, optional
-            The maximum sample number for annotations to be returned.
+            The sample number at which to stop: annotations before this
+            sample are kept, as in `rdrecord`. If None, there is no upper
+            limit.
 
         """
-        sampto = sampto or self.sample[-1]
+        n_annotations = len(self.sample)
+        kept = self.sample >= sampfrom
+        if sampto is not None:
+            kept &= self.sample < sampto
+        kept_inds = np.flatnonzero(kept)
 
-        kept_inds = np.intersect1d(
-            np.where(self.sample >= sampfrom), np.where(self.sample <= sampto)
-        )
-
-        for field in ["sample", "label_store", "subtype", "chan", "num"]:
-            setattr(self, field, getattr(self, field)[kept_inds])
-
-        self.aux_note = [self.aux_note[i] for i in kept_inds]
+        for field in [
+            "sample",
+            "label_store",
+            "symbol",
+            "description",
+            "subtype",
+            "chan",
+            "num",
+            "aux_note",
+        ]:
+            values = getattr(self, field)
+            if values is None or np.ndim(values) == 0 or len(values) != n_annotations:
+                continue
+            if isinstance(values, np.ndarray):
+                setattr(self, field, values[kept_inds])
+            else:
+                setattr(self, field, [values[i] for i in kept_inds])
 
         self.ann_len = len(self.sample)
+
+        # A summary of the labels would still count the annotations removed
+        if self.contained_labels is not None:
+            self.get_contained_labels()
 
     def wrann(self, write_fs=False, write_dir=""):
         """Write a WFDB annotation file from this object.
@@ -478,15 +502,11 @@ class Annotation:
                             + " field must be integer-like"
                         )
 
-                if not isinstance(symbol[i], str_types) or len(symbol[i]) not in [
-                    1,
-                    2,
-                    3,
-                ]:
+                if not isinstance(symbol[i], str_types) or not symbol[i]:
                     raise ValueError(
                         "The symbol values of the "
                         + field
-                        + " field must be strings of length 1 to 3"
+                        + " field must be non-empty strings"
                     )
 
                 if bool(re.search("[ \t\n\r\f\v]", symbol[i])):
@@ -527,11 +547,9 @@ class Annotation:
 
             if field == "symbol":
                 for e in uniq_elements:
-                    if len(e) not in [1, 2, 3]:
+                    if not e:
                         raise ValueError(
-                            "Subelements of the "
-                            + field
-                            + " field must be strings of length 1 to 3"
+                            "Subelements of the " + field + " field must not be empty"
                         )
                     if bool(re.search("[ \t\n\r\f\v]", e)):
                         raise ValueError(
@@ -1387,9 +1405,10 @@ class Annotation:
         else:
             raise Exception("No annotation labels contained in object")
 
-        contained_labels = label_map.loc[list(index_vals), :]
+        contained_labels = label_map.loc[list(index_vals), :].copy()
 
-        # Add the counts
+        # Add the counts. With no annotations, there are none to add.
+        contained_labels["n_occurrences"] = 0
         for i in range(len(counts[0])):
             contained_labels.loc[counts[0][i], "n_occurrences"] = counts[1][i]
         contained_labels["n_occurrences"] = pd.to_numeric(
@@ -1563,17 +1582,26 @@ def custom_triplet_bytes(custom_triplet):
         All the bytes converted from the tiplet.
 
     """
-    # Structure: 0, NOTE, len(aux_note), aux_note, codenumber, space, codesymbol, space,
-    # description, (0 null if necessary)
-    # Remember, aux_note string includes 'number(s)<space><symbol><space><description>''
-    annbytes = (
-        [0, 88, len(custom_triplet[2]) + 3 + len(str(custom_triplet[0])), 252]
-        + [ord(c) for c in str(custom_triplet[0])]
-        + [32]
-        + [ord(custom_triplet[1])]
-        + [32]
-        + [ord(c) for c in custom_triplet[2]]
-    )
+    # Structure: 0, NOTE, len(aux_note), aux_note, (0 null if necessary), where
+    # aux_note is '<label_store><space><symbol><space><description>'. The
+    # symbol may have more than one character. As for any note, its length
+    # is stored in one byte, so it can have at most 255 Latin-1 characters.
+    label_store, symbol, description = custom_triplet
+    note = f"{label_store} {symbol} {description}"
+    try:
+        encoded = note.encode("latin-1")
+    except UnicodeEncodeError:
+        raise ValueError(
+            f"The custom label {note!r} contains characters that can't be "
+            "written (only Latin-1 characters are supported)"
+        ) from None
+    if len(encoded) > 255:
+        raise ValueError(
+            "A custom label's number, symbol and description, separated by "
+            f"spaces, must be at most 255 characters, but {note[:20]!r}... has "
+            f"{len(encoded)}"
+        )
+    annbytes = [0, 88, len(encoded), 252] + list(encoded)
 
     if len(annbytes) % 2:
         annbytes.append(0)
@@ -1827,6 +1855,7 @@ def wrann(
 
     Examples
     --------
+    >>> import wfdb
     >>> # Read an annotation as an Annotation object
     >>> annotation = wfdb.rdann('b001', 'atr', pn_dir='cebsdb')
     >>> # Write a copy of the annotation file
@@ -1879,6 +1908,7 @@ def show_ann_labels():
 
     Examples
     --------
+    >>> from wfdb import show_ann_labels
     >>> show_ann_labels()
 
     """
@@ -1898,6 +1928,7 @@ def show_ann_classes():
 
     Examples
     --------
+    >>> from wfdb import show_ann_classes
     >>> show_ann_classes()
 
     """
@@ -1929,9 +1960,12 @@ def rdann(
         The annotatator extension of the annotation file. ie. for  file
         '100.atr', extension='atr'.
     sampfrom : int, optional
-        The minimum sample number for annotations to be returned.
+        The first sample number for annotations to be returned.
     sampto : int, optional
-        The maximum sample number for annotations to be returned.
+        The sample number at which to stop: annotations before this sample
+        are returned, as `rdrecord` and `rdsamp` return the samples before
+        it. It must be greater than `sampfrom`. Leave it out to read to the
+        end.
     shift_samps : bool, optional
         Specifies whether to return the sample indices relative to `sampfrom`
         (True), or sample 0 (False).
@@ -1939,6 +1973,8 @@ def rdann(
         Option used to stream data from Physionet. The PhysioNet database
         directory from which to find the required annotation file. eg. For
         record '100' in 'http://physionet.org/content/mitdb': pn_dir='mitdb'.
+        Folders in the database may be given in `record_name`, in `pn_dir`,
+        or split between them.
     return_label_elements : list, optional
         The label elements that are to be returned from reading the annotation
         file. A list with at least one of the following options: 'symbol',
@@ -1965,8 +2001,8 @@ def rdann(
 
     Examples
     --------
-    >>> ann = wfdb.rdann('sample-data/100', 'atr', sampto=300000)
-    >>> ann = wfdb.rdann('100.wfdb', 'atr')
+    >>> import wfdb
+    >>> ann = wfdb.rdann('100', 'atr', pn_dir='mitdb', sampto=300000)
 
     """
     record_name = os.fspath(record_name)
@@ -1975,16 +2011,7 @@ def rdann(
         record._check_archive_read_args(record_name, pn_dir)
 
     if pn_dir is not None:
-        # check to make sure a cloud path isn't being passed under pn_dir
-        if any(pn_dir.startswith(proto) for proto in CLOUD_PROTOCOLS):
-            raise ValueError(
-                "Cloud paths should be passed under record_name, not under pn_dir"
-            )
-        if "." not in pn_dir:
-            dir_list = pn_dir.split("/")
-            pn_dir = posixpath.join(
-                dir_list[0], download.get_version(dir_list[0]), *dir_list[1:]
-            )
+        record_name, pn_dir = record._resolve_pn_dir(record_name, pn_dir)
 
     return_label_elements = check_read_inputs(sampfrom, sampto, return_label_elements)
 
@@ -2047,7 +2074,7 @@ def rdann(
     )
 
     # Apply the desired index range
-    if sampfrom > 0 and sampto is not None:
+    if sampfrom > 0:
         annotation.apply_range(sampfrom=sampfrom, sampto=sampto)
 
     # If specified, obtain annotation samples relative to the starting
@@ -2072,9 +2099,10 @@ def check_read_inputs(sampfrom, sampto, return_label_elements):
     Parameters
     ----------
     sampfrom : int
-        The minimum sample number for annotations to be returned.
+        The first sample number for annotations to be returned.
     sampto : int
-        The maximum sample number for annotations to be returned.
+        The sample number at which to stop: only annotations before this
+        sample are returned.
     return_label_elements : list, str
         The label elements that are to be returned from reading the annotation
         file. A list with at least one of the following options: 'symbol',
@@ -2088,7 +2116,7 @@ def check_read_inputs(sampfrom, sampto, return_label_elements):
         'label_store', 'description'.
 
     """
-    if sampto and sampto <= sampfrom:
+    if sampto is not None and sampto <= sampfrom:
         raise ValueError("sampto must be greater than sampfrom")
     if sampfrom < 0:
         raise ValueError("sampfrom must be a non-negative integer")
@@ -2131,7 +2159,7 @@ def load_byte_pairs(record_name, extension, pn_dir):
     """
     # local or cloud file
     if pn_dir is None:
-        with fsspec.open(record_name + "." + extension, "rb") as f:
+        with _fsspec_open(record_name + "." + extension, "rb") as f:
             filebytes = util.fromfile(f, "<u1").reshape([-1, 2])
 
     # PhysioNet file
@@ -2178,7 +2206,8 @@ def proc_ann_bytes(filebytes, sampto):
     filebytes : ndarray
         The input filestream converted to an Nx2 array of unsigned bytes.
     sampto : int
-        The maximum sample number for annotations to be returned.
+        The sample number at which to stop: only annotations before this
+        sample are returned.
 
     Returns
     -------
@@ -2255,7 +2284,7 @@ def proc_ann_bytes(filebytes, sampto):
             subtype, chan, num, aux_note, update
         )
 
-        if sampto and sampto < sample_total:
+        if sampto and sample_total >= sampto:
             sample, label_store, subtype, chan, num, aux_note = rm_last(
                 sample, label_store, subtype, chan, num, aux_note
             )

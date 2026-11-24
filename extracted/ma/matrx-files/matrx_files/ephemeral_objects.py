@@ -61,8 +61,19 @@ PREVIEW_RENDER_POLICY = EphemeralObjectPolicy(
     lifecycle_rule_id="matrx-expire-preview-render-scratch",
 )
 
+#: Staged parts of a long export a durable job assembles later (one per work item), e.g. an account export's
+#: per-table ``.ndjson.gz``: ``<owner>/system-files/export-parts/<job>/<part>``. The assembling step deletes them;
+#: this expiry is the backstop for a job that never finishes.
+EXPORT_PART_POLICY = EphemeralObjectPolicy(
+    name="export_part",
+    tag_value="export-part",
+    expiration_days=3,
+    lifecycle_rule_id="matrx-expire-export-part-scratch",
+)
+
 EPHEMERAL_OBJECT_POLICIES: tuple[EphemeralObjectPolicy, ...] = (
     PREVIEW_RENDER_POLICY,
+    EXPORT_PART_POLICY,
 )
 
 

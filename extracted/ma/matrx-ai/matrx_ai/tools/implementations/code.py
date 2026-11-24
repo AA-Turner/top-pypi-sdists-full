@@ -6,7 +6,6 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-import httpx
 
 from matrx_ai.tools._sandbox_runtime import scoped_base_for
 from matrx_ai.tools.kinds.execution import ShellExecution
@@ -33,7 +32,7 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
     if not code_input:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="code_input is required."),
+            error=ToolError(refusal=True, error_type="validation", message="code_input is required."),
         )
 
     # Strip ```python ... ``` markers if present
@@ -44,6 +43,7 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="No Python code found after stripping markdown markers.",
             ),
@@ -65,13 +65,14 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
 
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
-        except TimeoutError:
+        except TimeoutError as exc:
             process.kill()
             return ToolResult(
                 success=False,
-                error=ToolError(
-                    error_type="timeout",
-                    message=f"Python execution timed out after {timeout}s.",
+                error=ToolError.declared(
+                    "timeout",
+                    f"Python execution timed out after {timeout}s.",
+                    exc=exc,
                     is_retryable=True,
                     suggested_action="Simplify the code or increase timeout_seconds.",
                 ),
@@ -114,6 +115,7 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
                 backend="host",
             ).model_dump(mode="json"),
             error=ToolError(
+                reported_failure="the Python subprocess",
                 error_type="python_error",
                 message=f"Python exited with code {process.returncode}: {stderr_str[:500]}",
             )
@@ -127,32 +129,6 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             error=ToolError(
                 error_type="execution", message=str(e), traceback=traceback.format_exc()
             ),
-        )
-
-
-async def code_store_html(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    from matrx_ai.tools._generated_declarations import CodeStoreHtmlArgs
-
-    CodeStoreHtmlArgs.model_validate(
-        args
-    )  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
-    html_input = args.get("html_input", "")
-    if not html_input:
-        return ToolResult(
-            success=False,
-            error=ToolError(error_type="validation", message="html_input is required."),
-        )
-
-    api_url = "http://d88ooscwwggkcwswg8gks4s8.matrxserver.com:3000/store-html"
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.post(api_url, json={"html": html_input})
-        response.raise_for_status()
-        return ToolResult(success=True, output={"id": response.json().get("id")})
-    except httpx.HTTPError as e:
-        return ToolResult(
-            success=False,
-            error=ToolError(error_type="execution", message=f"Failed to store HTML: {e}"),
         )
 
 
@@ -194,6 +170,7 @@ async def code_fetch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"output_mode must be one of {valid_modes}.",
                 suggested_action="Use 'signatures' for large codebases, 'clean' for focused review, 'original' when comments matter.",
@@ -205,6 +182,7 @@ async def code_fetch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"project_root '{project_root_raw}' is not a valid directory.",
                 suggested_action="Provide an absolute path or a path relative to the current working directory.",
@@ -218,6 +196,7 @@ async def code_fetch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"subdirectory '{subdirectory}' does not exist under '{project_root}'.",
                 ),
@@ -273,6 +252,7 @@ async def code_fetch_tree(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"project_root '{project_root_raw}' is not a valid directory.",
                 suggested_action="Provide an absolute path or a path relative to the current working directory.",
@@ -285,6 +265,7 @@ async def code_fetch_tree(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"subdirectory '{subdirectory}' does not exist under '{project_root}'.",
                 ),

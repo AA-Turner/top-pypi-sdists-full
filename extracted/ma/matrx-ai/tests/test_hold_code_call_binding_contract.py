@@ -84,7 +84,7 @@ def _install(monkeypatch, resolution: mandates.MandateResolution) -> None:
 
 
 async def test_variable_mapping_renames_onto_the_holders_variables(monkeypatch, records) -> None:
-    agent = _Agent({"body": AgentVariable(name="body", required=True)})
+    agent = _Agent({"body": AgentVariable(declaration={"name": "body", "required": True})})
     _install(
         monkeypatch,
         mandates.MandateResolution(
@@ -115,7 +115,7 @@ async def test_a_spill_is_refused_never_written_into_the_turn(monkeypatch, recor
 
 
 async def test_blocking_mapping_is_refused_and_recorded(monkeypatch, records) -> None:
-    agent = _Agent({"body": AgentVariable(name="body", required=True)})
+    agent = _Agent({"body": AgentVariable(declaration={"name": "body", "required": True})})
     _install(
         monkeypatch,
         mandates.MandateResolution(
@@ -144,7 +144,7 @@ async def test_workflow_holder_without_a_host_runner_refusal_is_recorded(
 
 
 async def test_consumption_map_goes_through_the_host_pipeline(monkeypatch, records) -> None:
-    agent = _Agent({"body": AgentVariable(name="body")})
+    agent = _Agent({"body": AgentVariable(declaration={"name": "body"})})
     seen: list[dict[str, Any]] = []
 
     async def _materialize(supplied: dict[str, Any]) -> dict[str, Any]:
@@ -185,7 +185,7 @@ async def test_finish_runs_the_post_run_check(monkeypatch, records) -> None:
     async def _complete(result, variables, user_input):
         completed.append((result.output, result.model_id, variables))
 
-    agent = _Agent({"body": AgentVariable(name="body")})
+    agent = _Agent({"body": AgentVariable(declaration={"name": "body"})})
     _install(monkeypatch, mandates.MandateResolution(source=_Source(agent), complete=_complete))
 
     held = await mandates.hold_code_call("x.y", consumer="t", variables={"body": "b"})

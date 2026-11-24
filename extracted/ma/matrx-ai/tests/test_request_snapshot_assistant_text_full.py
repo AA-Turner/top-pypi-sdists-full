@@ -22,6 +22,8 @@ from __future__ import annotations
 import base64
 import json
 from types import SimpleNamespace
+
+from matrx_connect.context.run_scope import RunScope
 from typing import Any
 from uuid import uuid4
 
@@ -73,7 +75,7 @@ async def _queued_response_payload(monkeypatch, response: dict[str, Any]) -> dic
         "matrx_ai.persistence.queue_helpers.queue_request_snapshot_create",
         lambda **kwargs: queued.append(kwargs) or "op",
     )
-    exec_ctx = SimpleNamespace(store=True, conversation_id=str(uuid4()), request_id=str(uuid4()))
+    exec_ctx = SimpleNamespace(run=RunScope(), store=True, conversation_id=str(uuid4()), request_id=str(uuid4()))
     await executor_mod._write_request_snapshot(
         exec_ctx=exec_ctx,
         iteration=1,

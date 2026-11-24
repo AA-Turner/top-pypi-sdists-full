@@ -18,6 +18,10 @@ Read TOOL_INJECTION_REFACTOR.md (root) for the full design.
 """
 from __future__ import annotations
 
+# Importing built_in registers the platform-level bundles into the registry
+# at first import. This is a deliberate side-effect — the registry must be
+# populated before any request handler resolves a ClientContext.
+from . import built_in as _built_in  # noqa: F401
 from .models import (
     Capability,
     CapabilityResolutionError,
@@ -32,11 +36,6 @@ from .registry import (
     register_capability,
     resolve_client_capabilities,
 )
-
-# Importing built_in registers the platform-level bundles into the registry
-# at first import. This is a deliberate side-effect — the registry must be
-# populated before any request handler resolves a ClientContext.
-from . import built_in as _built_in  # noqa: F401
 
 __all__ = [
     "Capability",

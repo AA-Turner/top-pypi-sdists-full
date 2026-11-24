@@ -19,12 +19,12 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 4160603246a6b365d4a2af661c6d71b0a0f50478  # frozen: 26.5.1
+    rev: a5439e9af2ff9371297bb1a76a01b8ad17989b88  # frozen: 26.10.1
     hooks:
       - id: black
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 321478e58f4938179c6b86e4ddfa923d1547a49b  # frozen: v0.16.6
+    rev: 25bcf95026b96e2dd3c0aec3090c3d6ef6ca2e6c  # frozen: v0.17.3
     hooks:
       - id: ruff-check
         args: [--fix, --show-fixes]
@@ -34,11 +34,12 @@ repos:
     hooks:
       - id: pretty-format-toml
         args: [--autofix]
+        additional_dependencies: [toml-sort>=0.25.0]
       - id: pretty-format-yaml
         args: [--autofix, --indent, '2', --offset, '2']
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: cef8b8350da46d8114c7e6b7272aebdccdf193ce  # frozen: v1.30.0
+    rev: c92afdf2c6ca336aaa8f39e2bd8d48f62dbd8e1f  # frozen: v1.31.1
     hooks:
       - id: zizmor
         files: ^\.github

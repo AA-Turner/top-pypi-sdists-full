@@ -1,7 +1,7 @@
 Metadata-Version: 2.5
 Name: python-redlines
-Version: 2.0.0
-Summary: Open-source DOCX comparison tool to generate native Word tracked changes (redlines) in Python without MS Word dependencies.
+Version: 3.0.0
+Summary: Open-source DOCX comparison tool, powered by the Docxodus engine, to generate native Word tracked changes (redlines) in Python without MS Word dependencies.
 Project-URL: Homepage, https://github.com/JSv4/Python-Redlines
 Project-URL: Documentation, https://jsv4.github.io/Python-Redlines/
 Project-URL: Demo, https://redlines.opensource.legal
@@ -13,20 +13,20 @@ Keywords: compare-word-documents,diff,docx,docx-comparison,docxodus,legal-tech,o
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Requires-Dist: platformdirs>=3.0
 Provides-Extra: all
-Requires-Dist: python-redlines-docxodus==2.0.0; extra == 'all'
-Requires-Dist: python-redlines-ooxmlpowertools==2.0.0; extra == 'all'
+Requires-Dist: python-redlines-docxodus==3.0.0; extra == 'all'
+Requires-Dist: python-redlines-ooxmlpowertools==3.0.0; extra == 'all'
 Provides-Extra: docxodus
-Requires-Dist: python-redlines-docxodus==2.0.0; extra == 'docxodus'
+Requires-Dist: python-redlines-docxodus==3.0.0; extra == 'docxodus'
 Provides-Extra: ooxmlpowertools
-Requires-Dist: python-redlines-ooxmlpowertools==2.0.0; extra == 'ooxmlpowertools'
+Requires-Dist: python-redlines-ooxmlpowertools==3.0.0; extra == 'ooxmlpowertools'
 Description-Content-Type: text/markdown
 
 # python-redlines
@@ -68,10 +68,12 @@ version as the wrapper. For older releases, pin both packages explicitly (for
 example, `python-redlines[docxodus]==0.3.0` and
 `python-redlines-docxodus==0.3.0`). Existing published metadata is unchanged.
 
-2.0.0 bundles Docxodus v14.1.0. Python call signatures and supported settings
-are unchanged from 1.0.0, but comparison markup and revision granularity can differ.
+3.0.0 bundles Docxodus v17.0.0 and adds one setting, `minimum_anchor_word_count`.
+Existing call signatures and settings are unchanged from 2.0.0, but comparison markup
+and revision counts can differ, and some very deeply nested documents are now refused.
+It requires Python 3.11 or newer; 2.0.0 was the last release to support 3.9 and 3.10.
 Review representative redlines when upgrading; see the
-[2.0.0 migration guide](https://github.com/JSv4/Python-Redlines#upgrading-to-200).
+[3.0.0 migration guide](https://github.com/JSv4/Python-Redlines#upgrading-to-300).
 
 An unsuccessful engine exit raises `EngineExecutionError`, a subclass of
 `subprocess.CalledProcessError`. Its message includes the captured stderr and

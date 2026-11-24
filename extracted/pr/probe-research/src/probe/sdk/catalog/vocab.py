@@ -35,6 +35,7 @@ class SourceKind(StrEnum):
     DATASET = "dataset"
     MODEL = "model"
     OTHER = "other"
+    ENVIRONMENT = "environment"
 
 
 class Provider(StrEnum):
@@ -49,6 +50,12 @@ class Provider(StrEnum):
     DATABASE = "database"
     LOCAL = "local"
     OTHER = "other"
+    # An environment's providers: stated by `probe.environment`, never worked out from a uri.
+    PRIME_HUB = "prime_hub"
+    VERIFIERS = "verifiers"
+    HARBOR = "harbor"
+    VERL = "verl"
+    SKYRL = "skyrl"
 
 
 class Identity(StrEnum):

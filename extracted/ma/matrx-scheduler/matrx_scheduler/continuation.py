@@ -41,17 +41,23 @@ The contract every task inherits
   run: a queue claim with a stale reclaim, a cursor, a daily ceiling read from
   what landed. The continuation re-derives "what is left" exactly as a fresh fire
   would.
-* Continuations per fire are bounded by the knob
-  ``scheduler.continuation.max_continuations_per_fire``. Exhausting it is a real
+* The knob ``scheduler.continuation.max_continuations_per_fire`` bounds the
+  continuations IN A ROW THAT MADE NO PROGRESS (2026-11-12). A continuation
+  that committed new work before it was interrupted is the system working —
+  releases restart the workers about every 30 minutes, and a long, checkpointed
+  task is interrupted on every leg while landing real work each time (the
+  mandate reference patrol was failed after its 9th interruption although its
+  legs had landed). Progress is the run's ``fresh_units_done`` when the handler
+  reports it (a handler whose ``units_done`` re-counts what it re-verified must),
+  else its ``units_done``; any progress resets the count. Exhausting it is a real
   ``failed`` run whose message names the knob — a fire that keeps losing its
-  worker is not going to finish by itself, and a person has to hear it.
+  worker without moving is not going to finish by itself, and a person has to
+  hear it. The marker still carries ``index`` (every continuation of the fire).
 * A fire whose run ceiling is already spent is not continued; it closes with the
   runner's bounded verdict (work landed = not failed, the stop named).
 """
 
 from __future__ import annotations
-
-from matrx_orm import db_sqlstate
 
 import json
 import logging
@@ -63,6 +69,7 @@ from . import queries
 from ._ext import get_db_model, get_optional_ext, report_operational_failure
 from .models import (
     RUN_CONTINUATION_KEY,
+    RUN_FRESH_UNITS_KEY,
     RUN_INTERRUPTED_STATUS,
     RUN_STOPPED_EARLY_KEY,
     RUN_UNITS_DONE_KEY,
@@ -79,7 +86,7 @@ CONTINUATION_KNOB_KEY = "max_continuations_per_fire"
 #: through ``configure(continuation_limit=...)``; this is what a bare package
 #: (or a host whose resolver fails, loudly) uses. Change the row AND this line
 #: together.
-MAX_CONTINUATIONS_PER_FIRE = 3
+MAX_CONTINUATIONS_PER_FIRE = 8  # raised from 3 on 2026-11-07 (see the knob row's basis)
 
 #: What ``interrupt_run`` returns.
 VERDICT_CONTINUED = "continued"
@@ -176,8 +183,14 @@ async def interrupt_run(
     units = max(0, _int(meta.get(RUN_UNITS_DONE_KEY)))
     meta[RUN_UNITS_DONE_KEY] = units
 
+    # PROGRESS, as the budget judges it: the NEW work this run committed.
+    fresh = meta.get(RUN_FRESH_UNITS_KEY)
+    progress = max(0, _int(fresh)) if fresh is not None else units
+
     marker = continuation_marker(row.get("metadata")) or {}
     index = max(0, _int(marker.get("index")))
+    stalled = max(0, _int(marker.get("stalled")))
+    next_stalled = 0 if progress > 0 else stalled + 1
     fire_run_id = str(marker.get("fire_run_id") or run_id)
     carried = max(0, _int(marker.get("carried_units_done")))
     ceiling = run_ceiling_seconds(row.get("metadata"), max_runtime_seconds)
@@ -203,12 +216,13 @@ async def interrupt_run(
         return VERDICT_CEILING_SPENT if persisted else VERDICT_LOST
 
     limit = await continuation_limit()
-    if next_index > limit:
+    if next_stalled > limit:
         stop = (
-            f"{reason}; this fire has now been interrupted {next_index} time(s) and "
+            f"{reason}; this fire has now been interrupted {next_stalled} time(s) in a row "
+            f"that made no progress ({next_index} in all) and "
             f"{CONTINUATION_KNOB_FEATURE}.{CONTINUATION_KNOB_KEY}={limit} is exhausted. A fire "
-            "that keeps losing its worker will not finish by itself: find what keeps killing "
-            "the worker, or raise the knob"
+            "that keeps losing its worker without moving will not finish by itself: find what "
+            "keeps killing the worker, make the task checkpoint smaller units, or raise the knob"
         )
         meta[RUN_STOPPED_EARLY_KEY] = f"{stop} (after committing {units} unit(s))"
         persisted = await queries.finalize_run(
@@ -223,8 +237,14 @@ async def interrupt_run(
         return VERDICT_EXHAUSTED if persisted else VERDICT_LOST
 
     meta[RUN_STOPPED_EARLY_KEY] = (
-        f"interrupted: {reason} after committing {units} unit(s); continuation "
-        f"#{next_index} of {limit} queued with the full run ceiling ({ceiling}s)"
+        f"interrupted: {reason} after committing {units} unit(s)"
+        + (f" ({progress} new)" if fresh is not None else "")
+        + f"; continuation #{next_index} queued with the full run ceiling ({ceiling}s); "
+        + (
+            "progress was made, so it spends none of the retry budget"
+            if next_stalled == 0
+            else f"no progress: {next_stalled} of {limit} stalled continuation(s) allowed"
+        )
     )
     persisted = await queries.finalize_run(
         run_id,
@@ -242,6 +262,7 @@ async def interrupt_run(
             "of_run_id": run_id,
             "fire_run_id": fire_run_id,
             "index": next_index,
+            "stalled": next_stalled,
             "carried_units_done": carried + units,
             "remaining_runtime_seconds": remaining,
             "reason": reason[:500],
@@ -255,7 +276,6 @@ async def interrupt_run(
 async def _queue_continuation(
     row: dict[str, Any], *, run_id: str, marker: dict[str, Any], now: datetime
 ) -> str | None:
-    SchRunModel = get_db_model("SchRun")
     task_id = str(row["task_id"])
     payload: dict[str, Any] = {
         "id": str(uuid.uuid4()),
@@ -273,16 +293,8 @@ async def _queue_continuation(
         },
     }
     try:
-        await SchRunModel.create(**payload)
+        landed = await queries.insert_active_run(payload)
     except Exception as exc:  # noqa: BLE001 — classified below; never breaks shutdown
-        if db_sqlstate(exc) == "23505":
-            log.warning(
-                "[scheduler-continuation] run %s: task %s already has an active run, which "
-                "carries the remaining work; no continuation queued",
-                run_id,
-                task_id,
-            )
-            return None
         log.exception(
             "[scheduler-continuation] run %s was closed interrupted but its continuation "
             "could NOT be queued; the remaining work waits for the next fire. Remedy: fix "
@@ -293,6 +305,14 @@ async def _queue_continuation(
             exc,
             operation="queue_run_continuation",
             context={"run_id": run_id, "task_id": task_id},
+        )
+        return None
+    if landed is None:
+        log.warning(
+            "[scheduler-continuation] run %s: task %s already has an active run, which "
+            "carries the remaining work; no continuation queued",
+            run_id,
+            task_id,
         )
         return None
     log.warning(

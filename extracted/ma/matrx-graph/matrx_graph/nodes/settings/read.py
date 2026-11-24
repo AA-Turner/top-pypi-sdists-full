@@ -1,7 +1,10 @@
-"""``settings.read`` — one setting's current value for the run's organization.
+"""``settings.read`` — one setting's current value for the run's organization, and where it came from.
 
 Wire its ``value`` into any step input that is a limit (pages to read, items to
 keep, a length floor) so the limit is a setting, not a number in the definition.
+By default the run's person's own override counts; ``organization_only`` reads the
+value exactly as the run's organization sees it (what server code reading a setting
+for an organization gets). ``source`` names the rung that decided the value.
 See :mod:`matrx_graph.settings`."""
 
 from __future__ import annotations
@@ -31,6 +34,13 @@ class SettingReadInput(BaseModel):
             "(platform, organization or user)."
         ),
     )
+    organization_only: bool = Field(
+        default=False,
+        description=(
+            "Read the value as the run's organization sees it, skipping the run's person's own override "
+            "(the value server code reading the setting for that organization gets)."
+        ),
+    )
 
 
 class SettingReadConfig(BaseModel):
@@ -41,6 +51,13 @@ class SettingValueOutput(KindModel, kind="setting_value"):
     feature: str = Field(description="The setting's feature.")
     key: str = Field(description="The setting's key (empty when the whole feature was read).")
     value: JsonValue = Field(description="The setting's value for this run's organization.")
+    source: str | None = Field(
+        default=None,
+        description=(
+            "Where the value came from: platform (the platform value or its default), organization, user, or the "
+            "scope that overrode it. Empty when the whole feature was read (each entry then carries its own)."
+        ),
+    )
 
 
 class SettingReadExecutor:
@@ -50,7 +67,7 @@ class SettingReadExecutor:
         type="settings.read",
         category=NodeCategory.DATA,
         display_name="Read a Setting",
-        description="Use one of your organization's settings in this run.",
+        description="Use one of your organization's settings in this run, and see where its value came from.",
         input_schema=SettingReadInput,
         output_schema=SettingValueOutput,
         output_kind="setting_value",
@@ -70,8 +87,9 @@ class SettingReadExecutor:
         config: SettingReadConfig,
     ) -> NodeResult[SettingValueOutput]:
         _ = config
+        user = None if inputs.organization_only else getattr(ctx, "user_id", None)
         if not inputs.key:
-            return await self._read_feature(ctx, inputs.feature)
+            return await self._read_feature(ctx, inputs.feature, user)
         name = f"{inputs.feature}/{inputs.key}"
         reader = get_setting_reader()
         if reader is None:
@@ -82,17 +100,21 @@ class SettingReadExecutor:
             )
         org = ctx.organization_id
         try:
-            user = getattr(ctx, "user_id", None)
-            value = await reader(inputs.feature, inputs.key, str(org) if org else None, str(user) if user else None)
+            # org-filter: doing-path a running step reads the setting of the organization the run executes in
+            value, source = await reader(
+                inputs.feature, inputs.key, str(org) if org else None, str(user) if user else None
+            )
         except Exception as e:  # noqa: BLE001 — named failure, never a silent default
             return failure(
                 "setting_unreadable",
                 f"Setting {name} could not be read ({type(e).__name__}: {e}).",
                 details={"feature": inputs.feature, "key": inputs.key},
             )
-        return success(SettingValueOutput(feature=inputs.feature, key=inputs.key, value=value))
+        return success(SettingValueOutput(feature=inputs.feature, key=inputs.key, value=value, source=str(source)))
 
-    async def _read_feature(self, ctx: NodeExecutionContext, feature: str) -> NodeResult[SettingValueOutput]:
+    async def _read_feature(
+        self, ctx: NodeExecutionContext, feature: str, user: object | None
+    ) -> NodeResult[SettingValueOutput]:
         """Every setting of ``feature`` in one call: ``{name: {"value": ..., "source": ...}}``."""
         feature_reader = get_feature_settings_reader()
         if feature_reader is None:
@@ -102,8 +124,8 @@ class SettingReadExecutor:
                 "(matrx_graph.settings.set_feature_settings_reader).",
             )
         org = ctx.organization_id
-        user = getattr(ctx, "user_id", None)
         try:
+            # org-filter: doing-path a running step reads the settings of the organization the run executes in
             found = await feature_reader(feature, str(org) if org else None, str(user) if user else None)
         except Exception as e:  # noqa: BLE001 — named failure, never a silent default
             return failure(

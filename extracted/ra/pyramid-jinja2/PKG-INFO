@@ -1,45 +1,35 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyramid_jinja2
-Version: 2.10.1
+Version: 2.11
 Summary: Jinja2 template bindings for the Pyramid web framework
-Home-page: https://github.com/Pylons/pyramid_jinja2
-Author: Rocky Burt
-Author-email: pylons-discuss@googlegroups.com
-Maintainer: Pylons Project
-Maintainer-email: pylons-discuss@googlegroups.com
-License: BSD-derived (Repoze)
+Author-email: Rocky Burt <pylons-discuss@googlegroups.com>
+Maintainer-email: Pylons Project <pylons-discuss@googlegroups.com>
+License-Expression: LicenseRef-Repoze-BSD-derived
+Project-URL: Changelog, https://docs.pylonsproject.org/projects/pyramid_jinja2/en/latest/changes.html
 Project-URL: Documentation, https://docs.pylonsproject.org/projects/pyramid_jinja2/en/latest/
-Project-URL: Changelog, https://github.com/Pylons/pyramid_jinja2/blob/main/CHANGES.rst
+Project-URL: Homepage, https://github.com/Pylons/pyramid_jinja2
 Project-URL: Issue Tracker, https://github.com/Pylons/pyramid_jinja2/issues
-Keywords: web wsgi pylons pyramid jinja2
+Keywords: jinja2,pylons,pyramid,web,wsgi
 Classifier: Development Status :: 6 - Mature
+Classifier: Framework :: Pyramid
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Framework :: Pyramid
-Classifier: License :: Repoze Public License
-Requires-Python: >=3.7.0
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: jinja2!=2.11.0,!=2.11.1,!=2.11.2,>=2.5.0
 Requires-Dist: markupsafe
 Requires-Dist: pyramid>=1.3.0
 Requires-Dist: zope.deprecation
-Provides-Extra: testing
-Requires-Dist: webtest; extra == "testing"
-Requires-Dist: coverage; extra == "testing"
-Requires-Dist: pytest>=5.4.2; extra == "testing"
-Requires-Dist: pytest-cov; extra == "testing"
-Provides-Extra: docs
-Requires-Dist: setuptools; extra == "docs"
-Requires-Dist: pylons-sphinx-themes>=0.3; extra == "docs"
-Requires-Dist: sphinx>=1.7.5; extra == "docs"
+Dynamic: license-file
 
 Jinja2 bindings for Pyramid
 ===========================
@@ -47,9 +37,22 @@ Jinja2 bindings for Pyramid
 These are bindings for the `Jinja2 templating system <http://jinja.pocoo.org>`_
 for the `Pyramid <https://trypyramid.com>`_ web framework.
 
-See https://docs.pylonsproject.org/projects/pyramid-jinja2/en/latest/ for
+See https://docs.pylonsproject.org/projects/pyramid_jinja2/en/latest/ for
 documentation or ``index.rst`` in the ``docs`` sub-directory of the source
 distribution.
+
+2.11 (2026-11-23)
+=================
+
+- Drop support for Python 3.7, 3.8, 3.9, and 3.10.
+
+- Add support for Python 3.13, 3.14, and 3.15.
+
+- Stop using the deprecated ``pkg_resources`` api in the docs.
+
+- Switch packaging metadata from ``setup.cfg`` to ``pyproject.toml`` and use
+  an SPDX license expression. The ``testing`` and ``docs`` extras are replaced
+  by dependency groups.
 
 2.10.1 (2023-02-07)
 ===================

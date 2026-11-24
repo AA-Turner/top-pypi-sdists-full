@@ -2229,14 +2229,31 @@ BEGIN
     -- INCLUDING ALL creates new index names, we restore them to the old name.
     -- There should be no conflicts since they live in different schemas
     FOR ix_old_name, ix_new_name IN
+      -- Each side is narrowed to its own schema and table before the join. OFFSET 0 keeps the planner
+      -- from flattening the subqueries back into one pg_indexes self-join, which with stale catalog
+      -- statistics can be planned as pairing this table's indexes across every schema and running
+      -- pg_get_indexdef() on all of those pairs before filtering by schema (slow with many tenants).
       SELECT old.indexname, new.indexname
-      FROM pg_indexes old, pg_indexes new
-      WHERE old.schemaname = source_schema
-        AND new.schemaname = dest_schema
-        AND old.tablename = new.tablename
-        AND old.tablename = tblname
-        AND old.indexname <> new.indexname
+      FROM (SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes
+            WHERE schemaname = source_schema AND tablename = tblname OFFSET 0) old,
+           (SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes
+            WHERE schemaname = dest_schema AND tablename = tblname OFFSET 0) new
+      WHERE old.indexname <> new.indexname
         AND regexp_replace(old.indexdef, E'.*USING','') = regexp_replace(new.indexdef, E'.*USING','')
+        -- What is cut away above includes UNIQUE, and says nothing of whether the index backs a constraint. Without
+        -- these two, a unique constraint and a plain or standalone unique index on the same columns could pair up
+        -- and swap names (pg-clone-schema Issue#133), as could a primary key and a unique constraint on one column.
+        -- conrelid is there for pg_constraint's index on it: conindid has none, and alone would scan every schema's.
+        AND (old.indexdef LIKE 'CREATE UNIQUE %') = (new.indexdef LIKE 'CREATE UNIQUE %')
+        AND (SELECT ct.contype FROM pg_constraint ct
+             WHERE ct.conrelid = (quote_ident(old.schemaname) || '.' || quote_ident(old.tablename))::regclass
+               AND ct.conindid = (quote_ident(old.schemaname) || '.' || quote_ident(old.indexname))::regclass
+               AND ct.contype IN ('p', 'u', 'x'))
+            IS NOT DISTINCT FROM
+            (SELECT ct.contype FROM pg_constraint ct
+             WHERE ct.conrelid = (quote_ident(new.schemaname) || '.' || quote_ident(new.tablename))::regclass
+               AND ct.conindid = (quote_ident(new.schemaname) || '.' || quote_ident(new.indexname))::regclass
+               AND ct.contype IN ('p', 'u', 'x'))
         ORDER BY old.indexdef, new.indexdef
     LOOP
       -- Issue#133: We never get here when DDLONLY is specified since it depends on the cloned schema being created, so ALTER INDEX action does not happen on DDLONLY commands
@@ -2263,7 +2280,11 @@ BEGIN
         -- RAISE NOTICE 'AAAA: schema=%  table=%  oldixname=%  newixname=%',quote_ident(source_schema), tblname, ix_old_name, ix_new_name;
         -- Issue#133: bypass unique keys
         -- IF NOT EXISTS (SELECT TRUE FROM pg_class c, pg_constraint ct WHERE ct.conrelid = c.oid AND c.relnamespace::regnamespace::text = quote_ident(source_schema) AND c.relname = tblname AND ct.contype IN ('p', 'u') AND ct.conname = ix_old_name)
-        IF NOT EXISTS (SELECT TRUE FROM pg_class c, pg_constraint ct WHERE ct.conrelid = c.oid AND c.relnamespace::regnamespace::text = quote_ident(source_schema) AND c.relname = tblname AND ct.contype IN ('u') AND ct.conname = ix_old_name)
+        -- django-tenants: unique constraints are no longer bypassed. Left with the names LIKE generates, every
+        -- cloned schema's unique constraints differ from its source's, and a later migration that drops one by
+        -- name (Django's RemoveConstraint) fails on the clone alone. Renaming the index renames its constraint.
+        -- IF NOT EXISTS (SELECT TRUE FROM pg_class c, pg_constraint ct WHERE ct.conrelid = c.oid AND c.relnamespace::regnamespace::text = quote_ident(source_schema) AND c.relname = tblname AND ct.contype IN ('u') AND ct.conname = ix_old_name)
+        IF TRUE
 				THEN
 				  -- Issue#133: bypass columns we can't find in new schema probably due to CREATE TABLE LIKE constructs where fabricated index names are created automatically.
 				  -- Issue#140
@@ -2751,14 +2772,31 @@ BEGIN
     -- INCLUDING ALL creates new index names, we restore them to the old name.
     -- There should be no conflicts since they live in different schemas
     FOR ix_old_name, ix_new_name IN
+      -- Each side is narrowed to its own schema and table before the join. OFFSET 0 keeps the planner
+      -- from flattening the subqueries back into one pg_indexes self-join, which with stale catalog
+      -- statistics can be planned as pairing this table's indexes across every schema and running
+      -- pg_get_indexdef() on all of those pairs before filtering by schema (slow with many tenants).
       SELECT old.indexname, new.indexname
-      FROM pg_indexes old, pg_indexes new
-      WHERE old.schemaname = source_schema
-        AND new.schemaname = dest_schema
-        AND old.tablename = new.tablename
-        AND old.tablename = tblname
-        AND old.indexname <> new.indexname
+      FROM (SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes
+            WHERE schemaname = source_schema AND tablename = tblname OFFSET 0) old,
+           (SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes
+            WHERE schemaname = dest_schema AND tablename = tblname OFFSET 0) new
+      WHERE old.indexname <> new.indexname
         AND regexp_replace(old.indexdef, E'.*USING','') = regexp_replace(new.indexdef, E'.*USING','')
+        -- What is cut away above includes UNIQUE, and says nothing of whether the index backs a constraint. Without
+        -- these two, a unique constraint and a plain or standalone unique index on the same columns could pair up
+        -- and swap names (pg-clone-schema Issue#133), as could a primary key and a unique constraint on one column.
+        -- conrelid is there for pg_constraint's index on it: conindid has none, and alone would scan every schema's.
+        AND (old.indexdef LIKE 'CREATE UNIQUE %') = (new.indexdef LIKE 'CREATE UNIQUE %')
+        AND (SELECT ct.contype FROM pg_constraint ct
+             WHERE ct.conrelid = (quote_ident(old.schemaname) || '.' || quote_ident(old.tablename))::regclass
+               AND ct.conindid = (quote_ident(old.schemaname) || '.' || quote_ident(old.indexname))::regclass
+               AND ct.contype IN ('p', 'u', 'x'))
+            IS NOT DISTINCT FROM
+            (SELECT ct.contype FROM pg_constraint ct
+             WHERE ct.conrelid = (quote_ident(new.schemaname) || '.' || quote_ident(new.tablename))::regclass
+               AND ct.conindid = (quote_ident(new.schemaname) || '.' || quote_ident(new.indexname))::regclass
+               AND ct.contype IN ('p', 'u', 'x'))
         ORDER BY old.indexdef, new.indexdef
     LOOP
       lastsql = '';
@@ -2786,7 +2824,11 @@ BEGIN
         -- RAISE NOTICE 'AAAA: schema=%  table=%  oldixname=%  newixname=%',quote_ident(source_schema), tblname, ix_old_name, ix_new_name;
         -- Issue#133: bypass unique keys
         -- IF NOT EXISTS (SELECT TRUE FROM pg_class c, pg_constraint ct WHERE ct.conrelid = c.oid AND c.relnamespace::regnamespace::text = quote_ident(source_schema) AND c.relname = tblname AND ct.contype IN ('p', 'u') AND ct.conname = ix_old_name)
-        IF NOT EXISTS (SELECT TRUE FROM pg_class c, pg_constraint ct WHERE ct.conrelid = c.oid AND c.relnamespace::regnamespace::text = quote_ident(source_schema) AND c.relname = tblname AND ct.contype IN ('u') AND ct.conname = ix_old_name)
+        -- django-tenants: unique constraints are no longer bypassed. Left with the names LIKE generates, every
+        -- cloned schema's unique constraints differ from its source's, and a later migration that drops one by
+        -- name (Django's RemoveConstraint) fails on the clone alone. Renaming the index renames its constraint.
+        -- IF NOT EXISTS (SELECT TRUE FROM pg_class c, pg_constraint ct WHERE ct.conrelid = c.oid AND c.relnamespace::regnamespace::text = quote_ident(source_schema) AND c.relname = tblname AND ct.contype IN ('u') AND ct.conname = ix_old_name)
+        IF TRUE
 				THEN
 				  -- Issue#133: bypass columns we can't find in new schema probably due to CREATE TABLE LIKE constructs where fabricated index names are created automatically.
 	        SELECT count(*) INTO cnt FROM pg_indexes WHERE schemaname = quote_ident(dest_schema) AND tablename = tblname AND indexname =  ix_new_name AND ix_old_name <> ix_new_name AND NOT EXISTS (SELECT TRUE FROM pg_indexes

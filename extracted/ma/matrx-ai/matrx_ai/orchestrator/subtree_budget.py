@@ -110,6 +110,16 @@ def expired_budget(metadata: Any, *, now: float | None = None) -> dict[str, Any]
     return min(expired, key=lambda b: float(b["expires_at"]))
 
 
+def time_left(metadata: Any, *, now: float | None = None) -> tuple[float, dict[str, Any]] | None:
+    """``(seconds_left, budget)`` for the budget that runs out first, or None when none is in force."""
+    budgets = active_budgets(metadata)
+    if not budgets:
+        return None
+    moment = time.time() if now is None else now
+    first = min(budgets, key=lambda b: float(b["expires_at"]))
+    return max(0.0, float(first["expires_at"]) - moment), first
+
+
 def subtree_stop_reason(metadata: Any, *, now: float | None = None) -> str | None:
     """None to proceed; a short human reason when THIS subtree's clock is out.
 
@@ -144,5 +154,6 @@ __all__ = [
     "expired_budget",
     "is_subtree_budget_stop",
     "subtree_stop_reason",
+    "time_left",
     "with_subtree_budget",
 ]

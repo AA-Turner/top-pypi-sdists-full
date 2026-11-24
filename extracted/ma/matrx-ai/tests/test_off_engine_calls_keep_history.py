@@ -97,7 +97,7 @@ def funnel(monkeypatch):
         )
         calls["conversation_created"].append(conversation_id)
 
-    async def _ensure_ur(*, request_id, user_id, **k):
+    async def _ensure_ur(request_id, user_id, *, config=None):
         calls["user_request"].append(request_id)
 
     async def _snapshot(**kw):
@@ -132,13 +132,10 @@ def funnel(monkeypatch):
     )
     monkeypatch.setattr(persistence_mod, "_queue_user_request_update", lambda rid, **kw: None)
 
-    async def _zero(*a, **k):
-        return 0
 
     async def _none(*a, **k):
         return None
 
-    monkeypatch.setattr(persistence_mod, "_hide_superseded_failed_turns", _zero)
     monkeypatch.setattr(persistence_mod, "_refresh_cache_state", _none)
     monkeypatch.setattr(persistence_mod, "_emit_context_state", _none)
     monkeypatch.setattr(persistence_mod, "cxm", _AsyncAnything())

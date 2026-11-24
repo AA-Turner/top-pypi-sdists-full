@@ -11,6 +11,8 @@ import json
 from typing import Any
 
 from matrx_graph.actions import register_node
+from matrx_graph.content_ir.model import KindModel
+from matrx_graph.content_ir.sdk import kind
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, failure, success
@@ -22,7 +24,12 @@ from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
 )
-from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage, failed_turn_failure
+from matrx_ai.graph_nodes.shared import (
+    AiUsage,
+    _extract_usage,
+    failed_turn_failure,
+    no_media_reason,
+)
 
 
 class ModerateInput(BaseModel):
@@ -51,7 +58,8 @@ class ModerationCategory(BaseModel):
     score: float = Field(description="How strongly the text fits the category, 0 to 1.")
 
 
-class ModerateOutput(BaseModel):
+@kind('moderation_result', label='Moderation Result', family='ai', disposition='record', category='data')
+class ModerateOutput(KindModel):
     model_config = ConfigDict(extra="forbid")
 
     flagged: bool = Field(description="True when the text breaks any category.")
@@ -89,6 +97,7 @@ def verdict_from_response(response: Any) -> dict[str, Any] | None:
     determinism=ActionTier.IDEMPOTENT,
     input_schema=ModerateInput,
     output_schema=ModerateOutput,
+    output_kind='moderation_result',
     icon="shield-check",
     tags=("ai", "moderation", "safety", "classification"),
 )
@@ -121,10 +130,12 @@ async def ai_moderate(ctx: NodeExecutionContext, inputs: ModerateInput) -> NodeR
         verdict = verdict_from_response(getattr(completed, "final_response", None))
         usage = _extract_usage(getattr(completed, "total_usage", None))
         if verdict is None:
+            reason, why = no_media_reason(completed, requested_model=inputs.model)
             return failure(
                 "moderation_failed",
-                f"ai.moderate: model '{inputs.model}' returned no verdict.",
-                details={"model": inputs.model, "usage": usage.model_dump(mode="json")},
+                f"ai.moderate: model '{inputs.model}' returned no verdict"
+                + (f": {reason}." if reason else "."),
+                details={"model": inputs.model, "usage": usage.model_dump(mode="json"), **why},
             )
         categories = [ModerationCategory.model_validate(c) for c in verdict.get("categories") or []]
         categories.sort(key=lambda c: c.score, reverse=True)

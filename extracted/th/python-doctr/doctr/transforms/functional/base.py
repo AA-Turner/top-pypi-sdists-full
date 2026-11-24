@@ -25,6 +25,9 @@ def crop_boxes(
     Returns:
         the cropped boxes
     """
+    boxes = boxes.copy()
+    if boxes.shape[0] == 0:  # nothing to crop (e.g. an image without any text)
+        return boxes
     is_box_rel = boxes.max() <= 1
     is_crop_rel = max(crop_box) <= 1
 
@@ -61,6 +64,9 @@ def expand_line(line: np.ndarray, target_shape: tuple[int, int]) -> tuple[float,
         return line[0]
     # Get the line equation
     _tmp = line[1] - line[0]
+    if not np.any(_tmp):
+        # Both points coincide (e.g. once rounded to pixels): there is no direction to extend the line in
+        return line[0, 0], line[0, 1]
     _direction = _tmp > 0
     _flat = _tmp == 0
     # vertical case

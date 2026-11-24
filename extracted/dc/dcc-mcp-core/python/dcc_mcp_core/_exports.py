@@ -18,7 +18,9 @@ from __future__ import annotations
 # ---------------------------------------------------------------------------
 
 _ALL_LAZY: dict[str, str] = {
+    "verify_native_core": "dcc_mcp_core.deployment.native_core",
     # Naming validators / constants (from _core)
+    "BridgeCapacityContract": "dcc_mcp_core.bridge_capacity",
     "ACTION_ID_RE": "dcc_mcp_core._core",
     "APP_AUTHOR": "dcc_mcp_core._core",
     "APP_NAME": "dcc_mcp_core._core",
@@ -675,6 +677,7 @@ _ALL_LAZY: dict[str, str] = {
     "load_install_sop_schema": "dcc_mcp_core.deployment",
     "validate_install_sop_report": "dcc_mcp_core.deployment",
     "plan_runtime_updates": "dcc_mcp_core.deployment",
+    "prepare_runtime_update": "dcc_mcp_core.deployment",
     "probe_sidecar_tool": "dcc_mcp_core.deployment",
     "query_runtime_state": "dcc_mcp_core.deployment",
     "resolve_deployment_layout": "dcc_mcp_core.deployment",
@@ -736,6 +739,7 @@ _ALL_LAZY: dict[str, str] = {
     "DeclarationFinding": "dcc_mcp_core.verification",
     "SCHEMA_ANIM_CURVES": "dcc_mcp_core.verification",
     "SCHEMA_GRAPH_STATE": "dcc_mcp_core.verification",
+    "SCHEMA_MODEL_STATE": "dcc_mcp_core.verification",
     "SCHEMA_RIG_STATE": "dcc_mcp_core.verification",
     "SCHEMA_SIM_STATUS": "dcc_mcp_core.verification",
     "SCHEMA_VERSIONS": "dcc_mcp_core.verification",
@@ -777,6 +781,7 @@ _ALL_LAZY: dict[str, str] = {
     "sobel_edges": "dcc_mcp_core.verification.pixel_metrics",
     "ssim": "dcc_mcp_core.verification.pixel_metrics",
     "validate_scene_vs_spec": "dcc_mcp_core.verification.scene_spec",
+    "validate_spec_document": "dcc_mcp_core.verification.scene_spec",
     "UnitHint": "dcc_mcp_core.asset_import",
     "WorkflowTask": "dcc_mcp_core.workflow_yaml",
     "WorkflowYaml": "dcc_mcp_core.workflow_yaml",

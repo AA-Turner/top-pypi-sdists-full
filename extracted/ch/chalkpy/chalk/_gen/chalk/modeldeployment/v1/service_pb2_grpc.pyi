@@ -22,6 +22,8 @@ from chalk._gen.chalk.modeldeployment.v1.service_pb2 import (
     ListModelScalingGroupRevisionsResponse,
     ListModelScalingGroupsRequest,
     ListModelScalingGroupsResponse,
+    SetModelScalingGroupWeightTargetRequest,
+    SetModelScalingGroupWeightTargetResponse,
     UpdateModelScalingGroupRequest,
     UpdateModelScalingGroupResponse,
 )
@@ -44,6 +46,13 @@ class ModelDeploymentServiceStub:
         UpdateModelScalingGroupResponse,
     ]
     """UpdateModelScalingGroup updates a model scaling group's spec, traffic, or both."""
+    SetModelScalingGroupWeightTarget: UnaryUnaryMultiCallable[
+        SetModelScalingGroupWeightTargetRequest,
+        SetModelScalingGroupWeightTargetResponse,
+    ]
+    """Selects an indexed publication without appending or restarting a revision.
+    Persists desired state only; it does not establish serving readiness.
+    """
     GetModelScalingGroup: UnaryUnaryMultiCallable[
         GetModelScalingGroupRequest,
         GetModelScalingGroupResponse,
@@ -91,6 +100,15 @@ class ModelDeploymentServiceServicer(metaclass=ABCMeta):
     ) -> UpdateModelScalingGroupResponse:
         """UpdateModelScalingGroup updates a model scaling group's spec, traffic, or both."""
     @abstractmethod
+    def SetModelScalingGroupWeightTarget(
+        self,
+        request: SetModelScalingGroupWeightTargetRequest,
+        context: ServicerContext,
+    ) -> SetModelScalingGroupWeightTargetResponse:
+        """Selects an indexed publication without appending or restarting a revision.
+        Persists desired state only; it does not establish serving readiness.
+        """
+    @abstractmethod
     def GetModelScalingGroup(
         self,
         request: GetModelScalingGroupRequest,
@@ -133,6 +151,4 @@ class ModelDeploymentServiceServicer(metaclass=ABCMeta):
     ) -> CallModelResponse:
         """CallModel synchronously invokes a model scaling group or asynchronously enqueues a model call."""
 
-def add_ModelDeploymentServiceServicer_to_server(
-    servicer: ModelDeploymentServiceServicer, server: Server
-) -> None: ...
+def add_ModelDeploymentServiceServicer_to_server(servicer: ModelDeploymentServiceServicer, server: Server) -> None: ...

@@ -17,7 +17,7 @@ import json
 from typing import Any
 from uuid import uuid4
 
-from matrx_utils import vcprint, clear_terminal
+from matrx_utils import clear_terminal
 
 from matrx_ai.tools.models import ToolContext, ToolResult
 

@@ -1,5 +1,5 @@
-"""PinsMixin, Client's methods: pin a view to the top of a project's page for the whole team, list and
-unpin them; the views a coding agent may pin (twin: app/projects/pins)."""
+"""PinsMixin, Client's methods: pin a view to the top of a project's or a run's page for the whole team,
+list and unpin them; the views a coding agent may pin (twin: app/projects/pins)."""
 
 from __future__ import annotations
 from collections.abc import Mapping
@@ -21,7 +21,7 @@ _PREDATES_PINS = "This Probe server doesn't support pins yet."
 @dataclass(frozen=True)
 class PinScope:
     """Where a view lives, as the caller named it: its project (which holds the pin) and the anchor,
-    the project itself or one of its experiments."""
+    the project itself, one of its experiments or one of its runs (whose own page shows its pins)."""
 
     name: str
     project_id: str
@@ -31,6 +31,10 @@ class PinScope:
     def to_anchor(self) -> dict[str, str]:
         """The ref's `anchor`: `{kind, id}`."""
         return {"kind": self.anchor_kind.value, "id": self.anchor_id}
+
+    def to_page_query(self) -> dict[str, str]:
+        """The list's query for this scope's page: a run's own, else the project's (none)."""
+        return {"run_id": self.anchor_id} if self.anchor_kind is PinAnchorKind.RUN else {}
 
 
 class PinnedView:
@@ -123,6 +127,12 @@ class Pin:
             pane_slug=answer.get("pane_slug"),
         )
 
+    def get_page(self) -> tuple[str, str]:
+        """``(kind, id)`` of the dashboard page that shows it: its run's for a run's view, else its project's."""
+        if self.anchor_kind == PinAnchorKind.RUN.value:
+            return PinAnchorKind.RUN.value, self.anchor_id
+        return PinAnchorKind.PROJECT.value, self.project_id
+
     def to_dict(self) -> dict[str, Any]:
         """The server's shape again, for printing."""
         return {
@@ -138,9 +148,11 @@ class PinsMixin:
     # -- pins (a project's Pinned area, shared by the team) ---------------------
     #
     # A pin lives on a PROJECT (`/v1/projects/{P}/pins`); a view on one of its
-    # experiments is pinned there with that experiment as its anchor. `scope` is
-    # a project or experiment slug, or its uuid (`id:<uuid>` too). Pin only
-    # when the researcher asks: pins sit at the top of the project for everyone.
+    # experiments or runs is pinned there with that experiment or run as its
+    # anchor (a run's pins show on the run's page, not the project's). `scope` is
+    # a project or experiment slug, or a project's, experiment's or run's uuid
+    # (`id:<uuid>` too). Pin only when the researcher asks: pins sit at the top of
+    # the page for everyone.
 
     def add_pin(self, scope: str, view: PinnedView) -> Pin:
         """``POST /v1/projects/{P}/pins``: pin ``view`` (a ``PaneView``, ``ChartView``,
@@ -158,10 +170,10 @@ class PinsMixin:
 
     def list_pins(self, project: str) -> list[Pin]:
         """``GET /v1/projects/{P}/pins``: the project's pins, oldest first (an experiment names its
-        project's)."""
+        project's; a run its own page's, ``?run_id=``)."""
         self._require_pins()
-        project_id = self._resolve_pin_scope(project).project_id
-        answer = self.transport.get(f"/v1/projects/{project_id}/pins")
+        found = self._resolve_pin_scope(project)
+        answer = self.transport.get(f"/v1/projects/{found.project_id}/pins", params=found.to_page_query() or None)
         return [Pin.from_answer(row) for row in (answer or {}).get("pins") or []]
 
     def remove_pin(self, project: str, pin_id: str) -> None:
@@ -187,18 +199,20 @@ class PinsMixin:
         is_id = _id_ref(name)
         bare = name.removeprefix("id:") if is_id else name.removeprefix("slug:")
         if not bare:
-            raise errors.ValidationError("name the project or experiment: a slug or id:<uuid>")
+            raise errors.ValidationError("name the project or experiment (a slug or id:<uuid>), or a run (id:<uuid>)")
         try:
             if is_id:
                 found = self.get_scope(quote(bare, safe=""))
             else:
                 found = self.get_scope_by_slug(bare)
         except errors.NotFoundError:
-            raise errors.NotFoundError(f"no project or experiment {name!r}") from None
+            raise errors.NotFoundError(f"no project, experiment or run {name!r}") from None
         try:
             anchor_kind = PinAnchorKind(found.get("kind"))
         except ValueError:
-            raise errors.ValidationError(f"{name!r} is a {found.get('kind')}: name a project or an experiment") from None
+            raise errors.ValidationError(
+                f"{name!r} is a {found.get('kind')}: name a project, an experiment or a run"
+            ) from None
         return PinScope(name=name, project_id=str(found["project_id"]), anchor_kind=anchor_kind,
                         anchor_id=str(found["id"]))
 

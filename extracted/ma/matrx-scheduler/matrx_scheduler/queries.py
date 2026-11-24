@@ -35,7 +35,7 @@ enabled trigger or None), only the transport differs.
 
 from __future__ import annotations
 
-from matrx_orm import db_sqlstate
+from matrx_orm import ConflictTarget
 
 import logging
 import uuid
@@ -147,15 +147,16 @@ async def find_dark_tasks(limit: int = 200) -> list[dict[str, Any]]:
     if not tasks:
         return []
     task_ids = [str(t["id"]) for t in tasks]
-    triggers = await SchTriggerModel.filter(task_id__in=task_ids).values(
-        "task_id", "enabled"
+    triggers = await SchTriggerModel.filter(task_id__in=task_ids).including_archived().values(  # include-archived: a task whose triggers are all deleted is dark
+        "task_id", "enabled", "deleted_at"
     )
     has_trigger: set[str] = set()
     has_live_trigger: set[str] = set()
     for row in triggers:
         tid = str(row.get("task_id") or "")
         has_trigger.add(tid)
-        if row.get("enabled"):
+        # A soft-deleted trigger is GONE (the scanner never hydrates it), so it is no clock here either.
+        if row.get("enabled") and row.get("deleted_at") is None:
             has_live_trigger.add(tid)
     return [
         {"id": str(t["id"]), "title": t.get("title") or "<untitled>"}
@@ -199,27 +200,54 @@ async def find_due_tasks(limit: int = 20) -> list[HydratedTask]:
     # stamping deleted_at, so the enabled=True filter alone catches user-
     # deleted rows. The deleted_at IS NULL clause is belt-and-suspenders
     # against any future code path that forgets to flip enabled.
+    # 🚨 THE TRIGGER IS THE CLOCK. A due task with no enabled trigger has nothing to roll its
+    # ``next_due_at`` forward after a fire, so it would be due on EVERY tick: 2026-11-01, "Podcast run
+    # reconciliation" (approved every 10 min) ran every 5 s, 14,864 times in a day, after a re-enable
+    # that forgot its trigger. Only tasks with a live clock are candidates — filtered IN the query, so
+    # clockless rows (sorted first by their stale instant) can never fill the limit and starve real
+    # ones. A clockless task runs only on demand (the queued-run pass); ``find_dark_tasks`` reports it.
+    # Guard: tests/test_no_clock_no_scheduled_fire.py.
+    SchTriggerModel = get_db_model("SchTrigger")
+    clocked = sorted({
+        str(r["task_id"])
+        for r in await SchTriggerModel.filter(enabled=True, deleted_at__isnull=True).values("task_id")
+    })
+    if not clocked:
+        return []
     rows = await (
         SchTaskModel.filter(
             enabled=True,
             deleted_at__isnull=True,
             next_due_at__lte=now_dt,
             surfaces__overlap=["any", surface],
+            id__in=clocked,
         )
         .order_by("next_due_at")
         .limit(limit)
         .values()
     )
 
+    # 🚨 A TASK WHOSE RUN IS STILL GOING IS NOT A CANDIDATE. Its fire stays due (``next_due_at``
+    # only rolls forward on a claim or when the run settles), so without this every tick tried to
+    # claim it and lost: 2026-11-13, "Mandate reference patrol" (every 4 h) ran for hours as a
+    # continuation chain and each worker logged a unique-violation ERROR every 5 s, ~670 an hour.
+    # The fire is not lost: once the run settles the task is a candidate again (same coalescing as
+    # before). Guard: tests/test_claim_never_collides.py.
+    busy = await task_ids_with_active_run([str(r["id"]) for r in rows])
+
     out: list[HydratedTask] = []
     for row in rows:
+        if str(row["id"]) in busy:
+            continue
         # Exclude expired tasks.
         expires_at = row.get("expires_at")
         if expires_at and expires_at < now_dt:
             continue
         task_id = row["id"]
-        agent_task = await _hydrate_agent_task(task_id)
         active_trigger = await _hydrate_active_trigger(task_id)
+        if active_trigger is None:
+            continue  # its trigger was disabled between the two reads; next tick decides
+        agent_task = await _hydrate_agent_task(task_id)
         task = SchTask(**row)
         out.append(HydratedTask(task=task, agent_task=agent_task, trigger=active_trigger))
     return out
@@ -280,6 +308,42 @@ async def find_queued_runs(limit: int = 20) -> list[tuple[SchRun, HydratedTask]]
 # ── Claim ───────────────────────────────────────────────────────────────────
 
 
+#: The run statuses ``sch_run_unique_active_per_task`` covers: one per task at most.
+ACTIVE_RUN_STATUSES: tuple[str, ...] = ("queued", "claimed", "running")
+
+#: The ON CONFLICT arbiter for that partial unique index (its predicate, verbatim).
+_ONE_ACTIVE_RUN_PER_TASK = ConflictTarget.partial(
+    ["task_id"], where_in={"status": ACTIVE_RUN_STATUSES}
+)
+
+
+async def insert_active_run(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """THE one way a queued/claimed/running ``sch_run`` row is born.
+
+    ``INSERT … ON CONFLICT (task_id) WHERE status IN (…) DO NOTHING RETURNING *``:
+    returns the landed row, or None when the task already has an active run —
+    the losing side of a race is a normal answer, never a unique-violation
+    ERROR in the database log. Any OTHER failure still raises."""
+    if payload.get("status") not in ACTIVE_RUN_STATUSES:
+        raise ValueError(f"insert_active_run is for active runs; got status {payload.get('status')!r}")
+    SchRunModel = get_db_model("SchRun")
+    rows = await SchRunModel.bulk_insert_ignore(
+        [payload], on_conflict=_ONE_ACTIVE_RUN_PER_TASK, returning=True
+    )
+    return dict(rows[0]) if rows else None
+
+
+async def task_ids_with_active_run(task_ids: list[str]) -> set[str]:
+    """The subset of ``task_ids`` that already hold an active run (one read)."""
+    if not task_ids:
+        return set()
+    SchRunModel = get_db_model("SchRun")
+    rows = await SchRunModel.filter(
+        task_id__in=task_ids, status__in=list(ACTIVE_RUN_STATUSES)
+    ).values("task_id")
+    return {str(r["task_id"]) for r in rows}
+
+
 async def claim_task(
     task: SchTask,
     trigger: SchTrigger | None,
@@ -287,15 +351,14 @@ async def claim_task(
     lease_seconds: int,
 ) -> SchRun | None:
     """
-    Atomic claim: INSERT into sch_run. The partial unique index
-    `sch_run_unique_active_per_task` (status IN queued|claimed|running) raises
-    a unique violation on the second concurrent claimer — we catch it and
-    return None. matrx-orm surfaces this as ``IntegrityError`` whose message
-    embeds the underlying Postgres error text (constraint name / SQLSTATE);
-    string-matching on the exception text (rather than importing the ORM's
-    exception class) keeps this module off the ``matrx_orm`` package
-    boundary, same approach ``api.user_queries``/``api.router_scheduler``
-    use for classifying errors.
+    Atomic claim: ``insert_active_run`` — one ``INSERT … ON CONFLICT (task_id)
+    WHERE status IN (queued, claimed, running) DO NOTHING`` against the partial
+    unique index ``sch_run_unique_active_per_task``. The second concurrent
+    claimer (or a claim on a task whose earlier run is still going) lands no
+    row and gets None: a normal outcome, never a Postgres ERROR. Until
+    2026-11-13 this was a plain INSERT that relied on the unique violation —
+    ~670 ERROR lines an hour in the database log while one long run held the
+    slot (see ``find_due_tasks``).
 
     Lease length = ``lease_seconds`` — the HEARTBEAT TIMEOUT, not the run
     ceiling. The runner renews ``claim_expires_at`` every third of it while the
@@ -316,7 +379,6 @@ async def claim_task(
             f"refusing to claim task {task.id}: task has no valid organization_id"
         ) from exc
 
-    SchRunModel = get_db_model("SchRun")
     surface = _surface()
     claim_token = str(uuid.uuid4())
     now = datetime.now(UTC)
@@ -337,15 +399,11 @@ async def claim_task(
         "claim_expires_at": expires,
         "metadata": {"claim_protocol": CLAIM_PROTOCOL},
     }
-    try:
-        instance = await SchRunModel.create(**payload)
-    except Exception as exc:
-        # Unique-violation (SQLSTATE 23505) = another scanner won the race. Expected; log at debug.
-        if db_sqlstate(exc) == "23505":
-            log.debug("claim race lost on task %s", task.id)
-            return None
-        raise
-    return SchRun(**instance.to_dict())
+    landed = await insert_active_run(payload)
+    if landed is None:
+        log.debug("claim race lost on task %s (it already has an active run)", task.id)
+        return None
+    return SchRun(**landed)
 
 
 async def claim_queued_run(

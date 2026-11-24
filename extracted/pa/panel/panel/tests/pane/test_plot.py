@@ -1,9 +1,18 @@
+from unittest.mock import Mock
+
 from bokeh.models import Div, Row as BkRow
+from bokeh.plotting import figure
+from bokeh.themes import Theme
 
 import panel as pn
 
-from panel.pane import Bokeh, Matplotlib, PaneBase
+from panel.config import config
+from panel.io.state import set_curdoc, state
+from panel.pane import (
+    PNG, Bokeh, Matplotlib, PaneBase,
+)
 from panel.tests.util import mpl_available, mpl_figure
+from panel.theme import Fast, Material
 
 
 def test_get_bokeh_pane_type():
@@ -33,6 +42,53 @@ def test_bokeh_pane(document, comm):
     # Cleanup
     pane._cleanup(row)
     assert pane._models == {}
+
+
+def test_bokeh_pane_theme_survives_attach(document, comm):
+    fig = figure()
+    pane = pn.pane.Bokeh(fig, theme='dark_minimal')
+
+    root = pane.get_root(document, comm=comm)
+    document.add_root(root)
+
+    assert fig.background_fill_color == '#2b3035'
+
+
+def test_bokeh_pane_theme_update_after_render(document, comm):
+    fig = figure()
+    pane = pn.pane.Bokeh(fig, theme='dark_minimal')
+    root = pane.get_root(document, comm=comm)
+    document.add_root(root)
+
+    pane.theme = Theme(json={'attrs': {'Plot': {'background_fill_color': 'red'}}})
+
+    assert fig.background_fill_color == 'red'
+
+
+def test_bokeh_pane_design_not_synced_to_model(document):
+    fig = figure()
+    pane = pn.pane.Bokeh(fig, design=Fast)
+    pane.get_root(document)
+
+    pane.design = Material
+    pane.width = 300
+
+    assert fig.width == 300
+    assert 'design' not in pane._overrides
+
+
+def test_bokeh_pane_servable_with_global_template(document):
+    fig = figure()
+    pane = pn.pane.Bokeh(fig)
+    session_context = Mock()
+    session_context.request.arguments = {}
+    document._session_context = lambda: session_context
+
+    with config.set(template='fast'), set_curdoc(document):
+        pane.servable()
+        assert pane in state.template.main.objects
+
+    assert pane.design is Fast
 
 
 @mpl_available
@@ -94,3 +150,36 @@ def test_matplotlib_pane_svg_render_not_fixed_aspect(document, comm):
     assert model.text.count('width=&quot;100%&quot;')==1
     assert model.text.count('height=&quot;100%&quot;')==1
     assert model.text.count('preserveAspectRatio=&quot;none&quot;')==1
+
+
+
+@mpl_available
+def test_matplotlib_pane_high_dpi_png_rendered_at_twice_dpi(document, comm):
+    fig = mpl_figure()
+    hidpi = pn.pane.Matplotlib(fig, dpi=144)
+    lodpi = pn.pane.Matplotlib(fig, dpi=144, high_dpi=False)
+    hidpi_width, _ = PNG._imgshape(hidpi._data(fig))
+    lodpi_width, _ = PNG._imgshape(lodpi._data(fig))
+    assert abs(hidpi_width - 2 * lodpi_width) <= 1
+
+
+@mpl_available
+def test_matplotlib_pane_high_dpi_png_displayed_at_dpi_size(document, comm):
+    fig = mpl_figure()
+    hidpi = pn.pane.Matplotlib(fig, dpi=144).get_root(document, comm=comm)
+    lodpi = pn.pane.Matplotlib(fig, dpi=144, high_dpi=False).get_root(document, comm=comm)
+    assert (hidpi.width, hidpi.height) == (lodpi.width, lodpi.height)
+
+
+@mpl_available
+def test_matplotlib_pane_high_dpi_disabled(document, comm):
+    pane = pn.pane.Matplotlib(mpl_figure(), dpi=144, high_dpi=False)
+    model = pane.get_root(document, comm=comm)
+    assert (model.width, model.height) == PNG._imgshape(pane._data(pane.object))
+
+
+@mpl_available
+def test_matplotlib_pane_high_dpi_explicit_width(document, comm):
+    pane = pn.pane.Matplotlib(mpl_figure(), dpi=144, width=300)
+    model = pane.get_root(document, comm=comm)
+    assert model.width == 300

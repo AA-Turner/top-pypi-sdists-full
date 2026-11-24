@@ -7,12 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from matrx_graph.once import OncePolicy
 from matrx_graph.in_organization import InOrganizationPolicy
 from matrx_graph.one_at_a_time import OneAtATimePolicy
+from matrx_graph.says import SaysPolicy
 
 from matrx_graph.types.channel import ChannelSpec
 from matrx_graph.types.input_surface import InputSpec
 from matrx_graph.types.primitives import EdgeKind, RetryPolicy
 from matrx_graph.types.review import ReviewMark
-from matrx_graph.types.variables import VariableSpec
+from matrx_graph.input_declaration import VariableDefinition
 
 
 class StepClock(BaseModel):
@@ -86,6 +87,9 @@ class CompiledNode(BaseModel):
     # One at a time per key (``data.one_at_a_time``, matrx_graph/one_at_a_time.py): while another
     # invocation holds this key's turn the step waits (and says so), then works. None = ordinary.
     one_at_a_time: OneAtATimePolicy | None = None
+    # What the step says (``data.says``, matrx_graph/says.py): progress lines rendered onto its own
+    # node_started / node_completed / node_failed / item_settled events as the work happens. None = silent.
+    says: SaysPolicy | None = None
     # Run in another organization the run's person belongs to (``data.in_organization``,
     # matrx_graph/in_organization.py): the host admits the person, then the executor call runs
     # in that organization. None = the run's own organization (default).
@@ -122,6 +126,9 @@ class CompiledNode(BaseModel):
     join_policy: Literal["all", "any"] = "all"
     on_skipped_upstream: Literal["propagate_empty", "block", "default_value"] = "propagate_empty"
     skip_defaults: dict[str, Any] = Field(default_factory=dict)
+    # §3.3b: an input whose step was skipped by its 'Only when' stops this step too ("skip"),
+    # unless the step declares it handles that input missing ("run").
+    when_input_skipped: Literal["skip", "run"] = "skip"
     arg_merge: dict[str, str] = Field(default_factory=dict)
     # Node Result System — fan-out item-failure policy. Authored as
     # ``data.on_item_failure`` on the WORKER node of a fanned chain
@@ -243,13 +250,25 @@ class CompiledGraph(BaseModel):
     start_when_ready: bool = Field(
         default=False,
         description=(
-            "From Definition.metadata['start_when_ready'] is True: the scheduler starts a "
+            "On unless Definition.metadata['start_when_ready'] is False: the scheduler starts a "
             "step as soon as its last input lands (executor/FEATURE.md § START "
             "WHEN READY), not only one hop past the barrier."
         ),
     )
     source_metadata: dict[str, Any] = Field(default_factory=dict)
-    variables: dict[str, VariableSpec] = Field(
+    row_output_ids: frozenset[str] | None = Field(
+        default=None,
+        description="Steps whose output a finished run's row keeps (deliverables_row_outputs); None = all.",
+    )
+    durability: str = Field(
+        default="every_step",
+        description=(
+            "Definition.metadata['durability']: 'every_step' (default) checkpoints every "
+            "super-step; 'boundaries' writes only a chain of re-runnable steps' last checkpoint "
+            "(executor/scheduler.py § DURABILITY LEVELS)."
+        ),
+    )
+    variables: dict[str, VariableDefinition] = Field(
         default_factory=dict,
         description=(
             "Declared run variables keyed by name (Definition.variables). "
@@ -271,3 +290,10 @@ class CompiledGraph(BaseModel):
             "collision was refused at compile time."
         ),
     )
+
+    def output_reads(self, node_id: str) -> tuple[str, ...] | None:
+        """The source paths ``node_id``'s outgoing connections read out of its output; None
+        when the whole output is read (``mapping_sources.output_reads``)."""
+        from matrx_graph.mapping_sources import output_reads
+
+        return output_reads(e for e in self.edges.values() if e.source_node_id == node_id)

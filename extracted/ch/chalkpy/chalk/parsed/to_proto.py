@@ -935,6 +935,9 @@ class ToProtoConverter:
                 auxiliary_namespace=f.auxiliary_namespace,
             )
         )
+        # The field is proto3 `optional`: leaving it unset preserves "the user did not choose".
+        if f.related_may_not_exist is not None:
+            res.has_one.related_may_not_exist = f.related_may_not_exist
         return res
 
     @staticmethod
@@ -1736,6 +1739,7 @@ class ToProtoConverter:
             message_producer=message_producer,
             skip_online=r.skip_online,
             skip_offline=r.skip_offline,
+            exactly_once=r.exactly_once,
             update_aggregates=r.updates_materialized_aggregations,
             message_format=stream_message_format,
             header_filters=header_filters,

@@ -72,6 +72,31 @@ def _is_unconstrained(spec: dict) -> bool:
     return any(_is_unconstrained(b) for b in branches if isinstance(b, dict))
 
 
+def _canonical_enums(node):
+    """Sort every ``enum`` list in place so the document never depends on import order.
+
+    A ``Literal`` hashes and compares by its SET of values, and ``typing`` caches
+    ``Optional[...]`` / ``Union[...]`` by those keys. So when a library declares the
+    same values in another order first — the OpenAI SDK's
+    ``Optional[Literal["transparent", "opaque", "auto"]]`` in
+    ``openai.types.responses.tool`` — our ``Optional[Literal["auto", "opaque",
+    "transparent"]]`` is handed THEIR cached object, and the emitted enum order
+    flips with whatever happened to be imported first (nightly level1, 2026-11-01).
+    The declared order is unrecoverable at runtime, so the order an enum is
+    emitted in is the one order that cannot vary: sorted.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "enum" and isinstance(value, list):
+                value.sort(key=lambda v: (type(v).__name__, json.dumps(v, sort_keys=True)))
+            else:
+                _canonical_enums(value)
+    elif isinstance(node, list):
+        for item in node:
+            _canonical_enums(item)
+    return node
+
+
 def build() -> tuple[dict, list[str]]:
     """Return (schema document, list of unconstrained fields)."""
     models = _exported_models()
@@ -102,7 +127,7 @@ def build() -> tuple[dict, list[str]]:
             "hold is not migrated yet. Listed rather than hidden: a consumer must know which "
             "parts of the contract are not actually described."
         ),
-        "$defs": dict(sorted(defs.items())),
+        "$defs": _canonical_enums(dict(sorted(defs.items()))),
     }
     return doc, sorted(loose)
 

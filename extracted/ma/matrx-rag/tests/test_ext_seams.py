@@ -13,6 +13,8 @@ import importlib
 
 import pytest
 
+LONG_RAW = "raw page text " * 12
+
 
 def test_default_document_writer_is_noop_and_warns_once(caplog):
     """A fresh process gets the NoOpDocumentWriter. First call logs a
@@ -94,7 +96,6 @@ def test_exception_class_rebinding():
 
     matrx_rag._ext._reset_for_tests()
 
-    original = matrx_rag._ext.NotFoundError
 
     class HostNotFoundError(Exception):
         pass
@@ -421,7 +422,7 @@ async def test_llm_jobs_raise_without_runner():
     matrx_rag._ext._reset_for_tests()  # no runner injected
 
     with pytest.raises(RuntimeError, match="requires a RagAgentRunner"):
-        await llm_mod.clean_pdf_text("raw page text")
+        await llm_mod.clean_pdf_text(LONG_RAW)
     with pytest.raises(RuntimeError, match="requires a RagAgentRunner"):
         await llm_mod.contextualize_chunk("a long document", "a chunk")
     with pytest.raises(RuntimeError, match="requires a RagAgentRunner"):
@@ -693,7 +694,7 @@ async def test_llm_functions_delegate_to_runner_when_injected():
     assert await llm_mod.hyde_passage("a query") == "agent hyde"
 
     # clean -> normalized CleanedPage (section_kind lowercased by assembly)
-    page = await llm_mod.clean_pdf_text("raw page text")
+    page = await llm_mod.clean_pdf_text(LONG_RAW)
     assert page.text == "agent cleaned"
     assert page.section_kind == "legal"
 
@@ -735,8 +736,8 @@ async def test_llm_runner_failure_falls_back_like_raw():
     assert await llm_mod.contextualize_chunk("doc", "chunk") == ""
     assert await llm_mod.expand_query("q", n=3) == ["q"]
     assert await llm_mod.hyde_passage("q") == ""
-    page = await llm_mod.clean_pdf_text("raw")
-    assert page.text == "raw"
+    page = await llm_mod.clean_pdf_text(LONG_RAW)
+    assert page.text == LONG_RAW
     # Runner outage ⇒ honestly unclassified (""), never the fake bucket "other".
     assert page.section_kind == ""
 

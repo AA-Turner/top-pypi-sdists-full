@@ -16,12 +16,14 @@ import zipfile
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import CoroutineType
 from typing import Any, NoReturn
 
 import httpx
 import httpx2
 import pytest
 import respx
+from packaging.version import Version
 
 from nab_index.cache import CachePolicy, NullCache, OfflineError, OnDiskCache
 from nab_index.cached_client import CachedAsyncSimpleClient, SdistArchiveHold
@@ -38,13 +40,13 @@ from nab_index.lazy_wheel import RangeOutcome
 from nab_index.local_index import LocalIndexClient
 from nab_index.multi_index import IndexConfig, MultiIndexClient
 from nab_index.parsed_listing import encode as encode_parsed
+from nab_index.response import ResponseBody
 from nab_index.transport import AsyncHttpTransport, HttpError, HttpResponse
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
+from nab_project import _fetch_requests as fetch_requests
 from nab_project.fetch import (
     _WARM_SYNC_MIN_BLOB_BYTES,
     FetchCoordinator,
-    FetchKind,
-    FetchRequest,
     IndexRoute,
     InMemoryIndex,
     WarmSyncStats,
@@ -52,13 +54,24 @@ from nab_project.fetch import (
     _resolve_routes,
 )
 from nab_project.inputs import ResolveInputs
-from nab_provider._vendor.packaging.version import Version
+from nab_provider.errors import IndexAccessError
 from nab_provider.metadata import WheelMetadata
 from nab_provider.overrides import IndexOverride
-from nab_provider.policy import BuildPolicy
+from nab_provider.policy import (
+    BuildPolicy,
+    LocalSource,
+    SourceMaterialization,
+    SourceRequest,
+)
+from nab_provider.provider import Provider
 from nab_provider.serialization import SimpleSerialization
-from nab_provider.store import metadata_pending_key, sdist_artifact_key
+from nab_provider.store import (
+    metadata_pending_key,
+    range_pending_key,
+    sdist_artifact_key,
+)
 from nab_provider.testing import make_wheel, pkg_override
+from nab_provider.yanking import mark_yanked
 
 
 @pytest.fixture
@@ -79,20 +92,16 @@ def _coord(**kwargs: object) -> FetchCoordinator:
     return coord
 
 
-def _wait_until(predicate: Callable[[], bool], timeout: float = 5) -> bool:
-    """Return whether ``predicate`` holds before ``timeout``.
-
-    The coordinator finishes some work without setting the waiter's event, so
-    waiting on the event itself would just spend the whole timeout.
-    """
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if predicate():
-            return True
+def _prefetched_metadata(
+    coord: FetchCoordinator, package: str, version: str, sidecar: str
+) -> str | None:
+    """Wait for the speculative fetch without submitting another request."""
+    deadline = time.monotonic() + 5
+    while not coord.index.has_metadata(package, version, sidecar):
+        if time.monotonic() >= deadline:
+            break
         time.sleep(0.01)
-
-    # One last look, in case the work landed during the final sleep.
-    return predicate()
+    return coord.index.get_metadata(package, version, sidecar)
 
 
 class _FetcherDeath(BaseException):
@@ -110,483 +119,6 @@ class _FailingTransport:
 
     async def aclose(self) -> NoReturn:
         raise self._failure
-
-
-class TestInMemoryIndex:
-    def test_listing_roundtrip(self) -> None:
-        idx = InMemoryIndex()
-        assert idx.get_listing("foo") is None
-        wheels = [
-            make_wheel(v, package="foo", has_metadata=False)
-            for v in ("1.0", "2.0", "3.0")
-        ]
-        idx.store_listing("foo", wheels)
-        assert idx.get_listing("foo") == wheels
-
-    def test_offline_listing_miss_roundtrip(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_listing("foo", [], offline_miss=True)
-        assert idx.get_listing("foo") == []
-        assert idx.is_offline_listing_miss("foo")
-
-    def test_served_empty_listing_is_not_an_offline_miss(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_listing("foo", [])
-        assert not idx.is_offline_listing_miss("foo")
-
-    def test_offline_listing_miss_fires_listing_pending(self) -> None:
-        idx = InMemoryIndex()
-        event, _ = idx.get_or_create_pending("listing:foo")
-        idx.store_listing("foo", [], offline_miss=True)
-        assert event.is_set()
-
-    def test_the_yank_mark_is_set_before_the_listing_lands(self) -> None:
-        """The yank mark lands first, so a page caught mid-store never reads absent."""
-        idx = InMemoryIndex()
-        readback: list[str] = []
-
-        class _ReadOnPublish(dict[str, list[WheelFile | SdistFile]]):
-            """Classify the page the instant its listing slot becomes readable."""
-
-            def __setitem__(self, key: str, value: list[WheelFile | SdistFile]) -> None:
-                super().__setitem__(key, value)
-                assert idx.get_listing(key) == []
-                readback.append(
-                    "yanked" if idx.is_all_yanked_listing(key) else "absent"
-                )
-
-        idx._listings = _ReadOnPublish()
-        idx.store_listing("foo", [], all_yanked=True)
-
-        assert readback == ["yanked"]
-        assert idx.is_all_yanked_listing("foo")
-
-    def test_metadata_roundtrip(self) -> None:
-        idx = InMemoryIndex()
-        assert idx.get_metadata("foo", "1.0") is None
-        assert not idx.has_metadata("foo", "1.0")
-        idx.store_metadata("foo", "1.0", "Metadata-Version: 2.1")
-        assert idx.get_metadata("foo", "1.0") == "Metadata-Version: 2.1"
-        assert idx.has_metadata("foo", "1.0")
-
-    def test_metadata_slot_keeps_only_the_header_block(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_metadata(
-            "foo", "1.0", "Name: foo\nVersion: 1.0\n\nA long description.\n"
-        )
-        assert idx.get_metadata("foo", "1.0") == "Name: foo\nVersion: 1.0\n\n"
-
-    def test_sdist_metadata_slot_keeps_only_the_header_block(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_sdist_metadata(
-            "foo", "1.0", "Name: foo\nVersion: 1.0\n\nA long description.\n"
-        )
-        assert idx.get_metadata("foo", "1.0") == "Name: foo\nVersion: 1.0\n\n"
-        assert idx.metadata_from_sdist("foo", "1.0")
-
-    def test_sdist_metadata_slot_drops_the_folded_description(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_sdist_metadata(
-            "foo",
-            "1.0",
-            "Name: foo\nDescription: Foo\n        A long description.\nVersion: 1.0\n",
-        )
-        assert idx.get_metadata("foo", "1.0") == "Name: foo\nVersion: 1.0\n"
-
-    def test_equal_metadata_texts_in_a_release_share_one_str(self) -> None:
-        """Wheels of one version whose header blocks match hold one shared str."""
-        idx = InMemoryIndex()
-        linux = "Name: foo\nVersion: 1.0\nRequires-Dist: linux-only\n\n"
-        macos = "Name: foo\nVersion: 1.0\nRequires-Dist: macos-only\n\n"
-        windows = "Name: foo\nVersion: 1.0\nRequires-Dist: windows-only\n\n"
-        wheels = [
-            ("https://example.com/foo-linux.whl", linux),
-            ("https://example.com/foo-manylinux.whl", linux),
-            ("https://example.com/foo-macos.whl", macos),
-            ("https://example.com/foo-macos-arm.whl", macos),
-            ("https://example.com/foo-windows.whl", windows),
-        ]
-        for url, header in wheels:
-            idx.store_metadata(
-                "foo", "1.0", header + "A long description.\n", metadata_url=url
-            )
-
-        held = [idx.get_metadata("foo", "1.0", metadata_url=url) for url, _ in wheels]
-
-        assert held == [linux, linux, macos, macos, windows]
-
-        assert held[0] is held[1]
-        assert held[2] is held[3]
-        assert held[0] is not held[2]
-
-    def test_sdist_pyproject_slot_keeps_only_the_project_table(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_sdist_pyproject(
-            "foo",
-            "1.0",
-            {
-                "project": {"name": "foo"},
-                "build-system": {"requires": ["setuptools"]},
-                "tool": {"mypy": {"strict": True}},
-            },
-        )
-        assert idx.get_sdist_pyproject("foo", "1.0") == {"project": {"name": "foo"}}
-
-    def test_sdist_pyproject_with_no_project_table_reads_as_fetched(self) -> None:
-        """An empty table keeps a fetched pyproject distinct from an absent one."""
-        idx = InMemoryIndex()
-        idx.store_sdist_pyproject("foo", "1.0", {"build-system": {"requires": []}})
-
-        assert idx.get_sdist_pyproject("foo", "1.0") == {}
-        assert idx.get_sdist_pyproject("bar", "1.0") is None
-
-    def test_store_metadata_none(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_metadata("foo", "1.0", None)
-        assert idx.has_metadata("foo", "1.0")
-
-    def test_offline_metadata_miss_roundtrip(self) -> None:
-        idx = InMemoryIndex()
-        url = "https://files.example.com/foo-1.0.whl"
-        assert not idx.is_offline_metadata_miss("foo", "1.0", url)
-        idx.record_offline_metadata_miss("foo", "1.0", url)
-        assert idx.is_offline_metadata_miss("foo", "1.0", url)
-        assert not idx.is_offline_metadata_miss("foo", "2.0", url)
-
-    def test_an_offline_miss_is_keyed_to_the_rung_that_skipped(self) -> None:
-        idx = InMemoryIndex()
-        idx.record_offline_metadata_miss(
-            "foo", "1.0", "https://files.example.com/foo-1.0.whl"
-        )
-        assert not idx.is_offline_metadata_miss(
-            "foo", "1.0", "https://files.example.com/foo-1.0.tar.gz"
-        )
-        assert not idx.is_offline_metadata_miss("foo", "1.0", None)
-
-    def test_empty_metadata_slot_is_not_an_offline_miss(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_metadata("foo", "1.0", None)
-        idx.store_sdist_metadata("foo", "1.0", None)
-        assert not idx.is_offline_metadata_miss("foo", "1.0", None)
-
-    def test_only_the_first_caller_claims_the_offline_warning(self) -> None:
-        idx = InMemoryIndex()
-        assert idx.claim_offline_metadata_warning("foo")
-        assert not idx.claim_offline_metadata_warning("foo")
-        assert idx.claim_offline_metadata_warning("bar")
-
-    def test_metadata_error_roundtrip(self) -> None:
-        idx = InMemoryIndex()
-        assert idx.get_metadata_error("foo", "1.0") is None
-        error = MetadataHashMismatchError("metadata sha256 mismatch")
-        idx.store_metadata_error("foo", "1.0", error)
-        assert idx.get_metadata_error("foo", "1.0") is error
-        assert idx.get_metadata("foo", "1.0") is None
-
-    def test_store_metadata_error_fires_metadata_pending(self) -> None:
-        idx = InMemoryIndex()
-        event, _ = idx.get_or_create_pending("metadata:foo:1.0:https://f/a.metadata")
-        idx.store_metadata_error(
-            "foo", "1.0", MetadataHashMismatchError("bad"), "https://f/a.metadata"
-        )
-        assert event.is_set()
-
-    def test_store_metadata_error_without_pending(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_metadata_error("foo", "1.0", MetadataHashMismatchError("bad"))
-        assert idx.get_metadata_error("foo", "1.0") is not None
-        assert idx.get_metadata("foo", "1.0") is None
-
-    def test_pending_event_set_on_listing(self) -> None:
-        idx = InMemoryIndex()
-        event, existed = idx.get_or_create_pending("listing:foo")
-        assert not existed
-        assert not event.is_set()
-        wheels = [make_wheel(package="foo", has_metadata=False)]
-        idx.store_listing("foo", wheels)
-        assert event.is_set()
-        assert idx.get_listing("foo") == wheels
-
-    def test_pending_event_set_on_metadata(self) -> None:
-        idx = InMemoryIndex()
-        event, existed = idx.get_or_create_pending("metadata:foo:1.0:https://f/a.md")
-        assert not existed
-        idx.store_metadata("foo", "1.0", "text", metadata_url="https://f/a.md")
-        assert event.is_set()
-        assert idx.get_metadata_with_origin("foo", "1.0", "https://f/a.md") == (
-            "text",
-            False,
-        )
-
-    def test_sidecar_slot_answers_only_for_its_own_artifact(self) -> None:
-        linux_url = "https://f/linux.whl.metadata"
-        win_url = "https://f/win.whl.metadata"
-        idx = InMemoryIndex()
-        idx.store_metadata("foo", "1.0", "linux", metadata_url=linux_url)
-        assert idx.has_metadata("foo", "1.0", linux_url)
-        assert not idx.has_metadata("foo", "1.0", win_url)
-
-    def test_a_positional_metadata_url_is_refused(self) -> None:
-        """A transposed store raises instead of writing the URL as the text.
-
-        ``data`` and ``metadata_url`` are both ``str | None``, so a positional
-        ``metadata_url`` would take a swapped call and store the URL.
-        """
-        url = "https://f/linux.whl.metadata"
-        idx = InMemoryIndex()
-        with pytest.raises(TypeError):
-            idx.store_metadata("foo", "1.0", url, "linux")  # type: ignore[call-arg]
-        assert not idx.has_metadata("foo", "1.0", url)
-
-    def test_sibling_sidecars_keep_their_own_text(self) -> None:
-        """Two wheels of one version can declare different dependencies."""
-        linux_url = "https://f/linux.whl.metadata"
-        win_url = "https://f/win.whl.metadata"
-        idx = InMemoryIndex()
-        idx.store_metadata("foo", "1.0", "linux", metadata_url=linux_url)
-        idx.store_metadata("foo", "1.0", "win", metadata_url=win_url)
-        assert idx.get_metadata("foo", "1.0", linux_url) == "linux"
-        assert idx.get_metadata("foo", "1.0", win_url) == "win"
-        assert idx.get_metadata("foo", "1.0") is None
-
-    def test_an_injected_override_answers_for_any_artifact(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_metadata("foo", "1.0", "override\n")
-        assert idx.has_metadata("foo", "1.0", "https://f/win.whl.metadata")
-        assert idx.get_metadata_with_origin(
-            "foo", "1.0", "https://f/win.whl.metadata"
-        ) == ("override\n", False)
-
-    def test_sdist_pkg_info_does_not_answer_for_an_unfetched_sidecar(self) -> None:
-        """A wheel that declares its own dependencies must fetch them.
-
-        The sdist is a fallback for an artifact with no text of its own, so
-        lending its PKG-INFO to a sidecar nobody has fetched yet would give
-        the wheel the sdist's dependencies instead of the wheel's.
-        """
-        idx = InMemoryIndex()
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO\n")
-        assert not idx.has_metadata("foo", "1.0", "https://f/win.whl.metadata")
-        assert idx.get_metadata_with_origin(
-            "foo", "1.0", "https://f/win.whl.metadata"
-        ) == (None, False)
-        assert idx.get_metadata_with_origin("foo", "1.0") == ("PKG-INFO\n", True)
-
-    def test_a_sidecar_that_was_not_served_falls_back_to_the_sdist(self) -> None:
-        """An empty sidecar slot does not shadow the version-level text."""
-        url = "https://f/a.whl.metadata"
-        idx = InMemoryIndex()
-        idx.store_metadata("foo", "1.0", None, metadata_url=url)
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO\n")
-        assert idx.has_metadata("foo", "1.0", url)
-        assert idx.get_metadata_with_origin("foo", "1.0", url) == ("PKG-INFO\n", True)
-
-    def test_has_metadata_is_false_on_an_empty_slot(self) -> None:
-        idx = InMemoryIndex()
-        assert not idx.has_metadata("foo", "1.0", "https://f/a.whl.metadata")
-
-    def test_a_sidecars_integrity_error_answers_only_for_that_sidecar(self) -> None:
-        linux_url = "https://f/linux.whl.metadata"
-        win_url = "https://f/win.whl.metadata"
-        idx = InMemoryIndex()
-        error = MetadataHashMismatchError("metadata sha256 mismatch")
-        idx.store_metadata_error("foo", "1.0", error, linux_url)
-        assert idx.get_metadata_error("foo", "1.0", linux_url) is error
-        assert idx.get_metadata_error("foo", "1.0", win_url) is None
-        assert idx.get_metadata_error("foo", "1.0") is None
-
-    def test_a_version_level_integrity_error_answers_for_any_artifact(self) -> None:
-        idx = InMemoryIndex()
-        error = SdistHashMismatchError("boom")
-        idx.store_sdist_metadata_error("foo", "1.0", error)
-        assert idx.get_metadata_error("foo", "1.0", "https://f/a.whl.metadata") is error
-
-    def test_get_or_create_existing(self) -> None:
-        idx = InMemoryIndex()
-        first, existed1 = idx.get_or_create_pending("key")
-        second, existed2 = idx.get_or_create_pending("key")
-        assert not existed1
-        assert existed2
-        assert first is second
-
-    def test_get_or_create_after_the_fetch_landed(self) -> None:
-        """A published key still reports as existing, and its event is set."""
-        idx = InMemoryIndex()
-        idx.get_or_create_pending("listing:foo")
-        idx.store_listing("foo", [])
-
-        event, existed = idx.get_or_create_pending("listing:foo")
-
-        assert existed
-        assert event.is_set()
-
-    def test_store_sdist_metadata_fires_sdist_pending(self) -> None:
-        idx = InMemoryIndex()
-        event, _ = idx.get_or_create_pending("sdist:foo:1.0")
-        assert not event.is_set()
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO\n")
-        assert event.is_set()
-        assert idx.get_metadata("foo", "1.0") == "PKG-INFO\n"
-
-    def test_store_sdist_metadata_without_pending(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_sdist_metadata("foo", "1.0", None)
-        assert idx.has_metadata("foo", "1.0")
-        assert idx.get_metadata("foo", "1.0") is None
-
-    def test_store_sdist_metadata_error_fires_sdist_pending(self) -> None:
-        idx = InMemoryIndex()
-        event, _ = idx.get_or_create_pending("sdist:foo:1.0")
-        assert not event.is_set()
-        err = SdistHashMismatchError("boom")
-        idx.store_sdist_metadata_error("foo", "1.0", err)
-        assert event.is_set()
-        assert idx.get_metadata_error("foo", "1.0") is err
-        assert idx.get_metadata("foo", "1.0") is None
-
-    def test_store_sdist_metadata_error_without_pending(self) -> None:
-        idx = InMemoryIndex()
-        err = SdistHashMismatchError("boom")
-        idx.store_sdist_metadata_error("foo", "1.0", err)
-        assert idx.get_metadata_error("foo", "1.0") is err
-
-    def test_metadata_from_sdist_tracks_last_write(self) -> None:
-        idx = InMemoryIndex()
-        assert not idx.metadata_from_sdist("foo", "1.0")
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO\n")
-        assert idx.metadata_from_sdist("foo", "1.0")
-        idx.store_metadata("foo", "1.0", "METADATA\n")
-        assert not idx.metadata_from_sdist("foo", "1.0")
-
-    def test_metadata_none_keeps_stored_sdist_pkg_info(self) -> None:
-        """A failed sidecar fetch must not erase stored sdist PKG-INFO."""
-        idx = InMemoryIndex()
-        event, _ = idx.get_or_create_pending("metadata:foo:1.0:https://f/a.md")
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO\n")
-        idx.store_metadata("foo", "1.0", None, metadata_url="https://f/a.md")
-        assert event.is_set()
-        assert idx.get_metadata("foo", "1.0") == "PKG-INFO\n"
-        assert idx.metadata_from_sdist("foo", "1.0")
-        # The sidecar that resolved to nothing reads the kept text.
-        assert idx.get_metadata_with_origin("foo", "1.0", "https://f/a.md") == (
-            "PKG-INFO\n",
-            True,
-        )
-
-    def test_metadata_none_after_sdist_none_stays_none(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_sdist_metadata("foo", "1.0", None)
-        idx.store_metadata("foo", "1.0", None)
-        assert idx.get_metadata("foo", "1.0") is None
-        assert not idx.metadata_from_sdist("foo", "1.0")
-
-    def test_sdist_archive_pending_event_fires(self) -> None:
-        idx = InMemoryIndex()
-        event, _ = idx.get_or_create_pending("sdist-archive:foo:1.0")
-        assert not event.is_set()
-        idx.store_sdist_archive("foo", "1.0", b"bytes")
-        assert event.is_set()
-        assert idx.get_sdist_archive("foo", "1.0") == b"bytes"
-
-    def test_sdist_archive_without_pending(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_sdist_archive("foo", "1.0", None)
-        assert idx.get_sdist_archive("foo", "1.0") is None
-
-    def test_store_sdist_archive_error_fires_pending(self) -> None:
-        idx = InMemoryIndex()
-        event, _ = idx.get_or_create_pending("sdist-archive:foo:1.0")
-        assert not event.is_set()
-        err = SdistHashMismatchError("boom")
-        idx.store_sdist_archive_error("foo", "1.0", err)
-        assert event.is_set()
-        assert idx.get_sdist_archive_error("foo", "1.0") is err
-        assert idx.get_sdist_archive("foo", "1.0") is None
-
-    def test_store_sdist_archive_error_without_pending(self) -> None:
-        idx = InMemoryIndex()
-        err = SdistHashMismatchError("boom")
-        idx.store_sdist_archive_error("foo", "1.0", err)
-        assert idx.get_sdist_archive_error("foo", "1.0") is err
-
-    def test_parsed_metadata_roundtrip(self) -> None:
-        """``store_parsed_metadata`` and ``get_parsed_metadata`` round-trip."""
-        idx = InMemoryIndex()
-        sentinel = object()
-        assert idx.get_parsed_metadata("foo", "1.0", "METADATA") is None
-        idx.store_parsed_metadata("foo", "1.0", sentinel, "METADATA")
-        assert idx.get_parsed_metadata("foo", "1.0", "METADATA") is sentinel
-
-    def test_parsed_metadata_per_version(self) -> None:
-        """Each ``(package, version)`` pair has its own slot."""
-        idx = InMemoryIndex()
-        idx.store_parsed_metadata("foo", "1.0", "v1", "TEXT-1")
-        idx.store_parsed_metadata("foo", "2.0", "v2", "TEXT-2")
-        assert idx.get_parsed_metadata("foo", "1.0", "TEXT-1") == "v1"
-        assert idx.get_parsed_metadata("foo", "2.0", "TEXT-2") == "v2"
-
-    def test_parsed_metadata_keeps_every_text_of_a_version(self) -> None:
-        """Keep a separate parse for each metadata text at a version."""
-        idx = InMemoryIndex()
-        idx.store_parsed_metadata("foo", "1.0", "linux-parse", "LINUX-METADATA")
-        idx.store_parsed_metadata("foo", "1.0", "win-parse", "WIN-METADATA")
-        assert idx.get_parsed_metadata("foo", "1.0", "LINUX-METADATA") == "linux-parse"
-        assert idx.get_parsed_metadata("foo", "1.0", "WIN-METADATA") == "win-parse"
-
-    def test_parsed_metadata_answers_only_for_its_own_text(self) -> None:
-        """Do not return a parse for different metadata text."""
-        idx = InMemoryIndex()
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO")
-        idx.store_parsed_metadata("foo", "1.0", "sdist-parse", "PKG-INFO")
-        idx.store_metadata("foo", "1.0", "METADATA")
-        assert idx.get_parsed_metadata("foo", "1.0", "METADATA") is None
-
-    def test_get_metadata_with_origin_reports_the_last_write(self) -> None:
-        """Text and origin come back together, from whichever kind wrote last."""
-        idx = InMemoryIndex()
-        assert idx.get_metadata_with_origin("foo", "1.0") == (None, False)
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO")
-        assert idx.get_metadata_with_origin("foo", "1.0") == ("PKG-INFO", True)
-        idx.store_metadata("foo", "1.0", "METADATA")
-        assert idx.get_metadata_with_origin("foo", "1.0") == ("METADATA", False)
-
-    def test_resolved_sdist_metadata_roundtrip(self) -> None:
-        """``store_resolved_sdist_metadata`` round-trips through ``get``."""
-        idx = InMemoryIndex()
-        sentinel = object()
-        assert idx.get_resolved_sdist_metadata("foo", "1.0") is None
-        idx.store_resolved_sdist_metadata("foo", "1.0", sentinel)
-        assert idx.get_resolved_sdist_metadata("foo", "1.0") is sentinel
-
-    def test_metadata_rewrite_drops_the_reconciled_sdist_view(self) -> None:
-        """Replacing the raw text drops the post-reconciliation entry too.
-
-        The reconciled record is the PKG-INFO in the slot plus the bundled
-        pyproject.toml or a PEP 517 build, so it cannot outlive that text.
-        """
-        idx = InMemoryIndex()
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO")
-        idx.store_resolved_sdist_metadata("foo", "1.0", "resolved")
-        idx.store_metadata("foo", "1.0", "METADATA")
-        assert idx.get_resolved_sdist_metadata("foo", "1.0") is None
-
-    def test_restoring_the_same_text_keeps_the_reconciled_sdist_view(self) -> None:
-        """Re-storing identical text is not a rewrite, so the entry survives."""
-        idx = InMemoryIndex()
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO")
-        idx.store_resolved_sdist_metadata("foo", "1.0", "resolved")
-        idx.store_sdist_metadata("foo", "1.0", "PKG-INFO")
-        assert idx.get_resolved_sdist_metadata("foo", "1.0") == "resolved"
-
-    def test_listing_index_roundtrip(self) -> None:
-        """``store_listing_index`` records the serving index name, and
-        ``get_listing_index`` returns it on lookup or ``None`` when no
-        index has served the package yet.
-        """
-        idx = InMemoryIndex()
-        assert idx.get_listing_index("foo") is None
-        idx.store_listing_index("foo", "primary")
-        assert idx.get_listing_index("foo") == "primary"
 
 
 LISTING_JSON = {
@@ -609,6 +141,22 @@ LISTING_JSON = {
 }
 
 METADATA_TEXT = "Metadata-Version: 2.1\nName: testpkg\nVersion: 1.0\n"
+
+
+class ShutdownObserver(FetchCoordinator):
+    """Expose when the real shutdown call has posted the stop marker."""
+
+    def __init__(self) -> None:
+        super().__init__(HttpxAsyncTransport())
+        self.stop_posted = threading.Event()
+
+    def _submit(
+        self,
+        item: fetch_requests.FetchRequest | list[fetch_requests.FetchRequest] | None,
+    ) -> None:
+        super()._submit(item)
+        if item is None:
+            self.stop_posted.set()
 
 
 class TestFetchCoordinator:
@@ -636,7 +184,7 @@ class TestFetchCoordinator:
                 pass
 
         respx.get(url__regex=r".*").mock(return_value=httpx.Response(200, text="ok"))
-        coord = FetchCoordinator(transport=ReusableTransport())  # type: ignore[arg-type]
+        coord = FetchCoordinator(transport=ReusableTransport())
         with coord:
             event = coord.request_metadata("first", "1.0", "https://f.com/first")
             assert event.wait(timeout=5)
@@ -644,6 +192,76 @@ class TestFetchCoordinator:
             event = coord.request_metadata("second", "1.0", "https://f.com/second")
             assert event.wait(timeout=5)
         assert coord.index.get_metadata("second", "1.0", "https://f.com/second") == "ok"
+
+    @pytest.mark.parametrize("retry_shutdown", [False, True])
+    def test_restart_waits_for_transport_cleanup(
+        self, monkeypatch: pytest.MonkeyPatch, *, retry_shutdown: bool
+    ) -> None:
+        closing = threading.Event()
+        release = threading.Event()
+        workers: set[threading.Thread] = set()
+
+        class SlowClose(Urllib3AsyncTransport):
+            async def aclose(self) -> None:
+                workers.add(threading.current_thread())
+                closing.set()
+                assert release.wait(5)
+                await super().aclose()
+
+        coord = FetchCoordinator(SlowClose())
+        coord.start()
+        try:
+            with monkeypatch.context() as patch:
+                patch.setattr("nab_project.fetch._COORDINATOR_JOIN_TIMEOUT_SECONDS", 0)
+                coord.shutdown()
+            assert closing.wait(5)
+            with pytest.raises(RuntimeError, match="still shutting down"):
+                coord.start()
+            release.set()
+            if retry_shutdown:
+                coord.shutdown()
+            else:
+                (first,) = workers
+                first.join(timeout=5)
+                assert not first.is_alive()
+            coord.start()
+        finally:
+            release.set()
+            coord.shutdown()
+
+        assert len(workers) == 2
+        assert all(not worker.is_alive() for worker in workers)
+
+    def test_restart_after_a_cleanup_error_serves_a_new_request(
+        self, tmp_path: Path
+    ) -> None:
+        class TransientClose(Urllib3AsyncTransport):
+            failed = False
+
+            async def aclose(self) -> None:
+                if not self.failed:
+                    self.failed = True
+                    raise OSError("temporary close failure")
+                await super().aclose()
+
+        index = tmp_path / "pkg"
+        index.mkdir()
+        (index / "index.html").write_text(
+            '<a href="pkg-1-py3-none-any.whl">pkg-1-py3-none-any.whl</a>'
+        )
+        coord = FetchCoordinator(
+            TransientClose(), indexes=[IndexConfig("local", tmp_path.as_uri())]
+        )
+        coord.start()
+        coord.shutdown()
+        with pytest.raises(RuntimeError, match="temporary close failure"):
+            coord.request_listing("pkg")
+
+        with coord:
+            assert coord.request_listing("pkg").wait(5)
+            files = coord.index.get_listing("pkg")
+            assert files is not None
+            assert [file.version for file in files] == ["1"]
 
     @respx.mock
     def test_request_listing(self) -> None:
@@ -736,23 +354,6 @@ class TestFetchCoordinator:
             assert event.is_set()
 
     @respx.mock
-    def test_request_metadata_none_url(self) -> None:
-        """Metadata request with None url stores None."""
-        with _coord() as coord:
-            # Put a request with None url directly on the queue
-            from nab_project.fetch import FetchKind, FetchRequest
-
-            coord.index.get_or_create_pending("metadata:pkg:1.0")
-            coord._submit(
-                FetchRequest(
-                    kind=FetchKind.METADATA, package="pkg", version="1.0", url=None
-                )
-            )
-
-            assert _wait_until(lambda: coord.index.has_metadata("pkg", "1.0"))
-            assert coord.index.get_metadata("pkg", "1.0") is None
-
-    @respx.mock
     def test_request_metadata_batch(self) -> None:
         respx.get("https://f.com/a.metadata").mock(
             return_value=httpx.Response(200, text="meta-a")
@@ -825,16 +426,9 @@ class TestFetchCoordinator:
             return_value=httpx.Response(200, text=metadata_body)
         )
         with _coord() as coord:
-            event = coord.request_listing("pkg")
-            event.wait(timeout=5)
-            # Wait for the async prefetch of the newest wheel's sidecar.
+            assert coord.request_listing("pkg").wait(timeout=5)
             sidecar = "https://f.com/pkg-3.0-py3-none-any.whl.metadata"
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                if coord.index.has_metadata("pkg", "3.0", sidecar):
-                    break
-                time.sleep(0.01)
-            assert coord.index.has_metadata("pkg", "3.0", sidecar)
+            assert _prefetched_metadata(coord, "pkg", "3.0", sidecar) == metadata_body
 
     @respx.mock
     def test_listing_prefetch_derives_urls_only_for_submitted_wheels(
@@ -856,8 +450,9 @@ class TestFetchCoordinator:
         respx.get("https://pypi.org/simple/pkg/").mock(
             return_value=httpx.Response(200, json=listing)
         )
+        metadata_body = "Metadata-Version: 2.1\n"
         respx.get(url__regex=r".*\.whl\.metadata$").mock(
-            return_value=httpx.Response(200, text="Metadata-Version: 2.1\n")
+            return_value=httpx.Response(200, text=metadata_body)
         )
 
         derived: list[str] = []
@@ -872,13 +467,8 @@ class TestFetchCoordinator:
 
         sidecar = "https://f.com/pkg-15.0-py3-none-any.whl.metadata"
         with _coord() as coord:
-            coord.request_listing("pkg").wait(timeout=5)
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and not coord.index.has_metadata(
-                "pkg", "15.0", sidecar
-            ):
-                time.sleep(0.01)
-            assert coord.index.has_metadata("pkg", "15.0", sidecar)
+            assert coord.request_listing("pkg").wait(timeout=5)
+            assert _prefetched_metadata(coord, "pkg", "15.0", sidecar) == metadata_body
 
         # Only the newest version's wheel, not all 15.
         assert derived == ["pkg-15.0-py3-none-any.whl"]
@@ -1164,8 +754,7 @@ class TestFetchCoordinator:
             url = "https://files.example.com/pkg-1.0.whl.metadata"
             claimed, _ = coord.index.get_or_create_pending(f"metadata:pkg:1.0:{url}")
             coord._submit(
-                FetchRequest(
-                    kind=FetchKind.METADATA,
+                fetch_requests.SidecarMetadata(
                     package="pkg",
                     version="1.0",
                     url=url,
@@ -1220,7 +809,7 @@ class TestFetchCoordinator:
 
     @respx.mock
     def test_dispatch_single_and_batch(self) -> None:
-        """Dispatch handles both single FetchRequest and list."""
+        """Dispatch a single fetch and a batch through the same coordinator."""
         respx.get(url__regex=r".*").mock(return_value=httpx.Response(200, text="ok"))
         with _coord() as coord:
             e1 = coord.request_metadata("a", "1", "https://f.com/a")
@@ -1291,7 +880,7 @@ class TestFetchCoordinator:
             escaped.append(args.exc_value)
 
         monkeypatch.setattr(threading, "excepthook", _collect)
-        coord = FetchCoordinator(transport=_FailingTransport(failure))  # type: ignore[arg-type]
+        coord = FetchCoordinator(transport=_FailingTransport(failure))
 
         coord.start()
         coord.shutdown()
@@ -1304,7 +893,11 @@ class TestFetchCoordinator:
 
     def test_shutdown_completes_after_startup_crash(self) -> None:
         """shutdown() returns when the fetcher crashed at startup."""
-        coord = _coord(index_routes=[IndexRoute(name="foo", index="missing")])
+        transport = HttpxAsyncTransport(http2=False)
+        coord = FetchCoordinator(
+            transport, index_routes=[IndexRoute(name="foo", index="missing")]
+        )
+
         coord.start()
         assert coord._thread is not None
         coord._thread.join(timeout=5)
@@ -1315,6 +908,7 @@ class TestFetchCoordinator:
         assert not coord._started
         assert coord._loop is None
         assert coord._async_q is None
+        assert transport._client.is_closed
 
     def test_startup_crash_surfaces_from_with_block(self) -> None:
         """The with form raises the crash error, not a teardown error."""
@@ -1432,7 +1026,7 @@ class TestFetchCoordinator:
         class _DispatchFailureCoordinator(FetchCoordinator):
             def _dispatch(
                 self,
-                item: FetchRequest | list[FetchRequest],
+                item: fetch_requests.FetchRequest | list[fetch_requests.FetchRequest],
                 client: object,
                 sem: asyncio.Semaphore,
                 tasks: set[asyncio.Task],
@@ -1458,59 +1052,69 @@ class TestFetchCoordinator:
         coord.shutdown()
 
     @respx.mock
-    def test_drain_queue_empty_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """QueueEmpty during drain loop breaks out of the loop."""
-        import asyncio
-        import time
+    def test_shutdown_drains_metadata_from_an_accepted_listing(self) -> None:
+        listing_started = threading.Event()
+        late_submission = threading.Event()
+        wheel = make_wheel("2.0")
+        listing = {"filename": wheel.filename, "url": wheel.url, "core-metadata": True}
 
-        respx.get(url__regex=r".*").mock(return_value=httpx.Response(200, text="ok"))
+        async def serve_listing(_request: httpx.Request) -> httpx.Response:
+            listing_started.set()
+            # Let the worker process the stop marker while the listing is in flight.
+            assert await asyncio.to_thread(late_submission.wait, 5)
+            return httpx.Response(200, json={"files": [listing]})
 
-        triggered = threading.Event()
+        respx.get("https://pypi.org/simple/pkg/").mock(side_effect=serve_listing)
+        url = wheel.url + ".metadata"
+        metadata = respx.get(url).mock(
+            return_value=httpx.Response(200, text="metadata")
+        )
 
-        class RiggedQueue(asyncio.Queue):
-            """Queue that, once armed, lies once on empty() to force the race."""
+        coord = ShutdownObserver()
 
-            def __init__(self) -> None:
-                super().__init__()
-                self._origin_empty = super().empty
-                self._origin_get_nowait = super().get_nowait
-                self.armed = False
+        def submit_after_stop() -> threading.Event:
+            assert coord.stop_posted.wait(5)
+            try:
+                return coord.request_listing("late")
+            finally:
+                late_submission.set()
 
-            def empty(self) -> bool:
-                result = self._origin_empty()
-                if result and self.armed:
-                    self.armed = False
-                    return False
-                return result
+        with ThreadPoolExecutor(max_workers=1) as callers:
+            with coord:
+                listing_done = coord.request_listing("pkg")
+                assert listing_started.wait(5)
+                late = callers.submit(submit_after_stop)
 
-            def get_nowait(self) -> FetchRequest | list[FetchRequest] | None:
-                # Consult the real deque so the lie above can't trick us
-                # into popping from an empty queue. Reaching this branch
-                # is exactly the race the drain loop must handle.
-                if self._origin_empty():
-                    triggered.set()
-                    raise asyncio.QueueEmpty
-                return self._origin_get_nowait()
+            assert listing_done.is_set()
+            assert late.result().is_set()
 
-        monkeypatch.setattr("nab_project.fetch.asyncio.Queue", RiggedQueue)
-        with _coord() as coord:
-            real_dispatch = coord._dispatch
+        assert isinstance(coord.index.get_listing_error("late"), RuntimeError)
+        assert metadata.call_count == 1
+        assert coord.index.get_metadata("pkg", "2.0", url) == "metadata"
 
-            def arm_after_dispatch(
-                item: FetchRequest | list[FetchRequest],
-                client: CachedAsyncSimpleClient | MultiIndexClient,
-                sem: asyncio.Semaphore,
-                tasks: set[asyncio.Task],
-            ) -> None:
-                real_dispatch(item, client, sem, tasks)
-                coord._async_q.armed = True  # type: ignore[union-attr]
+    @respx.mock
+    def test_shutdown_closes_after_the_final_reply(self) -> None:
+        serving = threading.Event()
+        coord = ShutdownObserver()
+        url = "https://files.example.com/pkg.whl.metadata"
 
-            coord._dispatch = arm_after_dispatch  # type: ignore[method-assign]
-            coord.request_metadata("pkg", "1.0", "https://f.com/pkg")
-            time.sleep(0.3)
+        async def reply(_request: httpx.Request) -> httpx.Response:
+            serving.set()
+            assert coord.stop_posted.wait(5)
+            # Deliver the reply between posting the stop marker and consuming it.
+            await asyncio.sleep(0)
+            return httpx.Response(200, text="metadata")
 
-        assert triggered.is_set()
-        assert not coord._crashed
+        respx.get(url).mock(side_effect=reply)
+        with coord:
+            worker = coord._thread
+            assert worker is not None
+            done = coord.request_metadata("pkg", "1", url)
+            assert serving.wait(5)
+
+        assert done.is_set()
+        assert coord.index.get_metadata("pkg", "1", url) == "metadata"
+        assert not worker.is_alive()
 
     @respx.mock
     def test_gather_pending_tasks_on_shutdown(self) -> None:
@@ -1555,7 +1159,7 @@ class TestFetchCoordinator:
         injected = [False]
 
         def hooked_dispatch(
-            item: FetchRequest | list[FetchRequest],
+            item: fetch_requests.FetchRequest | list[fetch_requests.FetchRequest],
             client: CachedAsyncSimpleClient | MultiIndexClient,
             sem: asyncio.Semaphore,
             tasks: set[asyncio.Task],
@@ -1566,8 +1170,7 @@ class TestFetchCoordinator:
                 queue = coord._async_q
                 assert queue is not None
                 queue.put_nowait(
-                    FetchRequest(
-                        kind=FetchKind.METADATA,
+                    fetch_requests.SidecarMetadata(
                         package="drain",
                         version="1.0",
                         url="https://f.com/drain",
@@ -1579,8 +1182,7 @@ class TestFetchCoordinator:
         coord.start()
 
         coord._submit(
-            FetchRequest(
-                kind=FetchKind.METADATA,
+            fetch_requests.SidecarMetadata(
                 package="first",
                 version="1.0",
                 url="https://f.com/first",
@@ -2025,18 +1627,55 @@ class TestFetchCoordinator:
             )
             assert isinstance(error, HttpError)
 
+    def test_overlapping_source_requests_keep_their_own_results(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        versions = ("1", "2")
+        for version in versions:
+            tree = tmp_path / version
+            tree.mkdir()
+            (tree / "pyproject.toml").write_text(
+                f'[project]\nname = "shared"\nversion = "{version}"\n', encoding="utf-8"
+            )
+
+        with _coord(start_on_demand=True) as coordinator:
+            materialize = coordinator.materialize_source
+            both_complete = threading.Barrier(2)
+
+            def synchronized(request: SourceRequest) -> SourceMaterialization:
+                result = materialize(request)
+                both_complete.wait(timeout=10)
+                return result
+
+            monkeypatch.setattr(coordinator, "materialize_source", synchronized)
+
+            def resolve_source(version: str) -> tuple[Version, Path | None]:
+                provider = Provider(
+                    coordinator,
+                    local_sources=[LocalSource("shared", str(tmp_path / version))],
+                )
+                (entry,) = provider.fetch_versions("shared")
+                return entry[0], entry[1].local_path
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                results = list(executor.map(resolve_source, versions))
+
+        assert results == [
+            (Version(version), tmp_path / version) for version in versions
+        ]
+
     @respx.mock
     @pytest.mark.skipif(
         not hasattr(tarfile, "data_filter"),
         reason="sdist extraction requires the tar data filter (PEP 706)",
     )
     @pytest.mark.parametrize("transport_factory", [None, HttpxAsyncTransport])
-    def test_request_built_metadata_builds_the_downloaded_sdist(
+    def test_build_sdist_metadata_builds_the_downloaded_sdist(
         self,
         monkeypatch: pytest.MonkeyPatch,
         transport_factory: Callable[[], AsyncHttpTransport] | None,
     ) -> None:
-        """The build rung downloads, extracts, and stores what the backend said.
+        """The build returns the metadata from the downloaded and extracted sdist.
 
         Only the backend invocation is faked: the archive is really fetched
         through the transport and really extracted, so the member is exercised
@@ -2070,19 +1709,10 @@ class TestFetchCoordinator:
         with _coord(
             build_config=config, build_transport_factory=transport_factory
         ) as coord:
-            event = coord.request_built_metadata(
+            result = coord.build_sdist_metadata(
                 "pkg", "1.0", "https://files.example.com/pkg-1.0.tar.gz", ()
             )
-            assert event.wait(timeout=5)
-            assert (
-                coord.index.get_built_metadata(
-                    "pkg",
-                    sdist_artifact_key(
-                        "1.0", "https://files.example.com/pkg-1.0.tar.gz"
-                    ),
-                )
-                is built
-            )
+            assert result is built
         assert seen == {
             "config": config,
             "offline": False,
@@ -2116,53 +1746,167 @@ class TestFetchCoordinator:
             error = coord.index.get_sdist_archive_error("pkg", "digest")
             assert isinstance(error, OfflineError)
 
-    def test_file_index_still_closes_the_transport(self, tmp_path: Path) -> None:
-        """A file:// index client owns no transport; a direct archive fetch may."""
-        closed = threading.Event()
+    @pytest.mark.parametrize("http_indexes", [0, 1, 2])
+    def test_coordinator_closes_its_transport_once(
+        self, tmp_path: Path, http_indexes: int
+    ) -> None:
+        class RecordingTransport(Urllib3AsyncTransport):
+            closes = 0
 
-        class RecordingTransport(HttpxAsyncTransport):
             async def aclose(self) -> None:
-                closed.set()
+                self.closes += 1
                 await super().aclose()
 
-        wheelhouse = tmp_path / "wheelhouse"
-        wheelhouse.mkdir()
-        with FetchCoordinator(
-            transport=RecordingTransport(),  # type: ignore[arg-type]
-            indexes=[IndexConfig("local", wheelhouse.as_uri())],
-        ):
+        transport = RecordingTransport()
+        indexes = [IndexConfig("local", tmp_path.as_uri())]
+        indexes.extend(
+            IndexConfig(f"remote-{i}", f"https://example.com/{i}/")
+            for i in range(http_indexes)
+        )
+
+        with FetchCoordinator(transport, indexes=indexes):
             pass
 
-        assert closed.is_set()
+        assert transport.closes == 1
 
-    def test_fetch_sdist_archive_null_url_stores_none(self) -> None:
-        """A ``FetchRequest`` with ``url=None`` short-circuits to ``None``.
+    @respx.mock
+    def test_worker_exit_wakes_active_and_queued_requests(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entered = threading.Event()
+        release = threading.Event()
+        escaped: list[BaseException | None] = []
+        monkeypatch.setattr(
+            threading, "excepthook", lambda args: escaped.append(args.exc_value)
+        )
+        completed, active, queued = (
+            f"https://files.example.com/{name}" for name in ("done", "active", "queued")
+        )
 
-        Exercises the defensive branch in ``_fetch_sdist_archive`` that
-        handles requests dispatched without a URL (parallel to
-        ``_fetch_metadata``'s same-shape guard).
-        """
-        import asyncio
+        async def stop(_request: httpx.Request) -> NoReturn:
+            entered.set()
+            assert release.wait(5)
+            raise SystemExit("worker stopped")
 
-        from nab_project.fetch import FetchKind, FetchRequest, InMemoryIndex
+        respx.get(active).mock(side_effect=stop)
+        coord = _coord()
+        coord.start()
+        try:
+            first = coord.request_metadata("active", "1", active)
+            assert entered.wait(5)
+            second = coord.request_metadata("queued", "1", queued)
+            assert coord.request_metadata("queued", "1", queued) is second
 
-        index = InMemoryIndex()
+            # An index result can already be published when shutdown catches the batch.
+            published = coord.request_metadata("done", "1", completed)
+            coord.index.store_metadata("done", "1", "metadata", metadata_url=completed)
+            assert published.is_set()
+            release.set()
 
-        async def _run() -> None:
-            with _coord() as coord:
-                coord.index = index
-                await coord._fetch_sdist_archive(
-                    client=None,
-                    req=FetchRequest(
-                        kind=FetchKind.SDIST_ARCHIVE,
-                        package="pkg",
-                        version="1.0",
-                        url=None,
-                    ),
-                )
+            for package, url, event in (
+                ("active", active, first),
+                ("queued", queued, second),
+            ):
+                assert event.wait(5)
+                error = coord.index.get_metadata_error(package, "1", url)
+                assert isinstance(error, IndexAccessError)
+                assert "worker stopped" in str(error)
+        finally:
+            release.set()
+            coord.shutdown()
 
-        asyncio.run(_run())
-        assert index.get_sdist_archive("pkg", "1.0") is None
+        assert len(escaped) == 1
+        assert isinstance(escaped[0], SystemExit)
+        assert coord.index.get_metadata("done", "1", completed) == "metadata"
+
+    def test_crash_between_claiming_and_submitting_a_range_read(self) -> None:
+        coord = _coord()
+        url = "https://files.example.com/p.whl"
+        event, _ = coord.index.get_or_create_pending(range_pending_key("p", "1", url))
+        coord._record_crash(SystemExit("worker stopped"))
+
+        coord._submit(fetch_requests.RangeMetadata("p", "1", url, waiter=event))
+
+        assert event.is_set()
+        error = coord.index.get_metadata_error("p", "1", url)
+        assert isinstance(error, IndexAccessError)
+        assert "worker stopped" in str(error)
+
+    def test_worker_exit_during_task_creation_closes_the_handler(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rejected = []
+        escaped = []
+        monkeypatch.setattr(
+            threading, "excepthook", lambda args: escaped.append(args.exc_value)
+        )
+
+        def stop(handler: CoroutineType[Any, Any, None]) -> NoReturn:
+            rejected.append(handler)
+            raise SystemExit("scheduler stopped")
+
+        with _coord() as coord, monkeypatch.context() as patch:
+            patch.setattr(asyncio, "create_task", stop)
+            assert coord.request_listing("pkg").wait(5)
+
+        assert len(escaped) == 1
+        assert isinstance(escaped[0], SystemExit)
+        assert len(rejected) == 1
+        # Python 3.12.0 keeps the frame of a closed, unstarted coroutine.
+        with pytest.raises(
+            RuntimeError, match="cannot reuse already awaited coroutine"
+        ):
+            rejected[0].send(None)
+        error = coord.index.get_listing_error("pkg")
+        assert isinstance(error, IndexAccessError)
+        assert "scheduler stopped" in str(error)
+
+    def test_task_scheduling_failure_completes_its_request_and_continues(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        first = (tmp_path / "a-1-py3-none-any.whl.metadata").as_uri()
+        sidecar = tmp_path / "b-1-py3-none-any.whl.metadata"
+        sidecar.write_text("metadata")
+        second = sidecar.as_uri()
+        create_task = asyncio.create_task
+
+        def refuse_once(_handler: object) -> NoReturn:
+            monkeypatch.setattr(asyncio, "create_task", create_task)
+            raise RuntimeError("scheduler busy")
+
+        with _coord(indexes=[IndexConfig("local", tmp_path.as_uri())]) as coord:
+            monkeypatch.setattr(asyncio, "create_task", refuse_once)
+            a, b = coord.request_metadata_batch(
+                [("a", "1", first, None), ("b", "1", second, None)]
+            )
+
+            assert a[2].wait(5)
+            error = coord.index.get_metadata_error("a", "1", first)
+            assert isinstance(error, RuntimeError)
+            assert str(error) == "scheduler busy"
+            assert b[2].wait(5)
+            assert coord.index.get_metadata("b", "1", second) == "metadata"
+
+    @respx.mock
+    def test_cancelled_metadata_wakes_its_waiter_and_finishes_the_batch(self) -> None:
+        cancelled = "https://files.example.com/a.whl.metadata"
+        available = "https://files.example.com/b.whl.metadata"
+
+        async def cancel(_request: httpx.Request) -> NoReturn:
+            raise asyncio.CancelledError
+
+        respx.get(cancelled).mock(side_effect=cancel)
+        respx.get(available).mock(return_value=httpx.Response(200, text="metadata"))
+        with _coord() as coord:
+            first, second = coord.request_metadata_batch(
+                [("a", "1", cancelled, None), ("b", "1", available, None)]
+            )
+            assert first[2].wait(5)
+            assert second[2].wait(5)
+            assert isinstance(
+                coord.index.get_metadata_error("a", "1", cancelled), IndexAccessError
+            )
+            assert coord.index.get_metadata("b", "1", available) == "metadata"
 
     @respx.mock
     def test_request_metadata_batch_deduplicates(self) -> None:
@@ -2190,24 +1934,19 @@ class TestFetchCoordinator:
 
 class TestFetchCoordinatorCache:
     @respx.mock
-    def test_cache_dir_persists_listing(self, tmp_path: object) -> None:
+    def test_cache_dir_persists_listing(self, tmp_path: Path) -> None:
         """When cache_dir is set, a listing fetch writes to disk."""
-        from pathlib import Path
-
-        from nab_index.cache import OnDiskCache
-
-        cache_dir = tmp_path  # type: ignore[assignment]
         respx.get("https://pypi.org/simple/cached/").mock(
             return_value=httpx.Response(200, json=LISTING_JSON, headers={"etag": "v1"})
         )
         with FetchCoordinator(
             transport=HttpxAsyncTransport(),
-            cache_dir=Path(str(cache_dir)),
+            cache_dir=tmp_path,
         ) as coord:
             event = coord.request_listing("cached")
             event.wait(timeout=5)
         # Disk cache populated.
-        cache = OnDiskCache(Path(str(cache_dir)), "https://pypi.org/simple/")
+        cache = OnDiskCache(tmp_path, "https://pypi.org/simple/")
         assert cache.get_simple("cached") is not None
 
     @respx.mock
@@ -2654,6 +2393,15 @@ class TestMultiIndexCoordinator:
                 ],
             )
 
+    @pytest.mark.parametrize("limit", [0, -1])
+    def test_nonpositive_concurrency_rejected_at_construction(self, limit: int) -> None:
+        transport = HttpxAsyncTransport()
+        try:
+            with pytest.raises(ValueError, match="max_concurrency"):
+                FetchCoordinator(transport, max_concurrency=limit)
+        finally:
+            asyncio.run(transport.aclose())
+
     def test_default_indexes_is_pypi(self) -> None:
         """Without explicit indexes, the coordinator defaults to PyPI."""
         coord = FetchCoordinator(transport=HttpxAsyncTransport())
@@ -3069,25 +2817,20 @@ class TestSiblingWheelMetadata:
         )
         return linux, win
 
-    def _await_metadata(self, coord: FetchCoordinator) -> None:
-        """Wait for the prefetch of the wheel the listing publishes first."""
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline and not coord.index.has_metadata(
-            "foo", "1.0", f"https://f.example/{_SIBLING_LINUX}.metadata"
-        ):
-            time.sleep(0.01)
+    def _assert_linux_prefetched(self, coord: FetchCoordinator) -> None:
+        sidecar = f"https://f.example/{_SIBLING_LINUX}.metadata"
+        assert (
+            _prefetched_metadata(coord, "foo", "1.0", sidecar)
+            == _SIBLING_LINUX_BODY.decode()
+        )
 
     @respx.mock
     def test_listing_prefetch_takes_the_wheel_the_provider_will_pick(self) -> None:
         """The prefetch fetches one wheel per version: the first with a sidecar."""
         linux, win = self._routes()
         with _coord() as coord:
-            coord.request_listing("foo").wait(timeout=5)
-            self._await_metadata(coord)
-            text = coord.index.get_metadata(
-                "foo", "1.0", f"https://f.example/{_SIBLING_LINUX}.metadata"
-            )
-            assert text == _SIBLING_LINUX_BODY.decode()
+            assert coord.request_listing("foo").wait(timeout=5)
+            self._assert_linux_prefetched(coord)
         assert linux.call_count == 1
         assert win.call_count == 0
 
@@ -3103,15 +2846,17 @@ class TestSiblingWheelMetadata:
         """
         linux, win = self._routes()
         with _coord(cache_dir=tmp_path) as coord:
-            coord.request_listing("foo").wait(timeout=5)
-            self._await_metadata(coord)
+            assert coord.request_listing("foo").wait(timeout=5)
+            self._assert_linux_prefetched(coord)
 
         win_hash = ("sha256", hashlib.sha256(_SIBLING_WIN_BODY).hexdigest())
         win_url = f"https://f.example/{_SIBLING_WIN}.metadata"
         with _coord(cache_dir=tmp_path) as coord:
-            coord.request_listing("foo").wait(timeout=5)
-            self._await_metadata(coord)
-            coord.request_metadata("foo", "1.0", win_url, win_hash).wait(timeout=5)
+            assert coord.request_listing("foo").wait(timeout=5)
+            self._assert_linux_prefetched(coord)
+            assert coord.request_metadata("foo", "1.0", win_url, win_hash).wait(
+                timeout=5
+            )
             assert coord.index.get_metadata_error("foo", "1.0", win_url) is None
             win_text = coord.index.get_metadata("foo", "1.0", win_url)
             assert win_text == _SIBLING_WIN_BODY.decode()
@@ -3149,34 +2894,16 @@ def _parse_range(value: str) -> tuple[str, int, int]:
     return ("absolute", int(start), int(end))
 
 
-class _FakeRangeResponse:
+class _FakeRangeResponse(ResponseBody):
     def __init__(self, status: int, headers: dict[str, str], content: bytes) -> None:
-        self._status = status
-        self._headers = headers
-        self._content = content
-
-    @property
-    def status_code(self) -> int:
-        return self._status
-
-    @property
-    def headers(self) -> dict[str, str]:
-        return self._headers
-
-    @property
-    def content(self) -> bytes:
-        return self._content
-
-    @property
-    def text(self) -> str:
-        return self._content.decode("utf-8")
-
-    def json(self) -> object:
-        return json.loads(self._content)
+        super().__init__(content)
+        self.status_code = status
+        self.headers = headers
+        self.url = _RANGE_URL
 
     def raise_for_status(self) -> None:
-        if self._status >= 400:
-            msg = f"HTTP {self._status}"
+        if self.status_code >= 400:
+            msg = f"HTTP {self.status_code}"
             raise HttpError(msg)
 
 
@@ -3193,10 +2920,12 @@ class FakeRangeTransport:
         self, url: str, *, headers: dict[str, str] | None = None
     ) -> _FakeRangeResponse:
         await asyncio.sleep(0)
-        headers = headers or {}
-        rng = headers["Range"]
-        self.requests.append(rng)
-        return self._respond(rng)
+        range_header = (headers or {})["Range"]
+        self.requests.append(range_header)
+
+        response = self._respond(range_header)
+        response.url = url
+        return response
 
     async def aclose(self) -> None:
         return None
@@ -3231,77 +2960,6 @@ _RANGE_URL_A = "https://files.example.org/packages/widget-1.0-cp312-linux.whl"
 _RANGE_URL_B = "https://files.example.org/packages/widget-1.0-cp312-macos.whl"
 
 
-class TestRangeMetadataIndex:
-    def test_store_range_metadata_fires_pending(self) -> None:
-        idx = InMemoryIndex()
-        key = f"range:widget:1.0:{_RANGE_URL_A}"
-        event, _ = idx.get_or_create_pending(key)
-        idx.store_range_metadata("widget", "1.0", _RANGE_URL_A, "META")
-        assert event.is_set()
-        assert idx.get_metadata("widget", "1.0", _RANGE_URL_A) == "META"
-        assert not idx.metadata_from_sdist("widget", "1.0")
-
-    def test_store_range_metadata_without_pending(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_range_metadata("widget", "1.0", _RANGE_URL_A, "META")
-        assert idx.get_metadata("widget", "1.0", _RANGE_URL_A) == "META"
-
-    def test_sibling_wheels_keep_independent_range_slots(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_range_metadata("widget", "1.0", _RANGE_URL_A, "META_A")
-        idx.store_range_metadata("widget", "1.0", _RANGE_URL_B, "META_B")
-        assert idx.get_metadata("widget", "1.0", _RANGE_URL_A) == "META_A"
-        assert idx.get_metadata("widget", "1.0", _RANGE_URL_B) == "META_B"
-
-    def test_store_range_absent_fires_pending_without_slot(self) -> None:
-        idx = InMemoryIndex()
-        key = f"range:widget:1.0:{_RANGE_URL_A}"
-        event, _ = idx.get_or_create_pending(key)
-        idx.store_range_absent("widget", "1.0", _RANGE_URL_A)
-        assert event.is_set()
-        assert idx.get_metadata("widget", "1.0", _RANGE_URL_A) is None
-
-    def test_store_range_absent_without_pending(self) -> None:
-        idx = InMemoryIndex()
-        idx.store_range_absent("widget", "1.0", _RANGE_URL_A)
-        assert idx.get_metadata("widget", "1.0", _RANGE_URL_A) is None
-
-    def test_store_range_error_fires_pending_and_records(self) -> None:
-        idx = InMemoryIndex()
-        key = f"range:widget:1.0:{_RANGE_URL_A}"
-        event, _ = idx.get_or_create_pending(key)
-        error = MalformedSimpleResponseError("bad")
-        idx.store_range_error("widget", "1.0", _RANGE_URL_A, error)
-        assert event.is_set()
-        assert idx.get_metadata_error("widget", "1.0", _RANGE_URL_A) is error
-        assert idx.get_metadata("widget", "1.0", _RANGE_URL_A) is None
-
-    def test_store_range_error_without_pending(self) -> None:
-        idx = InMemoryIndex()
-        error = HttpError("boom")
-        idx.store_range_error("widget", "1.0", _RANGE_URL_A, error)
-        assert idx.get_metadata_error("widget", "1.0", _RANGE_URL_A) is error
-
-    def test_sibling_range_error_spares_the_other_wheel(self) -> None:
-        idx = InMemoryIndex()
-        error = HttpError("boom")
-        idx.store_range_error("widget", "1.0", _RANGE_URL_A, error)
-        idx.store_range_metadata("widget", "1.0", _RANGE_URL_B, "META_B")
-        assert idx.get_metadata_error("widget", "1.0", _RANGE_URL_A) is error
-        assert idx.get_metadata_error("widget", "1.0", _RANGE_URL_B) is None
-        assert idx.get_metadata("widget", "1.0", _RANGE_URL_B) == "META_B"
-
-    def test_range_outcome_roundtrip(self) -> None:
-        idx = InMemoryIndex()
-        assert idx.get_range_outcome("widget", "1.0", _RANGE_URL_A) is None
-        idx.store_range_outcome("widget", "1.0", _RANGE_URL_A, RangeOutcome.PARTIAL)
-        assert (
-            idx.get_range_outcome("widget", "1.0", _RANGE_URL_A) is RangeOutcome.PARTIAL
-        )
-        # Keyed like the read itself: a sibling wheel's slot stays empty.
-        assert idx.get_range_outcome("widget", "1.0", _RANGE_URL_B) is None
-
-
 def _crashed_range_coord() -> FetchCoordinator:
     """Return a coordinator with a stopped loop and cleared crash flag."""
     coord = _coord(index_routes=[IndexRoute(name="foo", index="missing")])
@@ -3327,15 +2985,12 @@ class TestRangeMetadataCoordinator:
                 return await super().get(url, headers=headers)
 
         transport = _HeldRangeTransport("well_behaved", _build_range_wheel())
-        with FetchCoordinator(transport=transport) as coord:  # type: ignore[arg-type]
-            submitted: list[FetchRequest] = []
+        with FetchCoordinator(transport=transport) as coord:
+            submitted: list[fetch_requests.FetchRequest] = []
             orig = coord._submit
 
             def spy(item: object) -> None:
-                if (
-                    isinstance(item, FetchRequest)
-                    and item.kind is FetchKind.RANGE_METADATA
-                ):
+                if isinstance(item, fetch_requests.RangeMetadata):
                     submitted.append(item)
                 orig(item)  # type: ignore[arg-type]
 
@@ -3355,15 +3010,12 @@ class TestRangeMetadataCoordinator:
     def test_distinct_wheel_urls_enqueue_separately(self) -> None:
         transport = FakeRangeTransport("well_behaved", _build_range_wheel())
         other_url = _RANGE_URL.replace("py3-none-any", "cp312-cp312-macosx")
-        with FetchCoordinator(transport=transport) as coord:  # type: ignore[arg-type]
-            submitted: list[FetchRequest] = []
+        with FetchCoordinator(transport=transport) as coord:
+            submitted: list[fetch_requests.FetchRequest] = []
             orig = coord._submit
 
             def spy(item: object) -> None:
-                if (
-                    isinstance(item, FetchRequest)
-                    and item.kind is FetchKind.RANGE_METADATA
-                ):
+                if isinstance(item, fetch_requests.RangeMetadata):
                     submitted.append(item)
                 orig(item)  # type: ignore[arg-type]
 
@@ -3377,7 +3029,7 @@ class TestRangeMetadataCoordinator:
 
     def test_handler_stores_text(self) -> None:
         transport = FakeRangeTransport("well_behaved", _build_range_wheel())
-        with FetchCoordinator(transport=transport) as coord:  # type: ignore[arg-type]
+        with FetchCoordinator(transport=transport) as coord:
             event = coord.request_range_metadata("widget", "1.0", _RANGE_URL)
             assert event.wait(timeout=5)
             assert (
@@ -3394,7 +3046,7 @@ class TestRangeMetadataCoordinator:
         transport = FakeRangeTransport(
             "well_behaved", _build_range_wheel(dist_info=None)
         )
-        with FetchCoordinator(transport=transport) as coord:  # type: ignore[arg-type]
+        with FetchCoordinator(transport=transport) as coord:
             event = coord.request_range_metadata("widget", "1.0", _RANGE_URL)
             assert event.wait(timeout=5)
             assert coord.index.get_metadata("widget", "1.0", _RANGE_URL) is None
@@ -3406,7 +3058,7 @@ class TestRangeMetadataCoordinator:
 
     def test_handler_stores_absent_on_unsupported(self) -> None:
         transport = FakeRangeTransport("gzip_range", _build_range_wheel())
-        with FetchCoordinator(transport=transport) as coord:  # type: ignore[arg-type]
+        with FetchCoordinator(transport=transport) as coord:
             event = coord.request_range_metadata("widget", "1.0", _RANGE_URL)
             assert event.wait(timeout=5)
             assert coord.index.get_metadata("widget", "1.0", _RANGE_URL) is None
@@ -3419,7 +3071,7 @@ class TestRangeMetadataCoordinator:
         transport = FakeRangeTransport(
             "well_behaved", _build_range_wheel(metadata=b"\xff\xfe not utf-8")
         )
-        with FetchCoordinator(transport=transport) as coord:  # type: ignore[arg-type]
+        with FetchCoordinator(transport=transport) as coord:
             event = coord.request_range_metadata("widget", "1.0", _RANGE_URL)
             assert event.wait(timeout=5)
             assert coord.index.get_metadata("widget", "1.0", _RANGE_URL) is None
@@ -3428,7 +3080,7 @@ class TestRangeMetadataCoordinator:
 
     def test_handler_stores_error_on_transport_failure(self) -> None:
         transport = FakeRangeTransport("error_500", _build_range_wheel())
-        with FetchCoordinator(transport=transport) as coord:  # type: ignore[arg-type]
+        with FetchCoordinator(transport=transport) as coord:
             event = coord.request_range_metadata("widget", "1.0", _RANGE_URL)
             assert event.wait(timeout=5)
             assert coord.index.get_metadata("widget", "1.0", _RANGE_URL) is None
@@ -3437,7 +3089,7 @@ class TestRangeMetadataCoordinator:
 
     def test_offline_cold_stores_absent(self) -> None:
         transport = FakeRangeTransport("well_behaved", _build_range_wheel())
-        with FetchCoordinator(transport=transport, offline=True) as coord:  # type: ignore[arg-type]
+        with FetchCoordinator(transport=transport, offline=True) as coord:
             event = coord.request_range_metadata("widget", "1.0", _RANGE_URL)
             assert event.wait(timeout=5)
             assert coord.index.get_metadata("widget", "1.0", _RANGE_URL) is None
@@ -3538,11 +3190,7 @@ def _spy_submit(coord: FetchCoordinator) -> list[object]:
 
 def _listing_submits(calls: Sequence[object]) -> list[object]:
     """The recorded submits that are LISTING requests."""
-    return [
-        item
-        for item in calls
-        if isinstance(item, FetchRequest) and item.kind is FetchKind.LISTING
-    ]
+    return [item for item in calls if isinstance(item, fetch_requests.Listing)]
 
 
 class TestWarmSyncListingPath:
@@ -3681,7 +3329,7 @@ class TestWarmSyncListingPath:
         _warm_parsed(cache, "pkg", files)
 
         coord = FetchCoordinator(
-            transport=_RaiseOnGetTransport(),  # type: ignore[arg-type]
+            transport=_RaiseOnGetTransport(),
             cache_dir=tmp_path,
         )
         coord._warm_sync_min_blob_bytes = 0
@@ -3771,7 +3419,7 @@ class TestWarmSyncListingPath:
     def test_gate_default_threshold(self, tmp_path: Path) -> None:
         """A fresh coordinator carries the module default blob-size threshold."""
         coord = FetchCoordinator(
-            transport=HttpxAsyncTransport(),  # type: ignore[arg-type]
+            transport=HttpxAsyncTransport(),
             cache_dir=tmp_path,
         )
         try:
@@ -3980,6 +3628,23 @@ class TestWarmSyncListingPath:
             assert _listing_submits(calls) == []
             assert coord.warm_sync_stats.listing_hits == 1
 
+    def test_warm_hit_stores_the_all_yanked_report(self, tmp_path: Path) -> None:
+        cache = OnDiskCache(tmp_path, _PYPI)
+        file = mark_yanked(_sync_sdist("1.0"), reason="withdrawn")
+        body = json.dumps(
+            {
+                "files": [
+                    {"filename": file.filename, "url": file.url, "yanked": "withdrawn"}
+                ]
+            }
+        ).encode()
+        _warm_parsed(cache, "pkg", [file], body=body)
+
+        with _coord(cache_dir=tmp_path) as coord:
+            assert coord.request_listing("pkg").is_set()
+            assert coord.warm_sync_stats.listing_hits == 1
+            assert coord.index.is_all_yanked_listing("pkg")
+
     def test_warm_hit_stores_the_releases_the_parse_dropped(
         self, tmp_path: Path
     ) -> None:
@@ -4108,8 +3773,9 @@ class TestWarmSyncTailOffload:
     @respx.mock
     def test_offloaded_tail_prefetches_metadata(self, tmp_path: Path) -> None:
         """The offloaded tail enqueues the newest version's metadata and it lands."""
+        metadata_body = "Metadata-Version: 2.1\n"
         respx.get(url__regex=r".*\.whl\.metadata$").mock(
-            return_value=httpx.Response(200, text="Metadata-Version: 2.1\n")
+            return_value=httpx.Response(200, text=metadata_body)
         )
         cache = OnDiskCache(tmp_path, _PYPI)
         files: list[WheelFile | SdistFile] = [_sync_wheel("1.0"), _sync_wheel("2.0")]
@@ -4132,17 +3798,12 @@ class TestWarmSyncTailOffload:
             meta_submits = {
                 (item.package, item.version, item.url)
                 for item in calls
-                if isinstance(item, FetchRequest) and item.kind is FetchKind.METADATA
+                if isinstance(item, fetch_requests.SidecarMetadata)
             }
             sidecar = "https://f.example/pkg-2.0-py3-none-any.whl.metadata"
             assert meta_submits == {("pkg", "2.0", sidecar)}
 
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and not coord.index.has_metadata(
-                "pkg", "2.0", sidecar
-            ):
-                time.sleep(0.01)
-            assert coord.index.has_metadata("pkg", "2.0", sidecar)
+            assert _prefetched_metadata(coord, "pkg", "2.0", sidecar) == metadata_body
 
     @respx.mock
     def test_dead_loop_runs_tail_inline(self, tmp_path: Path) -> None:
@@ -4288,8 +3949,7 @@ class TestSdistArchiveHolding:
         asyncio.run(
             coord._fetch_sdist(
                 client=_SdistFilesClient(pyproject),  # type: ignore[arg-type]
-                req=FetchRequest(
-                    kind=FetchKind.SDIST,
+                req=fetch_requests.SdistMetadata(
                     package="pkg",
                     version="1.0",
                     url="https://f.example/pkg-1.0.tar.gz",
@@ -4308,11 +3968,12 @@ class TestSdistArchiveHolding:
         assert hold.take("pkg", _HELD_SDIST_KEY) is None
         assert coord.index.get_sdist_pyproject("pkg", _HELD_SDIST_KEY) is not None
 
-    def test_a_dynamic_pyproject_keeps_the_archive(self) -> None:
-        """A table that defers its deps leaves the build's bytes in place."""
+    @pytest.mark.parametrize("field", ["dependencies", "requires-python"])
+    def test_a_dynamic_pyproject_keeps_the_archive(self, field: str) -> None:
+        """Keep the source bytes when the backend supplies resolution metadata."""
         config = ResolveInputs(build_policy=BuildPolicy.BUILD_REMOTE)
         _, hold = self._fetched_with_pyproject(
-            '[project]\nname = "pkg"\ndynamic = ["dependencies"]\n', config
+            f'[project]\nname = "pkg"\ndynamic = ["{field}"]\n', config
         )
 
         assert hold.take("pkg", _HELD_SDIST_KEY) == b"archive bytes"
@@ -4535,7 +4196,7 @@ class TestSyncMetadata:
             assert results[1][2].wait(5)
             assert coord.index.get_metadata("pkg", "1.0", warm_url) == "warm text"
             assert coord.index.get_metadata("pkg", "1.0", cold_url) == "cold text"
-            assert calls == [[FetchRequest(FetchKind.METADATA, "pkg", "1.0", cold_url)]]
+            assert calls == [[fetch_requests.SidecarMetadata("pkg", "1.0", cold_url)]]
             assert route.call_count == 1
 
     @pytest.mark.parametrize("batch", [False, True])

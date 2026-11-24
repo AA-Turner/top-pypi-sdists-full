@@ -44,6 +44,18 @@ from matrx_ai.orchestrator.execution_state import ExecutionState
 from matrx_ai.orchestrator.executor import _append_partial_response
 from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
 
+
+@pytest.fixture(autouse=True)
+def _parent_user_request_exists(monkeypatch):
+    """persist_completed_request ensures the cx_user_request parent before its cx_request
+    children (eaecaa5ed885). There is no database here, so the parent is taken as present."""
+    import matrx_ai.db.conversation_gate as _gate
+
+    async def _present(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(_gate, "ensure_user_request_exists", _present)
+
 CONVERSATION_ID = "11111111-1111-1111-1111-111111111111"
 USER_ID = "22222222-2222-2222-2222-222222222222"
 REQUEST_ID = "33333333-3333-3333-3333-333333333333"
@@ -199,6 +211,8 @@ def persist_harness(monkeypatch):
 
     monkeypatch.setattr(persistence_mod, "ai_model_manager_instance", _StubModelManager())
     monkeypatch.setattr(persistence_mod, "_get_coordinator", lambda: _StubCoordinator())
+    # persist_completed_request asks for the LIVE coordinator (98713c369) first; the stub answers both.
+    monkeypatch.setattr(persistence_mod, "_get_live_coordinator", lambda: _StubCoordinator())
     monkeypatch.setattr(
         persistence_mod, "_queue_message_create", lambda **kw: creates.append(kw) or ""
     )
@@ -213,21 +227,23 @@ def persist_harness(monkeypatch):
     )
     monkeypatch.setattr(persistence_mod, "_queue_user_request_update", lambda rid, **kw: "")
 
-    async def _no_hide(*a, **k):
-        return 0
-
     async def _no_backfill(*a, **k):
         return []
 
     async def _no_op(*a, **k):
         return None
 
-    monkeypatch.setattr(persistence_mod, "_hide_superseded_failed_turns", _no_hide)
     monkeypatch.setattr(persistence_mod, "_backfill_tool_message", _no_backfill)
     monkeypatch.setattr(persistence_mod, "_refresh_cache_state", _no_op)
     monkeypatch.setattr(persistence_mod, "_emit_context_state", _no_op)
     monkeypatch.setattr(persistence_mod, "cxm", _AsyncAnything())
     monkeypatch.setattr(persistence_mod, "try_get_tracker", lambda: tracker)
+
+    async def _parent_recorded(*a, **k):
+        return True
+
+    # The cost rows' parent gate (0a10b9e3e) has its own tests; here the parent request row exists.
+    monkeypatch.setattr(persistence_mod, "_request_rows_have_a_parent", _parent_recorded)
 
     return persistence_mod, creates, updates, request_creates, tracker
 

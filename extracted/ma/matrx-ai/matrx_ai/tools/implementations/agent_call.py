@@ -61,9 +61,13 @@ fails with a clean ``feature_unavailable``.
 
 from __future__ import annotations
 
+import contextlib
+import dataclasses
 import json
 import logging
+import re
 import time
+from collections.abc import AsyncIterator
 from typing import Any
 
 from matrx_utils import vcprint
@@ -92,6 +96,46 @@ MAX_AGENT_CALL_DEPTH = AGENT_CALL_MAX_DEPTH_MIRROR
 # parent metadata BEFORE the fork copies it, making the guard real across the
 # run_agent boundary.
 _AGENT_CALL_DEPTH_KEY = AGENT_DEPTH_METADATA_KEY
+
+_INHERITED_HISTORY_SLOT = "inherited_history"
+
+#: The note sits in the STANDARD per-turn frame, inside its own element (labelled by
+#: ``platform_parts.inherited_history`` and the receipt slot). Measured on the stored live request
+#: of fork 1418545f: in its own slot frame the fork forked again 6 of 6; in this frame it answered
+#: 6 of 6. Part of the contract of a child that borrows a conversation: always on, no switch.
+_INHERITED_HISTORY_OPEN = '<inherited_conversation source="platform">'
+_INHERITED_HISTORY_CLOSE = "</inherited_conversation>"
+
+
+def _attach_inherited_note(agent: Any, app_ctx: Any, agent_id: Any) -> None:
+    attach = getattr(agent.config.messages, "attach_turn_context", None)
+    if attach is not None:
+        attach(
+            _inherited_history_note(own=str(getattr(app_ctx, "agent_id", "") or "") == str(agent_id)),
+            slot=_INHERITED_HISTORY_SLOT,
+        )
+
+
+def _inherited_history_note(*, own: bool) -> str:
+    """How a child must read the conversation it borrowed; ``own``: it is a copy of the caller."""
+    return f"{_INHERITED_HISTORY_OPEN}{_inherited_history_text(own=own)}{_INHERITED_HISTORY_CLOSE}"
+
+
+def _inherited_history_text(*, own: bool) -> str:
+    if own:
+        return (
+            "The conversation before this turn is your own: you took part in it, and every fact "
+            "in it is yours to use. You are a copy started from that point to do one thing, the "
+            "last message of this turn. Every earlier request in it, including the request to "
+            "start you, has already been handled: do not act on it again and do not start "
+            "another copy to do your task. The helpers it mentions belong to the original, so "
+            "they are not on your helper list. Answer from the conversation itself."
+        )
+    return (
+        "The conversation before this turn was shown to you for context. Requests in it were "
+        "not addressed to you and have already been handled; do not act on them. Do one thing, "
+        "the last message of this turn, using the facts in that conversation."
+    )
 
 # Hard cap on the text a `remember=True` write-back enqueues into the source
 # conversation's inbox. The note becomes a future model turn there — an
@@ -131,6 +175,51 @@ def _describe_tool_call(call: dict[str, Any]) -> str:
     return f"{name}({detail})" if detail else name
 
 
+def stopped_mid_tool_call_reason(stopped_on_tool_calls: list[dict[str, Any]]) -> str:
+    """Why a run that ended on an unanswered tool call has no answer, naming its last action."""
+    last = "; ".join(_describe_tool_call(c) for c in stopped_on_tool_calls[-3:])
+    return (
+        "The helper stopped before writing an answer (it was cut off mid-tool-call); "
+        f"last action: {last}."
+    )
+
+
+#: Child end states that never count as a finished answer.
+INCOMPLETE_CHILD_STATUSES = frozenset({"failed", "paused", "truncated"})
+
+
+def child_end_state(result: Any) -> dict[str, Any]:
+    """How the child run really ended, as structured facts every caller reads.
+
+    ``status`` is the run's own end status (``completed`` when it named none); ``reason`` is
+    why it is not a finished answer (absent when it is one); ``empty`` says it produced no
+    text and no media; ``last_actions`` names the unanswered tool calls it stopped on."""
+    metadata = getattr(result, "metadata", None) or {}
+    status = str(metadata.get("status") or "") or "completed"
+    stopped = list(getattr(result, "stopped_on_tool_calls", None) or [])
+    empty = not str(getattr(result, "output", None) or "").strip() and not list(
+        getattr(result, "media", None) or []
+    )
+    state: dict[str, Any] = {"status": status, "empty": empty}
+    reason: str | None = None
+    if not getattr(result, "success", True) and getattr(result, "error", None):
+        reason = str(result.error)
+    elif status in INCOMPLETE_CHILD_STATUSES or status.startswith("suspended"):
+        raw = metadata.get("error")
+        if isinstance(raw, dict):
+            raw = raw.get("user_message") or raw.get("message")
+        reason = str(raw) if raw else f"the run ended {status} before finishing its answer"
+    elif empty and stopped:
+        reason = stopped_mid_tool_call_reason(stopped)
+    elif empty:
+        reason = "the run produced no answer (no text and no media)"
+    if reason:
+        state["reason"] = reason
+    if stopped:
+        state["last_actions"] = [_describe_tool_call(c) for c in stopped[-3:]]
+    return state
+
+
 def relayable_answer(
     raw_output: str,
     agent: Any = None,
@@ -147,18 +236,14 @@ def relayable_answer(
       quoted tool call, or a repaired dict of sentence fragments
       (``{"changed": "", "pass)": "", ...}``) — all relayed as "the result"
       (live 2026-10-21).
-    * No text at all and the run ended on a tool call → a plain sentence saying
-      the helper stopped before writing an answer, naming its last action.
+    * No text at all → ``""``. An empty answer is never dressed as a sentence
+      inside a successful result: :func:`child_end_state` names why it is empty
+      (a run cut off mid-tool-call says its last action) and agent_call fails
+      the call on it. ``stopped_on_tool_calls`` is kept for callers' symmetry.
     """
+    del stopped_on_tool_calls  # the reason lives on child_end_state, never in the answer
     text = raw_output or ""
     if not text.strip():
-        if stopped_on_tool_calls:
-            last = "; ".join(_describe_tool_call(c) for c in stopped_on_tool_calls[-3:])
-            return (
-                "The helper stopped before writing an answer (it was cut off "
-                f"mid-tool-call); last action: {last}. Its work so far is not a "
-                "finished answer — ask it again or check what that action did."
-            )
         return text
     if _declares_structured_output(agent):
         from matrx_ai.agents.output import parse_agent_output
@@ -179,6 +264,24 @@ def relayable_answer(
 
 
 
+def child_required_inputs_refusal(exc: BaseException | None, agent_name: str) -> tuple[str, str, str] | None:
+    """(error_type, message, suggested_action) when a child refused for empty required inputs, else None.
+
+    Same class as ``missing_user_input``: nothing ran, nothing was spent, and the calling model
+    fixes it on its next step. Live 2026-11-12: every 'DB Cartographer' call without ``task``
+    filed an ``agent_execution`` system_error."""
+    from matrx_ai.agents.required_variables import RequiredVariablesMissing
+
+    if not isinstance(exc, RequiredVariablesMissing):
+        return None
+    missing = ", ".join(exc.missing)
+    return (
+        RequiredVariablesMissing.code,
+        f"Agent '{agent_name}' was not run: required input(s) missing: {missing}",
+        f"Call it again with a value for: {missing}.",
+    )
+
+
 def _fail(
     ctx: ToolContext,
     started_at: float,
@@ -190,6 +293,8 @@ def _fail(
     exc: BaseException | None = None,
     traceback_operator_only: bool = False,
     child_usages: list[Any] | None = None,
+    refusal: bool = False,
+    output: Any = None,
 ) -> ToolResult:
     # Pass `exc` whenever this is called from an `except` block — without it the
     # traceback is destroyed and the failure reaches the operator as a bare
@@ -211,9 +316,12 @@ def _fail(
         )
     )
     error.traceback_operator_only = traceback_operator_only
+    # A deliberate refusal (no exception ever existed) says so; ``ToolError.refusal``.
+    error.refusal = refusal
     return ToolResult(
         success=False,
         error=error,
+        output=output,
         # A child that ran and then failed still spent money: its usage reaches
         # the parent's tool-call log exactly as a successful child's does.
         child_usages=list(child_usages or []),
@@ -222,6 +330,55 @@ def _fail(
         tool_name="agent_call",
         call_id=ctx.call_id,
     )
+
+
+#: The stop kinds that are NOT failures: the run ended at a limit or a stop and is reported as that.
+LIMIT_STOP_KINDS = frozenset({"cancelled", "time", "cost", "rounds"})
+
+
+def bounded_marker(
+    result: Any, *, agent_label: str, time_budget_seconds: int | None = None
+) -> dict[str, Any] | None:
+    """The ``bounded`` marker for a child that a limit stopped, or None.
+
+    ONE source of truth: ``AgentRunResult.stop_cause`` names the limit and its numbers
+    (rounds / time / cost / cancelled); this only relays it. A time-budget cancel the loop did
+    not stamp (``execution_control`` + a subtree-budget error) still reads as a time stop.
+    """
+    from matrx_ai.orchestrator.stop_cause import RunStopCause, describe_stop_cause
+    from matrx_ai.orchestrator.subtree_budget import is_subtree_budget_stop
+
+    stop = getattr(result, "stop_cause", None)
+    if (
+        stop is not None
+        and stop.kind == "execution_control"
+        and is_subtree_budget_stop((result.metadata or {}).get("error"))
+    ):
+        stop = RunStopCause(
+            kind="time",
+            allowed=float(time_budget_seconds or 0) or None,
+            unit="seconds",
+            detail=str((result.metadata or {}).get("error") or ""),
+        )
+    if stop is None:
+        return None
+    sentence = describe_stop_cause(stop)
+    marker: dict[str, Any] = {
+        "stopped_by": {"rounds": "max_iterations", "time": "time_budget"}.get(stop.kind, stop.kind),
+        "stop_cause": stop.model_dump(),
+        "detail": sentence,
+        "what_this_means": (
+            f"'{agent_label}': {sentence} Its answer is its own report of what it did, what is "
+            "left and where it stopped. It is real work, not an error, but it is incomplete — do "
+            "not present it as a finished answer. It can be continued from where it stopped: its "
+            "conversation keeps the full history."
+        ),
+    }
+    if stop.kind == "rounds" and stop.allowed:
+        marker["max_iterations"] = int(stop.allowed)
+    if stop.kind == "time" and stop.allowed:
+        marker["time_budget_seconds"] = int(stop.allowed)
+    return marker
 
 
 async def load_agent_as_the_person(agent_id: str, app_ctx: Any) -> Any | None:
@@ -235,9 +392,18 @@ async def load_agent_as_the_person(agent_id: str, app_ctx: Any) -> Any | None:
     lane is opened inside the same session, so the database's own admin arm —
     never app code — grants the wider reach (2026-09-25).
     """
+    from matrx_ai.db.agx_manager import AgxDefinition
+
+    async with _as_the_caller(app_ctx, AgxDefinition):
+        return await AgxDefinition.load_by_id_or_none(agent_id)
+
+
+@contextlib.asynccontextmanager
+async def _as_the_caller(app_ctx: Any, model: Any) -> AsyncIterator[None]:
+    """The ONE session every "which agents may this person run" read holds: the caller's
+    RLS session, plus the admin lane on an admin surface (the database's admin arm)."""
     from matrx_connect import admin_lane_active
 
-    from matrx_ai.db.agx_manager import AgxDefinition
     from matrx_ai.tools.person_session import as_the_person
 
     async with as_the_person(app_ctx):
@@ -245,9 +411,106 @@ async def load_agent_as_the_person(agent_id: str, app_ctx: Any) -> Any | None:
         if admin_lane_active(app_ctx):
             from matrx_orm import admin_lane
 
-            async with admin_lane(database=AgxDefinition._database):
-                return await AgxDefinition.load_by_id_or_none(agent_id)
-        return await AgxDefinition.load_by_id_or_none(agent_id)
+            async with admin_lane(database=model._database):
+                yield
+            return
+        yield
+
+
+def runnable(row: Any) -> bool:
+    """The run gate's second half (after visibility): active and not archived."""
+    get = row.get if isinstance(row, dict) else (lambda k, d=None: getattr(row, k, d))
+    return get("is_active", True) is not False and not get("is_archived", False)
+
+
+#: How many agents an unknown-agent refusal names (closest names first); the rest are counted.
+REACHABLE_AGENTS_SHOWN = 10
+
+
+def agent_slug(text: Any) -> str:
+    """``"Lane Planner"`` / ``"lane_planner"`` / ``"LanePlanner"`` -> ``"lane-planner"``:
+    how a name is matched."""
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", str(text or ""))
+    return "-".join(re.findall(r"[a-z0-9]+", spaced.lower()))
+
+
+async def reachable_agents(app_ctx: Any) -> list[dict[str, str]]:
+    """Every agent this caller may run: exactly what the run gate accepts (the same session
+    as :func:`load_agent_as_the_person`, then :func:`runnable`), as ``{id, name, organization_id}``."""
+    from matrx_ai.db.agx_manager import AgxDefinition
+
+    async with _as_the_caller(app_ctx, AgxDefinition):
+        rows = await AgxDefinition.filter().values(
+            "id", "name", "organization_id", "is_active", "is_archived"
+        )
+    return [
+        {
+            "id": str(r["id"]),
+            "name": " ".join(str(r.get("name") or "").split())[:80] or "(unnamed)",
+            "organization_id": str(r.get("organization_id") or ""),
+        }
+        for r in rows
+        if runnable(r)
+    ]
+
+
+def unknown_agent_message(
+    ref: str,
+    agents: list[dict[str, str]],
+    *,
+    organization_id: str | None = None,
+    shown: int = REACHABLE_AGENTS_SHOWN,
+) -> str:
+    """The sentence that lets a model correct an unknown ``agent_id`` in one step.
+
+    One reachable agent whose name equals ``ref`` (as a slug): that one is suggested, never
+    run. Otherwise the reachable agents, closest names to ``ref`` first, then the caller's
+    organization, bounded to ``shown`` with a count of all."""
+    want = agent_slug(ref)
+    exact = [a for a in agents if want and agent_slug(a["name"]) == want]
+    if len(exact) == 1:
+        a = exact[0]
+        return (
+            f"{ref!r} is the name of {a['name']}, not its id. To call it, "
+            f"pass agent_id='{a['id']}'."
+        )
+    if not agents:
+        return "You cannot call any saved agent here; use agent_id='self' or 'fork'."
+    words = set(want.split("-")) - {""}
+    org = str(organization_id or "")
+
+    def rank(a: dict[str, str]) -> tuple[int, int, str]:
+        overlap = len(words & set(agent_slug(a["name"]).split("-")))
+        return (-overlap, 0 if org and a["organization_id"] == org else 1, a["name"].lower())
+
+    ordered = sorted(agents, key=rank)[:shown]
+    listed = "; ".join(f"{a['name']}: {a['id']}" for a in ordered)
+    return (
+        f"Agents you can call ({len(ordered)} of {len(agents)}, closest names first): "
+        f"{listed}. Pass one of these ids as agent_id."
+    )
+
+
+async def unknown_agent_refusal(ref: str, app_ctx: Any) -> str:
+    """:func:`unknown_agent_message` over :func:`reachable_agents`. A failed read says so
+    (and is logged); the refusal itself still stands."""
+    try:
+        agents = await reachable_agents(app_ctx)
+    except Exception as exc:  # noqa: BLE001 — the refusal stands; the cause rides it and is captured
+        from matrx_connect.streaming.error_capture import capture_error
+
+        from matrx_ai.utils.carried_failure import FailureText
+
+        logger.warning("[agent_call] could not list reachable agents: %s", exc, exc_info=True)
+        await capture_error(exc, kind="agent_call_reachable_agents_failed", agent_ref=ref)
+        return FailureText(
+            "The list of agents you can call could not be read "
+            f"({type(exc).__name__}: {exc}).",
+            exc,
+        )
+    return unknown_agent_message(
+        ref, agents, organization_id=str(getattr(app_ctx, "organization_id", "") or "") or None
+    )
 
 
 def _version_model() -> Any:
@@ -292,7 +555,126 @@ async def _load_visible_conversation(conversation_id: str) -> Any | None:
     return live[0] if live else None
 
 
-async def _load_history_messages(conversation_id: str, up_to_position: int | None) -> list[Any]:
+def _lineage_of(row: Any) -> dict[str, Any] | None:
+    """Where a conversation row's borrowed history comes from (its ``inherited_history``)."""
+    from matrx_ai.agents.conversation_type import INHERITED_HISTORY_KEY
+
+    lineage = (getattr(row, "metadata", None) or {}).get(INHERITED_HISTORY_KEY) if row is not None else None
+    if isinstance(lineage, dict) and lineage.get("conversation_id"):
+        return lineage
+    return None
+
+
+async def _load_history_messages(
+    conversation_id: str, up_to_position: int | None, _seen: frozenset[str] = frozenset()
+) -> list[Any]:
+    """A conversation's full model-visible history: the history it borrowed when it started (read
+    the same way, so a fork of a fork carries every level), then its own rows."""
+    return (await _load_history_and_cut(conversation_id, up_to_position, _seen))[0]
+
+
+async def _load_history_and_cut(
+    conversation_id: str,
+    up_to_position: int | None,
+    _seen: frozenset[str] = frozenset(),
+    *,
+    row: Any = None,
+) -> tuple[list[Any], int | None]:
+    """``(full history, the last of the conversation's OWN positions in it)``. ``row``: the
+    conversation row when the caller already read it."""
+    if row is None and conversation_id not in _seen:
+        row = await _load_visible_conversation(conversation_id)
+    lineage = None if conversation_id in _seen else _lineage_of(row)
+    own = await _own_history_messages(conversation_id, up_to_position)
+    cut = up_to_position if up_to_position is not None else _last_position(own)
+    if lineage is None:
+        return own, cut
+    borrowed = await _load_history_messages(
+        str(lineage["conversation_id"]), lineage.get("up_to_position"), _seen | {conversation_id}
+    )
+    return [*borrowed, *own], cut
+
+
+def _without_calls_in_flight(history: list[Any]) -> list[Any]:
+    """The borrowed history without the tool calls still running in its source conversation.
+
+    A snapshot reads the caller's conversation WHILE the caller's own tool call (the one starting
+    this child, plus any sibling in the same batch) is in flight: its ``tool_use`` is persisted, its
+    result is not. Borrowed as is, the child's sanitizer read that call as one the platform never
+    answered, told the child "TOOL NEVER ANSWERED [mandate_call]" about the request that started it,
+    and filed an ``orphan_tool_use_repaired`` row on every step of the child (live class sec_8deaee54,
+    2026-11-09, 34 rows from three snapshot mandate_calls). Only the LAST assistant message's
+    unanswered calls are removed; an older unanswered call is a real orphan and stays for the
+    sanitizer to repair and report. A message left with no content is dropped.
+    """
+    from matrx_ai.config.tools_config import ToolCallContent, ToolResultContent
+
+    last_assistant = None
+    for index in range(len(history) - 1, -1, -1):
+        if str(getattr(history[index].role, "value", history[index].role)) == "assistant":
+            last_assistant = index
+            break
+    if last_assistant is None:
+        return history
+    answered = {
+        str(block.tool_use_id or block.call_id)
+        for message in history
+        for block in (getattr(message, "content", None) or [])
+        if isinstance(block, ToolResultContent) and (block.tool_use_id or block.call_id)
+    }
+    message = history[last_assistant]
+    content = list(getattr(message, "content", None) or [])
+    kept = [b for b in content if not (isinstance(b, ToolCallContent) and b.id and str(b.id) not in answered)]
+    if len(kept) == len(content):
+        return history
+    trimmed = [*history]
+    if kept:
+        trimmed[last_assistant] = dataclasses.replace(message, content=kept)
+    else:
+        del trimmed[last_assistant]
+    return trimmed
+
+
+#: Metadata key on the assistant turn that closes a borrowed history (platform-authored, never stored).
+INHERITED_HISTORY_CLOSE_KEY = "inherited_history_close"
+
+
+def _inherited_history_close_text(*, own: bool) -> str:
+    if own:
+        return "I started a copy of myself to do that. The copy's one task is the next message."
+    return "That request was handled. The next message is the one task for you."
+
+
+def _closed_borrowed_history(history: list[Any], *, own: bool) -> list[Any]:
+    """The borrowed history closed by a platform-authored assistant turn when it ends on a user turn.
+
+    A child borrows the caller's conversation WHILE the caller's turn is open, so the history ends on
+    the person's request that started the child ("Start a fork of yourself ..."). The provider merges
+    consecutive user turns, so that request and the child's own prompt arrived as ONE user message and
+    the child read "start a fork" as its current order: PB-08 2026-11-15, 9 of 30 forks plus 2 of 2
+    smokes on a build that no longer offered the fork choice still called agent(fork) and were refused.
+    Closed here, the request stays history (already answered: the original started this child) and
+    the child's prompt is its own new user turn. The note in ``_inherited_history_note`` still rides
+    on the child's turn."""
+    from matrx_ai.config.message_config import UnifiedMessage
+    from matrx_ai.config.unified_content import TextContent
+
+    if not history or str(getattr(history[-1].role, "value", history[-1].role)) != "user":
+        return history
+    close = UnifiedMessage(
+        role="assistant",
+        content=[TextContent(text=_inherited_history_close_text(own=own))],
+        metadata={INHERITED_HISTORY_CLOSE_KEY: True},
+    )
+    return [*history, close]
+
+
+def _last_position(messages: list[Any]) -> int | None:
+    positions = [m.position for m in messages if getattr(m, "position", None) is not None]
+    return max(positions) if positions else None
+
+
+async def _own_history_messages(conversation_id: str, up_to_position: int | None) -> list[Any]:
     """The source conversation's model-visible history via the ONE rebuild
     funnel (``ConversationResolver``'s own load seam — model-hidden and
     soft-deleted rows already excluded, tool pairing already synthesized).
@@ -321,10 +703,14 @@ async def agent_call(
     is_version: bool = False,
     on_child_result: Any = None,
     host_turn: HostTurn | None = None,
+    input_arg_name: str = "user_input",
 ) -> ToolResult:
     """Run a saved agent by id and return its result. See module docstring.
 
-    Three host-only keywords, never on the wire (the model never names them):
+    Host-only keywords, never on the wire (the model never names them).
+    ``input_arg_name`` is the field the CALLING tool offers for the child's message
+    (``agent`` offers ``prompt``), so a refusal never sends the model to a field
+    its tool does not have:
 
     * ``run_in_conversation_id`` — the conversation the child runs in. A new id
       starts the child there (so a host can hand out a stable handle before the
@@ -444,17 +830,19 @@ async def agent_call(
         )
 
     if row is None:
-        # Missing and not-yours-to-run are one answer: RLS hid the row.
+        # Missing and not-yours-to-run are one answer: RLS hid the row. The refusal names
+        # what the caller CAN run, so a model corrects itself in one step (PB-03, C60).
         return _fail(
             ctx,
             started_at,
             error_type="not_found",
-            message=f"Agent {agent_id} was not found, or you do not have access to it.",
+            message=f"Agent {agent_id} was not found, or you do not have access to it. "
+            f"Nothing ran. {await unknown_agent_refusal(agent_id, app_ctx)}",
             suggested_action="Verify the agent_id. Use an agent you own, one shared "
             "with you or your organization, or a public agent.",
         )
 
-    if getattr(row, "is_active", True) is False or getattr(row, "is_archived", False):
+    if not runnable(row):
         return _fail(
             ctx,
             started_at,
@@ -476,7 +864,6 @@ async def agent_call(
     # ── Per-subtree execution budget ────────────────────────────────────
     from matrx_ai.orchestrator.subtree_budget import (
         MIN_SUBTREE_BUDGET_SECONDS,
-        is_subtree_budget_stop,
         with_subtree_budget,
     )
 
@@ -667,19 +1054,25 @@ async def agent_call(
             message=f"agent_call nesting limit reached (depth {depth} ≥ "
             f"{max_depth}). Refusing to run another nested agent.",
             suggested_action="Flatten the agent composition or do the remaining work directly.",
+            refusal=True,
         )
 
     # ── Load + run the target agent ─────────────────────────────────────
-    from matrx_ai.agents.definition import Agent
-    from matrx_ai.agents.executor import run_agent
+    # An agent chose the child, so it runs as named — loaded and run by the mandate runner's agent-as-tool verbs
+    # (runner-boundary wave 4), never by package code itself.
+    from matrx_ai.mandates import HolderRef, RunOptions, carried_principal, get_agent_as_tool_runner
     from matrx_ai.prompt_blocks.errors import PromptBlockError
 
     try:
-        agent = await Agent.from_agent(
-            version_id or agent_id,
-            is_version=version_id is not None,
-            variables=parsed.variables or None,
-            config_overrides=config_overrides,
+        runner = get_agent_as_tool_runner()
+        who = carried_principal()
+        run_opts = RunOptions(door="agent_call")
+        agent = await runner.prepare_own_agent(
+            HolderRef(type="agent", id=str(agent_id), version_id=str(version_id) if version_id else None,
+                      config_overrides=config_overrides),
+            parsed.variables or {},
+            who=who,
+            opts=run_opts,
         )
     except PromptBlockError as exc:
         # A missing declared block refuses the run BY NAME — never "failed to build agent".
@@ -709,11 +1102,12 @@ async def agent_call(
     # treat them as pre-existing — never re-written, never below-trigger).
     run_conversation_id: str | None = pinned_conversation_id
     history_message_count = 0
+    inherited_lineage: dict[str, Any] | None = None
     if continue_existing and pinned_conversation_id:
         # Continuing a child: its own persisted turns go in front of its
         # authored messages, exactly as fork mode seeds a fork (same funnel).
         try:
-            history = await _load_history_messages(pinned_conversation_id, None)
+            history, _ = await _load_history_and_cut(pinned_conversation_id, None, row=pinned_row)
         except Exception as exc:
             return _fail(
                 ctx,
@@ -737,6 +1131,9 @@ async def agent_call(
             agent.config.messages.extend(history)
             agent.config.messages.extend(own_messages)
             history_message_count = len(history)
+            if _lineage_of(pinned_row) is not None:
+                # A continued child that borrowed a history reads it again, with the same note.
+                _attach_inherited_note(agent, app_ctx, agent_id)
     if history_mode != "none" and source_conversation_id:
         if not (parsed.user_input or "").strip() and host_turn is None and not list(agent.config.messages):
             # No new turn at all: the run's trigger would be the LAST BORROWED
@@ -804,11 +1201,12 @@ async def agent_call(
             run_conversation_id if history_mode == "fork" else None
         ) or source_conversation_id
         try:
-            history = await _load_history_messages(
+            history, own_cut = await _load_history_and_cut(
                 history_read_id,
                 # Fork already applied the cut; re-slicing the fork would be a
                 # second, off-by-N application of the same bound.
                 None if history_mode == "fork" else parsed.history_up_to_position,
+                row=source_row,
             )
         except Exception as exc:
             return _fail(
@@ -819,6 +1217,8 @@ async def agent_call(
                 is_retryable=True,
                 exc=exc,
             )
+        if history_mode == "snapshot":
+            history = _without_calls_in_flight(history)
         if history:
             # Prepend: [borrowed past] + [agent's own authored messages] + the
             # user_input turn run_agent appends — mirroring hydrate_persisted_history
@@ -829,9 +1229,63 @@ async def agent_call(
             await agent.run_first_turn_pass()
             own_messages = list(agent.config.messages)
             agent.config.messages.clear()
-            agent.config.messages.extend(history)
+            agent.config.messages.extend(
+                _closed_borrowed_history(
+                    history, own=str(getattr(app_ctx, "agent_id", "") or "") == str(agent_id)
+                )
+            )
             agent.config.messages.extend(own_messages)
             history_message_count = len(history)
+            # Without this the borrowed past ends on the request that started this child, right
+            # beside the child's own prompt, and it reads as a fresh order (PB-08 B7: a fork forked
+            # again). Staged per turn in the context channel, so no stored message changes.
+            _attach_inherited_note(agent, app_ctx, agent_id)
+            if history_mode == "snapshot":
+                # Recorded on the child's conversation (conversation gate), so a continued child
+                # and a child of this child read the same borrowed history first.
+                inherited_lineage = {"conversation_id": str(history_read_id), "up_to_position": own_cut}
+
+    # ── The child's pre-run checks run BEFORE its id goes out ───────────
+    # The run below opens the child context, which announces the child's
+    # conversation id on the wire (sub_agent INIT) — a conversation that is only
+    # written on the child's first write. A child refused by its first-turn pass
+    # (required inputs, a declared prompt block) never writes, so announcing it
+    # first sent the client a phantom id it then failed to load (live
+    # 2026-11-12, system_error dbda7ad6: 'DB Cartographer' without ``task``
+    # announced conversation b5d123e3 that never existed). Idempotent: the
+    # child's execute finds the pass already applied.
+    try:
+        await agent.run_first_turn_pass()
+    except PromptBlockError as exc:
+        info = getattr(exc, "error_info", None)
+        return _fail(
+            ctx,
+            started_at,
+            error_type=getattr(info, "error_type", None) or "prompt_block",
+            message=getattr(info, "user_message", None) or str(exc),
+            is_retryable=False,
+            exc=exc,
+        )
+    except Exception as exc:
+        agent_name = str(getattr(agent, "name", None) or agent_id)
+        refusal = child_required_inputs_refusal(exc, agent_name)
+        if refusal is not None:
+            refusal_type, refusal_message, refusal_action = refusal
+            return _fail(
+                ctx,
+                started_at,
+                error_type=refusal_type,
+                message=refusal_message,
+                suggested_action=refusal_action,
+                refusal=True,
+            )
+        return _fail(
+            ctx,
+            started_at,
+            error_type="agent_execution",
+            message=f"Agent '{agent_name}' failed before it started: {exc}",
+            exc=exc,
+        )
 
     # ── A child must arrive with something to answer ────────────────────
     # An agent with instructions only and no user_input would reach the send
@@ -852,7 +1306,7 @@ async def agent_call(
             agent,
             user_input=parsed.user_input,
             variables=parsed.variables,
-            input_arg="user_input",
+            input_arg=input_arg_name,
         )
     )
     if refusal is not None:
@@ -863,6 +1317,7 @@ async def agent_call(
             error_type=MISSING_CHILD_INPUT_ERROR_TYPE,
             message=refusal_message,
             suggested_action=refusal_action,
+            refusal=True,
         )
 
     label = f"agent_call:{getattr(agent, 'name', None) or agent_id}"[:60]
@@ -879,9 +1334,13 @@ async def agent_call(
     child_metadata = {**app_ctx.metadata, _AGENT_CALL_DEPTH_KEY: depth + 1}
     # Steerability belongs to ONE child, the one its host launched as such —
     # never inherited by that child's own children.
-    from matrx_ai.agents.conversation_type import STEERABLE_CHILD_KEY
+    from matrx_ai.agents.conversation_type import INHERITED_HISTORY_KEY, STEERABLE_CHILD_KEY
 
     child_metadata.pop(STEERABLE_CHILD_KEY, None)
+    # Where THIS child's borrowed history comes from (never its parent's).
+    child_metadata.pop(INHERITED_HISTORY_KEY, None)
+    if inherited_lineage is not None:
+        child_metadata[INHERITED_HISTORY_KEY] = inherited_lineage
     if extra_child_metadata:
         child_metadata.update(extra_child_metadata)
     # Lineage: every chat.tool_call row the child (and its own children) writes
@@ -925,8 +1384,10 @@ async def agent_call(
     try:
         require_complete_output = parsed.result_mode in ("reference", "inline_once")
         muted = parsed.result_mode == "reference" or mute_stream
-        result = await run_agent(
+        result = await runner.run_agent_as_tool(
             agent,
+            who=who,
+            opts=run_opts,
             label=label,
             source_feature="agent_call",
             conversation_id=run_conversation_id,
@@ -962,12 +1423,56 @@ async def agent_call(
 
             await capture_error(exc, kind="agent_call_child_result_hook", agent_id=agent_id)
 
-    if not result.success:
+    # A run a LIMIT or a stop ended (cancelled / time / cost / rounds) is reported as that, whatever
+    # ``success`` says: a cancelled child is not "failed" — the caller must read the stop cause and
+    # what the child had done, not a failure sentence (failure register entry 8).
+    _early_bounded = bounded_marker(
+        result,
+        agent_label=str(getattr(agent, "name", None) or agent_id),
+        time_budget_seconds=time_budget_seconds,
+    )
+    _stopped_by_limit = (
+        _early_bounded is not None
+        and (_early_bounded.get("stop_cause") or {}).get("kind") in LIMIT_STOP_KINDS
+    )
+
+    if not result.success and not _stopped_by_limit:
         # The child's own exception rides the result: hand it to ToolError so
         # the operator gets its real type, message and stack — never only this
         # sentence (2026-10-01: an OpenAI out-of-credit refusal reached the
         # tool executor as "the tool swallowed its exception").
         child_error_type = (result.metadata or {}).get("error_type")
+        refusal = child_required_inputs_refusal(result.exception, str(getattr(agent, "name", None) or agent_id))
+        if refusal is not None:
+            # The child refused BEFORE any model call: the CALLING model left a declared
+            # input empty — its to fix on the next step, never a platform failure.
+            refusal_type, refusal_message, refusal_action = refusal
+            return _fail(
+                ctx,
+                started_at,
+                error_type=refusal_type,
+                message=refusal_message,
+                suggested_action=refusal_action,
+                refusal=True,
+                child_usages=list(result.usage_history or []),
+            )
+        from matrx_ai.providers.caller_refusal import EXPECTED_HOLD_CODES
+
+        if child_error_type in EXPECTED_HOLD_CODES:
+            # The child was HELD by a limit or approval someone set (spend approval waiting, an
+            # automation guardrail, a plan's usage limit): nothing was spent, the hold has its own
+            # human path, and the calling model tells the person. Its code rides as the error type so
+            # the executor never files it as a tool failure (live 2026-11-14: a mandate_call held by
+            # run_approval_required filed tool_execution_failed).
+            return _fail(
+                ctx,
+                started_at,
+                error_type=str(child_error_type),
+                message=f"Agent '{getattr(agent, 'name', agent_id)}' is on hold ({child_error_type}): {result.error}",
+                suggested_action="Tell the person the run is waiting on that hold; do not call it again until it clears.",
+                refusal=True,
+                child_usages=list(result.usage_history or []),
+            )
         suggested_action = "Check the agent's variables and configuration."
         if child_error_type == EMPTY_CONVERSATION_ERROR_TYPE:
             # The send boundary refused an EMPTY child (nothing sent, nothing
@@ -975,7 +1480,7 @@ async def agent_call(
             # to send, never "check the configuration".
             _, suggested_action = empty_child_turn_guidance(
                 str(getattr(agent, "name", None) or agent_id),
-                input_arg="user_input",
+                input_arg=input_arg_name,
                 undeclared=undeclared_variable_names(agent, parsed.variables),
             )
         return _fail(
@@ -994,29 +1499,43 @@ async def agent_call(
             child_usages=list(result.usage_history or []),
         )
 
-    if require_complete_output:
-        child_status = str((result.metadata or {}).get("status") or "")
-        incomplete_status = (
-            child_status
-            if child_status in {"failed", "paused", "truncated"}
-            or child_status.startswith("suspended")
-            else ""
+    # ── The child's real end state rides every answer; an unfinished one is never success. ──
+    # A child that produced nothing, or ended failed/paused/truncated/suspended, is a FAILED call
+    # whatever require_complete_output says (agent-tools VISION, "Research tool results": never
+    # report success on work that produced nothing). Its partial answer still rides ``output``
+    # beside ``child_end`` so the caller can use what it did. A child a LIMIT stopped keeps its
+    # own path below: ``bounded`` names the stop and the answer is what it got to.
+    child_end = child_end_state(result)
+    if child_end.get("reason") and not _stopped_by_limit:
+        agent_label = str(getattr(agent, "name", None) or agent_id)
+        status_label = child_end["status"] if child_end["status"] != "completed" else "empty_response"
+        partial = relayable_answer(result.output or "", agent)
+        return _fail(
+            ctx,
+            started_at,
+            error_type="agent_incomplete_output",
+            message=(
+                f"Agent '{agent_label}' did not finish its answer (status={status_label}): "
+                f"{child_end['reason']}"
+                + ("; no value was stored." if require_complete_output else "")
+            ),
+            suggested_action=(
+                "Ask the agent again, or use the partial answer on the result if it is enough."
+                if not child_end.get("empty")
+                else "Ask the agent again; it returned nothing."
+            ),
+            is_retryable=True,
+            child_usages=list(result.usage_history or []),
+            output={
+                "agent_id": agent_id,
+                **({"agent_version_id": version_id} if version_id else {}),
+                "agent_name": getattr(agent, "name", None) or "",
+                "result": partial,
+                "child_end": child_end,
+                **_child_conversation_extra(result, {}),
+                "model_id": result.model_id,
+            },
         )
-        empty_output = not (result.output or "").strip()
-        if incomplete_status or empty_output:
-            status_label = incomplete_status or "empty_response"
-            return _fail(
-                ctx,
-                started_at,
-                error_type="agent_incomplete_output",
-                message=(
-                    f"Agent '{getattr(agent, 'name', agent_id)}' did not produce a "
-                    f"complete storable result (status={status_label}); no value was stored."
-                ),
-                suggested_action="Retry the child agent or use inline mode for partial output.",
-                is_retryable=True,
-                child_usages=list(result.usage_history or []),
-            )
 
     # ── Did a budget stop it? Say so, on the result. ────────────────────
     # A bounded answer that presents itself as complete is the failure this
@@ -1025,41 +1544,9 @@ async def agent_call(
     # instruction to end with what it did not get to — neither replaces the
     # other, because a desk can forget and a marker cannot say what is missing.
     bounded_extras: dict[str, Any] = {}
-    _child_status = str((result.metadata or {}).get("status") or "")
-    if _child_status == "cancelled" and is_subtree_budget_stop(
-        (result.metadata or {}).get("error")
-    ):
-        bounded_extras["bounded"] = {
-            "stopped_by": "time_budget",
-            "time_budget_seconds": int(time_budget_seconds or 0),
-            "detail": str((result.metadata or {}).get("error") or ""),
-            "what_this_means": (
-                f"This answer is what '{getattr(agent, 'name', None) or agent_id}' had "
-                f"when its {int(time_budget_seconds or 0)}s budget ran out. It is real "
-                "work, not an error, and it may be incomplete — do not present it as a "
-                "finished answer without saying it was time-bounded."
-            ),
-        }
-    elif _child_status == "max_iterations_exceeded":
-        # Whoever set the ceiling — this caller, the harness knob, or the library
-        # default — a run that stopped AT it did not finish. Before 2026-10-21 the
-        # marker fired only when THIS caller passed max_iterations, so a helper
-        # stopped by the default ceiling reported back as plainly "finished".
-        _ceiling = max_iterations or (result.metadata or {}).get("max_iterations")
-        _rounds = f"{int(_ceiling)} rounds" if _ceiling else "its rounds"
-        _agent_label = getattr(agent, "name", None) or agent_id
-        bounded_extras["bounded"] = {
-            "stopped_by": "max_iterations",
-            **({"max_iterations": int(_ceiling)} if _ceiling else {}),
-            "detail": f"stopped at its step limit of {_rounds}, not finished",
-            "what_this_means": (
-                f"'{_agent_label}' used all {_rounds} it was allowed and stopped before "
-                "finishing. Its answer is its own report of what it did, what is left and "
-                "where it stopped. It is real work, not an error, but it is incomplete — do "
-                "not present it as a finished answer. It can be continued from where it "
-                "stopped: its conversation keeps the full history."
-            ),
-        }
+    _bounded = _early_bounded
+    if _bounded is not None:
+        bounded_extras["bounded"] = _bounded
 
     # The helper's answer, as the caller will see it — see relayable_answer.
     raw_output = result.output or ""
@@ -1171,6 +1658,7 @@ async def agent_call(
                 "stored": descriptor,
                 **_child_conversation_extra(result, collab_extras),
                 "model_id": result.model_id,
+                "child_end": child_end,
                 **bounded_extras,
                 **collab_extras,
             }
@@ -1223,6 +1711,7 @@ async def agent_call(
         "result": result_value,
         **_child_conversation_extra(result, collab_extras),
         "model_id": result.model_id,
+        "child_end": child_end,
         **bounded_extras,
         **collab_extras,
     }
@@ -1273,4 +1762,13 @@ def _child_conversation_extra(result: Any, collab_extras: dict[str, Any]) -> dic
     return {"child_conversation_id": child} if child else {}
 
 
-__all__ = ["agent_call"]
+__all__ = [
+    "REACHABLE_AGENTS_SHOWN",
+    "child_end_state",
+    "agent_call",
+    "agent_slug",
+    "reachable_agents",
+    "runnable",
+    "unknown_agent_message",
+    "unknown_agent_refusal",
+]

@@ -213,3 +213,33 @@ async def test_provider_error_fails_the_conversation():
     assert result.execution.status is ExecutionStatus.FAILED
     assert result.execution.error.error_type == "provider_500"
     assert result.total_cost == Decimal("0.02")  # a failed turn STILL billed
+
+
+def _usage_with(metadata: dict):
+    class Usage:
+        input_tokens = 100
+        output_tokens = 0
+        cached_input_tokens = 0
+        provider_charge = None
+        response_id = "r"
+        offering_id = "o"
+
+        @staticmethod
+        def calculate_cost() -> float:
+            return 0.05
+
+        @staticmethod
+        def calculate_catalog_cost() -> float:
+            return 0.05
+
+    u = Usage()
+    u.metadata = metadata
+    return u
+
+
+def test_estimated_usage_is_recorded_as_estimated_with_the_same_amount() -> None:
+    est = TokenSpend.from_usage(_usage_with({"usage_estimated": "stopped; input from the counted prompt"}), label="p")
+    real = TokenSpend.from_usage(_usage_with({}), label="p")
+    assert est.cost_source == "catalog_from_estimated_usage"
+    assert real.cost_source == "catalog_from_provider_usage"
+    assert est.usd == real.usd == Decimal("0.05")

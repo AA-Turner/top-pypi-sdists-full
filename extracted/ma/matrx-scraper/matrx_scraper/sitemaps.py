@@ -345,7 +345,10 @@ async def crawl_sitemap_documents(
                     fetched_docs += 1
                     if not (200 <= response.status_code < 300):
                         raise RuntimeError(f"HTTP {response.status_code}")
-                    parsed_doc = parse_sitemap_document(response.content)
+                    # A sitemap holds up to 50,000 URLs: parsing it and building one
+                    # model per entry is seconds of CPU, so it runs off the loop
+                    # (workflow-worker stall 8fa91a5b4775c699, ~7 s).
+                    parsed_doc = await asyncio.to_thread(parse_sitemap_document, response.content)
                     entries = parsed_doc.entries
                     if parsed_doc.kind == "urlset" and len(entries) > urls_remaining:
                         entries = entries[:urls_remaining]

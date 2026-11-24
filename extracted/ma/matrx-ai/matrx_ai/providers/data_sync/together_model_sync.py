@@ -1,8 +1,11 @@
 import asyncio
+from typing import Any
+
 from matrx_utils import clear_terminal, vcprint
 from matrx_utils.data_in_code.make_updates import update_data_in_code
+
+from matrx_ai.local_data.paths import MODELS_TS_FILE, TOGETHER_MODELS_FILE
 from matrx_ai.providers.together.client import get_together_client
-from matrx_ai.local_data.paths import TOGETHER_MODELS_FILE, MODELS_TS_FILE
 
 
 def _dump(obj) -> dict:
@@ -15,7 +18,8 @@ def _dump(obj) -> dict:
 
 async def list_together_models() -> list[dict]:
     client = get_together_client()
-    models = await client.models.list()
+    # Together answers with a bare JSON array, not OpenAI's {"data": [...]} page.
+    models = await client.get("/models", cast_to=list[dict[str, Any]])
     return [_dump(model) for model in models]
 
 

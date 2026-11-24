@@ -37,6 +37,7 @@ pub mod aggregator;
 pub mod backend_client;
 pub(crate) mod caller_attribution;
 pub mod capability;
+pub(crate) mod capability_projection;
 #[allow(clippy::result_large_err)]
 // ServiceError carries disambiguation candidates (#1076 backend attachment)
 pub mod capability_service;
@@ -70,6 +71,7 @@ pub mod state;
 pub mod tools;
 pub mod traffic;
 pub(crate) mod update_manifest;
+pub use update_manifest::{UpdateManifestError, release_platform, resolve_release_update};
 
 pub use caller_attribution::ClientAttributionStore;
 pub use dcc_mcp_gateway_core::policy::{

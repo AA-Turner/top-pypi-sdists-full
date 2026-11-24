@@ -19,7 +19,10 @@ import pytest
 
 from nab import _run
 from nab.config.ladder import OPTIONS, SourceRoots
+from nab.env import OUTPUT_OWNED
 from nab.output import reset_run
+
+from .lock_registry import Registry
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -28,13 +31,15 @@ if TYPE_CHECKING:
 
 @pytest.fixture(autouse=True)
 def _reset_nab_output(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Isolate CLI colour settings and reset the per-run printer.
+    """Isolate CLI output settings and reset the per-run printer.
 
     Printers hold captured streams that close when their test finishes.
     """
     monkeypatch.setenv("NO_COLOR", "1")
     monkeypatch.delenv("FORCE_COLOR", raising=False)
     monkeypatch.delenv("TERM", raising=False)
+    for name in OUTPUT_OWNED:
+        monkeypatch.delenv(name, raising=False)
     yield
     reset_run()
 
@@ -93,6 +98,14 @@ def hermetic_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("NAB_RESOLUTION", raising=False)
 
     return project_dir
+
+
+@pytest.fixture
+def registry(hermetic_roots: Path, monkeypatch: pytest.MonkeyPatch) -> Registry:
+    """Serve the project's wheel listings and metadata from memory."""
+    value = Registry(hermetic_roots)
+    monkeypatch.setattr("nab_project.resolve.FetchCoordinator", value.coordinator)
+    return value
 
 
 @contextmanager

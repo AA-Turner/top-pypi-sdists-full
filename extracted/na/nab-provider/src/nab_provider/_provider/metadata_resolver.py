@@ -9,8 +9,6 @@ each ``Requires-Dist`` entry into base deps vs per-extra deps.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.environment",
     "nab_provider.errors",
     "nab_provider.extra_keys",
@@ -18,23 +16,26 @@ __lazy_modules__ = (
     "nab_provider.policy",
     "nab_provider.project_requirements",
     "nab_provider.records",
-    "nab_resolver.diagnostics",
     "nab_provider.store",
     "nab_provider.tags",
+    "nab_provider.value",
     "nab_provider.vcs_admission",
+    "nab_resolver.diagnostics",
+    "packaging.specifiers",
+    "packaging.utils",
     "urllib.parse",
 )
 
 import logging
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Literal, TypeGuard
+from typing import TYPE_CHECKING, Literal, NamedTuple, TypeGuard
 from urllib.parse import urlsplit
 
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import InvalidVersion, Version
-from nab_provider.records import RangeOutcome, SdistFile, WheelFile
+from packaging.ranges import VersionRange
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
+
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 
 from .._compat import override
@@ -58,22 +59,27 @@ from ..metadata import (
 from ..policy import BuildPolicy
 from ..project_requirements import (
     InvalidProjectRequirementError,
+    normalize_project_extra,
     parse_project_requirement,
+    parse_project_requires_python,
     parse_requirements,
+    project_with_static_requires_python,
     require_string_list,
 )
+from ..records import RangeOutcome, SdistFile, WheelFile
 from ..store import sdist_artifact_key
 from ..tags import python_axis_accepts
+from ..value import replace
 from ..vcs_admission import admit_vcs_url
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 
-    from nab_provider._vendor.packaging.markers import Marker
-    from nab_provider._vendor.packaging.requirements import Requirement
+    from packaging.markers import Marker
+    from packaging.requirements import Requirement
 
     from ..provider import DistFile, Provider
-    from ..store import InMemoryIndex
+    from ..store import InMemoryIndex, WheelMetadataContext
     from ..tags import TagSet
     from ..target import ResolveTarget
 
@@ -97,48 +103,41 @@ _OFFLINE_METADATA_MISS = "offline mode skipped a metadata fetch with no cached m
 _FILTERED_SDIST = "no PEP 658 metadata and the listing filter excluded the sdist"
 
 
-def assumed_wheel_metadata(
+def _sharing_context(
     provider: Provider, package: str, version: Version
-) -> str | None:
-    """Return shared wheel metadata when this target's policy allows it."""
-    if not provider.effective_assume_consistent_metadata(
+) -> WheelMetadataContext | None:
+    """Return this listing's token if the release policy allows metadata sharing."""
+    contexts = provider.consistent_metadata_contexts
+    if contexts is None or not provider.effective_assume_consistent_metadata(
         package, version, provider.serving_index(package)
     ):
         return None
+    return contexts.get(package)
 
-    # Sharing still requires a wheel admitted for this target.
+
+class _SharedWheel(NamedTuple):
+    """The chosen wheel, its listing token, and any published metadata."""
+
+    wheel: WheelFile
+    context: WheelMetadataContext
+    text: str | None
+
+
+def shared_wheel(
+    provider: Provider, package: str, version: Version
+) -> _SharedWheel | None:
+    """Select a representative only from wheels admitted by this target."""
+    context = _sharing_context(provider, package, version)
     versions = provider.versions_cache.get(package)
-    if versions is None or not isinstance(
-        version_dists(provider, package, versions).picked.get(version), WheelFile
-    ):
+    if context is None or versions is None:
         return None
-
-    contexts = provider.consistent_metadata_contexts
-    assert contexts is not None
-    return provider.coordinator.index.get_consistent_wheel_metadata(
-        package, str(version), context=contexts.get(package)
+    wheel = version_dists(provider, package, versions).picked.get(version)
+    if not isinstance(wheel, WheelFile):
+        return None
+    text = provider.coordinator.index.get_consistent_wheel_metadata(
+        package, str(version), context=context
     )
-
-
-def resolve_consistent_metadata(
-    provider: Provider,
-    versions: list[tuple[Version, DistFile]],
-    package: str,
-    version: Version,
-) -> tuple[str, bool]:
-    """Read shared wheel metadata after target admission, or fetch it normally."""
-    _, _, normalized = provider.split_and_normalize(package)
-    assumed = assumed_wheel_metadata(provider, normalized, version)
-    if assumed is not None:
-        dist = version_dists(provider, normalized, versions).picked.get(version)
-        assert isinstance(dist, WheelFile)
-
-        # Reusing metadata does not grant permission to use a yanked wheel.
-        if dist.yanked:
-            require_yank_admission(provider, versions, normalized, version)
-        return assumed, False
-
-    return resolve_metadata(provider, versions, package, version)
+    return _SharedWheel(wheel, context, text)
 
 
 def parse_consistent_metadata(
@@ -148,34 +147,47 @@ def parse_consistent_metadata(
     *,
     from_sdist: bool = False,
 ) -> None:
-    """Validate metadata and remember the first wheel source for the release."""
+    """Validate metadata before publishing it against its original wheel listing."""
     package, version = cache_key
-    if not from_sdist:
-        assumed = assumed_wheel_metadata(provider, package, version)
-        if assumed is not None:
-            metadata_text = assumed
+    source = None if from_sdist else shared_wheel(provider, package, version)
+    if source is not None and source.text is not None:
+        metadata_text = source.text
 
-    # Validate for this target before sharing the source with other targets.
     parse_and_cache_metadata(provider, cache_key, metadata_text, from_sdist=from_sdist)
+    if source is not None:
+        provider.coordinator.index.store_consistent_wheel_metadata(
+            package,
+            str(version),
+            source.wheel.metadata_url or source.wheel.url,
+            metadata_text,
+            context=source.context,
+        )
 
-    if from_sdist or not provider.effective_assume_consistent_metadata(
-        package, version, provider.serving_index(package)
-    ):
-        return
 
-    versions = provider.versions_cache.get(package)
-    if versions is not None:
-        dist = version_dists(provider, package, versions).picked.get(version)
-        if isinstance(dist, WheelFile):
-            contexts = provider.consistent_metadata_contexts
-            assert contexts is not None
-            provider.coordinator.index.store_consistent_wheel_metadata(
-                package,
-                str(version),
-                dist.metadata_url or dist.url,
-                metadata_text,
-                context=contexts.get(package),
-            )
+def _resident_metadata(
+    provider: Provider,
+    package: str,
+    version: Version,
+    dist: DistFile | None,
+    metadata_url: str | None,
+) -> tuple[str | None, bool]:
+    """Read shared wheel metadata or this target's own cached artifact metadata."""
+    index = provider.coordinator.index
+    release = str(version)
+    context = _sharing_context(provider, package, version)
+    if context is not None and isinstance(dist, WheelFile):
+        shared = index.get_consistent_wheel_metadata(package, release, context=context)
+        if shared is not None:
+            return shared, False
+
+    if not isinstance(dist, SdistFile):
+        return index.get_metadata_with_origin(package, release, metadata_url)
+
+    key = sdist_artifact_key(release, dist.url)
+    text, from_sdist = index.get_metadata_with_origin(package, key)
+    if text is None and not index.metadata_from_sdist(package, release):
+        return index.get_metadata_with_origin(package, release)
+    return text, from_sdist
 
 
 def resolve_metadata(
@@ -193,8 +205,6 @@ def resolve_metadata(
     guarantees and may need a ``pyproject.toml`` fallback.
     """
     _, _, normalized = provider.split_and_normalize(package)
-    ver_str = str(version)
-    index = provider.coordinator.index
 
     # Sibling wheels of one version can declare different dependencies, so the
     # read is keyed by the artifact this target would install.  ``versions`` is
@@ -209,20 +219,9 @@ def resolve_metadata(
     else:
         metadata_url = None
 
-    source_key = (
-        sdist_artifact_key(ver_str, dist.url)
-        if isinstance(dist, SdistFile)
-        else ver_str
+    text, from_sdist = _resident_metadata(
+        provider, normalized, version, dist, metadata_url
     )
-    text, from_sdist = index.get_metadata_with_origin(
-        normalized, source_key, metadata_url
-    )
-    if (
-        text is None
-        and isinstance(dist, SdistFile)
-        and not index.metadata_from_sdist(normalized, ver_str)
-    ):
-        text, from_sdist = index.get_metadata_with_origin(normalized, ver_str)
     if text is not None:
         return (text, from_sdist)
 
@@ -230,6 +229,7 @@ def resolve_metadata(
         msg = f"Version {version} of {package} not found in listing"
         raise MetadataError(msg)
 
+    ver_str = str(version)
     metadata_text, from_sdist, unreadable_wheel = _read_direct_wheel_metadata(
         provider, dist, normalized, ver_str
     )
@@ -456,13 +456,10 @@ def _record_range_outcome(
         provider.stats.wheel_metadata_range_missing += 1
 
 
-def dists_at_version(
+def release_start(
     versions: Sequence[tuple[Version, DistFile]], version: Version
-) -> list[DistFile]:
-    """Return distributions at ``version`` in listing order.
-
-    The newest-first listing keeps each version's distributions adjacent.
-    """
+) -> int:
+    """Find the insertion point for a release in a newest-first listing."""
     low, high = 0, len(versions)
     while low < high:
         mid = (low + high) // 2
@@ -471,7 +468,17 @@ def dists_at_version(
             low = mid + 1
         else:
             high = mid
+    return low
 
+
+def dists_at_version(
+    versions: Sequence[tuple[Version, DistFile]], version: Version
+) -> list[DistFile]:
+    """Return distributions at ``version`` in listing order.
+
+    The newest-first listing keeps each version's distributions adjacent.
+    """
+    low = release_start(versions, version)
     stop = low
     while stop < len(versions) and versions[stop][0] == version:
         stop += 1
@@ -689,15 +696,16 @@ def version_dists(
     name is a different set of artifacts in no promised order, so it is
     indexed whole and fresh.
     """
-    cacheable = version_list is provider.versions_cache.get(normalized)
-    if cacheable:
+    if version_list is provider.versions_cache.get(normalized):
         cached = provider.version_dists_cache.get(normalized)
         if cached is not None:
             return cached
+
         indexed = VersionDists.lazy(version_list, provider.wheel_tags, provider.target)
         provider.version_dists_cache[normalized] = indexed
         return indexed
 
+    # A caller-supplied listing can interleave artifacts from different versions.
     grouped: dict[Version, list[DistFile]] = {}
     for version, dist in version_list:
         grouped.setdefault(version, []).append(dist)
@@ -708,6 +716,7 @@ def version_dists(
         picked[version] = _pick_noting_siblings(
             dists, provider.wheel_tags, provider.target, version, sibling_wheels
         )
+
     return VersionDists(picked, sibling_wheels)
 
 
@@ -774,7 +783,7 @@ def _sdist_deps_need_dynamic(
     return not metadata_deps_are_static(metadata)
 
 
-def sdist_metadata_key(provider: Provider, package: str, version: Version) -> str:
+def _sdist_metadata_key(provider: Provider, package: str, version: Version) -> str:
     """Return the chosen archive's cache identity for metadata reconciliation."""
     sdist = find_sdist(provider.versions_cache.get(package, []), version)
     return (
@@ -788,22 +797,16 @@ def resolve_dynamic_sdist(
     metadata: WheelMetadata,
 ) -> WheelMetadata:
     """Reconcile sdist dependencies under the release's metadata and build policies."""
-    # In-function: ``build_remote`` imports ``find_sdist`` from here at load,
-    # and tests patch ``build_remote_sdist`` on that module.
-    from .build_remote import build_remote_sdist
-
     package, version = cache_key
     canonical = canonicalize_name(package)
     index = provider.coordinator.index
-    source_key = sdist_metadata_key(provider, canonical, version)
+    source_key = _sdist_metadata_key(provider, canonical, version)
 
-    cached: WheelMetadata | None = index.get_resolved_sdist_metadata(
-        canonical, source_key
-    )
+    cached = index.get_resolved_sdist_metadata(canonical, source_key)
     if cached is not None:
         return cached
 
-    augmented = augment_from_pyproject(provider, package, version, metadata)
+    augmented = _augment_from_pyproject(provider, package, version, metadata)
     if augmented is not None:
         index.store_resolved_sdist_metadata(canonical, source_key, augmented)
         return augmented
@@ -816,18 +819,36 @@ def resolve_dynamic_sdist(
         if assumed is not None:
             return assumed
 
-    effective = provider.effective_build_policy(
-        canonical, version, provider.serving_index(canonical)
-    )
+    return _build_or_refuse_sdist(provider, canonical, version, "dependencies")
+
+
+def _build_or_refuse_sdist(
+    provider: Provider,
+    canonical: str,
+    version: Version,
+    field: Literal["dependencies", "Requires-Python"],
+) -> WheelMetadata:
+    # Building needs find_sdist from this module.
+    from .build_remote import build_remote_sdist
+
+    index = provider.serving_index(canonical)
+    effective = provider.effective_build_policy(canonical, version, index)
     if effective is BuildPolicy.BUILD_REMOTE:
-        return build_remote_sdist(provider, package, version)
+        return build_remote_sdist(provider, canonical, version)
 
     provider.stats.excluded_by_build_policy += 1
+    missing = (
+        "has dynamic dependencies and no static pyproject.toml fallback"
+        if field == "dependencies"
+        else "computes its Python requirement (Requires-Python) when built"
+    )
     msg = (
-        f"{package}=={version} sdist has dynamic dependencies and no static"
-        f" pyproject.toml fallback; building requires build-policy"
+        f"{canonical}=={version} sdist {missing}. Building requires build-policy"
         f" '{BuildPolicy.BUILD_REMOTE.value}' but the effective policy is"
         f" '{effective.value}'"
+    )
+    assume_universal = provider.effective_assume_universal_deps(
+        canonical, version, index
     )
     declared = provider.target is not None and provider.target.platform_spec is not None
     steps: list[str] = []
@@ -839,7 +860,9 @@ def resolve_dynamic_sdist(
             )
         )
         # A potential wheel avoids a build only if its metadata can be read.
-        if _assumed_wheel_candidates(provider, canonical, version):
+        if field == "dependencies" and _assumed_wheel_candidates(
+            provider, canonical, version
+        ):
             build_condition = "if no usable wheel metadata is available, "
 
     steps.append(
@@ -906,8 +929,8 @@ def _dynamic_sdist_remedy(
         else f"{canonical}=={version}"
     )
     return (
-        condition + "add a [[tool.nab.package-rules]] entry with"
-        f' match = ["{selector}"] and {setting}'
+        condition + f'append {{ match = ["{selector}"], {setting} }} to package-rules'
+        " (use settings.package-rules if the active lock plan defines it)"
     )
 
 
@@ -919,9 +942,13 @@ def _assumed_wheel_candidates(
     from .listing import base_distributions
 
     files = provider.coordinator.index.get_listing(package) or ()
+    with provider.reading_listing(package, files):
+        distributions = base_distributions(
+            provider, package, files, provider.listing_filter_cache
+        )
     candidates = [
         dist
-        for candidate, dist in base_distributions(provider, package, files)
+        for candidate, dist in distributions
         if candidate == version
         and isinstance(dist, WheelFile)
         and (not dist.yanked or (package, version) in provider.yank_admissions)
@@ -980,7 +1007,7 @@ def _read_assumed_wheel(
     return text
 
 
-def augment_from_pyproject(
+def _augment_from_pyproject(
     provider: Provider,
     package: str,
     version: Version,
@@ -1002,7 +1029,7 @@ def augment_from_pyproject(
     from ..metadata import static_project_from_table
 
     data = provider.coordinator.index.get_sdist_pyproject(
-        package, sdist_metadata_key(provider, package, version)
+        package, _sdist_metadata_key(provider, package, version)
     )
     project = static_project_from_table(data) if data is not None else None
     if project is None:
@@ -1032,7 +1059,7 @@ def augment_from_pyproject(
 
 
 def extend_with_extras(
-    requires_dist: list[Requirement], optional: dict[str, Any]
+    requires_dist: list[Requirement], optional: Mapping[str, object]
 ) -> list[str]:
     """Append extras-gated requirements and return Provides-Extra names.
 
@@ -1043,9 +1070,10 @@ def extend_with_extras(
     provides_extra: list[str] = []
     for extra_name, extra_deps in optional.items():
         source = f"[project].optional-dependencies extra {extra_name!r}"
+        extra = normalize_project_extra(extra_name)
         provides_extra.append(extra_name)
         requires_dist.extend(
-            parse_project_requirement(dep_str, source, extra=extra_name)
+            parse_project_requirement(dep_str, source, extra=extra)
             for dep_str in require_string_list(extra_deps, source)
         )
     return provides_extra
@@ -1103,18 +1131,24 @@ def fetch_sdist_metadata(
     return provider.coordinator.index.get_metadata_with_origin(package, source_key)
 
 
-def requirement_gating(provider: Provider, req: Requirement) -> Gating:
+def _requirement_gating(provider: Provider, req: Requirement) -> Gating:
     """Say whether ``req`` applies to the base environment, to an extra, or to neither.
 
     ``"extra"`` reports only that some extra could select it.  Naming them is
-    :func:`marker_matched_extras`, which costs up to one marker evaluation per
+    :func:`_marker_matched_extras`, which costs up to one marker evaluation per
     provided extra.
     """
     marker = req.marker
     if marker is None:
         return "base"
     marker_id = id(marker)
-    if marker_matches_base(provider, marker, marker_id):
+    applies_to_base = provider.marker_base_cache.get(marker_id)
+    if applies_to_base is None:
+        # Record each marker once for the lock's environments declaration.
+        provider.consulted_markers.add(marker)
+        applies_to_base = evaluate_prepared(marker, provider.prepared_environment)
+        provider.marker_base_cache[marker_id] = applies_to_base
+    if applies_to_base:
         return "base"
     if "extra" not in str(marker):
         return "excluded"
@@ -1135,33 +1169,18 @@ def classify_requirement(
     marker = req.marker
     if marker is None:
         return set()
-    gating = requirement_gating(provider, req)
+    gating = _requirement_gating(provider, req)
     if gating == "base":
         return set()
     if gating == "excluded" or not provided_extras:
         return None
-    matched_extras = marker_matched_extras(
+    matched_extras = _marker_matched_extras(
         provider, marker, id(marker), provided_extras
     )
     return matched_extras or None
 
 
-def marker_matches_base(provider: Provider, marker: Marker, marker_id: int) -> bool:
-    """Evaluate ``marker`` against the env without ``extra`` set, cached.
-
-    Every dependency marker the resolve reads passes through here, so this
-    is where it is recorded for the lock's ``environments`` declaration.
-    Recording on the cache miss keeps each distinct marker once.
-    """
-    result = provider.marker_base_cache.get(marker_id)
-    if result is None:
-        provider.consulted_markers.add(marker)
-        result = evaluate_prepared(marker, provider.prepared_environment)
-        provider.marker_base_cache[marker_id] = result
-    return result
-
-
-def marker_matched_extras(
+def _marker_matched_extras(
     provider: Provider,
     marker: Marker,
     marker_id: int,
@@ -1216,12 +1235,40 @@ def parse_and_cache_metadata(
     dependencies and host-built metadata require each target's own policy
     check before they can be reused.
     """
-    package, version = cache_key
     metadata = _parsed_metadata(provider, cache_key, metadata_text)
 
     _reject_foreign_metadata(cache_key, metadata)
 
-    if from_sdist and _sdist_deps_need_dynamic(
+    if from_sdist:
+        metadata = _metadata_from_sdist(provider, cache_key, metadata)
+
+    cache_deps_from_metadata(provider, cache_key, metadata)
+
+
+def _metadata_from_sdist(
+    provider: Provider, cache_key: tuple[str, Version], metadata: WheelMetadata
+) -> WheelMetadata:
+    """Read the Python requirement and dependencies the sdist leaves to its backend."""
+    package, version = cache_key
+    check_python = (
+        "requires-python" in metadata.dynamic
+        and provider.effective_requires_python(package, version) is None
+    )
+    requires_python = None
+    if check_python:
+        data = provider.coordinator.index.get_sdist_pyproject(
+            package, _sdist_metadata_key(provider, package, version)
+        )
+        project = project_with_static_requires_python(data, package)
+        if project is not None:
+            requires_python = parse_project_requires_python(
+                project.get("requires-python")
+            )
+        elif not provider.defer_sdist_python_to_install:
+            # Another wheel's Python requirement only describes that wheel.
+            return _build_or_refuse_sdist(provider, package, version, "Requires-Python")
+
+    if _sdist_deps_need_dynamic(
         metadata,
         trust_unverified=provider.effective_trust_unverified(
             package, version, provider.serving_index(package)
@@ -1229,7 +1276,10 @@ def parse_and_cache_metadata(
     ):
         metadata = resolve_dynamic_sdist(provider, cache_key, metadata)
 
-    cache_deps_from_metadata(provider, cache_key, metadata)
+    if check_python:
+        # A cached dependency record may still have the sdist's provisional value.
+        return replace(metadata, requires_python=requires_python)
+    return metadata
 
 
 def _parsed_metadata(
@@ -1293,7 +1343,7 @@ def _reject_incompatible_python(
     raise IncompatiblePythonError(msg)
 
 
-def effective_metadata(
+def _effective_metadata(
     provider: Provider,
     cache_key: tuple[str, Version],
     metadata: WheelMetadata,
@@ -1357,7 +1407,7 @@ def cache_deps_from_metadata(
     :class:`ExtraDepsMap`.  Direct-URL requirements are the exception: whether
     one is refused now or deferred depends on which extras name it.
     """
-    metadata = effective_metadata(provider, cache_key, metadata)
+    metadata = _effective_metadata(provider, cache_key, metadata)
     _reject_incompatible_python(provider, cache_key, metadata)
 
     package = cache_key[0]
@@ -1372,8 +1422,8 @@ def cache_deps_from_metadata(
             _handle_url_dep(
                 provider, package, req, url, provided_extras, deferred_url_extras
             )
-        elif requirement_gating(provider, req) == "base":
-            add_base_dep(req, base_deps, provider.specifier_ranges)
+        elif _requirement_gating(provider, req) == "base":
+            _add_base_dep(req, base_deps, provider.specifier_ranges)
 
     provider.deps_cache[cache_key] = base_deps
     provider.defer_extra_deps(cache_key)
@@ -1390,17 +1440,16 @@ def _handle_url_dep(
 ) -> None:
     """Refuse a direct-URL requirement, or record it against its extras.
 
-    A requirement the environment excludes is dropped.  Needs the full
-    classification rather than :func:`requirement_gating`: an extra-gated URL
-    dep is refused only once one of its own extras is wanted, so the extras
-    naming it have to be known now.
+    An excluded requirement is dropped. For a requirement selected through
+    extras, record which extras select it so the URL is refused only when
+    one of those extras is requested.
     """
     req_extras = classify_requirement(provider, req, provided_extras)
     if req_extras is None:
         return
 
     if _url_dep_is_active(provider, package, req_extras):
-        refuse_url_dep(provider, req, url)
+        refuse_url_dep(provider, package, req.name, url)
     else:
         for extra_name in req_extras:
             deferred_url_extras.setdefault(extra_name, []).append((req, url))
@@ -1435,7 +1484,7 @@ class ExtraDepsMap(Mapping[tuple[str, Version], dict[str, dict[str, VersionRange
     ) -> dict[str, dict[str, VersionRange]]:
         built = self._extra_deps[cache_key]
         if built is None:
-            built = self._extra_deps[cache_key] = build_extra_deps(
+            built = self._extra_deps[cache_key] = _build_extra_deps(
                 self._provider, cache_key
             )
         return built
@@ -1453,14 +1502,14 @@ class ExtraDepsMap(Mapping[tuple[str, Version], dict[str, dict[str, VersionRange
         return len(self._extra_deps)
 
 
-def build_extra_deps(
+def _build_extra_deps(
     provider: Provider, cache_key: tuple[str, Version]
 ) -> dict[str, dict[str, VersionRange]]:
     """Split a parsed release's extra-gated requirements by the extras selecting them.
 
     Re-reads the metadata :func:`cache_deps_from_metadata` cached.  Every
     marker on it was evaluated there, so ``marker_base_cache`` answers
-    :func:`requirement_gating` and nothing new reaches ``consulted_markers``.
+    :func:`_requirement_gating` and nothing new reaches ``consulted_markers``.
     Direct-URL requirements stay out: :func:`_handle_url_dep` settled them at
     parse time.
     """
@@ -1474,12 +1523,12 @@ def build_extra_deps(
         marker = req.marker
         if req.url is not None or marker is None:
             continue
-        if requirement_gating(provider, req) != "extra":
+        if _requirement_gating(provider, req) != "extra":
             continue
 
-        matched = marker_matched_extras(provider, marker, id(marker), provided_extras)
+        matched = _marker_matched_extras(provider, marker, id(marker), provided_extras)
         if matched:
-            add_extra_dep(req, matched, extra_deps_map, provider.specifier_ranges)
+            _add_extra_dep(req, matched, extra_deps_map, provider.specifier_ranges)
 
     return extra_deps_map
 
@@ -1496,12 +1545,12 @@ def _url_dep_is_active(provider: Provider, package: str, req_extras: set[str]) -
     return any((package, extra) in provider.root_extras for extra in req_extras)
 
 
-def refuse_url_dep(provider: Provider, req: Requirement, url: str) -> None:
-    """Refuse a direct-URL requirement, or raise ``NotImplementedError``."""
+def refuse_url_dep(provider: Provider, package: str, dependency: str, url: str) -> None:
+    """Check VCS policy before reporting the unsupported dependency."""
     admit_vcs_url(url, provider.vcs_config)
     msg = (
-        f"VCS dependency admitted by policy but resolver path is not"
-        f" implemented: {req.name} @ {url}"
+        f"{package} declares a Git URL for {dependency}. "
+        "Nab cannot resolve Git URLs in package dependency metadata."
     )
     raise NotImplementedError(msg)
 
@@ -1534,7 +1583,7 @@ def target_dep_signature(
     than routed through :func:`refuse_url_dep`: the pick already refused its own
     URL deps, so a sibling's URL dep is a divergence to report.
     """
-    metadata = effective_metadata(provider, cache_key, metadata)
+    metadata = _effective_metadata(provider, cache_key, metadata)
     provided_extras: set[str] = {canonicalize_name(e) for e in metadata.provides_extra}
     base_deps: dict[str, VersionRange] = {}
     extra_deps_map: dict[str, dict[str, VersionRange]] = {
@@ -1845,12 +1894,12 @@ def add_classified_dep(
 ) -> None:
     """Add a classified requirement to the appropriate dep set."""
     if req_extras:
-        add_extra_dep(req, req_extras, extra_deps_map, specifier_ranges)
+        _add_extra_dep(req, req_extras, extra_deps_map, specifier_ranges)
     else:
-        add_base_dep(req, base_deps, specifier_ranges)
+        _add_base_dep(req, base_deps, specifier_ranges)
 
 
-def add_base_dep(
+def _add_base_dep(
     req: Requirement,
     base_deps: dict[str, VersionRange],
     specifier_ranges: dict[str, VersionRange],
@@ -1871,7 +1920,7 @@ def add_base_dep(
         )
 
 
-def add_extra_dep(
+def _add_extra_dep(
     req: Requirement,
     req_extras: set[str],
     extra_deps_map: dict[str, dict[str, VersionRange]],

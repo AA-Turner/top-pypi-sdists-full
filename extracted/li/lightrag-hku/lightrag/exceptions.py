@@ -66,10 +66,10 @@ class APITimeoutError(APIConnectionError):
 class EmptyTruncatedResponseError(RuntimeError):
     """A token-limit-truncated LLM response that carried nothing usable.
 
-    Two raise surfaces share it (issue #3601 gap 4):
+    Two raise surfaces share it:
 
-    - the provider bindings (OpenAI/Gemini), when the response is empty and
-      the finish reason is the output token limit;
+    - the provider bindings (OpenAI/Gemini/Anthropic), when the response is
+      empty and the finish reason is the output token limit;
     - ``use_llm_func_with_cache``, for the case no binding can see: a thinking
       model exhausts its budget inside the reasoning trace and returns
       ``<think>...</think>`` with no answer after it — NON-empty at the
@@ -82,6 +82,33 @@ class EmptyTruncatedResponseError(RuntimeError):
     Nothing was generated and generation was cut off — there is nothing to
     salvage. Failing (once) is what stops an empty knowledge graph from being
     indexed and reported as success.
+    """
+
+
+class ReasoningOnlyResponseError(RuntimeError):
+    """A query answer that carried a reasoning trace and no answer text.
+
+    A ``<think>...</think>`` trace with nothing after it is a NON-empty
+    string, so it would otherwise be returned, and cached, as the answer.
+    Raised by ``lightrag.utils.reject_reasoning_only_answer`` for the sources
+    no binding check sees (inline ``<think>`` in ``content``, Zhipu, custom
+    LLM functions); the token-limit variant raises
+    :class:`EmptyTruncatedResponseError` instead.
+    """
+
+
+class EmptySummaryResponseError(RuntimeError):
+    """An entity or relation description summary that came back empty.
+
+    The summary replaces every description fragment it was asked to merge, so
+    storing an empty one would erase them. Raised by the summary step for an
+    answer that is empty after think-tag removal and sanitization, including
+    ``<think>...</think>`` with nothing after it; the token-limit variant
+    raises :class:`EmptyTruncatedResponseError` before it gets there.
+
+    A retry asks the LLM again, except for an answer of control characters
+    only: it is cached before sanitization empties it, so it keeps failing
+    until the LLM cache is cleared.
     """
 
 
@@ -105,6 +132,37 @@ class StorageCapabilityError(RuntimeError):
     Callers that depend on a hard guarantee (strict counting, strict point
     reads, strict source resolution, ...) must fail closed on this error —
     never silently substitute a weaker code path.
+    """
+
+
+class WorkingDirectoryInUseError(RuntimeError):
+    """Another process tree already holds this ``working_dir``.
+
+    The file-backed storages rewrite whole files from an in-memory copy that is
+    shared inside one process tree and nowhere else, so two servers on one
+    directory each accumulate a private view and each publish it over the
+    other's. Nothing inside either tree can observe that, which is why the
+    claim lives on the directory. See ``lightrag/kg/working_dir_lock.py``.
+    """
+
+
+class SharedNamespaceBackingConflictError(RuntimeError):
+    """Two file-backed storages in one process tree claimed one namespace
+    while backed by DIFFERENT files.
+
+    The five file-backed storages publish a namespace by rewriting a whole
+    file, and the JSON pair share one in-memory copy per process tree keyed by
+    ``workspace:namespace`` — a key that says nothing about which file backs
+    it. When both coincide the sharing is correct and required. When they do
+    not, the second storage silently inherits the first's rows, reads its own
+    file's contents as ABSENT, and then publishes the union into whichever
+    file flushes first — the other never being written at all.
+
+    Absence is the one answer that lets a start bootstrap, so for the
+    configuration namespace that silence would record the configured model
+    over vectors nobody probed. Refusing is the only reading that does not
+    turn a divergence into a durable claim. See *One file per namespace per
+    process tree* in ``docs/design/FileBackedSnapshotContract.md``.
     """
 
 
@@ -192,25 +250,124 @@ class PipelineReservationConflictError(RuntimeError):
         return getattr(self.conflict, "value", self.conflict) == "recovery_required"
 
 
+class AdminWriteGateRefusedError(PipelineReservationConflictError):
+    """The workspace admin-write gate refused an admin graph write (→ HTTP 409).
+
+    Raised by ``LightRAG._admin_write_gate`` where the gate applies (a
+    ``requires_single_writer`` graph storage, or chunk tracking on a KV storage
+    that buffers per process), in exactly two situations, each
+    with its own stable leading phrase so a client can tell them apart from the
+    ``detail`` text alone (text, not a machine-readable code,
+    is the contract):
+
+    * ``ADMIN_WRITE_LOCK_BUSY_PREFIX`` -- another admin write held the
+      workspace admin lock for longer than ``ADMIN_WRITE_LOCK_ACQUIRE_TIMEOUT``.
+      Clears when that peer admin write finishes; retry the same request.
+      ``fence`` is ``"admin_lock"`` and ``conflict`` is ``None`` (no
+      ``pipeline_status`` flag refused).
+    * ``ADMIN_WRITE_PIPELINE_BUSY_PREFIX`` -- the pipeline ``busy`` reservation
+      was refused because a processing run, a destructive job or a scan holds
+      the workspace. Clears when ingestion finishes. ``conflict`` and
+      ``fence`` carry the refusing ``pipeline_status`` flag, as for the parent.
+
+    A fenced workspace (``recovery_required``) is reported through the parent's
+    ``recovery_required`` property and maps to 503, as everywhere else.
+    """
+
+
+ADMIN_WRITE_LOCK_BUSY_PREFIX = "Another knowledge graph edit is in progress"
+ADMIN_WRITE_PIPELINE_BUSY_PREFIX = "Pipeline is busy with another operation"
+
+
+class AdminWriteHoldExceededError(TimeoutError):
+    """An admin graph write ran past ``admin_write_max_hold_seconds`` and was
+    stopped.
+
+    While an admin write holds the pipeline ``busy`` reservation it defers every
+    pipeline start in its workspace, so the hold is bounded. Expiry is a loud
+    failure (HTTP 500 through the graph routes), never a silent release: the
+    gate's ``finally`` releases the admin lock and the reservation, and the
+    caller sees this error instead of a success.
+
+    **This error does not mean nothing was written**, and its message says so in
+    the two ways it can happen -- ``LightRAG._AdminHoldCeiling`` distinguishes
+    them from the stamp ``lightrag.utils.cancellation_was_deferred`` reads:
+
+    * The ceiling fired while a storage commit was in flight AND that commit
+      succeeded. The admin flows withhold a cancellation across such a region,
+      so the write LANDED and only the work after it was skipped.
+    * Otherwise. Either nothing was mid-commit, or one was and it FAILED -- the
+      cancellation takes precedence over the write error, so the two are
+      indistinguishable downstream and the message claims neither. Either way an
+      EARLIER step of the same operation may already have committed:
+      ``_merge_entities_impl`` commits the merged node before it removes the
+      sources.
+
+    A caller must therefore re-read the entity or relation before retrying rather
+    than assume the operation is undone; retrying blind can hit "already exists"
+    or re-apply an edit that is already durable. Reporting it any other way would
+    break ``AGENTS.md`` *Consistency without transactions*: a durable write must
+    never be reported as one that did not happen.
+
+    Beyond a committed step, a stopped admin write leaves what a hard process
+    exit inside one leaves: a chunk-tracking row whose graph object never became
+    durable -- harmless to queries, never inherited as evidence by a later
+    object, and repairable offline with the chunk-tracking rebuild tool. The
+    mirror state, a graph object durable without its tracking row, is the
+    forbidden one and the write paths order themselves to keep it out of reach.
+    The graph store's contract doc covers this under *Accepted residue (crash)*:
+    ``docs/design/NetworkXSingleWriterContract.md``.
+    """
+
+
+class GraphMutationsDiscardedError(RuntimeError):
+    """``NetworkXStorage.index_done_callback`` refused to commit because a reload
+    discarded uncommitted in-memory mutations earlier in this process.
+
+    The fail-loud backstop. A reload that replaces a *dirty*
+    graph (one holding mutations no commit has published) loses those
+    mutations; the reload itself stays correct and does not raise -- the
+    coroutine that triggered it may be an innocent reader -- and instead arms a
+    sticky ``_dirty_discard_pending`` flag that the NEXT commit turns into this
+    exception, clearing the flag in the same step so a later commit is not
+    blocked forever. The operation that owns the commit therefore fails loud
+    (a pipeline batch takes the FAILED path and is reprocessed; an admin
+    request returns 500) instead of succeeding without its mutations.
+
+    Under the admin-write gate and the pipeline ``busy`` reservation this is
+    unreachable; it exists for a caller that bypasses them.
+    """
+
+
 class PipelineRecoveryRequiredError(RuntimeError):
     """The pipeline fenced its own workspace with ``recovery_required``.
 
-    Raised when a manual retry's DRAIN_TO_IDLE cannot make forward progress:
-    the same active ``doc_status`` rows blocked the drain for several
-    consecutive rounds without any of them changing state, so re-sweeping can
-    only spin (LR2 §7.2 "DRAIN_TO_IDLE 的前进性" / §13.2 case 16). The workspace
-    is fenced instead, every mutation is refused with 503, and
-    ``blocked_doc_ids`` carries the BOUNDED sample an operator needs to find the
-    offending rows — never the whole set.
+    Raised when a manual retry's DRAIN_TO_IDLE cannot make forward progress: it
+    waited on something that re-checking can only find unchanged (LR2 §7.2
+    "DRAIN_TO_IDLE 的前进性" / §13.2 case 16). The workspace is fenced instead,
+    mutations are refused with 503, and ``blocked_doc_ids`` carries the BOUNDED
+    sample an operator needs to find the offending rows — never the whole set,
+    and empty when the blocker is not a document.
 
-    Two causes reach this, distinguished by the fence record's ``kind``:
-    ``manual_drain_stalled`` (rows that look routable but never change state) and
+    One carve-out, for ``manual_drain_enqueue_stalled`` only: an enqueue whose
+    reservation this fence was raised ABOUT is still allowed to finish, so the
+    bound cannot destroy the payload of a producer that was merely slow (see
+    ``_stall_fence_exempts_reserved_token``). Its rows land as PENDING and stay
+    unprocessable until the fence is cleared.
+
+    Three causes reach this, distinguished by the fence record's ``kind``:
+    ``manual_drain_stalled`` (rows that look routable but never change state),
     ``manual_drain_blocked`` (rows the drain can never advance at all — an
-    unfinished custom-chunk operation). Both are cleared the same way:
+    unfinished custom-chunk operation) and ``manual_drain_enqueue_stalled`` (the
+    in-flight enqueue reservations the drain waits on, none of which finished
+    for the whole bounded window). All are cleared by
     ``POST /documents/recovery/force_reset``, which also cancels the queued manual
     intents, since a sticky request is itself what makes ``/documents/scan``
     refuse (``refuse_when_manual_pending``) and ``/scan`` is the remedy for the
-    blocked case.
+    blocked case. For ``manual_drain_enqueue_stalled`` it additionally drops the
+    in-flight enqueue reservations the drain was waiting on — there the fence
+    alone is not the blocker, and clearing only the fence would leave the
+    workspace just as stuck.
     """
 
     def __init__(self, message: str, *, blocked_doc_ids: tuple[str, ...] = ()) -> None:
@@ -281,7 +438,7 @@ class SourceConflictPrimaryUnusableError(ValueError):
 class RecoveryAnchorMissingError(RuntimeError):
     """A destructive KG purge has no recovery proof, so it refused to start.
 
-    Issue #3400: a whole-document purge discovers what a document contributed
+    A whole-document purge discovers what a document contributed
     to the shared knowledge graph from its write-ahead recovery anchors
     (``full_entities`` / ``full_relations``). Without them the reverse lookup
     is impossible — it runs graph ``source_id`` → ``text_chunks`` →
@@ -338,7 +495,7 @@ class RecoveryAnchorMissingError(RuntimeError):
 class KGPurgeOperationConflictError(RuntimeError):
     """A resumed purge does not match the journal already on the document.
 
-    Issue #3400: a whole-document purge journals its progress in
+    A whole-document purge journals its progress in
     ``doc_status.metadata.kg_purge`` so a retry can resume instead of redoing
     the expensive candidate re-analysis and rebuild — and so it can tell
     "anchors were legitimately deleted by a purge that got that far" from
@@ -426,6 +583,105 @@ class IndexFlushError(Exception):
         super().__init__(f"{storage_name}[{namespace}] index flush failed: {cause}")
 
 
+class ReferencesIntactFlushError(Exception):
+    """A failed storage commit that PROVABLY lost no durable reference.
+
+    Answers the ONE question a caller of ``index_done_callback`` has to answer
+    when the commit raises: *could this raise have lost a durable reference?*
+    Raising this type is the backend saying **no** -- nothing buffered was
+    discarded, and nothing already durable was unwritten. Every other
+    exception means **yes, assume one may be gone**, which is what a backend
+    that says nothing keeps.
+
+    Two situations qualify, and a backend must be able to prove one of them
+    for the WHOLE flush rather than for one operation:
+
+    * every buffered operation is still buffered and replays on the next
+      flush (a transport error from the bulk call) -- the caller defers;
+    * the commit itself landed and only a step after it failed (a refresh) --
+      the references are already durable.
+
+    A flush that mixes permanent and retryable per-item failures qualifies as
+    NEITHER: it dropped something, so the honest answer stays "yes".
+
+    Read it through ``flush_may_have_lost_reference``, not with a bare
+    ``isinstance``: that predicate also unwraps the ``IndexFlushError`` every
+    flush failure reaches ``_flush_storages``' callers wearing.
+
+    Why the distinction earns a type: an ``extract`` LLM-cache row is
+    reachable only through its chunk's ``llm_cache_list``, so a caller that
+    cannot tell these apart must quarantine every buffered extract row in the
+    process to stay safe -- discarding completed LLM calls that nothing could
+    have orphaned. See *LLM extraction cache reachability* in
+    ``docs/design/PurgeRecoveryContract.md``.
+    """
+
+
+def flush_may_have_lost_reference(error: BaseException | None) -> bool:
+    """Could this failed commit have lost a durable reference?
+
+    ``True`` is the safe default and the answer for anything unrecognized:
+    only a backend that raised ``ReferencesIntactFlushError`` has proven
+    otherwise, so a backend that implements nothing keeps the fail-safe
+    quarantine it has today. ``None`` means there was no failure to judge.
+
+    ``IndexFlushError`` is unwrapped into its ``__cause__``, since it is the
+    transport wrapper ``LightRAG._flush_storages`` puts around whatever the
+    backend raised; one carrying no cause answers ``True``. **Nothing else is
+    unwrapped.** An exception re-raised ``from`` an intact one has made a new
+    claim of its own, and ``OpenSearchKVStorage.finalize`` is exactly that
+    case: it chains a "these writes have been lost" ``RuntimeError`` onto a
+    flush whose buffers were intact, because it then releases the client and
+    nothing will ever replay them.
+    """
+    if error is None:
+        return False
+    # Bounded rather than recursive: __cause__ is attacker-free here, but a
+    # self-referential chain must not turn a diagnostic into a hang.
+    for _ in range(8):
+        if not isinstance(error, IndexFlushError):
+            break
+        if error.__cause__ is None:
+            return True
+        error = error.__cause__
+    return not isinstance(error, ReferencesIntactFlushError)
+
+
+class CommitBookkeepingError(RuntimeError):
+    """The offloaded write LANDED; the bookkeeping that had to follow it did not.
+
+    Raised by ``_bounded_submit_impl`` (``lightrag/utils.py``) when the callable
+    handed to ``commit_in_storage_io`` succeeded and its ``on_committed`` hook
+    then failed. The hook is publication, not persistence — flipping the other
+    processes' ``storage_updated`` flags, clearing the dirty bit, reloading a
+    sanitized file — so what it reports is a **visibility lag**, never a lost
+    write.
+
+    It exists because those two outcomes used to be indistinguishable: the hook's
+    own exception was re-raised as-is, landed in the call site's ``except
+    Exception``, and was handled by reasoning that only holds for a write that
+    never happened (roll the in-memory state back to the file, report failure).
+    Every caller inherited that lie — the deletion paths in ``utils_graph``
+    skipped the chunk-tracking retirement they still owed for an object that is
+    durably gone, and ``_insert_done`` marked a document FAILED whose writes were
+    on disk.
+
+    Contract for a handler: **treat the write as committed.** Log the deferred
+    visibility (an unknown remainder of the other workers keeps serving the
+    previous snapshot until the next commit anywhere notifies them, and this
+    process may redundantly reload the file it just wrote), then continue.
+    Reporting it as a failed write is forbidden; so is swallowing it silently.
+
+    ``result`` carries whatever the write callable returned, so a handler that
+    needs the write's own answer does not have to re-run it. The hook's failure
+    is preserved as ``__cause__`` (set via ``raise ... from``).
+    """
+
+    def __init__(self, message: str, *, result: Any = None) -> None:
+        super().__init__(message)
+        self.result = result
+
+
 class ChunkTokenLimitExceededError(ValueError):
     """Raised when a chunk exceeds the configured token limit."""
 
@@ -434,12 +690,13 @@ class ChunkTokenLimitExceededError(ValueError):
         chunk_tokens: int,
         chunk_token_limit: int,
         chunk_preview: str | None = None,
+        limit_name: str = "chunk_token_size",
     ) -> None:
         preview = chunk_preview.strip() if chunk_preview else None
         truncated_preview = preview[:80] if preview else None
         preview_note = f" Preview: '{truncated_preview}'" if truncated_preview else ""
         message = (
-            f"Chunk token length {chunk_tokens} exceeds chunk_token_size {chunk_token_limit}."
+            f"Chunk token length {chunk_tokens} exceeds {limit_name} {chunk_token_limit}."
             f"{preview_note}"
         )
         super().__init__(message)
@@ -483,6 +740,37 @@ class ChunkBlockMatchError(ValueError):
         self.blocks_path = blocks_path
 
 
+class BlocksSidecarCorruptError(ValueError):
+    """Raised when a ``*.blocks.jsonl`` sidecar has invalid encoding or rows.
+
+    Invalid JSON or UTF-8, or a content row without a string ``content`` field,
+    mean the parse-time structure of the document is damaged. Paragraph-semantic
+    chunking raises this instead of chunking the rows that still parse (which
+    loses the damaged row's text) or degrading to another strategy (which is recorded
+    nowhere). The pipeline marks the document FAILED.
+
+    Retrying does not help: a ``lightrag``-format document reuses its existing
+    sidecar instead of parsing again. The document must be deleted and uploaded
+    again so the parser regenerates the sidecar.
+    """
+
+    def __init__(
+        self,
+        blocks_path: str,
+        reason: str,
+        line_number: int | None = None,
+    ) -> None:
+        line_note = f" at line {line_number}" if line_number is not None else ""
+        super().__init__(
+            f"blocks.jsonl at {blocks_path} is corrupt{line_note}: {reason}. "
+            "Paragraph-semantic chunking cannot use a damaged sidecar; delete "
+            "the document and upload it again to regenerate it."
+        )
+        self.blocks_path = blocks_path
+        self.reason = reason
+        self.line_number = line_number
+
+
 class DataMigrationError(Exception):
     """Raised when data migration from legacy collection/table fails."""
 
@@ -500,3 +788,378 @@ class MultimodalAnalysisError(RuntimeError):
     an unusable analyze result. Callers persist a ``status="failure"``
     sidecar entry alongside the raise so a re-run sees the failure.
     """
+
+
+# Appended to every startup-time vector refusal below. A rebuild re-embeds
+# every record from the authoritative sources; when the workspace's data is
+# disposable that is wasted cost, and the WebUI's own Clear sits behind the
+# server that refuses to start -- so the refusal names the offline clear too.
+CLEAR_STORAGE_ALTERNATIVE = (
+    "If this workspace's data is disposable, run `lightrag-clear-storage` "
+    "instead: it drops the workspace offline without re-embedding, which "
+    "also clears this refusal."
+)
+
+
+class VectorSpaceMismatchError(RuntimeError):
+    """The persisted vectors were written in a different embedding space.
+
+    Raised by a vector storage while it attaches to an existing container
+    (index / collection / table / file) whose recorded embedding model or
+    dimension does not match the one this process is configured with. It is a
+    *refusal to serve*, not a migration failure: nothing has been read, written
+    or deleted when it is raised.
+
+    Why it is a distinct type and not ``DataMigrationError`` or a bare
+    ``ValueError``: ``lightrag-rebuild-vdb`` is the sanctioned way out of this
+    condition, and it can only tolerate the refusal (drop the container and
+    rebuild it from the graph) if the refusal is distinguishable from a cluster
+    outage, a bad credential or a corrupt file. A tool that caught ``Exception``
+    here would drop data on a false positive. Never raise this for anything a
+    rebuild would not fix.
+
+    Rules for raisers:
+
+    * Absent evidence never refuses. A container that records no model, or no
+      dimension, predates the provenance marker; silence is not a mismatch.
+      The same applies to the *declared* side -- an ``embedding_func`` with no
+      ``model_name`` cannot contradict anything.
+    * Raise before the first storage mutation, and leave the instance able to
+      serve ``drop()``. The tool's recovery is ``drop()`` then ``initialize()``
+      again, so a refusal that leaves the object half-constructed (no client,
+      no lock) turns a recoverable condition into a wedge.
+
+    Args:
+        backend: Storage class name, e.g. ``"OpenSearchVectorDBStorage"``.
+        container: The physical container that refused, e.g. an index name.
+        expected_model / expected_dim: what this process is configured with.
+        stored_model / stored_dim: what the container records. ``None`` means
+            "not recorded" and is never by itself a reason to raise.
+    """
+
+    def __init__(
+        self,
+        *,
+        backend: str,
+        container: str,
+        expected_model: str | None = None,
+        expected_dim: int | None = None,
+        stored_model: str | None = None,
+        stored_dim: int | None = None,
+        detail: str | None = None,
+    ) -> None:
+        changed: list[str] = []
+        if stored_dim is not None and expected_dim is not None:
+            if stored_dim != expected_dim:
+                changed.append(f"dimension {stored_dim} -> {expected_dim}")
+        if stored_model is not None and expected_model is not None:
+            if stored_model != expected_model:
+                changed.append(f"model '{stored_model}' -> '{expected_model}'")
+        change_note = "; ".join(changed) if changed else "the embedding space changed"
+        message = (
+            f"{backend} refuses to serve '{container}': it holds vectors from a "
+            f"different embedding space ({change_note}). Querying it would return "
+            f"nothing, or confidently wrong neighbours. Rebuild the vector "
+            f"storages from the knowledge graph with `lightrag-rebuild-vdb` "
+            f"(run it with this embedding configuration), or point this instance "
+            f"back at the previous embedding configuration. "
+            f"{CLEAR_STORAGE_ALTERNATIVE}"
+        )
+        if detail:
+            message = f"{message} {detail}"
+        super().__init__(message)
+        self.backend = backend
+        self.container = container
+        self.expected_model = expected_model
+        self.expected_dim = expected_dim
+        self.stored_model = stored_model
+        self.stored_dim = stored_dim
+
+
+class CorruptStorageSnapshotError(RuntimeError):
+    """A file-backed storage snapshot exists but cannot be parsed.
+
+    Raised when a storage's on-disk state (a NanoVectorDB ``vdb_*.json``, a
+    Faiss ``.index`` / ``.meta.json`` pair) is not readable in its serialized
+    format -- typically a write interrupted by a crash, a kill, or a full
+    disk. The storage refuses to attach rather than serving an empty or
+    partial view that callers could mistake for the real one: a durable write
+    must never be reported as one that did not happen, and an unreadable
+    snapshot must never look like an empty store. Serving it as empty is worse
+    than refusing, because the next save publishes that emptiness over the
+    rows that were still on disk.
+
+    Normal startup and reader reloads refuse to attach and preserve every
+    file. Offline recovery belongs to ``lightrag-rebuild-vdb``: after source
+    checks and explicit confirmation it backs up ``artifacts`` before dropping
+    and rebuilding. Keep all writers stopped until verification completes.
+    Source integrity is a prerequisite, not implied by this error.
+
+    ``container`` and ``artifacts`` answer different questions and are NOT
+    interchangeable: ``container`` is the DIAGNOSIS (which file could not be
+    read, for the operator), ``artifacts`` is the RECOVERY SCOPE (which files
+    the tool will destroy, so which it must preserve first). They coincide
+    only for a storage whose whole state is one file. Faiss refusing on its
+    provenance marker names ``.space.json`` as the container and all three of
+    its files as artifacts, so deriving one from the other would silently
+    under-preserve. That is why ``artifacts`` has no default: a raiser must
+    state its recovery scope rather than inherit a guess.
+
+    Args:
+        backend: Storage class name, e.g. ``"NanoVectorDBStorage"``.
+        container: The file whose contents could not be read.
+        detail: The underlying parse error, chained as ``__cause__`` by the
+            raiser.
+        artifacts: Every local file the offline tool must preserve before it
+            drops this storage. It must cover every file that storage's
+            ``drop()`` removes, or recovery destroys something no backup
+            holds. A raiser whose state is NOT a set of local files passes
+            ``()``, which denies the recovery path outright: nothing can be
+            preserved, so nothing may be destroyed.
+    """
+
+    def __init__(
+        self,
+        *,
+        backend: str,
+        container: str,
+        detail: str,
+        artifacts: tuple[str, ...],
+    ) -> None:
+        super().__init__(
+            f"{backend} refuses to serve '{container}': the snapshot file is "
+            f"corrupt and cannot be parsed ({detail}). A previous write was "
+            f"likely interrupted (crash, kill, or full disk). Stop every writer "
+            f"and verify the authoritative graph storage and text_chunks KV "
+            f"store. Run `lightrag-rebuild-vdb` offline with the same storage "
+            f"and workspace configuration; after confirmation it backs up this "
+            f"storage's files before rebuilding. Restart the server only "
+            f"after the rebuild succeeds. {CLEAR_STORAGE_ALTERNATIVE}"
+        )
+        self.backend = backend
+        self.container = container
+        self.detail = detail
+        self.artifacts = artifacts
+
+
+class CorruptStorageRecordError(RuntimeError):
+    """A stored row is not this storage's row shape at all.
+
+    Not "a field is missing" -- that is the caller's schema question. This is
+    the payload under a key being something other than a mapping: a string, a
+    number, a list. A KV backend normalises every row it hands back (time
+    fields, ``_id``), so it reaches for mapping methods before any caller
+    sees the value; without this the corruption escapes as an opaque
+    ``AttributeError`` from deep inside the backend, and a layer above reads
+    it as "the store is not serving" rather than "one row is damaged".
+
+    Raised by the storage, classified by whoever knows the schema. Deliberately
+    NOT a ``ConfigurationStorageError``: this can come from any namespace, and
+    ``lightrag.config_store`` translates it into the configuration-level
+    refusal when it is a configuration row.
+    """
+
+
+class ConfigurationStorageError(RuntimeError):
+    """The configuration storage could not complete a read, a write or a claim.
+
+    Raised by ``lightrag.config_store`` when a record that decides whether the
+    instance may serve cannot be read to a definite answer (a transport
+    failure, a backend that cannot promise strict point reads, a row whose
+    shape does not parse), when a claim's read-back does not return the row
+    that was just written, or when a flush that had to land did not.
+
+    It is a STARTUP FAILURE, deliberately distinct from "the record is absent".
+    Absent means bootstrap; this means stop. Treating one as the other is the
+    defect the strict-read rule exists to prevent: a store that could not be
+    reached must never be mistaken for a store that holds nothing. See *Reads
+    are strict* in docs/design/ConfigurationStorageContract.md.
+    """
+
+
+class ConfigurationRecordMalformedError(ConfigurationStorageError):
+    """A configuration record was FETCHED, but its shape is not a row.
+
+    The distinction this type exists to carry: the store answered, so it is
+    serving and it can still DELETE this record -- deletes go by key and never
+    read the value. Only the payload is damaged.
+
+    Everything that must stop on any unreadable record keeps stopping, because
+    this is a ``ConfigurationStorageError``. What it buys is the caller that
+    can legitimately go on: ``lightrag-clear-storage`` shows such a record as
+    UNREADABLE and drops the workspace anyway, since a workspace whose
+    configuration is corrupt is exactly the one an operator is trying to
+    clear. Read on TYPE, never on message text.
+    """
+
+
+class ConfigurationIdentityError(ConfigurationStorageError):
+    """The configuration container is not the one this deployment is bound to,
+    or the binding itself could not be read or written to a definite answer.
+
+    Raised by ``lightrag.config_anchor`` and ``lightrag.config_store`` around
+    the anchor file (``<working_dir>/config_storage_anchor.json``)
+    and the container's own identity row. A startup failure like its parent:
+    nothing here is ever read as "absent" unless the anchor file genuinely
+    does not exist.
+
+    ``cause`` is one of the ``IDENTITY_*`` constants in
+    ``lightrag.config_anchor`` and is what a caller branches on -- never the
+    message, which carries the per-cause recovery advice for the operator.
+    ``anchor_path`` names the file a rebind would delete. See *The anchor and
+    the container identity* in docs/design/ConfigurationStorageContract.md.
+    """
+
+    def __init__(self, message: str, *, cause: str, anchor_path: str = "") -> None:
+        super().__init__(message)
+        self.cause = cause
+        self.anchor_path = anchor_path
+
+
+class ConfigurationAnchorLockError(RuntimeError):
+    """The anchor lock could not be taken in the mode this process needs.
+
+    A starter (server, SDK, maintenance tool) takes it SHARED and is refused
+    only while the offline migration holds it EXCLUSIVELY; the migration is
+    refused while any starter holds it, and where the filesystem cannot lock
+    unless the operator asserts exclusivity. See
+    ``lightrag/kg/anchor_lock.py``.
+    """
+
+
+class EmbeddingBaselineMismatchError(VectorSpaceMismatchError):
+    """A recorded per-target embedding baseline disagrees with the configuration.
+
+    Raised at step 3 of ``LightRAG.initialize_storages()`` -- BEFORE any vector
+    storage initializes -- when at least one of a workspace's three baseline
+    records (``entities``, ``relationships``, ``chunks``) names a model or a
+    dimension other than the one this process is configured with. One raise
+    lists every mismatched target: an operator planning a rebuild needs the
+    whole list, not the first entry.
+
+    A ``VectorSpaceMismatchError`` subclass so callers that already answer that
+    refusal (report it, run ``lightrag-rebuild-vdb``) answer this one the same
+    way. Unlike the parent, nothing physical refused here: the baseline is a
+    record kept in the configuration storage, and the container name on the
+    backends that carry one may well agree with the configuration -- that is
+    precisely the case this record exists to catch.
+
+    Args:
+        workspace: the workspace whose baselines were compared.
+        mismatches: one entry per target that differs, each a mapping with
+            ``target``, ``recorded_model``, ``recorded_dim``,
+            ``expected_model`` and ``expected_dim``.
+    """
+
+    def __init__(self, *, workspace: str, mismatches: list[dict]) -> None:
+        if not mismatches:
+            raise ValueError(
+                "EmbeddingBaselineMismatchError needs at least one mismatch"
+            )
+        lines = []
+        for m in mismatches:
+            lines.append(
+                f"{m.get('target')}: recorded model "
+                f"{m.get('recorded_model')!r} dim {m.get('recorded_dim')}, "
+                f"configured model {m.get('expected_model')!r} dim "
+                f"{m.get('expected_dim')}"
+            )
+        shown = workspace if workspace else "(default)"
+        message = (
+            f"Workspace {shown!r} refuses to start: the recorded embedding "
+            f"baseline differs from the configured embedding function for "
+            f"{len(mismatches)} vector target(s) -- "
+            + "; ".join(lines)
+            + ". The vectors in those targets were adopted under another "
+            "embedding space, so serving them would return nothing, or "
+            "confidently wrong neighbours. Rebuild them with "
+            "`lightrag-rebuild-vdb` (run with this embedding configuration), "
+            "or point this instance back at the previous embedding "
+            "configuration. " + CLEAR_STORAGE_ALTERNATIVE
+        )
+        RuntimeError.__init__(self, message)
+        first = mismatches[0]
+        self.backend = "configuration storage"
+        self.container = workspace
+        self.expected_model = first.get("expected_model")
+        self.expected_dim = first.get("expected_dim")
+        self.stored_model = first.get("recorded_model")
+        self.stored_dim = first.get("recorded_dim")
+        self.workspace = workspace
+        self.mismatches = [dict(m) for m in mismatches]
+        self.targets = [m.get("target") for m in mismatches]
+
+
+class VectorStorageEmptyError(RuntimeError):
+    """A vector storage holds nothing while the data it indexes is not empty.
+
+    Raised at startup by the cross-storage gate in
+    ``LightRAG.initialize_storages()``. It is a *refusal to serve*: every
+    retrieval mode but ``naive`` would silently return nothing, which reads as
+    "no relevant context" rather than as a broken deployment.
+
+    Why it is not ``VectorSpaceMismatchError``: no vectors were written in
+    another embedding space, because there are no vectors at all. The
+    distinction is load-bearing for ``lightrag-rebuild-vdb``, which answers
+    that type by DROPPING the container -- pointless here, and a tool that
+    conflated the two would report a destruction it did not need to perform.
+    The remedy is the same rebuild, but it starts at the rebuild, not at a drop.
+
+    This is a COVERAGE failure, not an identity one, and it has a family of
+    causes: a container dropped or a volume not mounted, a rebuild that stopped
+    halfway, the vector backend switched without migrating the data, a
+    workspace prefix that does not match the one the vectors were written
+    under. Milvus, Qdrant and PostgreSQL reach it by one more route -- they
+    encode the embedding model in the container NAME, so changing the model
+    provisions a NEW, EMPTY, correctly-named container that no marker can fire
+    on. That route is an identity question showing up as a coverage symptom;
+    the recorded per-workspace embedding space answers it directly, and this
+    error keeps the causes it is the only evidence for.
+
+    The condition self-clears. Once a rebuild populates the container the
+    question answers itself, which is why the gate asks it fresh at every
+    startup rather than recording anything.
+
+    Args:
+        vdb_name: the vector storage that came back empty, e.g. ``"entities"``.
+        container: the physical container, when the backend can name it.
+        source: the data this storage indexes, named as an operator would
+            recognise it, e.g. ``"knowledge graph entities"``. It is the other
+            half of the evidence: an empty container is only a defect because
+            something it indexes is NOT empty.
+        workspace: the workspace the vector storage actually opened, after
+            any backend override (``QDRANT_WORKSPACE``, ``MILVUS_WORKSPACE``,
+            ...). ``None`` when the raiser could not tell; a diagnostic must
+            not substitute the instance's configured workspace for it
+            silently, because under an override the two differ.
+    """
+
+    def __init__(
+        self,
+        *,
+        vdb_name: str,
+        container: str | None = None,
+        source: str = "the data it indexes",
+        workspace: str | None = None,
+    ) -> None:
+        where = f" ('{container}')" if container else ""
+        message = (
+            f"The {vdb_name} vector storage{where} holds no vectors, but "
+            f"{source} is not empty. Serving this "
+            f"would return no context for every query mode that uses vectors. "
+            f"The index does not cover its source: it was never built, it was "
+            f"lost (a dropped container, a volume that is not mounted), a "
+            f"rebuild stopped part way, the vector backend was changed without "
+            f"migrating the data, or -- on Milvus, Qdrant and PostgreSQL, which "
+            f"put the embedding model in the container name -- a model change "
+            f"provisioned a new, empty one. Rebuild the vector storages from "
+            f"the knowledge graph with `lightrag-rebuild-vdb` (run it with this "
+            f"embedding configuration), or point this instance back at the "
+            f"configuration whose vectors are still there. "
+            f"{CLEAR_STORAGE_ALTERNATIVE}"
+        )
+        super().__init__(message)
+        self.vdb_name = vdb_name
+        self.container = container
+        self.source = source
+        self.workspace = workspace

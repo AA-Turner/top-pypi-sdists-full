@@ -9,6 +9,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from matrx_utils.source_guard import stable_source
 
 from matrx_ai.config import helper_roster
 from matrx_ai.config.helper_roster import HELPER_ROSTER_SLOT, stage_helper_roster
@@ -66,11 +67,10 @@ async def test_standalone_has_no_roster(monkeypatch):
 
 
 def test_the_send_boundary_stages_it_on_every_loop_send():
-    import inspect
 
     from matrx_ai.config import send_boundary
 
-    source = inspect.getsource(send_boundary.prepare_for_send)
+    source = stable_source(send_boundary.prepare_for_send)
     loop_part = source.split("if stage == STAGE_LOOP:")[-1]
     assert "_stage_helper_roster(" in loop_part
 

@@ -22,6 +22,7 @@ mod requirement;
 #[cfg(feature = "test-util")]
 #[doc(hidden)]
 pub mod test_util;
+mod traceparent;
 mod wire;
 #[cfg(feature = "worker")]
 pub mod worker;
@@ -34,7 +35,7 @@ pub mod worker;
 /// built before the change. Old workers then refuse the new client with a
 /// version error instead of misbehaving. A change old workers can safely
 /// ignore needs no increment.
-pub const PROTOCOL_VERSION: u32 = 8;
+pub const PROTOCOL_VERSION: u32 = 9;
 
 /// The oldest client [`PROTOCOL_VERSION`] a worker built from this code serves.
 ///
@@ -99,6 +100,7 @@ pub use frame::{
     encode_framed_into, encode_to_capped_vec, exceeds_max_frame_len, write_frame,
 };
 pub use generated::pb;
-pub use opening::OpeningRequest;
+pub use opening::{OpeningRequest, TracedRequest};
 pub use requirement::validate_requirement;
+pub use traceparent::Traceparent;
 pub use wire::{WireArena, WireFunctionCall, WireIndexes, WireNamedTuple, WireNodePairs};

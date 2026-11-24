@@ -90,8 +90,15 @@ class SearchType(str, Enum):
     ALL = "all"
 
 
-async def _fire_and_forget_failure_log(result: ScrapeResult) -> None:
-    """Log failed scrapes to DB (matrx-orm). Never blocks the stream."""
+async def _fire_and_forget_failure_log(result: ScrapeResult, organization_id: str | None = None) -> None:
+    """Log failed scrapes to DB (matrx-orm). Never blocks the stream.
+
+    A retry-queue row belongs to the organization whose scrape failed
+    (``request_context.organization_id``): only that organization's helpers
+    (its people's desktop app or extension) see, claim, complete or fail it, and
+    what they save lands in that organization's cache. A scrape with no
+    organization is logged but not queued: no helper could retry it for anyone.
+    """
     try:
         from matrx_scraper.utils.url import extract_domain
 
@@ -111,9 +118,12 @@ async def _fire_and_forget_failure_log(result: ScrapeResult) -> None:
         RETRYABLE = frozenset(
             {"cloudflare_block", "blocked", "bad_status", "request_error", "proxy_error"}
         )
-        if failure_reason in RETRYABLE:
+        org = str(organization_id or "").strip()
+        if failure_reason in RETRYABLE and org:
             existing = await ScrapeRetryQueue.filter(
-                target_url=result.url, status__in=["pending", "claimed"]
+                target_url=result.url,
+                status__in=["pending", "claimed"],
+                request_context__json_key=("organization_id", org),
             ).exists()
             if not existing:
                 await ScrapeRetryQueue.create(
@@ -121,6 +131,7 @@ async def _fire_and_forget_failure_log(result: ScrapeResult) -> None:
                     domain_name=domain_name,
                     failure_reason=failure_reason,
                     tier="desktop",
+                    request_context={"organization_id": org},
                 )
     except Exception as exc:
         # Fire-and-forget by design (must never block the scrape stream) — but
@@ -292,7 +303,7 @@ class ScrapeService:
         ):
             if not result.success:
                 supervised_task(
-                    _fire_and_forget_failure_log(result),
+                    _fire_and_forget_failure_log(result, self.organization_id),
                     kind="scrape_failure_logging_task_failed",
                     name="scrape-failure-log",
                     context={"url": result.url},
@@ -401,7 +412,7 @@ class ScrapeService:
         Returns True when the page became a Source."""
         if not result.success:
             supervised_task(
-                _fire_and_forget_failure_log(result),
+                _fire_and_forget_failure_log(result, self.organization_id),
                 kind="scrape_failure_logging_task_failed",
                 name="scrape-failure-log",
                 context={"url": result.url},
@@ -596,7 +607,7 @@ class ScrapeService:
             read += 1
             if not self.land_as and not result.success:
                 supervised_task(
-                    _fire_and_forget_failure_log(result),
+                    _fire_and_forget_failure_log(result, self.organization_id),
                     kind="scrape_failure_logging_task_failed",
                     name="scrape-failure-log",
                     context={"url": result.url},

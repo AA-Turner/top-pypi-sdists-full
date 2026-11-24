@@ -19,13 +19,13 @@ from matrx_ai import context_engine
 async def test_an_empty_entity_id_reaches_the_database_as_null(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: list[tuple[Any, ...]] = []
 
-    async def fake_call_function(_db: Any, _schema: str, name: str, *args: Any, **_kw: Any) -> dict:
+    async def fake_call_function(_actor: Any, _db: Any, _schema: str, name: str, *args: Any, **_kw: Any) -> dict:
         sent.append((name, *args))
         return {}
 
     import matrx_orm
 
-    monkeypatch.setattr(matrx_orm, "call_function", fake_call_function)
+    monkeypatch.setattr(matrx_orm, "call_function_as", fake_call_function)
     monkeypatch.setattr(context_engine, "_resolve_context_database", lambda: "db")
 
     try:
@@ -39,6 +39,6 @@ async def test_an_empty_entity_id_reaches_the_database_as_null(monkeypatch: pyte
         )
     except Exception:
         pass  # only the bound arguments matter here; shaping an empty answer may raise
-    calls = [c for c in sent if c[0] == "resolve_full_context"]
-    assert calls, "resolve_full_context was never called"
-    assert calls[0][3] is None, f"entity_id bound as {calls[0][3]!r}, must be None (SQL NULL)"
+    calls = [c for c in sent if c[0] == "resolve_context"]
+    assert calls, "custom.resolve_context was never called"
+    assert calls[0][2] is None, f"entity_id bound as {calls[0][2]!r}, must be None (SQL NULL)"

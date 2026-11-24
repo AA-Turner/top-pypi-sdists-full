@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.content_ir.well_known import TextValue
+from matrx_graph.nodes._template import _stringify
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
@@ -29,19 +30,6 @@ from matrx_graph.types.result import NodeResult, success
 from matrx_graph.types.usl import field_extras
 
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}")
-
-
-def _resolve_placeholder(path: str, variables: dict[str, Any]) -> str:
-    """Dotted-path lookup; missing parts → empty string."""
-    current: Any = variables
-    for part in path.split("."):
-        if isinstance(current, dict) and part in current:
-            current = current[part]
-        else:
-            return ""
-    if current is None:
-        return ""
-    return str(current)
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +99,8 @@ class TemplateExecutor:
                 else:
                     missing.append(key)
                     return ""
-            return "" if current is None else str(current)
+            # Records and lists render as JSON (the one $format renderer), never Python repr.
+            return _stringify(current)
 
         rendered = _PLACEHOLDER_RE.sub(_sub, inputs.template)
         # missing_keys is DOMAIN data (soft/informational), not a node

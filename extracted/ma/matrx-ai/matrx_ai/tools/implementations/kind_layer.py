@@ -15,8 +15,15 @@ Three rules hold for every layer path (shape-layers PLAN v2, ATTACK finding B1):
 2. **Reads declare their own audience.** RLS also shows a user's layer row to coworkers and every
    row to a platform admin, so each lookup states ``audience_user_id = me`` (or the explicit org)
    and every id lookup re-checks it. Another person's component id is "not found".
-3. **Keyed by kind SLUG.** No ``kind_definition`` is required; an unregistered or unreadable kind
-   works. A readable definition is only a schema HINT; a ``sample`` can stand in for one.
+3. **Keyed by kind SLUG.** Reading needs no ``kind_definition``: an unreadable kind works, and a
+   readable definition is only a schema HINT; a ``sample`` can stand in for one.
+4. **A view never orphans a shape** (Arman, 2026-11-10): CREATING a view for a name registered
+   NOWHERE registers the shape first, from ``sample``, in the caller's organization, live at once
+   (``_register_unregistered_kind``). An orphan view rendered in its own chat and nowhere else —
+   absent from the Shapes page and the chat Output picker, which both list registered shapes.
+   EDITING one (update / patch code, 2026-11-11) applies the same rule
+   (``register_edited_layer_kind``): a view made before the rule (e.g. ``med_quick_label``) is
+   healed on its next edit, and an edit with no ``sample`` for an unregistered name writes nothing.
 
 ``kind_component`` is never read or written here, and there is no ``is_default`` logic.
 """
@@ -34,6 +41,7 @@ from matrx_ai.tools.implementations.kind_shared import (
     WriteRefused,
     bound_kind_bodies,
     can_access_kind,
+    component_save_notices,
     ctx_org_id,
     ctx_user_id,
     err,
@@ -307,6 +315,96 @@ async def layer_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return _fail(e)
 
 
+async def _kind_registered_anywhere(slug: str) -> bool:
+    """Is any live definition of this slug on record, readable by this person or not?
+
+    Asked on the service connection on purpose: an existence yes/no (slugs are globally
+    unique) — a kind another tenant keeps private is registered, and is never re-registered."""
+    KindDefinition = get_db_model("KindDefinition")
+    rows = await KindDefinition.filter(kind=slug).all()
+    return any(r.deleted_at is None for r in rows)
+
+
+async def _register_unregistered_kind(
+    slug: str, args: dict[str, Any], audience: Audience, ctx: ToolContext
+) -> tuple[str, ToolResult | None]:
+    """Register ``slug`` from ``sample`` when it is registered nowhere. Returns (note, refusal)."""
+    if await _kind_registered_anywhere(slug):
+        return "", None
+    sample = args.get("sample")
+    if not isinstance(sample, dict) or not sample:
+        return "", err(
+            "validation",
+            f"The shape '{slug}' is not registered yet, so a view of it would show nowhere but "
+            "this chat. Nothing was written.",
+            "Send this same call again with sample = the JSON object in your data sample (the "
+            "on-screen instance). The shape is then registered in your organization and the "
+            "view is built, in one call.",
+        )
+    from matrx_ai.tools.implementations.kind_authoring import kind_create
+
+    label = (args.get("label") or "").strip() or " ".join(
+        w.capitalize() for w in slug.split("_") if w
+    )
+    # The shape is registered in the organization this call runs in (the context is carried,
+    # never rebuilt). An organization view for a different organization cannot register it.
+    if audience.target == "organization" and str(audience.organization_id) != str(ctx_org_id(ctx) or ""):
+        return "", err(
+            "validation",
+            f"The shape '{slug}' is not registered, and this chat runs in a different organization "
+            "than the one the view is for. Nothing was written.",
+            "Switch to that organization and build the view there.",
+        )
+    created = await kind_create(
+        {
+            "name": slug,
+            "label": label,
+            "sample_data": {**sample, "__kind": slug},  # the marker names the slug being registered
+            "disposition": (args.get("disposition") or "record"),
+            "loading_component": "card",
+        },
+        ctx,
+    )
+    if not created.success:
+        message = created.error.message if created.error else "the shape could not be registered"
+        return "", err(
+            "validation",
+            f"The shape '{slug}' is not registered and registering it failed, so no view was "
+            f"made: {message}",
+        )
+    final = getattr(created.output, "kind", slug)
+    if final != slug:
+        # The same fields already exist under another name: the on-screen instance names
+        # '{slug}', so a view keyed to it would still be an orphan. Say so; write nothing more.
+        return "", err(
+            "validation",
+            f"These fields already belong to the shape '{final}'. No view was made for '{slug}'.",
+            f"Build the view for '{final}' instead (same call, kind '{final}'), and have the agent "
+            f"emit '{final}'.",
+        )
+    return (
+        f"The shape '{slug}' was not registered, so it was registered first in your "
+        "organization (live now: it shows on the Shapes page and in the chat Output picker). "
+    ), None
+
+
+async def register_edited_layer_kind(
+    row: Any, args: dict[str, Any], ctx: ToolContext
+) -> tuple[str, ToolResult | None]:
+    """The edit paths' half of rule 4: register the view's shape when it is registered nowhere.
+
+    ``row`` is the layer row ``load_editable_layer`` returned (already audience-checked), so its
+    ``kind`` is the slug the view renders. Same refusal as create: no ``sample`` → nothing written."""
+    audience, bad = audience_for(args, ctx)
+    if bad:
+        return "", bad
+    assert audience is not None
+    slug = normalize_kind_slug(str(getattr(row, "kind", "") or ""))
+    if not slug:
+        return "", None
+    return await _register_unregistered_kind(slug, args, audience, ctx)
+
+
 async def layer_create(
     args: dict[str, Any], ctx: ToolContext, *, compile_checked: bool
 ) -> ToolResult:
@@ -317,12 +415,21 @@ async def layer_create(
         return bad
     assert audience is not None
     slug = normalize_kind_slug((args.get("kind") or "").strip())
+    if not slug:
+        return err("validation", "Provide kind (the slug of the kind this component renders).")
     component_key = (args.get("component_key") or "").strip()
     platform = (args.get("platform") or "web").strip()
     role = (args.get("role") or "output").strip()
     if platform not in COMPONENT_PLATFORMS or role not in COMPONENT_ROLES:
         return err("validation", f"Invalid platform/role '{platform}'/'{role}'.")
     try:
+        # A VIEW NEVER ORPHANS A SHAPE (Arman, 2026-11-10): a view built for a name that is
+        # registered nowhere would render in the chat it was made in and nowhere else — not on
+        # the Shapes page, not in the chat Output picker. So the shape is registered first, in
+        # the view's organization, from the on-screen instance, live at once.
+        registered_note, refusal = await _register_unregistered_kind(slug, args, audience, ctx)
+        if refusal:
+            return refusal
         # One live view per (kind, platform, role, audience): a second is an update, not a create.
         live = [
             r
@@ -363,10 +470,12 @@ async def layer_create(
                     "no_access",
                     f"You cannot make {audience.label} here; nothing was written.",
                     f"The database refused it for this person ({exc}).",
+                    exc=exc,
                 )
             raise
         return ToolResult(
             success=True,
+            model_notices=component_save_notices(payload["component_source"]),
             output=KindComponentCreateResult(
                 component_id=str(created.id),
                 kind=slug,
@@ -383,7 +492,8 @@ async def layer_create(
                     "was SKIPPED; the code was accepted unverified."
                 ),
                 message=(
-                    f"{audience.label.capitalize()} for '{slug}' created (target {audience.target}). "
+                    registered_note
+                    + f"{audience.label.capitalize()} for '{slug}' created (target {audience.target}). "
                     "It is not the shared view and is never a default. Iterate with "
                     "kindcomp_update_code / kindcomp_patch_code using the same target."
                 ),

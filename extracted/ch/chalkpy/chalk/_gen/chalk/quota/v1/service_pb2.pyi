@@ -37,6 +37,7 @@ class QuotaWorkloadKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     QUOTA_WORKLOAD_KIND_FUNCTION: _ClassVar[QuotaWorkloadKind]
     QUOTA_WORKLOAD_KIND_MODEL_DEPLOYMENT: _ClassVar[QuotaWorkloadKind]
     QUOTA_WORKLOAD_KIND_NOTEBOOK: _ClassVar[QuotaWorkloadKind]
+    QUOTA_WORKLOAD_KIND_DEPLOYMENT_SERVICE: _ClassVar[QuotaWorkloadKind]
 
 QUOTA_RESOURCE_KIND_UNSPECIFIED: QuotaResourceKind
 QUOTA_RESOURCE_KIND_CPU_MILLICORES: QuotaResourceKind
@@ -54,6 +55,7 @@ QUOTA_WORKLOAD_KIND_SCALING_GROUP: QuotaWorkloadKind
 QUOTA_WORKLOAD_KIND_FUNCTION: QuotaWorkloadKind
 QUOTA_WORKLOAD_KIND_MODEL_DEPLOYMENT: QuotaWorkloadKind
 QUOTA_WORKLOAD_KIND_NOTEBOOK: QuotaWorkloadKind
+QUOTA_WORKLOAD_KIND_DEPLOYMENT_SERVICE: QuotaWorkloadKind
 
 class QuotaResource(_message.Message):
     __slots__ = ("kind", "gpu_family")
@@ -125,6 +127,16 @@ class GetQuotaResponse(_message.Message):
     enabled: bool
     quota: Quota
     def __init__(self, enabled: bool = ..., quota: _Optional[_Union[Quota, _Mapping]] = ...) -> None: ...
+
+class ListGPUTypesRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListGPUTypesResponse(_message.Message):
+    __slots__ = ("gpu_types",)
+    GPU_TYPES_FIELD_NUMBER: _ClassVar[int]
+    gpu_types: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, gpu_types: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class SetQuotaRequest(_message.Message):
     __slots__ = ("resource", "limit")

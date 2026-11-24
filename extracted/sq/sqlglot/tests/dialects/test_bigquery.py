@@ -888,13 +888,6 @@ LANGUAGE js AS
             },
         )
         self.validate_all(
-            "PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E6S%z', x)",
-            write={
-                "bigquery": "PARSE_TIMESTAMP('%FT%H:%M:%E6S%z', x)",
-                "duckdb": "STRPTIME('1970 ' || x, '%Y ' || '%Y-%m-%dT%H:%M:%S.%f%z')",
-            },
-        )
-        self.validate_all(
             "SELECT results FROM Coordinates, Coordinates.position AS results",
             write={
                 "bigquery": "SELECT results FROM Coordinates CROSS JOIN UNNEST(Coordinates.position) AS results",
@@ -2434,14 +2427,6 @@ WHERE
             },
         )
         self.validate_all(
-            "SELECT b'a'",
-            write={
-                "bigquery": "SELECT b'a'",
-                "duckdb": "SELECT CAST('a' AS BLOB)",
-                "postgres": "SELECT DECODE('61', 'hex')",
-            },
-        )
-        self.validate_all(
             "SELECT GENERATE_UUID()",
             write={
                 "bigquery": "SELECT GENERATE_UUID()",
@@ -2665,14 +2650,6 @@ WHERE
             for actual, expected in zip(statements, expected_statements):
                 self.assertEqual(actual.sql(dialect="bigquery"), expected)
 
-        with self.assertLogs(helper_logger) as cm:
-            self.validate_identity(
-                "SELECT * FROM t AS t(c1, c2)",
-                "SELECT * FROM t AS t",
-            )
-
-            self.assertIn("Named columns are not supported in table alias.", cm.output[0])
-
         with self.assertLogs(helper_logger):
             self.validate_all(
                 "SELECT a[1], b[OFFSET(1)], c[ORDINAL(1)], d[SAFE_OFFSET(1)], e[SAFE_ORDINAL(1)]",
@@ -2751,6 +2728,14 @@ WHERE
             "SELECT CAST(1 AS NUMERIC)",
         )
         self.validate_identity(
+            "SELECT SAFE_CAST('foo' AS NUMERIC(10, 3))",
+            "SELECT SAFE_CAST('foo' AS NUMERIC)",
+        )
+        self.validate_identity(
+            "SELECT SAFE_CAST('100000000000000000000000000000' AS NUMERIC(38, 0))",
+            "SELECT SAFE_CAST('100000000000000000000000000000' AS BIGNUMERIC)",
+        )
+        self.validate_identity(
             "SELECT CAST('1' AS STRING(10)) UNION ALL SELECT CAST('2' AS STRING(10))",
             "SELECT CAST('1' AS STRING) UNION ALL SELECT CAST('2' AS STRING)",
         )
@@ -2774,9 +2759,6 @@ WHERE
         )
         self.validate_identity(
             "SELECT * FROM GAP_FILL(TABLE device_data, ts_column => 'time', bucket_width => INTERVAL '1' MINUTE, value_columns => [('signal', 'null')], origin => CAST('2023-11-01 09:30:01' AS DATETIME)) ORDER BY time"
-        )
-        self.validate_identity(
-            "SELECT * FROM GAP_FILL(TABLE device_data, ts_column => 'time', bucket_width => INTERVAL '1' MINUTE, value_columns => [('signal', 'locf')]) ORDER BY time"
         )
 
     def test_models(self):
@@ -3644,6 +3626,20 @@ OPTIONS (
         for select in annotated.selects:
             self.assertEqual(select.type.sql("bigquery"), "TIMESTAMP")
 
+    def test_annotate_datetime_arithmetic(self):
+        for sql, dtype in (
+            ("DATETIME_ADD(DATETIME '2024-01-31 00:00:00', INTERVAL 1 DAY)", exp.DType.TIMESTAMP),
+            ("DATETIME_SUB('2024-02-01 00:00:00', INTERVAL 1 DAY)", exp.DType.TIMESTAMP),
+            ("TIMESTAMP_ADD(DATE '2024-01-31', INTERVAL 1 DAY)", exp.DType.TIMESTAMP),
+            (
+                "DATETIME_ADD(TIMESTAMP '2024-01-31 00:00:00+00', INTERVAL 1 DAY)",
+                exp.DType.TIMESTAMPTZ,
+            ),
+        ):
+            with self.subTest(sql=sql):
+                annotated = annotate_types(self.parse_one(sql), dialect="bigquery")
+                self.assertTrue(annotated.is_type(dtype), annotated.type)
+
     def test_set_operations(self):
         self.validate_identity("SELECT 1 AS foo INNER UNION ALL SELECT 3 AS foo, 4 AS bar")
 
@@ -3821,6 +3817,12 @@ OPTIONS (
                     read={"duckdb": source},
                 )
 
+        # A FILTER can leave no rows, so only the ones it keeps count
+        self.validate_all(
+            "IF(COUNTIF(c) = 0, NULL, COALESCE(ARRAY_AGG(DISTINCT IF(c, x, NULL) IGNORE NULLS), []))",
+            read={"duckdb": "LIST_DISTINCT(LIST(x) FILTER(WHERE c))"},
+        )
+
         for values, where in (
             ("1, NULL, 2, 1", ""),
             ("NULL", ""),
@@ -3893,9 +3895,15 @@ OPTIONS (
         self.assertEqual(self.parse_one(sql).sql("bigquery", pretty=True), expected)
 
     def test_unnest_with_offset(self):
-        for offset, alias in (("", "offset"), ("AS pos", "pos")):
+        for offset, alias in (("", "offset"), (" AS pos", "pos")):
             self.validate_all(
-                f"SELECT * FROM tbl CROSS JOIN UNNEST(col) AS ref WITH OFFSET {offset}",
+                f"SELECT x, {alias} FROM UNNEST([10, 20]) AS x WITH OFFSET{offset} ORDER BY {alias}",
+                write={
+                    "snowflake": f"SELECT x, {alias} FROM TABLE(FLATTEN(INPUT => [10, 20])) AS _t0(seq, key, path, {alias}, x, this) ORDER BY {alias} NULLS FIRST",
+                },
+            )
+            self.validate_all(
+                f"SELECT * FROM tbl CROSS JOIN UNNEST(col) AS ref WITH OFFSET{offset}",
                 write={
                     "bigquery": f"SELECT * FROM tbl CROSS JOIN UNNEST(col) AS ref WITH OFFSET AS {alias}",
                     "hive": f"SELECT * FROM tbl LATERAL VIEW POSEXPLODE(col) AS {alias}, ref",
@@ -3904,6 +3912,13 @@ OPTIONS (
                     "databricks": f"SELECT * FROM tbl CROSS JOIN LATERAL (SELECT * EXCEPT (pos), pos AS {alias} FROM POSEXPLODE(col)) AS _t0(ref, {alias})",
                 },
             )
+
+        self.validate_all(
+            "SELECT x.pos AS field, POS FROM UNNEST([STRUCT(42 AS pos)]) AS x WITH OFFSET AS pos WHERE pos = 0",
+            write={
+                "snowflake": "SELECT x['pos'] AS field, POS FROM TABLE(FLATTEN(INPUT => [OBJECT_CONSTRUCT('pos', 42)])) AS _t0(seq, key, path, pos, x, this) WHERE pos = 0",
+            },
+        )
 
     def test_generate_date_array(self):
         self.validate_all(

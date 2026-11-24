@@ -58,7 +58,7 @@ class AsyncTextToSpeechStreamingSocketClient(EventEmitterMixin):
     async def configure(
         self,
         target_language_code: str,
-        speaker: str = "anushka",
+        speaker: str = "shubh",
         pitch: float = 0.0,
         pace: float = 1.0,
         loudness: float = 1.0,
@@ -69,6 +69,7 @@ class AsyncTextToSpeechStreamingSocketClient(EventEmitterMixin):
         min_buffer_size: int = 50,
         max_chunk_length: int = 150,
         dict_id: typing.Optional[str] = None,
+        temperature: typing.Optional[float] = None,
     ) -> None:
         """
         Configuration message required as the first message after establishing the WebSocket connection.
@@ -77,29 +78,37 @@ class AsyncTextToSpeechStreamingSocketClient(EventEmitterMixin):
         will be automatically flushed and processed before applying the new configuration.
 
         :param target_language_code: The language of the text is BCP-47 format
-        :param speaker: The speaker voice to be used for the output audio. Default: Anushka.
-            Model Compatibility (bulbul:v2): Female: Anushka, Manisha, Vidya, Arya;
-            Male: Abhilash, Karun, Hitesh
+        :param speaker: The speaker voice to be used for the output audio. Default: shubh (bulbul:v3).
+            Speaker names are case-sensitive and must be lowercase, and must belong to the model set
+            by the `model` query parameter on the connection URL.
+            bulbul:v3: shubh (default), aditya, ritu, priya, neha, rahul, pooja, rohan, simran, kavya,
+            amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, ashutosh, advait,
+            anand, tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit, kavitha, rehan, soham, rupali.
+            bulbul:v4-flash: a persona ID named `<name>_<language>_<style>` (e.g. `shubh_hi_devotional`);
+            the v3 default is not valid, so set this explicitly. See the Voices guide for the full catalog.
         :param pitch: Controls the pitch of the audio. Lower values result in a deeper voice,
-            while higher values make it sharper. The suitable range is between -0.75
-            and 0.75. Default is 0.0.
+            while higher values make it sharper. The suitable range is between -0.5
+            and 0.5. Default is 0.0.
         :param pace: Controls the speed of the audio. Lower values result in slower speech,
             while higher values make it faster. The suitable range is between 0.5
             and 2.0. Default is 1.0.
         :param loudness: Controls the loudness of the audio. Lower values result in quieter audio,
-            while higher values make it louder. The suitable range is between 0.3
-            and 3.0. Default is 1.0.
+            while higher values make it louder. The suitable range is between 0.1
+            and 2.5. Default is 1.0.
         :param speech_sample_rate: Specifies the sample rate of the output audio. Supported values are
-            8000, 16000, 22050, 24000 Hz. If not provided, the default is 22050 Hz.
+            8000, 16000, 22050, 24000 Hz. Default is 22050 Hz.
         :param enable_preprocessing: Controls whether normalization of English words and numeric entities
             (e.g., numbers, dates) is performed. Set to true for better handling
             of mixed-language text. Default is false.
-        :param output_audio_codec: Audio codec (currently supports MP3 only, optimized for real-time playback)
-        :param output_audio_bitrate: Audio bitrate (choose from 5 supported bitrate options)
+        :param output_audio_codec: The audio format of each `audio` message: linear16, mulaw, alaw, opus,
+            flac, aac, wav or mp3. Default is mp3. `opus` needs `speech_sample_rate` 8000, 16000 or 24000.
+        :param output_audio_bitrate: The bitrate of the streamed audio: 32k, 64k, 96k, 128k or 192k. Default is 128k.
         :param min_buffer_size: Minimum character length that triggers buffer flushing for TTS model processing
         :param max_chunk_length: Maximum length for sentence splitting (adjust based on content length)
         :param dict_id: The ID of a pronunciation dictionary to apply during synthesis.
-            Only supported by bulbul:v3.
+            Supported by bulbul:v3 and bulbul:v4-flash.
+        :param temperature: Controls the randomness of the output. The suitable range is between
+            0.01 and 1.0. If not provided, the server default (0.6) is used.
         """
         data = ConfigureConnectionData(
             language_code=target_language_code,
@@ -114,6 +123,7 @@ class AsyncTextToSpeechStreamingSocketClient(EventEmitterMixin):
             min_buffer_size=min_buffer_size,
             max_chunk_length=max_chunk_length,
             dict_id=dict_id,
+            temperature=temperature,
         )
         message = ConfigureConnection(data=data)
         await self._send_model(message)
@@ -207,7 +217,7 @@ class TextToSpeechStreamingSocketClient(EventEmitterMixin):
     def configure(
         self,
         target_language_code: str,
-        speaker: str = "anushka",
+        speaker: str = "shubh",
         pitch: float = 0.0,
         pace: float = 1.0,
         loudness: float = 1.0,
@@ -218,6 +228,7 @@ class TextToSpeechStreamingSocketClient(EventEmitterMixin):
         min_buffer_size: int = 50,
         max_chunk_length: int = 150,
         dict_id: typing.Optional[str] = None,
+        temperature: typing.Optional[float] = None,
     ) -> None:
         """
         Configuration message required as the first message after establishing the WebSocket connection.
@@ -226,29 +237,37 @@ class TextToSpeechStreamingSocketClient(EventEmitterMixin):
         will be automatically flushed and processed before applying the new configuration.
 
         :param target_language_code: The language of the text is BCP-47 format
-        :param speaker: The speaker voice to be used for the output audio. Default: Anushka.
-            Model Compatibility (bulbul:v2): Female: Anushka, Manisha, Vidya, Arya;
-            Male: Abhilash, Karun, Hitesh
+        :param speaker: The speaker voice to be used for the output audio. Default: shubh (bulbul:v3).
+            Speaker names are case-sensitive and must be lowercase, and must belong to the model set
+            by the `model` query parameter on the connection URL.
+            bulbul:v3: shubh (default), aditya, ritu, priya, neha, rahul, pooja, rohan, simran, kavya,
+            amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, ashutosh, advait,
+            anand, tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit, kavitha, rehan, soham, rupali.
+            bulbul:v4-flash: a persona ID named `<name>_<language>_<style>` (e.g. `shubh_hi_devotional`);
+            the v3 default is not valid, so set this explicitly. See the Voices guide for the full catalog.
         :param pitch: Controls the pitch of the audio. Lower values result in a deeper voice,
-            while higher values make it sharper. The suitable range is between -0.75
-            and 0.75. Default is 0.0.
+            while higher values make it sharper. The suitable range is between -0.5
+            and 0.5. Default is 0.0.
         :param pace: Controls the speed of the audio. Lower values result in slower speech,
             while higher values make it faster. The suitable range is between 0.5
             and 2.0. Default is 1.0.
         :param loudness: Controls the loudness of the audio. Lower values result in quieter audio,
-            while higher values make it louder. The suitable range is between 0.3
-            and 3.0. Default is 1.0.
+            while higher values make it louder. The suitable range is between 0.1
+            and 2.5. Default is 1.0.
         :param speech_sample_rate: Specifies the sample rate of the output audio. Supported values are
-            8000, 16000, 22050, 24000 Hz. If not provided, the default is 22050 Hz.
+            8000, 16000, 22050, 24000 Hz. Default is 22050 Hz.
         :param enable_preprocessing: Controls whether normalization of English words and numeric entities
             (e.g., numbers, dates) is performed. Set to true for better handling
             of mixed-language text. Default is false.
-        :param output_audio_codec: Audio codec (currently supports MP3 only, optimized for real-time playback)
-        :param output_audio_bitrate: Audio bitrate (choose from 5 supported bitrate options)
+        :param output_audio_codec: The audio format of each `audio` message: linear16, mulaw, alaw, opus,
+            flac, aac, wav or mp3. Default is mp3. `opus` needs `speech_sample_rate` 8000, 16000 or 24000.
+        :param output_audio_bitrate: The bitrate of the streamed audio: 32k, 64k, 96k, 128k or 192k. Default is 128k.
         :param min_buffer_size: Minimum character length that triggers buffer flushing for TTS model processing
         :param max_chunk_length: Maximum length for sentence splitting (adjust based on content length)
         :param dict_id: The ID of a pronunciation dictionary to apply during synthesis.
-            Only supported by bulbul:v3.
+            Supported by bulbul:v3 and bulbul:v4-flash.
+        :param temperature: Controls the randomness of the output. The suitable range is between
+            0.01 and 1.0. If not provided, the server default (0.6) is used.
         """
         data = ConfigureConnectionData(
             language_code=target_language_code,
@@ -263,6 +282,7 @@ class TextToSpeechStreamingSocketClient(EventEmitterMixin):
             min_buffer_size=min_buffer_size,
             max_chunk_length=max_chunk_length,
             dict_id=dict_id,
+            temperature=temperature,
         )
         message = ConfigureConnection(data=data)
         self._send_model(message)

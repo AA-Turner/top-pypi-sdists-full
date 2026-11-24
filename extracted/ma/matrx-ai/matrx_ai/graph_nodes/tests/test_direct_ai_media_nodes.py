@@ -192,3 +192,106 @@ async def test_a_failed_turn_fails_the_step_with_the_providers_own_reason(monkey
     result = await run()
     assert isinstance(result, Failure)
     assert "No tts_voice configured" in result.error.message
+
+
+def _record_completed(monkeypatch: pytest.MonkeyPatch, completed: Any) -> None:
+    from matrx_ai.orchestrator import executor
+
+    async def _fake(*_a: Any, **_k: Any) -> Any:
+        return completed
+
+    monkeypatch.setattr(executor, "execute_ai_request", _fake)
+
+
+@dataclasses.dataclass
+class _Ran:
+    """The executed request as the node reads it back: ``completed.request.config``."""
+
+    config: Any
+
+
+async def test_text_only_answer_names_the_model_that_ran_and_what_it_said(monkeypatch):
+    """Live 2026-11-02, workflow runs d38f7bcc… / 5088a12b… ("Post idea image"): the free-tier
+    swap sent ``gemini-3-pro-image`` to the chat model ``gemini-3.8-flash``, which answered in
+    prose (Gemini candidate finish_reason STOP, no inline_data part). The step said only
+    "provider returned no images for model 'gemini-3-pro-image'" — naming a model that never
+    ran. The failure must name what did run, the finish reason and the text answer."""
+    from matrx_ai.config.unified_content import TextContent
+    from matrx_ai.graph_nodes.image_action import GenerateImageInput, ai_generate_image
+
+    answer = (
+        "This is a beautifully detailed description—it reads just like a prompt for an AI "
+        "image generator or a shot list for a photography guide."
+    )
+    response = UnifiedResponse(
+        messages=[UnifiedMessage(role="assistant", content=[TextContent(text=answer)])],
+        finish_reason=FinishReason.STOP,
+        raw_response={
+            "candidates": [
+                {"index": 0, "finish_reason": "STOP",
+                 "content": {"role": "model", "parts": [{"text": answer}]}}
+            ],
+            "prompt_feedback": None,
+        },
+    )
+    config = type("Cfg", (), {})()
+    config.model = "gemini-3.8-flash"
+    config.metadata = {"original_model": "gemini-3-pro-image", "model_swap_reason": "free_tier"}
+    completed = _Completed(final_response=response)
+    completed.request = _Ran(config=config)  # type: ignore[attr-defined]
+    _record_completed(monkeypatch, completed)
+
+    result = await ai_generate_image(_ctx(), GenerateImageInput(model="gemini-3-pro-image", prompt="p"))
+    assert isinstance(result, Failure)
+    message = result.error.message
+    assert "gemini-3.8-flash" in message and "free_tier" in message, message
+    assert "STOP" in message.upper()
+    assert "beautifully detailed description" in message
+    assert result.error.details["ran_model"] == "gemini-3.8-flash"
+
+
+async def test_safety_block_names_the_providers_block_reason(monkeypatch):
+    """A Gemini image call refused at the prompt (prompt_feedback.block_reason, no candidates)
+    or at the candidate (finish_reason IMAGE_SAFETY, a blocked safety rating) names that reason."""
+    from matrx_ai.graph_nodes.image_action import GenerateImageInput, ai_generate_image
+
+    blocked = UnifiedResponse(
+        messages=[UnifiedMessage(role="assistant", content=[])],
+        raw_response={"candidates": [], "prompt_feedback": {"block_reason": "PROHIBITED_CONTENT"}},
+    )
+    _record_completed(monkeypatch, _Completed(final_response=blocked))
+    result = await ai_generate_image(_ctx(), GenerateImageInput(model="gemini-3-pro-image", prompt="p"))
+    assert isinstance(result, Failure)
+    assert "PROHIBITED_CONTENT" in result.error.message
+
+    unsafe = UnifiedResponse(
+        messages=[UnifiedMessage(role="assistant", content=[])],
+        raw_response={"candidates": [{
+            "finish_reason": "IMAGE_SAFETY",
+            "finish_message": "Unable to show the generated image.",
+            "safety_ratings": [{"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "blocked": True}],
+        }]},
+    )
+    _record_completed(monkeypatch, _Completed(final_response=unsafe))
+    result = await ai_image_edit(
+        _ctx(), EditImageInput(model="gemini-3-pro-image", prompt="p", images=["https://x.test/a.png"])
+    )
+    assert isinstance(result, Failure)
+    assert "IMAGE_SAFETY" in result.error.message
+    assert "HARM_CATEGORY_SEXUALLY_EXPLICIT" in result.error.message
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\n\t "])
+async def test_a_blank_prompt_is_refused_before_any_paid_call(monkeypatch, blank):
+    """A prompt wired from an upstream step that produced nothing (or only whitespace) must be
+    refused at the input boundary with a named reason — never sent to a paid image model,
+    which would bill a call and come back "no image"."""
+    import pydantic
+
+    from matrx_ai.graph_nodes.image_action import GenerateImageInput
+
+    calls = _record(monkeypatch, _response())
+    with pytest.raises(pydantic.ValidationError) as caught:
+        GenerateImageInput(model="gemini-3-pro-image", prompt=blank)
+    assert "prompt" in str(caught.value).lower()
+    assert calls == []

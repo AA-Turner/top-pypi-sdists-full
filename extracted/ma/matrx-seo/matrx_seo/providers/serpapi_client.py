@@ -30,6 +30,7 @@ from typing import Any, Protocol
 
 import httpx
 from matrx_utils import vcprint
+from matrx_utils.http_client import shared_client
 from pydantic import BaseModel, ConfigDict, Field
 
 SERPAPI_SEARCH_ENDPOINT = "https://serpapi.com/search.json"
@@ -62,7 +63,7 @@ class HttpxSerpApiTransport:
         self.timeout = timeout or httpx.Timeout(connect=10, read=45, write=10, pool=10)
 
     async def get_json(self, url: str, params: Mapping[str, str | int]) -> SerpApiHttpResponse:
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with shared_client(timeout=self.timeout) as client:
             response = await client.get(url, params=params)
         try:
             payload = response.json()

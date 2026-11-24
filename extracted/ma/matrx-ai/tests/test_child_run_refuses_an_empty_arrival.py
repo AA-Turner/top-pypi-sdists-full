@@ -97,7 +97,7 @@ async def _call(args: dict[str, Any]) -> Any:
     from matrx_ai.tools.implementations.agent_call import agent_call
     from matrx_ai.tools.models import ToolContext
 
-    token = set_app_context(AppContext(emitter=None, user_id=_USER_ID))
+    token = set_app_context(AppContext(emitter=None, user_id=_USER_ID, organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         return await agent_call(args, ToolContext(call_id="call-1"))
     finally:
@@ -216,7 +216,7 @@ async def test_an_agent_tool_with_no_turn_and_no_input_is_refused_before_it_runs
         parameters={"input": {"type": "string", "description": AUTO_INPUT_DESCRIPTION}},
     )
 
-    token = set_app_context(AppContext(emitter=None, user_id=_USER_ID))
+    token = set_app_context(AppContext(emitter=None, user_id=_USER_ID, organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         result = await execute_agent_tool(
             tool_def,  # type: ignore[arg-type]

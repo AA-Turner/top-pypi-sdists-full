@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pysr
-Version: 2.7.2
+Version: 2.7.3
 Summary: Simple and efficient symbolic regression
 Author-email: Miles Cranmer <miles.cranmer@gmail.com>
 License:                                  Apache License
@@ -217,7 +217,7 @@ Requires-Dist: scikit-learn<2.0.0,>=1.0.0
 Requires-Dist: sympy<2.0.0,>=1.14.0
 Requires-Dist: typing-extensions<5.0.0,>=4.0.0
 Provides-Extra: dev
-Requires-Dist: beartype<0.23,>=0.19; extra == 'dev'
+Requires-Dist: beartype<0.24,>=0.19; extra == 'dev'
 Requires-Dist: coverage<8,>=7; extra == 'dev'
 Requires-Dist: ipykernel<8,>=6; extra == 'dev'
 Requires-Dist: ipython<10,>=8; extra == 'dev'

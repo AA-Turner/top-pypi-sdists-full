@@ -243,9 +243,15 @@ def _summarize(engine: str, scores: list[ItemScore]) -> dict[str, Any]:
 
 
 async def run_ner_eval(
-    *, golden_path: str, engine: str, user_id: str, organization_id: str | None
+    *,
+    golden_path: str,
+    engine: str,
+    user_id: str,
+    organization_id: str | None,
+    span_model: str | None = None,
+    threshold: float | None = None,
 ) -> dict[str, Any]:
-    raw = json.loads(Path(golden_path).read_text())
+    raw = json.loads(await asyncio.to_thread(Path(golden_path).read_text))
     items = [
         NerGoldItem(
             text=it["text"],
@@ -269,6 +275,13 @@ async def run_ner_eval(
     engine_named = getattr(extractor, "engine_named", None)
     if callable(engine_named):
         extractor = engine_named(engine)
+    # A variant (span model / threshold) pins the chosen engine for this run, through the
+    # engine's own ``with_variant`` — never the environment.
+    if span_model is not None or threshold is not None:
+        with_variant = getattr(extractor, "with_variant", None)
+        if not callable(with_variant):
+            raise RuntimeError(f"the {engine!r} engine takes no span-model/threshold variant")
+        extractor = with_variant(model_name=span_model, threshold=threshold)
 
     scores: list[ItemScore] = []
     for item in items:
@@ -344,8 +357,8 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--golden", help="Path to NER gold JSON")
     p.add_argument("--user-id", help="A real user_id (the extractor requires one)")
     p.add_argument("--organization-id", default=None)
-    p.add_argument("--span-model", default=None, help="Override RAG_NER_SPAN_MODEL (gliner engine)")
-    p.add_argument("--threshold", default=None, help="Override RAG_NER_THRESHOLD (gliner engine)")
+    p.add_argument("--span-model", default=None, help="Span model variant (gliner engine; default: the host's setting)")
+    p.add_argument("--threshold", default=None, help="Threshold variant (gliner engine; default: the host's setting)")
     p.add_argument("--report-out", default=None)
     p.add_argument("--bootstrap", default=None, help=BOOTSTRAP_HELP)
     p.add_argument("--compare", nargs=2, metavar=("A.json", "B.json"),
@@ -358,15 +371,6 @@ async def _main_async(args: argparse.Namespace) -> int:
         print("error: --engine, --golden and --user-id are required (unless --compare)", file=sys.stderr)
         return 2
 
-    import os
-
-    # GLiNER variants are chosen BEFORE the host wires the extractor; the
-    # engine itself is picked from the host's dispatcher after boot.
-    if args.span_model:
-        os.environ["RAG_NER_SPAN_MODEL"] = args.span_model
-    if args.threshold:
-        os.environ["RAG_NER_THRESHOLD"] = str(args.threshold)
-
     # Boot the HOST (if one was named) so its DB models / seams are registered
     # before the eval runs. matrx-rag never imports a host — see _bootstrap.py.
     await run_bootstrap(args.bootstrap)
@@ -376,10 +380,12 @@ async def _main_async(args: argparse.Namespace) -> int:
         engine=args.engine,
         user_id=args.user_id,
         organization_id=args.organization_id,
+        span_model=args.span_model,
+        threshold=float(args.threshold) if args.threshold else None,
     )
     _print_summary(report)
     if args.report_out:
-        Path(args.report_out).write_text(json.dumps(report, indent=2))
+        await asyncio.to_thread(Path(args.report_out).write_text, json.dumps(report, indent=2))
         print(f"\nFull report → {args.report_out}")
     return 0
 

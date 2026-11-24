@@ -47,61 +47,25 @@ class EventStore:
         from matrx_graph.checkpoint.value_store import intern_event_payload
 
         payload = await intern_event_payload(run_id, payload)
-        cp_uuid: UUID | None = None
-        if checkpoint_id:
-            try:
-                cp_uuid = UUID(checkpoint_id)
-            except (ValueError, TypeError):
-                cp_uuid = None
-
-        from matrx_orm import F, transaction
-
-        from matrx_graph.db._registry import get_model
-        from matrx_graph.db.run_store import update_run
-
-        run_uuid = UUID(run_id)
-        # Atomically bump workflow.run.event_seq (row lock held until COMMIT)
-        # then insert the event carrying that seq — both statements ride the
-        # SAME connection/transaction via matrx-orm's transaction() ContextVar,
-        # so the run row lock still serializes concurrent inserts for the same
-        # run and commit order still == seq order (the invariant this store
-        # exists to guarantee), exactly like the single-CTE statement it
-        # replaces.
-        async with transaction():
-            bump = await update_run(
-                {"id": run_uuid}, returning=("id", "event_seq", "organization_id"), event_seq=F("event_seq") + 1
-            )
-            if not bump.updated_rows:
-                raise ValueError(f"insert_event: run '{run_id}' not found in workflow.run")
-            seq = bump.updated_rows[0]["event_seq"]
-            # workflow.node_events.organization_id is NOT NULL. An event is a
-            # CHILD of its run — the UPDATE above hands back organization_id
-            # beside the seq (never the whole row), so carry it from there
-            # rather than a second lookup or a default.
-            organization_id = bump.updated_rows[0].get("organization_id")
-            if not organization_id:
-                raise ValueError(
-                    f"insert_event: run '{run_id}' has no resolvable organization_id"
+        seqs = await self._insert_rows(
+            run_id,
+            [
+                _event_row(
+                    event_type=event_type,
+                    payload=payload,
+                    step=step,
+                    node_id=node_id,
+                    spec_type=spec_type,
+                    attempt=attempt,
+                    duration_ms=duration_ms,
+                    checkpoint_id=checkpoint_id,
+                    error_type=error_type,
+                    error_message=error_message,
+                    event_ts=event_ts,
                 )
-            from matrx_graph.failure import client_safe_error_payload
-
-            instance = await get_model("WfNodeEvents").create(
-                run_id=run_uuid,
-                organization_id=organization_id,
-                event_type=event_type,
-                step=step,
-                node_id=node_id,
-                spec_type=spec_type,
-                attempt=attempt,
-                duration_ms=duration_ms,
-                checkpoint_id=cp_uuid,
-                error_type=error_type,
-                error_message=client_error_text(error_message) if error_message else error_message,
-                payload=client_safe_error_payload(payload),
-                event_ts=event_ts or datetime.now(UTC),
-                seq=seq,
-            )
-        return int(instance.seq)
+            ],
+        )
+        return seqs[0]
 
     async def insert_events(
         self, run_id: str, events: list[dict[str, Any]], *, run_updates: dict[str, Any] | None = None
@@ -121,60 +85,72 @@ class EventStore:
             return []
         from matrx_graph.checkpoint.value_store import intern_event_payload
 
-        events = [{**ev, "payload": await intern_event_payload(run_id, ev.get("payload") or {})} for ev in events]
-        from matrx_orm import F, transaction
+        rows = [
+            _event_row(**{**ev, "payload": await intern_event_payload(run_id, ev.get("payload") or {})})
+            for ev in events
+        ]
+        return await self._insert_rows(run_id, rows, run_updates=run_updates)
+
+    async def _insert_rows(
+        self, run_id: str, rows: list[dict[str, Any]], *, run_updates: dict[str, Any] | None = None
+    ) -> list[int]:
+        """THE RUN ROW IS LOCKED FOR TWO STATEMENTS AND NOTHING ELSE (55P03 on workflow.run, 2026-10-29..11-02).
+
+        The seq bump takes the ``workflow.run`` row lock until COMMIT, and every other writer of that
+        run (the next event, the checkpoint's run pointer, the heartbeat) queues behind it under a
+        5 s ``lock_timeout``. The single-event path used to do its work INSIDE that window — a
+        ``create()`` that hopped to the shared thread pool to encode the row, read the whole row
+        back (``RETURNING *``) and decoded it, and fired the post-create signals — so a busy worker
+        held the lock idle-in-transaction for 10 s and its siblings were canceled. Every row is now
+        built (payload redaction included) BEFORE the transaction opens, and inside it run only the
+        bump and one INSERT that hands back ids.
+
+        A collision that is still canceled rolled back the whole unit (the bump included), so the
+        unit is re-run whole on the ``orm.write_retry`` knobs — the ``record_outcome`` rule; inside
+        a caller's own transaction it runs once and the owner decides.
+        """
+        from matrx_orm import F, LockContentionError, retry_on_transient, transaction
 
         from matrx_graph.db._registry import get_model
         from matrx_graph.db.run_store import update_run
-        from matrx_graph.failure import client_safe_error_payload
 
         run_uuid = UUID(run_id)
-        n = len(events)
-        async with transaction():
-            bump = await update_run(
-                {"id": run_uuid},
-                returning=("id", "event_seq", "organization_id"),
-                **(run_updates or {}),
-                event_seq=F("event_seq") + n,
-            )
-            if not bump.updated_rows:
-                raise ValueError(f"insert_events: run '{run_id}' not found in workflow.run")
-            last = int(bump.updated_rows[0]["event_seq"])
-            organization_id = bump.updated_rows[0].get("organization_id")
-            if not organization_id:
-                raise ValueError(f"insert_events: run '{run_id}' has no resolvable organization_id")
-            rows: list[dict[str, Any]] = []
-            seqs = list(range(last - n + 1, last + 1))
-            for seq, ev in zip(seqs, events, strict=True):
-                checkpoint_id = ev.get("checkpoint_id")
-                try:
-                    cp_uuid = UUID(checkpoint_id) if checkpoint_id else None
-                except (ValueError, TypeError):
-                    cp_uuid = None
-                error_message = ev.get("error_message")
-                rows.append({
-                    "run_id": run_uuid,
-                    "organization_id": organization_id,
-                    "event_type": ev["event_type"],
-                    "step": ev.get("step"),
-                    "node_id": ev.get("node_id"),
-                    "spec_type": ev.get("spec_type"),
-                    "attempt": ev.get("attempt"),
-                    "duration_ms": ev.get("duration_ms"),
-                    "checkpoint_id": cp_uuid,
-                    "error_type": ev.get("error_type"),
-                    "error_message": client_error_text(error_message) if error_message else error_message,
-                    "payload": client_safe_error_payload(ev.get("payload") or {}),
-                    "event_ts": ev.get("event_ts") or datetime.now(UTC),
-                    "seq": seq,
-                })
-            # Only ids come back: an event row carries node inputs/outputs, and
-            # RETURNING * read every one back, decoded it, and cached it (MKT-111).
-            await get_model("WfNodeEvents").bulk_create(
-                [{**row, "organization_id": row["organization_id"]} for row in rows],
-                returning=["id"],
-            )
-        return seqs
+        n = len(rows)
+
+        async def unit() -> list[int]:
+            async with transaction():
+                bump = await update_run(
+                    {"id": run_uuid},
+                    returning=("id", "event_seq", "organization_id"),
+                    **(run_updates or {}),
+                    event_seq=F("event_seq") + n,
+                )
+                if not bump.updated_rows:
+                    raise ValueError(f"insert_events: run '{run_id}' not found in workflow.run")
+                last = int(bump.updated_rows[0]["event_seq"])
+                # workflow.node_events.organization_id is NOT NULL. An event is a CHILD of its run —
+                # the bump hands back organization_id beside the seq (never the whole row).
+                organization_id = bump.updated_rows[0].get("organization_id")
+                if not organization_id:
+                    raise ValueError(f"insert_events: run '{run_id}' has no resolvable organization_id")
+                seqs = list(range(last - n + 1, last + 1))
+                # Only ids come back: an event row carries node inputs/outputs, and
+                # RETURNING * read every one back, decoded it, and cached it (MKT-111).
+                await get_model("WfNodeEvents").bulk_create(
+                    [
+                        {**row, "run_id": run_uuid, "organization_id": organization_id, "seq": seq}
+                        for seq, row in zip(seqs, rows, strict=True)
+                    ],
+                    returning=["id"],
+                )
+            return seqs
+
+        return await retry_on_transient(
+            unit,
+            retry_on=(LockContentionError,),
+            label=f"workflow events {run_id[:8]} x{n}",
+            policy_db=get_model("WfRun").get_database_name(),
+        )
 
     # pg_notify payload hard cap is 8000 bytes; keep headroom for the
     # envelope + multi-byte characters after JSON escaping.
@@ -318,3 +294,40 @@ class EventStore:
                 }
             )
         return out
+
+
+def _event_row(
+    *,
+    event_type: str,
+    payload: dict[str, Any],
+    step: int | None = None,
+    node_id: str | None = None,
+    spec_type: str | None = None,
+    attempt: int | None = None,
+    duration_ms: int | None = None,
+    checkpoint_id: str | None = None,
+    error_type: str | None = None,
+    error_message: str | None = None,
+    event_ts: datetime | None = None,
+) -> dict[str, Any]:
+    """One ``workflow.node_events`` row, everything but its run, organization and seq — built OUTSIDE
+    the run-row lock (see :meth:`EventStore._insert_rows`)."""
+    from matrx_graph.failure import client_safe_error_payload
+
+    try:
+        cp_uuid = UUID(checkpoint_id) if checkpoint_id else None
+    except (ValueError, TypeError):
+        cp_uuid = None
+    return {
+        "event_type": event_type,
+        "step": step,
+        "node_id": node_id,
+        "spec_type": spec_type,
+        "attempt": attempt,
+        "duration_ms": duration_ms,
+        "checkpoint_id": cp_uuid,
+        "error_type": error_type,
+        "error_message": client_error_text(error_message) if error_message else error_message,
+        "payload": client_safe_error_payload(payload or {}),
+        "event_ts": event_ts or datetime.now(UTC),
+    }

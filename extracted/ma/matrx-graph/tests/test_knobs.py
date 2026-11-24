@@ -110,3 +110,13 @@ def test_backoff_is_jittered_and_bounded() -> None:
     for attempt in range(5):
         value = policy.backoff_seconds(attempt)
         assert 0.0 <= value <= 10.0
+
+
+@pytest.mark.asyncio
+async def test_the_leg_timing_threshold_takes_sub_second_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 3-step math run is ~7 ms: a whole-second threshold could never switch its per-hook timing lines on in
+    production (lane C2, 2026-11-13). ``0.005`` means 5 ms; a whole number and a quoted value still read."""
+    for raw, expected in ((0.005, 0.005), ("0.02", 0.02), (2, 2.0), ("nonsense", 0.0), (-1, 0.0)):
+        knobs.clear_knob_cache()
+        monkeypatch.setattr(knobs, "_feature_knob_model", lambda raw=raw: _Rows([{"key": "warn_seconds", "value": raw}]))
+        assert await knobs.leg_overhead_warn_seconds() == expected

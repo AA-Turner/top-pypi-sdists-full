@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypulseqpp
-Version: 0.0.70
+Version: 0.0.75
 Summary: Fast drop-in PyPulseq replacement over a C++ sequence core, with hardware safety checks.
 Keywords: mri,pulseq,pypulseq,pulse sequence
 Author-Email: Matteo Cencini <matteo.cencini@gmail.com>
@@ -27,7 +27,7 @@ Requires-Python: >=3.10
 Requires-Dist: h5py>=3.11
 Requires-Dist: mrsd>=1.0
 Requires-Dist: numpy>=2.0
-Requires-Dist: pypulseq>=1.5
+Requires-Dist: pypulseq==1.5.0.post1
 Requires-Dist: scipy>=1.10
 Provides-Extra: plot
 Requires-Dist: pypulseqpp-seqeyes<0.4,>=0.3.3; extra == "plot"

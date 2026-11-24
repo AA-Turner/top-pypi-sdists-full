@@ -32,6 +32,8 @@ Breaks named (USAGE-GATE.md):
 
 from __future__ import annotations
 
+import logging
+
 import asyncio
 from types import SimpleNamespace
 from typing import Any
@@ -256,7 +258,10 @@ def test_a_resume_on_another_process_is_never_refused(memory: _Memory) -> None:
             gate.precheck_usage()  # ensure_user_request_exists on the resume
         finally:
             clear_app_context(token)
-        # Without the carried fact, process B re-judges it — the bug.
+        # Without the carried fact, a fresh process re-judges it — the bug. (Process B itself now
+        # remembers the run it admitted — ``note_run_admitted`` at the seam — so the bare context is
+        # judged on yet another process.)
+        gate.reset_usage_gate_state()
         return await _refused(_ctx(_rid(20)), spent)
 
     refused = asyncio.run(_run())
@@ -462,6 +467,7 @@ def test_a_raising_resolver_honors_the_request(memory: _Memory) -> None:
 @pytest.mark.asyncio
 async def test_executor_streams_the_refusal_code_and_files_no_incident(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     from test_provider_out_of_credit_terminal import _run
 
@@ -473,7 +479,16 @@ async def test_executor_streams_the_refusal_code_and_files_no_incident(
         terminal.append((a, k))
 
     monkeypatch.setattr(executor_mod, "_capture_terminal_provider_failure", _terminal)
-    run = await _run(monkeypatch, gate.UsageLimitReachedError(_usage("over")))
+    with caplog.at_level(logging.WARNING, logger="matrx_ai.orchestrator.executor"):
+        run = await _run(monkeypatch, gate.UsageLimitReachedError(_usage("over")))
+
+    # An expected refusal is a named WARNING, never an ERROR app_log line (2026-11-12: 73 held
+    # agent-test judge calls logged "Non-retryable Error" at ERROR).
+    executor_lines = [r for r in caplog.records if r.name == "matrx_ai.orchestrator.executor"]
+    assert any("reason=usage_limit_reached" in r.getMessage() for r in executor_lines), [
+        r.getMessage() for r in executor_lines
+    ]
+    assert not any(r.levelno >= logging.ERROR for r in executor_lines), [r.getMessage() for r in executor_lines]
 
     assert run["client"].calls == 1, "a caller refusal was retried"
     assert len(run["errors"]) == 1, run["errors"]

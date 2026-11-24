@@ -10,6 +10,33 @@ generated from that declaration, never a second declaration:
 - ``mcp``       — the ``product_action`` MCP tool (run in-process, as the caller).
 - ``api``       — ``POST /actions/{name}/run`` (the host's HTTP door). Open on EVERY
   runnable Action by construction; never declared.
+- ``binding``   — an agent variable or context item whose value is this Action's output
+  (the host's binding resolver runs it before the agent). Open on EVERY runnable Action
+  by construction; reached by the Action's own dotted name.
+- ``schedule``  — a scheduled run (the host's scheduler fires it from an enabled,
+  approved schedule row; that row is the recorded approval). An Action that declares
+  ONLY this door is **schedule-only**: no door is opened for it by construction (not api,
+  binding or directive) and every other door is refused — a platform job (a nightly
+  purge, a rent posting) must never become a button, an agent variable or a directive.
+- ``service``   — one of OUR servers calls it with no person (the host's service-lane
+  twin of the api door, ``POST /actions/service/{name}/run``, admitted by the shared
+  server secret and an explicit organization). NEVER opened by construction: only an
+  Action that declares it is reachable there, and its work must not need a person
+  (e.g. ``appointment.after_book`` after a public booking).
+- ``trigger``   — a ``workflow.trigger`` row fires it (Triggers PLAN Phase 2): an event, a
+  clock, a webhook or a hand fire, with no person present, run AS THE TRIGGER'S BOUND ACTOR
+  in the trigger's organization. Open on EVERY runnable Action by construction (defaults
+  lean open — whoever may run an Action may file a trigger that runs it), never on a
+  schedule-only one. Authority ``workflow`` (a standing automation, like a workflow step),
+  never ``approved``: the host gate still runs the Action's registered rule resolver, so an
+  organization rule that asks queues the fire for a person (``ActionQueued``, recorded
+  waiting on a person), and the person's own ``off`` still wins.
+- ``visitor``   — a signed-out visitor on an outside page presses a button
+  (``POST /actions/visitor/{name}/run``), admitted ONLY by an embed token that names this one
+  Action and the page's exact origin; run as the organization's minted visitor actor. NEVER
+  opened by construction: only an Action that declares it is reachable there, and its input
+  must never name a target (:func:`visitor_input_problems` — its targets are fixed by its
+  declaration). Authority ``workflow``: the organization's rule resolver still runs.
 
 The names each door is reached by are DERIVED from the Action's dotted name by
 the two functions below, so no door can carry a second, hand-typed name.
@@ -19,8 +46,25 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-ActionDoor = Literal["step", "tool", "directive", "mcp", "api"]
-DOORS: frozenset[str] = frozenset({"step", "tool", "directive", "mcp", "api"})
+ActionDoor = Literal["step", "tool", "directive", "mcp", "api", "binding", "schedule", "service", "trigger", "visitor"]
+DOORS: frozenset[str] = frozenset(
+    {"step", "tool", "directive", "mcp", "api", "binding", "schedule", "service", "trigger", "visitor"}
+)
+#: An Action whose declared doors are exactly these is reachable only through them.
+SCHEDULE_ONLY_DOORS: frozenset[str] = frozenset({"schedule"})
+
+#: Doors open on every runnable, non-schedule-only Action by construction (never declared).
+OPEN_BY_CONSTRUCTION: frozenset[str] = frozenset({"api", "binding", "trigger"})
+
+
+def door_admits(spec: Any, door: str) -> bool:
+    """True when ``door`` may run ``spec``: a declared door, or one open by construction on a
+    runnable Action that is not schedule-only. The host's trigger fire asks this before it
+    runs a trigger's ``target_action``."""
+    if door in spec.doors:
+        return True
+    return door in OPEN_BY_CONSTRUCTION and bool(spec.runnable) and not bool(spec.schedule_only)
+
 
 #: The HTTP path of an Action's api door (the host mounts it; matrx-graph only names it).
 API_PATH = "/actions/{name}/run"
@@ -67,6 +111,8 @@ def directive_noun_of(spec: Any) -> str | None:
     """
     if spec.directive_slug:
         return None
+    if frozenset(spec.doors) == SCHEDULE_ONLY_DOORS:
+        return None  # schedule-only: never opened by construction
     if spec.engine == "code" and spec.work is None:
         return None
     # A generated Action (workflow / agent row) gets the whole-name noun like every other
@@ -78,6 +124,102 @@ def directive_noun_of(spec: Any) -> str | None:
     if "directive" in spec.doors:
         return directive_noun_for(spec.name)
     return tool_name_for(spec.name)
+
+
+#: Field-name words that let a visitor's input NAME a target (a record, a table, an organization, a
+#: file, a path, an address). A visitor Action's targets are fixed by its declaration, never chosen
+#: by whoever presses the button.
+VISITOR_TARGET_WORDS: tuple[str, ...] = ("table", "record", "org", "organisation", "file", "path", "url", "uri", "link", "href", "folder", "dir")
+
+
+def _visitor_type_problem(annotation: Any) -> str | None:
+    """Why a field type lets a visitor name a target or pass an open object, or None."""
+    import types
+    import typing
+    from collections.abc import Mapping
+    from uuid import UUID
+
+    from pydantic import Json
+
+    origin = typing.get_origin(annotation)
+    if origin is typing.Annotated:
+        return _visitor_type_problem(typing.get_args(annotation)[0])
+    if annotation is Any or annotation is object:
+        return "is typed Any"
+    if annotation is UUID:
+        return "is a UUID"
+    if annotation in (dict, Mapping, typing.Mapping) or origin in (dict, Mapping):
+        return "is an open object (dict)"
+    if annotation is Json or origin is Json or getattr(annotation, "__name__", "") in ("Json", "JsonValue"):
+        return "is untyped JSON"
+    if origin in (typing.Union, types.UnionType, list, tuple, set, frozenset):
+        for arg in typing.get_args(annotation):
+            if arg is type(None) or arg is Ellipsis:
+                continue
+            why = _visitor_type_problem(arg)
+            if why:
+                return why
+    return None
+
+
+def _name_segments(name: str) -> list[str]:
+    """``recordId`` / ``record_id`` / ``record-id`` -> ``["record", "id"]``."""
+    import re
+
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name)
+    return [seg for seg in re.split(r"[^a-z0-9]+", spaced.lower()) if seg]
+
+
+def visitor_input_problems(input_schema: Any, _prefix: str = "", _seen: frozenset[int] = frozenset()) -> list[str]:
+    """THE visitor declaration rule: every field of a visitor Action's input through which a visitor could
+    NAME a target. Empty = admissible. A field is refused when it is UUID-typed; named ``id`` or ``*_id``;
+    names a table, record, org(anization), file, path or url (a name segment starting or ending with one of
+    them, the alias included); or is typed ``dict`` / ``Any`` / JSON / an open object (a model taking extra
+    fields counts). Nested models are walked (their fields are named ``outer.inner``).
+
+    The visitor door refuses at admission any Action this answers non-empty for (naming the field, never a
+    run); ``check_one_action`` reports it."""
+    from pydantic import BaseModel
+
+    if not (isinstance(input_schema, type) and issubclass(input_schema, BaseModel)):
+        return [f"{_prefix or '(input)'} is not a typed model"]
+    problems: list[str] = []
+    if input_schema.model_config.get("extra") == "allow":
+        problems.append(f"{_prefix or '(input)'} accepts extra fields (an open object)")
+    seen = _seen | {id(input_schema)}
+    for name, field in input_schema.model_fields.items():
+        label = f"{_prefix}{name}"
+        segments = _name_segments(name) + _name_segments(field.alias or "")
+        if segments and (segments[-1] in ("id", "ids") or "id" in segments):
+            problems.append(f"{label} names a target (an id)")
+            continue
+        hit = next(
+            (w for w in VISITOR_TARGET_WORDS for seg in segments if seg.startswith(w) or seg.endswith(w)), None
+        )
+        if hit:
+            problems.append(f"{label} names a target ({hit})")
+            continue
+        why = _visitor_type_problem(field.annotation)
+        if why:
+            problems.append(f"{label} {why}")
+            continue
+        for nested in _nested_models(field.annotation):
+            if id(nested) not in seen:
+                problems.extend(visitor_input_problems(nested, f"{label}.", seen))
+    return problems
+
+
+def _nested_models(annotation: Any) -> list[type]:
+    import typing
+
+    from pydantic import BaseModel
+
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return [annotation]
+    out: list[type] = []
+    for arg in typing.get_args(annotation):
+        out.extend(_nested_models(arg))
+    return out
 
 
 def validate_doors(name: str, doors: frozenset[str] | set[str] | tuple[str, ...]) -> frozenset[str]:
@@ -92,4 +234,4 @@ def validate_doors(name: str, doors: frozenset[str] | set[str] | tuple[str, ...]
     return out
 
 
-__all__ = ["API_PATH", "DOORS", "api_path_for", "ActionDoor", "directive_noun_for", "directive_noun_of", "tool_name_for", "validate_doors"]
+__all__ = ["API_PATH", "DOORS", "VISITOR_TARGET_WORDS", "visitor_input_problems", "OPEN_BY_CONSTRUCTION", "SCHEDULE_ONLY_DOORS", "door_admits", "api_path_for", "ActionDoor", "directive_noun_for", "directive_noun_of", "tool_name_for", "validate_doors"]

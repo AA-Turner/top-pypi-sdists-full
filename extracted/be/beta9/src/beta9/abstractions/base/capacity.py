@@ -5,13 +5,20 @@ When stub creation reports that no serverless pool supports the requested GPU
 (a guaranteed scheduling blackhole), this module lets the user launch
 on-demand hardware from a cloud provider offer and routes the workload onto
 it — or fails fast with an actionable error in headless environments.
+
+A call can also find, once it is made, that there is no machine for it now.
+What it does then is at the end of this module (CapacityWait): it says what
+it waits for, keeps waiting, gives up after as long as its caller allows, or
+has its caller reserve a machine.
 """
 
+import math
+import os
+import threading
 import time
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Set
 
 from ... import terminal
-from ...terminal import cli_name
 from ...clients.gateway import (
     GetOrCreateStubRequest,
     GetOrCreateStubResponse,
@@ -20,6 +27,8 @@ from ...clients.gateway import (
     PoolConfig,
     PoolOffer,
 )
+from ...exceptions import NoCapacityError
+from ...terminal import cli_name
 
 if TYPE_CHECKING:
     from .runner import RunnerAbstraction
@@ -116,9 +125,11 @@ def offer_hardware_label(offer: PoolOffer, nodes: int = 1) -> str:
     return hardware
 
 
-def no_offers_error(gpu_label: str) -> None:
+def no_offers_error(gpu_label: str, pricing: str = "on_demand") -> None:
+    """Report that nothing is offered for a GPU; pricing is what was asked for (on_demand, spot, any)."""
+    kind = {"spot": "spot ", "any": ""}.get(pricing, "on-demand ")
     terminal.error(
-        f"No on-demand offers currently available for {gpu_label}.",
+        f"No {kind}offers currently available for {gpu_label}.",
         exit=False,
         hint=no_offers_hint(),
     )
@@ -138,6 +149,10 @@ def handle_capacity_verdict(
     Reacts to the capacity verdict on a stub creation response. Returns the
     response to continue with, or None when the workload should not proceed.
     """
+    # Kept so that the stub can be created again on a machine that is
+    # reserved for a call later (CapacityWait).
+    runner.stub_request = stub_request
+
     if not stub_response.ok:
         return stub_response
 
@@ -294,12 +309,27 @@ def _run_interactive_capacity_flow(
     return response
 
 
+# How the machines of an offer are sold, as PoolConfig.pricing names it. On
+# demand is the default and is sent as nothing.
+PRICING_ON_DEMAND = ""
+PRICING_SPOT = "spot"
+PRICING_ANY = "any"
+
+
 def fetch_offers(
-    gateway_stub, gpus: List[str], limit: int = MAX_OFFER_CHOICES
+    gateway_stub,
+    gpus: List[str],
+    limit: int = MAX_OFFER_CHOICES,
+    pricing: str = PRICING_ON_DEMAND,
 ) -> Optional[List[PoolOffer]]:
-    """Fetch on-demand offers sorted by price; None indicates a fetch error."""
+    """
+    Fetch offers sorted by price; None indicates a fetch error. Offers are
+    on-demand unless pricing asks for spot machines, or for both ("any").
+    """
     with terminal.progress("Finding available hardware..."):
-        res = gateway_stub.list_pool_offers(ListPoolOffersRequest(pool=PoolConfig(gpu=gpus)))
+        res = gateway_stub.list_pool_offers(
+            ListPoolOffersRequest(pool=PoolConfig(gpu=gpus, pricing=pricing))
+        )
     if not res.ok:
         terminal.error(f"Failed to list hardware offers: {res.err_msg}", exit=False)
         return None
@@ -316,6 +346,8 @@ def _offer_columns(offer: PoolOffer) -> tuple:
     region = offer.region_display_name or offer.region or "any region"
     hardware = offer_hardware_label(offer)
     details = []
+    if offer.spot:
+        details.append("spot, can be taken back")
     if offer.cpu_millicores:
         details.append(f"{offer.cpu_millicores // 1000} vCPU")
     if offer.memory_mb:
@@ -368,6 +400,8 @@ def pool_config_for_offer(
         max_spend=max_spend,
         providers=[offer.provider] if offer.provider else [],
         offer_id=offer.id,
+        # A machine that is sold both ways is two offers with one ID.
+        pricing=PRICING_SPOT if offer.spot else PRICING_ON_DEMAND,
     )
 
 
@@ -497,3 +531,366 @@ def _find_pool(gateway_stub, pool_name: str):
         if pool.name == pool_name or pool.selector == pool_name:
             return pool
     return None
+
+
+# A call that waits for a machine
+#
+# A call is pending from when it is made until its container runs: a second
+# when a machine has room, minutes when one has to start, and longer when
+# there is no capacity to be had. The gateway says which on the call's
+# stream, in words, each time it changes and every few seconds while it does
+# not. CapacityWait shows that, gives the call up after as long as its caller
+# allows, and says once what can be done about capacity that is not there. At
+# a terminal that is a question, and the answer may be to reserve a machine
+# and run the call on it.
+
+# How long a call goes without capacity before its caller is asked what to
+# do about it, or, where nobody can be asked, told what can be done.
+ASK_AFTER_S = 60.0
+
+# The phases the gateway reports (FunctionInvokeResponse.pending_phase).
+QUEUED = "queued"
+PROVISIONING = "provisioning"
+WAITING_FOR_CAPACITY = "waiting_for_capacity"
+STARTING = "starting"
+
+WAIT, RESERVE, CANCEL = "wait", "reserve", "cancel"
+
+_UNITS = {"s": 1, "m": 60, "h": 3600}
+_batch_lock = threading.Lock()
+
+
+class Reserved(Exception):
+    """A call that waited was given up for one on a machine its caller reserved."""
+
+
+def wait_limit_name() -> str:
+    """The environment variable that limits how long a call waits for a machine."""
+    from ...config import get_settings
+
+    return f"{get_settings().name.upper()}_CAPACITY_WAIT"
+
+
+def wait_limit() -> float:
+    """
+    The longest a call may go without a machine, in seconds, as the
+    environment sets it: a number of seconds, or a number with a unit (90s,
+    5m, 1h). Nothing, or 0, is no limit.
+    """
+    name = wait_limit_name()
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return 0.0
+    number, unit = (raw[:-1], _UNITS[raw[-1]]) if raw[-1] in _UNITS else (raw, 1)
+    try:
+        seconds = float(number) * unit
+    except ValueError:
+        seconds = math.nan
+    if not math.isfinite(seconds) or seconds < 0:
+        terminal.error(
+            f"{name}={raw} is not a length of time.",
+            hint="Use a number of seconds, or a number with a unit: 90, 90s, 5m.",
+            code="INVALID_CONFIG",
+        )
+    return seconds
+
+
+def clock(seconds: float) -> str:
+    """A length of time as a spinner counts it: 1:15."""
+    minutes, seconds = divmod(max(int(seconds), 0), 60)
+    return f"{minutes}:{seconds:02d}"
+
+
+def _took(seconds: float) -> str:
+    if seconds < 120:
+        return f"{int(seconds)} seconds"
+    return f"{round(seconds / 60)} minutes"
+
+
+def capacity_label(gpus: List[str]) -> str:
+    """The capacity that was asked for: "A10G capacity", "A10G or T4 capacity", "capacity"."""
+    if not gpus:
+        return "capacity"
+    if len(gpus) == 1:
+        return f"{gpus[0]} capacity"
+    return f"{', '.join(gpus[:-1])} or {gpus[-1]} capacity"
+
+
+def _advice(gpus: List[str], reason: str) -> str:
+    """What a caller can do other than wait, or "" when there is nothing."""
+    if reason == "no_spare_capacity":
+        return (
+            "The Spot tier runs on capacity the other tiers leave spare. "
+            'cpu_tier="shared" or "performance" does not wait for it.'
+        )
+    if reason == "machine_busy" or not gpus:
+        return ""
+    if len(gpus) > 1:
+        more = "Add GPU types to the list"
+    else:
+        other = "A10G" if gpus[0] == "T4" else "T4"
+        more = f'List more than one GPU type (gpu=["{gpus[0]}", "{other}"])'
+    return (
+        f"{more} so that whichever has capacity is used, or reserve a machine: "
+        f"`{cli_name()} machine reserve --gpu {gpus[0]}`."
+    )
+
+
+def _once(said: Set[str], what: str) -> bool:
+    """True the first time `what` is said to a batch."""
+    with _batch_lock:
+        if what in said:
+            return False
+        said.add(what)
+        return True
+
+
+class CapacityWait:
+    """
+    What one call shows and does until its container runs, by what the
+    gateway says it waits for (told).
+
+    title is the text of the spinner the call runs under. In a terminal the
+    spinner says what the call waits for and counts the time; anywhere else
+    each change is a line of output. The calls of a batch have no title and
+    share one set (batch): each kind of wait is then one line for all of
+    them, and nobody is asked anything.
+
+    limit is the longest the call may go without a machine, in seconds, and
+    0 is no limit.
+    """
+
+    def __init__(
+        self,
+        runner: "RunnerAbstraction",
+        title: Optional[str] = None,
+        limit: float = 0.0,
+        batch: Optional[Set[str]] = None,
+    ) -> None:
+        self.runner = runner
+        self.limit = limit
+        self._title = title
+        self._batch = batch
+        self._advised = False
+        # What was shown last, as (phase, reason).
+        self._shown: Optional[tuple] = None
+        # When the call began to wait for a machine, on the monotonic clock.
+        self._began: Optional[float] = None
+        # The time it has had no capacity to wait for: the stretches that
+        # are over, and when the one under way began.
+        self._without = 0.0
+        self._without_since: Optional[float] = None
+
+    def told(self, response: Any, stop: Callable[[], None], started: Callable[[], bool]) -> None:
+        """
+        Take a response that says what the call waits for. stop gives the
+        call up, and started says whether it runs after all.
+
+        Raises NoCapacityError for a call that has gone without a machine
+        for as long as it may, and Reserved for one that is to be made again
+        on a machine its caller reserved.
+        """
+        phase, reason = response.pending_phase, response.pending_reason
+        now = time.monotonic()
+        if phase == STARTING:
+            # Only a call that was said to wait is said to have stopped.
+            if self._shown is not None and self._shown[0] != STARTING:
+                self._shown = (phase, reason)
+                self._show(f"{response.pending_message} (waited {clock(now - self._began)})")
+            self._placed()
+            return
+
+        # The gateway says how long the container has been in its phase, and
+        # the wait counts from there: a client that joins late, or whose
+        # clock stood still for a while, has waited as long as the gateway
+        # says.
+        since = now - response.pending_waited_seconds
+        self._began = since if self._began is None else min(self._began, since)
+        if phase != WAITING_FOR_CAPACITY:
+            self._without, self._without_since = self._without_capacity(now), None
+        elif self._without_since is None:
+            self._without_since = since
+        else:
+            self._without_since = min(self._without_since, since)
+
+        # A call that is queued is about to be placed: not a wait worth a
+        # word. Nor is a phase with no words, from a gateway that has none.
+        if phase != QUEUED and response.pending_message and (phase, reason) != self._shown:
+            self._shown = (phase, reason)
+            self._show(response.pending_message, since)
+
+        if self.limit > 0 and now - self._began >= self.limit:
+            error = self._gave_up(phase, reason, now - self._began)
+            # A call that is given up on must not run later.
+            stop()
+            raise error
+
+        without = self._without_capacity(now)
+        if phase == WAITING_FOR_CAPACITY and not self._advised and without >= ASK_AFTER_S:
+            self._advised = True
+            self._advise(reason, without, stop, started)
+
+    def running(self) -> None:
+        """
+        The call's container runs, or the call is over: the spinner gets its
+        own text back. A call that waits again, for another attempt, starts
+        over.
+        """
+        if self._shown is not None and self._on_spinner():
+            terminal.update_progress(self._title)
+        self._shown = None
+        self._placed()
+
+    def _placed(self) -> None:
+        self._began = self._without_since = None
+        self._without = 0.0
+
+    def _without_capacity(self, now: float) -> float:
+        if self._without_since is None:
+            return self._without
+        return self._without + now - self._without_since
+
+    def _on_spinner(self) -> bool:
+        return self._title is not None and terminal.spinner_visible()
+
+    def _show(self, message: str, since: Optional[float] = None) -> None:
+        """Show what the call waits for, and since when if it still waits."""
+        words = message[0].lower() + message[1:]
+        if self._batch is not None:
+            if since is not None and _once(self._batch, self._shown[0]):
+                terminal.note(f"Some calls are waiting: {words}")
+        elif not self._on_spinner():
+            terminal.note(message)
+        elif since is None:
+            terminal.update_progress(f"{self._title} · {words}")
+        else:
+            terminal.update_progress(
+                lambda: f"{self._title} · {words} ({clock(time.monotonic() - since)})"
+            )
+
+    def _gpus(self) -> List[str]:
+        """The GPU types the call asked for, in its order of preference."""
+        stub_request = getattr(self.runner, "stub_request", None)
+        return requested_gpus(stub_request) if stub_request is not None else []
+
+    def _gave_up(self, phase: str, reason: str, seconds: float) -> NoCapacityError:
+        """The call has gone without a machine for as long as it may: why, and what else there is."""
+        gpus = self._gpus()
+        if phase == WAITING_FOR_CAPACITY:
+            what = f"No {capacity_label(gpus)} became available in {_took(seconds)}."
+        elif phase == PROVISIONING:
+            what = f"A machine for this call was still starting after {_took(seconds)}."
+        else:
+            what = f"This call was not placed on a machine in {_took(seconds)}."
+        hint = (
+            _advice(gpus, reason),
+            f"`{cli_name()} machine list` shows what can be reserved."
+            if reason not in ("no_spare_capacity", "machine_busy")
+            else "",
+            f"{wait_limit_name()} limits the wait to {_took(self.limit)}.",
+        )
+        return NoCapacityError(
+            f"{what} The call was cancelled.", hint=" ".join(part for part in hint if part)
+        )
+
+    def _advise(
+        self, reason: str, waited: float, stop: Callable[[], None], started: Callable[[], bool]
+    ) -> None:
+        """Say what can be done about capacity that is not there: a question, where somebody can answer."""
+        gpus = self._gpus()
+        if self._batch is None:
+            # Whether there is somebody to ask is known only with the
+            # spinner off the screen: while it is on, it stands in for the
+            # terminal's output.
+            with terminal.progress_paused():
+                if _runner_interactive(self.runner):
+                    self._ask(gpus, reason, waited, stop, started)
+                    return
+        elif not _once(self._batch, "advice"):
+            return
+
+        if self.limit > 0:
+            keeps = f"The call waits until {clock(self.limit)} ({wait_limit_name()})."
+        else:
+            keeps = f"The call keeps waiting; {wait_limit_name()}=<seconds> gives up sooner."
+        terminal.note(f"Still no {capacity_label(gpus)} after {clock(waited)}. {keeps}")
+        if advice := _advice(gpus, reason):
+            terminal.note(advice)
+
+    def _ask(
+        self,
+        gpus: List[str],
+        reason: str,
+        waited: float,
+        stop: Callable[[], None],
+        started: Callable[[], bool],
+    ) -> None:
+        """Ask the caller what to do about a call there is no capacity for, and do it."""
+        runner = self.runner
+        terminal.warn(
+            f"No {capacity_label(gpus)} has been available for {clock(waited)}. "
+            "This is a platform limit, not your code."
+        )
+        options = [
+            terminal.SelectOption(
+                label="Keep waiting", value=WAIT, description="runs as soon as there is capacity"
+            )
+        ]
+        # Reserving a machine gets the call one if it asked for a GPU and
+        # left it to the platform where to run.
+        if gpus and reason == "no_capacity" and getattr(runner, "pool_config", None) is None:
+            options.append(
+                terminal.SelectOption(
+                    label="Reserve a machine",
+                    value=RESERVE,
+                    description="on demand, billed by the hour; runs this call on it",
+                )
+            )
+        elif advice := _advice(gpus, reason):
+            terminal.detail(f"  {advice}")
+        options.append(
+            terminal.SelectOption(
+                label="Cancel", value=CANCEL, description="the function does not run"
+            )
+        )
+        try:
+            choice = terminal.select("How do you want to proceed?", options)
+        except KeyboardInterrupt:
+            choice = CANCEL
+
+        if choice == CANCEL:
+            stop()
+            terminal.detail("Cancelled. The function did not run.")
+            raise SystemExit(1)
+        if choice != RESERVE:
+            return
+        # The question may have stood for a while.
+        if started():
+            terminal.detail("A machine took the call while you were choosing.")
+            return
+
+        response = _run_interactive_capacity_flow(
+            runner,
+            runner.stub_request,
+            gpus,
+            ", ".join(gpus),
+            announce=False,
+            wait_for_ready=False,
+        )
+        if response is not None and not response.ok:
+            # Why is reported. The call that waits is still the way to run.
+            runner._apply_stub_response(response)
+            runner.stub_request.pool = None
+        if response is None or not response.ok:
+            terminal.detail("No machine was reserved. Still waiting for capacity.")
+            return
+
+        # A machine is reserved. The call that waits is given up first, so
+        # that it cannot run twice, and is made again once the machine is
+        # ready. If it is not, why was said.
+        stop()
+        if not runner._apply_stub_response(response) or not wait_for_pool_ready(
+            runner.gateway_stub, runner.pool_config.name
+        ):
+            raise SystemExit(1)
+        raise Reserved()

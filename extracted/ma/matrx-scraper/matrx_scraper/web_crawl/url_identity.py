@@ -313,6 +313,21 @@ async def _load_site_pages(site_id: str) -> list[Any]:
     return await WebPage.filter(site_id=site_id).all(use_cache=False)
 
 
+def _normalize_unique(urls: list[str]) -> list[str]:
+    return list(dict.fromkeys(normalize_url(url) for url in urls))
+
+
+def _index_pages(
+    pages: list[Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, list[Any]]]:
+    pages_by_id = {str(page.id): page for page in pages}
+    pages_by_url = {normalize_url(str(page.url)): page for page in pages}
+    pages_by_match_key: dict[str, list[Any]] = defaultdict(list)
+    for page in pages:
+        pages_by_match_key[url_match_key(str(page.url))].append(page)
+    return pages_by_id, pages_by_url, pages_by_match_key
+
+
 async def upsert_observed_page_urls(
     *,
     site_id: str,
@@ -341,16 +356,16 @@ async def upsert_observed_page_urls(
         raise ValueError(
             "page provenance must be gsc, sitemap, crawl, manual, ga4, or bing_webmaster"
         )
-    normalized_urls = list(dict.fromkeys(normalize_url(url) for url in urls))
+    # Normalizing a whole sitemap's worth of URLs is pure CPU (1-2 s on the
+    # loop at tens of thousands of URLs) — off the loop.
+    normalized_urls = await asyncio.to_thread(_normalize_unique, list(urls))
     if not normalized_urls:
         return {}
 
     pages = await _load_site_pages(site_id)
-    pages_by_id = {str(page.id): page for page in pages}
-    pages_by_url = {normalize_url(str(page.url)): page for page in pages}
-    pages_by_match_key: dict[str, list[Any]] = defaultdict(list)
-    for page in pages:
-        pages_by_match_key[url_match_key(str(page.url))].append(page)
+    pages_by_id, pages_by_url, pages_by_match_key = await asyncio.to_thread(
+        _index_pages, pages
+    )
 
     now = utcnow()
     new_rows: list[dict[str, Any]] = []
@@ -391,8 +406,7 @@ async def upsert_observed_page_urls(
                 )
 
     pages = await _load_site_pages(site_id)
-    pages_by_id = {str(page.id): page for page in pages}
-    pages_by_url = {normalize_url(str(page.url)): page for page in pages}
+    pages_by_id, pages_by_url, _unused = await asyncio.to_thread(_index_pages, pages)
     resolutions: dict[str, ResolvedPageUrl] = {}
     canonical_last_seen_ids: set[str] = set()
     revive_pages: dict[str, Any] = {}
@@ -478,18 +492,36 @@ async def upsert_observed_page_urls(
             site_id,
             ", ".join(sorted(str(redact_url_secrets(p.url)) for p in adopt_pages.values())[:10]),
         )
+        for chunk in _id_chunks(adopt_pages):
+            await WebPage.update_where(
+                {"id__in": chunk, "status": "planned"},
+                status="active",
+                first_seen=now,
+                last_seen=now,
+                lock_rows_in_pk_order=True,
+                returning=["id"],
+            )
+    # A site observation can name tens of thousands of pages (a weekly sitemap
+    # refresh: ~50k ids, 2 MB of arguments, RETURNING every whole row). As ONE
+    # statement it held every row lock past the 10 s statement timeout while a
+    # concurrent observation of the same site waited on it (live class
+    # db_statement_canceled on web.page, 2026-11-09). Each chunk is its own
+    # short statement, locks rows in primary-key order (no deadlock between
+    # overlapping observations) and hands back only ids.
+    for chunk in _id_chunks(canonical_last_seen_ids):
         await WebPage.update_where(
-            {"id__in": sorted(adopt_pages), "status": "planned"},
-            status="active",
-            first_seen=now,
+            {"id__in": chunk},
             last_seen=now,
-        )
-    if canonical_last_seen_ids:
-        await WebPage.update_where(
-            {"id__in": sorted(canonical_last_seen_ids)},
-            last_seen=now,
+            lock_rows_in_pk_order=True,
+            returning=["id"],
         )
     return resolutions
+
+
+def _id_chunks(ids: Iterable[str]) -> list[list[str]]:
+    """Sorted ids in ``_PAGE_BATCH_SIZE`` slices: one bounded UPDATE each."""
+    ordered = sorted(ids)
+    return [ordered[i : i + _PAGE_BATCH_SIZE] for i in range(0, len(ordered), _PAGE_BATCH_SIZE)]
 
 
 async def ensure_planned_page_urls(
@@ -1025,6 +1057,46 @@ async def _merge_sitemap_memberships(
     return len(alias_ids)
 
 
+def merge_page_desired_values(
+    canonical: dict[str, Any],
+    alias: dict[str, Any],
+) -> tuple[dict[str, Any], int]:
+    """Fold a duplicate page's ``desired_values`` into its canonical page's.
+
+    Top-level keys: the canonical page's slice wins, the alias only fills keys the
+    canonical lacks. ``keyword_plan`` merges one level deeper, because it holds the
+    page's target keyword (``primary_keyword_id``): an empty canonical primary takes
+    the alias's; two different primaries keep the canonical one, move the alias's
+    into ``secondary_keyword_ids`` (never lost) and count one conflict.
+    """
+
+    merged = {**alias, **canonical}
+    canonical_plan = canonical.get("keyword_plan")
+    alias_plan = alias.get("keyword_plan")
+    if not isinstance(canonical_plan, dict) or not isinstance(alias_plan, dict):
+        return merged, 0
+    plan = {**alias_plan, **{k: v for k, v in canonical_plan.items() if v not in (None, "", [])}}
+    secondaries = [
+        str(item)
+        for item in [*(canonical_plan.get("secondary_keyword_ids") or []), *(alias_plan.get("secondary_keyword_ids") or [])]
+        if item
+    ]
+    conflicts = 0
+    canonical_primary = canonical_plan.get("primary_keyword_id") or None
+    alias_primary = alias_plan.get("primary_keyword_id") or None
+    primary = canonical_primary or alias_primary
+    if canonical_primary and alias_primary and canonical_primary != alias_primary:
+        conflicts = 1
+        secondaries.append(str(alias_primary))
+    if primary:
+        plan["primary_keyword_id"] = primary
+    deduped = list(dict.fromkeys(item for item in secondaries if item != primary))
+    if deduped or "secondary_keyword_ids" in plan:
+        plan["secondary_keyword_ids"] = deduped
+    merged["keyword_plan"] = plan
+    return merged, conflicts
+
+
 async def _merge_page_intent(
     *,
     pages: list[Any],
@@ -1033,8 +1105,9 @@ async def _merge_page_intent(
     pages_by_id = {str(page.id): page for page in pages}
     conflicts = 0
     updates: dict[str, dict[str, Any]] = {}
+    # The target keyword's one home is desired_values.keyword_plan.primary_keyword_id
+    # (merged by merge_page_desired_values); the legacy target_keyword column is retired.
     scalar_fields = (
-        "target_keyword",
         "meta_title_desired",
         "meta_description_desired",
         "seo_metrics_desired",
@@ -1059,7 +1132,8 @@ async def _merge_page_intent(
         canonical_desired = target_updates.get("desired_values") or (
             canonical.desired_values if isinstance(canonical.desired_values, dict) else {}
         )
-        merged_desired = {**alias_desired, **canonical_desired}
+        merged_desired, plan_conflicts = merge_page_desired_values(canonical_desired, alias_desired)
+        conflicts += plan_conflicts
         if merged_desired != canonical_desired:
             target_updates["desired_values"] = merged_desired
     for canonical_id, fields in updates.items():

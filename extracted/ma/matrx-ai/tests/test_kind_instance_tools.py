@@ -4,7 +4,7 @@ Pure-logic coverage: authorization is RLS's answer in the CALLER's session
 (no owner fast path, no ``iam.has_access_for`` call from app code; viewer = the
 row is returned, editor = ``SELECT ... FOR UPDATE`` returns it), content-free
 denials, title derivation, and arg-contract enforcement. The
-live DB lifecycle (create -> verdict -> list -> update -> repin -> soft-delete
+live DB lifecycle (create -> verdict -> list -> update -> re-version -> soft-delete
 -> revalidate-after-schema-change) is exercised by
 ``tests_trials/run_kind_tools_e2e.py`` (repo root) against the real database.
 """

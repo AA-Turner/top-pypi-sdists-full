@@ -49,8 +49,13 @@ class ResponsesClient:
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         instructions: typing.Optional[str] = OMIT,
         top_p: typing.Optional[float] = OMIT,
+        top_k: typing.Optional[int] = OMIT,
+        frequency_penalty: typing.Optional[float] = OMIT,
+        presence_penalty: typing.Optional[float] = OMIT,
         text: typing.Optional[ResponseTextConfigParams] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
+        n: typing.Optional[int] = OMIT,
+        seed: typing.Optional[int] = OMIT,
         previous_response_id: typing.Optional[str] = OMIT,
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
@@ -60,9 +65,17 @@ class ResponsesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[ResponseStreamEvent]:
         """
-        Creates a model response using the OpenAI Responses protocol. Supported models: `glm5.3`, `gemma4`, and `deepseekv4-flash`.
+        Generate a model reply in the OpenAI Responses format.
 
-        Create-only and stateless: replay `input` every turn, and omit `store` or pass `false` (OpenAI SDKs default it to `true`, which is `400`).
+        **Models:** `sarvam-105b`, `sarvam-105b-conversations`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4.1-flash-1017-interactive`, and, on Provisioned Throughput, `deepseekv4-pro`, `kimi-k3.1-pro`, `qwen38-27b` (ids are case-sensitive).
+
+        **Each call is independent.** Send the full conversation in `input` every time — nothing is stored for you. Leave out `store` or set it to `false` (`true` returns **`400`**). You cannot load a past response by id (`GET /v2/responses/{id}` is always **`404`**).
+
+        **Streaming is optional.** Default is a single JSON body (`stream` omitted or `false`). Set `stream: true` only if you want server-sent events.
+
+        **Reasoning (`glm5.3`, `deepseekv4.1-flash-1017`):** both support `low`, `high`, and `max`. On `glm5.3`, `reasoning.effort` only accepts **`low`** or **`high`** — omit `reasoning` / `effort` for **`max`**-level reasoning, since sending the literal string **`"max"`** returns **`400`**. On `deepseekv4.1-flash-1017`, all three values including `max` work directly. Read the trace from the reasoning item's `content[0].text`; `summary` is filled only when `reasoning.summary` is set. Reasoning tokens count toward `max_output_tokens`, which has no default cap — omitting it means unbounded generation.
+
+        Other fields are documented below. See the [Responses API guide](/api/api-guides-tutorials/chat-completion/responses-api).
 
         Parameters
         ----------
@@ -71,22 +84,22 @@ class ResponsesClient:
         input : ResponseInputParams
 
         max_output_tokens : typing.Optional[int]
-            Maximum tokens to generate. Omitted when unset — the backend's own default applies. Greater than the model's context window is `400`. When unset, the admission token check adds nothing for generation.
+            Maximum output tokens to generate, including reasoning tokens on reasoning models. If omitted, there is no default cap — generation is unbounded and continues until the model stops on its own or the context window fills. Always set this explicitly in production. Values above the model context window return `400`.
 
         temperature : typing.Optional[float]
-            Sampling temperature between 0 and 2. When unset, defaults to `0.5` if `reasoning` is present, otherwise `0.2`. Output is not bit-reproducible, even at `0`.
+            Sampling temperature between 0 and 2. Default **`1`** on `glm5.3` when omitted. Output is not bit-reproducible, even at `0`.
 
         store : typing.Optional[bool]
             Must be `false` or omitted (omitting is `200` and echoed as `false`). `true` is `400 invalid_request_error` — nothing created here is retrievable. OpenAI SDKs default this to `true`, so a default `client.responses.create(...)` fails.
 
         tools : typing.Optional[typing.Sequence[ResponseFunctionToolParams]]
-            Function tools are executed (flat shape: `type`, `name`, `description`, `parameters`, `strict`). Hosted tools (`mcp`, `web_search`, `file_search`) may `200` and echo on the response but are not run — `tool_choice: required` with only those types is `400` (needs a function definition). Fireworks `sse` is `400` (unknown variant). A model without tool calling returns `400`.
+            Function tools use the **flat** Responses shape (`type`, `name`, `parameters`, `strict`) — the nested chat-completions tool shape is **`400`**. `tool_choice: required` with no tools returns **`400`**. Function `arguments` in output are a JSON **string** (parse before use). Multiple tool calls per turn are supported; use **`parallel_tool_calls: true`** or omit (see that field).
 
         tool_choice : typing.Optional[ResponsesCreateStreamRequestToolChoiceParams]
             Forwarded exactly as written: `none`, `auto`, `required`, `{ "type": "function", "name": "..." }`, or another object.
 
         reasoning : typing.Optional[ResponseReasoningParams]
-            Reasoning config. A reasoning output item with `summary[]` is returned by default on `glm5.3` even when this object is omitted — `summary` is not required to receive it. `effort` accepts `none`, `minimal`, `low`, `medium`, `high`, `xhigh`. `max` is `400` on this route (chat completions do accept `max`).
+            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, the DeepSeek models, `kimi-k3.1-pro`, and `qwen38-27b`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, `low`, `high`, `max`, or `none` (thinking off); on `kimi-k3.1-pro`, `low`, `medium`, `high`, or `max` (thinking is always on); on `qwen38-27b`, `none` turns thinking off. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
 
         extra_body : typing.Optional[typing.Dict[str, typing.Any]]
             Merged into the outbound body. Must not overwrite any modelled field (`400`). `max_tool_calls` and `prompt` are `400` here and in `extra_body` — not supported by any serving deployment.
@@ -95,13 +108,28 @@ class ResponsesClient:
             System-style instructions. Echoed back on the response object when set.
 
         top_p : typing.Optional[float]
-            Nucleus sampling, greater than 0 and at most 1.
+            Nucleus sampling. Default **`0.95`** on `glm5.3` when omitted. Must be greater than **`0`** and at most **`1`** (`0` is rejected on `glm5.3`).
+
+        top_k : typing.Optional[int]
+            Not supported on the Responses route for `glm5.3`; any value returns **`400`**.
+
+        frequency_penalty : typing.Optional[float]
+            Optional. Range `-2` to `2`. May be accepted and echoed on Responses without changing model output.
+
+        presence_penalty : typing.Optional[float]
+            Optional. Range `-2` to `2`. May be accepted and echoed on Responses without changing model output.
 
         text : typing.Optional[ResponseTextConfigParams]
-            Output format. If you send `text`, `format` is required (`400` when missing). `json_object` and strict `json_schema` are honoured on `glm5.3` and skip the reasoning item.
+            Output format, set in `format` (`text`, `json_object`, or `json_schema`).
 
         parallel_tool_calls : typing.Optional[bool]
-            Whether the model may emit more than one function call in one turn.
+            **`false`** limits a turn to a single tool call on every open-weight model. `sarvam-105b` ignores it on this route.
+
+        n : typing.Optional[int]
+            **Ignored** on this route — Responses always returns one output. Accepted for OpenAI SDK compatibility only; omit or leave at `1`.
+
+        seed : typing.Optional[int]
+            **Ignored** on Responses. Accepted for SDK compatibility only.
 
         previous_response_id : typing.Optional[str]
             `400 invalid_request_error`. This endpoint holds no state — replay the conversation in `input`. OpenAI and Fireworks use this to continue a chat; we do not.
@@ -115,7 +143,7 @@ class ResponsesClient:
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
 
         top_logprobs : typing.Optional[int]
-            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include=["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include: ["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. Supported on `sarvam-105b`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
 
         include : typing.Optional[typing.Sequence[str]]
             Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
@@ -136,7 +164,7 @@ class ResponsesClient:
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
         response = client.responses.create_stream(
-            model="glm5.3",
+            model="sarvam-105b",
             input="input",
         )
         for chunk in response:
@@ -154,8 +182,13 @@ class ResponsesClient:
             extra_body=extra_body,
             instructions=instructions,
             top_p=top_p,
+            top_k=top_k,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
             text=text,
             parallel_tool_calls=parallel_tool_calls,
+            n=n,
+            seed=seed,
             previous_response_id=previous_response_id,
             conversation=conversation,
             background=background,
@@ -181,8 +214,13 @@ class ResponsesClient:
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         instructions: typing.Optional[str] = OMIT,
         top_p: typing.Optional[float] = OMIT,
+        top_k: typing.Optional[int] = OMIT,
+        frequency_penalty: typing.Optional[float] = OMIT,
+        presence_penalty: typing.Optional[float] = OMIT,
         text: typing.Optional[ResponseTextConfigParams] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
+        n: typing.Optional[int] = OMIT,
+        seed: typing.Optional[int] = OMIT,
         previous_response_id: typing.Optional[str] = OMIT,
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
@@ -192,9 +230,17 @@ class ResponsesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateResponseV2Response, typing.Iterator[ResponseStreamEvent]]:
         """
-        Creates a model response using the OpenAI Responses protocol. Supported models: `glm5.3`, `gemma4`, and `deepseekv4-flash`.
+        Generate a model reply in the OpenAI Responses format.
 
-        Create-only and stateless: replay `input` every turn, and omit `store` or pass `false` (OpenAI SDKs default it to `true`, which is `400`).
+        **Models:** `sarvam-105b`, `sarvam-105b-conversations`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4.1-flash-1017-interactive`, and, on Provisioned Throughput, `deepseekv4-pro`, `kimi-k3.1-pro`, `qwen38-27b` (ids are case-sensitive).
+
+        **Each call is independent.** Send the full conversation in `input` every time — nothing is stored for you. Leave out `store` or set it to `false` (`true` returns **`400`**). You cannot load a past response by id (`GET /v2/responses/{id}` is always **`404`**).
+
+        **Streaming is optional.** Default is a single JSON body (`stream` omitted or `false`). Set `stream: true` only if you want server-sent events.
+
+        **Reasoning (`glm5.3`, `deepseekv4.1-flash-1017`):** both support `low`, `high`, and `max`. On `glm5.3`, `reasoning.effort` only accepts **`low`** or **`high`** — omit `reasoning` / `effort` for **`max`**-level reasoning, since sending the literal string **`"max"`** returns **`400`**. On `deepseekv4.1-flash-1017`, all three values including `max` work directly. Read the trace from the reasoning item's `content[0].text`; `summary` is filled only when `reasoning.summary` is set. Reasoning tokens count toward `max_output_tokens`, which has no default cap — omitting it means unbounded generation.
+
+        Other fields are documented below. See the [Responses API guide](/api/api-guides-tutorials/chat-completion/responses-api).
 
         Parameters
         ----------
@@ -206,22 +252,22 @@ class ResponsesClient:
             Set to `True` to receive Responses API events as an iterator.
 
         max_output_tokens : typing.Optional[int]
-            Maximum tokens to generate. Omitted when unset — the backend's own default applies. Greater than the model's context window is `400`. When unset, the admission token check adds nothing for generation.
+            Maximum output tokens to generate, including reasoning tokens on reasoning models. If omitted, there is no default cap — generation is unbounded and continues until the model stops on its own or the context window fills. Always set this explicitly in production. Values above the model context window return `400`.
 
         temperature : typing.Optional[float]
-            Sampling temperature between 0 and 2. When unset, defaults to `0.5` if `reasoning` is present, otherwise `0.2`. Output is not bit-reproducible, even at `0`.
+            Sampling temperature between 0 and 2. Default **`1`** on `glm5.3` when omitted. Output is not bit-reproducible, even at `0`.
 
         store : typing.Optional[bool]
             Must be `false` or omitted (omitting is `200` and echoed as `false`). `true` is `400 invalid_request_error` — nothing created here is retrievable. OpenAI SDKs default this to `true`, so a default `client.responses.create(...)` fails.
 
         tools : typing.Optional[typing.Sequence[ResponseFunctionToolParams]]
-            Function tools are executed (flat shape: `type`, `name`, `description`, `parameters`, `strict`). Hosted tools (`mcp`, `web_search`, `file_search`) may `200` and echo on the response but are not run — `tool_choice: required` with only those types is `400` (needs a function definition). Fireworks `sse` is `400` (unknown variant). A model without tool calling returns `400`.
+            Function tools use the **flat** Responses shape (`type`, `name`, `parameters`, `strict`) — the nested chat-completions tool shape is **`400`**. `tool_choice: required` with no tools returns **`400`**. Function `arguments` in output are a JSON **string** (parse before use). Multiple tool calls per turn are supported; use **`parallel_tool_calls: true`** or omit (see that field).
 
         tool_choice : typing.Optional[ResponsesCreateRequestToolChoiceParams]
             Forwarded exactly as written: `none`, `auto`, `required`, `{ "type": "function", "name": "..." }`, or another object.
 
         reasoning : typing.Optional[ResponseReasoningParams]
-            Reasoning config. A reasoning output item with `summary[]` is returned by default on `glm5.3` even when this object is omitted — `summary` is not required to receive it. `effort` accepts `none`, `minimal`, `low`, `medium`, `high`, `xhigh`. `max` is `400` on this route (chat completions do accept `max`).
+            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, the DeepSeek models, `kimi-k3.1-pro`, and `qwen38-27b`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, `low`, `high`, `max`, or `none` (thinking off); on `kimi-k3.1-pro`, `low`, `medium`, `high`, or `max` (thinking is always on); on `qwen38-27b`, `none` turns thinking off. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
 
         extra_body : typing.Optional[typing.Dict[str, typing.Any]]
             Merged into the outbound body. Must not overwrite any modelled field (`400`). `max_tool_calls` and `prompt` are `400` here and in `extra_body` — not supported by any serving deployment.
@@ -230,13 +276,28 @@ class ResponsesClient:
             System-style instructions. Echoed back on the response object when set.
 
         top_p : typing.Optional[float]
-            Nucleus sampling, greater than 0 and at most 1.
+            Nucleus sampling. Default **`0.95`** on `glm5.3` when omitted. Must be greater than **`0`** and at most **`1`** (`0` is rejected on `glm5.3`).
+
+        top_k : typing.Optional[int]
+            Not supported on the Responses route for `glm5.3`; any value returns **`400`**.
+
+        frequency_penalty : typing.Optional[float]
+            Optional. Range `-2` to `2`. May be accepted and echoed on Responses without changing model output.
+
+        presence_penalty : typing.Optional[float]
+            Optional. Range `-2` to `2`. May be accepted and echoed on Responses without changing model output.
 
         text : typing.Optional[ResponseTextConfigParams]
-            Output format. If you send `text`, `format` is required (`400` when missing). `json_object` and strict `json_schema` are honoured on `glm5.3` and skip the reasoning item.
+            Output format, set in `format` (`text`, `json_object`, or `json_schema`).
 
         parallel_tool_calls : typing.Optional[bool]
-            Whether the model may emit more than one function call in one turn.
+            **`false`** limits a turn to a single tool call on every open-weight model. `sarvam-105b` ignores it on this route.
+
+        n : typing.Optional[int]
+            **Ignored** on this route — Responses always returns one output. Accepted for OpenAI SDK compatibility only; omit or leave at `1`.
+
+        seed : typing.Optional[int]
+            **Ignored** on Responses. Accepted for SDK compatibility only.
 
         previous_response_id : typing.Optional[str]
             `400 invalid_request_error`. This endpoint holds no state — replay the conversation in `input`. OpenAI and Fireworks use this to continue a chat; we do not.
@@ -250,7 +311,7 @@ class ResponsesClient:
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
 
         top_logprobs : typing.Optional[int]
-            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include=["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include: ["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. Supported on `sarvam-105b`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
 
         include : typing.Optional[typing.Sequence[str]]
             Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
@@ -271,7 +332,7 @@ class ResponsesClient:
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
         client.responses.create(
-            model="glm5.3",
+            model="sarvam-105b",
             input="input",
         )
         """
@@ -291,8 +352,13 @@ class ResponsesClient:
                 extra_body=extra_body,
                 instructions=instructions,
                 top_p=top_p,
+                top_k=top_k,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
                 text=text,
                 parallel_tool_calls=parallel_tool_calls,
+                n=n,
+                seed=seed,
                 previous_response_id=previous_response_id,
                 conversation=conversation,
                 background=background,
@@ -314,8 +380,13 @@ class ResponsesClient:
             extra_body=extra_body,
             instructions=instructions,
             top_p=top_p,
+            top_k=top_k,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
             text=text,
             parallel_tool_calls=parallel_tool_calls,
+            n=n,
+            seed=seed,
             previous_response_id=previous_response_id,
             conversation=conversation,
             background=background,
@@ -356,8 +427,13 @@ class AsyncResponsesClient:
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         instructions: typing.Optional[str] = OMIT,
         top_p: typing.Optional[float] = OMIT,
+        top_k: typing.Optional[int] = OMIT,
+        frequency_penalty: typing.Optional[float] = OMIT,
+        presence_penalty: typing.Optional[float] = OMIT,
         text: typing.Optional[ResponseTextConfigParams] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
+        n: typing.Optional[int] = OMIT,
+        seed: typing.Optional[int] = OMIT,
         previous_response_id: typing.Optional[str] = OMIT,
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
@@ -367,9 +443,17 @@ class AsyncResponsesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[ResponseStreamEvent]:
         """
-        Creates a model response using the OpenAI Responses protocol. Supported models: `glm5.3`, `gemma4`, and `deepseekv4-flash`.
+        Generate a model reply in the OpenAI Responses format.
 
-        Create-only and stateless: replay `input` every turn, and omit `store` or pass `false` (OpenAI SDKs default it to `true`, which is `400`).
+        **Models:** `sarvam-105b`, `sarvam-105b-conversations`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4.1-flash-1017-interactive`, and, on Provisioned Throughput, `deepseekv4-pro`, `kimi-k3.1-pro`, `qwen38-27b` (ids are case-sensitive).
+
+        **Each call is independent.** Send the full conversation in `input` every time — nothing is stored for you. Leave out `store` or set it to `false` (`true` returns **`400`**). You cannot load a past response by id (`GET /v2/responses/{id}` is always **`404`**).
+
+        **Streaming is optional.** Default is a single JSON body (`stream` omitted or `false`). Set `stream: true` only if you want server-sent events.
+
+        **Reasoning (`glm5.3`, `deepseekv4.1-flash-1017`):** both support `low`, `high`, and `max`. On `glm5.3`, `reasoning.effort` only accepts **`low`** or **`high`** — omit `reasoning` / `effort` for **`max`**-level reasoning, since sending the literal string **`"max"`** returns **`400`**. On `deepseekv4.1-flash-1017`, all three values including `max` work directly. Read the trace from the reasoning item's `content[0].text`; `summary` is filled only when `reasoning.summary` is set. Reasoning tokens count toward `max_output_tokens`, which has no default cap — omitting it means unbounded generation.
+
+        Other fields are documented below. See the [Responses API guide](/api/api-guides-tutorials/chat-completion/responses-api).
 
         Parameters
         ----------
@@ -378,22 +462,22 @@ class AsyncResponsesClient:
         input : ResponseInputParams
 
         max_output_tokens : typing.Optional[int]
-            Maximum tokens to generate. Omitted when unset — the backend's own default applies. Greater than the model's context window is `400`. When unset, the admission token check adds nothing for generation.
+            Maximum output tokens to generate, including reasoning tokens on reasoning models. If omitted, there is no default cap — generation is unbounded and continues until the model stops on its own or the context window fills. Always set this explicitly in production. Values above the model context window return `400`.
 
         temperature : typing.Optional[float]
-            Sampling temperature between 0 and 2. When unset, defaults to `0.5` if `reasoning` is present, otherwise `0.2`. Output is not bit-reproducible, even at `0`.
+            Sampling temperature between 0 and 2. Default **`1`** on `glm5.3` when omitted. Output is not bit-reproducible, even at `0`.
 
         store : typing.Optional[bool]
             Must be `false` or omitted (omitting is `200` and echoed as `false`). `true` is `400 invalid_request_error` — nothing created here is retrievable. OpenAI SDKs default this to `true`, so a default `client.responses.create(...)` fails.
 
         tools : typing.Optional[typing.Sequence[ResponseFunctionToolParams]]
-            Function tools are executed (flat shape: `type`, `name`, `description`, `parameters`, `strict`). Hosted tools (`mcp`, `web_search`, `file_search`) may `200` and echo on the response but are not run — `tool_choice: required` with only those types is `400` (needs a function definition). Fireworks `sse` is `400` (unknown variant). A model without tool calling returns `400`.
+            Function tools use the **flat** Responses shape (`type`, `name`, `parameters`, `strict`) — the nested chat-completions tool shape is **`400`**. `tool_choice: required` with no tools returns **`400`**. Function `arguments` in output are a JSON **string** (parse before use). Multiple tool calls per turn are supported; use **`parallel_tool_calls: true`** or omit (see that field).
 
         tool_choice : typing.Optional[ResponsesCreateStreamRequestToolChoiceParams]
             Forwarded exactly as written: `none`, `auto`, `required`, `{ "type": "function", "name": "..." }`, or another object.
 
         reasoning : typing.Optional[ResponseReasoningParams]
-            Reasoning config. A reasoning output item with `summary[]` is returned by default on `glm5.3` even when this object is omitted — `summary` is not required to receive it. `effort` accepts `none`, `minimal`, `low`, `medium`, `high`, `xhigh`. `max` is `400` on this route (chat completions do accept `max`).
+            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, the DeepSeek models, `kimi-k3.1-pro`, and `qwen38-27b`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, `low`, `high`, `max`, or `none` (thinking off); on `kimi-k3.1-pro`, `low`, `medium`, `high`, or `max` (thinking is always on); on `qwen38-27b`, `none` turns thinking off. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
 
         extra_body : typing.Optional[typing.Dict[str, typing.Any]]
             Merged into the outbound body. Must not overwrite any modelled field (`400`). `max_tool_calls` and `prompt` are `400` here and in `extra_body` — not supported by any serving deployment.
@@ -402,13 +486,28 @@ class AsyncResponsesClient:
             System-style instructions. Echoed back on the response object when set.
 
         top_p : typing.Optional[float]
-            Nucleus sampling, greater than 0 and at most 1.
+            Nucleus sampling. Default **`0.95`** on `glm5.3` when omitted. Must be greater than **`0`** and at most **`1`** (`0` is rejected on `glm5.3`).
+
+        top_k : typing.Optional[int]
+            Not supported on the Responses route for `glm5.3`; any value returns **`400`**.
+
+        frequency_penalty : typing.Optional[float]
+            Optional. Range `-2` to `2`. May be accepted and echoed on Responses without changing model output.
+
+        presence_penalty : typing.Optional[float]
+            Optional. Range `-2` to `2`. May be accepted and echoed on Responses without changing model output.
 
         text : typing.Optional[ResponseTextConfigParams]
-            Output format. If you send `text`, `format` is required (`400` when missing). `json_object` and strict `json_schema` are honoured on `glm5.3` and skip the reasoning item.
+            Output format, set in `format` (`text`, `json_object`, or `json_schema`).
 
         parallel_tool_calls : typing.Optional[bool]
-            Whether the model may emit more than one function call in one turn.
+            **`false`** limits a turn to a single tool call on every open-weight model. `sarvam-105b` ignores it on this route.
+
+        n : typing.Optional[int]
+            **Ignored** on this route — Responses always returns one output. Accepted for OpenAI SDK compatibility only; omit or leave at `1`.
+
+        seed : typing.Optional[int]
+            **Ignored** on Responses. Accepted for SDK compatibility only.
 
         previous_response_id : typing.Optional[str]
             `400 invalid_request_error`. This endpoint holds no state — replay the conversation in `input`. OpenAI and Fireworks use this to continue a chat; we do not.
@@ -422,7 +521,7 @@ class AsyncResponsesClient:
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
 
         top_logprobs : typing.Optional[int]
-            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include=["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include: ["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. Supported on `sarvam-105b`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
 
         include : typing.Optional[typing.Sequence[str]]
             Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
@@ -448,7 +547,7 @@ class AsyncResponsesClient:
 
         async def main() -> None:
             response = await client.responses.create_stream(
-                model="glm5.3",
+                model="sarvam-105b",
                 input="input",
             )
             async for chunk in response:
@@ -469,8 +568,13 @@ class AsyncResponsesClient:
             extra_body=extra_body,
             instructions=instructions,
             top_p=top_p,
+            top_k=top_k,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
             text=text,
             parallel_tool_calls=parallel_tool_calls,
+            n=n,
+            seed=seed,
             previous_response_id=previous_response_id,
             conversation=conversation,
             background=background,
@@ -497,8 +601,13 @@ class AsyncResponsesClient:
         extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         instructions: typing.Optional[str] = OMIT,
         top_p: typing.Optional[float] = OMIT,
+        top_k: typing.Optional[int] = OMIT,
+        frequency_penalty: typing.Optional[float] = OMIT,
+        presence_penalty: typing.Optional[float] = OMIT,
         text: typing.Optional[ResponseTextConfigParams] = OMIT,
         parallel_tool_calls: typing.Optional[bool] = OMIT,
+        n: typing.Optional[int] = OMIT,
+        seed: typing.Optional[int] = OMIT,
         previous_response_id: typing.Optional[str] = OMIT,
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
@@ -508,9 +617,17 @@ class AsyncResponsesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateResponseV2Response, typing.AsyncIterator[ResponseStreamEvent]]:
         """
-        Creates a model response using the OpenAI Responses protocol. Supported models: `glm5.3`, `gemma4`, and `deepseekv4-flash`.
+        Generate a model reply in the OpenAI Responses format.
 
-        Create-only and stateless: replay `input` every turn, and omit `store` or pass `false` (OpenAI SDKs default it to `true`, which is `400`).
+        **Models:** `sarvam-105b`, `sarvam-105b-conversations`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4.1-flash-1017-interactive`, and, on Provisioned Throughput, `deepseekv4-pro`, `kimi-k3.1-pro`, `qwen38-27b` (ids are case-sensitive).
+
+        **Each call is independent.** Send the full conversation in `input` every time — nothing is stored for you. Leave out `store` or set it to `false` (`true` returns **`400`**). You cannot load a past response by id (`GET /v2/responses/{id}` is always **`404`**).
+
+        **Streaming is optional.** Default is a single JSON body (`stream` omitted or `false`). Set `stream: true` only if you want server-sent events.
+
+        **Reasoning (`glm5.3`, `deepseekv4.1-flash-1017`):** both support `low`, `high`, and `max`. On `glm5.3`, `reasoning.effort` only accepts **`low`** or **`high`** — omit `reasoning` / `effort` for **`max`**-level reasoning, since sending the literal string **`"max"`** returns **`400`**. On `deepseekv4.1-flash-1017`, all three values including `max` work directly. Read the trace from the reasoning item's `content[0].text`; `summary` is filled only when `reasoning.summary` is set. Reasoning tokens count toward `max_output_tokens`, which has no default cap — omitting it means unbounded generation.
+
+        Other fields are documented below. See the [Responses API guide](/api/api-guides-tutorials/chat-completion/responses-api).
 
         Parameters
         ----------
@@ -522,22 +639,22 @@ class AsyncResponsesClient:
             Set to `True` to receive Responses API events as an async iterator.
 
         max_output_tokens : typing.Optional[int]
-            Maximum tokens to generate. Omitted when unset — the backend's own default applies. Greater than the model's context window is `400`. When unset, the admission token check adds nothing for generation.
+            Maximum output tokens to generate, including reasoning tokens on reasoning models. If omitted, there is no default cap — generation is unbounded and continues until the model stops on its own or the context window fills. Always set this explicitly in production. Values above the model context window return `400`.
 
         temperature : typing.Optional[float]
-            Sampling temperature between 0 and 2. When unset, defaults to `0.5` if `reasoning` is present, otherwise `0.2`. Output is not bit-reproducible, even at `0`.
+            Sampling temperature between 0 and 2. Default **`1`** on `glm5.3` when omitted. Output is not bit-reproducible, even at `0`.
 
         store : typing.Optional[bool]
             Must be `false` or omitted (omitting is `200` and echoed as `false`). `true` is `400 invalid_request_error` — nothing created here is retrievable. OpenAI SDKs default this to `true`, so a default `client.responses.create(...)` fails.
 
         tools : typing.Optional[typing.Sequence[ResponseFunctionToolParams]]
-            Function tools are executed (flat shape: `type`, `name`, `description`, `parameters`, `strict`). Hosted tools (`mcp`, `web_search`, `file_search`) may `200` and echo on the response but are not run — `tool_choice: required` with only those types is `400` (needs a function definition). Fireworks `sse` is `400` (unknown variant). A model without tool calling returns `400`.
+            Function tools use the **flat** Responses shape (`type`, `name`, `parameters`, `strict`) — the nested chat-completions tool shape is **`400`**. `tool_choice: required` with no tools returns **`400`**. Function `arguments` in output are a JSON **string** (parse before use). Multiple tool calls per turn are supported; use **`parallel_tool_calls: true`** or omit (see that field).
 
         tool_choice : typing.Optional[ResponsesCreateRequestToolChoiceParams]
             Forwarded exactly as written: `none`, `auto`, `required`, `{ "type": "function", "name": "..." }`, or another object.
 
         reasoning : typing.Optional[ResponseReasoningParams]
-            Reasoning config. A reasoning output item with `summary[]` is returned by default on `glm5.3` even when this object is omitted — `summary` is not required to receive it. `effort` accepts `none`, `minimal`, `low`, `medium`, `high`, `xhigh`. `max` is `400` on this route (chat completions do accept `max`).
+            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, the DeepSeek models, `kimi-k3.1-pro`, and `qwen38-27b`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, `low`, `high`, `max`, or `none` (thinking off); on `kimi-k3.1-pro`, `low`, `medium`, `high`, or `max` (thinking is always on); on `qwen38-27b`, `none` turns thinking off. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
 
         extra_body : typing.Optional[typing.Dict[str, typing.Any]]
             Merged into the outbound body. Must not overwrite any modelled field (`400`). `max_tool_calls` and `prompt` are `400` here and in `extra_body` — not supported by any serving deployment.
@@ -546,13 +663,28 @@ class AsyncResponsesClient:
             System-style instructions. Echoed back on the response object when set.
 
         top_p : typing.Optional[float]
-            Nucleus sampling, greater than 0 and at most 1.
+            Nucleus sampling. Default **`0.95`** on `glm5.3` when omitted. Must be greater than **`0`** and at most **`1`** (`0` is rejected on `glm5.3`).
+
+        top_k : typing.Optional[int]
+            Not supported on the Responses route for `glm5.3`; any value returns **`400`**.
+
+        frequency_penalty : typing.Optional[float]
+            Optional. Range `-2` to `2`. May be accepted and echoed on Responses without changing model output.
+
+        presence_penalty : typing.Optional[float]
+            Optional. Range `-2` to `2`. May be accepted and echoed on Responses without changing model output.
 
         text : typing.Optional[ResponseTextConfigParams]
-            Output format. If you send `text`, `format` is required (`400` when missing). `json_object` and strict `json_schema` are honoured on `glm5.3` and skip the reasoning item.
+            Output format, set in `format` (`text`, `json_object`, or `json_schema`).
 
         parallel_tool_calls : typing.Optional[bool]
-            Whether the model may emit more than one function call in one turn.
+            **`false`** limits a turn to a single tool call on every open-weight model. `sarvam-105b` ignores it on this route.
+
+        n : typing.Optional[int]
+            **Ignored** on this route — Responses always returns one output. Accepted for OpenAI SDK compatibility only; omit or leave at `1`.
+
+        seed : typing.Optional[int]
+            **Ignored** on Responses. Accepted for SDK compatibility only.
 
         previous_response_id : typing.Optional[str]
             `400 invalid_request_error`. This endpoint holds no state — replay the conversation in `input`. OpenAI and Fireworks use this to continue a chat; we do not.
@@ -566,7 +698,7 @@ class AsyncResponsesClient:
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
 
         top_logprobs : typing.Optional[int]
-            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include=["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include: ["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. Supported on `sarvam-105b`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
 
         include : typing.Optional[typing.Sequence[str]]
             Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
@@ -592,7 +724,7 @@ class AsyncResponsesClient:
 
         async def main() -> None:
             await client.responses.create(
-                model="glm5.3",
+                model="sarvam-105b",
                 input="input",
             )
 
@@ -615,8 +747,13 @@ class AsyncResponsesClient:
                 extra_body=extra_body,
                 instructions=instructions,
                 top_p=top_p,
+                top_k=top_k,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
                 text=text,
                 parallel_tool_calls=parallel_tool_calls,
+                n=n,
+                seed=seed,
                 previous_response_id=previous_response_id,
                 conversation=conversation,
                 background=background,
@@ -638,8 +775,13 @@ class AsyncResponsesClient:
             extra_body=extra_body,
             instructions=instructions,
             top_p=top_p,
+            top_k=top_k,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
             text=text,
             parallel_tool_calls=parallel_tool_calls,
+            n=n,
+            seed=seed,
             previous_response_id=previous_response_id,
             conversation=conversation,
             background=background,

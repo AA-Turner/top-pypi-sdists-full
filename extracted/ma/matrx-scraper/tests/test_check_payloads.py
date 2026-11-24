@@ -68,6 +68,7 @@ def _evidence_keys_by_function() -> dict[str, set[str]]:
 _EMITTER_ITEM_KEYS = {
     "local_business_outcome": "local_business_markup",
     "_weigh_broken_page": "broken_page_4xx",
+    "_judge_canonical_target": "canonical_conflicts",
 }
 
 

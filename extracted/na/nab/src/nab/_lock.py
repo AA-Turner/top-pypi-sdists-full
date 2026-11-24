@@ -13,30 +13,34 @@ defines it.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
+    "collections",
     "datetime",
     "errno",
     "nab._cli.parse",
     "nab._resolve",
     "nab._run",
     "nab._version",
+    "nab.config.lock_plans",
     "nab.config.model",
     "nab.flagtypes",
+    "nab.lock_inputs",
     "nab.output",
+    "nab_index.atomic",
     "nab_project",
-    "nab_project.lockfile",
-    "nab_project.lock_preferences",
-    "nab_project.lock_policy",
+    "nab_project.dependency_sources",
     "nab_project.lock_check",
+    "nab_project.lock_policy",
+    "nab_project.lock_preferences",
+    "nab_project.lockfile",
     "nab_project.paths",
     "nab_project.pyproject_files",
     "nab_project.resolve",
     "nab_provider.requirements_file",
     "nab_provider.target",
+    "nab_resolver.diagnostics",
     "os",
     "stat",
     "string",
-    "tempfile",
 )
 
 import contextlib
@@ -45,7 +49,7 @@ import os
 import shlex
 import stat
 import sys
-import tempfile
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from string import Formatter
@@ -53,9 +57,10 @@ from typing import TYPE_CHECKING, Any, NamedTuple, NoReturn
 
 import tomli
 
-from nab._version import __version__
+from nab_index.atomic import create_staging_file, default_file_mode
 from nab_project import toml_io
 from nab_project.input_source import (
+    InputChangedError,
     InputFormat,
     ScriptMetadataError,
     read_input_document,
@@ -77,6 +82,7 @@ from nab_project.lockfile import (
     TargetLock,
     check_locked,
     drop_workspace_pins,
+    format_package_count,
     is_valid_pylock_path,
     package_metadata_override_records,
     read_lockfile_anchor,
@@ -87,7 +93,7 @@ from nab_project.lockfile import (
     write_requirements_with_hashes,
     write_requirements_without_hashes,
 )
-from nab_project.paths import PathState, path_state
+from nab_project.paths import PathState, path_state, realpath
 from nab_project.pyproject_files import (
     build_system_requires,
     project_dependencies,
@@ -104,12 +110,13 @@ from nab_project.resolve import (
     build_lock_input,
     inputs_for_build_requirements,
 )
+from nab_provider.errors import IndexAccessError, SdistHashMismatchError
 from nab_provider.policy import ResolutionStrategy
 from nab_provider.requirements_file import (
     InvalidProjectRequirementError,
     InvalidProjectTableError,
     expand_extra_requirements,
-    resolve_groups_to_requirements,
+    iter_group_requirements,
 )
 from nab_provider.target import IntractableMarkerError, UnevaluableMarkerError
 from nab_provider.value import Record, replace
@@ -127,19 +134,24 @@ from ._resolve import (
 from ._run import (
     ConfigLadder,
     _cli_overrides,
+    _layered_run_settings,
     _layered_run_settings_or_exit,
     _project_cli_overrides_or_exit,
     _reject_python_flag_in_universal,
     _resolve_effective_cache_dir,
     check_script_options,
     config_override_arguments,
+    exit_config_error,
     lock_anchor,
     project_config_overrides,
     read_config_ladder,
     require_pyproject_file,
     select_input,
 )
+from ._version import __version__
+from .config.hooks import resolve_anchor
 from .config.model import NabProjectConfig, ResolveMode, plan_targets
+from .config.values import SourceConfigError
 from .flagtypes import (  # noqa: TC001 - get_type_hints resolves these at runtime
     BuildPolicyFlag,
     DecisionOrderFlag,
@@ -160,9 +172,12 @@ if TYPE_CHECKING:
 
     from nab_project.inputs import ResolveInputs
     from nab_project.lock_preferences import LockPreferences
+    from nab_project.prepared_input import PreparedProjectInput
     from nab_provider.target import ResolveTarget
 
     from ._run import RunSettings
+    from .config.ladder import EffectiveValue, Layer
+    from .config.lock_plans import LockPlan
 
 
 _DEFAULT_PROJECT_PATH = Path("pyproject.toml")
@@ -170,7 +185,7 @@ _DEFAULT_PROJECT_PATH = Path("pyproject.toml")
 TUPLE_TEMPLATE_VARS = ("{python_version}", "{platform_id}", "{selection}")
 
 
-def is_stdout(output: Path | None) -> bool:
+def _is_stdout(output: Path | None) -> bool:
     return output is not None and str(output) == "-"
 
 
@@ -202,6 +217,8 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
     path: Path = _DEFAULT_PROJECT_PATH,
     *,
     script: Path | None = None,
+    plan: str | None = None,
+    all_plans: bool = False,
     output: Path | None = None,
     format: LockFormat | None = None,  # noqa: A002 - shadows builtin by convention
     http_backend: HttpBackend | None = None,
@@ -250,9 +267,8 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
     """Resolve dependencies and emit a lockfile or pin list.
 
     ``pylock`` is the default format. ``requirements`` adds ``--hash`` lines to
-    index pins; ``requirements-without-hashes`` omits those lines. Output
-    defaults to ``pylock.toml`` or ``requirements.txt`` for project inputs.
-    With ``--script``, the defaults are ``pylock.<stem>.toml`` and
+    index pins. For one target, project output defaults to ``pylock.toml`` or
+    ``requirements.txt``. A script writes ``pylock.<stem>.toml`` or
     ``<script>.requirements.txt`` beside the script. ``--output -`` writes stdout.
 
     Groups and extras select project requirements. ``--build-requirements``
@@ -264,10 +280,10 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
     still using them during resolution. Use it for hashed requirements, then
     install those members separately from pip's ``--require-hashes`` run.
 
-    Universal requirements output needs a template that renders to a distinct
-    path for every target. It may contain ``{python_version}``,
-    ``{platform_id}``, and ``{selection}``; use pylock when those values cannot
-    separate the targets.
+    With multiple targets, both requirements formats print to stdout by
+    default. To write one file per target, use an output template containing
+    ``{python_version}``, ``{platform_id}``, or ``{selection}``. Use pylock
+    when those values cannot distinguish the targets.
 
     ``--python X.Y`` targets that Python on this machine. It is the short
     form of ``--project-environment-python`` and is not valid in universal
@@ -285,6 +301,7 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
         cli_cache_dir=cache_dir,
         cli_http_backend=http_backend,
         cli_settings=setting,
+        cli_plan=plan,
         cli_format=format,
         cli_cache=cache,
         cli_groups=groups,
@@ -321,11 +338,187 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
         cli_environment_platform=project_environment_platform,
         cli_environment_implementation=project_environment_implementation,
     )
-    project_overrides = project_config_overrides(overrides)
-    _project_cli_overrides_or_exit(project_overrides)
+    if all_plans and "plan" in overrides:
+        printer().error("choose a single lock plan or use --all-plans")
+        raise SystemExit(1)
+    ladder = _checked_ladder(
+        read_config_ladder(path, overrides, input_format=input_format)
+    )
+    settings = _layered_run_settings(ladder)
+    selected_plan = settings.plan
+    if input_format is InputFormat.SCRIPT and (selected_plan is not None or all_plans):
+        printer().error("lock plans require a project, not a script")
+        raise SystemExit(1)
+    if all_plans and (not ladder["plans"].value or output is not None):
+        printer().error("--all-plans needs declared plans and cannot use --output")
+        raise SystemExit(1)
 
-    ladder = read_config_ladder(path, overrides, input_format=input_format)
-    _reject_python_flag_in_universal(ladder, python)
+    plans: tuple[LockPlan | None, ...] = (None,)
+    if all_plans or selected_plan is not None:
+        from .config.lock_plans import read_lock_plans  # noqa: PLC0415
+
+        try:
+            plans = read_lock_plans(
+                path,
+                ladder["plans"].value,
+                ladder["input-sources"].value,
+                settings.format,
+                selected=None if all_plans else selected_plan,
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            printer().error(exc, prefix="input error: ")
+            raise SystemExit(1) from None
+
+    actions = _LockActions(python, upgrade, locked, reproduce)
+    for declaration in plans:
+        _lock_one(
+            path,
+            overrides,
+            actions,
+            output=output,
+            input_format=input_format,
+            plan=declaration,
+            initial_ladder=ladder,
+        )
+
+
+def _checked_ladder(ladder: ConfigLadder) -> dict[str, EffectiveValue]:
+    """Require a valid configuration before selecting named declarations."""
+    if isinstance(ladder, SourceConfigError):
+        exit_config_error(ladder)
+    return ladder
+
+
+class _LockActions(NamedTuple):
+    """Invocation controls shared by the lock plans in one command."""
+
+    python: str | None
+    upgrade: bool
+    locked: bool
+    reproduce: bool
+
+
+class _LockConfiguration(NamedTuple):
+    """Effective declarations and source policy for one selected plan."""
+
+    ladder: dict[str, EffectiveValue]
+    project_input: PreparedProjectInput | None
+    plan: LockPlan | None
+    output: Path | None
+
+    def anchored_settings(self, path: Path, anchor: datetime) -> Layer | None:
+        """Resolve relative cutoffs against the saved lock's timestamp."""
+        if self.plan is None:
+            return None
+        with resolve_anchor(anchor):
+            return self.plan.settings_layer(path)
+
+
+def _prepare_lock_configuration(
+    path: Path,
+    overrides: Mapping[str, object],
+    *,
+    output: Path | None,
+    plan: LockPlan | None,
+    ladder: dict[str, EffectiveValue],
+) -> _LockConfiguration:
+    """Prepare configured sources before entering the ordinary resolution phases."""
+    if plan is None:
+        return _LockConfiguration(ladder, None, None, output)
+
+    # Ordinary locks do not load archive or plan readers.
+    from nab_project.dependency_sources import DependencySourceReader  # noqa: PLC0415
+
+    from .lock_inputs import prepare_lock_input  # noqa: PLC0415 - named plans only
+
+    # Named locks always install their declared selection.
+    selection = {
+        "groups",
+        "all-groups",
+        "extras",
+        "all-extras",
+        "build-requirements",
+        "default-groups",
+        "base-group",
+        "build-group",
+    }
+    if changed := selection.intersection(overrides):
+        msg = (
+            f"cannot override a lock plan's selection ({', '.join(sorted(changed))}); "
+            "edit the plan or lock without --plan"
+        )
+        raise ValueError(msg)
+    settings = _layered_run_settings(ladder)
+    reader = DependencySourceReader(
+        path.parent,
+        _resolve_effective_cache_dir(settings.cache_dir, cache=settings.cache),
+        lambda url: _download_input(url, settings.http_backend),
+        offline=settings.offline,
+    )
+    document = read_input_document(path)
+    prepared = prepare_lock_input(
+        path,
+        document,
+        plan,
+        sources=ladder["input-sources"].value,
+        reader=reader,
+        workspace_discovery=settings.workspace_discovery,
+        project_overrides=project_config_overrides(overrides),
+    )
+    layer = plan.settings_layer(path)
+    effective = {
+        **overrides,
+        "groups": (),
+        "extras": (),
+        "all-groups": False,
+        "all-extras": False,
+        "build-requirements": False,
+    }
+    ladder = _checked_ladder(
+        read_config_ladder(path, effective, project_input=prepared, plan_settings=layer)
+    )
+    return _LockConfiguration(
+        ladder, prepared, plan, output or path.parent / plan.output
+    )
+
+
+def _lock_one(
+    path: Path,
+    overrides: Mapping[str, object],
+    actions: _LockActions,
+    *,
+    output: Path | None,
+    input_format: InputFormat,
+    plan: LockPlan | None,
+    initial_ladder: dict[str, EffectiveValue],
+) -> None:
+    """Run one effective project selection using the normal resolver and writer."""
+    _project_cli_overrides_or_exit(project_config_overrides(overrides))
+
+    try:
+        source = _prepare_lock_configuration(
+            path,
+            overrides,
+            output=output,
+            plan=plan,
+            ladder=initial_ladder,
+        )
+    except (
+        OSError,
+        ValueError,
+        LookupError,
+        TypeError,
+        SdistHashMismatchError,
+        IndexAccessError,
+    ) as exc:
+        printer().error(exc, prefix="input error: ")
+        raise SystemExit(1) from None
+
+    project_overrides = project_config_overrides(overrides)
+    ladder = source.ladder
+    project_input = source.project_input
+    output = source.output
+    _reject_python_flag_in_universal(ladder, actions.python)
     settings = _layered_run_settings_or_exit(ladder)
     output = _lock_output(
         path,
@@ -333,16 +526,16 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
         output=output,
         settings=settings,
         project_overrides=project_overrides,
-        locked=locked,
-        reproduce=reproduce,
-        upgrade=upgrade,
+        locked=actions.locked,
+        reproduce=actions.reproduce,
+        upgrade=actions.upgrade,
     )
     anchor = _determine_lock_anchor(
         ladder,
         output=output,
-        format=settings.format,
+        output_format=settings.format,
         build_requirements=settings.build_requirements,
-        upgrade=upgrade,
+        upgrade=actions.upgrade,
     )
 
     config = _load_config(
@@ -351,6 +544,8 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
         anchor=anchor,
         cli_overrides=project_overrides,
         input_format=input_format,
+        project_input=project_input,
+        plan_settings=source.anchored_settings(path, anchor),
     )
     inputs = config.resolve_inputs()
 
@@ -362,18 +557,15 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
         settings.cache_dir, cache=settings.cache
     )
 
-    provenance = _build_provenance(
-        path,
-        config=config,
-        anchor=anchor,
-        cli_project_overrides=settings.cli_project_overrides,
-    )
-
     selected_groups = resolve_group_selection(
-        path, groups=settings.groups, all_groups=settings.all_groups
+        path,
+        groups=settings.groups,
+        all_groups=settings.all_groups,
     )
     selected_extras = resolve_extra_selection(
-        path, extras=settings.extras, all_extras=settings.all_extras
+        path,
+        extras=settings.extras,
+        all_extras=settings.all_extras,
     )
 
     workspace_to_drop = (
@@ -393,31 +585,41 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
         all_groups=settings.all_groups,
         extras=selected_extras,
         all_extras=settings.all_extras,
-        offline=offline,
+        offline=settings.offline,
         build_requirements=settings.build_requirements,
         workspace_discovery=settings.workspace_discovery,
         no_emit_workspace=settings.no_emit_workspace,
         cli_overrides=overrides,
-        upgrade=upgrade,
+        upgrade=actions.upgrade,
         input_format=input_format,
         lock_policy=settings.lock_policy,
+        project_input=project_input,
+        plan_name=plan.name if plan is not None else None,
+    )
+
+    provenance = _build_provenance(
+        path,
+        config=config,
+        anchor=anchor,
+        cli_project_overrides=settings.cli_project_overrides,
+        command_line=run.refresh_arguments() if project_input is not None else None,
     )
 
     strategy = inputs.resolution if settings.resolution is None else settings.resolution
     _validate_lock_strategy(run, strategy)
 
-    if locked:
+    if actions.locked:
         _check_saved(run, config=config, inputs=inputs, exclude=workspace_to_drop)
         return
 
-    if reproduce:
+    if actions.reproduce:
         _fast_fail_reproduction(
             run, config=config, inputs=inputs, workspace_to_drop=workspace_to_drop
         )
 
     validation = (
         _lock_snapshot(run, config, inputs, workspace_to_drop)
-        if settings.format == "pylock" and not reproduce
+        if settings.format == "pylock" and not actions.reproduce
         else None
     )
 
@@ -443,6 +645,7 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
         extras=selected_extras,
         build_requirements=settings.build_requirements,
         input_format=input_format,
+        project_input=project_input,
         resolution_strategy=settings.resolution,
         lock_preferences=previous_lock,
         reconcile_build_variants=settings.format == "pylock",
@@ -469,19 +672,32 @@ def lock(  # noqa: PLR0913 - one keyword per flag is the public surface
         exclude=workspace_to_drop,
     )
 
-    if reproduce:
+    if actions.reproduce:
         _check_reproduction(lock_input, run=run)
         return
 
     _emit_or_exit(
         lambda: _emit(
             lock_input,
-            format=settings.format,
+            output_format=settings.format,
             output=output,
+            script=path if input_format is InputFormat.SCRIPT else None,
             build_requirements=settings.build_requirements,
             previous_lock=previous_lock,
         )
     )
+
+
+def _download_input(url: str, backend: str) -> bytes:
+    """Download an input with the same HTTP backend as dependency resolution."""
+    from nab_index.client import AsyncSimpleClient  # noqa: PLC0415
+    from nab_project.download import run_download  # noqa: PLC0415
+
+    async def download() -> bytes:
+        async with AsyncSimpleClient(_make_resolve_transport(backend)) as client:
+            return await client.download(url)
+
+    return run_download(download)
 
 
 def _lock_output(
@@ -505,14 +721,18 @@ def _lock_output(
         build_requirements=settings.build_requirements,
         no_emit_workspace=settings.no_emit_workspace,
     )
-    # Select the effective output before checking lock-only actions.
-    if input_format is InputFormat.SCRIPT and output is None:
-        output = _script_output_path(path, format_name=settings.format)
+    # Saved-lock checks need the script's pylock filename before resolution.
+    if (
+        input_format is InputFormat.SCRIPT
+        and output is None
+        and settings.format == "pylock"
+    ):
+        output = _script_pylock_path(path)
 
-    _validate_pylock_output_name(output=output, format=settings.format)
+    _validate_pylock_output_name(output=output, output_format=settings.format)
     _validate_lock_mode(
         output=output,
-        format=settings.format,
+        output_format=settings.format,
         locked=locked,
         reproduce=reproduce,
         upgrade=upgrade,
@@ -525,10 +745,8 @@ def _lock_output(
     return output
 
 
-def _script_output_path(path: Path, *, format_name: str) -> Path:
-    """Put a script's default lock beside it using a standard output filename."""
-    if format_name != "pylock":
-        return path.with_name(path.name + ".requirements.txt")
+def _script_pylock_path(path: Path) -> Path:
+    """Choose a PEP 751 filename beside the script."""
     stem = path.stem
     if not stem or "." in stem:
         printer().error(
@@ -541,14 +759,17 @@ def _script_output_path(path: Path, *, format_name: str) -> Path:
 def _emit(
     lock_input: LockInput,
     *,
-    format: str,  # noqa: A002 - shadows builtin by convention
+    output_format: str,
     output: Path | None,
+    script: Path | None = None,
     build_requirements: bool = False,
     previous_lock: LockPreferences | None = None,
 ) -> None:
     """Write the resolved lock in the requested format."""
-    default_output = _default_output_path(format, build_requirements=build_requirements)
-    if format == "pylock":
+    default_output = _default_output_path(
+        output_format, build_requirements=build_requirements
+    )
+    if output_format == "pylock":
         _emit_pylock(
             lock_input,
             output=output,
@@ -556,8 +777,13 @@ def _emit(
             previous_lock=previous_lock,
         )
     else:
+        if script is not None:
+            default_output = script.with_name(script.name + ".requirements.txt")
         _emit_requirements(
-            lock_input, format=format, output=output, default_output=default_output
+            lock_input,
+            output_format=output_format,
+            output=output,
+            default_output=default_output,
         )
 
 
@@ -588,7 +814,7 @@ _BUILD_DEFAULT_OUTPUT: dict[str, str] = {
 
 
 def _default_output_path(
-    format: str,  # noqa: A002 - shadows builtin by convention
+    output_format: str,
     *,
     build_requirements: bool = False,
 ) -> Path:
@@ -599,7 +825,7 @@ def _default_output_path(
     the PEP 751 ``pylock.<name>.toml`` filename form.
     """
     names = _BUILD_DEFAULT_OUTPUT if build_requirements else _DEFAULT_OUTPUT
-    return Path(names[format])
+    return Path(names[output_format])
 
 
 def _refuse_group_selection_with_build_requirements(
@@ -670,6 +896,8 @@ class _LockRun(Record):
         "upgrade",
         "input_format",
         "lock_policy",
+        "project_input",
+        "plan_name",
     )
 
     path: Path
@@ -686,6 +914,8 @@ class _LockRun(Record):
     upgrade: bool
     input_format: InputFormat
     lock_policy: LockPolicy
+    project_input: PreparedProjectInput | None
+    plan_name: str | None
 
     def __init__(  # noqa: PLR0913 - One argument per record field.
         self,
@@ -704,6 +934,8 @@ class _LockRun(Record):
         upgrade: bool,
         lock_policy: LockPolicy,
         input_format: InputFormat = InputFormat.PROJECT,
+        project_input: PreparedProjectInput | None = None,
+        plan_name: str | None = None,
     ) -> None:
         self.path = path
         self.output = output
@@ -719,11 +951,17 @@ class _LockRun(Record):
         self.upgrade = upgrade
         self.input_format = input_format
         self.lock_policy = lock_policy
+        self.project_input = project_input
+        self.plan_name = plan_name
 
     def refresh_command(self) -> str:
         """Render this run without ``--locked``, ready to paste into a shell."""
+        return _join_command(self.refresh_arguments())
+
+    def refresh_arguments(self) -> tuple[str, ...]:
+        """Return a replayable invocation for this individual lock."""
         options = [*self._output_arguments(), *self._content_arguments()]
-        return _join_command(["nab", "lock", *self._with_project_path(options)])
+        return ("nab", "lock", *self._with_project_path(options))
 
     def _with_project_path(self, options: list[str]) -> list[str]:
         """Return ``options`` with the project path placed where nab reads it.
@@ -749,7 +987,10 @@ class _LockRun(Record):
 
     def _content_arguments(self) -> list[str]:
         """Replay explicit settings while retaining the one-run upgrade action."""
-        arguments = config_override_arguments(self.cli_overrides)
+        overrides = self.cli_overrides
+        if self.plan_name is not None:
+            overrides = {**overrides, "plan": self.plan_name}
+        arguments = config_override_arguments(overrides)
         if self.upgrade:
             arguments.append("--upgrade")
         return arguments
@@ -758,7 +999,7 @@ class _LockRun(Record):
 def _validate_lock_mode(
     *,
     output: Path | None,
-    format: str,  # noqa: A002 - matches the command's output format
+    output_format: str,
     locked: bool,
     reproduce: bool,
     upgrade: bool,
@@ -774,7 +1015,7 @@ def _validate_lock_mode(
         sys.exit(1)
 
     if lock_policy is not LockPolicy.RESOLVE and (
-        format != "pylock" or is_stdout(output)
+        output_format != "pylock" or _is_stdout(output)
     ):
         printer().error("nondefault --lock-policy requires pylock output to a file.")
         sys.exit(1)
@@ -783,7 +1024,7 @@ def _validate_lock_mode(
         printer().error("--lock-policy reuse cannot be combined with --reproduce.")
         sys.exit(1)
 
-    if (locked or reproduce) and (format != "pylock" or is_stdout(output)):
+    if (locked or reproduce) and (output_format != "pylock" or _is_stdout(output)):
         printer().error("lock checks are only supported for pylock output to a file.")
         sys.exit(1)
 
@@ -820,6 +1061,7 @@ def _reuse_consistent_lock(
         extras=run.extras,
         build_requirements=run.build_requirements,
         input_format=run.input_format,
+        project_input=run.project_input,
     ):
         return False
 
@@ -861,6 +1103,7 @@ def _check_saved(
             build_requirements=run.build_requirements,
             exclude=exclude,
             input_format=run.input_format,
+            project_input=run.project_input,
         )
         check_saved_lock(
             target,
@@ -872,8 +1115,15 @@ def _check_saved(
             extras=run.extras,
             build_requirements=run.build_requirements,
             input_format=run.input_format,
+            project_input=run.project_input,
         )
-    except (OSError, ValueError, LookupError, RecursionError) as exc:
+    except (
+        OSError,
+        ValueError,
+        LookupError,
+        RecursionError,
+        InvalidProjectTableError,
+    ) as exc:
         printer().error(
             DiagnosticMessage(
                 f"--locked: cannot verify {target}: {exc}",
@@ -918,10 +1168,12 @@ def _fast_fail_reproduction(
             base_group=inputs.base_group,
             build_requirements=run.build_requirements,
             input_format=run.input_format,
+            project_input=run.project_input,
             build_group=inputs.build_group,
         )
     except (
         ScriptMetadataError,
+        InputChangedError,
         InvalidProjectTableError,
         InvalidProjectRequirementError,
         LookupError,
@@ -1015,9 +1267,11 @@ def _lock_snapshot(
             build_requirements=run.build_requirements,
             exclude=exclude,
             input_format=run.input_format,
+            project_input=run.project_input,
         )
     except (
         ScriptMetadataError,
+        InputChangedError,
         InvalidProjectTableError,
         InvalidProjectRequirementError,
         LookupError,
@@ -1043,6 +1297,12 @@ def _attach_validation_inputs(
 ) -> None:
     """Refuse evidence from a resolve whose project inputs changed."""
     if snapshot is None:
+        if run.project_input is not None:
+            try:
+                run.project_input.read(run.path)
+            except (OSError, ValueError) as exc:
+                printer().error(exc)
+                raise SystemExit(1) from None
         return
     current, _ = _lock_snapshot(run, config, inputs, exclude) or (None, ())
     if current != snapshot:
@@ -1052,7 +1312,7 @@ def _attach_validation_inputs(
     lock_input.validation_inputs = snapshot
 
 
-def _active_root_requirements(
+def _active_root_requirements(  # noqa: PLR0913 - independent root sources and selection controls
     path: Path,
     *,
     extras: tuple[str, ...],
@@ -1062,6 +1322,7 @@ def _active_root_requirements(
     build_requirements: bool = False,
     build_group: str | None = None,
     input_format: InputFormat = InputFormat.PROJECT,
+    project_input: PreparedProjectInput | None = None,
 ) -> list[RootRequirement]:
     """Collect this run's active direct requirements with their source clause.
 
@@ -1076,7 +1337,9 @@ def _active_root_requirements(
     appended as their own source rather than routed through the group
     table, which does not hold the configured name.
     """
-    document = read_input_document(path, input_format=input_format)
+    document = read_input_document(
+        path, input_format=input_format, project_input=project_input
+    )
     if build_requirements:
         return [
             RootRequirement(requirement=req, source="[build-system].requires")
@@ -1099,17 +1362,19 @@ def _active_root_requirements(
         for extra in extras:
             roots.extend(
                 RootRequirement(requirement=req, source=f"the {extra!r} extra")
-                for req in expand_extra_requirements(optional, project_name, [extra])
+                for req in expand_extra_requirements(
+                    optional, project_name, [extra], bind_extra_markers=True
+                )
             )
 
-    effective_groups = dict.fromkeys(
-        active_group_names(groups, default_groups, base_group, build_group)
+    effective_groups = active_group_names(
+        groups, default_groups, base_group, build_group
     )
     if effective_groups:
         table = input_dependency_groups(document)
-        for group in effective_groups:
-            requirements = resolve_groups_to_requirements(table, [group])
-            if group not in groups:
+        requested_groups = set(groups)
+        for group, requirements in iter_group_requirements(table, effective_groups):
+            if group not in requested_groups:
                 continue
             roots.extend(
                 RootRequirement(
@@ -1131,7 +1396,12 @@ def _check_reproduction(lock_input: LockInput, *, run: _LockRun) -> None:
     """Compare a fresh resolve with the committed lock, ignoring provenance."""
     target = _check_target_path(run)
     new_text = _render_or_exit(lambda: render_lock(lock_input, lock_dir=target.parent))
-    committed = _packages_only(target.read_text(encoding="utf-8"))
+    try:
+        committed = _packages_only(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomli.TOMLDecodeError) as exc:
+        printer().error(f"--reproduce: cannot read lockfile {target}: {exc}")
+        raise SystemExit(1) from None
+
     if _packages_only(new_text) == committed:
         printer().done(f"Lockfile {target} is up to date.")
         return
@@ -1154,19 +1424,20 @@ def _emit_pylock(
     previous_lock: LockPreferences | None = None,
 ) -> None:
     """Write the PEP 751 lock to a file, or print it."""
-    if is_stdout(output):
+    if _is_stdout(output):
         _print_lock(_write_lock_or_exit(lock_input, target=None))
         return
 
     target = output if output is not None else default_output
+
     # Read the prior pins before the write overwrites the file.
     prior = (
         read_lockfile_packages(target)
         if previous_lock is None
         else previous_lock.summary_versions()
     )
-    # Pass the target so wheel/sdist/directory paths are written relative
-    # to the lockfile's own directory, not the cwd.
+
+    # The emitter uses the target directory to write relative artifact paths.
     _write_lock_or_exit(lock_input, target=target)
     printer().done(f"Wrote {target} ({summarize_lock(lock_input, prior)})")
 
@@ -1273,7 +1544,7 @@ def _check_output_template(output: Path, template: str) -> None:
 def _emit_requirements(
     lock_input: LockInput,
     *,
-    format: str,  # noqa: A002 - shadows builtin by convention
+    output_format: str,
     output: Path | None,
     default_output: Path,
 ) -> None:
@@ -1299,25 +1570,26 @@ def _emit_requirements(
     A plain path with several targets errors clearly: there is no
     one-file shape that pip can install from across all of them.
 
-    The templated shape is all-or-nothing: every tuple is rendered and
-    staged before any file is moved into place.
+    Check that the template gives each target a distinct destination, then
+    render and stage every file before replacing the first destination.
     """
-    with_hashes = format == "requirements"
+    with_hashes = output_format == "requirements"
     multi_target = len(lock_input.targets) > 1
-    if is_stdout(output) or (output is None and multi_target):
+    if _is_stdout(output) or (output is None and multi_target):
         text, _ = _render_requirements_or_exit(lock_input, with_hashes)
         _print_lock(text)
         return
 
     target = output if output is not None else default_output
-    template = str(target)
+    # Braces in a script filename are literal unless the user supplies a template.
+    template = str(output) if output is not None else ""
     if not any(var in template for var in TUPLE_TEMPLATE_VARS):
         if multi_target:
             _refuse_untemplated(lock_input, target)
         _, count = _render_requirements_or_exit(
             lock_input, with_hashes, output_path=target
         )
-        printer().done(f"Wrote {target} ({count} packages)")
+        printer().done(f"Wrote {target} ({format_package_count(count)})")
         return
 
     _check_output_template(target, template)
@@ -1391,32 +1663,28 @@ def _refuse_collision(
     another pair sharing a path, so offering it would only move the error.
     """
     targets = [lock.target for lock in lock_input.targets.values()]
-    missing = [
-        name for name in _separating_vars(targets) if f"{{{name}}}" not in template
-    ]
+    separating = _separating_vars(targets)
+    missing = [name for name in separating if f"{{{name}}}" not in template]
 
     head = (
         f"tuples {first.target.label!r} and {second.target.label!r}"
-        f" both map to {path!r};"
+        f" both map to {path!r}"
     )
-    if not missing:
-        printer().error(
-            DiagnosticMessage(
-                f"{head} no --output template variable tells them apart",
-                suggestions=(Suggestion("emit pylock output instead"),),
-            )
+    if not separating:
+        message = f"{head}; no --output template variable tells them apart"
+        advice = "emit pylock output instead"
+    elif missing:
+        placeholders = _and_list([f"{{{name}}}" for name in missing])
+        message = (
+            f"{head}; --output {output} is missing a template variable to disambiguate"
         )
-        raise SystemExit(1)
-    placeholders = _and_list([f"{{{name}}}" for name in missing])
-    printer().error(
-        DiagnosticMessage(
-            (
-                f"{head} --output {output} is missing a template variable to "
-                "disambiguate"
-            ),
-            suggestions=(Suggestion(f"add {placeholders} to the path."),),
-        )
-    )
+        advice = f"add {placeholders} to the path."
+    else:
+        placeholders = _and_list([f"{{{name}}}" for name in separating])
+        message = head
+        advice = f"put {placeholders} in the filename."
+
+    printer().error(DiagnosticMessage(message, suggestions=(Suggestion(advice),)))
     raise SystemExit(1)
 
 
@@ -1424,21 +1692,23 @@ def _substituted_paths(
     lock_input: LockInput, output: Path, template: str
 ) -> dict[str, Path]:
     """Render the per-target output paths, refusing a template that collides."""
-    by_path: dict[str, TargetLock] = {}
+    by_path: dict[Path, TargetLock] = {}
     paths: dict[str, Path] = {}
     for label, lock in lock_input.targets.items():
-        substituted = template.format(**_template_values(lock.target))
-        if substituted in by_path:
+        path = Path(template.format(**_template_values(lock.target)))
+        # The writer replaces a directory entry, so resolve only its parent.
+        destination = realpath(path.parent) / path.name
+        if destination in by_path:
             _refuse_collision(
                 lock_input,
-                by_path[substituted],
+                by_path[destination],
                 lock,
                 output=output,
                 template=template,
-                path=substituted,
+                path=str(destination),
             )
-        by_path[substituted] = lock
-        paths[label] = Path(substituted)
+        by_path[destination] = lock
+        paths[label] = path
     return paths
 
 
@@ -1458,23 +1728,24 @@ class _RenderedFile(NamedTuple):
 
 def _write_requirements_files(rendered: list[_RenderedFile]) -> None:
     """Stage every rendered file before replacing any destination."""
-    staged: list[tuple[Path, _RenderedFile]] = []
+    staged: deque[tuple[Path, _RenderedFile]] = deque()
     try:
         for item in rendered:
             with _stage_path(item.path) as tmp:
                 staged.append((tmp, item))
             tmp.write_text(item.text, encoding="utf-8")
             tmp.chmod(_destination_mode(item.path))
+
+        while staged:
+            tmp, item = staged[0]
+            tmp.replace(item.path)
+            staged.popleft()
+            packages = format_package_count(item.pin_count)
+            printer().done(f"Wrote {item.path} ({packages}, tuple {item.label})")
     except BaseException:
         for tmp, _ in staged:
             _discard(tmp)
         raise
-
-    for tmp, item in staged:
-        tmp.replace(item.path)
-        printer().done(
-            f"Wrote {item.path} ({item.pin_count} packages, tuple {item.label})"
-        )
 
 
 @contextlib.contextmanager
@@ -1485,29 +1756,25 @@ def _stage_path(output: Path) -> Generator[Path, None, None]:
     """
     if output.is_dir():
         raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), str(output))
-    fd, name = tempfile.mkstemp(
-        dir=output.parent, prefix=f"{output.name}.", suffix=".tmp"
-    )
+    fd, staged = create_staging_file(output)
     try:
         os.close(fd)
-        yield Path(name)
+        yield staged
     except BaseException:
-        _discard(Path(name))
+        _discard(staged)
         raise
 
 
 def _destination_mode(output: Path) -> int:
     """Permissions to give a staged file before it replaces ``output``.
 
-    ``mkstemp`` creates at 0600, so a staged file needs the mode the
+    The staging file starts at 0600, so a staged file needs the mode the
     destination already has, or the one a fresh write would have given it.
     """
     try:
         return stat.S_IMODE(output.stat().st_mode)
     except FileNotFoundError:
-        umask = os.umask(0)
-        os.umask(umask)
-        return 0o666 & ~umask
+        return default_file_mode()
 
 
 def _discard(staged: Path) -> None:
@@ -1547,6 +1814,7 @@ def _build_provenance(
     config: NabProjectConfig,
     anchor: datetime,
     cli_project_overrides: tuple[tuple[str, str], ...] = (),
+    command_line: tuple[str, ...] | None = None,
 ) -> Provenance:
     """Capture the inputs that produced this run for the lockfile.
 
@@ -1571,7 +1839,7 @@ def _build_provenance(
         nab_version=__version__,
         created_at=anchor,
         # argv[0] is a path into the checkout or venv, not the program name.
-        command_line=("nab", *sys.argv[1:]),
+        command_line=("nab", *sys.argv[1:]) if command_line is None else command_line,
         input_path=str(path),
         mode=config.mode.value,
         python_specifier=python_specifier,
@@ -1587,7 +1855,7 @@ def _reused_lock_anchor(
     ladder: ConfigLadder,
     *,
     output: Path | None,
-    format: str,  # noqa: A002 - shadows builtin by convention
+    output_format: str,
     build_requirements: bool = False,
 ) -> tuple[datetime | None, datetime | None]:
     """Return ``(absolute_cutoff, prior_lock_anchor)`` for the re-lock anchor.
@@ -1603,9 +1871,9 @@ def _reused_lock_anchor(
     absolute = lock_anchor(ladder)
     if absolute is not None:
         return absolute, None
-    if is_stdout(output) or format != "pylock":
+    if _is_stdout(output) or output_format != "pylock":
         return None, None
-    target = _default_output_path(format, build_requirements=build_requirements)
+    target = _default_output_path(output_format, build_requirements=build_requirements)
     return None, read_lockfile_anchor(output if output is not None else target)
 
 
@@ -1613,7 +1881,7 @@ def _determine_lock_anchor(
     ladder: ConfigLadder,
     *,
     output: Path | None,
-    format: str,  # noqa: A002 - shadows builtin by convention
+    output_format: str,
     build_requirements: bool = False,
     upgrade: bool,
 ) -> datetime:
@@ -1629,7 +1897,7 @@ def _determine_lock_anchor(
     absolute, prior = _reused_lock_anchor(
         ladder,
         output=output,
-        format=format,
+        output_format=output_format,
         build_requirements=build_requirements,
     )
     if upgrade:
@@ -1648,7 +1916,7 @@ def _determine_lock_anchor(
 def _validate_pylock_output_name(
     *,
     output: Path | None,
-    format: str,  # noqa: A002 - shadows builtin by convention
+    output_format: str,
 ) -> None:
     """Reject a ``--output`` name that PEP 751 would not recognise.
 
@@ -1658,7 +1926,7 @@ def _validate_pylock_output_name(
     name) and a bad name both exit 1, the latter with a suggested
     correction.
     """
-    if format != "pylock" or output is None or is_stdout(output):
+    if output_format != "pylock" or output is None or _is_stdout(output):
         return
 
     if is_valid_pylock_path(output):

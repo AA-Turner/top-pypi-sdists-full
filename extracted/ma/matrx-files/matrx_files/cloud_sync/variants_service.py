@@ -9,7 +9,7 @@ The architectural rule (the user's stated vision):
 The contract:
 
     Variants are identified by ``(master_file_id, variant_key)``. The key
-    wins — if a variant exists for that pair, we reuse it regardless of
+    wins — if a variant of the master's CURRENT version exists for that pair, we reuse it regardless of
     the requested spec (width/height/format/quality). Callers that want
     different specs MUST use different keys. The renderer logs a warning
     when the requested spec_hash does not match an existing variant so
@@ -21,6 +21,7 @@ Variant rows are stamped with::
     metadata.variant_family      # 'image' | 'vision' | ...
     metadata.variant_key         # 'thumbnail_url' | 'og_url' | ...
     metadata.variant_spec_hash   # sha256(width|height|format|quality|fit)
+    metadata.master_version      # the master's current_version it was rendered from (absent = 1)
 
 The catalog is queried via the JSONB index on ``metadata->>derived_from``
 (supabase / postgres GIN).
@@ -48,9 +49,33 @@ from matrx_utils import stable_hash, vcprint
 
 from matrx_files.derivations import inherit_derived_file_policy
 
+from .variants import _master_version, _variant_matches_master, write_variant_as_its_master
+
 if TYPE_CHECKING:
     from .sync_engine import SyncEngine
     from ..asset_envelope import AssetVariant
+
+
+def _current_catalog(master_record: dict, rows: list[dict]) -> dict[str, dict]:
+    """``variant_key -> row`` for the variants rendered from the master's CURRENT version only. A master
+    replaced in place keeps its old variants (an older request may still name them), but a preset is never
+    served from them: the variant is rendered again, of the new bytes, on next use (AND-V IMG17 b — the same
+    rule as ``render_variant_async``)."""
+    version = _master_version(master_record.get("current_version"))
+    out: dict[str, dict] = {}
+    for row in rows:
+        meta = row.get("metadata") or {}
+        key = meta.get("variant_key")
+        if key and _variant_matches_master(meta, version):
+            out[key] = row
+    return out
+
+
+def _versioned_name(name: str, ext: str, master_record: dict) -> str:
+    """``{name}.{ext}``, or ``{name}.v{N}.{ext}`` for a master at version N > 1 (``variant_file_path``'s rule):
+    a replaced master's variant never overwrites the one an older version's readers hold."""
+    version = _master_version(master_record.get("current_version"))
+    return f"{name}.v{version}.{ext}" if version > 1 else f"{name}.{ext}"
 
 
 def _spec_hash(spec: dict[str, Any]) -> str:
@@ -76,7 +101,7 @@ class VariantsService:
     or :class:`FileService.variants`.
     """
 
-    def __init__(self, engine: "SyncEngine") -> None:
+    def __init__(self, engine: SyncEngine) -> None:
         self._engine = engine
 
     # ------------------------------------------------------------------
@@ -84,21 +109,35 @@ class VariantsService:
     # ------------------------------------------------------------------
 
     def list_existing(self, master_record: dict) -> dict[str, dict]:
-        """Map variant_key -> cld_files row for everything derived from this master."""
-        rows = self._engine.db.list_variants_by_master(master_record["id"])
-        return {
-            (row.get("metadata") or {}).get("variant_key"): row
-            for row in rows
-            if (row.get("metadata") or {}).get("variant_key")
-        }
+        """Map variant_key -> cld_files row for everything derived from this master's CURRENT bytes."""
+        return _current_catalog(master_record, self._engine.db.list_variants_by_master(master_record["id"]))
 
     async def list_existing_async(self, master_record: dict) -> dict[str, dict]:
         rows = await self._engine.db.list_variants_by_master_async(master_record["id"])
-        return {
-            (row.get("metadata") or {}).get("variant_key"): row
-            for row in rows
-            if (row.get("metadata") or {}).get("variant_key")
-        }
+        return _current_catalog(master_record, rows)
+
+    async def list_with_older_async(
+        self, master_record: dict, *, include_deleted: bool = False
+    ) -> tuple[dict[str, dict], dict[str, dict]]:
+        """``(current, older)`` from one read: the current-version catalog, and per key the newest variant of an
+        EARLIER version of the master. A reader that only shows (a list thumbnail) serves an older one while a
+        render of the current bytes is queued — never nothing (CGU-10 AND-V IMG18 F3). ``include_deleted``: a
+        trashed master's variants, which may be in the Trash with it."""
+        if include_deleted:
+            rows = await self._engine.db.list_variants_by_master_async(master_record["id"], include_deleted=True)
+        else:
+            rows = await self._engine.db.list_variants_by_master_async(master_record["id"])
+        current = _current_catalog(master_record, rows)
+        older: dict[str, tuple[int, dict]] = {}
+        for row in rows:
+            meta = row.get("metadata") or {}
+            key = meta.get("variant_key")
+            if not key or key in current:
+                continue
+            made_of = _master_version(meta.get("master_version"))
+            if key not in older or made_of >= older[key][0]:
+                older[key] = (made_of, row)
+        return current, {key: row for key, (_, row) in older.items()}
 
     # ------------------------------------------------------------------
     # Render
@@ -111,7 +150,7 @@ class VariantsService:
         variants_specs: list[dict[str, Any]],
         master_bytes: bytes | None = None,
         force_rerender: bool = False,
-    ) -> dict[str, "AssetVariant"]:
+    ) -> dict[str, AssetVariant]:
         """Idempotently materialize each requested variant for ``master_record``.
 
         For each spec:
@@ -190,7 +229,7 @@ class VariantsService:
         for key, suffix, fmt, data in rendered:
             ext = "jpg" if fmt.upper() == "JPEG" else fmt.lower()
             mime = "image/jpeg" if ext == "jpg" else f"image/{ext}"
-            variant_path = VARIANTS.path(master_record["id"], f"{suffix}.{ext}")
+            variant_path = VARIANTS.path(master_record["id"], _versioned_name(suffix, ext, master_record))
             spec = specs_by_key.get(key, {})
             # Inherit the master's access context (web lane, list filter, org, contextual
             # policy tags) — hand-built variant metadata is the defect class
@@ -202,6 +241,7 @@ class VariantsService:
                     "variant_family": spec.get("variant_family", "image"),
                     "variant_key": key,
                     "variant_spec_hash": spec.get("_spec_hash") or _spec_hash(spec),
+                    "master_version": _master_version(master_record.get("current_version")),
                 },
             )
             # Phase 1d.3 — stamp the native lineage columns so consumers
@@ -210,17 +250,18 @@ class VariantsService:
             # metadata still carries the full derivation context for
             # backwards compatibility + the variant_spec_hash drift
             # check; the columns just surface the headline fact.
-            result = await self._engine.managed_write_async(
+            result = await write_variant_as_its_master(master_record, lambda: self._engine.managed_write_async(
                 variant_path,
                 data,
                 mime_type=mime,
+                pathway="files.variant",  # placement registry: the declared automated pathway
                 published_to_web=access.published_to_web,
                 shown_to=access.shown_to,
                 user_id=owner_id,
                 metadata=metadata,
                 parent_file_id=master_record["id"],
                 derivation_kind="variant",
-            )
+            ))
             out[key] = AssetVariant(
                 key=key,
                 file_id=result.file_id,
@@ -253,7 +294,7 @@ class VariantsService:
         variant_family: str = "kind_specific",
         spec_hash: str | None = None,
         force_rerender: bool = False,
-    ) -> "AssetVariant":
+    ) -> AssetVariant:
         """Store pre-rendered bytes as a variant row under ``variant_key``.
 
         Use for variants whose content isn't an image-encoder output
@@ -303,7 +344,7 @@ class VariantsService:
             "image/gif": "gif",
         }
         ext = ext_map.get(mime_type, mime_type.rsplit("/", 1)[-1] or "bin")
-        variant_path = VARIANTS.path(master_record["id"], f"{variant_key}.{ext}")
+        variant_path = VARIANTS.path(master_record["id"], _versioned_name(variant_key, ext, master_record))
         # Inherit the master's access context (see render_async).
         access, metadata = inherit_derived_file_policy(
             master_record,
@@ -312,23 +353,25 @@ class VariantsService:
                 "variant_family": variant_family,
                 "variant_key": variant_key,
                 "variant_spec_hash": spec_hash or _spec_hash({"key": variant_key}),
+                "master_version": _master_version(master_record.get("current_version")),
             },
         )
         owner_id = master_record["owner_id"]
 
         # Phase 1d.3 — stamp the native lineage columns (see comment on
         # the render_async write path for rationale).
-        result = await self._engine.managed_write_async(
+        result = await write_variant_as_its_master(master_record, lambda: self._engine.managed_write_async(
             variant_path,
             content,
             mime_type=mime_type,
+            pathway="files.variant",  # placement registry: the declared automated pathway
             published_to_web=access.published_to_web,
             shown_to=access.shown_to,
             user_id=owner_id,
             metadata=metadata,
             parent_file_id=master_record["id"],
             derivation_kind="variant",
-        )
+        ))
         return AssetVariant(
             key=variant_key,
             file_id=result.file_id,
@@ -345,7 +388,7 @@ class VariantsService:
     # Helpers
     # ------------------------------------------------------------------
 
-    async def _existing_to_asset_variant(self, row: dict, spec: dict) -> "AssetVariant":
+    async def _existing_to_asset_variant(self, row: dict, spec: dict) -> AssetVariant:
         from ..asset_envelope import AssetVariant
 
         urls = await self._engine.build_urls_for_record_async(row)

@@ -9,5 +9,5 @@ class TextToSpeechResponseParams(typing_extensions.TypedDict):
     request_id: typing_extensions.NotRequired[str]
     audios: typing.Sequence[str]
     """
-     The output audio files in WAV format, encoded as base64 strings. Each string corresponds to one of the input texts.
+    The generated audio as base64-encoded strings, in the format set by `output_audio_codec` (WAV by default).
     """

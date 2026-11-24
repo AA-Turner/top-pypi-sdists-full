@@ -37,7 +37,6 @@ from sqlalchemy.sql.elements import (
 )
 from sqlalchemy.types import String
 
-from .sa_version import SA_1_4, SA_VERSION
 from .type.geo import Geopoint, Geoshape
 from .type.object import MutableDict, ObjectTypeImpl
 
@@ -84,25 +83,15 @@ def rewrite_update(clauseelement, multiparams, params):
 
 @sa.event.listens_for(sa.engine.Engine, "before_execute", retval=True)
 def crate_before_execute(conn, clauseelement, multiparams, params, *args, **kwargs):
+    """
+    Rewrite an `UPDATE` with a single parameter set for partial `ObjectType` updates.
+    """
     is_crate = type(conn.dialect).__name__ == "CrateDialect"
-    if is_crate and isinstance(clauseelement, sa.sql.expression.Update):
-        if SA_VERSION >= SA_1_4:
-            if params is None:
-                multiparams = ([],)
-            else:
-                multiparams = ([params],)
-            params = {}
+    if not is_crate or not isinstance(clauseelement, sa.sql.expression.Update) or multiparams:
+        return clauseelement, multiparams, params
 
-        clauseelement, multiparams, params = rewrite_update(clauseelement, multiparams, params)
-
-        if SA_VERSION >= SA_1_4:
-            if multiparams[0]:
-                params = multiparams[0][0]
-            else:
-                params = multiparams[0]
-            multiparams = []
-
-    return clauseelement, multiparams, params
+    clauseelement, rewritten, _ = rewrite_update(clauseelement, ([params],), {})
+    return clauseelement, [], rewritten[0][0]
 
 
 def _require_numeric_precision(type_):
@@ -438,10 +427,6 @@ class CrateCompiler(compiler.SQLCompiler):
         type_ = _SubscriptType(int_as_key=_is_top_level_object(binary.left))
         if not index.required:
             type_.literal_processor(self.dialect)(index.effective_value)
-        elif SA_VERSION < SA_1_4:
-            raise sa.exc.CompileError(
-                "A subscript taking its value on execution needs SQLAlchemy 1.4 or later"
-            )
         if index.required or getattr(self, "cache_key", None) is not None:
             kw["literal_execute"] = True
         else:

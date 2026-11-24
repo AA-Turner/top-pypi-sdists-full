@@ -40,6 +40,8 @@ class _KgDb:
         self.edges: list[dict[str, Any]] = []
         # chunk_id -> the completion stamp persist_chunk_entities wrote
         self.stamps: dict[str, dict[str, Any]] = {}
+        # tier-B ON CONFLICT DO UPDATE calls (must stay 0: they lock existing entity rows FOR UPDATE)
+        self.entity_upserts = 0
 
     def find_entity(self, org: str, kind: str, name: str) -> dict[str, Any] | None:
         for e in self.entities.values():
@@ -50,6 +52,16 @@ class _KgDb:
 
 
 _ORG_SENTINEL = "00000000-0000-0000-0000-000000000000"
+
+
+class _ChunkLockQuery:
+    """``KgChunks.filter(id=...).select_for_update(mode=...).values("id")``: the lock read."""
+
+    def select_for_update(self, **_kw: Any) -> _ChunkLockQuery:
+        return self
+
+    async def values(self, *_fields: str) -> list[dict[str, Any]]:
+        return []
 
 
 def _make_fake_models(db: _KgDb) -> dict[str, Any]:
@@ -114,33 +126,39 @@ def _make_fake_models(db: _KgDb) -> dict[str, Any]:
             return SimpleNamespace(rows_affected=1)
 
         @classmethod
-        async def bulk_upsert(
+        async def bulk_upsert(cls, *_a: Any, **_kw: Any) -> list[Any]:
+            # ON CONFLICT DO UPDATE on kg_entities locks every EXISTING row FOR UPDATE (``kind`` is a key
+            # column), which deadlocked against tier C's foreign-key share locks (live 40P01, 2026-11-16).
+            db.entity_upserts += 1
+            raise AssertionError("tier B must never DO UPDATE existing kg_entities rows")
+
+        @classmethod
+        async def bulk_insert_ignore(
             cls,
             objects_data: list[dict[str, Any]],
-            update_fields: list[str] | None = None,
+            *,
             on_conflict: Any = None,
-        ) -> list[Any]:
-            # INSERT ... ON CONFLICT (canonical partial index) DO UPDATE
-            # RETURNING — an existing (org, kind, lower(name)) bucket resolves
-            # to the existing row's id; a new bucket inserts.
-            out: list[Any] = []
+            returning: Any = False,
+        ) -> Any:
+            # INSERT ... ON CONFLICT (canonical partial index) DO NOTHING RETURNING * —
+            # only NEW buckets come back; an existing bucket is skipped and never locked.
+            landed: list[dict[str, Any]] = []
             for row in objects_data:
                 org_key = row["organization_id"] or _ORG_SENTINEL
-                found = db.find_entity(org_key, row["kind"], row["name"])
-                if found is None:
-                    new_id = str(uuid.uuid4())
-                    db.entities[new_id] = {
-                        "id": new_id,
-                        "organization_id": row["organization_id"],
-                        "kind": row["kind"],
-                        "name": row["name"],
-                        "attrs": row["attrs"],
-                        "is_concept": row.get("is_concept"),
-                        "confidence_avg": None,
-                    }
-                    found = db.entities[new_id]
-                out.append(SimpleNamespace(id=found["id"]))
-            return out
+                if db.find_entity(org_key, row["kind"], row["name"]) is not None:
+                    continue
+                new_id = str(uuid.uuid4())
+                db.entities[new_id] = {
+                    "id": new_id,
+                    "organization_id": row["organization_id"],
+                    "kind": row["kind"],
+                    "name": row["name"],
+                    "attrs": row["attrs"],
+                    "is_concept": row.get("is_concept"),
+                    "confidence_avg": None,
+                }
+                landed.append(dict(db.entities[new_id]))
+            return landed if returning else len(landed)
 
     class _MentionRowsQuery:
         """``KgChunkEntities.filter(chunk_id=...).values("entity_id")`` — the
@@ -258,6 +276,10 @@ def _make_fake_models(db: _KgDb) -> dict[str, Any]:
 
     class _FakeKgChunks:
         @classmethod
+        def filter(cls, **_kw: Any) -> _ChunkLockQuery:
+            return _ChunkLockQuery()
+
+        @classmethod
         async def update_where(cls, filters: dict[str, Any], **updates: Any) -> Any:
             """The completion stamp: ``ner_extracted_at`` + a ``JsonbMerge`` of
             ``{"ner": {...}}`` into ``metadata`` (the merged value is recorded)."""
@@ -368,37 +390,37 @@ async def test_no_extractor_is_noop(kgdb):
 
 
 @pytest.mark.asyncio
-async def test_ner_dispatches_every_visible_chunk_before_any_finishes(kgdb):
+async def test_ner_keeps_at_most_the_bound_in_flight(kgdb, monkeypatch):
+    """Tier A runs chunks in parallel up to ``NER_EXTRACT_CONCURRENCY`` and never more.
+
+    Each extraction is an agent run that does database work (request rows, the COPPA
+    gate, error capture) before the provider gate paces it; dispatching every chunk at
+    once drained the 10-slot pool (``database_pool_saturation``, 2026-11-02, every
+    holder in ``_extract_one``)."""
+    import matrx_rag.ner as ner_mod
     from matrx_rag.ner import NerChunkInput, extract_entities
 
-    entered = 0
-    all_entered = asyncio.Event()
-    release = asyncio.Event()
+    monkeypatch.setattr(ner_mod, "NER_EXTRACT_CONCURRENCY", 3)
+    gauge = {"now": 0, "peak": 0, "calls": 0}
 
-    class _BlockingExtractor:
+    class _SlowExtractor:
         async def extract(self, text: str, **_: Any) -> list[dict[str, Any]]:
-            nonlocal entered
-            entered += 1
-            if entered == 12:
-                all_entered.set()
-            await release.wait()
+            gauge["now"] += 1
+            gauge["calls"] += 1
+            gauge["peak"] = max(gauge["peak"], gauge["now"])
+            await asyncio.sleep(0.01)
+            gauge["now"] -= 1
             return []
 
-    _ext.configure(ner_extractor=_BlockingExtractor())
-    task = asyncio.create_task(
-        extract_entities(
-            [
-                NerChunkInput(chunk_id=str(uuid.uuid4()), content_text=f"chunk-{i}")
-                for i in range(12)
-            ],
-            organization_id=ORG,
-            user_id=USER,
-        )
+    _ext.configure(ner_extractor=_SlowExtractor())
+    await extract_entities(
+        [NerChunkInput(chunk_id=str(uuid.uuid4()), content_text=f"chunk-{i}") for i in range(30)],
+        organization_id=ORG,
+        user_id=USER,
     )
-    await asyncio.wait_for(all_entered.wait(), timeout=0.5)
-    assert entered == 12
-    release.set()
-    await task
+    assert gauge["calls"] == 30, "every visible chunk is still extracted"
+    assert gauge["peak"] <= 3, f"{gauge['peak']} chunks were in flight at once; the bound is 3"
+    assert gauge["peak"] >= 2, "chunks must still run in parallel up to the bound"
 
 
 @pytest.mark.asyncio
@@ -623,6 +645,35 @@ async def test_tier_b_race_falls_back_to_winner(kgdb):
     # The chunk is marked succeeded — race was handled cleanly.
     assert chunk_id in res.succeeded_chunk_ids
     assert res.errors == []
+    # The racer's row was found by a read, never locked by ON CONFLICT DO UPDATE (live 40P01, 2026-11-16).
+    assert kgdb.entity_upserts == 0
+
+
+async def test_tier_b_finds_an_existing_entity_of_another_case_without_locking_it(kgdb):
+    """An existing ``ACME CORP`` is the bucket ``(organization, acme corp)``: tier B inserts nothing,
+    never asks DO UPDATE (which locked existing rows FOR UPDATE and deadlocked tier C's FK share locks),
+    and the mention lands on the existing id."""
+    from matrx_rag.ner import NerChunkInput, extract_entities
+
+    text = "Acme Corp and Beta LLC signed."
+    _ext.configure(ner_extractor=_FixedExtractor({text: [
+        {"kind": "organization", "canonical_name": "Acme Corp", "span_start": 0, "span_end": 9, "confidence": 0.9},
+        {"kind": "organization", "canonical_name": "Beta LLC", "span_start": 14, "span_end": 22, "confidence": 0.9},
+    ]}))
+    existing = "88888888-8888-8888-8888-888888888888"
+    kgdb.entities[existing] = {"id": existing, "organization_id": ORG, "kind": "organization",
+                               "name": "ACME CORP", "attrs": "{}", "confidence_avg": None}
+
+    chunk_id = str(uuid.uuid4())
+    res = await extract_entities([NerChunkInput(chunk_id=chunk_id, content_text=text)],
+                                 organization_id=ORG, user_id=USER)
+
+    assert kgdb.entity_upserts == 0
+    assert res.errors == []
+    assert len(kgdb.entities) == 2
+    assert res.entities_written == 1
+    assert {m["entity_id"] for m in kgdb.mentions} >= {existing}
+    assert chunk_id in res.succeeded_chunk_ids
 
 
 def test_collapse_overlapping_spans_prefers_higher_confidence():
@@ -906,6 +957,38 @@ async def test_persist_that_never_heals_leaves_chunk_retryable_and_screams(
     assert any(r.levelname == "ERROR" and cid in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.asyncio
+async def test_a_chunk_replaced_mid_pass_is_superseded_not_an_error(kgdb, monkeypatch, caplog):
+    """Live 2026-11-02 17:04Z: a re-ingest deleted the chunks while NER for them was in flight,
+    and 50 inserts died on kg_chunk_entities_chunk_id_fkey as ERRORs left for a re-extraction
+    that can never succeed. The chunk is gone: the work is dropped at INFO."""
+    import asyncpg
+
+    import matrx_rag.ner as ner_mod
+    from matrx_rag.ner import NerChunkInput, extract_entities
+
+    text = "Zeta Corp met with Acme Corp; Zeta Corp agreed."
+    _ext.configure(ner_extractor=_two_orgs_extractor(text))
+
+    async def _chunk_gone(rows):
+        exc = asyncpg.exceptions.ForeignKeyViolationError("chunk is not present in kg_chunks")
+        exc.sqlstate = "23503"
+        exc.constraint_name = "kg_chunk_entities_chunk_id_fkey"
+        raise exc
+
+    monkeypatch.setattr(ner_mod, "_bulk_insert_mentions", _chunk_gone)
+    cid = str(uuid.uuid4())
+    with caplog.at_level("INFO", logger="matrx_rag.ner"):
+        res = await extract_entities(
+            [NerChunkInput(chunk_id=cid, content_text=text)], organization_id=ORG, user_id=USER
+        )
+
+    assert res.superseded_chunk_ids == [cid]
+    assert not res.errors
+    assert cid not in res.succeeded_chunk_ids
+    assert not any(r.levelname == "ERROR" and cid in r.getMessage() for r in caplog.records)
+
+
 # ---------------------------------------------------------------------------
 # One source, one NER run at a time: a note save that fires twice must not pay
 # the extractor twice for the same chunk (the second run waits, then finds the
@@ -933,6 +1016,9 @@ async def test_two_concurrent_ner_runs_of_one_source_extract_each_chunk_once(kgd
 
         def filter(self, **kw: Any) -> _ChunkQuery:
             self.kw.update(kw)
+            return self
+
+        def select_for_update(self, **_kw: Any) -> _ChunkQuery:
             return self
 
         async def values(self, *fields: str) -> list[dict[str, Any]]:
@@ -987,3 +1073,24 @@ async def test_two_concurrent_ner_runs_of_one_source_extract_each_chunk_once(kgd
     assert chunk["ner_extracted_at"] is not None
     assert first.state == "done" and second.state == "done"
     assert len(kgdb.mentions) == 1
+
+
+@pytest.mark.asyncio
+async def test_the_ner_stamp_locks_its_chunks_in_id_order(monkeypatch) -> None:
+    """Two NER passes and a re-ingest delete each lock many kg_chunks rows in one statement;
+    the plan, not the sorted list, decides that order, and three of them deadlocked (40P01,
+    2026-11-15 22:24Z). The stamp routes through the ORM's ordered-lock UPDATE."""
+    from matrx_rag import ner as ner_mod
+
+    calls: list[dict] = []
+
+    class _Chunks:
+        @classmethod
+        async def update_where(cls, filters, **kwargs):
+            calls.append({"filters": filters, **kwargs})
+
+    monkeypatch.setattr(ner_mod, "get_db_model", lambda _name: _Chunks)
+    await ner_mod._stamp_chunks(["c-1", "c-2"], ner_mod.NerEngineStamp(name="e", version="1"))
+    assert len(calls) == 1
+    assert calls[0]["filters"] == {"id__in": ["c-1", "c-2"]}
+    assert calls[0]["lock_rows_in_pk_order"] is True

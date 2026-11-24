@@ -12,6 +12,7 @@
 #include "DecoderResult.h"
 #include "DetectorResult.h"
 #include "JSON.h"
+#include "Log.h"
 #include "Version.h"
 #include "ZXAlgorithms.h"
 
@@ -52,8 +53,8 @@ struct CreatorOptions::Data
 // TODO: check return type
 #define ZX_PROPERTY(TYPE, NAME) \
 	const TYPE& CreatorOptions::NAME() const noexcept { return d->NAME; } \
-	CreatorOptions& CreatorOptions::NAME(TYPE v)& { return d->NAME = std::move(v), *this; } \
-	CreatorOptions&& CreatorOptions::NAME(TYPE v)&& { return d->NAME = std::move(v), std::move(*this); }
+	CreatorOptions& CreatorOptions::NAME(TYPE v)& { return d->NAME = std::move(v), d->zint.reset(), *this; } \
+	CreatorOptions&& CreatorOptions::NAME(TYPE v)&& { return d->NAME = std::move(v), d->zint.reset(), std::move(*this); }
 
 ZX_PROPERTY(BarcodeFormat, format)
 ZX_PROPERTY(std::string, options)
@@ -61,13 +62,14 @@ ZX_PROPERTY(std::string, options)
 #undef ZX_PROPERTY
 
 #define ZX_RO_PROPERTY(TYPE, NAME) \
-	std::optional<TYPE> CreatorOptions::NAME() const noexcept { return JsonGet<TYPE>(d->options, #NAME); }
+	std::optional<TYPE> CreatorOptions::NAME() const { return JsonGet<TYPE>(d->options, #NAME); }
 
 ZX_RO_PROPERTY(std::string, ecLevel);
 ZX_RO_PROPERTY(std::string, eci);
 ZX_RO_PROPERTY(bool, gs1);
 ZX_RO_PROPERTY(bool, readerInit);
 ZX_RO_PROPERTY(bool, forceSquare);
+ZX_RO_PROPERTY(bool, extraEscapeMode);
 ZX_RO_PROPERTY(int, columns);
 ZX_RO_PROPERTY(int, rows);
 ZX_RO_PROPERTY(int, version);
@@ -265,9 +267,7 @@ zint_symbol* CreatorOptions::zint() const
 	auto& zint = d->zint;
 
 	if (!zint) {
-#ifdef PRINT_DEBUG
-//		printf("zint version: %d, sizeof(zint_symbol): %ld, options: %s\n", ZBarcode_Version(), sizeof(zint_symbol), options().c_str());
-#endif
+//		log_l("zint version: %d, sizeof(zint_symbol): %ld, options: %s", ZBarcode_Version(), sizeof(zint_symbol), options().c_str());
 		zint.reset(ZBarcode_Create());
 
 		switch (format()) {
@@ -278,7 +278,7 @@ zint_symbol* CreatorOptions::zint() const
 		};
 
 		if (zint->symbology == 0)
-			throw std::invalid_argument(StrCat("Unsupported barcode format for creation: ", ToString(format())));
+			throw std::invalid_argument(StrCat("Unsupported format: ", ToString(format())));
 
 		if (format() == Code128 && gs1())
 			zint->symbology = BARCODE_GS1_128;
@@ -321,6 +321,8 @@ Barcode CreateBarcode(const void* data, int size, int mode, const CreatorOptions
 	zint->input_mode = mode == UNICODE_MODE && opts.gs1() && (opts.format() & BarcodeFormat::AllGS1) ? GS1_MODE : mode;
 	if (mode == UNICODE_MODE && static_cast<const char*>(data)[0] != '[')
 		zint->input_mode |= GS1PARENS_MODE;
+	if (opts.extraEscapeMode())
+		zint->input_mode |= EXTRA_ESCAPE_MODE;
 	zint->output_options |= OUT_BUFFER_INTERMEDIATE | BARCODE_NO_QUIET_ZONES | BARCODE_CONTENT_SEGS;
 	if (opts.readerInit())
 		zint->output_options |= READER_INIT;
@@ -346,10 +348,6 @@ Barcode CreateBarcode(const void* data, int size, int mode, const CreatorOptions
 
 	int warning;
 	CHECK_WARN(ZBarcode_Encode_and_Buffer(zint, (uint8_t*)data, size, 0), warning);
-
-#ifdef PRINT_DEBUG
-	printf("create symbol with size: %dx%d\n", zint->width, zint->rows);
-#endif
 
 #if 0 // use ReadBarcode to create Barcode object
 	auto buffer = std::vector<uint8_t>(zint->bitmap_width * zint->bitmap_height);
@@ -400,7 +398,6 @@ Barcode CreateBarcode(const void* data, int size, int mode, const CreatorOptions
 #endif
 
 	res.zint = std::move(opts.d->zint);
-	res.zintMutex = std::make_unique<std::mutex>();
 
 	return res;
 }

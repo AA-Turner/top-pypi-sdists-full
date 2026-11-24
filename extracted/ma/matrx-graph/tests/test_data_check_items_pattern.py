@@ -271,6 +271,12 @@ MUST_ACCEPT = [
     r"\b\w+(?:\s+\w+){0,3}\s+award\b",
     r"(?:[^,]*,)*",
     r"(?:a\s*)+",
+    # live 2026-11-15 (system_error 585f9cdc): a page-path word list a workflow's matches() refused, because
+    # ``meet-?`` meets ``($|[-/])`` — two pieces of LIMITED length, which split a stretch a few ways at most
+    r"(^|[/\-_ ])(about(-us)?|our-?team|the-?team|team|meet(-the)?-?(team|us|the-team|our-team)?|leadership|"
+    r"our-?people|people|staff|who-?we-?are|our-?story|founders?|management|doctors|physicians|providers|"
+    r"practitioners|attorneys|lawyers|executives)($|[/\-_ .?])",
+    r"(^|[/\-_ ])(contact(-us)?|get-in-touch|locations?|visit-us|find-us)($|[/\-_ .?])",
 ]
 
 
@@ -281,6 +287,20 @@ def test_realistic_safe_patterns_are_accepted_and_fast_at_the_cap(ok: str):
     compile_safe(ok, ignore_case=True)
     worst = _worst_cpu(ok, re.IGNORECASE, 10_000)
     assert worst is not None and worst < 1.0, (ok, worst)
+
+
+#: Strict: side-by-side pieces of limited length that share characters, multiplied past the split budget.
+HUNG_BOUNDED_SPLITS = ["a?" * 32 + "a" * 32, r"\d{1,99}\d{1,99}\d{1,99}x"]
+
+
+@pytest.mark.parametrize("bad", HUNG_BOUNDED_SPLITS)
+def test_many_optional_pieces_side_by_side_are_refused_for_pattern_checks(bad: str):
+    with pytest.raises(UnsafePatternError, match="side by side"):
+        compile_safe(bad)
+
+
+def test_the_bounded_split_shape_really_hangs_so_refusing_it_is_not_theatre():
+    assert not _finishes("a?" * 32 + "a" * 32, 0, 32, timeout=3)
 
 
 def test_the_hung_shapes_really_hang_so_the_runner_can_tell():

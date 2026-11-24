@@ -34,11 +34,29 @@ def _untranscribed_notice(reason: str) -> TextContent:
     )
 
 
+def _labelled(original: AudioContent, replacement: TextContent, role: object) -> TextContent:
+    """Open the transcript (or the could-not-transcribe notice) with the recording's identity.
+
+    A media part reaches the model behind ``<attachment kind name id/>``; transcription used to
+    replace the part with bare text, so the model lost the recording's ``file_id`` and a tool
+    that takes one (``study_grade_spoken``) could only work if the person typed the id
+    (CGU-09 study-coach-media, 2026-11-13). The SAME label the media fallback puts on every
+    converted attachment (``handler._open_with_source_label``), so every provider style
+    inherits it. Guard: ``tests/test_a_transcribed_recording_keeps_its_file_id.py``.
+    """
+    from matrx_ai.processing.media_fallback.handler import _open_with_source_label
+
+    if not getattr(original, "file_id", None):
+        return replacement  # only a file id is an identity; a bare (possibly signed) URL never rides a label
+    return _open_with_source_label(original, replacement, role)
+
+
 async def preprocess_audio_in_messages(
     messages: MessageList,
     debug: bool = False,
     *,
     supports_audio_input: bool,
+    transcription_model: str | None = None,
 ) -> tuple[MessageList, list[TokenUsage]]:
     """
     Preprocess messages to handle auto-transcription of audio content.
@@ -101,6 +119,10 @@ async def preprocess_audio_in_messages(
                         )
 
                 try:
+                    # A caller-named model (HIPAA mode's covered transcription model) replaces the
+                    # audio's own choice for this call.
+                    if transcription_model:
+                        content.transcription_model = transcription_model
                     transcription = await content.get_transcription_async()
 
                     if transcription:
@@ -113,7 +135,7 @@ async def preprocess_audio_in_messages(
                                 "audio_source": content.url or content.file_uri or "base64",
                             },
                         )
-                        processed_content.append(text_content)
+                        processed_content.append(_labelled(content, text_content, message.role))
 
                         # Track transcription usage (only if not from cache)
                         transcription_metadata = content.metadata.get("transcription", {})
@@ -187,16 +209,19 @@ async def preprocess_audio_in_messages(
                                 "Audio Preprocessing",
                                 color="green",
                             )
-                            print("--------------------------------")
-                            print(transcription)
-                            print("--------------------------------")
+                            from matrx_utils.fancy_prints.truncation import content_logging_enabled
+
+                            if content_logging_enabled():  # CASA 6.5.1: a transcript is the person's words
+                                print("--------------------------------")
+                                print(transcription)
+                                print("--------------------------------")
                     else:
                         vcprint(
                             "⚠️ Audio transcription failed - the model is told so",
                             "Audio Preprocessing",
                             color="yellow",
                         )
-                        processed_content.append(_untranscribed_notice("no text was returned"))
+                        processed_content.append(_labelled(content, _untranscribed_notice("no text was returned"), message.role))
 
                 except Exception as e:
                     vcprint(
@@ -204,7 +229,7 @@ async def preprocess_audio_in_messages(
                         "Audio Preprocessing",
                         color="yellow",
                     )
-                    processed_content.append(_untranscribed_notice(type(e).__name__))
+                    processed_content.append(_labelled(content, _untranscribed_notice(type(e).__name__), message.role))
             else:
                 # Keep content as-is
                 processed_content.append(content)

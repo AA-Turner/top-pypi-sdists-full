@@ -11,6 +11,8 @@ when we can, scream clearly when we can't:
   variant-unique fields (``queries``→search, ``url``→read, …)
 * ``remove_flattened_variant_extras`` — fields advertised by a flattened
   dispatcher schema but forbidden by the selected action
+* ``resolve_choice`` / ``heal_choice_spelling`` — an enum value that differs from a lawful one only
+  in spelling (case, spaces, dashes, camelCase), at any depth; a tool adds its own synonyms
 * ``recover_action_type_alias`` — client-tool ``action`` discriminator copied
   to canonical ``type`` only when the published enum proves the mapping
 * ``format_args_error`` — flat agent-instructive line from a ValidationError
@@ -23,8 +25,10 @@ Recovery is the default; rejection is the last resort with an actionable menu.
 
 from __future__ import annotations
 
+import copy
 import json
 import re
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -45,6 +49,101 @@ _STRINGIFIED_JSON_ADVICE = (
     "You sent a JSON-encoded string; send the raw JSON object/array itself "
     "(no surrounding quotes, no escaping)."
 )
+
+
+def _string_for_container_advice(field: str, supplied: str, want: str) -> str:
+    """What was actually wrong when a plain string came where an object or array is required.
+
+    Only a string that IS JSON (it starts with ``{`` or ``[``) was JSON-encoded; telling a model that
+    sent ``queries: "boise population"`` or ``match: "Hazel Cummerata"`` that it "sent a JSON-encoded
+    string" is wrong advice and the retry repeats the mistake (C94, live 2026-11-04..10).
+    """
+    if supplied.lstrip()[:1] in ("{", "["):
+        return _STRINGIFIED_JSON_ADVICE
+    if want == "array":
+        return f"`{field}` takes a JSON array, and you sent one plain string; wrap it: [\"...\"]."
+    return f"`{field}` takes a JSON object of keys and values, and you sent one plain string."
+
+
+def choice_key(value: str) -> str:
+    """A value with its spelling removed: ``'Choice-Many'``, ``'choiceMany'`` and ``'choice_many'`` are one key."""
+    return re.sub(r"[^a-z0-9]", "", value.casefold())
+
+
+def resolve_choice(
+    value: Any,
+    allowed: Iterable[str],
+    aliases: Mapping[str, str] | None = None,
+) -> str | None:
+    """The lawful value ``value`` means, or None when it does not plainly mean one.
+
+    Spelling only, unless the caller passes ``aliases`` (``choice_key`` of the synonym -> the lawful
+    value). Never fuzzy: ``get`` and ``set`` are one letter apart and opposite in meaning.
+    """
+    if not isinstance(value, str):
+        return None
+    lawful = list(allowed)
+    if value in lawful:
+        return value
+    key = choice_key(value)
+    same = [option for option in lawful if choice_key(option) == key]
+    if len(same) == 1:
+        return same[0]
+    meant = (aliases or {}).get(key)
+    return meant if meant in lawful else None
+
+
+def _replace_at(data: Any, loc: tuple[Any, ...], supplied: Any, value: Any) -> bool:
+    """Set ``value`` at a Pydantic ``loc``, skipping the union tags it carries that are not keys."""
+    node = data
+    for step in loc[:-1]:
+        if isinstance(node, dict) and step in node:
+            node = node[step]
+        elif isinstance(node, list) and isinstance(step, int) and 0 <= step < len(node):
+            node = node[step]
+    last = loc[-1] if loc else None
+    if isinstance(node, dict) and last in node and node[last] == supplied:
+        node[last] = value
+        return True
+    if isinstance(node, list) and isinstance(last, int) and 0 <= last < len(node) and node[last] == supplied:
+        node[last] = value
+        return True
+    return False
+
+
+def heal_choice_spelling(
+    arguments: dict[str, Any],
+    exc: Any,
+) -> tuple[dict[str, Any], list[tuple[str, Any, Any]]] | None:
+    """Respell every enum value (or action tag) a call got wrong only in spelling, at any depth.
+
+    Returns ``(healed_arguments, [(field, supplied, lawful), ...])``, else ``None``. The input is left
+    untouched and the caller MUST re-validate once.
+    """
+    errors = _error_list(exc)
+    if not errors or not isinstance(arguments, dict):
+        return None
+    healed = copy.deepcopy(arguments)
+    changes: list[tuple[str, Any, Any]] = []
+    for e in errors:
+        etype = e.get("type", "")
+        ctx = e.get("ctx") or {}
+        loc = tuple(e.get("loc", ()))
+        if etype in _CHOICE_ERROR_TYPES:
+            supplied = e.get("input")
+            expected = _EXPECTED_VALUES_RE.findall(str(ctx.get("expected", "")))
+        elif etype == "union_tag_invalid":
+            supplied = ctx.get("tag")
+            expected = _EXPECTED_VALUES_RE.findall(str(ctx.get("expected_tags", "")))
+            loc = (*loc, ctx.get("discriminator", "").strip("'"))
+        else:
+            continue
+        lawful = resolve_choice(supplied, expected)
+        if lawful is None or lawful == supplied:
+            continue
+        if _replace_at(healed, loc, supplied, lawful):
+            changes.append((".".join(str(p) for p in loc), supplied, lawful))
+    return (healed, changes) if changes else None
 
 
 def recover_action_type_alias(
@@ -132,14 +231,16 @@ def unwrap_args_envelope(
 
 
 def expected_fields_sentence(
-    arguments: dict[str, Any], args_model: type, *, envelope: str | None
+    arguments: dict[str, Any], args_model: type, *, envelope: str | None, guide_action: str | None = "guide"
 ) -> str | None:
     """One sentence naming the fields the called action takes — for a lean dispatcher.
 
     A model shown only ``action`` + an envelope cannot read the per-action field names
     from its schema, so a refusal must carry them: "`record_read` takes, inside `args`:
     limit, record_id, table_id (required: none)." ``None`` when the call names no
-    known action (the discriminator menu covers that case).
+    known action (the discriminator menu covers that case). ``guide_action`` is the action
+    that explains one action (``guide`` on a lean row); ``None`` leaves that clause to the
+    caller (an MCP tool names its own ``help`` call).
     """
     from matrx_ai.tools.validation.schema import discriminated_union_members
 
@@ -156,8 +257,10 @@ def expected_fields_sentence(
     required = sorted(n for n in names if fields[n].is_required())
     where = f", inside `{envelope}`" if envelope else ""
     guide = ""
-    if envelope and "guide" in members and tag != "guide":
-        guide = f' {{"{disc}": "guide", "{envelope}": {{"topic": "{tag}"}}}} explains each.'
+    # Every lean row answers `guide`: from the code union (records) or, for any other
+    # row, from the row itself at the executor's dispatch edge (lean_envelope.row_guide).
+    if envelope and guide_action and tag != guide_action:
+        guide = f' {{"{disc}": "{guide_action}", "{envelope}": {{"topic": "{tag}"}}}} explains each.'
     example = ""
     extra = member.model_config.get("json_schema_extra")
     examples = extra.get("examples") if isinstance(extra, dict) else None
@@ -168,6 +271,41 @@ def expected_fields_sentence(
         f"`{tag}` takes{where}: {', '.join(names) or '(nothing)'} "
         f"(required: {', '.join(required) or 'none'}).{example}{guide}"
     )
+
+
+def other_action_fields_sentence(
+    arguments: dict[str, Any], args_model: type, exc: Any
+) -> str | None:
+    """For a dispatcher call refused for carrying another action's argument, say whose it is.
+
+    "Re-read the schema" is no help when the flattened schema itself offered the field:
+    ``cloud_browser(action="navigate", wait_after_ms=3000)`` (2026-11-06). The refusal names
+    the action(s) that take each stray field, then what the chosen action takes.
+    ``None`` unless at least one extra field belongs to another action.
+    """
+    from matrx_ai.tools.validation.schema import discriminated_union_members
+
+    found = discriminated_union_members(args_model)
+    if found is None or not isinstance(arguments, dict):
+        return None
+    disc, members = found
+    tag = arguments.get(disc)
+    if not isinstance(tag, str) or tag not in members:
+        return None
+    owned: list[str] = []
+    for e in _error_list(exc):
+        if e.get("type") != "extra_forbidden":
+            continue
+        field = next((p for p in reversed(e.get("loc", ())) if isinstance(p, str) and p in arguments), None)
+        if field is None:
+            continue
+        owners = sorted(a for a, m in members.items() if a != tag and field in m.model_fields)
+        if owners:
+            owned.append(f"`{field}` belongs to {', '.join(owners)}, not {tag}")
+    if not owned:
+        return None
+    takes = expected_fields_sentence(arguments, args_model, envelope=None)
+    return f"{'; '.join(owned)}. {takes or ''}".strip()
 
 
 def flat_required_sentence(arguments: dict[str, Any], args_model: type, exc: Any) -> str | None:
@@ -229,7 +367,8 @@ def format_args_error(exc: Any) -> str:
         try:
             lines: list[str] = []
             advice: list[str] = []
-            saw_stringified_container = False
+            container_advice: list[str] = []
+            container_fields: set[str] = set()
             for e in errors:
                 loc = ".".join(str(p) for p in e.get("loc", ())) or "(root)"
                 lines.append(f"{loc}: {e.get('msg', 'invalid')}{_size_given(e)}")
@@ -237,7 +376,17 @@ def format_args_error(exc: Any) -> str:
                 if (etype in _DICT_ERROR_TYPES or etype in _LIST_ERROR_TYPES) and isinstance(
                     e.get("input"), str
                 ):
-                    saw_stringified_container = True
+                    # The argument's name: the last loc part that is a name (never a union branch label).
+                    field = next(
+                        (str(p) for p in reversed(e.get("loc", ())) if isinstance(p, str) and p.isidentifier()),
+                        "value",
+                    )
+                    if field not in container_fields:
+                        container_fields.add(field)
+                        want = "array" if etype in _LIST_ERROR_TYPES else "object"
+                        line = _string_for_container_advice(field, e["input"], want)
+                        if line not in container_advice:
+                            container_advice.append(line)
                 elif etype in _CHOICE_ERROR_TYPES:
                     expected = _EXPECTED_VALUES_RE.findall(
                         str((e.get("ctx") or {}).get("expected", ""))
@@ -264,8 +413,7 @@ def format_args_error(exc: Any) -> str:
                     f"(or supply the variant-unique fields so it can be inferred)."
                 )[:900]
             joined = "; ".join(lines)[:600]
-            if saw_stringified_container:
-                advice.insert(0, _STRINGIFIED_JSON_ADVICE)
+            advice[:0] = container_advice
             if advice:
                 joined = f"{joined} {' '.join(advice)}"
             if joined.strip():
@@ -273,6 +421,150 @@ def format_args_error(exc: Any) -> str:
         except Exception:  # noqa: BLE001 - fall through to str()
             pass
     return str(exc)[:600] or "invalid arguments"
+
+
+def _read_json_container(text: str) -> Any:
+    """The ONE reading of a JSON value a model wrote inside an argument (the funnel's whole-document parse)."""
+    from matrx_ai.agents.response_parser import parse_json_document
+
+    value = parse_json_document(text)
+    return _UNPARSEABLE if value is None else value
+
+
+def _declared_container(param: Any) -> type | None:
+    """``dict`` / ``list`` when a published property accepts ONLY that container (never when a string is lawful)."""
+    if not isinstance(param, dict):
+        return None
+    declared = param.get("type")
+    kinds = {declared} if isinstance(declared, str) else set(declared) if isinstance(declared, list) else set()
+    for branch in param.get("anyOf") or param.get("oneOf") or ():
+        if isinstance(branch, dict) and isinstance(branch.get("type"), str):
+            kinds.add(branch["type"])
+    kinds.discard("null")
+    if kinds == {"object"}:
+        return dict
+    if kinds == {"array"}:
+        return list
+    return None
+
+
+def _declared_scalar(param: Any) -> str | None:
+    """``integer`` / ``number`` / ``boolean`` when a published property accepts ONLY that scalar (never when a
+    string is lawful); ``integer`` with ``number`` reads as ``number``."""
+    if not isinstance(param, dict):
+        return None
+    declared = param.get("type")
+    kinds = {declared} if isinstance(declared, str) else set(declared) if isinstance(declared, list) else set()
+    for branch in param.get("anyOf") or param.get("oneOf") or ():
+        if isinstance(branch, dict) and isinstance(branch.get("type"), str):
+            kinds.add(branch["type"])
+    kinds.discard("null")
+    if kinds == {"integer", "number"}:
+        return "number"
+    if len(kinds) == 1 and next(iter(kinds)) in ("integer", "number", "boolean"):
+        return next(iter(kinds))
+    return None
+
+
+_INTEGER_TEXT = re.compile(r"[+-]?\d+")
+_NUMBER_TEXT = re.compile(r"[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?")
+
+
+def _read_scalar(text: str, want: str) -> Any:
+    """The exact scalar a string spells (``"3"`` -> 3, ``"true"`` -> True), else ``_UNPARSEABLE``. Only plain
+    literals: never ``"yes"``, ``"1"`` for a boolean, ``"3 items"`` or ``"nan"``."""
+    spelled = text.strip()
+    if want == "boolean":
+        return {"true": True, "false": False}.get(spelled.lower(), _UNPARSEABLE)
+    if _INTEGER_TEXT.fullmatch(spelled):
+        return int(spelled)
+    if want == "number" and _NUMBER_TEXT.fullmatch(spelled):
+        return float(spelled)
+    return _UNPARSEABLE
+
+
+def decode_stringified_by_schema(
+    arguments: dict[str, Any],
+    parameters: dict[str, Any] | None,
+) -> tuple[dict[str, Any], list[str]] | None:
+    """Decode a top-level argument the model sent as a STRING where the published schema says
+    object/array (a JSON document) or integer/number/boolean (a plain literal: ``"3"``, ``"true"``).
+
+    Runs on every call, BEFORE any tool-side repair or validation, because a tool whose own model
+    repairs its input (``ask_person``) never raises the ValidationError the other layer waits for —
+    and that repair threw the real questions away (review 12 C1, 2/2). A scalar spelled as a string
+    is read the way the tool's own lax model reads it, so the tool and the Content IR contract judge
+    the same value (``data`` with ``limit: "3"``, ``descending: "true"`` ran and was filed as
+    tool_input_contract_drift, 2026-11-18). A list whose published ``items`` are objects/arrays has
+    each string item read the same way (video_clone ``gestures`` sent as JSON strings, 2026-11-18).
+    Only an exact reading is kept; a string that does not read as one is left as sent, so validation
+    refuses it by name. Returns ``(arguments, decoded field names)`` or ``None``.
+    """
+    if not isinstance(arguments, dict) or not isinstance(parameters, dict):
+        return None
+    properties: Any = parameters.get("properties", parameters)
+    if not isinstance(properties, dict):
+        return None
+    decoded: dict[str, Any] = {}
+    for field, supplied in arguments.items():
+        if not isinstance(supplied, str):
+            continue
+        param = properties.get(field)
+        scalar = _declared_scalar(param)
+        if scalar is not None:
+            value = _read_scalar(supplied, scalar)
+            if value is not _UNPARSEABLE:
+                decoded[field] = value
+            continue
+        want = _declared_container(param)
+        if want is None:
+            continue
+        value = _read_json_container(supplied)
+        if type(value) is want:
+            decoded[field] = value
+    for field, supplied in arguments.items():
+        items = decoded.get(field, supplied)
+        if not isinstance(items, list):
+            continue
+        read_items = _decode_stringified_items(items, _declared_items(properties.get(field)))
+        if read_items is not None:
+            decoded[field] = read_items
+    if not decoded:
+        return None
+    return {**arguments, **decoded}, sorted(decoded)
+
+
+def _declared_items(param: Any) -> Any:
+    """The ``items`` schema of a property that is an array (directly or as its one array branch), else ``None``."""
+    if not isinstance(param, dict):
+        return None
+    if isinstance(param.get("items"), dict):
+        return param["items"]
+    for branch in param.get("anyOf") or param.get("oneOf") or ():
+        if isinstance(branch, dict) and branch.get("type") == "array" and isinstance(branch.get("items"), dict):
+            return branch["items"]
+    return None
+
+
+def _decode_stringified_items(items: list[Any], item_schema: Any) -> list[Any] | None:
+    """The list with each STRING item read as the object/array its published ``items`` schema requires
+    (``gestures: ['{"kind": "move", ...}']``: the model wrote each object as a JSON string; video_clone,
+    tool_input_contract_drift 2026-11-18). An item that does not read as exactly that container is left
+    as sent, so validation refuses it by name. ``None`` when nothing changed."""
+    want = _declared_container(item_schema)
+    if want is None:
+        return None
+    changed = False
+    out: list[Any] = []
+    for item in items:
+        if isinstance(item, str):
+            value = _read_json_container(item)
+            if type(value) is want:
+                out.append(value)
+                changed = True
+                continue
+        out.append(item)
+    return out if changed else None
 
 
 def coerce_stringified_containers(
@@ -326,10 +618,7 @@ def coerce_stringified_containers(
         if isinstance(supplied, list) and isinstance(index, int) and 0 <= index < len(supplied):
             item = supplied[index]
             if isinstance(item, str) and e.get("input") == item:
-                try:
-                    parsed_item = json.loads(item)
-                except (ValueError, TypeError):
-                    continue
+                parsed_item = _read_json_container(item)
                 if type(parsed_item) is want:
                     items = item_fixes.setdefault(field, list(supplied))
                     items[index] = parsed_item
@@ -340,10 +629,7 @@ def coerce_stringified_containers(
         if not isinstance(supplied, str) or e.get("input") != supplied:
             continue
         if field not in parsed_cache:
-            try:
-                parsed_cache[field] = json.loads(supplied)
-            except (ValueError, TypeError):
-                parsed_cache[field] = _UNPARSEABLE
+            parsed_cache[field] = _read_json_container(supplied)
         parsed = parsed_cache[field]
         if parsed is _UNPARSEABLE:
             continue

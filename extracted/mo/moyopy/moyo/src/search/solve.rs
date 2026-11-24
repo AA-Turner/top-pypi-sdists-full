@@ -162,12 +162,33 @@ pub fn solve_correspondence(
     reduced_cell: &Cell,
     new_positions: &[Position],
 ) -> Option<Permutation> {
+    solve_correspondence_with(
+        neighbor_search,
+        reduced_cell,
+        |i| new_positions[i],
+        &mut Vec::with_capacity(neighbor_search.num_sites),
+        &mut vec![false; neighbor_search.num_sites],
+    )
+}
+
+/// Reuse scratch buffers to avoid repeated allocations for rejected candidates.
+/// Reset partial matches on each attempt, and move successful mappings into the
+/// returned permutations instead of cloning them.
+#[inline]
+pub(super) fn solve_correspondence_with(
+    neighbor_search: &PeriodicNeighborSearch,
+    reduced_cell: &Cell,
+    position: impl Fn(usize) -> Position,
+    mapping: &mut Vec<usize>,
+    visited: &mut [bool],
+) -> Option<Permutation> {
     let num_atoms = neighbor_search.num_sites;
-    let mut mapping = vec![None; num_atoms];
-    let mut visited = vec![false; num_atoms];
+    mapping.clear();
+    mapping.reserve(num_atoms);
+    visited.fill(false);
 
     for i in 0..num_atoms {
-        let neighbor = neighbor_search.nearest(&new_positions[i])?;
+        let neighbor = neighbor_search.nearest(&position(i))?;
         let j = neighbor.index;
         if reduced_cell.numbers[i] != reduced_cell.numbers[j] {
             return None;
@@ -176,13 +197,12 @@ pub fn solve_correspondence(
             return None;
         }
 
-        mapping[i] = Some(j);
+        mapping.push(j);
         visited[j] = true;
     }
 
-    let mapping = mapping.into_iter().map(|v| v.unwrap()).collect::<Vec<_>>();
     assert_eq!(mapping.len(), num_atoms);
-    Some(Permutation::new(mapping))
+    Some(Permutation::new(std::mem::take(mapping)))
 }
 
 /// Return correspondence between the input and acted positions.
@@ -277,7 +297,8 @@ mod tests {
 
     use super::{
         PeriodicNeighborSearch, pivot_site_indices, solve_correspondence,
-        solve_correspondence_naive, symmetrize_translation_from_permutation,
+        solve_correspondence_naive, solve_correspondence_with,
+        symmetrize_translation_from_permutation,
     };
 
     #[test]
@@ -457,6 +478,67 @@ mod tests {
                 solve_correspondence(&neighbor_search, &reduced_cell, &new_positions);
             assert_eq!(actual_neighbor_search, None);
         }
+    }
+
+    #[test]
+    fn test_lazy_correspondence_stops_at_duplicate_target() {
+        let cell = Cell::new(
+            Lattice::new(Matrix3::identity()),
+            vec![
+                Vector3::new(0.2, 0.5, 0.5),
+                Vector3::new(0.5, 0.5, 0.5),
+                Vector3::new(0.8, 0.5, 0.5),
+            ],
+            vec![26, 26, 26],
+        );
+        let search = PeriodicNeighborSearch::new(&cell, 1e-5);
+        let evaluated = std::cell::Cell::new(0);
+        let permutation = solve_correspondence_with(
+            &search,
+            &cell,
+            |site| {
+                assert!(site < 2, "positions after a mismatch must not be evaluated");
+                evaluated.set(evaluated.get() + 1);
+                cell.positions[0]
+            },
+            &mut Vec::new(),
+            &mut vec![false; cell.num_atoms()],
+        );
+        assert_eq!(permutation, None);
+        assert_eq!(evaluated.get(), 2);
+    }
+
+    #[test]
+    fn test_correspondence_buffers_can_be_reused() {
+        let left = Vector3::new(0.2, 0.5, 0.5);
+        let middle = Vector3::new(0.5, 0.5, 0.5);
+        let right = Vector3::new(0.8, 0.5, 0.5);
+        let cell = Cell::new(
+            Lattice::new(Matrix3::identity()),
+            vec![left, middle, right],
+            vec![26, 26, 26],
+        );
+        let search = PeriodicNeighborSearch::new(&cell, 1e-5);
+        let mut mapping = Vec::new();
+        let mut visited = vec![false; cell.num_atoms()];
+        let mut solve = |positions: [Vector3<f64>; 3]| {
+            solve_correspondence_with(
+                &search,
+                &cell,
+                |site| positions[site],
+                &mut mapping,
+                &mut visited,
+            )
+        };
+
+        // Fail after two successful matches, then reuse the partially filled buffers.
+        assert_eq!(solve([left, middle, middle]), None);
+        let cycle = solve([right, left, middle]).unwrap();
+        assert_eq!(cycle, Permutation::new(vec![2, 0, 1]));
+        assert_eq!(solve([Vector3::zeros(), middle, right]), None);
+        assert_eq!(solve([left, middle, right]), Some(Permutation::identity(3)));
+        // Later searches must not change an earlier successful result.
+        assert_eq!(cycle, Permutation::new(vec![2, 0, 1]));
     }
 
     #[test]

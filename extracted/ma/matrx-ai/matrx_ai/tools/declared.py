@@ -73,6 +73,16 @@ class DeclaredTool:
     #: Other names this tool answers to during a RENAME WINDOW (the old name while the DB
     #: still says it, or the new name while the DB already does). See TOOL_RENAMES.md.
     aliases: tuple[str, ...] = ()
+    #: Client executors that ALSO implement this server tool on purpose (e.g. Matrx Extend's
+    #: own ``credential_login`` handler). When one of them is the run's live surface and the
+    #: tool has an active binding row to it, the call is delegated there; otherwise the
+    #: server declaration owns it. See ``ToolRegistry.resolve_executor_binding``.
+    client_executors: tuple[str, ...] = ()
+    #: Arguments that, when a call carries a non-empty value, select the SERVER even when a
+    #: ``client_executors`` client is live: the value names something only the server can
+    #: act on (``credential_login``'s ``session_id`` is a Cloud Browser session). Decided per
+    #: call by ``client_tools_for_call``; never a tool-name check.
+    server_args: tuple[str, ...] = ()
 
     @property
     def function_path(self) -> str:
@@ -96,6 +106,8 @@ def tool(
     validate: bool = True,
     deprecated: bool = False,
     aliases: tuple[str, ...] = (),
+    client_executors: tuple[str, ...] = (),
+    server_args: tuple[str, ...] = (),
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Declare ``fn`` as the server-side implementation of tool ``name``.
 
@@ -121,6 +133,11 @@ def tool(
             both directions. Drop an alias only after the DB rename is live everywhere.
         deprecated: Marks a tool that is being retired; the validator treats it
             as exempt and expects it to be ``is_active=false`` in the DB.
+        client_executors: Client executors that implement this tool too, deliberately.
+            A run on one of them (with the tool's binding row to it active) runs the
+            tool there instead of on the server. Never set for an accidental binding.
+        server_args: Arguments whose non-empty value sends a call to the server even when
+            a ``client_executors`` client is live (see ``client_tools_for_call``).
     """
 
     def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -135,6 +152,8 @@ def tool(
             validate=validate,
             deprecated=deprecated,
             aliases=tuple(aliases),
+            client_executors=tuple(client_executors),
+            server_args=tuple(server_args),
         )
         for alias in declared.aliases:
             taken = _REGISTRY.get(alias)
@@ -163,6 +182,22 @@ def tool(
 def declared_tools() -> dict[str, DeclaredTool]:
     """Return a copy of the full code registry keyed by tool name."""
     return dict(_REGISTRY)
+
+
+def client_tools_for_call(
+    name: str, arguments: dict[str, Any] | None, client_tools: frozenset[str] | None
+) -> frozenset[str] | None:
+    """The delegated-tool set for ONE call: the request's set, minus ``name`` when the call
+    carries a declared ``server_args`` value (the call names a server-only resource, so the
+    server runs it even though a client that implements the tool is live)."""
+    if not client_tools or name not in client_tools or not isinstance(arguments, dict):
+        return client_tools
+    declared = get_effective_declared(name)
+    if declared is None or not declared.server_args:
+        return client_tools
+    if any(arguments.get(arg) not in (None, "") for arg in declared.server_args):
+        return frozenset(client_tools - {name})
+    return client_tools
 
 
 def code_name_for(name: str) -> str:

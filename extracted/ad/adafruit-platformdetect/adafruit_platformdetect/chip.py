@@ -29,7 +29,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import chips
 
-__version__ = "3.90.0"
+__version__ = "3.91.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -267,6 +267,9 @@ class Chip:
 
         if self.detector.check_dt_compatible_value("sun8i-a33"):
             return chips.A33
+
+        if self.detector.check_dt_compatible_value("sun8i-t113s"):
+            return chips.T113
 
         if self.detector.check_dt_compatible_value("rockchip,rk3308"):
             return chips.RK3308

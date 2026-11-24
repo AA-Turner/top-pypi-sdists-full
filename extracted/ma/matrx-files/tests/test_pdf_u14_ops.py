@@ -20,7 +20,7 @@ import shutil
 
 pytestmark = pytest.mark.skipif(shutil.which("tesseract") is None, reason="tesseract is not installed")
 
-from _pdf_corpus import SCAN_WORDS, _add_scanned_page, _new_pdf, _save, build_corpus  # noqa: E402
+from _pdf_corpus import SCAN_WORDS, _new_pdf, _save, build_corpus  # noqa: E402
 
 from matrx_files.specific_handlers.pdf.ops.compare import compare_pdf_bytes, text_changes  # noqa: E402
 from matrx_files.specific_handlers.pdf.ops.convert import convert_pdf_bytes  # noqa: E402

@@ -11,7 +11,6 @@ resolver and the lockfile readers off ``nab cache`` and ``nab config``.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
     "functools",
     "gc",
     "importlib.util",
@@ -26,6 +25,7 @@ __lazy_modules__ = (
     "nab_provider.provider",
     "nab_provider.requirements_file",
     "nab_provider.target",
+    "nab_resolver.diagnostics",
     "nab_resolver.errors",
     "sys",
     "tomli",
@@ -41,9 +41,10 @@ from typing import TYPE_CHECKING
 import tomli
 
 from nab_index.transport import prefetch_settings_for_backend
-from nab_project.input_source import InputFormat, ScriptMetadataError
+from nab_project.input_source import InputChangedError, InputFormat, ScriptMetadataError
 from nab_project.lockfile import MissingHashError, MissingSdistError
 from nab_project.pyproject_files import (
+    MissingProjectTableError,
     read_pyproject_groups,
     read_pyproject_optional_dependencies,
 )
@@ -75,6 +76,7 @@ from nab_provider.target import (
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 from nab_resolver.errors import ResolutionError
 
+from . import _entry
 from ._run import require_pyproject_file
 from .config.model import (
     ConfigError,
@@ -92,9 +94,11 @@ if TYPE_CHECKING:
     from nab_index.transport import AsyncHttpTransport, HttpResponse
     from nab_project.declarations import DependencyDeclaration
     from nab_project.lock_preferences import LockPreferences
+    from nab_project.prepared_input import PreparedProjectInput
     from nab_project.resolve import ResolveResult
     from nab_provider.provider import ResolutionStrategy
 
+    from .config.ladder import Layer
     from .output import ProgressReporter
 
 
@@ -118,7 +122,7 @@ def _read_selection_table_or_exit(
     except (UnicodeDecodeError, tomli.TOMLDecodeError) as e:
         printer().error(f"{path} is not valid TOML: {e}")
         raise SystemExit(1) from None
-    except TypeError as e:
+    except (TypeError, InvalidProjectRequirementError) as e:
         printer().error(e, prefix=f"in {path}: ")
         raise SystemExit(1) from None
 
@@ -175,49 +179,36 @@ def _make_transport(backend: str) -> AsyncHttpTransport:
 
     Optional transports are imported only when selected.
     """
-    make_transport: Callable[[], AsyncHttpTransport]
-    if backend in {"httpx", "httpx2"}:
-        try:
-            # Distinguish a missing backend from missing HTTP/2 dependencies.
-            if sys.modules.get(backend) is None and find_spec(backend) is None:
-                msg = f"No module named {backend!r}"
-                raise ModuleNotFoundError(msg, name=backend)
-            if backend == "httpx":
-                from nab_index.httpx_async_transport import (  # noqa: PLC0415 - optional dependency
-                    HttpxAsyncTransport,
-                )
+    if backend not in {"httpx", "httpx2"}:
+        return _make_urllib3_transport()
 
-                make_transport = HttpxAsyncTransport
-            else:
-                from nab_index.httpx2_async_transport import (  # noqa: PLC0415 - optional dependency
-                    Httpx2AsyncTransport,
-                )
+    for package in (backend, "h2"):
+        if sys.modules.get(package) is not None or find_spec(package) is not None:
+            continue
+        message = (
+            f"{backend} is not installed"
+            if package == backend
+            else f"{backend} is installed without HTTP/2 support"
+        )
+        hint = f"install 'nab[{backend}]' in the environment that runs Nab"
+        printer().error(DiagnosticMessage(message, suggestions=(Suggestion(hint),)))
+        raise SystemExit(1)
 
-                make_transport = Httpx2AsyncTransport
-        except ImportError:
-            printer().error(
-                DiagnosticMessage(
-                    (f"{backend} is not installed"),
-                    suggestions=(Suggestion(f"run `pip install nab[{backend}]`"),),
-                )
+    try:
+        if backend == "httpx":
+            from nab_index.httpx_async_transport import (  # noqa: PLC0415 - optional dependency
+                HttpxAsyncTransport,
             )
-            sys.exit(1)
 
-        try:
-            return make_transport()
-        except ImportError:
-            printer().error(
-                DiagnosticMessage(
-                    (f"{backend} is installed without HTTP/2 support"),
-                    suggestions=(Suggestion(f"run `pip install nab[{backend}]`"),),
-                )
-            )
-            sys.exit(1)
-        except Exception as exc:  # noqa: BLE001 - constructor errors have backend-specific types
-            printer().error(f"cannot initialize {backend} transport: {exc}")
-            sys.exit(1)
+            return HttpxAsyncTransport()
+        from nab_index.httpx2_async_transport import (  # noqa: PLC0415 - optional dependency
+            Httpx2AsyncTransport,
+        )
 
-    return _make_urllib3_transport()
+        return Httpx2AsyncTransport()
+    except Exception as exc:
+        printer().error(f"cannot initialize {backend} transport: {exc}")
+        raise SystemExit(1) from exc
 
 
 class _DeferredUrllib3Transport:
@@ -265,6 +256,8 @@ def _load_config(
     anchor: datetime | None = None,
     cli_overrides: Mapping[str, object] | None = None,
     input_format: InputFormat = InputFormat.PROJECT,
+    project_input: PreparedProjectInput | None = None,
+    plan_settings: Layer | None = None,
 ) -> NabProjectConfig:
     require_pyproject_file(path, input_format=input_format)
 
@@ -275,8 +268,10 @@ def _load_config(
             anchor=anchor,
             cli_overrides=cli_overrides,
             input_format=input_format,
+            project_input=project_input,
+            plan_settings=plan_settings,
         )
-    except ConfigError as exc:
+    except (ConfigError, InputChangedError) as exc:
         printer().error(exc)
         raise SystemExit(1) from None
     except WorkspaceDiscoveryError as exc:
@@ -299,23 +294,16 @@ def _check_targets_or_exit(config: NabProjectConfig) -> None:
 
 @contextmanager
 def _collector_paused() -> Generator[None, None, None]:
-    """Disable the cyclic collector for the duration of the resolve.
+    """Pause collection during a standalone resolve and promote its allocations."""
+    if not _entry.process_owns_collector:
+        yield
+        return
 
-    Exit enables the collector and unfreezes rather than restoring what it
-    found, so every caller of :func:`_resolve` is left in that state and not
-    the one it came in with.
-
-    Everything the resolve allocated is in generation 0 by then, so the
-    collections that follow the enable walk the whole resolve graph. Freezing
-    empties every generation into the permanent one and unfreezing returns the
-    permanent generation to generation 2, which takes the graph out of
-    generation 0 and leaves those collections less to walk. PyPy has no
-    ``gc.freeze``.
-    """
     gc.disable()
     try:
         yield
     finally:
+        # Move the resolve graph out of generation zero before collection resumes.
         if hasattr(gc, "freeze"):
             gc.freeze()
             gc.unfreeze()
@@ -340,6 +328,7 @@ def _resolve(  # noqa: PLR0913, PLR0912, C901 - one wrapper per resolve_for_targ
     reconcile_build_variants: bool = False,
     progress: ProgressReporter | None = None,
     max_concurrency: int,
+    project_input: PreparedProjectInput | None = None,
 ) -> ResolveResult:
     """Run the resolver and map known user-facing failures to process exits.
 
@@ -374,6 +363,7 @@ def _resolve(  # noqa: PLR0913, PLR0912, C901 - one wrapper per resolve_for_targ
                     resolution_strategy=resolution_strategy,
                     progress=progress,
                     max_concurrency=max_concurrency,
+                    project_input=project_input,
                 )
         finally:
             if progress is not None:
@@ -383,6 +373,7 @@ def _resolve(  # noqa: PLR0913, PLR0912, C901 - one wrapper per resolve_for_targ
         sys.exit(1)
     except (
         ScriptMetadataError,
+        InputChangedError,
         UnsupportedVcsError,
         MissingExtraError,
         SiblingMetadataDivergenceError,
@@ -396,8 +387,8 @@ def _resolve(  # noqa: PLR0913, PLR0912, C901 - one wrapper per resolve_for_targ
     except InvalidUploadTimeError as e:
         printer().error(e)
         sys.exit(1)
-    except KeyError:
-        printer().error(f"{path} has no [project].dependencies")
+    except MissingProjectTableError:
+        printer().error(f"{path} has no [project] table")
         sys.exit(1)
     except InvalidProjectTableError as e:
         printer().error(e, prefix=f"in {path}: ")

@@ -23,7 +23,6 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Optional
 
-from matrx_utils import vcprint
 
 #: A mandate key that arrives as DATA at this boundary (the memory package's Observer/Reflector names it per
 #: call): a runtime-keyed door, its offer checked by the runner's completeness gate before any spend
@@ -191,11 +190,14 @@ class MemoryLLMAdapter:
         ]
         config = held_request_config(held, extra_turns=turns)
         if model:
-            config.model = model
+            from matrx_ai.config.unified_config import adopt_model_for_conversation
+
             # The caller's class rides with the caller's model; the Holder's
-            # class pin belongs to the Holder's model only.
-            config.offering_id = held.pick_offering(
-                model, offering_id, where=f"memory.{event_type}"
+            # class pin belongs to the Holder's model only. This call's own record.
+            adopt_model_for_conversation(
+                config,
+                model,
+                offering_id=held.pick_offering(model, offering_id, where=f"memory.{event_type}"),
             )
         model = config.model
         # Every AI run keeps its history (owner ruling 2026-10-05): this paid
@@ -214,18 +216,28 @@ class MemoryLLMAdapter:
         started_at = datetime.now(UTC)
         t0 = time.time()
         error_text: Optional[str] = None
+        failure: BaseException | None = None
         text_out = ""
         usage = None
         cost: float = 0.0
         input_tokens = 0
         output_tokens = 0
 
+        # THE METER (P8-RUNS, 2026-11-17): this call bypasses the engine loop, so nothing else banks it — the
+        # ``cx_observational_memory_event`` row below is a record, not a ledger. ``metered_one_shot`` banks it once.
+        from matrx_ai.orchestrator.executor import metered_one_shot
+
         try:
-            response = await client.execute(
-                request, transient_retries=memory_transient_retries()
-            )
+            async with metered_one_shot(
+                self.ctx, feature=f"memory.{event_type}", label=str(mandate_key)
+            ) as billed:
+                response = await client.execute(
+                    request, transient_retries=memory_transient_retries()
+                )
+                usage = getattr(response, "usage", None)
+                if usage is not None:
+                    billed.append(usage)
             text_out = _extract_response_text(response)
-            usage = getattr(response, "usage", None)
             if usage is not None:
                 input_tokens = int(getattr(usage, "input_tokens", 0) or 0) + int(
                     getattr(usage, "cached_input_tokens", 0) or 0
@@ -246,6 +258,7 @@ class MemoryLLMAdapter:
             logger.warning("[OM:llm_adapter] LLM call canceled mid-stream")
             raise
         except Exception as exc:
+            failure = exc
             error_text = f"{type(exc).__name__}: {exc}"
             logger.warning("[OM:llm_adapter] LLM call failed: %s", error_text)
         finally:
@@ -289,7 +302,8 @@ class MemoryLLMAdapter:
         if error_text is not None:
             # Propagate so OM's internal error handling converts this to a log
             # entry without blowing up the main conversation turn.
-            raise RuntimeError(error_text)
+            # Chained, so a caller can still tell a refusal (a spend cap) from a fault.
+            raise RuntimeError(error_text) from failure
         return text_out
 
 
@@ -305,6 +319,38 @@ def _get_client() -> Any:
 
         _CLIENT_SINGLETON = UnifiedAIClient()
     return _CLIENT_SINGLETON
+
+
+async def _event_request_link(ctx: Any) -> tuple[str | None, str | None]:
+    """``(user_request_id, unlinked_request_id)`` for an OM event written under ``ctx``.
+
+    ``chat.observational_memory_event.user_request_id`` is an FK to ``chat.user_request``. A
+    memory call made inside a person's chat turn runs under that turn's recorded request and
+    links to it. A memory call made by a system process (the nightly conversation reflection,
+    ``identity.person_scope``) runs under an ambient request id that no ``user_request`` row
+    carries; stamping it made every insert an FK violation and the cost row was lost
+    (write_failure b88a7d92, 2026-11-17). Such an event is written unlinked, naming the
+    ambient id in ``metadata.context_request_id``. Unknown (a read that cannot answer) is
+    never "absent": the link is kept and the lost-write recorder stays the alarm.
+
+    The test is ``chat.user_request`` ONLY. ``request_has_record`` also answers True for a
+    durable RUNTIME spine request (``runtime.global_request``, marked by ``runtime/entry``),
+    which the FK does not accept: a coding-session observer run under a spine request linked
+    to it and lost its cost row (write_failure cc7e170b, 2026-11-18).
+    """
+    rid = str(getattr(ctx, "request_id", "") or "")
+    if not rid:
+        return None, None
+    try:
+        from matrx_ai.db.conversation_gate import _user_request_was_recorded
+
+        if await _user_request_was_recorded(rid):
+            return rid, None
+    except Exception as exc:  # noqa: BLE001 — unknown is never "absent"
+        logger.warning("OM event: could not check request row %s (%s); keeping the link", rid, exc)
+        return rid, None
+    logger.info("OM event: request %s has no user_request row (a system process); written unlinked", rid)
+    return None, rid
 
 
 async def _write_event(
@@ -334,11 +380,12 @@ async def _write_event(
         from matrx_ai.persistence import queue_om_event_create, standalone_coordinator
 
         event_id = str(uuid.uuid4())
+        user_request_id, unlinked_request_id = await _event_request_link(ctx)
         fields = {
             "memory_record_id": memory_record_id,
             "conversation_id": conversation_id,
             "created_by": str(getattr(ctx, "user_id", "") or ""),
-            "user_request_id": str(getattr(ctx, "request_id", "") or "") or None,
+            "user_request_id": user_request_id,
             "event_type": event_type,
             "model": model,
             "input_tokens": input_tokens,
@@ -350,7 +397,7 @@ async def _write_event(
             "success": success,
             "error": error,
             "trigger_reason": trigger_reason,
-            "metadata": {},
+            "metadata": {"context_request_id": unlinked_request_id} if unlinked_request_id else {},
             "created_at": datetime.now(UTC),
         }
         async with standalone_coordinator(

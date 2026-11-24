@@ -21,6 +21,8 @@ class EditErrorHandlerNew:
         extra_args (Union[Unset, EditErrorHandlerNewExtraArgs]): The arguments to pass to the script or flow
         muted_on_cancel (Union[Unset, bool]):
         muted_on_user_path (Union[Unset, bool]):
+        muted_on_ui_runs (Union[Unset, bool]): Skip jobs started from the UI, whose trigger kind is `ui`. Omit to leave
+            the stored value untouched.
         fallback_to_instance_alerts (Union[Unset, bool]): Report failed jobs to the instance critical alert channels
             when no workspace error handler is set. Omit to leave the stored value untouched.
     """
@@ -29,6 +31,7 @@ class EditErrorHandlerNew:
     extra_args: Union[Unset, "EditErrorHandlerNewExtraArgs"] = UNSET
     muted_on_cancel: Union[Unset, bool] = False
     muted_on_user_path: Union[Unset, bool] = False
+    muted_on_ui_runs: Union[Unset, bool] = UNSET
     fallback_to_instance_alerts: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -40,6 +43,7 @@ class EditErrorHandlerNew:
 
         muted_on_cancel = self.muted_on_cancel
         muted_on_user_path = self.muted_on_user_path
+        muted_on_ui_runs = self.muted_on_ui_runs
         fallback_to_instance_alerts = self.fallback_to_instance_alerts
 
         field_dict: Dict[str, Any] = {}
@@ -53,6 +57,8 @@ class EditErrorHandlerNew:
             field_dict["muted_on_cancel"] = muted_on_cancel
         if muted_on_user_path is not UNSET:
             field_dict["muted_on_user_path"] = muted_on_user_path
+        if muted_on_ui_runs is not UNSET:
+            field_dict["muted_on_ui_runs"] = muted_on_ui_runs
         if fallback_to_instance_alerts is not UNSET:
             field_dict["fallback_to_instance_alerts"] = fallback_to_instance_alerts
 
@@ -76,6 +82,8 @@ class EditErrorHandlerNew:
 
         muted_on_user_path = d.pop("muted_on_user_path", UNSET)
 
+        muted_on_ui_runs = d.pop("muted_on_ui_runs", UNSET)
+
         fallback_to_instance_alerts = d.pop("fallback_to_instance_alerts", UNSET)
 
         edit_error_handler_new = cls(
@@ -83,6 +91,7 @@ class EditErrorHandlerNew:
             extra_args=extra_args,
             muted_on_cancel=muted_on_cancel,
             muted_on_user_path=muted_on_user_path,
+            muted_on_ui_runs=muted_on_ui_runs,
             fallback_to_instance_alerts=fallback_to_instance_alerts,
         )
 

@@ -36,9 +36,9 @@ AgentRunStage = get_model("AgentRunStage")
 
 
 class AgentRunManager(AgentRunBase):
-    _instance: "AgentRunManager | None" = None
+    _instance: AgentRunManager | None = None
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "AgentRunManager":
+    def __new__(cls, *args: Any, **kwargs: Any) -> AgentRunManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -51,9 +51,9 @@ class AgentRunManager(AgentRunBase):
 
 
 class AgentRunStageManager(AgentRunStageBase):
-    _instance: "AgentRunStageManager | None" = None
+    _instance: AgentRunStageManager | None = None
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "AgentRunStageManager":
+    def __new__(cls, *args: Any, **kwargs: Any) -> AgentRunStageManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -72,9 +72,9 @@ agent_run_stage_manager_instance = AgentRunStageManager()
 class ArmManagers:
     """Singleton aggregator for the agent-run managers."""
 
-    _instance: "ArmManagers | None" = None
+    _instance: ArmManagers | None = None
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "ArmManagers":
+    def __new__(cls, *args: Any, **kwargs: Any) -> ArmManagers:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance

@@ -14,6 +14,11 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 import respx
+from packaging.markers import Marker, default_environment
+from packaging.pylock import Pylock
+from packaging.ranges import VersionRange
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from nab_index.client import SdistFile, WheelFile
 from nab_index.httpx_async_transport import HttpxAsyncTransport
@@ -24,8 +29,6 @@ from nab_project._resolve.engine import (
     _ResolveObserver,
     _walk_no_versions_packages,
 )
-from nab_project._testing.coordinator_fake import FakeFetchPort, make_coordinator
-from nab_project._testing.yanking import graph_port
 from nab_project.conflicts import (
     ConflictKind,
     ConflictMember,
@@ -51,17 +54,11 @@ from nab_project.resolve import (
     _group_requirements_by_group,
     _ProjectTables,
     build_lock_input,
-    build_resolver_inputs,
     inputs_for_build_requirements,
     resolve_for_targets,
     resolve_with_coordinator,
 )
 from nab_provider._provider import listing_diagnosis
-from nab_provider._vendor.packaging.markers import Marker, default_environment
-from nab_provider._vendor.packaging.pylock import Pylock
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.errors import ConfigError
 from nab_provider.marker_holds import dependency_marker_holds
 from nab_provider.metadata import WheelMetadata
@@ -80,9 +77,10 @@ from nab_provider.requirements_file import (
     InvalidProjectRequirementError,
     expand_extra_requirements,
 )
+from nab_provider.resolver_inputs import build_resolver_inputs
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import Matrix, ResolveTarget
-from nab_provider.testing import make_metadata, make_wheel
+from nab_provider.testing import FakeFetchPort, make_metadata, make_wheel
 from nab_provider.vcs_admission import VcsPolicy
 from nab_resolver.errors import (
     ResolutionError,
@@ -94,6 +92,9 @@ from nab_resolver.errors import (
 from nab_resolver.ranges import Range
 from nab_resolver.resolver import Resolver
 from nab_resolver.types import Incompatibility, IncompatibilityCause, Term
+from nab_test_support.coordinator import make_coordinator
+
+from .yanked_releases import make_release_coordinator
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -280,7 +281,7 @@ def _malformed_group_pyproject(tmp_path: Path) -> Path:
 @pytest.fixture
 def python_marker_fetch_port() -> FakeFetchPort:
     """Serve leaf dependencies on both sides of the Python 3.12 boundary."""
-    return graph_port(
+    return make_release_coordinator(
         (
             (
                 "foo",
@@ -1059,7 +1060,7 @@ class TestResolvePyproject:
             '[project]\ndependencies = ["foo===custom", "bar>=1.0"]\n',
         )
 
-        coordinator = graph_port(
+        coordinator = make_release_coordinator(
             (
                 ("foo", "1.0", False, ()),
                 ("bar", "1.0", False, ()),
@@ -1118,7 +1119,7 @@ class TestResolvePyproject:
             '[tool.nab]\nconstraints = ["bar<2.0", "skip===custom"]\n',
         )
 
-        coordinator = graph_port(
+        coordinator = make_release_coordinator(
             (
                 ("foo", "2.0", False, ("bar>=1.0",)),
                 ("bar", "1.0", False, ()),
@@ -1165,7 +1166,7 @@ class TestResolvePyproject:
             '[project]\ndependencies = ["requests[security]>=2.0"]\n',
         )
 
-        coordinator = graph_port(
+        coordinator = make_release_coordinator(
             (
                 (
                     "requests",
@@ -1427,7 +1428,7 @@ class TestResolvePyproject:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text('[project]\ndependencies = ["foo"]\n')
 
-        coordinator = graph_port(
+        coordinator = make_release_coordinator(
             (
                 ("foo", "2.0", False, ("urllib3>=1.0",)),
                 ("urllib3", "1.0", False, ()),
@@ -2560,9 +2561,10 @@ class TestResolveUniversalPyproject:
 
         expected_pins = {
             "3.10.0": {"base": V("1.0"), "foo": V("1.0")},
+            "3.10.4.dev0": {"base": V("1.0")},
             "3.10.4": {"base": V("1.0"), "foo": V("2.0")},
         }
-        assert len(result.target_results) == 2
+        assert len(result.target_results) == 3
         assert {
             tr.target.marker_env["python_full_version"]: tr.pins
             for tr in result.target_results
@@ -2869,7 +2871,7 @@ class TestResolvePyprojectVcs:
             'allowed-repos = ["https://github.com/"]\n',
         )
 
-        with pytest.raises(NotImplementedError, match="not implemented"):
+        with pytest.raises(NotImplementedError, match="to vcs-sources"):
             _resolved(
                 pyproject,
                 _FAKE_TRANSPORT,
@@ -3290,9 +3292,14 @@ class TestBuildResolverInputs:
         )
         assert [root.package for root in inputs.roots] == ["foo", "foo[dev]", "foo"]
 
-    def test_root_extra_marker_warns(self, caplog: pytest.LogCaptureFixture) -> None:
-        """A root requirement gated on ``extra ==`` is dropped with a warning."""
-        reqs = [Requirement('foo ; extra == "test"')]
+    @pytest.mark.parametrize(
+        "marker", ['extra == "test"', '"test" == extra', '"test" == "extra"']
+    )
+    def test_root_extra_marker_warns(
+        self, marker: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Warn about a dropped root requirement with the extra on either side."""
+        reqs = [Requirement(f"foo; {marker}")]
         with caplog.at_level("WARNING", logger="nab_provider.resolver_inputs"):
             resolver_requirements = build_resolver_inputs(
                 reqs,
@@ -3362,10 +3369,26 @@ class TestBuildResolverInputs:
         assert "foo" in resolver_requirements
         assert not caplog.records
 
-    def test_env_gated_drop_is_silent(self, caplog: pytest.LogCaptureFixture) -> None:
+    @pytest.mark.parametrize(
+        "marker",
+        [
+            'python_version < "3.0"',
+            'sys_platform == "extras"',
+            'sys_platform == "dependency_groups"',
+            'sys_platform == "extra == debug"',
+            '"extras" == sys_platform',
+        ],
+    )
+    def test_env_gated_drop_is_silent(
+        self, marker: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """A requirement dropped by a plain env marker stays silent."""
-        reqs = [Requirement('foo ; python_version < "3.0"')]
-        env = {"python_version": "3.11", "python_full_version": "3.11.2"}
+        reqs = [Requirement(f"foo; {marker}")]
+        env = {
+            "python_version": "3.11",
+            "python_full_version": "3.11.2",
+            "sys_platform": "linux",
+        }
         with caplog.at_level("WARNING", logger="nab_provider.resolver_inputs"):
             resolver_requirements = build_resolver_inputs(
                 reqs,
@@ -3395,29 +3418,25 @@ class TestBuildResolverInputs:
         )
         assert "try: use pkg[extra] to select an extra" in record.message
 
-    def test_warning_cause_holds_when_the_extra_was_selected(
+    def test_selected_project_extra_does_not_bind_markers_on_base_requirements(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """The cause it gives is true on a run that did select the extra.
-
-        ``--extras fast`` folds the extra's entries into the requirement list
-        and leaves the marker environment alone, so blaming an inactive extra
-        would send the user after a flag they already passed.
-        """
         selected = expand_extra_requirements(
-            {"fast": ['foo<2.0 ; extra == "fast"']}, "proj", ["fast"]
+            {"fast": ["bar"]}, "proj", ["fast"], bind_extra_markers=True
         )
         with caplog.at_level("WARNING", logger="nab_provider.resolver_inputs"):
-            build_resolver_inputs(
-                selected,
+            result = build_resolver_inputs(
+                [Requirement('foo<2.0; extra == "fast"'), *selected],
                 VcsConfig(),
                 environment={},
                 marker_holds=dependency_marker_holds,
             )
 
+        assert set(result.ranges) == {"bar"}
         (record,) = caplog.records
         assert (
-            "folded into the requirements rather than the environment" in record.message
+            "Selecting an extra or group adds its requirements directly"
+            in record.message
         )
         assert "no extra or dependency group is active" not in record.message
 
@@ -3930,7 +3949,8 @@ class TestFindGroupConflictsManyGroups:
         per_group = self._disjoint_groups()
         per_group[self._LEFT].append(Requirement("shared<2"))
         per_group[self._RIGHT].append(Requirement("shared>=2"))
-        conflicts = _find_group_conflicts(per_group, environment={})
+        empty_groups, conflicts = _find_group_conflicts(per_group, environment={})
+        assert empty_groups == []
         assert len(conflicts) == 1
         conflict = conflicts[0]
         assert conflict.left_group == self._LEFT
@@ -3945,7 +3965,7 @@ class TestFindGroupConflictsManyGroups:
         per_group = self._disjoint_groups()
         per_group[self._LEFT].append(Requirement("shared>=1"))
         per_group[self._RIGHT].append(Requirement("shared<5"))
-        assert _find_group_conflicts(per_group, environment={}) == []
+        assert _find_group_conflicts(per_group, environment={}) == ([], [])
 
     def test_self_empty_group_pairs_with_nobody(self) -> None:
         """One group's own contradiction stays out of the pairwise walk."""
@@ -3954,7 +3974,11 @@ class TestFindGroupConflictsManyGroups:
             [Requirement("shared>=2"), Requirement("shared<1")]
         )
         per_group[self._RIGHT].append(Requirement("shared>=1"))
-        assert _find_group_conflicts(per_group, environment={}) == []
+        empty_groups, conflicts = _find_group_conflicts(per_group, environment={})
+        assert [(item.group, item.package) for item in empty_groups] == [
+            (self._LEFT, "shared")
+        ]
+        assert conflicts == []
 
 
 class TestResolvePyprojectGroupConflict:
@@ -6077,20 +6101,17 @@ class TestLockDeclaresItsEnvironment:
         assert set(below.pins) == {"foo"}
         assert set(above.pins) == {"foo", "bar"}
 
-        rows = {
-            "below" if 'python_full_version < "3.12.4"' in str(m) else "above": str(m)
-            for m in lock_input.environments
-        }
-        assert set(rows) == {"below", "above"}
-        assert 'python_full_version >= "3.12.4.dev0"' in rows["above"]
-
-        # The two rows are disjoint and together cover the whole minor.
-        low = {**_PY312_ENV, "python_full_version": "3.12.1"}
-        high = {**_PY312_ENV, "python_full_version": "3.12.5"}
-        assert Marker(rows["below"]).evaluate(low)
-        assert not Marker(rows["below"]).evaluate(high)
-        assert Marker(rows["above"]).evaluate(high)
-        assert not Marker(rows["above"]).evaluate(low)
+        rows = lock_input.environments
+        assert len(rows) == 2
+        for version, expected in [
+            ("3.12.1", below),
+            ("3.12.4rc1", below),
+            ("3.12.4", above),
+            ("3.12.5", above),
+        ]:
+            env = {**_PY312_ENV, "python_full_version": version}
+            assert sum(row.evaluate(env) for row in rows) == 1
+            assert Marker(expected.target.environment_marker_string).evaluate(env)
 
 
 _BASE_GROUP = '[tool.nab]\nbase-group = "default"\n'
@@ -8077,7 +8098,7 @@ class TestFetchWidth:
 def test_terminal_solver_graphs_do_not_acquire_no_versions_diagnostics(
     error_type: type[ResolutionTerminatedError],
 ) -> None:
-    provider = Provider(graph_port([("missing-pkg", "1", False, [])]))
+    provider = Provider(make_release_coordinator([("missing-pkg", "1", False, [])]))
     bounds = VersionRange.singleton(V("2"))
     assert provider.choose_version("missing-pkg", bounds) is None
     assert provider.get_no_versions_reason("missing-pkg", bounds) is not None

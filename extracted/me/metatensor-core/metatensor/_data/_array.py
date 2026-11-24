@@ -1,9 +1,11 @@
 import ctypes
+import warnings
 from typing import NewType, Union
 
 import numpy as np
 from ctypes_dlpack import (
     DLDataType,
+    DLDataTypeCode,
     DLDevice,
     DLDeviceType,
     DLManagedTensorVersioned,
@@ -47,9 +49,12 @@ not know what's inside the arrays appart from a small set of constrains:
 - they are stored as row-major, n-dimensional arrays with at least 2 dimensions;
 - it is possible to create new arrays and move data from one array to another.
 
-The actual type of an ``Array`` depends on how the :py:class:`metatensor.TensorBlock`
-was created. Currently, :py:class:`numpy.ndarray` and :py:class:`torch.Tensor` are
-supported.
+The actual type of an ``Array`` depends on how the :py:class:`metatensor.TensorBlock` or
+:py:class:`metatensor.Labels` was created. Data created from Python can be either
+:py:class:`numpy.ndarray` or :py:class:`torch.Tensor`. Data created outside of Python is
+accessed through DLPack, and can be returned as :py:class:`numpy.ndarray`,
+:py:class:`torch.Tensor` or :py:class:`ctypes_dlpack.DLPackArray` depending on the
+``array_backend`` choice made when creating the corresponding Python object.
 """
 
 
@@ -62,11 +67,11 @@ def _register_origin(name):
     return origin.value
 
 
-def _is_numpy_array(array):
+def is_numpy_array(array):
     return isinstance(array, np.ndarray)
 
 
-def _is_torch_array(array):
+def is_torch_array(array):
     if not HAS_TORCH:
         return False
 
@@ -126,9 +131,9 @@ Device = Union[str, torch_device]
 
 
 def array_backend(array) -> str:
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         return "numpy"
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         return "torch"
     else:
         raise TypeError(f"unknown array type: {type(array)}")
@@ -136,7 +141,7 @@ def array_backend(array) -> str:
 
 def array_dtype(array) -> DType:
     """Get the dtype of an array"""
-    if _is_numpy_array(array) or _is_torch_array(array):
+    if is_numpy_array(array) or is_torch_array(array):
         return array.dtype
     else:
         raise TypeError(f"unknown array type: {type(array)}")
@@ -144,9 +149,9 @@ def array_dtype(array) -> DType:
 
 def array_change_dtype(array, dtype: DType, non_blocking: bool):
     """Change the dtype of an array"""
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         return array.astype(dtype, copy=False)
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         return array.to(dtype=dtype, non_blocking=non_blocking, copy=False)
     else:
         raise TypeError(f"unknown array type: {type(array)}")
@@ -154,9 +159,9 @@ def array_change_dtype(array, dtype: DType, non_blocking: bool):
 
 def array_dtype_is_integer(array) -> bool:
     """Check if the dtype of an array is an integer type"""
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         return np.issubdtype(array.dtype, np.integer)
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         # no `is_integer` in torch, despite `is_floating_point` and `is_complex` =(
         return array.dtype in TORCH_INTEGER_DTYPES
     else:
@@ -165,11 +170,11 @@ def array_dtype_is_integer(array) -> bool:
 
 def array_dtype_to_int32(array) -> Array:
     """Convert the dtype of an array to int32"""
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         return array.astype(
             np.int32,
         )
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         return array.to(dtype=torch.int32, copy=False)
     else:
         raise TypeError(f"unknown array type: {type(array)}")
@@ -177,9 +182,9 @@ def array_dtype_to_int32(array) -> Array:
 
 def array_device(array) -> Device:
     """Get the device of an array"""
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         return "cpu"
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         return array.device
     else:
         raise TypeError(f"unknown array type: {type(array)}")
@@ -187,9 +192,9 @@ def array_device(array) -> Device:
 
 def array_device_is_cpu(array) -> bool:
     """Check if the device of an array is CPU"""
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         return True
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         return array.device.type == torch.device("cpu").type
     else:
         raise TypeError(f"unknown array type: {type(array)}")
@@ -197,18 +202,18 @@ def array_device_is_cpu(array) -> bool:
 
 def array_change_device(array, device: Device, non_blocking: bool):
     """Change the device of an array"""
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         if str(device) != "cpu":
             raise ValueError(f"can not move numpy array to non-cpu device: {device}")
         return array
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         return array.to(device=device, non_blocking=non_blocking)
     else:
         raise TypeError(f"unknown array type: {type(array)}")
 
 
 def array_change_backend(array, backend: str):
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         if backend == "numpy":
             return array
         elif backend == "torch":
@@ -224,7 +229,7 @@ def array_change_backend(array, backend: str):
         else:
             raise ValueError(f"unknown array backend: '{backend}'")
 
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         if backend == "numpy":
             return array.numpy()
         elif backend == "torch":
@@ -234,6 +239,36 @@ def array_change_backend(array, backend: str):
 
     else:
         raise TypeError(f"unknown array type: {type(array)}")
+
+
+_DLPACK_TO_NUMPY = {
+    (DLDataTypeCode.kDLFloat, 16): np.float16,
+    (DLDataTypeCode.kDLFloat, 32): np.float32,
+    (DLDataTypeCode.kDLFloat, 64): np.float64,
+    (DLDataTypeCode.kDLInt, 8): np.int8,
+    (DLDataTypeCode.kDLInt, 16): np.int16,
+    (DLDataTypeCode.kDLInt, 32): np.int32,
+    (DLDataTypeCode.kDLInt, 64): np.int64,
+    (DLDataTypeCode.kDLUInt, 8): np.uint8,
+    (DLDataTypeCode.kDLUInt, 16): np.uint16,
+    (DLDataTypeCode.kDLUInt, 32): np.uint32,
+    (DLDataTypeCode.kDLUInt, 64): np.uint64,
+    (DLDataTypeCode.kDLBool, 8): np.bool_,
+    (DLDataTypeCode.kDLComplex, 64): np.complex64,
+    (DLDataTypeCode.kDLComplex, 128): np.complex128,
+}
+
+
+def dlpack_dtype_to_numpy(dtype):
+    """Convert a DLDataType to a numpy dtype."""
+    if dtype.lanes != 1:
+        raise ValueError(f"unsupported DLDataType: lanes={dtype.lanes} (expected 1)")
+    result = _DLPACK_TO_NUMPY.get((dtype.code, dtype.bits))
+    if result is None:
+        raise ValueError(
+            f"unsupported DLDataType: code={dtype.code}, bits={dtype.bits}"
+        )
+    return result
 
 
 class ArrayWrapper:
@@ -265,11 +300,11 @@ def create_mts_array(array):
 
     wrapper = ArrayWrapper(array, c_shape)
 
-    if _is_numpy_array(array):
+    if is_numpy_array(array):
         mts_array_origin = _MTS_ARRAY_ORIGIN_NUMPY
         mts_array_device = _MTS_ARRAY_DEVICE_NUMPY
         mts_array_dtype = _MTS_ARRAY_DTYPE_NUMPY
-    elif _is_torch_array(array):
+    elif is_torch_array(array):
         mts_array_origin = _MTS_ARRAY_ORIGIN_PYTORCH
         mts_array_device = _MTS_ARRAY_DEVICE_PYTORCH
         mts_array_dtype = _MTS_ARRAY_DTYPE_PYTORCH
@@ -370,9 +405,9 @@ def _mts_array_create(this, shape_ptr, shape_count, fill_value, new_array):
     # Extract the scalar fill value from the fill_value mts_array_t using as_dlpack
     scalar = _extract_scalar_from_mts_array(fill_value)
 
-    if _is_numpy_array(wrapper.array):
+    if is_numpy_array(wrapper.array):
         array = np.full(shape, scalar, dtype=dtype)
-    elif _is_torch_array(wrapper.array):
+    elif is_torch_array(wrapper.array):
         array = torch.full(shape, scalar, dtype=dtype, device=wrapper.array.device)
 
     if ctypes.cast(fill_value.destroy, ctypes.c_void_p).value is not None:
@@ -385,13 +420,13 @@ def _mts_array_create(this, shape_ptr, shape_count, fill_value, new_array):
 def _mts_array_copy(this, device, new_array):
     wrapper = _KNOWN_ARRAY_WRAPPERS[this]
 
-    if _is_numpy_array(wrapper.array):
+    if is_numpy_array(wrapper.array):
         if device.device_type != DLDeviceType.kDLCPU:
             raise ValueError(
                 f"can not copy numpy array to non-cpu device: {device.device_type}"
             )
         array = wrapper.array.copy()
-    elif _is_torch_array(wrapper.array):
+    elif is_torch_array(wrapper.array):
         array = wrapper.array
 
         if array.device.type == "meta":
@@ -521,9 +556,9 @@ def _mts_array_from_dlpack(this, dl_tensor, new_array):
 
     wrapper = _KNOWN_ARRAY_WRAPPERS[this]
 
-    if _is_numpy_array(wrapper.array):
+    if is_numpy_array(wrapper.array):
         array = np.from_dlpack(DLPackArray(dl_tensor))
-    elif _is_torch_array(wrapper.array):
+    elif is_torch_array(wrapper.array):
         array = torch.from_dlpack(DLPackArray(dl_tensor))
     else:
         raise ValueError(f"unknown array type: {type(wrapper.array)}")
@@ -712,9 +747,27 @@ _DEFAULT_MTS_ARRAY = mts_array_t(
 
 
 def to_arguments_parse(context, *args, **kwargs):
-    """Parse arguments to the various `to()` functions"""
+    """
+    Parse arguments to the various `to()` functions, returning ``dtype``, ``device``
+    and ``array_backend``.
+    """
     dtype = kwargs.get("dtype")
     device = kwargs.get("device")
+    array_backend = kwargs.get("array_backend")
+
+    if "arrays" in kwargs:
+        if array_backend is not None:
+            raise ValueError(
+                f"can not give both `arrays` and `array_backend` in {context}"
+            )
+
+        warnings.warn(
+            f"the `arrays` parameter of {context} is deprecated, "
+            "please use `array_backend` instead",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        array_backend = kwargs["arrays"]
 
     for positional in args:
         if isinstance(positional, Device):
@@ -747,4 +800,4 @@ def to_arguments_parse(context, *args, **kwargs):
 
         raise TypeError(f"unexpected type in {context}: {type(positional)}")
 
-    return dtype, device
+    return dtype, device, array_backend

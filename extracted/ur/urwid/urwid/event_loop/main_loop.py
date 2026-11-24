@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import contextvars
+import enum
 import functools
 import heapq
 import inspect
@@ -49,7 +50,7 @@ from .abstract_loop import ExitMainLoop
 from .select_loop import SelectEventLoop
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable, Iterator
+    from collections.abc import Callable, Generator, Iterable
     from typing import Literal, ParamSpec, Self
 
     from urwid.display import BaseScreen
@@ -125,6 +126,23 @@ class _Activation:
         self.previous = previous  # the start entry of the same loop that this one is nested in
 
 
+class _ThreadCall:
+    """One call queued by :meth:`MainLoop.call_from_thread`."""
+
+    __slots__ = ("__weakref__", "call", "taken")
+
+    def __init__(self, call: Callable[[], object]) -> None:
+        self.call: typing.Final = call
+        # Set by the loop thread before it runs the call, so the sender can tell a call that ran from a dropped one.
+        self.taken = False
+
+
+class _NoThreadCalls(enum.Enum):
+    """Why a run of :class:`MainLoop` takes no :meth:`MainLoop.call_from_thread` calls although it is running."""
+
+    UNWATCHABLE = enum.auto()  # the event loop cannot watch files, such as asyncio's ProactorEventLoop
+
+
 class _ThreadCalls:
     """Calls handed to a running :class:`MainLoop` from other threads, for one run of the loop.
 
@@ -136,7 +154,7 @@ class _ThreadCalls:
 
     def __init__(self, reader: socket.socket, writer: socket.socket) -> None:
         # append() and popleft() of a deque are atomic, so neither a thread nor a signal handler takes a lock.
-        self.calls: deque[Callable[[], object]] = deque()
+        self.calls: deque[_ThreadCall] = deque()
         self.reader: typing.Final = reader  # watched by the event loop; one byte is sent per wake-up
         self.writer: typing.Final = writer
         self.handle: typing.Any = None  # the event loop's watch of reader
@@ -216,6 +234,11 @@ class MainLoop:
                           ``None``, the default, checks them only after input or an alarm.
                           See :ref:`screens-without-event-loop-support`.
 
+    :param resized: a function called with the new screen size once the screen stopped changing its size,
+                    called from :meth:`.resized`
+
+    :param resize_delay: seconds without a further resize that :meth:`.resized` waits for, 0.1 by default
+
 
     .. attribute:: screen
 
@@ -240,9 +263,11 @@ class MainLoop:
         "_input_filter",
         "_poll_interval",
         "_pop_ups",
+        "_resize_alarm",
+        "_resize_delay",
+        "_resized",
         "_size_read_after_resize",
         "_thread_calls",
-        "_thread_calls_unwatchable",
         "_topmost_widget",
         "_unhandled_input",
         "_watch_pipes",
@@ -269,15 +294,24 @@ class MainLoop:
         pop_ups: bool = False,
         *,
         poll_interval: float | None = None,
+        resized: Callable[[tuple[int, int]], None] | None = None,
+        resize_delay: float = 0.1,
     ) -> None:
         """
         Set up the main loop around a top-level widget, a screen and an event loop.
 
         :raises NotImplementedError: an *event_loop* is given but *screen* does not support external event loops.
         :raises ValueError: *poll_interval* is not ``None`` or a finite number of seconds of at least 0.1.
+            Also when *resize_delay* is not a finite, non-negative number of seconds.
         """
+        if not (math.isfinite(resize_delay) and resize_delay >= 0):
+            raise ValueError(f"resize_delay must be a finite, non-negative number of seconds, not {resize_delay!r}")
         self._poll_interval: float | None = None
         self.poll_interval = poll_interval
+        self._resized = resized
+        self._resize_delay = resize_delay
+        # the alarm that calls resized() once the resizes stop, while one is pending
+        self._resize_alarm: typing.Any = None
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self._widget = widget
         self._topmost_widget = widget
@@ -315,10 +349,9 @@ class MainLoop:
         self._watch_pipes: dict[int, tuple[typing.Any, int]] = {}
         # set from start() to stop(): the entry that makes this loop the running loop
         self._activation: _Activation | None = None
-        # set while the loop runs: the calls other threads hand over through call_from_thread()
-        self._thread_calls: _ThreadCalls | None = None
-        # set while the loop runs on an event loop that cannot watch files, so call_from_thread() is not available
-        self._thread_calls_unwatchable = False
+        # set while the loop runs: the calls other threads hand over through call_from_thread(),
+        # or the reason the run takes none
+        self._thread_calls: _ThreadCalls | typing.Literal[_NoThreadCalls.UNWATCHABLE] | None = None
 
     @property
     def widget(self) -> AbstractWidget:
@@ -614,6 +647,8 @@ class MainLoop:
 
         :raises TypeError: *callback* is an ``async def`` function, which this method cannot await.
         :raises RuntimeError: the loop is not running: before :meth:`start` or :meth:`run`, or after :meth:`stop`.
+            Also when the loop stops while this method runs, before it takes the call, which is then dropped.
+            A call the loop took does not raise, even when that call stopped the loop.
             Also while it runs on an event loop that cannot watch files,
             such as :class:`AsyncioEventLoop` on asyncio's ``ProactorEventLoop``, the default on Windows.
         """
@@ -621,16 +656,19 @@ class MainLoop:
             msg = f"call_from_thread() cannot await {callback!r}"
             raise TypeError(msg)
         if (state := self._thread_calls) is None:
-            raise RuntimeError(_CANNOT_WATCH if self._thread_calls_unwatchable else _NOT_RUNNING)
-        state.calls.append(functools.partial(callback, *args, **kwargs))
+            raise RuntimeError(_NOT_RUNNING)
+        if state is _NoThreadCalls.UNWATCHABLE:
+            raise RuntimeError(_CANNOT_WATCH)
+        entry = _ThreadCall(functools.partial(callback, *args, **kwargs))
+        state.calls.append(entry)
         with suppress(BlockingIOError):  # a full buffer means wake-ups are already pending
             state.writer.send(b"\0")
-        if not state.active:
-            # The loop stopped since the state was read, and the call sits in the deque of the ended run.
+        if not state.active and not entry.taken:
+            # The loop stopped before taking the call, so the call never runs.
             raise RuntimeError(_NOT_RUNNING)
 
     def _open_thread_calls(self) -> None:
-        """Start accepting :meth:`call_from_thread` calls, unless a run of this loop already does."""
+        """Start accepting :meth:`call_from_thread` calls, unless a run of this loop already set them up."""
         if self._thread_calls is not None:
             return
         # A socket pair rather than a pipe: select() on Windows takes sockets only.
@@ -644,7 +682,7 @@ class MainLoop:
             # asyncio's ProactorEventLoop cannot watch a socket; a screen that watches no files still runs on it.
             reader.close()
             writer.close()
-            self._thread_calls_unwatchable = True
+            self._thread_calls = _NoThreadCalls.UNWATCHABLE
             return
         except BaseException:
             reader.close()
@@ -654,15 +692,15 @@ class MainLoop:
         # would write into a reused descriptor number, or raise SIGPIPE where the application restored its default.
         weakref.finalize(state, reader.close)
         weakref.finalize(state, writer.close)
-        self._thread_calls = state
+        self._thread_calls = state  # pylint: disable=redefined-variable-type  # the state, or why a run has none
 
     def _close_thread_calls(self) -> None:
         """Stop accepting :meth:`call_from_thread` calls and drop the calls still queued."""
-        self._thread_calls_unwatchable = False
-        if (state := self._thread_calls) is None:
+        state = self._thread_calls
+        self._thread_calls = None
+        if not isinstance(state, _ThreadCalls):
             return
         try:
-            self._thread_calls = None
             state.active = False
             self.event_loop.remove_watch_file(state.handle)
         finally:
@@ -686,15 +724,16 @@ class MainLoop:
             with self._as_running():
                 for _ in range(_THREAD_CALLS_PER_PASS):
                     try:
-                        call = state.calls.popleft()
+                        entry = state.calls.popleft()
                     except IndexError:
                         break
+                    entry.taken = True
                     try:
-                        call()
+                        entry.call()
                     except ExitMainLoop:
                         raise
                     except Exception:
-                        self.logger.exception("Unhandled exception in callback %r called from a thread", call)
+                        self.logger.exception("Unhandled exception in callback %r called from a thread", entry.call)
                     if not state.active:
                         break  # a call stopped the loop
         finally:
@@ -711,6 +750,14 @@ class MainLoop:
         If you would prefer to manage the event loop yourself, don't use this
         method.  Instead, call :meth:`start` before starting the event loop,
         and :meth:`stop` once it's finished.
+
+        :raises RuntimeError: the event loop refuses to run from where this is called.
+            The asyncio, Tornado, Trio, Twisted and ZMQ loops refuse while they are running.
+            The asyncio, Tornado and ZMQ loops also refuse while another asyncio loop is running in this thread.
+            The Trio loop also refuses inside another Trio run.
+            Under ``nest_asyncio``, which lets asyncio loops run nested,
+            the asyncio, Tornado and ZMQ loops do not refuse.
+            Nothing is started before the error.
         """
         with suppress(ExitMainLoop):
             self._run()
@@ -730,6 +777,7 @@ class MainLoop:
         >>> evl.watch_file_rval = 2
         >>> ml = MainLoop(w, [], scr, event_loop=evl)
         >>> ml.run()  # doctest:+ELLIPSIS
+        event_loop._check_run()
         screen.start()
         screen.set_mouse_tracking()
         screen.unhook_event_loop(...)
@@ -813,6 +861,7 @@ class MainLoop:
         try:
             self._close_thread_calls()
         finally:
+            self._remove_resize_alarm()
             self.event_loop.remove_enter_idle(self.idle_handle)
             self.idle_handle = None
             signals.disconnect_signal(self.screen, INPUT_DESCRIPTORS_CHANGED, self._reset_input_descriptors)
@@ -821,7 +870,7 @@ class MainLoop:
             self.screen.stop()
 
     @contextmanager
-    def paused(self) -> Iterator[None]:
+    def paused(self) -> Generator[None]:
         """Hand the terminal to another program for the duration of the block.
 
         The :attr:`screen` is stopped on entry, which gives the terminal back its normal mode and buffer
@@ -829,6 +878,8 @@ class MainLoop:
         On exit the mouse tracking is restored when :attr:`handle_mouse` is set,
         the screen is cleared and the screen size is read again, so the next draw repaints all of it
         at the terminal's current size.
+        A size that changed during the block is reported to :meth:`resized`, like a resize,
+        when the size was known before the block.
         A screen that is not started is left alone on both sides of the block.
         The screen is restarted the way :meth:`start` starts it:
         an application that started its screen with ``alternate_buffer=False`` comes back in the alternate buffer.
@@ -850,6 +901,7 @@ class MainLoop:
             stopping it ends the browser session, and starting it again reads a new client request from standard input.
         """
         was_started = self.screen.started
+        size_before = self.screen_size
         if was_started:
             self.screen.stop()
         try:
@@ -861,6 +913,21 @@ class MainLoop:
                     self.screen.set_mouse_tracking()
                 self.screen.clear()
                 self.screen_size = None
+                self._report_size_change_after_pause(size_before)
+
+    def _report_size_change_after_pause(self, size_before: tuple[int, int] | None) -> None:
+        """Report the screen size to :meth:`resized` when it differs from *size_before*, the size before a pause.
+
+        A stopped screen reports no resize, so the size is compared here instead.
+        Nothing is read when nothing takes the report or no size was known before the pause:
+        the next draw then reads the size.
+        """
+        if size_before is None or (self._resized is None and type(self).resized is MainLoop.resized):
+            return
+        self.screen_size = self.screen.get_cols_rows()
+        self._size_read_after_resize = True
+        if self.screen_size != size_before:
+            self._schedule_resize_report()
 
     def _activate(self) -> None:
         """Make this loop the running loop of the current context until :meth:`_deactivate`."""
@@ -916,6 +983,9 @@ class MainLoop:
         screen.hook_event_loop(self.event_loop, self._update)
 
     def _run(self) -> None:
+        # start() changes the screen and the hooks of a run that is already in progress,
+        # so a run the event loop refuses is refused before it.
+        self.event_loop._check_run()  # pylint: disable=protected-access  # cooperating class
         try:
             self.start()
         except CantUseExternalLoop:
@@ -928,6 +998,7 @@ class MainLoop:
                 try:
                     self._close_thread_calls()
                 finally:
+                    self._remove_resize_alarm()
                     self._deactivate()
                     self.screen.stop()
         except BaseException:
@@ -1075,6 +1146,8 @@ class MainLoop:
                     # the keys after it in the same batch arrived at the new size
                     self.screen_size = None
                     self._size_read_after_resize = False
+                    if self._resized is not None or type(self).resized is not MainLoop.resized:
+                        self._schedule_resize_report()
                     continue
 
                 # a handler of an earlier key may have paused the loop, which drops the screen size
@@ -1168,6 +1241,59 @@ class MainLoop:
             return self._unhandled_input(data)
         return False
 
+    def resized(self, size: tuple[int, int]) -> None:
+        """Call the *resized* function passed to the constructor.
+
+        A ``"window resize"`` never reaches :meth:`unhandled_input`, so an application that lays itself out
+        by the screen size, such as one choosing its columns by the width, does it here.
+        It reports changes only: the application lays itself out for the size it starts at by itself.
+        A subclass may override this method instead of passing *resized*.
+
+        It is called *resize_delay* seconds after the last resize of a series, once, with the size read then.
+        A size that changed while :meth:`paused` held the terminal is reported the same way,
+        when the size was known before it.
+        The widgets meanwhile render at every new size, so the screen stays correct while it changes.
+
+        It runs on the thread running the event loop, like an alarm callback:
+
+        - a widget it changes is drawn on the way back to idle;
+        - :exc:`ExitMainLoop` raised by it stops the loop;
+        - any other exception is logged, and the loop goes on.
+
+        The loop handles no input while it runs, so slow work goes to another thread,
+        which hands its result back with :meth:`call_from_thread`.
+        A report still pending when the loop stops is dropped.
+
+        :param size: ``(cols, rows)`` of the screen
+        """
+        if self._resized is not None:
+            self._resized(size)
+
+    def _report_resize(self, _user_data: None) -> None:
+        """Call :meth:`resized` with the screen size, reading it unless it was read after the resize."""
+        self._resize_alarm = None
+        if self._activation is None:
+            # Scheduled after stop(), by a resize later in the batch whose handler stopped the loop,
+            # on an event loop the application keeps running.
+            return
+        if not self.screen_size:
+            self.screen_size = self.screen.get_cols_rows()
+            # the screen event loop then keeps it for the next draw, as a screen that scripts its sizes expects
+            self._size_read_after_resize = True
+        self.resized(self.screen_size)
+
+    def _schedule_resize_report(self) -> None:
+        """Report the screen size *resize_delay* seconds from now, replacing a pending report."""
+        # One report once the resizes stop: a report per resize holds up the input during a drag.
+        self._remove_resize_alarm()
+        self._resize_alarm = self.set_alarm_in(self._resize_delay, MainLoop._report_resize)
+
+    def _remove_resize_alarm(self) -> None:
+        """Remove the pending alarm that calls :meth:`resized`, if any."""
+        if (handle := self._resize_alarm) is not None:
+            self._resize_alarm = None
+            self.event_loop.remove_alarm(handle)
+
     def entering_idle(self) -> None:
         """Call :meth:`draw_screen` to update the screen when anything has changed.
 
@@ -1197,7 +1323,7 @@ class MainLoop:
         The widgets render with this loop as the running loop, also when the loop is not started.
         """
         with self._as_running(explicit=True):
-            if (thread_calls := self._thread_calls) is not None:
+            if isinstance(thread_calls := self._thread_calls, _ThreadCalls):
                 thread_calls.drawn = True
             if not self.screen_size:
                 self.screen_size = self.screen.get_cols_rows()

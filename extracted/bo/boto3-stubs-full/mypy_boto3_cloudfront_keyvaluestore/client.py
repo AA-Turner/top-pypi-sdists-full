@@ -98,7 +98,7 @@ class CloudFrontKeyValueStoreClient(BaseClient):
 
     def delete_key(self, **kwargs: Unpack[DeleteKeyRequestTypeDef]) -> DeleteKeyResponseTypeDef:
         """
-        Deletes the key value pair specified by the key.
+        Deletes the key-value pair specified by the key.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront-keyvaluestore/client/delete_key.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront_keyvaluestore/client/#delete_key)
@@ -108,7 +108,7 @@ class CloudFrontKeyValueStoreClient(BaseClient):
         self, **kwargs: Unpack[DescribeKeyValueStoreRequestTypeDef]
     ) -> DescribeKeyValueStoreResponseTypeDef:
         """
-        Returns metadata information about Key Value Store.
+        Returns metadata information about the key value store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront-keyvaluestore/client/describe_key_value_store.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront_keyvaluestore/client/#describe_key_value_store)
@@ -116,7 +116,7 @@ class CloudFrontKeyValueStoreClient(BaseClient):
 
     def get_key(self, **kwargs: Unpack[GetKeyRequestTypeDef]) -> GetKeyResponseTypeDef:
         """
-        Returns a key value pair.
+        Returns a key-value pair.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront-keyvaluestore/client/get_key.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront_keyvaluestore/client/#get_key)
@@ -124,7 +124,7 @@ class CloudFrontKeyValueStoreClient(BaseClient):
 
     def list_keys(self, **kwargs: Unpack[ListKeysRequestTypeDef]) -> ListKeysResponseTypeDef:
         """
-        Returns a list of key value pairs.
+        Returns a list of key-value pairs.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront-keyvaluestore/client/list_keys.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront_keyvaluestore/client/#list_keys)
@@ -132,7 +132,7 @@ class CloudFrontKeyValueStoreClient(BaseClient):
 
     def put_key(self, **kwargs: Unpack[PutKeyRequestTypeDef]) -> PutKeyResponseTypeDef:
         """
-        Creates a new key value pair or replaces the value of an existing key.
+        Creates a new key-value pair or replaces the value of an existing key.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront-keyvaluestore/client/put_key.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront_keyvaluestore/client/#put_key)
@@ -140,7 +140,7 @@ class CloudFrontKeyValueStoreClient(BaseClient):
 
     def update_keys(self, **kwargs: Unpack[UpdateKeysRequestTypeDef]) -> UpdateKeysResponseTypeDef:
         """
-        Puts or Deletes multiple key value pairs in a single, all-or-nothing operation.
+        Puts or deletes multiple key-value pairs in a single, all-or-nothing operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront-keyvaluestore/client/update_keys.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront_keyvaluestore/client/#update_keys)

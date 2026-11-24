@@ -196,12 +196,8 @@ def test_a_workflow_agent_step_declares_its_run_one_shot(monkeypatch: pytest.Mon
     assert cache_plan.is_one_shot_call() is False
 
 
-def test_only_the_send_boundary_stamps_the_plan() -> None:
-    """The class half lives in test_send_boundary_guard.py (seam 'prompt_cache_marks assignment')."""
-    from pathlib import Path
-
-    guard = (Path(__file__).parent / "test_send_boundary_guard.py").read_text()
-    assert 'name="prompt_cache_marks assignment"' in guard
+# test_only_the_send_boundary_stamps_the_plan moved with the send-boundary guard to
+# tests/package_host_contracts/test_send_boundary_guard.py.
 
 
 def test_the_cache_miss_alarm_stays_quiet_when_the_plan_sent_no_mark(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -392,3 +392,32 @@ def test_preview_producer_census_flags_an_ordinary_write(tmp_path: Path) -> None
     assert producers == {("leaky.py", "leak"), ("lawful.py", "keep")}
     assert len(violations) == 1
     assert violations[0].startswith("leaky.py:1 leak writes preview scratch")
+
+
+def test_s3_ephemeral_file_streams_from_disk_with_the_policy_tag(tmp_path) -> None:
+    """A staged export part (multi-GB possible) goes up from its file, tagged in the same request, never read whole."""
+    from matrx_files.ephemeral_objects import EXPORT_PART_POLICY
+
+    backend = _fake_s3()
+    part = tmp_path / "part.ndjson.gz"
+    part.write_bytes(b"x" * 1024)
+
+    backend.write_ephemeral_file(
+        "matrx-user-files/owner/system-files/export-parts/job/notes.note.ndjson.gz",
+        str(part),
+        policy=EXPORT_PART_POLICY,
+        content_type="application/gzip",
+    )
+
+    args = backend._client.upload_file.call_args
+    assert args.args[0] == str(part), "the file is handed over by path (boto3 streams it in parts)"
+    assert args.kwargs["ExtraArgs"]["Tagging"] == "matrx-ephemeral-kind=export-part"
+    backend._client.put_object.assert_not_called()
+
+
+def test_export_part_scratch_has_its_own_expiry_rule() -> None:
+    from matrx_files.ephemeral_objects import EXPORT_PART_POLICY, s3_ephemeral_lifecycle_rules
+
+    rules = {r["ID"]: r for r in s3_ephemeral_lifecycle_rules()}
+    rule = rules[EXPORT_PART_POLICY.lifecycle_rule_id]
+    assert rule["Filter"]["Tag"]["Value"] == "export-part" and rule["Expiration"]["Days"] == 3

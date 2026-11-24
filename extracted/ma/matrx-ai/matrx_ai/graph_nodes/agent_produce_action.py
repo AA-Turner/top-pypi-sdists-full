@@ -74,7 +74,7 @@ from typing import Any, Literal
 from matrx_graph.actions import register_node
 from matrx_graph.errors import ExecutionError
 from matrx_graph.types.context import NodeExecutionContext
-from matrx_graph.types.primitives import ActionTier, NodeCategory, RetryPolicy
+from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import RESERVED_PAYLOAD_FIELDS, NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field
@@ -92,12 +92,16 @@ from matrx_ai.graph_nodes.agent_action import (
     resolve_step_agent_full,
     run_sampled_firewall_check,
     run_walled_step_agent,
+    firewall_before_replay,
+    record_served_answer,
     step_firewall,
+    step_firewall_key,
     step_result_version,
 )
 from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
 from matrx_ai.graph_nodes.shared import (
     RUN_ENVELOPE_FIELDS,
+    UNUSABLE_ANSWER_RETRY,
     AiExecutionResult,
     ai_output_failure,
     normalize_completed_result,
@@ -192,6 +196,15 @@ class TypedAgentConfig(AgentStartConfig):
             "(e.g. {'$input': 'output_name'}), so each is graded apart."
         ),
     )
+    invalid_list_elements: Literal["set_aside", "fail"] = Field(
+        default="set_aside",
+        title="A wrong item in a list answer",
+        description=(
+            "set_aside: when only some items of a list in the answer do not match the kind, the valid ones "
+            "land and the others are handed over as invalid_elements (with invalid_element_count) and flagged "
+            "for review, never kept silently. fail: any wrong item fails the whole step."
+        ),
+    )
     run_envelope: list[str] = Field(
         default_factory=list,
         title="Also hand over",
@@ -246,6 +259,40 @@ def _with_run_envelope(
         )
     envelope = normalized.model_dump(mode="json", include=set(wanted))
     return {**payload, **envelope}, wanted
+
+
+#: Beside-kind keys a list answer carries when some of its items were set aside (``invalid_list_elements``).
+INVALID_ELEMENT_FIELDS = ("invalid_elements", "invalid_element_count")
+
+
+async def _set_aside_invalid_elements(
+    ctx: NodeExecutionContext, payload: dict[str, Any], kind: str, node_id: str
+) -> tuple[dict[str, Any], list[str]]:
+    """Per-item validation of a list answer: the valid items land, the wrong ones are reported beside the kind
+    (``invalid_elements`` + ``invalid_element_count``) and flagged for review. An answer whose errors are not
+    all inside list items comes back unchanged, and the scheduler's whole-answer check fails it as before."""
+    from matrx_graph.kinds import set_aside_invalid_list_elements
+
+    if INVALID_ELEMENT_FIELDS[0] in payload or INVALID_ELEMENT_FIELDS[1] in payload:
+        return payload, []  # the kind owns these names: never overwrite its data
+    cleaned, aside = await set_aside_invalid_list_elements(payload, kind)
+    if not aside:
+        return payload, []
+    reported = [a.model_dump(mode="json") for a in aside]
+    logger.warning(
+        "Run Typed Agent %s: %d item(s) of the '%s' answer did not match the kind and were set aside: %s",
+        node_id, len(aside), kind, [(a.field, a.index, a.element_id) for a in aside],
+    )
+    await ctx.flag_for_review(
+        "agent.invalid_list_elements",
+        f"{len(aside)} item(s) of the '{kind}' answer did not match the kind; the valid items landed, "
+        "these were set aside unjudged",
+        category="degraded_output",
+        payload={"kind": kind, "set_aside": reported[:10]},
+    )
+    return {**cleaned, INVALID_ELEMENT_FIELDS[0]: reported, INVALID_ELEMENT_FIELDS[1]: len(aside)}, list(
+        INVALID_ELEMENT_FIELDS
+    )
 
 
 #: The one plain-text kind this step accepts besides structural kinds (coordinator decision,
@@ -394,7 +441,12 @@ async def _apply_mandate_binding(
             "offers no consumption pipeline to apply the mandate's binding — the step "
             "does not run unbound."
         )
-    supplied = dict(getattr(request, "variables", None) or {})
+    # The step's variables are IN HAND (built from its ports), so they reach the compute rule as ``given`` —
+    # never as plain values counted as an eager-legacy call site (ops.system_error ``mandate_offer_eager_legacy``,
+    # e.g. ``agent_factory.instructions @ matrx_ai/graph_nodes/agent_produce_action.py``).
+    from matrx_ai.mandates import Offer
+
+    supplied = Offer.given_values(getattr(request, "variables", None))
     variables = await materialize(supplied)
     request.variables = dict(variables) or None
     return request
@@ -475,7 +527,8 @@ def _judge_against_goal(
             variables=dict(variables or {}),
             user_input=user_input if isinstance(user_input, str) else None,
             agent_id=agent_id,
-            model_id=next(iter(normalized.usage.models), None),
+            # The catalog id the step's result carries (run_attribution.run_model_id), never the usage's model NAME.
+            model_id=(normalized.metadata or {}).get("model_id") or next(iter(normalized.usage.models), None),
             conversation_id=normalized.conversation_id or None,
             label=(getattr(config, "label", None) or "").strip() or None,
     )
@@ -495,21 +548,6 @@ def _judge_against_goal(
             logger.exception("%s step '%s': the goal judge failed; the answer stands.", _NODE_TYPE, node_id)
 
     detached_task(_judged(), name=f"typed-step-judge:{node_id}")
-
-
-#: AN ANSWER WE CANNOT USE IS ASKED FOR ONCE MORE (2026-10-28). The model answered, but the one parse
-#: funnel (``parse_agent_output``) refused it: malformed JSON, a schema miss, or a DEGENERATE answer
-#: (placeholder filler — "the model abandoned the generation; the run must be retried"). Live: Group
-#: offerings runs 48191b96 and ed375042 each lost the whole run to one Claude Haiku 5.5 call that answered
-#: ``{"groups":[{"keys":[],"label":"Placeholder"}]}``; the other 15 of 16 / 8 of 9 calls were fine. A
-#: second sample of a non-deterministic model is the right repair, so the step retries those codes once
-#: (``structured_output_empty`` is the same "answered, unusable" class). Never ``output_truncated``: the
-#: same ceiling cuts the same answer again. A ``retry_policy`` an author sets on the step still wins.
-#: Guard: tests/test_typed_agent_asks_again_for_an_unusable_answer.py.
-UNUSABLE_ANSWER_RETRY = RetryPolicy(
-    max_attempts=2,
-    retry_on=("structured_output_invalid", "structured_output_empty"),
-)
 
 
 @register_node(
@@ -582,7 +620,7 @@ async def _agent_produce_body(
     if not capture:  # a capture-mode check spends nothing, so a sampled step's proof still runs
         await refuse_if_mandate_paused(protected_as)
 
-    resolved = await resolve_step_agent_full(inputs, consumer=f"{_NODE_TYPE}:{node_id}")
+    resolved = await resolve_step_agent_full(inputs, consumer=f"{_NODE_TYPE}:{node_id}", node_ctx=ctx)
     _assert_declarations_agree(ctx, kind, resolved.declared_output_kind)
     # THE HOLDER'S JOB (2026-10-28): the origin field is editable and a unit that runs whatever agent its
     # caller hands it carries none, so an agent that is the Holder of a guarded / closed-context /
@@ -624,31 +662,68 @@ async def _agent_produce_body(
         # the job's binding, exactly as Run Mandate fills it; the step's own values win. No filler -> refused.
         bind = await job_variable_binder(protected_as, consumer=f"{_NODE_TYPE}:{node_id}")
         request.variables = (await bind(getattr(request, "variables", None))) or None
-    if capture and hasattr(request, "store"):
-        request.store = False
-    completed, firewall_records = await run_walled_step_agent(
-        ctx,
-        resolved.agent_id,
-        request,
-        node_type=_NODE_TYPE,
-        firewall=step_firewall(inputs),
-        capture=capture,
-        mandate_key=protected_as,
-        # THE RUN RECORD (runner plan step 1, 2026-10-20): the same stamp the Run Mandate node
-        # passes, so the host records this step's mandate run (only when it resolved a mandate).
-        run_stamp=getattr(resolved, "run_stamp", None) if mandate_key else None,
-    )
-    if capture:
-        return firewall_records
+    # THE ONE MANDATE REPLAY (``mandate_taps.answer_fingerprint``), the same hook Run Mandate and the code path's
+    # NamedAgent lane ask: keyed on the job this step runs as (a picked agent runs AS the job it was picked for;
+    # a step with no job is keyed on its agent), the resolved agent and the variables it runs on after binding.
+    # So a person's picked agent replays, or is answered by the job's stand-in, exactly like the job's Holder.
+    from matrx_ai.mandate_taps import ReplayKey, answer_fingerprint, record_answer, replay_answer, request_fingerprint
 
-    # A host agent_runner may hand back an already-normalized result (a
-    # compiled Orchestra whose final step IS the agent result).
-    if isinstance(completed, AiExecutionResult):
-        outcome: NodeResult[AiExecutionResult] = success(completed)
+    replay_key = protected_as or f"agent:{resolved.agent_id}"
+    run_id = getattr(ctx, "run_id", None)
+    # The WHOLE request is keyed, the kind-bound ``response_format`` too (two steps with one agent and different
+    # kinds are different questions), plus the step's firewall settings. Built only inside a replay session /
+    # test mode, never on a real call (``ReplayKey``).
+    def _key() -> dict[str, Any]:
+        parts = request_fingerprint(request)
+        parts["request"] = {**parts["request"], "firewall": step_firewall_key(inputs)}
+        return answer_fingerprint(agent_id=resolved.agent_id, is_version=bool(resolved.is_version), **parts)
+
+    fingerprint = ReplayKey(_key, label=replay_key)
+    replayed = None if capture else await replay_answer(replay_key, run_id, fingerprint)
+    # This step asked the test answer seam itself: the host's agent-by-id seam never asks again for its run.
+    try:
+        request._answer_seam_asked = True
+    except (AttributeError, ValueError):  # a request without the switch (a test double) has no host seam either
+        pass
+    completed: Any = None
+    firewall_records = None
+    if replayed is not None:
+        # The firewall checks the request this step would send BEFORE any recorded answer is served.
+        firewall_records = await firewall_before_replay(
+            ctx, request, agent_id=resolved.agent_id, firewall=step_firewall(inputs), node_type=_NODE_TYPE,
+            job=f"agent {resolved.agent_id!r}", mandate_key=protected_as,
+            run_stamp=getattr(resolved, "run_stamp", None) if mandate_key else None)
+        outcome: NodeResult[AiExecutionResult] = success(AiExecutionResult.model_validate(replayed))
+        # A picked agent (no mandate run stamp: it runs AS the job, never resolved by it) leaves the request row its
+        # live call leaves — the job, the agent and its version, no rung (L-REPLAY4: Idaho Update read "3 on A, 0 on B").
+        served_stamp = (getattr(resolved, "run_stamp", None) if mandate_key else None) or (
+            {"holder_type": "agent", "picked_agent_id": resolved.agent_id, "picked_is_version": bool(resolved.is_version)}
+            if protected_as else None)
+        await record_served_answer(ctx, mandate_key=protected_as, run_stamp=served_stamp, answer=replayed)
     else:
-        outcome = limit.name_on(
-            await asyncio.to_thread(normalize_completed_result, completed, step_config=config)
+        completed, firewall_records = await run_walled_step_agent(
+            ctx,
+            resolved.agent_id,
+            request,
+            node_type=_NODE_TYPE,
+            firewall=step_firewall(inputs),
+            capture=capture,
+            mandate_key=protected_as,
+            # THE RUN RECORD (runner plan step 1, 2026-10-20): the same stamp the Run Mandate node
+            # passes, so the host records this step's mandate run (only when it resolved a mandate).
+            run_stamp=getattr(resolved, "run_stamp", None) if mandate_key else None,
         )
+        if capture:
+            return firewall_records
+
+        # A host agent_runner may hand back an already-normalized result (a
+        # compiled Orchestra whose final step IS the agent result).
+        if isinstance(completed, AiExecutionResult):
+            outcome = success(completed)
+        else:
+            outcome = limit.name_on(
+                await asyncio.to_thread(normalize_completed_result, completed, step_config=config)
+            )
     if outcome.status == "error":
         # A failed paid turn already carries its billed usage in
         # error.details['usage'] — the scheduler settles cost from there.
@@ -657,7 +732,11 @@ async def _agent_produce_body(
     normalized = outcome.result
     # WHO did the job: the doer the database resolved, beside the model - the same fact a Run
     # Mandate step hands over (a research row records it as agent_id).
-    normalized.metadata["agent_id"] = resolved.agent_id
+    if replayed is not None:
+        normalized.metadata.setdefault("agent_id", resolved.agent_id)  # a recorded answer keeps its own doer
+    else:
+        normalized.metadata["agent_id"] = resolved.agent_id
+        await record_answer(replay_key, run_id, fingerprint, normalized.model_dump(mode="json"))
     if held_by:
         # Said, never silent: this step ran as a job its agent holds (``basis``: protected / sole_holder).
         normalized.metadata["protected_by_holder"] = held_by
@@ -706,13 +785,16 @@ async def _agent_produce_body(
             ),
             details={"declared_kind": kind, "fields": collisions},
         )
-    judged = payload
+    aside_fields: list[str] = []
+    if getattr(config, "invalid_list_elements", "set_aside") == "set_aside" and kind not in TEXT_SHAPED_KINDS:
+        payload, aside_fields = await _set_aside_invalid_elements(ctx, payload, kind, node_id)
+    judged = {k: v for k, v in payload.items() if k not in aside_fields}
     beside = _with_run_envelope(payload, normalized, list(getattr(config, "run_envelope", None) or []), kind)
     if not isinstance(beside, tuple):
         return beside  # type: ignore[return-value]
     payload, envelope_fields = beside
-    if envelope_fields:
-        ctx.declare_beside_kind(envelope_fields)
+    if envelope_fields or aside_fields:
+        ctx.declare_beside_kind([*envelope_fields, *aside_fields])
     _judge_against_goal(
         ctx,
         config,

@@ -76,6 +76,7 @@ class TokenUsageModel(BaseModel):
     # `ProviderChargeModel` is itself only at S0. Narrows when that row clears —
     # a separate, deliberate step, not a cleanup.
     provider_charge: Any = None
+    cache_write_5m_tokens: int = 0  # a stopped call's estimated cache write (TokenUsage, stopped_usage.py)
 
     @model_validator(mode="after")
     def _recover_provider_charge(self) -> TokenUsageModel:

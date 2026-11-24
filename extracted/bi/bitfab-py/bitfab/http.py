@@ -38,6 +38,7 @@ from bitfab.payload_budget import (
     MAX_SPAN_CARRIER_BYTES,
     enforce_payload_budget,
 )
+from bitfab.recorded_states import flush_recorded_states
 from bitfab.replay_invocation import ReplayInvocation
 from bitfab.serialize import encode_json, to_json_safe_report
 from bitfab.simulation_plan import (
@@ -263,6 +264,7 @@ def _wait_for_pending_traces() -> None:
     """
     _release_held_spans(SIM_PLAN_READ_TIMEOUT_SECONDS)
     _stop_simulation_plans()
+    flush_recorded_states(_EXIT_FLUSH_SECONDS)
     shutdown_trace_transports(_EXIT_FLUSH_SECONDS)
 
 
@@ -271,7 +273,7 @@ atexit.register(_wait_for_pending_traces)
 
 
 def flush_traces(timeout: float = 30.0) -> bool:
-    """Wait for all pending traces to reach the server.
+    """Wait for all pending traces, and the sandbox state recorded with them, to reach the server.
 
     Call this method before exiting if you want to ensure all traces
     are sent to the server. This is automatically called via atexit,
@@ -286,8 +288,9 @@ def flush_traces(timeout: float = 30.0) -> bool:
     """
     deadline = time.monotonic() + max(timeout, 0)
     released = _release_held_spans(plan_wait_slice(timeout))
+    saved = flush_recorded_states(max(0.0, deadline - time.monotonic()))
     flushed = flush_trace_transports(max(0.0, deadline - time.monotonic()))
-    return released and flushed
+    return released and saved and flushed
 
 
 class DeliveryReport(NamedTuple):

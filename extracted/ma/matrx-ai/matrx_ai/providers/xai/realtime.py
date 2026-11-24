@@ -9,6 +9,7 @@ provider wire operation.
 from __future__ import annotations
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 CLIENT_SECRETS_URL = "https://api.x.ai/v1/realtime/client_secrets"
 REALTIME_WSS_URL = "wss://api.x.ai/v1/realtime"
@@ -21,7 +22,7 @@ async def create_realtime_client_secret(
     timeout_seconds: float,
 ) -> httpx.Response:
     """Create an xAI Realtime ephemeral secret without retaining the key."""
-    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+    async with shared_client(timeout=timeout_seconds) as client:
         return await client.post(
             CLIENT_SECRETS_URL,
             json={"expires_after": {"seconds": expires_after_seconds}},

@@ -14,9 +14,12 @@ from matrx_ai.tools.models import ToolResult
 from matrx_ai.tools.streaming import ToolStreamManager
 
 @pytest.fixture(autouse=True)
-def _lazy_on(monkeypatch, request):
-    if "default_off" not in request.node.name:
-        monkeypatch.setenv("MATRX_LAZY_TOOL_RESULTS", "1")
+def _lazy_on(request):
+    from matrx_ai.tools.pinned_tools import configure_lazy_tool_results
+
+    configure_lazy_tool_results(None if "default_off" in request.node.name else (lambda: True))
+    yield
+    configure_lazy_tool_results(None)
 
 
 FRAME_BUDGET_BYTES = 4608  # 4.5 KB: the design's ceiling for a fold tool's frame
@@ -85,7 +88,7 @@ async def test_a_held_write_is_pinned_by_its_result():
 
 @pytest.mark.asyncio
 async def test_default_off_an_old_client_still_gets_the_full_result():
-    """Slim frames ship only when MATRX_LAZY_TOOL_RESULTS is on (old clients cannot read result_omitted)."""
+    """Slim frames ship only when the host binds the lazy-tool-results setting on (old clients cannot read result_omitted)."""
     big = _big_result()
     frame, _ = await _complete("web", big)
     assert frame["data"]["result"] == big

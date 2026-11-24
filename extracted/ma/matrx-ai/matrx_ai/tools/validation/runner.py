@@ -111,13 +111,42 @@ async def fetch_db_rows() -> list[dict[str, Any]]:
                 "source_kind": _row_value(d, "source_kind"),
                 "parameters": _row_value(d, "parameters"),
                 "description": _row_value(d, "description"),
-                "is_active": _row_value(d, "is_active", True),
+                # A soft-deleted definition (``deleted_at`` set) is retired, exactly like is_active=false: the
+                # gate must not demand code for it (sandbox_maintenance, retired 2026-11-02, kept failing
+                # every boot as missing_in_code).
+                "is_active": bool(_row_value(d, "is_active", True)) and _row_value(d, "deleted_at") is None,
                 "validation_exempt": _row_value(d, "validation_exempt", False),
                 "executors": executors_by_tool.get(tool_id, []),
                 "active_executors": active_by_tool.get(tool_id, []),
             }
         )
     return rows
+
+
+def _tool_action_bodies(tool_name: str) -> list[Any]:
+    """The work bodies of the Actions ``<tool_name>.*`` that a host declared as the tool's own
+    (``declare_tool_action`` stores the body as ``tool_work`` on the Action's function)."""
+    from matrx_graph.actions import default_action_registry
+
+    out: list[Any] = []
+    for spec in default_action_registry().all():
+        if not spec.name.startswith(f"{tool_name}."):
+            continue
+        body = getattr(getattr(spec, "work", None), "tool_work", None)
+        if body is not None:
+            out.append(body)
+    return out
+
+
+def _closes_over(func: Any, model: Any) -> bool:
+    """True when ``func`` closes over ``model`` itself (identity, not a name match)."""
+    import inspect
+
+    try:
+        cells = inspect.getclosurevars(inspect.unwrap(func)).nonlocals.values()
+    except (TypeError, ValueError):
+        return False
+    return any(value is model for value in cells)
 
 
 def find_unverified_tools(
@@ -142,6 +171,7 @@ def find_unverified_tools(
     import inspect
     import textwrap
 
+    from matrx_ai.tools.action_door import action_for_tool, run_action_tool, tool_args_for
     from matrx_ai.tools.declared import NoArgs
     from matrx_ai.tools.validation.schema import discriminated_union_members
 
@@ -153,7 +183,9 @@ def find_unverified_tools(
         seen: set[int] = set()
         chunks: list[str] = []
         while pending:
-            current = pending.pop()
+            # A decorated tool's source is the wrapped function, but its __globals__ are the
+            # decorator's module, so unwrap first or its private implementation is never found.
+            current = inspect.unwrap(pending.pop())
             if id(current) in seen:
                 continue
             seen.add(id(current))
@@ -187,8 +219,24 @@ def find_unverified_tools(
         model = dt.args_model
         if model is NoArgs:
             continue  # no arguments → nothing to verify
+        # The Action tool door is one function behind every Action, so no model name can
+        # appear in its source. It binds by construction: run_action validates the payload
+        # against this same input_schema (or the host's narrower model of it, ``tool_args_for``: what
+        # the model is offered when an Action's import-only fields are omitted). Only a door whose
+        # Action no longer owns this model falls through to be reported.
+        spec = action_for_tool(name)
+        if dt.func is run_action_tool and spec is not None and tool_args_for(name, spec) is model:
+            continue
         mname = getattr(model, "__name__", "") or ""
         src = _executable_source(dt.func)
+        # A tool function that is only a door over its own Action (``tool_runner("x")``) runs
+        # the Action's work body, which is where the args model is validated. Follow that real
+        # body (``tool_work``, set by the host's ``declare_tool_action``) and, for a body that
+        # takes the model as a parameter, accept the model object itself closed over by it.
+        bodies = _tool_action_bodies(name)
+        if bodies:
+            src += "\n" + "\n".join(_executable_source(b) for b in bodies)
+        door_binds_model = any(_closes_over(b, model) for b in bodies)
         # A dispatcher binds its contract either by validating the registered
         # RootModel union (its class name appears in the body) OR by constructing
         # the per-action member models directly — both prove the code actually runs
@@ -201,6 +249,7 @@ def find_unverified_tools(
             )
         else:
             bound = bool(mname) and mname in src
+        bound = bound or door_binds_model
         if not bound:
             out.append(
                 {

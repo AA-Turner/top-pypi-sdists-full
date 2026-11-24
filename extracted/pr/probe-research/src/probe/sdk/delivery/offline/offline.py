@@ -68,6 +68,7 @@ _CREATE_FIELDS = (
     "authored_by",
     "started_at",
     "run_type",
+    "total_steps",
 )
 #: Keywords that choose WHERE the run lives, resolved at sync.
 _HOME_FIELDS = ("project", "experiment", "question", "experiment_name", "workspace")
@@ -517,6 +518,7 @@ def _create_from_init(
         authored_by=create_kw.pop("authored_by", None),
         started_at=create_kw.pop("started_at", None),
         run_type=create_kw.pop("run_type", None),
+        total_steps=create_kw.pop("total_steps", None),
     )
     body["creation_key"] = key
     body = _offline_body(body, started_at=started_at, owner=owner)
@@ -572,6 +574,7 @@ def _open_offline_handle(
         "tags": body.get("tags") or [],
         "metadata": body.get("metadata") or {},
         "run_type": body.get("run_type"),
+        "total_steps": body.get("total_steps"),
         "project_id": None,
         "experiment_id": None,
         "write_epoch": 1,

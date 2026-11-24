@@ -1,4 +1,6 @@
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import query_status_pb2 as _query_status_pb2
 from chalk._gen.chalk.kubernetes.v1 import resourcequota_pb2 as _resourcequota_pb2
 from chalk._gen.chalk.kubernetes.v1 import scaledobject_pb2 as _scaledobject_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -80,6 +82,8 @@ class JobQueueItem(_message.Message):
         "job_index",
         "fetch_priority",
         "workflow_execution_id",
+        "canceled_by_agent_id",
+        "cancellation_reason",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -104,6 +108,8 @@ class JobQueueItem(_message.Message):
     JOB_INDEX_FIELD_NUMBER: _ClassVar[int]
     FETCH_PRIORITY_FIELD_NUMBER: _ClassVar[int]
     WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
+    CANCELED_BY_AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CANCELLATION_REASON_FIELD_NUMBER: _ClassVar[int]
     id: int
     created_at: _timestamp_pb2.Timestamp
     environment_id: str
@@ -127,6 +133,8 @@ class JobQueueItem(_message.Message):
     job_index: int
     fetch_priority: int
     workflow_execution_id: str
+    canceled_by_agent_id: str
+    cancellation_reason: _query_status_pb2.CancellationReason
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -152,6 +160,8 @@ class JobQueueItem(_message.Message):
         job_index: _Optional[int] = ...,
         fetch_priority: _Optional[int] = ...,
         workflow_execution_id: _Optional[str] = ...,
+        canceled_by_agent_id: _Optional[str] = ...,
+        cancellation_reason: _Optional[_Union[_query_status_pb2.CancellationReason, str]] = ...,
     ) -> None: ...
 
 class GetDataPlaneJobQueueRequest(_message.Message):
@@ -426,6 +436,7 @@ class JobQueueAttempt(_message.Message):
         "attempted_by",
         "state",
         "finished_at",
+        "work_started_at",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -438,6 +449,7 @@ class JobQueueAttempt(_message.Message):
     ATTEMPTED_BY_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     FINISHED_AT_FIELD_NUMBER: _ClassVar[int]
+    WORK_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     id: int
     created_at: _timestamp_pb2.Timestamp
     environment_id: str
@@ -449,6 +461,7 @@ class JobQueueAttempt(_message.Message):
     attempted_by: str
     state: int
     finished_at: _timestamp_pb2.Timestamp
+    work_started_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -462,6 +475,7 @@ class JobQueueAttempt(_message.Message):
         attempted_by: _Optional[str] = ...,
         state: _Optional[int] = ...,
         finished_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        work_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class ListJobQueueAttemptsRequest(_message.Message):

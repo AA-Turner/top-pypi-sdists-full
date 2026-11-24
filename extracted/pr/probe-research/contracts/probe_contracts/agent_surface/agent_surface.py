@@ -123,9 +123,12 @@ class View(StrEnum):
     #: What was asked of a running run (agentic W&B C.1): checkpoint, config, stop or a kind its script declared,
     #: who asked, what happened and why. MCP-only and read-only; `probe run send` asks (GET /v1/runs/{ref}/commands).
     COMMANDS = "commands"
-    #: A project's or experiment's panes (the visuals an agent wrote on its page): slug, title, place, what
+    #: A project's, experiment's or run's panes (the visuals an agent wrote on its page): slug, title, place, what
     #: each recipe reads, never the HTML. MCP-only and read-only; `probe pane push` writes (GET .../panes).
     PANES = "panes"
+    #: The choices that changed the work, oldest first: on a project its own and its experiments', on an
+    #: experiment or run those filed under it or naming it. MCP-only and read-only; `probe decision add` writes.
+    DECISIONS = "decisions"
 
 
 #: What a view MEANS on a kind. The union across both surfaces; each declares the
@@ -155,6 +158,8 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.PICKS,
             # The panes on its page (GET /v1/projects/{P}/panes).
             View.PANES,
+            # Its decisions and its experiments' (GET /v1/projects/{P}/decisions?include=experiments).
+            View.DECISIONS,
         }
     ),
     ViewKind.EXPERIMENT: frozenset(
@@ -184,6 +189,8 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.BRANCHES,
             # The panes on its page (GET /v1/projects/{E}/panes: an experiment is served as a project).
             View.PANES,
+            # Decisions filed under it or naming it (GET /v1/decisions?about=experiment:{E}).
+            View.DECISIONS,
         }
     ),
     ViewKind.RUN: frozenset(
@@ -209,6 +216,10 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.EDITS,
             # What was asked of it while it ran (GET /v1/runs/{ref}/commands).
             View.COMMANDS,
+            # Decisions naming it (GET /v1/decisions?about=run:{ref}).
+            View.DECISIONS,
+            # The panes on its page (GET /v1/projects/{run}/panes: a run is served by its id there).
+            View.PANES,
         }
     ),
     # The one entity with no notes (immutable; `description` holds it). Its `trajectory` is its whole
@@ -275,6 +286,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.EDITS: "the run's data edits, newest first: who changed what, how, why, and whether it was undone",
     View.COMMANDS: "what was asked of the running script (checkpoint, config, stop...), what happened, what it accepts (first page)",
     View.PANES: "the visuals an agent wrote on its page: slug, title, place, what each reads; no HTML",
+    View.DECISIONS: "why the work changed: each choice, its reason, who, when, what it touched; oldest first",
 }
 
 
@@ -356,6 +368,8 @@ VIEW_ADMISSION: dict[View, Admits] = {
     View.COMMANDS: Admits.NOTHING,
     # Visuals an agent wrote and the data they ask for: a recipe names keys, never a reading of one.
     View.PANES: Admits.NOTHING,
+    # Why someone chose what they did: an account of a choice, never a measurement.
+    View.DECISIONS: Admits.NOTHING,
 }
 
 

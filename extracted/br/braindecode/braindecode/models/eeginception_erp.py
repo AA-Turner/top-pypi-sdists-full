@@ -8,7 +8,7 @@ from einops.layers.torch import Rearrange
 from torch import nn
 
 from braindecode.functional import glorot_weight_zero_bias
-from braindecode.models.base import EEGModuleMixin
+from braindecode.models.base import EEGModuleMixin, deprecated_forward_kwargs
 from braindecode.modules import DepthwiseConv2d, Ensure4d, InceptionBlock
 
 
@@ -128,7 +128,7 @@ class EEGInceptionERP(EEGModuleMixin, nn.Sequential):
     drop_prob : float, optional
         Dropout rate inside all the network. Defaults to 0.5 as in
         [santamaria2020]_.
-    scales_samples_s: list(float), optional
+    scales_samples_s : list(float), optional
         Windows for inception block. Temporal scale (s) of the convolutions on
         each Inception module. This parameter determines the kernel sizes of
         the filters. Defaults to 0.5, 0.25, 0.125 seconds, as in
@@ -136,15 +136,15 @@ class EEGInceptionERP(EEGModuleMixin, nn.Sequential):
     n_filters : int, optional
         Initial number of convolutional filters. Defaults to 8 as in
         [santamaria2020]_.
-    activation: nn.Module, optional
+    activation : nn.Module, optional
         Activation function. Defaults to ELU activation as in
         [santamaria2020]_.
-    batch_norm_alpha: float, optional
+    batch_norm_alpha : float, optional
         Momentum for BatchNorm2d. Defaults to 0.01.
-    depth_multiplier: int, optional
+    depth_multiplier : int, optional
         Depth multiplier for the depthwise convolution. Defaults to 2 as in
         [santamaria2020]_.
-    pooling_sizes: list(int), optional
+    pooling_sizes : list(int), optional
         Pooling sizes for the inception blocks. Defaults to 4, 2, 2 and 2, as
         in [santamaria2020]_.
 
@@ -169,6 +169,9 @@ class EEGInceptionERP(EEGModuleMixin, nn.Sequential):
        176:205-219 Available from https://proceedings.mlr.press/v176/wei22a.html.
 
     """
+
+    _time_axis = "fixed"  # fixed: final_layer.fc.weight
+    _channel_axis = "fixed"  # fixed: inception_block_1.branches.0.4.weight
 
     def __init__(
         self,
@@ -334,6 +337,13 @@ class EEGInceptionERP(EEGModuleMixin, nn.Sequential):
         self.add_module("final_layer", module)
 
         self._init_parameters()
+
+    @deprecated_forward_kwargs(input="x")
+    def forward(self, x):
+        """Run the layers in order on ``x``, ``(batch, n_chans, n_times)``."""
+        for module in self:
+            x = module(x)
+        return x
 
     def _init_parameters(self) -> None:
         """Model-specific initialization (see ``reset_parameters``)."""

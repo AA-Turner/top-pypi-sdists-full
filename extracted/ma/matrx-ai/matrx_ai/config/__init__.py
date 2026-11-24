@@ -132,6 +132,7 @@ from .usage_config import (
     UsageTotals,
     openai_compatible_usage_counts,
     serialize_provider_usage,
+    xai_server_side_tool_components,
 )
 from .validators import ModelReference
 
@@ -190,6 +191,7 @@ __all__ = [
     "UsageTotals",
     "openai_compatible_usage_counts",
     "serialize_provider_usage",
+    "xai_server_side_tool_components",
     "TTSSpeaker",
     "configure_multi_speaker_voice_pool",
     "TTSVoiceConfig",

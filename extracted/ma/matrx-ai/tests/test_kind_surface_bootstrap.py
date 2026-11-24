@@ -17,10 +17,6 @@ which writes this repo's file and the TS twin from ONE run. These tests prove:
 
 from __future__ import annotations
 
-import os
-import re
-from pathlib import Path
-
 import pytest
 
 from matrx_ai.processing.blocks.block_detector import (
@@ -38,11 +34,8 @@ from matrx_ai.processing.blocks.kind_surfaces_generated import (
     get_surface_for_tag,
 )
 
-AIDREAM_ROOT = Path(__file__).resolve().parents[3]
-FE_TWIN = (
-    Path(os.environ.get("MATRX_FRONTEND_ROOT", AIDREAM_ROOT / "apps/matrx-frontend"))
-    / "features/content-ir/registry/system-surfaces.generated.ts"
-)
+# The cross-runtime twin check (TS system-surfaces.generated.ts) is a host test:
+# tests/package_host_contracts/test_matrx_ai_kind_surface_twin.py.
 
 # Surfaces the PYTHON host currently cannot fire at all (no detector literal).
 # Shrink-only: adding a row here is registry↔host drift and needs a ruling.
@@ -71,31 +64,6 @@ def test_lookup_helpers_serve_the_table() -> None:
         if by_type is None:
             continue
         assert by_type(entry["token"]) == entry
-
-
-def test_cross_runtime_parity_with_frontend_twin() -> None:
-    if not FE_TWIN.exists():
-        message = (
-            f"matrx-frontend twin not found at {FE_TWIN} — cross-runtime "
-            "kind-surface parity NOT verified (set MATRX_FRONTEND_ROOT)."
-        )
-        # Same rule as the splitter parity gate: the `kinds-parity` CI job
-        # provisions the sibling checkout and sets MATRX_PARITY_REQUIRED=1,
-        # where "could not run" is a broken gate rather than an excuse.
-        if os.environ.get("MATRX_PARITY_REQUIRED") == "1":
-            pytest.fail(
-                f"PARITY UNVERIFIED: {message}\n\nMATRX_PARITY_REQUIRED=1 — this run "
-                "was declared enforcing. Fix the sibling checkout in the job; never "
-                "relax this flag."
-            )
-        pytest.skip(f"SKIPPED LOUDLY: {message}")
-    text = FE_TWIN.read_text(encoding="utf-8")
-    match = re.search(r"KIND_SURFACE_BOOTSTRAP_JSON = '([^']*)'", text)
-    assert match, "TS twin lost its KIND_SURFACE_BOOTSTRAP_JSON marker"
-    assert match.group(1) == KIND_SURFACE_BOOTSTRAP_JSON, (
-        "TS and Python kind-surface bootstraps embed DIFFERENT payloads — "
-        "regenerate BOTH from one `pnpm check:shapes:surfaces:refresh` run"
-    )
 
 
 def _python_host_block_type(surface_type: str, token: str) -> str | None:

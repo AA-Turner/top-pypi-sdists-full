@@ -171,6 +171,9 @@ def persist_harness(monkeypatch):
 
     monkeypatch.setattr(persistence_mod, "ai_model_manager_instance", _StubModelManager())
     monkeypatch.setattr(persistence_mod, "_get_coordinator", lambda: _StubCoordinator())
+    # persist_completed_request asks for the LIVE coordinator (98713c369) before opening a standalone one; the
+    # stub answers both, or the run opens a real coordinator over stub tables.
+    monkeypatch.setattr(persistence_mod, "_get_live_coordinator", lambda: _StubCoordinator())
     monkeypatch.setattr(
         persistence_mod,
         "_queue_message_create",
@@ -185,8 +188,6 @@ def persist_harness(monkeypatch):
     monkeypatch.setattr(persistence_mod, "_queue_request_create", lambda **kw: "")
     monkeypatch.setattr(persistence_mod, "_queue_user_request_update", lambda rid, **kw: "")
 
-    async def _no_hide(*a, **k):
-        return 0
 
     async def _no_backfill(*a, **k):
         return []
@@ -194,7 +195,6 @@ def persist_harness(monkeypatch):
     async def _no_cache(*a, **k):
         return None
 
-    monkeypatch.setattr(persistence_mod, "_hide_superseded_failed_turns", _no_hide)
     monkeypatch.setattr(persistence_mod, "_backfill_tool_message", _no_backfill)
     monkeypatch.setattr(persistence_mod, "_refresh_cache_state", _no_cache)
     monkeypatch.setattr(persistence_mod, "_emit_context_state", _no_cache)

@@ -88,7 +88,7 @@ RequiredMemberAction = Literal["proceed", "force", "pause", "fail"]
 
 def evaluate_required_members(
     metadata: dict[str, Any] | None,
-    tool_call_history: list["ToolCallUsage"] | None,
+    tool_call_history: list[ToolCallUsage] | None,
     *,
     active_tool_names: list[str] | None,
 ) -> RequiredMemberReport:

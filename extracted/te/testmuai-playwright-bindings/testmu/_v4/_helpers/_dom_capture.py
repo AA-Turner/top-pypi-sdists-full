@@ -93,12 +93,55 @@ def build_flat_dom(a11y_nodes: list) -> list[dict[str, Any]]:
     return result
 
 
+def build_flat_dom_from_ax_tree(root) -> list[dict[str, Any]]:
+    """Portable ``AxNode`` tree (non-CDP engines) → the same flat list shape
+    ``build_flat_dom`` produces (pre-order, 1-based index, CDP-style states)."""
+    result: list[dict[str, Any]] = []
+
+    def _tri(v):
+        return v if isinstance(v, str) else ("true" if v else "false")
+
+    def _walk(node) -> None:
+        role = (node.role or "").strip().lower()
+        if role and role not in _SKIP_ROLES:
+            element: dict[str, Any] = {"index": len(result) + 1, "role": role, "name": node.name or ""}
+            if node.backend_dom_node_id is not None:
+                element["backend_dom_node_id"] = node.backend_dom_node_id
+            if node.disabled:
+                element["disabled"] = True
+            for k in ("checked", "pressed"):
+                if getattr(node, k, None) is not None:
+                    element[k] = _tri(getattr(node, k))
+            for k in ("expanded", "selected"):
+                if getattr(node, k, None) is not None:
+                    element[k] = bool(getattr(node, k))
+            for k in ("focused", "required", "readonly"):
+                if getattr(node, k, False):
+                    element[k] = True
+            if node.value:
+                element["value"] = node.value
+            if node.description:
+                element["description"] = node.description
+            result.append(element)
+        for child in node.children or []:
+            _walk(child)
+
+    if root is not None:
+        _walk(root)
+    return result
+
+
 async def capture_flat_dom(page) -> tuple[Any, list[dict[str, Any]]]:
     """Open a CDP session and capture the flat DOM. Caller owns cdp.detach()."""
     cdp = await page.context.new_cdp_session(page)
+    return cdp, await _capture_flat_dom_cdp(cdp)
+
+
+async def _capture_flat_dom_cdp(cdp) -> list[dict[str, Any]]:
+    """The flat DOM over an open CDP session."""
     await cdp.send("DOM.enable")
     a11y_resp = await cdp.send("Accessibility.getFullAXTree")
-    return cdp, build_flat_dom(a11y_resp.get("nodes", []))
+    return build_flat_dom(a11y_resp.get("nodes", []))
 
 
 async def get_element_snapshot(cdp, backend_dom_node_id: int) -> dict[str, Any]:
@@ -123,4 +166,21 @@ async def get_element_snapshot(cdp, backend_dom_node_id: int) -> dict[str, Any]:
         }
     except Exception as e:
         _log.warning("[dom_capture] snapshot failed for backendNodeId=%s: %s", backend_dom_node_id, e)
+        return {"tag_name": "", "text_content": "", "attributes": {}, "styles": {}, "states": {}}
+
+
+async def get_element_snapshot_portable(page, handle: int) -> dict[str, Any]:
+    """``get_element_snapshot`` for a portable aria-ref handle (non-CDP engines)."""
+    from testmu._v4._helpers.aria_perception import call_on_ref
+    try:
+        result = await call_on_ref(page, handle, _SNAPSHOT_JS) or {}
+        return {
+            "tag_name": result.get("tag_name", ""),
+            "text_content": result.get("text_content", ""),
+            "attributes": result.get("attributes", {}),
+            "styles": result.get("styles", {}),
+            "states": result.get("states", {}),
+        }
+    except Exception as e:
+        _log.warning("[dom_capture] portable snapshot failed for handle=%s: %s", handle, e)
         return {"tag_name": "", "text_content": "", "attributes": {}, "styles": {}, "states": {}}

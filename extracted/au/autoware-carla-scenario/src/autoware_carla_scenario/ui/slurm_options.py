@@ -16,6 +16,8 @@ import math
 import re
 from dataclasses import dataclass, field
 
+from .request_values import check_extra_overrides
+
 __all__ = [
     "SlurmOptions",
     "build_command",
@@ -41,7 +43,7 @@ _SIMPLE_LIST = re.compile(r"^[A-Za-z0-9_.:/@+-]+(,[A-Za-z0-9_.:/@+-]+)*$")
 #: The sbatch keys whose value may be such a list (``--mem`` takes one size).
 _LIST_KEYS = ("partition", "gres")
 #: A path on the nodes (``launcher.remote_cwd``, ``launcher.python``).
-_NODE_PATH = re.compile(r"^~?[A-Za-z0-9_.:/@+-]*$")
+_NODE_PATH = re.compile(r"~?[A-Za-z0-9_.:/@+-]*")
 
 #: An unquoted value Hydra reads as something other than that string: its
 #: grammar's INT, FLOAT, BOOL and NULL tokens (``hydra/grammar/OverrideLexer.g4``).
@@ -145,7 +147,7 @@ def check_node_path(key: str, value: str | None) -> None:
         ValueError: It is not.
     """
     if value is not None and (
-        not _NODE_PATH.match(value)
+        not _NODE_PATH.fullmatch(value)
         or (value.startswith("~") and value != "~" and value[1] != "/")
     ):
         raise ValueError(
@@ -289,7 +291,14 @@ def build_command(
     With a sweeper the batch runs every case of each scenario's sweep
     (``--multirun``, expanded by the batch itself); without one each scenario
     the pattern matches runs once.
+
+    Raises:
+        ValueError: An extra override starts with ``-``, a flag of
+            ``scenario`` rather than an override
+            (:func:`.request_values.check_extra_overrides`, which ``/api/run``
+            checks first, #2440).
     """
+    check_extra_overrides(extra_overrides)
     cmd = list(command)
     if sweeper:
         cmd.append("--multirun")

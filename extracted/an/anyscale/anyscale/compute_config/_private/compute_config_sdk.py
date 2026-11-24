@@ -198,9 +198,9 @@ class PrivateComputeConfigSDK(BaseSDK):
             _validate_free_pod_labels_on_vm_stack(
                 compute_config.head_node, compute_stack, "head_node", self.logger
             )
-        for option in compute_config.head_nodes or []:
+        for option in compute_config.head_node_options or []:
             assert isinstance(option, HeadNodeOptionConfig)
-            node_name = f"head_nodes[{option.name}]"
+            node_name = f"head_node_options[{option.name}]"
             _validate_no_tpu_on_vm_stack(option, compute_stack, node_name)
             _validate_free_pod_labels_on_vm_stack(option, compute_stack, node_name, self.logger)
 
@@ -292,9 +292,9 @@ class PrivateComputeConfigSDK(BaseSDK):
 
         return api_model
 
-    def _convert_head_nodes_to_api_model(
+    def _convert_head_node_options_to_api_model(
         self,
-        head_nodes: List[HeadNodeOptionConfig],
+        head_node_options: List[HeadNodeOptionConfig],
         *,
         cloud_id: str,
         cloud_resource_name: Optional[str] = None,
@@ -308,7 +308,7 @@ class PrivateComputeConfigSDK(BaseSDK):
                 cloud_resource_name=cloud_resource_name,
                 schedulable_by_default=schedulable_by_default,
             )
-            for option in head_nodes
+            for option in head_node_options
         ]
         api_model = converted[0]
         api_model.head_options = [
@@ -319,7 +319,7 @@ class PrivateComputeConfigSDK(BaseSDK):
                 required_resources=node.required_resources,
                 advanced_configurations_json=node.advanced_configurations_json,
             )
-            for option, node in zip(head_nodes, converted)
+            for option, node in zip(head_node_options, converted)
         ]
         return api_model
 
@@ -406,12 +406,13 @@ class PrivateComputeConfigSDK(BaseSDK):
         schedulable_by_default = (
             not compute_config.worker_nodes and not compute_config.auto_select_worker_config
         )
-        if compute_config.head_nodes:
+        if compute_config.head_node_options:
             assert all(
-                isinstance(option, HeadNodeOptionConfig) for option in compute_config.head_nodes
+                isinstance(option, HeadNodeOptionConfig)
+                for option in compute_config.head_node_options
             )
-            head_node_type = self._convert_head_nodes_to_api_model(
-                compute_config.head_nodes,  # type: ignore[arg-type]
+            head_node_type = self._convert_head_node_options_to_api_model(
+                compute_config.head_node_options,  # type: ignore[arg-type]
                 cloud_id=cloud_id,
                 cloud_resource_name=compute_config.cloud_resource,
                 schedulable_by_default=schedulable_by_default,
@@ -615,7 +616,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             cloud_deployment=cloud_deployment,
         )
 
-    def _convert_api_model_to_head_nodes(
+    def _convert_api_model_to_head_node_options(
         self, api_model: ComputeNodeType
     ) -> Optional[List[HeadNodeOptionConfig]]:
         if not api_model.head_options:
@@ -736,7 +737,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             if max_gpus:
                 max_resources["GPU"] = max_gpus
 
-        head_nodes = self._convert_api_model_to_head_nodes(api_model.head_node_type)
+        head_node_options = self._convert_api_model_to_head_node_options(api_model.head_node_type)
         return ComputeConfig(
             cloud=cloud_name,
             cloud_resource=api_model.cloud_deployment,
@@ -744,9 +745,9 @@ class PrivateComputeConfigSDK(BaseSDK):
             advanced_instance_config=api_model.advanced_configurations_json or None,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
             head_node=None
-            if head_nodes
+            if head_node_options
             else self._convert_api_model_to_head_node_config(api_model.head_node_type),
-            head_nodes=head_nodes,
+            head_node_options=head_node_options,
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,
@@ -819,7 +820,9 @@ class PrivateComputeConfigSDK(BaseSDK):
             if max_gpus:
                 max_resources["GPU"] = max_gpus
 
-        head_nodes = self._convert_api_model_to_head_nodes(api_model_config.head_node_type)
+        head_node_options = self._convert_api_model_to_head_node_options(
+            api_model_config.head_node_type
+        )
         return ComputeConfigVersion(
             name=f"{api_model.name}:{api_model.version}",
             id=api_model.id,
@@ -831,9 +834,9 @@ class PrivateComputeConfigSDK(BaseSDK):
                 ),
                 enable_cross_zone_scaling=enable_cross_zone_scaling,
                 head_node=None
-                if head_nodes
+                if head_node_options
                 else self._convert_api_model_to_head_node_config(api_model_config.head_node_type),
-                head_nodes=head_nodes,
+                head_node_options=head_node_options,
                 worker_nodes=worker_nodes,  # type: ignore
                 min_resources=min_resources,
                 max_resources=max_resources or None,

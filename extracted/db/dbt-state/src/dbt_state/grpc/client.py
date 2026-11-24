@@ -17,6 +17,7 @@ from query_cache_common.models.services import (
     execution_service_models,
     explain_service_models,
     selector_service_models,
+    sql_analysis_service_models,
     sql_service_models,
 )
 from query_cache_protobuf.query_cache.services import (
@@ -26,6 +27,7 @@ from query_cache_protobuf.query_cache.services import (
     execution_service_pb2_grpc,
     explain_service_pb2_grpc,
     selector_service_pb2_grpc,
+    sql_analysis_service_pb2_grpc,
     sql_service_pb2_grpc,
 )
 
@@ -151,6 +153,7 @@ class QueryCacheGrpcClient:
             self.channel
         )
         self.explain_stub = explain_service_pb2_grpc.ExplainStub(self.channel)
+        self.sql_analysis_stub = sql_analysis_service_pb2_grpc.SQLAnalysisStub(self.channel)
         self.state_selector_stub = selector_service_pb2_grpc.SelectorServiceStub(self.channel)
 
     @classmethod
@@ -520,6 +523,27 @@ class QueryCacheGrpcClient:
             request.to_proto(), timeout=self.timeout
         )
         return explain_service_models.GetUpstreamDependencyChangesResponse.from_proto(response)
+
+    def extract_table_references(
+        self, request: sql_analysis_service_models.ExtractTableReferencesRequest
+    ) -> sql_analysis_service_models.ExtractTableReferencesResponse:
+        """Extract normalized table references from rendered SQL.
+
+        Args:
+            request: ExtractTableReferencesRequest with the dialect and SQL strings.
+
+        Returns:
+            One result per SQL, in request order. A result with `parsed=False` means the
+            server could not parse that SQL.
+
+        Raises:
+            grpc.RpcError: If the RPC fails (UNIMPLEMENTED on older servers).
+        """
+        self._check_channel_state("extract_table_references")
+        response = self.sql_analysis_stub.ExtractTableReferences(
+            request.to_proto(), timeout=self.timeout
+        )
+        return sql_analysis_service_models.ExtractTableReferencesResponse.from_proto(response)
 
     def resolve_deferred_relations(
         self, request: execution_service_models.ResolveDeferredRelationsRequest

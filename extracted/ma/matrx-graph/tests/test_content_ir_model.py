@@ -9,7 +9,7 @@ wire form roundtrips, and the runtime wrappers never blur into their payloads.
 from __future__ import annotations
 
 import json
-from typing import Annotated, Union
+from typing import Annotated, Any
 
 import jsonschema
 import pytest
@@ -19,6 +19,7 @@ from matrx_graph.content_ir.model import KindModel, KindSubModel, is_kind_instan
 from matrx_graph.content_ir.wrappers import (
     AgentResultWrapper,
     NodeOutcomeWrapper,
+    RunResultWrapper,
     ToolResultWrapper,
 )
 
@@ -74,14 +75,15 @@ def test_wire_form_roundtrips() -> None:
     assert SearchResults(**wire).model_dump() == wire
 
 
-def test_plain_nested_structure_accepts_the_marker_and_declares_it() -> None:
-    """Closed sub-structures must not reject a marker from another producer."""
+def test_plain_nested_structure_accepts_a_marker_and_declares_none() -> None:
+    """Closed sub-structures never reject a marker from another producer (a named one is
+    kept as written, rule 32), and declare no ``__kind`` at all (rule 31)."""
     value = PlainNested.model_validate({"__kind": "foreign_shape", "value": "kept"})
     assert value.value == "kept"
-    assert "__kind" not in value.model_dump()
+    assert value.model_dump()["__kind"] == "foreign_shape"
+    assert "__kind" not in PlainNested.model_validate({"__kind": "", "value": "v"}).model_dump()
     schema = PlainNested.model_json_schema()
-    assert schema["properties"]["__kind"]["type"] == "string"
-    assert "__kind" not in schema.get("required", [])
+    assert "__kind" not in schema.get("properties", {})
 
 
 def test_declared_fields_survive_strictness() -> None:
@@ -131,7 +133,7 @@ def test_python_field_names_remain_available_on_request() -> None:
 
 
 def test_tagged_union_dispatches_on_kind_for_free() -> None:
-    adapter = TypeAdapter(Annotated[Union[WebResult, VideoResult], Field(discriminator="kind_")])
+    adapter = TypeAdapter(Annotated[WebResult | VideoResult, Field(discriminator="kind_")])
     got = adapter.validate_python({"__kind": "video_result", "url": "https://v"})
     assert isinstance(got, VideoResult)
 
@@ -162,6 +164,32 @@ def test_node_outcome_carries_context_and_nests_the_payload() -> None:
     assert wire["output"]["web"][0]["__kind"] == "web_result"
     assert outcome.payload_kind() == "search_results"
     assert NodeOutcomeWrapper(**wire).model_dump() == wire
+
+
+@pytest.mark.parametrize("payload_type", [Any, Markdown])
+@pytest.mark.parametrize(
+    ("wrapper", "slug", "context"),
+    [
+        (NodeOutcomeWrapper, "node_outcome", {"run_id": "roof-inspection", "node_id": "report"}),
+        (RunResultWrapper, "run_result", {"run_id": "roof-inspection", "workflow_id": "inspection"}),
+        (ToolResultWrapper, "tool_result", {"tool_name": "inspection_report"}),
+    ],
+)
+def test_specialized_wrappers_keep_their_discriminator(wrapper, slug, context, payload_type) -> None:
+    # Pydantic reconstructs generic fields: losing the inherited pin used to
+    # make kind_ required (or None) and reject real terminal-node results.
+    specialized = wrapper[payload_type]
+    specialized.model_rebuild(force=True)
+    wire = specialized(output=Markdown(text="Replace the damaged flashing."), **context).model_dump()
+    assert wire["__kind"] == slug
+    assert wire["output"]["__kind"] == "markdown"
+    assert "kind_" not in wire
+    assert specialized.model_validate(wire).model_dump() == wire
+    schema = specialized.model_json_schema()
+    assert schema["properties"]["__kind"]["const"] == slug
+    jsonschema.validate(wire, schema)
+    with pytest.raises(ValidationError, match="literal_error"):
+        specialized.model_validate({**wire, "__kind": "search_results"})
 
 
 def test_agent_result_simple_case_is_one_element() -> None:

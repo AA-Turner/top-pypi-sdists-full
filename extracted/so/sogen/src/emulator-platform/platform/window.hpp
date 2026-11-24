@@ -227,6 +227,34 @@ namespace sogen
 
     static_assert(sizeof(EMU_NONCLIENTMETRICS) == 0x1F8);
 
+    struct EMU_ICONMETRICS
+    {
+        UINT cbSize;
+        LONG iHorzSpacing;
+        LONG iVertSpacing;
+        LONG iTitleWrap;
+        EMU_LOGFONTW lfFont;
+    };
+
+    static_assert(sizeof(EMU_ICONMETRICS) == 0x6C);
+
+    struct EMU_ANIMATIONINFO
+    {
+        UINT cbSize;
+        LONG iMinAnimate;
+    };
+
+    static_assert(sizeof(EMU_ANIMATIONINFO) == 8);
+
+    struct EMU_HIGHCONTRAST
+    {
+        UINT cbSize;
+        DWORD dwFlags;
+        pointer lpszDefaultScheme;
+    };
+
+    static_assert(sizeof(EMU_HIGHCONTRAST) == 16);
+
     struct EMU_MENUITEMINFO
     {
         UINT cbSize;

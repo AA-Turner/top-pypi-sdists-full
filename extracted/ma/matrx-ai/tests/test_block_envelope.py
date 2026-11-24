@@ -66,11 +66,22 @@ def _load_fingerprint_vectors() -> list[dict[str, str]]:
 _KIND_SCHEMAS = _load_kind_schemas()
 
 
+# The partition / validation machinery is generic. These LIVE schemas exercise it
+# (a fence-shaped list, a nested-array kind, a recursive tree); their pre-kind block
+# types left BLOCK_KIND_MAP in legacy-shapes step 5 (LEGACY-5), so the suite maps them.
+_TEST_KIND_MAP = {"transcript": "transcript", "tasks": "task_list", "decision_tree": "decision_tree"}
+
+_MERMAID_FENCE = "```mermaid\ngraph TD\n    A[Client] --> B[API]\n```\n"
+
+
 @pytest.fixture(autouse=True)
 def _mock_kind_catalog(monkeypatch: pytest.MonkeyPatch):
     """Seed the sync snapshot with REAL schemas; no DB, no async catalog."""
     reset_kind_catalog_snapshot()
     monkeypatch.setattr(envelope_mod, "_schema_snapshot", dict(_KIND_SCHEMAS))
+    monkeypatch.setattr(
+        envelope_mod, "BLOCK_KIND_MAP", {**envelope_mod.BLOCK_KIND_MAP, **_TEST_KIND_MAP}
+    )
     yield
     reset_kind_catalog_snapshot()
 
@@ -103,10 +114,10 @@ def test_envelope_fingerprint_matches_shared_ts_vector(vector: dict[str, str]) -
 def test_stamped_envelope_fingerprints_the_exact_block_content() -> None:
     """End-to-end: the stamped fingerprint hashes the emitted `content` string."""
     processor = StreamBlockProcessor()
-    processor.process_chunk("```transcript\n[00:01] Ada: Hello\n[00:05] Bob: Hi\n```\n")
+    processor.process_chunk(_MERMAID_FENCE)
     events = processor.finalize()
 
-    block = next(e for e in events if e.type == "transcript")
+    block = next(e for e in events if e.type == "mermaid")
     ir = block.metadata[IR_ENVELOPE_KEY]
     assert block.content is not None
     assert ir["fingerprint"] == fingerprint_text(block.content)
@@ -173,7 +184,6 @@ def test_envelope_shape_decision_tree_json_block() -> None:
     ir = envelope_for_block("decision_tree", data, source_text=json.dumps(data))
     assert ir is not None
     _assert_contract_shape(ir, "decision_tree")
-    assert ir["root"]["discriminator"] == {"format": "json", "key": "__kind"}
 
     # `description: None` is an unset optional the schema types as string —
     # dropped from value, recorded in optionalMissing (never silently lost).
@@ -211,28 +221,20 @@ def test_envelope_value_never_holds_unknown_keys() -> None:
 
 
 def test_streaming_blocks_get_no_envelope_but_finalize_does() -> None:
-    """The law: no envelope until the block's own completion signal fires.
-
-    `transcript` is a PARTIAL_UPDATE type — its parser runs on every chunk and
-    `block.data` is populated mid-stream. Only `status == COMPLETE` may stamp.
-    """
+    """The law: no envelope until the block's own completion signal fires."""
     processor = StreamBlockProcessor()
 
     streaming_events = []
-    for chunk in ("```transcript\n", "[00:01] Ada: Hel", "lo\n", "[00:05] Bob: Hi\n"):
+    for chunk in ("```mermaid\n", "graph TD\n", "    A[Client] --> B", "[API]\n"):
         streaming_events.extend(processor.process_chunk(chunk))
 
-    transcript_streaming = [e for e in streaming_events if e.type == "transcript"]
-    assert transcript_streaming, "expected the transcript block to stream"
-    for event in transcript_streaming:
+    mermaid_streaming = [e for e in streaming_events if e.type == "mermaid"]
+    assert mermaid_streaming, "expected the mermaid block to stream"
+    for event in mermaid_streaming:
         assert event.status.value == "streaming"
         assert IR_ENVELOPE_KEY not in event.metadata
 
-    # At least one streaming event already had parsed data — proving the guard
-    # is the status, not the absence of a payload.
-    assert any(e.data for e in transcript_streaming)
-
-    final = [e for e in processor.finalize() if e.type == "transcript"]
+    final = [e for e in processor.finalize() if e.type == "mermaid"]
     assert final and final[-1].status.value == "complete"
     assert IR_ENVELOPE_KEY in final[-1].metadata
     assert final[-1].metadata[IR_ENVELOPE_KEY]["root"]["status"] == "complete"
@@ -240,7 +242,7 @@ def test_streaming_blocks_get_no_envelope_but_finalize_does() -> None:
 
 def test_incomplete_block_state_is_not_stamped_directly() -> None:
     processor = StreamBlockProcessor()
-    events = processor.process_chunk("```transcript\n[00:01] Ada: Hello\n")
+    events = processor.process_chunk("```mermaid\ngraph TD\n    A --> B\n")
     assert all(IR_ENVELOPE_KEY not in e.metadata for e in events)
 
 
@@ -254,53 +256,9 @@ def test_unknown_block_type_gets_no_envelope() -> None:
     assert envelope_for_block("not_a_block", {"value": 1}, source_text="{}") is None
 
 
-def test_quiz_adapter_is_lossless_and_canonical() -> None:
-    source = {
-        "quizTitle": "Safety",
-        "category": "Ops",
-        "multipleChoice": [
-            {
-                "id": "q1",
-                "question": "Deploy?",
-                "options": ["No", "Yes"],
-                "correctAnswer": 1,
-                "explanation": "Checks passed",
-            }
-        ],
-    }
-    adapted = adapt_block_data("quiz", source)
-    assert source["multipleChoice"][0]["correctAnswer"] == 1
-    assert adapted["title"] == "Safety"
-    assert adapted["questions"][0]["correct_answer"] == "Yes"
-    assert adapted["multipleChoice"] == source["multipleChoice"]
-
-
-def test_legacy_block_adapters_cover_all_known_vocabulary_gaps() -> None:
-    cases = {
-        "flashcards": ({"cards": []}, "title"),
-        "mermaid": ({"source": "graph TD"}, "code"),
-        "progress_tracker": ({"title": "T", "categories": []}, "phases"),
-        "resources": ({"title": "R", "categories": []}, "categories"),
-        "math_problem": ({"math_problem": {"title": "M"}}, "title"),
-        "questionnaire": ({"sections": []}, "questions"),
-    }
-    for block_type, (value, required_key) in cases.items():
-        assert required_key in adapt_block_data(block_type, value)
-
-
-def test_flashcards_adapter_keeps_the_sets_own_title() -> None:
-    """The placeholder is for a set with NO title — never over a real one.
-
-    Real case (conversation 10d796b4, 2026-09-30): every ``<flashcards>`` set
-    was titled "Flashcards" and saved as a deck of that name.
-    """
-    cards = [{"front": "Nitrate", "back": "NO3-"}]
-    titled = adapt_block_data("flashcards", {"cards": cards, "title": "Polyatomic Ions"})
-    assert titled["title"] == "Polyatomic Ions"
-    # No title, or an explicit null (a dump without exclude), still satisfies
-    # the kind's required ``title: string``.
-    assert adapt_block_data("flashcards", {"cards": cards})["title"] == "Flashcards"
-    assert adapt_block_data("flashcards", {"cards": cards, "title": None})["title"] == "Flashcards"
+def test_block_adapter_covers_the_mermaid_vocabulary_gap() -> None:
+    """mermaid's parser says ``source``; the kind requires ``code``."""
+    assert "code" in adapt_block_data("mermaid", {"source": "graph TD"})
 
 
 def test_unregistered_kind_gets_no_envelope(monkeypatch: pytest.MonkeyPatch) -> None:

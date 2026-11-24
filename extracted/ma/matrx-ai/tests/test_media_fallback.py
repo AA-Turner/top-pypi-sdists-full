@@ -95,6 +95,27 @@ async def test_resolver_exception_is_terminal(monkeypatch):
         await preprocess_unsupported_media(ml, "openai_chat", model_name="gpt-5")
 
 
+async def test_baa_refusal_in_a_resolver_surfaces_as_its_own_refusal(monkeypatch):
+    """A HIPAA refusal is a caller refusal, not a dropped-media failure (it was filed as
+    connection_error and shown as "Could not connect")."""
+    from matrx_ai.providers.baa_gate import HIPAA_NOT_COVERED, BaaRefusedError
+
+    async def refusing_resolver(content, ctx):
+        raise BaaRefusedError("The model whisper-large-v3-turbo (transcription)", "groq")
+
+    monkeypatch.setattr(
+        handler,
+        "_RESOLVERS",
+        {handler.MediaContainer.VIDEO: refusing_resolver},
+    )
+    ml = _msg(VideoContent(base64_data="eA==", mime_type="video/mp4"))
+    with pytest.raises(BaaRefusedError) as info:
+        await preprocess_unsupported_media(ml, "openai_chat", model_name="gpt-5")
+    assert info.value.code == HIPAA_NOT_COVERED
+    assert info.value.is_caller_refusal is True
+    assert "HIPAA mode" in info.value.user_message
+
+
 def test_required_resolver_assertion_fails_loud(monkeypatch):
     monkeypatch.setattr(handler, "_RESOLVERS", {})
     with pytest.raises(RuntimeError, match="image, video"):
@@ -148,7 +169,7 @@ async def test_pdf_extracted_to_text_on_provider_that_cant_take_documents(monkey
     flat = _flatten(out)
     kinds = [type(c).__name__ for c in flat]
     assert "DocumentContent" not in kinds  # the PDF was replaced...
-    extracted = [c for c in flat if isinstance(c, TextContent) and "extracted to text" in c.text]
+    extracted = [c for c in flat if isinstance(c, TextContent) and "[Attached file:" in c.text]
     assert extracted, "PDF should have been extracted into a TextContent"
     assert "Hello from a test PDF" in extracted[0].text
 

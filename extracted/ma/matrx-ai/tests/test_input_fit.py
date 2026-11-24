@@ -198,7 +198,7 @@ async def test_a_call_that_cannot_fit_says_so_and_names_every_pass() -> None:
         config, policy=None, stage=STAGE_LOOP, conversation_id=CONVERSATION_ID, trim=_forced_trim
     )
     assert record["fits"] is False
-    assert [p["pass"] for p in record["passes"]] == ["forced_trim_4_8", "forced_trim_2_2"]
+    assert [p["pass"] for p in record["passes"]] == ["forced_trim_4_8", "forced_trim_2_2", "stub_history"]
     assert record["after"][-1]["estimated_tokens"] > 1
 
 
@@ -278,3 +278,76 @@ async def test_over_a_condense_only_cap_nothing_is_ever_trimmed() -> None:
     assert [p["pass"] for p in at_resolve["passes"]] == ["compaction"]
     assert at_loop["fits"] is True and at_loop.get("condense_only") is True and at_loop["passes"] == []
     assert [repr(m.content) for m in config.messages] == snapshot, "a person's chat was trimmed for its cap"
+
+
+def _long_thinking_history(turns: int = 158) -> SimpleNamespace:
+    """317 messages (user + 158 x [assistant thinking+call, tool result]): the Company Setup
+    shape (b59d533b) — mostly old thinking and short tool traffic the tier previews cannot cut."""
+    from matrx_ai.config import ThinkingContent
+
+    messages: list[UnifiedMessage] = [UnifiedMessage(role="user", content=[])]
+    for i in range(turns):
+        call = _call(i)
+        call.content.insert(0, ThinkingContent(text="t" * 6_000, provider="anthropic"))
+        messages.append(call)
+        messages.append(_result(i, 300))
+    return SimpleNamespace(
+        model="claude-opus-5-5",
+        matrx_model_name="claude-opus-5-5",
+        messages=messages,
+        system_instruction=None,
+        tools=[],
+        prompt_cache_key=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_317_message_history_of_old_thinking_is_stubbed_to_fit_and_the_trim_is_recorded() -> None:
+    config = _long_thinking_history()
+    before = estimate_prompt_tokens(config)
+    limit = before // 4  # thinking alone is far more than 3/4 of the call
+    _budget(limit)
+    latest_user = UnifiedMessage(role="user", content=[])
+    config.messages.append(latest_user)
+    config.messages.append(_call(999))
+    config.messages[-1].content.insert(
+        0, __import__("matrx_ai.config", fromlist=["ThinkingContent"]).ThinkingContent(text="LIVE", provider="anthropic")
+    )
+
+    record = await input_fit.ensure_fits(
+        config, policy=None, stage=STAGE_LOOP, conversation_id=CONVERSATION_ID, trim=_forced_trim
+    )
+
+    after = estimate_prompt_tokens(config)
+    assert record and record["fits"] is True, f"{after:,} over {limit:,}: {record}"
+    assert after <= limit
+    stub = next(p for p in record["passes"] if p["pass"] == "stub_history")
+    assert stub["thinking_blocks_dropped"] >= 1 and stub["tokens_trimmed"] > 0
+    # the latest turn is untouched, its thinking included
+    assert config.messages[-1].content[0].text == "LIVE"
+    # nothing was removed from the ledger
+    assert len(config.messages) == 319
+    # every earlier thinking block is gone; no earlier message was emptied
+    assert all(
+        getattr(b, "type", None) != "thinking"
+        for m in config.messages[:-2]
+        for b in m.content
+    )
+    assert all(m.content for m in config.messages[1:-2])
+
+
+@pytest.mark.asyncio
+async def test_old_tool_inputs_and_results_become_visible_stubs_oldest_first() -> None:
+    config = _long_thinking_history(turns=40)
+    config.messages.append(UnifiedMessage(role="user", content=[]))
+    # budget needs the thinking gone AND some stubs, but not every stub
+    from matrx_ai.config import ThinkingContent  # noqa: F401
+
+    base = estimate_prompt_tokens(config)
+    _budget(int(base * 0.02))
+    await input_fit.ensure_fits(
+        config, policy=None, stage=STAGE_LOOP, conversation_id=CONVERSATION_ID, trim=_forced_trim
+    )
+    first_call = config.messages[1].content[-1]
+    assert first_call.arguments == {"_trimmed": input_fit.STUB_TOOL_INPUT}
+    assert config.messages[2].content[0].content == input_fit.STUB_TOOL_RESULT

@@ -1,10 +1,8 @@
-"""Unit tests for Phase 5b — triggers, cron watcher, and observability.
+"""Unit tests for Phase 5b — triggers and observability.
 
 DB integration is covered by the gated Postgres tests. Here we exercise:
 
 - TriggerRow shape + round-trip
-- CronWatcher dispatches fire callable for each claimed trigger
-- CronWatcher never dies on fire errors
 - Observability spans are no-ops when OTel isn't configured (never raise)
 - cron expression parsing works on realistic schedules
 """
@@ -12,12 +10,10 @@ DB integration is covered by the gated Postgres tests. Here we exercise:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
 
 import pytest
 from matrx_graph.db.trigger_store import TriggerRow, _compute_next_run
 from matrx_graph.observability import is_enabled, record_exception, set_attributes, span
-from matrx_graph.workers.cron_watcher import CronWatcher
 from pydantic import ValidationError
 
 # ---------------------------------------------------------------------------
@@ -99,83 +95,6 @@ def test_compute_next_run_respects_timezone():
 def test_compute_next_run_rejects_invalid_timezone():
     with pytest.raises(ValueError):
         _compute_next_run("0 * * * *", "Mars/Olympus", base=None)
-
-
-# ---------------------------------------------------------------------------
-# CronWatcher
-# ---------------------------------------------------------------------------
-
-
-class _FakeStore:
-    """In-memory stand-in for TriggerStore with the bits CronWatcher touches."""
-
-    def __init__(self, due_batches: list[list[TriggerRow]]) -> None:
-        self._batches = due_batches
-        self._fires: list[tuple[str, str]] = []
-
-    async def claim_due(self, *, now: Any = None, limit: int = 100) -> list[TriggerRow]:
-        if not self._batches:
-            return []
-        return self._batches.pop(0)
-
-    async def record_fire(self, trigger_id: str, run_id: str) -> None:
-        self._fires.append((trigger_id, run_id))
-
-
-async def test_cron_watcher_tick_fires_claimed_triggers():
-    claimed = [
-        TriggerRow(id="t1", definition_id="d1", name="a", kind="cron"),
-        TriggerRow(id="t2", definition_id="d2", name="b", kind="cron"),
-    ]
-    store = _FakeStore([claimed])
-
-    fired: list[str] = []
-
-    async def _fire(trig: TriggerRow) -> str:
-        fired.append(trig.id)
-        return f"run-{trig.id}"
-
-    watcher = CronWatcher(fire_trigger=_fire, store=store)  # type: ignore[arg-type]
-    count = await watcher.tick_once()
-
-    assert count == 2
-    assert fired == ["t1", "t2"]
-    assert store._fires == [("t1", "run-t1"), ("t2", "run-t2")]
-
-
-async def test_cron_watcher_tick_logs_fire_errors_but_continues():
-    batch = [
-        TriggerRow(id="t1", definition_id="d1", name="a", kind="cron"),
-        TriggerRow(id="t2", definition_id="d2", name="b", kind="cron"),
-    ]
-    store = _FakeStore([batch])
-
-    calls: list[str] = []
-
-    async def _fire(trig: TriggerRow) -> str:
-        calls.append(trig.id)
-        if trig.id == "t1":
-            raise RuntimeError("simulated fire failure")
-        return f"run-{trig.id}"
-
-    watcher = CronWatcher(fire_trigger=_fire, store=store)  # type: ignore[arg-type]
-    count = await watcher.tick_once()
-
-    # Both triggers attempted even though the first raised
-    assert calls == ["t1", "t2"]
-    # Only the successful one recorded a fire
-    assert count == 2
-    assert store._fires == [("t2", "run-t2")]
-
-
-async def test_cron_watcher_tick_returns_zero_on_empty():
-    store = _FakeStore([])
-
-    async def _fire(trig: TriggerRow) -> str:
-        raise AssertionError("fire should not be called when no due triggers")
-
-    watcher = CronWatcher(fire_trigger=_fire, store=store)  # type: ignore[arg-type]
-    assert await watcher.tick_once() == 0
 
 
 # ---------------------------------------------------------------------------

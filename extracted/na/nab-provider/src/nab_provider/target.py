@@ -22,30 +22,32 @@ from __future__ import annotations
 __lazy_modules__ = (
     "nab_markersets.markersets",
     "nab_markersets.python_versions",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.ranges",
-    "nab_provider._vendor.packaging.version",
     "nab_provider.conflict_kind",
     "nab_provider.environment",
     "nab_provider.marker_holds",
     "nab_provider.tags",
+    "packaging.ranges",
+    "packaging.specifiers",
+    "packaging.version",
 )
 
-import re
+from bisect import bisect_right
 from functools import lru_cache
 from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple
+from urllib.parse import quote
 
-from nab_markersets.markersets import variable_names
-from nab_markersets.python_versions import validate_python_version
-from nab_provider._vendor.packaging import tags as ptags
-from nab_provider._vendor.packaging.markers import Marker, default_environment
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.specifiers import (
+from packaging import tags as ptags
+from packaging.markers import Marker, default_environment
+from packaging.ranges import VersionRange
+from packaging.specifiers import (
     InvalidSpecifier,
     Specifier,
     SpecifierSet,
 )
-from nab_provider._vendor.packaging.version import InvalidVersion, Version
+from packaging.version import InvalidVersion, Version
+
+from nab_markersets.markersets import variable_names
+from nab_markersets.python_versions import validate_python_version
 
 from .conflict_kind import EMPTY_MEMBERSHIP_SETS, MARKER_VARIABLE_FOR_KIND
 from .environment import (
@@ -53,6 +55,7 @@ from .environment import (
     host_environment,
 )
 from .marker_holds import IntractableMarkerError, UnevaluableMarkerError
+from .pep508 import MARKER_COMPARISON
 from .tags import (
     FREE_THREADED_MIN_PYTHON,
     PlatformSpec,
@@ -62,7 +65,8 @@ from .tags import (
 from .value import HashableRecord, Record, replace
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    import re
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
     from .tags import TagsSource
 
@@ -78,6 +82,7 @@ __all__ = [
     "IntractableMarkerError",
     "Matrix",
     "MatrixInclude",
+    "MicroBoundaries",
     "NonIntervalMarkerError",
     "ResolveTarget",
     "UnevaluableMarkerError",
@@ -88,6 +93,7 @@ __all__ = [
     "environment_declaration",
     "host_environment",
     "marker_variables",
+    "micro_boundaries",
     "micro_boundary_points",
     "names_a_micro",
     "python_axis_environment",
@@ -258,27 +264,9 @@ _ALWAYS_DECLARED: tuple[str, ...] = (
     "platform_machine",
 )
 
-# The variables a lock never declares by value: their bounds come only from a
-# slice's ``python_full_version`` clauses (see :func:`slices_from_points`).
-# Both carry a micro release, and on CPython they carry the same one
-# (``implementation_version`` comes from ``sys.implementation.version``), so
-# declaring either by value would pin the lock to a single patch release.  A
-# consulted marker on one splits the minor at its boundary instead, and each
-# slice emits the bounds that fence it off; an unsplit minor emits neither.
+# A minor interval uses its slice bounds for these axes. An explicit patch
+# target uses its full version for both on CPython.
 _BY_CONSTRAINT = ("python_full_version", "implementation_version")
-
-# One ``lhs op rhs`` comparison of a marker, matched against the string form
-# :func:`Marker.__str__` normalises to: an operand is either a quoted literal
-# or a bare variable token, which is what tells the two apart.  Both quote
-# styles are matched, since packaging emits a value holding a double quote
-# single-quoted.  Ordered so the two-character operators win over their
-# prefixes.
-_MARKER_OPERAND = r'"[^"]*"|\'[^\']*\'|[A-Za-z_][A-Za-z0-9_]*'
-_MARKER_CLAUSE_RE = re.compile(
-    rf"(?P<lhs>{_MARKER_OPERAND})\s*"
-    r"(?P<op>===|==|!=|<=|>=|~=|<|>|not\s+in|in)\s*"
-    rf"(?P<rhs>{_MARKER_OPERAND})"
-)
 
 
 @lru_cache(maxsize=8192)
@@ -320,15 +308,11 @@ def environment_declaration(target: ResolveTarget, consulted: Iterable[Marker]) 
     those variables differently would miss deps; the declaration refuses it.
 
     Most variables are declared by value (a ``platform_system`` marker pins
-    the OS).  The :data:`_BY_CONSTRAINT` variables (``python_full_version``,
-    and ``implementation_version`` on CPython) are not, since pinning the
-    micro release would refuse the interpreters the resolve ran for.  A minor
-    target is a micro interval: a consulted marker that splits it (see
-    :func:`micro_boundary_points`) leaves each slice its
-    :attr:`~ResolveTarget.micro_clauses` bounds and the row emits those,
-    while an unsplit minor emits none and stays a plain ``python_version``
-    row.  On CPython ``implementation_version`` tracks ``python_full_version``,
-    so a marker consulting it gets the same bounds mirrored onto its name.
+    the OS). An explicit patch target declares its full version. A minor target
+    uses its :attr:`~ResolveTarget.micro_clauses` when a consulted marker splits
+    the minor, or a plain ``python_version`` row when unsplit. A host target
+    declares the interval containing its interpreter when one exists. On CPython a
+    consulted ``implementation_version`` uses the same bounds.
 
     The variables :func:`unboundable_variables` names are dropped: the kernel
     axes always, and ``implementation_version`` on a non-CPython target (its
@@ -348,18 +332,77 @@ def environment_declaration(target: ResolveTarget, consulted: Iterable[Marker]) 
 
     clauses = [f'{name} == "{target.marker_env[name]}"' for name in names]
 
-    # A micro-slice target (see :func:`slices_from_points`) carries the
-    # python_full_version bounds of its slice explicitly, so the environment
-    # row covers exactly that slice.  On CPython implementation_version equals
-    # python_full_version, so a marker that consulted it gets the same bounds
-    # mirrored onto its own name.
-    clauses.extend(target.micro_clauses)
+    bounds = target.micro_clauses
+    consulted_version = not by_value.isdisjoint(_BY_CONSTRAINT)
+    if target.concrete_micro:
+        bounds = _patch_bounds(target, exclude_local_builds=consulted_version)
+    elif target.host_faithful and consulted_version:
+        bounds = _host_patch_bounds(target, texts)
+    clauses.extend(bounds)
     if "implementation_version" in variables and target.implementation == "cpython":
         clauses.extend(
             clause.replace("python_full_version", "implementation_version")
-            for clause in target.micro_clauses
+            for clause in bounds
         )
+    if consulted_version and (target.concrete_micro or target.host_faithful):
+        lexical = _version_membership_bounds(target, texts)
+        clauses.extend(sorted(lexical.difference(clauses)))
     return " and ".join(clauses)
+
+
+def _version_membership_bounds(target: ResolveTarget, texts: Sequence[str]) -> set[str]:
+    """Require the installer's version text to give the same membership answers."""
+    variables = _scanned_version_variables(target)
+    bounds: set[str] = set()
+    for text in texts:
+        if " in " not in text:
+            continue
+        for atom in MARKER_COMPARISON.finditer(text):
+            lhs, op, rhs = _clause_parts(atom)
+            if op not in {"in", "not in"}:
+                continue
+            if lhs.startswith(('"', "'")):
+                # Packaging reads the right operand as an environment key here.
+                rhs = rhs.strip("\"'")
+                variable = rhs
+            else:
+                variable = lhs
+            if variable not in variables:
+                continue
+
+            test = Marker(f"{lhs} in {rhs}")
+            membership = "in" if test.evaluate_prepared(target.marker_env) else "not in"
+            bounds.add(f"{lhs} {membership} {rhs}")
+    return bounds
+
+
+def _patch_bounds(
+    target: ResolveTarget, *, exclude_local_builds: bool
+) -> tuple[str, ...]:
+    """Match one Python patch and distinguish local builds when needed."""
+    version = target.python_full_version
+    bounds = (f'python_full_version == "{version}"',)
+    if exclude_local_builds and "+" not in version:
+        # A public version pin alone also admits local builds (PEP 440).
+        return (*bounds, '"+" not in python_full_version')
+    return bounds
+
+
+def _host_patch_bounds(target: ResolveTarget, texts: Sequence[str]) -> tuple[str, ...]:
+    """Find the host interval or pin its build when the comparison requires it."""
+    try:
+        points = sorted(_minor_version_boundaries(target, texts).versions)
+    except NonIntervalMarkerError:
+        return _patch_bounds(target, exclude_local_builds=True)
+
+    if not points:
+        return ()
+
+    floor = Version(f"{target.python_version}.0.dev0")
+    index = bisect_right(points, Version(target.python_full_version))
+    low = points[index - 1] if index else floor
+    high = points[index] if index < len(points) else None
+    return _slice_bounds(low, high, floor)
 
 
 def declared_range_marker(target: ResolveTarget) -> str:
@@ -455,50 +498,48 @@ def _non_interval(
 def slices_from_points(
     target: ResolveTarget, points: Sequence[Version]
 ) -> list[ResolveTarget]:
-    """Partition ``target``'s minor into one slice per micro interval.
+    """Partition a minor at the first version of each new marker outcome.
 
-    ``points`` are the in-minor releases the micro line is cut at (see
-    :func:`micro_boundary_points`), sorted ascending.  They partition
-    ``[{minor}.0, inf)`` into intervals; each interval becomes ``target``
-    moved onto its lower-bound release, carrying the python_full_version
-    bounds that fence it off (see :meth:`ResolveTarget.with_micro_slice`).
-    Every marker answers unambiguously at an interval's lower bound, so that
-    release is where the slice resolves.  Each slice declares its own
-    environment row and pins, so a marker that genuinely splits the micros is
-    honoured per slice rather than lifted onto the whole minor.
-
-    Returns ``[target]`` unchanged when ``points`` is empty: nothing cut the
-    minor, so the whole minor resolves at once.
+    Each slice resolves at a final patch release when it contains one.
+    A slice containing only prereleases uses its earliest version.
     """
     if not points:
         return [target]
-    floor = Version(f"{target.python_version}.0")
-    reps = [floor, *points]
-    lowers: list[Version | None] = [None, *points]
-    uppers: list[Version | None] = [*points, None]
 
+    floor = Version(f"{target.python_version}.0.dev0")
     slices: list[ResolveTarget] = []
-    for rep, low, high in zip(reps, lowers, uppers, strict=True):
-        clauses: list[str] = []
-        if low is not None:
-            clauses.append(f'python_full_version >= "{_dev0(low)}"')
-        if high is not None:
-            clauses.append(f'python_full_version < "{high}"')
-        slices.append(target.with_micro_slice(str(rep), tuple(clauses)))
+    for low, high in zip([floor, *points], [*points, None], strict=True):
+        final = Version.from_parts(release=low.release)
+        representative = final if high is None or final < high else low
+        bounds = _slice_bounds(low, high, floor)
+        slices.append(target.with_micro_slice(str(representative), bounds))
     return slices
 
 
-def _dev0(version: Version) -> str:
-    """Return the ``.dev0`` boundary form of a release ``version``.
-
-    The canonical disjoint and exhaustive split pair at a boundary ``X`` is
-    ``< "X"`` on the lower side and ``>= "X.dev0"`` on the upper: a verbatim
-    ``< "X"`` / ``>= "X"`` pair leaves a gap at prereleases of ``X`` (packaging
-    carries a ``< X`` upper as ``X.dev0``), so the ``>=`` lower edge is snapped
-    to ``X.dev0`` to meet the adjacent ``< "X"`` exactly.  The suffix is a
-    syntactic form on a packaging-parsed version, validated by re-parsing.
-    """
-    return str(Version(f"{version}.dev0"))
+def _slice_bounds(
+    low: Version, high: Version | None, floor: Version
+) -> tuple[str, ...]:
+    """Render the marker clauses for one interval of a Python minor."""
+    clauses: list[str] = []
+    if low != floor:
+        clauses.append(f'python_full_version >= "{low}"')
+    if high is not None:
+        if high.is_prerelease:
+            # <X already excludes every prerelease of the final X.
+            upper = (
+                high.base_version if high.dev == 0 and high.pre is None else str(high)
+            )
+            clauses.append(f'python_full_version < "{upper}"')
+        else:
+            # PEP 440's <final excludes prereleases of that patch. Together
+            # these bounds include them while excluding the final and its locals.
+            clauses.extend(
+                (
+                    f'python_full_version <= "{high}"',
+                    f'python_full_version != "{high}"',
+                )
+            )
+    return tuple(clauses)
 
 
 def _scanned_version_variables(target: ResolveTarget) -> frozenset[str]:
@@ -517,44 +558,98 @@ def _scanned_version_variables(target: ResolveTarget) -> frozenset[str]:
 def micro_boundary_points(
     target: ResolveTarget, consulted: Iterable[Marker]
 ) -> list[Version]:
-    """Return the in-minor releases ``consulted`` cuts ``target``'s minor at.
+    """Return the numeric transitions of the consulted interpreter-version clauses.
 
-    A minor target stands for every micro of its minor (its
-    ``python_full_version`` is the synthesized ``{minor}.0`` floor).  A
-    consulted marker comparing ``python_full_version`` against a literal inside
-    the minor (``python_full_version < "3.10.2"``) needs different package sets
-    on each side, so the release it flips at is a point the micro line is split
-    on (see :func:`slices_from_points`).  On CPython ``implementation_version``
-    tracks ``python_full_version``, so a comparison on it mints the same
-    boundary.
+    A bare minor covers prereleases as well as final patch releases. For example,
+    ``< "3.12.4"`` stops applying at 3.12.4.dev0, while ``>= "3.12.4"`` starts at
+    3.12.4 itself. On CPython, implementation-version comparisons use the same
+    boundaries. Exact targets are never split.
 
-    Within one minor, a clause can change only at the literal's micro or
-    the next one. Packaging's specifier membership decides which points
-    change its answer. A boundary outside the minor or at its floor cuts nothing.
-
-    An operator that cannot tile the interval raises
-    :class:`NonIntervalMarkerError` (see there); with the whole-minor pin gone,
-    an untileable marker stops the resolve loudly.  A whole target (a host, or
-    a python-patches pin) is not an interval and is never cut.
-
-    Markers are scanned in text order, so the clause a crash names is the same
-    every run even when ``consulted`` is unordered.
+    A clause outside the supported interval comparisons raises NonIntervalMarkerError.
+    Scan markers in text order to report the same offending clause on each run.
     """
+    return sorted(micro_boundaries(target, consulted).versions)
+
+
+_LOCAL_BUILD = '"+" in python_full_version'
+_PUBLIC_BUILD = '"+" not in python_full_version'
+
+
+class MicroBoundaries(NamedTuple):
+    """Version transitions and comparisons that can distinguish a local Python build."""
+
+    versions: frozenset[Version] = frozenset()
+    local_comparisons: frozenset[Marker] = frozenset()
+
+    def merge(self, other: MicroBoundaries) -> MicroBoundaries:
+        """Combine the boundaries observed on two dependency paths."""
+        return MicroBoundaries(
+            self.versions | other.versions,
+            self.local_comparisons | other.local_comparisons,
+        )
+
+    def slices(self, target: ResolveTarget) -> list[ResolveTarget]:
+        """Split a patch interval again when a local suffix changes its dependencies."""
+        intervals = slices_from_points(target, sorted(self.versions))
+        if not self.local_comparisons:
+            return intervals
+
+        result: list[ResolveTarget] = []
+        for interval in intervals:
+            version = interval.python_full_version
+            bounds = interval.micro_clauses
+            # A marker naming a specific local label was rejected during scanning.
+            # All suffixes on this release therefore give the same result.
+            local = target.with_micro_slice(f"{version}+local", (*bounds, _LOCAL_BUILD))
+            if any(
+                marker.evaluate_prepared(interval.marker_env)
+                != marker.evaluate_prepared(local.marker_env)
+                for marker in self.local_comparisons
+            ):
+                result.append(
+                    target.with_micro_slice(version, (*bounds, _PUBLIC_BUILD))
+                )
+                result.append(local)
+            else:
+                result.append(interval)
+        return result
+
+
+def micro_boundaries(
+    target: ResolveTarget, consulted: Iterable[Marker]
+) -> MicroBoundaries:
+    """Find the numeric and local-build distinctions a minor resolve must cover."""
     if not target.is_minor_interval:
-        return []
+        return MicroBoundaries()
+    return _minor_version_boundaries(target, sorted(map(str, consulted)))
+
+
+def _minor_version_boundaries(
+    target: ResolveTarget, texts: Sequence[str]
+) -> MicroBoundaries:
+    """Find version transitions for the declared minor in marker-text order."""
     minor_release = Version(target.python_version).release[:_PYTHON_VERSION_PARTS]
     floor = Version(f"{target.python_version}.0")
     scanned = _scanned_version_variables(target)
 
     points: set[Version] = set()
-    for marker in sorted(consulted, key=str):
-        for atom in _MARKER_CLAUSE_RE.finditer(str(marker)):
+    local_comparisons: set[Marker] = set()
+    for text in texts:
+        for atom in MARKER_COMPARISON.finditer(text):
+            parts = _clause_parts(atom)
+            lhs, op, rhs = parts
+            if lhs.startswith(('"', "'")) and rhs.strip("\"'") in scanned:
+                # Packaging uses the right operand as the bound even when it is quoted.
+                if target.host_faithful:
+                    raise _non_interval(parts, target)
+                parts = lhs, op, rhs.strip("\"'")
+                local_comparisons.add(Marker(" ".join(parts)))
+                if lhs == '"+"' and op in {"in", "not in"}:
+                    continue
             points.update(
-                _clause_boundary_points(
-                    _clause_parts(atom), scanned, minor_release, floor, target
-                )
+                _clause_boundary_points(parts, scanned, minor_release, floor, target)
             )
-    return sorted(points)
+    return MicroBoundaries(frozenset(points), frozenset(local_comparisons))
 
 
 def _clause_boundary_points(
@@ -564,50 +659,75 @@ def _clause_boundary_points(
     floor: Version,
     target: ResolveTarget,
 ) -> set[Version]:
-    """Return the in-minor release boundaries one clause cuts the minor at.
-
-    Empty when the clause names no scanned version variable, or its boundaries
-    fall outside the minor or at its floor.  Raises
-    :class:`NonIntervalMarkerError` when the clause names a scanned variable
-    but cannot tile the interval.
-    """
+    """Compare the clause on either side of each possible change in this minor."""
     parsed = _clause_interval_literal(parts, scanned, target)
     if parsed is None:
         return set()
     op, specifier, version = parsed
 
-    if (version.is_prerelease and op in _AT_LITERAL_OPERATORS) or (
-        version.is_postrelease and op in _POST_AT_LITERAL_OPERATORS
+    if _in_minor(version, minor_release, floor) and (
+        (version.is_prerelease and op in _AT_LITERAL_OPERATORS)
+        or (version.is_postrelease and op in _POST_AT_LITERAL_OPERATORS)
     ):
-        # An at-literal boundary lands on the literal, and a pre- or post-release
-        # literal falls between two micros, so no micro reads it the way its slice
-        # would.  Interior to the minor that cannot be tiled and crashes; below the
-        # floor or in another minor it is uniform and splits nothing.  The literal
-        # itself decides which, not its release form: a prerelease sorts just below
-        # its release and a post just above, so ``3.12.0a1`` sits below the floor
-        # while ``3.12.0.post1`` sits above it.
-        if _in_minor(version, minor_release, floor):
-            raise _non_interval(parts, target)
-        return set()
+        raise _non_interval(parts, target)
 
     release = (*version.release, 0, 0)[:_PYTHON_FULL_VERSION_PARTS]
     if version.epoch != floor.epoch or release[:_PYTHON_VERSION_PARTS] != minor_release:
         return set()
 
-    major, minor, micro = release
-    previous = Version.from_parts(release=(major, minor, max(micro - 1, 0)))
-    admitted = specifier.contains(previous, prereleases=True)
+    if version.local is not None:
+        lhs, operator, rhs = parts
+        msg = (
+            f"consulted marker clause {lhs} {operator} {rhs} distinguishes local"
+            f" Python builds within the {target.label} minor interval, which nab"
+            " cannot represent with patch version bounds"
+        )
+        raise NonIntervalMarkerError(msg)
 
+    major, minor, micro = release
+    patch = Version.from_parts(release=(major, minor, micro))
+    minor_start = Version.from_parts(release=(*minor_release, 0), dev=0)
+    candidates = {
+        minor_start,
+        Version.from_parts(release=patch.release, dev=0),
+        patch,
+        Version.from_parts(release=(major, minor, micro + 1), dev=0),
+        *_prerelease_points(version, patch.release),
+    }
+
+    # Packaging preserves operand order. In particular, a literal-first
+    # comparison need not agree with its mirror on a prerelease interpreter.
+    comparison = Marker(" ".join(parts)) if parts[2] in scanned else None
+    previous = None
     points: set[Version] = set()
-    # These candidates cover cuts before and after the literal's final release.
-    # A shorter wildcard or compatible prefix ends outside this minor.
-    for patch in range(max(micro, 1), micro + 2):
-        point = Version.from_parts(release=(major, minor, patch))
-        next_admitted = specifier.contains(point, prereleases=True)
-        if admitted != next_admitted:
+    for point in sorted(candidates):
+        admitted = (
+            comparison.evaluate_prepared({parts[2]: str(point)})
+            if comparison is not None
+            else specifier.contains(point, prereleases=True)
+        )
+        if previous is not None and admitted != previous:
             points.add(point)
-        admitted = next_admitted
+        previous = admitted
     return points
+
+
+def _prerelease_points(version: Version, release: tuple[int, ...]) -> Iterator[Version]:
+    """Yield a prerelease literal and the first supported version after it."""
+    if version.dev is not None:
+        successor = Version.from_parts(
+            release=release, pre=version.pre, dev=version.dev + 1
+        )
+    elif version.pre is not None:
+        phase, number = version.pre
+        successor = Version.from_parts(release=release, pre=(phase, number + 1), dev=0)
+    else:
+        return
+
+    literal = Version.from_parts(release=release, pre=version.pre, dev=version.dev)
+    if literal == version:
+        yield literal
+        yield successor
 
 
 def _in_minor(point: Version, minor_release: tuple[int, ...], floor: Version) -> bool:
@@ -704,24 +824,31 @@ def apply_python_axis_overlay(
     level and the two would describe different interpreters. Re-derive both
     from whichever axis key the overlay supplies (``python_full_version``
     wins when both are present), so an overlay of ``python_version`` ``3.8``
-    yields ``python_full_version`` ``3.8.0`` like the universal matrix. On
-    CPython ``implementation_version`` equals ``python_full_version``, so move
-    it with the axis; other implementations version separately and keep their
-    host value unless the overlay sets it. Non-axis keys the overlay sets are
-    kept verbatim; the ``python_version``/``python_full_version`` pair is always
-    the derived one, so a patch-precision ``python_version`` (e.g. ``3.10.5``)
-    normalizes to major.minor.
+    yields ``python_full_version`` ``3.8.0`` like the universal matrix.
+
+    Changing the language version on CPython, or switching to CPython, sets
+    ``implementation_version`` to the resulting ``python_full_version``.
+    Other implementations retain their previous implementation version. An
+    explicit ``implementation_version`` always takes precedence. A patch-level
+    ``python_version`` such as ``3.10.5`` normalizes to major.minor.
     """
-    source = overlay.get("python_full_version") or overlay.get("python_version")
-    if source is None:
-        environment.update(overlay)
+    source = overlay.get("python_full_version", overlay.get("python_version"))
+    axis = python_axis_environment(source) if source is not None else None
+    previous_implementation = environment.get("implementation_name")
+    environment.update(overlay)
+
+    if axis is not None:
+        environment.update(axis)
+    elif environment.get("implementation_name") == previous_implementation:
         return
 
-    axis = python_axis_environment(source)
-    if environment.get("implementation_name") == "cpython":
-        environment["implementation_version"] = axis["python_full_version"]
-    environment.update(overlay)
-    environment.update(axis)
+    # The selected implementation decides whether its version follows Python.
+    if (
+        environment.get("implementation_name") == "cpython"
+        and "implementation_version" not in overlay
+        and "python_full_version" in environment
+    ):
+        environment["implementation_version"] = environment["python_full_version"]
 
 
 def _language_minor(version: Version) -> str:
@@ -997,9 +1124,15 @@ class ResolveTarget(HashableRecord):
     def covered_by_requires_python(self, specifiers: Iterable[SpecifierSet]) -> bool:
         """Prove that the specifiers cover this target's version range."""
         if self.is_minor_interval:
-            constraints = [f">={self.python_version}.0", f"=={self.python_version}.*"]
+            constraints = [f"=={self.python_version}.*"]
+            if not self.micro_clauses:
+                constraints.append(f">={self.python_version}.0")
+            # A split target carries its own bounds and can contain only prereleases.
             for clause in self.micro_clauses:
-                atom = _MARKER_CLAUSE_RE.fullmatch(clause)
+                # A local label does not change the numeric bounds of its slice.
+                if clause in (_LOCAL_BUILD, _PUBLIC_BUILD):
+                    continue
+                atom = MARKER_COMPARISON.fullmatch(clause)
                 if atom is None:
                     return False
                 parsed = _clause_interval_literal(
@@ -1066,11 +1199,9 @@ class ResolveTarget(HashableRecord):
 
         Combines ``python_version``, ``sys_platform`` and
         ``platform_machine``, plus ``implementation_name`` when
-        :attr:`declares_implementation`, then every clause in
-        :attr:`micro_clauses`, which bound a slice of a split minor.  It
-        carries no conflict-fork ``selection``, so it selects this
-        target's platform/Python point, not which extras or groups are
-        active.
+        :attr:`declares_implementation`. An exact target adds its Python patch,
+        and a split minor adds its :attr:`micro_clauses`. Fork selections
+        add their extra and group clauses in :attr:`marker_string`.
         """
         env = self.marker_env
         marker = (
@@ -1080,7 +1211,12 @@ class ResolveTarget(HashableRecord):
         )
         if self.declares_implementation:
             marker += f' and implementation_name == "{self.implementation}"'
-        for clause in self.micro_clauses:
+        bounds = (
+            _patch_bounds(self, exclude_local_builds=False)
+            if self.concrete_micro
+            else self.micro_clauses
+        )
+        for clause in bounds:
             marker += f" and {clause}"
         return marker
 
@@ -1224,13 +1360,18 @@ class ResolveTarget(HashableRecord):
         """
         env = host_environment(env_source)
         apply_python_axis_overlay(env, python_axis_environment(python))
+        concrete = names_a_micro(Version(python))
+        label = _python_label(
+            env["python_version"],
+            env["implementation_name"],
+            env["python_full_version"] if concrete else None,
+        )
         return cls(
-            label=_python_label(env["python_version"], env["implementation_name"])
-            + f"-{_HOST_PLATFORM_LABEL}",
+            label=f"{label}-{_HOST_PLATFORM_LABEL}",
             marker_env=env,
             tags=TagSet.for_host_python(python, tags_source=tags_source),
             host_faithful=False,
-            concrete_micro=len(Version(python).release) >= _PYTHON_FULL_VERSION_PARTS,
+            concrete_micro=concrete,
         )
 
     @classmethod
@@ -1251,8 +1392,9 @@ class ResolveTarget(HashableRecord):
         pins the target to one concrete deployment micro and resolves it whole,
         the manual single-point alternative to splitting.
         """
+        label = _python_label(python_version, implementation, python_full_version)
         return cls(
-            label=_python_label(python_version, implementation) + f"-{spec.label}",
+            label=f"{label}-{spec.label}",
             marker_env=declared_environment(
                 python_version, spec, implementation, python_full_version
             ),
@@ -1266,6 +1408,22 @@ class ResolveTarget(HashableRecord):
             multi_implementation=multi_implementation,
             concrete_micro=python_full_version is not None,
         )
+
+
+def _check_python_patch(minor: str, full: str) -> None:
+    """Require a patch pin to identify an interpreter of the declared minor."""
+    try:
+        validate_python_version(minor, variable="python_version")
+        validate_python_version(full)
+        patch_minor = _language_minor(Version(full))
+        declared_minor = _language_minor(Version(minor))
+    except ValueError as exc:
+        msg = f"python-patches expects version strings, got {minor!r}: {full!r}: {exc}"
+        raise ValueError(msg) from exc
+
+    if patch_minor != declared_minor:
+        msg = f"python-patches value {full!r} is not a patch release of {minor!r}"
+        raise ValueError(msg)
 
 
 def declared_environment(
@@ -1290,7 +1448,11 @@ def declared_environment(
     resolve.  The lock does not carry the synthetic value: see
     :func:`unboundable_variables`.
     """
-    full = python_full_version or f"{python_version}.0"
+    if python_full_version is None:
+        full = f"{python_version}.0"
+    else:
+        _check_python_patch(python_version, python_full_version)
+        full = python_full_version
     return {
         **PLATFORM_MARKERS[spec.platform_id],
         **IMPLEMENTATION_MARKERS[implementation],
@@ -1430,6 +1592,30 @@ class Matrix(Record):
 
     def expand(self) -> list[ResolveTarget]:
         """Validate and expand the declared target groups in stable axis order."""
+        ordered = self._points()
+        patches = self.python_patches or {}
+        implementations = {point.implementation for point in ordered}
+        return [
+            ResolveTarget.for_declared(
+                python_version=point.python,
+                spec=point.platform,
+                implementation=point.implementation,
+                python_full_version=patches.get(point.python),
+                multi_implementation=len(implementations) > 1,
+            )
+            for point in ordered
+        ]
+
+    def target_count(self) -> int:
+        """Validate the declarations and count their distinct target coordinates."""
+        points = self._points()
+        # Full expansion checks the ABI when it builds each target's wheel tags.
+        for point in points:
+            point.platform.check_implementation(point.implementation)
+        return len(points)
+
+    def _points(self) -> list[_MatrixPoint]:
+        """Expand the matrix axes in the order shared by counting and resolution."""
         if self.python_order not in {"asc", "desc"}:
             msg = f"python_order must be 'asc' or 'desc'; got {self.python_order!r}"
             raise ValueError(msg)
@@ -1444,6 +1630,10 @@ class Matrix(Record):
                 " keys must be major.minor like '3.11'"
             )
             raise ValueError(msg)
+
+        # Check dormant pins as well as the ones selected by this matrix.
+        for minor, full in patches.items():
+            _check_python_patch(minor, full)
 
         self._validate_defaults_and_overrides()
         python_order = {
@@ -1461,20 +1651,9 @@ class Matrix(Record):
             )
 
         # Preserve each group's order while merging exact coordinates across groups.
-        ordered = sorted(
+        return sorted(
             dict.fromkeys(points), key=lambda point: python_order[point.python]
         )
-        implementations = {point.implementation for point in ordered}
-        return [
-            ResolveTarget.for_declared(
-                python_version=point.python,
-                spec=point.platform,
-                implementation=point.implementation,
-                python_full_version=patches.get(point.python),
-                multi_implementation=len(implementations) > 1,
-            )
-            for point in ordered
-        ]
 
     def _validate_defaults_and_overrides(self) -> None:
         """Validate even dormant bodies without enabling their implementations."""
@@ -1716,10 +1895,15 @@ def _pythons_in_range(spec: str) -> Iterable[str]:
             yield minor
 
 
-def _python_label(python_version: str, implementation: str) -> str:
-    """Render the interpreter half of a label, e.g. ``py311`` or ``pp311``."""
+def _python_label(
+    python_version: str, implementation: str, full_version: str | None
+) -> str:
+    """Include the explicit patch when naming a single interpreter build."""
     prefix = _IMPLEMENTATION_PREFIX.get(implementation, _DEFAULT_IMPLEMENTATION_PREFIX)
-    return prefix + python_version.replace(".", "")
+    minor = prefix + python_version.replace(".", "")
+    if full_version is None:
+        return minor
+    return f"{minor}-patch{quote(full_version, safe='+')}"
 
 
 def _selection_slug(selection: tuple[tuple[str, str], ...]) -> str:

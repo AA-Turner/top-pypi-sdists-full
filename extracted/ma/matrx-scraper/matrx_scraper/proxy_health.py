@@ -98,6 +98,24 @@ def pool_carried_recently() -> bool:
     return seen is not None and time.monotonic() - seen <= REFUSAL_MEMORY_SECONDS
 
 
+#: Distinct destinations the pool must refuse, with no carry in the window, before it is called exhausted.
+#: One refused host on a process that has carried nothing yet is the vendor declining that destination
+#: (youtube.com is refused by our vendor every time — module docstring), not a dead pool: the ProxyPoolExhausted
+#: alarm fired on a cold process for one YouTube link the direct fallback rescued (system_error 9e8a0ef6, 2026-11-13).
+POOL_EXHAUSTED_MIN_HOSTS = 2
+
+
+def refused_hosts_recently(including: str | None = None) -> int:
+    """Distinct hosts the pool refused within the refusal window, counting ``including``'s host as refused now."""
+    now = time.monotonic()
+    with _lock:
+        hosts = {h for h, seen in _refused_hosts.items() if now - seen <= REFUSAL_MEMORY_SECONDS}
+    extra = host_of(including) if including else ""
+    if extra:
+        hosts.add(extra)
+    return len(hosts)
+
+
 def pool_refuses(url: str) -> bool:
     """Did the pool refuse this host recently? Used to go direct FIRST."""
     host = host_of(url)

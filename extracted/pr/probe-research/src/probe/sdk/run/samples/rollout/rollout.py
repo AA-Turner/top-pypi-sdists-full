@@ -104,6 +104,7 @@ class RolloutCapture:
         self._files: list[dict] = []
         self._turns: list[dict] | None = None
         self._turns_source: str | None = None
+        self._tools: list = []
         self._tool_runs: dict[str, dict] = {}
         #: Runs recorded with no call id, in order: each fills the first call of its name no run filled yet.
         self._unnamed_runs: list[dict] = []
@@ -230,6 +231,11 @@ class RolloutCapture:
             self._turns = [dict(turn) for turn in turns]
             self._turns_source = TurnsSource(source or TurnsSource.AS_SENT).value
 
+    def set_tools(self, tools: Iterable[Any]) -> None:
+        """The tools the model was offered (OpenAI-shaped function schemas; `wire.fit_tools` flattens them)."""
+        with self._lock:
+            self._tools = list(tools)
+
     def set_messages(self, messages: Iterable[Any], *, should_number_ids: bool = False) -> None:
         """The messages as the framework built them (OpenAI-shaped), as turns (`build_turns`)."""
         self.set_turns(build_turns(messages, should_number_ids=should_number_ids))
@@ -252,7 +258,7 @@ class RolloutCapture:
     def export(self) -> dict:
         """The capture as plain JSON for the adapter's own generator part (`update_part`): the turns scrubbed by value
         (inline up to 64 KiB, else a `turns_blob` ref; inline at any size when the blob was not stored), `turns_source`,
-        and `environment` (span + files). Closes the span when this capture opened it or the sample names it. Seals the
+        the tools offered, and `environment` (span + files). Closes the span when this capture opened it or the sample names it. Seals the
         capture: a later attach warns and is not linked (A2). Never raises; what failed is left out and counted in
         `extras.attach_failed`."""
         with self._lock:
@@ -264,6 +270,8 @@ class RolloutCapture:
                 payload.update(self._export_turns())
                 if self._turns_source:  # only with turns: alone it would relabel the part's own (A6)
                     payload["turns_source"] = self._turns_source
+            if self._tools:
+                payload["tools"] = self._tools
             if files:
                 payload["environment"] = self._to_environment(files)
             self._close_span(is_named=bool(files))

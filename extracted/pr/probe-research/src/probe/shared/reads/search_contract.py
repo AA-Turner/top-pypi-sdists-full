@@ -253,7 +253,8 @@ class BrowseMode(StrEnum):
     `runs` (flat, newest first), `workspaces`, `notes` (the notes catalog),
     `files` (Shared, or one workspace's), the data catalog's `datasets`,
     `checkpoints` and `sources`, a workspace's `branches`, the team's
-    `people` (with user ids), or agent `sessions` (newest first)."""
+    `people` (with user ids), agent `sessions` (newest first), or `decisions`
+    (oldest first)."""
 
     PROJECTS = "projects"
     RUNS = "runs"
@@ -270,6 +271,8 @@ class BrowseMode(StrEnum):
     PEOPLE = "people"
     #: Agent sessions team-wide, newest activity first (`GET /v1/sessions`; B1).
     SESSIONS = "sessions"
+    #: The team's decisions, oldest first (`GET /v1/decisions`; decisions reads).
+    DECISIONS = "decisions"
 
 
 #: The browse modes that list work people made, so take `owner`, `since`, `until` and `order="recent"`
@@ -349,6 +352,7 @@ class SourceKind(StrEnum):
     DATASET = "dataset"
     MODEL = "model"
     OTHER = "other"
+    ENVIRONMENT = "environment"
 
 
 class SourceProvider(StrEnum):
@@ -363,6 +367,11 @@ class SourceProvider(StrEnum):
     DATABASE = "database"
     LOCAL = "local"
     OTHER = "other"
+    PRIME_HUB = "prime_hub"
+    VERIFIERS = "verifiers"
+    HARBOR = "harbor"
+    VERL = "verl"
+    SKYRL = "skyrl"
 
 
 class ReadmeState(StrEnum):

@@ -55,7 +55,7 @@ def _stub_context_rpc(monkeypatch) -> None:
         }
 
     monkeypatch.setattr("matrx_ai.context_engine._resolve_context_database", lambda: "test")
-    monkeypatch.setattr("matrx_orm.call_function", fake_call_function)
+    monkeypatch.setattr("matrx_orm.call_function_as", fake_call_function)
 
 
 def test_two_scopes_both_appear_in_the_prompt_block_with_their_scope_names():
@@ -253,3 +253,29 @@ async def test_real_resolver_failure_is_captured_with_safe_context(monkeypatch, 
         "user_id": "user-1",
         "context": {"entity_type": "conversation"},
     }
+
+
+def test_a_host_computed_value_fills_its_named_item_and_never_replaces_a_built_in():
+    from matrx_ai.context_engine import configure_ambient_provider
+
+    calls: list[str] = []
+
+    def guide() -> str:
+        calls.append("guide")
+        return "THE GUIDE"
+
+    configure_ambient_provider("workflow_step_guide", guide)
+    configure_ambient_provider("current_year", lambda: "HOST YEAR")
+    try:
+        _apply_ambient("user-1", {}, {})
+        assert calls == []  # nothing named it: never computed
+        variables = {
+            "workflow_step_guide": {"value": "(computed at runtime)", "source": "system", "cells": []},
+            "current_year": {"value": "STALE", "source": "system", "cells": []},
+        }
+        _apply_ambient("user-1", variables, {})
+        assert variables["workflow_step_guide"]["value"] == "THE GUIDE"
+        assert variables["current_year"]["value"] != "HOST YEAR"
+    finally:
+        configure_ambient_provider("workflow_step_guide", None)
+        configure_ambient_provider("current_year", None)

@@ -1,37 +1,32 @@
-"""In-memory fetch port over a pre-filled store, and the helpers around it.
+"""Test a provider with package listings and metadata supplied in memory.
 
-:class:`FakeFetchPort` implements :class:`~nab_provider.fetch_port.FetchPort`
-against a real :class:`~nab_provider.store.InMemoryIndex`.  Its request methods
-write to that index and hand back an already-set :class:`threading.Event`, so
-the synchronous provider code under test sees every fetch resolve immediately.
-It is public so a host outside nab can drive the provider with no socket and no
-file.
+:func:`make_coordinator` builds a :class:`FakeFetchPort` that answers the
+provider's fetch requests using an :class:`~nab_provider.store.InMemoryIndex`.
+Preloaded listings are available immediately. Use ``pending_listings`` to
+publish a listing when the provider waits for it.
 
-The request methods repeat the port's signatures exactly, defaults included.
-Materialising a declared source, building a remote sdist and reading a wheel
-off disk need a host, and arrive as callables.
-
-Replace one request with :meth:`FakeFetchPort.override` for a setup the
-keywords cannot express, and read the calls back with
-:meth:`FakeFetchPort.calls_to`.
+Tests can supply handlers to read a wheel, prepare a declared source or build
+sdist metadata. Use :meth:`FakeFetchPort.override` to replace an individual
+request and :meth:`FakeFetchPort.calls_to` to inspect its calls.
 """
 
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.errors",
     "nab_provider.overrides",
     "nab_provider.pep508",
     "nab_provider.records",
     "nab_provider.store",
+    "packaging.utils",
 )
 
 import threading
 from typing import TYPE_CHECKING, Any, TypedDict, TypeVar
 
+from packaging.utils import canonicalize_name
+
 from ._compat import override
-from ._vendor.packaging.utils import canonicalize_name
 from .errors import IndexAccessError
 from .fetch_port import PrefetchSettings
 from .overrides import PackageOverride
@@ -50,11 +45,17 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
+    from packaging.requirements import Requirement
     from typing_extensions import Unpack
 
-    from ._vendor.packaging.requirements import Requirement
     from .metadata import WheelMetadata
-    from .policy import BuildPolicy, DistPolicy, SourceMaterialization, SourceRequest
+    from .policy import (
+        BuildPolicy,
+        DistPolicy,
+        MetadataPolicy,
+        SourceMaterialization,
+        SourceRequest,
+    )
     from .records import RangeMetadataResult
 
 __all__ = [
@@ -67,12 +68,9 @@ __all__ = [
     "pkg_override",
 ]
 
-_UNSERVED = (
-    "{name} is not offered by this port; pass its handler to make_coordinator"
-    " or override the request in the test"
-)
+_UNSERVED = "Pass the {handler} argument to make_coordinator or override {name!r}."
 
-_T = TypeVar("_T")
+_HandlerResult = TypeVar("_HandlerResult")
 
 REQUESTS = (
     "request_listing",
@@ -82,10 +80,10 @@ REQUESTS = (
     "request_sdist",
     "request_sdist_archive",
     "request_direct_archive",
-    "request_source_listing",
-    "request_built_metadata",
+    "materialize_source",
+    "build_sdist_metadata",
 )
-"""The port's request methods, and the names :meth:`FakeFetchPort.calls_to`
+"""Request names that :meth:`FakeFetchPort.calls_to`
 and :meth:`FakeFetchPort.override` accept."""
 
 
@@ -94,6 +92,12 @@ def _done_event() -> threading.Event:
     ev = threading.Event()
     ev.set()
     return ev
+
+
+def _filename_stem(package: str, version: str) -> str:
+    """Use the normalized distribution name in wheel and sdist filenames."""
+    distribution = canonicalize_name(package).replace("-", "_")
+    return f"{distribution}-{version}"
 
 
 def make_wheel(  # noqa: PLR0913 - tests vary the record's independent fields
@@ -111,7 +115,7 @@ def make_wheel(  # noqa: PLR0913 - tests vary the record's independent fields
     size: int | None = None,
 ) -> WheelFile:
     """Build an independent wheel record; derive its filename and default URL."""
-    filename = f"{package}-{version}-{tag}.whl"
+    filename = f"{_filename_stem(package, version)}-{tag}.whl"
     return WheelFile(
         filename=filename,
         url=f"https://example.com/{filename}" if url is None else url,
@@ -138,7 +142,7 @@ def make_sdist(
     size: int | None = None,
 ) -> SdistFile:
     """Build an independent gzip-tar sdist record with a default index URL."""
-    filename = f"{package}-{version}.tar.gz"
+    filename = f"{_filename_stem(package, version)}.tar.gz"
     return SdistFile(
         filename=filename,
         url=f"https://example.com/{filename}" if url is None else url,
@@ -195,6 +199,7 @@ class _OverrideBody(TypedDict, total=False):
     """The body of a :class:`~nab_provider.overrides.PackageOverride`."""
 
     dist_policy: DistPolicy | None
+    metadata_policy: MetadataPolicy | None
     dist_trust_unverified_deps: bool | None
     assume_universal_deps: bool | None
     assume_consistent_metadata: bool | None
@@ -336,10 +341,9 @@ def _make_archive_server(
 
 
 class FakeFetchPort:
-    """An in-memory :class:`~nab_provider.fetch_port.FetchPort`.
+    """In-memory implementation of :class:`~nab_provider.fetch_port.FetchPort`.
 
-    Build one with :func:`make_coordinator` rather than directly: it assembles
-    the four servers out of the keywords a test sets.
+    Use :func:`make_coordinator` to choose which listings and metadata it serves.
     """
 
     def __init__(  # noqa: PLR0913 - one keyword per handler make_coordinator builds
@@ -357,9 +361,9 @@ class FakeFetchPort:
         read_wheel: Callable[[Path], str | None] | None = None,
         pending_listings: Mapping[str, Sequence[WheelFile | SdistFile]] | None = None,
     ) -> None:
-        """Wire the port to ``index`` and to one server per fetch kind."""
+        """Use the supplied handlers to answer fetch requests for ``index``."""
         self.index = index
-        # Not on the port: the engine reads it off its coordinator.
+        # The resolution engine reads the configured indexes from its coordinator.
         self.indexes = [IndexConfig(DEFAULT_INDEX_NAME, DEFAULT_INDEX_URL)]
         self.offline = offline
         self.build_config = build_config
@@ -391,18 +395,21 @@ class FakeFetchPort:
             calls.clear()
 
     def _checked(self, name: str) -> str:
-        """Return ``name`` if it is one of the port's requests, else raise."""
+        """Check that ``name`` identifies a fetch request."""
         if name not in self._calls:
             msg = f"{name!r} is not a fetch request; expected one of {REQUESTS}"
             raise KeyError(msg)
         return name
 
     def _handle(
-        self, name: str, args: tuple[object, ...], default: Callable[..., _T]
-    ) -> _T:
+        self,
+        name: str,
+        args: tuple[object, ...],
+        default: Callable[..., _HandlerResult],
+    ) -> _HandlerResult:
         """Record the call to ``name``, then run its override or ``default``."""
         self._calls[name].append(args)
-        handler: Callable[..., _T] = self._overrides.get(name, default)
+        handler: Callable[..., _HandlerResult] = self._overrides.get(name, default)
         return handler(*args)
 
     def request_listing(
@@ -481,24 +488,22 @@ class FakeFetchPort:
             "request_direct_archive", (package, version, url), self._direct_archive
         )
 
-    def request_source_listing(self, request: SourceRequest) -> threading.Event:
+    def materialize_source(self, request: SourceRequest) -> SourceMaterialization:
         """Materialise the declared source through the host's handler."""
-        return self._handle(
-            "request_source_listing", (request,), self._materialize_source
-        )
+        return self._handle("materialize_source", (request,), self._materialize_source)
 
-    def request_built_metadata(
+    def build_sdist_metadata(
         self,
         package: str,
         version: str,
         url: str,
         sdist_hashes: tuple[tuple[str, str], ...],
-    ) -> threading.Event:
+    ) -> WheelMetadata:
         """Build the sdist through the host's handler."""
         return self._handle(
-            "request_built_metadata",
+            "build_sdist_metadata",
             (package, version, url, sdist_hashes),
-            self._store_built_metadata,
+            self._built_metadata,
         )
 
     def _listing(self, package: str, _speculative: bool) -> threading.Event:  # noqa: FBT001 - _handle calls this positionally
@@ -599,27 +604,23 @@ class FakeFetchPort:
         self._serve_archive(package, version)
         return _done_event()
 
-    def _materialize_source(self, request: SourceRequest) -> threading.Event:
+    def _materialize_source(self, request: SourceRequest) -> SourceMaterialization:
         """Materialise one declared source, as the coordinator does."""
         if self._materialize is None:
-            raise NotImplementedError(_UNSERVED.format(name="request_source_listing"))
-        self.index.store_source(
-            request.package, self._materialize(self, request, self.build_config)
-        )
-        return _done_event()
+            raise NotImplementedError(
+                _UNSERVED.format(handler="materialize", name="materialize_source")
+            )
+        return self._materialize(self, request, self.build_config)
 
-    def _store_built_metadata(
-        self, pkg: str, ver: str, url: str, hashes: tuple[tuple[str, str], ...]
-    ) -> threading.Event:
+    def _built_metadata(
+        self, package: str, version: str, url: str, hashes: tuple[tuple[str, str], ...]
+    ) -> WheelMetadata:
         """Build one sdist, as the coordinator does."""
         if self._build_sdist is None:
-            raise NotImplementedError(_UNSERVED.format(name="request_built_metadata"))
-        self.index.store_built_metadata(
-            pkg,
-            sdist_artifact_key(ver, url),
-            self._build_sdist(self, pkg, ver, url, hashes, self.build_config),
-        )
-        return _done_event()
+            raise NotImplementedError(
+                _UNSERVED.format(handler="build_sdist", name="build_sdist_metadata")
+            )
+        return self._build_sdist(self, package, version, url, hashes, self.build_config)
 
 
 def make_coordinator(  # noqa: PLR0913 - one keyword per index slot a test pre-loads
@@ -675,13 +676,13 @@ def make_coordinator(  # noqa: PLR0913 - one keyword per index slot a test pre-l
     * ``request_sdist_archive`` and ``request_direct_archive`` write
       ``sdist_archive_error``, or ``sdist_archive`` as the fetched bytes.  With
       neither they write nothing, leaving whatever the test stored.
-    * ``request_source_listing`` and ``request_built_metadata`` run
+    * ``materialize_source`` and ``build_sdist_metadata`` run
       ``materialize`` and ``build_sdist`` under ``build_config``, and raise
       :class:`NotImplementedError` without them.  ``read_wheel`` opens a wheel
       the listing serves off disk; without it the metadata keywords answer
       that request too.
 
-    ``offline`` starts the port offline, as ``--offline`` does for a real run.
+    ``offline`` simulates a run with ``--offline``.
     """
     index = InMemoryIndex()
 

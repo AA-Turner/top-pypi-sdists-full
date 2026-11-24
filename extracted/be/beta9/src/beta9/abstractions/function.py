@@ -12,6 +12,7 @@ import cloudpickle
 import grpc
 
 from .. import terminal
+from ..abstractions.base import capacity
 from ..abstractions.base.runner import (
     FUNCTION_DEPLOYMENT_STUB_TYPE,
     FUNCTION_STUB_TYPE,
@@ -38,7 +39,7 @@ from ..clients.function import (
 )
 from ..clients.gateway import ListTasksRequest, StopTasksRequest, StringList
 from ..env import called_on_import, is_local
-from ..exceptions import RemoteExecutionError
+from ..exceptions import NoCapacityError, RemoteExecutionError
 from ..schema import Schema
 from ..sync import FileSyncer
 from ..type import CpuTier, DurableDisk, GpuType, GpuTypeAlias, Pool, TaskPolicy
@@ -253,15 +254,21 @@ class _CallableWrapper(DeployableMixin):
             terminal.error("Exiting shell. Your build was stopped.")
 
         try:
-            with terminal.StepTracker().step(
-                f"Running {self.parent.name or self.parent.handler}", "Function complete"
-            ):
-                return self._call_remote(*args, **kwargs)
+            title = f"Running {self.parent.name or self.parent.handler}"
+            with terminal.StepTracker().step(title, "Function complete"):
+                wait = capacity.CapacityWait(self.parent, title, capacity.wait_limit())
+                return self._call_remote(wait, *args, **kwargs)
         except KeyboardInterrupt:
             if self.parent.headless:
                 terminal.error("Exiting shell. Your function will continue running remotely.")
             else:
                 terminal.error("Exiting shell. Your function will be terminated.")
+        except NoCapacityError as error:
+            # Reported here, so that a script that does not catch it ends
+            # with the reason. One that does can run the call another way.
+            terminal.error(error.message, hint=error.hint or None, code="CAPACITY", exit=False)
+            terminal.reset_terminal()
+            raise
 
     @with_grpc_error_handling
     def _prepare_runtime(self) -> None:
@@ -273,14 +280,26 @@ class _CallableWrapper(DeployableMixin):
         # prepare_runtime already reported the reason; a traceback would bury it.
         raise SystemExit(1)
 
-    def _call_remote(self, *args, **kwargs) -> Any:
+    def _call_remote(self, wait: capacity.CapacityWait, *args, **kwargs) -> Any:
+        """
+        Run the function remotely. Until its container runs, wait shows what
+        the call waits for, and gives it up (NoCapacityError) once it has
+        gone without a machine for as long as its caller allows.
+        """
         args = cloudpickle.dumps(
             {
                 "args": args,
                 "kwargs": kwargs,
             },
         )
+        while True:
+            try:
+                return self._invoke(args, wait)
+            except capacity.Reserved:
+                # The call is made again, on the machine its caller reserved.
+                pass
 
+    def _invoke(self, args: bytes, wait: capacity.CapacityWait) -> Any:
         terminal.debug(f"Running function: {self.parent.handler}")
         output = deque()
         output_size = 0
@@ -294,23 +313,51 @@ class _CallableWrapper(DeployableMixin):
         responses = iter(invocation)
         with self._invocations_lock:
             self._invocations.add(invocation)
-        try:
-            return self._consume_invocation(responses, output, output_size)
-        except KeyboardInterrupt:
-            if invocation.task_id and not self.parent.headless:
+
+        def stop() -> None:
+            if invocation.task_id:
                 with rpc_timeout(RECOVERY_TIMEOUT):
                     self.parent.gateway_stub.stop_tasks(
                         StopTasksRequest(task_ids=[invocation.task_id])
                     )
+
+        def started() -> bool:
+            return self._task_status(invocation.task_id) in ("RUNNING", "COMPLETE")
+
+        try:
+            return self._consume_invocation(responses, output, output_size, wait, stop, started)
+        except KeyboardInterrupt:
+            if not self.parent.headless:
+                stop()
             raise
         finally:
+            wait.running()
             with self._invocations_lock:
                 self._invocations.discard(invocation)
 
-    def _consume_invocation(self, responses, output, output_size):
+    def _task_status(self, task_id: str, default: str = "") -> str:
+        """The status of a task, or default if it cannot be found out now."""
+        try:
+            with rpc_timeout(5):
+                tasks = self.parent.gateway_stub.list_tasks(
+                    ListTasksRequest(filters={"id": StringList(values=[task_id])}, limit=1)
+                )
+            if tasks.ok and tasks.tasks:
+                return tasks.tasks[0].status
+        except grpc.RpcError:
+            pass
+        return default
+
+    def _consume_invocation(self, responses, output, output_size, wait, stop, started):
         last_response: Optional[FunctionInvokeResponse] = None
         for r in responses:
+            # Until its container runs, the gateway says what the call waits
+            # for: stop gives the call up, and started says whether it runs.
+            if r.pending_phase:
+                wait.told(r, stop, started)
+
             if r.output != "":
+                wait.running()
                 output.append(r.output[-65536:])
                 output_size += len(output[-1])
                 while output_size - len(output[0]) >= 65536:
@@ -326,16 +373,8 @@ class _CallableWrapper(DeployableMixin):
 
         if not last_response.done or last_response.exit_code != 0 or not last_response.result:
             task_id = last_response.task_id
-            status = "failed"
-            try:
-                with rpc_timeout(5):
-                    tasks = self.parent.gateway_stub.list_tasks(
-                        ListTasksRequest(filters={"id": StringList(values=[task_id])}, limit=1)
-                    )
-                if tasks.ok and tasks.tasks:
-                    status = tasks.tasks[0].status
-            except grpc.RpcError:
-                pass  # Preserve the execution failure if status lookup is unavailable.
+            # The execution failure stands if its status cannot be found out.
+            status = self._task_status(task_id, default="failed")
             raise RemoteExecutionError(
                 task_id, status, last_response.exit_code, "".join(output)[-65536:]
             )
@@ -368,16 +407,24 @@ class _CallableWrapper(DeployableMixin):
         failed = 0
         terminal.header(f"{self.parent.name or self.parent.handler}", f"{len(inputs)} calls")
         with terminal.progress(f"Completed 0/{len(inputs)} calls"):
+            # How long each call may wait is read once, here, where a setting
+            # that cannot be read is reported once. What the calls wait for
+            # is said once for all of them (batch).
+            limit, batch = capacity.wait_limit(), set()
             with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(inputs))) as pool:
                 futures = {
-                    pool.submit(self._call_remote, *self._format_args(args)): index
+                    pool.submit(
+                        self._call_remote,
+                        capacity.CapacityWait(self.parent, limit=limit, batch=batch),
+                        *self._format_args(args),
+                    ): index
                     for index, args in enumerate(inputs, 1)
                 }
                 try:
                     for completed, future in enumerate(concurrent.futures.as_completed(futures), 1):
                         try:
                             result = future.result()
-                        except Exception as error:
+                        except (Exception, NoCapacityError) as error:
                             failed += 1
                             message = (
                                 error.details() if isinstance(error, grpc.RpcError) else str(error)

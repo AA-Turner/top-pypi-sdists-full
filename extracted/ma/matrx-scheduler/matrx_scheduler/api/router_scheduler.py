@@ -24,6 +24,7 @@ from __future__ import annotations
 from matrx_orm import db_sqlstate
 
 import logging
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -39,6 +40,7 @@ from matrx_scheduler import (
     next_due as next_due_module,
 )
 from matrx_scheduler.api import schemas, user_queries
+from matrx_scheduler._ext import get_optional_ext
 from matrx_scheduler.api.per_request import user_client_dep
 
 router = APIRouter()
@@ -113,6 +115,17 @@ def _classify_supabase_error(exc: Exception) -> tuple[int, str]:
     return (status.HTTP_400_BAD_REQUEST, "request failed")
 
 
+def _next_due_or_422(trigger_type: Any, config: dict[str, Any]) -> Any:
+    """``compute_next_due_at`` for a request body: an unreadable trigger time (cron expression,
+    timezone, interval, one-shot time) is the caller's mistake, answered 422 naming it — never a
+    500 crash (sec_6150ecf3 / sec_6383509c, CGU-10) and never a trigger that silently never fires."""
+    try:
+        next_due_module.validate_trigger_timing(trigger_type, config)
+        return next_due_module.compute_next_due_at(trigger_type, config)
+    except next_due_module.InvalidTriggerTiming as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 def _validate_kind(kind: str) -> None:
     if kind not in VALID_KINDS:
         raise HTTPException(
@@ -148,11 +161,41 @@ def _validate_task_create(body: schemas.TaskCreateRequest) -> None:
         )
 
 
+async def _require_usable_agent(ctx: AppContext, agent_id: Any) -> None:
+    """Refuse an ``agent_id`` that names no agent the caller can use (CGU-10, 2026-11-09: a
+    random UUID was stored and the schedule could only ever fail). The host answers through
+    ``agent_access_check``; the database also refuses an id naming no agent (FK to
+    ``agent.definition``). Unconfigured, a direct agent id is refused — never trusted."""
+    raw = str(agent_id or "").strip()
+    if not raw:
+        return
+    try:
+        canonical = str(uuid.UUID(raw))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"agent_id {raw!r} is not an agent id (a UUID).",
+        ) from None
+    check = get_optional_ext("agent_access_check")
+    if check is None:
+        log.error("[scheduler] agent_access_check is not configured; refusing agent_id %s", canonical)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="This server cannot check agent access right now, so it cannot schedule a direct agent.",
+        )
+    if not await check(str(ctx.user_id), canonical):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"agent_id {canonical} names no agent you can use. Choose one of your agents.",
+        )
+
+
 async def _require_runnable_agent_task(
     sb: Any,
     task_id: str,
     *,
     task_row: dict[str, Any] | None = None,
+    ctx: AppContext | None = None,
 ) -> dict[str, Any]:
     task = task_row if task_row is not None else await user_queries.get_task(sb, task_id)
     if task is None:
@@ -174,6 +217,9 @@ async def _require_runnable_agent_task(
                 "There is no platform default selection."
             ),
         )
+    if ctx is not None and not str(agent_task.get("mandate_key") or "").strip():
+        # Arming a schedule re-asks: the agent may be gone, or no longer the caller's to use.
+        await _require_usable_agent(ctx, agent_task.get("agent_id"))
     return task
 
 
@@ -283,6 +329,8 @@ async def create_task(
             detail="auth required",
         )
     _validate_task_create(body)
+    if body.agent_task is not None:
+        await _require_usable_agent(ctx, body.agent_task.agent_id)
     organization_id = _require_organization(ctx, "create a schedule")
 
     # Only a schedule that can actually FIRE can duplicate another one. A paused
@@ -337,7 +385,7 @@ async def create_task(
     # Computed next_due_at for the trigger (if any).
     computed_next_due_iso: str | None = None
     if body.trigger is not None:
-        next_at = next_due_module.compute_next_due_at(body.trigger.type, body.trigger.config)
+        next_at = _next_due_or_422(body.trigger.type, body.trigger.config)
         if next_at is not None:
             computed_next_due_iso = next_at.isoformat()
 
@@ -357,7 +405,10 @@ async def create_task(
             tags=body.tags,
             taxonomy_node_id=body.taxonomy_node_id,
             organization_id=organization_id,
-            metadata={"created_via": created_via(ctx)},
+            metadata={
+                "created_via": created_via(ctx),
+                **({"machine_id": body.machine_id} if body.machine_id else {}),
+            },
         )
     except Exception as exc:
         code, detail = _classify_supabase_error(exc)
@@ -576,7 +627,7 @@ async def patch_task(
 
     if body.enabled is True:
         try:
-            task_row = await _require_runnable_agent_task(sb, task_id)
+            task_row = await _require_runnable_agent_task(sb, task_id, ctx=ctx)
         except HTTPException:
             raise
         except Exception as exc:
@@ -607,7 +658,20 @@ async def patch_task(
         )
 
     try:
+        if "machine_id" in body.model_fields_set:
+            # metadata is one jsonb column: read it, change only machine_id, write it whole.
+            current = await user_queries.get_task(sb, task_id)
+            if current is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+            metadata = dict(current.get("metadata") or {})
+            if body.machine_id:
+                metadata["machine_id"] = body.machine_id
+            else:
+                metadata.pop("machine_id", None)
+            patch["metadata"] = metadata
         row = await user_queries.update_task(sb, task_id, patch)
+    except HTTPException:
+        raise
     except Exception as exc:
         code, detail = _classify_supabase_error(exc)
         raise HTTPException(status_code=code, detail=detail) from exc
@@ -615,7 +679,49 @@ async def patch_task(
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
     _require_owner_match(row, ctx)
+    if body.enabled is True:
+        await _turn_clocks_on(sb, task_id)
     return schemas.TaskResponse(**row)
+
+
+#: Trigger metadata keys that record why a clock was switched off by something other than its owner.
+_CLOCK_SUSPENSION_KEYS = ("governance_suspended", "auto_suspended")
+
+
+def _now_iso() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat()
+
+
+async def _turn_clocks_on(sb: Any, task_id: str) -> None:
+    """Turning a schedule ON turns its clock on too (2026-11-17, "Daily Check emails").
+
+    The 2026-08-20 governance sweep paused every clock trigger; a person's schedule then read ON
+    and never fired, because enabling only touched ``sch_task``. Each disabled trigger is switched
+    on, and its suspension record moves to ``metadata.suspension_history`` (who switched it off and
+    why stay readable). ``next_due_at`` is kept: a clock past due fires on the scanner's next pass,
+    which the page's confirm states before the click.
+    """
+    try:
+        triggers = await user_queries.list_triggers_for_task(sb, task_id)
+        for trigger in triggers:
+            if trigger.get("enabled") or trigger.get("deleted_at"):
+                continue
+            metadata = dict(trigger.get("metadata") or {})
+            history = list(metadata.get("suspension_history") or [])
+            for key in _CLOCK_SUSPENSION_KEYS:
+                record = metadata.pop(key, None)
+                if record:
+                    history.append({"key": key, "record": record, "restored_at": _now_iso()})
+            patch: dict[str, Any] = {"enabled": True}
+            if history:
+                metadata["suspension_history"] = history
+                patch["metadata"] = metadata
+            await user_queries.update_trigger(sb, str(trigger["id"]), patch)
+    except Exception as exc:
+        code, detail = _classify_supabase_error(exc)
+        raise HTTPException(status_code=code, detail=f"schedule enabled, but its clock could not be turned on: {detail}") from exc
 
 
 @router.delete("/tasks/{task_id}", response_model=schemas.DeletedResponse)
@@ -662,7 +768,7 @@ async def run_now(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="auth required")
 
     try:
-        task_row = await _require_runnable_agent_task(sb, task_id)
+        task_row = await _require_runnable_agent_task(sb, task_id, ctx=ctx)
         _require_owner_match(task_row, ctx)
         run_id = await user_queries.enqueue_manual_run(sb, task_id)
     except HTTPException:
@@ -718,7 +824,7 @@ async def create_trigger(
 
     if body.enabled:
         try:
-            task_row = await _require_runnable_agent_task(sb, body.task_id)
+            task_row = await _require_runnable_agent_task(sb, body.task_id, ctx=ctx)
         except HTTPException:
             raise
         except Exception as exc:
@@ -738,7 +844,7 @@ async def create_trigger(
             remedy="The task carries no organization; recreate it from an organization.",
         )
 
-    next_at = next_due_module.compute_next_due_at(body.type, body.config)
+    next_at = _next_due_or_422(body.type, body.config)
     next_iso = next_at.isoformat() if next_at else None
 
     try:
@@ -791,7 +897,7 @@ async def patch_trigger(
         _require_owner_match(existing, ctx)
         if body.enabled is True:
             try:
-                task_row = await _require_runnable_agent_task(sb, str(existing["task_id"]))
+                task_row = await _require_runnable_agent_task(sb, str(existing["task_id"]), ctx=ctx)
             except HTTPException:
                 raise
             except Exception as exc:
@@ -801,7 +907,7 @@ async def patch_trigger(
         if "type" in patch or "config" in patch:
             new_type = patch.get("type", existing.get("type"))
             new_config = patch.get("config", existing.get("config") or {})
-            next_at = next_due_module.compute_next_due_at(new_type, new_config)
+            next_at = _next_due_or_422(new_type, new_config)
             patch["next_due_at"] = next_at.isoformat() if next_at else None
 
     try:
@@ -961,7 +1067,7 @@ async def compute_next_due_at(
     """Compute next_due_at for a trigger config (single value)."""
     if not ctx.is_authenticated:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="auth required")
-    next_at = next_due_module.compute_next_due_at(body.trigger_type, body.config)
+    next_at = _next_due_or_422(body.trigger_type, body.config)
     return schemas.ComputeNextDueResponse(
         next_due_at=next_at.isoformat() if next_at else None,
         event_driven=next_at is None,

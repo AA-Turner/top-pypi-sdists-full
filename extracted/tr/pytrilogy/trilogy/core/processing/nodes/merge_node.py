@@ -63,11 +63,11 @@ from trilogy.core.processing.nodes.base_node import (
 )
 from trilogy.core.processing.null_provenance import side_nullable
 from trilogy.core.processing.utility import (
-    applied_atoms,
     collect_applied_conditions,
     find_nullable_concepts,
     left_deep_joins,
     padded_sources,
+    row_applied_atoms,
 )
 from trilogy.core.union_find import find
 from trilogy.utility import unique
@@ -607,9 +607,10 @@ class MergeNode(StrategyNode):
         """COUNTs evaluated off a region's rows and padded here onto them:
         they count an empty group there, 0. A count reading one region is
         still padded onto another's (a customer's orders beside a bucket no
-        order has). The dialect coalesces them (`QueryDatasource.zero_filled`),
-        so a WHERE over one (`count(order_id) by customer_id = 0`) accepts the
-        padded row and proves nothing about the side that padded it. The
+        order has). The dialect coalesces them
+        (`QueryDatasource.region_zero_filled`), so a WHERE over one
+        (`count(order_id) by customer_id = 0`) accepts the padded row and
+        proves nothing about the side that padded it. The
         WHERE's own inputs count: such a count need not be an output. A parent
         partial on a key another parent holds completely (`~order_id`) is
         padded the same way."""
@@ -728,7 +729,7 @@ class MergeNode(StrategyNode):
                 if not any(atom == r for r in rendered)
             ]
             for source in final_datasets:
-                applied = applied_atoms(source)
+                applied = row_applied_atoms(source)
                 if any(any(atom == a for a in applied) for atom in request_atoms):
                     filtered_ids.add(source.identifier)
         # Authored coalescing (union/full) relations declare row intent: only
@@ -1200,7 +1201,7 @@ class MergeNode(StrategyNode):
             ordering=self.ordering,
             extent_free_spans=self.span_scope.extent_free,
             extent_free_carried=frozenset(self.span_scope.extent_free_carried),
-            zero_filled=zero_filled,
+            region_zero_filled=zero_filled,
         )
         return qds
 

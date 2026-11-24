@@ -5,6 +5,8 @@ from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
+from .utils import nearest_ancestor_named
+
 
 EXTENSION_PACK = {
     # bmp/tiff are still shipped by scanners, CMS media libraries and older
@@ -69,6 +71,7 @@ _IMAGE_IGNORE_TAGS = {
 # `_region_for` walks ancestors and reports the first one it meets, so a link
 # inside <footer><nav> reports "nav" (the tighter container it actually lives in).
 _REGION_TAGS = ("nav", "header", "footer", "aside", "main", "article")
+_REGION_TAG_SET = frozenset(_REGION_TAGS)
 
 # Anchor text longer than this is boilerplate (a whole card, a paragraph wrapped
 # in an <a>), not a label — truncate at the same limit the SEO audit uses so the
@@ -132,7 +135,7 @@ def _registrable_domain(host: str) -> str:
 def _region_for(element) -> str:
     """Which named page region an anchor sits in — nav/header/footer/aside/
     main/article, or "body" when the page uses no landmark at all."""
-    parent = element.find_parent(_REGION_TAGS)
+    parent = nearest_ancestor_named(element, _REGION_TAG_SET)
     return parent.name.lower() if parent is not None else "body"
 
 
@@ -154,7 +157,8 @@ def _is_valid_url(url: str) -> bool:
 def _should_include_image(element, min_width: int = 150, min_height: int = 150) -> bool:
     if element.name in _IMAGE_IGNORE_TAGS:
         return False
-    if any(element.find_parent(tag) for tag in _IMAGE_IGNORE_TAGS):
+    # One walk up: "some ancestor is named one of these" — what asking each name in turn answered.
+    if nearest_ancestor_named(element, _IMAGE_IGNORE_TAGS) is not None:
         return False
 
     width = element.get("width")

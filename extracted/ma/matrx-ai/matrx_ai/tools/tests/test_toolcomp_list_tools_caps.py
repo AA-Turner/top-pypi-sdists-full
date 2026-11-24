@@ -59,6 +59,21 @@ class _ToolDefinition:
         return _Query(_rows())
 
 
+@pytest.fixture(autouse=True)
+def _runs_in_a_person_session(monkeypatch):
+    """toolcomp reads run in the caller's RLS session (person_session.acts_as_the_person);
+    these unit tests hold a pass-through session."""
+    import contextlib
+
+    from matrx_ai import _ext
+
+    @contextlib.asynccontextmanager
+    async def _session(_ctx=None):
+        yield
+
+    monkeypatch.setitem(_ext._registry, "acting_as_caller", _session)
+
+
 @pytest.fixture
 def fake_db(monkeypatch):
     monkeypatch.setattr(tool_component, "get_db_model", lambda name: _ToolDefinition)
@@ -87,7 +102,7 @@ def _wire(result) -> str:
 
 @pytest.mark.asyncio
 async def test_grouped_mode_is_names_only_and_under_the_cap(fake_db, gate_events) -> None:
-    r = await tool_component.toolcomp_list_tools({"group_by": "prefix", "limit": 60}, SimpleNamespace())
+    r = await tool_component.toolcomp_list_tools({"group_by": "prefix", "limit": 60}, SimpleNamespace(call_id="call-1"))
     assert r.success and r.output_self_capped
     wire = _wire(r)
     assert len(wire) < TOOL_RESULT_SOFT_CAP_CHARS
@@ -102,7 +117,7 @@ async def test_grouped_mode_is_names_only_and_under_the_cap(fake_db, gate_events
 
 @pytest.mark.asyncio
 async def test_flat_mode_is_paginated_and_bounded(fake_db) -> None:
-    r = await tool_component.toolcomp_list_tools({"limit": 100}, SimpleNamespace())
+    r = await tool_component.toolcomp_list_tools({"limit": 100}, SimpleNamespace(call_id="call-1"))
     assert r.output_self_capped
     assert len(_wire(r)) < TOOL_RESULT_SOFT_CAP_CHARS
     assert r.output.has_more is True and r.output.next_offset == 100

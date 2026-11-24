@@ -59,7 +59,7 @@ class _Model:
 def _row(id, name_col, name, **kw):
     return {
         "id": id, "created_by": OWNER, "organization_id": ORG, name_col: name,
-        "description": "", "visibility": "internal", "metadata": {}, "deleted_at": None, **kw,
+        "description": "", "published_to_web": False, "shown_to": None, "metadata": {}, "deleted_at": None, **kw,
     }
 
 
@@ -90,6 +90,8 @@ def models(monkeypatch):
     }
     monkeypatch.setattr(sources, "get_db_model", lambda name, schema=None: m[name])
     monkeypatch.setitem(_ext._registry, "univer_text_renderer", _render)
+    # a host that booted earlier in the process registers a live reader that would replace the saved snapshot
+    monkeypatch.setitem(_ext._registry, "univer_current_reader", None)
     return m
 
 
@@ -114,7 +116,7 @@ async def test_a_cloud_document_renders_through_the_host_renderer(models):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "kind,item,user",
-    [("workbook", "wb-other", OWNER), ("workbook", "wb-1", OTHER), ("workbook", "wb-gone", OWNER),
+    [("workbook", "wb-1", OTHER), ("workbook", "wb-gone", OWNER),
      ("workbook", "wb-1", None), ("udt_document", "doc-1", None), ("workbook", "wb-empty", OWNER)],
 )
 async def test_unreadable_trashed_anonymous_or_empty_resolve_to_nothing(models, kind, item, user):
@@ -158,3 +160,15 @@ async def test_a_record_people_are_co_editing_indexes_what_they_see_now(models, 
     monkeypatch.setitem(_ext._registry, "univer_current_reader", no_room)
     r2 = await sources.resolve("workbook", "wb-1", user_id=OWNER)
     assert "LIVE CELLS" not in r2.text and "collab" not in r2.metadata
+
+
+@pytest.fixture(autouse=True)
+def _the_access_check_lets_the_reader_in(monkeypatch):
+    """Indexing follows ``iam.has_access_for`` (matrx_orm.platform_access_check), not ``created_by``;
+    the policy itself is proved in test_resolvers_follow_the_access_check.py."""
+    import matrx_orm
+
+    async def _allowed(actor, *_a, **_k):
+        return actor == OWNER
+
+    monkeypatch.setattr(matrx_orm, "platform_access_check", _allowed)

@@ -1,15 +1,16 @@
 """Package diagnostic adapters preserve metadata failures and legacy hosts."""
 
 import pytest
+from packaging.ranges import VersionRange
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from nab_provider._provider.listing_diagnosis import MetadataBlock, metadata_diagnostic
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.diagnostics import Diagnostic, ResolutionMessage
 from nab_provider.errors import MetadataError, MissingExtraError, UnsupportedSdistError
 from nab_provider.provider import Provider
 from nab_provider.testing import make_coordinator, make_metadata, make_wheel
+from nab_provider.yanking import mark_yanked
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion, error_message
 from nab_resolver.types import Incompatibility, IncompatibilityCause, Term
 
@@ -164,6 +165,29 @@ def test_known_empty_domains_can_be_explained_without_a_selection(state: str) ->
             else "no version matches the requirement"
         )
         assert diagnostic.short == expected
+
+
+@pytest.mark.parametrize(
+    ("live_versions", "requirement", "expected"),
+    [
+        ((), "pkg", "every available file is yanked"),
+        ((), "pkg>=3", "no version matches the requirement"),
+        (("1",), "pkg==2", "every available file in range is yanked"),
+    ],
+)
+def test_report_withdrawn_files_in_the_requested_range(
+    live_versions: tuple[str, ...], requirement: str, expected: str
+) -> None:
+    files = [mark_yanked(make_wheel("2"), reason="withdrawn")]
+    files.extend(make_wheel(version) for version in live_versions)
+    provider = Provider(make_coordinator(files))
+    allowed = Requirement(requirement).specifier.to_range()
+
+    assert provider.choose_version("pkg", allowed) is None
+    diagnostic = provider.get_no_versions_reason("pkg", allowed)
+
+    assert diagnostic is not None
+    assert diagnostic.short == expected
 
 
 def test_reporting_one_missing_domain_does_not_persist_it_for_another_domain() -> None:

@@ -518,15 +518,21 @@ class TraceCallGraph(_message.Message):
     ) -> None: ...
 
 class GetTraceRequest(_message.Message):
-    __slots__ = ("operation_id", "trace_id", "cluster_id")
+    __slots__ = ("operation_id", "trace_id", "cluster_id", "include_content")
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_CONTENT_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     trace_id: str
     cluster_id: str
+    include_content: bool
     def __init__(
-        self, operation_id: _Optional[str] = ..., trace_id: _Optional[str] = ..., cluster_id: _Optional[str] = ...
+        self,
+        operation_id: _Optional[str] = ...,
+        trace_id: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
+        include_content: bool = ...,
     ) -> None: ...
 
 class GetTraceResponse(_message.Message):
@@ -536,19 +542,21 @@ class GetTraceResponse(_message.Message):
     def __init__(self, trace: _Optional[_Union[ChalkTrace, _Mapping]] = ...) -> None: ...
 
 class ListTraceRequest(_message.Message):
-    __slots__ = ("start_time", "end_time", "limit", "service_name", "span_name", "page_token")
+    __slots__ = ("start_time", "end_time", "limit", "service_name", "span_name", "page_token", "archived_only")
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
     SPAN_NAME_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_ONLY_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
     service_name: str
     span_name: str
     page_token: str
+    archived_only: bool
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -557,6 +565,7 @@ class ListTraceRequest(_message.Message):
         service_name: _Optional[str] = ...,
         span_name: _Optional[str] = ...,
         page_token: _Optional[str] = ...,
+        archived_only: bool = ...,
     ) -> None: ...
 
 class ListTraceResponse(_message.Message):
@@ -588,6 +597,7 @@ class SearchTraceSummariesRequest(_message.Message):
         "root_span_names",
         "query",
         "session_ids",
+        "archived_only",
     )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -606,6 +616,7 @@ class SearchTraceSummariesRequest(_message.Message):
     ROOT_SPAN_NAMES_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
     SESSION_IDS_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_ONLY_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
@@ -623,6 +634,7 @@ class SearchTraceSummariesRequest(_message.Message):
     root_span_names: _containers.RepeatedScalarFieldContainer[str]
     query: str
     session_ids: _containers.RepeatedScalarFieldContainer[str]
+    archived_only: bool
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -642,6 +654,7 @@ class SearchTraceSummariesRequest(_message.Message):
         root_span_names: _Optional[_Iterable[str]] = ...,
         query: _Optional[str] = ...,
         session_ids: _Optional[_Iterable[str]] = ...,
+        archived_only: bool = ...,
     ) -> None: ...
 
 class SearchTraceSummariesResponse(_message.Message):
@@ -955,12 +968,16 @@ class GetTraceCallGraphResponse(_message.Message):
     ) -> None: ...
 
 class GetSpanRequest(_message.Message):
-    __slots__ = ("span_id", "trace_id")
+    __slots__ = ("span_id", "trace_id", "include_content")
     SPAN_ID_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_CONTENT_FIELD_NUMBER: _ClassVar[int]
     span_id: str
     trace_id: str
-    def __init__(self, span_id: _Optional[str] = ..., trace_id: _Optional[str] = ...) -> None: ...
+    include_content: bool
+    def __init__(
+        self, span_id: _Optional[str] = ..., trace_id: _Optional[str] = ..., include_content: bool = ...
+    ) -> None: ...
 
 class GetSpanResponse(_message.Message):
     __slots__ = ("span",)

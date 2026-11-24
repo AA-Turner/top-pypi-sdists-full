@@ -15,6 +15,7 @@ from email.utils import parsedate_to_datetime
 from typing import Annotated, Any, Literal, Protocol
 
 import httpx
+from matrx_utils.http_client import shared_client
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, StrictStr, model_validator
 
 from matrx_ai.config.usage_config import TokenUsage
@@ -36,6 +37,19 @@ DEFAULT_MAX_RETRIES = 2
 # than paying a round trip for a 422 whose body we deliberately do not surface.
 MAX_CHOICE_OPTIONS = 255
 MAX_SCORE_LEVELS = 10
+# Images and Box questions (docs.typesafe.ai/images.md, 2026-10-30). TypeSafe
+# calls them "Dreamer-ready": every request that carries an asset or a Box
+# question must opt in with this header or it is refused with a 400.
+IMAGES_HEADER = "TypeSafe-Danger-Zone-Images"
+# Image limits, both ends inclusive. TypeSafe REJECTS an image outside them and
+# never resizes, so the decisions layer fits every image before it gets here
+# (``matrx_ai.decisions.images``); these are the adapter's last word.
+MIN_IMAGE_SIDE = 280
+MAX_IMAGE_SIDE = 1568
+MAX_IMAGE_BYTES = 16 * 1024 * 1024
+MAX_REQUEST_BYTES = 32 * 1024 * 1024
+MAX_REFERENCE_BYTES = 1024
+MAX_TOTAL_REFERENCE_BYTES = 65536
 
 type SystemOneState = StrictStr | dict[str, JsonValue] | list[JsonValue]
 type SystemOneEntry = StrictStr | dict[str, JsonValue] | list[JsonValue] | None
@@ -69,22 +83,95 @@ class ScoreQuestion(_StrictModel):
     criteria: list[SystemOneEntry] = Field(min_length=2, max_length=MAX_SCORE_LEVELS)
 
 
+class BoxQuestion(_StrictModel):
+    """Where is something in an image — answered with four edges (Jev 1.14+).
+
+    Takes no criteria. It always answers with a box, even for a target that is
+    not there, so the decisions layer pairs it with a presence ``noul``.
+    """
+
+    type: Literal["box"] = "box"
+    instructions: SystemOneEntry
+
+
 type Question = Annotated[
-    NoulQuestion | ChoiceQuestion | ScoreQuestion,
+    NoulQuestion | ChoiceQuestion | ScoreQuestion | BoxQuestion,
     Field(discriminator="type"),
 ]
+
+
+class ImageAsset(_StrictModel):
+    """One image, sent base64 in the JSON body and placed by its reference string."""
+
+    type: Literal["image"] = "image"
+    format: Literal["png", "jpg", "jpeg"]
+    #: Standard base64 alphabet with padding, no whitespace, no ``data:`` prefix.
+    data_base64: StrictStr = Field(min_length=4, pattern=r"^[A-Za-z0-9+/]+={0,2}$")
+
+
+def _strings_in(value: Any) -> list[str]:
+    """Every string VALUE in a state/instructions/criteria entry (keys excluded,
+    exactly as TypeSafe matches references)."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _strings_in(item)]
+    if isinstance(value, list):
+        return [text for item in value for text in _strings_in(item)]
+    return []
 
 
 class SystemOneRequest(_StrictModel):
     state: SystemOneState
     model: StrictStr = Field(min_length=1)
     questions: dict[StrictStr, Question] = Field(min_length=1)
+    #: Images keyed by an opaque reference written wherever the image belongs.
+    assets: dict[StrictStr, ImageAsset] | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def _question_ids_are_nonblank(self) -> SystemOneRequest:
         if any(not question_id.strip() for question_id in self.questions):
             raise ValueError("System One question ids must be non-empty")
         return self
+
+    @model_validator(mode="after")
+    def _assets_are_placed(self) -> SystemOneRequest:
+        """Refuse locally what TypeSafe would refuse with an opaque 400 or 413."""
+        has_box = any(isinstance(question, BoxQuestion) for question in self.questions.values())
+        if not self.assets:
+            if has_box:
+                raise ValueError("A Box question needs an image in the request; none was attached.")
+            return self
+        texts = _strings_in(self.state)
+        for question in self.questions.values():
+            texts.extend(_strings_in(question.instructions))
+            texts.extend(_strings_in(getattr(question, "criteria", None)))
+        total = 0
+        for reference in self.assets:
+            size = len(reference.encode("utf-8"))
+            total += size
+            if not reference.strip() or size > MAX_REFERENCE_BYTES:
+                raise ValueError(
+                    f"Image reference {reference[:40]!r} must be non-blank and at most "
+                    f"{MAX_REFERENCE_BYTES} bytes."
+                )
+            if not any(reference in text for text in texts):
+                raise ValueError(
+                    f"Image {reference!r} is attached but never referenced in the state, "
+                    "instructions or criteria; TypeSafe refuses an unplaced image."
+                )
+        if total > MAX_TOTAL_REFERENCE_BYTES:
+            raise ValueError(
+                f"Image references total {total} bytes; TypeSafe allows {MAX_TOTAL_REFERENCE_BYTES}."
+            )
+        return self
+
+    @property
+    def uses_images(self) -> bool:
+        """True when the request must carry the images opt-in header."""
+        return bool(self.assets) or any(
+            isinstance(question, BoxQuestion) for question in self.questions.values()
+        )
 
 
 class NoulAnswer(_StrictModel):
@@ -107,8 +194,24 @@ class ScoreAnswer(_StrictModel):
     legend: dict[StrictStr, JsonValue] = Field(min_length=1)
 
 
+class BoxCoordinates(_StrictModel):
+    """Edges as fractions of the image: top/bottom of height, left/right of width."""
+
+    top: float = Field(ge=0.0, le=1.0)
+    bottom: float = Field(ge=0.0, le=1.0)
+    left: float = Field(ge=0.0, le=1.0)
+    right: float = Field(ge=0.0, le=1.0)
+
+
+class BoxAnswer(_StrictModel):
+    type: Literal["box"] = "box"
+    box: BoxCoordinates
+    #: Null when the model gives no confidence — never read as zero.
+    confidence: float | None = Field(ge=0.0, le=1.0)
+
+
 type Answer = Annotated[
-    NoulAnswer | ChoiceAnswer | ScoreAnswer,
+    NoulAnswer | ChoiceAnswer | ScoreAnswer | BoxAnswer,
     Field(discriminator="type"),
 ]
 
@@ -212,6 +315,15 @@ def _safe_http_error(response: httpx.Response) -> TypeSafeProviderError:
             message="TypeSafe rejected the API credential.",
             status_code=status,
         )
+    if status == 413:
+        return TypeSafeProviderError(
+            error_type="request_too_large",
+            message=(
+                "TypeSafe refused the request as too large: an image, all images together, "
+                "or the expanded request is over its 32 MiB limit. Send fewer or smaller images."
+            ),
+            status_code=status,
+        )
     if status == 422:
         return TypeSafeProviderError(
             error_type="invalid_request",
@@ -238,6 +350,28 @@ def _safe_http_error(response: httpx.Response) -> TypeSafeProviderError:
         error_type="provider_error",
         message=f"TypeSafe returned HTTP {status}.",
         status_code=status,
+    )
+
+
+def _rejected_image_error(
+    request: SystemOneRequest, response: httpx.Response
+) -> TypeSafeProviderError | None:
+    """A 400 on a request with images names the images, not a generic refusal.
+
+    The adapter already checked placement and references, and the decisions
+    layer fitted every image to the limits, so what is left is the vendor's own
+    decode: a damaged file, an animated PNG, or images not yet enabled on the
+    account. The provider body stays off the exception, as for every refusal.
+    """
+    if response.status_code != 400 or not request.uses_images:
+        return None
+    return TypeSafeProviderError(
+        error_type="image_rejected",
+        message=(
+            "TypeSafe rejected an image in this decision request (an undecodable or animated "
+            "file, or images not enabled for the account). Re-export the image as PNG or JPEG."
+        ),
+        status_code=400,
     )
 
 
@@ -335,6 +469,13 @@ def _validate_result(request: SystemOneRequest, result: SystemOneResult) -> None
                     message="TypeSafe returned a Score distribution that does not match its legend.",
                 )
             _validate_probability_map(answer.probabilities, label="Score")
+        if isinstance(question, BoxQuestion) and isinstance(answer, BoxAnswer):
+            edges = answer.box
+            if not (edges.left < edges.right and edges.top < edges.bottom):
+                raise TypeSafeProviderError(
+                    error_type="invalid_response",
+                    message=f"TypeSafe returned a Box with crossed edges for question {question_id!r}.",
+                )
 
 
 def _usage_from_raw_response(payload: Any, *, model: str) -> TokenUsage | None:
@@ -387,20 +528,21 @@ async def call_system_one(
         raise ApiKeyNotFoundError("No API key found for TYPESAFE_API_KEY.")
     url = base_url.rstrip("/") + SYSTEM_ONE_PATH
     payload = request.model_dump(mode="json")
+    if payload.get("assets") is None:
+        payload.pop("assets", None)
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    if request.uses_images:
+        headers[IMAGES_HEADER] = "true"
     # The exact JSON body that goes on the wire, stashed for chat.request_snapshot
     # (the same seam every chat provider uses). Without it the snapshot row was
     # written with request_payload = {} for every TypeSafe decision call.
     capture_request_payload(payload, provider="typesafe")
     owns_client = http is None
-    client = http or httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=False)
+    client = http or shared_client(timeout=timeout_seconds, follow_redirects=False)
     try:
         for attempt in range(max_retries + 1):
             try:
-                response = await client.post(
-                    url,
-                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                    json=payload,
-                )
+                response = await client.post(url, headers=headers, json=payload)
             except httpx.TimeoutException as exc:
                 error = TypeSafeProviderError(
                     error_type="timeout", message="TypeSafe request timed out.", is_retryable=True
@@ -420,7 +562,11 @@ async def call_system_one(
                 await sleep(min(2**attempt, 30.0))
                 continue
             if response.status_code < 200 or response.status_code >= 300:
-                error = _unsupported_null_entry_error(request, response) or _safe_http_error(response)
+                error = (
+                    _unsupported_null_entry_error(request, response)
+                    or _rejected_image_error(request, response)
+                    or _safe_http_error(response)
+                )
                 mark_billing_checked(error)
                 if error.is_retryable and attempt < max_retries:
                     await sleep(error.retry_after if error.retry_after is not None else min(2**attempt, 30.0))

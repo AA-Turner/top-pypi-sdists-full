@@ -34,6 +34,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from matrx_ai.providers.baa_gate import HIPAA_NOT_COVERED
 from matrx_ai.providers.guardrail_gate import AUTOMATION_GUARDRAIL
 from matrx_ai.providers.model_tier_gate import TOP_TIER_MODEL_REFUSED
 from matrx_ai.providers.readiness_gate import AUTOMATION_NOT_READY
@@ -54,6 +55,9 @@ _codes: set[str] = {
     GUEST_AI_ALLOWANCE_USED,
     AUTOMATION_NOT_READY,
     TOP_TIER_MODEL_REFUSED,
+    # HIPAA mode: a provider/route with no BAA (baa_gate) — the host's compliance gate emits
+    # the same code (aidream/services/compliance/hipaa.py HIPAA_ERROR_CODE).
+    HIPAA_NOT_COVERED,
     # providers/free_tier_models.FREE_TIER_MODEL_REFUSED — named here, not imported, so this
     # registry never depends on that gate's import order.
     "free_tier_model_refused",
@@ -61,7 +65,36 @@ _codes: set[str] = {
     # types the host's doors send).
     "education_coppa_consent_required",
     "education_age_declaration_required",
+    # matrx_batch.router.BATCH_REFUSED — an explicit batch job the host's batch admission hook
+    # refused (HIPAA mode). matrx-batch sits below this package, so it is named, not imported.
+    "batch_refused",
+    # client_host/agent_source.AgentHasNoMessages — a saved agent with zero authored messages.
+    "agent_has_no_messages",
+    # client_host/agent_source.AgentHasNoModel — a saved agent whose model_id is NULL (written
+    # through a door that does not fill the platform default).
+    "agent_has_no_model",
+    # providers/model_channel_gate.MODEL_NOT_FOR_CHAT — a realtime / embedding / transcription
+    # model asked to answer a typed turn (an agent bound to a live voice model, opened in chat).
+    "model_not_for_chat",
+    # catalog/lifecycle.DEPRECATED_MODEL_UNSERVED — a deprecated model with no offering left,
+    # asked for by name (a stale pick); named, not imported (catalog sits beside providers).
+    "deprecated_model_unserved",
+    # config/send_boundary.EmptyConversationError — the call carries no message to send (only a
+    # system prompt, or nothing); named, not imported (config sits below providers).
+    "empty_conversation",
+    # mandate_taps.MandateReplayRefused — test mode refused a mandate step (nothing asked, nothing bought);
+    # ``no_stand_in`` is the stand-in pass's own code for an unpinned mandate (aidream
+    # services/runtime/ai_test_mode.NO_STAND_IN). Named, not imported.
+    "mandate_replay_refused",
+    "no_stand_in",
+    # providers/errors.PROVIDER_INPUT_REFUSED — the provider could not read an attached image; named, not imported.
+    "provider_input_refused",
 }
+
+#: Refusals that HOLD a run on a limit or approval someone set (each with its own human path: the
+#: approval queue, the usage dialog) — expected, never a defect. The one place this split is written.
+RUN_HOLD_CODES: frozenset[str] = frozenset({RUN_APPROVAL_REQUIRED, AUTOMATION_GUARDRAIL})
+EXPECTED_HOLD_CODES: frozenset[str] = RUN_HOLD_CODES | {USAGE_LIMIT_REACHED}
 
 
 def register_caller_refusal_code(code: str) -> str:
@@ -92,14 +125,43 @@ def refusal_code(value: Any) -> str:
     if isinstance(value, str):
         return value.strip()
     if isinstance(value, BaseException):
-        code = getattr(value, "code", None) or getattr(getattr(value, "error_info", None), "error_type", None)
+        code = getattr(value, "code", None) or getattr(
+            getattr(value, "error_info", None), "error_type", None
+        )
         return str(code or "")
     if isinstance(value, Mapping):
         details = value.get("details")
         details = details if isinstance(details, Mapping) else {}
-        for candidate in (value.get("code"), value.get("type"), value.get("error_type"), details.get("error")):
+        for candidate in (
+            value.get("code"),
+            value.get("type"),
+            value.get("error_type"),
+            details.get("error"),
+        ):
             if candidate:
                 return str(candidate)
+    return ""
+
+
+def expected_hold_code(exc: BaseException | None) -> str:
+    """The EXPECTED_HOLD_CODES code behind ``exc`` ('' when it is not a hold).
+
+    Walks the exception and its ``__cause__`` / ``__context__`` chain, so a hold a client layer
+    re-raised wrapped (``RuntimeError(...) from GuardrailStopError``, an ``AiTurnFailedError``
+    carrying its turn's code) is still recognised. A background helper (the conversation
+    labeler, an observational-memory pass) stopped by a hold records a refusal with this code
+    and the gate's reason — never a ``system_error``: the gate already recorded the hold and
+    gave it a human path (live 2026-11-14/18: "daily spend cap reached" filed as
+    conversation_labeler_failed / observational_memory_pass_failed).
+    """
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        code = refusal_code(current)
+        if code in EXPECTED_HOLD_CODES:
+            return code
+        current = current.__cause__ or current.__context__
     return ""
 
 
@@ -125,7 +187,10 @@ def is_caller_refusal(value: Any) -> bool:
 
 __all__ = [
     "CALLER_REFUSAL_KEY",
+    "EXPECTED_HOLD_CODES",
+    "RUN_HOLD_CODES",
     "caller_refusal_codes",
+    "expected_hold_code",
     "is_caller_refusal",
     "mark_caller_refusal",
     "refusal_code",

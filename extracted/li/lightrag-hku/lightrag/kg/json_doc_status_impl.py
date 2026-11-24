@@ -29,6 +29,7 @@ from lightrag.file_atomic import reap_orphan_tmp_files
 from lightrag.utils import (
     _cooperative_yield,
     load_json,
+    log_without_raising,
     logger,
     validate_workspace,
     commit_in_storage_io,
@@ -36,6 +37,7 @@ from lightrag.utils import (
     get_pinyin_sort_key,
 )
 from lightrag.exceptions import (
+    CommitBookkeepingError,
     SourceConflictRepairCASError,
     StorageControlPlaneError,
     StorageNotInitializedError,
@@ -48,7 +50,8 @@ from .shared_storage import (
     get_update_flag,
     set_all_update_flags,
     clear_all_update_flags,
-    try_initialize_namespace,
+    leave_namespace_init,
+    namespace_init_claim,
 )
 
 
@@ -57,41 +60,28 @@ from .shared_storage import (
 class JsonDocStatusStorage(DocStatusStorage):
     """JSON-file-backed document-status storage, sharing memory across processes.
 
-    Uses the **same shared-memory + dirty-flag protocol** as
-    ``JsonKVStorage`` — see that class's docstring for the canonical
-    description of:
-        * how ``self._data`` is a cross-process
-          ``multiprocessing.Manager().dict()`` proxy obtained via
-          ``get_namespace_data``;
-        * how ``try_initialize_namespace`` ensures exactly one process
-          reads the JSON file on first init;
-        * how ``set_all_update_flags`` marks dirty state (semantics
-          *reversed* from the file-backed classes
-          ``NanoVectorDBStorage`` / ``FaissVectorDBStorage`` /
-          ``NetworkXStorage``);
-        * how ``index_done_callback`` flushes and calls
-          ``clear_all_update_flags``;
-        * why ``_storage_lock`` wraps **every** ``self._data`` access
-          (not just commit / reload).
+    Runs the **same shared-memory + dirty-flag protocol** as
+    ``JsonKVStorage``, reimplemented rather than inherited: ``self._data``
+    is a cross-process ``Manager().dict()`` proxy, not a per-process
+    copy, so there is nothing to reload and adding a ``_get_*`` entry
+    method would be wrong. ``storage_updated`` here means *"dirty data
+    still to flush"* — the REVERSE of what the same flag means on
+    ``NanoVectorDBStorage`` / ``FaissVectorDBStorage`` /
+    ``NetworkXStorage``. Hold ``_storage_lock`` over **every**
+    ``self._data`` access, read or write. Mechanism and rationale:
+    ``docs/design/FileBackedSnapshotContract.md``; a change here is
+    almost always a change ``JsonKVStorage`` needs too.
 
-    Differences from ``JsonKVStorage`` (in this class only):
-        * ``upsert`` calls ``index_done_callback`` synchronously after
-          mutating shared memory, so doc-status changes hit disk
-          immediately rather than being deferred to the pipeline's
-          batched ``_insert_done()``. Rationale: doc-status is the
-          recovery anchor for the ingest pipeline — if the process
-          crashes after an in-memory upsert but before the next batch
-          commit, the doc must still be visible as PENDING/PROCESSING
-          on restart. The other writes (``delete``, ``drop``) follow
-          the standard deferred-commit pattern.
-        * Pre-upsert preparation (``chunks_list`` default) runs
-          *outside* the lock because it only mutates the caller-
-          supplied dict, not the shared store.
-        * Read methods are richer (``get_docs_by_statuses`` /
-          ``get_docs_by_track_id`` / ``get_docs_paginated`` /
-          ``get_doc_by_file_path`` / etc.), but they all follow the
-          same "acquire ``_storage_lock``, scan ``self._data``, copy
-          values out before returning" template.
+    Rules this class adds on top of that protocol:
+        * ``upsert``, ``update_doc_status_fields`` and the
+          source-conflict repair flush synchronously — they ``await
+          index_done_callback()`` before returning. Doc-status is the
+          ingest pipeline's recovery anchor, so a crash must not lose
+          the fact that a document was enqueued. ``delete`` stays
+          deferred; ``drop`` flushes like the others.
+        * Reads copy or convert rows out of ``self._data`` before
+          returning them — never hand a caller a live reference into
+          the shared proxy.
 
     Non-pipeline write paths:
         * ``drop`` — destructive, **not** serialized; the caller must
@@ -128,40 +118,73 @@ class JsonDocStatusStorage(DocStatusStorage):
         os.makedirs(workspace_dir, exist_ok=True)
         self._file_name = os.path.join(workspace_dir, f"kv_store_{self.namespace}.json")
         self._data = None
+        # Whether THIS instance holds the shared namespace; see ``finalize``.
+        self._holds_namespace = False
         self._storage_lock = None
         self.storage_updated = None
 
         reap_orphan_tmp_files(self._file_name, self.workspace or "_")
 
+    async def finalize(self):
+        """Give up this instance's hold on the shared namespace.
+
+        ``JsonKVStorage`` does the same (the pair reimplement one protocol, so
+        a change to one is nearly always a change the other needs). Nothing is
+        flushed here: doc-status writes that change scheduling state already
+        flush synchronously, because doc-status is the pipeline's recovery
+        anchor.
+        """
+        if self._holds_namespace:
+            self._holds_namespace = False
+            await leave_namespace_init(self.namespace, workspace=self.workspace)
+            # Same rule as ``JsonKVStorage.finalize``: the shared dict may be
+            # empty now, so every later call raises until ``initialize()``.
+            self._storage_lock = None
+
     async def initialize(self):
         """Bind to the shared namespace dict and load from disk on first init.
 
         Same protocol as ``JsonKVStorage.initialize``: a global init
-        lock (``try_initialize_namespace``) elects one process to read
-        the JSON file into the shared ``self._data``; other processes
-        skip the read and see the same shared dict.
+        lock (``namespace_init_claim``) elects one process to read the
+        JSON file into the shared ``self._data``; other processes skip
+        the read and see the same shared dict. The load stays inside the
+        claim so that a failed read is retried by the next process
+        instead of leaving the namespace empty but marked loaded.
         """
-        self._storage_lock = get_namespace_lock(
-            self.namespace, workspace=self.workspace
-        )
-        self.storage_updated = await get_update_flag(
-            self.namespace, workspace=self.workspace
-        )
         async with get_data_init_lock():
+            # A repeated (including concurrent) initialize owns no extra hold
+            # or update flag, and must preserve any pending dirty state.
+            if self._holds_namespace:
+                return
+            self._storage_lock = get_namespace_lock(
+                self.namespace, workspace=self.workspace
+            )
+            self.storage_updated = await get_update_flag(
+                self.namespace, workspace=self.workspace
+            )
             # check need_init must before get_namespace_data
-            need_init = await try_initialize_namespace(
-                self.namespace, workspace=self.workspace
-            )
-            self._data = await get_namespace_data(
-                self.namespace, workspace=self.workspace
-            )
-            if need_init:
-                loaded_data = load_json(self._file_name) or {}
-                async with self._storage_lock:
-                    self._data.update(loaded_data)
-                    logger.info(
-                        f"[{self.workspace}] Process {os.getpid()} doc status load {self.namespace} with {len(loaded_data)} records"
-                    )
+            async with namespace_init_claim(
+                self.namespace, workspace=self.workspace, backing=self._file_name
+            ) as need_init:
+                self._data = await get_namespace_data(
+                    self.namespace, workspace=self.workspace
+                )
+                if need_init:
+                    loaded_data = load_json(self._file_name) or {}
+                    async with self._storage_lock:
+                        self._data.update(loaded_data)
+                        logger.info(
+                            f"[{self.workspace}] Process {os.getpid()} doc status load {self.namespace} with {len(loaded_data)} records"
+                        )
+
+            # Only NOW does this instance hold the namespace. The claim is counted
+            # and the count belongs to whoever took it, so a ``finalize()`` from an
+            # instance that never got one releases somebody else's -- and the last
+            # release empties the shared dict, which the real holder then publishes
+            # over its own file. ``initialize_storages`` adds a storage to its
+            # rollback list BEFORE initializing it, so that finalize is on the
+            # normal path of any refusal here, this claim's own included.
+            self._holds_namespace = True
 
     async def filter_keys(self, keys: set[str]) -> set[str]:
         """Return keys that should be processed (not in storage or not successfully processed)"""
@@ -210,6 +233,8 @@ class JsonDocStatusStorage(DocStatusStorage):
             return {}
         status_values = {s.value for s in statuses}
         result = {}
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonDocStatusStorage")
         async with self._storage_lock:
             for k, v in self._data.items():
                 try:
@@ -242,6 +267,8 @@ class JsonDocStatusStorage(DocStatusStorage):
         document behind one bad row.
         """
         result = {}
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonDocStatusStorage")
         async with self._storage_lock:
             for k, v in self._data.items():
                 if not isinstance(v, dict):
@@ -277,6 +304,8 @@ class JsonDocStatusStorage(DocStatusStorage):
         ``upsert`` persists on every call, so a purge journalling four phases
         per document commits this file four times for that document alone.
         """
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonDocStatusStorage")
         async with self._storage_lock:
             if self.storage_updated.value:
                 # DictProxy.copy() is a single Manager RPC that marshals the
@@ -286,7 +315,7 @@ class JsonDocStatusStorage(DocStatusStorage):
                 # only reads its argument, so the shallow copy is safe there too.
                 data_dict = self._data.copy()
                 logger.debug(
-                    f"[{self.workspace}] Process {os.getpid()} doc status writting {len(data_dict)} records to {self.namespace}"
+                    f"[{self.workspace}] Process {os.getpid()} doc status writing {len(data_dict)} records to {self.namespace}"
                 )
 
                 # Off the event loop: this rewrites the whole file, which on a
@@ -295,6 +324,7 @@ class JsonDocStatusStorage(DocStatusStorage):
                 # -- `data_dict` is snapshotted above, on the loop, under the
                 # lock, so the worker thread touches nothing shared.
                 write_outcome: dict[str, bool] = {}
+                reconcile_failure: list[Exception] = []
 
                 def _write() -> None:
                     write_outcome["needs_reload"] = write_json(
@@ -319,14 +349,61 @@ class JsonDocStatusStorage(DocStatusStorage):
                         )
                         cleaned_data = load_json(self._file_name)
                         if cleaned_data is not None:
-                            self._data.clear()
-                            self._data.update(cleaned_data)
+                            try:
+                                self._data.clear()
+                                self._data.update(cleaned_data)
+                            except Exception as exc:
+                                # NOT publication, and not absorbable. On a
+                                # shared ``Manager().dict()`` these are two
+                                # separate RPCs, so a failure between them
+                                # leaves the shared dict EMPTY while the file on
+                                # disk holds the correct sanitized snapshot —
+                                # and the dirty flags are still set, so the next
+                                # flush would write that empty dict straight
+                                # over it, losing every row in the namespace.
+                                # Recorded so the handler below re-raises
+                                # instead of reporting a healthy deferred
+                                # publication.
+                                reconcile_failure.append(exc)
+                                raise
 
                     await clear_all_update_flags(
                         self.namespace, workspace=self.workspace
                     )
 
-                await commit_in_storage_io(_write, _committed)
+                try:
+                    await commit_in_storage_io(_write, _committed)
+                except CommitBookkeepingError as e:
+                    if reconcile_failure:
+                        # Fail loud. What is unreliable now is the shared
+                        # in-memory view, and no later flush heals it — a later
+                        # flush is what would PUBLISH it. The file on disk is
+                        # the correct snapshot, so the recovery is to stop
+                        # writing to this workspace and restart the workers,
+                        # which reload it. Re-raised as the original failure
+                        # rather than as CommitBookkeepingError: callers read
+                        # that type as "committed, only publication deferred"
+                        # and some deliberately absorb it.
+                        raise reconcile_failure[0]
+                    # Past the guard above, the only thing that can have
+                    # failed is the dirty-flag clear — the file is published and
+                    # the shared dict matches it. That heals on the next flush:
+                    # the flags stay set, so the next index_done_callback
+                    # rewrites this same snapshot and retries the clear.
+                    #
+                    # Not re-raising matters more here than anywhere else:
+                    # `upsert` flushes synchronously precisely so the doc-status
+                    # row is durable before it returns, so reporting that landed
+                    # write as a failure would abort an ingest whose recovery
+                    # anchor is already on disk.
+                    log_without_raising(
+                        logger.error,
+                        f"[{self.workspace}] Doc status for {self.namespace} was "
+                        f"written to {self._file_name}, but its post-write "
+                        f"bookkeeping failed: {e.__cause__}. The dirty flags stay "
+                        "set, so the next commit rewrites this snapshot and "
+                        "retries them.",
+                    )
 
     async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
         """Insert/update doc-status records and **persist immediately**.
@@ -347,8 +424,8 @@ class JsonDocStatusStorage(DocStatusStorage):
                ``set_all_update_flags`` to mark every process dirty.
             3. Await ``index_done_callback`` for an immediate flush.
 
-        See ``JsonKVStorage`` class docstring for the shared-memory +
-        dirty-flag protocol that underpins step 2.
+        See the contract doc, *Reversed flag semantics*, for the
+        shared-memory + dirty-flag protocol that underpins step 2.
         """
         if not data:
             return
@@ -384,6 +461,8 @@ class JsonDocStatusStorage(DocStatusStorage):
             return len(self._data) == 0
 
     async def get_by_id(self, id: str) -> Union[dict[str, Any], None]:
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonDocStatusStorage")
         async with self._storage_lock:
             data = self._data.get(id)
             return copy.deepcopy(data) if isinstance(data, dict) else data
@@ -444,6 +523,8 @@ class JsonDocStatusStorage(DocStatusStorage):
         # holding the lock across them does not reintroduce the "deep-copy
         # the whole corpus" cost. Only the final page (bounded by page_size,
         # <=200) is ever deep-copied.
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonDocStatusStorage")
         async with self._storage_lock:
             projections: list[tuple[Any, str]] = []
             for doc_id, doc_data in self._data.items():
@@ -532,6 +613,8 @@ class JsonDocStatusStorage(DocStatusStorage):
         Args:
             doc_ids: List of document IDs to be deleted from storage
         """
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonDocStatusStorage")
         async with self._storage_lock:
             any_deleted = False
             for doc_id in doc_ids:
@@ -716,8 +799,17 @@ class JsonDocStatusStorage(DocStatusStorage):
 
     @staticmethod
     def _decode_cursor(opaque: str) -> tuple[str, str]:
+        """Decode an opaque scheduling cursor into its ``(created_at, id)`` key.
+
+        Only this backend's own ``[created_at, id]`` list is a cursor. Any other
+        payload -- including a two-entry object or a two-character string,
+        which would unpack to two strings and mis-position the sweep -- raises
+        :class:`~lightrag.exceptions.StorageControlPlaneError`.
+        """
         try:
             decoded = json.loads(opaque)
+            if not isinstance(decoded, list) or len(decoded) != 2:
+                raise ValueError("cursor must be a two-element list")
             created, doc_id = decoded
             if not isinstance(created, str) or not isinstance(doc_id, str):
                 raise ValueError("cursor fields must be strings")
@@ -1177,7 +1269,7 @@ class JsonDocStatusStorage(DocStatusStorage):
             ``drop`` is destructive and **not** serialized by this
             storage class. The caller must hold the pipeline ``busy``
             reservation (the ``/documents/clear`` endpoint does this)
-            before invoking it. See class docstring,
+            before invoking it. See the contract doc,
             *Non-pipeline write paths*.
 
         Returns:
@@ -1186,6 +1278,8 @@ class JsonDocStatusStorage(DocStatusStorage):
             - On failure: {"status": "error", "message": "<error details>"}
         """
         try:
+            if self._storage_lock is None:
+                raise StorageNotInitializedError("JsonDocStatusStorage")
             async with self._storage_lock:
                 self._data.clear()
                 await set_all_update_flags(self.namespace, workspace=self.workspace)

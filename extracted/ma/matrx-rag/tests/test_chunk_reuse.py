@@ -30,6 +30,20 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
+def _row_matches(row: dict[str, Any], filters: dict[str, Any]) -> bool:
+    """The filter lookups the chunk writers use: equality, ``__in`` and ``__isnull``."""
+    for key, want in filters.items():
+        if key.endswith("__isnull"):
+            if (row.get(key[: -len("__isnull")]) is None) != bool(want):
+                return False
+        elif key.endswith("__in"):
+            if row.get(key[: -len("__in")]) not in want:
+                return False
+        elif row.get(key) != want:
+            return False
+    return True
+
+
 class _FakeKgChunksDb:
     """In-memory rag.kg_chunks + embeddings substitute.
 
@@ -46,6 +60,10 @@ class _FakeKgChunksDb:
         self.insert_log: list[list[str]] = []
         self.update_log: list[list[str]] = []
         self.update_cast_log: list[dict[str, str]] = []
+        # (ids, order_by, lock mode) per row-locking read, and every write in order —
+        # the lock-order test asserts the stale delete locks ascending first.
+        self.lock_log: list[tuple[list[str], tuple[str, ...], str | None]] = []
+        self.event_log: list[str] = []
         # Rows per embedding bulk_insert_ignore call, in order — the
         # durable-write tests assert batching shape from this.
         self.embedding_insert_log: list[int] = []
@@ -64,47 +82,42 @@ class _FakeKgChunksModel:
         db = self._db
 
         def _match(row: dict[str, Any]) -> bool:
-            for key, want in filters.items():
-                if key == "content_sha256__isnull":
-                    if (row.get("content_sha256") is None) != bool(want):
-                        return False
-                elif row.get(key) != want:
-                    return False
-            return True
+            return _row_matches(row, filters)
 
         class _QB:
+            def __init__(self) -> None:
+                self._order: tuple[str, ...] = ()
+                self._lock: str | None = None
+
+            def order_by(self, *fields: str) -> _QB:
+                self._order = fields
+                return self
+
+            def select_for_update(self, *, mode: str = "UPDATE", **_kw: Any) -> _QB:
+                self._lock = mode
+                return self
+
+            def including_archived(self):  # the ORM's include-archived door
+                return self
+
             async def values(self, *fields: str) -> list[dict[str, Any]]:
-                return [
-                    {f: row.get(f) for f in fields}
-                    for row in db.chunks.values()
-                    if _match(row)
-                ]
+                rows = [row for row in db.chunks.values() if _match(row)]
+                if self._order == ("id",):
+                    rows.sort(key=lambda r: r["id"])
+                if self._lock is not None:
+                    db.lock_log.append(([r["id"] for r in rows], self._order, self._lock))
+                    db.event_log.append("lock")
+                return [{f: row.get(f) for f in fields} for row in rows]
 
         return _QB()
 
     async def delete_where(self, **filters: Any) -> int:
-        if "id__in" in filters:
-            ids = list(filters["id__in"])
-            removed = [cid for cid in ids if cid in self._db.chunks]
-        else:
-            sk = filters["source_kind"]
-            sid = filters["source_id"]
-            field_isnull = filters.get("field_id__isnull", False)
-            fid = filters.get("field_id")
-            removed = [
-                cid
-                for cid, row in self._db.chunks.items()
-                if row["source_kind"] == sk
-                and row["source_id"] == sid
-                and (
-                    (field_isnull and row.get("field_id") is None)
-                    or (not field_isnull and row.get("field_id") == fid)
-                )
-            ]
+        removed = [cid for cid, row in self._db.chunks.items() if _row_matches(row, filters)]
         for cid in removed:
             del self._db.chunks[cid]
             self._db.embeddings.pop(cid, None)
         self._db.delete_log.append(removed)
+        self._db.event_log.append("delete")
         return len(removed)
 
     async def bulk_insert_ignore(
@@ -177,6 +190,7 @@ class _FakeEmbeddingModel:
         on_conflict: Any = None,
         returning: bool | str = False,
         connection: Any = None,
+        statement_timeout: Any = None,
     ) -> int | list[dict[str, Any]]:
         n = 0
         for row in objects_data:
@@ -193,6 +207,9 @@ class _FakeEmbeddingModel:
         db = self._db
 
         class _QB:
+            def including_archived(self):  # the ORM's include-archived door
+                return self
+
             async def values(self, *fields: str):
                 return [{"chunk_id": cid} for cid in db.embeddings if cid in ids]
 
@@ -242,6 +259,7 @@ def _wire_fake_db(monkeypatch, db: _FakeKgChunksDb) -> None:
     monkeypatch.setattr(ingestion_mod, "get_db_model", _fake_get_db_model)
     # ``locked_transaction(key, …)`` (matrx_orm) opens the chunk transaction holding the advisory lock.
     monkeypatch.setattr(ingestion_mod, "locked_transaction", _noop_transaction)
+    monkeypatch.setattr(ingestion_mod, "transaction", _noop_transaction)
 
 
 @pytest.fixture
@@ -573,3 +591,230 @@ async def test_a_reused_chunk_that_vanished_under_the_lock_is_embedded_not_refus
     assert new_b in fake_db_pool.chunks
     assert fake_db_pool.embeddings[new_b] is not None
     assert all(cid in fake_db_pool.embeddings for cid in fake_db_pool.chunks), "a chunk row lacks its vector"
+
+
+@pytest.mark.asyncio
+async def test_reused_chunks_update_in_id_order_so_writers_cannot_deadlock(
+    fake_db_pool, stub_embedding_spec, monkeypatch
+):
+    """Row locks taken in one order make overlapping writers queue, not deadlock (40P01 on rag.kg_chunks)."""
+    from matrx_rag.ingestion import upsert_chunks
+
+    resolved = _make_resolved()
+    chunks = [_make_chunk(f"paragraph {i}", i) for i in range(12)]
+    shas = [_sha(c.content_text) for c in chunks]
+    await upsert_chunks(
+        resolved=resolved,
+        chunks=chunks,
+        embedding_model="openai:text-embedding-3-small",
+        embeddings=[[0.1, 0.2, 0.3, 0.4]] * 12,
+        new_shas=shas,
+        existing_by_sha={},
+    )
+    snapshot = {sha: chunk.chunk_id for sha, chunk in zip(shas, chunks, strict=True)}
+
+    written: list[str] = []
+    import matrx_rag.ingestion as ingestion_mod
+
+    model = ingestion_mod.get_db_model("KgChunks")
+    original = model.bulk_update_by_pk
+
+    async def record(objects_data, **kwargs):
+        written.extend(row["id"] for row in objects_data)
+        return await original(objects_data, **kwargs)
+
+    monkeypatch.setattr(model, "bulk_update_by_pk", record)
+    again = [_make_chunk(f"paragraph {i}", i) for i in range(12)]
+    await upsert_chunks(
+        resolved=resolved,
+        chunks=again,
+        embedding_model="openai:text-embedding-3-small",
+        embeddings=[None] * 12,
+        new_shas=shas,
+        existing_by_sha=dict(snapshot),
+    )
+
+    assert len(written) == 12
+    assert written == sorted(written)
+
+
+@pytest.mark.asyncio
+async def test_stale_chunks_are_locked_in_id_order_before_the_delete(fake_db_pool, stub_embedding_spec):
+    """The sorted id list does not order a DELETE's row locks — its plan does. The stale-chunk
+    delete locks its rows ascending by id first (the order ner._stamp_chunks locks in), so a
+    re-ingest and an NER stamp over the same chunks queue instead of deadlocking (40P01 on
+    rag.kg_chunks, 2026-11-15 22:24Z)."""
+    from matrx_rag.ingestion import upsert_chunks
+
+    resolved = _make_resolved()
+    chunks = [_make_chunk(f"paragraph {i}", i) for i in range(8)]
+    shas = [_sha(c.content_text) for c in chunks]
+    await upsert_chunks(
+        resolved=resolved,
+        chunks=chunks,
+        embedding_model="openai:text-embedding-3-small",
+        embeddings=[[0.1, 0.2, 0.3, 0.4]] * 8,
+        new_shas=shas,
+        existing_by_sha={},
+    )
+    snapshot = {sha: chunk.chunk_id for sha, chunk in zip(shas, chunks, strict=True)}
+    fake_db_pool.event_log.clear()
+
+    # Keep only the first two paragraphs: the other six are stale.
+    kept = [_make_chunk(f"paragraph {i}", i) for i in range(2)]
+    await upsert_chunks(
+        resolved=resolved,
+        chunks=kept,
+        embedding_model="openai:text-embedding-3-small",
+        embeddings=[None, None],
+        new_shas=shas[:2],
+        existing_by_sha=dict(snapshot),
+    )
+
+    stale = sorted(c.chunk_id for c in chunks[2:])
+    assert fake_db_pool.lock_log, "the stale delete took no ordered row locks first"
+    locked_ids, order, mode = fake_db_pool.lock_log[0]  # the delete's lock; the reuse update locks after it
+    assert (order, mode) == (("id",), "UPDATE")
+    assert locked_ids == stale
+    ids_updated, update_order, _ = fake_db_pool.lock_log[-1]
+    assert update_order == ("id",) and ids_updated == sorted(ids_updated)  # the reuse UPDATE ... FROM VALUES is pre-locked too
+    assert fake_db_pool.event_log.index("lock") < fake_db_pool.event_log.index("delete")
+
+
+@pytest.mark.asyncio
+async def test_the_stale_delete_also_locks_the_chunk_rows_its_cascade_writes(fake_db_pool, stub_embedding_spec):
+    """Deleting a chunk writes OTHER chunk rows: ``parent_chunk_id`` cascades (followed down) and
+    ``derived_from_chunk_id`` is set null. Those rows were locked by the cascade in no order, and 8 NER
+    stamps deadlocked against one re-ingest at 21:29Z on 2026-11-16 after the ordered pre-lock shipped.
+    Every row the delete writes is in the one ascending lock, taken before the delete."""
+    from matrx_rag.ingestion import upsert_chunks
+
+    resolved = _make_resolved()
+    chunks = [_make_chunk(f"paragraph {i}", i) for i in range(8)]
+    shas = [_sha(c.content_text) for c in chunks]
+    await upsert_chunks(
+        resolved=resolved,
+        chunks=chunks,
+        embedding_model="openai:text-embedding-3-small",
+        embeddings=[[0.1, 0.2, 0.3, 0.4]] * 8,
+        new_shas=shas,
+        existing_by_sha={},
+    )
+    ids = [c.chunk_id for c in chunks]
+    rows = fake_db_pool.chunks
+    rows[ids[0]]["parent_chunk_id"] = ids[5]  # a kept child of a stale parent: cascade-deleted
+    rows[ids[3]]["parent_chunk_id"] = ids[0]  # its grandchild (stale anyway)
+    rows[ids[1]]["derived_from_chunk_id"] = ids[0]  # derived from the cascaded child: set null
+    snapshot = {sha: chunk.chunk_id for sha, chunk in zip(shas, chunks, strict=True)}
+    fake_db_pool.event_log.clear()
+    fake_db_pool.lock_log.clear()
+
+    kept = [_make_chunk(f"paragraph {i}", i) for i in range(2)]
+    await upsert_chunks(
+        resolved=resolved,
+        chunks=kept,
+        embedding_model="openai:text-embedding-3-small",
+        embeddings=[None, None],
+        new_shas=shas[:2],
+        existing_by_sha=dict(snapshot),
+    )
+
+    locked_ids, order, mode = fake_db_pool.lock_log[0]
+    assert (order, mode) == (("id",), "UPDATE")
+    assert locked_ids == sorted(ids)  # the six stale rows + the cascaded child + the set-null row
+    assert fake_db_pool.event_log.index("lock") < fake_db_pool.event_log.index("delete")
+
+
+@pytest.mark.asyncio
+async def test_every_filter_addressed_chunk_delete_locks_its_rows_in_id_order_first(
+    fake_db_pool, stub_embedding_spec, monkeypatch
+):
+    """The full wipe, ``delete_source_artifacts``, ``purge_*`` and the stage / derivation / extraction
+    deletes all delete chunk rows by filter. Each used to run the DELETE bare (plan-order locks, cascade
+    rows unordered) and could deadlock an NER stamp (40P01). All of them go through
+    ``delete_chunks_in_lock_order``: one ascending lock over every row the delete writes, then the delete."""
+    from matrx_rag import ingestion
+    from matrx_rag.ingestion import upsert_chunks
+
+    chunk_only_get_db_model = ingestion.get_db_model
+
+    class _Members:
+        @staticmethod
+        async def delete_where(**_f: Any) -> int:
+            return 0
+
+    monkeypatch.setattr(
+        ingestion,
+        "get_db_model",
+        lambda name, schema=None: _Members if name == "DataStoreMembers" else chunk_only_get_db_model(name),
+    )
+    resolved = _make_resolved()
+    chunks = [_make_chunk(f"paragraph {i}", i) for i in range(6)]
+    shas = [_sha(c.content_text) for c in chunks]
+    await upsert_chunks(
+        resolved=resolved,
+        chunks=chunks,
+        embedding_model="openai:text-embedding-3-small",
+        embeddings=[[0.1, 0.2, 0.3, 0.4]] * 6,
+        new_shas=shas,
+        existing_by_sha={},
+    )
+    ids = sorted(c.chunk_id for c in chunks)
+    rows = fake_db_pool.chunks
+    for row in rows.values():
+        row["processed_document_id"] = "doc-1"
+    outsider = ids[0]
+    rows[outsider]["derived_from_chunk_id"] = None
+    # a chunk of ANOTHER source derived from one being deleted: its derived_from is set null by the cascade
+    rows["zz-outside"] = {
+        "id": "zz-outside",
+        "source_kind": "note",
+        "source_id": "other",
+        "field_id": None,
+        "derived_from_chunk_id": ids[3],
+    }
+
+    deletes = {
+        "delete_source_artifacts": lambda: ingestion.delete_source_artifacts("note", "src-1"),
+        "purge_source_artifacts": lambda: ingestion.purge_source_artifacts("note", "src-1"),
+        "purge_document_artifacts": lambda: ingestion.purge_document_artifacts("doc-1"),
+    }
+    expected = sorted([*ids, "zz-outside"])
+    for name, run in deletes.items():
+        snapshot = {cid: dict(row) for cid, row in fake_db_pool.chunks.items()}
+        fake_db_pool.event_log.clear()
+        fake_db_pool.lock_log.clear()
+        await run()
+        assert fake_db_pool.lock_log, f"{name}: no ordered lock before the delete"
+        locked_ids, order, mode = fake_db_pool.lock_log[-1]
+        assert (order, mode) == (("id",), "UPDATE"), name
+        assert locked_ids == expected, name
+        assert fake_db_pool.event_log.index("lock") < fake_db_pool.event_log.index("delete"), name
+        fake_db_pool.chunks.clear()
+        fake_db_pool.chunks.update(snapshot)
+
+
+@pytest.mark.asyncio
+async def test_soft_delete_and_restore_stamps_take_their_row_locks_in_id_order(monkeypatch):
+    """``deleted_at`` flips over many chunk rows of one source / document race an NER stamp the same way."""
+    from matrx_rag import ingestion
+
+    seen: list[dict[str, Any]] = []
+
+    class _Result:
+        rows_affected = 0
+
+    class _Model:
+        @staticmethod
+        async def update_where(filters: dict[str, Any], **kw: Any) -> _Result:
+            seen.append(kw)
+            return _Result()
+
+    monkeypatch.setattr(ingestion, "get_db_model", lambda name, schema=None: _Model)
+    await ingestion.soft_delete_source_artifacts("note", "s")
+    await ingestion.restore_source_artifacts("note", "s")
+    await ingestion.soft_delete_document_artifacts("d")
+    await ingestion.restore_document_artifacts("d")
+    chunk_writes = [kw for kw in seen if "deleted_at" in kw]
+    assert len(chunk_writes) == 8  # four chunk stamps, four membership stamps
+    assert sum(1 for kw in chunk_writes if kw.get("lock_rows_in_pk_order") is True) == 4

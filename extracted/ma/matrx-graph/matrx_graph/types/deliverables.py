@@ -31,6 +31,8 @@ wrapper kind to fill that hole.
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -46,6 +48,8 @@ __all__ = [
     "declared_result",
     "deliverable_node_ids",
     "resolve_io_declaration",
+    "RunAnswer",
+    "run_answer",
 ]
 
 
@@ -110,6 +114,7 @@ def compute_deliverables(graph: CompiledGraph, definition: Definition) -> list[D
     one of several) is applied by :func:`resolve_io_declaration`, so the
     membership rule stays free of the declaration it is used to validate.
     """
+    definition = _information.executable_of(definition)  # a note is not a step
     overrides: dict[str, bool] = {}
     for node in definition.nodes:
         flag = node.data.get("deliverable")
@@ -398,3 +403,108 @@ def claim_kind_value(payload: Any, output_kind: str | None) -> Any:
         return payload
     nested = [v for v in payload.values() if isinstance(v, dict) and v.get("__kind") == output_kind]
     return nested[0] if len(nested) == 1 else payload
+
+
+class RunAnswer(BaseModel):
+    """THE answer of one finished run — what every consumer of a workflow run receives
+    (an Action's result, a record write, a Space block, an Applet), never the per-step map.
+
+    ``value`` is the answering step's settled output (the kind-marked value inside it when
+    the workflow declares a kind); ``step`` names that step; ``output_kind`` is the declared
+    kind, else the value's own ``__kind``."""
+
+    value: Any = None  # api-any-ok: the answering step's own output
+    output_kind: str | None = None
+    step: str
+    #: True when ``step`` is the step the workflow DECLARES as its result (``data.is_primary``,
+    #: the ``set_result`` op / the Studio's "Use as the workflow's result"); False when the
+    #: answer fell back to the one settled deliverable or the last terminal step.
+    declared: bool = False
+
+
+def run_answer(
+    graph: CompiledGraph,
+    definition: Definition,
+    outputs: dict[str, Any] | None,
+    *,
+    declared_output_kind: str | None = None,
+) -> RunAnswer | None:
+    """The answer a finished run gives, from its settled step outputs (``node id -> output``).
+
+    In order: the step the workflow declares as its result (:func:`declared_result`; a
+    contradicted declaration falls through, it never raises on a read); else the ONE
+    deliverable that settled; else the last terminal step (no outgoing edges, never a
+    dispatcher) that settled, in the definition's step order. ``None`` only when no such
+    step produced anything. Never the whole step map.
+    """
+    settled = {k: v for k, v in (outputs or {}).items() if v is not None}
+    if not settled:
+        return None
+    step: str | None = None
+    try:
+        declared = declared_result(graph, definition, declared_output_kind=declared_output_kind)
+    except ValueError:
+        declared = None
+    is_declared = False
+    if declared is not None and declared.node_id in settled:
+        step = declared.node_id
+        is_declared = True
+    if step is None:
+        members = [d.node_id for d in compute_deliverables(graph, definition) if d.node_id in settled]
+        if len(members) == 1:
+            step = members[0]
+    if step is None:
+        order = [n.id for n in _information.executable_of(definition).nodes]
+        terminal = [
+            nid
+            for nid in order
+            if nid in settled
+            and nid in graph.nodes
+            and not graph.nodes[nid].outgoing_edge_ids
+            and not _is_dispatcher(graph.nodes[nid].spec_type)
+        ]
+        if terminal:
+            step = terminal[-1]
+    if step is None:
+        return None
+    value = claim_kind_value(settled[step], declared_output_kind)
+    own = value.get("__kind") if isinstance(value, dict) else None
+    return RunAnswer(
+        value=value,
+        output_kind=declared_output_kind or (own if isinstance(own, str) and own else None),
+        step=step,
+        declared=is_declared,
+    )
+
+
+def row_output_ids(graph: CompiledGraph, definition: Definition) -> frozenset[str]:
+    """The steps a finished run's ROW keeps (L-SPEED round 6a): every deliverable, the declared result,
+    and every terminal step that is not a dispatcher — exactly what :func:`run_answer` can choose from.
+    Every other step's output is in its own ``node_outcome`` row."""
+    keep = {d.node_id for d in compute_deliverables(graph, definition)}
+    try:
+        declared = declared_result(graph, definition, declared_output_kind=None)
+    except ValueError:
+        declared = None
+    if declared is not None:
+        keep.add(declared.node_id)
+    keep.update(
+        nid for nid, node in graph.nodes.items()
+        if not node.outgoing_edge_ids and not _is_dispatcher(node.spec_type)
+    )
+    return frozenset(keep)
+
+
+#: OFF (2026-11-09 review): servers read non-answer steps from ``run.output`` (podcast race ``w0_out``,
+#: run callbacks, the workflow tool). Back on only once every reader goes through the one step reader.
+TRIM_RUN_ROW = False
+
+
+def row_outputs(graph: Any, outputs: Any) -> Any:
+    """``outputs`` (a run's settled step outputs) cut to what its row keeps (``graph.row_output_ids``).
+    Unchanged when the graph names no set, the value is not a step map, or the cut would leave nothing."""
+    ids = getattr(graph, "row_output_ids", None)
+    if not TRIM_RUN_ROW or ids is None or not isinstance(outputs, dict) or not outputs:
+        return outputs
+    kept = {k: v for k, v in outputs.items() if k in ids}
+    return kept or outputs

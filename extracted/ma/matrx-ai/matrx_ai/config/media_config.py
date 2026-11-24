@@ -348,6 +348,10 @@ class ImageContent:
     is_ours: bool = False
     is_resolved: bool = False
     resolver_error: str | None = None
+    # The STORED file's mime when the media pass re-encodes the bytes it sends (a vision variant
+    # is a JPEG; the person's PNG stays a PNG). ``mime_type`` then names the wire bytes for this
+    # send; the stored part names the file (CGU-10 AND-IMG15 #2). Never serialized on its own.
+    stored_mime_type: str | None = None
 
     def __post_init__(self):
         """Normalize mime_type from multiple legacy locations, then auto-detect."""
@@ -649,8 +653,8 @@ class ImageContent:
             result["base64_data"] = self.base64_data
         if self.file_uri:
             result["file_uri"] = self.file_uri
-        if self.mime_type:
-            result["mime_type"] = self.mime_type
+        if self.stored_mime_type or self.mime_type:
+            result["mime_type"] = self.stored_mime_type or self.mime_type
         if self.file_size is not None:
             result["size_bytes"] = self.file_size
         # Phase 3b: persist intrinsic dimensions so the FE doesn't need
@@ -848,15 +852,23 @@ class AudioContent:
             from matrx_ai.processing.audio.stt import STTRequest, execute_stt
             from matrx_ai.processing.audio.transcription_cache import get_cache
 
-            result = await execute_stt(
-                STTRequest(
-                    audio_source=audio_source,
-                    model=self.transcription_model,
-                    language=self.transcription_language,
-                    response_format="verbose_json",
-                    timestamp_granularities=["segment"],
+            # NOT metered here: the usage below rides self.metadata["transcription"] to
+            # audio_preprocessing.preprocess_audio_in_messages, whose list UnifiedAIClient adds to the turn
+            # (request.add_usage), and the run's settle banks it per call. A second meter here would book it twice.
+            from matrx_ai.providers.meter_scope import direct_spend_scope
+
+            # Declared meter: the usage rides the turn's usage_history (above), so the runtime backstop must read
+            # this send as banked, never as ``unmetered_provider_call``.
+            with direct_spend_scope("inbound_audio_transcription"):
+                result = await execute_stt(
+                    STTRequest(
+                        audio_source=audio_source,
+                        model=self.transcription_model,
+                        language=self.transcription_language,
+                        response_format="verbose_json",
+                        timestamp_granularities=["segment"],
+                    )
                 )
-            )
 
             # Cache result in instance
             self.transcription_result = result.text
@@ -2044,7 +2056,10 @@ def reconstruct_media_content(
             mime_type=mime_type,
             media_resolution=meta.get("media_resolution"),
             alt=meta.get("alt"),
-            vision_class=meta.get("vision_class"),
+            # The stored class is a RECORD of what an earlier turn sent (it stays in ``metadata``), never a request:
+            # read back onto the item it made the boundary render the earlier model's variant on every later turn
+            # (CGU-10 AND-IMG16 #2). The media pass picks the class for the model each turn calls.
+            vision_class=None,
             file_size=file_size,
             width=width,
             height=height,

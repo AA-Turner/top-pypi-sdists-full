@@ -113,19 +113,10 @@ KEPT: Final[tuple[Kept, ...]] = (
     ),
     Kept(
         ISSUE,
-        "#7309",
-        "extend",
-        "accepts-invalid",
-        PRESET,
-        ({"via": ("alias",), "how": ("require",), "form": ("member",)},),
-        "a child that only adds required, as an allOf member, to an alias parent is written without fields",
-    ),
-    Kept(
-        ISSUE,
         "#6868",
         "extend",
         "accepts-invalid",
-        BOTH,
+        DEFAULT,
         (
             {
                 "via": ("ref-siblings",),
@@ -190,15 +181,26 @@ KEPT: Final[tuple[Kept, ...]] = (
         "#7171",
         "mixin",
         "accepts-invalid",
-        BOTH,
+        DEFAULT,
         (
             {"first": ("int", "int_min"), "second": ("num",), "swapped": (False,)},
             {"first": ("num",), "second": ("int", "int_min"), "swapped": (True,)},
+        ),
+        "an allOf merge of two refs takes the shared property from the later member: number after integer accepts "
+        "1.5 (row legacy-all-of-object-merge-row)",
+    ),
+    Kept(
+        ISSUE,
+        "#7171",
+        "mixin",
+        "accepts-invalid",
+        BOTH,
+        (
             {"first": _STRING_LEAVES, "second": ("str_or_arr",)},
             {"first": ("str_or_arr",), "second": _STRING_LEAVES},
         ),
-        "an allOf merge of two refs takes the shared property from one member: number after integer accepts 1.5, and "
-        "a string beside a string-or-array union is the union in both member orders, so it accepts an array",
+        "a string beside a string-or-array union is the union in both member orders, so it accepts an array: the "
+        "merge is the string type beside the union, which a type beside an anyOf writes as the whole union",
     ),
     Kept(
         ISSUE,
@@ -259,15 +261,6 @@ KEPT: Final[tuple[Kept, ...]] = (
         ({"container": _ALL_MAPS, "nullable": (True,), "required": (False,), "backend": (TYPED_DICT,)},),
         "TypedDict drops the None of an optional nullable map that has a key schema (#6934, fixed by "
         "--use-single-dict-for-object-maps)",
-    ),
-    Kept(
-        ISSUE,
-        "#7102",
-        "tagged",
-        "import-fails",
-        DEFAULT,
-        ({"nullable": (True,), "backend": (PYDANTIC_V2,)},),
-        "a discriminator whose tag also admits null fails the import of the Pydantic v2 model",
     ),
     Kept(
         ISSUE,
@@ -356,15 +349,6 @@ KEPT: Final[tuple[Kept, ...]] = (
         "naming the base through an alias drops the base's fields, where naming it directly keeps them",
     ),
     Kept(
-        ISSUE,
-        "#7309",
-        "extend",
-        "alias",
-        PRESET,
-        ({"via": ("alias",), "how": ("require",), "form": ("member",)},),
-        "a required-only allOf member over an alias parent loses every field, over the base itself it does not",
-    ),
-    Kept(
         LEGACY_ROW,
         "legacy-all-of-alias-member-base",
         "extend",
@@ -375,19 +359,10 @@ KEPT: Final[tuple[Kept, ...]] = (
     ),
     Kept(
         ISSUE,
-        "#7309",
-        "extend",
-        "beside",
-        PRESET,
-        ({"how": ("require",), "via": ("alias",), "form": ("beside",)},),
-        "over an alias parent, required beside the allOf keeps the fields where the same as a member loses them",
-    ),
-    Kept(
-        ISSUE,
         "#6868",
         "extend",
         "order",
-        BOTH,
+        DEFAULT,
         ({"how": ("require",), "via": ("ref-siblings",), "child_first": (True,)},),
         "a child of a $ref-with-siblings parent defined before it leaves the required property optional",
     ),
@@ -396,7 +371,7 @@ KEPT: Final[tuple[Kept, ...]] = (
         "#6868",
         "extend",
         "ref-siblings",
-        BOTH,
+        DEFAULT,
         (
             {"how": ("require",), "via": ("ref-siblings",), "child_first": (True,)},
             {
@@ -413,7 +388,7 @@ KEPT: Final[tuple[Kept, ...]] = (
         "#6868",
         "extend",
         "reversed-definitions",
-        BOTH,
+        DEFAULT,
         ({"how": ("require",), "via": ("ref-siblings",)},),
         "whether a child of a $ref-with-siblings parent keeps the property required follows the order of the "
         "definitions",
@@ -486,7 +461,7 @@ KEPT: Final[tuple[Kept, ...]] = (
         "#7171",
         "mixin",
         "member-order",
-        BOTH,
+        DEFAULT,
         (
             {"first": ("int", "int_min"), "second": ("num",), "swapped": (True,)},
             {"first": ("num",), "second": ("int", "int_min"), "swapped": (True,)},
@@ -554,8 +529,8 @@ KEPT: Final[tuple[Kept, ...]] = (
         "client",
         DEFAULT,
         (
-            {"container": _ALL_MAPS, "nullable": (True,), "backend": (PYDANTIC_V2, DATACLASSES, MSGSPEC)},
-            {"container": _ALL_MAPS, "nullable": (True,), "required": (True,), "backend": (TYPED_DICT,)},
+            {"container": _ALL_MAPS, "nullable": (True,), "backend": (DATACLASSES,)},
+            {"container": _ALL_MAPS, "nullable": (True,), "required": (False,), "backend": (MSGSPEC,)},
         ),
         "the client's field argument of a nullable map with key constraints drops the None its model field keeps",
     ),
@@ -583,7 +558,10 @@ KEPT: Final[tuple[Kept, ...]] = (
         "tagged",
         "backends",
         DEFAULT,
-        ({"tag": ("enum1-str",), "nullable": (False,), "backend": (MSGSPEC,)},),
+        (
+            {"tag": ("enum1-str",), "nullable": (False,), "backend": (MSGSPEC,)},
+            {"tag": ("enum1-str",), "nullable": (True,), "mapping": (True,), "kind": ("anyOf",), "backend": (MSGSPEC,)},
+        ),
         "msgspec cannot decode a union of Structs that are not all tagged, the Pydantic model can",
     ),
     Kept(
@@ -600,18 +578,28 @@ KEPT: Final[tuple[Kept, ...]] = (
         "#7102",
         "tagged",
         "backends",
-        DEFAULT,
-        ({"nullable": (True,), "backend": (MSGSPEC, TYPED_DICT)},),
-        "the Pydantic model of a tag that admits null fails its import, the other backends import",
-    ),
-    Kept(
-        ISSUE,
-        "#7102",
-        "tagged",
-        "backends",
         PRESET,
         ({"nullable": (True,), "mapping": (False,), "backend": (TYPED_DICT,)},),
         "the Pydantic model of a tag that admits null rejects every tag under the preset, TypedDict accepts them",
+    ),
+    Kept(
+        LIBRARY_LIMIT,
+        "enum",
+        "tagged",
+        "accepts-invalid",
+        DEFAULT,
+        ({"tag": ("enum2-int",), "nullable": (True,), "backend": (PYDANTIC_V2,)},),
+        "a union whose integer tags also admit null is written without discriminator= (#7102), and Pydantic's Literal "
+        "equality accepts true for the integer tag Literal[1, 4] that a plain union reads",
+    ),
+    Kept(
+        LIBRARY_LIMIT,
+        "enum",
+        "tagged",
+        "accepts-invalid",
+        PRESET,
+        ({"tag": ("enum2-int",), "nullable": (True,), "mapping": (False,), "backend": (PYDANTIC_V2,)},),
+        "the same under the preset, where a mapping gives the union tags it reads with discriminator=",
     ),
     Kept(
         LIBRARY_LIMIT,
@@ -640,16 +628,6 @@ KEPT: Final[tuple[Kept, ...]] = (
         DEFAULT,
         ({"tag": ("enum1-str",), "nullable": (False,), "backend": (MSGSPEC,)},),
         "with Literal tags msgspec decodes the union whose one-member enum tags it cannot decode",
-    ),
-    Kept(
-        ISSUE,
-        "#7102",
-        "tagged",
-        "option:use_root_model_type_alias",
-        DEFAULT,
-        ({"nullable": (True,), "backend": (PYDANTIC_V2,)},),
-        "the Pydantic model of a tag that admits null imports when the union is a type alias of RootModel, and fails "
-        "its import as a RootModel class",
     ),
 )
 """Every known difference of the shape families."""

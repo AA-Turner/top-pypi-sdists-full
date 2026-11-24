@@ -1,22 +1,132 @@
 import os
 import pathlib
+import re
+import shutil
+import subprocess
+import threading
+import time
+
+from contextlib import contextmanager
 
 import pytest
 
 pytest.importorskip("playwright")
 
 from playwright.sync_api import expect
+from tornado.netutil import bind_sockets
 
 from panel.config import config
 from panel.io.state import state
 from panel.pane import Markdown
 from panel.tests.util import (
-    linux_only, reverse_proxy, run_panel_serve, serve_component, wait_for_port,
-    wait_until, write_file,
+    linux_only, proxied_oauth_provider, reverse_proxy, run_panel_serve,
+    serve_component, wait_for_port, wait_until, write_file,
 )
 
 pytestmark = pytest.mark.ui
 auth_check = pytest.mark.skipif('PANEL_TEST_AUTH' not in os.environ, reason='PANEL_TEST_AUTH environment variable is required to run this test')
+
+
+def _port_is_free(port):
+    # Bind like the server does (every IPv4 and IPv6 interface), so a listener on
+    # [::]:port is detected as well.
+    try:
+        sockets = bind_sockets(int(port))
+    except OSError:
+        return False
+    for sock in sockets:
+        sock.close()
+    return True
+
+
+def _describe_listeners(port):
+    out = []
+    for cmd in (['ss', '-ltnp'], ['ss', '-ltn6p'], ['lsof', '-nP', '-i', f':{port}']):
+        if shutil.which(cmd[0]) is None:
+            out.append(f'$ {" ".join(cmd)}\n{cmd[0]} is not available')
+            continue
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        out.append(f'$ {" ".join(cmd)}\n{res.stdout}{res.stderr}')
+    return '\n'.join(out)
+
+
+def _describe_processes():
+    res = subprocess.run(['ps', '-eo', 'pid,ppid,etimes,args'], capture_output=True, text=True)
+    lines = res.stdout.splitlines()
+    return '\n'.join(
+        l[:200] for l in lines[:1] + [l for l in lines[1:] if any(k in l for k in ('caddy', 'pytest', 'xdist', 'panel'))]
+    )
+
+
+def _wait_for_free_port(port, timeout=30):
+    # The Auth0 callback URL pins the port, so it cannot be swapped for an ephemeral one
+    try:
+        wait_until(lambda: _port_is_free(port), timeout=timeout * 1000, interval=500)
+    except Exception:
+        pytest.fail(f'Port {port} is still in use after {timeout}s, listeners:\n{_describe_listeners(port)}')
+
+
+def _describe_owner(pid):
+    # The environment is inherited from the pytest worker that spawned the process
+    try:
+        raw = pathlib.Path(f'/proc/{pid}/environ').read_bytes().split(b'\0')
+        env = dict(item.decode(errors='replace').split('=', 1) for item in raw if b'=' in item)
+        cmdline = pathlib.Path(f'/proc/{pid}/cmdline').read_bytes().replace(b'\0', b' ').decode(errors='replace')
+        ppid = pathlib.Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[1]
+    except OSError as e:
+        return f'  pid {pid}: unreadable ({e})'
+    return (
+        f'  pid {pid}: ppid={ppid} cmd={cmdline[:120]!r} '
+        f'worker={env.get("PYTEST_XDIST_WORKER")} test={env.get("PYTEST_CURRENT_TEST")}'
+    )
+
+
+def _sample_port_sockets(port, stop, samples):
+    # Sockets in any state (including TIME_WAIT and outgoing connections) that
+    # use the port as local port; they block a bind without being listeners.
+    ss = shutil.which('ss')
+    if ss is None:
+        return
+    last, seen = None, set()
+    while not stop.is_set():
+        res = subprocess.run(
+            [ss, '-tanpH', f'sport = :{port}'], capture_output=True, text=True
+        )
+        current = res.stdout.strip()
+        if current and current != last:
+            samples.append(f'{time.strftime("%H:%M:%S")}\n{current}')
+            for pid in set(re.findall(r'pid=(\d+)', current)) - seen:
+                seen.add(pid)
+                samples.append(_describe_owner(pid))
+        last = current
+        stop.wait(0.05)
+
+
+@contextmanager
+def _report_listeners_on_failure(port):
+    stop, samples = threading.Event(), []
+    sampler = threading.Thread(target=_sample_port_sockets, args=(port, stop, samples), daemon=True)
+    sampler.start()
+    try:
+        yield
+    except pytest.fail.Exception as e:
+        stop.set()
+        sampler.join()
+        try:
+            port_range = pathlib.Path('/proc/sys/net/ipv4/ip_local_port_range').read_text().strip()
+        except OSError:
+            port_range = 'unknown'
+        observed = '\n'.join(samples) or 'none observed'
+        pytest.fail(
+            f'{e}\n\nSockets with local port {port} observed during startup:\n{observed}\n\n'
+            f'ip_local_port_range: {port_range}\n\n'
+            f'This process: pid={os.getpid()} worker={os.environ.get("PYTEST_XDIST_WORKER")}\n'
+            f'Processes:\n{_describe_processes()}\n\n'
+            f'Listeners on port {port} after the failure:\n{_describe_listeners(port)}',
+            pytrace=False
+        )
+    finally:
+        stop.set()
 
 
 def _auth0_login(page, user, password):
@@ -78,6 +188,123 @@ def test_basic_auth_via_proxy(py_file, page, prefix, reverse_proxy):
         page.get_by_role("button").click(force=True)
 
         expect(page.locator('.markdown')).to_have_text('test_user', timeout=10000)
+
+
+USER_APP = "import panel as pn; pn.pane.Markdown(pn.state.user).servable(title='A')"
+
+
+def _generic_oauth_args(provider):
+    extra_params = {key: provider[key] for key in ('AUTHORIZE_URL', 'TOKEN_URL')}
+    return [
+        "--port", "0", "--oauth-provider", "generic", "--oauth-key", "key",
+        "--oauth-secret", "secret", "--cookie-secret", "secret",
+        "--oauth-extra-params", repr(extra_params),
+        "--allow-websocket-origin", f"localhost:{provider['port']}",
+    ]
+
+
+@linux_only
+@pytest.mark.parametrize('server', ['tornado', 'fastapi'])
+@pytest.mark.parametrize('root_path', [['--use-xheaders'], ['--root-path', '/proxy']])
+def test_generic_oauth_via_prefix_stripping_proxy(py_file, page, server, root_path):
+    write_file(USER_APP, py_file.file)
+    app_name = os.path.basename(py_file.name)[:-3]
+
+    # Only the proxy headers can reveal the external host of the server
+    host = 'internal:5006' if root_path == ['--use-xheaders'] else None
+    with proxied_oauth_provider(host=host) as proxy:
+        base = f"http://localhost:{proxy['port']}/proxy"
+        cmd = [*_generic_oauth_args(proxy), "--server", server, *root_path, py_file.name]
+        with run_panel_serve(cmd) as p:
+            proxy['upstream'] = wait_for_port(p.stdout)
+            page.goto(f"{base}/{app_name}")
+
+            expect(page.locator('.markdown')).to_have_text(proxy['user'], timeout=10000)
+            expect(page).to_have_url(f"{base}/{app_name}")
+            assert proxy['websockets'] == [f'/proxy/{app_name}/ws']
+            assert proxy['redirect_uris'] == [base]
+
+            page.goto(f"{base}/logout")
+            page.get_by_role("button").click()
+
+            expect(page.locator('.markdown')).to_have_text(proxy['user'], timeout=10000)
+            expect(page).to_have_url(f"{base}/{app_name}")
+
+    assert not [(code, uri) for code, uri in proxy['requests'] if code >= 400]
+
+
+@linux_only
+@linux_only
+def test_generic_oauth_with_root_path_accessed_directly(py_file, page):
+    # Mirrors test_auth0_oauth_via_proxy, which opens the app on the port
+    # of the server and only returns from the provider through the proxy
+    write_file(USER_APP, py_file.file)
+    app_name = os.path.basename(py_file.name)[:-3]
+
+    with proxied_oauth_provider() as proxy:
+        base = f"http://localhost:{proxy['port']}/proxy"
+        cmd = [
+            *_generic_oauth_args(proxy), "--root-path", "/proxy/",
+            "--oauth-redirect-uri", f"{base}/login", py_file.name
+        ]
+        with run_panel_serve(cmd) as p:
+            proxy['upstream'] = port = wait_for_port(p.stdout)
+            page.goto(f"http://localhost:{port}")
+
+            expect(page.locator('.markdown')).to_have_text(proxy['user'], timeout=10000)
+            expect(page).to_have_url(f"{base}/{app_name}")
+            assert proxy['redirect_uris'] == [f"{base}/login"]
+
+
+@pytest.mark.parametrize('server', ['tornado', 'fastapi'])
+def test_generic_oauth_with_prefix(py_file, page, server):
+    write_file(USER_APP, py_file.file)
+    app_name = os.path.basename(py_file.name)[:-3]
+
+    with proxied_oauth_provider() as provider:
+        cmd = [
+            *_generic_oauth_args(provider), "--server", server, "--prefix", "prefix",
+            "--allow-websocket-origin", "*", py_file.name
+        ]
+        with run_panel_serve(cmd) as p:
+            port = wait_for_port(p.stdout)
+            page.goto(f"http://localhost:{port}/prefix/{app_name}")
+
+            expect(page.locator('.markdown')).to_have_text(provider['user'], timeout=10000)
+            expect(page).to_have_url(f"http://localhost:{port}/prefix/{app_name}")
+            assert provider['redirect_uris'] == [f"http://localhost:{port}/prefix"]
+
+
+@linux_only
+@pytest.mark.parametrize('server', ['tornado', 'fastapi'])
+def test_basic_auth_error_via_prefix_stripping_proxy(py_file, page, server):
+    write_file(USER_APP, py_file.file)
+    app_name = os.path.basename(py_file.name)[:-3]
+
+    with proxied_oauth_provider() as proxy:
+        base = f"http://localhost:{proxy['port']}/proxy"
+        cmd = [
+            "--port", "0", "--basic-auth", "my_password", "--cookie-secret", "secret",
+            "--allow-websocket-origin", f"localhost:{proxy['port']}", "--server", server,
+            "--use-xheaders", py_file.name
+        ]
+        with run_panel_serve(cmd) as p:
+            proxy['upstream'] = wait_for_port(p.stdout)
+            page.goto(f"{base}/{app_name}")
+
+            page.locator('input[name="username"]').fill("test_user")
+            page.locator('input[name="password"]').fill("wrong")
+            page.get_by_role("button").click(force=True)
+
+            expect(page.locator('#error-message')).to_be_visible()
+            expect(page).to_have_url(re.compile(rf"^{re.escape(base)}/login\?error="))
+
+            page.locator('input[name="username"]').fill("test_user")
+            page.locator('input[name="password"]').fill("my_password")
+            page.get_by_role("button").click(force=True)
+
+            expect(page.locator('.markdown')).to_have_text('test_user', timeout=10000)
+            expect(page).to_have_url(f"{base}/{app_name}")
 
 
 @linux_only
@@ -172,9 +399,11 @@ def test_auth0_oauth(py_file, page):
         "--oauth-encryption-key", encryption_key, "--oauth-extra-params", extra_params,
         py_file.name
     ]
+    _wait_for_free_port(port)
     with run_panel_serve(cmd) as p:
-        port = wait_for_port(p.stdout)
-        page.goto(f"http://localhost:{port}")
+        with _report_listeners_on_failure(port):
+            served_port = wait_for_port(p.stdout)
+        page.goto(f"http://localhost:{served_port}")
 
         _auth0_login(page, auth0_user, auth0_password)
 
@@ -197,6 +426,7 @@ def test_auth0_oauth_via_proxy(py_file, page):
     extra_params = os.environ['AUTH0_OAUTH_EXTRA_PARAMS']
     auth0_user = os.environ['AUTH0_OAUTH_USER']
     auth0_password = os.environ['AUTH0_OAUTH_PASSWORD']
+    _wait_for_free_port(proxy)
     with reverse_proxy(proxy_port=proxy) as (port, _):
         cmd = [
             "--port", port, "--oauth-provider", "auth0", "--oauth-key", oauth_key,

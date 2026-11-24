@@ -114,18 +114,27 @@ async def text_chunks_to_sse(
             yield {"event": event, "data": json.dumps({"text": text})}
         yield {"event": done_event, "data": json.dumps({"done": True})}
     except asyncio.CancelledError as exc:
+        from matrx_connect.streaming.cancel_cause import classify_stream_cancel
         from matrx_connect.streaming.error_capture import capture_error
 
-        await capture_error(exc, kind="stream_cancelled", route="text_chunks_to_sse")
+        cancel = classify_stream_cancel(exc)
+        if not cancel.by_design:
+            await capture_error(
+                exc, kind="stream_cancelled", route="text_chunks_to_sse",
+                error_type=f"stream_{cancel.cause}", error_text=cancel.text("text_chunks_to_sse"),
+            )
         raise
     except Exception as exc:
         logger.exception("Streaming error: %s", exc)
         from matrx_connect.streaming.error_capture import capture_error
 
-        await capture_error(
-            exc,
-            kind="stream_crash",
-            route="text_chunks_to_sse",
-            error_type=type(exc).__name__,
-        )
+        # A caller refusal (``is_caller_refusal``) is a classified answer, not a crash — same rule as
+        # create_streaming_response (response.py).
+        if not getattr(exc, "is_caller_refusal", False):
+            await capture_error(
+                exc,
+                kind="stream_crash",
+                route="text_chunks_to_sse",
+                error_type=type(exc).__name__,
+            )
         yield {"event": "error", "data": json.dumps({"error": str(exc)})}

@@ -38,7 +38,18 @@ class ColumnProfileDistribution(_message.Message):
     def __init__(self, ladder: _Optional[_Union[ColumnProfilePercentileLadder, _Mapping]] = ...) -> None: ...
 
 class ColumnProfile(_message.Message):
-    __slots__ = ("column", "distribution", "filled_count", "empty_count", "min", "max", "sum", "mean")
+    __slots__ = (
+        "column",
+        "distribution",
+        "filled_count",
+        "empty_count",
+        "min",
+        "max",
+        "sum",
+        "mean",
+        "non_null_count",
+        "zero_count",
+    )
     COLUMN_FIELD_NUMBER: _ClassVar[int]
     DISTRIBUTION_FIELD_NUMBER: _ClassVar[int]
     FILLED_COUNT_FIELD_NUMBER: _ClassVar[int]
@@ -47,6 +58,8 @@ class ColumnProfile(_message.Message):
     MAX_FIELD_NUMBER: _ClassVar[int]
     SUM_FIELD_NUMBER: _ClassVar[int]
     MEAN_FIELD_NUMBER: _ClassVar[int]
+    NON_NULL_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ZERO_COUNT_FIELD_NUMBER: _ClassVar[int]
     column: str
     distribution: ColumnProfileDistribution
     filled_count: int
@@ -55,6 +68,8 @@ class ColumnProfile(_message.Message):
     max: float
     sum: float
     mean: float
+    non_null_count: int
+    zero_count: int
     def __init__(
         self,
         column: _Optional[str] = ...,
@@ -65,4 +80,6 @@ class ColumnProfile(_message.Message):
         max: _Optional[float] = ...,
         sum: _Optional[float] = ...,
         mean: _Optional[float] = ...,
+        non_null_count: _Optional[int] = ...,
+        zero_count: _Optional[int] = ...,
     ) -> None: ...

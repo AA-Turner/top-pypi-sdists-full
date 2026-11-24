@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Adafruit_PureIO
-Version: 1.1.12
+Version: 1.1.13
 Summary: Pure python (i.e. no native extensions) access to Linux IO    including I2C and SPI. Drop in replacement for smbus and spidev modules.
 Author-email: Adafruit Industries <circuitpython@adafruit.com>
 License: MIT

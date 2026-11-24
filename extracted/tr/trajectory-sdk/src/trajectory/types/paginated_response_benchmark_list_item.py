@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from trajectory._base_client import SyncPage
-from trajectory.types.benchmarks.benchmark_list_item import BenchmarkListItem
+from trajectory.types.specs.benchmark_list_item import BenchmarkListItem
 
 
 class PaginatedResponseBenchmarkListItem(SyncPage[BenchmarkListItem]):

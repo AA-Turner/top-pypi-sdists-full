@@ -41,11 +41,7 @@ async def test_direct_agent_execute_crosses_host_resource_boundary(
             ),
         ),
         variable_defaults={
-            "pdf_file": AgentVariable(
-                name="pdf_file",
-                default_value="550e8400-e29b-41d4-a716-446655440000",
-                custom_component={"type": "document"},
-            )
+            "pdf_file": AgentVariable(declaration={"name": "pdf_file", "defaultValue": "550e8400-e29b-41d4-a716-446655440000", "customComponent": {"type": "document"}})
         },
         auto_tools_disabled=True,
     )

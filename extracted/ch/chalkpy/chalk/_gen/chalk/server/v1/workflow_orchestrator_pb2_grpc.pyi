@@ -14,12 +14,18 @@ from chalk._gen.chalk.server.v1.workflow_orchestrator_pb2 import (
     GetWorkflowOrchestratorConnectionDetailsResponse,
     GetWorkflowOrchestratorWorkflowHistoryRequest,
     GetWorkflowOrchestratorWorkflowHistoryResponse,
+    GetWorkflowOrchestratorWorkflowLineageRequest,
+    GetWorkflowOrchestratorWorkflowLineageResponse,
+    ListWorkflowMessagesRequest,
+    ListWorkflowMessagesResponse,
     ListWorkflowOrchestratorNamespacesRequest,
     ListWorkflowOrchestratorNamespacesResponse,
     ListWorkflowOrchestratorWorkflowsRequest,
     ListWorkflowOrchestratorWorkflowsResponse,
     SendWorkflowMessageRequest,
     SendWorkflowMessageResponse,
+    StartWorkflowRunRequest,
+    StartWorkflowRunResponse,
 )
 from grpc import (
     Channel,
@@ -53,6 +59,13 @@ class WorkflowOrchestratorServiceStub:
         GetWorkflowOrchestratorWorkflowHistoryRequest,
         GetWorkflowOrchestratorWorkflowHistoryResponse,
     ]
+    GetWorkflowOrchestratorWorkflowLineage: UnaryUnaryMultiCallable[
+        GetWorkflowOrchestratorWorkflowLineageRequest,
+        GetWorkflowOrchestratorWorkflowLineageResponse,
+    ]
+    """Returns the parent/child tree a workflow belongs to, from its root execution down, plus the
+    messages its workflows signaled to one another.
+    """
     SendWorkflowMessage: UnaryUnaryMultiCallable[
         SendWorkflowMessageRequest,
         SendWorkflowMessageResponse,
@@ -61,6 +74,21 @@ class WorkflowOrchestratorServiceStub:
     that wait on a person or another system, such as a review that approves or rejects a run.
     The workflow receives the payload together with the authenticated sender, which it can use
     to decide whose decisions to accept. Fails with NOT_FOUND when the workflow is not running.
+    """
+    StartWorkflowRun: UnaryUnaryMultiCallable[
+        StartWorkflowRunRequest,
+        StartWorkflowRunResponse,
+    ]
+    """Starts a top-level workflow run in the caller's environment. The run's input reaches the
+    workflow function as keyword arguments, and the run's memo records who started it. Child
+    workflows are started by their parent's own workflow code, not through this RPC.
+    """
+    ListWorkflowMessages: UnaryUnaryMultiCallable[
+        ListWorkflowMessagesRequest,
+        ListWorkflowMessagesResponse,
+    ]
+    """Lists the messages a workflow run has received, oldest first, with the sender the API server
+    authenticated for each. Lets a caller wait for a reply by polling with after_sequence.
     """
 
 class WorkflowOrchestratorServiceServicer(metaclass=ABCMeta):
@@ -98,6 +126,15 @@ class WorkflowOrchestratorServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetWorkflowOrchestratorWorkflowHistoryResponse: ...
     @abstractmethod
+    def GetWorkflowOrchestratorWorkflowLineage(
+        self,
+        request: GetWorkflowOrchestratorWorkflowLineageRequest,
+        context: ServicerContext,
+    ) -> GetWorkflowOrchestratorWorkflowLineageResponse:
+        """Returns the parent/child tree a workflow belongs to, from its root execution down, plus the
+        messages its workflows signaled to one another.
+        """
+    @abstractmethod
     def SendWorkflowMessage(
         self,
         request: SendWorkflowMessageRequest,
@@ -107,6 +144,25 @@ class WorkflowOrchestratorServiceServicer(metaclass=ABCMeta):
         that wait on a person or another system, such as a review that approves or rejects a run.
         The workflow receives the payload together with the authenticated sender, which it can use
         to decide whose decisions to accept. Fails with NOT_FOUND when the workflow is not running.
+        """
+    @abstractmethod
+    def StartWorkflowRun(
+        self,
+        request: StartWorkflowRunRequest,
+        context: ServicerContext,
+    ) -> StartWorkflowRunResponse:
+        """Starts a top-level workflow run in the caller's environment. The run's input reaches the
+        workflow function as keyword arguments, and the run's memo records who started it. Child
+        workflows are started by their parent's own workflow code, not through this RPC.
+        """
+    @abstractmethod
+    def ListWorkflowMessages(
+        self,
+        request: ListWorkflowMessagesRequest,
+        context: ServicerContext,
+    ) -> ListWorkflowMessagesResponse:
+        """Lists the messages a workflow run has received, oldest first, with the sender the API server
+        authenticated for each. Lets a caller wait for a reply by polling with after_sequence.
         """
 
 def add_WorkflowOrchestratorServiceServicer_to_server(

@@ -119,8 +119,12 @@ def run_input_model_and_assert(
     output_path: Path,
     extra_args: Sequence[str] | None = None,
     name: str | None = None,
+    varies_with: tuple[str, ...] = (),
 ) -> None:
-    """Run main with --input-model and assert results; ``name`` names the stored output of a second run."""
+    """Run main with --input-model and assert results.
+
+    ``name`` names the stored output of a second run, and ``varies_with`` the capabilities whose facts decide it.
+    """
     __tracebackhide__ = True
     with freeze_time(TIMESTAMP):
         run_main_with_args(
@@ -129,7 +133,7 @@ def run_input_model_and_assert(
             use_builtin_default_formatter=False,
             isolate_model_template_cache=True,
         )
-    assert_output(output_path.read_text(encoding="utf-8"), name=name)
+    assert_output(output_path.read_text(encoding="utf-8"), name=name, varies_with=varies_with)
 
 
 def run_input_model_error_and_assert(
@@ -978,6 +982,128 @@ def test_input_model_nested_model_with_callable(tmp_path: Path) -> None:
     )
 
 
+_UNSERIALIZABLE_HOLDERS = {
+    "hooks": (
+        "from collections.abc import Callable\n"
+        "from dataclasses import dataclass\n"
+        "from typing import Annotated, Generic, TypeVar\n\n"
+        "from pydantic import BaseModel, Field, RootModel\n"
+        "from pydantic.dataclasses import dataclass as pydantic_dataclass\n"
+        "from typing_extensions import TypedDict\n\n"
+        "T = TypeVar('T')\n\n\n"
+        "@dataclass\n"
+        "class Hook:\n"
+        "    name: str\n"
+        "    callback: Callable[[int], int]\n\n\n"
+        "class Probe(TypedDict):\n"
+        "    check: Callable[[str], bool] | None\n\n\n"
+        "@pydantic_dataclass\n"
+        "class Task:\n"
+        "    run: Callable[[], None]\n\n\n"
+        "@pydantic_dataclass\n"
+        "class Aliased:\n"
+        "    run: Annotated[Callable[[], None], Field(alias='runner')]\n\n\n"
+        "class Handler(RootModel[Callable[[int], int]]):\n"
+        "    pass\n\n\n"
+        "class Inner(BaseModel):\n"
+        "    callback: Callable[[int], int]\n\n\n"
+        "@dataclass\n"
+        "class Outer:\n"
+        "    inner: Inner\n"
+        "    hooks: list[Hook]\n"
+        "    fallback: Callable[[int], int] | None = None\n\n\n"
+        "class Holder(BaseModel):\n"
+        "    hook: Hook\n"
+        "    probe: Probe\n"
+        "    task: Task\n"
+        "    handler: Handler\n\n\n"
+        "class Deep(BaseModel):\n"
+        "    outer: Outer\n\n\n"
+        "class AliasedHolder(BaseModel):\n"
+        "    task: Aliased\n\n\n"
+        "@dataclass\n"
+        "class Box(Generic[T]):\n"
+        "    callback: Callable[[T], T]\n\n\n"
+        "class GenericHolder(BaseModel):\n"
+        "    box: Box[int]\n"
+    ),
+    "first": (
+        "from collections.abc import Callable\n"
+        "from dataclasses import dataclass\n\n\n"
+        "@dataclass\n"
+        "class Hook:\n"
+        "    run: Callable[[int], int]\n"
+    ),
+    "second": (
+        "from collections.abc import Callable\n\n"
+        "from typing_extensions import TypedDict\n\n\n"
+        "class Hook(TypedDict):\n"
+        "    stop: Callable[[str], str]\n"
+    ),
+    "both": (
+        "from pydantic import BaseModel\n\n"
+        "import first\n"
+        "import second\n\n\n"
+        "class Both(BaseModel):\n"
+        "    first: first.Hook\n"
+        "    second: second.Hook\n"
+    ),
+}
+
+
+_ALL_KEYS = "--field-include-all-keys"
+
+
+@pytest.mark.parametrize(
+    ("input_models", "extra_args"),
+    [
+        pytest.param(["hooks:Holder"], [_ALL_KEYS], id="held-classes"),
+        pytest.param(
+            ["hooks:Holder"], ["--input-model-ref-strategy", "reuse-foreign"], id="held-classes-reuse-foreign"
+        ),
+        pytest.param(["hooks:Deep"], [_ALL_KEYS], id="nested-held-classes"),
+        pytest.param(["hooks:Handler"], [], id="root-model-root"),
+        pytest.param(["hooks:Holder", "hooks:Deep"], [], id="two-models"),
+        pytest.param(
+            ["hooks:AliasedHolder"], ["--read-input-model-dataclass-fields-by-alias"], id="pydantic-dataclass-by-alias"
+        ),
+        pytest.param(["hooks:AliasedHolder"], [_ALL_KEYS], id="pydantic-dataclass-by-name"),
+        pytest.param(["hooks:GenericHolder"], [_ALL_KEYS], id="generic-dataclass"),
+        pytest.param(["both:Both"], [_ALL_KEYS], id="same-named-classes"),
+        pytest.param(["both:Both"], ["--input-model-ref-strategy", "reuse-all"], id="same-named-classes-reuse-all"),
+    ],
+)
+def test_input_model_unserializable_fields_of_held_classes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, input_models: list[str], extra_args: list[str]
+) -> None:
+    """A field JSON Schema cannot express keeps its Python type in every kind of class the model holds (#6885).
+
+    The class of a definition is the class the schema generation recorded for it, not a Pydantic model found by name:
+    a dataclass, a TypedDict, a Pydantic dataclass and a ``RootModel`` held by the model keep their ``Callable``
+    fields where the output used to type them ``str``, and so does a ``RootModel`` as the input.
+    ``first.Hook`` and ``second.Hook`` share a name and each keeps its own field. A Pydantic dataclass read by name,
+    not by alias, and a generic dataclass (the class recorded for ``Box[int]`` is ``Box``, whose annotation names ``T``)
+    have no field to pair, and their internal marker leaves no trace in the output (``--field-include-all-keys``
+    writes every key of a field). The input modules are written for the test.
+    """
+    monkeypatch.chdir(tmp_path)
+    for module, source in _UNSERIALIZABLE_HOLDERS.items():
+        monkeypatch.delitem(sys.modules, module, raising=False)
+        (tmp_path / f"{module}.py").write_text(source, encoding="utf-8")
+    first, *others = input_models
+    run_input_model_and_assert(
+        input_model=first,
+        output_path=tmp_path / "output.py",
+        extra_args=[
+            *(arg for other in others for arg in ("--input-model", other)),
+            *extra_args,
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
 def test_input_model_custom_class(tmp_path: Path) -> None:
     """Test that custom classes trigger handle_invalid_for_json_schema."""
     run_input_model_and_assert(
@@ -1326,6 +1452,149 @@ def test_input_model_reuse_every_reached_input_model_type(
         output_path=tmp_path / "output.py",
         extra_args=[*(arg for other in others for arg in ("--input-model", f"reached_types:{other}")), *extra_args],
     )
+
+
+@pytest.mark.parametrize(
+    ("input_models", "strategy"),
+    [
+        pytest.param(["shop:Order"], "reuse-all", id="model-reuse-all"),
+        pytest.param(["shop:Order"], "reuse-foreign", id="model-reuse-foreign"),
+        pytest.param(["shop:Record"], "reuse-all", id="dataclass-reuse-all"),
+        pytest.param(["shop:Record"], "reuse-foreign", id="dataclass-reuse-foreign"),
+        pytest.param(["shop:Basket"], "reuse-all", id="nested-class-reuse-all"),
+        pytest.param(["shop:Order", "shop:Basket"], "reuse-all", id="two-models-reuse-all"),
+        pytest.param(["shop:Child"], "reuse-all", id="inherited-reuse-all"),
+        pytest.param(["shop:Override"], "reuse-all", id="overridden-reuse-all"),
+        pytest.param(["shop:Override"], "reuse-foreign", id="overridden-reuse-foreign"),
+        pytest.param(["shop:Painting"], "reuse-all", id="merged-reuse-all"),
+    ],
+)
+def test_input_model_reuse_same_named_classes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, input_models: list[str], strategy: str
+) -> None:
+    """Reuse imports the class a definition comes from, not another class of its name the model mentions (#6883).
+
+    ``Order`` holds ``shop.Item`` and ``shop.Status`` and names ``legacy.Item`` and ``legacy.Status`` in ``type[...]``
+    fields; ``Basket`` names the nested ``Basket.Legacy.Item``, and the parent ``Base`` of ``Child`` holds
+    ``shop.Item`` where ``Child`` names ``legacy.Item``. ``Override`` redeclares the ``legacy.Item`` field of its parent
+    ``LegacyBase`` as ``shop.Item``: the two classes get distinct definition names across the schemas of the model and
+    its parent, so each field imports its own class. ``Child`` still redeclares the ``item`` of ``Base``, which the
+    schema of ``Child`` names apart from ``legacy.Item``, so ``Item`` stays ``shop.Item`` as in 0.100.0. Up to 0.100.0
+    the field of a Pydantic model or a dataclass input was typed by the class of that name the fields reach last, which
+    rejects every valid value; the definitions of two input models were already read by identity. The ``Color`` of
+    ``Painting`` and the ``legacy.Color`` of its ``Frame`` have one schema, which Pydantic merges into one definition,
+    so the definition keeps the class of its name. The input modules are written for the test, as tests/data/python
+    holds no new modules.
+    """
+    monkeypatch.chdir(tmp_path)
+    for module in ("shop", "legacy"):
+        monkeypatch.delitem(sys.modules, module, raising=False)
+    (tmp_path / "legacy.py").write_text(
+        "from enum import Enum\n\n"
+        "from pydantic import BaseModel\n\n\n"
+        "class Item(BaseModel):\n"
+        "    name: str\n\n\n"
+        "class Status(Enum):\n"
+        "    OLD = 'old'\n\n\n"
+        "class Color(Enum):\n"
+        "    RED = 'red'\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "shop.py").write_text(
+        "from dataclasses import dataclass\n"
+        "from enum import Enum\n\n"
+        "from pydantic import BaseModel\n\n"
+        "import legacy\n\n\n"
+        "class Item(BaseModel):\n"
+        "    count: int\n\n\n"
+        "class Status(Enum):\n"
+        "    NEW = 'new'\n\n\n"
+        "class Order(BaseModel):\n"
+        "    item: Item\n"
+        "    status: Status\n"
+        "    legacy_item_type: type[legacy.Item] | None = None\n"
+        "    legacy_status_type: type[legacy.Status] | None = None\n\n\n"
+        "@dataclass\n"
+        "class Record:\n"
+        "    item: Item\n"
+        "    status: Status\n"
+        "    legacy_item_type: type[legacy.Item] | None = None\n\n\n"
+        "class Basket(BaseModel):\n"
+        "    class Legacy:\n"
+        "        class Item(BaseModel):\n"
+        "            name: str\n\n"
+        "    item: Item\n"
+        "    legacy_item_type: type[Legacy.Item] | None = None\n\n\n"
+        "class Base(BaseModel):\n"
+        "    item: Item\n\n\n"
+        "class Child(Base):\n"
+        "    legacy_item: legacy.Item\n\n\n"
+        "class LegacyBase(BaseModel):\n"
+        "    item: legacy.Item\n\n\n"
+        "class Override(LegacyBase):\n"
+        "    item: Item\n\n\n"
+        "class Color(Enum):\n"
+        "    RED = 'red'\n\n\n"
+        "@dataclass\n"
+        "class Frame:\n"
+        "    color: legacy.Color\n\n\n"
+        "@dataclass\n"
+        "class Painting:\n"
+        "    color: Color\n"
+        "    frame: Frame\n",
+        encoding="utf-8",
+    )
+    first, *others = input_models
+    run_input_model_and_assert(
+        input_model=first,
+        output_path=tmp_path / "output.py",
+        extra_args=[
+            *(arg for other in others for arg in ("--input-model", other)),
+            "--input-model-ref-strategy",
+            strategy,
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+def test_input_model_reuse_same_named_discriminator_mapping(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A discriminator mapping names the definition its union branch names after a same-named class is renamed.
+
+    ``Kennel.pet`` is a discriminated union of ``legacy_pets.Cat`` and ``Dog``, and ``Pound`` redeclares it with
+    ``pets.Cat``, so reuse names the parent's ``Cat`` definition ``Cat_2``. The mapping of the parent's union names
+    ``Cat_2`` as its ``oneOf`` branch does; it named the child's ``Cat`` before. The generated module is the same
+    either way, as each variant carries its tag, so the loaded schema is compared.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    for module in ("pets", "legacy_pets"):
+        monkeypatch.delitem(sys.modules, module, raising=False)
+    (tmp_path / "legacy_pets.py").write_text(
+        "from typing import Literal\n\n"
+        "from pydantic import BaseModel\n\n\n"
+        "class Cat(BaseModel):\n"
+        "    kind: Literal['cat']\n"
+        "    name: str\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "pets.py").write_text(
+        "from typing import Annotated, Literal\n\n"
+        "from pydantic import BaseModel, Field\n\n"
+        "import legacy_pets\n\n\n"
+        "class Cat(BaseModel):\n"
+        "    kind: Literal['kitten']\n\n\n"
+        "class Dog(BaseModel):\n"
+        "    kind: Literal['dog']\n\n\n"
+        "class Kennel(BaseModel):\n"
+        "    pet: Annotated[legacy_pets.Cat | Dog, Field(discriminator='kind')]\n\n\n"
+        "class Pound(Kennel):\n"
+        "    pet: Annotated[Cat | Dog, Field(discriminator='kind')]\n",
+        encoding="utf-8",
+    )
+    schema = load_model_schema(["pets:Pound"], InputFileType.JsonSchema, InputModelRefStrategy.ReuseAll)
+    assert_output(json.dumps(schema, indent=2))
 
 
 # ============================================================================
@@ -3048,6 +3317,7 @@ def test_python_generic_reuse(  # noqa: PLR0912, PLR0914
     paths = ["tests.data.python.input_model." + source for source in record["sources"]]
     (tmp_path / "pyproject.toml").write_text((INPUT_GENERIC_FIXTURES / "collision_settings/pyproject.toml").read_text())
     formatters = ["builtin"] if formatter == "builtin" else ["black", "isort"]
+    varies_with = ("pydantic-before-2.5",) if formatter == "builtin" else ("black-before-24", "pydantic-before-2.5")
     output = tmp_path / "output.py"
     if entrypoint == "cli":
         extra_args = [
@@ -3064,12 +3334,14 @@ def test_python_generic_reuse(  # noqa: PLR0912, PLR0914
                 input_file_type="jsonschema",
                 output_path=output,
                 extra_args=extra_args,
+                varies_with=varies_with,
             )
         else:
             run_input_model_and_assert(
                 input_model=paths[0],
                 output_path=output,
                 extra_args=[*_input_model_args(paths[1:]), *extra_args],
+                varies_with=varies_with,
             )
     else:
         schema = (
@@ -3097,6 +3369,7 @@ def test_python_generic_reuse(  # noqa: PLR0912, PLR0914
                 settings_path=tmp_path,
                 formatters=[Formatter(value) for value in formatters],
             ),
+            varies_with=varies_with,
         )
     with _generated_model(output, "generic_output", record["sources"][0].split(":")[1]):  # noqa: PLR1702
         rows = []

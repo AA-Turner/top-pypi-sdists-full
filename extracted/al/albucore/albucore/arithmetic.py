@@ -24,12 +24,13 @@ from albucore.tensor_bridge import (
 from albucore.torch_backend import (
     float16_pointwise_torch,
     multiply_add_float16_torch,
-    multiply_add_float32_torch,
 )
 from albucore.utils import (
     _FLOAT32_MAX,
+    _LINUX_X86_64,
     _MACOS_ARM64,
     _TENSOR_CHANNEL_AXES,
+    MAX_OPENCV_WORKING_CHANNELS,
     NUM_RGB_CHANNELS,
     _batch_operand,
     _broadcast_channel_vector,
@@ -53,12 +54,40 @@ _FLOAT32_COMPATIBLE_OPERAND_DTYPES: frozenset[np.dtype[Any]] = frozenset(
     np.dtype(dtype) for dtype in (np.bool_, np.uint8, np.int8, np.uint16, np.int16, np.float16, np.float32)
 )
 _TORCH_FLOAT16_MIN_ELEMENTS = 16_384
-_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
+_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 4_096 if _MACOS_ARM64 else 1_024 if _LINUX_X86_64 else 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
+# AVX-512 FP16 NumKong ("sapphire") is the only x86 profile that was measured.
+_NUMKONG_FLOAT16_X86 = _LINUX_X86_64 and bool(nk.get_capabilities().get("sapphire", False))
+_LINUX_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS = 3_072
+_LINUX_NUMKONG_FLOAT16_ADD_MAX_ELEMENTS = 2_359_296
+_LINUX_NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS = 691_200
+if _NUMKONG_NEON:
+    _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS = _NUMKONG_FLOAT16_MIN_ELEMENTS
+    _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS = _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS = sys.maxsize
+elif _NUMKONG_FLOAT16_X86:
+    _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS = _LINUX_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS
+    _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS = _LINUX_NUMKONG_FLOAT16_ADD_MAX_ELEMENTS
+    _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS = _LINUX_NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS
+else:
+    _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS = sys.maxsize
+    _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS = _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS = 0
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
 _MIXED_UINT8_ADD_MIN_ELEMENTS = 4_096 if _MACOS_ARM64 else 1_048_576
+_MACOS_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS = 61_440
+_LINUX_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS = 24_576
+_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS = (
+    _MACOS_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+    if _MACOS_ARM64
+    else _LINUX_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+    if _LINUX_X86_64
+    else 0
+)
+# OpenCV rounds products through int32; 255 * 2**20 stays far inside it, so larger scalars use the saturating LUT.
+_UINT8_INTEGER_MULTIPLY_MAX_SCALAR = 1 << 20
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
+_TENSOR_DIRECT_FLOAT32_MAX_ELEMENTS = 691_200 if _MACOS_ARM64 else 76_800 if _LINUX_X86_64 else 0
+_TENSOR_DIRECT_FLOAT32_OUT_MAX_ELEMENTS = 691_200 if _MACOS_ARM64 else 307_200 if _LINUX_X86_64 else 0
 
 
 def _scale_numkong(
@@ -198,6 +227,33 @@ def _numkong_float16_c9_add_channels(
     return cast("NDArray[np.float16]", np.asarray(result).reshape(img.shape))
 
 
+def _numkong_float16_scale(
+    img: NDArray[np.float16],
+    scalar: float,
+    operation: Literal["add", "multiply"],
+    *,
+    out: NDArray[np.float16] | None = None,
+) -> NDArray[np.float16] | None:
+    """Half-exact scalar add or multiply through ``nk.scale`` for contiguous storage.
+
+    The caller has already checked the size region. Multiplication keeps NumKong's default
+    bias so signed zeros match the NumPy and Torch routes.
+    """
+    if not img.flags.c_contiguous or (out is not None and not out.flags.c_contiguous):
+        return None
+    flat = img.reshape(-1)
+    if out is not None:
+        if operation == "add":
+            nk.scale(flat, alpha=1.0, beta=scalar, out=out.reshape(-1))
+        else:
+            nk.scale(flat, alpha=scalar, out=out.reshape(-1))
+        return out
+    result = nk.scale(flat, alpha=1.0, beta=scalar) if operation == "add" else nk.scale(flat, alpha=scalar)
+    if result is None:
+        raise RuntimeError("nk.scale returned None")
+    return cast("NDArray[np.float16]", np.asarray(result).reshape(img.shape))
+
+
 def _numkong_float16_single_channel_scale(
     img: NDArray[np.float16],
     value: object,
@@ -205,37 +261,19 @@ def _numkong_float16_single_channel_scale(
     *,
     out: NDArray[np.float16] | None = None,
 ) -> NDArray[np.float16] | None:
+    maximum = _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS if operation == "add" else _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS
     if (
-        not _NUMKONG_NEON
-        or not img.flags.c_contiguous
+        not _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS <= img.size <= maximum
         or not img.flags.writeable
         or img.ndim != 3
         or img.shape[-1] != 1
-        or img.size < _NUMKONG_FLOAT16_MIN_ELEMENTS
         or not isinstance(value, np.ndarray)
         or value.ndim != 1
         or value.size != 1
     ):
         return None
     scalar = _half_exact_scalar(float(value[0]))
-    if scalar is None:
-        return None
-    if out is not None and not out.flags.c_contiguous:
-        return None
-    flat = img.reshape(-1)
-    if operation == "add":
-        if out is not None:
-            nk.scale(flat, alpha=1.0, beta=scalar, out=out.reshape(-1))
-            return out
-        result = nk.scale(flat, alpha=1.0, beta=scalar)
-    else:
-        if out is not None:
-            nk.scale(flat, alpha=scalar, out=out.reshape(-1))
-            return out
-        result = nk.scale(flat, alpha=scalar)
-    if result is None:
-        raise RuntimeError("nk.scale returned None")
-    return cast("NDArray[np.float16]", np.asarray(result).reshape(img.shape))
+    return None if scalar is None else _numkong_float16_scale(img, scalar, operation, out=out)
 
 
 def _float16_numpy_ufunc(
@@ -382,18 +420,107 @@ def _multiply_scalar(
     out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
 ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_uint8_image(img):
-        return _apply_lut(img, value, "multiply", out=cast("NDArray[np.uint8] | None", out))
+        destination_u8 = cast("NDArray[np.uint8] | None", out)
+        if (
+            img.size <= _UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+            and -_UINT8_INTEGER_MULTIPLY_MAX_SCALAR <= value <= _UINT8_INTEGER_MULTIPLY_MAX_SCALAR
+            and float(value).is_integer()
+            and img.flags.c_contiguous
+            and (destination_u8 is None or destination_u8.flags.c_contiguous)
+        ):
+            # Small images: saturating integer multiply beats the LUT's table build.
+            rows = img.reshape(-1, img.shape[-2] * img.shape[-1])
+            dst = None if destination_u8 is None else destination_u8.reshape(rows.shape)
+            result = cv2.multiply(rows, int(value), dst=dst)
+            return cast("NDArray[np.uint8]", result.reshape(img.shape) if destination_u8 is None else destination_u8)
+        return _apply_lut(img, value, "multiply", out=destination_u8)
     if _is_float16_image(img):
-        result = float16_pointwise_torch(
-            img,
-            "multiply",
+        destination = cast("NDArray[np.float16] | None", out)
+        float16_result: NDArray[np.float16] | None = None
+        if _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS <= img.size <= _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS:
+            scalar = _half_exact_scalar(value)
+            float16_result = (
+                None if scalar is None else _numkong_float16_scale(img, scalar, "multiply", out=destination)
+            )
+        if float16_result is None:
+            float16_result = float16_pointwise_torch(
+                img,
+                "multiply",
+                value,
+                minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
+                out=destination,
+            )
+        if float16_result is not None:
+            return float16_result
+    return _numpy_pointwise(img, value, "multiply", out=out)
+
+
+def _float32_channel_vector(
+    img: NDArray[np.float32],
+    value: np.ndarray,
+    operation: Literal["add", "multiply"],
+    out: NDArray[np.float32] | None,
+) -> NDArray[np.float32] | None:
+    """Apply a float32 channel vector to a contiguous C>1 image without broadcasting over the channel axis.
+
+    Up to four channels use one OpenCV scalar call; more channels use a row-tiled ufunc.
+    """
+    channels = img.shape[-1]
+    if value.dtype != np.float32 or not img.flags.c_contiguous or (out is not None and not out.flags.c_contiguous):
+        return None
+    width = img.shape[-2]
+    if channels <= MAX_OPENCV_WORKING_CHANNELS:
+        pixels = img.reshape(-1, width, channels)
+        scalar = (*value.tolist(), *(0.0,) * (MAX_OPENCV_WORKING_CHANNELS - channels))
+        operate = cv2.add if operation == "add" else cv2.multiply
+        result = operate(pixels, scalar, dst=None if out is None else out.reshape(pixels.shape))
+        return out if out is not None else cast("NDArray[np.float32]", result.reshape(img.shape))
+    rows = img.reshape(-1, width * channels)
+    output = np.empty_like(rows) if out is None else out.reshape(rows.shape)
+    _NUMPY_OPERATIONS[operation](rows, np.tile(value, width), out=output)
+    return out if out is not None else output.reshape(img.shape)
+
+
+def _numpy_channel_vector(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: np.ndarray,
+    operation: Literal["add", "multiply"],
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+    if img.dtype == np.float32 and img.shape[-1] != 1:
+        result = _float32_channel_vector(
+            cast("NDArray[np.float32]", img),
             value,
-            minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
-            out=cast("NDArray[np.float16] | None", out),
+            operation,
+            cast("NDArray[np.float32] | None", out),
         )
         if result is not None:
             return result
-    return _numpy_pointwise(img, value, "multiply", out=out)
+    return _numpy_pointwise(img, value, operation, out=out)
+
+
+def _float16_numpy_channel_vector(
+    img: NDArray[np.float16],
+    value: np.ndarray,
+    operation: Literal["add", "multiply"],
+    *,
+    out: NDArray[np.float16] | None,
+) -> NDArray[np.float16]:
+    """Apply a channel vector to contiguous C>1 half images through one tiled float32 row ufunc."""
+    channels = img.shape[-1]
+    if (
+        channels == 1
+        or not img.flags.c_contiguous
+        or (out is not None and not out.flags.c_contiguous)
+        or value.dtype not in _FLOAT32_COMPATIBLE_OPERAND_DTYPES
+    ):
+        return cast("NDArray[np.float16]", _numpy_pointwise(img, value, operation, out=out))
+    width = img.shape[-2]
+    rows = img.reshape(-1, width * channels)
+    output = np.empty_like(rows) if out is None else out.reshape(rows.shape)
+    with np.errstate(over="ignore", invalid="ignore"):
+        _NUMPY_OPERATIONS[operation](rows, np.tile(value, width), dtype=np.float32, out=output, casting="unsafe")
+    return out if out is not None else output.reshape(img.shape)
 
 
 def _multiply_channels(
@@ -410,7 +537,7 @@ def _multiply_channels(
         if result is None:
             result = _opencv_float16_c9_multiply_vector(img, value, out=destination)
         if result is None and _numpy_float16_c9_vector_eligible(img, value):
-            return _numpy_pointwise(img, value, "multiply", out=out)
+            return _float16_numpy_channel_vector(img, value, "multiply", out=destination)
         if result is None:
             result = _numkong_float16_single_channel_scale(img, value, "multiply", out=destination)
         if result is None:
@@ -421,9 +548,8 @@ def _multiply_channels(
                 minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
                 out=destination,
             )
-        if result is not None:
-            return result
-    return _numpy_pointwise(img, value, "multiply", out=out)
+        return result if result is not None else _float16_numpy_channel_vector(img, value, "multiply", out=destination)
+    return _numpy_channel_vector(img, value, "multiply", out)
 
 
 def _multiply_field(
@@ -522,7 +648,8 @@ def multiply(
             and img.dtype in (torch.float16, torch.float32)
         ):
             return torch.mul(img, value) if tensor_out is None else torch.mul(img, value, out=tensor_out)
-        return _tensor_pointwise(img, value, "multiply", layout, out=tensor_out)
+        direct = _tensor_direct_float32(img, value, "multiply", layout, out=tensor_out)
+        return direct if direct is not None else _tensor_pointwise(img, value, "multiply", layout, out=tensor_out)
     destination = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", out)
     value = _prepare_pointwise_operand(img, cast("ValueType", value))
     if img.size == 0:
@@ -658,6 +785,13 @@ def _add_scalar(
     return _numpy_pointwise(img, value, "add", out=out)
 
 
+def _uint8_rgb_rows(img: NDArray[np.uint8]) -> NDArray[np.uint8] | None:
+    """View a contiguous or row-padded RGB image as one (rows, W, 3) OpenCV matrix."""
+    if img.ndim == 3 and img.strides[1:] == (NUM_RGB_CHANNELS, 1) and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS:
+        return img
+    return img.reshape(-1, img.shape[-2], NUM_RGB_CHANNELS) if img.flags.c_contiguous else None
+
+
 def _add_channels(
     img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     value: np.ndarray,
@@ -667,19 +801,19 @@ def _add_channels(
     if _is_uint8_image(img):
         destination_u8 = cast("NDArray[np.uint8] | None", out)
         if (
-            img.ndim == 3
+            img.ndim >= 3
             and img.shape[-1] == NUM_RGB_CHANNELS
-            and img.strides[1:] == (NUM_RGB_CHANNELS, 1)
-            and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS
             and (destination_u8 is None or destination_u8.flags.c_contiguous)
         ):
-            # Match the LUT's truncation before narrowing extended-precision offsets.
+            # Truncation matches the LUT. OpenCV is slow with negative controls, so those use the LUT.
             red, green, blue = map(float, np.trunc(value))
-            if -255 <= red <= 255 and -255 <= green <= 255 and -255 <= blue <= 255:
-                dst = None if destination_u8 is None else destination_u8.reshape(-1).reshape(img.shape)
-                shifted = cv2.add(img, (int(red), int(green), int(blue), 0), dst=dst)
-                return (
-                    cast("NDArray[np.uint8]", shifted.reshape(img.shape)) if destination_u8 is None else destination_u8
+            rows = _uint8_rgb_rows(img) if 0 <= red <= 255 and 0 <= green <= 255 and 0 <= blue <= 255 else None
+            if rows is not None:
+                dst = None if destination_u8 is None else destination_u8.reshape(rows.shape)
+                shifted = cv2.add(rows, (int(red), int(green), int(blue), 0), dst=dst)
+                return cast(
+                    "NDArray[np.uint8]",
+                    shifted.reshape(img.shape) if destination_u8 is None else destination_u8,
                 )
         return _apply_lut(img, value, "add", out=destination_u8)
     if _is_float16_image(img):
@@ -688,7 +822,7 @@ def _add_channels(
         if result is None:
             result = _numkong_float16_c9_add_channels(img, value, out=destination)
         if result is None and _numpy_float16_c9_vector_eligible(img, value):
-            return _numpy_pointwise(img, value, "add", out=out)
+            return _float16_numpy_channel_vector(img, value, "add", out=destination)
         if result is None:
             result = _numkong_float16_single_channel_scale(img, value, "add", out=destination)
         if result is None:
@@ -699,9 +833,8 @@ def _add_channels(
                 minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
                 out=destination,
             )
-        if result is not None:
-            return result
-    return _numpy_pointwise(img, value, "add", out=out)
+        return result if result is not None else _float16_numpy_channel_vector(img, value, "add", out=destination)
+    return _numpy_channel_vector(img, value, "add", out)
 
 
 def _add_field(
@@ -713,6 +846,18 @@ def _add_field(
     if _is_uint8_image(img):
         destination_u8 = cast("NDArray[np.uint8] | None", out)
         if value.shape == img.shape and value.dtype == img.dtype:
+            if (
+                img.flags.c_contiguous
+                and value.flags.c_contiguous
+                and (destination_u8 is None or destination_u8.flags.c_contiguous)
+            ):
+                rows = (-1, img.shape[-2] * img.shape[-1])
+                dst = None if destination_u8 is None else destination_u8.reshape(rows)
+                result = cv2.add(img.reshape(rows), value.reshape(rows), dst=dst)
+                return cast(
+                    "NDArray[np.uint8]",
+                    result.reshape(img.shape) if destination_u8 is None else destination_u8,
+                )
             return _blend_numkong(img, 1.0, value, 1.0, out=destination_u8)
         return _add_uint8_opencv(img, value, out=destination_u8)
     if (
@@ -787,20 +932,18 @@ def _add_numkong_float16_scalar(
     value: float | None,
     out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
 ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None:
-    if value is None or value == 0 or not _is_float16_image(img):
-        return None
     if (
-        not _NUMKONG_NEON
+        value is None
+        or value == 0
+        or not _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS <= img.size <= _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS
+        or not _is_float16_image(img)
         or img.ndim < 3
-        or not img.flags.c_contiguous
-        or img.size < _NUMKONG_FLOAT16_MIN_ELEMENTS
-        or (out is not None and not out.flags.c_contiguous)
     ):
         return None
     scalar = _half_exact_scalar(value)
     if scalar is None:
         return None
-    return _scale_numkong(img, 1.0, scalar, out=cast("NDArray[np.float16] | None", out))
+    return _numkong_float16_scale(img, scalar, "add", out=cast("NDArray[np.float16] | None", out))
 
 
 def _add_numpy(
@@ -892,7 +1035,8 @@ def add(
         if isinstance(value, torch.Tensor) and value.ndim == img.ndim and img.dtype in (torch.float16, torch.float32):
             result = torch.add(img, value) if tensor_out is None else torch.add(img, value, out=tensor_out)
             return result if result.dtype == img.dtype else result.to(img.dtype)
-        return _tensor_pointwise(img, value, "add", layout, out=tensor_out)
+        direct = _tensor_direct_float32(img, value, "add", layout, out=tensor_out)
+        return direct if direct is not None else _tensor_pointwise(img, value, "add", layout, out=tensor_out)
     return _add_numpy(
         img,
         cast("ValueType", value),
@@ -1082,6 +1226,38 @@ def _torch_half_pointwise_tensor(
     return torch.add(image, control, out=out) if operation == "add" else torch.mul(image, control, out=out)
 
 
+def _tensor_direct_float32(
+    image: torch.Tensor,
+    value: ValueType | torch.Tensor,
+    operation: Literal["add", "multiply"],
+    layout: TensorLayout | None,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor | None:
+    """Apply a scalar or channel vector to a float32 Tensor with one Torch op where it beats the NumPy bridge."""
+    if image.dtype != torch.float32 or image.numel() > (
+        _TENSOR_DIRECT_FLOAT32_MAX_ELEMENTS if out is None else _TENSOR_DIRECT_FLOAT32_OUT_MAX_ELEMENTS
+    ):
+        return None
+    control: torch.Tensor | float
+    if isinstance(value, (float, int)):
+        control = float(value)
+        if not -_FLOAT32_MAX <= control <= _FLOAT32_MAX or (operation == "add" and control == 0):
+            return None
+    elif layout is not None and isinstance(value, np.ndarray) and value.dtype == np.float32 and value.ndim == 1:
+        if not value.flags.writeable or value.strides[0] < 0:
+            # ``torch.from_numpy`` warns on read-only storage and rejects negative strides.
+            return None
+        shape = [1] * image.ndim
+        shape[_TENSOR_CHANNEL_AXES[layout]] = value.size
+        control = torch.from_numpy(value).reshape(shape)
+    else:
+        return None
+    if not image.is_contiguous() or (out is not None and not out.is_contiguous()):
+        return None
+    return torch.add(image, control, out=out) if operation == "add" else torch.mul(image, control, out=out)
+
+
 def _tensor_pointwise(
     image: torch.Tensor,
     value: ValueType | torch.Tensor,
@@ -1206,6 +1382,34 @@ def _multiply_add_half(
     return _cast_float_numpy(_multiply_add_numpy(img, factor, value), np.float16, out=out)
 
 
+def _multiply_add_float32_rows(
+    image: NDArray[np.float32],
+    factor: float | np.ndarray,
+    value: float | np.ndarray,
+    out: NDArray[np.float32] | None,
+) -> NDArray[np.float32] | None:
+    """Fuse channel-vector controls over contiguous C>1 rows; zero controls keep the exact legacy shortcuts."""
+    channels = image.shape[-1]
+    if not image.flags.c_contiguous or (out is not None and not out.flags.c_contiguous):
+        return None
+    width = image.shape[-2]
+    tiled: list[float | np.ndarray] = []
+    for control in (factor, value):
+        if isinstance(control, np.ndarray):
+            if control.dtype != np.float32 or control.shape != (channels,) or not control.any():
+                return None
+            tiled.append(np.tile(control, width))
+        elif isinstance(control, (float, int)) and control != 0 and -_FLOAT32_MAX <= control <= _FLOAT32_MAX:
+            tiled.append(control)
+        else:
+            return None
+    rows = image.reshape(-1, width * channels)
+    output = np.empty_like(rows) if out is None else out.reshape(rows.shape)
+    np.multiply(rows, cast("Any", tiled[0]), out=output)
+    np.add(output, cast("Any", tiled[1]), out=output)
+    return out if out is not None else output.reshape(image.shape)
+
+
 def _multiply_add_tensor_batch(
     img: torch.Tensor,
     factor: float | np.ndarray,
@@ -1232,6 +1436,37 @@ def _multiply_add_tensor_batch(
     return img if unchanged else numpy_to_tensor_layout(np.stack(results), layout)
 
 
+def _multiply_add_scalar_batch_storage(
+    img: torch.Tensor,
+    factor: float | np.ndarray,
+    value: float | np.ndarray,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor | None:
+    """Run one fused ``nk.scale`` over a contiguous batch.
+
+    Each item would otherwise reach the same elementwise NumKong kernel one call at a time, so the
+    result is bit-identical. Large items would also copy their strided channel-last views before
+    scaling and scatter the result into a strided output.
+    """
+    if (
+        img.dtype != torch.float32
+        or not isinstance(factor, (float, int))
+        or not isinstance(value, (float, int))
+        or not -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
+        or not -_FLOAT32_MAX <= value <= _FLOAT32_MAX
+        or (factor == 1 and value == 0)
+        or not img.is_contiguous()
+        or (out is not None and not out.is_contiguous())
+    ):
+        return None
+    flat = img.numpy().reshape(-1)
+    if out is not None:
+        _scale_numkong(flat, float(factor), float(value), out=out.numpy().reshape(-1))
+        return out
+    return numpy_to_tensor_storage(_scale_numkong(flat, float(factor), float(value))).reshape(img.shape)
+
+
 def _multiply_add_scalar_tensor(
     img: torch.Tensor,
     factor: float,
@@ -1246,6 +1481,20 @@ def _multiply_add_scalar_tensor(
     if out is not None:
         return out
     return img if result is image else numpy_to_tensor_storage(result).reshape(img.shape)
+
+
+def _multiply_add_batch(
+    img: torch.Tensor,
+    factor: float | np.ndarray,
+    value: float | np.ndarray,
+    layout: TensorLayout,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor:
+    whole_storage = _multiply_add_scalar_batch_storage(img, factor, value, out=out)
+    if whole_storage is not None:
+        return whole_storage
+    return _multiply_add_tensor_batch(img, factor, value, layout, out=out)
 
 
 def _multiply_add_tensor(
@@ -1268,7 +1517,7 @@ def _multiply_add_tensor(
         table = _multiply_add_uint8_scalar_table(float(factor_value), float(bias_value))
         return _tensor_shared_uint8_lut(img, table, out=out)
     if layout in ("NCHW", "NCDHW") and img.shape[0]:
-        return _multiply_add_tensor_batch(img, factor_value, bias_value, layout, out=out)
+        return _multiply_add_batch(img, factor_value, bias_value, layout, out=out)
     if (
         img.dtype == torch.float32
         and isinstance(factor_value, (float, int))
@@ -1342,7 +1591,9 @@ def multiply_add(
     Uint8 scalar/channel controls saturate and truncate one float32 table.
     Floating images also accept broadcastable fields and preserve their raw range.
     Half Torch/NumPy kernels round the product before addition; the selected
-    NumKong scalar kernel retains its fused rounding.
+    NumKong scalar kernel retains its fused rounding. Float32 scalar controls always use that kernel, so results
+    can differ from two roundings by up to one ULP, and an intermediate that would overflow float32 does not
+    produce inf when the fused result is finite.
 
     Without ``out``, inputs stay unchanged and identity results are allowed.
     A supplied output matches the image dtype, shape, container and layout and is
@@ -1382,21 +1633,19 @@ def multiply_add(
         and -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
         and -_FLOAT32_MAX <= value <= _FLOAT32_MAX
     ):
-        result = multiply_add_float32_torch(
+        result = _scale_numkong(
             image,
             float(factor),
             float(value),
             out=cast("NDArray[np.float32] | None", destination),
         )
-        if result is None:
-            result = _scale_numkong(
-                image,
-                float(factor),
-                float(value),
-                out=cast("NDArray[np.float32] | None", destination),
-            )
     else:
-        result = _multiply_add_numpy(image, factor, value)
+        rows_result = (
+            _multiply_add_float32_rows(image, factor, value, cast("NDArray[np.float32] | None", destination))
+            if image.shape[-1] != 1
+            else None
+        )
+        result = _multiply_add_numpy(image, factor, value) if rows_result is None else rows_result
     if destination is not None and result is not destination:
         np.copyto(destination, result)
     return result if destination is None else destination

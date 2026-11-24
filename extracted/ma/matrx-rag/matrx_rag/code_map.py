@@ -45,6 +45,13 @@ def _landed(result: Any, sent: int) -> int:
     return result if isinstance(result, int) else (len(result) if result is not None else sent)
 
 
+def _in_lock_order(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Sort entity rows by their conflict key (kind, canonical_id) so every concurrent ingest that
+    shares modules/callees takes the row locks in ONE order (an unordered multi-row upsert deadlocks,
+    SQLSTATE 40P01). The organization is constant within one call."""
+    return sorted(rows, key=lambda r: (str(r["kind"]), str(r["canonical_id"])))
+
+
 async def save_code_map(
     *,
     organization_id: str,
@@ -136,7 +143,7 @@ async def save_code_map(
     sym_entity_ids: dict[str, str] = {}
     if sym_rows_by_key:
         upserted = await KgEntities.bulk_upsert(
-            list(sym_rows_by_key.values()),
+            _in_lock_order(sym_rows_by_key.values()),
             conflict_fields=_ENTITY_KEY,
             update_fields=["name", "attrs", "updated_at"],
         )
@@ -177,7 +184,7 @@ async def save_code_map(
     module_entity_ids: dict[str, str] = {}
     if module_rows_by_key:
         upserted = await KgEntities.bulk_upsert(
-            list(module_rows_by_key.values()),
+            _in_lock_order(module_rows_by_key.values()),
             conflict_fields=_ENTITY_KEY,
             update_fields=["name", "updated_at"],
         )
@@ -221,7 +228,7 @@ async def save_code_map(
     unresolved_entity_ids: dict[str, str] = {}
     if unresolved_rows_by_canonical:
         upserted = await KgEntities.bulk_upsert(
-            list(unresolved_rows_by_canonical.values()),
+            _in_lock_order(unresolved_rows_by_canonical.values()),
             conflict_fields=_ENTITY_KEY,
             update_fields=["updated_at"],
         )

@@ -41,6 +41,8 @@ approximation of the user's graph.
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from matrx_graph.patch import (
@@ -244,6 +246,7 @@ def plan_extraction(
     Raises :class:`ExtractionRejected` with every problem found. The parent
     definition is never mutated.
     """
+    definition = _information.executable_of(definition)  # a note is not a step
     issues: list[str] = []
     selected_ids = list(dict.fromkeys(node_ids))
     if len(selected_ids) != len(node_ids):

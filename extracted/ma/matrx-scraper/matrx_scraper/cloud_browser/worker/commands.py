@@ -49,6 +49,10 @@ class NavigateCommand(_Cmd):
     wait_until: Literal["load", "domcontentloaded", "networkidle"] = "load"
     timeout_ms: int = 30_000
     extract_text: bool = False
+    # networkidle only: how long a LOADED page gets to go quiet before it is returned with a
+    # notice (None: the navigation timeout). The host sends it from its knob, and only with
+    # networkidle, so a worker that predates the field refuses only those calls.
+    networkidle_grace_ms: int | None = None
     # D5 (S2 §7.3): these create a session in actions.py; on a persistent run they
     # are bootstrap-time profile identity and may NOT change mid-session. They are
     # ACCEPTED into the schema only so the worker can reject them with the typed

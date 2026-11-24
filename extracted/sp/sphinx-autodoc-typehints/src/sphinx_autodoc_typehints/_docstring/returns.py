@@ -2,6 +2,16 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "collections.abc",
+    "inspect",
+    "types",
+    f"{__spec__.parent.rsplit('.', 1)[0]}._documented",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent.rsplit('.', 1)[0]}._render",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}.formats.field_list.edit",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}.formats.napoleon.typed",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+]
+
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 from inspect import isclass, isdatadescriptor
 from types import NoneType
@@ -78,7 +88,9 @@ def inject_rtype(entry: Entry, lines: list[str], fmt: FieldListFormat, hints: Re
         lines.append(f":return: {return_doc}")
 
     # a Doc on a None return still describes it, so the description stays and only the type drops out
-    if not app.config.typehints_document_rtype_none and _unannotated(type_hints["return"]) is NoneType:
+    if not app.config.typehints_document_rtype_none and (
+        (returned := _unannotated(type_hints["return"])) is None or returned is NoneType
+    ):
         return
 
     info = fmt.get_rtype_insert_info(app, lines)

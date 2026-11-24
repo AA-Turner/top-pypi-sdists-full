@@ -232,13 +232,16 @@ ZX_GETTER(char*, symbologyIdentifier, copy)
 ZX_GETTER(char*, sequenceId, copy)
 ZX_GETTER(ZXing_Position, position, transmute_cast<ZXing_Position>)
 
-ZX_GETTER(int, orientation,)
+ZX_GETTER(int, rotation,)
 ZX_GETTER(bool, hasECI,)
 ZX_GETTER(bool, isInverted,)
 ZX_GETTER(bool, isMirrored,)
 ZX_GETTER(int, lineCount,)
 ZX_GETTER(int, sequenceIndex,)
 ZX_GETTER(int, sequenceSize,)
+
+// Deprecated: Use ZXing_Barcode_rotation instead
+int ZXing_Barcode_orientation(const ZXing_Barcode* barcode) { return barcode->rotation(); }
 
 void ZXing_Barcode_delete(ZXing_Barcode* barcode)
 {
@@ -293,9 +296,7 @@ ZX_PROPERTY(bool, tryHarder, TryHarder)
 ZX_PROPERTY(bool, tryRotate, TryRotate)
 ZX_PROPERTY(bool, tryInvert, TryInvert)
 ZX_PROPERTY(bool, tryDownscale, TryDownscale)
-#ifdef ZXING_EXPERIMENTAL_API
-	ZX_PROPERTY(bool, tryDenoise, TryDenoise)
-#endif
+ZX_PROPERTY(bool, tryDenoise, TryDenoise)
 ZX_PROPERTY(bool, isPure, IsPure)
 ZX_PROPERTY(bool, validateOptionalChecksum, ValidateOptionalChecksum)
 ZX_PROPERTY(bool, returnErrors, ReturnErrors)

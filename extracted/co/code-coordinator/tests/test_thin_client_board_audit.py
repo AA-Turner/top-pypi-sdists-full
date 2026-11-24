@@ -296,6 +296,32 @@ COMMANDS_ALLOWLIST: dict[str, set[tuple[str, str]]] = {
         # board-mutation helpers it already uses.
         ("drive_queue_doctor_act", "build_board"),
     },
+    # #4095-guarded: `mechanic_dispatch` is `coord drive`'s one call site for
+    # the #4094 mechanic leg, and carries the same guard in the same place as
+    # `drive_queue_diagnose` / `drive_queue_doctor_act` above — an explicit
+    # `if is_remote(): raise click.ClickException(...)` early-exit sits ABOVE
+    # the `from coord.state import build_board` import, so a
+    # board_service-configured thin client fails loud before the local read is
+    # even imported, let alone called (acting there would hand
+    # `dispatch_mechanic_leg_for_triage` an empty board, which always
+    # declines). Read-only here: build_board only, no save_board — the
+    # dispatch's own board write goes through the routed helpers
+    # `board_doctor_policy` already uses.
+    #
+    # `_board_for_annotation` is the OTHER #4095 read: `escalate record`'s
+    # `--annotate-test-reason` persists the triage verdict onto the work
+    # row (so `coord gates` shows it) and, unlike `mechanic_dispatch`, is
+    # NOT restricted to the daemon host — `coord drive` can run from a thin
+    # client. Its `build_board()` call sits behind an explicit
+    # `resolve_board_service() is not None` branch that takes the routed
+    # `GET /board` + `board_from_payload` path instead whenever a
+    # board_service is configured; `build_board()` only runs in the `else`
+    # (no board_service — standalone/daemon host) branch, the same
+    # `if svc is None:` shape this module's own docstring allowlists.
+    "drive.py": {
+        ("mechanic_dispatch", "build_board"),
+        ("_board_for_annotation", "build_board"),
+    },
     # #1337: `coord test` no longer calls save_board at all — the verdict is
     # recorded via the single-row `record_test_verdict` on both paths (it
     # self-routes to the daemon when board_service is set), so test_gate.py

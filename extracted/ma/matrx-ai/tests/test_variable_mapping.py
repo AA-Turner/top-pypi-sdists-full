@@ -12,7 +12,7 @@ def _var(
     payload: dict[str, Any] = {"name": name, "required": required, "default_value": default}
     if data_type:
         payload["dataType"] = data_type
-    return AgentVariable.model_validate(payload)
+    return AgentVariable.from_dict(payload)
 
 
 def _kinds(result: Any) -> list[VariableVerdictKind]:

@@ -113,6 +113,13 @@ class Dashboard:
                 expired. Always present, so a client can render "Hidden (N)"
                 without a special case. With `includeHidden=true` they are in
                 `pullRequests`, marked `hidden`, and this still counts them.
+            webhook_origin_problem (str | Unset): Why the automatic webhook pass creates no hook on any repo: the
+                dashboard's public origin (RP_ORIGIN) is not a full URL, is plain
+                HTTP, or points at localhost or a private address a forge can't
+                reach. One sentence, the same for every repo, so a client shows
+                it once and not on each row. Present only while at least one repo
+                has no hook and the credential could create one; absent when
+                the origin is fine or there is nothing to create.
      """
 
     queued_actions: list[QueuedAction]
@@ -132,6 +139,7 @@ class Dashboard:
     repos: list[RepoStatus]
     settings_hidden_issue_count: int | Unset = UNSET
     hidden_pull_requests: int | Unset = UNSET
+    webhook_origin_problem: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -212,6 +220,8 @@ class Dashboard:
 
         hidden_pull_requests = self.hidden_pull_requests
 
+        webhook_origin_problem = self.webhook_origin_problem
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -236,6 +246,8 @@ class Dashboard:
             field_dict["settingsHiddenIssueCount"] = settings_hidden_issue_count
         if hidden_pull_requests is not UNSET:
             field_dict["hiddenPullRequests"] = hidden_pull_requests
+        if webhook_origin_problem is not UNSET:
+            field_dict["webhookOriginProblem"] = webhook_origin_problem
 
         return field_dict
 
@@ -347,6 +359,8 @@ class Dashboard:
 
         hidden_pull_requests = d.pop("hiddenPullRequests", UNSET)
 
+        webhook_origin_problem = d.pop("webhookOriginProblem", UNSET)
+
         dashboard = cls(
             queued_actions=queued_actions,
             auto_merged=auto_merged,
@@ -365,6 +379,7 @@ class Dashboard:
             repos=repos,
             settings_hidden_issue_count=settings_hidden_issue_count,
             hidden_pull_requests=hidden_pull_requests,
+            webhook_origin_problem=webhook_origin_problem,
         )
 
 

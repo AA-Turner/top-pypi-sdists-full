@@ -1,6 +1,6 @@
 """The provider tools array is append-only for the life of a conversation.
 
-Real failures this pins (common-docs projects/agent-evaluation/reports/
+Real failures this pins (common-docs systems/agents/projects/agent-evaluation/reports/
 tool-list-cache-stability.md):
 - the loop guard removed ``records`` mid-turn (74 -> 73 tools): 170,818 tokens
   re-written, 92.3 cents, in conversation 3787dd66;
@@ -84,7 +84,7 @@ def _send(translator, *names: str, described: dict[str, str] | None = None):
 def test_a_withdrawn_tool_stays_declared(translator, conversation):
     _send(translator, "research_web", "records", "memory")
     after = _send(translator, "research_web", "memory")
-    assert _names(after) == ["research_web", "records", "memory"]
+    assert _names(after) == ["memory", "records", "research_web"]
 
 
 def test_order_is_pinned_by_first_sight(translator, conversation):
@@ -92,10 +92,10 @@ def test_order_is_pinned_by_first_sight(translator, conversation):
     assert _names(_send(translator, "c", "a", "b")) == ["a", "b", "c"]
 
 
-def test_new_tools_are_appended_after_every_earlier_one(translator, conversation):
+def test_new_tools_take_their_place_in_the_one_name_order(translator, conversation):
     _send(translator, "research_web", "apply_surface_write")
     after = _send(translator, "research_web", "mcp.notion.fetch", "apply_surface_write")
-    assert _names(after) == ["research_web", "apply_surface_write", "mcp__notion__fetch"]
+    assert _names(after) == ["apply_surface_write", "mcp__notion__fetch", "research_web"]
 
 
 def test_changed_definition_is_adopted_once_as_a_recorded_break(translator, conversation):
@@ -153,7 +153,7 @@ def test_loop_guard_removal_keeps_declaration_and_refuses_with_reason(
     assert outcome.removed
     declaration_ledger.note_unavailable(["records"], "it failed 9 time(s) in this run")
     after = translator.build_provider_tools(config, "anthropic")
-    assert _names(after) == ["records", "memory"]
+    assert _names(after) == ["memory", "records"]
     reason = declaration_ledger.retained_reason("records")
     assert reason is not None and "failed 9" in reason
     assert declaration_ledger.retained_reason("memory") is None
@@ -235,6 +235,7 @@ def test_guard_silent_on_append(captured):
         (_payload("a", "c"), "tool_removed_mid_conversation"),
         (_payload("b", "a", "c"), "tool_reordered_mid_conversation"),
         (_payload("a", "b", "c", described={"b": "x"}), "tool_definition_changed_mid_conversation"),
+        # Inserted OUT of the one name order (``z`` before ``b``); a sorted insert is lawful (P0.2).
         (_payload("a", "z", "b", "c"), "tool_inserted_before_existing_tools"),
     ],
 )
@@ -299,7 +300,7 @@ def test_record_restores_the_array_after_a_restart(translator, conversation):
     _export_tool_ledger(conv, live)
     # Persist and reload the conversation config exactly as a resume does.
     stored = live.to_dict()
-    assert stored["tool_declarations"]["anthropic"]["tools"][0]["name"] == "research_web"
+    assert stored["tool_declarations"]["anthropic"]["tools"][0]["name"] == "apply_surface_write"
 
     declaration_ledger.reset_for_tests()  # restart: process memory is gone
     reloaded = UnifiedConfig.from_dict(stored)
@@ -308,10 +309,10 @@ def test_record_restores_the_array_after_a_restart(translator, conversation):
     # the rest in another order; the provider must still see the same array.
     after = _send(translator, "apply_surface_write", "mcp.notion.fetch", "research_web")
     assert _names(after) == [
-        "research_web",
-        "records",
         "apply_surface_write",
         "mcp__notion__fetch",
+        "records",
+        "research_web",
     ]
 
 
@@ -381,8 +382,13 @@ async def test_record_save_replaces_only_its_key_on_an_existing_row(monkeypatch)
         config = {"model": "m", "dynamic_tools": ["x"]}
 
     class _Conv:
-        async def load_conversation_by_id(self, _id):
-            return _Row() if _id == "exists" else None
+        async def load_item_or_none(self, use_cache=True, **kw):
+            # Only the AUTHORITATIVE read may decide the row exists: a cached
+            # sighting can precede the INSERT's commit (2026-11-02, 297
+            # quarantined UPDATEs). A cached read sees a row that is not there.
+            if use_cache:
+                return _Row()
+            return _Row() if kw.get("id") == "exists" else None
 
     class _Cxm:
         conversation = _Conv()
@@ -445,7 +451,7 @@ def test_recycled_projection_name_is_re_described_for_its_new_agent(translator, 
     # Next request numbers a DIFFERENT agent as custom_tool_1.
     conversation.metadata[PROJECTED_AGENT_TOOLS_KEY] = {"custom_tool_1": {"prompt_id": "agent-B"}}
     after = _send(translator, "memory", "custom_tool_1", described={"custom_tool_1": "Agent B: files taxes"})
-    assert after[1]["description"] == "Agent B: files taxes"
+    assert {d["name"]: d for d in after}["custom_tool_1"]["description"] == "Agent B: files taxes"
     assert [e["kind"] for e in declaration_ledger.drain_events(conv)] == [
         "tool_name_reassigned"
     ]
@@ -490,8 +496,45 @@ async def test_deliberate_breaks_are_captured_and_warned(translator, conversatio
     _send(translator, "a", "b", described={"b": "v1"})
     _send(translator, "a", "b", described={"b": "v2"})
     await _announce_tool_ledger_events(conv, _Ctx())
-    assert captures == ["tool_definition_updated"]
+    # A lawful in-place update is announced to the client, never filed as a
+    # system_error (84 such rows on 2026-11-03, none fixable).
+    assert captures == []
     assert warnings and warnings[0].code == "tool_definition_updated"
+
+
+@pytest.mark.asyncio
+async def test_an_eviction_still_over_the_ceiling_is_captured(conversation, monkeypatch):
+    import matrx_connect.streaming.error_capture as ec
+
+    from matrx_ai.orchestrator.executor import _announce_tool_ledger_events
+
+    conv = conversation.conversation_id
+    captures: list[str] = []
+
+    async def _capture(exc, *, kind, **fields):
+        captures.append(fields.get("error_type"))
+
+    warnings: list[Any] = []
+
+    class _Emitter:
+        async def send_warning(self, payload):
+            warnings.append(payload)
+
+    class _Ctx:
+        emitter = _Emitter()
+
+    monkeypatch.setattr(ec, "capture_error", _capture)
+    monkeypatch.setattr(
+        declaration_ledger,
+        "drain_events",
+        lambda _c: [
+            {"kind": "tool_ceiling_eviction", "provider": "openai", "tools": ["x"], "ceiling": 2, "still_over": False},
+            {"kind": "tool_ceiling_eviction", "provider": "openai", "tools": ["y"], "ceiling": 2, "still_over": True},
+        ],
+    )
+    await _announce_tool_ledger_events(conv, _Ctx())
+    assert captures == ["tool_ceiling_eviction"]
+    assert [w.code for w in warnings] == ["tool_ceiling_eviction", "tool_ceiling_eviction"]
 
 
 def test_forget_releases_memory_and_reasons(translator, conversation):
@@ -510,3 +553,49 @@ def test_a_tool_offered_again_drops_its_stale_reason(translator, conversation):
     _send(translator, "a", "b")  # b is back
     _send(translator, "a")  # withdrawn again, no reason recorded this time
     assert declaration_ledger.retained_reason("b") == declaration_ledger.DEFAULT_UNAVAILABLE_REASON
+
+
+def _send_with_native(translator, *names: str, native: tuple[str, ...] = ("web_search_20250305",)):
+    """The declarations a translator hands the ledger: named function tools, then the
+    provider-native ones (no function name) its server-tool path adds."""
+    from matrx_ai.providers.tool_count_limits import provider_tool_ceiling
+
+    raw = [{"name": n, "description": "d", "input_schema": {}} for n in names] + [{"type": t} for t in native]
+    return declaration_ledger.stabilize_declarations(
+        "anthropic", raw, name_of=translator._declaration_name, max_tools=provider_tool_ceiling("anthropic")
+    ).declarations
+
+
+def test_a_native_tool_keeps_its_position_when_tools_are_appended(translator, conversation):
+    """Live 2026-11-01..04 (prompt_cache_tool_list_changed, tool_inserted_before_existing_tools):
+    a provider-native tool rode UNTRACKED at the end, so every appended tool landed in front of
+    it and re-wrote the cached prefix from that position on (groq: [native] -> [context, ..,
+    native]; anthropic 21 -> 26 tools, first_diff 20). The wire guard now sees a pure append."""
+    conv = conversation.conversation_id
+    first = _send_with_native(translator, "a", "b")
+    second = _send_with_native(translator, "a", "b", "context")
+    ident = lambda decls: [d.get("name") or f"<{d['type']}>" for d in decls]  # noqa: E731
+    # The one name order: a native tool is keyed ``<type>``, which sorts before every letter.
+    assert ident(first) == ["<web_search_20250305>", "a", "b"]
+    assert ident(second) == ["<web_search_20250305>", "a", "b", "context"]
+    cache_guard._CONVERSATION_TOOLS.clear()
+    assert cache_guard.observe_tool_declarations(provider="anthropic", conversation_id=conv, payload={"tools": first}) is None
+    assert cache_guard.observe_tool_declarations(provider="anthropic", conversation_id=conv, payload={"tools": second}) is None
+
+
+def test_a_native_only_first_request_still_pins_the_native_first(translator, conversation):
+    only = _send_with_native(translator)
+    later = _send_with_native(translator, "context")
+    assert [d.get("name") or d["type"] for d in only] == ["web_search_20250305"]
+    assert [d.get("name") or d["type"] for d in later] == ["web_search_20250305", "context"]
+
+
+def test_a_withdrawn_native_tool_is_dropped_never_retained(translator, conversation):
+    conv = conversation.conversation_id
+    _send_with_native(translator, "a")
+    declaration_ledger.drain_events(conv)
+    after = _send_with_native(translator, "a", native=("code_execution",))
+    assert [d.get("name") or d["type"] for d in after] == ["code_execution", "a"]
+    events = declaration_ledger.drain_events(conv)
+    assert [e["kind"] for e in events] == ["native_tool_withdrawn"]
+    assert events[0]["tools"] == ["<web_search_20250305>"]

@@ -1,8 +1,7 @@
 """Per-family envelope parity fixtures — every Shape-backed render block.
 
-One end-to-end case per ``BLOCK_KIND_MAP`` family: realistic wire source
-(the canonical sample corpus in ``processing/blocks/tests/test_content.md``
-where it has one, inline otherwise) -> ``StreamBlockProcessor`` -> finalize ->
+One end-to-end case per ``BLOCK_KIND_MAP`` family (mermaid, since LEGACY-5):
+realistic inline wire source -> ``StreamBlockProcessor`` -> finalize ->
 the stamped ``metadata.__ir`` envelope must:
 
 * carry the canonical kind slug for the family;
@@ -16,7 +15,7 @@ Cross-language scope, stated honestly: these assertions prove PYTHON
 self-consistency (envelope fingerprint == ``fingerprint_text(content)``).
 Byte-parity of ``fingerprint_text`` itself with the TS kernel is a SEPARATE,
 transitive guarantee — ``test_fingerprint_parity.py`` pins the algorithm
-against the TS-generated shared vectors, which do NOT include these 18 family
+against the TS-generated shared vectors, which do NOT include these family
 content strings. If the algorithms ever diverged on an input class the vectors
 miss, this suite alone would not catch it; extend the TS-generated vector set
 (never by hand) to close that class.
@@ -29,7 +28,6 @@ exact defect class this suite exists to catch. Fix the adapter in
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
@@ -51,33 +49,12 @@ from matrx_ai.processing.blocks.stream_processor import StreamBlockProcessor
 from matrx_graph.executor.schema_validation import validate_instance
 
 _FIXTURES = Path(__file__).parent / "fixtures"
-_SAMPLE_CORPUS = (
-    Path(__file__).parents[1]
-    / "matrx_ai"
-    / "processing"
-    / "blocks"
-    / "tests"
-    / "test_content.md"
-)
-
 with (_FIXTURES / "kind_schemas_sample.json").open(encoding="utf-8") as f:
     _KIND_SCHEMAS: dict[str, dict[str, Any]] = json.load(f)["schemas"]
 
 
-def _corpus_section(block_type: str) -> str:
-    """Extract one family's sample from the canonical test corpus."""
-    text = _SAMPLE_CORPUS.read_text(encoding="utf-8")
-    match = re.search(
-        rf"<!-- BLOCK_TYPE: {re.escape(block_type)} -->\n(.*?)<!-- END_BLOCK_TYPE: {re.escape(block_type)} -->",
-        text,
-        re.DOTALL,
-    )
-    assert match, f"test_content.md has no sample for block type '{block_type}'"
-    return match.group(1)
-
-
-# Families the corpus does not cover get realistic inline wire sources,
-# written in the exact syntax agents emit today (parsers unchanged — law).
+# Each mapped family gets a realistic inline wire source, written in the exact
+# syntax agents emit today (parsers unchanged — law).
 _INLINE_SOURCES: dict[str, str] = {
     "mermaid": (
         "```mermaid\n"
@@ -87,136 +64,13 @@ _INLINE_SOURCES: dict[str, str] = {
         "    B --> D[Streaming Service]\n"
         "```\n"
     ),
-    "structured_info": (
-        "```structured_info\n"
-        "**Deployment Readiness Summary**\n"
-        "Current state of the v2 rollout.\n"
-        "\n"
-        "**Infrastructure**\n"
-        "- **Region:** us-west-1\n"
-        "- **Postgres:** 17, primary healthy\n"
-        "\n"
-        "**Open Risks**\n"
-        "- Cert renewal pending\n"
-        "- Load test not yet run\n"
-        "```\n"
-    ),
-    "presentation": (
-        "```json\n"
-        + json.dumps(
-            {
-                "presentation": {
-                    "title": "Q3 Platform Review",
-                    "slides": [
-                        {"type": "intro", "title": "Q3 Platform Review", "subtitle": "Engineering"},
-                        {
-                            "type": "content",
-                            "title": "Highlights",
-                            "bullets": ["Streaming GA", "Latency -40%"],
-                            "notes": "Pause here",
-                        },
-                    ],
-                }
-            },
-            indent=2,
-        )
-        + "\n```\n"
-    ),
-    "math_problem": (
-        "```json\n"
-        + json.dumps(
-            {
-                "math_problem": {
-                    "title": "Solving a Linear Equation",
-                    "courseName": "Algebra I",
-                    "topicName": "Linear Equations",
-                    "moduleName": "Module 3",
-                    "introText": "Let's isolate x step by step.",
-                    "problem_statement": {
-                        "text": "Solve for x.",
-                        "equation": "2x + 6 = 14",
-                        "instruction": "Show every step.",
-                    },
-                    "solutions": [
-                        {
-                            "task": "Isolate x",
-                            "steps": [
-                                {
-                                    "title": "Subtract 6",
-                                    "equation": "2x = 8",
-                                    "explanation": "Subtract 6 from both sides.",
-                                },
-                                {"title": "Divide by 2", "equation": "x = 4"},
-                            ],
-                            "solutionAnswer": "x = 4",
-                        }
-                    ],
-                    "finalStatement": "x equals 4.",
-                }
-            },
-            indent=2,
-        )
-        + "\n```\n"
-    ),
-    "diagram": (
-        "```json\n"
-        + json.dumps(
-            {
-                "diagram": {
-                    "title": "Service Topology",
-                    "type": "architecture",
-                    "nodes": [
-                        {"id": "gw", "label": "Gateway", "type": "service"},
-                        {"id": "db", "label": "Postgres", "type": "datastore"},
-                    ],
-                    "edges": [{"source": "gw", "target": "db", "label": "SQL"}],
-                }
-            },
-            indent=2,
-        )
-        + "\n```\n"
-    ),
-    "item_presentation": (
-        "```json\n"
-        + json.dumps(
-            {
-                "item_presentation": {
-                    "id": "agent-123",
-                    "name": "Research Expert",
-                    "type": "agent",
-                    "about": "Synthesizes primary-source evidence.",
-                }
-            },
-            indent=2,
-        )
-        + "\n```\n"
-    ),
 }
 
 # block type -> where its realistic sample comes from ("corpus" or inline).
-_FAMILY_SOURCES: dict[str, str] = {
-    "transcript": _corpus_section("transcript"),
-    "tasks": _corpus_section("tasks"),
-    "timeline": _corpus_section("timeline"),
-    "cooking_recipe": _corpus_section("cooking_recipe"),
-    "troubleshooting": _corpus_section("troubleshooting"),
-    "research": _corpus_section("research"),
-    "decision_tree": _corpus_section("decision_tree"),
-    "comparison_table": _corpus_section("comparison_table"),
-    "flashcards": _corpus_section("flashcards"),
-    "quiz": _corpus_section("quiz"),
-    "progress_tracker": _corpus_section("progress_tracker"),
-    "resources": _corpus_section("resources"),
-    "questionnaire": _corpus_section("questionnaire"),
-    "item_presentation": (
-        "```json\n"
-        '{"item_presentation": {"type": "agent", "id": '
-        '"1f2d3c4b-5a69-4788-9910-abcdef012345", "label": "Research Assistant", '
-        '"description": "Runs multi-source research and cites every claim."}}\n'
-        "```\n"
-    ),
-    **_INLINE_SOURCES,
-}
+# The 18 pre-kind families left with their readers in legacy-shapes step 5 (LEGACY-5);
+# a kind now arrives as a ``__kind`` instance (the ``kind`` block, covered by
+# test_registered_kinds_are_kind_blocks.py).
+_FAMILY_SOURCES: dict[str, str] = dict(_INLINE_SOURCES)
 
 _ENVELOPE_KEYS = {"v", "engine", "fingerprint", "root", "nodeIndex"}
 _ROOT_KEYS = {"role", "kind", "kindState", "discriminator", "path", "status", "value", "residue"}
@@ -248,7 +102,6 @@ def test_every_block_type_is_classified_mapped_or_reviewed_bypass() -> None:
     """No silent envelope bypasses: every emittable type is in exactly one table."""
     from matrx_ai.processing.blocks.block_detector import (
         ATTRIBUTE_XML_BLOCKS,
-        JSON_BLOCK_PATTERNS,
         SPECIAL_CODE_LANGUAGES,
         SPLITTER_ONLY_BLOCK_TYPES,
         XML_TAG_BLOCKS,
@@ -258,7 +111,6 @@ def test_every_block_type_is_classified_mapped_or_reviewed_bypass() -> None:
     emittable = (
         set(BlockRegistry().type_keys())
         | set(XML_TAG_BLOCKS)
-        | set(JSON_BLOCK_PATTERNS)
         | set(SPECIAL_CODE_LANGUAGES)
         | set(ATTRIBUTE_XML_BLOCKS)
         | set(SPLITTER_ONLY_BLOCK_TYPES)
@@ -333,7 +185,7 @@ def test_family_emits_canonical_envelope(block_type: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_open_object_keys_stay_in_value_and_do_not_suppress_the_envelope() -> None:
+def test_open_object_keys_stay_in_value_and_do_not_suppress_the_envelope(monkeypatch: pytest.MonkeyPatch) -> None:
     """A node that DECLARES it accepts unnamed keys knows those keys.
 
     Routing them to residue empties the node, which trips the vocabulary-collapse
@@ -342,6 +194,9 @@ def test_open_object_keys_stay_in_value_and_do_not_suppress_the_envelope() -> No
     `additionalProperties: true`, so every caller-supplied detail counted as
     unknown. Measured against the LIVE schema, never a hand-written one.
     """
+    # The partition is generic; item_presentation is the live schema with an open node.
+    # Its legacy block type left BLOCK_KIND_MAP in LEGACY-5, so the test maps it here.
+    monkeypatch.setitem(envelope_mod.BLOCK_KIND_MAP, "item_presentation", "item_presentation")
     schema = _KIND_SCHEMAS["item_presentation"]
     additional = schema["properties"]["additionalDetails"]
     assert additional.get("additionalProperties") is True, (
@@ -369,8 +224,9 @@ def test_open_object_keys_stay_in_value_and_do_not_suppress_the_envelope() -> No
     assert not extra, f"open-object keys leaked into residue.extra as well: {extra!r}"
 
 
-def test_closed_object_still_routes_unknown_keys_to_residue() -> None:
+def test_closed_object_still_routes_unknown_keys_to_residue(monkeypatch: pytest.MonkeyPatch) -> None:
     """The open-object rule must not weaken the CLOSED case (law 3)."""
+    monkeypatch.setitem(envelope_mod.BLOCK_KIND_MAP, "item_presentation", "item_presentation")
     envelope = envelope_for_block(
         "item_presentation",
         {"type": "agent", "id": "agent-1", "not_a_schema_field": "x"},

@@ -60,7 +60,14 @@ ELEVENLABS_MAX_BREAK_S = 3.0
 
 
 class SpeechScriptRefusal(ValueError):
-    """The script cannot be performed by this model as written — with the remedy."""
+    """The script cannot be performed by this model as written — with the remedy.
+
+    ``user_message`` is the person's sentence (never a model or provider name); the exception text keeps the detail.
+    """
+
+    def __init__(self, message: str, *, user_message: str | None = None) -> None:
+        super().__init__(message)
+        self.user_message = user_message
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +115,12 @@ def validate_speaker_cap(script: SpeechScript, profile: ResolvedCallProfile) -> 
             f"This speech script has {len(speakers)} speakers ({', '.join(speakers)}) but "
             f"{profile.model_name} performs at most {cap} speaker"
             f"{'' if cap == 1 else 's'} per request. Merge speakers or choose a model "
-            "with a higher speaker cap (ElevenLabs v3 performs up to 10)."
+            "with a higher speaker cap (ElevenLabs v3 performs up to 10).",
+            user_message=(
+                f"This speech script has {len(speakers)} speakers, but the selected model performs at most "
+                f"{cap} speaker{'' if cap == 1 else 's'} per request. Merge speakers or choose a model "
+                "with a higher speaker cap."
+            ),
         )
     return speakers
 

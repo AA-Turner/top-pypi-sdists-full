@@ -30,9 +30,9 @@ UnconditionalRule = Literal["required", "fixed", "min", "max", "one_of", "forbid
 
 
 class _Undefined:
-    _instance: "_Undefined | None" = None
+    _instance: _Undefined | None = None
 
-    def __new__(cls) -> "_Undefined":
+    def __new__(cls) -> _Undefined:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance

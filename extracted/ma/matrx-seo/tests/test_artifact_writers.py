@@ -122,7 +122,6 @@ async def test_page_keyword_analysis_writes_site_value_and_links_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import matrx_seo.orm_identity as orm_identity
-    from matrx_seo.artifact_writers import m
 
     keyword_ids = {"lip filler newport beach": "kw-primary", "lip filler cost": "kw-support"}
 
@@ -209,7 +208,6 @@ async def test_page_keyword_map_assigns_existing_page_and_suppresses(
 ) -> None:
     import matrx_seo.artifact_writers as writers
     import matrx_seo.orm_identity as orm_identity
-    from matrx_seo.artifact_writers import m
 
     async def upsert_keyword(phrase, _language="en"):
         return {"lip filler newport beach": "kw-primary", "cheap lip filler": "kw-skip"}[
@@ -286,7 +284,6 @@ async def test_page_keyword_map_records_unresolved_pages(
 ) -> None:
     import matrx_seo.artifact_writers as writers
     import matrx_seo.orm_identity as orm_identity
-    from matrx_seo.artifact_writers import m
 
     async def upsert_keyword(phrase, _language="en"):
         return "kw-1", True
@@ -592,7 +589,7 @@ async def test_a_topic_with_no_offering_template_skips_that_topic_never_the_batc
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """2026-09-21 → 09-30, All Green Recycling: the assigner had lazily grown a
-    service topic with no ``web.offering_template`` row, the proposal writer
+    service topic with no ``brand.brand_offering_template`` row, the proposal writer
     raised ``offering_template_not_found`` for it, and that ONE topic failed the
     whole batch every night — so the site placement of the offered keywords, the
     map homes, and every later pass of the platform's largest site never ran.

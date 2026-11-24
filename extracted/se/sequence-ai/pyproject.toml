@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sequence-ai"
-version = "0.66.2"
+version = "0.66.3"
 description = "SequenceLink is an open-source framework for serving robot policies from remote GPUs over wide-area networks (WANs)."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -34,15 +34,10 @@ _REMEDY = {
 }
 
 
-def _fail(status: str, message: str, ctx: ToolContext, started_at: float) -> ToolResult:
+def _fail(status: str, message: str, ctx: ToolContext, started_at: float, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(
-            error_type="validation" if status in ("input_error", "no_match") else "execution",
-            message=message,
-            is_retryable=status in ("timeout", "error"),
-            suggested_action=_REMEDY.get(status),
-        ),
+        error=ToolError.declared("validation" if status in ("input_error", "no_match") else "execution", message, exc=exc, reported_failure="the site_data source" if status in ("timeout", "error") else None, is_retryable=status in ("timeout", "error"), suggested_action=_REMEDY.get(status)),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="site_data",
@@ -122,15 +117,15 @@ async def site_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 max_records=parsed.max_records,
                 render_chars=_RENDER_CHARS,
             )
-    except BrightDataRecorderMissing:
+    except BrightDataRecorderMissing as exc:
         return _fail("unavailable", "Site data is unavailable on this server right now (its cost "
-                     "recording is not set up), so nothing was fetched or billed.", ctx, started_at)
+                     "recording is not set up), so nothing was fetched or billed.", ctx, started_at, exc=exc)
     except Exception as exc:  # noqa: BLE001 - only spend-gate refusals are typed here; the rest is a real error
         if not getattr(exc, "is_caller_refusal", False):
             raise
         if "UsageLimit" in type(exc).__name__:
-            return _fail("usage_limit", _POINTS_LIMIT_MESSAGE, ctx, started_at)
-        return _fail("unavailable", str(exc) or "Site data was refused by a platform guard.", ctx, started_at)
+            return _fail("usage_limit", _POINTS_LIMIT_MESSAGE, ctx, started_at, exc=exc)
+        return _fail("unavailable", str(exc) or "Site data was refused by a platform guard.", ctx, started_at, exc=exc)
     if res.status == "no_match":
         known = ", ".join(f"{s['key']} ({s['label']})" for s in door.covered_sites())
         return _fail("no_match", f"{res.message} Covered sites: {known}.", ctx, started_at)

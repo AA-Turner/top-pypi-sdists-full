@@ -1,7 +1,7 @@
 [project]
 name = "nab-provider"
-version = "0.0.30"
-description = "IO-free resolution core for nab"
+version = "0.0.31"
+description = "Python package rules and candidate selection for nab"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -24,8 +24,9 @@ classifiers = [
 # a config file. A host that supplies its own IO takes this, the solver and the
 # marker algebra, and none of nab's HTTP client, cache, or build machinery.
 dependencies = [
-    "nab-markersets==0.0.30",
-    "nab-resolver==0.0.30",
+    "packaging>=26.4",
+    "nab-markersets==0.0.31",
+    "nab-resolver==0.0.31",
     "typing_extensions>=4.6",
 ]
 
@@ -39,3 +40,6 @@ Changelog = "https://github.com/notatallshaw/nab/releases"
 [build-system]
 requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist.sources]
+"test-support" = ""

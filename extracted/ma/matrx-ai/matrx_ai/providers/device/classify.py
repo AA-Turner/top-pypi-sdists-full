@@ -233,17 +233,17 @@ def device_error_for(exc: BaseException) -> DeviceRouteError:
             },
         )
 
-    import httpx
+    from matrx_ai.providers.http_flavors import transport_classes
 
-    if isinstance(exc, httpx.TimeoutException):
+    if isinstance(exc, transport_classes("TimeoutException")):
         return make_device_error(DeviceTimeoutError, f"relay hop timed out: {type(exc).__name__}")
-    if isinstance(exc, httpx.ConnectError):
+    if isinstance(exc, transport_classes("ConnectError")):
         return make_device_error(
             DeviceOfflineError,
             f"the relay could not be reached: {type(exc).__name__}: {exc}",
             details={"reason": "relay_unreachable"},
         )
-    if isinstance(exc, httpx.TransportError):
+    if isinstance(exc, transport_classes("TransportError")):
         return make_device_error(
             DeviceStreamDroppedError, f"the relay hop broke: {type(exc).__name__}: {exc}"
         )

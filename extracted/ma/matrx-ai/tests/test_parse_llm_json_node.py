@@ -10,15 +10,15 @@ the defect class the P1 sweep killed on tool.call.
 from __future__ import annotations
 
 import pytest
-
 from matrx_ai.graph_nodes.util_action import (
     ParseLlmJsonInput,
     ai_util_parse_llm_json,
 )
+from matrx_graph.actions import run_as_step
 
 
 async def _run(text: str, schema: dict | None = None):
-    return await ai_util_parse_llm_json(
+    return await run_as_step(ai_util_parse_llm_json, 
         None,
         ParseLlmJsonInput(text=text, schema_definition=schema or {}),
     )
@@ -58,8 +58,8 @@ async def test_no_json_is_a_failure_not_a_crash():
 
 
 def test_output_contract_is_fully_typed():
-    from matrx_graph.contracts import audit_model
     from matrx_ai.graph_nodes.util_action import ParseLlmJsonOutput
+    from matrx_graph.contracts import audit_model
 
     report = audit_model(ParseLlmJsonOutput)
     assert report.state.value == "full", report.leaks

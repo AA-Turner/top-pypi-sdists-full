@@ -27,6 +27,18 @@ from matrx_ai.config.unified_config import UnifiedResponse
 from matrx_ai.orchestrator import executor
 from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
 
+
+@pytest.fixture(autouse=True)
+def _parent_user_request_exists(monkeypatch):
+    """persist_completed_request ensures the cx_user_request parent before its cx_request
+    children (eaecaa5ed885). There is no database here, so the parent is taken as present."""
+    import matrx_ai.db.conversation_gate as _gate
+
+    async def _present(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(_gate, "ensure_user_request_exists", _present)
+
 CONVERSATION_ID = "ac170b56-c9b1-4694-aaad-87f3870e7e2e"
 USER_ID = "22222222-2222-2222-2222-222222222222"
 REQUEST_ID = "3c96571c-e07e-4c09-8544-c4530362c128"
@@ -113,6 +125,14 @@ def harness(monkeypatch):
     calls: dict[str, list[Any]] = {"message": [], "request_create": [], "user_request": []}
     monkeypatch.setattr(persistence_mod, "ai_model_manager_instance", _StubModelManager())
     monkeypatch.setattr(persistence_mod, "_get_coordinator", lambda: _StubCoordinator())
+    # persist_completed_request asks for the LIVE coordinator (98713c369) and keeps cost rows only under a
+    # recorded parent request (0a10b9e3e); both gates have their own tests, here both answer yes.
+    monkeypatch.setattr(persistence_mod, "_get_live_coordinator", lambda: _StubCoordinator())
+
+    async def _parent_recorded(*a, **k):
+        return True
+
+    monkeypatch.setattr(persistence_mod, "_request_rows_have_a_parent", _parent_recorded)
     monkeypatch.setattr(
         persistence_mod, "_queue_message_create", lambda **kw: calls["message"].append(kw)
     )
@@ -137,7 +157,6 @@ def harness(monkeypatch):
     async def _no_backfill(*a, **k):
         return []
 
-    monkeypatch.setattr(persistence_mod, "_hide_superseded_failed_turns", _nothing)
     monkeypatch.setattr(persistence_mod, "_refresh_cache_state", _nothing)
     monkeypatch.setattr(persistence_mod, "_emit_context_state", _nothing)
     monkeypatch.setattr(persistence_mod, "_backfill_tool_message", _no_backfill)
@@ -177,3 +196,30 @@ async def test_a_finished_run_is_never_marked_stopped(harness):
     assert [row.get("status", "completed") for row in calls["request_create"]] == ["completed"]
     saved = [m for m in calls["message"] if (m.get("role") or "") == "assistant"]
     assert saved and not any((m.get("metadata") or {}).get("stopped") for m in saved)
+
+
+@pytest.mark.asyncio
+async def test_a_stop_before_the_call_left_marks_its_row_not_sent(harness):
+    """Run 1aacd937 (2026-11-15): a stopped helper's provider row had no provider, no tokens, no cost — read as a
+    $0 call. The stop seam bills every DISPATCHED call at least its prompt, so a row with no usage at all is a
+    Stop that landed before the call left; the row (reserved and announced before the call) says so."""
+    persistence_mod, calls = harness
+    stopped = executor._stopped_call_response(_ctx(SHOWN), "1aacd937-not-sent").messages[0]
+    completed = _completed("cancelled", stopped)
+    completed.request.usage_history.clear()
+
+    await persistence_mod.persist_completed_request(completed, conversation_id=CONVERSATION_ID)
+
+    rows = calls["request_create"]
+    assert [row.get("status") for row in rows] == ["cancelled"]
+    assert (rows[0].get("metadata") or {}).get("provider_call_sent") is False
+
+
+@pytest.mark.asyncio
+async def test_a_stopped_call_that_was_sent_never_says_not_sent(harness):
+    persistence_mod, calls = harness
+    stopped = executor._stopped_call_response(_ctx(SHOWN), "sent").messages[0]
+
+    await persistence_mod.persist_completed_request(_completed("cancelled", stopped), conversation_id=CONVERSATION_ID)
+
+    assert "provider_call_sent" not in (calls["request_create"][0].get("metadata") or {})

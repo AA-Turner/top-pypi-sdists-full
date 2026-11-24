@@ -442,6 +442,7 @@ class AdCampaignsResource:
         goal: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         is_skadnetwork_attribution: bool | None = None,
         promoted_object: Any | None = None,
         buying_type: str | None = None,
@@ -468,6 +469,7 @@ class AdCampaignsResource:
         """Create a standalone campaign"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "name": name,
@@ -508,12 +510,14 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a campaign"""
         payload = self._build_body(
             {
                 "status": status,
                 "platform": platform,
+                "stage": stage,
             }
         )
         return self._client._put(
@@ -597,6 +601,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         account_id: str | None = None,
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
@@ -616,6 +621,7 @@ class AdCampaignsResource:
         """Update a campaign"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "accountId": account_id,
                 "bidStrategy": bid_strategy,
@@ -830,6 +836,7 @@ class AdCampaignsResource:
         name: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         status: str | None = "PAUSED",
         max_cpc: float | None = None,
         ad_account_id: str | None = None,
@@ -847,6 +854,7 @@ class AdCampaignsResource:
         """Create a standalone ad group"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "platform": platform,
                 "campaignId": campaign_id,
@@ -961,6 +969,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         budget: dict[str, Any] | None = None,
         status: str | None = None,
         name: str | None = None,
@@ -983,6 +992,7 @@ class AdCampaignsResource:
         """Update an ad set"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "budget": budget,
                 "status": status,
@@ -1030,12 +1040,14 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a single ad set"""
         payload = self._build_body(
             {
                 "status": status,
                 "platform": platform,
+                "stage": stage,
             }
         )
         return self._client._put(f"/v1/ads/ad-sets/{ad_set_id}/status", data=payload)
@@ -1130,6 +1142,7 @@ class AdCampaignsResource:
         from_date: str | None = None,
         to_date: str | None = None,
         platform: str | None = None,
+        breakdown: str | None = None,
         compare: str | None = None,
     ) -> dict[str, Any]:
         """Get daily account metrics"""
@@ -1140,6 +1153,7 @@ class AdCampaignsResource:
                 "fromDate": from_date,
                 "toDate": to_date,
                 "platform": platform,
+                "breakdown": breakdown,
                 "compare": compare,
             }
         )
@@ -1162,6 +1176,7 @@ class AdCampaignsResource:
         ad_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         headlines: list[Any] | None = None,
         descriptions: list[Any] | None = None,
         final_urls: list[str] | None = None,
@@ -1178,6 +1193,7 @@ class AdCampaignsResource:
         """Update ad"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "headlines": headlines,
                 "descriptions": descriptions,
                 "finalUrls": final_urls,
@@ -1199,12 +1215,18 @@ class AdCampaignsResource:
         return self._client._delete(f"/v1/ads/{ad_id}")
 
     def update_ad_status(
-        self, ad_id: str, status: str, *, idempotency_key: str | None = None
+        self,
+        ad_id: str,
+        status: str,
+        *,
+        idempotency_key: str | None = None,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a single ad"""
         payload = self._build_body(
             {
                 "status": status,
+                "stage": stage,
             }
         )
         return self._client._put(f"/v1/ads/{ad_id}/status", data=payload)
@@ -1778,6 +1800,7 @@ class AdCampaignsResource:
         ad_account_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         name: str | None = None,
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
@@ -1815,6 +1838,7 @@ class AdCampaignsResource:
         descriptions: list[str] | None = None,
         call_to_action: str | None = None,
         link_url: str | None = None,
+        call_to_action_link: Any | None = None,
         lead_gen_form_id: str | None = None,
         image_url: str | None = None,
         images: dict[str, Any] | None = None,
@@ -1903,6 +1927,7 @@ class AdCampaignsResource:
         """Create standalone ad"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "name": name,
@@ -1942,6 +1967,7 @@ class AdCampaignsResource:
                 "descriptions": descriptions,
                 "callToAction": call_to_action,
                 "linkUrl": link_url,
+                "callToActionLink": call_to_action_link,
                 "leadGenFormId": lead_gen_form_id,
                 "imageUrl": image_url,
                 "images": images,
@@ -2404,6 +2430,7 @@ class AdCampaignsResource:
         goal: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         is_skadnetwork_attribution: bool | None = None,
         promoted_object: Any | None = None,
         buying_type: str | None = None,
@@ -2430,6 +2457,7 @@ class AdCampaignsResource:
         """Create a standalone campaign (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "name": name,
@@ -2472,12 +2500,14 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a campaign (async)"""
         payload = self._build_body(
             {
                 "status": status,
                 "platform": platform,
+                "stage": stage,
             }
         )
         return await self._client._aput(
@@ -2563,6 +2593,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         account_id: str | None = None,
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
@@ -2582,6 +2613,7 @@ class AdCampaignsResource:
         """Update a campaign (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "accountId": account_id,
                 "bidStrategy": bid_strategy,
@@ -2800,6 +2832,7 @@ class AdCampaignsResource:
         name: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         status: str | None = "PAUSED",
         max_cpc: float | None = None,
         ad_account_id: str | None = None,
@@ -2817,6 +2850,7 @@ class AdCampaignsResource:
         """Create a standalone ad group (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "platform": platform,
                 "campaignId": campaign_id,
@@ -2933,6 +2967,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         budget: dict[str, Any] | None = None,
         status: str | None = None,
         name: str | None = None,
@@ -2955,6 +2990,7 @@ class AdCampaignsResource:
         """Update an ad set (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "budget": budget,
                 "status": status,
@@ -3002,12 +3038,14 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a single ad set (async)"""
         payload = self._build_body(
             {
                 "status": status,
                 "platform": platform,
+                "stage": stage,
             }
         )
         return await self._client._aput(
@@ -3104,6 +3142,7 @@ class AdCampaignsResource:
         from_date: str | None = None,
         to_date: str | None = None,
         platform: str | None = None,
+        breakdown: str | None = None,
         compare: str | None = None,
     ) -> dict[str, Any]:
         """Get daily account metrics (async)"""
@@ -3114,6 +3153,7 @@ class AdCampaignsResource:
                 "fromDate": from_date,
                 "toDate": to_date,
                 "platform": platform,
+                "breakdown": breakdown,
                 "compare": compare,
             }
         )
@@ -3136,6 +3176,7 @@ class AdCampaignsResource:
         ad_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         headlines: list[Any] | None = None,
         descriptions: list[Any] | None = None,
         final_urls: list[str] | None = None,
@@ -3152,6 +3193,7 @@ class AdCampaignsResource:
         """Update ad (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "headlines": headlines,
                 "descriptions": descriptions,
                 "finalUrls": final_urls,
@@ -3173,12 +3215,18 @@ class AdCampaignsResource:
         return await self._client._adelete(f"/v1/ads/{ad_id}")
 
     async def aupdate_ad_status(
-        self, ad_id: str, status: str, *, idempotency_key: str | None = None
+        self,
+        ad_id: str,
+        status: str,
+        *,
+        idempotency_key: str | None = None,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a single ad (async)"""
         payload = self._build_body(
             {
                 "status": status,
+                "stage": stage,
             }
         )
         return await self._client._aput(f"/v1/ads/{ad_id}/status", data=payload)
@@ -3760,6 +3808,7 @@ class AdCampaignsResource:
         ad_account_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         name: str | None = None,
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
@@ -3797,6 +3846,7 @@ class AdCampaignsResource:
         descriptions: list[str] | None = None,
         call_to_action: str | None = None,
         link_url: str | None = None,
+        call_to_action_link: Any | None = None,
         lead_gen_form_id: str | None = None,
         image_url: str | None = None,
         images: dict[str, Any] | None = None,
@@ -3885,6 +3935,7 @@ class AdCampaignsResource:
         """Create standalone ad (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "name": name,
@@ -3924,6 +3975,7 @@ class AdCampaignsResource:
                 "descriptions": descriptions,
                 "callToAction": call_to_action,
                 "linkUrl": link_url,
+                "callToActionLink": call_to_action_link,
                 "leadGenFormId": lead_gen_form_id,
                 "imageUrl": image_url,
                 "images": images,

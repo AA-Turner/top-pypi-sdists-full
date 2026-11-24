@@ -85,7 +85,11 @@ UsageState = Literal["ok", "near", "over"]
 USAGE_LIMIT_REACHED = "usage_limit_reached"
 GUEST_AI_ALLOWANCE_USED = "guest_ai_allowance_used"
 GUEST_PLAN_KEY = "guest"
-FIX_ACTION_UPGRADE_PLAN = "upgrade_plan"
+#: EVERY code a usage refusal can carry. A door with no screen (a text, a call) words each one; its guard
+#: enumerates this tuple and checks it against the codes the error class can raise (host guard
+#: aidream/services/communications/test_every_usage_refusal_has_text_door_words.py).
+REFUSAL_CODES: tuple[str, ...] = (USAGE_LIMIT_REACHED, GUEST_AI_ALLOWANCE_USED)
+from matrx_connect.fix_actions import FIX_UPGRADE_PLAN as FIX_ACTION_UPGRADE_PLAN  # noqa: E402 — the one vocabulary
 USAGE_INFO_CODE = "usage_state"
 
 USAGE_LIMIT_MESSAGE = "You've reached your AI usage limit for now. Upgrade your plan to keep going."
@@ -240,6 +244,23 @@ def admission_of(ctx: Any = None) -> bool:
 
         ctx = try_get_app_context()
     return ctx is not None and _already_admitted(ctx)
+
+
+def note_run_admitted(ctx: Any = None) -> None:
+    """Remember that ``ctx``'s run (its request TREE) passed every gate at the paid-call seam.
+
+    Called by ``UnifiedAIClient._dispatch_with_billing_net`` after all spend gates admitted a
+    call, for every context (machine work included — the usage memo above only remembers
+    gated people). Every later call of the same run then reads :func:`admission_of` as True,
+    so no gate that honors admission refuses a run that has started. Memory only.
+    """
+    if ctx is None:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    key = _admission_key(ctx) if ctx is not None else ""
+    if key and key not in _admitted:
+        _remember(key)
 
 
 def _gated_person(ctx: Any) -> str | None:
@@ -543,6 +564,7 @@ __all__ = [
     "admission_of",
     "admit_paid_call",
     "admit_person_own_run",
+    "note_run_admitted",
     "precheck_usage",
     "costs_nothing_on_a_device",
     "reset_usage_gate_state",

@@ -44,6 +44,9 @@ class GoogleVideoGeneration(BaseMediaGeneration):
     provider = "google"
     modality = "video"
     starting_message = "Starting video generation (Veo)..."
+    #: The clip length Veo makes when a request names none (the provider's default, applied in
+    #: ``_build_kwargs``): the ONE home of that number, read by the run budget's quote (``guardrail_gate``).
+    DEFAULT_DURATION_SECONDS = 8  # protocol-constant: Veo's own default clip length when none is sent; the wire request and its billing must agree with the provider
 
     client = keyed_provider_client(
         "GEMINI_API_KEY",
@@ -108,8 +111,9 @@ class GoogleVideoGeneration(BaseMediaGeneration):
             extra_canonical={"negative_prompt": neg},
         )
         # Veo generates an 8-second clip when duration is omitted. Make that
-        # provider default explicit so the wire request and billing agree.
-        video_config_kwargs.setdefault("duration_seconds", 8)
+        # provider default explicit so the wire request and billing agree; the
+        # run budget prices an omitted duration from the same constant.
+        video_config_kwargs.setdefault("duration_seconds", self.DEFAULT_DURATION_SECONDS)
 
         # Last frame (interpolation): typed role, else settings.
         last_ref = first_of(refs, "last_frame")

@@ -1,5 +1,5 @@
 """Per-action wire contracts for the multi-action dispatcher tools that had no
-per-action models before (dataset, note, task, seo, picklist, cloud_file).
+per-action models before (note, task, seo, picklist, cloud_file).
 
 Each tool is ONE tool_def row with an ``action`` discriminator; the executor
 validates the incoming call against the discriminated-union RootModel registered
@@ -24,104 +24,15 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from matrx_ai.tools.arg_models._provider_tiers import ProviderWithAnswers
-
+from matrx_utils.row_access import ShownToLiteral
 from pydantic import Field, RootModel, field_validator
 
 from matrx_ai.tools.arg_models._coercion import (
-    coerce_field_values,
-    coerce_json_container,
     coerce_list,
     coerce_object,
 )
+from matrx_ai.tools.arg_models._provider_tiers import ProviderWithAnswers
 from matrx_ai.tools.declared import ToolArgs
-
-
-# ── table (was dataset; renamed 2026-10-07) ─────────────────────────────────────────────────────────────────
-class TableListWire(ToolArgs):
-    action: Literal["list"]
-    limit: int = 50
-    offset: int = 0
-
-
-class TableGetWire(ToolArgs):
-    action: Literal["get"]
-    table_id: str
-    limit: int = 50
-    offset: int = 0
-    include: str = "all"
-    sort_by: str | None = None
-    sort_order: str = "asc"
-
-
-class TableSearchWire(ToolArgs):
-    action: Literal["search"]
-    table_id: str
-    query: str
-    limit: int = 50
-
-
-class TableCreateWire(ToolArgs):
-    action: Literal["create"]
-    table_name: str
-    data: Any = None
-    typed: bool = False
-    description: str | None = None
-
-    @field_validator("data", mode="before")
-    @classmethod
-    def _coerce_data(cls, v: Any) -> Any:
-        # `data` is Any (shape varies); best-effort parse a JSON string so the
-        # worker receives a real object/array, never raises (Any is permissive).
-        return coerce_json_container(v)
-
-
-class TableAddRowsWire(ToolArgs):
-    action: Literal["add_rows"]
-    table_id: str
-    rows: list
-
-    @field_validator("rows", mode="before")
-    @classmethod
-    def _coerce_rows(cls, v: Any) -> Any:
-        return coerce_list(v, field="rows", purpose="row objects")
-
-
-class TableUpdateRowWire(ToolArgs):
-    action: Literal["update_row"]
-    table_id: str
-    row_id: str
-    data: Any = None
-
-    @field_validator("data", mode="before")
-    @classmethod
-    def _coerce_data(cls, v: Any) -> Any:
-        # One row's {field: value}: its JSON-string form and a list of
-        # {"field", "value"} pairs are the same row (the 2026-10-01 Compass run).
-        return coerce_field_values(v)
-
-
-class TableDeleteRowWire(ToolArgs):
-    action: Literal["delete_row"]
-    table_id: str
-    row_id: str
-
-
-class TableArgs(
-    RootModel[
-        Annotated[
-            TableListWire
-            | TableGetWire
-            | TableSearchWire
-            | TableCreateWire
-            | TableAddRowsWire
-            | TableUpdateRowWire
-            | TableDeleteRowWire,
-            Field(discriminator="action"),
-        ]
-    ]
-):
-    pass
 
 
 # ── note ────────────────────────────────────────────────────────────────────
@@ -196,6 +107,12 @@ class TaskListWire(ToolArgs):
     action: Literal["list"]
     project_id: str | None = None
     parent_task_id: str | None = None
+    due_on: str | None = None
+    due_from: str | None = None
+    due_to: str | None = None
+    overdue_as_of: str | None = None
+    open_only: bool | None = None
+    limit: int | None = None
 
 
 class TaskGetWire(ToolArgs):
@@ -203,31 +120,47 @@ class TaskGetWire(ToolArgs):
     task_id: str
 
 
+class TaskBecause(ToolArgs):
+    """Why the agent makes or changes the task: a pointer to the source and the person's EXACT words.
+    The host's promise rules read it (``aidream.services.tasks.promises.Because`` holds the same shape)."""
+
+    source_kind: Literal["conversation", "meeting", "email", "message", "agent_message", "document", "other"]
+    source_id: str | None = None
+    said_by: str | None = None
+    exact_words: str | None = None
+
+
 class TaskCreateWire(ToolArgs):
     action: Literal["create"]
     title: str
-    status: str = "incomplete"
+    status: str | None = None
     due_date: str | None = None
-    priority: str | None = None
-    visibility: Literal["personal", "internal", "link", "public"] | None = None  # T-13 transitional wire input (tool_def row)
+    due_time: str | None = None
+    priority: Literal["high", "low", "medium"] | None = None
+    published_to_web: bool | None = None
+    shown_to: ShownToLiteral | None = None
     project_id: str | None = None
     assignee_id: str | None = None
     description: str | None = None
     parent_task_id: str | None = None
+    because: TaskBecause | None = None
 
 
 class TaskUpdateWire(ToolArgs):
     action: Literal["update"]
     task_id: str
     title: str | None = None
-    status: str = "incomplete"
+    status: str | None = None
     due_date: str | None = None
-    priority: str | None = None
-    visibility: Literal["personal", "internal", "link", "public"] | None = None  # T-13 transitional wire input (tool_def row)
+    due_time: str | None = None
+    priority: Literal["high", "low", "medium"] | None = None
+    published_to_web: bool | None = None
+    shown_to: ShownToLiteral | None = None
     project_id: str | None = None
     assignee_id: str | None = None
     description: str | None = None
     parent_task_id: str | None = None
+    because: TaskBecause | None = None
 
 
 class TaskDeleteWire(ToolArgs):
@@ -239,6 +172,51 @@ class TaskArgs(
     RootModel[
         Annotated[
             TaskListWire | TaskGetWire | TaskCreateWire | TaskUpdateWire | TaskDeleteWire,
+            Field(discriminator="action"),
+        ]
+    ]
+):
+    pass
+
+
+# ── project ─────────────────────────────────────────────────────────────────
+_ProjectStatus = Literal["planning", "active", "paused", "completed"]
+
+
+class ProjectListWire(ToolArgs):
+    action: Literal["list"]
+
+
+class ProjectGetWire(ToolArgs):
+    action: Literal["get"]
+    project_id: str
+
+
+class ProjectCreateWire(ToolArgs):
+    action: Literal["create"]
+    name: str
+    description: str | None = None
+    status: _ProjectStatus | None = None
+    priority: Literal["high", "low", "medium"] | None = None
+    start_date: str | None = None
+    target_date: str | None = None
+
+
+class ProjectUpdateWire(ToolArgs):
+    action: Literal["update"]
+    project_id: str
+    name: str | None = None
+    description: str | None = None
+    status: _ProjectStatus | None = None
+    priority: Literal["high", "low", "medium"] | None = None
+    start_date: str | None = None
+    target_date: str | None = None
+
+
+class ProjectArgs(
+    RootModel[
+        Annotated[
+            ProjectListWire | ProjectGetWire | ProjectCreateWire | ProjectUpdateWire,
             Field(discriminator="action"),
         ]
     ]

@@ -35,9 +35,10 @@ it cannot keep: Linux shrinks a window the pings do not fill (RFC 2861, tcp_outp
 tcp_slow_start_after_idle=0 keeps that one. Each ping waits for its pong, so a server that answers none while it works
 leaves the robot silent until it does: with openpi's own server, during inference, Linux halved the window once before
 most uploads (openpi.py has the measurement). macOS keeps its window for three minutes of idle time regardless.
-Measured: at an RTT of 226 ms, 162 KB uploads 3 s apart on one pinged connection took 303.6 ms to arrive without the
-pings and under 1 ms with them; from 85 ms away, 2.36 MB after a 2 s pause took a median 504 ms without, 421 ms with a
-ping every 100 ms, and 396 ms sent immediately: three of each, too few to be sure of the last.
+Measured: on a long link, 162 KB uploads 3 s apart on one pinged connection took over a round trip to arrive without
+the pings and under 1 ms with them; on a shorter one, 2.36 MB after a 2 s pause took about a fifth longer at the median
+without a ping every 100 ms than with it, and a little longer with it than sent immediately: three of each, too few to
+be sure of the last.
 
 ── a connection that died between uses: TCP keepalive ──
 The machine probes the far end once the connection has been idle, then at an interval, and drops it after a few probes

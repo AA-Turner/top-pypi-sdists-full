@@ -69,7 +69,19 @@ class BubbleActivitySource(CursorActivitySource):
 
 class ComposerActivitySource(CursorActivitySource):
     kind = "5_composer_data"
-    query = "SELECT key, value FROM cursorDiskKV WHERE key LIKE 'composerData:%'"
+    # Unlike the other sources, this record is not shipped verbatim. The server
+    # reads the composer's name, model and timestamps. The fields dropped here
+    # grow with the conversation (one header per bubble, the conversation state,
+    # the edited files' original content) and push a long chat past
+    # MAX_CONTENT_BYTES, where the truncation turns the record into invalid JSON
+    # that the server cannot read, and the chat loses its name.
+    query = (
+        "SELECT key, "
+        "CASE WHEN json_valid(value) THEN json_remove(value, "
+        "'$.fullConversationHeadersOnly', '$.conversationState', "
+        "'$.originalFileStates') ELSE value END AS value "
+        "FROM cursorDiskKV WHERE key LIKE 'composerData:%'"
+    )
 
 
 class Cursor(Agent):
@@ -114,15 +126,21 @@ class Cursor(Agent):
         # Some ItemTable values are bare strings, others JSON-quoted.
         return value.strip('"') or None
 
+    def has_user_only_channel(self, event_type: EventType) -> bool:
+        # Cursor's hook docs: `user_message` is shown in the client and only
+        # `agent_message` goes to the agent. A blocked prompt never reaches it.
+        return event_type in (EventType.USER_PROMPT, EventType.PRE_TOOL_USE)
+
     def output_result(self, result: HookResult) -> int:
         message = result.message or result.warning
+        for_user = "\n\n".join(text for text in (message, result.user_message) if text)
         response = {}
         if result.payload.event_type == EventType.USER_PROMPT:
             response["continue"] = not result.block
-            response["user_message"] = message
+            response["user_message"] = for_user
         elif result.payload.event_type == EventType.PRE_TOOL_USE:
             response["permission"] = "deny" if result.block else "allow"
-            response["user_message"] = message
+            response["user_message"] = for_user
             response["agent_message"] = message
         elif result.payload.event_type == EventType.POST_TOOL_USE:
             pass  # Nothing to do here

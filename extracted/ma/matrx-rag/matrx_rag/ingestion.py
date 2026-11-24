@@ -42,14 +42,19 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from matrx_orm import ConflictTarget, Now, Value, locked_transaction
+from matrx_orm import ConflictTarget, Now, Value, locked_transaction, transaction
 from matrx_orm.exceptions import IntegrityError, db_constraint, db_sqlstate
+from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
 
 from matrx_rag._ext import get_db_model
+from matrx_rag.db import PACKAGE_DB_NAME
 from matrx_rag.chunking import (
     CHUNKER_VERSION,
+    SECTIONED_KINDS,
     Chunk,
     chunk_code,
+    chunk_row_write_batches,
+    chunk_sections,
     chunk_text,
 )
 from matrx_rag.code_chunker import (
@@ -65,7 +70,7 @@ from matrx_rag.embeddings import (
     orm_model_name_for_table,
     spec_for,
 )
-from matrx_rag.llm import contextualize_chunk
+from matrx_rag.llm import contextualize_chunk_windowed
 from matrx_rag.rag_events import RagIngestError
 from matrx_rag.sources import (
     ResolvedSource,
@@ -79,7 +84,7 @@ from matrx_rag.sources import (
 # authenticated user unless kept to its owner (db-rules §6e). Global/system
 # content is owned by THIS org and never by a NULL `organization_id` (db-rules §2,
 # NO NULL ORG — owner ruling 2026-08-21, settled; do not reintroduce a NULL lane).
-SYSTEM_ORG_ID = "39c38960-d30c-4840-b0c1-c9960de95582"
+SYSTEM_ORG_ID = SYSTEM_ORGANIZATION_ID
 
 # ── FEATURE TOGGLE (code-reviewed, NOT an env var) ───────────────────────
 # Anthropic-style contextual retrieval: prefix each child chunk with a 1-2
@@ -116,10 +121,15 @@ async def attach_context_prefixes(chunks: list[Chunk], *, concurrency: int = 8) 
             parent_text = parent_text_by_id.get(child.parent_chunk_id or "", "")
             if not parent_text:
                 return
-            prefix = await contextualize_chunk(parent_text, child.content_text)
+            prefix, window = await contextualize_chunk_windowed(parent_text, child.content_text)
+            meta = dict(child.metadata or {})
             if prefix:
-                meta = dict(child.metadata or {})
                 meta["context_prefix"] = prefix
+            # A parent longer than the window was sent as its head plus this chunk's
+            # neighbourhood: the chunk records that, so the cut is a fact on the row.
+            if window is not None and window.windowed:
+                meta["context_window"] = window.record()
+            if meta != (child.metadata or {}):
                 child.metadata = meta
 
     await asyncio.gather(*(one(c) for c in children), return_exceptions=False)
@@ -141,6 +151,9 @@ def _chunk_source_sync(
             chunks = chunk_code(resolved.text, language=resolved.language)
         return chunks, code_analysis
 
+    if source_kind in SECTIONED_KINDS:
+        # Workbook sheets, document sections and deck slides are chunked one section at a time.
+        return chunk_sections(resolved.text, kind=str(source_kind), language=resolved.language), None
     return chunk_text(resolved.text, language=resolved.language), None
 
 
@@ -802,8 +815,20 @@ async def upsert_chunks(
         deleted_count = 0
         if use_sha_reuse:
             # Reuse mode — delete exactly the existing-but-not-kept rows.
-            stale_ids = [eid for eid in existing_by_sha.values() if eid not in keep_existing_ids]
+            # Sorted, like update_rows below: two writers that touch overlapping rows take
+            # their row locks in one order, so they queue instead of deadlocking (40P01).
+            stale_ids = sorted(eid for eid in existing_by_sha.values() if eid not in keep_existing_ids)
             if stale_ids:
+                # The sorted LIST does not order the locks — the DELETE's plan does (a bitmap
+                # scan takes them in heap order), and an NER stamp over the same chunks
+                # deadlocked it (40P01, 2026-11-15 22:24Z). Lock the rows ascending by id first,
+                # inside this transaction — the order ner._stamp_chunks locks in — then delete.
+                # The DELETE also writes OTHER chunk rows: ``parent_chunk_id`` cascades and
+                # ``derived_from_chunk_id`` is set null (self-referencing foreign keys), and those rows
+                # were locked by the cascade in no order — 8 NER stamps deadlocked against one re-ingest
+                # at 21:29Z on 2026-11-16 after the ordered pre-lock shipped. Lock every chunk row the
+                # delete will write, in the same ascending order.
+                await lock_chunk_rows_a_delete_writes(KgChunks, stale_ids)
                 # hard-delete-ok: derived search chunks, rebuilt on re-ingest of their source
                 deleted_count = await KgChunks.delete_where(id__in=stale_ids)
         else:
@@ -813,16 +838,18 @@ async def upsert_chunks(
             # isnull branch (a bare `field_id=None` filter would render
             # `field_id IS NULL`, which happens to match here too, but the
             # explicit branch keeps the intent obvious).
+            # Same ordered pre-lock as the stale delete above (``delete_chunks_in_lock_order``): a
+            # full wipe is a multi-row DELETE too, and its plan/cascade lock order raced the NER stamps.
             if resolved.field_id is None:
-                # hard-delete-ok: derived search chunks, rebuilt on re-ingest of their source
-                deleted_count = await KgChunks.delete_where(
+                deleted_count = await delete_chunks_in_lock_order(
+                    KgChunks,
                     source_kind=resolved.source_kind,
                     source_id=resolved.source_id,
                     field_id__isnull=True,
                 )
             else:
-                # hard-delete-ok: derived search chunks, rebuilt on re-ingest of their source
-                deleted_count = await KgChunks.delete_where(
+                deleted_count = await delete_chunks_in_lock_order(
+                    KgChunks,
                     source_kind=resolved.source_kind,
                     source_id=resolved.source_id,
                     field_id=resolved.field_id,
@@ -879,18 +906,26 @@ async def upsert_chunks(
                 }
                 for i in insert_targets
             ]
-            landed_ids_raw = await KgChunks.bulk_insert_ignore(
-                insert_rows,
-                # Partial since 2026-09-20 (`WHERE deleted_at IS NULL`), so the
-                # conflict target must carry the same predicate — a bare column
-                # list can no longer infer kg_chunks_content_sha_idx and every
-                # chunk insert would raise 42P10.
-                on_conflict=ConflictTarget.partial(
-                    ["source_kind", "source_id", "content_sha256", "chunker_version"],
-                    where_is_null=("deleted_at",),
-                ),
-                returning="id",
-            )
+            # Bounded statements (``chunk_row_write_batches``): one INSERT of a
+            # whole large note ran past the 10 s statement timeout (57014,
+            # 2026-11-13). The batches share this transaction, so the replace
+            # stays all-or-nothing.
+            landed_ids_raw: list[Any] = []
+            for batch in chunk_row_write_batches(insert_rows):
+                landed_ids_raw.extend(
+                    await KgChunks.bulk_insert_ignore(
+                        batch,
+                        # Partial since 2026-09-20 (`WHERE deleted_at IS NULL`), so the
+                        # conflict target must carry the same predicate — a bare column
+                        # list can no longer infer kg_chunks_content_sha_idx and every
+                        # chunk insert would raise 42P10.
+                        on_conflict=ConflictTarget.partial(
+                            ["source_kind", "source_id", "content_sha256", "chunker_version"],
+                            where_is_null=("deleted_at",),
+                        ),
+                        returning="id",
+                    )
+                )
 
             # Only chunks that actually landed get an embedding row. A
             # conflict-skipped chunk's embedding would orphan, so we key
@@ -907,21 +942,27 @@ async def upsert_chunks(
         #    a previously-trashed chunk's content re-activates it — otherwise
         #    soft-delete → reprocess reports success but stays invisible.
         if use_sha_reuse and reuse_indexes:
-            update_rows = [
-                {
-                    "id": existing_by_sha[new_shas[i]],
-                    "chunk_index": chunks[i].chunk_index,
-                    "parent_chunk_id": _effective_parent_id(chunks[i]),
-                    "metadata": _merge_metadata(resolved.metadata, chunks[i].metadata or {}),
-                    "page_numbers": page_cols[i][1],
-                    "page_spans": page_cols[i][2],
-                    "source_hash": resolved.source_hash,
-                }
-                for i in reuse_indexes
-            ]
+            update_rows = sorted(
+                [
+                    {
+                        "id": existing_by_sha[new_shas[i]],
+                        "chunk_index": chunks[i].chunk_index,
+                        "parent_chunk_id": _effective_parent_id(chunks[i]),
+                        "metadata": _merge_metadata(resolved.metadata, chunks[i].metadata or {}),
+                        "page_numbers": page_cols[i][1],
+                        "page_spans": page_cols[i][2],
+                        "source_hash": resolved.source_hash,
+                    }
+                    for i in reuse_indexes
+                ],
+                key=lambda row: row["id"],
+            )
             # bulk_update_by_pk — set-based UPDATE ... FROM (VALUES ...), one
             # round trip for the whole batch (same shape as the executemany
             # it replaces, minus the N separate Execute messages).
+            # ``UPDATE ... FROM (VALUES ...)`` locks in plan order, not in the sorted list's order —
+            # take the rows ascending by id first, in this same transaction.
+            await KgChunks.filter(id__in=[row["id"] for row in update_rows]).order_by("id").select_for_update().values("id")
             await KgChunks.bulk_update_by_pk(
                 update_rows,
                 casts={
@@ -984,11 +1025,14 @@ async def upsert_chunks(
 # Helpers — durable embedding persistence
 # ---------------------------------------------------------------------------
 
-# Rows per embedding-INSERT statement. Sized so one set-based unnest() write
-# (≈20 KB of vector text per 1536-dim row → ~4 MB/statement) always finishes
-# well inside the pool's default command_timeout — no per-statement timeout
-# override, ever. Config-not-env-var per CLAUDE.md: changing it is a code push.
-EMBED_WRITE_BATCH_SIZE = 200
+# Rows per embedding-INSERT statement. Every row is an HNSW index insert, and
+# under IO pressure each one reads index pages from disk: on 2026-11-16 a
+# 200-row write on rag.embeddings_voyage_4_large_1024 ran past the pool's 10 s
+# command_timeout three times (IO/DataFileRead, no blocker) and the Source
+# dead-lettered. 50 rows keeps one statement a quarter of that, and
+# ``_insert_embedding_batch`` lets it run to the server's own ceiling.
+# Config-not-env-var per CLAUDE.md: changing it is a code push.
+EMBED_WRITE_BATCH_SIZE = 50
 
 
 async def _write_embedding_rows(
@@ -1022,6 +1066,14 @@ async def _write_embedding_rows(
             f"set orm_model on its EmbeddingSpec before writing to it."
         )
     Emb = get_db_model(model_name)
+
+    # LOCK ORDER (2026-11-04, 40P01 on rag.embeddings_voyage_4_large_1024): two
+    # writers embedding overlapping chunks (a re-save beside a running ingest, the
+    # embed stage beside this path) each sent a multi-row INSERT … ON CONFLICT in
+    # its own order and deadlocked on each other's unique-index tuples. Every
+    # embedding writer sends its rows in ascending chunk_id, so overlapping
+    # statements always take those locks in the same order.
+    payloads = sorted(payloads, key=lambda p: str(p[0]))
 
     written = 0
     for start in range(0, len(payloads), batch_size):
@@ -1062,12 +1114,17 @@ async def _write_embedding_rows(
 async def _insert_embedding_batch(
     Emb: Any, batch: list[tuple[str, str | None, str | None, str]]
 ) -> None:
+    from matrx_orm import SERVER_CEILING
+
+    # An index-heavy write, never a runaway read: the driver waits up to the server's own
+    # statement ceiling instead of the pool's 10 s command_timeout (2026-11-16 timeouts).
     await Emb.bulk_insert_ignore(
         [
             {"chunk_id": p[0], "organization_id": p[1], "owner_id": p[2], "embedding": p[3]}
             for p in batch
         ],
         on_conflict=["chunk_id"],
+        statement_timeout=SERVER_CEILING,
     )
 
 
@@ -1159,6 +1216,49 @@ async def _embed_and_persist_batched(
 # ---------------------------------------------------------------------------
 
 
+#: Generations of parent -> child chunks one delete is followed through before its lock set is taken as is.
+_CASCADE_DEPTH = 8
+
+
+async def _chunk_rows_a_delete_writes(KgChunks: Any, ids: list[str]) -> list[str]:
+    """Every chunk-table id a DELETE of ``ids`` writes, sorted: the rows themselves, their
+    ``parent_chunk_id`` descendants (ON DELETE CASCADE, followed down) and the rows naming any of them in
+    ``derived_from_chunk_id`` (ON DELETE SET NULL)."""
+    deleted: set[str] = set(ids)
+    frontier = sorted(deleted)
+    for _ in range(_CASCADE_DEPTH):
+        if not frontier:
+            break
+        children = await KgChunks.filter(parent_chunk_id__in=frontier).including_archived().values("id")  # include-archived: the cascade deletes trashed children too
+        frontier = sorted({row["id"] for row in children} - deleted)
+        deleted.update(frontier)
+    written = set(deleted)
+    derived = await KgChunks.filter(derived_from_chunk_id__in=sorted(deleted)).including_archived().values("id")  # include-archived: SET NULL writes trashed rows too
+    written.update(row["id"] for row in derived)
+    return sorted(written)
+
+
+async def lock_chunk_rows_a_delete_writes(KgChunks: Any, ids: list[str]) -> list[str]:
+    """Lock, ascending by id and in the caller's open transaction, every chunk row a DELETE of
+    ``ids`` writes (``_chunk_rows_a_delete_writes``): the one pre-lock every chunk delete takes, in the
+    order ``ner._stamp_chunks`` locks in, so overlapping writers queue instead of deadlocking (40P01)."""
+    lock_ids = await _chunk_rows_a_delete_writes(KgChunks, sorted(ids))
+    await KgChunks.filter(id__in=lock_ids).order_by("id").select_for_update().values("id")
+    return lock_ids
+
+
+async def delete_chunks_in_lock_order(KgChunks: Any, **filters: Any) -> int:
+    """``KgChunks.delete_where(**filters)`` behind the ordered pre-lock: find the matching ids, lock every
+    row the delete writes ascending by id, then delete, all in one transaction (it joins the caller's if
+    one is open). Returns the number of rows deleted. The ONE door for a filter-addressed chunk delete."""
+    async with transaction(PACKAGE_DB_NAME):
+        rows = await KgChunks.filter(**filters).including_archived().values("id")  # include-archived: the delete erases trashed chunks too; lock them all
+        if rows:
+            await lock_chunk_rows_a_delete_writes(KgChunks, [str(r["id"]) for r in rows])
+        # hard-delete-ok: derived search chunks, rebuilt on re-ingest of their source
+        return await KgChunks.delete_where(**filters)
+
+
 def _chunk_sha256(text: str) -> str:
     """Hex-encoded SHA256 of a chunk's content_text. Matches the
     server-side ``encode(sha256(convert_to(content_text, 'UTF8')), 'hex')``
@@ -1186,7 +1286,7 @@ async def _existing_chunks_by_sha(
         source_id=source_id,
         chunker_version=chunker_version,
         content_sha256__isnull=False,
-    ).values("content_sha256", "id")
+    ).including_archived().values("content_sha256", "id")  # include-archived: SHA reuse re-activates a trashed chunk (step 3 clears deleted_at)
     out: dict[str, str] = {}
     for r in rows:
         # If the same SHA appears multiple times (shouldn't, given the
@@ -1541,10 +1641,15 @@ async def _maybe_dispatch_pdf(
     # host registers this class in matrx_orm.model_registry at startup
     # (rule 4, matrx-rag/CLAUDE.md: "public.* names resolve to the HOST's
     # classes").
-    Files = get_db_model("Files")
-    cld_rows = await Files.filter(id=source_id, deleted_at__isnull=True).values(
-        "id", "created_by", "organization_id", "file_name", "mime_type", "storage_uri", "metadata"
-    )
+    from matrx_files.gated_reads import read_file_rows
+    from matrx_utils.ctx import system_file_access
+
+    with system_file_access("rag-ingest-file-row"):
+        cld_rows = await read_file_rows(
+            ["created_by", "organization_id", "file_name", "mime_type", "storage_uri", "metadata"],
+            live_only=True,
+            id=source_id,
+        )
     if not cld_rows:
         return None
     _raw = cld_rows[0]
@@ -1807,17 +1912,12 @@ async def delete_source_artifacts(
     """
     KgChunks = get_db_model("KgChunks")
     field_filter = {"field_id": field_id} if field_id is not None else {"field_id__isnull": True}
-    # hard-delete-ok: derived search chunks, rebuilt on re-ingest of their source
-    return await KgChunks.delete_where(
-        source_kind=source_kind,
-        source_id=source_id,
-        **field_filter,
-    )
+    return await delete_chunks_in_lock_order(KgChunks, source_kind=source_kind, source_id=source_id, **field_filter)
 
 
 async def soft_delete_source_artifacts(source_kind: str, source_id: str) -> dict[str, int]:
     """Trash a source's rag.* artifacts so they leave retrieval but can be
-    restored (soft-delete symmetry — see /Users/armanisadeghi/code/common-docs/projects/knowledge-system/README.md).
+    restored (soft-delete symmetry — see /Users/armanisadeghi/code/common-docs/systems/knowledge/projects/knowledge-system/README.md).
 
     Sets ``kg_chunks.deleted_at`` — the dedicated trash marker, distinct from
     ``valid_to`` which means bitemporal *supersession* (reprocess/replace).
@@ -1833,6 +1933,7 @@ async def soft_delete_source_artifacts(source_kind: str, source_id: str) -> dict
     DataStoreMembers = get_db_model("DataStoreMembers")
     chunks = await KgChunks.update_where(
         {"source_kind": source_kind, "source_id": source_id, "deleted_at__isnull": True},
+        lock_rows_in_pk_order=True,
         deleted_at=now,
     )
     members = await DataStoreMembers.update_where(
@@ -1855,6 +1956,7 @@ async def restore_source_artifacts(source_kind: str, source_id: str) -> dict[str
     DataStoreMembers = get_db_model("DataStoreMembers")
     chunks = await KgChunks.update_where(
         {"source_kind": source_kind, "source_id": source_id, "deleted_at__isnull": False},
+        lock_rows_in_pk_order=True,
         deleted_at=None,
     )
     members = await DataStoreMembers.update_where(
@@ -1882,6 +1984,7 @@ async def soft_delete_document_artifacts(processed_document_id: str) -> dict[str
     DataStoreMembers = get_db_model("DataStoreMembers")
     chunks = await KgChunks.update_where(
         {"processed_document_id": processed_document_id, "deleted_at__isnull": True},
+        lock_rows_in_pk_order=True,
         deleted_at=now,
     )
     members = await DataStoreMembers.update_where(
@@ -1905,6 +2008,7 @@ async def restore_document_artifacts(processed_document_id: str) -> dict[str, in
     DataStoreMembers = get_db_model("DataStoreMembers")
     chunks = await KgChunks.update_where(
         {"processed_document_id": processed_document_id, "deleted_at__isnull": False},
+        lock_rows_in_pk_order=True,
         deleted_at=None,
     )
     members = await DataStoreMembers.update_where(
@@ -1931,8 +2035,7 @@ async def purge_document_artifacts(processed_document_id: str) -> dict[str, int]
     """
     KgChunks = get_db_model("KgChunks")
     DataStoreMembers = get_db_model("DataStoreMembers")
-    # hard-delete-ok: retention purge primitive with no person-reachable caller
-    chunks = await KgChunks.delete_where(processed_document_id=processed_document_id)
+    chunks = await delete_chunks_in_lock_order(KgChunks, processed_document_id=processed_document_id)
     # hard-delete-ok: retention purge primitive with no person-reachable caller
     members = await DataStoreMembers.delete_where(
         source_kind="processed_document", source_id=processed_document_id
@@ -1951,8 +2054,7 @@ async def purge_source_artifacts(source_kind: str, source_id: str) -> dict[str, 
     """
     KgChunks = get_db_model("KgChunks")
     DataStoreMembers = get_db_model("DataStoreMembers")
-    # hard-delete-ok: retention purge primitive with no person-reachable caller
-    chunks = await KgChunks.delete_where(source_kind=source_kind, source_id=source_id)
+    chunks = await delete_chunks_in_lock_order(KgChunks, source_kind=source_kind, source_id=source_id)
     # hard-delete-ok: retention purge primitive with no person-reachable caller
     members = await DataStoreMembers.delete_where(source_kind=source_kind, source_id=source_id)
     return {"chunks": int(chunks), "data_store_members": int(members)}

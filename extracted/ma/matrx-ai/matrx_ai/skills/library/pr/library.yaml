@@ -9,7 +9,7 @@
 # Run: uv run python scripts/ingest_skills.py --library packages/matrx-ai/matrx_ai/skills/library/pr [--dry-run]
 #
 # Tool names follow what is live on 2026-09-27 plus the news engine spec and the approved mandate
-# briefs (common-docs projects/outside-skill-packs/NEWS-ENGINE-SPEC.md and BRIEFS-*.md). Every tool,
+# briefs (common-docs systems/agents/agent-skills/projects/outside-skill-packs/NEWS-ENGINE-SPEC.md and BRIEFS-*.md). Every tool,
 # step, mandate or screen that is not built yet is marked "(not live yet)" in the body and listed in
 # each skill's opening note, which says what is "Live now" and what is "Not live yet". When one ships,
 # edit those lines and re-run. Markers last checked against the code on 2026-10-05.

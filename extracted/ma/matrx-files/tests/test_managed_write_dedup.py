@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import threading
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -437,6 +438,49 @@ async def test_create_only_existing_path_fails_before_storage_or_update():
 
 
 @pytest.mark.asyncio
+async def test_an_alias_of_the_same_bytes_at_its_own_path_answers_that_file():
+    """A form re-sending one attachment asks for an alias at a path that already holds those bytes."""
+    content = b"the same bytes"
+    existing = _existing_row()
+    existing["file_path"] = FILE_PATH
+    existing["checksum"] = hashlib.sha256(content).hexdigest()
+    engine = _make_engine(existing_at_path=existing)
+    engine._validate_duplicate_target_async = AsyncMock()
+    answered = SimpleNamespace(file_id=existing["id"], is_new=False)
+    engine._reconcile_existing_result_async = AsyncMock(return_value=answered)
+
+    result = await engine.managed_write_async(
+        FILE_PATH,
+        content,
+        file_id="fresh-id",
+        create_only=True,
+        duplicate_of_file_id=existing["id"],
+    )
+
+    assert result is answered
+    engine._router.write_async.assert_not_called()
+    engine._db.upsert_file_async.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_an_alias_of_other_bytes_at_that_path_is_still_a_conflict():
+    existing = _existing_row()
+    existing["file_path"] = FILE_PATH
+    existing["checksum"] = "someone-elses-bytes"
+    engine = _make_engine(existing_at_path=existing)
+    engine._validate_duplicate_target_async = AsyncMock()
+
+    with pytest.raises(FilePathConflictError):
+        await engine.managed_write_async(
+            FILE_PATH,
+            b"new bytes",
+            file_id="fresh-id",
+            create_only=True,
+            duplicate_of_file_id=existing["id"],
+        )
+
+
+@pytest.mark.asyncio
 async def test_existing_path_write_acl_is_checked_before_storage():
     existing = _existing_row()
     existing["file_path"] = FILE_PATH
@@ -640,7 +684,7 @@ async def test_another_organizations_folder_is_refused_never_reused():
     engine._db.get_folder_by_path_async = AsyncMock(
         side_effect=[None, {"id": "folder-race", "organization_id": "org-other"}]
     )
-    engine._db.create_folder_async = AsyncMock(side_effect=RuntimeError("unique folder path"))
+    engine._db.create_folder_async = AsyncMock(side_effect=UniqueViolation("cld_folders_owner_id_folder_path_key"))
 
     with pytest.raises(FolderOrganizationMismatch):
         await engine._ensure_folder_async(FILE_PATH, USER_ID, "org-shared")
@@ -656,7 +700,7 @@ async def test_concurrent_same_org_folder_winner_is_reused():
             {"id": "folder-race", "organization_id": "org-shared"},
         ]
     )
-    engine._db.create_folder_async = AsyncMock(side_effect=RuntimeError("unique folder path"))
+    engine._db.create_folder_async = AsyncMock(side_effect=UniqueViolation("cld_folders_owner_id_folder_path_key"))
 
     folder_id = await engine._ensure_folder_async(
         FILE_PATH,
@@ -726,7 +770,7 @@ def test_sync_another_organizations_folder_is_refused_never_reused():
         None,
         {"id": "folder-race", "organization_id": "org-other"},
     ]
-    engine._db.create_folder.side_effect = RuntimeError("unique folder path")
+    engine._db.create_folder.side_effect = UniqueViolation("cld_folders_owner_id_folder_path_key")
 
     with pytest.raises(FolderOrganizationMismatch):
         engine._ensure_folder(FILE_PATH, USER_ID, "org-shared")
@@ -739,7 +783,7 @@ def test_sync_concurrent_same_org_folder_winner_is_reused():
         None,
         {"id": "folder-race", "organization_id": "org-shared"},
     ]
-    engine._db.create_folder.side_effect = RuntimeError("unique folder path")
+    engine._db.create_folder.side_effect = UniqueViolation("cld_folders_owner_id_folder_path_key")
 
     assert (
         engine._ensure_folder(
@@ -963,9 +1007,7 @@ async def test_trashed_folder_is_revived_instead_of_failing_the_write():
     # Live lookups (parent + the colliding path) never see the trashed row.
     engine._db.get_folder_by_path_async = AsyncMock(return_value=None)
     engine._db.create_folder_async = AsyncMock(
-        side_effect=RuntimeError(
-            'duplicate key value violates unique constraint "cld_files_owner_id_folder_path_key"'
-        )
+        side_effect=UniqueViolation("cld_folders_owner_id_folder_path_key")
     )
     engine._db.get_folder_by_path_any_state_async = AsyncMock(
         return_value={
@@ -1009,7 +1051,7 @@ def test_sync_trashed_folder_is_revived_instead_of_failing_the_write():
     engine._ensure_folder = SyncEngine._ensure_folder.__get__(engine)
     engine._db.get_folder_by_path = MagicMock(return_value=None)
     engine._db.create_folder = MagicMock(
-        side_effect=RuntimeError("duplicate key value violates unique constraint")
+        side_effect=UniqueViolation("cld_folders_owner_id_folder_path_key")
     )
     engine._db.get_folder_by_path_any_state = MagicMock(
         return_value={

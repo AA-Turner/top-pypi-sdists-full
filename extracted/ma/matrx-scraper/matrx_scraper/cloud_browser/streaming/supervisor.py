@@ -31,12 +31,12 @@ class SelkiesSupervisor:
     address: str = "0.0.0.0"
     port: int = 8080
     rtc_config_path: str = "/tmp/rtc.json"
-    # Clipboard sync between the viewer and the remote display. Off for the
-    # browser fleet; a Cloud Computer (a person's own machine) turns it on.
+    # Clipboard sync between the viewer and the remote display. Off for a
+    # headless worker; a Cloud Computer (a person's own machine) turns it on.
     enable_clipboard: bool = False
     # A Cloud Computer is one person's machine: its stream runs from boot and
     # never stops on a controller change, so the first picture and Take control
-    # never wait on a Selkies start (``BROWSER_WORKER_STREAM_KEEP_WARM``).
+    # never wait on a Selkies start (the Cloud Computer image: ``MATRX_CLOUD_COMPUTER``).
     keep_warm: bool = False
     _process: subprocess.Popen[bytes] | None = field(default=None, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)

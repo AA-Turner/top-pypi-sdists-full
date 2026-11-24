@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "contextlib",
+    "json",
+    "logging",
+    "pathlib",
+    "shutil",
+    "typing",
+    f"{__spec__.parent}.path",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 import json
 import logging
 import os
@@ -115,10 +125,12 @@ def repair_staging_path(temp_path: Path, trust_root: Path, work_dir: Path) -> No
     owners: Final[frozenset[int]] = frozenset({0, os.geteuid(), project.st_uid})
     work_index: Final[int] = len(work_parts) - 1
     with ExitStack() as stack:
-        directories: Final = _open_staging_chain(stack, trust_root, (*work_parts, *staging_parts), flags)
+        directories: Final[list[_StagingDirectory] | None] = _open_staging_chain(
+            stack, trust_root, (*work_parts, *staging_parts), flags
+        )
         if directories is None:
             return
-        exposed: Final = _exposed_index(directories, work_index, project, owners)
+        exposed: Final[int | None] = _exposed_index(directories, work_index, project, owners)
         if exposed is None:
             return
         _lock_exposed_directories(directories, exposed, work_index)

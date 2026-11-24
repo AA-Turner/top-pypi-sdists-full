@@ -1,4 +1,4 @@
-"""Command: one ask a running job can receive (cancel, retry or watch a live sample), kept with who asked and what
+"""Command: one ask a running job can receive (cancel, retry or watch a live sample; pause, resume or stop a run), kept with who asked and what
 happened. One table and one kind enum for every command (D83); how they are delivered: app/runs/commands/DESIGN.md."""
 
 from __future__ import annotations
@@ -45,12 +45,15 @@ class CommandKind(StrEnum):
     CHECKPOINT = "checkpoint"  # save a checkpoint now; the answer's result names it (`artifact_id`)
     CONFIG = "config"  # change settings live (`ConfigArgs.values`, e.g. `lr`)
     STOP = "stop"  # stop the run gracefully, or at once with `StopArgs.force`
+    PAUSE = "pause"  # hold at the next step boundary, GPUs kept, until `resume` or `stop` (the run reads `paused`)
+    RESUME = "resume"  # a paused run goes on from where it held
     CUSTOM = "custom"  # a kind the script declared as its own `StrEnum` (`CustomArgs.name`), handled by the script
 
 
 #: The kinds a live sample is asked (they name an attempt), and the kinds a run is asked (they name none).
 SAMPLE_KINDS = frozenset({CommandKind.CANCEL, CommandKind.RETRY, CommandKind.WATCH})
-RUN_KINDS = frozenset({CommandKind.CHECKPOINT, CommandKind.CONFIG, CommandKind.STOP, CommandKind.CUSTOM})
+RUN_KINDS = frozenset({CommandKind.CHECKPOINT, CommandKind.CONFIG, CommandKind.STOP, CommandKind.PAUSE,
+                       CommandKind.RESUME, CommandKind.CUSTOM})
 
 
 class CommandState(StrEnum):
@@ -113,6 +116,18 @@ class StopArgs(BaseModel):
     force: bool = False
 
 
+class PauseArgs(BaseModel):
+    """`pause` takes no arguments: the job holds at its next step boundary."""
+
+    model_config = _EXACT
+
+
+class ResumeArgs(BaseModel):
+    """`resume` takes no arguments."""
+
+    model_config = _EXACT
+
+
 class CustomArgs(BaseModel):
     """A kind the script declared: its name (its `StrEnum` value) and what the asker sends with it."""
 
@@ -141,6 +156,8 @@ COMMAND_ARGS: dict[CommandKind, type[BaseModel]] = {
     CommandKind.CHECKPOINT: CheckpointArgs,
     CommandKind.CONFIG: ConfigArgs,
     CommandKind.STOP: StopArgs,
+    CommandKind.PAUSE: PauseArgs,
+    CommandKind.RESUME: ResumeArgs,
     CommandKind.CUSTOM: CustomArgs,
 }
 
@@ -230,7 +247,8 @@ class CommandList(BaseModel):
     seq: int = 0
     #: Pass back as `after`; null on the last page.
     next_after: int | None = None
-    #: `?with=writer` only (null otherwise): the run kinds an ask may name now (`checkpoint`, `config`, `stop`, and
+    #: `?with=writer` only (null otherwise): the run kinds an ask may name now (`checkpoint`, `config`, `stop`, `pause`
+    #: while running, `resume` while paused, and
     #: each custom kind's name), read with the refusal's own rule, so an ask outside it is refused or waits.
     accepts: list[str] | None = None
     #: `?with=writer` only: whether a script is there to take a run ask (`unreported`: an ask waits for it to say).

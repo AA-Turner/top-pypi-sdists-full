@@ -36,6 +36,11 @@ import jwt
 import pytest
 from matrx_connect.middleware.auth import AuthMiddleware
 from matrx_connect.middleware import auth as auth_module
+from matrx_connect.middleware.auth import api_key, gate, jwt as jwt_lane, organization, websocket
+
+# Every module of the auth package that logs through its own ``vcprint`` global
+# (PF-AUTH S2 split one module into lanes; the [AUTH][REJECT] line is in ``gate``).
+_VCPRINT_MODULES = (auth_module, api_key, gate, jwt_lane, organization, websocket)
 
 JWT_SECRET = "test-secret-do-not-use-in-prod-test-secret-do-not-use-in-prod-AB"
 USER_ID = "11111111-1111-4111-8111-111111111111"
@@ -164,7 +169,8 @@ async def test_expected_organization_denial_never_enters_error_repair_queue(
     def _capture(message: object, **kwargs: object) -> None:
         emitted.append({"message": message, **kwargs})
 
-    monkeypatch.setattr(auth_module, "vcprint", _capture)
+    for module in _VCPRINT_MODULES:
+        monkeypatch.setattr(module, "vcprint", _capture)
     app = _App()
     mw = _middleware(app)
 

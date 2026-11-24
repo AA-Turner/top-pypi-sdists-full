@@ -10,6 +10,7 @@ class FlushSignal(UniversalBaseModel):
     """
     Forces the text buffer to process immediately, regardless of the min_buffer_size threshold.
     Use this when you need to process remaining text that hasn't reached the minimum buffer size.
+    Flushing an empty buffer produces no audio, only the completion event if it is enabled.
     """
 
     type: typing.Literal["flush"] = "flush"

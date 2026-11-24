@@ -47,11 +47,14 @@ def test_requests_carry_the_new_words() -> None:
     assert (body.published_to_web, body.shown_to) == (False, "my_team")
 
 
-def test_unstated_engine_insert_is_private_and_listed_to_its_creator() -> None:
+def test_unstated_engine_insert_is_unpublished_and_follows_the_shown_to_knob() -> None:
     columns = row_access_insert_columns(None, None, "user-1")
 
     assert columns["published_to_web"] is False
-    assert columns["shown_to"] == "only_me"
+    # Stored NULL: every list resolves it through platform.shown_to_default('file', org) — the
+    # same knob notes and tasks follow. "Only me" is written only when a caller states it.
+    assert "shown_to" in columns and columns["shown_to"] is None
+    assert row_access_insert_columns(None, "only_me", "user-1")["shown_to"] == "only_me"
 
 
 @pytest.mark.parametrize(

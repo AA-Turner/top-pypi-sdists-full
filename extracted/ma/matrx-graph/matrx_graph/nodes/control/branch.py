@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from matrx_graph.nodes._sandbox import safe_eval
+from matrx_graph.nodes._sandbox import ExpressionFailure, safe_eval
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
 from matrx_graph.types.node_spec import NodeSpec
@@ -104,7 +104,10 @@ class BranchExecutor:
         # the payload. A strict downstream state (extra=forbid) refused that stray key — live
         # 2026-10-22, agent_build "Tell the door" crashed on ``value: None``.
         received = inputs.model_dump(mode="json", exclude_unset=True)
-        went_true = bool(safe_eval(config.predicate, inputs.model_dump(mode="json")))
+        try:
+            went_true = bool(safe_eval(config.predicate, inputs.model_dump(mode="json")))
+        except ExpressionFailure as e:
+            return e.failure
         direction = "true" if went_true else "false"
         ctx.emit(direction, received)
 

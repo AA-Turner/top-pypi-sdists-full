@@ -42,7 +42,7 @@ from typing import Awaitable, Callable, Literal
 
 MatchKind = Literal["exact", "fuzzy", "semantic"]
 
-# STOP RULE 7 (common-docs/projects/knowledge-system/vision/02_KNOWLEDGE_ARCHITECTURE.md §7 / common-docs/projects/knowledge-system/vision/03_KNOWLEDGE_MODULE.md §3):
+# STOP RULE 7 (common-docs/systems/knowledge/projects/knowledge-system/vision/02_KNOWLEDGE_ARCHITECTURE.md §7 / common-docs/systems/knowledge/projects/knowledge-system/vision/03_KNOWLEDGE_MODULE.md §3):
 # CONCEPTS are thematic ideas ("back pain", "negligence") tagged for semantic
 # retrieval. They are NEVER scope-linked. Only ENTITIES (named things with
 # identity — "John Smith", "Case 2024-CV-001") may produce scope-association
@@ -353,7 +353,7 @@ async def match_values(
     Pure: no DB, no aidream imports. Never raises for a normal "no match" — it
     returns ``None``.
 
-    STOP RULE 7 (common-docs/projects/knowledge-system/vision/02_KNOWLEDGE_ARCHITECTURE.md §7): concepts are NEVER scope-linked.
+    STOP RULE 7 (common-docs/systems/knowledge/projects/knowledge-system/vision/02_KNOWLEDGE_ARCHITECTURE.md §7): concepts are NEVER scope-linked.
     A concept entity kind returns ``None`` immediately — concepts are
     thematic ideas used for semantic retrieval, not named scope-linkable
     entities. This is a hard structural rule, not a threshold gate.

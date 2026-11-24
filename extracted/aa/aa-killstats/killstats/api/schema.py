@@ -12,7 +12,9 @@ from django.db.models import Q
 
 class UserData(Schema):
     """
-    Schema for user data, including character ID and character name.
+    The current user and its main character, as the `UserData` type of aa-geuthur-react expects it.
+
+    `is_admin` is the `killstats.admin_access` permission.
     """
 
     user_id: int
@@ -109,50 +111,27 @@ class KillmailListResponse(Schema):
     page_size: int = 50
 
 
-class ModalSchema(Schema):
-    """Schema for modal dialog data."""
+class ErrorSchema(Schema):
+    """Error response of an endpoint."""
 
-    title: str
-    text: str
-    icon: str
-    modal_id: str
-    url: str
-    color: str | None = None
-    buttonText: str | None = None
+    error: str
 
 
 class MenuLink(Schema):
-    """
-    Represents a link in the menu.
-    """
+    """A navigation link. `link` is relative to the app root unless `is_external` is set."""
 
     name: str
     link: str | None = None
+    badge: int | None = None
     is_external: bool = False
-
-
-class MenuCategory(MenuLink):
-    """
-    Represents a category in the menu, which can contain multiple links.
-    """
-
-    links: list[MenuLink] = []
-
-
-class MenuModalSchema(Schema):
-    """Schema for menu modals."""
-
-    modal: ModalSchema | None = None
+    has_errors: bool = False
 
 
 class MenuSchema(Schema):
-    """
-    Schema for the overall menu, including links and modals.
-    """
+    """Schema for the overall menu, as the `MenuSchema` type of aa-geuthur-react expects it."""
 
     left_links: list[MenuLink] = []
     right_links: list[MenuLink] = []
-    modals: MenuModalSchema | None = None
 
 
 class DateRangeFilter(FilterSchema):

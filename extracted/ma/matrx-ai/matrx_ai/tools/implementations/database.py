@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from matrx_utils import vcprint
+from matrx_utils.model_transfer_source import MODEL_RESTRICTED_RELATIONS
 from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
 
@@ -136,7 +137,15 @@ SQL_QUERY_RESULT_BUDGET_CHARS = 40_000
 #: (a message `content`, a jsonb `metadata`) must not starve the rest of the
 #: page. A single-row, single-column read gets the whole page budget instead —
 #: that is the documented way to read a trimmed cell in full.
+#: KNOB MIRROR of platform.feature_knob "tools.sql" "cell_max_chars" (read via ``tool_knobs``).
 SQL_CELL_MAX_CHARS = 4_000
+
+
+async def _sql_cell_cap(ctx: ToolContext) -> int:
+    """This organization's per-cell ceiling (knob ``tools.sql / cell_max_chars``)."""
+    from matrx_ai.tools.tool_knobs import tool_knob_int
+
+    return await tool_knob_int("sql_cell_max_chars", SQL_CELL_MAX_CHARS, getattr(ctx, "organization_id", None))
 
 #: How many trimmed cells are itemized in `truncated_cells` (the notice still
 #: counts them all).
@@ -148,7 +157,7 @@ def _compact_len(value: Any) -> int:
 
 
 def _bounded_query_output(
-    rows: list[Any], *, offset: int, limit: int
+    rows: list[Any], *, offset: int, limit: int, cell_max_chars: int = SQL_CELL_MAX_CHARS
 ) -> dict[str, Any]:
     """Bound one `sql` query page and say so — the tool's own size management.
 
@@ -164,7 +173,7 @@ def _bounded_query_output(
     safe_rows = [_json_safe(r) for r in rows]
     cell_count = sum(len(r) for r in safe_rows if isinstance(r, dict))
     cell_cap = (
-        SQL_QUERY_RESULT_BUDGET_CHARS - 200 if cell_count <= 1 else SQL_CELL_MAX_CHARS
+        SQL_QUERY_RESULT_BUDGET_CHARS - 200 if cell_count <= 1 else cell_max_chars
     )
 
     trimmed: list[dict[str, Any]] = []
@@ -621,9 +630,27 @@ def match_filters(match: dict[str, Any]) -> tuple[Any, ...]:
     return tuple(filters)
 
 
+def _model_restricted_read_reason(table: str) -> str | None:
+    """A generic read's rows go straight into a model's context, so relations mixing an
+    organization's own sends with imported Gmail replies are never read through it, by any
+    tier (Google Limited Use). The host's contact-history tool withholds per row."""
+    schema, name = _split_schema_table(table or "")
+    named = {f"{schema}.{name}"} if schema else {f"crm.{name}"}
+    if not named & MODEL_RESTRICTED_RELATIONS:
+        return None
+    return (
+        f"'{next(iter(named))}' can hold content imported from a person's mailbox, which is never "
+        "read into a model through a generic database tool. Use crm_outreach_history for a "
+        "contact's history; it withholds what a model may not see."
+    )
+
+
 async def db_query(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = DbQueryArgs(**args)
+    restricted = _model_restricted_read_reason(parsed.table)
+    if restricted:
+        return _sql_permission_error(restricted, started_at, ctx)
 
     try:
         from matrx_orm.operations.dynamic_crud import dynamic_select
@@ -640,7 +667,9 @@ async def db_query(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         return ToolResult(
             success=True,
-            output=_bounded_query_output(rows, offset=parsed.offset, limit=parsed.limit),
+            output=_bounded_query_output(
+                rows, offset=parsed.offset, limit=parsed.limit, cell_max_chars=await _sql_cell_cap(ctx)
+            ),
             started_at=started_at,
             completed_at=time.time(),
             tool_name="db_query",
@@ -723,7 +752,7 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if err_type:
         return ToolResult(
             success=False,
-            error=ToolError(error_type=err_type, message=err_msg or ""),
+            error=ToolError(refusal=True, error_type=err_type, message=err_msg or ""),
             started_at=started_at,
             completed_at=time.time(),
             tool_name="db_insert",
@@ -736,7 +765,7 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if rules_error:
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="validation", message=rules_error),
+                error=ToolError(refusal=True, error_type="validation", message=rules_error),
                 started_at=started_at,
                 completed_at=time.time(),
                 tool_name="db_insert",
@@ -746,7 +775,7 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if vocab_error:
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="validation", message=f"Insert refused. {vocab_error}"),
+                error=ToolError(refusal=True, error_type="validation", message=f"Insert refused. {vocab_error}"),
                 started_at=started_at,
                 completed_at=time.time(),
                 tool_name="db_insert",
@@ -777,7 +806,7 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             success=False,
             error=ToolError.from_exception(
                 exc,
-                error_type="database",
+                error_type=_db_error_type(exc),
                 message=f"Insert failed. {message}",
                 suggested_action=suggested,
             ),
@@ -895,6 +924,7 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="match must be a non-empty object of column=value filters for "
                 "update (refusing unbounded UPDATE).",
@@ -909,7 +939,7 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if err_type:
         return ToolResult(
             success=False,
-            error=ToolError(error_type=err_type, message=err_msg or ""),
+            error=ToolError(refusal=True, error_type=err_type, message=err_msg or ""),
             started_at=started_at,
             completed_at=time.time(),
             tool_name="db_update",
@@ -922,7 +952,7 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if rules_error:
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="validation", message=rules_error),
+                error=ToolError(refusal=True, error_type="validation", message=rules_error),
                 started_at=started_at,
                 completed_at=time.time(),
                 tool_name="db_update",
@@ -932,7 +962,7 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if vocab_error:
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="validation", message=f"Update refused. {vocab_error}"),
+                error=ToolError(refusal=True, error_type="validation", message=f"Update refused. {vocab_error}"),
                 started_at=started_at,
                 completed_at=time.time(),
                 tool_name="db_update",
@@ -977,7 +1007,7 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             success=False,
             error=ToolError.from_exception(
                 exc,
-                error_type="database",
+                error_type=_db_error_type(exc),
                 message=f"Update failed. {message}",
                 suggested_action=suggested,
             ),
@@ -1011,6 +1041,48 @@ async def _get_table_fks(schema: str, table: str) -> dict[str, list[str]]:
                 f"{r.get('other_table')}.{r.get('local_col')} -> {r.get('other_col')}"
             )
     return {"foreign_keys": foreign_keys, "referenced_by": referenced_by}
+
+
+#: Budget for each FK list in one table's `schema` answer. A hub table
+#: (`iam.organizations`) is referenced by 1,100+ columns — 52k chars of
+#: `referenced_by` alone — which pushed the answer past the platform size gate.
+SCHEMA_FK_LIST_BUDGET_CHARS = 12_000
+
+
+def _bounded_fks(fks: dict[str, list[str]]) -> dict[str, Any]:
+    """Cap both FK lists to their budget; a cut says how many were left out in ``note``."""
+    from matrx_ai.tools.output_caps import cap_json_list
+
+    out: dict[str, Any] = {}
+    cuts: list[str] = []
+    for key in ("foreign_keys", "referenced_by"):
+        shown, cap = cap_json_list(list(fks.get(key) or []), max_chars=SCHEMA_FK_LIST_BUDGET_CHARS)
+        out[key] = shown
+        if cap.truncated:
+            cuts.append(f"{key} shows {cap.shown} of {cap.total}")
+    if cuts:
+        out["note"] = (
+            f"{'; '.join(cuts)} (too many to list). Query the table that interests you by name "
+            "for its own columns."
+        )
+    return out
+
+
+async def _get_table_allowed_values(schema: str, table: str) -> dict[str, list[str]]:
+    """Per column, the allowed values of its enum-style CHECK constraints (the same parser the
+    refusal note uses), so an agent learns the vocabulary BEFORE it writes."""
+    from matrx_orm.catalog import relation_check_constraints
+
+    rows = await relation_check_constraints(_get_database_name(), schema=schema, table=table)
+    allowed: dict[str, list[str]] = {}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        column = str(r.get("column_name") or "")
+        values = _db_hints.allowed_values_from_check(str(r.get("constraint_def") or ""), column=column) if column else []
+        if values:
+            allowed.setdefault(str(r["column_name"]), values)
+    return allowed
 
 
 async def _list_tables(only_schema: str | None) -> dict[str, Any]:
@@ -1113,12 +1185,20 @@ async def db_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # sink the core columns response. Surface the failure in the output
         # (and the log) rather than silently implying "no FKs".
         try:
-            output.update(await _get_table_fks(schema, name))
+            output.update(_bounded_fks(await _get_table_fks(schema, name)))
         except Exception as fk_exc:
             logger.warning("FK lookup failed for table %r: %s", f"{schema}.{name}", fk_exc)
             output["foreign_keys"] = []
             output["referenced_by"] = []
             output["fk_lookup_error"] = {"message": str(fk_exc)}
+        # Allowed values are supplementary too — a lookup failure says so, never hides the columns.
+        try:
+            allowed = await _get_table_allowed_values(schema, name)
+            if allowed:
+                output["allowed_values"] = allowed
+        except Exception as av_exc:
+            logger.warning("allowed-values lookup failed for table %r: %s", f"{schema}.{name}", av_exc)
+            output["allowed_values_lookup_error"] = {"message": str(av_exc)}
 
         return ToolResult(
             success=True,
@@ -1134,7 +1214,7 @@ async def db_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             success=False,
             error=ToolError.from_exception(
                 exc,
-                error_type="database",
+                error_type=_db_error_type(exc),
                 message=f"Schema query failed. {message}",
                 suggested_action=suggested,
             ),
@@ -1164,10 +1244,10 @@ def _sql_stamp(result: ToolResult, started_at: float, ctx: ToolContext) -> ToolR
     return result
 
 
-def _sql_validation_error(message: str, started_at: float, ctx: ToolContext) -> ToolResult:
+def _sql_validation_error(message: str, started_at: float, ctx: ToolContext, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="validation", message=message),
+        error=ToolError.declared("validation", message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="sql",
@@ -1178,7 +1258,7 @@ def _sql_validation_error(message: str, started_at: float, ctx: ToolContext) -> 
 def _sql_permission_error(message: str, started_at: float, ctx: ToolContext) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="permission", message=message),
+        error=ToolError(refusal=True, error_type="permission", message=message),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="sql",
@@ -1247,7 +1327,7 @@ async def _sql_delete(args: dict[str, Any], ctx: ToolContext, started_at: float)
             success=False,
             error=ToolError.from_exception(
                 exc,
-                error_type="database",
+                error_type=_db_error_type(exc),
                 message=f"Delete failed. {message}",
                 suggested_action=suggested,
             ),
@@ -1326,8 +1406,141 @@ async def _sql_upsert(args: dict[str, Any], ctx: ToolContext, started_at: float)
             success=False,
             error=ToolError.from_exception(
                 exc,
-                error_type="database",
+                error_type=_db_error_type(exc),
                 message=f"Upsert failed. {message}",
+                suggested_action=suggested,
+            ),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name="sql",
+            call_id=ctx.call_id,
+        )
+
+
+def _patch_refusal(error_type: str, message: str, started_at: float, ctx: ToolContext) -> ToolResult:
+    return ToolResult(
+        success=False,
+        error=ToolError(refusal=True, error_type=error_type, message=message),
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name="sql",
+        call_id=ctx.call_id,
+    )
+
+
+async def _sql_patch(args: dict[str, Any], ctx: ToolContext, started_at: float) -> ToolResult:
+    """str_replace on one text column of exactly one row.
+
+    Reads the row, requires ``old_str`` to occur exactly once (unless
+    ``replace_all``), then writes through the same guards and receipt as
+    update. Nothing is written on any refusal.
+    """
+    table = (args.get("table") or "").strip()
+    match = args.get("match") or {}
+    column = args.get("column") or "body"
+    old_str = args.get("old_str") or ""
+    new_str = args.get("new_str", "")
+    replace_all = bool(args.get("replace_all"))
+    returning = args.get("returning") or "minimal"
+    if not match:
+        return _sql_validation_error(
+            "match must be a non-empty object selecting exactly one row for action=patch.",
+            started_at,
+            ctx,
+        )
+    if not old_str:
+        return _sql_validation_error("old_str must be non-empty for action=patch.", started_at, ctx)
+
+    schema, name, err_type, err_msg = await _resolve_write_target(table)
+    if err_type == "permission":
+        return _sql_permission_error(err_msg or "", started_at, ctx)
+    if err_type:
+        return _sql_validation_error(err_msg or "", started_at, ctx)
+
+    try:
+        Model = _resolve_write_model(schema, name)
+        lookups = _orm_lookups(match)
+        rows = await Model.filter(**lookups).all()
+        if len(rows) != 1:
+            return _sql_validation_error(
+                f"match selected {len(rows)} rows of {schema}.{name}; patch needs exactly one. "
+                "Narrow match (e.g. by primary key).",
+                started_at,
+                ctx,
+            )
+        prior = _instance_to_dict(rows[0])
+        if column not in prior:
+            return _sql_validation_error(
+                f"{schema}.{name} has no column {column!r}.", started_at, ctx
+            )
+        current = prior[column]
+        if not isinstance(current, str):
+            return _sql_validation_error(
+                f"{schema}.{name}.{column} is not a text value; patch edits text columns only.",
+                started_at,
+                ctx,
+            )
+        count = current.count(old_str)
+        if count == 0:
+            return _patch_refusal(
+                "patch_no_match",
+                f"old_str was not found in {schema}.{name}.{column}; nothing written. "
+                "Re-read the column and copy the excerpt verbatim.",
+                started_at,
+                ctx,
+            )
+        if count > 1 and not replace_all:
+            lines, pos = [], current.find(old_str)
+            while pos != -1:
+                lines.append(current.count("\n", 0, pos) + 1)
+                pos = current.find(old_str, pos + 1)
+            return _patch_refusal(
+                "patch_ambiguous",
+                f"old_str matches {count} times (lines {lines}) in {schema}.{name}.{column}; "
+                "nothing written. Widen old_str or pass replace_all=true.",
+                started_at,
+                ctx,
+            )
+        new_value = current.replace(old_str, new_str) if replace_all else current.replace(old_str, new_str, 1)
+        update_data = {column: new_value}
+
+        rules_error = _guard_catalog_rules(schema, name, [update_data])
+        if rules_error:
+            return _sql_validation_error(rules_error, started_at, ctx)
+        vocab_error, corrections = _guard_vocabulary(schema, name, [update_data])
+        if vocab_error:
+            return _sql_validation_error(f"Patch refused. {vocab_error}", started_at, ctx)
+
+        await Model.update_where(lookups, **update_data)
+        updated_rows = await Model.filter(**lookups).all()
+        _after_catalog_write(schema, name, "update")
+        after = [_instance_to_dict(r) for r in updated_rows]
+        output = _write_output("patched", after, returning)
+        if isinstance(output, dict):
+            output["replacements"] = count if replace_all else 1
+        return _attach_rows_receipt(
+            ToolResult(
+                success=True,
+                output=_announce_corrections("sql", corrections, output),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="sql",
+                call_id=ctx.call_id,
+            ),
+            prior=[prior],
+            after=after,
+            key_fields=list(Model._meta.primary_keys),
+            columns=[column],
+            table=f"{schema}.{name}",
+        )
+    except Exception as exc:
+        message, suggested = await _agent_db_error(exc)
+        return ToolResult(
+            success=False,
+            error=ToolError.from_exception(
+                exc,
+                error_type=_db_error_type(exc),
+                message=f"Patch failed. {message}",
                 suggested_action=suggested,
             ),
             started_at=started_at,
@@ -1354,7 +1567,83 @@ def _current_admin_level() -> str | None:
         return None
 
 
-async def _agent_db_error(exc: Exception, query: str | None = None) -> tuple[str, str]:
+def _db_error_type(exc: BaseException, *, under_rls: bool = False) -> str:
+    """``constraint_violation`` when the database refused the caller's own values,
+    ``permission`` for a privilege / RLS denial met by a read running AS the person
+    (``under_rls``; on the privileged path a 42501 is a missing grant, a real fault),
+    ``validation`` for a query-shape miss (the model corrects each; the executor does not file
+    them), else ``database`` (a real fault)."""
+    if _db_hints.is_constraint_refusal(exc) or _db_hints.guard_refusal_text(exc):
+        return _db_hints.CONSTRAINT_REFUSAL_ERROR_TYPE
+    # A privilege / row-level-security denial (42501) is the caller's access, answered to the
+    # model with guidance — the same ``permission`` the up-front refusals carry. A query-shape
+    # miss (unknown relation or column) is the caller's to correct. Neither is a platform fault;
+    # both were filed as ``tool_execution_failed`` system_errors from ``db_read`` (2026-11-17).
+    if _db_hints.is_permission_error(exc):
+        return "permission" if under_rls else "database"
+    return _structured_query_error_type(exc)
+
+
+async def _check_constraint_allowed_note(exc: BaseException) -> str:
+    """For a CHECK refusal, name the allowed values when the constraint is a literal list.
+    Best-effort and bounded: any lookup failure yields no note, never masks the refusal."""
+    name = _db_hints.check_constraint_name(exc)
+    if not name:
+        return ""
+    try:
+        from matrx_orm.catalog import describe_check_constraint
+
+        rows = await describe_check_constraint(_get_database_name(), constraint=name)
+        for row in rows:
+            values = _db_hints.allowed_values_from_check(str(row.get("definition") or ""))
+            if values:
+                return (
+                    f" Allowed by {row.get('table_schema')}.{row.get('table_name')} "
+                    f"({name}): {', '.join(repr(v) for v in values)}."
+                )
+        return ""
+    except Exception:
+        return ""
+
+
+#: The role a person's read runs as (``acting_as_user``): hint listings on that path name only
+#: relations it may SELECT from.
+PERSON_READ_ROLE = "authenticated"
+
+
+async def _readable_listing_for(role: str | None) -> tuple[Any, Any]:
+    """``(tables_by_schema, schemas_for_table)`` for a hint, narrowed to what ``role`` may read.
+
+    A person's read that misses must never be pointed at a relation it cannot open (2026-11-17:
+    ``db_read`` offered ``runtime._ai_usage_*``, which ``authenticated`` holds no SELECT on)."""
+    if role is None:
+        return _tables_by_schema, _schemas_for_table
+    from matrx_orm.catalog import readable_relations
+
+    try:
+        readable = await readable_relations(
+            _get_database_name(), role=role, exclude_schemas=sorted(_NON_APP_SCHEMAS)
+        )
+    except Exception:  # noqa: BLE001 — the refusal stands; it just names no tables
+        logger.exception("db hint: could not read which relations %s may select", role)
+        readable = set()
+
+    async def tables_by_schema() -> dict[str, list[str]]:
+        grouped = await _tables_by_schema()
+        out = {
+            sch: [t for t in tables if f"{sch}.{t}" in readable] for sch, tables in grouped.items()
+        }
+        return {sch: tables for sch, tables in out.items() if tables}
+
+    async def schemas_for_table(name: str) -> list[str]:
+        return [s for s in await _schemas_for_table(name) if f"{s}.{name}" in readable]
+
+    return tables_by_schema, schemas_for_table
+
+
+async def _agent_db_error(
+    exc: Exception, query: str | None = None, *, readable_by: str | None = None
+) -> tuple[str, str]:
     """Translate a raw DB exception into (message, suggested_action) written to
     an intelligent caller — say what happened and what to do next, never a bare
     Postgres error dict, and NEVER ``str(exc)`` on an ORM error (that is the
@@ -1365,6 +1654,14 @@ async def _agent_db_error(exc: Exception, query: str | None = None) -> tuple[str
     # substring — `"policy" in text` — which reported an unknown column named
     # `sync_policy` as a permissions failure (2026-09-11 incident) and sent a
     # super-admin agent chasing access it already had.
+    if _db_hints.is_constraint_refusal(exc) and not _db_hints.is_permission_error(exc):
+        note = await _check_constraint_allowed_note(exc)
+        text = _db_hints.strip_ansi(str(exc)).strip()
+        return (
+            f"{text[:600]}{note}",
+            "The database refused these values. Fix them (use an allowed value, an existing "
+            "referenced id, or fill the required column) and call again.",
+        )
     if _db_hints.is_read_only_error(exc):
         return (
             "The `query` action is read-only — it cannot modify data. To change "
@@ -1373,9 +1670,18 @@ async def _agent_db_error(exc: Exception, query: str | None = None) -> tuple[str
             "your own permissions.",
             "Re-issue the change as a write action, or use the `data` tools.",
         )
-    if _db_hints.is_permission_error(exc):
+    guard = _db_hints.guard_refusal_text(exc)
+    if guard:
         return (
-            "That statement touched rows or tables your access level doesn't permit "
+            f"The database refused this statement: {guard[:600]}",
+            "Do what the refusal names (call the function or door it points to) instead of "
+            "writing that column directly.",
+        )
+    if _db_hints.is_permission_error(exc):
+        said = _db_hints.strip_ansi(str(exc)).strip()
+        return (
+            (f"The database refused this read: {said[:300]}. " if said else "")
+            + "That statement touched rows or tables your access level doesn't permit "
             "(Postgres SQLSTATE 42501 — insufficient privilege or a row-level-security "
             "policy denial). Non-super-admin database access runs under your own "
             "row-level-security permissions — you can only read/write what you own or "
@@ -1383,12 +1689,13 @@ async def _agent_db_error(exc: Exception, query: str | None = None) -> tuple[str
             "Scope the query to data you own, or ask a super_admin if you need more.",
         )
     facts = _db_hints.parse_db_error(exc)
+    tables_by_schema, schemas_for_table = await _readable_listing_for(readable_by)
     return await _db_hints.build_hint(
         facts,
         query or "",
         app_schemas=_app_schemas,
-        tables_by_schema=_tables_by_schema,
-        schemas_for_table=_schemas_for_table,
+        tables_by_schema=tables_by_schema,
+        schemas_for_table=schemas_for_table,
         get_table_columns=_get_table_columns,
     )
 
@@ -1421,6 +1728,9 @@ async def _resolve_read_target(table: str) -> tuple[str | None, str | None]:
     raw = (table or "").strip()
     if not raw:
         return None, "table is required."
+    restricted = _model_restricted_read_reason(raw)
+    if restricted:
+        return None, restricted
     schema, name = _split_schema_table(raw)
     if schema is None:
         schemas = await _schemas_for_table(name)
@@ -1437,7 +1747,10 @@ async def _resolve_read_target(table: str) -> tuple[str | None, str | None]:
             return raw, None
     if schema in _NON_APP_SCHEMAS:
         return None, (
-            f"Schema '{schema}' is not application data and is not readable through the `sql` tool."
+            f"Schema '{schema}' is not application data and is not readable through the `sql` tool. "
+            "To learn a table's constraints and allowed values, call action 'schema' with "
+            "table='schema.table': it lists each column's allowed values (enum-style CHECKs) "
+            "and its foreign-key targets."
         )
     return f"{schema}.{name}", None
 
@@ -1483,12 +1796,12 @@ async def _sql_query_scoped(
             **({"use_admin_lane": False} if as_person else {}),
         )
     except Exception as exc:
-        message, suggested = await _agent_db_error(exc)
+        message, suggested = await _agent_db_error(exc, readable_by=PERSON_READ_ROLE)
         return ToolResult(
             success=False,
             error=ToolError.from_exception(
                 exc,
-                error_type="database",
+                error_type=_db_error_type(exc, under_rls=True),
                 message=message,
                 suggested_action=suggested,
             ),
@@ -1499,7 +1812,9 @@ async def _sql_query_scoped(
         )
     return ToolResult(
         success=True,
-        output=_bounded_query_output(rows, offset=parsed.offset, limit=parsed.limit),
+        output=_bounded_query_output(
+            rows, offset=parsed.offset, limit=parsed.limit, cell_max_chars=await _sql_cell_cap(ctx)
+        ),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="sql",
@@ -1573,7 +1888,7 @@ async def _sql_impl(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         parsed = SqlArgs.model_validate(args).root
     except ValidationError as exc:
-        return _sql_validation_error(format_args_error(exc), started_at, ctx)
+        return _sql_validation_error(format_args_error(exc), started_at, ctx, exc=exc)
 
     action = parsed.action
     # exclude_unset: pass only the keys the caller actually sent (so worker
@@ -1604,5 +1919,7 @@ async def _sql_impl(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _sql_stamp(await db_update(inner_args, ctx), started_at, ctx)
     if action == "delete":
         return await _sql_delete(inner_args, ctx, started_at)
+    if action == "patch":
+        return await _sql_patch(inner_args, ctx, started_at)
     # action == "upsert"
     return await _sql_upsert(inner_args, ctx, started_at)

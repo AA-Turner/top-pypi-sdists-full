@@ -1109,7 +1109,7 @@ class HeadNodeOptionConfig(HeadNodeConfig):
 from anyscale.compute_config.models import ComputeConfig, HeadNodeOptionConfig
 
 config = ComputeConfig(
-    head_nodes=[
+    head_node_options=[
         HeadNodeOptionConfig(
             name="reserved",
             instance_type="m5.8xlarge",
@@ -1125,7 +1125,7 @@ config = ComputeConfig(
 """
 
     __doc_yaml_example__ = """
-head_nodes:
+head_node_options:
   - name: reserved
     instance_type: m5.8xlarge
     advanced_instance_config:
@@ -1439,7 +1439,7 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
 
         return head_node
 
-    head_nodes: Optional[List[Union[HeadNodeOptionConfig, Dict]]] = field(
+    head_node_options: Optional[List[Union[HeadNodeOptionConfig, Dict]]] = field(
         default=None,
         repr=False,
         metadata={
@@ -1447,26 +1447,26 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         },
     )
 
-    def _validate_head_nodes(
-        self, head_nodes: Optional[List[Union[HeadNodeOptionConfig, Dict]]]
+    def _validate_head_node_options(
+        self, head_node_options: Optional[List[Union[HeadNodeOptionConfig, Dict]]]
     ) -> Optional[List[HeadNodeOptionConfig]]:
-        if head_nodes is None:
+        if head_node_options is None:
             return None
 
         if self.head_node is not None:
-            raise ValueError("Set 'head_node' or 'head_nodes', not both.")
+            raise ValueError("Set 'head_node' or 'head_node_options', not both.")
 
-        if not isinstance(head_nodes, list) or not all(
-            isinstance(c, (dict, HeadNodeOptionConfig)) for c in head_nodes
+        if not isinstance(head_node_options, list) or not all(
+            isinstance(c, (dict, HeadNodeOptionConfig)) for c in head_node_options
         ):
             raise TypeError(
-                "'head_nodes' must be a list of HeadNodeOptionConfigs or corresponding dicts"
+                "'head_node_options' must be a list of HeadNodeOptionConfigs or corresponding dicts"
             )
-        if not head_nodes:
-            raise ValueError("'head_nodes' must have at least one option")
+        if not head_node_options:
+            raise ValueError("'head_node_options' must have at least one option")
 
         options: List[HeadNodeOptionConfig] = []
-        for option in head_nodes:
+        for option in head_node_options:
             parsed = HeadNodeOptionConfig.from_dict(option) if isinstance(option, dict) else option
             assert isinstance(parsed, HeadNodeOptionConfig)
             options.append(parsed)
@@ -1475,7 +1475,7 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         duplicate_names = {name for name in names if names.count(name) > 1}
         if duplicate_names:
             raise ValueError(
-                f"'head_nodes' names must be unique, but got duplicate names: {duplicate_names}"
+                f"'head_node_options' names must be unique, but got duplicate names: {duplicate_names}"
             )
 
         first = options[0]
@@ -1483,10 +1483,19 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
             for shared in ("resources", "labels", "required_labels", "flags", "cloud_deployment"):
                 if getattr(option, shared) != getattr(first, shared):
                     raise ValueError(
-                        f"'head_nodes' options must match on '{shared}', but '{option.name}' differs from '{first.name}'."
+                        f"'head_node_options' entries must match on '{shared}', but '{option.name}' differs from '{first.name}'."
                     )
 
         return options
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "ComputeConfig":
+        # CLI 0.26.113 shipped this field as 'head_nodes', so configs written then still load.
+        if "head_nodes" in d:
+            if "head_node_options" in d:
+                raise ValueError("Set 'head_node_options' or 'head_nodes', not both.")
+            d = {("head_node_options" if k == "head_nodes" else k): v for k, v in d.items()}
+        return cls(**d)
 
     worker_nodes: Optional[List[Union[WorkerNodeGroupConfig, Dict]]] = field(
         default=None,

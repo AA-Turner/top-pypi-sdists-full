@@ -51,7 +51,7 @@ from matrx_graph.types.primitives import ActionTier, NodeCategory, RetryPolicy
 from matrx_graph.types.result import NodeResult, success
 from tests._fixtures import FakeEmitter, make_app_context
 
-APPROVAL_URL = "https://manage.aimatrx.com/admin/automation/workflows/wf-quiz/approvals"
+APPROVAL_URL = "https://manage.aimatrx.com/admin/workflows/wf-quiz/approvals"
 
 
 class _Item(BaseModel):

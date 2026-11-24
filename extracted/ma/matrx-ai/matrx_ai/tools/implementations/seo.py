@@ -26,6 +26,7 @@ async def seo_check_meta_titles(args: dict[str, Any], ctx: ToolContext) -> ToolR
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="titles must be a non-empty string or list of strings.",
             ),
@@ -68,6 +69,7 @@ async def seo_check_meta_descriptions(args: dict[str, Any], ctx: ToolContext) ->
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="descriptions must be a non-empty string or list of strings.",
             ),
@@ -111,6 +113,7 @@ async def seo_check_meta_tags_batch(args: dict[str, Any], ctx: ToolContext) -> T
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="meta_data must be a non-empty list of objects with 'title' and/or 'description'.",
             ),
@@ -121,6 +124,7 @@ async def seo_check_meta_tags_batch(args: dict[str, Any], ctx: ToolContext) -> T
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Item at index {idx} must have at least 'title' or 'description'.",
                 ),
@@ -160,6 +164,7 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="keywords must be a non-empty list of strings.",
             ),
@@ -168,6 +173,7 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="date_from and date_to are required (YYYY-MM-DD).",
             ),
@@ -176,10 +182,10 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
     try:
         d_from = date.fromisoformat(date_from_str.strip())
         d_to = date.fromisoformat(date_to_str.strip())
-    except ValueError:
+    except ValueError as exc:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type="validation",
                 message="date_from and date_to must be valid dates in YYYY-MM-DD format.",
             ),
@@ -190,6 +196,7 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="date_from and date_to must be in the past. Google Ads does not return data for future dates.",
                 suggested_action="Use past dates only, e.g. date_from='2024-01-01', date_to='2024-12-31'.",
@@ -199,6 +206,7 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="date_from must be before or equal to date_to.",
                 suggested_action="Ensure date_from is the start of the range and date_to is the end, e.g. date_from='2024-01-01', date_to='2024-12-31'.",
@@ -209,6 +217,7 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"date_from cannot be older than 4 years. Minimum allowed: {four_years_ago.isoformat()}.",
                 suggested_action=f"Use date_from >= {four_years_ago.isoformat()}.",
@@ -236,6 +245,7 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    reported_failure="the keyword data service",
                     error_type="api_error",
                     message=f"Keyword data service error: {tasks[0].get('status_message', 'Unknown') if tasks else 'No tasks returned'}",
                 ),
@@ -318,10 +328,10 @@ def _seo_stamp(result: ToolResult, started_at: float, ctx: ToolContext) -> ToolR
     return result
 
 
-def _seo_validation_error(message: str, started_at: float, ctx: ToolContext) -> ToolResult:
+def _seo_validation_error(message: str, started_at: float, ctx: ToolContext, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="validation", message=message),
+        error=ToolError.declared("validation", message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="seo",
@@ -334,7 +344,7 @@ async def seo(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         parsed = SeoArgs.model_validate(args).root
     except ValidationError as exc:
-        return _seo_validation_error(format_args_error(exc), started_at, ctx)
+        return _seo_validation_error(format_args_error(exc), started_at, ctx, exc=exc)
 
     action = parsed.action
     inner_args = parsed.model_dump(exclude={"action"}, exclude_unset=True)

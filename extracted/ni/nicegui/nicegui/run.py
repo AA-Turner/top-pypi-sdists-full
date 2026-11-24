@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import multiprocessing
 import multiprocessing.forkserver
 import signal
@@ -14,6 +13,7 @@ from pickle import PicklingError
 from typing import Any, Literal, ParamSpec, TypeVar
 
 from . import core, helpers
+from .logging import log
 
 process_pool: ProcessPoolExecutor | None = None
 thread_pool = ThreadPoolExecutor()
@@ -49,7 +49,7 @@ def _resolve_cpu_bound_context() -> BaseContext:
 
 
 def setup() -> None:
-    """Setup the process pool. (For internal use only.)"""
+    """Set up the process pool. (For internal use only.)"""
     global process_pool, _pool_context  # pylint: disable=global-statement # noqa: PLW0603
     _pool_context = _resolve_cpu_bound_context()
     if _pool_context.get_start_method() == 'forkserver':
@@ -61,7 +61,7 @@ def setup() -> None:
     try:
         process_pool = ProcessPoolExecutor(mp_context=_pool_context, initializer=_ignore_sigint)
     except NotImplementedError:
-        logging.warning('Failed to initialize ProcessPoolExecutor')
+        log.warning('Failed to initialize ProcessPoolExecutor')
 
 
 class SubprocessException(Exception):
@@ -107,7 +107,7 @@ async def cpu_bound(callback: Callable[P, R], *args: P.args, **kwargs: P.kwargs)
 
     ``run.cpu_bound`` needs to execute the function in a separate process.
     For this it needs to transfer the whole state of the passed function to the process (which is done with pickle).
-    It is encouraged to create static methods (or free functions) which get all the data as simple parameters (eg. no class/ui logic)
+    It is encouraged to create static methods (or free functions) which get all the data as simple parameters (e.g. no class/ui logic)
     and return the result (instead of writing it in class properties or global variables).
 
     The pool's multiprocessing start method can be configured via ``run.process_pool_start_method``

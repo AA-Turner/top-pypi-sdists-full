@@ -276,7 +276,7 @@ def Client(
     trace_context: Optional[str] = None,
 ) -> RESTClientObject:
     """
-    Configures the global API client for the Python SDK. The client will be configured in one of
+    Configures the global client for the Python SDK. The client will be configured in one of
     the following ways, in order of priority.
 
     Notes

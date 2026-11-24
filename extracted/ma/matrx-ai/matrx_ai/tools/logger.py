@@ -13,6 +13,7 @@ from matrx_utils import vcprint
 from matrx_ai.db.ownership_fields import stamp_row_owner
 from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolResult, tool_output_text
 from matrx_ai.tools.turn_ledger import (
+    record_row_metadata,
     record_row_opened,
     record_row_settled,
     record_tool_outcome,
@@ -83,12 +84,24 @@ class DelegationNotDurable(RuntimeError):
 # matrx_ai.tools, which queue_helpers transitively reaches via cx_managers).
 
 
+#: ``chat.tool_call.metadata`` key on a FAILED call: the ``call_id`` of the later successful call that
+#: corrected it (a self-corrected slip; ``turn_ledger.claim_superseded`` decides).
+SUPERSEDED_BY_KEY = "superseded_by"
+
 #: ``chat.tool_call.metadata`` key naming what a SERVER park waits on — a person
 #: answering an action request (``{"kind": "action_request", "action_request_id"}``).
 #: A row carrying it is never a client tool: ``list_pending_calls`` never offers
 #: it and a client ``/tool_results`` POST may not answer it; only the
 #: action-request resolver resolves it (Lane L live walk, 2026-09-28).
 PARKED_ON_KEY = "parked_on"
+
+#: ``chat.tool_call.metadata`` key stamped on a client-run (delegated) call whose held stream a person's NEW
+#: MESSAGE released (aidream ``runtime.delegated_hold.release_holds_for_new_message``, RESUME-AND-RECOVERY
+#: section 1b rule P9): ``{"at": <iso time>}``. The call stays ``delegated`` and a late client result is still
+#: accepted; the next turn's rebuild tells the model it is still waiting for the app instead of leaving it to
+#: the sanitizer's "NEVER ANSWERED" orphan repair (which files ``orphan_tool_use_repaired``). A call that is
+#: unanswered WITHOUT this mark is a truly lost call and still files.
+SUPERSEDED_BY_PERSON_KEY = "superseded_by_person"
 
 #: ``chat.tool_call.metadata`` key naming the person whose TURN made the call —
 #: stamped at INSERT from the turn's own ``ctx.user_id``. ``created_by`` cannot
@@ -149,8 +162,12 @@ def turn_actor_of(row: Any) -> str:
     metadata = row.get("metadata") if isinstance(row, dict) else getattr(row, "metadata", None)
     if isinstance(metadata, dict) and metadata.get(TURN_ACTOR_KEY):
         return str(metadata[TURN_ACTOR_KEY])
-    created_by = row.get("created_by") if isinstance(row, dict) else getattr(row, "created_by", None)
-    return str(created_by) if created_by else ""  # component-created-by-ok: legacy rows only — before the turn-actor stamp, only the owner could take a turn
+    created_by = (
+        row.get("created_by") if isinstance(row, dict) else getattr(row, "created_by", None)
+    )
+    return (
+        str(created_by) if created_by else ""
+    )  # component-created-by-ok: legacy rows only — before the turn-actor stamp, only the owner could take a turn
 
 
 def _cxm():
@@ -201,9 +218,7 @@ def _should_persist_tool_call() -> bool:
     return bool(getattr(ctx, "conversation_id", None))
 
 
-async def _capture_tool_ledger_failure(
-    exc: BaseException, operation: str, **payload: Any
-) -> None:
+async def _capture_tool_ledger_failure(exc: BaseException, operation: str, **payload: Any) -> None:
     from matrx_connect.streaming.error_capture import capture_error
 
     await capture_error(
@@ -216,8 +231,114 @@ async def _capture_tool_ledger_failure(
     )
 
 
+async def _write_ahead(coord: Any, *, row_id: str, ctx: ToolContext, tool_name: str) -> None:
+    """Commit the just-queued ``status='running'`` row and wait for it to land.
+
+    Before 2026-11-03 the INSERT only sat on the request Coordinator until the
+    iteration's flush — AFTER the tool (and every parallel sibling) finished —
+    so a server death mid-tool left no row at all: no trace the call ran, and
+    nothing 'running' for the watchdog or crash recovery to settle. The commit
+    rides the Coordinator's own ordered per-turn path
+    (``Coordinator.commit_queued_now``): the fired commit stays in its pending
+    set, so the next barrier still verifies it, and the completion is a plain
+    UPDATE of this row id on the next Session (one INSERT, ever — keyed on the
+    id we minted, never the provider ``call_id``).
+
+    Not durable (a failed or overdue commit, or a coordinator that already lost
+    a write) → the tool still runs and the barrier still accounts for the row,
+    but the miss is filed, never silent.
+    """
+    commit_now = getattr(coord, "commit_queued_now", None)
+    if not callable(commit_now):
+        return
+    try:
+        landed = bool(await commit_now(reason="tool_call_write_ahead"))
+        cause: BaseException = RuntimeError(
+            "tool_call write-ahead commit did not land before the tool ran"
+        )
+    except Exception as exc:  # noqa: BLE001 — reported below, never swallowed
+        landed, cause = False, exc
+    if landed:
+        return
+    vcprint(
+        f"chat.tool_call {row_id} ({tool_name}) is NOT on disk as the tool starts: "
+        f"{type(cause).__name__}: {cause}. A crash now loses the row.",
+        "[ToolLogger] write-ahead not durable",
+        color="red",
+    )
+    await _capture_tool_ledger_failure(
+        cause,
+        "insert_started_write_ahead_not_durable",
+        tool_name=tool_name,
+        call_id=ctx.call_id,
+        conversation_id=ctx.conversation_id,
+        row_id=row_id,
+    )
+
+
+# THE BACKSTOP THAT OPENS A REQUEST CLOSES IT. request_id -> worst outcome so far
+# ("completed" | "failed") for every chat.user_request this logger's FK backstop
+# GAVE BIRTH TO — a direct tool call (an operator script under
+# ``system_app_context``, a harness, an MCP tool door) that no chat/agent boundary
+# owns. Nothing upstream ever settles such a row, so before this every one sat
+# 'pending' until the lifecycle watchdog abandoned it 30 minutes later
+# (LifecycleWatchdogAlarm chat.user_request, 406 alarms by 2026-11-04 —
+# script.render_incidents alone left 53). A failure sticks: a later success under
+# the same request never hides it.
+_BACKSTOP_OPENED_REQUESTS: TTLCache[str] = TTLCache(ttl_seconds=1800, max_size=5000)
+# chat.tool_call row id -> the backstop-opened request it settles on completion.
+_BACKSTOP_REQUEST_BY_ROW: TTLCache[str] = TTLCache(ttl_seconds=1800, max_size=5000)
+
+
+def _track_backstop_row(row_id: str, user_request_id: str | None) -> None:
+    """Remember that ``row_id``'s outcome settles a backstop-opened request."""
+    if row_id and user_request_id and _BACKSTOP_OPENED_REQUESTS.exists(str(user_request_id)):
+        _BACKSTOP_REQUEST_BY_ROW.set(row_id, str(user_request_id))
+
+
+async def _settle_backstop_request(
+    user_request_id: str | None, *, success: bool, error: str | None = None
+) -> None:
+    """Move a backstop-opened ``chat.user_request`` to its terminal status.
+
+    No-op for a request a boundary owns (it was never born here). Never raises —
+    a settle failure is reported by ``update_user_request_status`` itself."""
+    if not user_request_id:
+        return
+    key = str(user_request_id)
+    prior = _BACKSTOP_OPENED_REQUESTS.get(key)
+    if prior is None:
+        return
+    status = "completed" if success and prior != "failed" else "failed"
+    _BACKSTOP_OPENED_REQUESTS.set(key, status)
+    try:
+        from matrx_ai.db.conversation_gate import update_user_request_status
+
+        await update_user_request_status(
+            key,
+            status,
+            error=(error or "tool call failed")[:500] if status == "failed" and not success else None,
+        )
+    except Exception as exc:  # noqa: BLE001 — settlement never breaks the tool path
+        vcprint(
+            f"could not settle backstop-opened user_request {key} as {status!r}: {exc}",
+            "[ToolLogger] user_request settle failed",
+            color="red",
+        )
+
+
+async def _settle_backstop_row(row_id: str, *, success: bool, error: str | None = None) -> None:
+    if not row_id:
+        return
+    user_request_id = _BACKSTOP_REQUEST_BY_ROW.get(row_id)
+    if user_request_id is None:
+        return
+    _BACKSTOP_REQUEST_BY_ROW.remove(row_id)
+    await _settle_backstop_request(user_request_id, success=success, error=error)
+
+
 async def _ensure_tool_call_parents(
-    *, conversation_id: str | None, user_request_id: str | None, user_id: str
+    *, conversation_id: str | None, user_request_id: str | None, user_id: str | None
 ) -> None:
     """Guarantee both FK parents for a ``tool_call`` exist.
 
@@ -226,9 +347,20 @@ async def _ensure_tool_call_parents(
     user-request gates. Without this backstop the INSERT lands in
     ``system_write_failure`` as a permanent FK orphan. Idempotent; safe to call
     on every tool-call write.
+
+    When the backstop GIVES BIRTH to the ``chat.user_request`` (no boundary
+    opened it), the request is recorded in ``_BACKSTOP_OPENED_REQUESTS`` so the
+    call's completion settles it — see ``_settle_backstop_request``.
     """
-    if not user_id:
-        return
+    # 🚨 NO ACTOR IS NOT "NOTHING TO ENSURE". Until 2026-11-14 a missing user_id
+    # returned here, so an organization system run (``system_app_context`` with
+    # no person — script.kindcomp_lane) queued a chat.tool_call for a conversation
+    # nobody created: the INSERT failed cx_tool_call_conversation_id_fkey, spilled
+    # to ops.system_write_failure, and every production replay worker retried it
+    # (persistence_replay_failed x5). The gate functions own the actor rule: a
+    # system run anchors its conversation with no human owner, and an empty actor
+    # outside a system run RAISES — log_started captures that and writes no row,
+    # instead of queuing an INSERT that can never succeed.
     from matrx_ai.db.conversation_gate import (
         ensure_conversation_exists,
         ensure_user_request_exists,
@@ -237,7 +369,10 @@ async def _ensure_tool_call_parents(
     if conversation_id:
         await ensure_conversation_exists(conversation_id=conversation_id, user_id=user_id)
     if user_request_id:
-        await ensure_user_request_exists(request_id=user_request_id, user_id=user_id)
+        # A tool called on its own is not the start of an AI turn: never refused by the AI allowance.
+        born = await ensure_user_request_exists(request_id=user_request_id, user_id=user_id, spends_ai=False)
+        if born is True and not _BACKSTOP_OPENED_REQUESTS.exists(str(user_request_id)):
+            _BACKSTOP_OPENED_REQUESTS.set(str(user_request_id), "pending")
     coord = _get_coordinator()
     if (
         coord is not None
@@ -374,7 +509,9 @@ class ToolExecutionLogger:
     """Two-phase logging to the ``cx_tool_call`` table via the ORM manager.
 
     Phase 1 — ``log_started()``:
-        INSERT a row with ``status='running'`` the moment execution begins.
+        INSERT a row with ``status='running'`` the moment execution begins —
+        committed (write-ahead) before the tool runs, so a crash mid-tool
+        leaves the row on disk.
 
     Phase 2 — ``log_completed()`` / ``log_error()``:
         UPDATE that row with output, cost, events, and final status.
@@ -429,6 +566,7 @@ class ToolExecutionLogger:
         exposed_name: str | None = None,
         authorization_metadata: dict[str, Any] | None = None,
         candidate_disposition: dict[str, Any] | None = None,
+        on_screen_redirect: dict[str, Any] | None = None,
     ) -> str:
         row_id = str(uuid4())
         now = datetime.now(UTC)
@@ -446,6 +584,7 @@ class ToolExecutionLogger:
             tool_name=tool_def.name,
             arguments=arguments,
             tool_def=tool_def,
+            row_id=row_id,
         )
 
         # ``tool_name`` always stores the canonical identity (the registry
@@ -464,6 +603,10 @@ class ToolExecutionLogger:
             # borrowed / stopped) rides the row from its INSERT, so the row is
             # honest even if the run dies before completion.
             metadata["mandate_candidate_disposition"] = candidate_disposition
+        if on_screen_redirect:
+            # A server write on the record open on screen, sent to the person as the
+            # page's approval card (on_screen_write_guard.on_screen_surface_redirect).
+            metadata["on_screen_redirect"] = on_screen_redirect
         data = build_tool_call_started_row(
             row_id=row_id,
             conversation_id=ctx.conversation_id,
@@ -514,6 +657,8 @@ class ToolExecutionLogger:
         except Exception:
             pass
 
+        record_row_metadata(key=ctx.call_id or row_id, metadata=data["metadata"])
+
         # Client host: delegate the INSERT to the ConversationStore (matrx-local
         # SQLite) — no cxm, no coordinator. 0.1.26 ConversationHandler semantics:
         # return the row_id on success, "" on failure, never raise.
@@ -545,15 +690,20 @@ class ToolExecutionLogger:
                 user_request_id=data.get("user_request_id"),
                 user_id=ctx.user_id,
             )
-            # Route through the WriteCoordinator: queue the INSERT (fire-and-
-            # forget; lands at end-of-stream flush) and announce the row to
+            _track_backstop_row(row_id, data.get("user_request_id"))
+            # Route through the WriteCoordinator: queue the INSERT, commit it
+            # BEFORE the tool runs (_write_ahead), and announce the row to
             # the client via the reservation tracker. The cx_tool_call lifecycle
             # is now: queue INSERT → log_completed queues UPDATE → coalescer
             # merges into a single INSERT with terminal status. The 0-stuck-
             # row guarantee for this table that we had via shield+finally is
             # preserved structurally — the lane finalizer ALWAYS flushes.
-            if _get_coordinator() is not None:
+            coord = _get_coordinator()
+            if coord is not None:
                 _queue_tool_call_create(**data)
+                # WRITE-AHEAD: the row must be ON DISK ('running') before the
+                # tool runs — queued-only, a server death mid-tool lost it.
+                await _write_ahead(coord, row_id=row_id, ctx=ctx, tool_name=tool_def.name)
             else:
                 # Boot-time / out-of-request: this table is Coordinator-owned.
                 # A bare Session has transaction mechanics but no ownership
@@ -604,6 +754,11 @@ class ToolExecutionLogger:
             record_row_opened(row_id=row_id, tool_name=tool_def.name)
             return row_id
         except Exception as exc:
+            # No row was queued: a registered id would make park / backfill trust
+            # a chat.tool_call that will never exist.
+            key = _call_row_key(ctx.conversation_id, ctx.call_id)
+            if key and _TOOL_CALL_ROW_BY_CALL_ID.get(key) == row_id:
+                _TOOL_CALL_ROW_BY_CALL_ID.remove(key)
             vcprint(
                 f"Failed to INSERT cx_tool_call (started): {exc}\n{traceback.format_exc()}",
                 "[ToolLogger] INSERT cx_tool_call failed",
@@ -726,6 +881,9 @@ class ToolExecutionLogger:
             tool_name=canonical,
             status="rejected",
             error_text=(err.message if err else None),
+            arguments=arguments,
+            row_id=row_id,
+            row_metadata={"tool_name_as_called": tool_name} if canonical != tool_name else {},
         )
 
         started = datetime.fromtimestamp(result.started_at, tz=UTC) if result.started_at else now
@@ -748,7 +906,9 @@ class ToolExecutionLogger:
             "success": False,
             "is_error": True,
             "error_type": err.error_type if err else "rejected",
-            "error_message": (err.message if err else "Tool call rejected before dispatch."),
+            "error_message": (
+                err.persisted_message() if err else "Tool call rejected before dispatch."
+            ),
             "output": None,
             "output_type": "text",
             "output_chars": 0,
@@ -822,6 +982,13 @@ class ToolExecutionLogger:
                     conversation_id=ctx.conversation_id or None,
                 ):
                     _queue_tool_call_create(**data)
+            # A rejected call is born terminal: a request the backstop opened for
+            # it closes now, as failed.
+            await _settle_backstop_request(
+                data.get("user_request_id"),
+                success=False,
+                error=(err.message if err else "tool call rejected"),
+            )
             return row_id
         except Exception as exc:
             vcprint(
@@ -910,10 +1077,34 @@ class ToolExecutionLogger:
             update_data["value_ref_key"] = result.value_ref_key
 
         await self._update_row(row_id, update_data, coordinator=coordinator)
+        await _settle_backstop_row(
+            row_id,
+            success=bool(result.success),
+            error=(result.error.message if result.error else None),
+        )
 
     # ------------------------------------------------------------------
     # Phase 2b: log_error (UPDATE)
     # ------------------------------------------------------------------
+
+    async def mark_superseded(
+        self, claimed: list[Any], by_call_id: str, *, coordinator: Any = None
+    ) -> None:
+        """Stamp ``metadata.superseded_by`` on each failed row a later success corrected.
+
+        Goes through ``_update_row`` (the Coordinator), merged into the metadata the row was inserted
+        with, so it coalesces behind the row's own INSERT/terminal UPDATE.
+        """
+        if not _should_persist_tool_call():
+            return
+        for entry in claimed:
+            if not entry.row_id:
+                continue
+            await self._update_row(
+                entry.row_id,
+                {"metadata": {**(entry.row_metadata or {}), SUPERSEDED_BY_KEY: by_call_id}},
+                coordinator=coordinator,
+            )
 
     async def log_error(
         self,
@@ -963,6 +1154,11 @@ class ToolExecutionLogger:
         }
 
         await self._update_row(row_id, update_data, coordinator=coordinator)
+        await _settle_backstop_row(
+            row_id,
+            success=False,
+            error=(result.error.message if result.error else "tool call failed"),
+        )
 
     # ------------------------------------------------------------------
     # Phase 1b: log_delegated (UPDATE) — transition 'running' → 'delegated'.
@@ -1069,6 +1265,11 @@ class ToolExecutionLogger:
            as "abort, tell the person nothing is waiting", which is the only
            honest outcome.
         """
+        if not row_id:
+            # An EPHEMERAL run (store=false) logs no tool-call row, so ``row_id`` is "" and there is nothing on
+            # disk to park or prove; the read-back below used to query ``WHERE id = ''`` and fail every client
+            # tool of an unsaved chat (live 2026-11-14, data.table_chat apply_surface_write).
+            return
         coordinator = None
         try:
             from matrx_ai.persistence.queue_helpers import get_coordinator
@@ -1126,9 +1327,12 @@ class ToolExecutionLogger:
         marked = parked_on is None or (
             isinstance(metadata, dict) and metadata.get(PARKED_ON_KEY) == dict(parked_on)
         )
-        if status == "delegated" and is_delegated and expires_at_on_disk is not None and marked:
+        parked = status == "delegated" and is_delegated and expires_at_on_disk is not None
+        if parked and marked:
             return
-        if not marked:
+        # A park whose flip never landed is missing its marker too; name the
+        # columns first, so the refusal says what the row actually reads.
+        if parked:
             raise DelegationNotDurable(
                 f"{reason}: chat.tool_call {row_id!r} is parked but its "
                 f"metadata.{PARKED_ON_KEY} marker did not land — a client would treat "
@@ -1563,6 +1767,9 @@ class ToolExecutionLogger:
                         "completed_at": now_iso,
                         "resolved_at": now_iso,
                         "resolution_source": "timeout_sweep",
+                        # NEVER HAND A HOLDER ITS PLACEHOLDER (RESUME-AND-RECOVERY 1b rule P8): a row
+                        # resolved while it still carries a lease reads as "taken under the hold".
+                        "held_until": None,
                     },
                 )
                 updated += 1
@@ -1867,9 +2074,9 @@ class ToolExecutionLogger:
         if output_type == "json":
             if not isinstance(output, dict | list):
                 # A kind model / dataclass: preview the JSON the row stores.
-                from matrx_ai.tools.models import to_json_safe
+                from matrx_ai.tools.models import to_lean_json
 
-                output = to_json_safe(output)
+                output = to_lean_json(output)
             if isinstance(output, dict):
                 if len(output) <= max_keys:
                     candidate = {str(k): v for k, v in output.items()}
@@ -1955,13 +2162,23 @@ async def _write_gate_verdict(
             )
             return
         row_id = str(matches[0].id)
-        existing = getattr(matches[0], "metadata", None)
-    else:
-        rows = await _cxm().tool_call.filter_items(id=row_id)
-        existing = getattr(rows[0], "metadata", None) if rows else None
-    metadata = dict(existing) if isinstance(existing, dict) else {}
-    metadata[GATE_VERDICT_METADATA_KEY] = verdict
-    await _cxm().tool_call.update_item_fields(row_id, metadata=metadata)
+    from matrx_orm import COORDINATOR_BYPASS_ACKNOWLEDGEMENT, allow_direct_coordinator_write
+
+    from matrx_ai.persistence.queue_helpers import _ensure_cx_registered, get_model
+
+    _ensure_cx_registered()
+    # An out-of-request write by design: this runs DETACHED, after the call's row was flushed by
+    # its Coordinator (a still-queued row takes the verdict on its own INSERT in
+    # record_gate_verdict_on_row). Declared, so the ownership guard stops filing it as a bypass,
+    # and one atomic jsonb path write, so it never clobbers a sibling metadata key.
+    with allow_direct_coordinator_write(
+        get_model("chat.tool_call"),
+        reason="content-gate verdict patched onto an already-stored tool-call row (detached)",  # agent-context-text-ok: a coordinator-bypass reason, logged only, never sent to a model
+        acknowledgement=COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+    ):
+        await _cxm().tool_call.patch_jsonb_path(
+            row_id, "metadata", [GATE_VERDICT_METADATA_KEY], verdict
+        )
 
 
 def record_gate_verdict_on_row(
@@ -1970,13 +2187,21 @@ def record_gate_verdict_on_row(
     """Stamp one content-gate verdict onto its tool-call row. Never raises."""
     if not call_id or not isinstance(verdict, dict):
         return
+    row_id = _TOOL_CALL_ROW_BY_CALL_ID.get(_call_row_key(conversation_id, call_id) or "")
+    if row_id:
+        try:
+            from matrx_ai.persistence.queue_helpers import merge_into_queued_tool_call_metadata
+
+            # Still a queued INSERT on this request's Coordinator: the verdict rides the row itself.
+            if merge_into_queued_tool_call_metadata(row_id, GATE_VERDICT_METADATA_KEY, verdict):
+                return
+        except Exception:  # noqa: BLE001 — fall through to the stored-row write
+            pass
     try:
         from matrx_utils import detached_task
 
         detached_task(
-            _write_gate_verdict(
-                call_id=call_id, conversation_id=conversation_id, verdict=verdict
-            ),
+            _write_gate_verdict(call_id=call_id, conversation_id=conversation_id, verdict=verdict),
             name="tool_call_gate_verdict",
         )
     except Exception as exc:  # noqa: BLE001 — an audit write never breaks a result

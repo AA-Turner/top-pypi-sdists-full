@@ -25,7 +25,7 @@ class IndeedJobsInput(TypedDict, total=False):
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     limit: NotRequired[int]
-    """Maximum number of results to return (1-20, default 20). Range: 1 to 20."""
+    """Maximum number of results to return (1-100, default 20). Range: 1 to 100."""
     location: NotRequired[str]
     """City, state, zip, or 'remote'."""
     postedLimit: NotRequired[Literal["24h", "week"]]
@@ -145,8 +145,16 @@ class IndeedJobsItem(BaseModel):
         description="Number of employer reviews on Indeed.",
     )
     salary_currency: str | None = Field(default=None, alias="salaryCurrency")
-    salary_max: float | None = Field(default=None, alias="salaryMax")
-    salary_min: float | None = Field(default=None, alias="salaryMin")
+    salary_max: float | None = Field(
+        default=None,
+        alias="salaryMax",
+        description="Outside the US, salary may be null even when the Indeed listing shows pay.",
+    )
+    salary_min: float | None = Field(
+        default=None,
+        alias="salaryMin",
+        description="Outside the US, salary may be null even when the Indeed listing shows pay.",
+    )
     salary_unit: str | None = Field(
         default=None,
         alias="salaryUnit",
@@ -177,10 +185,11 @@ class IndeedNamespace:
     ) -> RunResult[IndeedJobsData]:
         """Indeed Jobs
 
-        Search Indeed job listings by keyword, location, and country, with up to 20
-        normalized job records per request.
+        Search Indeed job listings by keyword, location, and country, with up to 100
+        normalized job records per request. Outside the US, salary may be null even
+        when the Indeed listing shows pay.
 
-        Price: $0.00115 per request.
+        Price: $0.00125 per request.
 
         Example:
             res = client.indeed.jobs(limit=3, location="Austin, TX", query="data analyst")
@@ -202,10 +211,11 @@ class AsyncIndeedNamespace:
     ) -> RunResult[IndeedJobsData]:
         """Indeed Jobs
 
-        Search Indeed job listings by keyword, location, and country, with up to 20
-        normalized job records per request.
+        Search Indeed job listings by keyword, location, and country, with up to 100
+        normalized job records per request. Outside the US, salary may be null even
+        when the Indeed listing shows pay.
 
-        Price: $0.00115 per request.
+        Price: $0.00125 per request.
 
         Example:
             res = client.indeed.jobs(limit=3, location="Austin, TX", query="data analyst")

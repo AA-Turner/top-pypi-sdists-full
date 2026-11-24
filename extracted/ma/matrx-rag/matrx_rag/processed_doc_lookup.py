@@ -33,9 +33,12 @@ EXTRACTION_DERIVATION_KINDS: tuple[str, ...] = (
 async def find_processed_document_by_cld_file(
     cld_file_id: str,
 ) -> dict[str, Any] | None:
-    """Return the newest live (not deleted, not archived) EXTRACTION
+    """Return the file's live (not deleted, not archived) EXTRACTION
     (:data:`EXTRACTION_DERIVATION_KINDS`) anchored to a cld_file — never one of its
-    derivatives.
+    derivatives. The file's canonical pointer (``files.canonical_processed_document_id``)
+    decides when it names a live extraction of this file; only a file without one falls
+    back to the newest. A newer extraction that never became canonical (a version whose
+    write failed, a re-extract awaiting promotion) is never "the file's text".
 
     The row carries owner_id (read from created_by) + organization_id so callers can apply
     their own ACL on top of this. RLS on `processed_documents` is the
@@ -44,31 +47,33 @@ async def find_processed_document_by_cld_file(
     Returns None when the file has never been processed for RAG.
     """
     ProcessedDocuments = get_db_model("ProcessedDocuments")
-    rows = await (
-        ProcessedDocuments.filter(
-            source_kind="cld_file",
-            source_id=cld_file_id,
-            deleted_at__isnull=True,
-            archived_at__isnull=True,
-            # The file's own extraction — never a derivative (clean_v1, table_row,
-            # section_summary, synthetic_qa, agent_structured_json, chunked_*): those
-            # copy the parent's file id, have no pages, and are often NEWER.
-            derivation_kind__in=list(EXTRACTION_DERIVATION_KINDS),
-        )
-        .order_by("-created_at")
-        .limit(1)
-        .values(
-            "id",
-            "name",
-            "created_by",
-            "organization_id",
-            "source_kind",
-            "derivation_kind",
-            "total_pages",
-            "clean_content",
-            "updated_at",
-        )
+    live = {
+        "source_kind": "cld_file",
+        "source_id": cld_file_id,
+        "deleted_at__isnull": True,
+        "archived_at__isnull": True,
+        # The file's own extraction — never a derivative (clean_v1, table_row,
+        # section_summary, synthetic_qa, agent_structured_json, chunked_*): those
+        # copy the parent's file id, have no pages, and are often NEWER.
+        "derivation_kind__in": list(EXTRACTION_DERIVATION_KINDS),
+    }
+    columns = (
+        "id",
+        "name",
+        "created_by",
+        "organization_id",
+        "source_kind",
+        "derivation_kind",
+        "total_pages",
+        "clean_content",
+        "updated_at",
     )
+    rows: list[dict[str, Any]] = []
+    canonical = await _canonical_pointer(cld_file_id)
+    if canonical:
+        rows = await ProcessedDocuments.filter(id=canonical, **live).values(*columns)
+    if not rows:
+        rows = await ProcessedDocuments.filter(**live).order_by("-created_at").limit(1).values(*columns)
     if not rows:
         return None
     row = rows[0]
@@ -84,6 +89,17 @@ async def find_processed_document_by_cld_file(
         "has_clean_content": bool(clean_content is not None and len(clean_content) > 0),
         "updated_at": row["updated_at"],
     }
+
+
+async def _canonical_pointer(cld_file_id: str) -> str | None:
+    """``files.canonical_processed_document_id`` of the file, if set."""
+    from matrx_files.gated_reads import read_file_row
+    from matrx_utils.ctx import system_file_access
+
+    with system_file_access("rag-canonical-pointer"):
+        row = await read_file_row(cld_file_id, ["canonical_processed_document_id"])
+    value = row.get("canonical_processed_document_id") if row else None
+    return str(value) if value else None
 
 
 async def count_chunks_for_processed_document(processed_document_id: str) -> int:
@@ -131,8 +147,10 @@ async def get_lineage_summary_for_cld_file(
     """
     Files = get_db_model("Files")
     file_uuid = uuid.UUID(cld_file_id)
-    rows = await Files.filter(id=file_uuid).values(
-        "id", "parent_file_id", "derivation_kind", "derivation_metadata"
+    from matrx_files.gated_reads import read_file_rows
+
+    rows = await read_file_rows(
+        ["parent_file_id", "derivation_kind", "derivation_metadata"], id=file_uuid
     )
     if not rows:
         return None

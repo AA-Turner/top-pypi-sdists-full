@@ -31,6 +31,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from matrx_graph.content_ir.blank_kind import report_blank_kind
+
 from matrx_ai.processing.blocks.envelope import IR_ENVELOPE_KEY
 from matrx_ai.processing.blocks.stream_processor import process_complete_to_blocks
 
@@ -90,6 +92,7 @@ def _self_described_json(block: dict[str, Any]) -> dict[str, Any] | None:
         parsed = json.loads(body)
     except (TypeError, ValueError):
         return None
+    report_blank_kind("content_view.parsed_kind_body", parsed)
     if isinstance(parsed, dict) and isinstance(parsed.get("__kind"), str) and parsed["__kind"]:
         return parsed
     return None

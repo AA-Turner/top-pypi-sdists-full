@@ -63,12 +63,16 @@ import asyncio
 import logging
 import time
 from enum import StrEnum
+from collections.abc import Iterable
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from matrx_graph.content_ir.markers import normalize_nonidentity_markers, strip_kind_markers
-from matrx_graph.executor.schema_validation import schema_validity_errors, validate_instance
+from matrx_graph.content_ir.markers import normalize_nonidentity_markers, strip_kind_markers  # noqa: F401 — public re-exports
+from matrx_graph.executor.schema_validation import (
+    schema_validity_errors,
+    validate_instance_checked,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +92,10 @@ class KindDegradedReason(StrEnum):
     SCHEMA_UNAVAILABLE = "schema_unavailable"
     SCHEMA_INVALID = "schema_invalid"
     CATALOG_UNREACHABLE = "catalog_unreachable"
+    #: ``table:<uuid>`` only: the record store refused to describe the Table to the asking person.
+    #: The entry's ``refusal`` is the store's own sentence. FATAL under an enforced family: a step
+    #: whose operator cannot open its Table does not run.
+    KIND_NOT_READABLE = "kind_not_readable"
 
 
 #: Fatal kind enforcement, per contract family. **A CAPS CONSTANT, NEVER AN
@@ -184,6 +192,7 @@ def degraded_escalation(reason: KindDegradedReason) -> Literal["fatal", "degrade
     | schema_unavailable  | degraded (loud)   | FATAL     |
     | schema_invalid      | degraded (loud)   | FATAL     |
     | catalog_unreachable | degraded (loud)   | degraded² |
+    | kind_not_readable   | degraded (loud)   | FATAL³    |
 
     ¹ **THE ENGINE IGNORES ``is_active``, IN BOTH COLUMNS** (Arman,
       2026-08-25). It is the FRONTEND's dual-gate flag — the server serves it
@@ -200,6 +209,9 @@ def degraded_escalation(reason: KindDegradedReason) -> Literal["fatal", "degrade
       rows may carry it; the engine no longer produces it.
     ² an infra outage must never masquerade as validation success OR take
       down execution — it stays loudly degraded even when enforced.
+    ³ ``table:<uuid>`` kinds only: the record store refused to describe the Table to the
+      person the read runs as (the entry's ``refusal`` is the store's own sentence). A step
+      whose operator cannot open its Table does not run.
     """
     if reason in (
         KindDegradedReason.CATALOG_UNREACHABLE,
@@ -236,6 +248,10 @@ class KindEntry(BaseModel):
     #: ``record`` kind — the ones that take the control keys (``kind_control_keys``) — without a
     #: second query.
     disposition: str | None = None
+    #: ``table:<uuid>`` only: the Table's structure stamp (``custom.table_kind_facts.stamp``).
+    stamp: str | None = None
+    #: ``table:<uuid>`` only: the store's sentence when it refused to describe the Table.
+    refusal: str | None = None
 
 
 _cache: dict[str, tuple[float, KindEntry | None]] = {}
@@ -375,11 +391,58 @@ def _degraded_reason_for(entry: KindEntry | None) -> KindDegradedReason | None:
     """
     if entry is None:
         return KindDegradedReason.KIND_NOT_REGISTERED
+    if entry.refusal:
+        return KindDegradedReason.KIND_NOT_READABLE
     if entry.json_schema is None:
         return KindDegradedReason.SCHEMA_UNAVAILABLE
     if entry.schema_errors:
         return KindDegradedReason.SCHEMA_INVALID
     return None
+
+
+def _entry_from_rows(slug: str, rows: Any) -> KindEntry | None:
+    """The one registry entry for ``slug`` out of its catalog rows (None = unregistered)."""
+    live = [r for r in rows or [] if getattr(r, "deleted_at", None) is None]
+    if not live:
+        return None
+    if len(live) > 1:
+        # (organization_id, kind) is unique, so >1 row means multiple
+        # orgs define the slug.  The host-injected canonical public
+        # row wins, then another public row.  This MUST match the
+        # list snapshot consumed by the synchronous stream detector.
+        logger.warning(
+            "kind catalog: %d live rows for kind '%s' across orgs; "
+            "using the canonical/public one. Org-scoped kind resolution "
+            "is not implemented in the engine yet.",
+            len(live),
+            slug,
+        )
+    row = _select_catalog_row(live)
+    schema = getattr(row, "emitted_json_schema", None)
+    json_schema = schema if isinstance(schema, dict) else None
+    # Metaschema-check ONCE at resolution (cached with the entry) so a
+    # structurally broken registration is the named degraded reason
+    # ``schema_invalid`` instead of a per-validation runtime surprise.
+    errors = tuple(schema_validity_errors(json_schema)) if json_schema is not None else ()
+    if errors:
+        _warn_once(
+            slug,
+            f"kind catalog: kind '{slug}' has a MALFORMED "
+            f"emitted_json_schema (not a valid Draft 2020-12 JSON "
+            f"Schema) — validation SKIPPED "
+            f"(degraded_reason={KindDegradedReason.SCHEMA_INVALID.value}). "
+            f"Fix the registration. Findings: {'; '.join(errors)}",
+        )
+    return KindEntry(
+        id=str(getattr(row, "id", "") or ""),
+        slug=slug,
+        version=int(getattr(row, "version", 1) or 1),
+        label=str(getattr(row, "label", "") or ""),
+        json_schema=json_schema,
+        is_active=bool(getattr(row, "is_active", True)),
+        schema_errors=errors,
+        disposition=_row_disposition(row),
+    )
 
 
 async def resolve_kind(slug: str) -> tuple[KindEntry | None, KindDegradedReason | None]:
@@ -391,7 +454,15 @@ async def resolve_kind(slug: str) -> tuple[KindEntry | None, KindDegradedReason 
     immediate once the catalog is back. All other outcomes are process-cached
     (TTL 5min); ``invalidate_kind_catalog_cache()`` clears the cache after a
     registry mutation.
+
+    ``table:<uuid>`` is never a registry row: it is answered LIVE, as the asking person, by
+    :func:`matrx_graph.table_kinds.resolve_table_kind` (never cached across people; a per-request
+    memo only), before the registry cache is consulted.
     """
+    from matrx_graph.table_kinds import is_table_kind, resolve_table_kind
+
+    if is_table_kind(slug):
+        return await resolve_table_kind(slug)
     cached = _cache.get(slug)
     if cached is not None and (time.monotonic() - cached[0]) < _CACHE_TTL_SECONDS:
         return cached[1], _degraded_reason_for(cached[1])
@@ -412,49 +483,65 @@ async def resolve_kind(slug: str) -> tuple[KindEntry | None, KindDegradedReason 
                 f"This is a platform wiring/infra defect, not user input. err={exc}",
             )
             return None, KindDegradedReason.CATALOG_UNREACHABLE
-        live = [r for r in rows or [] if getattr(r, "deleted_at", None) is None]
-        entry: KindEntry | None = None
-        if live:
-            if len(live) > 1:
-                # (organization_id, kind) is unique, so >1 row means multiple
-                # orgs define the slug.  The host-injected canonical public
-                # row wins, then another public row.  This MUST match the
-                # list snapshot consumed by the synchronous stream detector.
-                logger.warning(
-                    "kind catalog: %d live rows for kind '%s' across orgs; "
-                    "using the canonical/public one. Org-scoped kind resolution "
-                    "is not implemented in the engine yet.",
-                    len(live),
-                    slug,
-                )
-            row = _select_catalog_row(live)
-            schema = getattr(row, "emitted_json_schema", None)
-            json_schema = schema if isinstance(schema, dict) else None
-            # Metaschema-check ONCE at resolution (cached with the entry) so a
-            # structurally broken registration is the named degraded reason
-            # ``schema_invalid`` instead of a per-validation runtime surprise.
-            errors = tuple(schema_validity_errors(json_schema)) if json_schema is not None else ()
-            entry = KindEntry(
-                id=str(getattr(row, "id", "") or ""),
-                slug=slug,
-                version=int(getattr(row, "version", 1) or 1),
-                label=str(getattr(row, "label", "") or ""),
-                json_schema=json_schema,
-                is_active=bool(getattr(row, "is_active", True)),
-                schema_errors=errors,
-                disposition=_row_disposition(row),
-            )
-            if errors:
-                _warn_once(
-                    slug,
-                    f"kind catalog: kind '{slug}' has a MALFORMED "
-                    f"emitted_json_schema (not a valid Draft 2020-12 JSON "
-                    f"Schema) — validation SKIPPED "
-                    f"(degraded_reason={KindDegradedReason.SCHEMA_INVALID.value}). "
-                    f"Fix the registration. Findings: {'; '.join(errors)}",
-                )
+        entry = _entry_from_rows(slug, rows)
         _cache[slug] = (time.monotonic(), entry)
         return entry, _degraded_reason_for(entry)
+
+
+async def warm_kinds(slugs: Iterable[str]) -> None:
+    """Resolve many kinds in ONE read, so the per-slug ``resolve_kind`` calls after it are cache hits.
+
+    The provision sync resolved 255 kinds one round-trip at a time: seconds beside the database, 60 s
+    from a laptop (boot_step_stalled, 2026-10-30..11-06). A slug the catalog does not have is cached as
+    unregistered, exactly as ``resolve_kind`` caches it. An unreachable catalog caches nothing and says
+    so; each ``resolve_kind`` then reads for itself and reports its own degraded reason.
+    """
+    from matrx_graph.table_kinds import is_table_kind
+
+    now = time.monotonic()
+    wanted = sorted(
+        {
+            slug
+            for slug in slugs
+            if slug
+            and not is_table_kind(slug)
+            and not ((hit := _cache.get(slug)) is not None and now - hit[0] < _CACHE_TTL_SECONDS)
+        }
+    )
+    if not wanted:
+        return
+    async with _cache_lock:
+        try:
+            mgr = _manager()
+            model = getattr(mgr, "model", None)
+            if model is not None and hasattr(model, "filter"):
+                rows = await (
+                    model.filter(kind__in=wanted, deleted_at__isnull=True)
+                    .only(
+                        "id",
+                        "kind",
+                        "version",
+                        "label",
+                        "emitted_json_schema",
+                        "is_active",
+                        "published_to_web",
+                        "organization_id",
+                        "metadata",
+                    )
+                    .all()
+                )
+            else:
+                rows = await mgr.load_items(kind__in=wanted)
+        except Exception as exc:  # noqa: BLE001 — DB-not-wired is a platform defect
+            _raise_if_programmer_error(exc, what="batch lookup")
+            logger.error("kind catalog: batch lookup of %d kinds failed: %s", len(wanted), exc)
+            return
+        by_slug: dict[str, list[Any]] = {}
+        for row in rows or []:
+            by_slug.setdefault(str(getattr(row, "kind", "") or ""), []).append(row)
+        stamped = time.monotonic()
+        for slug in wanted:
+            _cache[slug] = (stamped, _entry_from_rows(slug, by_slug.get(slug)))
 
 
 def declared_output_kind(data: Any, spec_output_kind: str | None) -> str | None:
@@ -514,7 +601,13 @@ async def resolve_kind_edges(slug: str) -> tuple[tuple[str, str], ...]:
     platform defect, logged once, and yields an EMPTY tuple rather than
     raising — a picker that dies because a registry read failed is worse than
     a picker showing the schema-only view and saying so.
+
+    A ``table:<uuid>`` kind declares no composition (its relations are Fields): ``()``.
     """
+    from matrx_graph.table_kinds import is_table_kind
+
+    if is_table_kind(slug):
+        return ()
     cached = _edge_cache.get(slug)
     if cached is not None and (time.monotonic() - cached[0]) < _CACHE_TTL_SECONDS:
         return cached[1]
@@ -724,6 +817,92 @@ class KindCheck(BaseModel):
     degraded_reason: KindDegradedReason | None = None
     kind_version: int | None = None
     kind_active: bool | None = None
+    #: ``kind_not_readable`` only: the record store's own sentence (``table:<uuid>`` kinds).
+    refusal: str | None = None
+
+
+def _validate_reduced_copy(schema: dict[str, Any], value: Any) -> tuple[list[str], bool]:
+    """The markers reduced on a local copy, then the schema check (pure CPU, a value's every leaf)."""
+    from matrx_graph.content_ir.markers import reduce_for_validation
+
+    return validate_instance_checked(_checking_schema(schema), reduce_for_validation(value, schema))
+
+
+#: id(schema) -> (schema, the same schema without its accept-anything positions). The schema is kept so its id
+#: is never reused; a kind's schema object lives as long as its catalog entry (bounded by the kind count).
+_CHECKING_SCHEMAS: dict[int, tuple[dict[str, Any], Any]] = {}
+
+def _mentions_keyword(node: Any, keyword: str, depth: int = 0) -> bool:
+    """True when ``keyword`` is a key anywhere in ``node`` (data keywords included — a false yes only keeps a
+    keyword as written)."""
+    if depth > 64:
+        return True
+    if isinstance(node, dict):
+        return keyword in node or any(_mentions_keyword(v, keyword, depth + 1) for v in node.values())
+    if isinstance(node, list):
+        return any(_mentions_keyword(v, keyword, depth + 1) for v in node)
+    return False
+
+
+def _checking_schema(schema: dict[str, Any]) -> Any:
+    """``schema`` as validation applies it, every position that accepts anything written as ``True`` and an
+    ``items`` / ``additionalProperties`` of ``True`` left out — the same instances pass and fail with the same
+    errors, but the validator no longer resolves ``$ref: JsonValue`` (``{}``) once per element of a 600-row
+    list (L-SPEED 6e part 2: the ``$ref`` walk was most of every remaining kind check)."""
+    hit = _CHECKING_SCHEMAS.get(id(schema))
+    if hit is not None and hit[0] is schema:
+        return hit[1]
+    from matrx_graph.content_ir.markers import _accepts_anything
+
+    # ``items: true`` / ``additionalProperties: true`` differ from absent ONLY to an ``unevaluated*`` keyword (they
+    # mark children evaluated — review 6h, I2: ``unevaluatedProperties: false`` beside a free ``additionalProperties``
+    # failed every extra key once it was dropped). Such a keyword can sit in any adjacent branch, so its mere
+    # presence anywhere in the schema keeps the matching keyword as written.
+    droppable = tuple(
+        key
+        for key, guard in (
+            ("items", "unevaluatedItems"),
+            ("additionalProperties", "unevaluatedProperties"),
+            ("unevaluatedProperties", None),
+            ("unevaluatedItems", None),
+        )
+        if guard is None or not _mentions_keyword(schema, guard)
+    )
+
+    def simplify(node: Any, depth: int = 0) -> Any:
+        if depth > 64:
+            return node
+        if isinstance(node, list):
+            return [simplify(v, depth + 1) for v in node]
+        if not isinstance(node, dict):
+            return node
+        if node and _accepts_anything(node, schema):
+            return True
+        out: dict[str, Any] = {}
+        for key, sub in node.items():
+            if key in ("$defs", "definitions") and isinstance(sub, dict):
+                # Still addressable by $ref: a definition that accepts anything stays as written.
+                out[key] = {n: v if _accepts_anything(v, schema) else simplify(v, depth + 1) for n, v in sub.items()}
+                continue
+            if key in ("const", "enum", "default", "examples", "not", "oneOf"):
+                # Data keywords are values, not schemas; ``not`` / ``oneOf`` print their schemas in their
+                # errors, so they stay as written (the same words either way).
+                out[key] = sub
+                continue
+            if key in ("properties", "patternProperties", "dependentSchemas") and isinstance(sub, dict):
+                out[key] = {name: simplify(v, depth + 1) for name, v in sub.items()}
+                continue
+            new = simplify(sub, depth + 1)
+            if key in droppable and new is True:
+                continue
+            out[key] = new
+        return out
+
+    checking = simplify(schema)
+    if len(_CHECKING_SCHEMAS) > 4096:
+        _CHECKING_SCHEMAS.clear()
+    _CHECKING_SCHEMAS[id(schema)] = (schema, checking)
+    return checking
 
 
 async def check_against_kind(value: Any, slug: str) -> KindCheck:
@@ -751,6 +930,15 @@ async def check_against_kind(value: Any, slug: str) -> KindCheck:
             )
         # catalog_unreachable already screamed inside resolve_kind.
         return KindCheck(checked=False, degraded_reason=reason)
+    if entry.refusal:
+        # A Table the asking person may not open: never a pass, and the store's words travel.
+        return KindCheck(
+            checked=False,
+            degraded_reason=KindDegradedReason.KIND_NOT_READABLE,
+            kind_version=entry.version,
+            kind_active=entry.is_active,
+            refusal=entry.refusal,
+        )
     if entry.json_schema is None:
         _warn_once(
             slug,
@@ -780,20 +968,86 @@ async def check_against_kind(value: Any, slug: str) -> KindCheck:
     # caller's value is never mutated and never returned reduced, because the
     # marker is part of the data (KINDS_EVERYWHERE_PLAN §4.2). Only a verdict
     # leaves here. See matrx_graph.content_ir.markers.
+    # A large value walks every leaf twice here (event_loop_stall 52b1cbc57629ba4f: 7.2 s of a
+    # worker's loop), so it runs in a thread; the verdict is the same either way.
+    from matrx_graph.checkpoint.values import run_pure_off_loop
+
+    errors, checked = await run_pure_off_loop(
+        _validate_reduced_copy, entry.json_schema, value, values=(value,)
+    )
+    if not checked:
+        # The schema passed the metaschema but could not be APPLIED (a ``$ref`` nothing
+        # resolves): a skip, never renderable as a pass.
+        return KindCheck(
+            checked=False,
+            degraded_reason=KindDegradedReason.SCHEMA_INVALID,
+            kind_version=entry.version,
+            kind_active=entry.is_active,
+        )
     return KindCheck(
         checked=True,
         # Junk on a plain sub-structure's marker (``const ""``) is normalized
         # in the local copy, never refused: old rows written under the free-
         # string schema still read.
-        errors=validate_instance(
-            entry.json_schema,
-            strip_kind_markers(
-                normalize_nonidentity_markers(value, entry.json_schema), entry.json_schema
-            ),
-        ),
+        errors=errors,
         kind_version=entry.version,
         kind_active=entry.is_active,
     )
+
+
+class SetAsideElement(BaseModel):
+    """One list element a kind check refused, taken out of the answer and reported (never dropped silently)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    field: str
+    index: int
+    element_id: Any = None
+    errors: list[str]
+
+
+async def set_aside_invalid_list_elements(
+    value: dict[str, Any], slug: str
+) -> tuple[dict[str, Any], list[SetAsideElement]]:
+    """Keep the valid elements of a list answer; take out and report the ones the kind refuses.
+
+    One wrong element (a bad ``__kind``, a missing ``id``) in a 25-element paid answer should not lose
+    the other 24. When EVERY error of the kind check sits inside an element of a top-level list
+    (``<field>.<index>[.…]: …``), those elements are removed and the rest re-checked; the cleaned answer
+    is returned with one :class:`SetAsideElement` per removed element (its index in the ORIGINAL list,
+    its ``id`` when it has one, its errors). Anything else — an error outside a list element, a check
+    that did not run, an answer that still fails once cleaned — returns the value unchanged with nothing
+    set aside, so the caller's whole-answer check fails exactly as before.
+    """
+    check = await check_against_kind(value, slug)
+    if not check.checked or not check.errors:
+        return value, []
+    bad: dict[str, dict[int, list[str]]] = {}
+    for err in check.errors:
+        location = err.split(": ", 1)[0]
+        parts = location.split(".")
+        if len(parts) < 2 or not parts[1].isdigit() or not isinstance(value.get(parts[0]), list):
+            return value, []
+        bad.setdefault(parts[0], {}).setdefault(int(parts[1]), []).append(err)
+    cleaned = dict(value)
+    aside: list[SetAsideElement] = []
+    for field, by_index in bad.items():
+        elements = value[field]
+        cleaned[field] = [e for i, e in enumerate(elements) if i not in by_index]
+        for index in sorted(by_index):
+            element = elements[index] if index < len(elements) else None
+            aside.append(
+                SetAsideElement(
+                    field=field,
+                    index=index,
+                    element_id=element.get("id") if isinstance(element, dict) else None,
+                    errors=by_index[index],
+                )
+            )
+    recheck = await check_against_kind(cleaned, slug)
+    if not recheck.checked or recheck.errors:
+        return value, []
+    return cleaned, aside
 
 
 async def validate_against_kind(value: Any, slug: str) -> list[str]:
@@ -805,6 +1059,44 @@ async def validate_against_kind(value: Any, slug: str) -> list[str]:
     ``check_against_kind`` when the caller must tell a skip from a pass.
     """
     return (await check_against_kind(value, slug)).errors
+
+
+def single_wrapped_value(value: Any) -> tuple[str, dict[str, Any]] | None:
+    """The one object a payload wraps: ``{"result": {...}}`` -> ``("result", {...})``.
+
+    A step's output can carry its kind ONE level down under a single key — a
+    display step whose edge maps ``result: structured_output`` passes
+    ``{"result": <the kind's fields>}`` through (run 62b1427a, 2026-11-03). The
+    root ``__kind`` marker is not counted as a key. Anything else (several keys,
+    a non-object child, not a dict) returns None: there is no wrapper to see
+    through, and the caller's kind check stands as it is.
+    """
+    if not isinstance(value, dict):
+        return None
+    keys = [k for k in value if k != "__kind"]
+    if len(keys) != 1:
+        return None
+    inner = value[keys[0]]
+    if not isinstance(inner, dict):
+        return None
+    return keys[0], inner
+
+
+def describe_kind_mismatch(node_id: str, value: Any) -> str:
+    """One sentence naming what a step actually handed over — so a kind violation
+    says WHAT IT GOT beside what the kind needs, never only the schema's errors."""
+    if not isinstance(value, dict):
+        return f"'{node_id}' handed over {_value_word(value)}, not an object."
+    keys = sorted(k for k in value if k != "__kind")
+    got = ", ".join(f"'{k}'" for k in keys) or "no fields"
+    wrapped = single_wrapped_value(value)
+    if wrapped is not None:
+        inner_keys = ", ".join(f"'{k}'" for k in sorted(k for k in wrapped[1] if k != "__kind"))
+        return (
+            f"'{node_id}' handed over {got}; inside '{wrapped[0]}' it has "
+            f"{inner_keys or 'no fields'}."
+        )
+    return f"'{node_id}' handed over {got}."
 
 
 async def structured_kind_schema(slug: str) -> dict[str, Any] | None:
@@ -867,21 +1159,27 @@ async def warm_input_kinds(definition: Any) -> None:
 
     Call before ``compile_graph`` wherever the compiled input surface is SERVED (the run form).
     A run never needs it: it judges landed values against the kind itself."""
-    from matrx_graph.types.input_surface import structured_input_kind
+    from pydantic import ValidationError
+
+    from matrx_graph.types.input_surface import declared_input, input_type, structured_input_kind
 
     slugs: set[str] = set()
     for node in getattr(definition, "nodes", None) or []:
-        if getattr(node, "spec_type", None) != "io.user_input":
+        if getattr(node, "spec_type", None) not in ("io.user_input", "io.trigger"):
             continue
         config = getattr(node, "config", None)
         fields = config.get("fields") if isinstance(config, dict) else None
         for fld in fields if isinstance(fields, list) else []:
             if isinstance(fld, dict):
-                slug = structured_input_kind(fld.get("kind"), fld.get("type") or "text")
+                try:
+                    declared = declared_input(fld)
+                except ValidationError:
+                    continue  # compile names the bad field; warming only skips it
+                slug = structured_input_kind(declared.valueKind, input_type(declared) or "text")
                 if slug:
                     slugs.add(slug)
     for var in getattr(definition, "variables", None) or []:
-        slug = structured_input_kind(getattr(var, "kind", ""), var.effective_type())
+        slug = structured_input_kind(var.valueKind, input_type(var))
         if slug:
             slugs.add(slug)
     for slug in sorted(slugs):

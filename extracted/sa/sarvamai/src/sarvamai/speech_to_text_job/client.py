@@ -10,11 +10,12 @@ from ..types.bulk_job_init_response import BulkJobInitResponse
 from ..types.files_download_response import FilesDownloadResponse
 from ..types.files_upload_response import FilesUploadResponse
 from ..types.job_status_response import JobStatusResponse
-from ..types.speech_to_text_model import SpeechToTextModel
-from ..types.speech_to_text_language import SpeechToTextLanguage
+from ..types.input_audio_codec import InputAudioCodec
 from ..types.mode import Mode
-from .raw_client import AsyncRawSpeechToTextJobClient, RawSpeechToTextJobClient
+from ..types.speech_to_text_batch_model import SpeechToTextBatchModel
+from ..types.speech_to_text_language import SpeechToTextLanguage
 from .job import AsyncSpeechToTextJob, SpeechToTextJob
+from .raw_client import AsyncRawSpeechToTextJobClient, RawSpeechToTextJobClient
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -43,7 +44,7 @@ class SpeechToTextJobClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BulkJobInitResponse:
         """
-        Get a job uuid, and storage folder details for speech to text bulk job v1
+        Create a new speech to text bulk job and receive a job UUID and storage folder details for processing multiple audio files. Set `job_parameters.input_audio_codec` when uploads are raw PCM (`pcm_s16le`, `pcm_l16`, or `pcm_raw`); the API auto-detects other formats. PCM must be 16 kHz.
 
         Parameters
         ----------
@@ -73,17 +74,15 @@ class SpeechToTextJobClient:
         )
         """
         _response = self._raw_client.initialise(
-            job_parameters=job_parameters,
-            callback=callback,
-            request_options=request_options,
+            job_parameters=job_parameters, callback=callback, request_options=request_options
         )
         return _response.data
 
-    def get_status(
-        self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> JobStatusResponse:
+    def get_status(self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> JobStatusResponse:
         """
-        Get the status of a speech to text bulk job V1
+        Retrieve the current status and details of a speech to text bulk job, including progress and file-level information.
+
+        **Rate Limiting Best Practice:** To prevent rate limit errors and ensure optimal server performance, we recommend implementing a minimum 5-millisecond delay between consecutive status polling requests. This helps maintain system stability while still providing timely status updates.
 
         Parameters
         ----------
@@ -120,7 +119,7 @@ class SpeechToTextJobClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> JobStatusResponse:
         """
-        Start a speech to text bulk job V1
+        Start processing a speech to text bulk job after all audio files have been uploaded
 
         Parameters
         ----------
@@ -146,28 +145,25 @@ class SpeechToTextJobClient:
         )
         client.speech_to_text_job.start(
             job_id="job_id",
+            ptu_id=1,
         )
         """
-        _response = self._raw_client.start(
-            job_id, ptu_id=ptu_id, request_options=request_options
-        )
+        _response = self._raw_client.start(job_id, ptu_id=ptu_id, request_options=request_options)
         return _response.data
 
     def get_upload_links(
-        self,
-        *,
-        job_id: str,
-        files: typing.Sequence[str],
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> FilesUploadResponse:
         """
-        Start a speech to text bulk job V1
+        Generate presigned upload URLs for audio files that will be processed in a speech to text bulk job
 
         Parameters
         ----------
         job_id : str
+            UUID of the bulk job returned from job initiation.
 
         files : typing.Sequence[str]
+            Required. Output filenames to download (e.g. "0.json"). Get these from the job status response: job_details[].outputs[].file_name after the job completes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -189,26 +185,26 @@ class SpeechToTextJobClient:
             files=["files"],
         )
         """
-        _response = self._raw_client.get_upload_links(
-            job_id=job_id, files=files, request_options=request_options
-        )
+        _response = self._raw_client.get_upload_links(job_id=job_id, files=files, request_options=request_options)
         return _response.data
 
     def get_download_links(
-        self,
-        *,
-        job_id: str,
-        files: typing.Sequence[str],
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> FilesDownloadResponse:
         """
-        Start a speech to text bulk job V1
+        Generate presigned download URLs for the transcription output files of a completed speech to text bulk job.
+
+        **Required body fields:** `job_id` and `files` (array of output filenames such as `"0.json"`). Obtain filenames from the job status response (`job_details[].outputs[].file_name`) after the job reaches `Completed` or `PartiallyCompleted`.
+
+        **Method:** POST only (GET returns 405).
 
         Parameters
         ----------
         job_id : str
+            UUID of the bulk job returned from job initiation.
 
         files : typing.Sequence[str]
+            Required. Output filenames to download (e.g. "0.json"). Get these from the job status response: job_details[].outputs[].file_name after the job completes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -230,19 +226,18 @@ class SpeechToTextJobClient:
             files=["files"],
         )
         """
-        _response = self._raw_client.get_download_links(
-            job_id=job_id, files=files, request_options=request_options
-        )
+        _response = self._raw_client.get_download_links(job_id=job_id, files=files, request_options=request_options)
         return _response.data
 
     def create_job(
         self,
-        model: SpeechToTextModel = "saarika:v2.5",
+        model: SpeechToTextBatchModel = "saaras:v4",
         mode: typing.Optional[Mode] = None,
         with_diarization: bool = False,
         with_timestamps: bool = False,
         language_code: typing.Optional[SpeechToTextLanguage] = None,
         num_speakers: typing.Optional[int] = None,
+        input_audio_codec: typing.Optional[InputAudioCodec] = None,
         keyterms: typing.Optional[typing.Sequence[str]] = None,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -252,12 +247,12 @@ class SpeechToTextJobClient:
 
         Parameters
         ----------
-        model : SpeechToTextModel, default="saarika:v2.5"
-            The model to use for transcription.
+        model : SpeechToTextBatchModel, default="saaras:v4"
+            The model to use for transcription. saaras:v4 (default, recommended, latest) or saaras:v3 (legacy).
 
         mode : typing.Optional[Mode], default=None
-            Mode of operation. Only applicable for saaras:v3 model.
-            Options: transcribe, translate, indic-en, verbatim, translit, codemix
+            Mode of operation. Applicable to saaras:v3 (legacy) and saaras:v4.
+            Options: transcribe, translate, verbatim, translit, codemix
 
         with_diarization : typing.Optional[bool], default=False
             Whether to enable speaker diarization (distinguishing who said what).
@@ -270,6 +265,10 @@ class SpeechToTextJobClient:
 
         num_speakers : typing.Optional[int], default=None
             The number of distinct speakers in the audio, if known.
+
+        input_audio_codec : typing.Optional[InputAudioCodec], default=None
+            Audio codec of the uploaded files. Most formats are auto-detected; required for raw PCM
+            (pcm_s16le, pcm_l16, pcm_raw), which must be 16 kHz.
 
         keyterms : typing.Optional[typing.Sequence[str]], default=None
             List of up to 50 domain-specific terms (names, places, brands, technical terms) to
@@ -294,6 +293,7 @@ class SpeechToTextJobClient:
                 num_speakers=num_speakers,  # type: ignore[typeddict-item]
                 with_diarization=with_diarization,
                 with_timestamps=with_timestamps,
+                **({"input_audio_codec": input_audio_codec} if input_audio_codec is not None else {}),  # type: ignore[typeddict-item]
                 keyterms=keyterms,  # type: ignore[typeddict-item]
             ),
             callback=callback,
@@ -316,7 +316,6 @@ class SpeechToTextJobClient:
             A job handle which can be used to check status or retrieve results.
         """
         return SpeechToTextJob(job_id=job_id, client=self)
-
 
 class AsyncSpeechToTextJobClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -341,7 +340,7 @@ class AsyncSpeechToTextJobClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BulkJobInitResponse:
         """
-        Get a job uuid, and storage folder details for speech to text bulk job v1
+        Create a new speech to text bulk job and receive a job UUID and storage folder details for processing multiple audio files. Set `job_parameters.input_audio_codec` when uploads are raw PCM (`pcm_s16le`, `pcm_l16`, or `pcm_raw`); the API auto-detects other formats. PCM must be 16 kHz.
 
         Parameters
         ----------
@@ -379,9 +378,7 @@ class AsyncSpeechToTextJobClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.initialise(
-            job_parameters=job_parameters,
-            callback=callback,
-            request_options=request_options,
+            job_parameters=job_parameters, callback=callback, request_options=request_options
         )
         return _response.data
 
@@ -389,7 +386,9 @@ class AsyncSpeechToTextJobClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> JobStatusResponse:
         """
-        Get the status of a speech to text bulk job V1
+        Retrieve the current status and details of a speech to text bulk job, including progress and file-level information.
+
+        **Rate Limiting Best Practice:** To prevent rate limit errors and ensure optimal server performance, we recommend implementing a minimum 5-millisecond delay between consecutive status polling requests. This helps maintain system stability while still providing timely status updates.
 
         Parameters
         ----------
@@ -423,9 +422,7 @@ class AsyncSpeechToTextJobClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get_status(
-            job_id, request_options=request_options
-        )
+        _response = await self._raw_client.get_status(job_id, request_options=request_options)
         return _response.data
 
     async def start(
@@ -436,7 +433,7 @@ class AsyncSpeechToTextJobClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> JobStatusResponse:
         """
-        Start a speech to text bulk job V1
+        Start processing a speech to text bulk job after all audio files have been uploaded
 
         Parameters
         ----------
@@ -467,31 +464,28 @@ class AsyncSpeechToTextJobClient:
         async def main() -> None:
             await client.speech_to_text_job.start(
                 job_id="job_id",
+                ptu_id=1,
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.start(
-            job_id, ptu_id=ptu_id, request_options=request_options
-        )
+        _response = await self._raw_client.start(job_id, ptu_id=ptu_id, request_options=request_options)
         return _response.data
 
     async def get_upload_links(
-        self,
-        *,
-        job_id: str,
-        files: typing.Sequence[str],
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> FilesUploadResponse:
         """
-        Start a speech to text bulk job V1
+        Generate presigned upload URLs for audio files that will be processed in a speech to text bulk job
 
         Parameters
         ----------
         job_id : str
+            UUID of the bulk job returned from job initiation.
 
         files : typing.Sequence[str]
+            Required. Output filenames to download (e.g. "0.json"). Get these from the job status response: job_details[].outputs[].file_name after the job completes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -521,26 +515,26 @@ class AsyncSpeechToTextJobClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get_upload_links(
-            job_id=job_id, files=files, request_options=request_options
-        )
+        _response = await self._raw_client.get_upload_links(job_id=job_id, files=files, request_options=request_options)
         return _response.data
 
     async def get_download_links(
-        self,
-        *,
-        job_id: str,
-        files: typing.Sequence[str],
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> FilesDownloadResponse:
         """
-        Start a speech to text bulk job V1
+        Generate presigned download URLs for the transcription output files of a completed speech to text bulk job.
+
+        **Required body fields:** `job_id` and `files` (array of output filenames such as `"0.json"`). Obtain filenames from the job status response (`job_details[].outputs[].file_name`) after the job reaches `Completed` or `PartiallyCompleted`.
+
+        **Method:** POST only (GET returns 405).
 
         Parameters
         ----------
         job_id : str
+            UUID of the bulk job returned from job initiation.
 
         files : typing.Sequence[str]
+            Required. Output filenames to download (e.g. "0.json"). Get these from the job status response: job_details[].outputs[].file_name after the job completes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -577,12 +571,13 @@ class AsyncSpeechToTextJobClient:
 
     async def create_job(
         self,
-        model: SpeechToTextModel = "saarika:v2.5",
+        model: SpeechToTextBatchModel = "saaras:v4",
         mode: typing.Optional[Mode] = None,
         with_diarization: bool = False,
         with_timestamps: bool = False,
         language_code: typing.Optional[SpeechToTextLanguage] = None,
         num_speakers: typing.Optional[int] = None,
+        input_audio_codec: typing.Optional[InputAudioCodec] = None,
         keyterms: typing.Optional[typing.Sequence[str]] = None,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -592,12 +587,12 @@ class AsyncSpeechToTextJobClient:
 
         Parameters
         ----------
-        model : SpeechToTextModel, default="saarika:v2.5"
-            The model to use for transcription.
+        model : SpeechToTextBatchModel, default="saaras:v4"
+            The model to use for transcription. saaras:v4 (default, recommended, latest) or saaras:v3 (legacy).
 
         mode : typing.Optional[Mode], default=None
-            Mode of operation. Only applicable for saaras:v3 model.
-            Options: transcribe, translate, indic-en, verbatim, translit, codemix
+            Mode of operation. Applicable to saaras:v3 (legacy) and saaras:v4.
+            Options: transcribe, translate, verbatim, translit, codemix
 
         with_diarization : typing.Optional[bool], default=False
             Whether to enable speaker diarization (distinguishing who said what).
@@ -608,8 +603,12 @@ class AsyncSpeechToTextJobClient:
         language_code : typing.Optional[SpeechToTextLanguage], default=None
             The language code of the input audio (e.g., "hi-IN", "bn-IN").
 
-        num_speakers : typing.Optional[int] = None
+        num_speakers : typing.Optional[int], default=None
             The number of distinct speakers in the audio, if known.
+
+        input_audio_codec : typing.Optional[InputAudioCodec], default=None
+            Audio codec of the uploaded files. Most formats are auto-detected; required for raw PCM
+            (pcm_s16le, pcm_l16, pcm_raw), which must be 16 kHz.
 
         keyterms : typing.Optional[typing.Sequence[str]], default=None
             List of up to 50 domain-specific terms (names, places, brands, technical terms) to
@@ -634,6 +633,7 @@ class AsyncSpeechToTextJobClient:
                 with_diarization=with_diarization,
                 with_timestamps=with_timestamps,
                 num_speakers=num_speakers,  # type: ignore[typeddict-item]
+                **({"input_audio_codec": input_audio_codec} if input_audio_codec is not None else {}),  # type: ignore[typeddict-item]
                 keyterms=keyterms,  # type: ignore[typeddict-item]
             ),
             callback=callback,

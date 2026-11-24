@@ -5,7 +5,7 @@ import torch
 from einops.layers.torch import Rearrange
 from torch import nn
 
-from braindecode.functional.patches import _check_on_non_divisible, patch_count
+from braindecode.functional.patches import pad_or_crop_to_patches, patch_count
 
 
 class PatchTokenizer(nn.Module):
@@ -42,8 +42,9 @@ class PatchTokenizer(nn.Module):
     patch_size : int
         Number of time samples per patch.
     n_times : int
-        Number of time samples of the input, used to set up the right-padding
-        when ``n_times`` is not a multiple of ``patch_size``.
+        Nominal number of time samples of the input. It is only used to
+        validate the patch geometry and warn about padding at construction;
+        padding or cropping follows the actual input length at ``forward``.
     emb_dim : int, optional
         Output features per patch in learnable mode. Defaults to ``patch_size``.
         Ignored when ``learnable=False``.
@@ -81,7 +82,9 @@ class PatchTokenizer(nn.Module):
         output_order="channel_patch",
     ):
         super().__init__()
-        _check_on_non_divisible(on_non_divisible)
+        # A crop tokenizer may receive a longer signal than its nominal length.
+        nominal_policy = "pad" if on_non_divisible == "crop" else on_non_divisible
+        patch_count(n_times, patch_size, nominal_policy)
         if projection not in ("conv", "linear"):
             raise ValueError(
                 f"projection must be 'conv' or 'linear', got {projection!r}."
@@ -97,18 +100,12 @@ class PatchTokenizer(nn.Module):
         self.projection = projection
         self.output_order = output_order
         self.emb_dim = (emb_dim or patch_size) if learnable else patch_size
-        if n_times % patch_size:
-            if on_non_divisible == "pad":
-                warn(
-                    f"Time dimension ({n_times}) is not divisible by patch_size "
-                    f"({patch_size}). Input will be padded.",
-                    UserWarning,
-                )
-            elif on_non_divisible == "error":
-                raise ValueError(
-                    f"Time dimension ({n_times}) is not divisible by patch_size "
-                    f"({patch_size})."
-                )
+        if on_non_divisible == "pad" and n_times % patch_size:
+            warn(
+                f"Time dimension ({n_times}) is not divisible by patch_size "
+                f"({patch_size}). Input will be padded.",
+                UserWarning,
+            )
         # Padding/cropping for a non-divisible time axis is applied at runtime in
         # prepare_input (which works for any input length, not just the
         # construction-time n_times), so no padding submodule is stored here.
@@ -138,7 +135,7 @@ class PatchTokenizer(nn.Module):
         Parameters
         ----------
         x : torch.Tensor
-            Input of shape ``(..., n_times)``; any ``n_times`` is accepted.
+            Input of shape ``(..., n_times)`` with a nonempty time axis.
 
         Returns
         -------
@@ -146,24 +143,7 @@ class PatchTokenizer(nn.Module):
             ``x`` with a time axis that is a multiple of ``patch_size``,
             handled as set by ``on_non_divisible``.
         """
-        n_times = x.shape[-1]
-        remainder = n_times % self.patch_size
-        if remainder == 0:
-            return x
-        if self.on_non_divisible == "pad":
-            return nn.functional.pad(x, (0, self.patch_size - remainder))
-        if self.on_non_divisible == "crop":
-            cropped_n_times = n_times - remainder
-            if cropped_n_times < self.patch_size:
-                raise ValueError(
-                    f"Need at least one full patch of {self.patch_size} samples, "
-                    f"got {n_times}."
-                )
-            return x[..., :cropped_n_times]
-        raise ValueError(
-            f"Time dimension ({n_times}) is not divisible by patch_size "
-            f"({self.patch_size})."
-        )
+        return pad_or_crop_to_patches(x, self.patch_size, self.on_non_divisible)
 
     def forward(self, x):
         x = self.prepare_input(x)
@@ -309,42 +289,53 @@ class MLP(nn.Sequential):
 
 
 class TimmMlp(nn.Module):
-    """Two-layer MLP with timm's parameter names (``fc1``, ``act``, ``fc2``,
-    ``drop``), as in ViT/MAE checkpoints: dropout after the activation and after
-    the second layer. EEGPT and LUNA use it, so their released weights load
-    with the same keys.
+    """Two-layer MLP with timm's parameter names (``fc1``, ``act``, ``norm``,
+    ``fc2``, ``drop``), as in ViT/MAE checkpoints: dropout after the
+    activation, optional normalization before the second linear layer, and
+    dropout after the second layer. EEGPT and LUNA use it, so their released
+    weights load with the same keys.
 
     Parameters
     ----------
     in_features : int
-    hidden_features : int, optional
-        Defaults to ``in_features``.
-    out_features : int, optional
-        Defaults to ``in_features``.
-    act_layer : type of torch.nn.Module
-        Activation class. Default: ``nn.GELU``.
-    drop : float
-        Dropout rate. Default: ``0.0``.
+        Input feature dimension.
+    hidden_features : int | None, optional
+        Hidden dimension. Defaults to ``in_features``.
+    out_features : int | None, optional
+        Output feature dimension. Defaults to ``in_features``.
+    act_layer : type[nn.Module], default=nn.GELU
+        Activation class.
+    drop : float, default=0.0
+        Dropout probability.
+    norm_layer : type[nn.Module] | None, optional
+        Normalization layer class before ``fc2``. Defaults to ``None``
+        (``nn.Identity()``).
     """
 
     def __init__(
         self,
-        in_features,
-        hidden_features=None,
-        out_features=None,
-        act_layer=nn.GELU,
-        drop=0.0,
-    ):
+        in_features: int,
+        hidden_features: int | None = None,
+        out_features: int | None = None,
+        act_layer: type[nn.Module] = nn.GELU,
+        drop: float = 0.0,
+        norm_layer: type[nn.Module] | None = None,
+    ) -> None:
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
         self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
+        self.norm = (
+            norm_layer(hidden_features) if norm_layer is not None else nn.Identity()
+        )
+        self.fc2 = nn.Linear(hidden_features, out_features)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.drop(self.act(self.fc1(x)))
+        if hasattr(self, "norm"):
+            x = self.norm(x)
         return self.drop(self.fc2(x))
 
 

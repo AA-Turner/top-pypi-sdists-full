@@ -12,7 +12,6 @@ schedules puts on the loop with ``call_soon_threadsafe``.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
     "asyncio",
     "nab_index.cache",
     "nab_index.cached_client",
@@ -22,34 +21,35 @@ __lazy_modules__ = (
     "nab_index.transport",
     "nab_project._build_remote",
     "nab_project._sources",
-    "nab_project._toml",
-    "nab_provider._vendor.packaging.utils",
-    "nab_provider.metadata",
+    "nab_project.toml_io",
     "nab_provider.fetch_port",
+    "nab_provider.metadata",
     "nab_provider.policy",
+    "nab_provider.project_requirements",
     "nab_provider.records",
     "nab_provider.serialization",
     "nab_provider.store",
+    "nab_resolver.diagnostics",
     "packaging.utils",
     "threading",
     "urllib.parse",
 )
 
 import asyncio
-import enum
 import logging
 import threading
-from typing import TYPE_CHECKING, Any, Final
+from functools import partial
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
-from packaging.utils import canonicalize_name as canonicalize_name_boundary
+from packaging.utils import canonicalize_name
 
 from nab_index.cache import CacheBackend, NullCache, OfflineError, OnDiskCache
 from nab_index.cached_client import (
     CachedAsyncSimpleClient,
     ParsedCacheStats,
     SdistArchiveHold,
-    read_fresh_parsed_listing,
+    read_fresh_listing,
 )
 from nab_index.lazy_wheel import RangeCapabilityMemo
 from nab_index.local_index import LocalIndexClient, is_file_url, parse_file_url
@@ -60,10 +60,11 @@ from nab_index.transport import (
     TunedHttpTransport,
     raise_unless_ok,
 )
-from nab_provider._vendor.packaging.utils import canonicalize_name
+from nab_provider.errors import IndexAccessError
 from nab_provider.fetch_port import PrefetchSettings
 from nab_provider.metadata import static_project_from_table
 from nab_provider.policy import BuildPolicy
+from nab_provider.project_requirements import project_with_static_requires_python
 from nab_provider.records import (
     DEFAULT_INDEX_NAME,
     DEFAULT_INDEX_URL,
@@ -78,27 +79,27 @@ from nab_provider.store import (
     range_pending_key,
     sdist_artifact_key,
 )
-from nab_provider.value import HashableRecord, Record
+from nab_provider.value import Record
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 
+from . import _fetch_requests as fetch_requests
 from ._build_remote import build_remote_sdist
+from ._concurrency import validate_max_concurrency
 from ._sources import materialize_source
-from ._toml import parse_pyproject_table
+from .toml_io import loads_if_valid
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
 
     from typing_extensions import Self
 
-    from nab_index.parsed_listing import ParsedListing
+    from nab_index.cached_client import ListingResult
     from nab_provider.overrides import IndexOverride, PackageOverride
 
 __all__ = [
     "DEFAULT_INDEX_NAME",
     "DEFAULT_INDEX_URL",
     "FetchCoordinator",
-    "FetchKind",
-    "FetchRequest",
     "InMemoryIndex",
     "IndexRoute",
     "WarmSyncStats",
@@ -107,11 +108,10 @@ __all__ = [
 ]
 
 
-# Maximum time the main thread waits for the fetcher thread to drain
-# its queue and exit on :meth:`FetchCoordinator.shutdown`.
 # How many fetches a resolve opens at once when its caller names no bound.
 DEFAULT_MAX_CONCURRENCY = 50
 
+# Maximum time shutdown waits for accepted requests and transport cleanup.
 _COORDINATOR_JOIN_TIMEOUT_SECONDS = 10
 
 # A warm listing whose parsed blob is smaller than this is declined to the
@@ -125,7 +125,7 @@ if TYPE_CHECKING:
 
     from nab_index.transport import AsyncHttpTransport
     from nab_provider.metadata import WheelMetadata
-    from nab_provider.policy import SourceRequest
+    from nab_provider.policy import SourceMaterialization, SourceRequest
 
     from .inputs import ResolveInputs
 
@@ -156,17 +156,6 @@ def _done_event() -> threading.Event:
     event = threading.Event()
     event.set()
     return event
-
-
-class FetchKind(enum.Enum):
-    """Distinguishes the kinds of fetches the coordinator handles."""
-
-    LISTING = "listing"
-    METADATA = "metadata"
-    RANGE_METADATA = "range-metadata"
-    SDIST = "sdist"
-    SDIST_ARCHIVE = "sdist-archive"
-    DIRECT_ARCHIVE = "direct-archive"
 
 
 class IndexRoute(Record):
@@ -243,47 +232,6 @@ def _builds_remote_sdists(inputs: ResolveInputs | None) -> bool:
     return any(o.build_policy is BuildPolicy.BUILD_REMOTE for o in overrides)
 
 
-class FetchRequest(HashableRecord):
-    """A single fetch request, carried across the sync->async boundary."""
-
-    __slots__ = __match_args__ = (
-        "kind",
-        "package",
-        "version",
-        "url",
-        "metadata_hash",
-        "sdist_hashes",
-        "wheel_hashes",
-    )
-
-    kind: Final[FetchKind]
-    package: Final[str]
-    version: Final[str | None]
-    url: Final[str | None]
-    metadata_hash: Final[tuple[str, str] | None]
-    sdist_hashes: Final[tuple[tuple[str, str], ...]]
-    wheel_hashes: Final[tuple[tuple[str, str], ...]]
-
-    def __init__(
-        self,
-        kind: FetchKind,
-        package: str,
-        version: str | None = None,
-        url: str | None = None,
-        metadata_hash: tuple[str, str] | None = None,
-        sdist_hashes: tuple[tuple[str, str], ...] = (),
-        wheel_hashes: tuple[tuple[str, str], ...] = (),
-    ) -> None:
-        """Describe an artifact request and its expected integrity."""
-        self.kind = kind
-        self.package = package
-        self.version = version
-        self.url = url
-        self.metadata_hash = metadata_hash
-        self.sdist_hashes = sdist_hashes
-        self.wheel_hashes = wheel_hashes
-
-
 class WarmSyncStats(Record):
     """Counters for the synchronous warm-hit listing path.
 
@@ -333,7 +281,7 @@ class WarmSyncStats(Record):
 
 
 # Queue items: single request, batch of requests, or None (shutdown).
-_QueueItem = FetchRequest | list[FetchRequest] | None
+_QueueItem = fetch_requests.FetchRequest | list[fetch_requests.FetchRequest] | None
 
 
 def _coordinator_cache(
@@ -430,7 +378,7 @@ class FetchCoordinator:
         """Create a coordinator that wraps ``transport``.
 
         ``indexes`` is ordered and its names must be unique. It defaults to
-        PyPI when omitted.
+        PyPI when omitted. ``max_concurrency`` must allow at least one fetch.
 
         ``index_routes`` pins package listings to named indexes.
         ``index_cache_floors`` maps index names to read-time freshness floors
@@ -451,6 +399,8 @@ class FetchCoordinator:
         ``build_config`` is the settings a :pep:`517` build runs under;
         a caller that resolves without building leaves it ``None``.
         """
+        validate_max_concurrency(max_concurrency)
+
         if indexes is None:
             indexes = [IndexConfig(DEFAULT_INDEX_NAME, DEFAULT_INDEX_URL)]
 
@@ -517,6 +467,10 @@ class FetchCoordinator:
         self._warm_sync_min_blob_bytes = _WARM_SYNC_MIN_BLOB_BYTES
 
         self._start_lock = threading.Lock()
+        self._submission_lock = threading.Lock()
+        # Requests are unhashable; retain the objects until their tasks finish.
+        self._outstanding: dict[int, fetch_requests.FetchRequest] = {}
+        self._stopping = False
         self._thread: threading.Thread | None = None
         self._idle_transport: IdleClosableTransport | None = None
         self._started = False
@@ -543,7 +497,7 @@ class FetchCoordinator:
             and isinstance(transport, IdleClosableTransport)
         ):
             self._idle_transport = transport
-            self._warm_sync_stats = WarmSyncStats()
+            self._begin_run()
             self._parsed_cache_stats = ParsedCacheStats()
         else:
             self.start()
@@ -570,19 +524,33 @@ class FetchCoordinator:
         return self._warm_sync_stats
 
     def start(self) -> None:
-        """Start the fetcher thread (idempotent)."""
+        """Start the fetcher, refusing a restart while its previous worker drains."""
         with self._start_lock:
-            if self._started:
+            if self._started and not self._stopping:
                 return
+            if self._thread is not None and self._thread.is_alive():
+                msg = "Fetcher thread is still shutting down"
+                raise RuntimeError(msg)
 
             # On-demand startup retains cache hits already counted in this run.
             if self._idle_transport is None:
-                self._warm_sync_stats = WarmSyncStats()
+                self._begin_run()
             self._start_worker()
+
+    def _begin_run(self) -> None:
+        """Start fresh counters and leave any previous worker failure behind."""
+        self._warm_sync_stats = WarmSyncStats()
+        self._crashed = False
+        self._crash_error = None
 
     def _start_worker(self) -> None:
         """Start and await one worker while the caller holds the startup lock."""
         self._started = True
+        with self._submission_lock:
+            # A previous bounded shutdown may have left a finished worker installed.
+            self._loop = None
+            self._async_q = None
+            self._stopping = False
         self._queue_ready = threading.Event()
         self._thread = threading.Thread(
             target=self._run_loop,
@@ -601,7 +569,7 @@ class FetchCoordinator:
         self._queue_ready.wait()
 
     def shutdown(self) -> None:
-        """Signal the fetcher thread to exit and join it."""
+        """Signal shutdown and wait up to ten seconds for accepted work to finish."""
         with self._start_lock:
             idle = self._idle_transport
             self._idle_transport = None
@@ -620,8 +588,8 @@ class FetchCoordinator:
         thread.join(timeout=_COORDINATOR_JOIN_TIMEOUT_SECONDS)
 
         with self._start_lock:
-            # Another caller may have replaced the worker while the join waited.
-            if self._thread is thread:
+            # A timed-out worker still owns its queue, loop and transport.
+            if self._thread is thread and not thread.is_alive():
                 self._thread = None
                 self._started = False
                 # A later start must wait for its own worker.
@@ -644,73 +612,96 @@ class FetchCoordinator:
                 self._refuse(item)
                 raise
 
-        loop = self._loop
-        queue = self._async_q
-        if loop is None or queue is None:
-            self._refuse(item)
-            return
+        # Keep posting and waiter registration together: the worker can fail
+        # before the event loop even runs its queued put_nowait callback.
+        with self._submission_lock:
+            failure = self._crash_error if self._crashed else None
+            submitted = (item is None or failure is None) and self._enqueue(item)
+            if item is None:
+                self._stopping = True
+                return
 
-        try:
-            loop.call_soon_threadsafe(queue.put_nowait, item)
-        except RuntimeError:
-            # call_soon_threadsafe raises RuntimeError once the loop is closed.
+            requests = item if isinstance(item, list) else (item,)
+            if submitted:
+                for request in requests:
+                    self._outstanding[id(request)] = request
+                return
+
+        if failure is None:
             self._refuse(item)
+        else:
+            self._fail_unfinished(requests, failure)
+
+    def _enqueue(self, item: _QueueItem) -> bool:
+        """Post to the current queue while holding the submission lock."""
+        queue = self._async_q
+        if queue is None:
+            return False
+        if threading.current_thread() is self._thread:
+            # An accepted listing can enqueue a sidecar during shutdown.
+            queue.put_nowait(item)
+            return True
+        return self._schedule(queue.put_nowait, item)
 
     def _post_to_loop(self, callback: Callable[..., object], *args: object) -> bool:
-        """Hand ``callback`` to the fetcher loop from any thread.
+        """Post a listing tail, or let the caller run it inline after shutdown."""
+        with self._submission_lock:
+            return self._schedule(callback, *args)
 
-        Returns ``False`` when there is no live loop (never started, or closed
-        between the read and the post) so the caller can run the work inline.
-        """
+    def _schedule(self, callback: Callable[..., object], *args: object) -> bool:
+        """Queue a callback before the stop marker under the submission lock."""
         loop = self._loop
-        if loop is None:
+        if loop is None or self._stopping:
             return False
         try:
             loop.call_soon_threadsafe(callback, *args)
         except RuntimeError:
-            # call_soon_threadsafe raises RuntimeError once the loop is closed.
-            return False
+            return False  # A crashed worker may already have closed its loop.
         return True
 
-    def _refuse(self, item: _QueueItem) -> None:
+    def _refuse(
+        self, item: fetch_requests.FetchRequest | list[fetch_requests.FetchRequest]
+    ) -> None:
         """Record a failure for each request in ``item``, unblocking waiters."""
-        # None is the shutdown sentinel; it has no waiters.
-        if item is None:
-            return
-
-        requests = item if isinstance(item, list) else [item]
-        for req in requests:
-            error = RuntimeError("Fetcher loop is not running, request refused")
-            if req.kind is FetchKind.LISTING:
-                self.index.store_listing_error(req.package, error)
-                continue
-            assert req.version is not None
-            if req.kind is FetchKind.METADATA:
-                self.index.store_metadata_error(
-                    req.package, req.version, error, req.url
-                )
-            elif req.kind is FetchKind.RANGE_METADATA:
-                # A dead loop is a rung miss: unblock the waiter and let it fall
-                # through to the sdist rung, not a candidate-dropping error.
-                assert req.url is not None
+        batch = item if isinstance(item, list) else [item]
+        for req in batch:
+            if isinstance(req, fetch_requests.RangeMetadata):
+                # A refused range read leaves the sdist fallback available.
                 self.index.store_range_absent(req.package, req.version, req.url)
-            elif req.kind is FetchKind.SDIST:
-                self.index.store_sdist_metadata_error(
-                    req.package, sdist_artifact_key(req.version, req.url or ""), error
-                )
             else:
-                self.index.store_sdist_archive_error(
-                    req.package,
-                    sdist_artifact_key(req.version, req.url or "")
-                    if req.kind is FetchKind.SDIST_ARCHIVE
-                    else req.version,
-                    error,
+                self._publish_error(
+                    req, RuntimeError("Fetcher loop is not running, request refused")
                 )
 
     def _record_crash(self, error: BaseException) -> None:
-        """Record the failure that killed the fetcher thread."""
-        self._crash_error = error
-        self._crashed = True
+        """Stop accepting work and release callers whose result never arrived."""
+        with self._submission_lock:
+            self._crash_error = error
+            self._crashed = True
+            outstanding = self._outstanding
+            self._outstanding = {}
+
+        self._fail_unfinished(outstanding.values(), error)
+
+    def _fail_unfinished(
+        self,
+        pending: Iterable[fetch_requests.FetchRequest],
+        cause: BaseException,
+    ) -> None:
+        for request in pending:
+            if request.waiter is None or not request.waiter.is_set():
+                self._publish_error(
+                    request, IndexAccessError(f"Fetcher thread crashed: {cause}")
+                )
+
+    def _publish_error(
+        self, request: fetch_requests.FetchRequest, error: Exception
+    ) -> None:
+        """Store a hard failure before waking the request's own waiter."""
+        if isinstance(request, fetch_requests.Listing):
+            self.index.store_listing_error(request.package, error)
+        else:
+            self._record_versioned_failure(request, error, offline=False)
 
     def _check_alive(self) -> None:
         if not self._crashed:
@@ -718,10 +709,10 @@ class FetchCoordinator:
         msg = f"Fetcher thread crashed: {self._crash_error}"
         raise RuntimeError(msg)
 
-    def _try_listing_sync(self, package: str) -> ParsedListing | None:
+    def _try_listing_sync(self, package: str) -> ListingResult | None:
         """Read a fresh parsed listing on the caller's thread, or ``None``.
 
-        ``read_fresh_parsed_listing`` never raises, so the caller's pending is
+        ``read_fresh_listing`` never raises, so the caller's pending is
         never stranded. On a decline the policy is re-read to attribute a reason
         counter rather than threading it out of the pure helper.
         """
@@ -729,7 +720,7 @@ class FetchCoordinator:
         if not self._sync_listing_enabled:
             stats.declined_ineligible += 1
             return None
-        parsed = read_fresh_parsed_listing(self._cache, package, offline=self._offline)
+        parsed = read_fresh_listing(self._cache, package, offline=self._offline)
         if parsed is not None:
             return parsed
         policy = self._cache.get_simple_policy(package)
@@ -797,7 +788,8 @@ class FetchCoordinator:
                     self.index.store_listing(
                         package,
                         records,
-                        zip_sdists=parsed.zip_sdists,
+                        zip_sdists=parsed.diagnostics.zip_sdists,
+                        all_yanked=parsed.diagnostics.all_yanked,
                         has_yanked_files=bool(
                             getattr(records, "has_yanked_files", False)
                         ),
@@ -810,7 +802,7 @@ class FetchCoordinator:
                 self._warm_sync_stats.declined_small_blob += 1
             self._warm_sync_stats.listing_declines += 1
 
-        self._submit(FetchRequest(kind=FetchKind.LISTING, package=package))
+        self._submit(fetch_requests.Listing(package=package, waiter=event))
         return event
 
     def _try_metadata_sync(self, package: str, version: str, url: str) -> bool:
@@ -843,12 +835,12 @@ class FetchCoordinator:
         event, existed = self.index.get_or_create_pending(key)
         if not existed and not self._try_metadata_sync(package, version, url):
             self._submit(
-                FetchRequest(
-                    kind=FetchKind.METADATA,
+                fetch_requests.SidecarMetadata(
                     package=package,
                     version=version,
                     url=url,
                     metadata_hash=metadata_hash,
+                    waiter=event,
                 )
             )
 
@@ -877,12 +869,12 @@ class FetchCoordinator:
         event, existed = self.index.get_or_create_pending(key)
         if not existed:
             self._submit(
-                FetchRequest(
-                    kind=FetchKind.RANGE_METADATA,
+                fetch_requests.RangeMetadata(
                     package=package,
                     version=version,
                     url=wheel_url,
-                    wheel_hashes=wheel_hashes,
+                    hashes=wheel_hashes,
+                    waiter=event,
                 )
             )
         return event
@@ -906,12 +898,12 @@ class FetchCoordinator:
         event, existed = self.index.get_or_create_pending(key)
         if not existed:
             self._submit(
-                FetchRequest(
-                    kind=FetchKind.SDIST,
+                fetch_requests.SdistMetadata(
                     package=package,
                     version=version,
                     url=url,
-                    sdist_hashes=sdist_hashes,
+                    hashes=sdist_hashes,
+                    waiter=event,
                 )
             )
         return event
@@ -936,12 +928,12 @@ class FetchCoordinator:
         event, existed = self.index.get_or_create_pending(key)
         if not existed:
             self._submit(
-                FetchRequest(
-                    kind=FetchKind.SDIST_ARCHIVE,
+                fetch_requests.SdistArchive(
                     package=package,
                     version=version,
                     url=url,
-                    sdist_hashes=sdist_hashes,
+                    hashes=sdist_hashes,
+                    waiter=event,
                 )
             )
         return event
@@ -964,49 +956,43 @@ class FetchCoordinator:
         event, existed = self.index.get_or_create_pending(key)
         if not existed:
             self._submit(
-                FetchRequest(
-                    kind=FetchKind.DIRECT_ARCHIVE,
+                fetch_requests.DirectArchive(
                     package=package,
                     version=version,
                     url=url,
+                    waiter=event,
                 )
             )
         return event
 
-    def request_source_listing(self, request: SourceRequest) -> threading.Event:
-        """Materialise a declared source and store what it declared.
+    def materialize_source(self, request: SourceRequest) -> SourceMaterialization:
+        """Return this source's result on the caller's thread.
 
-        Run inline rather than on the fetcher thread: an archive source waits
-        on :meth:`request_direct_archive`, which the fetcher thread serves, and
-        a dynamic source runs a build backend.
+        An archive source waits for work served by the fetcher thread.
         """
         self._check_alive()
-        self.index.store_source(
-            request.package,
-            materialize_source(
-                self,
-                request,
-                self._build_config,
-                transport_factory=self._build_transport_factory,
-            ),
+        return materialize_source(
+            self,
+            request,
+            self._build_config,
+            transport_factory=self._build_transport_factory,
         )
-        return _done_event()
 
-    def request_built_metadata(
+    def build_sdist_metadata(
         self,
         package: str,
         version: str,
         url: str,
         sdist_hashes: tuple[tuple[str, str], ...],
-    ) -> threading.Event:  # pragma: no cover (tar data filter)
-        """Build the sdist at ``url`` and store the METADATA it produced.
+    ) -> WheelMetadata:  # pragma: no cover (tar data filter)
+        """Return the metadata produced by building the sdist at ``url``.
 
-        Run inline, for the same reason as :meth:`request_source_listing`: the
+        Run inline, for the same reason as :meth:`materialize_source`: the
         build waits on :meth:`request_sdist_archive`, which the fetcher thread
         serves.
         """
         self._check_alive()
-        built: WheelMetadata = build_remote_sdist(
+        return build_remote_sdist(
             self,
             package,
             version,
@@ -1015,10 +1001,6 @@ class FetchCoordinator:
             self._build_config,
             transport_factory=self._build_transport_factory,
         )
-        self.index.store_built_metadata(
-            package, sdist_artifact_key(version, url), built
-        )
-        return _done_event()
 
     def request_metadata_batch(
         self, items: list[tuple[str, str, str, tuple[str, str] | None]]
@@ -1031,7 +1013,7 @@ class FetchCoordinator:
         """
         self._check_alive()
         results: list[tuple[str, str, threading.Event]] = []
-        batch: list[FetchRequest] = []
+        batch: list[fetch_requests.FetchRequest] = []
 
         for package, version, url, metadata_hash in items:
             if self.index.has_metadata(package, version, url):
@@ -1042,12 +1024,12 @@ class FetchCoordinator:
             event, existed = self.index.get_or_create_pending(key)
             if not existed and not self._try_metadata_sync(package, version, url):
                 batch.append(
-                    FetchRequest(
-                        kind=FetchKind.METADATA,
+                    fetch_requests.SidecarMetadata(
                         package=package,
                         version=version,
                         url=url,
                         metadata_hash=metadata_hash,
+                        waiter=event,
                     )
                 )
 
@@ -1129,10 +1111,22 @@ class FetchCoordinator:
             min_fresh_seconds=self._index_cache_floors.get(cfg.name),
             parsed_stats=self._parsed_cache_stats,
             sdist_archive_hold=self._sdist_archive_hold,
+            owns_transport=False,
         )
 
     async def _async_fetcher(self) -> None:
-        """Own one fetch run's queue and clients; normal shutdown drains tasks."""
+        """Release the worker's resources when serving ends or startup fails."""
+        try:
+            await self._serve_requests()
+        finally:
+            if self._sdist_archive_hold is not None:
+                self._sdist_archive_hold.clear()
+
+            # Direct downloads can use the transport even with a local index.
+            await self._transport.aclose()
+
+    async def _serve_requests(self) -> None:
+        """Build the index client and drain requests accepted by this worker."""
         # Fresh per-run memo, owned on this single loop thread, injected into
         # every client _build_client constructs below.
         self._range_memo = RangeCapabilityMemo()
@@ -1165,95 +1159,108 @@ class FetchCoordinator:
 
         try:
             stopping = False
-            while not stopping:
+            while True:
+                if stopping and queue.empty():
+                    if not tasks:
+                        break
+                    # Accepted listings can enqueue sidecars before they finish.
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                    # Already-finished tasks may still have pending discard callbacks.
+                    tasks.clear()
+                    continue
+
                 item = await queue.get()
                 if item is None:
-                    break
-
-                self._dispatch(item, client, sem, tasks)
-
-                # drain any extra queued items without blocking
-                while not queue.empty():
-                    try:
-                        extra = queue.get_nowait()
-                    except asyncio.QueueEmpty:
-                        break
-                    if extra is None:
-                        # Fall through to the gather below instead of
-                        # cancelling: a cancelled _handle never records a
-                        # result, leaving its waiter's event unset forever.
-                        stopping = True
-                        break
-                    self._dispatch(extra, client, sem, tasks)
-
-            if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
+                    stopping = True
+                else:
+                    self._dispatch(item, client, sem, tasks)
         finally:
             await client.aclose()
 
-            # A file:// index client owns no transport, but a direct archive
-            # fetch can still have opened one.  aclose is idempotent.
-            await self._transport.aclose()
-
-            # Nothing can take from the hold once the loop is gone.
-            if self._sdist_archive_hold is not None:
-                self._sdist_archive_hold.clear()
-
     def _dispatch(
         self,
-        item: FetchRequest | list[FetchRequest],
+        item: fetch_requests.FetchRequest | list[fetch_requests.FetchRequest],
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
         sem: asyncio.Semaphore,
         tasks: set[asyncio.Task[None]],
     ) -> None:
         """Create async tasks for a single request or a batch."""
-        if isinstance(item, list):
-            for req in item:
-                task = asyncio.create_task(self._handle(client, req, sem))
-                tasks.add(task)
-                task.add_done_callback(tasks.discard)
-        else:
-            task = asyncio.create_task(self._handle(client, item, sem))
+        batch = item if isinstance(item, list) else (item,)
+        for request in batch:
+            handler = self._handle(client, request, sem)
+            try:
+                task = asyncio.create_task(handler)
+            except BaseException as exc:
+                handler.close()
+                if not isinstance(exc, Exception):
+                    raise
+                self._record_fetch_failure(client, request, exc)
+                with self._submission_lock:
+                    self._outstanding.pop(id(request), None)
+                continue
             tasks.add(task)
-            task.add_done_callback(tasks.discard)
+            task.add_done_callback(partial(self._finish_fetch, tasks, request))
+
+    def _finish_fetch(
+        self,
+        tasks: set[asyncio.Task[None]],
+        request: fetch_requests.FetchRequest,
+        task: asyncio.Task[None],
+    ) -> None:
+        """Retire the request and publish any failure that escaped its handler."""
+        tasks.discard(task)
+        with self._submission_lock:
+            self._outstanding.pop(id(request), None)
+        if request.waiter is not None and request.waiter.is_set():
+            return
+        if task.cancelled():
+            error = IndexAccessError(
+                f"{request.operation} fetch for {request.package} was cancelled"
+            )
+            self._publish_error(request, error)
+        elif (failure := task.exception()) is not None:
+            self._publish_error(
+                request,
+                IndexAccessError(
+                    f"{request.operation} fetch for {request.package} failed: {failure}"
+                ),
+            )
 
     async def _handle(
         self,
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
-        req: FetchRequest,
+        req: fetch_requests.FetchRequest,
         sem: asyncio.Semaphore,
     ) -> None:
         """Run one limited request and record fetch failures for its waiter."""
         async with sem:
             try:
-                if req.kind is FetchKind.LISTING:
+                if isinstance(req, fetch_requests.Listing):
                     await self._fetch_listing(client, req)
-                elif req.kind is FetchKind.METADATA:
+                elif isinstance(req, fetch_requests.SidecarMetadata):
                     await self._fetch_metadata(client, req)
-                elif req.kind is FetchKind.SDIST:
+                elif isinstance(req, fetch_requests.SdistMetadata):
                     await self._fetch_sdist(client, req)
-                elif req.kind is FetchKind.SDIST_ARCHIVE:
+                elif isinstance(req, fetch_requests.SdistArchive):
                     await self._fetch_sdist_archive(client, req)
-                elif req.kind is FetchKind.RANGE_METADATA:
+                elif isinstance(req, fetch_requests.RangeMetadata):
                     await self._fetch_range_metadata(client, req)
                 else:
                     await self._fetch_direct_archive(req)
             except OfflineError as exc:
                 # Offline with a cold cache is an expected miss.
-                logger.debug(
-                    "Fetch failed: %s %s: %s", req.kind.value, req.package, exc
-                )
+                logger.debug("Fetch failed: %s %s: %s", req.operation, req.package, exc)
                 self._record_fetch_failure(client, req, exc)
             except Exception as exc:  # noqa: BLE001 - failures must unblock the waiter
                 logger.warning(
-                    "Fetch failed: %s %s: %s", req.kind.value, req.package, exc
+                    "Fetch failed: %s %s: %s", req.operation, req.package, exc
                 )
                 self._record_fetch_failure(client, req, exc)
 
     def _record_fetch_failure(
         self,
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
-        req: FetchRequest,
+        req: fetch_requests.FetchRequest,
         exc: Exception,
     ) -> None:
         """Record a failed fetch so any waiter unblocks (else a deadlock).
@@ -1270,7 +1277,7 @@ class FetchCoordinator:
         """
         offline = isinstance(exc, OfflineError)
 
-        if req.kind is FetchKind.LISTING:
+        if isinstance(req, fetch_requests.Listing):
             if offline:
                 # Record the serving index before the empty listing fires the
                 # pending event (see _fetch_listing).
@@ -1280,11 +1287,10 @@ class FetchCoordinator:
                 self.index.store_listing_error(req.package, exc)
             return
 
-        assert req.version is not None
         self._record_versioned_failure(req, exc, offline=offline)
 
     def _record_versioned_failure(
-        self, req: FetchRequest, exc: Exception, *, offline: bool
+        self, req: fetch_requests.VersionedRequest, exc: Exception, *, offline: bool
     ) -> None:
         """Record the failure of a version-scoped fetch, unblocking its waiter.
 
@@ -1300,52 +1306,49 @@ class FetchCoordinator:
         A metadata rung marks the skip before it stores, so a waiter released
         by the store reads the mark and not a bare empty slot.
         """
-        assert req.version is not None
-        if req.kind is FetchKind.METADATA:
+        if offline and isinstance(
+            req,
+            (
+                fetch_requests.SidecarMetadata,
+                fetch_requests.RangeMetadata,
+                fetch_requests.SdistMetadata,
+            ),
+        ):
+            self.index.record_offline_metadata_miss(req.package, req.version, req.url)
+
+        if isinstance(req, fetch_requests.SidecarMetadata):
             if offline:
-                assert req.url is not None
-                self.index.record_offline_metadata_miss(
-                    req.package, req.version, req.url
-                )
                 self.index.store_metadata(
                     req.package, req.version, None, metadata_url=req.url
                 )
             else:
                 self.index.store_metadata_error(req.package, req.version, exc, req.url)
-        elif req.kind is FetchKind.RANGE_METADATA:
-            assert req.url is not None
+        elif isinstance(req, fetch_requests.RangeMetadata):
             if offline:
                 # A cold offline miss is a rung miss: fall through to the sdist.
-                self.index.record_offline_metadata_miss(
-                    req.package, req.version, req.url
-                )
                 self.index.store_range_absent(req.package, req.version, req.url)
             else:
                 # A malformed blob or an unserveable advertised wheel fails
                 # the resolve; record the per-wheel error.
                 self.index.store_range_error(req.package, req.version, req.url, exc)
-        elif req.kind is FetchKind.SDIST:
+        elif isinstance(req, fetch_requests.SdistMetadata):
             if offline:
-                assert req.url is not None
-                self.index.record_offline_metadata_miss(
-                    req.package, req.version, req.url
-                )
                 self.index.store_sdist_metadata(
-                    req.package, sdist_artifact_key(req.version, req.url or ""), None
+                    req.package, sdist_artifact_key(req.version, req.url), None
                 )
             else:
                 self.index.store_sdist_metadata_error(
-                    req.package, sdist_artifact_key(req.version, req.url or ""), exc
+                    req.package, sdist_artifact_key(req.version, req.url), exc
                 )
-        elif offline and req.kind is FetchKind.SDIST_ARCHIVE:
+        elif offline and isinstance(req, fetch_requests.SdistArchive):
             self.index.store_sdist_archive(
-                req.package, sdist_artifact_key(req.version, req.url or ""), None
+                req.package, sdist_artifact_key(req.version, req.url), None
             )
         else:
             self.index.store_sdist_archive_error(
                 req.package,
-                sdist_artifact_key(req.version, req.url or "")
-                if req.kind is FetchKind.SDIST_ARCHIVE
+                sdist_artifact_key(req.version, req.url)
+                if isinstance(req, fetch_requests.SdistArchive)
                 else req.version,
                 exc,
             )
@@ -1353,7 +1356,7 @@ class FetchCoordinator:
     async def _fetch_listing(
         self,
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
-        req: FetchRequest,
+        req: fetch_requests.Listing,
     ) -> None:
         files = await client.get_files(req.package)
         # Record the serving index before store_listing fires the pending
@@ -1473,19 +1476,10 @@ class FetchCoordinator:
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
         package: str,
     ) -> None:
-        """Record which configured index served ``package``'s listing.
+        """Record the listing's index and whether a package rule selected it.
 
-        Single-client configurations always serve from the lone
-        configured index.  Multi-client configurations consult the
-        router's per-package route cache; an empty cache (e.g. an
-        index returned no listing on every walk) falls back to the
-        first configured index name so consumers always see
-        something.
-
-        The router also says whether a routing override chose that index,
-        which the name alone cannot: an empty walk records the first
-        configured index too.  A route over a lone index holds no other
-        index back, so it is not recorded as a pin.
+        If no index served the package, attribute its empty listing to the
+        first configured index. A rule over a lone index excludes no alternatives.
         """
         if isinstance(client, MultiIndexClient):
             routed = client.route_for(package)
@@ -1499,12 +1493,8 @@ class FetchCoordinator:
     async def _fetch_metadata(
         self,
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
-        req: FetchRequest,
+        req: fetch_requests.SidecarMetadata,
     ) -> None:
-        assert req.version is not None
-        if req.url is None:
-            self.index.store_metadata(req.package, req.version, None)
-            return
         text = await client.get_metadata_text(
             req.package, req.version, req.url, req.metadata_hash
         )
@@ -1514,7 +1504,7 @@ class FetchCoordinator:
     async def _fetch_range_metadata(
         self,
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
-        req: FetchRequest,
+        req: fetch_requests.RangeMetadata,
     ) -> None:
         """Recover a sidecar-less wheel's METADATA over an HTTP range read.
 
@@ -1524,14 +1514,12 @@ class FetchCoordinator:
         sdist rung.  A malformed blob or an unserveable wheel URL raises out of
         the client and is caught by :meth:`_handle` as a fetch failure.
         """
-        assert req.version is not None
-        assert req.url is not None
         result = await client.get_range_metadata(
             req.package,
             req.version,
             req.url,
-            canonicalize_name_boundary(req.package),
-            req.wheel_hashes,
+            canonicalize_name(req.package),
+            req.hashes,
         )
         self.index.store_range_outcome(
             req.package, req.version, req.url, result.outcome
@@ -1552,62 +1540,47 @@ class FetchCoordinator:
     async def _fetch_sdist(
         self,
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
-        req: FetchRequest,
+        req: fetch_requests.SdistMetadata,
     ) -> None:
-        assert req.version is not None
-        assert req.url is not None
         pkg_info, pyproject = await client.get_sdist_files(
-            req.package, req.version, req.url, req.sdist_hashes
+            req.package, req.version, req.url, req.hashes
         )
         source_key = sdist_artifact_key(req.version, req.url)
         # Store pyproject.toml first: store_sdist_metadata fires the
         # pending event, and a released waiter reads the pyproject slot
         # with no further synchronisation.
         if pyproject is not None:
-            table = parse_pyproject_table(pyproject)
+            table = loads_if_valid(pyproject)
             self.index.store_sdist_pyproject(req.package, source_key, table)
-            self._release_archive_if_deps_are_static(req.package, source_key, table)
+            self._release_archive_if_metadata_is_static(req.package, source_key, table)
         self.index.store_sdist_metadata(req.package, source_key, pkg_info)
 
-    def _release_archive_if_deps_are_static(
+    def _release_archive_if_metadata_is_static(
         self, package: str, version: str, table: Mapping[str, Any] | None
     ) -> None:
-        """Release a held archive when ``table`` already declares the deps.
-
-        The hold exists for a build, and the metadata ladder builds only when
-        the bundled ``[project]`` table cannot supply the dependencies, so a
-        table that can means no build will ask for this archive.  A ``None``
-        table is a pyproject that did not parse and declares nothing, so the
-        archive stays held.
-        """
+        """Keep the archive if a build may supply dependencies or Requires-Python."""
         if self._sdist_archive_hold is None or table is None:
             return
-        if static_project_from_table(table) is not None:
+        if (
+            static_project_from_table(table) is not None
+            and project_with_static_requires_python(table, package) is not None
+        ):
             self._sdist_archive_hold.take(package, version)
 
     async def _fetch_sdist_archive(
         self,
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
-        req: FetchRequest,
+        req: fetch_requests.SdistArchive,
     ) -> None:
-        assert req.version is not None
-        if req.url is None:
-            self.index.store_sdist_archive(
-                req.package, sdist_artifact_key(req.version, ""), None
-            )
-            return
         data = await client.get_sdist_archive(
-            req.package, req.version, req.url, req.sdist_hashes
+            req.package, req.version, req.url, req.hashes
         )
         self.index.store_sdist_archive(
             req.package, sdist_artifact_key(req.version, req.url), data
         )
 
-    async def _fetch_direct_archive(self, req: FetchRequest) -> None:
+    async def _fetch_direct_archive(self, req: fetch_requests.DirectArchive) -> None:
         """Read an archive declared by URL, by that URL's own scheme."""
-        assert req.version is not None
-        assert req.url is not None
-
         if urlsplit(req.url).scheme == "file":
             data = parse_file_url(req.url).read_bytes()
         else:

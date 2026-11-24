@@ -4,7 +4,7 @@ import struct
 
 import numpy as np
 
-from wfdb.io._signal import _digi_nan
+from wfdb.io._signal import _checksums, _digi_nan
 from wfdb.io.record import rdrecord
 
 
@@ -88,7 +88,11 @@ def wfdb_to_mat(record_name, pn_dir=None, sampfrom=0, sampto=None, channels=None
 
     Examples
     --------
-    >>> wfdb2mat('100', pn_dir='pwave')
+    >>> from contextlib import redirect_stdout
+    >>> from io import StringIO
+    >>> from wfdb.io.convert import wfdb_to_mat
+    >>> with redirect_stdout(StringIO()):
+    ...     wfdb_to_mat('100', pn_dir='mitdb', sampto=1000)
 
     The output file name is 100m.mat and 100m.hea
 
@@ -185,13 +189,12 @@ def wfdb_to_mat(record_name, pn_dir=None, sampfrom=0, sampto=None, channels=None
 
     # Ensure the signal size does not exceed the 2^31 byte limit
     max_length = int((2**31) / bytes_per_element / record.n_sig)
-    desired_length = record.sig_len
     # Snip record
-    if desired_length > max_length:
+    if record.sig_len > max_length:
         raise Exception("Can't write .mat file: data size exceeds 2GB limit")
 
     # Bytes of actual data
-    bytes_of_data = bytes_per_element * record.n_sig * desired_length
+    bytes_of_data = bytes_per_element * record.n_sig * record.sig_len
     # This is the remaining number of bytes that don't fit into integer
     # multiple of 8: i.e. if 18 bytes, bytes_remain = 2, from 17 to 18
     bytes_remain = bytes_of_data % 8
@@ -241,7 +244,7 @@ def wfdb_to_mat(record_name, pn_dir=None, sampfrom=0, sampto=None, channels=None
         # Number of signals (4 bytes)
         f.write(struct.pack("<I", record.n_sig))
         # Number of rows (4 bytes)
-        f.write(struct.pack("<I", desired_length))
+        f.write(struct.pack("<I", record.sig_len))
 
         # Subelement 3: Array name
         # Subtag 3: data type (4 bytes)
@@ -293,9 +296,9 @@ def wfdb_to_mat(record_name, pn_dir=None, sampfrom=0, sampto=None, channels=None
 
     print(f"Source: record {record_name}\t\tStart: {datetime_string}")
     print(
-        f"val has {record.n_sig} rows (signals) and {desired_length} columns (samples/signal)"
+        f"val has {record.n_sig} rows (signals) and {record.sig_len} columns (samples/signal)"
     )
-    duration_string = str(datetime.timedelta(seconds=desired_length / record.fs))
+    duration_string = str(datetime.timedelta(seconds=record.sig_len / record.fs))
     print(f"Duration: {duration_string}")
     print(f"Sampling frequency: {record.fs} Hz\tSampling interval: {1 / record.fs} sec")
     print(
@@ -312,20 +315,18 @@ def wfdb_to_mat(record_name, pn_dir=None, sampfrom=0, sampto=None, channels=None
         )
 
     # Modify the record file to reflect the new data
-    num_channels = record.n_sig
     record.record_name = record_name_out
-    record.n_sig = num_channels
-    record.samps_per_frame = num_channels * [1]
+    record.samps_per_frame = record.n_sig * [1]
     record.skew = None
-    record.file_name = num_channels * [output_file]
-    record.fmt = num_channels * [wfdb_type]
-    record.byte_offset = num_channels * [192]
+    record.file_name = record.n_sig * [output_file]
+    record.fmt = record.n_sig * [wfdb_type]
+    record.byte_offset = record.n_sig * [192]
     record.adc_res = adc_res
-    record.baseline = [baseline[i] - adc_zero[i] for i in range(num_channels)]
-    record.adc_zero = num_channels * [0]
-    record.block_size = num_channels * [0]
+    record.baseline = [baseline[i] - adc_zero[i] for i in range(record.n_sig)]
+    record.adc_zero = record.n_sig * [0]
+    record.block_size = record.n_sig * [0]
     record.init_value = shifted_data[0].tolist()
-    record.checksum = [int(c) for c in np.sum(shifted_data, axis=0) % 65536]
+    record.checksum = _checksums(shifted_data)
 
     # Write the header file RECm.hea
     record.wrheader()

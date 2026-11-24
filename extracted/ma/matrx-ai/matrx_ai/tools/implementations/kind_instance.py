@@ -630,8 +630,8 @@ async def instance_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     InstanceUpdateArgs.model_validate(args)  # enforce the declared arg contract
     data = args.get("data")
     title = args.get("title")
-    repin = bool(args.get("repin_to_current", False))
-    if data is None and title is None and not repin:
+    to_current = bool(args.get("repin_to_current", False))
+    if data is None and title is None and not to_current:
         return err("validation", "Provide data, title, and/or repin_to_current.")
     if data is not None and not isinstance(data, dict):
         return err("validation", "data must be a JSON object (the full replacement payload).")
@@ -645,7 +645,7 @@ async def instance_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return err("execution", "The instance's kind_definition no longer resolves.")
 
         updates: dict[str, Any] = {"updated_by": ctx_user_id(ctx)}
-        target_version = kd.version if repin else row.kind_version
+        target_version = kd.version if to_current else row.kind_version
         if data is not None:
             data = ensure_root_marker(data, kd.kind)
             if target_version == kd.version and isinstance(kd.emitted_json_schema, dict):
@@ -665,7 +665,7 @@ async def instance_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 updates["title"] = derived
         elif isinstance(title, str):
             updates["title"] = title.strip() or None
-        if repin:
+        if to_current:
             updates["kind_version"] = kd.version
 
         arm = _from_store(row)

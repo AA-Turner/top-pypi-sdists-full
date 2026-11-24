@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
 
+from matrx_connect.context.run_scope import RUN_SCOPE_FIELDS, RunScope
 from matrx_connect.context.tenant_provenance import (
     AuthorizedResourceAdmission,
     AuthorizedResourceTenantProvenance,
@@ -29,6 +30,11 @@ _EXECUTION_KIND_RE = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
 
 #: ``AppContext.metadata`` key a child-agent fork stamps with the root parent's origin class.
 PARENT_ORIGIN_CLASS_KEY = "parent_origin_class"
+#: The per-invocation conversation id ``fork_for_workflow_step`` minted for a workflow
+#: step. Most steps never write a row under it (an agent step opens its own), so a run
+#: that names it as parent is EXPECTED to find no row: the lineage gate drops the link
+#: without filing an incident (1,028 noise rows 2026-10-31..11-01 fed pool saturation).
+WORKFLOW_INVOCATION_CONVERSATION_KEY = "workflow_invocation_conversation_id"
 
 #: Metadata keys that name what the CALLER run is. A child agent run owns its own
 #: turn, so ``fork_for_child_agent`` never carries them onto the child (they would be
@@ -45,6 +51,26 @@ PARENT_RUN_IDENTITY_KEYS = frozenset(
         "mandate_key",
         "mandate_attribution",
         "parent_request_id",
+        # The caller turn ASKED for suggested follow-ups (aidream ScopedRequest.follow_ups): its own answer only.
+        "follow_ups_requested",
+    }
+)
+
+#: Metadata keys that hold what the CALLER run's send boundary RECORDED for its own request rows
+#: (matrx-ai ``send_boundary._record_fit`` / ``_record_trim_report`` / carried media / history cut,
+#: read by ``orchestrator/requests.py``). A child never starts with them: the fork's metadata is a
+#: shallow copy, so the child shared the caller's ``fit_by_iteration`` dict and its iteration 1
+#: overwrote the caller's — the research condenser child's 245,303-token fit landed on the PARENT's
+#: turn-1 ``chat.request`` row (conversation 2fb3ac31, 2026-11-08). Each run records its own.
+PER_REQUEST_RECORD_KEYS = frozenset(
+    {
+        "last_fit",
+        "fit_by_iteration",
+        "last_trim_report",
+        "trim_reports_by_iteration",
+        "carried_media_by_iteration",
+        "history_cut",
+        "input_fit_text_cut",
     }
 )
 
@@ -108,12 +134,12 @@ class AppContext:
     # True iff this is non-None. Carried through with_overrides / fork_* via
     # dataclasses.replace (default field, no explicit copy needed).
     admin_level: str | None = None
-    # THE ADMIN SURFACE (Arman, 2026-09-25: "Admin privileges cannot ever extend
-    # beyond the admin sections of the system."). The ONE run-level flag: True only
-    # when this request/run was started from an admin surface — an admin-mounted
-    # router (the host marks it) or the admin-scoped MCP. Admin powers in agent
-    # tools and admin reach in services require it; a normal chat never carries it,
-    # so an admin there is an ordinary person. Meaningless without an admin
+    # THE ADMIN SURFACE (Arman, 2026-11-06; common-docs/policies/admin-features.md:
+    # the switch is the FEATURE, never the page). The ONE run-level flag: True only
+    # when this request/run was started from the admin console or an admin feature —
+    # an admin-mounted router (the host marks it) or the admin-scoped MCP. Admin reach
+    # in services requires it; a NORMAL feature never carries it, so a normal list or
+    # chat treats an admin like anyone else. Meaningless without an admin
     # identity — read it through ``admin_surface_active()``, never alone. Carried
     # through with_overrides / fork_* via dataclasses.replace like admin_level.
     admin_surface: bool = False
@@ -166,6 +192,14 @@ class AppContext:
 
     # --- Organizational scope ---
     organization_id: str | None = None
+    # 🚨 WHOSE DATA this run touches, when that differs from the organization it runs (and pays) in.
+    # A platform job (naming, labeling, a sweep) runs in the platform organization over ONE customer
+    # organization's records: that customer is the data organization. HIPAA mode (aidream
+    # ``services/compliance/hipaa.py``) gates on this first, then ``organization_id``. ``None`` =
+    # the run's own organization is the data's. The host's platform-own marker is a string value
+    # here. Propagates through with_overrides / fork_* via dataclasses.replace, and is carried by
+    # ``_resource_operation_base`` and ``system_app_context``.
+    data_organization_id: str | None = None
     project_id: str | None = None
     task_id: str | None = None
 
@@ -327,28 +361,11 @@ class AppContext:
     agent_id: str | None = None
     agent_version_id: str | None = None
 
-    # --- Unit-version pinning for replay (chat.request_snapshot) ---
-    # The workflow definition VERSION this call is being made inside, when the
-    # run pinned one. `agent_version_id` above is the agent half and already
-    # travels on every agent run; this is the workflow half, and there was no
-    # carrier for it — a snapshot could not say which workflow version produced
-    # the call, so a replay could not tell a candidate change apart from an edit
-    # made to the workflow since.
-    #
-    # Set ONCE per run (the scheduler stamps it onto the run's context) and
-    # inherited by every fork, so a nested agent call inside a workflow step
-    # still records the run's pin.
-    #
-    # NULL is HONEST: a run started from a FLOATING definition genuinely has no
-    # pinned version (workflow.run.definition_version_id is null there too), and
-    # a call made outside any workflow has none either.
-    workflow_definition_version_id: str | None = None
+    # --- Agent-run settings (block mode, workflow pin, observational memory) ---
+    run: RunScope = field(default_factory=RunScope)
 
     # --- Client-delegated tools ---
     client_tools: list[str] = field(default_factory=list)
-
-    # --- Block streaming ---
-    block_mode: bool = False
 
     # --- Debug / replay ---
     # Per-request OVERRIDE of request-snapshot capture. Tri-state:
@@ -374,18 +391,6 @@ class AppContext:
     # streams only when this is True; ``snapshot=True`` no longer arms the wire
     # capture without it.
     ai_watch: bool = False
-
-    # --- Observational memory ---
-    # When True, the observational memory system (Observer + Reflector) runs
-    # around each LLM turn — injects prior observations as a system message
-    # pre-call, extracts new observations post-call. Admin-gated; persists on
-    # cx_conversation.metadata.observational_memory once enabled. See
-    # packages/matrx-ai/matrx_ai/memory/ and the OM integration guide.
-    memory_enabled: bool = False
-    memory_model: str | None = None
-    #: The chosen CLASS of ``memory_model`` (an ai.offering id) — rides only with it.
-    memory_offering_id: str | None = None
-    memory_scope: str = "thread"
 
     def __post_init__(self) -> None:
         if (self.execution_kind is None) != (self.execution_id is None):
@@ -431,6 +436,11 @@ class AppContext:
                 "_tenant_context_seal",
             }:
                 raise AttributeError("organization admission bindings are not overrideable")
+            if key in RUN_SCOPE_FIELDS:
+                raise AttributeError(
+                    f"AppContext has no field '{key}': it lives on AppContext.run (RunScope). "
+                    f"Pass run=dataclasses.replace(ctx.run, {key}=...) instead."
+                )
             if key not in valid:
                 raise AttributeError(
                     f"AppContext has no field '{key}'. "
@@ -560,10 +570,13 @@ class AppContext:
             # memory — their internal reasoning shouldn't contribute to
             # parent observations, and they're on a different conversation
             # anyway.
-            memory_enabled=False,
-            memory_model=None,
-            memory_offering_id=None,
-            memory_scope="thread",
+            run=dataclasses.replace(
+                self.run,
+                memory_enabled=False,
+                memory_model=None,
+                memory_offering_id=None,
+                memory_scope="thread",
+            ),
             metadata=self._child_agent_metadata(),
             api_keys=dict(self.api_keys),
             initial_variables=dict(self.initial_variables),
@@ -580,7 +593,11 @@ class AppContext:
         workflow / system) on a protected account, yet keep a person's own sub-agent, needs the
         parent's class. A chain keeps the first (root) parent's class, never ``child_agent``.
         """
-        metadata = {k: v for k, v in self.metadata.items() if k not in PARENT_RUN_IDENTITY_KEYS}
+        metadata = {
+            k: v
+            for k, v in self.metadata.items()
+            if k not in PARENT_RUN_IDENTITY_KEYS and k not in PER_REQUEST_RECORD_KEYS
+        }
         if metadata.get(PARENT_ORIGIN_CLASS_KEY):
             return metadata
         # The parent's DECLARED class, never reconcile_origin(): a person's run rebuilt by a
@@ -615,7 +632,7 @@ class AppContext:
             conversation_type="workflow",
             origin_class="workflow",
             request_id=self.request_id,
-            metadata=dict(self.metadata),
+            metadata={**self.metadata, WORKFLOW_INVOCATION_CONVERSATION_KEY: new_conversation_id},
             api_keys=dict(self.api_keys),
             initial_variables=dict(self.initial_variables),
             initial_overrides=dict(self.initial_overrides),
@@ -765,11 +782,37 @@ class DelegatedMemberAppContext(TenantAppContext):
                 "a delegated member context never carries an admin tier: delegation "
                 "conveys the member's own reach, never more"
             )
-        if self.system_run:
+        if self.system_run and self.parent_request_id is None:
+            # THE ONE RULE for machine work inside a delegated turn. The TURN itself is a real
+            # member's conversation and is never hidden as machine work. A machine CHILD of the
+            # turn (a mandate side-quest: the long-answer notice, the thread summary, a judge, a
+            # memory pass) is: it stays this same delegated member, under its own request whose
+            # parent is the turn, so it is admitted, attributed and gated as the person's own work.
+            # Callers never step out of the turn to run one (live 2026-11-15, register entry 19).
             raise ValueError(
                 "system_run marks unattended machine work kept out of people's chat "
-                "lists; a delegated turn is a real member's conversation"
+                "lists; a delegated turn is a real member's conversation — only a machine "
+                "child of the turn (its own request, parent_request_id = the turn) may carry it"
             )
+
+    def with_overrides(self, **kwargs: Any) -> AppContext:
+        """A delegated turn that BECOMES machine work becomes a machine CHILD of the turn.
+
+        ``with_overrides(system_run=True)`` on the turn itself mints the child's own request under
+        the turn (``parent_request_id`` = the turn, the tree root kept), so the one rule in
+        ``__post_init__`` holds for every caller without any caller knowing about it. A context
+        that already is a child (a fork) keeps its own request."""
+        if (
+            kwargs.get("system_run") is True
+            and not self.system_run
+            and self.parent_request_id is None
+            and "parent_request_id" not in kwargs
+        ):
+            kwargs = dict(kwargs)
+            kwargs.setdefault("request_id", str(uuid4()))
+            kwargs["parent_request_id"] = self.request_id or None
+            kwargs.setdefault("root_request_id", self.tree_request_id or None)
+        return super().with_overrides(**kwargs)
 
 
 @dataclass(frozen=True)
@@ -979,6 +1022,9 @@ def _resource_operation_base(parent_context: AppContext) -> AppContext:
         route=parent_context.route,
         source_app=parent_context.source_app,
         source_feature=parent_context.source_feature,
+        # Whose data the parent run touches crosses with it: a resource operation started by a
+        # platform job over a customer's records is still about that customer's data.
+        data_organization_id=parent_context.data_organization_id,
         metadata={"resource_operation_parent_operation_id": parent_operation_id},
     )
 
@@ -1317,10 +1363,10 @@ def admin_surface_active(ctx: AppContext | None = None) -> bool:
 def admin_lane_active(ctx: AppContext | None = None, *, user_id: str | None = None) -> bool:
     """True only for a verified ADMIN acting from the ADMIN SYSTEM — the ONE admin-reach question.
 
-    Arman's rule (2026-09-25/26, restated 2026-10-08): platform admins keep FULL access inside
-    the admin system and only there; on a user page an admin is an ordinary person. An
-    admin-reach door asks this AFTER its access kernel refused, so an ordinary person — and an
-    admin on a user page — is never affected. Two lawful ways in, both verified upstream:
+    Arman's rule (2026-11-06, common-docs/policies/admin-features.md): platform admins keep FULL
+    access in the admin console and in any admin feature, on any page; a NORMAL feature treats an
+    admin like anyone else. An admin-reach door asks this AFTER its access kernel refused, so an
+    ordinary person — and an admin using a normal feature — is never affected. Two lawful ways in, both verified upstream:
 
     * the HEADER LANE — the auth boundary admitted this request's organization through the
       admin lane (``metadata["organization_admitted_by"] == "admin_lane"``, set only by
@@ -1349,8 +1395,8 @@ def admin_tool_authorized(ctx: AppContext | None = None) -> bool:
 
     An admin tool (the ``sql`` tool, the errors tool, admin browser tools) is a capability
     an admin deliberately put on their own agent, so it works wherever that agent runs,
-    a normal chat included. The admin lane (``admin_surface_active``) governs AMBIENT reach —
-    what a normal page shows an admin — and never refuses a tool the admin chose. A
+    a normal chat included. The admin lane (``admin_surface_active``) governs which REQUESTS
+    carry admin reach (the console, an admin feature) and never refuses a tool the admin chose. A
     non-admin is always refused; no context reads as False (fail closed).
     """
     ctx = ctx if ctx is not None else _app_context.get(None)
@@ -1363,6 +1409,32 @@ def admin_tool_level(ctx: AppContext | None = None) -> str | None:
     if not admin_tool_authorized(ctx):
         return None
     return getattr(ctx, "admin_level", None)
+
+
+#: The run-metadata key where a host records where a run's admin tier came from, when the run
+#: CONTINUES a person's turn (a woken turn, a re-run helper): ``{"carried": True, "level": ...,
+#: "from_request": ...}`` or ``{"withheld": "<why>", "from_request": ...}``. Children copy the
+#: metadata, so a helper of that run reads it too. It never grants anything: it words a refusal.
+ADMIN_TIER_NOTE_KEY = "admin_tier_carried"
+
+
+def admin_tool_refusal_message(tool_name: str, ctx: AppContext | None = None) -> str:
+    """The words an admin-only tool refuses with — honest about WHICH no it is.
+
+    "You are not an admin" and "this run did not carry your admin reach" read the same to a model
+    otherwise, and only the second has a remedy (ask again from the person's own live chat)."""
+    ctx = ctx if ctx is not None else _app_context.get(None)
+    note = ((getattr(ctx, "metadata", None) or {}).get(ADMIN_TIER_NOTE_KEY)) if ctx is not None else None
+    if isinstance(note, dict) and note.get("withheld"):
+        origin = note.get("from_request")
+        return (
+            f"Tool '{tool_name}' is an admin tool. The person is a platform admin, but this run did not "
+            "carry their admin reach: it continues earlier work"
+            + (f" (request {origin})" if origin else "")
+            + " whose run recorded no admitted admin tier. Tell the person plainly; asking again from "
+            "their own chat runs with their admin reach."
+        )
+    return f"Tool '{tool_name}' is an admin tool: only a platform admin's agent can use it."
 
 
 def clear_app_context(token: Token) -> None:
@@ -1390,6 +1462,22 @@ _SYSTEM_CONTEXT_PRIVATE_FIELDS = (
 )
 
 
+#: ``AppContext.metadata`` key a context carries when ``system_app_context`` derived it into ANOTHER
+#: organization: the organization that sanctioned switch put it in. Read through
+#: :func:`switched_organization`, which vouches for it only while it names the context's own organization.
+SWITCHED_ORGANIZATION_KEY = "switched_organization_id"
+
+
+def switched_organization(ctx: Any) -> str | None:
+    """The organization a sanctioned switch put ``ctx`` in, or None (never switched, or moved again since)."""
+    metadata = getattr(ctx, "metadata", None)
+    marked = metadata.get(SWITCHED_ORGANIZATION_KEY) if isinstance(metadata, dict) else None
+    current = str(getattr(ctx, "organization_id", "") or "").strip().lower()
+    if marked and current and str(marked).strip().lower() == current:
+        return current
+    return None
+
+
 def _derive_system_identity(
     ambient: AppContext,
     *,
@@ -1401,16 +1489,30 @@ def _derive_system_identity(
 ) -> AppContext:
     """An ambient context re-pointed at the identity a system caller named.
 
-    The request carriers survive (emitter, request_id, route, api keys,
-    metadata, client tools) so streaming and attribution keep working; the
-    IDENTITY is replaced, never merged. A different actor never inherits the
-    ambient actor's admin tier, token or email — that would be a privilege
-    leak dressed as convenience.
+    The request carriers survive (emitter, route, api keys, metadata, client
+    tools) so streaming keeps working; the IDENTITY is replaced, never merged. A
+    different actor never inherits the ambient actor's admin tier, token or
+    email — that would be a privilege leak dressed as convenience.
+
+    A CHANGED actor or organization also gets its own request id, the ambient id
+    kept as ``parent_request_id`` and the tree's root frozen (as ``for_child``
+    does). The spine lets a request id belong to one actor and one organization:
+    a read of a document filed in another organization opened the id under the
+    FILE's organization first, and the person's own turn then failed its
+    mandatory open ("A request id cannot change durable identity", 2026-11-07).
     """
     fields = _context_init_fields(ambient)
     for private_field in _SYSTEM_CONTEXT_PRIVATE_FIELDS:
         fields[private_field] = None
     same_actor = str(ambient.user_id or "") == str(user_id or "")
+    if not same_actor or str(ambient.organization_id or "") != str(organization_id or ""):
+        fields.update(
+            {
+                "request_id": str(uuid4()),
+                "parent_request_id": ambient.request_id or None,
+                "root_request_id": ambient.tree_request_id or None,
+            }
+        )
     fields.update(
         {
             "user_id": user_id,
@@ -1446,6 +1548,16 @@ def _derive_system_identity(
         }
     )
     fields.update(overrides)
+    if str(ambient.organization_id or "") != str(organization_id or ""):
+        # A SANCTIONED organization switch (this derivation is the one door). The context says so,
+        # so the runtime spine records the new organization on a nested execution instead of
+        # projecting the caller's back onto it, and opens it under its own request there
+        # (aidream ``runtime.conversation._begin_nested_tracking``; child_row_org_bleed, 2026-11-19).
+        # The caller's project and task belong to the caller's organization: never carried across.
+        fields["metadata"] = {**dict(fields.get("metadata") or {}), SWITCHED_ORGANIZATION_KEY: organization_id}
+        for foreign in ("project_id", "task_id"):
+            if foreign not in overrides:
+                fields[foreign] = None
     return AppContext(**fields)
 
 
@@ -1483,9 +1595,14 @@ async def system_app_context(
     source_app: str | None = None,
     label: str | None = None,
     isolated: bool = False,
+    data_organization_id: str | None = None,
     **overrides: Any,
 ) -> AsyncGenerator[AppContext]:
     """Guarantee an ambient AppContext for work running OUTSIDE a request.
+
+    ``data_organization_id`` names WHOSE data the work touches when it runs in another
+    organization (a platform job over one customer's records). Omitted, a derived context keeps the
+    ambient one's; a context minted with no ambient has none (the run's organization is the data's).
 
     Background work — a ``detached_task`` spawned with no ambient context, a
     queue worker, a NOTIFY listener, a scheduled run — starts with an EMPTY
@@ -1515,8 +1632,10 @@ async def system_app_context(
       mint);
     * a DIFFERENT actor or organization → a derived context carrying the
       requested identity is installed for the block and restored on exit. The
-      request carriers (emitter, request id, api keys, metadata) survive so
-      streaming and attribution keep working. Until 2026-09-17 this case
+      request carriers (emitter, api keys, metadata) survive so streaming keeps
+      working; the block gets ITS OWN request id with the ambient one as
+      ``parent_request_id``, because a request id belongs to one actor and one
+      organization on the spine (see ``_derive_system_identity``). Until 2026-09-17 this case
       silently yielded the ambient context and DROPPED the identity the caller
       named — hindsight replays ran as the wrong user, sweeps ran in whichever
       organization the triggering person happened to have selected.
@@ -1573,6 +1692,9 @@ async def system_app_context(
     existing = try_get_app_context()
     if existing is not None:
         same_identity = _identity_matches(existing, user_id, canonical_organization_id)
+        if data_organization_id is not None and data_organization_id != existing.data_organization_id:
+            same_identity = False
+            overrides["data_organization_id"] = data_organization_id
         if same_identity and not isolated:
             if overrides:
                 _announce_dropped_overrides(feature, overrides)
@@ -1638,6 +1760,7 @@ async def system_app_context(
         # NEVER MINT AN UNATTRIBUTED CONTEXT — see _DEFAULT_SYSTEM_SOURCE_APP.
         "source_app": source_app or _DEFAULT_SYSTEM_SOURCE_APP,
         "source_feature": feature,
+        "data_organization_id": data_organization_id,
     }
     fields.update(overrides)
     ctx = AppContext(**fields)

@@ -196,6 +196,9 @@ class AgentRunInput(BaseModel):
     run_metadata: dict[str, Any] = Field(default_factory=dict)
     task_metadata: dict[str, Any] = Field(default_factory=dict)
     task_created_by: str | None = None
+    #: The test stamp the task was made under (``sch_task.test_run_id``): work the run starts carries it, so a
+    #: test's "Run now" conversation is found and archived with the rest of the test's records.
+    task_test_run_id: str | None = None
 
     @model_validator(mode="after")
     def _require_holder_selection(self) -> AgentRunInput:
@@ -368,6 +371,12 @@ class BacklogRearmResult(AgentRunResult):
 #: repeat guard reads back; a handler's own metadata never overrides them.
 RUN_UNITS_DONE_KEY = "units_done"
 RUN_STOPPED_EARLY_KEY = "stopped_early"
+#: OPTIONAL: the units of NEW work this run committed, when ``units_done`` also
+#: counts work it merely re-verified (an idempotent handler that re-checks what an
+#: interrupted run already did). The continuation budget reads it to tell a run
+#: that made progress from one that did not (``continuation.py``); absent, it
+#: judges by ``units_done``.
+RUN_FRESH_UNITS_KEY = "fresh_units_done"
 
 #: THE RESUMABLE TERMINAL STATE: the run's process went away and a continuation
 #: was queued. Never counted by the failure sink or the repeat guard.

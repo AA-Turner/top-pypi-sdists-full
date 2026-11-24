@@ -132,6 +132,68 @@ def _resolve_ref(ref: Any, defs: dict[str, Any] | None) -> dict[str, Any] | None
     return target if isinstance(target, dict) else None
 
 
+_LOCAL_DEF_PREFIX = "#/$defs/"
+
+
+def inline_local_refs(node: Any, defs: dict[str, Any] | None, _seen: tuple[str, ...] = ()) -> Any:
+    """``node`` with every ``#/$defs/Name`` pointer replaced by the definition itself.
+
+    THE ONE DOOR for a sub-schema copied OUT of a model schema (a parameter, an ``items``
+    node, a union member). The copy keeps its ``$ref`` but not the ``$defs`` block it
+    points into, so the validator met a pointer to nowhere and skipped the whole contract
+    check, failing open (records ``form_propose.questions`` → ``#/$defs/JsonValue``,
+    2026-11-03). Sibling keys beside a ``$ref`` (a description) win over the definition's.
+
+    A definition that refers back to itself is inlined once; the recursive occurrence
+    becomes ``{}`` (any JSON value) — a finite schema that still validates every level
+    above it, never a dangling pointer. A ``$ref`` naming a definition that is not there
+    is left as written so :func:`dangling_local_refs` can name it.
+    """
+    if isinstance(node, list):
+        return [inline_local_refs(n, defs, _seen) for n in node]
+    if not isinstance(node, dict):
+        return node
+    ref = node.get("$ref")
+    if isinstance(ref, str) and ref.startswith(_LOCAL_DEF_PREFIX) and defs:
+        name = ref[len(_LOCAL_DEF_PREFIX):]
+        target = defs.get(name)
+        if isinstance(target, dict):
+            siblings = {k: inline_local_refs(v, defs, _seen) for k, v in node.items() if k != "$ref"}
+            if name in _seen:
+                return siblings
+            return {**inline_local_refs(target, defs, (*_seen, name)), **siblings}
+    return {k: inline_local_refs(v, defs, _seen) for k, v in node.items() if k != "$defs"}
+
+
+def dangling_local_refs(schema: Any) -> list[str]:
+    """Every local ``$ref`` in ``schema`` that its own root cannot resolve. Empty is green.
+
+    A dangling pointer makes ``validate_instance`` skip the check (failing open), so a
+    published tool contract carrying one is validated by nothing.
+    """
+    defs = schema.get("$defs") if isinstance(schema, dict) else None
+    defs = defs if isinstance(defs, dict) else {}
+    found: list[str] = []
+
+    def walk(node: Any, path: str) -> None:
+        if isinstance(node, list):
+            for i, item in enumerate(node):
+                walk(item, f"{path}[{i}]")
+            return
+        if not isinstance(node, dict):
+            return
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#"):
+            ok = ref.startswith(_LOCAL_DEF_PREFIX) and ref[len(_LOCAL_DEF_PREFIX):] in defs
+            if not ok and ref != "#":
+                found.append(f"{path or '(root)'}: {ref}")
+        for key, value in node.items():
+            walk(value, f"{path}.{key}" if path else key)
+
+    walk(schema, "")
+    return found
+
+
 def _enum_from_property(prop: dict[str, Any], defs: dict[str, Any] | None = None) -> frozenset[str] | None:
     """Extract the allowed-value set from a JSON-Schema / flat property node.
 
@@ -285,10 +347,16 @@ def discriminated_union_members(
                 d = getattr(meta, "discriminator", None)
                 if isinstance(d, str):
                     disc = d
-    members = [
-        m for m in get_args(base)
-        if isinstance(m, type) and issubclass(m, BaseModel)
-    ]
+    # A ONE-action dispatcher: ``Union[(M,)]`` collapses to ``M`` itself, so the
+    # discriminated annotation wraps a bare submodel. It is still a dispatcher
+    # (``tables_export``, ``page_check``), never a plain args model.
+    if isinstance(base, type) and issubclass(base, BaseModel):
+        members = [base]
+    else:
+        members = [
+            m for m in get_args(base)
+            if isinstance(m, type) and issubclass(m, BaseModel)
+        ]
     if not isinstance(disc, str) or not members:
         return None
     out: dict[str, type[BaseModel]] = {}

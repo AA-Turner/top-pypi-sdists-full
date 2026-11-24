@@ -7,7 +7,7 @@ from matrx_scraper.features.stock_image_search import (
     parse_stock_image_item,
     search_stock_images,
 )
-from matrx_scraper.features.utils import format_scraped_pages_section
+from matrx_scraper.features.research_budget import Budgets, group_queries, plan_groups
 
 __all__ = [
     "search_web_mcp_quick",
@@ -17,5 +17,7 @@ __all__ = [
     "scrape_urls_from_search_result",
     "search_stock_images",
     "parse_stock_image_item",
-    "format_scraped_pages_section",
+    "Budgets",
+    "group_queries",
+    "plan_groups",
 ]

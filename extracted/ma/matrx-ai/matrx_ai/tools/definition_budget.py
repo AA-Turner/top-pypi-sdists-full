@@ -27,6 +27,11 @@ from typing import Any
 #: tool name -> the most estimated tokens its provider definition may cost per run.
 TOOL_TOKEN_BUDGETS: dict[str, int] = {
     "records": 1_500,
+    # Lean action + args rows (2026-11-15); before: applet ~2,640, cloud_browser ~2,211,
+    # credential_login ~1,833. Rows: scripts/lean_tool_envelopes (aidream).
+    "applet": 700,
+    "cloud_browser": 800,
+    "credential_login": 900,
 }
 
 #: Conservative characters-per-token for provider tool JSON (see the module docstring).

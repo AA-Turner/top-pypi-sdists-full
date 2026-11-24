@@ -10,11 +10,13 @@ from typing import Any
 
 class ChatTemplate(ABC):
     """One chat template. ``control_tokens`` are every marker the template writes around messages: never part of a
-    message's text (the conformance test reads them from here). ``role_markers`` tell its text from another's."""
+    message's text (the conformance test reads them from here). ``role_markers`` tell its text from another's.
+    ``message_starts`` open a message: a run's tokens are cut before each that is one token, to count each message's."""
 
     name: str = ""
     control_tokens: tuple[str, ...] = ()
     role_markers: tuple[str, ...] = ()
+    message_starts: tuple[str, ...] = ()
 
     def is_written_in(self, text: str) -> bool:
         """True when ``text`` holds one of this template's role markers."""

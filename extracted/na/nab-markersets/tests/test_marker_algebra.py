@@ -16,21 +16,13 @@ import weakref
 from collections.abc import Iterable
 
 import pytest
+from packaging._parser import Op, Value, Variable, parse_marker
+from packaging._tokenizer import ParserSyntaxError
+from packaging.markers import InvalidMarker, Marker, UndefinedEnvironmentName, _eval_op
+from packaging.version import Version
 
 from nab_markersets import errors, markersets
 from nab_markersets._compat import get_int_max_str_digits
-from nab_markersets._packaging import (
-    InvalidMarker,
-    Marker,
-    Op,
-    ParserSyntaxError,
-    UndefinedEnvironmentName,
-    Value,
-    Variable,
-    Version,
-    _eval_op,
-    parse_marker,
-)
 from nab_markersets.errors import IntractableMarkerSet, UnserializableMarkerSet
 from nab_markersets.markersets import MarkerSet, _markersets, variable_names
 
@@ -298,6 +290,23 @@ def test_membership_padded_twin_on_a_version_or_string_axis() -> None:
     assert Marker(
         '"5.10" == platform_release and platform_release not in "5.10 5.11"'
     ).evaluate(env)
+
+
+def test_version_equality_can_hold_outside_raw_membership_literals() -> None:
+    text = (
+        'python_full_version == "3.13.4+vendor" and '
+        'python_full_version not in "3.13.4+vendor 03.13.4+vendor"'
+    )
+    marker = ms(text)
+    env = {"python_full_version": "3.13.4+Vendor"}
+    assert Marker(text).evaluate(env)
+    assert marker.evaluate(env)
+    assert not marker.is_empty()
+    assert marker.simplify(within=MarkerSet.full()).evaluate(env)
+
+    witness = marker.witness()
+    assert witness is not None
+    assert Marker(text).evaluate(witness)
 
 
 def test_m1_string_ordering_non_negation() -> None:
@@ -872,6 +881,33 @@ def test_implementation_version_is_version_or_string_twin() -> None:
         for value in ("foo", "3.9.0", "pypy"):
             env = {"implementation_version": value}
             assert marker.evaluate(env) == Marker(text).evaluate(env), (text, value)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'implementation_version >= "3.12.4"',
+        '"3.12.4" > implementation_version',
+        'implementation_version not in "3.12.4 3.13.0"',
+        '"rc" in implementation_version',
+        'python_version == "3.12" and (implementation_version < "3.12.4" or os_name == "implementation_version")',
+    ],
+)
+def test_cpython_implementation_version_uses_the_same_interpreter(text: str) -> None:
+    marker = Marker(text)
+    original = ms(text)
+    bound = original.with_cpython_implementation_version()
+    complement = (~original).with_cpython_implementation_version()
+    for version in ("3.12.3", "3.12.4", "3.12.4rc1", "3.13.0"):
+        for os_name in ("posix", "implementation_version"):
+            env = {
+                "python_full_version": version,
+                "python_version": version.rsplit(".", 1)[0],
+                "os_name": os_name,
+            }
+            expected = marker.evaluate({**env, "implementation_version": version})
+            assert bound.evaluate(env) == expected
+            assert complement.evaluate(env) != expected
 
 
 def test_python_minor_and_full_version_are_disjoint() -> None:

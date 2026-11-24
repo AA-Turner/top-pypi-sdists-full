@@ -9,10 +9,10 @@ from contextlib import contextmanager
 from types import FrameType
 
 import pytest
+from packaging.version import Version
 
 from nab_project._lockfile import builder
 from nab_project.lockfile import build_target_lock
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.provider import Provider
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
@@ -37,7 +37,7 @@ def _provider() -> Provider:
     metadata = {}
     for (name, version), dependencies in requirements.items():
         wheel = make_wheel(
-            package=name.replace("-", "_"),
+            package=name,
             version=str(version),
             hashes=(("sha256", "a" * 64),),
         )

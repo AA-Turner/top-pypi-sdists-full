@@ -39,7 +39,6 @@ class TestFlavors(base.TestCase):
                                 "vcpus": 24,
                                 "swap": 0,
                                 "os-flavor-access:is_public": True,
-                                "rxtx_factor": 1.0,
                                 "OS-FLV-EXT-DATA:ephemeral": 0,
                                 "disk": 1600,
                                 "id": None,
@@ -88,7 +87,7 @@ class TestFlavors(base.TestCase):
                 ),
                 dict(
                     method='GET',
-                    uri=f'{fakes.COMPUTE_ENDPOINT}/flavors/detail?is_public=None',
+                    uri=f'{fakes.COMPUTE_ENDPOINT}/flavors/detail?name=invalid&is_public=None',
                     json={'flavors': fakes.FAKE_FLAVOR_LIST},
                 ),
             ]

@@ -1,10 +1,13 @@
 """Provider-neutral coding-session bridge contracts."""
 
 from .models import (
+    ANY_PROVIDER_ACTIONS,
     CLOUD_VERDICT_SENTENCES,
     FORBIDDEN_CLOUD_VERDICTS,
     IMPLEMENTED_ACTIONS,
+    PROVIDER_TOKEN_PATTERN,
     SYNC_VERDICT_CODES,
+    AnyProvider,
     BridgeAccountIdentity,
     BridgeAction,
     BridgeCapabilities,
@@ -40,6 +43,8 @@ from .models import (
     EntryFidelity,
     EntryFormat,
     ProjectionStatus,
+    ProviderToken,
+    provider_token,
 )
 
 __all__ = [
@@ -66,6 +71,11 @@ __all__ = [
     "BridgeProjectionErrorGroup",
     "BridgeProjectionReceipt",
     "BridgeProvider",
+    "ANY_PROVIDER_ACTIONS",
+    "PROVIDER_TOKEN_PATTERN",
+    "AnyProvider",
+    "ProviderToken",
+    "provider_token",
     "BridgeRefusal",
     "BridgeRefusalCode",
     "BridgeReprojection",

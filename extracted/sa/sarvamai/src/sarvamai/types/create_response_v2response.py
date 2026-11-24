@@ -177,7 +177,7 @@ class CreateResponseV2Response(UniversalBaseModel):
 
     billing: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    Reserved — always observed as `null` in testing. Shape not yet defined; do not rely on this field.
+    Reserved. Shape not yet defined; do not rely on this field.
     """
 
     if IS_PYDANTIC_V2:

@@ -74,6 +74,14 @@ class CaptureSlot:
     #: forked child (``run_agent``), whose context (the tool sources it recorded) is gone
     #: once the capture unwinds. Read by the host's Model view.
     context: Any = None
+    #: The per-turn slots (slot -> exact text) the captured send's ``<turn_context>`` block was
+    #: rendered from — the send boundary's own freeze (``record_turn_context_slots``). The host's
+    #: Model view lists every block inside the per-turn context from these, so its list is the
+    #: block that was placed, never a second assembly (PB-07 AL-05 / AL-07, lane C99).
+    turn_context_slots: dict[str, str] | None = None
+    #: The static seal line of the captured send (``final_outbound_snapshot.SealStamp``), read at
+    #: the instant of the send, so the host's Model view draws the line where the real send puts it.
+    seal: Any = None
 
 
 _capture_var: ContextVar[CaptureSlot | None] = ContextVar("matrx_ai_provider_request_capture", default=None)
@@ -131,6 +139,17 @@ def skip_paid_pre_step(kind: str, detail: str) -> bool:
     return True
 
 
+def record_turn_context_slots(slots: dict[str, str] | None) -> None:
+    """Record, on an active capture, the slots the send's per-turn block was rendered from.
+
+    Called by the send boundary each time it places the turn's block; the capture stops at the
+    first provider send, so the last record before the stop is the captured send's. No-op when
+    not capturing."""
+    slot = _capture_var.get()
+    if slot is not None and isinstance(slots, dict):
+        slot.turn_context_slots = {str(k): str(v) for k, v in slots.items() if isinstance(v, str)}
+
+
 def note_capture(note: str) -> None:
     """Record a fact about how the request was shaped on an active capture (no-op otherwise).
 
@@ -153,6 +172,8 @@ PAID_PROVIDER_HOST_SUFFIXES: tuple[str, ...] = (
     "api.cerebras.ai",
     "api.together.xyz",
     "api.together.ai",
+    # Together's chat inference host; everything else is api.together.ai.
+    "api-inference.together.ai",
     "api.elevenlabs.io",
     "api.replicate.com",
     "api.cohere.com",
@@ -290,6 +311,12 @@ def _finish(record: dict[str, Any]) -> None:
         return
     slot.captured = record
     try:
+        from matrx_ai.providers.final_outbound_snapshot import current_seal_stamp
+
+        slot.seal = current_seal_stamp()
+    except Exception:  # noqa: BLE001 — the line is a companion to the request, never a gate
+        slot.seal = None
+    try:
         from matrx_connect.context.app_context import try_get_app_context
 
         slot.context = try_get_app_context()
@@ -388,7 +415,8 @@ _GENAI_INSTALLED = False
 
 
 def install_genai_capture() -> None:
-    """Wrap ``genai``'s last pre-transport step once. Idempotent; inert unless capturing."""
+    """Wrap ``genai``'s last pre-transport step once. Idempotent. Captures only in capture mode;
+    always hands a chat send's bytes to the final outbound snapshot (fingerprints only)."""
     global _GENAI_INSTALLED
     if _GENAI_INSTALLED:
         return
@@ -396,7 +424,7 @@ def install_genai_capture() -> None:
 
     original = _api_client.BaseApiClient._async_request_once
 
-    async def _async_request_once(self: Any, http_request: Any, stream: bool = False) -> Any:
+    async def _async_request_once(self: Any, http_request: Any, stream: bool = False, **kwargs: Any) -> Any:
         if _capture_var.get() is not None:
             data = http_request.data
             body = data if isinstance(data, bytes) else (json.dumps(data).encode("utf-8") if data else b"")
@@ -407,7 +435,31 @@ def install_genai_capture() -> None:
                 body=body,
                 provider="google",
             )
-        return await original(self, http_request, stream)
+        # THE FINAL OUTBOUND SNAPSHOT (always on): the body genai's transport sends
+        # (``json.dumps(http_request.data)``), fingerprinted for the static seal check in a worker
+        # thread — the bytes are never made on the event loop. Report only; never breaks the send
+        # (``final_outbound_snapshot.py``).
+        try:
+            from matrx_ai.providers.final_outbound_snapshot import (
+                current_seal_stamp,
+                observe_wire_body,
+            )
+
+            if current_seal_stamp() is not None:
+                data = http_request.data
+                if isinstance(data, bytes):
+                    observe_wire_body(url=str(http_request.url), body=data, always_off_loop=True)
+                else:
+                    observe_wire_body(url=str(http_request.url), body_obj=data, always_off_loop=True)
+        except Exception as exc:  # noqa: BLE001 — never breaks the send
+            try:
+                from matrx_ai.providers.final_outbound_snapshot import _say_failure
+
+                _say_failure("genai hook", exc)
+            except Exception:  # noqa: BLE001, S110 — saying it must not break the send either
+                pass
+        # Every keyword genai passes (``implicit_retry=`` on its retry path) reaches the original.
+        return await original(self, http_request, stream, **kwargs)
 
     _api_client.BaseApiClient._async_request_once = _async_request_once  # type: ignore[method-assign]
     _GENAI_INSTALLED = True
@@ -424,6 +476,7 @@ __all__ = [
     "capture_wire_request",
     "capturing_provider_request",
     "note_capture",
+    "record_turn_context_slots",
     "guard_paid_send",
     "install_genai_capture",
     "install_paid_send_guard",

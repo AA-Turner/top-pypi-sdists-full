@@ -9,6 +9,7 @@ from sqlglot import alias, exp
 from sqlglot.dialects.dialect import AliasPrecedence, Dialect, DialectType, UsingColumnOrder
 from sqlglot.errors import OptimizeError, highlight_sql
 from sqlglot.optimizer.annotate_types import TypeAnnotator
+from sqlglot.optimizer.helpers import is_implicit_group_by_all
 from sqlglot.optimizer.resolver import Resolver
 from sqlglot.optimizer.scope import (
     Scope,
@@ -69,6 +70,7 @@ def qualify_columns(
     annotator = TypeAnnotator(schema)
     dialect = schema.dialect or Dialect()
     pseudocolumns = dialect.PSEUDOCOLUMNS
+    convert_dots_early = expand_alias_refs and dialect.PREFER_PROJECTION_ALIASES_IN_DOT_PATHS
 
     # Qualified scopes that still lack types, in traversal order (sources precede dependents)
     unannotated_scopes: list[Scope] = []
@@ -91,6 +93,9 @@ def qualify_columns(
 
         using_column_tables, using_columns = _expand_using(scope, resolver)
 
+        if convert_dots_early:
+            _convert_columns_to_dots(scope, resolver, prefer_projection_aliases=True)
+
         if dialect.FORCE_EARLY_ALIAS_REF_EXPANSION and expand_alias_refs:
             _expand_alias_refs(
                 scope,
@@ -99,7 +104,9 @@ def qualify_columns(
                 expand_only_groupby=dialect.EXPAND_ONLY_GROUP_ALIAS_REF,
             )
 
-        _convert_columns_to_dots(scope, resolver)
+        if not convert_dots_early:
+            _convert_columns_to_dots(scope, resolver)
+
         _qualify_columns(
             scope,
             resolver,
@@ -382,6 +389,7 @@ def _expand_alias_refs(
 
     alias_to_expression: dict[str, tuple[exp.Expr, int]] = {}
     grouped_columns: set[tuple[str, str]] = set()
+    group_by_all_has_star = False
     projections = {s.alias_or_name for s in expression.selects}
     replaced = False
 
@@ -441,6 +449,9 @@ def _expand_alias_refs(
                     isinstance(column.find_ancestor(exp.AggFunc, exp.Having), exp.AggFunc)
                     or (table.name, column.name) in grouped_columns
                 )
+                # An unexpanded star may group this input. Let the engine resolve the collision.
+                if group_by_all_has_star and alias_expr and not prefer_column:
+                    continue
 
             if table and (not alias_expr or skip_replace or prefer_column):
                 column.set("table", table)
@@ -520,6 +531,15 @@ def _expand_alias_refs(
                     grouping = expression.selects[index].unalias().unnest()
             if isinstance(grouping, exp.Column):
                 grouped_columns.add((grouping.table, grouping.name))
+
+        min_version = dialect.GROUP_BY_ALL_HAVING_MIN_VERSION
+        if min_version and dialect.version >= min_version and is_implicit_group_by_all(expression):
+            for projection in expression.selects:
+                grouping = projection.unalias().unnest()
+                if isinstance(grouping, (exp.Star, exp.Column, exp.Dot)) and grouping.is_star:
+                    group_by_all_has_star = True
+                elif isinstance(grouping, exp.Column):
+                    grouped_columns.add((grouping.table, grouping.name))
 
     replace_columns(expression.args.get("having"), resolve_table=True)
     replace_columns(expression.args.get("qualify"), resolve_table=True)
@@ -710,9 +730,14 @@ def _expand_positional_references(
 
 def _select_by_pos(expression: exp.Selectable, node: exp.Literal) -> exp.Alias:
     try:
-        return expression.selects[int(node.this) - 1].assert_is(exp.Alias)
+        select = expression.selects[int(node.this) - 1]
     except IndexError:
         raise OptimizeError(f"Unknown output column: {node.name}")
+
+    if not isinstance(select, exp.Alias):
+        raise OptimizeError(f"Cannot resolve positional reference {node.name} to {select.sql()}")
+
+    return select
 
 
 def _qualify_comprehensions(scope: Scope, resolver: Resolver) -> None:
@@ -748,7 +773,9 @@ def _qualify_comprehensions(scope: Scope, resolver: Resolver) -> None:
         scope.clear_cache()
 
 
-def _convert_columns_to_dots(scope: Scope, resolver: Resolver) -> None:
+def _convert_columns_to_dots(
+    scope: Scope, resolver: Resolver, prefer_projection_aliases: bool = False
+) -> None:
     """
     Converts `Column` instances that represent STRUCT or JSON field lookup into chained `Dots`.
 
@@ -758,6 +785,15 @@ def _convert_columns_to_dots(scope: Scope, resolver: Resolver) -> None:
     converted = False
     scope_sources = scope.selected_sources
     semi_or_anti_join_tables = scope.semi_or_anti_join_tables
+    alias_roots = (
+        resolver.select_aliases.difference(scope_sources, semi_or_anti_join_tables)
+        if prefer_projection_aliases
+        else None
+    )
+    if alias_roots:
+        for outer in resolver.outer_resolvers():
+            alias_roots.difference_update(outer.scope.selected_sources)
+
     join_columns: dict[str, set[str]] = {}
     for column in itertools.chain(scope.columns, scope.stars):
         if isinstance(column, exp.Dot):
@@ -766,6 +802,29 @@ def _convert_columns_to_dots(scope: Scope, resolver: Resolver) -> None:
         column_table: str | exp.Identifier | None = column.table
         is_star = isinstance(column.this, exp.Star)
         dot_parts = column.meta.pop("dot_parts", [])
+        if (
+            alias_roots
+            and column_table
+            and not is_star
+            and (column.catalog or column.db or column_table) in alias_roots
+            # scope.columns includes correlated references from child scopes.
+            and id(column) in scope.column_index
+        ):
+            # Leave the root unqualified so alias expansion can resolve it.
+            alias_root, *fields = column.parts
+            path: exp.Expr = column
+            while isinstance(path.parent, exp.Dot) and isinstance(
+                path.parent.expression, exp.Identifier
+            ):
+                path = path.parent
+                fields.append(path.expression)
+            dot = exp.Dot.build([exp.column(alias_root, copy=False), *fields])
+            if len(fields) > 1:
+                dot.set("subcolumn_depth", len(fields))
+            path.replace(dot)
+            converted = True
+            continue
+
         root_resolver: Resolver | None = None
         if semi_or_anti_join_tables and column_table:
             root = column.args.get("catalog") or column.args.get("db")
@@ -1504,7 +1563,7 @@ def qualify_outputs(scope_or_expression: Scope | exp.Expr, dialect: Dialect) -> 
             if not selection.output_name:
                 alias_identifier = exp.to_identifier(f"_col_{i}")
                 dialect.normalize_identifier(alias_identifier)
-                selection.set("alias", exp.TableAlias(this=alias_identifier))
+                selection = exp.Alias(this=selection, alias=alias_identifier)
         elif not isinstance(selection, (exp.Alias, exp.Aliases)) and not selection.is_star:
             unwrapped = selection.unnest()
             if isinstance(unwrapped, exp.Column):

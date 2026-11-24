@@ -179,6 +179,14 @@ def _wire(
 
     monkeypatch.setattr(conflict_writes, "upsert_with_conflict", _upsert)
 
+    async def _bulk(_model: Any, rows: list[dict[str, Any]], *_a: Any, **_kw: Any) -> list[dict[str, Any]]:
+        bulk_calls_by_run.setdefault(run_id, []).append(len(rows))
+        return [await _upsert(_model, row) for row in rows]
+
+    import matrx_orm.operations.create as create_ops
+
+    monkeypatch.setattr(create_ops, "bulk_upsert", _bulk)
+
     async def _latest_per_group(
         plan: Any,
     ) -> int:  # what the one-statement adoption did: copy the column
@@ -202,6 +210,9 @@ def _wire(
 
 #: run id → every load_run_values call adoption made (the hashes it asked for).
 slots_loads_by_run: dict[str, list[set[str]]] = {}
+
+#: run id → the row count of every bulk slot write adoption made.
+bulk_calls_by_run: dict[str, list[int]] = {}
 
 
 @pytest.mark.asyncio

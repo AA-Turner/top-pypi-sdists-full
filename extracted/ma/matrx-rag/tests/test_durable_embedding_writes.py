@@ -253,6 +253,9 @@ def fake_embedding_model():
             def __init__(self, ids):
                 self._ids = set(ids)
 
+            def including_archived(self):  # the ORM's include-archived door
+                return self
+
             async def values(self, *fields):
                 return [
                     {"chunk_id": r["chunk_id"]}
@@ -308,6 +311,9 @@ async def test_source_gap_probe_blocks_skip_until_healed(fake_embedding_model):
 
     class _FakeKgChunks:
         class _QB:
+            def including_archived(self):  # the ORM's include-archived door
+                return self
+
             async def values(self, *fields):
                 return [{"id": c1}, {"id": c2}]
 

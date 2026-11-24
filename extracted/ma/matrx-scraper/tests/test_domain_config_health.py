@@ -160,3 +160,45 @@ def test_package_migration_views_project_the_model_and_retained_legacy_columns()
     )
     assert doctored != sql, "self-test anchor moved — re-point the doctoring above"
     assert "category_reason" not in _scraper_view_columns(doctored)["scrape_path_pattern"]
+
+
+@pytest.mark.asyncio
+async def test_a_boot_time_connect_timeout_is_retried_not_left_degraded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Live 2026-11-05 (startup_wiring_failed, scraper_store_init): the pooler timed out the
+    FIRST connect at boot and the store was never registered for the life of the process.
+    A transport failure is now retried; the second attempt loads and the store is healthy."""
+    from matrx_orm.exceptions import DatabaseConnectError
+
+    import matrx_scraper.domain_config as dc
+
+    store = PostgresDomainConfigStore(pool=object())
+    loader = AsyncMock(
+        side_effect=[
+            DatabaseConnectError(kind="timeout", config_name="x", host="h", port=6543),
+            [],
+        ]
+    )
+    monkeypatch.setattr(store, "_load_all_domains", loader)
+    monkeypatch.setattr(dc.asyncio, "sleep", AsyncMock(return_value=None))
+
+    await store.start()
+    try:
+        assert loader.await_count == 2
+        assert store.healthy is True
+    finally:
+        await store.stop()
+
+
+@pytest.mark.asyncio
+async def test_an_auth_or_schema_failure_is_never_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    from matrx_orm.exceptions import DatabaseConnectError
+
+    for error in (RuntimeError("schema mismatch"), DatabaseConnectError(kind="auth", config_name="x", host="h", port=1)):
+        store = PostgresDomainConfigStore(pool=object())
+        loader = AsyncMock(side_effect=error)
+        monkeypatch.setattr(store, "_load_all_domains", loader)
+        with pytest.raises(RuntimeError, match="initial load failed"):
+            await store.start()
+        assert loader.await_count == 1

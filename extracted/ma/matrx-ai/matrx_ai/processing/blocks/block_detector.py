@@ -22,6 +22,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from matrx_graph.content_ir.blank_kind import report_blank_kind, report_blank_kind_string
 from matrx_graph.content_ir.directives import (
     is_reserved_directive_slug,
     parse_directive_slug,
@@ -43,7 +44,11 @@ from matrx_ai.processing.blocks.gfm_table_lines import (
     table_container_indent,
     table_starts_at,
 )
-from matrx_ai.processing.blocks.html_elements import html_element_is_markup, html_opener_is_markup, html_root_of
+from matrx_ai.processing.blocks.html_elements import (
+    html_element_is_markup,
+    html_opener_is_markup,
+    html_root_of,
+)
 from matrx_ai.processing.blocks.kind_catalog import is_registered_kind
 from matrx_ai.processing.blocks.tree_line import MIN_TREE_LINES, is_tree_line
 
@@ -89,74 +94,10 @@ def normalize_line(text: str) -> str:
 # JSON block detection
 # ---------------------------------------------------------------------------
 
-JSON_BLOCK_PATTERNS: dict[str, dict[str, Any]] = {
-    "quiz": {
-        "root_key": "quiz_title",
-        "validate": lambda p: bool(
-            p
-            and p.get("quiz_title")
-            and isinstance(p.get("multiple_choice"), list)
-            and len(p["multiple_choice"]) > 0
-        ),
-    },
-    "presentation": {
-        "root_key": "presentation",
-        "validate": lambda p: bool(
-            p
-            and p.get("presentation", {}).get("slides")
-            and isinstance(p["presentation"]["slides"], list)
-        ),
-    },
-    "decision_tree": {
-        "root_key": "decision_tree",
-        "validate": lambda p: bool(
-            p and p.get("decision_tree", {}).get("title") and p["decision_tree"].get("root")
-        ),
-    },
-    "comparison_table": {
-        "root_key": "comparison",
-        "validate": lambda p: bool(
-            p
-            and p.get("comparison", {}).get("title")
-            and isinstance(p.get("comparison", {}).get("items"), list)
-            and isinstance(p.get("comparison", {}).get("criteria"), list)
-        ),
-    },
-    "diagram": {
-        "root_key": "diagram",
-        "validate": lambda p: bool(
-            p
-            and p.get("diagram", {}).get("title")
-            and isinstance(p.get("diagram", {}).get("nodes"), list)
-        ),
-    },
-    "math_problem": {
-        "root_key": "math_problem",
-        "validate": lambda p: bool(p and isinstance(p.get("math_problem"), dict)),
-    },
-    # A clickable reference to a platform entity (agent, note, task, file, ...).
-    # Deliberately forgiving: any object under the key with a string ``type``
-    # qualifies -- the renderer handles unknown types via a neutral fallback.
-    "item_presentation": {
-        "root_key": "item_presentation",
-        "validate": lambda p: bool(
-            p
-            and isinstance(p.get("item_presentation"), dict)
-            and isinstance(p["item_presentation"].get("type"), str)
-        ),
-    },
-    # An output-schema proposal -- what the "JSON Schema Generator" agent emits:
-    # ``{ name: str, schema: object, strict?: bool }``. Deliberately strict so
-    # ordinary JSON that merely begins with a "name" key never misfires.
-    "schema_proposal": {
-        "root_key": "name",
-        "validate": lambda p: bool(
-            p
-            and isinstance(p.get("name"), str)
-            and isinstance(p.get("schema"), dict)
-        ),
-    },
-}
+# The pre-kind JSON root-key families (quiz_title, presentation, decision_tree, comparison,
+# diagram, math_problem, item_presentation) and the schema_proposal shape were deleted in
+# legacy-shapes step 5 (LEGACY-5, twin of the web splitter): a kind arrives as a ``__kind``
+# instance; an old root-key body stays the JSON code block it was written as.
 
 #: The one block type every registered, user-authored kind arrives as. The SLUG lives in
 #: the body's ``__kind`` (one type, many kinds) rather than in the type, because the set of
@@ -252,9 +193,6 @@ def detect_json_block_type(content: str) -> str | None:
     if first_key == "matrx_version":  # LEGACY read path -- stored content only.
         return "matrx"
 
-    for block_type, pattern in JSON_BLOCK_PATTERNS.items():
-        if pattern["root_key"] == first_key:
-            return block_type
     return None
 
 
@@ -310,22 +248,6 @@ def _build_matrx_block(content: str) -> DetectedBlock:
     )
 
 
-_PLACEHOLDER_PATTERNS = [
-    re.compile(
-        r"\[\s*(array|object|string|number|boolean|description|example|etc|list|item)[^\]]*\]",
-        re.IGNORECASE,
-    ),
-    re.compile(r':\s*"?\[?(array|list) of ', re.IGNORECASE),
-    re.compile(r':\s*"?object with ', re.IGNORECASE),
-    re.compile(r':\s*"?<[a-z_]+>', re.IGNORECASE),
-    re.compile(r':\s*"?\.\.\."?'),
-]
-
-
-def _contains_placeholder_text(content: str) -> bool:
-    return any(p.search(content) for p in _PLACEHOLDER_PATTERNS)
-
-
 def validate_json_block(content: str, block_type: str) -> dict[str, Any]:
     """Validate a JSON block and determine its streaming state."""
     trimmed = re.sub(r"```+\s*$", "", content.strip()).strip()
@@ -346,10 +268,7 @@ def validate_json_block(content: str, block_type: str) -> dict[str, Any]:
         }
 
     # Registered user-authored kinds are verified by the canonical envelope
-    # assembler after parsing. They deliberately have no entry in the legacy
-    # JSON_BLOCK_PATTERNS table, so treating that absence as a validation failure
-    # downgraded even complete bodies before the schema boundary could either
-    # stamp a verified envelope or capture a contract rejection.
+    # assembler after parsing, so a complete object is complete here.
     if block_type == KIND_BLOCK_TYPE:
         try:
             parsed = json.loads(trimmed)
@@ -361,30 +280,7 @@ def validate_json_block(content: str, block_type: str) -> dict[str, Any]:
             "metadata": {"isComplete": isinstance(parsed, dict)},
         }
 
-    if _contains_placeholder_text(trimmed):
-        return {"is_complete": False, "should_show": False}
-
-    # Try full parse
-    try:
-        parsed = json.loads(trimmed)
-        pattern = JSON_BLOCK_PATTERNS[block_type]
-        if pattern["validate"](parsed):
-            return {"is_complete": True, "should_show": True, "metadata": {"isComplete": True}}
-        return {"is_complete": True, "should_show": False, "metadata": {"isComplete": True}}
-    except (json.JSONDecodeError, KeyError):
-        pass
-
-    # Brace counting
-    open_braces = trimmed.count("{")
-    close_braces = trimmed.count("}")
-
-    if open_braces > close_braces:
-        return {"is_complete": False, "should_show": False}
-    if trimmed.endswith("}") and open_braces == close_braces:
-        return {"is_complete": True, "should_show": False, "metadata": {"isComplete": True}}
-    if close_braces > open_braces:
-        return {"is_complete": True, "should_show": False, "metadata": {"isComplete": True}}
-
+    # Only the matrx payload and registered kinds are typed JSON blocks (LEGACY-5).
     return {"is_complete": False, "should_show": False}
 
 
@@ -395,21 +291,11 @@ def validate_json_block(content: str, block_type: str) -> dict[str, Any]:
 XML_TAG_BLOCKS: dict[str, list[str]] = {
     "thinking": ["<thinking>", "<think>"],
     "reasoning": ["<reasoning>"],
-    "info": ["<info>"],
-    "task": ["<task>"],
-    "database": ["<database>"],
-    "private": ["<private>"],
-    "plan": ["<plan>"],
-    "event": ["<event>"],
-    "tool": ["<tool>"],
-    "questionnaire": ["<questionnaire>"],
-    "flashcards": ["<flashcards>"],
-    "cooking_recipe": ["<cooking_recipe>"],
-    "timeline": ["<timeline>"],
-    "progress_tracker": ["<progress_tracker>"],
-    "troubleshooting": ["<troubleshooting>"],
-    "resources": ["<resources>"],
-    "research": ["<research>"],
+    # The display tags with a kind (questionnaire, flashcards, cooking_recipe, timeline,
+    # progress_tracker, troubleshooting, resources, research) and the ones with none (info,
+    # task, database, private, plan, event, tool) were deleted in legacy-shapes step 5
+    # (LEGACY-5, twin of the web splitter): an old tag reads as an unrecognized container
+    # (its text kept as written, never dropped).
 }
 
 
@@ -757,135 +643,10 @@ def extract_attribute_xml_block(
 
 
 def _validate_streaming_xml_block(
-    block_type: str, content: str, found_closing: bool
+    _block_type: str, content: str, found_closing: bool
 ) -> dict[str, Any]:
-    if block_type not in ("questionnaire", "flashcards", "cooking_recipe"):
-        return {"content": content, "metadata": {"isComplete": found_closing}}
-
-    if block_type == "questionnaire":
-        return _validate_questionnaire_streaming(content, found_closing)
-    if block_type == "flashcards":
-        return _validate_flashcard_streaming(content, found_closing)
-    if block_type == "cooking_recipe":
-        return _validate_recipe_streaming(content, found_closing)
-
     return {"content": content, "metadata": {"isComplete": found_closing}}
 
-
-def _validate_questionnaire_streaming(content: str, found_closing: bool) -> dict[str, Any]:
-    lines = content.split("\n")
-    complete_questions: list[str] = []
-    current_question: list[str] = []
-    total_questions = 0
-
-    question_re = re.compile(r"^###\s+\*\*Q\d+:|^###\s+Q\d+:|^\*\*Q\d+:")
-
-    for line in lines:
-        trimmed = line.strip()
-        if question_re.match(trimmed):
-            total_questions += 1
-            if current_question:
-                complete_questions.append("\n".join(current_question))
-            current_question = [line]
-        elif trimmed == "---":
-            current_question.append(line)
-            if len(current_question) > 1:
-                complete_questions.append("\n".join(current_question))
-            current_question = []
-        elif current_question or trimmed:
-            current_question.append(line)
-
-    if found_closing and current_question:
-        complete_questions.append("\n".join(current_question))
-
-    content_to_release = content if found_closing else "\n\n---\n\n".join(complete_questions)
-
-    return {
-        "content": content_to_release,
-        "metadata": {
-            "isComplete": found_closing,
-            "completeQuestionCount": len(complete_questions),
-            "totalQuestions": total_questions,
-            "hasPartialContent": not found_closing and len(current_question) > 0,
-        },
-    }
-
-
-def _validate_flashcard_streaming(content: str, found_closing: bool) -> dict[str, Any]:
-    lines = content.split("\n")
-    complete_cards: list[str] = []
-    current_card: list[str] = []
-    total_cards = 0
-    has_front = False
-    has_back = False
-
-    front_re = re.compile(r"^(?:Front|Question):", re.IGNORECASE)
-    back_re = re.compile(r"^(?:Back|Answer):", re.IGNORECASE)
-
-    for line in lines:
-        trimmed = line.strip()
-        if front_re.match(trimmed):
-            if current_card and has_front and has_back:
-                complete_cards.append("\n".join(current_card))
-            current_card = [line]
-            has_front = True
-            has_back = False
-            total_cards += 1
-        elif back_re.match(trimmed):
-            current_card.append(line)
-            has_back = True
-        elif trimmed == "---":
-            if current_card and has_front and has_back:
-                complete_cards.append("\n".join(current_card))
-            current_card = []
-            has_front = False
-            has_back = False
-        elif current_card:
-            current_card.append(line)
-
-    if found_closing and current_card and has_front and has_back:
-        complete_cards.append("\n".join(current_card))
-
-    content_to_release = content if found_closing else "\n\n---\n\n".join(complete_cards)
-
-    return {
-        "content": content_to_release,
-        "metadata": {
-            "isComplete": found_closing,
-            "completeCardCount": len(complete_cards),
-            "totalCards": total_cards,
-            "hasPartialContent": not found_closing and len(current_card) > 0,
-        },
-    }
-
-
-def _validate_recipe_streaming(content: str, found_closing: bool) -> dict[str, Any]:
-    has_title = bool(re.search(r"^###\s+.+$", content, re.MULTILINE))
-    has_ingredients = bool(re.search(r"####\s*Ingredients?:", content, re.IGNORECASE))
-    has_instructions = bool(re.search(r"####\s*Instructions?:", content, re.IGNORECASE))
-
-    if found_closing:
-        content_to_release = content
-    elif has_title and (has_ingredients or has_instructions):
-        content_to_release = content
-    else:
-        content_to_release = ""
-
-    return {
-        "content": content_to_release,
-        "metadata": {
-            "isComplete": found_closing,
-            "hasTitle": has_title,
-            "hasIngredients": has_ingredients,
-            "hasInstructions": has_instructions,
-            "hasPartialContent": not found_closing and len(content) > 0,
-        },
-    }
-
-
-# ---------------------------------------------------------------------------
-# Markdown element detection
-# ---------------------------------------------------------------------------
 
 _CODE_BLOCK_RE = re.compile(r"^```(\w*)")
 _IMAGE_STD_RE = re.compile(
@@ -1082,19 +843,7 @@ _ROOT_KIND_BLOCK_TYPES = frozenset(
         # falls into embedded-kind recovery, that recovery re-wraps it as code
         # and bypasses the canonical envelope validation/capture boundary.
         KIND_BLOCK_TYPE,
-        *JSON_BLOCK_PATTERNS.keys(),
-        "transcript",
-        "tasks",
-        "structured_info",
-        "questionnaire",
-        "flashcards",
-        "cooking_recipe",
         "mermaid",
-        "timeline",
-        "progress_tracker",
-        "troubleshooting",
-        "resources",
-        "research",
         "artifact",
     }
 )
@@ -1172,6 +921,7 @@ def root_kind_declaration(source: str) -> str | None:
     if match.group("key") != KIND_KEY:
         return None
     slug = match.group("value").strip()
+    report_blank_kind_string("block_detector.root_kind_declaration", slug)
     return slug or None
 
 
@@ -1200,6 +950,106 @@ def _front_matter_end(source: str) -> int:
     return 0
 
 
+_JSON_SCALAR_RE = re.compile(r"(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)")
+
+
+def _json_string_end(source: str, start: int) -> int | None:
+    if source[start : start + 1] != '"':
+        return None
+    escaped = False
+    for index in range(start + 1, len(source)):
+        char = source[index]
+        if escaped:
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == '"':
+            return index + 1
+    return None
+
+
+def _json_value_end(source: str, start: int) -> int | None:
+    char = source[start : start + 1]
+    if char == '"':
+        return _json_string_end(source, start)
+    if char in ("{", "["):
+        stack: list[str] = []
+        in_string = escaped = False
+        for index in range(start, len(source)):
+            c = source[index]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif c == "\\":
+                    escaped = True
+                elif c == '"':
+                    in_string = False
+                continue
+            if c == '"':
+                in_string = True
+            elif c in "{[":
+                stack.append(c)
+            elif c in "}]":
+                if not stack or (c == "}") != (stack.pop() == "{"):
+                    return None
+                if not stack:
+                    return index + 1
+        return None
+    match = _JSON_SCALAR_RE.match(source, start)
+    return match.end() if match else None
+
+
+_JSON_LINE_LEAD_RE = re.compile(r'\s*(?:$|["{}\[\],:\-0-9]|true\b|false\b|null\b)')
+
+
+def _continues_json(line: str) -> bool:
+    """A line that can continue a pretty-printed JSON document (JSON strings never
+    span lines, so every continuation line starts with a JSON token)."""
+    return bool(_JSON_LINE_LEAD_RE.match(line))
+
+
+def _unclosed_kind_owner(source: str, start: int) -> bool:
+    """True when the unclosed object at ``start`` declares a non-empty ``__kind``
+    among the top-level members read before the source runs out or its grammar
+    breaks — the case TS ``malformedKindOwnerEnd`` answers with "owns to the end"."""
+    cursor = start + 1
+    length = len(source)
+
+    def skip(at: int) -> int:
+        while at < length and source[at].isspace():
+            at += 1
+        return at
+
+    cursor = skip(cursor)
+    while cursor < length:
+        key_end = _json_string_end(source, cursor)
+        if key_end is None:
+            return False
+        try:
+            key = json.loads(source[cursor:key_end])
+        except ValueError:
+            return False
+        cursor = skip(key_end)
+        if source[cursor : cursor + 1] != ":":
+            return False
+        cursor = skip(cursor + 1)
+        value_end = _json_value_end(source, cursor)
+        if value_end is None:
+            return False
+        if key == KIND_KEY:
+            try:
+                value = json.loads(source[cursor:value_end])
+            except ValueError:
+                return False
+            if isinstance(value, str) and value.strip():
+                return True
+        cursor = skip(value_end)
+        if source[cursor : cursor + 1] != ",":
+            return False
+        cursor = skip(cursor + 1)
+    return False
+
+
 def _embedded_kind_json_regions(
     source: str, *, exclude_literal_contexts: bool = False
 ) -> list[tuple[int, int, str]]:
@@ -1226,6 +1076,13 @@ def _embedded_kind_json_regions(
             continue
         end = _matching_json_object_end(source, start)
         if end is None:
+            # An unclosed object whose root already declares ``__kind`` (a kind still
+            # streaming) owns every descendant: a complete nested ``__kind`` object
+            # inside it is part of it, never a region of its own (twin of TS
+            # ``malformedKindOwnerEnd``). Without this a quiz_set's finished
+            # ``quiz_question`` opened a phantom block mid-stream that was then retracted.
+            if _unclosed_kind_owner(source, start):
+                break
             start += 1
             continue
         candidate = source[start:end]
@@ -1235,6 +1092,7 @@ def _embedded_kind_json_regions(
             start += 1
             continue
         kind = parsed.get("__kind") if isinstance(parsed, dict) else None
+        report_blank_kind_string("block_detector.embedded_kind_json_regions", kind)
         if not isinstance(kind, str) or not kind.strip():
             start += 1
             continue
@@ -1529,6 +1387,7 @@ def _recover_embedded_kind_json_blocks(
                     without_keys = re.sub(r'"(?:[^"\\]|\\.)*"\s*:', "", span)
                     return bool(re.fullmatch(r"[\s{}\[\],:]*", without_keys))
 
+                report_blank_kind("block_detector.root_json_block", parsed)
                 is_root_kind = (
                     isinstance(parsed, dict)
                     and isinstance(parsed.get("__kind"), str)
@@ -1906,7 +1765,26 @@ def extract_unrecognized_xml_block(start_index: int, lines: list[str]) -> Extrac
         index += 1
     else:
         return None
-    source = "\n".join(normalize_line(line) for line in lines[start_index:])
+    # Read only as far as a line that can close the root (the opening line, or one holding
+    # "</name"), never to the end: joining every remaining line made the incremental splitter
+    # count the whole answer as read, so after the first unrecognized container (``<timeline>``
+    # since LEGACY-5) nothing settled and streaming went quadratic (2026-11-01). Each candidate
+    # line is tried in order; with none that closes, every line has been read (indexed, one by
+    # one), so an unclosed root still leaves the tail unsettled, exactly as before.
+    closer = f"</{name.group()}"
+    candidate = index
+    while candidate < len(lines):
+        if candidate == index or closer in lines[candidate]:
+            found = _close_generic_xml_root(lines, start_index, candidate)
+            if found is not None:
+                return found
+        candidate += 1
+    return None
+
+
+def _close_generic_xml_root(lines: list[str], start_index: int, last: int) -> ExtractionResult | None:
+    """The generic XML root opening at ``start_index`` when it closes by line ``last``, else None."""
+    source = "\n".join(normalize_line(lines[k]) for k in range(start_index, last + 1))
     opening = _generic_xml_opening(source)
     if not opening:
         return None
@@ -2239,12 +2117,9 @@ def _strip_accumulated_lines_from_text(
 # becomes the block type). Mirrors SPECIAL_CODE_LANGUAGES in
 # content-splitter-v2.ts -- keep the two in lockstep.
 SPECIAL_CODE_LANGUAGES = {
-    "transcript",
-    "tasks",
-    "structured_info",
-    "questionnaire",
-    "flashcards",
-    "cooking_recipe",
+    # The pre-kind fences (transcript, tasks, structured_info, questionnaire,
+    # flashcards, cooking_recipe) were deleted in legacy-shapes step 5 (LEGACY-5):
+    # such a fence stays the code block it was written as.
     "mermaid",
     "svg",
     "chart",
@@ -2279,8 +2154,7 @@ def normalize_code_language(language: str | None) -> str | None:
 
 
 # Every block type ``split_content_into_blocks`` can emit that is NOT already
-# named by XML_TAG_BLOCKS / ATTRIBUTE_XML_BLOCKS / JSON_BLOCK_PATTERNS /
-# SPECIAL_CODE_LANGUAGES. Without this the envelope-classification guard cannot
+# named by XML_TAG_BLOCKS / ATTRIBUTE_XML_BLOCKS / SPECIAL_CODE_LANGUAGES. Without this the envelope-classification guard cannot
 # see splitter-only types (tree, youtube, audio, matrx_file, the dividers) and a
 # new one would slip past unclassified. Keep in lockstep with the main loop.
 SPLITTER_ONLY_BLOCK_TYPES: frozenset[str] = frozenset(
@@ -2853,6 +2727,20 @@ def _split_lines(
                     )
                     i = j
                     continue
+                if _unclosed_kind_owner(partial_json, 0):
+                    # A ``__kind`` root still streaming stays text (its partial is
+                    # announced from the root) and owns the lines after it while they
+                    # still read as JSON: a complete nested ``__kind`` object on such a
+                    # line is part of it, never a block of its own (no phantom block
+                    # mid-stream). A line that cannot continue JSON (prose, a fence, a
+                    # tag, a table row) ends the ownership — the TS twin's grammar cut.
+                    owned_count = 1
+                    while owned_count < len(json_lines) and _continues_json(json_lines[owned_count]):
+                        owned_count += 1
+                    for offset in range(owned_count):
+                        current_text += json_lines[offset] + ("\n" if i + offset < len(lines) - 1 else "")
+                    i += owned_count
+                    continue
 
         # 5.5. Mid-line attribute XML (e.g. "Hello <decision prompt="...">")
         # The opening tag is somewhere inside the line, not at the start.
@@ -3049,22 +2937,46 @@ class IncrementalBlockSplitter:
     """
 
     def __init__(self) -> None:
-        self._complete: list[str] = []  # every line whose newline has arrived
+        self._complete: list[str] = []  # every line whose newline has arrived (rebuild source)
         self._tail = ""  # the line still arriving (may end in "\r")
+        self._lines: _ReadTrackedLines | None = None  # ``[*_complete, _tail]``, grown in place
         self._checkpoint: _SplitCheckpoint | None = None
         self._checkpoint_furthest = -1
-        self._recovered: list[DetectedBlock] = []  # recovered blocks before the checkpoint
-        self._recovered_count = 0  # how many unrecovered blocks ``_recovered`` covers
+        # Recovered blocks before the checkpoint. The checkpoint's own ``blocks`` list is
+        # RELATIVE to it (it starts empty), so a resume never copies the settled prefix.
+        self._recovered: list[DetectedBlock] = []
+        self._unsettled: list[DetectedBlock] = []
 
     @property
     def settled_count(self) -> int:
         return len(self._recovered)
 
+    @property
+    def settled(self) -> list[DetectedBlock]:
+        """The settled blocks, shared (never copied) — treat as read-only."""
+        return self._recovered
+
     def split(self, appended: str) -> list[DetectedBlock]:
+        """Every block so far: ``settled`` followed by ``split_unsettled``'s tail."""
+        tail = self.split_unsettled(appended)
+        return self._recovered + tail
+
+    def split_unsettled(self, appended: str) -> list[DetectedBlock]:
+        """Feed ``appended`` and return only the blocks AFTER ``settled`` (no per-call rebuild)."""
         pieces = re.split(r"\r?\n", self._tail + appended)
         self._complete.extend(pieces[:-1])
         self._tail = pieces[-1]
-        lines = _ReadTrackedLines([*self._complete, self._tail], self._checkpoint_furthest)
+        lines = self._lines
+        if lines is None or lines.edits:
+            # First call, or a pass spliced lines into the list: rebuild from the pristine lines.
+            lines = _ReadTrackedLines([*self._complete, self._tail], self._checkpoint_furthest)
+            self._lines = lines
+        else:
+            # Replace the old arriving line with its extended text and add the new ones — in
+            # place, bypassing the edit counter (these are not splitter edits).
+            list.__setitem__(lines, len(lines) - 1, pieces[0])
+            list.extend(lines, pieces[1:])
+            lines.furthest = self._checkpoint_furthest
         last_complete = len(lines) - 2
         best: _SplitCheckpoint | None = None
         best_furthest = -1
@@ -3087,12 +2999,11 @@ class IncrementalBlockSplitter:
         ):
             self._recovered.extend(
                 _recover_terminal_incomplete_kind_json(
-                    _recover_embedded_kind_json_blocks(best.blocks[self._recovered_count : best.block_count])
+                    _recover_embedded_kind_json_blocks(best.blocks[: best.block_count])
                 )
             )
-            self._recovered_count = best.block_count
-            self._checkpoint = best
+            # The new checkpoint resumes with an empty, relative block list.
+            self._checkpoint = _SplitCheckpoint(best.line_index, best.current_text, [], 0)
             self._checkpoint_furthest = best_furthest
-        return self._recovered + _recover_terminal_incomplete_kind_json(
-            _recover_embedded_kind_json_blocks(blocks[self._recovered_count :])
-        )
+            blocks = blocks[best.block_count :]
+        return _recover_terminal_incomplete_kind_json(_recover_embedded_kind_json_blocks(blocks))

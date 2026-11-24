@@ -13,7 +13,7 @@
 #include "DetectorResult.h"
 #include "DMVersion.h"
 #include "GridSampler.h"
-#include "LogMatrix.h"
+#include "Log.h"
 #include "LocalGrid.h"
 #include "Point.h"
 #include "RegressionLine.h"
@@ -30,16 +30,6 @@
 #include <map>
 #include <utility>
 #include <vector>
-
-#ifndef PRINT_DEBUG
-#define printf(...){}
-#define printv(...){}
-#else
-#define printv(fmt, vec) \
-for (auto v : vec) \
-	printf(fmt, v); \
-printf("\n");
-#endif
 
 namespace ZXing::DataMatrix {
 
@@ -467,11 +457,10 @@ public:
 		auto [iMin, iMax] = std::minmax_element(modSizes.begin() + 1, modSizes.end());
 		auto meanModSize = average(modSizes, [](double dist){ return dist > 0; });
 
-		printf("unit pixel dist: %.1f\n", unitPixelDist);
-		printf("lineLength: %.1f, meanModSize: %.1f (min: %.1f, max: %.1f), gaps: %lu\n", lineLength, meanModSize, *iMin, *iMax,
-			   modSizes.size());
-		printf("modSizes: ");
-		printv("%.1f ", modSizes);
+		log_l("unit pixel dist: %.1f", unitPixelDist);
+		log_l("lineLength: %.1f, meanModSize: %.1f (min: %.1f, max: %.1f), gaps: %lu", lineLength, meanModSize, *iMin, *iMax,
+		    modSizes.size());
+		log_r("modSizes: ", "%.1f ", modSizes);
 
 		if (*iMax > 2 * *iMin) {
 			for (int i = 1; i < Size(modSizes) - 2; ++i) {
@@ -480,12 +469,11 @@ public:
 				else if (modSizes[i] > meanModSize * 1.6)
 					modSizes[i] = 0;
 			}
-			printf("filtered: ");
-			printv("%.1f ", modSizes);
+			log_r("filtered: ", "%.1f ", modSizes);
 
 			meanModSize = average(modSizes, [](double dist) { return dist > 0; });
 		}
-		printf("post filter meanModSize: %.1f\n", meanModSize);
+		log_l("post filter meanModSize: %.1f", meanModSize);
 
 		return lineLength / meanModSize;
 	}
@@ -699,7 +687,7 @@ public:
 		corner = p;
 		std::swap(d, dir);
 		traceStep(-1 * dir, 2, false);
-		printf("turn: %.0f x %.0f -> %.2f, %.2f\n", p.x, p.y, d.x, d.y);
+		log_l("turn: %.0f x %.0f -> %.2f, %.2f", p.x, p.y, d.x, d.y);
 
 		return isIn(corner) && isIn(p);
 	}
@@ -779,8 +767,7 @@ static ModuleCenterLUT BuildModuleCenterLUT(const std::vector<PointF>& points, P
 	for (int i = 1; i < Size(gapMids); ++i)
 		modIdx[i] = modIdx[i - 1] + std::max(1, static_cast<int>(std::round((gapMids[i] - gapMids[i - 1]) / (2 * modSize)))) * 2;
 
-	printf("mIdx: ");
-	printv("%d ", modIdx);
+	log_r("mIdx: ", "%d ", modIdx);
 
 	struct Knot
 	{
@@ -869,10 +856,10 @@ static ModuleCenterLUT BuildModuleCenterLUT(const std::vector<PointF>& points, P
 	}
 #endif
 
-	printf("corr: ");
+	log_t("corr: ");
 	for (int i = 0; i < numModules; ++i)
-		printf("%.2f ", centerLUT[i] - (i + 0.5));
-	printf("\n");
+		log_t("%.2f ", centerLUT[i] - (i + 0.5));
+	log_l();
 
 	return centerLUT;
 }
@@ -894,9 +881,7 @@ static DetectorResult SampleGridCorrected(const BitMatrix& image, int width, int
 			auto p = mod2Pix(PointF{topCenterLUT(x), my});
 			if (!image.isIn(p))
 				return {};
-#ifdef PRINT_DEBUG
-			log(p, 3);
-#endif
+			log(p, LOG_B);
 			if (image.get(p))
 				res.set(x, y);
 		}
@@ -923,7 +908,7 @@ static DetectorResults Scan(EdgeTracer& startTracer, std::array<DMRegressionLine
 			for (auto& l : lines)
 				log(l.points());
 		});
-# define CHECK(A) if (!(A)) { printf("broke at %d\n", __LINE__); continue; }
+# define CHECK(A) if (!(A)) { log_l("broke at %d", __LINE__); continue; }
 #else
 # define CHECK(A) if(!(A)) continue
 #endif
@@ -987,8 +972,8 @@ static DetectorResults Scan(EdgeTracer& startTracer, std::array<DMRegressionLine
 		// continue top row right until we cross the right line
 		CHECK(tlTracer.traceGaps(tlTracer.right(), lineT, maxStepSize, lineR));
 
-		printf("L: %.1f, %.1f ^ %.1f, %.1f > %.1f, %.1f (%d : %d : %d : %d)\n", bl.x, bl.y,
-			   tl.x - bl.x, tl.y - bl.y, br.x - bl.x, br.y - bl.y, (int)lenL, (int)lenB, (int)lenT, (int)lenR);
+		log_l("L: %.1f, %.1f ^ %.1f, %.1f > %.1f, %.1f (%d : %d : %d : %d)",
+			  bl.x, bl.y, tl.x - bl.x, tl.y - bl.y, br.x - bl.x, br.y - bl.y, (int)lenL, (int)lenB, (int)lenT, (int)lenR);
 
 		for (auto* l : {&lineL, &lineB, &lineT, &lineR})
 			l->evaluate(1.0);
@@ -1012,9 +997,9 @@ static DetectorResults Scan(EdgeTracer& startTracer, std::array<DMRegressionLine
 		dimT *= 2;
 		dimR *= 2;
 
-		printf("L: %.1f, %.1f ^ %.1f, %.1f > %.1f, %.1f ^> %.1f, %.1f\n", bl.x, bl.y,
-			   tl.x - bl.x, tl.y - bl.y, br.x - bl.x, br.y - bl.y, tr.x, tr.y);
-		printf("dim: %d x %d (%.2f, %.2f)\n", dimT, dimR, fracT, fracR);
+		log_l("L: %.1f, %.1f ^ %.1f, %.1f > %.1f, %.1f ^> %.1f, %.1f",
+			  bl.x, bl.y, tl.x - bl.x, tl.y - bl.y, br.x - bl.x, br.y - bl.y, tr.x, tr.y);
+		log_l("dim: %d x %d (%.2f, %.2f)", dimT, dimR, fracT, fracR);
 
 		auto* version = VersionForDimensions(dimR, dimT);
 
@@ -1033,7 +1018,13 @@ static DetectorResults Scan(EdgeTracer& startTracer, std::array<DMRegressionLine
 		CHECK(version);
 
 		auto movedTowardsBy = [](PointF a, PointF b1, PointF b2, auto d) {
+#if 0
+			auto x = normalized(b1 - a);
+			auto y = normalized(b2 - a);
+			return a + d * x + d * y;
+#else
 			return a + d * normalized(normalized(b1 - a) + normalized(b2 - a));
+#endif
 		};
 
 		// shrink shape by half a pixel to go from center of white pixel outside of code to the edge between white and black
@@ -1056,51 +1047,45 @@ static DetectorResults Scan(EdgeTracer& startTracer, std::array<DMRegressionLine
 		apX.back() = dimT - 1;
 		apY.back() = dimR - 1;
 		auto apP = Matrix<std::optional<PointF>>(Size(apX), Size(apY));
+		auto grid = LocalGrid(*startTracer.img, mod2Pix, {dimT, dimR});
 
-		constexpr PointI l(-1, 0), r(1, 0), u(0, -1), d(0, 1);
+		if (version->dataBlocksX() == 1 && version->dataBlocksY() == 1) {
+			if (auto res = SampleGrid(*startTracer.img, dimT, dimR, mod2Pix); res.isValid())
+				co_yield std::move(res);
+		} else {
+			for (int y = 0; y < Size(apY); ++y)
+				for (int x = 0; x < Size(apX); ++x) {
+					std::optional<PointF> ap;
+					PointI api{apX[x], apY[y]};
+					int Nx = Size(apX) - 1, Ny = Size(apY) - 1;
+					using enum LocalGrid::Pattern;
 
-		// Find the position of the alignment pattern center by looking for the given b/w patterns around the initial estimate
-		// based on the mod2Pix projection.
-		auto findAP = [&](PointI p, PointI offset, int radius, PointI timingStart, LocalGrid::Directions timingDirs, PointI blackStart,
-						  LocalGrid::Directions blackDirs, PointI whiteStart,
-						  LocalGrid::Directions whiteDirs) -> std::optional<PointF> {
-			auto lg = LocalGrid(*startTracer.img, mod2Pix, p, {dimT, dimR}, offset);
-			if (lg.findPattern(radius, timingStart, timingDirs, blackStart, blackDirs, whiteStart, whiteDirs))
-				return lg.getPos();
-			return {};
-		};
+					if (x == 0 && y == 0) // top-left
+						ap = grid.at(api, {2, 1}).find({{"r", BW, {}, 5}, {"d", B, {}}, {"dr", W, {-1, -1}}}, 4);
+					else if (x == Nx && y == 0) // top-right
+						ap = grid.at(api, {-1, 1}).find({{"ld", WB, {}}, {"dl", W, {1, -1}}}, 4);
+					else if (x == Nx && y == Ny) // bottom-right
+						ap = grid.at(api, {-1, -2}).find({{"u", BW, {}, 5}, {"l", B, {}}, {"ul", W, {1, 1}}}, 4);
+					else if (x == 0 && y == Ny) // bottom-left
+						ap = grid.at(api, {1, -1}).find({{"ur", B, {}}, {"ur", W, {-1, 1}}}, 4);
+					else if (x == 0) // left
+						ap = grid.at(api, {2, 0}).find({{"r", WB, {1, 0}}, {"udr", B, {0, -1}}, {"ud", W, {-1, 0}}}, 4);
+					else if (x == Nx) // right
+						ap = grid.at(api, {-1, 0}).find({{"lud", WB, {}}, {"l", B, {0, -1}}, {"ud", W, {1, 0}}}, 4);
+					else if (y == 0) // top
+						ap = grid.at(api, {0, -1}).find({{"lrd", WB, {-1, 0}}, {"d", B, {}}, {"lr", W, {0, -1}}}, 4);
+					else if (y == Ny) // bottom
+						ap = grid.at(api, {-1, -1}).find({{"u", WB, {-1, -1}}, {"lru", B, {}}, {"lr", W, {0, 1}}}, 4);
+					else // center
+						ap = grid.at(api, {-1, 0}).find({{"lrud", WB, {-1, 0}}, {"lrud", B, {0, -1}}}, 4);
 
-		for (int y = 0; y < Size(apY); ++y)
-			for (int x = 0; x < Size(apX); ++x) {
-				std::optional<PointF> ap;
-				PointI api{apX[x], apY[y]};
-				int Nx = Size(apX) - 1, Ny = Size(apY) - 1;
+					if (ap)
+						apP.set(x, y, *ap);
+				}
 
-				if (x == 0 && y == 0) // top-left
-					ap = findAP(api, {2, 0}, 4, {1, 0}, std::array{r}, {0, 0}, std::array{d}, {-1, -1}, std::array{d, r});
-				else if (x == Nx && y == 0) // top-right
-					ap = findAP(api, {-1, 1}, 4, {0, 0}, std::array{l, d}, {}, {}, {1, -1}, std::array{d, l});
-				else if (x == Nx && y == Ny) // bottom-right
-					ap = findAP(api, {-0, -2}, 4, {0, -1}, std::array{u}, {0, 0}, std::array{l}, {1, 1}, std::array{u, l});
-				else if (x == 0 && y == Ny) // bottom-left
-					ap = findAP(api, {1, -1}, 4, {}, {}, {0, 0}, std::array{u, r}, {-1, 1}, std::array{u, r});
-				else if (x == 0) // left
-					ap = findAP(api, {2, 0}, 3, {1, 0}, std::array{r}, {0, -1}, std::array{u, d, r}, {}, {});
-				else if (x == Nx) // right
-					ap = findAP(api, {-1, 0}, 3, {0, 0}, std::array{l, u, d}, {0, -1}, std::array{l}, {}, {});
-				else if (y == 0) // top
-					ap = findAP(api, {-1, 0}, 3, {-1, 0}, std::array{l, r, d}, {0, 0}, std::array{d}, {}, {});
-				else if (y == Ny) // bottom
-					ap = findAP(api, {-1, -1}, 3, {-1, -1}, std::array{u}, {0, 0}, std::array{l, r, u}, {}, {});
-				else // center
-					ap = findAP(api, {-1, 0}, 3, {-1, 0}, std::array{l, r, u, d}, {0, -1}, std::array{l, r, u, d}, {}, {});
-
-				if (ap)
-					apP.set(x, y, *ap);
-			}
-
-		if (auto res = SampleGrid(*startTracer.img, dimT, dimR, mod2Pix, std::move(apP), apX, apY); res.isValid())
-			co_yield std::move(res);
+			if (auto res = SampleGrid(*startTracer.img, dimT, dimR, mod2Pix, std::move(apP), apX, apY); res.isValid())
+				co_yield std::move(res);
+		}
 #else
 		if (auto res = SampleGrid(*startTracer.img, dimT, dimR, mod2Pix); res.isValid())
 			co_yield std::move(res);

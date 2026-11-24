@@ -37,7 +37,6 @@ from matrx_utils import vcprint
 from matrx_ai.processing.blocks.block_detector import (
     ATTRIBUTE_XML_BLOCKS,
     CODE_LANGUAGE_ALIASES,
-    JSON_BLOCK_PATTERNS,
     KIND_BLOCK_TYPE,
     SPECIAL_CODE_LANGUAGES,
     XML_TAG_BLOCKS,
@@ -62,7 +61,6 @@ from matrx_ai.processing.blocks.models.base import (
     RenderBlockEvent,
     RenderBlockState,
 )
-from matrx_ai.processing.blocks.parsers.timeline_stream_parser import TimelineStreamParser
 from matrx_ai.processing.blocks.tag_detection_buffer import TagDetectionBuffer
 
 # ---------------------------------------------------------------------------
@@ -72,15 +70,7 @@ from matrx_ai.processing.blocks.tag_detection_buffer import TagDetectionBuffer
 def _build_parser_map() -> dict[str, Callable[[str], Any]]:
     """Lazily build the parser dispatch map."""
     from matrx_ai.processing.blocks.parsers.artifact_parser import parse_artifact
-    from matrx_ai.processing.blocks.parsers.comparison_parser import parse_comparison
     from matrx_ai.processing.blocks.parsers.decision_parser import parse_decision
-    from matrx_ai.processing.blocks.parsers.decision_tree_parser import parse_decision_tree
-    from matrx_ai.processing.blocks.parsers.diagram_parser import parse_diagram
-    from matrx_ai.processing.blocks.parsers.flashcard_parser import parse_flashcards
-    from matrx_ai.processing.blocks.parsers.item_presentation_parser import (
-        parse_item_presentation,
-    )
-    from matrx_ai.processing.blocks.parsers.math_problem_parser import parse_math_problem
 
     def _parse_kind(c: str, **_kw: Any) -> Any:
         """A registered kind's body IS canonical JSON — there is nothing to adapt.
@@ -98,22 +88,7 @@ def _build_parser_map() -> dict[str, Callable[[str], Any]]:
             return None
         return parsed if isinstance(parsed, dict) else None
     from matrx_ai.processing.blocks.parsers.mermaid_parser import parse_mermaid
-    from matrx_ai.processing.blocks.parsers.presentation_parser import parse_presentation
-    from matrx_ai.processing.blocks.parsers.progress_parser import parse_progress
-    from matrx_ai.processing.blocks.parsers.questionnaire_parser import parse_questionnaire
-    from matrx_ai.processing.blocks.parsers.quiz_parser import parse_quiz
-    from matrx_ai.processing.blocks.parsers.recipe_parser import parse_recipe
-    from matrx_ai.processing.blocks.parsers.research_parser import parse_research
-    from matrx_ai.processing.blocks.parsers.resources_parser import parse_resources
-    from matrx_ai.processing.blocks.parsers.schema_proposal_parser import (
-        parse_schema_proposal,
-    )
-    from matrx_ai.processing.blocks.parsers.structured_info_parser import parse_structured_info
     from matrx_ai.processing.blocks.parsers.table_parser import parse_table
-    from matrx_ai.processing.blocks.parsers.task_parser import parse_tasks
-    from matrx_ai.processing.blocks.parsers.timeline_parser import parse_timeline
-    from matrx_ai.processing.blocks.parsers.transcript_parser import parse_transcript
-    from matrx_ai.processing.blocks.parsers.troubleshooting_parser import parse_troubleshooting
 
     def _parse_artifact_with_metadata(c: str, metadata: dict | None = None, **_kw: Any) -> Any:
         """
@@ -170,37 +145,10 @@ def _build_parser_map() -> dict[str, Callable[[str], Any]]:
         # `lambda c:` wrapper silently swallows the kwarg via _run_parser's
         # TypeError fallback, so the parser never learns the block completed
         # and withholds the last in-progress item forever (found via the
-        # per-family envelope fixtures: the final flashcard's back stayed None).
-        "flashcards": lambda c, *, is_final=False: _model_to_dict(
-            parse_flashcards(c, is_final=is_final)
-        ),
-        "transcript": lambda c, *, is_final=False: _model_to_dict(
-            parse_transcript(c, is_final=is_final)
-        ),
-        "tasks": lambda c, *, is_final=False: _model_to_dict(parse_tasks(c, is_final=is_final)),
-        "quiz": lambda c: _model_to_dict(parse_quiz(c)),
-        "presentation": lambda c: _model_to_dict(parse_presentation(c)),
+        # per-family envelope fixtures: a final item stayed None).
         "kind": _parse_kind,
-        "math_problem": lambda c: _model_to_dict(parse_math_problem(c)),
-        "item_presentation": lambda c: _model_to_dict(parse_item_presentation(c)),
-        "schema_proposal": lambda c: _model_to_dict(parse_schema_proposal(c)),
-        "cooking_recipe": lambda c, *, is_final=False: _model_to_dict(
-            parse_recipe(c, is_final=is_final)
-        ),
-        "timeline": lambda c: _model_to_dict(parse_timeline(c)),
-        "research": lambda c: _model_to_dict(parse_research(c)),
-        "resources": lambda c: _model_to_dict(parse_resources(c)),
-        "progress_tracker": lambda c: _model_to_dict(parse_progress(c)),
-        "comparison_table": lambda c: _model_to_dict(parse_comparison(c)),
-        "troubleshooting": lambda c: _model_to_dict(parse_troubleshooting(c)),
-        "decision_tree": lambda c: _model_to_dict(parse_decision_tree(c)),
-        "diagram": lambda c: _model_to_dict(parse_diagram(c)),
         "mermaid": lambda c: _model_to_dict(parse_mermaid(c)),
         "table": lambda c, *, is_final=False: _model_to_dict(parse_table(c, is_final=is_final)),
-        "questionnaire": lambda c, *, is_final=False: _model_to_dict(
-            parse_questionnaire(c, is_final=is_final)
-        ),
-        "structured_info": lambda c: _model_to_dict(parse_structured_info(c)),
         "decision": _parse_decision_with_metadata,
         "artifact": _parse_artifact_with_metadata,
         # ```matrx — the whole envelope object IS the data; the detector has
@@ -235,21 +183,13 @@ def _get_parser_map() -> dict[str, Callable[[str], Any]]:
 # `code` is included here — its content streams live; data (language, isDiff) is
 # populated only when the block reaches status=complete.
 _INCREMENTAL_TYPES = frozenset({
-    "text", "thinking", "reasoning", "info", "task", "database",
-    "private", "plan", "event", "tool", "code",
+    "text", "thinking", "reasoning", "code",
 })
 
 # Block Channel — stateless parser on every content change; returns completed
 # items only (growing snapshot). Partial/in-progress items are withheld.
 _PARTIAL_UPDATE_TYPES = frozenset({
-    "flashcards", "cooking_recipe", "questionnaire",
-    "table", "tasks", "transcript",
-})
-
-# Block Channel — dedicated stateful stream parser emits a growing structured
-# snapshot whenever a renderable unit seals (semantic boundary).
-_SEMANTIC_STREAM_TYPES = frozenset({
-    "timeline",
+    "table",
 })
 
 # Block Channel — stream raw content so React has a live preview; parse into
@@ -258,8 +198,7 @@ _SEMANTIC_STREAM_TYPES = frozenset({
 # its metadata (title, diagram_type) parsed exactly once on close; content
 # stays the raw source so the fence round-trips losslessly.
 _MARKDOWN_COMPLETE_TYPES = frozenset({
-    "research", "resources", "progress_tracker", "troubleshooting", "artifact", "mermaid",
-    "structured_info",
+    "artifact", "mermaid",
     # Deliverable / raw-body fences: the body IS the artifact, so it streams
     # live and is never parsed into structured data. No registered kind (see
     # NON_ENVELOPE_BLOCK_TYPES in envelope.py for each reviewed reason).
@@ -275,11 +214,7 @@ _MARKDOWN_COMPLETE_TYPES = frozenset({
 # and valid. Raw content streams as a preview until then.
 # "decision" is an attribute-bearing XML block; data is always complete on close.
 _COMPLETE_ONLY_TYPES = frozenset({
-    "quiz", "presentation", "decision_tree", "comparison_table",
-    "diagram", "math_problem", "decision",
-    # JSON-root-key families: a partial object is never renderable, so they
-    # promote and parse only once the fence closes.
-    "item_presentation", "schema_proposal",
+    "decision",
     # DD-131: every registered, user-authored kind arrives as ONE block type, with its
     # slug in the body's ``__kind``. Complete-only for the same reason as the rest of
     # this set — half an object validates against nothing, and an envelope built from it
@@ -306,10 +241,6 @@ def _is_incremental(block_type: str) -> bool:
 
 def _is_partial_update(block_type: str) -> bool:
     return block_type in _PARTIAL_UPDATE_TYPES
-
-
-def _is_semantic_stream(block_type: str) -> bool:
-    return block_type in _SEMANTIC_STREAM_TYPES
 
 
 def _is_markdown_complete(block_type: str) -> bool:
@@ -349,7 +280,6 @@ def _run_integrity_check() -> None:
     classified = (
         _INCREMENTAL_TYPES
         | _PARTIAL_UPDATE_TYPES
-        | _SEMANTIC_STREAM_TYPES
         | _MARKDOWN_COMPLETE_TYPES
         | _COMPLETE_ONLY_TYPES
         | {"image", "video", "consolidated_reasoning"}
@@ -398,20 +328,6 @@ def _run_integrity_check() -> None:
                 color="red",
             )
 
-    # --- Gap 3c: SEMANTIC_STREAM types — these use dedicated stream parsers,
-    #             not the parser_map.  Just a sanity note, not an error.  ----
-
-    # --- Gap 4: JSON_BLOCK_PATTERNS entries not in _COMPLETE_ONLY_TYPES ------
-    for t in sorted(JSON_BLOCK_PATTERNS.keys()):
-        if t not in _COMPLETE_ONLY_TYPES:
-            vcprint(
-                f"Block type '{t}' has a JSON_BLOCK_PATTERN for detection but is not in "
-                f"_COMPLETE_ONLY_TYPES. JSON blocks that aren't classified will never "
-                f"trigger the parser after type promotion.",
-                "[BlockProcessor] JSON TYPE MISCONFIGURED",
-                color="red",
-            )
-
     # --- Gap 5: XML_TAG_BLOCKS entries not classified anywhere ---------------
     for t in sorted(XML_TAG_BLOCKS.keys()):
         if t not in classified:
@@ -434,11 +350,11 @@ def _run_integrity_check() -> None:
 
     # --- Gap 7: consolidated_reasoning has no detection path -----------------
     if "consolidated_reasoning" not in XML_TAG_BLOCKS:
-        all_detectable = set(XML_TAG_BLOCKS.keys()) | set(JSON_BLOCK_PATTERNS.keys()) | SPECIAL_CODE_LANGUAGES
+        all_detectable = set(XML_TAG_BLOCKS.keys()) | SPECIAL_CODE_LANGUAGES
         if "consolidated_reasoning" not in all_detectable:
             vcprint(
                 "Block type 'consolidated_reasoning' is registered but has no detection mechanism "
-                "(not in XML_TAG_BLOCKS, JSON_BLOCK_PATTERNS, or SPECIAL_CODE_LANGUAGES). "
+                "(not in XML_TAG_BLOCKS or SPECIAL_CODE_LANGUAGES). "
                 "The detector can never produce this type. See TASK-003 in PROCESSING_TASKS.md.",
                 "[BlockProcessor] UNDETECTABLE TYPE",
                 color="yellow",
@@ -502,13 +418,6 @@ class StreamBlockProcessor:
 
         # Reasoning consolidation state
         self._reasoning_blocks: list[int] = []   # Indices of reasoning/thinking blocks
-
-        # Stateful semantic stream parsers keyed by block_id.
-        # Each _SEMANTIC_STREAM_TYPES block gets its own long-lived parser
-        # instance that accumulates state across token calls.
-        # Typed as Any to accommodate future SEMANTIC_STREAM parsers beyond
-        # TimelineStreamParser (see TASK-000 in PROCESSING_TASKS.md).
-        self._stream_parsers: dict[str, Any] = {}
 
         # Tag detection buffer — suppresses emission when the buffer tail
         # looks like a partial XML block tag (e.g. "<timeli") to prevent
@@ -842,8 +751,8 @@ class StreamBlockProcessor:
 
         Two sources, and no third:
 
-        * A block whose parser produces a GROWING snapshot (``_PARTIAL_UPDATE``
-          / ``_SEMANTIC_STREAM``) already holds a valid dict in ``block.data``.
+        * A block whose parser produces a GROWING snapshot (``_PARTIAL_UPDATE``)
+          already holds a valid dict in ``block.data``.
         * A JSON-bodied block (``_COMPLETE_ONLY``) holds raw, truncated JSON
           text in ``block.content``, which is exactly the case Arman named:
           Python closes it so the client receives valid JSON.
@@ -865,7 +774,7 @@ class StreamBlockProcessor:
         if self._root_kind(block) is not None:
             return self._root_kind_json_value(block)
 
-        if _is_partial_update(block_type) or _is_semantic_stream(block_type):
+        if _is_partial_update(block_type):
             if isinstance(block.data, dict) and block.data:
                 return block.data, False
             return None
@@ -882,13 +791,9 @@ class StreamBlockProcessor:
             # PREFER the real parser: its output is exactly what the final
             # value will be, so a partial rendered from it needs no allowance
             # from the component at all. But these parsers are STRICT by
-            # design — ``parse_quiz`` refuses a question missing any field
-            # ("a partial question is worse than no question") and one bad
-            # question invalidates the whole block. That is right for a final
-            # parse and fatal for a partial: relying on it alone produced ZERO
-            # partials for an entire quiz stream. So the raw closed JSON is the
-            # fallback, and ``adapt_block_data`` maps it into the kind's
-            # vocabulary (it reads both key spellings — see ``_alias``).
+            # design — a partial item is worse than no item, and one bad item
+            # invalidates the whole block. That is right for a final parse and
+            # fatal for a partial. So the raw closed JSON is the fallback.
             parsed = self._parse_detached(block.type, closed)
             if not isinstance(parsed, dict) or not parsed:
                 try:
@@ -907,7 +812,7 @@ class StreamBlockProcessor:
         """The kind an unfenced root JSON block declares on its first key.
 
         Only for blocks the detector could NOT type into a kind of its own: a
-        ``quiz`` fence is already ``quiz_set`` through ``BLOCK_KIND_MAP``, and
+        ``mermaid`` fence is already ``mermaid_diagram`` through ``BLOCK_KIND_MAP``, and
         letting a body-level ``__kind`` override that would put two
         declarations in charge of one region.
         """
@@ -1012,8 +917,8 @@ class StreamBlockProcessor:
         try:
             # A self-declaring root region is ALREADY in the kind's vocabulary
             # — the provider was bound to the kind's own schema. The adapter
-            # translates LEGACY PARSER vocabularies (``flashcards[].question``
-            # → ``cards[].front``) and would find nothing to do here at best,
+            # translates a PARSER vocabulary (mermaid ``source`` → ``code``)
+            # and would find nothing to do here at best,
             # and rename a correct field at worst.
             if BLOCK_KIND_MAP.get(block.type) is not None:
                 value = adapt_block_data(block.type, value)
@@ -1106,15 +1011,27 @@ class StreamBlockProcessor:
         # ``split_content_into_blocks(self._buffer)``, re-reading only the unsettled tail.
         appended = self._buffer[self._split_fed :]
         self._split_fed = len(self._buffer)
-        current_blocks = self._splitter.split(appended)
-        events = self._reconcile_blocks(
-            current_blocks, is_final=False, skip_settled=self._settled_reconciled
-        )
+        unsettled = self._splitter.split_unsettled(appended)
+        skip = self._settled_reconciled
+        settled = self._splitter.settled
+        if len(self._blocks) >= skip:
+            # Blocks before ``skip`` were applied last time and are the same objects: hand over
+            # only what settled since plus the unsettled tail, at its offset.
+            events = self._reconcile_blocks(
+                settled[skip:] + unsettled, is_final=False, skip_settled=skip, base=skip
+            )
+        else:
+            events = self._reconcile_blocks(settled + unsettled, is_final=False, skip_settled=skip)
         self._settled_reconciled = self._splitter.settled_count
         return events
 
     def _reconcile_blocks(
-        self, detected: list[DetectedBlock], *, is_final: bool, skip_settled: int = 0
+        self,
+        detected: list[DetectedBlock],
+        *,
+        is_final: bool,
+        skip_settled: int = 0,
+        base: int = 0,
     ) -> list[RenderBlockEvent]:
         """
         Reconcile detected blocks with our tracked block list.
@@ -1136,9 +1053,11 @@ class StreamBlockProcessor:
         # ``skip_settled`` leading blocks are the very DetectedBlock objects the previous
         # reconcile applied, so each would answer "unchanged" — skipping them is the same
         # answer without the per-token walk over every block of a long answer.
-        start = min(skip_settled, len(self._blocks), len(detected)) if not is_final else 0
-        for idx in range(start, len(detected)):
-            detected_block = detected[idx]
+        # ``base``: ``detected`` holds only blocks ``base`` onward (the settled ones are skipped).
+        total = base + len(detected)
+        start = min(skip_settled, len(self._blocks), total) if not is_final else 0
+        for idx in range(max(start, base), total):
+            detected_block = detected[idx - base]
             if idx < len(self._blocks):
                 # Existing block — check for updates
                 existing = self._blocks[idx]
@@ -1160,13 +1079,13 @@ class StreamBlockProcessor:
         # been re-absorbed into a prior block.  Remove them so finalize() does
         # not emit stale complete events for content that no longer exists as a
         # standalone block.
-        if len(detected) < len(self._blocks):
+        if total < len(self._blocks):
             # Retract, don't just forget: the client was already told about
             # these blocks (streaming upserts), and its store REPLACES a block
             # wholesale on upsert. An empty complete emit removes the phantom
             # from the rendered output; silent truncation left it on screen
             # forever (stale "| One" text fragments beside every table).
-            for stale in self._blocks[len(detected):]:
+            for stale in self._blocks[total:]:
                 stale.status = BlockStatus.COMPLETE
                 stale.content = ""
                 stale.data = None
@@ -1181,7 +1100,7 @@ class StreamBlockProcessor:
                     became_kind=None,
                 )
                 events.append(stale.to_event())
-            self._blocks = self._blocks[: len(detected)]
+            self._blocks = self._blocks[:total]
             # Prune reasoning block indices that are now out of range
             self._reasoning_blocks = [
                 i for i in self._reasoning_blocks if i < len(self._blocks)
@@ -1238,10 +1157,9 @@ class StreamBlockProcessor:
         # Type promotion — resolve the block's true type as early as possible.
         #
         # Case 1: "code" → may be a richer type once the language tag stabilises.
-        #   1a: language="json"  → quiz, presentation, decision_tree, etc.
+        #   1a: language="json"  → the matrx payload or a registered kind.
         #   1b: language in SPECIAL_CODE_LANGUAGES → use the language as the type
-        #       (structured_info, transcript, tasks, flashcards, questionnaire,
-        #        cooking_recipe).  The language token arrives truncated early in
+        #       (mermaid, html, svg, ...).  The language token arrives truncated early in
         #       the stream; once complete the detector sets detected.language to
         #       the full keyword, so we promote here.
         if block_type == "code":
@@ -1267,7 +1185,6 @@ class StreamBlockProcessor:
         elif detected.type != existing.type:
             existing.type = detected.type
             existing.data = None
-            self._stream_parsers.pop(existing.block_id, None)
             block_type = existing.type
 
         # Merge metadata now that type promotion has been resolved.
@@ -1300,9 +1217,6 @@ class StreamBlockProcessor:
 
         elif block_type in ("image", "video"):
             self._apply_media_block(block, detected)
-
-        elif _is_semantic_stream(block_type):
-            self._apply_semantic_stream_block(block, detected, is_final)
 
         elif _is_partial_update(block_type):
             # Run the parser incrementally. Parsers that support partial-aware
@@ -1361,48 +1275,6 @@ class StreamBlockProcessor:
             # Unknown type — treat as text
             block.content = detected.content
 
-    def _apply_semantic_stream_block(
-        self,
-        block: RenderBlockState,
-        detected: DetectedBlock,
-        is_final: bool,
-    ) -> None:
-        """
-        Handle a _SEMANTIC_STREAM_TYPES block (currently: timeline).
-
-        On every call the block's raw content is updated.  The dedicated
-        stream parser decides — based on structural line boundaries — whether
-        a new renderable unit has been sealed and, if so, updates block.data
-        with the growing, fully-valid structured payload.
-
-        On finalize the parser flushes any pending buffered item and produces
-        the final canonical data.
-
-        The React component always receives the same data shape; data just
-        grows richer with each emission.
-        """
-        block.content = detected.content
-
-        if is_final or detected.metadata.get("isComplete"):
-            # Flush the stateful parser to get the final complete data
-            parser = self._stream_parsers.get(block.block_id)
-            if parser is None:
-                # Edge case: block was complete before any incremental feed
-                parser = TimelineStreamParser()
-            result = parser.finalize()
-            block.data = result.model_dump(by_alias=True)
-            return
-
-        # Incremental: feed the current content into the parser
-        if block.block_id not in self._stream_parsers:
-            self._stream_parsers[block.block_id] = TimelineStreamParser()
-        parser = self._stream_parsers[block.block_id]
-        result = parser.feed(detected.content)
-        if result is not None:
-            # A semantic boundary was crossed — update data
-            block.data = result.model_dump(by_alias=True)
-        # If result is None, keep block.data as-is (no new semantic unit)
-
     def _apply_code_data(self, block: RenderBlockState, detected: DetectedBlock, is_final: bool) -> None:
         """
         Populate the structured data field for code blocks.
@@ -1453,12 +1325,11 @@ class StreamBlockProcessor:
         Three promotion paths:
           • detected.type in SPECIAL_CODE_LANGUAGES → the detector has already
             resolved the full language keyword and emitted the correct type
-            (structured_info, transcript, tasks, flashcards, questionnaire,
-             cooking_recipe).  The opening fence is truncated in early chunks;
+            (mermaid, html, svg, ...).  The opening fence is truncated in early chunks;
             once the full keyword is seen the detector sets type directly.
           • detected.language in SPECIAL_CODE_LANGUAGES → same, via language field.
           • detected.language == "json" → delegate to JSON type detection
-            (quiz, presentation, decision_tree, etc.)
+            (the matrx payload or a registered kind)
 
         Returns the new type string if promoted, or None if no promotion.
         """
@@ -1487,7 +1358,7 @@ class StreamBlockProcessor:
     def _try_promote_json_block(self, block: RenderBlockState, detected: DetectedBlock) -> bool:
         """
         Attempt to promote a generic 'code' block with language='json' to a richer
-        type (e.g. 'quiz', 'presentation') once enough content has accumulated.
+        type (``matrx`` or ``kind``) once enough content has accumulated.
 
         Returns True if the block type was promoted.
         """

@@ -1,11 +1,36 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from matrx_graph.types.send import Send
+
+
+ReadScopeFactory = Callable[[str, str | None, str | None], AbstractAsyncContextManager[None]]
+
+
+def read_scope_factory_for(checkpointer: Any) -> ReadScopeFactory | None:
+    """The optional admission scope supplied by a concrete checkpointer instance."""
+    return getattr(checkpointer, "_read_scope_factory", None)
+
+
+@asynccontextmanager
+async def read_scope(
+    factory: ReadScopeFactory | None,
+    unit: str,
+    run_id: str | None,
+    checkpoint_id: str | None,
+):
+    """Enter one optional host-provided read admission scope."""
+    if factory is None:
+        yield
+        return
+    async with factory(unit, run_id, checkpoint_id):
+        yield
 
 
 class PendingEdgeBinding(BaseModel):
@@ -58,6 +83,11 @@ class PendingEdgeBinding(BaseModel):
     # ``None`` (the step is absent), so a consumer can test ``inputs['x'] is None``
     # instead of raising ``KeyError`` (2026-10-28, Smart Add Identify parent).
     absent_from: str = ""
+    # This prune came from a step its 'Only when' said no to — the id of that step —
+    # directly or through the steps it pruned (ENGINE_SPEC §3.3b). A join that still has
+    # this connection's fields missing (no other connection delivered them) does not run
+    # on its other inputs, unless it declares ``data.when_input_skipped = "run"``.
+    skipped_upstream: str = ""
 
 
 class PendingBinding(BaseModel):
@@ -108,6 +138,12 @@ class Checkpoint(BaseModel):
     pending_bindings: dict[str, PendingBinding] = Field(default_factory=dict)
     next_invocations: list[NextInvocation] = Field(default_factory=list)
     interrupt_payload: dict[str, Any] | None = None
+    #: The kind-subscription matcher's state (``SubscriptionMatcher.snapshot``):
+    #: spent ``fire_once`` triggers and occurrences waiting in open debounce
+    #: windows, so a resume neither re-fires a fire-once trigger nor drops a
+    #: waiting firing (hole H4). ``{}`` for a run with no kind-triggered node.
+    #: The Postgres checkpointer stores it under the row's ``metadata`` column.
+    subscription_state: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -189,6 +225,10 @@ class NextInvocation(BaseModel):
     # any stored result for its key, runs the step, and the new success replaces the row.
     # Persisted so the choice survives the park → resume path recovery uses. Old rows: False.
     bypass_once: bool = False
+    # PACED DISPATCH (G3): the pace of the For each that sent this item (``{until, wave_size,
+    # scope, total}``), so a resumed run holds the rest of its items to the same waves and
+    # ``until``. None (old rows, unpaced items) = sent as before.
+    pace: dict[str, Any] | None = None
 
 
 OutcomeSource = Literal["executor", "user_skip", "user_manual", "retry", "mocked", "reused"]
@@ -370,3 +410,20 @@ def latest_settled_keys(
         if held is None or (key[0], key[2], key[3]) > (held[0], held[2], held[3]):
             latest[node_id] = key
     return latest
+
+
+def item_outcomes_from_rows(rows: list[tuple[int, dict[str, Any] | None, str | None]]) -> dict[int, str]:
+    """``{item_index: outcome}`` of one dispatch's items at one step from its ``(item_index, error, source)``
+    outcome rows, in the vocabulary of ``item_settled`` (``succeeded`` · ``reused`` · ``skipped`` ·
+    ``failed``). Any success of an item wins over its failed attempts (a retry that worked). Read by
+    the scheduler to rebuild a step's item counts on a resumed leg (matrx_graph/says.py)."""
+    out: dict[int, str] = {}
+    for item_index, error, source in rows:
+        if error:
+            out.setdefault(item_index, "failed")
+            continue
+        outcome = "reused" if source == "reused" else ("skipped" if source == "user_skip" else "succeeded")
+        if out.get(item_index) in (None, "failed"):
+            out[item_index] = outcome
+    return out
+

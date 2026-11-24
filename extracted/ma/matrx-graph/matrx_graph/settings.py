@@ -7,7 +7,7 @@ can change, and the run reads the CURRENT value
 (``common-docs/policies/limits-are-knobs-agents-set-them.md``). The
 ``data.setting.read`` step is that read; this module is its host door.
 
-The host installs ONE async reader, ``(feature, key, organization_id) -> value``,
+The host installs ONE async reader, ``(feature, key, organization_id, user_id) -> (value, source)``,
 at boot (aidream: ``package_integration._workflow_setting_value`` →
 ``scoped_knob_raw``, which resolves organization overrides). The organization is
 the RUN's own (``ctx.organization_id``), carried from the run's start — never an
@@ -22,8 +22,10 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-#: ``async (feature, key, organization_id, user_id) -> the setting's effective value``.
-SettingReader = Callable[[str, str, str | None, str | None], Awaitable[Any]]
+#: ``async (feature, key, organization_id, user_id) -> (the setting's effective value, where it came from)``.
+#: ``user_id`` None resolves for the organization alone (no person's override); "where it came from" is the rung
+#: that decided the value: ``platform``, ``organization``, ``user`` or another overriding scope.
+SettingReader = Callable[[str, str, str | None, str | None], Awaitable[tuple[Any, str]]]
 
 #: ``async (feature, organization_id, user_id) -> {setting name: (effective value, where it came
 #: from)}`` — EVERY setting of one feature, resolved for the run's organization and person.

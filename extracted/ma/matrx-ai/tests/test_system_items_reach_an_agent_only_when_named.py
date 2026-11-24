@@ -299,11 +299,11 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
 
     seen: dict[str, Any] = {}
 
-    async def rpc(_db, schema, fn, *args, **_kw):
+    async def rpc(_actor, _db, schema, fn, *args, **_kw):
         seen["rpc"] = (schema, fn, args)
         return copy.deepcopy(_resolved())
 
-    monkeypatch.setattr("matrx_orm.call_function", rpc)
+    monkeypatch.setattr("matrx_orm.call_function_as", rpc)
     monkeypatch.setattr(context_engine, "_resolve_context_database", lambda: "test")
 
     names = SystemContextNames.none().naming([GUIDANCE_ID, "current_date"], by="the agent's variable x")
@@ -313,7 +313,7 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
     )
 
     schema, fn, args = seen["rpc"]
-    assert (schema, fn) == ("context", "resolve_full_context")
+    assert (schema, fn) == ("custom", "resolve_context")
     refs = args[4]
     assert isinstance(refs, ArrayArg)
     assert list(refs.value) == sorted([GUIDANCE_ID, "current_date"]) == names.refs()
@@ -330,11 +330,11 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
 async def test_two_namings_never_share_one_cached_answer(monkeypatch):
     calls: list[Any] = []
 
-    async def rpc(_db, _schema, _fn, *args, **_kw):
+    async def rpc(_actor, _db, _schema, _fn, *args, **_kw):
         calls.append(args[4].value)
         return copy.deepcopy(_resolved())
 
-    monkeypatch.setattr("matrx_orm.call_function", rpc)
+    monkeypatch.setattr("matrx_orm.call_function_as", rpc)
     monkeypatch.setattr(context_engine, "_resolve_context_database", lambda: "test")
     context_engine.invalidate_context_cache()
 

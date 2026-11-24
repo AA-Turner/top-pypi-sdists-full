@@ -120,7 +120,7 @@ def test_strip_repeated_regions_removes_accepted_only() -> None:
     report = detect_repeated_regions(pdf_bytes)
     assert report.regions, "expected at least one detected region"
     accepted = {report.regions[0].region_id}
-    raw_pages = ["text " + r.bbox_per_page[0].raw_text for r in [report.regions[0]]]
+    ["text " + r.bbox_per_page[0].raw_text for r in [report.regions[0]]]
     # We feed page-1 text containing the region's raw_text and confirm strip
     page1_raw = report.regions[0].bbox_per_page[0].raw_text
     stripped = strip_repeated_regions_text([page1_raw + " body"], report.regions, accepted)
@@ -140,7 +140,6 @@ def test_strip_repeated_regions_does_not_strip_body_collision() -> None:
     FIRST occurrence only (the header position).
     """
     from matrx_files.specific_handlers.pdf import (
-        RepeatedRegion,
         RepeatedRegionBbox,
     )
 
@@ -260,7 +259,7 @@ def test_classify_pages_labels_appendix() -> None:
 def test_classify_pages_labels_signature() -> None:
     doc = pymupdf.open()
     try:
-        page = doc.new_page(width=612, height=792)
+        doc.new_page(width=612, height=792)
         # second page so the cover heuristic doesn't kick in
         doc.new_page(width=612, height=792)
         page2 = doc[1]

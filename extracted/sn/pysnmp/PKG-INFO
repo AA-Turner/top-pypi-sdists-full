@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pysnmp
-Version: 7.1.33
+Version: 7.1.34
 Summary: A Python library for SNMP
 Author-email: Ilya Etingof <etingof@gmail.com>, "LeXtudio Inc." <support@lextudio.com>
 Requires-Python: >=3.11.5

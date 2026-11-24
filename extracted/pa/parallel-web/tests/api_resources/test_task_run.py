@@ -14,7 +14,7 @@ from parallel.types import (
     RunInput,
     TaskRunResult,
 )
-from parallel._utils import parse_date
+from parallel._utils import parse_date, parse_datetime
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -37,8 +37,15 @@ class TestTaskRun:
             processor="base",
             advanced_settings={
                 "data_sources": {
+                    "excluded": ["string"],
                     "free": ["string"],
                     "pay_per_use": ["string"],
+                },
+                "fetch_policy": {
+                    "as_of": parse_datetime("2026-07-01T12:00:00Z"),
+                    "disable_cache_fallback": True,
+                    "max_age_seconds": 86400,
+                    "timeout_seconds": 60,
                 },
                 "location": "us",
             },
@@ -287,8 +294,15 @@ class TestAsyncTaskRun:
             processor="base",
             advanced_settings={
                 "data_sources": {
+                    "excluded": ["string"],
                     "free": ["string"],
                     "pay_per_use": ["string"],
+                },
+                "fetch_policy": {
+                    "as_of": parse_datetime("2026-07-01T12:00:00Z"),
+                    "disable_cache_fallback": True,
+                    "max_age_seconds": 86400,
+                    "timeout_seconds": 60,
                 },
                 "location": "us",
             },

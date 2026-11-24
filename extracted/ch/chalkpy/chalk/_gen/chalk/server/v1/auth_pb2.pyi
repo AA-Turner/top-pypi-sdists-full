@@ -26,10 +26,17 @@ class ServiceKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SERVICE_KIND_DATAPLANE_CONTROLLER: _ClassVar[ServiceKind]
     SERVICE_KIND_DATAPLANE_REVERSE_TUNNEL: _ClassVar[ServiceKind]
 
+class TeamOnboardingBlocker(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TEAM_ONBOARDING_BLOCKER_UNSPECIFIED: _ClassVar[TeamOnboardingBlocker]
+    TEAM_ONBOARDING_BLOCKER_CREDIT_CARD: _ClassVar[TeamOnboardingBlocker]
+
 SERVICE_KIND_UNSPECIFIED: ServiceKind
 SERVICE_KIND_DATAPLANE_API_SERVER: ServiceKind
 SERVICE_KIND_DATAPLANE_CONTROLLER: ServiceKind
 SERVICE_KIND_DATAPLANE_REVERSE_TUNNEL: ServiceKind
+TEAM_ONBOARDING_BLOCKER_UNSPECIFIED: TeamOnboardingBlocker
+TEAM_ONBOARDING_BLOCKER_CREDIT_CARD: TeamOnboardingBlocker
 
 class AdapterUser(_message.Message):
     __slots__ = ("id", "email_verified", "team_id", "name", "email", "image")
@@ -330,6 +337,14 @@ class UseVerificationTokenRequest(_message.Message):
     token: str
     def __init__(self, identifier: _Optional[str] = ..., token: _Optional[str] = ...) -> None: ...
 
+class ReportEmailCodeSignInRefusalRequest(_message.Message):
+    __slots__ = ("identifier", "status_detail")
+    IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
+    STATUS_DETAIL_FIELD_NUMBER: _ClassVar[int]
+    identifier: str
+    status_detail: str
+    def __init__(self, identifier: _Optional[str] = ..., status_detail: _Optional[str] = ...) -> None: ...
+
 class UpsertUserByEmailFields(_message.Message):
     __slots__ = ("email_verified", "name", "team_id")
     EMAIL_VERIFIED_FIELD_NUMBER: _ClassVar[int]
@@ -421,6 +436,10 @@ class UseVerificationTokenResponse(_message.Message):
     verification_token: VerificationToken
     def __init__(self, verification_token: _Optional[_Union[VerificationToken, _Mapping]] = ...) -> None: ...
 
+class ReportEmailCodeSignInRefusalResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class UpsertUserByEmailResponse(_message.Message):
     __slots__ = ("user",)
     USER_FIELD_NUMBER: _ClassVar[int]
@@ -428,18 +447,21 @@ class UpsertUserByEmailResponse(_message.Message):
     def __init__(self, user: _Optional[_Union[AdapterUser, _Mapping]] = ...) -> None: ...
 
 class SelfServiceCreateTeamRequest(_message.Message):
-    __slots__ = ("user_id", "team_name", "signup_link_attempt_id")
+    __slots__ = ("user_id", "team_name", "signup_link_attempt_id", "company_name")
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     TEAM_NAME_FIELD_NUMBER: _ClassVar[int]
     SIGNUP_LINK_ATTEMPT_ID_FIELD_NUMBER: _ClassVar[int]
+    COMPANY_NAME_FIELD_NUMBER: _ClassVar[int]
     user_id: str
     team_name: str
     signup_link_attempt_id: str
+    company_name: str
     def __init__(
         self,
         user_id: _Optional[str] = ...,
         team_name: _Optional[str] = ...,
         signup_link_attempt_id: _Optional[str] = ...,
+        company_name: _Optional[str] = ...,
     ) -> None: ...
 
 class SelfServiceCreateTeamResponse(_message.Message):
@@ -450,6 +472,16 @@ class SelfServiceCreateTeamResponse(_message.Message):
     project_id: str
     def __init__(self, team_id: _Optional[str] = ..., project_id: _Optional[str] = ...) -> None: ...
 
+class GetSelfServiceStatusRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetSelfServiceStatusResponse(_message.Message):
+    __slots__ = ("enabled",)
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    def __init__(self, enabled: bool = ...) -> None: ...
+
 class GetTeamOnboardingStatusRequest(_message.Message):
     __slots__ = ("team_id",)
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
@@ -457,12 +489,19 @@ class GetTeamOnboardingStatusRequest(_message.Message):
     def __init__(self, team_id: _Optional[str] = ...) -> None: ...
 
 class GetTeamOnboardingStatusResponse(_message.Message):
-    __slots__ = ("has_environments", "requires_environment_onboarding")
+    __slots__ = ("has_environments", "requires_environment_onboarding", "blockers")
     HAS_ENVIRONMENTS_FIELD_NUMBER: _ClassVar[int]
     REQUIRES_ENVIRONMENT_ONBOARDING_FIELD_NUMBER: _ClassVar[int]
+    BLOCKERS_FIELD_NUMBER: _ClassVar[int]
     has_environments: bool
     requires_environment_onboarding: bool
-    def __init__(self, has_environments: bool = ..., requires_environment_onboarding: bool = ...) -> None: ...
+    blockers: _containers.RepeatedScalarFieldContainer[TeamOnboardingBlocker]
+    def __init__(
+        self,
+        has_environments: bool = ...,
+        requires_environment_onboarding: bool = ...,
+        blockers: _Optional[_Iterable[_Union[TeamOnboardingBlocker, str]]] = ...,
+    ) -> None: ...
 
 class GetTokenRequest(_message.Message):
     __slots__ = ("client_id", "client_secret", "grant_type", "scope", "expires_at")
@@ -617,11 +656,15 @@ class GetProjectInfoResponse(_message.Message):
     def __init__(self, project: _Optional[_Union[ProjectInfo, _Mapping]] = ...) -> None: ...
 
 class GetInternalWorkingTokenRequest(_message.Message):
-    __slots__ = ("requested_permissions",)
+    __slots__ = ("requested_permissions", "requested_lifetime")
     REQUESTED_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    REQUESTED_LIFETIME_FIELD_NUMBER: _ClassVar[int]
     requested_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    requested_lifetime: _duration_pb2.Duration
     def __init__(
-        self, requested_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...
+        self,
+        requested_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+        requested_lifetime: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class GetInternalWorkingTokenResponse(_message.Message):

@@ -3,9 +3,7 @@
 
 import grpc
 
-from chalk._gen.chalk.modeldeployment.v1 import (
-    service_pb2 as chalk_dot_modeldeployment_dot_v1_dot_service__pb2,
-)
+from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as chalk_dot_modeldeployment_dot_v1_dot_service__pb2
 
 
 class ModelDeploymentServiceStub(object):
@@ -26,6 +24,11 @@ class ModelDeploymentServiceStub(object):
             "/chalk.modeldeployment.v1.ModelDeploymentService/UpdateModelScalingGroup",
             request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupRequest.SerializeToString,
             response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupResponse.FromString,
+        )
+        self.SetModelScalingGroupWeightTarget = channel.unary_unary(
+            "/chalk.modeldeployment.v1.ModelDeploymentService/SetModelScalingGroupWeightTarget",
+            request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.SetModelScalingGroupWeightTargetRequest.SerializeToString,
+            response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.SetModelScalingGroupWeightTargetResponse.FromString,
         )
         self.GetModelScalingGroup = channel.unary_unary(
             "/chalk.modeldeployment.v1.ModelDeploymentService/GetModelScalingGroup",
@@ -70,6 +73,14 @@ class ModelDeploymentServiceServicer(object):
 
     def UpdateModelScalingGroup(self, request, context):
         """UpdateModelScalingGroup updates a model scaling group's spec, traffic, or both."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SetModelScalingGroupWeightTarget(self, request, context):
+        """Selects an indexed publication without appending or restarting a revision.
+        Persists desired state only; it does not establish serving readiness.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -122,6 +133,11 @@ def add_ModelDeploymentServiceServicer_to_server(servicer, server):
             servicer.UpdateModelScalingGroup,
             request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupRequest.FromString,
             response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupResponse.SerializeToString,
+        ),
+        "SetModelScalingGroupWeightTarget": grpc.unary_unary_rpc_method_handler(
+            servicer.SetModelScalingGroupWeightTarget,
+            request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.SetModelScalingGroupWeightTargetRequest.FromString,
+            response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.SetModelScalingGroupWeightTargetResponse.SerializeToString,
         ),
         "GetModelScalingGroup": grpc.unary_unary_rpc_method_handler(
             servicer.GetModelScalingGroup,
@@ -212,6 +228,35 @@ class ModelDeploymentService(object):
             "/chalk.modeldeployment.v1.ModelDeploymentService/UpdateModelScalingGroup",
             chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupRequest.SerializeToString,
             chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SetModelScalingGroupWeightTarget(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.modeldeployment.v1.ModelDeploymentService/SetModelScalingGroupWeightTarget",
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.SetModelScalingGroupWeightTargetRequest.SerializeToString,
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.SetModelScalingGroupWeightTargetResponse.FromString,
             options,
             channel_credentials,
             insecure,

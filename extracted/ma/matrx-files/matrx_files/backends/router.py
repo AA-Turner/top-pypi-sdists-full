@@ -30,7 +30,6 @@ import time
 import logging
 from dataclasses import replace
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 from .base_backend import ObjectInfo, StorageBackend
 from .s3_backend import S3Backend
@@ -134,7 +133,7 @@ def _with_retry(fn, *args, **kwargs):
     for attempt in range(_MAX_RETRIES):
         try:
             return fn(*args, **kwargs)
-        except (ValueError, RuntimeError) as exc:
+        except (ValueError, RuntimeError):
             # Config / logic errors — never retry.
             raise
         except Exception as exc:
@@ -209,15 +208,18 @@ def parse_uri(uri: str) -> tuple[str, str]:
     >>> parse_uri("server://uploads/file.txt")
     ('server', 'uploads/file.txt')
     """
-    parsed = urlparse(uri)
-    scheme = parsed.scheme.lower()
-    if scheme not in CLOUD_SCHEMES:
+    # NOT urlparse: a storage URI is not a URL. ``#``, ``?`` and ``;`` are ordinary characters of an S3 key, and
+    # urlparse cut the key at them (fragment / query / params) — every continuation chunk of a large account export
+    # (``workflow.run#00001~…``) then wrote to ONE truncated object and overwrote the last (2026-11-13).
+    scheme, sep, rest = uri.partition("://")
+    scheme = scheme.lower()
+    if not sep or scheme not in CLOUD_SCHEMES:
         raise ValueError(
             f"Unrecognized cloud URI scheme '{scheme}' in '{uri}'. "
             f"Supported schemes: {sorted(CLOUD_SCHEMES)}"
         )
-    netloc = parsed.netloc
-    path = parsed.path.lstrip("/")
+    netloc, _, path = rest.partition("/")
+    path = path.lstrip("/")
     if netloc and not path:
         # Bucket ROOT. Keep the trailing separator: without it, a bare
         # "bucket" is indistinguishable from "a key prefix inside the default
@@ -311,6 +313,20 @@ class BackendRouter:
             content,
             policy=policy,
             content_type=content_type,
+        )
+
+    def write_ephemeral_file(
+        self,
+        uri: str,
+        local_path: str,
+        *,
+        policy: EphemeralObjectPolicy,
+        content_type: str | None = None,
+    ) -> bool:
+        """Stream a local file into row-less scratch with lifecycle classification attached atomically."""
+        backend, path = self._resolve(uri)
+        return _with_retry(
+            backend.write_ephemeral_file, path, local_path, policy=policy, content_type=content_type
         )
 
     def append(self, uri: str, content: bytes | str) -> bool:
@@ -432,6 +448,19 @@ class BackendRouter:
         backend, path = self._resolve(uri)
         return await _with_retry_async(backend.read_async, path)
 
+    async def read_ephemeral_async(self, uri: str, *, owner_user_id: str) -> bytes:
+        """Read a row-less scratch object, refusing any object not under the owner's own segment.
+
+        Ephemeral objects have no cld_files row, so the gate's record check cannot run;
+        the owner's id is a path segment of the key (``.../<user_id>/<job_id>/<leaf>``)
+        and the read is refused unless that segment is present.
+        """
+        owner = str(owner_user_id or "").strip()
+        _, path = self._resolve(uri)
+        if not owner or owner not in str(path).split("/"):
+            raise PermissionError("ephemeral object does not belong to the requesting user")
+        return await self.read_async(uri)
+
     async def download_to_path_async(self, uri: str, local_path: str) -> int:
         """Non-blocking materialization using the backend's streaming path."""
         backend, path = self._resolve(uri)
@@ -460,6 +489,20 @@ class BackendRouter:
             content,
             policy=policy,
             content_type=content_type,
+        )
+
+    async def write_ephemeral_file_async(
+        self,
+        uri: str,
+        local_path: str,
+        *,
+        policy: EphemeralObjectPolicy,
+        content_type: str | None = None,
+    ) -> bool:
+        """Non-blocking :meth:`write_ephemeral_file`: a local file streamed into tagged scratch."""
+        backend, path = self._resolve(uri)
+        return await _with_retry_async(
+            backend.write_ephemeral_file_async, path, local_path, policy=policy, content_type=content_type
         )
 
     async def append_async(self, uri: str, content: bytes | str) -> bool:
@@ -491,11 +534,6 @@ class BackendRouter:
                 f"Backend {type(src_backend).__name__} does not implement copy_async."
             )
         return await src_backend.copy_async(src_path, dst_path)
-
-    def get_public_url(self, uri: str) -> str:
-        """Return the permanent public URL for a cloud object (bucket must be public)."""
-        backend, path = self._resolve(uri)
-        return backend.get_public_url(path)
 
     async def get_public_url_async(self, uri: str) -> str:
         """Non-blocking permanent public URL (bucket must be public)."""
@@ -604,7 +642,6 @@ class BackendRouter:
             Expiry for the *new* URL when one needs to be generated (seconds).
         """
         from .url_parser import parse_storage_url
-        import time
 
         # Native URIs have no expiry — generate a fresh signed URL
         parsed_scheme = url.split("://", 1)[0].lower() if "://" in url else ""

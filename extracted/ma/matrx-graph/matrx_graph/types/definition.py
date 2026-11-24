@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
 from matrx_graph.types.channel import ChannelSpec
 from matrx_graph.types.primitives import EdgeKind
 from matrx_graph.types.review import ReviewMark, parse_review_mark
-from matrx_graph.types.variables import VariableSpec
+from matrx_graph.input_declaration import VariableDefinition
+from matrx_graph.types.input_surface import check_input_name, declared_inputs
 
 
 class Viewport(BaseModel):
@@ -23,6 +24,29 @@ class Position(BaseModel):
 
     x: float
     y: float
+
+
+#: Every key a step's ``data`` may carry: the ones the engine reads, plus the canvas's and the builder's own
+#: (label, icon, note...). ``NodeDef.data`` is free-form, so a key outside this set is accepted and does
+#: NOTHING (``on_failure: continue`` sat on 274 live steps doing nothing, 2026-11-10); the validator warns on
+#: it by name (``validation._unknown_step_key_issues``). A new engine key is added here in the same change
+#: (guard: ``tests/test_an_unknown_step_key_is_said.py`` reads the engine's own ``data.get(...)`` calls).
+STEP_DATA_KEYS: frozenset[str] = frozenset({
+    # what the engine reads
+    "_settings", "annotations", "arg_merge", "category", "challenger_stage", "change", "concurrency", "condition",
+    "config", "definition_id", "deliverable", "disposition", "durability", "fan_out", "for_each", "groups",
+    "in_organization", "input", "input_kind", "inputs", "is_primary", "item_key", "join_policy", "key", "kind",
+    "kind_filter", "label", "mappings", "mock_response", "name", "on_item_failure", "on_skipped_upstream", "once",
+    "one_at_a_time", "optional", "output_channel", "output_kind", "presentation", "ready_when", "result",
+    "retry_policy", "review", "runs_as", "says", "shape", "skip_defaults", "spec_type", "step_clock",
+    "trigger_debounce_steps", "trigger_fire_once", "trigger_item_key", "trigger_kind", "trigger_mode",
+    "when_input_skipped", "workflow_input_handles", "customComponent", "memberIds",
+    # what saved workflows carry for the builder, the canvas and the patch door (live census, 2026-11-10)
+    "custom_label", "description", "determinism", "icon", "if_skipped", "keys", "kind_exposures", "note",
+    "plan_id", "static_inputs", "when",
+    # a step's drawn size, read by placement as the last fallback after node.width / measured
+    "height", "width",
+})
 
 
 class NodeDef(BaseModel):
@@ -43,6 +67,21 @@ class NodeDef(BaseModel):
     )
     position: Position
     data: dict[str, Any] = Field(default_factory=dict)
+    parentId: str | None = Field(
+        default=None,
+        description=(
+            "The frame (an ``info.frame`` node) that contains this node; None = top level. "
+            "Replaces ``metadata.groups[].memberIds``. Never written out while None, so a "
+            "definition without frames serializes exactly as it always did."
+        ),
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_parent(self, handler: Any) -> dict[str, Any]:
+        out = handler(self)
+        if out.get("parentId") is None:
+            out.pop("parentId", None)
+        return out
 
     @property
     def spec_type(self) -> str:
@@ -93,6 +132,15 @@ class NodeDef(BaseModel):
         (default, deliver as-is) | "block" | "default_value"."""
         raw = self.data.get("on_skipped_upstream")
         return raw if isinstance(raw, str) and raw else "propagate_empty"
+
+    @property
+    def when_input_skipped(self) -> str:
+        """What this step does when a step it reads from was skipped by its 'Only when'
+        (ENGINE_SPEC §3.3b): "skip" (default) — it does not run either, and neither does
+        anything after it; "run" — the step declares it handles that input missing and runs
+        on the inputs that did arrive."""
+        raw = self.data.get("when_input_skipped")
+        return raw if isinstance(raw, str) and raw else "skip"
 
     @property
     def skip_defaults(self) -> dict[str, Any]:
@@ -172,7 +220,7 @@ class EdgeDef(BaseModel):
     """User-authored edge in a ReactFlow-compatible definition.
 
     The edge's semantic `kind` (DATA / CONTROL / CONDITIONAL / ERROR / STREAM)
-    lives under data.kind. `type` on ReactFlow is purely a visual style hint.
+    lives under data.kind; an unknown kind is refused, never coerced to DATA. `type` on ReactFlow is purely a visual style hint.
     Conditional edges carry a predicate expression under data.condition that
     the compiler validates.
     """
@@ -190,6 +238,13 @@ class EdgeDef(BaseModel):
     )
     data: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def _refuse_unknown_kind(self) -> EdgeDef:
+        # An unknown kind is REFUSED at load. Coercing it to DATA would let an older engine run a
+        # newer edge kind (e.g. "relation") as a data edge, silently.
+        _ = self.kind
+        return self
+
     @property
     def kind(self) -> EdgeKind:
         raw = self.data.get("kind", EdgeKind.DATA.value)
@@ -198,7 +253,10 @@ class EdgeDef(BaseModel):
         try:
             return EdgeKind(raw)
         except ValueError:
-            return EdgeKind.DATA
+            known = ", ".join(k.value for k in EdgeKind)
+            raise ValueError(
+                f"edge {self.id!r} has unknown edge kind {raw!r}; this engine knows: {known}"
+            ) from None
 
     @property
     def condition(self) -> str | None:
@@ -251,7 +309,7 @@ class Definition(BaseModel):
             "the compiler derives entry nodes (nodes with no incoming edges)."
         ),
     )
-    variables: list[VariableSpec] = Field(
+    variables: list[VariableDefinition] = Field(
         default_factory=list,
         description=(
             "Declared run variables. Node static inputs reference them with "
@@ -260,6 +318,12 @@ class Definition(BaseModel):
             "loudly (see matrx_graph.types.variables)."
         ),
     )
+    @field_validator("variables", mode="before")
+    @classmethod
+    def _declared_variables(cls, value: Any) -> Any:
+        # Old stored shapes are read ONLY through the converter (declared_inputs).
+        return declared_inputs(value) if isinstance(value, list | tuple) else value
+
     public_media: bool = Field(
         default=False,
         description=(
@@ -309,6 +373,8 @@ class Definition(BaseModel):
             duplicates = {cn for cn in channel_names if channel_names.count(cn) > 1}
             raise ValueError(f"Duplicate channel names: {sorted(duplicates)}")
 
+        for variable in self.variables:
+            check_input_name(variable.name)
         variable_names = [v.name for v in self.variables]
         if len(variable_names) != len(set(variable_names)):
             duplicates = {vn for vn in variable_names if variable_names.count(vn) > 1}

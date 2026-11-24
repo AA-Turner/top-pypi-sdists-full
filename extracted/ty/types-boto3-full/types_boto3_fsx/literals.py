@@ -25,10 +25,14 @@ else:
 __all__ = (
     "AdministrativeActionTypeType",
     "AliasLifecycleType",
+    "AllowedSvmModeType",
     "AutoImportPolicyTypeType",
     "AutocommitPeriodTypeType",
     "BackupLifecycleType",
     "BackupTypeType",
+    "CloneSplitActionType",
+    "ClusterPeerFilterNameType",
+    "ClusterPeerLifecycleType",
     "DataCompressionTypeType",
     "DataRepositoryLifecycleType",
     "DataRepositoryTaskFilterNameType",
@@ -37,9 +41,14 @@ __all__ = (
     "DeleteFileSystemOpenZFSOptionType",
     "DeleteOpenZFSVolumeOptionType",
     "DescribeBackupsPaginatorName",
+    "DescribeClusterPeersPaginatorName",
     "DescribeFileSystemsPaginatorName",
     "DescribeS3AccessPointAttachmentsPaginatorName",
+    "DescribeSnapmirrorPoliciesPaginatorName",
+    "DescribeSnapmirrorRelationshipsPaginatorName",
+    "DescribeSnapshotPoliciesPaginatorName",
     "DescribeSnapshotsPaginatorName",
+    "DescribeStorageVirtualMachinePeersPaginatorName",
     "DescribeStorageVirtualMachinesPaginatorName",
     "DescribeVolumesPaginatorName",
     "DiskIopsConfigurationModeType",
@@ -86,16 +95,34 @@ __all__ = (
     "SecurityStyleType",
     "ServiceName",
     "SnaplockTypeType",
+    "SnapmirrorPolicyFilterNameType",
+    "SnapmirrorPolicyLifecycleType",
+    "SnapmirrorPolicyScopeType",
+    "SnapmirrorPolicySnapshotCopyModeType",
+    "SnapmirrorRelationshipFilterNameType",
+    "SnapmirrorRelationshipLifecycleType",
+    "SnapmirrorRelationshipStateType",
     "SnapshotFilterNameType",
     "SnapshotLifecycleType",
+    "SnapshotPolicyFilterNameType",
+    "SnapshotPolicyLifecycleType",
+    "SnapshotPolicyRetentionPeriodTypeType",
+    "SnapshotPolicyScopeType",
+    "SnapshotTypeType",
     "StatusType",
     "StorageTypeType",
     "StorageVirtualMachineFilterNameType",
     "StorageVirtualMachineLifecycleType",
+    "StorageVirtualMachinePeerApplicationType",
+    "StorageVirtualMachinePeerFilterNameType",
+    "StorageVirtualMachinePeerLifecycleType",
+    "StorageVirtualMachinePeerStateType",
+    "StorageVirtualMachinePeerUpdateStateType",
     "StorageVirtualMachineRootVolumeSecurityStyleType",
     "StorageVirtualMachineSubtypeType",
     "TieringPolicyNameType",
     "UnitType",
+    "UpdatableSnapmirrorRelationshipStateType",
     "UpdateOpenZFSVolumeOptionType",
     "VolumeFilterNameType",
     "VolumeLifecycleType",
@@ -118,18 +145,23 @@ AdministrativeActionTypeType = Literal[
     "STORAGE_OPTIMIZATION",
     "STORAGE_TYPE_OPTIMIZATION",
     "THROUGHPUT_OPTIMIZATION",
+    "VOLUME_CLONE_SPLIT",
     "VOLUME_INITIALIZE_WITH_SNAPSHOT",
     "VOLUME_RESTORE",
     "VOLUME_UPDATE",
     "VOLUME_UPDATE_WITH_SNAPSHOT",
 ]
 AliasLifecycleType = Literal["AVAILABLE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING"]
+AllowedSvmModeType = Literal["ALL", "NONE", "SPECIFIED"]
 AutoImportPolicyTypeType = Literal["NEW", "NEW_CHANGED", "NEW_CHANGED_DELETED", "NONE"]
 AutocommitPeriodTypeType = Literal["DAYS", "HOURS", "MINUTES", "MONTHS", "NONE", "YEARS"]
 BackupLifecycleType = Literal[
     "AVAILABLE", "COPYING", "CREATING", "DELETED", "FAILED", "PENDING", "TRANSFERRING"
 ]
 BackupTypeType = Literal["AUTOMATIC", "AWS_BACKUP", "USER_INITIATED"]
+CloneSplitActionType = Literal["START"]
+ClusterPeerFilterNameType = Literal["file-system-id"]
+ClusterPeerLifecycleType = Literal["CREATED", "CREATING", "DELETING", "FAILED"]
 DataCompressionTypeType = Literal["LZ4", "NONE"]
 DataRepositoryLifecycleType = Literal[
     "AVAILABLE", "CREATING", "DELETING", "FAILED", "MISCONFIGURED", "UPDATING"
@@ -149,9 +181,14 @@ DataRepositoryTaskTypeType = Literal[
 DeleteFileSystemOpenZFSOptionType = Literal["DELETE_CHILD_VOLUMES_AND_SNAPSHOTS"]
 DeleteOpenZFSVolumeOptionType = Literal["DELETE_CHILD_VOLUMES_AND_SNAPSHOTS"]
 DescribeBackupsPaginatorName = Literal["describe_backups"]
+DescribeClusterPeersPaginatorName = Literal["describe_cluster_peers"]
 DescribeFileSystemsPaginatorName = Literal["describe_file_systems"]
 DescribeS3AccessPointAttachmentsPaginatorName = Literal["describe_s3_access_point_attachments"]
+DescribeSnapmirrorPoliciesPaginatorName = Literal["describe_snapmirror_policies"]
+DescribeSnapmirrorRelationshipsPaginatorName = Literal["describe_snapmirror_relationships"]
+DescribeSnapshotPoliciesPaginatorName = Literal["describe_snapshot_policies"]
 DescribeSnapshotsPaginatorName = Literal["describe_snapshots"]
+DescribeStorageVirtualMachinePeersPaginatorName = Literal["describe_storage_virtual_machine_peers"]
 DescribeStorageVirtualMachinesPaginatorName = Literal["describe_storage_virtual_machines"]
 DescribeVolumesPaginatorName = Literal["describe_volumes"]
 DiskIopsConfigurationModeType = Literal["AUTOMATIC", "USER_PROVISIONED"]
@@ -221,8 +258,26 @@ S3AccessPointAttachmentTypeType = Literal["ONTAP", "OPENZFS"]
 S3AccessPointAttachmentsFilterNameType = Literal["file-system-id", "type", "volume-id"]
 SecurityStyleType = Literal["MIXED", "NTFS", "UNIX"]
 SnaplockTypeType = Literal["COMPLIANCE", "ENTERPRISE"]
+SnapmirrorPolicyFilterNameType = Literal["file-system-id", "storage-virtual-machine-id"]
+SnapmirrorPolicyLifecycleType = Literal["CREATED", "CREATING", "DELETING", "FAILED"]
+SnapmirrorPolicyScopeType = Literal["FILESYSTEM", "SVM"]
+SnapmirrorPolicySnapshotCopyModeType = Literal[
+    "COPY_ALL_SOURCE_SNAPSHOTS", "COPY_LATEST_SOURCE_SNAPSHOT", "NO_CREATE_SNAPSHOT_ON_SOURCE"
+]
+SnapmirrorRelationshipFilterNameType = Literal["destination-volume-id", "file-system-id"]
+SnapmirrorRelationshipLifecycleType = Literal["CREATED", "CREATING", "DELETING", "FAILED"]
+SnapmirrorRelationshipStateType = Literal[
+    "BROKEN_OFF", "PAUSED", "SNAPMIRRORED", "TRANSFERRING", "UNINITIALIZED"
+]
 SnapshotFilterNameType = Literal["file-system-id", "volume-id"]
-SnapshotLifecycleType = Literal["AVAILABLE", "CREATING", "DELETING", "PENDING"]
+SnapshotLifecycleType = Literal["AVAILABLE", "CREATING", "DELETING", "FAILED", "PENDING"]
+SnapshotPolicyFilterNameType = Literal["file-system-id", "storage-virtual-machine-id"]
+SnapshotPolicyLifecycleType = Literal["CREATED", "CREATING", "DELETING", "FAILED"]
+SnapshotPolicyRetentionPeriodTypeType = Literal[
+    "DAYS", "HOURS", "INFINITE", "MINUTES", "MONTHS", "SECONDS", "YEARS"
+]
+SnapshotPolicyScopeType = Literal["FILESYSTEM", "SVM"]
+SnapshotTypeType = Literal["ONTAP", "OPENZFS"]
 StatusType = Literal[
     "CANCELLED",
     "COMPLETED",
@@ -238,12 +293,22 @@ StorageVirtualMachineFilterNameType = Literal["file-system-id"]
 StorageVirtualMachineLifecycleType = Literal[
     "CREATED", "CREATING", "DELETING", "FAILED", "MISCONFIGURED", "PENDING"
 ]
+StorageVirtualMachinePeerApplicationType = Literal[
+    "FILE_COPY", "FLEXCACHE", "LUN_COPY", "SNAPMIRROR"
+]
+StorageVirtualMachinePeerFilterNameType = Literal["file-system-id", "storage-virtual-machine-id"]
+StorageVirtualMachinePeerLifecycleType = Literal["CREATED", "CREATING", "DELETING", "FAILED"]
+StorageVirtualMachinePeerStateType = Literal[
+    "INITIALIZING", "INITIATED", "PEERED", "PENDING", "REJECTED", "SUSPENDED"
+]
+StorageVirtualMachinePeerUpdateStateType = Literal["PEERED", "REJECTED", "SUSPENDED"]
 StorageVirtualMachineRootVolumeSecurityStyleType = Literal["MIXED", "NTFS", "UNIX"]
 StorageVirtualMachineSubtypeType = Literal[
     "DEFAULT", "DP_DESTINATION", "SYNC_DESTINATION", "SYNC_SOURCE"
 ]
 TieringPolicyNameType = Literal["ALL", "AUTO", "NONE", "SNAPSHOT_ONLY"]
 UnitType = Literal["DAYS"]
+UpdatableSnapmirrorRelationshipStateType = Literal["BROKEN_OFF", "PAUSED", "SNAPMIRRORED"]
 UpdateOpenZFSVolumeOptionType = Literal[
     "DELETE_CLONED_VOLUMES", "DELETE_INTERMEDIATE_DATA", "DELETE_INTERMEDIATE_SNAPSHOTS"
 ]
@@ -709,9 +774,14 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "describe_backups",
+    "describe_cluster_peers",
     "describe_file_systems",
     "describe_s3_access_point_attachments",
+    "describe_snapmirror_policies",
+    "describe_snapmirror_relationships",
+    "describe_snapshot_policies",
     "describe_snapshots",
+    "describe_storage_virtual_machine_peers",
     "describe_storage_virtual_machines",
     "describe_volumes",
     "list_tags_for_resource",

@@ -36,9 +36,11 @@ from matrx_utils import detached_task, vcprint
 from matrx_ai.orchestrator.execution_state import try_get_execution_state
 from matrx_ai.persistence.conversation_org import (
     conversation_organization,
+    database_filing_organization,
+    filed_organization,
     remember_conversation_organization,
 )
-from matrx_ai.persistence.coordinator import Coordinator
+from matrx_ai.persistence.coordinator import ACTOR_STAMPED_TABLES, Coordinator, with_actor
 from matrx_ai.persistence.postgres_text import sanitize_postgres_text
 from matrx_ai.persistence.registry import get_model, register_table
 
@@ -64,6 +66,53 @@ class OrganizationlessInsertError(ValueError):
         super().__init__(message)
         self.table = table
         self.conversation_id = conversation_id
+
+
+class EmptyIdWriteError(ValueError):
+    """A write named an EMPTY primary key (``""``) — there is no row it could mean.
+
+    Typed so the boundary answers with words instead of Postgres's
+    ``invalid input syntax for type uuid: ""`` (P7: an unsaved run's tool call, whose
+    row id is ``""`` because no row exists, was read back and crashed the turn)."""
+
+
+_UUID_FIELD_KINDS: frozenset[str] = frozenset({"UUIDField", "UUIDFieldREAL", "ForeignKey"})
+
+
+def _is_uuid_field(table: str, name: str) -> bool:
+    try:
+        field = get_model(table).get_field(name)
+    except Exception:  # noqa: BLE001 - no model bound yet: the name rule below decides
+        field = None
+    if field is not None:
+        return type(field).__name__ in _UUID_FIELD_KINDS
+    return name == "id" or name.endswith("_id") and name not in {"call_id", "provider_call_id"}
+
+
+def normalize_empty_uuid_fields(
+    table: str,
+    payload: dict[str, Any],
+    *,
+    primary_key: tuple[str, str] | None = None,
+) -> dict[str, Any]:
+    """THE guard: no write ever carries ``""`` in a uuid column.
+
+    An empty primary key (payload ``id`` on an insert, or the ``primary_key`` value) names no row and is
+    REFUSED (:class:`EmptyIdWriteError`); any other empty uuid column means "not set" and becomes NULL, so
+    the database answers with its own NOT NULL / FK words instead of a uuid syntax error.
+    """
+    if primary_key is not None and not str(primary_key[1] or "").strip():
+        raise EmptyIdWriteError(f"queue({table}): the primary key {primary_key[0]!r} is empty — there is no row to write.")
+    out = payload
+    for key, value in payload.items():
+        if isinstance(value, str) and value == "" and _is_uuid_field(table, key):
+            if key == "id":
+                raise EmptyIdWriteError(f"queue({table}): the row id is empty — there is no row to write.")
+            if out is payload:
+                out = dict(payload)
+            out[key] = None
+            vcprint(f"[Coordinator] {table}.{key} was '' - written as NULL, not as a uuid.", color="yellow")
+    return out
 
 
 # cx_ tables that carry a NOT-NULL organization_id (2026-06 schema reorg). Every
@@ -175,6 +224,48 @@ def _capture_late_lane_boundary(
     detached_task(_capture(), name="capture_late_persistence_boundary")
 
 
+def _inherited_from_a_finished_request(coord: Coordinator | None) -> bool:
+    """True when ``coord`` belongs to an EARLIER request whose lane has closed, while the
+    code asking runs on a different, still-active lane (system_error 72139ca5).
+
+    ``_coordinator_cv`` is set by :func:`get_coordinator` and never reset, so a request task
+    created from inside a finished one (uvicorn starts a pipelined keep-alive request from
+    the previous request's ``on_response_complete``; CPython 140947 leaks context between
+    tasks) copies the old Coordinator. Its owner lane is closed, so treating it as this
+    request's owner sent every write of the new run to late one-shots and filed
+    ``persistence_after_lane_drain``. A Coordinator is never the owner of a lane it was not
+    registered on. A helper outliving its parent still inherits the parent's (closed) lane
+    as its ambient lane, so this never fires for it — its own Coordinator decides.
+
+    The same holds when NO lane is current: code that ran under ``async with
+    RequestLane.open(...)`` and has left it (the lane ContextVar reset, the Coordinator one
+    not) is outside that lane, and the drained Coordinator owns nothing it writes next.
+    An agent-tests step ran its agent in such a lane, then its judge in the same task: the
+    judge's first write reached the drained Coordinator and filed
+    ``persistence_after_lane_drain`` (system_error b54f8102 + 66483317, 2026-11-17).
+    """
+    owner = getattr(coord, "_owner_lane", None) if coord is not None else None
+    if owner is None or getattr(owner, "phase", None) == "active":
+        return False
+    lane = get_current_lane()
+    if lane is None:
+        return True
+    return lane is not owner and getattr(lane, "phase", None) == "active"
+
+
+def _drop_inherited_coordinator(coord: Coordinator, state: Any) -> None:
+    """Forget an inherited Coordinator so this request mints its own; says so out loud."""
+    vcprint(
+        "[Coordinator] request inherited a finished request's Coordinator "
+        f"(request {getattr(coord, '_request_id', None)}, lane closed); minting this "
+        "request's own on its active lane.",
+        color="yellow",
+    )
+    _coordinator_cv.set(None)
+    if state is not None and getattr(state, "writes", None) is coord:
+        state.writes = None  # type: ignore[attr-defined]
+
+
 def get_coordinator() -> Coordinator | None:
     """Return the current request's :class:`Coordinator`, lazily creating it on first call.
 
@@ -217,9 +308,14 @@ def get_coordinator() -> Coordinator | None:
     if state is not None:
         coord_from_state: Coordinator | None = getattr(state, "writes", None)
         if coord_from_state is not None:
-            return coord_from_state
+            if not _inherited_from_a_finished_request(coord_from_state):
+                return coord_from_state
+            _drop_inherited_coordinator(coord_from_state, state)
 
     coord = _coordinator_cv.get(None)
+    if coord is not None and _inherited_from_a_finished_request(coord):
+        _drop_inherited_coordinator(coord, state)
+        coord = None
     if coord is not None:
         # If ExecutionState was just initialized after the coordinator,
         # link the two so the executor's state.writes points at the same
@@ -278,7 +374,7 @@ def live_owner_is_terminal(lane_probe: Any = None) -> bool:
     existing: Coordinator | None = (
         getattr(state, "writes", None) if state is not None else None
     ) or _coordinator_cv.get(None)
-    if existing is not None:
+    if existing is not None and not _inherited_from_a_finished_request(existing):
         owner = getattr(existing, "_owner_lane", None)
         return owner is not None and getattr(owner, "phase", None) != "active"
     lane = (lane_probe or get_current_lane)()
@@ -676,6 +772,15 @@ def _capture_child_org_bleed(
         pass
 
 
+_ACTOR_STAMPED_TABLES = ACTOR_STAMPED_TABLES
+
+
+def _with_request_actor(table: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Name the carried request's person as ``updated_by`` unless the caller already named one."""
+    ctx = _resolve_app_context()
+    return with_actor(table, payload, getattr(ctx, "user_id", None) if ctx is not None else None)
+
+
 def _queue_or_drop(
     table: str,
     payload: dict[str, Any],
@@ -689,14 +794,19 @@ def _queue_or_drop(
     # context may carry, made BEFORE anything else sees the payload (sanitization
     # captures, write-failure spills). Content columns emptied; content-derived
     # tables dropped whole. Second layer: the chat.refuse_sealed_content trigger.
-    from matrx_ai.persistence.sealed import seal_payload, sealed_context
+    from matrx_ai.persistence.sealed import blanks_content, seal_payload, sealed_context
 
     _seal_ctx = _resolve_app_context()
     if sealed_context(_seal_ctx):
+        # A blanked confidential reply: its blocks are built from the reply as written and only ANNOUNCED, so the
+        # device copy (where the words live) gets the saved shape (PF-1 D5); the stored row stays blank.
+        if table == "chat.message" and op_type in ("insert", "update") and "content" in payload and blanks_content(_seal_ctx):
+            _with_saved_blocks(sanitize_postgres_text(payload).value, op_type=op_type, primary_key=primary_key, announce_only=True)
         sealed = seal_payload(table, payload, op_type=op_type, ctx=_seal_ctx)
         if sealed is None:
             return ""
         payload = sealed
+    payload = normalize_empty_uuid_fields(table, payload, primary_key=primary_key)
     sanitization = sanitize_postgres_text(payload)
     if sanitization.replacements:
         payload = sanitization.value
@@ -727,7 +837,20 @@ def _queue_or_drop(
                 },
             )
 
-        detached_task(_capture_sanitization(), name="capture_persistence_payload_sanitized")
+        if not _sanitized_the_persons_own_words(sanitization.paths):
+            detached_task(_capture_sanitization(), name="capture_persistence_payload_sanitized")
+
+    # WHO WROTE IT — carried, never defaulted. ``platform._stamp_actor`` reads only ``app.user_id`` /
+    # ``auth.uid()``, both empty on the server's privileged connection, so since P7 an UPDATE that
+    # named no ``updated_by`` stamped the SYSTEM principal on a person's conversation (53 of 152
+    # recent rows, 2026-11-14). Every chat row the server writes for a request names that request's actor.
+    payload = _with_request_actor(table, payload)
+
+    # SAVED REPLY BLOCKS (PF-1): an assistant row's text parts carry the server splitter's blocks,
+    # computed here — after sealing (a sealed row has no text) and after sanitizing (the
+    # fingerprint is of the text exactly as stored).
+    if table == "chat.message" and op_type in ("insert", "update") and "content" in payload:
+        payload = _with_saved_blocks(payload, op_type=op_type, primary_key=primary_key)
 
     # ORGANIZATION — a child row lives in its PARENT conversation's organization,
     # never in whatever organization the ambient request happens to carry. See
@@ -759,7 +882,9 @@ def _queue_or_drop(
             ambient = getattr(ctx, "organization_id", None) if ctx else None
             declared = explicit or ambient
             payload["organization_id"] = parent_org
-            if declared and str(declared) != parent_org:
+            # Inside a context the database files elsewhere (an administrator's trial run), the parent
+            # lives in the filing organization BY DESIGN and the step names its own: not a bleed.
+            if declared and str(declared) != parent_org and parent_org != database_filing_organization():
                 _capture_child_org_bleed(
                     table=table,
                     payload=payload,
@@ -767,6 +892,19 @@ def _queue_or_drop(
                     parent_org=parent_org,
                     from_payload=explicit is not None,
                 )
+        elif (
+            not parent_org
+            and table in _PARENT_ORG_CHILD_TABLES
+            and payload.get("conversation_id")
+        ):
+            # Cache miss on a parent-org child row: this process never read the
+            # conversation, so any organization here is the AMBIENT one (the
+            # executor stamps exec_ctx's) and is a guess. The database's
+            # ``inherit_org_from_parent`` trigger reads the conversation's real
+            # organization when the column is NULL, and ``refuse_org_foreign_to_parent``
+            # rejected the guess whenever it differed — the write was lost
+            # (feedback 1f2411d6). Leave it to the parent.
+            payload.pop("organization_id", None)
         elif "organization_id" not in payload and (
             table in _ORG_SCOPED_INSERT_TABLES
             or (table in _PARENT_ORG_CHILD_TABLES and not payload.get("conversation_id"))
@@ -835,6 +973,16 @@ def _queue_or_drop(
 
 
 
+def _is_conversation_metadata_write(metadata: Any) -> bool:
+    """A metadata value the governed direct UPDATE can write: a dict (merged key by key) or a
+    ``JsonbPatch``. Since metadata patches became ``JsonbPatch`` (09f6e4df90a) a dict-only check
+    sent every coordinator-less metadata patch around this governed path to a standalone
+    coordinator instead (door-parity guard red: as-sent read ``no_swap_map``, 2026-11-04)."""
+    from matrx_orm import JsonbPatch
+
+    return isinstance(metadata, (dict, JsonbPatch))
+
+
 async def _direct_conversation_update(
     conversation_id: str, fields: dict[str, Any]
 ) -> int:
@@ -849,7 +997,10 @@ async def _direct_conversation_update(
     _ensure_cx_registered()
     Conversation = get_model("chat.conversation")
     values = dict(fields)
-    values["metadata"] = JsonbMerge("metadata", values["metadata"])
+    # A by-key patch (``JsonbPatch``, queue_conversation_metadata_patch since 2026-11-04) is already
+    # the write-time expression; only a plain dict is wrapped into a key-level merge.
+    if isinstance(values["metadata"], dict):
+        values["metadata"] = JsonbMerge("metadata", values["metadata"])
     with allow_direct_coordinator_write(
         Conversation,
         reason="conversation write from a send with no write coordinator (never dropped)",
@@ -878,7 +1029,7 @@ async def _persist_without_coordinator(
             table == "chat.conversation"
             and op_type == "update"
             and primary_key
-            and isinstance(payload.get("metadata"), dict)
+            and _is_conversation_metadata_write(payload.get("metadata"))
         ):
             touched = await _direct_conversation_update(primary_key[1], payload)
             if not touched:
@@ -1022,6 +1173,10 @@ def queue_conversation_create(*, id: str, **fields: Any) -> str:
     # conversation needs (message, tool_call, observational memory...). Record it
     # the moment the row is born so the synchronous child doors never have to ask
     # the ambient request. See matrx_ai.persistence.conversation_org.
+    # Filed where the database files it (``conversation_org.filed_organization``): the row, the
+    # registry and every child stamp agree with the organization the conversation really lives in.
+    if fields.get("organization_id"):
+        fields["organization_id"] = filed_organization(fields.get("organization_id"))
     remember_conversation_organization(id, fields.get("organization_id"))
 
     # Ownership guard (second, loud layer). Every conversation MUST be owned by
@@ -1118,6 +1273,42 @@ def _pending_conversation_metadata(conversation_id: str) -> dict[str, Any] | Non
     return pending
 
 
+def conversation_insert_is_queued(conversation_id: str) -> bool:
+    """True when the request's coordinator holds a queued INSERT for this conversation.
+
+    A metadata patch on a conversation that is neither on disk nor queued for
+    insert is an UPDATE that matches no row (a phantom write): callers check
+    this before patching a row their own read did not find.
+    """
+    coord = get_coordinator()
+    session = getattr(coord, "_session", None) if coord is not None else None
+    if session is None:
+        return False
+    try:
+        ops = session.pending_ops_for(get_model("chat.conversation"))
+    except Exception:  # noqa: BLE001 — no pending view: nothing is known to be queued
+        return False
+    return any(
+        str(getattr(op, "pk_value", "")) == str(conversation_id)
+        and getattr(op, "op_type", None) == "insert"
+        for op in ops
+    )
+
+
+def _conversation_row_will_never_exist(conversation_id: str) -> bool:
+    """True when this request is an unsaved run that will not write this conversation's row.
+
+    Only ``store=False`` proves it: a stored run's read can miss a row that is still landing, and
+    a confidential run has ``store=False`` yet writes its own structure rows.
+    """
+    from matrx_ai.persistence.sealed import writes_sealed_structure
+
+    ctx = _resolve_app_context()
+    if ctx is None or getattr(ctx, "store", True):
+        return False
+    return not writes_sealed_structure(ctx, conversation_id) and not conversation_insert_is_queued(conversation_id)
+
+
 def _rewrite_pending_conversation_metadata(conversation_id: str, metadata: dict[str, Any]) -> None:
     coord = get_coordinator()
     session = getattr(coord, "_session", None) if coord is not None else None
@@ -1141,7 +1332,30 @@ def queue_conversation_metadata_patch(
     Base = what this request already queued for the row, else ``db_metadata`` (the
     caller's fresh read of the stored object; None for a row not yet written).
     Pass ONLY the keys you own in ``patch`` — never a copy of the whole object.
+
+    An unsaved run (``store=False``, no sealed structure) whose read did not find the row has
+    no row and never will: the patch would be an UPDATE that matches nothing. It is announced
+    and not queued (returns ``""``).
     """
+    if db_metadata is None and _conversation_row_will_never_exist(id):
+        vcprint(
+            f"[Coordinator] conversation {id} belongs to an unsaved run (store=False): it has no row, "
+            f"so metadata keys {sorted(patch or {})} are kept for this request only and not written.",
+            color="yellow",
+        )
+        return ""
+    # A ROW ON DISK IS PATCHED BY KEY, AT WRITE TIME (CGU-M3 W4, 2026-11-04). Laying the patch over a copy read
+    # earlier in the turn and writing the whole object back dropped every key another writer added in between —
+    # a client's key written mid-turn (W2's dismissed proposals, a run setting) vanished when the turn's write
+    # landed. The patch now names only its own keys and the database applies it to the stored value
+    # (``JsonbPatch``); the Session combines it with this request's other queued writes for the row. A row this
+    # request is still INSERTING has no other writer yet, so it keeps the in-memory merge.
+    if not conversation_insert_is_queued(id):
+        from matrx_orm import JsonbPatch
+
+        flat = {k: v for k, v in (patch or {}).items() if k not in CONVERSATION_METADATA_NESTED_MERGE_KEYS or not isinstance(v, dict)}
+        nested = {k: v for k, v in (patch or {}).items() if k in CONVERSATION_METADATA_NESTED_MERGE_KEYS and isinstance(v, dict)}
+        return queue_conversation_update(id, metadata=JsonbPatch("metadata", flat, merge=nested))
     pending = _pending_conversation_metadata(id)
     base = merge_conversation_metadata(db_metadata, pending) if pending is not None else db_metadata
     return queue_conversation_update(id, metadata=merge_conversation_metadata(base, patch))
@@ -1311,6 +1525,152 @@ def _with_sender(fields: dict[str, Any], *, creating: bool) -> dict[str, Any]:
     return {**fields, "updated_by": sender}
 
 
+# WHICH RUN WROTE THIS REPLY — the ids of the run, stamped at the ONE write funnel (P8-RUNS, 2026-11-14).
+# chat.message has no request column, so an assistant reply could not be walked to the run that produced
+# it (read-aloud, cost, nesting each needed a lookup). Every assistant row now carries, in its
+# ``metadata`` JSON ONLY (never in a content block — the block decoders are strict):
+#   ``request_id``            the turn's request id (``ctx.request_id`` — chat.user_request)
+#   ``runtime_execution_id``  the turn's spine execution (the ROOT stamp, else the current one)
+# Carried from the AppContext, never looked up. A key the caller already set wins; a key with no
+# carried value is left out (a voice exchange has no spine execution). Additive: old rows stay as they are.
+_RUN_ID_ROLE = "assistant"
+
+
+def _carried_run_ids() -> dict[str, str]:
+    ctx = _resolve_app_context()
+    if ctx is None:
+        return {}
+    ids: dict[str, str] = {}
+    request_id = _valid_person_id(getattr(ctx, "request_id", None))
+    if request_id:
+        ids["request_id"] = request_id
+    meta = getattr(ctx, "metadata", None)
+    if isinstance(meta, dict):
+        execution_id = _valid_person_id(meta.get("runtime_root_execution_id")) or _valid_person_id(
+            meta.get("runtime_execution_id")
+        )
+        if execution_id:
+            ids["runtime_execution_id"] = execution_id
+    return ids
+
+
+def _with_run_ids(fields: dict[str, Any], *, creating: bool, row_id: str | None = None) -> dict[str, Any]:
+    """Stamp the run ids ONLY at the row's CREATE, by the run that creates it.
+
+    An UPDATE never reads the current context's ids (a later turn's write to an earlier answer's row would
+    stamp THIS turn's ids on it: live, chat 34de9e54, both answers named the second run). A whole-``metadata``
+    UPDATE becomes a key-level ``JsonbPatch`` (``set`` = the caller's keys), so the row's stored
+    ``request_id`` / ``runtime_execution_id`` can never be dropped by the end-of-turn rewrite.
+    """
+    role = fields.get("role")
+    role = getattr(role, "value", role)
+    metadata = fields.get("metadata")
+    if not creating:
+        if not isinstance(metadata, dict):
+            return fields  # no metadata written, or a JsonbPatch: its own keys
+        return {**fields, "metadata": _keyed_metadata_patch(metadata)}
+    if role != _RUN_ID_ROLE:
+        return fields
+    if metadata is not None and not isinstance(metadata, dict):
+        return fields  # a JsonbPatch: its own keys, never rewritten here
+    ids = _carried_run_ids()
+    if not ids:
+        return fields
+    return {**fields, "metadata": {**ids, **(metadata or {})}}
+
+
+def _keyed_metadata_patch(metadata: dict[str, Any]) -> Any:
+    from matrx_orm import JsonbPatch
+
+    return JsonbPatch("metadata", {k: v for k, v in metadata.items() if isinstance(k, str) and k})
+
+
+#: Payload paths that carry the person's own typed words (and every copy the turn keeps of them).
+_PERSON_INPUT_PATH_MARKERS: tuple[str, ...] = ("user_content", "turn_user_words", "__agent_user_input__")
+
+
+def _sanitized_the_persons_own_words(paths: Sequence[str]) -> bool:
+    """Was a replaced character in what the PERSON typed? Then the sanitization is the correct
+    outcome, not a defect: Postgres cannot store a NUL or a lone surrogate, the person sent one,
+    the write landed with U+FFFD in its place, and the red log line says so. Filing it as a
+    ``system_error`` filed one row per copy of the turn (2026-11-03: 24 rows from 5 requests of a
+    fixture persona's "reply with a null byte / lone garbled character" battery — conversation
+    variables, user message, request snapshot, user request, the model echoing it). A replacement
+    found only in content the server or a model produced still lands a row: that is where a
+    slicing or decoding defect would show."""
+    return any(marker in path for path in paths for marker in _PERSON_INPUT_PATH_MARKERS)
+
+
+def _with_saved_blocks(
+    payload: dict[str, Any], *, op_type: str, primary_key: tuple[str, str] | None, announce_only: bool = False
+) -> dict[str, Any]:
+    from matrx_ai.processing.blocks.saved_blocks import (
+        annotate_content,
+        announce_message_blocks,
+        blocks_save_enabled,
+        canvas_materializer,
+    )
+
+    # The role of rows this request's coordinator saw INSERTed, so a later content UPDATE (which
+    # never carries ``role``: the mid-loop flush, checkpoint repair, late stop) is annotated only
+    # for an assistant row. A row it never saw is a role-less assistant writer (every role-less
+    # content update in the funnel is one — PF-1 §4 step 3). Lives and dies with the request.
+    roles: dict[str, str] | None = None
+    coord = get_coordinator()
+    if coord is not None:
+        roles = getattr(coord, "_message_roles", None)
+    row_id = str(payload.get("id") or (primary_key[1] if primary_key else "") or "")
+    role = payload.get("role")
+    if isinstance(role, str) and row_id and roles is not None:
+        roles[row_id] = role
+    if role is None and op_type == "update":
+        role = (roles or {}).get(row_id, "assistant")
+    if role != "assistant":
+        return payload
+    # INTERIM TEXT: the words a reply wrote before a tool call are marked on their text part, here
+    # in the one funnel, so every writer saves it and the stream announces it (blocks/interim_text.py).
+    from matrx_ai.processing.blocks.interim_text import mark_interim_text
+
+    try:
+        marked = mark_interim_text(payload["content"])
+    except Exception as exc:  # noqa: BLE001 — a display flag never fails the save; said, never silent
+        vcprint(f"[Coordinator] interim text could not be marked on {row_id} ({exc!r}); saved without the flag.", color="red")
+        marked = payload["content"]
+    if marked is not payload["content"]:
+        payload = {**payload, "content": marked}
+    if not blocks_save_enabled():
+        return payload
+    # A structured run's contract (PF-1 D3b) rides its ExecutionState: a whole-JSON reply becomes one
+    # ``kind`` / ``data`` block. A write outside a run has none and is read from its text alone.
+    state = try_get_execution_state()
+    # A stopped reply (``metadata.stopped``, written by the live stop and the late door with the cut text) saves its
+    # stop in ``blocks2``: the open block and region ``complete: false`` — the client shows one notice from saved state.
+    stopped = _payload_marks_stopped(payload.get("metadata"))
+    annotated = annotate_content(payload["content"], contract=getattr(state, "reply_contract", None), stopped=stopped)
+    # Saved equals streamed: the request's stream hears the blocks exactly as they are saved.
+    ctx = _resolve_app_context()
+    announce_message_blocks(row_id, annotated, getattr(ctx, "emitter", None) if ctx is not None else None)
+    if announce_only:
+        return payload
+    # PF-1 D7: the host's canvas step runs once the row exists (the Coordinator's next synchronous commit).
+    if coord is not None and row_id and canvas_materializer() is not None:
+        coord.note_canvas_candidate(row_id)
+    if annotated is payload["content"]:
+        return payload
+    return {**payload, "content": annotated}
+
+
+def _payload_marks_stopped(metadata: Any) -> bool:
+    """Does this write mark the row stopped? A CREATE carries ``metadata`` as a dict; an UPDATE carries it as the
+    key-level ``JsonbPatch`` ``_with_run_ids`` made of it (its ``set`` keys). Reading only the dict lost every stop
+    on the update path — the live Stop and the late door both write the reserved row by UPDATE, so ``blocks2`` was
+    saved and announced without ``stopped`` (P1-CHAT S3 --v2, server c5b96fab: 6 of 6 Stop cases)."""
+    if isinstance(metadata, dict):
+        return metadata.get("stopped") is True
+    patched = getattr(metadata, "set", None)
+    return isinstance(patched, dict) and patched.get("stopped") is True
+
+
 def queue_message_create(*, id: str, conversation_id: str, authored: bool = False, **fields: Any) -> str:
     # DD-187: chat.message.content is a JSON ARRAY of content blocks, never a
     # bare string. A caller that passes ``content="some text"`` (a test lane
@@ -1325,7 +1685,7 @@ def queue_message_create(*, id: str, conversation_id: str, authored: bool = Fals
             '[{"type": "text", "text": ...}]), never a bare string — wrap it '
             "before calling queue_message_create."
         )
-    fields = _with_sender(_with_running_agent(fields), creating=True)
+    fields = _with_run_ids(_with_sender(_with_running_agent(fields), creating=True), creating=True)
     with _declaring_role_actor(fields.get("role"), authored=authored):
         return _queue_or_drop(
             "chat.message",
@@ -1347,7 +1707,9 @@ def queue_message_update(id: str, authored: bool = False, **fields: Any) -> str:
     # An UPDATE that names the role re-declares the row's author; one that
     # doesn't stays silent and keeps whatever the INSERT declared (coalescing
     # preserves the last DECLARED author for the row).
-    fields = _with_sender(_with_running_agent(fields), creating=False)
+    fields = _with_run_ids(
+        _with_sender(_with_running_agent(fields), creating=False), creating=False, row_id=id
+    )
     with _declaring_role_actor(fields.get("role"), authored=authored):
         return _queue_or_drop(
             "chat.message",

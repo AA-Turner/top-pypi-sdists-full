@@ -111,18 +111,81 @@ _RUN_SCRIPT_JS = r"""async (src) => {
 }"""
 
 
+#: The page-side switch of the PRESS GUARD: a measure script that presses controls calls
+#: ``await window.__matrxPressGuard(true)`` before its first press and ``await window.__matrxPressGuard(false)``
+#: after its last; the second call returns what the browser blocked in between.
+PRESS_GUARD_BINDING = "__matrxPressGuard"
+
+
+def _without_hash(url: str) -> str:
+    return str(url or "").split("#", 1)[0]
+
+
+async def install_press_guard(page: Any) -> Any:
+    """While a measure script's presses run, the browser aborts every non-GET request and every top-level navigation
+    away from the page (a press must never like, post, order or leave). Off until the script turns it on through
+    ``PRESS_GUARD_BINDING``; returns an async ``remove()``, or None when the page cannot take the guard."""
+    state: dict[str, Any] = {"on": False, "blocked": []}
+
+    async def _switch(_source: Any, on: Any) -> list[str]:
+        state["on"] = bool(on)
+        blocked, state["blocked"] = list(state["blocked"]), []
+        return [] if on else blocked[:20]
+
+    async def _route(route: Any) -> None:
+        try:
+            req = route.request
+            away = (
+                req.is_navigation_request()
+                and req.frame == page.main_frame
+                and _without_hash(req.url) != _without_hash(page.url)
+            )
+            if state["on"] and (req.method != "GET" or away):
+                state["blocked"].append(f"{'navigate' if away else req.method} {str(req.url)[:120]}")
+                if away:
+                    # An aborted top-level navigation still commits Chromium's error page (and destroys the page);
+                    # a 204 answer is "no content": the browser stays on the page it has.
+                    await route.fulfill(status=204, body="")
+                else:
+                    await route.abort("blockedbyclient")
+                return
+        except Exception:  # noqa: BLE001 — a guard bug must never hang the page on an unanswered route
+            logger.exception("press guard failed; letting the request through to the other handlers")
+        await route.fallback()
+
+    try:
+        await page.expose_binding(PRESS_GUARD_BINDING, _switch)
+    except Exception as exc:  # noqa: BLE001 — already exposed on this page, or a page that refuses bindings
+        logger.info("press guard not installed: %s", exc)
+        return None
+    await page.route("**/*", _route)
+
+    async def remove() -> None:
+        state["on"] = False
+        try:
+            await page.unroute("**/*", _route)
+        except Exception:  # noqa: BLE001 — the page may already be closed
+            logger.debug("press guard unroute failed (page closed?)")
+
+    return remove
+
+
 async def run_measure_script(page: Any, measure_script: str, *, timeout_ms: int) -> tuple[Any, str | None]:
     """Evaluate a measure script in an open page: ``(measurements, None)`` or ``(None, error)``.
 
     The ONE runner for both /browser-inspect modes (inline html and url). The script is one
     expression or an async function body that ``return``s — so it may await the page's own
-    readiness signal before measuring."""
+    readiness signal before measuring. The PRESS GUARD (``install_press_guard``) is available to it."""
+    remove = await install_press_guard(page)
     try:
         outcome = await asyncio.wait_for(page.evaluate(_RUN_SCRIPT_JS, measure_script), timeout=timeout_ms / 1000)
     except TimeoutError:
         return None, f"measure_script did not finish within {timeout_ms} ms"
     except Exception as exc:  # noqa: BLE001 — reported to the caller, never silent
         return None, f"measure_script could not run: {type(exc).__name__}: {exc}"
+    finally:
+        if remove is not None:
+            await remove()
     if not outcome.get("ok"):
         return None, str(outcome.get("error") or "measure_script failed")
     if len(outcome["json"]) > INLINE_MAX_MEASUREMENT_CHARS:
@@ -182,7 +245,7 @@ async def _capture_one(
 
 
 async def run_inline_inspection(
-    pool: Any,
+    browser_pool: Any,
     html: str,
     *,
     measure_script: str | None,
@@ -202,7 +265,7 @@ async def run_inline_inspection(
     captures: list[InlineCapture] = []
 
     async def _run() -> None:
-        browser = await pool.acquire(timeout=30.0)
+        browser = await browser_pool.acquire(timeout=30.0)
         try:
             for theme in themes:
                 context = await browser.new_context(
@@ -228,7 +291,7 @@ async def run_inline_inspection(
                 finally:
                     await context.close()
         finally:
-            pool.release(browser)
+            browser_pool.release(browser)
 
     if hard_budget_seconds is None:
         hard_budget_seconds = _inline_limit("hard_budget_seconds", 90.0)

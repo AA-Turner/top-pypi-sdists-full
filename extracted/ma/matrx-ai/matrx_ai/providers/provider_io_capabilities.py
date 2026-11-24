@@ -19,8 +19,11 @@ to convert unsupported inputs or terminate explicitly before provider dispatch.
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 
 class MediaContainer(str, Enum):
@@ -72,6 +75,34 @@ _STYLE_NATIVE_INPUTS: dict[str, frozenset[MediaContainer]] = {
 }
 
 
+# What an ASSISTANT turn may carry, where it is narrower than the style's inputs. Only Gemini
+# replays media on its ``model`` turn. The Claude API refuses an ``image`` block in an assistant
+# message ("'image' blocks are not permitted within assistant turns", live 2026-11-10: every
+# Claude reply after a made picture) and a ``document`` one (version 2026-10-21); the Responses
+# API takes ``output_text`` / ``refusal`` only; Chat Completions takes ``image_url`` on a user
+# message only. Such media is CARRIED to a host-written user turn by the send boundary
+# (``config/assistant_turn_media.py``), so the model still sees what it made; a translator names
+# whatever slips past. A document still there at the fallback seam is converted to text.
+_STYLE_ASSISTANT_NATIVE_INPUTS: dict[str, frozenset[MediaContainer]] = {
+    _STYLE_ANTHROPIC: frozenset({MediaContainer.TEXT}),
+    _STYLE_OPENAI_RESPONSES: frozenset({MediaContainer.TEXT}),
+    _STYLE_OPENAI_CHAT: frozenset({MediaContainer.TEXT}),
+    _STYLE_MOONSHOT_CHAT: frozenset({MediaContainer.TEXT}),
+}
+
+
+def assistant_turn_refuses(content: Any, endpoint: str | None) -> bool:
+    """Whether THIS media part may not ride an assistant turn on ``endpoint``'s wire style.
+
+    Text and non-media parts (tool calls, thinking) are never refused. An unknown or non-chat
+    endpoint refuses nothing (the caller does not guess)."""
+    container = container_for_content(content)
+    if container is None or container is MediaContainer.TEXT:
+        return False
+    carried = _STYLE_ASSISTANT_NATIVE_INPUTS.get(endpoint_serializer_style(endpoint) or "")
+    return carried is not None and container not in carried
+
+
 # Chat wire_format (ai.api.translator_key == the UnifiedAIClient dispatch attr) → serializer style.
 # Only chat endpoints take user-message media; media-generation endpoints
 # (openai_image, google_video, *_tts, …) are output-side and return None here.
@@ -112,6 +143,50 @@ def endpoint_native_inputs(endpoint: str | None) -> frozenset[MediaContainer] | 
     if style is None:
         return None
     return _STYLE_NATIVE_INPUTS[style]
+
+
+async def model_media_inputs(model_id: str | None) -> frozenset[str]:
+    """THE media kinds (``image`` · ``audio`` · ``video`` · ``document`` · ``youtube``) a model
+    takes natively — the one capability check every Source delivery uses (aidream's
+    ``resolve_source_set`` when it resolves, matrx-ai's replay gate when a stored turn is sent
+    again). Two halves, never a name list: the model row's declared input modalities
+    (``resolve_model_capabilities``) AND what its provider route's serializer accepts
+    (:func:`endpoint_native_inputs` for the route ``ai_catalog_manager.wire_format_for`` picks).
+    A document needs vision too, exactly as ``UnifiedAIClient`` decides native PDF input.
+    Unknown model → empty: text, never a guess."""
+    if not model_id:
+        return frozenset()
+    try:
+        from matrx_ai.catalog.manager import ai_catalog_manager
+        from matrx_ai.db.ai_models.ai_model_manager import ai_model_manager_instance
+        from matrx_ai.providers.resolved_capabilities import resolve_model_capabilities
+
+        row = await ai_model_manager_instance.load_model(model_id)
+        if row is None:
+            return frozenset()
+        await ai_catalog_manager.ensure_loaded()
+        native = endpoint_native_inputs(ai_catalog_manager.wire_format_for(model_id)) or frozenset()
+        caps = resolve_model_capabilities(row)
+        declared = getattr(row, "capabilities", None)
+        declared_input = {
+            str(token).strip().lower()
+            for token in ((declared or {}).get("input") or [] if isinstance(declared, dict) else [])
+        }
+    except Exception as exc:  # noqa: BLE001 — an unknown capability is text, never a guess
+        _log.warning("media capability unavailable for %r: %s", model_id, exc)
+        return frozenset()
+    kinds: set[str] = set()
+    if caps.supports_vision and MediaContainer.IMAGE in native:
+        kinds.add("image")
+    if caps.supports_audio_input and MediaContainer.AUDIO in native:
+        kinds.add("audio")
+    if "video" in declared_input and MediaContainer.VIDEO in native:
+        kinds.add("video")
+    if caps.supports_vision and MediaContainer.DOCUMENT in native:
+        kinds.add("document")
+    if MediaContainer.YOUTUBE in native:
+        kinds.add("youtube")
+    return frozenset(kinds)
 
 
 def is_input_natively_supported(container: MediaContainer, endpoint: str | None) -> bool:
@@ -194,11 +269,13 @@ def content_needs_fallback(
     endpoint: str | None,
     *,
     model_supports_vision: bool | None = None,
+    role: Any = None,
 ) -> bool:
     """Whether this ONE media item must go through the fallback seam before dispatch.
 
     Per item, never per container: a PDF beside a .docx stays a native PDF while
-    the .docx is converted.
+    the .docx is converted. ``role`` narrows by the turn the item rides on
+    (``_STYLE_ASSISTANT_NATIVE_INPUTS``).
     """
     container = container_for_content(content)
     if container is None or container is MediaContainer.TEXT:
@@ -208,6 +285,11 @@ def content_needs_fallback(
     native = endpoint_native_inputs(endpoint)
     if native is None:
         return False
+    if str(getattr(role, "value", role)) == "assistant" and container is not MediaContainer.IMAGE:
+        # A picture on an assistant turn is carried (send boundary) or named (translator),
+        # never turned into OCR text: the model made it and should keep seeing it.
+        if assistant_turn_refuses(content, endpoint):
+            return True
     if container in _CONTAINERS_WITH_TRANSCODE_FALLBACK:
         return False
     if container not in native:
@@ -252,7 +334,10 @@ def find_unsupported_media(
         for message in msgs or []:
             for content in getattr(message, "content", None) or []:
                 if content_needs_fallback(
-                    content, endpoint, model_supports_vision=model_supports_vision
+                    content,
+                    endpoint,
+                    model_supports_vision=model_supports_vision,
+                    role=getattr(message, "role", None),
                 ):
                     container = container_for_content(content)
                     if container is not None:
@@ -266,6 +351,7 @@ __all__ = [
     "MediaContainer",
     "endpoint_serializer_style",
     "endpoint_native_inputs",
+    "model_media_inputs",
     "is_input_natively_supported",
     "unsupported_inputs",
     "container_for_content",

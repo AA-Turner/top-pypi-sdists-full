@@ -66,6 +66,13 @@ async def validate_allowed_tools_on_startup(*, strict: bool = True) -> dict[str,
     # Pre-load the active tool UUID set once so we don't N+1 the DB.
     active_tools = await tool_mgr.filter_items(is_active=True)
     active_tool_ids = {UUID(str(t.id)) for t in active_tools}
+    # A skill may name a tool instead of carrying its UUID (SKILL.md frontmatter
+    # ``allowed_tools: [kindcomp_preview]``); the runtime resolves the name
+    # (``providers._tool_uuid_for_name``), so a name of an ACTIVE tool is valid
+    # here too. Only an unknown name is a real defect (feedback 2c3a1b35).
+    active_tool_ids_by_name = {
+        str(getattr(t, "name", "") or "").strip(): UUID(str(t.id)) for t in active_tools
+    }
 
     for skill in skills:
         raw = getattr(skill, "allowed_tools", None) or []
@@ -81,8 +88,11 @@ async def validate_allowed_tools_on_startup(*, strict: bool = True) -> dict[str,
                 try:
                     tool_uuid = UUID(entry)
                 except ValueError:
-                    report["invalid_uuid"].append({"skill_id": skill_id_display, "value": entry})
-                    continue
+                    by_name = active_tool_ids_by_name.get(entry.strip())
+                    if by_name is None:
+                        report["invalid_uuid"].append({"skill_id": skill_id_display, "value": entry})
+                        continue
+                    tool_uuid = by_name
             else:
                 report["invalid_uuid"].append({"skill_id": skill_id_display, "value": repr(entry)})
                 continue

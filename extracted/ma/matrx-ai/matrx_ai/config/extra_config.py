@@ -25,13 +25,13 @@ class CodeExecutionContent:
     def to_openai(self) -> dict[str, Any] | None:
         """Convert to OpenAI format - not supported"""
         # OpenAI doesn't support code execution content blocks
-        vcprint({"type": self.type, "language": self.language, "code_preview": self.code[:120] if self.code else ""}, "CodeExecutionContent to_openai: code execution is not yet supported by OpenAI — dropping the content block", color="yellow")
+        vcprint({"type": self.type, "language": self.language, "code_chars": len(self.code) if self.code else 0}, "CodeExecutionContent to_openai: code execution is not yet supported by OpenAI — dropping the content block", color="yellow")
         return None
 
     def to_anthropic(self) -> dict[str, Any] | None:
         """Convert to Anthropic format - not supported"""
         # Anthropic doesn't support code execution content blocks
-        vcprint({"type": self.type, "language": self.language, "code_preview": self.code[:120] if self.code else ""}, "CodeExecutionContent to_anthropic: code execution is not yet supported by Anthropic — dropping the content block", color="yellow")
+        vcprint({"type": self.type, "language": self.language, "code_chars": len(self.code) if self.code else 0}, "CodeExecutionContent to_anthropic: code execution is not yet supported by Anthropic — dropping the content block", color="yellow")
         return None
 
     def to_storage_dict(self) -> dict[str, Any]:
@@ -80,13 +80,13 @@ class CodeExecutionResultContent:
     def to_openai(self) -> dict[str, Any] | None:
         """Convert to OpenAI format - not supported"""
         # OpenAI doesn't support code execution result content blocks
-        vcprint({"type": self.type, "outcome": self.outcome, "output_preview": self.output[:120] if self.output else ""}, "CodeExecutionResultContent to_openai: code execution results are not yet supported by OpenAI — dropping the content block", color="yellow")
+        vcprint({"type": self.type, "outcome": self.outcome, "output_chars": len(self.output) if self.output else 0}, "CodeExecutionResultContent to_openai: code execution results are not yet supported by OpenAI — dropping the content block", color="yellow")
         return None
 
     def to_anthropic(self) -> dict[str, Any] | None:
         """Convert to Anthropic format - not supported"""
         # Anthropic doesn't support code execution result content blocks
-        vcprint({"type": self.type, "outcome": self.outcome, "output_preview": self.output[:120] if self.output else ""}, "CodeExecutionResultContent to_anthropic: code execution results are not yet supported by Anthropic — dropping the content block", color="yellow")
+        vcprint({"type": self.type, "outcome": self.outcome, "output_chars": len(self.output) if self.output else 0}, "CodeExecutionResultContent to_anthropic: code execution results are not yet supported by Anthropic — dropping the content block", color="yellow")
         return None
 
     def to_storage_dict(self) -> dict[str, Any]:

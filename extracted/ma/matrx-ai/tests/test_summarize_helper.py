@@ -28,10 +28,12 @@ async def test_summarize_content_runs_declared_variables_through_its_mandate(mon
     inputs = captured["inputs"]
     assert captured["agent_cls"] is _summarize_helper.SummarizeContentAgent
     assert inputs.instructions == "Keep the facts."
-    assert inputs.content == "x" * 100_000
+    # The cut is MARKED in what the summarizer reads, and said again on the summary.
+    marker = _summarize_helper.summarize_cut_marker(100_000, 100_001)
+    assert inputs.content == "x" * 100_000 + "\n\n" + marker
     # The mandate's agent owns the model; this helper never overrides it.
     assert not (captured.get("config_overrides") or {}).get("model")
-    assert output == "summary"
+    assert output == "summary\n\n" + marker
     assert usage == ["usage"]
 
 

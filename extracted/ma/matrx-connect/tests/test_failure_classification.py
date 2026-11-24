@@ -216,3 +216,31 @@ def test_the_unclassified_crash_sentence_names_no_class_or_label() -> None:
     assert "Error" not in GENERIC_CRASH_MESSAGE
     assert "settings" not in GENERIC_CRASH_MESSAGE
     assert "unexpectedly" not in GENERIC_CRASH_MESSAGE
+
+
+def test_a_database_timeout_streams_as_a_named_retryable_failure() -> None:
+    """A statement the database canceled for taking too long (or a saturated pool)
+    reaches a stream as ``database_timeout``, the HTTP layer's 503 twin, never an
+    unclassified crash. Matched by class name and by a kept SQLSTATE 57014."""
+
+    class QueryCanceledError(Exception):  # asyncpg's name for SQLSTATE 57014
+        sqlstate = "57014"
+
+    class PoolAcquireTimeoutError(Exception):  # matrx-orm's saturated pool
+        pass
+
+    class ServiceError(RuntimeError):
+        pass
+
+    wrapper_with_only_the_code = ServiceError("search failed")
+    wrapper_with_only_the_code.details = {"sqlstate": "57014"}  # type: ignore[attr-defined]
+
+    for exc in (
+        QueryCanceledError("canceling statement due to statement timeout"),
+        PoolAcquireTimeoutError("no free connection"),
+        wrapper_with_only_the_code,
+    ):
+        failure = classify_infrastructure_failure(exc)
+        assert failure is not None, type(exc).__name__
+        assert failure.error_type == "database_timeout"
+        assert "try again" in failure.user_message.lower()

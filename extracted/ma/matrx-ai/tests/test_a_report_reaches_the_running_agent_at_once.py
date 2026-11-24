@@ -26,8 +26,8 @@ def _row(rid: str, *, source: str, kind: str = "system_message", seq: int = 1, b
 
 
 def _fake(rows):
-    async def filter_items(**kwargs):
-        return [r for r in rows if r.status == kwargs.get("status")]
+    async def waiting(conversation_id):
+        return [r for r in rows if r.status in ("pending", "failed")]
 
     async def update_where(where, **fields):
         hit = [r for r in rows if r.id == where["id"] and r.status == where["status"]]
@@ -35,7 +35,7 @@ def _fake(rows):
             r.status = fields["status"]
         return SimpleNamespace(updated_rows=hit)
 
-    return SimpleNamespace(filter_items=filter_items, update_where=update_where)
+    return SimpleNamespace(_waiting_turn_end_rows=waiting, update_where=update_where)
 
 
 async def test_every_waiting_report_is_taken_at_any_boundary():

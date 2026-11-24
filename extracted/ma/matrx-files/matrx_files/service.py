@@ -41,14 +41,18 @@ anti-pattern: every method here is the public API a caller should use.
 
 from __future__ import annotations
 
+from .external_object_runtime import AdoptionDescriptor
+
+import os
+from collections.abc import AsyncIterator, Callable
 from typing import TYPE_CHECKING, Any
 
 from matrx_utils import supervised_task
-from matrx_utils.row_access import SHOWN_TO_VALUES, legacy_level_echo, stated_row_access
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT, SHOWN_TO_VALUES, legacy_level_echo, stated_row_access
 
 from .derivations import assert_no_client_policy_metadata
 from .file_manager import FileManager
-from .asset_envelope import Asset, AssetVariant
+from .asset_envelope import Asset
 from .user_visible import CARRIED_ROOTS as _CARRIED_ROOTS
 
 if TYPE_CHECKING:
@@ -98,6 +102,15 @@ class FileOwnerMissing(ValueError):
         self.file_path = file_path
 
 
+class UploadPaused(Exception):
+    """:meth:`FileService.upload_resumable` stopped between parts because its caller asked it to; the upload's
+    session is kept and the same call resumes at ``offset``."""
+
+    def __init__(self, offset: int) -> None:
+        super().__init__(f"upload paused at byte {offset}")
+        self.offset = offset
+
+
 class FileService:
     """High-level facade for file handling. The single entry point.
 
@@ -106,7 +119,7 @@ class FileService:
     process-wide singleton.
     """
 
-    _instance: "FileService | None" = None
+    _instances: dict[str, FileService] = {}
 
     def __init__(self, file_manager: FileManager) -> None:
         if file_manager.sync_engine is None:
@@ -136,22 +149,22 @@ class FileService:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_env(cls, *, app_name: str = "matrx-files") -> "FileService":
+    def from_env(cls, *, app_name: str = "matrx-files") -> FileService:
         """Build a process-wide singleton from env-vars / ``configure_settings``.
 
         Reads ``AWS_S3_DEFAULT_BUCKET`` through the matrx-utils settings
         registry. Idempotent — subsequent calls return the cached instance.
         """
-        if cls._instance is not None:
-            return cls._instance
+        if app_name in cls._instances:
+            return cls._instances[app_name]
         from .cloud_sync.config import CloudSyncConfig
 
         fm = FileManager(app_name, cloud_sync=CloudSyncConfig(auto_sync=True))
-        cls._instance = cls(fm)
-        return cls._instance
+        cls._instances[app_name] = cls(fm)
+        return cls._instances[app_name]
 
     @classmethod
-    def for_file_manager(cls, fm: FileManager) -> "FileService":
+    def for_file_manager(cls, fm: FileManager) -> FileService:
         """Wrap a caller-constructed FileManager. Use in tests or for
         per-app-name isolation where the singleton is the wrong shape."""
         return cls(fm)
@@ -208,6 +221,21 @@ class FileService:
         return await self._fm.sync_engine.get_authorized_record_async(
             file_id, user_id=user_id, level=level
         )
+
+    async def read_bytes_for_active_user(self, file_id: str) -> tuple[bytes, str]:
+        """The stored bytes and mime type of one file, through the resolve_media ACCESS GATE
+        (the ambient request user must be able to read it; fail-closed). ``file_id`` is identity,
+        never a URL. Raises ``FileNotFoundError`` when the file resolves to no bytes."""
+        import base64
+
+        from matrx_files.cloud_sync.media_ref import MediaRef
+
+        resolved = await self._fm.resolve_media_async(MediaRef(file_id=str(file_id)), needs_bytes=True)
+        b64 = getattr(resolved, "base64_data", None)
+        if not b64:
+            error = getattr(resolved, "resolver_error", None)
+            raise FileNotFoundError(f"file {file_id} did not resolve to bytes" + (f": {error}" if error else ""))
+        return base64.b64decode(b64), str(getattr(resolved, "mime_type", None) or "application/octet-stream")
 
     async def read_record_unchecked(self, file_id: str) -> dict | None:
         """Load a cld_files row WITHOUT authorization. For background
@@ -301,6 +329,8 @@ class FileService:
         request: ExternalObjectAdoptionRequest,
         *,
         retention_policy: TemporaryFileRetentionPolicy,
+        operation: object | None = None,
+        descriptor: AdoptionDescriptor | None = None,
     ) -> ExternalObjectAdoptionResult:
         """Adopt an already-written S3 object without copying its bytes."""
         from .external_objects import adopt_external_object
@@ -309,6 +339,8 @@ class FileService:
             self._fm.sync_engine,
             request,
             retention_policy=retention_policy,
+            operation=operation,
+            descriptor=descriptor,
         )
 
     async def read_external_object_with_receipt(
@@ -316,6 +348,7 @@ class FileService:
         *,
         file_id: str,
         user_id: str,
+        operation: object | None = None,
     ) -> ExternalObjectReadResult:
         """Owner-authorized read with checksummed activity-log evidence."""
         from .external_objects import read_external_object_with_receipt
@@ -324,6 +357,7 @@ class FileService:
             self._fm.sync_engine,
             file_id=file_id,
             user_id=user_id,
+            operation=operation,
         )
 
     async def delete_external_object_with_receipt(
@@ -346,6 +380,7 @@ class FileService:
         request: ExternalObjectAdoptionRequest,
         *,
         retention_policy: TemporaryFileRetentionPolicy,
+        operation: object | None = None,
     ) -> ExternalObjectCustodyCanaryResult:
         """Prove adopt, owner read, checksum, governed purge, and receipts."""
         from .external_objects import run_external_object_custody_canary
@@ -354,6 +389,7 @@ class FileService:
             self._fm.sync_engine,
             request,
             retention_policy=retention_policy,
+            operation=operation,
         )
 
     # ------------------------------------------------------------------
@@ -486,6 +522,7 @@ class FileService:
         change_summary: str | None = None,
         user_id: str | None = None,
         metadata: dict | None = None,
+        pathway: str | None = None,
     ) -> Any:
         """Buffered write through the canonical engine path.
 
@@ -503,6 +540,7 @@ class FileService:
             change_summary=change_summary,
             user_id=user_id,
             metadata=metadata,
+            pathway=pathway,
         )
 
     async def replace_file(
@@ -653,13 +691,13 @@ class FileService:
         if not record:
             raise FileNotFoundError(f"File {file_id!r} not found")
         await self.permissions.require_async("file", file_id, "admin", user_id)
-        # Direct model update: update_file_async strips None values (so
-        # Postgres defaults apply on normal writes), but restore NEEDS to
-        # set deleted_at back to NULL explicitly — update_where does.
-        from .cloud_sync.db import _models
-
-        mf, _ = _models()
-        await mf.Files.update_where({"id": file_id}, deleted_at=None)
+        # public.restore_file clears deleted_at and, when another live file now holds the
+        # (owner, file_path) slot, restores THIS file at the first free "name (n).ext" beside
+        # it (migration 063) -- the occupying file is never touched. A direct deleted_at
+        # update here used to crash on cld_files_owner_id_file_path_key (production 2026-11-19).
+        restored = await self._fm.sync_engine.db._rpc("public", "restore_file", file_id)
+        if not restored:
+            return False
         self._audit("file.restored", record, user_id)
         return True
 
@@ -740,6 +778,7 @@ class FileService:
         origin_device_id: str | None = None,
         client_modified_at: Any = None,
         exact_folder_organization: bool = False,
+        pathway: str | None = None,
     ) -> Any:
         """Buffered upload + automatic post-write orchestration.
 
@@ -804,6 +843,7 @@ class FileService:
             origin_device_id=origin_device_id,
             client_modified_at=client_modified_at,
             exact_folder_organization=exact_folder_organization,
+            pathway=pathway,
         )
         if auto_thumbnail:
             try:
@@ -812,6 +852,9 @@ class FileService:
                 supervised_task(
                     generate_thumbnail_for_file(self._fm, result.file_id),
                     kind="file_thumbnail_generation_failed",
+                    # The variants are THIS upload's own rows: a test run's file and its variants
+                    # are stamped (and archived) together (CGU-10 AND-IMG13 #6).
+                    carry_test_run=True,
                     name=f"thumbnail:{result.file_id}",
                     context={"file_id": result.file_id},
                 )
@@ -850,6 +893,198 @@ class FileService:
                 )
         return result
 
+    async def upload_path(
+        self,
+        local_path: str | os.PathLike[str],
+        *,
+        file_path: str,
+        user_id: str,
+        organization_id: str,
+        mime_type: str | None = None,
+        metadata: dict | None = None,
+        pathway: str | None = None,
+        published_to_web: bool = False,
+    ) -> Any:
+        """Save a file that is already on local disk without ever holding its bytes.
+
+        The buffered door (:meth:`upload_simple`) takes ``bytes``, so a multi-GB server-made
+        file (an account export) had to be read whole into a task that cannot hold it (AD294,
+        2026-11-10). This drives the resumable door's own state machine
+        (:class:`~matrx_files.cloud_sync.transports.tus.TUSSessionManager`) server-side: one S3
+        multipart, one part read at a time (the part size the manager advises for the file's size,
+        5 MiB at least), then the same finalize every resumable upload uses (row, folder, checksum
+        streamed from storage, dedup). Peak memory is one part, whatever the file's size.
+
+        ``organization_id`` is REQUIRED (the write's organization is carried, never chosen).
+        ``pathway`` must be a declared PERSON pathway: the resumable door stamps only those, and
+        an automated one is refused here rather than dropped. A failure aborts the multipart, so
+        no half-written object is left. Returns a ``SyncResult`` like :meth:`upload_simple`.
+        """
+        import asyncio as _asyncio
+        from pathlib import Path as _Path
+
+        user_id, row_metadata = self._resumable_owner_and_metadata(
+            user_id, file_path, organization_id, metadata, pathway
+        )
+        source = _Path(local_path)
+        size = (await _asyncio.to_thread(source.stat)).st_size
+        tus = self.sync_engine.tus
+        created = await tus.create_async(
+            owner_id=user_id,
+            file_path=file_path,
+            upload_length=size,
+            mime_type=mime_type,
+            published_to_web=published_to_web,
+            metadata=row_metadata,
+        )
+        part = max(tus.advise_part_bytes(size), tus.min_part_bytes)
+        try:
+            handle = await _asyncio.to_thread(source.open, "rb")
+            try:
+                offset = 0
+                while offset < size:
+                    chunk = await _asyncio.to_thread(handle.read, min(part, size - offset))
+                    if not chunk:
+                        raise OSError(f"{source} ended at {offset} of {size} bytes")
+                    appended = await tus.append_async(
+                        upload_id=created.upload_id,
+                        owner_id=user_id,
+                        body=chunk,
+                        client_offset=offset,
+                    )
+                    offset = appended.new_offset
+                    del chunk
+            finally:
+                await _asyncio.to_thread(handle.close)
+            done = await tus.finalize_async(upload_id=created.upload_id, owner_id=user_id)
+        except BaseException:
+            try:
+                await _asyncio.shield(tus.abort_async(upload_id=created.upload_id, owner_id=user_id))
+            except Exception:  # noqa: BLE001 - the original failure is the one to raise
+                pass
+            raise
+        return await self._resumable_result(done, mime_type, published_to_web)
+
+    def _resumable_owner_and_metadata(
+        self,
+        user_id: str,
+        file_path: str,
+        organization_id: str,
+        metadata: dict | None,
+        pathway: str | None,
+    ) -> tuple[str, dict]:
+        """The owner and row metadata every server-side resumable save stamps (``upload_path``,
+        ``upload_resumable``): the organization is carried, a pathway must be a PERSON pathway."""
+        from .placement import get_pathway
+
+        user_id = self.sync_engine._resolve_user_id(user_id)
+        if not user_id:
+            raise FileOwnerMissing(file_path)
+        if not organization_id:
+            raise ValueError("a resumable save needs the organization the file is saved in")
+        row_metadata = dict(metadata or {})
+        row_metadata["organization_id"] = str(organization_id)
+        if pathway:
+            if get_pathway(pathway).audience != "person":
+                raise ValueError(
+                    f"a server-side save goes through the resumable door, which stamps only person "
+                    f"pathways; {pathway!r} is automated — use upload_simple for it"
+                )
+            row_metadata["file_pathway"] = pathway
+        return user_id, row_metadata
+
+    async def _resumable_result(self, done: Any, mime_type: str | None, published_to_web: bool) -> Any:
+        from .cloud_sync.models import SyncResult
+
+        row = await self.sync_engine.db.get_file_async(done.file_id) or {}
+        urls = self.sync_engine.build_urls_for_record(
+            {
+                "id": done.file_id,
+                "published_to_web": bool(row.get("published_to_web", published_to_web)),
+                "file_name": done.file_path.rsplit("/", 1)[-1],
+                "mime_type": mime_type,
+                "checksum": done.checksum,
+            }
+        )
+        return SyncResult(
+            file_id=done.file_id,
+            storage_uri=done.storage_uri,
+            file_path=done.file_path,
+            version_number=int(row.get("current_version") or 1),
+            size_bytes=done.size_bytes,
+            checksum=done.checksum,
+            is_new=done.is_new,
+            published_to_web=bool(row.get("published_to_web", published_to_web)),
+            shown_to=row.get("shown_to"),
+            url=urls.get("url"),
+            cdn_url=urls.get("cdn_url"),
+            download_url=urls.get("download_url"),
+        )
+
+
+    async def upload_resumable(
+        self,
+        source: Callable[[int], AsyncIterator[bytes]],
+        *,
+        size: int,
+        idempotency_key: str,
+        file_path: str,
+        user_id: str,
+        organization_id: str,
+        mime_type: str | None = None,
+        metadata: dict | None = None,
+        pathway: str | None = None,
+        published_to_web: bool = False,
+        should_stop: Callable[[], bool] | None = None,
+    ) -> Any:
+        """Save a server-made file of known ``size`` whose bytes ``source(offset)`` produces from ANY offset, across
+        as many calls (and processes) as it takes.
+
+        The resumable door's session is keyed by ``idempotency_key``: a call after a crash, a deploy or a pause
+        finds the stored offset and asks ``source`` only for the bytes after it; nothing already stored is sent
+        again. ``should_stop`` is asked between parts: when it says stop, the session is KEPT and
+        :class:`UploadPaused` is raised with the offset reached. A failure never aborts the session either (the
+        next call resumes it; the session TTL removes one nobody resumes). ``source`` must produce the same bytes
+        for the same offsets every time. Peak memory is one part. Returns a ``SyncResult`` like
+        :meth:`upload_path`."""
+        user_id, row_metadata = self._resumable_owner_and_metadata(
+            user_id, file_path, organization_id, metadata, pathway
+        )
+        tus = self.sync_engine.tus
+        created = await tus.create_async(
+            owner_id=user_id,
+            file_path=file_path,
+            upload_length=size,
+            mime_type=mime_type,
+            published_to_web=published_to_web,
+            metadata=row_metadata,
+            idempotency_key=idempotency_key,
+        )
+        offset = int(created.upload_offset)
+        part = max(tus.advise_part_bytes(size), tus.min_part_bytes)
+        buffer = bytearray()
+        moved = False
+        if offset < size:
+            async for chunk in source(offset):
+                buffer += chunk
+                while len(buffer) >= part or (buffer and offset + len(buffer) >= size):
+                    # Every call stores at least one part, so a caller that always says stop still finishes.
+                    if moved and should_stop is not None and should_stop():
+                        raise UploadPaused(offset)
+                    moved = True
+                    take = bytes(buffer[: min(part, size - offset)])
+                    appended = await tus.append_async(
+                        upload_id=created.upload_id, owner_id=user_id, body=take, client_offset=offset
+                    )
+                    offset = appended.new_offset
+                    del buffer[: len(take)]
+                if offset >= size:
+                    break
+            if offset != size:
+                raise OSError(f"{file_path}: the source ended at {offset} of {size} bytes")
+        done = await tus.finalize_async(upload_id=created.upload_id, owner_id=user_id)
+        return await self._resumable_result(done, mime_type, published_to_web)
+
     # ------------------------------------------------------------------
     # A file carried FOR an organization (FILES-FOLDER-ORG, 2026-09-25)
     #
@@ -876,26 +1111,42 @@ class FileService:
         root: str,
         source_key: str,
         source_label: str,
+        pathway: str | None = None,
     ) -> tuple[str, str]:
-        """``<Root label> / <source label>`` in ``organization_id``'s own tree; ``(path, id)``.
+        """The folder ``organization_id``'s carried files from one source land in; ``(path, id)``.
 
-        ``root`` is a key of :data:`CARRIED_ROOTS` ("record-store" -> "Record store");
-        ``source_key`` is the stable id of where the files came from (a table or scope id) and
-        ``source_label`` its name. Idempotent: one folder per (organization, root, source).
+        The destination comes from the placement registry (PLAN § 7, Lane 5): ``pathway`` (or, when
+        the caller names none, the pathway whose legacy prefixes claim ``<root>-``) decides the base
+        folder — ``system-files/<area>`` for machine output, a person root for a person's exports —
+        and the source folder sits under it (:func:`placement.carried_folder_segments`). The
+        organization is the folder row's column, never path text: the old ``<root>-<org uuid>`` tree
+        is written only for a root no pathway claims. ``root`` is still a key of
+        :data:`CARRIED_ROOTS` ("record-store" -> "Record store"); ``source_key`` is the stable id of
+        where the files came from and ``source_label`` its name. Idempotent per (organization,
+        pathway, source); a folder of another organization at the path is never reused.
         """
-        if root not in self.CARRIED_ROOTS:
+        from .placement import carried_folder_segments, get_pathway, pathway_for_carried_root
+
+        # A named pathway decides the folder; ``root`` then only labels the writer (a root no
+        # carried tree ever had — "Meetings" — refused every meeting transcript before 2026-10-31).
+        if pathway is None and root not in self.CARRIED_ROOTS:
             raise ValueError(
                 f"{root!r} is not a carried-file root; known roots: {sorted(self.CARRIED_ROOTS)}"
             )
         if not organization_id:
             raise ValueError("a file carried for an organization needs that organization's id")
+        declared = get_pathway(pathway) if pathway else pathway_for_carried_root(root)
+        if declared is not None:
+            segments = carried_folder_segments(declared.key, str(source_key), source_label)
+        else:
+            segments = [
+                (f"{root}-{organization_id}", self.CARRIED_ROOTS[root]),
+                (str(source_key), source_label),
+            ]
         return await self.sync_engine.ensure_labelled_folder_chain_async(
             owner_id=owner_id,
             organization_id=str(organization_id),
-            segments=[
-                (f"{root}-{organization_id}", self.CARRIED_ROOTS[root]),
-                (str(source_key), source_label),
-            ],
+            segments=segments,
         )
 
     async def upload_for_organization(
@@ -911,36 +1162,50 @@ class FileService:
         sub_folders: tuple[str, ...] | list[str] = (),
         intent: str | None = None,
         reason: str | None = None,
+        pathway: str | None = None,
         **kwargs: Any,
     ) -> Any:
-        """Write a file FOR ``organization_id`` into its own ``<Root> / <source>`` folder.
+        """Write a file FOR ``organization_id`` under its pathway's folder / ``<source>``.
 
+        ``pathway`` names the writer (placement registry); when omitted the pathway that claims
+        ``root`` is used and stamped, so every carried row is registered. Machine output lands in
+        the one System folder (``system-files/...``), never a ``<root>-<org uuid>`` tree.
         ``sub_folders`` are extra path keys under the source folder (a crawl session, a capture);
-        they are created in the same organization, and an other-organization folder there refuses.
-        ``intent`` (``create`` / ``alias_existing`` / ``force_new_copy``, with ``reason`` for the
-        last) routes through :meth:`upload_with_intent` and answers its dict; without it the bytes
-        go through :meth:`upload_simple` and the answer is its ``SyncResult``.
+        they are created in the same organization. ``intent`` (``create`` / ``alias_existing`` /
+        ``force_new_copy``, with ``reason`` for the last) routes through :meth:`upload_with_intent`
+        and answers its dict; without it the bytes go through :meth:`upload_simple` and the answer
+        is its ``SyncResult``.
 
-        The one door for a service carrying a file on an organization's behalf (the record
-        store's big values; any exporter or tool that writes for an organization it does not act
-        as). The folder is resolved first (:meth:`ensure_organization_folder_async`), then the
-        bytes go through :meth:`upload_simple` with ``exact_folder_organization=True`` — a folder
-        of any other organization refuses the write with a sentence. ``kwargs`` are
-        :meth:`upload_simple`'s (``mime_type``, ``published_to_web``, ``file_id``, ``metadata`` ...).
+        The person's path key is unique across organizations, so when another organization's live
+        file already holds the path, this one is named ``name (<org8>).ext`` — the mover's rule
+        (:func:`placement.org_suffixed_name`) — and never converges on the other organization's row.
+        ``kwargs`` are :meth:`upload_simple`'s (``mime_type``, ``published_to_web``, ``file_id``,
+        ``metadata`` ...).
         """
+        from .placement import org_suffixed_name, pathway_for_carried_root
+
         if not file_name or "/" in file_name:
             raise ValueError(f"file_name {file_name!r} must be one name, no '/'")
         for key in sub_folders:
             if not key or "/" in str(key):
                 raise ValueError(f"sub folder {key!r} must be one path key, no '/'")
+        if pathway is None and root in self.CARRIED_ROOTS:
+            claimed = pathway_for_carried_root(root)
+            pathway = claimed.key if claimed else None
         folder_path, _folder_id = await self.ensure_organization_folder_async(
             owner_id=owner_id,
             organization_id=organization_id,
             root=root,
             source_key=source_key,
             source_label=source_label,
+            pathway=pathway,
         )
         file_path = "/".join([folder_path, *[str(k) for k in sub_folders], file_name])
+        holder = await self._fm.sync_engine.db.get_file_by_path_async(owner_id, file_path)
+        if holder and holder.get("organization_id") and str(holder["organization_id"]) != str(organization_id):
+            file_path = "/".join(
+                [folder_path, *[str(k) for k in sub_folders], org_suffixed_name(file_name, str(organization_id))]
+            )
         if intent is not None:
             return await self.upload_with_intent(
                 content,
@@ -950,6 +1215,7 @@ class FileService:
                 owner_id=owner_id,
                 organization_id=str(organization_id),
                 exact_folder_organization=True,
+                pathway=pathway,
                 **kwargs,
             )
         return await self.upload_simple(
@@ -958,6 +1224,7 @@ class FileService:
             user_id=owner_id,
             organization_id=str(organization_id),
             exact_folder_organization=True,
+            pathway=pathway,
             **kwargs,
         )
 
@@ -986,6 +1253,81 @@ class FileService:
             organization_id=organization_id,
         )
 
+    async def copy_file(
+        self,
+        file_id: str,
+        *,
+        target_path: str,
+        user_id: str,
+        organization_id: str | None = None,
+        overwrite: bool = False,
+        published_to_web: bool | None = None,
+        shown_to: str | None = None,
+        metadata: dict | None = None,
+    ) -> Any:
+        """Copy a file's bytes to ``target_path`` — ALWAYS a new row.
+
+        ACCESS: a new copy keeps the original's two row-access words
+        (``published_to_web`` + ``shown_to``) unless the caller states either;
+        it never carries the original's per-person grants — the copier owns the
+        copy and shares it themselves (Drive's "Make a copy"). Before this, the
+        copy fell to ``only_me`` / unpublished whatever the source was.
+        Overwriting an existing destination keeps that row's own access unless stated.
+
+        Content dedup is for root UPLOADS only (file-service law 9). A copy is
+        a deliberate parallel row, so it rides ``intent='force_new_copy'``:
+        before this, both hosts sent it through the implicit-alias write and
+        got the SOURCE id back with ``is_new=False``. ``overwrite=True`` onto
+        an existing destination is a content write to that row (path-keyed).
+        Returns the ``SyncResult`` of the write.
+        """
+        record = await self.db.get_file_async(file_id)
+        if not record:
+            raise FileNotFoundError(f"file not found: {file_id}")
+        content = await self.router.read_async(
+            record.get("canonical_storage_uri") or record["storage_uri"]
+        )
+        meta = {
+            "copied_from": str(record["id"]),
+            "copied_from_path": record.get("file_path"),
+            **(metadata or {}),
+        }
+        summary = f"Copied from {record.get('file_path')}"
+        if overwrite and await self.sync_engine.get_file_info_async(target_path):
+            return await self.sync_engine.managed_write_async(
+                target_path,
+                content,
+                mime_type=record.get("mime_type"),
+                published_to_web=published_to_web,
+                shown_to=shown_to,
+                change_summary=summary,
+                metadata=meta,
+                user_id=user_id,
+                organization_id=organization_id,
+            )
+        if published_to_web is None:
+            published_to_web = bool(record.get("published_to_web"))
+        if shown_to is None:
+            # A stored NULL means "the type's default" — carry that, never the engine's only_me.
+            shown_to = record.get("shown_to") or SHOWN_TO_TYPE_DEFAULT
+        out = await self.upload_with_intent(
+            content,
+            intent="force_new_copy",
+            reason=f"copy of {file_id}",
+            file_path=target_path,
+            owner_id=user_id,
+            organization_id=organization_id,
+            mime_type=record.get("mime_type"),
+            published_to_web=published_to_web,
+            shown_to=shown_to,
+            change_summary=summary,
+            metadata=meta,
+        )
+        result = out.get("result")
+        if result is None or str(result.file_id) == str(record["id"]):
+            raise RuntimeError(f"copy of {file_id} did not create a new file row")
+        return result
+
     async def upload_with_intent(
         self,
         content: bytes,
@@ -1007,6 +1349,7 @@ class FileService:
         auto_rekey: bool = True,
         on_complete: Any = None,
         exact_folder_organization: bool = False,
+        pathway: str | None = None,
     ) -> dict:
         """Strict-intent dedup-aware upload.
 
@@ -1121,6 +1464,7 @@ class FileService:
                 decision.canonical_file_id if decision.action == "write_alias" else None
             ),
             exact_folder_organization=exact_folder_organization,
+            pathway=pathway,
         )
         effective_duplicate_id = (
             decision.canonical_file_id if decision.action == "write_alias" else None
@@ -1152,6 +1496,7 @@ class FileService:
                 create_only=True,
                 duplicate_of_file_id=effective_duplicate_id,
                 exact_folder_organization=exact_folder_organization,
+                pathway=pathway,
             )
             if not sync_result.is_new:
                 raise RuntimeError("force_new_copy failed to create a distinct canonical file row")
@@ -1193,6 +1538,9 @@ class FileService:
                 supervised_task(
                     generate_thumbnail_for_file(self._fm, sync_result.file_id),
                     kind="file_thumbnail_generation_failed",
+                    # The variants are THIS upload's own rows: a test run's file and its variants
+                    # are stamped (and archived) together (CGU-10 AND-IMG13 #6).
+                    carry_test_run=True,
                     name=f"thumbnail:{sync_result.file_id}",
                     context={"file_id": sync_result.file_id},
                 )
@@ -1375,7 +1723,7 @@ class FileService:
                 # OR a list of ImageVariant dicts. The asset_router uses
                 # this path with custom_variants_json; we keep that
                 # signature for consistency.
-                from .specific_handlers.image_handler import compose_preset, SOCIAL_BASELINE
+                from .specific_handlers.image_handler import compose_preset
 
                 variant_specs: list[dict] = []
                 if isinstance(variants, list) and variants and isinstance(variants[0], str):
@@ -1392,11 +1740,11 @@ class FileService:
                 else:
                     variant_specs = list(variants)  # type: ignore[arg-type]
                 if variant_specs:
-                    rendered = await self._render_variants_via_image_handler(
+                    await self._render_variants_via_image_handler(
                         master_record,
                         variant_specs,
                     )
-                    # rendered is a dict[key, AssetVariant] — we don't
+                    # The result is a dict[key, AssetVariant] — we don't
                     # need to inline them here; build_asset_from_master
                     # picks up the sibling rows from the DB.
             except Exception as e:
@@ -1827,15 +2175,13 @@ class FileService:
         copy_result: dict | None = None
         if copy_to:
             try:
-                src_bytes = await self.router.read_async(record["storage_uri"])
-                cr = await self.write(
-                    src_bytes,
-                    file_path=copy_to,
-                    mime_type=record.get("mime_type"),
+                cr = await self.copy_file(
+                    file_id,
+                    target_path=copy_to,
+                    user_id=user_id,
+                    organization_id=record.get("organization_id"),
                     published_to_web=bool(record.get("published_to_web")),
                     shown_to=record.get("shown_to"),
-                    user_id=user_id,
-                    metadata={"copied_from": file_id},
                 )
                 copy_result = {
                     "file_id": cr.file_id,
@@ -1892,9 +2238,10 @@ class FileService:
     ) -> dict:
         """Bulk operation with a discriminator. Returns per-item status.
 
-        Response shape:
+        Response shape (``BulkOperationResponse`` — counts, never arrays):
             {
               "op": "delete",
+              "total": 2, "succeeded": 1, "failed": 1,
               "results": [
                 {"file_id": "...", "ok": true},
                 {"file_id": "...", "ok": false, "error": "permission_denied"},
@@ -1904,6 +2251,13 @@ class FileService:
             }
         """
         from .cloud_sync.idempotency import IdempotencyStore, IdempotencyConflict
+        from .api.errors import is_uuid
+
+        # A non-UUID id never reaches the ORM (whose ParameterError leaks SQL);
+        # it is a client input error → 400 through map_exception.
+        bad = [i for i in ids if not is_uuid(i)]
+        if bad:
+            raise ValueError(f"bulk ids must be UUIDs; not: {', '.join(repr(b) for b in bad[:5])}")
 
         store = IdempotencyStore(self._fm) if idempotency_key else None
         if store:
@@ -1915,7 +2269,15 @@ class FileService:
                     body=request_payload_for_idempotency,
                 )
                 if cached is not None:
-                    return cached["response_body"]
+                    body = dict(cached["response_body"] or {})
+                    # Replays stored before the counts existed get them here.
+                    res = body.get("results") or []
+                    ok_n = sum(1 for r in res if r.get("ok"))
+                    body.setdefault("total", len(res))
+                    body.setdefault("succeeded", ok_n)
+                    body.setdefault("failed", len(res) - ok_n)
+                    body.setdefault("errors", [])
+                    return body
             except IdempotencyConflict:
                 raise
 
@@ -1979,7 +2341,15 @@ class FileService:
             except Exception as e:
                 results.append({"file_id": fid, "ok": False, "error": str(e)})
 
-        envelope = {"op": op, "results": results, "errors": op_errors}
+        succeeded = sum(1 for r in results if r.get("ok"))
+        envelope = {
+            "op": op,
+            "total": len(ids),
+            "succeeded": succeeded,
+            "failed": len(results) - succeeded,
+            "results": results,
+            "errors": op_errors,
+        }
 
         if store:
             await store.persist(

@@ -113,3 +113,34 @@ async def test_a_runnable_request_is_quiet() -> None:
     )
     await asyncio.sleep(0)
     assert emitter.warnings == []
+
+
+@pytest.mark.asyncio
+async def test_a_retired_sticky_tool_is_forgotten_once_and_announced() -> None:
+    """Live 2026-11-06: ``sandbox_maintenance`` (retired 2026-11-02) stayed in staff thread 3af9e95c's sticky
+    ``dynamic_tools`` and was re-offered every turn, so every turn warned "not registered". It is forgotten
+    from the conversation the first turn the registry no longer knows it, announced by name, and gone after."""
+    _registry()
+    emitter = _Recorder()
+    config = UnifiedConfig(
+        model="test-model",
+        messages=[],
+        tools=[],
+        dynamic_tools=["retired_sticky_tool", "real_tool"],
+        dynamic_tool_sources={"retired_sticky_tool": "compute_target:sandbox", "real_tool": "surface"},
+    )
+    merge_request_tools(
+        config,
+        AppContext(emitter=emitter, client_tools=[]),
+        [RegisteredToolSpec(name="retired_sticky_tool"), RegisteredToolSpec(name="real_tool")],
+        active_executors=frozenset(),
+    )
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    assert "retired_sticky_tool" not in config.tools
+    assert "retired_sticky_tool" not in config.dynamic_tools
+    assert "retired_sticky_tool" not in (config.dynamic_tool_sources or {})
+    assert "real_tool" in config.tools and "real_tool" in config.dynamic_tools
+    (warning,) = emitter.warnings
+    assert "retired_sticky_tool" in (warning.user_message or "")

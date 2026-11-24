@@ -16,6 +16,7 @@ for _piece in (
     "probe.sdk.catalog.refs",
     "probe.sdk.catalog.server",
     "probe.sdk.catalog.catalog",
+    "probe.sdk.catalog.environments",
 ):
     importlib.import_module(_piece)
 del _piece
@@ -145,6 +146,15 @@ _HOMES = {
     "source": "probe.sdk.catalog.catalog",
     "use": "probe.sdk.catalog.catalog",
     "use_mixture": "probe.sdk.catalog.catalog",
+    # probe.sdk.catalog.environments
+    "SAMPLE_LABEL_NAME": "probe.sdk.catalog.environments",
+    "SAMPLE_LABEL_VERSION": "probe.sdk.catalog.environments",
+    "EnvironmentRef": "probe.sdk.catalog.environments",
+    "get_default_provider": "probe.sdk.catalog.environments",
+    "build_environment_body": "probe.sdk.catalog.environments",
+    "environment": "probe.sdk.catalog.environments",
+    "RunEnvironments": "probe.sdk.catalog.environments",
+    "count_tasks": "probe.sdk.catalog.environments",
 }
 
 

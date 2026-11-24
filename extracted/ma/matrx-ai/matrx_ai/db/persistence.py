@@ -36,8 +36,8 @@ from matrx_ai.db.control_tokens import (
     merge_control_token_metadata,
 )
 from matrx_ai.db.message_parts import validate_message_content
-from matrx_ai.persistence.sealed import stored_message_content
 from matrx_ai.db.message_positions import APPEND_MESSAGE_POSITION
+from matrx_ai.persistence.sealed import stored_message_content
 
 # IMPORT SAFETY — ai_model_manager and cxm both resolve host-injected DB
 # models/bases when their impl modules load, which raises DBNotConfiguredError
@@ -224,6 +224,61 @@ async def pinned_version_agent_id(ctx: Any) -> str | None:
     return agent_id
 
 
+# Any candidate id -> the agent.definition id behind it when it is an
+# agent.definition_version id, or None when it is not a version. A version
+# never changes owner and a definition id never becomes a version id, so both
+# answers are cached (bounded).
+_VERSION_BASE: dict[str, str | None] = {}
+_VERSION_BASE_MAX = 4096  # protocol-constant: memory bound on an in-process id cache (cleared when full), not a behavior an admin tunes
+
+
+async def _base_of_version(candidate: str) -> str | None:
+    if candidate in _VERSION_BASE:
+        return _VERSION_BASE[candidate]
+    try:
+        from matrx_ai.db._registry import get_model, has_requirements
+
+        if not has_requirements(models=("DefinitionVersion",)):
+            return None
+        versions = await get_model("DefinitionVersion").filter(id__in=[candidate]).all()
+        base = next(
+            (str(v.agent_id) for v in versions if getattr(v, "agent_id", None)),  # orm-getattr-ok: model row
+            None,
+        )
+    except Exception as exc:  # noqa: BLE001 — not cached; the stamp keeps what it was given
+        vcprint(f"[CX PERSISTENCE] could not check whether {candidate} is an agent version: {exc}", color="red")
+        return None
+    if len(_VERSION_BASE) >= _VERSION_BASE_MAX:
+        _VERSION_BASE.clear()
+    _VERSION_BASE[candidate] = base
+    return base
+
+
+async def settle_agent_refs(agent_id: Any, agent_version_id: Any) -> tuple[str | None, str | None]:
+    """The ``(agent.definition id, agent.definition_version id)`` pair a write stamps.
+
+    🚨 An ``agent_id`` column references agent.definition. A caller that put a VERSION id in
+    ``ctx.agent_id`` (a mandate pins a version) made the chat.user_request insert fail
+    ``cx_user_request_agent_fk`` and every write of the turn was lost (phone line, 2026-11-19).
+    So: a version id in ``agent_id`` is moved to the version slot and replaced by its base (loudly),
+    and a pinned run with no ``agent_id`` gets its base filled from the version."""
+    agent = str(agent_id) if agent_id and _is_valid_uuid(str(agent_id)) else None
+    version = str(agent_version_id) if agent_version_id and _is_valid_uuid(str(agent_version_id)) else None
+    if agent:
+        base = await _base_of_version(agent)
+        if base:
+            vcprint(
+                f"[CX PERSISTENCE] ctx.agent_id {agent} is an agent VERSION id — stamping its agent "
+                f"{base} as agent_id and the version as agent_version_id (a caller set the wrong field)",
+                color="red",
+            )
+            version = version or agent
+            agent = base
+    elif version:
+        agent = await _base_of_version(version)
+    return agent, version
+
+
 async def live_version_id_for_agent(agent_id: str) -> str | None:
     """The ``agent.definition_version`` id of the version a FLOATING (latest) run of
     ``agent_id`` executes: the row whose number equals the master's current
@@ -257,6 +312,29 @@ async def live_version_id_for_agent(agent_id: str) -> str | None:
     except Exception as exc:  # noqa: BLE001 - attribution is optional; the row must still land
         vcprint(
             f"[CX PERSISTENCE] could not resolve the live version of agent {agent_id}: {exc}",
+            color="red",
+        )
+        return None
+
+
+async def user_request_agent_version_id(request_id: str) -> str | None:
+    """The agent version a turn STARTED under (``chat.user_request.agent_version_id``), for a later call of
+    the same turn whose context lost its pin (a resume after a client tool result, PB-01e 2026-11-08). None
+    when the row is not written yet or names no version."""
+    if not request_id or not _is_valid_uuid(str(request_id)):
+        return None
+    try:
+        from matrx_ai.db._registry import get_model, has_requirements
+
+        if not has_requirements(models=("UserRequest",)):
+            return None
+        rows = await get_model("UserRequest").filter(id__in=[str(request_id)]).all()
+        row = next(iter(rows), None)
+        value = getattr(row, "agent_version_id", None)  # orm-getattr-ok: model row
+        return str(value) if value else None
+    except Exception as exc:  # noqa: BLE001
+        vcprint(
+            f"[CX PERSISTENCE] could not read the agent version of request {request_id}: {exc}",
             color="red",
         )
         return None
@@ -449,51 +527,55 @@ def _queue_message_update(msg_id, **kwargs):
     return _q(msg_id, **kwargs)
 
 
-async def _hide_superseded_failed_turns(conversation_id: str, up_to_position: int) -> int:
-    """A successful turn supersedes the FAILED attempts before it.
+async def _request_rows_have_a_parent(user_request_id: str, ctx: Any, error: str | None = None) -> bool:
+    """Ensure the cx_user_request a cx_request names, and say whether it exists.
 
-    While a turn keeps failing, the user SHOULD see the failures. The moment a
-    real response lands, those prior attempts are clutter — so collapse them out
-    of the USER's view (``is_visible_to_user=False``) while KEEPING the rows for
-    the record. They are already ``is_visible_to_model=False`` (the agent never
-    saw them and still won't — we set it again here defensively). Net model
-    exposure is unchanged (false→false), so NO cache bust is needed.
+    ``ensure_user_request_exists`` is fire-and-forget: a parent INSERT it could not
+    make (a refusal, a platform-tenant refusal, a failed one-shot Session) is logged
+    and SWALLOWED, so "it returned" never meant "the parent exists". Queueing the
+    child then burns five retries on an unwinnable FK (cx_request_user_request_id_fkey;
+    live 2026-10-30..11-02, protected-account refusals). The answer is read back from
+    the gate (its memo, else one read).
 
-    Platform rule, not a one-off: a conversation's tail run of failed attempts
-    collapses the instant a real response lands at or after them. Earlier
-    failures were already hidden by the success that followed THEM, so this only
-    ever touches the current run. Best-effort — it must NEVER break the
-    successful turn it follows.
-    """
-    if _get_coordinator() is None:
-        from matrx_ai.persistence import standalone_coordinator
+    Ruling 2026-11-02: a refused run IS a recorded user action — a missing parent is
+    created FAILED with the refusal (``record_failed_user_request``, stamped with the
+    organization the context carries). Only when no lawful organization exists for it
+    (none carried, or the platform tenant for a person) is the answer False: no child
+    rows and no status UPDATEs, said once."""
+    from matrx_ai.client_host import get_conversation_store
 
-        async with standalone_coordinator(
-            reason="hide_superseded_failed_turns",
-            conversation_id=conversation_id,
-        ):
-            return await _hide_superseded_failed_turns(conversation_id, up_to_position)
-
-    from matrx_ai.db._registry import get_model
-
-    cx_message_model = get_model("Message")
-    rows = await cx_message_model.filter_items(
-        conversation_id=conversation_id,
-        status="failed",
-        is_visible_to_user=True,
+    if get_conversation_store() is not None:
+        return True
+    from matrx_ai.db.conversation_gate import (
+        _user_request_was_recorded,
+        ensure_user_request_exists,
+        record_failed_user_request,
     )
-    hidden = 0
-    for r in rows:
+
+    parent_user_id = getattr(ctx, "user_id", None) if ctx is not None else None
+    if parent_user_id:
         try:
-            if int(getattr(r, "position", 0) or 0) > up_to_position:
-                continue
-        except (TypeError, ValueError):
-            pass
-        mid = str(r.id)
-        fields = {"is_visible_to_user": False, "is_visible_to_model": False}
-        _queue_message_update(mid, **fields)
-        hidden += 1
-    return hidden
+            await ensure_user_request_exists(user_request_id, str(parent_user_id))
+        except Exception as exc:  # noqa: BLE001 - refusal: record the run as failed
+            if await record_failed_user_request(user_request_id, error or f"{type(exc).__name__}: {exc}"):
+                return True
+            vcprint(
+                f"[CX PERSISTENCE] cx_request rows skipped: parent cx_user_request "
+                f"{user_request_id!r} could not be created ({type(exc).__name__}: {exc})",
+                color="yellow",
+            )
+            return False
+    if await _user_request_was_recorded(user_request_id):
+        return True
+    if await record_failed_user_request(user_request_id, error or "the run stopped before its request row was written"):
+        return True
+    vcprint(
+        f"[CX PERSISTENCE] cx_request rows skipped: parent cx_user_request "
+        f"{user_request_id!r} was never recorded (the run stopped before its request "
+        f"row was written).",
+        color="yellow",
+    )
+    return False
 
 
 def _queue_request_create(**kwargs):
@@ -601,6 +683,23 @@ def _compute_message_sizes(content: Any) -> tuple[int, int]:
     return content_chars, tool_results_chars
 
 
+def _result_text_chars(content: Any) -> int:
+    """Characters of a tool result's text content (a str, or text blocks).
+
+    The storage dict a persisted message is built from (``to_storage_dict``) does not carry
+    ``output_chars``; a result whose logger stamp is absent must still record the size of the
+    output it holds, never 0 beside a tool row that has the real output.
+    """
+    if isinstance(content, str):
+        return len(content)
+    if isinstance(content, list):
+        return sum(
+            len(b.get("text") or "") if isinstance(b, dict) else len(getattr(b, "text", "") or "")
+            for b in content
+        )
+    return 0
+
+
 async def _backfill_tool_message(
     msg: dict[str, Any],
     message_id: str,
@@ -643,13 +742,15 @@ async def _backfill_tool_message(
         if isinstance(item, dict):
             call_id = item.get("call_id") or item.get("tool_use_id")
             tool_name = item.get("name", "")
-            output_chars = int(item.get("output_chars", 0) or 0)
+            output_chars = int(item.get("output_chars", 0) or 0) or _result_text_chars(item.get("content"))
             output_preview = item.get("output_preview")
             is_error = bool(item.get("is_error", False))
         elif hasattr(item, "call_id"):
             call_id = getattr(item, "call_id", None) or getattr(item, "tool_use_id", None)
             tool_name = getattr(item, "name", "") or getattr(item, "tool_name", "")
-            output_chars = int(getattr(item, "output_chars", 0) or 0)
+            output_chars = int(getattr(item, "output_chars", 0) or 0) or _result_text_chars(
+                getattr(item, "content", None)
+            )
             output_preview = getattr(item, "output_preview", None)
             is_error = bool(getattr(item, "is_error", False))
 
@@ -772,12 +873,16 @@ _HISTORY_FAILURE_RECORDED_ATTR = "_matrx_run_history_failure_recorded"
 
 
 def stored_run_in_context() -> bool:
-    """A stored run (store=True, or no context — the persisting default)."""
+    """A run that writes rows: store=True, no context (the persisting default), or a confidential
+    (sealed) run, which has store=False and still writes its structure rows. A sealed run's failed
+    write is counted like any other (2026-11-01: every sealed turn's final commit was refused by
+    the database and nothing recorded it, because this answered False for sealed runs)."""
     try:
         from matrx_ai.context.app_context import try_get_app_context
+        from matrx_ai.persistence.sealed import writes_sealed_structure
 
         _ctx = try_get_app_context()
-        return _ctx is None or bool(getattr(_ctx, "store", True))
+        return _ctx is None or bool(getattr(_ctx, "store", True)) or writes_sealed_structure(_ctx)
     except Exception:
         return True
 
@@ -945,6 +1050,36 @@ def _call_request_settled_hook(
 def _row_role(msg: dict[str, Any]) -> Any:
     role = msg.get("role")
     return role.value if hasattr(role, "value") else role
+
+
+#: Parts a person cannot read as an answer: the model's chain-of-thought and its tool work (the client's
+#: ``answerless-turn.ts`` NON_ANSWER_PART_TYPES — every other part type is an answer).
+_NON_ANSWER_PART_TYPES = frozenset({"thinking", "reasoning", "redacted_thinking", "tool_call", "tool_result"})
+
+
+def _turn_ends_on_an_answer(turn_rows: list[dict[str, Any]]) -> bool:
+    """True when the turn's LAST row is an assistant row carrying something a person reads (text,
+    media, a typed part). A turn ending on a tool row, or on an assistant row of only thinking and
+    tool calls, did not answer: a failed run there still gets its visible error turn."""
+    if not turn_rows:
+        return False
+    last = max(turn_rows, key=lambda m: int(m.get("position") or 0))
+    if _row_role(last) != "assistant":
+        return False
+    content = last.get("content")
+    if isinstance(content, str):
+        return bool(content.strip())
+    for part in content or ():
+        kind = part.get("type") if isinstance(part, dict) else getattr(part, "type", None)
+        kind = getattr(kind, "value", kind) or "text"
+        if kind in _NON_ANSWER_PART_TYPES:
+            continue
+        if kind == "text":
+            text = part.get("text") if isinstance(part, dict) else getattr(part, "text", "")
+            if not str(text or "").strip():
+                continue
+        return True
+    return False
 
 
 def _is_consumed_prefill(msg: dict[str, Any]) -> bool:
@@ -1149,8 +1284,9 @@ async def persist_completed_request(
         # the executor). Those three were the expensive part of the 2026-07-07
         # starvation; the history writes ride the one coordinator flush.
         _system_run = bool(_ctx is not None and getattr(_ctx, "system_run", False))
-        _execution_kind = getattr(_ctx, "execution_kind", None) if _ctx is not None else None
-        _execution_id = getattr(_ctx, "execution_id", None) if _ctx is not None else None
+        from matrx_ai.db.request_tracking_log import resolve_request_execution_attribution
+
+        _execution_kind, _execution_id = resolve_request_execution_attribution(_ctx)
         if (_execution_kind is None) != (_execution_id is None):
             raise ValueError(
                 "persist_completed_request: execution_kind and execution_id must be set together"
@@ -1337,7 +1473,11 @@ async def persist_completed_request(
                     await tracker.mark_active(emitter, "conversation", db_conversation_id)
                 except Exception:
                     pass
-        else:
+        elif _should_persist:
+            # Only a STORED run with no usable id is a skipped write. An unsaved run (store=False:
+            # the labeler's named exemption, a person's own store=False) writes nothing BY DESIGN —
+            # saying "No valid conversation_id" for its perfectly valid id was a false alarm on every
+            # labeler call (~1.2k WARNINGs/day under the system principal, 2026-11-21).
             vcprint(
                 f"[CX PERSISTENCE PERSIST COMPLETED REQUEST] No valid conversation_id to update: {db_conversation_id!r}",
                 color="yellow",
@@ -1418,6 +1558,28 @@ async def persist_completed_request(
                 if _existing_id and _existing_id in pre_existing_ids:
                     result["message_ids"].append(_existing_id)
                     continue
+
+                # Provider-side tool activity (built-in web search) stamped on the answer by the
+                # executor: stored as display-only blocks before the answer's first text, plus one
+                # chat.tool_call row each below — so the working card survives a reload (017807f4).
+                _activity_blocks: list[dict[str, Any]] = []
+                if role_val == "assistant" and isinstance(msg.get("metadata"), dict):
+                    from matrx_ai.config.builtin_tool_use import (
+                        PROVIDER_TOOL_ACTIVITY,
+                        provider_tool_activity_blocks,
+                    )
+
+                    _activity_blocks = provider_tool_activity_blocks(msg["metadata"].get(PROVIDER_TOOL_ACTIVITY))
+                    if PROVIDER_TOOL_ACTIVITY in msg["metadata"]:
+                        msg = {**msg, "metadata": {
+                            k: v for k, v in msg["metadata"].items() if k != PROVIDER_TOOL_ACTIVITY
+                        }}
+                    if _activity_blocks and isinstance(raw_content, list):
+                        _first_text = next(
+                            (i for i, b in enumerate(raw_content) if isinstance(b, dict) and b.get("type") == "text"),
+                            len(raw_content),
+                        )
+                        raw_content = [*raw_content[:_first_text], *_activity_blocks, *raw_content[_first_text:]]
 
                 if is_tool_message:
                     msg_content = []
@@ -1551,7 +1713,14 @@ async def persist_completed_request(
                         # pre_existing_ids (skipped earlier). A deliberately
                         # pre-announced row (handoff synthetic) registers into
                         # state.reserved_message_ids like everything else.
-                        msg_id = str(_uuid4())
+                        # LIVE BLOCKS: a blocks-v1 stream already addressed this answer by an id minted
+                        # when it started streaming (state.streamed_message_ids); the row takes that id.
+                        _streamed = (
+                            _exec_state.streamed_message_ids.pop(position, None)
+                            if role_val == "assistant" and _exec_state is not None
+                            else None
+                        )
+                        msg_id = _streamed or str(_uuid4())
                         _queue_message_create(
                             id=msg_id,
                             conversation_id=db_conversation_id,
@@ -1643,6 +1812,18 @@ async def persist_completed_request(
                     provider_iteration = (msg.get("metadata") or {}).get("provider_iteration")
                     if isinstance(provider_iteration, int):
                         assistant_message_ids_by_iteration.setdefault(provider_iteration, msg_id)
+                    if _activity_blocks and msg_id and db_conversation_id:
+                        from matrx_ai.config.builtin_tool_use import queue_provider_tool_activity_rows
+
+                        _activity_ur = ur_data.get("request_id") or completed.request.request_id or None
+                        queue_provider_tool_activity_rows(
+                            _activity_blocks,
+                            message_id=msg_id,
+                            conversation_id=db_conversation_id,
+                            user_request_id=_activity_ur if _activity_ur and _is_valid_uuid(_activity_ur) else None,
+                            iteration=provider_iteration if isinstance(provider_iteration, int) else 1,
+                            user_id=str(user_id) if user_id else None,
+                        )
 
                 if is_tool_message:
                     # Build pointer blocks AND backfill message_id on cx_tool_call rows.
@@ -1744,17 +1925,67 @@ async def persist_completed_request(
                             cause=_close_err,
                         )
 
+            # A STOPPED run whose answer never reached the person (Stop pressed before the first
+            # seen frame: the cancel is caught at the first iteration boundary, or the provider
+            # call is stopped with nothing shown) finalizes 'cancelled' with NO assistant message
+            # in the window, so the reply row reserved at stream start was never touched and sat
+            # 'pending' with [] until the watchdog swept it to 'abandoned' (CGU-09 P2-3, iPhone
+            # run c1c4c9f3…, 2026-10-31). Close it as the stopped turn it is: 'active', empty,
+            # metadata.stopped (the marker a stopped partial carries), hidden from the MODEL (an
+            # empty assistant turn must never be replayed to a provider); an INTERRUPT hides it
+            # from the person too, like every abandoned tail. Same SAFE check as above: only a
+            # reservation whose position is absent from the message list is unfilled.
+            if ur_data.get("status") == "cancelled" and is_final and reserved_msg_ids:
+                _live_positions = {int(m["position"]) for m in msg_list}
+                _stop_meta = completed.metadata or {}
+                _stop_fields: dict[str, Any] = {
+                    "status": "active",
+                    "content": [],
+                    "metadata": {"stopped": True},
+                    "is_visible_to_model": False,
+                }
+                if _stop_meta.get("interrupted"):
+                    _stop_fields["is_visible_to_user"] = False
+                for _pos, _mid in reserved_msg_ids.items():
+                    try:
+                        _pos_int = int(_pos)
+                    except (TypeError, ValueError):
+                        continue
+                    if not _mid or _pos_int in _live_positions:
+                        continue
+                    try:
+                        _queue_message_update(_mid, **_stop_fields)
+                        result["message_ids"].append(_mid)
+                    except Exception as _close_err:
+                        vcprint(
+                            f"[CX PERSISTENCE] Failed to close reserved message {_mid} on "
+                            f"stopped request: {_close_err}",
+                            color="red",
+                        )
+                        await surface_skipped_write(
+                            "reserved_message_close_failed",
+                            f"message {_mid}: {_close_err!r}",
+                            conversation_id=db_conversation_id,
+                            cause=_close_err,
+                        )
+
             # A run that FAILED or was REFUSED before any answer (a guardrail or usage refusal, a
             # provider rejection before the first token, a run with no streaming reservation) had
             # no assistant row to close above, so the person saw their own turn and nothing after
             # it (agent_tests_judge, 380 conversations by 2026-10-23). Every failed run leaves the
             # SAME visible error turn a chat shows: one assistant row, status 'failed', the
             # sentence as its content, hidden from the model only. Owner ruling 2026-10-23.
+            # ANSWERED means the turn ENDS on an answer, never "some assistant row exists": a run stopped
+            # after its tool work (Halcyon Setup chat, request 77773164: "Stopped: limit — daily spend cap
+            # reached") left only tool rows, so no error turn was written and the screen said "This run
+            # finished without writing an answer" forever instead of the stop's own sentence.
             _turn_from = start_pos if start_pos is not None else trigger_pos
-            _answered = any(
-                _row_role(m) == "assistant"
-                and (_turn_from is None or int(m["position"]) >= int(_turn_from))
-                for m in (msg_list if _turn_from is not None else new_messages)
+            _answered = _turn_ends_on_an_answer(
+                [
+                    m
+                    for m in (msg_list if _turn_from is not None else new_messages)
+                    if _turn_from is None or int(m["position"]) >= int(_turn_from)
+                ]
             )
             if (
                 ur_data.get("status") == "failed"
@@ -1786,29 +2017,27 @@ async def persist_completed_request(
                         color="red",
                     )
 
-            # A SUCCESSFUL final turn supersedes the prior FAILED attempts at this
-            # turn — collapse them out of the USER's view (rows KEPT for the
-            # record; already hidden from the agent). Best-effort; never fatal.
-            if is_final and ur_data.get("status") != "failed" and db_conversation_id:
-                try:
-                    _up_to = max((int(m["position"]) for m in msg_list), default=0)
-                    _hidden = await _hide_superseded_failed_turns(db_conversation_id, _up_to)
-                    if _hidden:
-                        vcprint(
-                            f"[CX PERSISTENCE] Superseded {_hidden} prior failed "
-                            f"turn(s) → hidden from user (kept for the record).",
-                            color="green",
-                        )
-                except Exception as _sup_err:
-                    vcprint(
-                        f"[CX PERSISTENCE] hide-superseded-failures skipped "
-                        f"(non-fatal): {_sup_err}",
-                        color="yellow",
-                    )
+            # A successful final turn never hides the failed attempts before it: they stay in the person's
+            # history (already hidden from the model) and the client draws them collapsed as resolved — "An
+            # earlier attempt failed; a later reply went through" (P-160, lead's ruling 2026-11-04).
 
         now = datetime.now(UTC)
         user_request_id = ur_data.get("request_id") or completed.request.request_id
         result["user_request_id"] = user_request_id
+
+        # A cx_request names its cx_user_request parent (cx_request_user_request_id_fkey) and
+        # every UPDATE below needs its row. A run refused before its user action was recorded
+        # reaches here with no parent: _request_rows_have_a_parent records it FAILED with the
+        # refusal (ruling 2026-11-02); only when no lawful organization exists for that row are
+        # the children and the status UPDATEs skipped — unwinnable writes, never retried.
+        _no_parent = False
+        if _should_persist and user_request_id and _is_valid_uuid(user_request_id):
+            if not await _request_rows_have_a_parent(
+                user_request_id, _ctx, str(ur_data.get("error") or "") or None
+            ):
+                result["skipped_request_rows_no_parent"] = True
+                req_list = []
+                _no_parent = True
 
         # ── HEARTBEAT — refresh last_activity_at EVERY turn (not just is_final),
         # in the SAME flush as this turn's messages. The lifecycle watchdog ages
@@ -1820,6 +2049,7 @@ async def persist_completed_request(
             and user_request_id
             and _is_valid_uuid(user_request_id)
             and _get_coordinator() is not None
+            and not _no_parent
         ):
             _queue_user_request_update(user_request_id, last_activity_at=now)
 
@@ -1853,10 +2083,22 @@ async def persist_completed_request(
             # ran (metadata.served_via, device_served); readers label it from that.
             _req_meta = req.get("metadata") or {}
             _device_served = isinstance(_req_meta.get("served_via"), dict)
+            _model_unresolved = False
+            _unresolved_model_name: str | None = None
             if not iter_ai_model_id:
                 iter_ai_model_id = primary_ai_model_id
                 if not iter_ai_model_id and _device_served:
                     iter_ai_model_id = None
+                elif not iter_ai_model_id and _request_failed:
+                    # A FAILED call whose model the catalog does not know (system_error
+                    # 814ab934, 2026-11-12: /ai/chat asked for the bare alias 'gpt-4.1-nano',
+                    # the catalog refused it, and the skip below dropped the run's only
+                    # request row). ai_model_id is nullable since 20261024160000, so the
+                    # failure is written: ai_model_id NULL, status failed, and the name the
+                    # caller asked for in metadata.requested_model for readers to label it.
+                    iter_ai_model_id = None
+                    _model_unresolved = True
+                    _unresolved_model_name = str(req.get("ai_model") or ai_model_name or "") or None
                 elif not iter_ai_model_id:
                     # Even the config model is unknown — only NOW is skipping
                     # justified (the NOT NULL column truly can't be satisfied).
@@ -1884,6 +2126,10 @@ async def persist_completed_request(
             request_metadata = without_credential_fields(dict(req.get("metadata", {})))
             if _device_served:
                 request_metadata["device_served"] = True
+            if _model_unresolved:
+                request_metadata["model_unresolved"] = True
+                if _unresolved_model_name:
+                    request_metadata.setdefault("requested_model", _unresolved_model_name)
             if "response_message_id" not in request_metadata:
                 response_message_id = assistant_message_ids_by_iteration.get(int(iteration_num))
                 if response_message_id:
@@ -1955,6 +2201,14 @@ async def persist_completed_request(
                 and not req.get("finish_reason")
             ):
                 req_create_data["status"] = "cancelled"
+                # A stopped call that WAS dispatched always carries usage (the stop seam,
+                # providers/stopped_usage.py, bills at least the prompt it sent). No usage at
+                # all = the Stop landed before the call left (resolve, admission, payload
+                # build): say so on the row, which was reserved and announced to the client
+                # before the call, instead of leaving a provider row that reads as a $0 call
+                # (run 1aacd937, 2026-11-15).
+                if req.get("input_tokens") is None and not req.get("provider") and not _device_served:
+                    request_metadata["provider_call_sent"] = False
 
             if _request_failed and not _resolved_from_response:
                 req_create_data["status"] = "failed"
@@ -2013,7 +2267,7 @@ async def persist_completed_request(
         # rows above already carry each turn's cost, so nothing is lost, and
         # the rollup is derived once on the final commit (and on cancel via
         # the shield-persist path) — always recomputable from those rows.
-        if _should_persist and is_final and user_request_id and _is_valid_uuid(user_request_id):
+        if _should_persist and is_final and user_request_id and _is_valid_uuid(user_request_id) and not _no_parent:
             # THIS CALL's cost, for metadata only — never for the parent's
             # columns. Those are derived by the database from the cx_request
             # children (migration 0791); see the note on ur_update_data below
@@ -2238,7 +2492,9 @@ async def persist_completed_request(
                         f"[CX PERSISTENCE] context-state event emit failed (ignored): {ev_err}",
                         color="yellow",
                     )
-        elif is_final:
+        elif is_final and _should_persist and not _no_parent:
+            # Same law as the conversation backfill: an unsaved run has no rollup to write, and a
+            # parentless run was already recorded by _request_rows_have_a_parent.
             vcprint(
                 f"[CX PERSISTENCE PERSIST COMPLETED REQUEST] No valid request_id "
                 f"for legacy cx_user_request rollup (runtime.global_request): "
@@ -2356,9 +2612,18 @@ async def save_tool_declaration_record(
     Only the ``tool_declarations`` key of the stored config is replaced. A row
     that does not exist yet (the conversation's first turn) is left to the
     turn's own INSERT. Returns True when a write was queued.
+
+    The existence read is AUTHORITATIVE (``use_cache=False``): the ORM cache
+    can hold a first-turn conversation before its INSERT has committed (a flush
+    caches what it inserted, and a rolled-back flush re-inserts it later), and
+    an UPDATE queued on that cached sighting matched no row — 297 quarantined
+    ``chat.conversation`` UPDATEs on 2026-11-01/02, each one ~20-470 ms before
+    the conversation's INSERT landed.
     """
     try:
-        existing = await _cxm().conversation.load_conversation_by_id(conversation_id)
+        existing = await _cxm().conversation.load_item_or_none(
+            use_cache=False, id=conversation_id
+        )
     except Exception:
         existing = None
     if existing is None:
@@ -2445,15 +2710,42 @@ async def _refresh_cache_state(
     new_state["last_cache_read_tokens"] = int(cache_read or 0)
 
     # The history window's cut (``send_boundary._apply_history_window``) lives beside the cache facts it
-    # depends on: a warm next turn replays exactly this cut, from any server task.
+    # depends on: a warm next turn replays exactly this cut, from any server task. The cut this request's send
+    # USED, unless the row holds one another task decided later (``history_cut_to_persist``: newest decision wins).
     try:
-        from matrx_ai.config.send_boundary import HISTORY_CUT_KEY, remembered_history_cut
+        from matrx_ai.config.send_boundary import HISTORY_CUT_KEY, history_cut_to_persist
 
-        remembered = remembered_history_cut(str(conversation_id))
-        if isinstance(remembered, dict):
-            new_state[HISTORY_CUT_KEY] = dict(remembered)
+        cut = history_cut_to_persist(str(conversation_id), existing_state)
+        if isinstance(cut, dict):
+            new_state[HISTORY_CUT_KEY] = dict(cut)
     except Exception:  # noqa: BLE001 — the cut is re-derived on the next cold turn
         vcprint(f"[persistence] history cut for {conversation_id} not carried into cache_state", color="yellow")
+    # The trim rewrites this request's sends made (``send_boundary._replay_trims``): the next send — warm or cold,
+    # on any server task — makes them again, so a held trim never sends back in full what this one cleared.
+    # MERGED with the row's record as read here, never replacing it: a concurrent request on another server task
+    # holds its own keys, and a replacement erased them (2026-11-19 review).
+    try:
+        from matrx_ai.config.send_boundary import persisted_prefix_state
+
+        new_state.update(persisted_prefix_state(str(conversation_id), existing_state))
+    except Exception as replay_err:  # noqa: BLE001 — announced; the next send then replays this process's memo only
+        vcprint(f"[persistence] trim rewrites for {conversation_id} not carried into cache_state: {replay_err!r}", color="yellow")
+
+    # THE STATIC SEAL LINE (final outbound snapshot): the last send's segment fingerprints and seal
+    # position per (provider, model), and the breaks it saw — hashes and offsets only, never text
+    # (the column reaches the client in context_state events). The next turn's check reads it back.
+    try:
+        from matrx_ai.providers.final_outbound_snapshot import (
+            SEAL_STATE_KEY,
+            merged_seal_state,
+            take_seal_records,
+        )
+
+        seal_state = merged_seal_state(existing_state.get(SEAL_STATE_KEY), take_seal_records(str(conversation_id)))
+        if seal_state:
+            new_state[SEAL_STATE_KEY] = seal_state
+    except Exception as seal_err:  # noqa: BLE001 — the next turn then runs without a cross-turn check
+        vcprint(f"[persistence] static seal record for {conversation_id} not carried into cache_state: {seal_err!r}", color="yellow")
 
     # Trim accounting:
     if trim_summary:

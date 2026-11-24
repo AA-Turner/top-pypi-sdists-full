@@ -13,14 +13,24 @@ from typing import Dict, Optional, Sequence, Union
 import torch
 from torch import Tensor, nn
 
-from braindecode.functional import init_weights_, spectral_input
-from braindecode.models.base import EEGModuleMixin
+from braindecode.functional import (
+    check_ch_mask,
+    init_weights_,
+    masked_group_norm,
+    patch_count,
+    spectral_input,
+)
+from braindecode.models.base import EEGModuleMixin, deprecated_init_flags
 from braindecode.modules import CrissCrossTransformerEncoderLayer
 from braindecode.modules.blocks import PatchTokenizer
 
 logger = logging.getLogger(__name__)
 
 
+@deprecated_init_flags(
+    identity_head=("return_encoder_output",),
+    return_encoder_output="features",
+)
 class CBraMod(EEGModuleMixin, nn.Module):
     r"""
     **C**\ riss-\ **C**\ ross **Bra**\ in **Mod**\ el for EEG Decoding from Wang et al. (2025) [cbramod]_.
@@ -81,7 +91,7 @@ class CBraMod(EEGModuleMixin, nn.Module):
       to learn EEG representations
     - **Reconstruction Head**: Reconstructs masked EEG patches during pretraining
     - **Task head** (``final_layer``): flatten summary tokens across patches and map to
-       ``n_outputs``; if ``return_encoder_output=True``, return the encoder features instead.
+       ``n_outputs``; ``model(x, return_features=True)`` returns the encoder features instead.
 
     The model is highly efficient, requiring only ~318.9M FLOPs on a typical 16-channel, 10-second
     EEG recording (significantly lower than full attention baselines).
@@ -107,9 +117,8 @@ class CBraMod(EEGModuleMixin, nn.Module):
            from braindecode.models import CBraMod
 
            # Load pre-trained model from Hugging Face Hub
-           model = CBraMod.from_pretrained(
-               "braindecode/cbramod-pretrained", return_encoder_output=True
-           )
+           model = CBraMod.from_pretrained("braindecode/cbramod-pretrained")
+           features = model(x, return_features=True)["features"]
 
        To push your own trained model to the Hub:
 
@@ -120,7 +129,7 @@ class CBraMod(EEGModuleMixin, nn.Module):
                repo_id="username/my-cbramod-model", commit_message="Upload trained CBraMod model"
            )
 
-       Requires installing ``braindecode[hug]`` for Hub integration.
+       Requires installing ``braindecode[hub]`` for Hub integration.
 
     Parameters
     ----------
@@ -138,10 +147,13 @@ class CBraMod(EEGModuleMixin, nn.Module):
     activation : type[nn.Module], default=nn.GELU
         Activation function used in Transformer feedforward layers.
     emb_dim : int, default=200
-        Output embedding dimension.
+        Output dimension of ``proj_out``, the pretraining reconstruction layer.
+        It is kept so the released weights load, but it is not applied: features
+        and head use the encoder output, of size ``d_model``.
     drop_prob : float, default=0.1
         Dropout probability.
     return_encoder_output : bool, default=False
+        Deprecated, removed in 2.3: call ``model(x, return_features=True)`` instead.
         If false (default), the features are flattened and passed through a final linear layer
         to produce class logits of size ``n_outputs``.
         If True, the model returns the encoder output features.
@@ -153,6 +165,9 @@ class CBraMod(EEGModuleMixin, nn.Module):
        In The Thirteenth International Conference on Learning Representations (ICLR 2025).
        https://arxiv.org/abs/2412.07236
     """
+
+    _time_axis = "fixed"  # fixed: final_layer.1.weight
+    _channel_axis = "fixed"  # fixed: final_layer.1.weight
 
     def __init__(
         self,
@@ -194,10 +209,7 @@ class CBraMod(EEGModuleMixin, nn.Module):
         del n_chans, chs_info, n_times, input_window_seconds, sfreq, n_outputs
         # Shared tokenizer: (batch, n_chans, n_times) -> (batch, n_chans, n_patch, patch_size),
         # padding/cropping a non-divisible time axis at forward time.
-        try:
-            tokenizer_n_times = self.n_times
-        except ValueError:  # unknown length: nothing to check at construction
-            tokenizer_n_times = patch_size
+        tokenizer_n_times = self._signal_param("n_times") or patch_size
         self.rearrange = PatchTokenizer(
             patch_size=patch_size,
             n_times=tokenizer_n_times,
@@ -222,15 +234,12 @@ class CBraMod(EEGModuleMixin, nn.Module):
         self.encoder = _TransformerEncoder(encoder_layer, num_layers=n_layer)
         self.proj_out = nn.Sequential(nn.Linear(d_model, emb_dim))
 
-        self._emb_dim = emb_dim
         self._patch_size = patch_size
         self._init_parameters()
 
-        if return_encoder_output:
-            self.final_layer = nn.Identity()
-        elif self._knows_geometry():
+        if self._knows_geometry():
             n_patch = self._n_patch()
-            flat_dim = self.n_chans * n_patch * emb_dim
+            flat_dim = self.n_chans * n_patch * d_model
             self.final_layer = nn.Sequential(
                 nn.Flatten(), nn.Linear(flat_dim, self.n_outputs)
             )
@@ -238,15 +247,24 @@ class CBraMod(EEGModuleMixin, nn.Module):
             self.final_layer = nn.Sequential(
                 nn.Flatten(), nn.LazyLinear(self.n_outputs)
             )
+        self.on_non_divisible = on_non_divisible
+        self._n_times_step = patch_size
+        self._min_n_times = 1 if on_non_divisible == "pad" else patch_size
+
+    def _accepts_any_n_chans(self, args: tuple, kwargs: dict) -> bool:
+        return super()._accepts_any_n_chans(args, kwargs) or self._accepts_any_n_times(
+            args, kwargs
+        )
+
+    def _accepts_any_n_times(self, args: tuple, kwargs: dict) -> bool:
+        return bool(self._call_arg(args, kwargs, "return_features", False))
 
     def reset_head(self, n_outputs):
-        self._n_outputs = n_outputs
-        self._update_init_kwargs(n_outputs=n_outputs)
-        # A head implies a classifier, also when built with return_encoder_output.
-        self._update_init_kwargs(return_encoder_output=False)
+        self._set_n_outputs(n_outputs)
         if self._knows_geometry():
             n_patch = self._n_patch()
-            flat_dim = self.n_chans * n_patch * self._emb_dim
+            # proj_out reads the encoder output, whose size is d_model.
+            flat_dim = self.n_chans * n_patch * self.proj_out[0].in_features
             self.final_layer = nn.Sequential(
                 nn.Flatten(), nn.Linear(flat_dim, n_outputs)
             )
@@ -257,39 +275,64 @@ class CBraMod(EEGModuleMixin, nn.Module):
         """True when n_chans and n_times are known (given or derivable), so the
         head can be a real Linear instead of a LazyLinear that cannot be saved
         or loaded before a forward pass."""
-        try:
-            self.n_chans, self.n_times
-        except ValueError:
-            return False
-        return True
+        return (
+            self._signal_param("n_chans") is not None
+            and self._signal_param("n_times") is not None
+        )
 
     def _n_patch(self):
-        if self._on_non_divisible == "pad":
-            return -(-self.n_times // self._patch_size)
-        return self.n_times // self._patch_size
+        return patch_count(self.n_times, self._patch_size, self._on_non_divisible)
 
     def _init_parameters(self):
         kaiming = partial(nn.init.kaiming_normal_, mode="fan_out", nonlinearity="relu")
-        self.apply(
-            partial(
-                init_weights_,
-                weights={(nn.Linear, nn.Conv1d): (kaiming, None)},
-                norms=(nn.BatchNorm1d,),
-            )
+        fn = partial(
+            init_weights_,
+            weights={(nn.Linear, nn.Conv1d): (kaiming, None)},
+            norms=(nn.BatchNorm1d,),
         )
+        for name, child in self.named_children():
+            if name != "final_layer":
+                child.apply(fn)
 
     def forward(
         self,
         x: Tensor,
         mask: Optional[Tensor] = None,
         return_features: bool = False,
+        ch_mask: Optional[Tensor] = None,
     ) -> Union[Tensor, Dict[str, Optional[Tensor]]]:
+        """``ch_mask``: optional ``(batch, n_chans)`` mask of real channels, see
+        :func:`~braindecode.functional.check_ch_mask`. Needs
+        ``return_features=True``; the
+        tokens of padded channels are zero. Real channels come first, as
+        :func:`~braindecode.datasets.pad_channels_collate` pads: the
+        positional convolution reads neighbouring channels."""
+        ch_mask = check_ch_mask(ch_mask, x)
+        key_padding_mask: Optional[Tensor] = None
+        if ch_mask is not None:
+            if not return_features:
+                raise ValueError(
+                    "ch_mask needs return_features=True: the flattened "
+                    "head is tied to the channels."
+                )
+            # Padding may hold NaN, which the patch embedding would spread.
+            x = x.masked_fill(~ch_mask[:, :, None], 0.0)
+            key_padding_mask = ~ch_mask
         x = self.rearrange(x)
-        patch_emb = self.patch_embedding(x, mask)
-        feats = self.encoder(patch_emb)
-        out = self.proj_out(feats)
+        patch_emb = self.patch_embedding(x, mask, ch_mask)
+        feats = self.encoder(patch_emb, src_key_padding_mask=key_padding_mask)
+        # proj_out is the pretraining reconstruction layer: the original
+        # fine-tuning models replace it by nn.Identity(), so it is not run.
+        out = feats
+        if ch_mask is not None:
+            out = out.masked_fill(~ch_mask[:, :, None, None], 0.0)
         if return_features:
-            features: Dict[str, Optional[Tensor]] = {"features": out, "cls_token": None}
+            # "tokens": the same per-token output, under the ch_mask contract key.
+            features: Dict[str, Optional[Tensor]] = {
+                "features": out,
+                "cls_token": None,
+                "tokens": out,
+            }
             return features
         return self.final_layer(out)
 
@@ -353,7 +396,12 @@ class _PatchEmbedding(nn.Module):
             patch_size = int((patch_size + 2 * padding - kernel) / stride + 1)
         return last_channels * patch_size
 
-    def forward(self, x: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self,
+        x: Tensor,
+        mask: Optional[Tensor] = None,
+        ch_mask: Optional[Tensor] = None,
+    ) -> Tensor:
         bz, ch_num, patch_num, patch_size = x.shape
         if mask is None:
             mask_x = x
@@ -362,7 +410,25 @@ class _PatchEmbedding(nn.Module):
             mask_x[mask == 1] = self.mask_encoding
 
         mask_x = mask_x.reshape(bz, 1, ch_num * patch_num, patch_size)
-        patch_emb = self.proj_in(mask_x)  # (b, d, c * n, p2)
+        if ch_mask is None:
+            patch_emb = self.proj_in(mask_x)  # (b, d, c * n, p2)
+        else:
+            # GroupNorm statistics over real rows only; rows are (c n).
+            row_mask = ch_mask.repeat_interleave(patch_num, dim=1)
+            patch_emb = mask_x
+            for layer in self.proj_in:
+                # Not isinstance: TorchScript misses renamed (mangled) module types.
+                if hasattr(layer, "num_groups"):
+                    patch_emb = masked_group_norm(
+                        patch_emb,
+                        layer.num_groups,
+                        row_mask,
+                        layer.weight,
+                        layer.bias,
+                        layer.eps,
+                    )
+                else:
+                    patch_emb = layer(patch_emb)
         d, p2 = patch_emb.shape[1], patch_emb.shape[3]
         patch_emb = (
             patch_emb.reshape(bz, d, ch_num, patch_num, p2)
@@ -376,6 +442,9 @@ class _PatchEmbedding(nn.Module):
         spectral_emb = self.spectral_proj(spectral)
 
         patch_emb = patch_emb + spectral_emb
+        if ch_mask is not None:
+            # Zero rows, as the convolution's own padding past the last channel.
+            patch_emb = patch_emb.masked_fill(~ch_mask[:, :, None, None], 0.0)
 
         positional_embedding = self.positional_encoding(patch_emb.permute(0, 3, 1, 2))
         positional_embedding = positional_embedding.permute(0, 2, 3, 1)
@@ -408,7 +477,9 @@ class _TransformerEncoder(nn.Module):
     ) -> Tensor:
         output = src
         for mod in self.layers:
-            output = mod(output, src_mask=mask)
+            output = mod(
+                output, src_mask=mask, src_key_padding_mask=src_key_padding_mask
+            )
         if self.norm is not None:
             output = self.norm(output)
         return output

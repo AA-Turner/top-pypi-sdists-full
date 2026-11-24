@@ -28,8 +28,9 @@ class _Provider:
         self.sizes: list[int] = []
 
     async def chat(self, messages, **kwargs: Any) -> str:
-        user = messages[-1]["content"]
-        n = sum(1 for line in user.splitlines() if line[:1].isdigit() and ". " in line[:5])
+        # The package sends values by name (``offered``), never a composed turn.
+        claims = (kwargs.get("offered") or {}).get("claims", "")
+        n = sum(1 for line in claims.splitlines() if line[:1].isdigit() and ". " in line[:5])
         self.sizes.append(n)
         if len(self.sizes) == 1:
             full = json.dumps(_items(list(range(1, self.first_ok + 1))))

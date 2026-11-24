@@ -264,13 +264,25 @@ async def report_setting_rejection(
             error_type=f"{record['provider']}.{SETTING_REJECTION_ERROR_TYPE}",
             error_text=(
                 f"{record['provider']} rejected setting "
-                f"{record['provider_param'] or '(unnamed)'}: {record['provider_message']}"
+                f"{_rejected_setting_name(record)}: {record['provider_message']}"
             )[:2000],
             payload={**record, **(payload or {})},
             **fields,
         )
     except Exception:  # noqa: BLE001 — the record never replaces the provider's exception
         pass
+
+
+def _rejected_setting_name(record: dict[str, Any]) -> str:
+    """The setting a provider refused, for the error text. When the provider names none (Google's opaque
+    "Request contains an invalid argument"), the request fields the diagnosis suspects are listed instead of
+    "(unnamed)", so the rejected setting can be found from the row (tracker bda4cb13 / f9ee1e46)."""
+    if record.get("provider_param"):
+        return str(record["provider_param"])
+    suspects = [str(p) for p in (record.get("suspect_params") or []) if p]
+    if suspects:
+        return "(unnamed by the provider; suspect: " + ", ".join(suspects[:6]) + ")"
+    return "(unnamed)"
 
 
 PROVIDER_BILLING_CAPTURE_MISSING_KIND = "provider_billing_capture_missing"

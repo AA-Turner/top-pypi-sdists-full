@@ -20,6 +20,8 @@ Rules:
 - A value already serialized to a *string* by its producer is prose by that
   producer's choice and passes through verbatim — the door governs structured
   values, it does not re-parse text.
+- A record input's value (one ``relation`` or a list of them) reads ``label (token id)``, one per
+  line (``relation_prompt_text``) — a model needs the name and the pointer, never the envelope.
 - A value carrying a ``__kind`` whose registration declares an ``ai_view`` is
   PROJECTED to those fields first. See below.
 
@@ -47,7 +49,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-__all__ = ["prompt_safe_value"]
+__all__ = ["prompt_safe_value", "relation_prompt_text"]
+
+#: The registered kind a record input's value is (``aidream/kinds/record_primitives.py``).
+RELATION_KIND = "relation"
 
 
 def _jsonable(value: Any) -> Any:
@@ -62,6 +67,42 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, (list, tuple, set, frozenset)):
         return [_jsonable(v) for v in value]
     return value
+
+
+#: The keys an unmarked relation (a form value has no identity to supply) may carry.
+_RELATION_KEYS = frozenset({"__kind", "_record_id", "token", "table_id", "label", "snapshot"})
+
+
+def _is_relation(item: Any) -> bool:
+    """A ``relation`` value: marked as one, or unmarked with nothing but a relation's own keys —
+    any other dict that happens to carry a ``_record_id`` keeps its fields (it is not a pointer)."""
+    if not isinstance(item, dict) or not isinstance(item.get("_record_id"), str):
+        return False
+    if item.get("__kind") == RELATION_KIND:
+        return True
+    return item.get("__kind") in (None, "") and set(item) <= _RELATION_KEYS
+
+
+def _relation_line(item: dict[str, Any]) -> str:
+    token = item.get("token") or "record"
+    pointer = f"{token} {item['_record_id']}"
+    label = item.get("label")
+    label = " ".join(label.split()) if isinstance(label, str) else ""  # one line per relation
+    return f"{label} ({pointer})" if label else pointer
+
+
+def relation_prompt_text(value: Any) -> str | None:
+    """THE prompt text of a record input's value, or None when ``value`` is not one.
+
+    One ``relation`` reads ``label (token id)`` (``token id`` alone when it has no label); a list of
+    relations (a ``multiple`` record input) reads one per line. Anything else is not a relation.
+    """
+    plain = _jsonable(value)
+    if _is_relation(plain):
+        return _relation_line(plain)
+    if isinstance(plain, list) and plain and all(_is_relation(item) for item in plain):
+        return "\n".join(_relation_line(item) for item in plain)
+    return None
 
 
 def _ai_view_fields(payload: Any) -> tuple[str, ...] | None:
@@ -140,6 +181,9 @@ def prompt_safe_value(
     if isinstance(value, (dict, list, tuple, set, frozenset)) or hasattr(
         value, "model_dump"
     ):
+        relation_text = relation_prompt_text(value)
+        if relation_text is not None:
+            return relation_text
         from matrx_graph.content_ir.markers import strip_kind_markers
 
         try:

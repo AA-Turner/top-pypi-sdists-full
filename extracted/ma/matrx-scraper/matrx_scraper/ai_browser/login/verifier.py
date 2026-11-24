@@ -69,6 +69,9 @@ class PageObservation(BaseModel):
     # The screenshot taken before one character was typed and the one taken after the submit
     # settled are byte-identical. ``None`` = the pair was not available (never read as False).
     page_unchanged_after_submit: bool | None = None
+    # The form's submit control is visible and DISABLED after the submit settled: the site is
+    # still working on it (Namecheap, 2026-10-30), not refusing. ``None`` = not probed.
+    submit_disabled_after_submit: bool | None = None
 
     @property
     def structurally_probed(self) -> bool:
@@ -124,6 +127,7 @@ class EvaluatedObservation(BaseModel):
     login_form_present_before: StrictBool | None = None
     login_form_present_after: StrictBool | None = None
     page_unchanged_after_submit: StrictBool | None = None
+    submit_disabled_after_submit: StrictBool | None = None
     url_relation: UrlRelation = "unknown"
     # The form-cleared fallback is meaningful only when the page that HAD the
     # form was itself a sign-in flow.  A search form can clear and navigate just
@@ -344,6 +348,11 @@ def _evaluate_page_observation(
             else None
         ),
         page_unchanged_after_submit=observation.page_unchanged_after_submit,
+        submit_disabled_after_submit=(
+            observation.submit_disabled_after_submit
+            if observation.selector_probe_known and not observation.timed_out
+            else None
+        ),
         url_relation=relation,
         url_flow_before=_url_flow(observation.url_before) if observation.url_probe_known else "unknown",
         url_flow=_url_flow(observation.url) if observation.url_probe_known else "unknown",
@@ -405,6 +414,10 @@ AMBIGUOUS_STRUCTURAL_REASONS = (
     # form still up: nothing was visibly typed or answered. That is a fill/render failure (a
     # page that never painted, a field that took no input), NOT a refusal by the site.
     "page_unchanged_after_submit",
+    # The form is still up but its submit control is disabled: the site has not answered yet.
+    # A wrong password re-enables the button (and usually shows an error); a disabled one is
+    # a pending submit, so the saved credential is never called wrong on it.
+    "submit_still_pending",
 )
 
 #: EVERY generic structural signal this engine can emit, with its direction and
@@ -481,6 +494,8 @@ def _structural_signals(obs: EvaluatedObservation) -> tuple[list[VerdictSignal],
         if obs.url_relation == "unchanged":
             if obs.page_unchanged_after_submit is True:
                 return [], "page_unchanged_after_submit"
+            if obs.submit_disabled_after_submit is True:
+                return [], "submit_still_pending"
             return [sig("password_form_still_visible")], None
         # A password box on a DIFFERENT page is not a refusal and not a success
         # (a re-auth step, a second account chooser). Say so, decide nothing.

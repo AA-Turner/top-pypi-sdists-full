@@ -1,4 +1,5 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import tag_filter_pb2 as _tag_filter_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
@@ -88,6 +89,8 @@ class SandboxInfo(_message.Message):
         "created_by",
         "status_details",
         "cluster_id",
+        "created_from_snapshot_id",
+        "started_at",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -101,6 +104,8 @@ class SandboxInfo(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_FROM_SNAPSHOT_ID_FIELD_NUMBER: _ClassVar[int]
+    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     status: SandboxStatus
@@ -113,6 +118,8 @@ class SandboxInfo(_message.Message):
     created_by: str
     status_details: str
     cluster_id: str
+    created_from_snapshot_id: str
+    started_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -127,6 +134,8 @@ class SandboxInfo(_message.Message):
         created_by: _Optional[str] = ...,
         status_details: _Optional[str] = ...,
         cluster_id: _Optional[str] = ...,
+        created_from_snapshot_id: _Optional[str] = ...,
+        started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateSandboxRequest(_message.Message):
@@ -160,7 +169,16 @@ class GetSandboxResponse(_message.Message):
     def __init__(self, sandbox: _Optional[_Union[SandboxInfo, _Mapping]] = ...) -> None: ...
 
 class ListSandboxesFilters(_message.Message):
-    __slots__ = ("names", "statuses", "images", "created_by", "tags")
+    __slots__ = (
+        "names",
+        "statuses",
+        "images",
+        "created_by",
+        "tags",
+        "restore_from_snapshot_ids",
+        "tag_filter",
+        "source_snapshot_ids",
+    )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -174,11 +192,17 @@ class ListSandboxesFilters(_message.Message):
     IMAGES_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
+    RESTORE_FROM_SNAPSHOT_IDS_FIELD_NUMBER: _ClassVar[int]
+    TAG_FILTER_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_SNAPSHOT_IDS_FIELD_NUMBER: _ClassVar[int]
     names: _containers.RepeatedScalarFieldContainer[str]
     statuses: _containers.RepeatedScalarFieldContainer[SandboxStatus]
     images: _containers.RepeatedScalarFieldContainer[str]
     created_by: _containers.RepeatedScalarFieldContainer[str]
     tags: _containers.ScalarMap[str, str]
+    restore_from_snapshot_ids: _containers.RepeatedScalarFieldContainer[str]
+    tag_filter: _tag_filter_pb2.TagFilter
+    source_snapshot_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         names: _Optional[_Iterable[str]] = ...,
@@ -186,6 +210,9 @@ class ListSandboxesFilters(_message.Message):
         images: _Optional[_Iterable[str]] = ...,
         created_by: _Optional[_Iterable[str]] = ...,
         tags: _Optional[_Mapping[str, str]] = ...,
+        restore_from_snapshot_ids: _Optional[_Iterable[str]] = ...,
+        tag_filter: _Optional[_Union[_tag_filter_pb2.TagFilter, _Mapping]] = ...,
+        source_snapshot_ids: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListSandboxesRequest(_message.Message):
@@ -243,13 +270,18 @@ class ResumeSandboxResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class TerminateSandboxRequest(_message.Message):
-    __slots__ = ("id", "grace_period")
+    __slots__ = ("id", "grace_period", "ids")
     ID_FIELD_NUMBER: _ClassVar[int]
     GRACE_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    IDS_FIELD_NUMBER: _ClassVar[int]
     id: str
     grace_period: _duration_pb2.Duration
+    ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
-        self, id: _Optional[str] = ..., grace_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...
+        self,
+        id: _Optional[str] = ...,
+        grace_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        ids: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class TerminateSandboxResponse(_message.Message):

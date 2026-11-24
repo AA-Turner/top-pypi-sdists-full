@@ -1673,8 +1673,6 @@ class _FieldRender:
 
     ``ready`` is the parse's ``RenderReady``, or None outside a parse. Each part is computed when it is read, so a read
     of the plan builds no imports and a read of the imports where the parse keeps nothing for the field builds no plan.
-    The plan is a method, not a property: ``scripts/check_generation_store_usage.py`` follows calls, not attributes,
-    from the parser's hooks to the plan builders.
     """
 
     field: DataModelFieldBase
@@ -2380,6 +2378,8 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     IS_ROOT_MODEL: ClassVar[bool] = False
     DEFERS_RECURSIVE_TYPE_HINT: ClassVar[bool] = False
     SUPPORTS_GENERIC_BASE_CLASS: ClassVar[bool] = True
+    FIRST_BASE_CONFIGURES: ClassVar[bool] = False
+    """Whether the first base of a class gives an option its bases set differently, not the last (msgspec)."""
     FIELD_ASSIGNMENT_CHECKER: ClassVar[Callable[[DataModelFieldBase], bool]] = staticmethod(_has_field_assignment)
     FIELD_DEFAULT_CLASSIFIER: ClassVar[Callable[[DataModelFieldBase], tuple[bool, bool]]] = staticmethod(
         _get_field_default_info
@@ -2410,6 +2410,11 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     SUPPORTS_INHERITED_DISCRIMINATOR_ENUM: ClassVar[bool] = False
     SUPPORTS_FIELD_RENAMING: ClassVar[bool] = False
     SUPPORTS_FIELD_TYPE_RENAMING: ClassVar[bool] = False
+    HIDING_FIELD_RESOLUTION: ClassVar[Literal["field", "type"] | None] = None
+    """How a type checker is told a field that the class body assigns from the type its name hides, if it is.
+
+    ``"field"`` renames the field and keeps its wire name as an alias, ``"type"`` renames the type where the field has
+    no alias to keep it by; None leaves the field (the class body does not assign it)."""
     NORMALIZES_FIELD_NAMES: ClassVar[bool] = False
     RESOLVES_STRING_ANNOTATIONS_FROM_MODULE: ClassVar[bool] = False
     WRITES_QUOTED_NAMES_IN_TYPING_GENERICS: ClassVar[bool] = False

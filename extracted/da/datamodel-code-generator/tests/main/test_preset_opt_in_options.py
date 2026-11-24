@@ -4,8 +4,9 @@ The 20261027 presets add the opt-in options of 0.87.0 to the 20261017 presets, t
 0.90.0 to the 20261027 presets, the 20261106 presets add those of 0.91.0 to the 20261104 presets, the 20261111
 presets add those of the next release to the 20261106 presets, the 20261112 presets add the opt-in options after
 them to the 20261111 presets, the 20261113 presets add the opt-in options after those to the 20261112 presets, the
-20261118 presets add the opt-in options of the release after 0.97.0 to the 20261113 presets, and the 20261120 presets
-add the opt-in options after those to the 20261118 presets.
+20261118 presets add the opt-in options of the release after 0.97.0 to the 20261113 presets, the 20261120 presets
+add the opt-in options after those to the 20261118 presets, and the 20261123 presets add the opt-in options of the
+release after 0.100.0 to the 20261120 presets.
 """
 
 from __future__ import annotations
@@ -141,6 +142,22 @@ OPT_IN_OPTIONS_20261118: tuple[str, ...] = (
 OPT_IN_OPTIONS_20261120: tuple[str, ...] = ("--read-uuid6-uuid7-uuid8-formats",)
 """The options the 20261120 presets set beyond the 20261118 presets."""
 
+OPT_IN_OPTIONS_20261123: tuple[str, ...] = (
+    "--read-mapping-keys-by-schema-tag-type",
+    "--keep-null-of-nullable-items",
+    "--keep-string-keywords-beside-formats",
+    "--intersect-merged-allof-members",
+    "--read-allof-parents-as-their-models",
+    "--read-set-item-fields-in-class-order",
+    "--use-root-types-for-mixed-union-map-keys",
+    "--read-refs-in-their-resources",
+    "--keep-bases-beside-generic-base-class",
+    "--rename-redeclared-fields-hiding-types",
+    "--rename-fields-hiding-types-from-type-checkers",
+    "--use-str-for-formats-msgspec-cannot-decode",
+)
+"""The options the 20261123 presets set beyond the 20261120 presets."""
+
 WARNINGS_WITH_OPTION: dict[str, str] = {
     "uuid_version_formats.json": "Pydantic does not take max_length on UUID7",
 }
@@ -148,6 +165,7 @@ WARNINGS_WITH_OPTION: dict[str, str] = {
 
 WARNINGS_WITHOUT_OPTION: dict[str, str] = {
     "uuid_version_formats.json": "format of 'uuid[678]' not understood",
+    "format_string_keywords.json": "fields holding AnyUrl are written without max_length",
 }
 """The warning each input gives in a generation without the option that a turned-off test names, by file name."""
 
@@ -162,6 +180,7 @@ PRACTICAL_OPT_IN_OPTIONS: dict[str, tuple[str, ...]] = {
     "20261113": ("--untyped-value-type", "pydantic.JsonValue"),
     "20261118": ("--untyped-value-type", "pydantic.JsonValue"),
     "20261120": ("--untyped-value-type", "pydantic.JsonValue"),
+    "20261123": ("--untyped-value-type", "pydantic.JsonValue"),
 }
 """The options the practical presets of a date set beyond its standard options, for Pydantic output."""
 
@@ -174,6 +193,7 @@ PRESET_RELEASES: dict[str, tuple[str, tuple[str, ...]]] = {
     "20261113": ("20261112", OPT_IN_OPTIONS_20261113),
     "20261118": ("20261113", OPT_IN_OPTIONS_20261118),
     "20261120": ("20261118", OPT_IN_OPTIONS_20261120),
+    "20261123": ("20261120", OPT_IN_OPTIONS_20261123),
 }
 """The preset before each dated preset and the options it adds to it."""
 
@@ -591,11 +611,91 @@ CASES_20261120: tuple[pytest.ParameterSet, ...] = (
 )
 """The inputs each opt-in option of the 20261120 presets changes."""
 
+CASES_20261123: tuple[pytest.ParameterSet, ...] = (
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "discriminator_mapping_key_after_union.json",
+        "jsonschema",
+        ["--output-model-type", "pydantic_v2.BaseModel"],
+        id="read-mapping-keys-by-schema-tag-type",
+    ),
+    pytest.param(
+        OPEN_API_DATA_PATH / "nullable_item_forms.yaml",
+        "openapi",
+        ["--output-model-type", "pydantic_v2.BaseModel", "--strict-nullable"],
+        id="keep-null-of-nullable-items",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "format_string_keywords.json",
+        "jsonschema",
+        ["--output-model-type", "pydantic_v2.BaseModel"],
+        id="keep-string-keywords-beside-formats",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "allof_merged_member_values.json",
+        "jsonschema",
+        ["--output-model-type", "pydantic_v2.BaseModel"],
+        id="intersect-merged-allof-members",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "allof_parents_as_models" / "ref_sibling_parents.json",
+        "jsonschema",
+        ["--output-model-type", "pydantic_v2.BaseModel"],
+        id="read-allof-parents-as-their-models",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "unique_items_by_value_inherited_fields.json",
+        "jsonschema",
+        ["--output-model-type", "dataclasses.dataclass", "--frozen-dataclasses", "--use-unique-items-as-set"],
+        id="read-set-item-fields-in-class-order",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "property_names_root_model_mixed_union_keys.json",
+        "jsonschema",
+        ["--output-model-type", "pydantic_v2.BaseModel"],
+        id="use-root-types-for-mixed-union-map-keys",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "embedded_resource_definitions.json",
+        "jsonschema",
+        ["--output-model-type", "pydantic_v2.BaseModel"],
+        id="read-refs-in-their-resources",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "generic_base_class_bases" / "api.json",
+        "jsonschema",
+        [
+            *("--output-model-type", "pydantic_v2.BaseModel", "--use-generic-base-class", "--extra-fields", "forbid"),
+            *("--base-class-map", '{"Tag": "mypkg.base.TagBase"}'),
+        ],
+        id="keep-bases-beside-generic-base-class",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "field_named_like_type_redeclared.json",
+        "jsonschema",
+        ["--output-model-type", "pydantic_v2.BaseModel", "--no-snake-case-field"],
+        id="rename-redeclared-fields-hiding-types",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "field_named_like_type_assigned.json",
+        "jsonschema",
+        ["--output-model-type", "dataclasses.dataclass"],
+        id="rename-fields-hiding-types-from-type-checkers",
+    ),
+    pytest.param(
+        JSON_SCHEMA_DATA_PATH / "use_standard_primitive_types.json",
+        "jsonschema",
+        ["--output-model-type", "msgspec.Struct"],
+        id="use-str-for-formats-msgspec-cannot-decode",
+    ),
+)
+"""The inputs each opt-in option of the 20261123 presets changes."""
+
 
 @pytest.mark.parametrize("family", ["standard", "practical"])
 @pytest.mark.parametrize(
     ("release", "input_path", "input_file_type", "extra_args"),
     [
+        *(pytest.param("20261123", *case.values, id=case.id, marks=case.marks) for case in CASES_20261123),
         *(pytest.param("20261120", *case.values, id=case.id, marks=case.marks) for case in CASES_20261120),
         *(pytest.param("20261118", *case.values, id=case.id, marks=case.marks) for case in CASES_20261118),
         *(pytest.param("20261113", *case.values, id=case.id, marks=case.marks) for case in CASES_20261113),
@@ -822,10 +922,11 @@ def test_preset_sets_opt_in_option(
 
 @pytest.mark.parametrize("source", ["command-line", "pyproject"])
 @pytest.mark.parametrize(
-    ("input_path", "extra_args", "option", "off"),
+    ("input_path", "input_file_type", "extra_args", "option", "off"),
     [
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "enum_const_positions.json",
+            "jsonschema",
             [],
             "--read-const-beside-enum",
             "--no-read-const-beside-enum",
@@ -833,6 +934,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "length_keywords_by_type.json",
+            "jsonschema",
             [],
             "--read-length-keywords-by-type",
             "--no-read-length-keywords-by-type",
@@ -840,6 +942,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "capitalise_numbered_enum_members.json",
+            "jsonschema",
             ["--capitalise-enum-members"],
             "--capitalise-numbered-enum-members",
             "--no-capitalize-numbered-enum-members",
@@ -847,6 +950,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "typed_map_values_beside_other_types.json",
+            "jsonschema",
             [],
             "--use-typed-nullable-map-values",
             "--no-use-typed-nullable-map-values",
@@ -854,6 +958,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "float_const_bounds.json",
+            "jsonschema",
             [],
             "--use-bounds-for-float-const",
             "--no-use-bounds-for-float-const",
@@ -861,6 +966,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "object_maps" / "string_branches_beside_object_keywords.json",
+            "jsonschema",
             [],
             "--read-object-keywords-by-type",
             "--no-read-object-keywords-by-type",
@@ -868,6 +974,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "python_import_all_of_keywords_pointer_targets" / "order.json",
+            "jsonschema",
             [],
             "--use-x-python-import-for-every-ref",
             "--no-use-x-python-import-for-every-ref",
@@ -875,6 +982,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "serde_internally_tagged.json",
+            "jsonschema",
             [],
             "--infer-union-discriminators",
             "--no-infer-union-discriminators",
@@ -882,6 +990,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "kubernetes_crd_schema.yaml",
+            "jsonschema",
             [],
             "--read-kubernetes-extensions",
             "--no-read-kubernetes-extensions",
@@ -889,6 +998,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "inherited_property_schemas" / "sibling.json",
+            "jsonschema",
             [],
             "--read-inherited-property-schemas-in-mro-order",
             "--no-read-inherited-property-schemas-in-mro-order",
@@ -896,6 +1006,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             OPEN_API_DATA_PATH / "yaml_1_1_numbers" / "ratio.yaml",
+            "jsonschema",
             [],
             "--read-yaml-1-1-numbers-as-text",
             "--no-read-yaml-1-1-numbers-as-text",
@@ -903,6 +1014,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "single_allof_refs" / "main.json",
+            "jsonschema",
             [],
             "--read-single-allof-refs-in-their-documents",
             "--no-read-single-allof-refs-in-their-documents",
@@ -910,6 +1022,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "root_model_type_alias_defaults.json",
+            "jsonschema",
             ["--use-root-model-type-alias", "--no-collapse-root-models"],
             "--use-validate-default-for-root-model-type-aliases",
             "--no-use-validate-default-for-root-model-type-aliases",
@@ -917,6 +1030,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "allof_unevaluated_closed_member_ref_siblings.json",
+            "jsonschema",
             [],
             "--read-ref-siblings-in-closed-allof-members",
             "--no-read-ref-siblings-in-closed-allof-members",
@@ -924,6 +1038,7 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "discriminator_mapped_variant_several_values.json",
+            "jsonschema",
             [],
             "--use-unmapped-variant-tag-values",
             "--no-use-unmapped-variant-tag-values",
@@ -931,25 +1046,126 @@ def test_preset_sets_opt_in_option(
         ),
         pytest.param(
             JSON_SCHEMA_DATA_PATH / "uuid_version_formats.json",
+            "jsonschema",
             [],
             "--read-uuid6-uuid7-uuid8-formats",
             "--no-read-uuid6-uuid7-uuid8-formats",
             id="read-uuid6-uuid7-uuid8-formats",
         ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "discriminator_mapping_key_after_union.json",
+            "jsonschema",
+            [],
+            "--read-mapping-keys-by-schema-tag-type",
+            "--no-read-mapping-keys-by-schema-tag-type",
+            id="read-mapping-keys-by-schema-tag-type",
+        ),
+        pytest.param(
+            OPEN_API_DATA_PATH / "nullable_item_forms.yaml",
+            "openapi",
+            ["--strict-nullable"],
+            "--keep-null-of-nullable-items",
+            "--no-keep-null-of-nullable-items",
+            id="keep-null-of-nullable-items",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "format_string_keywords.json",
+            "jsonschema",
+            [],
+            "--keep-string-keywords-beside-formats",
+            "--no-keep-string-keywords-beside-formats",
+            id="keep-string-keywords-beside-formats",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "allof_merged_member_values.json",
+            "jsonschema",
+            [],
+            "--intersect-merged-allof-members",
+            "--no-intersect-merged-allof-members",
+            id="intersect-merged-allof-members",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "allof_parents_as_models" / "ref_sibling_parents.json",
+            "jsonschema",
+            [],
+            "--read-allof-parents-as-their-models",
+            "--no-read-allof-parents-as-their-models",
+            id="read-allof-parents-as-their-models",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "unique_items_by_value_inherited_fields.json",
+            "jsonschema",
+            ["--output-model-type", "dataclasses.dataclass", "--frozen-dataclasses", "--use-unique-items-as-set"],
+            "--read-set-item-fields-in-class-order",
+            "--no-read-set-item-fields-in-class-order",
+            id="read-set-item-fields-in-class-order",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "property_names_root_model_mixed_union_keys.json",
+            "jsonschema",
+            [],
+            "--use-root-types-for-mixed-union-map-keys",
+            "--no-use-root-types-for-mixed-union-map-keys",
+            id="use-root-types-for-mixed-union-map-keys",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "embedded_resource_definitions.json",
+            "jsonschema",
+            [],
+            "--read-refs-in-their-resources",
+            "--no-read-refs-in-their-resources",
+            id="read-refs-in-their-resources",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "generic_base_class_bases" / "api.json",
+            "jsonschema",
+            [
+                "--use-generic-base-class",
+                "--extra-fields",
+                "forbid",
+                "--base-class-map",
+                '{"Tag": "mypkg.base.TagBase"}',
+            ],
+            "--keep-bases-beside-generic-base-class",
+            "--no-keep-bases-beside-generic-base-class",
+            id="keep-bases-beside-generic-base-class",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "field_named_like_type_assigned.json",
+            "jsonschema",
+            ["--output-model-type", "dataclasses.dataclass"],
+            "--rename-fields-hiding-types-from-type-checkers",
+            "--no-rename-fields-hiding-types-from-type-checkers",
+            id="rename-fields-hiding-types-from-type-checkers",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "use_standard_primitive_types.json",
+            "jsonschema",
+            ["--output-model-type", "msgspec.Struct"],
+            "--use-str-for-formats-msgspec-cannot-decode",
+            "--no-use-str-for-formats-msgspec-cannot-decode",
+            id="use-str-for-formats-msgspec-cannot-decode",
+        ),
     ],
 )
 def test_preset_option_turned_off(
-    input_path: Path, extra_args: list[str], option: str, off: str, source: str, tmp_path: Path
+    input_path: Path,
+    input_file_type: str,
+    extra_args: list[str],
+    option: str,
+    off: str,
+    source: str,
+    tmp_path: Path,
 ) -> None:
-    """Turn off one option of a 20261120 preset: the output is that of the preset without the option.
+    """Turn off one option of a 20261123 preset: the output is that of the preset without the option.
 
     The --no- form on the command line, or false for the option in the pyproject.toml that selects the preset, gives
     the output of the 20261017 preset plus every option the 20261027, 20261104, 20261106, 20261111, 20261112, 20261113,
-    20261118 and 20261120 presets add but that one; an alias of the option has a --no- form and a key too.
+    20261118, 20261120 and 20261123 presets add but that one; an alias of the option has a --no- form and a key too.
     """
     project = tmp_path / "project"
     project.mkdir()
-    preset = "standard-py312-20261120"
+    preset = "standard-py312-20261123"
     preset_args = ["--preset", preset, off]
     if source == "pyproject":
         (project / "pyproject.toml").write_text(
@@ -962,7 +1178,7 @@ def test_preset_option_turned_off(
         run_main_and_assert(
             input_path=input_path,
             output_path=off_output,
-            input_file_type="jsonschema",
+            input_file_type=input_file_type,
             extra_args=[*preset_args, *common],
             skip_code_validation=sys.version_info < (3, 12),
             name="model",
@@ -978,6 +1194,7 @@ def test_preset_option_turned_off(
             *OPT_IN_OPTIONS_20261113,
             *OPT_IN_OPTIONS_20261118,
             *OPT_IN_OPTIONS_20261120,
+            *OPT_IN_OPTIONS_20261123,
         )
         if item != option
     ]
@@ -985,7 +1202,7 @@ def test_preset_option_turned_off(
         run_main_and_assert(
             input_path=input_path,
             output_path=tmp_path / "options.py",
-            input_file_type="jsonschema",
+            input_file_type=input_file_type,
             extra_args=["--preset", "standard-py312-20261017", *common, *options],
             skip_code_validation=sys.version_info < (3, 12),
             name="model",

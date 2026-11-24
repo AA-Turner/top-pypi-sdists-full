@@ -42,6 +42,13 @@ async def test_terminal_writer_stamps_completed_at(monkeypatch: pytest.MonkeyPat
             writes.append(updates)
             return SimpleNamespace(rows_affected=1)
 
+        def filter(self, **_filters: Any) -> SimpleNamespace:
+            # mark_cancelling walks the run's called workflows; this run has none.
+            async def values(*_cols: str) -> list[dict[str, Any]]:
+                return []
+
+            return SimpleNamespace(values=values)
+
     async def no_announce(*_a: Any, **_k: Any) -> None:
         return None
 

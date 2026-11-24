@@ -175,11 +175,6 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentResponse.FromString,
         )
-        self.DeleteSelfSignupTeam = channel.unary_unary(
-            "/chalk.server.v1.TeamService/DeleteSelfSignupTeam",
-            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamRequest.SerializeToString,
-            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamResponse.FromString,
-        )
         self.DeactivateUser = channel.unary_unary(
             "/chalk.server.v1.TeamService/DeactivateUser",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserRequest.SerializeToString,
@@ -205,6 +200,11 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleResponse.FromString,
         )
+        self.UpdateScimGroup = channel.unary_unary(
+            "/chalk.server.v1.TeamService/UpdateScimGroup",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateScimGroupRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateScimGroupResponse.FromString,
+        )
         self.DeleteScimGroup = channel.unary_unary(
             "/chalk.server.v1.TeamService/DeleteScimGroup",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupRequest.SerializeToString,
@@ -214,6 +214,21 @@ class TeamServiceStub(object):
             "/chalk.server.v1.TeamService/DeleteScimGroupUsers",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersResponse.FromString,
+        )
+        self.CreateScimGroup = channel.unary_unary(
+            "/chalk.server.v1.TeamService/CreateScimGroup",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateScimGroupRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateScimGroupResponse.FromString,
+        )
+        self.AddScimGroupMembers = channel.unary_unary(
+            "/chalk.server.v1.TeamService/AddScimGroupMembers",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AddScimGroupMembersRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AddScimGroupMembersResponse.FromString,
+        )
+        self.RemoveScimGroupMembers = channel.unary_unary(
+            "/chalk.server.v1.TeamService/RemoveScimGroupMembers",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.RemoveScimGroupMembersRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.RemoveScimGroupMembersResponse.FromString,
         )
         self.CreateCustomRole = channel.unary_unary(
             "/chalk.server.v1.TeamService/CreateCustomRole",
@@ -437,18 +452,6 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def DeleteSelfSignupTeam(self, request, context):
-        """Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
-        only for an @chalk.ai address, and no role grants it, so a customer cannot
-        reach this even as the owner of their own team. A service token can only
-        carry it if a Chalk employee deliberately minted one with it --
-        CreateServiceToken requires the permission to be a subset of the caller's
-        own, and GetAvailablePermissions does not offer it in the UI.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
     def DeactivateUser(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -479,14 +482,47 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def UpdateScimGroup(self, request, context):
+        """Renames a group on a team that does not provision groups through SCIM.
+        Same preconditions as CreateScimGroup, including team-scoped team.admin.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeleteScimGroup(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Deletes a hand-managed group with its members and role assignments. Same
+        preconditions as CreateScimGroup; an identity provider deletes the groups it
+        provisions through the SCIM protocol endpoint instead.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def DeleteScimGroupUsers(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Removes every member of a hand-managed group. Same preconditions as CreateScimGroup."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateScimGroup(self, request, context):
+        """Creates a group by hand on a team that does not provision groups through
+        SCIM. Requires the manual_scim_groups_enabled team flag. A group can hold roles
+        in any of the team's environments, so these RPCs need team-scoped team.admin:
+        an admin of one environment must not join a group that grants roles in another.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def AddScimGroupMembers(self, request, context):
+        """Adds team members to a group by hand. Same preconditions as CreateScimGroup."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def RemoveScimGroupMembers(self, request, context):
+        """Removes members from a group by hand. Same preconditions as CreateScimGroup."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -678,11 +714,6 @@ def add_TeamServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentResponse.SerializeToString,
         ),
-        "DeleteSelfSignupTeam": grpc.unary_unary_rpc_method_handler(
-            servicer.DeleteSelfSignupTeam,
-            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamRequest.FromString,
-            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamResponse.SerializeToString,
-        ),
         "DeactivateUser": grpc.unary_unary_rpc_method_handler(
             servicer.DeactivateUser,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserRequest.FromString,
@@ -708,6 +739,11 @@ def add_TeamServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleResponse.SerializeToString,
         ),
+        "UpdateScimGroup": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateScimGroup,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateScimGroupRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateScimGroupResponse.SerializeToString,
+        ),
         "DeleteScimGroup": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteScimGroup,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupRequest.FromString,
@@ -717,6 +753,21 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.DeleteScimGroupUsers,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersResponse.SerializeToString,
+        ),
+        "CreateScimGroup": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateScimGroup,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateScimGroupRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateScimGroupResponse.SerializeToString,
+        ),
+        "AddScimGroupMembers": grpc.unary_unary_rpc_method_handler(
+            servicer.AddScimGroupMembers,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AddScimGroupMembersRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AddScimGroupMembersResponse.SerializeToString,
+        ),
+        "RemoveScimGroupMembers": grpc.unary_unary_rpc_method_handler(
+            servicer.RemoveScimGroupMembers,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.RemoveScimGroupMembersRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.RemoveScimGroupMembersResponse.SerializeToString,
         ),
         "CreateCustomRole": grpc.unary_unary_rpc_method_handler(
             servicer.CreateCustomRole,
@@ -1676,35 +1727,6 @@ class TeamService(object):
         )
 
     @staticmethod
-    def DeleteSelfSignupTeam(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            "/chalk.server.v1.TeamService/DeleteSelfSignupTeam",
-            chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamRequest.SerializeToString,
-            chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
-
-    @staticmethod
     def DeactivateUser(
         request,
         target,
@@ -1850,6 +1872,35 @@ class TeamService(object):
         )
 
     @staticmethod
+    def UpdateScimGroup(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/UpdateScimGroup",
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateScimGroupRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateScimGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def DeleteScimGroup(
         request,
         target,
@@ -1897,6 +1948,93 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/DeleteScimGroupUsers",
             chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateScimGroup(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/CreateScimGroup",
+            chalk_dot_server_dot_v1_dot_team__pb2.CreateScimGroupRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.CreateScimGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def AddScimGroupMembers(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/AddScimGroupMembers",
+            chalk_dot_server_dot_v1_dot_team__pb2.AddScimGroupMembersRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.AddScimGroupMembersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RemoveScimGroupMembers(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/RemoveScimGroupMembers",
+            chalk_dot_server_dot_v1_dot_team__pb2.RemoveScimGroupMembersRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.RemoveScimGroupMembersResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -89,10 +89,21 @@ _VERIFY_TIMEOUT = 10.0
 _VERIFIED_AT: OrderedDict[str, float] = OrderedDict()
 _VERIFIED_CACHE_LOCK = threading.Lock()
 _VERIFIED_CACHE_MAX = 10_000
-# sha256(token) -> the Zernio user id the verify answer named, so a grant served
-# from cache still says whose token it is.
-_USER_ID_BY_TOKEN: OrderedDict[str, str] = OrderedDict()
+# sha256(token) -> what the verify answer said about the credential: the Zernio
+# user id and, for an OAuth token, its granted scope. Kept so a grant served
+# from cache still says whose token it is and what it may reach.
+_IDENTITY_BY_TOKEN: OrderedDict[str, dict[str, str]] = OrderedDict()
+# How long a confirmed answer stands before the next request asks upstream
+# again. An API key is revoked by hand in the dashboard and an MCP session
+# re-presents it for hours, so 10 minutes of reuse is the right trade. An
+# OAuth access token can be revoked by the client (RFC 7009, /api/oauth/revoke)
+# and the user expects that to land at once, so it is re-asked every minute:
+# a revoked token keeps working here for at most this long.
 _FRESH_TTL_SECONDS = 600.0
+_OAUTH_FRESH_TTL_SECONDS = 60.0
+# Prefix the Zernio authorization server gives every OAuth access token
+# (Schedule-Posts-API app/api/oauth/token/route.ts generateToken("late_at_")).
+_OAUTH_ACCESS_TOKEN_PREFIX = "late_at_"
 _VERIFY_KEEPALIVE_SECONDS = 60.0
 _IN_FLIGHT: dict[str, "asyncio.Task[Verification]"] = {}
 # Only used when upstream could not answer. Blast radius is bounded to
@@ -137,6 +148,12 @@ def _classify(status_code: int) -> Verification:
     return Verification.UNKNOWN
 
 
+def _fresh_ttl(token: str) -> float:
+    if token.startswith(_OAUTH_ACCESS_TOKEN_PREFIX):
+        return _OAUTH_FRESH_TTL_SECONDS
+    return _FRESH_TTL_SECONDS
+
+
 def token_cache_key(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -153,29 +170,38 @@ def _touch(token_key: str) -> None:
     with _VERIFIED_CACHE_LOCK:
         if token_key in _VERIFIED_AT:
             _VERIFIED_AT.move_to_end(token_key)
+        if token_key in _IDENTITY_BY_TOKEN:
+            _IDENTITY_BY_TOKEN.move_to_end(token_key)
 
 
 def _forget(token_key: str) -> None:
     with _VERIFIED_CACHE_LOCK:
         _VERIFIED_AT.pop(token_key, None)
-        _USER_ID_BY_TOKEN.pop(token_key, None)
+        _IDENTITY_BY_TOKEN.pop(token_key, None)
 
 
-def _remember_user_id(token_key: str, user_id: str) -> None:
+def _remember_identity(token_key: str, identity: dict[str, str]) -> None:
     with _VERIFIED_CACHE_LOCK:
-        _USER_ID_BY_TOKEN[token_key] = user_id
-        _USER_ID_BY_TOKEN.move_to_end(token_key)
-        while len(_USER_ID_BY_TOKEN) > _VERIFIED_CACHE_MAX:
-            _USER_ID_BY_TOKEN.popitem(last=False)
+        _IDENTITY_BY_TOKEN[token_key] = identity
+        _IDENTITY_BY_TOKEN.move_to_end(token_key)
+        while len(_IDENTITY_BY_TOKEN) > _VERIFIED_CACHE_MAX:
+            _IDENTITY_BY_TOKEN.popitem(last=False)
 
 
-def _user_id_in(response: httpx.Response) -> str | None:
+def _identity_in(response: httpx.Response) -> dict[str, str]:
+    """The user id and OAuth scope a verify answer names, as grant claims."""
     try:
         body = response.json()
     except ValueError:
-        return None
-    user_id = body.get("userId") if isinstance(body, dict) else None
-    return user_id if isinstance(user_id, str) and user_id else None
+        return {}
+    if not isinstance(body, dict):
+        return {}
+    named = {"user_id": body.get("userId"), "scope": body.get("scope")}
+    return {
+        claim: value
+        for claim, value in named.items()
+        if isinstance(value, str) and value
+    }
 
 
 def forget_rejected_token(token: str) -> None:
@@ -222,9 +248,9 @@ async def verify_late_api_key(
             await client.aclose()
 
     verdict = _classify(response.status_code)
-    user_id = _user_id_in(response) if response.status_code == 200 else None
-    if user_id:
-        _remember_user_id(token_cache_key(api_key), user_id)
+    identity = _identity_in(response) if response.status_code == 200 else {}
+    if identity:
+        _remember_identity(token_cache_key(api_key), identity)
     if verdict is Verification.UNKNOWN:
         logger.warning(
             "Zernio token verification inconclusive: HTTP %s",
@@ -253,7 +279,7 @@ class ZernioTokenVerifier(TokenVerifier):
         now = time.monotonic()
         verified_at = _VERIFIED_AT.get(token_key)
 
-        if verified_at is not None and now - verified_at < _FRESH_TTL_SECONDS:
+        if verified_at is not None and now - verified_at < _fresh_ttl(token):
             _touch(token_key)
             return self._grant(token, resolved_by="cache")
 
@@ -307,9 +333,7 @@ class ZernioTokenVerifier(TokenVerifier):
             "resolved_by": resolved_by,
             "waited_ms": waited_ms,
         }
-        user_id = _USER_ID_BY_TOKEN.get(token_cache_key(token))
-        if user_id:
-            claims["user_id"] = user_id
+        claims.update(_IDENTITY_BY_TOKEN.get(token_cache_key(token), {}))
         return AccessToken(
             token=token,
             client_id="zernio",

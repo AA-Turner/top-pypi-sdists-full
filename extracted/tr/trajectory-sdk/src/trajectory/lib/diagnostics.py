@@ -38,7 +38,7 @@ def start_task_diagnostic(
   package = _BenchmarkPackage(BenchmarkSpec(name="task-diagnostic", tasks=[task]), root)
   files = list(package.files())
   if agent_name is not None:
-    named_agent_id = client.agents.retrieve_by_name(agent_name).agent_id
+    named_agent_id = client.projects.retrieve_by_name(agent_name).agent_id
     if agent_id is not None and agent_id != named_agent_id:
       raise ValueError("agent_id and agent_name must identify the same agent")
     agent_id = named_agent_id
@@ -46,7 +46,7 @@ def start_task_diagnostic(
   bench_id = None
   for offset in range(0, len(files), UPLOAD_BATCH_FILES):
     batch = files[offset : offset + UPLOAD_BATCH_FILES]
-    upload = client.benchmarks.create_upload(
+    upload = client.specs.create_upload(
       files=[file.declaration() for file in batch], bench_id=bench_id or omit
     )
     put_files(batch, upload.urls, timeout=upload_timeout, max_retries=client.max_retries)

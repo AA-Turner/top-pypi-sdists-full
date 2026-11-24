@@ -82,19 +82,21 @@ VOLUME_KIND_UNSPECIFIED: VolumeKind
 VOLUME_KIND_SOURCE_CODE: VolumeKind
 
 class VolumeInfo(_message.Message):
-    __slots__ = ("volume_id", "name", "created_at", "access_mode", "ref", "object_store_uri")
+    __slots__ = ("volume_id", "name", "created_at", "access_mode", "ref", "object_store_uri", "parent_id")
     VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     ACCESS_MODE_FIELD_NUMBER: _ClassVar[int]
     REF_FIELD_NUMBER: _ClassVar[int]
     OBJECT_STORE_URI_FIELD_NUMBER: _ClassVar[int]
+    PARENT_ID_FIELD_NUMBER: _ClassVar[int]
     volume_id: str
     name: str
     created_at: _timestamp_pb2.Timestamp
     access_mode: VolumeAccessMode
     ref: str
     object_store_uri: str
+    parent_id: str
     def __init__(
         self,
         volume_id: _Optional[str] = ...,
@@ -103,6 +105,7 @@ class VolumeInfo(_message.Message):
         access_mode: _Optional[_Union[VolumeAccessMode, str]] = ...,
         ref: _Optional[str] = ...,
         object_store_uri: _Optional[str] = ...,
+        parent_id: _Optional[str] = ...,
     ) -> None: ...
 
 class VolumeRef(_message.Message):
@@ -662,12 +665,19 @@ class CommitStatus(_message.Message):
     ) -> None: ...
 
 class CreateVolumeRequest(_message.Message):
-    __slots__ = ("name", "volume_type")
+    __slots__ = ("name", "volume_type", "parent_id")
     NAME_FIELD_NUMBER: _ClassVar[int]
     VOLUME_TYPE_FIELD_NUMBER: _ClassVar[int]
+    PARENT_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     volume_type: VolumeKind
-    def __init__(self, name: _Optional[str] = ..., volume_type: _Optional[_Union[VolumeKind, str]] = ...) -> None: ...
+    parent_id: str
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        volume_type: _Optional[_Union[VolumeKind, str]] = ...,
+        parent_id: _Optional[str] = ...,
+    ) -> None: ...
 
 class CreateVolumeResponse(_message.Message):
     __slots__ = ("volume",)
@@ -759,35 +769,55 @@ class GetVolumeStatsResponse(_message.Message):
     ) -> None: ...
 
 class ListVolumesRequest(_message.Message):
-    __slots__ = ("limit", "cursor", "name_prefix", "volume_kind")
+    __slots__ = ("limit", "cursor", "name_prefix", "volume_kind", "filters")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     NAME_PREFIX_FIELD_NUMBER: _ClassVar[int]
     VOLUME_KIND_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
     name_prefix: str
     volume_kind: VolumeKind
+    filters: ListVolumesFilters
     def __init__(
         self,
         limit: _Optional[int] = ...,
         cursor: _Optional[str] = ...,
         name_prefix: _Optional[str] = ...,
         volume_kind: _Optional[_Union[VolumeKind, str]] = ...,
+        filters: _Optional[_Union[ListVolumesFilters, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListVolumesFilters(_message.Message):
+    __slots__ = ("name_prefix", "volume_kind", "parent_id")
+    NAME_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_KIND_FIELD_NUMBER: _ClassVar[int]
+    PARENT_ID_FIELD_NUMBER: _ClassVar[int]
+    name_prefix: str
+    volume_kind: VolumeKind
+    parent_id: str
+    def __init__(
+        self,
+        name_prefix: _Optional[str] = ...,
+        volume_kind: _Optional[_Union[VolumeKind, str]] = ...,
+        parent_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ListedVolume(_message.Message):
-    __slots__ = ("name", "created_at", "volume_id", "state", "volume_kind")
+    __slots__ = ("name", "created_at", "volume_id", "state", "volume_kind", "parent_id")
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     VOLUME_KIND_FIELD_NUMBER: _ClassVar[int]
+    PARENT_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     created_at: _timestamp_pb2.Timestamp
     volume_id: str
     state: str
     volume_kind: VolumeKind
+    parent_id: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -795,6 +825,7 @@ class ListedVolume(_message.Message):
         volume_id: _Optional[str] = ...,
         state: _Optional[str] = ...,
         volume_kind: _Optional[_Union[VolumeKind, str]] = ...,
+        parent_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ListVolumesResponse(_message.Message):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from matrx_graph.db.run_store import RunStore, _require_optional_uuid
+from matrx_utils.source_guard import stable_source
 
 
 def test_run_conversation_uuid_is_canonicalized() -> None:
@@ -122,7 +123,7 @@ async def test_a_derived_run_inherits_its_parents_organization(
 
     class _Model:
         @classmethod
-        def filter(cls, **_kw: object) -> "_Model":
+        def filter(cls, **_kw: object) -> _Model:
             return cls()  # type: ignore[return-value]
 
         async def values(self, *_a: object) -> list[dict[str, object]]:
@@ -143,3 +144,12 @@ async def test_a_derived_run_inherits_its_parents_organization(
         # organization_id deliberately omitted — the whole point.
     )
     assert str(created[0]["organization_id"]) == parent_org
+
+
+def test_a_malformed_run_owner_fails_loudly_instead_of_becoming_nobody() -> None:
+    # 2026-11-21: _to_uuid turned a malformed user id into NULL, creating an ownerless run with no error.
+
+    source = stable_source(RunStore.create)
+    assert '"created_by": _require_optional_uuid(user_id, "user_id")' in source
+    with pytest.raises(ValueError, match="user_id must be a valid UUID"):
+        _require_optional_uuid("not-a-user-uuid", "user_id")

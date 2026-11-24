@@ -4,6 +4,8 @@ A module containing testing utilities and fixtures.
 import asyncio
 import atexit
 import datetime as dt
+import hashlib
+import json
 import os
 import pathlib
 import re
@@ -15,7 +17,7 @@ import tempfile
 import time
 import unittest
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from functools import cache
 from subprocess import PIPE, Popen
 
@@ -34,12 +36,17 @@ from panel.io.compile import check_cli_tool
 from panel.io.reload import (
     _local_modules, _modules, _watched_files, async_file_watcher, watch,
 )
-from panel.io.resources import EXTENSION_CDN, JUPYTER_ENDPOINT_ENV
+from panel.io.resource_spec import _DECLARED_CACHE, _SPEC_CACHE
+from panel.io.resources import (
+    _BUNDLE_CACHE, EXTENSION_CDN, JUPYTER_ENDPOINT_ENV,
+)
 from panel.io.state import set_curdoc, state
 from panel.pane import HTML, Markdown
 from panel.tests.util import (
-    get_open_ports, global_design, import_panel_ui, restore_classic_globals,
-    reverse_proxy as reverse_proxy_ctx, serve_and_wait, set_global_design,
+    CDN_DIST_PATTERN, REMOTE_PATTERN, RemoteRequests, get_open_ports,
+    global_design, import_panel_ui, restore_classic_globals,
+    reverse_proxy as reverse_proxy_ctx, serve_and_wait, serve_local_dist,
+    set_global_design,
 )
 from panel.theme import Design
 
@@ -127,6 +134,12 @@ def jupyter_preview(request):
     return f'http://127.0.0.1:{JUPYTER_PORT}/panel-preview/render/{str(rel)}'
 
 atexit.register(cleanup_jupyter)
+
+ON_WINDOWS = sys.platform == 'win32'
+
+# How Chromium and Python report WSAENOBUFS
+WINDOWS_SOCKET_ERRORS = ['ERR_NO_BUFFER_SPACE', 'WinError 10055']
+
 optional_markers = {
     "ui": {
         "help": "Runs UI related tests",
@@ -169,6 +182,12 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "panel_ui: mark test as importing panel.ui")
 
 
+def pytest_sessionfinish(session):
+    is_xdist_worker = hasattr(session.config, 'workerinput')
+    if not is_xdist_worker and (cache_dir := _remote_cache_dir(session.config)) is not None:
+        _prune_remote_cache(cache_dir)
+
+
 def pytest_generate_tests(metafunc):
     repeat = getattr(metafunc.config.option, 'repeat', None)
     if repeat is not None:
@@ -202,6 +221,11 @@ def pytest_collection_modifyitems(config, items):
     for item in selected:
         if item.get_closest_marker("internet") and not item.get_closest_marker("flaky"):
             item.add_marker(pytest.mark.flaky(reruns=3, reason="Downloads remote files, which can fail on a bad connection"))
+        elif ON_WINDOWS and item.get_closest_marker("ui") and not item.get_closest_marker("flaky"):
+            item.add_marker(pytest.mark.flaky(
+                reruns=2, only_rerun=WINDOWS_SOCKET_ERRORS,
+                reason="A loaded Windows runner can run out of socket buffers"
+            ))
 
     if 'panel_material_ui' in sys.modules:
         raise pytest.UsageError(
@@ -215,12 +239,11 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.panel_ui)
 
     config.hook.pytest_deselected(items=skipped)
-    # Sorted because pytest 8.4.0 and pytest-playwright
-    # https://github.com/microsoft/playwright-pytest/pull/284
     # Tests importing panel.ui run last: its components cannot be unregistered,
     # and every later render on the same worker would include their resources.
-    items[:] = sorted(
-        selected, key=lambda x: (x.get_closest_marker('panel_ui') is not None, x.path)
+    items[:] = (
+        [item for item in selected if not item.get_closest_marker('panel_ui')] +
+        [item for item in selected if item.get_closest_marker('panel_ui')]
     )
 
 
@@ -237,11 +260,142 @@ def browser_type_launch_args(browser_type_launch_args, browser_name):
     return {**browser_type_launch_args, "args": args}
 
 
+_REMOTE_RESPONSES: dict[str, tuple[int, dict[str, str], bytes]] = {}
+
+# Playwright hands back the decoded body
+_DROPPED_HEADERS = ('content-encoding', 'content-length', 'transfer-encoding')
+
+# Entries no test has read for this long belong to dependency versions the
+# tests no longer load.
+REMOTE_CACHE_MAX_AGE = dt.timedelta(days=14)
+
+
+def _remote_cache_dir(config):
+    cache = getattr(config, 'cache', None)
+    return None if cache is None else cache.mkdir('remote-requests')
+
+
+def _read_remote_cache(cache_dir, url):
+    key = hashlib.sha256(url.encode()).hexdigest()
+    meta_path = cache_dir / f'{key}.json'
+    try:
+        meta = json.loads(meta_path.read_text())
+        body = (cache_dir / f'{key}.body').read_bytes()
+    except (OSError, ValueError):
+        return None
+    if meta.get('url') != url:
+        return None
+    with suppress(OSError):
+        os.utime(meta_path)
+    return meta['status'], meta['headers'], body
+
+
+def _write_remote_cache(cache_dir, url, status, headers, body):
+    key = hashlib.sha256(url.encode()).hexdigest()
+    # Written to a temporary file and renamed, so another xdist worker never
+    # reads a partial entry; the metadata goes last since readers look it up first.
+    for suffix, data in (('body', body), ('json', json.dumps({'url': url, 'status': status, 'headers': headers}).encode())):
+        tmp = cache_dir / f'{key}.{suffix}.{os.getpid()}.tmp'
+        with suppress(OSError):
+            tmp.write_bytes(data)
+            os.replace(tmp, cache_dir / f'{key}.{suffix}')
+
+
+def _prune_remote_cache(cache_dir):
+    cutoff = time.time() - REMOTE_CACHE_MAX_AGE.total_seconds()
+    for meta_path in cache_dir.glob('*.json'):
+        with suppress(OSError):
+            if meta_path.stat().st_mtime < cutoff:
+                meta_path.unlink()
+                meta_path.with_suffix('.body').unlink(missing_ok=True)
+
+
+def _serve_cached(route, remote_requests, cache_dir):
+    request = route.request
+    if request.method != 'GET':
+        route.fallback()
+        return
+    url = request.url
+    if url not in _REMOTE_RESPONSES and cache_dir is not None:
+        if (cached := _read_remote_cache(cache_dir, url)) is not None:
+            _REMOTE_RESPONSES[url] = cached
+    if url not in _REMOTE_RESPONSES:
+        try:
+            response = route.fetch()
+        except Exception as e:
+            remote_requests.fetch_failed(request, e)
+            # Fail the request as the browser would on a network error
+            with suppress(Exception):
+                route.abort()
+            return
+        if response.status != 200:
+            route.fulfill(response=response)
+            return
+        headers = {k: v for k, v in response.headers.items() if k.lower() not in _DROPPED_HEADERS}
+        _REMOTE_RESPONSES[url] = (response.status, headers, response.body())
+        if cache_dir is not None:
+            _write_remote_cache(cache_dir, url, *_REMOTE_RESPONSES[url])
+    status, headers, body = _REMOTE_RESPONSES[url]
+    route.fulfill(status=status, headers=headers, body=body)
+
+
 @pytest.fixture
-def context(context):
+def context(context, request):
     # Set the default timeout to 20 secs
     context.set_default_timeout(20_000)
+    context.route(CDN_DIST_PATTERN, serve_local_dist)
+    request.node._remote_requests = RemoteRequests(context)
+    if ON_WINDOWS:
+        # A script or websocket that fails to load surfaces only as a timeout
+        errors = request.node._windows_socket_errors = []
+        pattern = re.compile('|'.join(WINDOWS_SOCKET_ERRORS))
+
+        def on_request_failed(req):
+            if pattern.search(req.failure or ''):
+                errors.append(f"{req.url}: {req.failure}")
+
+        def on_console(msg):
+            if pattern.search(msg.text):
+                errors.append(msg.text)
+
+        context.on("requestfailed", on_request_failed)
+        context.on("console", on_console)
     yield context
+
+
+@pytest.fixture
+def cache_remote_requests(context, request):
+    """
+    Serves remote GET requests from a cache kept in the pytest cache
+    directory, which CI restores between runs.
+
+    Every test gets a fresh browser context, which otherwise downloads CDN
+    resources such as the Pyodide runtime and esm.sh modules again, and an
+    outage of one of these hosts would fail every test that loads from it.
+    Requests are only answered while the test is in a Playwright call, so
+    tests that block in time.sleep while the page loads must not use it.
+    """
+    remote_requests = request.node._remote_requests
+    cache_dir = _remote_cache_dir(request.config)
+    context.route(REMOTE_PATTERN, lambda route: _serve_cached(route, remote_requests, cache_dir))
+    yield
+    # A fetch still in flight would fail the next test's context
+    context.unroute_all(behavior='ignoreErrors')
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    try:
+        return (yield)
+    except Exception as e:
+        remote = getattr(item, '_remote_requests', None)
+        if remote is not None and (report := remote.report()):
+            # A note also reaches the CI annotations of failures that pass on rerun
+            e.add_note(f"Remote requests:\n{report}")
+        errors = getattr(item, '_windows_socket_errors', None)
+        if errors and not re.search('|'.join(WINDOWS_SOCKET_ERRORS), str(e)):
+            raise RuntimeError(f"The browser hit {errors[0]!r}, then: {e}") from e
+        raise
 
 PORT = [get_default_port()]
 
@@ -569,8 +723,13 @@ def jupyter_endpoint(monkeypatch):
 @pytest.fixture(autouse=True)
 def cache_cleanup():
     state.clear_caches()
-    Design._resolve_modifiers.cache_clear()
+    Design._resolve_modifiers_cached.cache_clear()
     Design._cache.clear()
+    # Their keys cover the global state a request depends on but not what
+    # tests monkeypatch, e.g. the list of classes with resources.
+    _SPEC_CACHE.clear()
+    _DECLARED_CACHE.clear()
+    _BUNDLE_CACHE.clear()
 
 @pytest.fixture
 def autoreload():

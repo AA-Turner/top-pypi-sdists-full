@@ -259,12 +259,13 @@ class PipePolicy(BaseModel):
     escalation: EscalationPolicy | None = Field(
         default=None,
         description=(
-            "Optional deadline for the human pipe. Left empty, the step waits "
-            "for the person indefinitely. Set, the run continues without them "
-            "once the deadline passes — an agent decides, or the default "
-            "answer is applied — and the output records who decided."
+            "What happens when the person does not answer in time. Left empty, "
+            "the step waits the standard time (an admin setting) and then the "
+            "run ends, saying nobody answered. Set it to choose the wait and "
+            "the outcome — the default answer, ending the run, or an agent — "
+            "and the output records who decided."
         ),
-        json_schema_extra=field_extras(order=2, widget="json", help="Timed hand-off to AI"),
+        json_schema_extra=field_extras(order=2, widget="json", help="When nobody answers"),
     )
 
 

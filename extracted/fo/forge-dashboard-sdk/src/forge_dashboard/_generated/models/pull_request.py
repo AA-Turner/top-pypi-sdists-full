@@ -359,6 +359,20 @@ class PullRequest:
                 say "Update branch queued for 14:32" from `runAt` and offer
                 Cancel with `id`. A final outcome is not here: it is in the
                 dashboard's `queuedActions`.
+            pending_checks (list[str] | Unset): The checks the pull request waits on that no job in its pipeline
+                shows, by name: a pending commit status from an external CI, or a
+                check the base branch requires that nothing has reported yet. A
+                required check nothing has reported counts as `waiting` in
+                `checks`, and `ci` reads `pending` for it. A client that says why
+                Merge is locked can name them. A fact only; the client decides how
+                to say it. Absent when there are none, or when the forge can't say
+                (Forgejo needs admin on the repository to read its branch rules).
+                On Forgejo these are the statuses that point at no Actions job, and
+                the status-check patterns of the branch rule that no status
+                matches, only for a pull request whose statuses all passed. On
+                GitHub they are the required contexts the head commit hasn't
+                reported, when the rollup says success while the pull request is
+                blocked.
             last_comment_at (datetime.datetime | Unset): When the newest comment on the pull request was written (RFC
                 3339), its creation time: an edit is not new activity. It covers
                 conversation comments and review comments alike. Absent when
@@ -487,6 +501,7 @@ class PullRequest:
     bot_request: BotRequest | None | Unset = UNSET
     update_request: None | Unset | UpdateRequest = UNSET
     queued: None | QueuedAction | Unset = UNSET
+    pending_checks: list[str] | Unset = UNSET
     last_comment_at: datetime.datetime | Unset = UNSET
     auto_merge_enabled: bool | Unset = UNSET
     auto_merge_held_by: str | Unset = UNSET
@@ -675,6 +690,12 @@ class PullRequest:
         else:
             queued = self.queued
 
+        pending_checks: list[str] | Unset = UNSET
+        if not isinstance(self.pending_checks, Unset):
+            pending_checks = self.pending_checks
+
+
+
         last_comment_at: str | Unset = UNSET
         if not isinstance(self.last_comment_at, Unset):
             last_comment_at = self.last_comment_at.isoformat()
@@ -758,6 +779,8 @@ class PullRequest:
             field_dict["updateRequest"] = update_request
         if queued is not UNSET:
             field_dict["queued"] = queued
+        if pending_checks is not UNSET:
+            field_dict["pendingChecks"] = pending_checks
         if last_comment_at is not UNSET:
             field_dict["lastCommentAt"] = last_comment_at
         if auto_merge_enabled is not UNSET:
@@ -1067,6 +1090,9 @@ class PullRequest:
         queued = _parse_queued(d.pop("queued", UNSET))
 
 
+        pending_checks = cast(list[str], d.pop("pendingChecks", UNSET))
+
+
         _last_comment_at = d.pop("lastCommentAt", UNSET)
         last_comment_at: datetime.datetime | Unset
         if isinstance(_last_comment_at,  Unset):
@@ -1165,6 +1191,7 @@ class PullRequest:
             bot_request=bot_request,
             update_request=update_request,
             queued=queued,
+            pending_checks=pending_checks,
             last_comment_at=last_comment_at,
             auto_merge_enabled=auto_merge_enabled,
             auto_merge_held_by=auto_merge_held_by,

@@ -84,6 +84,7 @@ def _list_not_found(list_id: str) -> ToolResult:
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="not_found",
             message=f"List {list_id} was not found, or you do not have access to it.",
         ),
@@ -137,18 +138,19 @@ async def pick_list_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult
     if not list_name:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="list_name is required."),
+            error=ToolError(refusal=True, error_type="validation", message="list_name is required."),
         )
     if not items:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="items must be a non-empty list."),
+            error=ToolError(refusal=True, error_type="validation", message="items must be a non-empty list."),
         )
     for idx, item in enumerate(items):
         if not isinstance(item, dict) or not item.get("label"):
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Item at index {idx} must be an object with a 'label' field.",
                 ),
@@ -163,12 +165,13 @@ async def pick_list_create_simple(args: dict[str, Any], ctx: ToolContext) -> Too
     if not list_name:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="list_name is required."),
+            error=ToolError(refusal=True, error_type="validation", message="list_name is required."),
         )
     if not labels or not isinstance(labels, list):
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation", message="labels must be a non-empty list of strings."
             ),
         )
@@ -177,6 +180,7 @@ async def pick_list_create_simple(args: dict[str, Any], ctx: ToolContext) -> Too
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Label at index {idx} must be a non-empty string.",
                 ),
@@ -260,7 +264,7 @@ async def pick_list_get_details(args: dict[str, Any], ctx: ToolContext) -> ToolR
     if not list_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="list_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="list_id is required."),
         )
     try:
         listing = await _read_list(str(list_id))
@@ -294,13 +298,14 @@ async def pick_list_update_item(args: dict[str, Any], ctx: ToolContext) -> ToolR
     if not item_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="item_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="item_id is required."),
         )
     update_fields = {k: args[k] for k in _WRITABLE if k in args}
     if not update_fields:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="Give at least one of label, description, help_text, group_name, icon_name.",
             ),
@@ -311,7 +316,7 @@ async def pick_list_update_item(args: dict[str, Any], ctx: ToolContext) -> ToolR
     if await _pick_list_item_is_read_only(str(item_id)):
         return ToolResult(
             success=False,
-            error=ToolError(error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
+            error=ToolError(refusal=True, error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
         )
     try:
         await _pick_list_store_arm().update_choice(str(item_id), update_fields)
@@ -332,12 +337,12 @@ async def pick_list_batch_update(args: dict[str, Any], ctx: ToolContext) -> Tool
     if not list_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="list_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="list_id is required."),
         )
     if not items:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="items must be a non-empty list."),
+            error=ToolError(refusal=True, error_type="validation", message="items must be a non-empty list."),
         )
 
     from matrx_ai.config.read_only_resources import READ_ONLY_TOOL_MESSAGE, is_resource_read_only
@@ -345,7 +350,7 @@ async def pick_list_batch_update(args: dict[str, Any], ctx: ToolContext) -> Tool
     if is_resource_read_only(str(list_id)):
         return ToolResult(
             success=False,
-            error=ToolError(error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
+            error=ToolError(refusal=True, error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
         )
 
     success_count = 0
@@ -485,10 +490,10 @@ def _pick_list_stamp(result: ToolResult, started_at: float, ctx: ToolContext) ->
     return result
 
 
-def _pick_list_validation_error(message: str, started_at: float, ctx: ToolContext) -> ToolResult:
+def _pick_list_validation_error(message: str, started_at: float, ctx: ToolContext, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="validation", message=message),
+        error=ToolError.declared("validation", message, exc=exc),
         started_at=started_at,
         completed_at=time.time(),
         tool_name = "pick_list",
@@ -509,7 +514,7 @@ async def _pick_list_impl(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         parsed = PickListArgs.model_validate(args).root
     except ValidationError as exc:
-        return _pick_list_validation_error(format_args_error(exc), started_at, ctx)
+        return _pick_list_validation_error(format_args_error(exc), started_at, ctx, exc=exc)
     # Read the wire model's coerced values (e.g. a JSON-string list decoded), never the
     # raw arguments they were coerced from (the 2026-10-01 dataset update_row class).
     args = {**args, **parsed.model_dump(exclude_unset=True)}

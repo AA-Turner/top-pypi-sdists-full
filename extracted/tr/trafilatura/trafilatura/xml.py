@@ -9,6 +9,7 @@ import re
 from collections.abc import Iterator
 from copy import deepcopy
 from html import unescape
+from html.entities import html5
 from importlib.metadata import version
 from io import StringIO
 from json import dumps as json_dumps
@@ -43,32 +44,35 @@ TEI_VALID_TAGS = {
     "row",
     "table",
 }
-TEI_VALID_ATTRS = {"rend", "rendition", "role", "target", "type"}
+TEI_VALID_ATTRS = {"rend", "rendition", "role", "target", "type", "url"}
 TEI_DTD = None  # to be downloaded later if necessary
 TEI_REMOVE_TAIL = {"ab", "p"}
 TEI_DIV_SIBLINGS = {"p", "list", "table", "quote", "ab"}
 
-CONTROL_PARSER = XMLParser(remove_blank_text=True)
-
 NEWLINE_ELEMS = {"graphic", "head", "lb", "list", "p", "quote", "row", "table"}
 SPECIAL_FORMATTING = {"code", "del", "head", "hi", "ref", "item", "cell"}
 WITH_ATTRIBUTES = {"cell", "row", "del", "graphic", "head", "hi", "item", "list", "ref"}
+# attributes set by Trafilatura itself, source attributes are dropped (#1158)
+XML_VALID_ATTRS = {"alt", "rend", "role", "src", "target", "title"}
 NESTING_WHITELIST = {"cell", "figure", "item", "note", "quote"}
 
 META_ATTRIBUTES = [
-    "sitename",
     "title",
     "author",
-    "date",
     "url",
     "hostname",
     "description",
+    "sitename",
+    "date",
     "categories",
     "tags",
-    "license",
-    "id",
     "fingerprint",
+    "id",
+    "license",
     "language",
+    "image",
+    "pagetype",
+    "filedate",
 ]
 
 HI_FORMATTING = {"#b": "**", "#i": "*", "#t": "`"}
@@ -103,9 +107,18 @@ _UNESCAPED_BRACKET_RE = re.compile(r"((?<![\\`])(`+)(?!`).+?(?<!`)\2(?!`))|(?<!\
 # block \[...\] and inline \(...\) math; only matched pairs are converted
 _MATH_BLOCK_RE = re.compile(r"(?<!\S)\\\[(.+?)\\\]", re.DOTALL)
 _MATH_INLINE_RE = re.compile(r"\\\((.+?)\\\)")
-# the very same spans, as a splitter: math is LaTeX, not CommonMark, so the inline-special
-# escaping has to step over exactly the regions _convert_math rewrites, and nothing else
-_MATH_SPAN_RE = re.compile(r"((?s:(?<!\S)\\\[.+?\\\])|\\\(.+?\\\))")
+# formulas already in $ notation, recognized with Pandoc's tex_math_dollars rules so that dollar
+# amounts stay prose: $$...$$, or $...$ on one line whose opening $ is followed by a non-space and
+# whose closing $ is preceded by a non-space and not followed by a digit; \$ is never a delimiter.
+# The closing $ is also not followed by a letter, "_", "(" or "{", so that shell variables such as
+# $HOME/bin:$PATH or "$(pwd)" stay prose
+_DOLLAR_MATH = r"(?<![\\$])\$\$[^$]+?\$\$|(?<![\\$])\$(?=[^\s$])[^$\n]*?(?<=[^\s\\])\$(?![\w({])"
+# all of these spans, as a splitter: math is LaTeX, not CommonMark, so the inline-special
+# escaping has to step over exactly the formulas, and nothing else (_convert_math leaves $ ones as is)
+_MATH_SPAN_RE = re.compile(r"((?s:(?<!\S)\\\[.+?\\\])|\\\(.+?\\\)|" + _DOLLAR_MATH + ")")
+
+# Require a complete entity: HTML's permissive decoding corrupts text such as '&region=us'.
+_HTML_ENTITY_RE = re.compile(r"&(#(?:[0-9]+|[xX][0-9a-fA-F]+);|[A-Za-z][A-Za-z0-9]+;)")
 
 
 # https://github.com/lxml/lxml/blob/master/src/lxml/html/__init__.py
@@ -211,6 +224,7 @@ def build_json_output(docmeta: Document, with_metadata: bool = True) -> str:
             }
         )
         commentsbody = outputdict.pop("commentsbody")
+        del outputdict["raw_text"]
     else:
         outputdict = {"text": xmltotxt(docmeta.body, include_formatting=False)}
         commentsbody = docmeta.commentsbody
@@ -223,8 +237,15 @@ def build_json_output(docmeta: Document, with_metadata: bool = True) -> str:
 def clean_attributes(tree: _Element) -> _Element:
     """Remove unnecessary attributes."""
     for elem in tree.iter("*"):
-        if elem.tag not in WITH_ATTRIBUTES:
-            elem.attrib.clear()
+        if elem.tag in WITH_ATTRIBUTES:
+            for attribute in [a for a in elem.attrib if a not in XML_VALID_ATTRS]:
+                elem.attrib.pop(attribute)
+            continue
+        # keep the language hint of code blocks
+        language = elem.get("rend") if elem.tag == "code" else None
+        elem.attrib.clear()
+        if language:
+            elem.set("rend", language)
     return tree
 
 
@@ -252,7 +273,7 @@ def control_xml_output(document: Document, options: Extractor) -> str:
 
     output_tree = sanitize_tree(output_tree)
     # necessary for cleaning
-    output_tree = fromstring(tostring(output_tree, encoding="unicode"), CONTROL_PARSER)
+    output_tree = fromstring(tostring(output_tree, encoding="unicode"), XMLParser(remove_blank_text=True))
 
     # validate
     if options.format == "xmltei" and options.tei_validation:
@@ -310,6 +331,9 @@ def check_tei(xmldoc: _Element, url: str | None) -> _Element:
         elif elem.tag == "div":
             _handle_text_content_of_div_nodes(elem)
             _wrap_unwanted_siblings_of_div(elem)
+        elif elem.tag == "graphic" and "src" in elem.attrib:
+            # TEI points to the image with url, src would be dropped below
+            elem.set("url", elem.attrib.pop("src"))
         # check attributes
         for attribute in [a for a in elem.attrib if a not in TEI_VALID_ATTRS]:
             LOGGER.warning("not a valid TEI attribute, removing: %s in %s %s", attribute, elem.tag, url)
@@ -458,6 +482,9 @@ def _escape_and_convert_math(text: str) -> str:
     escaping pass a "$...$" span whose LaTeX it mangles ("$a_1$" -> "$a\\_1$"). Split on the math
     delimiters once instead, and give each kind of region the treatment it needs.
     """
+    # every math delimiter holds a backslash or a dollar sign
+    if "\\" not in text and "$" not in text:
+        return _escape_inline_specials(text)
     parts = _MATH_SPAN_RE.split(text)
     # re.split on one capturing group alternates prose, math, prose, ...
     parts[::2] = [_escape_inline_specials(part) for part in parts[::2]]
@@ -480,6 +507,10 @@ def _escape_and_convert_math_tree(element: _Element) -> None:
 
 def _escape_block_start(text: str) -> str:
     "Escape a leading heading/blockquote/list marker so a fresh paragraph/item line isn't misread as block syntax."
+    # necessary condition of every pattern below
+    first = text.lstrip(" ")[:1]
+    if first not in "#>-+" and not first.isdecimal():
+        return text
     for regex in _BLOCK_START_RES:
         match = regex.match(text)
         if match and match.lastindex is not None:  # every _BLOCK_START_RES pattern has a marker group
@@ -493,13 +524,31 @@ def _last_char(returnlist: list[str]) -> str:
     return returnlist[-1][-1:] if returnlist else ""
 
 
-def _list_marker(item: _Element, include_formatting: bool = True) -> str:
+def _list_marker(item: _Element, include_formatting: bool = True, list_positions: dict[_Element, int] | None = None) -> str:
     "Markdown marker of a list item: 'N. ' or '- ' with nesting indent."
-    indent = "  " * (sum(1 for _ in item.iterancestors("list")) - 1)
+    # a nested list starts where the text of its parent item starts (CommonMark):
+    # 2 spaces after '- ', but 3 after '1. ' and 4 after '10. '
+    if list_positions is None:
+        list_positions = {}
+    outer = next(item.iterancestors("item"), None)
+    if outer is not None:
+        indent = " " * len(_list_marker(outer, include_formatting, list_positions))
+    else:
+        indent = "  " * (sum(1 for _ in item.iterancestors("list")) - 1)
     parent = item.getparent()
     # numbering is markdown-only: in plain text it injects digit tokens, so fall back to '-'
     if include_formatting and parent is not None and parent.get("rend") == "ol":
-        return f"{indent}{sum(1 for _ in item.itersiblings('item', preceding=True)) + 1}. "
+        # Cache direct item numbers once per list, including those needed for nested markers.
+        if item not in list_positions:
+            position = 1
+            for child in parent.iterchildren():
+                list_positions[child] = position
+                if child.tag == "item":
+                    position += 1
+        return f"{indent}{list_positions[item]}. "
+    if parent is not None and parent.get("rend") == "dl" and (item.get("rend") or "").startswith("dd-"):
+        # description list: the definition continues under its term, no bullet (GH #4)
+        return f"{indent}  "
     return f"{indent}- "
 
 
@@ -639,7 +688,8 @@ def replace_element_text(element: _Element, include_formatting: bool, in_cell: b
                     elem_text = f"{elem_text}\n{lb.tail or ''}"
                     lb.getparent().remove(lb)
                 fence = _code_fence(elem_text, min_len=3)
-                elem_text = f"{fence}\n{elem_text}\n{fence}\n"
+                language = element.get("rend") or ""
+                elem_text = f"{fence}{language}\n{elem_text}\n{fence}\n"
             else:
                 elem_text = _md_code(elem_text)
     # handle links
@@ -672,7 +722,12 @@ def _append_spaced(returnlist: list[str], text: str) -> None:
 
 
 def _append_tail(
-    element: _Element, returnlist: list[str], in_cell: bool, in_item: bool, include_formatting: bool = False
+    element: _Element,
+    returnlist: list[str],
+    in_cell: bool,
+    in_item: bool,
+    include_formatting: bool = False,
+    list_positions: dict[_Element, int] | None = None,
 ) -> None:
     "Append the element's tail."
     tail = element.tail
@@ -681,7 +736,7 @@ def _append_tail(
     parent = element.getparent()
     if include_formatting and element.tag == "list" and in_item and not in_cell and parent is not None and tail.strip():
         # blank line and parent item indent, else CommonMark continues the last sub-item
-        returnlist.append(f"\u2424\n{' ' * len(_list_marker(parent))}{tail.strip()}")
+        returnlist.append(f"\u2424\n{' ' * len(_list_marker(parent, list_positions=list_positions))}{tail.strip()}")
         return
     if in_cell or in_item or element.tag == "list":
         core = tail.strip()
@@ -705,20 +760,36 @@ def process_element(
     include_formatting: bool,
     in_cell: bool = False,
     in_item: bool = False,
+    list_positions: dict[_Element, int] | None = None,
+    quote_body: bool = False,
 ) -> None:
     "Recursively convert a LXML element and its children to a flattened string representation."
+    if list_positions is None:
+        list_positions = {}
+    tag = element.tag
+    # only a real quotation gets the '>' marker, not preformatted text (rend="pre")
+    if (
+        tag == "quote"
+        and include_formatting
+        and not in_cell
+        and not in_item
+        and not quote_body
+        and element.get("rend") != "pre"
+    ):
+        _process_quote(element, returnlist, list_positions)
+        return
     # in_cell/in_item are inherited down the recursion instead of re-walking ancestors at every node
-    in_cell = in_cell or element.tag == "cell"
-    in_item = in_item or element.tag == "item"
-    if element.tag == "cell" and element.getprevious() is None:
+    in_cell = in_cell or tag == "cell"
+    in_item = in_item or tag == "item"
+    if tag == "cell" and element.getprevious() is None:
         returnlist.append("| ")
 
     # a block element starts on its own line, not mashed onto preceding loose text (#661)
-    if element.tag in NEWLINE_ELEMS and not in_cell and not in_item and _last_char(returnlist) not in SEPARATORS:
+    if tag in NEWLINE_ELEMS and not in_cell and not in_item and _last_char(returnlist) not in SEPARATORS:
         returnlist.append("\n")
     # flattened into an item or cell, it still needs a separator
     elif (
-        element.tag in ("head", "p", "quote", "table")
+        tag in ("head", "p", "quote", "table")
         and not _last_char(returnlist).isspace()
         and _last_char(returnlist) not in SEPARATORS
         and (element.text or len(element) == 0 or element[0].tag != "lb")
@@ -728,65 +799,98 @@ def process_element(
     _consumes_children = _consumes_inline_children(element)
     _renders_inline = bool(element.text) or _consumes_children
 
-    if element.tag == "item" and not in_cell and _item_needs_marker(element):
-        returnlist.append(_list_marker(element, include_formatting))
+    if tag == "item" and not in_cell and _item_needs_marker(element):
+        returnlist.append(_list_marker(element, include_formatting, list_positions))
 
     # whitespace-only item text would split the marker from the content
-    if _renders_inline and (element.tag != "item" or _consumes_children or text_chars_test(element.text)):
+    if _renders_inline and (tag != "item" or _consumes_children or text_chars_test(element.text)):
         returnlist.append(_escape_cell(replace_element_text(element, include_formatting, in_cell), in_cell))
-    elif include_formatting and element.tag == "head" and not in_cell and len(element):
+    elif include_formatting and tag == "head" and not in_cell and len(element):
         # heading starting with an inline child still needs its # prefix (children render below)
         returnlist.append(f"{_heading_prefix(element)} ")
 
     # a sublist starts on its own line, not mashed onto the parent item
-    if element.tag == "list" and in_item and _last_char(returnlist) not in ("\n", ""):
+    if tag == "list" and in_item and _last_char(returnlist) not in ("\n", ""):
         returnlist.append("\n")
 
     if not _consumes_children:
         for child in element:
-            process_element(child, returnlist, include_formatting, in_cell, in_item)
+            process_element(child, returnlist, include_formatting, in_cell, in_item, list_positions)
 
     if not _renders_inline:
-        if element.tag == "graphic":
+        if tag == "graphic":
             returnlist.append(_escape_cell(_image_markup(element, include_formatting), in_cell))
             if element.tail:
                 returnlist.append(_escape_cell(f" {element.tail.strip()}", in_cell))
         # newlines for textless elements
-        elif element.tag in NEWLINE_ELEMS:
+        elif tag in NEWLINE_ELEMS:
             # add line after table head
-            if element.tag == "row":
+            if tag == "row":
                 cells = element.findall("cell")
                 # rows are materialized to full width upstream; draw the head separator below
                 if any(cell.get("role") == "head" for cell in cells):
                     returnlist.append(f"\n|{'---|' * len(cells)}\n")
             # block elements inside a cell must not inject a row-breaking newline,
             # a leading line break in an item must not split the marker from the text
-            elif not in_cell and not (element.tag == "lb" and in_item and _opens_item(element)):
+            elif not in_cell and not (tag == "lb" and in_item and _opens_item(element)):
                 returnlist.append("\n")
-        elif element.tag not in ("cell", "item"):
-            # cells still need to append vertical bars
-            if in_cell:
-                _append_tail(element, returnlist, in_cell, in_item)
+        elif tag not in ("cell", "item"):
+            # a textless inline element still carries its tail: an empty permalink
+            # anchor must not swallow the heading text that follows it (#1024);
+            # whitespace-only tails only matter inside cells
+            if in_cell or text_chars_test(element.tail):
+                _append_tail(element, returnlist, in_cell, in_item, include_formatting, list_positions)
             return
 
     last_in_item = in_item and _closes_container(element, "item")
     last_in_cell = in_cell and _closes_container(element, "cell")
-    if element.tag in NEWLINE_ELEMS and not in_cell and not in_item:
-        returnlist.append("\n\u2424\n" if include_formatting and element.tag != "row" else "\n")
-    elif element.tag == "cell":
+    if tag in NEWLINE_ELEMS and not in_cell and not in_item:
+        returnlist.append("\n\u2424\n" if include_formatting and tag != "row" else "\n")
+    elif tag == "cell":
         returnlist.append(" | ")
-    elif element.tag in ("head", "item") and in_cell and not last_in_cell:
+    elif tag in ("head", "item") and in_cell and not last_in_cell:
         # separate flattened block elements inside a cell (e.g. list items) instead of mashing them
         _append_spaced(returnlist, " ")
-    elif element.tag not in SPECIAL_FORMATTING and not last_in_item and not last_in_cell:
+    elif tag not in SPECIAL_FORMATTING and not last_in_item and not last_in_cell:
         _append_spaced(returnlist, " ")
 
-    if element.tag != "graphic":  # graphic tail already handled above
-        _append_tail(element, returnlist, in_cell, in_item, include_formatting)
+    if tag != "graphic":  # graphic tail already handled above
+        _append_tail(element, returnlist, in_cell, in_item, include_formatting, list_positions)
 
     # deal with list items alone
     if last_in_item and not in_cell:
         returnlist.append("\n")
+
+
+def _process_quote(element: _Element, returnlist: list[str], list_positions: dict[_Element, int]) -> None:
+    "Render a quote on its own and mark each of its lines with '>', its tail stays outside."
+    if _last_char(returnlist) not in ("\n", ""):
+        returnlist.append("\n")
+    tail, element.tail = element.tail, None
+    quoted: list[str] = []
+    process_element(element, quoted, True, list_positions=list_positions, quote_body=True)
+    element.tail = tail
+    # same line rules as sanitize(): empty lines go, a paragraph break becomes a bare '>'
+    lines: list[str] = []
+    for line in filter(None, "".join(quoted).splitlines()):
+        if line.strip("\u2424"):
+            lines.append(f"> {line}")
+        elif lines and lines[-1] != ">":
+            lines.append(">")
+    while lines and lines[-1] == ">":
+        lines.pop()
+    returnlist.append("\n".join(lines))
+    returnlist.append("\n\u2424\n")
+    _append_tail(element, returnlist, False, False, True, list_positions)
+
+
+def _unescape_text(text: str) -> str:
+    "Decode complete entities without interpreting unknown names as entity prefixes."
+    if "&" not in text:
+        return text
+    return _HTML_ENTITY_RE.sub(
+        lambda match: unescape(match[0]) if match[1].startswith("#") else html5.get(match[1], match[0]), text
+    )
 
 
 def xmltotxt(xmloutput: _Element | None, include_formatting: bool) -> str:
@@ -796,16 +900,26 @@ def xmltotxt(xmloutput: _Element | None, include_formatting: bool) -> str:
 
     returnlist: list[str] = []
 
+    # Decode double-encoded prose before Markdown escaping, preserving URL attributes and the caller's tree.
+    xmloutput = deepcopy(xmloutput)
+    for element in xmloutput.iter():
+        if element.text:
+            element.text = _unescape_text(element.text)
+        if element.tail:
+            element.tail = _unescape_text(element.tail)
+        if element.tag == "graphic":
+            for attribute in ("title", "alt"):
+                if value := element.get(attribute):
+                    element.set(attribute, _unescape_text(value))
+
     if include_formatting:
-        # math rewrite, special-char escaping, emphasis collapse, lb removal mutate the tree; protect caller's copy
-        xmloutput = deepcopy(xmloutput)
         _escape_and_convert_math_tree(xmloutput)
         _collapse_emphasis(xmloutput)
         _merge_adjacent_hi(xmloutput)
         _strip_block_whitespace(xmloutput)
     process_element(xmloutput, returnlist, include_formatting)
 
-    return unescape(sanitize("".join(returnlist), True) or "")
+    return sanitize("".join(returnlist), True) or ""
 
 
 def xmltocsv(document: Document, include_formatting: bool, *, delim: str = "\t", null: str = "null") -> str:
@@ -834,6 +948,13 @@ def xmltocsv(document: Document, include_formatting: bool, *, delim: str = "\t",
                 commentstext,
                 document.license,
                 document.pagetype,
+                document.author,
+                document.description,
+                document.sitename,
+                ";".join(document.categories or []),
+                ";".join(document.tags or []),
+                document.language,
+                document.filedate,
             )
         ]
     )
@@ -855,7 +976,11 @@ def write_teitree(docmeta: Document) -> _Element:
 
 def _define_publisher_string(docmeta: Document) -> str:
     """Construct a publisher string to include in TEI header"""
-    if docmeta.hostname and docmeta.sitename:
+    if (
+        docmeta.hostname
+        and docmeta.sitename
+        and docmeta.sitename.strip().lower().removeprefix("www.") != docmeta.hostname.lower().removeprefix("www.")
+    ):
         publisher = f"{docmeta.sitename.strip()} ({docmeta.hostname})"
     else:
         publisher = docmeta.hostname or docmeta.sitename or "N/A"
@@ -866,7 +991,6 @@ def _define_publisher_string(docmeta: Document) -> str:
 
 def write_fullheader(teidoc: _Element, docmeta: Document) -> _Element:
     """Write TEI header based on gathered metadata"""
-    # todo: add language info
     header = SubElement(teidoc, "teiHeader")
     filedesc = SubElement(header, "fileDesc")
     bib_titlestmt = SubElement(filedesc, "titleStmt")
@@ -889,6 +1013,10 @@ def write_fullheader(teidoc: _Element, docmeta: Document) -> _Element:
     if docmeta.id:
         SubElement(notesstmt, "note", type="id").text = docmeta.id
     SubElement(notesstmt, "note", type="fingerprint").text = docmeta.fingerprint
+    if docmeta.image:
+        SubElement(notesstmt, "note", type="image").text = docmeta.image
+    if docmeta.pagetype:
+        SubElement(notesstmt, "note", type="pagetype").text = docmeta.pagetype
 
     sourcedesc = SubElement(filedesc, "sourceDesc")
     source_bibl = SubElement(sourcedesc, "bibl")
@@ -915,13 +1043,17 @@ def write_fullheader(teidoc: _Element, docmeta: Document) -> _Element:
     abstract = SubElement(profiledesc, "abstract")
     SubElement(abstract, "p").text = docmeta.description
 
+    if docmeta.language:
+        langusage = SubElement(profiledesc, "langUsage")
+        SubElement(langusage, "language", ident=docmeta.language).text = docmeta.language
+
     if docmeta.categories or docmeta.tags:
         textclass = SubElement(profiledesc, "textClass")
         keywords = SubElement(textclass, "keywords")
-        if docmeta.categories:
-            SubElement(keywords, "term", type="categories").text = ",".join(docmeta.categories)
-        if docmeta.tags:
-            SubElement(keywords, "term", type="tags").text = ",".join(docmeta.tags)
+        for category in docmeta.categories or []:
+            SubElement(keywords, "term", type="categories").text = category
+        for tag in docmeta.tags or []:
+            SubElement(keywords, "term", type="tags").text = tag
 
     creation = SubElement(profiledesc, "creation")
     SubElement(creation, "date", type="download").text = docmeta.filedate

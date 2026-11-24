@@ -28,9 +28,11 @@ from panel.depends import bind
 from panel.layout import (
     Column, FlexBox, HSpacer, Row,
 )
-from panel.pane import HoloViews, PaneBase, panel
+from panel.pane import (
+    HoloViews, Interactive, Markdown, PaneBase, panel,
+)
 from panel.tests.util import hv_available, mpl_available
-from panel.theme import Native
+from panel.theme import Fast, Material, Native
 from panel.util.warnings import PanelDeprecationWarning
 from panel.widgets import (
     Checkbox, DiscreteSlider, EditableFloatSlider, FloatInput, IntInput,
@@ -261,6 +263,24 @@ def test_holoviews_pane_inherits_design_stylesheets(document, comm):
     plotly_model = row.children[0]
 
     assert len(plotly_model.stylesheets) == 6
+
+@hv_available
+def test_holoviews_pane_design_change_after_render(document):
+    pane = HoloViews(hv.Curve([1, 2, 3]), backend='bokeh', design=Fast)
+    row = pane.get_root(document)
+
+    pane.design = Material
+    pane.width = 300
+
+    assert row.children[0].width == 300
+
+
+def test_interactive_pane_empty_with_design(document):
+    pane = Interactive(design=Fast)
+    row = pane.get_root(document)
+
+    assert isinstance(row.children[0], BkSpacer)
+
 
 @hv_available
 def test_holoviews_widgets_from_dynamicmap(document, comm):
@@ -544,6 +564,23 @@ def test_holoviews_layouts(document, comm):
 
 
 @hv_available
+def test_holoviews_widget_layout_accepts_listlike(document, comm):
+    dmap = hv.DynamicMap(lambda X: hv.Curve([X]), kdims=['X']).redim.values(X=[0, 1, 2])
+    hv_pane = HoloViews(dmap, widget_layout=FlexBox)
+
+    assert isinstance(hv_pane.widget_box, FlexBox)
+    assert isinstance(hv_pane.widget_box[0], DiscreteSlider)
+    hv_pane.get_root(document, comm=comm)
+
+
+@hv_available
+def test_holoviews_widget_layout_rejects_non_layout():
+    dmap = hv.DynamicMap(lambda X: hv.Curve([X]), kdims=['X']).redim.values(X=[0, 1, 2])
+    with pytest.raises(ValueError):
+        HoloViews(dmap, widget_layout=DiscreteSlider)
+
+
+@hv_available
 def test_holoviews_widgets_from_holomap():
     hmap = hv.HoloMap({(i, chr(65+i)): hv.Curve([i]) for i in range(3)}, kdims=['X', 'Y'])
 
@@ -558,6 +595,30 @@ def test_holoviews_widgets_from_holomap():
     assert widgets[1].label == 'Y'
     assert widgets[1].options == ['A', 'B', 'C']
     assert widgets[1].value == 'A'
+
+
+@hv_available
+def test_holoviews_widgets_from_holomap_non_unique_labels():
+    kdim = hv.Dimension('X', value_format=lambda x: f'{x:.2f}')
+    keys = np.linspace(0, 0.15, 50)
+    hmap = hv.HoloMap({k: hv.Curve([k]) for k in keys}, kdims=[kdim])
+
+    widgets, _ = HoloViews.widgets_from_dimensions(hmap)
+
+    assert isinstance(widgets[0], DiscreteSlider)
+    assert len(widgets[0].options) == len(keys)
+    assert list(widgets[0].options.values()) == list(keys)
+    assert widgets[0].value == keys[0]
+
+
+@hv_available
+def test_holoviews_widgets_from_holomap_unique_labels_are_formatted():
+    kdim = hv.Dimension('X', value_format=lambda x: f'{x:.1f}')
+    hmap = hv.HoloMap({k: hv.Curve([k]) for k in (0.1, 0.2, 0.3)}, kdims=[kdim])
+
+    widgets, _ = HoloViews.widgets_from_dimensions(hmap)
+
+    assert widgets[0].options == {'0.1': 0.1, '0.2': 0.2, '0.3': 0.3}
 
 
 @hv_available
@@ -816,6 +877,60 @@ def test_holoviews_link_after_adding_item(document, comm):
 
 @pytest.mark.usefixtures("hv_bokeh")
 @hv_available
+def test_holoviews_link_after_adding_nested_item(document, comm):
+    from bokeh.models.tools import RangeTool
+    from holoviews.plotting.links import RangeToolLink
+
+    c1 = hv.Curve([])
+    c2 = hv.Curve([])
+
+    RangeToolLink(c1, c2)
+
+    layout = Row(pn.panel(c1, backend='bokeh'), Markdown('A'))
+    row = layout.get_root(document, comm=comm)
+    assert row.select_one({'type': RangeTool}) is None
+
+    layout.append(Column(Markdown('B'), pn.panel(c2, backend='bokeh')))
+
+    p2 = row.children[-1].children[-1]
+    range_tool = row.select_one({'type': RangeTool})
+    assert isinstance(range_tool, RangeTool)
+    assert range_tool.x_range == p2.x_range
+
+
+@pytest.mark.usefixtures("hv_bokeh")
+@hv_available
+def test_holoviews_linked_axes_after_adding_item(document, comm):
+    c1 = hv.Curve([1, 2, 3])
+    c2 = hv.Curve([1, 2, 3])
+
+    layout = Row(HoloViews(c1, backend='bokeh'), Markdown('A'))
+    row_model = layout.get_root(document, comm=comm)
+
+    layout.append(Column(HoloViews(c2, backend='bokeh')))
+
+    p1, p2 = row_model.select({'type': figure})
+    assert p1.x_range is p2.x_range
+    assert p1.y_range is p2.y_range
+
+
+@pytest.mark.usefixtures("hv_bokeh")
+@hv_available
+def test_holoviews_linked_axes_unaffected_by_unrelated_append(document, comm):
+    c1 = hv.Curve([1, 2, 3])
+    c2 = hv.Curve([1, 2, 3])
+
+    layout = Row(HoloViews(c1, backend='bokeh'), HoloViews(c2, backend='bokeh'))
+    row_model = layout.get_root(document, comm=comm)
+    layout.append(Markdown('A'))
+
+    p1, p2 = row_model.select({'type': figure})
+    assert p1.x_range is p2.x_range
+    assert p1.y_range is p2.y_range
+
+
+@pytest.mark.usefixtures("hv_bokeh")
+@hv_available
 def test_holoviews_link_within_pane(document, comm):
     from bokeh.models.tools import RangeTool
     from holoviews.plotting.links import RangeToolLink
@@ -910,3 +1025,28 @@ def test_single_datetime_value():
     assert isinstance(widget, Select)
     assert widget.options == {"2020-01-01 12:15:54": ts}
     assert widget.value == ts
+
+
+@pytest.mark.usefixtures("hv_mpl")
+@mpl_available
+@hv_available
+def test_holoviews_pane_mpl_uses_default_renderer_dpi(document, comm):
+    hmap = hv.HoloMap({1: hv.Curve([1, 2, 3]), 2: hv.Curve([1, 2, 3])}, kdims="frame")
+    pane = HoloViews(hmap, backend="matplotlib")
+    pane.get_root(document, comm=comm)
+
+    _, child_pane = next(iter(pane._plots.values()))
+    assert child_pane.dpi == hv.Store.renderers["matplotlib"].dpi
+
+
+@pytest.mark.usefixtures("hv_mpl")
+@mpl_available
+@hv_available
+def test_holoviews_pane_mpl_inherits_renderer_dpi(document, comm):
+    hmap = hv.HoloMap({1: hv.Curve([1, 2, 3]), 2: hv.Curve([1, 2, 3])}, kdims="frame")
+    renderer = hv.renderer("matplotlib").instance(dpi=100)
+    pane = HoloViews(hmap, backend="matplotlib", renderer=renderer)
+    pane.get_root(document, comm=comm)
+
+    _, child_pane = next(iter(pane._plots.values()))
+    assert child_pane.dpi == 100

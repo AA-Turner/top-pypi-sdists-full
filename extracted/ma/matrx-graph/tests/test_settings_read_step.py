@@ -25,7 +25,7 @@ async def test_reads_the_value_for_the_runs_organization() -> None:
 
     async def _reader(feature: str, key: str, org: str | None, user: str | None = None) -> Any:
         seen.append((feature, key, org))
-        return 5
+        return 5, "organization"
 
     settings.set_setting_reader(_reader)
     res = await SettingReadExecutor().execute(
@@ -33,7 +33,7 @@ async def test_reads_the_value_for_the_runs_organization() -> None:
         SettingReadInput(feature="research.deep_research_workflow", key="search_result_pages"),
         SettingReadConfig(),
     )
-    assert res.result.value == 5
+    assert res.result.value == 5 and res.result.source == "organization"
     assert seen == [("research.deep_research_workflow", "search_result_pages", "org-1")]
 
 
@@ -104,7 +104,7 @@ async def test_one_key_and_whole_feature_answer_the_same_with_a_user_override() 
     truth = {"limit": (7, "user")}
 
     async def _one(feature: str, key: str, org: str | None, user: str | None = None) -> Any:
-        return truth[key][0] if user == "user-1" else 3
+        return truth[key] if user == "user-1" else (3, "platform")
 
     async def _all(feature: str, org: str | None, user: str | None) -> Any:
         return truth if user == "user-1" else {"limit": (3, "platform")}
@@ -118,3 +118,37 @@ async def test_one_key_and_whole_feature_answer_the_same_with_a_user_override() 
     finally:
         settings.set_feature_settings_reader(None)
     assert one.result.value == whole.result.value["limit"]["value"] == 7
+    assert one.result.source == whole.result.value["limit"]["source"] == "user"
+
+
+@pytest.mark.asyncio
+async def test_organization_only_skips_the_persons_override_and_says_where_the_value_came_from() -> None:
+    """``organization_only`` resolves as the run's organization: the person is never passed to the reader (one
+    key or the whole feature), so a person's own override cannot change the value server code reads for the org."""
+    seen: list[tuple[str | None, str | None]] = []
+
+    async def _one(feature: str, key: str, org: str | None, user: str | None = None) -> Any:
+        seen.append((org, user))
+        return (0.9, "user") if user else (0.5, "organization")
+
+    async def _all(feature: str, org: str | None, user: str | None) -> Any:
+        seen.append((org, user))
+        return {"floor": (0.9, "user")} if user else {"floor": (0.5, "organization")}
+
+    settings.set_setting_reader(_one)
+    settings.set_feature_settings_reader(_all)
+    try:
+        ctx = SimpleNamespace(organization_id="org-1", user_id="user-1")
+        person = await SettingReadExecutor().execute(ctx, SettingReadInput(feature="f", key="floor"), SettingReadConfig())  # type: ignore[arg-type]
+        org = await SettingReadExecutor().execute(
+            ctx, SettingReadInput(feature="f", key="floor", organization_only=True), SettingReadConfig()  # type: ignore[arg-type]
+        )
+        whole = await SettingReadExecutor().execute(
+            ctx, SettingReadInput(feature="f", organization_only=True), SettingReadConfig()  # type: ignore[arg-type]
+        )
+    finally:
+        settings.set_feature_settings_reader(None)
+    assert (person.result.value, person.result.source) == (0.9, "user")
+    assert (org.result.value, org.result.source) == (0.5, "organization")
+    assert whole.result.value == {"floor": {"value": 0.5, "source": "organization"}}
+    assert seen == [("org-1", "user-1"), ("org-1", None), ("org-1", None)]

@@ -33,6 +33,7 @@ const ctx = {
   webrtc: { input: { keyboard, detach_context() {}, attach_context() {} }, sendDataChannelMessage() {} },
   signalling: {}, app: {},
   addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+  setTimeout() {},
   focus() {},
 };
 ctx.window = ctx; ctx.parent = ctx;
@@ -90,6 +91,7 @@ const ctx = {
   webrtc: { input: { keyboard, detach_context() {}, attach_context() {} }, sendDataChannelMessage() {} },
   signalling: {}, app: {},
   addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+  setTimeout() {},
   focus() {},
 };
 ctx.window = ctx; ctx.parent = ctx;

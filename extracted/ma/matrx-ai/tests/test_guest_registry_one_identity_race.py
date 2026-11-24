@@ -133,8 +133,8 @@ async def test_concurrent_backfill_returns_one_identity_and_records_the_loser(
     row = table.add(fingerprint=FP)  # one of the 168,888 identity-less rows
 
     a, b = await asyncio.gather(
-        guest_registry.resolve_guest_uuid(FP),
-        guest_registry.resolve_guest_uuid(FP),
+        guest_registry._resolve_guest_uuid_unlocked(FP),
+        guest_registry._resolve_guest_uuid_unlocked(FP),
     )
 
     assert len(gotrue.minted) == 2  # both raced into GoTrue
@@ -150,8 +150,8 @@ async def test_concurrent_first_visits_return_one_identity_and_record_the_loser(
     table: _Table, gotrue: _GoTrue, recorded: list[dict[str, Any]]
 ) -> None:
     a, b = await asyncio.gather(
-        guest_registry.resolve_guest_uuid(FP),
-        guest_registry.resolve_guest_uuid(FP),
+        guest_registry._resolve_guest_uuid_unlocked(FP),
+        guest_registry._resolve_guest_uuid_unlocked(FP),
     )
 
     (row,) = table.rows.values()
@@ -181,3 +181,16 @@ async def test_first_visit_racing_an_identity_less_row_claims_it(
 
     (row,) = table.rows.values()
     assert resolved == gotrue.minted[0] == row.auth_user_id
+
+
+@pytest.mark.asyncio
+async def test_same_process_first_requests_mint_exactly_one_user(
+    table: _Table, gotrue: _GoTrue, recorded: list[dict[str, Any]]
+) -> None:
+    """The public door serializes one fingerprint: six concurrent first requests mint ONE user, no orphan."""
+    ids = await asyncio.gather(*(guest_registry.resolve_guest_uuid(FP) for _ in range(6)))
+
+    assert len(set(ids)) == 1
+    assert len(gotrue.minted) == 1
+    assert recorded == []
+    assert guest_registry._FINGERPRINT_LOCKS == {}

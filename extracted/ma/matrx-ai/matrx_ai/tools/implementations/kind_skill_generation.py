@@ -45,12 +45,28 @@ def skill_description(kd: Any) -> str:
     return shape_description(kd) or generic_description(kd.kind)
 
 
+def _without_blank_kinds(value: Any) -> Any:
+    """The example with every BLANK ``"__kind": ""`` removed (content-ir rule 31: a kind is
+    NAMED or ABSENT; a nested non-kind carries no ``__kind``). A stored canonical example
+    still carries blanks stamped on its nested objects; a skill must never teach them."""
+    if isinstance(value, dict):
+        return {
+            k: _without_blank_kinds(v)
+            for k, v in value.items()
+            if not (k == "__kind" and isinstance(v, str) and not v.strip())
+        }
+    if isinstance(value, list):
+        return [_without_blank_kinds(v) for v in value]
+    return value
+
+
 def render_skill_body(kd: Any, canonical_example: Any, extra_guidance: str | None) -> str:
     """House-format render_block skill body: what it is, the shape with a real example,
     field notes, and the JSON syntax rules."""
     example_obj: dict[str, Any] = {"__kind": kd.kind}
     if isinstance(canonical_example, dict):
-        example_obj.update(canonical_example)
+        example_obj.update(_without_blank_kinds(canonical_example))
+        example_obj["__kind"] = kd.kind
     example_json = json.dumps(example_obj, indent=2, ensure_ascii=False)
 
     schema = kd.emitted_json_schema if isinstance(kd.emitted_json_schema, dict) else {}
@@ -84,6 +100,24 @@ def render_skill_body(kd: Any, canonical_example: Any, extra_guidance: str | Non
         f"5. Match the schema exactly — include every required field; do not invent keys.\n"
         f"{guidance}"
     )
+
+
+def teaching_example(kd: Any, canonical_example: Any) -> Any:
+    """The example a shape's skill teaches: its canonical example, else one built from its
+    emitted JSON schema (chat-agent-skills F2: 764 shapes had a schema but no example, so the
+    weekly job skipped them and they had no skill). ``None`` only when neither exists."""
+    if isinstance(canonical_example, dict):
+        return canonical_example
+    schema = getattr(kd, "emitted_json_schema", None)
+    if not isinstance(schema, dict) or not schema.get("properties"):
+        return None
+    try:
+        from matrx_graph.contract_kinds import example_from_schema
+
+        built = example_from_schema(schema)
+    except Exception:  # noqa: BLE001 — an exotic schema gets no example, never a crash
+        return None
+    return built if isinstance(built, dict) else None
 
 
 def body_hash(body: str) -> str:

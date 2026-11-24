@@ -16,6 +16,7 @@ class Llama3(ChatTemplate):
     name = "llama3"
     control_tokens = (BEGIN, END_OF_TEXT, HEADER_OPEN, HEADER_CLOSE, END_OF_TURN, END_OF_MESSAGE, PYTHON_TAG)
     role_markers = (HEADER_OPEN, END_OF_TURN, END_OF_MESSAGE)
+    message_starts = (HEADER_OPEN,)
 
     def read_messages(self, text: str, *, role: str) -> list[dict]:
         pieces = text.replace(BEGIN, "").split(HEADER_OPEN)

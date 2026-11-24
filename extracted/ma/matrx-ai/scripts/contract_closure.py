@@ -261,7 +261,6 @@ def main() -> int:
     for cls in closure:
         groups.setdefault(classify(cls), []).append(cls)
 
-    total_dc_in_pkg = None
     print("CONTRACT CLOSURE — transitive from UnifiedConfig, UnifiedMessage, UnifiedResponse\n")
     for kind in sorted(groups, key=lambda k: -len(groups[k])):
         members = sorted(groups[kind], key=lambda c: (c.__module__, c.__name__))

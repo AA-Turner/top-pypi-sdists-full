@@ -12,6 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from probe.sdk.catalog.environments import SAMPLE_LABEL_NAME, SAMPLE_LABEL_VERSION
+
 from .. import _rl_owner
 
 #: SkyRL's Harbor generator (`harbor_generator.py:223`) and the method that runs one trajectory's trials (`:360`).
@@ -30,6 +32,8 @@ class HarborTrajectory:
     scenario: Mapping[str, Any]
     #: The trial broke (an exception): Harbor's part names why, so SkyRL's rows leave their own guess out.
     has_error: bool
+    #: Harbor's part's `environment_name` / `environment_version`: SkyRL's rows copy them, never re-spell them.
+    environment: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -118,7 +122,8 @@ class HarborJoin:
             if isinstance(step, Mapping)]
         self._found[id(trajectory_id)] = (trajectory_id, HarborTrajectory(
             key=last.attempt.key, task_key=str(head.get("task_key")), scenario=dict(head.get("scenario") or {}),
-            has_error=any(isinstance(error, Mapping) and error.get("exception_type") for error in errors)))
+            has_error=any(isinstance(error, Mapping) and error.get("exception_type") for error in errors),
+            environment={name: head[name] for name in (SAMPLE_LABEL_NAME, SAMPLE_LABEL_VERSION) if head.get(name)}))
 
 
 def _load_trial_hook() -> Any:

@@ -81,12 +81,10 @@ class MetadataDetector(Detector):
         # Open PyMuPDF doc once and cache for everyone downstream.
         pymupdf = load_pymupdf()
         doc = ctx.cache.get("pymupdf_doc")
-        opened_here = False
         if doc is None:
             doc = pymupdf.open(stream=ctx.bytes_in_memory, filetype="pdf")
             ctx.cache["pymupdf_doc"] = doc
             ctx.cache["pymupdf_close_owner"] = True
-            opened_here = True
 
         info = dict(doc.metadata or {})
         page_dims = []

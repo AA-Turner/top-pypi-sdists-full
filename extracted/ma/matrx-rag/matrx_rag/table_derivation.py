@@ -46,6 +46,7 @@ class TableDerivationResult:
     derivative_outcome: str | None
 
 
+# returns-temp-path(file): _fetch_pdf_to_temp's caller removes it
 def _decode_b64_pdf_to_temp(b64: str) -> str:
     """CPU + disk work for a resolved PDF — must run off the event loop."""
     import base64
@@ -56,6 +57,7 @@ def _decode_b64_pdf_to_temp(b64: str) -> str:
         return tmp.name
 
 
+# returns-temp-path(file): the caller unlinks it in a finally
 async def _fetch_pdf_to_temp(cld_file_id: str) -> str:
     """Resolve a cld_file's bytes through the canonical FileManager and write
     them to a temp file. Mirrors ingestion._maybe_dispatch_pdf's fetch so the

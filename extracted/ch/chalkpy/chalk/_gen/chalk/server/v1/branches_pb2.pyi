@@ -1,6 +1,7 @@
 from chalk._gen.chalk.artifacts.v1 import export_pb2 as _export_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as _deployment_pb2
+from chalk._gen.chalk.utils.v1 import large_pb2 as _large_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -93,10 +94,12 @@ class GetBranchWithLatestDeploymentResponse(_message.Message):
     ) -> None: ...
 
 class DeleteBranchRequest(_message.Message):
-    __slots__ = ("name",)
+    __slots__ = ("name", "names")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    NAMES_FIELD_NUMBER: _ClassVar[int]
     name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
+    names: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, name: _Optional[str] = ..., names: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class DeleteBranchResponse(_message.Message):
     __slots__ = ()

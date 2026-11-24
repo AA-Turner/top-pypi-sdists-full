@@ -21,7 +21,7 @@ Usage:
     uv run python packages/matrx-ai/scripts/export_conformance_corpus.py --out corpus/wire
 
 Requires DIRECT Postgres egress. A cloud agent container whose egress is
-proxy-only cannot reach the pooler and will time out in ``asyncpg.connect`` —
+proxy-only cannot reach the pooler and will time out in the database connect —
 run this from a machine with real DB access, or reproduce the coverage report
 with the equivalent SQL through the Supabase MCP (the query is mirrored in
 common-docs `projects/agent-engine-extraction/CORPUS.md`).
@@ -33,7 +33,6 @@ import argparse
 import asyncio
 import hashlib
 import json
-import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -105,30 +104,22 @@ def shape_key(unified: dict, request: dict, provider: str, model: str) -> str:
     return hashlib.sha256("::".join(feats).encode()).hexdigest()[:16]
 
 
-SQL = """
-select id::text, provider, model, unified_payload, request_payload
-from chat.request_snapshot
-where deleted_at is null
-  and unified_payload is not null and request_payload is not null
-  and unified_payload::text <> 'null' and request_payload::text <> 'null'
-order by created_at desc
-"""
-
-
 async def fetch() -> list[dict]:
-    import asyncpg
+    from aidream.package_integration import configure_packages
+    from db.models.chat import RequestSnapshot
 
-    dsn = (
-        f"postgresql://{os.environ['SUPABASE_MATRIX_USER']}:"
-        f"{os.environ['SUPABASE_MATRIX_PASSWORD']}@"
-        f"{os.environ['SUPABASE_MATRIX_HOST']}:{os.environ['SUPABASE_MATRIX_PORT']}/"
-        f"{os.environ['SUPABASE_MATRIX_DATABASE_NAME']}"
+    configure_packages()
+    fetched = (
+        await RequestSnapshot.filter(deleted_at__isnull=True)
+        .order_by("-created_at")
+        .values("id", "provider", "model", "unified_payload", "request_payload")
     )
-    conn = await asyncpg.connect(dsn, statement_cache_size=0)
-    try:
-        rows = await conn.fetch(SQL)
-    finally:
-        await conn.close()
+    # SQL NULL and a jsonb 'null' both decode to None.
+    rows = [
+        {**r, "id": str(r["id"])}
+        for r in fetched
+        if r["unified_payload"] is not None and r["request_payload"] is not None
+    ]
     out = []
     for r in rows:
         try:

@@ -15,6 +15,7 @@ import io
 import os
 import sys
 import tarfile
+import threading
 import traceback
 import zipfile
 import zlib
@@ -24,6 +25,9 @@ from typing import TYPE_CHECKING, Any, NoReturn
 import httpx
 import pytest
 import respx
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from nab_index.client import SdistHashMismatchError, extract_sdist_archive
 from nab_index.httpx_async_transport import HttpxAsyncTransport
@@ -32,7 +36,6 @@ from nab_index.transport import HttpError
 from nab_markersets._compat import get_int_max_str_digits
 from nab_project import _sources as sources
 from nab_project._sources import _fetch_archive_bytes, _SourceCopyError
-from nab_project._testing.coordinator_fake import make_coordinator
 from nab_project.download import (
     DownloadEntry,
     DownloadError,
@@ -42,10 +45,7 @@ from nab_project.download import (
 )
 from nab_project.fetch import FetchCoordinator
 from nab_project.lockfile import ArchivePin, LockInput, TargetLock
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
-from nab_provider.archive import ArchiveRequest, ArchiveRequestError
+from nab_provider.archive import ArchiveRequest
 from nab_provider.metadata import WheelMetadata
 from nab_provider.provider import (
     ArchiveSource,
@@ -55,6 +55,7 @@ from nab_provider.provider import (
     UnsupportedSdistError,
 )
 from nab_provider.target import ResolveTarget
+from nab_test_support.coordinator import make_coordinator
 
 requires_int_limit = pytest.mark.skipif(
     get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
@@ -292,118 +293,6 @@ requires_data_filter = pytest.mark.skipif(
     not hasattr(tarfile, "data_filter"),
     reason="sdist extraction requires the tar data filter (PEP 706)",
 )
-
-
-class TestArchiveRequestParse:
-    def test_url_hash_and_subdirectory(self) -> None:
-        req = ArchiveRequest.parse(
-            "https://ex.com/foo-1.0.tar.gz#sha256=abc&subdirectory=pkg"
-        )
-        assert req.url == "https://ex.com/foo-1.0.tar.gz"
-        assert req.hashes == (("sha256", "abc"),)
-        assert req.subdirectory == "pkg"
-
-    def test_unknown_fragment_key_raises(self) -> None:
-        with pytest.raises(ArchiveRequestError, match="unknown archive URL fragment"):
-            ArchiveRequest.parse("https://ex.com/foo.tar.gz#egg=foo")
-
-    def test_missing_equals_raises(self) -> None:
-        with pytest.raises(ArchiveRequestError, match="malformed archive URL fragment"):
-            ArchiveRequest.parse("https://ex.com/foo.tar.gz#sha256")
-
-    def test_empty_fragment_part_ignored(self) -> None:
-        req = ArchiveRequest.parse("https://ex.com/foo.tar.gz#sha256=abc&")
-        assert req.hashes == (("sha256", "abc"),)
-
-    def test_unescaped_space_rejected(self) -> None:
-        url = "https://ex.com/foo 1.0.tar.gz"
-        with pytest.raises(ArchiveRequestError) as excinfo:
-            ArchiveRequest.parse(f"{url}#sha256=abc")
-        assert str(excinfo.value) == (
-            f"archive URL {url!r} contains an unescaped space;"
-            " percent-encode spaces as %20"
-        )
-
-    def test_percent_encoded_space_allowed(self) -> None:
-        req = ArchiveRequest.parse("https://ex.com/foo%201.0.tar.gz#sha256=abc")
-        assert req.url == "https://ex.com/foo%201.0.tar.gz"
-
-    def test_non_hex_digest_raises(self) -> None:
-        with pytest.raises(ArchiveRequestError, match="is not hexadecimal"):
-            ArchiveRequest.parse("https://ex.com/foo.tar.gz#sha256=not-a-digest")
-
-    def test_path_shaped_digest_raises(self) -> None:
-        """The digest names the extraction cache directory, so it cannot escape it."""
-        with pytest.raises(ArchiveRequestError, match="is not hexadecimal"):
-            ArchiveRequest.parse("https://ex.com/foo.tar.gz#sha256=../../x")
-
-    def test_empty_digest_kept_as_unusable(self) -> None:
-        req = ArchiveRequest.parse("https://ex.com/foo.tar.gz#sha256=")
-        assert req.hashes == (("sha256", ""),)
-        assert not req.has_usable_hash
-
-    def test_parent_subdirectory_rejected(self) -> None:
-        with pytest.raises(ArchiveRequestError, match="unsafe archive subdirectory"):
-            ArchiveRequest.parse(
-                "https://ex.com/foo.tar.gz#sha256=abc&subdirectory=../../etc"
-            )
-
-    @pytest.mark.parametrize(
-        "subdirectory", ["../source-root/demo", r"..\source-root\demo"]
-    )
-    def test_source_root_named_parent_escape_rejected(self, subdirectory: str) -> None:
-        with pytest.raises(ArchiveRequestError, match="unsafe archive subdirectory"):
-            ArchiveRequest.parse(
-                f"https://ex.com/foo.tar.gz#sha256=abc&subdirectory={subdirectory}"
-            )
-
-    def test_absolute_subdirectory_rejected(self) -> None:
-        with pytest.raises(ArchiveRequestError, match="unsafe archive subdirectory"):
-            ArchiveRequest.parse(
-                "https://ex.com/foo.tar.gz#sha256=abc&subdirectory=/etc"
-            )
-
-    def test_escaping_internal_dotdot_rejected(self) -> None:
-        with pytest.raises(ArchiveRequestError, match="unsafe archive subdirectory"):
-            ArchiveRequest.parse(
-                "https://ex.com/foo.tar.gz#sha256=abc&subdirectory=a/../../etc"
-            )
-
-    def test_contained_internal_dotdot_allowed(self) -> None:
-        # a/../b normalises to b, which stays inside the tree, so it is kept.
-        req = ArchiveRequest.parse(
-            "https://ex.com/foo.tar.gz#sha256=abc&subdirectory=a/../b"
-        )
-        assert req.subdirectory == "a/../b"
-
-    def test_backslash_escape_rejected(self) -> None:
-        # The join is native, so a backslash escapes on Windows; the ntpath
-        # containment check rejects it on every platform.
-        with pytest.raises(ArchiveRequestError, match="unsafe archive subdirectory"):
-            ArchiveRequest.parse(
-                "https://ex.com/foo.tar.gz#sha256=abc&subdirectory=..\\..\\etc"
-            )
-
-    def test_drive_subdirectory_rejected(self) -> None:
-        with pytest.raises(ArchiveRequestError, match="unsafe archive subdirectory"):
-            ArchiveRequest.parse(
-                "https://ex.com/foo.tar.gz#sha256=abc&subdirectory=C:\\other"
-            )
-
-    def test_contained_backslash_subdirectory_allowed(self) -> None:
-        # A backslash-separated path that stays inside the tree is kept.
-        req = ArchiveRequest.parse(
-            "https://ex.com/foo.tar.gz#sha256=abc&subdirectory=sub\\deeper"
-        )
-        assert req.subdirectory == "sub\\deeper"
-
-    def test_posix_backslash_parent_escape_rejected(self) -> None:
-        # On POSIX ``c\d`` is a single segment, so ``c\d/../..`` climbs above
-        # the source root even though ntpath alone reports it contained.
-        with pytest.raises(ArchiveRequestError, match="unsafe archive subdirectory"):
-            ArchiveRequest.parse(
-                "https://ex.com/foo.tar.gz#sha256=abc&subdirectory=c\\d/../.."
-            )
 
 
 class TestArchiveIndexing:
@@ -1176,6 +1065,47 @@ class TestWarmArchiveCache:
 
         with pytest.raises(SdistHashMismatchError):
             provider.fetch_versions("foo")
+
+    def test_completed_tree_published_during_download_is_reused(
+        self, tmp_path: Path
+    ) -> None:
+        data = _make_sdist("foo", "1.0.0", _PYPROJECT)
+        digest = hashlib.sha256(data).hexdigest()
+        source = ArchiveSource(
+            name="foo", url=f"https://ex.com/foo.tar.gz#sha256={digest}"
+        )
+        cache = tmp_path / "arch"
+        provider = _provider([source], cache)
+
+        def finish_download(package: str, key: str, _url: str) -> threading.Event:
+            _warm_extracted_tree(cache, digest)
+            provider.coordinator.index.store_sdist_archive(package, key, data)
+            ready = threading.Event()
+            ready.set()
+            return ready
+
+        provider.coordinator.override("request_direct_archive", finish_download)
+        assert str(provider.fetch_versions("foo")[0][0]) == "1.0.0"
+        assert (cache / digest / ".nab-hashes").read_text() == f"sha256={digest}"
+
+    def test_added_hash_can_be_reused_without_the_archive(self, tmp_path: Path) -> None:
+        data = _make_sdist("foo", "1.0.0", _PYPROJECT)
+        digest = hashlib.sha256(data).hexdigest()
+        sha512 = hashlib.sha512(data).hexdigest()
+        source = ArchiveSource(
+            name="foo",
+            url=f"https://ex.com/foo.tar.gz#sha256={digest}&sha512={sha512}",
+        )
+        cache = tmp_path / "arch"
+        _warm_extracted_tree(cache, digest)
+
+        first = _provider([source], cache)
+        first.coordinator.index.store_sdist_archive("foo", digest, data)
+        assert str(first.fetch_versions("foo")[0][0]) == "1.0.0"
+
+        again = _provider([source], cache)
+        assert str(again.fetch_versions("foo")[0][0]) == "1.0.0"
+        assert not again.coordinator.calls_to("request_direct_archive")
 
     def test_tree_without_hash_record_is_not_served(self, tmp_path: Path) -> None:
         # A tree extracted before the record was written says nothing about

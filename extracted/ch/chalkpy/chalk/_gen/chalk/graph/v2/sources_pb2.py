@@ -13,11 +13,12 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as chalk_dot_utils_dot_v1_dot_sensitive__pb2
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1c\x63halk/graph/v2/sources.proto\x12\x0e\x63halk.graph.v2\x1a\x1cgoogle/protobuf/struct.proto"N\n\x17\x44\x61tabaseSourceReference\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"\x89\x02\n\x0e\x44\x61tabaseSource\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x45\n\x07options\x18\x03 \x03(\x0b\x32+.chalk.graph.v2.DatabaseSource.OptionsEntryR\x07options\x12\'\n\x0fpermission_tags\x18\x04 \x03(\tR\x0epermissionTags\x1aR\n\x0cOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"\xc3\x02\n\x13\x44\x61tabaseSourceGroup\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12N\n\x0e\x64\x65\x66\x61ult_source\x18\x02 \x01(\x0b\x32\'.chalk.graph.v2.DatabaseSourceReferenceR\rdefaultSource\x12]\n\x0etagged_sources\x18\x03 \x03(\x0b\x32\x36.chalk.graph.v2.DatabaseSourceGroup.TaggedSourcesEntryR\rtaggedSources\x1ai\n\x12TaggedSourcesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12=\n\x05value\x18\x02 \x01(\x0b\x32\'.chalk.graph.v2.DatabaseSourceReferenceR\x05value:\x02\x38\x01"L\n\x15StreamSourceReference\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"\xdc\x01\n\x0cStreamSource\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x43\n\x07options\x18\x03 \x03(\x0b\x32).chalk.graph.v2.StreamSource.OptionsEntryR\x07options\x1aR\n\x0cOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"\x91\x01\n\rSourceSecrets\x12\x44\n\x07secrets\x18\x01 \x03(\x0b\x32*.chalk.graph.v2.SourceSecrets.SecretsEntryR\x07secrets\x1a:\n\x0cSecretsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42|\n\x12\x63om.chalk.graph.v2B\x0cSourcesProtoP\x01\xa2\x02\x03\x43GX\xaa\x02\x0e\x43halk.Graph.V2\xca\x02\x0e\x43halk\\Graph\\V2\xe2\x02\x1a\x43halk\\Graph\\V2\\GPBMetadata\xea\x02\x10\x43halk::Graph::V2b\x06proto3'
+    b'\n\x1c\x63halk/graph/v2/sources.proto\x12\x0e\x63halk.graph.v2\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1cgoogle/protobuf/struct.proto"N\n\x17\x44\x61tabaseSourceReference\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"\x89\x02\n\x0e\x44\x61tabaseSource\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x45\n\x07options\x18\x03 \x03(\x0b\x32+.chalk.graph.v2.DatabaseSource.OptionsEntryR\x07options\x12\'\n\x0fpermission_tags\x18\x04 \x03(\tR\x0epermissionTags\x1aR\n\x0cOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"\xc3\x02\n\x13\x44\x61tabaseSourceGroup\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12N\n\x0e\x64\x65\x66\x61ult_source\x18\x02 \x01(\x0b\x32\'.chalk.graph.v2.DatabaseSourceReferenceR\rdefaultSource\x12]\n\x0etagged_sources\x18\x03 \x03(\x0b\x32\x36.chalk.graph.v2.DatabaseSourceGroup.TaggedSourcesEntryR\rtaggedSources\x1ai\n\x12TaggedSourcesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12=\n\x05value\x18\x02 \x01(\x0b\x32\'.chalk.graph.v2.DatabaseSourceReferenceR\x05value:\x02\x38\x01"L\n\x15StreamSourceReference\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"\xdc\x01\n\x0cStreamSource\x12\x1f\n\x0bsource_type\x18\x01 \x01(\tR\nsourceType\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x43\n\x07options\x18\x03 \x03(\x0b\x32).chalk.graph.v2.StreamSource.OptionsEntryR\x07options\x1aR\n\x0cOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"\x97\x01\n\rSourceSecrets\x12J\n\x07secrets\x18\x01 \x03(\x0b\x32*.chalk.graph.v2.SourceSecrets.SecretsEntryB\x04\xd8\xa1\'\x01R\x07secrets\x1a:\n\x0cSecretsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42|\n\x12\x63om.chalk.graph.v2B\x0cSourcesProtoP\x01\xa2\x02\x03\x43GX\xaa\x02\x0e\x43halk.Graph.V2\xca\x02\x0e\x43halk\\Graph\\V2\xe2\x02\x1a\x43halk\\Graph\\V2\\GPBMetadata\xea\x02\x10\x43halk::Graph::V2b\x06proto3'
 )
 
 _globals = globals()
@@ -36,24 +37,26 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_STREAMSOURCE_OPTIONSENTRY"]._serialized_options = b"8\001"
     _globals["_SOURCESECRETS_SECRETSENTRY"]._options = None
     _globals["_SOURCESECRETS_SECRETSENTRY"]._serialized_options = b"8\001"
-    _globals["_DATABASESOURCEREFERENCE"]._serialized_start = 78
-    _globals["_DATABASESOURCEREFERENCE"]._serialized_end = 156
-    _globals["_DATABASESOURCE"]._serialized_start = 159
-    _globals["_DATABASESOURCE"]._serialized_end = 424
-    _globals["_DATABASESOURCE_OPTIONSENTRY"]._serialized_start = 342
-    _globals["_DATABASESOURCE_OPTIONSENTRY"]._serialized_end = 424
-    _globals["_DATABASESOURCEGROUP"]._serialized_start = 427
-    _globals["_DATABASESOURCEGROUP"]._serialized_end = 750
-    _globals["_DATABASESOURCEGROUP_TAGGEDSOURCESENTRY"]._serialized_start = 645
-    _globals["_DATABASESOURCEGROUP_TAGGEDSOURCESENTRY"]._serialized_end = 750
-    _globals["_STREAMSOURCEREFERENCE"]._serialized_start = 752
-    _globals["_STREAMSOURCEREFERENCE"]._serialized_end = 828
-    _globals["_STREAMSOURCE"]._serialized_start = 831
-    _globals["_STREAMSOURCE"]._serialized_end = 1051
-    _globals["_STREAMSOURCE_OPTIONSENTRY"]._serialized_start = 342
-    _globals["_STREAMSOURCE_OPTIONSENTRY"]._serialized_end = 424
-    _globals["_SOURCESECRETS"]._serialized_start = 1054
-    _globals["_SOURCESECRETS"]._serialized_end = 1199
-    _globals["_SOURCESECRETS_SECRETSENTRY"]._serialized_start = 1141
-    _globals["_SOURCESECRETS_SECRETSENTRY"]._serialized_end = 1199
+    _globals["_SOURCESECRETS"].fields_by_name["secrets"]._options = None
+    _globals["_SOURCESECRETS"].fields_by_name["secrets"]._serialized_options = b"\330\241'\001"
+    _globals["_DATABASESOURCEREFERENCE"]._serialized_start = 110
+    _globals["_DATABASESOURCEREFERENCE"]._serialized_end = 188
+    _globals["_DATABASESOURCE"]._serialized_start = 191
+    _globals["_DATABASESOURCE"]._serialized_end = 456
+    _globals["_DATABASESOURCE_OPTIONSENTRY"]._serialized_start = 374
+    _globals["_DATABASESOURCE_OPTIONSENTRY"]._serialized_end = 456
+    _globals["_DATABASESOURCEGROUP"]._serialized_start = 459
+    _globals["_DATABASESOURCEGROUP"]._serialized_end = 782
+    _globals["_DATABASESOURCEGROUP_TAGGEDSOURCESENTRY"]._serialized_start = 677
+    _globals["_DATABASESOURCEGROUP_TAGGEDSOURCESENTRY"]._serialized_end = 782
+    _globals["_STREAMSOURCEREFERENCE"]._serialized_start = 784
+    _globals["_STREAMSOURCEREFERENCE"]._serialized_end = 860
+    _globals["_STREAMSOURCE"]._serialized_start = 863
+    _globals["_STREAMSOURCE"]._serialized_end = 1083
+    _globals["_STREAMSOURCE_OPTIONSENTRY"]._serialized_start = 374
+    _globals["_STREAMSOURCE_OPTIONSENTRY"]._serialized_end = 456
+    _globals["_SOURCESECRETS"]._serialized_start = 1086
+    _globals["_SOURCESECRETS"]._serialized_end = 1237
+    _globals["_SOURCESECRETS_SECRETSENTRY"]._serialized_start = 1179
+    _globals["_SOURCESECRETS_SECRETSENTRY"]._serialized_end = 1237
 # @@protoc_insertion_point(module_scope)

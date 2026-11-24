@@ -28,8 +28,8 @@ if TYPE_CHECKING:
     from matrx_ai.catalog.models import ResolvedCallProfile
 
 #: Provider limits (https://elevenlabs.io/docs/api-reference/text-to-sound-effects/convert).
-MIN_EFFECT_SECONDS = 0.5
-MAX_EFFECT_SECONDS = 30.0
+MIN_EFFECT_SECONDS = 0.5  # protocol-constant: ElevenLabs sound-effects API documented minimum duration
+MAX_EFFECT_SECONDS = 30.0  # protocol-constant: ElevenLabs sound-effects API documented maximum duration
 _OUTPUT_FORMAT = "mp3_44100_128"
 #: Bytes in one second of ``mp3_44100_128`` (128 kbit/s, constant bit rate).
 MP3_128_BYTES_PER_SECOND = 16_000

@@ -14,9 +14,41 @@ from matrx_ai.tools.dynamic_drain import drain_tool_mutations
 from matrx_ai.tools.models import ToolContext
 
 
-@pytest.mark.parametrize("category", ["desktop", "desktop-web"])
-def test_load_desktop_tools_accepts_consolidated_categories(category: str) -> None:
-    assert LoadDesktopToolsArgs(category=category).category == category
+def test_load_desktop_tools_accepts_consolidated_categories() -> None:
+    assert LoadDesktopToolsArgs(category="desktop").category == "desktop"
+
+
+def test_every_offered_category_is_answered_not_refused(monkeypatch) -> None:
+    """The contract and the loader can never disagree: a value the enum offers is never 'unknown_category'."""
+    from matrx_ai.tools.implementations import desktop_discovery
+    from matrx_ai.tools.models import ToolDefinition, ToolType
+    from matrx_ai.tools.registry import ToolRegistry
+
+    registry = ToolRegistry()
+    registry.load_from_definitions(
+        [ToolDefinition(name="local_system", category="desktop", source_kind="matrx_local", tool_type=ToolType.EXTERNAL_HANDLER)]
+    )
+    monkeypatch.setattr(ToolRegistry, "get_instance", classmethod(lambda cls: registry))
+    desktop_discovery.clear_caches()
+    ctx = SimpleNamespace(call_id="c", queue_tool_changes=lambda **kw: None)
+    for category in sorted(desktop_discovery._offered_categories()):
+        result = asyncio.run(desktop_discovery.load_desktop_tools({"category": category}, ctx))
+        assert result.success, (category, result.error)
+    desktop_discovery.clear_caches()
+
+
+def test_offered_but_empty_category_answers_honestly(monkeypatch) -> None:
+    from matrx_ai.tools.implementations import desktop_discovery
+    from matrx_ai.tools.registry import ToolRegistry
+
+    registry = ToolRegistry()
+    registry.load_from_definitions([])
+    monkeypatch.setattr(ToolRegistry, "get_instance", classmethod(lambda cls: registry))
+    monkeypatch.setattr(desktop_discovery, "get_category_names", lambda: ["other"])
+    monkeypatch.setattr(desktop_discovery, "_offered_categories", lambda: frozenset({"desktop"}))
+    ctx = SimpleNamespace(call_id="c", queue_tool_changes=lambda **kw: None)
+    result = asyncio.run(desktop_discovery.load_desktop_tools({"category": "desktop"}, ctx))
+    assert result.success and "no active tools" in result.output.message
 
 
 def test_load_desktop_tools_rejects_retired_category() -> None:

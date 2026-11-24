@@ -104,13 +104,13 @@ async def test_actual_app_each_mint_to_private_byte_source_revocation(full_app, 
         minted = await client.post("/files/session", headers={**headers, "Origin": "https://browser.example"})
         assert minted.status_code == 200 and minted.headers["access-control-allow-origin"] == "https://browser.example"
         value = mint_bound_file_session_value(state["binding"](), SECRET.encode())
-        response = await client.get("/files/proof/download", headers={"Cookie": f"{SESSION_COOKIE_NAME}={value}"})
+        response = await client.get("/files/0000000a-0000-4000-8000-00000000f00f/download", headers={"Cookie": f"{SESSION_COOKIE_NAME}={value}"})
         assert response.status_code == 200 and response.content == b"synthetic-private-bytes"
-        assert state["reads"] == ["proof"]
+        assert state["reads"] == ["0000000a-0000-4000-8000-00000000f00f"]
         state["active"] = False
-        assert (await client.get("/files/proof/download", headers={"Cookie": f"{SESSION_COOKIE_NAME}={value}"})).status_code == 401
+        assert (await client.get("/files/0000000a-0000-4000-8000-00000000f00f/download", headers={"Cookie": f"{SESSION_COOKIE_NAME}={value}"})).status_code == 401
         assert (await client.post("/files/session", headers=headers)).status_code == 401
-        assert state["reads"] == ["proof"]
+        assert state["reads"] == ["0000000a-0000-4000-8000-00000000f00f"]
 
 
 @pytest.mark.asyncio
@@ -119,13 +119,13 @@ async def test_actual_app_legacy_refusal_outage_jwt_and_readiness(full_app):
     app = state["app"]
     async with ORIGINAL_CLIENT(transport=httpx.ASGITransport(app), base_url="https://files.example") as client:
         old = mint_session_cookie_value(USER, SECRET.encode())
-        assert (await client.get("/files/proof/download", headers={"Cookie": f"{SESSION_COOKIE_NAME}={old}"})).status_code == 401
-        response = await client.get("/files/proof/download", headers={"Authorization": "Bearer " + state["token"]})
+        assert (await client.get("/files/0000000a-0000-4000-8000-00000000f00f/download", headers={"Cookie": f"{SESSION_COOKIE_NAME}={old}"})).status_code == 401
+        response = await client.get("/files/0000000a-0000-4000-8000-00000000f00f/download", headers={"Authorization": "Bearer " + state["token"]})
         assert response.status_code == 200
         state["active"] = False
-        assert (await client.get("/files/proof/download", headers={"Authorization": "Bearer " + state["token"]})).status_code == 401
+        assert (await client.get("/files/0000000a-0000-4000-8000-00000000f00f/download", headers={"Authorization": "Bearer " + state["token"]})).status_code == 401
         state["outage"] = True
-        response = await client.get("/files/proof/download", headers={"Authorization": "Bearer " + state["token"]})
+        response = await client.get("/files/0000000a-0000-4000-8000-00000000f00f/download", headers={"Authorization": "Bearer " + state["token"]})
         assert response.status_code == 503 and response.headers["cache-control"] == "no-store"
         assert (await client.get("/files-service/ready")).status_code == 503
         assert (await client.get("/files-service/health")).status_code == 200

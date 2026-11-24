@@ -1,8 +1,10 @@
-"""A publish is a recorded change, so the database's no-op rule cannot swallow it.
+"""A publish pins the newest SAVED version, records itself on the row, and never makes a version.
 
 THE REAL CASE. A bookkeeping firm's operations lead keeps one workflow, "Month-end close
-checklist", and publishes it every month after adjusting a step: v2 in August, v3 in September.
-Workflows get pinned by version, so every publish must land a NEW snapshot under a NEW number.
+checklist", and publishes it every month after adjusting a step: the August save makes v2 and
+publishing makes v2 live; the September save makes v3 and publishing makes v3 live. Workflows get
+pinned by version, so each publish lands the snapshot of exactly the version the person saved —
+never one more (P5 walk 2026-11-15: "Live v3 · Newest saved v4", Publish -> "Published v5").
 
 THE HAZARD (VERSION-HISTORY-FIX, 2026-09-23). `platform.no_change_keeps_its_version()` is the
 BEFORE-UPDATE trigger that stops a save which changed nothing from moving a row's version: when
@@ -25,7 +27,7 @@ import pytest
 
 from matrx_graph.db import definition_store
 from matrx_graph.db.definition_store import DefinitionStore
-from matrx_graph.errors import DefinitionError
+from matrx_graph.nodes import register_builtin_nodes
 
 DEFINITION_ID = "5c1f0e2a-8d3b-4a7e-9b61-2f4c8e0d7a13"
 OPERATIONS_LEAD = "7a2e9c41-3b5d-4f86-a1c0-9e8d6b4f2a57"
@@ -54,7 +56,10 @@ def _month_end_close() -> dict[str, Any]:
         "version": 1,
         "deleted_at": None,
         "input_kind": None,
-        "output_kind": None,
+        # Declared, as the deliverable step answers: the publish under test never backfills it. Undeclared, a run
+        # with the built-in steps registered compiles the graph and the publish backfills the kind — a revision of
+        # its own (`test_definition_store_lifts_declared_kinds.py`), not what these tests pin.
+        "output_kind": "template_render_result",
         "is_archived": False,
         "is_favorite": False,
         "published_to_web": False,
@@ -132,6 +137,10 @@ class _DefinitionModel:
 
 class _VersionModel:
     @classmethod
+    async def exists(cls, **filters: Any) -> bool:
+        return filters.get("version_number") in _Store.snapshots
+
+    @classmethod
     async def bulk_insert_ignore(cls, objects: list[dict[str, Any]], **_: Any) -> int:
         landed = 0
         for obj in objects:
@@ -156,23 +165,40 @@ def month_end_close(monkeypatch: pytest.MonkeyPatch) -> None:
     import matrx_orm
     from matrx_orm.core import transaction as tx_module
 
+    # The steps are registered whatever ran before (the graph always compiles), so the outcome never depends on
+    # test order: alone, the graph did not compile and the declaration check was skipped (red on main 2026-11-15
+    # only after another file registered the built-ins).
+    register_builtin_nodes(overwrite=True)
     _Store.row = _month_end_close()
     _Store.snapshots = {1: {"version_number": 1, "name": "Month-end close checklist"}}
     models = {"WfDefinition": _DefinitionModel, "WfDefinitionVersion": _VersionModel}
     monkeypatch.setattr(definition_store, "get_model", lambda name: models[name])
     monkeypatch.setattr(matrx_orm, "transaction", lambda *a, **k: _Tx())
     monkeypatch.setattr(tx_module, "get_active_connection", lambda: None)
+    # Hermetic: these tests are about the version stamp. Whether the month-end graph compiles (and so whether
+    # publish backfills an output kind, a revision of its own) depended on whether an EARLIER test had registered
+    # the built-in step types — red in the full suite, green alone (CI 2026-11-15). The IO gate has its own tests.
+    monkeypatch.setattr(definition_store, "_validate_io_declaration_for_publish", lambda row, definition_id: None)
+
+
+def _save_a_step_change(note: str) -> None:
+    """What a save does to the row: content moves and the revision with it."""
+    _Store.row["description"] = note
+    _Store.row["version"] += 1
 
 
 @pytest.mark.asyncio
-async def test_two_publishes_land_two_new_versions_under_the_no_op_rule(month_end_close: None) -> None:
+async def test_each_publish_pins_the_version_the_person_saved(month_end_close: None) -> None:
     store = DefinitionStore()
 
+    _save_a_step_change("August: payroll accrual added")
     august = await store.publish(DEFINITION_ID, change_note="August close", changed_by_user_id=OPERATIONS_LEAD)
+    _save_a_step_change("September: bank feed step reordered")
     september = await store.publish(DEFINITION_ID, change_note="September close", changed_by_user_id=OPERATIONS_LEAD)
 
     assert (august.version, september.version) == (2, 3)
     assert sorted(_Store.snapshots) == [1, 2, 3]
+    assert _Store.snapshots[2]["description"] == "August: payroll accrual added"
     assert _Store.snapshots[3]["change_note"] == "September close"
     # the change publish records on the row is the publish itself, and the snapshot carries it
     published = _Store.row["metadata"]["published"]
@@ -184,24 +210,77 @@ async def test_two_publishes_land_two_new_versions_under_the_no_op_rule(month_en
 
 
 @pytest.mark.asyncio
-async def test_a_publish_the_database_refused_to_advance_raises_by_name(
-    month_end_close: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """If anything ever swallows the increment again, publish says so instead of 'succeeding'."""
+async def test_publishing_the_newest_saved_version_never_makes_another(month_end_close: None) -> None:
+    """The walk: Live v3, rename + Save makes v4, Publish must make v4 live — not v5."""
+    store = DefinitionStore()
+    _save_a_step_change("first steps")  # v2
+    first = await store.publish(DEFINITION_ID, change_note="first")
+    _save_a_step_change("renamed")  # v3
+    second = await store.publish(DEFINITION_ID, change_note="after the rename")
+    again = await store.publish(DEFINITION_ID, change_note="pressed twice")
 
-    async def swallow(cls: Any, filters: dict[str, Any], **updates: Any) -> _Result:
-        return _Result([copy.deepcopy(_Store.row)])
-
-    monkeypatch.setattr(_DefinitionModel, "update_where", classmethod(swallow))
-    with pytest.raises(DefinitionError, match="did not advance"):
-        await DefinitionStore().publish(DEFINITION_ID, change_note="August close")
-    assert sorted(_Store.snapshots) == [1]
+    assert (first.version, second.version, again.version) == (2, 3, 3)
+    assert _Store.row["version"] == 3
+    assert sorted(_Store.snapshots) == [1, 2, 3]
+    assert _Store.row["metadata"]["published"]["version"] == 3
+    assert _Store.snapshots[3]["change_note"] == "after the rename"
 
 
 @pytest.mark.asyncio
-async def test_a_snapshot_that_already_exists_is_a_refusal_not_a_silent_success(
+async def test_a_new_workflow_published_before_any_save_makes_its_first_version_live(
     month_end_close: None,
 ) -> None:
-    _Store.snapshots[2] = {"version_number": 2, "name": "left behind by an older publish"}
-    with pytest.raises(DefinitionError, match="snapshot"):
-        await DefinitionStore().publish(DEFINITION_ID, change_note="August close")
+    """v1's snapshot is written at create: publishing it stamps it live and copies nothing."""
+    row = await DefinitionStore().publish(DEFINITION_ID, change_note="go live")
+    assert row.version == 1
+    assert sorted(_Store.snapshots) == [1]
+    assert _Store.row["metadata"]["published"]["version"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_database_that_counts_the_stamp_as_a_revision_still_publishes_what_it_stamps(
+    month_end_close: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Before wf_256 declares `published` a background key, the hosted trigger bumps the version on the stamp:
+    the publish must still pin exactly the version its stamp names, never a broken or mislabelled one."""
+    original = _DefinitionModel.update_where.__func__
+
+    async def bumping(cls: Any, filters: dict[str, Any], **updates: Any) -> _Result:
+        await original(cls, filters, **updates)
+        _Store.row["version"] += 1
+        return _Result([copy.deepcopy(_Store.row)])
+
+    monkeypatch.setattr(_DefinitionModel, "update_where", classmethod(bumping))
+    _save_a_step_change("August")  # v2
+    row = await DefinitionStore().publish(DEFINITION_ID, change_note="August close")
+    assert row.version == _Store.row["version"] == _Store.row["metadata"]["published"]["version"]
+    assert row.version in _Store.snapshots
+    assert _Store.snapshots[row.version]["description"] == "August"
+
+
+@pytest.mark.asyncio
+async def test_a_database_that_counts_the_stamp_makes_one_revision_for_a_publish_never_two(
+    month_end_close: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P5 walk 2026-11-16: with the stamp counted as a revision, one Publish made v6 (unpublished) AND v7.
+    The stamp now names the revision it lands on, so the publish makes exactly one."""
+    original = _DefinitionModel.update_where.__func__
+
+    async def bumping(cls: Any, filters: dict[str, Any], **updates: Any) -> _Result:
+        await original(cls, filters, **updates)
+        _Store.row["version"] += 1
+        return _Result([copy.deepcopy(_Store.row)])
+
+    monkeypatch.setattr(_DefinitionModel, "update_where", classmethod(bumping))
+    _save_a_step_change("Save now")  # v2
+    row = await DefinitionStore().publish(DEFINITION_ID, change_note="p")
+    assert _Store.row["version"] == 3  # one extra revision, not two
+    assert row.version == 3 and 3 in _Store.snapshots
+
+
+@pytest.mark.asyncio
+async def test_a_publish_on_the_fixed_trigger_makes_no_revision(month_end_close: None) -> None:
+    _save_a_step_change("Save now")  # v2
+    row = await DefinitionStore().publish(DEFINITION_ID, change_note="p")
+    assert row.version == _Store.row["version"] == 2
+    assert _Store.row["metadata"]["published"]["version"] == 2

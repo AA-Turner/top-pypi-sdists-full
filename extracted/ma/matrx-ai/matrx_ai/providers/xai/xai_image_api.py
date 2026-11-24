@@ -53,6 +53,15 @@ class XAIImageGeneration(BaseMediaGeneration):
         usage = getattr(raw, "usage", None)
         return provider_charge_from_xai_usage(usage) if usage is not None else None
 
+    #: An xAI image edit bills each source image on top of the output image
+    #: ("Image edits are billed for both the input image and the generated output
+    #: image" — docs.x.ai image guide; $0.002 per input image on grok-imagine-image).
+    INPUT_IMAGE_COMPONENT = "service.input_image"
+
+    def _request_billing_components(self, kwargs: dict[str, Any]) -> dict[str, int]:
+        count = len(kwargs.get("image_urls") or []) + (1 if kwargs.get("image_url") else 0)
+        return {self.INPUT_IMAGE_COMPONENT: count} if count else {}
+
     # Built lazily on first ACCESS (grpc.aio needs a running event loop, so
     # never at import/__init__ time) and memoized on the RESOLVED KEY VALUE —
     # a host-side key rotation builds a fresh SDK client on the next request.
@@ -214,7 +223,7 @@ class XAIImageGeneration(BaseMediaGeneration):
                 message=str(exc),
                 is_retryable=False,
                 user_message=(
-                    "xAI Grok-imagine refused to generate this image because it "
+                    "This image was not generated because it "
                     "violates content policy. Adjust the prompt and try again."
                 ),
             )
@@ -235,10 +244,10 @@ class XAIImageGeneration(BaseMediaGeneration):
                 message=msg,
                 is_retryable=False,
                 user_message=(
-                    "xAI Grok-imagine refused to generate this image because it "
+                    "This image was not generated because it "
                     "violates content policy. Adjust the prompt and try again."
                     if is_moderation
-                    else "xAI returned an image response without usable content. "
+                    else "The image service returned a response without usable content. "
                     "This will not improve on retry; the request was not produced."
                 ),
             )

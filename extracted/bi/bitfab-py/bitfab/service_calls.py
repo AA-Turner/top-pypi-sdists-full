@@ -111,7 +111,7 @@ def _traced_call(client: Any, method: str) -> Any:
     return traced
 
 
-def _recording_client(integration: str) -> Any:
+def recording_client(integration: str) -> Any:
     client = next((c for c in _alive_clients() if _records(c, integration)), None)
     if client is not None and _inside_trace():
         return client
@@ -123,7 +123,22 @@ def _recording_client(integration: str) -> Any:
 def is_recorded(integration: str) -> bool:
     if _replay_context.get() is not None or replay_item_is_running():
         return True
-    return _recording_client(integration) is not None
+    return recording_client(integration) is not None
+
+
+def recording_mode(integration: str) -> str | None:
+    if replaying():
+        return None
+    client = recording_client(integration)
+    return getattr(client, "_integration_modes", {}).get(integration)
+
+
+def save_recorded_sandbox_state(
+    integration: str, sandbox: str, trace_id: str, state: Any
+) -> None:
+    client = recording_client(integration)
+    if client is not None:
+        client.sandbox_stores.seed(sandbox, trace_id, state)
 
 
 def run(call: ServiceCall) -> Any:
@@ -145,7 +160,7 @@ def run(call: ServiceCall) -> Any:
             "contextvars.copy_context() when handing work to another thread."
         )
     else:
-        client = _recording_client(call.integration)
+        client = recording_client(call.integration)
         if client is None:
             return call.send()
     tokens = (

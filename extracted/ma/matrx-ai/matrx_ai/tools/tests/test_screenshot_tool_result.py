@@ -27,6 +27,7 @@ import base64
 import json
 
 import pytest
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
 
 from matrx_ai._ext import _registry as _ext_registry
 from matrx_ai.config.tools_config import ToolResultContent
@@ -64,6 +65,7 @@ class _FakeSyncEngine:
         shown_to: str | None = None,
         change_summary: str | None = None,
         metadata: dict | None = None,
+        pathway: str | None = None,
     ) -> _FakeSyncResult:
         self.writes.append(
             {
@@ -73,6 +75,7 @@ class _FakeSyncEngine:
                 "published_to_web": published_to_web,
                 "shown_to": shown_to,
                 "metadata": metadata or {},
+                "pathway": pathway,
             }
         )
         return _FakeSyncResult(
@@ -187,9 +190,10 @@ async def test_normalize_uploads_master_and_strips_base64(fake_fm) -> None:
     assert writes[0]["size"] == len(_PNG_BYTES)
     assert writes[0]["mime_type"] == "image/png"
     assert "tool-images" in writes[0]["file_path"]
+    assert writes[0]["pathway"] == "agent.tool_image"  # placement registry pathway
     # T-13: the master is written unpublished and shown only to its maker — explicitly.
     assert writes[0]["published_to_web"] is False
-    assert writes[0]["shown_to"] == "only_me"
+    assert writes[0]["shown_to"] == SHOWN_TO_TYPE_DEFAULT  # the file type's "Shown to" knob
 
     # Output rewritten to image_ref shape, base64 stripped.
     assert rewritten["kind"] == "image_ref"

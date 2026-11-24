@@ -50,15 +50,16 @@ def from_str(duration):
             sign = -1
         duration = duration[1:]
 
-    matches = list(_duration_re.finditer(duration))
-    if not matches:
+    if not duration:
         raise DurationError("Invalid duration {}".format(original))
-    if matches[0].start() != 0 or matches[-1].end() != len(duration):
-        raise DurationError(
-            'Extra chars at start or end of duration {}'.format(original))
 
     total = 0
-    for match in matches:
+    pos = 0
+    while pos < len(duration):
+        match = _duration_re.match(duration, pos)
+        if not match:
+            raise DurationError("Invalid duration {}".format(original))
+        pos = match.end()
         value, unit = match.groups()
         if unit not in units:
             raise DurationError(
@@ -127,31 +128,34 @@ def _to_str_large(nanoseconds, extended):
         years = int(nanoseconds / _year_size)
         if years:
             nanoseconds -= _year_size * years
-            result_str += "{:g}y".format(years)
+            result_str += "{}y".format(years)
 
         months = int(nanoseconds / _month_size)
         if months:
             nanoseconds -= _month_size * months
-            result_str += "{:g}mm".format(months)
+            result_str += "{}mm".format(months)
 
         days = int(nanoseconds / _day_size)
         if days:
             nanoseconds -= _day_size * days
-            result_str += "{:g}d".format(days)
+            result_str += "{}d".format(days)
 
     hours = int(nanoseconds / _hour_size)
     if hours:
         nanoseconds -= _hour_size * hours
-        result_str += "{:g}h".format(hours)
+        result_str += "{}h".format(hours)
 
     minutes = int(nanoseconds / _minute_size)
     if minutes:
         nanoseconds -= _minute_size * minutes
-        result_str += "{:g}m".format(minutes)
+        result_str += "{}m".format(minutes)
 
-    seconds = float(nanoseconds) / float(_second_size)
-    if seconds:
-        nanoseconds -= _second_size * seconds
-        result_str += "{:g}s".format(seconds)
+    seconds = int(nanoseconds / _second_size)
+    nanoseconds = int(nanoseconds - _second_size * seconds)
+    if nanoseconds:
+        fraction = "{:09d}".format(nanoseconds).rstrip("0")
+        result_str += "{}.{}s".format(seconds, fraction)
+    elif seconds:
+        result_str += "{}s".format(seconds)
 
     return result_str

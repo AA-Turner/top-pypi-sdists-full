@@ -8,10 +8,27 @@ from typing import Literal, TypedDict
 class RunOptionsParam(TypedDict, total=False):
   load_weights_only: bool | None
   """
-  Load parent checkpoint weights with fresh training state. Defaults to false, which resumes the
-  optimizer, LR schedule, and global step. With validation enabled, evaluate the starting
-  policy, run validation when global_step % val_interval_steps == 0, and evaluate the final
-  policy on normal completion. Resuming preserves the global step and validation cadence.
+  Start a new run from the parent checkpoint's weights with fresh training state;
+  load_optimizer, load_scheduler, and load_dataset carry over more of the parent's state.
+  Defaults to false, which resumes the optimizer, LR schedule, and global step. With validation
+  enabled, evaluate the starting policy, run validation when global_step % val_interval_steps ==
+  0, and evaluate the final policy on normal completion. Resuming preserves the global step and
+  validation cadence.
+  """
+  load_optimizer: bool | None
+  """
+  With load_weights_only, also load the parent's optimizer state and settings other than the
+  learning rate.
+  """
+  load_scheduler: bool | None
+  """
+  With load_weights_only, also load the parent's learning rate and LR schedule, continuing the
+  schedule from the parent's last step.
+  """
+  load_dataset: bool | None
+  """
+  With load_weights_only, continue from the parent's dataset position. The dataset and batch
+  settings must match the parent's.
   """
   full_parameter: bool
   """

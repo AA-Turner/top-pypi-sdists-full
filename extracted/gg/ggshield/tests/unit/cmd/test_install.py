@@ -4,9 +4,10 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
+from click import UsageError
 from click.testing import CliRunner
 from pygitguardian.models import HealthCheckResponse
 
@@ -20,6 +21,8 @@ from ggshield.cmd.install import (
     install_local,
     upgrade_hook,
 )
+from ggshield.core.config import Config
+from ggshield.core.config.token_store import ALLOW_KEYCHAIN_DIALOG_ENV_VAR
 from ggshield.core.errors import ExitCode, MissingTokenError
 from ggshield.verticals.ai.installation import (
     _is_interactive,
@@ -27,6 +30,9 @@ from ggshield.verticals.ai.installation import (
 )
 from tests.repository import Repository
 from tests.unit.conftest import assert_invoke_exited_with, assert_invoke_ok
+
+
+HOME_CONFIG = Mock(spec=Config, instance_name="https://home.example")
 
 
 SAMPLE_PRE_COMMIT = f"""#!/bin/sh
@@ -231,6 +237,96 @@ class TestInstallLocal:
         # Hook should NOT be in .git/hooks/pre-commit
         default_hook = Path(".git/hooks/pre-commit")
         assert not default_hook.exists()
+
+    def test_install_local_from_subdir_targets_repo_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """
+        GIVEN a repository, invoked from one of its subdirectories
+        WHEN install_local is called
+        THEN the hook lands in the repository root's .git/hooks
+        (GitGuardian/ggshield#989: it used to be created under <subdir>/.git/hooks)
+        """
+        repo = Repository.create(tmp_path / "repo")
+        subdir = repo.path / "subdir"
+        subdir.mkdir()
+        monkeypatch.chdir(subdir)
+
+        return_code = install_local(hook_type="pre-commit", force=False, append=False)
+
+        assert return_code == 0
+        assert (repo.path / ".git/hooks/pre-commit").is_file()
+        assert not (subdir / ".git").exists()
+
+    def test_get_local_hook_dir_path_unchanged_at_repo_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """
+        GIVEN no core.hooksPath configured, invoked from the repository root
+        WHEN get_local_hook_dir_path is called
+        THEN the default relative path is kept as-is (no behavior change at root)
+        """
+        from ggshield.cmd.install import get_local_hook_dir_path
+
+        repo = Repository.create(tmp_path / "repo")
+        monkeypatch.chdir(repo.path)
+
+        assert get_local_hook_dir_path() == Path(".git/hooks")
+
+    def test_get_local_hook_dir_path_resolves_default_against_repo_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """
+        GIVEN no core.hooksPath configured, invoked from a subdirectory
+        WHEN get_local_hook_dir_path is called
+        THEN it resolves .git/hooks against the repository root, not the CWD
+        """
+        from ggshield.cmd.install import get_local_hook_dir_path
+
+        repo = Repository.create(tmp_path / "repo")
+        deep = repo.path / "nested" / "deeper"
+        deep.mkdir(parents=True)
+        monkeypatch.chdir(deep)
+
+        assert get_local_hook_dir_path() == repo.path / ".git" / "hooks"
+
+    def test_get_local_hook_dir_path_resolves_relative_hookspath_against_repo_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """
+        GIVEN a relative core.hooksPath, invoked from a subdirectory
+        WHEN get_local_hook_dir_path is called
+        THEN the configured path is resolved against the repository root,
+        the way git itself interprets a relative core.hooksPath
+        """
+        from ggshield.cmd.install import get_local_hook_dir_path
+
+        repo = Repository.create(tmp_path / "repo")
+        repo.git("config", "core.hooksPath", "custom-hooks")
+        subdir = repo.path / "subdir"
+        subdir.mkdir()
+        monkeypatch.chdir(subdir)
+
+        assert get_local_hook_dir_path() == repo.path / "custom-hooks"
+
+    def test_get_local_hook_dir_path_absolute_hookspath_unchanged(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """
+        GIVEN an absolute core.hooksPath, invoked from a subdirectory
+        WHEN get_local_hook_dir_path is called
+        THEN the absolute path is used as-is
+        """
+        from ggshield.cmd.install import get_local_hook_dir_path
+
+        repo = Repository.create(tmp_path / "repo")
+        absolute = tmp_path / "shared-hooks"
+        repo.git("config", "core.hooksPath", str(absolute))
+        subdir = repo.path / "subdir"
+        subdir.mkdir()
+        monkeypatch.chdir(subdir)
+
+        assert get_local_hook_dir_path() == absolute
 
 
 @pytest.fixture()
@@ -536,13 +632,51 @@ class TestHookCredentialStoreWarmUp:
         WHEN the warm-up runs
         THEN that binary reads the token, on the hook's own code path
         """
-        _warm_hook_credential_store()
+        _warm_hook_credential_store(HOME_CONFIG)
 
         run_mock.assert_called_once()
         args, kwargs = run_mock.call_args
         assert args[0] == ["/opt/gitguardian/ggshield", "secret", "scan", "ai-hook"]
         assert json.loads(kwargs["input"])["hook_event_name"] == "UserPromptSubmit"
         assert kwargs["timeout"] > 0
+
+    @patch("ggshield.verticals.ai.installation.subprocess.run")
+    def test_the_warm_up_runs_outside_the_repository(
+        self, run_mock: Mock, bundle, monkeypatch
+    ):
+        """
+        GIVEN setup run from a repository
+        WHEN the warm-up runs the hook
+        THEN the hook runs from another directory, without loading a .env, for the
+             instance setup resolved: the repository cannot choose where the token goes
+        """
+        monkeypatch.delenv("GITGUARDIAN_DONT_LOAD_ENV", raising=False)
+
+        _warm_hook_credential_store(HOME_CONFIG)
+
+        kwargs = run_mock.call_args.kwargs
+        assert Path(kwargs["cwd"]).resolve() != Path.cwd().resolve()
+        assert kwargs["env"]["GITGUARDIAN_DONT_LOAD_ENV"] == "1"
+        assert kwargs["env"]["GITGUARDIAN_INSTANCE"] == "https://home.example"
+
+    @patch("ggshield.verticals.ai.installation.subprocess.run")
+    def test_the_warm_up_allows_the_keychain_dialog(
+        self, run_mock: Mock, bundle, monkeypatch
+    ):
+        """
+        GIVEN a setup run with its stderr redirected to a file
+        WHEN the warm-up runs the hook
+        THEN the hook is told to allow the Keychain dialog, and its output is
+             captured instead of printed in the setup terminal
+        """
+        monkeypatch.delenv(ALLOW_KEYCHAIN_DIALOG_ENV_VAR, raising=False)
+
+        _warm_hook_credential_store(HOME_CONFIG)
+
+        kwargs = run_mock.call_args.kwargs
+        assert kwargs["env"][ALLOW_KEYCHAIN_DIALOG_ENV_VAR] == "1"
+        assert kwargs["capture_output"] is True
+        assert ALLOW_KEYCHAIN_DIALOG_ENV_VAR not in os.environ
 
     @pytest.mark.parametrize("platform", ["linux", "win32"])
     @patch("ggshield.verticals.ai.installation.subprocess.run")
@@ -556,7 +690,7 @@ class TestHookCredentialStoreWarmUp:
         """
         monkeypatch.setattr(sys, "platform", platform)
 
-        _warm_hook_credential_store()
+        _warm_hook_credential_store(HOME_CONFIG)
 
         run_mock.assert_not_called()
 
@@ -572,7 +706,7 @@ class TestHookCredentialStoreWarmUp:
         monkeypatch.setattr(sys, "platform", "darwin")
         monkeypatch.delattr(sys, "frozen", raising=False)
 
-        _warm_hook_credential_store()
+        _warm_hook_credential_store(HOME_CONFIG)
 
         run_mock.assert_not_called()
 
@@ -594,7 +728,21 @@ class TestHookCredentialStoreWarmUp:
         """
         run_mock.side_effect = failure
 
-        _warm_hook_credential_store()
+        _warm_hook_credential_store(HOME_CONFIG)
+
+    @patch("ggshield.verticals.ai.installation.subprocess.run")
+    def test_an_invalid_instance_does_not_stop_setup(self, run_mock: Mock, bundle):
+        """
+        GIVEN an instance URL that ggshield rejects
+        WHEN the warm-up runs
+        THEN it is skipped: the health check has already warned about the URL
+        """
+        config = Mock(spec=Config)
+        type(config).instance_name = PropertyMock(side_effect=UsageError("bad URL"))
+
+        _warm_hook_credential_store(config)
+
+        run_mock.assert_not_called()
 
 
 @pytest.fixture()

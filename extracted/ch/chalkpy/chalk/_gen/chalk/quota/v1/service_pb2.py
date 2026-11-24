@@ -20,7 +20,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1c\x63halk/quota/v1/service.proto\x12\x0e\x63halk.quota.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x85\x02\n\rQuotaResource\x12\x41\n\x04kind\x18\x01 \x01(\x0e\x32!.chalk.quota.v1.QuotaResourceKindB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00R\x04kind\x12\'\n\ngpu_family\x18\x02 \x01(\tB\x08\xbaH\x05r\x03\x18\x80\x01R\tgpuFamily:\x87\x01\xbaH\x83\x01\x1a\x80\x01\n\x19quota_resource.gpu_family\x12\x36gpu_family must be set exactly when kind is GPU_FAMILY\x1a+(this.kind == 4) == (this.gpu_family != \'\')"f\n\nQuotaLimit\x12\x1f\n\x05value\x18\x01 \x01(\x03\x42\x07\xbaH\x04"\x02(\x00H\x00R\x05value\x12\'\n\tunlimited\x18\x02 \x01(\x08\x42\x07\xbaH\x04j\x02\x08\x01H\x00R\tunlimitedB\x0e\n\x05limit\x12\x05\xbaH\x02\x08\x01"\xb8\x02\n\x05Quota\x12\x39\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceR\x08resource\x12!\n\x0c\x64isplay_name\x18\x02 \x01(\tR\x0b\x64isplayName\x12\x30\n\x05limit\x18\x03 \x01(\x0b\x32\x1a.chalk.quota.v1.QuotaLimitR\x05limit\x12\x14\n\x05usage\x18\x04 \x01(\x03R\x05usage\x12!\n\tavailable\x18\x05 \x01(\x03H\x00R\tavailable\x88\x01\x01\x12\x39\n\nupdated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n\nupdated_by\x18\x07 \x01(\tR\tupdatedByB\x0c\n\n_available"\x13\n\x11ListQuotasRequest"]\n\x12ListQuotasResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12-\n\x06quotas\x18\x02 \x03(\x0b\x32\x15.chalk.quota.v1.QuotaR\x06quotas"T\n\x0fGetQuotaRequest\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource"Y\n\x10GetQuotaResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12+\n\x05quota\x18\x02 \x01(\x0b\x32\x15.chalk.quota.v1.QuotaR\x05quota"\x8e\x01\n\x0fSetQuotaRequest\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource\x12\x38\n\x05limit\x18\x02 \x01(\x0b\x32\x1a.chalk.quota.v1.QuotaLimitB\x06\xbaH\x03\xc8\x01\x01R\x05limit"?\n\x10SetQuotaResponse\x12+\n\x05quota\x18\x01 \x01(\x0b\x32\x15.chalk.quota.v1.QuotaR\x05quota"V\n\x11\x43learQuotaRequest\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource"\x14\n\x12\x43learQuotaResponse"\xd3\x01\n\x1bRequestQuotaIncreaseRequest\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource\x12K\n\x0frequested_limit\x18\x02 \x01(\x0b\x32\x1a.chalk.quota.v1.QuotaLimitB\x06\xbaH\x03\xc8\x01\x01R\x0erequestedLimit\x12$\n\x07\x63omment\x18\x03 \x01(\tB\n\xbaH\x07r\x05\x10\x01\x18\xa0\x1fR\x07\x63omment"\x1e\n\x1cRequestQuotaIncreaseResponse*\xa1\x03\n\x11QuotaResourceKind\x12#\n\x1fQUOTA_RESOURCE_KIND_UNSPECIFIED\x10\x00\x12&\n"QUOTA_RESOURCE_KIND_CPU_MILLICORES\x10\x01\x12$\n QUOTA_RESOURCE_KIND_MEMORY_BYTES\x10\x02\x12!\n\x1dQUOTA_RESOURCE_KIND_GPU_COUNT\x10\x03\x12"\n\x1eQUOTA_RESOURCE_KIND_GPU_FAMILY\x10\x04\x12%\n!QUOTA_RESOURCE_KIND_SANDBOX_COUNT\x10\x05\x12+\n\'QUOTA_RESOURCE_KIND_SCALING_GROUP_COUNT\x10\x06\x12&\n"QUOTA_RESOURCE_KIND_FUNCTION_COUNT\x10\x07\x12.\n*QUOTA_RESOURCE_KIND_MODEL_DEPLOYMENT_COUNT\x10\x08\x12&\n"QUOTA_RESOURCE_KIND_NOTEBOOK_COUNT\x10\t*\xee\x01\n\x11QuotaWorkloadKind\x12#\n\x1fQUOTA_WORKLOAD_KIND_UNSPECIFIED\x10\x00\x12\x1f\n\x1bQUOTA_WORKLOAD_KIND_SANDBOX\x10\x01\x12%\n!QUOTA_WORKLOAD_KIND_SCALING_GROUP\x10\x02\x12 \n\x1cQUOTA_WORKLOAD_KIND_FUNCTION\x10\x03\x12(\n$QUOTA_WORKLOAD_KIND_MODEL_DEPLOYMENT\x10\x04\x12 \n\x1cQUOTA_WORKLOAD_KIND_NOTEBOOK\x10\x05\x32\xaf\x04\n\x0cQuotaService\x12X\n\nListQuotas\x12!.chalk.quota.v1.ListQuotasRequest\x1a".chalk.quota.v1.ListQuotasResponse"\x03\x80}\x0b\x12R\n\x08GetQuota\x12\x1f.chalk.quota.v1.GetQuotaRequest\x1a .chalk.quota.v1.GetQuotaResponse"\x03\x80}\x0b\x12\x65\n\x08SetQuota\x12\x1f.chalk.quota.v1.SetQuotaRequest\x1a .chalk.quota.v1.SetQuotaResponse"\x16\x80}\x1b\x8a\xd3\x0e\x0f\x08\x02\x12\x0bSet a quota\x12o\n\nClearQuota\x12!.chalk.quota.v1.ClearQuotaRequest\x1a".chalk.quota.v1.ClearQuotaResponse"\x1a\x80}\x1b\x8a\xd3\x0e\x13\x08\x02\x12\x0fRemoved a quota\x12\x98\x01\n\x14RequestQuotaIncrease\x12+.chalk.quota.v1.RequestQuotaIncreaseRequest\x1a,.chalk.quota.v1.RequestQuotaIncreaseResponse"%\x80}\x0c\x8a\xd3\x0e\x1e\x08\x02\x12\x1aRequested a quota increaseB\x8e\x01\n\x12\x63om.chalk.quota.v1B\x0cServiceProtoP\x01Z\x10quota/v1;quotav1\xa2\x02\x03\x43QX\xaa\x02\x0e\x43halk.Quota.V1\xca\x02\x0e\x43halk\\Quota\\V1\xe2\x02\x1a\x43halk\\Quota\\V1\\GPBMetadata\xea\x02\x10\x43halk::Quota::V1b\x06proto3'
+    b'\n\x1c\x63halk/quota/v1/service.proto\x12\x0e\x63halk.quota.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x85\x02\n\rQuotaResource\x12\x41\n\x04kind\x18\x01 \x01(\x0e\x32!.chalk.quota.v1.QuotaResourceKindB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00R\x04kind\x12\'\n\ngpu_family\x18\x02 \x01(\tB\x08\xbaH\x05r\x03\x18\x80\x01R\tgpuFamily:\x87\x01\xbaH\x83\x01\x1a\x80\x01\n\x19quota_resource.gpu_family\x12\x36gpu_family must be set exactly when kind is GPU_FAMILY\x1a+(this.kind == 4) == (this.gpu_family != \'\')"f\n\nQuotaLimit\x12\x1f\n\x05value\x18\x01 \x01(\x03\x42\x07\xbaH\x04"\x02(\x00H\x00R\x05value\x12\'\n\tunlimited\x18\x02 \x01(\x08\x42\x07\xbaH\x04j\x02\x08\x01H\x00R\tunlimitedB\x0e\n\x05limit\x12\x05\xbaH\x02\x08\x01"\xb8\x02\n\x05Quota\x12\x39\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceR\x08resource\x12!\n\x0c\x64isplay_name\x18\x02 \x01(\tR\x0b\x64isplayName\x12\x30\n\x05limit\x18\x03 \x01(\x0b\x32\x1a.chalk.quota.v1.QuotaLimitR\x05limit\x12\x14\n\x05usage\x18\x04 \x01(\x03R\x05usage\x12!\n\tavailable\x18\x05 \x01(\x03H\x00R\tavailable\x88\x01\x01\x12\x39\n\nupdated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n\nupdated_by\x18\x07 \x01(\tR\tupdatedByB\x0c\n\n_available"\x13\n\x11ListQuotasRequest"]\n\x12ListQuotasResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12-\n\x06quotas\x18\x02 \x03(\x0b\x32\x15.chalk.quota.v1.QuotaR\x06quotas"T\n\x0fGetQuotaRequest\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource"Y\n\x10GetQuotaResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12+\n\x05quota\x18\x02 \x01(\x0b\x32\x15.chalk.quota.v1.QuotaR\x05quota"\x15\n\x13ListGPUTypesRequest"3\n\x14ListGPUTypesResponse\x12\x1b\n\tgpu_types\x18\x01 \x03(\tR\x08gpuTypes"\x8e\x01\n\x0fSetQuotaRequest\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource\x12\x38\n\x05limit\x18\x02 \x01(\x0b\x32\x1a.chalk.quota.v1.QuotaLimitB\x06\xbaH\x03\xc8\x01\x01R\x05limit"?\n\x10SetQuotaResponse\x12+\n\x05quota\x18\x01 \x01(\x0b\x32\x15.chalk.quota.v1.QuotaR\x05quota"V\n\x11\x43learQuotaRequest\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource"\x14\n\x12\x43learQuotaResponse"\xd3\x01\n\x1bRequestQuotaIncreaseRequest\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource\x12K\n\x0frequested_limit\x18\x02 \x01(\x0b\x32\x1a.chalk.quota.v1.QuotaLimitB\x06\xbaH\x03\xc8\x01\x01R\x0erequestedLimit\x12$\n\x07\x63omment\x18\x03 \x01(\tB\n\xbaH\x07r\x05\x10\x01\x18\xa0\x1fR\x07\x63omment"\x1e\n\x1cRequestQuotaIncreaseResponse*\xa1\x03\n\x11QuotaResourceKind\x12#\n\x1fQUOTA_RESOURCE_KIND_UNSPECIFIED\x10\x00\x12&\n"QUOTA_RESOURCE_KIND_CPU_MILLICORES\x10\x01\x12$\n QUOTA_RESOURCE_KIND_MEMORY_BYTES\x10\x02\x12!\n\x1dQUOTA_RESOURCE_KIND_GPU_COUNT\x10\x03\x12"\n\x1eQUOTA_RESOURCE_KIND_GPU_FAMILY\x10\x04\x12%\n!QUOTA_RESOURCE_KIND_SANDBOX_COUNT\x10\x05\x12+\n\'QUOTA_RESOURCE_KIND_SCALING_GROUP_COUNT\x10\x06\x12&\n"QUOTA_RESOURCE_KIND_FUNCTION_COUNT\x10\x07\x12.\n*QUOTA_RESOURCE_KIND_MODEL_DEPLOYMENT_COUNT\x10\x08\x12&\n"QUOTA_RESOURCE_KIND_NOTEBOOK_COUNT\x10\t*\x9a\x02\n\x11QuotaWorkloadKind\x12#\n\x1fQUOTA_WORKLOAD_KIND_UNSPECIFIED\x10\x00\x12\x1f\n\x1bQUOTA_WORKLOAD_KIND_SANDBOX\x10\x01\x12%\n!QUOTA_WORKLOAD_KIND_SCALING_GROUP\x10\x02\x12 \n\x1cQUOTA_WORKLOAD_KIND_FUNCTION\x10\x03\x12(\n$QUOTA_WORKLOAD_KIND_MODEL_DEPLOYMENT\x10\x04\x12 \n\x1cQUOTA_WORKLOAD_KIND_NOTEBOOK\x10\x05\x12*\n&QUOTA_WORKLOAD_KIND_DEPLOYMENT_SERVICE\x10\x06\x32\x8f\x05\n\x0cQuotaService\x12X\n\nListQuotas\x12!.chalk.quota.v1.ListQuotasRequest\x1a".chalk.quota.v1.ListQuotasResponse"\x03\x80}\x0b\x12R\n\x08GetQuota\x12\x1f.chalk.quota.v1.GetQuotaRequest\x1a .chalk.quota.v1.GetQuotaResponse"\x03\x80}\x0b\x12^\n\x0cListGPUTypes\x12#.chalk.quota.v1.ListGPUTypesRequest\x1a$.chalk.quota.v1.ListGPUTypesResponse"\x03\x80}\x0b\x12\x65\n\x08SetQuota\x12\x1f.chalk.quota.v1.SetQuotaRequest\x1a .chalk.quota.v1.SetQuotaResponse"\x16\x80}\x1b\x8a\xd3\x0e\x0f\x08\x02\x12\x0bSet a quota\x12o\n\nClearQuota\x12!.chalk.quota.v1.ClearQuotaRequest\x1a".chalk.quota.v1.ClearQuotaResponse"\x1a\x80}\x1b\x8a\xd3\x0e\x13\x08\x02\x12\x0fRemoved a quota\x12\x98\x01\n\x14RequestQuotaIncrease\x12+.chalk.quota.v1.RequestQuotaIncreaseRequest\x1a,.chalk.quota.v1.RequestQuotaIncreaseResponse"%\x80}\x0c\x8a\xd3\x0e\x1e\x08\x02\x12\x1aRequested a quota increaseB\x8e\x01\n\x12\x63om.chalk.quota.v1B\x0cServiceProtoP\x01Z\x10quota/v1;quotav1\xa2\x02\x03\x43QX\xaa\x02\x0e\x43halk.Quota.V1\xca\x02\x0e\x43halk\\Quota\\V1\xe2\x02\x1a\x43halk\\Quota\\V1\\GPBMetadata\xea\x02\x10\x43halk::Quota::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -67,6 +67,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_QUOTASERVICE"].methods_by_name["ListQuotas"]._serialized_options = b"\200}\013"
     _globals["_QUOTASERVICE"].methods_by_name["GetQuota"]._options = None
     _globals["_QUOTASERVICE"].methods_by_name["GetQuota"]._serialized_options = b"\200}\013"
+    _globals["_QUOTASERVICE"].methods_by_name["ListGPUTypes"]._options = None
+    _globals["_QUOTASERVICE"].methods_by_name["ListGPUTypes"]._serialized_options = b"\200}\013"
     _globals["_QUOTASERVICE"].methods_by_name["SetQuota"]._options = None
     _globals["_QUOTASERVICE"].methods_by_name[
         "SetQuota"
@@ -79,10 +81,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_QUOTASERVICE"].methods_by_name[
         "RequestQuotaIncrease"
     ]._serialized_options = b"\200}\014\212\323\016\036\010\002\022\032Requested a quota increase"
-    _globals["_QUOTARESOURCEKIND"]._serialized_start = 1713
-    _globals["_QUOTARESOURCEKIND"]._serialized_end = 2130
-    _globals["_QUOTAWORKLOADKIND"]._serialized_start = 2133
-    _globals["_QUOTAWORKLOADKIND"]._serialized_end = 2371
+    _globals["_QUOTARESOURCEKIND"]._serialized_start = 1789
+    _globals["_QUOTARESOURCEKIND"]._serialized_end = 2206
+    _globals["_QUOTAWORKLOADKIND"]._serialized_start = 2209
+    _globals["_QUOTAWORKLOADKIND"]._serialized_end = 2491
     _globals["_QUOTARESOURCE"]._serialized_start = 171
     _globals["_QUOTARESOURCE"]._serialized_end = 432
     _globals["_QUOTALIMIT"]._serialized_start = 434
@@ -97,18 +99,22 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_GETQUOTAREQUEST"]._serialized_end = 1053
     _globals["_GETQUOTARESPONSE"]._serialized_start = 1055
     _globals["_GETQUOTARESPONSE"]._serialized_end = 1144
-    _globals["_SETQUOTAREQUEST"]._serialized_start = 1147
-    _globals["_SETQUOTAREQUEST"]._serialized_end = 1289
-    _globals["_SETQUOTARESPONSE"]._serialized_start = 1291
-    _globals["_SETQUOTARESPONSE"]._serialized_end = 1354
-    _globals["_CLEARQUOTAREQUEST"]._serialized_start = 1356
-    _globals["_CLEARQUOTAREQUEST"]._serialized_end = 1442
-    _globals["_CLEARQUOTARESPONSE"]._serialized_start = 1444
-    _globals["_CLEARQUOTARESPONSE"]._serialized_end = 1464
-    _globals["_REQUESTQUOTAINCREASEREQUEST"]._serialized_start = 1467
-    _globals["_REQUESTQUOTAINCREASEREQUEST"]._serialized_end = 1678
-    _globals["_REQUESTQUOTAINCREASERESPONSE"]._serialized_start = 1680
-    _globals["_REQUESTQUOTAINCREASERESPONSE"]._serialized_end = 1710
-    _globals["_QUOTASERVICE"]._serialized_start = 2374
-    _globals["_QUOTASERVICE"]._serialized_end = 2933
+    _globals["_LISTGPUTYPESREQUEST"]._serialized_start = 1146
+    _globals["_LISTGPUTYPESREQUEST"]._serialized_end = 1167
+    _globals["_LISTGPUTYPESRESPONSE"]._serialized_start = 1169
+    _globals["_LISTGPUTYPESRESPONSE"]._serialized_end = 1220
+    _globals["_SETQUOTAREQUEST"]._serialized_start = 1223
+    _globals["_SETQUOTAREQUEST"]._serialized_end = 1365
+    _globals["_SETQUOTARESPONSE"]._serialized_start = 1367
+    _globals["_SETQUOTARESPONSE"]._serialized_end = 1430
+    _globals["_CLEARQUOTAREQUEST"]._serialized_start = 1432
+    _globals["_CLEARQUOTAREQUEST"]._serialized_end = 1518
+    _globals["_CLEARQUOTARESPONSE"]._serialized_start = 1520
+    _globals["_CLEARQUOTARESPONSE"]._serialized_end = 1540
+    _globals["_REQUESTQUOTAINCREASEREQUEST"]._serialized_start = 1543
+    _globals["_REQUESTQUOTAINCREASEREQUEST"]._serialized_end = 1754
+    _globals["_REQUESTQUOTAINCREASERESPONSE"]._serialized_start = 1756
+    _globals["_REQUESTQUOTAINCREASERESPONSE"]._serialized_end = 1786
+    _globals["_QUOTASERVICE"]._serialized_start = 2494
+    _globals["_QUOTASERVICE"]._serialized_end = 3149
 # @@protoc_insertion_point(module_scope)

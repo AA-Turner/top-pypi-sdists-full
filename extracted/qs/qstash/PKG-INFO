@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: qstash
-Version: 3.4.0
+Version: 3.5.0
 Summary: Python SDK for Upstash QStash
 Home-page: https://github.com/upstash/qstash-py
 License: MIT

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daikin-onecta
-Version: 0.7.5
+Version: 0.7.7
 Summary: Async Python client for the Daikin Onecta cloud API
 Author: Johnny Willemsen
 License-Expression: MIT

@@ -128,7 +128,7 @@ class Trajectories(APIResource):
           {
             "training_run_id": training_run_id,
             "eval_run_id": eval_run_id,
-            "cursor": cursor,
+            "cursor": omit if cursor is None else cursor,
             "limit": limit,
             "sort": sort,
             "order": order,
@@ -288,7 +288,7 @@ class Trajectories(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "cursor": cursor,
+            "cursor": omit if cursor is None else cursor,
             "limit": limit,
             "sort": sort,
             "order": order,

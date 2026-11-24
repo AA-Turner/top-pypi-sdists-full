@@ -53,7 +53,12 @@ def _variant_keys() -> list[str]:
 
 
 def outbound_for_case(compiled: CompiledControlsMap, config: dict[str, Any]) -> dict[str, Any]:
-    canonical = canonical_settings_from_config(SimpleNamespace(**config))
+    # A golden case is an agent's SAVED settings (the frozen legacy output), so it is canonicalized as one
+    # (``authored_settings``): the depth law keeps the legacy order for stored values (effort beats a named
+    # level on Gemini 3) and applies specific-beats-general only to a value set for one run. Unmarked, the
+    # engine read each case as a per-run pick and 5 Gemini 3 cases diverged (2026-11-10). The per-run law is
+    # guarded by ``test_saved_agent_depth_never_changes_silently.py``.
+    canonical = canonical_settings_from_config(SimpleNamespace(**config, authored_settings=dict(config)))
     canonical.pop("response_format", None)  # structural — owned by the translators
     params, _adjustments = compiled.outbound(canonical)
     return flatten_dotted(params)

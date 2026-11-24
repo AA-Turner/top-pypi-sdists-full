@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING, Any
@@ -54,12 +55,25 @@ from matrx_graph.workers.queue import (
 
 log = logging.getLogger("matrx_graph.workers.runner")
 
+#: How soon a FAILED job-lease renew is retried — never a whole interval after a slow failure.
+_RENEW_RETRY_AFTER_FAILURE_SECONDS = 5.0  # protocol-constant: internal lease-renew retry tick after a failed renew, a latency/CPU trade-off with no admin-facing meaning
+
 if TYPE_CHECKING:
     from matrx_connect.context.app_context import AppContext
 
 
 JobRunner = Callable[[Job, "AppContext"], Awaitable[None]]
 AppContextFactory = Callable[[Job], Awaitable["AppContext"]]
+
+
+def _is_dropped_connection(exc: BaseException) -> bool:
+    """A pooled connection closed mid-operation (asyncpg ``ConnectionDoesNotExistError``, a
+    ``ConnectionError`` / "connection was closed in the middle of operation"). Nothing else."""
+    if isinstance(exc, asyncio.CancelledError):
+        return False
+    if type(exc).__name__ == "ConnectionDoesNotExistError":
+        return True
+    return isinstance(exc, ConnectionError) or "connection was closed in the middle of operation" in str(exc)
 
 
 class WorkerRunner:
@@ -124,6 +138,9 @@ class WorkerRunner:
         # the capability filter off — every job is claimable, as before.
         self._capabilities = capabilities
         self._stop_event = asyncio.Event()
+        # The doorbell (see ``wake``): set when a job lands, so an idle claim loop claims now
+        # instead of at the end of its poll interval.
+        self._wake_event = asyncio.Event()
         self._in_flight: set[asyncio.Task[None]] = set()
         # The slot semaphore run_forever drives — shared with start_claimed so a job this
         # process starts directly counts against the same max_concurrent.
@@ -131,16 +148,40 @@ class WorkerRunner:
 
     def stop(self) -> None:
         self._stop_event.set()
+        self._wake_event.set()
+
+    @property
+    def stopped(self) -> bool:
+        return self._stop_event.is_set()
+
+    async def wait_stopped(self, timeout: float) -> bool:
+        """Wait up to ``timeout`` seconds for :meth:`stop`; True once stopped (a doorbell loop's pace)."""
+        try:
+            await asyncio.wait_for(self._stop_event.wait(), timeout=timeout)
+        except TimeoutError:
+            pass
+        return self._stop_event.is_set()
+
+    def wake(self) -> None:
+        """The doorbell: a job just landed — an idle claim loop claims now instead of at the end
+        of its poll interval. Safe from any callback on the loop; every replica wakes and
+        ``claim_one`` (SKIP LOCKED) stays the only arbiter, so a wake can never double-run a job.
+        The poll stays the net: a missed wake costs at most one interval, never a job."""
+        self._wake_event.set()
 
     @property
     def in_flight_count(self) -> int:
         return len(self._in_flight)
 
     async def _sleep_or_stop(self, seconds: float) -> None:
+        """Idle until the poll interval ends, a wake, or stop. A wake that rang while the last
+        claim was in flight is already set, so the loop claims again at once — never sleeps
+        through a job that landed a moment too late for the claim that just came back empty."""
         try:
-            await asyncio.wait_for(self._stop_event.wait(), timeout=seconds)
+            await asyncio.wait_for(self._wake_event.wait(), timeout=seconds)
         except TimeoutError:
             pass
+        self._wake_event.clear()
 
     async def _acquire_slot(self, slots: asyncio.Semaphore) -> bool:
         """Hold a slot, or report that the runner is stopping.
@@ -188,10 +229,19 @@ class WorkerRunner:
                 if not await self._acquire_slot(slots):
                     break
                 try:
-                    job = await claim_one(
-                        visibility_timeout_seconds=self._visibility_timeout,
-                        capabilities=self._capabilities() if self._capabilities else None,
-                    )
+                    try:
+                        job = await claim_one(
+                            visibility_timeout_seconds=self._visibility_timeout,
+                            capabilities=self._capabilities() if self._capabilities else None,
+                        )
+                    except Exception as first:  # noqa: BLE001 — one retry, transient class only
+                        if not _is_dropped_connection(first):
+                            raise
+                        log.warning("workflow worker job claim hit a dropped connection; retrying once")
+                        job = await claim_one(
+                            visibility_timeout_seconds=self._visibility_timeout,
+                            capabilities=self._capabilities() if self._capabilities else None,
+                        )
                 except asyncio.CancelledError:
                     slots.release()
                     raise
@@ -342,8 +392,8 @@ class WorkerRunner:
         try:
             if await settle_if_superseded(job):
                 return
-            app = await self._app_factory(job)
             with job_lease.holding(lease):
+                app = await self._app_factory(job)
                 await self._run_job(job, app)
             lease.settling = True  # a renewal answering "not ours" after this settles is not a loss (K1b, M1)
             await complete(job.job_id, claimed_by=job.claimed_by)
@@ -410,6 +460,8 @@ class WorkerRunner:
                     kind="workflow_job_failure_persistence_failed",
                     context={"job_id": job.job_id},
                 )
+            if not disposition.retryable:
+                await settle_run_after_terminal_failure(job, e, reason=disposition.reason)
             # Re-raising would kill the worker process. We log via the host
             # app's logging config — stdlib print is a last resort here.
             import traceback as _tb
@@ -438,8 +490,11 @@ class WorkerRunner:
         # Lease/3 keeps two renewal misses of headroom before expiry; the
         # reaper adds its own grace on top, so only a dead worker is reaped.
         interval = max(self._visibility_timeout // 3, 10)
+        delay: float = interval
         while True:
-            await asyncio.sleep(interval)
+            await asyncio.sleep(delay)
+            delay = interval
+            attempt_started = time.monotonic()
             try:
                 still_ours = await renew_lease(
                     job_id,
@@ -457,7 +512,12 @@ class WorkerRunner:
                     kind="workflow_lease_renewal_failed",
                     context={"job_id": job_id},
                 )
+                # Retry SOON, never a whole interval after a slow failure (a saturated pool
+                # spends ~30 s per failed acquire); the host's spine heartbeat has the same rule.
+                delay = min(interval, _RENEW_RETRY_AFTER_FAILURE_SECONDS)
                 continue
+            # The cadence is anchored at the attempt's start: a slow renew never pushes the next later.
+            delay = max(interval - (time.monotonic() - attempt_started), 0.0)
             if not still_ours:
                 # Reaped (a false "dead" after a database outage looks exactly like this) or settled elsewhere.
                 # Arman, 2026-10-21: a copy that loses its job lease STOPS ITSELF. Finishing "anyway" (the old rule)
@@ -505,6 +565,40 @@ async def hand_back_for_capability(job: Job, need: JobNeedsCapability) -> None:
             kind="workflow_job_capability_handback_failed",
             context={"job_id": job.job_id, "missing": need.missing},
         )
+
+
+async def settle_run_after_terminal_failure(job: Job, error: BaseException, *, reason: str) -> bool:
+    """A TERMINAL JOB FAILURE ENDS ITS RUN (2026-11-09, run 71bb22af).
+
+    A job that fails terminally BEFORE the host's run loop owns the run (its definition is gone, a
+    stored input is missing, the graph will not compile) dead-letters the job but used to leave the
+    run ``pending``/``running``. The lifecycle recovery sweep then read it as a run whose worker
+    died and re-enqueued it, three more times, each one failing the same way and filing another
+    ``workflow_job_failed`` — then gave up with "the worker kept dying", which was never true.
+
+    Only a run still ``pending`` or ``running`` moves (one CAS): a host that already wrote a
+    terminal or recoverable status (completed, failed, errored, cancelled, paused) is never
+    overwritten. Returns True iff this call ended the run. Never raises."""
+    try:
+        from matrx_graph.db.run_store import RunStore
+
+        # THE terminal write every ending runs (review 2026-11-10 finding 6): one guarded UPDATE, the settle hooks
+        # with the row it left — never a bare status transition announced separately.
+        return await RunStore().fail_unstarted(
+            job.run_id,
+            error={
+                "message": "This run could not start, and retrying would fail the same way.",
+                "technical": f"{type(error).__name__}: {error}",
+                "cause": "terminal_job_failure",
+                "classification_reason": reason,
+                "source": "workflow_worker",
+                "error_type": type(error).__name__,
+                "job_id": job.job_id,
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 — the recovery sweep is the backstop
+        await capture_error(exc, kind="workflow_terminal_run_settle_failed", context={"job_id": job.job_id})
+        return False
 
 
 async def settle_if_superseded(job: Job) -> bool:
@@ -613,6 +707,8 @@ async def run_single_job(runner: JobRunner, app_factory: AppContextFactory) -> b
                 kind="workflow_job_failure_persistence_failed",
                 context={"job_id": job.job_id},
             )
+        if not disposition.retryable:
+            await settle_run_after_terminal_failure(job, e, reason=disposition.reason)
         raise
     return True
 

@@ -13,6 +13,8 @@ structured-output negotiation) reads the typed object, never the raw column.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 from enum import Enum
 from typing import Any
@@ -63,6 +65,9 @@ class ResolvedModelCapabilities(BaseModel):
     supports_text_input: bool
     supports_vision: bool  # accepts image input
     supports_audio_input: bool  # accepts audio directly (vs transcribe-first)
+    # Accepts video input (a live model reads camera frames as video: Gemini Live). Separate from
+    # ``supports_vision`` because a video-only model cannot take a still image in a chat turn.
+    supports_video_input: bool = False
     # OUTPUT modalities
     produces_text: bool
     produces_image: bool
@@ -110,6 +115,23 @@ class ResolvedModelCapabilities(BaseModel):
     image_reference_limits: dict[str, int] = {}
     # Video-generation inputs this model takes: {extend|restyle|lip_sync|named: max}.
     video_reference_limits: dict[str, int] = {}
+    # ``ai.model_definition.cost_rating`` (1..6, 6 the top tier; None = unrated). Read only by
+    # the call-time layer's small-model tool limit (``small_model_tools.py``), never the core.
+    model_cost_rating: int | None = None
+
+
+def _model_cost_rating(model_data: Any) -> int | None:
+    raw = (
+        model_data.get("cost_rating")
+        if isinstance(model_data, dict)
+        else getattr(model_data, "cost_rating", None)  # orm-getattr-ok: generated model row
+    )
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 class _DeclaredCapabilities(BaseModel):
@@ -130,7 +152,50 @@ def _str_set(value: Any) -> frozenset[str]:
     return frozenset()
 
 
-def _report_drift(model_name: str, problems: list[str]) -> None:
+def _file_unknown_capability(model_name: str, problems: list[str]) -> None:
+    """File ONE open system_error per model for capability values nobody has a word for.
+
+    A row written around the server's write check (2026-11-18: rerank-v4.0-pro inserted by
+    a migration applied through the Supabase MCP with interaction "rerank") was caught only
+    by the frontend parser on admin pages. Every server process resolves every row on
+    catalog load, so this is the scan: grouped per model across processes
+    (``group_open``), never one row per process.
+    """
+    try:
+        from matrx_ai._ext import get_ext, has_ext
+
+        if not has_ext("record_error"):
+            return
+        record_error = get_ext("record_error")
+        error = RuntimeError(
+            f"ai.model_definition {model_name or '<unknown>'}: capabilities value(s) outside the "
+            f"vocabulary, read as the default until named in {VOCABULARY_FILE} (and its TS twin) "
+            f"or the row is fixed: {'; '.join(problems)}"
+        )
+        fields = {
+            "kind": "ai_model_capability_drift",
+            "route": f"matrx_ai.providers.resolved_capabilities/{model_name or '<unknown>'}",
+            "error_type": "CapabilityVocabularyDrift",
+            "payload": {"model": model_name, "problems": problems},
+        }
+        try:
+            pending = record_error(error, group_open=True, **fields)
+        except TypeError:
+            pending = record_error(error, **fields)
+        if inspect.isawaitable(pending):
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                pending.close()
+                return
+            from matrx_utils import detached_task
+
+            detached_task(pending, name="ai_model_capability_drift")
+    except Exception:  # noqa: BLE001 — a broken alarm never breaks a capability resolve
+        return
+
+
+def _report_drift(model_name: str, problems: list[str], *, unknown: list[str] | None = None) -> None:
     """SCREAM about a stored capabilities value outside the canonical vocabulary.
 
     The write path (the agent `sql`/`db_*` tools, `scripts/set_model_capabilities.py`)
@@ -151,6 +216,10 @@ def _report_drift(model_name: str, problems: list[str]) -> None:
             problem,
             VOCABULARY_FILE,
         )
+    fresh = [p for p in (unknown or []) if f"{model_name}|filed|{p}" not in _reported_drift]
+    if fresh:
+        _reported_drift.update(f"{model_name}|filed|{p}" for p in fresh)
+        _file_unknown_capability(model_name, fresh)
 
 
 def _parse_declared(raw: Any, model_name: str = "") -> _DeclaredCapabilities:
@@ -165,7 +234,7 @@ def _parse_declared(raw: Any, model_name: str = "") -> _DeclaredCapabilities:
     # never a substitute for repairing the row.
     checked = normalize_capabilities(raw, label=model_name)
     if checked.corrections or checked.rejections:
-        _report_drift(model_name, checked.corrections + checked.rejections)
+        _report_drift(model_name, checked.corrections + checked.rejections, unknown=checked.rejections)
     normalized = checked.value if isinstance(checked.value, dict) else {}
 
     interaction = normalized.get("interaction")
@@ -211,6 +280,7 @@ def resolve_model_capabilities(
         supports_text_input="text" in declared.input,
         supports_vision="image" in declared.input,
         supports_audio_input="audio" in declared.input,
+        supports_video_input="video" in declared.input,
         produces_text="text" in declared.output,
         produces_image="image" in declared.output,
         produces_video="video" in declared.output,
@@ -229,6 +299,7 @@ def resolve_model_capabilities(
         multilingual=declared.multilingual,
         image_reference_limits=dict(declared.image_reference_limits),
         video_reference_limits=dict(declared.video_reference_limits),
+        model_cost_rating=_model_cost_rating(model_data),
     )
 
 

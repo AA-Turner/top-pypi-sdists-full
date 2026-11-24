@@ -19,20 +19,25 @@ def _make_response(json_data):
 # ---------------------------------------------------------------------------
 
 class TestNetworkQueryByLogId:
-    def test_returns_decoded_entry_when_found_by_id(self):
+    def test_network_log_id_no_longer_short_circuits(self):
+        """The id is capture-time only and can point at a previous session's call,
+        so it must not be used to resolve; the poll loop matches (method, url)."""
         entry = {
+            "_id": "live1",
             "request": {"method": "GET", "url": "https://example.com/api"},
             "response": {
                 "content": {"mimeType": "application/json", "text": '{"ok": true}'},
             },
         }
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_response({"entry": entry})
-            result = network_query("GET", "https://example.com/api", 1, network_log_id="abc123")
+            mock_get.return_value = _make_response({"log": {"entries": [entry]}})
+            result = network_query("GET", "https://example.com/api", 1,
+                                   network_log_id="abc123", polling_interval=1,
+                                   max_polling_time=1)
 
-        mock_get.assert_called_once_with(
-            "http://127.0.0.1:8181/logs/entry?id=abc123", timeout=30
-        )
+        called = [c[0][0] for c in mock_get.call_args_list]
+        assert not any("logs/entry?id=abc123" in u for u in called), called
+        assert any(u.endswith("/logs") for u in called), called
         assert result["response"]["content"]["text"] == {"ok": True}
 
     def test_falls_through_to_polling_when_entry_is_empty(self):

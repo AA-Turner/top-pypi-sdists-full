@@ -7,8 +7,14 @@
 
 #include "TextDecoder.h"
 
+#include "Version.h"
 #include "ZXAlgorithms.h"
+
+#if !ZXING_ENABLE_UNICODE
+#include "Utf.h"
+#else
 #include "libzueci/zueci.h"
+#endif
 
 #include <cassert>
 #include <stdexcept>
@@ -18,9 +24,35 @@ namespace ZXing {
 
 std::string BytesToUtf8(ByteView bytes, ECI eci)
 {
-#if 0
-	(void)eci;
-	return std::string(bytes.begin(), bytes.end());
+#if !ZXING_ENABLE_UNICODE
+	switch (eci) {
+	case ECI::UTF8: [[fallthrough]];
+	case ECI::ASCII: return std::string(bytes.begin(), bytes.end());
+	case ECI::ISO8859_1: [[fallthrough]];
+	case ECI::Binary: {
+		// For ISO-8859-1 (default character set of e.g. DataMatrix) and binary data, simply map each byte to its UTF-8
+		// representation
+		std::string res;
+		res.reserve(bytes.size() * 2);
+		for (uint8_t b : bytes)
+			AppendToUtf8(res, b);
+		return res;
+	}
+	case ECI::UTF16BE: [[fallthrough]];
+	case ECI::UTF16LE: [[fallthrough]];
+	case ECI::UTF32BE: [[fallthrough]];
+	case ECI::UTF32LE: [[fallthrough]];
+	case ECI::Shift_JIS: [[fallthrough]];
+	case ECI::ISO646_Inv: break;
+	default:
+		if (std::ranges::all_of(bytes, [](auto b) { return b < 0x80; }))
+			return std::string(bytes.begin(), bytes.end());
+	}
+#ifdef PRINT_DEBUG
+	fprintf(stderr, "encountered non-ASCII bytes with Unicode support disabled\n");
+#endif
+	// throw UnsupportedError("Unicode support is disabled");
+	return {};
 #else
 	constexpr unsigned int replacement = 0xFFFD;
 	constexpr unsigned int flags = ZUECI_FLAG_SB_STRAIGHT_THRU | ZUECI_FLAG_SJIS_STRAIGHT_THRU;

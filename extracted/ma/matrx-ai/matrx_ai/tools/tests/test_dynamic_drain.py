@@ -330,6 +330,24 @@ class TestDrainToolMutations:
     async def test_consecutive_drains_emit_one_event_each(self) -> None:
         # Two distinct drain calls in the same request — each non-empty drain
         # produces exactly one event, never coalesced.
+        from matrx_ai.tools.models import ToolDefinition, ToolType
+        from matrx_ai.tools.registry import ToolRegistry
+
+        # Sticky tools the registry does not know are forgotten as retired, so the
+        # fixture tools must be registered for the cumulative count to hold.
+        registry = ToolRegistry.get_instance()
+        saved_tools = dict(registry._tools)
+        try:
+            for fixture in ("tool_a", "tool_b"):
+                registry._tools[fixture] = ToolDefinition(
+                    name=fixture, description="fixture", parameters={},
+                    tool_type=ToolType.LOCAL, function_path="os.path.join",
+                )
+            await self._two_drains()
+        finally:
+            registry._tools = saved_tools
+
+    async def _two_drains(self) -> None:
         emitter = _RecordingEmitter()
         ctx = _make_ctx(emitter=emitter)
         config = _make_config()

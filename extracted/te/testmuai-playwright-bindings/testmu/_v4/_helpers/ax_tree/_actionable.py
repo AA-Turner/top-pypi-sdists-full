@@ -623,6 +623,43 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
             stats.covered += 1
 
 
+def annotate_pointer_tree(tree: Any) -> int:
+    """The same promotion for a portable (non-CDP) tree, from the snapshot's
+    own ``[cursor=pointer]`` (Playwright marks only the top of a pointer run,
+    like ``actionable_pointer``). There are no listener, attribute or paint
+    facts, so no ``dom_hint``, ``via_label`` or ``covered``. Returns the
+    number of nodes marked."""
+    no_attrs = _DomFacts(tag="", attrs={}, actionable_pointer=True, has_listener=False)
+    marked = 0
+
+    def walk(node: Any, in_leaf: bool) -> None:
+        nonlocal marked
+        role = (node.role or "").strip().lower()
+        if (getattr(node, "cursor_pointer", False) and getattr(node, "aria_ref", None)
+                and role not in INTERACTIVE_ROLES and role not in _NEVER_ACTIONABLE_ROLES
+                and not _has_interactive_descendant(node)):
+            label = _label(node, no_attrs)
+            if in_leaf and not label:
+                pass  # part of the enclosing control, nothing of its own
+            elif role in PROMOTABLE_ROLES:
+                if label or node.children:
+                    node.clickable = True
+                    node.display_name = label
+                    marked += 1
+            else:
+                node.clickable = True
+                if not (node.name or "").strip():
+                    node.display_name = label
+                marked += 1
+        child_in_leaf = in_leaf or role in _LEAF_CONTROL_ROLES
+        for child in node.children:
+            walk(child, child_in_leaf)
+
+    if tree is not None:
+        walk(tree, False)
+    return marked
+
+
 async def _snapshot(session: Any) -> dict[str, Any]:
     return await asyncio.wait_for(
         session.send(

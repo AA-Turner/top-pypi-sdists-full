@@ -287,6 +287,7 @@ class Feature(Generic[_TPrim, _TRich]):
         "offline_ttl",
         "owner",
         "raw_etl_offline_to_online",
+        "related_may_not_exist",
         "store_online",
         "store_offline",
         "tags",
@@ -350,6 +351,7 @@ class Feature(Generic[_TPrim, _TRich]):
         group_by_windowed: GroupByWindowed | None = None,
         is_deprecated: bool = False,
         join_type: Literal["has_one", "has_many"] | None = None,
+        related_may_not_exist: bool | None = None,
         # only used for type validation on chalk apply. see `.typ`, '.join`, etc. for the actual join info
         store_online: bool = True,
         store_offline: bool = True,
@@ -486,6 +488,9 @@ class Feature(Generic[_TPrim, _TRich]):
         self._fqn: str | None = None
         self._hash: int | None = None
         self._join_type: Literal["has_one", "has_many"] | None = join_type
+        # Only meaningful for `has_one`. `None` means the user did not choose, which lint reports
+        # when the relationship's shape makes the choice matter.
+        self.related_may_not_exist: bool | None = related_may_not_exist
         self.store_online = store_online
         self.store_offline = store_offline
         self.auxiliary_namespace: str | None = auxiliary_namespace
@@ -1017,6 +1022,11 @@ class Feature(Generic[_TPrim, _TRich]):
             # might not have them set but we still want to print out a repr() of this Feature as part of the error message
             typ_str = "<error>"
         return f"Feature(fqn={root_fqn}, typ={typ_str})"
+
+    @property
+    def is_declared_with_has_one(self) -> bool:
+        """Whether this relationship was declared with `has_one(...)`, rather than inferred from a foreign key."""
+        return self._join_type == "has_one"
 
     @property
     def is_has_one(self) -> bool:
@@ -2356,7 +2366,7 @@ def feature(
     )
 
 
-def has_one(f: Callable[[], Any]) -> Any:
+def has_one(f: Callable[[], Any], *, related_may_not_exist: bool | None = None) -> Any:
     """Specify a feature that represents a one-to-one relationship.
 
     This function allows you to explicitly specify a join condition between
@@ -2389,6 +2399,18 @@ def has_one(f: Callable[[], Any]) -> Any:
         This argument is callable to allow for forward
         references to members of this class and the joined
         class.
+    related_may_not_exist
+        Whether a joined row may be missing even when every local join key is
+        non-null. By default, when the join matches the primary key of the
+        joined class, Chalk assumes that a joined row exists for every non-null
+        local join key, and does not look the row up to confirm it.
+
+        Set this to `True` when the local join key is only a candidate, e.g. when
+        `User.id == UserAddendum.id` but not every user has an addendum. Chalk
+        then treats the joined row as present only if a resolver returns it
+        (such as a SQL resolver, which still receives the candidate keys as a
+        filter), and the relationship is `None` otherwise. The relationship
+        must be annotated as optional.
 
     Examples
     --------
@@ -2405,7 +2427,7 @@ def has_one(f: Callable[[], Any]) -> Any:
     ...         lambda: User.id == Card.user_id
     ...     )
     """
-    return Feature(join=f, join_type="has_one")
+    return Feature(join=f, join_type="has_one", related_may_not_exist=related_may_not_exist)
 
 
 def has_many(

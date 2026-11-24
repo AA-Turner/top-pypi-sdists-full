@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.5553"
+__version__ = "1.1.5564"
 
 # Define package exports
 __all__ = [
@@ -253,6 +253,16 @@ __all__ = [
     "RepositoryGroupDto",
     "RepositoryVisibility",
     "SbomFormat",
+    "ScanLogScannerType",
+    "ScanLogStatus",
+    "ScanNowHistoryItem",
+    "ScanNowHistoryPage",
+    "ScanNowLimits",
+    "ScanNowRequestResponse",
+    "ScanNowStatus",
+    "ScanNowStatusActor",
+    "ScanNowTargetStatus",
+    "ScanNowTriggerError",
     "ScmType",
     "SdlcAssetDto",
     "SdlcAssetGraphAssetDto",
@@ -528,6 +538,16 @@ from legit_api_client.models.repository_dto import RepositoryDto as RepositoryDt
 from legit_api_client.models.repository_group_dto import RepositoryGroupDto as RepositoryGroupDto
 from legit_api_client.models.repository_visibility import RepositoryVisibility as RepositoryVisibility
 from legit_api_client.models.sbom_format import SbomFormat as SbomFormat
+from legit_api_client.models.scan_log_scanner_type import ScanLogScannerType as ScanLogScannerType
+from legit_api_client.models.scan_log_status import ScanLogStatus as ScanLogStatus
+from legit_api_client.models.scan_now_history_item import ScanNowHistoryItem as ScanNowHistoryItem
+from legit_api_client.models.scan_now_history_page import ScanNowHistoryPage as ScanNowHistoryPage
+from legit_api_client.models.scan_now_limits import ScanNowLimits as ScanNowLimits
+from legit_api_client.models.scan_now_request_response import ScanNowRequestResponse as ScanNowRequestResponse
+from legit_api_client.models.scan_now_status import ScanNowStatus as ScanNowStatus
+from legit_api_client.models.scan_now_status_actor import ScanNowStatusActor as ScanNowStatusActor
+from legit_api_client.models.scan_now_target_status import ScanNowTargetStatus as ScanNowTargetStatus
+from legit_api_client.models.scan_now_trigger_error import ScanNowTriggerError as ScanNowTriggerError
 from legit_api_client.models.scm_type import ScmType as ScmType
 from legit_api_client.models.sdlc_asset_dto import SdlcAssetDto as SdlcAssetDto
 from legit_api_client.models.sdlc_asset_graph_asset_dto import SdlcAssetGraphAssetDto as SdlcAssetGraphAssetDto

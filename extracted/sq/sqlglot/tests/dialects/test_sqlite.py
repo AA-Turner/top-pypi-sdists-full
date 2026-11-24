@@ -1,14 +1,166 @@
 import sqlite3
+import unittest
+from contextlib import closing
 
-from sqlglot import ErrorLevel, UnsupportedError, exp, parse_one
+from sqlglot import ErrorLevel, ParseError, UnsupportedError, exp, parse_one
 from sqlglot.generator import logger as generator_logger
 from sqlglot.helper import logger as helper_logger
 from sqlglot.optimizer.annotate_types import annotate_types
+from sqlglot.parser import logger as parser_logger
 from tests.dialects.test_dialect import Validator
 
 
 class TestSQLite(Validator):
     dialect = "sqlite"
+
+    def test_variadic_iif(self):
+        for name in ("IIF", "IF"):
+            self.validate_all(
+                f"SELECT {name}(a, b, c, d)",
+                write={
+                    "sqlite": "SELECT CASE WHEN a THEN b WHEN c THEN d END",
+                    "duckdb": "SELECT CASE WHEN a THEN b WHEN c THEN d END",
+                    "postgres": "SELECT CASE WHEN a THEN b WHEN c THEN d END",
+                },
+            )
+            self.validate_all(
+                f"SELECT {name}(a, b, c, d, e)",
+                write={"sqlite": "SELECT CASE WHEN a THEN b WHEN c THEN d ELSE e END"},
+            )
+
+        for args in ("0, 1", "0, 1, 2"):
+            with self.subTest(args=args):
+                sql = f"IIF({args})"
+                call = self.validate_identity(f"SELECT\n  {sql}", f"SELECT {sql}").expressions[0]
+                self.assertEqual(call.meta, {"line": 2, "col": 5, "start": 9, "end": 11})
+
+    @unittest.skipIf(sqlite3.sqlite_version_info < (3, 49), "Requires variadic SQLite IIF")
+    def test_variadic_iif_execution(self):
+        with closing(sqlite3.connect(":memory:")) as connection:
+            for name in ("IIF", "IF"):
+                for args in (
+                    "1, 10, 1, 20",
+                    "0, 10, 1, 20",
+                    "0, 10, 0, 20",
+                    "NULL, 10, 1, 20",
+                    "0, 10, 0, 20, 30",
+                    "0, 10, NULL, 20, 1, 30, 40",
+                    "1, IIF(0, 10, 1, 20), 0, 30, 40",
+                ):
+                    with self.subTest(name=name, args=args):
+                        sql = f"SELECT {name}({args})"
+                        generated = parse_one(sql, dialect="sqlite").sql("sqlite")
+                        self.assertEqual(
+                            connection.execute(generated).fetchall(),
+                            connection.execute(sql).fetchall(),
+                        )
+
+    def test_quoted_variadic_iif(self):
+        for name in ('"IF"', '"IIF"'):
+            with self.subTest(name=name):
+                call = self.validate_identity(
+                    f"SELECT {name}(0, 1, 1, 2)", "SELECT CASE WHEN 0 THEN 1 WHEN 1 THEN 2 END"
+                ).expressions[0]
+                end = 6 + len(name)
+                self.assertEqual(call.meta, {"line": 1, "col": end + 1, "start": 7, "end": end})
+                with self.assertRaisesRegex(ParseError, r"Expecting \)"):
+                    self.parse_one(f"SELECT {name}(0, 1")
+
+    def test_iif_anonymous_marker(self):
+        for name, args in (
+            ("IIF", "0, 1, 2"),
+            ("iF", "0, 1, 2"),
+            ('"iF"', "0, 1, 1, 2"),
+        ):
+            with self.subTest(name=name):
+                sql = f"SELECT {name}({args})"
+                query = self.parse_one(f"{sql} /* sqlglot.anonymous */")
+                call = query.expressions[0]
+                self.assertIsInstance(call, exp.Anonymous)
+                self.assertEqual(call.comments, [" sqlglot.anonymous "])
+                for dialect in ("postgres", "duckdb"):
+                    self.assertEqual(
+                        query.sql(dialect, comments=False, normalize_functions=False), sql
+                    )
+
+    def test_length_null_terminated_text(self):
+        for arg, duckdb_arg in (
+            ("''", "''"),
+            ("'abc'", "'abc'"),
+            ("'a' || CHAR(0) || 'b'", "'a' || CHR(0) || 'b'"),
+            ("CHAR(0)", "CHR(0)"),
+            ("CHAR(0) || 'ab'", "CHR(0) || 'ab'"),
+            ("'ab' || CHAR(0)", "'ab' || CHR(0)"),
+            ("'é😊' || CHAR(0) || 'x'", "'é😊' || CHR(0) || 'x'"),
+        ):
+            sql = f"SELECT LENGTH({arg})"
+            self.validate_all(
+                sql,
+                write={
+                    "sqlite": sql,
+                    "duckdb": f"SELECT LENGTH(SPLIT_PART({duckdb_arg}, CHR(0), 1))",
+                },
+            )
+
+        for arg, duckdb_arg in (
+            ("NULL", "NULL"),
+            ("123", "123"),
+            ("x'610062'", "UNHEX('610062')"),
+            ("x''", "UNHEX('')"),
+        ):
+            sql = f"SELECT LENGTH({arg})"
+            self.validate_all(
+                sql,
+                write={
+                    "sqlite": sql,
+                    "duckdb": f"SELECT CASE TYPEOF({duckdb_arg}) "
+                    f"WHEN 'BLOB' THEN OCTET_LENGTH(CAST({duckdb_arg} AS BLOB)) "
+                    f"ELSE LENGTH(SPLIT_PART(CAST({duckdb_arg} AS TEXT), CHR(0), 1)) END",
+                },
+            )
+
+        for dtype, expected in (
+            ("TEXT", "SELECT LENGTH(SPLIT_PART(t.x, CHR(0), 1)) FROM t"),
+            (
+                "BLOB",
+                "SELECT CASE TYPEOF(t.x) WHEN 'BLOB' THEN OCTET_LENGTH(CAST(t.x AS BLOB)) "
+                "ELSE LENGTH(SPLIT_PART(CAST(t.x AS TEXT), CHR(0), 1)) END FROM t",
+            ),
+            (
+                "INT",
+                "SELECT CASE TYPEOF(t.x) WHEN 'BLOB' THEN OCTET_LENGTH(CAST(t.x AS BLOB)) "
+                "ELSE LENGTH(SPLIT_PART(CAST(t.x AS TEXT), CHR(0), 1)) END FROM t",
+            ),
+        ):
+            expression = annotate_types(
+                self.parse_one("SELECT LENGTH(t.x) FROM t"),
+                schema={"t": {"x": dtype}},
+                dialect="sqlite",
+            )
+            self.assertEqual(expression.sql("duckdb"), expected)
+
+        self.validate_all(
+            "SELECT LENGTH('é')",
+            write={"mysql": "SELECT CHAR_LENGTH('é')"},
+        )
+
+        expression = self.validate_identity("SELECT LENGTH(x)")
+        original = expression.copy()
+        sql = expression.sql("duckdb", copy=False)
+        self.assertEqual(
+            sql,
+            "SELECT CASE TYPEOF(x) WHEN 'BLOB' THEN OCTET_LENGTH(CAST(x AS BLOB)) "
+            "ELSE LENGTH(SPLIT_PART(CAST(x AS TEXT), CHR(0), 1)) END",
+        )
+        self.assertEqual(expression, original)
+        length = expression.find(exp.Length)
+        self.assertTrue(length.args.get("null_terminated"))
+        self.assertIs(length.this.parent, length)
+        self.assertEqual(expression.sql("sqlite", copy=False), "SELECT LENGTH(x)")
+        self.assertEqual(
+            parse_one("SELECT LENGTH(x)", dialect="duckdb").sql("duckdb"),
+            "SELECT LENGTH(x)",
+        )
 
     def test_round(self):
         for sql, duckdb_sql in (
@@ -91,6 +243,25 @@ class TestSQLite(Validator):
             connection.close()
 
     def test_random(self):
+        unit = "(CAST(RANDOM() & 9007199254740991 AS REAL) / 9007199254740992)"
+        self.validate_all(
+            f"SELECT {unit} < 0.1",
+            read={
+                "bigquery": "SELECT RAND() < 0.1",
+                "mysql": "SELECT RAND() < 0.1",
+                "postgres": "SELECT RANDOM() < 0.1",
+            },
+        )
+        with closing(sqlite3.connect(":memory:")) as conn:
+            for raw, expected in ((0, 0.0), (-1, 1 - 2**-53), (2**63 - 1, 1 - 2**-53)):
+                conn.create_function("RANDOM", 0, lambda: raw)
+                value, reciprocal = conn.execute(
+                    parse_one("SELECT RAND(), 1.0 / RAND()", read="mysql").sql("sqlite")
+                ).fetchone()
+                self.assertIsInstance(value, float)
+                self.assertEqual(value, expected)
+                self.assertEqual(reciprocal, 1 / expected if expected else None)
+
         duckdb_random = "CAST((((CAST(FLOOR(RANDOM() * 4294967296) AS INT128) * 4294967296) + CAST(FLOOR(RANDOM() * 4294967296) AS INT128)) % ((CAST(9223372036854775807 AS INT128) - CAST(-9223372036854775807 AS INT128)) + 1)) + CAST(-9223372036854775807 AS INT128) AS BIGINT)"
         self.validate_all(
             "SELECT RANDOM()",
@@ -110,6 +281,59 @@ class TestSQLite(Validator):
         self.assertTrue(expression.is_type(exp.DType.BIGINT))
         self.assertEqual(expression.args["lower"].to_py(), -9223372036854775807)
         self.assertEqual(expression.args["upper"].to_py(), 9223372036854775807)
+
+    def test_empty_group_by(self):
+        self.validate_all(
+            "SELECT COUNT(*) FROM t",
+            read={"duckdb": "SELECT COUNT(*) FROM t GROUP BY ()"},
+        )
+        self.validate_all(
+            "SELECT SUM(COUNT(*)) OVER () FROM t",
+            read={"duckdb": "SELECT SUM(COUNT(*)) OVER () FROM t GROUP BY ()"},
+        )
+        self.validate_all(
+            "SELECT COALESCE(SUM(x), 0) FROM t HAVING COUNT(*) > 1",
+            read={"duckdb": "SELECT COALESCE(SUM(x), 0) FROM t GROUP BY () HAVING COUNT(*) > 1"},
+        )
+
+        for sql in (
+            "SELECT 1 FROM t GROUP BY ()",
+            "SELECT 1 FROM t GROUP BY () HAVING COUNT(*) > 0",
+            "SELECT COUNT(*) FILTER(WHERE TRUE) OVER () FROM t GROUP BY ()",
+            "SELECT SUM(COUNT(*)) OVER () FROM t GROUP BY () HAVING COUNT(*) > 1",
+            "SELECT (SELECT COUNT(*) FROM u) FROM t GROUP BY ()",
+            "SELECT COUNT(*) FROM t GROUP BY (), x",
+        ):
+            with self.subTest(sql=sql):
+                query = parse_one(sql, read="duckdb")
+                self.assertEqual(query.sql("sqlite", unsupported_level=ErrorLevel.IGNORE), sql)
+                with self.assertRaisesRegex(UnsupportedError, r"GROUP BY \(\)"):
+                    query.sql("sqlite", unsupported_level=ErrorLevel.RAISE)
+
+    def test_empty_group_by_min_max(self):
+        for sql in (
+            "SELECT MIN(x), MAX(y) FROM t GROUP BY ()",
+            "SELECT MIN(COUNT(*), 7) FROM t GROUP BY ()",
+            "SELECT MAX(0, SUM(x)) FROM t GROUP BY () HAVING SUM(x) > 0",
+            "SELECT ROW_NUMBER() OVER w FROM t GROUP BY () WINDOW w AS (ORDER BY MAX(0, SUM(x)))",
+        ):
+            with self.subTest(sql=sql):
+                self.assertEqual(
+                    parse_one(sql).sql("sqlite", unsupported_level=ErrorLevel.RAISE),
+                    sql.replace(" GROUP BY ()", ""),
+                )
+
+        for dialect, sql in (
+            ("", "SELECT MIN(x, y) FROM t GROUP BY ()"),
+            ("", "SELECT MAX(x, y) FROM t GROUP BY () HAVING COUNT(*) > 0"),
+            ("", "SELECT ROW_NUMBER() OVER w FROM t GROUP BY () WINDOW w AS (ORDER BY MAX(1, 2))"),
+            ("duckdb", "SELECT MIN(x, 2) FROM t GROUP BY ()"),
+        ):
+            with self.subTest(dialect=dialect, sql=sql):
+                query = parse_one(sql, read=dialect)
+                self.assertEqual(query.sql("sqlite", unsupported_level=ErrorLevel.IGNORE), sql)
+                with self.assertRaisesRegex(UnsupportedError, r"GROUP BY \(\)"):
+                    query.sql("sqlite", unsupported_level=ErrorLevel.RAISE)
 
     def test_group_concat_null_separator(self):
         for separator, duckdb_separator in (
@@ -215,6 +439,132 @@ class TestSQLite(Validator):
         finally:
             connection.close()
 
+    def test_interval_arithmetic_execution(self):
+        connection = sqlite3.connect(":memory:")
+        try:
+            for read, sql, expected in (
+                (
+                    "postgres",
+                    "SELECT CAST('2024-01-15' AS DATE) + INTERVAL '1 day'",
+                    "2024-01-16 00:00:00",
+                ),
+                ("mysql", "SELECT CAST('2024-01-15' AS DATE) + INTERVAL 1 DAY", "2024-01-16"),
+                ("mysql", "SELECT CAST('2024-01-15' AS DATE) - INTERVAL 1 MONTH", "2023-12-15"),
+                (
+                    "duckdb",
+                    "SELECT INTERVAL 1 DAY + CAST('2024-01-15' AS DATE)",
+                    "2024-01-16 00:00:00",
+                ),
+                ("postgres", "SELECT TIME '14:30:00' - INTERVAL '1 hour'", "13:30:00"),
+                (
+                    "postgres",
+                    "WITH t AS (SELECT TIMESTAMP '2024-01-15 14:30:00' AS ts) "
+                    "SELECT t.ts + INTERVAL '1 day' FROM t",
+                    "2024-01-16 14:30:00",
+                ),
+                (
+                    "postgres",
+                    "SELECT CAST('2024-01-15 10:00:00' AS TIMESTAMP) - INTERVAL '2 hours'",
+                    "2024-01-15 08:00:00",
+                ),
+                (
+                    "postgres",
+                    "SELECT CAST('2024-01-15 10:00:00' AS TIMESTAMP) + INTERVAL '1 week'",
+                    "2024-01-22 10:00:00",
+                ),
+            ):
+                with self.subTest(sql=sql):
+                    generated = annotate_types(parse_one(sql, read=read), dialect=read).sql(
+                        f"sqlite, version={sqlite3.sqlite_version}"
+                    )
+                    self.assertEqual([(expected,)], connection.execute(generated).fetchall())
+        finally:
+            connection.close()
+
+    @unittest.skipIf(sqlite3.sqlite_version_info < (3, 46), "Requires SQLite's floor modifier")
+    def test_month_end_interval_arithmetic(self):
+        with closing(sqlite3.connect(":memory:")) as connection:
+            for read, sql, expected in (
+                (
+                    "postgres",
+                    "SELECT DATE '2024-01-31' + INTERVAL '1 month'",
+                    "2024-02-29 00:00:00",
+                ),
+                (
+                    "postgres",
+                    "SELECT DATE '2024-02-29' + INTERVAL '1 year'",
+                    "2025-02-28 00:00:00",
+                ),
+                (
+                    "postgres",
+                    "SELECT INTERVAL '2 months' + TIMESTAMP '2023-12-31 12:34:56'",
+                    "2024-02-29 12:34:56",
+                ),
+                ("mysql", "SELECT DATE_ADD(DATE '2024-01-31', INTERVAL 1 QUARTER)", "2024-04-30"),
+                (
+                    "mysql",
+                    "SELECT DATE_SUB(t.d, INTERVAL t.n QUARTER) "
+                    "FROM (SELECT DATE '2024-05-31' AS d, 1 AS n) AS t",
+                    "2024-02-29",
+                ),
+            ):
+                with self.subTest(sql=sql):
+                    generated = annotate_types(parse_one(sql, read=read), dialect=read).sql(
+                        "sqlite"
+                    )
+                    self.assertEqual(connection.execute(generated).fetchone(), (expected,))
+
+    def test_month_end_interval_before_sqlite_3_46(self):
+        expression = parse_one("SELECT d - INTERVAL 1 MONTH FROM t", read="mysql")
+        with self.assertRaises(UnsupportedError):
+            expression.sql("sqlite, version=3.45", unsupported_level=ErrorLevel.RAISE)
+        self.assertEqual(
+            expression.sql("sqlite, version=3.45", unsupported_level=ErrorLevel.IGNORE),
+            "SELECT DATE(d, '-1 MONTH') FROM t",
+        )
+
+    def test_interval_arithmetic_unknown_type(self):
+        for sql in (
+            "SELECT ts + INTERVAL 1 DAY FROM t",
+            "SELECT INTERVAL 1 WEEK + ts FROM t",
+            "SELECT ts - INTERVAL 1 MONTH FROM t",
+            "SELECT ts + INTERVAL 1 QUARTER FROM t",
+            "SELECT DATE_ADD(ts, INTERVAL 1 YEAR) FROM t",
+        ):
+            with (
+                self.subTest(sql=sql),
+                self.assertRaisesRegex(UnsupportedError, "may discard the time"),
+            ):
+                parse_one(sql, read="duckdb").sql("sqlite", unsupported_level=ErrorLevel.RAISE)
+
+        query = parse_one("SELECT t.ts + INTERVAL 1 DAY FROM t", read="mysql")
+        annotate_types(query, dialect="mysql")
+        with self.assertLogs(generator_logger, level="WARNING") as logs:
+            self.assertEqual(query.sql("sqlite"), "SELECT DATE(t.ts, '1 DAY') FROM t")
+        self.assertIn("may discard the time", logs.output[0])
+
+        for dtype, func in (("DATE", "DATE"), ("TIMESTAMP", "DATETIME")):
+            with self.subTest(dtype=dtype):
+                annotate_types(query, schema={"t": {"ts": dtype}}, dialect="mysql")
+                self.assertEqual(
+                    query.sql("sqlite", unsupported_level=ErrorLevel.RAISE),
+                    f"SELECT {func}(t.ts, '1 DAY') FROM t",
+                )
+
+    def test_interval_arithmetic_text_column(self):
+        for sql in (
+            "SELECT t.ts + INTERVAL 1 DAY FROM t",
+            "SELECT DATE_ADD(t.ts, INTERVAL 1 DAY) FROM t",
+        ):
+            with self.subTest(sql=sql):
+                query = annotate_types(
+                    parse_one(sql, read="mysql"),
+                    schema={"t": {"ts": "VARCHAR(32)"}},
+                    dialect="mysql",
+                )
+                with self.assertRaisesRegex(UnsupportedError, "may discard the time"):
+                    query.sql("sqlite", unsupported_level=ErrorLevel.RAISE)
+
     def test_date_add_sub_day_units_retain_time(self):
         connection = sqlite3.connect(":memory:")
         try:
@@ -309,6 +659,16 @@ class TestSQLite(Validator):
                 with self.subTest(sql=sql, dialect=dialect):
                     self.assertEqual(expression.sql(dialect), output)
 
+    def test_parenthesized_set_operands(self):
+        self.validate_all(
+            "SELECT * FROM (SELECT DISTINCT a FROM t) EXCEPT SELECT * FROM (SELECT DISTINCT a FROM u)",
+            read={"duckdb": "(SELECT DISTINCT a FROM t) EXCEPT (SELECT DISTINCT a FROM u)"},
+        )
+        self.validate_all(
+            "SELECT 0 UNION ALL SELECT * FROM (SELECT a FROM t ORDER BY a DESC LIMIT 1)",
+            read={"duckdb": "SELECT 0 UNION ALL (SELECT a FROM t ORDER BY a DESC LIMIT 1)"},
+        )
+
     def test_subquery_modifiers(self):
         for source, expected in (
             (
@@ -396,6 +756,32 @@ class TestSQLite(Validator):
         ):
             with self.subTest(source=source):
                 self.validate_all(expected, read={"mysql": source})
+
+    def test_negative_limit(self):
+        # A negative LIMIT means "no limit" in SQLite
+        self.validate_all(
+            "SELECT x FROM t LIMIT -1 OFFSET 5",
+            write={
+                "sqlite": "SELECT x FROM t LIMIT -1 OFFSET 5",
+                "duckdb": "SELECT x FROM t LIMIT ALL OFFSET 5",
+                "postgres": "SELECT x FROM t LIMIT ALL OFFSET 5",
+                "tsql": "SELECT x FROM t ORDER BY (SELECT NULL) OFFSET 5 ROWS",
+            },
+        )
+        self.validate_all(
+            "SELECT x FROM t LIMIT 5, -2",
+            write={
+                "sqlite": "SELECT x FROM t LIMIT -1 OFFSET 5",
+                "duckdb": "SELECT x FROM t LIMIT ALL OFFSET 5",
+            },
+        )
+        self.validate_all(
+            "SELECT x FROM t LIMIT -1",
+            write={
+                "sqlite": "SELECT x FROM t",
+                "duckdb": "SELECT x FROM t LIMIT ALL",
+            },
+        )
 
     def test_cast(self):
         for dtype, func in (
@@ -587,7 +973,7 @@ class TestSQLite(Validator):
             },
         )
         self.validate_all(
-            "SELECT DATE(d, (-n) || ' MONTH') FROM t",
+            "SELECT DATE(d, (-n) || ' MONTH', 'floor') FROM t",
             read={
                 "duckdb": "SELECT DATE_ADD(d, INTERVAL (-n) MONTH) FROM t",
             },
@@ -599,7 +985,7 @@ class TestSQLite(Validator):
             },
         )
         self.validate_all(
-            "SELECT DATE(d, '-1 MONTH') FROM t",
+            "SELECT DATE(d, '-1 MONTH', 'floor') FROM t",
             read={
                 "bigquery": "SELECT DATE_SUB(d, INTERVAL 1 MONTH) FROM t",
                 "mysql": "SELECT DATE_SUB(d, INTERVAL 1 MONTH) FROM t",
@@ -668,6 +1054,38 @@ class TestSQLite(Validator):
         self.validate_all(
             "SELECT DATE(d, (-(SELECT 1)) || ' DAY') FROM t",
             read={"mysql": "SELECT DATE_SUB(d, INTERVAL (SELECT 1) DAY) FROM t"},
+        )
+        # SQLite has no INTERVAL, so date arithmetic operators become date modifiers
+        self.validate_all(
+            "SELECT DATE(d, '1 DAY') FROM t",
+            read={
+                "postgres": "SELECT d + INTERVAL '1 day' FROM t",
+                "mysql": "SELECT d + INTERVAL 1 DAY FROM t",
+                "duckdb": "SELECT INTERVAL 1 DAY + d FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE(d, '-1 MONTH', 'floor') FROM t",
+            read={"mysql": "SELECT d - INTERVAL 1 MONTH FROM t"},
+        )
+        self.validate_all(
+            "SELECT DATETIME(d, '-2 HOURS') FROM t",
+            read={"postgres": "SELECT d - INTERVAL '2 hours' FROM t"},
+        )
+        self.validate_all(
+            "SELECT DATETIME(DATETIME(d), '1 DAY') FROM t",
+            read={"postgres": "SELECT CAST(d AS TIMESTAMP) + INTERVAL '1 day' FROM t"},
+        )
+        self.validate_all(
+            "SELECT DATETIME(DATETIME('2024-01-15 23:30:00'), '1 DAY')",
+            read={
+                "mysql": "SELECT TIMESTAMP '2024-01-15 23:30:00' + INTERVAL 1 DAY",
+                "spark": "SELECT CAST('2024-01-15 23:30:00' AS TIMESTAMP_LTZ) + INTERVAL 1 DAY",
+            },
+        )
+        self.validate_all(
+            "SELECT DATETIME(CURRENT_TIMESTAMP, '-7 DAYS')",
+            read={"postgres": "SELECT CURRENT_TIMESTAMP - INTERVAL '7 days'"},
         )
         self.validate_all(
             "SELECT DATE_SUB(d, '1'') ; SELECT 1; --')",
@@ -1054,12 +1472,26 @@ class TestSQLite(Validator):
             "SELECT (a COLLATE NOCASE -> b) + c FROM t",
         )
 
+    def test_now(self):
+        self.validate_all(
+            "SELECT DATE('nOw'), STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')",
+            write={
+                "sqlite": "SELECT DATE('now'), STRFTIME('%Y-%m-%d %H:%M:%f', 'now')",
+                "duckdb": "SELECT CAST(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS DATE), "
+                "STRFTIME(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', '%Y-%m-%d %H:%M:%S.%g')",
+            },
+        )
+        self.validate_all(
+            "SELECT STRFTIME('%Y-%m-%d %H:%M:%f', 'now')",
+            read={"duckdb": "SELECT CURRENT_TIMESTAMP AT TIME ZONE 'UTC'"},
+        )
+        self.validate_identity("SELECT DATE(now), STRFTIME('%f', now) FROM t")
+
     def test_strftime(self):
-        self.validate_identity("SELECT STRFTIME('%Y/%m/%d', 'now')")
         self.validate_identity("SELECT STRFTIME('%Y-%m-%d', '2016-10-16', 'start of month')")
         self.validate_identity(
             "SELECT STRFTIME('%s')",
-            "SELECT STRFTIME('%s', CURRENT_TIMESTAMP)",
+            "SELECT STRFTIME('%s', 'now')",
         )
 
         self.validate_all(
@@ -1077,6 +1509,58 @@ class TestSQLite(Validator):
             },
         )
 
+    def test_strftime_fractional_seconds(self):
+        self.validate_all(
+            "SELECT STRFTIME('%Y-%m-%d %H:%M:%f', '2024-02-29 12:34:56.123')",
+            write={
+                "duckdb": "SELECT STRFTIME(CAST('2024-02-29 12:34:56.123' AS TIMESTAMP), '%Y-%m-%d %H:%M:%S.%g')",
+                "sqlite": "SELECT STRFTIME('%Y-%m-%d %H:%M:%f', '2024-02-29 12:34:56.123')",
+            },
+        )
+        for value in ("'2024-02-29 12:34:00.007'", "'2024-02-29 12:34:56'", "NULL"):
+            self.validate_all(
+                f"SELECT STRFTIME('%f', {value})",
+                write={
+                    "duckdb": f"SELECT STRFTIME(CAST({value} AS TIMESTAMP), '%S.%g')",
+                    "sqlite": f"SELECT STRFTIME('%f', {value})",
+                },
+            )
+
+        self.validate_all(
+            "SELECT STRFTIME('%f', ts) FROM (SELECT '2024-02-29 12:34:56.123' AS ts) AS t",
+            write={
+                "duckdb": "SELECT STRFTIME(CAST(ts AS TIMESTAMP), '%S.%g') FROM (SELECT '2024-02-29 12:34:56.123' AS ts) AS t",
+            },
+        )
+
+        for source, target in (
+            ("%%f", "%%f"),
+            ("%%%f", "%%%S.%g"),
+            ("%%%%f", "%%%%f"),
+            ("%S.%f", "%S.%S.%g"),
+            ("%f|%%f|%f", "%S.%g|%%f|%S.%g"),
+        ):
+            self.validate_all(
+                f"SELECT STRFTIME('{source}', '2024-02-29 12:34:56.123')",
+                write={
+                    "duckdb": f"SELECT STRFTIME(CAST('2024-02-29 12:34:56.123' AS TIMESTAMP), '{target}')",
+                    "sqlite": f"SELECT STRFTIME('{source}', '2024-02-29 12:34:56.123')",
+                },
+            )
+
+        self.validate_all(
+            "SELECT STRFTIME('%f')",
+            write={
+                "sqlite": "SELECT STRFTIME('%f', 'now')",
+                "duckdb": "SELECT STRFTIME(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', '%S.%g')",
+            },
+        )
+        self.validate_identity("SELECT STRFTIME('%f', CURRENT_TIMESTAMP)")
+        self.validate_identity("SELECT STRFTIME('%f', '2024-02-29 12:34:56.123', '+1 second')")
+        self.validate_identity(
+            "SELECT STRFTIME(fmt, '2024-02-29 12:34:56.123') FROM (SELECT '%f' AS fmt) AS t"
+        )
+
     def test_datediff(self):
         self.assertEqual(
             parse_one("DATEDIFF(a, b, 'day')").sql("sqlite", unsupported_level=ErrorLevel.RAISE),
@@ -1085,6 +1569,14 @@ class TestSQLite(Validator):
         self.validate_all(
             "DATEDIFF(a, b, 'day')",
             write={"sqlite": "CAST((JULIANDAY(a) - JULIANDAY(b)) AS INTEGER)"},
+        )
+        self.validate_all(
+            "CAST((JULIANDAY(a, 'start of day') - JULIANDAY(b, 'start of day')) AS INTEGER)",
+            read={
+                "duckdb": "DATE_DIFF('day', b, a)",
+                "mysql": "DATEDIFF(a, b)",
+                "snowflake": "DATEDIFF(DAY, b, a)",
+            },
         )
         self.validate_all(
             "DATEDIFF(a, b, 'hour')",
@@ -1105,6 +1597,16 @@ class TestSQLite(Validator):
                 "tsql": "DATEDIFF_BIG(NANOSECOND, b, a)",
             },
         )
+
+    def test_datediff_day_boundary(self):
+        sql = parse_one(
+            "SELECT DATE_DIFF('day', a, b), DATE_DIFF('day', b, a) "
+            "FROM (SELECT TIMESTAMP '2024-03-01 23:59:59' AS a, "
+            "TIMESTAMP '2024-03-02 00:00:00' AS b) AS t",
+            dialect="duckdb",
+        ).sql("sqlite")
+        with closing(sqlite3.connect(":memory:")) as conn:
+            self.assertEqual(conn.execute(sql).fetchone(), (1, -1))
 
     def test_hexadecimal_literal(self):
         for sql, expected in (
@@ -1280,10 +1782,50 @@ class TestSQLite(Validator):
                     read={dialect: f"CREATE TABLE t (a INT {constraint})"},
                 )
 
+    def test_update_or(self):
+        for action in ("ABORT", "FAIL", "IGNORE", "REPLACE", "ROLLBACK"):
+            with self.subTest(action=action):
+                update = self.validate_identity(f"UPDATE OR {action} t SET b = 'x' WHERE id = 1")
+                self.assertIsInstance(update, exp.Update)
+                self.assertEqual(update.args["alternative"], action)
+
+        sql = "UPDATE OR IGNORE t SET b = 'x'"
+        self.validate_all(
+            sql,
+            read={"": sql, "sqlite": "update or ignore t set b = 'x'"},
+            write={"": sql, "postgres": UnsupportedError, "teradata": UnsupportedError},
+        )
+        with self.assertRaises(ParseError):
+            self.parse_one("UPDATE OR t SET b = 'x'")
+
     def test_ddl(self):
         for conflict_action in ("ABORT", "FAIL", "IGNORE", "REPLACE", "ROLLBACK"):
             with self.subTest(f"ON CONFLICT {conflict_action}"):
-                self.validate_identity("CREATE TABLE a (b, c, UNIQUE (b, c) ON CONFLICT IGNORE)")
+                self.validate_identity(
+                    f"CREATE TABLE a (b, c, UNIQUE (b, c) ON CONFLICT {conflict_action})"
+                )
+
+        for constraint in (
+            "PRIMARY KEY ON CONFLICT REPLACE",
+            "NOT NULL ON CONFLICT IGNORE",
+            "NULL ON CONFLICT IGNORE",
+            "UNIQUE ON CONFLICT FAIL",
+            "CONSTRAINT pk PRIMARY KEY ASC ON CONFLICT REPLACE AUTOINCREMENT",
+            "NOT NULL ON CONFLICT ABORT UNIQUE ON CONFLICT ROLLBACK",
+        ):
+            with self.subTest(constraint=constraint):
+                self.validate_identity(f"CREATE TABLE a (x INTEGER {constraint})")
+
+        self.validate_identity("CREATE TABLE a (x INTEGER NULL)")
+        for columns in (
+            "x INTEGER NOT NULL",
+            "x INTEGER NULL",
+            "x INTEGER PRIMARY KEY",
+            "x INTEGER UNIQUE",
+            "x INTEGER, UNIQUE (x)",
+        ):
+            with self.subTest(columns=columns), self.assertRaises(ParseError):
+                self.parse_one(f"CREATE TABLE a ({columns} ON CONFLICT DO NOTHING)")
 
         self.validate_identity("CREATE TABLE over (x, y)")
         self.validate_identity("INSERT OR ABORT INTO foo (x, y) VALUES (1, 2)")
@@ -1415,6 +1957,15 @@ class TestSQLite(Validator):
         self.validate_identity("REINDEX schma.idx", check_command_warning=True)
         self.validate_identity("SELECT reindex FROM t")
 
+    def test_end_transaction(self):
+        for sql in ("END", "END TRANSACTION"):
+            with self.subTest(sql=sql):
+                self.assertIsInstance(self.validate_identity(sql, "COMMIT"), exp.Commit)
+                block = self.validate_identity(f"BEGIN; {sql}", "BEGIN TRANSACTION; COMMIT")
+                self.assertIsInstance(block.expressions[-1], exp.Commit)
+
+        self.validate_identity("end + 1")
+
     def test_create_trigger(self):
         """Test that SQLite CREATE TRIGGER statements fall back to Command parsing."""
         self.validate_identity(
@@ -1431,6 +1982,16 @@ class TestSQLite(Validator):
             "CREATE TRIGGER view_insert INSTEAD OF INSERT ON employee_view BEGIN INSERT INTO employees (id, name, department) VALUES (NEW.id, NEW.name, NEW.department) END",
             check_command_warning=True,
         )
+
+        for prefix in ("", "EXPLAIN QUERY PLAN "):
+            trigger = (
+                f"{prefix}CREATE TEMP TRIGGER tr AFTER INSERT ON t BEGIN "
+                "SELECT CASE WHEN NEW.x THEN 1 END; SELECT 2; END"
+            )
+            with self.subTest(prefix=prefix), self.assertLogs(parser_logger):
+                self.validate_identity(
+                    f"BEGIN; {trigger}; END", f"BEGIN TRANSACTION; {trigger}; COMMIT"
+                )
 
     def test_is_operator_null_safe_comparison(self):
         # issue #8855: SQLite's IS / IS NOT is a null-safe equality against any

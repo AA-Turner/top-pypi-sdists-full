@@ -17,7 +17,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
+# The .env of the checkout the run starts in, never a path above the package root.
+_ENV = next((d / ".env" for d in (Path.cwd(), *Path.cwd().parents) if (d / ".env").is_file()), None)
+if _ENV is not None:
+    load_dotenv(_ENV)
 
 from matrx_utils import vcprint, clear_terminal
 from matrx_files import FileManager

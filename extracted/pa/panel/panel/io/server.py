@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import gzip
 import inspect
 import json
 import logging
@@ -20,9 +21,10 @@ import uuid
 
 from functools import partial, wraps
 from html import escape
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import bokeh
+import bokeh.server.session as bk_session
 import param
 import tornado
 
@@ -35,8 +37,12 @@ from bokeh.embed.bundle import Script
 from bokeh.embed.elements import script_for_render_items
 from bokeh.embed.util import RenderItem
 from bokeh.embed.wrappers import wrap_in_script_tag
+from bokeh.io.doc import patch_curdoc
 from bokeh.server.contexts import _RequestProxy as BkRequestProxy
 from bokeh.server.server import Server as BokehServer
+from bokeh.server.session import (
+    ServerSession, _needs_document_lock, _needs_document_lock_on_loop,
+)
 from bokeh.server.urls import per_app_patterns, toplevel_patterns
 from bokeh.server.views.autoload_js_handler import (
     AutoloadJsHandler as BkAutoloadJsHandler,
@@ -45,6 +51,7 @@ from bokeh.server.views.doc_handler import DocHandler as BkDocHandler
 from bokeh.server.views.metadata_handler import (
     MetadataHandler as BkMetadataHandler,
 )
+from bokeh.server.views.multi_root_static_handler import MultiRootStaticHandler
 from bokeh.server.views.root_handler import RootHandler as BkRootHandler
 from bokeh.server.views.static_handler import StaticHandler
 from bokeh.server.views.ws import WSHandler as BkWSHandler
@@ -55,8 +62,10 @@ from bokeh.util.token import (
 )
 # Tornado imports
 from tornado.ioloop import IOLoop
+from tornado.process import task_id
 from tornado.web import (
-    HTTPError, RequestHandler, StaticFileHandler, authenticated,
+    GZipContentEncoding, HTTPError, RequestHandler, StaticFileHandler,
+    authenticated,
 )
 from tornado.wsgi import WSGIContainer
 
@@ -73,17 +82,19 @@ from .admin_auth import (
 from .application import build_applications
 from .auth import configure_auth
 from .document import (  # noqa
-    _cleanup_doc, init_doc, unlocked, with_lock,
+    _cleanup_doc, _owning_document_lock, _run_owning_document_lock,
+    _send_pending_patches_tracked, init_doc, unlocked, with_lock,
 )
 from .liveness import LivenessHandler
 from .loading import _loading_css_classes
 from .logging import LOG_SESSION_CREATED
 from .pages import page_theme
+from .proxy import login_redirect_url, normalize_root_path
 from .reload import record_modules
 from .resources import (
     BASE_TEMPLATE, CDN_DIST, COMPONENT_PATH, DIST_DIR, ERROR_TEMPLATE,
-    LOCAL_DIST, Resources, _env, bundle_resources, patch_model_css,
-    resolve_custom_path,
+    LOCAL_DIST, Resources, _env, bundle_resources, dedupe_template_resources,
+    patch_model_css, resolve_custom_path,
 )
 from .session import generate_session
 from .state import set_curdoc, state
@@ -101,8 +112,8 @@ if t.TYPE_CHECKING:
     )
     from bokeh.core.types import ID
     from bokeh.document.document import DocJson
+    from bokeh.document.events import DocumentPatchedEvent
     from bokeh.embed.bundle import Bundle
-    from bokeh.server.session import ServerSession
     from jinja2 import Template
 
     from .application import TViewableFuncOrPath
@@ -134,6 +145,43 @@ _MAX_ROUTE_PARAMS = 32
 _MAX_ROUTE_PARAM_KEY_CHARS = 128
 _MAX_ROUTE_PARAM_VALUE_CHARS = 1024
 _MAX_APP_PATH_CHARS = 2048
+
+# The browser echoes the Bokeh session token back in the `Sec-WebSocket-Protocol`
+# request header when opening the WebSocket connection. Many proxies reject
+# request headers larger than 8 kB (e.g. nginx `large_client_header_buffers`),
+# which surfaces as a cryptic "Could not open websocket". Warn once per app when
+# the token approaches that size so the cause is discoverable. See
+# https://panel.holoviz.org/how_to/authentication/trouble_shooting.html
+WS_TOKEN_SIZE_WARNING_THRESHOLD = 7600
+_ws_token_size_warned: set[str | None] = set()
+
+
+def _warn_if_ws_token_too_large(route: str | None, token: str) -> None:
+    """
+    Warn (once per app route) when the session token is large enough to risk
+    rejection by a proxy's request-header size limit.
+
+    The browser sends this token in the ``Sec-WebSocket-Protocol`` header when
+    opening the WebSocket connection; proxies such as nginx reject request
+    headers larger than 8 kB by default, which surfaces as a cryptic
+    "Could not open websocket".
+    """
+    if len(token) <= WS_TOKEN_SIZE_WARNING_THRESHOLD or route in _ws_token_size_warned:
+        return
+    _ws_token_size_warned.add(route)
+    logger.warning(
+        "The Bokeh session token for %r is %d bytes. The browser sends this "
+        "token in the 'Sec-WebSocket-Protocol' header when opening the "
+        "WebSocket connection. Some proxies reject request headers larger than "
+        "8 kB (e.g. nginx 'large_client_header_buffers'); if yours does, the "
+        "connection will fail with 'Could not open websocket'. This is only a "
+        "problem if you actually see that error - if the app connects fine you "
+        "can ignore this message. Otherwise, raise the proxy's request-header "
+        "buffer or reduce the token size (e.g. `panel serve --exclude-cookies "
+        "...`). See "
+        "https://panel.holoviz.org/how_to/authentication/trouble_shooting.html",
+        route, len(token),
+    )
 
 
 def _has_prefix_boundary(path: str, prefix: str) -> bool:
@@ -226,7 +274,35 @@ def _path_template_to_tornado_route(route: str) -> str:
     pattern, params = compile_route_template(route)
     return pattern if params else route
 
+
+_ASCII = ''.join(map(chr, range(128)))
+
+def _quote_non_ascii(route: str) -> str:
+    """
+    Percent-encode non-ASCII characters in an application route.
+
+    Tornado matches routes against the raw, still percent-encoded
+    request path, which is what browsers send for non-ASCII URLs.
+    """
+    return quote(route, safe=_ASCII)
+
 _tasks: set = set()
+
+
+class _ThreadLoop:
+    """
+    Event loop owned by a thread, closed once the thread exits.
+    """
+
+    def __init__(self) -> None:
+        self.loop = asyncio.new_event_loop()
+
+    def __del__(self) -> None:
+        if not self.loop.is_running() and not self.loop.is_closed():
+            self.loop.close()
+
+
+_thread_loops = threading.local()
 
 def async_execute(func: Callable[..., None]) -> None:
     """
@@ -234,11 +310,18 @@ def async_execute(func: Callable[..., None]) -> None:
     is propagated from function to partial wrapping it.
     """
     if not state.curdoc or not state.curdoc.session_context:
+        wrapper = state._handle_exception_wrapper(func)
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
+            # Reuse the thread's loop, each new loop holds sockets until it is closed
+            owner = getattr(_thread_loops, 'owner', None)
+            if owner is None or owner.loop.is_closed():
+                owner = _thread_loops.owner = _ThreadLoop()
+            loop = owner.loop
             asyncio.set_event_loop(loop)
+            loop.run_until_complete(wrapper())
+            return
         # Avoid creating IOLoop if one is not already associated
         # with the asyncio loop or we're on a child thread
         if hasattr(IOLoop, '_ioloop_for_asyncio') and loop in IOLoop._ioloop_for_asyncio:
@@ -247,16 +330,12 @@ def async_execute(func: Callable[..., None]) -> None:
             ioloop = IOLoop.current()
         else:
             ioloop = None
-        wrapper = state._handle_exception_wrapper(func)
-        if loop.is_running():
-            if ioloop is None:
-                task = asyncio.ensure_future(wrapper())
-                _tasks.add(task)
-                task.add_done_callback(_tasks.discard)
-            else:
-                ioloop.add_callback(wrapper)
+        if ioloop is None:
+            task = asyncio.ensure_future(wrapper())
+            _tasks.add(task)
+            task.add_done_callback(_tasks.discard)
         else:
-            loop.run_until_complete(wrapper())
+            ioloop.add_callback(wrapper)
         return
 
     if isinstance(func, partial) and hasattr(func.func, 'lock'):
@@ -280,26 +359,28 @@ param.parameterized.async_executor = async_execute
 def _initialize_session_info(session_context: SessionContext):
     from ..config import config
     session_id = session_context.id
-    sessions = state.session_info['sessions']
     history = -1 if config._admin else config.session_history
-    if not config._admin and (history == 0 or session_id in sessions):
-        return
+    with state._session_info_lock:
+        info = state.session_info
+        sessions = info['sessions']
+        if not config._admin and (history == 0 or session_id in sessions):
+            return
 
-    state.session_info['total'] += 1
-    if history > 0 and len(sessions) >= history:
-        old_history = list(sessions.items())
-        sessions = dict(old_history[-(history-1):])
-        state.session_info['sessions'] = sessions
-    request = session_context.request
-    user_agent = request.headers.get('User-Agent') if request else None
-    sessions[session_id] = {
-        'launched': dt.datetime.now().timestamp(),
-        'started': None,
-        'rendered': None,
-        'ended': None,
-        'user_agent': user_agent
-    }
-    state.param.trigger('session_info')
+        if history > 0 and len(sessions) >= history:
+            old_history = list(sessions.items())
+            sessions = dict(old_history[-(history-1):])
+        else:
+            sessions = dict(sessions)
+        request = session_context.request
+        user_agent = request.headers.get('User-Agent') if request else None
+        sessions[session_id] = {
+            'launched': dt.datetime.now().timestamp(),
+            'started': None,
+            'rendered': None,
+            'ended': None,
+            'user_agent': user_agent
+        }
+        state.session_info = {**info, 'total': info['total'] + 1, 'sessions': sessions}
 
 state._on_session_created_internal.append(_initialize_session_info)
 
@@ -347,6 +428,10 @@ def html_page_for_render_items(
 
     from ..theme.base import design_template_variables
     context = {**design_template_variables(), **template_variables}
+    if context.get('template_resources') and not isinstance(bundle, tuple):
+        context['template_resources'] = dedupe_template_resources(
+            context['template_resources'], bundle
+        )
 
     context.update(dict(
         title = title,
@@ -507,7 +592,7 @@ def _app_route_path(path: str, suffix: str) -> str:
 
 
 def authorize_app_request(
-    application: t.Any, request: t.Any, payload: dict[str, t.Any], suffix: str = ''
+    application: t.Any, request: t.Any, payload: TokenPayload | dict[str, t.Any], suffix: str = ''
 ) -> AuthorizationResult:
     """
     Run the global authorization callback for a request to an application
@@ -529,7 +614,7 @@ def render_auth_error(auth_error: str) -> str:
     Render the authorization error page for the given message.
     """
     if config.auth_template:
-        with open(config.auth_template) as f:
+        with open(config.auth_template, encoding='utf-8') as f:
             template = _env.from_string(f.read())
     else:
         template = ERROR_TEMPLATE
@@ -724,11 +809,119 @@ def validate_static_dirs(static_dirs: Mapping[str, str]) -> dict[str, str]:
     return static
 
 
+def _track_document_lock(func):
+    if inspect.iscoroutinefunction(func):
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            with _owning_document_lock(self):
+                return await func(self, *args, **kwargs)
+    else:
+        # An async callback is awaited after this returns, so its
+        # coroutine has to own the lock while it runs too.
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            return _run_owning_document_lock(self, func, self, *args, **kwargs)
+    wrapper._panel_tracks_lock = True  # type: ignore[attr-defined]
+    return wrapper
+
+
+def _tag_held_patch_events(func):
+    """
+    Records the connection a patch was received on on the frontend
+    changes it leaves held on the Document. Bokeh only skips the
+    originating connection while the patch is being applied, so when a
+    hold dispatches the change later it would otherwise be echoed back
+    to the client and revert anything changed there since.
+    """
+    @wraps(func)
+    async def wrapper(self, message, connection):
+        try:
+            return await func(self, message, connection)
+        finally:
+            for event in list(self.document.callbacks._held_events):
+                if getattr(event, 'setter', None) is self and getattr(event, '_panel_patch_connection', None) is None:
+                    event._panel_patch_connection = connection
+    return wrapper
+
+
+def _skip_patch_connection(document_patched):
+    @wraps(document_patched)
+    def wrapper(self, event):
+        connection = getattr(event, '_panel_patch_connection', None)
+        if connection is None:
+            return document_patched(self, event)
+        current = self._current_patch_connection
+        self._current_patch_connection = connection
+        try:
+            return document_patched(self, event)
+        finally:
+            self._current_patch_connection = current
+    wrapper._panel_skips_patch_connection = True  # type: ignore[attr-defined]
+    return wrapper
+
+# Record which context holds the document lock so state._unblocked can
+# tell the holder apart from other threads while the lock is taken.
+if not getattr(ServerSession.with_document_locked.__wrapped__, '_panel_tracks_lock', False):  # type: ignore[attr-defined]
+    ServerSession.with_document_locked = _needs_document_lock(  # type: ignore[method-assign]
+        _track_document_lock(ServerSession.with_document_locked.__wrapped__)  # type: ignore[attr-defined]
+    )
+    ServerSession._handle_push = _needs_document_lock_on_loop(  # type: ignore[method-assign]
+        _track_document_lock(ServerSession._handle_push.__wrapped__)  # type: ignore[attr-defined]
+    )
+    ServerSession._handle_patch = _needs_document_lock_on_loop(  # type: ignore[method-assign]
+        _track_document_lock(_tag_held_patch_events(ServerSession._handle_patch.__wrapped__))  # type: ignore[attr-defined]
+    )
+
+def _serialize_patches(pending):
+    """
+    Serializes the changes a locked callback made into one message per
+    run of consecutive changes written to the same connections, rather
+    than Bokeh's one message per change, so changes Panel hands to Bokeh
+    (e.g. a held batch that could not be written immediately) still
+    reach the client together.
+    """
+    groups: list[tuple[t.Any, list[DocumentPatchedEvent]]] = []
+    for patch in pending:
+        if groups and groups[-1][0].connections == patch.connections and groups[-1][0].protocol is patch.protocol:
+            groups[-1][1].append(patch.event)
+        else:
+            groups.append((patch, [patch.event]))
+    messages = []
+    for patch, events in groups:
+        with patch_curdoc(patch.event.document):
+            message = patch.protocol.create('PATCH-DOC', events)
+            message.prepare()
+        messages.append((message, patch.connections))
+    return messages
+
+if hasattr(bk_session, '_PendingPatch') and hasattr(bk_session, '_serialize_patches'):
+    bk_session._serialize_patches = _serialize_patches
+
+if not getattr(ServerSession._send_pending_patches, '_panel_tracks_unwritten', False):
+    _bk_send_pending_patches = ServerSession._send_pending_patches
+
+    @wraps(_bk_send_pending_patches)
+    async def _send_pending_patches(self, pending):
+        await _send_pending_patches_tracked(_bk_send_pending_patches, self, pending)
+
+    _send_pending_patches._panel_tracks_unwritten = True  # type: ignore[attr-defined]
+    ServerSession._send_pending_patches = _send_pending_patches  # type: ignore[method-assign]
+
+if not getattr(ServerSession._document_patched, '_panel_skips_patch_connection', False):
+    ServerSession._document_patched = _skip_patch_connection(  # type: ignore[method-assign]
+        ServerSession._document_patched
+    )
+
+
 # Patch Server to attach task factory to asyncio loop and handle Admin server context
 class Server(BokehServer):
 
     def __init__(self, *args, **kwargs):
+        # Tornado application setting; gzips the pages, scripts and
+        # stylesheets served to clients accepting it.
+        kwargs.setdefault('compress_response', True)
         super().__init__(*args, **kwargs)
+        self._tornado.use_xheaders = bool(kwargs.get('use_xheaders'))  # type: ignore[attr-defined]
         self._autoreload_stop_event = None
         if state._admin_context:
             state._admin_context._loop = self._loop
@@ -794,9 +987,9 @@ class LoginUrlMixin:
 
         '''
         if self.application.auth_provider.get_login_url is not None:
-            return '.' + self.application.auth_provider.get_login_url(self)
+            return login_redirect_url(self, self.application.auth_provider.get_login_url(self))
         if self.application.auth_provider.login_url is not None:
-            return '.' + self.application.auth_provider.login_url
+            return login_redirect_url(self, self.application.auth_provider.login_url)
         raise RuntimeError('login_url or get_login_url() must be supplied when authentication hooks are enabled')
 
 
@@ -966,6 +1159,7 @@ class DocHandler(LoginUrlMixin, BkDocHandler):
                 )
         else:
             token = session.token
+        _warn_if_ws_token_too_large(self.application_context.url, token)
         logger.info(LOG_SESSION_CREATED, id(session.document))
         with set_curdoc(session.document):
             resources = Resources.from_bokeh(self.application.resources())
@@ -992,13 +1186,13 @@ class AutoloadJsHandler(BkAutoloadJsHandler):
     '''
 
     @authenticated
-    async def get(self, *args, **kwargs) -> None:
+    async def get(self, *args, **kwargs) -> None:  # type: ignore[override]
         _set_request_route_context(self, *args, suffix='/autoload.js', **kwargs)
         if not _admin_access(self).allowed:
             self.send_error(status_code=403, reason='Not authorized to access the admin panel')
             return
         payload = token_payload_for_request(self.application, self.request)
-        payload.update(self.application_context.application.process_request(self.request))  # type: ignore[attr-defined]
+        payload.update(self.application_context.application.process_request(self.request))  # type: ignore[attr-defined,typeddict-item]
         if not authorize_app_request(self.application, self.request, payload, '/autoload.js').authorized:
             self.send_error(status_code=403, reason='Not authorized to access this application')
             return
@@ -1016,6 +1210,7 @@ class AutoloadJsHandler(BkAutoloadJsHandler):
             server_url = None
 
         session = await self.get_session()  # type: ignore
+        _warn_if_ws_token_too_large(self.application_context.url, session.token)
         with set_curdoc(session.document):
             if not authorize_request(_app_route_path(self.request.path, '/autoload.js'), session=True).authorized:
                 self.send_error(status_code=403, reason='Not authorized to access this application')
@@ -1187,18 +1382,110 @@ toplevel_patterns[0] = (r'/?', RootHandler)
 bokeh.server.tornado.RootHandler = RootHandler  # type: ignore
 
 
-class AuthenticatedStaticFileHandler(StaticFileHandler):
+# A directory named after an exact package version, e.g.
+# bundled/datatabulator/tabulator-tables@6.4.0/, never changes its contents
+# while a range such as @^1.10.0 may be upgraded in place.
+# Tornado hands get_cache_time the path with native separators
+_VERSIONED_PATH_RE = re.compile(r'@v?\d+\.\d+\.\d+[\w.+-]*[\\/]')
 
-    def get_login_url(self):
-        ''' Delegates to``get_login_url`` method of the auth provider, or the
-        ``login_url`` attribute.
 
-        '''
-        if self.application.auth_provider.get_login_url is not None:
-            return self.application.auth_provider.get_login_url(self)
-        if self.application.auth_provider.login_url is not None:
-            return self.application.auth_provider.login_url
-        raise RuntimeError('login_url or get_login_url() must be supplied when authentication hooks are enabled')
+_GZIP_CACHE: dict[tuple[str, int, int], bytes] = {}
+
+_GZIP_CACHE_SIZE = 256
+
+
+class PrecompressedStaticMixin:
+    """
+    Serves compressible static files gzipped from an in-memory cache.
+
+    Tornado's ``compress_response`` gzips every response again on the event
+    loop, which for the megabytes of JavaScript a page loads costs more time
+    than the smaller transfer saves, so each file is compressed once instead.
+    Responses that already carry a ``Content-Encoding`` are left alone by
+    Tornado's transform.
+    """
+
+    async def get(self, path: str, include_body: bool = True) -> None:
+        handled, body = self._precompressed(path)
+        if handled:
+            return
+        if body is None:
+            return await super().get(path, include_body)  # type: ignore[misc]
+        self.set_headers()  # type: ignore[attr-defined]
+        if self.should_return_304():  # type: ignore[attr-defined]
+            self.set_status(304)  # type: ignore[attr-defined]
+            return
+        self.set_header('Content-Encoding', 'gzip')  # type: ignore[attr-defined]
+        self.set_header('Content-Length', len(body))  # type: ignore[attr-defined]
+        if include_body:
+            self.write(body)  # type: ignore[attr-defined]
+
+    def _precompressed(self, path: str) -> tuple[bool, bytes | None]:
+        handler = t.cast('StaticFileHandler', self)
+        request = handler.request
+        if not handler.settings.get('compress_response') or request.method != 'GET':
+            return False, None
+        if 'gzip' not in request.headers.get('Accept-Encoding', '') or request.headers.get('Range'):
+            return False, None
+        handler.path = handler.parse_url_path(path)
+        absolute = handler.validate_absolute_path(
+            handler.root, handler.get_absolute_path(handler.root, handler.path)
+        )
+        if absolute is None:
+            # validate_absolute_path already redirected the request
+            return True, None
+        handler.absolute_path = absolute
+        ctype = handler.get_content_type()
+        if not (ctype.startswith('text/') or ctype in GZipContentEncoding.CONTENT_TYPES):
+            return False, None
+        stat = os.stat(absolute)
+        if stat.st_size < GZipContentEncoding.MIN_LENGTH:
+            return False, None
+        key = (absolute, stat.st_mtime_ns, stat.st_size)
+        body = _GZIP_CACHE.get(key)
+        if body is None:
+            with open(absolute, 'rb') as f:
+                body = gzip.compress(f.read(), compresslevel=GZipContentEncoding.GZIP_LEVEL, mtime=0)
+            if len(_GZIP_CACHE) >= _GZIP_CACHE_SIZE:
+                _GZIP_CACHE.clear()
+            _GZIP_CACHE[key] = body
+        handler.modified = handler.get_modified_time()
+        return False, body
+
+
+class PanelStaticHandler(PrecompressedStaticMixin, StaticHandler):
+    """
+    Serves Bokeh's static resources, compressing each file once.
+    """
+
+
+class ExtensionStaticHandler(PrecompressedStaticMixin, MultiRootStaticHandler):
+    """
+    Serves the static/extensions/ resources of Panel and other extensions,
+    caching versioned urls as long as Bokeh caches its own ``?v=`` urls.
+    """
+
+    def get_cache_time(self, path: str, modified, mime_type: str) -> int:
+        if 'v' in self.request.arguments or _VERSIONED_PATH_RE.search(path):
+            return self.CACHE_MAX_AGE
+        return 0
+
+
+for _i, _pattern in enumerate(toplevel_patterns):
+    if _pattern[1] is MultiRootStaticHandler:
+        toplevel_patterns[_i] = (_pattern[0], ExtensionStaticHandler, *_pattern[2:])
+    elif _pattern[1] is StaticHandler:
+        toplevel_patterns[_i] = (_pattern[0], PanelStaticHandler, *_pattern[2:])
+del _i, _pattern
+
+
+class AuthenticatedStaticFileHandler(LoginUrlMixin, StaticFileHandler):
+
+    def compute_etag(self):
+        # Tornado caches content hashes per path for the process lifetime,
+        # so files rebuilt in place would be revalidated with a stale ETag.
+        stat = os.stat(self.absolute_path)
+        return f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
 
     def get_current_user(self):
         ''' Delegate to the synchronous ``get_user`` method of the auth
@@ -1239,7 +1526,7 @@ def create_static_handler(prefix, key, app):
         route += _to_non_capturing_groups(key) + "/static/(.*)"
     if app.static_path is not None:
         return (route, StaticFileHandler, {"path" : app.static_path})
-    return (route, StaticHandler, {})
+    return (route, PanelStaticHandler, {})
 
 bokeh.server.tornado.create_static_handler = create_static_handler
 
@@ -1267,7 +1554,7 @@ if (
 # Public API
 #---------------------------------------------------------------------
 
-class ComponentResourceHandler(StaticFileHandler):
+class ComponentResourceHandler(PrecompressedStaticMixin, StaticFileHandler):
     """
     A handler that serves local resources relative to a Python module.
     The handler resolves a specific Panel component by module reference
@@ -1416,8 +1703,13 @@ def serve(
       Whether to start the server on a new Thread
     admin: boolean (default=False)
       Whether to enable the admin panel
+    compress: boolean (default=True)
+      Whether to gzip HTTP responses for clients that accept it
     kwargs: dict
-      Additional keyword arguments to pass to Server instance
+      Additional keyword arguments to pass to Server instance, e.g.
+      `prefix` to serve everything under a URL prefix or
+      `use_xheaders=True` to trust the X-Forwarded-* headers of a
+      reverse proxy for the client IP and the public URL of the server.
     """
     kwargs = dict(kwargs, **dict(
         port=port, address=address, websocket_origin=websocket_origin,
@@ -1453,9 +1745,19 @@ class ProxyFallbackHandler(RequestHandler):
         self.proxy = proxy
 
     def prepare(self):
+        fallback = self.fallback
         if self.proxy:
-            self.request.path = self.request.path.replace(self.proxy, '')
-        self.fallback(self.request)
+            # Mount the WSGI app at prefix + slug so PATH_INFO keeps its
+            # leading slash and SCRIPT_NAME makes url_for generate full URLs.
+            mount = self.application.prefix + self.proxy.rstrip('/')
+
+            def mounted(environ, start_response, app=self.fallback.wsgi_application):
+                environ['SCRIPT_NAME'] = mount
+                environ['PATH_INFO'] = environ['PATH_INFO'][len(mount):] or '/'
+                return app(environ, start_response)
+
+            fallback = WSGIContainer(mounted)
+        fallback(self.request)
         self._finished = True
         self.on_finish()
 
@@ -1540,6 +1842,7 @@ def get_server(
     session_history: str | None = None,
     liveness: bool | str = False,
     warm: bool = False,
+    compress: bool = True,
     **kwargs
 ) -> Server:
     """
@@ -1590,7 +1893,8 @@ def get_server(
     oauth_secret: str (optional, default=None)
       The client secret for the OAuth provider
     oauth_redirect_uri: Optional[str] = None,
-      Overrides the default OAuth redirect URI
+      Overrides the default OAuth redirect URI, which is the public
+      URL of the server including the `root_path` and `prefix`.
     oauth_extra_params: dict (optional, default={})
       Additional information for the OAuth provider
     oauth_error_template: str (optional, default=None)
@@ -1607,13 +1911,17 @@ def get_server(
     oauth_refresh_tokens: bool (optional, default=None)
       Whether to automatically refresh OAuth access tokens when they expire.
     oauth_guest_endpoints: list (optional, default=None)
-      List of endpoints that can be accessed as a guest without authenticating.
+      List of endpoints that can be accessed as a guest without
+      authenticating. End an endpoint with `/*` to also cover the paths
+      below it.
     oauth_optional: bool (optional, default=None)
       Whether the user will be forced to go through login flow or if
       they can access all applications as a guest.
     root_path: str (optional, default=None)
-      Root path the application is being served on when behind
-      a reverse proxy.
+      The path a reverse proxy serves the application on if it strips
+      that path from the requests it forwards. Used to build the login
+      redirects and the default OAuth redirect URI and takes precedence
+      over the X-Forwarded-Prefix header read with `use_xheaders=True`.
     login_endpoint: str (optional, default=None)
       Overrides the default login endpoint `/login`
     logout_endpoint: str (optional, default=None)
@@ -1635,6 +1943,10 @@ def get_server(
     warm: bool (optional, default=False)
       Whether to run the applications before serving them to ensure
       all imports and caches are fully warmed up before serving the app.
+    compress: bool (optional, default=True)
+      Whether to gzip HTTP responses (pages, scripts, stylesheets and
+      JSON) for clients that accept it. Disable when a reverse proxy
+      compresses responses already.
     kwargs: dict
       Additional keyword arguments to pass to Server instance.
 
@@ -1661,7 +1973,7 @@ def get_server(
         if not slug.endswith('/'):
             slug += '/'
         extra_patterns.append((
-            f'^{slug}.*', ProxyFallbackHandler, dict(fallback=wsgi, proxy=slug)
+            f'{slug}.*', ProxyFallbackHandler, dict(fallback=wsgi, proxy=slug)
         ))
         return True
 
@@ -1671,7 +1983,7 @@ def get_server(
     normalized_apps: dict[str, BkApplication] = {}
     normalized_sources: dict[str, str] = {}
     for endpoint, app in apps.items():
-        normalized_endpoint = _path_template_to_tornado_route(endpoint)
+        normalized_endpoint = _quote_non_ascii(_path_template_to_tornado_route(endpoint))
         if normalized_endpoint in normalized_apps:
             raise ValueError(
                 f"Application routes {endpoint!r} and {normalized_sources[normalized_endpoint]!r} "
@@ -1683,7 +1995,7 @@ def get_server(
 
     if warm or config.autoreload:
         for endpoint, app in apps.items():
-            if endpoint == '/admin':
+            if endpoint == config._admin_path:
                 continue
             if config.autoreload:
                 with record_modules(list(apps.values())):
@@ -1706,7 +2018,7 @@ def get_server(
         extra_patterns += [(rf"/{liveness_endpoint}", LivenessHandler, dict(applications=apps))]
 
     if admin:
-        extra_patterns += admin_auth_patterns('/admin')
+        extra_patterns += admin_auth_patterns(config._admin_path)
 
     opts = dict(kwargs)
     if loop:
@@ -1755,9 +2067,10 @@ def get_server(
         opts['auth_provider'] = provider
     if root_path:
         with edit_readonly(state):
-            state.base_url = root_path  # type: ignore
+            state.base_url = f'{normalize_root_path(root_path)}/'  # type: ignore
     opts['cookie_path'] = config.cookie_path
     opts['cookie_secret'] = config.cookie_secret
+    opts['compress_response'] = compress
 
     server = Server(apps, port=port, **opts)
     if verbose:
@@ -1768,7 +2081,8 @@ def get_server(
     state._servers[server_id] = (server, panel, [])
     state._server_config[server._tornado] = server_config
 
-    if show:
+    # Bokeh forks the workers inside Server.__init__; only one should open a tab
+    if show and task_id() in (None, 0):
         login_endpoint = login_endpoint or '/login'
         def show_callback():
             server.show(login_endpoint if config.oauth_provider or basic_auth else '/')
@@ -1780,12 +2094,11 @@ def get_server(
     def do_stop(*args, **kwargs):
         server.io_loop.stop()
 
-    try:
-        signal.signal(signal.SIGINT, sig_exit)
-    except ValueError:
-        pass # Can't use signal on a thread
-
     if start:
+        try:
+            signal.signal(signal.SIGINT, sig_exit)
+        except ValueError:
+            pass # Can't use signal on a thread
         server.start()
         # starting an already running loop raises AssertionError on
         # ProactorEventLoop and RuntimeError on SelectorEventLoop

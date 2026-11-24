@@ -26,10 +26,14 @@ Usage (within matrx-ai package):
 
 from __future__ import annotations
 
+from contextvars import ContextVar
+from inspect import Parameter, signature
 from typing import Any
 
 _registry: dict[str, Any] = {}
 _configured = False
+_managed_transcriber_context_required = False
+_required_managed_transcriber: Any = None
 
 
 class ExtNotConfiguredError(RuntimeError):
@@ -37,9 +41,44 @@ class ExtNotConfiguredError(RuntimeError):
 
 
 def configure_ext(**kwargs: Any) -> None:
-    global _configured
+    global _configured, _required_managed_transcriber
+    if "_managed_file_transcriber_contextual" in kwargs:
+        raise ValueError("Managed file transcriber capability is derived from its callback")
+    if "managed_file_transcriber" in kwargs:
+        callback = kwargs["managed_file_transcriber"]
+        try:
+            parameter = signature(callback).parameters.get("execution_context")
+        except (TypeError, ValueError):
+            parameter = None
+        contextual = bool(
+            parameter and parameter.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
+        )
+        if _managed_transcriber_context_required:
+            if not contextual:
+                raise RuntimeError("The host requires a contextual managed file transcriber")
+            if _required_managed_transcriber is not None and callback is not _required_managed_transcriber:
+                raise RuntimeError("The required managed file transcriber cannot be replaced")
+            _required_managed_transcriber = callback
+        kwargs["_managed_file_transcriber_contextual"] = contextual
     _registry.update(kwargs)
     _configured = True
+
+
+def managed_file_transcriber_supports_context() -> bool:
+    contextual = bool(_registry.get("_managed_file_transcriber_contextual", False))
+    if _managed_transcriber_context_required and not contextual:
+        raise RuntimeError("The host requires a contextual managed file transcriber")
+    return contextual
+
+
+def require_managed_file_transcriber_context() -> None:
+    global _managed_transcriber_context_required, _required_managed_transcriber
+    callback = _registry.get("managed_file_transcriber")
+    _managed_transcriber_context_required = True
+    if callback is not None and not managed_file_transcriber_supports_context():
+        raise RuntimeError("The host requires a contextual managed file transcriber")
+    if callback is not None:
+        _required_managed_transcriber = callback
 
 
 def is_configured() -> bool:
@@ -81,6 +120,30 @@ _REQUEST_SETTLED_HOOK_KEY = "request_settled_hook"
 def get_request_settled_hook() -> Any:
     """Return the host-injected request-settled hook, or None when unset."""
     return _registry.get(_REQUEST_SETTLED_HOOK_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Row filing organization (the host's database files new rows elsewhere)
+# ---------------------------------------------------------------------------
+#
+# Some host contexts make the DATABASE file every inserted row in one fixed
+# organization, whatever the row names (aidream: an administrator's trial run —
+# ``platform._stamp_actor`` rewrites ``organization_id`` to the trial's filing
+# organization). A conversation born there lives in that organization, so its
+# child rows must be stamped with it too; stamping the step's own organization
+# was refused ``org_foreign_to_parent`` and the turn was lost (2026-11-20).
+#
+# Contract:
+#   * OPTIONAL. Unconfigured -> None: rows are filed where they name.
+#   * SYNC, cheap (a ContextVar read): ``fn() -> str | None`` — the organization
+#     the database files this context's new rows in, or None for "where they name".
+
+_ROW_FILING_ORGANIZATION_KEY = "row_filing_organization"
+
+
+def get_row_filing_organization() -> Any:
+    """Return the host-injected row-filing-organization reader, or None when unset."""
+    return _registry.get(_ROW_FILING_ORGANIZATION_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +409,42 @@ def get_conversation_value_writer() -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Record writer (the host's one record write, through its registered Action)
+# ---------------------------------------------------------------------------
+#
+# The host (aidream) injects the way its server writes one record: the record's
+# registered Action (``task.create`` / ``task.update`` / ``task.delete`` /
+# ``project.create`` / ``project.update``), whose writer runs the record's rules
+# (a task's starting status, a timed task's zone, the repeating-task roll) and
+# names the write as one action run. The `task` / `project` tools call it so an
+# agent's write passes the same rules as every other caller.
+#
+# Contract:
+#   * OPTIONAL. Unconfigured (a CLIENT host) → the tools write through their own
+#     manager exactly as before.
+#   * AWAITED inside the tool's person session (``as_the_person``); the host
+#     reuses that session, so the tool's follow-up writes stay one transaction.
+#     The host reads who is writing from its request context (door ``tool``,
+#     authority ``agent``); ``organization_id`` names the row's organization on a
+#     create (the carried one), never chosen by the host.
+#   * Raises ``matrx_ai.tools.record_writer.RecordWriteRefused`` for a refusal
+#     the caller can act on (``error_type``: not_found / validation / refused);
+#     anything else propagates.
+#   * Signature (keyword-only):
+#         async writer(*, operation, noun, data, organization_id=None, trusted=None) -> dict | None
+#     ``trusted``: columns the field policy refuses that the tool reconciled itself
+#     (``published_to_web`` + stamps, ``shown_to``); written in the SAME write.
+#     → the saved row (create / update), None (delete).
+
+_RECORD_WRITER_KEY = "record_writer"
+
+
+def get_record_writer() -> Any:
+    """Return the host-injected record writer, or None when unset (a client host)."""
+    return _registry.get(_RECORD_WRITER_KEY)
+
+
+# ---------------------------------------------------------------------------
 # Conversation forker (fork-mode conversation-aware agent_call)
 # ---------------------------------------------------------------------------
 #
@@ -409,6 +508,40 @@ _SANDBOX_TOKEN_MINTER_KEY = "sandbox_token_minter"
 def get_sandbox_token_minter() -> Any:
     """Return the host-injected sandbox token minter, or None when unset."""
     return _registry.get(_SANDBOX_TOKEN_MINTER_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Sandbox binding waker (a parked machine wakes at its first use)
+# ---------------------------------------------------------------------------
+#
+# A run bound to a PARKED machine is armed with a binding that names the machine
+# but carries no endpoint yet (``active_sandbox.wake_on_first_use``): arming a
+# run never starts a machine, and a run that never touches it never wakes it.
+# The first proxied call (``_sandbox_proxy._request`` — shell, file, git) asks
+# the host for the live binding through this waker; concurrent first calls of
+# one run share ONE wake, and the woken endpoint is reused for the rest of the run.
+#
+# Contract:
+#   * OPTIONAL. Unconfigured → a parked binding cannot be reached and the call
+#     fails with a clear ``sandbox_unavailable`` tool error (never a silent hang,
+#     never the emulated filesystem).
+#   * AWAITED inside the tool call, as the acting user. The host owns the wake's
+#     own time bounds and re-checks that the actor may use the machine.
+#   * Raises on failure (the proxy turns it into a tool error naming the cause);
+#     a failed wake is never cached — the next call tries again.
+#   * Signature (keyword-only, forward-compatible):
+#         async waker(*, sandbox_id: str, user_id: str | None,
+#                     organization_id: str | None, conversation_id: str | None,
+#                     working_dir: str | None) -> dict
+#     returning a live binding: ``{"base_url", "access_token"}`` plus optionally
+#     ``root_path`` and ``working_dir``.
+
+_SANDBOX_BINDING_WAKER_KEY = "sandbox_binding_waker"
+
+
+def get_sandbox_binding_waker() -> Any:
+    """Return the host-injected sandbox binding waker, or None when unset."""
+    return _registry.get(_SANDBOX_BINDING_WAKER_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -519,7 +652,9 @@ def get_agent_run_tracker() -> Any:
 #     reads its own ambient context to find the tree; matrx-ai never knows how.
 #     MUST be best-effort inside: an infrastructure blip returns None (allow),
 #     never raises. A non-None reason ends the loop exactly like a registry
-#     cancel — a valid final turn with status "cancelled".
+#     cancel — a valid final turn with status "cancelled". While a provider call
+#     is generating it is asked every executor tick (~50 ms): the host THROTTLES
+#     its own durable reads (and may answer from a push it already received).
 #
 #   * ``spine_call_meter`` — SYNC ``(usage) -> None``. Called once per billed
 #     provider call at the usage chokepoint with that call's TokenUsage. The
@@ -527,10 +662,28 @@ def get_agent_run_tracker() -> Any:
 #     rollups/budgets see spend DURING the turn, not only at settle. MUST be
 #     non-blocking and never raise.
 #
-# Unconfigured → both no-op; matrx-ai stays standalone.
+#   * ``spine_stop_cursor`` — ``async () -> dict | None``. Read once when a
+#     provider call was STOPPED: the host's record of what the person had on
+#     screen when they pressed Stop (``{"seen_seq": int | None, "at": float}``),
+#     wherever the cancel landed. The executor hands it to the emitter's
+#     ``note_stop_cursor`` so the saved partial never outgrows the screen.
+#     Best-effort inside; None when unknown.
+#
+# Unconfigured → all no-op; matrx-ai stays standalone.
 
 _SPINE_CONTROL_CHECK_KEY = "spine_control_check"
+
+# True only while ``spine_control_check`` is asked from INSIDE a generating provider call (the executor's
+# per-tick poll). A host may answer such a look from a throttle or a push it already holds; every other look
+# (an iteration boundary, the last look when a call returns) is a fresh read. Not a seam: the executor sets it.
+_SPINE_MID_CALL_POLL: ContextVar[bool] = ContextVar("matrx_ai_spine_mid_call_poll", default=False)
+
+
+def spine_poll_is_mid_call() -> bool:
+    """Is the current ``spine_control_check`` call the executor's mid-call tick (throttleable)?"""
+    return _SPINE_MID_CALL_POLL.get()
 _SPINE_CALL_METER_KEY = "spine_call_meter"
+_SPINE_STOP_CURSOR_KEY = "spine_stop_cursor"
 
 
 def get_spine_control_check() -> Any:
@@ -541,6 +694,11 @@ def get_spine_control_check() -> Any:
 def get_spine_call_meter() -> Any:
     """Return the host-injected per-call spine meter hook, or None when unset."""
     return _registry.get(_SPINE_CALL_METER_KEY)
+
+
+def get_spine_stop_cursor() -> Any:
+    """Return the host-injected Stop cursor read, or None when unset."""
+    return _registry.get(_SPINE_STOP_CURSOR_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -749,6 +907,39 @@ _SOURCE_NAME_RESOLVER_KEY = "source_name_resolver"
 def get_source_name_resolver() -> Any:
     """Return the host-injected source-name resolver, or None when unset."""
     return _registry.get(_SOURCE_NAME_RESOLVER_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Source-set resolver (a turn's attachments as ONE `source_set` part)
+# ---------------------------------------------------------------------------
+#
+# A user message may carry a ``source_set`` part (One Source contract). Turning
+# it into text + media is the host's ONE resolver (aidream's
+# ``resolve_source_set``), which reads the person's records under their access.
+#
+# Contract:
+#   * Register with ``matrx_ai.configure(source_set_resolver=...)``.
+#   * Signature (keyword-only, forward-compatible):
+#         async resolver(source_set: dict, *, user_id: str | None)
+#             -> matrx_ai.db.content_types.source_set.SourceSetResolution | dict
+#     ``source_set`` is the validated stored form (``envelope`` key); when the set
+#     names no ``target_model_id`` it carries the turn's model there, so the host
+#     can deliver media that model takes natively. The result carries ``text``,
+#     ``media`` (user media part dicts) and ``dropped``.
+#   * UNBOUND IS LOUD: a ``source_set`` part that reaches a host with no resolver
+#     raises ``SourceSetResolverUnavailable`` at call time (never at import), so
+#     the turn refuses instead of answering without its attachments.
+
+_SOURCE_SET_RESOLVER_KEY = "source_set_resolver"
+
+
+class SourceSetResolverUnavailable(RuntimeError):
+    """A ``source_set`` part reached a host with no ``source_set_resolver``."""
+
+
+def get_source_set_resolver() -> Any:
+    """Return the host-injected source-set resolver, or None when unset."""
+    return _registry.get(_SOURCE_SET_RESOLVER_KEY)
 
 
 # ---------------------------------------------------------------------------

@@ -3,11 +3,37 @@ import posixpath
 
 import fsspec
 
-from wfdb.io import _url
-from wfdb.io.download import config
+from wfdb.io import download
 
 # Cloud protocols
-CLOUD_PROTOCOLS = ["az://", "azureml://", "s3://", "gs://", "memory://"]
+CLOUD_PROTOCOLS = ["az://", "azureml://", "s3://", "gs://", "memory://", "physionet://"]
+
+
+def _fsspec_open(path, mode="rb", **kwargs):
+    """Open a local path or cloud URI with `fsspec.open`.
+
+    Files with a `physionet://` URI are read in parts as they are needed,
+    with HTTP range requests, instead of being downloaded in full, and
+    without progress bars.
+
+    Parameters
+    ----------
+    path : str
+        The local path or cloud URI.
+    mode : str, optional
+        The mode to open the file in.
+    kwargs : dict, optional
+        Passed to `fsspec.open`.
+
+    Returns
+    -------
+    fsspec.core.OpenFile
+        The file to open, as a context manager.
+
+    """
+    if os.fspath(path).startswith("physionet://"):
+        kwargs = {**download.PHYSIONET_OPEN_OPTIONS, **kwargs}
+    return fsspec.open(path, mode, **kwargs)
 
 
 def _split_path(record_name):
@@ -35,6 +61,31 @@ def _split_path(record_name):
         dir_name, base_name = posixpath.split(location)
         return protocol + separator + dir_name, base_name
     return os.path.split(path)
+
+
+def _open_input_file(path):
+    """Open a local file, or a file at a cloud URI, to read in binary mode.
+
+    A file at a cloud URI, such as a `physionet://` URI, is read as it is
+    needed (for `physionet://`, with HTTP range requests), so that reading
+    only the start of a file does not fetch the rest. It can be sought and
+    sized like a local file.
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        The path of a local file, or a cloud URI.
+
+    Returns
+    -------
+    file
+        The open file.
+
+    """
+    path = os.fspath(path)
+    if any(path.startswith(proto) for proto in CLOUD_PROTOCOLS):
+        return _fsspec_open(path, "rb").open()
+    return open(path, "rb")
 
 
 def _join_path(dir_name, file_name):
@@ -103,7 +154,7 @@ def _open_file(
 
     """
     if pn_dir is None:
-        return fsspec.open(
+        return _fsspec_open(
             file_name,
             mode,
             buffering=buffering,
@@ -118,9 +169,9 @@ def _open_file(
                 "Cloud paths should be passed under record_name, not under pn_dir"
             )
 
-        url = posixpath.join(config.db_index_url, pn_dir, file_name)
-        return _url.openurl(
-            url,
+        return download._open_pn_file(
+            pn_dir,
+            file_name,
             mode,
             buffering=buffering,
             encoding=encoding,

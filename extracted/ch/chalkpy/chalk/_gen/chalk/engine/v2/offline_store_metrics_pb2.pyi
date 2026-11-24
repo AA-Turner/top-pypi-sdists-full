@@ -174,6 +174,11 @@ class AggregateOfflineStoreStorageStats(_message.Message):
         "wide_mapping_table_bytes",
         "query_log_bytes",
         "query_values_bytes",
+        "skinny_tables_collected_at",
+        "non_mfv_skinny_tables_collected_at",
+        "wide_mapping_table_collected_at",
+        "query_log_collected_at",
+        "query_values_collected_at",
     )
     SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
     NON_MFV_SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
@@ -181,12 +186,22 @@ class AggregateOfflineStoreStorageStats(_message.Message):
     WIDE_MAPPING_TABLE_BYTES_FIELD_NUMBER: _ClassVar[int]
     QUERY_LOG_BYTES_FIELD_NUMBER: _ClassVar[int]
     QUERY_VALUES_BYTES_FIELD_NUMBER: _ClassVar[int]
+    SKINNY_TABLES_COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
+    NON_MFV_SKINNY_TABLES_COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
+    WIDE_MAPPING_TABLE_COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_LOG_COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VALUES_COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
     skinny_tables_bytes: int
     non_mfv_skinny_tables_bytes: int
     wide_tables_bytes: int
     wide_mapping_table_bytes: int
     query_log_bytes: int
     query_values_bytes: int
+    skinny_tables_collected_at: _timestamp_pb2.Timestamp
+    non_mfv_skinny_tables_collected_at: _timestamp_pb2.Timestamp
+    wide_mapping_table_collected_at: _timestamp_pb2.Timestamp
+    query_log_collected_at: _timestamp_pb2.Timestamp
+    query_values_collected_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         skinny_tables_bytes: _Optional[int] = ...,
@@ -195,40 +210,76 @@ class AggregateOfflineStoreStorageStats(_message.Message):
         wide_mapping_table_bytes: _Optional[int] = ...,
         query_log_bytes: _Optional[int] = ...,
         query_values_bytes: _Optional[int] = ...,
+        skinny_tables_collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        non_mfv_skinny_tables_collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        wide_mapping_table_collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query_log_collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query_values_collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class WideTableConfig(_message.Message):
-    __slots__ = ("table_name", "feature_namespace", "config_fingerprint", "feature_count")
+    __slots__ = (
+        "table_name",
+        "feature_namespace",
+        "config_fingerprint",
+        "feature_count",
+        "namespace_feature_count",
+        "shard_sizes",
+    )
+    class ShardSizesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: int
+        value: int
+        def __init__(self, key: _Optional[int] = ..., value: _Optional[int] = ...) -> None: ...
+
     TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
     FEATURE_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
     FEATURE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FEATURE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    SHARD_SIZES_FIELD_NUMBER: _ClassVar[int]
     table_name: str
     feature_namespace: str
     config_fingerprint: int
     feature_count: int
+    namespace_feature_count: int
+    shard_sizes: _containers.ScalarMap[int, int]
     def __init__(
         self,
         table_name: _Optional[str] = ...,
         feature_namespace: _Optional[str] = ...,
         config_fingerprint: _Optional[int] = ...,
         feature_count: _Optional[int] = ...,
+        namespace_feature_count: _Optional[int] = ...,
+        shard_sizes: _Optional[_Mapping[int, int]] = ...,
     ) -> None: ...
 
 class WideTableStats(_message.Message):
-    __slots__ = ("partitioned_by", "clustered_by", "size_bytes", "row_count", "min_observed_at", "max_observed_at")
+    __slots__ = (
+        "partitioned_by",
+        "clustered_by",
+        "size_bytes",
+        "row_count",
+        "min_observed_at",
+        "max_observed_at",
+        "size_collected_at",
+    )
     PARTITIONED_BY_FIELD_NUMBER: _ClassVar[int]
     CLUSTERED_BY_FIELD_NUMBER: _ClassVar[int]
     SIZE_BYTES_FIELD_NUMBER: _ClassVar[int]
     ROW_COUNT_FIELD_NUMBER: _ClassVar[int]
     MIN_OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
     MAX_OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
+    SIZE_COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
     partitioned_by: str
     clustered_by: _containers.RepeatedScalarFieldContainer[str]
     size_bytes: int
     row_count: int
     min_observed_at: _timestamp_pb2.Timestamp
     max_observed_at: _timestamp_pb2.Timestamp
+    size_collected_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         partitioned_by: _Optional[str] = ...,
@@ -237,6 +288,7 @@ class WideTableStats(_message.Message):
         row_count: _Optional[int] = ...,
         min_observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         max_observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        size_collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class WideTableInfo(_message.Message):

@@ -156,7 +156,7 @@ def _revision_stamp(moments: list[datetime | None]) -> str:
     return newest.strftime("%Y%m%d%H%M%S")
 
 
-def _semantic_fingerprint(dimensions: tuple["FacetDimension", ...]) -> str:
+def _semantic_fingerprint(dimensions: tuple[FacetDimension, ...]) -> str:
     """Hash of exactly what the classifier can SEE — the inputs to
     ``prompt_text`` and ``output_schema`` for the PLATFORM half of the
     vocabulary. A registry write that changes none of these (a color, an
@@ -182,7 +182,7 @@ def _semantic_fingerprint(dimensions: tuple["FacetDimension", ...]) -> str:
 
 
 async def _resolve_platform_revision(
-    dimensions: tuple["FacetDimension", ...], legacy_stamp: str
+    dimensions: tuple[FacetDimension, ...], legacy_stamp: str
 ) -> str:
     """Mint (or fetch) the fixed-width revision for this semantic shape.
 

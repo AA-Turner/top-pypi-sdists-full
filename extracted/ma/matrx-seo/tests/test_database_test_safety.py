@@ -12,7 +12,7 @@ from psycopg.conninfo import conninfo_to_dict
 from seo_contract_database import UnsafeContractDatabase, contract_database_dsn
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[2]
+PACKAGE = HERE.parent
 LOCAL = "host=127.0.0.1 port=55441 dbname=matrx_seo_contract_guard user=guard password=local-only"
 
 
@@ -61,7 +61,7 @@ def _pytest(*args: str) -> subprocess.CompletedProcess[str]:
     env.pop("MATRX_SEO_CONTRACT_TEST_DSN", None)
     return subprocess.run(
         [sys.executable, "-m", "pytest", *args],
-        cwd=ROOT,
+        cwd=PACKAGE,
         env=env,
         capture_output=True,
         text=True,
@@ -99,58 +99,8 @@ def test_selected_contract_requires_authorization_before_database_fixture():
     assert "UnsafeContractDatabase" not in result.stdout  # no fixture ran
 
 
-def test_mixed_budget_selection_keeps_offline_checks_and_excludes_database_tests():
-    result = _pytest(str(HERE / "test_budget.py"), "-m", "not live", "--collect-only", "-q")
-    assert result.returncode == 0, result.stdout + result.stderr
-    nodes = [line for line in result.stdout.splitlines() if "::test_" in line]
-    assert nodes
-    assert not any("live" in line for line in nodes)
-    assert "deselected" in result.stdout
-
-
 def test_inherited_libpq_service_is_refused_before_connect(monkeypatch):
     monkeypatch.setenv("MATRX_SEO_CONTRACT_TEST_DSN", LOCAL)
     monkeypatch.setenv("PGSERVICE", "production")
     with pytest.raises(UnsafeContractDatabase, match="Clear inherited PGSERVICE"):
         contract_database_dsn()
-
-
-def test_nightly_caller_routes_seo_offline_and_preserves_other_scopes(tmp_path):
-    # Execute the actual workflow shell; substitute only its external test runner.
-    import json
-
-    import yaml
-
-    workflow = yaml.safe_load((ROOT / ".github/workflows/test.yml").read_text())
-    steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
-    script = next(
-        step["run"]
-        for step in steps
-        if step.get("name") == "Run the previously-uncovered suite inventory"
-    )
-    calls = tmp_path / "calls.jsonl"
-    runner = tmp_path / "uv"
-    runner.write_text(
-        f"#!{sys.executable}\n"
-        "import json, os, sys\n"
-        "with open(os.environ['SEO_TEST_CALL_LOG'], 'a') as stream:\n"
-        "    stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
-    )
-    runner.chmod(0o700)
-    env = {
-        **os.environ,
-        "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
-        "SEO_TEST_CALL_LOG": str(calls),
-    }
-    result = subprocess.run(
-        ["bash", "-c", script], env=env, capture_output=True, text=True, timeout=15
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    observed = [json.loads(line) for line in calls.read_text().splitlines()]
-    seo = [args for args in observed if "packages/matrx-seo" in args]
-    assert len(seo) == 1
-    assert "not live" in seo[0]
-    assert "--run-seo-database-tests" not in seo[0]
-    others = [args for args in observed if "packages/matrx-seo" not in args]
-    assert len(others) == 12
-    assert all("not live" not in args for args in others)

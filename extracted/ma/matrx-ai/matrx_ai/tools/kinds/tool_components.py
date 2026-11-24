@@ -34,6 +34,7 @@ from typing import Any
 
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.content_ir.sdk import kind
+from pydantic import Field
 
 _FAMILY = "tool_components"
 
@@ -595,7 +596,7 @@ class ToolComponentIncidentResolution(KindModel):
 
     incident_id: str = ""
     resolved: bool = True
-    resolved_at: str = ""
+    resolved_at: str = Field(default="", json_schema_extra={"format": "date-time"})
     resolution_notes: str | None = None
 
 

@@ -49,6 +49,13 @@ class UsageChartSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     USAGE_CHART_SOURCE_UNSPECIFIED: _ClassVar[UsageChartSource]
     USAGE_CHART_SOURCE_NODE: _ClassVar[UsageChartSource]
     USAGE_CHART_SOURCE_COMPUTE: _ClassVar[UsageChartSource]
+    USAGE_CHART_SOURCE_BUNDLE: _ClassVar[UsageChartSource]
+
+class UsageBillingModel(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    USAGE_BILLING_MODEL_UNSPECIFIED: _ClassVar[UsageBillingModel]
+    USAGE_BILLING_MODEL_CREDITS: _ClassVar[UsageBillingModel]
+    USAGE_BILLING_MODEL_CCU: _ClassVar[UsageBillingModel]
 
 class MaterializedFeatureViewUsageKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -73,11 +80,30 @@ USAGE_CHART_TIME_RANGE_7D: UsageChartTimeRange
 USAGE_CHART_SOURCE_UNSPECIFIED: UsageChartSource
 USAGE_CHART_SOURCE_NODE: UsageChartSource
 USAGE_CHART_SOURCE_COMPUTE: UsageChartSource
+USAGE_CHART_SOURCE_BUNDLE: UsageChartSource
+USAGE_BILLING_MODEL_UNSPECIFIED: UsageBillingModel
+USAGE_BILLING_MODEL_CREDITS: UsageBillingModel
+USAGE_BILLING_MODEL_CCU: UsageBillingModel
 MATERIALIZED_FEATURE_VIEW_USAGE_KIND_UNSPECIFIED: MaterializedFeatureViewUsageKind
 MATERIALIZED_FEATURE_VIEW_USAGE_KIND_FILL: MaterializedFeatureViewUsageKind
 MATERIALIZED_FEATURE_VIEW_USAGE_KIND_COMPACTION: MaterializedFeatureViewUsageKind
 MATERIALIZED_FEATURE_VIEW_USAGE_KIND_WIDE_TABLE_READ: MaterializedFeatureViewUsageKind
 MATERIALIZED_FEATURE_VIEW_USAGE_KIND_OTHER_READ: MaterializedFeatureViewUsageKind
+
+class UsageBillingModelSpan(_message.Message):
+    __slots__ = ("billing_model", "start_time", "end_time")
+    BILLING_MODEL_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    billing_model: UsageBillingModel
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        billing_model: _Optional[_Union[UsageBillingModel, str]] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
 
 class GetUsageChartRequest(_message.Message):
     __slots__ = ("start_ms", "end_ms", "period", "grouping", "time_range")
@@ -127,19 +153,21 @@ class GetUsageFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[UsageFacet, _Mapping]]] = ...) -> None: ...
 
 class GetUsageChartV2Request(_message.Message):
-    __slots__ = ("start_time", "end_time", "period", "group_by", "query", "source")
+    __slots__ = ("start_time", "end_time", "period", "group_by", "query", "source", "billing_model")
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     PERIOD_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FIELD_NUMBER: _ClassVar[int]
+    BILLING_MODEL_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     period: UsageChartPeriod
     group_by: _containers.RepeatedScalarFieldContainer[str]
     query: str
     source: UsageChartSource
+    billing_model: UsageBillingModel
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -148,13 +176,26 @@ class GetUsageChartV2Request(_message.Message):
         group_by: _Optional[_Iterable[str]] = ...,
         query: _Optional[str] = ...,
         source: _Optional[_Union[UsageChartSource, str]] = ...,
+        billing_model: _Optional[_Union[UsageBillingModel, str]] = ...,
     ) -> None: ...
 
 class GetUsageChartV2Response(_message.Message):
-    __slots__ = ("chart",)
+    __slots__ = ("chart", "unit", "billing_model", "billing_models")
     CHART_FIELD_NUMBER: _ClassVar[int]
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    BILLING_MODEL_FIELD_NUMBER: _ClassVar[int]
+    BILLING_MODELS_FIELD_NUMBER: _ClassVar[int]
     chart: _chart_pb2.Chart
-    def __init__(self, chart: _Optional[_Union[_chart_pb2.Chart, _Mapping]] = ...) -> None: ...
+    unit: str
+    billing_model: UsageBillingModel
+    billing_models: _containers.RepeatedCompositeFieldContainer[UsageBillingModelSpan]
+    def __init__(
+        self,
+        chart: _Optional[_Union[_chart_pb2.Chart, _Mapping]] = ...,
+        unit: _Optional[str] = ...,
+        billing_model: _Optional[_Union[UsageBillingModel, str]] = ...,
+        billing_models: _Optional[_Iterable[_Union[UsageBillingModelSpan, _Mapping]]] = ...,
+    ) -> None: ...
 
 class GetUsageFacetValuesRequest(_message.Message):
     __slots__ = ("path", "limit", "value_search", "source")

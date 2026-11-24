@@ -10,6 +10,8 @@ from .sdk.capture.capture import CaptureState as CaptureState
 from .sdk.capture.capture import stable_external_key as stable_external_key
 from .sdk.capture.capture import stable_span_id as stable_span_id
 from .sdk.catalog.catalog import source as source
+from .sdk.catalog.environments import EnvironmentRef as EnvironmentRef
+from .sdk.catalog.environments import environment as environment
 from .sdk.catalog.refs import DatasetRef as DatasetRef
 from .sdk.catalog.refs import SourceRef as SourceRef
 from .sdk.client.client import Authorship as Authorship
@@ -64,8 +66,10 @@ __all__ = [
     "Settings",
     "SourceRef",
     "SpanHandle",
+    "EnvironmentRef",
     "active_run",
     "context",
+    "environment",
     "expect",
     "expr",
     "finish",

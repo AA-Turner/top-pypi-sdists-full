@@ -201,6 +201,11 @@ class TelemetryDeploymentAvailabilityStatus(int, metaclass=_enum_type_wrapper.En
     TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_NOT_CONFIGURED: _ClassVar[TelemetryDeploymentAvailabilityStatus]
     TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_SUSPENDED: _ClassVar[TelemetryDeploymentAvailabilityStatus]
 
+class VectorEncodingCodec(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    VECTOR_ENCODING_CODEC_UNSPECIFIED: _ClassVar[VectorEncodingCodec]
+    VECTOR_ENCODING_CODEC_OTLP: _ClassVar[VectorEncodingCodec]
+
 SOURCE_MODE_UNSPECIFIED: SourceMode
 SOURCE_MODE_ARCHIVE: SourceMode
 SOURCE_MODE_SOURCELESS: SourceMode
@@ -290,6 +295,8 @@ TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_UNSPECIFIED: TelemetryDeploymentAvailab
 TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_AVAILABLE: TelemetryDeploymentAvailabilityStatus
 TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_NOT_CONFIGURED: TelemetryDeploymentAvailabilityStatus
 TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_SUSPENDED: TelemetryDeploymentAvailabilityStatus
+VECTOR_ENCODING_CODEC_UNSPECIFIED: VectorEncodingCodec
+VECTOR_ENCODING_CODEC_OTLP: VectorEncodingCodec
 
 class ActivateDeploymentTarget(_message.Message):
     __slots__ = ("service_kind", "resource_group_name")
@@ -633,6 +640,7 @@ class UploadSourceRequest(_message.Message):
         "build_profile",
         "force_rebuild_dockerfile",
         "prebuilt_image",
+        "plan_only",
     )
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ARCHIVE_FIELD_NUMBER: _ClassVar[int]
@@ -644,6 +652,7 @@ class UploadSourceRequest(_message.Message):
     BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
     FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
     PREBUILT_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    PLAN_ONLY_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     archive: bytes
     no_promote: bool
@@ -654,6 +663,7 @@ class UploadSourceRequest(_message.Message):
     build_profile: _environment_pb2.DeploymentBuildProfile
     force_rebuild_dockerfile: bool
     prebuilt_image: PrebuiltEngineImageSource
+    plan_only: bool
     def __init__(
         self,
         deployment_id: _Optional[str] = ...,
@@ -666,6 +676,7 @@ class UploadSourceRequest(_message.Message):
         build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
         force_rebuild_dockerfile: bool = ...,
         prebuilt_image: _Optional[_Union[PrebuiltEngineImageSource, _Mapping]] = ...,
+        plan_only: bool = ...,
     ) -> None: ...
 
 class UploadSourceResponse(_message.Message):
@@ -873,6 +884,53 @@ class GetDeploymentStepsRequest(_message.Message):
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class GetMaterializedAggregateDiffRequest(_message.Message):
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class MaterializedAggregateDiff(_message.Message):
+    __slots__ = (
+        "base_deployment_id",
+        "added_features",
+        "removed_features",
+        "changed_features",
+        "unchanged_features",
+        "text",
+        "json",
+    )
+    BASE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ADDED_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    REMOVED_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    CHANGED_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    UNCHANGED_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    JSON_FIELD_NUMBER: _ClassVar[int]
+    base_deployment_id: str
+    added_features: _containers.RepeatedScalarFieldContainer[str]
+    removed_features: _containers.RepeatedScalarFieldContainer[str]
+    changed_features: _containers.RepeatedScalarFieldContainer[str]
+    unchanged_features: _containers.RepeatedScalarFieldContainer[str]
+    text: str
+    json: str
+    def __init__(
+        self,
+        base_deployment_id: _Optional[str] = ...,
+        added_features: _Optional[_Iterable[str]] = ...,
+        removed_features: _Optional[_Iterable[str]] = ...,
+        changed_features: _Optional[_Iterable[str]] = ...,
+        unchanged_features: _Optional[_Iterable[str]] = ...,
+        text: _Optional[str] = ...,
+        json: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetMaterializedAggregateDiffResponse(_message.Message):
+    __slots__ = ("diff",)
+    DIFF_FIELD_NUMBER: _ClassVar[int]
+    diff: MaterializedAggregateDiff
+    def __init__(self, diff: _Optional[_Union[MaterializedAggregateDiff, _Mapping]] = ...) -> None: ...
 
 class DeploymentBuildStep(_message.Message):
     __slots__ = ("id", "display_name", "status", "start_time", "end_time")
@@ -1892,6 +1950,8 @@ class EnvoyGatewayProviderConfig(_message.Message):
         "certificate_issuer_ref",
         "traffic_zonal_affinity",
         "machine_size",
+        "disable_tls",
+        "http2",
     )
     class NodeSelectorEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1917,6 +1977,8 @@ class EnvoyGatewayProviderConfig(_message.Message):
     CERTIFICATE_ISSUER_REF_FIELD_NUMBER: _ClassVar[int]
     TRAFFIC_ZONAL_AFFINITY_FIELD_NUMBER: _ClassVar[int]
     MACHINE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    DISABLE_TLS_FIELD_NUMBER: _ClassVar[int]
+    HTTP2_FIELD_NUMBER: _ClassVar[int]
     timeout_duration: str
     dns_hostname: str
     replicas: int
@@ -1933,6 +1995,8 @@ class EnvoyGatewayProviderConfig(_message.Message):
     certificate_issuer_ref: CertManagerIssuerRef
     traffic_zonal_affinity: TrafficZonalAffinity
     machine_size: EnvoyGatewayMachineSize
+    disable_tls: bool
+    http2: EnvoyGatewayHTTP2Config
     def __init__(
         self,
         timeout_duration: _Optional[str] = ...,
@@ -1951,6 +2015,23 @@ class EnvoyGatewayProviderConfig(_message.Message):
         certificate_issuer_ref: _Optional[_Union[CertManagerIssuerRef, _Mapping]] = ...,
         traffic_zonal_affinity: _Optional[_Union[TrafficZonalAffinity, str]] = ...,
         machine_size: _Optional[_Union[EnvoyGatewayMachineSize, str]] = ...,
+        disable_tls: bool = ...,
+        http2: _Optional[_Union[EnvoyGatewayHTTP2Config, _Mapping]] = ...,
+    ) -> None: ...
+
+class EnvoyGatewayHTTP2Config(_message.Message):
+    __slots__ = ("initial_stream_window_size_bytes", "initial_connection_window_size_bytes", "max_concurrent_streams")
+    INITIAL_STREAM_WINDOW_SIZE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_CONNECTION_WINDOW_SIZE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    MAX_CONCURRENT_STREAMS_FIELD_NUMBER: _ClassVar[int]
+    initial_stream_window_size_bytes: int
+    initial_connection_window_size_bytes: int
+    max_concurrent_streams: int
+    def __init__(
+        self,
+        initial_stream_window_size_bytes: _Optional[int] = ...,
+        initial_connection_window_size_bytes: _Optional[int] = ...,
+        max_concurrent_streams: _Optional[int] = ...,
     ) -> None: ...
 
 class GCPGatewayProviderConfig(_message.Message):
@@ -2036,6 +2117,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
         "include_chalk_node_selector",
         "bus_writer_image_rust",
         "use_aws_pool_for_google_adc",
+        "kerberos",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     BUS_WRITER_IMAGE_GO_FIELD_NUMBER: _ClassVar[int]
@@ -2067,6 +2149,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
     INCLUDE_CHALK_NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     BUS_WRITER_IMAGE_RUST_FIELD_NUMBER: _ClassVar[int]
     USE_AWS_POOL_FOR_GOOGLE_ADC_FIELD_NUMBER: _ClassVar[int]
+    KERBEROS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     bus_writer_image_go: str
     bus_writer_image_python: str
@@ -2097,6 +2180,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
     include_chalk_node_selector: bool
     bus_writer_image_rust: str
     use_aws_pool_for_google_adc: bool
+    kerberos: KerberosConfig
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -2129,6 +2213,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
         include_chalk_node_selector: bool = ...,
         bus_writer_image_rust: _Optional[str] = ...,
         use_aws_pool_for_google_adc: bool = ...,
+        kerberos: _Optional[_Union[KerberosConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class BackgroundPersistenceWriterHpaSpecs(_message.Message):
@@ -2812,6 +2897,8 @@ class CustomerVectorAggregatorConfig(_message.Message):
         "max_replicas",
         "otlp_metrics_export",
         "prometheus_export",
+        "otlp_logs_export",
+        "otlp_traces_export",
     )
     DATADOG_EXPORT_FIELD_NUMBER: _ClassVar[int]
     REPLICAS_FIELD_NUMBER: _ClassVar[int]
@@ -2823,6 +2910,8 @@ class CustomerVectorAggregatorConfig(_message.Message):
     MAX_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     OTLP_METRICS_EXPORT_FIELD_NUMBER: _ClassVar[int]
     PROMETHEUS_EXPORT_FIELD_NUMBER: _ClassVar[int]
+    OTLP_LOGS_EXPORT_FIELD_NUMBER: _ClassVar[int]
+    OTLP_TRACES_EXPORT_FIELD_NUMBER: _ClassVar[int]
     datadog_export: CustomerVectorAggregatorDatadogExportConfig
     replicas: int
     statsd_export: CustomerVectorAggregatorStatsdExportConfig
@@ -2833,6 +2922,8 @@ class CustomerVectorAggregatorConfig(_message.Message):
     max_replicas: int
     otlp_metrics_export: CustomerVectorAggregatorOtlpMetricsExportConfig
     prometheus_export: CustomerVectorAggregatorPrometheusExportConfig
+    otlp_logs_export: CustomerVectorAggregatorOtlpSignalExportConfig
+    otlp_traces_export: CustomerVectorAggregatorOtlpSignalExportConfig
     def __init__(
         self,
         datadog_export: _Optional[_Union[CustomerVectorAggregatorDatadogExportConfig, _Mapping]] = ...,
@@ -2845,6 +2936,8 @@ class CustomerVectorAggregatorConfig(_message.Message):
         max_replicas: _Optional[int] = ...,
         otlp_metrics_export: _Optional[_Union[CustomerVectorAggregatorOtlpMetricsExportConfig, _Mapping]] = ...,
         prometheus_export: _Optional[_Union[CustomerVectorAggregatorPrometheusExportConfig, _Mapping]] = ...,
+        otlp_logs_export: _Optional[_Union[CustomerVectorAggregatorOtlpSignalExportConfig, _Mapping]] = ...,
+        otlp_traces_export: _Optional[_Union[CustomerVectorAggregatorOtlpSignalExportConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class AggregatorSpec(_message.Message):
@@ -2899,15 +2992,21 @@ class AggregatorSpec(_message.Message):
     ) -> None: ...
 
 class CustomerCollectorConfig(_message.Message):
-    __slots__ = ("config_yaml", "received_signals")
+    __slots__ = ("config_yaml", "received_signals", "request", "limit")
     CONFIG_YAML_FIELD_NUMBER: _ClassVar[int]
     RECEIVED_SIGNALS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
     config_yaml: str
     received_signals: CustomerCollectorReceivedSignalsSpec
+    request: KubeResourceConfig
+    limit: KubeResourceConfig
     def __init__(
         self,
         config_yaml: _Optional[str] = ...,
         received_signals: _Optional[_Union[CustomerCollectorReceivedSignalsSpec, _Mapping]] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class VectorClusterMetricsSpec(_message.Message):
@@ -3781,6 +3880,8 @@ class TelemetryDeploymentSpec(_message.Message):
         "prometheus_collection_runtime",
         "vector_pipeline_metrics",
         "trace_exports",
+        "ai_trace_export",
+        "streaming_spec",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -3802,6 +3903,8 @@ class TelemetryDeploymentSpec(_message.Message):
     PROMETHEUS_COLLECTION_RUNTIME_FIELD_NUMBER: _ClassVar[int]
     VECTOR_PIPELINE_METRICS_FIELD_NUMBER: _ClassVar[int]
     TRACE_EXPORTS_FIELD_NUMBER: _ClassVar[int]
+    AI_TRACE_EXPORT_FIELD_NUMBER: _ClassVar[int]
+    STREAMING_SPEC_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -3822,6 +3925,8 @@ class TelemetryDeploymentSpec(_message.Message):
     prometheus_collection_runtime: TelemetryPrometheusCollectionRuntime
     vector_pipeline_metrics: VectorTelemetryPipelineMetricsSpec
     trace_exports: TraceExportSpec
+    ai_trace_export: AiTraceExportSpec
+    streaming_spec: VectorSpanStreamingSpec
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -3844,6 +3949,8 @@ class TelemetryDeploymentSpec(_message.Message):
         prometheus_collection_runtime: _Optional[_Union[TelemetryPrometheusCollectionRuntime, str]] = ...,
         vector_pipeline_metrics: _Optional[_Union[VectorTelemetryPipelineMetricsSpec, _Mapping]] = ...,
         trace_exports: _Optional[_Union[TraceExportSpec, _Mapping]] = ...,
+        ai_trace_export: _Optional[_Union[AiTraceExportSpec, _Mapping]] = ...,
+        streaming_spec: _Optional[_Union[VectorSpanStreamingSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):
@@ -5018,21 +5125,27 @@ class VectorTelemetryPipelineMetricsSpec(_message.Message):
     ) -> None: ...
 
 class CustomerVectorAggregatorOtlpMetricsExportConfig(_message.Message):
-    __slots__ = ("enabled", "url", "authorization_header_secret_arn", "remap_vrl")
+    __slots__ = ("enabled", "url", "authorization_header_secret_arn", "remap_vrl", "header_name", "headers_secret_arn")
     ENABLED_FIELD_NUMBER: _ClassVar[int]
     URL_FIELD_NUMBER: _ClassVar[int]
     AUTHORIZATION_HEADER_SECRET_ARN_FIELD_NUMBER: _ClassVar[int]
     REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
+    HEADER_NAME_FIELD_NUMBER: _ClassVar[int]
+    HEADERS_SECRET_ARN_FIELD_NUMBER: _ClassVar[int]
     enabled: bool
     url: str
     authorization_header_secret_arn: str
     remap_vrl: str
+    header_name: str
+    headers_secret_arn: str
     def __init__(
         self,
         enabled: bool = ...,
         url: _Optional[str] = ...,
         authorization_header_secret_arn: _Optional[str] = ...,
         remap_vrl: _Optional[str] = ...,
+        header_name: _Optional[str] = ...,
+        headers_secret_arn: _Optional[str] = ...,
     ) -> None: ...
 
 class CustomerVectorAggregatorPrometheusExportConfig(_message.Message):
@@ -5127,3 +5240,241 @@ class GetTelemetryDeploymentAvailabilityResponse(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     status: TelemetryDeploymentAvailabilityStatus
     def __init__(self, status: _Optional[_Union[TelemetryDeploymentAvailabilityStatus, str]] = ...) -> None: ...
+
+class KubernetesProbeTimingDefaults(_message.Message):
+    __slots__ = ("initial_delay_seconds", "timeout_seconds", "period_seconds", "failure_threshold", "success_threshold")
+    INITIAL_DELAY_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    TIMEOUT_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    PERIOD_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    FAILURE_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    SUCCESS_THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    initial_delay_seconds: int
+    timeout_seconds: int
+    period_seconds: int
+    failure_threshold: int
+    success_threshold: int
+    def __init__(
+        self,
+        initial_delay_seconds: _Optional[int] = ...,
+        timeout_seconds: _Optional[int] = ...,
+        period_seconds: _Optional[int] = ...,
+        failure_threshold: _Optional[int] = ...,
+        success_threshold: _Optional[int] = ...,
+    ) -> None: ...
+
+class ServiceProbeDefaults(_message.Message):
+    __slots__ = ("service_kind", "startup", "liveness", "readiness")
+    SERVICE_KIND_FIELD_NUMBER: _ClassVar[int]
+    STARTUP_FIELD_NUMBER: _ClassVar[int]
+    LIVENESS_FIELD_NUMBER: _ClassVar[int]
+    READINESS_FIELD_NUMBER: _ClassVar[int]
+    service_kind: str
+    startup: KubernetesProbeTimingDefaults
+    liveness: KubernetesProbeTimingDefaults
+    readiness: KubernetesProbeTimingDefaults
+    def __init__(
+        self,
+        service_kind: _Optional[str] = ...,
+        startup: _Optional[_Union[KubernetesProbeTimingDefaults, _Mapping]] = ...,
+        liveness: _Optional[_Union[KubernetesProbeTimingDefaults, _Mapping]] = ...,
+        readiness: _Optional[_Union[KubernetesProbeTimingDefaults, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetServiceProbeDefaultsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetServiceProbeDefaultsResponse(_message.Message):
+    __slots__ = ("services",)
+    SERVICES_FIELD_NUMBER: _ClassVar[int]
+    services: _containers.RepeatedCompositeFieldContainer[ServiceProbeDefaults]
+    def __init__(self, services: _Optional[_Iterable[_Union[ServiceProbeDefaults, _Mapping]]] = ...) -> None: ...
+
+class AiTraceExportSpec(_message.Message):
+    __slots__ = (
+        "fallback_bucket",
+        "min_replicas",
+        "max_replicas",
+        "request",
+        "cpu_target_utilization",
+        "max_trace_value_bytes",
+        "azure_storage_account",
+        "clickhouse_http_endpoint",
+        "archive",
+        "disabled",
+    )
+    FALLBACK_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    MIN_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    MAX_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    CPU_TARGET_UTILIZATION_FIELD_NUMBER: _ClassVar[int]
+    MAX_TRACE_VALUE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    AZURE_STORAGE_ACCOUNT_FIELD_NUMBER: _ClassVar[int]
+    CLICKHOUSE_HTTP_ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVE_FIELD_NUMBER: _ClassVar[int]
+    DISABLED_FIELD_NUMBER: _ClassVar[int]
+    fallback_bucket: str
+    min_replicas: int
+    max_replicas: int
+    request: KubeResourceConfig
+    cpu_target_utilization: int
+    max_trace_value_bytes: int
+    azure_storage_account: str
+    clickhouse_http_endpoint: str
+    archive: AiTraceArchiveSpec
+    disabled: bool
+    def __init__(
+        self,
+        fallback_bucket: _Optional[str] = ...,
+        min_replicas: _Optional[int] = ...,
+        max_replicas: _Optional[int] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        cpu_target_utilization: _Optional[int] = ...,
+        max_trace_value_bytes: _Optional[int] = ...,
+        azure_storage_account: _Optional[str] = ...,
+        clickhouse_http_endpoint: _Optional[str] = ...,
+        archive: _Optional[_Union[AiTraceArchiveSpec, _Mapping]] = ...,
+        disabled: bool = ...,
+    ) -> None: ...
+
+class AiTraceArchiveSpec(_message.Message):
+    __slots__ = ("workers", "request", "min_span_age_days")
+    WORKERS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    MIN_SPAN_AGE_DAYS_FIELD_NUMBER: _ClassVar[int]
+    workers: int
+    request: KubeResourceConfig
+    min_span_age_days: int
+    def __init__(
+        self,
+        workers: _Optional[int] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        min_span_age_days: _Optional[int] = ...,
+    ) -> None: ...
+
+class KafkaStreamingSink(_message.Message):
+    __slots__ = ("bootstrap_servers", "topic_name")
+    BOOTSTRAP_SERVERS_FIELD_NUMBER: _ClassVar[int]
+    TOPIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    bootstrap_servers: _containers.RepeatedScalarFieldContainer[str]
+    topic_name: str
+    def __init__(
+        self, bootstrap_servers: _Optional[_Iterable[str]] = ..., topic_name: _Optional[str] = ...
+    ) -> None: ...
+
+class PubsubStreamingSink(_message.Message):
+    __slots__ = ("topic_name",)
+    TOPIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    topic_name: str
+    def __init__(self, topic_name: _Optional[str] = ...) -> None: ...
+
+class StreamingSink(_message.Message):
+    __slots__ = ("kafka", "pubsub", "codec")
+    KAFKA_FIELD_NUMBER: _ClassVar[int]
+    PUBSUB_FIELD_NUMBER: _ClassVar[int]
+    CODEC_FIELD_NUMBER: _ClassVar[int]
+    kafka: KafkaStreamingSink
+    pubsub: PubsubStreamingSink
+    codec: VectorEncodingCodec
+    def __init__(
+        self,
+        kafka: _Optional[_Union[KafkaStreamingSink, _Mapping]] = ...,
+        pubsub: _Optional[_Union[PubsubStreamingSink, _Mapping]] = ...,
+        codec: _Optional[_Union[VectorEncodingCodec, str]] = ...,
+    ) -> None: ...
+
+class VectorSpanStreamingSpec(_message.Message):
+    __slots__ = ("streaming_sink",)
+    STREAMING_SINK_FIELD_NUMBER: _ClassVar[int]
+    streaming_sink: StreamingSink
+    def __init__(self, streaming_sink: _Optional[_Union[StreamingSink, _Mapping]] = ...) -> None: ...
+
+class CustomerVectorAggregatorOtlpSignalExportConfig(_message.Message):
+    __slots__ = ("enabled", "url", "headers_secret_arn", "remap_vrl")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    URL_FIELD_NUMBER: _ClassVar[int]
+    HEADERS_SECRET_ARN_FIELD_NUMBER: _ClassVar[int]
+    REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    url: str
+    headers_secret_arn: str
+    remap_vrl: str
+    def __init__(
+        self,
+        enabled: bool = ...,
+        url: _Optional[str] = ...,
+        headers_secret_arn: _Optional[str] = ...,
+        remap_vrl: _Optional[str] = ...,
+    ) -> None: ...
+
+class DiffClusterGatewayRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DiffClusterGatewayResponse(_message.Message):
+    __slots__ = ("resources",)
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    resources: _containers.RepeatedCompositeFieldContainer[GatewayResourceDiff]
+    def __init__(self, resources: _Optional[_Iterable[_Union[GatewayResourceDiff, _Mapping]]] = ...) -> None: ...
+
+class GatewayResourceDiff(_message.Message):
+    __slots__ = ("kind", "name", "namespace", "live_json", "desired_json")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    LIVE_JSON_FIELD_NUMBER: _ClassVar[int]
+    DESIRED_JSON_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    name: str
+    namespace: str
+    live_json: str
+    desired_json: str
+    def __init__(
+        self,
+        kind: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        namespace: _Optional[str] = ...,
+        live_json: _Optional[str] = ...,
+        desired_json: _Optional[str] = ...,
+    ) -> None: ...
+
+class KerberosConfig(_message.Message):
+    __slots__ = (
+        "keytab_secret_name",
+        "conf_secret_name",
+        "realm",
+        "kdc_master",
+        "service_principals",
+        "kdc_conf_secret_name",
+    )
+    KEYTAB_SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    CONF_SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    REALM_FIELD_NUMBER: _ClassVar[int]
+    KDC_MASTER_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_PRINCIPALS_FIELD_NUMBER: _ClassVar[int]
+    KDC_CONF_SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    keytab_secret_name: str
+    conf_secret_name: str
+    realm: str
+    kdc_master: str
+    service_principals: _containers.RepeatedCompositeFieldContainer[KerberosServicePrincipal]
+    kdc_conf_secret_name: str
+    def __init__(
+        self,
+        keytab_secret_name: _Optional[str] = ...,
+        conf_secret_name: _Optional[str] = ...,
+        realm: _Optional[str] = ...,
+        kdc_master: _Optional[str] = ...,
+        service_principals: _Optional[_Iterable[_Union[KerberosServicePrincipal, _Mapping]]] = ...,
+        kdc_conf_secret_name: _Optional[str] = ...,
+    ) -> None: ...
+
+class KerberosServicePrincipal(_message.Message):
+    __slots__ = ("host", "service_principal")
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
+    host: str
+    service_principal: str
+    def __init__(self, host: _Optional[str] = ..., service_principal: _Optional[str] = ...) -> None: ...

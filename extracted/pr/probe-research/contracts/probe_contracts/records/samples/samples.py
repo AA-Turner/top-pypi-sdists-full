@@ -15,7 +15,7 @@ from .outcome import SampleOutcome, SampleSplit, validate_drop_reason
 from .provenance import Generation, Scorer, Sha256
 from .result import MAX_FAILURE_REASON_CHARS, SampleErrorReason, SampleResult, cut_failure_reason
 from .task import MAX_TASK_KEY_CHARS, BlobRef, InlineText, Scenario
-from .turns import SampleEvent, Turn, TurnsSource
+from .turns import SampleEvent, ToolDefinition, Turn, TurnsSource, check_tools
 
 #: A producer key is unique per attempt within a write epoch (DESIGN.md "Identity").
 MAX_KEY_CHARS = 512
@@ -69,6 +69,7 @@ def check_extras(value: dict) -> dict:
 
 
 Turns = Annotated[list[Turn], AfterValidator(check_turn_text)]
+Tools = Annotated[list[ToolDefinition], AfterValidator(check_tools)]
 Extras = Annotated[dict, AfterValidator(check_extras)]
 
 
@@ -80,6 +81,39 @@ class FinishReason(StrEnum):
     ABORT = "abort"
     ERROR = "error"
     OTHER = "other"
+
+
+class BranchCause(StrEnum):
+    """What started a branch (one unbroken stretch of a rollout the model read; `segment` i of n)."""
+
+    FIRST = "first"
+    COMPACTION = "compaction"  # the chat got too long: old turns were replaced with a summary
+    SUB_AGENT = "sub_agent"  # a helper's conversation, started fresh
+    HISTORY_MISMATCH = "history_mismatch"  # an earlier message came back with different tokens
+
+
+#: The episode labels (dashboard-redesign D7), stored as typed part columns; reads take them as stored.
+EPISODE_FIELDS = ("episode_key", "agent", "is_trained", "environment_name", "environment_version",
+                  "branch_started_by", "parent_branch", "parent_turn")  # fmt: skip
+
+
+def derive_episode_key(episode_key: str | None, attempt_key: str | None, key: str) -> str:
+    """The episode a part belongs to as stored: as sent, else its attempt (one episode, one rollout), else its key.
+    The `sample_parts.episode_key` DEFAULT is its SQL twin."""
+    return episode_key or attempt_key or key
+
+
+def derive_is_trained(is_trained: bool | None, split: SampleSplit | None) -> bool:
+    """Whether the rollout's agent is trained, as stored: as sent, else a train rollout (no split reads train)."""
+    return is_trained if is_trained is not None else split in (None, SampleSplit.TRAIN)
+
+
+def derive_branch_started_by(started_by: BranchCause | None, segment: int | None) -> str:
+    """What started the branch, as stored: as sent, else `first` for an unsplit attempt or its first segment, else
+    unknown (`''`)."""
+    if started_by is not None:
+        return started_by.value
+    return BranchCause.FIRST.value if not segment else ""
 
 
 class BundleRef(BaseModel):
@@ -205,6 +239,22 @@ class Sample(Record):
     segment_count: int | None = Field(default=None, ge=1)
     split: SampleSplit = SampleSplit.TRAIN
 
+    # The episode (one play of an environment on one task) and the branch (dashboard-redesign D7). A producer sends
+    # what it knows; the server stores the rest by their old meaning (`derive_episode_key` and its twins).
+    #: Rollouts sharing it are one episode (several agents in one play); default: the attempt key, else the key.
+    episode_key: str | None = Field(default=None, min_length=1, max_length=MAX_KEY_CHARS)
+    #: The agent this rollout belongs to in a multi-agent play (`solver`, `judge`); none reads "Agent".
+    agent: str | None = Field(default=None, max_length=MAX_NAME_CHARS)
+    #: Whether this agent is trained (a solver, not a fixed judge or simulated user); default: a train rollout.
+    is_trained: bool | None = None
+    #: The environment and its version (`minibugs`, `0.1.0`); not `environment`, the Harbor trial link below.
+    environment_name: str | None = Field(default=None, max_length=MAX_NAME_CHARS)
+    environment_version: str | None = Field(default=None, max_length=MAX_NAME_CHARS)
+    #: What started this branch, and the branch and turn it split from (none for the first).
+    branch_started_by: BranchCause | None = None
+    parent_branch: int | None = Field(default=None, ge=0)
+    parent_turn: int | None = Field(default=None, ge=0)
+
     # Steps: three coordinates, never merged (DESIGN.md "Provenance").
     #: read: the lineage step, `consumed_step` when a trainer consumed it, else `scheduled_step`.
     step: int | None = None
@@ -235,6 +285,8 @@ class Sample(Record):
     turns_source: TurnsSource | None = None
     turn_count: int | None = Field(default=None, ge=0)
     tool_call_count: int | None = Field(default=None, ge=0)
+    #: The tools the model was offered (ATIF `agent.tool_definitions`, a chat template's `tools`), in their order.
+    tools: Tools = Field(default_factory=list)
     finish_reason: FinishReason | None = None
     prompt_tokens: int | None = Field(default=None, ge=0)
     response_tokens: int | None = Field(default=None, ge=0)

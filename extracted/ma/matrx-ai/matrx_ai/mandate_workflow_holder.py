@@ -219,17 +219,9 @@ def last_user_text(config: Any) -> str:
         content = (
             message.get("content") if isinstance(message, dict) else getattr(message, "content", None)
         )
-        if isinstance(content, str):
-            return content
-        pieces: list[str] = []
-        for part in content or []:
-            if isinstance(part, str):
-                pieces.append(part)
-            elif isinstance(part, dict) and part.get("type") == "text":
-                pieces.append(str(part.get("text") or ""))
-            elif getattr(part, "type", None) == "text":
-                pieces.append(str(getattr(part, "text", "") or ""))
-        return "\n".join(p for p in pieces if p)
+        from matrx_ai.config.message_config import content_text
+
+        return content_text(content)  # the one projection: a stand-in is never words
     return ""
 
 

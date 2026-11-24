@@ -44,7 +44,10 @@ class ReadinessRefusedError(RuntimeError):
         self.summary = summary
         self.missing = list(missing or [])
         fills = "; ".join(f"{m.get('label')} ({m.get('fill_url')})" for m in self.missing if m.get("label"))
-        self.message = f"{mandate_key}: {summary}" + (f". Fill in: {fills}" if fills else "")
+        labels = "; ".join(str(m.get("label")) for m in self.missing if m.get("label"))
+        # The person's sentence names no internal key and no link (the links ride ``missing`` / ``envelope()``).
+        self.message = summary + (f". Fill in: {labels}" if labels else "")
+        self.detail = f"{mandate_key}: {summary}" + (f". Fill in: {fills}" if fills else "")
         self.code = AUTOMATION_NOT_READY
         self.error_info = RetryableError(
             error_type=self.code,

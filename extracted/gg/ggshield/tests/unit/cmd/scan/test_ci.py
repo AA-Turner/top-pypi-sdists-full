@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 import click
 import pytest
+from pygitguardian.models import Detail
 
 from ggshield.__main__ import cli
 from ggshield.core import ui
@@ -139,6 +140,14 @@ def test_gitlab_ci_range(
         ({"CI": "true", "BITBUCKET_COMMIT": "12345abcd"}, "ci/BITBUCKET PIPELINES"),
         ({"CI": "true", "DRONE": "1", "DRONE_COMMIT_BEFORE": "c0ff331a"}, "ci/DRONE"),
         (
+            {
+                "HARNESS_BUILD_ID": "7",
+                "DRONE": "true",
+                "DRONE_COMMIT_BEFORE": "c0ff331a",
+            },
+            "ci/HARNESS",
+        ),
+        (
             {"BUILD_BUILDID": "1234", "BUILD_SOURCEVERSION": "b4dd3caf"},
             "ci/AZURE PIPELINES",
         ),
@@ -179,7 +188,7 @@ def test_ci_cmd_does_not_work_outside_ci(_, cli_fs_runner: click.testing.CliRunn
     assert_invoke_exited_with(result, ExitCode.USAGE_ERROR)
 
     # And the error message explains why
-    assert "only be used in a CI environment" in result.output
+    assert "only be used in a supported CI environment" in result.output
 
 
 @patch("ggshield.cmd.secret.scan.ci.check_git_dir")
@@ -193,9 +202,10 @@ def test_ci_cmd_does_not_work_if_ci_env_is_odd(
     result = cli_fs_runner.invoke(cli, ["secret", "scan", "ci"])
 
     # THEN it fails
-    assert_invoke_exited_with(result, ExitCode.UNEXPECTED_ERROR)
+    assert_invoke_exited_with(result, ExitCode.USAGE_ERROR)
 
     # And the error message explains why
+    assert "only be used in a supported CI environment" in result.output
     assert "Current CI is not detected" in result.output
 
 
@@ -289,6 +299,58 @@ def test_ci_connection_error_opt_in_fail_open(
     result = cli_fs_runner.invoke(cli, ["secret", "scan", "ci"])
     assert_invoke_ok(result)
     assert "Skipping ggshield checks" in result.output
+
+
+@pytest.mark.parametrize(
+    "status_code, detail, args, exit_code",
+    [
+        (429, "Nope", [], ExitCode.GITGUARDIAN_SERVER_UNAVAILABLE),
+        (503, "Nope", [], ExitCode.GITGUARDIAN_SERVER_UNAVAILABLE),
+        (429, "Nope", ["--no-fail-on-server-error"], ExitCode.SUCCESS),
+        (403, "Forbidden", ["--no-fail-on-server-error"], ExitCode.SUCCESS),
+        (
+            403,
+            "Quota limit reached.",
+            ["--no-fail-on-server-error"],
+            ExitCode.UNEXPECTED_ERROR,
+        ),
+    ],
+)
+@patch("ggshield.verticals.secret.repo.check_client_api_key")
+@patch("pygitguardian.GGClient.multi_content_scan")
+def test_ci_refused_scan_does_not_pass(
+    scan_mock: Mock,
+    _check_api_key: Mock,
+    status_code: int,
+    detail: str,
+    args: List[str],
+    exit_code: ExitCode,
+    tmp_path: Path,
+    cli_runner: click.testing.CliRunner,
+    monkeypatch,
+):
+    """
+    GIVEN a CI job on a commit adding a file
+    WHEN the API does not scan it
+    THEN `secret scan ci` fails, unless --no-fail-on-server-error lets a
+    skippable failure through
+    """
+    repo = Repository.create(tmp_path)
+    repo.create_commit("initial commit")
+    (tmp_path / "config.py").write_text("VALUE = 1\n")
+    repo.add("config.py")
+    sha = repo.create_commit("add config")
+    monkeypatch.setenv("CI", "1")
+    monkeypatch.setenv("GITLAB_CI", "1")
+    monkeypatch.setenv("CI_COMMIT_SHA", sha)
+    scan_mock.return_value = Detail(detail, status_code)
+
+    with cd(str(tmp_path)):
+        result = cli_runner.invoke(cli, ["secret", "scan", "ci", *args])
+
+    assert_invoke_exited_with(result, exit_code)
+    assert scan_mock.called
+    assert "No secrets have been found" not in result.output
 
 
 @patch("ggshield.cmd.secret.scan.ci.scan_commit_range")
@@ -466,6 +528,41 @@ def subjets_for_commits(commit_shas: List[str], dummy_repo: Repository) -> List[
                 "CI_COMMIT_BEFORE_SHA": "branch~1",
             },
             ["branch_commit_1", "branch_commit_2"],
+        ),
+        (
+            {
+                "HARNESS_BUILD_ID": "7",
+                "DRONE": "true",
+                "DRONE_COMMIT_BRANCH": "main",
+                "DRONE_COMMIT_BEFORE": "main",
+            },
+            ["branch_commit_1", "branch_commit_2"],
+        ),
+        (
+            {
+                "HARNESS_BUILD_ID": "7",
+                "DRONE": "true",
+                "DRONE_COMMIT_BRANCH": "branch",
+                "DRONE_COMMIT_BEFORE": "branch~1",
+            },
+            ["branch_commit_2"],
+        ),
+        (
+            {
+                "HARNESS_BUILD_ID": "7",
+                "DRONE": "true",
+                "DRONE_COMMIT_BRANCH": "branch",
+                "DRONE_COMMIT_BEFORE": EMPTY_SHA,
+            },
+            ["branch_commit_2"],
+        ),
+        (
+            {
+                "HARNESS_BUILD_ID": "7",
+                "DRONE": "true",
+                "DRONE_COMMIT_BRANCH": "branch",
+            },
+            ["branch_commit_2"],
         ),
     ],
 )

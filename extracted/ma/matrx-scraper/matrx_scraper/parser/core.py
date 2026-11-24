@@ -59,6 +59,30 @@ def _remove_and_extract_wrapped(soup: BeautifulSoup, tag: str) -> tuple[Beautifu
     return soup, removal_info
 
 
+class _Attempt:
+    """A stage run early whose result — or exception — is delivered later, at the
+    stage's own place in the pipeline, so moving it changes neither its answer nor
+    which failure a broken page reports first."""
+
+    __slots__ = ("_value", "_error")
+
+    def __init__(self, value: Any = None, error: BaseException | None = None) -> None:
+        self._value = value
+        self._error = error
+
+    def result(self) -> Any:
+        if self._error is not None:
+            raise self._error
+        return self._value
+
+
+def _attempt(fn) -> _Attempt:
+    try:
+        return _Attempt(fn())
+    except Exception as exc:  # re-raised by .result() where the stage used to run
+        return _Attempt(error=exc)
+
+
 class ParserOrchestrator:
     """
     Full pipeline orchestrator — mirrors scraper/logic/parse/orchestrator.py.
@@ -96,8 +120,6 @@ class ParserOrchestrator:
         self.element_extractor = ElementExtractor()
         self.content_filter_overrides = content_filter_overrides or overrides
 
-        self._noise_removed_soup: BeautifulSoup | None = None
-        self._filtered_soup: BeautifulSoup | None = None
         self.noise_remover_removal_details: list[dict] = []
         self.content_filter_removal_details: list[dict] = []
 
@@ -127,22 +149,44 @@ class ParserOrchestrator:
         self._init_url_meta()
 
         # ---- Stage 1: HTML normalization ----
+        given = self.soup
         transformer = HtmlTransformer(self.soup)
         self.soup = transformer.process()
 
+        # ---- ONE TREE ----
+        # From here every stage works on the transformed page's ONE tree. Stages
+        # 6-7 (metadata, links) only READ the transformed page, and stages 2-4
+        # rewrite it (mark and drop noise, mark and drop filtered content, flatten
+        # it for extraction), so the readers run FIRST, on the unmarked tree, and
+        # their results (or exceptions) are delivered at their usual place in the
+        # pipeline below. The writers then work on the tree in place — no
+        # per-stage copy of the page. Only a page the caller handed in as a tree
+        # (and the transformer could not re-parse) is copied, so a caller's tree
+        # is never rewritten.
+        page = self.soup
+        owns_page = page is not given
+        early_metadata = _attempt(self._get_metadata)
+        early_links = None if skip_links else _attempt(self._extract_links)
+        early_link_records = None if skip_links else _attempt(self._extract_link_records)
+        # The parse consumes the tree: the orchestrator keeps no stage's tree
+        # afterwards (a second parse_content() must be handed its HTML again).
+        self.soup = None
+
         # ---- Stage 2: NoiseRemover ----
-        wrapped_noise = self.noise_remover.remove_noise(self.soup, remove=False)
-        self._noise_removed_soup, self.noise_remover_removal_details = _remove_and_extract_wrapped(
+        wrapped_noise = self.noise_remover.remove_noise(page, remove=False, copy_input=not owns_page)
+        noise_removed, self.noise_remover_removal_details = _remove_and_extract_wrapped(
             wrapped_noise, "NoiseRemover"
         )
 
         # ---- Stage 3: ScrapeFilter ----
         wrapped_filter = self.scrape_filter.filter_soup(
-            self._noise_removed_soup,
+            noise_removed,
             remove=False,
             content_filter_config=self.content_filter_overrides,
+            # The noise pass's tree is this parse's own: filter it in place.
+            copy_input=False,
         )
-        self._filtered_soup, self.content_filter_removal_details = _remove_and_extract_wrapped(
+        filtered, self.content_filter_removal_details = _remove_and_extract_wrapped(
             wrapped_filter, "ContentFilter"
         )
 
@@ -150,12 +194,12 @@ class ParserOrchestrator:
         # An article-like page also gets its body extracted on its own, so a
         # consumer asking "what does this page SAY?" never learns the site's
         # furniture. Non-article pages return None here and keep the full page.
-        main_content_soup = self.article_finder.find(self._filtered_soup)
+        main_content_soup = self.article_finder.find(filtered)
         self.main_content_selector = self.article_finder.root_selector
         self.main_content_removal_details = list(self.article_finder.removal_details)
 
         # ---- Stage 4: Element extraction ----
-        extracted = self.element_extractor.extract_content(self._filtered_soup, url=self.url)
+        extracted = self.element_extractor.extract_content(filtered, url=self.url)
 
         page_dict = extracted.get("organized_data")
         # `extract_content` returns exactly {organized_data, metadata, hashes}
@@ -187,7 +231,7 @@ class ParserOrchestrator:
         char_count_formatted = len(self._build_text_data_with_markers(page_dict))
 
         # ---- Stage 6: Metadata (extruct + meta tags) ----
-        rich_metadata = self._get_metadata()
+        rich_metadata = early_metadata.result()
         main_image = rich_metadata.pop("main_image", None)
         # NOT popped: `metadata["structured_data"]` is the key every existing
         # consumer already reads. This only stops the top-level field lying.
@@ -197,8 +241,8 @@ class ParserOrchestrator:
         # Two products of the same extractor: `links` (URL buckets — the
         # long-lived persisted shape) and `link_records` (per-anchor rows that
         # carry the anchor TEXT, unrecoverable once the parse is thrown away).
-        links = {} if skip_links else self._extract_links()
-        link_records = [] if skip_links else self._extract_link_records()
+        links = {} if skip_links else early_links.result()
+        link_records = [] if skip_links else early_link_records.result()
 
         # ---- Stage 8: Hashing (skippable for fast/research mode) ----
         hashes = {} if skip_hashes else self._compute_hashes(text_data, outline)

@@ -112,6 +112,8 @@ class Screen(_raw_display_base.Screen):
         extended_keys: bool = False,
         *,
         in_band_resize: bool | None = None,
+        alternate_scroll: bool | None = None,
+        underline_styles: bool | None = None,
     ) -> None:
         """Initialize a screen that directly prints escape codes to an output terminal.
 
@@ -131,6 +133,17 @@ class Screen(_raw_display_base.Screen):
             None (default) auto-detects via DECRQM and enables it once confirmed supported,
             except on the iTerm2 releases that send the notifications without their final byte;
             pass True/False to force it without probing.
+        :param alternate_scroll: whether the terminal sends the mouse wheel as cursor up and down keys
+            while the screen runs (DEC private mode 1007), which it does only on the alternate screen
+            and while the screen does not track the mouse.
+            None (default) leaves the terminal's own setting.
+            True/False set the mode when the screen starts,
+            and the state the terminal reported is set back when it stops; without a report the mode stays as set.
+        :param underline_styles: draw the underline styles and the underline colors of the display attributes;
+            without them an underline is drawn single and in the text color.
+            None (default) detects them by the terminfo entry of ``TERM`` and by the terminal's environment variables,
+            and turns them on when the terminal's reply to a capability or version query shows them;
+            pass True/False to force it.
 
         .. note::
             on terminal-generated signals: putting the terminal into cbreak mode (see `start()`)
@@ -165,6 +178,8 @@ class Screen(_raw_display_base.Screen):
             focus_reporting=focus_reporting,
             extended_keys=extended_keys,
             in_band_resize=in_band_resize,
+            alternate_scroll=alternate_scroll,
+            underline_styles=underline_styles,
         )
         self.gpm_mev: Popen[str] | None = None
         self.gpm_event_pending: bool = False
@@ -173,6 +188,8 @@ class Screen(_raw_display_base.Screen):
         # These store the previous signal handlers after setting ours
         self._prev_sigtstp_handler: SignalHandler = None
         self._prev_sigwinch_handler: SignalHandler = None
+        # signal_init() completed in the current start, so _stop() has handlers to restore
+        self._signal_handlers_set = False
         # Set by the SIGTSTP handler, carried out by get_available_raw_input().
         self._suspend_requested = False
 
@@ -183,7 +200,8 @@ class Screen(_raw_display_base.Screen):
             f"output={self._term_output_file}, "
             f"bracketed_paste_mode={self.modes.bracketed_paste}, "
             f"focus_reporting={self.modes.focus_reporting}, "
-            f"in_band_resize={self.modes.in_band_resize})>"
+            f"in_band_resize={self.modes.in_band_resize}, "
+            f"alternate_scroll={self.modes.alternate_scroll})>"
         )
 
     def _sigwinch_handler(self, signum: int = signal.SIGWINCH, frame: FrameType | None = None) -> None:
@@ -214,7 +232,12 @@ class Screen(_raw_display_base.Screen):
         applications.
         """
         self._prev_sigwinch_handler = self.signal_handler_setter(signal.SIGWINCH, self._sigwinch_handler)
-        self._prev_sigtstp_handler = self.signal_handler_setter(signal.SIGTSTP, self._sigtstp_handler)
+        try:
+            self._prev_sigtstp_handler = self.signal_handler_setter(signal.SIGTSTP, self._sigtstp_handler)
+        except BaseException:
+            # the start fails, and its undo restores only handlers that signal_init() set completely
+            self.signal_handler_setter(signal.SIGWINCH, self._prev_sigwinch_handler or signal.SIG_DFL)
+            raise
 
     def signal_restore(self) -> None:
         """Restore the SIGTSTP and SIGWINCH signal handlers, called in the finally block of run wrapper.
@@ -313,6 +336,8 @@ class Screen(_raw_display_base.Screen):
         :param kwargs: not supported; any value raises :exc:`TypeError`.
         :raises TypeError: unexpected positional or keyword arguments were given.
         """
+        self._start_complete = False
+
         if args or kwargs:
             raise TypeError(f"start() got unexpected arguments: {args=!r}, {kwargs=!r}")
 
@@ -352,11 +377,13 @@ class Screen(_raw_display_base.Screen):
         if self.modes.in_band_resize:
             self._set_in_band_resize(True)
 
+        self._write_alternate_scroll(restore=False)
+
         self._enable_keyboard_protocol()
         self._show_title()
 
         self.signal_init()
-        self._next_timeout = self.max_wait
+        self._signal_handlers_set = True
 
         if not self._signal_keys_set:
             self._old_signal_keys = self.tty_signal_keys(fileno=fd)
@@ -365,12 +392,20 @@ class Screen(_raw_display_base.Screen):
         # restore mouse tracking to previous state
         self._mouse_tracking(self._mouse_tracking_enabled)
 
+        # The bottom row of an earlier run follows a resize made while the screen was stopped.
+        # A subclass with its own get_cols_rows() sets it there, as the size this screen reads may not be its size.
+        if self.maxrow is not None and type(self).get_cols_rows is Screen.get_cols_rows:
+            self.maxrow = self._read_cols_rows()[1]
+        self._start_complete = True
+
         super()._start(*args, **kwargs)  # type: ignore[safe-super]
 
     def _stop(self) -> None:
         """Restore the screen."""
         self.clear()
-        self.signal_restore()
+        if self._signal_handlers_set:
+            self._signal_handlers_set = False
+            self.signal_restore()
         # the terminal may be resized while stopped, and SIGWINCH is what reports that then
         self._reported_cols_rows = None
 
@@ -385,6 +420,8 @@ class Screen(_raw_display_base.Screen):
                 if self._in_band_resize:
                     self._set_in_band_resize(False)
 
+                self._write_alternate_scroll(restore=True)
+
                 # before the alternate screen is left: the kitty keyboard flags are kept per screen
                 self._disable_keyboard_protocol()
 
@@ -396,6 +433,9 @@ class Screen(_raw_display_base.Screen):
                 # and raising here would hide the error that ended the run, such as the closed input.
                 if exc.errno not in {errno.EIO, errno.ENXIO, errno.EPIPE}:
                     raise
+                # _stop_mouse_restore_buffer() did not clear the flag; a later start that fails before clearing it
+                # draws nothing either
+                self._start_complete = False
             finally:
                 # a failed write skips the step of _mouse_tracking() that stops the helper
                 self._stop_gpm_tracking()
@@ -405,6 +445,8 @@ class Screen(_raw_display_base.Screen):
             try:
                 if fd is not None and os.isatty(fd) and self._old_termios_settings is not None:
                     termios.tcsetattr(fd, termios.TCSAFLUSH, self._old_termios_settings)
+                    # a later start that fails before saving the settings has none of its own to restore
+                    self._old_termios_settings = None
 
                 if self._old_signal_keys:
                     self.tty_signal_keys(*self._old_signal_keys, fd)
@@ -624,22 +666,25 @@ class Screen(_raw_display_base.Screen):
         The size the terminal last reported in the input is returned while it is newer than the last ``SIGWINCH``,
         see :ref:`in-band-resize`; otherwise the size is read from the terminal device.
         """
+        x, y = self._last_cols_rows = self._read_cols_rows()
+        self.maxrow = y
+        return x, y
+
+    def _read_cols_rows(self) -> tuple[int, int]:
+        """Return the size :meth:`get_cols_rows` returns, without recording it as the size the application read."""
         if self._reported_cols_rows is not None:
-            x, y = self._last_cols_rows = self._reported_cols_rows
-            self.maxrow = y
-            return x, y
+            return self._reported_cols_rows
         x, y = super().get_cols_rows()
         with contextlib.suppress(OSError):  # Term size could not be determined
             if isinstance(self._term_output_file, _raw_display_base.SupportsFileno):
                 buf = fcntl.ioctl(self._term_output_file.fileno(), termios.TIOCGWINSZ, b" " * 8)
-                y, x, _, _ = struct.unpack("hhhh", buf)
+                # struct winsize holds unsigned shorts
+                y, x, _, _ = struct.unpack("HHHH", buf)
 
         # Provide some lightweight fallbacks in case the TIOCWINSZ doesn't
         # give sane answers
-        if (x <= 0 or y <= 0) and self.term in {"ansi", "vt100"}:
+        if (x <= 0 or y <= 0) and self.term.lower() in {"ansi", "vt100"}:
             y, x = 24, 80
-        self.maxrow = y
-        self._last_cols_rows = x, y
         return x, y
 
 

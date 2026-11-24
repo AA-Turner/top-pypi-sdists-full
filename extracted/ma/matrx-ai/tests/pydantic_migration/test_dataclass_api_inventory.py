@@ -39,8 +39,8 @@ def _buckets():
 def test_the_inventory_is_a_ratchet_that_only_goes_down():
     confirmed, suspected, _ = _buckets()
     total = len(confirmed) + len(suspected)
-    assert total <= 12, (
-        f"{total} contract-or-suspected dataclasses-API sites; the ceiling is 12 and it only "
+    assert total <= 11, (
+        f"{total} contract-or-suspected dataclasses-API sites; the ceiling is 11 and it only "
         "goes DOWN. A new one is a site that will raise at flip."
     )
 
@@ -49,9 +49,21 @@ def test_grep_would_have_been_useless_here():
     """Recorded because it justifies the tool existing. Raw greps report 113
     `replace(` and 66 `fields(` — `str.replace` and `model_fields` dominate. The
     AST walk resolves how `dataclasses` was imported per module and counts only
-    real calls."""
+    real calls. The bound is relative to the raw grep, never a fixed number: unrelated
+    `fields(`/`replace(` calls grow with the package (40 by 2026-11-17) while a fixed
+    ceiling on the OTHER bucket measured nothing about the tool."""
+    import re
+
     confirmed, suspected, other = _buckets()
-    assert len(confirmed) + len(suspected) + len(other) < 40
+    raw = sum(
+        len(re.findall(r"\b(?:replace|fields|asdict)\(", p.read_text(encoding="utf-8")))
+        for p in ROOT.rglob("*.py")
+    )
+    assert raw > 100, f"raw grep found only {raw} sites — the premise of this test moved"
+    assert (len(confirmed) + len(suspected) + len(other)) * 3 < raw, (
+        f"AST scan kept {len(confirmed) + len(suspected) + len(other)} of {raw} grep hits — "
+        "it no longer filters what a grep cannot"
+    )
 
 
 def test_self_and_cls_resolve_to_their_enclosing_class():

@@ -38,8 +38,6 @@ def admin_config_cleanup():
         yield
     finally:
         config.param.update(**values)
-        # The admin panel records the full session history.
-        state.session_info = {'total': 0, 'live': 0, 'sessions': {}}
 
 
 @pytest.fixture
@@ -50,6 +48,7 @@ def admin_password():
 
 def _log(session, message, level='INFO', app='panel.io.server'):
     log_terminal.write(f'2026-10-03 14:38:04,803 {level}: {app} - Session {session} {message}\n')
+    log_terminal.flush_records()
 
 
 #---------------------------------------------------------------------
@@ -99,6 +98,30 @@ def test_log_component_filters_and_streams_records():
 
     level.value = []
     assert {'rendered', 'created'} <= set(table.value['message'])
+
+
+def test_log_component_of_stopped_server_does_not_break_flush():
+    class StoppedDocument:
+        session_context = object()
+
+        def on_session_destroyed(self, callback):
+            pass
+
+        def add_next_tick_callback(self, callback):
+            raise RuntimeError('Event loop is closed')
+
+    callbacks = list(log_terminal._flush_callbacks)
+    try:
+        log_component(StoppedDocument())
+        stale = log_terminal._flush_callbacks[-1]
+        _, table = log_component().objects
+
+        _log(9002, 'rendered')
+
+        assert table.value['session'].tolist()[-1:] == [9002]
+        assert stale not in log_terminal._flush_callbacks
+    finally:
+        log_terminal._flush_callbacks[:] = callbacks
 
 
 def test_log_components_do_not_share_filters():
@@ -376,3 +399,33 @@ def test_tornado_admin_password_login(admin_password):
     session.get(f'{base}/admin/logout', timeout=30)
     r = session.get(f'{base}/admin', allow_redirects=False, timeout=30)
     assert r.status_code == 302
+
+
+def test_build_applications_uses_admin_endpoint():
+    import panel as pn
+
+    from panel.io.application import build_applications
+
+    with config.set(_admin_endpoint='custom'):
+        apps = build_applications({'/': pn.panel('Hi')}, admin=True)
+    assert '/custom' in apps
+    assert '/admin' not in apps
+
+
+def test_build_applications_admin_endpoint_conflict():
+    import panel as pn
+
+    from panel.io.application import build_applications
+
+    with config.set(_admin_endpoint='custom'):
+        with pytest.raises(ValueError, match='/custom endpoint'):
+            build_applications({'/custom': pn.panel('Hi')}, admin=True)
+
+
+def test_build_applications_admin_endpoint_default():
+    import panel as pn
+
+    from panel.io.application import build_applications
+
+    assert '/admin' in build_applications({'/': pn.panel('Hi')}, admin=True)
+    assert '/admin' not in build_applications({'/': pn.panel('Hi')})

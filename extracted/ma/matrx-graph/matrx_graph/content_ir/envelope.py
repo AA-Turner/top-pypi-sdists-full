@@ -45,7 +45,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from matrx_graph.content_ir.fingerprint import fingerprint_text
+from matrx_graph.content_ir.fingerprint import fingerprint_text, fingerprint_text_off_loop
 
 # Mirrors matrx-frontend core/ir-types.ts + core/kind-schema.types.ts, and the
 # chat-side producer matrx_ai.processing.blocks.envelope (which imports these).
@@ -75,7 +75,9 @@ def compact_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
-def envelope_for_verified_output(value: dict[str, Any], kind: str) -> dict[str, Any]:
+def envelope_for_verified_output(
+    value: dict[str, Any], kind: str, *, fingerprint: str | None = None
+) -> dict[str, Any]:
     """Assemble a complete, resolved CanonicalBlockIR for a VERIFIED output.
 
     Pure — no IO, no logging, no mutation of ``value`` (held by reference;
@@ -89,7 +91,7 @@ def envelope_for_verified_output(value: dict[str, Any], kind: str) -> dict[str, 
     return {
         "v": IR_VERSION,
         "engine": IR_ENGINE,
-        "fingerprint": fingerprint_text(compact_json(value)),
+        "fingerprint": fingerprint if fingerprint is not None else fingerprint_text(compact_json(value)),
         "root": {
             "role": "structured",
             "kind": kind,
@@ -139,6 +141,63 @@ def ir_metadata_for_verified_output(value: dict[str, Any], kind: str) -> dict[st
     copy (see ``elide_envelope_value``).
     """
     return {IR_ENVELOPE_KEY: elide_envelope_value(envelope_for_verified_output(value, kind))}
+
+
+async def _output_rides_by_reference(source: str) -> bool:
+    """Whether the frame's ``output`` will carry this value BY REFERENCE: the value store is on and
+    the value is over ``workflow.event_payload.inline_value_max_bytes`` — the exact test
+    ``checkpoint.values.event_payload_row`` applies to an event's ``output`` (its compact JSON
+    bytes; key order does not change the length)."""
+    try:
+        from matrx_graph.checkpoint.postgres import _value_store_available
+        from matrx_graph.knobs import event_inline_value_max_bytes
+    except ImportError:  # no DB layer installed: every event carries its output inline
+        return False
+    if not _value_store_available():
+        return False
+    limit = await event_inline_value_max_bytes()
+    if limit <= 0:
+        return False
+    # Never encode a large string on the loop (event_loop_stall 5e9e61da: 1.28 s here). A char
+    # is 1-4 UTF-8 bytes, so the char count settles nearly every case without encoding; only
+    # the narrow middle band is measured, and that off the loop.
+    if len(source) > limit:
+        return True
+    if len(source) * 4 <= limit:
+        return False
+    from matrx_graph.checkpoint.values import run_pure_off_loop
+
+    return await run_pure_off_loop(_utf8_length, source) > limit
+
+
+def _utf8_length(source: str) -> int:
+    return len(source.encode())
+
+
+async def ir_metadata_for_verified_output_async(
+    value: dict[str, Any], kind: str, *, frame_interns_output: bool = False
+) -> dict[str, Any] | None:
+    """``ir_metadata_for_verified_output`` for the step loop: a large value's fingerprint is
+    hashed off the event loop (identical result). The settled dump belongs to the one
+    invocation awaiting this, so nothing mutates it while the thread reads its JSON.
+
+    ``frame_interns_output``: the frame is a ``node_completed`` event, whose ``output`` field is
+    interned (``EVENT_VALUE_FIELDS``); ``output.to_frontend``'s own ``payload`` is not. Then None —
+    no envelope — when the frame carries the output by reference (``_output_rides_by_reference``):
+    the wire-elided ``root.value`` is rehydrated FROM that ``output`` (Studio ``inbound-envelope.ts``),
+    so it would hand the screen reference markers labelled a verified kind, and the fingerprint over
+    the whole value is pure-Python FNV at ~0.15 s per million characters (a research pick child's
+    15 MB of step outputs paid ~2.4 s on a laptop, several times that on the server, once per step
+    and again on the caller's Run Workflow step). The screen then reads the value the ordinary way
+    (``output_kind_ok`` still says it passed) — the neutral case law 3 already allows."""
+    from matrx_graph.checkpoint.values import run_pure_off_loop
+
+    # The JSON text of a large output is built in a worker thread too (event_loop_stall 347cbb62).
+    source = await run_pure_off_loop(compact_json, value)
+    if frame_interns_output and await _output_rides_by_reference(source):
+        return None
+    fingerprint = await fingerprint_text_off_loop(source)
+    return {IR_ENVELOPE_KEY: elide_envelope_value(envelope_for_verified_output(value, kind, fingerprint=fingerprint))}
 
 
 def stamp_kind_marker(dump: Any, kind: str | None) -> Any:

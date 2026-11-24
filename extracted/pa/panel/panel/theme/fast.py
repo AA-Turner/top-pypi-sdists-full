@@ -36,7 +36,14 @@ EXPANDED_SVG_ICON = """
 </svg>
 """ # noqa
 
-FONT_URL = "//fonts.googleapis.com/css?family=Open+Sans"
+TOOLBAR_CSS = """
+.bk-OnOffButton.bk-active.bk-above { border-bottom-color: var(--accent-foreground-active); }
+.bk-OnOffButton.bk-active.bk-below { border-top-color: var(--accent-foreground-active); }
+.bk-OnOffButton.bk-active.bk-right { border-left-color: var(--accent-foreground-active); }
+.bk-OnOffButton.bk-active.bk-left { border-right-color: var(--accent-foreground-active); }
+"""
+
+FONT_URL = "https://fonts.googleapis.com/css?family=Open+Sans"
 
 
 class FastStyle(param.Parameterized):
@@ -73,7 +80,7 @@ class FastStyle(param.Parameterized):
             Dict: A Bokeh Theme
         """
 
-        return {
+        theme = {
             "attrs": {
                 "figure": {
                     "background_fill_color": self.background_color,
@@ -129,8 +136,14 @@ class FastStyle(param.Parameterized):
                     "text_font": self.font,
                     "text_font_size": "1.15em",
                 },
+                "Toolbar": {"stylesheets": [TOOLBAR_CSS]},
             }
         }
+        if self.luminance < 0.5:
+            # Segments (e.g. box plot whiskers) default to black, which is
+            # invisible on a dark background; the light theme keeps the default.
+            theme["attrs"]["Segment"] = {"line_color": self.neutral_foreground_rest}
+        return theme
 
 
 class FastWrapper(ReactiveHTML):
@@ -248,7 +261,7 @@ class Fast(Design):
 
     _resources = {
         'font': {
-            'opensans': f'https:{FONT_URL}',
+            'opensans': FONT_URL,
         },
         'js_modules': {
             'fast': f'{config.npm_cdn}/@microsoft/fast-components@2.30.6/dist/fast-components.min.js',

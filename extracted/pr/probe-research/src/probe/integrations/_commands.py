@@ -1,19 +1,20 @@
 """The integrations take a run's built-in commands for the script (agentic W&B C.1): HF Trainer and Lightning
-register checkpoint, config and stop on rank 0's run (so its beat declares them), and at a step every rank reaches
-hand rank 0's claimed commands to every rank (`RankChannel`), so a collective save or an LR change happens on every
-rank at the same step. Rank 0 answers. A kind the script registered itself (`run.on(TrainerCommand.EVAL_NOW, fn)`)
+register checkpoint, config, stop, pause and resume on rank 0's run (so its beat declares them), and at a step every
+rank reaches hand rank 0's claimed commands to every rank (`RankChannel`), so a collective save or an LR change
+happens on every rank at the same step, and a pause holds every rank there (D23). Rank 0 answers. A kind the script registered itself (`run.on(TrainerCommand.EVAL_NOW, fn)`)
 runs on rank 0 at the same point. Why: sdk/run/commands/DESIGN.md "Every rank"."""
 
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Any
 
+from probe.sdk.run.commands.pause import do_commands, restart_progress, run_commands
 from probe.sdk.run.commands.ranks import RankChannel, get_world
 
 #: The run kinds an integration does itself.
-BUILT_IN = ("checkpoint", "config", "stop")
+BUILT_IN = ("checkpoint", "config", "stop", "pause", "resume")
 #: The config keys an integration applies: the optimizer's learning rate (`learning_rate` is HF's name for it).
 LR_KEYS = ("lr", "learning_rate")
 
@@ -29,11 +30,17 @@ class TrainerCommands:
         self.channel = RankChannel()
         #: Checkpoints asked for, answered once the framework saved (rank 0).
         self.pending_saves: list[dict] = []
+        #: A pause was answered at a step end and holds at `hold`, once the step's metrics were sent.
+        self.is_hold_due = False
+        #: The run that pause was answered on (rank 0): the run reads paused until the job holds and resumes.
+        self._paused_run_id: str | None = None
 
     def begin(self, run: Any) -> None:
         """At train begin, on every rank: say this rank takes commands; on rank 0, declare the built-in kinds, all
         three on one beat (one at a time put a beat saying only `checkpoint` on the wire, and it could land last)."""
         self.channel.announce()
+        if self.is_hold_due:
+            self.is_hold_due = self._should_keep_hold(run)
         if run is None or not hasattr(run, "_add_handlers"):
             return
         from probe.sdk.run.commands.commands import RUN_KINDS
@@ -45,8 +52,48 @@ class TrainerCommands:
         """At a step every rank reaches: the commands to act on here (rank 0's, handed to every rank)."""
         if not self.channel.is_handoff(step):
             return []
-        rank, _world = get_world()
-        mine = run._take_due_commands() if run is not None and rank == 0 and hasattr(run, "_commands") else []
+        return self._exchange(run, run._take_due_commands() if self._is_claimer(run) else [])
+
+    def run(self, run: Any, step: int, apply: Callable[[dict], None]) -> None:
+        """At a step every rank reaches: do and answer this step's commands with `apply` now (a pause reads paused at
+        once); a pause among them holds every rank at `hold`, which the integration calls once the step's metrics
+        are sent (D23)."""
+        self.is_hold_due = do_commands(self.take(run, step), apply=apply, answer=self._make_answer(run),
+                                       is_paused=self.is_hold_due)  # fmt: skip
+        if self.is_hold_due and self._is_claimer(run):
+            self._paused_run_id = str(run.id)
+
+    def hold(self, run: Any, apply: Callable[[dict], None]) -> None:
+        """Every rank, once the step's metrics were sent: a pause `run` answered holds here until a resume or a stop,
+        the ranks meeting every `HOLD_POLL_SECONDS` to take what was asked since (a no-op without one)."""
+        if self.is_hold_due:
+            self._hold_now(run, [], apply, self._make_answer(run))
+
+    def _hold_now(self, run: Any, commands: list[dict], apply: Callable[[dict], None], answer: Callable) -> None:
+        is_paused, self.is_hold_due = self.is_hold_due, False
+        if run_commands(commands, take=lambda timeout: self._take_held(run, timeout), apply=apply, answer=answer,
+                        is_paused=is_paused):  # fmt: skip
+            restart_progress(run)
+
+    def _should_keep_hold(self, run: Any) -> bool:
+        """At a train() after one that ended between a pause's answer and its hold (it raised): the run still reads
+        paused, so this train() holds at its start when it writes that run; a new run drops it. Rank 0 knows which;
+        every rank is told, so all hold or none."""
+        is_same_run = self._is_claimer(run) and str(run.id) == self._paused_run_id
+        kept, _reason = self.channel.exchange([{"kind": "pause"}] if is_same_run else [])
+        return bool(kept)
+
+    def _make_answer(self, run: Any) -> Callable[[dict, "str | None"], None]:
+        return lambda command, reason: self.answer(run, command, reason=reason)
+
+    def _take_held(self, run: Any, timeout: float) -> list[dict]:
+        """While held: rank 0's asks once one arrives or `timeout` passed, handed to every rank."""
+        return self._exchange(run, run._wait_for_due(timeout) if self._is_claimer(run) else [])
+
+    def _is_claimer(self, run: Any) -> bool:
+        return run is not None and get_world()[0] == 0 and hasattr(run, "_commands")
+
+    def _exchange(self, run: Any, mine: list[dict]) -> list[dict]:
         commands, refused = self.channel.exchange(mine)
         if refused and mine:
             run._refuse_commands(mine, refused)

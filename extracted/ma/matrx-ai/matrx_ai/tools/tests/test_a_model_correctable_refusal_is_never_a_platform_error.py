@@ -83,14 +83,14 @@ async def test_an_argument_refusal_files_no_system_error_and_logs_a_warning(
 
     content, result = await executor.execute(
         "web",
-        {"action": "search", "queries": [f"query-{i}" for i in range(8)]},
+        {"action": "batch_read", "urls": [f"https://example.com/{i}" for i in range(11)]},  # >10 urls refuses
         _make_ctx(),
     )
 
     # The model gets its refusal, as a normal tool result it can correct.
     assert result.success is False and result.error is not None
     assert result.error.error_type == "invalid_arguments"
-    assert "at most 5 items" in result.error.message
+    assert "at most 10 items" in result.error.message
     assert content
 
     # Nothing is filed on the errors surface for the model's own mistake.
@@ -109,3 +109,61 @@ async def test_an_argument_refusal_files_no_system_error_and_logs_a_warning(
     assert warnings, "an argument refusal must leave one WARNING line naming the tool"
     # The warning never carries what the model sent.
     assert "query-7" not in " ".join(r.getMessage() for r in warnings)
+
+
+def _strict_tool(registry: ToolRegistry, body: Any) -> None:
+    definition = ToolDefinition(
+        name="strict_probe",
+        description="A tool whose contract forbids extra keys",
+        parameters={"page_id": {"type": "string", "required": True}},
+        tool_type=ToolType.LOCAL,
+        function_path="matrx_ai.tools.tests.strict_probe",
+    )
+    definition._callable = body
+    registry._tools["strict_probe"] = definition
+
+
+async def _run_strict_probe(registry, monkeypatch, body: Any) -> tuple[Any, list[str]]:
+    executor = ToolExecutor(
+        registry=registry,
+        guardrails=GuardrailEngine(),
+        execution_logger=ToolExecutionLogger(),
+        lifecycle=ToolLifecycleManager.get_instance(),
+    )
+    _strict_tool(registry, body)
+    filed: list[str] = []
+
+    async def capture_spy(*_args: Any, **kwargs: Any) -> None:
+        filed.append(str(kwargs.get("kind")))
+
+    monkeypatch.setattr("matrx_connect.streaming.error_capture.capture_error", capture_spy)
+    _content, result = await executor.execute(
+        "strict_probe", {"page_id": "p-1", "confirm_opens": True}, _make_ctx()
+    )
+    return result, filed
+
+
+async def test_an_extra_key_the_tool_also_refuses_is_the_models_mistake(registry, monkeypatch, app_ctx) -> None:
+    """Live 2026-11-05: hub_page_go_live got ``confirm_opens`` (not in its schema); the
+    tool's own input model refused it too and the model called again correctly — yet a
+    tool_input_contract_drift system_error was filed. Contract and code AGREED."""
+    from matrx_ai.tools.models import ToolError, ToolResult
+
+    async def refuses(*_a: Any, **_kw: Any) -> ToolResult:
+        return ToolResult(success=False, error=ToolError(error_type="validation", message="Extra inputs are not permitted"))
+
+    result, filed = await _run_strict_probe(registry, monkeypatch, refuses)
+    assert result.success is False
+    assert "tool_input_contract_drift" not in filed, filed
+
+
+async def test_an_extra_key_the_tool_accepts_is_contract_drift(registry, monkeypatch, app_ctx) -> None:
+    """The contract refused what the code ran: that disagreement is drift, filed."""
+    from matrx_ai.tools.models import ToolResult
+
+    async def accepts(*_a: Any, **_kw: Any) -> ToolResult:
+        return ToolResult(success=True, output={"ok": True})
+
+    result, filed = await _run_strict_probe(registry, monkeypatch, accepts)
+    assert result.success is True
+    assert "tool_input_contract_drift" in filed, filed

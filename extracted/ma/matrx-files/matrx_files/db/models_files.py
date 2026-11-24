@@ -75,6 +75,118 @@ class ShownTo(StrEnum):
     EVERYONE = "everyone"
     EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
 
+class FilePathway(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    key = TextField(null=False)
+    owner_feature = TextField(null=False)
+    audience = TextField(null=False)
+    mode = TextField(null=False)
+    root = TextField(null=False)
+    subfolder = TextField(null=False)
+    naming = TextField(null=False)
+    naming_pattern = TextField(null=False)
+    file_access = TextField(null=False)
+    retention_policy = TextField(null=False)
+    system_folder = TextField(null=False)
+    legacy_prefixes = TextArrayField(null=False, default=[])
+    description = TextField(null=False)
+    declared = JSONBField(null=False, default={})
+    set_by = TextField(null=False, default='code')
+    is_declared = BooleanField(null=False, default=True)
+    is_active = BooleanField(null=False, default=True)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_files"
+    _table_name = "file_pathway"
+    _db_schema = "files"
+    _entity_token = "files_file_pathway"
+    _is_versioned = True
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "system"
+
+
+
+class Visibility(StrEnum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(StrEnum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class FilePathwayMove(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    run_id = UUIDField(null=False)
+    file_id = UUIDField(null=False)
+    file_owner_id = UUIDField(null=False)
+    file_organization_id = UUIDField()
+    pathway = TextField()
+    old_path = TextField(null=False)
+    old_folder_id = UUIDField()
+    new_path = TextField(null=False)
+    new_folder_id = UUIDField()
+    collision = TextField()
+    moved_at = DateTimeField(null=False)
+    reverted_at = DateTimeField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    feed_at = DateTimeField(null=False)
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_files"
+    _table_name = "file_pathway_move"
+    _db_schema = "files"
+    _entity_token = "files_file_pathway_move"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "system"
+
+
+
+class Visibility(StrEnum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(StrEnum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
 class Folders(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', null=False)
@@ -238,6 +350,8 @@ class UserStorageUsage(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     version = IntegerField(null=False, default=1)
     deleted_at = DateTimeField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_files"
     _table_name = "user_storage_usage"
@@ -349,6 +463,7 @@ class Files(MatrxEntity):
     published_to_web_by = UUIDField()
     test_run_id = UUIDField()
     test_expires_at = DateTimeField()
+    file_pathway = TextField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'file_rag_jobs': {'from_model': 'FileRagJobs', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'file_rag_jobs', 'from_schema': 'files'}, 'file_versions': {'from_model': 'FileVersions', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'file_versions', 'from_schema': 'files'}, 'analysis': {'from_model': 'Analysis', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'analysis', 'from_schema': 'files'}, 'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'files'}, 'entities': {'from_model': 'Entities', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'entities', 'from_schema': 'files'}, 'overrides': {'from_model': 'Overrides', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'overrides', 'from_schema': 'files'}, 'page_annotations': {'from_model': 'PageAnnotations', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'page_annotations', 'from_schema': 'files'}, 'pages': {'from_model': 'Pages', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'pages', 'from_schema': 'files'}, 'structure': {'from_model': 'Structure', 'from_field': 'file_id', 'referenced_field': 'id', 'related_name': 'structure', 'from_schema': 'files'}}
     _database = "matrx_files"
     _table_name = "files"
@@ -432,6 +547,8 @@ class UserAccount(MatrxEntity):
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     version = IntegerField(null=False, default=1)
     deleted_at = DateTimeField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_files"
     _table_name = "user_account"
@@ -460,6 +577,8 @@ class WebhookDeliveries(MatrxEntity):
     custom_fields = JSONBField(null=False, default={})
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_files"
     _table_name = "webhook_deliveries"
@@ -492,6 +611,8 @@ class Analysis(MatrxEntity):
     id = UUIDField(null=False, unique=True)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_files"
     _table_name = "analysis"
@@ -519,6 +640,8 @@ class FileRagJobs(MatrxEntity):
     updated_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_files"
     _table_name = "file_rag_jobs"
@@ -543,6 +666,8 @@ class FileVersions(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
     page_receipt = JSONBField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_files"
     _table_name = "file_versions"
@@ -577,6 +702,8 @@ class Pages(MatrxEntity):
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'files'}, 'overrides': {'from_model': 'Overrides', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'overrides', 'from_schema': 'files'}, 'page_annotations': {'from_model': 'PageAnnotations', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_annotations', 'from_schema': 'files'}}
     _database = "matrx_files"
     _table_name = "pages"
@@ -600,6 +727,8 @@ class Structure(MatrxEntity):
     updated_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_files"
     _table_name = "structure"
@@ -629,6 +758,8 @@ class AnalysisResult(MatrxEntity):
     custom_fields = JSONBField(null=False, default={})
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'page_annotations': {'from_model': 'PageAnnotations', 'from_field': 'parent_result_id', 'referenced_field': 'id', 'related_name': 'page_annotations', 'from_schema': 'files'}}
     _database = "matrx_files"
     _table_name = "analysis_result"
@@ -655,6 +786,8 @@ class Overrides(MatrxEntity):
     version = IntegerField(null=False, default=1)
     custom_fields = JSONBField(null=False, default={})
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_files"
     _table_name = "overrides"
@@ -682,6 +815,8 @@ class Entities(MatrxEntity):
     version = IntegerField(null=False, default=1)
     custom_fields = JSONBField(null=False, default={})
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'page_annotations': {'from_model': 'PageAnnotations', 'from_field': 'entity_id', 'referenced_field': 'id', 'related_name': 'page_annotations', 'from_schema': 'files'}}
     _database = "matrx_files"
     _table_name = "entities"
@@ -721,6 +856,8 @@ class PageAnnotations(MatrxEntity):
     version = IntegerField(null=False, default=1)
     custom_fields = JSONBField(null=False, default={})
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'entities': {'from_model': 'Entities', 'from_field': 'source_annotation_id', 'referenced_field': 'id', 'related_name': 'entities', 'from_schema': 'files'}}
     _database = "matrx_files"
     _table_name = "page_annotations"
@@ -754,6 +891,8 @@ class SyncMappingAdminStatus(Model):
 
 __all__ = [
     "AccountTiers",
+    "FilePathway",
+    "FilePathwayMove",
     "Folders",
     "Idempotency",
     "MachineWrittenPrefixes",
@@ -784,6 +923,8 @@ __all__ = [
 model_registry.register_all(
 [
         AccountTiers,
+        FilePathway,
+        FilePathwayMove,
         Folders,
         Idempotency,
         MachineWrittenPrefixes,
@@ -829,6 +970,48 @@ class AccountTiersManager(BaseManager):
         super()._initialize_manager()
 
     async def _initialize_runtime_data(self, item: AccountTiers) -> None:
+        pass
+
+
+
+@dataclass
+class FilePathwayDTO(BaseDTO):
+    id: str
+
+    @classmethod
+    async def from_model(cls, model: FilePathway):
+        return cls(id=model.get_cache_key())
+
+
+class FilePathwayManager(BaseManager):
+    def __init__(self):
+        super().__init__(FilePathway, FilePathwayDTO)
+
+    def _initialize_manager(self):
+        super()._initialize_manager()
+
+    async def _initialize_runtime_data(self, item: FilePathway) -> None:
+        pass
+
+
+
+@dataclass
+class FilePathwayMoveDTO(BaseDTO):
+    id: str
+
+    @classmethod
+    async def from_model(cls, model: FilePathwayMove):
+        return cls(id=model.get_cache_key())
+
+
+class FilePathwayMoveManager(BaseManager):
+    def __init__(self):
+        super().__init__(FilePathwayMove, FilePathwayMoveDTO)
+
+    def _initialize_manager(self):
+        super()._initialize_manager()
+
+    async def _initialize_runtime_data(self, item: FilePathwayMove) -> None:
         pass
 
 

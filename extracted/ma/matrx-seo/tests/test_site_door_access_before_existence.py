@@ -88,7 +88,7 @@ def _seed_tenant(cur: Any, tag: str) -> dict[str, str]:
     )
     brand = _one(
         cur,
-        "insert into web.brand (organization_id, name) values (%s,%s) returning id",
+        "insert into brand.brand (organization_id, name) values (%s,%s) returning id",
         (org, f"ABE brand {tag}"),
     )
     host = f"abe-{tag.lower()}-{user[:8]}.invalid"

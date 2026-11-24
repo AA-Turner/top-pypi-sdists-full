@@ -1800,6 +1800,14 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         """
         ...
 
+    def push_through(self, handler: typing.Callable[[QuantConnect.Data.BaseData], typing.Any]) -> None:
+        """
+        Pushes the value of each symbol in the specified slice into the handler, the last data point when the value is a list
+        
+        :param handler: Delegate handles each data piece from the slice
+        """
+        ...
+
     def remove(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Removes the value with the specified key
@@ -2002,6 +2010,7 @@ class SliceExtensions(System.Object):
         ...
 
     @staticmethod
+    @overload
     def push_through(slices: typing.List[QuantConnect.Data.Slice], handler: typing.Callable[[QuantConnect.Data.BaseData], typing.Any], data_type: typing.Type = None) -> None:
         """
         Loops through the specified slices and pushes the data into the consolidators. This can be used to
@@ -2010,6 +2019,17 @@ class SliceExtensions(System.Object):
         :param slices: The data to send into the consolidators, likely result of a history request
         :param handler: Delegate handles each data piece from the slice
         :param data_type: Defines the type of the data that should be pushed
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def push_through(slice: QuantConnect.Data.Slice, handler: typing.Callable[[QuantConnect.Data.BaseData], typing.Any]) -> None:
+        """
+        Pushes the value of each symbol in the specified slice into the handler, the last data point when the value is a list
+        
+        :param slice: The data to send into the handler
+        :param handler: Delegate handles each data piece from the slice
         """
         ...
 

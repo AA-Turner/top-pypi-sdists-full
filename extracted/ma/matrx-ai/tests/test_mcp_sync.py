@@ -107,11 +107,18 @@ def _rpc_call_index(connection: _RecordingConnection) -> int:
 def _opening_gucs(connection: _RecordingConnection, rpc_index: int) -> dict[str, str]:
     """The GUCs set by the statement that immediately precedes the RPC, as name -> value.
 
-    b2db3a2ea8 (matrx-orm perf): a transaction's session GUCs ride ONE batched
-    ``SELECT set_config($1,$2,true), set_config($3,$4,true), ...`` instead of one statement
-    each, so the pairs are read out of that statement's flat argument list.
+    A top-level transaction opens with ONE inline script, ``BEGIN; SELECT set_config('name',
+    $g$value$g$, true), ...`` (read with ``matrx_orm.testing.split_opening_script``); the older
+    bound ``SELECT set_config($1,$2,true), ...`` form is read from its flat argument list.
     """
+    from matrx_orm.testing import split_opening_script
+
     method, sql, args = connection.calls[rpc_index - 1]
+    # A top-level transaction now opens with ONE simple-protocol script carrying the
+    # GUCs inline (``BEGIN; SELECT set_config('name', $g$value$g$, true), ...``).
+    opening = split_opening_script(sql) if method == "execute" and not args else None
+    if opening is not None:
+        return opening[1]
     assert method == "execute" and sql.startswith("SELECT set_config($1, $2, true)"), (
         "catalog reconciliation RPC must be preceded by its set_config statement on the "
         f"same connection, got {(method, sql)!r}"
@@ -127,6 +134,7 @@ def _assert_rpc_has_named_actor_gucs(connection: _RecordingConnection) -> int:
         "app.actor_tier": "system",
         "app.actor_system": "mcp_sync",
         "app.actor_agent": "",
+        "app.actor_on_behalf_of": "",  # nobody: only an agent write names the person it acts for
     }, "catalog reconciliation RPC must be preceded by named actor GUCs on the same connection"
     return rpc_index
 
@@ -213,7 +221,11 @@ async def test_catalog_reconciliation_sets_named_actor_gucs_on_its_rpc_connectio
     assert result.error is None
     assert discovery_observed_calls == []
     rpc_index = _assert_rpc_has_named_actor_gucs(recording_connection)
-    assert recording_connection.calls[0] == ("execute", "BEGIN", ())
+    from matrx_orm.testing import split_opening_script
+
+    first_method, first_sql, _ = recording_connection.calls[0]
+    opening = split_opening_script(first_sql)
+    assert first_method == "execute" and (opening or (first_sql,))[0] == "BEGIN"
     assert recording_connection.calls[-1] == ("execute", "COMMIT", ())
     method, sql, args = recording_connection.calls[rpc_index]
     assert method == "fetchval"
@@ -281,6 +293,7 @@ async def test_catalog_reconciliation_restores_outer_actor_declaration(
             "app.actor_tier": "user",
             "app.actor_system": "outer",
             "app.actor_agent": "",
+            "app.actor_on_behalf_of": "",  # nobody: only an agent write names the person it acts for
         }
 
     assert current_actor() is None

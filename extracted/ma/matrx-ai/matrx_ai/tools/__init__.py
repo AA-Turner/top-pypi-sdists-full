@@ -24,6 +24,7 @@ External tool integration (for apps consuming the ai package):
 """
 
 from ._db_log import TRACE_TAGS_CONTEXT_KEY
+from ._dispatch_util import expected_fields_sentence
 from .agent_tool import execute_agent_tool, register_agent_as_tool
 from .catalog_seam import (
     configure_catalog_executor,
@@ -123,4 +124,6 @@ __all__ = [
     "build_hint",
     "parse_db_error",
     "strip_ansi",
+    # The refusal sentence naming what one action of a dispatcher takes (lean rows, MCP help)
+    "expected_fields_sentence",
 ]

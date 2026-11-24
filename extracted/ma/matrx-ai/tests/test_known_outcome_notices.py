@@ -49,10 +49,10 @@ def test_the_notice_reaches_the_content_the_model_reads() -> None:
 
 def test_the_next_step_names_only_a_browser_the_run_has() -> None:
     lazy = known_outcome_notices(
-        _shell(_LMARENA_STDOUT), active_tools=frozenset({"load_browser_tools"})
+        _shell(_LMARENA_STDOUT), active_tools=frozenset({"load_chrome_tools"})
     )
     none = known_outcome_notices(_shell(_LMARENA_STDOUT), active_tools=frozenset({"web"}))
-    assert "Call load_browser_tools" in lazy[0]
+    assert "Call load_chrome_tools" in lazy[0]
     assert "No browser tool is attached" in none[0] and "cloud_browser" not in none[0]
 
 

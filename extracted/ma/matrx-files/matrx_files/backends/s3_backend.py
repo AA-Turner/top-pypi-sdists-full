@@ -193,6 +193,32 @@ class S3Backend(StorageBackend):
             tagging=policy.s3_tagging_query,
         )
 
+    def write_ephemeral_file(
+        self,
+        path: str,
+        local_path: str,
+        *,
+        policy: EphemeralObjectPolicy,
+        content_type: str | None = None,
+    ) -> bool:
+        """Stream a local file into scratch (boto3 multipart, part by part) with the policy tag in the same request.
+
+        The file is never read whole into memory: a multi-GB staged export part goes up in parts.
+        """
+        from ..ephemeral_objects import require_registered_ephemeral_object_policy
+
+        require_registered_ephemeral_object_policy(policy)
+        self._require_configured()
+        bucket, key = self._parse_path(path)
+        headers = resolve_object_headers(mime_type=content_type, file_name=key)
+        extra: dict[str, str] = {
+            "ContentType": headers.content_type,
+            "ContentDisposition": headers.content_disposition,
+            "Tagging": policy.s3_tagging_query,
+        }
+        self._get_client().upload_file(local_path, bucket, key, ExtraArgs=extra)
+        return True
+
     def _write_object(
         self,
         path: str,
@@ -638,12 +664,6 @@ class S3Backend(StorageBackend):
         import asyncio
 
         return await asyncio.get_event_loop().run_in_executor(None, self.read, path)
-
-    async def download_to_path_async(self, path: str, local_path: str) -> int:
-        import asyncio
-
-        fn = partial(self.download_to_path, path, local_path)
-        return await asyncio.get_running_loop().run_in_executor(None, fn)
 
     async def write_async(
         self,

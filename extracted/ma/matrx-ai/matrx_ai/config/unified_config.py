@@ -13,6 +13,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from matrx_ai.instructions.core import SystemInstruction
 
+from .agent_modes import normalize_modes
 from .dictionary_config import DictionaryConfig
 from .enums import Role
 from .llm_params import LLMParams, normalize_max_output_tokens
@@ -184,6 +185,11 @@ def _instructions_or_none(value: Any) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
 
 
+def _agent_mode_or_none(value: Any) -> str | None:
+    """A conversation's mode as stored: a mode key, or None (the agent's first mode)."""
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
 def _camera_control(value: Any) -> dict | None:
     from matrx_ai.media.video_reference_roles import validate_camera_control
 
@@ -202,6 +208,67 @@ def _system_fields(si: Any) -> tuple[Any, ...]:
         si.outro or "",
         list(si.prepend_sections or []),
         list(si.append_sections or []),
+    )
+
+
+#: Who opened a turn-only model snapshot (``UnifiedConfig.begin_model_this_turn_only``).
+THIS_MESSAGE_ONLY = "this_message_only"
+STAND_IN = "stand_in"
+#: What the conversation row stores for the route (``runtime_offering_id`` is never stored).
+_STORED_ROUTE_KEYS = ("model", "offering_id", "served_via")
+#: Runtime-only fields ``to_dict`` never carries (a rebuilt config takes its own).
+_NOT_IN_TO_DICT = frozenset({"stored_route_baseline", "_turn_only_reason", "model_swaps_this_turn", "model_picked_by_person"})
+_UNCHANGED: Any = object()
+
+
+def _route_value(value: Any) -> Any:
+    dump = getattr(value, "model_dump", None)
+    return dump(mode="json") if callable(dump) else value
+
+
+class UnsanctionedRouteWrite(RuntimeError):
+    """A chat's stored model, class pin or device was moved outside the sanctioned doors."""
+
+
+_route_announced: set[str] = set()
+
+
+def announce_unsanctioned_route_write(moved: dict[str, Any], kept: dict[str, Any]) -> None:
+    """Said on stderr every time and filed once per distinct move as a durable
+    ``stored_route_unsanctioned_write`` system error (when a loop runs and a host sink exists)."""
+    import sys
+    import traceback
+
+    message = (
+        f"a turn moved the chat's stored route outside the sanctioned doors: {moved!r}; the row keeps "
+        f"{kept!r} (a stand-in runs through UnifiedConfig.model_this_turn_only; a chosen model through "
+        "apply_overrides or adopt_model_for_conversation)"
+    )
+    print(f"[matrx_ai] 🚨 {message}", file=sys.stderr)
+    mark = repr(sorted(moved.items(), key=lambda kv: kv[0])) + repr(sorted(kept.items(), key=lambda kv: kv[0]))
+    if mark in _route_announced:
+        return
+    _route_announced.add(mark)
+    try:
+        import asyncio
+
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    from matrx_utils.error_capture import capture_error, supervised_task
+
+    supervised_task(
+        capture_error(
+            UnsanctionedRouteWrite(message),
+            kind="stored_route_unsanctioned_write",
+            context={
+                "moved": {k: repr(v)[:200] for k, v in moved.items()},
+                "kept": {k: repr(v)[:200] for k, v in kept.items()},
+                "stack": "".join(traceback.format_stack(limit=12))[-4000:],
+            },
+        ),
+        kind="stored_route_unsanctioned_write",
+        name="stored_route_unsanctioned_write",
     )
 
 
@@ -255,6 +322,12 @@ class UnifiedConfig:
     # stores is never touched, so a change never trips the cache-line law.
     conversation_instructions: str | None = None
 
+    # THIS CONVERSATION'S MODE (LLMParams.agent_mode): a key of one of ``agent_modes``; None = the first.
+    # Stored in the conversation config JSONB and restored on continuation, exactly like
+    # ``conversation_instructions``; applied ONLY at the send boundary (block ``agent_modes``). The
+    # ``set_mode`` tool changes it mid-turn through ``config/agent_modes.RunningModes``.
+    agent_mode: str | None = None
+
     # RUNTIME routing pin — set ONLY by the overload-class sibling-offering
     # fallback (orchestrator/overload_reroute.py + executor), the one sanctioned
     # deviation from ``offering_id``. When set it wins over ``offering_id`` for
@@ -276,7 +349,7 @@ class UnifiedConfig:
     # keep the stable prefix cached longer than the provider default. Anthropic: the
     # system and template marks carry ``ttl: "1h"``; OpenAI: ``prompt_cache_retention:
     # "24h"`` on the models that take it; every other wire says it is a no-op
-    # (providers/cache_marks.py). Research: common-docs projects/agent-evaluation/
+    # (providers/cache_marks.py). Research: common-docs systems/agents/projects/agent-evaluation/
     # research/provider-caching.md.
     extended_prompt_cache: bool | None = None
 
@@ -342,6 +415,25 @@ class UnifiedConfig:
     # ``None`` = never stamped (legacy row or an agent-less run).
     agent_auto_tools_disabled: bool | None = None
     agent_excluded_tools: list[str] | None = None
+    # THE AGENT'S LIMIT ON A TOOL'S ARGUMENTS, carried the same way: ``{tool: {arg: [allowed values]}}`` from the
+    # definition's ``tool_config.arg_limits`` (an agent that carries ``records`` for reading only lists the read
+    # actions under ``action``). The host's funnel turns it into the request's refused-action stamp; a tool with
+    # no entry is carried whole. ``None`` = no limit declared.
+    agent_tool_arg_limits: dict[str, dict[str, list[str]]] | None = None
+    # THE PAGE'S LIMIT, carried by the conversation the same way: ``{tool: [allowed actions] | None}`` as the last
+    # page that brought the tool declared it (``None`` = whole). A tool a page brought stays with the chat (sticky),
+    # so a later turn that names no page must still honour that page's limit, never fall open to the whole tool.
+    surface_tool_actions: dict[str, list[str] | None] | None = None
+    # THE AGENT'S MODES, carried the same way: ``[{key, name, description, instructions}]`` from the
+    # definition's ``understanding.modes`` (order = menu order; the first is the starting mode;
+    # ``config/agent_modes.py``). ``None`` = the agent has no modes (no ``agent_modes`` block).
+    agent_modes: list[dict[str, str]] | None = None
+    # THE MODE THE AGENT LAST KNEW (D17): read from ``chat.conversation.metadata.agent_mode_known`` when the
+    # conversation loads; ``agent_mode_person_set`` (``{"mode","was"}``) says the person flipped it this turn,
+    # settled once per request (``agent_mode_settled_request``). In memory only, never stored in the config.
+    agent_mode_known: str | None = None
+    agent_mode_person_set: dict[str, Any] | None = None
+    agent_mode_settled_request: str | None = None
     # PROMPT BLOCKS (matrx_ai/prompt_blocks). ``prompt_blocks`` = the names the agent
     # DECLARES; ``prompt_block_creator`` = the agent's creator (personal rung). Resolved
     # once on the first turn into ``prompt_block_texts`` (in memory, consumed by
@@ -410,6 +502,31 @@ class UnifiedConfig:
     # per-turn ``config_overrides.model`` moved ``last_model_id`` and the
     # cached config, so every later turn silently stayed on the one-off model.
     model_turn_only_restore: dict[str, Any] | None = None
+    # 🚨 THE SWAP TRACE (CGU-10 AND-IMG12 #3). In-memory only, never stored and never in ``to_dict``:
+    # every stand-in this turn ran through ``model_this_turn_only`` as ``{from, to, reason}``. The
+    # provider seam copies it onto the call's usage, so the ``chat.request`` row of a swapped turn says
+    # which model the person picked and why another answered (``swap_trace``).
+    model_swaps_this_turn: list[dict[str, Any]] | None = None
+    # 🚨 DID THE PERSON PICK THIS MODEL? In-memory only, never stored. The HOST sets it True only when
+    # the person's own request named the model (their model picker) — never from a binding's or a
+    # default's overrides, which also arrive as ``config_overrides``. A stand-in
+    # swap TELLS the person only then; a model the person never chose is swapped silently
+    # (Arman, 2026-11-20: never tell someone who just opened chat their service was degraded).
+    model_picked_by_person: bool = False
+    # 🚨 TOOLS OFF FOR THIS TURN ONLY (CGU-10 IMG7 #2): the iteration-ceiling wrap-up and the
+    # loop-guard pause take every tool away for the rest of THIS turn. In-memory only, never stored:
+    # it holds the tool lists from before the strip, so the row keeps them (``to_storage_dict``) and
+    # the next turn starts with them again (``end_tools_off_this_turn_only`` in the resolver).
+    tools_turn_only_restore: dict[str, Any] | None = None
+    # 🚨 THE STORED ROUTE BASELINE (CGU-10 IMG9 #1/#2). In-memory only, never stored and never in
+    # ``to_dict``: the model, class pin and device the conversation row holds, taken when the config
+    # is built and moved ONLY by the sanctioned doors (``apply_overrides`` — the person's or org's
+    # settings; ``adopt_model_for_conversation`` — a host choosing the chat's model; a turn-only
+    # snapshot never moves it). ``to_storage_dict`` compares what it is about to store against it:
+    # any other write (a stand-in swap with no snapshot, an alias, ``setattr``, ``__dict__``, a
+    # ``dataclasses.replace`` — it is an init field, so a replaced copy carries it) is announced as
+    # a system error and the row keeps the baseline. Behavioural, so no write shape escapes it.
+    stored_route_baseline: dict[str, Any] | None = None
     # Literal["none", "auto", "required"]
     tool_choice: Literal["none", "auto", "required"] | None = None
     parallel_tool_calls: bool = True
@@ -712,6 +829,11 @@ class UnifiedConfig:
         # failure; BaseTranslator.build_request performs the strict pass after
         # runtime input has been added and still fails closed if none was added.
         self.messages.sanitize(allow_empty=True)
+        # The route the row holds, as built (a ``dataclasses.replace`` copy keeps its parent's).
+        if self.stored_route_baseline is None:
+            self.stored_route_baseline = self._stored_route()
+        else:
+            self.stored_route_baseline = dict(self.stored_route_baseline)
 
     @property
     def unexpected_keys(self) -> list[str]:
@@ -902,6 +1024,7 @@ class UnifiedConfig:
                 dict(data["authored_settings"]) if isinstance(data.get("authored_settings"), dict) else None
             ),
             conversation_instructions=_instructions_or_none(data.get("conversation_instructions")),
+            agent_mode=_agent_mode_or_none(data.get("agent_mode")),
             messages=parsed_messages,
             system_instruction=system_instruction,
             system_prompt_frozen=bool(data.get("system_prompt_frozen", False)),
@@ -927,6 +1050,13 @@ class UnifiedConfig:
             ),
             agent_auto_tools_disabled=data.get("agent_auto_tools_disabled"),
             agent_excluded_tools=data.get("agent_excluded_tools"),
+            agent_tool_arg_limits=(
+                data.get("agent_tool_arg_limits") if isinstance(data.get("agent_tool_arg_limits"), dict) else None
+            ),
+            surface_tool_actions=(
+                data.get("surface_tool_actions") if isinstance(data.get("surface_tool_actions"), dict) else None
+            ),
+            agent_modes=normalize_modes(data.get("agent_modes")),
             prompt_blocks=list(data.get("prompt_blocks") or []),
             prompt_block_creator=data.get("prompt_block_creator"),
             agent_organization_id=data.get("agent_organization_id"),
@@ -1064,6 +1194,8 @@ class UnifiedConfig:
         for key, value in self.__dict__.items():
             if key == "_unrecognized_keys" and not value:
                 continue
+            if key in _NOT_IN_TO_DICT:
+                continue
             if value is None:
                 continue
 
@@ -1108,13 +1240,14 @@ class UnifiedConfig:
         )
         # A one-turn model override is not the conversation's model: the row
         # keeps the model (and class pin) it had before this turn.
-        turn_only = self.model_turn_only_restore or {}
-        stored_model = turn_only.get("model", self.model) if turn_only else self.model
-        stored_offering_id = (
-            turn_only.get("offering_id") if turn_only else self.offering_id
-        )
-        stored_served_via = coerce_served_via(
-            turn_only.get("served_via") if turn_only else self.served_via
+        route = self._route_the_row_keeps()
+        stored_model = route["model"]
+        stored_offering_id = route["offering_id"]
+        stored_served_via = coerce_served_via(route["served_via"])
+        stored_tools = (
+            self.tools_turn_only_restore.get("tools")
+            if self.tools_turn_only_restore is not None
+            else self.tools
         )
         result: dict[str, Any] = {
             "model": stored_model,
@@ -1132,6 +1265,8 @@ class UnifiedConfig:
             config["authored_settings"] = dict(self.authored_settings)
         if self.conversation_instructions:
             config["conversation_instructions"] = self.conversation_instructions
+        if self.agent_mode:
+            config["agent_mode"] = self.agent_mode
         if self.temperature is not None:
             config["temperature"] = self.temperature
         if self.max_output_tokens is not None:
@@ -1144,8 +1279,8 @@ class UnifiedConfig:
             config["frequency_penalty"] = self.frequency_penalty
         if self.presence_penalty is not None:
             config["presence_penalty"] = self.presence_penalty
-        if self.tools:
-            config["tools"] = self.tools
+        if stored_tools:
+            config["tools"] = stored_tools
         # ALWAYS written once known, even empty: an absent key reads back as ``None``,
         # which promotes the whole effective set (surface, bundle, context tools) to
         # "authored" — making every transient tool permanent and unremovable.
@@ -1175,6 +1310,12 @@ class UnifiedConfig:
             config["agent_auto_tools_disabled"] = self.agent_auto_tools_disabled
         if self.agent_excluded_tools is not None:
             config["agent_excluded_tools"] = list(self.agent_excluded_tools)
+        if self.agent_tool_arg_limits:
+            config["agent_tool_arg_limits"] = self.agent_tool_arg_limits
+        if self.surface_tool_actions:
+            config["surface_tool_actions"] = self.surface_tool_actions
+        if self.agent_modes:
+            config["agent_modes"] = [dict(m) for m in self.agent_modes]
         if self.prompt_blocks:
             config["prompt_blocks"] = list(self.prompt_blocks)
         if self.prompt_block_creator:
@@ -1216,8 +1357,13 @@ class UnifiedConfig:
             config["skill_injected_tool_ids"] = self.skill_injected_tool_ids
         if self.system_prompt_frozen:
             config["system_prompt_frozen"] = True
-        if self.tool_choice is not None:
-            config["tool_choice"] = self.tool_choice
+        stored_tool_choice = (
+            self.tools_turn_only_restore.get("tool_choice", self.tool_choice)
+            if self.tools_turn_only_restore is not None
+            else self.tool_choice
+        )
+        if stored_tool_choice is not None:
+            config["tool_choice"] = stored_tool_choice
         if not self.parallel_tool_calls:
             config["parallel_tool_calls"] = False
         if self.reasoning_effort is not None:
@@ -1405,7 +1551,7 @@ class UnifiedConfig:
         si.opening_turn = f"{si.opening_turn}\n\n{opening}" if si.opening_turn else opening
         return True
 
-    def mark_unspoken_opening_turn(self) -> bool:
+    def mark_unspoken_opening_turn(self, *, person_pressed_send: bool = False) -> bool:
         """Record the definition's own opening user turn as host-authored when the person said nothing.
 
         🚨 THE AGENT SPEAKS FIRST (live 2026-10-22, design-system board,
@@ -1418,6 +1564,12 @@ class UnifiedConfig:
         ``user_content=[]`` and ``authored_by: host`` (the same record
         :func:`host_authored_user_turn` writes). Only the opening turn, before
         anything was answered. Returns True when it stamped something.
+
+        🚨 A PERSON WHO PRESSED SEND WITH ONLY VARIABLES SPOKE (Arman, 2026-11-20, chat.conversation
+        26a00d60-e7a7-4a54-821d-f388288a483d position 0: "our entire system is built on variables").
+        With ``person_pressed_send`` (the request's ``initiation="user"``) the turn is HERS: still no
+        words of hers (``user_content=[]``), never ``authored_by: host`` — every client hides a host
+        opening, so her variables-only message vanished from the transcript.
         """
         if self.system_prompt_frozen or not len(self.messages):
             return False
@@ -1427,6 +1579,8 @@ class UnifiedConfig:
         if any(m.role in (Role.ASSISTANT, Role.TOOL) for m in self.messages):
             return False
         last.user_content = []
+        if person_pressed_send:
+            return True
         last.metadata = {
             **(last.metadata or {}),
             "authored_by": HOST_AUTHORED_BY,
@@ -1448,6 +1602,9 @@ class UnifiedConfig:
             if not hasattr(child, name):
                 raise AttributeError(f"UnifiedConfig has no field {name!r}")
             setattr(child, name, value)
+        # A child call is its own record: its route is what it was built with (overrides included).
+        child.stored_route_baseline = child._stored_route()
+        child.model_swaps_this_turn = None
         return child
 
     def replace_variables(
@@ -1585,6 +1742,13 @@ class UnifiedConfig:
         # moved-to model runs its preferred class instead. An EXPLICIT null
         # offering_id clears the pin (non-None skipping below cannot express it).
         fields_set = overrides.model_fields_set
+        try:
+            self._apply_overrides(overrides, fields_set)
+        finally:
+            if fields_set & set(_STORED_ROUTE_KEYS):
+                self._sanction_route_change()
+
+    def _apply_overrides(self, overrides: LLMParams, fields_set: set[str]) -> None:
         new_model = overrides.model
         moved_model = new_model is not None and str(new_model) != str(getattr(self, "model", None))
         if hasattr(self, "offering_id") and (
@@ -1619,16 +1783,100 @@ class UnifiedConfig:
 
     _TURN_ONLY_MODEL_KEYS = ("model", "offering_id", "runtime_offering_id", "served_via")
 
-    def begin_model_this_turn_only(self) -> None:
+    def begin_model_this_turn_only(self, *, reason: str = THIS_MESSAGE_ONLY) -> None:
         """Remember the conversation's model before a one-turn model override.
 
         Call BEFORE ``apply_overrides``. Idempotent within a turn: the first
-        snapshot (the conversation's real model) is the one kept.
+        snapshot (the conversation's real model) is the one kept. ``reason`` says who opened it:
+        the person's "this message only" pick (``THIS_MESSAGE_ONLY``) or a stand-in the platform
+        chose (``STAND_IN`` — see ``model_this_turn_only``). A person's pick outranks a stand-in:
+        an override of the model while a stand-in snapshot is open IS the conversation's new model.
         """
         if self.model_turn_only_restore is None:
             self.model_turn_only_restore = {
                 key: getattr(self, key, None) for key in self._TURN_ONLY_MODEL_KEYS
             }
+            self._turn_only_reason = reason
+        elif reason == THIS_MESSAGE_ONLY:
+            self._turn_only_reason = THIS_MESSAGE_ONLY
+
+    def model_this_turn_only(
+        self,
+        model: str,
+        *,
+        swap_reason: str,
+        swapped_from: str | None = None,
+        runtime_offering_id: str | None = None,
+        keep_person_pin: bool = False,
+    ) -> None:
+        """🚨 THE ONE WAY a stand-in model runs (CGU-10 IMG9 #1): a free-tier or HIPAA stand-in, the
+        minor-safety tier, an overload reroute (fallback model or same-model sibling offering). The
+        stand-in answers THIS turn; the stored chat keeps the person's model and class pin
+        (``to_storage_dict`` reads the snapshot) and the next turn starts from them again.
+
+        The person's class pin names the person's model's route, so it is set aside for the turn
+        (``keep_person_pin`` only for a same-model sibling reroute, which adds a ``runtime_offering_id``).
+        """
+        self.begin_model_this_turn_only(reason=STAND_IN)
+        record_model_swap(self, swapped_from or getattr(self, "model", None), model, swap_reason)
+        self.model = model
+        self.runtime_offering_id = runtime_offering_id
+        if not keep_person_pin:
+            self.offering_id = None
+
+    def adopt_model_for_conversation(
+        self, model: str, *, offering_id: Any = _UNCHANGED, served_via: Any = _UNCHANGED
+    ) -> None:
+        """The sanctioned door for a HOST choosing the conversation's own model outside
+        ``apply_overrides`` (a chat that carried no model gets the platform default; a stuck chat
+        recovers its agent's model; a child call runs its caller's model). Stored with the chat."""
+        values: dict[str, Any] = {"model": model}
+        if offering_id is not _UNCHANGED:
+            values["offering_id"] = offering_id
+        if served_via is not _UNCHANGED:
+            values["served_via"] = coerce_served_via(served_via)
+        for key, value in values.items():
+            setattr(self, key, value)
+        if self.model_turn_only_restore is not None:
+            # A chat's own model chosen while a turn-only model runs: the row keeps the new choice.
+            self.model_turn_only_restore.update(values)
+        self.stored_route_baseline = self._stored_route()
+
+    def stored_model(self) -> str | None:
+        """The model the conversation row holds (a turn-only stand-in is never it)."""
+        return self._route_the_row_keeps()["model"]
+
+    def _stored_route(self) -> dict[str, Any]:
+        restore = self.model_turn_only_restore
+        source: dict[str, Any] = (
+            restore if restore is not None else {key: getattr(self, key, None) for key in _STORED_ROUTE_KEYS}
+        )
+        return {key: source.get(key) for key in _STORED_ROUTE_KEYS}
+
+    def _sanction_route_change(self) -> None:
+        """``apply_overrides`` moved the route: that is the conversation's choice. A stand-in
+        snapshot then holds the newly chosen route (the dispatch ceiling swaps again if it must);
+        a person's "this message only" snapshot keeps the chat's own."""
+        restore = self.model_turn_only_restore
+        if restore is not None and getattr(self, "_turn_only_reason", THIS_MESSAGE_ONLY) == STAND_IN:
+            for key in self._TURN_ONLY_MODEL_KEYS:
+                restore[key] = getattr(self, key, None)
+        self.stored_route_baseline = self._stored_route()
+
+    def _route_the_row_keeps(self) -> dict[str, Any]:
+        """What ``to_storage_dict`` stores for the route — the baseline whenever anything moved it
+        outside the sanctioned doors, announced as a system error (never silent, never stored)."""
+        route = self._stored_route()
+        baseline = self.stored_route_baseline
+        if not baseline:
+            return route
+        moved = [key for key in _STORED_ROUTE_KEYS if _route_value(route[key]) != _route_value(baseline.get(key))]
+        if not moved or not baseline.get("model"):
+            return route
+        announce_unsanctioned_route_write(
+            {key: route[key] for key in moved}, {key: baseline.get(key) for key in moved}
+        )
+        return {key: (baseline.get(key) if key in moved else route[key]) for key in _STORED_ROUTE_KEYS}
 
     def end_model_this_turn_only(self) -> bool:
         """Put the conversation's own model back after a one-turn override.
@@ -1642,6 +1890,47 @@ class UnifiedConfig:
             if hasattr(self, key):
                 setattr(self, key, value)
         self.model_turn_only_restore = None
+        self._turn_only_reason = THIS_MESSAGE_ONLY
+        self.model_swaps_this_turn = None
+        return True
+
+    def tools_off_this_turn_only(self) -> None:
+        """Take every tool away for the rest of THIS turn; the stored chat keeps its tools.
+
+        Idempotent within a turn: the first snapshot (the tools before any strip) is the one kept.
+        """
+        self.tools_narrowed_this_turn_only([], [])
+
+    _KEEP = object()
+
+    def tools_narrowed_this_turn_only(
+        self, tools: list, custom_tools: list, *, tool_choice: Any = _KEEP
+    ) -> None:
+        """THE one way a turn narrows the tool belt (CGU-10 IMG8 #2/#3): a ceiling strip, a loop-guard
+        disable, a required-member forced send. The stored chat keeps the tools (and ``tool_choice``)
+        it had before the first narrowing this turn — whatever path the turn then ends on (a failed or
+        cancelled send included) — and the resolver gives them back next turn."""
+        if self.tools_turn_only_restore is None:
+            self.tools_turn_only_restore = {
+                "tools": list(self.tools or []),
+                "custom_tools": list(self.custom_tools or []),
+                "tool_choice": self.tool_choice,
+            }
+        self.tools = list(tools)
+        self.custom_tools = list(custom_tools)
+        if tool_choice is not UnifiedConfig._KEEP:
+            self.tool_choice = tool_choice
+
+    def end_tools_off_this_turn_only(self) -> bool:
+        """Give back the tools a turn-only strip took. Returns True when something was restored."""
+        restore = self.tools_turn_only_restore
+        if restore is None:
+            return False
+        self.tools = list(restore.get("tools") or [])
+        self.custom_tools = list(restore.get("custom_tools") or [])
+        if "tool_choice" in restore:
+            self.tool_choice = restore["tool_choice"]
+        self.tools_turn_only_restore = None
         return True
 
     def snapshot_authored_settings(self) -> None:
@@ -1690,6 +1979,123 @@ AUTHORED_SETTINGS_EXCLUDED: frozenset[str] = frozenset({"model", "offering_id", 
 #: UnifiedConfig's dataclass fields by name — the "not set" value an explicit
 #: null override restores (see ``UnifiedConfig._unset_setting``).
 _CONFIG_FIELDS = {spec.name: spec for spec in fields(UnifiedConfig)}
+
+
+
+#: Why a stand-in answered a turn (``model_this_turn_only(swap_reason=...)``). One word each, the same
+#: words the swap notices carry.
+#: ``ai_test_answer``: a TEST-STAMPED agent run answered by its test run's recorded answer or stand-in on the no-cost
+#: stand-in model (aidream ``services/ai_execution/test_answer_seam.py``).
+SWAP_REASONS = frozenset({"free_tier", "minor_safety", "hipaa", "overload", "billing", "overload_offering",
+                          "ai_test_answer"})
+
+
+#: The ``chat.request.metadata`` keys a swapped call carries (``swap_trace``).
+SWAP_TRACE_KEYS = ("original_model", "model_swap_reason", "model_swaps")
+
+
+def swap_model_name(model_ref: Any) -> str | None:
+    """The NAME a swap trace records for a model ref (CGU-10 AND-IMG13 #5). The config can hold the
+    model's id (a client sent ``ai_model_id``; an overload ladder's canonical id), and the request row's
+    ``original_model`` is read by people — so THE door resolves it, for every swap site at once. A ref
+    the catalog cannot name is kept as given (never blanked)."""
+    if model_ref is None:
+        return None
+    ref = str(model_ref)
+    if not ref:
+        return ref
+    try:
+        from matrx_ai.catalog.host_catalog import get_runtime_model
+        from matrx_ai.catalog.manager import ai_catalog_manager
+
+        named = ai_catalog_manager.canonical_model_name(ref)
+        if not named:
+            runtime = get_runtime_model(ref)
+            named = str(runtime.get("name") or "") if runtime is not None else ""
+        return named or ref
+    except Exception:  # noqa: BLE001 — a cold catalog keeps the ref; the trace is never lost
+        return ref
+
+
+def record_model_swap(config: Any, original: Any, model: str, reason: str) -> None:
+    """Append one ``{from, to, reason}`` to the turn's swap trace (an unknown reason raises: every
+    stand-in names why it ran). A same-route sibling reroute keeps its model and is recorded too."""
+    if reason not in SWAP_REASONS:
+        raise ValueError(f"model swap reason {reason!r} is not one of {sorted(SWAP_REASONS)}")
+    trace = list(getattr(config, "model_swaps_this_turn", None) or [])
+    trace.append({"from": swap_model_name(original), "to": swap_model_name(model), "reason": reason})
+    try:
+        config.model_swaps_this_turn = trace
+    except Exception:  # noqa: BLE001 — a frozen stand-in object has no trace to keep
+        pass
+
+
+def swap_trace(config: Any) -> dict[str, Any] | None:
+    """What a swapped turn's ``chat.request.metadata`` carries: the model the person (or author) picked,
+    why the latest stand-in ran, and every swap this turn. ``None`` when nothing was swapped."""
+    trace = getattr(config, "model_swaps_this_turn", None)
+    if not trace:
+        return None
+    return {
+        "original_model": trace[0].get("from"),
+        "model_swap_reason": trace[-1].get("reason"),
+        "model_swaps": [dict(step) for step in trace],
+    }
+
+
+def swap_model_this_turn_only(
+    config: Any,
+    model: str,
+    *,
+    swap_reason: str,
+    swapped_from: str | None = None,
+    runtime_offering_id: str | None = None,
+    keep_person_pin: bool = False,
+) -> None:
+    """THE one stand-in swap for any caller holding a request's config (``UnifiedConfig.model_this_turn_only``).
+    A plain stand-in object (a test double, a child probe) has no stored row, so it is simply set.
+    ``swapped_from``: the model's NAME when the caller resolved it (the config may hold an id): the
+    request row's ``original_model`` is read by people."""
+    swap = getattr(config, "model_this_turn_only", None)
+    if callable(swap):
+        swap(model, swap_reason=swap_reason, swapped_from=swapped_from, runtime_offering_id=runtime_offering_id,
+             keep_person_pin=keep_person_pin)
+        return
+    record_model_swap(config, swapped_from or getattr(config, "model", None), model, swap_reason)
+    config.model = model
+    if hasattr(config, "runtime_offering_id"):
+        config.runtime_offering_id = runtime_offering_id
+    if not keep_person_pin and getattr(config, "offering_id", None):
+        config.offering_id = None
+
+
+def adopt_model_for_conversation(config: Any, model: str, **route: Any) -> None:
+    """``UnifiedConfig.adopt_model_for_conversation`` for any caller holding a config: a host
+    choosing the chat's OWN model (stored with it). A plain stand-in object is simply set."""
+    adopt = getattr(config, "adopt_model_for_conversation", None)
+    if callable(adopt):
+        adopt(model, **route)
+        return
+    config.model = model
+    for key, value in route.items():
+        setattr(config, key, value)
+
+
+def stored_model_of(config: Any) -> str | None:
+    """The model a request's conversation row holds — never a turn-only stand-in."""
+    stored = getattr(config, "stored_model", None)
+    return stored() if callable(stored) else getattr(config, "model", None)
+
+
+def narrow_tools_this_turn_only(config: Any, tools: list, custom_tools: list) -> None:
+    """Narrow a request's tools for THIS turn only (``UnifiedConfig.tools_narrowed_this_turn_only``).
+    A plain stand-in object (a test double, a child probe) has no stored row, so it is simply set."""
+    narrow = getattr(config, "tools_narrowed_this_turn_only", None)
+    if callable(narrow):
+        narrow(tools, custom_tools)
+        return
+    config.tools = list(tools)
+    config.custom_tools = list(custom_tools)
 
 
 @dataclass
@@ -1743,3 +2149,22 @@ def _has_words_or_media(user_input: Any) -> bool:
             else:
                 return True
     return False
+
+
+def overrides_the_conversation_keeps(overrides: Any, *, model_this_turn_only: bool) -> dict[str, Any]:
+    """The ``config_overrides`` a NEW conversation stores as its own ``overrides``.
+
+    "This message only" (``model_this_turn_only``) runs the picked model for ONE turn and then the
+    conversation's own model again (``begin_model_this_turn_only``); storing the pick in the row's
+    ``overrides`` made it the conversation's model on every later read (2026-11-01: the chat app
+    read ``last_model_id`` first and hid it). Every other override stays with the conversation.
+    """
+    # A door's ``config_overrides`` is an ``LLMParams`` model (stored as its full JSON dump, nulls
+    # included — the shape the row has always held) or already a dict.
+    dump = getattr(overrides, "model_dump", None)
+    kept = dict(dump(mode="json")) if callable(dump) else dict(overrides or {})
+    if model_this_turn_only:
+        for key in UnifiedConfig._TURN_ONLY_MODEL_KEYS:
+            kept.pop(key, None)
+    return kept
+

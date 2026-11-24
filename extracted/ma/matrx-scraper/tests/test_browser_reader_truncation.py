@@ -53,7 +53,7 @@ class FakeElement:
         self._outer = outer
         self._attrs = attrs or {}
 
-    async def text_content(self) -> str:
+    async def inner_text(self) -> str:
         return self._text
 
     async def inner_html(self) -> str:
@@ -108,6 +108,9 @@ class FakePage:
         self._text = text
         self._element = element
         self._matches = matches or {}
+
+    async def wait_for_load_state(self, state: str, **kwargs: Any) -> None:
+        return None
 
     async def goto(self, url: str, **kwargs: Any) -> Any:
         self.url = url

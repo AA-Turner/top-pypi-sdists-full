@@ -149,3 +149,15 @@ def test_ordinary_note_is_not_touched(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "8f14e45fceea167a5a36dedd4bea2543b4f4a2b8" in joined
     assert "1558abb7-7d1f-42dd-a297-ebe8a805e60d" in joined
     assert "https://server.app.matrxserver.com/api/v1" in joined
+
+
+@pytest.fixture(autouse=True)
+def _the_access_check_lets_the_reader_in(monkeypatch):
+    """Indexing follows ``iam.has_access_for`` (matrx_orm.platform_access_check), not ``created_by``;
+    the policy itself is proved in test_resolvers_follow_the_access_check.py."""
+    import matrx_orm
+
+    async def _allowed(*_a, **_k):
+        return True
+
+    monkeypatch.setattr(matrx_orm, "platform_access_check", _allowed)

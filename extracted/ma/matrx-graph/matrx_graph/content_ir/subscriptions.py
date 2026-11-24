@@ -43,9 +43,14 @@ DEDUPE IS BY OCCURRENCE IDENTITY
 The same value flows through many steps of a run. Without dedupe, a trigger on
 ``website`` would fire again every time that website was passed along — and
 Arman's motivating case (persist it) would write the row N times. Identity is
-``<scope>#<kind>@<indexed path>`` where scope is the producing invocation, so a
-genuinely NEW production of an identical value is a genuinely new firing, while
-a pass-through of one already seen is not.
+``<scope>~<step>#<kind>@<indexed path>`` where scope is the producing node (plus
+its fan-out item) and the super-step pins WHICH firing of it produced the value.
+So a genuinely NEW production of an identical value — the same node firing again
+later in a loop or under ``join_policy='any'`` — is a genuinely new firing, while
+re-observing an output already seen (a replayed or resumed step routing the same
+outcome again) is not. A DIFFERENT node re-emitting a value it received is its
+own production and fires its subscribers too: identity is the production event,
+never the content.
 
 THE DIRECTIVE SEAM (§7.5 — deliberately not built here)
 -------------------------------------------------------
@@ -138,11 +143,51 @@ class SubscriptionMatcher:
     safe to replay at all.
     """
 
-    def __init__(self, subscriptions: list[KindSubscription]) -> None:
+    def __init__(
+        self,
+        subscriptions: list[KindSubscription],
+        *,
+        state: dict[str, Any] | None = None,
+    ) -> None:
         self._subscriptions = list(subscriptions)
         self._seen: set[str] = set()
+        #: The super-step ``_seen`` belongs to. Identity carries the step (H2),
+        #: so an identity from an earlier step can never be observed again —
+        #: only the current step's need remembering, which keeps this small.
+        self._seen_step: int | None = None
         self._pending: dict[str, _Pending] = {}
         self._spent: set[str] = set()
+        if state:
+            self._restore(state)
+
+    # -- durability (hole H4) ------------------------------------------------
+    #
+    # The matcher's state rides every checkpoint (``Checkpoint.subscription_state``)
+    # and is restored on resume: a fresh matcher forgot that a ``fire_once``
+    # trigger had already fired (it fired again after a crash) and dropped every
+    # occurrence waiting in an open debounce window.
+
+    def snapshot(self) -> dict[str, Any]:
+        """JSON-safe copy of the whole state; ``{}`` when there is nothing to carry."""
+        if not (self._seen or self._pending or self._spent):
+            return {}
+        return {
+            "seen_step": self._seen_step,
+            "seen": sorted(self._seen),
+            "spent": sorted(self._spent),
+            "pending": {
+                key: window.model_dump(mode="json") for key, window in self._pending.items()
+            },
+        }
+
+    def _restore(self, state: dict[str, Any]) -> None:
+        self._seen_step = state.get("seen_step")
+        self._seen = set(state.get("seen") or [])
+        self._spent = set(state.get("spent") or [])
+        self._pending = {
+            key: _Pending.model_validate(window)
+            for key, window in (state.get("pending") or {}).items()
+        }
 
     @property
     def subscriptions(self) -> list[KindSubscription]:
@@ -169,7 +214,14 @@ class SubscriptionMatcher:
         """
         if not self._subscriptions:
             return 0
-        identity_scope = scope or source_node_id
+        # The super-step pins WHICH firing produced the value: a node fires at
+        # most once per step per (dispatch, item), so ``scope~step`` is one
+        # production event. Without the step a node re-fired later in the run
+        # with an identical payload was swallowed as a repeat (hole H2).
+        identity_scope = f"{scope or source_node_id}~{step}"
+        if step != self._seen_step:
+            self._seen = set()
+            self._seen_step = step
         new = 0
         # ONE scan for every subscribed kind, then bucket by slug — a scan per
         # subscription would walk the same payload N times for no new answers.
@@ -204,8 +256,13 @@ class SubscriptionMatcher:
                 window.source_node_ids.append(source_node_id)
         return new
 
-    def drain(self, step: int) -> list[SubscriptionFiring]:
+    def drain(self, step: int, *, flush: bool = False) -> list[SubscriptionFiring]:
         """Every firing whose debounce window has closed by ``step``.
+
+        ``flush=True`` closes EVERY open window regardless of its debounce: the
+        caller says no more occurrences can arrive (the run's frontier
+        drained), so waiting longer can only lose the firing. A debounce
+        coalesces; it never means "drop if the run ends first" (hole H3).
 
         Deterministic order: declaration order of the subscriptions, then
         document order of the occurrences within each — so a replay produces
@@ -217,7 +274,7 @@ class SubscriptionMatcher:
             window = self._pending.get(key)
             if window is None or not window.occurrences:
                 continue
-            if step - window.opened_at_step < subscription.debounce_steps:
+            if not flush and step - window.opened_at_step < subscription.debounce_steps:
                 continue
             del self._pending[key]
             if subscription.fire_once:

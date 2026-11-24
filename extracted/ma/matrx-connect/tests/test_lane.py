@@ -15,7 +15,6 @@ import pytest
 from matrx_connect.lane import (
     LaneClosedError,
     RequestLane,
-    TaskPriority,
     get_current_lane,
 )
 

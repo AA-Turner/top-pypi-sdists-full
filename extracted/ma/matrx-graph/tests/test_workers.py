@@ -736,3 +736,180 @@ async def test_a_worker_that_may_run_no_jobs_is_refused():
             app_context_factory=_unused,
             max_concurrent=0,
         )
+
+
+@pytest.mark.parametrize("stamp", ["valid", "malformed", "legacy"])
+async def test_resume_requester_survives_the_queue_row_and_ignores_answer_fields(monkeypatch, stamp):
+    from uuid import uuid4
+
+    from matrx_graph.db import _registry
+    from matrx_graph.workers.queue import WorkflowJobRequester, claim_one, enqueue
+
+    run_id, user_id, org_id = (uuid4() for _ in range(3))
+    requester = WorkflowJobRequester(user_id=user_id, organization_id=org_id, is_admin=False)
+    forged_answer = {"execution_requester": {"user_id": str(uuid4()), "organization_id": str(org_id), "is_admin": True}}
+    row = {}
+
+    async def values(*fields):
+        assert fields == ("organization_id",)
+        return [{"organization_id": org_id}]
+
+    async def create(**fields):
+        row.update(fields)
+
+    async def claim_batch(**_fields):
+        return [{**row, "attempt": 1, "max_attempts": 3, "claimed_by": "fixture-worker"}]
+
+    run_model = SimpleNamespace(filter=lambda *_args, **_kw: SimpleNamespace(values=values))
+    job_model = SimpleNamespace(create=create, claim_batch=claim_batch)
+    monkeypatch.setattr(_registry, "get_model", lambda name: job_model if name == "WfJob" else run_model)
+
+    await enqueue(
+        run_id=str(run_id), kind="resume", required_node_types=[],
+        execution_requester=requester if stamp != "legacy" else None,
+        resume_value=forged_answer,
+    )
+    if stamp == "malformed":
+        row["metadata"]["execution_requester"] = {"user_id": "malformed"}
+    claimed = await claim_one()
+    assert claimed is not None and claimed.resume_value == forged_answer
+    assert claimed.execution_requester == (requester if stamp == "valid" else None)
+
+
+# ── A terminal job failure ends its run (2026-11-09, run 71bb22af) ──────────
+#
+# The definition was gone, the start job dead-lettered, and the run stayed
+# 'running': the recovery sweep resurrected it three times (three more
+# workflow_job_failed rows) before saying "the worker kept dying". These fail
+# against the runner that only dead-lettered the job.
+
+
+def _record_transitions(monkeypatch) -> list[dict[str, object]]:
+    """Records the terminal-failure ending (``RunStore.fail_unstarted``, THE terminal write's guarded fail)."""
+    from matrx_graph.db import run_store as run_store_module
+
+    calls: list[dict[str, object]] = []
+
+    async def _fail_unstarted(self, run_id, **kwargs):
+        calls.append({"run_id": run_id, **kwargs})
+        return True
+
+    monkeypatch.setattr(run_store_module.RunStore, "fail_unstarted", _fail_unstarted)
+    return calls
+
+
+async def _process_raising(monkeypatch, exc: BaseException) -> None:
+    from matrx_graph.workers import runner as runner_module
+    from matrx_graph.workers.runner import WorkerRunner
+
+    async def _run_job(_job, _app):
+        raise exc
+
+    async def _app_factory(_job):
+        return object()
+
+    async def _noop(*_a, **_k):
+        return None
+
+    async def _not_superseded(_job):
+        return False
+
+    monkeypatch.setattr(runner_module, "fail", _noop)
+    monkeypatch.setattr(runner_module, "capture_error", _noop)
+    monkeypatch.setattr(runner_module, "settle_if_superseded", _not_superseded)
+    runner = WorkerRunner(job_runner=_run_job, app_context_factory=_app_factory)
+    await runner._process(
+        Job(
+            job_id="00000000-0000-0000-0000-0000000000a1",
+            run_id="00000000-0000-0000-0000-0000000000a2",
+            kind="start",
+            attempt=1,
+            claimed_by="worker-a",
+        )
+    )
+
+
+async def test_a_terminal_job_failure_ends_a_still_live_run(monkeypatch):
+    calls = _record_transitions(monkeypatch)
+    await _process_raising(monkeypatch, RuntimeError("worker: definition 'x' not found for run y"))
+
+    assert len(calls) == 1
+    call = calls[0]
+    assert call["run_id"] == "00000000-0000-0000-0000-0000000000a2"
+    # Only a run nobody settled moves (fail_unstarted's guard: pending/running): errored/paused/completed rows
+    # are never overwritten — proven on a row in test_the_terminal_write_hands_back_only_what_the_hooks_read.py.
+    error = call["error"]
+    assert isinstance(error, dict) and "definition 'x' not found" in str(error["technical"])
+
+
+async def test_a_retryable_job_failure_leaves_the_run_for_its_retry(monkeypatch):
+    calls = _record_transitions(monkeypatch)
+    await _process_raising(monkeypatch, TimeoutError("database timed out"))
+
+    assert calls == []
+
+
+async def test_runner_retries_a_dropped_claim_connection_once(monkeypatch):
+    """A pooled connection closed mid-claim is retried once and files nothing; a second drop files."""
+    from matrx_graph.workers import runner as runner_module
+    from matrx_graph.workers.runner import WorkerRunner
+
+    calls = 0
+    captured: list[str] = []
+
+    async def _reap(*_a, **_k):
+        return 0
+
+    async def _claim_one(**_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ConnectionError("connection was closed in the middle of operation")
+        runner.stop()
+        return None
+
+    async def _capture_error(exc, *, kind, **_kwargs):
+        captured.append(kind)
+
+    async def _unused(*_a):
+        pytest.fail("no job should be dispatched")
+
+    monkeypatch.setattr(runner_module, "reap_expired_leases", _reap)
+    monkeypatch.setattr(runner_module, "claim_one", _claim_one)
+    monkeypatch.setattr(runner_module, "capture_error", _capture_error)
+    runner = WorkerRunner(job_runner=_unused, app_context_factory=_unused, poll_interval_seconds=0)
+    await runner.run_forever()
+    assert calls == 2
+    assert captured == []
+
+
+async def test_runner_files_claim_error_when_the_retry_also_drops(monkeypatch):
+    from matrx_graph.workers import runner as runner_module
+    from matrx_graph.workers.runner import WorkerRunner
+
+    calls = 0
+    captured: list[str] = []
+
+    async def _reap(*_a, **_k):
+        return 0
+
+    async def _claim_one(**_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls <= 2:
+            raise ConnectionError("connection was closed in the middle of operation")
+        runner.stop()
+        return None
+
+    async def _capture_error(exc, *, kind, **_kwargs):
+        captured.append(kind)
+
+    async def _unused(*_a):
+        pytest.fail("no job should be dispatched")
+
+    monkeypatch.setattr(runner_module, "reap_expired_leases", _reap)
+    monkeypatch.setattr(runner_module, "claim_one", _claim_one)
+    monkeypatch.setattr(runner_module, "capture_error", _capture_error)
+    runner = WorkerRunner(job_runner=_unused, app_context_factory=_unused, poll_interval_seconds=0)
+    await runner.run_forever()
+    assert captured == ["workflow_job_claim_failed"]

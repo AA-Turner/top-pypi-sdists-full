@@ -249,6 +249,8 @@ _HOMES = {
     # probe.sdk.client.resources.decisions.decisions: a decision to record (decisions PR2)
     "DecidedBy": "probe.sdk.client.resources.decisions.decisions",
     "DecisionFieldError": "probe.sdk.client.resources.decisions.decisions",
+    "DecisionPage": "probe.sdk.client.resources.decisions.decisions",
+    "DecisionsServerTooOld": "probe.sdk.client.resources.decisions.decisions",
     "DecisionTarget": "probe.sdk.client.resources.decisions.decisions",
     "NewDecision": "probe.sdk.client.resources.decisions.decisions",
     "TargetEffect": "probe.sdk.client.resources.decisions.decisions",

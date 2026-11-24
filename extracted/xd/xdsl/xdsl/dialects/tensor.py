@@ -13,7 +13,6 @@ from xdsl.dialects.builtin import (
     DenseArrayBase,
     IndexType,
     IntegerAttr,
-    Region,
     ShapedType,
     TensorType,
     UnitAttr,
@@ -32,7 +31,7 @@ from xdsl.dialects.utils.reshape_ops_utils import (
     ContiguousArrayOfIntArray,
     verify_reshape_like_types,
 )
-from xdsl.ir import Attribute, Dialect, OperandArg, SSAValue
+from xdsl.ir import Attribute, Dialect, OperandArg, Region, SSAValue
 from xdsl.irdl import (
     AnyAttr,
     AnyRange,
@@ -534,7 +533,7 @@ class ExtractSliceOp(IRDLOperation):
     """
     Extract slice operation.
 
-    Extracts a tensor from another tensor as specified by the operation’s
+    Extracts a tensor from another tensor as specified by the operation's
     offsets, sizes and strides arguments.
 
     https://mlir.llvm.org/docs/Dialects/TensorOps/#tensorextract_slice-tensorextractsliceop
@@ -674,7 +673,7 @@ class InsertSliceOp(IRDLOperation):
     Insert_slice operation.
 
     The insert_slice operation insert a tensor, source, into another tensor, dest,
-    as specified by the operation’s offsets, sizes and strides arguments. It
+    as specified by the operation's offsets, sizes and strides arguments. It
     returns a copy of dest with the proper slice updated with the value of source.
 
     https://mlir.llvm.org/docs/Dialects/TensorOps/#tensorinsert_slice-tensorinsertsliceop
@@ -844,7 +843,7 @@ class InsertOp(IRDLOperation):
     Element insertion operation.
 
     The tensor.insert op inserts a scalar into a ranked tensor, dest, as
-    specified by the operation’s indices. It returns a copy of dest with the
+    specified by the operation's indices. It returns a copy of dest with the
     indexed position updated to the value of scalar.
 
     https://mlir.llvm.org/docs/Dialects/TensorOps/#tensorinsert-tensorinsertop

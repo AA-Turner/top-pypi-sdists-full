@@ -17,21 +17,19 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - "3.9"
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
           - "3.14"
-          - "pypy-3.9"
-          - "pypy-3.10"
+          - "3.15"
+          - "pypy-3.11"
         os:
           - ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Python {{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -45,7 +43,7 @@ jobs:
           ignore-nothing-to-cache: true
           python-version: ${{ matrix.python-version }}
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
         with:
           just-version: 1.40.0
 

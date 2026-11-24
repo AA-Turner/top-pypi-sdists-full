@@ -53,7 +53,7 @@ class ExchangeTokenParamsTypedDict(TypedDict):
     grant_type: Literal["urn:ietf:params:oauth:grant-type:token-exchange"]
     r"""Always the RFC 8693 token exchange grant."""
     audience: NotRequired[str]
-    r"""Your Autumn workload audience (https://api.useautumn.com/workload/<org_id>/<sandbox|live>). Required when the subject token's aud is your own application, as with Azure managed identities."""
+    r"""Your Autumn workload audience, as shown in Settings → Workload Identity (https://api.useautumn.com/workload/ORG_ID/ENV, where ENV is sandbox or live). Required when the subject token's aud is your own application, as with Azure managed identities."""
 
 
 class ExchangeTokenParams(BaseModel):
@@ -75,7 +75,7 @@ class ExchangeTokenParams(BaseModel):
     r"""Always the RFC 8693 token exchange grant."""
 
     audience: Optional[str] = None
-    r"""Your Autumn workload audience (https://api.useautumn.com/workload/<org_id>/<sandbox|live>). Required when the subject token's aud is your own application, as with Azure managed identities."""
+    r"""Your Autumn workload audience, as shown in Settings → Workload Identity (https://api.useautumn.com/workload/ORG_ID/ENV, where ENV is sandbox or live). Required when the subject token's aud is your own application, as with Azure managed identities."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):

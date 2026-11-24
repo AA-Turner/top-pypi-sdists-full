@@ -92,6 +92,7 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             format_args_error(exc),
             "Re-read the tool's input schema and call it again with exactly the "
             "documented arguments for that command.",
+            exc=exc,
         )
     key = parsed.key.strip()
     command = parsed.command
@@ -178,7 +179,8 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
             if delivery.failed:
                 return _persist_failure(
-                    tool_name, ctx.call_id, started_at, receipt, delivery.error or ""
+                    tool_name, ctx.call_id, started_at, receipt, delivery.error or "",
+                    exc=delivery.exception,
                 )
             return _with_surface_write(
                 _success(tool_name, ctx.call_id, started_at, output=receipt),
@@ -241,7 +243,8 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
             if delivery.failed:
                 return _persist_failure(
-                    tool_name, ctx.call_id, started_at, receipt, delivery.error or ""
+                    tool_name, ctx.call_id, started_at, receipt, delivery.error or "",
+                    exc=delivery.exception,
                 )
             return _with_surface_write(
                 _success(tool_name, ctx.call_id, started_at, output=receipt),
@@ -264,7 +267,7 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except _PatchApplyError as pe:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=pe, 
                 error_type=pe.error_type,
                 message=pe.message,
                 suggested_action=pe.suggestion,
@@ -359,13 +362,14 @@ async def _create_from_patch(
         if obj_type_raw:
             try:
                 inferred_type = ContextObjectType(obj_type_raw)
-            except ValueError:
+            except ValueError as exc:
                 return _validation_err(
                     tool_name,
                     ctx.call_id,
                     started_at,
                     f"Invalid type '{obj_type_raw}'.",
                     f"Use one of: {[t.value for t in ContextObjectType]}",
+                    exc=exc,
                 )
         else:
             if isinstance(content, (dict, list)):
@@ -430,7 +434,8 @@ async def _create_from_patch(
         )
         if delivery.failed:
             return _persist_failure(
-                tool_name, ctx.call_id, started_at, receipt, delivery.error or ""
+                tool_name, ctx.call_id, started_at, receipt, delivery.error or "",
+                exc=delivery.exception,
             )
         return _success(tool_name, ctx.call_id, started_at, output=receipt)
 
@@ -887,6 +892,7 @@ def _edit_conflict(
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="edit_conflict",
             message=message,
             is_retryable=retryable,
@@ -1118,11 +1124,15 @@ class WritebackDelivery:
       exception, no log and no event (DD-246).
     """
 
-    __slots__ = ("durable", "error")
+    __slots__ = ("durable", "error", "exception")
 
-    def __init__(self, *, durable: bool, error: str | None = None) -> None:
+    def __init__(
+        self, *, durable: bool, error: str | None = None, exception: BaseException | None = None
+    ) -> None:
         self.durable = durable
         self.error = error
+        # The dispatcher's exception when it raised; None when nothing was raised.
+        self.exception = exception
 
     @property
     def persisted(self) -> bool | None:
@@ -1225,7 +1235,7 @@ async def _schedule_writeback(ctx: ToolContext, obj: Any, *, command: str) -> Wr
             message += _GENERIC_REMEDY
         logger.error("[ctx_write] write-back undeliverable for key=%s: %s", key, exc)
         await _capture_writeback_undeliverable(ctx, obj, command=command, message=message)
-        return WritebackDelivery(durable=True, error=message)
+        return WritebackDelivery(durable=True, error=message, exception=exc)
 
     return WritebackDelivery(durable=True)
 
@@ -1236,6 +1246,7 @@ def _persist_failure(
     started_at: float,
     output: Any,
     message: str,
+    exc: BaseException | None = None,
 ) -> ToolResult:
     """A write that reached memory and not the database is a FAILED tool call.
 
@@ -1247,9 +1258,11 @@ def _persist_failure(
     return ToolResult(
         success=False,
         output=output,
-        error=ToolError(
-            error_type="context_write_not_persisted",
-            message=message,
+        error=ToolError.declared(
+            "context_write_not_persisted",
+            message,
+            exc=exc,
+            reported_failure="the context store write",
             suggested_action=(
                 "Tell the user the change was not saved and why. Do not repeat the edit."
             ),
@@ -1283,16 +1296,11 @@ def _validation_err(
     call_id: str,
     started_at: float,
     message: str,
-    suggestion: str | None,
+    suggestion: str | None, *, exc: BaseException | None = None,
 ) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(
-            error_type="validation",
-            message=message,
-            suggested_action=suggestion,
-            is_retryable=False,
-        ),
+        error=ToolError.declared("validation", message, exc=exc, suggested_action=suggestion, is_retryable=False),
         started_at=started_at,
         completed_at=time.time(),
         tool_name=tool_name,
@@ -1310,6 +1318,7 @@ def _not_found(
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="not_found",
             message=message,
             suggested_action=suggestion,

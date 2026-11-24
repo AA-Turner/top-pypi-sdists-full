@@ -11,6 +11,13 @@ from typing import Literal, TypeAlias
 # Default values for server settings
 DEFAULT_WOKERS = 2
 DEFAULT_MAX_GRAPH_NODES = 1000
+# Single source for the working directory default: the SDK dataclass default,
+# the server's --working-dir default and the maintenance tools' WORKING_DIR
+# fallback must all name the same directory.
+DEFAULT_WORKING_DIR = "./rag_storage"
+# Single source for the input directory default: the server's --input-dir
+# default and the cwd-relative fallback used when INPUT_DIR is unset.
+DEFAULT_INPUT_DIR = "./inputs"
 
 # Default values for extraction settings
 DEFAULT_SUMMARY_LANGUAGE = "English"  # Default language for document processing
@@ -144,6 +151,16 @@ DEFAULT_SENTENCE_SPLIT_REGEX = r"(?<=[.?!])\s+|(?<=[。？！])"
 # the strategy's purpose.
 DEFAULT_CHUNK_P_SIZE = 2000
 
+# MIN_CHUNK_TOKEN_SIZE: smallest chunk_token_size any configuration ingress
+# accepts, for every strategy (top level and F/R/V/P sub-dicts): env
+# (CHUNK_SIZE, CHUNK_{F,R,V,P}_SIZE), the LightRAG constructor,
+# addon_params['chunker'], REST chunking params and filename/rule hints.
+# A chunk this small carries no retrievable context and multiplies the
+# extraction LLM calls, so a smaller value is treated as a misconfiguration
+# and rejected rather than run. Chunker functions called directly only
+# reject values below 1, so tests and SDK callers can still use tiny sizes.
+MIN_CHUNK_TOKEN_SIZE = 64
+
 # Paragraph-semantic "drop references" detection defaults (the chunking="P"
 # drop_references option).  DEFAULT_P_REFERENCES_TAIL_N: 0 scans all content
 # blocks for reference headings; a positive value restricts detection to the
@@ -196,6 +213,27 @@ DEFAULT_DOCX_RATIO_FLOOR_BYTES = 16 * 1024 * 1024
 # Member-count ceiling. Its "checked after the central-directory walk" scope
 # note lives once, on the lightrag/parser/docx/zip_budget.py module docstring.
 DEFAULT_DOCX_MAX_ENTRIES = 10_000
+
+# Limits for the legacy PDF extractor (pypdf). pypdf caps every object it reads
+# but not the document, and repeats work for each page and each form XObject
+# invocation, so a PDF of a few kilobytes could cost hours of CPU. pypdf
+# therefore runs in a child process with the two process limits below. They
+# hold whatever pypdf does. Env: PDF_MAX_CPU_SECONDS / PDF_MAX_MEMORY_MB.
+DEFAULT_PDF_MAX_CPU_SECONDS = 120
+DEFAULT_PDF_MAX_MEMORY_MB = 1024
+# Two cheap deterministic gates run first inside that process, and are the only
+# limits when PDF_EXTRACT_IN_SUBPROCESS=false. Content bytes are the decoded
+# bytes of all pages' /Contents, measured before any page is parsed; the cap is
+# min(PDF_MAX_CONTENT_BYTES, max(the floor below, PDF_MAX_CONTENT_RATIO * file
+# size)), so a small upload cannot buy the absolute ceiling. Extracted
+# characters bound the text returned. A non-positive value disables a limit.
+# Env: PDF_MAX_CONTENT_BYTES / PDF_MAX_CONTENT_RATIO / PDF_MAX_EXTRACTED_CHARS.
+# All five are read at parse time. Design: docs/design/PdfExtractionBudget.md.
+DEFAULT_PDF_MAX_CONTENT_BYTES = 256 * 1024 * 1024
+DEFAULT_PDF_MAX_CONTENT_RATIO = 100
+# Not a gate: the content allowance every PDF gets regardless of its size.
+DEFAULT_PDF_CONTENT_RATIO_FLOOR_BYTES = 16 * 1024 * 1024
+DEFAULT_PDF_MAX_EXTRACTED_CHARS = 32 * 1024 * 1024
 
 # Native DOCX embedded-image export budgets. Unlike the archive-wide limits
 # above, these cap the bytes materialized into ``*.blocks.assets``: one image
@@ -371,15 +409,15 @@ PARSER_ENGINE_NATIVE = "native"
 PARSER_ENGINE_MINERU = "mineru"
 PARSER_ENGINE_DOCLING = "docling"
 PARSED_DIR_NAME = "__parsed__"  # Dir for parsed files (renamed from __enqueued__)
-# Reserved doc_status.metadata key holding the custom-chunk patch journal
-# (issue #3400 Phase 3). While present, the document has an in-flight or
+# Reserved doc_status.metadata key holding the custom-chunk patch journal.
+# While present, the document has an in-flight or
 # failed ainsert_custom_chunks operation: the pipeline must NOT process the
 # row as ordinary ingestion, resets must NOT strip it, and deletion must
 # include its staged chunk IDs. Lives here (not utils_pipeline) so that
 # base.py can derive the scheduling projection without an import cycle.
 CUSTOM_CHUNK_PATCH_METADATA_KEY = "custom_chunk_patch"
 # Reserved doc_status.metadata key recording how far this document's KG write
-# has progressed (issue #3400 fail-closed purge). Stamped ``pre_graph`` when the
+# has progressed (fail-closed purge). Stamped ``pre_graph`` when the
 # document enters PROCESSING and promoted to ``graph_mutation_started`` only
 # once the write-ahead recovery anchors are durable — i.e. the value answers
 # "could this document have touched the graph?" without reading the graph.
@@ -387,12 +425,12 @@ CUSTOM_CHUNK_PATCH_METADATA_KEY = "custom_chunk_patch"
 # clean up staged chunks even with no anchor rows, because no graph mutation
 # can have happened yet. MONOTONIC and never cleared: a PROCESSED document
 # keeps ``graph_mutation_started`` (its anchors serve as the proof from then
-# on). Absent means UNKNOWN — a pre-#3416 document, which fails closed.
+# on). Absent means UNKNOWN — a document predating it, which fails closed.
 KG_WRITE_STATE_METADATA_KEY = "kg_write_state"
 KG_WRITE_STATE_PRE_GRAPH = "pre_graph"
 KG_WRITE_STATE_GRAPH_MUTATION_STARTED = "graph_mutation_started"
 # Reserved doc_status.metadata key holding the whole-document purge journal
-# (issue #3400 fail-closed purge). Required BY fail-closed, not merely nice to
+# (fail-closed purge). Required BY fail-closed, not merely nice to
 # have: purge's last step deletes the recovery anchors, so without a journal a
 # failure in any later step (LLM cache, full_docs) would make the retry see
 # "anchors missing" and refuse forever. The journal distinguishes "anchors were
@@ -636,6 +674,18 @@ CHUNKING_SUBMIT_LIMIT = 8
 # worker.
 STORAGE_IO_SUBMIT_LIMIT = 8
 
+# The Milvus pool is the exception to the single-worker shape above: its work is
+# blocking gRPC I/O, not CPU, so one worker would serialize every search in the
+# process behind one flush. This one constant is BOTH the worker count and the
+# submission ceiling, so a submission over the limit waits on the semaphore
+# instead of growing the executor's unbounded wait queue.
+MILVUS_SUBMIT_LIMIT = 8
+
+# Same shape for the Qdrant pool (blocking HTTP rather than gRPC). It caps the
+# concurrent Qdrant round trips per process, and with them the HTTP
+# connections in use, however many queries the caller issues at once.
+QDRANT_SUBMIT_LIMIT = 8
+
 # Per-workspace ceiling on manual retry requests that have been published but
 # not yet ACKed (LR2 §10.1). The channel is sticky — a request survives until an
 # exclusive reset acknowledges it — so an operator hammering /reprocess_failed
@@ -682,6 +732,11 @@ DEFAULT_PROCESSING_PRIORITY = 10
 # queue fairly and advance evenly — otherwise a busy ingestion queue starves
 # analysis tasks, stalling analysis nodes and dragging down overall throughput.
 DEFAULT_MM_ANALYSIS_PRIORITY = DEFAULT_PROCESSING_PRIORITY
+# In-flight multimodal analysis items per sidecar, as a multiple of the role's
+# max_async. An internal tuning constant, not read from the environment: the
+# operator-facing knobs are the role limit (VLM_MAX_ASYNC_LLM /
+# EXTRACT_MAX_ASYNC_LLM, falling back to MAX_ASYNC_LLM) and MAX_PARALLEL_ANALYZE.
+MM_ANALYSIS_ITEM_CONCURRENCY_FACTOR = 2
 
 # Multimodal analysis / chunk thresholds
 # Minimum token count retained when truncating a multimodal chunk's

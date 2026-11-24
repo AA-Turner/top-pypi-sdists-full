@@ -12,7 +12,9 @@
 # (a row with `envs` must name them, and every environment must exist: `--check` and the test of this file say so).
 #
 # The mirrors (a changed src/datamodel_code_generator/.../x.py selects tests/.../test_x.py; a changed scripts/x.py
-# selects tests/test_x_script.py) are not rows: the script derives them from the paths.
+# selects tests/test_x_script.py) and the changed parts of the suite (a changed test function or class of a
+# tests/.../test_x.py outside tests/data selects itself; new modules, helper modules and module-level code select the
+# module) are not rows: the script derives them from the paths.
 
 [[rule]]
 id = "legacy-rows"
@@ -26,8 +28,11 @@ tests = ["tests/test_legacy_rows.py"]
 id = "fact-tables"
 prs = [6197]
 incident = "a new row in the fact tables failed the test that pins the row counts"
-paths = ["scripts/fact_tables.py", "scripts/generation_store_allowlist.toml"]
-tests = ["tests/parser/test_generation_store_usage.py"]
+paths = ["scripts/fact_tables.py", "scripts/heki_baseline.toml"]
+tests = [
+  "tests/parser/test_generation_store_usage.py",
+  "tests/test_build_heki_contracts_script.py::test_the_package_has_no_heki_finding_beyond_the_baseline",
+]
 
 [[rule]]
 id = "stored-python-output"

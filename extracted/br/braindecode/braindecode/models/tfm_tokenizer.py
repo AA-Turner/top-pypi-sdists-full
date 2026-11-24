@@ -14,46 +14,8 @@ from braindecode.models.base import EEGModuleMixin
 from braindecode.modules.linear_attention import LinearAttentionTransformer
 from braindecode.modules.quantization import EMACodebook
 
-
-def _group_norm_mean_var(x, num_groups, weight, bias, eps):
-    """Group normalisation from mean and variance (no ``aten::group_norm``).
-
-    Same maths as :func:`torch.nn.functional.group_norm`, written with
-    reshape/mean/var/rsqrt ops so Intel Gaudi's graph compiler never sees
-    the native group-norm backward (it fails to compile it at large batch
-    sizes with "SRAM capping too big").
-    """
-    xg = x.reshape(x.shape[0], num_groups, -1)
-    mean = xg.mean(-1, keepdim=True)
-    var = xg.var(-1, unbiased=False, keepdim=True)
-    x = ((xg - mean) * torch.rsqrt(var + eps)).reshape(x.shape)
-    if weight is not None:
-        shape = (1, -1) + (1,) * (x.dim() - 2)
-        x = x * weight.reshape(shape)
-    if bias is not None:
-        shape = (1, -1) + (1,) * (x.dim() - 2)
-        x = x + bias.reshape(shape)
-    return x
-
-
-class _GroupNorm(nn.GroupNorm):
-    """``nn.GroupNorm``; on HPU written out with mean and variance.
-
-    Gaudi's graph compiler fails on the native group-norm backward at large
-    batch sizes ("SRAM capping too big"), in both eager and lazy mode, so on
-    HPU the normalisation runs from mean/var ops, as
-    :class:`braindecode.models.signal_jepa._GroupNorm` does in HPU eager
-    mode. Elsewhere (CPU, CUDA; TorchScript) this is ``F.group_norm``.
-    """
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if not torch.jit.is_scripting() and x.device.type == "hpu":
-            return _group_norm_mean_var(
-                x, self.num_groups, self.weight, self.bias, self.eps
-            )
-        return nn.functional.group_norm(
-            x, self.num_groups, self.weight, self.bias, self.eps
-        )
+# Full-model pickles use the former class name in this module.
+_GroupNorm = nn.GroupNorm
 
 
 class TFMTokenizerOutput(NamedTuple):
@@ -125,6 +87,13 @@ class TFMTokenizer(EEGModuleMixin, nn.Module, license="mit"):
         Activation of the convolutional blocks.
     drop_prob : float, default=0.2
         Dropout of the attention blocks.
+    channel_strategy : str, default="native"
+        How another montage reaches the tokenizer; see
+        :class:`~braindecode.models.base.EEGModuleMixin`. The tokenizer keeps
+        the ``chs_info`` channels: ``spectrogram_mask`` and :meth:`tokenize`
+        refer to them.
+    channel_strategy_kwargs : dict or None, default=None
+        Options of ``channel_strategy``.
 
     Notes
     -----
@@ -205,6 +174,9 @@ class TFMTokenizer(EEGModuleMixin, nn.Module, license="mit"):
        ICLR 2026. https://openreview.net/forum?id=2sPmWHZ8Ir
     """
 
+    _time_axis = "free"
+    _channel_axis = "free"
+
     def __init__(
         self,
         n_outputs: int | None = None,
@@ -223,6 +195,8 @@ class TFMTokenizer(EEGModuleMixin, nn.Module, license="mit"):
         commitment_cost: float = 1.0,
         activation: type[nn.Module] = nn.GELU,
         drop_prob: float = 0.2,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -231,6 +205,8 @@ class TFMTokenizer(EEGModuleMixin, nn.Module, license="mit"):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         if self.sfreq <= 0 or not float(self.sfreq).is_integer() or self.sfreq % 2:
             raise ValueError(
@@ -259,16 +235,20 @@ class TFMTokenizer(EEGModuleMixin, nn.Module, license="mit"):
             )
 
         def conv_block(kernel_size, stride, out_dim):
+            # (batch, 1, length) -> (batch, out_dim, n_steps), with
+            # n_steps = (length - kernel_size) // stride + 1: a strided convolution,
+            # then two pointwise ones, each followed by an activation and a
+            # GroupNorm with ``embed_dim // 4`` groups.
             return nn.Sequential(
                 nn.Conv1d(1, embed_dim, kernel_size=kernel_size, stride=stride),
                 activation(),
-                _GroupNorm(embed_dim // 4, embed_dim),
+                nn.GroupNorm(embed_dim // 4, embed_dim),
                 nn.Conv1d(embed_dim, embed_dim, kernel_size=1),
                 activation(),
-                _GroupNorm(embed_dim // 4, embed_dim),
+                nn.GroupNorm(embed_dim // 4, embed_dim),
                 nn.Conv1d(embed_dim, out_dim, kernel_size=1),
                 activation(),
-                _GroupNorm(embed_dim // 4, out_dim),
+                nn.GroupNorm(embed_dim // 4, out_dim),
             )
 
         freq_width = embed_dim // (2 * n_freq_groups)
@@ -313,6 +293,7 @@ class TFMTokenizer(EEGModuleMixin, nn.Module, license="mit"):
         self.register_buffer(
             "stft_window", torch.hann_window(self.window_size), persistent=False
         )
+        self._min_n_times = self.window_size
 
     def compute_spectrogram(self, x: torch.Tensor) -> torch.Tensor:
         """STFT magnitude of ``x`` ``(batch, channels, samples)``.

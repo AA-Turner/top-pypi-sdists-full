@@ -18,6 +18,7 @@ from matrx_ai.config import (
     UnifiedMessage,
     UnifiedResponse,
 )
+from matrx_ai.tools.partial_args import tool_args_delta, tool_args_finished, tool_args_started, tool_args_stream_ended
 from matrx_ai.config.citations import normalize_openai_annotation
 from matrx_ai.context.emitter_protocol import Emitter
 from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
@@ -243,6 +244,8 @@ class OpenAIChat:
         speed = compiled.speed if compiled is not None else unified_config.speech_speed
         if speed is not None:
             speech_kwargs["speed"] = speed
+        # The speech request's snapshot (the chat seam's). "Request sent" is stamped by the transport (wire_sent.py).
+        capture_request_payload(speech_kwargs, provider="openai")
         response = await self.client.audio.speech.create(
             **route_undeclared_params(
                 self.client.audio.speech.create, speech_kwargs, provider="openai"
@@ -252,7 +255,6 @@ class OpenAIChat:
         # ── Paid call returned. Storage retries alone; nothing below may
         # re-buy the audio (matrx_ai.providers.paid_output). ──
         from matrx_ai.config.usage_config import build_character_billed_usage_async
-        from matrx_ai.providers.errors import RetryableError, attach_billed_usage
         from matrx_ai.speech.take_check import raise_if_truncated_take
         from matrx_ai.providers.paid_output import (
             mark_failed_after_paid_call,
@@ -557,6 +559,8 @@ class OpenAIChat:
 
         # Text content streaming
         if event_type == "response.output_text.delta":
+            key = (str(getattr(event, "item_id", "") or ""), int(getattr(event, "content_index", 0) or 0))
+            reasoning_state_for(emitter).output_text.setdefault(key, []).append(event.delta or "")
             await emitter.send_chunk(event.delta)
 
         # Reasoning streaming events
@@ -573,6 +577,15 @@ class OpenAIChat:
                 await emitter.send_reasoning_state("started")
             if self.debug:
                 vcprint(f"Reasoning item added: {event.item.id}", color="blue")
+
+        elif event_type == "response.reasoning_summary_part.added":
+            # One reasoning item carries several summary parts (each a short paragraph the model wrote). Their
+            # deltas arrive back to back, so without a break the second part glued onto the first ("...counts.I'm
+            # requesting", CGU-M3 W3 / P-062). A paragraph break between parts, as the saved copy separates them.
+            if (getattr(event, "summary_index", 0) or 0) > 0:
+                reasoning_id = getattr(event, "item_id", None)
+                if reasoning_id and reasoning_id in reasoning_state_for(emitter).started_ids:
+                    await emitter.send_chunk("\n\n")
 
         elif event_type == "response.reasoning_summary_text.delta":
             # Only send opening tag on first actual content
@@ -623,7 +636,10 @@ class OpenAIChat:
                         if hasattr(annotation, "model_dump")
                         else (annotation if isinstance(annotation, dict) else dict(annotation))
                     )
-                    normalized = normalize_openai_annotation(raw_annotation, "")
+                    # The part's text so far converts the annotation's character offsets to UTF-16 units.
+                    key = (str(getattr(event, "item_id", "") or ""), int(getattr(event, "content_index", 0) or 0))
+                    part_text = "".join(reasoning_state_for(emitter).output_text.get(key) or [])
+                    normalized = normalize_openai_annotation(raw_annotation, part_text)
                     await emitter.send_citation(
                         CitationPayload(
                             block_index=getattr(event, "content_index", None),
@@ -638,6 +654,20 @@ class OpenAIChat:
                         color="red",
                     )
 
+        # Tool arguments streaming: a tool registered for partial arguments
+        # hears each completed element (tools/partial_args.py).
+        elif event_type == "response.output_item.added" and event.item.type == "function_call":
+            await tool_args_started(
+                emitter,
+                getattr(event, "output_index", None),
+                tool_name=str(getattr(event.item, "name", "") or ""),
+                call_id=str(getattr(event.item, "call_id", "") or ""),
+            )
+        elif event_type == "response.function_call_arguments.delta":
+            await tool_args_delta(emitter, getattr(event, "output_index", None), getattr(event, "delta", "") or "")
+        elif event_type == "response.function_call_arguments.done":
+            await tool_args_finished(emitter, getattr(event, "output_index", None))
+
         # Function/tool call completed
         elif event_type == "response.output_item.done" and event.item.type == "message":
             for content_item in event.item.content:
@@ -649,6 +679,7 @@ class OpenAIChat:
             vcprint("\n\n[OPENAI API CHAT] Response Stream Started", color="cyan")
 
         elif event_type == "response.completed":
+            await tool_args_stream_ended(emitter)
             if self.debug:
                 vcprint("OpenAI Response Stream Completed", color="green")
                 vcprint(

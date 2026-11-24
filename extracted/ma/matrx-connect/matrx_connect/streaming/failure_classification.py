@@ -79,6 +79,13 @@ class FailureClass(NamedTuple):
     user_message: str
 
 
+#: The database cut a statement short or had no free connection. Named so the
+#: SQLSTATE-only path below returns the very same class.
+DATABASE_TIMEOUT = FailureClass(
+    error_type="database_timeout",
+    user_message="The database is busy and this took too long. Try again in a few seconds.",
+)
+
 # The user message never blames the user and never asks them to change a
 # setting: for every entry here the cause is on our side of the wire.
 _INFRASTRUCTURE_CLASSES: tuple[tuple[frozenset[str], FailureClass], ...] = (
@@ -120,6 +127,21 @@ _INFRASTRUCTURE_CLASSES: tuple[tuple[frozenset[str], FailureClass], ...] = (
                 "moment."
             ),
         ),
+    ),
+    (
+        # A statement the database stopped for taking too long (the ORM's
+        # QueryTimeoutError, asyncpg's QueryCanceledError = SQLSTATE 57014) or a
+        # pool with no free connection. Transient: "busy, try again", the same
+        # answer the HTTP layer gives as a 503 with Retry-After. A wrapper that
+        # only kept SQLSTATE 57014 is matched in ``_is_query_canceled``.
+        frozenset(
+            {
+                "QueryTimeoutError",
+                "QueryCanceledError",
+                "PoolAcquireTimeoutError",
+            }
+        ),
+        DATABASE_TIMEOUT,
     ),
     (
         # THE MANDATE CONTRACT FAMILY (added 2026-08-27). A mandated run that
@@ -211,7 +233,18 @@ def classify_infrastructure_failure(exc: BaseException) -> FailureClass | None:
         for recognized, failure in _INFRASTRUCTURE_CLASSES:
             if names & recognized:
                 return failure
+        if _is_query_canceled(candidate):
+            return DATABASE_TIMEOUT
     return None
+
+
+def _is_query_canceled(exc: BaseException) -> bool:
+    """SQLSTATE 57014 kept by any wrapper (``sqlstate`` attribute or ``details["sqlstate"]``).
+    Duck-typed: matrx-connect depends on neither asyncpg nor matrx-orm."""
+    if getattr(exc, "sqlstate", None) == "57014":
+        return True
+    details = getattr(exc, "details", None)
+    return isinstance(details, dict) and details.get("sqlstate") == "57014"
 
 
 def _exception_chain(exc: BaseException, *, limit: int = 10) -> list[BaseException]:

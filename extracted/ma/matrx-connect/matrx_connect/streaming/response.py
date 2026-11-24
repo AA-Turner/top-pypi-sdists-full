@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 import traceback
 from collections.abc import Awaitable, Callable
@@ -35,6 +36,7 @@ from matrx_connect.lane.contextvar import (
     set_current_lane,
 )
 from matrx_connect.reservations import get_tracker
+from matrx_connect.streaming.cancel_cause import classify_stream_cancel, work_stopped_itself  # noqa: F401 - re-exported
 from matrx_connect.streaming.error_capture import capture_error
 from matrx_connect.streaming.journal import create_stream_journal_sink
 from matrx_connect.streaming.run_tracking import (
@@ -47,12 +49,15 @@ from matrx_connect.streaming.run_tracking import (
     open_stream_run,
 )
 from matrx_connect.streaming.turn_failure import persist_turn_failure
+from matrx_connect.streaming.unread_settle import announce_run_settled_unread
 from matrx_connect.streaming.failure_classification import (
     GENERIC_CRASH_MESSAGE,
     classify_infrastructure_failure,
     stable_error_type,
     strip_ansi,
 )
+
+_logger = logging.getLogger(__name__)
 
 # Bounded wait for the work task to stop (cancel + cancel-handler persist) before
 # the lane drains. Generous enough for the task's shielded cancel-persist (itself
@@ -128,6 +133,42 @@ async def _end_after_normal_return(emitter: Emitter) -> None:
     send_end = getattr(emitter, "send_end", None)
     if callable(send_end):
         await send_end()
+
+
+async def _end_after_own_stop(emitter: Emitter, debug_label: str) -> None:
+    """End the stream with END reason cancelled for work that obeyed a Stop. Idempotent; never raises
+    (a failure leaves the old path: the reaper settles the journal)."""
+    if _emitter_has_ended(emitter) or getattr(emitter, "_ending", False):
+        return
+    send_end = getattr(emitter, "send_end", None)
+    if not callable(send_end):
+        return
+    try:
+        await send_end(reason=END_REASON_CANCELLED)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        vcprint(
+            f"[{debug_label}] could not end a stopped stream cancelled: {type(exc).__name__}: {exc}",
+            color="yellow",
+        )
+
+
+async def _end_stopped_before_run(emitter: Emitter, why: str) -> None:
+    """The frames of a Stop honoured before the run's first provider call: phase ``complete``, the
+    ``request_cancelled`` info (the executor's own code and words), END reason cancelled."""
+    await emitter.send_phase("complete")
+    await emitter.send_info(
+        InfoPayload(
+            code="request_cancelled",
+            system_message=why,
+            user_message="Request canceled.",
+            metadata={"before_run": True},
+        )
+    )
+    send_end = getattr(emitter, "send_end", None)
+    if callable(send_end):
+        await send_end(reason=END_REASON_CANCELLED)
 
 
 def _emitter_has_ended(emitter: Emitter) -> bool:
@@ -242,12 +283,14 @@ class _StartState:
     """How far one response got toward starting its work (see _stream)."""
 
     __slots__ = (
-        "journal_done", "frames", "published", "task", "refused",
+        "journal_done", "journal_open", "frames", "published", "task", "refused",
         "unread_scheduled", "main_failed", "main_cancelled", "cancelled_by_disconnect",
+        "task_fn_started",
     )
 
     def __init__(self) -> None:
         self.journal_done = False
+        self.journal_open: asyncio.Future[Exception | None] | None = None
         self.frames: list[str | bytes] | None = None
         self.published = 0
         self.task: asyncio.Task[None] | None = None
@@ -256,6 +299,16 @@ class _StartState:
         self.cancelled_by_disconnect = False
         self.main_failed = False
         self.main_cancelled = False
+        self.task_fn_started = False
+
+
+def _run_hooks_loudly(hooks: list[Callable[[], None]], what: str) -> None:
+    """Run every hook; one that raises is logged loudly and never stops the rest or the response."""
+    for hook in hooks:
+        try:
+            hook()
+        except Exception:
+            _logger.exception("[stream] %s hook %r raised", what, hook)
 
 
 class _WorkStartsStreamingResponse(StreamingResponse):
@@ -267,11 +320,25 @@ class _WorkStartsStreamingResponse(StreamingResponse):
     the work. ``on_call_end`` runs when the ASGI call ends however it ended and
     starts the work detached if the body never did."""
 
-    def __init__(self, content: Any, *, on_call_end: Callable[[], None], **kwargs: Any) -> None:
+    def __init__(
+        self,
+        content: Any,
+        *,
+        on_call_end: Callable[[], None],
+        work_never_started_hooks: list[Callable[[], None]],
+        **kwargs: Any,
+    ) -> None:
         super().__init__(content, **kwargs)
         self._on_call_end = on_call_end
+        # Run when the work task ENDED without ``task_fn`` ever starting (the run could not be opened, or the task
+        # was cancelled first): whatever the route handed to the stream (a temp file) would otherwise leak.
+        self.work_never_started_hooks = work_never_started_hooks
+        # Run synchronously the instant the server takes this response (before any await): from then on the
+        # stream machinery, not the route, owns whatever the route prepared for it (e.g. a temp file).
+        self.call_started_hooks: list[Callable[[], None]] = []
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        _run_hooks_loudly(self.call_started_hooks, "call_started")
         try:
             await super().__call__(scope, receive, send)
         finally:
@@ -375,16 +442,51 @@ def create_streaming_response(
     # during prep, Starlette canceled the body before the task existed, and
     # the run plus every write queued in its lane vanished without a trace).
     start = _StartState()
+    never_started_hooks: list[Callable[[], None]] = []
 
-    async def _attach_journal() -> None:
-        """Open the host journal once. Raises when the host sink cannot open."""
-        if start.journal_done:
+    never_started_fired = False
+
+    def _work_never_started() -> None:
+        """Fire the never-started hooks ONCE, and only from the owner of the start decision (refused, no-detach
+        route, run open failed/cancelled, create_task failed) - never while work is merely scheduled."""
+        nonlocal never_started_fired
+        if never_started_fired:
             return
-        if replayable_emitter is not None and replay_request_id:
-            sink = await create_stream_journal_sink(ctx)
-            if sink is not None:
-                replayable_emitter.attach_journal_sink(sink)
+        never_started_fired = True
+        _run_hooks_loudly(never_started_hooks, "work_never_started")
+
+    async def _open_journal() -> Exception | None:
+        """The host's open, run ONCE as its own task; a refusal is RETURNED (never raised), so the
+        task can never die with an exception nobody awaited."""
+        try:
+            if replayable_emitter is not None and replay_request_id:
+                sink = await create_stream_journal_sink(ctx)
+                if sink is not None:
+                    replayable_emitter.attach_journal_sink(sink)
+        except Exception as exc:
+            return exc
+        return None
+
+    async def _attach_journal() -> Exception | None:
+        """Open once; return a refusal for the caller's delivery policy.
+
+        ONE open per response, shared by both starters. The body generator can be
+        cancelled (the client is gone) while the host's open is in flight; the open
+        is its own shielded task, so ``_begin_unread_work`` waits for THAT open
+        instead of opening a second segment that nothing ever writes or closes
+        (one turn, one stream: tests/test_one_response_opens_one_journal_segment.py)."""
+        if start.journal_done:
+            return None
+        try:
+            if start.journal_open is None:
+                start.journal_open = asyncio.ensure_future(_open_journal())
+            refusal = await asyncio.shield(start.journal_open)
+        except Exception as exc:
+            return exc
+        if refusal is not None:
+            return refusal
         start.journal_done = True
+        return None
 
     def _opening_frames() -> list[str | bytes]:
         """Every frame that opens the wire, in wire order, built once.
@@ -493,6 +595,10 @@ def create_streaming_response(
             # GUARANTEED: whatever happened above, the run is settled or
             # abandoned here, so its heartbeat can never renew for hours.
             await _finish_stream_run(plan, debug_label)
+            # The run settled with nobody reading the wire: the host hears it
+            # once (completed / failed only; never raises).
+            if not plan.cancelled:
+                await announce_run_settled_unread(emitter, ctx, plan.outcome, debug_label)
 
     async def _run_body(plan: _RunSettlePlan) -> None:
         try:
@@ -500,39 +606,70 @@ def create_streaming_response(
             # cannot open raises here and fails the task through the one crash
             # path below — the work never starts untracked.
             plan.handle = await open_stream_run(ctx, run, debug_label, task_fn)
+            start.task_fn_started = True
             await task_fn(emitter, *task_args)
             await _end_after_normal_return(emitter)
             plan.outcome = _outcome_from_end_reason(emitter)
         except asyncio.CancelledError as e:
             start.main_cancelled = True
-            if start.cancelled_by_disconnect:
+            # WHY it ended, decided once (cancel_cause.py): the run's outcome, the log line and the
+            # system_error row all say the same true cause.
+            cancel = classify_stream_cancel(e, client_disconnected=start.cancelled_by_disconnect)
+            if cancel.cause in ("stopped", "child_run_stopped"):
+                # A STOP the work obeyed (H12b, 2026-11-16): nobody cancelled this
+                # task — the work read the request's Stop and unwound by raising
+                # CancelledError itself (a research pass's ``raise_if_stopped``, a
+                # held workflow that ended cancelled). The request's own run says
+                # canceled now; before, it was abandoned and reaped ``failed`` two
+                # minutes later (code) or never settled (workflow).
+                plan.outcome = STREAM_RUN_CANCELLED
+                # ...and the WIRE says so (H14, 2026-11-16, e334adbb): with no END the journal
+                # stayed open, heartbeating with nobody writing, until the reaper failed it and
+                # every rejoin was refused (operation_stream_replay_failed). Nobody cancelled this
+                # task, so it may still await the END (send_end flushes the journal first).
+                await _end_after_own_stop(emitter, debug_label)
+            elif cancel.cause == "client_disconnect":
                 # The route opted out of detaching and the client left: the
                 # work was stopped on purpose, so the run says canceled.
                 plan.outcome = STREAM_RUN_CANCELLED
             else:
-                # Shutdown: never settle — the lease lapses and the host
-                # reaper records the run as failed, the same contract chat
+                # Shutdown or an outside cancel: never settle — the lease lapses and the
+                # host reaper records the run as failed, the same contract chat
                 # runs follow. (`plan.outcome` stays None -> abandon.)
                 plan.outcome = None
             plan.cancelled = True
-            print(
-                f"\n[{debug_label}] Task canceled (client disconnected)",
-                file=sys.stderr,
-                flush=True,
-            )
-            vcprint("Task canceled (client disconnected)", f"[{debug_label}]", color="yellow")
-            # CLOSE THE LOOP universally: a client disconnect must leave a
-            # queryable record, not just a stderr line. record_error writes
-            # to system_error on a fresh connection, shielded so this
-            # cancellation can't interrupt it. (cx_ chat cost is ALSO
-            # persisted by the orchestrator's own cancel handler; this is
-            # the catch-all so NO stream type can vanish silently.)
-            await capture_error(
-                e,
-                kind="stream_cancelled",
-                error_text=f"{debug_label} canceled (client disconnect or shutdown)",
-                **_capture_fields(),
-            )
+            line = cancel.text(debug_label)
+            print(f"\n[{debug_label}] {line}", file=sys.stderr, flush=True)
+            vcprint(line, f"[{debug_label}]", color="yellow" if cancel.by_design else "red")
+            # CLOSE THE LOOP: a cancel that CUT WORK OFF (a shutdown nothing resumes, an
+            # outside cancel) leaves a queryable system_error row with its true cause. A
+            # by-design end (an honored Stop, a client leaving a route that does not
+            # detach) lost nothing and is no error: its run settled ``cancelled`` above,
+            # which is the record (live 2026-11-16: every research Stop filed an open
+            # "client disconnect or shutdown" row). (cx_ chat cost is ALSO persisted by
+            # the orchestrator's own cancel handler.)
+            # A shutdown of a stream WITH a durable run is the run reaper's to judge: the run is
+            # abandoned here, and the reaper alarms ``runtime_execution_abandoned`` (interrupted_by
+            # the deploy) only when nothing resumes the work — a resumed child is no error. Filing
+            # here too would alarm every deploy-cut stream, resumed or not, twice.
+            reaper_judges = cancel.cause == "server_shutdown" and plan.handle is not None
+            if reaper_judges:
+                vcprint(
+                    f"{line}; its run is abandoned to the run reaper, which alarms only if nothing resumes it",
+                    f"[{debug_label}]",
+                    color="yellow",
+                )
+            if not cancel.by_design and not reaper_judges:
+                await capture_error(
+                    e,
+                    kind="stream_cancelled",
+                    error_type=f"stream_{cancel.cause}",
+                    error_text=line,
+                    **{
+                        **_capture_fields(),
+                        "context": {"debug_label": debug_label, "cancel_cause": cancel.cause},
+                    },
+                )
             # Preserve the original swallow-and-flag behavior (the lane
             # drain + generator teardown rely on not re-raising here).
         except Exception as e:
@@ -720,8 +857,12 @@ def create_streaming_response(
             work.close()
             if registered:
                 unregister_active_stream(replay_request_id, replayable_emitter)
+            _work_never_started()
             raise
         start.task = task
+        # The task can end (open_stream_run raised, or cancelled before the body ran) with task_fn never started:
+        # whatever the route handed to the stream is released here, never leaked.
+        task.add_done_callback(lambda _t: None if start.task_fn_started else _work_never_started())
         callback_registered = False
         try:
             if registered:
@@ -742,6 +883,13 @@ def create_streaming_response(
 
         Runs as its own task (a copy of the request's context), so installing
         ``ctx`` and the lane here needs no reset."""
+        try:
+            await _begin_unread_work_inner()
+        finally:
+            if start.task is None:
+                _work_never_started()  # decided not to run (no-detach route) or failed before spawning
+
+    async def _begin_unread_work_inner() -> None:
         if not detach_on_disconnect:
             # The route opted into cancel-on-disconnect: no work runs, but the
             # writes prep already queued in the lane still land — never lost.
@@ -754,9 +902,9 @@ def create_streaming_response(
             f"task detached (a disconnect never stops server work)",
             color="cyan",
         )
-        try:
-            await _attach_journal()
-        except Exception as exc:  # noqa: BLE001 — the journal is a sink, not a gate
+        journal_error = await _attach_journal()
+        if journal_error is not None:
+            exc = journal_error
             start.journal_done = True
             await capture_error(
                 exc,
@@ -789,10 +937,11 @@ def create_streaming_response(
         # The host journal is opened before any response bytes.  Its sink owns
         # commit-before-fanout; without it StreamEmitter retains its established
         # in-process behavior for package-only consumers.
-        try:
-            await _attach_journal()
-        except Exception as exc:
+        journal_error = await _attach_journal()
+        if journal_error is not None:
+            exc = journal_error
             start.refused = True
+            _work_never_started()
             # Headers are already committed when a StreamingResponse body
             # starts. Never turn an unavailable recovery journal into an
             # empty 200 that the browser mistakes for a live attachment.
@@ -913,73 +1062,83 @@ def create_streaming_response(
             # This is the fix for "30s of browser inactivity threw away an
             # expensive, mostly-done pipeline" — the work now finishes and all
             # its DB writes land no matter what the browser does.
+            detached = False
             if not startup_failed and task is not None and detach_on_disconnect and not task.done():
                 vcprint(
                     f"[{debug_label}] client disconnected — DETACHING work task "
                     f"to run to completion in the background (not canceled)",
                     color="cyan",
                 )
+                # The primary reader is gone. When the disconnect arrived as a
+                # failed send at our ``yield`` (ASGI spec 2.4) rather than as a
+                # cancel inside ``emitter.generate()``, that inner generator was
+                # never closed and still believes it is read: frames would keep
+                # piling into a queue nobody drains, and the run would later
+                # count as read (``ended_unread``). Say so explicitly; idempotent.
+                if replayable_emitter is not None:
+                    replayable_emitter.release_primary_reader()
                 supervisor = asyncio.create_task(_supervise_detached_task(task, lane, debug_label))
                 _DETACHED_SUPERVISORS.add(supervisor)
                 supervisor.add_done_callback(_DETACHED_SUPERVISORS.discard)
                 # The supervisor owns the lane lifecycle now; just drop our
                 # ContextVar reference and let this response finish.
                 _release_lane()
-                return
+                detached = True
 
-            try:
-                # FIRST stop the work task, THEN drain the lane — never let them
-                # touch the coordinator concurrently. On a client disconnect the
-                # generator's `async for` ends with the work task still running;
-                # draining while the task may still fire a commit_async or run its
-                # own cancel-handler persist would race the same coordinator.
-                # Cancel + await (bounded) so the task's cancel handler finishes
-                # its shielded persist BEFORE the lane drain runs. This dissolves
-                # the cancel-path commit/drain races at the source.
-                if task is not None and not task.done():
-                    # A teardown with the task still running is a CLIENT disconnect
-                    # unless the host says the SERVER is going away (deploy drain):
-                    # shutdown is never "cancelled" — the run is abandoned and the
-                    # host's lease reaper records it failed, as for any canceled task.
-                    start.cancelled_by_disconnect = not host_is_shutting_down()
-                    task.cancel()
-                    try:
-                        await asyncio.wait_for(
-                            asyncio.shield(task),
-                            timeout=_WORK_TASK_JOIN_TIMEOUT_SECONDS,
-                        )
-                    except asyncio.CancelledError:
-                        # A task canceled during startup is expected to finish
-                        # with CancelledError. Do not let that replace the
-                        # original emitter/startup exception; a cancellation
-                        # of this response task itself must still propagate.
-                        current = asyncio.current_task()
-                        if current is not None and current.cancelling():
-                            raise
-                        if not task.cancelled():
-                            raise
-                    except (TimeoutError, Exception):
-                        # Task's own cancel handler captured to system_write_failure;
-                        # the lane drain below is the backstop. Bounded so a wedged
-                        # task can't hang teardown.
-                        pass
-                # Drain the lane so DEFERRED tail work (labeler, deferred
-                # persistence, metrics) gets to finish. Clients have seen
-                # send_end() already; the connection holds open just long enough
-                # for deferred work to land. Soft mode (client cancel) cancels
-                # BLOCKING/NORMAL in flight but lets DEFERRED finish.
-                await lane.begin_drain(
-                    failed=start.main_failed or startup_failed,
-                    soft=start.main_cancelled and not startup_failed,
-                )
-            except Exception as drain_exc:
-                # Drain itself must never break the response.
-                vcprint(
-                    f"[{debug_label}] lane drain raised: {type(drain_exc).__name__}: {drain_exc}",
-                    color="yellow",
-                )
-            finally:
-                _release_lane()
+            if not detached:
+                try:
+                    # FIRST stop the work task, THEN drain the lane — never let them
+                    # touch the coordinator concurrently. On a client disconnect the
+                    # generator's `async for` ends with the work task still running;
+                    # draining while the task may still fire a commit_async or run its
+                    # own cancel-handler persist would race the same coordinator.
+                    # Cancel + await (bounded) so the task's cancel handler finishes
+                    # its shielded persist BEFORE the lane drain runs. This dissolves
+                    # the cancel-path commit/drain races at the source.
+                    if task is not None and not task.done():
+                        # A teardown with the task still running is a CLIENT disconnect
+                        # unless the host says the SERVER is going away (deploy drain):
+                        # shutdown is never "cancelled" — the run is abandoned and the
+                        # host's lease reaper records it failed, as for any canceled task.
+                        start.cancelled_by_disconnect = not host_is_shutting_down()
+                        task.cancel()
+                        try:
+                            await asyncio.wait_for(
+                                asyncio.shield(task),
+                                timeout=_WORK_TASK_JOIN_TIMEOUT_SECONDS,
+                            )
+                        except asyncio.CancelledError:
+                            # A task canceled during startup is expected to finish
+                            # with CancelledError. Do not let that replace the
+                            # original emitter/startup exception; a cancellation
+                            # of this response task itself must still propagate.
+                            current = asyncio.current_task()
+                            if current is not None and current.cancelling():
+                                raise
+                            if not task.cancelled():
+                                raise
+                        except (TimeoutError, Exception):
+                            # Task's own cancel handler captured to system_write_failure;
+                            # the lane drain below is the backstop. Bounded so a wedged
+                            # task can't hang teardown.
+                            pass
+                    # Drain the lane so DEFERRED tail work (labeler, deferred
+                    # persistence, metrics) gets to finish. Clients have seen
+                    # send_end() already; the connection holds open just long enough
+                    # for deferred work to land. Soft mode (client cancel) cancels
+                    # BLOCKING/NORMAL in flight but lets DEFERRED finish.
+                    await lane.begin_drain(
+                        failed=start.main_failed or startup_failed,
+                        soft=start.main_cancelled and not startup_failed,
+                    )
+                except Exception as drain_exc:
+                    # Drain itself must never break the response.
+                    vcprint(
+                        f"[{debug_label}] lane drain raised: {type(drain_exc).__name__}: {drain_exc}",
+                        color="yellow",
+                    )
+                finally:
+                    _release_lane()
 
     headers: dict[str, str] = {
         "Cache-Control": "no-cache",
@@ -993,6 +1152,7 @@ def create_streaming_response(
     return _WorkStartsStreamingResponse(
         _stream(),
         on_call_end=_ensure_work_started,
+        work_never_started_hooks=never_started_hooks,
         media_type="application/x-ndjson",
         headers=headers,
     )
@@ -1209,6 +1369,13 @@ async def create_prepared_streaming_response(
             # mid-stream crash. Hand the already-open lane (which holds prep's
             # queued writes) to that task so they flush in its drain.
             async def _raise_prepare_error(emitter: Emitter, _exc: BaseException = exc) -> None:
+                if getattr(_exc, "stopped_before_run", False):
+                    # A STOP PRESSED WHILE PREPARING (the host raises a mark carrying
+                    # ``stopped_before_run``): not a failure. The wire says what the
+                    # executor says for a Stop before its first call, and the stream's
+                    # run settles cancelled. No provider call was made.
+                    await _end_stopped_before_run(emitter, str(_exc))
+                    return
                 raise _exc
 
             from matrx_connect.context.app_context import try_get_app_context

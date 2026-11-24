@@ -33,7 +33,7 @@ rules = [
             "header",
             "audio",
         ],
-        "options": ["content", "remove_filtered"],
+        "options": ["content", "remove_filtered", "markdown_tables"],
     },
     {
         "name": "organized_data",
@@ -63,7 +63,7 @@ rules = [
             "header",
             "audio",
         ],
-        "options": ["content", "remove_filtered", "organize_content_by_headers"],
+        "options": ["content", "remove_filtered", "organize_content_by_headers", "markdown_tables"],
     },
     {"name": "tables", "allowed_children": ["table"], "options": ["data", "remove_filtered"]},
     {"name": "code_blocks", "allowed_children": ["code"], "options": ["data", "remove_filtered"]},

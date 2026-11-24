@@ -45,6 +45,14 @@ class ReasoningStreamState:
     ``block_text`` / ``block_citations`` hold an Anthropic text block's streamed
     text and its citations until the block stops, so each citation is checked
     against the claim it is attached to before it is sent (W-37).
+
+    ``thinking_held`` / ``thinking_live`` / ``thinking_signature`` hold an Anthropic thinking block's text until its
+    signature says what it is: a progress update is the model's words to the person and streams as visible text;
+    reasoning streams inside ``<reasoning>`` (config/progress_updates.py). A block that outgrows any progress
+    update (``thinking_live``) streams as reasoning from then on, so long reasoning is never held back.
+
+    ``output_text`` holds an OpenAI Responses output-text part's streamed text, keyed by (item id, content index),
+    so a live annotation's character offsets convert to the UTF-16 units clients slice by (config/citations.py).
     """
 
     __slots__ = (
@@ -55,6 +63,10 @@ class ReasoningStreamState:
         "signaled_ids",
         "block_text",
         "block_citations",
+        "thinking_held",
+        "thinking_live",
+        "thinking_signature",
+        "output_text",
     )
 
     def __init__(self) -> None:
@@ -70,6 +82,10 @@ class ReasoningStreamState:
         self.signaled_ids: set[str] = set()
         self.block_text: dict[int, list[str]] = {}
         self.block_citations: dict[int, list[dict[str, Any]]] = {}
+        self.thinking_held: list[str] = []
+        self.thinking_live: bool = False
+        self.thinking_signature: list[str] = []
+        self.output_text: dict[tuple[str, int], list[str]] = {}
 
 
 _states: MutableMapping[Any, ReasoningStreamState] = WeakKeyDictionary()

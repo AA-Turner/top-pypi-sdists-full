@@ -39,6 +39,9 @@ class RequestControlRegistry:
     def __init__(self, ttl_seconds: float = 3600.0) -> None:
         self._signals: dict[str, list[RequestControlSignal]] = {}
         self._roots: OrderedDict[str, str] = OrderedDict()
+        #: Trees held at their next turn boundary (root id -> when paused). A STATE, not a
+        #: signal list: pause and resume replace it (one-graph CONTRACTS §7, pause/resume).
+        self._paused: dict[str, float] = {}
         self._ttl = ttl_seconds
         self._lock = asyncio.Lock()
 
@@ -95,6 +98,22 @@ class RequestControlRegistry:
             for key in self._tree_ids(request_id)
             for signal in self._signals.get(key, ())
         )
+
+    def pause(self, request_id: str) -> None:
+        """Hold the TREE at its next turn boundary until :meth:`resume` (or a stop)."""
+        self._paused[self.root_of(request_id)] = time.time()
+
+    def resume(self, request_id: str) -> bool:
+        """Release a held tree; True when it was paused."""
+        return self._paused.pop(self.root_of(request_id), None) is not None
+
+    def is_paused(self, request_id: str) -> bool:
+        root = self.root_of(request_id)
+        at = self._paused.get(root)
+        if at is not None and time.time() - at > self._ttl:
+            self._paused.pop(root, None)
+            return False
+        return at is not None
 
     def is_interrupted(self, request_id: str) -> bool:
         self._cleanup_locked(time.time())

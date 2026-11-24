@@ -3,7 +3,6 @@ import math
 import os
 import sys
 
-import fsspec
 import numpy as np
 
 from wfdb.io import _coreio, download, util
@@ -11,6 +10,8 @@ from wfdb.io._coreio import CLOUD_PROTOCOLS
 
 MAX_I32 = 2147483647
 MIN_I32 = -2147483648
+
+CHECKSUM_MODULUS = 65536
 
 # Formats in which all samples align with integer (power-of-two) boundaries
 ALIGNED_FMTS = ["8", "16", "32", "61", "80", "160"]
@@ -110,6 +111,40 @@ INVALID_SAMPLE_VALUE = {
     "32": -(2**31),
     "8": None,
 }
+
+
+def _checksum(values):
+    """Return the WFDB checksum of one channel of digital samples.
+
+    Parameters
+    ----------
+    values : array_like
+        The digital samples of a single channel.
+
+    Returns
+    -------
+    int
+        The sum of the samples modulo 65536.
+
+    """
+    return int(np.sum(values) % CHECKSUM_MODULUS)
+
+
+def _checksums(signal):
+    """Return the WFDB checksum of each channel (column) of a 2-D signal array.
+
+    Parameters
+    ----------
+    signal : ndarray
+        A 2-D array of digital samples with one column per channel.
+
+    Returns
+    -------
+    list of int
+        The sum of each column modulo 65536.
+
+    """
+    return [int(c) for c in np.sum(signal, axis=0) % CHECKSUM_MODULUS]
 
 
 class SignalMixin:
@@ -523,7 +558,7 @@ class SignalMixin:
         Examples
         --------
         >>> import wfdb
-        >>> record = wfdb.rdsamp('sample-data/100')
+        >>> record = wfdb.rdrecord('100', pn_dir='mitdb', sampto=1000)
         >>> d_signal = record.adc()
         >>> record.adc(inplace=True)
         >>> record.dac(inplace=True)
@@ -632,7 +667,8 @@ class SignalMixin:
         Examples
         --------
         >>> import wfdb
-        >>> record = wfdb.rdsamp('sample-data/100', physical=False)
+        >>> record = wfdb.rdrecord('100', pn_dir='mitdb', sampto=1000,
+        ...                        physical=False)
         >>> p_signal = record.dac()
         >>> record.dac(inplace=True)
         >>> record.adc(inplace=True)
@@ -905,7 +941,7 @@ class SignalMixin:
                 if current_dtype != return_dtype:
                     # Do not allow changing integer dtype to lower value due to
                     # over/underflow
-                    if int(str(current_dtype)[3:]) > int(str(return_dtype)[3:]):
+                    if not np.can_cast(current_dtype, return_dtype, "safe"):
                         raise Exception(
                             "Cannot convert digital samples to lower dtype. Risk of overflow/underflow."
                         )
@@ -916,7 +952,7 @@ class SignalMixin:
                     if current_dtype != return_dtype:
                         # Do not allow changing integer dtype to lower value due to
                         # over/underflow
-                        if int(str(current_dtype)[3:]) > int(str(return_dtype)[3:]):
+                        if not np.can_cast(current_dtype, return_dtype, "safe"):
                             raise Exception(
                                 "Cannot convert digital samples to lower dtype. Risk of overflow/underflow."
                             )
@@ -941,10 +977,9 @@ class SignalMixin:
 
         """
         if expanded:
-            cs = [int(np.sum(s) % 65536) for s in self.e_d_signal]
+            cs = [_checksum(s) for s in self.e_d_signal]
         else:
-            cs = np.sum(self.d_signal, 0) % 65536
-            cs = [int(c) for c in cs]
+            cs = _checksums(self.d_signal)
         return cs
 
     def wr_dat_files(self, expanded=False, write_dir="", wfdb_archive=None):
@@ -1529,8 +1564,8 @@ def _dat_read_params(
         The number of samples to replace with NAN at the end of each
         signal, due to skew wanting samples beyond the file.
 
-    Examples
-    --------
+    Notes
+    -----
     sig_len=100, t = 4 (total samples/frame), skew = [0, 2, 4, 5]
     sampfrom=0, sampto=100 --> read_len = 100, n_sampread = 100*t, extralen = 5,
     nan_replace = [0, 2, 4, 5]
@@ -1709,7 +1744,7 @@ def _rd_dat_file(
 
     # Local or cloud dat file
     elif pn_dir is None:
-        with fsspec.open(_coreio._join_path(dir_name, file_name), "rb") as fp:
+        with _coreio._fsspec_open(_coreio._join_path(dir_name, file_name), "rb") as fp:
             fp.seek(start_byte)
             sig_data = util.fromfile(
                 fp, dtype=np.dtype(DATA_LOAD_TYPES[fmt]), count=element_count
@@ -2600,7 +2635,9 @@ def _infer_sig_len(
 
     # If this is a cloud path, use fsspec to open the file
     elif any(dir_name.startswith(proto) for proto in CLOUD_PROTOCOLS):
-        with fsspec.open(_coreio._join_path(dir_name, file_name), mode="rb") as f:
+        with _coreio._fsspec_open(
+            _coreio._join_path(dir_name, file_name), mode="rb"
+        ) as f:
             file_size = f.seek(0, os.SEEK_END)
 
     # If the PhysioNet database path is provided, construct the download path using the

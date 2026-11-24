@@ -7,15 +7,16 @@ import :mod:`typing` on this error-only path.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
     "difflib",
     "nab._cli.parse",
+    "nab_resolver.diagnostics",
 )
 
 import difflib
 
-from nab._cli.parse import UsageError  # noqa: TC001 - see the module docstring
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion, error_message
+
+from .parse import UsageError  # noqa: TC001 - see the module docstring
 
 __all__ = ["diagnose", "suggest"]
 

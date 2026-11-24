@@ -147,8 +147,9 @@ def _symlink_target_stays_under(
     exceeding the hop budget.
 
     Every other component must be established by the snapshot itself: it has to exist in
-    the archive and be a directory unless it is the last one, which must be a regular file
-    or directory. ``hydrate_workspace`` extracts
+    the archive and be a directory unless it is the last one, which must be a regular
+    file. Directory and root targets stay absolute because another relative link can
+    traverse them before a parent step. ``hydrate_workspace`` extracts
     into an existing root, so a component the snapshot does not create may already be a
     symlink in the destination and send the restored link elsewhere; only snapshot-owned
     components are protected by the extractor's destination checks. A target that cannot
@@ -184,7 +185,7 @@ def _symlink_target_stays_under(
         elif not (candidate.isdir() or candidate.isreg()):
             return False
         resolved.append(part)
-    return True
+    return bool(resolved) and members["/".join(resolved)].isreg()
 
 
 def _rebase_symlink_target(linkname: str, *, link_name: str, roots: tuple[Path, ...]) -> str:
@@ -1277,6 +1278,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
         data: io.IOBase,
         *,
         user: str | User | None = None,
+        owner_only: bool = False,
     ) -> None:
         payload = coerce_write_payload(path=path, data=data)
         # Resolve the parent the way the ordinary write path does, so a supported internal
@@ -1286,11 +1288,13 @@ class UnixLocalSandboxSession(BaseSandboxSession):
         requested = Path(path)
         target = self.normalize_path(requested.parent, for_write=True) / requested.name
         if user is not None:
-            await self._write_new_stream_with_exec(target, payload.stream, user=user)
+            await self._write_new_stream_with_exec(
+                target, payload.stream, user=user, owner_only=owner_only
+            )
             return
 
         try:
-            self._files.write_new(target, payload.stream)
+            self._files.write_new(target, payload.stream, owner_only=owner_only)
         except _unix_local_file_ops._IncompleteCreateError as e:
             raise WorkspaceArchiveWriteError(
                 path=target,
@@ -1309,6 +1313,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
         stream: io.IOBase,
         *,
         user: str | User,
+        owner_only: bool = False,
     ) -> None:
         payload = stream.read()
         if isinstance(payload, str):
@@ -1317,7 +1322,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
             payload = bytes(payload)
         try:
             result = await self._run_file_operation_as_user(
-                "write_new", path, user=user, payload=payload
+                "write_new_private" if owner_only else "write_new", path, user=user, payload=payload
             )
         except OSError as e:
             raise WorkspaceArchiveWriteError(path=path, cause=e) from e
@@ -1367,14 +1372,14 @@ class UnixLocalSandboxSession(BaseSandboxSession):
 
     async def _run_file_operation_as_user(
         self,
-        operation: Literal["ls", "write", "write_new", "rename", "same_file"],
+        operation: Literal["ls", "write", "write_new", "write_new_private", "rename", "same_file"],
         path: Path,
         *more_paths: Path,
         user: str | User,
         payload: bytes = b"",
     ) -> subprocess.CompletedProcess[bytes]:
         # Authorization is synchronous and captured for this operation before dispatch.
-        for_write = operation in ("write", "write_new", "rename")
+        for_write = operation in ("write", "write_new", "write_new_private", "rename")
         paths = [self._files.authorize(each, for_write=for_write) for each in (path, *more_paths)]
         command = self._prepare_exec_command(
             "python3",

@@ -28,6 +28,18 @@ from matrx_ai.config import MessageList, TextContent, TokenUsage, UnifiedConfig,
 from matrx_ai.config.unified_config import UnifiedResponse
 from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
 
+
+@pytest.fixture(autouse=True)
+def _parent_user_request_exists(monkeypatch):
+    """persist_completed_request ensures the cx_user_request parent before its cx_request
+    children (eaecaa5ed885). There is no database here, so the parent is taken as present."""
+    import matrx_ai.db.conversation_gate as _gate
+
+    async def _present(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(_gate, "ensure_user_request_exists", _present)
+
 CONVERSATION_ID = "11111111-1111-1111-1111-111111111111"
 USER_ID = "22222222-2222-2222-2222-222222222222"
 REQUEST_ID = "33333333-3333-3333-3333-333333333333"
@@ -286,6 +298,14 @@ def system_run_harness(monkeypatch):
 
     monkeypatch.setattr(persistence_mod, "ai_model_manager_instance", _StubModelManager())
     monkeypatch.setattr(persistence_mod, "_get_coordinator", lambda: _StubCoordinator())
+    # persist_completed_request asks for the LIVE coordinator (98713c369) and keeps cost rows only under a
+    # recorded parent request (0a10b9e3e); both gates have their own tests, here both answer yes.
+    monkeypatch.setattr(persistence_mod, "_get_live_coordinator", lambda: _StubCoordinator())
+
+    async def _parent_recorded(*a, **k):
+        return True
+
+    monkeypatch.setattr(persistence_mod, "_request_rows_have_a_parent", _parent_recorded)
     monkeypatch.setattr(
         persistence_mod, "_queue_message_create", lambda **kw: calls["message_create"].append(kw)
     )
@@ -308,8 +328,6 @@ def system_run_harness(monkeypatch):
         lambda rid, **kw: calls["user_request_update"].append((rid, kw)),
     )
 
-    async def _no_hide(*a, **k):
-        return 0
 
     async def _cache(*a, **k):
         calls["cache_state"].append(k)
@@ -317,7 +335,6 @@ def system_run_harness(monkeypatch):
     async def _ctx_state(*a, **k):
         calls["context_state"].append(k)
 
-    monkeypatch.setattr(persistence_mod, "_hide_superseded_failed_turns", _no_hide)
     monkeypatch.setattr(persistence_mod, "_refresh_cache_state", _cache)
     monkeypatch.setattr(persistence_mod, "_emit_context_state", _ctx_state)
     monkeypatch.setattr(persistence_mod, "cxm", _AsyncAnything())
@@ -421,12 +438,7 @@ async def test_forty_concurrent_system_runs_stay_cheap(system_run_harness, monke
 
     monkeypatch.setattr(persistence_mod, "cxm", _CountingCxm())
 
-    async def _counting_hide(conv_id, up_to):
-        reads.append(f"hide:{conv_id}")
-        await asyncio.sleep(latency)
-        return 0
 
-    monkeypatch.setattr(persistence_mod, "_hide_superseded_failed_turns", _counting_hide)
 
     runs = 40
     t0 = time.perf_counter()
@@ -660,3 +672,54 @@ async def test_run_agent_store_default_inherits_parent():
         system_run=True,
     )
     assert seen["store"] is False
+
+
+# ---------------------------------------------------------------------------
+# An unsaved run's skip is by design, never a "No valid ... id" alarm (2026-11-21)
+# ---------------------------------------------------------------------------
+
+
+def _capture_skip_logs(persistence_mod, monkeypatch) -> list[str]:
+    said: list[str] = []
+    monkeypatch.setattr(persistence_mod, "vcprint", lambda msg="", *a, **k: said.append(str(msg)))
+    return said
+
+
+@pytest.mark.asyncio
+async def test_an_unsaved_run_never_says_its_valid_ids_are_invalid(system_run_harness, monkeypatch):
+    """The labeler's own run is store=False (its named exemption). Persist wrote nothing — right —
+    and then logged "No valid conversation_id to update: '<a valid uuid>'" and "No valid request_id"
+    on EVERY call (~1.2k WARNINGs/day under the system principal, read as a member's chat loop)."""
+    persistence_mod, calls = system_run_harness
+    import matrx_ai.context.app_context as app_ctx_mod
+
+    class UnsavedCtx(_SystemRunCtx):
+        store = False
+        system_run = False
+        execution_kind = None
+        execution_id = None
+        parent_conversation_id = None
+        sealed_conversation_id = None
+
+    ctx = UnsavedCtx()
+    monkeypatch.setattr(app_ctx_mod, "get_app_context", lambda: ctx)
+    monkeypatch.setattr(app_ctx_mod, "try_get_app_context", lambda: ctx)
+    said = _capture_skip_logs(persistence_mod, monkeypatch)
+
+    await persistence_mod.persist_completed_request(_build_completed(), conversation_id=CONVERSATION_ID)
+
+    assert calls["conversation_update"] == [] and calls["message_create"] == []
+    assert not [m for m in said if "No valid conversation_id" in m or "No valid request_id" in m], said
+
+
+@pytest.mark.asyncio
+async def test_a_stored_run_without_a_conversation_still_says_so(system_run_harness, monkeypatch):
+    """The guard's other side: a STORED run that reaches persist with no conversation is a real skip."""
+    persistence_mod, calls = system_run_harness
+    said = _capture_skip_logs(persistence_mod, monkeypatch)
+    completed = _build_completed()
+    completed.request.conversation_id = None  # type: ignore[assignment]
+
+    await persistence_mod.persist_completed_request(completed, conversation_id=None)
+
+    assert [m for m in said if "No valid conversation_id to update" in m], said

@@ -115,7 +115,7 @@ def test_normalize_strips_the_spaces_serpapi_rejects() -> None:
 
 @pytest.mark.asyncio
 async def test_the_live_defect_state_resolves_instead_of_failing_forever() -> None:
-    # rank_target ce251dfc ('gastroenterology' -> iopbm.com) carried this exact
+    # rank_target ce251dfc ('gastroenterology' -> example.com) carried this exact
     # string and 400'd on every scheduled check since 2026-07-27.
     assert await resolver().resolve("Newport Beach, CA") == (
         "Newport Beach,California,United States"

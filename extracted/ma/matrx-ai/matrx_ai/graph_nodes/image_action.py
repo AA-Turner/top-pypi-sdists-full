@@ -30,14 +30,19 @@ from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
 )
-from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage, failed_turn_failure
+from matrx_ai.graph_nodes.shared import (
+    AiUsage,
+    _extract_usage,
+    failed_turn_failure,
+    no_media_reason,
+)
 
 
 class GenerateImageInput(BaseModel):
@@ -61,6 +66,15 @@ class GenerateImageInput(BaseModel):
         default=None,
         description="Things to avoid (if the provider supports it).",
     )
+
+    @field_validator("prompt")
+    @classmethod
+    def _prompt_has_words(cls, value: str) -> str:
+        """A blank prompt (an upstream step that produced only whitespace) is refused here,
+        before a paid image call is made that could only come back with no image."""
+        if not value.strip():
+            raise ValueError("the image prompt is blank — the step feeding it produced no text")
+        return value
     aspect_ratio: str = Field(
         default="1:1",
         description="W:H ratio. '1:1', '16:9', '9:16', '4:3', '3:4'.",
@@ -189,7 +203,7 @@ def _image_from_image_content(block: Any) -> GeneratedImage:
     every consumer mints its own URL from it. The URL is classified through the
     ONE signed-URL definition (``matrx_files``) — never a second X-Amz regex.
     """
-    from matrx_files import is_durable_media_url
+    from matrx_files import is_durable_media_url, is_public_media_url
 
     # Caller guarantees an ImageContent (see _shape_image_blocks) — read its
     # fields directly; a defensive getattr here would silently degrade to None
@@ -200,7 +214,9 @@ def _image_from_image_content(block: Any) -> GeneratedImage:
         file_id=block.file_id,
         path=metadata.get("path"),
         url=url,
-        cdn_url=url,
+        # Public only (the schema's rule): a durable private URL — our /files/{id}/download —
+        # is not a CDN URL; renderers read a private image by file_id.
+        cdn_url=url if is_public_media_url(url) else None,
         data_b64=block.base64_data,
         mime_type=block.mime_type,
         size_bytes=block.file_size,
@@ -252,7 +268,7 @@ def _shape_image_blocks_legacy(response: Any) -> list[GeneratedImage]:
 
 
 def _image_from_block(block: dict[str, Any]) -> GeneratedImage:
-    from matrx_files import is_durable_media_url
+    from matrx_files import is_durable_media_url, is_public_media_url
 
     raw_url = block.get("url") or block.get("image_url") or block.get("b64_json_url")
     # Same durability rule as the ImageContent path: only a URL that outlives
@@ -266,7 +282,7 @@ def _image_from_block(block: dict[str, Any]) -> GeneratedImage:
         file_id=block.get("file_id"),
         path=block.get("path") or block.get("file_path") or block.get("local_path"),
         url=url,
-        cdn_url=cdn if is_durable_media_url(cdn) else url,
+        cdn_url=cdn if is_public_media_url(cdn) else (url if is_public_media_url(url) else None),
         data_b64=block.get("data") or block.get("b64") or block.get("base64"),
         mime_type=block.get("mime_type") or block.get("content_type"),
         size_bytes=block.get("size_bytes"),
@@ -342,12 +358,15 @@ async def ai_generate_image(
         if not images:
             # Paid call with no artifact — fail with the billed usage in
             # details so the scheduler's cost settlement records the spend.
+            reason, why = no_media_reason(completed, requested_model=inputs.model)
             return failure(
                 "generation_failed",
-                f"ai.generate_image: provider returned no images for model '{inputs.model}'.",
+                f"ai.generate_image: no image came back for model '{inputs.model}'"
+                + (f": {reason}." if reason else "."),
                 details={
                     "model": inputs.model,
                     "usage": _extract_usage(usage_raw).model_dump(mode="json"),
+                    **why,
                 },
             )
 

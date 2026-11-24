@@ -13,10 +13,16 @@ THE DB-FIRST DRIFT LAW HOLDS. A tool exists for agents only once its
 validation, and the drift gate does not report a row that is, correctly, missing.
 The HOST names the Action tools whose row HAS landed (``open_tool_door(rowed=...)``);
 those validate. matrx-ai never hard-codes a host's tool names.
+
+MODEL NOTICES. A work function called through this door can hand the model a sentence
+beside its output (``add_tool_notices`` — e.g. "a deeper reader exists and was not used");
+the door appends them to the ``ToolResult``'s ``model_notices``. Outside a tool call it is a
+no-op, so the same work run as a step or an api call says nothing extra.
 """
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Any
 
 from matrx_graph.actions import (
@@ -33,8 +39,22 @@ from matrx_ai.tools.declared import get_declared_tool, tool
 
 #: Action tools whose ``tool.definition`` row exists, as the host said (``open_tool_door``).
 _ROWED: set[str] = set()
+#: A narrower argument model a host gives one Action tool (``open_tool_door(tool_args=...)``): the model is offered
+#: and validated against only these fields; the Action still receives its full input model's defaults.
+_TOOL_ARGS: dict[str, type] = {}
 
 _BY_TOOL_NAME: dict[str, ActionSpec] = {}
+
+#: The notices the running tool call's work handed the model (``add_tool_notices``).
+_NOTICES: ContextVar[list[str] | None] = ContextVar("action_tool_notices", default=None)
+
+
+def add_tool_notices(*lines: str) -> None:
+    """Hand the model these sentences beside the tool's output. A no-op unless the work is
+    running inside :func:`run_action_tool` (a step or api call carries no notices)."""
+    sink = _NOTICES.get()
+    if sink is not None:
+        sink.extend(line for line in lines if line)
 
 
 def action_for_tool(tool_name: str) -> ActionSpec | None:
@@ -67,6 +87,8 @@ async def run_action_tool(args: Any, ctx: Any) -> Any:
     from matrx_ai.tools.models import ToolError
 
     payload = args.model_dump() if hasattr(args, "model_dump") else (args or {})
+    notices: list[str] = []
+    notices_token = _NOTICES.set(notices)
     try:
         out = await run_action(
             spec, payload, app=get_app_context(), idempotency_key=tool_idempotency_key(name, payload, ctx),
@@ -75,7 +97,7 @@ async def run_action_tool(args: Any, ctx: Any) -> Any:
     except ActionFailed as exc:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type=exc.error_type,
                 message=exc.message,
                 is_retryable=False,
@@ -88,23 +110,36 @@ async def run_action_tool(args: Any, ctx: Any) -> Any:
             success=False,
             error=ToolError.from_exception(exc, error_type="validation", message=str(exc)),
         )
+    finally:
+        _NOTICES.reset(notices_token)
     output = dump_result(spec, out)
     if last_run_replayed():
         output = {**output, "replayed": True, "message": REPLAY_MESSAGE}
-    return ToolResult(success=True, output=output)
+    return ToolResult(success=True, output=output, model_notices=notices)
+
+
+def tool_args_for(tool_name: str, spec: ActionSpec) -> type:
+    """The argument model a tool is offered with: the host's narrower one, else the Action's input model."""
+    return _TOOL_ARGS.get(tool_name) or spec.input_schema
 
 
 def open_tool_door(
-    registry: ActionRegistry | None = None, *, rowed: frozenset[str] | set[str] = frozenset()
+    registry: ActionRegistry | None = None,
+    *,
+    rowed: frozenset[str] | set[str] = frozenset(),
+    tool_args: dict[str, type] | None = None,
 ) -> list[str]:
     """Declare every Action with the ``tool`` door as a tool. Idempotent — the host calls
     it again once lazily-imported Actions (workflow steps) are declared.
 
     ``rowed``: the tool names whose ``tool.definition`` row exists (host-supplied); those
-    validate against it. Returns the tool names declared. A tool name already declared by another
+    validate against it. ``tool_args``: per tool name, a narrower argument model (a subset of the
+    Action's input fields, e.g. without import-only fields) — what the model is offered and what the
+    drift gate compares; omitted fields take the Action's own defaults. Returns the tool names declared. A tool name already declared by another
     function is a hard error (``ToolDeclarationError``) — one name, one Action.
     """
     _ROWED.update(rowed)
+    _TOOL_ARGS.update(tool_args or {})
     opened: list[str] = []
     for spec in (registry or default_action_registry()).all():
         if "tool" not in spec.doors or spec.work is None:
@@ -112,11 +147,17 @@ def open_tool_door(
         name = tool_name_for(spec.name)
         _BY_TOOL_NAME[name] = spec
         existing = get_declared_tool(name)
-        if existing is None or existing.func is not run_action_tool or existing.validate != (name in _ROWED):
+        args = tool_args_for(name, spec)
+        if (
+            existing is None
+            or existing.func is not run_action_tool
+            or existing.validate != (name in _ROWED)
+            or existing.args_model is not args
+        ):
             tool(
                 name=name,
                 source_kind="native",
-                args=spec.input_schema,
+                args=args,
                 executor="aidream",
                 validate=name in _ROWED,
             )(run_action_tool)
@@ -124,4 +165,4 @@ def open_tool_door(
     return opened
 
 
-__all__ = ["action_for_tool", "open_tool_door", "run_action_tool"]
+__all__ = ["action_for_tool", "add_tool_notices", "open_tool_door", "run_action_tool", "tool_args_for"]

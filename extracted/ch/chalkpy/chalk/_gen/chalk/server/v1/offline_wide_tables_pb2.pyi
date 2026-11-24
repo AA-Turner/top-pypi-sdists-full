@@ -59,6 +59,19 @@ class OfflineWideTableCompactionNamespaceStatus(int, metaclass=_enum_type_wrappe
         OfflineWideTableCompactionNamespaceStatus
     ]
 
+class OfflineStoreMigrationOp(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    OFFLINE_STORE_MIGRATION_OP_UNSPECIFIED: _ClassVar[OfflineStoreMigrationOp]
+    OFFLINE_STORE_MIGRATION_OP_INSERTED_AT_DEFAULT: _ClassVar[OfflineStoreMigrationOp]
+    OFFLINE_STORE_MIGRATION_OP_REPARTITION_INSERTED_AT: _ClassVar[OfflineStoreMigrationOp]
+    OFFLINE_STORE_MIGRATION_OP_REPARTITION_OBSERVED_AT: _ClassVar[OfflineStoreMigrationOp]
+
+class OfflineStoreMigrationFeatureSet(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    OFFLINE_STORE_MIGRATION_FEATURE_SET_UNSPECIFIED: _ClassVar[OfflineStoreMigrationFeatureSet]
+    OFFLINE_STORE_MIGRATION_FEATURE_SET_MFV_FEATURES: _ClassVar[OfflineStoreMigrationFeatureSet]
+    OFFLINE_STORE_MIGRATION_FEATURE_SET_ALL_FEATURES: _ClassVar[OfflineStoreMigrationFeatureSet]
+
 OFFLINE_WIDE_TABLE_RUN_KIND_UNSPECIFIED: OfflineWideTableRunKind
 OFFLINE_WIDE_TABLE_RUN_KIND_FILL: OfflineWideTableRunKind
 OFFLINE_WIDE_TABLE_RUN_KIND_COMPACT: OfflineWideTableRunKind
@@ -80,6 +93,13 @@ OFFLINE_WIDE_TABLE_COMPACTION_NAMESPACE_STATUS_RUNNING: OfflineWideTableCompacti
 OFFLINE_WIDE_TABLE_COMPACTION_NAMESPACE_STATUS_COMPLETED: OfflineWideTableCompactionNamespaceStatus
 OFFLINE_WIDE_TABLE_COMPACTION_NAMESPACE_STATUS_FAILED: OfflineWideTableCompactionNamespaceStatus
 OFFLINE_WIDE_TABLE_COMPACTION_NAMESPACE_STATUS_SKIPPED_DISABLED: OfflineWideTableCompactionNamespaceStatus
+OFFLINE_STORE_MIGRATION_OP_UNSPECIFIED: OfflineStoreMigrationOp
+OFFLINE_STORE_MIGRATION_OP_INSERTED_AT_DEFAULT: OfflineStoreMigrationOp
+OFFLINE_STORE_MIGRATION_OP_REPARTITION_INSERTED_AT: OfflineStoreMigrationOp
+OFFLINE_STORE_MIGRATION_OP_REPARTITION_OBSERVED_AT: OfflineStoreMigrationOp
+OFFLINE_STORE_MIGRATION_FEATURE_SET_UNSPECIFIED: OfflineStoreMigrationFeatureSet
+OFFLINE_STORE_MIGRATION_FEATURE_SET_MFV_FEATURES: OfflineStoreMigrationFeatureSet
+OFFLINE_STORE_MIGRATION_FEATURE_SET_ALL_FEATURES: OfflineStoreMigrationFeatureSet
 
 class SnowflakeWarehouseStats(_message.Message):
     __slots__ = ("execution_ms", "estimated_microcredits", "planning_ms", "warehouse_name", "warehouse_size")
@@ -533,12 +553,27 @@ class TriggerOfflineWideTableOverrideFillResponse(_message.Message):
     def __init__(self, run: _Optional[_Union[OfflineWideTableRun, _Mapping]] = ...) -> None: ...
 
 class TriggerOfflineWideTableCompactionRequest(_message.Message):
-    __slots__ = ("namespace", "resource_group")
+    __slots__ = (
+        "namespace",
+        "resource_group",
+        "observed_at_lower_bound_inclusive",
+        "observed_at_upper_bound_exclusive",
+    )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_AT_LOWER_BOUND_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_AT_UPPER_BOUND_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     resource_group: str
-    def __init__(self, namespace: _Optional[str] = ..., resource_group: _Optional[str] = ...) -> None: ...
+    observed_at_lower_bound_inclusive: _timestamp_pb2.Timestamp
+    observed_at_upper_bound_exclusive: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        observed_at_lower_bound_inclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        observed_at_upper_bound_exclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
 
 class TriggerOfflineWideTableCompactionResponse(_message.Message):
     __slots__ = ("operation_id",)
@@ -546,29 +581,86 @@ class TriggerOfflineWideTableCompactionResponse(_message.Message):
     operation_id: str
     def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
 
+class OfflineStoreMigrationNamespaceSelection(_message.Message):
+    __slots__ = ("namespace", "features")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    features: OfflineStoreMigrationFeatureSet
+    def __init__(
+        self, namespace: _Optional[str] = ..., features: _Optional[_Union[OfflineStoreMigrationFeatureSet, str]] = ...
+    ) -> None: ...
+
+class OfflineStoreMigrationTableSelection(_message.Message):
+    __slots__ = ("namespaces", "table_names")
+    NAMESPACES_FIELD_NUMBER: _ClassVar[int]
+    TABLE_NAMES_FIELD_NUMBER: _ClassVar[int]
+    namespaces: _containers.RepeatedCompositeFieldContainer[OfflineStoreMigrationNamespaceSelection]
+    table_names: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        namespaces: _Optional[_Iterable[_Union[OfflineStoreMigrationNamespaceSelection, _Mapping]]] = ...,
+        table_names: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class TriggerOfflineStoreMigrationRequest(_message.Message):
+    __slots__ = ("op", "apply", "all_namespaces", "selection")
+    OP_FIELD_NUMBER: _ClassVar[int]
+    APPLY_FIELD_NUMBER: _ClassVar[int]
+    ALL_NAMESPACES_FIELD_NUMBER: _ClassVar[int]
+    SELECTION_FIELD_NUMBER: _ClassVar[int]
+    op: OfflineStoreMigrationOp
+    apply: bool
+    all_namespaces: OfflineStoreMigrationFeatureSet
+    selection: OfflineStoreMigrationTableSelection
+    def __init__(
+        self,
+        op: _Optional[_Union[OfflineStoreMigrationOp, str]] = ...,
+        apply: bool = ...,
+        all_namespaces: _Optional[_Union[OfflineStoreMigrationFeatureSet, str]] = ...,
+        selection: _Optional[_Union[OfflineStoreMigrationTableSelection, _Mapping]] = ...,
+    ) -> None: ...
+
+class TriggerOfflineStoreMigrationResponse(_message.Message):
+    __slots__ = ("job_name", "kube_namespace")
+    JOB_NAME_FIELD_NUMBER: _ClassVar[int]
+    KUBE_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    job_name: str
+    kube_namespace: str
+    def __init__(self, job_name: _Optional[str] = ..., kube_namespace: _Optional[str] = ...) -> None: ...
+
 class MaterializedFeatureViewControl(_message.Message):
-    __slots__ = ("name", "status", "agent_id", "updated_at")
+    __slots__ = ("name", "status", "agent_id", "updated_at", "compaction_status")
     NAME_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     AGENT_ID_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    COMPACTION_STATUS_FIELD_NUMBER: _ClassVar[int]
     name: str
     status: _scheduled_query_run_pb2.CronControlStatus
     agent_id: str
     updated_at: _timestamp_pb2.Timestamp
+    compaction_status: _scheduled_query_run_pb2.CronControlStatus
     def __init__(
         self,
         name: _Optional[str] = ...,
         status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...,
         agent_id: _Optional[str] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        compaction_status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...,
     ) -> None: ...
 
 class UpdateMaterializedFeatureViewControlOperation(_message.Message):
-    __slots__ = ("status",)
+    __slots__ = ("status", "compaction_status")
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    COMPACTION_STATUS_FIELD_NUMBER: _ClassVar[int]
     status: _scheduled_query_run_pb2.CronControlStatus
-    def __init__(self, status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...) -> None: ...
+    compaction_status: _scheduled_query_run_pb2.CronControlStatus
+    def __init__(
+        self,
+        status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...,
+        compaction_status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...,
+    ) -> None: ...
 
 class UpdateMaterializedFeatureViewControlRequest(_message.Message):
     __slots__ = ("name", "status", "update_mask", "update")

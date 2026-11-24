@@ -22,6 +22,8 @@ from .command import (
     CommandWriter,
     ConfigArgs,
     CustomArgs,
+    PauseArgs,
+    ResumeArgs,
     RetryArgs,
     RunCapabilities,
     RunCommandAsk,
@@ -51,13 +53,14 @@ from .lineage import LineageEntityType, LineageRelation
 from .metric_point import MetricNonFinite, MetricPoint
 from .project import Project, ProjectKind
 from .records import Record
-from .run import ParentRelation, Run, RunCounts, RunStatus, RunType
+from .run import LIVE_RUN_STATUSES, ParentRelation, Run, RunCounts, RunStatus, RunType
 from .span import Span
 
 __all__ = [
     "CLAIM_WITHIN_SECONDS",
     "COMMAND_ARGS",
     "EDIT_OP_ARGS",
+    "LIVE_RUN_STATUSES",
     "RUN_KINDS",
     "SAMPLE_KINDS",
     "WATCH_SECONDS",
@@ -93,10 +96,12 @@ __all__ = [
     "MetricPoint",
     "MoveSeriesArgs",
     "ParentRelation",
+    "PauseArgs",
     "Project",
     "ProjectKind",
     "Record",
     "RenameArgs",
+    "ResumeArgs",
     "RetryArgs",
     "RevertArgs",
     "Run",

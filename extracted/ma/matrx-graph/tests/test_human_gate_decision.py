@@ -78,7 +78,7 @@ def _gate_graph() -> dict[str, Any]:
                         "decision": {
                             "items": ITEMS,
                             "min_answers": 2,
-                            "subject": {"entity_type": "web_brand", "id": "brand-1"},
+                            "subject": {"entity_type": "brand", "id": "brand-1"},
                         },
                     }
                 },
@@ -125,7 +125,7 @@ async def test_the_gate_parks_with_the_whole_spec_and_nothing_downstream_runs() 
     spec = payload["decision"]
     assert [i["key"] for i in spec["items"]] == ["name", "what_you_do", "audience"]
     assert spec["items"][0]["source"] == "homepage title" and spec["items"][0]["confidence"] == 0.9
-    assert spec["subject"] == {"entity_type": "web_brand", "id": "brand-1", "level": "editor"}
+    assert spec["subject"] == {"entity_type": "brand", "id": "brand-1", "level": "editor"}
     answers = payload["schema_hint"]["properties"]["answer"]["properties"]["answers"]
     assert answers["required"] == ["name"] and answers["minProperties"] == 2
 

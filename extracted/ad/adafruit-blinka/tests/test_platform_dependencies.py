@@ -44,51 +44,42 @@ def _detector(chip_id=None, **board_values):
     )
 
 
-def test_raspberry_pi_5_uses_gpiod_and_native_pwm():
+@pytest.mark.parametrize("any_raspberry_pi", [False, True])
+@pytest.mark.parametrize(
+    "python_version, has_neopixel",
+    [((3, 10), False), ((3, 11), True), ((3, 13), True)],
+)
+def test_raspberry_pi_5_uses_gpiod_and_native_pwm(
+    any_raspberry_pi, python_version, has_neopixel
+):
     dependencies = platform_dependencies.get_platform_dependencies(
-        _detector(any_raspberry_pi_5_board=True, any_raspberry_pi=True),
-        python_version=(3, 13),
+        _detector(any_raspberry_pi_5_board=True, any_raspberry_pi=any_raspberry_pi),
+        python_version=python_version,
     )
 
-    assert dependencies == [
-        ("gpiod", "gpiod>=2.2.2,<3"),
-        (
-            "adafruit_blinka_raspberry_pi_pwm",
-            "Adafruit-Blinka-Raspberry-Pi-PWM>=1.0.2",
-        ),
-        (
-            "adafruit_raspberry_pi5_neopixel_write",
-            "Adafruit-Blinka-Raspberry-Pi5-Neopixel",
-        ),
-    ]
-
-
-def test_raspberry_pi_5_gpio_pwm_requirements_do_not_depend_on_python_version():
-    dependencies = platform_dependencies.get_platform_dependencies(
-        _detector(any_raspberry_pi_5_board=True, any_raspberry_pi=True),
-        python_version=(3, 12),
-    )
-
-    assert dependencies[:2] == [
+    expected = [
         ("gpiod", "gpiod>=2.2.2,<3"),
         (
             "adafruit_blinka_raspberry_pi_pwm",
             "Adafruit-Blinka-Raspberry-Pi-PWM>=1.0.2",
         ),
     ]
-    assert all(name not in ("lgpio", "RPi.GPIO") for name, _ in dependencies)
+    if has_neopixel:
+        expected.append(
+            (
+                "adafruit_raspberry_pi5_neopixel_write",
+                "Adafruit-Blinka-Raspberry-Pi5-Neopixel",
+            )
+        )
+    assert dependencies == expected
 
 
-def test_raspberry_pi_5_neopixel_requires_python_311():
-    detector = _detector(any_raspberry_pi_5_board=True, any_raspberry_pi=True)
-    dependencies = platform_dependencies.get_platform_dependencies(
-        detector, python_version=(3, 10)
+@pytest.mark.parametrize("any_raspberry_pi", [False, True])
+def test_raspberry_pi_5_neopixel_requires_python_311(any_raspberry_pi):
+    detector = _detector(
+        any_raspberry_pi_5_board=True, any_raspberry_pi=any_raspberry_pi
     )
 
-    assert all(
-        module_name != "adafruit_raspberry_pi5_neopixel_write"
-        for module_name, _ in dependencies
-    )
     assert platform_dependencies.get_unsupported_platform_dependency_message(
         detector,
         "adafruit_raspberry_pi5_neopixel_write",
@@ -150,7 +141,7 @@ def test_unrelated_generic_linux_board_does_not_install_lgpio():
         _detector(chip_id="GENERIC_X86"), python_version=(3, 14)
     )
 
-    assert dependencies == []
+    assert not dependencies
 
 
 def test_import_requirement_for_gpiod():
@@ -324,6 +315,16 @@ def test_jetson_namespaces_use_jetson_gpio_distribution(import_name):
         _detector(any_jetson_board=True), import_name
     )
     assert requirement == "Jetson.GPIO"
+
+
+def test_jetson_alias_guidance_is_separate_from_startup_selection():
+    # A forced board ID can disagree with the detected Raspberry Pi revision.
+    detector = _detector(any_raspberry_pi=True, any_jetson_board=True)
+    assert platform_dependencies.get_platform_dependencies(detector)[0][0] == "gpiod"
+    assert (
+        platform_dependencies.get_platform_requirement_for_import(detector, "RPi.GPIO")
+        == "Jetson.GPIO"
+    )
 
 
 @pytest.mark.parametrize(
@@ -666,127 +667,54 @@ def test_verified_trixie_does_not_satisfy_a_future_higher_minimum(monkeypatch):
     )
 
 
-@pytest.mark.parametrize(
-    "module_name, requirement",
-    [
-        ("_rpi_ws281x", "rpi_ws281x>=4.0.0"),
-        ("adafruit_blinka_raspberry_pi_pwm", "Adafruit-Blinka-Raspberry-Pi-PWM>=1.0.2"),
-    ],
-)
-@pytest.mark.parametrize("skip", ["noninteractive", "decline", "eof"])
-def test_unused_optional_old_backend_does_not_block_startup(
-    monkeypatch, installer, module_name, requirement, skip
-):
+@pytest.mark.parametrize("pi5", [False, True], ids=["earlier_pi", "pi5"])
+@pytest.mark.parametrize("mode", ["satisfied", "confirm", "decline", "noninteractive"])
+def test_pi_startup_checks_and_installs_only_required_gpio(monkeypatch, pi5, mode):
+    detector = _detector(any_raspberry_pi=True, any_raspberry_pi_5_board=pi5)
+    stdin, stdout = io.StringIO(), io.StringIO()
+    stdin.isatty = lambda: mode != "noninteractive"
+    stdout.isatty = lambda: True
+    commands, prompts = [], []
+
+    def find_spec(name):
+        assert name == "gpiod"
+        return object() if mode == "satisfied" or commands else None
+
+    def version(name):
+        assert name == "gpiod"
+        if mode == "satisfied" or commands:
+            return "2.2.2"
+        raise platform_dependencies.importlib.metadata.PackageNotFoundError(name)
+
+    def answer(prompt):
+        prompts.append(prompt)
+        return "n" if mode == "decline" else "y"
+
+    monkeypatch.setattr(sys, "stdin", stdin)
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.delitem(sys.modules, "gpiod", raising=False)
+    monkeypatch.setattr(platform_dependencies.importlib.util, "find_spec", find_spec)
+    monkeypatch.setattr(platform_dependencies.importlib.metadata, "version", version)
     monkeypatch.setattr(
-        platform_dependencies,
-        "get_platform_dependencies",
-        lambda *_args: [(module_name, requirement)],
+        platform_dependencies.subprocess,
+        "run",
+        lambda command, check: commands.append((command, check)),
     )
-    installer.missing = [requirement]
-    monkeypatch.setattr(
-        platform_dependencies.importlib.metadata, "version", lambda _name: "0.1"
-    )
-    if skip == "noninteractive":
-        monkeypatch.setattr(installer.stdin, "isatty", lambda: False)
+    assert platform_dependencies.install_missing_platform_dependencies(
+        detector, python_version=(3, 13), input_func=answer
+    ) is (mode == "confirm")
+    if mode in ("confirm", "decline"):
+        assert len(prompts) == 1
+        assert stdout.getvalue().splitlines()[-1] == "  - gpiod>=2.2.2,<3"
     else:
-        installer.answer = "n" if skip == "decline" else EOFError()
-    assert not installer.run()
-    assert installer.commands == []
-    assert installer.invalidations == []
-
-
-@pytest.mark.parametrize(
-    "failure, already_loaded",
-    [("os", False), ("externally_managed", False), ("os", True)],
-)
-def test_optional_install_failure_warns_without_blocking_startup(
-    monkeypatch, installer, failure, already_loaded
-):
-    requirement = "rpi_ws281x>=4.0.0"
-    monkeypatch.setattr(
-        platform_dependencies,
-        "get_platform_dependencies",
-        lambda *_args: [("_rpi_ws281x", requirement)],
-    )
-    installer.missing = [requirement]
-    if already_loaded:
-        monkeypatch.setitem(sys.modules, "_rpi_ws281x", SimpleNamespace())
-
-    def failed_install(command, check):
-        assert check is True
-        if failure == "os":
-            raise OSError("Cannot launch pip")
-        raise platform_dependencies.subprocess.CalledProcessError(
-            1, command, stderr="externally-managed-environment"
-        )
-
-    monkeypatch.setattr(platform_dependencies.subprocess, "run", failed_install)
-    with pytest.warns(RuntimeWarning, match="optional platform dependencies") as caught:
-        assert not installer.run()
-    expected = platform_dependencies.format_install_command(
-        [requirement], executable=sys.executable
-    )
-    assert expected in str(caught[0].message)
-    assert installer.invalidations == []
-
-
-def test_partial_upgrade_of_loaded_optional_backend_remains_fatal(
-    monkeypatch, installer
-):
-    requirement = "rpi_ws281x>=4.0.0"
-    monkeypatch.setattr(
-        platform_dependencies,
-        "get_platform_dependencies",
-        lambda *_args: [("_rpi_ws281x", requirement)],
-    )
-    installer.missing = [requirement]
-    original = SimpleNamespace()
-    monkeypatch.setitem(sys.modules, "_rpi_ws281x", original)
-    error = platform_dependencies.subprocess.CalledProcessError(1, ["python"])
-
-    def partial_install(_command, check):
-        assert check is True
-        raise error
-
-    monkeypatch.setattr(platform_dependencies.subprocess, "run", partial_install)
-    with pytest.raises(RuntimeError, match="Unable to install") as raised:
-        installer.run()
-    assert raised.value.__cause__ is error
-    assert sys.modules["_rpi_ws281x"] is original
-
-
-def test_optional_install_still_invisible_warns_with_restart_guidance(
-    monkeypatch, installer
-):
-    requirement = "Adafruit-Blinka-Raspberry-Pi-PWM>=1.0.2"
-    monkeypatch.setattr(
-        platform_dependencies,
-        "get_platform_dependencies",
-        lambda *_args: [("adafruit_blinka_raspberry_pi_pwm", requirement)],
-    )
-    installer.missing = installer.after_install_missing = [requirement]
-    with pytest.warns(RuntimeWarning, match="Restart Python"):
-        assert not installer.run()
-    assert len(installer.commands) == 1
-    assert installer.invalidations == [True]
-
-
-def test_replacing_loaded_optional_backend_still_requires_restart(
-    monkeypatch, installer
-):
-    requirement = "rpi_ws281x>=4.0.0"
-    monkeypatch.setattr(
-        platform_dependencies,
-        "get_platform_dependencies",
-        lambda *_args: [("_rpi_ws281x", requirement)],
-    )
-    installer.missing = [requirement]
-    original = SimpleNamespace()
-    monkeypatch.setitem(sys.modules, "_rpi_ws281x", original)
-    with pytest.raises(RuntimeError, match="Restart Python"):
-        installer.run()
-    assert sys.modules["_rpi_ws281x"] is original
-    assert len(installer.commands) == 1
+        assert not prompts
+        assert stdout.getvalue() == ""
+    if mode == "confirm":
+        assert commands == [
+            ([sys.executable, "-m", "pip", "install", "gpiod>=2.2.2,<3"], True)
+        ]
+    else:
+        assert not commands
 
 
 @pytest.mark.parametrize("failure", ["os", "pip"])

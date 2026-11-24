@@ -7,10 +7,10 @@ not the other, this test fails with a clear diff.
 Run with:  python -m pytest ai/tests/test_llm_params_drift.py -v
 """
 
-from dataclasses import fields as dc_fields
 
 from matrx_ai.config.llm_params import LLMParams
-from matrx_ai.config.unified_config import UnifiedConfig
+# The module's one field registry: at the pydantic flip only unified_config changes.
+from matrx_ai.config.unified_config import _CONFIG_FIELDS
 
 UNIFIED_CONFIG_INTERNAL_FIELDS = {
     # Conversation / request envelope — not LLM parameter overrides
@@ -54,6 +54,18 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     # The agent's tool policy carried by the conversation (stamped by the host funnel).
     "agent_auto_tools_disabled",
     "agent_excluded_tools",
+    # The agent's per-tool argument limits (tool_config.arg_limits) — agent policy, never a caller override.
+    "agent_tool_arg_limits",
+    # Per-page tool-action limits a page brought (sticky with the chat) — host-stamped, never a caller override.
+    "surface_tool_actions",
+    # The agent's declared modes (definition understanding.modes) and the in-memory, once-per-request
+    # settlement of a person's mode flip (D17). The caller's override is `agent_mode` alone.
+    "agent_modes",
+    "agent_mode_known",
+    "agent_mode_person_set",
+    "agent_mode_settled_request",
+    # Whether the person (not a default) chose the model — decides if a swap is announced; runtime-only, never in to_dict.
+    "model_picked_by_person",
     # Declared prompt blocks and their first-turn resolution (matrx_ai/prompt_blocks): agent
     # declaration + frozen-with-the-conversation state, never a caller override.
     "prompt_blocks",
@@ -66,6 +78,9 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     "prompt_block_tool_ids",
     # The model-turn-only restore marker carried by a conversation (host-written state).
     "model_turn_only_restore",
+    "model_swaps_this_turn",
+    "tools_turn_only_restore",
+    "stored_route_baseline",
     "dynamic_tools_withheld",
     "tool_authority_filtered",
     "tool_authority_exclusions",
@@ -78,12 +93,18 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     "tool_delegation_filter_applied_runtime",
     "authored_custom_tools",
     "authored_mcp_servers",
+    # The agent's own settings layer, snapshotted by the host when the agent's config is
+    # built (Agent._build_from_config) — host state, never a caller override.
+    "authored_settings",
+    # A hosted tool's per-call options, set by a call site through run_mandate
+    # (mandates.py) on a tool the Holder turned on — never a request-body override.
+    "hosted_tool_options",
 }
 
 
 def test_llm_params_covers_all_overridable_unified_config_fields():
     """Every overridable UnifiedConfig field must exist in LLMParams."""
-    config_fields = {f.name for f in dc_fields(UnifiedConfig)} - UNIFIED_CONFIG_INTERNAL_FIELDS
+    config_fields = set(_CONFIG_FIELDS) - UNIFIED_CONFIG_INTERNAL_FIELDS
 
     param_fields = set(LLMParams.model_fields.keys())
 
@@ -96,7 +117,7 @@ def test_llm_params_covers_all_overridable_unified_config_fields():
 
 def test_llm_params_has_no_extra_fields():
     """Every LLMParams field must correspond to a UnifiedConfig field."""
-    config_fields = {f.name for f in dc_fields(UnifiedConfig)}
+    config_fields = set(_CONFIG_FIELDS)
     param_fields = set(LLMParams.model_fields.keys())
 
     extra_in_params = param_fields - config_fields

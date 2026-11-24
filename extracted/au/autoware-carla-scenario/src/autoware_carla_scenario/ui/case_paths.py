@@ -67,7 +67,7 @@ SESSION_TYPES = ("multirun", "batch", "single")
 #: A date or time directory name, or a job index: no separator, no ``..``,
 #: and no longer than a file name may be (NAME_MAX), so that a stat of it
 #: fails as "not found" rather than with ENAMETOOLONG.
-_COMPONENT = re.compile(r"^[A-Za-z0-9_.:+-]{1,255}$")
+_COMPONENT = re.compile(r"[A-Za-z0-9_.:+-]{1,255}")
 
 #: The most digits a case index the viewer reads from a request has (its URL
 #: converter's and ``/compare/runs``'s): more is no case, and a longer one
@@ -124,7 +124,7 @@ class CaseFiles:
 
 
 def _safe(component: str) -> bool:
-    return bool(_COMPONENT.match(component)) and component not in (".", "..")
+    return bool(_COMPONENT.fullmatch(component)) and component not in (".", "..")
 
 
 def contained(root: Path, *parts: str) -> Optional[Path]:
@@ -234,14 +234,12 @@ def _stems_in(directory: Path) -> list[str]:
 
 def result_path(directory: Path) -> Optional[Path]:
     """The ``_result.json`` of the run a directory that holds one run (a
-    multirun job, a single run) shows: the first, in :func:`stem_order`, so
-    ``X``'s rather than ``X-1``'s, which a plain sort puts first (``-`` sorts
-    before ``_``). ``None`` when it has none."""
-    for stem in _stems_in(directory):
-        path = directory / f"{stem}{_RESULT}"
-        if own_file(path):
-            return path
-    return None
+    multirun job, a single run) shows: the last run's
+    (:func:`last_result_path`), so that a run again into the same directory
+    (``X-1`` beside ``X``) shows the new run, whose verdict its exit status
+    and the gate read, rather than the old one (#2416). ``None`` when the
+    last run left none."""
+    return last_result_path(directory)
 
 
 def last_result_path(directory: Path) -> Optional[Path]:
@@ -260,12 +258,10 @@ def last_result_path(directory: Path) -> Optional[Path]:
 
 def _only_case(directory: Path) -> CaseFiles | None:
     """The case of a directory that holds one run (a multirun job, a single
-    run): the stem of its :func:`result_path`, else the first with a log."""
-    result = result_path(directory)
-    if result is not None:
-        return CaseFiles(directory, result.name[: -len(_RESULT)])
+    run): its last run, in :func:`stem_order`, the one :func:`result_path`
+    reads (#2416)."""
     stems = _stems_in(directory)
-    return CaseFiles(directory, stems[0]) if stems else None
+    return CaseFiles(directory, stems[-1]) if stems else None
 
 
 def _shared_overrides(jobs: list[list[str]]) -> set[str]:

@@ -24,7 +24,7 @@ import openai
 import pytest
 from google.genai.errors import ClientError
 
-from matrx_ai.providers.errors import RetryableError, classify_provider_error
+from matrx_ai.providers.errors import OUR_SIDE_MESSAGE, RetryableError, classify_provider_error
 
 _REQ = httpx.Request("POST", "https://provider.invalid/v1/responses")
 
@@ -198,10 +198,10 @@ def test_out_of_credit_refusal_is_a_named_non_retryable_billing_error(
 
     assert result.error_type == "billing_error", (provider, result.error_type, result.message)
     assert result.is_retryable is False
-    # The person reads ONE plain sentence naming the provider and the
-    # platform's account — never a billing URL they cannot use.
-    assert result.user_message.startswith(f"{display} refused this request"), result.user_message
-    assert f"the platform's {display} account" in result.user_message
+    # The person reads ONE fixed sentence that says it is OUR problem and names no provider
+    # (Arman, 2026-11-18) — never a billing URL they cannot use.
+    assert result.user_message == OUR_SIDE_MESSAGE, result.user_message
+    assert display.lower() not in result.user_message.lower()
     assert "http" not in result.user_message.lower()
     assert "retrying" not in result.user_message.lower()
     # The operator keeps the provider's raw words.
@@ -214,12 +214,14 @@ def test_suspended_account_says_suspended_not_out_of_credit() -> None:
         openai.APIError("Your account is suspended. Contact support.", _REQ, body=None),
     )
     assert result.error_type == "billing_error"
-    assert result.user_message == "OpenAI refused this request: the platform's OpenAI account is suspended."
+    assert result.user_message == OUR_SIDE_MESSAGE
+    assert result.details["account_condition"] == "is suspended"
 
 
 def test_openai_no_credits_sentence_is_exact() -> None:
     result = classify_provider_error("openai", openai.APIError(OPENAI_NO_CREDITS, _REQ, body=None))
-    assert result.user_message == "OpenAI refused this request: the platform's OpenAI account is out of credit."
+    assert result.user_message == OUR_SIDE_MESSAGE
+    assert result.details["account_condition"] == "is out of credit"
 
 
 TRAFFIC_LIMITS: list[tuple[str, Exception]] = [
@@ -269,8 +271,8 @@ def test_a_traffic_limit_stays_a_retryable_rate_limit(provider: str, exc: Except
 @pytest.mark.parametrize(
     ("provider", "sentence"),
     [
-        ("replicate", "Replicate refused this request: the platform's Replicate account is out of credit."),
-        ("unknown", "The AI provider refused this request: the platform's account is out of credit."),
+        ("replicate", OUR_SIDE_MESSAGE),
+        ("unknown", OUR_SIDE_MESSAGE),
     ],
 )
 def test_a_provider_without_its_own_classifier_is_still_named_plainly(provider: str, sentence: str) -> None:
@@ -290,4 +292,4 @@ def test_the_operator_key_stays_the_routing_key() -> None:
     """Telemetry (_issue_key, details.provider) keys on the routing key."""
     result = classify_provider_error("together", _StatusError(402, "Payment Required"))
     assert result.details["provider"] == "together"
-    assert result.user_message.startswith("Together AI refused this request")
+    assert result.user_message == OUR_SIDE_MESSAGE

@@ -18,6 +18,7 @@ import sys
 import traceback
 import typing as t
 import uuid
+import weakref
 
 from html import escape
 
@@ -67,6 +68,68 @@ if t.TYPE_CHECKING:
 
 
 _tasks: set[asyncio.Task] = set()
+
+_hook_arities: weakref.WeakKeyDictionary[Callable, int] = weakref.WeakKeyDictionary()
+
+# Shares the added subtrees between the hooks of a single _preprocess call
+_subtrees_cache: dict[tuple[int, str, int], tuple[Viewable, list[Model], list[Viewable]]] = {}
+
+
+def _hook_arity(hook: Callable) -> int:
+    try:
+        return _hook_arities[hook]
+    except (KeyError, TypeError):
+        pass
+    arity = len(inspect.signature(hook).parameters)
+    try:
+        _hook_arities[hook] = arity
+    except TypeError:
+        pass
+    return arity
+
+
+def _added_subtrees(
+    root_view: Viewable, changed: Viewable | None = None, ref: str | None = None,
+    old_models: list[Model] | None = None
+) -> list[Viewable]:
+    """
+    Returns the roots of the Viewable subtrees a preprocessing pass has
+    to inspect, i.e. the children of the changed component whose models
+    were not reused. Falls back to the changed component (or the root)
+    when the new children cannot be determined cheaply.
+    """
+    if changed is None:
+        return [root_view]
+    if old_models is None or ref is None:
+        return [changed]
+    key = (id(changed), ref, id(old_models))
+    cached = _subtrees_cache.get(key)
+    if cached is not None and cached[0] is changed and cached[1] is old_models:
+        return cached[2]
+    from .custom import ReactiveESM
+    from .layout.base import Panel
+    select = type(changed).select
+    children: list[Viewable]
+    if select is Panel.select and isinstance(getattr(changed, 'objects', None), list):
+        children = changed.objects  # type: ignore[attr-defined]
+    elif select is ReactiveESM.select:
+        children = []
+        for p, pobj in changed.param.objects(instance='existing').items():
+            if isinstance(pobj, Children):
+                children.extend(getattr(changed, p, None) or [])
+            elif isinstance(pobj, Child):
+                child = getattr(changed, p, None)
+                if child is not None:
+                    children.append(child)
+    else:
+        return [changed]
+    old = {id(model) for model in old_models}
+    subtrees = [
+        child for child in children
+        if id(child._models.get(ref, (None,))[0]) not in old
+    ]
+    _subtrees_cache[key] = (changed, old_models, subtrees)
+    return subtrees
 
 
 class Layoutable(param.Parameterized):
@@ -307,17 +370,18 @@ class Layoutable(param.Parameterized):
             params['sizing_mode'] = 'fixed'
         elif (not (self.param.sizing_mode.constant or self.param.sizing_mode.readonly) and
               type(self).sizing_mode is None and 'sizing_mode' not in params):
-            if config.sizing_mode == 'stretch_both':
+            default_sizing_mode = config.sizing_mode
+            if default_sizing_mode == 'stretch_both':
                 if params.get('height') is not None:
                     params['sizing_mode'] = 'stretch_width'
                 elif params.get('width') is not None:
                     params['sizing_mode'] = 'stretch_height'
                 else:
-                    params['sizing_mode'] = config.sizing_mode
-            elif config.sizing_mode == 'stretch_width' and 'width' not in params:
-                params['sizing_mode'] = config.sizing_mode
-            elif config.sizing_mode == 'stretch_height' and 'height' not in params:
-                params['sizing_mode'] = config.sizing_mode
+                    params['sizing_mode'] = default_sizing_mode
+            elif default_sizing_mode == 'stretch_width' and 'width' not in params:
+                params['sizing_mode'] = default_sizing_mode
+            elif default_sizing_mode == 'stretch_height' and 'height' not in params:
+                params['sizing_mode'] = default_sizing_mode
         super().__init__(**params)
         self._sizing_initializing = False
         # Track dynamic (post-init) updates to the sizing parameters so
@@ -726,6 +790,9 @@ class Renderable(param.Parameterized, MimeRenderMixin):
             return
         ref = root.ref['id']
         self._model_parents.pop(ref, None)
+        for doc, model in list(self._documents.items()):
+            if model is root:
+                del self._documents[doc]
         if ref in state._handles:
             del state._handles[ref]
 
@@ -748,11 +815,14 @@ class Renderable(param.Parameterized, MimeRenderMixin):
 
         changed = self if changed is None else changed
         hooks = self._preprocessing_hooks+self._hooks
-        for hook in hooks:
-            if len(inspect.signature(hook).parameters) >= 4:
-                hook(self, root, changed, old_models)
-            else:
-                hook(self, root)
+        try:
+            for hook in hooks:
+                if _hook_arity(hook) >= 4:
+                    hook(self, root, changed, old_models)
+                else:
+                    hook(self, root)
+        finally:
+            _subtrees_cache.clear()
 
     def _render_model(self, doc: Document | None = None, comm: Comm | None = None) -> Model:
         if doc is None:
@@ -785,7 +855,7 @@ class Renderable(param.Parameterized, MimeRenderMixin):
         root = self._documents[doc]
         ref = root.ref['id']
         self._cleanup(root)
-        del self._documents[doc]
+        self._documents.pop(doc, None)
         if ref in state._views:
             del state._views[ref]
 
@@ -859,10 +929,16 @@ class Viewable(Renderable, Layoutable, ServableMixin):
         if self.loading:
             self._update_loading()
         self._update_design(explicit_none)
-        self._internal_callbacks.extend([
-            self.param.watch(self._update_design, 'design'),
-            self.param.watch(self._update_loading, 'loading')
-        ])
+        self._internal_callbacks.append(
+            self.param.watch(self._update_design_or_loading, ['design', 'loading'])
+        )
+
+    def _update_design_or_loading(self, *events):
+        for event in events:
+            if event.name == 'design':
+                self._update_design()
+            else:
+                self._update_loading()
 
     @staticmethod
     @functools.cache
@@ -995,10 +1071,13 @@ class Viewable(Renderable, Layoutable, ServableMixin):
             return render_model(model)
 
         if resources == 'inline':
-            for submodel in model.select({'type': UIElement}):
-                if not isinstance(submodel, UIElement):
-                    continue
-                patch_inline_stylesheets(submodel, doc)
+            # Each stylesheets update would otherwise recompute the whole
+            # model graph, making the inlining quadratic in the model count
+            with doc.models.freeze():
+                for submodel in model.select({'type': UIElement}):
+                    if not isinstance(submodel, UIElement):
+                        continue
+                    patch_inline_stylesheets(submodel, doc)
 
         bundle, meta = self._render_mimebundle(model, doc, comm, location)
 

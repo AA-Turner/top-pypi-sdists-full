@@ -25,6 +25,10 @@ re-exports it under its historical import path.
 
 from __future__ import annotations
 
+import asyncio
+import sys
+from array import array
+
 _SEED_A: int = 0x811C9DC5
 _SEED_B: int = 0x01000193
 _FNV_PRIME: int = 16777619
@@ -43,12 +47,30 @@ def _to_base36(value: int) -> str:
     return "".join(reversed(digits))
 
 
-def _fnv1a_step(hash_value: int, units: bytes) -> int:
-    """One FNV-1a pass over little-endian UTF-16 code units, mod 2**32."""
-    h = hash_value
-    for i in range(0, len(units), 2):
-        h = ((h ^ (units[i] | (units[i + 1] << 8))) * _FNV_PRIME) & _MASK32
-    return h
+def _code_units(chunk: str) -> array[int]:
+    """The string's UTF-16 code units (JS ``charCodeAt`` semantics) as unsigned shorts.
+
+    surrogatepass: JS strings legally hold lone surrogates (e.g. from slicing a
+    pair); a strict encode would raise where JS hashes fine."""
+    units = array("H")
+    units.frombytes(chunk.encode("utf-16-le", "surrogatepass"))
+    if sys.byteorder == "big":
+        units.byteswap()
+    return units
+
+
+def _fnv1a_both(a: int, b: int, units: array[int]) -> tuple[int, int]:
+    """Both FNV-1a 32-bit passes in ONE loop over the code units, mod 2**32.
+
+    One loop instead of two, over machine shorts instead of byte pairs: the same
+    numbers ~2x faster. Still pure Python — a large value is hashed off the event
+    loop by the caller (``fingerprint_text_off_loop``)."""
+    prime = _FNV_PRIME
+    mask = _MASK32
+    for u in units:
+        a = ((a ^ u) * prime) & mask
+        b = ((b ^ u) * prime) & mask
+    return a, b
 
 
 class Fingerprinter:
@@ -67,12 +89,9 @@ class Fingerprinter:
         self._length: int = 0
 
     def push(self, chunk: str) -> None:
-        # surrogatepass: JS strings legally hold lone surrogates (e.g. from
-        # slicing a pair); a strict encode would raise where JS hashes fine.
-        units = chunk.encode("utf-16-le", "surrogatepass")
-        self._a = _fnv1a_step(self._a, units)
-        self._b = _fnv1a_step(self._b, units)
-        self._length += len(units) // 2
+        units = _code_units(chunk)
+        self._a, self._b = _fnv1a_both(self._a, self._b, units)
+        self._length += len(units)
 
     def current(self) -> str:
         """Fingerprint of everything pushed so far."""
@@ -84,3 +103,21 @@ def fingerprint_text(source: str) -> str:
     hasher = Fingerprinter()
     hasher.push(source)
     return hasher.current()
+
+
+# Above this many UTF-16 code units a fingerprint is computed in a worker thread:
+# ~0.25 s per million units on a laptop, several times that on a busy server, and on
+# the event loop it froze every other run (458 s of stalls in 7 days, PF-WF 2026-11-02).
+# A performance line, not a behaviour: the result is identical either way.
+OFF_LOOP_MIN_UNITS: int = 64 * 1024
+
+
+async def fingerprint_text_off_loop(source: str) -> str:
+    """``fingerprint_text`` that never holds the event loop for a large string.
+
+    Byte-identical to ``fingerprint_text``; a string over ``OFF_LOOP_MIN_UNITS`` is hashed
+    in a worker thread (the loop gets the GIL every switch interval, so other runs keep
+    moving). ``len(source)`` under-counts astral characters, which only moves the line."""
+    if len(source) < OFF_LOOP_MIN_UNITS:
+        return fingerprint_text(source)
+    return await asyncio.to_thread(fingerprint_text, source)

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import copy
 import itertools
-import json
 from typing import Any
 
 import pytest

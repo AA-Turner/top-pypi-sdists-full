@@ -74,6 +74,10 @@ class FeedEntry(BaseModel):
     title: str
     url: str = ""
     excerpt: str = ""
+    #: The item's summary and full body as the feed wrote them (HTML, uncleaned; RSS ``description`` /
+    #: Atom ``summary``, and ``content:encoded`` / Atom ``content``). Untrusted: a renderer sanitizes them.
+    summary_html: str = ""
+    content_html: str = ""
     author: str | None = None
     container: str = ""
     published_at: str | None = None
@@ -280,6 +284,8 @@ def _entry(
         title=title,
         url=url,
         excerpt=excerpt,
+        summary_html=(fields.get("description") or fields.get("summary") or "").strip(),
+        content_html=(fields.get("encoded") or fields.get("content") or "").strip(),
         author=author,
         container=source_name or feed_title,
         published_at=published_at,

@@ -1,6 +1,6 @@
 # Third Party
+from celery import Task, shared_task
 from celery import chain as Chain
-from celery import shared_task
 
 # Django
 from django.db import IntegrityError, models
@@ -14,7 +14,7 @@ from killstats import __title__, app_settings
 from killstats.helpers.killmailbody import KillmailBody
 from killstats.models.killboard import Killmail
 from killstats.models.killstatsaudit import AlliancesAudit, CorporationsAudit
-from killstats.providers import esi, logger
+from killstats.providers import esi, logger, retry_task_on_esi_error
 
 MAX_RETRIES_DEFAULT = 3
 
@@ -32,6 +32,9 @@ TASK_DEFAULTS_ONCE_GRACE = {
     "base": QueueOnce,
     "once": {"graceful": True},
 }
+# Default params for tasks that need bind=True and run once only.
+TASK_DEFAULTS_BIND_ONCE = {**TASK_DEFAULTS_ONCE, **{"bind": True}}
+TASK_DEFAULTS_BIND_ONCE_GRACE = {**TASK_DEFAULTS_ONCE_GRACE, **{"bind": True}}
 
 
 @shared_task(**TASK_DEFAULTS_ONCE)
@@ -167,12 +170,17 @@ def run_tracker_missing_data(pages: int = 3, batch_size: int = 200) -> None:
     )
 
 
-@shared_task(**TASK_DEFAULTS_ONCE_GRACE)
-def store_killmail(killmail_id: int) -> None:
-    """stores killmail as EveKillmail object"""
+@shared_task(**TASK_DEFAULTS_BIND_ONCE_GRACE)
+def store_killmail(self: Task, killmail_id: int) -> None:
+    """
+    Store the killmail as Killmail object.
+
+    ESI outages and limits retry the task through `retry_task_on_esi_error`.
+    """
     killmail_body = KillmailBody.get(killmail_id)
     try:
-        Killmail.objects.create_from_killmail(killmail_body)
+        with retry_task_on_esi_error(self):
+            Killmail.objects.create_from_killmail(killmail_body)
     except IntegrityError:
         logger.debug(
             "%s: Failed to store killmail, because it already exists",
@@ -182,27 +190,30 @@ def store_killmail(killmail_id: int) -> None:
         logger.debug("%s: Stored killmail", killmail_body.killmail_id)
 
 
-@shared_task(**TASK_DEFAULTS_ONCE)
+@shared_task(**TASK_DEFAULTS_BIND_ONCE)
 def check_and_import_corporation_killmails_task(
-    corporation_id: int, pages: int = 3
+    self: Task, corporation_id: int, pages: int = 3
 ) -> None:
     """
     Checks missing killmails for a corporation from zKillboard and directly imports them from the response data.
+
+    ESI outages and limits retry the task through `retry_task_on_esi_error`.
     """
     missing_killmails = Killmail.objects.check_missing_killmails(
         corporation_id=corporation_id, pages=pages
     )
 
     imported_km = 0
-    for killmail in missing_killmails:
-        try:
-            Killmail.objects.create_from_killmail(killmail)
-            imported_km += 1
-        except IntegrityError:
-            logger.debug(
-                "%s: Killmail already exists, skipping",
-                killmail.esi.killmail_id,
-            )
+    with retry_task_on_esi_error(self):
+        for killmail in missing_killmails:
+            try:
+                Killmail.objects.create_from_killmail(killmail)
+                imported_km += 1
+            except IntegrityError:
+                logger.debug(
+                    "%s: Killmail already exists, skipping",
+                    killmail.esi.killmail_id,
+                )
 
     logger.info(
         "Imported %d missing killmails for corporation %s",
@@ -211,25 +222,30 @@ def check_and_import_corporation_killmails_task(
     )
 
 
-@shared_task(**TASK_DEFAULTS_ONCE)
-def check_and_import_alliance_killmails_task(alliance_id: int, pages: int = 3) -> None:
+@shared_task(**TASK_DEFAULTS_BIND_ONCE)
+def check_and_import_alliance_killmails_task(
+    self: Task, alliance_id: int, pages: int = 3
+) -> None:
     """
     Checks missing killmails for an alliance from zKillboard and directly imports them from the response data.
+
+    ESI outages and limits retry the task through `retry_task_on_esi_error`.
     """
     missing_killmails = Killmail.objects.check_missing_killmails(
         alliance_id=alliance_id, pages=pages
     )
 
     imported_km = 0
-    for killmail in missing_killmails:
-        try:
-            Killmail.objects.create_from_killmail(killmail)
-            imported_km += 1
-        except IntegrityError:
-            logger.debug(
-                "%s: Killmail already exists, skipping",
-                killmail.esi.killmail_id,
-            )
+    with retry_task_on_esi_error(self):
+        for killmail in missing_killmails:
+            try:
+                Killmail.objects.create_from_killmail(killmail)
+                imported_km += 1
+            except IntegrityError:
+                logger.debug(
+                    "%s: Killmail already exists, skipping",
+                    killmail.esi.killmail_id,
+                )
 
     logger.info(
         "Imported %d missing killmails for alliance %s",

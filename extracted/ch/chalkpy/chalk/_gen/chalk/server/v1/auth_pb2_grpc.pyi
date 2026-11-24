@@ -24,6 +24,8 @@ from chalk._gen.chalk.server.v1.auth_pb2 import (
     GetInternalWorkingTokenResponse,
     GetProjectInfoRequest,
     GetProjectInfoResponse,
+    GetSelfServiceStatusRequest,
+    GetSelfServiceStatusResponse,
     GetSessionAndUserRequest,
     GetSessionAndUserResponse,
     GetTeamOnboardingStatusRequest,
@@ -44,6 +46,8 @@ from chalk._gen.chalk.server.v1.auth_pb2 import (
     ListSelfHostedLicenseKeysResponse,
     RenewInternalExchangeTokenRequest,
     RenewInternalExchangeTokenResponse,
+    ReportEmailCodeSignInRefusalRequest,
+    ReportEmailCodeSignInRefusalResponse,
     RevokeSelfHostedLicenseKeyRequest,
     RevokeSelfHostedLicenseKeyResponse,
     SelfServiceCreateTeamRequest,
@@ -149,6 +153,10 @@ class AuthServiceStub:
         UseVerificationTokenRequest,
         UseVerificationTokenResponse,
     ]
+    ReportEmailCodeSignInRefusal: UnaryUnaryMultiCallable[
+        ReportEmailCodeSignInRefusalRequest,
+        ReportEmailCodeSignInRefusalResponse,
+    ]
     UpsertUserByEmail: UnaryUnaryMultiCallable[
         UpsertUserByEmailRequest,
         UpsertUserByEmailResponse,
@@ -156,6 +164,10 @@ class AuthServiceStub:
     SelfServiceCreateTeam: UnaryUnaryMultiCallable[
         SelfServiceCreateTeamRequest,
         SelfServiceCreateTeamResponse,
+    ]
+    GetSelfServiceStatus: UnaryUnaryMultiCallable[
+        GetSelfServiceStatusRequest,
+        GetSelfServiceStatusResponse,
     ]
     GetTeamOnboardingStatus: UnaryUnaryMultiCallable[
         GetTeamOnboardingStatusRequest,
@@ -305,6 +317,12 @@ class AuthServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> UseVerificationTokenResponse: ...
     @abstractmethod
+    def ReportEmailCodeSignInRefusal(
+        self,
+        request: ReportEmailCodeSignInRefusalRequest,
+        context: ServicerContext,
+    ) -> ReportEmailCodeSignInRefusalResponse: ...
+    @abstractmethod
     def UpsertUserByEmail(
         self,
         request: UpsertUserByEmailRequest,
@@ -316,6 +334,12 @@ class AuthServiceServicer(metaclass=ABCMeta):
         request: SelfServiceCreateTeamRequest,
         context: ServicerContext,
     ) -> SelfServiceCreateTeamResponse: ...
+    @abstractmethod
+    def GetSelfServiceStatus(
+        self,
+        request: GetSelfServiceStatusRequest,
+        context: ServicerContext,
+    ) -> GetSelfServiceStatusResponse: ...
     @abstractmethod
     def GetTeamOnboardingStatus(
         self,

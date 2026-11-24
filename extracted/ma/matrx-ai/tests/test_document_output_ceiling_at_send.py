@@ -133,6 +133,11 @@ async def _send(config: SimpleNamespace) -> Any:
     )
 
 
+def _sent(prep: Any, config: SimpleNamespace) -> Any:
+    """What went on the wire: a raise rides ``prep.wire_config``; the canonical config keeps the author's limit."""
+    return prep.wire_config if prep.wire_config is not None else config
+
+
 @pytest.fixture(autouse=True)
 def _no_database(monkeypatch):
     """Replace ONLY the two catalog reads. Everything else is the real thing."""
@@ -156,7 +161,7 @@ async def test_the_incident_reaches_the_provider_at_the_model_maximum() -> None:
 
     prep = await _send(config)
 
-    assert config.max_output_tokens == SONNET_5_MAX
+    assert _sent(prep, config).max_output_tokens == SONNET_5_MAX
     assert "document_output_ceiling" in prep.steps
     # The declaration itself is untouched — only the ceiling moved.
     assert config.response_format["json_schema"]["schema"] is LEDGER_SCHEMA
@@ -173,22 +178,25 @@ async def test_the_assertion_fails_when_the_floor_is_neutered(monkeypatch) -> No
 
     prep = await _send(config)
 
-    assert config.max_output_tokens == STORED_CEILING
+    assert _sent(prep, config).max_output_tokens == STORED_CEILING
     assert "document_output_ceiling" not in prep.steps
 
 
 @pytest.mark.asyncio
-async def test_a_second_iteration_does_not_re_announce() -> None:
-    """One repair quiets itself: the canonical config now holds the maximum, so
-    a tool loop's later rounds find nothing to fix."""
+async def test_a_second_iteration_does_not_re_announce(emitter: _RecordingEmitter) -> None:
+    """Every round sends the maximum, and the raise is announced once per loop. The canonical
+    config keeps the author's limit (the raise rides the wire only, CGU-10 IMG5 #8), so each
+    round re-applies the floor on its wire copy; the announcement stays once per request."""
     config = _config(schema=LEDGER_SCHEMA)
 
     first = await _send(config)
     second = await _send(config)
+    await _drain()
 
-    assert "document_output_ceiling" in first.steps
-    assert "document_output_ceiling" not in second.steps
-    assert config.max_output_tokens == SONNET_5_MAX
+    assert _sent(first, config).max_output_tokens == SONNET_5_MAX
+    assert _sent(second, config).max_output_tokens == SONNET_5_MAX
+    assert config.max_output_tokens == STORED_CEILING
+    assert len(emitter.warnings) == 1
 
 
 @pytest.mark.asyncio
@@ -199,7 +207,7 @@ async def test_a_bounded_schema_keeps_its_cost_knob() -> None:
 
     prep = await _send(config)
 
-    assert config.max_output_tokens == STORED_CEILING
+    assert _sent(prep, config).max_output_tokens == STORED_CEILING
     assert "document_output_ceiling" not in prep.steps
 
 
@@ -211,7 +219,7 @@ async def test_free_prose_is_left_to_the_author_time_layers() -> None:
 
     prep = await _send(config)
 
-    assert config.max_output_tokens == STORED_CEILING
+    assert _sent(prep, config).max_output_tokens == STORED_CEILING
     assert "document_output_ceiling" not in prep.steps
 
 
@@ -223,7 +231,7 @@ async def test_an_absent_ceiling_is_not_invented() -> None:
 
     prep = await _send(config)
 
-    assert config.max_output_tokens is None
+    assert _sent(prep, config).max_output_tokens is None
     assert "document_output_ceiling" not in prep.steps
 
 
@@ -235,7 +243,7 @@ async def test_an_unknown_model_maximum_stays_quiet() -> None:
 
     prep = await _send(config)
 
-    assert config.max_output_tokens == STORED_CEILING
+    assert _sent(prep, config).max_output_tokens == STORED_CEILING
     assert "document_output_ceiling" not in prep.steps
 
 
@@ -282,10 +290,10 @@ async def test_the_raise_is_announced_in_the_stream(emitter: _RecordingEmitter) 
     must say so, naming the key, what was asked and what was sent."""
     config = _config(ceiling=300, schema=LEDGER_SCHEMA)
 
-    await _send(config)
+    prep = await _send(config)
     await _drain()
 
-    assert config.max_output_tokens == SONNET_5_MAX
+    assert _sent(prep, config).max_output_tokens == SONNET_5_MAX
     assert len(emitter.warnings) == 1
     warning = emitter.warnings[0]
     assert warning.code == "setting_adjusted"
@@ -300,10 +308,10 @@ async def test_nothing_is_announced_when_nothing_moved(emitter: _RecordingEmitte
     """A bounded schema keeps its knob — no repair, no warning noise."""
     config = _config(ceiling=300, schema=BOUNDED_SCHEMA)
 
-    await _send(config)
+    prep = await _send(config)
     await _drain()
 
-    assert config.max_output_tokens == 300
+    assert _sent(prep, config).max_output_tokens == 300
     assert emitter.warnings == []
 
 
@@ -358,9 +366,9 @@ async def test_storage_fails_when_the_record_is_neutered(
     monkeypatch.setattr(send_boundary, "_record_ceiling_raise", lambda **_: None)
     config = _config(ceiling=3072, schema=LEDGER_SCHEMA)
 
-    await _send(config)
+    prep = await _send(config)
 
-    assert config.max_output_tokens == SONNET_5_MAX
+    assert _sent(prep, config).max_output_tokens == SONNET_5_MAX
     assert not [r for r in execution_state.settings_adjustments or [] if r["key"] == "max_output_tokens"]
 
 

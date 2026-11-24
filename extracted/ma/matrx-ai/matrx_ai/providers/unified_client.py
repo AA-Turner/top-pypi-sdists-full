@@ -8,12 +8,17 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import io
+import logging
+import re
 import threading
+from collections.abc import Mapping
 from contextvars import ContextVar
 from copy import copy
 from typing import TYPE_CHECKING, Any
 
 from matrx_utils import supervised_task, vcprint
+
+logger = logging.getLogger(__name__)
 
 from matrx_ai.config import UnifiedResponse
 from matrx_ai.config.served_via import served_via_kwargs
@@ -35,6 +40,7 @@ from matrx_ai.providers.resolved_capabilities import (
     ResolvedModelCapabilities,
     StructuredOutputMode,
 )
+from matrx_ai.providers.small_model_tools import strip_small_model_optional_tools
 from matrx_ai.providers.tool_adaptation import (
     NO_FUNCTION_CALLING,
     SCHEMA_CONFLICT,
@@ -169,17 +175,23 @@ async def _announce_flag_notes(notes: list[str]) -> None:
                 )
             )
     except Exception as exc:  # noqa: BLE001 — best effort; callers must continue
-        from matrx_utils import capture_error
+        try:
+            from matrx_utils import capture_error
 
-        await capture_error(
-            exc,
-            kind="provider_flag_note_emit_failed",
-            context={
-                "source_app": "matrx-ai",
-                "source_feature": "providers.unified_client",
-                "code": "message_flag_adjusted",
-            },
-        )
+            await capture_error(
+                exc,
+                kind="provider_flag_note_emit_failed",
+                context={
+                    "source_app": "matrx-ai",
+                    "source_feature": "providers.unified_client",
+                    "code": "message_flag_adjusted",
+                },
+            )
+        except Exception as capture_exc:
+            vcprint(
+                f"[message flags] notification failed: {exc!r}; "
+                f"error capture failed: {capture_exc!r}", color="red",
+            )
 
 
 def _finish_message_flags(response: Any, plan: Any) -> Any:
@@ -380,6 +392,14 @@ def _downgrade_response_format(
             if over_budget:
                 target = "json_object"
     if target is None:
+        return
+
+    from matrx_ai.schema.answer_contract import is_media_generator_output
+
+    if is_media_generator_output(caps):
+        # The answer is the generated media, not JSON: no contract is bound, none is
+        # injected into the media prompt and nothing was "dropped" worth a finding.
+        config.response_format = {"type": "text"}
         return
 
     from matrx_ai.providers.structured_output_findings import (
@@ -1026,8 +1046,10 @@ def adapt_tools_for_call(
     toolset for every model and never reads the model (TOOL-SOURCES.md rule L1). Here, at
     the provider boundary, each limit removes what the model/provider cannot take — in
     order: hosted search the model does not host; OpenAI web search beside JSON mode;
-    tools beside structured output on endpoints that refuse the pair; and, last, every tool
-    for a model with no function calling. Each removal is returned for announcement. The
+    tools beside structured output on endpoints that refuse the pair; the surface-added
+    bundles marked off for small models, for a small model (``small_model_tools.py``;
+    VISION.md: "some of the really small models should never get that many tools"); and,
+    last, every tool for a model with no function calling. Each removal is returned for announcement. The
     one limit that is only known from the provider's answer — Anthropic's grammar budget —
     is shed in ``anthropic_api._retry_over_grammar_budget`` and announced the same way.
     """
@@ -1036,6 +1058,7 @@ def adapt_tools_for_call(
         _warn_and_strip_unsupported_search(config, caps, wire_format),
         _resolve_web_search_json_mode_conflict(config, caps, wire_format),
         _resolve_tool_structured_output_conflict(config, caps, wire_format),
+        strip_small_model_optional_tools(config, caps, wire_format),
         _strip_tools_for_no_function_calling(config, caps, wire_format),
     ]
     later = [step for step in later if step is not None]
@@ -1165,6 +1188,25 @@ TRANSIENT_RETRY_MAX_DELAY_S = 8.0
 
 async def _transient_retry_sleep(seconds: float) -> None:
     await asyncio.sleep(seconds)
+
+
+#: Set by a caller that banks ``result.discarded_attempt_usages`` itself (the executor, around ``send_once``); with it
+#: unset the dispatch files them as unbanked spend.
+BANKS_DISCARDED_ATTEMPTS: ContextVar[bool] = ContextVar("matrx_banks_discarded_attempts", default=False)
+
+
+async def _file_unbanked_discarded_attempts(usages: list[Any], *, provider: str, profile: Any) -> None:
+    """File each billed attempt the dispatch discarded, with its amount, through the meter backstop's sink (the
+    host files ``execution_spend_unbanked``). Never raises."""
+    from matrx_ai.providers.meter_scope import UnmeteredProviderCall, _file, caller_module
+
+    for usage in usages:
+        try:
+            cost = await catalog_cost_or_none(billable_usage(usage))
+            _file(UnmeteredProviderCall("unified_client.discarded_attempt", provider,
+                                        str(getattr(profile, "model_name", None) or "unknown"), caller_module(), cost))
+        except Exception as exc:  # noqa: BLE001
+            vcprint(f"[dispatch] could not file a discarded billed attempt: {exc!r}", color="red", log_level="ERROR")
 
 
 def transient_unbilled_failure(exc: BaseException, provider: str) -> Any | None:
@@ -1544,7 +1586,7 @@ class _SettingsSelfHeal:
                 message=message,
                 status_code=200,
                 is_retryable=False,
-                user_message=message,
+                user_message="A setting was not accepted. Reported for a fix; try another model.",
                 details={
                     "provider": self.provider,
                     "setting_rejection": {
@@ -1970,6 +2012,20 @@ class UnifiedAIClient:
                 offering_id=getattr(config, "routing_offering_id", None),
                 **served_via_kwargs(config),
             )
+        # THE BAA GATE (providers/baa_gate.py): under HIPAA mode a non-covered CHAT model runs as
+        # the organization's covered stand-in (told once; never above the free-tier ceiling).
+        # Every other non-covered interaction is refused at the seam. A covered call loses the
+        # vendor-hosted tools and OpenAI retention (store=False, no 24h prompt cache).
+        from matrx_ai.providers.baa_gate import apply_baa_features, swap_for_baa
+
+        if await swap_for_baa(config, profile):
+            profile = await resolve_tts_call_profile(
+                config.model,
+                getattr(config, "tts_quality", None),
+                offering_id=getattr(config, "routing_offering_id", None),
+                **served_via_kwargs(config),
+            )
+        await apply_baa_features(config, profile)
 
         model_name = profile.model_name
         caps = profile.capabilities
@@ -2106,30 +2162,27 @@ class UnifiedAIClient:
         # have dedicated execution runtimes. Reject them before chat-specific
         # preprocessing so a misplaced model selection cannot mutate the request
         # and fail later as an opaque missing-provider dispatch.
+        from matrx_ai.providers.model_channel_gate import NOT_FOR_CHAT_INTERACTIONS
+
         specialized_channel = profile.client_attr
-        if caps.interaction in ("realtime", "embedding") or specialized_channel in (
+        if caps.interaction in NOT_FOR_CHAT_INTERACTIONS or specialized_channel in (
             "realtime",
             "embedding",
             "stt",
+            "rerank",
         ):
             channel = (
                 caps.interaction
-                if caps.interaction in ("realtime", "embedding")
+                if caps.interaction in NOT_FOR_CHAT_INTERACTIONS
                 else specialized_channel
             )
-            destination = (
-                "the realtime session/token-broker path"
-                if channel == "realtime"
-                else (
-                    "the embedding provider path"
-                    if channel == "embedding"
-                    else "the transcription provider path"
-                )
-            )
-            raise ValueError(
-                f"Model {model_name!r} uses the {channel!r} execution channel "
-                f"(wire_format={wire_format!r}) and cannot run through "
-                f"UnifiedAIClient.execute(); route it through {destination}."
+            # A model on another channel answering a typed turn is the caller's (or the
+            # agent's) choice, not a server crash: a typed CALLER REFUSAL with one plain
+            # sentence, never a system_error (providers/model_channel_gate.py).
+            from matrx_ai.providers.model_channel_gate import ModelNotForChatError
+
+            raise ModelNotForChatError(
+                model_name=model_name, channel=channel, wire_format=wire_format
             )
 
         # A decision_questions part asked of a model that is NOT a decision
@@ -2157,6 +2210,7 @@ class UnifiedAIClient:
             supports_structured_output=(
                 caps.structured_output_mode is StructuredOutputMode.SCHEMA
             ),
+            supports_vision=caps.supports_vision,
         )
         if _decision_overlay is not None:
             if not isinstance(config.metadata, dict):
@@ -2209,10 +2263,16 @@ class UnifiedAIClient:
                         color="yellow",
                     )
 
+            # THE BAA GATE: under HIPAA mode the audio is transcribed by the organization's
+            # covered transcription model, or refused when none is set (providers/baa_gate.py).
+            from matrx_ai.providers.baa_gate import stt_standin_or_refuse
+
+            hipaa_stt_model = await stt_standin_or_refuse()
             _transcribed, transcription_usage_list = await preprocess_audio_in_messages(
                 config.messages,
                 debug=debug,
                 supports_audio_input=caps.supports_audio_input,
+                transcription_model=hipaa_stt_model,
             )
             if _transcribed is not config.messages:
                 config = _provider_view(config, _transcribed)
@@ -2240,7 +2300,7 @@ class UnifiedAIClient:
         # and it is what the answer is checked against when the call ends.
         from matrx_ai.schema.answer_contract import bind_declared_output_contract
 
-        bind_declared_output_contract(getattr(config, "response_format", None))
+        bind_declared_output_contract(getattr(config, "response_format", None), caps)
 
         authored_flags = authored_tool_flags(config)
         tool_adaptations = apply_capability_gates(config, caps, wire_format)
@@ -2250,11 +2310,15 @@ class UnifiedAIClient:
         # Resolve server-generated media refs added by tool results mid-loop.
         # Images additionally receive the target model's vision variant;
         # documents are resolved as their original bytes.
-        await self._annotate_and_resolve_image_refs(
+        # A picture the media pass could not read is swapped for its announced stand-in on a SEND-ONLY copy:
+        # ``config.messages`` is what the turn stores (the model's replay copy), so the picture stays in her
+        # stored turn and the next turn reads it again (CGU-10 AND-V IMG18 F1).
+        unreadable_swapped = await self._annotate_and_resolve_image_refs(
             config.messages,
             model_name=model_name,
             wire_format=wire_format,
             supports_vision=caps.supports_vision,
+            role_limits=getattr(caps, "image_reference_limits", None) or {},
             require_native_document_input=bool(
                 getattr(config, "metadata", {}).get("require_native_document_input", False)
                 if isinstance(getattr(config, "metadata", None), dict)
@@ -2262,6 +2326,8 @@ class UnifiedAIClient:
             ),
             debug=debug,
         )
+        if unreadable_swapped is not None:
+            config = _provider_view(config, unreadable_swapped)
 
         # Media URL resolution does NOT happen here for client-supplied
         # media. It happens at AI Dream's boundary via
@@ -2350,6 +2416,7 @@ class UnifiedAIClient:
         transient_retries: int = 0,
         config: Any = None,
         firewall_checked: bool = False,
+        quote: Any = None,
     ) -> Any:
         """Run one provider dispatch under the LAYER 2 billing net.
 
@@ -2399,6 +2466,12 @@ class UnifiedAIClient:
         from matrx_ai.providers.request_capture import is_capturing
 
         await admit_child_safety(None)
+        # THE BAA GATE (providers/baa_gate.py): a HIPAA-gated call reaches only a vendor +
+        # interaction with a Business Associate Agreement; a device route is refused. BEFORE
+        # capture mode, so a captured call is refused exactly as a real one would be.
+        from matrx_ai.providers.baa_gate import admit_baa
+
+        await admit_baa(profile)
         # THE REQUEST FIREWALL, again, on what is really dispatched: the client shapes its wire copy
         # AFTER the send boundary (message flags, capability gates, wire additions). Refuse-only,
         # never recorded twice. A seam call with no config (speech, rerank, embeddings) cannot be
@@ -2414,8 +2487,17 @@ class UnifiedAIClient:
                 # CAPTURE MODE (request_capture.py): nothing is sent, nothing is
                 # spent — the spend gates have nothing to admit or refuse.
                 raise _SkipSpendGates
-            from matrx_ai.providers.usage_gate import admit_paid_call, costs_nothing_on_a_device
+            from matrx_ai.providers.usage_gate import (
+                admission_of,
+                admit_paid_call,
+                costs_nothing_on_a_device,
+                note_run_admitted,
+            )
 
+            # A RUN THAT HAS STARTED IS NEVER REFUSED FOR A LIMIT OR TIER (USAGE-GATE.md rule 5):
+            # read BEFORE any gate below remembers this run, so the run's first paid call is still
+            # judged as its start. Carried by the tree memo and ``AppContext.usage_admitted``.
+            in_admitted_run = admission_of()
             # A call served by the person's own computer costs 0.0 and spends no points
             # (TokenUsage.device_served): the AI usage limit neither refuses it nor warns
             # "You're close to your AI usage limit." on it (L5, 2026-10-24).
@@ -2447,14 +2529,23 @@ class UnifiedAIClient:
             # such as STT, decisions or Live) is refused. See providers/free_tier_models.py.
             from matrx_ai.providers.free_tier_models import admit_free_tier_model
 
-            await admit_free_tier_model(profile)
+            await admit_free_tier_model(profile, in_admitted_run=in_admitted_run)
             # THE AUTOMATION GUARDRAIL GATE — same seam, asked on EVERY paid call: an automatic run
             # (schedule / workflow trigger) is stopped at its max turns, max cost per run and its
             # daily / weekly / monthly caps, and refused when it carries no limits. Turns already
             # taken keep their output. The host decides from memory. See providers/guardrail_gate.py.
-            from matrx_ai.providers.guardrail_gate import admit_guardrails
+            from matrx_ai.providers.guardrail_gate import admit_guardrails, prime_guardrails
 
-            admit_guardrails(profile, config)
+            await prime_guardrails()  # the run's spend from earlier processes is in before it is admitted
+            # ``quote``: a caller with no chat config (STT, rerank, embeddings, decisions) prices its own worst case
+            # from what it sends. Otherwise, in a guarded run, the request prices itself (tokens, or units x the
+            # catalog's unit price for a per-image / per-second / per-character media call, config or not), else the
+            # route's recorded priced calls, else the host's unpriced amount (cost adversary pass 5, F3).
+            from matrx_ai.providers.guardrail_gate import quote_for_dispatch
+
+            quote = await quote_for_dispatch(profile, config, quote)
+            admit_guardrails(profile, config, quote)
+            note_run_admitted()
         except _SkipSpendGates:
             pass
         except BaseException as gate_refusal:
@@ -2463,7 +2554,21 @@ class UnifiedAIClient:
             record_refusal(gate_refusal, config=config, profile=profile)
             raise
         provider = str(getattr(profile, "vendor", "unknown"))
+        # THE RUNTIME METER BACKSTOP (providers/meter_scope.py) — asked here, at send time, on every paid call
+        # this seam carries (chat, media, TTS, STT, decisions, rerank, extraction, embeddings): is a run, a spend
+        # scope or a declared direct-spend scope open? None open: the call still goes (nothing blocks), a WARNING
+        # is logged now and the call is FILED as unmetered once its cost is known. A captured or device-served
+        # call costs nothing and is not asked. The nested same-pool dispatch above returned before this.
+        from matrx_ai.providers.meter_scope import check_send
+        from matrx_ai.providers.usage_gate import costs_nothing_on_a_device as _free_on_device
+
+        meter_check = (
+            None
+            if is_capturing() or _free_on_device(profile)
+            else check_send("unified_client.dispatch", provider=provider, model=getattr(profile, "model_name", None))
+        )
         attempt = 0
+        discarded_usages: list[Any] = []
         # THE SETTINGS SELF-HEAL (settings-translation R2) — one attempt kind of
         # this loop, beside the transient retry. A classified settings rejection
         # that names its field is repaired mechanically on the per-call wire
@@ -2489,11 +2594,43 @@ class UnifiedAIClient:
                     defer_setting_rejection=True,
                 )
                 if await heal.empty_answer_retry(result, streamed_before=streamed_before):
-                    continue  # R-b: an empty 200 on a settings-bearing call, sent once more
+                    # R-b: an empty 200 on a settings-bearing call, sent once more. The provider BILLED the empty
+                    # attempt: it counts against the run's budget (the resend is refused when both no longer fit)
+                    # and its usage rides the final result to the ledger (``discarded_attempt_usages``).
+                    from matrx_ai.providers.guardrail_gate import note_discarded_attempt
+
+                    empty_usage = getattr(result, "usage", None)
+                    if empty_usage is not None:
+                        discarded_usages.append(empty_usage)
+                    resend_stop = await note_discarded_attempt(empty_usage, profile)
+                    if resend_stop is not None:
+                        from matrx_ai.providers.errors import attach_billed_usage
+
+                        attach_billed_usage(resend_stop, empty_usage)  # the executor banks a failure's billed usage
+                        setattr(resend_stop, "_matrx_run_budget_counted", True)
+                        raise resend_stop
+                    continue
                 await heal.succeeded(result)
-                await note_paid_result(result, profile=profile)
+                # Priced ONCE: the guardrail accrual and the meter backstop's filing read the same catalog cost.
+                unmetered = meter_check is not None and not meter_check.metered
+                priced = await note_paid_result(result, profile=profile, price=unmetered)
+                if unmetered:
+                    meter_check.settle(priced)
+                if discarded_usages:
+                    if not BANKS_DISCARDED_ATTEMPTS.get():
+                        # No executor banks this call's usage history (a direct caller: the /v2 native loop's
+                        # UnifiedProviderTurn, a script): each billed empty attempt is FILED as unbanked spend with its
+                        # amount, never dropped silently.
+                        await _file_unbanked_discarded_attempts(discarded_usages, provider=provider, profile=profile)
+                    try:
+                        result.discarded_attempt_usages = list(discarded_usages)
+                    except Exception:  # noqa: BLE001 — a result type that takes no attribute: said loudly
+                        vcprint(f"[dispatch] {provider}: {len(discarded_usages)} billed empty attempt(s) could not "
+                                "ride the result to the ledger", color="red", log_level="ERROR")
                 return result
             except Exception as exc:
+                if getattr(exc, "_matrx_run_budget_counted", False) and getattr(exc, "kind", None):
+                    raise  # the run budget refused the resend: nothing to heal or retry
                 if await heal.handle_failure(exc, streamed_before=streamed_before):
                     continue  # repaired: send once more, now, no backoff
                 # A device-served call is never re-sent (providers/device/route_guard.py).
@@ -2504,6 +2641,13 @@ class UnifiedAIClient:
                     else None
                 )
                 if info is None:
+                    if meter_check is not None:
+                        meter_check.settle(None)  # the wire was engaged: an unmetered failure is filed too
+                    # A failure the provider billed (usage stamped on it) counts against the run's budget, not only
+                    # the ledger (the executor banks it); a transient retry never follows a billed failure.
+                    from matrx_ai.providers.guardrail_gate import note_billed_failure
+
+                    await note_billed_failure(exc, profile)
                     raise
                 delay = min(float(info.get_backoff_delay(attempt)), TRANSIENT_RETRY_MAX_DELAY_S)
                 attempt += 1
@@ -2512,6 +2656,19 @@ class UnifiedAIClient:
                     f"{transient_retries} in {delay:.1f}s: {exc}",
                     color="yellow",
                 )
+            except BaseException as cut:
+                # A CancelledError (a cut stream, a stop, a wait_for timeout around the call) can carry usage the
+                # provider already billed (attach_billed_usage). The Exception arm above never sees it, and the task's
+                # done-callback only RELEASES the reservation: the run budget forgot money that was spent (cost
+                # adversary pass 5, F10). Count it, then let the cancel go on unchanged.
+                try:
+                    from matrx_ai.providers.guardrail_gate import note_billed_failure
+
+                    await note_billed_failure(cut, profile)
+                except BaseException as note_exc:  # noqa: BLE001 — the cut itself must propagate
+                    vcprint(f"[dispatch] {provider}: a cut call's billed usage could not reach the run budget: "
+                            f"{note_exc!r}", color="red", log_level="ERROR")
+                raise
             finally:
                 _ACTIVE_DISPATCH_POOLS.reset(pools_token)
             await _transient_retry_sleep(delay)
@@ -2533,6 +2690,11 @@ class UnifiedAIClient:
         begin_dispatch_key_scope()
         if provider_client is not None:
             await prepare_provider_clients(provider_client)
+            # THE BAA GATE: a HIPAA-gated call about to run on an own key is refused unless the
+            # organization attested its keys are covered (providers/baa_gate.py).
+            from matrx_ai.providers.baa_gate import refuse_own_key_if_gated
+
+            await refuse_own_key_if_gated(profile)
 
         from matrx_ai.providers.structured_output_findings import (
             begin_translation_findings,
@@ -2551,10 +2713,22 @@ class UnifiedAIClient:
         # claim as "the answer met the contract", and ``translation_outcome`` says
         # which of the two it is.
         answer_off_contract: bool | None = None
+        # The finish reason that stopped an off-contract answer before it was complete, so the
+        # translation findings name the stop rather than the compromise as the cause.
+        cut_short_by: str | None = None
+        # THIS send's prompt-cache prefix evidence (config/cache_plan.py): scoped to the provider's cache
+        # scope (vendor + the key this call uses), asked of the shared store detached — never waited on.
+        from matrx_ai.config.cache_plan import begin_prefix_evidence
+        from matrx_ai.providers.keys import prepared_key_fingerprint
+
+        prefix_evidence = begin_prefix_evidence(
+            config, vendor=str(getattr(profile, "vendor", "") or ""), key_fingerprint=prepared_key_fingerprint()
+        )
         async with admit_provider_call(profile):
             try:
                 result = await dispatch()
                 succeeded = True
+                prefix_evidence.accepted()  # the provider answered: record the scope for later sends
                 # WHO PAID FOR THIS CALL is known only here, in the task that
                 # preflighted the key: a call on the person's own key is stamped
                 # so its model cost is 0 points (owner ruling 2026-10-15 #6).
@@ -2591,8 +2765,9 @@ class UnifiedAIClient:
                 # validator, a Pydantic output model, the persisted message or the
                 # STRUCTURED_OUTPUT event can read it — so the check below judges
                 # exactly the object they get.
+                conformed: list[str] = []
                 try:
-                    conform_answer_to_contract(result)
+                    conformed = conform_answer_to_contract(result)
                 except Exception as exc:  # noqa: BLE001 — never fail a paid turn on this
                     vcprint(
                         f"🚨 [answer_contract] could not conform the answer to the declared "
@@ -2604,12 +2779,17 @@ class UnifiedAIClient:
                     result,
                     provider=str(getattr(profile, "vendor", "unknown")),
                     model=getattr(profile, "model_name", None),
+                    conformed=conformed,
                 )
                 # A bound contract means the answer WAS judged, so `[]` is a real
                 # "on contract" verdict; no contract means nothing was judged and
                 # the finding must not claim a verdict it does not have.
                 if declared_output_contract():
                     answer_off_contract = bool(answer_problems)
+                    if answer_off_contract:
+                        from matrx_ai.schema.answer_contract import answer_cut_short_by
+
+                        cut_short_by = answer_cut_short_by(result)
                 return result
             except BaseException as exc:  # noqa: BLE001 — re-raised untouched below
                 from matrx_ai.providers.request_capture import is_request_capture
@@ -2617,6 +2797,11 @@ class UnifiedAIClient:
                 if is_request_capture(exc):
                     # Captured, never sent: not a failure, nothing to report.
                     raise
+                # A STOPPED call is billed for what it generated: its usage block never arrived, so the
+                # tokens it streamed are estimated here, the one seam every provider passes (T4-C).
+                from matrx_ai.providers.stopped_usage import complete_stopped_call_usage
+
+                complete_stopped_call_usage(exc, profile=profile, config=config, prefix_evidence=prefix_evidence)
                 # A failed call the provider still billed: same own-key stamp.
                 from matrx_ai.providers.errors import get_billed_usage
                 from matrx_ai.providers.keys import mark_usage_key_source
@@ -2650,6 +2835,7 @@ class UnifiedAIClient:
                             model=getattr(profile, "model_name", None),
                             succeeded=succeeded,
                             answer_off_contract=answer_off_contract,
+                            cut_short_by=cut_short_by,
                         )
                 except Exception as flush_exc:  # noqa: BLE001 — a finding sink never replaces the call's outcome
                     # Never silent: this was `except Exception: pass`, so a broken
@@ -2692,6 +2878,23 @@ class UnifiedAIClient:
                 "model_name": getattr(profile, "model_name", None),
             }
             usage.metadata["device_served"] = True
+        # THE SWAP TRACE (CGU-10 AND-IMG12 #3): a stand-in answered this call — the model the person
+        # picked and why lands in chat.request.metadata (``CompletedRequest.to_storage_dict``).
+        if usage is not None and isinstance(getattr(usage, "metadata", None), dict):
+            from matrx_ai.config.unified_config import swap_trace
+
+            trace = swap_trace(config)
+            if trace is not None:
+                usage.metadata.update(trace)
+            # THE CEILING DECISION that is not a swap (a host-exempted person, or a tier the host could not
+            # resolve): the host wrote it on the request context; it rides the same row as the swap trace.
+            from matrx_ai.context.app_context import try_get_app_context
+            from matrx_ai.providers.free_tier_models import MODEL_CEILING_KEY
+
+            ceiling = getattr(try_get_app_context(), "metadata", None)
+            ceiling = ceiling.get(MODEL_CEILING_KEY) if isinstance(ceiling, dict) else None
+            if isinstance(ceiling, dict):
+                usage.metadata[MODEL_CEILING_KEY] = dict(ceiling)
         if usage is not None and hasattr(usage, "offering_id"):
             usage.offering_id = profile.offering_id
             usage.offering_route = (
@@ -2724,6 +2927,12 @@ class UnifiedAIClient:
         )
         if request_documents:
             enrich_document_citations_with_request_documents(request_documents, response)
+        # WHICH MODEL WROTE THIS THINKING — every thinking part and Gemini signed text part carries
+        # ``metadata.produced_by`` from here on, so a part saved into an agent's template is sent
+        # only to that model (config/template_thinking.py). Additive, never overwrites.
+        from matrx_ai.config.template_thinking import stamp_produced_by
+
+        stamp_produced_by(response, profile)
         return response
 
     async def _execute_decision(
@@ -2749,22 +2958,48 @@ class UnifiedAIClient:
         from matrx_ai.config.decision_input_config import DecisionAnswersContent
         from matrx_ai.decisions import execute_decision
         from matrx_ai.decisions.emit import emit_decision_answers
+        from matrx_ai.decisions.images import (
+            history_image_blocks,
+            prepare_decision_images,
+            require_images_fit_one_request,
+            turn_image_blocks,
+        )
         from matrx_ai.decisions.runner import DecisionRequest
         from matrx_ai.decisions.translate import (
             build_decision_state,
             decision_answers_from_system_one,
             find_decision_questions,
-            refuse_incompatible_parts,
+            refuse_incompatible_turn,
             system_one_questions,
         )
 
         messages = list(config.messages or [])
         index, batch = find_decision_questions(messages)
-        refuse_incompatible_parts(messages[index], model_name=model_name)
+        # Images are state when the CATALOG says this model reads them (Jev 1.14);
+        # otherwise an image beside the questions is refused by name.
+        reads_images = bool(getattr(getattr(profile, "capabilities", None), "supports_vision", False))
+        refuse_incompatible_turn(messages, index, model_name=model_name, reads_images=reads_images)
+        images, earlier_images = [], []
+        if reads_images:
+            images = await prepare_decision_images(
+                turn_image_blocks(messages, index),
+                model=profile.provider_model_id,
+                wire_format=profile.wire_format,
+            )
+            # Pictures earlier in the conversation are history, exactly as earlier text
+            # is: sent under state.earlier_images, never dropped, never numbered.
+            earlier_images = await prepare_decision_images(
+                history_image_blocks(messages, index),
+                model=profile.provider_model_id,
+                wire_format=profile.wire_format,
+            )
+            require_images_fit_one_request(images + earlier_images)
         state = build_decision_state(
             messages,
             index,
             system_instruction=getattr(config, "system_instruction", None),
+            image_references=[image.reference for image in images],
+            earlier_image_references=[image.reference for image in earlier_images],
         )
 
         result = await execute_decision(
@@ -2772,6 +3007,8 @@ class UnifiedAIClient:
                 model=model_name,
                 state=state,
                 questions=system_one_questions(batch),
+                assets={image.reference: image.to_asset() for image in images + earlier_images}
+                or None,
             ),
             profile=profile,
         )
@@ -2783,6 +3020,7 @@ class UnifiedAIClient:
             input_tokens=result.usage.input_tokens,
             output_tokens=result.usage.output_tokens,
             cost_usd=result.cost_usd,
+            images=images,
         )
         # LIVE, not only persisted. A decision is a typed part exactly like an
         # image or a TTS render, and those reach a runner or a battle column as
@@ -3093,10 +3331,17 @@ class UnifiedAIClient:
         model_name: str | None,
         wire_format: str | None,
         supports_vision: bool,
+        role_limits: Mapping[str, int] | None = None,
         require_native_document_input: bool = False,
         debug: bool = False,
     ) -> None:
         """Resolve tool-result image/document refs before provider translation.
+
+        ``role_limits`` is the run's model's ``image_reference_limits``. A roled
+        ``mask`` / ``edit_target`` keeps its master bytes ONLY when this model
+        takes a ``mask`` (a mask-edit model); on any other model (a chat turn
+        replaying an area edit, or an edit-target-only model) it is an ordinary
+        picture and gets the class's downsized variant like everything else.
 
         Walk every image-shaped content item in ``messages`` and:
 
@@ -3175,6 +3420,8 @@ class UnifiedAIClient:
             return
         if documents:
             for document in documents:
+                if _bytes_are_the_only_copy(document):
+                    continue  # its upload runs beside this call (or failed): the bytes it carries ARE the file
                 try:
                     await _resolve_media_ref_item(fm, document)
                 except Exception as exc:
@@ -3233,61 +3480,602 @@ class UnifiedAIClient:
             for content in message.content or []:
                 _collect_image_shaped(content, items, seen)
 
-        for item in items:
-            current = getattr(item, "vision_class", None)
-            if not current:
-                try:
-                    setattr(item, "vision_class", target_class)
-                except Exception:
-                    continue
-            # If the item is already resolved with bytes for this class,
-            # nothing more to do.
-            if getattr(item, "is_resolved", False) and (
-                getattr(item, "base64_data", None) or getattr(item, "resolved_url", None)
-            ):
-                # The boundary normalizer resolves with ``vision_class=None``
-                # (no class set when client uploads). Re-resolve with the
-                # newly-stamped class so the variant fires.
-                if current is None and getattr(item, "file_id", None):
-                    item.is_resolved = False  # type: ignore[attr-defined]
-                    item.base64_data = None  # type: ignore[attr-defined]
-                else:
-                    continue
-            try:
-                if isinstance(item, MediaRef):
-                    await fm.resolve_media_async(item, needs_bytes=True)
-                else:
-                    proxy = _media_ref_proxy(MediaRef, item)
-                    await fm.resolve_media_async(proxy, needs_bytes=True)
-                    for fname in (
-                        "base64_data",
-                        "resolved_url",
-                        "mime_type",
-                        "file_size",
-                        "owner_id",
-                        "is_ours",
-                        "is_resolved",
-                        "resolver_error",
-                        "file_id",
-                    ):
-                        new_val = getattr(proxy, fname, None)
-                        if new_val is None:
-                            continue
+        master_roles = _master_byte_roles_for(role_limits)
+
+        async def _one(item: Any) -> None:
+                current = getattr(item, "vision_class", None)
+                keeps_master = _keeps_master_bytes(item, master_roles)
+                if keeps_master:
+                    # AD296: a mask (and the picture it masks) is never vision
+                    # re-encoded — the class's RGB JPEG drops the mask's alpha and
+                    # resizes it away from the target. It reaches every transport as
+                    # its master bytes (PNG with alpha), the target at full size.
+                    if current:
                         try:
-                            setattr(item, fname, new_val)
+                            setattr(item, "vision_class", None)
+                            item.is_resolved = False  # type: ignore[attr-defined]
+                            item.base64_data = None  # type: ignore[attr-defined]
                         except Exception:
-                            pass
-            except Exception as exc:
+                            return
+                        current = None
+                elif current != target_class:
+                    # The class on an item is a RECORD of what one turn sent, never a request: a part
+                    # stored on a GPT turn reads back ``openai_original``, and a later Claude turn must
+                    # still get Claude's own variant (CGU-10 AND-IMG16 #2). Every turn picks the class
+                    # for the model it is about to call.
+                    try:
+                        setattr(item, "vision_class", target_class)
+                    except Exception:
+                        return
+                # A person's attachment whose upload runs BESIDE this call (its id minted before the
+                # bytes move — CGU-10 AND-IMG14 #3) has no stored file to fetch yet: its own inline
+                # bytes are re-encoded for this model's vision class right here, with the same pure
+                # encoder the stored variant uses. Fetching by id would wait on storage before the
+                # first token (or fail against a file that is not there yet).
+                if _bytes_are_the_only_copy(item):
+                    async with _slot():
+                        await _encode_own_bytes_for_vision(item, None if keeps_master else target_class)
+                    return
+                # If the item is already resolved with bytes for this class,
+                # nothing more to do.
+                if getattr(item, "is_resolved", False) and (
+                    getattr(item, "base64_data", None) or getattr(item, "resolved_url", None)
+                ):
+                    # The boundary normalizer resolves a stored picture WITHOUT its bytes (this pass is
+                    # the one byte fetcher — AND-IMG17 #1), with ``vision_class=None``, and a stored part
+                    # reads back the class an EARLIER model used. Either way the bytes in hand (if any)
+                    # are not this model's: re-resolve so the variant (or the master) is read once, here.
+                    no_bytes_yet = not getattr(item, "base64_data", None)
+                    if getattr(item, "file_id", None) and (no_bytes_yet or (not keeps_master and current != target_class)):
+                        item.is_resolved = False  # type: ignore[attr-defined]
+                        item.base64_data = None  # type: ignore[attr-defined]
+                    else:
+                        return
+                # The boundary left a presigned URL of the ORIGINAL on the item. It is never the fallback
+                # (CGU-10 AND-V IMG17 N4): the provider would fetch the full-size original itself (over Claude's
+                # 5 MB cap for a large photo, so the whole turn 400s) and nobody would be told.
+                boundary_url = getattr(item, "resolved_url", None)
+                failure: BaseException | str | None = None
+                attempts = 0
+                for attempt in range(media_pass_read_attempts()):
+                    attempts = attempt + 1
+                    if attempt:
+                        # The backoff waits OUTSIDE the slots (AND-V IMG18 F5): a throttled read never holds a
+                        # turn's or the server's read slot while it sleeps.
+                        await asyncio.sleep(_MEDIA_PASS_RETRY_BACKOFF_S * attempt)
+                        _reset_for_reread(item)
+                    async with _slot():
+                        failure = await _read_for_class(fm, MediaRef, item)
+                    if failure is None:
+                        return
+                    if _read_failure_reason(failure) != READ_FAILURE_TRANSIENT:
+                        break  # a gone or forbidden file never reads on a retry (CGU-10 AND-V IMG19 N4)
+                # The reason rides on the item into the person's warning: only a transient failure is promised
+                # for next time (AND-V IMG19 N4).
+                try:
+                    item.read_failure = _read_failure_reason(failure)
+                except Exception:  # noqa: BLE001 — a frozen stand-in is worded as transient
+                    pass
+                # Nothing was rendered for the class: the stored part must not claim it was used, and the
+                # model is told in words that a picture was here and could not be read.
+                try:
+                    await _announce_unreadable_picture(item, failure, boundary_url, target_class, model_name, attempts)
+                except Exception as exc:  # noqa: BLE001 — the announcement records the failure; it never ends the run
+                    vcprint(
+                        f"[unified_client] could not announce an unreadable picture (class={target_class}): {exc!r}",
+                        color="red",
+                    )
+                failed_reads.append(item)
                 if debug:
                     vcprint(
-                        f"[unified_client] image resolve failed (class={target_class}): {exc}",
+                        f"[unified_client] image resolve failed (class={target_class}): {failure}",
                         color="yellow",
                     )
 
+        # The media pass is the one byte fetcher (AND-IMG17 #1): the pictures of a turn are read side by side,
+        # never one after another — a cold turn over 20 history photos took 17 s reading them in turn.
+        # Per turn AND per process: eight pictures at once per turn is fine, eight per turn across every turn the
+        # server runs at once throttles storage (S3 SlowDown) — the process-wide knob caps the sum (N4).
+        process_limit = _process_media_pass_limit()
+        limit = asyncio.Semaphore(_media_pass_concurrency(_process_limit_size()))
+        failed_reads: list[Any] = []
+
+        @contextlib.asynccontextmanager
+        async def _slot() -> Any:
+            async with limit, process_limit:
+                yield
+
+        async def _bounded(item: Any) -> None:
+            await _one(item)
+            _remember_media_blob(item)
+
+        await asyncio.gather(*(_bounded(item) for item in items))
+        if not failed_reads:
+            return None
+        await _tell_the_person_pictures_were_not_sent(failed_reads, model_name)
+        return _without_unreadable_pictures(messages, failed_reads)
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _remember_media_blob(item: Any) -> None:
+    """Tell this request's snapshot writer which stored file a picture's bytes are (never raises)."""
+    try:
+        data, file_id = getattr(item, "base64_data", None), getattr(item, "file_id", None)
+        if not (isinstance(data, str) and data and isinstance(file_id, str) and file_id):
+            return
+        from matrx_ai.orchestrator.execution_state import try_get_execution_state
+        from matrx_ai.providers.snapshot_redactors import media_blob_ref, names_a_stored_file
+
+        if not names_a_stored_file(file_id):
+            return  # a failed / still-running upload: the bytes are the only copy, the snapshot keeps them
+        state = try_get_execution_state()
+        if state is not None:
+            meta = getattr(item, "metadata", None)
+            version = meta.get("master_version") if isinstance(meta, dict) else None
+            sha, ref = media_blob_ref(data, file_id, getattr(item, "vision_class", None), version)
+            if sha:
+                state.snapshot_media_blobs.setdefault(sha, ref)
+    except Exception:  # noqa: BLE001 — bookkeeping for the snapshot must never touch the call
+        return
+
+
+#: One retry, after a short backoff: a throttled storage read (S3 ``SlowDown``) usually clears in well under a second.
+MEDIA_PASS_READ_ATTEMPTS_FEATURE = "ai.media_providers"
+MEDIA_PASS_READ_ATTEMPTS_KEY = "media_pass_read_attempts"
+#: KNOB MIRROR of platform.feature_knob "ai.media_providers" "media_pass_read_attempts"
+MEDIA_PASS_READ_ATTEMPTS_MIRROR = 2
+
+
+def media_pass_read_attempts() -> int:
+    """How many times the media pass tries to read one picture, live from the host knob."""
+    from matrx_ai.knobs import package_knob_number
+
+    return package_knob_number(
+        MEDIA_PASS_READ_ATTEMPTS_FEATURE, MEDIA_PASS_READ_ATTEMPTS_KEY, MEDIA_PASS_READ_ATTEMPTS_MIRROR,
+        low=1, high=6,
+    )
+
+
+_MEDIA_PASS_RETRY_BACKOFF_S = 0.4
+
+_PROXY_FIELDS = (
+    "base64_data", "resolved_url", "mime_type", "file_size", "owner_id", "is_ours", "is_resolved",
+    "resolver_error", "file_id",
+)
+
+
+def _carry_proxy_master_version(item: Any, proxy: Any) -> None:
+    """The resolver records which master version it read on the proxy's metadata; the item (what the snapshot
+    reads) carries it too (AND-V IMG17 N3)."""
+    version = (getattr(proxy, "metadata", None) or {}).get("master_version")
+    meta = getattr(item, "metadata", None)
+    if version is None or not isinstance(meta, dict):
+        return
+    meta["master_version"] = version
+
+
+def _reset_for_reread(item: Any) -> None:
+    for name, value in (("is_resolved", False), ("base64_data", None), ("resolver_error", None)):
+        try:
+            setattr(item, name, value)
+        except Exception:  # noqa: BLE001 — a frozen stand-in keeps its fields
+            pass
+
+
+#: Why a picture could not be read (``item.read_failure``) — the words the person gets depend on it.
+READ_FAILURE_TRANSIENT = "transient"
+READ_FAILURE_NOT_FOUND = "not_found"
+READ_FAILURE_FORBIDDEN = "forbidden"
+#: AND-V SYNC19b F6: an outside address the platform will never fetch (not public, not web) or a picture over the size
+#: limit — refused again on every turn, so never promised for next time.
+READ_FAILURE_REFUSED = "refused"
+_REFUSED_CODES = frozenset({"external_fetch_refused", "external_fetch_too_large"})
+#: A stored file whose bytes no image decoder can open (corrupt, or not a picture despite its name): the encoder raises
+#: ``UnidentifiedImageError`` on every read, so it is never retried and never promised for next time (LIVE-ERRORS-2).
+READ_FAILURE_NOT_A_PICTURE = "not_a_picture"
+_NOT_A_PICTURE = re.compile(r"^variant_render_failed:\s*unidentifiedimageerror\b")
+
+#: CGU-10 AND-V IMG20 F1: the resolver's error is ``<code>`` or ``<code>: <exception text>`` — the CODE decides, never words
+#: that happen to appear in an exception's text ("decoder not found", "after 404 ms", "host not found" are all temporary).
+#: AND-V SYNC19 IMG-a: a share link turned off (``share_link_not_a_file_or_inactive``) and a CDN address no file owns
+#: (``cdn_url_not_in_files``) are as gone as a deleted file: never read again, never promised for next time.
+_NOT_FOUND_CODES = frozenset({"file_not_found", "file_deleted", "no_identifier", "shared_file_not_found",
+                              "share_link_not_a_file_or_inactive", "cdn_url_not_in_files"})
+#: Inside a storage read (``cloud_read_failed`` or a raised client error), the storage's own refusal codes.
+_STORAGE_NOT_FOUND = re.compile(r"\(nosuchkey\)|\(404\)|\bnosuchkey\b")  # agent-context-text-ok: a regular expression matching error codes, not prose
+_STORAGE_FORBIDDEN = re.compile(r"\(accessdenied\)|\(403\)|\baccessdenied\b")  # agent-context-text-ok: a regular expression matching error codes, not prose
+
+#: The resolver's word for a picture whose file was deleted (matrx-files ``FILE_DELETED``): the person or a cleanup
+#: removed it, so the stand-in is the whole answer and nothing is wrong with the platform — a WARNING, never a
+#: ``system_error`` (2026-11-12: three rows, each file deleted ~2 s before the turn read it).
+RESOLVER_FILE_DELETED = "file_deleted"
+
+
+def _read_failure_reason(failure: BaseException | str | None) -> str:
+    """Classify a media-pass read failure: the file is gone, the actor may not read it, or anything else
+    (throttled, timed out, a render that failed) — which a later turn may read. A resolver error is classed by its
+    code (the part before the first ``:``); only a storage read's own refusal codes are looked for inside its text."""
+    if isinstance(failure, PermissionError):
+        return READ_FAILURE_FORBIDDEN
+    if isinstance(failure, FileNotFoundError):
+        return READ_FAILURE_NOT_FOUND
+    if isinstance(failure, str):
+        text = failure.strip().lower()
+        if _NOT_A_PICTURE.match(text):
+            return READ_FAILURE_NOT_A_PICTURE
+        code, _, detail = text.partition(":")
+        code = code.strip()
+        if code in _NOT_FOUND_CODES:
+            return READ_FAILURE_NOT_FOUND
+        if code.startswith("access_denied"):
+            return READ_FAILURE_FORBIDDEN
+        if code in _REFUSED_CODES:
+            return READ_FAILURE_REFUSED
+        if code != "cloud_read_failed":
+            return READ_FAILURE_TRANSIENT
+    else:
+        detail = f"{type(failure).__name__}: {failure}".lower()
+    if _STORAGE_NOT_FOUND.search(detail):
+        return READ_FAILURE_NOT_FOUND
+    if _STORAGE_FORBIDDEN.search(detail):
+        return READ_FAILURE_FORBIDDEN
+    return READ_FAILURE_TRANSIENT
+
+
+async def _read_for_class(fm: Any, media_ref_cls: Any, item: Any) -> BaseException | str | None:
+    """Read one picture's bytes for its vision class. ``None`` on success, else the exception or the
+    resolver's error. A picture of ours (it names a file) that comes back without bytes is a failure."""
+    try:
+        if isinstance(item, media_ref_cls):
+            await fm.resolve_media_async(item, needs_bytes=True)
+        else:
+            proxy = _media_ref_proxy(media_ref_cls, item)
+            await fm.resolve_media_async(proxy, needs_bytes=True)
+            _keep_stored_mime(item, getattr(proxy, "mime_type", None))
+            _carry_proxy_master_version(item, proxy)
+            for fname in _PROXY_FIELDS:
+                new_val = getattr(proxy, fname, None)
+                if new_val is None:
+                    continue
+                try:
+                    setattr(item, fname, new_val)
+                except Exception:
+                    pass
+    except Exception as exc:  # noqa: BLE001 — classified by the caller, captured once
+        return exc
+    error = getattr(item, "resolver_error", None)
+    if error:
+        return str(error)
+    if getattr(item, "file_id", None) and not getattr(item, "base64_data", None):
+        return "no bytes were read"
+    return None
+
+
+async def _announce_unreadable_picture(
+    item: Any, failure: BaseException | str | None, boundary_url: Any, target_class: str, model_name: str | None,
+    attempts: int,
+) -> None:
+    """A picture the media pass could not read: captured, its class and the boundary's URL of the original
+    cleared, so nothing sends the full-size original in its place (CGU-10 AND-V IMG17 N4)."""
+    for name, value in (("vision_class", None), ("base64_data", None), ("is_resolved", False)):
+        try:
+            setattr(item, name, value)
+        except Exception:  # noqa: BLE001
+            pass
+    # A picture of ours (it names a file) has no URL a provider may fetch in its place: the boundary's presigned
+    # original, or whatever the failed read left behind.
+    if getattr(item, "file_id", None) or (boundary_url and getattr(item, "resolved_url", None) == boundary_url):
+        try:
+            item.resolved_url = None
+        except Exception:  # noqa: BLE001
+            pass
+    reason = failure if isinstance(failure, str) else type(failure).__name__ if failure else "unknown"
+    try:
+        item.resolver_error = item.resolver_error or str(reason)
+    except Exception:  # noqa: BLE001
+        pass
+    if _read_failure_reason(failure) == READ_FAILURE_NOT_A_PICTURE:
+        # The person's file is not a readable picture: not a platform defect. Announced (stand-in + warning), not a system_error.
+        logger.warning(
+            "[unified_client] file %s is not a readable picture (%s); sent its stand-in (class=%s)",
+            getattr(item, "file_id", None), reason, target_class,
+        )
+        return
+    if reason == RESOLVER_FILE_DELETED:
+        logger.warning(
+            "[unified_client] picture file %s was deleted before this turn read it; sent its stand-in (class=%s)",
+            getattr(item, "file_id", None), target_class,
+        )
+        return
+    from matrx_connect.streaming.error_capture import capture_error
+
+    exc = failure if isinstance(failure, BaseException) else RuntimeError(f"media pass read failed: {reason}")
+    await capture_error(
+        exc,
+        kind="media_pass_read_failed",
+        route="unified_client/media_pass",
+        error_type=type(exc).__name__,
+        payload={
+            "file_id": getattr(item, "file_id", None),
+            "vision_class": target_class,
+            "model": model_name,
+            "reason": str(reason)[:300],
+            "attempts": attempts,
+            "read_failure": _read_failure_reason(failure),
+        },
+    )
+
+
+#: The words a model gets in place of a picture the media pass could not read (an announced stand-in):
+#: ``platform_text("unreadable_picture_text")``, or ``..._with_file`` (slot ``{file_id}``) when the file is known.
+
+
+def _unreadable_picture_stand_in(item: Any) -> Any:
+    from matrx_ai.config import TextContent
+    from matrx_ai.config.message_config import UNREADABLE_PICTURE_KEY
+
+    fid = getattr(item, "file_id", None)
+    from matrx_ai.config.platform_texts import platform_text
+
+    text = platform_text("unreadable_picture_text") if not fid else platform_text("unreadable_picture_text_with_file", file_id=str(fid))
+    # Marked: every "what she said" reader (``content_text``) skips it — the words are ours, never hers.
+    return TextContent(text=text, metadata={UNREADABLE_PICTURE_KEY: True, "file_id": fid})
+
+
+def _without_unreadable_pictures(messages: Any, failed: list[Any]) -> Any:
+    """A SEND-ONLY copy of ``messages`` with each unreadable picture swapped for its stand-in (top level and
+    tool results). The input — the list the turn stores — is never changed: only the messages and tool
+    results that hold a failed picture are copied, every other object is shared (CGU-10 AND-V IMG18 F1)."""
+    from copy import copy as _shallow
+
+    targets = {id(item) for item in failed}
+    out: list[Any] = []
+    for message in messages.to_list():
+        content_list = list(message.content or [])
+        changed = False
+        for i, item in enumerate(content_list):
+            if id(item) in targets:
+                content_list[i] = _unreadable_picture_stand_in(item)
+                changed = True
+                continue
+            inner = getattr(item, "content", None)
+            if isinstance(inner, list) and any(id(child) in targets for child in inner):
+                holder = _shallow(item)
+                holder.content = [
+                    _unreadable_picture_stand_in(child) if id(child) in targets else child for child in inner
+                ]
+                content_list[i] = holder
+                changed = True
+        if changed:
+            message = _shallow(message)
+            message.content = content_list
+        out.append(message)
+    return out
+
+
+def _picture_not_sent_words(reasons: list[str]) -> str:
+    """One reason: its own short line. Mixed reasons (CGU-10 AND-V IMG20 F2): ONE sentence that counts each, in a fixed
+    order, inside the error-state budget (140 characters, two sentences); only a transient failure is promised for next time."""
+    counts = [(r, sum(1 for x in reasons if x == r)) for r in (READ_FAILURE_NOT_FOUND, READ_FAILURE_FORBIDDEN, READ_FAILURE_REFUSED, READ_FAILURE_NOT_A_PICTURE, READ_FAILURE_TRANSIENT)]
+    present = [(r, n) for r, n in counts if n]
+    if len(present) == 1:
+        reason, n = present[0]
+        one, many = {
+            READ_FAILURE_NOT_FOUND: ("Your picture was deleted, so it wasn't sent.",
+                                     "{n} pictures were deleted, so they weren't sent."),
+            READ_FAILURE_FORBIDDEN: ("You no longer have access to this picture, so it wasn't sent.",  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+                                     "You no longer have access to {n} pictures, so they weren't sent."),  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+            READ_FAILURE_REFUSED: ("This picture's address can't be read or it's too large, so it wasn't sent.",  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+                                   "{n} pictures' addresses can't be read or they're too large, so they weren't sent."),  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+            READ_FAILURE_NOT_A_PICTURE: ("This file isn't a picture that can be opened, so it wasn't sent.",  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+                                         "{n} files aren't pictures that can be opened, so they weren't sent."),  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+            READ_FAILURE_TRANSIENT: ("Your picture couldn't be read this time. It's still saved and will be sent next time.",  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+                                     "{n} pictures couldn't be read this time. They're still saved and will be sent next time."),  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+        }[reason]
+        return one if n == 1 else many.format(n=n)
+    if not present:
+        return ""
+    parts = {
+        READ_FAILURE_NOT_FOUND: "{n} deleted",
+        READ_FAILURE_FORBIDDEN: "{n} you can't open",  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+        READ_FAILURE_REFUSED: "{n} can't be sent",  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+        READ_FAILURE_NOT_A_PICTURE: "{n} not openable",
+        READ_FAILURE_TRANSIENT: "{n} unreadable for now (sent next time)",  # agent-context-text-ok: the person's notice (emitter user_message), never sent to a model
+    }
+    total = sum(n for _, n in present)
+    return f"{total} pictures weren't sent: " + ", ".join(parts[r].format(n=n) for r, n in present) + "."
+
+
+async def _tell_the_person_pictures_were_not_sent(failed: list[Any], model_name: str | None) -> None:
+    """Law 4: the person is told her picture was not sent this turn (CGU-10 AND-V IMG18 F2) — the same
+    ``send_warning`` door the tool adaptations use (``announce_tool_adaptations``). Never raises."""
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+        from matrx_connect.context.events import WarningPayload
+
+        ctx = try_get_app_context()
+        emitter = getattr(ctx, "emitter", None) if ctx is not None else None
+        if emitter is None:
+            return
+        count = len(failed)
+        reasons = [getattr(i, "read_failure", None) or READ_FAILURE_TRANSIENT for i in failed]
+        await emitter.send_warning(
+            WarningPayload(
+                code="picture_not_sent",
+                level="medium",
+                system_message=(
+                    f"media pass could not read {count} picture(s) for {model_name}; "
+                    f"file_ids={[getattr(i, 'file_id', None) for i in failed]}"
+                ),
+                user_message=_picture_not_sent_words(reasons),
+                metadata={
+                    "file_ids": [getattr(i, "file_id", None) for i in failed],
+                    "reasons": reasons,
+                    "model": model_name,
+                },
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — the announcement never ends the run
+        vcprint(f"[unified_client] could not tell the person a picture was not sent: {exc!r}", color="red")
+
+
+_PROCESS_LIMIT: tuple[Any, int, asyncio.Semaphore] | None = None
+
+
+def _process_limit_size() -> int:
+    """KNOB ai.vision.media_pass_process_concurrency (the server-wide read cap)."""
+    from matrx_ai.knobs import package_knob_number
+
+    return int(package_knob_number(
+        MEDIA_PASS_FEATURE, MEDIA_PASS_PROCESS_CONCURRENCY_KEY, MEDIA_PASS_PROCESS_CONCURRENCY_MIRROR, low=1, high=256
+    ))
+
+
+def _process_media_pass_limit() -> asyncio.Semaphore:
+    """KNOB ai.vision.media_pass_process_concurrency — picture reads at once across the whole process."""
+    global _PROCESS_LIMIT
+    size = _process_limit_size()
+    loop = asyncio.get_running_loop()
+    if _PROCESS_LIMIT is None or _PROCESS_LIMIT[0] is not loop or _PROCESS_LIMIT[1] != size:
+        _PROCESS_LIMIT = (loop, size, asyncio.Semaphore(size))
+    return _PROCESS_LIMIT[2]
+
+
+def _media_pass_concurrency(process_cap: int | None = None) -> int:
+    """KNOB ai.vision.media_pass_concurrency — how many pictures one turn's media pass reads at once, never more
+    than KNOB ai.vision.media_pass_turn_share_percent of the server-wide cap (AND-V IMG18 F5: one turn can never
+    hold every server slot while other turns wait)."""
+    from matrx_ai.knobs import package_knob_number
+
+    per_turn = int(package_knob_number(
+        MEDIA_PASS_FEATURE, MEDIA_PASS_CONCURRENCY_KEY, MEDIA_PASS_CONCURRENCY_MIRROR, low=1, high=32
+    ))
+    if process_cap is None:
+        return per_turn
+    share = float(package_knob_number(
+        MEDIA_PASS_FEATURE, MEDIA_PASS_TURN_SHARE_KEY, MEDIA_PASS_TURN_SHARE_MIRROR, low=1, high=100
+    ))
+    return max(1, min(per_turn, int(process_cap * share / 100)))
+
+
+#: KNOB MIRROR ai.vision.media_pass_concurrency (the starting value; the row is what an admin changes).
+MEDIA_PASS_FEATURE = "ai.vision"
+MEDIA_PASS_CONCURRENCY_KEY = "media_pass_concurrency"
+MEDIA_PASS_CONCURRENCY_MIRROR = 8
+#: KNOB MIRROR ai.vision.media_pass_process_concurrency (every turn's media pass together, in one process).
+MEDIA_PASS_PROCESS_CONCURRENCY_KEY = "media_pass_process_concurrency"
+MEDIA_PASS_PROCESS_CONCURRENCY_MIRROR = 32
+#: KNOB MIRROR ai.vision.media_pass_turn_share_percent (the most of the server-wide cap one turn may hold).
+MEDIA_PASS_TURN_SHARE_KEY = "media_pass_turn_share_percent"
+MEDIA_PASS_TURN_SHARE_MIRROR = 25
+
+
+def _keep_stored_mime(item: Any, wire_mime: Any) -> None:
+    """Before the media pass swaps an item's bytes for a vision variant, remember the STORED file's
+    mime: the wire gets a JPEG, the stored part still names the person's PNG (CGU-10 AND-IMG15 #2)."""
+    current = getattr(item, "mime_type", None)
+    if not current or not hasattr(item, "stored_mime_type") or getattr(item, "stored_mime_type", None):
+        return
+    if wire_mime and str(wire_mime) != str(current):
+        try:
+            item.stored_mime_type = current
+        except Exception:  # noqa: BLE001 — a frozen stand-in keeps its fields
+            pass
+
+
+def _bytes_are_the_only_copy(item: Any) -> bool:
+    """The item's inline bytes are the only copy anywhere — nothing may resolve it by id or address; its own
+    bytes are what the provider gets. True when it names a file whose upload is still running (or failed), and
+    when it names nothing at all (a tool's screenshot, pasted bytes): reading such a picture by identifier
+    fails ``no_identifier`` and threw away the bytes in hand (live system_error 427ad97a, 2026-11-12)."""
+    if not getattr(item, "base64_data", None):
+        return False
+    file_id = getattr(item, "file_id", None)
+    if not file_id:
+        return not (getattr(item, "url", None) or getattr(item, "file_uri", None))
+    from matrx_ai.persistence.sealed import (
+        person_media_upload_failed,
+        person_media_upload_in_flight,
+    )
+
+    return person_media_upload_in_flight(file_id) or person_media_upload_failed(file_id)
+
+
+async def _encode_own_bytes_for_vision(item: Any, vision_class: str | None) -> None:
+    """Re-encode an item's own inline bytes for ``vision_class`` (``None``: keep the master bytes).
+    A failure keeps the bytes as they arrived (captured) — the send never waits on storage."""
+    if not vision_class:
+        return
+    import base64 as _b64
+
+    from matrx_ai.processing.vision import VISION_API_CLASSES, reencode_for_vision_class
+
+    cls = VISION_API_CLASSES.get(vision_class)
+    if cls is None:
+        return
+    blob = str(item.base64_data)
+    if blob.startswith("data:") and "," in blob:
+        blob = blob.split(",", 1)[1]
+    try:
+        raw = _b64.b64decode(blob)
+        encoded = await asyncio.to_thread(reencode_for_vision_class, raw, cls)
+    except Exception as exc:  # noqa: BLE001 — the master bytes still go; the failure is captured
+        try:
+            item.vision_class = None  # the master bytes went: no class was used
+        except Exception:  # noqa: BLE001 — a frozen stand-in keeps its field
+            pass
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            exc,
+            kind="media_reference_resolution_failed",
+            route="unified_client/inline_vision_encode",
+            error_type=type(exc).__name__,
+            payload={"vision_class": vision_class},
+        )
+        return
+    wire_mime = "image/jpeg" if cls.format.upper() == "JPEG" else f"image/{cls.format.lower()}"
+    _keep_stored_mime(item, wire_mime)
+    item.base64_data = _b64.b64encode(encoded).decode("ascii")
+    item.mime_type = wire_mime
+    try:
+        item.is_resolved = True  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001 — a frozen stand-in keeps its flag
+        pass
+
+
+#: Image roles that keep their master bytes through the media pass (AD296).
+_MASTER_BYTES_ROLES = frozenset({"mask", "edit_target"})
+
+
+def _master_byte_roles_for(role_limits: Mapping[str, int] | None) -> frozenset[str]:
+    """The master-bytes roles for this run: both, ONLY when the model takes a ``mask``.
+
+    Master bytes exist for one reason: a mask must line up with the picture it
+    masks (OpenAI's images.edit). A chat model has no image roles, and an
+    edit-target-only model (Gemini image, Grok Imagine, FLUX.2) takes no mask, so
+    nothing is exempt there: a 4096² edit target would otherwise go out as a ~50 MB
+    PNG, over Anthropic's 5 MB limit and Gemini's inline request limit (CGU-10 IMG3 #1)."""
+    limits = role_limits or {}
+    if (limits.get("mask") or 0) <= 0:
+        return frozenset()
+    return _MASTER_BYTES_ROLES
+
+
+def _keeps_master_bytes(item: Any, master_roles: frozenset[str]) -> bool:
+    """A roled mask or edit target (typed role, or the legacy metadata role)
+    that this run's model takes as that role."""
+    from matrx_ai.media.image_reference_roles import role_of
+
+    if not master_roles:
+        return False
+    if role_of(item) in master_roles:
+        return True
+    meta = getattr(item, "metadata", None)
+    return "mask" in master_roles and isinstance(meta, dict) and meta.get("role") == "mask"
 
 
 _IMAGE_REF_ATTRS = ("url", "file_id", "file_uri", "mime_type", "base64_data", "is_resolved")
@@ -3554,3 +4342,12 @@ def _strip_document_content_for_unsupported_model(
                         )
                         replaced += 1
     return replaced
+
+
+def __getattr__(name: str) -> str:
+    """``UNREADABLE_PICTURE_TEXT`` resolves at read time (host text when configured, else the default)."""
+    if name == "UNREADABLE_PICTURE_TEXT":
+        from matrx_ai.config.platform_texts import platform_text
+
+        return platform_text("unreadable_picture_text")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

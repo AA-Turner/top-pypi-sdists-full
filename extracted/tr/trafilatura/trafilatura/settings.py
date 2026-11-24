@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from lxml.etree import Element, XPath, _Element
 
-from .utils import line_processing
+from .utils import as_list, line_processing
 
 if TYPE_CHECKING:
     from .deduplication import LRUCache
@@ -40,12 +40,13 @@ def use_config(filename: str | None = None, config: ConfigParser | None = None) 
     config = ConfigParser()
     default_file = str(Path(__file__).parent / "settings.cfg")
     if filename is None:
-        config.read(default_file)
+        config.read(default_file, encoding="utf-8")
     else:
         if not Path(filename).is_file():
             raise FileNotFoundError("The given config file does not exist")
         # seed defaults first so a partial user file only overrides the keys it sets
-        config.read([default_file, filename])
+        # utf-8-sig: accept a byte order mark
+        config.read([default_file, filename], encoding="utf-8-sig")
     return config
 
 
@@ -56,6 +57,11 @@ def _get_optional_int(config: ConfigParser, option: str) -> int | None:
     "Read an optional positive integer setting; None when empty or non-numeric."
     value = config.get("DEFAULT", option, fallback="").strip()
     return int(value) if value.isdigit() else None
+
+
+def sanitize_source(source: str | None) -> str | None:
+    "Replace characters that cannot be encoded in UTF-8."
+    return source and source.encode("utf-8", "replace").decode("utf-8")
 
 
 # not a dataclass: __init__ contains real logic
@@ -74,6 +80,7 @@ class Extractor:
         "images",
         "tables",
         "dedup",
+        "dedup_seen",
         "lang",
         # extraction size
         "min_extracted_size",
@@ -124,10 +131,9 @@ class Extractor:
         if precision and recall:
             LOGGER.warning("'precision' and 'recall' are mutually exclusive, 'recall' takes precedence")
         if output_format not in SUPPORTED_FORMATS:
-            raise AttributeError(f"Cannot set format, must be one of: {', '.join(sorted(SUPPORTED_FORMATS))}")
+            raise ValueError(f"Cannot set format, must be one of: {', '.join(sorted(SUPPORTED_FORMATS))}")
         self.format = output_format
-        source = url or source
-        self.source = source and source.encode("utf-8", "replace").decode("utf-8")
+        self.source = sanitize_source(url or source)
         if tei_validation and self.format != "xmltei":
             LOGGER.warning("tei_validation has no effect unless output_format is 'xmltei'")
         if formatting and self.format == "json":
@@ -151,6 +157,8 @@ class Extractor:
         self.images: bool = images
         self.tables: bool = tables
         self.dedup: bool | LRUCache = dedup
+        # texts already counted in the running extraction, set by bare_extraction()
+        self.dedup_seen: set[str] | None = None
         self.lang: str | None = lang
         self.url: str | None = url
         self.only_with_metadata: bool = only_with_metadata
@@ -160,12 +168,13 @@ class Extractor:
         self.with_metadata: bool = (
             with_metadata or only_with_metadata or bool(url_blacklist) or bool(author_blacklist) or output_format == "xmltei"
         )
-        self.date_params: dict[str, Any] = date_params or set_date_params(
-            self.config.getboolean("DEFAULT", "EXTENSIVE_DATE_SEARCH")
-        )
+        self.date_params: dict[str, Any] = {
+            **set_date_params(self.config.getboolean("DEFAULT", "EXTENSIVE_DATE_SEARCH")),
+            **(date_params or {}),
+        }
 
 
-def args_to_extractor(args: argparse.Namespace, url: str | None = None) -> Extractor:
+def args_to_extractor(args: argparse.Namespace) -> Extractor:
     "Derive extractor configuration from CLI args."
     return Extractor(
         config=use_config(filename=args.config_file),
@@ -180,7 +189,6 @@ def args_to_extractor(args: argparse.Namespace, url: str | None = None) -> Extra
         links=args.links,
         dedup=args.deduplicate,
         lang=args.target_language,
-        url=url,
         with_metadata=args.with_metadata,
         only_with_metadata=args.only_with_metadata,
         tei_validation=args.validate_tei,
@@ -280,21 +288,47 @@ class Document:
         return doc
 
     def clean_and_trim(self) -> None:
-        "Limit text length and trim the attributes."
+        "Limit text length, trim the attributes and coerce malformed values to their slot type."
         for slot in self.__slots__:
             value = getattr(self, slot)
-            if isinstance(value, str):
-                # length
-                if len(value) > 10000:
-                    value = value[:9999] + "…"
-                # HTML entities, remove spaces and control characters
-                value = line_processing(unescape(value))
-                setattr(self, slot, value)
+            # JSON-LD may provide lists or objects where a string is expected
+            if isinstance(value, (str, list, dict)):
+                cleaned = list(dict.fromkeys(c for c in (_trim_value(slot, v) for v in as_list(value)) if c))
+                if slot in LIST_SLOTS:
+                    # regardless of case, the first spelling stays
+                    unique: dict[str, str] = {}
+                    for item in cleaned:
+                        unique.setdefault(item.casefold(), item)
+                    setattr(self, slot, list(unique.values()))
+                elif slot == "author" and isinstance(value, list):
+                    from .json_metadata import normalize_authors  # noqa: PLC0415
+
+                    authors = None
+                    for name in cleaned:
+                        authors = normalize_authors(authors, name)
+                    setattr(self, slot, authors)
+                else:
+                    setattr(self, slot, cleaned[0] if cleaned else None)
 
     def as_dict(self) -> dict[str, Any]:
         "Convert the document to a dictionary."
         # heterogeneous value types (str, list, lxml _Element, None)
         return {attr: getattr(self, attr, None) for attr in self.__slots__}
+
+
+LIST_SLOTS = {"categories", "tags"}
+
+
+def _trim_value(slot: str, value: Any) -> str | None:
+    "Limit the length of a string value and remove spaces and control characters."
+    if not isinstance(value, str):
+        return None
+    if len(value) > 10000:
+        value = value[:9999] + "…"
+    # URL fields are already decoded; entity-like query parameters must stay literal.
+    if slot not in {"url", "image", "hostname"}:
+        value = unescape(value)
+    return line_processing(value)
 
 
 # Safety checks
@@ -423,10 +457,10 @@ MANUALLY_STRIPPED = [
     "wbr",
 ]
 
-# baseline()/html2txt() only (not the main pipeline). NOTE: html2txt() also measures page length
+# baseline()/html2txt() and the justext walker (not the main pipeline). NOTE: html2txt() also measures page length
 # for the recall-escalation gate (core.py) -- shrinking this set fires escalation less often, so
 # re-run the full benchmark suite before changing it.
-# prune cookie/consent banners: fluent prose justext's density metric can't classify; class/id is
+# prune cookie/consent banners: fluent prose justext's link density can't classify; class/id is
 # English even on localized templates. (role/aria-hidden/display:none tried too -- overfit WCXB dev.)
 # Anchored banner/CMP compounds, NOT bare 'cookie'/'consent' substrings: those matched WP Cookie
 # Notice BODY classes (cookies-not-set) and topical content classes, deleting up to 97% of a page's
@@ -438,7 +472,7 @@ _COOKIE_CONSENT_RE = (
 )
 BASIC_CLEAN_XPATH = XPath(
     ".//aside|.//div[contains(@class|@id, 'footer')]|.//fencedframe|.//footer|.//script|.//style|.//svg|.//template"
-    f"|.//*[re:test(@class, '{_COOKIE_CONSENT_RE}', 'i') or re:test(@id, '{_COOKIE_CONSENT_RE}', 'i')]",
+    f"|.//*[(@class and re:test(@class, '{_COOKIE_CONSENT_RE}', 'i')) or (@id and re:test(@id, '{_COOKIE_CONSENT_RE}', 'i'))]",
     namespaces={"re": "http://exslt.org/regular-expressions"},
 )
 
@@ -456,85 +490,3 @@ DEDUPE_SCAN_CAP = 200_000
 INLINE_CONSUMING = {"hi", "ref", "del"}  # element folds its children into its own text
 INLINE_FORMATTABLE = INLINE_CONSUMING | {"code"}  # + code: has text, rendered verbatim
 INLINE_CARRIED = INLINE_FORMATTABLE | {"graphic"}  # + graphic: no text, rendered as image markup
-
-# mapping for languages known to py3langid
-JUSTEXT_LANGUAGES = {
-    "af": "Afrikaans",
-    "an": "Aragonese",
-    "ar": "Arabic",
-    "az": "Azerbaijani",
-    "be": "Belarusian",
-    "bg": "Bulgarian",
-    "bn": "Bengali",
-    "br": "Breton",
-    "bs": "Bosnian",
-    "ca": "Catalan",
-    "cs": "Czech",
-    "cy": "Welsh",
-    "da": "Danish",
-    "de": "German",
-    "el": "Greek",
-    "en": "English",
-    "eo": "Esperanto",
-    "es": "Spanish",
-    "et": "Estonian",
-    "eu": "Basque",
-    "fa": "Persian",
-    "fi": "Finnish",
-    "fr": "French",
-    "ga": "Irish",
-    "gl": "Galician",
-    "gu": "Gujarati",
-    "he": "Hebrew",
-    "hi": "Hindi",
-    "hr": "Croatian",
-    "ht": "Haitian",
-    "hu": "Hungarian",
-    "hy": "Armenian",
-    "id": "Indonesian",
-    "is": "Icelandic",
-    "it": "Italian",
-    "jv": "Javanese",
-    "ka": "Georgian",
-    "kk": "Kazakh",
-    "kn": "Kannada",
-    "ko": "Korean",
-    "ku": "Kurdish",
-    "ky": "Kyrgyz",
-    "la": "Latin",
-    "lb": "Luxembourgish",
-    "lt": "Lithuanian",
-    "lv": "Latvian",
-    "mk": "Macedonian",
-    "ml": "Malayalam",
-    "mr": "Marathi",
-    "ms": "Malay",
-    "mt": "Maltese",
-    "nb": "Norwegian_Bokmal",
-    "ne": "Nepali",
-    "nl": "Dutch",
-    "nn": "Norwegian_Nynorsk",
-    "no": "Norwegian_Bokmal",
-    "oc": "Occitan",
-    "pl": "Polish",
-    "pt": "Portuguese",
-    "qu": "Quechua",
-    "ro": "Romanian",
-    "ru": "Russian",
-    "sk": "Slovak",
-    "sl": "Slovenian",
-    "sq": "Albanian",
-    "sr": "Serbian",
-    "sv": "Swedish",
-    "sw": "Swahili",
-    "ta": "Tamil",
-    "te": "Telugu",
-    "tl": "Tagalog",
-    "tr": "Turkish",
-    "uk": "Ukrainian",
-    "ur": "Urdu",
-    "vi": "Vietnamese",
-    "vo": "Volapuk",
-    "wa": "Walloon",
-    # no justext stoplist available: 'ja' (Japanese), 'zh' (Chinese)
-}

@@ -22,7 +22,11 @@ from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
 )
-from matrx_ai.graph_nodes.shared import _extract_usage, failed_turn_failure
+from matrx_ai.graph_nodes.shared import (
+    _extract_usage,
+    failed_turn_failure,
+    no_media_reason,
+)
 from matrx_ai.graph_nodes.tts_action import TextToSpeechOutput, _pick_audio_refs
 
 
@@ -78,7 +82,7 @@ async def ai_generate_sound_effect(
 ) -> NodeResult[TextToSpeechOutput]:
     _ = ctx
     try:
-        from matrx_files import is_durable_media_url
+        from matrx_files import is_durable_media_url, is_public_media_url
 
         from matrx_ai.config import UnifiedConfig
         from matrx_ai.orchestrator.executor import execute_ai_request
@@ -106,15 +110,17 @@ async def ai_generate_sound_effect(
         if not (refs.file_id or refs.path or refs.url or refs.b64):
             finish = str(getattr(response, "finish_reason", "") or "")
             declined = "content_filter" in finish.lower()
+            reason, why = no_media_reason(completed, requested_model=inputs.model)
             return failure(
                 "sound_effect_declined" if declined else "sound_effect_failed",
                 (
                     f"ai.generate_sound_effect: model '{inputs.model}' declined this description; "
                     "reword it and run again."
                     if declined
-                    else f"ai.generate_sound_effect: model '{inputs.model}' returned no audio."
+                    else f"ai.generate_sound_effect: model '{inputs.model}' returned no audio"
+                    + (f": {reason}." if reason else ".")
                 ),
-                details={"model": inputs.model, "usage": usage.model_dump(mode="json")},
+                details={"model": inputs.model, "usage": usage.model_dump(mode="json"), **why},
             )
         durable = refs.url if is_durable_media_url(refs.url) else None
         return success(
@@ -122,7 +128,7 @@ async def ai_generate_sound_effect(
                 file_id=refs.file_id,
                 audio_path=refs.path,
                 audio_url=durable,
-                audio_cdn_url=durable,
+                audio_cdn_url=durable if is_public_media_url(durable) else None,
                 audio_b64=refs.b64,
                 mime_type=refs.mime,
                 duration_seconds=refs.duration_seconds or float(inputs.duration_seconds or 0),

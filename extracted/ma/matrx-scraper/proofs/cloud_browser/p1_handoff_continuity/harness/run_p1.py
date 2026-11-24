@@ -645,7 +645,7 @@ def main() -> int:
             except Exception as exc:  # noqa: BLE001
                 second_out["original_still_alive"] = f"ERROR {exc!r}"
             second_out["original_process_after_intruder"] = proc_identity(pid) if pid else {}
-            rejected = parsed.get("outcome") in {"error", "timeout"} or (
+            parsed.get("outcome") in {"error", "timeout"} or (
                 parsed.get("outcome") == "launched_but_no_lock"
             )
             record(

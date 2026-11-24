@@ -81,7 +81,7 @@ def test_moonshot_unknown_response_is_stable_and_safe() -> None:
 
     assert result.error_type == "provider_error"
     assert result.is_retryable is False
-    assert result.user_message == "Moonshot could not complete this request. Please try again."
+    assert result.user_message == "This request could not be completed. Please try again."
 
 
 @pytest.mark.parametrize(

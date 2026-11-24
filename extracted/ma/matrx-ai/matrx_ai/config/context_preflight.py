@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -124,6 +125,27 @@ REMEDY = (
     "steps so each call carries one document's worth."
 )
 
+CHAT_REMEDY = (
+    "Remedy: this conversation is longer than the model can read at once. "
+    "Start a new conversation, or pick a model with a larger context window."
+)
+
+
+def remedy_for_surface() -> str:
+    """The remedy for the surface the call runs on: a workflow step is told to
+    select a field on its edge; anything else (a chat) is told to start a new
+    conversation. The workflow node id in the ambient context is the one marker
+    (the same one ``send_boundary._step_name`` reads)."""
+    try:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    except Exception:  # noqa: BLE001
+        ctx = None
+    if ctx is not None and (getattr(ctx, "metadata", None) or {}).get("workflow_node_id"):
+        return REMEDY
+    return CHAT_REMEDY
+
 
 def _chars(value: Any) -> int:
     """Serialized size of any prompt part — strings as-is, structures as JSON."""
@@ -146,8 +168,40 @@ def _chars(value: Any) -> int:
 
 
 #: Storage keys that carry bytes the model never reads as prompt text: a thinking block's
-#: provider signature and inline media bytes (an image is billed by its pixels, not its base64).
-_OPAQUE_KEYS = frozenset({"signature", "signature_encoding", "base64_data"})
+#: provider signature, Google's thought signature (a generated image keeps it under ``metadata``:
+#: 1.7 MB on one Nano Banana reply, which made every next turn of that chat "612,346 tokens" and
+#: refused it — W4 2026-11-04) and inline media bytes (an image is billed by its pixels, not its
+#: base64). Dropped at the stored block's top level and at any depth of its ``metadata``.
+_OPAQUE_KEYS = frozenset(
+    {
+        "signature",
+        "signature_encoding",
+        "base64_data",
+        "thought_signature",
+        "google_thought_signature",
+        # A stored Gemini text part keeps its signature here (config/template_thinking.py).
+        "stored_google_thought_signature",
+    }
+)
+
+
+def _is_opaque_key(key: Any) -> bool:
+    """An opaque key, or its base64 storage form ``<key>__b64`` (``encode_binary_metadata``)."""
+    return isinstance(key, str) and (key in _OPAQUE_KEYS or key.removesuffix("__b64") in _OPAQUE_KEYS)
+
+
+def _without_opaque(value: Any, *, in_metadata: bool = False) -> Any:
+    """Drop opaque keys at the block's top level and anywhere under a ``metadata`` object — never inside
+    the block's own data (a tool argument named ``signature`` is the person's words and counts)."""
+    if isinstance(value, dict):
+        return {
+            k: (_without_opaque(v, in_metadata=True) if k == "metadata" or in_metadata else v)
+            for k, v in value.items()
+            if not _is_opaque_key(k)
+        }
+    if isinstance(value, list) and in_metadata:
+        return [_without_opaque(v, in_metadata=True) for v in value]
+    return value
 
 
 def _block_chars(block: Any) -> int:
@@ -160,7 +214,7 @@ def _block_chars(block: Any) -> int:
         except Exception:  # noqa: BLE001 — fall back to measuring the block whole
             stored = None
         if isinstance(stored, dict):
-            return _chars({k: v for k, v in stored.items() if k not in _OPAQUE_KEYS})
+            return _chars(_without_opaque(stored))
     return _chars(block)
 
 
@@ -315,6 +369,12 @@ def estimate_prompt_tokens(config: Any) -> int:
     instructions = getattr(config, "conversation_instructions", None)
     if isinstance(instructions, str):
         prose += len(instructions)
+    # So does the agent's modes block (send_boundary ``agent_modes``).
+    from matrx_ai.config.prompt_block_producers import produce_agent_modes
+
+    modes_text = produce_agent_modes(config)
+    if modes_text:
+        prose += len(modes_text)
     messages = getattr(config, "messages", None)
     if messages is not None:
         try:
@@ -324,7 +384,143 @@ def estimate_prompt_tokens(config: Any) -> int:
             prose += _chars(messages)
         prose += _context_channel_chars(messages)
     structured = _tool_declarations_chars(config)
-    return estimate_budget_tokens(prose, "prose") + estimate_budget_tokens(structured, "structured")
+    return (
+        estimate_budget_tokens(prose, "prose")
+        + estimate_budget_tokens(structured, "structured")
+        + _picture_tokens(config, messages)
+    )
+
+
+def estimate_cache_prefix_tokens(config: Any) -> int:
+    """The part of :func:`estimate_prompt_tokens` that is the cache-marked stable prefix: the system
+    instruction (prose) and every tool declaration (structured) — the prefix ``cache_plan`` tracks.
+    Same estimator and same ratios, so it is never larger than the whole prompt's count."""
+    return estimate_budget_tokens(_chars(getattr(config, "system_instruction", None)), "prose") + (
+        estimate_budget_tokens(_tool_declarations_chars(config), "structured")
+    )
+
+
+def media_input_tokens(config: Any) -> int:
+    """Every picture and PDF page ``config``'s messages show the model, by its provider's own rule — the
+    ONE media estimator (the host's input budget adds this instead of a flat allowance; CGU-10 IMG7 #8)."""
+    return _picture_tokens(config, getattr(config, "messages", None))
+
+
+def _picture_tokens(config: Any, messages: Any) -> int:
+    """Every picture and PDF page the model is shown, counted by its provider's own rule
+    (``processing/vision/image_tokens.py``). Its storage form, bytes stripped, measured a 2,048²
+    picture as a few dozen characters: estimate 2,356, provider 10,671 (CGU-10 IMG5 #2); a 100-page
+    PDF as 49 tokens (IMG6 #4).
+
+    A model that cannot see (the catalog's ``capabilities.input`` has no ``image``) never receives a
+    picture: the media fallback sends a one-line ``<attachment>`` instead, which the prose count already
+    measures (CGU-10 IMG6 #5). A PDF is different: the fallback puts its EXTRACTED TEXT on the wire, so
+    it is counted per page as text (CGU-10 IMG7 #3)."""
+    if messages is None:
+        return 0
+    from matrx_ai.processing.vision.image_tokens import (
+        document_content_tokens,
+        image_content_tokens,
+        is_document,
+        is_image,
+        text_only_document_tokens,
+    )
+
+    try:
+        pairs = [
+            (message, part)
+            for message in messages
+            if getattr(message, "is_visible_to_model", True) is not False
+            for part in (getattr(message, "content", None) or [])
+            if is_image(part) or is_document(part)
+        ]
+    except TypeError:
+        return 0
+    if not pairs:
+        return 0
+    model = str(getattr(config, "matrx_model_name", None) or getattr(config, "model", "") or "")
+    if _reads_images(config, model) is False:
+        # No pictures reach a text-only model, but a PDF does — as its extracted text (CGU-10 IMG7 #3).
+        return sum(text_only_document_tokens(part) for _m, part in pairs if not is_image(part))
+    wire_format = _wire_format(config, model)
+    return sum(
+        (
+            image_content_tokens(part, model=model, wire_format=wire_format)
+            if is_image(part)
+            else document_content_tokens(part, model=model, wire_format=wire_format)
+        )
+        + media_label_tokens(part, getattr(message, "role", None), model=model, wire_format=wire_format)
+        for message, part in pairs
+    )
+
+
+#: OpenAI bills each text part it is given a few tokens beyond its text (the label is its own part):
+#: measured live, a 22-token label billed 25 (CGU-10 AND-V IMG11).
+_OPENAI_TEXT_PART_OVERHEAD = 3
+
+
+def media_label_tokens(part: Any, role: Any, *, model: str | None, wire_format: str | None) -> int:
+    """The ``<attachment … id="…"/>`` label that rides before every media part of a person's message
+    (``message_config._media_identity_label``) — the EXACT text the wire carries, counted by the
+    provider's tokenizer where we have it (OpenAI: o200k, plus its per-part overhead) and by the one
+    budget estimator's structured ratio elsewhere (Anthropic, Gemini: an over-count, the smaller error).
+    It was not counted at all, so every attached picture estimated 17–48 under (CGU-10 AND-IMG12 #2)."""
+    from matrx_ai.config.message_config import _media_identity_label
+
+    label = _media_identity_label(part, role)
+    if not label:
+        return 0
+    from matrx_ai.processing.vision import resolve_vision_class
+
+    try:
+        family = resolve_vision_class(model, wire_format).name
+    except Exception:  # noqa: BLE001 — an unknown class is counted by the ratio
+        family = ""
+    ratio = estimate_budget_tokens(len(label), "structured") + _OPENAI_TEXT_PART_OVERHEAD
+    if family.startswith(("openai", "gemini")):
+        from matrx_ai.memory.token_counter import count_tokens_tiktoken
+
+        exact = count_tokens_tiktoken(label, "o200k_base")
+        if exact is not None:
+            if family.startswith("openai"):
+                return exact + _OPENAI_TEXT_PART_OVERHEAD
+            # Gemini's own count of the label moves with the file id's digits (live AND-IMG17: ~47-55 for one
+            # named label); the larger of the two counts keeps the estimate from ever falling under the bill.
+            return max(ratio, exact + _OPENAI_TEXT_PART_OVERHEAD)
+    if family.startswith("anthropic"):
+        # Claude's tokenizer counts the label above the ratio (count_tokens: 75 on the current Claudes, 64 on
+        # the earlier tier, against a ratio of 58 — CGU-10 AND-IMG18 N2): scaled by the model's own sizing.
+        from matrx_ai.processing.vision.image_tokens import claude_image_sizing
+
+        return math.ceil(ratio * claude_image_sizing(model).label_scale)
+    return ratio
+
+
+def _reads_images(config: Any, model_ref: str) -> bool | None:
+    """Whether this model takes picture input, from the catalog; ``None`` when it cannot say
+    (then pictures are counted — an over-count is the smaller error)."""
+    if getattr(config, "served_via", None) is not None:
+        return None
+    try:
+        from matrx_ai.catalog.manager import ai_catalog_manager
+
+        return ai_catalog_manager.reads_images(model_ref)
+    except Exception as exc:  # noqa: BLE001 — the catalog must never break a send
+        logger.debug("prompt estimate could not read the catalog: %r", exc)
+        return None
+
+
+def _wire_format(config: Any, model_ref: str) -> str | None:
+    """This request's wire format from the catalog, or ``None`` when it cannot say."""
+    if getattr(config, "served_via", None) is not None:
+        return "device_chat"
+    try:
+        from matrx_ai.catalog.manager import ai_catalog_manager
+
+        return ai_catalog_manager.wire_format_for(model_ref, getattr(config, "routing_offering_id", None))
+    except Exception as exc:  # noqa: BLE001 — the catalog must never break a send
+        logger.debug("prompt estimate could not read the catalog: %r", exc)
+        return None
 
 
 def _declared_window(model_ref: str) -> int | None:
@@ -374,6 +570,6 @@ def check_prompt_fits(config: Any, *, step: str) -> dict[str, Any] | None:
             model=model_ref,
             estimated_tokens=estimated,
             context_window=window,
-            remedy=REMEDY,
+            remedy=remedy_for_surface(),
         )
     return measurement

@@ -49,6 +49,55 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         ),
     ),
     LegacyRow(
+        "legacy-generic-base-drops-configured-bases",
+        (
+            "without `--keep-bases-beside-generic-base-class`, the generated base class of `--use-generic-base-class` "
+            "replaces the bases of a model none of whose bases is a generated model, so a class that "
+            "`--base-class-map`, `customBasePath` or `--base-class` names, or that an `--external-ref-mapping` or "
+            "`x-python-import` schema the model extends stands for, is not inherited and its import stays unused "
+            "(`parser/_passes/cross_module.py:_bases_beside_generic`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/generic_base_class_bases/api.json",
+            "--input-file-type",
+            "jsonschema",
+            "--disable-timestamp",
+            "--use-generic-base-class",
+            "--extra-fields",
+            "forbid",
+            "--base-class-map",
+            '{"Tag": "mypkg.base.TagBase"}',
+            "--formatters",
+            "builtin",
+        ),
+        option="--keep-bases-beside-generic-base-class",
+    ),
+    LegacyRow(
+        "legacy-standard-primitive-types-without-decoder",
+        (
+            "without `--use-str-for-formats-msgspec-cannot-decode`, `--use-standard-primitive-types` writes "
+            "`IPv4Address`, `IPv6Address`, `IPv4Network`, `IPv6Network` and `Path` for the formats `ipv4`, `ipv6`, "
+            "`ipv4-network`, `ipv6-network` and `path` of msgspec output, which msgspec decodes only with a `dec_hook` "
+            "(`types.py:DataTypeManager.use_str_for_formats_msgspec_cannot_decode`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/use_standard_primitive_types.json",
+            "--input-file-type",
+            "jsonschema",
+            "--disable-timestamp",
+            "--output-model-type",
+            "msgspec.Struct",
+            "--use-standard-primitive-types",
+            "--formatters",
+            "builtin",
+        ),
+        option="--use-str-for-formats-msgspec-cannot-decode",
+    ),
+    LegacyRow(
         "legacy-msgspec-float-bounds",
         (
             "without `--read-msgspec-union-bounds-exactly`, the check of a msgspec union reads the bound of a float "
@@ -93,6 +142,29 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "builtin",
         ),
         option="--use-unmapped-variant-tag-values",
+    ),
+    LegacyRow(
+        "legacy-tag-type-from-earlier-union",
+        (
+            "without `--read-mapping-keys-by-schema-tag-type`, a variant's tags are read against the tag field it "
+            "declares, which an earlier union may have written as its `Literal`, else the nearest one it inherits "
+            "from an ancestor whose tag field no union wrote, so a mapping key reads as text or as an integer by the "
+            "order of the unions, and as text where the field names a root model or a type alias of an integer "
+            "(`parser/_tag_plan.py:_declared_type`, `declared_tag_type`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/openapi/variant_tag_values/mapping_key_after_union.yaml",
+            "--input-file-type",
+            "openapi",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--read-mapping-keys-by-schema-tag-type",
     ),
     LegacyRow(
         "legacy-nested-enum-members-untagged",
@@ -360,6 +432,66 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "--intersect-combined-schema-keywords",
         ),
         option="--read-inherited-property-schemas-in-mro-order",
+    ),
+    LegacyRow(
+        "legacy-ref-sibling-parent-read-alone",
+        (
+            "without `--read-allof-parents-as-their-models`, the readers of the schemas a model inherits "
+            "(`model_schema_at`) read a parent that is a `$ref` with sibling keywords by its sibling keywords alone, "
+            "while its model is built from their merge with the schema its `$ref` names: a model written before such "
+            "a parent types a property it only requires `Any`, a property it narrows `Any`, and leaves optional a "
+            "property the `$ref` target requires (#6868)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_parents_as_models/ref_sibling_parents.json",
+            "--input-file-type",
+            "jsonschema",
+            "--formatters",
+            "builtin",
+        ),
+        option="--read-allof-parents-as-their-models",
+    ),
+    LegacyRow(
+        "legacy-inherited-required-names-unwritten",
+        (
+            "without `--read-allof-parents-as-their-models`, a model writes no field for a name that only the schemas "
+            "it inherits require (`JsonSchemaParser._optional_inherited_required_names`), so the class takes the field "
+            "from a base as the output collects fields, optional where that base declares it optional: `allOf: "
+            "[PetBase, Named]` with only `Named` requiring `name` accepts a payload without `name` (#7331)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/openapi/allof_parents_as_models/required_names.yaml",
+            "--input-file-type",
+            "openapi",
+            "--formatters",
+            "builtin",
+        ),
+        option="--read-allof-parents-as-their-models",
+    ),
+    LegacyRow(
+        "legacy-root-site-members-as-written",
+        (
+            "without `--read-allof-parents-as-their-models`, the allOf root model row "
+            "(`handle_allof_root_model_with_constraints`) reads the members as written, not as `all_of_members` reads "
+            "them, so under `--intersect-combined-schema-keywords` an allOf of a `$ref` alias of an object model and "
+            "a member that adds only a `type` or `required` names is a root model of a dict, without the fields of "
+            "the schema the alias names (#7309)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_parents_as_models/alias_parent.json",
+            "--input-file-type",
+            "jsonschema",
+            "--formatters",
+            "builtin",
+            "--intersect-combined-schema-keywords",
+        ),
+        option="--read-allof-parents-as-their-models",
     ),
     LegacyRow(
         "legacy-inherited-reads-at-first-ask",
@@ -715,6 +847,103 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         option="--distribute-allof-over-unions",
     ),
     LegacyRow(
+        "legacy-all-of-object-merge-row",
+        (
+            "without `--intersect-merged-allof-members`, allOf members merged into one object are their merge row: of "
+            "a property several of them declare, the later `type`, `nullable` and `multipleOf` win, two type lists "
+            "join and a later `true` replaces the schema, and the allOf members of a member are dropped"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_merged_member_values.json",
+            "--input-file-type",
+            "jsonschema",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ),
+        option="--intersect-merged-allof-members",
+    ),
+    LegacyRow(
+        "legacy-all-of-root-first-typed-member",
+        (
+            "without `--intersect-merged-allof-members`, a named allOf of one `$ref` to a value schema and value "
+            "members is the first typed of them with the constraints of all, the `enum` of another member dropped"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_enum_member_of_constrained_ref.json",
+            "--input-file-type",
+            "jsonschema",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ),
+        option="--intersect-merged-allof-members",
+    ),
+    LegacyRow(
+        "legacy-all-of-enum-root-self-alias",
+        (
+            "without `--intersect-merged-allof-members`, a named allOf whose merged root is an enum written as a class "
+            "names itself where no output reads the annotations (standard dataclasses), which later passes type `Any`"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_enum_member_of_constrained_ref.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "dataclasses.dataclass",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ),
+        option="--intersect-merged-allof-members",
+    ),
+    LegacyRow(
+        "legacy-all-of-map-counts-dropped",
+        (
+            "without `--intersect-merged-allof-members`, an allOf of a `$ref` to a map and members that add only "
+            "property counts or `propertyNames` is a model without fields at a definition, and the reference elsewhere"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_map_member_counts.json",
+            "--input-file-type",
+            "jsonschema",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ),
+        option="--intersect-merged-allof-members",
+    ),
+    LegacyRow(
+        "legacy-all-of-base64-reference-layered",
+        (
+            "without `--intersect-merged-allof-members`, a length or `pattern` an allOf site adds to a `$ref` to "
+            "base64 text is written beside the reference, checked on the decoded value"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_base64_member_constraints.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--field-constraints",
+            "--use-encoded-str-for-constrained-base64",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ),
+        option="--intersect-merged-allof-members",
+    ),
+    LegacyRow(
         "legacy-map-union-of-dicts",
         (
             "without `--use-single-dict-for-object-maps`, patternProperties give a union of dicts, one per rendered "
@@ -884,6 +1113,93 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "--strict-nullable",
             "--use-single-dict-for-object-maps",
         ),
+    ),
+    LegacyRow(
+        "legacy-item-null-by-form",
+        (
+            "without `--keep-null-of-nullable-items`, under `--strict-nullable` an array item, a tuple item or a map "
+            "value that is a scalar or an object keeps the null its `nullable` declares, and one "
+            "that is an array, a map or an `allOf` of one `$ref` rejects null"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/openapi/nullable_item_forms.yaml",
+            "--input-file-type",
+            "openapi",
+            "--formatters",
+            "builtin",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--strict-nullable",
+            "--disable-timestamp",
+        ),
+        option="--keep-null-of-nullable-items",
+    ),
+    LegacyRow(
+        "legacy-mixed-union-key-root-models",
+        (
+            "without `--use-root-types-for-mixed-union-map-keys`, a map key that is a union with a member that is "
+            "no RootModel (`str`, a `constr` call, a `Literal`, `Any`, an enum) keeps the RootModel class of its "
+            "other members, which Pydantic cannot hash, so a key only the RootModel matches raises `TypeError`, and "
+            "a key both match is read by the other member (`parser/_passes/modules.py:type_dict_keys_by_root_types`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/property_names_root_model_mixed_union_keys.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--use-root-types-for-mixed-union-map-keys",
+    ),
+    LegacyRow(
+        "legacy-redeclared-hiding-field-keeps-name",
+        (
+            "without `--rename-redeclared-fields-hiding-types`, a field that a subclass redeclares keeps its name "
+            "where the field of its base is renamed because it is named like its type (`Pet_1` with `alias='Pet'`), "
+            "so the subclass holds two fields that read the key "
+            "(`parser/_passes/modules.py:follow_hiding_field_renames`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/field_named_like_type_redeclared.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--rename-redeclared-fields-hiding-types",
+    ),
+    LegacyRow(
+        "legacy-field-hides-type-from-checkers",
+        (
+            "without `--rename-fields-hiding-types-from-type-checkers`, a msgspec or dataclass field that the class "
+            "body assigns keeps its name and its type's name where they are equal, which a type checker reads as the "
+            "field (`parser/_passes/modules.py:renames_hiding_fields`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/field_named_like_type_assigned.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "dataclasses.dataclass",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--rename-fields-hiding-types-from-type-checkers",
     ),
     LegacyRow(
         "legacy-root-type-nullable-ungated",
@@ -1106,19 +1422,24 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
     ),
     LegacyRow(
         "legacy-all-of-root-format-kinds",
-        "an allOf root keeps, silently, the keywords of the kinds its format names",
+        (
+            "without `--keep-string-keywords-beside-formats`, an allOf root keeps, silently, the keywords of the kinds "
+            "its format names, so a date or UUID format drops the string keywords of the root also where the output "
+            "writes it as `str`"
+        ),
         fix=KEEP,
         witness=(
             "--input",
-            "tests/data/jsonschema/allof_outer_constraints/date_time.json",
+            "tests/data/jsonschema/format_string_keywords_all_of.json",
             "--input-file-type",
             "jsonschema",
+            "--output-model-type",
+            "msgspec.Struct",
             "--disable-timestamp",
-            "--allof-merge-mode",
-            "none",
             "--formatters",
             "builtin",
         ),
+        option="--keep-string-keywords-beside-formats",
     ),
     LegacyRow(
         "legacy-undeclared-keywords-off-literal",
@@ -1284,8 +1605,11 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
     ),
     LegacyRow(
         "legacy-anyurl-keeps-string-keywords",
-        "`AnyUrl` takes every string keyword and Pydantic then drops them all at render",
-        fix=7198,
+        (
+            "without `--keep-string-keywords-beside-formats`, `AnyUrl` takes every string keyword and Pydantic then "
+            "drops them all at render"
+        ),
+        fix=KEEP,
         witness=(
             "--input",
             "tests/data/legacy_rows/jsonschema_witnesses/anyurl_keywords.json",
@@ -1298,6 +1622,28 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "--disable-timestamp",
             "--field-constraints",
         ),
+        option="--keep-string-keywords-beside-formats",
+    ),
+    LegacyRow(
+        "legacy-format-types-drop-string-keywords",
+        (
+            "without `--keep-string-keywords-beside-formats`, a Pydantic string whose format is written as `EmailStr`, "
+            "`Base64Str` or `AnyUrl` is written without its `minLength`, `maxLength` and `pattern`, "
+            "silently, unless `--field-constraints` writes them"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/format_string_keywords.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ),
+        option="--keep-string-keywords-beside-formats",
     ),
     LegacyRow(
         "legacy-length-keywords-across-kinds",
@@ -2873,12 +3219,13 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         "legacy-unique-sets-level-order",
         (
             "under `--use-unique-items-as-set-by-value`, the fields a set item model has with its bases are read "
-            "nearest first, each name from the first model that declares it (`parser/_unique_sets.py:_ByValue.fields`, "
-            "`ReferenceGraph.level_order`), where the generated class takes the field of its C3 order: a name a base "
-            "two levels up and a later direct base both declare is read from the later base, so a set may be written "
-            "of items whose field does not hash"
+            "nearest first, each name from the first model that declares it "
+            "(`parser/_unique_sets.py:_ByValue.fields`, `ReferenceGraph.level_order`), also beside the fields of its "
+            "C3 order, which the generated class takes and `--read-set-item-fields-in-class-order` reads too: a name "
+            "a base two levels up and a later direct base both declare is read from the later base as well, so where "
+            "only that field does not hash the items stay a list (the class's field hashes)"
         ),
-        fix=6997,
+        fix=KEEP,
         witness=(
             "--input",
             "tests/data/openapi/yaml_1_1_numbers/ratio.yaml",
@@ -2892,6 +3239,32 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "--formatters",
             "builtin",
         ),
+    ),
+    LegacyRow(
+        "legacy-unique-sets-class-fields-unread",
+        (
+            "without `--read-set-item-fields-in-class-order`, whether a set item model hashes by value under "
+            "`--use-unique-items-as-set-by-value` reads only the fields its bases declare nearest first "
+            "(`parser/_unique_sets.py:_ByValue.fields`), not those of its C3 order, which the generated class takes: "
+            "where a base two levels up and a later direct base both declare a field and the class takes the one that "
+            "does not hash, the uniqueItems array is a set its items cannot be added to (#6997)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/unique_items_by_value_inherited_fields.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "dataclasses.dataclass",
+            "--frozen-dataclasses",
+            "--use-unique-items-as-set",
+            "--use-unique-items-as-set-by-value",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--read-set-item-fields-in-class-order",
     ),
     LegacyRow(
         "legacy-cycle-through-scalar",
@@ -3379,16 +3752,109 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "ancestor before what it holds, else the member written later); a `$dynamicAnchor` or an identifier that "
             "is a fragment names nothing, where the registry names them"
         ),
-        fix=7158,
+        fix=KEEP,
         witness=(
             "--input",
-            "tests/data/jsonschema/external_anchor_subdirectory/root.json",
+            "tests/data/jsonschema/external_anchor_declarations/root.json",
             "--input-file-type",
             "jsonschema",
             "--disable-timestamp",
             "--formatters",
             "builtin",
         ),
+        option="--read-refs-in-their-resources",
+    ),
+    LegacyRow(
+        "legacy-namespace-declarations-passed",
+        (
+            "without `--read-refs-in-their-resources`, the walk of a document's schema resources "
+            "(`iter_schema_resource_children`, L0) reads a member of a definitions container that has no schema "
+            "keywords and holds definitions as a namespace, for its entries alone: its `$id`, `$anchor` and "
+            "`$dynamicAnchor` and those of its other subschemas declare nothing (only `passed_anchors` lists its "
+            "`$anchor`s for row `legacy-external-anchor-search`), so a pointer inside a bundled `$defs` member with "
+            "its own `$id` is read against the enclosing resource (#6946); with the option every member is a schema "
+            "the walk visits"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/embedded_resource_definitions.json",
+            "--input-file-type",
+            "jsonschema",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--read-refs-in-their-resources",
+    ),
+    LegacyRow(
+        "legacy-component-schema-resources",
+        (
+            "without `--read-refs-in-their-resources`, the implicit schema resources of an OpenAPI document "
+            "(`implicit_schema_resources`, L0) are the schemas under `components/schemas` and those of a document a "
+            "reference names as an object, so a schema an operation, a webhook or another component kind holds inline "
+            "is no resource: its `$id` and anchors declare nothing and a pointer below its `$id` is read against the "
+            "document (#7179); with the option every Schema Object the document holds (`held_schemas` of its root)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/openapi/operation_schema_resources.yaml",
+            "--input-file-type",
+            "openapi",
+            "--openapi-scopes",
+            "schemas",
+            "paths",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--read-refs-in-their-resources",
+    ),
+    LegacyRow(
+        "legacy-held-resource-fetched",
+        (
+            "without `--read-refs-in-their-resources`, a reference whose key is a URL that another document of the run "
+            "declares (`held_resource_location`) loads the document at that URL wherever that load finds one "
+            "(`loads_document`), and a lenient (OpenAPI) document keeps such a reference for the load with a warning "
+            "(`resolve_lenient_resource_ref`), as in 0.100.0; where the load finds nothing the held schema is read "
+            "(#7159); with the option the held schema is read without a request"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/openapi/component_embedded_ids/api.yaml",
+            "--input-file-type",
+            "openapi",
+            "--openapi-scopes",
+            "schemas",
+            "paths",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--read-refs-in-their-resources",
+    ),
+    LegacyRow(
+        "legacy-inputs-prepared-as-parsed",
+        (
+            "without `--read-refs-in-their-resources`, each document of a directory or list input is prepared (L0) "
+            "when it is parsed (`JsonSchemaParser._prepare_input_documents`), so a reference of one input to a URL "
+            "another input declares finds it only where that input was parsed before; with the option every input is "
+            "prepared before the first is parsed"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/held_root_ids/after",
+            "--input-file-type",
+            "jsonschema",
+            "--no-allow-remote-refs",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--read-refs-in-their-resources",
     ),
     LegacyRow(
         "legacy-first-read-dialect",
@@ -3664,38 +4130,6 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         ),
     ),
     LegacyRow(
-        "legacy-wire-null-ignores-nullable-false",
-        (
-            "the JSON types that a helper selector of a generated client reads of a field with a decided `nullable` "
-            "hold null by that keyword or by the null of a `type` list alone, not by the null the field's own type "
-            "accepts, such as a `$ref` to a nullable model beside `nullable: false` "
-            "(`_target_binding.py:_Models.wire_null`), where `TypeTables.takes_null` reads that null"
-        ),
-        fix=7115,
-        witness=(
-            "--input",
-            "tests/data/openapi/responses_extensions.yaml",
-            "--input-file-type",
-            "openapi",
-            "--openapi-scopes",
-            "schemas",
-            "api",
-            "--target-python-version",
-            "3.11",
-            "--disable-timestamp",
-            "--generate-client",
-            "httpx2",
-            "--client-output",
-            "client",
-            "--client-package",
-            "client",
-            "--client-model-package",
-            "models",
-            "--formatters",
-            "builtin",
-        ),
-    ),
-    LegacyRow(
         "legacy-wire-null-unknown-type",
         (
             "the JSON types that a helper selector of a generated client reads of a property without a decided "
@@ -3714,37 +4148,6 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "api",
             "--target-python-version",
             "3.11",
-            "--disable-timestamp",
-            "--generate-client",
-            "httpx2",
-            "--client-output",
-            "client",
-            "--client-package",
-            "client",
-            "--client-model-package",
-            "models",
-            "--formatters",
-            "builtin",
-        ),
-    ),
-    LegacyRow(
-        "legacy-codec-enum-kinds",
-        (
-            "a stdlib codec reads the kinds of an enum from its str and int values alone, and those of a literal only "
-            "where all its values are str or all int (`_target_types.py:_Vocabulary.values`), where "
-            "`FinalModelSymbol.value_types` has the boolean, float and null values too"
-        ),
-        fix=7014,
-        witness=(
-            "--input",
-            "tests/data/openapi/single_value_enum_as_const/api.yaml",
-            "--input-file-type",
-            "openapi",
-            "--openapi-scopes",
-            "schemas",
-            "api",
-            "--output-model-type",
-            "dataclasses.dataclass",
             "--disable-timestamp",
             "--generate-client",
             "httpx2",
@@ -3803,7 +4206,6 @@ UNTESTED: Final[frozenset[str]] = frozenset({
     "legacy-class-override-keeps-container",
     "legacy-closest-registered-parent",
     "legacy-closing-ref-siblings-with-applicators",
-    "legacy-codec-enum-kinds",
     "legacy-collapse-any-discriminator",
     "legacy-collapse-enum-literal-aliases",
     "legacy-collapse-reuse",
@@ -3823,7 +4225,6 @@ UNTESTED: Final[frozenset[str]] = frozenset({
     "legacy-dynamic-anchor-parse-index",
     "legacy-exact-ints-as-floats",
     "legacy-exact-type-key",
-    "legacy-external-anchor-search",
     "legacy-external-only-primary-first",
     "legacy-first-character-of-path-key",
     "legacy-first-come",
@@ -3903,7 +4304,6 @@ UNTESTED: Final[frozenset[str]] = frozenset({
     "legacy-variant-takes-parent-name",
     "legacy-warning-reads-parsed-bases",
     "legacy-whole-name-singular",
-    "legacy-wire-null-ignores-nullable-false",
     "legacy-wire-null-unknown-type",
     "legacy-x-python-type-container-takes-slot-class",
     "legacy.L-NF",

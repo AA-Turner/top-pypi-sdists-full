@@ -213,10 +213,29 @@ class TestCustomerReconnectIsNotAPlatformFailure:
                 "other live connection for the same Google account is available — reconnect",
             },
             {
+                "type": "PermissionError",
+                "message": "Google connection d33d… was bound to this site by someone who "
+                "cannot reach it. Bind a connection you own, share through your organization, "
+                "or one that was shared with you for this property.",
+            },
+            {
                 "type": "GscPartialCollectionError",
                 "message": "12 GSC profile page(s) failed",
                 "failures": [{"message": "GSC token refresh failed: HTTP 400 invalid_grant"}],
             },
+            # The person's or organization's own search credential is not set (live 2026-11-21: four
+            # seo_collection_failed rows, BRAVE_SEARCH_API_KEY / SERPAPI_API_KEY / DATA_FOR_SEO_EMAIL).
+            # The member already gets the plain set-it-up sentence (seo/credential_refusal.py).
+            {
+                "type": "SecretNotFoundError",
+                "message": "no active secret 'SERPAPI_API_KEY' for user 6523…, org 226b…",
+            },
+            {
+                "type": "SecretNotFoundError",
+                "message": "no active secret 'DATA_FOR_SEO_EMAIL' for org 6f31…",
+            },
+            {"type": "SeoCredentialMissingError", "message": "SEO data is not set up for you"},
+            {"type": "provider_credential_missing", "message": "SEO data is not set up for you"},
         ],
     )
     def test_access_failures_need_the_organization(self, error: dict) -> None:
@@ -236,6 +255,8 @@ class TestCustomerReconnectIsNotAPlatformFailure:
                 "message": "GSC token refresh failed: invalid_client",
             },
             {"type": "ValueError", "message": "GSC could not resolve 1 page URL(s)"},
+            # A secret the PLATFORM holds (no person or organization named) stays ours.
+            {"type": "SecretNotFoundError", "message": "no active platform secret 'GOOGLE_OAUTH_CLIENT_SECRET'"},
         ],
     )
     def test_platform_failures_still_alarm(self, error: dict) -> None:

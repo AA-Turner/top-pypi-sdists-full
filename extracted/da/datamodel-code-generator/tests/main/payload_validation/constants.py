@@ -171,6 +171,16 @@ EXCLUDED_FILES: dict[str, str] = {
         "which hypothesis-jsonschema cannot satisfy for generic payload validation"
     ),
     "jsonschema/unknown_format.json": "unknown format fixture intentionally emits a generator warning",
+    "jsonschema/format_string_keywords.json": (
+        "option-only e2e fixture of --keep-string-keywords-beside-formats; payload validation intentionally uses "
+        "default generation, which drops the keywords; test_keep_string_keywords_beside_formats and the decision "
+        "tables validate its payloads"
+    ),
+    "jsonschema/format_string_keywords_all_of.json": (
+        "option-only e2e fixture of --keep-string-keywords-beside-formats; payload validation intentionally uses "
+        "default generation, which drops the keywords; test_keep_string_keywords_beside_formats_all_of validates its "
+        "output"
+    ),
     "jsonschema/uuid_version_formats.json": (
         "option-only e2e fixture of --read-uuid6-uuid7-uuid8-formats; payload validation intentionally uses default "
         "generation, which types the formats as str; test_read_uuid6_uuid7_uuid8_formats validates its payloads"
@@ -260,8 +270,14 @@ EXCLUDED_CASES: dict[str, str] = {
             "jsonschema/compound_property_names/unsupported_one_sibling.json",
             "jsonschema/compound_property_names/unsupported_sibling.json",
         ),
-        "legacy propertyNames model keys cannot validate nonempty dictionaries; "
-        "valid empty dictionaries are covered by test_compound_property_names_compatibility",
+        "a propertyNames anyOf with a sibling keyword is written as Any keys, which accept keys the schema rejects; "
+        "test_compound_property_names_compatibility covers them",
+    ),
+    "jsonschema/property_names_root_model_mixed_union_keys.json": (
+        "a union key with a non-RootModel member keeps its RootModel class unless "
+        "--use-root-types-for-mixed-union-map-keys is set, as in 0.100.0, so a key that only the RootModel matches "
+        "raises TypeError; "
+        "test_property_names_root_model_mixed_union_keys covers both sides"
     ),
     **{
         f"jsonschema/allof_ref_siblings/{name}.json": (
@@ -502,13 +518,54 @@ EXCLUDED_CASES: dict[str, str] = {
             "openapi/variant_tag_values/integer_values_mapped.yaml::components.schemas.Pet",
             "openapi/variant_tag_values/several_values_mapped.yaml::components.schemas.Pet",
             "openapi/variant_tag_values/several_values_mapped_twice.yaml::components.schemas.Pet",
+            "jsonschema/discriminator_mapping_key_after_union.json",
+            *(
+                f"openapi/variant_tag_values/{kind}_key_{order}_union.yaml::components.schemas.{union}"
+                for kind in ("mapping", "enum")
+                for order in ("after", "before")
+                for union in ("First", "Second")
+            ),
         ),
         "legacy-mapped-tags-only: a variant a mapping key names takes only its mapping keys, not the other values its "
         "tag property admits; --use-unmapped-variant-tag-values takes them and test_variant_tag_values pins both",
     ),
+    **dict.fromkeys(
+        (
+            "openapi/variant_tag_values/nullable_tags.yaml::components.schemas.ConstOptional",
+            "openapi/variant_tag_values/nullable_tags.yaml::components.schemas.Nested",
+            "openapi/variant_tag_values/nullable_tags.yaml::components.schemas.RefOrNull",
+        ),
+        "a union whose variants' tags admit null is written without discriminator= (#7102), so a null tag both "
+        "variants admit, which oneOf refuses, is accepted and dumps as either; under --strict-nullable the tag "
+        "written for an anyOf of a $ref and null drops the null, so that union keeps discriminator= and refuses the "
+        "null only Cat admits, as in 0.100.0; test_tags_that_admit_null pins the verdicts",
+    ),
+    **dict.fromkeys(
+        (
+            "openapi/variant_tag_values/mapping_key_of_referenced_type.yaml::components.schemas.Payment",
+            "openapi/variant_tag_values/mapping_key_of_referenced_type.yaml::components.schemas.Refund",
+        ),
+        "legacy-tag-type-from-earlier-union: a mapping key of a tag property that names an integer schema stays "
+        "text, so the union refuses the integer tag the schema requires, as since 0.65.0; "
+        "--read-mapping-keys-by-schema-tag-type reads it as an integer and test_mapping_key_of_a_referenced_tag_type "
+        "pins both",
+    ),
     "openapi/variant_tag_values/object_values.yaml::components.schemas.Pet": (
         "Cat's tag property admits only objects, which tag no variant, as in 0.97.0; "
         "test_object_values_of_a_tag_property pins it"
+    ),
+    **dict.fromkeys(
+        (
+            f"openapi/variant_tag_values/scalar_kind_mapped.yaml::components.schemas.{name}Union"
+            for name in (
+                *("Int", "BoundedInt", "Number", "BoundedNumber", "FractionNumber", "DecimalNumber", "MultipleNumber"),
+                *("Flag", "PositiveInt", "NegativeInt", "NonNegativeInt", "NonPositiveInt", "PositiveNumber"),
+                *("NegativeNumber", "NonNegativeNumber", "NonPositiveNumber"),
+            )
+        ),
+        _UNCONSTRAINED_TAG_REASON + "here the variants take an integer, number or boolean tag from a scalar type, so "
+        "a payload tagged 2 with the first variant's properties is schema-valid; "
+        "test_scalar_tag_mapping_keys pins the tags",
     ),
     "openapi/variant_tag_values/integer_kind_mapped.yaml::components.schemas.Pet": (
         _UNCONSTRAINED_TAG_REASON
@@ -729,6 +786,7 @@ ROUND_TRIP_EXCLUDED_CASES: dict[str, str] = {
     ),
     **dict.fromkeys(
         (
+            "jsonschema/nested_unique_item_sets.json",
             "jsonschema/unique_items_by_value.json",
             "jsonschema/unique_items_collapsed_root_items.json",
             "jsonschema/unique_items_model_items.json",
@@ -822,17 +880,23 @@ REJECTION_EXCLUDED_CASES: dict[str, str] = {
     ),
     **dict.fromkeys(
         (
-            f"{_DIAMOND}/{document}.yaml::components.schemas.{name}"
-            for document, names in (
-                ("optional_tag_from_the_first_base", ("D", "Group", "Holder")),
-                ("optional_tag_from_the_first_base_in_a_list", ("D", "Group", "Shelter", "Thing")),
-                ("shallow_diamond", ("D", "Group")),
-            )
-            for name in names
+            *(
+                f"{_DIAMOND}/{document}.yaml::components.schemas.{name}"
+                for document, names in (
+                    ("optional_tag_from_the_first_base", ("D", "Group", "Holder")),
+                    ("optional_tag_from_the_first_base_in_a_list", ("D", "Group", "Shelter", "Thing")),
+                    ("shallow_diamond", ("D", "Group")),
+                )
+                for name in names
+            ),
+            *(
+                f"openapi/allof_parents_as_models/required_names.yaml::components.schemas.{name}"
+                for name in ("NewPet", "NewPetFirst", "Owner")
+            ),
         ),
         "a property that a later allOf parent requires stays optional in the model, whose class takes the parents in "
         "order (class D(B, C) keeps B's optional kind over C's required one), so it takes a payload without kind "
-        "(#7331)",
+        "(#7331; the suite generates without --read-allof-parents-as-their-models, which writes the name again)",
     ),
 }
 """The cases the Pydantic v2 rejection check leaves out, by reason; their acceptance and round trip checks run."""
@@ -853,6 +917,8 @@ PYDANTIC_V2_FLOAT_MULTIPLE_OF_CASE_IDS = (
     "jsonschema/native_decimal_default_constrained.json",
     "jsonschema/serialized_decimal_default_multiple_of.json",
     "jsonschema/msgspec_union_member_constraints.json",
+    "openapi/variant_tag_values/scalar_kind_mapped.yaml::components.schemas.MultipleNumberA",
+    "openapi/variant_tag_values/scalar_kind_mapped.yaml::components.schemas.MultipleNumberB",
 )
 PYDANTIC_V2_FLOAT_MULTIPLE_OF_EXCLUSION_REASON = (
     "Pydantic before 2.5.2 rejects schema-valid negative float multipleOf values"
@@ -952,12 +1018,14 @@ PYDANTIC_V2_FIRST_RELEASE_RUNTIME_EXCLUDED_CASES: tuple[tuple[str, dict[PayloadB
                 "Pydantic 2.0.x rejects a dict that holds exactly the maximum number of items "
                 "('at most N items after validation, not N')",
             ),
-            PayloadBackend.PYDANTIC_V2_DATACLASS: {
-                "jsonschema/type_overrides_replace_whole_type.json": (
-                    "Pydantic 2.0.x rejects a dict that holds exactly the maximum number of items "
-                    "('at most N items after validation, not N')"
+            PayloadBackend.PYDANTIC_V2_DATACLASS: dict.fromkeys(
+                (
+                    "jsonschema/allof_map_member_counts_no_merge.json",
+                    "jsonschema/type_overrides_replace_whole_type.json",
                 ),
-            },
+                "Pydantic 2.0.x rejects a dict that holds exactly the maximum number of items "
+                "('at most N items after validation, not N')",
+            ),
         },
     ),
     (
@@ -1041,6 +1109,17 @@ PYDANTIC_V2_FIRST_RELEASE_RUNTIME_ROUND_TRIP_EXCLUDED_CASES: tuple[
                         "jsonschema/prefix_items_positions_unchecked.json",
                     ),
                     "Pydantic before 2.6.0 dumps a boolean item of a prefixItems tuple as 0",
+                ),
+            },
+        },
+    ),
+    (
+        "2.10.0",
+        {
+            PayloadBackend.PYDANTIC_V2: {
+                "jsonschema/allof_base64_member_constraints.json": (
+                    "Pydantic before 2.10.0 dumps a base64 value with a trailing newline, which the schema's "
+                    "maxLength counts"
                 ),
             },
         },

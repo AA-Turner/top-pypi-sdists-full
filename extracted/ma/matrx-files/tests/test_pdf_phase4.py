@@ -16,10 +16,8 @@ import pymupdf
 import pytest
 
 from matrx_files.specific_handlers.pdf import (
-    BUILTIN_PATTERNS,
     PDFHandler,
     RedactionRegion,
-    RedactionResult,
     detect_repeated_regions,
     flatten_annotations,
     list_builtin_patterns,

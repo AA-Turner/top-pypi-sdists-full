@@ -32,13 +32,11 @@ from matrx_scraper.cloud_browser.checkpoint import (
     WorkerContext,
 )
 from matrx_scraper.cloud_browser.checkpoint.closure import (
-    ProcessInspector,
     detect_cookie_scheme,
 )
 from matrx_scraper.cloud_browser.checkpoint.engine import _now
 from matrx_scraper.cloud_browser.checkpoint.errors import (
     ClosureError,
-    RestoreError,
     VerificationError,
 )
 

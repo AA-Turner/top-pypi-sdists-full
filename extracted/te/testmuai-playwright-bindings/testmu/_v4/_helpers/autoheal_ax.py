@@ -118,6 +118,88 @@ async def _option_index(cdp, backend_node_id) -> int | None:
     except Exception:  # noqa: BLE001
         return None
 
+def _frame_chain_from_info(frame_info) -> list[dict[str, Any]]:
+    """``frame_info`` (``{"frameInfo": [{"selectors": [{"selector"}]}]}``,
+    outer→inner) → the ``frame_chain`` shape this module returns."""
+    if isinstance(frame_info, dict):
+        frame_info = frame_info.get("frameInfo")
+    chain: list[dict[str, Any]] = []
+    for fi in frame_info or []:
+        sels = (fi or {}).get("selectors") or []
+        sel = (sels[0] or {}).get("selector") if sels else None
+        if not sel:
+            raise ValueError("frame_info entry without a selector")
+        chain.append({"locator": sel, "locator_type": "playwright"})
+    return chain
+
+
+async def _heal_target_portable(page, entry, *, want_option_index: bool) -> dict[str, Any] | None:
+    """Portable-handle arm (Firefox): the aria-ref resolves across
+    frames by itself, so no per-frame CDP session; the frame chain comes back
+    from the same ``resolveSelector`` call that produced the leaf. A native
+    option's handle carries its index in its select, so a re-probed select
+    retries THAT option."""
+    from testmu._v4._helpers.aria_perception import call_on_ref, enrich_ref_locator, is_option_handle
+    enriched = await enrich_ref_locator(page, {"backend_dom_node_id": entry["backend_dom_node_id"]})
+    if not enriched or not enriched.get("locator"):
+        return None
+    try:
+        frame_chain = _frame_chain_from_info(enriched.get("frame_info"))
+    except ValueError:
+        return None
+    if entry.get("frame_id") and not frame_chain:
+        return None
+    option_index = None
+    if want_option_index and is_option_handle(entry["backend_dom_node_id"]):
+        # The live select.options index, by the same rule as the CDP arm.
+        with contextlib.suppress(Exception):
+            value = await call_on_ref(page, entry["backend_dom_node_id"], _OPTION_INDEX_JS)
+            option_index = value if isinstance(value, int) else None
+    return {
+        "locator": enriched["locator"],
+        "locator_type": enriched.get("locator_type", "playwright"),
+        "frame_chain": frame_chain,
+        "option_index": option_index,
+    }
+
+
+async def _heal_target_cdp(page, entry, forest, *, want_option_index: bool) -> dict[str, Any] | None:
+    """Chromium: resolve the healed ref on its own frame's CDP session."""
+    # Frame-scope: an iframe-resident ref resolves on its OWN frame's CDP
+    # session, never the main-frame session (a bare backendNodeId can
+    # collide across frames).
+    cdp = await resolve_session_for_frame(page, entry.get("frame_id", ""))
+    option_index = None
+    try:
+        if want_option_index:
+            option_index = await _option_index(cdp, entry["backend_dom_node_id"])
+        enriched = await enrich_element_locator(
+            cdp, {"backend_dom_node_id": entry["backend_dom_node_id"]}, page=page,
+        )
+    finally:
+        # A detach failure (e.g. the session's frame went away after a
+        # navigation) must not mask a good enrich result — swallow it,
+        # matching the JS binding.
+        with contextlib.suppress(Exception):
+            await cdp.detach()
+    if not enriched or not enriched.get("locator"):
+        return None
+    # An iframe-resident element's selector is frame-relative and cannot
+    # resolve at the top level — rebuild the frame chain so the retry can
+    # scope into it. Fail safe (return None) if it can't be reconstructed.
+    frame_chain: list[dict[str, Any]] = []
+    frame_id = entry.get("frame_id", "")
+    if frame_id:
+        frame_chain = await _build_frame_chain(page, forest.frame_captures, frame_id)
+        if frame_chain is None:
+            return None
+    return {
+        "locator": enriched["locator"],
+        "locator_type": enriched.get("locator_type", "css"),
+        "frame_chain": frame_chain,
+        "option_index": option_index,
+    }
+
 
 async def run_locator_heal(
     page,
@@ -157,42 +239,13 @@ async def run_locator_heal(
         entry = ref_table.get(resp["ref"])
         if not entry or entry.get("backend_dom_node_id") is None:
             return None
-        # Frame-scope: an iframe-resident ref resolves on its OWN frame's CDP
-        # session, never the main-frame session (a bare backendNodeId can
-        # collide across frames).
-        cdp = await resolve_session_for_frame(page, entry.get("frame_id", ""))
-        option_index = None
-        try:
-            if reprobe and action_type == "select":
-                option_index = await _option_index(cdp, entry["backend_dom_node_id"])
-            enriched = await enrich_element_locator(
-                cdp, {"backend_dom_node_id": entry["backend_dom_node_id"]}, page=page,
-            )
-        finally:
-            # A detach failure (e.g. the session's frame went away after a
-            # navigation) must not mask a good enrich result — swallow it,
-            # matching the JS binding.
-            with contextlib.suppress(Exception):
-                await cdp.detach()
-        if not enriched or not enriched.get("locator"):
+        from testmu._v4._helpers._perception import perception_for
+        target = await perception_for(page).heal_target(
+            entry, forest, want_option_index=reprobe and action_type == "select",
+        )
+        if target is None:
             return None
-        # An iframe-resident element's selector is frame-relative and cannot
-        # resolve at the top level — rebuild the frame chain so the retry can
-        # scope into it. Fail safe (return None) if it can't be reconstructed.
-        frame_chain: list[dict[str, Any]] = []
-        frame_id = entry.get("frame_id", "")
-        if frame_id:
-            frame_chain = await _build_frame_chain(page, forest.frame_captures, frame_id)
-            if frame_chain is None:
-                return None
-        return {
-            "locator": enriched["locator"],
-            "locator_type": enriched.get("locator_type", "css"),
-            "frame_chain": frame_chain,
-            "option_index": option_index,
-            "confidence": confidence,
-            "reasoning": resp.get("reasoning", ""),
-        }
+        return {**target, "confidence": confidence, "reasoning": resp.get("reasoning", "")}
     except aiohttp.ClientError as e:
         _log.warning("[autoheal_ax] transport error: %s", e)
         return None

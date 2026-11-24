@@ -53,11 +53,16 @@ class AgxDefinitionManager(AgxDefinitionBase):
     async def to_config(self, agent_id: str) -> AgentConfig:
         from matrx_ai.agents.follow_source import resolve_followed_row
 
-        # A MISSING OR DELETED AGENT IS A 404, NEVER A 500. ``load_by_id`` wraps the ORM's
-        # DoesNotExist in an AppError that no route maps, so a run on a deleted agent answered
-        # HTTP 500. The ORM's own DoesNotExist is mapped once, globally, to a 404 with a door.
+        # A MISSING AGENT IS A 404, NEVER A 500. ``load_by_id`` wraps the ORM's DoesNotExist in an
+        # AppError that no route maps, so a run on a missing agent answered HTTP 500. The ORM's own
+        # DoesNotExist is mapped once, globally, to a 404 with a door.
+        # AN ARCHIVED AGENT NAMED BY ID RUNS (2026-11-08). One Archive keeps ``is_archived`` and
+        # ``deleted_at`` as one state (common-docs/policies/archived-items.md item 5), so
+        # ``deleted_at`` means archived, never gone: builds save drafts archived until they pass and
+        # run them by id. Archived stays out of lists, pickers and default resolution; access is the
+        # run door's ``iam.has_access_for`` check. Guard: tests/test_follow_source.py.
         agent: AgxDefinition | None = await self.load_by_id_or_none(agent_id)
-        if agent is None or getattr(agent, "deleted_at", None) is not None:
+        if agent is None:
             raise DoesNotExist(model="agent", filters={"id": agent_id})
         # A template copy with follows_source runs its source's current content.
         return _row_to_config(await resolve_followed_row(agent, self._load_source_or_none))

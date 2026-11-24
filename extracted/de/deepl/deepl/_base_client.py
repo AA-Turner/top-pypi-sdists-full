@@ -2,13 +2,12 @@
 # Use of this source code is governed by an MIT
 # license that can be found in the LICENSE file.
 
-from . import http_client, util
+from . import _http_client, util
 from .api_data import AppInfo
 from .exceptions import (
     AuthorizationException,
     DeepLException,
     DocumentNotReadyException,
-    GlossaryNotFoundException,
     NotFoundException,
     QuotaExceededException,
     TooManyRequestsException,
@@ -17,7 +16,7 @@ import http
 import http.client
 import json as json_module
 import requests  # type: ignore
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, TypeVar, Union
 import urllib.parse
 
 
@@ -25,6 +24,8 @@ import urllib.parse
 _TECHNICAL_HEADERS = frozenset(
     ["content-type", "content-length", "transfer-encoding", "host"]
 )
+
+_ClientT = TypeVar("_ClientT", bound="BaseClient")
 
 
 class BaseClient:
@@ -43,18 +44,29 @@ class BaseClient:
         *,
         server_url: str,
         proxy: Union[Dict, str, None] = None,
-        send_platform_info: bool = True,
+        send_platform_info: Optional[bool] = True,
         verify_ssl: Union[bool, str, None] = None,
-        max_retries: Optional[int] = None,
-        timeout_s: Optional[float] = None,
+        max_retries: Optional[int] = 5,
+        timeout_s: Optional[float] = 10.0,
         headers: Optional[Dict[str, str]] = None,
         app_info: Optional[AppInfo] = None,
     ):
         auth_key = auth_key.strip()
         if not auth_key:
             raise ValueError("auth_key must not be empty")
+        parts = urllib.parse.urlsplit(server_url)
+        try:
+            parts.port  # raises ValueError for an invalid port
+            valid = parts.scheme in ("http", "https") and bool(parts.hostname)
+        except ValueError:
+            valid = False
+        if not valid:
+            # The URL is not echoed: it may contain credentials.
+            raise ValueError(
+                "server_url must be an absolute http or https URL with a host"
+            )
         self._server_url = server_url
-        self._client = http_client.HttpClient(
+        self._client = _http_client.HttpClient(
             proxy,
             send_platform_info,
             verify_ssl,
@@ -142,11 +154,20 @@ class BaseClient:
         elif not 200 <= status_code < 300:
             # Read only the error body of a streamed response; a successful
             # one is left unread so that the caller can stream it.
-            content_str = http_client.read_response_text(content)
+            content_str = _http_client.read_response_text(content)
 
         util.log_info("DeepL API response", url=url, status_code=status_code)
         if content_str is not None:
             util.log_debug("Response details", content=content_str)
+
+        if retry_only_unprocessed and status_code >= 500:
+            # The request may have been processed; repeating it could create
+            # a duplicate, so the error is not marked retryable.
+            try:
+                self._raise_for_status(status_code, content, json)
+            except DeepLException as e:
+                e.should_retry = False
+                raise
 
         return status_code, content, json
 
@@ -155,7 +176,6 @@ class BaseClient:
         status_code: int,
         content: Union[str, requests.Response],
         json: Any,
-        glossary: bool = False,
         downloading_document: bool = False,
     ):
         message = ""
@@ -184,11 +204,6 @@ class BaseClient:
                 http_status_code=status_code,
             )
         elif status_code == http.HTTPStatus.NOT_FOUND:
-            if glossary:
-                raise GlossaryNotFoundException(
-                    f"Glossary not found{message}",
-                    http_status_code=status_code,
-                )
             raise NotFoundException(
                 f"Not found{message}",
                 http_status_code=status_code,
@@ -226,7 +241,7 @@ class BaseClient:
             content_str = (
                 content
                 if isinstance(content, str)
-                else http_client.read_response_text(content)
+                else _http_client.read_response_text(content)
             )
             raise DeepLException(
                 f"Unexpected status code: {status_code} {status_name}, "
@@ -235,16 +250,18 @@ class BaseClient:
                 http_status_code=status_code,
             )
 
-    def close(self):
+    def close(self) -> None:
         if hasattr(self, "_client"):
             self._client.close()
 
-    def set_app_info(self, app_info_name: str, app_info_version: str):
+    def set_app_info(
+        self: _ClientT, app_info_name: str, app_info_version: str
+    ) -> _ClientT:
         """Identifies your application in the User-Agent header, like the
         app_info constructor option. Returns this client."""
         self._client.set_app_info(app_info_name, app_info_version)
         return self
 
     @property
-    def server_url(self):
+    def server_url(self) -> str:
         return self._server_url

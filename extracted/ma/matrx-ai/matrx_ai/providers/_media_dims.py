@@ -41,7 +41,7 @@ _ASPECT_TO_DEFAULT_WH: dict[str, tuple[int, int]] = {
 }
 
 
-def derive_wh(config: "UnifiedConfig") -> tuple[int | None, int | None]:
+def derive_wh(config: UnifiedConfig) -> tuple[int | None, int | None]:
     """Return (width, height) from UnifiedConfig.
 
     Priority: explicit width+height first, else map aspect_ratio to a default
@@ -64,7 +64,7 @@ def derive_wh(config: "UnifiedConfig") -> tuple[int | None, int | None]:
     return (None, None)
 
 
-def derive_size_string(config: "UnifiedConfig") -> str | None:
+def derive_size_string(config: UnifiedConfig) -> str | None:
     """Return a "WxH" string for providers (gpt-image-*, Sora) that take it.
 
     Returns None if neither width+height nor aspect_ratio is set.
@@ -75,7 +75,7 @@ def derive_size_string(config: "UnifiedConfig") -> str | None:
     return None
 
 
-def derive_aspect_ratio(config: "UnifiedConfig") -> str | None:
+def derive_aspect_ratio(config: UnifiedConfig) -> str | None:
     """Return aspect_ratio string ("16:9") from UnifiedConfig.
 
     Priority: explicit aspect_ratio, else compute from width+height (reduced
@@ -91,7 +91,7 @@ def derive_aspect_ratio(config: "UnifiedConfig") -> str | None:
     return None
 
 
-def derive_duration_str(config: "UnifiedConfig") -> str | None:
+def derive_duration_str(config: UnifiedConfig) -> str | None:
     """For providers (Sora, Together video) that take duration as a string.
 
     Reads UnifiedConfig.duration_seconds (int) and stringifies.

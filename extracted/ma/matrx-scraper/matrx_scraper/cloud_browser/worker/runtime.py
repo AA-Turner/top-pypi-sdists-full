@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import base64
 import hashlib
 import json
@@ -53,6 +54,7 @@ from typing import Any
 import httpx
 
 from matrx_scraper.ai_browser import actions as A
+from matrx_scraper.ai_browser.page_read import SelectorNotFound, capture_png
 from matrx_scraper.ai_browser.session import BrowserSession, BrowserSessionManager
 from matrx_scraper.ai_browser.url_guard import guard_proxy, install_egress_guard
 from matrx_scraper.utils.proxy import playwright_proxy
@@ -105,9 +107,11 @@ _CHROMIUM_SINGLETON_FILES = ("SingletonLock", "SingletonSocket", "SingletonCooki
 #: (``lease_watchdog``). A lease is renewed every 20 s and lasts 60 s; 90 s past
 #: expiry is 150 s of silence. Only a definite "ended" stops the run; a server
 #: that cannot answer is not a stop order (2026-10-17).
-LEASE_WATCHDOG_GRACE_SECONDS = float(
-    os.environ.get("BROWSER_WORKER_LEASE_WATCHDOG_GRACE_SECONDS", "90")
-)
+#: The worker's built-in value. The control plane's setting
+#: ``cloud_browser.worker_tuning.lease_watchdog_grace_seconds`` rides every heartbeat
+#: (``HeartbeatRequest.lease_watchdog_grace_seconds``) and replaces it for that run;
+#: this process reads no environment for it (2026-11-20).
+LEASE_WATCHDOG_GRACE_SECONDS = 90.0
 LEASE_WATCHDOG_TICK_SECONDS = 15.0
 
 # The manager derives its bootstrap envelope from the shared S2 budgets below.
@@ -128,6 +132,8 @@ def _now() -> datetime:
 #: The liveness probe reads cookies for this URL: a browser-process round trip
 #: that touches no page and no network (``.invalid`` never resolves).
 _LIVENESS_PROBE_URL = "https://liveness.invalid/"
+#: How a probe that timed out reads; a heartbeat tells "still starting" by it.
+_NO_ANSWER = "the browser did not answer within"
 
 
 def _on_relaunched_page(request: M.CommandRequest) -> M.CommandRequest:
@@ -166,7 +172,9 @@ def _profile_lock_holder(user_data_dir: str | None) -> int | None:
 
 #: How long a Chrome left running on the agent's profile after its window
 #: closed gets to exit on SIGTERM before it is killed (seconds).
-LEFTOVER_CHROME_GRACE_SECONDS = float(os.environ.get("BROWSER_WORKER_LEFTOVER_CHROME_GRACE_SECONDS", "3"))
+#: Built-in value; a heartbeat's ``leftover_chrome_grace_seconds`` (setting
+#: ``cloud_browser.worker_tuning.leftover_chrome_grace_seconds``) replaces it for that run.
+LEFTOVER_CHROME_GRACE_SECONDS = 3.0
 
 
 def _profile_chrome_pids(user_data_dir: str | None, proc_root: str = "/proc") -> list[int]:
@@ -193,7 +201,7 @@ def _profile_chrome_pids(user_data_dir: str | None, proc_root: str = "/proc") ->
     return sorted(found)
 
 
-async def end_leftover_chrome(user_data_dir: str | None) -> list[int]:
+async def end_leftover_chrome(user_data_dir: str | None, grace_seconds: float | None = None) -> list[int]:
     """End a Chrome still running on the profile after its window closed.
 
     Live 2026-10-17: the person closed the agent's window, but the browser
@@ -219,7 +227,7 @@ async def end_leftover_chrome(user_data_dir: str | None) -> list[int]:
         try:
             await asyncio.wait_for(
                 asyncio.gather(*(_wait_for_process_exit(pid) for pid in alive)),
-                LEFTOVER_CHROME_GRACE_SECONDS,
+                LEFTOVER_CHROME_GRACE_SECONDS if grace_seconds is None else grace_seconds,
             )
             break
         except TimeoutError:
@@ -583,8 +591,26 @@ def _serialized_control(method):
     return wrapped
 
 
+#: What ONE command is doing right now, per asyncio task. Agent commands run
+#: concurrently outside ``_command_lock``, so a single worker attribute was
+#: shared by every in-flight command: one command finishing reset it to
+#: ``idle`` while another was still running, and that other command's
+#: ``command_deadline_exceeded`` then said "still running idle" (2026-11-18).
+#: Each HTTP command is its own task, so a ContextVar gives each one its own.
+_COMMAND_STAGE: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "cloud_browser_command_stage", default="idle"
+)
+
 class BrowserWorker:
     """The S2 worker. Instantiate, then drive through the eight operations."""
+
+    @property
+    def _command_stage(self) -> str:
+        return _COMMAND_STAGE.get()
+
+    @_command_stage.setter
+    def _command_stage(self, stage: str) -> None:
+        _COMMAND_STAGE.set(stage)
 
     def __init__(
         self,
@@ -681,6 +707,14 @@ class BrowserWorker:
         #: last sent on a heartbeat (knob
         #: ``cloud_browser.worker_liveness.probe_timeout_ms``); None until then.
         self._liveness_timeout_s: float | None = None
+        #: The control plane's tuning for THIS run, sent on a heartbeat; None = this build's constants.
+        self._watchdog_grace_s: float | None = None
+        self._leftover_chrome_grace_s: float | None = None
+        #: STARTING IS NOT DEAD (2026-11-16): when the current Chromium was
+        #: launched, and whether it has answered a probe since. Until it has, it
+        #: is starting, and gets the launch budget rather than the probe deadline.
+        self._launched_at: float | None = None
+        self._answered_since_launch = False
         #: Set when a dead browser's ONE relaunch failed: the run is over and
         #: every reply says so (heartbeat ``browser_state="down"``).
         self._browser_down_reason: str | None = None
@@ -788,6 +822,39 @@ class BrowserWorker:
     def context(self) -> Any:
         return self._context
 
+    # ── the surface the HTTP layer reads (``http_app``) ─────────────────────
+    # ``MachineBrowsers`` answers every one of these too; a guard
+    # (tests/test_machine_host_answers_every_worker_read.py) fails when either
+    # host lacks a name ``http_app`` reads.
+
+    #: One run per process; a Cloud Computer host (``machine_browsers.py``) says True.
+    multi_browser = False
+    max_browsers = 1
+
+    @property
+    def token_verifier(self) -> TokenVerifier | None:
+        """The verifier of every signed call (the eight operations and, on a Cloud
+        Computer, the ``/agent`` door, the terminal and ``/machine/*``)."""
+        return self._verifier
+
+    @property
+    def human_control_live(self) -> bool:
+        """A person controls this browser right now."""
+        return self.controller_state == "human_control"
+
+    def browsers(self) -> list[dict[str, object]]:
+        """The open browser, for ``/health`` (a fleet worker hosts at most one)."""
+        if not self.run_id or self.free_for_new_run:
+            return []
+        return [
+            {
+                "run_id": self.run_id,
+                "profile_id": self.profile_id,
+                "health": self.health,
+                "window_class": self.window_class,
+            }
+        ]
+
     @property
     def last_events(self) -> list[M.WorkerEvent]:
         return list(self._event_buffer)
@@ -801,6 +868,49 @@ class BrowserWorker:
     ) -> None:
         self._prepare_human_control = callback
         self._clear_human_control = clear_callback
+
+    @property
+    def free_for_new_run(self) -> bool:
+        """No run holds this worker (never bootstrapped, or its run stopped):
+        a multi-browser host (``machine_browsers.py``) may give it a new run."""
+        active = self._bootstrap_task
+        if active is not None and not active.done():
+            return False
+        if not self._bootstrapped:
+            return True
+        return self.health == "stopped" and self.queue_state == "closed"
+
+    @property
+    def window_class(self) -> str:
+        """Every browser on a Cloud Computer desktop shares the agent window
+        class (the window manager maximizes it; the desktop icon finds it);
+        one browser's window is told apart by its Chrome process (``raise_window``)."""
+        return AGENT_CHROME_WINDOW_CLASS
+
+    async def raise_window(self) -> bool:
+        """Bring this browser's window to the front of the desktop (its view
+        opened, or a person took control of it). Best effort: ``False`` when
+        there is no desktop window or the window manager did not answer."""
+        if self.run_mode == "automation_only" or not _desktop_session():
+            return False
+        env = dict(os.environ)
+        if self._xvfb_display:
+            env["DISPLAY"] = self._xvfb_display
+        pid = _profile_lock_holder(self._user_data_dir)
+        if pid is None:
+            return False
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "xdotool", "search", "--onlyvisible", "--pid", str(pid),
+                "--class", self.window_class, "windowactivate",
+                env=env,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            return await asyncio.wait_for(proc.wait(), timeout=5) == 0
+        except Exception:
+            logger.warning("could not raise the window of run %s", self.run_id, exc_info=True)
+            return False
 
     @property
     def view_stream_live(self) -> bool:
@@ -1574,6 +1684,8 @@ class BrowserWorker:
             *STEALTH_ARGS,
         ]
         self._last_launch = (policy, display)
+        self._launched_at = time.monotonic()
+        self._answered_since_launch = False
         desktop = not headless and _desktop_session()
         # Read BEFORE launch: Chrome overwrites it with its own version.
         profile_chrome_version = read_profile_last_version(self._user_data_dir)
@@ -1645,7 +1757,7 @@ class BrowserWorker:
             # through a loopback METER so the bytes it carries are counted and
             # reported on every heartbeat (``HeartbeatResponse.proxy_bytes``):
             # a paid proxy bills by traffic and the platform meters it to points
-            # (common-docs/projects/cloud-computer/PLAN.md rulings 6 + 12). Only
+            # (common-docs/systems/architecture/sandboxes/projects/cloud-computer/PLAN.md rulings 6 + 12). Only
             # Chrome is launched through it; the machine's shell keeps its own exit.
             # A socks proxy is not HTTP-shaped and is handed to Chrome as before
             # (unmetered: the paid exit is always http).
@@ -1952,6 +2064,10 @@ class BrowserWorker:
                     seconds=int(request.stream_view_seconds or 0)
                 )
         self._lease_expires_at = request.lease_expires_at
+        if request.lease_watchdog_grace_seconds is not None:
+            self._watchdog_grace_s = float(request.lease_watchdog_grace_seconds)
+        if request.leftover_chrome_grace_seconds is not None:
+            self._leftover_chrome_grace_s = float(request.leftover_chrome_grace_seconds)
         if not request.access_still_valid:
             # Immediately end human input injection and refuse subsequent commands.
             self._access_valid = False
@@ -2014,18 +2130,42 @@ class BrowserWorker:
         ):
             return None
         async with self._command_lock:
-            alive, why = await self._browser_alive(self._liveness_timeout_s)
+            alive, why = await self._browser_alive(self._liveness_timeout_s, wait_for_start=False)
             if alive:
                 return "running"
+            if why.startswith(_NO_ANSWER) and self._startup_remaining_s() > 0:
+                # Still starting (a large profile loads for many seconds): no
+                # claim on this beat. Past the launch budget it is dead.
+                return None
             return "relaunched" if await self._relaunch_dead_browser(why) else "down"
 
-    async def _browser_alive(self, timeout_s: float | None) -> tuple[bool, str]:
+    def _startup_remaining_s(self) -> float:
+        """Seconds of launch budget left for a Chromium that has not answered
+        since it was launched; 0 once it has answered or the budget is spent."""
+        if self._answered_since_launch or self._launched_at is None:
+            return 0.0
+        spent = time.monotonic() - self._launched_at
+        return max(0.0, M.BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS - spent)
+
+    async def _browser_alive(
+        self, timeout_s: float | None, *, wait_for_start: bool = True
+    ) -> tuple[bool, str]:
         """Does THIS worker's Chromium answer? ``(alive, why_not)``.
 
         Asks the browser process itself (a cookie read), never a page: a page
         busy with a heavy script is not a dead browser. A browser with no page
         left gets one opened, so the run always has something to drive and show.
+
+        STARTING IS NOT DEAD (2026-11-16): a Chromium that has not answered
+        since launch is still loading its profile. A person's months-old 288 MB
+        profile took longer than the 5 s probe deadline on every start, so the
+        first command killed it, the one relaunch got the same 5 s, and the run
+        ended "could not be restarted" for ten days while a new profile worked.
+        Such a browser gets what is left of the launch budget; ``wait_for_start``
+        False (a heartbeat) keeps the short deadline and the caller makes no claim.
         """
+        if timeout_s and wait_for_start:
+            timeout_s = max(timeout_s, self._startup_remaining_s())
         context = self._context
         if context is None:
             return False, "the browser is not open"
@@ -2042,9 +2182,10 @@ class BrowserWorker:
             else:
                 await probe
         except TimeoutError:
-            return False, f"the browser did not answer within {timeout_s:g}s"
+            return False, f"{_NO_ANSWER} {timeout_s:g}s"
         except Exception as exc:  # noqa: BLE001 — any failure here IS the answer
             return False, f"the browser is gone ({_short_error(exc)})"
+        self._answered_since_launch = True
         if not any(tp.closed_at is None for tp in self._pages.values()):
             try:
                 opening = context.new_page()
@@ -2085,7 +2226,7 @@ class BrowserWorker:
         try:
             if launch is None:
                 raise RuntimeError("the launch settings of this run are gone")
-            await end_leftover_chrome(self._user_data_dir)
+            await end_leftover_chrome(self._user_data_dir, self._leftover_chrome_grace_s)
             mark_profile_exited_cleanly(self._user_data_dir)
             await asyncio.wait_for(self._launch_context(*launch), M.BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS)
             alive, after = await self._browser_alive(self._liveness_timeout_s)
@@ -2640,8 +2781,13 @@ class BrowserWorker:
                 # browser protocol may acknowledge the input before the new
                 # document snapshot reaches our next locator query.  Cross one
                 # rendered frame before classifying an authentication surface;
-                # this is a state boundary, not a blind timeout.
-                await session.page.evaluate("() => new Promise(requestAnimationFrame)")
+                # this is a state boundary, not a blind timeout. A hidden or
+                # background tab never paints, so rAF alone never resolves
+                # there and held successful clicks to the 55 s command ceiling
+                # (2026-11-18); the frame wait races a short timer instead.
+                await session.page.evaluate(
+                    "() => new Promise(r => { requestAnimationFrame(() => r()); setTimeout(r, 250); })"
+                )
                 # A numeric input or a name merely containing ``code`` is not
                 # authentication evidence. Those broad selectors classified
                 # ordinary ZIP/postal-code fields as MFA and permanently
@@ -2727,6 +2873,7 @@ class BrowserWorker:
                 wait_until=cmd.wait_until,
                 timeout_ms=cmd.timeout_ms,
                 extract_text=cmd.extract_text,
+                networkidle_grace_ms=cmd.networkidle_grace_ms,
                 mgr=mgr,
             )
         if name == "click":
@@ -3047,7 +3194,17 @@ class BrowserWorker:
             )
 
         try:
-            png = await tp.page.screenshot(type="png", full_page=request.full_page)
+            png = await capture_png(
+                tp.page, selector=request.selector or None, full_page=request.full_page
+            )
+        except SelectorNotFound as missing:
+            # Named, never a viewport shot of the wrong thing. ``suppressed_reason``
+            # rides the error reply because the control plane surfaces that field.
+            return self._error_reply(
+                M.CaptureResponse,
+                WorkerProtocolError("invalid_command_arguments", message=str(missing)),
+                suppressed_reason=str(missing),
+            )
         except Exception:
             return self._error_reply(
                 M.CaptureResponse,
@@ -3643,7 +3800,7 @@ class BrowserWorker:
                     "the closed Chrome (pid %s) still holds the profile after %ss",
                     holder, BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS,
                 )
-        await end_leftover_chrome(getattr(self, "_user_data_dir", None))
+        await end_leftover_chrome(getattr(self, "_user_data_dir", None), getattr(self, "_leftover_chrome_grace_s", None))
         mark_profile_exited_cleanly(getattr(self, "_user_data_dir", None))
 
     @property
@@ -3668,7 +3825,7 @@ class BrowserWorker:
         try:
             policy, display = self._last_launch  # type: ignore[misc]
             started = time.monotonic()
-            await end_leftover_chrome(self._user_data_dir)
+            await end_leftover_chrome(self._user_data_dir, self._leftover_chrome_grace_s)
             await self._launch_context(policy, display)
             logger.info("the agent's Chrome reopened in %.1fs", time.monotonic() - started)
         except Exception:
@@ -3757,14 +3914,14 @@ class BrowserWorker:
                 logger.error(
                     "no lease renewal for %.0f s past expiry, but the server says run %s is "
                     "live: the renewer is failing; staying up",
-                    LEASE_WATCHDOG_GRACE_SECONDS,
+                    self._lease_watchdog_grace(),
                     self.run_id,
                 )
             else:
                 logger.error(
                     "no lease renewal for %.0f s past expiry and the server cannot answer "
                     "(%s): staying up (unreachable since %s, limit %s s, 0 = none)",
-                    LEASE_WATCHDOG_GRACE_SECONDS,
+                    self._lease_watchdog_grace(),
                     check.detail,
                     state.unreachable_since,
                     state.unreachable_max_seconds,
@@ -3832,7 +3989,11 @@ class BrowserWorker:
         expires = self._lease_expires_at
         if expires is None:
             return False
-        return now > expires + timedelta(seconds=LEASE_WATCHDOG_GRACE_SECONDS)
+        return now > expires + timedelta(seconds=self._lease_watchdog_grace())
+
+    def _lease_watchdog_grace(self) -> float:
+        grace = getattr(self, "_watchdog_grace_s", None)
+        return LEASE_WATCHDOG_GRACE_SECONDS if grace is None else grace
 
     # ── operation 5.8: shutdown ─────────────────────────────────────────────
 

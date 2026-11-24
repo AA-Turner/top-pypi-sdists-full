@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braindecode
-Version: 2.0.0
+Version: 2.1.0
 Summary: Deep learning software to decode EEG, ECG or MEG signals
 Author-email: Robin Tibor Schirrmeister <robintibor@gmail.com>, Bruno Aristimunha Pinto <b.aristimunha@gmail.com>, Alexandre Gramfort <agramfort@meta.com>
 Maintainer-email: Alexandre Gramfort <agramfort@meta.com>, Bruno Aristimunha Pinto <b.aristimunha@gmail.com>, Robin Tibor Schirrmeister <robintibor@gmail.com>
@@ -24,12 +24,13 @@ License-File: LICENSE.txt
 License-File: NOTICE.txt
 Requires-Dist: torch>=2.6
 Requires-Dist: torchaudio>=2.6
-Requires-Dist: mne>=1.11.0
+Requires-Dist: mne>=1.13.0
 Requires-Dist: mne_bids>=0.19
 Requires-Dist: h5py
 Requires-Dist: skorch>=1.3.1
 Requires-Dist: joblib
 Requires-Dist: torchinfo
+Requires-Dist: jinja2
 Requires-Dist: pandas
 Requires-Dist: wfdb>=4.3.1
 Requires-Dist: docstring_inheritance
@@ -39,8 +40,9 @@ Provides-Extra: moabb
 Requires-Dist: moabb>=1.4.3; extra == "moabb"
 Provides-Extra: eegprep
 Requires-Dist: eegprep[eeglabio]>=0.2.23; extra == "eegprep"
+Requires-Dist: torch>=2.7; python_version < "3.12" and extra == "eegprep"
 Provides-Extra: hub
-Requires-Dist: huggingface_hub[torch]>=0.20.0; extra == "hub"
+Requires-Dist: huggingface_hub[torch]>=0.22.0; extra == "hub"
 Requires-Dist: zarr>=3.1; extra == "hub"
 Provides-Extra: viz
 Requires-Dist: captum>=0.7.0; extra == "viz"
@@ -53,10 +55,11 @@ Requires-Dist: pytest-xdist>=3.8.0; extra == "tests"
 Requires-Dist: pytest-timeout; extra == "tests"
 Requires-Dist: codecov; extra == "tests"
 Requires-Dist: pytest_cases; extra == "tests"
-Requires-Dist: mypy; extra == "tests"
+Requires-Dist: ty>=0.0.107; extra == "tests"
 Requires-Dist: ipython; extra == "tests"
 Requires-Dist: transformers>=4.57.0; extra == "tests"
 Requires-Dist: bids_validator; extra == "tests"
+Requires-Dist: timescoring==0.0.7; extra == "tests"
 Provides-Extra: typing
 Requires-Dist: exca>=0.5.10; extra == "typing"
 Requires-Dist: numpydantic>=1.7; extra == "typing"
@@ -64,7 +67,6 @@ Provides-Extra: docs
 Requires-Dist: pytest<9.1; extra == "docs"
 Requires-Dist: sphinx-markdown-builder==0.6.11; extra == "docs"
 Requires-Dist: sphinx_gallery>=0.17; extra == "docs"
-Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Requires-Dist: sphinx-autobuild; extra == "docs"
 Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
@@ -72,30 +74,27 @@ Requires-Dist: sphinx_sitemap; extra == "docs"
 Requires-Dist: sphinxext-opengraph; extra == "docs"
 Requires-Dist: pydata_sphinx_theme; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
-Requires-Dist: memory_profiler; extra == "docs"
 Requires-Dist: pillow; extra == "docs"
 Requires-Dist: ipython; extra == "docs"
 Requires-Dist: sphinx_design; extra == "docs"
-Requires-Dist: lightning; extra == "docs"
-Requires-Dist: seaborn; extra == "docs"
-Requires-Dist: pre-commit; extra == "docs"
-Requires-Dist: openneuro-py>=2026.4.0; extra == "docs"
-Requires-Dist: plotly; extra == "docs"
-Requires-Dist: shap; extra == "docs"
-Requires-Dist: nbformat; extra == "docs"
-Requires-Dist: transformers; extra == "docs"
+Provides-Extra: docs-gallery
+Requires-Dist: lightning; extra == "docs-gallery"
+Requires-Dist: openneuro-py>=2026.4.0; extra == "docs-gallery"
+Requires-Dist: seaborn; extra == "docs-gallery"
+Requires-Dist: shap; extra == "docs-gallery"
 Provides-Extra: all
 Requires-Dist: braindecode[moabb]; extra == "all"
 Requires-Dist: braindecode[tests]; extra == "all"
 Requires-Dist: braindecode[docs]; extra == "all"
+Requires-Dist: braindecode[docs-gallery]; extra == "all"
 Requires-Dist: braindecode[hub]; extra == "all"
 Requires-Dist: braindecode[eegprep]; extra == "all"
 Requires-Dist: braindecode[typing]; extra == "all"
 Requires-Dist: braindecode[viz]; extra == "all"
 Dynamic: license-file
 
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.17699192.svg
-    :target: https://doi.org/10.5281/zenodo.17699192
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8214376.svg
+    :target: https://doi.org/10.5281/zenodo.8214376
     :alt: DOI
 
 .. image:: https://github.com/braindecode/braindecode/workflows/docs/badge.svg
@@ -186,15 +185,15 @@ https://github.com/braindecode/braindecode/blob/master/CONTRIBUTING.md
 If you use Braindecode in scientific work, please cite the software using the global
 Zenodo DOI shown in the badge below:
 
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.17699192.svg
-    :target: https://doi.org/10.5281/zenodo.17699192
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8214376.svg
+    :target: https://doi.org/10.5281/zenodo.8214376
     :alt: DOI
 
 You can use the following BibTeX entry:
 
 .. code-block:: bibtex
 
-    @software{braindecode,
+    @misc{braindecode,
       author = {Aristimunha, Bruno and
                 Guetschel, Pierre and
                 Wimpff, Martin and
@@ -206,17 +205,32 @@ You can use the following BibTeX entry:
                 Brandt, Simon and
                 Gnassounou, Théo and
                 Paillard, Joseph and
+                Srivastava, Aman and
                 {Junqueira Lopes}, Bruna and
                 Sedlar, Sara and
+                Tayal, Sarthak and
+                Truong, Young and
+                Gadonneix, Julien and
+                Mounir, Adam and
+                Zhang, Zhibo and
+                Soloviev, Anton and
+                Li, Qing and
+                Rathi, Raghav and
+                Shah, Vandit and
+                Arthur and
+                Jain, Mahir and
+                Kowshik, Bhargav and
+                Li, Yiheng and
+                Siddique, Fashad Ahmed and
                 Moreau, Thomas and
                 Chevallier, Sylvain and
                 Gramfort, Alexandre and
                 Schirrmeister, Robin Tibor},
       title = {Braindecode: toolbox for decoding raw electrophysiological brain data
                with deep learning models},
+      howpublished = {Zenodo},
       url = {https://github.com/braindecode/braindecode},
-      doi = {10.5281/zenodo.17699192},
-      publisher = {Zenodo},
+      doi = {10.5281/zenodo.8214376},
       license = {BSD-3-Clause},
     }
 

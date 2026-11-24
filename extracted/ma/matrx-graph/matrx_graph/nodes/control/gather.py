@@ -25,9 +25,9 @@ Two modes:
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Annotated, Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, SkipValidation
 
 from matrx_graph.content_ir.model import KindModel, KindSubModel
 from matrx_graph.errors import ExecutionError
@@ -41,6 +41,18 @@ from matrx_graph.types.usl import field_extras
 
 class GatherInput(BaseModel):
     model_config = ConfigDict(extra="allow")
+
+
+# A GATHERED VALUE IS CARRIED, NEVER COPIED (research read OOM, 2026-11-17). Every gathered value already
+# arrived as JSON through the engine; validating it again as ``JsonValue`` rebuilt the whole tree, and
+# ``model_dump(mode="json")`` of the input rebuilt it once more, so a fan-in held three or four copies of
+# everything its items returned at once. The research read step's outer gather (4 keywords, each a
+# subgraph result carrying every page's every step output) took a 4 GB ECS host past its limit
+# (exit 137, runs 5c419f43 / d150cc41 / c17002b1). The declared JSON schema is unchanged (the registry
+# row stays as it is); only the very objects that arrived are kept.
+# Guard: ``tests/nodes/test_gather_never_copies_its_values.py``.
+# ``values`` skips validation in its type; a pair and a hole are built with ``model_construct`` (their JSON
+# values as they arrived) and a model instance is never revalidated by its parent.
 
 
 # ``KindSubModel``, not a bare ``BaseModel``: a nested sub-structure must ACCEPT
@@ -82,7 +94,7 @@ class GatherPair(KindSubModel):
 
 
 class GatherOutput(KindModel, kind="gather_result"):
-    values: list[JsonValue] = Field(
+    values: Annotated[list[JsonValue], SkipValidation] = Field(
         default_factory=list,
         description="THE RAW per-item results, in item-index order (engine "
         "mode) or channel order (legacy mode) — every field the step emitted, "
@@ -90,7 +102,9 @@ class GatherOutput(KindModel, kind="gather_result"):
         "key only when the next step genuinely needs the raw objects; for AI "
         "items prefer `structured_outputs` / `final_texts` below.",
     )
-    structured_outputs: list[JsonValue] = Field(
+    # Not re-validated, like ``values`` it is cut from: a JsonValue walk of every item's structured
+    # output held the workflow worker's loop 1.23 s (event_loop_stall 21c459d7, 2026-11-17).
+    structured_outputs: Annotated[list[JsonValue], SkipValidation] = Field(
         default_factory=list,
         description="For AI items: each gathered result's `structured_output`, "
         "index-aligned with `values` (null where an item has none). This is "
@@ -266,7 +280,8 @@ class GatherExecutor:
         inputs: GatherInput,
         config: GatherConfig,
     ) -> NodeResult[GatherOutput]:
-        dump = inputs.model_dump(mode="json")
+        # The inputs as they arrived (every input is an extra on GatherInput), never a dumped copy.
+        dump = dict(inputs.model_extra or {})
         engine_items = dump.get("items")
         # 🚨 An EXPLICIT config.channel WINS over engine-aggregated inbound
         # items. A gather triggered from a multi-fire source (a work-queue's
@@ -293,12 +308,12 @@ class GatherExecutor:
                     values.append(_unwrap_value(entry.get("value")))
                     item_indexes.append(idx)
                     if dispatched is not None:
-                        pairs.append(GatherPair(item_index=idx, item=sent, value=values[-1]))
+                        pairs.append(GatherPair.model_construct(item_index=idx, item=sent, value=values[-1]))
                     if entry.get("reused") is True:
                         reused_indexes.append(idx)
                     continue
                 holes.append(
-                    GatherHole(item_index=idx, status=status, error=entry.get("error"), item=sent)
+                    GatherHole.model_construct(item_index=idx, status=status, error=entry.get("error"), item=sent)
                 )
                 if status == "skipped":
                     skipped_indexes.append(idx)

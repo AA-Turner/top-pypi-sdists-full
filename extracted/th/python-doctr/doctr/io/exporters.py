@@ -3,8 +3,9 @@
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
 
+import re
 from html import escape as _html_escape
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, cast
 from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import Element as ETElement
 from xml.etree.ElementTree import SubElement
@@ -12,10 +13,11 @@ from xml.etree.ElementTree import SubElement
 import numpy as np
 
 import doctr
+from doctr.io.figures import FigureEncoder, is_picture_label, picture_regions
 from doctr.utils.common_types import BoundingBox
 
 if TYPE_CHECKING:  # pragma: no cover
-    from doctr.io.elements import Block, KIEPage, Line, Page, Table
+    from doctr.io.elements import Block, Formula, KIEPage, LayoutElement, Line, Page, Table
 
 __all__ = [
     "AsciiDocExporter",
@@ -64,42 +66,79 @@ _LIST_LABELS = {"list_item"}
 # Characters / line markers that carry a structural meaning and are escaped to preserve the raw OCR text
 _MD_SPECIAL_CHARS = "\\`*_[]|#<>"
 _MD_LINE_MARKERS = "-+>#=`"
+# Ordered list marker at the start of a line, e.g. "3." or "3)"
+_MD_ORDERED_MARKER = re.compile(r"^(\s*\d{1,9})([.)])(?=\s|$)")
 _ADOC_SPECIAL_CHARS = "\\`*_#^~|+{}<>"
 _ADOC_LINE_MARKERS = "=*.-/+"
 
 
-def _covering_region_indices(geoms: list[Any], region_geoms: list[Any], min_coverage: float = 0.5) -> list[int]:
-    """For each element geometry, the index of the layout region covering the largest share of its area.
+def _covering_region_indices(
+    geoms: list[Any],
+    region_geoms: list[Any],
+    min_coverage: float = 0.5,
+    region_labels: list[str] | None = None,
+) -> list[int]:
+    """Return the index of the layout region each geometry is assigned to (-1 for none)
 
-    Uses the same area-coverage criterion as :func:`doctr.models.reading_order.assign_layout_labels`, and
-    returns -1 when no region covers the element by at least `min_coverage`. The geometries are expected to
-    be in the same (upright) frame.
+    Same criterion as :func:`doctr.models.reading_order.assign_layout_labels`, on geometries in the same frame.
     """
-    from doctr.models.reading_order.base import _to_boxes
+    from doctr.models.reading_order.base import _covering_regions, _to_boxes
 
     if len(region_geoms) == 0 or len(geoms) == 0:
         return [-1] * len(geoms)
-    boxes, regions = _to_boxes(geoms), _to_boxes(region_geoms)
-    inter_w = np.minimum(boxes[:, None, 2], regions[None, :, 2]) - np.maximum(boxes[:, None, 0], regions[None, :, 0])
-    inter_h = np.minimum(boxes[:, None, 3], regions[None, :, 3]) - np.maximum(boxes[:, None, 1], regions[None, :, 1])
-    inter = np.clip(inter_w, 0, None) * np.clip(inter_h, 0, None)
-    areas = np.clip((boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]), 1e-9, None)
-    coverage = inter / areas[:, None]
-    best = coverage.argmax(axis=1)
-    return [int(reg) if coverage[i, reg] >= min_coverage else -1 for i, reg in enumerate(best)]
+    return _covering_regions(_to_boxes(geoms), _to_boxes(region_geoms), min_coverage, region_labels)
+
+
+def _merge_overlapping_regions(elt_regions: list[int], region_geoms: list[Any], region_labels: list[str]) -> list[int]:
+    """Map the layout region of each element (-1 for none) to its group of overlapping regions of the same label"""
+    from doctr.models.reading_order.base import _region_groups, _to_boxes
+
+    if len(region_geoms) < 2:
+        return list(elt_regions)
+    groups = _region_groups(_to_boxes(region_geoms), region_labels)
+    return [groups[reg] if reg >= 0 else reg for reg in elt_regions]
+
+
+def _is_atomic(element: Any) -> bool:
+    """Whether a reading-order element is an item of its own (a table, a formula or a figure), not a text line"""
+    from doctr.io.elements import Formula, LayoutElement, Table
+
+    return isinstance(element, (Table, Formula, LayoutElement))
+
+
+def _xyxy(geometry: Any) -> tuple[float, float, float, float]:
+    """Return the enclosing box (xmin, ymin, xmax, ymax) of a box or a polygon"""
+    pts = np.asarray(geometry, dtype=np.float64).reshape(-1, 2)
+    return float(pts[:, 0].min()), float(pts[:, 1].min()), float(pts[:, 0].max()), float(pts[:, 1].max())
+
+
+def _join_caption_lines(lines: list[str]) -> str:
+    """Join the lines of a caption, mending the words hyphenated at a line break ("dif-" + "ferent")"""
+    text = ""
+    for line in (line.strip() for line in lines):
+        if not line:
+            continue
+        if text.endswith("-") and line[0].islower():
+            fragment = text[:-1].rsplit(" ", 1)[-1]
+            text = text[:-1] + line if fragment.isalpha() and fragment.islower() else text + line
+        else:
+            text = f"{text} {line}" if text else line
+    return text
 
 
 def _reading_order_signature(page: "Page", direction: str) -> tuple[Any, ...]:
-    """A cheap structural fingerprint of a page, used to invalidate the reading-order cache.
+    """Return a cheap fingerprint of a page, used to invalidate the reading-order cache
 
-    Covers the requested direction and the identity (plus line count) of every block and table, so
-    replacing or re-grouping the page content invalidates the cache. In-place edits to a `Line`'s words
-    are not detected; callers mutating a page that deeply should drop `_reading_order_cache` themselves.
+    It covers the direction and the identity of the blocks (with their line count), tables, formulas and layout
+    regions.
+    In-place edits of the words of a line are not detected: drop `_reading_order_cache` after such edits.
     """
     return (
         direction,
         tuple((id(block), len(block.lines)) for block in page.blocks),
         tuple(id(table) for table in getattr(page, "tables", ()) or ()),
+        tuple(id(formula) for formula in getattr(page, "formulas", ()) or ()),
+        tuple(id(region) for region in getattr(page, "layout", ()) or ()),
     )
 
 
@@ -111,109 +150,232 @@ def _store_reading_order(page: "Page", signature: tuple[Any, ...], result: tuple
         pass
 
 
-def page_reading_order(page: "Page", direction: str = "auto") -> tuple[list[Any], list[str | None], str]:
-    """Linearize the content of a page (blocks & tables) in reading order.
+def page_reading_order(
+    page: "Page", direction: str = "auto", include_figures: bool = False
+) -> tuple[list[Any], list[str | None], str]:
+    """Linearize the content of a page (blocks, tables, formulas and optionally figures) in reading order
 
-    The result is memoized on the page: every exporter calls this, so a page exported to several formats
-    (or built with `keep_reading_order=True` and then exported) orders its content once.
+    The result is cached on the page, so a page exported to several formats is ordered once. The figures always take
+    part in the ordering, `include_figures` only controls whether they are returned.
 
     Args:
         page: the page to linearize
         direction: reading direction, one of 'auto', 'ltr', 'rtl', 'ttb-rtl' or 'ttb-ltr'
+        include_figures: whether to return the figure regions too
 
     Returns:
-        a tuple with the ordered items (blocks & tables), their layout label (None without layout) and the
-        effective reading direction
+        the ordered items, their layout label (None without layout) and the effective reading direction
     """
-    from doctr.io.elements import Block, Table
-    from doctr.models.reading_order import (
-        ReadingOrderPredictor,
-        assign_layout_labels,
-        deskew_reading_geometries,
-        normalize_layout_label,
-        resolve_reading_segments,
-    )
+    from doctr.models.reading_order import ReadingOrderPredictor, deskew_reading_geometries, resolve_reading_segments
 
     signature = _reading_order_signature(page, direction)
     cached = getattr(page, "_reading_order_cache", None)
     if cached is not None and cached[0] == signature:
-        items, labels, resolved = cached[1]
-        return list(items), list(labels), resolved
-
-    texts = [word.value for block in page.blocks for line in block.lines for word in line.words]
-    language = page.language.get("value") if isinstance(page.language, dict) else None
-    direction = ReadingOrderPredictor(direction=direction).resolve_direction(texts, language=language)
-    region_geoms = [region.geometry for region in page.layout]
-    region_labels = [region.type for region in page.layout]
+        cached_items, cached_labels, resolved = cached[1]
+        return _select_items(list(cached_items), list(cached_labels), resolved, include_figures)
 
     lines = [line for block in page.blocks for line in block.lines]
-    elements: list[Any] = [*lines, *page.tables]
-    if len(elements) == 0:
-        _store_reading_order(page, signature, ([], [], direction))
-        return [], [], direction
-    # De-skew once so labeling, ordering and region grouping share the same upright frame; the page angle is
-    # estimated from the word polygons, which carry the detection model's true orientation
-    elt_geoms, region_geoms = deskew_reading_geometries(
-        [elt.geometry for elt in elements],
-        region_geoms,
-        page_shape=page.dimensions,
-        angle_geoms=[word.geometry for line in lines for word in line.words],
+    words = [word for line in lines for word in line.words]
+    language = page.language.get("value") if isinstance(page.language, dict) else None
+    direction = ReadingOrderPredictor(direction=direction).resolve_direction(
+        [word.value for word in words], language=language
     )
-    elt_labels: list[str | None] = [None] * len(elements)
-    if len(region_geoms) > 0:
-        elt_labels = assign_layout_labels(elt_geoms, region_geoms, region_labels)
-    elt_labels = ["Table" if isinstance(elt, Table) else label for elt, label in zip(elements, elt_labels)]
-    segments = resolve_reading_segments(elt_geoms, direction=direction, labels=elt_labels)
-
-    items = []
-    labels = []
-    line_owner = {id(line): idx for idx, block in enumerate(page.blocks) for line in block.lines}
-    pending_artefacts = {idx: list(block.artefacts) for idx, block in enumerate(page.blocks) if block.artefacts}
-
-    def _claim_artefacts(block_lines: list[Any]) -> list[Any]:
-        claimed: list[Any] = []
-        for line in block_lines:
-            owner = line_owner.get(id(line))
-            if owner is not None and owner in pending_artefacts:
-                claimed.extend(pending_artefacts.pop(owner))
-        return claimed
-
-    # Region index covering each element, used to group the lines of a wrapped list item under a single bullet
-    region_idx = _covering_region_indices(elt_geoms, region_geoms) if len(region_geoms) > 0 else [-1] * len(elements)
-    open_list_region: int | None = None  # region of the list bullet currently being built (None outside a list)
-    for segment in segments:
-        first = elements[segment[0]]
-        seg_label = elt_labels[segment[0]]
-        if isinstance(first, Table):
-            items.append(first)
-            labels.append("Table")
-            open_list_region = None
-            continue
-        if normalize_layout_label(seg_label) in _LIST_LABELS:
-            # One bullet per list-item region: consecutive lines sharing the same region are one bullet, so a
-            # list item wrapped over several visual lines renders as a single bullet point.
-            for idx in segment:
-                region = region_idx[idx]
-                if open_list_region is not None and region == open_list_region and region != -1:
-                    merged = [*items[-1].lines, elements[idx]]
-                    items[-1] = Block(lines=merged, artefacts=[*items[-1].artefacts, *_claim_artefacts([merged[-1]])])
-                else:
-                    items.append(Block(lines=[elements[idx]], artefacts=_claim_artefacts([elements[idx]])))
-                    labels.append(seg_label)
-                    open_list_region = region
-        else:
-            block_lines = [elements[idx] for idx in segment]
-            items.append(Block(lines=block_lines, artefacts=_claim_artefacts(block_lines)))
-            labels.append(seg_label)
-            open_list_region = None
-    # Artefacts of blocks without any line stay attached to the page
-    leftover = [artefact for artefacts in pending_artefacts.values() for artefact in artefacts]
-    if leftover:
-        last_block = next((item for item in reversed(items) if isinstance(item, Block)), None)
-        if last_block is not None:
-            last_block.artefacts = [*last_block.artefacts, *leftover]
+    # Lines, tables and figures (as floats) and formulas (in the text flow) are ordered together
+    elements: list[Any] = [*lines, *page.tables, *getattr(page, "formulas", []), *picture_regions(page)]
+    items: list[Any] = []
+    labels: list[str | None] = []
+    if len(elements) > 0:
+        # De-skew once so labeling, ordering and region grouping share the same upright frame; the page angle is
+        # estimated from the word polygons, which carry the detection model's true orientation
+        elt_geoms, region_geoms = deskew_reading_geometries(
+            [elt.geometry for elt in elements],
+            [region.geometry for region in page.layout],
+            page_shape=page.dimensions,
+            angle_geoms=[word.geometry for word in words],
+        )
+        region_labels = [region.type for region in page.layout]
+        elt_regions = _covering_region_indices(elt_geoms, region_geoms, region_labels=region_labels)
+        elt_labels = _element_labels(page, elements, elt_geoms, elt_regions, region_geoms)
+        segments = resolve_reading_segments(
+            elt_geoms,
+            direction=direction,
+            labels=[_order_label(elt, label) for elt, label in zip(elements, elt_labels)],
+            page_shape=page.dimensions,
+            column_voters=_column_voters(elements, elt_geoms, elt_regions, region_geoms, region_labels),
+            region_groups=_merge_overlapping_regions(elt_regions, region_geoms, region_labels),
+        )
+        items, labels = _segments_to_items(page, elements, segments, elt_labels, elt_regions)
     _store_reading_order(page, signature, (items, labels, direction))
-    return items, labels, direction
+    return _select_items(list(items), list(labels), direction, include_figures)
+
+
+def _element_labels(
+    page: "Page", elements: list[Any], elt_geoms: list[Any], elt_regions: list[int], region_geoms: list[Any]
+) -> list[str | None]:
+    """Return the layout label of each element: the label of its layout region (None for none), 'Table' for a table,
+    'Formula' for a formula
+
+    A figure takes its own type, unless it lies in page furniture (e.g. a logo in the page header): it is then read with
+    the furniture, along with its text.
+    """
+    from doctr.io.elements import Formula, LayoutElement, Table
+    from doctr.models.reading_order import layout_label_role
+    from doctr.models.reading_order.base import _FURNITURE_ROLES
+
+    region_labels = [str(region.type) for region in page.layout]
+    labels: list[str | None] = [region_labels[reg] if reg >= 0 else None for reg in elt_regions]
+    furniture = [reg for reg, label in enumerate(region_labels) if layout_label_role(label) in _FURNITURE_ROLES]
+    figures = [idx for idx, elt in enumerate(elements) if isinstance(elt, LayoutElement)]
+    in_furniture = _covering_region_indices(
+        [elt_geoms[idx] for idx in figures], [region_geoms[reg] for reg in furniture]
+    )
+    region_index = {id(region): reg for reg, region in enumerate(page.layout)}
+    furniture_of_figure: dict[int, str] = {}  # figure region index -> label of the furniture holding it
+    for idx, reg in zip(figures, in_furniture):
+        labels[idx] = region_labels[furniture[reg]] if reg >= 0 else elements[idx].type
+        if reg >= 0:
+            furniture_of_figure[region_index[id(elements[idx])]] = region_labels[furniture[reg]]
+    for idx, elt in enumerate(elements):
+        if isinstance(elt, Table):
+            labels[idx] = "Table"
+        elif isinstance(elt, Formula):
+            labels[idx] = "Formula"
+        elif not isinstance(elt, LayoutElement) and elt_regions[idx] in furniture_of_figure:
+            labels[idx] = furniture_of_figure[elt_regions[idx]]
+    return labels
+
+
+def _order_label(element: Any, label: str | None) -> str | None:
+    """Return the label used to order an element: a text line in a table or figure region keeps the label of its
+    region, but is grouped into paragraphs like regular text"""
+    from doctr.io.elements import LayoutElement, Table
+    from doctr.models.reading_order import layout_label_role
+    from doctr.models.reading_order.base import _float_text_label
+
+    if not isinstance(element, (Table, LayoutElement)) and layout_label_role(label) == "float":
+        return _float_text_label(str(label))
+    return label
+
+
+def _column_voters(
+    elements: list[Any], elt_geoms: list[Any], elt_regions: list[int], region_geoms: list[Any], region_labels: list[str]
+) -> list[bool]:
+    """Return the elements voting in the multi-column detection
+
+    Page-wide figures and tables do not vote, nor do the text lines of a page-wide table region: its cells (e.g. the
+    amounts of a receipt detected as a table) would read as columns.
+    """
+    from doctr.io.elements import LayoutElement, Table
+    from doctr.models.reading_order import normalize_layout_label
+    from doctr.models.reading_order.base import _to_boxes
+
+    boxes = _to_boxes(elt_geoms)
+    span = float(boxes[:, 2].max() - boxes[:, 0].min()) or 1.0
+    region_boxes = _to_boxes(region_geoms)
+    wide_tables = {
+        reg
+        for reg, (label, box) in enumerate(zip(region_labels, region_boxes))
+        if normalize_layout_label(label) == "table" and box[2] - box[0] > 0.5 * span
+    }
+    return [
+        not (box[2] - box[0] > 0.5 * span) if isinstance(elt, (LayoutElement, Table)) else reg not in wide_tables
+        for elt, box, reg in zip(elements, boxes, elt_regions)
+    ]
+
+
+def _segments_to_items(
+    page: "Page", elements: list[Any], segments: list[list[int]], elt_labels: list[str | None], elt_regions: list[int]
+) -> tuple[list[Any], list[str | None]]:
+    """Turn reading-ordered segments of elements into page items: one block per paragraph, one block per list item
+    (a list item wrapped over several lines is one block), tables, formulas and figures as they are
+
+    The artefacts of a block follow its first line; those of blocks without lines go to the last block.
+    """
+    from doctr.io.elements import Formula, Table
+    from doctr.models.reading_order import normalize_layout_label
+
+    artefacts = _ArtefactClaims(page.blocks)
+    items: list[Any] = []
+    labels: list[str | None] = []
+    list_region: int | None = None  # region of the list item being built
+    for run in (run for segment in segments for run in _float_runs(elements, segment)):
+        first, label = elements[run[0]], elt_labels[run[0]]
+        if _is_atomic(first):
+            items.append(first)
+            labels.append("Table" if isinstance(first, Table) else "Formula" if isinstance(first, Formula) else label)
+            list_region = None
+        elif normalize_layout_label(label) in _LIST_LABELS:
+            # One bullet per list-item region: consecutive lines of the same region are a single bullet
+            for idx in run:
+                region = elt_regions[idx]
+                if region != -1 and region == list_region:
+                    items[-1] = artefacts.block([*items[-1].lines, elements[idx]], items[-1].artefacts)
+                else:
+                    items.append(artefacts.block([elements[idx]]))
+                    labels.append(label)
+                    list_region = region
+        else:
+            items.append(artefacts.block([elements[idx] for idx in run]))
+            labels.append(label)
+            list_region = None
+    artefacts.attach_leftovers(items)
+    return items, labels
+
+
+class _ArtefactClaims:
+    """Hand the artefacts of the page blocks over to the blocks built in reading order
+
+    Args:
+        blocks: the blocks of the page
+    """
+
+    def __init__(self, blocks: list[Any]) -> None:
+        self.owner = {id(line): idx for idx, block in enumerate(blocks) for line in block.lines}
+        self.pending = {idx: list(block.artefacts) for idx, block in enumerate(blocks) if block.artefacts}
+
+    def block(self, lines: list[Any], artefacts: list[Any] | None = None) -> Any:
+        """Build a block, which claims the artefacts of the blocks its lines come from (unless already claimed)"""
+        from doctr.io.elements import Block
+
+        claimed = list(artefacts or [])
+        for line in lines:
+            owner = self.owner.get(id(line))
+            if owner is not None and owner in self.pending:
+                claimed.extend(self.pending.pop(owner))
+        return Block(lines=lines, artefacts=claimed)
+
+    def attach_leftovers(self, items: list[Any]) -> None:
+        """Attach the artefacts of blocks without any line to the last block, so they stay on the page"""
+        from doctr.io.elements import Block
+
+        leftover = [artefact for artefacts in self.pending.values() for artefact in artefacts]
+        last_block = next((item for item in reversed(items) if isinstance(item, Block)), None)
+        if leftover and last_block is not None:
+            last_block.artefacts = [*last_block.artefacts, *leftover]
+
+
+def _float_runs(elements: list[Any], segment: list[int]) -> list[list[int]]:
+    """Split the tables, formulas and figures out of a segment (a figure in page furniture can share one)"""
+    runs: list[list[int]] = []
+    for idx in segment:
+        is_atomic = _is_atomic(elements[idx])
+        if runs and not is_atomic and not _is_atomic(elements[runs[-1][-1]]):
+            runs[-1].append(idx)
+        else:
+            runs.append([idx])
+    return runs
+
+
+def _select_items(
+    items: list[Any], labels: list[str | None], direction: str, include_figures: bool
+) -> tuple[list[Any], list[str | None], str]:
+    """Drop the figures from a linearization, unless requested"""
+    from doctr.io.elements import LayoutElement
+
+    if include_figures:
+        return items, labels, direction
+    kept = [(item, label) for item, label in zip(items, labels) if not isinstance(item, LayoutElement)]
+    return [item for item, _ in kept], [label for _, label in kept], direction
 
 
 def _line_render_direction(line: "Line", page_direction: str, auto: bool) -> str:
@@ -275,18 +437,167 @@ def predictions_in_reading_order(page: "KIEPage", predictions: list[Any], direct
     return [predictions[idx] for idx in order]
 
 
-class _PageTextExporter:
-    """Shared logic of the reading-order-aware text exporters.
+class _FigurePlan(NamedTuple):
+    """Figures of a page to export, by item index"""
 
-    Subclasses define the format specifics: heading prefixes (per normalized layout label), the bullet
-    prefix, character escaping, line finalization (neutralizing markers a line must not start with) and the
-    table rendering.
+    markup: dict[int, str]  # figure markup
+    captions: set[int]  # captions rendered with their figure
+    hidden: set[int]  # text left out of the export
+
+
+class _PageFigures:
+    """The figures of a linearized page, in the upright frame of the reading order
+
+    Args:
+        page: the page
+        items: the linearized page content, figures included
+        labels: the layout label of each item
+    """
+
+    def __init__(self, page: "Page", items: list[Any], labels: list[str | None]) -> None:
+        from doctr.io.elements import Block
+        from doctr.models.reading_order import deskew_reading_geometries
+
+        self.items, self.labels = items, labels
+        # Same upright frame as the reading order, for the items and the lines of the blocks
+        block_lines = [(idx, line) for idx, item in enumerate(items) if isinstance(item, Block) for line in item.lines]
+        upright, upright_regions = deskew_reading_geometries(
+            [item.geometry for item in items] + [line.geometry for _, line in block_lines],
+            [region.geometry for region in page.layout],
+            page_shape=page.dimensions,
+            angle_geoms=[word.geometry for block in page.blocks for line in block.lines for word in line.words],
+        )
+        self.boxes = [_xyxy(geom) for geom in upright[: len(items)]]
+        self.line_boxes: dict[int, list[tuple[float, ...]]] = {}
+        for (owner, _), geom in zip(block_lines, upright[len(items) :]):
+            self.line_boxes.setdefault(owner, []).append(_xyxy(geom))
+        self.region_of = _covering_region_indices(
+            upright[: len(items)], upright_regions, region_labels=[region.type for region in page.layout]
+        )
+
+    def in_furniture(self, fig: int) -> bool:
+        """Whether a figure is read with the page furniture"""
+        from doctr.models.reading_order import layout_label_role
+        from doctr.models.reading_order.base import _FURNITURE_ROLES
+
+        return layout_label_role(self.labels[fig]) in _FURNITURE_ROLES
+
+    def without_furniture(self, figs: list[int]) -> tuple[list[int], set[int]]:
+        """Leave out the figures read with the page furniture
+
+        Returns:
+            the other figures, and the text of the figures left out
+        """
+        furniture = [fig for fig in figs if self.in_furniture(fig)]
+        return [fig for fig in figs if fig not in furniture], {text for fig in furniture for text in self.text_of(fig)}
+
+    def _inside(self, idx: int, fig: int) -> bool:
+        """Whether each line of a block lies in a figure, by at least half of its area"""
+        target = self.boxes[fig]
+
+        def _coverage(box: tuple[float, ...]) -> float:
+            inter = max(min(box[2], target[2]) - max(box[0], target[0]), 0.0) * max(
+                min(box[3], target[3]) - max(box[1], target[1]), 0.0
+            )
+            return inter / max((box[2] - box[0]) * (box[3] - box[1]), 1e-9)
+
+        return all(_coverage(box) >= 0.5 for box in self.line_boxes.get(idx, [self.boxes[idx]]))
+
+    def _is_block(self, idx: int) -> bool:
+        from doctr.io.elements import Block
+
+        return 0 <= idx < len(self.items) and isinstance(self.items[idx], Block)
+
+    def _is_caption(self, idx: int) -> bool:
+        from doctr.models.reading_order import normalize_layout_label
+
+        return self._is_block(idx) and normalize_layout_label(self.labels[idx]) == "caption"
+
+    def text_of(self, fig: int) -> set[int]:
+        """The blocks inside a figure and labeled as part of it (or as furniture, for a figure in furniture)"""
+        from doctr.models.reading_order import layout_label_role
+        from doctr.models.reading_order.base import _FURNITURE_ROLES
+
+        in_furniture = self.in_furniture(fig)
+        return {
+            idx
+            for idx in range(len(self.items))
+            if self._is_block(idx)
+            and (
+                is_picture_label(self.labels[idx])
+                or (in_furniture and layout_label_role(self.labels[idx]) in _FURNITURE_ROLES)
+            )
+            and self._inside(idx, fig)
+        }
+
+    def _caption_run(self, start: int) -> tuple[int, ...]:
+        """The caption blocks of the caption region of a block (a caption region can span several blocks)"""
+        if self.region_of[start] == -1:
+            return (start,)
+        return tuple(
+            idx
+            for idx in range(len(self.items))
+            if self._is_caption(idx) and self.region_of[idx] == self.region_of[start]
+        )
+
+    def _distance(self, run: tuple[int, ...], target: int) -> float:
+        from doctr.models.reading_order.base import _caption_distance
+
+        run_box = tuple(func(self.boxes[idx][k] for idx in run) for k, func in enumerate((min, min, max, max)))
+        return _caption_distance(run_box, self.boxes[target])
+
+    def _table_without_caption(self, idx: int, run: tuple[int, ...]) -> bool:
+        """Whether a table stands next to a caption run, without its own caption on its other side"""
+        from doctr.io.elements import Table
+
+        if not (0 <= idx < len(self.items) and isinstance(self.items[idx], Table)):
+            return False
+        return not self._is_caption(idx + 1 if idx > run[-1] else idx - 1)
+
+    def captions(self, figures: list[int]) -> dict[int, tuple[int, ...]]:
+        """Pair figures and captions: each caption read right before a figure, or right after the text inside it, goes
+        to its closest float (a table without caption competes for it), and each figure keeps its closest caption
+
+        Args:
+            figures: the figures to caption
+
+        Returns:
+            the caption blocks of each captioned figure
+        """
+        claims: dict[tuple[int, ...], list[int]] = {}
+        for fig in figures:
+            after = fig + 1
+            while self._is_block(after) and not self._is_caption(after) and self._inside(after, fig):
+                after += 1
+            for cap in (fig - 1, after):
+                if self._is_caption(cap):
+                    claims.setdefault(self._caption_run(cap), []).append(fig)
+        captions: dict[int, tuple[int, ...]] = {}
+        for run, candidates in claims.items():
+            tables = [idx for idx in (run[0] - 1, run[-1] + 1) if self._table_without_caption(idx, run)]
+            best = min([*candidates, *tables], key=lambda target: self._distance(run, target))
+            if best in tables or (
+                best in captions and self._distance(captions[best], best) <= self._distance(run, best)
+            ):
+                continue
+            captions[best] = run
+        return captions
+
+
+class _PageTextExporter:
+    """Shared logic of the reading-order-aware text exporters
+
+    Subclasses define the format specifics: headings, bullets, escaping, line finalization, tables and figures.
     """
 
     headings: ClassVar[dict[str, str]] = {}
     bullet: ClassVar[str] = "- "
     block_break: ClassVar[str] = "\n\n"
     page_break: ClassVar[str] = "\n\n"
+    # Whether the format can render figures
+    supports_figures: ClassVar[bool] = False
+    # Rendered for a figure without pixels
+    figure_placeholder: ClassVar[str] = ""
 
     def escape_text(self, text: str) -> str:
         """Escape the characters carrying a structural meaning in the target format"""
@@ -300,6 +611,40 @@ class _PageTextExporter:
         """Render a recognized table in the target format"""
         raise NotImplementedError
 
+    def render_formula(self, formula: "Formula", escape: bool = True) -> str:
+        """Render a recognized formula in the target format (its LaTeX source is never escaped as text)"""
+        return formula.value
+
+    def render_figure(self, source: str | None, caption: str | None = None, escape: bool = True) -> str:
+        """Render a figure in the target format
+
+        Args:
+            source: the image source (data URI or relative path), None to render the placeholder
+            caption: the unescaped caption of the figure, if any
+            escape: whether to escape the characters carrying a structural meaning
+
+        Returns:
+            the figure markup
+        """
+        return self.figure_placeholder
+
+    def render_heading(self, norm_label: str, lines: list[str], escape: bool = True) -> str:
+        """Render a heading in the target format"""
+        return self.headings[norm_label] + " ".join(lines)
+
+    def render_list_item(self, lines: list[str], escape: bool = True) -> str:
+        """Render a list item in the target format"""
+        text = " ".join(lines)
+        return self.bullet + (self.finalize_line(text) if escape else text)
+
+    def render_list(self, items: list[str]) -> str:
+        """Render a list from its rendered items in the target format"""
+        return "\n".join(items)
+
+    def render_paragraph(self, lines: list[str], escape: bool = True) -> str:
+        """Render a paragraph in the target format"""
+        return "\n".join(self.finalize_line(line) if escape else line for line in lines)
+
     def class_header(self, class_name: str, escape: bool = True) -> str:
         """Render the header of a detection class in a KIE export"""
         raise NotImplementedError
@@ -309,6 +654,71 @@ class _PageTextExporter:
         text = " ".join(word.render() for word in ordered_line_words(line, direction))
         return self.escape_text(text) if escape else text
 
+    def _block_lines(self, block: "Block", direction: str, escape: bool, auto: bool) -> list[str]:
+        """Render the non-empty lines of a block"""
+        lines = [self._line_text(line, _line_render_direction(line, direction, auto), escape) for line in block.lines]
+        return [line for line in lines if line.strip()]
+
+    def _plan_figures(
+        self,
+        page: "Page",
+        items: list[Any],
+        labels: list[str | None],
+        encoder: FigureEncoder,
+        direction: str,
+        escape: bool,
+        auto: bool,
+        include_furniture: bool = True,
+    ) -> "_FigurePlan":
+        """Render the figures of a page, with their caption when they carry their pixels
+
+        Args:
+            page: the page to export
+            items: the linearized page content, figures included
+            labels: the layout label of each item
+            encoder: the figure encoder
+            direction: the effective reading direction
+            escape: whether to escape the characters carrying a structural meaning
+            auto: whether the reading direction was detected automatically
+            include_furniture: whether page headers, page footers and footnotes are exported
+
+        Returns:
+            the figure markup, the captions rendered with their figure and the text to leave out
+        """
+        from doctr.io.elements import LayoutElement
+
+        figure_idcs = [idx for idx, item in enumerate(items) if isinstance(item, LayoutElement)]
+        render = self.supports_figures and encoder.enabled
+        if not figure_idcs or not (render or not include_furniture):
+            return _FigurePlan({}, set(), set())
+
+        figures = _PageFigures(page, items, labels)
+        hidden: set[int] = set()
+        if not include_furniture:
+            # Figures read with the page furniture are left out with it, along with their text
+            figure_idcs, hidden = figures.without_furniture(figure_idcs)
+        if not render or not figure_idcs:
+            return _FigurePlan({}, set(), hidden)
+
+        sources = {idx: encoder.source(page, items[idx], rank) for rank, idx in enumerate(figure_idcs, start=1)}
+        # Only a figure exported with its pixels makes its text redundant, and takes a caption as alternative text
+        shown = [idx for idx in figure_idcs if sources[idx] is not None]
+        hidden |= {text for idx in shown for text in figures.text_of(idx)}
+        captions = figures.captions(shown)
+        markup: dict[int, str] = {}
+        consumed: set[int] = set()
+        for idx in figure_idcs:
+            caption = self._caption_text([items[cap] for cap in captions.get(idx, ())], direction, auto)
+            if caption is not None:
+                consumed.update(captions[idx])
+            markup[idx] = self.render_figure(sources[idx], caption, escape=escape)
+        return _FigurePlan(markup, consumed, hidden)
+
+    def _caption_text(self, blocks: list[Any], direction: str, auto: bool) -> str | None:
+        """Join the lines of the caption blocks of a figure into one caption (None without any text)"""
+        lines = [line for block in blocks for line in self._block_lines(block, direction, False, auto)]
+        return _join_caption_lines(lines) or None
+
     def export_page(
         self,
         page: "Page",
@@ -316,6 +726,7 @@ class _PageTextExporter:
         escape: bool = True,
         include_furniture: bool = True,
         block_break: str | None = None,
+        images: "str | FigureEncoder | None" = "placeholder",
     ) -> str:
         """Export a page, with its content sorted in reading order.
 
@@ -325,49 +736,67 @@ class _PageTextExporter:
             escape: whether the characters or markers carrying a structural meaning should be neutralized
             include_furniture: whether page headers, page footers and footnotes should be included
             block_break: the string inserted between two blocks (the format-specific default when None)
+            images: how to render the figures: 'none', 'placeholder', 'embedded', or a
+                :class:`~doctr.io.FigureEncoder` (required for 'referenced')
 
         Returns:
             the exported page as a string
         """
-        from doctr.io.elements import Table
+        from doctr.io.elements import Formula, LayoutElement, Table
         from doctr.models.reading_order import layout_label_role, normalize_layout_label
+        from doctr.models.reading_order.base import _FURNITURE_ROLES
 
         auto = direction == "auto"
-        items, labels, direction = page_reading_order(page, direction)
+        encoder = FigureEncoder.resolve(images)
+        items, labels, direction = page_reading_order(page, direction, include_figures=True)
+        figures, absorbed_captions, figure_text = self._plan_figures(
+            page, items, labels, encoder, direction, escape, auto, include_furniture=include_furniture
+        )
         parts: list[str] = []
         list_group: list[str] = []
 
         def _flush_list() -> None:
             if list_group:
-                parts.append("\n".join(list_group))
+                parts.append(self.render_list(list_group))
                 list_group.clear()
 
-        for item, label in zip(items, labels):
-            if not include_furniture and layout_label_role(label) in ("header", "footer", "footnote"):
+        for index, (item, label) in enumerate(zip(items, labels)):
+            if not include_furniture and layout_label_role(label) in _FURNITURE_ROLES:
                 continue
-            if isinstance(item, Table):
+            if isinstance(item, LayoutElement):
+                if figures.get(index):
+                    _flush_list()
+                    parts.append(figures[index])
+                continue
+            if index in absorbed_captions or index in figure_text:
+                continue
+            if isinstance(item, (Table, Formula)):
                 _flush_list()
-                rendered = self.render_table(item, escape=escape)
+                rendered = (
+                    self.render_table(item, escape=escape)
+                    if isinstance(item, Table)
+                    else self.render_formula(item, escape=escape)
+                )
                 if rendered:
                     parts.append(rendered)
                 continue
-            item_lines = [
-                self._line_text(line, _line_render_direction(line, direction, auto), escape) for line in item.lines
-            ]
-            item_lines = [line for line in item_lines if line.strip()]
+            item_lines = self._block_lines(item, direction, escape, auto)
             if len(item_lines) == 0:
                 continue
             norm_label = normalize_layout_label(label)
-            if norm_label in self.headings:
+            if layout_label_role(label) == "float":
+                # Text of a table or figure region without structure: one paragraph per row
                 _flush_list()
-                parts.append(self.headings[norm_label] + " ".join(item_lines))
+                parts.extend(self.render_paragraph([line], escape) for line in item_lines)
+            elif norm_label in self.headings:
+                _flush_list()
+                parts.append(self.render_heading(norm_label, item_lines, escape))
             elif norm_label in _LIST_LABELS:
                 # A list item (possibly wrapped over several lines) renders as a single bullet
-                text = " ".join(item_lines)
-                list_group.append(self.bullet + (self.finalize_line(text) if escape else text))
+                list_group.append(self.render_list_item(item_lines, escape))
             else:
                 _flush_list()
-                parts.append("\n".join(self.finalize_line(line) if escape else line for line in item_lines))
+                parts.append(self.render_paragraph(item_lines, escape))
         _flush_list()
         return (self.block_break if block_break is None else block_break).join(parts)
 
@@ -443,15 +872,18 @@ class MarkdownExporter(_PageTextExporter):
     headings: ClassVar[dict[str, str]] = {"title": "# ", "section_header": "## "}
     bullet: ClassVar[str] = "- "
     page_break: ClassVar[str] = "\n\n---\n\n"
+    supports_figures: ClassVar[bool] = True
+    figure_placeholder: ClassVar[str] = "<!-- image -->"
 
     def escape_text(self, text: str) -> str:
         return "".join(f"\\{char}" if char in _MD_SPECIAL_CHARS else char for char in text)
 
     def finalize_line(self, line: str) -> str:
         stripped = line.lstrip()
-        if stripped and (stripped[0] in _MD_LINE_MARKERS or stripped.split(" ")[0].rstrip(".").isdigit()):
+        if stripped and stripped[0] in _MD_LINE_MARKERS:
             return f"\\{line}" if line[0] != "\\" else line
-        return line
+        # Escape the list delimiter: a backslash before a digit is not a Markdown escape
+        return _MD_ORDERED_MARKER.sub(r"\1\\\2", line)
 
     def render_table(self, table: "Table", escape: bool = True) -> str:
         """Render a table as a GitHub-flavored Markdown table (first row used as header)"""
@@ -467,6 +899,25 @@ class MarkdownExporter(_PageTextExporter):
         separator = "| " + " | ".join("---" for _ in grid[0]) + " |"
         return "\n".join([rows[0], separator, *rows[1:]])
 
+    def render_formula(self, formula: "Formula", escape: bool = True) -> str:
+        """Render a formula as display math: `$$`, the LaTeX source and `$$` on their own lines"""
+        return f"$$\n{formula.value}\n$$" if formula.value else ""
+
+    def render_figure(self, source: str | None, caption: str | None = None, escape: bool = True) -> str:
+        """Render a figure as an image, with its caption as alt text and as a visible italic line below"""
+        if source is None:
+            return self.figure_placeholder
+        caption = caption or ""
+        # The link label delimiters are escaped in any case
+        if escape:
+            alt = self.escape_text(caption)
+        else:
+            alt = caption.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
+        image = f"![{alt}]({source})"
+        if not caption:
+            return image
+        return f"{image}\n\n*{self.escape_text(caption) if escape else caption}*"
+
     def class_header(self, class_name: str, escape: bool = True) -> str:
         return f"**{self.escape_text(class_name) if escape else class_name}**"
 
@@ -481,6 +932,8 @@ class AsciiDocExporter(_PageTextExporter):
     headings: ClassVar[dict[str, str]] = {"title": "== ", "section_header": "=== "}
     bullet: ClassVar[str] = "* "
     page_break: ClassVar[str] = "\n\n<<<\n\n"
+    supports_figures: ClassVar[bool] = True
+    figure_placeholder: ClassVar[str] = "// image"
 
     def escape_text(self, text: str) -> str:
         return "".join(f"\\{char}" if char in _ADOC_SPECIAL_CHARS else char for char in text)
@@ -505,6 +958,26 @@ class AsciiDocExporter(_PageTextExporter):
 
         return "\n".join(["|===", _row(grid[0]), "", *[_row(row) for row in grid[1:]], "|==="])
 
+    def render_formula(self, formula: "Formula", escape: bool = True) -> str:
+        """Render a formula as a `latexmath` passthrough block"""
+        return f"[latexmath]\n++++\n{formula.value}\n++++" if formula.value else ""
+
+    def render_figure(self, source: str | None, caption: str | None = None, escape: bool = True) -> str:
+        """Render a figure as a block image macro, titled with its caption"""
+        if source is None:
+            return self.figure_placeholder
+        if not caption:
+            return f"image::{source}[]"
+        title = self.escape_text(caption) if escape else caption
+        if title.startswith("."):  # would open a literal block
+            title = "{empty}" + title
+        # Quoted, so that commas do not split the alt text into several attributes
+        alt = caption.replace('"', '\\"')
+        if escape:  # attribute references are also substituted in attribute values
+            alt = alt.replace("{", "\\{").replace("}", "\\}")
+        # The detected caption carries its own label (e.g. "Figure 3:"): disable the automatic "Figure N." prefix
+        return f'[caption=""]\n.{title}\nimage::{source}["{alt}"]'
+
     def class_header(self, class_name: str, escape: bool = True) -> str:
         return f"*{self.escape_text(class_name) if escape else class_name}*"
 
@@ -512,7 +985,8 @@ class AsciiDocExporter(_PageTextExporter):
 class HTMLExporter(_PageTextExporter):
     """Export OCR results to semantic HTML, with the content sorted in reading order.
 
-    Headings map to `<h1>`/`<h2>`, list items to `<ul><li>`, recognized tables to `<table>` and
+    Headings map to `<h1>`/`<h2>`, list items to `<ul><li>`, recognized tables to `<table>`, recognized formulas to
+    `<div class="formula">` holding `$$...$$` display math (rendered by MathJax or KaTeX auto-render) and
     paragraphs to `<p>` (with `<br>` between the visual lines of a paragraph). The output is a
     fragment, not a full document: it carries no doctype, `<html>` or charset declaration.
 
@@ -528,72 +1002,89 @@ class HTMLExporter(_PageTextExporter):
     headings: ClassVar[dict[str, str]] = {"title": "h1", "section_header": "h2"}
     block_break: ClassVar[str] = "\n"
     page_break: ClassVar[str] = "\n<hr>\n"
+    supports_figures: ClassVar[bool] = True
+    figure_placeholder: ClassVar[str] = "<!-- image -->"
 
     def escape_text(self, text: str) -> str:
         return _html_escape(text, quote=False)
 
-    def export_page(
-        self,
-        page: "Page",
-        direction: str = "auto",
-        escape: bool = True,
-        include_furniture: bool = True,
-        block_break: str | None = None,
-    ) -> str:
-        from doctr.io.elements import Table
-        from doctr.models.reading_order import layout_label_role, normalize_layout_label
+    def render_heading(self, norm_label: str, lines: list[str], escape: bool = True) -> str:
+        tag = self.headings[norm_label]
+        return f"<{tag}>{' '.join(lines)}</{tag}>"
 
-        auto = direction == "auto"
-        items, labels, direction = page_reading_order(page, direction)
-        parts: list[str] = []
-        list_group: list[str] = []
+    def render_list_item(self, lines: list[str], escape: bool = True) -> str:
+        return f"<li>{' '.join(lines)}</li>"
 
-        def _flush_list() -> None:
-            if list_group:
-                parts.append("<ul>\n" + "\n".join(list_group) + "\n</ul>")
-                list_group.clear()
+    def render_list(self, items: list[str]) -> str:
+        return "<ul>\n" + "\n".join(items) + "\n</ul>"
 
-        for item, label in zip(items, labels):
-            if not include_furniture and layout_label_role(label) in ("header", "footer", "footnote"):
-                continue
-            if isinstance(item, Table):
-                _flush_list()
-                rendered = self.render_table(item, escape=escape)
-                if rendered:
-                    parts.append(rendered)
-                continue
-            item_lines = [
-                self._line_text(line, _line_render_direction(line, direction, auto), escape) for line in item.lines
-            ]
-            item_lines = [line for line in item_lines if line.strip()]
-            if len(item_lines) == 0:
-                continue
-            norm_label = normalize_layout_label(label)
-            if norm_label in self.headings:
-                _flush_list()
-                tag = self.headings[norm_label]
-                parts.append(f"<{tag}>{' '.join(item_lines)}</{tag}>")
-            elif norm_label in _LIST_LABELS:
-                list_group.append(f"<li>{' '.join(item_lines)}</li>")
-            else:
-                _flush_list()
-                parts.append("<p>" + "<br>\n".join(item_lines) + "</p>")
-        _flush_list()
-        return (self.block_break if block_break is None else block_break).join(parts)
+    def render_paragraph(self, lines: list[str], escape: bool = True) -> str:
+        return "<p>" + "<br>\n".join(lines) + "</p>"
+
+    def render_figure(self, source: str | None, caption: str | None = None, escape: bool = True) -> str:
+        """Render a figure as a `<figure>` element, with its caption as `<figcaption>`"""
+        if source is None:
+            return self.figure_placeholder
+        alt = _html_escape(caption or "", quote=True)
+        figcaption = f"\n<figcaption>{self.escape_text(caption) if escape else caption}</figcaption>" if caption else ""
+        return f'<figure><img src="{_html_escape(source, quote=True)}" alt="{alt}">{figcaption}</figure>'
+
+    def render_formula(self, formula: "Formula", escape: bool = True) -> str:
+        """Render a formula as `$$...$$` display math in a `<div class="formula">`"""
+        if not formula.value:
+            return ""
+        return f'<div class="formula">$${self.escape_text(formula.value) if escape else formula.value}$$</div>'
 
     def render_table(self, table: "Table", escape: bool = True) -> str:
-        """Render a table as an HTML table (first row used as header)"""
+        """Render a table as an HTML table (first row used as header). A cell spanning several rows / columns is
+        written with `rowspan` / `colspan` when the positions it covers hold no other text."""
         grid = table.to_grid()
         if len(grid) == 0 or len(grid[0]) == 0:
             return ""
+        num_rows, num_cols = len(grid), len(grid[0])
 
-        def _cell(value: str, tag: str) -> str:
+        # Top-left position -> (row span, column span) of the merged cells, and the positions they cover
+        spans: dict[tuple[int, int], tuple[int, int]] = {}
+        covered: set[tuple[int, int]] = set()
+        # The merge whose top-left comes first (row-major) wins, whatever the order of `table.cells`; with the same
+        # top-left, the one ending first
+        for cell in sorted(table.cells, key=lambda cell: (cell.row_start, cell.col_start, cell.row_end, cell.col_end)):
+            r0, c0 = cell.row_start, cell.col_start
+            r1, c1 = min(cell.row_end, num_rows - 1), min(cell.col_end, num_cols - 1)
+            if r0 < 0 or c0 < 0 or r1 < r0 or c1 < c0 or (r1 == r0 and c1 == c0):
+                continue
+            area = {(r, c) for r in range(r0, r1 + 1) for c in range(c0, c1 + 1)}
+            others = area - {(r0, c0)}
+            # Keep the dense layout when the merge would hide text or cross another merged cell
+            if area & covered or any(pos in spans for pos in area) or any(grid[r][c].strip() for r, c in others):
+                continue
+            spans[(r0, c0)] = (r1 - r0 + 1, c1 - c0 + 1)
+            covered |= others
+
+        # Drop the rows entirely covered by merges from above (no `<tr></tr>`), shrinking the row spans crossing them
+        dropped = {r for r in range(num_rows) if all((r, c) in covered for c in range(num_cols))}
+        if dropped:
+            spans = {
+                (r0, c0): (row_span - sum(r in dropped for r in range(r0, r0 + row_span)), col_span)
+                for (r0, c0), (row_span, col_span) in spans.items()
+            }
+
+        def _cell(value: str, tag: str, position: tuple[int, int]) -> str:
             content = self.escape_text(value) if escape else value
-            return f"<{tag}>{content.strip()}</{tag}>"
+            row_span, col_span = spans.get(position, (1, 1))
+            attrs = (f' rowspan="{row_span}"' if row_span > 1 else "") + (
+                f' colspan="{col_span}"' if col_span > 1 else ""
+            )
+            return f"<{tag}{attrs}>{content.strip()}</{tag}>"
 
-        head = "<tr>" + "".join(_cell(value, "th") for value in grid[0]) + "</tr>"
-        body = "\n".join("<tr>" + "".join(_cell(value, "td") for value in row) + "</tr>" for row in grid[1:])
-        return f"<table>\n{head}\n{body}\n</table>" if body else f"<table>\n{head}\n</table>"
+        rows = [
+            "<tr>"
+            + "".join(_cell(value, "td" if r else "th", (r, c)) for c, value in enumerate(row) if (r, c) not in covered)
+            + "</tr>"
+            for r, row in enumerate(grid)
+            if r not in dropped
+        ]
+        return "<table>\n" + "\n".join(rows) + "\n</table>"
 
     def export_kie_page(self, page: "KIEPage", direction: str = "auto", escape: bool = True) -> str:
         parts: list[str] = []
@@ -640,6 +1131,22 @@ def _hocr_bbox(geometry: BoundingBox, width: int, height: int) -> str:
     )
 
 
+def _hocr_text_size(geometry: BoundingBox, height: int, dpi: int = 72) -> tuple[int, int]:
+    """Estimate the hOCR `x_size` and `x_fsize` properties from the height of a relative bounding box.
+
+    Args:
+        geometry: the relative bounding box ((xmin, ymin), (xmax, ymax))
+        height: the page height in pixels
+        dpi: the page resolution in dots per inch, used to convert the text height to font points
+
+    Returns:
+        a tuple of the text height in pixels (`x_size`), and the estimated font size in points (`x_fsize`)
+    """
+    (_, ymin), (_, ymax) = geometry
+    x_size = int(round((ymax - ymin) * height))
+    return x_size, int(round(x_size * 72 / dpi))
+
+
 class XMLExporter:
     """hOCR (XML) exporter for pages, KIE pages and documents.
     See the hOCR 1.2 specification for the XML convention: https://github.com/kba/hocr-spec/blob/master/1.2/spec.md
@@ -648,7 +1155,7 @@ class XMLExporter:
     >>> xml_bytes, xml_tree = XMLExporter().export_page(page)
     """
 
-    ocr_capabilities: ClassVar[str] = "ocr_page ocr_carea ocr_par ocr_line ocrx_word"
+    ocr_capabilities: ClassVar[str] = "ocr_page ocr_carea ocr_par ocr_line ocrx_word ocr_photo ocr_math"
 
     def _new_document(self, file_title: str, language: str) -> tuple[ETElement, ETElement]:
         """Create the hOCR root element with its <head>, returning the root and its <body> element."""
@@ -664,7 +1171,9 @@ class XMLExporter:
         SubElement(head, "meta", attrib={"name": "ocr-capabilities", "content": self.ocr_capabilities})
         return root, SubElement(root, "body")
 
-    def _add_table(self, page_div: ETElement, table: "Table", width: int, height: int, table_count: int) -> int:
+    def _add_table(
+        self, page_div: ETElement, table: "Table", width: int, height: int, table_count: int, dpi: int = 72
+    ) -> int:
         """Serialize a recognized table as an hOCR text area, with one `ocr_line` per row.
 
         Args:
@@ -673,6 +1182,7 @@ class XMLExporter:
             width: the page width in pixels
             height: the page height in pixels
             table_count: the 1-based index of the table on the page
+            dpi: the page resolution in dots per inch, used to estimate font sizes
 
         Returns:
             the index of the next table
@@ -693,14 +1203,19 @@ class XMLExporter:
             cells = sorted(rows[row_idx], key=lambda cell: cell.col_start)
             xs = [coord for cell in cells for coord in (cell.geometry[0][0], cell.geometry[1][0])]
             ys = [coord for cell in cells for coord in (cell.geometry[0][1], cell.geometry[1][1])]
-            row_bbox = _hocr_bbox(((min(xs), min(ys)), (max(xs), max(ys))), width, height)
+            row_geometry = ((min(xs), min(ys)), (max(xs), max(ys)))
+            row_bbox = _hocr_bbox(row_geometry, width, height)
+            row_x_size, row_x_fsize = _hocr_text_size(row_geometry, height, dpi)
             line_span = SubElement(
                 paragraph,
                 "span",
                 attrib={
                     "class": "ocr_line",
                     "id": f"table_{table_count}_row_{row_idx + 1}",
-                    "title": f"{row_bbox}; baseline 0 0; x_size 0; x_descenders 0; x_ascenders 0",
+                    "title": (
+                        f"{row_bbox}; baseline 0 0; x_size {row_x_size}; x_fsize {row_x_fsize}; "
+                        "x_descenders 0; x_ascenders 0"
+                    ),
                 },
             )
             for col_idx, cell in enumerate(cells):
@@ -718,31 +1233,97 @@ class XMLExporter:
                 cell_span.text = cell.value
         return table_count + 1
 
+    def _add_formula(self, page_div: ETElement, formula: "Formula", width: int, height: int, formula_count: int) -> int:
+        """Add a formula as an hOCR text area holding an `ocr_math` element, with its LaTeX source as text
+
+        Args:
+            page_div: the `ocr_page` element
+            formula: the formula
+            width: page width in pixels
+            height: page height in pixels
+            formula_count: 1-based index of the formula on the page
+
+        Returns:
+            the index of the next formula
+        """
+        xmin, ymin, xmax, ymax = _xyxy(formula.geometry)
+        bbox = _hocr_bbox(((xmin, ymin), (xmax, ymax)), width, height)
+        area = SubElement(
+            page_div, "div", attrib={"class": "ocr_carea", "id": f"formula_area_{formula_count}", "title": bbox}
+        )
+        paragraph = SubElement(
+            area, "p", attrib={"class": "ocr_par", "id": f"formula_par_{formula_count}", "title": bbox}
+        )
+        math = SubElement(
+            paragraph,
+            "span",
+            attrib={
+                "class": "ocr_math",
+                "id": f"formula_{formula_count}",
+                "title": f"{bbox}; x_wconf {int(round(formula.confidence * 100))}",
+            },
+        )
+        math.text = formula.value
+        return formula_count + 1
+
+    def _add_figure(
+        self, page_div: ETElement, region: "LayoutElement", width: int, height: int, figure_count: int
+    ) -> int:
+        """Add a figure as an hOCR `ocr_photo` area, with its enclosing box
+
+        Args:
+            page_div: the `ocr_page` element
+            region: the figure region
+            width: page width in pixels
+            height: page height in pixels
+            figure_count: 1-based index of the figure on the page
+
+        Returns:
+            the index of the next figure
+        """
+        xmin, ymin, xmax, ymax = _xyxy(region.geometry)
+        SubElement(
+            page_div,
+            "div",
+            attrib={
+                "class": "ocr_photo",
+                "id": f"figure_{figure_count}",
+                "title": _hocr_bbox(((xmin, ymin), (xmax, ymax)), width, height),
+            },
+        )
+        return figure_count + 1
+
     def export_page(
         self,
         page: "Page",
         file_title: str = "docTR - XML export (hOCR)",
         direction: str = "auto",
         reading_order: bool = True,
+        dpi: int = 72,
     ) -> tuple[bytes, ET.ElementTree]:
         """Export a page as hOCR XML, with its content sorted in reading order.
+
+        Figures are exported as `ocr_photo` areas, formulas as `ocr_math` elements holding their LaTeX source.
 
         Args:
             page: the page to export
             file_title: the title of the XML file
             direction: reading direction, one of 'auto', 'ltr', 'rtl', 'ttb-rtl' or 'ttb-ltr'
             reading_order: whether the content should be linearized in reading order. Pass False to serialize
-                `page.blocks` then `page.tables` in their raw order.
+                `page.blocks`, `page.tables` then `page.formulas` in their raw order.
+            dpi: the page resolution in dots per inch, used to estimate font sizes (`x_size`, `x_fsize`)
 
         Returns:
             a tuple of the XML byte string, and its ElementTree
         """
-        from doctr.io.elements import Table
+        from doctr.io.elements import Formula, LayoutElement, Table
 
         block_count: int = 1
         line_count: int = 1
         word_count: int = 1
         table_count: int = 1
+        figure_count: int = 1
+        formula_count: int = 1
         height, width = page.dimensions
         page_hocr, body = self._new_document(file_title, _resolve_hocr_language(page.language))
         page_div = SubElement(
@@ -756,13 +1337,19 @@ class XMLExporter:
         )
         auto = direction == "auto"
         if reading_order:
-            items, _, direction = page_reading_order(page, direction)
+            items, _, direction = page_reading_order(page, direction, include_figures=True)
         else:
-            items = [*page.blocks, *page.tables]
+            items = [*page.blocks, *page.tables, *page.formulas, *picture_regions(page)]
         # iterate over the blocks / lines / words and create the XML elements line by line with the attributes
         for item in items:
             if isinstance(item, Table):
-                table_count = self._add_table(page_div, item, width, height, table_count)
+                table_count = self._add_table(page_div, item, width, height, table_count, dpi=dpi)
+                continue
+            if isinstance(item, LayoutElement):
+                figure_count = self._add_figure(page_div, item, width, height, figure_count)
+                continue
+            if isinstance(item, Formula):
+                formula_count = self._add_formula(page_div, item, width, height, formula_count)
                 continue
             block = item
             if len(block.geometry) != 2:
@@ -780,7 +1367,9 @@ class XMLExporter:
             )
             block_count += 1
             for line in block.lines:
-                # NOTE: baseline, x_size, x_descenders, x_ascenders is currently initalized to 0
+                # NOTE: baseline, x_descenders, x_ascenders are currently initialized to 0,
+                # while x_size and x_fsize are estimated from the line box height
+                x_size, x_fsize = _hocr_text_size(line.geometry, height, dpi)
                 line_span = SubElement(
                     paragraph,
                     "span",
@@ -789,7 +1378,7 @@ class XMLExporter:
                         "id": f"line_{line_count}",
                         "title": (
                             f"{_hocr_bbox(line.geometry, width, height)}; "
-                            "baseline 0 0; x_size 0; x_descenders 0; x_ascenders 0"
+                            f"baseline 0 0; x_size {x_size}; x_fsize {x_fsize}; x_descenders 0; x_ascenders 0"
                         ),
                     },
                 )
@@ -817,6 +1406,7 @@ class XMLExporter:
         file_title: str = "docTR - XML export (hOCR)",
         direction: str = "auto",
         reading_order: bool = True,
+        dpi: int = 72,
     ) -> tuple[bytes, ET.ElementTree]:
         """Export a KIE page as hOCR XML, with the predictions of each class sorted in reading order.
 
@@ -825,6 +1415,7 @@ class XMLExporter:
             file_title: the title of the XML file
             direction: reading direction, one of 'auto', 'ltr', 'rtl', 'ttb-rtl' or 'ttb-ltr'
             reading_order: whether the predictions of each class should be sorted in reading order
+            dpi: the page resolution in dots per inch, used to estimate font sizes (`x_size`, `x_fsize`)
 
         Returns:
             a tuple of the XML byte string, and its ElementTree
@@ -832,7 +1423,7 @@ class XMLExporter:
         prediction_count: int = 1
         height, width = page.dimensions
         page_hocr, body = self._new_document(file_title, _resolve_hocr_language(page.language))
-        SubElement(
+        page_div = SubElement(
             body,
             "div",
             attrib={
@@ -848,8 +1439,9 @@ class XMLExporter:
                 if len(prediction.geometry) != 2:
                     raise TypeError("XML export is only available for straight bounding boxes for now.")
                 prediction_bbox = _hocr_bbox(prediction.geometry, width, height)  # type: ignore[arg-type]
+                x_size, x_fsize = _hocr_text_size(prediction.geometry, height, dpi)  # type: ignore[arg-type]
                 prediction_div = SubElement(
-                    body,
+                    page_div,
                     "div",
                     attrib={
                         "class": "ocr_carea",
@@ -874,7 +1466,10 @@ class XMLExporter:
                     attrib={
                         "class": "ocr_line",
                         "id": f"{class_name}_line_{prediction_count}",
-                        "title": f"{prediction_bbox}; baseline 0 0; x_size 0; x_descenders 0; x_ascenders 0",
+                        "title": (
+                            f"{prediction_bbox}; baseline 0 0; x_size {x_size}; x_fsize {x_fsize}; "
+                            "x_descenders 0; x_ascenders 0"
+                        ),
                     },
                 )
                 word_div = SubElement(
@@ -920,6 +1515,7 @@ class PageExportsMixin:
         language: dict[str, Any]
         layout: list[Any]
         tables: list["Table"]
+        formulas: list["Formula"]
 
     def render(self, block_break: str = "\n\n", direction: str = "auto", include_furniture: bool = True) -> str:
         """Renders the full text of the page, with its content sorted in reading order.
@@ -946,11 +1542,12 @@ class PageExportsMixin:
         Returns:
             a JSON-serializable dict
         """
-        from doctr.io.elements import Element, Table
+        from doctr.io.elements import Block, Element
 
         export_dict = Element.export(cast("Element", self))
         if reading_order:
-            blocks = [item for item in page_reading_order(cast("Page", self))[0] if not isinstance(item, Table)]
+            # Tables, formulas and layout regions have their own export keys
+            blocks = [item for item in page_reading_order(cast("Page", self))[0] if isinstance(item, Block)]
             if blocks:  # an empty linearization (no line on the page) leaves the stored blocks untouched
                 export_dict["blocks"] = [block.export() for block in blocks]
         return export_dict
@@ -960,6 +1557,7 @@ class PageExportsMixin:
         file_title: str = "docTR - XML export (hOCR)",
         direction: str = "auto",
         reading_order: bool = True,
+        dpi: int = 72,
     ) -> tuple[bytes, ET.ElementTree]:
         """Export the page as XML (hOCR-format), with its content sorted in reading order
         convention: https://github.com/kba/hocr-spec/blob/master/1.2/spec.md
@@ -968,41 +1566,63 @@ class PageExportsMixin:
             file_title: the title of the XML file
             direction: reading direction, one of 'auto', 'ltr', 'rtl', 'ttb-rtl' or 'ttb-ltr'
             reading_order: whether the content should be linearized in reading order
+            dpi: the page resolution in dots per inch, used to estimate font sizes (`x_size`, `x_fsize`)
 
         Returns:
             a tuple of the XML byte string, and its ElementTree
         """
         return XMLExporter().export_page(
-            cast("Page", self), file_title=file_title, direction=direction, reading_order=reading_order
+            cast("Page", self), file_title=file_title, direction=direction, reading_order=reading_order, dpi=dpi
         )
 
-    def items_in_reading_order(self, direction: str = "auto") -> list["Block | Table"]:
-        """Return the content of the page (blocks & tables) sorted in reading order.
+    def items_in_reading_order(
+        self, direction: str = "auto", include_figures: bool = False
+    ) -> list["Block | Table | Formula | LayoutElement"]:
+        """Return the content of the page (blocks, tables, formulas and optionally figures) sorted in reading order.
 
         Args:
             direction: reading direction, one of 'auto', 'ltr', 'rtl', 'ttb-rtl' or 'ttb-ltr'
+            include_figures: whether to return the figure regions too
 
         Returns:
-            list of blocks & tables in reading order
+            list of blocks, tables, formulas and, if requested, figures in reading order
         """
-        return page_reading_order(cast("Page", self), direction)[0]
+        return page_reading_order(cast("Page", self), direction, include_figures=include_figures)[0]
 
-    def export_as_markdown(self, direction: str = "auto", escape: bool = True, include_furniture: bool = True) -> str:
+    def export_as_markdown(
+        self,
+        direction: str = "auto",
+        escape: bool = True,
+        include_furniture: bool = True,
+        images: "str | FigureEncoder | None" = "placeholder",
+    ) -> str:
         """Export the page as Markdown, with its content sorted in reading order.
 
         Args:
             direction: reading direction, one of 'auto', 'ltr', 'rtl', 'ttb-rtl' or 'ttb-ltr'
             escape: whether the characters carrying a structural meaning in Markdown should be escaped
             include_furniture: whether page headers, page footers and footnotes should be included
+            images: how to render the figures: 'none', 'placeholder', 'embedded', or a
+                :class:`~doctr.io.FigureEncoder` (required for 'referenced')
 
         Returns:
             a Markdown string
         """
         return MarkdownExporter().export_page(
-            cast("Page", self), direction=direction, escape=escape, include_furniture=include_furniture
+            cast("Page", self),
+            direction=direction,
+            escape=escape,
+            include_furniture=include_furniture,
+            images=images,
         )
 
-    def export_as_asciidoc(self, direction: str = "auto", escape: bool = True, include_furniture: bool = True) -> str:
+    def export_as_asciidoc(
+        self,
+        direction: str = "auto",
+        escape: bool = True,
+        include_furniture: bool = True,
+        images: "str | FigureEncoder | None" = "placeholder",
+    ) -> str:
         """Export the page as AsciiDoc, with its content sorted in reading order.
 
         Args:
@@ -1010,25 +1630,40 @@ class PageExportsMixin:
             escape: whether the characters and line markers carrying a structural meaning in AsciiDoc should
                 be escaped
             include_furniture: whether page headers, page footers and footnotes should be included
+            images: how to render the figures: 'none', 'placeholder', 'embedded', or a
+                :class:`~doctr.io.FigureEncoder` (required for 'referenced')
 
         Returns:
             an AsciiDoc string
         """
         return AsciiDocExporter().export_page(
-            cast("Page", self), direction=direction, escape=escape, include_furniture=include_furniture
+            cast("Page", self),
+            direction=direction,
+            escape=escape,
+            include_furniture=include_furniture,
+            images=images,
         )
 
-    def export_as_html(self, direction: str = "auto", include_furniture: bool = True) -> str:
+    def export_as_html(
+        self,
+        direction: str = "auto",
+        include_furniture: bool = True,
+        images: "str | FigureEncoder | None" = "placeholder",
+    ) -> str:
         """Export the page as semantic HTML, with its content sorted in reading order.
 
         Args:
             direction: reading direction, one of 'auto', 'ltr', 'rtl', 'ttb-rtl' or 'ttb-ltr'
             include_furniture: whether page headers, page footers and footnotes should be included
+            images: how to render the figures: 'none', 'placeholder', 'embedded', or a
+                :class:`~doctr.io.FigureEncoder` (required for 'referenced')
 
         Returns:
             an HTML string
         """
-        return HTMLExporter().export_page(cast("Page", self), direction=direction, include_furniture=include_furniture)
+        return HTMLExporter().export_page(
+            cast("Page", self), direction=direction, include_furniture=include_furniture, images=images
+        )
 
     def export_as(self, format: str, **kwargs: Any) -> Any:
         """Export the page in the requested format.
@@ -1113,6 +1748,7 @@ class KIEPageExportsMixin:
         file_title: str = "docTR - XML export (hOCR)",
         direction: str = "auto",
         reading_order: bool = True,
+        dpi: int = 72,
     ) -> tuple[bytes, ET.ElementTree]:
         """Export the page as XML (hOCR-format), with the predictions of each class in reading order
         convention: https://github.com/kba/hocr-spec/blob/master/1.2/spec.md
@@ -1121,12 +1757,13 @@ class KIEPageExportsMixin:
             file_title: the title of the XML file
             direction: reading direction, one of 'auto', 'ltr', 'rtl', 'ttb-rtl' or 'ttb-ltr'
             reading_order: whether the predictions of each class should be sorted in reading order
+            dpi: the page resolution in dots per inch, used to estimate font sizes (`x_size`, `x_fsize`)
 
         Returns:
             a tuple of the XML byte string, and its ElementTree
         """
         return XMLExporter().export_kie_page(
-            cast("KIEPage", self), file_title=file_title, direction=direction, reading_order=reading_order
+            cast("KIEPage", self), file_title=file_title, direction=direction, reading_order=reading_order, dpi=dpi
         )
 
     def export_as_markdown(self, direction: str = "auto", escape: bool = True) -> str:
@@ -1225,7 +1862,8 @@ class DocumentExportsMixin:
 
         Args:
             page_break: the string inserted between two pages (a thematic break by default)
-            **kwargs: additional keyword arguments passed to the `Page.export_as_markdown` method
+            **kwargs: additional keyword arguments passed to the `Page.export_as_markdown` method (e.g. `images`,
+                not supported by KIE pages)
 
         Returns:
             a Markdown string
@@ -1237,7 +1875,8 @@ class DocumentExportsMixin:
 
         Args:
             page_break: the string inserted between two pages (an AsciiDoc page break by default)
-            **kwargs: additional keyword arguments passed to the `Page.export_as_asciidoc` method
+            **kwargs: additional keyword arguments passed to the `Page.export_as_asciidoc` method (e.g. `images`,
+                not supported by KIE pages)
 
         Returns:
             an AsciiDoc string
@@ -1249,7 +1888,8 @@ class DocumentExportsMixin:
 
         Args:
             page_break: the HTML snippet inserted between two pages
-            **kwargs: additional keyword arguments passed to the page export
+            **kwargs: additional keyword arguments passed to the page export (e.g. `images`, not supported by
+                KIE pages)
 
         Returns:
             an HTML string

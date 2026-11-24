@@ -1581,7 +1581,7 @@ class BaseImage(Resource):
 
     @property
     def border_color(self):
-        """(:class:`wand.color.Color`) The image border color. Used for
+        """(:class:`~wand.color.Color`) The image border color. Used for
         special effects like :meth:`polaroid()`.
 
         .. versionadded:: 0.5.4
@@ -1612,7 +1612,10 @@ class BaseImage(Resource):
 
         .. versionadded:: 0.5.3
         """
-        return library.MagickGetImageColors(self.wand)
+        c = library.MagickGetImageColors(self.wand)
+        if not c:
+            self.raise_exception()
+        return c
 
     @property
     def colorspace(self):
@@ -1652,6 +1655,8 @@ class BaseImage(Resource):
         .. versionadded:: 0.5.1
         """
         compose_index = library.MagickGetImageCompose(self.wand)
+        if not compose_index:
+            self.raise_exception()
         return COMPOSITE_OPERATORS[compose_index]
 
     @compose.setter
@@ -1659,8 +1664,12 @@ class BaseImage(Resource):
         assertions.string_in_list(COMPOSITE_OPERATORS,
                                   'wand.image.COMPOSITE_OPERATORS',
                                   compose=operator)
-        library.MagickSetImageCompose(self.wand,
-                                      COMPOSITE_OPERATORS.index(operator))
+        r = library.MagickSetImageCompose(
+            self.wand,
+            COMPOSITE_OPERATORS.index(operator)
+        )
+        if not r:
+            self.raise_exception()
 
     @property
     def compression(self):
@@ -1674,6 +1683,8 @@ class BaseImage(Resource):
            and `images` in the internal image stack.
         """
         compression_index = library.MagickGetImageCompression(self.wand)
+        if not compression_index:
+            self.raise_exception()
         return COMPRESSION_TYPES[compression_index]
 
     @compression.setter
@@ -1699,7 +1710,10 @@ class BaseImage(Resource):
            Setting :attr:`compression_quality` now sets both `image_info`
            and `images` in the internal image stack.
         """
-        return library.MagickGetImageCompressionQuality(self.wand)
+        cq = library.MagickGetImageCompressionQuality(self.wand)
+        if not cq:
+            self.raise_exception()
+        return cq
 
     @compression_quality.setter
     @manipulative
@@ -1723,7 +1737,10 @@ class BaseImage(Resource):
 
         .. versionadded:: 0.5.9
         """
-        return library.MagickGetImageDelay(self.wand)
+        d = library.MagickGetImageDelay(self.wand)
+        if not d:
+            self.raise_exception()
+        return d
 
     @delay.setter
     def delay(self, value):
@@ -1737,7 +1754,10 @@ class BaseImage(Resource):
         .. versionadded:: 0.2.1
 
         """
-        return library.MagickGetImageDepth(self.wand)
+        d = library.MagickGetImageDepth(self.wand)
+        if not d:
+            self.raise_exception()
+        return d
 
     @depth.setter
     @manipulative
@@ -1763,7 +1783,10 @@ class BaseImage(Resource):
         dispose_idx = library.MagickGetImageDispose(self.wand)
         try:
             return DISPOSE_TYPES[dispose_idx]
-        except IndexError:  # pragma: no cover
+        except IndexError:
+            # Possible a "no images" exception is on the stack. Attempt to
+            # raise exception and/or return `undefined`.
+            self.raise_exception()
             return DISPOSE_TYPES[0]
 
     @dispose.setter
@@ -1771,7 +1794,10 @@ class BaseImage(Resource):
         assertions.string_in_list(DISPOSE_TYPES,
                                   'wand.image.DISPOSE_TYPES',
                                   dispose=value)
-        library.MagickSetImageDispose(self.wand, DISPOSE_TYPES.index(value))
+        r = library.MagickSetImageDispose(self.wand,
+                                          DISPOSE_TYPES.index(value))
+        if not r:
+            self.raise_exception()
 
     @property
     def font(self):
@@ -1889,6 +1915,8 @@ class BaseImage(Resource):
         if fmt_p:
             fmt_str = text(ctypes.string_at(fmt_p))
             fmt_p = library.MagickRelinquishMemory(fmt_p)
+        else:
+            library.MagickClearException(self.wand)
         return fmt_str
 
     @format.setter
@@ -1911,12 +1939,17 @@ class BaseImage(Resource):
 
         .. versionadded:: 0.5.3
         """
-        return library.MagickGetImageFuzz(self.wand)
+        f = library.MagickGetImageFuzz(self.wand)
+        if not f:
+            self.raise_exception()
+        return f
 
     @fuzz.setter
     def fuzz(self, value):
         assertions.assert_real(fuzz=value)
-        library.MagickSetImageFuzz(self.wand, value)
+        r = library.MagickSetImageFuzz(self.wand, value)
+        if not r:
+            self.raise_exception()
 
     @property
     def gravity(self):
@@ -1978,13 +2011,18 @@ class BaseImage(Resource):
     @property
     def height(self):
         """(:class:`numbers.Integral`) The height of this image."""
-        return library.MagickGetImageHeight(self.wand)
+        h = library.MagickGetImageHeight(self.wand)
+        if h == 0:
+            library.MagickClearException(self.wand)
+        return h
 
     @height.setter
     @manipulative
     def height(self, height):
         assertions.assert_unsigned_integer(height=height)
-        library.MagickSetSize(self.wand, self.width, height)
+        r = library.MagickSetSize(self.wand, self.width, height)
+        if not r:
+            self.raise_exception()
 
     @property
     def histogram(self):
@@ -2019,6 +2057,8 @@ class BaseImage(Resource):
            Previously was pointing to the :c:struct:`MagickWand`.
         """
         scheme_idx = library.MagickGetImageInterlaceScheme(self.wand)
+        if not scheme_idx:
+            self.raise_exception()
         return INTERLACE_TYPES[scheme_idx]
 
     @interlace_scheme.setter
@@ -2027,7 +2067,9 @@ class BaseImage(Resource):
                                   'wand.image.INTERLACE_TYPES',
                                   interlace_scheme=scheme)
         scheme_idx = INTERLACE_TYPES.index(scheme)
-        library.MagickSetImageInterlaceScheme(self.wand, scheme_idx)
+        r = library.MagickSetImageInterlaceScheme(self.wand, scheme_idx)
+        if not r:
+            self.raise_exception()
 
     @property
     def interpolate_method(self):
@@ -2037,6 +2079,8 @@ class BaseImage(Resource):
         .. versionadded:: 0.5.2
         """
         method_idx = library.MagickGetImageInterpolateMethod(self.wand)
+        if not method_idx:
+            self.raise_exception()
         return PIXEL_INTERPOLATE_METHODS[method_idx]
 
     @interpolate_method.setter
@@ -2045,7 +2089,9 @@ class BaseImage(Resource):
                                   'wand.image.PIXEL_INTERPOLATE_METHODS',
                                   interpolate_method=method)
         method_idx = PIXEL_INTERPOLATE_METHODS.index(method)
-        library.MagickSetImageInterpolateMethod(self.wand, method_idx)
+        r = library.MagickSetImageInterpolateMethod(self.wand, method_idx)
+        if not r:
+            self.raise_exception()
 
     @property
     def kurtosis(self):
@@ -2070,23 +2116,30 @@ class BaseImage(Resource):
         .. versionadded:: 0.5.4
         """
         size_ptr = c_magick_size_t(0)
-        library.MagickGetImageLength(self.wand, ctypes.byref(size_ptr))
+        r = library.MagickGetImageLength(self.wand, ctypes.byref(size_ptr))
+        if not r:
+            self.raise_exception()
         return size_ptr.value
 
     @property
     def loop(self):
         """(:class:`numbers.Integral`) Number of frame iterations.
         A value of ``0`` will loop forever."""
-        return library.MagickGetImageIterations(self.wand)
+        itr = library.MagickGetImageIterations(self.wand)
+        if not itr:
+            self.raise_exception()
+        return itr
 
     @loop.setter
     def loop(self, iterations):
         assertions.assert_unsigned_integer(loop=iterations)
-        library.MagickSetImageIterations(self.wand, iterations)
+        r = library.MagickSetImageIterations(self.wand, iterations)
+        if not r:
+            self.raise_exception()
 
     @property
     def matte_color(self):
-        """(:class:`wand.color.Color`) The color value of the matte channel.
+        """(:class:`~wand.color.Color`) The color value of the matte channel.
         This can also be set.
 
         .. versionadded:: 0.4.1
@@ -2097,7 +2150,7 @@ class BaseImage(Resource):
             color = Color.from_pixelwand(pixel)
             pixel = library.DestroyPixelWand(pixel)
             return color
-        else:  # pragma: no cover
+        else:
             self.raise_exception()
 
     @matte_color.setter
@@ -2168,7 +2221,9 @@ class BaseImage(Resource):
         orientation_index = library.MagickGetImageOrientation(self.wand)
         try:
             return ORIENTATION_TYPES[orientation_index]
-        except IndexError:  # pragma: no cover
+        except IndexError:
+            # Possible error on stack. Attempt to raise and/or return default.
+            self.raise_exception()
             return ORIENTATION_TYPES[0]
 
     @orientation.setter
@@ -2354,6 +2409,8 @@ class BaseImage(Resource):
         .. versionadded:: 0.5.4
         """
         ri_index = library.MagickGetImageRenderingIntent(self.wand)
+        if not ri_index:
+            self.raise_exception()
         return RENDERING_INTENT_TYPES[ri_index]
 
     @rendering_intent.setter
@@ -2362,7 +2419,9 @@ class BaseImage(Resource):
                                   'wand.image.RENDERING_INTENT_TYPES',
                                   rendering_intent=value)
         ri_index = RENDERING_INTENT_TYPES.index(value)
-        library.MagickSetImageRenderingIntent(self.wand, ri_index)
+        r = library.MagickSetImageRenderingIntent(self.wand, ri_index)
+        if not r:
+            self.raise_exception()
 
     @property
     def resolution(self):
@@ -2391,11 +2450,11 @@ class BaseImage(Resource):
         else:
             raise TypeError('resolution must be a (x, y) pair or a float '
                             'of the same x/y')
-        if self.size == (0, 0):
-            r = library.MagickSetResolution(self.wand, x, y)
-        else:
+        if library.MagickGetNumberImages(self.wand):
             r = library.MagickSetImageResolution(self.wand, x, y)
-        if not r:  # pragma: no cover
+        else:
+            r = library.MagickSetResolution(self.wand, x, y)
+        if not r:
             self.raise_exception()
 
     @property
@@ -2437,7 +2496,11 @@ class BaseImage(Resource):
                             'numbers, not ' + repr(factors))
         factors_len = len(factors)
         factors_ptr = (ctypes.c_double * factors_len)(*factors)
-        library.MagickSetSamplingFactors(self.wand, factors_len, factors_ptr)
+        r = library.MagickSetSamplingFactors(self.wand,
+                                             factors_len,
+                                             factors_ptr)
+        if not r:
+            self.raise_exception()
 
     @property
     def scene(self):
@@ -2446,12 +2509,17 @@ class BaseImage(Resource):
 
         .. versionadded:: 0.5.4
         """
-        return library.MagickGetImageScene(self.wand)
+        s = library.MagickGetImageScene(self.wand)
+        if not s:
+            self.raise_exception()
+        return s
 
     @scene.setter
     def scene(self, value):
         assertions.assert_unsigned_integer(scene=value)
-        library.MagickSetImageScene(self.wand, value)
+        r = library.MagickSetImageScene(self.wand, value)
+        if not r:
+            self.raise_exception()
 
     @property
     def seed(self):
@@ -2488,6 +2556,8 @@ class BaseImage(Resource):
         if sig_p:
             sig_str = text(ctypes.string_at(sig_p))
             sig_p = library.MagickRelinquishMemory(sig_p)
+        else:
+            library.MagickClearException(self.wand)
         return sig_str
 
     @property
@@ -2565,7 +2635,10 @@ class BaseImage(Resource):
         """(:class:`numbers.Integral`) Internal clock for animated images.
         .. versionadded:: 0.5.4
         """
-        return library.MagickGetImageTicksPerSecond(self.wand)
+        tps = library.MagickGetImageTicksPerSecond(self.wand)
+        if not tps:
+            self.raise_exception()
+        return tps
 
     @ticks_per_second.setter
     def ticks_per_second(self, value):
@@ -2604,6 +2677,8 @@ class BaseImage(Resource):
     def units(self):
         """(:class:`str`) The resolution units of this image."""
         r = library.MagickGetImageUnits(self.wand)
+        if not r:
+            self.raise_exception()
         return UNIT_TYPES[r]
 
     @units.setter
@@ -2622,6 +2697,8 @@ class BaseImage(Resource):
         ... versionadded:: 0.4.1
         """
         method_index = library.MagickGetImageVirtualPixelMethod(self.wand)
+        if not method_index:
+            self.raise_exception()
         return VIRTUAL_PIXEL_METHOD[method_index]
 
     @virtual_pixel.setter
@@ -2659,13 +2736,18 @@ class BaseImage(Resource):
     @property
     def width(self):
         """(:class:`numbers.Integral`) The width of this image."""
-        return library.MagickGetImageWidth(self.wand)
+        w = library.MagickGetImageWidth(self.wand)
+        if w == 0:
+            library.MagickClearException(self.wand)
+        return w
 
     @width.setter
     @manipulative
     def width(self, width):
         assertions.assert_unsigned_integer(width=width)
-        library.MagickSetSize(self.wand, width, self.height)
+        r = library.MagickSetSize(self.wand, width, self.height)
+        if not r:
+            self.raise_exception()
 
     @property
     def white_point(self):
@@ -3225,7 +3307,7 @@ class BaseImage(Resource):
         """Surrounds the image with a border.
 
         :param bordercolor: the border color pixel wand
-        :type image: :class:`~wand.color.Color`
+        :type image: :class:`~wand.color.Color` or :class:`str`
         :param width: the border width
         :type width: :class:`numbers.Integral`
         :param height: the border height
@@ -3641,9 +3723,9 @@ class BaseImage(Resource):
         :param index: The color position of the image palette.
         :type index: :class:`numbers.Integral`
         :param color: Optional color to _set_ at the given index.
-        :type color: :class:`wand.color.Color`
+        :type color: :class:`~wand.color.Color` or :class:`str`
         :returns: Color at index.
-        :rtype: :class:`wand.color.Color`
+        :rtype: :class:`~wand.color.Color`
 
         .. versionadded:: 0.5.3
         """
@@ -3787,9 +3869,9 @@ class BaseImage(Resource):
             This method is only works with ImageMagick-7.0.10, or later.
 
         :param start: Color to begin color range.
-        :type start: :class:`wand.color.Color`
+        :type start: :class:`~wand.color.Color` or :class:`str`
         :param stop: Color to end color range.
-        :type stop: :class:`wand.color.Color`
+        :type stop: :class:`~wand.color.Color` or :class:`str`
 
         .. versionadded:: 0.6.4
         """
@@ -3817,9 +3899,9 @@ class BaseImage(Resource):
         :see: Example of :ref:`colorize`.
 
         :param color: Color to paint image with.
-        :type color: :class:`wand.color.Color`
+        :type color: :class:`~wand.color.Color` or :class:`str`
         :param alpha: Defines how to blend color.
-        :type alpha: :class:`wand.color.Color`
+        :type alpha: :class:`~wand.color.Color` or :class:`str`
 
         .. versionadded:: 0.5.3
         """
@@ -4499,7 +4581,7 @@ class BaseImage(Resource):
 
         :param background: Define which color value to evaluate as the
                            background.
-        :type background: :class:`str` or :class:`~wand.color.Color`
+        :type background: :class:`~wand.color.Color` or :class:`str`
         :returns: list of points
         :rtype: :class:`list` [ :class:`tuple` ( :class:`float`,
                 :class:`float` ) ]
@@ -5228,6 +5310,8 @@ class BaseImage(Resource):
                 response['green'] = build_channel(feature_ptr, 'green')
                 response['blue'] = build_channel(feature_ptr, 'blue')
             feature_ptr = library.MagickRelinquishMemory(feature_ptr)
+        else:
+            self.raise_exception()
         return response
 
     def fft(self, magnitude=True):
@@ -5272,13 +5356,13 @@ class BaseImage(Resource):
         ``fuzz`` and/or ``bordercolor`` to defined tolerance & border values.
 
         :param fill: New target color value.
-        :type fill: :class:`wand.color.Color` or :class:`str`
+        :type fill: :class:`~wand.color.Color` or :class:`str`
         :param fuzz: Fill threshold. Values between `0.0` and `1.0`. Default
                      `0.1` (10%).
         :type fuzz: :class:`numbers.Real`
         :param bordercolor: Optional color to use as a border. Default
                             :const:`None`.
-        :type bordercolor: :class:`wand.color.Color` or :class:`str`
+        :type bordercolor: :class:`~wand.color.Color` or :class:`str`
         :param x: Starting point X coordinate. Default ``0``.
         :type x: :class:`number.Integral`
         :param y: Starting point Y coordinate. Default ``0``.
@@ -5392,7 +5476,7 @@ class BaseImage(Resource):
         Inner & outer bevel can simulate a 3D effect.
 
         :param matte: color of the frame
-        :type matte: :class:`wand.color.Color`
+        :type matte: :class:`~wand.color.Color` or :class:`str`
         :param width: total size of frame on x-axis
         :type width: :class:`numbers.Integral`
         :param height: total size of frame on y-axis
@@ -6042,18 +6126,21 @@ class BaseImage(Resource):
         k = ctypes.c_double(0.0)
         s = ctypes.c_double(0.0)
         if MAGICK_VERSION_NUMBER < 0x700:
-            library.MagickGetImageChannelKurtosis(self.wand, ch_channel,
-                                                  ctypes.byref(k),
-                                                  ctypes.byref(s))
-        else:  # pragma: no cover
+            r = library.MagickGetImageChannelKurtosis(self.wand,
+                                                      ch_channel,
+                                                      ctypes.byref(k),
+                                                      ctypes.byref(s))
+        else:
             # Set active channel, and capture mask to restore.
             channel_mask = library.MagickSetImageChannelMask(self.wand,
                                                              ch_channel)
-            library.MagickGetImageKurtosis(self.wand,
-                                           ctypes.byref(k),
-                                           ctypes.byref(s))
+            r = library.MagickGetImageKurtosis(self.wand,
+                                               ctypes.byref(k),
+                                               ctypes.byref(s))
             # Restore original state of channels
             library.MagickSetImageChannelMask(self.wand, channel_mask)
+        if not r:
+            self.raise_exception()
         return k.value, s.value
 
     @manipulative
@@ -6113,6 +6200,8 @@ class BaseImage(Resource):
         :type font: :class:`wand.font.Font`
         :param gravity: text placement gravity.
         :type gravity: :class:`str`
+        :param background_color: the text's canvas color.
+        :type background_color: :class:`~wand.color.Color` or :class:`str`
 
         .. versionadded:: 0.6.8
         """
@@ -6468,18 +6557,21 @@ class BaseImage(Resource):
         m = ctypes.c_double(0.0)
         s = ctypes.c_double(0.0)
         if MAGICK_VERSION_NUMBER < 0x700:
-            library.MagickGetImageChannelMean(self.wand, ch_channel,
-                                              ctypes.byref(m),
-                                              ctypes.byref(s))
+            r = library.MagickGetImageChannelMean(self.wand,
+                                                  ch_channel,
+                                                  ctypes.byref(m),
+                                                  ctypes.byref(s))
         else:  # pragma: no cover
             # Set active channel, and capture mask to restore.
             channel_mask = library.MagickSetImageChannelMask(self.wand,
                                                              ch_channel)
-            library.MagickGetImageMean(self.wand,
-                                       ctypes.byref(m),
-                                       ctypes.byref(s))
+            r = library.MagickGetImageMean(self.wand,
+                                           ctypes.byref(m),
+                                           ctypes.byref(s))
             # Restore original state of channels
             library.MagickSetImageChannelMask(self.wand, channel_mask)
+        if not r:
+            self.raise_exception()
         return m.value, s.value
 
     @manipulative
@@ -7006,9 +7098,9 @@ class BaseImage(Resource):
         the ``target`` color.
 
         :param target: The color to match.
-        :type target: :class:`wand.color.Color`
+        :type target: :class:`~wand.color.Color` or :class:`str`
         :param fill: The color to paint with.
-        :type fill: :class:`wand.color.Color`
+        :type fill: :class:`~wand.color.Color` or :class:`str`
         :param fuzz: Normalized real number between `0.0` and
                      :attr:`quantum_range`. Default is `0.0`.
         :type fuzz: class:`numbers.Real`
@@ -7501,18 +7593,20 @@ class BaseImage(Resource):
         min_color = ctypes.c_double(0.0)
         max_color = ctypes.c_double(0.0)
         if MAGICK_VERSION_NUMBER < 0x700:
-            library.MagickGetImageChannelRange(self.wand, ch_channel,
-                                               ctypes.byref(min_color),
-                                               ctypes.byref(max_color))
+            r = library.MagickGetImageChannelRange(self.wand, ch_channel,
+                                                   ctypes.byref(min_color),
+                                                   ctypes.byref(max_color))
         else:  # pragma: no cover
             # Set active channel, and capture mask to restore.
             channel_mask = library.MagickSetImageChannelMask(self.wand,
                                                              ch_channel)
-            library.MagickGetImageRange(self.wand,
-                                        ctypes.byref(min_color),
-                                        ctypes.byref(max_color))
+            r = library.MagickGetImageRange(self.wand,
+                                            ctypes.byref(min_color),
+                                            ctypes.byref(max_color))
             # Restore original state of channels
             library.MagickSetImageChannelMask(self.wand, channel_mask)
+        if not r:
+            self.raise_exception()
         return min_color.value, max_color.value
 
     @manipulative
@@ -7874,7 +7968,7 @@ class BaseImage(Resource):
         :type degree: :class:`numbers.Real`
         :param background: an optional background color.
                            default is transparent
-        :type background: :class:`wand.color.Color`
+        :type background: :class:`~wand.color.Color` or :class:`str`
         :param reset_coords: optional flag. If set, after the rotation, the
             coordinate frame will be relocated to the upper-left corner of
             the new image. By default is `True`.
@@ -8195,7 +8289,7 @@ class BaseImage(Resource):
 
         :param background: Color to fill the void created by shearing the
                            image.
-        :type background: :class:`wand.color.Color`
+        :type background: :class:`~wand.color.Color` or :class:`str`
         :param x: Slide the image along the X-axis.
         :type x: :class:`numbers.Real`
         :param y: Slide the image along the Y-axis.
@@ -8828,9 +8922,9 @@ class BaseImage(Resource):
         :see: Example of :ref:`tint`.
 
         :param color: Color to calculate midtone.
-        :type color: :class:`~wand.color.Color`
+        :type color: :class:`~wand.color.Color` or :class:`str`
         :param alpha: Determine how to blend.
-        :type alpha: :class:`~wand.color.Color`
+        :type alpha: :class:`~wand.color.Color` or :class:`str`
 
         .. versionadded:: 0.5.3
         """
@@ -9049,7 +9143,7 @@ class BaseImage(Resource):
 
         :param color: The color that should be made transparent on the image,
                       color object
-        :type color: :class:`wand.color.Color`
+        :type color: :class:`~wand.color.Color` or :class:`str`
         :param alpha: the level of transparency: 1.0 is fully opaque
                       and 0.0 is fully transparent.
         :type alpha: :class:`numbers.Real`
@@ -9146,7 +9240,7 @@ class BaseImage(Resource):
 
         :param color: the border color to remove.
                       if it's omitted top left pixel is used by default
-        :type color: :class:`~wand.color.Color`
+        :type color: :class:`~wand.color.Color` or :class:`str`
         :param fuzz: Defines how much tolerance is acceptable to consider
                      two colors as the same. Value can be between ``0.0``,
                      and :attr:`quantum_range`.
@@ -9492,7 +9586,7 @@ class Image(BaseImage):
     :type depth: :class:`numbers.Integral`
     :param background: an optional background color.
                        default is transparent
-    :type background: :class:`wand.color.Color`
+    :type background: :class:`~wand.color.Color` or :class:`str`
     :param resolution: set a resolution value (dpi),
                        useful for vectorial formats (like pdf)
     :type resolution: :class:`collections.abc.Sequence`,
@@ -9998,7 +10092,7 @@ class Image(BaseImage):
         :type height: :class:`numbers.Integral`
         :param background: an optional background color.
                            default is transparent
-        :type background: :class:`wand.color.Color`
+        :type background: :class:`~wand.color.Color` or :class:`str`
         :returns: blank image
         :rtype: :class:`Image`
 
@@ -10597,7 +10691,7 @@ class Iterator(Resource, abc.Iterator):
                 print(col)
 
     Every row is a :class:`collections.abc.Sequence` which consists of
-    one or more :class:`wand.color.Color` values.
+    one or more :class:`~wand.color.Color` values.
 
     :param image: the image to get an iterator
     :type image: :class:`Image`

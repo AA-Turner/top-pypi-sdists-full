@@ -9,7 +9,7 @@ class ErrorResponseDataParams(typing_extensions.TypedDict):
     message: str
     code: typing_extensions.NotRequired[int]
     """
-    Optional error code for programmatic error handling
+    Error code for programmatic handling. Invalid messages and settings usually return 422. Settings rejected by the model, such as a sample rate above 24000, return 400. An idle connection returns 408 before it closes, and unexpected failures return 500.
     """
 
     details: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]

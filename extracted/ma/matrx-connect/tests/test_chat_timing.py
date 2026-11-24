@@ -250,3 +250,124 @@ def test_client_latency_headers_become_a_stamp() -> None:
     assert stamp.network_ms == stamp.server_arrived_at_ms - 1000
     clear_request_latency()
     assert get_client_latency_stamp() is None
+
+
+def _trace_of(marks: list[tuple[str, float]]) -> ChatTimingTrace:
+    trace = ChatTimingTrace()
+    prev = 0.0
+    for key, elapsed in marks:
+        trace.points.append(
+            {"seq": len(trace.points) + 1, "key": key, "label": key, "elapsed_s": elapsed,
+             "delta_s": round(elapsed - prev, 4)}
+        )
+        prev = elapsed
+    return trace
+
+
+def test_a_wait_inside_context_assembly_is_named_never_hidden_in_stream_handoff() -> None:
+    """2026-11-19: the phone hand-off's 10 s sandbox brief wait sat between two marks that
+    closed in "stream_handoff" (a 'local' block), so the ledger called it free. Every stage of
+    the context assembly and the staff door now closes its own named block."""
+    trace = _trace_of(
+        [
+            ("prep_begin", 0.0),
+            ("staff_thread_opened", 0.3),
+            ("staff_admitted", 0.7),
+            ("tools_merged", 2.0),
+            ("u_intro_built", 2.1),
+            ("c_gate_open", 2.15),
+            ("c_seeded", 2.2),
+            ("c_sources_resolved", 2.3),
+            ("c_earlier_turn", 2.35),
+            ("c_sandbox_briefing", 12.35),
+            ("c_attachments", 12.4),
+            ("h_dispatch_guards", 12.45),
+            ("payload_captured", 12.9),
+        ]
+    )
+    blocks = {b["block"]: b["seconds"] for b in trace.summary()["blocks"]}
+    assert blocks["sandbox_briefing"] == pytest.approx(10.0)
+    assert blocks["staff_door"] == pytest.approx(0.7)
+    assert blocks["context_assembly"] == pytest.approx(0.3)
+    assert blocks["stream_handoff"] == pytest.approx(0.05)
+    # Nothing falls outside a block: every prep second is attributed.
+    assert sum(blocks.values()) == pytest.approx(12.9)
+
+
+def test_a_continuations_history_load_is_named_never_filed_under_tools() -> None:
+    """2026-11-19, request 9c954c55: the continue path closed no mark between the staff door and
+    ``tools_merge_start``, so the 3.6 s history load and the sandbox arm read as 5.56 s of "tools".
+    The history load, the sandbox arm and the skills each close their own block now, and the
+    context assembly's sub-stages are marks inside its own block."""
+    trace = _trace_of(
+        [
+            ("prep_begin", 0.0),
+            ("staff_admitted", 0.8),
+            ("history_resolved", 4.4),
+            ("sandbox_armed", 5.0),
+            ("skills_merged", 5.1),
+            ("tools_merge_start", 5.15),
+            ("tools_merged", 5.2),
+            ("c_gate_open", 5.3),
+            ("c_seeded", 5.4),
+            ("c_lazy_described", 8.4),
+            ("c_file_blocks", 8.6),
+            ("c_ref_flags", 8.7),
+            ("c_sources_resolved", 9.4),
+            ("payload_captured", 9.5),
+        ]
+    )
+    blocks = {b["block"]: b["seconds"] for b in trace.summary()["blocks"]}
+    assert blocks["history"] == pytest.approx(3.6)
+    assert blocks["sandbox"] == pytest.approx(0.6)
+    assert blocks["tools"] == pytest.approx(0.1)
+    assert blocks["context_assembly"] == pytest.approx(4.2)
+    assert sum(blocks.values()) == pytest.approx(9.5)
+
+
+def test_a_mandated_continuation_names_every_step_never_tools_or_wire_config() -> None:
+    """2026-11-19 proof round 4, the phone line's second staff ask: "tools" 1.47 s and "wire_config" 0.81 s were
+    whole unmarked spans — the mandated start, the run gates, the continuation setup and the history load all closed
+    at ``tools_merge_start``; the executor's pre-send checks and the send boundary's stages all closed at
+    ``wire_config_built``. Each now closes its own named block."""
+    trace = _trace_of(
+        [
+            ("prep_begin", 0.0),
+            ("staff_admitted", 0.1),
+            ("m_holder_resolved", 0.2),
+            ("m_framing_built", 0.3),
+            ("m_values_routed", 0.35),
+            ("m_run_recorded", 0.4),
+            ("orchestra_probed", 0.45),
+            ("run_gates_passed", 0.55),
+            ("cr_context_restored", 0.65),
+            ("memory_resolved", 0.7),
+            ("cr_scope_tracked", 0.8),
+            ("h_structure_read", 0.85),
+            ("h_holder_built", 0.95),
+            ("h_messages_loaded", 1.25),
+            ("history_resolved", 1.3),
+            ("sandbox_armed", 1.35),
+            ("skills_merged", 1.4),
+            ("tools_merge_start", 1.42),
+            ("tools_merged", 1.5),
+            ("structured_inputs_resolved", 1.6),
+            ("pre_send_checks", 1.65),
+            ("sb_media_stored", 1.7),
+            ("sb_shaped", 1.8),
+            ("sb_trimmed", 1.9),
+            ("sb_fit", 2.0),
+            ("sb_turn_context_staged", 2.3),
+            ("wire_config_built", 2.4),
+            ("payload_captured", 2.45),
+        ]
+    )
+    blocks = {b["block"]: b["seconds"] for b in trace.summary()["blocks"]}
+    assert blocks["mandate_start"] == pytest.approx(0.3)
+    assert blocks["run_gates"] == pytest.approx(0.15)
+    assert blocks["continue_setup"] == pytest.approx(0.2)
+    assert blocks["history"] == pytest.approx(0.5)
+    assert blocks["tools"] == pytest.approx(0.1)
+    assert blocks["send_prep"] == pytest.approx(0.7)
+    assert blocks["wire_config"] == pytest.approx(0.15)
+    assert sum(blocks.values()) == pytest.approx(2.45)

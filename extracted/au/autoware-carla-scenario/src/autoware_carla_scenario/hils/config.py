@@ -58,10 +58,11 @@ import logging
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from ..constants import EGO_ROLE_NAME
 from ..entity_role import canonical_role_name
+from ..number_settings import is_port
 from ..value_text import huge_integer
 from .measurements import CAMERA_ENCODINGS
 from .protocol import (
@@ -212,6 +213,11 @@ class InputSpec:
     _dropped: Dict[str, int] = field(
         default_factory=dict, init=False, repr=False, compare=False
     )
+    #: How many messages refreshed nothing (:meth:`values`), in its one
+    #: element (the log's rate limit).
+    _ignored: List[int] = field(
+        default_factory=lambda: [0], init=False, repr=False, compare=False
+    )
 
     def values(self, fields: Mapping[str, Any]) -> Dict[str, float]:
         """The command fields a decoded message's *fields* give.
@@ -219,9 +225,20 @@ class InputSpec:
         A field whose value is not finite, or too large for CARLA's 32-bit
         floats, is left out, as a missing one is:
         the ego keeps the field's previous value.  It is logged the first time
-        and then once in a hundred."""
+        and then once in a hundred.
+
+        A message none of whose message fields gives a value gives nothing,
+        its constants included (#2444): constants alone would refresh the
+        command -- keep the run's command fresh -- while every field the ECU
+        sends is NaN.  A message whose command is all constants (none comes
+        from a field) gives them, as its arrival is all it says.  That is
+        logged the first time and then once in a hundred too."""
         values: Dict[str, float] = {}
+        from_fields = False
+        refreshed = False
         for key, source in self.command.items():
+            if source.field is not None:
+                from_fields = True
             value = source.scaled(fields)
             if value is None:
                 continue
@@ -241,6 +258,19 @@ class InputSpec:
                 self._dropped[key] = count + 1
                 continue
             values[key] = number
+            if source.field is not None:
+                refreshed = True
+        if from_fields and not refreshed:
+            count = self._ignored[0]
+            if count % _NON_FINITE_LOG_EVERY == 0:
+                logger.warning(
+                    "%s: no field gave a value; the message refreshes nothing, "
+                    "its constants included (%d so far)",
+                    self.name,
+                    count + 1,
+                )
+            self._ignored[0] = count + 1
+            return {}
         return values
 
 
@@ -456,10 +486,12 @@ def _seconds(value: Any, where: str, *, zero: bool = False) -> float:
 
 
 def _port(value: Any, where: str) -> int:
-    """A TCP port: an integer (not a bool) in 1..65535."""
+    """A TCP port: an integer (not a bool) in 1..65535, the rule of every
+    port setting (:func:`~autoware_carla_scenario.number_settings.is_port`,
+    #2398), worded as the rest of the configuration's errors are."""
     if isinstance(value, bool) or not isinstance(value, int):
         raise HilsConfigError(f"{where}: expected an integer port, got {_shown(value)}")
-    if not 1 <= value <= 65535:
+    if not is_port(value):
         raise HilsConfigError(f"{where}: must be within 1-65535, got {_shown(value)}")
     return value
 

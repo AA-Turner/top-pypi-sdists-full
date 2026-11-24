@@ -26,7 +26,6 @@ class ManagerServiceStub:
         GetClusterEnvironmentsRequest,
         GetClusterEnvironmentsResponse,
     ]
-    """If any checks fail, this request fails."""
     ListTelemetryTimescaleKubeSecretRefs: UnaryUnaryMultiCallable[
         ListTelemetryTimescaleKubeSecretRefsRequest,
         ListTelemetryTimescaleKubeSecretRefsResponse,
@@ -38,8 +37,7 @@ class ManagerServiceServicer(metaclass=ABCMeta):
         self,
         request: GetClusterEnvironmentsRequest,
         context: ServicerContext,
-    ) -> GetClusterEnvironmentsResponse:
-        """If any checks fail, this request fails."""
+    ) -> GetClusterEnvironmentsResponse: ...
     @abstractmethod
     def ListTelemetryTimescaleKubeSecretRefs(
         self,

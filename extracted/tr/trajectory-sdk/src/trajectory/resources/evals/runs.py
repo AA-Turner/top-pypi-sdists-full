@@ -73,7 +73,7 @@ class Runs(APIResource):
             "status": status,
             "training_run_id": training_run_id,
             "base_model_slug": base_model_slug,
-            "cursor": cursor,
+            "cursor": omit if cursor is None else cursor,
             "limit": limit,
           }
         ),

@@ -54,8 +54,8 @@ CLI output:
   590,053, not 619,845.
 
 Lines are counted live the same way, never recorded for the
-canonical list: the as-assembled set runs to 73,015 lines,
-66,241 of them non-blank (AS_ASSEMBLED_LINES and
+canonical list: the as-assembled set runs to 73,410 lines,
+66,610 of them non-blank (AS_ASSEMBLED_LINES and
 AS_ASSEMBLED_NONBLANK_LINES below), and the CLI prints the
 canonical list's own line count beside its token counts.
 
@@ -672,6 +672,12 @@ except ImportError:  # plain script: python3 runner/ops/core.py
 # head in between built red on the stale figures
 # alone, the shape guard reading the record
 # against the tree.
+# Re-measured on 2026-11-24 after the atomic file delivery
+# race fix grew runner/guard (the reserved staging name
+# definition in atomicio) by 30 lines and
+# runner/transport_extensions (the file pipe's staging skip)
+# by 18 lines: the set stands 48 lines taller with 43 more
+# non-blank lines, and the as-assembled zip 1034 bytes larger.
 # Recorded constants: they describe the as-assembled set (the
 # canonical list as first recorded -- 132 files -- plus the 3 suite runners named in
 # the module docstring; the list itself stands at 137 since
@@ -684,21 +690,21 @@ except ImportError:  # plain script: python3 runner/ops/core.py
 # here come from this module's own deterministic build and
 # counter over the current tree.
 AS_ASSEMBLED_FILES = 142
-AS_ASSEMBLED_ZIP_BYTES = 939399
-AS_ASSEMBLED_LINES = 73015
-AS_ASSEMBLED_NONBLANK_LINES = 66241
+AS_ASSEMBLED_ZIP_BYTES = 945080
+AS_ASSEMBLED_LINES = 73410
+AS_ASSEMBLED_NONBLANK_LINES = 66610
 # The as-assembled set's lines, part by part; the parts sum
 # to AS_ASSEMBLED_LINES. A part is a folder under runner/, or
 # a file standing directly under runner/ as its own part.
 AS_ASSEMBLED_PART_LINES = {
     "runner/ops": 24446,
     "runner/tools": 10092,
-    "runner/wire": 9214,
+    "runner/wire": 9223,
     "runner/runner.py": 7444,
     "runner/oracle": 5423,
-    "runner/transport_extensions": 2778,
-    "runner/guard": 9524,
-    "runner/cloud": 2350,
+    "runner/transport_extensions": 2796,
+    "runner/guard": 9884,
+    "runner/cloud": 2358,
     "runner/hosting": 1711,
     "runner/__init__.py": 23,
     "runner/_version.py": 10,

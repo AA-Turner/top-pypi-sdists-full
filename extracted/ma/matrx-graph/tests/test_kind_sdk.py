@@ -140,7 +140,7 @@ def test_publication_plan_create_match_drift() -> None:
     assert "title" in (plan["web_result"].drift_summary or "")
     # An unregistered kind is a create, carrying its edges for kind_edge rows.
     clear_kind_catalog()
-    RatingAgain = _declare_rating()
+    _declare_rating()
     plan2 = publication_plan(kind_catalog(), lambda slug: None)
     assert plan2[0].action == "create"
 
@@ -178,6 +178,35 @@ def test_compatibility_allows_added_optional_field():
     assert verdict.compatible
     assert verdict.breaking == ()
     assert any("iso" in note for note in verdict.additive)
+
+
+def _pick_list(extra: dict, required: list[str], closed: bool = True) -> dict:
+    inner = {
+        "type": ["object", "null"],
+        "required": required,
+        "properties": {"listId": {"type": "string"}, **extra},
+    }
+    if closed:
+        inner["additionalProperties"] = False
+    return _schema({"pick_list": inner}, [])
+
+
+def test_compatibility_allows_an_inline_object_gaining_an_optional_field():
+    """pick_list gained labelColumn/deliverColumn; old payloads still validate."""
+    from matrx_graph.content_ir.sdk import compatibility_verdict
+
+    live = _pick_list({}, ["listId"])
+    model = _pick_list({"labelColumn": {"type": ["string", "null"]}}, ["listId"])
+    assert compatibility_verdict(model, live).compatible
+    # Forcing function: the same growth made REQUIRED, or a field removed, still breaks.
+    assert not compatibility_verdict(
+        _pick_list({"labelColumn": {"type": "string"}}, ["listId", "labelColumn"]), live
+    ).compatible
+    assert not compatibility_verdict(live, model).compatible
+    assert not compatibility_verdict(
+        _pick_list({"labelColumn": {"type": ["string", "null"]}}, ["listId"], closed=False),
+        live,
+    ).compatible
 
 
 def test_compatibility_refuses_added_required_field():
@@ -1079,6 +1108,39 @@ def test_the_kind_marker_gate_can_still_fail_on_a_real_narrowing():
     assert not compatibility_verdict(retyped, live).compatible
 
 
+def test_compatibility_sees_a_json_value_map_inside_a_list():
+    """``list[dict]`` -> ``list[dict[str, JsonValue]]`` admits the same payloads.
+
+    The ``$ref`` sits two levels below the array, so a one-level check fell
+    through to literal equality and refused ``google_workspace_result``. The
+    deep check must not open the door to a real narrowing inside a list.
+    """
+    from matrx_graph.content_ir.sdk import compatibility_verdict
+    from pydantic import BaseModel, JsonValue
+
+    class OldShape(BaseModel):
+        rows: list[dict] | None = None
+
+    class NewShape(BaseModel):
+        rows: list[dict[str, JsonValue]] | None = None
+
+    class NarrowValue(BaseModel):
+        name: str
+
+    class NarrowShape(BaseModel):
+        rows: list[dict[str, NarrowValue]] | None = None
+
+    class TypedShape(BaseModel):
+        rows: list[dict[str, str]] | None = None
+
+    old = OldShape.model_json_schema()
+    new = NewShape.model_json_schema()
+    assert compatibility_verdict(new, old).compatible
+    assert compatibility_verdict(old, new).compatible
+    assert not compatibility_verdict(NarrowShape.model_json_schema(), old).compatible
+    assert not compatibility_verdict(TypedShape.model_json_schema(), old).compatible
+
+
 def test_a_changed_default_is_still_DRIFT_even_though_it_is_compatible():
     """Compatible is not the same as unchanged — the plan must still publish it.
 
@@ -1152,3 +1214,97 @@ def test_a_registration_built_directly_still_needs_a_disposition() -> None:
 
     with pytest.raises(ValueError, match="'bare_quote' does not say what its output is"):
         KindRegistration(slug="bare_quote", model=Bare, label="Bare", disposition="")
+
+
+_DECIMAL_PATTERN = r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$"
+
+
+def test_dropping_a_leaf_assertion_is_a_widening_not_a_break() -> None:
+    """pydantic 2.14 stopped emitting the string ``pattern`` on a Decimal field.
+
+    ``[number, string{pattern}]`` → ``[number, string]`` only ACCEPTS more, so
+    it must evolve, never be refused (CI run 41206349386 failed on exactly
+    this across every Decimal-carrying SEO kind).
+    """
+    from matrx_graph.content_ir.sdk import compatibility_verdict
+
+    live = _schema(
+        {
+            "cost": {
+                "anyOf": [
+                    {"type": "number"},
+                    {"type": "string", "pattern": _DECIMAL_PATTERN},
+                    {"type": "null"},
+                ]
+            }
+        },
+        [],
+    )
+    model = _schema(
+        {"cost": {"anyOf": [{"type": "number"}, {"type": "string"}, {"type": "null"}]}}, []
+    )
+    verdict = compatibility_verdict(model, live)
+    assert verdict.compatible, verdict.breaking
+    assert any("cost" in note for note in verdict.additive)
+
+
+def test_adding_a_leaf_assertion_or_changing_type_is_still_a_break() -> None:
+    from matrx_graph.content_ir.sdk import compatibility_verdict
+
+    live = _schema({"cost": {"type": "string"}}, [])
+    tightened = compatibility_verdict(
+        _schema({"cost": {"type": "string", "pattern": _DECIMAL_PATTERN}}, []), live
+    )
+    assert not tightened.compatible
+
+    retyped_and_relaxed = compatibility_verdict(
+        _schema({"cost": {"type": "integer"}}, []),
+        _schema({"cost": {"type": "string", "maxLength": 5}}, []),
+    )
+    assert not retyped_and_relaxed.compatible
+
+    dropped_applicator = compatibility_verdict(
+        _schema({"xs": {"type": "array", "items": {"type": "string"}}}, []),
+        _schema(
+            {
+                "xs": {
+                    "type": "array",
+                    "prefixItems": [{"type": "integer"}],
+                    "items": {"type": "string"},
+                }
+            },
+            [],
+        ),
+    )
+    assert not dropped_applicator.compatible
+
+
+def test_a_looser_numeric_bound_is_compatible_and_a_tighter_one_is_a_break() -> None:
+    from matrx_graph.content_ir.sdk import compatibility_verdict
+
+    def opts(max_items: int) -> dict:
+        return {
+            "options": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/O"},
+                "minItems": 2,
+                "maxItems": max_items,
+            }
+        }
+
+    defs = {"O": {"type": "object", "properties": {"v": {"type": "string"}}}}
+
+    def schema(max_items: int) -> dict:
+        return {**_schema(opts(max_items), []), "$defs": defs}
+
+    assert compatibility_verdict(schema(12), schema(8)).compatible
+    assert not compatibility_verdict(schema(6), schema(8)).compatible
+    plain = compatibility_verdict(
+        _schema({"s": {"type": "string", "maxLength": 20}}, []),
+        _schema({"s": {"type": "string", "maxLength": 5}}, []),
+    )
+    assert plain.compatible
+    assert not compatibility_verdict(
+        _schema({"s": {"type": "string", "maxLength": 3}}, []),
+        _schema({"s": {"type": "string", "maxLength": 5}}, []),
+    ).compatible

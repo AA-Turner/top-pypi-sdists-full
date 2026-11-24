@@ -31,7 +31,7 @@ import functools
 import inspect
 import logging
 import typing
-from contextlib import suppress
+import weakref
 
 from tornado import ioloop
 
@@ -41,6 +41,8 @@ if typing.TYPE_CHECKING:
     from collections.abc import Callable
     from concurrent.futures import Executor
     from typing import Literal, ParamSpec
+
+    from tornado.platform.asyncio import BaseAsyncIOLoop
 
     _Spec = ParamSpec("_Spec")
     _T = typing.TypeVar("_T")
@@ -74,7 +76,8 @@ class TornadoEventLoop(EventLoop):
 
             self._loop = ioloop.IOLoop.current()
 
-        self._pending_alarms: dict[object, int] = {}
+        self._pending_alarms: weakref.WeakSet[asyncio.TimerHandle] = weakref.WeakSet()
+        self._pending_custom_alarms: set[object] = set()
         self._watch_handles: dict[int, int] = {}  # {<watch_handle> : <file_descriptor>}
         self._max_watch_handle: int = 0
         self._exc: BaseException | None = None
@@ -146,24 +149,41 @@ class TornadoEventLoop(EventLoop):
         @self._also_call_idle
         @functools.wraps(callback)
         def wrapped() -> None:
-            with suppress(KeyError):
-                del self._pending_alarms[handle]
-
+            fired_handle = handle_ref()
+            if isinstance(fired_handle, asyncio.TimerHandle):
+                self._pending_alarms.discard(fired_handle)
+            else:
+                self._pending_custom_alarms.discard(fired_handle)
             self.handle_exit(callback)()
 
         handle = self._loop.add_timeout(self._loop.time() + seconds, wrapped)
-        self._pending_alarms[handle] = 1
+        handle_ref: Callable[[], object]
+        if isinstance(handle, asyncio.TimerHandle):
+            # Native asyncio timers support weak references and a cancelled-state query.
+            handle_ref = weakref.ref(handle)
+            self._pending_alarms.add(handle)
+        else:
+            # IOLoop subclasses may return any opaque handle, without cancel() or weak references.
+            def handle_ref() -> object:
+                return handle
+
+            self._pending_custom_alarms.add(handle)
         return handle
 
     def remove_alarm(self, handle: object) -> bool:
-        """Cancel an alarm scheduled by :meth:`alarm`, returning whether it was still pending."""
-        self._loop.remove_timeout(handle)
-        try:
-            del self._pending_alarms[handle]
-        except KeyError:
-            return False
+        """Cancel an alarm, returning whether it was still pending.
 
-        return True
+        Native asyncio timers cancelled directly are no longer pending. Other IOLoop implementations
+        return opaque handles, so only cancellation through this wrapper can be tracked for them.
+        """
+        if isinstance(handle, asyncio.TimerHandle):
+            existed = handle in self._pending_alarms and not handle.cancelled()
+            self._pending_alarms.discard(handle)
+        else:
+            existed = handle in self._pending_custom_alarms
+            self._pending_custom_alarms.discard(handle)
+        self._loop.remove_timeout(handle)
+        return existed
 
     def watch_file(self, fd: int, callback: Callable[[], typing.Any]) -> int:
         """Call *callback* whenever *fd* is readable and return a handle for :meth:`remove_watch_file`.
@@ -268,3 +288,29 @@ class TornadoEventLoop(EventLoop):
         if self._exc:
             exc, self._exc = self._exc, None
             raise exc.with_traceback(exc.__traceback__)
+
+    def _check_run(self) -> None:
+        """Raise the error :mod:`asyncio` raises for a run of the IOLoop's asyncio loop while a loop is running.
+
+        A :class:`asyncio.BaseEventLoop` is asked through its own check, which its ``run_forever()`` calls,
+        so a loop whose check is replaced to allow a nested run, as by ``nest_asyncio``, is not refused.
+
+        :raises RuntimeError: the asyncio loop under the IOLoop is running,
+            or another asyncio loop is running in this thread.
+            Neither is refused when the loop's own check was replaced to allow a nested run.
+        """
+        # Every IOLoop of the supported Tornado releases runs on an asyncio loop.
+        asyncio_loop = typing.cast("BaseAsyncIOLoop", self._loop).asyncio_loop
+        if isinstance(asyncio_loop, asyncio.BaseEventLoop):
+            # pyrefly: ignore[missing-attribute]  # private to asyncio and not in typeshed
+            asyncio_loop._check_running()  # type: ignore[attr-defined]  # pylint: disable=protected-access
+            return
+        if asyncio_loop.is_running():
+            msg = "This event loop is already running"
+            raise RuntimeError(msg)
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        msg = "Cannot run the event loop while another loop is running"
+        raise RuntimeError(msg)

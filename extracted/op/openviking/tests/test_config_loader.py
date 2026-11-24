@@ -190,11 +190,10 @@ def test_runtime_concurrency_uses_scope_specific_defaults():
     assert config.queue_workers.external_parse.max_concurrent == 4
     assert config.queue_workers.add_resource.max_concurrent == 4
     assert config.queue_workers.reindex.max_concurrent == 4
-    assert config.queue_workers.add_resource.file_operation_concurrency == 16
-    assert config.queue_workers.add_resource.file_vectorization_concurrency == 8
     assert config.queue_workers.session_commit.max_concurrent == 8
     assert config.queue_workers.external_task.max_concurrent == 10
-    assert config.reindex.file_vectorization_concurrency == 8
+    assert set(config.queue_workers.add_resource.__class__.model_fields) == {"max_concurrent"}
+    assert "reindex" not in config.__class__.model_fields
 
 
 def test_glob_uses_safe_defaults():
@@ -209,27 +208,21 @@ def test_runtime_concurrency_accepts_separate_values():
         {
             "queue_workers": {
                 "external_parse": {"max_concurrent": 9},
-                "add_resource": {
-                    "max_concurrent": 7,
-                    "file_operation_concurrency": 20,
-                    "file_vectorization_concurrency": 12,
-                },
+                "add_resource": {"max_concurrent": 7},
                 "reindex": {"max_concurrent": 6},
                 "session_commit": {"max_concurrent": 50},
                 "external_task": {"max_concurrent": 11},
             },
-            "reindex": {"file_vectorization_concurrency": 16},
         }
     )
 
     assert config.queue_workers.external_parse.max_concurrent == 9
     assert config.queue_workers.add_resource.max_concurrent == 7
     assert config.queue_workers.reindex.max_concurrent == 6
-    assert config.queue_workers.add_resource.file_operation_concurrency == 20
-    assert config.queue_workers.add_resource.file_vectorization_concurrency == 12
     assert config.queue_workers.session_commit.max_concurrent == 50
     assert config.queue_workers.external_task.max_concurrent == 11
-    assert config.reindex.file_vectorization_concurrency == 16
+    assert set(config.queue_workers.add_resource.__class__.model_fields) == {"max_concurrent"}
+    assert "reindex" not in config.__class__.model_fields
 
 
 @pytest.mark.parametrize("value", [0, -1])
@@ -704,7 +697,7 @@ def test_early_logger_initialization_is_reconfigured_to_file_output(tmp_path, mo
             "{"
             '"storage": {"workspace": "%s"}, '
             '"log": {"output": "file", "level": "INFO", '
-            '"format": "%%(message)s", "rotation": false, "rotation_days": 7, '
+            '"rotation": false, "rotation_days": 7, '
             '"rotation_interval": "midnight"}'
             "}"
         )
@@ -726,13 +719,13 @@ def test_early_logger_initialization_is_reconfigured_to_file_output(tmp_path, mo
         assert openviking_root.handlers == uvicorn_root.handlers
 
         refreshed_logger.info("child-line")
-        uvicorn_access.info("access-line")
+        logging.getLogger("uvicorn.error").info("uvicorn-line")
         for handler in openviking_root.handlers:
             handler.flush()
 
         content = (tmp_path / "log" / "openviking.log").read_text(encoding="utf-8")
         assert content.count("child-line") == 1
-        assert content.count("access-line") == 1
+        assert content.count("uvicorn-line") == 1
     finally:
         for name in ("openviking", "uvicorn", "uvicorn.error", "uvicorn.access", logger_name):
             logger = logging.getLogger(name)

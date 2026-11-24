@@ -14,10 +14,11 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.kubernetes.v1 import routes_pb2 as chalk_dot_kubernetes_dot_v1_dot_routes__pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as chalk_dot_utils_dot_v1_dot_sensitive__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n#chalk/kubernetes/v1/grpcroute.proto\x12\x13\x63halk.kubernetes.v1\x1a chalk/kubernetes/v1/routes.proto"\x90\x01\n\x19KubernetesGRPCMethodMatch\x12\x17\n\x04type\x18\x01 \x01(\tH\x00R\x04type\x88\x01\x01\x12\x1d\n\x07service\x18\x02 \x01(\tH\x01R\x07service\x88\x01\x01\x12\x1b\n\x06method\x18\x03 \x01(\tH\x02R\x06method\x88\x01\x01\x42\x07\n\x05_typeB\n\n\x08_serviceB\t\n\x07_method"g\n\x19KubernetesGRPCHeaderMatch\x12\x17\n\x04type\x18\x01 \x01(\tH\x00R\x04type\x88\x01\x01\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n\x05value\x18\x03 \x01(\tR\x05valueB\x07\n\x05_type"\xbc\x01\n\x18KubernetesGRPCRouteMatch\x12K\n\x06method\x18\x01 \x01(\x0b\x32..chalk.kubernetes.v1.KubernetesGRPCMethodMatchH\x00R\x06method\x88\x01\x01\x12H\n\x07headers\x18\x02 \x03(\x0b\x32..chalk.kubernetes.v1.KubernetesGRPCHeaderMatchR\x07headersB\t\n\x07_method"\x80\x02\n\x17KubernetesGRPCRouteRule\x12\x17\n\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12G\n\x07matches\x18\x02 \x03(\x0b\x32-.chalk.kubernetes.v1.KubernetesGRPCRouteMatchR\x07matches\x12!\n\x0c\x66ilter_types\x18\x03 \x03(\tR\x0b\x66ilterTypes\x12W\n\x0c\x62\x61\x63kend_refs\x18\x04 \x03(\x0b\x32\x34.chalk.kubernetes.v1.KubernetesRouteBackendReferenceR\x0b\x62\x61\x63kendRefsB\x07\n\x05_name"\xd1\x01\n\x17KubernetesGRPCRouteSpec\x12T\n\x0bparent_refs\x18\x01 \x03(\x0b\x32\x33.chalk.kubernetes.v1.KubernetesRouteParentReferenceR\nparentRefs\x12\x1c\n\thostnames\x18\x02 \x03(\tR\thostnames\x12\x42\n\x05rules\x18\x03 \x03(\x0b\x32,.chalk.kubernetes.v1.KubernetesGRPCRouteRuleR\x05rules"g\n\x19KubernetesGRPCRouteStatus\x12J\n\x07parents\x18\x01 \x03(\x0b\x32\x30.chalk.kubernetes.v1.KubernetesRouteParentStatusR\x07parents"\xdb\x04\n\x13KubernetesGRPCRoute\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x10\n\x03uid\x18\x03 \x01(\tR\x03uid\x12L\n\x06labels\x18\x04 \x03(\x0b\x32\x34.chalk.kubernetes.v1.KubernetesGRPCRoute.LabelsEntryR\x06labels\x12[\n\x0b\x61nnotations\x18\x05 \x03(\x0b\x32\x39.chalk.kubernetes.v1.KubernetesGRPCRoute.AnnotationsEntryR\x0b\x61nnotations\x12-\n\x12\x63reation_timestamp\x18\x06 \x01(\x03R\x11\x63reationTimestamp\x12!\n\x0c\x63luster_name\x18\x07 \x01(\tR\x0b\x63lusterName\x12@\n\x04spec\x18\x08 \x01(\x0b\x32,.chalk.kubernetes.v1.KubernetesGRPCRouteSpecR\x04spec\x12\x46\n\x06status\x18\t \x01(\x0b\x32..chalk.kubernetes.v1.KubernetesGRPCRouteStatusR\x06status\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a>\n\x10\x41nnotationsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\xb3\x01\n\x17\x63om.chalk.kubernetes.v1B\x0eGrpcrouteProtoP\x01Z\x1akubernetes/v1;kubernetesv1\xa2\x02\x03\x43KX\xaa\x02\x13\x43halk.Kubernetes.V1\xca\x02\x13\x43halk\\Kubernetes\\V1\xe2\x02\x1f\x43halk\\Kubernetes\\V1\\GPBMetadata\xea\x02\x15\x43halk::Kubernetes::V1b\x06proto3'
+    b'\n#chalk/kubernetes/v1/grpcroute.proto\x12\x13\x63halk.kubernetes.v1\x1a chalk/kubernetes/v1/routes.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto"\x90\x01\n\x19KubernetesGRPCMethodMatch\x12\x17\n\x04type\x18\x01 \x01(\tH\x00R\x04type\x88\x01\x01\x12\x1d\n\x07service\x18\x02 \x01(\tH\x01R\x07service\x88\x01\x01\x12\x1b\n\x06method\x18\x03 \x01(\tH\x02R\x06method\x88\x01\x01\x42\x07\n\x05_typeB\n\n\x08_serviceB\t\n\x07_method"m\n\x19KubernetesGRPCHeaderMatch\x12\x17\n\x04type\x18\x01 \x01(\tH\x00R\x04type\x88\x01\x01\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n\x05value\x18\x03 \x01(\tB\x04\xd8\xa1\'\x01R\x05valueB\x07\n\x05_type"\xbc\x01\n\x18KubernetesGRPCRouteMatch\x12K\n\x06method\x18\x01 \x01(\x0b\x32..chalk.kubernetes.v1.KubernetesGRPCMethodMatchH\x00R\x06method\x88\x01\x01\x12H\n\x07headers\x18\x02 \x03(\x0b\x32..chalk.kubernetes.v1.KubernetesGRPCHeaderMatchR\x07headersB\t\n\x07_method"\x80\x02\n\x17KubernetesGRPCRouteRule\x12\x17\n\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12G\n\x07matches\x18\x02 \x03(\x0b\x32-.chalk.kubernetes.v1.KubernetesGRPCRouteMatchR\x07matches\x12!\n\x0c\x66ilter_types\x18\x03 \x03(\tR\x0b\x66ilterTypes\x12W\n\x0c\x62\x61\x63kend_refs\x18\x04 \x03(\x0b\x32\x34.chalk.kubernetes.v1.KubernetesRouteBackendReferenceR\x0b\x62\x61\x63kendRefsB\x07\n\x05_name"\xd1\x01\n\x17KubernetesGRPCRouteSpec\x12T\n\x0bparent_refs\x18\x01 \x03(\x0b\x32\x33.chalk.kubernetes.v1.KubernetesRouteParentReferenceR\nparentRefs\x12\x1c\n\thostnames\x18\x02 \x03(\tR\thostnames\x12\x42\n\x05rules\x18\x03 \x03(\x0b\x32,.chalk.kubernetes.v1.KubernetesGRPCRouteRuleR\x05rules"g\n\x19KubernetesGRPCRouteStatus\x12J\n\x07parents\x18\x01 \x03(\x0b\x32\x30.chalk.kubernetes.v1.KubernetesRouteParentStatusR\x07parents"\xdb\x04\n\x13KubernetesGRPCRoute\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x10\n\x03uid\x18\x03 \x01(\tR\x03uid\x12L\n\x06labels\x18\x04 \x03(\x0b\x32\x34.chalk.kubernetes.v1.KubernetesGRPCRoute.LabelsEntryR\x06labels\x12[\n\x0b\x61nnotations\x18\x05 \x03(\x0b\x32\x39.chalk.kubernetes.v1.KubernetesGRPCRoute.AnnotationsEntryR\x0b\x61nnotations\x12-\n\x12\x63reation_timestamp\x18\x06 \x01(\x03R\x11\x63reationTimestamp\x12!\n\x0c\x63luster_name\x18\x07 \x01(\tR\x0b\x63lusterName\x12@\n\x04spec\x18\x08 \x01(\x0b\x32,.chalk.kubernetes.v1.KubernetesGRPCRouteSpecR\x04spec\x12\x46\n\x06status\x18\t \x01(\x0b\x32..chalk.kubernetes.v1.KubernetesGRPCRouteStatusR\x06status\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a>\n\x10\x41nnotationsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\xb3\x01\n\x17\x63om.chalk.kubernetes.v1B\x0eGrpcrouteProtoP\x01Z\x1akubernetes/v1;kubernetesv1\xa2\x02\x03\x43KX\xaa\x02\x13\x43halk.Kubernetes.V1\xca\x02\x13\x43halk\\Kubernetes\\V1\xe2\x02\x1f\x43halk\\Kubernetes\\V1\\GPBMetadata\xea\x02\x15\x43halk::Kubernetes::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -28,26 +29,28 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\027com.chalk.kubernetes.v1B\016GrpcrouteProtoP\001Z\032kubernetes/v1;kubernetesv1\242\002\003CKX\252\002\023Chalk.Kubernetes.V1\312\002\023Chalk\\Kubernetes\\V1\342\002\037Chalk\\Kubernetes\\V1\\GPBMetadata\352\002\025Chalk::Kubernetes::V1"
+    _globals["_KUBERNETESGRPCHEADERMATCH"].fields_by_name["value"]._options = None
+    _globals["_KUBERNETESGRPCHEADERMATCH"].fields_by_name["value"]._serialized_options = b"\330\241'\001"
     _globals["_KUBERNETESGRPCROUTE_LABELSENTRY"]._options = None
     _globals["_KUBERNETESGRPCROUTE_LABELSENTRY"]._serialized_options = b"8\001"
     _globals["_KUBERNETESGRPCROUTE_ANNOTATIONSENTRY"]._options = None
     _globals["_KUBERNETESGRPCROUTE_ANNOTATIONSENTRY"]._serialized_options = b"8\001"
-    _globals["_KUBERNETESGRPCMETHODMATCH"]._serialized_start = 95
-    _globals["_KUBERNETESGRPCMETHODMATCH"]._serialized_end = 239
-    _globals["_KUBERNETESGRPCHEADERMATCH"]._serialized_start = 241
-    _globals["_KUBERNETESGRPCHEADERMATCH"]._serialized_end = 344
-    _globals["_KUBERNETESGRPCROUTEMATCH"]._serialized_start = 347
-    _globals["_KUBERNETESGRPCROUTEMATCH"]._serialized_end = 535
-    _globals["_KUBERNETESGRPCROUTERULE"]._serialized_start = 538
-    _globals["_KUBERNETESGRPCROUTERULE"]._serialized_end = 794
-    _globals["_KUBERNETESGRPCROUTESPEC"]._serialized_start = 797
-    _globals["_KUBERNETESGRPCROUTESPEC"]._serialized_end = 1006
-    _globals["_KUBERNETESGRPCROUTESTATUS"]._serialized_start = 1008
-    _globals["_KUBERNETESGRPCROUTESTATUS"]._serialized_end = 1111
-    _globals["_KUBERNETESGRPCROUTE"]._serialized_start = 1114
-    _globals["_KUBERNETESGRPCROUTE"]._serialized_end = 1717
-    _globals["_KUBERNETESGRPCROUTE_LABELSENTRY"]._serialized_start = 1596
-    _globals["_KUBERNETESGRPCROUTE_LABELSENTRY"]._serialized_end = 1653
-    _globals["_KUBERNETESGRPCROUTE_ANNOTATIONSENTRY"]._serialized_start = 1655
-    _globals["_KUBERNETESGRPCROUTE_ANNOTATIONSENTRY"]._serialized_end = 1717
+    _globals["_KUBERNETESGRPCMETHODMATCH"]._serialized_start = 127
+    _globals["_KUBERNETESGRPCMETHODMATCH"]._serialized_end = 271
+    _globals["_KUBERNETESGRPCHEADERMATCH"]._serialized_start = 273
+    _globals["_KUBERNETESGRPCHEADERMATCH"]._serialized_end = 382
+    _globals["_KUBERNETESGRPCROUTEMATCH"]._serialized_start = 385
+    _globals["_KUBERNETESGRPCROUTEMATCH"]._serialized_end = 573
+    _globals["_KUBERNETESGRPCROUTERULE"]._serialized_start = 576
+    _globals["_KUBERNETESGRPCROUTERULE"]._serialized_end = 832
+    _globals["_KUBERNETESGRPCROUTESPEC"]._serialized_start = 835
+    _globals["_KUBERNETESGRPCROUTESPEC"]._serialized_end = 1044
+    _globals["_KUBERNETESGRPCROUTESTATUS"]._serialized_start = 1046
+    _globals["_KUBERNETESGRPCROUTESTATUS"]._serialized_end = 1149
+    _globals["_KUBERNETESGRPCROUTE"]._serialized_start = 1152
+    _globals["_KUBERNETESGRPCROUTE"]._serialized_end = 1755
+    _globals["_KUBERNETESGRPCROUTE_LABELSENTRY"]._serialized_start = 1634
+    _globals["_KUBERNETESGRPCROUTE_LABELSENTRY"]._serialized_end = 1691
+    _globals["_KUBERNETESGRPCROUTE_ANNOTATIONSENTRY"]._serialized_start = 1693
+    _globals["_KUBERNETESGRPCROUTE_ANNOTATIONSENTRY"]._serialized_end = 1755
 # @@protoc_insertion_point(module_scope)

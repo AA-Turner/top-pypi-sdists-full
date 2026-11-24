@@ -53,14 +53,15 @@ import warnings
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from matrx_graph.actions.registry import (
     ActionRegistry,
     default_action_registry,
 )
 from matrx_graph.actions.doors import validate_doors
-from matrx_graph.actions.engines import ActionStarted, run_action, validate_engine
+from matrx_graph.actions.engines import ActionQueued, ActionStarted, _run_action, validate_engine
+from matrx_graph.actions.runs import declare_inverse as _declare_inverse
 from matrx_graph.actions.spec import ActionFailed, ActionSpec, build_action_node_spec
 from matrx_graph.errors import ActionAuthorizationError
 from matrx_graph.executor.registry import (
@@ -217,12 +218,14 @@ class _ActionExecutor:
         fn: ActionFn,
         *,
         admin_only: bool = False,
+        durable_action_spec: ActionSpec | None = None,
         result_version: Callable[..., Awaitable[str | None]] | None = None,
         sample_preflight: Callable[..., Awaitable[Any]] | None = None,
     ) -> None:
         self.spec = spec
         self._fn = fn
         self.admin_only = admin_only
+        self.durable_action_spec = durable_action_spec
         self._wants_config = _accepts_config(fn)
         # Run once per key (matrx_graph/once.py): what decides this step's answer BESIDES its
         # inputs — an AI step names the agent/mandate Holder and its version, so a prompt or
@@ -291,6 +294,7 @@ def register_node(
     values_are: Literal["deterministic", "outside", "ai"] = "ai",
     extra_output_handles: tuple[str, ...] = (),
     output_in_run_row: bool = True,
+    spends: bool | None = None,
     node_registry: NodeRegistry | None = None,
     action_registry: ActionRegistry | None = None,
     overwrite: bool = False,
@@ -298,6 +302,7 @@ def register_node(
     retry: RetryPolicy | None = None,
     result_version: Callable[..., Awaitable[str | None]] | None = None,
     sample_preflight: Callable[..., Awaitable[Any]] | None = None,
+    bring_in: bool = False,
 ) -> Callable[[ActionFn], ActionFn]:
     """Register a callable as an action + a graph node in one step.
 
@@ -375,6 +380,7 @@ def register_node(
             values_are=values_are,
             extra_output_handles=extra_output_handles,
             output_in_run_row=output_in_run_row,
+            spends=spends,
             node_registry=node_registry,
             action_registry=action_registry,
             overwrite=overwrite,
@@ -385,6 +391,7 @@ def register_node(
             doors=frozenset({"step"}),
             work=None,
             source_fn=fn,
+            bring_in=bring_in,
         )
         return fn
 
@@ -413,6 +420,7 @@ def _install(
     values_are: str,
     extra_output_handles: tuple[str, ...],
     output_in_run_row: bool,
+    spends: bool | None = None,
     node_registry: NodeRegistry | None,
     action_registry: ActionRegistry | None,
     overwrite: bool,
@@ -424,12 +432,21 @@ def _install(
     work: Callable[..., Awaitable[BaseModel]] | None,
     source_fn: Callable[..., Any],
     takes_idempotency_key: bool = False,
+    takes_node_context: bool = False,
     output_exclude_none: bool = False,
     former_step_names: tuple[str, ...] = (),
+    former_names: tuple[str, ...] = (),
     engine: str = "code",
     writes_or_spends: bool = False,
     directive_slug: str | None = None,
     apply_rule: str | None = None,
+    owns_idempotency: bool = False,
+    requires_action_claim: bool = False,
+    apply_rule_resolver: str | None = None,
+    consent_step: bool = False,
+    person_facing: bool | None = None,
+    bring_in: bool = False,
+    beside_kind: tuple[str, ...] = (),
 ) -> ActionSpec:
     """The ONE registration: the ActionSpec always, the step adapter when ``step`` is a door."""
     spec = build_action_node_spec(
@@ -451,6 +468,7 @@ def _install(
         values_are=values_are,
         extra_output_handles=extra_output_handles,
         output_in_run_row=output_in_run_row,
+        spends=spends,
     )
     if timeout_ms is not None:
         # the step's own wall clock (NodeSpec.timeout_ms wins over workflow.step_clock): for a step built to run
@@ -459,18 +477,6 @@ def _install(
     if retry is not None:
         # the node's default retry policy (NodeSpec.retry); a retry_policy set on the node still wins
         spec = spec.model_copy(update={"retry": retry})
-    if "step" in doors:
-        adapter = _ActionExecutor(
-            spec=spec,
-            fn=step_fn,
-            admin_only=admin_only,
-            result_version=result_version,
-            sample_preflight=sample_preflight,
-        )
-        (node_registry or default_registry()).register(adapter, overwrite=overwrite)
-        for former in former_step_names:
-            alias_spec_type(former, name)
-
     action_spec = ActionSpec(
         name=name,
         description=description,
@@ -488,13 +494,35 @@ def _install(
         doors=doors,
         work=work,
         takes_idempotency_key=takes_idempotency_key,
+        takes_node_context=takes_node_context,
         output_exclude_none=output_exclude_none,
         former_step_names=former_step_names,
+        former_names=tuple(former_names),
         engine=validate_engine(name, engine),
         writes_or_spends=writes_or_spends,
         directive_slug=directive_slug,
         apply_rule=apply_rule,
+        owns_idempotency=owns_idempotency,
+        requires_action_claim=requires_action_claim,
+        apply_rule_resolver=apply_rule_resolver,
+        consent_step=consent_step,
+        person_facing=person_facing,
+        bring_in=bring_in,
+        beside_kind=tuple(beside_kind),
     )
+    if "step" in doors:
+        adapter = _ActionExecutor(
+            spec=spec,
+            fn=step_fn,
+            admin_only=admin_only,
+            durable_action_spec=action_spec if requires_action_claim else None,
+            result_version=result_version,
+            sample_preflight=sample_preflight,
+        )
+        (node_registry or default_registry()).register(adapter, overwrite=overwrite)
+        for former in former_step_names:
+            alias_spec_type(former, name)
+
     (action_registry or default_action_registry()).register(action_spec, overwrite=overwrite)
     setattr(source_fn, "_matrx_action_spec", action_spec)  # noqa: B010
     return action_spec
@@ -547,10 +575,24 @@ def declare_action(
     overwrite: bool = False,
     output_exclude_none: bool = False,
     former_step_names: tuple[str, ...] = (),
+    former_names: tuple[str, ...] = (),
     writes_or_spends: bool = False,
     apply_rule: str | None = None,
+    owns_idempotency: bool = False,
+    requires_action_claim: bool = False,
+    apply_rule_resolver: str | None = None,
+    consent_step: bool = False,
+    person_facing: bool | None = None,
+    spends: bool | None = None,
+    bring_in: bool = False,
+    beside_kind: tuple[str, ...] = (),
+    inverse: Any = None,
 ) -> Callable[[Callable[..., Awaitable[BaseModel]]], Callable[..., Awaitable[BaseModel]]]:
     """Declare ONE Action: a named piece of work with typed input → code → typed output.
+
+    ``beside_kind``: top-level output keys that ride BESIDE ``output_kind`` (run facts a later step
+    reads, e.g. a run's conversation id); the step door declares them (``ctx.declare_beside_kind``),
+    so the output kind check validates the payload without them while edges still read them.
 
     The decorated function is the plain work function
     ``async def work(app: AppContext, input: In[, *, idempotency_key: str | None]) -> Out``
@@ -566,11 +608,37 @@ def declare_action(
 
     ``apply_rule`` (auto | ask | off): the REGISTERED rule for a caller that carries no
     authority of its own; omitted = ``ask`` when it writes or spends, else ``auto``.
+
+    ``apply_rule_resolver``: the name of a host-registered resolver that decides this call's
+    apply rule from the organization's own settings (see ``ActionSpec.apply_rule_resolver``).
+
+    ``bring_in``: a person may bring this Action's answer into a table — it only READS and answers a
+    list of rows (guard: ``test_bring_in_actions``); ``GET /actions?bring_in=true`` lists exactly these.
+
+    ``consent_step``: the Action's own step is the person's confirmation (a private form they
+    submit, a proposal they confirm); the host's ``ask`` goes straight to it (see
+    ``ActionSpec.consent_step``).
+
+    ``former_names``: Action names this one was registered under before (a collapsed pair);
+    each resolves to it on every door.
+
+    ``owns_idempotency``: the work claims the door's key in its OWN ledger (it must take
+    ``idempotency_key``); the router passes the key through and skips the host ledger, so
+    one call is claimed once.
     """
     door_set = validate_doors(name, doors)
 
     def decorator(work: Callable[..., Awaitable[BaseModel]]) -> Callable[..., Awaitable[BaseModel]]:
         takes_key = _validate_work_signature(work, name=name)
+        context_param = inspect.signature(work).parameters.get("node_context")
+        takes_context = context_param is not None
+        if takes_context and (context_param.kind is not inspect.Parameter.KEYWORD_ONLY or door_set != frozenset({"step"})):
+            raise ActionSignatureError(f"Action {name!r}: node_context must be keyword-only and the only door must be step.")
+        if owns_idempotency and not takes_key:
+            raise ActionSignatureError(
+                f"declare_action(name={name!r}, owns_idempotency=True) must take "
+                "`idempotency_key`: it claims the key in its own ledger."
+            )
         holder: dict[str, ActionSpec] = {}
         step = _step_door(holder, label=work.__qualname__, module=work.__module__)
         holder["spec"] = _install(
@@ -594,6 +662,7 @@ def declare_action(
             values_are=values_are,
             extra_output_handles=(),
             output_in_run_row=True,
+            spends=spends,
             node_registry=node_registry,
             action_registry=action_registry,
             overwrite=overwrite,
@@ -605,36 +674,103 @@ def declare_action(
             work=work,
             source_fn=work,
             takes_idempotency_key=takes_key,
+            takes_node_context=takes_context,
             output_exclude_none=output_exclude_none,
             former_step_names=tuple(former_step_names),
+            former_names=tuple(former_names),
             writes_or_spends=writes_or_spends,
             apply_rule=apply_rule,
+            owns_idempotency=owns_idempotency,
+            requires_action_claim=requires_action_claim,
+            apply_rule_resolver=apply_rule_resolver,
+            consent_step=consent_step,
+            person_facing=person_facing,
+            bring_in=bring_in,
+            beside_kind=tuple(beside_kind),
         )
+        # How this Action is undone (``matrx_graph.actions.runs``): a function of (input, output)
+        # naming the Actions that take it back, or INVERSE_OF_PARTS. None = not undoable.
+        _declare_inverse(name, inverse)
         return work
 
     return decorator
+
+
+def _input_errors(exc: ValidationError) -> list[dict[str, str]]:
+    return [{"field": ".".join(str(p) for p in e.get("loc", ())) or "(input)", "type": str(e.get("type", "")), "message": str(e.get("msg", ""))} for e in exc.errors()]
+
+
+def _input_refusal(spec: ActionSpec, exc: ValidationError) -> str:
+    """One sentence a person reads: which inputs the step is missing or got wrong."""
+    label = getattr(getattr(spec, "node_spec", None), "display_name", None) or spec.name
+    errors = _input_errors(exc)
+    missing = [e["field"] for e in errors if e["type"] == "missing"]
+    wrong = [e for e in errors if e["type"] != "missing"]
+    parts: list[str] = []
+    if missing:
+        parts.append(f"needs {', '.join(missing)}")
+    if wrong:
+        parts.append("got a wrong value for " + "; ".join(f"{e['field']} ({e['message']})" for e in wrong))
+    return f"{label} {' and '.join(parts)}. Set it on the step, or wire a value into it."
+
+
+async def _step_result(
+    spec: ActionSpec, app: Any, inputs: BaseModel, key: str | None, *, run_id: str | None = None, node_context: NodeExecutionContext | None = None
+) -> NodeResult[BaseModel]:
+    """What the step door hands the scheduler: the output as a Success, a refusal as a Failure."""
+    try:
+        out = await _run_action(spec, inputs, app=app, idempotency_key=key, step_run_id=run_id, node_context=node_context)
+    except ActionFailed as exc:
+        return failure(exc.code, exc.message, details=exc.details or None)
+    except ValidationError as exc:
+        # The step's own input did not fit the Action (a "Run an Action" step with no table picked,
+        # 2026-11-15: two runs died on a raw pydantic dump). That is the step's input to fix, so it
+        # is the step's Failure in plain words; a ValidationError raised INSIDE the work is not this.
+        if exc.title != spec.input_schema.__name__:
+            raise
+        return failure("invalid_input", _input_refusal(spec, exc), details={"errors": _input_errors(exc)})
+    if isinstance(out, ActionQueued):
+        # Queued for a person is a RESULT, never a failure: the step succeeds with the
+        # queued answer (the Action's own preview + where it waits), typed as the
+        # Action's output when it fits, else as the queued handle itself.
+        try:
+            return success(spec.output_schema.model_validate(out.output))
+        except ValidationError:
+            return success(out)
+    if isinstance(out, ActionStarted):
+        # A step waits for its output; an engine that only hands back a handle has
+        # not given one. Loud, never a silent empty output.
+        return failure(
+            "action_started_not_awaited",
+            f"{spec.name} started on engine {spec.engine!r} (request {out.request_id}) "
+            "and a step cannot wait on it yet.",
+            details=out.model_dump(mode="json"),
+        )
+    return success(out)
+
+
+async def run_as_step(
+    work: Callable[..., Awaitable[BaseModel]], ctx: Any, inputs: BaseModel
+) -> NodeResult[BaseModel]:
+    """Run a declared Action exactly as its step door does — the same ``run_action`` and the
+    same Success/Failure envelope the scheduler unwraps — for a caller (a test) holding the
+    work function and a node context, or a bare app."""
+    spec: ActionSpec = work._matrx_action_spec  # type: ignore[attr-defined]
+    app = getattr(ctx, "app", None) or ctx
+    key = step_idempotency_key(ctx) if hasattr(ctx, "dispatch_id") else None
+    return await _step_result(spec, app, inputs, key, run_id=getattr(ctx, "run_id", None), node_context=ctx if isinstance(ctx, NodeExecutionContext) else None)
 
 
 def _step_door(holder: dict[str, ActionSpec], *, label: str, module: str) -> ActionFn:
     """The generated step door: the node context's app + the inputs → ``run_action``."""
 
     async def step(ctx: NodeExecutionContext, inputs: BaseModel) -> NodeResult[BaseModel]:
-        spec = holder["spec"]
-        key = step_idempotency_key(ctx)
-        try:
-            out = await run_action(spec, inputs, app=ctx.app, idempotency_key=key)
-        except ActionFailed as exc:
-            return failure(exc.code, exc.message, details=exc.details or None)
-        if isinstance(out, ActionStarted):
-            # A step waits for its output; an engine that only hands back a handle has
-            # not given one. Loud, never a silent empty output.
-            return failure(
-                "action_started_not_awaited",
-                f"{spec.name} started on engine {spec.engine!r} (request {out.request_id}) "
-                "and a step cannot wait on it yet.",
-                details=out.model_dump(mode="json"),
-            )
-        return success(out)
+        beside = holder["spec"].beside_kind
+        if beside and hasattr(ctx, "declare_beside_kind"):
+            ctx.declare_beside_kind(beside)
+        return await _step_result(
+            holder["spec"], ctx.app, inputs, step_idempotency_key(ctx), run_id=ctx.run_id, node_context=ctx
+        )
 
     step.__module__ = module
     step.__qualname__ = f"{label}.<step door>"
@@ -661,9 +797,15 @@ def declare_engine_action(
     values_are: Literal["deterministic", "outside", "ai"] = "deterministic",
     node_registry: NodeRegistry | None = None,
     action_registry: ActionRegistry | None = None,
+    person_facing: bool | None = None,
     overwrite: bool = False,
+    inverse: Any = None,
+    apply_rule_resolver: str | None = None,
 ) -> ActionSpec:
     """Declare an Action whose work runs on a HOST engine (not ``code``).
+
+    ``apply_rule_resolver``: as on :func:`declare_action` — a host-registered resolver that decides
+    this call's apply rule (a generated record Action of one record type can carry its own).
 
     Same registry, same doors, same ``run_action`` as :func:`declare_action`; there is
     no work function here — the engine the host registered (``register_engine``) runs it
@@ -710,7 +852,10 @@ def declare_engine_action(
         writes_or_spends=writes_or_spends,
         directive_slug=directive_slug,
         apply_rule=apply_rule,
+        apply_rule_resolver=apply_rule_resolver,
+        person_facing=person_facing,
     )
+    _declare_inverse(name, inverse)
     return holder["spec"]
 
 

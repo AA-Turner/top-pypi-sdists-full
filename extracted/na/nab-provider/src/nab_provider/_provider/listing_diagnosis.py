@@ -20,33 +20,37 @@ than passed over.
 from __future__ import annotations
 
 __lazy_modules__ = (
+    "json",
     "nab_provider._provider",
-    "nab_provider._vendor.packaging.version",
     "nab_provider.errors",
     "nab_provider.policy",
     "nab_provider.records",
+    "packaging.version",
     "re",
 )
 
+import json
 import re
 from typing import TYPE_CHECKING, Final
 
-from nab_provider._vendor.packaging.version import Version
-from nab_provider.diagnostics import Diagnostic
-from nab_provider.records import SdistFile, WheelFile
+from packaging.version import Version
+
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion, error_message
 
+from ..diagnostics import Diagnostic
 from ..errors import InvalidUploadTimeError, MetadataError, MissingExtraError
 from ..policy import DistPolicy
+from ..records import SdistFile, WheelFile
 from . import listing as _listing
 from .listing import DropCause
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
     from datetime import datetime
     from typing import Literal, TypeAlias
 
-    from nab_provider._vendor.packaging.ranges import VersionRange
+    from packaging.ranges import VersionRange
+
     from nab_resolver.types import RangeProtocol
 
     from ..provider import DistFile, Provider
@@ -71,6 +75,9 @@ if TYPE_CHECKING:
         "package",
         "index",
     ]
+    ExtraKind: TypeAlias = Literal[
+        "extra-undeclared", "extra-metadata", "extra-narrowed"
+    ]
     Kind: TypeAlias = Literal[
         "offline-miss",
         "unreadable-only",
@@ -81,15 +88,15 @@ if TYPE_CHECKING:
         "pinned-absent",
         "filtered-empty",
         "blockers",
-        "extra-undeclared",
-        "extra-metadata",
-        "extra-narrowed",
-        "extra-base-empty",
+        ExtraKind,
         "no-match",
     ]
     Blocked: TypeAlias = Literal["decided", "held", "root"]
 
     # One clause's worth of refusals, keyed by what refused them.
+    BaseListingDiagnosis: TypeAlias = tuple[
+        list["DroppedFile"], list[tuple[Version, DistFile]], set[Version]
+    ]
     _Groups: TypeAlias = "list[tuple[Cause, list[DroppedFile]]]"
 
 
@@ -109,6 +116,7 @@ FILTER_KEYS: dict[Cause, str] = {
     # rather than a key.  It appears only where it shares a line with one.
     DropCause.WHEEL_TAGS: "wheel tags",
     DropCause.INVALID_VERSION: "unparseable versions",
+    DropCause.YANKED: "yanked files",
 }
 
 UPLOAD_TIME_CAUSES = frozenset(
@@ -160,7 +168,6 @@ class ReasonKind:
     EXTRA_UNDECLARED: Final = "extra-undeclared"
     EXTRA_METADATA: Final = "extra-metadata"
     EXTRA_NARROWED: Final = "extra-narrowed"
-    EXTRA_BASE_EMPTY: Final = "extra-base-empty"
     NO_MATCH: Final = "no-match"
 
 
@@ -382,7 +389,7 @@ class MetadataBlock:
 class NoVersionsReason:
     """What the resolve recorded when a package ran out of candidates."""
 
-    __slots__ = ("blockers", "declaring_version", "kind", "metadata", "version_range")
+    __slots__ = ("blockers", "kind", "metadata", "version_range")
 
     kind: Kind
 
@@ -392,26 +399,55 @@ class NoVersionsReason:
         blockers: tuple[Blocker, ...] = (),
         metadata: tuple[MetadataBlock, ...] = (),
         version_range: VersionRange | None = None,
-        declaring_version: Version | None = None,
     ) -> None:
-        """Mark ``kind`` as the situation, with what the failure cannot re-derive.
+        """Keep the reason and requested version range for a failure report.
 
-        Recorded during the resolve and rendered only if the resolve then
-        fails, so it holds what the render can no longer read for itself: the
-        look-ahead rejections and metadata failures, which reset at the next
-        scan, the range that was asked, and the version an extras proxy was
-        narrowed off.  Everything else the render walks for.
+        The next scan clears look-ahead rejections and metadata errors, so save
+        them here while they are available.
         """
         self.kind = kind
         self.blockers = blockers
         self.metadata = metadata
         self.version_range = version_range
-        self.declaring_version = declaring_version
 
     @property
     def is_generic(self) -> bool:
         """Whether this reason says only that nothing matched."""
         return self.kind == ReasonKind.NO_MATCH
+
+
+class ExtraFailure(NoVersionsReason):
+    """The named extra whose base has no admissible version to offer."""
+
+    __slots__ = ("base", "declaring_version", "extra")
+
+    def __init__(
+        self,
+        base: str,
+        extra: str,
+        kind: ExtraKind,
+        *,
+        metadata: tuple[MetadataBlock, ...] = (),
+        version_range: VersionRange | None = None,
+        declaring_version: Version | None = None,
+    ) -> None:
+        super().__init__(kind, metadata=metadata, version_range=version_range)
+        if kind == ReasonKind.EXTRA_NARROWED and declaring_version is None:
+            msg = f"Narrowed extra {base}[{extra}] requires its declaring version."
+            raise ValueError(msg)
+        self.base = base
+        self.extra = extra
+        self.declaring_version = declaring_version
+
+
+class PinnedIndexMiss(NoVersionsReason):
+    """The only index queried for a missing package."""
+
+    __slots__ = ("index_name",)
+
+    def __init__(self, index_name: str) -> None:
+        super().__init__(ReasonKind.PINNED_ABSENT)
+        self.index_name = index_name
 
 
 # The situations that carry nothing beyond their kind, built once so the
@@ -422,9 +458,7 @@ UNREACHABLE_ONLY = NoVersionsReason(ReasonKind.UNREACHABLE_ONLY)
 NONE_USABLE = NoVersionsReason(ReasonKind.NONE_USABLE)
 YANKED_ONLY = NoVersionsReason(ReasonKind.YANKED_ONLY)
 ABSENT = NoVersionsReason(ReasonKind.ABSENT)
-PINNED_ABSENT = NoVersionsReason(ReasonKind.PINNED_ABSENT)
 FILTERED_EMPTY = NoVersionsReason(ReasonKind.FILTERED_EMPTY)
-EXTRA_BASE_EMPTY = NoVersionsReason(ReasonKind.EXTRA_BASE_EMPTY)
 
 
 NO_MATCH = Diagnostic("no version matches the requirement")
@@ -478,20 +512,14 @@ def pinned_index_diagnostic(index_name: str) -> Diagnostic:
 _NO_SDIST_TAIL = "the files nab read hold no sdist to build from"
 
 
-def walk_listing(provider: Provider, normalized: str) -> ListingDiagnosis | None:
-    """Re-walk ``normalized``'s raw listing, recording what refused each file.
+def walk_listing(
+    provider: Provider, normalized: str, files: Sequence[DistFile]
+) -> ListingDiagnosis:
+    """Explain why the listing filter rejected each file.
 
-    Returns ``None`` when the index served nothing, which leaves the walk
-    with nothing to attribute.  The predicates are the filter's own, apart
-    from the wheel-tag test the filter runs inline; the order it asks them
-    in is re-expressed here, and the differential-oracle test is what holds
-    the two in step.  Counter bumps those predicates make are taken back by
-    the caller, see :meth:`~nab_provider.provider.Provider.diagnose_listing`.
+    Apply the checks in the same order as the filter, including its wheel-tag
+    check. The caller restores the counters after collecting the explanation.
     """
-    files = provider.coordinator.index.get_listing(normalized)
-    if not files:
-        return None
-
     policy = _listing.listing_policy(provider, normalized)
     dropped, survivors, sdist_required = _shared_base_pass(
         provider, normalized, files, policy
@@ -516,19 +544,18 @@ def _shared_base_pass(
     normalized: str,
     files: Sequence[WheelFile | SdistFile],
     policy: ListingPolicy,
-) -> tuple[list[DroppedFile], list[tuple[Version, DistFile]], set[Version]]:
+) -> BaseListingDiagnosis:
     """Run the base pass through the memo the listing filter's own base pass uses.
 
-    The rungs before the tag pass read the listing, the policy config and
-    the target Python and nothing else, which is the key
-    :meth:`~nab_provider.provider.ListingFilterCache.filtered` already
-    shares the filter's base pass under.  A matrix whose tuples differ only
-    by platform therefore walks each listing once per Python rather than
-    once per failing tuple.  The result is held by every target that shares
-    the memo, so callers must not mutate it.
+    Targets with the same Python and policy can share the walk before the
+    tag check. Withdrawal admissions belong to an individual provider.
+    Callers must preserve a shared result for the other targets.
     """
     cache = provider.listing_filter_cache
-    if cache is None:
+    # Providers sharing the listing can have different yanked-file admissions.
+    if cache is None or (
+        not provider.defer_yanked and any(file.yanked for file in files)
+    ):
         return _base_pass(provider, normalized, files, policy)
 
     return cache.diagnosed(
@@ -543,7 +570,7 @@ def _base_pass(
     normalized: str,
     files: Sequence[WheelFile | SdistFile],
     policy: ListingPolicy,
-) -> tuple[list[DroppedFile], list[tuple[Version, DistFile]], set[Version]]:
+) -> BaseListingDiagnosis:
     """Partition ``files`` by every rung that runs before the wheel-tag pass.
 
     Returns the refusals, the survivors in listing order, and the versions
@@ -557,6 +584,14 @@ def _base_pass(
         version = _listing.parsed_version(dist.version)
         if version is None:
             dropped.append(DroppedFile(dist, None, DropCause.INVALID_VERSION))
+            continue
+
+        if (
+            dist.yanked
+            and not provider.defer_yanked
+            and (normalized, version) not in provider.yank_admissions
+        ):
+            dropped.append(DroppedFile(dist, version, DropCause.YANKED))
             continue
 
         if policy.overridden:
@@ -698,12 +733,14 @@ _SHORT_EMPTY: dict[Cause, str] = {
     DropCause.REQUIRES_PYTHON: "no file supports Python {py}",
     DropCause.WHEEL_TAGS: "no wheel matches this platform or Python",
     DropCause.INVALID_VERSION: "every file carries a version PEP 440 cannot parse",
+    DropCause.YANKED: "every available file is yanked",
 }
 
 # The line for a requirement whose matching releases were the ones refused,
 # where saying so is not the generic "<subject> excluded every version in
 # range": a line naming the target has to carry the range somewhere else.
 _SHORT_IN_RANGE: dict[Cause, str] = {
+    DropCause.YANKED: "every available file in range is yanked",
     DropCause.ZIP_SDIST: "legacy ZIP sdists in range require allow-zip-sdists = true",
     DropCause.REQUIRES_PYTHON: "no version in range supports Python {py}",
     DropCause.WHEEL_TAGS: "no wheel in range matches this platform or Python",
@@ -722,16 +759,17 @@ def empty_listing_diagnostic(
     version_range: VersionRange | None = None,
 ) -> Diagnostic:
     """Say why nothing on ``normalized``'s listing is usable on this target."""
-    dropped = [
-        record
+    if version_range is not None and any(
+        record.version is not None
+        and not version_range.contains(record.version, prereleases=True)
         for record in diagnosis.dropped
-        if record.cause != DropCause.ZIP_SDIST
-        or version_range is None
-        or _version_of(record) in version_range
-    ]
-    groups = _groups(dropped)
-    if not groups and not diagnosis.unexplained:
-        return NO_MATCH
+    ):
+        # Changing a policy for an unrequested release cannot repair the lock.
+        return (
+            in_range_diagnostic(provider, normalized, version_range, diagnosis)
+            or NO_MATCH
+        )
+    groups = _groups(diagnosis.dropped)
     clauses = [_clause(cause, records, diagnosis) for cause, records in groups]
     if diagnosis.unexplained:
         clauses.append(_render(None, diagnosis.unexplained))
@@ -764,17 +802,16 @@ def in_range_diagnostic(
     version equal to one in ``kept`` survived under another form. It
     does not count.
     """
-    named = [
+    # Include refused prereleases even when a refused final also matches.
+    # Test each file's version before grouping: equal versions can have
+    # different text for a literal requirement.
+    asked = [
         record
         for record in diagnosis.dropped
-        if record.version is not None and record.version not in diagnosis.kept
+        if record.version is not None
+        and record.version not in diagnosis.kept
+        and version_range.contains(record.version, prereleases=True)
     ]
-    # Every version here was refused, so PEP 440's default of yielding a
-    # pre-release only when no final matched would leave its filter unnamed.
-    in_range = set(
-        version_range.filter({record.version for record in named}, prereleases=True)
-    )
-    asked = [record for record in named if record.version in in_range]
 
     groups = _groups(asked)
     if not groups:
@@ -914,6 +951,7 @@ def _join_names(names: Sequence[str]) -> str:
 # ``[singular|plural]`` picks the form it takes; ``{v}`` is the version the
 # clause quotes and ``{detail}`` the one value that cause carries.
 _CLAUSE_TEMPLATES: dict[Cause | None, str] = {
+    DropCause.YANKED: "{n} [file was|files were] yanked ([|newest: ]{v})",
     DropCause.ZIP_SDIST: (
         "allow-zip-sdists = false excluded {n} legacy ZIP [sdist|sdists]"
         " ([|newest: ]{v})"
@@ -973,17 +1011,6 @@ def _render(cause: Cause | None, count: int, **fields: object) -> str:
     return _pick_forms(_CLAUSE_TEMPLATES[cause], count).format(n=count, **fields)
 
 
-# The fields a cause's template states of every file it counts, rather
-# than of the one file it quotes.  Records that disagree on one of them
-# make two clauses, so no clause asserts a cutoff or a policy of a file
-# that was judged by another.
-_SHARED_FIELDS: dict[Cause, tuple[str, ...]] = {
-    DropCause.UPLOAD_TIME_MISSING: ("cutoff",),
-    DropCause.UPLOAD_TIME_AFTER_CUTOFF: ("cutoff",),
-    DropCause.DIST_POLICY: ("detail", "is_wheel"),
-}
-
-
 def _groups(records: Sequence[DroppedFile]) -> _Groups:
     """Group ``records`` into one clause each, in report order.
 
@@ -1006,8 +1033,14 @@ def _groups(records: Sequence[DroppedFile]) -> _Groups:
 
 def _shared_values(record: DroppedFile) -> tuple[object, ...]:
     """Return what ``record`` carries for the fields its clause shares."""
-    fields = _SHARED_FIELDS.get(record.cause, ())
-    return tuple(getattr(record, name) for name in fields)
+    if record.cause in (
+        DropCause.UPLOAD_TIME_MISSING,
+        DropCause.UPLOAD_TIME_AFTER_CUTOFF,
+    ):
+        return (record.cutoff,)
+    if record.cause == DropCause.DIST_POLICY:
+        return (record.detail, record.is_wheel)
+    return ()
 
 
 def _clause(
@@ -1025,7 +1058,9 @@ def _clause(
     else:
         count = len(records)
 
-    quoted = records[0] if cause == DropCause.INVALID_VERSION else _newest(records)
+    quoted = (
+        records[0] if cause == DropCause.INVALID_VERSION else _representative(records)
+    )
     return _render(
         cause,
         count,
@@ -1038,15 +1073,15 @@ def _clause(
     )
 
 
-def _newest(records: Sequence[DroppedFile]) -> DroppedFile:
-    """Return the record carrying the highest version of a group."""
-    return max(records, key=_version_of)
-
-
-def _version_of(record: DroppedFile) -> Version:
-    """Return a record's version; INVALID_VERSION records have none."""
-    assert record.version is not None
-    return record.version
+def _representative(records: Sequence[DroppedFile]) -> DroppedFile:
+    """Quote the newest parsed release, or the first invalid filename."""
+    newest = records[0]
+    for record in records:
+        if record.version is not None and (
+            newest.version is None or record.version > newest.version
+        ):
+            newest = record
+    return newest
 
 
 _REMEDY_CONTEXT: dict[Layer, str] = {
@@ -1133,17 +1168,14 @@ _TRY_LINES: dict[tuple[Field, Layer], str] = {
     ),
 }
 
-# The field a cause's remedy changes, and the record attribute that tells
-# one entry setting it from another: two version-scoped entries can give
-# one listing two cutoffs or two policies, and each is answered separately.
-_REMEDY_FIELDS: dict[Cause, tuple[Field, str]] = {
-    DropCause.ZIP_SDIST: ("allow-zip-sdists", "detail"),
-    DropCause.UPLOAD_TIME_MISSING: ("uploaded-prior-to", "cutoff"),
-    DropCause.UPLOAD_TIME_UNPARSEABLE: ("uploaded-prior-to", "cutoff"),
-    DropCause.UPLOAD_TIME_NAIVE: ("uploaded-prior-to", "cutoff"),
-    DropCause.UPLOAD_TIME_AFTER_CUTOFF: ("uploaded-prior-to", "cutoff"),
-    DropCause.DIST_POLICY: ("dist-policy", "detail"),
-    DropCause.SDIST_REQUIRED_NO_SDIST: ("dist-policy", "detail"),
+_REMEDY_FIELDS: dict[Cause, Field] = {
+    DropCause.ZIP_SDIST: "allow-zip-sdists",
+    DropCause.UPLOAD_TIME_MISSING: "uploaded-prior-to",
+    DropCause.UPLOAD_TIME_UNPARSEABLE: "uploaded-prior-to",
+    DropCause.UPLOAD_TIME_NAIVE: "uploaded-prior-to",
+    DropCause.UPLOAD_TIME_AFTER_CUTOFF: "uploaded-prior-to",
+    DropCause.DIST_POLICY: "dist-policy",
+    DropCause.SDIST_REQUIRED_NO_SDIST: "dist-policy",
 }
 
 
@@ -1162,29 +1194,26 @@ def _remedies(
     """
     found: dict[tuple[str, str, str, str], Remedy] = {}
     for cause, records in groups:
-        setting = _REMEDY_FIELDS.get(cause)
-        if setting is None:
+        field = _REMEDY_FIELDS.get(cause)
+        if field is None:
             continue
-        field, attribute = setting
-        for group in _by_attribute(records, attribute):
+        for version in _remedy_versions(records, field):
             remedy = provider.override_source(
-                normalized,
-                _version_of(_newest(group)),
-                diagnosis.index_name,
-                field=field,
+                normalized, version, diagnosis.index_name, field=field
             )
             found.setdefault(remedy.identity(), remedy)
     return list(found.values())
 
 
-def _by_attribute(
-    records: Sequence[DroppedFile], attribute: str
-) -> list[list[DroppedFile]]:
-    """Split ``records`` by the value of ``attribute``, keeping walk order."""
-    split: dict[object, list[DroppedFile]] = {}
+def _remedy_versions(records: Sequence[DroppedFile], field: Field) -> Iterable[Version]:
+    """Choose the newest release for each distinct setting in listing order."""
+    releases: dict[datetime | str | None, Version] = {}
     for record in records:
-        split.setdefault(getattr(record, attribute), []).append(record)
-    return list(split.values())
+        value = record.cutoff if field == "uploaded-prior-to" else record.detail
+        version = record.version
+        if version is not None and (value not in releases or version > releases[value]):
+            releases[value] = version
+    return releases.values()
 
 
 def _suggestions(remedies: Sequence[Remedy]) -> tuple[Suggestion, ...]:
@@ -1221,19 +1250,10 @@ def _covers_clause(packages: int) -> str:
 
 
 def _toml_key(name: str) -> str:
-    """Quote ``name`` as a TOML key, in whichever form reads back as ``name``.
-
-    An index is named by whatever the config called it, and nab accepts
-    either quote in that name, which would otherwise close the key the
-    remedy is writing it into.  A literal string takes a double quote and a
-    basic string takes the rest, escaping where the name holds both.
-    """
-    if '"' not in name:
-        return f'"{name}"'
-    if "'" not in name:
-        return f"'{name}'"
-    escaped = name.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
+    """Quote the index name as a single-line TOML basic key."""
+    # JSON escapes the same control characters except DEL. Keep Unicode literal
+    # so a non-BMP character cannot become two surrogate escapes in TOML.
+    return json.dumps(name, ensure_ascii=False).replace("\x7f", r"\u007f")
 
 
 # The single-file clause for a rung that took one named artifact, which the
@@ -1501,9 +1521,7 @@ _EXTRA_SHORT: dict[Kind, str] = {
 }
 
 
-def extra_diagnostic(
-    base: str, extra: str, recorded: NoVersionsReason, searched: str
-) -> Diagnostic:
+def extra_diagnostic(recorded: ExtraFailure, searched: str) -> Diagnostic:
     """Say why an extras proxy ran out of versions of its base package.
 
     ``searched`` is the range the proxy looked in, which the undeclared
@@ -1512,6 +1530,7 @@ def extra_diagnostic(
     not always spell as a specifier, and a full one has nothing outside it
     to point at.
     """
+    base = recorded.base
     short = _EXTRA_SHORT[recorded.kind].format(base=base)
     if recorded.kind == ReasonKind.EXTRA_METADATA:
         return _rejected_metadata(recorded.metadata)
@@ -1530,7 +1549,7 @@ def extra_diagnostic(
         (
             (
                 f"no version of {base} in the range the resolve considered"
-                f" declares Provides-Extra: {extra}"
+                f" declares Provides-Extra: {recorded.extra}"
             ),
             f"the range considered: {searched}",
         ),

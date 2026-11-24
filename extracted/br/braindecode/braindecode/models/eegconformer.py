@@ -9,7 +9,7 @@ from einops.layers.torch import Rearrange
 from torch import Tensor, nn
 from torch.utils.checkpoint import checkpoint
 
-from braindecode.models.base import EEGModuleMixin, _too_short_input_error
+from braindecode.models.base import EEGModuleMixin, deprecated_init_flags
 from braindecode.modules import (
     FeedForwardBlock,
     MultiHeadAttention,
@@ -17,6 +17,9 @@ from braindecode.modules import (
 )
 
 
+@deprecated_init_flags(
+    return_features="tokens",
+)
 class EEGConformer(EEGModuleMixin, nn.Module):
     r"""EEG Conformer from Song et al (2022) [song2022]_.
 
@@ -156,30 +159,31 @@ class EEGConformer(EEGModuleMixin, nn.Module):
 
     Parameters
     ----------
-    n_filters_time: int
+    n_filters_time : int
         Number of temporal filters, defines also embedding size.
-    filter_time_length: int
+    filter_time_length : int
         Length of the temporal filter.
-    pool_time_length: int
+    pool_time_length : int
         Length of temporal pooling filter.
-    pool_time_stride: int
+    pool_time_stride : int
         Length of stride between temporal pooling filters.
-    drop_prob: float
+    drop_prob : float
         Dropout rate of the convolutional layer.
-    num_layers: int
+    num_layers : int
         Number of self-attention layers.
-    num_heads: int
+    num_heads : int
         Number of attention heads.
-    att_drop_prob: float
+    att_drop_prob : float
         Dropout rate of the self-attention layer.
-    final_fc_length: int | str
+    final_fc_length : int | str
         The dimension of the fully connected layer.
-    return_features: bool
+    return_features : bool
+        Deprecated, removed in 2.3: call ``model(x, return_features=True)`` instead.
         If True, the forward method returns the features before the
         last classification layer. Defaults to False.
-    activation: nn.Module
+    activation : nn.Module
         Activation function as parameter. Default is nn.ELU
-    activation_transfor: nn.Module
+    activation_transfor : nn.Module
         Activation function as parameter, applied at the FeedForwardBlock module
         inside the transformer. Default is nn.GeLU
     activation_checkpointing : bool, default=False
@@ -202,6 +206,9 @@ class EEGConformer(EEGModuleMixin, nn.Module):
        conformer: Convolutional transformer for EEG decoding and visualization.
        https://github.com/eeyhsong/EEG-Conformer
     """
+
+    _time_axis = "fixed"  # fixed: fc.fc.0.weight
+    _channel_axis = "fixed"  # fixed: patch_embedding.shallownet.1.weight
 
     # Old full-object checkpoints restore state without calling __init__.
     activation_checkpointing = False
@@ -226,7 +233,6 @@ class EEGConformer(EEGModuleMixin, nn.Module):
         chs_info=None,
         input_window_seconds=None,
         sfreq=None,
-        *,
         activation_checkpointing=False,
     ):
         super().__init__(
@@ -237,11 +243,6 @@ class EEGConformer(EEGModuleMixin, nn.Module):
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
         )
-        self.mapping = {
-            "classification_head.fc.6.weight": "final_layer.final_layer.0.weight",
-            "classification_head.fc.6.bias": "final_layer.final_layer.0.bias",
-        }
-
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         if not (self.n_chans <= 64):
             warnings.warn(
@@ -251,7 +252,6 @@ class EEGConformer(EEGModuleMixin, nn.Module):
                 UserWarning,
             )
 
-        self.return_features = return_features
         self.activation_checkpointing = activation_checkpointing
 
         self.patch_embedding = _PatchEmbedding(
@@ -292,6 +292,7 @@ class EEGConformer(EEGModuleMixin, nn.Module):
         )
 
         self.final_layer = nn.Linear(self.fc.hidden_channels, self.n_outputs)
+        self._n_times_step = pool_time_stride
 
     def compile(self, *args, **kwargs):
         # Reject before installing a native compiled call (including estimator
@@ -300,7 +301,7 @@ class EEGConformer(EEGModuleMixin, nn.Module):
             raise RuntimeError("activation_checkpointing requires eager execution")
         return super().compile(*args, **kwargs)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, return_features: bool = False):
         if self.activation_checkpointing:
             if torch.jit.is_scripting():
                 raise RuntimeError("activation_checkpointing requires eager execution")
@@ -312,8 +313,13 @@ class EEGConformer(EEGModuleMixin, nn.Module):
         else:
             feature = self.transformer(x)
 
-        if self.return_features:
-            return feature
+        if not torch.jit.is_scripting() and return_features:
+            pooled = self.fc(feature)
+            return {
+                "features": pooled,
+                "cls_token": None,
+                "tokens": feature,
+            }
 
         x = self.fc(feature)
         x = self.final_layer(x)
@@ -355,14 +361,14 @@ class EEGConformer(EEGModuleMixin, nn.Module):
         return x
 
     def get_fc_size(self):
-        try:
-            out = self.patch_embedding(torch.ones((1, 1, self.n_chans, self.n_times)))
-        except RuntimeError as exc:
-            raise _too_short_input_error(exc, self.input_shape) or exc
-        size_embedding_1 = out.cpu().data.numpy().shape[1]
-        size_embedding_2 = out.cpu().data.numpy().shape[2]
-
-        return size_embedding_1 * size_embedding_2
+        """Flattened size of the token sequence, ``n_tokens * n_filters_time``."""
+        n_tokens = self.patch_embedding.n_tokens(self.n_times)
+        if n_tokens < 1:
+            raise ValueError(
+                "The temporal convolution and pooling leave no token: too small "
+                f"`n_times`/`input_window_seconds` for the input {self.input_shape}."
+            )
+        return n_tokens * self.patch_embedding.shallownet[0].out_channels
 
 
 class _PatchEmbedding(nn.Module):
@@ -423,6 +429,17 @@ class _PatchEmbedding(nn.Module):
             ),  # transpose, conv could enhance fiting ability slightly
             Rearrange("b d_model 1 seq -> b seq d_model"),
         )
+
+    def n_tokens(self, n_times: int) -> int:
+        """Tokens for ``n_times`` samples.
+
+        The temporal convolution keeps ``n_times - filter_time_length + 1``
+        samples (the spatial convolution keeps the length), and the average
+        pooling windows them by ``pool_time_length``, ``stride_avg_pool`` apart.
+        """
+        conv_time, pool = self.shallownet[0], self.shallownet[4]
+        n_samples = n_times - conv_time.kernel_size[1] + 1
+        return (n_samples - pool.kernel_size[1]) // pool.stride[1] + 1
 
     def forward(self, x: Tensor) -> Tensor:
         # Nothing runs between the temporal and the spatial convolution, so

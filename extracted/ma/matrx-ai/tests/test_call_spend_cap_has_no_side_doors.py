@@ -268,7 +268,7 @@ def _count_calls(files: list[Path], name: str) -> dict[str, int]:
             if isinstance(node, ast.Call) and _call_name(node) == name
         )
         if n:
-            found[str(path.relative_to(PKG.parents[1]))] = n
+            found["packages/matrx-ai/" + str(path.relative_to(PKG))] = n
     return found
 
 
@@ -299,7 +299,7 @@ def test_the_seam_asks_the_gate_before_any_dispatch() -> None:
 
 def test_dispatch_admitted_is_reachable_only_from_the_seam() -> None:
     users = []
-    for path in _repo_py_files(MATRX_AI, PKG.parents[1] / "aidream"):
+    for path in _repo_py_files(MATRX_AI):  # the host half: tests/package_host_contracts/test_matrx_ai_call_spend_cap_host.py
         text = path.read_text()
         if "_dispatch_admitted" not in text:
             continue
@@ -323,7 +323,7 @@ def test_every_client_execute_in_the_unified_client_and_stt_is_inside_the_seam()
 
 
 def test_the_seam_callers_are_exactly_the_reviewed_set() -> None:
-    found = _count_calls(_repo_py_files(MATRX_AI, PKG.parents[1] / "aidream"), SEAM)
+    found = _count_calls(_repo_py_files(MATRX_AI), SEAM)  # host half: test_matrx_ai_call_spend_cap_host.py
     assert found == EXPECTED_SEAM_CALLERS, (
         "A new caller of UnifiedAIClient._dispatch_with_billing_net appeared (or one vanished). It is "
         "gated by the seam, but pass the exact config so the per-call cap can price it (a call with "
@@ -380,6 +380,8 @@ _SEND_SUFFIXES = [
 DIRECT_SENDERS_WITHOUT_AN_EXECUTE_CLIENT: dict[str, str] = {
     "providers/batch_live.py": "the batch lane's live send; asks admit_call_spend_cap itself "
     "(test_the_batch_live_send_is_refused_under_a_cap).",
+    "providers/prompt_warm.py": "the prompt-cache keep-alive replay (max_tokens 0); asks "
+    "admit_call_spend_cap itself (test_the_prompt_keepalive_is_refused_under_a_cap).",
     "providers/cohere/rerank.py": "dispatches through the seam (EXPECTED_SEAM_CALLERS); config-less, so refused under a cap.",
     "providers/google/specialized.py": "embeddings dispatch through the seam (EXPECTED_SEAM_CALLERS).",
     "providers/google/google_image_api.py": "subclass of BaseMediaGeneration; reached only via its execute().",
@@ -650,6 +652,30 @@ def test_the_batch_live_send_is_refused_under_a_cap(provider: str, endpoint: str
     assert hits, "the uncapped send never reached the vendor client"
 
 
+def test_the_prompt_keepalive_is_refused_under_a_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+
+    from matrx_ai.providers import prompt_warm
+
+    hits: list[str] = []
+    monkeypatch.setattr(prompt_warm, "_KEEPALIVE_CHAT", type("C", (), {"client": _TripClient(hits)})())
+    prefix = json.dumps({"model": "m", "system": "s", "messages": []})
+
+    async def capped() -> Any:
+        with gg.call_spend_cap_scope(IMPOSSIBLE_CAP_USD, subject="Step guard"):
+            return await prompt_warm.send_keepalive(prefix)
+
+    with pytest.raises(BaseException) as excinfo:
+        asyncio.run(capped())
+    _assert_refused_by_the_cap(excinfo)
+    assert hits == []
+
+    # No cap open: the same replay reaches the vendor client (the tripwire is not vacuous).
+    with pytest.raises(RuntimeError, match="THE WIRE WAS REACHED"):
+        asyncio.run(prompt_warm.send_keepalive(prefix))
+    assert hits, "the uncapped keep-alive never reached the vendor client"
+
+
 # --------------------------------------------------------------------------- #
 # Falsifiability — the checks can fail                                         #
 # --------------------------------------------------------------------------- #
@@ -657,17 +683,17 @@ def test_the_batch_live_send_is_refused_under_a_cap(provider: str, endpoint: str
 
 def test_the_guard_catches_a_seam_with_the_gate_removed() -> None:
     src = UNIFIED.read_text()
-    line = "            admit_guardrails(profile, config)\n"
+    line = "            admit_guardrails(profile, config, quote)\n"
     assert src.count(line) == 1
     assert check_the_seam_asks_the_gate_before_dispatch(src.replace(line, "            pass\n"))
 
 
 def test_the_guard_catches_a_gate_made_conditional() -> None:
     src = UNIFIED.read_text()
-    line = "            admit_guardrails(profile, config)\n"
+    line = "            admit_guardrails(profile, config, quote)\n"
     mutated = src.replace(
         line,
-        "            if config is not None:\n                admit_guardrails(profile, config)\n",
+        "            if config is not None:\n                admit_guardrails(profile, config, quote)\n",
     )
     assert check_the_seam_asks_the_gate_before_dispatch(mutated)
 

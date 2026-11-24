@@ -3,6 +3,7 @@
 from typing import List, Optional
 
 from .._models import BaseModel
+from .fetch_policy import FetchPolicy
 
 __all__ = ["TaskAdvancedSettings", "DataSources"]
 
@@ -11,6 +12,13 @@ class DataSources(BaseModel):
     """Optional partner data sources to enable for this task run.
 
     Supported on standard processors only; a selected partner name must not collide with an `mcp_servers` entry.
+    """
+
+    excluded: Optional[List[str]] = None
+    """Data partners included with the processor to keep out of this task.
+
+    Excluding a partner also blocks its own domains. See the Data Sources
+    documentation for the available names.
     """
 
     free: Optional[List[str]] = None
@@ -37,6 +45,9 @@ class TaskAdvancedSettings(BaseModel):
     Supported on standard processors only; a selected partner name must not collide
     with an `mcp_servers` entry.
     """
+
+    fetch_policy: Optional[FetchPolicy] = None
+    """Policy for live fetching web results."""
 
     location: Optional[str] = None
     """ISO 3166-1 alpha-2 country code for geo-targeted search results."""

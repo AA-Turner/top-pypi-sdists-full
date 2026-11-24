@@ -432,3 +432,69 @@ async def test_an_empty_string_key_is_a_hole_and_joins_nothing():
         {"key": "k", "lead_by": [{"path": "p", "order": "asc"}]},
     )
     assert out["groups"][0]["lead"]["id"] == "b"
+
+
+# --- meaning: items whose vectors point the same way join -------------------------------------------
+
+
+def _v(*xs: float) -> list[float]:
+    return [float(x) for x in xs]
+
+
+async def test_meaning_joins_similar_vectors_and_leaves_unlike_and_blank_ones_alone():
+    # a, c point (almost) the same way; b is orthogonal; d is blank (a blank text embeds as zeros).
+    items = [{"id": "a"}, {"id": "b"}, {"id": "c"}, {"id": "d"}]
+    vectors = [_v(1, 0, 0), _v(0, 1, 0), _v(0.95, 0.05, 0), _v(0, 0, 0)]
+    out = await _run({"items": items, "vectors": vectors}, {"meaning": {"threshold": 0.9}})
+    assert _member_ids(out) == [["a", "c"], ["b"], ["d"]]
+    assert out["groups"][0]["matched_by"] == ["meaning"]
+    assert out["dropped"] == {"no_vector": 1}
+
+
+async def test_meaning_neighbors_keeps_a_dense_set_from_chaining_into_one_group():
+    # Every vector is similar to every other above 0.5, but each item's single nearest neighbour is its
+    # twin: with neighbors=1 the set splits into its two tight pairs instead of one blob.
+    items = [{"id": n} for n in "abcd"]
+    vectors = [_v(1, 0.1), _v(1, 0.12), _v(0.1, 1), _v(0.12, 1)]
+    blob = await _run({"items": items, "vectors": vectors}, {"meaning": {"threshold": 0.1, "neighbors": 3}})
+    assert _member_ids(blob) == [["a", "b", "c", "d"]]
+    pairs = await _run({"items": items, "vectors": vectors}, {"meaning": {"threshold": 0.1, "neighbors": 1}})
+    assert _member_ids(pairs) == [["a", "b"], ["c", "d"]]
+
+
+async def test_meaning_first_member_joins_only_the_most_similar_group_lead():
+    # c is closer to b than to a; with first_member it joins a only if b is not a group's first item.
+    items = [{"id": n} for n in "abc"]
+    vectors = [_v(1, 0), _v(0.6, 0.8), _v(0.8, 0.6)]
+    out = await _run({"items": items, "vectors": vectors}, {"meaning": {"threshold": 0.95, "compare": "first_member"}})
+    # a~b 0.6, a~c 0.8, b~c 0.96: c joins b (b is its own group's first item), a stays alone.
+    assert _member_ids(out) == [["a"], ["b", "c"]]
+
+
+async def test_meaning_refuses_a_vector_list_that_does_not_match_the_items():
+    registry, graph = _graph({"meaning": {}}, {})
+    scheduler = Scheduler(graph, MemoryCheckpointer(), make_app_context(), registry=registry)
+    result = await scheduler.run(run_id="t-group-m", inputs={"items": [{"id": "a"}, {"id": "b"}], "vectors": [[1.0]]})
+    assert result.status is not RunStatus.COMPLETED
+    assert "one vector per item" in str(result.error)
+
+
+async def test_meaning_combines_with_word_overlap_any_match():
+    items = [{"id": "a", "t": "harbor cleanup crew"}, {"id": "b", "t": "harbor cleanup volunteers"}, {"id": "c", "t": "x"}]
+    vectors = [_v(1, 0), _v(0, 1), _v(0.02, 1)]
+    out = await _run(
+        {"items": items, "vectors": vectors},
+        {"meaning": {"threshold": 0.95}, "token_overlap": {"fields": ["t"], "threshold": 0.5}},
+    )
+    assert _member_ids(out) == [["a", "b", "c"]]
+    assert out["groups"][0]["matched_by"] == ["token_overlap", "meaning"]
+
+
+async def test_without_meaning_the_output_shape_is_unchanged():
+    # Every earlier caller's output keeps exactly its declared fields (the live kind schema forbids extras).
+    out = await _run({"items": [{"id": "a", "k": 1}, {"id": "b", "k": 1}]}, {"key": "k"})
+    assert set(out) - {"__kind"} == {
+        "groups", "group_count", "item_count", "ungrouped", "item_keys", "matched_existing_count",
+        "key_collisions", "unknown_ids", "dropped", "leads_changed", "split_from_groups", "keyed_items",
+    }
+    assert out["dropped"] == {}

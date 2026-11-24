@@ -227,10 +227,11 @@ async def test_turn_end_items_wait_for_the_final_boundary(monkeypatch):
     assert {it.injection_id for it in emitter2.injection_payloads[0].items} == {"s1", "q1"}
 
 
-async def test_a_hidden_injection_is_delivered_visible_and_host_authored(monkeypatch):
-    """NOTHING THE MODEL READS IS HIDDEN FROM THE OWNING PERSON (owner ruling 2026-10-23): a
-    row flagged is_visible_to_user=false is delivered visible, labeled as the host's, never
-    quoted as the person's words."""
+async def test_a_hidden_injection_is_delivered_host_authored_and_never_listed(monkeypatch):
+    """A host note is labeled as the host's, never quoted as the person's words, and — A SERVER
+    MESSAGE IS NEVER SHOWN AS A MESSAGE (Arman, 2026-11-01, superseding the 2026-10-23 ruling;
+    message_config.host_authored_user_turn) — the model reads it, the chat never lists it. A
+    person's own queued message carries no visibility flag."""
     rows = [
         SimpleNamespace(
             id="hidden-1",
@@ -255,8 +256,9 @@ async def test_a_hidden_injection_is_delivered_visible_and_host_authored(monkeyp
 
     assert len(config.messages) == 2
     hidden, visible = config.messages
-    assert "is_visible_to_user" not in (hidden.metadata or {})
+    assert hidden.metadata.get("is_visible_to_user") is False
     assert hidden.metadata.get("authored_by") == "host"
+    assert hidden.user_content == []
     assert "is_visible_to_user" not in (visible.metadata or {})
 
 
@@ -278,15 +280,15 @@ async def test_claim_next_turn_end_skips_items_enqueued_by_the_claiming_run():
     )
     updates: list[dict] = []
 
-    async def filter_items(**kwargs):
-        # The manager reads 'pending' and 'failed' separately; both rows are pending.
-        return [own, other] if kwargs.get("status") == "pending" else []
+    async def waiting(conversation_id):
+        # ONE narrow read of the pending + failed QUEUE rows.
+        return [own, other]
 
     async def update_where(where, **fields):
         updates.append({"where": where, **fields})
         return SimpleNamespace(updated_rows=[other])
 
-    fake_self = SimpleNamespace(filter_items=filter_items, update_where=update_where)
+    fake_self = SimpleNamespace(_waiting_turn_end_rows=waiting, update_where=update_where)
 
     claimed = await CxPendingInjectionManager.claim_next_turn_end(
         fake_self, "conv-1", request_id="req-1"
@@ -296,10 +298,10 @@ async def test_claim_next_turn_end_skips_items_enqueued_by_the_claiming_run():
     assert updates[0]["where"]["id"] == "other-1"
 
     # With only the run's own item pending, nothing is claimed at all.
-    async def filter_only_own(**kwargs):
-        return [own] if kwargs.get("status") == "pending" else []
+    async def filter_only_own(conversation_id):
+        return [own]
 
-    fake_self_own = SimpleNamespace(filter_items=filter_only_own, update_where=update_where)
+    fake_self_own = SimpleNamespace(_waiting_turn_end_rows=filter_only_own, update_where=update_where)
     claimed_own = await CxPendingInjectionManager.claim_next_turn_end(
         fake_self_own, "conv-1", request_id="req-1"
     )

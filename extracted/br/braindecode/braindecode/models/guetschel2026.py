@@ -306,7 +306,7 @@ class Guetschel2026(EEGModuleMixin, nn.Module, license="mit"):
 
         from braindecode.models import Guetschel2026
 
-        raw.set_montage("standard_1020")  # channel positions, in metres
+        raw.set_montage("colin27_1020")  # channel positions, in metres
         model = Guetschel2026.from_pretrained(
             Guetschel2026.hub_repo_id("mae", "9cm", 2),
             chs_info=raw.info["chs"],
@@ -421,6 +421,9 @@ class Guetschel2026(EEGModuleMixin, nn.Module, license="mit"):
        Code: https://github.com/PierreGtch/eeg-fm-masking.
        Project page: https://pierregtch.github.io/eeg-fm-masking/.
     """
+
+    _time_axis = "fixed"  # fixed: final_layer.1.weight
+    _channel_axis = "fixed"  # fixed: final_layer.1.weight
 
     def __init__(
         self,
@@ -595,6 +598,10 @@ class Guetschel2026(EEGModuleMixin, nn.Module, license="mit"):
             ),
         )
         self.final_layer: nn.Sequential = self._build_head(self.n_outputs)
+        self._min_n_times = self.patch_size
+        self._n_times_step = self.patch_step
+        self._n_times_offset = self.patch_size
+        self._snaps_in_prepare_inputs = "pad_only"
 
     @classmethod
     def hub_repo_id(cls, pretext: str, mask_radius: str, mask_length: int) -> str:
@@ -730,6 +737,9 @@ class Guetschel2026(EEGModuleMixin, nn.Module, license="mit"):
             x = x.clamp(-self.clip_sigma, self.clip_sigma)
         return x.to(dtype)
 
+    def _accepts_any_n_times(self, args: tuple, kwargs: dict) -> bool:
+        return bool(self._call_arg(args, kwargs, "return_features", False))
+
     def forward(
         self, x: torch.Tensor, return_features: bool = False
     ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
@@ -749,26 +759,30 @@ class Guetschel2026(EEGModuleMixin, nn.Module, license="mit"):
             ``return_features=True``, ``{"features": z, "cls_token": None}``
             with ``z`` of shape ``(batch, n_chans, n_patches, embed_dim)``.
         """
-        if x.shape[-1] < self.patch_size:
-            raise ValueError(
-                f"Input has {x.shape[-1]} samples, fewer than patch_size "
-                f"({self.patch_size})."
-            )
-        if x.shape[-2] != self.n_chans:
-            # one channel would otherwise broadcast over every configured electrode
-            raise ValueError(
-                f"The model was built for {self.n_chans} channels, but the input has "
-                f"{x.shape[-2]}. Pass the matching chs_info at construction, or use a "
-                "channel_strategy to map another montage."
-            )
-        n_patches = (x.shape[-1] - self.patch_size) // self.patch_step + 1
-        if not return_features and n_patches != self.n_patches:
-            raise ValueError(
-                f"The head expects {self.n_patches} patches (n_times={self.n_times}), "
-                f"but the input has {x.shape[-1]} samples ({n_patches} patches). "
-                "Use return_features=True for other window lengths, or build the "
-                f"model with n_times={x.shape[-1]}."
-            )
+        if torch.jit.is_scripting():
+            # The eager checks live in EEGModuleMixin.__call__, which scripting
+            # skips; without them one channel broadcasts over every electrode.
+            if x.shape[-1] < self.patch_size:
+                raise ValueError(
+                    f"Input has {x.shape[-1]} samples, fewer than patch_size "
+                    f"({self.patch_size})."
+                )
+            if x.shape[-2] != self.n_chans:
+                raise ValueError(
+                    f"The model was built for {self.n_chans} channels, but the "
+                    f"input has {x.shape[-2]}. Pass the matching chs_info at "
+                    "construction, or use a channel_strategy to map another "
+                    "montage."
+                )
+            n_patches = (x.shape[-1] - self.patch_size) // self.patch_step + 1
+            if not return_features and n_patches != self.n_patches:
+                raise ValueError(
+                    f"The head expects {self.n_patches} patches "
+                    f"(n_times={self.n_times}), but the input has "
+                    f"{x.shape[-1]} samples ({n_patches} patches). Use "
+                    "return_features=True for other window lengths, or build "
+                    f"the model with n_times={x.shape[-1]}."
+                )
         z = self.model(self.feature_encoder(self._scale(x)))  # (B, C, P, embed_dim)
         if return_features:
             return {"features": z, "cls_token": None}  # nosec B105

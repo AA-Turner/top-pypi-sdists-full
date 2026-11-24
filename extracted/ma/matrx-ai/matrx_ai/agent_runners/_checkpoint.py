@@ -723,6 +723,14 @@ async def _capture_stage_failure(
     else:
         detail = str(error) if error is not None else "stage failed"
 
+    # A free-tier refusal is the ceiling working as designed: the stage still fails (the person sees the
+    # sentence with its upgrade door) but it is not an incident. Live 2026-11-16: a free account's podcast
+    # filed every refused video/voice stage as agent_run_stage_failed.
+    from matrx_ai.providers.free_tier_models import is_free_tier_refusal
+
+    if is_free_tier_refusal(exc if exc is not None else (error if error is not None else detail)):
+        return
+
     captured = exc if exc is not None else _StageFailure(detail)
 
     try:

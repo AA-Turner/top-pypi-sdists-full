@@ -1,0 +1,1 @@
+import{t as e}from"./WidgetLegacy-agxPCxLk.js";export{e as default};

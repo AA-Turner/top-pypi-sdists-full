@@ -15,6 +15,7 @@ import threading
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
+from probe.sdk.catalog.environments import RunEnvironments, count_tasks
 from probe.sdk.run.samples.rollout import make_decode
 
 from .. import _rl_owner
@@ -46,6 +47,8 @@ from .training.plan import FULLY_ASYNC_UNLOGGED
 
 #: Marks a verl method Probe already wrapped (installs are idempotent).
 WRAPPED_MARK = "__probe_verl_wrapped__"
+#: The dataset column that names a row's environment (its reward function's selector).
+DATA_SOURCE_COLUMN = "data_source"
 #: verl method -> the `TrainerWraps` method that wraps it.
 WRAPPERS = {
     "_update_actor": "_wrap_update",
@@ -790,10 +793,10 @@ class _Inside:
         self._names.discard(self._name)
 
 
-def build_mapper(trainer: Any) -> RowMapper:
+def build_mapper(trainer: Any, *, environments: RunEnvironments | None = None) -> RowMapper:
     """The row mapper for this trainer: its tokenizer decodes the text (`skip_special_tokens=True`, as verl's own
     dump) and, special tokens kept, the decoded turns (their chat-template reader needs the role markers);
-    `data.max_response_length` tells a cut-off response."""
+    `data.max_response_length` tells a cut-off response; ``environments`` registers each `data_source` (D9)."""
     import socket
 
     tokenizer = getattr(trainer, "tokenizer", None)
@@ -812,4 +815,12 @@ def build_mapper(trainer: Any) -> RowMapper:
         max_response_length=int(limit) if isinstance(limit, int) else None,
         host=socket.gethostname(),
         worker=f"pid:{os.getpid()}",
+        environments=environments,
     )
+
+
+def count_environment_tasks(trainer: Any) -> dict[str, dict[str, int]]:
+    """Each `data_source`'s task count in the trainer's train and validation datasets (verl's data format names
+    one per row, `utils/dataset/rl_dataset.py`)."""
+    datasets = {"train": getattr(trainer, "train_dataset", None), "eval": getattr(trainer, "val_dataset", None)}
+    return count_tasks(datasets, DATA_SOURCE_COLUMN)

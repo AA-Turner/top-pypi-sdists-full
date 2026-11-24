@@ -5,7 +5,6 @@ pytest.importorskip("playwright")
 from playwright.sync_api import expect
 
 from panel.config import config
-from panel.io.state import state
 from panel.tests.util import serve_and_wait
 
 # The admin panel renders panel.ui components, whose registration cannot be
@@ -13,6 +12,9 @@ from panel.tests.util import serve_and_wait
 pytestmark = [pytest.mark.ui, pytest.mark.usefixtures('panel_ui')]
 
 PASSWORD = 'admin-secret'
+
+# Rendering the admin dashboard takes up to ~10s on loaded Windows runners
+RENDER_TIMEOUT = 20_000
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +24,6 @@ def admin_config_cleanup():
         yield
     finally:
         config.param.update(**values)
-        state.session_info = {'total': 0, 'live': 0, 'sessions': {}}
 
 
 def _serve_admin(page, prefix=''):
@@ -37,7 +38,7 @@ def test_admin_navigation(page):
     base = _serve_admin(page)
     page.goto(f'{base}/admin')
 
-    expect(page.get_by_role('heading', name='Overview')).to_be_visible()
+    expect(page.get_by_role('heading', name='Overview')).to_be_visible(timeout=RENDER_TIMEOUT)
     expect(page.get_by_text('Total Sessions')).to_be_visible()
 
     page.get_by_role('button', name='Logs').click()
@@ -63,7 +64,7 @@ def test_admin_password_login_and_logout(page, prefix):
     page.fill('#password', PASSWORD)
     page.click('button[type=submit]')
     expect(page).to_have_url(f'{base}/admin')
-    expect(page.get_by_role('heading', name='Overview')).to_be_visible()
+    expect(page.get_by_role('heading', name='Overview')).to_be_visible(timeout=RENDER_TIMEOUT)
 
     page.locator('button:has-text("logout")').click()
     expect(page).to_have_url(f'{base}/admin/login')

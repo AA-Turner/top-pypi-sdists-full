@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "configparser",
+    "re",
+    "tox.config.loader.api",
+    "tox.config.loader.stringify",
+    "tox.config.sets",
+]
+
 import re
 from configparser import SectionProxy
 from functools import cache
@@ -53,7 +61,8 @@ class ReplaceReferenceIni(ReplaceReference):
                     return None
                 return ConfigDefault(
                     text=value.fragment(*match.span("default")) if isinstance(value, HostText) else default,
-                    start=1,
+                    start=match.start("default"),
+                    start_is_offset=True,
                 )
         return None
 
@@ -115,7 +124,7 @@ class ReplaceReferenceIni(ReplaceReference):
 def _replace_ref(env: str | None) -> Pattern[str]:
     return re.compile(
         rf"""
-    (\[(?P<full_env>{re.escape(env or ".*")}(:(?P<env>[^]]+))?|(?P<section>[-\w]+))])? # env/section
+    (\[(?P<full_env>{re.escape(env or ".*")}(:(?P<env>[^]]+))?|(?P<section>[.:\w-]+))])?
     (?P<key>[-a-zA-Z0-9_]+) # key
     (:(?P<default>.*))? # default value
     $

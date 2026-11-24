@@ -26,8 +26,8 @@ def _row(kind: str, seq: int, *, status: str = "pending", source: str = "deferre
 
 
 def _patch(monkeypatch: pytest.MonkeyPatch, rows: list[SimpleNamespace]) -> None:
-    async def filter_items(self, **where):
-        return [r for r in rows if all(str(getattr(r, k)) == str(v) for k, v in where.items() if k != "conversation_id" and k != "delivery")]
+    async def waiting(self, conversation_id):
+        return [r for r in rows if r.status in ("pending", "failed")]
 
     async def update_where(self, where, **sets):
         hit = [r for r in rows if all(str(getattr(r, k)) == str(v) for k, v in where.items())]
@@ -36,7 +36,7 @@ def _patch(monkeypatch: pytest.MonkeyPatch, rows: list[SimpleNamespace]) -> None
                 setattr(r, k, v)
         return SimpleNamespace(updated_rows=hit, rows_affected=len(hit))
 
-    monkeypatch.setattr(cx.CxPendingInjectionManager, "filter_items", filter_items)
+    monkeypatch.setattr(cx.CxPendingInjectionManager, "_waiting_turn_end_rows", waiting)
     monkeypatch.setattr(cx.CxPendingInjectionManager, "update_where", update_where)
 
 

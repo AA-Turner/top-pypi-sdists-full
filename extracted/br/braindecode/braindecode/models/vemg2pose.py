@@ -113,6 +113,17 @@ class VEMG2Pose(
     The rehosted weights reproduce the reference implementation exactly and
     remain under emg2pose's CC BY-NC-SA 4.0 license.
 
+    .. rubric:: Cropped regression with EEGRegressor
+
+    ``forward`` returns ``(batch, time - left_context, joints)``. Train it as
+    :class:`~braindecode.models.NeuroPose` does, with
+    ``nn.Sequential(VEMG2Pose(...), Rearrange("b t j -> b j t"))`` in an
+    :class:`~braindecode.EEGRegressor` with ``cropped=True`` and
+    :class:`~braindecode.training.TimeSeriesLoss`. The loss selects the matching
+    suffix of each window's targets. Use a window stride of at most
+    ``n_times - left_context``, so that consecutive predictions cover the trial
+    without gaps.
+
     .. versionadded:: 1.8
 
     Parameters
@@ -184,6 +195,9 @@ class VEMG2Pose(
     .. [hannun2019] Hannun et al. (2019). Sequence Modeling with
        Time-Depth Separable Convolutions. arXiv:1904.01619.
     """
+
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: encoder.0.conv.0.weight
 
     def __init__(
         self,
@@ -364,6 +378,9 @@ class VEMG2Pose(
             in_features=head_in,
             out_features=self._head_multiplier * self.n_outputs,
         )
+        # forward clamps n_steps with max(1, ...), so one sample past the
+        # left context is enough for a (single-step) prediction.
+        self._min_n_times = self.left_context + 1
         self._init_parameters()
 
     def _init_parameters(self) -> None:
@@ -391,7 +408,12 @@ class VEMG2Pose(
         )
         self.decoder.apply(_init_weights)
 
-    def forward(self, x: torch.Tensor, y0: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        y0: torch.Tensor | None = None,
+        return_features: bool = False,
+    ):
         """Decode hand pose from raw EMG.
 
         Parameters
@@ -402,23 +424,23 @@ class VEMG2Pose(
             Ground-truth initial pose (Tracking mode). Falls back to zeros
             (Regression mode) when omitted, which is how the released
             ``regression`` checkpoint was trained.
+        return_features : bool, default=False
+            If True, return a dictionary with batch-first encoder ``"features"``,
+            mean-pooled ``"embedding"``, and ``"cls_token"`` before rollout.
         """
         batch_size, _, n_times = x.shape
-        if n_times <= self.left_context:
-            raise ValueError(
-                f"VEMG2Pose consumes a left context of {self.left_context} "
-                f"samples before its first prediction; got n_times={n_times}. "
-                "Use a longer window."
-            )
         features = self.encoder(x)
+        if not torch.jit.is_scripting() and return_features:
+            return {"features": features.transpose(1, 2), "cls_token": None}
 
         # Predictions span the input past the left context, unrolled at
         # ``rollout_rate``.
         valid_seconds = (n_times - self.left_context) / self.input_sfreq
         # int(): TorchScript's round() returns a float, which interpolate rejects.
         n_steps = max(1, int(round(valid_seconds * self.rollout_rate)))
+        # align_corners=True as in emg2pose's pose_modules.py.
         features = F.interpolate(
-            features, size=n_steps, mode="linear", align_corners=False
+            features, size=n_steps, mode="linear", align_corners=True
         )
 
         # Steps taken as position before switching to velocity integration.
@@ -490,7 +512,7 @@ class _Conv1dBlock(nn.Module):
                 stride=stride,
                 padding=0,
             ),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Dropout(p=drop_prob),
         )
         self.norm = nn.LayerNorm(normalized_shape=out_channels)

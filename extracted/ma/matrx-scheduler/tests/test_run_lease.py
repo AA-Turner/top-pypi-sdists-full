@@ -245,7 +245,10 @@ async def test_a_hung_handler_is_cancelled_at_the_deadline_with_progress_preserv
 
 
 @pytest.mark.asyncio
-async def test_a_hung_handler_with_no_work_is_a_failed_run(fake_supabase) -> None:
+async def test_a_run_stopped_at_its_runtime_deadline_with_no_work_is_held_never_failed(fake_supabase) -> None:
+    """Budget holds review B4: a runtime limit is a HOLD, not a failure. With nothing committed the
+    run lands ``stopped`` (the limit named), never ``failed`` — a failed row would count toward the
+    task's failure-rate pause, so a budget stop would pause the job without the approver."""
     async def handler(inp: ToolRunInput) -> AgentRunResult:
         await asyncio.sleep(3600)
         return AgentRunResult(success=True)
@@ -256,10 +259,15 @@ async def test_a_hung_handler_with_no_work_is_a_failed_run(fake_supabase) -> Non
     run = await _claim(fake_supabase, hydrated, lease_seconds=5)
     await asyncio.wait_for(run_claimed_task(hydrated, run), timeout=5)
     row = _run_row(fake_supabase)
-    assert row["status"] == "failed"
-    assert "run ceiling reached" in row["error_message"]
+    assert row["status"] == "stopped", row["status"]
+    assert row["status"] not in queries._FAILED_STATUSES
+    assert "time limit" in row["error_message"]
     assert row["result_metadata"]["units_done"] == 0
-    assert sink.failures and sink.failures[0]["run_id"] == run.id
+    assert row["result_metadata"]["guardrail"]["kind"] == "guardrail.max_runtime"
+    assert "run ceiling reached" in row["result_metadata"]["stopped_early"]
+    assert not sink.failures, "a budget stop was reported as a failure"
+    assert _task_row(fake_supabase)["last_run_at"] is not None
+
 
 
 # ── 5. A lost lease stops the zombie ───────────────────────────────────────

@@ -144,7 +144,7 @@ def _server_rendered_words(root: Any) -> int:
 
 
 def app_shell_signals(tree: Any) -> AppShellSignals:
-    """Read the shell markup facts from a parsed selectolax ``HTMLParser`` tree."""
+    """Read the shell markup facts from a parsed selectolax ``LexborHTMLParser`` tree."""
     body = tree.body
     roots = [node for node in (tree.css_first(APP_ROOT_TAG),) if node is not None]
     roots += [

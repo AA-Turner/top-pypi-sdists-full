@@ -614,10 +614,22 @@ class ListCustomImageBuildsRequest(_message.Message):
     ) -> None: ...
 
 class ListCustomImageBuildsFilters(_message.Message):
-    __slots__ = ("content_hash",)
+    __slots__ = ("content_hash", "content_hash_contains", "content_hash_prefix", "base_images")
     CONTENT_HASH_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_HASH_CONTAINS_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_HASH_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    BASE_IMAGES_FIELD_NUMBER: _ClassVar[int]
     content_hash: str
-    def __init__(self, content_hash: _Optional[str] = ...) -> None: ...
+    content_hash_contains: str
+    content_hash_prefix: str
+    base_images: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        content_hash: _Optional[str] = ...,
+        content_hash_contains: _Optional[str] = ...,
+        content_hash_prefix: _Optional[str] = ...,
+        base_images: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
 
 class ListCustomImageBuildsResponse(_message.Message):
     __slots__ = ("builds", "next_cursor")
@@ -630,6 +642,16 @@ class ListCustomImageBuildsResponse(_message.Message):
         builds: _Optional[_Iterable[_Union[CustomImageBuildSummary, _Mapping]]] = ...,
         next_cursor: _Optional[str] = ...,
     ) -> None: ...
+
+class ListImageFacetsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListImageFacetsResponse(_message.Message):
+    __slots__ = ("base_images",)
+    BASE_IMAGES_FIELD_NUMBER: _ClassVar[int]
+    base_images: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, base_images: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class GetCustomImageBuildRequest(_message.Message):
     __slots__ = ("content_hash", "build_id")

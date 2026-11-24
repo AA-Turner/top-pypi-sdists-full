@@ -1,19 +1,19 @@
 """PubGrub dependency resolver.
 
-The supported API is the module paths below.  They will not move without a
-major version bump.  Everything else in the package is internal and may be
-renamed or relocated in any release.
+This release supports the module paths below. Import paths and APIs can change
+between 0.0.x releases. Other module paths are internal.
 
     nab_resolver.diagnostics DiagnosticMessage, Suggestion, error_message,
                              suggestion_lines
     nab_resolver.errors     ResolutionError, ResolutionInvariantError,
                             ResolutionLimitError,
                             ResolutionStalledError, ResolutionTerminatedError
-    nab_resolver.ranges     Range
+    nab_resolver.priority   compute_tier
+    nab_resolver.ranges     IntegerRangeMembership, Range
     nab_resolver.resolver   BaseProvider, DEFAULT_MAX_ITERATIONS, Resolver,
                             ResolverObserver, ResolverProvider, Solution
     nab_resolver.root       ROOT
-    nab_resolver.testing    ProviderScenario, check_provider,
+    nab_resolver.testing    ProviderConformanceError, ProviderScenario, check_provider,
                             check_provider_scenarios
     nab_resolver.types      Incompatibility, IncompatibilityCause,
                             RangeProtocol, RootRequirement, Term

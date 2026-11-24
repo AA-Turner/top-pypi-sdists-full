@@ -190,3 +190,21 @@ async def test_the_engine_asks_again_and_the_run_completes() -> None:
     )
     assert node.calls == 2
     assert result.status is RunStatus.COMPLETED
+
+
+def test_every_ai_step_that_accepts_a_structured_answer_asks_again() -> None:
+    """Live 2026-11-02: Smart Add's `facts` step runs a MANDATE (`ai.mandate.start`); Haiku appended
+    `"reason":"placeholder"` rows, the funnel refused the answer, and the step -- with no retry --
+    failed the whole run (brand created with 0 facts). Fixing only `ai.agent.produce` left the
+    sibling mandate/agent doors on one attempt."""
+    from matrx_ai.graph_nodes import agent_action, mandate_action
+
+    for name, fn in (
+        ("ai.agent.produce", agent_produce_action.agent_produce),
+        ("ai.agent.start", agent_action.agent_start),
+        ("ai.mandate.start", mandate_action.mandate_start),
+    ):
+        policy = fn._matrx_action_spec.node_spec.retry  # type: ignore[attr-defined]
+        assert policy is not None and should_retry(policy, 1, "structured_output_invalid"), (
+            f"{name} must ask once more for an unusable structured answer"
+        )

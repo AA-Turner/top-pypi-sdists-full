@@ -57,6 +57,9 @@ class _FakeAgent:
     def __init__(self) -> None:
         self.config = SimpleNamespace(messages=[SimpleNamespace(role="user", authored=True)])
 
+    async def run_first_turn_pass(self) -> _FakeAgent:  # the real pass: present on every Agent
+        return self
+
 
 async def _value(value: Any) -> Any:
     return value
@@ -202,7 +205,7 @@ def world(monkeypatch: pytest.MonkeyPatch):
     token = set_app_context(
         AppContext(
             emitter=SilentEmitter(),
-            user_id=USER_ID,
+            user_id=USER_ID, organization_id="0a900000-0000-4000-8000-00000000a7a7",
             conversation_id=CALLER_CONV,
             metadata=metadata,
             is_authenticated=True,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import json
 import time
 from typing import TYPE_CHECKING, Any, Literal
@@ -71,8 +72,9 @@ class ToolStreamManager:
         message: str = "Starting...",
         arguments: dict[str, Any] | None = None,
         display_name: str | None = None,
+        category: str | None = None,
     ) -> None:
-        typed_data = ToolStartedData(arguments=arguments or {}, display_name=display_name)
+        typed_data = ToolStartedData(arguments=arguments or {}, display_name=display_name, category=category)
         await self.emit(
             ToolStreamEvent(
                 event="tool_started",
@@ -87,6 +89,7 @@ class ToolStreamManager:
         self,
         message: str = "Done",
         result: ToolResult | None = None,
+        supersedes: list[str] | None = None,
     ) -> None:
         from matrx_ai.tools.models import to_json_safe
 
@@ -114,7 +117,7 @@ class ToolStreamManager:
         ).value
 
         safe_result = to_json_safe(parsed_result)
-        typed_data = ToolCompletedData(result=safe_result)
+        typed_data = ToolCompletedData(result=safe_result, supersedes=list(supersedes or []))
         full_event = ToolStreamEvent(
             event="tool_completed",
             call_id=self.call_id,
@@ -171,10 +174,17 @@ class ToolStreamManager:
             result_preview=serialized[:RESULT_PREVIEW_MAX_CHARS],
             output_chars=output_chars if output_chars else len(serialized),
             tool_call_id=self.row_id,
+            supersedes=list(full_event.data.get("supersedes") or []),
         )
         return full_event.model_copy(update={"data": slim.model_dump()})
 
     async def error(self, message: str, error_type: str = "execution") -> None:
+        from matrx_ai.tools.fault import MODEL_REFUSAL_PERSON_TEXT, REFUSALS_FOR_THE_MODEL
+
+        if error_type in REFUSALS_FOR_THE_MODEL:
+            # A refusal written to the model (it reads it in its tool result) reaches the person as one honest line,
+            # on the event every client draws (live 2026-11-07: the iPhone drew "Nothing was asked: …" in red).
+            message = MODEL_REFUSAL_PERSON_TEXT
         typed_data = ToolErrorData(error_type=error_type)
         await self.emit(
             ToolStreamEvent(
@@ -233,3 +243,12 @@ class ToolStreamManager:
 
     def get_events_for_persistence(self) -> list[dict[str, Any]]:
         return [e.model_dump() for e in self._events]
+
+
+#: The running local tool's own stream (set by the executor around the tool function). A step a tool
+#: emits through it is PERSISTED with the call (``execution_events``); a second ``ToolStreamManager``
+#: built inside the tool streams live but is never stored, so a reload cannot replay it.
+CURRENT_TOOL_STREAM: contextvars.ContextVar[ToolStreamManager | None] = contextvars.ContextVar(
+    "matrx_current_tool_stream", default=None
+)
+

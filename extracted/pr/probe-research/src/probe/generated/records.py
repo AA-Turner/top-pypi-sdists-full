@@ -55,20 +55,24 @@ __all__ = [
 
 class RunStatus(StrEnum):
     CREATED = "created"
+    PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
     CRASHED = "crashed"
     CANCELED = "canceled"
+    PAUSED = "paused"
     UNTRACKED = "untracked"
 
 
 class RunType(StrEnum):
     """What a run is, as its creator declares it. Training and evaluation are phases inside a run, not types.
-    The RL views (RL workspace, Rollouts, Compute timeline, Trials) follow `rl`.
+    The RL views (Rollouts summaries, Compute timeline, Trials) follow `rl`; recorded samples show on any type.
+    Never guessed from metric names: an undeclared run reads `general` ("Other").
     """
 
     GENERAL = "general"
+    SFT = "sft"
     RL = "rl"
 
 
@@ -84,7 +88,6 @@ class ProjectKind(StrEnum):
 
     TRAINING = "training"
     EVALUATION = "evaluation"
-    RESEARCH = "research"
     GENERAL = "general"
     EXPERIMENT = "experiment"
 
@@ -219,6 +222,8 @@ class CommandKind(StrEnum):
     CHECKPOINT = "checkpoint"
     CONFIG = "config"
     STOP = "stop"
+    PAUSE = "pause"
+    RESUME = "resume"
     CUSTOM = "custom"
 
 

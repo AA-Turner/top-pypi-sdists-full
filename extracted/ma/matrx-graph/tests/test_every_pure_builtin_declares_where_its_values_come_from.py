@@ -15,7 +15,7 @@ from matrx_graph.nodes import BUILTIN_VALUES_ARE
 from matrx_graph.types.primitives import ActionTier
 
 #: PURE built-ins whose values are deliberately NOT deterministic (see BUILTIN_VALUES_ARE's comment).
-RULED_EXCEPTIONS = {"io.user_input"}
+RULED_EXCEPTIONS = {"io.user_input", "io.trigger"}  # the Trigger step: the same executor, the same rows
 
 
 def test_every_pure_builtin_is_listed() -> None:

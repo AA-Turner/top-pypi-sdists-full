@@ -1,6 +1,6 @@
 [project]
 name = "ty"
-version = "0.0.108"
+version = "0.0.109"
 requires-python = ">=3.8"
 dependencies = []
 description = "An extremely fast Python type checker, written in Rust."
@@ -214,4 +214,6 @@ trim-title-prefixes = ["[ty]"]
 "CLI" = ["cli"]
 "Diagnostic improvements" = ["diagnostics"]
 "Configuration changes" = ["configuration"]
+"Performance improvements" = ["performance"]
 "Memory usage improvements" = ["memory"]
+"Core type checking" = ["ty"]

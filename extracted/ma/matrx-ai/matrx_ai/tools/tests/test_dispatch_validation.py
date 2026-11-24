@@ -56,7 +56,9 @@ async def test_web_inner_constraints_reject_before_dispatch(
 
     content, result = await executor.execute(
         "web",
-        {"action": "search", "queries": [f"query-{i}" for i in range(8)]},
+        # Too many QUERIES no longer refuses (the search runs the first MAX_SEARCH_QUERIES and names
+        # the rest, live 2026-11-09); too many URLS for one batch read still does.
+        {"action": "batch_read", "urls": [f"https://example.com/{i}" for i in range(11)]},
         _make_ctx(),
     )
 
@@ -67,7 +69,7 @@ async def test_web_inner_constraints_reject_before_dispatch(
     assert result.success is False
     assert result.error is not None
     assert result.error.error_type == "invalid_arguments"
-    assert "at most 5 items" in result.error.message
+    assert "at most 10 items" in result.error.message
 
 
 class _NullEmitter(SilentEmitter):
@@ -253,17 +255,20 @@ class TestMustCompleteExecution:
     @pytest.mark.parametrize("tool_name", ("shell_execute", "shell_python"))
     def test_process_tools_preserve_their_declared_deadline(self, tool_name: str) -> None:
         from matrx_ai.tools.executor import _dispatch_timeout_seconds
+        from matrx_ai.tools.knobs import process_tool_deadline_grace_seconds
 
         definition = ToolDefinition(
             name=tool_name,
             timeout_seconds=0.01,
         )
 
+        # The caller's own timeout wins over the row's tiny declared one, plus the
+        # knob-driven grace so the box's graceful timeout answer arrives first.
         assert _dispatch_timeout_seconds(
             definition,
             {"timeout_seconds": 1},
             is_delegated=False,
-        ) == 1
+        ) == 1 + process_tool_deadline_grace_seconds()
 
     async def test_shell_process_deadline_is_not_cut_off_by_registry_default(
         self, isolated_registry, executor, app_ctx_set

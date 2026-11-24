@@ -70,6 +70,11 @@ class Copilot(VSCode):
     def user_mcp_file(self) -> Path:
         return self.config_folder / "mcp-config.json"
 
+    def has_user_only_channel(self, event_type: EventType) -> bool:
+        # Copilot CLI parses hook output in its native runtime, so where it sends
+        # systemMessage is unknown.
+        return False
+
     def _get_user_mcp_configurations(self) -> Iterator[MCPConfiguration]:
         # Standard user-level MCP servers
         yield from super()._get_user_mcp_configurations()
@@ -90,10 +95,12 @@ class Copilot(VSCode):
         )
 
     def is_caller(self, hook_payload: dict[str, str]) -> bool:
-        # Copilot CLI only emits the default fields in all hooks, which in a way identifies it.
+        # Copilot sends no marker of its own: require its four default fields as
+        # a subset, so a field it adds later does not make every payload unclaimed.
         default_fields = {"hook_event_name", "session_id", "timestamp", "cwd"}
-        optional_fields = {"prompt", "tool_name", "tool_input", "tool_result"}
-        return set(hook_payload.keys()) - optional_fields == default_fields
+        foreign_keys = {"transcript_path", "cursor_version", "turn_id", "project_path"}
+        keys = hook_payload.keys()
+        return default_fields <= keys and not foreign_keys & keys
 
     def output_result(self, result: HookResult) -> int:
         # Copilot CLI ignores the inherited `{"continue": false}` on the prompt

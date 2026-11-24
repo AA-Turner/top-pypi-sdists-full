@@ -36,6 +36,8 @@ from collections import OrderedDict
 
 __all__ = [
     "conversation_organization",
+    "database_filing_organization",
+    "filed_organization",
     "forget_conversation_organization",
     "remember_conversation_organization",
     "reset_conversation_organizations",
@@ -67,6 +69,38 @@ def remember_conversation_organization(
     _CONVERSATION_ORG.move_to_end(key)
     while len(_CONVERSATION_ORG) > _MAX_ENTRIES:
         _CONVERSATION_ORG.popitem(last=False)
+
+
+def database_filing_organization() -> str | None:
+    """The organization the host's database files every new row of the ambient
+    context in, whatever the row names (``matrx_ai._ext.get_row_filing_organization``;
+    aidream: an administrator's trial run), else ``None``.
+
+    A conversation created in such a context LIVES there, so the organization this
+    registry remembers for it — and therefore every child row's stamp — must be this
+    one, never the step's own. A reader that raises is a host bug: it is screamed and
+    treated as "no filing" (the database still refuses a wrong child loudly)."""
+    from matrx_ai._ext import get_row_filing_organization
+
+    reader = get_row_filing_organization()
+    if reader is None:
+        return None
+    try:
+        value = reader()
+    except Exception as exc:  # noqa: BLE001 — bookkeeping never breaks a write
+        from matrx_utils import vcprint
+
+        vcprint(
+            f"[conversation_org] row_filing_organization reader raised {type(exc).__name__}: {exc}",
+            color="red",
+        )
+        return None
+    return str(value) if value else None
+
+
+def filed_organization(requested: str | None) -> str | None:
+    """The organization a NEW row naming ``requested`` is actually filed in."""
+    return database_filing_organization() or requested
 
 
 def conversation_organization(conversation_id: str | None) -> str | None:

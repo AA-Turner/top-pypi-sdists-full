@@ -170,6 +170,21 @@ async def assemble_held_step_skills(held: HeldStep, config: Any) -> None:
         set_app_context(prepared)
 
 
+#: ``MandateResolution.holder_type`` of the code-default system twin: no Holder row, rung ``code``.
+CODE_TWIN_HOLDER_TYPE = "code"
+
+
+def code_twin_identity() -> dict[str, Any]:
+    """Who held a step resolved at rung code: the declared twin, the step's own author settings."""
+    return {
+        "mandate_key": WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+        "holder_type": CODE_TWIN_HOLDER_TYPE,
+        "agent_id": "",
+        "is_version": False,
+        "name": "The step's own author settings",
+    }
+
+
 def _holder_identity(resolution: Any, agent: Any) -> dict[str, Any]:
     source = resolution.source
     return {
@@ -276,6 +291,7 @@ async def hold_step(
     unheld: dict[str, Any] | None = None
     resolution = None
     agent = None
+    code_twin = False
     try:
         # THROUGH THE RUNNER PORT (runner plan 25 step 9a): a failure to resolve is the runner's
         # typed refusal, RECORDED on its own run row before it reaches the except below — and the
@@ -284,22 +300,30 @@ async def hold_step(
             WORKFLOW_STEP_INTELLIGENCE_MANDATE,
             consumer=consumer,
             door=STEP_INTELLIGENCE_DOOR,
+            # Non-fatal by declaration: an unbound Holder is recorded ONCE, below
+            # (record_unheld_step), never also as a runner refusal over a run that ran.
+            refusal_is_fatal=False,
         )
-        if resolution.holder_type != "agent" or resolution.source is None:
+        if resolution.holder_type == CODE_TWIN_HOLDER_TYPE:
+            # THE SYSTEM TWIN (D21, 2026-11-06): no Holder is bound at any rung, and the job declares its code
+            # default, "the step's own author settings". The step runs exactly as authored, held at rung code.
+            code_twin = True
+        elif resolution.holder_type != "agent" or resolution.source is None:
             raise MandateResolutionUnavailable(
                 WORKFLOW_STEP_INTELLIGENCE_MANDATE,
                 consumer,
                 f"it resolved to a {resolution.holder_type!r} Holder, and an authored step "
                 "needs an AGENT Holder to stand on — rebind the mandate to an agent",
             )
-        try:
-            agent = await resolution.source.load()
-        except Exception as exc:  # noqa: BLE001 — every load failure is one shape
-            raise MandateResolutionUnavailable(
-                WORKFLOW_STEP_INTELLIGENCE_MANDATE,
-                consumer,
-                f"its Holder could not be loaded: {type(exc).__name__}: {exc}",
-            ) from exc
+        if not code_twin:
+            try:
+                agent = await resolution.source.load()
+            except Exception as exc:  # noqa: BLE001 — every load failure is one shape
+                raise MandateResolutionUnavailable(
+                    WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+                    consumer,
+                    f"its Holder could not be loaded: {type(exc).__name__}: {exc}",
+                ) from exc
     except Exception as exc:  # noqa: BLE001 — an unbound mandate never fails a run
         resolution = None
         agent = None
@@ -313,9 +337,11 @@ async def hold_step(
 
     merged = dict(step)
     filled: list[str] = []
-    holder_config = getattr(agent, "config", None) if resolution is not None else None
-    binding_overrides = dict(resolution.config_overrides or {}) if resolution is not None else {}
-    if resolution is not None:
+    # The code twin fills nothing: it IS the author's settings.
+    filling = resolution is not None and not code_twin
+    holder_config = getattr(agent, "config", None) if filling else None
+    binding_overrides = dict(resolution.config_overrides or {}) if filling else {}
+    if filling:
         for key, value in step.items():
             if value is not None or key == CLASS_FIELD:
                 # The class is settled below, WITH the model it belongs to.
@@ -375,6 +401,9 @@ async def hold_step(
         # its own key so the persisted request, the admin screen and the runtime
         # gate all read the same true sentence.
         carried[MANDATE_UNHELD_METADATA_KEY] = unheld
+        return HeldStep(config=merged, metadata=carried, filled_by_holder=())
+    if code_twin:
+        carried[MANDATE_HOLDER_METADATA_KEY] = code_twin_identity()
         return HeldStep(config=merged, metadata=carried, filled_by_holder=())
     identity = _holder_identity(resolution, agent)
     if filled:

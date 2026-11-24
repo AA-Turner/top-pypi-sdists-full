@@ -34,6 +34,7 @@ from bitfab.client import (
     get_current_replay_branch,
     get_current_span,
     get_current_trace,
+    postgres_sandbox_url,
 )
 from bitfab.commit_ref import CommitRef
 from bitfab.datasets import (
@@ -162,11 +163,14 @@ from bitfab.sandbox import (
     sandbox_state,
     without_sandbox,
 )
-from bitfab.sandbox_modes import gmail_sandbox, slack_sandbox
+from bitfab.sandbox_modes import (
+    gmail_sandbox,
+    linear_sandbox,
+    postgres_sandbox,
+    slack_sandbox,
+)
 from bitfab.sandbox_stores import (
     SandboxStore,
-    SandboxStoreEntry,
-    SandboxStoreLink,
     SandboxStoresClient,
 )
 from bitfab.selective_replay import ReplayNodeIdentity, SelectiveReplayOptions
@@ -386,8 +390,6 @@ __all__ = [
     "Sandbox",
     "SandboxStartCtx",
     "SandboxStore",
-    "SandboxStoreEntry",
-    "SandboxStoreLink",
     "SandboxStoresClient",
     "SaveAssertion",
     "SaveDatasetResult",
@@ -448,6 +450,9 @@ __all__ = [
     "gmail_sandbox",
     "gmail_sandbox_accounts",
     "google_sandbox_http",
+    "linear_sandbox",
+    "postgres_sandbox",
+    "postgres_sandbox_url",
     "record_github_refs",
     "report_replay_progress",
     "reseed_from_registry",

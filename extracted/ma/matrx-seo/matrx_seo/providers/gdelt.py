@@ -43,6 +43,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
 import httpx
+from matrx_utils.http_client import shared_client
 from pydantic import BaseModel, ConfigDict, Field
 
 GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -311,7 +312,7 @@ async def search_articles(
         "sort": "DateDesc",
     }
     owns_client = client is None
-    http = client or httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS)
+    http = client or shared_client(timeout=REQUEST_TIMEOUT_SECONDS)
     try:
         for attempt in range(RATE_LIMIT_RETRIES + 1):
             ahead = await pace.turn(

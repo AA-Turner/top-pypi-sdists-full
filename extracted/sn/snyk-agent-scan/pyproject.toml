@@ -1,6 +1,6 @@
 [project]
 name = "snyk-agent-scan"
-version = "0.7.0"
+version = "0.7.1"
 description = "Agent supply chain security scanner."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -12,7 +12,7 @@ classifiers = [
 dependencies = [
     "rich==14.2.0",
     "pyjson5>=1.6.8",
-    "pydantic>=2.11.2",
+    "pydantic>=2.14.2",
     "lark>=1.1.9",
     "psutil>=5.9.0",
     "pyyaml>=6.0.2",
@@ -75,6 +75,9 @@ testpaths = ["tests"]
 # tests/ subdirs (unit, e2e, skills, mcp_servers, ...) onto sys.path. The specs deliberately live under
 # tests/ and are not part of the shipped agent_scan wheel.
 pythonpath = ["tests/canary_specs"]
+markers = [
+    "managed: e2e tests that write to system-wide managed config paths and need root/Administrator (opt-in via AGENT_SCAN_E2E_MANAGED=1)",
+]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"

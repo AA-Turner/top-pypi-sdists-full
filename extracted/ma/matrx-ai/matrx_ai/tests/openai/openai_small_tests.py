@@ -1,6 +1,6 @@
-from typing import Any, List, Union
+from typing import List
 from openai import OpenAI
-from openai.types.responses import Response as OpenAIResponse, ResponseOutputItem as OpenAIResponseOutputItem, ResponseOutputMessage as OpenAIResponseOutputMessage
+from openai.types.responses import Response as OpenAIResponse, ResponseOutputItem as OpenAIResponseOutputItem
 from matrx_utils import vcprint, clear_terminal
 from dotenv import load_dotenv
 from matrx_ai.config.unified_config import UnifiedMessage

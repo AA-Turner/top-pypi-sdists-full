@@ -1,17 +1,31 @@
-"""SystemPathRegistry — the single source of truth for system-managed paths.
+"""SystemPathRegistry — the single source of truth for where writers file their output.
 
-Anything the system writes automatically — AI generations, scraper output,
-derived variants, thumbnails, ephemeral previews — MUST request its
-folder path through this registry. Hand-crafted paths under user-namespace
-folders are forbidden: they pollute user libraries, bypass retention
-policies, and make audit / cleanup impossible.
+Anything a writer files without the person picking a folder — AI generations,
+scraper output, derived variants, thumbnails, ephemeral previews — MUST request
+its folder path through this registry. Hand-crafted paths are forbidden: they
+pollute user libraries, bypass retention policies, and make audit / cleanup
+impossible.
 
-Two top-level roots:
+AUDIENCE — every registered folder declares whose output it holds
+(``SystemFolder.audience``, 2026-10-30):
 
-    generations/    — content the system *produced* (LLM output, image
-                      generation, TTS audio, video generation, etc.).
-                      Provenance: model + prompt is in metadata; the
-                      bytes did not exist before the system created them.
+    "system" (default) — machine output: derived, fetched or produced on the
+                      platform's own initiative. MUST live under one of the
+                      two system roots below, so the person never sees it in
+                      the tree, the sync feed or Recents.
+    "person"          — output the PERSON asked for: an image they generated
+                      in a chat, speech they requested, a video, a document.
+                      MUST live OUTSIDE the system roots (``Images/Generated``,
+                      ``Audio/Generated``, …) so it appears in their Files tree
+                      AND Recents (Arman 2026-10-30: "That's not an automated
+                      thing the system is doing. That's the user generating an
+                      image."). Guard: tests/test_person_output_is_the_persons.py.
+
+Two system roots:
+
+    generations/    — content the system *produced* on its own initiative
+                      (automated pipelines). The person's own generations
+                      no longer live here — they are "person" folders.
 
     system-files/   — content the system *derived* or *fetched* (variants
                       from a master, thumbnails, ephemeral previews,
@@ -25,16 +39,16 @@ Register a feature once at import time:
 
     from matrx_files import register_system_folder
 
-    AI_IMAGES = register_system_folder(
-        "ai_images",
-        root="generations/images",
-        description="LLM / diffusion image-generation outputs.",
-    )
+    THUMBNAILS = register_system_folder(
+        "thumbnails",
+        root="system-files/thumbnails",
+        description="Master-row thumbnail renders for the file browser preview.",
+    )                                   # audience="system" by default
 
 Use it everywhere afterward:
 
-    path = AI_IMAGES.path(filename)
-    # → "generations/images/sunset-over-mountains-1747266537.jpg"
+    path = AI_IMAGES.path(filename)     # a person folder
+    # → "Images/Generated/sunset-over-mountains-1747266537.jpg"
 
 Or by name (when the registration site is upstream):
 
@@ -45,9 +59,13 @@ Or by name (when the registration site is upstream):
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Literal
 
 _ALLOWED_ROOTS: Final[tuple[str, ...]] = ("generations", "system-files")
+
+#: Whose output a registered folder holds — see the module docstring.
+FolderAudience = Literal["system", "person"]
+_AUDIENCES: Final[tuple[str, ...]] = ("system", "person")
 
 
 @dataclass(frozen=True)
@@ -55,13 +73,17 @@ class SystemFolder:
     """A registered system-managed folder.
 
     Construct only through ``register_system_folder``. ``root`` is the
-    folder prefix under which every path this folder produces lives —
-    enforced to start with one of the canonical roots.
+    folder prefix under which every path this folder produces lives.
+    ``audience`` says whose output it holds: ``"system"`` folders are
+    enforced to start with one of the canonical system roots (hidden from
+    the person); ``"person"`` folders are enforced to start OUTSIDE them
+    (visible in the person's tree and Recents).
     """
 
     name: str
     root: str
     description: str
+    audience: FolderAudience = "system"
 
     def path(self, *segments: str) -> str:
         """Join the segments under this folder's root.
@@ -100,23 +122,35 @@ class SystemPathRegistry:
         *,
         root: str,
         description: str,
+        audience: FolderAudience = "system",
     ) -> SystemFolder:
+        if audience not in _AUDIENCES:
+            raise ValueError(f"audience must be one of {_AUDIENCES!r}; got {audience!r}.")
         clean_root = root.strip("/").strip()
         head = clean_root.split("/", 1)[0]
-        if head not in _ALLOWED_ROOTS:
+        if audience == "system" and head not in _ALLOWED_ROOTS:
             raise ValueError(
                 f"System folder root must start with one of "
                 f"{_ALLOWED_ROOTS!r}; got {root!r}. Anything outside "
-                f"those roots is treated as a user-namespace path and "
-                f"cannot register as system-managed."
+                f"those roots is the person's namespace — register it with "
+                f"audience=\"person\" only if the person asked for this output."
             )
-        if name in cls._features and cls._features[name].root != clean_root:
+        if audience == "person" and head in _ALLOWED_ROOTS:
+            raise ValueError(
+                f"Person folder {name!r} cannot live under a system root "
+                f"({root!r}): files there are hidden from the person's tree "
+                f"and Recents, which is exactly what a person folder must not be."
+            )
+        existing = cls._features.get(name)
+        if existing is not None and (existing.root, existing.audience) != (clean_root, audience):
             raise ValueError(
                 f"System folder {name!r} already registered at "
-                f"{cls._features[name].root!r}; cannot re-register at "
-                f"{clean_root!r}. Pick a unique name."
+                f"{existing.root!r} ({existing.audience}); cannot re-register at "
+                f"{clean_root!r} ({audience}). Pick a unique name."
             )
-        folder = SystemFolder(name=name, root=clean_root, description=description)
+        folder = SystemFolder(
+            name=name, root=clean_root, description=description, audience=audience
+        )
         cls._features[name] = folder
         return folder
 
@@ -155,9 +189,12 @@ def register_system_folder(
     *,
     root: str,
     description: str,
+    audience: FolderAudience = "system",
 ) -> SystemFolder:
     """Module-level wrapper. Prefer this over the class method."""
-    return SystemPathRegistry.register(name, root=root, description=description)
+    return SystemPathRegistry.register(
+        name, root=root, description=description, audience=audience
+    )
 
 
 def get_system_folder(name: str) -> SystemFolder:
@@ -179,33 +216,55 @@ def is_system_path(file_path: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Built-in registrations. Anything the platform itself auto-saves SHOULD
-# live under one of these names. Hosts add their own product-specific
+# Built-in registrations. Anything a writer files without the person picking a
+# folder SHOULD live under one of these names. Hosts add their own product-specific
 # registrations at import time.
 # ---------------------------------------------------------------------------
 
+# The person's own AI output — they asked for it, so it is THEIR file: in the
+# Files tree, in Recents, never under a system root (Arman 2026-10-30).
+
 AI_IMAGES = register_system_folder(
     "ai_images",
-    root="generations/images",
-    description="LLM / diffusion image-generation outputs (DALL-E, gpt-image, Stable Diffusion, …).",
+    root="Images/Generated",
+    description="Images the person generated (DALL-E, gpt-image, Imagen, Grok, …) in a chat, "
+    "an agent run or a tool they called.",
+    audience="person",
 )
 
 AI_AUDIO = register_system_folder(
     "ai_audio",
-    root="generations/audio",
-    description="TTS / speech-synthesis outputs.",
+    root="Audio/Generated",
+    description="Speech, music and sound effects the person asked an AI to make (TTS, …).",
+    audience="person",
 )
 
 AI_VIDEO = register_system_folder(
     "ai_video",
-    root="generations/video",
-    description="Video-generation outputs (Replicate, Veo, Sora, …).",
+    root="Video/Generated",
+    description="Videos the person generated (Veo, Sora, Replicate, …).",
+    audience="person",
 )
 
 AI_DOCUMENTS = register_system_folder(
     "ai_documents",
-    root="generations/documents",
-    description="AI-generated PDFs / Word docs / spreadsheets.",
+    root="Documents/Generated",
+    description="Documents the person asked an AI to produce (docx / pptx / xlsx / PDF).",
+    audience="person",
+)
+
+REQUEST_SNAPSHOTS = register_system_folder(
+    "request_snapshots",
+    root="system-files/request-snapshots",
+    description="Byte blobs captured from a paid request's snapshot (aidream "
+    "services/request_snapshot_blobs.py) — audit evidence, never the person's document.",
+)
+
+VOICE_SAMPLES = register_system_folder(
+    "voice_samples",
+    root="system-files/voice-samples",
+    description="Public voice-catalog preview clips synced from TTS providers "
+    "(aidream scripts/sync_voices.py) — catalog presentation, never a person's audio.",
 )
 
 VARIANTS = register_system_folder(
@@ -317,6 +376,9 @@ __all__ = [
     "AI_AUDIO",
     "AI_VIDEO",
     "AI_DOCUMENTS",
+    "REQUEST_SNAPSHOTS",
+    "VOICE_SAMPLES",
+    "FolderAudience",
     "VARIANTS",
     "THUMBNAILS",
     "PREVIEWS",

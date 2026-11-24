@@ -28,9 +28,11 @@ Publish: ``scripts/publish_kind_catalog.py matrx_ai.tools.kinds.google --apply``
 
 from __future__ import annotations
 
+from typing import Literal
+
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.content_ir.sdk import kind
-from pydantic import JsonValue
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 # ---------------------------------------------------------------------------
 # google_workspace_result
@@ -66,9 +68,9 @@ class GoogleWorkspaceResult(KindModel):
 
     # ── list_resources: the files AI Matrx can reach + the health of the
     # accounts behind them (what `google_read.list_capabilities` used to answer).
-    resources: list[dict] | None = None
+    resources: list[dict[str, JsonValue]] | None = None
     count: int | None = None
-    accounts: list[dict] | None = None
+    accounts: list[dict[str, JsonValue]] | None = None
 
     # ── create receipts (Doc or Sheet).
     created: bool | None = None
@@ -99,45 +101,45 @@ class GoogleWorkspaceResult(KindModel):
     # preview is the exact change the same call without dry_run would make.
     dry_run: bool | None = None
     #: append_document — the block and where it lands.
-    would_append: dict | None = None
+    would_append: dict[str, JsonValue] | None = None
     #: write_sheet — the cells that would be replaced and what would replace them.
-    would_write: dict | None = None
+    would_write: dict[str, JsonValue] | None = None
     #: create_document / create_sheet — the file that would be created.
-    would_create: dict | None = None
+    would_create: dict[str, JsonValue] | None = None
 
     # ── import_sheet_as_table.
     #: One field per header-row column, with the column letter it came from.
-    fields: list[dict] | None = None
+    fields: list[dict[str, JsonValue]] | None = None
     header_row: int | None = None
     #: A step only the browser can take, named exactly. Never a fake success.
-    needs_client: dict | None = None
+    needs_client: dict[str, JsonValue] | None = None
 
     # ── prepare_email — a draft for the HUMAN send step; never sent here.
     sent: bool | None = None
-    draft: dict | None = None
+    draft: dict[str, JsonValue] | None = None
     from_email: str | None = None
     next_step: str | None = None
 
     # ── read_calendar.
-    events: list[dict] | None = None
+    events: list[dict[str, JsonValue]] | None = None
     window_start: str | None = None
     window_end: str | None = None
 
     # ── read_contacts / import_contact.
-    contacts: list[dict] | None = None
+    contacts: list[dict[str, JsonValue]] | None = None
     #: import_contact — per Person field, where the value came from.
-    field_map: list[dict] | None = None
-    person: dict | None = None
+    field_map: list[dict[str, JsonValue]] | None = None
+    person: dict[str, JsonValue] | None = None
     imported: bool | None = None
     matched_by: str | None = None
 
     # ── read_tasks / import_tasks.
-    task_lists: list[dict] | None = None
-    tasks: list[dict] | None = None
+    task_lists: list[dict[str, JsonValue]] | None = None
+    tasks: list[dict[str, JsonValue]] | None = None
     #: import_tasks — what landed, what was already here, what was skipped.
-    imported_tasks: list[dict] | None = None
-    already_imported: list[dict] | None = None
-    skipped: list[dict] | None = None
+    imported_tasks: list[dict[str, JsonValue]] | None = None
+    already_imported: list[dict[str, JsonValue]] | None = None
+    skipped: list[dict[str, JsonValue]] | None = None
 
     # ── the human-in-the-loop branch. An organization can require a person to
     # approve a write or an import before it happens (the ``hitl.google.*``
@@ -149,10 +151,10 @@ class GoogleWorkspaceResult(KindModel):
     awaiting_approval: bool | None = None
     #: The queue item: ``approval_id``, the ``mode`` it runs in, the ``knob``
     #: that decided, whether the run was ``attended``, and who it waits with.
-    approval: dict | None = None
+    approval: dict[str, JsonValue] | None = None
 
     # ── the honesty trio every bounded read carries.
-    bounds: dict | None = None
+    bounds: dict[str, JsonValue] | None = None
     truncated: bool | None = None
     limit_note: str | None = None
 
@@ -160,6 +162,28 @@ class GoogleWorkspaceResult(KindModel):
 # ---------------------------------------------------------------------------
 # google_marketing_result
 # ---------------------------------------------------------------------------
+
+
+class GoogleMarketingCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    question: str
+    verdict: Literal["pass", "warn", "fail", "unknown"]
+    evidence: str
+    remedy: str | None = None
+
+
+class GoogleMarketingContainer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    container_id: str
+    container: str
+    account_id: str | None = None
+    account: str | None = None
+    public_id: str | None = None
+    usage_context: list[str] | None = None
+    workspace: str | None = None
+    active_tags: int | None = None
+    paused_tags: int | None = None
 
 
 @kind(
@@ -191,7 +215,7 @@ class GoogleMarketingResult(KindModel):
     channel_id: str | None = None
 
     #: What was ASKED for — the window, the limit, the profile.
-    bounds: dict | None = None
+    bounds: dict[str, JsonValue] | None = None
     returned_count: int | None = None
     count_unit: str | None = None
     #: True/False when the provider or our own cap says so; null when unknowable.
@@ -211,12 +235,12 @@ class GoogleMarketingResult(KindModel):
     # findings → `tag_manager_findings`, migration 0763), so this answer can be
     # persisted verbatim rather than translated into a second set of words.
     verdict: str | None = None
-    checks: list[dict] | None = None
+    checks: list[GoogleMarketingCheck] | None = None
     has_ga4: bool | None = None
     has_conversion_tag: bool | None = None
     has_consent: bool | None = None
     caveats: list[str] | None = None
-    containers: list[dict] | None = None
+    containers: list[GoogleMarketingContainer] | None = None
 
 
 GOOGLE_TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {

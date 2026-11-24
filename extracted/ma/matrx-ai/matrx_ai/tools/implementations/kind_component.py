@@ -47,6 +47,7 @@ payload (potentially another user's business data).
 # read-lane v2 lane has re-run iam.apply_rls on those tables.
 from __future__ import annotations
 
+import logging
 import traceback
 from datetime import UTC, datetime
 from typing import Any
@@ -57,11 +58,15 @@ from matrx_ai.tools.implementations.kind_shared import (
     CODE_SECTIONS,
     COMPONENT_PLATFORMS,
     COMPONENT_ROLES,
+    GENERIC_INPUT_COMPONENT_KEY,
     SHAPE_AUTHORING_POINTER,
-    bare_media_notices,
     can_access_kind,
+    component_binding_lint,
+    component_button_props_lint,
     component_globals_lint,
     component_import_lint,
+    component_run_output_lint,
+    component_save_notices,
     component_source_lint,
     component_summary,
     ctx_user_id,
@@ -85,6 +90,8 @@ from matrx_ai.tools.surface_write import (
     attach_structured_write,
     attach_surface_write,
 )
+
+logger = logging.getLogger(__name__)
 
 KIND_COMPONENT_CREATE_FAILED_KIND = "kind_component_create_failed"
 
@@ -136,6 +143,12 @@ async def _refuse_broken_source(source: str) -> tuple[ToolResult | None, bool]:
     globals_refusal = component_globals_lint(source)
     if globals_refusal:
         return err("validation", globals_refusal), False
+    run_output_refusal = component_run_output_lint(source)
+    if run_output_refusal:
+        return err("validation", run_output_refusal), False
+    button_refusal = component_button_props_lint(source)
+    if button_refusal:
+        return err("validation", button_refusal), False
     compile_errors, checked = await tsx_compile_check(source)
     if compile_errors:
         return (
@@ -372,6 +385,31 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         )
 
 
+async def _live_defaults(KindComponent: Any, kind_definition_id: str, platform: str, role: str) -> list[Any]:
+    """The live default row(s) for one (kind, platform, role) — at most one, by the unique index."""
+    rows = await KindComponent.filter(
+        kind_definition_id=kind_definition_id, platform=platform, role=role, is_default=True
+    ).all()
+    return [r for r in rows if r.deleted_at is None and r.is_default]
+
+
+def _kept_built_in_line(built_in: Any, kind: str, platform: str, role: str) -> str:
+    return (
+        f"The built-in component '{built_in.component_key}' (compiled into the app, id {built_in.id}) "
+        f"stays the default for '{kind}' {platform}/{role}; yours was saved beside it, not as the default. "
+        "Make yours the default only when it does everything the built-in does (saving what a person "
+        "picks or types included): call kindcomp_update_settings on your component with is_default=true."
+    )
+
+
+def _replaced_default_line(previous: Any) -> str:
+    where = "built-in" if previous.source != "db" else "database"
+    return (
+        f"It replaced the {where} component '{previous.component_key}' (id {previous.id}) as the default; "
+        "that one is kept, no longer the default."
+    )
+
+
 async def _kindcomp_create_component_save(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Create a new DB-authored render component for a kind.
 
@@ -387,6 +425,11 @@ async def _kindcomp_create_component_save(args: dict[str, Any], ctx: ToolContext
     'generic_structured' input row is the only routable input path),
     ``is_default`` (default true — most user kinds have exactly one
     component), ``notes``.
+
+    A new default never silently outranks another: a BUILT-IN default
+    (compiled into the app) stays the default and the new row is saved beside
+    it (the result says so; kindcomp_update_settings is_default=true is the
+    explicit door); a replaced database default is named in the result.
 
     The row is written with ``source='db'``, scoped to the kind's
     organization, attributed to you. Components are unique per
@@ -419,6 +462,10 @@ async def _kindcomp_create_component_save(args: dict[str, Any], ctx: ToolContext
     if refusal:
         return refusal
     if kind_layer.is_layer_target(args) or kind_layer.target_refusal(args):
+        layer_org = str(args.get("organization_id") or "").strip() or None
+        binding = component_binding_lint(component_source, organization_id=layer_org)
+        if binding:
+            return err("validation", binding)
         return kind_layer.target_refusal(args) or await kind_layer.layer_create(
             args, ctx, compile_checked=compile_checked
         )
@@ -430,6 +477,11 @@ async def _kindcomp_create_component_save(args: dict[str, Any], ctx: ToolContext
         denied = await ensure_can_edit_kind(kd, ctx)
         if denied:
             return denied
+        binding = component_binding_lint(
+            component_source, organization_id=str(kd.organization_id or "") or None
+        )
+        if binding:
+            return err("validation", binding)
 
         KindComponent = get_db_model("KindComponent")
         existing = await KindComponent.filter(
@@ -447,21 +499,41 @@ async def _kindcomp_create_component_save(args: dict[str, Any], ctx: ToolContext
                 "Use kindcomp_update_code or kindcomp_patch_code with that component_id.",
             )
 
+        notices: list[str] = []
         if is_default:
             # The database permits exactly one live default for each
-            # kind/platform/role. Creating a new default means replacing the
-            # incumbent, not colliding with it after the expensive TSX gates.
-            await KindComponent.update_where(
-                {
-                    "kind_definition_id": str(kd.id),
-                    "platform": platform,
-                    "role": role,
-                    "is_default": True,
-                    "deleted_at": None,
-                },
-                is_default=False,
-                updated_by=ctx_user_id(ctx),
+            # kind/platform/role, so a new default replaces the incumbent —
+            # and NEVER SILENTLY (2026-11-03: a release agent's new `quiz_view`
+            # quietly demoted the compiled quiz, which saves every answer;
+            # quiz_view lost them all). A BUILT-IN default (compiled into the
+            # app) is kept unless the caller asks again, explicitly, through
+            # kindcomp_update_settings; a replaced database default is named.
+            # The generic fallback is not a component and is replaced freely.
+            incumbents = await _live_defaults(KindComponent, str(kd.id), platform, role)
+            built_in = next(
+                (
+                    c
+                    for c in incumbents
+                    if c.source != "db" and c.component_key != GENERIC_INPUT_COMPONENT_KEY
+                ),
+                None,
             )
+            if built_in is not None:
+                is_default = False
+                notices.append(_kept_built_in_line(built_in, kd.kind, platform, role))
+            else:
+                await KindComponent.update_where(
+                    {
+                        "kind_definition_id": str(kd.id),
+                        "platform": platform,
+                        "role": role,
+                        "is_default": True,
+                        "deleted_at": None,
+                    },
+                    is_default=False,
+                    updated_by=ctx_user_id(ctx),
+                )
+                notices.extend(_replaced_default_line(c) for c in incumbents)
 
         payload: dict[str, Any] = {
             "kind_definition_id": str(kd.id),
@@ -487,7 +559,7 @@ async def _kindcomp_create_component_save(args: dict[str, Any], ctx: ToolContext
 
         return ToolResult(
             success=True,
-            model_notices=bare_media_notices(component_source),
+            model_notices=[*notices, *component_save_notices(component_source)],
             output=KindComponentCreateResult(
                 component_id=str(created.id),
                 kind=kd.kind,
@@ -503,9 +575,14 @@ async def _kindcomp_create_component_save(args: dict[str, Any], ctx: ToolContext
                     else "esbuild is not installed on this host — the TSX syntax gate "
                     "was SKIPPED; the code was accepted unverified."
                 ),
-                message=(
-                    f"Component '{component_key}' created for kind '{kd.kind}'. "
-                    "Iterate with kindcomp_update_code / kindcomp_patch_code."
+                message=" ".join(
+                    [
+                        f"Component '{component_key}' created for kind '{kd.kind}'"
+                        + ("" if is_default else " (not the default)")
+                        + ".",
+                        *notices,
+                        "Iterate with kindcomp_update_code / kindcomp_patch_code.",
+                    ]
                 ),
             ),
         )
@@ -670,12 +747,22 @@ async def _kindcomp_update_code_save(args: dict[str, Any], ctx: ToolContext) -> 
         if bad:
             return bad
     try:
+        registered_note = ""
         if layered:
             comp, failure = await kind_layer.load_editable_layer(args, ctx)
+            if not failure:  # A VIEW NEVER ORPHANS A SHAPE: an edit heals an orphan view too
+                registered_note, failure = await kind_layer.register_edited_layer_kind(comp, args, ctx)
         else:
             comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
             return failure
+        if "component_source" in updates:
+            binding = component_binding_lint(
+                str(updates["component_source"] or ""),
+                organization_id=str(getattr(comp, "organization_id", "") or "") or None,
+            )
+            if binding:
+                return err("validation", binding)
         sections = list(updates.keys())
         prior_sections = {k: getattr(comp, k, None) for k in sections}
         after_sections = {k: updates.get(k) for k in sections}
@@ -701,7 +788,7 @@ async def _kindcomp_update_code_save(args: dict[str, Any], ctx: ToolContext) -> 
         return attach_sections_surface_write(
             ToolResult(
                 success=True,
-                model_notices=bare_media_notices(
+                model_notices=component_save_notices(
                     str(updates.get("component_source") or "") if "component_source" in updates else None
                 ),
                 output=KindComponentUpdateResult(
@@ -710,7 +797,7 @@ async def _kindcomp_update_code_save(args: dict[str, Any], ctx: ToolContext) -> 
                     semver=fresh.semver if fresh else None,
                     version=fresh.version if fresh else None,
                     compile_checked=compile_checked,
-                    message=f"Updated {len(sections)} section(s)."
+                    message=registered_note + f"Updated {len(sections)} section(s)."
                     + (
                         ""
                         if compile_checked
@@ -772,8 +859,11 @@ async def _kindcomp_patch_code_save(args: dict[str, Any], ctx: ToolContext) -> T
     if bad:
         return bad
     try:
+        registered_note = ""
         if layered:
             comp, failure = await kind_layer.load_editable_layer(args, ctx)
+            if not failure:  # A VIEW NEVER ORPHANS A SHAPE: an edit heals an orphan view too
+                registered_note, failure = await kind_layer.register_edited_layer_kind(comp, args, ctx)
         else:
             comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
@@ -825,6 +915,11 @@ async def _kindcomp_patch_code_save(args: dict[str, Any], ctx: ToolContext) -> T
         compile_checked = True
         if section == "component_source":
             refusal, compile_checked = await _refuse_broken_source(working)
+            binding = component_binding_lint(
+                working, organization_id=str(getattr(comp, "organization_id", "") or "") or None
+            )
+            if binding and not refusal:
+                refusal = err("validation", binding)
             if refusal:
                 message = refusal.error.message if refusal.error else "refused"
                 return err(
@@ -856,7 +951,8 @@ async def _kindcomp_patch_code_save(args: dict[str, Any], ctx: ToolContext) -> T
         return attach_surface_write(
             ToolResult(
                 success=True,
-                model_notices=bare_media_notices(working if section == "component_source" else None),
+                model_notices=component_save_notices(working if section == "component_source" else None)
+                + ([registered_note.strip()] if registered_note else []),
                 output=KindComponentPatchResult(
                     component_id=component_id,
                     section=section,
@@ -886,7 +982,7 @@ async def _kindcomp_patch_code_save(args: dict[str, Any], ctx: ToolContext) -> T
         )
 
 
-async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def _kindcomp_update_settings_save(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Update non-code settings on a kind component: ``is_active``,
     ``is_default``, ``sort_order``, ``config``, ``pinned_kind_version``,
     ``component_key``, or ``notes``. Code goes through kindcomp_update_code.
@@ -930,6 +1026,7 @@ async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
                 f"Valid: {sorted(kind_layer.LAYER_SETTINGS_KEYS)}",
                 "A view is never the default; is_default belongs to the shared view only.",
             )
+    notices: list[str] = []
     try:
         if layered:
             _comp, failure = await kind_layer.load_editable_layer(args, ctx)
@@ -944,6 +1041,22 @@ async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
                 return refusal_result
             fresh = await kind_layer.reload_layer(component_id)
         else:
+            demoted: list[Any] = []
+            if settings.get("is_default") is True and not _comp.is_default:
+                # The explicit door to outrank the incumbent (built-in included): it is
+                # demoted first (one live default per kind/platform/role) and named below.
+                demoted = [
+                    c
+                    for c in await _live_defaults(
+                        KindComponent, str(_comp.kind_definition_id), _comp.platform, _comp.role
+                    )
+                    if str(c.id) != component_id
+                ]
+                for c in demoted:
+                    await KindComponent.update_where(
+                        {"id": str(c.id)}, is_default=False, updated_by=ctx_user_id(ctx)
+                    )
+                notices.extend(_replaced_default_line(c) for c in demoted)
             settings["updated_by"] = ctx_user_id(ctx)
             rows = await KindComponent.update_where({"id": component_id}, **settings)
             if not rows:
@@ -955,6 +1068,7 @@ async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
         return attach_structured_write(
             ToolResult(
                 success=True,
+                model_notices=notices,
                 output=KindComponentUpdateResult(
                     component_id=component_id, updated_settings=list(settings.keys())
                 ),
@@ -1068,15 +1182,20 @@ async def _latest_inspections(component_ids: list[str]) -> list[dict[str, Any]]:
 async def _with_auto_preview(result: ToolResult, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     from matrx_ai._ext import get_ext, has_ext
 
-    if not result.success or kind_layer.is_layer_target(args) or not has_ext(PREVIEW_EXT_KEY):
+    if not result.success or not has_ext(PREVIEW_EXT_KEY):
         return result
     output = result.output
     save = output.model_dump(mode="json") if hasattr(output, "model_dump") else output
     component_id = (save or {}).get("component_id") if isinstance(save, dict) else None
+    component_id = component_id or args.get("component_id")
     if not component_id:
         return result
+    # A view layer (target mine / organization) is previewed through the same seam, told which table it is in.
+    seam_kwargs: dict[str, Any] = {}
+    if kind_layer.is_layer_target(args):
+        seam_kwargs = {"target": args["target"], "organization_id": args.get("organization_id")}
     try:
-        preview = await get_ext(PREVIEW_EXT_KEY)(component_id=str(component_id), ctx=ctx)
+        preview = await get_ext(PREVIEW_EXT_KEY)(component_id=str(component_id), ctx=ctx, **seam_kwargs)
     except Exception as exc:  # noqa: BLE001 — the save stands; the failure is reported beside it
         preview = {
             "verdict": "unknown",
@@ -1092,18 +1211,73 @@ async def _with_auto_preview(result: ToolResult, args: dict[str, Any], ctx: Tool
     return result.model_copy(update={"output": {"save": save, "preview": preview}})
 
 
+async def _with_completeness(result: ToolResult, args: dict[str, Any]) -> ToolResult:
+    """Every kindcomp_* write ends with the kind's completeness line (component? which table shows it?),
+    read from the DB — a model notice, so it rides whatever shape the receipt or preview takes."""
+    if not result.success or kind_layer.is_layer_target(args):
+        return result
+    from matrx_ai.tools.implementations.kind_completeness import component_kind_completeness
+
+    output = result.output
+    save = output.model_dump(mode="json") if hasattr(output, "model_dump") else output
+    component_id = (save or {}).get("component_id") if isinstance(save, dict) else None
+    component_id = component_id or args.get("component_id")
+    if not component_id:
+        return result
+    try:
+        line = await component_kind_completeness(str(component_id))
+    except Exception as exc:  # noqa: BLE001 — the save stands; the line says why it is missing
+        line = f"Completeness: unknown — it could not be read ({exc})."
+    if not line:
+        return result
+    return result.model_copy(update={"model_notices": [*result.model_notices, line]})
+
+
+async def _with_stored_css(result: ToolResult, args: dict[str, Any]) -> ToolResult:
+    """Every kindcomp_* code write hands the saved code to the host, which stores its CSS before anyone opens it
+    (project stored-code-styling). Never fails the save: ``stored_code_saved`` counts and files its own failure."""
+    from matrx_ai.tools.stored_code_saved import (
+        ROW_KIND_COMPONENT,
+        saved_component_id,
+        stored_code_saved,
+    )
+
+    component_id = saved_component_id(result, args)
+    if not component_id:
+        return result
+    try:
+        if kind_layer.is_layer_target(args):
+            row = await kind_layer.reload_layer(component_id)
+        else:
+            row = await get_db_model("KindComponent").get_or_none(use_cache=False, id=component_id)
+    except Exception as exc:  # noqa: BLE001 — the save stands; the reader's on-demand compile still styles it
+        logger.error("[stored-code-styling] saved kind component %s could not be re-read: %r", component_id, exc)
+        return result
+    await stored_code_saved(ROW_KIND_COMPONENT, row, row_id=component_id)
+    return result
+
+
 async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Create a new DB-authored render component for a kind (see ``_kindcomp_create_component_save``),
     then — while the host's preview setting is on — append its screenshots + findings."""
-    return await _with_auto_preview(await _kindcomp_create_component_save(args, ctx), args, ctx)
+    saved = await _with_stored_css(await _with_completeness(await _kindcomp_create_component_save(args, ctx), args), args)
+    return await _with_auto_preview(saved, args, ctx)
 
 
 async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Replace code sections on a kind component (see ``_kindcomp_update_code_save``), then the
     automatic preview."""
-    return await _with_auto_preview(await _kindcomp_update_code_save(args, ctx), args, ctx)
+    saved = await _with_stored_css(await _with_completeness(await _kindcomp_update_code_save(args, ctx), args), args)
+    return await _with_auto_preview(saved, args, ctx)
 
 
 async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Patch one code section (see ``_kindcomp_patch_code_save``), then the automatic preview."""
-    return await _with_auto_preview(await _kindcomp_patch_code_save(args, ctx), args, ctx)
+    saved = await _with_stored_css(await _with_completeness(await _kindcomp_patch_code_save(args, ctx), args), args)
+    return await _with_auto_preview(saved, args, ctx)
+
+
+async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Update a kind component's settings (see ``_kindcomp_update_settings_save``) — a default or
+    active switch changes what draws the kind, so the completeness line follows."""
+    return await _with_completeness(await _kindcomp_update_settings_save(args, ctx), args)

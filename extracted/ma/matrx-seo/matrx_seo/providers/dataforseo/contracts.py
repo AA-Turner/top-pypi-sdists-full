@@ -169,8 +169,64 @@ class DataForSeoCollectionSettings(BaseModel):
         return self
 
 
+#: Labs operations whose ``target`` DataForSEO accepts ONLY as a bare hostname (no scheme,
+#: no ``www.``, no path, no query).
+BARE_DOMAIN_TARGET_OPERATIONS: frozenset[str] = frozenset(
+    {"labs.google.domain_rank_overview", "labs.google.historical_rank_overview"}
+)
+
+
+def normalize_domain_target(operation: str, task: dict[str, Any]) -> dict[str, Any]:
+    """Return ``task`` with a bare-hostname ``target`` for operations that only accept one.
+
+    A value that is not a recognisable hostname is left exactly as given, so the provider's own
+    refusal still reaches the caller rather than a made-up domain."""
+    if str(operation) not in BARE_DOMAIN_TARGET_OPERATIONS:
+        return task
+    raw = task.get("target")
+    if not isinstance(raw, str) or not raw.strip():
+        return task
+    from urllib.parse import urlsplit
+
+    text = raw.strip()
+    parts = urlsplit(text if "://" in text else f"//{text}")
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    if not host or "." not in host or parts.username or parts.password:
+        return task
+    return {**task, "target": host}
+
+
 class DataForSeoOperationRequest(DataForSeoCollectionSettings):
     operation: DataForSeoOperationName
+
+    @model_validator(mode="after")
+    def coerce_single_keyword_to_list(self) -> DataForSeoOperationRequest:
+        # A stored or on-demand payload that carries ``keywords`` as one bare
+        # string for an endpoint whose provider contract takes a list is a
+        # one-item list. Sending the string is rejected by DataForSEO ("Invalid
+        # Field: 'keywords'") and burns a collection run (111 such failures).
+        from .operations import DATAFORSEO_ENDPOINT_EXAMPLE_TASKS, get_operation
+
+        endpoints = get_operation(self.operation).endpoints
+        takes_list = any(
+            isinstance(DATAFORSEO_ENDPOINT_EXAMPLE_TASKS.get(endpoint, {}).get("keywords"), list)
+            for endpoint in endpoints
+        )
+        if takes_list:
+            for task in self.tasks:
+                if isinstance(task.get("keywords"), str):
+                    task["keywords"] = [task["keywords"]]
+        return self
+
+    @model_validator(mode="after")
+    def coerce_domain_target_to_hostname(self) -> DataForSeoOperationRequest:
+        # Labs domain-rank operations accept ``target`` ONLY as a bare hostname. A URL
+        # ("https://www.example.com/pricing") is refused ("Invalid Field: 'target'") and burns a
+        # collection run (seo_collection_failed, /seo/collections, 2026-11-20). Every caller reaches
+        # the provider through this request, so the one normalization lives here.
+        for index, task in enumerate(self.tasks):
+            self.tasks[index] = normalize_domain_target(self.operation, task)
+        return self
 
     @model_validator(mode="after")
     def validate_operation_limits(self) -> DataForSeoOperationRequest:

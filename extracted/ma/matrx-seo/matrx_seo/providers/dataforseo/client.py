@@ -45,6 +45,16 @@ logger = logging.getLogger(__name__)
 _OK_TASK_STATUS_CODES = frozenset({20000, 40102})
 
 
+#: DataForSEO's own 5xxxx task codes ("Internal Error", "Internal SE Server Error") are the provider failing, never
+#: the request being wrong; a live task that comes back with one is re-posted (a failed task is not billed).
+_TRANSIENT_TASK_ATTEMPTS = 3
+_TRANSIENT_TASK_RETRY_SECONDS = 1.0
+
+
+def is_transient_task_code(status_code: int) -> bool:
+    return 50000 <= status_code < 60000
+
+
 class DataForSeoApiError(RuntimeError):
     def __init__(self, status_code: int, message: str) -> None:
         self.status_code = status_code
@@ -126,11 +136,23 @@ class DataForSeoClient:
         # single task is the empty placeholder that keeps the one-live-task
         # contract, never a body the provider would see.
         method = "GET" if endpoint in GET_LIST_ENDPOINTS else "POST"
+        sent: list[dict[str, Any]] = []
+        posts = 1
         try:
             if method == "GET":
                 response = await self.transport.request("GET", endpoint)
             else:
                 response = await self.transport.request("POST", endpoint, json_body=tasks)
+                for _attempt in range(1, _TRANSIENT_TASK_ATTEMPTS):
+                    envelope = self._parse_envelope(response.payload)
+                    if not any(is_transient_task_code(t.status_code) for t in envelope.tasks):
+                        break
+                    logger.warning("DataForSEO %s returned a provider-internal task error; re-posting", endpoint)
+                    await asyncio.sleep(_TRANSIENT_TASK_RETRY_SECONDS)
+                    if response.request is not None:
+                        sent.append(response.request)
+                    posts += 1
+                    response = await self.transport.request("POST", endpoint, json_body=tasks)
         except Exception as exc:
             return self._transport_failure_response(method, endpoint, tasks, exc)
         envelope = self._parse_envelope(response.payload)
@@ -139,8 +161,8 @@ class DataForSeoClient:
             self._call_record(
                 task,
                 fetched_at=fetched_at,
-                request_count=1,
-                requests=[response.request] if response.request is not None else [],
+                request_count=posts,
+                requests=[*sent, *([response.request] if response.request is not None else [])],
                 response_status=response.status_code,
                 response_headers=response.headers,
             )

@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Protocol
 
+from matrx_ai.config.usage_config import catalog_cost_source
 from matrx_runtime import (
     ContextMode,
     ExecutionCancelled,
@@ -46,6 +47,8 @@ class TokenSpend(MeterEvent):
     cost_source: str = "catalog_from_provider_usage"
     response_id: str | None = None
     offering_id: str | None = None
+    #: The provider call this meter prices (== response_id when the vendor names one).
+    provider_call_id: str | None = None
 
     @classmethod
     def from_usage(cls, usage: Any, *, label: str, **payload_extras: Any) -> TokenSpend:
@@ -82,8 +85,9 @@ class TokenSpend(MeterEvent):
             ),
             # ``usd`` is always our catalog amount. Provider dollars are
             # comparison evidence and must never change runtime settlement.
-            cost_source="catalog_from_provider_usage",
+            cost_source=catalog_cost_source(usage),
             response_id=getattr(usage, "response_id", None) or None,
+            provider_call_id=getattr(usage, "response_id", None) or None,
             offering_id=getattr(usage, "offering_id", None) or None,
             **payload_extras,
         )

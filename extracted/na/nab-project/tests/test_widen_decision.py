@@ -17,12 +17,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NoReturn, cast
 
 import pytest
+from packaging.ranges import VersionRange
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
-from nab_project._packaging_provider import PackagingProvider
-from nab_project._testing.coordinator_fake import make_coordinator
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.provider import (
     ArchiveSource,
     BuildPolicy,
@@ -36,11 +34,14 @@ from nab_provider.testing import make_metadata, make_wheel
 from nab_resolver.errors import ResolutionError
 from nab_resolver.resolver import Resolver
 from nab_resolver.root import ROOT
+from nab_test_support.coordinator import make_coordinator
+
+from .packaging_provider import PackagingProvider
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from nab_project._testing.coordinator_fake import FakeFetchPort
+    from nab_provider.testing import FakeFetchPort
 
 V = Version
 
@@ -565,8 +566,20 @@ class TestNarrowForDisplay:
     def test_range_no_listed_version_satisfies_is_unchanged(self) -> None:
         """With nothing listed to state it over, the constraint stands."""
         provider = _listing_provider("p", ["1.0"])
-        constraint = SpecifierSet(">=5").to_range()
-        assert provider.narrow_for_display("p", constraint) is constraint
+        for requirement in (">=5", ">=5.0"):
+            constraint = SpecifierSet(requirement).to_range()
+            assert provider.narrow_for_display("p", constraint) is constraint
+
+    def test_snapping_preserves_bounds_outside_the_listing(self) -> None:
+        provider = _listing_provider("p", ["3", "1+cpu"])
+        window = VersionRange.from_bounds("0", "2")
+
+        for version in ("5", "5.0"):
+            constraint = window | VersionRange.singleton(version)
+            narrowed = provider.narrow_for_display("p", constraint)
+            assert provider.format_range(narrowed) == (
+                f"<VersionRange '[1+cpu, 1+cpu] | [{version}, {version}]'>"
+            )
 
     def test_narrowed_pin_complement_reads_as_a_requirement(self) -> None:
         """The complement of a pin reads as a requirement.

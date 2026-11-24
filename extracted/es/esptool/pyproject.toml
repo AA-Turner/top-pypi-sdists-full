@@ -27,6 +27,7 @@
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
     ]
     requires-python = ">=3.10"
     dynamic = ["version", "scripts"]
@@ -55,7 +56,7 @@
         "coverage~=6.0",
         "pre-commit",
         "pytest",
-        "pytest-rerunfailures",
+        "pytest-rerunfailures>=16.7",
         "requests",
         "czespressif",
     ]
@@ -79,7 +80,7 @@
 
 [tool.commitizen]
     name = "czespressif"
-    version = "5.6.0"
+    version = "5.7.0"
     update_changelog_on_bump = true
     tag_format = "v$version"
     changelog_start_rev = "v4.2.1"
@@ -159,4 +160,4 @@
     docstring-code-format = true
 
 [tool.pytest.ini_options]
-addopts = "-sv --junitxml=test/report.xml --color=yes"
+addopts = "-sv -rfER --rerun-show-tracebacks --junitxml=test/report.xml --color=yes"

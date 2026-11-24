@@ -21,10 +21,8 @@ from .config import (
     VIEW_MEDIA_POLICY,
     VIEWPORT_HEIGHT,
     VIEWPORT_WIDTH,
-    StreamingConfig,
 )
 from .errors import (
-    GRANT_EXPIRED,
     GRANT_REVOKED,
     HANDOFF_NOT_CLAIMABLE,
     MEMBERSHIP_LOST,

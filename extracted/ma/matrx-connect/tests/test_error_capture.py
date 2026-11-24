@@ -121,6 +121,35 @@ async def test_legacy_sse_adapter_durably_captures_source_crash():
 
 @pytest.mark.asyncio
 async def test_legacy_sse_adapter_captures_and_reraises_cancellation():
+    """An OUTSIDE cancel cut the stream off: captured with its true cause, then re-raised."""
+    seen = []
+    started = asyncio.Event()
+
+    async def fake(exc, *, kind, **fields):
+        seen.append((exc, kind, fields))
+
+    async def source():
+        started.set()
+        await asyncio.sleep(30)
+        yield "never"
+
+    async def consume():
+        return [event async for event in text_chunks_to_sse(source())]
+
+    error_capture.configure_error_capture(fake, allow_in_tests=True)
+    task = asyncio.ensure_future(consume())
+    await asyncio.wait_for(started.wait(), 2)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert seen[0][1] == "stream_cancelled"
+    assert seen[0][2]["error_type"] == "stream_external_cancel"
+
+
+@pytest.mark.asyncio
+async def test_legacy_sse_adapter_files_nothing_for_a_stop_the_source_obeyed():
+    """The source raised CancelledError itself (it read a Stop): re-raised, but no error row."""
     seen = []
 
     async def fake(exc, *, kind, **fields):
@@ -129,10 +158,10 @@ async def test_legacy_sse_adapter_captures_and_reraises_cancellation():
     async def source():
         if False:
             yield "never"
-        raise asyncio.CancelledError()
+        raise asyncio.CancelledError("stopped by the person")
 
     error_capture.configure_error_capture(fake, allow_in_tests=True)
     with pytest.raises(asyncio.CancelledError):
         _ = [event async for event in text_chunks_to_sse(source())]
 
-    assert seen[0][1] == "stream_cancelled"
+    assert seen == []

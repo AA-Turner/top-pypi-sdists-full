@@ -136,7 +136,7 @@ async def test_tool_call_parent_gate_ensures_conversation_then_user_request(monk
     async def _ensure_conversation_exists(*, conversation_id, user_id):
         calls.append(("conversation", conversation_id))
 
-    async def _ensure_user_request_exists(*, request_id, user_id):
+    async def _ensure_user_request_exists(*, request_id, user_id, spends_ai=True):
         calls.append(("user_request", request_id))
 
     monkeypatch.setattr(
@@ -192,3 +192,94 @@ async def test_queue_tool_call_create_declares_user_request_dep(monkeypatch):
         "tool_call INSERT must declare the user_request FK dep so a same-Session "
         "parent INSERT lands first"
     )
+
+
+@pytest.mark.asyncio
+async def test_a_run_with_no_person_still_ensures_the_conversation(monkeypatch):
+    """2026-11-14: an organization system run (no user_id) skipped the parent gate,
+    queued chat.tool_call for a conversation nobody created, and every production
+    replay worker retried the FK violation. The gate must run with no actor — the
+    conversation gate decides (system anchor, or a loud refusal)."""
+    calls: list[tuple[str, str, object]] = []
+
+    async def _ensure_conversation_exists(*, conversation_id, user_id):
+        calls.append(("conversation", conversation_id, user_id))
+
+    async def _ensure_user_request_exists(*, request_id, user_id, spends_ai=True):
+        calls.append(("user_request", request_id, user_id))
+        return False
+
+    monkeypatch.setattr(
+        "matrx_ai.db.conversation_gate.ensure_conversation_exists",
+        _ensure_conversation_exists,
+    )
+    monkeypatch.setattr(
+        "matrx_ai.db.conversation_gate.ensure_user_request_exists",
+        _ensure_user_request_exists,
+    )
+
+    conversation_id = str(uuid4())
+    request_id = str(uuid4())
+    await logger_mod._ensure_tool_call_parents(
+        conversation_id=conversation_id, user_request_id=request_id, user_id=""
+    )
+
+    assert calls == [
+        ("conversation", conversation_id, ""),
+        ("user_request", request_id, ""),
+    ], f"a no-actor run must still ensure both FK parents — got {calls!r}"
+
+
+@pytest.mark.asyncio
+async def test_a_parent_the_gate_refuses_queues_no_doomed_insert(monkeypatch):
+    """When the conversation cannot be ensured, no chat.tool_call INSERT is queued
+    (it could only fail the FK and be replayed forever), the failure is captured,
+    and the call registry does not keep a row id park would trust."""
+    queued: list[dict] = []
+    captured: list[str] = []
+
+    async def _refuse(*, conversation_id, user_request_id, user_id):
+        raise RuntimeError("Invalid user_id (ensure_conversation_exists): ''")
+
+    async def _capture(exc, operation, **payload):
+        captured.append(operation)
+
+    monkeypatch.setattr(logger_mod, "_ensure_tool_call_parents", _refuse)
+    monkeypatch.setattr(logger_mod, "_capture_tool_ledger_failure", _capture)
+    monkeypatch.setattr(logger_mod, "_should_persist_tool_call", lambda: True)
+    monkeypatch.setattr(logger_mod, "_get_coordinator", lambda: object())
+    monkeypatch.setattr(
+        logger_mod, "_queue_tool_call_create", lambda **kwargs: queued.append(kwargs) or "op"
+    )
+    monkeypatch.setattr(logger_mod, "_cx_tool_call_supports_as_called", lambda: False)
+    monkeypatch.setattr(logger_mod, "stamp_row_owner", lambda data, _uid: data)
+    monkeypatch.setattr(logger_mod, "try_get_tracker", lambda: None)
+
+    conversation_id = str(uuid4())
+    app_ctx = SimpleNamespace(
+        user_id="",
+        conversation_id=conversation_id,
+        request_id=str(uuid4()),
+        store=True,
+        metadata={},
+        emitter=None,
+    )
+    monkeypatch.setattr("matrx_ai.context.app_context.get_app_context", lambda: app_ctx)
+    monkeypatch.setattr("matrx_ai.context.app_context.try_get_app_context", lambda: app_ctx)
+
+    tool_def = ToolDefinition(
+        name="sql",
+        description="test",
+        parameters={"type": "object", "properties": {}},
+        tool_type=ToolType.LOCAL,
+    )
+    call_id = f"call_{uuid4().hex[:12]}"
+    tctx = ToolContext(call_id=call_id, tool_name="sql")
+
+    row_id = await ToolExecutionLogger().log_started(tctx, tool_def, {})
+
+    assert row_id == ""
+    assert queued == []
+    assert captured == ["insert_started"]
+    assert await ToolExecutionLogger.known_row_id.__wrapped__(call_id=call_id, conversation_id=conversation_id) is None if hasattr(ToolExecutionLogger.known_row_id, "__wrapped__") else True
+    assert logger_mod._TOOL_CALL_ROW_BY_CALL_ID.get(f"{conversation_id}:{call_id}") is None

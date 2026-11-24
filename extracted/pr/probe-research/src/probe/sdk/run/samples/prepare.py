@@ -26,6 +26,7 @@ from .wire import (
     cap_failure_reason,
     cut_tail,
     fit_sampling,
+    fit_tools,
     fit_turns,
     replace_nul_text,
     get_default_seal_step,
@@ -120,6 +121,7 @@ class PartPreparer:
             part["log_text"] = log_text  # scrubbed below with the tail and the turns
         if isinstance(part.get("turns"), list):
             part["turns"] = fit_turns(part["turns"])
+        fit_tools(part)
         scrub_part(part, self._scrub)
         self._check_turn_capture(part)
         cap_error_message(part)

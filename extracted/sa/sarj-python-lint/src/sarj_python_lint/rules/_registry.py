@@ -249,8 +249,10 @@ from sarj_python_lint.rules.no_duplicate_field_validator_body import NoDuplicate
 from sarj_python_lint.rules.no_dynamic_builtins import NoDynamicBuiltins
 from sarj_python_lint.rules.no_exception_text_in_500_detail import NoExceptionTextIn500Detail
 from sarj_python_lint.rules.no_folded_bad_request_not_found import NoFoldedBadRequestNotFound
+from sarj_python_lint.rules.no_gather_first_exception_reraise import NoGatherFirstExceptionReraise
 from sarj_python_lint.rules.no_hasattr import NoHasattr
 from sarj_python_lint.rules.no_impossible_pydantic_field_bounds import NoImpossiblePydanticFieldBounds
+from sarj_python_lint.rules.no_injected_dependency_close import NoInjectedDependencyClose
 from sarj_python_lint.rules.no_invalid_pydantic_bypass import NoInvalidPydanticBypass
 from sarj_python_lint.rules.no_invalid_pydantic_validator_return import NoInvalidPydanticValidatorReturn
 from sarj_python_lint.rules.no_magic_arithmetic import NoMagicArithmetic
@@ -260,9 +262,11 @@ from sarj_python_lint.rules.no_psycopg_execution_in_loop import NoPsycopgExecuti
 from sarj_python_lint.rules.no_recording_store import NoRecordingStore
 from sarj_python_lint.rules.no_redundant_local_alias import NoRedundantLocalAlias
 from sarj_python_lint.rules.no_redundant_sql_alias import NoRedundantSqlAlias
+from sarj_python_lint.rules.no_retained_feature_flag import NoRetainedFeatureFlag
 from sarj_python_lint.rules.no_shallow_record_type_guard import NoShallowRecordTypeGuard
 from sarj_python_lint.rules.no_shared_mutable_default import NoSharedMutableDefault
 from sarj_python_lint.rules.no_slash_collection_root_under_prefix import NoSlashCollectionRootUnderPrefix
+from sarj_python_lint.rules.no_swallowed_exception import NoSwallowedException
 from sarj_python_lint.rules.no_sys_path_mutation import NoSysPathMutation
 from sarj_python_lint.rules.no_unknown_pydantic_validator_field import NoUnknownPydanticValidatorField
 from sarj_python_lint.rules.no_unobserved_task_exception import NoUnobservedTaskException
@@ -280,6 +284,7 @@ from sarj_python_lint.rules.prefer_exception_propagation import PreferExceptionP
 from sarj_python_lint.rules.prefer_explicit_class_contract import PreferExplicitClassContract
 from sarj_python_lint.rules.prefer_explicit_value_model_construction import PreferExplicitValueModelConstruction
 from sarj_python_lint.rules.prefer_grouped_settings import PreferGroupedSettings
+from sarj_python_lint.rules.prefer_match_none_check import PreferMatchNoneCheck
 from sarj_python_lint.rules.prefer_named_literal_alias import PreferNamedLiteralAlias
 from sarj_python_lint.rules.prefer_next_over_search_loop import PreferNextOverSearchLoop
 from sarj_python_lint.rules.prefer_nominal_mapping_keys import PreferNominalMappingKeys
@@ -300,7 +305,6 @@ from sarj_python_lint.rules.prefer_typed_cli import PreferTypedCli
 from sarj_python_lint.rules.prefer_typed_mapping_get import PreferTypedMappingGet
 from sarj_python_lint.rules.prefer_typed_settings_field import PreferTypedSettingsField
 from sarj_python_lint.rules.prefer_validated_uuid_comparison import PreferValidatedUuidComparison
-from sarj_python_lint.rules.prefer_walrus_none_guard import PreferWalrusNoneGuard
 from sarj_python_lint.rules.pytest_fixture_returns_closed_resource import PytestFixtureReturnsClosedResource
 from sarj_python_lint.rules.pytest_test_size_budget import PytestTestSizeBudget
 from sarj_python_lint.rules.redundant_test_constructor_forwarder import RedundantTestConstructorForwarder
@@ -319,11 +323,15 @@ from sarj_python_lint.rules.test_without_explicit_oracle import NoExplicitTestOr
 
 _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
     {
+        NoInjectedDependencyClose.id: NoInjectedDependencyClose,
+        NoGatherFirstExceptionReraise.id: NoGatherFirstExceptionReraise,
+        NoSwallowedException.id: NoSwallowedException,
+        NoRetainedFeatureFlag.id: NoRetainedFeatureFlag,
         ServerProxiedFileUpload.id: ServerProxiedFileUpload,
         InlineSingleUseLocal.id: InlineSingleUseLocal,
         PreferResultOverNullableException.id: PreferResultOverNullableException,
         PreferNextOverSearchLoop.id: PreferNextOverSearchLoop,
-        PreferWalrusNoneGuard.id: PreferWalrusNoneGuard,
+        PreferMatchNoneCheck.id: PreferMatchNoneCheck,
         ExitStackRequiresLifecycleOwner.id: ExitStackRequiresLifecycleOwner,
         PytestTestSizeBudget.id: PytestTestSizeBudget,
         PreferNamedLiteralAlias.id: PreferNamedLiteralAlias,

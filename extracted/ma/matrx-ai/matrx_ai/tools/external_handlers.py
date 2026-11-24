@@ -454,6 +454,7 @@ class ExternalToolAdapter:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="not_implemented",
                 message=(
                     f"Tool '{ctx.tool_name}' (source_kind='{self.source_kind}') has no handler "
@@ -522,6 +523,7 @@ async def _normalise_result(
         return ToolResult(
             success=False,
             error=ToolError(
+                reported_failure="the external handler",
                 error_type="execution",
                 message=str(raw.get("error", raw.get("result", "Unknown error"))),
             ),
@@ -621,6 +623,7 @@ async def invoke_external_handler(
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="no_handler",
                 message=(
                     f"Tool '{tool_name}' (source_kind={app_label}) requires an external handler "

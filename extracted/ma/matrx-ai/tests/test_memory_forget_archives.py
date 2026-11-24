@@ -73,7 +73,7 @@ async def test_forget_skips_an_already_archived_memory(monkeypatch: pytest.Monke
     monkeypatch.setattr(memory_module, "queue_agent_memory_update", lambda *_a, **_kw: pytest.fail("nothing live"))
     _no_removal(monkeypatch)
     result = await memory_forget({"key": "callback_rule", "scope": "user"}, ToolContext(call_id="f2"))
-    assert result.success and result.output["deleted"] == 0
+    assert not result.success and result.error.error_type == "not_found"
 
 
 @pytest.mark.asyncio

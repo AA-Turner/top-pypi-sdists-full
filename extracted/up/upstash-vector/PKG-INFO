@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: upstash-vector
-Version: 0.8.0
+Version: 0.8.1
 Summary: Serverless Vector SDK from Upstash
 License: MIT
+License-File: LICENSE
 Keywords: Upstash Vector,Serverless Vector
 Author: Upstash
 Author-email: support@upstash.com
@@ -21,6 +22,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
@@ -567,6 +570,21 @@ The default namespaces cannot be deleted.
 
 ```python
 index.delete_namespace(namespace="ns")
+```
+
+## Telemetry
+
+This library sends anonymous telemetry data to help us improve your experience.
+We collect the following:
+
+- SDK version
+- Platform (Vercel, AWS)
+- Python Runtime version
+
+You can opt out by passing `allow_telemetry=False` when initializing the Redis client:
+
+```py
+idx = Index("INDEX_URL", "INDEX_TOKEN", allow_telemetry=False)
 ```
 
 # Contributing

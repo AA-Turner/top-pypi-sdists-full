@@ -22,8 +22,7 @@ import aiohttp
 from testmu import _config
 from testmu._v4._helpers._http import create_session
 from testmu._v4._helpers._screenshot import take_screenshot
-from testmu._v4._helpers._dom_capture import capture_flat_dom
-from testmu._v4._helpers._locator_enrichment import enrich_element_locator
+from testmu._v4._helpers._perception import perception_for
 
 _log = logging.getLogger("testmu")
 
@@ -45,9 +44,9 @@ async def autoheal_locator(
         _log.debug("[autoheal] unsupported action_type=%s — skipping", action_type)
         return None
 
-    cdp = None
+    perception = perception_for(page)
     try:
-        cdp, flat_dom = await capture_flat_dom(page)
+        flat_dom = await perception.flat_dom()
         if not flat_dom:
             _log.info("[autoheal] empty flat_dom — skipping")
             return None
@@ -91,7 +90,7 @@ async def autoheal_locator(
             )
             return None
 
-        enriched = await enrich_element_locator(cdp, target, page=page)
+        enriched = await perception.enrich_locator(target)
         if not enriched:
             _log.info("[autoheal] enrichment produced no locator for index=%s", dom_index)
             return None
@@ -111,8 +110,7 @@ async def autoheal_locator(
         _log.warning("[autoheal] unexpected error: %s", e)
         return None
     finally:
-        if cdp is not None:
-            try:
-                await cdp.detach()
-            except Exception:
-                pass
+        try:
+            await perception.close()
+        except Exception:
+            pass

@@ -22,7 +22,7 @@ class _Q:
     def __init__(self, seen: dict[str, Any]) -> None:
         self.seen = seen
 
-    def filter(self, *args: Any, **kw: Any) -> "_Q":
+    def filter(self, *args: Any, **kw: Any) -> _Q:
         self.seen.update(kw)
         return self
 
@@ -64,3 +64,18 @@ async def test_a_transcript_the_person_cannot_reach_does_not_exist_for_them(wire
 
     monkeypatch.setattr(matrx_orm, "platform_access_check", refused)
     assert await sources._resolve_transcript("t1", user_id="stranger") is None
+
+
+
+async def test_a_draft_is_read_like_any_transcript(wired, monkeypatch):
+    """A draft recording is the person's own words (the recorder's state until Finalize, which almost nobody presses)."""
+    import matrx_orm
+
+    async def allowed(*_a, **_k):
+        return True
+
+    monkeypatch.setattr(matrx_orm, "platform_access_check", allowed)
+    monkeypatch.setitem(ROW, "is_draft", True)
+    out = await sources.resolve("transcript", "t1", user_id="reader-1")
+    assert out is not None and "hello world" in out.text
+    assert "is_draft" not in wired

@@ -103,10 +103,31 @@ class TestRepositoriesApi(unittest.TestCase):
         """
         pass
 
+    def test_api_v10_repositories_repository_id_scans_get(self) -> None:
+        """Test case for api_v10_repositories_repository_id_scans_get
+
+        Get repository scan history
+        """
+        pass
+
+    def test_api_v10_repositories_repository_id_scans_post(self) -> None:
+        """Test case for api_v10_repositories_repository_id_scans_post
+
+        Request a repository scan
+        """
+        pass
+
     def test_api_v10_repositories_score_get(self) -> None:
         """Test case for api_v10_repositories_score_get
 
         Get repositories score
+        """
+        pass
+
+    def test_api_v10_scan_requests_scan_request_id_get(self) -> None:
+        """Test case for api_v10_scan_requests_scan_request_id_get
+
+        Get a scan request
         """
         pass
 

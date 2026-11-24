@@ -28,9 +28,7 @@ def _agent(*, default: str = FILE_ID, explicit: str | None = None) -> Agent:
     agent = Agent(
         config=config,
         variable_defaults={
-            "current_file": AgentVariable(
-                name="current_file", default_value=default
-            )
+            "current_file": AgentVariable(declaration={"name": "current_file", "defaultValue": default})
         },
     )
     if explicit is not None:

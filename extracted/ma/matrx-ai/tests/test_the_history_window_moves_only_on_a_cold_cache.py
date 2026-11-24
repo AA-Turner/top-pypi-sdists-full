@@ -37,7 +37,7 @@ def _turn(i: int) -> list[UnifiedMessage]:
             role="tool",
             id=f"t{i}",
             position=3 * i + 1,
-            content=[ToolResultContent(tool_use_id=f"call{i}", name="fs_read", content="x" * 40, output_chars=40)],
+            content=[ToolResultContent(tool_use_id=f"call{i}", name="fs_read", content="x" * 1500, output_chars=1500)],
         ),
         UnifiedMessage(role="assistant", id=f"a{i}", position=3 * i + 2, content=[TextContent(text=f"answer {i}")]),
     ]

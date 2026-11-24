@@ -1,6 +1,6 @@
 name: Build release assets
 
-# This workflow is used by the ci and tag workflows to build all release
+# This workflow is used by the packages and tag workflows to build all release
 # assets. It can also be triggered manually.
 
 on:
@@ -21,8 +21,6 @@ on:
         required: false
       TEST_KNOWN_SECRET:
         required: false
-      TEST_UNKNOWN_SECRET:
-        required: false
       TEST_GG_VALID_TOKEN:
         required: false
       TEST_GG_VALID_TOKEN_IGNORE_SHA:
@@ -34,6 +32,8 @@ on:
         type: boolean
         default: false
 
+permissions: {}
+
 env:
   UV_VERSION: 0.10.8
   DEFAULT_PYTHON_VERSION: '3.14'
@@ -41,12 +41,14 @@ env:
 jobs:
   build_wheel_sdist:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
@@ -65,7 +67,7 @@ jobs:
           /tmp/smoke/bin/ggshield --version
 
       - name: Upload packages
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
           path: |
@@ -74,6 +76,8 @@ jobs:
   build_os_packages:
     name: Build packages
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     container: ${{ matrix.container }}
     strategy:
       fail-fast: false
@@ -99,7 +103,6 @@ jobs:
           gitguardian-api-key: ${{ secrets.GITGUARDIAN_API_KEY }}
           gitguardian-api-url: ${{ secrets.GITGUARDIAN_API_URL }}
           test-known-secret: ${{ secrets.TEST_KNOWN_SECRET }}
-          test-unknown-secret: ${{ secrets.TEST_UNKNOWN_SECRET }}
           test-gg-valid-token: ${{ secrets.TEST_GG_VALID_TOKEN }}
           test-gg-valid-token-ignore-sha: ${{ secrets.TEST_GG_VALID_TOKEN_IGNORE_SHA }}
 
@@ -107,10 +110,12 @@ jobs:
     name: Build packages
     if: ${{ !inputs.skip_macos_windows }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, macos-15-intel, macos-14]
+        os: [windows-2022, macos-15-intel, macos-26]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -123,7 +128,6 @@ jobs:
           gitguardian-api-key: ${{ secrets.GITGUARDIAN_API_KEY }}
           gitguardian-api-url: ${{ secrets.GITGUARDIAN_API_URL }}
           test-known-secret: ${{ secrets.TEST_KNOWN_SECRET }}
-          test-unknown-secret: ${{ secrets.TEST_UNKNOWN_SECRET }}
           test-gg-valid-token: ${{ secrets.TEST_GG_VALID_TOKEN }}
           test-gg-valid-token-ignore-sha: ${{ secrets.TEST_GG_VALID_TOKEN_IGNORE_SHA }}
 
@@ -170,7 +174,7 @@ jobs:
           esac
 
       - name: Download OS packages
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: os-packages-${{ matrix.runner }}
           path: dist
@@ -211,4 +215,6 @@ jobs:
   scan_vulnerabilities:
     needs: [build_os_packages, build_macos_windows_packages]
     if: ${{ !inputs.skip_macos_windows }}
+    permissions:
+      contents: read
     uses: ./.github/workflows/scan_packages.yml

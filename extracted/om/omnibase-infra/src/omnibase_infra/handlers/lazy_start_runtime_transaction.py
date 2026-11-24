@@ -33,11 +33,17 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.event_bus.enum_contract_attach_exclusion_reason import (
+    EnumContractAttachExclusionReason,
+)
 from omnibase_infra.event_bus.enum_contract_attach_status import (
     EnumContractAttachStatus,
+)
+from omnibase_infra.event_bus.model_contract_attach_exclusion import (
+    ModelContractAttachExclusion,
 )
 from omnibase_infra.event_bus.model_contract_attach_result import (
     ModelContractAttachResult,
@@ -71,9 +77,24 @@ from omnibase_infra.runtime.service_dispatch_result_applier import (
     build_contract_result_applier,
 )
 
+if TYPE_CHECKING:
+    from omnibase_core.models.core.model_deployment_topology import (
+        ModelDeploymentTopology,
+    )
+
 __all__: list[str] = ["LazyStartRuntimeTransaction"]
 
 logger = logging.getLogger(__name__)
+
+
+def _boot_leaves_unsubscribed(
+    exclusions: list[ModelContractAttachExclusion],
+) -> bool:
+    """True when the boot's own subscribe step deliberately attaches nothing (OMN-26594)."""
+    return any(
+        e.reason is EnumContractAttachExclusionReason.NO_LIVE_DISPATCHER
+        for e in exclusions
+    )
 
 
 class RecordingBus:
@@ -126,6 +147,7 @@ class NodeStart:
     applier: DispatchResultApplier | None = None
     dispatcher_ids: tuple[str, ...] = ()
     attach_results: list[ModelContractAttachResult] = field(default_factory=list)
+    exclusions: list[ModelContractAttachExclusion] = field(default_factory=list)
 
 
 class LazyStartRuntimeTransaction:
@@ -139,6 +161,8 @@ class LazyStartRuntimeTransaction:
         provisioner: ProtocolTopicProvisioner | None,
         container: object | None,
         readiness_config: ModelTopicReadinessConfig,
+        topology: ModelDeploymentTopology | None = None,
+        handler_dependencies: Mapping[str, Mapping[str, object]] | None = None,
     ) -> None:
         self._contracts = dict(contracts)
         self._bus = bus
@@ -146,6 +170,18 @@ class LazyStartRuntimeTransaction:
         self._provisioner = provisioner
         self._container = container
         self._readiness_config = readiness_config
+        # OMN-26594: the topology the kernel loaded at boot. A db_io contract wires only
+        # with it, so a lazy start that omits it fails every db_io projection it starts.
+        self._topology = topology
+        # OMN-26594: the constructor dependencies the kernel built for its runtime-owned
+        # handlers at boot. A handler that takes a pool or a producer wires only with them,
+        # so a lazy start that omits them fails node_dlq_replay_effect and
+        # node_runtime_manifest_reducer on every wake.
+        self._handler_dependencies = (
+            {name: dict(deps) for name, deps in handler_dependencies.items()}
+            if handler_dependencies is not None
+            else None
+        )
         self._starts: dict[str, NodeStart] = {}
 
     def node_engine(self, contract_name: str) -> MessageDispatchEngine | None:
@@ -163,6 +199,8 @@ class LazyStartRuntimeTransaction:
             environment=self._environment,
             container=self._container,
             subscribe_immediately=False,
+            topology=self._topology,
+            materialized_explicit_dependencies=self._handler_dependencies,
         )
         if report.total_wired != 1:
             reasons = [f"{r.outcome.value} {r.reason}" for r in report.results]
@@ -204,7 +242,18 @@ class LazyStartRuntimeTransaction:
             provisioner=self._provisioner,
             readiness_config=self._readiness_config,
             attach_results_out=start.attach_results,
+            exclusions_out=start.exclusions,
         )
+        if not start.attach_results and _boot_leaves_unsubscribed(start.exclusions):
+            # OMN-26594: the boot keeps this contract and subscribes nothing for it
+            # (a standalone runner wires no live dispatcher, OMN-17562), so there is
+            # nothing to attach and the wake is complete.
+            logger.info(
+                "Lazy start: contract '%s' has no live dispatcher to attach; the boot "
+                "subscribes nothing for it either (OMN-26594)",
+                contract_name,
+            )
+            return
         outcome = [r.status for r in start.attach_results]
         if outcome != [EnumContractAttachStatus.ATTACHED]:
             details = [r.detail for r in start.attach_results]

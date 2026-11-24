@@ -226,6 +226,9 @@ class MVPFormer(EEGModuleMixin, nn.Module, license="apache-2.0"):
        https://openreview.net/forum?id=5M1YOW3bRq
     """
 
+    _time_axis = "free"
+    _channel_axis = "free"
+
     def __init__(
         self,
         # braindecode signal parameters
@@ -318,6 +321,11 @@ class MVPFormer(EEGModuleMixin, nn.Module, license="apache-2.0"):
         self.ln_f = nn.RMSNorm(d_model, eps=1e-5)
         head_in = d_model if pooling == "mean" else self.n_chans * d_model
         self.final_layer = nn.Linear(head_in, self.n_outputs, bias=False)
+        self.on_non_divisible = self.patch_tokenizer.on_non_divisible
+        self._n_times_step = self.segment_len
+        self._min_n_times = 1 if self.on_non_divisible == "pad" else self.segment_len
+        if pooling != "mean":
+            self._channel_axis = "fixed"
 
         self._init_parameters()
 
@@ -351,9 +359,11 @@ class MVPFormer(EEGModuleMixin, nn.Module, license="apache-2.0"):
             ``ch_mask``.
         return_features : bool
             If ``True``, return the pooled last-segment embedding instead of
-            the class logits, as ``{"features": pooled, "cls_token": None}``
-            (braindecode foundation-model convention). MVPFormer has no class
-            token, hence ``cls_token`` is ``None``.
+            the class logits, as ``{"features": pooled, "cls_token": None,
+            "tokens": tokens}`` (braindecode foundation-model convention).
+            MVPFormer has no class token, hence ``cls_token`` is ``None``.
+            ``tokens`` is the decoder output of every segment, ``(batch,
+            n_chans, n_segments, d_model)``, zero for padded channels.
         ch_mask : torch.Tensor or None
             ``(batch, n_chans)`` mask of real channels, see
             :func:`~braindecode.functional.check_ch_mask`. Each sample is processed as if unpadded.
@@ -363,7 +373,7 @@ class MVPFormer(EEGModuleMixin, nn.Module, license="apache-2.0"):
         -------
         torch.Tensor or dict
             Class logits of shape ``(batch, n_outputs)``, or the feature dict
-            ``{"features", "cls_token"}`` when ``return_features`` is set.
+            ``{"features", "cls_token", "tokens"}`` when ``return_features`` is set.
         """
         # x: (batch, n_chans, n_times)
         mask = check_ch_mask(ch_mask, x)
@@ -394,9 +404,13 @@ class MVPFormer(EEGModuleMixin, nn.Module, license="apache-2.0"):
         else:
             pooled = pooled.flatten(1)  # (batch, channel * d_model)
         if return_features:
+            tokens = hidden.transpose(1, 2)  # (batch, channel, segment, d_model)
+            if mask is not None:
+                tokens = tokens.masked_fill(~mask[:, :, None, None], 0.0)
             out: Dict[str, Optional[torch.Tensor]] = {
                 "features": pooled,
                 "cls_token": None,
+                "tokens": tokens,
             }
             return out
         return self.final_layer(pooled)

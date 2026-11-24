@@ -5,7 +5,7 @@
 
 #include "BitMatrixCursor.h"
 #include "BitMatrix.h"
-#include "LogMatrix.h"
+#include "Log.h"
 #include "Point.h"
 #include "PerspectiveTransform.h"
 
@@ -24,33 +24,63 @@ namespace ZXing {
  */
 class LocalGrid
 {
+public:
 	const BitMatrix* img;
-	PointF origin, stepX, stepY;
+	const PerspectiveTransform& mod2Pix;
 	PointI dim, center;
+	PointF origin, stepX, stepY;
 
-	using Value = BitMatrixCursorF::Value;
+	enum class Axis { X, Y };
 
-	void adjustOriginAndStep(PointF& dir, int radius, std::span<const PointF> offsets);
+	// dir: bresenham direction of the step vector, modSize: mod size in steps along dir, limit: max. steps when searching for an edge
+
+	// estimate the module size from edge-to-edge distances; returns nullopt if there is no (significant) improvement
+	std::optional<double> estimateModSize(PointF dir, double modSize, int limit, int last, std::span<const PointI> offsets) const;
+	// estimate the shift of the origin along dir from the distances to the nearest edges
+	std::optional<double> estimateOriginShift(PointF dir, double modSize, int limit, int first, int last,
+											  std::span<const PointI> offsets, bool trimToGrid) const;
+	bool adjustOriginAndStep(Axis axis, int first, int last, std::span<const PointI> offsets, bool trimToGrid = false);
 	bool isTimingPatternCross(PointI p, bool isBlack, int radius, int errorThreshold = 0);
-	bool findValue(PointI p, PointI dir, Value v)
-	{
-		// check if there is a value v at p or a quarter module before or after p or p is outside the image
-		auto d = PointF(dir.x ? 0.25 : 0.0, dir.y ? 0.25 : 0.0);
-		return !img->isIn(getPos(p)) || get(p) == v || get(p + d) == v || get(p - d) == v;
-	};
 
 public:
+
+	using Value = BitMatrixCursorF::Value;
 
 	/**
 	 * @brief Constructs a LocalGrid object for mapping a region of a BitMatrix using a perspective transform.
 	 *
 	 * @param image The source BitMatrix representing the image data.
 	 * @param mod2Pix The (global) PerspectiveTransform used to map module coordinates to pixel coordinates.
-	 * @param p The logical position of the grid origin in module coordinates.
 	 * @param dim The dimensions (width and height) of the (global) grid in modules.
+	 */
+	LocalGrid(const BitMatrix& image, const PerspectiveTransform& mod2Pix, PointI dim) : img(&image), mod2Pix(mod2Pix), dim(dim)
+	{}
+
+	LocalGrid(const LocalGrid& other) = default;
+	void operator=(const LocalGrid& other)
+	{
+		assert(&mod2Pix == &other.mod2Pix && img == other.img && dim == other.dim);
+		center = other.center;
+		origin = other.origin;
+		stepX = other.stepX;
+		stepY = other.stepY;
+	}
+
+	/**
+	 * @brief Sets/finds the origin of the local grid near the specified module coordinates.
+	 *
+	 * @param p The logical position of the grid origin in module coordinates.
 	 * @param offset Optional offset in modules to specify the starting position of the search for the module center.
 	 */
-	LocalGrid(const BitMatrix& image, const PerspectiveTransform& mod2Pix, PointI p, PointI dim, PointI offset = {});
+	LocalGrid& at(PointI p, PointI offset = {});
+
+	inline void moveBy(PointI offset)
+	{
+		origin = getPos(offset);
+		center += offset;
+	}
+
+	bool tuneFromTiming(PointI start, std::string_view dirs, int radius); // returns true if the origin and step were successfully adjusted
 
 	inline PointF getPos(PointF p = {}) const { return origin + p.x * stepX + p.y * stepY; }
 	inline PointF getPos(PointI p) const { return getPos(PointF(p.x, p.y)); }
@@ -58,11 +88,24 @@ public:
 	inline Value get(PointF p) const
 	{
 		auto q = getPos(p);
-		log(q, 4);
+		// log(q, LOG_GR);
 		return img->isIn(q) ? Value{img->get(q)} : Value{};
 	}
 
 	inline Value get(PointI p) const { return get(PointF(p.x, p.y)); }
+
+	inline bool findValue(PointI p, int r, PointI dir, Value v)
+	{
+		// check if there is a value v at p or a quarter module before or after p or p is outside the image
+		auto d = PointF(dir.x ? 0.25 : 0.0, dir.y ? 0.25 : 0.0);
+		p = p + r * dir;
+		log(getPos(p), LOG_GR);
+#if 1
+		return get(p) == v || get(p + d) == v || get(p - d) == v;
+#else
+		return get(p) == v;
+#endif
+	}
 
 	/**
 	 * @brief Finds the center of a timing pattern cross in the local grid.
@@ -76,7 +119,24 @@ public:
 	 */
 	std::optional<PointF> findTimingPatternCross(bool isBlack, int radius);
 
-	using Directions = std::span<const PointI>;
+	enum Pattern
+	{
+		B = 0b11,
+		W = 0b00,
+		BW = 0b01,
+		WB = 0b10
+	};
+
+	// {"lr", BW, {1, 0}, 4}
+	struct LinePattern
+	{
+		std::string_view dirs;
+		Pattern pattern;
+		PointI start = {};
+		int last = 0, first = 0;
+
+		bool isTiming() const { return pattern == BW || pattern == WB; }
+	};
 
 	/**
 	 * @brief Searches for a specific pattern within a grid based on provided parameters.
@@ -84,8 +144,13 @@ public:
 	 * This function attempts to locate a pattern in the grid by starting from given points
 	 * and following specified directions for timing, black, and white modules.
 	 */
-	bool findPattern(int radius, PointI timingStart, Directions timingDirs, PointI blackStart, Directions blackDirs, PointI whiteStart,
-					 Directions whiteDirs);
+	std::optional<PointF> find(std::span<const LinePattern> patterns, int radius = 0);
+	std::optional<PointF> find(std::initializer_list<LinePattern> patterns, int radius = 0)
+	{
+		return find(std::span(patterns), radius);
+	}
+
+	std::optional<PointF> findCorner(int radius, PointI out);
 };
 
 } // namespace ZXing

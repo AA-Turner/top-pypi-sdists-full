@@ -116,7 +116,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_SETUP_GO")
     @builtins.classmethod
     def ACTIONS_SETUP_GO(cls) -> builtins.str:
-        '''(experimental) actions/setup-go at v7.0.0 (immutable).
+        '''(experimental) actions/setup-go at v7.1.0 (immutable).
 
         :stability: experimental
         '''

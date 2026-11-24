@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+from packaging.ranges import VersionRange
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.errors import (
     MetadataHashMismatchError,
     SiblingMetadataDivergenceError,
@@ -18,17 +18,11 @@ from nab_provider.overrides import PackageOverride
 from nab_provider.policy import DistPolicy
 from nab_provider.provider import ListingFilterCache, Provider
 from nab_provider.records import DistFile
-from nab_provider.tags import PlatformSpec, TagSet
-from nab_provider.target import ResolveTarget
+from nab_provider.tags import TagSet
 from nab_provider.testing import make_coordinator, make_metadata, make_sdist, make_wheel
 from nab_provider.yanking import append_yanked_file
 
-
-def target(python: str = "3.12", platform: str = "linux_x86_64") -> ResolveTarget:
-    """Return a declared CPython target for the provider tests."""
-    return ResolveTarget.for_declared(
-        python_version=python, spec=PlatformSpec(platform)
-    )
+from .declared_target import target
 
 
 def test_release_groups_keep_aliases_and_reject_different_local_versions() -> None:
@@ -50,6 +44,26 @@ def test_release_groups_keep_aliases_and_reject_different_local_versions() -> No
     assert same_filters is filters
     assert filters.shares_pythons
     assert filters.shares_targets
+
+
+@pytest.mark.parametrize(
+    ("saved", "listed", "requirement", "expected"),
+    [
+        ("1.0", "1", "===1.0", None),
+        ("1.0", "1", "===1", "1"),
+        ("1.0", "1", ">=1", "1"),
+        ("1.0a1", "1a1", ">=1a1", "1a1"),
+        ("1.0a1", "1a1", ">=0", "2"),
+    ],
+)
+def test_preference_uses_the_listed_version_text(
+    saved: str, listed: str, requirement: str, expected: str | None
+) -> None:
+    port = make_coordinator([make_wheel(listed), make_wheel("2")], auto_metadata=True)
+    provider = Provider(port, target(), preferences={"pkg": Version(saved)})
+
+    choice = provider.choose_version("pkg", SpecifierSet(requirement).to_range())
+    assert (str(choice) if choice is not None else None) == expected
 
 
 def test_replaced_listing_rebuilds_release_groups_and_prepared_filters() -> None:

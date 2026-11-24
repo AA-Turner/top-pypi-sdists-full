@@ -91,7 +91,12 @@ def test_an_existing_chat_keeps_its_other_run_configuration_keys_when_picks_chan
     stored = {"run_configuration": {"addedSkills": ["s1"], "outputKinds": ["timeline"]}, "k": 1}
     qh.queue_conversation_metadata_patch(cid, {"run_configuration": {"outputKinds": ["quiz_set"]}}, db_metadata=stored)
     ops = coalesce_ops(coord._session._ops)
-    meta = ops[0].payload["metadata"]
+    queued = ops[0].payload["metadata"]
+    # A row on disk is patched by key at write time (``JsonbPatch``): what lands is the patch applied to what
+    # is stored then.
+    from matrx_orm import JsonbPatch
+
+    meta = queued.apply(stored) if isinstance(queued, JsonbPatch) else queued
     assert meta["run_configuration"] == {"addedSkills": ["s1"], "outputKinds": ["quiz_set"]}
     assert meta["k"] == 1
 
@@ -106,6 +111,10 @@ def test_the_title_backfill_writes_one_key_atomically_never_the_whole_object():
     calls = {"patch": [], "update": []}
 
     class _Conv:
+        # A real manager carries its model; the backfill names it in its
+        # declared Coordinator bypass (allow_direct_coordinator_write).
+        model = _FakeConversation
+
         async def patch_jsonb_path(self, *a):
             calls["patch"].append(a)
 

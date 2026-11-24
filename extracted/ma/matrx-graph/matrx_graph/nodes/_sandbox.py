@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import functools
+import math
 import re
 import unicodedata
 from collections.abc import Iterator
@@ -255,6 +256,15 @@ def _regex_replace(value: Any, pattern: Any, new: Any) -> str | list[str] | None
     return _text_or_texts("regex_replace", value, lambda text: compiled.sub(lambda _m: new, text))
 
 
+def _regex_escape(value: Any) -> str | list[str] | None:
+    """The text with every regular-expression symbol escaped, so it matches only itself inside a pattern
+    (``regex_escape('netscape)')`` -> "netscape\\)"). One text or each text in a list; None stays None. Users:
+    a word from a person's input put inside ``matches`` / ``regex_split`` / ``regex_replace`` (live 2026-11-14:
+    "Find a person's accounts" built ``'(?<![a-z0-9])' + surname + '(?![a-z0-9])'`` and a name ending in
+    "(Netscape)" failed the whole run with "unbalanced parenthesis")."""
+    return _text_or_texts("regex_escape", value, re.escape)
+
+
 def _url_host(value: Any) -> str | None:
     """The host of a web address, lower case, without ``www.`` ("https://www.Example.com/a?b" -> "example.com";
     "example.com/shop" -> "example.com"). None stays None; text that is no address gives "". Added 2026-10-27
@@ -355,9 +365,17 @@ def _get(value: Any, path: Any, default: Any = None) -> Any:
     """The field at ``path`` (dot-separated keys; a whole-number part indexes a list), or ``default``
     when any part is missing or the value there is None (``get(p, 'title', '')``). "" / 0 / False ARE
     values. Added 2026-10-27 for the `x['k'] if 'k' in x and x['k'] else d` guard
-    (PRIMITIVES-LIST-EXPRESSIONS.md § get)."""
+    (PRIMITIVES-LIST-EXPRESSIONS.md § get).
+
+    THE SAFE DEFAULT (2026-11-07): a key spelled exactly ``path`` wins over the path — a dict keyed
+    by free text (a domain, "v1.2", a sentence) is read by its key, never split at its dots
+    (``get(goals, 'acquisition.com', '')`` found nothing before). The path is read only when no key
+    has that exact name. ``get_key`` is the literal form: one key, never a path."""
     if not isinstance(path, str) or not path:
         raise ExecutionError("get() needs a text path, like get(inputs, 'page.title', '').")
+    if "." in path and isinstance(value, dict) and path in value:
+        found = value[path]
+        return default if found is None else found
     for part in path.split("."):
         if isinstance(value, dict) and part in value:
             value = value[part]
@@ -366,6 +384,21 @@ def _get(value: Any, path: Any, default: Any = None) -> Any:
         else:
             return default
     return default if value is None else value
+
+
+def _get_key(value: Any, key: Any, default: Any = None) -> Any:
+    """The value under exactly ``key`` — one key, never a path (dots are part of the key) — or
+    ``default`` when it is missing or None. A whole number reads a list position. Added 2026-11-07
+    with ``get``'s exact-key default: the form to use whenever the key is data, not a path."""
+    if isinstance(key, bool) or not isinstance(key, str | int):
+        raise ExecutionError("get_key() needs a text key (or a list position), like get_key(goals, inputs['site'], '').")
+    if isinstance(value, dict):
+        found = value.get(key)
+    elif isinstance(value, list | tuple) and isinstance(key, int) and 0 <= key < len(value):
+        found = value[key]
+    else:
+        found = None
+    return default if found is None else found
 
 
 def _loop_source(name: str, value: Any) -> list[Any] | tuple[Any, ...] | dict[Any, Any] | set[Any]:
@@ -414,6 +447,18 @@ def _sha1(value: Any) -> str:
     return hashlib.sha1((text or "").encode("utf-8")).hexdigest()  # noqa: S324 — a key, not a secret
 
 
+def _json_text(value: Any) -> str:
+    """The value as JSON text, exactly as code's ``json.dumps(value, ensure_ascii=False)`` writes it (keys in
+    the order given, ``", "`` and ``": "`` between parts), so a step can hand an agent the same text the code
+    path hands it. A value JSON cannot hold is refused in words. Added 2026-11-10 (research coverage audit)."""
+    import json
+
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        raise ExecutionError(f"json_text() takes text, numbers, true/false, lists and objects only: {exc}") from exc
+
+
 def _fill(template: Any, item: Any, index: Any = None, extra: Any = None) -> Any:
     """A ``data.map_template`` template filled for one item — THE SAME function the step uses, so a
     folded template reads exactly as the step did (``$item`` / ``$index`` / ``$in`` / ``$optional`` /
@@ -439,6 +484,55 @@ def _instant(name: str, value: Any) -> Any:
         return datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
     except ValueError as exc:
         raise ExecutionError(f"{name}() could not read {value!r} as an ISO-8601 date/time.") from exc
+
+
+def _number_arg(name: str, value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ExecutionError(f"{name}() takes a number, got {type(value).__name__}.")
+    try:
+        return float(value)
+    except OverflowError as exc:  # a whole number too large for a decimal number (over ~1.8e308)
+        raise ExecutionError(f"{name}() takes a number up to about 1.8e308; this one has {len(str(abs(value)))} digits.") from exc
+
+
+def _log10(value: Any) -> float | None:
+    """The base-10 logarithm of a positive number; None stays None. Users: a reach or audience size on a log
+    scale (research video ranking: ``log10(views + 1) / 6``)."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        # A whole number, however large, has an exact logarithm (math.log10 reads it without a float).
+        if value <= 0:
+            raise ExecutionError(f"log10() takes a number above 0, got {value!r}.")
+        return math.log10(value)
+    x = _number_arg("log10", value)
+    if x is None:
+        return None
+    if x <= 0:
+        raise ExecutionError(f"log10() takes a number above 0, got {value!r}.")
+    return math.log10(x)
+
+
+#: ``power``'s exponent bound: a float power never allocates (unlike ``**`` on whole numbers, which the sandbox
+#: refuses), and a bounded exponent keeps every answer a finite float or a named error.
+MAX_POWER_EXPONENT = 1000.0
+
+
+def _power(base: Any, exponent: Any) -> float | None:
+    """``base`` raised to ``exponent`` as a decimal number (never a whole-number power); None when either is
+    None. Users: a half-life decay (research video freshness: ``power(0.5, years / 3)``), a compound rate."""
+    b, e = _number_arg("power", base), _number_arg("power", exponent)
+    if b is None or e is None:
+        return None
+    if abs(e) > MAX_POWER_EXPONENT:
+        raise ExecutionError(f"power() takes an exponent from -{MAX_POWER_EXPONENT:g} to {MAX_POWER_EXPONENT:g}.")
+    try:
+        result = math.pow(b, e)
+    except (OverflowError, ValueError) as exc:
+        raise ExecutionError(f"power({base!r}, {exponent!r}) has no finite answer ({exc}).") from exc
+    if math.isinf(result) or math.isnan(result):
+        raise ExecutionError(f"power({base!r}, {exponent!r}) has no finite answer.")
+    return result
 
 
 def _seconds_between(start: Any, end: Any) -> float | None:
@@ -488,15 +582,20 @@ _SAFE_HELPERS: dict[str, Any] = {
     "fill": _fill,
     "float": float,
     "get": _get,
+    "get_key": _get_key,
     "int": int,
     "intersection": _intersection,
     "join": _join,
+    "json_text": _json_text,
     "len": len,
+    "log10": _log10,
     "lower": _lower,
     "max": max,
     "min": min,
     "nfkc": _nfkc,
     "on_site": _on_site,
+    "power": _power,
+    "regex_escape": _regex_escape,
     "regex_replace": _regex_replace,
     "regex_split": _regex_split,
     "sha1": _sha1,
@@ -731,8 +830,17 @@ def max_loop_steps() -> int:
     """The live ``workflow.expression.max_loop_steps`` knob; loud once, then the starting value."""
     global _loop_budget_announced
     if _expression_knob_reader is not None:
+        from matrx_utils.knob_fallback import knob_or_declared_default_sync
+
+        reader = _expression_knob_reader
         try:
-            return max(1, int(_expression_knob_reader("max_loop_steps")))
+            return max(1, int(knob_or_declared_default_sync(
+                lambda: reader("max_loop_steps"),
+                feature="workflow.expression",
+                key="max_loop_steps",
+                declared_default=STARTING_MAX_LOOP_STEPS,
+                consequence="expression loops stop at the starting budget",
+            )))
         except Exception as exc:  # noqa: BLE001 - announced degradation, never a crash in an expression
             reason = f"reader failed: {exc!r}"
     else:
@@ -765,6 +873,33 @@ def _loop_counter(budget: int) -> Any:
     return loop
 
 
+@functools.lru_cache(maxsize=1024)
+def _prepared(expr: str) -> tuple[Any, bool]:
+    """``expr`` validated, loop-guarded and compiled ONCE: ``(code, has_loops)``.
+
+    Per-item callers (``data.rules``, ``data.filter``) evaluate one expression many times; parsing,
+    walking and compiling it each time held the event loop (system_error 8ab188a8). A refused
+    expression raises and is therefore never cached, so it is refused again, identically, each call."""
+    parsed = validate_expression(expr)
+    has_loops = any(isinstance(node, ast.comprehension) for node in ast.walk(parsed))
+    if has_loops:
+        parsed = ast.fix_missing_locations(_LoopGuard().visit(parsed))
+    return compile(parsed, "<matrx-graph-sandbox>", "eval"), has_loops
+
+
+class ExpressionFailure(ExecutionError):
+    """The sandbox refused a value, not the expression: a zero divisor or mixed-kind operands.
+
+    Carries the NAMED ``Failure`` (``division_by_zero`` / ``operand_type_mismatch``). ``safe_eval``
+    raises it for EVERY node, so none can forget the conversion; a node returns ``exc.failure`` instead
+    of letting a raw Python error end the run. It subclasses ``ExecutionError`` so a caller that has
+    not learned it yet still fails exactly as before."""
+
+    def __init__(self, failure: Any) -> None:
+        super().__init__(failure.error.message)
+        self.failure = failure
+
+
 def safe_eval(expr: str, inputs: dict[str, Any]) -> Any:
     """Evaluate a restricted-Python expression against a single name: `inputs`.
 
@@ -781,19 +916,95 @@ def safe_eval(expr: str, inputs: dict[str, Any]) -> Any:
     drifting per-node. The parse/walk half is `validate_expression`, callable
     without data by authoring-time gates.
     """
-    parsed = validate_expression(expr)
+    compiled, has_loops = _prepared(expr)
     namespace: dict[str, Any] = {"__builtins__": {}, "inputs": inputs, **_SAFE_HELPERS}
-    has_loops = any(isinstance(node, ast.comprehension) for node in ast.walk(parsed))
     if has_loops:
         # ONE globals dict: a generator expression is its own scope and reads `inputs` and the
         # helpers from globals (a separate locals dict would leave them unresolved inside it).
-        parsed = ast.fix_missing_locations(_LoopGuard().visit(parsed))
         namespace["__loop"] = _loop_counter(max_loop_steps())
-    compiled = compile(parsed, "<matrx-graph-sandbox>", "eval")
-    result = eval(compiled, namespace)  # noqa: S307
+    try:
+        result = eval(compiled, namespace)  # noqa: S307
+    except ZeroDivisionError as e:  # / // % share this one sandbox: one code covers every node
+        from matrx_graph.types.result import failure
+
+        raise ExpressionFailure(
+            failure(
+                "division_by_zero",
+                "Divided by zero: a /, // or % in the expression had 0 on its right side. "
+                "Check the divisor input, or connect this step's Error path.",
+                technical=f"ZeroDivisionError: {e}",
+            )
+        ) from e
+    except TypeError as e:  # + - * / < … or sum/min/max over mixed kinds
+        if (named := operand_type_failure(e, expr, inputs)) is None:
+            raise
+        raise ExpressionFailure(named) from e
     if isinstance(result, Iterator):
         raise ExecutionError("An expression's result cannot be a generator; write a list `[x for x in …]`.")
     return result
+
+
+def _read_input_names(expr: str) -> list[str]:
+    """Top-level input names an expression reads via ``inputs['x']`` (source order, no repeats)."""
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError:
+        return []
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "inputs"
+            and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, str)
+            and node.slice.value not in found
+        ):
+            found.append(node.slice.value)
+    return found
+
+
+_OPERAND_TYPE_WORDS = {"int": "number", "float": "number", "str": "text", "list": "list", "dict": "object", "NoneType": "nothing (empty)", "tuple": "list", "bool": "yes/no"}
+
+
+def operand_type_failure(exc: TypeError, expr: str, payload: dict[str, Any]) -> Any:
+    """A named ``operand_type_mismatch`` Failure for an operator/helper fed the wrong kinds of values.
+
+    ``+ - * / // % < <= > >=`` and ``sum``/``min``/``max`` over mixed kinds all surface as a Python
+    ``TypeError`` whose text is no sentence for a person. The sentence names the two value types and
+    which input(s) the expression reads (with what each holds); the raw text rides ``technical``.
+    Returns None for a TypeError that is not an operand mismatch (the caller keeps its generic code).
+    """
+    import re as _re
+
+    from matrx_graph.types.result import failure
+
+    text = str(exc)
+    m = _re.search(r"operand type\(s\) for [^:]+: '(\w+)' and '(\w+)'", text) or _re.search(
+        r"not supported between instances of '(\w+)' and '(\w+)'", text
+    ) or _re.search(r"can only concatenate (\w+) \(not \"(\w+)\"\)", text) or _re.search(
+        r"must be (\w+), not (\w+)", text
+    )
+    if m is None:
+        return None
+    left, right = (_OPERAND_TYPE_WORDS.get(t, t) for t in m.groups())
+    held = [
+        f"'{name}' is {_OPERAND_TYPE_WORDS.get(type(payload[name]).__name__, type(payload[name]).__name__)}"
+        for name in _read_input_names(expr)
+        if name in payload
+    ]
+    where = f" The expression reads: {', '.join(held)}." if held else ""
+    hint = (
+        " A value that came out of another step is wrapped in an object; reach the number inside it "
+        "(for example inputs['x']['value'])."
+        if "object" in (left, right)
+        else ""
+    )
+    return failure(
+        "operand_type_mismatch",
+        f"The expression mixed a {left} with a {right}, which cannot be combined.{where}{hint}",
+        technical=f"TypeError: {text}",
+    )
 
 
 # ---------------------------------------------------------------------------

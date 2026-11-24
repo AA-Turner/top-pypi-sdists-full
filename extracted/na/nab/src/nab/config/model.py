@@ -9,10 +9,8 @@ module owns the project side.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab.config.assignments",
-    "nab.config.assignments",
-    "nab_resolver.diagnostics",
     "datetime",
+    "nab.config.assignments",
     "nab.config.hooks",
     "nab.config.ladder",
     "nab.config.values",
@@ -22,20 +20,24 @@ __lazy_modules__ = (
     "nab_project.inputs",
     "nab_project.paths",
     "nab_project.workspace",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.utils",
-    "nab_provider._vendor.packaging.version",
     "nab_provider.errors",
+    "nab_resolver.diagnostics",
+    "packaging.specifiers",
+    "packaging.utils",
+    "packaging.version",
     "tomli",
 )
 
 import logging
 from datetime import datetime, timezone
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 import tomli
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
+from nab_project import toml_io
 from nab_project.build_policy import enforce_build_policy_for_targets
 from nab_project.conflicts import (
     MIN_ENGAGED_MEMBERS,
@@ -59,9 +61,6 @@ from nab_project.workspace import (
     read_workspace_members,
     workspace_local_sources,
 )
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.errors import ConfigError
 from nab_provider.policy import (
     ArchiveSource,
@@ -83,6 +82,7 @@ from nab_provider.target import (
     names_a_micro,
     python_axis_environment,
 )
+from nab_provider.value import FACTORY, FactoryDefault, factory_value
 from nab_provider.vcs_admission import VcsConfig, VcsPolicy
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 
@@ -100,7 +100,6 @@ from .ladder import (
     read_env_layer,
     reject_user_keys_in_pyproject,
     resolve_config,
-    tool_nab_section,
 )
 from .values import (
     ENVIRONMENT_KEYS,
@@ -116,8 +115,12 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from pathlib import Path
 
+    from nab_project.prepared_input import PreparedProjectInput
     from nab_provider.overrides import IndexOverride, PackageOverride
     from nab_provider.tags import PlatformSpec
+    from nab_provider.target import Matrix
+
+    from .ladder import Layer
 
 
 __all__ = [
@@ -125,6 +128,7 @@ __all__ = [
     "EnvironmentConfig",
     "NabProjectConfig",
     "ResolveMode",
+    "declared_target",
     "plan_targets",
     "read_pyproject_config",
 ]
@@ -137,7 +141,6 @@ _PROJECT_REQUIRES_PYTHON = "[project] requires-python"
 
 
 _DEFAULT_INDEXES = (IndexConfig(DEFAULT_INDEX_NAME, DEFAULT_INDEX_URL),)
-_NO_INDEX_OVERRIDES: Mapping[str, IndexOverride] = MappingProxyType({})
 _DEFAULT_VCS = VcsConfig()
 
 
@@ -289,7 +292,7 @@ class NabProjectConfig(ValueType):
         workspace: WorkspaceConfig | None = None,
         conflicts: tuple[ConflictSet, ...] = (),
         package_overrides: tuple[PackageOverride, ...] = (),
-        index_overrides: Mapping[str, IndexOverride] = _NO_INDEX_OVERRIDES,
+        index_overrides: Mapping[str, IndexOverride] | FactoryDefault = FACTORY,
         workspace_member_names: frozenset[str] = frozenset(),
     ) -> None:
         """Record the settings, each defaulting to what a bare project gets."""
@@ -322,7 +325,7 @@ class NabProjectConfig(ValueType):
         self.workspace = workspace
         self.conflicts = conflicts
         self.package_overrides = package_overrides
-        self.index_overrides = index_overrides
+        self.index_overrides = factory_value(index_overrides, dict)
         self.workspace_member_names = workspace_member_names
 
     def replace(self, **changes: object) -> NabProjectConfig:
@@ -347,6 +350,8 @@ def read_pyproject_config(
     anchor: datetime | None = None,
     cli_overrides: Mapping[str, Any] | None = None,
     input_format: InputFormat = InputFormat.PROJECT,
+    project_input: PreparedProjectInput | None = None,
+    plan_settings: Layer | None = None,
 ) -> NabProjectConfig:
     """Read the project's effective :class:`NabProjectConfig`.
 
@@ -372,7 +377,9 @@ def read_pyproject_config(
     if anchor is None:
         anchor = datetime.now(timezone.utc)
     pyproject_dir = realpath(path.parent)
-    document = _read_pyproject_document(path, input_format=input_format)
+    document = _read_pyproject_document(
+        path, input_format=input_format, project_input=project_input
+    )
     _reject_unknown_pyproject_keys(
         document,
         kind=SourceKind.SCRIPT
@@ -391,7 +398,9 @@ def read_pyproject_config(
         input_format=input_format,
     )
     with resolve_anchor(anchor):
-        layers = discover_layers(roots)
+        layers = discover_layers(roots, project_input=project_input)
+        if plan_settings is not None:
+            layers.append(plan_settings)
         cli_layer = build_cli_layer(cli_overrides or {})
         effective = resolve_config(layers, read_env_layer({}), cli_layer)
     if input_format is InputFormat.SCRIPT and any(
@@ -402,6 +411,8 @@ def read_pyproject_config(
             "build-group",
             "conflicts",
             "workspace",
+            "plans",
+            "input-sources",
         )
     ):
         message = (
@@ -421,7 +432,7 @@ def read_pyproject_config(
     )
     if input_format is InputFormat.SCRIPT:
         config = _script_python_bounds(
-            config, path, project_requires_python, effective["requires-python"]
+            config, path, project_requires_python, effective["requires-python"].value
         )
     elif discover_workspace:
         config = _apply_workspace_discovery(
@@ -434,7 +445,7 @@ def _script_python_bounds(
     config: NabProjectConfig,
     path: Path,
     script_requires_python: str | None,
-    tool_requires_python: EffectiveValue,
+    tool_requires_python: str | None,
 ) -> NabProjectConfig:
     """Combine script/tool Python bounds while retaining their diagnostic origins."""
     if script_requires_python is None:
@@ -443,14 +454,8 @@ def _script_python_bounds(
     declarations: tuple[tuple[str, str], ...] = (
         (script_requires_python, f"{path}: PEP 723 requires-python"),
     )
-    if tool_requires_python.value is not None:
-        origin = tool_requires_python.origin
-        if origin.kind is SourceKind.CLI:
-            tool_source = "--project-requires-python"
-        else:
-            key = project_key_path("requires-python", origin.kind)
-            tool_source = f"{origin.label}: {key}"
-        declarations += ((tool_requires_python.value, tool_source),)
+    if tool_requires_python is not None:
+        declarations += ((tool_requires_python, config.requires_python_source),)
 
     combined = str(SpecifierSet(",".join(value for value, _source in declarations)))
     return config.replace(
@@ -489,7 +494,7 @@ def _config_from_effective(
     if mode is ResolveMode.SPECIFIC and matrix is not None:
         if mode_value.origin.outranks(matrix_value.origin):
             matrix = None
-        elif len(matrix_from_config(matrix).expand()) > 1:
+        elif matrix_from_config(matrix).target_count() > 1:
             raise ConfigError(_specific_mode_message(matrix_value))
 
     dist_policy, trust_unverified = effective["dist-policy"].value
@@ -512,7 +517,12 @@ def _config_from_effective(
             _matrix_environment_message(matrix_value, _environment_source(effective))
         )
 
-    targets = _plan_targets(matrix, environment)
+    targets: Matrix | tuple[ResolveTarget, ...] | None = None
+    if matrix is not None:
+        targets = matrix_from_config(matrix)
+    elif environment is not None:
+        targets = _plan_targets(None, environment)
+
     build_policy = enforce_build_policy_for_targets(
         targets=targets,
         assume_universal_deps=effective["assume-universal-deps"].value,
@@ -523,9 +533,12 @@ def _config_from_effective(
         index_overrides=index_overrides,
     )
 
-    requires_python = effective["requires-python"].value
+    python_bound = effective["requires-python"]
+    requires_python = python_bound.value
     requires_python_source = _TOOL_NAB_REQUIRES_PYTHON
-    if requires_python is None and project_requires_python is not None:
+    if requires_python is not None:
+        requires_python_source = _requires_python_source(python_bound)
+    elif project_requires_python is not None:
         requires_python = project_requires_python
         requires_python_source = _PROJECT_REQUIRES_PYTHON
 
@@ -577,6 +590,24 @@ def _config_from_effective(
         conflicts=conflicts,
         package_overrides=package_overrides,
         index_overrides=index_overrides,
+    )
+
+
+def _requires_python_source(bound: EffectiveValue) -> str:
+    """Name each declaration that would have to change to widen the bound."""
+    origin = bound.origin
+    if origin.kind is SourceKind.CLI:
+        if isinstance(bound.cli_table, CliSetting):
+            return "--setting project.requires-python"
+        return "--project-requires-python"
+    if origin.kind is SourceKind.LOCK_PLAN:
+        return f"{origin.label}: settings.requires-python"
+
+    # Both project files can declare the same value at equal precedence.
+    return " and ".join(
+        f"{source.label}: {project_key_path('requires-python', source.kind)}"
+        for source, _value in bound.stack
+        if not origin.outranks(source)
     )
 
 
@@ -773,11 +804,16 @@ def _apply_workspace_discovery(
 
 
 def _read_pyproject_document(
-    path: Path, *, input_format: InputFormat = InputFormat.PROJECT
+    path: Path,
+    *,
+    input_format: InputFormat = InputFormat.PROJECT,
+    project_input: PreparedProjectInput | None = None,
 ) -> dict[str, Any]:
     """Parse ``path``, reporting an unreadable or malformed file as ``ConfigError``."""
     try:
-        return read_input_document(path, input_format=input_format)
+        return read_input_document(
+            path, input_format=input_format, project_input=project_input
+        )
     except ScriptMetadataError as exc:
         raise ConfigError(str(exc)) from exc
     except (UnicodeDecodeError, tomli.TOMLDecodeError) as exc:
@@ -799,7 +835,7 @@ def _reject_unknown_pyproject_keys(
     surfaces the category error; an unknown key fails loud rather than being
     silently dropped.
     """
-    raw = tool_nab_section(document)
+    raw = toml_io.tool_nab_section(document)
     if not isinstance(raw, dict):
         msg = f"[tool.nab] must be a table, got {type(raw).__name__}"
         raise ConfigError(msg)
@@ -863,17 +899,19 @@ def _plan_targets(
     """
     if matrix is not None:
         return tuple(matrix_from_config(matrix).expand())
-    if environment is None:
-        return (ResolveTarget.for_host(),)
-    if environment.platform is not None:
-        return (_declared_target(environment),)
-    # An implementation without a platform is rejected at parse, so a
-    # remaining environment declares the python axis and nothing else.
-    assert environment.python is not None
-    return (ResolveTarget.for_host_python(environment.python),)
+    if environment is not None:
+        if environment.platform is not None:
+            return (declared_target(environment),)
+        if environment.implementation is not None:
+            msg = f"implementation {environment.implementation!r} needs a platform"
+            raise ConfigError(msg)
+        if environment.python is not None:
+            return (ResolveTarget.for_host_python(environment.python),)
+
+    return (ResolveTarget.for_host(),)
 
 
-def _declared_target(environment: EnvironmentConfig) -> ResolveTarget:
+def declared_target(environment: EnvironmentConfig) -> ResolveTarget:
     """Build the one target ``[tool.nab.environment]`` declares.
 
     The platform is named, so the target's markers and wheel tags are
@@ -883,7 +921,10 @@ def _declared_target(environment: EnvironmentConfig) -> ResolveTarget:
     (``"3.12.0"``, ``"3.14rc1"``) is pinned whole; a bare ``"3.12"`` resolves
     as a micro interval.
     """
-    assert environment.platform is not None  # the caller checked
+    if environment.platform is None:
+        msg = "a declared target needs an environment platform"
+        raise ConfigError(msg)
+
     python = environment.python or host_environment()["python_full_version"]
     axis = python_axis_environment(python)
     implementation = environment.implementation or "cpython"

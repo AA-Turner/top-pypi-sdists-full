@@ -48,10 +48,23 @@ from matrx_graph.types.result import (
     success,
 )
 from matrx_graph.types.run import Run
+from matrx_graph.types.input_surface import (
+    declared_input,
+    declared_inputs,
+    input_type,
+    input_multiple,
+    input_picks,
+    input_picks_type_into,
+    input_options,
+    input_option_labels,
+    input_accept,
+    input_choice_style,
+    input_hint,
+)
 from matrx_graph.types.send import Send
 from matrx_graph.types.usl import USLFieldHints, field_extras, model_usl_descriptor
 from matrx_graph.types.value_objects import Timing
-from matrx_graph.types.variables import VariableSpec, var_ref
+from matrx_graph.types.variables import var_ref
 
 __all__ = [
     "ARCHETYPES",
@@ -95,7 +108,17 @@ __all__ = [
     "Timing",
     "USLFieldHints",
     "Value",
-    "VariableSpec",
+    "declared_input",
+    "declared_inputs",
+    "input_type",
+    "input_multiple",
+    "input_picks",
+    "input_picks_type_into",
+    "input_options",
+    "input_option_labels",
+    "input_accept",
+    "input_choice_style",
+    "input_hint",
     "Viewport",
     "coerce_to_json",
     "failure",

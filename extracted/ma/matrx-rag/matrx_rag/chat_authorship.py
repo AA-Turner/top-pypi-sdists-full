@@ -48,6 +48,11 @@ class TypedChatPolicy:
     template_repeat_runs: int
     #: How many of the same agent's other runs are read to find templates.
     template_scan_runs: int
+    #: A single person message longer than this is a paste, not typing: dropped whole (``oversize_message``).
+    max_message_chars: int
+    #: The typed text of one conversation stops here: lines are kept oldest first, the rest dropped
+    #: (``conversation_cap``). Oldest first keeps a capped chat's hash stable, so its later turns never re-embed.
+    max_conversation_chars: int
 
 
 #: The columns :func:`conversation_skip_reason` reads (select exactly these).
@@ -140,29 +145,48 @@ def typed_parts(
     defaults: Mapping[str, str],
     other_runs: Iterable[set[str]],
     repeat_runs: int,
+    max_message_chars: int = 0,
+    max_conversation_chars: int = 0,
 ) -> tuple[list[str], dict[str, int]]:
     """The person's typed text for one conversation, as lines, plus what was dropped and why.
 
     ``turns`` are the person's own messages (already projected to their words); ``other_runs`` is
     one set of lines per OTHER run of the same agent. A line present in ``repeat_runs`` runs
-    (this one included) is a template and dropped; so is a variable value equal to its default."""
-    dropped = {"default_value": 0, "template_line": 0}
+    (this one included) is a template and dropped; so is a variable value equal to its default.
+    A turn or value longer than ``max_message_chars`` is a paste and dropped whole; the kept lines stop at
+    ``max_conversation_chars`` (oldest first). ``0`` means no limit (the host's policy always passes its knobs)."""
+    dropped = {"default_value": 0, "template_line": 0, "oversize_message": 0, "conversation_cap": 0}
     candidates: list[str] = []
     for name, value in variable_values(variables):
         if defaults.get(name) == value:
             dropped["default_value"] += 1
             continue
+        if max_message_chars > 0 and len(value) > max_message_chars:
+            dropped["oversize_message"] += 1
+            continue
         candidates.extend(lines_of(value))
     for turn in turns:
+        if max_message_chars > 0 and len(turn) > max_message_chars:
+            dropped["oversize_message"] += 1
+            continue
         candidates.extend(lines_of(turn))
     seen_in: dict[str, int] = {}
     for run in other_runs:
         for ln in run:
             seen_in[ln] = seen_in.get(ln, 0) + 1
     kept: list[str] = []
+    total = 0
+    capped = False
     for ln in candidates:
         if repeat_runs > 0 and 1 + seen_in.get(ln, 0) >= repeat_runs:
             dropped["template_line"] += 1
             continue
+        # Once the cap is reached EVERY later line is dropped (a shorter later line must not slip in,
+        # or a capped chat's hash would move on every turn and re-embed).
+        if capped or (max_conversation_chars > 0 and total + len(ln) + 1 > max_conversation_chars):
+            capped = True
+            dropped["conversation_cap"] += 1
+            continue
+        total += len(ln) + 1
         kept.append(ln)
     return kept, dropped

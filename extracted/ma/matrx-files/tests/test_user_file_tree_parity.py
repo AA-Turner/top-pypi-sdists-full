@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 
 import pytest
 
@@ -47,10 +46,8 @@ _REQUIRED_ENV = ("SUPABASE_MATRIX_HOST", "SUPABASE_MATRIX_PASSWORD")
 #: — the corpus where a visibility rule's edges actually bite). Read 2026-09-21.
 _OWNER = "87a6e699-3622-4869-8843-d0867456c0dd"
 
-#: The names of the deleted second rule. Their return would re-create the exact
-#: browser/disk disagreement D16 forbids, so their ABSENCE is asserted rather
-#: than their behavior transcribed.
-_DELETED_TS_RULE = ("isHiddenFromUserTree", "isFastFirePath")
+#: The browser's no-second-visibility-rule scan is a host check:
+#: tests/package_host_contracts/test_matrx_files_host.py.
 
 
 def _skip_without_db() -> None:
@@ -131,48 +128,3 @@ async def test_the_browsers_rendered_set_equals_the_feeds():
         f"{explain_rule()}"
     )
     assert len(expected) == len(tree)
-
-
-def test_the_browser_keeps_no_second_visibility_rule():
-    """The deleted TypeScript rule has not come back.
-
-    Cross-repo and therefore conditional: it runs when the matrx-frontend
-    checkout sits beside this one, and SKIPS with the reason when it does not —
-    never a quiet pass. matrx-frontend guards its own remaining mirror (the one
-    deliberate realtime-payload copy) with ``pnpm check:user-visible-parity``.
-    """
-    # The independence gate copies this package into a shallow temporary
-    # directory, so a fixed parents[4] lookup raises before this optional
-    # cross-repository witness can honestly skip.
-    checkout_parent = next(
-        (
-            parent
-            for parent in Path(__file__).resolve().parents
-            if (parent / "matrx-frontend" / "features" / "files").is_dir()
-        ),
-        None,
-    )
-    frontend = (
-        checkout_parent / "matrx-frontend" / "features" / "files"
-        if checkout_parent is not None
-        else None
-    )
-    if frontend is None:
-        pytest.skip(
-            "matrx-frontend checkout not found beside this package — this half of D16 is "
-            "UNMEASURED on this machine, not proven"
-        )
-    offenders: list[str] = []
-    for path in frontend.rglob("*.ts*"):
-        text = path.read_text(encoding="utf-8", errors="replace")
-        for name in _DELETED_TS_RULE:
-            # A tombstone comment naming the deleted function is fine; a
-            # declaration of it is the second rule coming back.
-            if f"function {name}" in text or f"const {name} =" in text:
-                offenders.append(f"{path}: {name}")
-    assert not offenders, (
-        "the browser has declared a second visibility rule again "
-        f"({offenders}). D16 allows ONE predicate, in the database, shared with "
-        "the feed; a TypeScript rule applied after the RPC hides rows the daemon "
-        "syncs to disk."
-    )

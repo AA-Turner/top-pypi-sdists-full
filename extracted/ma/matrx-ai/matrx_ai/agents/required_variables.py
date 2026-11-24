@@ -20,6 +20,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from matrx_ai.providers.caller_refusal import register_caller_refusal_code
+
 _enforcement_reader: Callable[[], bool] | None = None
 
 
@@ -66,6 +68,13 @@ class _RequiredMissingInfo:
 
 class RequiredVariablesMissing(ValueError):
     """The run did not start: required inputs have no value. Retrying without them cannot help."""
+
+    # A caller refusal, not a crash: the stream still ends with ``required_variables_missing`` and the names to fill,
+    # but no ``stream_crash`` system_error is filed and no workflow retries it (2026-11-03/04 live: every run started
+    # without its declared inputs landed on the error queue as an urgent stream crash).
+    is_caller_refusal = True
+    #: The code the stream ends with, registered in the ONE caller-refusal registry so a code-only consumer never retries it.
+    code = register_caller_refusal_code("required_variables_missing")
 
     def __init__(self, missing: list[str], *, agent_name: str | None = None) -> None:
         self.missing = list(missing)

@@ -44,7 +44,7 @@ from typing import Literal
 from matrx_utils import vcprint
 from matrx_utils.ctx import public_media_scope as public_media_scope
 from matrx_utils.ctx import public_media_scope_active as public_media_scope_active
-from matrx_utils.row_access import ShownToLiteral
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT, ShownToLiteral
 
 from matrx_ai._ext import get_ext, has_ext
 
@@ -116,7 +116,7 @@ class MediaPersistResult:
     cdn_url: str | None = None  # permanent CDN URL (public only)
     download_url: str | None = None  # durable attachment-disposition URL
     published_to_web: bool = False
-    shown_to: str | None = "only_me"
+    shown_to: str | None = None
     file_name: str | None = None
     size_bytes: int | None = None
     # Phase 3b: intrinsic dimensions/duration/page_count probed at write
@@ -204,7 +204,7 @@ class AIMediaHandler:
             body,
             mime_type=effective_mime,
             published_to_web=False,
-            shown_to="only_me",
+            shown_to=SHOWN_TO_TYPE_DEFAULT,
             change_summary="AI-generated media",
             metadata={"source": "ai_media", "mime_type": effective_mime},
         )
@@ -235,6 +235,7 @@ class AIMediaHandler:
         provider: str | None = None,
         feature: str = "ai_images",
         extra_metadata: dict | None = None,
+        file_id: str | None = None,
     ) -> MediaPersistResult:
         """Persist + return the full envelope (file_id + URL flavours).
 
@@ -272,6 +273,11 @@ class AIMediaHandler:
             mime_type,
             audio_format,
         )
+        if file_id:
+            # A caller that MINTED the id before the bytes move (a person's attachment: its label
+            # names the file while the upload runs beside the provider call — CGU-10 AND-IMG14 #3)
+            # gets exactly that id as the row id and the S3 key.
+            new_file_id = str(file_id)
 
         # Filename: prompt-derived slug if we have a prompt, otherwise
         # the file_id (legacy behavior). Both get the right extension
@@ -311,8 +317,11 @@ class AIMediaHandler:
         if provider:
             meta["provider"] = provider
         if extra_metadata:
-            for k, v in extra_metadata.items():
-                meta.setdefault(k, v)
+            # The CALLER's words win (CGU-10 AND-IMG13 #6): ``setdefault`` kept the base
+            # ``source: ai_media`` over every caller's own source, so a person's stored attachment
+            # (``inline_media_part`` / ``confidential_inline_attachment``) and a tool's blob never
+            # said where they came from.
+            meta.update(extra_metadata)
 
         # Pin the cld_files row id + S3 key to `new_file_id` so the row
         # is born canonical (storage_uri == canonical_storage_uri ==
@@ -335,7 +344,9 @@ class AIMediaHandler:
 
         # Load the freshly-written record so build_urls_for_record_async
         # sees the same shape it sees everywhere else (no inferred values).
-        record = await fm.sync_engine.db.get_file_async(result.file_id)
+        # The id is the one this call just wrote (never caller-supplied), so the
+        # gate's unchecked read-back door is the honest one.
+        record = await file_service.read_record_unchecked(result.file_id)
         if record is None:
             record = {
                 "id": result.file_id,
@@ -481,6 +492,7 @@ class AIMediaHandler:
         # share-page HTML); a genuinely-external URL falls back to a direct
         # fetch inside the helper. Used e.g. by Groq transcription to pull an
         # audio URL before sending bytes to the provider.
+        _refuse_off_the_plain_sync_path()
         content = AIMediaHandler._resolve_url_to_bytes_sync(url)
         if target_format == "base64":
             return base64.b64encode(content).decode("utf-8")
@@ -555,11 +567,12 @@ class AIMediaHandler:
             # through to a direct fetch below.
 
         import httpx
-        from matrx_utils.outbound_guard import public_only_client
+        from matrx_utils.http_client import shared_client
 
         # The URL came from a provider or a model: every hop must be a public
         # address, connected to the exact IP that was checked.
-        async with public_only_client(
+        async with shared_client(
+            public_only=True,
             timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
             follow_redirects=True,
         ) as client:
@@ -684,18 +697,13 @@ class AIMediaHandler:
             return content, source_mime
 
         try:
-            import io
-
-            from pydub import AudioSegment
+            from matrx_files.ffmpeg import transcode_audio_bytes
 
             source_format = source_base.split("/")[-1]
             if source_format == "mpeg":
                 source_format = "mp3"
 
-            audio = AudioSegment.from_file(io.BytesIO(content), format=source_format)
-            output = io.BytesIO()
-            audio.export(output, format=target_format)
-            return output.getvalue(), target_mime
+            return transcode_audio_bytes(content, source_format=source_format, target_format=target_format), target_mime
 
         except Exception as e:
             vcprint(
@@ -813,6 +821,7 @@ async def save_media_envelope_async(
     provider: str | None = None,
     feature: str = "ai_images",
     extra_metadata: dict | None = None,
+    file_id: str | None = None,
 ) -> MediaPersistResult:
     """Async persist + return the canonical envelope.
 
@@ -842,11 +851,47 @@ async def save_media_envelope_async(
         provider=provider,
         feature=feature,
         extra_metadata=extra_metadata,
+        file_id=file_id,
     )
+
+
+def _refuse_off_the_plain_sync_path() -> None:
+    """Refuse the SYNC fetch from a running event loop or an ``asyncio.to_thread`` worker.
+
+    The sync resolver reads our own CDN/share URLs with the sync ORM, which cannot see the database
+    from a worker thread; the failure used to be swallowed and our own file was reported missing
+    (``cdn_url_not_in_files``). Fail loudly instead and point at ``fetch_media_async``.
+    """
+    import threading
+
+    try:
+        asyncio.get_running_loop()
+        on_loop = True
+    except RuntimeError:
+        on_loop = False
+    if on_loop or threading.current_thread().name.startswith("asyncio_"):
+        raise RuntimeError(
+            "fetch_media (sync) was called from "
+            + ("a running event loop" if on_loop else "an asyncio worker thread")
+            + "; it cannot read our own files there. Use `await fetch_media_async(...)` on the loop."
+        )
 
 
 def fetch_media(url: str, target_format: Literal["base64", "bytes"] = "base64") -> str | bytes:
     return AIMediaHandler.get_instance().fetch_media(url, target_format)
+
+
+async def fetch_media_async(url: str, target_format: Literal["base64", "bytes"] = "bytes") -> str | bytes:
+    """The async twin of ``fetch_media`` — the one to use from a running event loop.
+
+    ``fetch_media`` resolves our own CDN/share URLs with the SYNC ORM; run from a worker thread
+    (``asyncio.to_thread``) it cannot see the database, the lookup error is swallowed and our own
+    file is reported ``cdn_url_not_in_files`` (live 500, ``/audio/transcribe-url``, 2026-11-14).
+    """
+    content = await AIMediaHandler._resolve_url_to_bytes_async(url)
+    if target_format == "base64":
+        return base64.b64encode(content).decode("utf-8")
+    return content
 
 
 # ============================================================================

@@ -283,6 +283,35 @@ def _stringify(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
+#: ``{{!name}}`` (escape, space-free name) or ``{{name}}`` (a fill).
+_DECLARED_PLACEHOLDER = re.compile(
+    r"\{\{!([^\s{}]+)\}\}|\{\{\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\}\}"
+)
+
+
+def render_declared_placeholders(text: str, values: dict[str, Any]) -> str:
+    """THE VARIABLE RULE for a step that renders its own text (Ask AI prompt / system
+    instruction): only a ``{{name}}`` whose name is a key the step was handed (dotted paths
+    walk records) is filled, once; a declared name with no value becomes ``""``; every other
+    ``{{...}}`` is left exactly as written; ``{{!name}}`` becomes ``{{name}}``."""
+
+    def _sub(match: re.Match[str]) -> str:
+        escaped, name = match.group(1), match.group(2)
+        if escaped is not None:
+            return "{{" + escaped + "}}"
+        current: Any = values
+        for part in name.split("."):
+            if isinstance(current, dict) and part in current:
+                current = current[part]
+            elif current is values:
+                return match.group(0)  # not a declared name: left as written
+            else:
+                return ""
+        return _stringify(current)
+
+    return _DECLARED_PLACEHOLDER.sub(_sub, text)
+
+
 def stable_id(parts: Any, *, namespace: Any = None, join: Any = None) -> str:
     """``$uuid5``: the id ``uuid5(namespace, text)`` — the same values always name the same
     record. ``join="json"`` (default) makes ``text`` the parts as one JSON list (collision-free);

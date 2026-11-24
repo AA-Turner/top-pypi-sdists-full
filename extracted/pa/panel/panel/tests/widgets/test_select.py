@@ -16,6 +16,44 @@ def test_list_constructor(widget):
     select = widget(options=['A', 1], value=1)
     assert select.options == ['A', 1]
 
+@pytest.mark.parametrize('size', [1, 3])
+@pytest.mark.parametrize(('options', 'expected'), [
+    ({'All': None, 'A': 'A'}, 'None'),
+    ([None, 'A'], 'None'),
+    ({'All': None, 'Text': 'None', 'A': 'A'}, 'All'),
+])
+def test_select_none_option(options, expected, size, document, comm):
+    select = Select(options=options, value=None, size=size)
+
+    widget = select.get_root(document, comm=comm)
+
+    assert select.value is None
+    assert widget.value == expected
+
+    select.value = 'A'
+    assert widget.value == 'A'
+
+    select.value = None
+    assert widget.value == expected
+
+    select._process_events({'value': 'A'})
+    assert select.value == 'A'
+
+    select._process_events({'value': expected})
+    assert select.value is None
+
+@pytest.mark.parametrize('groups', [
+    {'First': {'All': None}, 'Second': {'A': 'A'}},
+    {'First': [None], 'Second': ['A']},
+])
+def test_select_none_group_option(groups, document, comm):
+    select = Select(groups=groups, value=None)
+
+    widget = select.get_root(document, comm=comm)
+
+    assert select.value is None
+    assert widget.value == 'None'
+
 @pytest.mark.parametrize('widget', [AutocompleteInput, Select])
 def test_select_float_option_with_equality(widget):
     opts = {'A': 3.14, '1': 2.0}
@@ -108,6 +146,24 @@ def test_autocomplete(document, comm):
     select.value = opts['A']
     assert widget.value == 'A'
 
+
+@pytest.mark.parametrize('limit', [None, 1, 3])
+def test_autocomplete_max_completions(document, comm, limit):
+    select = AutocompleteInput(options=['Alpha', 'Alpine', 'Alps'], max_completions=limit)
+    widget = select.get_root(document, comm=comm)
+
+    assert widget.max_completions == limit
+    select.max_completions = 2
+    assert widget.max_completions == 2
+    select.max_completions = None
+    assert widget.max_completions is None
+
+
+@pytest.mark.parametrize('limit', [0, -1])
+def test_autocomplete_max_completions_invalid(limit):
+    with pytest.raises(ValueError, match='max_completions'):
+        AutocompleteInput(max_completions=limit)
+
 def test_autocomplete_unrestricted(document, comm):
     opts = {'A': 'a', '1': 1}
     select = AutocompleteInput(options=opts, value=opts['1'], label='Autocomplete', restrict=False)
@@ -127,6 +183,16 @@ def test_autocomplete_unrestricted(document, comm):
 
     select.value = 'bar'
     assert widget.value == 'bar'
+
+def test_autocomplete_unrestricted_non_string_value(document, comm):
+    autocomplete = AutocompleteInput(options=[1251, 1561], restrict=False)
+
+    model = autocomplete.get_root(document, comm=comm)
+
+    autocomplete.value = 1399
+
+    assert autocomplete.value == 1399
+    assert model.value == '1399'
 
 def test_autocomplete_restricted_reset_on_new_options(document, comm):
     opts = {'A': 'a', '1': 1}
@@ -196,6 +262,22 @@ def test_select_groups_dict_options(document, comm):
 
     select.value = groups['A']['a']
     assert widget.value == str(groups['A']['a'])
+
+
+def test_select_groups_duplicate_labels(document, comm):
+    select = Select(groups={'G1': {'T1': 1, 'T2': 2}, 'G2': {'T1': 3, 'T4': 4}})
+
+    widget = select.get_root(document, comm=comm)
+
+    assert widget.options == {
+        'G1': [('1', 'T1'), ('2', 'T2')], 'G2': [('3', 'T1'), ('4', 'T4')]
+    }
+
+    select._process_events({'value': '1'})
+    assert select.value == 1
+
+    select._process_events({'value': '3'})
+    assert select.value == 3
 
 
 def test_select_change_groups(document, comm):

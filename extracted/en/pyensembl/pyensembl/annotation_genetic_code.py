@@ -1,7 +1,6 @@
 """Read sparse transcript/CDS genetic-code declarations without cache writes."""
 
 from contextlib import closing
-import gzip
 import json
 from os import fspath
 from os.path import join, isfile, abspath
@@ -17,13 +16,10 @@ from .genetic_code import translation_table
 
 
 _COLUMNS = ("transl_table", "translation_table")
-_DECLARATION = re.compile(r"(?:^|;)\s*(?:transl_table|translation_table)\b")
-_ATTRIBUTE = re.compile(
-    r'''(?:^|;)\s*([^\s;]+)[ \t]+(?:"([^"\n]*)"|'([^'\n]*)'|([^;\n]*))\s*(?=;|$)'''
-)
 
 
-def _add(result, identifier, values):
+def add_translation_table_declarations(result, identifier, values):
+    """Record raw GTF translation-table attribute values for a transcript."""
     # gtfparse joins repeated attributes with commas. Retain every declaration
     # so agreement/conflicts have identical semantics in new and old indexes.
     values = [item.strip() for value in values if value is not None
@@ -50,7 +46,8 @@ class AnnotationGeneticCodes:
         self._state = None
         self._values = {}
 
-    def _file_state(self):
+    def file_state(self):
+        """Return ``(gtf_fingerprint, index_fingerprint)`` for cache invalidation."""
         try:
             source = file_fingerprint(self.path)
         except FileNotFoundError as error:
@@ -59,7 +56,8 @@ class AnnotationGeneticCodes:
             ) from error
         return source, file_fingerprint(self.index) if isfile(self.index) else None
 
-    def _read_index(self):
+    def read_index(self):
+        """Read sparse transcript/CDS translation-table declarations from SQLite, or None if unavailable."""
         if not isfile(self.index):
             return None
         connection = datacache.connect_if_correct_version(
@@ -93,42 +91,38 @@ class AnnotationGeneticCodes:
                     'SELECT transcript_id, transl_table, translation_table FROM "%s" '
                     "WHERE COALESCE(transl_table, '') != '' OR COALESCE(translation_table, '') != ''" % feature
                 ):
-                    _add(result, row[0], row[1:])
+                    add_translation_table_declarations(result, row[0], row[1:])
             return result
 
-    def _read_gtf(self):
-        with open(self.path, "rb") as handle:
-            compressed = handle.read(2) == b"\x1f\x8b"
-        opener = gzip.open if compressed else open
+    def read_gtf(self):
+        """Read transcript/CDS translation-table declarations directly from the GTF via gtfparse."""
+        # Imported lazily so plain `import pyensembl` does not load pandas/PyArrow.
+        from gtfparse import read_gtf
+
+        frame = read_gtf(
+            self.path,
+            result_type="pandas",
+            features={"transcript", "CDS"},
+            usecols=["transcript_id", *_COLUMNS],
+            cast_version_columns=False,
+        )
         result = {}
-        with opener(self.path, "rt", encoding="utf-8") as handle:
-            for number, line in enumerate(handle, 1):
-                if line.startswith("#"):
-                    continue
-                fields = line.rstrip("\r\n").split("\t", 8)
-                if len(fields) != 9 or fields[2] not in ("transcript", "CDS"):
-                    continue
-                attributes = fields[8]
-                if not any(column in attributes for column in _COLUMNS):
-                    continue
-                parsed = list(_ATTRIBUTE.finditer(attributes))
-                def value(match):
-                    return next(group for group in match.groups()[1:] if group is not None)
-                identifiers = {value(match) for match in parsed if match[1] == "transcript_id"}
-                values = [value(match) for match in parsed if match[1] in _COLUMNS]
-                if _DECLARATION.search(_ATTRIBUTE.sub("", attributes)) or (values and len(identifiers) != 1):
-                    raise ValueError("Malformed translation-table declaration at %s:%d" % (self.path, number))
-                if values:
-                    _add(result, identifiers.pop(), values)
+        for row in frame.to_dict("records"):
+            identifier = row.get("transcript_id")
+            values = [row.get(column) for column in _COLUMNS]
+            if any(v is not None and str(v).strip() for v in values):
+                if not identifier or "," in str(identifier):
+                    raise ValueError("Malformed translation-table declaration in %s" % self.path)
+            add_translation_table_declarations(result, identifier, values)
         return result
 
     def get(self, transcript_id):
-        state = self._file_state()
+        state = self.file_state()
         if state != self._state:
-            values = self._read_index()
+            values = self.read_index()
             if values is None:
-                values = self._read_gtf()
-            if self._file_state() != state:
+                values = self.read_gtf()
+            if self.file_state() != state:
                 raise OSError("Annotation changed while reading translation-table declarations")
             self._values, self._state = values, state
         codes = set()

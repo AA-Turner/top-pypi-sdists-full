@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+import collections
+import contextlib
 import itertools
 import math
+import numbers
 import operator
 import sys
 import typing
@@ -18,51 +21,35 @@ from urwid.canvas import CanvasCombine, CompositeCanvas, SolidCanvas
 from urwid.command_map import Command
 
 from .attr_map import AttrMap, AttrMapError, _attr_map_dict
-from .columns import Columns
+from .columns import Columns, _shrink_by_slack
 from .constants import Align, Sizing, WHSettings, WrapMode
-from .container import _WeakCallback
+from .container import WidgetContainerMixin, _WeakCallback
 from .list_walker import SimpleFocusListWalker
 from .listbox import ListBox
-from .scrollable import SCROLLBAR_LEFT, ScrollBar
+
+# _ScrollBarOptions is imported at run time, so code that imports it from this module keeps working.
+from .scrollable import SCROLLBAR_LEFT, ScrollBar, _scrollbar_arguments, _ScrollBarOptions
 from .text import Text
 from .widget import Widget, WidgetError, WidgetWrap
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Collection, Hashable, Iterable, Iterator, Sequence
 
+    from _typeshed import SupportsRichComparison
+
     from urwid.canvas import Canvas
     from urwid.util import _TagMarkup
 
     from .attr_map import _AttrMapLike
     from .container import _UnfocusedFocusAttrFunc
+    from .list_walker import ListBoxContentsProto
+    from .widget import AbstractWidget
 
     # A cell as a caller gives it: a widget, or text markup that becomes a text cell.
     _Cell: typing.TypeAlias = Widget | _TagMarkup
 
 __all__ = ("Table", "TableColumn", "TableError", "TableLayout", "TableRow")
 
-
-class _ScrollBarOptions(typing.TypedDict, total=False):
-    """The :class:`ScrollBar` parameters, prefixed with ``scrollbar_`` as :class:`Table` takes them.
-
-    ``visible`` and ``delegate_selectable`` are left out:
-    the table decides when the scrollbar is drawn, and :meth:`Table.selectable` asks the rows.
-    """
-
-    scrollbar_thumb_char: str
-    scrollbar_trough_char: str
-    scrollbar_side: Literal["left", "right"]
-    scrollbar_width: int
-    scrollbar_scroll_by_focus: bool
-    scrollbar_end_markers: tuple[str, str] | None
-    scrollbar_attr: Hashable
-    scrollbar_focus_attr: Hashable
-    scrollbar_thumb_attr: Hashable
-    scrollbar_thumb_focus_attr: Hashable
-    scrollbar_marker_dim_attr: Hashable
-
-
-_SCROLLBAR_OPTIONS: typing.Final = frozenset(_ScrollBarOptions.__optional_keys__)
 
 # The number of maxcol values whose allocated widths a layout keeps:
 # a table renders at one width, and a dialog asks for the natural width beside it.
@@ -101,6 +88,8 @@ class TableColumn(typing.NamedTuple):
 
     *align* and *wrap* apply to the cells given as text; a cell given as a widget keeps its own.
     *attr* maps every cell of the column; :class:`TableRow` gives the order in which it and the row maps apply.
+    *priority* decides which column a lack of room hides first, see :meth:`TableLayout.widths`.
+    *key* names the column wherever a column index is accepted, see :meth:`TableLayout.column_index`.
     A :class:`TableLayout` validates the specification when it takes it.
     """
 
@@ -108,11 +97,18 @@ class TableColumn(typing.NamedTuple):
     label: _TagMarkup = ""
     width: Literal[WHSettings.PACK] | int | tuple[Literal[WHSettings.WEIGHT], int | float] = WHSettings.PACK
     #: The narrowest a PACK or WEIGHT column becomes before the table hides a column instead.
-    min_width: int = 1
+    #: A PACK column whose cells and label are narrower keeps the width of its widest cell and label instead, unless
+    #: it holds a cell that cannot be measured, which counts as this wide.
+    #: :attr:`WHSettings.PACK`, for a PACK column only, keeps it as wide as its widest cell and its label.
+    min_width: int | Literal[WHSettings.PACK] = 1
     align: Literal[Align.LEFT, Align.CENTER, Align.RIGHT] = Align.LEFT
     wrap: Literal[WrapMode.SPACE, WrapMode.CLIP, WrapMode.ELLIPSIS] = WrapMode.CLIP
     #: Attribute map of the column's cells; the header label, a footer built from cells and a span row do not use it.
     attr: _AttrMapLike | None = None
+    #: Columns are hidden for lack of room in ascending order of this value; equal values go rightmost first.
+    priority: int = 0
+    #: A name accepted in place of the column's index: any hashable object except a number, unique in a layout.
+    key: Hashable | None = None
 
 
 class _TableText(Text):
@@ -134,6 +130,8 @@ class _TableColumns(Columns):
     def __init__(self, layout: TableLayout, cells: Sequence[Widget], *, span: bool, column_attrs: bool) -> None:
         self._layout = layout
         self._span = span
+        # the column index at each position of the contents; the layout's display order once _sync() ran
+        self._display = layout._identity
         if column_attrs and not span:
             cells = [
                 cell if attr is None else AttrMap(cell, attr) for cell, attr in zip(cells, layout._attrs, strict=True)
@@ -143,12 +141,71 @@ class _TableColumns(Columns):
             dividechars=layout.dividechars,
         )
 
+    def _sync(self) -> None:
+        """Arrange the contents in the display order of the layout.
+
+        The focus stays on the same column while the order shows it.
+        It follows the column index, not the widget, since a row may hold one widget in two columns.
+        A focused column the order hides passes the focus to the nearest visible shown column by index:
+        a selectable cell first, the left one of two at the same distance.
+        With no visible shown column, the focus stays where it is.
+        """
+        layout = self._layout
+        display = layout._display
+        if self._span or self._display is display:
+            return
+        old = self._display
+        contents = self.contents
+        focus = contents.focus
+        by_column: list[typing.Any] = [None] * len(old)
+        for position, item in enumerate(contents):
+            by_column[old[position]] = item
+        self._display = display
+        contents[:] = [by_column[index] for index in display]
+        if focus is None:
+            return
+        column = old[focus]
+        if column not in layout._shown:
+            nearest = sorted(
+                (
+                    index
+                    for index in layout._order
+                    if layout._kinds[index] != WHSettings.GIVEN or layout._amounts[index]
+                ),
+                key=lambda index: (not by_column[index][0].selectable(), abs(index - column), index),
+            )
+            if nearest:
+                column = nearest[0]
+        self.focus_position = display.index(column)
+
     def column_widths(self, size: tuple[int] | tuple[int, int], focus: bool = False) -> list[int]:
-        """Return the widths the layout allocates at the width in *size*; a full-width row gets all of it."""
+        """Return the widths the layout allocates at the width in *size*, in display order.
+
+        A full-width row gets all of it.
+        """
         self._layout._record_rendered(self)
         if self._span:
             return [size[0]]
-        return list(self._layout.widths(size[0]))
+        self._sync()
+        widths = self._layout.widths(size[0])
+        return [widths[index] for index in self._display]
+
+    def _select_candidates(self, *, reverse: bool, from_edge: bool) -> Iterator[int]:
+        """Yield the selectable positions as :class:`Columns` does.
+
+        A column out of :attr:`TableLayout.column_order` or of given width 0 is skipped.
+        That holds also before a render at the current order has measured the widths.
+        """
+        self._sync()
+        candidates = super()._select_candidates(reverse=reverse, from_edge=from_edge)
+        if self._span:
+            yield from candidates
+            return
+        layout = self._layout
+        for position in candidates:
+            index = self._display[position]
+            if index in layout._shown and (layout._kinds[index] != WHSettings.GIVEN or layout._amounts[index]):
+                yield position
 
 
 class TableLayout:
@@ -157,6 +214,9 @@ class TableLayout:
     Cells are measured once, when their row is built.
     A text cell the layout made measures itself again when its text changes.
     Another widget whose width changed needs :meth:`invalidate_widths`.
+
+    :attr:`column_order` shows, hides and reorders the columns.
+    The cells of a row and every column index keep the order of :attr:`columns` whatever it is.
 
     >>> from urwid import Pile
     >>> layout = TableLayout([TableColumn(), TableColumn(align="right")])
@@ -170,7 +230,8 @@ class TableLayout:
 
         :param columns: one specification per column
         :param dividechars: blank screen columns between two visible columns
-        :raises TableError: a specification or *dividechars* is invalid; the message names the column index.
+        :raises TableError: a specification or *dividechars* is invalid, or two columns have the same key;
+            the message names the column index.
         """
         if not isinstance(dividechars, int) or isinstance(dividechars, bool) or dividechars < 0:
             raise TableError(f"dividechars must be an int >= 0, not {dividechars!r}")
@@ -191,9 +252,20 @@ class TableLayout:
         self._kinds = tuple(kinds)
         self._amounts = tuple(amounts)
         self._attrs = tuple(attrs)
-        self._label_widths = tuple(Text(column.label).pack(())[0] for column in self._columns)
+        labels = [Text(column.label) for column in self._columns]
+        self._label_widths = tuple(label.pack(())[0] for label in labels)
+        self._key_index = self._keys(labels)
+        # the shown columns left to right, and every column in the order a row arranges its cells:
+        # the shown ones, then the hidden ones by index; a new tuple per change, so a row compares it by identity
+        self._identity = tuple(range(len(self._columns)))
+        self._order = self._identity
+        self._display = self._identity
+        self._shown = frozenset(self._identity)
+        self._drop_sequence = self._drop_order()
         # the widest measured cell of each PACK column (0 for the other columns) over the registered rows
         self._pack_max = [0] * len(self._columns)
+        # the number of registered rows, span rows aside, with a cell that cannot be measured in each PACK column
+        self._pack_unmeasured = [0] * len(self._columns)
         self._natural = self._natural_from_maxima()
         # rows built through this layout and not in a table, with their count: a smaller len() means some were
         # collected, and the maxima are recomputed without them
@@ -237,10 +309,16 @@ class TableLayout:
             kind, amount = WHSettings.WEIGHT, weight
         else:
             raise TableError(f"column {index}: invalid width {width!r}")
-        if kind != WHSettings.GIVEN and (
-            not isinstance(column.min_width, int) or isinstance(column.min_width, bool) or column.min_width < 1
+        if (
+            kind != WHSettings.GIVEN
+            and not (kind == WHSettings.PACK and column.min_width == WHSettings.PACK)
+            and (not isinstance(column.min_width, int) or isinstance(column.min_width, bool) or column.min_width < 1)
         ):
-            raise TableError(f"column {index}: min_width must be an int >= 1, not {column.min_width!r}")
+            raise TableError(
+                f"column {index}: min_width must be an int >= 1, or PACK for a PACK width, not {column.min_width!r}"
+            )
+        if not isinstance(column.priority, int) or isinstance(column.priority, bool):
+            raise TableError(f"column {index}: priority must be an int, not {column.priority!r}")
         if column.align not in _TEXT_ALIGNS:
             raise TableError(f"column {index}: invalid align {column.align!r}")
         if column.wrap not in _TEXT_WRAPS:
@@ -251,10 +329,121 @@ class TableLayout:
             raise TableError(f"column {index}: invalid attr {column.attr!r}") from exc
         return kind, amount, attr_map
 
+    def _keys(self, labels: Sequence[Text]) -> dict[Hashable, int]:
+        """Return the column index of each explicit key and each generated key.
+
+        A column without a key gets the text of its label, stripped and in lower case,
+        unless that text is empty, is bytes, is an explicit key, or is the text of another such column.
+
+        :raises TableError: an explicit key is a number or is not hashable, or two columns have the same one.
+        """
+        key_index: dict[Hashable, int] = {}
+        for index, column in enumerate(self._columns):
+            if column.key is None:
+                continue
+            # a number would read as an index: 1.0 == 1 and True == 1
+            if isinstance(column.key, numbers.Number):
+                raise TableError(f"column {index}: a key must not be a number, not {column.key!r}")
+            try:
+                other = key_index.setdefault(column.key, index)
+            except TypeError as exc:
+                raise TableError(f"column {index}: a key must be hashable, not {column.key!r}") from exc
+            if other != index:
+                raise TableError(f"column {index}: key {column.key!r} is already the key of column {other}")
+        names = [
+            label.text.strip().lower() if column.key is None and isinstance(label.text, str) else ""
+            for column, label in zip(self._columns, labels, strict=True)
+        ]
+        counts = collections.Counter(names)
+        for index, name in enumerate(names):
+            if name and counts[name] == 1 and name not in key_index:
+                key_index[name] = index
+        return key_index
+
     @property
     def columns(self) -> tuple[TableColumn, ...]:
         """The column specifications."""
         return self._columns
+
+    def column_index(self, column: int | Hashable) -> int:
+        """Return the index of the column given by its index or its key.
+
+        A column without a :attr:`TableColumn.key` is also found by the text of its label,
+        stripped and in lower case, while no other column has that text or that key.
+
+        >>> layout = TableLayout([TableColumn("Name"), TableColumn("Last change", key="mtime")])
+        >>> layout.column_index("name"), layout.column_index("mtime"), layout.column_index(1)
+        (0, 1, 1)
+
+        :raises IndexError: *column* names no column: an ``int`` out of range, a ``bool``, or an unknown key.
+        """
+        if not isinstance(column, bool):
+            if isinstance(column, int):
+                if 0 <= column < len(self._columns):
+                    return column
+            else:
+                with contextlib.suppress(KeyError, TypeError):
+                    return self._key_index[column]
+        raise IndexError(f"No Table column at index or key {column!r}")
+
+    @property
+    def column_order(self) -> tuple[int, ...]:
+        """The indexes of the shown columns, left to right.
+
+        By default it is every column, in the order of :attr:`columns`.
+        Set it to an iterable of column indexes and keys, each column at most once.
+        A column left out is hidden, and an empty order hides every column.
+        A row whose focused cell the order hides passes the focus to the nearest visible shown cell by index,
+        a selectable one first.
+        Only what is drawn, and what the keys and the mouse reach, follows the order:
+        the cells of a row, :meth:`widths` and every column index keep the order of :attr:`columns`.
+        A lack of room hides the shown columns only, see :meth:`widths`.
+
+        >>> layout = TableLayout([TableColumn("Name"), TableColumn("Size"), TableColumn("Note")])
+        >>> layout.column_order = ("note", 0)
+        >>> layout.column_order
+        (2, 0)
+        >>> [line.decode() for line in layout.row(["a", "1", "x"]).render((9,)).text]
+        ['x    a   ']
+
+        :raises IndexError: a value set names no column, see :meth:`column_index`.
+        :raises TableError: the value set names a column twice, or is a string rather than an iterable of columns.
+            A rejected value leaves the order unchanged.
+        :raises TypeError: the value set is not iterable.
+        """
+        return self._order
+
+    @column_order.setter
+    def column_order(self, order: Iterable[int | Hashable]) -> None:
+        if isinstance(order, (str, bytes)):
+            raise TableError(f"column_order is an iterable of columns, not text: {order!r}")
+        indexes = tuple(self.column_index(column) for column in order)
+        shown = frozenset(indexes)
+        if len(shown) != len(indexes):
+            raise TableError(f"a column is named twice in the column order {indexes!r}")
+        if indexes == self._order:
+            return
+        self._order = indexes
+        self._shown = shown
+        self._display = (*indexes, *(index for index in self._identity if index not in shown))
+        self._drop_sequence = self._drop_order()
+        self._layout_changed()
+        # the focus moves off a hidden column by the order in force, not by the order a row was next drawn at
+        for row in self._iter_rows():
+            row._w._sync()
+
+    def _drop_order(self) -> tuple[int, ...]:
+        """Return the shown columns in the order a lack of room hides them.
+
+        A column of given width 0 is never visible, so it is never in it.
+        """
+        place = {index: position for position, index in enumerate(self._order)}
+        return tuple(
+            sorted(
+                (index for index in self._order if self._kinds[index] != WHSettings.GIVEN or self._amounts[index]),
+                key=lambda index: (self._columns[index].priority, -place[index]),
+            )
+        )
 
     @property
     def dividechars(self) -> int:
@@ -289,10 +478,15 @@ class TableLayout:
         """Return the width of each column at *maxcol* screen columns.
 
         The widths and a divider between every two visible columns fit in *maxcol*.
-        A width of 0 hides the column.
+        A width of 0 hides the column, as it does for a column out of :attr:`column_order`.
+        The widths are in the order of :attr:`columns`.
         When the natural widths do not fit, the weighted columns are at their minimum first,
         then the PACK columns shrink in proportion to how far they are above their minimum,
-        and as the last resort the rightmost visible column is hidden. A given width never shrinks.
+        and as the last resort a visible column is hidden: the lowest :attr:`TableColumn.priority` first,
+        the rightmost on screen of equal priorities first.
+        The remaining columns are then laid out again from their natural widths.
+        A hidden column stays hidden at that width even when hiding a later one leaves room for it.
+        A given width never shrinks.
 
         :raises TableError: *maxcol* is negative.
         """
@@ -309,14 +503,27 @@ class TableLayout:
     def natural_width(self) -> int:
         """Return the smallest width at which no column shrinks or is hidden.
 
-        It is the sum of the natural widths of the visible columns and their dividers,
+        It is the sum of the natural widths of the shown columns and their dividers,
         where a weighted column counts at its minimum.
         """
         self._check_collected()
         visible = [
-            width for kind, width in zip(self._kinds, self._natural, strict=True) if kind != WHSettings.GIVEN or width
+            self._natural[index]
+            for index in self._order
+            if self._kinds[index] != WHSettings.GIVEN or self._natural[index]
         ]
         return sum(visible) + self._dividechars * max(len(visible) - 1, 0)
+
+    def _column_spans(self, maxcol: int) -> dict[int, tuple[int, int]]:
+        """Return ``{index: (start, width)}`` of each visible column at *maxcol*, left to right."""
+        spans: dict[int, tuple[int, int]] = {}
+        start = 0
+        widths = self.widths(maxcol)
+        for index in self._order:
+            if width := widths[index]:
+                spans[index] = (start, width)
+                start += width + self._dividechars
+        return spans
 
     def invalidate_widths(self) -> None:
         """Measure every cell of every registered row again.
@@ -332,28 +539,37 @@ class TableLayout:
     def _natural_from_maxima(self) -> tuple[int, ...]:
         """Return the natural width of each column from the measured maxima."""
         natural: list[int] = []
-        for column, kind, amount, label, measured in zip(
+        for column, kind, amount, label, measured, unmeasured in zip(
             self._columns,
             self._kinds,
             self._amounts,
             self._label_widths,
             self._pack_max,
+            self._pack_unmeasured,
             strict=True,
         ):
             if kind == WHSettings.GIVEN:
                 natural.append(int(amount))
             elif kind == WHSettings.PACK:
-                natural.append(max(column.min_width, label, measured))
+                room = column.min_width if isinstance(column.min_width, int) and unmeasured else 1
+                natural.append(max(room, label, measured))
             else:
-                natural.append(column.min_width)
+                # The layout accepts min_width PACK on a PACK column only.
+                natural.append(typing.cast("int", column.min_width))
         return tuple(natural)
 
     def _allocate(self, maxcol: int) -> tuple[int, ...]:
         """Compute the widths at *maxcol*, as :meth:`widths` describes."""
         natural = self._natural
         kinds = self._kinds
-        minimums = [column.min_width for column in self._columns]
-        visible = [index for index, kind in enumerate(kinds) if kind != WHSettings.GIVEN or natural[index]]
+        # the narrowest each PACK column shrinks to; a weighted column keeps its min_width in _grow()
+        minimums = {
+            index: min(column.min_width, natural[index]) if isinstance(column.min_width, int) else natural[index]
+            for index, column in enumerate(self._columns)
+            if kinds[index] == WHSettings.PACK
+        }
+        visible = [index for index in self._order if kinds[index] != WHSettings.GIVEN or natural[index]]
+        drops = iter(self._drop_sequence)
         while visible:
             widths = [0] * len(natural)
             for index in visible:
@@ -364,31 +580,21 @@ class TableLayout:
                 return tuple(widths)
 
             deficit = reserved - maxcol
-            slack = {index: widths[index] - minimums[index] for index in visible if kinds[index] == WHSettings.PACK}
-            total = sum(slack.values())
-            if total >= deficit:
-                remainder = deficit
-                for index, amount in slack.items():
-                    given_up = amount * deficit // total
-                    widths[index] -= given_up
-                    remainder -= given_up
-                for _ in range(remainder):
-                    widest = max(
-                        (index for index in slack if widths[index] > minimums[index]),
-                        key=lambda index: widths[index],
-                    )
-                    widths[widest] -= 1
+            packed = {index: minimums[index] for index in visible if kinds[index] == WHSettings.PACK}
+            if sum(widths[index] - minimum for index, minimum in packed.items()) >= deficit:
+                _shrink_by_slack(widths, packed, deficit)
                 return tuple(widths)
 
             # the last resort: a row wider than maxcol is the only alternative
-            visible.pop()
+            visible.remove(next(drops))
         return (0,) * len(natural)
 
     def _grow(self, weighted: list[int], widths: list[int], extra: int) -> None:
         """Share *extra* screen columns and the minimums of the *weighted* columns by weight, as Columns does."""
         if not weighted:
             return
-        minimums = {index: self._columns[index].min_width for index in weighted}
+        # The layout accepts min_width PACK on a PACK column only.
+        minimums = {index: typing.cast("int", self._columns[index].min_width) for index in weighted}
         grow = extra + sum(minimums.values())
         weights = [(self._amounts[index], index) for index in weighted]
         if max(weight for weight, _index in weights) > sys.float_info.max / (len(weights) * max(grow, 1)):
@@ -423,13 +629,17 @@ class TableLayout:
         if not columns:
             return
         maxima = dict.fromkeys(columns, 0)
+        unmeasured = dict.fromkeys(columns, 0)
         for row in self._iter_rows():
             widths = row._cell_widths
             for index in columns:
-                if (width := widths[index]) is not None and width > maxima[index]:
+                if (width := widths[index]) is None:
+                    unmeasured[index] += not row._span
+                elif width > maxima[index]:
                     maxima[index] = width
         for index, width in maxima.items():
             self._pack_max[index] = width
+            self._pack_unmeasured[index] = unmeasured[index]
 
     def _update_natural(self) -> None:
         """Recompute the natural widths from the maxima, and drop what was laid out with them if they changed."""
@@ -437,6 +647,13 @@ class TableLayout:
         if natural == self._natural:
             return
         self._natural = natural
+        self._layout_changed()
+
+    def _layout_changed(self) -> None:
+        """Drop the allocated widths and what was laid out with them.
+
+        The table that owns the layout is told as well.
+        """
         self._allocations.clear()
         rendered = list(self._rendered)
         self._rendered.clear()
@@ -456,10 +673,14 @@ class TableLayout:
         """Remember that *columns* was laid out with the current widths."""
         self._rendered.add(columns)
 
-    def _add_widths(self, cell_widths: Sequence[int | None]) -> None:
+    def _add_widths(self, row: TableRow) -> None:
         """Count the stored widths of a row that became registered."""
-        for index, width in enumerate(cell_widths):
-            if width is not None and width > self._pack_max[index] and self._kinds[index] == WHSettings.PACK:
+        for index, width in enumerate(row._cell_widths):
+            if self._kinds[index] != WHSettings.PACK:
+                continue
+            if width is None:
+                self._pack_unmeasured[index] += not row._span
+            elif width > self._pack_max[index]:
                 self._pack_max[index] = width
         self._update_natural()
 
@@ -479,7 +700,7 @@ class TableLayout:
         self._free_rows.add(row)
         self._free_count += 1
         row._registered = True
-        self._add_widths(row._cell_widths)
+        self._add_widths(row)
 
     def _adopt(self, row: TableRow) -> None:
         """Count *row* as a row of the table that owns the layout."""
@@ -490,25 +711,36 @@ class TableLayout:
                 self._free_count -= 1
             return
         row._registered = True
-        self._add_widths(row._cell_widths)
+        self._add_widths(row)
 
     def _release(self, rows: Iterable[TableRow]) -> None:
         """Stop counting *rows*, removed from the table that owns the layout, recomputing each column once."""
         affected: set[int] = set()
         for row in rows:
             row._registered = False
+            if row._span:
+                # a span row is neither measured nor counted
+                continue
             for index, width in enumerate(row._cell_widths):
-                if width is not None and width >= self._pack_max[index]:
+                # an unmeasured cell leaves the count of its column, a measured one may have been its maximum
+                if width is None or width >= self._pack_max[index]:
                     affected.add(index)
         self._recompute_maxima(sorted(affected))
         self._update_natural()
 
 
-class TableRow(WidgetWrap[_TableColumns]):
+class TableRow(WidgetWrap[_TableColumns], WidgetContainerMixin[int]):
     """One row of cells laid out by a :class:`TableLayout`.
 
     A row is selectable unless built with ``selectable=False``, whatever its cells,
     so a row of plain text can take the focus in a :class:`Table`.
+
+    It is a container whose positions are the indexes of its cells.
+    They stay the column indexes whatever :attr:`TableLayout.column_order` shows.
+    A span row has one position.
+    The widget at a position is the cell as the row lays it out: the cell in an :class:`AttrMap` when its column
+    has an ``attr``.
+    ``row[i]`` gives the cell's :attr:`base_widget`, as for any container.
 
     The attribute map applied to the row's canvas is, in this order:
 
@@ -630,6 +862,54 @@ class TableRow(WidgetWrap[_TableColumns]):
         self._focus_attr = None if focus_attr is None else _attr_map_dict(focus_attr)
         self._invalidate()
 
+    @property
+    def contents(self) -> tuple[tuple[AbstractWidget, None], ...]:
+        """The ``(cell, None)`` pairs of the row, read-only, in the order of the columns."""
+        self._w._sync()
+        contents = self._w.contents
+        if self._span:
+            return tuple((cell, None) for cell, _options in contents)
+        by_column: list[tuple[AbstractWidget, None]] = [(cell, None) for cell, _options in contents]
+        for position, index in enumerate(self._w._display):
+            by_column[index] = (contents[position][0], None)
+        return tuple(by_column)
+
+    @property
+    def focus(self) -> AbstractWidget | None:
+        """The cell in focus, or ``None`` when the layout has no columns."""
+        return self._w.focus
+
+    @property
+    def focus_position(self) -> int:
+        """The index of the cell in focus.
+
+        :raises IndexError: the layout has no columns.
+            The position set is not an index of a cell.
+        """
+        self._w._sync()
+        position = self._w.focus_position
+        return position if self._span else self._w._display[position]
+
+    @focus_position.setter
+    def focus_position(self, position: int) -> None:
+        self._w._sync()
+        display = self._w._display
+        # any other value goes to Columns unchanged, which rejects it as it would without a column order
+        if not self._span and isinstance(position, int) and 0 <= position < len(display):
+            position = display.index(position)
+        self._w.focus_position = position
+
+    def __iter__(self) -> Iterator[int]:
+        """Return the cell positions from first to last."""
+        return iter(range(len(self._w.contents)))
+
+    def __reversed__(self) -> Iterator[int]:
+        """Return the cell positions from last to first."""
+        return reversed(range(len(self._w.contents)))
+
+    def options(self) -> None:
+        """Return ``None``, the options half of every :attr:`contents` item."""
+
     def selectable(self) -> bool:
         """Return whether the row takes the focus, as set when it was built or by :meth:`set_selectable`."""
         return self._selectable
@@ -699,6 +979,26 @@ class _TableEdgeRow(TableRow):
     """Header or footer row built by a table, which only the table's ``header_attr`` or ``footer_attr`` maps."""
 
     _column_attrs = False
+
+
+class _TableHeaderRow(_TableEdgeRow):
+    """Header row built by a table, whose focused cell a focus map can mark."""
+
+    def __init__(
+        self,
+        layout: TableLayout,
+        *,
+        attr: _AttrMapLike | None,
+        focus_map: dict[Hashable, Hashable] | None,
+    ) -> None:
+        """Build the row of the column labels; *focus_map* maps the cell that renders in focus."""
+        super().__init__(layout, [column.label for column in layout.columns], attr=attr, selectable=False)
+        if focus_map is not None:
+            # each cell keeps its own options, which fit the AttrMap around it
+            wrapped: list[typing.Any] = [
+                (AttrMap(cell, None, focus_map), options) for cell, options in self._w.contents
+            ]
+            self._w.contents[:] = wrapped
 
 
 # set_modified_callback raises by design, as in SimpleFocusListWalker
@@ -774,11 +1074,15 @@ class _TableRows(SimpleFocusListWalker[TableRow]):  # pylint: disable=abstract-m
             super().__setitem__(i, self._convert(y))
 
 
-class Table(Widget):
+class Table(Widget, WidgetContainerMixin[int]):
     """Rows of cells in columns of shared widths, between a fixed header and footer, and with a focused row.
 
     The rows scroll in a :class:`ListBox`.
-    The header stays on top, the footer stays at the bottom, and neither takes the focus.
+    The header stays on top and the footer stays at the bottom.
+    Neither takes the focus, except the header of a sortable table.
+    It is a container whose positions are the indexes of the rows in :attr:`body`.
+    The header and the footer are not in it.
+    A focus path goes on through the focused :class:`TableRow` to its focused cell.
     It is a box and flow widget, and a fixed widget as well when no column is weighted.
 
     A box size that does not fit the whole table drops the header or the footer by *header_drop* and *footer_drop*.
@@ -795,9 +1099,29 @@ class Table(Widget):
     A handler whose result is true consumes the key; otherwise the key is returned, as :class:`Overlay` does for
     ``"menu"``. Every handler runs, whatever the earlier ones returned.
     A mouse click moves the focus and reaches the cell only.
+    Sends ``"edge reached"`` with ``"top"`` or ``"bottom"`` when its rows send it, see :class:`ListBox`,
+    so that a handler can add rows at that end, such as the next batch of a list loaded in parts.
+    In a sortable table, :kbd:`up` at the first row sends ``"top"`` before the header takes the focus.
+
+    :meth:`sort` reorders the rows by a column or a key and records :attr:`sort_column` and :attr:`sort_reverse`.
+
+    A table built with ``sortable=True`` also offers its header for sorting:
+
+    - It sends ``"header activated"`` with the column index for a click with button 1 on a header label,
+      and for the ``activate`` command on the focused header label.
+      The result of the handlers is used as for ``"activate"``.
+      The table does not sort by itself: a handler calls :meth:`sort`.
+    - :kbd:`up` at the first row focuses the header, see :attr:`header_column`.
+      :kbd:`left` and :kbd:`right` move over the visible labels.
+      :kbd:`down`, and :kbd:`tab` with *select_navigation*, go back to the rows.
+      Every other key is returned, so :kbd:`up` and :kbd:`shift tab` leave the table.
+    - The label of the sorted column carries a mark from *sort_marks*.
+
+    A parent that moves its own focus away and back without the entry hook :meth:`enter_selectable`
+    finds the header focus as it left it.
     """
 
-    signals: typing.ClassVar[list[str]] = ["focus changed", "activate"]
+    signals: typing.ClassVar[list[str]] = ["focus changed", "activate", "header activated", "edge reached"]
 
     def __init__(
         self,
@@ -819,7 +1143,11 @@ class Table(Widget):
         row_attr: Callable[[int, typing.Any], _AttrMapLike | None] | None = None,
         select_navigation: bool = False,
         wheel: Literal["focus", "view"] = "focus",
+        home_end: Literal["any", "selectable"] = "any",
         scrollbar: bool | None = False,
+        sortable: bool = False,
+        sort_marks: tuple[str, str] | None = (" ^", " v"),
+        header_focus_attr: _AttrMapLike | None = None,
         **scrollbar_options: typing.Unpack[_ScrollBarOptions],
     ) -> None:
         """Create the table.
@@ -845,22 +1173,27 @@ class Table(Widget):
         :param select_navigation: let the ``'next selectable'`` and ``'prev selectable'`` commands
             (:kbd:`tab` and :kbd:`shift tab`) move across the cells and then to the next or previous row
         :param wheel: what a notch of the mouse wheel moves; see :attr:`wheel`
+        :param home_end: what :kbd:`home` and :kbd:`end` move the focus to; see :attr:`home_end`
         :param scrollbar: ``True`` draws a scrollbar beside the rows, ``None`` only when the rows do not fit,
             ``False`` never; while it is on, its column counts in the natural width
+        :param sortable: offer the header for sorting, see the class description; needs *header*
+        :param sort_marks: the suffixes of the sorted column's label, ascending first, such as
+            ``(ScrollBar.Symbols.ARROW_TRIANGLE_UP, ScrollBar.Symbols.ARROW_TRIANGLE_DOWN)``;
+            ``None`` draws no mark. Drawn only while *sortable* is set.
+        :param header_focus_attr: attribute map of the focused header label, in any form :class:`AttrMap` takes;
+            used only while *sortable* is set
         :param scrollbar_options: the :class:`ScrollBar` parameters with a ``scrollbar_`` prefix,
             such as ``scrollbar_thumb_char``, ``scrollbar_end_markers``, ``scrollbar_side`` and ``scrollbar_attr``;
             ignored while *scrollbar* is ``False``
-        :raises TableError: a column specification, *dividechars*, *max_rows*, a drop threshold, a row or the footer
-            is invalid.
+        :raises TableError: a column specification, *dividechars*, *max_rows*, a drop threshold, a row, the footer,
+            *sort_marks* or *header_focus_attr* is invalid.
+            *sortable* is set without *header*.
         :raises TypeError: a keyword argument is neither a parameter of the table nor one of *scrollbar_options*,
             also while *scrollbar* is ``False``.
         :raises ValueError: :class:`ScrollBar` rejects the value of a ``scrollbar_`` parameter.
+            Also when *home_end* is neither ``"any"`` nor ``"selectable"``.
         """
-        bar_options: dict[str, typing.Any] = {}
-        for name, value in scrollbar_options.items():
-            if name not in _SCROLLBAR_OPTIONS:
-                raise TypeError(f"Table() got an unexpected keyword argument {name!r}")
-            bar_options[name.removeprefix("scrollbar_")] = value
+        bar_options = _scrollbar_arguments("Table", scrollbar_options)
         if max_rows is not None and (not isinstance(max_rows, int) or isinstance(max_rows, bool) or max_rows < 0):
             raise TableError(f"max_rows must be None or an int >= 0, not {max_rows!r}")
         for name, threshold in (("header_drop", header_drop), ("footer_drop", footer_drop)):
@@ -868,15 +1201,31 @@ class Table(Widget):
                 not isinstance(threshold, int) or isinstance(threshold, bool) or threshold < 1
             ):
                 raise TableError(f"{name} must be None or an int >= 1, not {threshold!r}")
+        if sortable and not header:
+            raise TableError("a sortable table needs a header")
+        match sort_marks:
+            case None | tuple((str(), str())):
+                pass
+            case _:
+                raise TableError(f"sort_marks must be None or a tuple of two str, not {sort_marks!r}")
+        try:
+            header_focus_map = None if header_focus_attr is None else _attr_map_dict(header_focus_attr)
+        except AttrMapError as exc:
+            raise TableError(f"invalid header_focus_attr {header_focus_attr!r}") from exc
         super().__init__()
         self._layout = TableLayout(columns, dividechars=dividechars)
+        self._sortable = sortable
         self._header = (
-            _TableEdgeRow(
-                self._layout, [column.label for column in self._layout.columns], attr=header_attr, selectable=False
-            )
+            _TableHeaderRow(self._layout, attr=header_attr, focus_map=header_focus_map if sortable else None)
             if header
             else None
         )
+        self._sort_marks = sort_marks
+        self._sort_column: int | None = None
+        self._sort_reverse = False
+        # whether the header has the focus, and the column it was last given; see header_column
+        self._header_focused = False
+        self._header_column: int | None = None
         self._footer: TableRow | None = None
         self._footer_attr = footer_attr
         self.footer = footer
@@ -908,19 +1257,183 @@ class Table(Widget):
             unfocused_focus_attr_func=typing.cast("_UnfocusedFocusAttrFunc | None", unfocused_focus_attr_func),
             focus_when_empty=False,
             wheel=wheel,
+            home_end=home_end,
         )
         self._bar = ScrollBar(self._listbox, visible=True, **bar_options) if scrollbar is not False else None
         signals.connect_signal(self._rows, "modified", type(self)._rows_modified, weak_args=[self])
+        signals.connect_signal(self._listbox, "edge reached", Table._edge_reached, weak_args=[self])
         # connected last, so that filling the rows during construction sends no signal
         self._rows.set_focus_moved_callback(_WeakCallback(self, type(self)._focus_moved))
 
     def _focus_moved(self, old: int | None, new: int | None) -> None:
         self._emit("focus changed", old, new)
 
+    def _edge_reached(self, _listbox: ListBox[int], end: Literal["top", "bottom"]) -> None:
+        """Send ``"edge reached"`` from the table for *end*, sent by the rows."""
+        self._emit("edge reached", end)
+
     @property
     def layout(self) -> TableLayout:
         """The layout of the columns, which builds and measures the rows."""
         return self._layout
+
+    @property
+    def sortable(self) -> bool:
+        """Whether the header is offered for sorting, as set when the table was built."""
+        return self._sortable
+
+    @property
+    def sort_column(self) -> int | None:
+        """The index of the column given to the last :meth:`sort`, or ``None``."""
+        return self._sort_column
+
+    @property
+    def sort_reverse(self) -> bool:
+        """The *reverse* given to the last :meth:`sort`."""
+        return self._sort_reverse
+
+    @typing.overload
+    def sort(self, column: int | Hashable, *, key: None = None, reverse: bool = False) -> None: ...
+
+    @typing.overload
+    def sort(
+        self,
+        column: int | Hashable | None = None,
+        *,
+        key: Callable[[TableRow], SupportsRichComparison],
+        reverse: bool = False,
+    ) -> None: ...
+
+    def sort(
+        self,
+        column: int | Hashable | None = None,
+        *,
+        key: Callable[[TableRow], SupportsRichComparison] | None = None,
+        reverse: bool = False,
+    ) -> None:
+        """Sort the rows, keeping the focus on the same row.
+
+        Without *key*, the rows are ordered by the text of their cell in *column*, compared as strings,
+        so a numeric column needs a *key*.
+        With *key* and *column*, *column* only says which label carries the mark of a sortable table.
+        The new order is computed before anything changes, so an exception from it leaves the table as it was.
+        A ``"modified"`` or ``"focus changed"`` handler already sees the new :attr:`sort_column` and mark.
+        The rows are not sorted again when they change later: call :meth:`sort` again.
+
+        A handler toggles the direction with
+        ``table.sort(column, reverse=table.sort_column == column and not table.sort_reverse)``.
+
+        >>> table = Table([TableColumn("Name")], [["b"], ["a"]], sortable=True)
+        >>> table.sort(0)
+        >>> [row.cells[0].text for row in table.body]
+        ['a', 'b']
+
+        :param column: the column to sort by, as its index or its key (see :meth:`TableLayout.column_index`),
+            or ``None`` with *key*; a column hidden by :attr:`TableLayout.column_order` sorts as well
+        :param key: ``key(row)`` with the :class:`TableRow`, as :meth:`list.sort` takes it
+        :param reverse: sort in descending order
+        :raises TableError: neither *column* nor *key* is given.
+            Without *key*, a row is a span row or its cell in *column* is not a :class:`Text`.
+        :raises IndexError: *column* names no column.
+        """
+        if column is not None:
+            column = self._layout.column_index(column)
+        if key is None:
+            if column is None:
+                raise TableError("sort() needs a column or a key")
+            key = self._text_key(column)
+        ordered = sorted(self._rows, key=key, reverse=reverse)
+        previous = self._sort_column
+        self._sort_column = column
+        self._sort_reverse = reverse
+        if self._sortable and self._header is not None and self._sort_marks is not None:
+            labels = self._layout.columns
+            if previous is not None and previous != column:
+                typing.cast("_TableText", self._header.cells[previous]).set_text(labels[previous].label)
+            if column is not None:
+                mark = self._sort_marks[1] if reverse else self._sort_marks[0]
+                typing.cast("_TableText", self._header.cells[column]).set_text([labels[column].label, mark])
+        rank = {id(row): position for position, row in enumerate(ordered)}
+        self._rows.sort(key=lambda row: rank[id(row)])
+
+    @staticmethod
+    def _text_key(column: int) -> Callable[[TableRow], str | bytes]:
+        """Return a sort key giving the text of the cell in *column*.
+
+        The key raises :exc:`TableError` for a span row and for a cell that is not a :class:`Text`.
+        """
+
+        def key(row: TableRow) -> str | bytes:
+            cell = None if row.span else row.cells[column].base_widget
+            if not isinstance(cell, Text):
+                raise TableError(f"row {row.index}: column {column} has no text to sort by; pass a key to sort()")
+            return cell.text
+
+        return key
+
+    @property
+    def header_column(self) -> int | None:
+        """The header column that has the focus, or ``None`` while the rows have it.
+
+        Set a column index or key to focus the header there, or ``None`` to give the focus back to the rows.
+        A size or a :attr:`TableLayout.column_order` that hides the column shows the focus
+        on the nearest visible column on its left on screen, or on its right when none is on the left.
+        A column out of the order counts as right of the last one.
+        A size that drops the header, or hides every column, leaves the focus with the rows while it lasts.
+
+        :raises TableError: the table is not sortable, or it has no rows.
+        :raises IndexError: the value set names no column (see :meth:`TableLayout.column_index`),
+            the column is not in :attr:`TableLayout.column_order`, or it has a given width of 0.
+        """
+        return self._header_column if self._header_focused else None
+
+    @header_column.setter
+    def header_column(self, column: int | Hashable | None) -> None:
+        if not self._sortable:
+            raise TableError("only a sortable table focuses its header")
+        if column is None:
+            self._header_focused = False
+            self._invalidate()
+            return
+        if not self._rows:
+            raise TableError("an empty table cannot focus its header")
+        index = self._layout.column_index(column)
+        if index not in self._layout._shown or self._layout.columns[index].width == 0:
+            raise IndexError(f"No visible Table column at index or key {column!r}")
+        self._header_column = index
+        self._header_focused = True
+        self._invalidate()
+
+    def forget_header_column(self) -> None:
+        """Forget the header label that :kbd:`up` returns to.
+
+        The focus goes back to the rows, and :kbd:`up` at the first row focuses the first visible label again,
+        as in a new table.
+        Setting :attr:`header_column` to ``None`` only gives the focus back and keeps the label.
+        """
+        self._header_column = None
+        self._header_focused = False
+        self._invalidate()
+
+    def _header_target(self, arrangement: _Arrangement) -> int | None:
+        """Return the header column the focus is shown on at *arrangement*, or ``None`` when it cannot be shown.
+
+        It is the stored column when it is visible, otherwise the nearest visible column on its left on screen,
+        or on its right when none is on the left; the first visible column when none is stored.
+        """
+        if not self._rows or not arrangement.header_rows:
+            return None
+        visible = list(self._layout._column_spans(arrangement.content))
+        if not visible:
+            return None
+        stored = self._header_column
+        if stored is None:
+            return visible[0]
+        if stored in visible:
+            return stored
+        place = self._layout._display.index
+        left = [index for index in visible if place(index) < place(stored)]
+        return left[-1] if left else visible[0]
 
     @property
     def body(self) -> _TableRows:
@@ -1022,6 +1535,35 @@ class Table(Widget):
         self._listbox.wheel = wheel
 
     @property
+    def home_end(self) -> Literal["any", "selectable"]:
+        """What :kbd:`home` and :kbd:`end` move the focus to among the rows, see :attr:`ListBox.home_end`."""
+        return self._listbox.home_end
+
+    @home_end.setter
+    def home_end(self, home_end: Literal["any", "selectable"]) -> None:
+        """Set what :kbd:`home` and :kbd:`end` move the focus to.
+
+        :raises ValueError: *home_end* is neither ``"any"`` nor ``"selectable"``.
+        """
+        self._listbox.home_end = home_end
+
+    @property
+    def contents(self) -> ListBoxContentsProto[int]:
+        """The ``(row, None)`` pairs of :attr:`body`, read-only, as :attr:`ListBox.contents` gives them."""
+        return self._listbox.contents
+
+    def __iter__(self) -> Iterator[int]:
+        """Return the row positions from first to last."""
+        return iter(self._listbox)
+
+    def __reversed__(self) -> Iterator[int]:
+        """Return the row positions from last to first."""
+        return reversed(self._listbox)
+
+    def options(self) -> None:
+        """Return ``None``, the options half of every :attr:`contents` item."""
+
+    @property
     def focus(self) -> TableRow | None:
         """The row in focus, or ``None`` when the table is empty."""
         position = self._rows.focus
@@ -1055,6 +1597,7 @@ class Table(Widget):
         - a row on screen takes the cursor from that edge, at the preferred column;
         - a row off screen is placed at that edge and keeps its nested focus.
 
+        The focus leaves the header of a sortable table.
 
         :param position: the index of the row
         :param coming_from: ``"above"`` or ``"below"`` when the old focus is on that side of the new one
@@ -1063,14 +1606,37 @@ class Table(Widget):
         """
         if not isinstance(position, int) or not 0 <= position < len(self._rows):
             raise IndexError(f"No Table row at position {position!r}")
+        self._end_header_focus()
         self._listbox.set_focus(position, coming_from)
 
     def selectable(self) -> bool:
         """Return whether the table has a row to focus."""
         return self._listbox.selectable()
 
+    def enter_selectable(self, *, reverse: bool = False) -> None:
+        """Start at the first selectable cell of the first selectable row, or at the last one when *reverse* is set.
+
+        It is the entry hook a parent container calls.
+        It moves the focus within the rows only when the table was built with ``select_navigation``,
+        see :ref:`select-navigation`.
+        It always takes the focus off the header of a sortable table.
+
+        :param reverse: start at the last selectable cell of the last selectable row instead.
+        """
+        self._end_header_focus()
+        self._listbox.enter_selectable(reverse=reverse)
+
+    def _end_header_focus(self) -> None:
+        """Give the focus back to the rows when the header has it."""
+        if self._header_focused:
+            self._header_focused = False
+            self._invalidate()
+
     def sizing(self) -> frozenset[Sizing]:
-        """Return BOX and FLOW, and FIXED as well when no column is weighted."""
+        """Return BOX and FLOW, and FIXED as well when no column is weighted.
+
+        A weighted column counts also while :attr:`TableLayout.column_order` hides it.
+        """
         if any(isinstance(column.width, tuple) for column in self._layout.columns):
             return frozenset((Sizing.BOX, Sizing.FLOW))
         return frozenset((Sizing.BOX, Sizing.FLOW, Sizing.FIXED))
@@ -1102,6 +1668,8 @@ class Table(Widget):
             row._index = index
             if self._row_attr is not None:
                 row._invalidate()
+        if not self._rows:
+            self._header_focused = False
         self._invalidate()
 
     def _widths_changed(self) -> None:
@@ -1221,12 +1789,17 @@ class Table(Widget):
         size: tuple[()] | tuple[int] | tuple[int, int],
         focus: bool = False,
     ) -> Canvas:
-        """Render the header, the rows and the footer, top to bottom."""
-        maxcol, content, hrows, frows, body_rows, bar = self._arrange(size)
+        """Render the header, the rows and the footer, top to bottom.
 
-        def edge(row: TableRow, rows: int) -> Canvas:
-            """Render *row* out of focus over the scrollbar column, cut to *rows* rows."""
-            canvas = CompositeCanvas(row.render((content,)))
+        While the header has the focus, it is rendered with *focus* and the rows without it.
+        """
+        arrangement = self._arrange(size)
+        maxcol, content, hrows, frows, body_rows, bar = arrangement
+        header_column = self._header_target(arrangement) if self._header_focused else None
+
+        def edge(row: TableRow, rows: int, row_focus: bool = False) -> CompositeCanvas:
+            """Render *row* over the scrollbar column, cut to *rows* rows."""
+            canvas = CompositeCanvas(row.render((content,), row_focus))
             if bar and self._bar is not None:
                 if self._bar.scrollbar_side == SCROLLBAR_LEFT:
                     canvas.pad_trim_left_right(maxcol - content, 0)
@@ -1238,10 +1811,19 @@ class Table(Widget):
 
         combine: list[tuple[Canvas, Hashable, bool]] = []
         if self._header is not None and hrows:
-            combine.append((edge(self._header, hrows), "header", False))
+            if header_column is None:
+                combine.append((edge(self._header, hrows), "header", False))
+            else:
+                if self._header.focus_position != header_column:
+                    self._header.focus_position = header_column
+                header = edge(self._header, hrows, focus)
+                if focus:
+                    header.cursor = self._header_cursor(arrangement, header_column)
+                combine.append((header, "header", True))
         if self._rows and body_rows != 0:
             widget, body_size = self._body_widget_size(maxcol, body_rows, bar)
-            combine.append((widget.render(body_size, focus), "body", True))
+            body_focus = focus and header_column is None
+            combine.append((widget.render(body_size, body_focus), "body", header_column is None))
         elif body_rows:
             combine.append((SolidCanvas(" ", maxcol, body_rows), "body", False))
         if self._footer is not None and frows:
@@ -1249,6 +1831,13 @@ class Table(Widget):
         if not combine:
             return SolidCanvas(" ", maxcol, 0)
         return CanvasCombine(combine)
+
+    def _header_cursor(self, arrangement: _Arrangement, column: int) -> tuple[int, int]:
+        """Return the cursor on the first screen column of the label of the visible *column*."""
+        start = self._layout._column_spans(arrangement.content)[column][0]
+        if arrangement.bar and self._bar is not None and self._bar.scrollbar_side == SCROLLBAR_LEFT:
+            start += arrangement.maxcol - arrangement.content
+        return start, 0
 
     def _body_call_size(
         self,
@@ -1266,21 +1855,52 @@ class Table(Widget):
     def keypress(self, size: tuple[()] | tuple[int] | tuple[int, int], key: str) -> str | None:
         """Pass the key to the rows; send ``"activate"`` for an ``activate`` command they leave unhandled.
 
-        :returns: ``None`` if the rows or an ``"activate"`` handler handled the key, otherwise the key.
+        While the header of a sortable table has the focus, the key goes to the header instead,
+        as the class description says.
+
+        :returns: ``None`` if the rows, the header or a handler handled the key, otherwise the key.
             A handler handles the key by returning a true value.
         """
+        if self._header_focused:
+            arrangement = self._arrange(size)
+            if (column := self._header_target(arrangement)) is not None:
+                return self._header_keypress(arrangement, column, key)
+            self._end_header_focus()
         if (body := self._body_call_size(size)) is None:
             return key
-        widget, body_size, _arrangement = body
+        widget, body_size, arrangement = body
         if (unhandled := widget.keypress(body_size, key)) is None:
             return None
-        if (
-            self._command_map[unhandled] == Command.ACTIVATE
-            and self._rows.focus is not None
-            and signals.emit_signal(self, "activate", self, self._rows.focus)
-        ):
+        command = self._command_map[unhandled]
+        if command == Command.ACTIVATE:
+            if self._rows.focus is not None and signals.emit_signal(self, "activate", self, self._rows.focus):
+                return None
+        elif command == Command.UP and self._sortable and (column := self._header_target(arrangement)) is not None:
+            if self._header_column is None:
+                self._header_column = column
+            self._header_focused = True
+            self._invalidate()
             return None
         return unhandled
+
+    def _header_keypress(self, arrangement: _Arrangement, column: int, key: str) -> str | None:
+        """Handle *key* while the header has the focus, shown on the visible *column*."""
+        command = self._command_map[key]
+        if command in {Command.LEFT, Command.RIGHT}:
+            visible = list(self._layout._column_spans(arrangement.content))
+            position = visible.index(column) + (1 if command == Command.RIGHT else -1)
+            if not 0 <= position < len(visible):
+                return key
+            self._header_column = visible[position]
+            self._invalidate()
+            return None
+        if command == Command.ACTIVATE:
+            self._header_column = column
+            return None if signals.emit_signal(self, "header activated", self, column) else key
+        if command == Command.DOWN or (self._select_navigation and command == Command.SELECT_NEXT):
+            self._end_header_focus()
+            return None
+        return key
 
     def mouse_event(
         self,
@@ -1291,7 +1911,20 @@ class Table(Widget):
         row: int,
         focus: bool,
     ) -> bool | None:
-        """Pass the event to the rows; the header and the footer take no mouse events."""
+        """Pass the event to the rows; the footer takes no mouse events.
+
+        The header takes none either, except a press of button 1 on a label of a sortable table,
+        which focuses that label when the table has rows and sends ``"header activated"``.
+        A press of button 1 on the rows gives the focus back to them.
+
+        :returns: whether the rows or a ``"header activated"`` handler handled the event.
+        """
+        if self._sortable:
+            arrangement = self._arrange(size)
+            if row < arrangement.header_rows:
+                return self._header_click(arrangement, event, button, col)
+            if self._header_focused and self._header_target(arrangement) is None:
+                self._end_header_focus()
         if (body := self._body_call_size(size)) is None:
             return False
         widget, body_size, arrangement = body
@@ -1303,10 +1936,38 @@ class Table(Widget):
                 body_rows = self._body_rows(arrangement.content, sys.maxsize)
             if row >= body_rows:
                 return False
+        if event == "mouse press" and button == 1:
+            self._end_header_focus()
         return widget.mouse_event(body_size, event, button, col, row, focus)
 
+    def _header_click(self, arrangement: _Arrangement, event: str, button: int, col: int) -> bool:
+        """Handle a mouse event on the header of a sortable table, *col* screen columns from its left edge."""
+        if event != "mouse press" or button != 1:
+            return False
+        if arrangement.bar and self._bar is not None and self._bar.scrollbar_side == SCROLLBAR_LEFT:
+            col -= arrangement.maxcol - arrangement.content
+        column = next(
+            (
+                index
+                for index, (start, width) in self._layout._column_spans(arrangement.content).items()
+                if start <= col < start + width
+            ),
+            None,
+        )
+        if column is None:
+            return False
+        if self._rows:
+            self._header_column = column
+            self._header_focused = True
+            self._invalidate()
+        return signals.emit_signal(self, "header activated", self, column)
+
     def get_cursor_coords(self, size: tuple[()] | tuple[int] | tuple[int, int]) -> tuple[int, int] | None:
-        """Return the cursor coordinates of the focused row, below the header."""
+        """Return the cursor coordinates of the focused row, below the header, or of the focused header label."""
+        if self._header_focused:
+            arrangement = self._arrange(size)
+            if (column := self._header_target(arrangement)) is not None:
+                return self._header_cursor(arrangement, column)
         if (body := self._body_call_size(size)) is None:
             return None
         widget, body_size, arrangement = body

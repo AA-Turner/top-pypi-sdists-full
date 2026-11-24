@@ -113,6 +113,26 @@ class MinorImageBlockedError(PermissionError):
         )
 
 
+def snapshot_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """A media call's kwargs as the request snapshot stores them: each value through the ONE
+    wire serializer (``snapshot.wire_json``), so an SDK config (Google's
+    ``GenerateContentConfig``) is stored as its wire JSON, never as the placeholder
+    ``"<GenerateContentConfig>"`` that blinded the cache guard (``prompt_cache_guard_blind``
+    ``config_type=str``, podcast.image_v2, 2026-11-10). Only a value the serializer cannot
+    express (raw bytes, a stream) keeps a ``<Type>`` stand-in."""
+    from matrx_ai.providers.snapshot import wire_json
+
+    out: dict[str, Any] = {}
+    for key, value in kwargs.items():
+        try:
+            wired = wire_json(value)
+        except Exception:  # noqa: BLE001 — a snapshot never costs the call
+            wired = value
+        plain = wired is None or isinstance(wired, str | int | float | bool | dict | list)
+        out[key] = wired if plain else f"<{type(value).__name__}>"
+    return out
+
+
 class BaseMediaGeneration(ABC):
     provider: str = ""
     modality: Literal["image", "video"] = "image"
@@ -124,6 +144,10 @@ class BaseMediaGeneration(ABC):
     # Video/audio subclasses are never affected — enforcement is scoped to
     # ``modality == "image"``.
     supports_minor_safe_image: bool = False
+    #: Seconds of media the provider makes when a request names no duration (None: the provider has no such
+    #: default, or this class does not apply one). A subclass that fills an omitted duration MUST read it from
+    #: here, so the run budget (``guardrail_gate``) prices that request from the same number the wire carries.
+    DEFAULT_DURATION_SECONDS: int | None = None
 
     async def _await_paid_completion(
         self,
@@ -603,6 +627,12 @@ class BaseMediaGeneration(ABC):
         """Normalized modality-specific usage units for component pricing."""
         return {}
 
+    def _request_billing_components(self, kwargs: dict[str, Any]) -> dict[str, int]:
+        """Paid units the REQUEST itself carries (an input image an edit is billed for),
+        read from the outbound kwargs. Merged into ``billing_components``; the unit's
+        price lives in ``ai.offering.pricing[].component_prices`` (per million units)."""
+        return {}
+
     def _provider_raw_usage(self, raw: Any) -> dict[str, Any] | None:
         """Preserve provider usage evidence without serializing media payloads."""
         usage = getattr(raw, "usage", None) or getattr(raw, "usage_metadata", None)
@@ -664,9 +694,11 @@ class BaseMediaGeneration(ABC):
     def _total_output_pixels(kwargs: dict[str, Any], assets: list[GeneratedAsset]) -> int:
         """Total output pixels across all assets (width×height×n), from request
         kwargs. Handles int width/height or a ``"WxH"`` size string. 0 if unknown."""
-        w = kwargs.get("width")
-        h = kwargs.get("height")
-        size = kwargs.get("size")
+        nested = kwargs.get("input")
+        source = nested if isinstance(nested, dict) and not kwargs.get("width") and not kwargs.get("size") else kwargs
+        w = source.get("width")
+        h = source.get("height")
+        size = source.get("size")
         if (not w or not h) and isinstance(size, str) and "x" in size.lower():
             try:
                 sw, sh = size.lower().split("x")[:2]
@@ -704,6 +736,16 @@ class BaseMediaGeneration(ABC):
                 if value:
                     secs = value
                     break
+        if not secs:
+            # Replicate-style requests carry the model's own input under ``input``
+            # ({"ref": ..., "input": {"duration": 8}}): veo on Replicate billed per
+            # asset (1 s) for every clip until this was read (2026-11-10).
+            nested = kwargs.get("input")
+            if isinstance(nested, dict):
+                for k in ("duration_seconds", "duration", "seconds"):
+                    if nested.get(k):
+                        secs = nested[k]
+                        break
         if not secs:
             vid = getattr(raw, "video", None)
             secs = getattr(vid, "duration", None) if vid is not None else None
@@ -861,7 +903,10 @@ class BaseMediaGeneration(ABC):
         }
         if billing_kind == "uncomputable_no_basis_no_usage":
             metadata["cost_reconciliation"] = "unknown_missing_provider_usage"
-        billing_components = self._provider_billing_components(raw)
+        billing_components = dict(self._provider_billing_components(raw))
+        for name, count in self._request_billing_components(kwargs).items():
+            if count > 0:
+                billing_components[name] = billing_components.get(name, 0) + int(count)
         if any(name.startswith("unallocated.") for name in billing_components):
             metadata["cost_reconciliation"] = "unknown_component_allocation"
         # Best-effort dimensional / duration breadcrumbs — used by
@@ -1141,13 +1186,7 @@ class BaseMediaGeneration(ABC):
             # (V1 verifier 2026-10-04: request_payload was {} on every image call).
             from matrx_ai.providers.snapshot import capture_request_payload
 
-            capture_request_payload(
-                {
-                    k: (v if isinstance(v, str | int | float | bool | type(None) | dict | list) else f"<{type(v).__name__}>")
-                    for k, v in kwargs.items()
-                },
-                provider=self.provider,
-            )
+            capture_request_payload(snapshot_kwargs(kwargs), provider=self.provider)
             initial = await self._maybe_await(self._call_provider, kwargs)
             paid_provider_call_completed = True
             raw = await self._maybe_await(self._poll_if_long_running, initial)
@@ -1285,6 +1324,12 @@ class BaseMediaGeneration(ABC):
 
             attach_wire_payload(exc, kwargs)
             error_info = getattr(exc, "error_info", None) or self._classify_error(exc)
+            if getattr(error_info, "error_type", None) == "provider_timeout":
+                # The shared classifier speaks for text models ("very long prompts or high token
+                # limits"); a media call has neither. Name what timed out (system_error fd9ee1bb).
+                error_info.user_message = (
+                    f"The {self.modality} service ({self.provider}) did not answer in time."
+                )
             if paid_provider_call_completed:
                 # The paid call returned: never retryable, and the billed usage
                 # rides the exception so the executor records it once.
@@ -1296,6 +1341,15 @@ class BaseMediaGeneration(ABC):
                     usage=usage,
                 )
                 error_info = exc.error_info  # type: ignore[attr-defined]
+            else:
+                # The call raised before the provider returned anything, so this adapter has no
+                # billed usage to read - but it DID look. Say so, or layer 2 files
+                # ``provider_billing_capture_missing`` for every media timeout (replicate/veo
+                # ReadTimeout, 5 rows a minute, 2026-11-16) and blames the adapter for a gap that
+                # is the provider's silence, not a missing capture.
+                from matrx_ai.providers.errors import attach_billed_usage
+
+                attach_billed_usage(exc, None)
 
             if emitter and error_info is not None:
                 await emitter.send_error(

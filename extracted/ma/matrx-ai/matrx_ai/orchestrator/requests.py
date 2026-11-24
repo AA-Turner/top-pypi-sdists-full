@@ -18,7 +18,8 @@ from matrx_ai.config import (
     UnifiedMessage,
     UnifiedResponse,
 )
-from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
+from matrx_ai.config.unified_config import SWAP_TRACE_KEYS
+from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage, catalog_cost_source
 from matrx_ai.context.emitter_protocol import Emitter
 from matrx_ai.ops.pricing_drift import note_pricing_drift
 from matrx_ai.orchestrator.tracking import TimingUsage
@@ -219,6 +220,8 @@ class AIMatrixRequest:
         updated_messages._turn_context_blocks = dict(
             getattr(original_request.config.messages, "_turn_context_blocks", {}) or {}
         )
+        # The turn's freeze (what its first send placed before her words) belongs to the turn too.
+        updated_messages._turn_freeze = getattr(original_request.config.messages, "_turn_freeze", None)
         new_config = copy(original_request.config)
         new_config.messages = updated_messages
         return replace(original_request, config=new_config)
@@ -335,14 +338,14 @@ class CompletedRequest:
             "metadata": self.metadata,
         }
 
-    # Orchestrator status strings that mean "the run has a valid final assistant turn
-    # and is RESUMABLE (waiting on the client/user), NOT an error and NOT done." Shared
-    # by cx (→ "paused") and the spine (→ WAITING_INPUT). One list, one meaning.
+    # Orchestrator statuses that PARK the run because something WILL resume it: an answered
+    # client-run tool call (``/resume`` accepts only that) or a person acting at a browser
+    # hand-off. Shared by cx (→ "paused") and the spine (→ WAITING_INPUT). One list, one
+    # meaning. A stop nobody resumes never belongs here: parking it leaves the conversation
+    # "paused", the spine WAITING_INPUT and the send button spinning (Q-15 X3, 2026-11-18).
+    # Guard: aidream/services/runtime/tests/test_a_person_wait_and_a_cut_reply_are_normal_ends.py.
     RESUMABLE_SUSPEND_STATUSES: ClassVar[tuple[str, ...]] = (
         "suspended_awaiting_client",
-        "suspended_provider_overload",
-        "paused_loop_guard",
-        "max_iterations_exceeded",
         # A Cloud Browser human-handoff parks the run at WAITING_INPUT while a
         # person acts at the panel (WS-6 / browser_handoff.SUSPEND_REASON). It is
         # a client-delegated suspend whose "client" is a human — RESUMABLE, never
@@ -350,29 +353,30 @@ class CompletedRequest:
         # legitimate multi-minute-to-week wait). Kept in lockstep with
         # matrx_ai.browser_handoff.models.SUSPEND_REASON.
         "suspended_awaiting_human_browser",
-        # The model hit its output-token limit mid-response (executor.py's
-        # finish_action == "truncated" exit). The partial text was delivered
-        # and persisted, so the run is limit-hit + RESUMABLE — never a clean
-        # "completed" (it previously fell to the else branch and recorded a
-        # real limit-hit as a success). Its structured error detail
-        # (metadata["error"] + error_type="truncated_response") is carried
-        # onto the summary below.
-        "truncated",
     )
 
-    # The subset of RESUMABLE_SUSPEND_STATUSES whose resumer is a PERSON typing
-    # "continue" in that conversation. A sub-agent run (an agent another agent or
-    # tool started) has no such person: its caller reads the answer and continues
-    # it (send_message) or not. So for a run stamped CALLER_RESUMES_KEY these settle
-    # as "completed" with the structured error kept — terminal, marked, and still
-    # continuable — never "paused" until the 30-day abandon sweep (2026-10-21
-    # audit: two helpers parked "waiting for a person" that did not exist).
-    PERSON_RESUMES_STATUSES: ClassVar[tuple[str, ...]] = (
-        "paused_loop_guard",
-        "max_iterations_exceeded",
+    # Orchestrator statuses that END the run (terminal "completed") but are NOT clean: the
+    # turn stopped short and the person is told why. Nothing resumes any of them (/resume
+    # refuses them; the notice's Continue is a NEW turn). Whatever was delivered is
+    # persisted; the structured error (metadata["error"] + error_type) is kept on the summary
+    # and the exact stop is saved as metadata.stop_status, so a reloaded screen still names
+    # the stop and offers its Continue. A press always answers (no-dead-ends.md § 15).
+    FINISHED_WITH_STOP_STATUSES: ClassVar[tuple[str, ...]] = (
+        # The model hit its output-token limit mid-response (executor.py's
+        # finish_action == "truncated" exit).
         "truncated",
+        # The step limit: the loop wrapped up at max_iterations.
+        "max_iterations_exceeded",
+        # The loop guard: repeated tool errors stopped the loop (2026-11-19, was "paused").
+        "paused_loop_guard",
+        # The provider stayed overloaded through every in-run retry; nothing retries after
+        # the run ends (the retry card says so), so the way on is a new turn (2026-11-19).
+        "suspended_provider_overload",
     )
-    #: completion-metadata flag the executor stamps on a sub-agent run.
+
+    #: completion-metadata flag the executor stamps on a sub-agent run (its caller, not a
+    #: person, reads the answer and continues it or not). Every limit stop is terminal for
+    #: every run now, so the summary no longer branches on it; kept for the executor's stamp.
     CALLER_RESUMES_KEY: ClassVar[str] = "resumed_by_caller"
 
     def _structured_error(self) -> dict[str, Any] | Any | None:
@@ -449,9 +453,11 @@ class CompletedRequest:
         # Status from metadata → cx_user_request.status (processing-outcome enum:
         # pending|processing|completed|failed|cancelled|abandoned|paused).
         #   - "failed"                   → "failed" (a real error; carries .error)
-        #   - a RESUMABLE_SUSPEND_STATUS → "paused" (delegated client-tool suspend,
-        #     provider-overload wait, loop-guard, or iteration cap — a valid final
-        #     assistant turn, resumable by client/user action, possibly weeks later)
+        #   - a RESUMABLE_SUSPEND_STATUS → "paused" (a delegated client-tool call or a
+        #     browser hand-off — something WILL resume it, possibly weeks later)
+        #   - a FINISHED_WITH_STOP_STATUS → "completed", structured error kept +
+        #     metadata.stop_status (length limit, step limit, loop guard, provider
+        #     still busy: nothing resumes it, so the run ends, marked)
         #   - "cancelled"                 → "cancelled" (explicit user/server
         #     cancellation at a safe boundary)
         #   - "completed_with_warning"    → "completed", structured error kept
@@ -465,22 +471,16 @@ class CompletedRequest:
         if status == "failed":
             user_request["status"] = "failed"
             user_request["error"] = self._structured_error()
-        elif (
-            status in self.PERSON_RESUMES_STATUSES
-            and self.metadata.get(self.CALLER_RESUMES_KEY) is True
-        ):
-            # A sub-agent's limit stop: nobody is in that conversation to resume
-            # it, so it is a terminal outcome for THIS turn, with the reason kept.
+        elif status in self.FINISHED_WITH_STOP_STATUSES:
+            # Finished, honestly marked: terminal for this turn, reason kept.
             user_request["status"] = "completed"
             err = self._structured_error()
             if err is not None:
                 user_request["error"] = err
         elif status in self.RESUMABLE_SUSPEND_STATUSES:
             user_request["status"] = "paused"
-            # A paused run may still carry error detail (e.g. "truncated" sets
-            # metadata error + error_type="truncated_response"). Preserve it —
-            # a limit-hit is resumable but NOT clean, and dropping the payload
-            # here would erase the only structured record of why it paused.
+            # A paused run may still carry error detail. Preserve it — dropping the
+            # payload would erase the only structured record of why it paused.
             err = self._structured_error()
             if err is not None:
                 user_request["error"] = err
@@ -505,6 +505,12 @@ class CompletedRequest:
         if has_unknown_cost:
             request_metadata["cost_reconciliation"] = "incomplete_child_costs"
             request_metadata["known_cost_subtotal"] = round(total_cost, 6)
+        if isinstance(status, str) and (
+            user_request["status"] == "paused" or status in self.FINISHED_WITH_STOP_STATUSES
+        ):
+            # WHICH resumable stop this was, on the saved row: the loop guard and the step limit
+            # share one error_type, so a reloaded screen needs the stop's own name to say why.
+            request_metadata["stop_status"] = status
         if self.metadata.get("response_id"):
             request_metadata["response_id"] = self.metadata["response_id"]
         # Time-to-first-token in ms (request accepted → first text/reasoning
@@ -512,6 +518,8 @@ class CompletedRequest:
         # output ever reached the client.
         if isinstance(self.metadata.get("ttft_ms"), int):
             request_metadata["ttft_ms"] = self.metadata["ttft_ms"]
+        if isinstance(self.metadata.get("blocks_shadow"), dict):
+            request_metadata["blocks_shadow"] = self.metadata["blocks_shadow"]
         if self.total_usage.by_model:
             request_metadata["usage_by_model"] = {
                 k: asdict(v) for k, v in self.total_usage.by_model.items()
@@ -637,6 +645,19 @@ class CompletedRequest:
             _last_fit = None
             _fit_by_iteration = {}
 
+        # What the send boundary's assistant-turn media carry moved, per iteration
+        # (``send_boundary._record_carried_media``); absent when nothing moved.
+        _carried_by_iteration: dict[int, list[Any]] = {}
+        try:
+            from matrx_ai.context.app_context import try_get_app_context as _carry_app_ctx
+
+            _carry_ctx = _carry_app_ctx()
+            _carries = _carry_ctx.metadata.get("carried_media_by_iteration") if _carry_ctx is not None else None
+            if isinstance(_carries, dict):
+                _carried_by_iteration = {int(k): v for k, v in _carries.items() if isinstance(v, list)}
+        except Exception:
+            _carried_by_iteration = {}
+
         request_rows: list[dict[str, Any]] = []
         for i in range(self.iterations):
             row: dict[str, Any] = {"iteration": i + 1}
@@ -713,6 +734,24 @@ class CompletedRequest:
                 )
                 if estimated:
                     row.setdefault("metadata", {})["usage_estimated"] = estimated
+                # A SWAPPED CALL says so (CGU-10 AND-IMG12 #3): the person's model and why a stand-in
+                # answered, stamped by ``UnifiedAIClient._stamp_offering_usage`` from the turn's trace.
+                swapped = next(
+                    (item.metadata for item in reversed(iteration_usages) if item.metadata.get("original_model")),
+                    None,
+                )
+                if swapped is not None:
+                    row.setdefault("metadata", {}).update(
+                        {key: swapped[key] for key in SWAP_TRACE_KEYS if key in swapped}
+                    )
+                # A CEILING DECISION THAT IS NOT A SWAP (an exempt person; a tier that was unknown) says so too.
+                ceiling = next(
+                    (item.metadata["model_ceiling"] for item in reversed(iteration_usages)
+                     if isinstance(item.metadata.get("model_ceiling"), dict)),
+                    None,
+                )
+                if ceiling is not None:
+                    row.setdefault("metadata", {})["model_ceiling"] = dict(ceiling)
                 attempt_costs = [item.calculate_cost() for item in iteration_usages]
                 if all(cost is not None for cost in attempt_costs):
                     row["cost"] = round(
@@ -748,7 +787,7 @@ class CompletedRequest:
                         {
                             # The row's ``cost`` is ALWAYS our catalog result.
                             # Provider dollars are comparison evidence only.
-                            "cost_source": "catalog_from_provider_usage",
+                            "cost_source": catalog_cost_source(iteration_usages),
                             "provider_charge_available": True,
                             "provider_charge_usd": authoritative_provider_cost,
                             "provider_charges": serialized_charges,
@@ -779,7 +818,7 @@ class CompletedRequest:
                 elif catalog_cost is not None:
                     row.setdefault("metadata", {}).update(
                         {
-                            "cost_source": "catalog_from_provider_usage",
+                            "cost_source": catalog_cost_source(iteration_usages),
                             "catalog_cost_usd": round(catalog_cost, 6),
                         }
                     )
@@ -844,12 +883,26 @@ class CompletedRequest:
                         else reconciliations
                     )
 
+            # WHERE IT WAS SENT, even when the device failed before any usage came back: the config's
+            # ``served_via`` is the call's one route (a device run never reroutes), so a failed
+            # own-file call still writes its request row (ai_model_id NULL) instead of being skipped
+            # as "model unresolvable" (system_error b7fcf117, 2026-11-10: relay 502, no row).
+            if not isinstance((row.get("metadata") or {}).get("served_via"), dict):
+                _config_served_via = getattr(config, "served_via", None)
+                if _config_served_via is not None:
+                    row.setdefault("metadata", {})["served_via"] = _config_served_via.model_dump(mode="json")
+
             # Timing for this iteration
             if i < len(timing_list):
                 t = timing_list[i]
                 row["api_duration_ms"] = int(t.api_call_duration * 1000)
                 row["tool_duration_ms"] = int(t.tool_execution_duration * 1000)
                 row["total_duration_ms"] = int(t.total_duration * 1000)
+                # The request boundary rides the first iteration's row (never its own total): the user-request
+                # rollup sums these rows, so the boundary must be on a row to reach the request's total (AND-IMG19 F4).
+                _boundary = float(getattr(t, "boundary_duration", 0.0) or 0.0)
+                if _boundary > 0:
+                    row.setdefault("metadata", {})["boundary_duration_ms"] = int(_boundary * 1000)
 
             # Tool calls for this iteration (iteration is 1-based)
             tc_entry = tool_calls_by_iter.get(i + 1)
@@ -871,6 +924,9 @@ class CompletedRequest:
                 row.setdefault("metadata", {})["input_fit"] = _iter_fit
             if i == 0 and isinstance(_history_cut, dict):
                 row.setdefault("metadata", {})["history_cut"] = _history_cut
+            _iter_carry = _carried_by_iteration.get(i + 1)
+            if _iter_carry:
+                row.setdefault("metadata", {})["assistant_media_carried"] = _iter_carry
 
             request_rows.append(row)
 

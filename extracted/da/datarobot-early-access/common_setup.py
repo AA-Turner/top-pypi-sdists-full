@@ -23,7 +23,7 @@ About {package_name}
 .. image:: https://img.shields.io/pypi/pyversions/{package_name}.svg
 .. image:: https://img.shields.io/pypi/status/{package_name}.svg
 
-DataRobot is a client library for working with the `DataRobot`_ platform API. {extra_desc}
+The DataRobot Python SDK is a library for working with the `DataRobot`_ platform API. {extra_desc}
 
 This package is released under the terms of the DataRobot Tool and Utility Agreement, which
 can be found on our `Legal`_ page, along with our privacy policy and more.
@@ -351,7 +351,7 @@ pipelines_require: List[str] = [
 common_setup_kwargs = dict(
     name=None,
     version=None,
-    description="This client library is designed to support the DataRobot API.",
+    description="This SDK is designed to support the DataRobot API.",
     author="datarobot",
     author_email="api-maintainer@datarobot.com",
     maintainer="datarobot",

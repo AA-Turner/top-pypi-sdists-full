@@ -5,10 +5,13 @@ from __future__ import annotations
 import io
 import logging
 import sys
+from collections.abc import Callable
+from contextlib import ExitStack, redirect_stderr, redirect_stdout
 
 import pytest
 
 from nab import env
+from nab.cli import run
 from nab.output import (
     ColorChoice,
     OutputOptionError,
@@ -16,8 +19,8 @@ from nab.output import (
     Printer,
     ProgressReporter,
     Verbosity,
-    _isatty,
     begin,
+    command_output,
     install_log_handler,
     logging_level_for,
     options_from_flags,
@@ -67,11 +70,14 @@ class _TTY(io.StringIO):
         return self._tty
 
 
-def _printer(**kwargs: object) -> tuple[Printer, io.StringIO, io.StringIO]:
+def _printer(
+    *,
+    verbosity: Verbosity = Verbosity.NORMAL,
+    color: ColorChoice = ColorChoice.AUTO,
+) -> tuple[Printer, io.StringIO, io.StringIO]:
     out = io.StringIO()
     err = io.StringIO()
-    printer = Printer(stdout=out, stderr=err, **kwargs)  # type: ignore[arg-type]
-    return printer, out, err
+    return Printer(stdout=out, stderr=err, verbosity=verbosity, color=color), out, err
 
 
 @pytest.mark.parametrize(
@@ -93,18 +99,45 @@ def test_verbosity_from_counts(verbose: int, quiet: int, expected: Verbosity) ->
 
 
 def test_isatty_present_true() -> None:
-    assert _isatty(_TTY(tty=True)) is True
+    assert env.stream_isatty(_TTY(tty=True)) is True
 
 
 def test_isatty_present_false() -> None:
-    assert _isatty(_TTY(tty=False)) is False
+    assert env.stream_isatty(_TTY(tty=False)) is False
 
 
 def test_isatty_absent() -> None:
     class NoTty:
         pass
 
-    assert _isatty(NoTty()) is False  # type: ignore[arg-type]
+    assert env.stream_isatty(NoTty()) is False
+
+
+@pytest.mark.parametrize(
+    ("args", "status"),
+    [
+        (("--help",), 0),
+        (("unknown-command",), 2),
+        (("cache", "dir", "--cache-dir", "."), 0),
+    ],
+)
+def test_cli_writes_to_a_half_closed_duplex_stream(
+    args: tuple[str, ...], status: int
+) -> None:
+    reference = io.StringIO()
+    with redirect_stdout(reference), redirect_stderr(reference):
+        assert run(args) == status
+    assert reference.getvalue()
+
+    reader, writer = io.BytesIO(), io.BytesIO()
+    with io.TextIOWrapper(
+        io.BufferedRWPair(reader, writer), encoding="utf-8", newline="\n"
+    ) as stream:
+        reader.close()
+        with redirect_stdout(stream), redirect_stderr(stream):
+            assert run(args) == status
+        stream.flush()
+        assert writer.getvalue().decode() == reference.getvalue()
 
 
 def test_should_color_always_beats_env() -> None:
@@ -494,6 +527,73 @@ def test_begin_routes_log_records_through_the_run_printer(
     assert capsys.readouterr().err == "warning: mid-run\n"
 
 
+@pytest.mark.parametrize("interrupt", [False, True], ids=["return", "exception"])
+def test_embedded_command_restores_host_logging(*, interrupt: bool) -> None:
+    logger = logging.getLogger("nab_provider")
+    host_stream = io.StringIO()
+    handler = logging.StreamHandler(host_stream)
+    prior_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    def resume() -> None:
+        if interrupt:
+            raise RuntimeError("interrupted")
+
+    try:
+        argv = ("-qq", "cache", "dir", "--cache-dir", ".")
+        if interrupt:
+            with pytest.raises(RuntimeError, match="interrupted"):
+                run(argv, resume)
+        else:
+            assert run(argv, resume) == 0
+
+        logger.info("host message after the command")
+        assert host_stream.getvalue() == "host message after the command\n"
+        assert logger.level == logging.INFO
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(prior_level)
+
+
+def test_nested_command_restores_the_outer_printer() -> None:
+    previous = _begin_run(quiet=1)
+
+    def resume() -> None:
+        outer = printer()
+        assert run(("-qq", "cache", "dir", "--cache-dir", ".")) == 0
+        assert printer() is outer
+
+    assert run(("-v", "cache", "dir", "--cache-dir", "."), resume) == 0
+    assert printer() is previous
+
+
+def test_overlapping_commands_keep_the_last_active_printer() -> None:
+    prior = _begin_run(quiet=1)
+    logger = logging.getLogger("nab_project")
+    handlers = list(logger.handlers)
+    with ExitStack() as first, ExitStack() as second:
+        first.enter_context(command_output(_options(verbose=1)))
+        second.enter_context(command_output(_options(quiet=2)))
+        current = printer()
+        first.close()
+        assert printer() is current
+
+    assert printer() is prior
+    assert logger.handlers == handlers
+
+
+def test_host_can_change_its_own_logger_level_during_a_command() -> None:
+    logger = logging.getLogger("nab_provider")
+    previous = logger.level
+    try:
+        with command_output(_options(verbose=1)):
+            logger.setLevel(logging.CRITICAL)
+        assert logger.level == logging.CRITICAL
+    finally:
+        logger.setLevel(previous)
+
+
 def test_reset_run_drops_the_run_printer() -> None:
     started = _begin_run(quiet=1)
     reset_run()
@@ -513,14 +613,14 @@ def test_reset_run_detaches_the_log_handler() -> None:
 def _enabled_reporter(
     *,
     color: ColorChoice = ColorChoice.NEVER,
-    clock: object = None,
+    clock: Callable[[], float] | None = None,
     min_interval: float = 0.05,
 ) -> tuple[ProgressReporter, _TTY]:
     err = _TTY(tty=True)
     printer = Printer(stderr=err, verbosity=Verbosity.NORMAL, color=color, env={})
     reporter = ProgressReporter(
         printer,
-        clock=clock if clock is not None else (lambda: 0.0),  # type: ignore[arg-type]
+        clock=clock if clock is not None else (lambda: 0.0),
         min_interval=min_interval,
     )
     return reporter, err

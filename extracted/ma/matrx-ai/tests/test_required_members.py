@@ -223,5 +223,5 @@ def test_forced_turn_restores_the_full_toolset_before_dispatch() -> None:
     dispatch_at = EXECUTOR_SRC.index("await handle_tool_calls(", restore_at)
     # restore happens in the loop body before this iteration's dispatch
     assert restore_at < dispatch_at
-    # and the restriction really sets tool_choice='required'
-    assert re.search(r"tool_choice = \"required\"", EXECUTOR_SRC)
+    # and the restriction really sets tool_choice='required' (this send only — CGU-10 IMG8 #3)
+    assert re.search(r"tools_narrowed_this_turn_only\([^;]{0,200}?tool_choice=\"required\"", EXECUTOR_SRC)

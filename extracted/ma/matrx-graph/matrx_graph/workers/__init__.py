@@ -28,7 +28,7 @@ Failure modes:
 Schema: see packages/matrx-graph/matrx_graph/db/migrations/0100_baseline_post_reorg.sql
 """
 
-from matrx_graph.workers.cron_watcher import CronWatcher, FireTrigger
+from matrx_graph.db.trigger_store import FireOutcome
 from matrx_graph.workers.event_watcher import EventWatcher, FireEvent
 from matrx_graph.workers.queue import (
     FailureClass,
@@ -64,10 +64,9 @@ from matrx_graph.workers.runner import (
 
 __all__ = [
     "AppContextFactory",
-    "CronWatcher",
     "EventWatcher",
+    "FireOutcome",
     "FireEvent",
-    "FireTrigger",
     "FailureClass",
     "FailureDisposition",
     "Job",

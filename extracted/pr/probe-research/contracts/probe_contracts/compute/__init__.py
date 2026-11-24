@@ -23,9 +23,18 @@ from .compute import (
     WorkloadKind,
 )
 from .enrollment import ClusterEvidence, EnrollIn, EnrollOut, GpuInventory, NodeInventory
+from .queue import (
+    MAX_QUEUED_JOBS,
+    QUEUE_INTERVAL_SECONDS,
+    QueuedJob,
+    QueueReportAck,
+    QueueReportIn,
+    SchedulerKind,
+)
 from .report import (
     DaemonHealth,
     GpuReport,
+    NodeActivity,
     NodeMetricPoint,
     NodeReportAck,
     NodeReportIn,
@@ -36,8 +45,10 @@ __all__ = [
     "AGENT_SESSION_ENV_KEYS",
     "ENROLLMENT_TOKEN_PREFIX",
     "ENV_ALLOWLIST",
+    "MAX_QUEUED_JOBS",
     "MAX_REPORT_BYTES",
     "NODE_CREDENTIAL_PREFIX",
+    "QUEUE_INTERVAL_SECONDS",
     "REPORT_INTERVAL_SECONDS",
     "RETIRE_AFTER_SECONDS",
     "SERVER_AGGS",
@@ -53,6 +64,7 @@ __all__ = [
     "GpuReport",
     "InstallMode",
     "MatchRule",
+    "NodeActivity",
     "NodeInventory",
     "NodeKeySource",
     "NodeMetricPoint",
@@ -62,6 +74,10 @@ __all__ = [
     "OccupantEvidence",
     "OccupantKind",
     "Pricing",
+    "QueueReportAck",
+    "QueueReportIn",
+    "QueuedJob",
+    "SchedulerKind",
     "StintEndReason",
     "WorkloadKind",
 ]

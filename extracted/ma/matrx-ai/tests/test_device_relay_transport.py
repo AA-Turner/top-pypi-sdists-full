@@ -562,7 +562,8 @@ def _contract() -> dict:
     import json
     from pathlib import Path
 
-    path = Path(__file__).resolve().parents[3] / "apps" / "shared" / "desktop-protocol" / "fixtures" / "device-model-contract.json"
+    # matrx-ai's copy of apps/shared/desktop-protocol's contract; tests/package_host_contracts keeps it byte-identical.
+    path = Path(__file__).resolve().parent / "fixtures" / "device" / "device-model-contract.json"
     return json.loads(path.read_text())
 
 

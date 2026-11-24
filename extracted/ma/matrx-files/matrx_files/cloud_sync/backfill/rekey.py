@@ -178,7 +178,10 @@ async def rekey_one_file(fm: Any, file_id: str) -> bool:
 
     Designed for fire-and-forget from the upload handlers:
 
-        asyncio.create_task(rekey_one_file(fm, result.file_id))
+        supervised_task(rekey_one_file(fm, result.file_id), kind="file_rekey_failed")
+
+    (``matrx_utils.supervised_task`` — never a raw ``asyncio.create_task``,
+    whose task the garbage collector can destroy mid-run.)
 
     Returns True when the row was rekeyed (or already canonical),
     False on any non-fatal failure. Never raises.

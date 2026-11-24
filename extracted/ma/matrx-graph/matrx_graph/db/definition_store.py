@@ -58,6 +58,48 @@ def _archived_predicate(archived: str) -> dict[str, Any]:
     return {"is_archived": value == "archived"}
 
 
+_CONTENT_KEYS = (
+    "nodes", "edges", "viewport", "channels", "strict_channels", "entry_nodes", "variables",
+    "metadata", "name", "description", "input_kind", "output_kind",
+)
+
+
+def _plain(value: Any) -> Any:
+    # JSONB hands 0.0 back as 0 (and the reverse): equal numbers compare equal, whatever their spelling.
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    return value
+
+
+def _canonical(value: Any, *, json_column: bool = True) -> str:
+    import json
+
+    if json_column:
+        value = _coerce_json_value(value)
+    return json.dumps(_plain(value), sort_keys=True, default=str, separators=(",", ":"))
+
+
+async def _current_row_if_unchanged(definition_id: str, updates: dict[str, Any]) -> Any | None:
+    """The stored row when every content field ``updates`` would write already holds exactly that, else None."""
+    rows = await (
+        get_model("WfDefinition").filter(id=_to_uuid(definition_id), deleted_at__isnull=True).values()
+    )
+    if not rows:
+        return None
+    row = rows[0]
+    for key in _CONTENT_KEYS:
+        if key not in updates:
+            continue
+        text = key in ("name", "description", "input_kind", "output_kind")
+        if _canonical(updates[key], json_column=not text) != _canonical(row.get(key), json_column=not text):
+            return None
+    return row
+
+
 def _normalized_for_save(definition: Definition) -> Definition:
     """Config-declared handle lists as the node's config model computes them.
 
@@ -76,6 +118,37 @@ class _Unset:
 
 
 _UNSET = _Unset()
+
+_KIND_COLUMNS = ("input_kind", "output_kind")
+
+
+def lift_declared_kinds(definition: Definition, columns: dict[str, Any]) -> tuple[Definition, dict[str, Any]]:
+    """THE workflow IO declaration lives in the ``input_kind`` / ``output_kind`` COLUMNS.
+
+    An author that puts ``input_kind`` / ``output_kind`` inside ``definition.metadata``
+    (the shape an agent writes) is declaring the workflow's contract: the value is lifted
+    into ``columns`` and the key is removed from ``metadata``, so no metadata copy is ever
+    stored as a second truth. ``columns`` holds only what the caller sent explicitly (an
+    explicit value — even ``None``, which clears — wins over metadata). A blank or
+    non-string metadata value is not a declaration: the key is still dropped, nothing is
+    written. ``create`` and ``save_draft`` both run this, so every writer — the authoring
+    service, scripts, seeders, feature writers — gets the same hygiene. The definition is
+    copied, never mutated.
+    """
+    out = dict(columns)
+    metadata = definition.metadata
+    if not isinstance(metadata, dict) or not any(k in metadata for k in _KIND_COLUMNS):
+        return definition, out
+    kept = dict(metadata)
+    for key in _KIND_COLUMNS:
+        if key not in kept:
+            continue
+        value = kept.pop(key)
+        text = value.strip() if isinstance(value, str) else ""
+        if key not in out and text:
+            out[key] = text
+            logger.info("[definition-store] %s %r declared in metadata — written to the column", key, text)
+    return definition.model_copy(update={"metadata": kept}), out
 
 
 class DefinitionRow(BaseModel):
@@ -158,8 +231,13 @@ class DefinitionStore:
         published_to_web: bool = False,
         shown_to: ShownToLiteral | None = None,
         workflow_type: str = "user",
+        input_kind: str | None = None,
+        output_kind: str | None = None,
     ) -> DefinitionRow:
         """Create a definition + its v1 snapshot in one transaction.
+
+        ``input_kind`` / ``output_kind`` are THE workflow-level IO declaration
+        columns (the same ones ``save_draft`` writes); blank is undeclared.
 
         ``workflow_type`` (``user`` | ``builtin`` | ``generated``) is written
         explicitly; feature writers pass ``generated`` / ``builtin`` so the row
@@ -184,6 +262,9 @@ class DefinitionStore:
             )
         access = RowAccess(published_to_web=published_to_web, shown_to=shown_to)
 
+        sent = {k: v for k, v in (("input_kind", input_kind), ("output_kind", output_kind)) if (v or "").strip()}
+        definition, kinds = lift_declared_kinds(definition, sent)
+        input_kind, output_kind = kinds.get("input_kind"), kinds.get("output_kind")
         definition = _normalized_for_save(definition)
         definition_id = str(uuid4())
         async with transaction():
@@ -203,6 +284,8 @@ class DefinitionStore:
                 is_active=True,
                 is_archived=False,
                 workflow_type=workflow_type,
+                input_kind=(input_kind or "").strip() or None,
+                output_kind=(output_kind or "").strip() or None,
                 **access.columns(user_id),
                 tags=tags or [],
                 category=category,
@@ -227,14 +310,19 @@ class DefinitionStore:
         is_version: bool = False,
         version_number: int | None = None,
         version_id: str | None = None,
+        include_deleted: bool = False,
     ) -> DefinitionRow | None:
+        """``include_deleted`` is for a run that already exists: it continues on the
+        graph it started on even when its definition was soft-deleted after the run
+        was created (a deleted definition never strands a queued or parked run)."""
         def_uuid = _to_uuid(definition_id)
         if def_uuid is None:
             return None
         if not is_version:
-            rows = await (
-                get_model("WfDefinition").filter(id=def_uuid, deleted_at__isnull=True).values()
-            )
+            filters_live: dict[str, Any] = {"id": def_uuid}
+            if not include_deleted:
+                filters_live["deleted_at__isnull"] = True
+            rows = await get_model("WfDefinition").filter(**filters_live).values()
             if not rows:
                 return None
             return _row_to_definition_row(rows[0], is_version=False)
@@ -352,6 +440,9 @@ class DefinitionStore:
         include_generated: bool = False,
         typed_only: bool = False,
         search: str | None = None,
+        exclude_name_prefixes: Sequence[str] = (),
+        exclude_organization_id: str | None = None,
+        exclude_organization_unless_created_by: str | None = None,
     ) -> list[DefinitionRow]:
         """Everything the person can access, across all her organizations.
 
@@ -379,7 +470,11 @@ class DefinitionStore:
             include_ids=include_ids,
             include_generated=include_generated,
         )
-        qb = _narrow(qb, typed_only=typed_only, search=search)
+        qb = _narrow(
+            qb, typed_only=typed_only, search=search, exclude_name_prefixes=exclude_name_prefixes,
+            exclude_organization_id=exclude_organization_id,
+            exclude_organization_unless_created_by=exclude_organization_unless_created_by,
+        )
         if qb is None:
             return []
         rows = await qb.order_by("-updated_at").limit(limit).offset(offset).values()
@@ -397,6 +492,9 @@ class DefinitionStore:
         include_generated: bool = False,
         typed_only: bool = False,
         search: str | None = None,
+        exclude_name_prefixes: Sequence[str] = (),
+        exclude_organization_id: str | None = None,
+        exclude_organization_unless_created_by: str | None = None,
     ) -> int:
         """Count exactly the rows that :meth:`list_for_user` can render."""
         qb = self._user_scope_query(
@@ -407,7 +505,11 @@ class DefinitionStore:
             include_ids=include_ids,
             include_generated=include_generated,
         )
-        qb = _narrow(qb, typed_only=typed_only, search=search)
+        qb = _narrow(
+            qb, typed_only=typed_only, search=search, exclude_name_prefixes=exclude_name_prefixes,
+            exclude_organization_id=exclude_organization_id,
+            exclude_organization_unless_created_by=exclude_organization_unless_created_by,
+        )
         return 0 if qb is None else int(await qb.count())
 
     async def save_draft(
@@ -462,6 +564,10 @@ class DefinitionStore:
         only if the row's ``updated_at`` still equals it; a lost race
         raises :class:`matrx_graph.errors.DraftConflictError`.
         """
+        sent = {k: v for k, v in (("input_kind", input_kind), ("output_kind", output_kind)) if not isinstance(v, _Unset)}
+        definition, kinds = lift_declared_kinds(definition, sent)
+        input_kind = kinds.get("input_kind", _UNSET)
+        output_kind = kinds.get("output_kind", _UNSET)
         definition = _normalized_for_save(definition)
         updates: dict[str, Any] = {
             "nodes": [n.model_dump(mode="json") for n in definition.nodes],
@@ -505,6 +611,18 @@ class DefinitionStore:
         if expected_updated_at is not None:
             filters["updated_at"] = expected_updated_at
 
+        # 🚨 A SAVE OF WHAT IS ALREADY SAVED WRITES NOTHING (P5 walk 2026-11-16: one press made two extra
+        # versions). Every draft write is a revision; an identical definition, name, description and
+        # declared kinds is not an edit, so the current row is answered as is. A caller holding a STALE
+        # token still gets its conflict (the check applies only when the token is current or absent).
+        current = await _current_row_if_unchanged(definition_id, updates)
+        if current is not None and (
+            expected_version is None or int(current["version"]) == int(expected_version)
+        ) and (
+            expected_updated_at is None or current.get("updated_at") == expected_updated_at
+        ):
+            return _row_to_definition_row(current, is_version=False)
+
         result = await get_model("WfDefinition").update_where(
             filters, expected_version=expected_version, **updates
         )
@@ -528,11 +646,13 @@ class DefinitionStore:
         change_note: str | None = None,
         changed_by_user_id: str | None = None,
     ) -> DefinitionRow:
-        """Promote the current draft to a new published version.
+        """Make the newest SAVED version live.
 
-        Increments `version` on the main row and writes a snapshot into
-        workflow.definition_version with the new version_number. Returns the
-        updated main row.
+        Snapshots the row's current `version` (the revision its last save made)
+        into workflow.definition_version under that same number and stamps
+        ``metadata.published`` with it. It never adds a revision of its own: a
+        version already snapshotted is made live without a second copy, and one
+        already live is answered as is. Returns the main row.
 
         **The publish is the output contract's gate** (SPEC §2.3). A declared
         ``output_kind`` that is not produced by any deliverable REFUSES the
@@ -547,45 +667,86 @@ class DefinitionStore:
         from matrx_orm.core.transaction import get_active_connection
 
         async with transaction():
-            # 🚨 A PUBLISH IS A RECORDED CHANGE (VERSION-HISTORY-FIX / HR-LOOP-CLEANUP, 2026-09-23).
-            # This used to be `set version = version + 1` and nothing else — exactly the write the
-            # database's no-op rule (`platform.no_change_keeps_its_version()`: equal in everything
-            # but version/updated_at -> keep OLD) swallows, after which the snapshot below hit
-            # UNIQUE (definition_id, version_number) and `ON CONFLICT DO NOTHING` inserted nothing:
-            # a publish that "succeeded" with no new version. The same UPDATE now also writes the
-            # publish itself into the row's system metadata, so it is a real change on any table
-            # binding, and the row is locked first so the metadata merge cannot lose an autosave.
+            # 🚨 A PUBLISH PINS THE NEWEST SAVED VERSION — IT NEVER MAKES ANOTHER (P5 walk 2026-11-15:
+            # "Live v3 · Newest saved v4", Publish -> "Published v5"). `version` is the row REVISION every
+            # save moves; a publish snapshots the revision the person saved, under that number. It used to
+            # bump the revision itself (`version + 1`), so every publish minted a version nobody had saved.
+            #
+            # The row still records the publish (`metadata.published`): a real change on any table binding
+            # (the no-op rule `platform.no_change_keeps_its_version()` cannot swallow it, VERSION-HISTORY-FIX
+            # 2026-09-23), and `published` is a DECLARED BACKGROUND KEY on the row's `_touch_row` trigger
+            # (db/held/publish_stamp_is_a_background_key.sql), so the stamp alone carries the version forward. The row is locked first so the
+            # metadata merge cannot lose an autosave.
             model = get_model("WfDefinition")
             live = {"id": _to_uuid(definition_id), "deleted_at__isnull": True}
-            locked = await model.filter(**live).select_for_update().values("version", "metadata")
+            locked = await model.filter(**live).select_for_update().values()
             if not locked:
                 raise DefinitionError(f"Workflow definition '{definition_id}' not found.")
-            next_version = int(locked[0]["version"]) + 1
-            result = await model.update_where(
-                live,
-                version=F("version") + 1,
-                metadata=_with_publish_stamp(
-                    locked[0].get("metadata"), next_version, changed_by_user_id
-                ),
+            saved_version = int(locked[0]["version"])
+            already_pinned = await get_model("WfDefinitionVersion").exists(
+                definition_id=_to_uuid(definition_id), version_number=saved_version
             )
+            if already_pinned and _published_version(locked[0].get("metadata")) == saved_version:
+                # Publishing what is already live is an answer, never a new version and never a write.
+                return _row_to_definition_row(locked[0], is_version=False)
+            # Stamp the number a database that counts the stamp as a revision WILL land on (saved + 1): then
+            # that one write is the publish's only revision. If the database did not bump, the stamp is
+            # re-written to name the saved version (a background-key write: no revision either way).
+            result = await model.update_where(
+                live, metadata=_with_publish_stamp(locked[0].get("metadata"), saved_version + 1, changed_by_user_id)
+            )
+            if result.rows_affected and int(result.updated_rows[0]["version"]) == saved_version:
+                result = await model.update_where(
+                    live, metadata=_with_publish_stamp(result.updated_rows[0].get("metadata"), saved_version, changed_by_user_id)
+                )
             if result.rows_affected == 0:
                 raise DefinitionError(f"Workflow definition '{definition_id}' not found.")
             row = result.updated_rows[0]
-            if int(row["version"]) != next_version:
-                raise DefinitionError(
-                    f"Workflow definition '{definition_id}' publish did not advance its version "
-                    f"(expected {next_version}, the database kept {row['version']}); nothing was "
-                    "published. A trigger that treats the publish as a no-op is the usual cause."
+            if int(row["version"]) != saved_version:
+                # The database counted the stamp as a revision: its `_touch_row` trigger does not declare
+                # `published` a background key yet (db/held/publish_stamp_is_a_background_key.sql). Never pin a version the stamp does not name:
+                # stamp the revision this write made (the content is the saved version's), say it loudly,
+                # and publish that — the old extra-version behaviour, never a broken publish.
+                logger.error(
+                    "[definition_store] publish of workflow %s: the stamp moved version %s -> %s; apply "
+                    "db/held/publish_stamp_is_a_background_key.sql (then db/migrations) so a publish never makes a version",
+                    definition_id, saved_version, row["version"],
                 )
+                bumped = int(row["version"])
+                if _published_version(row.get("metadata")) != bumped:
+                    result = await model.update_where(
+                        live, metadata=_with_publish_stamp(row.get("metadata"), bumped + 1, changed_by_user_id)
+                    )
+                    row = result.updated_rows[0]
+                    bumped = int(row["version"])
+                    if _published_version(row.get("metadata")) != bumped:
+                        raise DefinitionError(
+                            f"Workflow definition '{definition_id}' publish could not stamp a version "
+                            f"(expected {bumped}, the database holds {row['version']}); nothing was published."
+                        )
+                saved_version, already_pinned = bumped, False
+            if already_pinned:
+                # The newest saved version is already a snapshot (the first version, or a re-publish with no
+                # save in between): it is made live, and no second copy is written.
+                return _row_to_definition_row(row, is_version=False)
 
             backfilled = _validate_io_declaration_for_publish(row, definition_id)
             if backfilled is not None:
-                await get_model("WfDefinition").update_where(
-                    {"id": _to_uuid(definition_id)},
+                # Filling the output kind IS a content change, so it makes a revision — and the snapshot
+                # and the stamp both name that one (the same write moves both).
+                next_version = saved_version + 1
+                result = await model.update_where(
+                    live,
                     output_kind=backfilled,
+                    version=F("version") + 1,
+                    metadata=_with_publish_stamp(row.get("metadata"), next_version, changed_by_user_id),
                 )
-                row = dict(row)
-                row["output_kind"] = backfilled
+                row = result.updated_rows[0]
+                if int(row["version"]) != next_version:
+                    raise DefinitionError(
+                        f"Workflow definition '{definition_id}' publish could not record its output kind "
+                        f"(expected version {next_version}, the database holds {row['version']})."
+                    )
 
             landed = await _insert_version_snapshot(
                 row,
@@ -594,7 +755,7 @@ class DefinitionStore:
                 connection=get_active_connection(),
             )
             if not landed:
-                # Raising rolls the increment back with it: never a version with no snapshot.
+                # Raising rolls the stamp back with it: never a live version with no snapshot.
                 raise DefinitionError(
                     f"Workflow definition '{definition_id}' publish refused: a snapshot for "
                     f"version {row['version']} already exists, so this publish would pin nothing new."
@@ -764,20 +925,26 @@ def _validate_io_declaration_for_publish(row: Any, definition_id: str) -> str | 
         definition = _build_definition(row)
         graph = compile_graph(definition)
     except Exception as exc:  # noqa: BLE001
-        # A draft that does not compile has always been publishable (a
-        # half-built workflow is saved, then finished). We cannot validate
-        # what we cannot compile — but a DECLARATION that goes unchecked is
-        # exactly the silent lie this gate exists to stop, so SCREAM.
+        # A draft that does not compile is still publishable (a half-built workflow is saved, then finished) —
+        # unless it DECLARES what it takes or answers: a declaration nobody can check was published unchecked with
+        # only a log line (L-SPEED 6d: b0a04ce1 v26 went out declaring 'user_inputs' with no step producing it).
+        # Nothing fails silently: the publish is refused, naming why the declaration cannot be checked.
         if declared_output or declared_input:
             logger.error(
-                "[definition_store] PUBLISH UNVALIDATED: workflow %s declares "
-                "input_kind=%r output_kind=%r but its graph does not compile (%s) — the "
-                "output contract was NOT enforced for this version. Fix the graph.",
-                definition_id,
-                declared_input,
-                declared_output,
-                exc,
+                "[definition_store] publish refused: workflow %s declares input_kind=%r output_kind=%r but its "
+                "graph does not compile (%s)", definition_id, declared_input, declared_output, exc,
             )
+            raise OutputContractError(
+                f"Workflow definition '{definition_id}' cannot be published: it says it "
+                + " and ".join(
+                    part for part in (
+                        f"takes '{declared_input}'" if declared_input else "",
+                        f"answers with '{declared_output}'" if declared_output else "",
+                    ) if part
+                )
+                + f", but its steps do not compile, so that cannot be checked ({exc}). Fix the steps, or clear "
+                "the declaration."
+            ) from exc
         return None
 
     verdict = resolve_io_declaration(
@@ -793,6 +960,13 @@ def _validate_io_declaration_for_publish(row: Any, definition_id: str) -> str | 
     if declared_output is None and verdict.output_kind_backfilled and verdict.output_kind:
         return verdict.output_kind
     return None
+
+
+def _published_version(metadata: Any) -> int | None:
+    """The version the row's publish stamp names live (``metadata.published.version``), else None."""
+    published = (_coerce_json_value(metadata) or {}).get("published")
+    version = published.get("version") if isinstance(published, dict) else None
+    return int(version) if isinstance(version, int) else None
 
 
 def _with_publish_stamp(
@@ -862,10 +1036,28 @@ def _coerce_json_value(value: Any) -> Any:
 logger = logging.getLogger(__name__)
 
 
-def _narrow(qb: Any | None, *, typed_only: bool, search: str | None) -> Any | None:
-    """The optional narrowings shared by ``list_for_user`` and ``count_for_user``."""
+def _narrow(
+    qb: Any | None, *, typed_only: bool, search: str | None, exclude_name_prefixes: Sequence[str] = (),
+    exclude_organization_id: str | None = None, exclude_organization_unless_created_by: str | None = None,
+) -> Any | None:
+    """The optional narrowings shared by ``list_for_user`` and ``count_for_user``.
+
+    ``exclude_name_prefixes`` drops rows whose name starts with one of them (a host's placeholder titles);
+    ``exclude_organization_id`` drops that organization's rows except the ones ``exclude_organization_unless_created_by``
+    made (a host keeping its platform-authored rows out of a customer's list)."""
     if qb is None:
         return None
+    if exclude_name_prefixes:
+        for prefix in exclude_name_prefixes:
+            qb = qb.exclude(name__startswith=prefix)
+        qb = qb.exclude(name="")
+    if exclude_organization_id:
+        org = _to_uuid(exclude_organization_id)
+        if org is not None:
+            if exclude_organization_unless_created_by:
+                qb = qb.exclude(organization_id=org, created_by__ne=_to_uuid(exclude_organization_unless_created_by))
+            else:
+                qb = qb.exclude(organization_id=org)
     from matrx_orm import Q
 
     if typed_only:

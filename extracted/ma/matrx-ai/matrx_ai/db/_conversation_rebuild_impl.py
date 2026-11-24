@@ -19,17 +19,55 @@ from matrx_utils import vcprint
 
 from matrx_ai.config.unified_config import UnifiedMessage
 from matrx_ai.db._registry import get_model
-from matrx_ai.db.tool_result_text import _model_notices, tool_result_text_as_received
 from matrx_ai.db.edited_answers import (
     edited_answer_visible_to_model,
     original_model_content,
 )
+from matrx_ai.db.tool_result_text import _model_notices, tool_result_text_as_received
+from matrx_ai.tools.models import _append_model_notices, media_ref_output_blocks
 
 CxMessage = get_model("Message")
 CxToolCall = get_model("ToolCall")
 CxMedia = get_model("Media")
 
 logger = logging.getLogger(__name__)
+
+
+def _block_result_id(block: Any) -> str | None:
+    if getattr(block, "type", None) != "tool_result":
+        return None
+    return getattr(block, "tool_use_id", None) or getattr(block, "call_id", None)
+
+
+def _has_call(msg: UnifiedMessage, call_id: str) -> bool:
+    return any(
+        getattr(c, "type", None) == "tool_call" and getattr(c, "id", None) == call_id
+        for c in msg.content
+    )
+
+
+def _take_earlier_result(messages: list[UnifiedMessage], i: int, call_id: str) -> Any | None:
+    """Take the result for the call at ``i`` that was stored BEFORE it.
+
+    ``result_before_call`` (system_error class sec_08238d): an old pair whose
+    tool row took a lower position than its assistant row. The stored rows stay
+    exactly as they are; only the model-facing projection moves. Conservative:
+    the result is taken only when no other call with this provider id appears
+    anywhere before it (provider ids are not globally unique, so a result that
+    an earlier same-id call could own is never stolen) or between it and ``i``.
+    """
+    for j in range(i - 1, -1, -1):
+        earlier = messages[j]
+        if _has_call(earlier, call_id):
+            return None
+        match = next((c for c in earlier.content if _block_result_id(c) == call_id), None)
+        if match is None:
+            continue
+        if any(_has_call(messages[k], call_id) for k in range(j)):
+            return None
+        earlier.content = [c for c in earlier.content if c is not match]
+        return match
+    return None
 
 
 def _relocate_separated_tool_results(messages: list[UnifiedMessage]) -> list[UnifiedMessage]:
@@ -39,6 +77,11 @@ def _relocate_separated_tool_results(messages: list[UnifiedMessage]) -> list[Uni
     already taken the next position.  The row remains authoritative, but its
     model-facing projection must be moved back beside the tool_use it answers;
     otherwise MessageList.sanitize necessarily erases both blocks.
+
+    The mirror is healed the same way: a result stored BEFORE its call
+    (``result_before_call``) is moved to just after the call. Without it the
+    guard erased the pair and filed a new error on every turn of the
+    conversation, forever.
     """
     i = 0
     while i < len(messages):
@@ -72,6 +115,7 @@ def _relocate_separated_tool_results(messages: list[UnifiedMessage]) -> list[Uni
         for call_id in calls:
             if call_id in adjacent:
                 continue
+            found_later = False
             for j in range(window_end, len(messages)):
                 later = messages[j]
                 # A repeated provider call id belongs to the nearer assistant
@@ -95,14 +139,39 @@ def _relocate_separated_tool_results(messages: list[UnifiedMessage]) -> list[Uni
                 if match is not None:
                     later.content = [c for c in later.content if c is not match]
                     relocated.append(match)
+                    found_later = True
                     break
+            if not found_later:
+                earlier_match = _take_earlier_result(messages, i, call_id)
+                if earlier_match is not None:
+                    relocated.append(earlier_match)
+                    vcprint(
+                        f"[conversation_rebuild] Healed result_before_call: moved the stored "
+                        f"result for {call_id!r} beside its call (stored rows untouched).",
+                        color="yellow",
+                    )
         if relocated:
-            messages.insert(i + 1, UnifiedMessage(role="tool", content=relocated))
+            healed = UnifiedMessage(role="tool", content=relocated)
+            messages.insert(i + 1, healed)
             messages[:] = [m for m in messages if m.content]
-            i += 1
+            # An earlier message emptied by the move shifts every index; re-find our spot.
+            i = next(k for k, m in enumerate(messages) if m is healed)
         i += 1
     return messages
 
+
+
+def _answers_name(tc: CxToolCall) -> str:
+    """The tool name the result answers: the model's own call name.
+
+    A server write the executor sent to the person as ``apply_surface_write``
+    (``metadata.on_screen_redirect``) is stored under the door's name, but the
+    model called the writer — Gemini pairs functionResponse to functionCall by name.
+    """
+    meta = getattr(tc, "metadata", None)
+    redirect = meta.get("on_screen_redirect") if isinstance(meta, dict) else None
+    answers = redirect.get("answers_name") if isinstance(redirect, dict) else None
+    return str(answers) if answers else (getattr(tc, "tool_name", "") or "")
 
 
 def _rebuild_tool_result_content(
@@ -144,6 +213,18 @@ def _rebuild_tool_result_content(
             notices = _model_notices(tc)
             if notices:
                 content = f"{content}\n\n" + "\n".join(notices)
+        elif not tc.is_error and (media_blocks := media_ref_output_blocks(content)) is not None:
+            # A stored media-ref envelope (screenshot, document, audio, video)
+            # replays as the SAME typed blocks the live turn sent — the image
+            # itself, resolved from its file_id at the send boundary — never
+            # as the envelope's JSON text (2026-11-01: a resumed extension chat
+            # told the model "the screenshot gave me no readable content").
+            notices = _model_notices(tc)
+            content = (
+                _append_model_notices(media_blocks, notices, tc.tool_name)
+                if notices
+                else media_blocks
+            )
         else:
             content = tool_result_text_as_received(tc)
 
@@ -152,7 +233,7 @@ def _rebuild_tool_result_content(
                 "type": "tool_result",
                 "tool_use_id": tc.call_id,
                 "call_id": tc.call_id,
-                "name": tc.tool_name,
+                "name": _answers_name(tc),
                 "content": content,
                 "is_error": tc.is_error,
                 "output_chars": tc.output_chars,
@@ -173,14 +254,54 @@ WAITING_ON_PERSON_TEXT = (
 )
 
 
+#: A call PARKED ON A PERSON (``chat.tool_call.metadata.parked_on``: an ``ask_person`` question, a spend ask, a
+#: one-time-code or credential-capture card): only the person's answer resolves it, whatever tool made it.
+PARKED_ON_PERSON_TEXT = (
+    "WAITING ON THE PERSON [{name}]: this call is waiting for the person's answer on a card that is still open "
+    "(they moved on without answering it yet). It is NOT a failure and nothing was lost. Do not call it again "
+    "and do not tell the person it failed. Answer their newest message now; if the call still matters, say "
+    "once that its card is waiting for them, and never assume an answer they did not give."
+)
+
+
+def _parked_on_person(tc: CxToolCall) -> bool:
+    from matrx_ai.tools.logger import PARKED_ON_KEY
+
+    metadata = getattr(tc, "metadata", None)
+    return isinstance(metadata, dict) and bool(metadata.get(PARKED_ON_KEY))
+
+
+#: A client-run call whose held stream the person's new message released (``_superseded_by_person``). Its app
+#: may still answer; the result then lands on the row and reads normally on the following turn.
+SUPERSEDED_BY_PERSON_TEXT = (
+    "STILL WAITING FOR THE APP [{name}]: this call was handed to the person's app and no result has come back "
+    "yet; the person sent a new message instead of waiting. It is NOT known to have failed, and it may still "
+    "finish. Do not call it again now and do not tell the person it failed. Answer their newest message; if "
+    "the call still matters, check its effect later or ask them to finish it in the app."
+)
+
+
+def _superseded_by_person(tc: CxToolCall) -> bool:
+    from matrx_ai.tools.logger import SUPERSEDED_BY_PERSON_KEY
+
+    metadata = getattr(tc, "metadata", None)
+    return isinstance(metadata, dict) and bool(metadata.get(SUPERSEDED_BY_PERSON_KEY))
+
+
 def _waiting_on_person_block(tc: CxToolCall) -> dict[str, Any]:
     name = getattr(tc, "tool_name", "") or "tool"
-    text = WAITING_ON_PERSON_TEXT.format(name=name)
+    if _parked_on_person(tc):
+        template = PARKED_ON_PERSON_TEXT
+    elif _superseded_by_person(tc):
+        template = SUPERSEDED_BY_PERSON_TEXT
+    else:
+        template = WAITING_ON_PERSON_TEXT
+    text = template.format(name=name)
     return {
         "type": "tool_result",
         "tool_use_id": tc.call_id,
         "call_id": tc.call_id,
-        "name": name,
+        "name": _answers_name(tc) or name,
         "content": text,
         "is_error": False,
         "output_chars": len(text),
@@ -528,8 +649,6 @@ async def rebuild_conversation_messages(
                     # conversation moved on: the person has not decided. It gets
                     # its OWN honest result (never the generic "never answered"
                     # error that made the model say its tries "kept dropping").
-                    if not has_later_message:
-                        continue
                     pick = next(
                         (
                             r
@@ -539,7 +658,18 @@ async def rebuild_conversation_messages(
                         ),
                         None,
                     )
-                    if pick is None:
+                    # A turn that ENDS on its delegated calls is still waiting on the client — unless the
+                    # call is PARKED ON A PERSON: its turn already ended (a client answer may not resolve it,
+                    # only the person's), so a rebuild that sees it unanswered is a NEW turn the person
+                    # started instead of answering, whose own message is appended after this rebuild.
+                    # Left bare, the sanitizer paid it "TOOL NEVER ANSWERED" and filed an orphan row on
+                    # every step of that turn (conversation 672f953e, 2026-11-19: credential_login parked
+                    # on a credential-capture card, 6 rows).
+                    # The same holds for a client-run call whose held stream the person's new message released
+                    # (``_superseded_by_person``, section 1b rule P9): marked, it is waiting, never an orphan.
+                    if pick is None or not (
+                        has_later_message or _parked_on_person(pick) or _superseded_by_person(pick)
+                    ):
                         continue
                     waiting = True
                 synth_tcs.append(pick)

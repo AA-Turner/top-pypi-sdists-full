@@ -45,10 +45,10 @@ from matrx_graph.table_kinds import (
 
 HERE = Path(__file__).parent
 GOLDEN = HERE / "fixtures" / "table_kind_golden.json"
-CAPTURED = (
-    HERE.parent.parent.parent
-    / "apps/shared/records/src/__tests__/fixtures/table-kind-facts.golden.json"
-)
+# A byte-identical copy of apps/shared/records/src/__tests__/fixtures/table-kind-facts.golden.json
+# (N1's capture of the door's answers); the host checks the copy
+# (tests/package_host_contracts/test_matrx_graph_host.py).
+CAPTURED = HERE / "fixtures" / "table-kind-facts.golden.json"
 
 CEDAR_RIDGE = "23c2ac41-8044-49ed-9af9-35761370e5c0"
 
@@ -207,8 +207,6 @@ def test_python_derives_exactly_the_golden(name: str) -> None:
 
 
 def test_the_golden_facts_are_the_captured_door_answers() -> None:
-    if not CAPTURED.exists():
-        pytest.skip("the records package is not beside this checkout — the TS leg checks the same file")
     captured = json.loads(CAPTURED.read_text())
     for name, facts in _cases(captured).items():
         assert _canonical(facts) == _canonical(CASES[name]["facts"]), f"{name}: facts drifted from N1's capture"

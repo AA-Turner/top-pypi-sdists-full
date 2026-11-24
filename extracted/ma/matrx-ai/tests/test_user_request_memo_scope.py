@@ -48,6 +48,7 @@ def _spy_creates(monkeypatch):
 
     async def _spy(*, request_id, user_id):
         creates.append(request_id)
+        return True  # the row landed (or was queued) — the only case ensure memoizes
 
     monkeypatch.setattr(gate, "_create_user_request", _spy)
     return creates
@@ -109,3 +110,35 @@ async def test_durable_entry_trusted_by_any_scope(monkeypatch):
     await gate.ensure_user_request_exists(rid, uid)  # must hit the durable memo
 
     assert creates == [rid], "durable memo entry must be trusted by a later coordinator"
+
+
+@pytest.mark.asyncio
+async def test_outer_rollback_does_not_leave_request_or_org_in_the_memo(monkeypatch):
+    """A successful Session flush inside an ORM transaction is only a savepoint."""
+    from matrx_orm.core import transaction as tx_module
+
+    rid, uid, org_id = (str(uuid4()) for _ in range(3))
+    creates = []
+
+    async def create(*, request_id, user_id):
+        creates.append(request_id)
+        gate._remember_request_org(request_id, org_id, gate._coord_scope_key())
+        return True
+
+    monkeypatch.setattr(gate, "_create_user_request", create)
+    monkeypatch.setattr(gate, "_get_coordinator", lambda: None)
+    token = tx_module._active_connection.set(object())
+    try:
+        assert await gate.ensure_user_request_exists(rid, uid) is True
+    finally:
+        tx_module._active_connection.reset(token)
+
+    # The simulated outer rollback leaves the fake database's read empty.
+    assert gate.request_has_record(rid) is False
+    assert rid not in gate._request_org_memo
+    try:
+        assert await gate.ensure_user_request_exists(rid, uid) is True
+        assert creates == [rid, rid]
+        assert gate.request_has_record(rid) is True
+    finally:
+        gate._forget_request_org(rid)

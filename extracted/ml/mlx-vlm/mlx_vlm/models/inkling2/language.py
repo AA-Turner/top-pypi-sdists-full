@@ -22,6 +22,7 @@ import mlx.nn as nn
 from ..base import LanguageModelOutput
 from ..cache import (
     ArraysCache,
+    AttentionSinkKVCache,
     BatchRotatingKVCache,
     CacheList,
     KVCache,
@@ -171,10 +172,10 @@ def _update_conv_cache(cache, index, state, inputs, mask):
 
 
 class ShortConvolution(InklingShortConvolution):
-    def __call__(self, x, cache=None, mask=None):
-        # Keep the convolution, residual, and scaling in FP32. The checkpoint
-        # stores BF16 taps, but rounding the convolution before adding the
-        # residual changes both reference parity and prefill/decode consistency.
+    def __call__(self, x, cache=None, mask=None, residual=None, output_dtype=None):
+        # The convolution includes its own input skip and scaling in FP32.
+        # Round that result to the input dtype before adding any layer residual.
+        output_dtype = x.dtype if output_dtype is None else output_dtype
         state = cache[self.conv_idx] if cache is not None else None
         if state is None:
             state = mx.zeros((x.shape[0], self.kernel_size - 1, x.shape[-1]))
@@ -185,16 +186,32 @@ class ShortConvolution(InklingShortConvolution):
             and x.shape[0] <= 4
             and x.shape[1] <= 8
             and x.shape[-1] % 128 == 0
-            and mx.metal.is_available()
-            and mx.default_device() == mx.gpu
         ):
             from .kernels import short_convolution
 
-            # Temporal selection promotes selected BF16 values into FP32 state.
-            # Invalid positions never enter that state. The convolution itself
-            # reads masked inputs directly, without materializing a concat.
-            _update_conv_cache(cache, self.conv_idx, state, x, mask)
-            return short_convolution(state, self.conv.weight, x, mask, self.kernel_size)
+            write_window = (
+                cache is not None and mask is None and state.dtype == mx.float32
+            )
+            result = short_convolution(
+                state,
+                self.conv.weight,
+                x,
+                mask,
+                self.kernel_size,
+                residual,
+                output_dtype,
+                write_window,
+            )
+            if result is not None:
+                if write_window:
+                    result, window = result
+                    width = self.kernel_size - 1
+                    if getattr(cache, "is_speculating", False):
+                        cache.record_speculative_window(self.conv_idx, window, width)
+                    cache[self.conv_idx] = window[:, -width:]
+                else:
+                    _update_conv_cache(cache, self.conv_idx, state, x, mask)
+                return result
         xf = x.astype(mx.float32)
         inputs = xf if mask is None else mx.where(mask[..., None], xf, 0)
         context = mx.concatenate([state, inputs], axis=1)
@@ -202,7 +219,10 @@ class ShortConvolution(InklingShortConvolution):
         out = mx.conv1d(
             context, self.conv.weight.astype(mx.float32), groups=x.shape[-1]
         )
-        return ((out + xf) / math.sqrt(self.kernel_size + 1)).astype(x.dtype)
+        out = ((out + xf) / math.sqrt(self.kernel_size + 1)).astype(x.dtype)
+        if residual is not None:
+            out = out.astype(mx.float32) + residual.astype(mx.float32)
+        return out.astype(output_dtype)
 
 
 class DynamicShortConvolution(nn.Module):
@@ -374,6 +394,48 @@ class Attention(nn.Module):
         weight = mx.pad(projection.weight, ((start, width - start), (0, 0)))
         return (x @ weight.T)[..., start : start + width]
 
+    def _prepare_heads(self, x, k, v):
+        batch, length, _ = x.shape
+        cfg = self.config
+        q = self._project(self.q_proj, x).reshape(
+            batch, length, self.n_heads, self.head_dim
+        )
+        k = k.reshape(batch, length, self.n_kv, self.head_dim)
+        v = v.reshape(batch, length, self.n_kv, self.head_dim)
+        r = self._project(self.r_proj, x).reshape(
+            batch, length, self.n_heads, cfg.d_rel
+        )
+        if (
+            cfg.loop_config is not None
+            and not self.training
+            and self.sharding_group is None
+            and cfg.use_value_norm_no_gamma
+            and x.dtype == mx.bfloat16
+        ):
+            from .kernels import prepare_attention_heads
+
+            prepared = prepare_attention_heads(
+                q,
+                k,
+                v,
+                r,
+                self.q_scale,
+                self.rel_scale,
+                cfg.qk_l2_clip_threshold,
+                cfg.rel_l2_clip_threshold,
+                cfg.rms_norm_eps,
+            )
+            if prepared is not None:
+                return prepared
+        q = l2_clip(q, cfg.qk_l2_clip_threshold, self.q_scale)
+        k = l2_clip(k, cfg.qk_l2_clip_threshold)
+        if cfg.use_value_norm_no_gamma:
+            v = mx.fast.rms_norm(v.astype(mx.float32), None, cfg.rms_norm_eps).astype(
+                x.dtype
+            )
+        r = l2_clip(r, cfg.rel_l2_clip_threshold, self.rel_scale)
+        return q, k, v, r
+
     def __call__(self, x, key_input=None, value_input=None, cache=None, conv_mask=None):
         b, length, _ = x.shape
         cfg = self.config
@@ -388,26 +450,7 @@ class Attention(nn.Module):
         else:
             k = self.k_sconv(k, key_input, conv, conv_mask)
             v = self.v_sconv(v, value_input, conv, conv_mask)
-        q = l2_clip(
-            self._project(self.q_proj, x).reshape(
-                b, length, self.n_heads, self.head_dim
-            ),
-            cfg.qk_l2_clip_threshold,
-            self.q_scale,
-        )
-        k = l2_clip(
-            k.reshape(b, length, self.n_kv, self.head_dim), cfg.qk_l2_clip_threshold
-        )
-        v = v.reshape(b, length, self.n_kv, self.head_dim)
-        if cfg.use_value_norm_no_gamma:
-            v = mx.fast.rms_norm(v.astype(mx.float32), None, cfg.rms_norm_eps).astype(
-                x.dtype
-            )
-        r = l2_clip(
-            self._project(self.r_proj, x).reshape(b, length, self.n_heads, cfg.d_rel),
-            cfg.rel_l2_clip_threshold,
-            self.rel_scale,
-        )
+        q, k, v, r = self._prepare_heads(x, k, v)
         if not self.is_sliding and cfg.log_scaling_n_floor is not None:
             offset = kv.offset if kv is not None else 0
             positions = mx.arange(length) + mx.array(offset)[..., None] + 1
@@ -445,12 +488,15 @@ class Attention(nn.Module):
             sinks = sinks[..., self.head_start : self.head_start + self.n_heads]
         sinks = sinks.transpose(0, 2, 1)[..., None]
         mask = mx.concatenate([mask, sinks], axis=-1)
-        k = mx.concatenate(
-            [k, mx.zeros((b, self.n_kv, 1, self.head_dim), k.dtype)], axis=2
-        )
-        v = mx.concatenate(
-            [v, mx.zeros((b, self.n_kv, 1, self.head_dim), v.dtype)], axis=2
-        )
+        if isinstance(kv, AttentionSinkKVCache):
+            k, v = kv.with_sink(size)
+        else:
+            k = mx.concatenate(
+                [k, mx.zeros((b, self.n_kv, 1, self.head_dim), k.dtype)], axis=2
+            )
+            v = mx.concatenate(
+                [v, mx.zeros((b, self.n_kv, 1, self.head_dim), v.dtype)], axis=2
+            )
         out = mx.fast.scaled_dot_product_attention(
             q, k, v, scale=self.head_dim**-0.5, mask=mask
         )
@@ -493,7 +539,7 @@ class SparseMoE(nn.Module):
             activation=SoftcappedSwiGLU(config),
         )
 
-    def __call__(self, x):
+    def __call__(self, x, speculative_verify=False):
         indices, weights = _route(
             x,
             self.gate_weight,
@@ -502,6 +548,12 @@ class SparseMoE(nn.Module):
             self.route_scale,
         )
         if self.sharding_group is None:
+            if speculative_verify and not self.training and 1 < x.shape[1] <= 8:
+                from .grouped_experts import grouped_expert_projections
+
+                out = grouped_expert_projections(self.switch_mlp, x, indices)
+                if out is not None:
+                    return _combine_routes(out, weights)
             if (
                 not self.training
                 and x.shape[0] <= 4
@@ -537,6 +589,29 @@ class AttentionResidual(nn.Module):
         )
 
 
+class MessageController(nn.Module):
+    """Blend a previous pass's message into one sublayer input."""
+
+    def __init__(self, config):
+        super().__init__()
+        rank, width = config.loop_config.gate_rank, config.hidden_size
+        self.down_weight = mx.zeros((rank, 2 * width))
+        self.forget_weight = mx.zeros((width, rank))
+        self.gain_weight = mx.zeros((width, rank))
+        self.eps = config.rms_norm_eps
+
+    def __call__(self, x, message):
+        pair = mx.concatenate(
+            [mx.fast.rms_norm(v, None, self.eps) for v in (x, message)], axis=-1
+        )
+        hidden = (pair.astype(self.down_weight.dtype) @ self.down_weight.T).astype(
+            mx.float32
+        )
+        forget = mx.tanh(hidden @ self.forget_weight.T)
+        gain = mx.tanh(hidden @ self.gain_weight.T)
+        return (1 - forget) * x + gain * message
+
+
 class DecoderLayer(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
@@ -563,8 +638,13 @@ class DecoderLayer(nn.Module):
         self.mlp_sconv = ShortConvolution(
             config.hidden_size, config.sconv_kernel_size, 3
         )
+        loop = config.loop_config
+        if loop is not None and loop.core_start <= layer_idx < loop.core_end:
+            self.controllers = {
+                name: MessageController(config) for name in ("attn", "k", "v", "mlp")
+            }
 
-    def __call__(self, x, blocks, cache=None):
+    def __call__(self, x, blocks, cache=None, messages=None, speculative_verify=False):
         conv = cache[1] if cache is not None else None
         mask = _cache_padding_mask(conv, x.shape[1])
         mixed = (
@@ -572,7 +652,7 @@ class DecoderLayer(nn.Module):
             if self.attention_input is not None
             else x[..., None, :]
         )
-        if self.is_sliding:
+        if self.is_sliding and messages is None:
             attn = self.self_attn(
                 self.input_layernorm(mixed[..., 0, :]).astype(x.dtype),
                 cache=cache,
@@ -580,27 +660,40 @@ class DecoderLayer(nn.Module):
             )
         else:
             parts = [mixed[..., min(i, mixed.shape[-2] - 1), :] for i in range(3)]
-            parts = [
-                norm(part).astype(x.dtype)
-                for norm, part in zip(
-                    (
-                        self.q_input_layernorm,
-                        self.k_input_layernorm,
-                        self.v_input_layernorm,
-                    ),
-                    parts,
+            if messages is not None:
+                parts = [
+                    self.controllers[name](part, messages[..., i, :])
+                    for i, (name, part) in enumerate(zip(("attn", "k", "v"), parts))
+                ]
+            norms = (
+                (self.input_layernorm,) * 3
+                if self.is_sliding
+                else (
+                    self.q_input_layernorm,
+                    self.k_input_layernorm,
+                    self.v_input_layernorm,
                 )
-            ]
+            )
+            parts = [norm(part).astype(x.dtype) for norm, part in zip(norms, parts)]
             attn = self.self_attn(*parts, cache=cache, conv_mask=mask)
-        residual = self.attn_sconv(attn, conv, mask).astype(mx.float32)
+        residual = self.attn_sconv(
+            attn,
+            conv,
+            mask,
+            residual=None if self.is_block_boundary else x,
+            output_dtype=mx.float32,
+        )
         if self.is_block_boundary:
             blocks.append(x)
-        else:
-            residual = residual + x.astype(mx.float32)
         hidden = self.mlp_input(blocks, residual)[..., 0, :]
-        hidden = self.mlp(self.post_attention_layernorm(hidden).astype(x.dtype))
-        out = (residual + self.mlp_sconv(hidden, conv, mask).astype(mx.float32)).astype(
-            x.dtype
+        if messages is not None:
+            hidden = self.controllers["mlp"](hidden, messages[..., 3, :])
+        hidden = self.mlp(
+            self.post_attention_layernorm(hidden).astype(x.dtype),
+            speculative_verify=speculative_verify,
+        )
+        out = self.mlp_sconv(
+            hidden, conv, mask, residual=residual, output_dtype=x.dtype
         )
         if conv is not None:
             conv.advance(x.shape[1])
@@ -613,6 +706,12 @@ class TextModel(nn.Module):
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size)
         self.embed_norm = nn.RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.layers = [DecoderLayer(config, i) for i in range(config.num_hidden_layers)]
+        self.layer_indices = config.layer_indices
+        self.loop = config.loop_config
+        if self.loop is not None:
+            self.message_queries = mx.zeros(
+                (self.loop.core_end - self.loop.core_start, 4, config.hidden_size)
+            )
         self.final_input = AttentionResidual(config)
         self.norm = nn.RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
@@ -632,7 +731,7 @@ class TextModel(nn.Module):
         if capture_layer_ids is not None and (
             len(capture_layer_ids) != len(set(capture_layer_ids))
             or any(
-                type(i) is not int or not 0 <= i <= len(self.layers)
+                type(i) is not int or not 0 <= i <= len(self.layer_indices)
                 for i in capture_layer_ids
             )
         ):
@@ -640,19 +739,42 @@ class TextModel(nn.Module):
         requested = set(capture_layer_ids or [])
         x = self.embed(inputs) if input_embeddings is None else input_embeddings
         blocks = []
-        for i, (layer, c) in enumerate(
-            zip(self.layers, cache or [None] * len(self.layers))
-        ):
+        bank = None
+        if cache and len(cache) != len(self.layer_indices):
+            raise ValueError(
+                "Inkling 2 requires a separate cache for every layer visit"
+            )
+        for visit, index in enumerate(self.layer_indices):
+            if self.loop is not None and index == self.loop.core_start:
+                if visit == index:
+                    prelude, prelude_blocks = x, blocks.copy()
+                else:
+                    # The first block appended in the core is the prelude partial.
+                    # Only completed core blocks and the last partial supply messages.
+                    states = mx.stack([*blocks[len(prelude_blocks) + 1 :], x], axis=-2)
+                    bank = mx.fast.rms_norm(states.astype(mx.float32), None, 1e-6)
+                    x, blocks = prelude, prelude_blocks.copy()
+            messages = None
+            if bank is not None and index < self.loop.core_end:
+                query = self.message_queries[index - self.loop.core_start]
+                scores = (query @ bank.swapaxes(-1, -2)) * x.shape[-1] ** -0.5
+                messages = mx.softmax(scores, axis=-1) @ bank
             # DSpark taps the partial block entering the layer, not its output.
-            if i in requested:
-                captures[i] = x
-            x = layer(x, blocks, c)
-            if speculative_verify and (i + 1) % 4 == 0:
+            if visit in requested:
+                captures[visit] = x
+            x = self.layers[index](
+                x,
+                blocks,
+                cache[visit] if cache else None,
+                messages,
+                speculative_verify=speculative_verify and self.loop is not None,
+            )
+            if speculative_verify and (visit + 1) % 4 == 0:
                 mx.async_eval(x)
         h = self.final_input(blocks, x)[..., 0, :]
         normalized = self.norm(h).astype(x.dtype)
-        if len(self.layers) in requested:
-            captures[len(self.layers)] = normalized
+        if len(self.layer_indices) in requested:
+            captures[len(self.layer_indices)] = normalized
         result = h if skip_final_norm else normalized
         if capture_layer_ids is not None:
             return result, [captures[i] for i in capture_layer_ids]
@@ -821,16 +943,15 @@ class LanguageModel(InklingLanguageModel):
         return logits[..., : self.config.unpadded_vocab_size]
 
     def make_cache(self):
+        def attention_cache(layer):
+            window = self.config.sliding_window_size if layer.is_sliding else None
+            if self.model.loop is not None:
+                return AttentionSinkKVCache(window)
+            return RotatingKVCache(max_size=window, keep=0) if window else KVCache()
+
         return [
-            CacheList(
-                (
-                    RotatingKVCache(max_size=self.config.sliding_window_size, keep=0)
-                    if layer.is_sliding
-                    else KVCache()
-                ),
-                ArraysCache(4),
-            )
-            for layer in self.model.layers
+            CacheList(attention_cache(self.model.layers[i]), ArraysCache(4))
+            for i in self.model.layer_indices
         ]
 
     def speculative_verify_hidden(self, inputs, cache):

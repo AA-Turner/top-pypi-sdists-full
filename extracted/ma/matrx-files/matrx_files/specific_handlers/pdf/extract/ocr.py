@@ -12,6 +12,8 @@ from typing import Any
 
 from PIL import Image
 
+from ..render_budget import bounded_render_dpi
+
 
 def _tesseract():  # noqa: ANN202
     """pytesseract, the matrx-files[ocr] extra, imported at the point of OCR."""
@@ -25,11 +27,24 @@ _DEFAULT_TESSERACT_CONFIG = r"--oem 3 --psm 6"
 
 def ocr_pymupdf_page(page: Any, dpi: int = 300, config: str | None = None) -> str:
     """Render a PyMuPDF page at *dpi* and run Tesseract over the result."""
-    pix = page.get_pixmap(dpi=dpi, alpha=False)
+    rect = page.rect
+    pix = page.get_pixmap(dpi=bounded_render_dpi(rect.width, rect.height, dpi), alpha=False)
     img = Image.open(io.BytesIO(pix.tobytes("png")))
     return _tesseract().image_to_string(
         img, config=config or _DEFAULT_TESSERACT_CONFIG
     )
+
+
+def _within_render_budget(img: Image.Image) -> Image.Image:
+    """``img``, shrunk to the render budget when it is bigger. Its size is known
+    before its pixels are decoded, so a small image costs nothing here."""
+    width, height = img.size
+    bounded_dpi = bounded_render_dpi(width, height, 72)
+    if bounded_dpi >= 72:
+        return img
+    # At 72 DPI one point is one pixel, so the DPI is the shrink factor.
+    img.thumbnail((width * bounded_dpi // 72, height * bounded_dpi // 72))
+    return img
 
 
 def ocr_image_bytes(image_bytes: bytes, config: str | None = None) -> str:
@@ -48,7 +63,7 @@ def ocr_image_bytes(image_bytes: bytes, config: str | None = None) -> str:
     failure keeps its old, non-fatal "" behavior.
     """
     try:
-        img = Image.open(io.BytesIO(image_bytes))
+        img = _within_render_budget(Image.open(io.BytesIO(image_bytes)))
         return _tesseract().image_to_string(
             img, config=config or _DEFAULT_TESSERACT_CONFIG
         )

@@ -124,6 +124,36 @@ async def test_a_failed_passage_lane_is_a_failed_call(monkeypatch):
     assert res.success is False and "passage search failed" in res.error.message
 
 
+async def test_a_timed_out_passage_lane_keeps_the_sections_that_answered(monkeypatch):
+    """Red before 2026-11-17: a passage-lane timeout failed the WHOLE call ("This section took too long and was
+    stopped; the other sections are unaffected") and threw away every section that answered, filing
+    tool_execution_failed / search_failed. The answered sections now come back, the passage failure named."""
+    import matrx_ai._ext as ext
+
+    timeout = "This section took too long and was stopped; the other sections are unaffected."
+
+    async def _service(**kw):
+        return {
+            "sections": [
+                {"type": "section", "section": "notes", "count": 1, "items": [{"entity": "note", "id": "n1", "title": "grant"}]},
+            ],
+            "errors": [{"type": "section_error", "section": "segments", "message": timeout}],
+        }, None
+
+    registry = {"knowledge_search_service": _service}
+    monkeypatch.setattr(ext, "get_ext", lambda name: registry[name])
+    monkeypatch.setattr(ext, "has_ext", lambda name: name in registry)
+    res = await knowledge_search({"query": "grant", "scope_ids": []}, _Ctx())
+    assert res.success is True
+    assert res.output["hits"] == []
+    assert [s["section"] for s in res.output["sections"]] == ["notes"]
+    assert res.output["section_errors"][0]["section"] == "segments"
+    # No passages, so the model reads the bounded JSON view; its sections_text names both.
+    rendering = "".join(getattr(b, "text", "") for b in res.provider_content or [])
+    assert "Notes (1):" in rendering
+    assert f"Segments: could not be searched — {timeout}" in rendering
+
+
 async def test_the_model_sees_every_section_not_only_the_hits(service):
     res = await knowledge_search({"query": "grant", "scope_ids": []}, _Ctx())
     texts = [getattr(b, "text", "") for b in res.provider_content]

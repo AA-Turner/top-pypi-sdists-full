@@ -54,12 +54,25 @@ POLICY_ALWAYS = "always"
 POLICIES = (POLICY_WHEN_READ_EXPECTED, POLICY_NEVER, POLICY_PREFIX, POLICY_ALWAYS)
 #: KNOB MIRROR of platform.feature_knob "agents.prompt_cache" "one_shot_marks"
 ONE_SHOT_MARKS_MIRROR = POLICY_WHEN_READ_EXPECTED
+#: LATE TOOLS (``providers/late_tools.py``): tools that join a conversation after its first send ride
+#: AFTER the cache line as text, run through the declared gateway, never in the wire ``tools`` list.
+LATE_TOOLS_ENABLED_KEY = "late_tools_enabled"
+#: KNOB MIRROR of platform.feature_knob "agents.prompt_cache" "late_tools_enabled"
+LATE_TOOLS_ENABLED_MIRROR = False
+LATE_TOOLS_SCOPE_KEY = "late_tools_scope"
+LATE_TOOLS_SCOPE_ENROLLED = "enrolled"  # only agents enrolled in the always-warm prompt cache
+LATE_TOOLS_SCOPE_ALL = "all"
+LATE_TOOLS_SCOPES = (LATE_TOOLS_SCOPE_ENROLLED, LATE_TOOLS_SCOPE_ALL)
+#: KNOB MIRROR of platform.feature_knob "agents.prompt_cache" "late_tools_scope"
+LATE_TOOLS_SCOPE_MIRROR = LATE_TOOLS_SCOPE_ENROLLED
 
 _ONE_SHOT: ContextVar[bool] = ContextVar("matrx_ai_one_shot_call", default=False)
 
 _reader: Callable[[str], Any] | None = None
 _announced = False
 _failed = False
+_announced_keys: set[str] = set()
+_failed_keys: set[str] = set()
 
 _MAX_TRACKED = 2048
 _RECENT_PREFIX: OrderedDict[str, float] = OrderedDict()
@@ -92,34 +105,62 @@ def configure_prompt_cache_knobs(reader: Callable[[str], Any] | None) -> None:
     _reader = reader
     _announced = False
     _failed = False
+    _announced_keys.clear()
+    _failed_keys.clear()
+
+
+def _read_knob(key: str, mirror: Any) -> Any:
+    """One ``agents.prompt_cache`` knob through the bound reader, or ``mirror`` — announced once per
+    key when no reader is bound or the read fails (a row not seeded yet reads as a failure)."""
+    global _announced, _failed
+    if _reader is None:
+        if key not in _announced_keys:
+            _announced_keys.add(key)
+            _announced = True
+            print(
+                f"[matrx_ai] no host knob reader bound for {FEATURE!r}; using the mirrored "
+                f"{key}={mirror!r} (bind one with configure_prompt_cache_knobs())",
+                file=sys.stderr,
+            )
+        return mirror
+    from matrx_utils.knob_fallback import knob_or_declared_default_sync
+
+    try:
+        return knob_or_declared_default_sync(
+            lambda: _reader(key), feature=FEATURE, key=key, declared_default=mirror,
+            consequence="the mirrored value governs until the row is seeded")
+    except Exception as exc:  # noqa: BLE001 — announced, never a crashed send
+        if key not in _failed_keys:
+            _failed_keys.add(key)
+            _failed = True
+            print(
+                f"[matrx_ai] host knob reader failed for {FEATURE!r}.{key!r}: "
+                f"{exc!r}; using the mirrored {mirror!r}",
+                file=sys.stderr,
+            )
+        return mirror
 
 
 def one_shot_marks_policy() -> str:
     """The live ``agents.prompt_cache.one_shot_marks`` value, or the announced mirror."""
-    global _announced, _failed
-    if _reader is None:
-        if not _announced:
-            _announced = True
-            print(
-                f"[matrx_ai] no host knob reader bound for {FEATURE!r}; using the mirrored "
-                f"{ONE_SHOT_MARKS_KEY}={ONE_SHOT_MARKS_MIRROR!r} (bind one with "
-                "configure_prompt_cache_knobs())",
-                file=sys.stderr,
-            )
-        return ONE_SHOT_MARKS_MIRROR
-    try:
-        raw = _reader(ONE_SHOT_MARKS_KEY)
-    except Exception as exc:  # noqa: BLE001 — announced, never a crashed send
-        if not _failed:
-            _failed = True
-            print(
-                f"[matrx_ai] host knob reader failed for {FEATURE!r}.{ONE_SHOT_MARKS_KEY!r}: "
-                f"{exc!r}; using the mirrored {ONE_SHOT_MARKS_MIRROR!r}",
-                file=sys.stderr,
-            )
-        return ONE_SHOT_MARKS_MIRROR
+    raw = _read_knob(ONE_SHOT_MARKS_KEY, ONE_SHOT_MARKS_MIRROR)
     value = str(raw).strip().strip('"') if raw is not None else ""
     return value if value in POLICIES else ONE_SHOT_MARKS_MIRROR
+
+
+def late_tools_enabled() -> bool:
+    """The live ``agents.prompt_cache.late_tools_enabled`` value; a missing row is OFF (announced)."""
+    raw = _read_knob(LATE_TOOLS_ENABLED_KEY, LATE_TOOLS_ENABLED_MIRROR)
+    if isinstance(raw, bool):
+        return raw
+    return str(raw).strip().strip('"').lower() == "true" if raw is not None else False
+
+
+def late_tools_scope() -> str:
+    """The live ``agents.prompt_cache.late_tools_scope`` value (``enrolled`` | ``all``)."""
+    raw = _read_knob(LATE_TOOLS_SCOPE_KEY, LATE_TOOLS_SCOPE_MIRROR)
+    value = str(raw).strip().strip('"') if raw is not None else ""
+    return value if value in LATE_TOOLS_SCOPES else LATE_TOOLS_SCOPE_MIRROR
 
 
 def _declares_tools(config: Any) -> bool:
@@ -176,6 +217,116 @@ def marks_for(config: Any) -> str:
     return value if value in (MARKS_ALL, MARKS_PREFIX, MARKS_NONE) else MARKS_ALL
 
 
+# ── PREFIX EVIDENCE: what ONE send's cache prefix positively was (a stopped call's estimate) ──────────────
+#
+# Lead rulings 2026-11-16/17 (made in Arman's absence; he may overrule them), read by
+# ``providers/stopped_usage.py``: a stopped call's cached prefix is a READ only when an ACCEPTED send of the
+# same provider cache scope was recorded within the cache life before THIS send began; a WRITE only when none
+# was AND this send was accepted (its stream started); otherwise UNKNOWN, priced at 1x uncached.
+#
+# * Scope = exactly the provider's cache scope: vendor + a non-secret fingerprint of the API
+#   key the call used + model + prefix (system + tools). Anthropic isolates prompt caches per WORKSPACE on the
+#   Claude API (per organization on Bedrock / Google Cloud); an API key belongs to one workspace, so the key
+#   fingerprint is that scope or narrower. No fingerprint -> no evidence (unknown).
+# * Per send: each dispatch holds its own :class:`PrefixEvidence`; another send never changes it.
+# * The shared record (``matrx_utils.cache``, the existing shared tier; key life = the cache life) is written
+#   only after the provider ACCEPTED the call. Both store calls run detached: a send never waits on them.
+
+PREFIX_READ = "read"
+PREFIX_WRITE = "write"
+PREFIX_UNKNOWN = "unknown"
+_ABSENT = "absent"  # the store answered: no accepted send of this scope within the cache life
+SHARED_PREFIX_KEY = "mx:prompt-cache:accepted:{digest}"
+
+
+def prefix_scope_digest(config: Any, *, vendor: str, key_fingerprint: str | None) -> str | None:
+    """The provider cache scope of ``config``'s prefix, hashed — None without a key fingerprint."""
+    if not key_fingerprint:
+        return None
+    # No stage/environment (cost adversary pass 3): the provider's cache is the key's workspace, so a dev and a
+    # prod process on ONE key share it; a stage in the digest made prod read "absent" for a prefix dev warmed and
+    # price a warm read as a 1.25x write. Distinct keys already give distinct fingerprints.
+    raw = f"{vendor}\x00{key_fingerprint}\x00{_prefix_digest(config)}"
+    return hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()
+
+
+def _cache_life_ms() -> int:
+    from matrx_ai.config.cache_marks import ANTHROPIC_CACHE_TIER_SECS
+
+    return int(ANTHROPIC_CACHE_TIER_SECS["5m"] * 1000)
+
+
+class PrefixEvidence:
+    """One send's prefix evidence. :meth:`begin` asks the store (detached); :meth:`accepted` records."""
+
+    def __init__(self, scope: str | None) -> None:
+        self.scope = scope
+        self._seen: str | None = None  # PREFIX_READ | _ABSENT once the store answered
+        self._accepted = False
+
+    @property
+    def state(self) -> str:
+        if self._seen == PREFIX_READ:
+            return PREFIX_READ
+        if self._seen == _ABSENT and self._accepted:
+            return PREFIX_WRITE
+        return PREFIX_UNKNOWN
+
+    def begin(self) -> None:
+        if self.scope is not None:
+            _detach(self._ask(), "prompt_cache_prefix_ask")
+
+    def accepted(self) -> None:
+        """The provider accepted this call (its stream started or it answered): record the scope."""
+        if self._accepted:
+            return
+        self._accepted = True
+        if self.scope is not None:
+            _detach(self._record(), "prompt_cache_prefix_record")
+
+    async def _ask(self) -> None:
+        try:
+            from matrx_utils.cache.backend import current_backend, l2_call
+
+            backend = current_backend()
+            if backend is None:
+                return
+            ok, raw = await l2_call("prompt_cache_prefix_get", backend.get(SHARED_PREFIX_KEY.format(digest=self.scope)))
+            if ok:
+                self._seen = PREFIX_READ if raw else _ABSENT
+        except Exception as exc:  # noqa: BLE001 — stays unknown; announced
+            print(f"[matrx_ai] prompt-cache prefix lookup failed: {exc!r}", file=sys.stderr)
+
+    async def _record(self) -> None:
+        try:
+            from matrx_utils.cache.backend import current_backend, l2_call
+
+            backend = current_backend()
+            if backend is None:
+                return
+            key = SHARED_PREFIX_KEY.format(digest=self.scope)
+            await l2_call("prompt_cache_prefix_set", backend.set(key, b"1", _cache_life_ms()))
+        except Exception as exc:  # noqa: BLE001 — announced; the next send reads unknown
+            print(f"[matrx_ai] prompt-cache prefix record failed: {exc!r}", file=sys.stderr)
+
+
+def _detach(coro: Any, name: str) -> None:
+    try:
+        from matrx_utils import detached_task
+
+        detached_task(coro, name=name)
+    except Exception as exc:  # noqa: BLE001 — no running loop: no evidence, announced
+        coro.close()
+        print(f"[matrx_ai] could not schedule {name}: {exc!r}", file=sys.stderr)
+
+
+def begin_prefix_evidence(config: Any, *, vendor: str, key_fingerprint: str | None) -> PrefixEvidence:
+    """Start one send's evidence (never waits on the store)."""
+    evidence = PrefixEvidence(prefix_scope_digest(config, vendor=vendor, key_fingerprint=key_fingerprint))
+    evidence.begin()
+    return evidence
+
+
 def reset_for_tests() -> None:
     _RECENT_PREFIX.clear()
     configure_prompt_cache_knobs(None)
@@ -189,11 +340,21 @@ __all__ = [
     "ONE_SHOT_MARKS_KEY",
     "ONE_SHOT_MARKS_MIRROR",
     "POLICIES",
+    "LATE_TOOLS_ENABLED_KEY",
+    "LATE_TOOLS_SCOPE_KEY",
     "CachePlan",
     "configure_prompt_cache_knobs",
     "decide_cache_plan",
     "is_one_shot_call",
+    "late_tools_enabled",
+    "late_tools_scope",
     "marks_for",
     "one_shot_call",
     "one_shot_marks_policy",
+    "PREFIX_READ",
+    "PREFIX_UNKNOWN",
+    "PREFIX_WRITE",
+    "PrefixEvidence",
+    "begin_prefix_evidence",
+    "prefix_scope_digest",
 ]

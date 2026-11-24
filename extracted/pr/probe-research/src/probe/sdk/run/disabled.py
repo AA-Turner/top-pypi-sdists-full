@@ -22,6 +22,7 @@ from typing import Any
 
 from ...generated.records import RunType
 from ..values.run_type import to_run_type
+from ..values.total_steps import to_total_steps
 from .context.context import FailureContext
 
 
@@ -140,6 +141,7 @@ class DisabledRun:
         config: dict | None = None,
         tags: list[str] | None = None,
         run_type: str | None = None,
+        total_steps: int | None = None,
     ) -> None:
         # Every PUBLIC ATTRIBUTE of a real Run, with a value of its type -- the
         # `__getattr__` fallback below answers with a function, which is right
@@ -154,6 +156,7 @@ class DisabledRun:
         self.tags = list(tags or [])
         # Checked like an online init's, so a typo fails the same way in every mode.
         self.run_type = to_run_type(run_type) if run_type is not None else RunType.GENERAL.value
+        self.total_steps = to_total_steps(total_steps) if total_steps is not None else None
         self.foreign_keys: dict = {}
         self.env_ref: str | None = None
         self.status = "running"
@@ -200,7 +203,7 @@ class DisabledRun:
     def confirm_resume_overrides(self, applied: dict | None = None) -> dict:
         return dict(applied or {})
 
-    def on(self, kind: Any, handler: Any) -> None:
+    def on(self, kind: Any, handler: Any = None) -> None:
         """Checked like a live run's (an enum member, never a string); nothing is ever asked of a disabled run."""
         from probe.sdk.run.commands.commands import check_kind
 

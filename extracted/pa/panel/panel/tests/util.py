@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import http.server
 import json
+import mimetypes
 import os
 import platform
 import re
@@ -16,7 +18,8 @@ import uuid
 
 from functools import partial
 from queue import Empty, Queue
-from threading import Thread
+from threading import Event, Thread
+from urllib.parse import unquote, urlencode, urlparse
 
 import numpy as np
 import param
@@ -24,9 +27,15 @@ import pytest
 import requests
 
 from packaging.version import Version
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from tornado.httpserver import HTTPServer
+from tornado.netutil import bind_sockets
+from tornado.web import Application, RequestHandler
+from tornado.websocket import WebSocketHandler, websocket_connect
 
 import panel as pn
 
+from panel.io.resources import CDN_DIST, DIST_DIR
 from panel.io.server import serve
 from panel.io.state import state
 
@@ -243,9 +252,6 @@ def wait_until(fn, page=None, timeout=5000, interval=100):
     # Hide this function traceback from the pytest output if the test fails
     __tracebackhide__ = True
 
-    if page:
-        page.wait_for_load_state('networkidle')
-
     start = time.time()
 
     def timed_out():
@@ -314,9 +320,6 @@ async def async_wait_until(fn, page=None, timeout=10000, interval=100):
     """
     # Hide this function traceback from the pytest output if the test fails
     __tracebackhide__ = True
-
-    if page:
-        await page.wait_for_load_state('networkidle')
 
     start = time.monotonic()
 
@@ -393,7 +396,8 @@ def serve_and_wait(app, page=None, prefix=None, port=None, proxy=None, **kwargs)
     # Tornado reuses the IPv4 port for IPv6, which another process may hold.
     kwargs.setdefault('address', '127.0.0.1')
     serve_app(app, port=port or 0, threaded=True, show=False, liveness=True, server_id=server_id, prefix=prefix or "", **kwargs)
-    wait_until(lambda: server_id in state._servers, page)
+    # The server registers within milliseconds, a coarse poll would dominate
+    wait_until(lambda: server_id in state._servers, page, interval=10)
     server = state._servers[server_id][0]
     if proxy:
         # The proxy answers the paths it does not route itself
@@ -404,7 +408,6 @@ def serve_and_wait(app, page=None, prefix=None, port=None, proxy=None, **kwargs)
     wait_for_server(port, prefix=prefix)
     if page:
         page.wait_for_function("document.readyState === 'complete'", timeout=5000)
-        page.wait_for_load_state('networkidle')
     return port
 
 serve_and_wait.server_implementation = 'tornado'
@@ -422,7 +425,6 @@ def serve_component(page, app, suffix='', wait=True, **kwargs):
     if page and wait:
         # Heavy bundles can take over 5s to load on a busy runner.
         page.wait_for_function("document.readyState === 'complete'", timeout=15000)
-        page.wait_for_load_state('networkidle')
         # The views request their stylesheets only once they render.
         wait_until(lambda: any(
             "items were rendered successfully" in str(msg) or "Error rendering Bokeh items" in str(msg)
@@ -430,6 +432,102 @@ def serve_component(page, app, suffix='', wait=True, **kwargs):
         ), page, interval=10)
         page.wait_for_function(_STYLESHEETS_SETTLED, timeout=15000)
     return msgs, port
+
+
+def is_remote(url):
+    return urlparse(url).hostname not in (None, 'localhost', '127.0.0.1')
+
+
+# Patterns rather than predicates, so Playwright only intercepts these
+# requests instead of holding every request until the test next makes a
+# Playwright call.
+CDN_DIST_PATTERN = re.compile('^' + re.escape(CDN_DIST))
+REMOTE_PATTERN = re.compile(rf'^(?!{re.escape(CDN_DIST)})https?://(?!(localhost|127\.0\.0\.1)[:/])')
+
+
+def local_dist_file(url):
+    """
+    Returns the file in the local panel/dist that a URL on Panel's CDN
+    refers to, or None if it is not there.
+    """
+    path = DIST_DIR / unquote(urlparse(url).path).removeprefix(urlparse(CDN_DIST).path)
+    return path if path.is_file() else None
+
+
+def _local_dist_response(route):
+    path = local_dist_file(route.request.url)
+    if path is None:
+        return None
+    # Bundled files such as vega@6.1.2 have no extension to guess from
+    content_type = mimetypes.guess_type(path.name)[0] or 'text/javascript'
+    return {'status': 200, 'path': path, 'content_type': content_type}
+
+
+def serve_local_dist(route):
+    """
+    Answers requests to Panel's CDN with the local panel/dist, since a
+    release commit points the CDN at a version that is not published yet.
+    """
+    if (response := _local_dist_response(route)) is None:
+        route.fallback()
+    else:
+        route.fulfill(**response)
+
+
+async def serve_local_dist_async(route):
+    if (response := _local_dist_response(route)) is None:
+        await route.fallback()
+    else:
+        await route.fulfill(**response)
+
+
+class RemoteRequests:
+    """
+    Records the requests a browser context makes to remote hosts, so a
+    test failing because a CDN such as esm.sh is slow or down says so
+    instead of looking like a render that never finished.
+    """
+
+    def __init__(self, context):
+        self._pending = {}
+        self._failed = []
+        self._fetch_errors = {}
+        context.on("request", self._on_request)
+        context.on("response", self._on_response)
+        context.on("requestfinished", self._on_finished)
+        context.on("requestfailed", self._on_failed)
+
+    def fetch_failed(self, request, error):
+        """
+        Records why a route handler that fetches on the browser's behalf
+        failed, since the request it aborts only reports a generic error.
+        """
+        self._fetch_errors[request] = str(error).splitlines()[0]
+
+    def _on_request(self, request):
+        if is_remote(request.url):
+            self._pending[request] = time.monotonic()
+
+    def _on_response(self, response):
+        if response.status >= 400 and response.request in self._pending:
+            self._failed.append(f"{response.url} (HTTP {response.status})")
+
+    def _on_finished(self, request):
+        self._pending.pop(request, None)
+
+    def _on_failed(self, request):
+        if self._pending.pop(request, None) is not None:
+            failure = self._fetch_errors.pop(request, request.failure)
+            self._failed.append(f"{request.url} ({failure})")
+
+    def report(self):
+        now = time.monotonic()
+        lines = [f"failed: {failure}" for failure in self._failed]
+        lines += [
+            f"pending for {now - start:.1f}s: {request.url}"
+            for request, start in self._pending.items()
+        ]
+        return "\n".join(lines)
 
 
 # Chromium also gives a stylesheet that failed to load an empty sheet, so
@@ -458,15 +556,16 @@ def wait_for_server(port, prefix=None, timeout=3):
     if not prefix.endswith('/'):
         prefix += '/'
     url = f"http://127.0.0.1:{port}{prefix}liveness"
+    error = None
     while True:
         try:
             if requests.get(url, timeout=timeout).ok:
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            error = e
         time.sleep(0.05)
         if (time.time()-start) > timeout:
-            raise RuntimeError(f'{url} did not respond before timeout.')
+            raise RuntimeError(f'{url} did not respond before timeout: {error}')
 
 
 def terminate_panel_serve(p):
@@ -617,7 +716,11 @@ def http_serve_directory(directory=".", port=0):
     httpd = http.server.HTTPServer((hostname, port), handler, False)
     # Block only for 0.5 seconds max
     httpd.timeout = 0.5
-    httpd.server_bind()
+    try:
+        httpd.server_bind()
+    except Exception:
+        httpd.server_close()
+        raise
 
     address = f"http://{httpd.server_name}:{httpd.server_port}"
 
@@ -640,6 +743,162 @@ class _SimpleRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
         self.send_header('Cross-Origin-Embedder-Policy', 'credentialless')
         http.server.SimpleHTTPRequestHandler.end_headers(self)
+
+
+_HOP_BY_HOP = {'connection', 'content-length', 'keep-alive', 'transfer-encoding', 'upgrade'}
+
+
+class _PrefixProxyMixin:
+    """
+    Forwards requests below a path prefix to an upstream server with the
+    prefix stripped, declaring it in the headers a proxy would set.
+    """
+
+    def initialize(self, proxy):
+        self.proxy = proxy
+
+    def _upstream(self, scheme, path):
+        query = f'?{self.request.query}' if self.request.query else ''
+        return f"{scheme}://localhost:{self.proxy['upstream']}/{path}{query}"
+
+    def _upstream_headers(self):
+        headers = {
+            name: value for name, value in self.request.headers.get_all()
+            if name.lower() in ('cookie', 'content-type', 'origin', 'accept')
+        }
+        headers['Host'] = self.proxy.get('host') or self.request.host
+        headers['X-Forwarded-Host'] = self.request.host
+        headers['X-Forwarded-Proto'] = self.request.protocol
+        if self.proxy.get('forward_prefix', True):
+            headers['X-Forwarded-Prefix'] = self.proxy['prefix']
+        headers.update(self.proxy.get('headers', {}))
+        return headers
+
+
+class _PrefixProxyHandler(_PrefixProxyMixin, RequestHandler):
+
+    async def get(self, path):
+        response = await AsyncHTTPClient().fetch(
+            self._upstream('http', path), method=self.request.method,
+            headers=self._upstream_headers(), body=self.request.body or None,
+            follow_redirects=False, raise_error=False, decompress_response=False,
+        )
+        self.proxy['requests'].append((response.code, self.request.uri))
+        self.set_status(response.code)
+        self.clear_header('Content-Type')
+        for name, value in response.headers.get_all():
+            if name.lower() not in _HOP_BY_HOP:
+                self.add_header(name, value)
+        self.finish(response.body)
+
+    post = get
+
+
+class _PrefixProxyWebSocket(_PrefixProxyMixin, WebSocketHandler):
+
+    def check_origin(self, origin):
+        return True
+
+    def select_subprotocol(self, subprotocols):
+        return subprotocols[0] if subprotocols else None
+
+    async def open(self, path):
+        protocols = self.request.headers.get('Sec-WebSocket-Protocol', '')
+        self.upstream = await websocket_connect(
+            HTTPRequest(self._upstream('ws', path), headers=self._upstream_headers()),
+            subprotocols=[p.strip() for p in protocols.split(',') if p.strip()],
+            max_message_size=2**28,
+        )
+        self.proxy['websockets'].append(self.request.path)
+        self._forwarding = asyncio.ensure_future(self._forward_upstream())
+
+    async def _forward_upstream(self):
+        while (message := await self.upstream.read_message()) is not None:
+            await self.write_message(message, binary=isinstance(message, bytes))
+        self.close()
+
+    async def on_message(self, message):
+        await self.upstream.write_message(message, binary=isinstance(message, bytes))
+
+    def on_close(self):
+        self.upstream.close()
+
+
+class _OAuthAuthorizeHandler(RequestHandler):
+
+    def initialize(self, provider):
+        self.provider = provider
+
+    def get(self):
+        redirect_uri = self.get_argument('redirect_uri')
+        self.provider['redirect_uris'].append(redirect_uri)
+        query = urlencode({'code': 'code', 'state': self.get_argument('state')})
+        self.redirect(f'{redirect_uri}?{query}')
+
+
+class _OAuthTokenHandler(RequestHandler):
+
+    def initialize(self, provider):
+        self.provider = provider
+
+    def post(self):
+        user = base64.urlsafe_b64encode(
+            json.dumps({'email': self.provider['user']}).encode()
+        ).rstrip(b'=').decode()
+        token = f'e30.{user}.signature'
+        self.write({'access_token': token, 'id_token': token, 'expires_in': 3600})
+
+
+@contextlib.contextmanager
+def proxied_oauth_provider(prefix='/proxy', **proxy):
+    """
+    Serves a reverse proxy, which strips the path ``prefix`` off the
+    requests it forwards, next to an OAuth provider that signs every
+    user in without asking.
+
+    Yields a dictionary holding the ``port`` both are served on, the
+    ``AUTHORIZE_URL`` and ``TOKEN_URL`` of the provider and the
+    ``redirect_uris`` it was asked to return to. The proxy starts
+    forwarding once the port of the ``upstream`` server is set and
+    records the ``requests`` and ``websockets`` it forwards.
+    """
+    info = dict(
+        proxy, prefix=prefix, upstream=None, user='proxy@panel.org',
+        redirect_uris=[], requests=[], websockets=[]
+    )
+    started = Event()
+
+    def run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        app = Application([
+            ('/oauth/authorize', _OAuthAuthorizeHandler, dict(provider=info)),
+            ('/oauth/token', _OAuthTokenHandler, dict(provider=info)),
+            (rf'{prefix}/(.*/ws)', _PrefixProxyWebSocket, dict(proxy=info)),
+            (rf'{prefix}/?(.*)', _PrefixProxyHandler, dict(proxy=info)),
+        ])
+        sockets = bind_sockets(0, '127.0.0.1')
+        server = HTTPServer(app)
+        server.add_sockets(sockets)
+        port = sockets[0].getsockname()[1]
+        info.update(
+            port=port, loop=loop,
+            AUTHORIZE_URL=f'http://localhost:{port}/oauth/authorize',
+            TOKEN_URL=f'http://localhost:{port}/oauth/token',
+        )
+        started.set()
+        loop.run_forever()
+        server.stop()
+        loop.close()
+
+    thread = Thread(target=run, daemon=True)
+    thread.start()
+    started.wait(10)
+    try:
+        yield info
+    finally:
+        info['loop'].call_soon_threadsafe(info['loop'].stop)
+        thread.join(10)
 
 
 @contextlib.contextmanager

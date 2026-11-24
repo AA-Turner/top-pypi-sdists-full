@@ -12,6 +12,7 @@ import subprocess
 import sys
 import threading
 import time
+import types
 from typing import Any
 from typing import ClassVar
 
@@ -45,6 +46,98 @@ def test_ui_control_skill_triggers_on_cua_ui_control_and_dcc_cua() -> None:
         assert "ui-control" in names
 
 
+def test_cua_prepare_audit_retains_bounded_diagnostic_tokens(tmp_path: Path, monkeypatch: Any) -> None:
+    """A real CUA preparation failure keeps actionable, safe audit diagnostics."""
+    from test_cua_mcp_pixels import TARGET
+    from test_cua_mcp_pixels import window_response
+
+    backend = _load_cua_module()
+    entrypoint = _load_entrypoint_module()
+    calls = []
+
+    class SemanticClient:
+        def __init__(self, **kwargs: Any) -> None:
+            self.target = dict(TARGET)
+
+        def change_window_state(self, operation: str) -> dict[str, Any]:
+            calls.append(operation)
+            return window_response(operation)
+
+        def window_state(self) -> dict[str, Any]:
+            calls.append("readback")
+            return {"state": window_response()["state"]}
+
+        def snapshot(self, **kwargs: Any) -> dict[str, Any]:
+            calls.append("snapshot")
+            raise backend.UiControlHostError(
+                "input_failed",
+                "get_window_state timed out after 4s (UIA provider unresponsive on hwnd 0x1234, "
+                "class 'UnrealWindow'). Fallback options: max_elements / max_depth; "
+                "secret-input never-log-this",
+            )
+
+        def stop(self) -> dict[str, Any]:
+            return {"active": False}
+
+    monkeypatch.setattr(backend, "_HostClient", SemanticClient)
+    monkeypatch.setattr(backend, "_ensure_idle_reaper", lambda: None)
+    monkeypatch.setattr(entrypoint, "_load_backend", lambda: backend)
+    monkeypatch.delenv("DCC_MCP_UI_CONTROL_BACKEND", raising=False)
+    for variable in (
+        "DCC_MCP_UI_CONTROL_PROCESS_ID",
+        "DCC_MCP_UI_CONTROL_PROCESS_NAME",
+        "DCC_MCP_UI_CONTROL_WINDOW_HANDLE",
+        "DCC_MCP_UI_CONTROL_WINDOW_TITLE",
+    ):
+        monkeypatch.delenv(variable, raising=False)
+    monkeypatch.delenv("DCC_MCP_DISABLE_FILE_LOGGING", raising=False)
+    monkeypatch.setenv("DCC_MCP_LOG_DIR", str(tmp_path))
+    _stub_core_log_dir(monkeypatch, tmp_path)
+
+    params = {
+        "session_id": "audit-cua-timeout",
+        **TARGET,
+        "operation": "restore_activate",
+        "trusted_adapter_scope": TARGET,
+    }
+    try:
+        result = entrypoint.prepare_foreground_tool(params)
+        backend.cleanup()
+    finally:
+        backend.cleanup()
+
+    assert result["success"] is False and result["error"] == "input_failed"
+    assert calls == ["restore_activate", "readback", "snapshot"]
+    context = result["context"]
+    assert context["foreground_preparation"]["stage"] == "capture"
+    assert context["diagnostic_code"] == "input_failed"
+    assert context["diagnostic_reason"] == "capture_failed_timeout_4s"
+    assert context["recovery"]["stage"] == "capture"
+    assert context["recovery"]["activation_succeeded"] is True
+    assert context["recovery"]["observation_failed"] is True
+
+    row = json.loads(
+        next(tmp_path.glob("dcc-mcp-ui-control.*.log")).read_text(encoding="utf-8").splitlines()[-1].split(": ", 1)[1]
+    )
+    assert row["failure_stage"] == "capture"
+    assert row["diagnostic_code"] == "input_failed"
+    assert row["diagnostic_reason"] == "capture_failed_timeout_4s"
+    assert row["activation_succeeded"] is True
+    assert row["observation_failed"] is True
+    serialized = json.dumps(row)
+    for token in (
+        "UnrealWindow",
+        "hwnd",
+        "UIA provider",
+        "Fallback options",
+        "max_elements",
+        "max_depth",
+        "secret-input",
+        "never-log-this",
+    ):
+        assert token not in serialized
+
+
 def _load_cdp_runtime_module() -> Any:
     spec = importlib.util.spec_from_file_location("_test_ui_control_cdp_runtime", _SCRIPTS / "_cdp_runtime.py")
     assert spec is not None
@@ -70,6 +163,11 @@ def _load_entrypoint_module() -> Any:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _stub_core_log_dir(monkeypatch: Any, path: Path) -> None:
+    """Keep audit-only tests independent from the optional native extension."""
+    monkeypatch.setitem(sys.modules, "dcc_mcp_core._core", types.SimpleNamespace(get_log_dir=lambda: str(path)))
 
 
 def test_ui_control_defaults_to_dcc_cua_and_keeps_mock_explicit(monkeypatch: Any) -> None:
@@ -324,6 +422,7 @@ def test_ui_control_entrypoints_accept_inprocess_parameters(
     monkeypatch: Any,
 ) -> None:
     """Sidecar hosts must not require subprocess stdin for bundled ui-control."""
+    _stub_core_log_dir(monkeypatch, tmp_path / "logs")
     monkeypatch.setenv("DCC_MCP_UI_CONTROL_BACKEND", "mock")
     monkeypatch.setenv("DCC_MCP_UI_CONTROL_MOCK_STATE_DIR", str(tmp_path))
     log_dir = tmp_path / "logs"
@@ -521,6 +620,7 @@ def test_ui_control_admin_audit_records_rejection_without_sensitive_text(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
+    _stub_core_log_dir(monkeypatch, tmp_path / "logs")
     monkeypatch.setenv("DCC_MCP_UI_CONTROL_BACKEND", "mock")
     monkeypatch.setenv("DCC_MCP_UI_CONTROL_MOCK_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("DCC_MCP_LOG_DIR", str(tmp_path / "logs"))
@@ -549,6 +649,7 @@ def test_ui_control_admin_audit_records_rejection_without_sensitive_text(
 
 def test_ui_control_admin_audit_links_state_delta_to_action(tmp_path: Path, monkeypatch: Any) -> None:
     entrypoint = _load_entrypoint_module()
+    _stub_core_log_dir(monkeypatch, tmp_path)
     monkeypatch.setenv("DCC_MCP_LOG_DIR", str(tmp_path))
     monkeypatch.delenv("DCC_MCP_DISABLE_FILE_LOGGING", raising=False)
 
@@ -579,6 +680,194 @@ def test_ui_control_admin_audit_links_state_delta_to_action(tmp_path: Path, monk
     assert row["action_id"] == "action:test"
     assert row["state_delta"]["paths"] == ["/root/name"]
     assert "state_changes=1" in row["detail"]
+
+
+def test_ui_control_admin_audit_retains_bounded_failure_diagnostics(tmp_path: Path, monkeypatch: Any) -> None:
+    entrypoint = _load_entrypoint_module()
+    monkeypatch.setenv("DCC_MCP_LOG_DIR", str(tmp_path))
+    _stub_core_log_dir(monkeypatch, tmp_path)
+    entrypoint._record_operation(
+        "prepare_foreground_tool",
+        {"session_id": "audit-diagnostic", "text": "secret-input", "window_title": "Private Title"},
+        {
+            "success": False,
+            "error": "capture_failed",
+            "context": {
+                "session_id": "audit-diagnostic",
+                "recovery": {
+                    "stage": "capture",
+                    "activation_succeeded": True,
+                    "observation_failed": True,
+                    "capture_mode": "semantic",
+                    # Producer-authored, bounded reason code. Free-form native prose
+                    # is untrusted and must be rejected by the audit allowlist.
+                    "native_reason": "provider_timeout_4s",
+                    "fresh_observation_available": False,
+                    "content_input_sent": False,
+                    "next_steps": [{"tool": "ui_control__snapshot", "arguments": {"text": "secret-input"}}],
+                },
+                "private_response": {
+                    "password": "never-log-this",
+                    "title": "Private Title",
+                    "path": "/private/scene.ma",
+                },
+                "correlation_id": "prepare:abc123",
+            },
+        },
+    )
+
+    row = json.loads(
+        next(tmp_path.glob("dcc-mcp-ui-control.*.log")).read_text(encoding="utf-8").splitlines()[-1].split(": ", 1)[1]
+    )
+    assert row["failure_stage"] == "capture"
+    assert row["diagnostic_reason"] == "provider_timeout_4s"
+    assert row["activation_succeeded"] is True
+    assert row["observation_failed"] is True
+    assert row["fresh_observation_available"] is False
+    assert row["capture_mode"] == "semantic"
+    assert row["correlation_id"] == "prepare:abc123"
+    serialized = json.dumps(row)
+    for secret in ("secret-input", "Private Title", "C:\\private\\scene.ma", "/private/scene.ma", "never-log-this"):
+        assert secret not in serialized
+    assert "private_response" not in row
+    assert "next_steps" not in row
+
+
+def test_ui_control_audit_diagnostic_code_uses_core_allowlist(tmp_path: Path, monkeypatch: Any) -> None:
+    entrypoint = _load_entrypoint_module()
+    support = _load_cua_module()._SUPPORT
+    assert entrypoint._AUDIT_DIAGNOSTIC_CODES == support._AUDIT_DIAGNOSTIC_CODES
+
+    for unknown in ("provider_chosen_code", "UiErrorCode.TIMEOUT", "secret-input"):
+        assert entrypoint._audit_diagnostic_code(unknown) is None
+        assert (
+            entrypoint._failure_diagnostics(
+                {"context": {"provider_error_code": unknown}, "recovery": {"stage": "capture"}}
+            ).get("diagnostic_code")
+            is None
+        )
+    assert entrypoint._audit_diagnostic_code("INPUT_FAILED") == "input_failed"
+    assert entrypoint._audit_diagnostic_code("input_failed") == "input_failed"
+
+    monkeypatch.setenv("DCC_MCP_LOG_DIR", str(tmp_path))
+    _stub_core_log_dir(monkeypatch, tmp_path)
+    monkeypatch.delenv("DCC_MCP_DISABLE_FILE_LOGGING", raising=False)
+    entrypoint._record_operation(
+        "prepare_foreground_tool",
+        {"session_id": "audit-code-allowlist"},
+        {
+            "success": False,
+            "error": "capture_failed",
+            "context": {
+                "session_id": "audit-code-allowlist",
+                "recovery": {"stage": "capture", "provider_error_code": "provider_chosen_code"},
+            },
+        },
+    )
+    unknown_row = json.loads(
+        next(tmp_path.glob("dcc-mcp-ui-control.*.log")).read_text(encoding="utf-8").splitlines()[-1].split(": ", 1)[1]
+    )
+    assert "diagnostic_code" not in unknown_row
+    assert "provider_chosen_code" not in json.dumps(unknown_row)
+    assert unknown_row["error"] == "capture_failed"
+
+    for path in tmp_path.glob("dcc-mcp-ui-control.*.log"):
+        path.unlink()
+    entrypoint._record_operation(
+        "prepare_foreground_tool",
+        {"session_id": "audit-code-allowlist"},
+        {
+            "success": False,
+            "error": "input_failed",
+            "context": {
+                "session_id": "audit-code-allowlist",
+                "recovery": {"stage": "capture", "diagnostic_code": "input_failed"},
+            },
+        },
+    )
+    known_row = json.loads(
+        next(tmp_path.glob("dcc-mcp-ui-control.*.log")).read_text(encoding="utf-8").splitlines()[-1].split(": ", 1)[1]
+    )
+    assert known_row["diagnostic_code"] == "input_failed"
+
+
+def test_ui_control_audit_write_failure_does_not_change_tool_result(monkeypatch: Any) -> None:
+    entrypoint = _load_entrypoint_module()
+    assert entrypoint._failure_diagnostics({"recovery": {"stage": [], "capture_mode": {}}}) == {}
+    # Untrusted native reasons are never persisted: keyed JSON, keyless nested
+    # response JSON, and free-form prose embedding typed input must all be
+    # rejected by the strict allowlist rather than regex-redacted.
+    for reason in (
+        {"password": "never-log-this"},
+        '{"password": "never-log-this"}',
+        '{"response": {"message": "secret-input"}}',
+        "Failed to enter secret-input",
+    ):
+        assert entrypoint._failure_diagnostics({"recovery": {"native_reason": reason}}) == {}
+    assert entrypoint._failure_diagnostics({"recovery": {"native_reason": "provider_timeout_4s"}}) == {
+        "diagnostic_reason": "provider_timeout_4s"
+    }
+
+    class Backend:
+        @staticmethod
+        def snapshot_tool(params: Any) -> dict[str, Any]:
+            return {"success": False, "error": "capture_failed", "context": {"session_id": "audit"}}
+
+    monkeypatch.setattr(entrypoint, "_load_backend", lambda: Backend)
+    monkeypatch.setattr(entrypoint.Path, "mkdir", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk full")))
+    result = entrypoint.snapshot_tool({"session_id": "audit"})
+    assert result == {"success": False, "error": "capture_failed", "context": {"session_id": "audit"}}
+
+
+def test_ui_control_audit_reason_allowlist_blocks_leaks(tmp_path: Path, monkeypatch: Any) -> None:
+    """The durable audit log accepts only bounded safe-token reasons.
+
+    Regression for the P1 leak where keyless nested response JSON and free-form
+    prose embedding typed user input were written verbatim to the persistent
+    audit log. A strict allowlist must drop every untrusted reason while still
+    retaining producer-authored enum/templated codes.
+    """
+    entrypoint = _load_entrypoint_module()
+
+    # Untrusted native reasons are never persisted (no blacklist redaction).
+    for reason in (
+        '{"response": {"message": "secret-input"}}',
+        "Failed to enter secret-input",
+        '{"password": "never-log-this"}',
+        "title='Private Title'",
+        "C:\\private\\scene.ma",
+        "/private/scene.ma",
+        "password=secret-input",
+        {"password": "never-log-this"},
+        "",
+    ):
+        assert entrypoint._audit_reason(reason) is None
+    # Producer-authored, bounded enum/templated reasons are retained.
+    for reason in ("provider_timeout_4s", "capture_failed", "UiErrorCode.TIMEOUT", "observation_failed"):
+        assert entrypoint._audit_reason(reason) == reason
+
+    # Integration-level: a free-text reason with embedded typed input must not
+    # reach the persisted audit row, and no private value may leak anywhere.
+    _stub_core_log_dir(monkeypatch, tmp_path)
+    monkeypatch.setenv("DCC_MCP_LOG_DIR", str(tmp_path))
+    monkeypatch.delenv("DCC_MCP_DISABLE_FILE_LOGGING", raising=False)
+    entrypoint._record_operation(
+        "prepare_foreground_tool",
+        {"session_id": "audit-leak", "text": "secret-input"},
+        {
+            "success": False,
+            "error": "capture_failed",
+            "context": {
+                "session_id": "audit-leak",
+                "recovery": {"stage": "capture", "native_reason": "Failed to enter secret-input"},
+            },
+        },
+    )
+    row = json.loads(
+        next(tmp_path.glob("dcc-mcp-ui-control.*.log")).read_text(encoding="utf-8").splitlines()[-1].split(": ", 1)[1]
+    )
+    assert "diagnostic_reason" not in row
+    assert "secret-input" not in json.dumps(row)
 
 
 def test_ui_control_mock_observe_act_wait_verify_loop(tmp_path: Path) -> None:

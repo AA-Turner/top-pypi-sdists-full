@@ -1,5 +1,5 @@
 [dependencies]
-version = "20261120"
+version = "20261123"
 bootstrap_version = "20250801"
 
 [ninja]
@@ -118,7 +118,7 @@ options = [
 
 [glib]
 name = "GLib"
-version = "40355343ed5a4c1bbcf0e4d84d67bfea0ee66938"
+version = "77d626ecc2445956cf574e9f2b3e099d4e8cfad7"
 url = "https://github.com/frida-forks/glib.git"
 options = [
     "-Dcocoa=disabled",
@@ -294,7 +294,7 @@ options = [
 [lwip]
 when = "not machine.is_freestanding"
 name = "lwIP"
-version = "f7ab2f8609e50720eda120222d22e2ddc52ee811"
+version = "a5e8a13894e6911229f59271222b26eb0aaf276f"
 url = "https://github.com/frida-forks/lwip.git"
 options = [
     "-Dipv4=disabled",

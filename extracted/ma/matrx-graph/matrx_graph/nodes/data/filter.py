@@ -14,7 +14,7 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from matrx_graph.errors import ExecutionError
-from matrx_graph.nodes._sandbox import bind_item, safe_eval
+from matrx_graph.nodes._sandbox import ExpressionFailure, bind_item, safe_eval
 from matrx_graph.nodes._template import render_template_string
 from matrx_graph.content_ir.accessor import resolve_path as _resolve_accessor
 from matrx_graph.content_ir.model import KindModel, KindSubModel
@@ -253,6 +253,8 @@ class FilterExecutor:
                 bound = {**bound, OTHER_INPUTS_KEY: others}
             try:
                 passed = safe_eval(config.predicate, bound)
+            except ExpressionFailure as e:
+                return e.failure
             except KeyError as e:
                 # A bare `KeyError: 'rule_id'` names neither the node, the
                 # predicate, nor what the item actually was — four days of the

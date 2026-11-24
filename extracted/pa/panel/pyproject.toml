@@ -50,7 +50,7 @@ dependencies = [
     'bokeh >=3.10.0,<3.11.0',
     'param >=2.1.0,<3.0',
     'pyviz_comms >=2.0.0',
-    'panel-material-ui >=0.16.6,<0.17.0a0',
+    'panel-material-ui >=0.16.6,<0.18',
     'markdown',
     'markdown-it-py',
     'linkify-it-py',
@@ -59,7 +59,6 @@ dependencies = [
     'requests',
     'nh3',
     'typing_extensions',
-    'pandas >=1.2',
     'packaging',
     'tqdm',  # TODO: Should this be optional?
 ]
@@ -72,6 +71,7 @@ HoloViz = "https://holoviz.org/"
 [project.optional-dependencies]
 recommended = [
     'jupyterlab',
+    'pandas >=1.2',
     'holoviews >=1.18.0',
     'matplotlib',
     'pillow',
@@ -93,10 +93,11 @@ dev = [
 ]
 tests = [
     'psutil' ,
-    'pytest',
+    'pytest <9.2',
     'pytest-asyncio',
     'pytest-rerunfailures <16.0',
     'pytest-xdist',
+    'pytest-timeout',
 ]
 mypy = [
     "mypy",

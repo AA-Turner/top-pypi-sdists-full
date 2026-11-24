@@ -87,24 +87,12 @@ def test_structured_input_editable_tool_names_includes_workbook_and_document() -
     names = structured_input_editable_tool_names()
     assert "workbook" in names
     assert "document" in names
-    assert "table" in names
+    assert "records" in names and "table" not in names  # `table` retired, custom-data PLAN C.12
     assert "pick_list" in names
 
 
-def test_injection_catalog_exempts_realtime_native_builtins() -> None:
-    from matrx_ai.injection_catalog import validate_injection_tool_catalog
-
-    result = validate_injection_tool_catalog({"context", "web"}, emit=False)
-    assert "web" not in result.missing
-    assert "x_search" not in result.missing  # realtime native builtin — exempt
-
-
-def test_injection_catalog_flags_unknown_names() -> None:
-    from matrx_ai.injection_catalog import validate_injection_tool_catalog
-
-    result = validate_injection_tool_catalog({"note", "task"}, emit=False)
-    assert "context" in result.missing
-    assert "note" not in result.missing
+# test_injection_catalog_flags_unknown_names and test_injection_catalog_exempts_realtime_native_builtins
+# scan host files: tests/package_host_contracts/test_injection_catalog.py.
 
 
 # ── Read-only id locking ─────────────────────────────────────────────────────
@@ -252,6 +240,31 @@ def test_unspecified_reattachment_does_not_override_prior_explicit_lock() -> Non
         clear_app_context(token)
 
 
+def test_a_context_ref_lock_survives_the_per_iteration_rebuild() -> None:
+    """One-input contract: a ref attached through CONTEXT with editable:false (not a message part)
+    stays locked when the executor rebuilds the set from the messages each iteration; a later
+    message that marks the same id editable still wins, exactly as between two messages."""
+    from matrx_connect import AppContext
+    from matrx_connect.context.app_context import clear_app_context, set_app_context
+
+    from matrx_ai.config.read_only_resources import CONTEXT_READ_ONLY_RESOURCE_IDS_KEY
+    from matrx_ai.config.structured_input_resolver import collect_read_only_resource_ids
+
+    ctx = AppContext(emitter=_NullEmitter(), metadata={CONTEXT_READ_ONLY_RESOURCE_IDS_KEY: [_NOTE_ID]})
+    token = set_app_context(ctx)
+    try:
+        collect_read_only_resource_ids(MessageList([UnifiedMessage(role="user", content=[])]))
+        assert is_resource_read_only(_NOTE_ID) is True
+
+        unlocking = MessageList(
+            [UnifiedMessage(role="user", content=[NotesInputContent(note_ids=[_NOTE_ID], editable=True)])]
+        )
+        collect_read_only_resource_ids(unlocking)
+        assert is_resource_read_only(_NOTE_ID) is False
+    finally:
+        clear_app_context(token)
+
+
 async def test_note_update_tool_hard_blocks_locked_id() -> None:
     # The hard backstop: even if the agent carries note_update, a locked id is
     # refused at the tool boundary BEFORE any DB write — no manager call needed.
@@ -266,27 +279,6 @@ async def test_note_update_tool_hard_blocks_locked_id() -> None:
     try:
         result = await note_update(
             {"note_id": _NOTE_ID, "content": "hacked"}, ToolContext(call_id="c1")
-        )
-        assert result.success is False
-        assert result.error is not None
-        assert result.error.error_type == "read_only"
-    finally:
-        clear_app_context(token)
-
-
-async def test_dataset_write_tool_hard_blocks_locked_table() -> None:
-    from matrx_connect import AppContext
-    from matrx_connect.context.app_context import clear_app_context, set_app_context
-
-    from matrx_ai.tools.implementations.table_tools import table
-    from matrx_ai.tools.models import ToolContext
-
-    ctx = AppContext(emitter=_NullEmitter(), metadata={READ_ONLY_RESOURCE_IDS_KEY: {"table-id"}})
-    token = set_app_context(ctx)
-    try:
-        result = await table(
-            {"action": "add_rows", "table_id": "table-id", "rows": [{"name": "blocked"}]},
-            ToolContext(call_id="c2"),
         )
         assert result.success is False
         assert result.error is not None

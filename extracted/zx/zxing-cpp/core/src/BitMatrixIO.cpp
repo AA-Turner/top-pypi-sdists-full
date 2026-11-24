@@ -6,11 +6,40 @@
 
 #include "BitMatrixIO.h"
 
+#include "ZXAlgorithms.h"
+
 #include <array>
 #include <fstream>
-#include <sstream>
 
 namespace ZXing {
+
+std::string ToSVG(ImageView iv, bool invert)
+{
+	if (!iv.data())
+		return {};
+
+	// see https://stackoverflow.com/questions/10789059/create-qr-code-in-vector-image/60638350#60638350
+
+	// don't use std::ostringstream, see #1151
+	std::string res = StrCat(R"(<?xml version="1.0" encoding="UTF-8"?>)", "\n",
+							 R"(<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 )", std::to_string(iv.width()),
+							 ' ', std::to_string(iv.height()), R"(" stroke="none">)", "\n", "<path d=\"");
+	res.reserve(res.size() + iv.width() * iv.height() * 16);
+
+	for (int y = 0; y < iv.height(); ++y)
+		for (int x = 0; x < iv.width(); ++x)
+			if ((*iv.data(x, y) == 0) ^ invert) {
+				res += "M";
+				res += std::to_string(x);
+				res += ",";
+				res += std::to_string(y);
+				res += "h1v1h-1z";
+			}
+
+	res += "\"/>\n</svg>";
+
+	return res;
+}
 
 std::string ToString(const BitMatrix& matrix, char one, char zero, bool addSpace, bool printAsCString)
 {
@@ -48,26 +77,9 @@ std::string ToString(const BitMatrix& matrix, bool inverted)
 	return res;
 }
 
-std::string ToSVG(const BitMatrix& matrix)
+std::string ToSVG(const BitMatrix& matrix, bool invert)
 {
-	// see https://stackoverflow.com/questions/10789059/create-qr-code-in-vector-image/60638350#60638350
-
-	const int width = matrix.width();
-	const int height = matrix.height();
-	std::ostringstream out;
-
-	out << R"(<?xml version="1.0" encoding="UTF-8"?>)" << "\n"
-		<< R"(<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 )" << width << ' ' << height << R"(" stroke="none">)"
-		<< "\n<path d=\"";
-
-	for (int y = 0; y < height; ++y)
-		for (int x = 0; x < width; ++x)
-			if (matrix.get(x, y))
-				out << "M" << x << "," << y << "h1v1h-1z";
-
-	out << "\"/>\n</svg>";
-
-	return out.str();
+	return ToSVG(ImageView(matrix.row(0).begin(), matrix.width(), matrix.height(), ImageFormat::Lum), invert);
 }
 
 BitMatrix ParseBitMatrix(const std::string& str, char one, bool expectSpace)

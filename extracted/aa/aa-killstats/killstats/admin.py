@@ -9,14 +9,10 @@ from django.utils.html import format_html
 
 # Alliance Auth
 from allianceauth.eveonline.evelinks import eveimageserver
-from allianceauth.services.hooks import get_extension_logger
 
 # AA Killstats
-from killstats import __title__
 from killstats.models.killstatsaudit import AlliancesAudit, CorporationsAudit
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
+from killstats.providers import logger
 
 
 @admin.register(CorporationsAudit)
@@ -46,7 +42,7 @@ class CorporationsAuditAdmin(admin.ModelAdmin):
         eve_id = obj.corporation.corporation_id
         return format_html(
             '<img src="{}" class="img-circle">',
-            eveimageserver._eve_entity_image_url("corporation", eve_id, 32),
+            eveimageserver.corporation_logo_url(eve_id, 32),
         )
 
     @admin.display(description="Corporation ID", ordering="corporation__corporation_id")
@@ -106,7 +102,7 @@ class AlliancesAuditAdmin(admin.ModelAdmin):
         eve_id = obj.alliance.alliance_id
         return format_html(
             '<img src="{}" class="img-circle">',
-            eveimageserver._eve_entity_image_url("alliance", eve_id, 32),
+            eveimageserver.alliance_logo_url(eve_id, 32),
         )
 
     @admin.display(description="Alliance ID", ordering="alliance__alliance_id")

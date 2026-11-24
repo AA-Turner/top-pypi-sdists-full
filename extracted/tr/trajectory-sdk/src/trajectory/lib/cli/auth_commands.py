@@ -43,7 +43,16 @@ class AuthCommands:
     self.report(f"Signed in to {organization}.")
     return identity
 
-  def login(self, no_browser: bool = False, timeout: float = 600) -> dict[str, Any]:
+  def login(
+    self,
+    no_browser: bool = False,
+    timeout: float = 600,
+    expected_organization_key: str | None = None,
+  ) -> dict[str, Any]:
+    if expected_organization_key is not None and not expected_organization_key.strip():
+      raise AuthError(
+        "invalid_organization_key", "The expected organization key must not be empty."
+      )
     metadata = self.store.metadata()
     name = self.profile or metadata["active"] or "default"
     existing = metadata["profiles"].get(name, {})
@@ -53,11 +62,13 @@ class AuthCommands:
       or existing.get("base_url")
       or DEFAULT_BASE_URL
     )
+    revoked_api_key = None
     if name in metadata["profiles"]:
       credential = self.store.get(name, destination)
       device = DeviceAuth(credential.base_url)
       try:
         identity = device.whoami(credential.api_key or "")
+        self._validate_organization(expected_organization_key, identity.get("organization_key"))
         if credential.organization and identity["organization_id"] != credential.organization["id"]:
           raise AuthError(
             "organization_mismatch",
@@ -74,13 +85,34 @@ class AuthCommands:
       except AuthError as error:
         if error.code != "not_authenticated":
           raise
-        self.store.remove(name, credential.api_key)
+        if expected_organization_key is None:
+          self.store.remove(name, credential.api_key)
+        else:
+          revoked_api_key = credential.api_key
       finally:
         device.close()
     device = DeviceAuth(destination)
     try:
       token = device.login(no_browser, timeout, self.report)
       try:
+        self._validate_organization(expected_organization_key, token.organization.key)
+      except AuthError as error:
+        try:
+          device.logout(token.api_key)
+        except AuthError:
+          raise AuthError(
+            error.code,
+            f"{error} No profile was saved or activated. Could not confirm revocation of the "
+            "newly issued CLI key. Revoke it under Settings → API keys before retrying.",
+          ) from None
+        raise AuthError(
+          error.code,
+          f"{error} No profile was saved or activated and the newly issued CLI key was revoked. "
+          "Retry login and select the intended organization in the browser.",
+        ) from None
+      try:
+        if revoked_api_key is not None:
+          self.store.remove(name, revoked_api_key)
         self.store.save(
           name, device.base_url, token.api_key, token.organization.model_dump(), token.user_email
         )
@@ -159,12 +191,24 @@ class AuthCommands:
     return result
 
   @staticmethod
+  def _validate_organization(expected: str | None, actual: str | None) -> None:
+    if expected is not None and (not actual or actual != expected):
+      raise AuthError(
+        "organization_mismatch",
+        f"Expected organization key {expected!r}, but the API returned {actual!r}.",
+      )
+
+  @staticmethod
   def _report(message: str) -> None:
     print(message, file=sys.stderr)
 
 
 def configure_parser(subparsers: Any) -> None:
   login = subparsers.add_parser("login", help="Sign in through your browser")
+  login.add_argument(
+    "--expected-organization-key",
+    help="Require this organization key before accepting or saving a login",
+  )
   login.add_argument("--no-browser", action="store_true")
   login.add_argument("--timeout", type=float, default=600)
   subparsers.add_parser("logout", help="Revoke a saved login")
@@ -179,7 +223,7 @@ def configure_parser(subparsers: Any) -> None:
 def run(args: argparse.Namespace, report: Callable[[str], None] | None = None) -> dict[str, Any]:
   commands = AuthCommands(getattr(args, "base_url", None), getattr(args, "profile", None), report)
   if args.command == "login":
-    return commands.login(args.no_browser, args.timeout)
+    return commands.login(args.no_browser, args.timeout, args.expected_organization_key)
   if args.command == "logout":
     return commands.logout()
   if args.command == "whoami":

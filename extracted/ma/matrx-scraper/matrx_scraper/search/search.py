@@ -1,12 +1,24 @@
 import asyncio
+import html
 import random
 from typing import Any
 
 from matrx_utils import capture_error, vcprint
 
+from matrx_scraper.page_replay import replayed
 from matrx_scraper.search.brave_client import BraveRateLimitError, get_client
 
 verbose = False
+
+#: The ``page_replay`` kind of a Brave search answer (pages are ``http`` / ``browser``).
+SEARCH_REPLAY_KIND = "search"
+
+
+def search_replay_key(params: dict[str, Any]) -> str:
+    """The replay "url" of one search: every parameter as sent, keys sorted (only an identical search replays)."""
+    import json
+
+    return "brave:search?" + json.dumps(params, sort_keys=True, default=str)
 
 #: Why the last search for a query came back empty-handed (bounded). `async_brave_search` keeps its
 #: contract — None is a failure — but a caller that reports the failure (research_web) names the real
@@ -158,6 +170,44 @@ def generate_search_text_summary(
     return top_summary + body + bottom_metrics
 
 
+_TEXT_FIELDS = ("title", "description", "snippet")
+
+
+def _decode_entities(value: str) -> str:
+    """Decode HTML entities until stable (max 3 passes). Brave sometimes returns a
+    snippet entity-encoded TWICE ("NASA&amp;#x27;s"); every client printed it raw
+    (feedback 67828c9c). One decode point, here, for every consumer."""
+    for _ in range(3):
+        decoded = html.unescape(value)
+        if decoded == value:
+            break
+        value = decoded
+    return value
+
+
+def decode_search_text(result: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Decode entity-encoded text fields of every web/news result in place."""
+    if not isinstance(result, dict):
+        return result
+    for section in ("web", "news", "videos", "discussions"):
+        block = result.get(section)
+        items = block.get("results") if isinstance(block, dict) else None
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            for key in _TEXT_FIELDS:
+                if isinstance(item.get(key), str):
+                    item[key] = _decode_entities(item[key])
+            extra = item.get("extra_snippets")
+            if isinstance(extra, list):
+                item["extra_snippets"] = [
+                    _decode_entities(x) if isinstance(x, str) else x for x in extra
+                ]
+    return result
+
+
 async def async_brave_search(
     query: str,
     count: int = 20,
@@ -187,17 +237,18 @@ async def async_brave_search(
             )
 
             _FAILURE_REASONS.pop(query, None)
-            result = await client.search(
-                query=query,
-                count=count,
-                offset=offset,
-                country=country,
-                extra_snippets=extra_snippets,
-                safe_search=safe_search or "off",
-                freshness=freshness,
-                timeout=timeout,
-            )
+            params = {"query": query, "count": count, "offset": offset, "country": country,
+                      "extra_snippets": extra_snippets, "safe_search": safe_search or "off", "freshness": freshness}
 
+            async def live() -> dict[str, Any]:
+                return await client.search(**params, timeout=timeout)
+
+            # A search answer is a provider answer like a page: when the host records answers (a side-by-side
+            # proof's replay session), an identical search is served the recorded answer instead of a new one.
+            result = await replayed(SEARCH_REPLAY_KIND, search_replay_key(params), live,
+                                    to_answer=lambda r: r, from_answer=lambda a: a)
+
+            result = decode_search_text(result)
             vcprint(
                 data=result,
                 title=f"Search Results for '{query}'",
@@ -232,6 +283,11 @@ async def async_brave_search(
             return None
 
         except Exception as e:
+            if getattr(e, "is_caller_refusal", False):
+                # A host gate refused the caller (run approval, usage limit): not a Brave failure. It
+                # propagates so the caller books ONE refusal for the run, instead of one
+                # brave_search_failed row per query and a paused run carrying on with empty results.
+                raise
             vcprint(
                 f"[brave_search] Search failed for query '{query}': {e}",
                 title=f"Error for query '{query}'",

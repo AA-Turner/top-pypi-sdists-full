@@ -41,6 +41,29 @@ class MandateSourceFetchError(RuntimeError):
     """
 
 
+def _carried_organization_id() -> str | None:
+    """The organization the ambient request carries, UUID-validated; ``None`` when it carries none.
+
+    Which agent runs a job depends on the caller's organization, and the server refuses a person
+    with no organization (context-is-carried-never-rebuilt). The resolution is asked inside the
+    run, so the organization the run already carries rides the request, exactly as the mandate
+    door's ``X-Organization-Id`` does (``mandate_runner.py``); it is read, never chosen here.
+    """
+    import uuid
+
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    except Exception:  # noqa: BLE001 — no matrx-connect context in this process
+        return None
+    org_id = str(getattr(ctx, "organization_id", "") or "") if ctx is not None else ""
+    try:
+        return str(uuid.UUID(org_id))
+    except ValueError:
+        return None
+
+
 class ServerMandateSource:
     """Resolve Mandates against the AIDream server.
 
@@ -92,6 +115,9 @@ class ServerMandateSource:
                 "user's own rebind"
             )
         headers["Authorization"] = f"Bearer {token}"
+        organization_id = _carried_organization_id()
+        if organization_id:
+            headers["X-Organization-Id"] = organization_id
         return headers
 
     async def __call__(self, mandate_key: str) -> MandateResolution:

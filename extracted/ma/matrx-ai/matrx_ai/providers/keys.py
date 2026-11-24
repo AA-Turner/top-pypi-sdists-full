@@ -11,8 +11,11 @@ instead of reading ``os.environ`` directly. Resolution order, per env name:
    env-style name or its provider shorthand (``ANTHROPIC_API_KEY`` /
    ``anthropic``). This preserves per-request and explicit workflow keys while
    keeping provider clients behind the canonical resolver.
-3. ``os.environ`` for each env name in order — the unchanged server path.
-   A server host that injects nothing behaves exactly as before.
+3. The PLATFORM's own key: the host-injected ``platform_key_source`` (``_ext``
+   key ``"platform_key_source"``, a :class:`PlatformKeySource`) when one is
+   configured, else ``os.environ`` for each env name in order — the unchanged
+   server path. A host that injects nothing behaves exactly as before. The
+   source sits HERE, never before step 2, so a person's own key still wins.
 
 The resolver is registered via ``matrx_ai.configure(api_key_resolver=...)``.
 
@@ -31,10 +34,12 @@ import threading
 from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
+from typing import Protocol
 
 from matrx_ai._ext import get_ext, has_ext
 
 _RESOLVER_KEY = "api_key_resolver"
+_PLATFORM_SOURCE_KEY = "platform_key_source"
 _CREDENTIAL_RESOLVER_KEY = "credential_resolver"
 
 
@@ -116,6 +121,31 @@ async def resolve_credential_field(
     return resolution.value
 
 
+class PlatformKeySource(Protocol):
+    """Where the platform's OWN provider keys come from (step 3 of :func:`resolve_api_key`).
+
+    ``get`` is sync and answers from process memory only (it may raise
+    :class:`ApiKeyNotFoundError` to refuse a key by name). ``ensure_fresh`` is awaited
+    once per dispatch by :func:`prepare_provider_clients`; the host bounds its cost.
+    """
+
+    def get(self, name: str) -> str | None: ...
+
+    async def ensure_fresh(self) -> None: ...
+
+
+def get_platform_key_source() -> PlatformKeySource | None:
+    """The host-injected platform key source, or None (then step 3 reads ``os.environ``).
+    Registered via ``matrx_ai.configure(platform_key_source=...)``."""
+    source = get_ext(_PLATFORM_SOURCE_KEY) if has_ext(_PLATFORM_SOURCE_KEY) else None
+    if source is not None and not callable(getattr(source, "get", None)):
+        raise TypeError(
+            "matrx-ai 'platform_key_source' must provide get(name) -> str | None and "
+            f"async ensure_fresh(); got {type(source).__name__!r}. Fix the configure() call."
+        )
+    return source
+
+
 def get_api_key_resolver() -> Callable[[str], str | None] | None:
     """Return the host-injected key resolver, or None when unset."""
     resolver = get_ext(_RESOLVER_KEY) if has_ext(_RESOLVER_KEY) else None
@@ -172,6 +202,18 @@ def begin_dispatch_key_scope() -> None:
     inherits an earlier call's "own" (same task, or a parent task's copied context)."""
     _KEY_SOURCE.set(None)
     _PREPARED_CLIENTS.set(None)
+
+
+def prepared_key_fingerprint() -> str | None:
+    """A stable, non-secret fingerprint of the API key(s) THIS dispatch's prepared clients use (the provider
+    cache scope, ``config/cache_plan.py``) — None when no prepared client exposes its key."""
+    prepared = _PREPARED_CLIENTS.get() or {}
+    prints = sorted(
+        key_fingerprint(key)
+        for key in (getattr(client, "api_key", None) for client in prepared.values())
+        if isinstance(key, str) and key
+    )
+    return key_fingerprint("|".join(prints)) if prints else None
 
 
 def last_resolved_key_source() -> str | None:
@@ -240,8 +282,9 @@ def resolve_api_key(*env_names: str, required: bool = False) -> str | None:
                     continue  # our paid tools and system work never spend the person's key
                 _KEY_SOURCE.set("own" if own else "platform")
                 return str(value)
+    platform_source = get_platform_key_source()
     for name in env_names:
-        value = os.environ.get(name)
+        value = platform_source.get(name) if platform_source is not None else os.environ.get(name)
         if value:
             _KEY_SOURCE.set("platform")
             return value
@@ -458,6 +501,19 @@ async def prepare_provider_clients(instance: object) -> None:
     # A pinned client resolves no key: never let an earlier call's source in this
     # task stamp this one (unknown = charged, the safe direction).
     _KEY_SOURCE.set(None)
+    platform_source = get_platform_key_source()
+    if platform_source is not None:
+        # The host bounds this (single-flight, timeout, last good snapshot on failure);
+        # a raise here is a host defect, announced, and never stops the dispatch.
+        try:
+            await platform_source.ensure_fresh()
+        except Exception as exc:  # noqa: BLE001 — announced; resolution still answers
+            import logging
+
+            logging.getLogger(__name__).error(
+                "[matrx-ai] platform_key_source.ensure_fresh() raised %s; resolving from its current snapshot",
+                type(exc).__name__,
+            )
     descriptors: list[keyed_provider_client] = []
     for cls in type(instance).__mro__:
         descriptors.extend(
@@ -472,8 +528,11 @@ __all__ = [
     "begin_dispatch_key_scope",
     "get_api_key_resolver",
     "key_fingerprint",
+    "prepared_key_fingerprint",
     "platform_keys_only",
     "get_credential_resolver",
+    "get_platform_key_source",
+    "PlatformKeySource",
     "keyed_provider_client",
     "prepare_provider_clients",
     "resolve_api_key",

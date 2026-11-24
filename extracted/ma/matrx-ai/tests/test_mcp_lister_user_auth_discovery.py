@@ -240,6 +240,26 @@ async def test_lister_with_no_members_fails_loudly_with_the_sync_reason(monkeypa
 
     assert result.success is False
     assert result.error is not None
-    assert result.error.error_type == "mcp_no_tools"
+    # A 401 is the person's own connection credential: told to reconnect, never a filed fault.
+    assert result.error.error_type == "mcp_unauthorized"
     assert "401 Unauthorized" in result.error.message
+    assert "reconnect github" in result.error.message
+    from matrx_ai.tools.executor import _is_expected_domain_failure
+
+    assert _is_expected_domain_failure(
+        tool_name="bundle:list_github", error_type="mcp_unauthorized", message=result.error.message
+    )
+
+
+async def test_lister_5xx_stays_a_filed_fault(monkeypatch, lister_host):
+    lister_host["definition_model"].names = ()
+
+    async def fake_sync(slug: str, *, force: bool = False, discovery_auth=None):
+        return SyncResult(slug=slug, error="discover_tools failed: HTTPStatusError(\"Server error '503 Service Unavailable'\")")
+
+    monkeypatch.setattr(mcp_sync, "sync_server", fake_sync)
+    ctx = ToolContext(call_id="c-3", tool_name="bundle:list_github")
+    result = await bundle_lister.list_bundle_tools({}, ctx)
+    assert result.error is not None
+    assert result.error.error_type == "mcp_no_tools"
     assert "produced no tools" in result.error.message

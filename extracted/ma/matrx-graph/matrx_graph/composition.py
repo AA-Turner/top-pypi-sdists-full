@@ -30,6 +30,8 @@ what it cannot parse is how the seam broke in the first place.
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 import ast
 from dataclasses import dataclass, field
 
@@ -40,6 +42,8 @@ SUBGRAPH_CALL = "subgraph.call"
 
 #: The entry-node type whose ``config.fields`` declare a definition's contract.
 USER_INPUT = "io.user_input"
+#: The Trigger step: the same fields, the same contract (``nodes/io/user_input.INPUT_SOURCE_TYPES``).
+TRIGGER_STEP = "io.trigger"
 
 #: The node type a parent conventionally uses to build a call's ``inputs`` dict.
 DATA_TRANSFORM = "data.transform"
@@ -54,13 +58,15 @@ def required_entry_fields(definition: Definition) -> set[str]:
     the default when absent" writes ``required: False``; a field that is both
     required and defaulted is a contradiction worth seeing, not smoothing over.)
     """
+    definition = _information.executable_of(definition)  # a note is not a step
     keys: set[str] = set()
     for node in definition.nodes:
-        if node.spec_type != USER_INPUT:
+        if node.spec_type not in (USER_INPUT, TRIGGER_STEP):
             continue
         for fld in (node.data.get("config") or {}).get("fields") or []:
-            if isinstance(fld, dict) and fld.get("required") and fld.get("key"):
-                keys.add(str(fld["key"]))
+            name = fld.get("key") or fld.get("name") if isinstance(fld, dict) else None
+            if name and fld.get("required"):
+                keys.add(str(name))
     return keys
 
 
@@ -195,6 +201,7 @@ def check_composition_contract(
     ``children`` maps the ``definition_id`` each call names to that child's
     built :class:`Definition`.
     """
+    parent = _information.executable_of(parent)  # a note is not a step
     report = CompositionReport()
     for node in parent.nodes:
         if node.spec_type != SUBGRAPH_CALL:

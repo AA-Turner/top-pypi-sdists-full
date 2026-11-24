@@ -21,6 +21,7 @@ import logging
 import uuid
 from typing import Any
 
+from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
 from matrx_utils.block_sink import announce_block
 
 from matrx_scraper.blocks.sink import assert_block_sink_ready, installed_block_store
@@ -32,7 +33,7 @@ _log = logging.getLogger("matrx_scraper.blocks")
 
 #: The org every org-less platform capture belongs to (`matrx_orm.session.fallback`), which is
 #: the right owner for a row about the health of the platform itself.
-_SYSTEM_ORGANIZATION_ID = "39c38960-d30c-4840-b0c1-c9960de95582"
+_SYSTEM_ORGANIZATION_ID = SYSTEM_ORGANIZATION_ID
 
 #: The probe's own error class. Deliberately not a real one: it has no lawful route, so even
 #: if a row ever escaped cleanup it says plainly that it is a self-test and not a wall.

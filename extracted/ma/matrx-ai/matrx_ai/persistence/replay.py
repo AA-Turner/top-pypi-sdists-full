@@ -36,12 +36,14 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
 from matrx_orm import db_sqlstate
+from matrx_orm.session.coalesce import coalesce_ops
 from matrx_orm.session.dag import tier_ops
 from matrx_orm.session.fallback import (
     DIRECT_WRITE_PRESERVED_MARKER,
@@ -49,10 +51,11 @@ from matrx_orm.session.fallback import (
     IMMUTABLE_WRITE_PRESERVED_MARKER,
     immutable_row_differences,
 )
-from matrx_orm.session.flush import execute_tiers
+from matrx_orm.session.flush import _unmatched_updates, execute_tiers
 from matrx_orm.session.op import SessionOp, make_delete, make_insert, make_update
 from matrx_utils import vcprint
 
+from matrx_ai.db import message_positions as _message_positions  # noqa: F401 — declares the append sentinel
 from matrx_ai.persistence.registry import get_model
 
 logger = logging.getLogger("matrx_ai.persistence.replay")
@@ -133,6 +136,13 @@ DEFAULT_RETRY_ERRORS: tuple[str, ...] = (
 #     always classified recoverable but never ELIGIBLE, so it sat unreplayed.
 COORDINATOR_DROP_MARKER = "coordinator drop:"
 
+# An UPDATE that ran before its row existed. It is no class of its own: it is worth a
+# sweep exactly when the row can still take it — the row's INSERT is waiting in this
+# sweep, or landed since (live 2026-11-03: three refused rag.pdf_page_cleaner requests
+# got their INSERT replayed ``pending`` while their ``failed`` UPDATE was quarantined
+# unattempted, and stood pending until the watchdog abandoned them).
+UNMATCHED_UPDATE_MARKER = "UPDATE(s) matched no row"
+
 RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     "ForeignKeyViolationError",
     "InterfaceError: cannot perform operation: another operation is in progress",
@@ -141,15 +151,22 @@ RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     IMMUTABLE_WRITE_PRESERVED_MARKER,
     "commit hard-deadline",
     "QueryTimeoutError",
+    "TransactionTimeoutError",
     "LockNotAvailableError",
     COORDINATOR_DROP_MARKER,
     'null value in column "organization_id"',
 )
 
 
+# A TRANSACTION timeout (SQLSTATE 25P04, ``transaction_timeout``) terminates the
+# connection mid-transaction: like a statement timeout its COMMIT is unknown, so it rides
+# the same INSERT-only, read-the-key-first path. Live 2026-11-06 (feedback d231594e): a
+# chat.message insert lost to one was quarantined on sight as "no self-healing class".
 _QUERY_TIMEOUT_CAPTURE_HEADS = (
     "matrx_orm.exceptions.QueryTimeoutError:",
     "QueryTimeoutError:",
+    "asyncpg.exceptions.TransactionTimeoutError:",
+    "TransactionTimeoutError:",
 )
 
 
@@ -158,16 +175,102 @@ def _is_query_timeout_capture_text(error_text: str | None) -> bool:
     return bool(error_text and error_text.lstrip().startswith(_QUERY_TIMEOUT_CAPTURE_HEADS))
 
 
+# Modules whose exception ``str()`` may embed SQL text or bound arguments
+# (a matrx_orm ``QueryError`` banner prints ``Args:``). Their message is only
+# trusted when it is Postgres's own primary message (a SQLSTATE is present):
+# that message names the relation / column / constraint, never a row value —
+# the values live in ``detail``, which is never copied.
+_ARG_BEARING_EXCEPTION_MODULES = ("asyncpg", "psycopg", "psycopg2", "matrx_orm", "postgrest")
+_REPLAY_TEXT_MAX = 300  # protocol-constant: length of a diagnostic excerpt in a replay log line, not a behavior an admin tunes
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _bounded_line(text: str | None, *, limit: int = _REPLAY_TEXT_MAX) -> str:
+    """First meaningful line of ``text``: ANSI stripped, row values cut, bounded."""
+    if not text:
+        return ""
+    cleaned = _ANSI_ESCAPE.sub("", str(text))
+    line = next((ln.strip() for ln in cleaned.splitlines() if ln.strip().strip("-=")), "")
+    # ``describe_db_exception().as_text()`` appends ``detail=`` (the failing
+    # row's VALUES) and ``hint=`` after the identifiers — never carry them.
+    for cut in (" detail=", " hint=", " Args:"):
+        idx = line.find(cut)
+        if idx != -1:
+            line = line[:idx]
+    return line[:limit]
+
+
+# Non-database exceptions whose message is written by our own persistence code
+# and never interpolates a payload: the session's "UPDATE matched no row", the
+# commit hard-deadline, the immutable-conflict verdict, and the sweep's own
+# "Replay refused: …" reasons. Any other exception's text may carry row data,
+# so only its class name travels.
+_OWN_MESSAGE_TYPES: tuple[str, ...] = ("LookupError", "TimeoutError", "ImmutableReplayConflictError")
+_OWN_MESSAGE_PREFIX = "Replay refused:"
+
+
+def _message_is_ours(exc: BaseException) -> bool:
+    module = (type(exc).__module__ or "").split(".", 1)[0]
+    if module in _ARG_BEARING_EXCEPTION_MODULES:
+        return False
+    if type(exc).__name__ in _OWN_MESSAGE_TYPES:
+        return True
+    return str(exc).startswith(_OWN_MESSAGE_PREFIX)
+
+
 def _safe_replay_failure_text(exc: BaseException) -> str:
-    """A bounded diagnostic that never serializes SQL, bound arguments, or a traceback."""
+    """A bounded diagnostic that names the REAL cause without serializing data.
+
+    Carries the exception class, SQLSTATE, constraint / table / column, and the
+    reason message — Postgres's primary message for a database refusal, or the
+    message of our own non-database exception (a quarantine reason, a
+    LookupError). It never carries SQL text, bound arguments, ``detail``
+    (row values) or a traceback. Until 2026-11-03 it carried only the class
+    name, so 434 quarantines and 163 FK failures all read "replay execution
+    failed" and nobody could tell which constraint or which refusal.
+    """
     from matrx_orm.exceptions import describe_db_exception
 
+    parts = [f"{type(exc).__name__}: replay execution failed"]
+    message = ""
     try:
         info = describe_db_exception(exc)
-        suffix = f" [SQLSTATE {info.sqlstate}]" if info.sqlstate else ""
+        if info.sqlstate:
+            parts.append(f"[SQLSTATE {info.sqlstate}]")
+            if info.constraint:
+                parts.append(f"constraint={info.constraint}")
+            if info.table:
+                table = f"{info.schema}.{info.table}" if info.schema else info.table
+                parts.append(f"table={table}")
+            if info.column:
+                parts.append(f"column={info.column}")
+            message = _bounded_line(info.message)
     except Exception:  # noqa: BLE001 — failure reporting must not fail closed
-        suffix = ""
-    return f"{type(exc).__name__}: replay execution failed{suffix}"
+        pass
+    if not message and _message_is_ours(exc):
+        message = _bounded_line(str(exc))
+    text = " ".join(parts)
+    return f"{text}: {message}" if message else text
+
+
+def _captured_failure_heads(rows: Sequence[Any], *, limit: int = 5) -> list[str]:
+    """The distinct ORIGINAL failures behind ``rows`` (first line, no row values).
+
+    A quarantine refuses a row because of what killed it at CAPTURE time —
+    without this, the system_error says only that the sweep gave up.
+    """
+    heads: list[str] = []
+    for row in rows:
+        try:
+            text = row.get("error_text") if hasattr(row, "get") else row["error_text"]
+        except Exception:  # noqa: BLE001
+            text = None
+        head = _bounded_line(text, limit=240)
+        if head and head not in heads:
+            heads.append(head)
+            if len(heads) >= limit:
+                break
+    return heads
 
 # Error-CLASS signatures that are PERMANENT — the database REFUSED the write on
 # its merits, so re-sending the identical row can never succeed. These override
@@ -284,12 +387,71 @@ INHERITED_COLUMN_NOTNULL_SIGNATURES: tuple[str, ...] = (
     'null value in column "organization_id"',
 )
 
+# Relations that are the ROOT of the org inheritance chain: nothing copies an
+# ``organization_id`` onto them (live 2026-11-03: ``chat.conversation`` carries
+# no org-inheriting trigger). A NULL org on one of these is the writer's own
+# missing organization — no parent will ever arrive — so it is a permanent
+# refusal, quarantined on sight with ONE system_error, never five attempts.
+# Live evidence 2026-11-03: ``__tool_test__`` conversations inserted with no
+# organization burned the whole attempt budget, one IntegrityError each sweep.
+ORG_ROOT_RELATION_SIGNATURES: tuple[str, ...] = (
+    'of relation "conversation"',
+    "table=conversation ",
+)
+
+
+# The organization is the other parent no sibling request ever creates: an
+# ``iam.organizations`` row is made by a person (sign-up, "new organization"), never
+# by a Coordinator flush. An FK to one that is missing today is missing forever.
+# Live evidence (2026-10-23..30): nine ``chat.user_request`` inserts filed under a
+# test-fixture organization that never existed were classified as an FK RACE,
+# attempted five times each, and landed 45 ``persistence_replay_failed`` rows —
+# one per attempt — before quarantine.
+ORGANIZATION_FK_SIGNATURES: tuple[str, ...] = (
+    'is not present in table "organizations"',
+    "_organization_id_fkey",
+)
+
 
 def is_actor_fk_violation_text(error_text: str | None) -> bool:
     """True for a foreign-key refusal whose missing parent is a user (never a race)."""
     if not error_text or "ForeignKeyViolationError" not in error_text:
         return False
     return any(sig in error_text for sig in ACTOR_FK_SIGNATURES)
+
+
+def is_organization_fk_violation_text(error_text: str | None) -> bool:
+    """True for a foreign-key refusal whose missing parent is an organization (never a race)."""
+    if not error_text:
+        return False
+    if "ForeignKeyViolationError" not in error_text and "[SQLSTATE 23503]" not in error_text:
+        return False
+    return any(sig in error_text for sig in ORGANIZATION_FK_SIGNATURES)
+
+
+#: What ``ops.seal_confidential_write_failure`` (a BEFORE INSERT trigger on
+#: ``ops.system_write_failure``) writes into ``payload.redacted`` when the failed op
+#: belongs to a confidential conversation: the payload is reduced to
+#: ``{id, conversation_id, role, position, redacted}`` by design, so the original
+#: write can never be rebuilt from it. Live evidence (2026-10-22..27): eight such rows
+#: (a ``chat.message`` insert + a ``chat.user_request`` update per request) were
+#: attempted five times each — every attempt a ``ValueError`` reconstructing the op —
+#: and landed 20 ``persistence_replay_failed`` rows.
+SEALED_REDACTION_MARKER = "confidential conversation: content not kept"
+
+
+def is_sealed_redacted_row(row: Any) -> bool:
+    """True when the captured payload was deliberately redacted for a confidential chat."""
+    try:
+        payload = row.get("payload") if hasattr(row, "get") else row["payload"]
+    except Exception:  # noqa: BLE001 — classification must never raise
+        return False
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except ValueError:
+            return False
+    return isinstance(payload, dict) and payload.get("redacted") == SEALED_REDACTION_MARKER
 
 
 def is_inherited_column_notnull_text(error_text: str | None) -> bool:
@@ -301,6 +463,8 @@ def is_inherited_column_notnull_text(error_text: str | None) -> bool:
     if not error_text:
         return False
     if "NotNullViolationError" not in error_text and "[SQLSTATE 23502]" not in error_text:
+        return False
+    if any(sig in error_text for sig in ORG_ROOT_RELATION_SIGNATURES):
         return False
     return any(sig in error_text for sig in INHERITED_COLUMN_NOTNULL_SIGNATURES)
 
@@ -316,7 +480,7 @@ def is_permanent_failure_text(error_text: str | None) -> bool:
         return False
     if any(sig in error_text for sig in PERMANENT_FAILURE_SIGNATURES):
         return True
-    return is_actor_fk_violation_text(error_text)
+    return is_actor_fk_violation_text(error_text) or is_organization_fk_violation_text(error_text)
 
 
 def is_permanent_failure_exception(exc: BaseException) -> bool:
@@ -368,6 +532,66 @@ AUTO_REPLAY_MAX_ATTEMPTS: int = 5
 FK_RACE_MAX_AGE_SECONDS: float = 900.0
 
 
+def _model_for_table(table: str) -> Any:
+    try:
+        return get_model(table)
+    except KeyError:
+        # The persistence registry only pre-registers Coordinator-owned tables.
+        # A row captured by `matrx_orm.create_or_capture` can name ANY table
+        # (its whole point is direct writes outside the Coordinator), so fall
+        # back to the ORM's own (schema, table) → Model registry rather than
+        # refusing to replay a preserved artifact.
+        from matrx_orm.core.registry import get_model_by_table_name
+
+        schema, _, table_name = table.partition(".")
+        return get_model_by_table_name(schema, table_name)
+
+
+def _row_target(row: Any) -> tuple[str, str] | None:
+    """The (table, primary key) a failure row writes, or None when it does not say."""
+    pk_raw = row.get("primary_key")
+    pk_map = json.loads(pk_raw) if isinstance(pk_raw, str) else pk_raw
+    if not pk_map:
+        return None
+    return str(row.get("table_target")), str(next(iter(pk_map.values())))
+
+
+def _is_unmatched_update(row: Any) -> bool:
+    return row.get("op_type") == "update" and UNMATCHED_UPDATE_MARKER in str(row.get("error_text") or "")
+
+
+def _group_rows(rows: Sequence[Any]) -> dict[str, list[Any]]:
+    """One replay transaction per request; a row's UPDATE rides with the row's INSERT.
+
+    Captures of one row carry different ``request_id``s when separate flushes wrote
+    them, so the key alone would replay an UPDATE with no row under it. A redacted
+    UPDATE stays out: its group is quarantined whole, and the INSERT need not be."""
+    insert_group: dict[tuple[str, str], str] = {}
+    for r in rows:
+        target = _row_target(r)
+        if r.get("op_type") == "insert" and target is not None:
+            insert_group[target] = r["request_id"] or "_orphan"
+    by_request: dict[str, list[Any]] = {}
+    for r in rows:
+        key = r["request_id"] or "_orphan"
+        target = _row_target(r)
+        if r.get("op_type") == "update" and target is not None and not is_sealed_redacted_row(r):
+            key = insert_group.get(target, key)
+        by_request.setdefault(key, []).append(r)
+    return by_request
+
+
+async def _insert_already_landed(row: Any) -> bool:
+    """Whether a timed-out INSERT's row is already in its table (the COMMIT may have
+    succeeded before the client gave up). Read by primary key, uncached."""
+    pk_raw = row["primary_key"]
+    pk_map = json.loads(pk_raw) if isinstance(pk_raw, str) else pk_raw
+    pk_col, pk_val = next(iter(pk_map.items()))
+    model_cls = _model_for_table(row["table_target"])
+    found = await model_cls.filter(**{pk_col: str(pk_val)}).values(pk_col)
+    return bool(found)
+
+
 def _row_to_op(row: Any) -> SessionOp:
     """Reconstruct a SessionOp from a system_write_failure row.
 
@@ -386,19 +610,7 @@ def _row_to_op(row: Any) -> SessionOp:
     pk_map = json.loads(pk_raw) if isinstance(pk_raw, str) else pk_raw
     pk_col, pk_val = next(iter(pk_map.items()))
 
-    table = row["table_target"]
-    try:
-        model_cls = get_model(table)
-    except KeyError:
-        # The persistence registry only pre-registers Coordinator-owned tables.
-        # A row captured by `matrx_orm.create_or_capture` can name ANY table
-        # (its whole point is direct writes outside the Coordinator), so fall
-        # back to the ORM's own (schema, table) → Model registry rather than
-        # refusing to replay a preserved artifact.
-        from matrx_orm.core.registry import get_model_by_table_name
-
-        schema, _, table_name = table.partition(".")
-        model_cls = get_model_by_table_name(schema, table_name)
+    model_cls = _model_for_table(row["table_target"])
     op_type = row["op_type"]
 
     if op_type == "insert":
@@ -631,13 +843,76 @@ async def _op_already_satisfied(op: SessionOp, *, verify_exact: bool = False) ->
     rows = await op.model_cls.filter(**filters).limit(1).all()
     if not rows:
         return False
-    differences = immutable_row_differences(rows[0], op.payload)
+    differences = immutable_row_differences(rows[0], op.payload, table=op.table)
     if differences:
         raise ImmutableReplayConflictError(
             "immutable replay conflict: existing row differs from preserved payload "
             f"for {op.table} {op.pk_value}: {sorted(differences)}"
         )
     return True
+
+
+_RECOVERED_BY_PEER = "recovered (by a concurrent replay)"
+
+#: deadlock_detected, serialization_failure, lock_not_available: another writer held the row.
+_LOCK_CONTENTION_SQLSTATES = frozenset({"40P01", "40001", "55P03"})
+
+
+async def _rows_recovered_by_peer(rows: Sequence[Any]) -> bool:
+    """Whether every failure row was already marked recovered by another sweep."""
+    ids = [str(r["id"]) for r in rows]
+    if not ids:
+        return False
+    open_rows = await _swf_model().filter(id__in=ids, recovered_at__isnull=True).values("id")
+    return not open_rows
+
+
+async def _settle_unique_collision(
+    pending_ops: Sequence[SessionOp],
+    group_rows: Sequence[Any],
+    *,
+    database: str | None,
+    transaction: Any,
+) -> str | None:
+    """Settle a group whose replay hit a unique violation; ``None`` = not settled.
+
+    1. A peer sweep already recovered every row → nothing to write.
+    2. Otherwise each INSERT whose row now exists is satisfied — by PK existence
+       for an ordinary capture, by the exact comparator (which honours
+       database-assigned sentinels such as the append position) for an
+       immutable capture. A differing immutable row still raises
+       :class:`ImmutableReplayConflictError` (a real conflict).
+    3. The ops left (UPDATEs and any insert still absent) are replayed once.
+       Before 2026-11-11 every op was exact-verified, so an UPDATE in the group
+       (never "satisfied") or a trigger-assigned column turned a landed write
+       into a quarantine.
+    """
+    if await _rows_recovered_by_peer(group_rows):
+        return _RECOVERED_BY_PEER
+    immutable_targets = {
+        _row_target(r)
+        for r in group_rows
+        if IMMUTABLE_WRITE_PRESERVED_MARKER in str(r.get("error_text", ""))
+    }
+    remaining: list[SessionOp] = []
+    for op in pending_ops:
+        exact = (op.table, str(op.pk_value)) in immutable_targets
+        if not await _op_already_satisfied(op, verify_exact=exact):
+            remaining.append(op)
+    if not remaining:
+        return "recovered (concurrent insert)"
+    if any(op.op_type == "insert" for op in remaining):
+        return None  # an insert collided yet its row is absent: not ours to call settled
+    unmatched: list[SessionOp] = []
+    token = _unmatched_updates.set(unmatched)
+    try:
+        async with transaction(database) if database else transaction():
+            await execute_tiers(tier_ops(coalesce_ops(remaining)))
+    finally:
+        _unmatched_updates.reset(token)
+    if unmatched:
+        return None
+    return "recovered (concurrent insert, updates re-applied)"
 
 
 def _swf_model() -> Any:
@@ -686,6 +961,7 @@ async def _fetch_pending(
         id_qb = id_qb.filter(retry_count__lt=int(max_attempts))
     id_rows = await id_qb.order_by("failed_at").limit(int(limit)).values(
         "id",
+        "op_type",
         "error_text",
         "request_id",
         "table_target",
@@ -693,6 +969,7 @@ async def _fetch_pending(
         "failed_at",
         "user_id",
         "conversation_id",
+        "primary_key",
     )
     if retry_errors is not None:
         # SUBSTRING match, not exact. A failure's error_text carries variable
@@ -701,12 +978,26 @@ async def _fetch_pending(
         # in the text. Exact-match would never catch the FK-ordering class.
         signatures = tuple(retry_errors)
         eligible_ids = []
+        unmatched_updates: list[Any] = []
+        waiting_inserts: set[tuple[str, str]] = set()
         for r in id_rows:
-            if (
-                r["error_text"]
-                and not _is_query_timeout_capture_text(r["error_text"])
-                and any(sig in r["error_text"] for sig in signatures)
+            timed_out = _is_query_timeout_capture_text(r["error_text"])
+            if r["error_text"] and any(sig in r["error_text"] for sig in signatures) and (
+                not timed_out or r.get("op_type") == "insert"
             ):
+                # A timed-out capture is an unknown COMMIT. An INSERT is still safe: stage 2 reads
+                # its primary key first and replays only a row that never landed (feedback f29cab05:
+                # a chat.message insert lost to an overload burst was never retried).
+                eligible_ids.append(r["id"])
+                target = _row_target(r)
+                if r.get("op_type") == "insert" and target is not None:
+                    waiting_inserts.add(target)
+            elif _is_unmatched_update(r):
+                unmatched_updates.append(r)
+            elif unreplayable is not None:
+                unreplayable.append(dict(r))
+        for r in unmatched_updates:
+            if _row_target(r) in waiting_inserts or await _insert_already_landed(r):
                 eligible_ids.append(r["id"])
             elif unreplayable is not None:
                 unreplayable.append(dict(r))
@@ -736,8 +1027,14 @@ async def _fetch_pending(
             "organization_id",
             "created_by",
         )
-        if full_rows:
-            out.append(full_rows[0])
+        if not full_rows:
+            continue
+        row = full_rows[0]
+        if row.get("op_type") == "insert" and _is_query_timeout_capture_text(row.get("error_text")):
+            if await _insert_already_landed(row):
+                await _mark_recovered([row["id"]], "already_landed")
+                continue
+        out.append(row)
     return out
 
 
@@ -821,7 +1118,13 @@ async def _capture_replay_failure(
         from matrx_connect.streaming.error_capture import capture_error
 
         first = rows[0] if rows else {}
-        safe_exc = RuntimeError(_safe_replay_failure_text(exc))
+        safe_text = _safe_replay_failure_text(exc)
+        captured_heads = _captured_failure_heads(rows)
+        # A quarantine verdict alone ("Replay refused: …") is not a cause: name
+        # the original failure it refused so the error class says WHY.
+        if phase in {"unreplayable_class", "classify"} and captured_heads:
+            safe_text = f"{safe_text} | captured: {captured_heads[0]}"
+        safe_exc = RuntimeError(safe_text)
         await capture_error(
             safe_exc,
             kind=kind,
@@ -834,6 +1137,9 @@ async def _capture_replay_failure(
                 "phase": phase,
                 "failure_row_ids": [str(row["id"]) for row in rows],
                 "table_targets": sorted({str(row["table_target"]) for row in rows}),
+                "op_types": sorted({str(row.get("op_type")) for row in rows if row.get("op_type")}),
+                "replay_error": safe_text,
+                "captured_errors": captured_heads,
             },
         )
     except Exception:
@@ -856,6 +1162,20 @@ async def _quarantine_unreplayable(
     """
     by_request: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
+        # An INSERT whose row is already in its table was not lost: another writer (the
+        # coding-session bridge re-sending its line, a client retry) landed it. Settle it
+        # as recovered instead of quarantining a write that exists (feedback d231594e).
+        if row.get("op_type") == "insert" and _row_target(row) is not None:
+            try:
+                if await _insert_already_landed(row):
+                    await _mark_recovered([row["id"]], "already_landed")
+                    continue
+            except Exception as probe_exc:  # noqa: BLE001 — a failed probe falls through to quarantine
+                vcprint(
+                    f"[Replay] landed-check failed for {row.get('id')}: "
+                    f"{type(probe_exc).__name__}: {probe_exc}",
+                    color="red",
+                )
         by_request.setdefault(str(row.get("request_id") or "_orphan"), []).append(row)
     for request_id, group_rows in by_request.items():
         reason = RuntimeError(
@@ -957,10 +1277,7 @@ async def replay_pending(
 
     # Group by request_id; rows without a request_id form one synthetic
     # "_orphan" group so they still get replayed.
-    by_request: dict[str, list[Any]] = {}
-    for r in rows:
-        key = r["request_id"] or "_orphan"
-        by_request.setdefault(key, []).append(r)
+    by_request = _group_rows(rows)
 
     vcprint(
         f"[Replay] {len(rows)} eligible op(s) across {len(by_request)} request(s)"
@@ -971,6 +1288,40 @@ async def replay_pending(
     # Phase 2: per-request replay. Each request gets its own transaction so
     # one bad request can't poison the others.
     for request_id, group_rows in by_request.items():
+        # REDACTED AT CAPTURE: a confidential conversation's failed op keeps only its
+        # identity (the DB trigger dropped the rest), so there is nothing to re-send.
+        # Quarantine the group once, naming why, instead of five ValueErrors.
+        if (
+            not dry_run
+            and max_attempts is not None
+            and any(is_sealed_redacted_row(r) for r in group_rows)
+        ):
+            report.still_failed_count += len(group_rows)
+            reason = RuntimeError(
+                "Replay refused: the captured payload belongs to a confidential "
+                "conversation and was redacted on capture, so the write cannot be rebuilt. "
+                "Quarantined for a human (admin /persistence)."
+            )
+            report.by_request[request_id] = "quarantined (confidential payload redacted)"
+            await _capture_replay_failure(
+                reason,
+                request_id=request_id,
+                rows=group_rows,
+                phase="classify",
+                kind="persistence_replay_quarantined",
+            )
+            try:
+                report.quarantined_count += await _record_failed_attempt(
+                    group_rows, max_attempts=max_attempts, permanent=True
+                )
+            except Exception as bump_exc:  # noqa: BLE001 — accounting must never crash the sweep
+                vcprint(
+                    f"[Replay] failed to quarantine redacted request {request_id}: "
+                    f"{type(bump_exc).__name__}: {bump_exc}",
+                    color="red",
+                )
+            continue
+
         # PERMANENT AT CAPTURE: the failure text already names a deterministic
         # refusal, so an attempt is pointless. Quarantine the group now (auto
         # mode only — a human's explicit retry still runs) and say so ONCE.
@@ -1052,7 +1403,9 @@ async def replay_pending(
             continue
 
         try:
-            tiers = tier_ops(pending_ops)
+            # ``tier_ops`` keeps ONE op per row: an INSERT and an UPDATE of a row must
+            # be one op before it, or the INSERT vanishes and is marked recovered.
+            tiers = tier_ops(coalesce_ops(pending_ops))
         except Exception as exc:
             report.still_failed_count += len(group_rows)
             report.by_request[request_id] = f"failed: DAG: {exc}"
@@ -1069,13 +1422,33 @@ async def replay_pending(
 
         recovery_op_id = str(uuid4())
         try:
+            # An UPDATE of a row that is not there commits "successfully" and changes
+            # nothing: collected here, and never called recovered.
+            unmatched: list[SessionOp] = []
             if pending_ops:
-                async with transaction(database) if database else transaction():
-                    await execute_tiers(tiers)
+                unmatched_token = _unmatched_updates.set(unmatched)
+                try:
+                    async with transaction(database) if database else transaction():
+                        await execute_tiers(tiers)
+                finally:
+                    _unmatched_updates.reset(unmatched_token)
+            unmatched_pks = {str(op.pk_value) for op in unmatched}
+            still_unmatched = [
+                r for r in group_rows
+                if r.get("op_type") == "update" and (_row_target(r) or ("", ""))[1] in unmatched_pks
+            ]
+            landed = [r for r in group_rows if not any(r is s for s in still_unmatched)]
             # Mark the rows recovered outside the replay transaction so we
             # don't block the replay path.
-            await _mark_recovered([r["id"] for r in group_rows], recovery_op_id)
-            report.recovered_count += len(group_rows)
+            await _mark_recovered([r["id"] for r in landed], recovery_op_id)
+            report.recovered_count += len(landed)
+            if still_unmatched:
+                # What landed is settled; the rest takes the failed-attempt path below.
+                group_rows = still_unmatched
+                raise LookupError(
+                    f"{len(still_unmatched)} UPDATE(s) matched no row on replay: "
+                    "the row is not there and nothing was written"
+                )
             report.by_request[request_id] = "recovered"
             vcprint(
                 f"[Replay] recovered {len(group_rows)} op(s) for request {request_id} "
@@ -1084,16 +1457,54 @@ async def replay_pending(
             )
         except Exception as exc:
             if db_sqlstate(exc) == "23505":
+                # A unique collision means ANOTHER writer landed one of these rows between
+                # the pre-insert probe and the INSERT: a concurrent replay sweep (one per
+                # server task) or the live writer whose "timed-out" commit actually landed.
+                # The intent is idempotent, so settle it, never quarantine it (2026-11-10,
+                # request dd82cc0c: two sweeps quarantined a message a third had just landed).
                 try:
-                    if all([
-                        await _op_already_satisfied(op, verify_exact=True) for op in pending_ops
-                    ]):
-                        await _mark_recovered([r["id"] for r in group_rows], recovery_op_id)
+                    verdict = await _settle_unique_collision(
+                        pending_ops, group_rows, database=database, transaction=transaction
+                    )
+                    if verdict is not None:
+                        if verdict != _RECOVERED_BY_PEER:
+                            await _mark_recovered([r["id"] for r in group_rows], recovery_op_id)
                         report.recovered_count += len(group_rows)
-                        report.by_request[request_id] = "recovered (concurrent exact insert)"
+                        report.by_request[request_id] = verdict
                         continue
                 except Exception as verify_exc:
                     exc = verify_exc
+            if db_sqlstate(exc) in _LOCK_CONTENTION_SQLSTATES:
+                # LOCK CONTENTION IS A PEER, NOT A FAILURE (2026-11-12, sec_f2d07e…): every server
+                # process runs its own sweep, so two sweeps reach the same group together and the
+                # loser waits out lock_timeout on the row the winner is writing. On 2026-11-10 two
+                # sweeps each filed persistence_replay_failed for failure row c24828b1 at 00:17:06/07
+                # and the third landed it at 00:17:07.68. The attempt is still counted (a row that
+                # never lands still reaches the quarantine), but only a quarantine is filed.
+                if await _rows_recovered_by_peer(group_rows):
+                    report.recovered_count += len(group_rows)
+                    report.by_request[request_id] = _RECOVERED_BY_PEER
+                    continue
+                report.still_failed_count += len(group_rows)
+                report.by_request[request_id] = "deferred: a concurrent writer held the row"
+                if not dry_run:
+                    gave_up = 0
+                    try:
+                        gave_up = await _record_failed_attempt(group_rows, max_attempts=max_attempts)
+                    except Exception as bump_exc:  # noqa: BLE001 — accounting must never crash the sweep
+                        vcprint(
+                            f"[Replay] failed to record attempt for request "
+                            f"{request_id}: {type(bump_exc).__name__}: {bump_exc}",
+                            color="red",
+                        )
+                    if gave_up:
+                        report.quarantined_count += gave_up
+                        report.by_request[request_id] = f"quarantined: {type(exc).__name__}"
+                        await _capture_replay_failure(
+                            exc, request_id=request_id, rows=group_rows, phase="execute",
+                            kind="persistence_replay_quarantined",
+                        )
+                continue
             report.still_failed_count += len(group_rows)
             safe_error = _safe_replay_failure_text(exc)
             report.by_request[request_id] = f"failed: {safe_error}"
@@ -1106,13 +1517,20 @@ async def replay_pending(
             # is quarantined on THIS attempt in auto mode: no second sweep, no
             # second system_error row. Everything else burns its attempt budget.
             permanent = max_attempts is not None and is_permanent_failure_exception(exc)
-            await _capture_replay_failure(
-                exc,
-                request_id=request_id,
-                rows=group_rows,
-                phase="execute",
-                kind="persistence_replay_quarantined" if permanent else "persistence_replay_failed",
-            )
+            # ONE system_error per failing write, not one per attempt (live 2026-11-14: one orphan
+            # chat.tool_call insert retried five times filed five rows). A recoverable failure is
+            # filed on the write's FIRST attempt only; the later sweeps of the same write stay
+            # silent (the row's retry_count and the quarantine state carry the rest). A human's
+            # explicit retry (max_attempts None) always files, and so does a permanent verdict.
+            first_attempt = all(int(r.get("retry_count") or 0) == 0 for r in group_rows)
+            if permanent or max_attempts is None or first_attempt:
+                await _capture_replay_failure(
+                    exc,
+                    request_id=request_id,
+                    rows=group_rows,
+                    phase="execute",
+                    kind="persistence_replay_quarantined" if permanent else "persistence_replay_failed",
+                )
             # Record the failed attempt so a permanent orphan stops being
             # retried forever (and the watchdog stops alerting on it). No-op
             # accounting for dry runs.

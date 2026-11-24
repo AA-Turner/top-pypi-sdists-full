@@ -53,7 +53,9 @@ async def _seed(conn, *, path_suffix: str = "original.txt", parent: str | None =
     row = await conn.fetchrow(
         "SELECT user_id::text AS owner, organization_id::text AS org "
         "FROM public.app_instances WHERE deleted_at IS NULL "
-        "AND organization_id IS NOT NULL LIMIT 1"
+        "AND organization_id IS NOT NULL "
+        # An archived organization's rows are hidden by the restrictive org gate (a probe there proves nothing).
+        "AND organization_id NOT IN (SELECT iam.archived_org_ids()) LIMIT 1"
     )
     if row is None:
         pytest.skip("no seed identity available")

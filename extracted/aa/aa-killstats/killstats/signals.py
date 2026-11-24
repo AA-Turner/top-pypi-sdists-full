@@ -9,15 +9,10 @@ from celery import signals
 # Django
 from django.core.cache import cache
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
-
 # AA Killstats
 from killstats import __title__
 from killstats.helpers.core import get_redis_client
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
+from killstats.providers import logger
 
 
 @signals.worker_ready.connect

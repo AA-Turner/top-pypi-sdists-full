@@ -12,8 +12,12 @@ from chalk._gen.chalk.server.v1.environment_pb2 import (
     CreateEnvironmentV2Response,
     DeleteEnvironmentRequest,
     DeleteEnvironmentResponse,
+    DeleteSelfSignupTeamRequest,
+    DeleteSelfSignupTeamResponse,
     DiscoverEnvironmentBucketsRequest,
     DiscoverEnvironmentBucketsResponse,
+    SelfServiceCreateTeamAndEnvironmentRequest,
+    SelfServiceCreateTeamAndEnvironmentResponse,
     SetDefaultEnvironmentRequest,
     SetDefaultEnvironmentResponse,
     UpdateEnvironmentV2Request,
@@ -30,6 +34,10 @@ class EnvironmentServiceStub:
     """Note that the RPCs in this service supersede those in the team service for environments."""
 
     def __init__(self, channel: Channel) -> None: ...
+    SelfServiceCreateTeamAndEnvironment: UnaryUnaryMultiCallable[
+        SelfServiceCreateTeamAndEnvironmentRequest,
+        SelfServiceCreateTeamAndEnvironmentResponse,
+    ]
     CreateEnvironmentV2: UnaryUnaryMultiCallable[
         CreateEnvironmentV2Request,
         CreateEnvironmentV2Response,
@@ -42,6 +50,20 @@ class EnvironmentServiceStub:
         DeleteEnvironmentRequest,
         DeleteEnvironmentResponse,
     ]
+    DeleteSelfSignupTeam: UnaryUnaryMultiCallable[
+        DeleteSelfSignupTeamRequest,
+        DeleteSelfSignupTeamResponse,
+    ]
+    """Deletes every active environment of the caller's self-signup team the way
+    DeleteEnvironment does, then archives its projects and deletes its users.
+
+    Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
+    only for an @chalk.ai address, and no role grants it, so a customer cannot
+    reach this even as the owner of their own team. A service token can only
+    carry it if a Chalk employee deliberately minted one with it --
+    CreateServiceToken requires the permission to be a subset of the caller's
+    own, and GetAvailablePermissions does not offer it in the UI.
+    """
     SetDefaultEnvironment: UnaryUnaryMultiCallable[
         SetDefaultEnvironmentRequest,
         SetDefaultEnvironmentResponse,
@@ -54,6 +76,12 @@ class EnvironmentServiceStub:
 class EnvironmentServiceServicer(metaclass=ABCMeta):
     """Note that the RPCs in this service supersede those in the team service for environments."""
 
+    @abstractmethod
+    def SelfServiceCreateTeamAndEnvironment(
+        self,
+        request: SelfServiceCreateTeamAndEnvironmentRequest,
+        context: ServicerContext,
+    ) -> SelfServiceCreateTeamAndEnvironmentResponse: ...
     @abstractmethod
     def CreateEnvironmentV2(
         self,
@@ -72,6 +100,22 @@ class EnvironmentServiceServicer(metaclass=ABCMeta):
         request: DeleteEnvironmentRequest,
         context: ServicerContext,
     ) -> DeleteEnvironmentResponse: ...
+    @abstractmethod
+    def DeleteSelfSignupTeam(
+        self,
+        request: DeleteSelfSignupTeamRequest,
+        context: ServicerContext,
+    ) -> DeleteSelfSignupTeamResponse:
+        """Deletes every active environment of the caller's self-signup team the way
+        DeleteEnvironment does, then archives its projects and deletes its users.
+
+        Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
+        only for an @chalk.ai address, and no role grants it, so a customer cannot
+        reach this even as the owner of their own team. A service token can only
+        carry it if a Chalk employee deliberately minted one with it --
+        CreateServiceToken requires the permission to be a subset of the caller's
+        own, and GetAvailablePermissions does not offer it in the UI.
+        """
     @abstractmethod
     def SetDefaultEnvironment(
         self,

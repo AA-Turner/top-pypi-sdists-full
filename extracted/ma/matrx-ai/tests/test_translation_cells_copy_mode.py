@@ -1,6 +1,6 @@
 """Settings-translation item C1 — the engine tolerates the cell world before any data moves.
 
-Contracts: common-docs/projects/settings-translation/CONTRACTS.md (K5, K6, K9).
+Contracts: common-docs/systems/ai/ai-models/projects/settings-translation/CONTRACTS.md (K5, K6, K9).
 
 1. A rule row carrying any K6 field (``off``, ``from_number``, ``to_number``,
    ``accepts``, ``{"drop": true, "why"}``) compiles WITHOUT quarantine and

@@ -27,7 +27,7 @@ from matrx_graph.types.result import NodeResult, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
-from matrx_ai._ext import get_ext, has_ext
+from matrx_ai._ext import get_ext, has_ext, managed_file_transcriber_supports_context
 from matrx_ai.graph_nodes.class_pin import (
     class_pin_kwargs,
     model_class_extras,
@@ -145,18 +145,24 @@ async def ai_transcribe(
     if inputs.file_id and inputs.file_id.strip():
         return await _transcribe_file(ctx, inputs)
 
+    from matrx_ai.orchestrator.executor import metered_one_shot
     from matrx_ai.processing.audio.stt import STTRequest, execute_stt
 
-    result = await execute_stt(
-        STTRequest(
-            audio_source=inputs.audio_source,
-            model=inputs.model,
-            **class_pin_kwargs(inputs.model, inputs.offering_id, where="ai.transcribe"),
-            language=inputs.language,
-            response_format=inputs.response_format,
-            temperature=inputs.temperature,
+    # Banked once (P8-RUNS, 2026-11-17): a workflow run settles nothing, so the host opens one child under it (or, in
+    # a top-level run, its live meter books the call on the run); outside any run a ROOT ledger banks it. The node's
+    # ``usage`` output feeds only the node_cost report. Proof: aidream runtime/tests/test_a_transcribe_step_is_banked_once.
+    async with metered_one_shot(None, feature="ai.transcribe", label="ai.transcribe") as billed:
+        result = await execute_stt(
+            STTRequest(
+                audio_source=inputs.audio_source,
+                model=inputs.model,
+                **class_pin_kwargs(inputs.model, inputs.offering_id, where="ai.transcribe"),
+                language=inputs.language,
+                response_format=inputs.response_format,
+                temperature=inputs.temperature,
+            )
         )
-    )
+        billed.append(result.usage.to_token_usage())
 
     # TranscriptionResult is a dataclass-ish object; pull fields with getattr.
     text = getattr(result, "text", "") or ""
@@ -231,11 +237,13 @@ async def _transcribe_file(
             "Transcribe Audio cannot pin a provider offering when transcribing a platform file; "
             "choose the model only, or give an audio source."
         )
+    context_kwargs = {"execution_context": ctx} if managed_file_transcriber_supports_context() else {}
     response = await get_ext(MANAGED_FILE_TRANSCRIBER_EXT)(
         str(inputs.file_id).strip(),
         model=inputs.model,
         language=inputs.language,
         organization_id=getattr(ctx, "organization_id", None),
+        **context_kwargs,
     )
     duration = float(getattr(response, "duration", 0.0) or 0.0)
     meta = getattr(response, "meta", None)

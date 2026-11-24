@@ -14,13 +14,13 @@ from trajectory._types import Headers, NotGiven, Omit, not_given, omit
 from trajectory._utils import maybe_transform
 from trajectory.types.benchmark_diagnostic_status_response import BenchmarkDiagnosticStatusResponse
 from trajectory.types.benchmark_diagnostics_response import BenchmarkDiagnosticsResponse
-from trajectory.types.benchmarks.task_spec import TaskSpec
-from trajectory.types.benchmarks.task_spec_param import TaskSpecParam
 from trajectory.types.diagnostics.start_benchmark_diagnostics_params import (
   StartBenchmarkDiagnosticsParams,
 )
 from trajectory.types.ingest_benchmark_response import IngestBenchmarkResponse
 from trajectory.types.run_options_param import RunOptionsParam
+from trajectory.types.specs.task_spec import TaskSpec
+from trajectory.types.specs.task_spec_param import TaskSpecParam
 from trajectory.types.start_benchmark_diagnostics_response import StartBenchmarkDiagnosticsResponse
 
 
@@ -76,7 +76,9 @@ class Diagnostics(APIResource):
     *,
     bench_id: str,
     base_model_slug: Literal[
+      "typesafe/jev-1.14",
       "thinkingmachines/Inkling-2-Small",
+      "thinkingmachines/Inkling-2-Mini",
       "deepseek-ai/DeepSeek-V4.1-Flash",
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
@@ -150,7 +152,9 @@ class Diagnostics(APIResource):
     *,
     bench_id: str,
     base_model_slug: Literal[
+      "typesafe/jev-1.14",
       "thinkingmachines/Inkling-2-Small",
+      "thinkingmachines/Inkling-2-Mini",
       "deepseek-ai/DeepSeek-V4.1-Flash",
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",

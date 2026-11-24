@@ -118,3 +118,20 @@ def test_ensure_ready_is_bounded_when_load_hangs(fresh_registry, monkeypatch) ->
     assert ready is False
     with pytest.raises(ToolSystemNotReadyError):
         _Translator().build_provider_tools(_config(["web_search"]), "anthropic")
+
+
+def test_the_readiness_capture_names_the_process(fresh_registry, monkeypatch) -> None:
+    """Feedback 0c117050: the capture named no host, so the entrypoint that skipped boot's
+    load could not be found. It now carries pid, argv0, stage and role."""
+    captured: list[dict] = []
+
+    async def _load() -> int:
+        return fresh_registry.load_from_definitions([_tool("web_search")])
+
+    async def _capture(error, **kwargs):
+        captured.append(kwargs.get("context") or {})
+
+    monkeypatch.setattr(handle_tool_calls, "initialize_tool_system", _load)
+    monkeypatch.setattr("matrx_connect.streaming.error_capture.capture_error", _capture)
+    assert asyncio.run(handle_tool_calls.ensure_tool_system_ready()) is True
+    assert captured and {"pid", "argv0"} <= set(captured[0])

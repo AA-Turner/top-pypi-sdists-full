@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from probe.generated.samples import FinishReason, SampleErrorReason, TurnsSource
+from probe.sdk.catalog.environments import EnvironmentRef, RunEnvironments
 from probe.sdk.run.samples.rollout import Decode, RolloutCapture, build_decoded_turns
 
 from ..task_label import TASK_DESCRIPTION_FIELD, TASK_ID_FIELD, TASK_NAME_FIELD, get_task_label
@@ -20,6 +21,8 @@ from .tool_loop import FINISH_FIELD
 #: label (name, description) rides beside them (`task_label/task_label.py`).
 TASK_KEY_FIELD = TASK_ID_FIELD
 SCENARIO_FIELD = "scenario"
+#: A part's environment name cap (`records/samples/samples.py`, `MAX_NAME_CHARS`).
+_MAX_ENVIRONMENT_CHARS = 256
 #: A scenario text value's cap (`records/samples/task.py`, `MAX_SCENARIO_TEXT_CHARS`).
 MAX_SCENARIO_TEXT = 256
 #: verl's per-token arrays onto Probe's (`sdk/run/samples/tokens.py`): the rollout's on the generator part, the
@@ -128,7 +131,7 @@ class RowMapper:
     `skip_special_tokens=True`, `ray_trainer.py:525-526`), ``tokens_to_text`` into one string per token; either may
     be None. ``decode_turns`` decodes for decoded turns, special tokens kept (their reader needs the template's role
     markers); without it ``decode`` serves. ``max_response_length`` tells a cut-off response (`length`) from a
-    finished one."""
+    finished one. ``environments`` registers each `data_source` once per run; without it the label is the bare name."""
 
     def __init__(
         self,
@@ -139,8 +142,10 @@ class RowMapper:
         host: str | None = None,
         worker: str | None = None,
         decode_turns: Decode | None = None,
+        environments: RunEnvironments | None = None,
     ) -> None:
         self._decode = decode
+        self._environments = environments
         if decode_turns is None and decode is not None:
             decode_turns = lambda ids, keep_special: str(decode(list(ids)))  # noqa: E731 -- one decode for both
         self._decode_turns = decode_turns
@@ -199,6 +204,12 @@ class RowMapper:
         return parts
 
     # -- inside ------------------------------------------------------------------------------------------
+    def _register_environment(self, name: str, split: str) -> dict[str, str]:
+        """``name``'s sample labels: registered first (D9), stamped with the answer, or as sent when it failed."""
+        if self._environments is None:
+            return EnvironmentRef.as_sent(name).sample_labels()
+        return self._environments.register(name, role=split).sample_labels()
+
     def _map_attempt(self, row: VerlRow, key: str, split: str, step: int, *, fallback_version: int) -> dict:
         prompt = row.prompt_text if row.prompt_text is not None else self._decode_text(row.prompt_ids)
         response = row.response_text if row.response_text is not None else self._decode_text(row.response_ids)
@@ -246,6 +257,8 @@ class RowMapper:
             part["finish_reason"] = _LENGTH  # F4: the loop ran past `response_length`; the engine said `completed`
         if row.segment_count is not None and row.segment_count > 1:
             part["segment"], part["segment_count"] = row.segment, row.segment_count
+        if row.data_source:  # verl's environment (its reward function's selector): the Episodes tab's (D7)
+            part.update(self._register_environment(str(row.data_source)[:_MAX_ENVIRONMENT_CHARS], split))
         extras = get_extras(extra, row.data_source)
         if unknown is not None:
             extras["stop_reason"] = unknown

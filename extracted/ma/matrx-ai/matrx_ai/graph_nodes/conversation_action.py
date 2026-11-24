@@ -40,6 +40,7 @@ from matrx_connect.context.app_context import (
     get_app_context,
     set_app_context,
 )
+from matrx_connect.context.context_picks import CarriesContextPicks
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.identity_inputs import identity_input
@@ -47,7 +48,7 @@ from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, Success
 from matrx_graph.types.usl import field_extras
 from matrx_utils import vcprint
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import ConfigDict, Field, JsonValue
 
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
@@ -59,7 +60,7 @@ from matrx_ai.graph_nodes.iteration_limit import (
 from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
 
 
-class ConversationContinueInput(BaseModel):
+class ConversationContinueInput(CarriesContextPicks):
     """Workflow-side request body for ``ai.conversation.continue``.
 
     Field names mirror ``aidream.services.conversation_context.continue_conversation

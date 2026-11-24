@@ -1076,6 +1076,7 @@ namespace sogen
         NTSTATUS handle_NtGdiDdDDIOpenAdapterFromLuid(const syscall_context& c,
                                                       emulator_object<EMU_D3DKMT_OPENADAPTERFROMLUID> open_adapter);
         NTSTATUS handle_NtGdiDdDDIOpenAdapterFromHdc(const syscall_context& c, emulator_object<EMU_D3DKMT_OPENADAPTERFROMHDC> open_adapter);
+        NTSTATUS handle_NtGdiDdDDIWaitForVerticalBlankEvent();
         NTSTATUS handle_NtGdiDdDDIWaitForSynchronizationObjectFromGpu();
         NTSTATUS handle_NtGdiDdDDIWaitForSynchronizationObjectFromCpu(
             const syscall_context& c, emulator_object<EMU_D3DKMT_WAITFORSYNCHRONIZATIONOBJECTFROMCPU> wait_desc);
@@ -1131,6 +1132,9 @@ namespace sogen
         NTSTATUS handle_NtSetInformationWorkerFactory(const syscall_context& c, handle worker_factory_handle,
                                                       WORKERFACTORYINFOCLASS info_class, emulator_pointer worker_factory_information,
                                                       ULONG worker_factory_information_length);
+        NTSTATUS handle_NtQueryInformationWorkerFactory(const syscall_context& c, handle worker_factory_handle,
+                                                        WORKERFACTORYINFOCLASS info_class, emulator_pointer worker_factory_information,
+                                                        ULONG worker_factory_information_length, emulator_object<ULONG> return_length);
         NTSTATUS handle_NtShutdownWorkerFactory(const syscall_context& c, handle worker_factory_handle,
                                                 emulator_object<LONG> pending_worker_count);
         NTSTATUS handle_NtReleaseWorkerFactoryWorker(const syscall_context& c, handle worker_factory_handle);
@@ -1847,6 +1851,7 @@ namespace sogen
         add_handler(NtCreateWorkerFactory);
         add_handler(NtWorkerFactoryWorkerReady);
         add_handler(NtSetInformationWorkerFactory);
+        add_handler(NtQueryInformationWorkerFactory);
         add_handler(NtShutdownWorkerFactory);
         add_handler(NtWaitForWorkViaWorkerFactory);
         add_handler(NtManageHotPatch);
@@ -2319,6 +2324,7 @@ namespace sogen
         add_handler(NtGdiOpenDCW);
         add_handler(NtGdiDdDDIOpenAdapterFromLuid);
         add_handler(NtGdiDdDDIOpenAdapterFromHdc);
+        add_handler(NtGdiDdDDIWaitForVerticalBlankEvent);
         add_handler(NtGdiDdDDIWaitForSynchronizationObjectFromGpu);
         add_handler(NtGdiDdDDIWaitForSynchronizationObjectFromCpu);
         add_handler(NtGdiDdDDISignalSynchronizationObjectFromGpu);

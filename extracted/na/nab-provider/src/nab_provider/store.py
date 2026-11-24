@@ -7,27 +7,28 @@ from __future__ import annotations
 
 __lazy_modules__ = (
     "hashlib",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.metadata",
+    "packaging.utils",
 )
 
 import threading
 from contextlib import contextmanager
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
-from nab_provider._vendor.packaging.utils import canonicalize_version
-from nab_provider.metadata import metadata_header_block, metadata_without_description
+from packaging.utils import canonicalize_version
+
+from .metadata import metadata_header_block, metadata_without_description
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping, Sequence
 
-    from nab_provider.records import RangeOutcome, SdistFile, WheelFile
-
-    from .policy import SourceMaterialization
+    from .metadata import WheelMetadata
+    from .records import RangeOutcome, SdistFile, WheelFile
 
 __all__ = [
     "InMemoryIndex",
+    "WheelMetadataContext",
     "metadata_pending_key",
     "range_pending_key",
     "sdist_artifact_key",
@@ -68,6 +69,28 @@ def _project_table_only(data: Mapping[str, Any]) -> dict[str, Any]:
     return {"project": project} if isinstance(project, dict) else {}
 
 
+class WheelMetadataContext:
+    """Identify one package listing and serving index for wheel metadata sharing."""
+
+    __slots__ = ()
+
+
+class _ListingResult(NamedTuple):
+    """Files or a fetch error, with the diagnostics from that same lookup."""
+
+    files: list[WheelFile | SdistFile] | None = None
+    error: BaseException | None = None
+    offline_miss: bool = False
+    unreadable_only: bool = False
+    unreachable_only: bool = False
+    no_usable_file: bool = False
+    all_yanked: bool = False
+    zip_sdists: frozenset[str] = frozenset()
+
+
+_NO_LISTING = _ListingResult()
+
+
 class InMemoryIndex:
     """Thread-safe slots for fetched data, plus the events readers wait on.
 
@@ -85,32 +108,17 @@ class InMemoryIndex:
         self._lock = threading.Lock()
         self._pending: dict[str, threading.Event] = {}
 
-        self._listings: dict[str, list[WheelFile | SdistFile]] = {}
-        self._listing_errors: dict[str, BaseException] = {}
-        self._listing_indexes: dict[str, str] = {}
-        # Packages a routing override sent to one index, which left the
-        # other configured indexes unasked.
-        self._pinned_listings: set[str] = set()
-        # Packages whose empty listing stands for an index skipped offline.
-        self._offline_listing_misses: set[str] = set()
-        # Packages whose empty listing stands for a page of formats nab cannot read.
-        self._unreadable_only_listings: set[str] = set()
-        # Packages whose empty listing stands for a page of links nab cannot reach.
-        self._unreachable_only_listings: set[str] = set()
-        # Packages whose empty listing stands for a page nab kept no file off.
-        self._no_usable_file_listings: set[str] = set()
-        # Packages whose empty listing stands for a page of yanked files.
-        self._all_yanked_listings: set[str] = set()
-        # Versions an index served as a ``.zip`` sdist, which the listing parse
-        # drops, so no record of them reaches ``_listings``.
-        self._zip_sdists: dict[str, frozenset[str]] = {}
+        self._listings: dict[str, _ListingResult] = {}
+        # Publish the index name and whether the route was pinned together.
+        self._listing_indexes: dict[str, tuple[str, bool]] = {}
 
         # Metadata text is keyed by the artifact it came from: the sidecar URL
         # for a wheel's METADATA, or None for text that stands for the version
         # itself, such as an sdist's PKG-INFO.  Each is cut to its header block
         # less the description on the way in.
-        self._metadata: dict[tuple[str, str, str | None], str | None] = {}
-        self._metadata_errors: dict[tuple[str, str, str | None], BaseException] = {}
+        self._metadata: dict[
+            tuple[str, str, str | None], str | BaseException | None
+        ] = {}
         # Versions whose version-level slot was written from an sdist PKG-INFO;
         # only sdist deps go through the PEP 643 check.
         self._metadata_from_sdist: set[tuple[str, str]] = set()
@@ -124,26 +132,24 @@ class InMemoryIndex:
         self._offline_metadata_warned: set[str] = set()
 
         self._sdist_pyproject: dict[tuple[str, str], Mapping[str, Any] | None] = {}
-        self._sdist_archives: dict[tuple[str, str], bytes | None] = {}
-        self._sdist_archive_errors: dict[tuple[str, str], BaseException] = {}
+        self._sdist_archives: dict[tuple[str, str], bytes | BaseException | None] = {}
 
         # The mechanical outcome of a rung-4 range read, per wheel URL, for
         # the provider's tier accounting.
         self._range_outcomes: dict[tuple[str, str, str], RangeOutcome] = {}
 
         # Share each text's parse across the target providers of one resolve.
-        self._parsed_metadata: dict[tuple[str, str], tuple[tuple[str, Any], ...]] = {}
+        self._parsed_metadata: dict[
+            tuple[str, str], tuple[tuple[str, WheelMetadata], ...]
+        ] = {}
         self._consistent_wheel_metadata: dict[str, dict[str, tuple[str, str]]] = {}
-        self._consistent_metadata_contexts: dict[str, object] = {}
+        self._consistent_metadata_contexts: dict[str, WheelMetadataContext] = {}
 
-        # Sdist metadata after PEP 643 dynamic deps have been resolved from the
-        # bundled pyproject.toml or a PEP 517 backend.  Shared across targets so
-        # a matrix does not rebuild one sdist per tuple.
-        self._resolved_sdist_metadata: dict[tuple[str, str], Any] = {}
+        # Sdist metadata reconciled with declarations from its bundled pyproject.toml.
+        self._resolved_sdist_metadata: dict[tuple[str, str], WheelMetadata] = {}
 
-        # What a host made of a declared source, and of a remote sdist build.
-        self._sources: dict[str, SourceMaterialization] = {}
-        self._built_metadata: dict[tuple[str, str], Any] = {}
+        # Raw build output is checked against each target before use.
+        self._built_metadata: dict[tuple[str, str], WheelMetadata] = {}
 
     @contextmanager
     def _publishing(self, key: str) -> Generator[None, None, None]:
@@ -165,7 +171,7 @@ class InMemoryIndex:
 
     def get_listing(self, package: str) -> list[WheelFile | SdistFile] | None:
         """Return the cached listing for ``package``, or ``None``."""
-        return self._listings.get(package)
+        return self._listings.get(package, _NO_LISTING).files
 
     def store_listing(  # noqa: PLR0913 - independent diagnostics accompany one listing
         self,
@@ -199,7 +205,6 @@ class InMemoryIndex:
         nothing in ``data`` records.  It replaces whatever a prior store left,
         so re-storing a listing without one clears it.
         """
-        key = f"listing:{package}"
         materialised = list(data)
         withdrawn = getattr(data, "withdrawn_versions", None)
         if has_yanked_files is None:
@@ -210,50 +215,46 @@ class InMemoryIndex:
             from .yanking import YankedListing  # noqa: PLC0415
 
             materialised = YankedListing(materialised, withdrawn_versions=withdrawn)
-        with self._publishing(key):
+        result = _ListingResult(
+            files=materialised,
+            offline_miss=offline_miss,
+            unreadable_only=unreadable_only,
+            unreachable_only=unreachable_only,
+            no_usable_file=no_usable_file,
+            all_yanked=all_yanked,
+            zip_sdists=zip_sdists,
+        )
+        self._publish_listing(package, result)
+
+    def _publish_listing(self, package: str, result: _ListingResult) -> None:
+        with self._publishing(f"listing:{package}"):
             self._consistent_wheel_metadata.pop(package, None)
             self._consistent_metadata_contexts.pop(package, None)
-            # The marks land first, so an unlocked reader sees them with the listing.
-            if offline_miss:
-                self._offline_listing_misses.add(package)
-            if unreadable_only:
-                self._unreadable_only_listings.add(package)
-            if unreachable_only:
-                self._unreachable_only_listings.add(package)
-            if no_usable_file:
-                self._no_usable_file_listings.add(package)
-            if all_yanked:
-                self._all_yanked_listings.add(package)
-            if zip_sdists:
-                self._zip_sdists[package] = zip_sdists
-            else:
-                self._zip_sdists.pop(package, None)
-
-            self._listings[package] = materialised
+            self._listings[package] = result
 
     def is_offline_listing_miss(self, package: str) -> bool:
         """Whether ``package``'s empty listing is an offline cold-cache miss."""
-        return package in self._offline_listing_misses
+        return self._listings.get(package, _NO_LISTING).offline_miss
 
     def is_unreadable_only_listing(self, package: str) -> bool:
         """Whether ``package``'s empty listing held only unreadable formats."""
-        return package in self._unreadable_only_listings
+        return self._listings.get(package, _NO_LISTING).unreadable_only
 
     def is_unreachable_only_listing(self, package: str) -> bool:
         """Whether ``package``'s empty listing held only links nab cannot reach."""
-        return package in self._unreachable_only_listings
+        return self._listings.get(package, _NO_LISTING).unreachable_only
 
     def is_no_usable_file_listing(self, package: str) -> bool:
         """Whether ``package``'s empty listing named files nab kept none of."""
-        return package in self._no_usable_file_listings
+        return self._listings.get(package, _NO_LISTING).no_usable_file
 
     def is_all_yanked_listing(self, package: str) -> bool:
         """Whether ``package``'s empty listing held files and yanked every one."""
-        return package in self._all_yanked_listings
+        return self._listings.get(package, _NO_LISTING).all_yanked
 
     def zip_sdist_versions(self, package: str) -> frozenset[str]:
         """Versions of ``package`` an index served as a ``.zip`` sdist."""
-        return self._zip_sdists.get(package, frozenset())
+        return self._listings.get(package, _NO_LISTING).zip_sdists
 
     def store_listing_error(self, package: str, error: BaseException) -> None:
         """Record a failed listing fetch and unblock any waiter.
@@ -261,13 +262,11 @@ class InMemoryIndex:
         Distinct from ``store_listing([])``: an empty listing means the index
         served nothing nab could read; an error means the fetch failed.
         """
-        key = f"listing:{package}"
-        with self._publishing(key):
-            self._listing_errors[package] = error
+        self._publish_listing(package, _ListingResult(error=error))
 
     def get_listing_error(self, package: str) -> BaseException | None:
         """Return ``package``'s recorded listing fetch error, or ``None``."""
-        return self._listing_errors.get(package)
+        return self._listings.get(package, _NO_LISTING).error
 
     def store_listing_index(
         self, package: str, index_name: str, *, pinned: bool = False
@@ -278,20 +277,23 @@ class InMemoryIndex:
         chose, which left the other configured indexes unasked.
         """
         with self._lock:
-            if self._listing_indexes.get(package) != index_name:
+            if self.get_listing_index(package) != index_name:
                 self._consistent_wheel_metadata.pop(package, None)
                 self._consistent_metadata_contexts.pop(package, None)
-            self._listing_indexes[package] = index_name
-            if pinned:
-                self._pinned_listings.add(package)
+            self._listing_indexes[package] = (index_name, pinned)
 
     def get_listing_index(self, package: str) -> str | None:
-        """Return the configured index name that served ``package``, or ``None``."""
-        return self._listing_indexes.get(package)
+        """Return the configured index name that served ``package``."""
+        route = self._listing_indexes.get(package)
+        return route[0] if route is not None else None
 
-    def is_pinned_listing(self, package: str) -> bool:
-        """Whether a routing override kept other indexes from serving ``package``."""
-        return package in self._pinned_listings
+    def pinned_listing_index(self, package: str) -> str | None:
+        """Return the index name when a routing override excluded the other indexes."""
+        route = self._listing_indexes.get(package)
+        if route is None:
+            return None
+        name, pinned = route
+        return name if pinned else None
 
     def _read_metadata(
         self, package: str, version: str, metadata_url: str | None
@@ -308,11 +310,15 @@ class InMemoryIndex:
             slot = (package, version, metadata_url)
             if slot in self._metadata:
                 text = self._metadata[slot]
+                if isinstance(text, BaseException):
+                    return (None, False)
                 if text is not None:
                     return (text, False)
             elif (package, version) in self._metadata_from_sdist:
                 return (None, False)
         version_level = self._metadata.get((package, version, None))
+        if isinstance(version_level, BaseException):
+            return (None, False)
         return (version_level, (package, version) in self._metadata_from_sdist)
 
     def get_metadata(
@@ -327,8 +333,8 @@ class InMemoryIndex:
     ) -> bool:
         """Return ``True`` once a fetch answering for ``metadata_url`` resolved.
 
-        Any value counts, including the ``None`` of an unserved sidecar.  The
-        precedence is :meth:`_read_metadata`'s.
+        Text, an absent sidecar and a fetch error are all completed results.
+        A caller can read the error with :meth:`get_metadata_error`.
         """
         with self._lock:
             if (
@@ -336,9 +342,14 @@ class InMemoryIndex:
                 and (package, version, metadata_url) in self._metadata
             ):
                 return True
-            return (package, version, None) in self._metadata and (
-                metadata_url is None
-                or (package, version) not in self._metadata_from_sdist
+            release = (package, version, None)
+            if metadata_url is None:
+                return release in self._metadata
+            # A release-wide error does not complete a different wheel's own fetch.
+            return (
+                release in self._metadata
+                and (package, version) not in self._metadata_from_sdist
+                and not isinstance(self._metadata[release], BaseException)
             )
 
     def get_metadata_with_origin(
@@ -353,20 +364,20 @@ class InMemoryIndex:
 
     def consistent_metadata_context(
         self, package: str, files: Sequence[WheelFile | SdistFile]
-    ) -> object | None:
+    ) -> WheelMetadataContext | None:
         """Return the sharing token for this raw listing and its serving index."""
         with self._lock:
-            if self._listings.get(package) is not files:
+            if self.get_listing(package) is not files:
                 return None
 
             context = self._consistent_metadata_contexts.get(package)
             if context is None:
-                context = object()
+                context = WheelMetadataContext()
                 self._consistent_metadata_contexts[package] = context
             return context
 
     def get_consistent_wheel_metadata(
-        self, package: str, version: str, *, context: object | None
+        self, package: str, version: str, *, context: WheelMetadataContext | None
     ) -> str | None:
         """Return shared release metadata while its source is unchanged."""
         with self._lock:
@@ -386,9 +397,8 @@ class InMemoryIndex:
 
             # A replacement or fetch error invalidates the shared source.
             url, text = representative
-            if self._metadata.get((package, version, url)) != text or (
-                (package, version, url) in self._metadata_errors
-                or (package, version, None) in self._metadata_errors
+            if self._metadata.get((package, version, url)) != text or isinstance(
+                self._metadata.get((package, version, None)), BaseException
             ):
                 sources.pop(version)
                 return None
@@ -396,7 +406,13 @@ class InMemoryIndex:
             return text
 
     def store_consistent_wheel_metadata(
-        self, package: str, version: str, url: str, text: str, *, context: object | None
+        self,
+        package: str,
+        version: str,
+        url: str,
+        text: str,
+        *,
+        context: WheelMetadataContext | None,
     ) -> None:
         """Remember the first validated wheel source for an opted-in release."""
         with self._lock:
@@ -426,7 +442,7 @@ class InMemoryIndex:
     def _write_metadata_slot(
         self,
         slot: tuple[str, str, str | None],
-        data: str | None,
+        data: str | BaseException | None,
         *,
         from_sdist: bool,
     ) -> None:
@@ -435,25 +451,23 @@ class InMemoryIndex:
         Replacing version-level text drops metadata derived from it.
         """
         package, version, metadata_url = slot
-        if data is None:
-            text = None
-        else:
-            text = self._share_slot_text(
+        result = data
+        if isinstance(data, str):
+            result = self._share_slot_text(
                 (package, version),
                 metadata_without_description(metadata_header_block(data)),
             )
 
         if metadata_url is None:
-            if self._metadata.get(slot) != text:
+            if isinstance(result, BaseException) or self._metadata.get(slot) != result:
                 self._resolved_sdist_metadata.pop((package, version), None)
             if from_sdist:
                 self._metadata_from_sdist.add((package, version))
             else:
                 self._metadata_from_sdist.discard((package, version))
 
-        # The text lands last, so an unlocked reader never pairs it with sdist
-        # metadata derived from the text it replaced.
-        self._metadata[slot] = text
+        # Publish after clearing any sdist metadata derived from the previous text.
+        self._metadata[slot] = result
 
     def store_metadata(
         self,
@@ -488,7 +502,9 @@ class InMemoryIndex:
         """
         key = metadata_pending_key(package, version, metadata_url)
         with self._publishing(key):
-            self._metadata_errors[(package, version, metadata_url)] = error
+            self._write_metadata_slot(
+                (package, version, metadata_url), error, from_sdist=False
+            )
 
     def get_metadata_error(
         self, package: str, version: str, metadata_url: str | None = None
@@ -499,10 +515,11 @@ class InMemoryIndex:
         """
         with self._lock:
             if metadata_url is not None:
-                error = self._metadata_errors.get((package, version, metadata_url))
-                if error is not None:
-                    return error
-            return self._metadata_errors.get((package, version, None))
+                result = self._metadata.get((package, version, metadata_url))
+                if isinstance(result, BaseException):
+                    return result
+            result = self._metadata.get((package, version, None))
+            return result if isinstance(result, BaseException) else None
 
     def record_offline_metadata_miss(
         self, package: str, version: str, url: str
@@ -559,7 +576,7 @@ class InMemoryIndex:
         """
         key = f"sdist:{package}:{version}"
         with self._publishing(key):
-            self._metadata_errors[(package, version, None)] = error
+            self._write_metadata_slot((package, version, None), error, from_sdist=False)
 
     def metadata_from_sdist(self, package: str, version: str) -> bool:
         """Return whether the supplied cache key holds sdist-derived metadata."""
@@ -588,7 +605,7 @@ class InMemoryIndex:
         """
         key = range_pending_key(package, version, wheel_url)
         with self._publishing(key):
-            pass
+            self._metadata.pop((package, version, wheel_url), None)
 
     def store_range_error(
         self, package: str, version: str, wheel_url: str, error: BaseException
@@ -601,7 +618,9 @@ class InMemoryIndex:
         """
         key = range_pending_key(package, version, wheel_url)
         with self._publishing(key):
-            self._metadata_errors[(package, version, wheel_url)] = error
+            self._write_metadata_slot(
+                (package, version, wheel_url), error, from_sdist=False
+            )
 
     def store_range_outcome(
         self, package: str, version: str, wheel_url: str, outcome: RangeOutcome
@@ -644,26 +663,27 @@ class InMemoryIndex:
 
     def get_sdist_archive(self, package: str, version: str) -> bytes | None:
         """Return cached sdist archive bytes, or ``None`` if absent or unfetched."""
-        return self._sdist_archives.get((package, version))
+        result = self._sdist_archives.get((package, version))
+        return result if isinstance(result, bytes) else None
 
     def store_sdist_archive_error(
         self, package: str, version: str, error: BaseException
     ) -> None:
         """Record a failed sdist-archive fetch and unblock the waiter.
 
-        Kept in its own slot rather than ``store_sdist_archive(None)`` so
-        ``BUILD_REMOTE`` can tell an archive the index never offered (skip the
-        version) from one it advertised and failed to serve (abort).
+        Callers use the error to distinguish a failed download from an archive
+        the index never offered.
         """
         key = f"sdist-archive:{package}:{version}"
         with self._publishing(key):
-            self._sdist_archive_errors[(package, version)] = error
+            self._sdist_archives[(package, version)] = error
 
     def get_sdist_archive_error(
         self, package: str, version: str
     ) -> BaseException | None:
         """Return a recorded sdist-archive fetch error, or ``None``."""
-        return self._sdist_archive_errors.get((package, version))
+        result = self._sdist_archives.get((package, version))
+        return result if isinstance(result, BaseException) else None
 
     def get_or_create_pending(self, key: str) -> tuple[threading.Event, bool]:
         """Return ``key``'s waitable event, and whether it already existed.
@@ -684,7 +704,7 @@ class InMemoryIndex:
 
     def get_parsed_metadata(
         self, package: str, version: str, source_text: str
-    ) -> Any | None:
+    ) -> WheelMetadata | None:
         """Return the parse cached for ``source_text``, if any."""
         for text, metadata in self._parsed_metadata.get((package, version), ()):
             if text == source_text:
@@ -692,7 +712,7 @@ class InMemoryIndex:
         return None
 
     def store_parsed_metadata(
-        self, package: str, version: str, metadata: Any, source_text: str
+        self, package: str, version: str, metadata: WheelMetadata, source_text: str
     ) -> None:
         """Cache a text's parse beside the version's other parses.
 
@@ -703,40 +723,32 @@ class InMemoryIndex:
             entries = self._parsed_metadata.get(key, ())
             self._parsed_metadata[key] = (*entries, (source_text, metadata))
 
-    def get_resolved_sdist_metadata(self, package: str, version: str) -> Any | None:
-        """Return cached post-reconciliation sdist metadata or ``None``.
-
-        The cached value is what
-        :func:`nab_provider._provider.metadata_resolver.resolve_dynamic_sdist`
-        returned.
-        """
+    def get_resolved_sdist_metadata(
+        self, package: str, version: str
+    ) -> WheelMetadata | None:
+        """Return sdist metadata reconciled with its bundled project declarations."""
         return self._resolved_sdist_metadata.get((package, version))
 
     def store_resolved_sdist_metadata(
-        self, package: str, version: str, metadata: Any
+        self, package: str, version: str, metadata: WheelMetadata
     ) -> None:
         """Cache reconciled sdist metadata for cross-tuple reuse."""
         with self._lock:
             self._resolved_sdist_metadata[(package, version)] = metadata
 
-    def store_source(self, package: str, result: SourceMaterialization) -> None:
-        """Record what a host made of ``package``'s declared source."""
-        with self._lock:
-            self._sources[package] = result
-
-    def get_source(self, package: str) -> SourceMaterialization | None:
-        """Return ``package``'s materialised source, or ``None``."""
-        return self._sources.get(package)
-
-    def store_built_metadata(self, package: str, version: str, metadata: Any) -> None:
+    def store_built_metadata(
+        self, package: str, artifact_key: str, metadata: WheelMetadata
+    ) -> None:
         """Record the METADATA a host's :pep:`517` build produced."""
         with self._lock:
-            self._built_metadata[(package, version)] = metadata
+            self._built_metadata[(package, artifact_key)] = metadata
 
-    def get_built_metadata(self, package: str, version: str) -> Any | None:
-        """Return built METADATA for ``(package, version)``, or ``None``.
+    def get_built_metadata(
+        self, package: str, artifact_key: str
+    ) -> WheelMetadata | None:
+        """Return built METADATA for ``(package, artifact_key)``, or ``None``.
 
         Unlike :meth:`get_resolved_sdist_metadata`, this is what the build
         declared, before the provider checks it against the candidate.
         """
-        return self._built_metadata.get((package, version))
+        return self._built_metadata.get((package, artifact_key))

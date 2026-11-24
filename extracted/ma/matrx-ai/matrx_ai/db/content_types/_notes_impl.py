@@ -6,6 +6,7 @@ from typing import Any
 from matrx_utils.row_access import publish_columns
 
 from matrx_ai.db._registry import get_base, get_model
+from matrx_ai.utils.carried_failure import FailureDict
 from matrx_ai.db.content_types.patch_utils import PatchError, apply_patch
 
 NotesBase = get_base("NotesBase")
@@ -109,14 +110,17 @@ def _ok(note: Notes) -> dict[str, Any]:
 
 
 def _err(operation: str, note_id: str, error: Exception, **extra: Any) -> dict[str, Any]:
-    return {
-        "success": False,
-        "operation": operation,
-        "note_id": note_id,
-        "error_type": type(error).__name__,
-        "error": str(error),
-        **extra,
-    }
+    return FailureDict(
+        {
+            "success": False,
+            "operation": operation,
+            "note_id": note_id,
+            "error_type": type(error).__name__,
+            "error": str(error),
+            **extra,
+        },
+        exception=error,
+    )
 
 
 def _not_visible(operation: str, note_id: str) -> dict[str, Any]:
@@ -263,12 +267,15 @@ class NotesManager(NotesBase):
             notes = await self._get_items(order_by="-created_at", created_by=user_id, deleted_at__isnull=True)
             return {"success": True, "notes": [n.to_dict() for n in notes if n]}
         except Exception as e:
-            return {
-                "success": False,
-                "operation": "list_notes_for_user",
-                "user_id": user_id,
-                "error": str(e),
-            }
+            return FailureDict(
+                {
+                    "success": False,
+                    "operation": "list_notes_for_user",
+                    "user_id": user_id,
+                    "error": str(e),
+                },
+                exception=e,
+            )
 
     # ------------------------------------------------------------------
     # Create
@@ -320,7 +327,7 @@ class NotesManager(NotesBase):
             )
             return _ok(note)
         except Exception as e:
-            return {"success": False, "operation": "create_note", "error": str(e)}
+            return FailureDict({"success": False, "operation": "create_note", "error": str(e)}, exception=e)
 
     # ------------------------------------------------------------------
     # Update (full field replacement — strips immutable fields automatically)

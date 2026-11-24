@@ -12,7 +12,7 @@ same conversion exists in TypeScript at matrx-frontend
 A twin pinned to someone's READING of the contract drifts silently, so the two
 are gated against a generated fixture — ``scripts/generate_variable_kind_fixture.py``
 writes what THIS module actually produced and the TS suite asserts against it
-(drift gate: ``packages/matrx-ai/tests/parity/test_variable_kind_fixture.py``).
+(drift gate: ``tests/package_host_contracts/matrx_ai_parity/test_variable_kind_fixture.py``).
 
 FIDELITY MODEL (the A2 schema-expressivity constructs this depends on) — the
 conversion is faithful along two channels, and NEITHER is allowed to swallow
@@ -60,6 +60,8 @@ import json
 import re
 from typing import Any
 
+from matrx_graph.input_declaration import upgrade_agent_variable
+
 from pydantic import BaseModel, ConfigDict
 
 #: The system discriminator. Not a field of any kind's field map.
@@ -78,12 +80,17 @@ _SELECT_FAMILY = frozenset(
 _MEDIA_COMPONENTS = frozenset({"image", "audio", "video", "youtube", "document"})
 _BOOLEAN_COMPONENTS = frozenset({"toggle", "light-switch"})
 _NUMBER_COMPONENTS = frozenset({"number", "slider", "percent"})
+#: A record input: its value is the registered ``relation`` kind (a list of them when
+#: ``multiple``) — a pointer at one record or platform thing, never a copy.
+RECORD_COMPONENT = "record"
+RELATION_KIND = "relation"
 #: Components whose VALUE is a plain string (textarea-compatible shapes). The
 #: select family is included: an optionless / runtime-options select renders as
 #: a select whose options hydrate elsewhere — its value is still a string.
 _STRING_COMPONENTS = frozenset(
     {
         "textarea",
+        "text",
         "datetime",
         "time",
         "email",
@@ -206,11 +213,22 @@ def _is_zero_default(field: dict[str, Any], value: Any) -> bool:
         return value == "" or (value == 0 and not isinstance(value, bool))
     if ftype == "boolean":
         return value == "" or value is False
+    if _is_relation_field(field):
+        return value in ("", [], {})
     return value == ""
+
+
+def _is_relation_field(field: dict[str, Any]) -> bool:
+    """The kind field a record input becomes: one relation, or a list of relations."""
+    if field.get("type") == "object":
+        return field.get("kind") == RELATION_KIND
+    return field.get("type") == "array" and list(field.get("itemKinds") or []) == [RELATION_KIND]
 
 
 def _canonical_component_for_field(field: dict[str, Any]) -> str:
     ftype = field.get("type")
+    if _is_relation_field(field):
+        return RECORD_COMPONENT
     if ftype == "number":
         return "number"
     if ftype == "boolean":
@@ -228,6 +246,8 @@ def _convert_variable(
     """ONE variable definition → ``(field, sidecar_entry, loss_reasons)``."""
     losses: list[str] = []
     sidecar: dict[str, Any] = {}
+    # Every stored element reads through the one tolerant door (legacy keys mapped).
+    entry = upgrade_agent_variable(entry)
 
     cc_raw = entry.get("customComponent")
     cc: dict[str, Any] = cc_raw if isinstance(cc_raw, dict) else {}
@@ -341,6 +361,15 @@ def _convert_variable(
             sidecar["allowOther"] = True
         return finish({"type": "string[]"})
 
+    if ctype == RECORD_COMPONENT:
+        # The value is a relation (or a list of them): kind-typed, never flattened to a string.
+        tokens = [t for t in (cc.get("tokens") or []) if isinstance(t, str)]
+        if tokens:
+            sidecar["tokens"] = tokens
+        if cc.get("multiple"):
+            return finish({"type": "array", "itemKinds": [RELATION_KIND]})
+        return finish({"type": "object", "kind": RELATION_KIND})
+
     if ctype in _STRING_COMPONENTS or ctype in _MEDIA_COMPONENTS:
         # String-valued components — component identity (when not textarea) is
         # an input-role annotation carried in the sidecar by `finish`.
@@ -381,6 +410,9 @@ def variable_definitions_to_kind_fields(
     datetime/time/email/url/phone/color/…       string                     component
     currency                                    string (+LOSS)             component
     image/audio/video/youtube/document          string                     component
+    text (single line)                          string                     component
+    record (+tokens)                            object {kind: relation}    component (+tokens)
+    record + multiple                           array {itemKinds:[relation]} component (+tokens)
     ==========================================  =========================  ==========================
 
     Cross-cutting: ``helpText`` → ``description`` (except machine-stamped
@@ -549,7 +581,7 @@ def _field_to_variable_definition_core(
                 cc[key] = field[key]
         return {
             "name": name,
-            "defaultValue": default_or(0),
+            "defaultValue": default_or(""),
             "customComponent": _with_structured_list(cc, sidecar),
             **tail,
         }
@@ -627,6 +659,17 @@ def _field_to_variable_definition_core(
             out["required"] = True
         return out
 
+    if _is_relation_field(field):
+        # A record input: the relation kind round-trips to the record component.
+        multiple = field.get("type") == "array"
+        cc = {"type": RECORD_COMPONENT, "tokens": list(sidecar.get("tokens") or []), "multiple": multiple}
+        return {
+            "name": name,
+            "defaultValue": field["default"] if "default" in field else None,
+            "customComponent": cc,
+            **tail,
+        }
+
     # array / object / inline_object / record / union / json / json[] — the
     # HONEST flattening: a structured-JSON textarea, never a fake sub-form.
     if "default" not in field:
@@ -675,7 +718,8 @@ def kind_fields_to_variable_definitions(
                 n += 1
             name = f"{name}_{n}"
         taken.add(name)
-        out.append(_field_to_variable_definition(name, field, side.get(key, {})))
+        # The one upgrade door stamps ``__kind`` (definition, component, binding): stored marked, never bare.
+        out.append(upgrade_agent_variable(_field_to_variable_definition(name, field, side.get(key, {}))))
     return out
 
 
@@ -719,6 +763,13 @@ def _field_json_schema(field: dict[str, Any]) -> dict[str, Any]:
         node = {"type": "array", "items": items}
     elif ftype in ("number[]", "boolean[]"):
         node = {"type": "array", "items": {"type": ftype[:-2]}}
+    elif _is_relation_field(field):
+        relation: dict[str, Any] = {
+            "type": "object",
+            "properties": {"_record_id": {"type": "string"}},
+            "required": ["_record_id"],
+        }
+        node = {"type": "array", "items": relation} if ftype == "array" else relation
     else:
         # Structural field types cannot arise from a variable contract; a
         # permissive node is honest ("any JSON value") and never a silent lie.

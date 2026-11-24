@@ -128,6 +128,10 @@ class DefaultValueRecipe(Enum):
     """Describe how a serialized schema value becomes a runtime expression."""
 
     Decimal = auto()
+    Bytes = auto()
+    Date = auto()
+    Time = auto()
+    DateTime = auto()
 
 
 @record
@@ -631,8 +635,22 @@ class _UnionNode(Protocol):
     def _writes_nothing_of_its_own(self) -> bool:
         """Whether the type writes no text, names no model and is no container, so only its members write."""
 
+    @property
+    def _renders_none(self) -> bool:
+        """Whether the type writes ``None``."""
+
 
 _UnionNodeT = TypeVar("_UnionNodeT", bound=_UnionNode)
+
+
+def _sole_member(members: Sequence[_UnionNodeT]) -> _UnionNodeT | None:
+    """Return the one member of a union that does not write ``None``, or None where it has another number of them.
+
+    A default is read by that member (``required_fields_a_default_lacks``, the defaults deserialized where Pydantic
+    validates them); which member of a union of several takes a value is Pydantic's choice.
+    """
+    rest = [member for member in members if not member._renders_none]  # noqa: SLF001
+    return rest[0] if len(rest) == 1 else None
 
 
 def _union_members(data_type: _UnionNodeT) -> Sequence[_UnionNodeT]:
@@ -2146,18 +2164,28 @@ class DataTypeManager(ABC):
     omit_redundant_constraints: bool = False
     read_length_keywords_by_type: bool = False
     read_msgspec_union_bounds_exactly: bool = False
+    keep_string_keywords_beside_formats: bool = False
     use_decimal_in_field_forms: bool = False
     use_encoded_str_for_constrained_base64: bool = False
     use_msgspec_meta_for_map_keys: bool = False
     use_strict_str_for_base64: bool = False
+    _UNDECODED_STANDARD_PRIMITIVE_TYPES: ClassVar[frozenset[Types]] = frozenset()
+    """The formats whose class ``--use-standard-primitive-types`` writes and the output cannot decode."""
     WRITES_ENCODED_STR: ClassVar[bool] = False
     """Whether the output writes a string decoded from base64 text with its constraints in front of the decoding."""
+    FORMAT_KEYWORD_FORMS: ClassVar[Mapping[str, _applicability.FormatKeywordForm]] = (
+        _applicability.BASE_OUTPUT.format_keyword_forms
+    )
+    """How the output keeps the string keywords beside a format it writes as a class no ``con*`` call constrains."""
     CONSTRAINED_TYPE_CONSUMED_KEYS: ClassVar[dict[str, tuple[str, ...]]] = dict(
         _applicability.BASE_OUTPUT.zero_bound_classes
     )
     SUPPORTS_ANNOTATED_CONSTRAINTS: ClassVar[bool] = False
     ANNOTATED_CONSTRAINTS_CONTEXT: ClassVar[object | None] = None
     DEFAULT_VALUE_DESCRIPTORS: ClassVar[Mapping[tuple[str | None, str], DefaultValueDescriptor]] = MappingProxyType({})
+    STRICT_DEFAULT_VALUE_RECIPES: ClassVar[Mapping[tuple[str | None, str], DefaultValueRecipe]] = MappingProxyType({})
+    """The recipes of the strict types, by import, whose JSON value strict mode refuses as the Python input of a
+    validated default (bytes, date, time and datetime); ``Decimal`` has its recipe in ``DEFAULT_VALUE_DESCRIPTORS``."""
     CONSTRAINT_KEYWORDS: ClassVar[Mapping[str, frozenset[str]]] = _applicability.BASE_OUTPUT.type_keywords
     KNOWN_TYPE_IMPORTS: ClassVar[tuple[ModuleType, ...]] = (generator_imports,)
     NUMBER_VALUE_TYPES: ClassVar[frozenset[str]] = _applicability.BASE_OUTPUT.number_value_types
@@ -2260,6 +2288,24 @@ class DataTypeManager(ABC):
                 cls, data_types=[untyped_value_data_type(cls, untyped_value)], **{container: True}
             )
 
+    def use_str_for_formats_msgspec_cannot_decode(self, *, enabled: bool) -> None:
+        """Write ``str`` for each format of ``_UNDECODED_STANDARD_PRIMITIVE_TYPES`` the standard primitive map has.
+
+        Row ``legacy-standard-primitive-types-without-decoder``: the type map keeps the standard library class
+        ``--use-standard-primitive-types`` gives the format (``IPv4Address``, ``Path``), which msgspec has no decoder
+        for. Under ``--use-str-for-formats-msgspec-cannot-decode`` the format is ``str``, as without the option. The
+        option is set after construction, as --untyped-value-type is, so a type manager with the constructor of an
+        older release keeps working.
+        """
+        row: Literal["str-without-decoder", "legacy-standard-primitive-types-without-decoder"] = (
+            "str-without-decoder" if enabled else "legacy-standard-primitive-types-without-decoder"
+        )
+        if row == "legacy-standard-primitive-types-without-decoder":
+            return
+        type_map = self.type_map
+        for types in self._UNDECODED_STANDARD_PRIMITIVE_TYPES:
+            type_map[types] = type_map[Types.string]
+
     def use_target_pydantic_version(self, target_pydantic_version: TargetPydanticVersion | None) -> None:
         """Write each type of ``_TARGET_TYPE_FALLBACKS`` whose construct the target Pydantic lacks as its fallback.
 
@@ -2317,6 +2363,14 @@ class DataTypeManager(ABC):
             return None
         return self.DEFAULT_VALUE_DESCRIPTORS.get(_import_key(import_))
 
+    def get_strict_default_value_recipe(self, data_type: DataType) -> DefaultValueRecipe | None:
+        """Return the recipe ``STRICT_DEFAULT_VALUE_RECIPES`` gives an emitted strict scalar import."""
+        return (
+            None
+            if (import_ := data_type.import_) is None
+            else self.STRICT_DEFAULT_VALUE_RECIPES.get(_import_key(import_))
+        )
+
     @staticmethod
     def copy_data_type(data_type: DataType) -> DataType:
         """Copy a type-map prototype for caller-owned mutation.
@@ -2354,6 +2408,24 @@ class DataTypeManager(ABC):
     def constraint_options(self) -> _applicability.ConstraintOptions:
         """The options of the constraint table, as the parser sets them on the type manager."""
         return _applicability.ConstraintOptions(**{name: getattr(self, name) for name in _CONSTRAINT_OPTION_NAMES})
+
+    def format_keyword_form(self, types: Types) -> _applicability.FormatKeywordForm | None:
+        """Return how a string keyword beside the format mapped to ``types`` is kept (``format_keyword_form``)."""
+        return _applicability.format_keyword_form(self.constraint_options, self.FORMAT_KEYWORD_FORMS, types.name)
+
+    def writes_format_as_text(self, types: Types) -> bool:
+        """Return whether ``--keep-string-keywords-beside-formats`` finds the format mapped to ``types`` a ``str``.
+
+        Then a string keyword beside it checks the value the output writes (``all_of_root_keyword_kinds``): the type
+        the format is written as takes the string keywords (``constraint_keywords``).
+        """
+        mapped = self.type_map.get(types)
+        return (
+            self.constraint_options.keep_string_keywords_beside_formats
+            and mapped is not None
+            and mapped.import_ is None
+            and self.constraint_keywords(mapped, self.python_version.version_key) >= _applicability.STRING_KEYWORDS
+        )
 
     @property
     def encodes_constrained_base64(self) -> bool:

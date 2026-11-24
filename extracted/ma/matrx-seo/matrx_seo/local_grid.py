@@ -1,6 +1,6 @@
 """Local SEO rank grid — pure geometry, matching and summary (no I/O).
 
-Contract: ``common-docs/projects/outside-skill-packs/OPENSEO-TOOLS-SPEC.md`` §5.4.
+Contract: ``common-docs/systems/agents/agent-skills/projects/outside-skill-packs/OPENSEO-TOOLS-SPEC.md`` §5.4.
 Reference behavior: every-app/open-seo at ``0ffff93``,
 ``src/server/mcp/tools/local-seo-tools.ts`` (``buildRankGridPoints``,
 ``rankGridZoom``, ``matchGridItem``, ``renderGrid``) and

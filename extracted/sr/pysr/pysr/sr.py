@@ -110,16 +110,18 @@ pysr_logger = logging.getLogger(__name__)
 
 def _process_constraints(
     operators: dict[int, list[str]],
-    constraints: dict[str, int | tuple[int, ...]],
+    constraints: dict[str, int | tuple[int, ...] | list[int]],
 ) -> dict[str, int | tuple[int, ...]]:
-    constraints = constraints.copy()
+    processed_constraints: dict[str, int | tuple[int, ...]] = {
+        op: tuple(c) if isinstance(c, list) else c for op, c in constraints.items()
+    }
 
     for arity, op_list in operators.items():
         for op in op_list:
-            if op not in constraints:
+            if op not in processed_constraints:
                 if arity == 1:
                     # Unary operators get complexity -1
-                    constraints[op] = -1
+                    processed_constraints[op] = -1
                 else:
                     # Multi-arity operators (arity >= 2)
                     if op in ["^", "pow"]:
@@ -133,11 +135,11 @@ def _process_constraints(
                             "For more tips, please see https://pysr.ai/tuning"
                         )
                     # Create default constraint tuple with -1 for each argument
-                    constraints[op] = tuple([-1] * arity)
+                    processed_constraints[op] = tuple([-1] * arity)
 
             # Apply arity-specific validation for existing constraints
-            if isinstance(constraints[op], tuple):
-                constraint_tuple = cast(Tuple[int, ...], constraints[op])
+            if isinstance(processed_constraints[op], tuple):
+                constraint_tuple = cast(Tuple[int, ...], processed_constraints[op])
                 # Validate that constraint tuple length matches operator arity
                 if len(constraint_tuple) != arity:
                     raise ValueError(
@@ -161,8 +163,11 @@ def _process_constraints(
                             constraint_tuple[1] == -1
                             or constraint_tuple[0] < constraint_tuple[1]
                         ):
-                            constraints[op] = (constraint_tuple[1], constraint_tuple[0])
-    return constraints
+                            processed_constraints[op] = (
+                                constraint_tuple[1],
+                                constraint_tuple[0],
+                            )
+    return processed_constraints
 
 
 def _maybe_create_inline_operators(
@@ -449,7 +454,7 @@ class _DynamicallySetParams:
 
     operators: dict[int, list[str]]
     maxdepth: int
-    constraints: dict[str, int | tuple[int, ...]]
+    constraints: dict[str, int | tuple[int, ...] | list[int]]
     batch_size: int | None
     update_verbosity: int
     progress: bool
@@ -1106,7 +1111,7 @@ class PySRRegressor(MultiOutputMixin, RegressorMixin, BaseEstimator):
         maxdepth: int | None = None,
         warmup_maxsize_by: float | None = None,
         timeout_in_seconds: float | None = None,
-        constraints: dict[str, int | tuple[int, ...]] | None = None,
+        constraints: dict[str, int | tuple[int, ...] | list[int]] | None = None,
         nested_constraints: dict[str, dict[str, int]] | None = None,
         elementwise_loss: str | None = None,
         loss_function: str | None = None,
@@ -2111,6 +2116,13 @@ class PySRRegressor(MultiOutputMixin, RegressorMixin, BaseEstimator):
                     "Using DataFrame column names instead."
                 )
 
+            # sklearn ignores str-subclass column names and raises on mixed str/non-str.
+            if all(isinstance(c, str) for c in X.columns) and any(
+                type(c) is not str for c in X.columns
+            ):
+                X = X.copy(deep=False)
+                X.columns = [str.__str__(c) for c in X.columns]
+
             cols_str = X.columns.astype(str)
             if cols_str.str.contains(" ").any():
                 X = X.copy(deep=False)
@@ -2908,6 +2920,21 @@ class PySRRegressor(MultiOutputMixin, RegressorMixin, BaseEstimator):
             y_units,
         )
 
+        total_populations = self.populations * self.nout_
+        if (
+            parallelism == "multiprocessing"
+            and numprocs is not None
+            and total_populations < numprocs
+        ):
+            pop_desc = (
+                f"`populations={self.populations}`"
+                if self.nout_ == 1
+                else f"`populations={self.populations}` ({total_populations} across {self.nout_} outputs)"
+            )
+            warnings.warn(
+                f"{pop_desc} is less than `procs={numprocs}`; consider increasing `populations`."
+            )
+
         random_state = check_random_state(self.random_state)  # For np random
         seed = cast(int, random_state.randint(0, 2**31 - 1))  # For julia random
 
@@ -2982,9 +3009,10 @@ class PySRRegressor(MultiOutputMixin, RegressorMixin, BaseEstimator):
 
         Parameters
         ----------
-        checkpoint_file : str or Path
-            Path to checkpoint hall of fame file to be loaded.
-            The default will use the set `equation_file_`.
+        run_directory : str or Path
+            The directory containing outputs from a previous run.
+            This is of the form `[output_directory]/[run_id]`.
+            The default will use the directory from the last fit.
         """
         if run_directory is not None:
             self.output_directory_ = str(Path(run_directory).parent)

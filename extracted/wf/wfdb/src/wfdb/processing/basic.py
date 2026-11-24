@@ -168,6 +168,11 @@ def resample_multichan(xs, ann, fs, fs_target, resamp_ann_chan=0):
 def normalize_bound(sig, lb=0, ub=1):
     """Normalize a signal between the lower and upper bound.
 
+    Integer signals are shifted by their minimum before conversion to floating
+    point, so small differences are retained even when the samples have a
+    large offset. The result is always within the bounds. A constant signal
+    is normalized to the middle of the bounds.
+
     Parameters
     ----------
     sig : ndarray
@@ -183,12 +188,32 @@ def normalize_bound(sig, lb=0, ub=1):
         Normalized signal.
 
     """
+    if isinstance(lb, np.integer):
+        lb = int(lb)
+    if isinstance(ub, np.integer):
+        ub = int(ub)
+
     mid = ub - (ub - lb) / 2
     min_v = np.min(sig)
     max_v = np.max(sig)
-    mid_v = max_v - (max_v - min_v) / 2
-    coef = (ub - lb) / (max_v - min_v)
-    return sig * coef - (mid_v * coef) + mid
+    if max_v == min_v:
+        # A constant signal has no range to scale, so it is put in the middle
+        return np.zeros_like(np.asanyarray(sig), dtype=np.float64) + mid
+    if isinstance(min_v, np.integer) and isinstance(max_v, np.integer):
+        min_v, max_v = int(min_v), int(max_v)
+        coef = (ub - lb) / (max_v - min_v)
+        # Unsigned subtraction wraps to the exact nonnegative distance from
+        # the minimum, for every integer dtype (even signed int64)
+        shifted = np.asanyarray(sig).astype(np.uint64, copy=False) - np.uint64(
+            min_v % (1 << 64)
+        )
+        result = shifted.astype(np.float64) * coef + lb
+    else:
+        mid_v = max_v - (max_v - min_v) / 2
+        coef = (ub - lb) / (max_v - min_v)
+        result = np.multiply(sig, coef) - (mid_v * coef) + mid
+    # Rounding can put a value just past a bound, so keep it within them
+    return np.clip(result, min(lb, ub), max(lb, ub))
 
 
 def smooth(sig, window_size):

@@ -20,16 +20,14 @@ import sys
 import sysconfig
 import tarfile
 import tempfile
-import threading
 import zipfile
-from collections.abc import Callable, Generator, Mapping, Sequence
-from contextlib import AbstractContextManager, contextmanager, nullcontext
+from collections.abc import Callable, Mapping, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from importlib.util import cache_from_source, module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 from unittest.mock import MagicMock, patch
 
 import build
@@ -38,6 +36,9 @@ import pyproject_hooks
 import pytest
 import tomli
 from installer.utils import SCHEME_NAMES, Scheme
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from nab_index.client import SdistFile, WheelFile
 from nab_index.httpx2_async_transport import Httpx2AsyncTransport
@@ -64,7 +65,6 @@ from nab_project._build.runner import (
     build_wheel_for_install,
     run_build_backend,
 )
-from nab_project._testing.coordinator_fake import FakeFetchPort, make_coordinator
 from nab_project.build_backend import extract_metadata
 from nab_project.download import DownloadError, DownloadResult, iter_artifacts
 from nab_project.inputs import ResolveInputs
@@ -79,9 +79,6 @@ from nab_project.lockfile import (
 )
 from nab_project.resolve import ResolveResult, TargetResult, resolve_for_targets
 from nab_provider._provider.metadata_resolver import pick_dist
-from nab_provider._vendor.packaging.requirements import Requirement
-from nab_provider._vendor.packaging.utils import canonicalize_name
-from nab_provider._vendor.packaging.version import Version
 from nab_provider.overrides import IndexOverride, PackageOverride
 from nab_provider.policy import MetadataPolicy
 from nab_provider.provider import (
@@ -93,10 +90,11 @@ from nab_provider.provider import (
 )
 from nab_provider.tags import PlatformSpec, TagSet
 from nab_provider.target import ResolveTarget
-from nab_provider.testing import make_metadata, make_wheel, pkg_override
+from nab_provider.testing import FakeFetchPort, make_metadata, make_wheel, pkg_override
 from nab_provider.value import replace
 from nab_resolver.diagnostics import error_message
 from nab_resolver.errors import ResolutionError, ResolutionLimitError
+from nab_test_support.coordinator import make_coordinator
 
 requires_int_limit = pytest.mark.skipif(
     get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
@@ -1187,6 +1185,14 @@ class TestParseMetadata:
     that are awkward to reach through ``run_build_backend`` end-to-end.
     """
 
+    def test_future_major_metadata_is_refused(self, tmp_path: Path) -> None:
+        path = tmp_path / "METADATA"
+        path.write_text(
+            "Metadata-Version: 3.0\nName: foo\nVersion: 1\n", encoding="utf-8"
+        )
+        with pytest.raises(BuildBackendError, match="foo 1 declares Metadata-Version"):
+            runner_mod._parse_metadata(path)
+
     def test_missing_metadata_file_raises(self, tmp_path: Path) -> None:
         from nab_project._build.runner import _parse_metadata
 
@@ -1290,20 +1296,22 @@ class TestParseMetadata:
         with pytest.raises(BuildBackendError, match="invalid Requires-Dist"):
             _parse_metadata(path)
 
-    def test_over_nested_requires_dist_marker_raises(
-        self, tmp_path: Path, over_nested_marker: str
-    ) -> None:
-        """A marker the parser cannot recurse through is malformed METADATA."""
-        from nab_project._build.runner import _parse_metadata
-
+    def test_requires_dist_parser_recursion_error(self, tmp_path: Path) -> None:
         path = tmp_path / "METADATA"
         path.write_text(
-            "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\n"
-            f"Requires-Dist: click ; {over_nested_marker}\n",
+            "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\nRequires-Dist: click>=8\n",
             encoding="utf-8",
         )
-        with pytest.raises(BuildBackendError, match="invalid Requires-Dist"):
-            _parse_metadata(path)
+
+        failure = RecursionError()
+        with (
+            patch("nab_provider.pep508.Requirement", side_effect=failure),
+            pytest.raises(BuildBackendError, match="invalid Requires-Dist") as caught,
+        ):
+            runner_mod._parse_metadata(path)
+
+        assert isinstance(caught.value.__cause__, InvalidRequirement)
+        assert caught.value.__cause__.__cause__ is failure
 
     @requires_int_limit
     def test_oversized_requires_python_raises(self, tmp_path: Path) -> None:
@@ -1335,18 +1343,15 @@ class TestParseMetadata:
         with pytest.raises(BuildBackendError, match="invalid Requires-Dist"):
             _parse_metadata(path)
 
-    def test_provides_extra_whitespace_stripped(self, tmp_path: Path) -> None:
-        """Surrounding whitespace on a Provides-Extra value is insignificant
-        per RFC 822; canonicalize_name does not strip it, so strip first."""
-        from nab_project._build.runner import _parse_metadata
-
+    def test_name_and_extras_strip_header_whitespace(self, tmp_path: Path) -> None:
         path = tmp_path / "METADATA"
         path.write_text(
-            "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\n"
+            "Metadata-Version: 2.1\nName: Demo_Name \t\nVersion: 1.0\n"
             "Provides-Extra: security \nProvides-Extra: docs\t\n",
             encoding="utf-8",
         )
-        meta = _parse_metadata(path)
+        meta = runner_mod._parse_metadata(path)
+        assert meta.name == "demo-name"
         assert meta.provides_extra == ["docs", "security"]
 
 
@@ -2032,48 +2037,53 @@ class TestLauncherKind:
         assert kind == "posix"
 
 
-class TestNabBuildEnvOutsideContext:
-    """Accessors and ``install`` raise when used outside ``with`` scope."""
+@pytest.mark.parametrize("state", ["new", "closed", "failed"])
+def test_build_env_rejects_use_outside_its_scope(state: str) -> None:
+    requires = ["missing-build-helper"] if state == "failed" else []
+    env = NabBuildEnv(requires, config=ResolveInputs(), offline=True)
+    if state == "closed":
+        with env:
+            assert Path(env.python_executable).is_file()
+    elif state == "failed":
+        with pytest.raises(BuildEnvError, match="unavailable in offline mode"), env:
+            pass
 
-    def _env(self) -> NabBuildEnv:
-        return NabBuildEnv(requires=[], config=ResolveInputs())
+    with pytest.raises(BuildEnvError, match="outside its context-manager"):
+        _ = env.python_executable
+    with pytest.raises(BuildEnvError, match="outside its context-manager"):
+        env.make_extra_environ()
+    with pytest.raises(BuildEnvError, match="outside its context-manager"):
+        env.install([])
 
-    def test_python_executable_outside_context(self) -> None:
-        env = self._env()
-        with pytest.raises(BuildEnvError, match="outside its context-manager"):
-            _ = env.python_executable
 
-    def test_make_extra_environ_outside_context(self) -> None:
-        env = self._env()
-        with pytest.raises(BuildEnvError, match="outside its context-manager"):
-            env.make_extra_environ()
+def test_nested_build_env_entry_preserves_the_outer_interpreter() -> None:
+    env = NabBuildEnv([], config=ResolveInputs())
+    with env:
+        outer = Path(env.python_executable)
+        with pytest.raises(BuildEnvError, match="already active"), env:
+            pass
+        assert Path(env.python_executable) == outer
+        assert outer.is_file()
 
-    def test_install_outside_context(self) -> None:
-        env = self._env()
-        with pytest.raises(BuildEnvError, match="outside its context-manager"):
-            env.install(["foo"])
+    assert not outer.exists()
+    with env:
+        assert Path(env.python_executable).is_file()
 
 
 class TestNabBuildEnvInstall:
     """The ``install`` shortcut: empty list and the inner re-resolve path."""
 
     def test_install_empty_returns_immediately(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """An empty requirements list is a no-op (does not even touch
-        the venv state).  We assert by checking the resolve helper is
-        not called.
-        """
+        """An empty requirements list skips resolution in an active build env."""
         env = NabBuildEnv(requires=[], config=ResolveInputs())
-        # Avoid real venv creation by short-circuiting __enter__.
-        env._venv_path = tmp_path  # type: ignore[attr-defined]
-        env._python_executable = tmp_path / "python"  # type: ignore[attr-defined]
-        called = MagicMock()
-        monkeypatch.setattr(env, "_resolve_and_download", called)
-        env.install([])
-        called.assert_not_called()
+        resolve = MagicMock()
+        with env:
+            monkeypatch.setattr(env, "_resolve_and_download", resolve)
+            env.install([])
+
+        resolve.assert_not_called()
 
     def test_install_runs_inner_resolve_and_installs_wheels(
         self,
@@ -2091,8 +2101,8 @@ class TestNabBuildEnvInstall:
         venv_path.mkdir()
         wheel_dir = tmp_path / "wheels"
         wheel_dir.mkdir()
-        env._venv_path = venv_path  # type: ignore[attr-defined]
-        env._python_executable = venv_path / "python"  # type: ignore[attr-defined]
+        env._venv_path = venv_path
+        env._python_executable = venv_path / "python"
         fake_wheel = wheel_dir / "_extra_0" / "fake-1.0-py3-none-any.whl"
         monkeypatch.setattr(
             env, "_resolve_and_download", lambda *_a, **_k: [fake_wheel]
@@ -2121,8 +2131,8 @@ class TestNabBuildEnvInstall:
         env = NabBuildEnv(requires=[], config=ResolveInputs())
         venv_path = tmp_path / "venv"
         venv_path.mkdir()
-        env._venv_path = venv_path  # type: ignore[attr-defined]
-        env._python_executable = venv_path / "python"  # type: ignore[attr-defined]
+        env._venv_path = venv_path
+        env._python_executable = venv_path / "python"
 
         with pytest.raises(
             BuildEnvError, match="could not install extra build requirements"
@@ -2140,9 +2150,9 @@ class TestResolveAndDownload:
         """Run the inner resolve against stubs and return the settings it got."""
         from nab_project.resolve import ResolveResult, TargetResult
 
-        env._tmpdir = MagicMock()  # type: ignore[attr-defined]
-        env._venv_path = tmp_path / "venv"  # type: ignore[attr-defined]
-        env._python_executable = tmp_path / "venv" / "bin" / "python"  # type: ignore[attr-defined]
+        env._tmpdir = MagicMock()
+        env._venv_path = tmp_path / "venv"
+        env._python_executable = tmp_path / "venv" / "bin" / "python"
         target = ResolveTarget.for_host()
         fake_result = ResolveResult(
             targets=(target,),
@@ -2238,9 +2248,9 @@ class TestResolveAndDownload:
         from nab_provider.target import ResolveTarget
 
         env = NabBuildEnv(requires=["foo"], config=ResolveInputs())
-        env._tmpdir = MagicMock()  # type: ignore[attr-defined]
-        env._venv_path = tmp_path / "venv"  # type: ignore[attr-defined]
-        env._python_executable = tmp_path / "venv" / "bin" / "python"  # type: ignore[attr-defined]
+        env._tmpdir = MagicMock()
+        env._venv_path = tmp_path / "venv"
+        env._python_executable = tmp_path / "venv" / "bin" / "python"
         target = ResolveTarget.for_host()
         fake_result = ResolveResult(
             targets=(target,),
@@ -2330,9 +2340,9 @@ class TestResolveAndDownload:
             requires=["plugin @ https://example.com/plugin-1.0.tar.gz"],
             config=ResolveInputs(),
         )
-        env._tmpdir = MagicMock()  # type: ignore[attr-defined]
-        env._venv_path = tmp_path / "venv"  # type: ignore[attr-defined]
-        env._python_executable = tmp_path / "venv" / "bin" / "python"  # type: ignore[attr-defined]
+        env._tmpdir = MagicMock()
+        env._venv_path = tmp_path / "venv"
+        env._python_executable = tmp_path / "venv" / "bin" / "python"
         wheel_dir = tmp_path / "wheels"
         wheel_dir.mkdir()
         with pytest.raises(BuildEnvError, match="build env resolve"):
@@ -2346,9 +2356,9 @@ class TestResolveAndDownload:
             requires=["setuptools\n>=61"],
             config=ResolveInputs(),
         )
-        env._tmpdir = MagicMock()  # type: ignore[attr-defined]
-        env._venv_path = tmp_path / "venv"  # type: ignore[attr-defined]
-        env._python_executable = tmp_path / "venv" / "bin" / "python"  # type: ignore[attr-defined]
+        env._tmpdir = MagicMock()
+        env._venv_path = tmp_path / "venv"
+        env._python_executable = tmp_path / "venv" / "bin" / "python"
         wheel_dir = tmp_path / "wheels"
         wheel_dir.mkdir()
         with pytest.raises(BuildEnvError, match="build env resolve"):
@@ -2366,9 +2376,9 @@ class TestResolveAndDownload:
         from nab_provider.target import ResolveTarget
 
         env = NabBuildEnv(requires=["foo"], config=ResolveInputs())
-        env._tmpdir = MagicMock()  # type: ignore[attr-defined]
-        env._venv_path = tmp_path / "venv"  # type: ignore[attr-defined]
-        env._python_executable = tmp_path / "venv" / "bin" / "python"  # type: ignore[attr-defined]
+        env._tmpdir = MagicMock()
+        env._venv_path = tmp_path / "venv"
+        env._python_executable = tmp_path / "venv" / "bin" / "python"
         target = ResolveTarget.for_host()
         fake_result = ResolveResult(
             targets=(target,),
@@ -2396,7 +2406,7 @@ class TestResolveAndDownload:
             env._resolve_and_download(wheel_dir)
 
 
-def _no_network(*_a: object, **_k: object) -> object:
+def _no_network(*_a: object, **_k: object) -> NoReturn:
     """Stand in for anything an offline build env must not call."""
     raise AssertionError("offline must not reach the network")
 
@@ -2442,9 +2452,9 @@ class TestBuildEnvMissingExtra:
         )
 
         env = NabBuildEnv(requires=["dummyreq[nope]"], config=ResolveInputs())
-        env._tmpdir = MagicMock()  # type: ignore[attr-defined]
-        env._venv_path = tmp_path / "venv"  # type: ignore[attr-defined]
-        env._python_executable = tmp_path / "venv" / "bin" / "python"  # type: ignore[attr-defined]
+        env._tmpdir = MagicMock()
+        env._venv_path = tmp_path / "venv"
+        env._python_executable = tmp_path / "venv" / "bin" / "python"
         wheel_dir = tmp_path / "wheels"
         wheel_dir.mkdir()
 
@@ -2500,7 +2510,7 @@ class TestBuildEnvOffline:
             requires=requires,
             config=ResolveInputs(),
             offline=True,
-            transport_factory=_no_network,  # type: ignore[arg-type]
+            transport_factory=_no_network,
         )
         wheel_dir = tmp_path / "wheels"
         wheel_dir.mkdir()
@@ -2733,9 +2743,9 @@ class TestResolveAndDownloadSiblingWheels:
         monkeypatch.setattr("nab_project._build.env.download_lock", _fake_download)
 
         env = NabBuildEnv(requires=["demo"], config=ResolveInputs())
-        env._tmpdir = MagicMock()  # type: ignore[attr-defined]
-        env._venv_path = tmp_path / "venv"  # type: ignore[attr-defined]
-        env._python_executable = tmp_path / "venv" / "bin" / "python"  # type: ignore[attr-defined]
+        env._tmpdir = MagicMock()
+        env._venv_path = tmp_path / "venv"
+        env._python_executable = tmp_path / "venv" / "bin" / "python"
 
         wheel_dir = tmp_path / "wheels"
         wheel_dir.mkdir()
@@ -3005,7 +3015,12 @@ class TestDownloadedBuildWheelPython:
         else:
             with env:
                 output = subprocess.check_output(  # noqa: S603 - interpreter created by this test
-                    [env.python_executable, "-c", "import demo; print(demo.MARK)"],
+                    [
+                        env.python_executable,
+                        "-I",
+                        "-c",
+                        "import demo; print(demo.MARK)",
+                    ],
                     text=True,
                 )
                 assert output.strip() == expected
@@ -3835,10 +3850,11 @@ class TestBuildRequirementPythonFallback:
 
     @staticmethod
     def _installed_distributions(env: NabBuildEnv) -> list[tuple[str, str]]:
-        """Read the distributions actually installed in the isolated interpreter."""
+        """List packages installed in the build environment, ignoring PYTHONPATH."""
         output = subprocess.check_output(  # noqa: S603 - interpreter created by this test
             [
                 env.python_executable,
+                "-I",
                 "-c",
                 (
                     "import importlib.metadata as m, json; "
@@ -4500,7 +4516,7 @@ class TestNabBuildEnvLifecycle:
         """
         env = NabBuildEnv(requires=[], config=ResolveInputs())
         env.__exit__(None, None, None)
-        assert env._tmpdir is None  # type: ignore[attr-defined]
+        assert env._tmpdir is None
 
     def test_exit_ignores_cleanup_error_after_success(
         self, monkeypatch: pytest.MonkeyPatch
@@ -4673,7 +4689,7 @@ class TestNabBuildEnvEnterInstall:
         env = NabBuildEnv(requires=["pip"], config=ResolveInputs())
         with pytest.raises(RuntimeError, match="resolve failed"):
             env.__enter__()
-        assert env._tmpdir is None  # type: ignore[attr-defined]
+        assert env._tmpdir is None
 
     def test_enter_wraps_venv_create_oserror(
         self,
@@ -4696,7 +4712,7 @@ class TestNabBuildEnvEnterInstall:
         env = NabBuildEnv(requires=[], config=ResolveInputs())
         with pytest.raises(BuildEnvError, match="build venv"):
             env.__enter__()
-        assert env._tmpdir is None  # type: ignore[attr-defined]
+        assert env._tmpdir is None
 
     def test_enter_wraps_venv_create_valueerror(
         self,
@@ -4712,7 +4728,7 @@ class TestNabBuildEnvEnterInstall:
         env = NabBuildEnv(requires=[], config=ResolveInputs())
         with pytest.raises(BuildEnvError, match="build venv"):
             env.__enter__()
-        assert env._tmpdir is None  # type: ignore[attr-defined]
+        assert env._tmpdir is None
 
     def test_enter_wraps_inner_project_write_oserror(
         self,
@@ -4753,7 +4769,7 @@ class TestNabBuildEnvEnterInstall:
         env = NabBuildEnv(requires=["pip"], config=ResolveInputs())
         with pytest.raises(BuildEnvError, match="could not populate the build env"):
             env.__enter__()
-        assert env._tmpdir is None  # type: ignore[attr-defined]
+        assert env._tmpdir is None
 
 
 class TestInstallWheelsCorruptArtifact:
@@ -4768,7 +4784,7 @@ class TestInstallWheelsCorruptArtifact:
         env = NabBuildEnv(requires=[], config=ResolveInputs())
         venv_path = tmp_path / "venv"
         venv_path.mkdir()
-        env._python_executable = venv_path / "bin" / "python"  # type: ignore[attr-defined]
+        env._python_executable = venv_path / "bin" / "python"
         return env
 
     def _scheme(self, tmp_path: Path) -> dict[str, str]:
@@ -4921,8 +4937,8 @@ class TestBuildEnvHeaderScheme:
         venv_path = tmp_path / "venv"
         venv_path.mkdir()
         (tmp_path / "wheels").mkdir()
-        env._venv_path = venv_path  # type: ignore[attr-defined]
-        env._python_executable = venv_path / "bin" / "python"  # type: ignore[attr-defined]
+        env._venv_path = venv_path
+        env._python_executable = venv_path / "bin" / "python"
 
         wheel = tmp_path / "greenlet-3.2.4-py3-none-any.whl"
         _make_installable_wheel(
@@ -4968,8 +4984,8 @@ class TestBuildEnvFollowUpInstall:
         venv_path = tmp_path / "venv"
         venv_path.mkdir()
         (tmp_path / "wheels").mkdir()
-        env._venv_path = venv_path  # type: ignore[attr-defined]
-        env._python_executable = venv_path / "bin" / "python"  # type: ignore[attr-defined]
+        env._venv_path = venv_path
+        env._python_executable = venv_path / "bin" / "python"
         site = venv_path / "site-packages"
         scheme = {
             "purelib": str(site),
@@ -5009,7 +5025,7 @@ class TestBuildEnvFollowUpInstall:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         env, scheme, site = self._env(tmp_path, monkeypatch)
-        env._scripts_dir = site.parent / "bin"  # type: ignore[attr-defined]
+        env._scripts_dir = site.parent / "bin"
         external_cache = tmp_path / "external-cache"
 
         def import_value() -> str:
@@ -5302,32 +5318,6 @@ _ = sys
 _ = Path
 
 
-class _BuildIndexHandler(SimpleHTTPRequestHandler):
-    """Serve the fixture index without writing access logs."""
-
-    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
-        pass
-
-
-@contextmanager
-def _serve_build_index(root: Path) -> Generator[str, None, None]:
-    """Yield the base URL of a local HTTP index."""
-    root.mkdir(exist_ok=True)
-    server = ThreadingHTTPServer(
-        ("127.0.0.1", 0), partial(_BuildIndexHandler, directory=str(root))
-    )
-    thread = threading.Thread(
-        target=partial(server.serve_forever, poll_interval=0.01), daemon=True
-    )
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}/"
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=5)
-
-
 class _BuildTransport:
     """Record requests and enforce one close on the loop that used the client."""
 
@@ -5373,6 +5363,7 @@ class _BuildTransportFactory:
     "make_transport", [Urllib3AsyncTransport, HttpxAsyncTransport, Httpx2AsyncTransport]
 )
 def test_build_backend_uses_selected_transport_for_nested_and_extra_requirements(
+    build_index_url: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     make_transport: Callable[[], AsyncHttpTransport],
@@ -5401,18 +5392,17 @@ def test_build_backend_uses_selected_transport_for_nested_and_extra_requirements
     )
     factory = _BuildTransportFactory(make_transport)
 
-    with _serve_build_index(index) as url:
-        result = resolve_for_targets(
-            project,
-            make_transport(),
-            targets=(ResolveTarget.for_host(),),
-            inputs=ResolveInputs(
-                indexes=(IndexConfig("fixture", url),),
-                build_requires_depth=1,
-                local_sources=(LocalSource("fake-pkg", str(source)),),
-            ),
-            build_transport_factory=factory,
-        )
+    result = resolve_for_targets(
+        project,
+        make_transport(),
+        targets=(ResolveTarget.for_host(),),
+        inputs=ResolveInputs(
+            indexes=(IndexConfig("fixture", build_index_url),),
+            build_requires_depth=1,
+            local_sources=(LocalSource("fake-pkg", str(source)),),
+        ),
+        build_transport_factory=factory,
+    )
 
     result.raise_for_failure()
     assert set(result.target_results[0].pins) == {"fake-pkg", "click"}
@@ -5439,7 +5429,7 @@ def test_build_backend_uses_selected_transport_for_nested_and_extra_requirements
 
 
 def test_explicit_build_transport_factory_reaches_nested_builds(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    build_index_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(env_mod, "extract_sdist_archive", _unpack_fixture_sdist)
     index = tmp_path / "index"
@@ -5447,22 +5437,21 @@ def test_explicit_build_transport_factory_reaches_nested_builds(
     _make_local_index(index, "basedep", "1.0")
     factory = _BuildTransportFactory(Httpx2AsyncTransport)
 
-    with _serve_build_index(index) as url:
-        config = ResolveInputs(
-            indexes=(IndexConfig("fixture", url),),
-            build_requires_depth=1,
-        )
-        with NabBuildEnv(
-            requires=["buildstub"], config=config, transport_factory=factory
-        ):
-            pass
+    config = ResolveInputs(
+        indexes=(IndexConfig("fixture", build_index_url),),
+        build_requires_depth=1,
+    )
+    with NabBuildEnv(requires=["buildstub"], config=config, transport_factory=factory):
+        pass
 
     assert len(factory.clients) == 4
     assert all(client.closed for client in factory.clients)
 
 
 @pytest.mark.parametrize("failure", ["resolve", "download"])
-def test_build_transport_closes_after_failure(tmp_path: Path, failure: str) -> None:
+def test_build_transport_closes_after_failure(
+    build_index_url: str, tmp_path: Path, failure: str
+) -> None:
     index = tmp_path / "index"
     factory = _BuildTransportFactory(Httpx2AsyncTransport)
     if failure == "download":
@@ -5480,13 +5469,12 @@ def test_build_transport_closes_after_failure(tmp_path: Path, failure: str) -> N
         )
         wheel.unlink()
 
-    with _serve_build_index(index) as url:
-        config = ResolveInputs(indexes=(IndexConfig("fixture", url),))
-        with (
-            pytest.raises((ResolutionError, BuildEnvError)),
-            NabBuildEnv(requires=["basedep"], config=config, transport_factory=factory),
-        ):
-            pytest.fail("the missing requirement or wheel must fail the build")
+    config = ResolveInputs(indexes=(IndexConfig("fixture", build_index_url),))
+    with (
+        pytest.raises((ResolutionError, BuildEnvError)),
+        NabBuildEnv(requires=["basedep"], config=config, transport_factory=factory),
+    ):
+        pytest.fail("the missing requirement or wheel must fail the build")
 
     assert len(factory.clients) == (1 if failure == "resolve" else 2)
     assert all(client.closed for client in factory.clients)

@@ -3,6 +3,7 @@ from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeseri
 from chalk._gen.chalk.common.v1 import column_profile_pb2 as _column_profile_pb2
 from chalk._gen.chalk.protosql.v1 import sql_service_pb2 as _sql_service_pb2
 from chalk._gen.chalk.server.v1 import materialized_aggregate_tiles_pb2 as _materialized_aggregate_tiles_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from chalk._gen.chalk.volume.v1 import volume_pb2 as _volume_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -662,16 +663,20 @@ class ArchiveDatasetRevisionsResponse(_message.Message):
     ) -> None: ...
 
 class DeleteDatasetRequest(_message.Message):
-    __slots__ = ("dataset_id",)
+    __slots__ = ("dataset_id", "dataset_ids")
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    DATASET_IDS_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str
-    def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
+    dataset_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dataset_id: _Optional[str] = ..., dataset_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class DeleteDatasetResponse(_message.Message):
-    __slots__ = ("dataset_id",)
+    __slots__ = ("dataset_id", "dataset_ids")
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    DATASET_IDS_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str
-    def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
+    dataset_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dataset_id: _Optional[str] = ..., dataset_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class MaterializedAggregateTileMeta(_message.Message):
     __slots__ = (
@@ -990,10 +995,12 @@ class DeleteMaterializedAggregateTileResponse(_message.Message):
     def __init__(self, id: _Optional[int] = ...) -> None: ...
 
 class GetDatasetRevisionPreviewRequest(_message.Message):
-    __slots__ = ("revision_id",)
+    __slots__ = ("revision_id", "profiles_only")
     REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    PROFILES_ONLY_FIELD_NUMBER: _ClassVar[int]
     revision_id: str
-    def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
+    profiles_only: bool
+    def __init__(self, revision_id: _Optional[str] = ..., profiles_only: bool = ...) -> None: ...
 
 class GetDatasetRevisionPreviewResponse(_message.Message):
     __slots__ = ("output_preview", "summary", "column_profiles", "profile_status")

@@ -18,8 +18,7 @@ from braindecode.functional import (
     scaled_dot_product_attention,
     sinusoidal_positional_encoding,
 )
-from braindecode.functional.attention import _hpu_lazy
-from braindecode.models.base import EEGModuleMixin
+from braindecode.models.base import EEGModuleMixin, deprecated_forward_kwargs
 
 _DEFAULT_CONV_LAYER_SPEC = (  # downsampling: 128Hz -> 1Hz, receptive field 1.1875s, stride 1s
     (8, 32, 8),
@@ -316,6 +315,10 @@ class _BaseSignalJEPA(EEGModuleMixin, nn.Module):
                 conv_bias=feature_encoder__conv_bias,
                 activation=activation,
             )
+            min_time = 1
+            for _, k, s in reversed(feature_encoder__conv_layers_spec):
+                min_time = (min_time - 1) * s + k
+            self._min_n_times = min_time
 
         if _init_transformer:
             assert channel_locations is not None  # narrowing for type checker
@@ -391,6 +394,14 @@ class SignalJEPA(_BaseSignalJEPA):
     r"""Architecture introduced in signal-JEPA for self-supervised pre-training, Guetschel, P et al (2024) [1]_
 
     :bdg-success:`Convolution` :bdg-dark-line:`Channel` :bdg-danger:`Foundation Model`
+
+    .. figure:: ../_static/model/signal_jepa_arch.png
+       :align: center
+       :alt: SignalJEPA architecture
+       :width: 1000px
+
+       S-JEPA pre-training procedure with the local encoder, contextual encoder,
+       EMA target encoder and predictor, reproduced from [1]_ (CC BY 4.0).
 
     This model is not meant for classification but for SSL pre-training.
     Its output shape depends on the input shape.
@@ -480,6 +491,9 @@ class SignalJEPA(_BaseSignalJEPA):
         In 9th Graz Brain-Computer Interface Conference, https://www.doi.org/10.3217/978-3-99161-014-4-003
     """
 
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: pos_encoder.pos_encoder_spat.weight
+
     def __init__(
         self,
         n_outputs=None,
@@ -541,12 +555,13 @@ class SignalJEPA(_BaseSignalJEPA):
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         self.final_layer = nn.Identity()
 
+    @deprecated_forward_kwargs(X="x")
     def forward(
-        self, X: torch.Tensor, return_features: bool = False
+        self, x: torch.Tensor, return_features: bool = False
     ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
-        local_features = self.feature_encoder(X)  # type: ignore
+        local_features = self.feature_encoder(x)  # type: ignore
         pos_encoding = self.pos_encoder(local_features)  # type: ignore
-        local_features += pos_encoding  # type: ignore
+        local_features = local_features + pos_encoding  # type: ignore
         contextual_features = self._encode(local_features)  # type: ignore
         if return_features:
             out: Dict[str, Optional[torch.Tensor]] = {
@@ -645,6 +660,9 @@ class SignalJEPA_Contextual(_BaseSignalJEPA):
         In 9th Graz Brain-Computer Interface Conference, https://www.doi.org/10.3217/978-3-99161-014-4-003
     """
 
+    _time_axis = "fixed"  # fixed: final_layer.linear.weight
+    _channel_axis = "fixed"  # fixed: final_layer.spat_conv.weight
+
     def __init__(
         self,
         n_outputs=None,
@@ -728,12 +746,13 @@ class SignalJEPA_Contextual(_BaseSignalJEPA):
             n_spat_filters=self._clf_n_spat_filters,
         )
 
+    @deprecated_forward_kwargs(X="x")
     def forward(
-        self, X: torch.Tensor, return_features: bool = False
+        self, x: torch.Tensor, return_features: bool = False
     ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
-        local_features = self.feature_encoder(X)  # type: ignore
+        local_features = self.feature_encoder(x)  # type: ignore
         pos_encoding = self.pos_encoder(local_features)  # type: ignore
-        local_features += pos_encoding  # type: ignore
+        local_features = local_features + pos_encoding  # type: ignore
         contextual_features = self._encode(local_features)  # type: ignore
         if return_features:
             out: Dict[str, Optional[torch.Tensor]] = {
@@ -903,6 +922,9 @@ class SignalJEPA_PostLocal(_BaseSignalJEPA):
         In 9th Graz Brain-Computer Interface Conference, https://www.doi.org/10.3217/978-3-99161-014-4-003
     """
 
+    _time_axis = "fixed"  # fixed: final_layer.linear.weight
+    _channel_axis = "fixed"  # fixed: final_layer.spat_conv.weight
+
     def __init__(
         self,
         n_outputs=None,
@@ -1042,10 +1064,11 @@ class SignalJEPA_PostLocal(_BaseSignalJEPA):
         new_model.feature_encoder = deepcopy(feature_encoder)
         return new_model
 
+    @deprecated_forward_kwargs(X="x")
     def forward(
-        self, X: torch.Tensor, return_features: bool = False
+        self, x: torch.Tensor, return_features: bool = False
     ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
-        local_features = self.feature_encoder(X)  # type: ignore[misc]
+        local_features = self.feature_encoder(x)  # type: ignore[misc]
         if return_features:
             out: Dict[str, Optional[torch.Tensor]] = {
                 "features": local_features,
@@ -1138,6 +1161,9 @@ class SignalJEPA_PreLocal(_BaseSignalJEPA):
         S-JEPA: towards seamless cross-dataset transfer through dynamic spatial attention.
         In 9th Graz Brain-Computer Interface Conference, https://www.doi.org/10.3217/978-3-99161-014-4-003
     """
+
+    _time_axis = "fixed"  # fixed: final_layer.1.weight
+    _channel_axis = "fixed"  # fixed: spatial_conv.1.weight
 
     _feature_encoder_channels: str = "n_spat_filters"
 
@@ -1283,11 +1309,12 @@ class SignalJEPA_PreLocal(_BaseSignalJEPA):
         new_model.feature_encoder = deepcopy(feature_encoder)
         return new_model
 
+    @deprecated_forward_kwargs(X="x")
     def forward(
-        self, X: torch.Tensor, return_features: bool = False
+        self, x: torch.Tensor, return_features: bool = False
     ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
-        X = self.spatial_conv(X)
-        local_features = self.feature_encoder(X)  # type: ignore[misc]
+        x = self.spatial_conv(x)
+        local_features = self.feature_encoder(x)  # type: ignore[misc]
         if return_features:
             out: Dict[str, Optional[torch.Tensor]] = {
                 "features": local_features,
@@ -1392,6 +1419,13 @@ class _ConvFeatureEncoder(nn.Sequential):
         is_group_norm=False,
         conv_bias=False,
     ):
+        """Convolution, dropout, optional normalisation and activation.
+
+        ``(batch * channels, in_channels, time)`` becomes
+        ``(batch * channels, out_channels, time_out)``. ``is_group_norm`` gives every
+        output channel its own group, so each is normalised over time;
+        ``is_layer_norm`` normalises over the channels at each time step.
+        """
         assert not (is_layer_norm and is_group_norm), (
             "layer norm and group norm are exclusive"
         )
@@ -1419,7 +1453,7 @@ class _ConvFeatureEncoder(nn.Sequential):
             return nn.Sequential(
                 conv,
                 nn.Dropout(p=drop_prob),
-                _GroupNorm(output_channels, output_channels, affine=True),
+                nn.GroupNorm(output_channels, output_channels, affine=True),
                 activation(),
             )
         else:
@@ -1429,28 +1463,8 @@ class _ConvFeatureEncoder(nn.Sequential):
         return _n_times_out(self.conv_layers_spec, n_times)
 
 
-class _GroupNorm(nn.GroupNorm):
-    """``nn.GroupNorm``; in HPU eager mode written out with mean and variance.
-
-    In HPU eager mode the backward of torch's group norm compiles new graphs at
-    every call (about 0.2 s per call on the feature encoder's first block);
-    the same normalisation from mean/var ops runs from cached kernels.
-    Elsewhere (CPU, CUDA, HPU lazy) this is ``F.group_norm``.
-    """
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if not torch.jit.is_scripting() and x.device.type == "hpu" and not _hpu_lazy():
-            xg = x.reshape(x.shape[0], self.num_groups, -1)
-            mean = xg.mean(-1, keepdim=True)
-            var = xg.var(-1, unbiased=False, keepdim=True)
-            x = ((xg - mean) * torch.rsqrt(var + self.eps)).reshape(x.shape)
-            if self.affine:
-                shape = (1, -1) + (1,) * (x.dim() - 2)
-                x = x * self.weight.reshape(shape) + self.bias.reshape(shape)
-            return x
-        return nn.functional.group_norm(
-            x, self.num_groups, self.weight, self.bias, self.eps
-        )
+# Full-model pickles use the former class name in this module.
+_GroupNorm = nn.GroupNorm
 
 
 class _ChannelEmbedding(nn.Embedding):

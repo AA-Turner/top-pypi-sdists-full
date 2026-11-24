@@ -13,15 +13,9 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from chalk._gen.chalk.auth.v1 import (
-    permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2,
-)
-from chalk._gen.chalk.common.v1 import (
-    tag_filter_pb2 as chalk_dot_common_dot_v1_dot_tag__filter__pb2,
-)
-from chalk._gen.chalk.container.v1 import (
-    service_pb2 as chalk_dot_container_dot_v1_dot_service__pb2,
-)
+from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.common.v1 import tag_filter_pb2 as chalk_dot_common_dot_v1_dot_tag__filter__pb2
+from chalk._gen.chalk.container.v1 import service_pb2 as chalk_dot_container_dot_v1_dot_service__pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as chalk_dot_flags_dot_v1_dot_flags__pb2
 from google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
@@ -36,9 +30,7 @@ DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(
-    DESCRIPTOR, "chalk.scalinggroup.v1.service_pb2", _globals
-)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "chalk.scalinggroup.v1.service_pb2", _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["DESCRIPTOR"]._options = None
     _globals[
@@ -51,90 +43,54 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_SCALINGGROUPRESPONSE_METADATAENTRY"]._options = None
     _globals["_SCALINGGROUPRESPONSE_METADATAENTRY"]._serialized_options = b"8\001"
     _globals["_SCALINGGROUPRESPONSE"].fields_by_name["created_by"]._options = None
-    _globals["_SCALINGGROUPRESPONSE"].fields_by_name[
-        "created_by"
-    ]._serialized_options = b"\340A\003"
+    _globals["_SCALINGGROUPRESPONSE"].fields_by_name["created_by"]._serialized_options = b"\340A\003"
     _globals["_GETSCALINGGROUPREQUEST"].fields_by_name["visibility"]._options = None
-    _globals["_GETSCALINGGROUPREQUEST"].fields_by_name[
-        "visibility"
-    ]._serialized_options = b"\030\001"
+    _globals["_GETSCALINGGROUPREQUEST"].fields_by_name["visibility"]._serialized_options = b"\030\001"
     _globals["_LISTSCALINGGROUPSFILTERS_TAGSENTRY"]._options = None
     _globals["_LISTSCALINGGROUPSFILTERS_TAGSENTRY"]._serialized_options = b"8\001"
     _globals["_LISTSCALINGGROUPSFILTERS"].fields_by_name["visibility"]._options = None
-    _globals["_LISTSCALINGGROUPSFILTERS"].fields_by_name[
-        "visibility"
-    ]._serialized_options = b"\030\001"
+    _globals["_LISTSCALINGGROUPSFILTERS"].fields_by_name["visibility"]._serialized_options = b"\030\001"
     _globals["_LISTSCALINGGROUPSFILTERS"].fields_by_name["tags"]._options = None
-    _globals["_LISTSCALINGGROUPSFILTERS"].fields_by_name[
-        "tags"
-    ]._serialized_options = b"\030\001"
+    _globals["_LISTSCALINGGROUPSFILTERS"].fields_by_name["tags"]._serialized_options = b"\030\001"
     _globals["_SCALINGGROUPREVISIONRESPONSE_METADATAENTRY"]._options = None
-    _globals[
-        "_SCALINGGROUPREVISIONRESPONSE_METADATAENTRY"
-    ]._serialized_options = b"8\001"
-    _globals["_SCALINGGROUPREVISIONRESPONSE"].fields_by_name[
-        "created_by"
-    ]._options = None
-    _globals["_SCALINGGROUPREVISIONRESPONSE"].fields_by_name[
-        "created_by"
-    ]._serialized_options = b"\340A\003"
-    _globals["_LISTSCALINGGROUPREVISIONSFILTERS"].fields_by_name[
-        "visibility"
-    ]._options = None
-    _globals["_LISTSCALINGGROUPREVISIONSFILTERS"].fields_by_name[
-        "visibility"
-    ]._serialized_options = b"\030\001"
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "CreateScalingGroup"
-    ]._options = None
+    _globals["_SCALINGGROUPREVISIONRESPONSE_METADATAENTRY"]._serialized_options = b"8\001"
+    _globals["_SCALINGGROUPREVISIONRESPONSE"].fields_by_name["created_by"]._options = None
+    _globals["_SCALINGGROUPREVISIONRESPONSE"].fields_by_name["created_by"]._serialized_options = b"\340A\003"
+    _globals["_LISTSCALINGGROUPREVISIONSFILTERS"].fields_by_name["visibility"]._options = None
+    _globals["_LISTSCALINGGROUPREVISIONSFILTERS"].fields_by_name["visibility"]._serialized_options = b"\030\001"
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["CreateScalingGroup"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "CreateScalingGroup"
     ]._serialized_options = b"\200}?\222}\001\014\222\323\016S\n\026scaling_groups_enabled\0229This action is not enabled. Please contact Chalk Support."
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "UpdateScalingGroup"
-    ]._options = None
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["UpdateScalingGroup"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "UpdateScalingGroup"
     ]._serialized_options = b"\200}?\222}\001\016\222\323\016S\n\026scaling_groups_enabled\0229This action is not enabled. Please contact Chalk Support."
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "GetScalingGroup"
-    ]._options = None
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["GetScalingGroup"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "GetScalingGroup"
     ]._serialized_options = b"\200}>\222}\001\013"
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "ListScalingGroups"
-    ]._options = None
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["ListScalingGroups"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "ListScalingGroups"
     ]._serialized_options = b"\200}>\222}\001\013"
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "ListScalingGroupReplicas"
-    ]._options = None
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["ListScalingGroupReplicas"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "ListScalingGroupReplicas"
     ]._serialized_options = b"\200}>\222}\001\013"
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "DeleteScalingGroup"
-    ]._options = None
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["DeleteScalingGroup"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "DeleteScalingGroup"
     ]._serialized_options = b"\200}?\222}\001\016"
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "GetScalingGroupRevision"
-    ]._options = None
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["GetScalingGroupRevision"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "GetScalingGroupRevision"
     ]._serialized_options = b"\200}>\222}\001\013"
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "ListScalingGroupRevisions"
-    ]._options = None
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["ListScalingGroupRevisions"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "ListScalingGroupRevisions"
     ]._serialized_options = b"\200}>\222}\001\013"
-    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
-        "BatchUpdateScalingGroupStatus"
-    ]._options = None
+    _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name["BatchUpdateScalingGroupStatus"]._options = None
     _globals["_SCALINGGROUPMANAGERSERVICE"].methods_by_name[
         "BatchUpdateScalingGroupStatus"
     ]._serialized_options = b"\200}!"

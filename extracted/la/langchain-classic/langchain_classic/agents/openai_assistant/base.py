@@ -8,6 +8,7 @@ from time import sleep
 from typing import (
     TYPE_CHECKING,
     Any,
+    Self,
 )
 
 from langchain_core.agents import AgentAction, AgentFinish
@@ -17,7 +18,7 @@ from langchain_core.runnables import RunnableConfig, RunnableSerializable, ensur
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import BaseModel, Field, model_validator
-from typing_extensions import Self, override
+from typing_extensions import override
 
 if TYPE_CHECKING:
     import openai
@@ -150,7 +151,7 @@ class OpenAIAssistantRunnable(RunnableSerializable[dict, OutputType]):
             instructions="You are a personal math tutor. "
             "Write and run code to answer math questions.",
             tools=[{"type": "code_interpreter"}],
-            model="gpt-4-1106-preview",
+            model="gpt-5.5",
         )
         output = interpreter_assistant.invoke(
             {"content": "What's 10 - 4 raised to the 2.7"}
@@ -170,7 +171,7 @@ class OpenAIAssistantRunnable(RunnableSerializable[dict, OutputType]):
             instructions="You are a personal math tutor. "
             "Write and run code to answer math questions.",
             tools=tools,
-            model="gpt-4-1106-preview",
+            model="gpt-5.5",
             as_agent=True,
         )
 
@@ -192,7 +193,7 @@ class OpenAIAssistantRunnable(RunnableSerializable[dict, OutputType]):
             instructions="You are a personal math tutor. "
             "Write and run code to answer math questions.",
             tools=tools,
-            model="gpt-4-1106-preview",
+            model="gpt-5.5",
             as_agent=True,
         )
 

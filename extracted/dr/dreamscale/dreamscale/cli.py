@@ -273,6 +273,39 @@ def _trace_images_option():
     )
 
 
+def _record_option():
+    return typer.Option(
+        False,
+        "--record",
+        help="Capture each episode to local LeRobot v3.0 spool and upload in the background.",
+    )
+
+
+def _record_dataset_option():
+    return typer.Option(
+        None,
+        "--record-dataset",
+        help="Target dataset ID or slug for recorded episodes (implies --record; "
+        "optional when running a Policy :live/:staging address).",
+    )
+
+
+def _record_dir_option():
+    return typer.Option(
+        "--record-dir",
+        help="Local spool directory for recorded episodes "
+        "(implies --record and keeps local copies).",
+    )
+
+
+def _teleop_option():
+    return typer.Option(
+        None,
+        "--teleop",
+        help="Live clutch takeover device (YAM: gello or quest; SO-101: so101-leader).",
+    )
+
+
 def _effort_option():
     return typer.Option(
         None,
@@ -295,8 +328,8 @@ def _max_cost_option():
 _POLICY_OPTIONS = (
     "mode", "max_actions", "keep_warm", "region", "provider", "rtc", "checkpoint", "context",
     "action_smoothing", "smoothing_new_weight", "smoothing_correction_steps",
-    "smoothing_reference_speed", "smoothing_time_scale", "trace_dir", "trace_images", "hud",
-    "hud_job",
+    "smoothing_reference_speed", "smoothing_time_scale", "trace_dir", "trace_images",
+    "record", "record_dataset", "record_dir", "teleop", "hud", "hud_job",
     "steady_send", "steady_send_ms",
 )
 
@@ -402,6 +435,12 @@ robots_app.add_typer(ur_app, name="ur")
 robots_app.add_typer(xarm7_app, name="xarm7")  # XARM7.experimental
 robots_app.add_typer(openarm_app, name="openarm")  # OPENARM.experimental
 app.add_typer(run_app, name="run")
+record_app = _group("Record teleoperated demos locally and upload to Dreamscale (no cloud model).")
+record_app.callback()(_show_group_help)
+app.add_typer(record_app, name="record")
+eval_app = _group("Evaluate real-robot policies, run blind A/B trials, and inspect scoreboards.")
+eval_app.callback()(_show_group_help)
+app.add_typer(eval_app, name="eval")
 app.add_typer(robots_app, name="robots")
 app.add_typer(models_app, name="models")
 app.add_typer(sessions_app, name="sessions")
@@ -778,6 +817,11 @@ def sim(
     ),
     json_flag: bool = typer.Option(False, "--json", hidden=True),
     artifacts: Annotated[Path | None, typer.Option("--artifacts", hidden=True)] = None,
+    sim_mode: str | None = typer.Option(
+        None, "--mode",
+        help="sync (the simulation waits for each chunk) or async (it keeps running while the "
+        "next chunk is planned), for a model that runs both (default: sync).",
+    ),
 ) -> None:
     """Run a task on a simulated benchmark."""
     non_interactive = non_interactive or json_flag
@@ -878,8 +922,30 @@ def sim(
         from dreamscale import errors
 
         _ensure_extras(["sim"], label="LIBERO", setup_command=errors.COMMAND_SIM)
+    from dreamscale.sim.sana_libero import is_sana_libero
     from dreamscale.sim.sim_arm import _sim_contract, run_sim
     from dreamscale.sim.verne_libero import is_verne_libero
+
+    if sim_mode is not None and not (benchmark == "libero" and is_sana_libero(model)):
+        raise typer.BadParameter(f"--mode doesn't apply to {model} on {benchmark}",
+                                 param_hint="--mode")
+    if benchmark == "libero" and is_sana_libero(model):
+        # SANA-Robot-AR LIBERO: the authors' loop on an episode its unit keeps, its absolute
+        # end-effector targets through LIBERO's controller, sync or async (memory RTC).
+        from dreamscale.sim.sana_libero import run_sana_libero
+
+        if not str(task_id).isdigit():
+            raise typer.BadParameter("--task-id is a task number", param_hint="--task-id")
+        if sim_mode not in (None, "sync", "async"):
+            raise typer.BadParameter("--mode is sync or async", param_hint="--mode")
+        _run(
+            run_sana_libero,
+            model=model, task_suite=task_suite, task_id=int(task_id), task_seed=task_seed,
+            mode=sim_mode or "sync",
+            max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
+            region=region, json_output=non_interactive, output_root=output_root, view=view,
+        )
+        return
 
     if benchmark == "libero" and is_verne_libero(model):
         # Verne V0.5 LIBERO (a catalog model on Verne deployments): upstream's own loop, its
@@ -2363,6 +2429,10 @@ def _robot_run_command(embodiment):
         ("smoothing_time_scale", float | None, _smoothing_time_scale_option()),
         ("trace_dir", Annotated[Path | None, _trace_dir_option()], None),
         ("trace_images", bool, _trace_images_option()),
+        ("record", bool, _record_option()),
+        ("record_dataset", str | None, _record_dataset_option()),
+        ("record_dir", Annotated[Path | None, _record_dir_option()], None),
+        ("teleop", str | None, _teleop_option()),
         ("hud", bool, _hud_options()[0]),
         ("hud_job", str | None, _hud_options()[1]),
         ("inspect_robots", bool, typer.Option(
@@ -2476,6 +2546,11 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
     inspect_robots, task, epochs, log_dir = (
         options.pop(key) for key in ("inspect_robots", "task", "epochs", "log_dir")
     )
+    record, record_dataset, record_dir = (
+        options.pop(key) for key in ("record", "record_dataset", "record_dir")
+    )
+    teleop_spec = options.pop("teleop")
+    recording_enabled = bool(record or record_dataset is not None or record_dir is not None)
     steady_send = _steady_send(options.pop("steady_send"), options.pop("steady_send_ms"))
     if not inspect_robots and (task is not None or epochs is not None or log_dir is not None):
         raise typer.BadParameter("--task, --epochs and --log-dir need --inspect-robots.")
@@ -2517,13 +2592,20 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
     _ensure_extras(
         [
             *extras, *(["trace"] if options["trace_dir"] else []), *(["hud"] if hud else []),
+            *(["record"] if recording_enabled else []),
             *(["inspect-robots"] if inspect_robots else []),
         ],
         label=embodiment.label + (" and HUD" if hud else "")
+        + (" and recording" if recording_enabled else "")
         + (" and Inspect Robots" if inspect_robots else ""),
         setup_command=embodiment.setup_command,
     )
     if hud:
+        typer.secho(
+            "Note: --hud is deprecated in favor of native --record and `dreamscale eval`.",
+            err=True,
+            fg="yellow",
+        )
         _ensure_hud_setup()
     options["keep_warm"] = _keep_warm(model, options["keep_warm"], options["checkpoint"])
     from dreamscale.attended.output import ProgressPrinter
@@ -2531,11 +2613,35 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
     verbose = options.pop("verbose")
     print_fn = ProgressPrinter(verbose=verbose, robot=embodiment.name)
     recorder = None
+    episode_capture = None
+    teleop_device = None
     try:
+        if teleop_spec is not None:
+            from dreamscale.teleop import create_teleop_device
+
+            try:
+                teleop_device = create_teleop_device(
+                    teleop_spec, embodiment_name=embodiment.name
+                )
+            except ValueError as exc:
+                raise typer.BadParameter(str(exc), param_hint="'--teleop'") from exc
         if inspect_robots:
             instruction, recorder = _inspect_robots_recorder(
                 embodiment, model=model, instruction=instruction, task=task, epochs=epochs,
                 log_dir=log_dir, options=options, print_fn=print_fn,
+            )
+        if recording_enabled:
+            from dreamscale.capture import CaptureManager
+            from dreamscale.config import load_config
+
+            cfg = load_config()
+            episode_capture = CaptureManager(
+                spool_root=record_dir,
+                dataset_ref=record_dataset,
+                api_url=cfg.control_plane_url if cfg.api_key else None,
+                api_key=cfg.api_key,
+                keep_local=record_dir is not None,
+                print_fn=print_fn,
             )
         _run_robot_command(
             embodiment.load(embodiment.run_policy),
@@ -2545,10 +2651,16 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
             **({"config_path": config} if config is not None else {}),
             **options,
             **({"recorder": recorder} if recorder is not None else {}),
+            **({"episode_capture": episode_capture} if episode_capture is not None else {}),
+            **({"teleop_device": teleop_device} if teleop_device is not None else {}),
             **({"steady_send": steady_send} if steady_send is not None else {}),
             print_fn=print_fn,
         )
     finally:
+        if teleop_device is not None:
+            teleop_device.close()
+        if episode_capture is not None:
+            episode_capture.close(drain_timeout_s=15.0)
         print_fn.close()
 
 
@@ -2576,6 +2688,82 @@ def _inspect_robots_recorder(embodiment, *, model, instruction, task, epochs, lo
     return plan.instructions, job
 
 
+def _robot_record_command(embodiment):
+    """`dreamscale record <robot>`: cold-start teleop demo capture without cloud inference."""
+    default_teleop = "gello" if embodiment.name == "yam" else "so101-leader"
+
+    def command(
+        task: str = typer.Option(
+            "", "--task", "--instruction", help="Task description stored on each episode.",
+        ),
+        teleop: str = typer.Option(
+            default_teleop,
+            "--teleop",
+            help="Teleop device (YAM: gello or quest; SO-101: so101-leader).",
+        ),
+        dataset: str | None = typer.Option(
+            None,
+            "--dataset",
+            help="Target Dreamscale dataset ID or slug to upload episodes into.",
+        ),
+        record_dir: Annotated[
+            Path | None,
+            typer.Option(
+                "--dir",
+                help="Local spool directory (keeps local LeRobot v3.0 files after upload).",
+            ),
+        ] = None,
+        episodes: int = typer.Option(
+            1, "--episodes", min=1, help="Number of demonstrations to record.",
+        ),
+        max_actions: int | None = typer.Option(
+            None, "--max-actions", min=1, help="Maximum frames per episode.",
+        ),
+        fps: float = typer.Option(
+            30.0, "--fps", min=1.0, max=120.0, help="Recording control rate in Hz.",
+        ),
+        config: Annotated[
+            Path | None,
+            typer.Option("--config", help="Robot rig config file (default: robot's own)."),
+        ] = None,
+    ) -> None:
+        from dreamscale.teleop import create_teleop_device, run_robot_record
+
+        if config is not None and not embodiment.rig_config:
+            raise typer.BadParameter(
+                f"--config applies to robots with a rig file, not {embodiment.name}.",
+                param_hint="'--config'",
+            )
+        extras = [*list(embodiment.load(embodiment.extras)()), "record"]
+        _ensure_extras(
+            extras,
+            label=f"{embodiment.label} recording",
+            setup_command=embodiment.setup_command,
+        )
+        try:
+            teleop_device = create_teleop_device(
+                teleop, embodiment_name=embodiment.name, always_engaged=True,
+            )
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc), param_hint="'--teleop'") from exc
+        _run(
+            run_robot_record,
+            embodiment_name=embodiment.name,
+            teleop=teleop_device,
+            task=task,
+            dataset_ref=dataset,
+            record_dir=record_dir,
+            episodes=episodes,
+            max_actions=max_actions,
+            fps=fps,
+            config_path=config,
+        )
+
+    command.__name__ = f"record_{embodiment.name}_command"
+    command.__doc__ = f"Record teleoperated demonstrations on {embodiment.display_label}."
+    return command
+
+
 def _register_robot_commands() -> None:
     from dreamscale.embodiments import EMBODIMENTS
 
@@ -2583,9 +2771,188 @@ def _register_robot_commands() -> None:
         run_app.command(name, cls=SteadySendCommand, hidden=embodiment.hidden)(
             _robot_run_command(embodiment)
         )
+        if name in {"yam", "so101"}:
+            record_app.command(name, hidden=embodiment.hidden)(
+                _robot_record_command(embodiment)
+            )
 
 
 _register_robot_commands()
+
+
+def _eval_client():
+    from dreamscale import errors
+    from dreamscale.config import load_config
+    from dreamscale.evals import EvalClient
+
+    cfg = load_config()
+    if not cfg.api_key:
+        raise errors.DreamscaleError(
+            errors.ErrorInfo(
+                code="not_authenticated",
+                problem="Not signed in.",
+                cause="Real-robot evaluation requires a Dreamscale API key.",
+                fix="Run `dreamscale login` or set DREAMSCALE_API_KEY.",
+            )
+        )
+    return EvalClient(api_url=cfg.control_plane_url, api_key=cfg.api_key)
+
+
+@eval_app.command("ab")
+def eval_ab(
+    policy: str = typer.Argument(..., help="Policy ref (<org>/<slug>, slug, or pol_… ID)."),
+    robot: str = typer.Option("yam", "--robot", help="Robot embodiment (yam, so101, franka, …)."),
+    candidate: int | None = typer.Option(
+        None, "--candidate", min=1, help="Candidate version number (default: policy's :staging).",
+    ),
+    baseline: int | None = typer.Option(
+        None, "--baseline", min=1, help="Baseline version number (default: policy's :live).",
+    ),
+    trials: int = typer.Option(
+        20, "--trials", min=2, max=1000, help="Total balanced randomized A/B trials.",
+    ),
+    task: str = typer.Option("", "--task", "--instruction", help="Task prompt for each trial."),
+    max_actions: int | None = typer.Option(
+        None, "--max-actions", min=1, help="Maximum actions per trial.",
+    ),
+    teleop: str | None = _teleop_option(),
+    config: Annotated[
+        Path | None,
+        typer.Option("--config", help="Robot rig config file (default: robot's own)."),
+    ] = None,
+) -> None:
+    """Run a blind randomized A/B evaluation between live and candidate policy versions."""
+    import time
+
+    from dreamscale.embodiments import EMBODIMENTS
+    from dreamscale.evals import TrialExecution, run_blind_eval
+
+    embodiment = EMBODIMENTS.get(robot.strip().lower())
+    if embodiment is None:
+        raise typer.BadParameter(
+            f"Unknown robot '{robot}'. Choose one of: {', '.join(sorted(EMBODIMENTS))}."
+        )
+    client = _eval_client()
+    try:
+        session = client.create_session(
+            mode="blind_ab",
+            policy_ref=policy,
+            slot_a_version=baseline,
+            slot_b_version=candidate,
+            target_trials=trials,
+            task=task,
+            robot_id=embodiment.name,
+        )
+        typer.echo(
+            f"Started blind A/B {session['id']} ({session['target_trials']} trials). "
+            "Model identity stays hidden until the final trial completes."
+        )
+
+        def _execute_trial(dep_id: str, trial_task: str, _num: int, _total: int) -> TrialExecution:
+            t0 = time.monotonic()
+            default_model = (
+                embodiment.deployment_models[0] if embodiment.deployment_models else "pi0.5"
+            )
+            run_kwargs: dict = {
+                "model": default_model,
+                "checkpoint": dep_id,
+                "instruction": trial_task or task or "Execute the task",
+                "max_actions": max_actions,
+            }
+            if config is not None and embodiment.rig_config:
+                run_kwargs["config_path"] = config
+            if teleop is not None:
+                from dreamscale.teleop import create_teleop_device
+
+                run_kwargs["teleop_device"] = create_teleop_device(
+                    teleop, embodiment_name=embodiment.name
+                )
+            _run_robot_command(embodiment.load(embodiment.run_policy), **run_kwargs)
+            elapsed = max(0.0, time.monotonic() - t0)
+            return TrialExecution(autonomous_seconds=elapsed, cycle_seconds=elapsed)
+
+        run_blind_eval(
+            client,
+            session_id=session["id"],
+            run_trial=_execute_trial,
+            robot_id=embodiment.name,
+            print_fn=typer.echo,
+        )
+    finally:
+        client.close()
+
+
+@eval_app.command("list")
+def eval_list(
+    policy: str | None = typer.Option(None, "--policy", help="Filter by policy ref."),
+) -> None:
+    """List real-robot evaluation sessions."""
+    client = _eval_client()
+    try:
+        sessions = client.list_sessions(policy_ref=policy)
+        if not sessions:
+            typer.echo("No evaluation sessions yet.")
+            return
+        for s in sessions:
+            fallback = "blinded" if s["blinded"] else s["status"]
+            verdict = (s.get("summary") or {}).get("verdict") or fallback
+            typer.echo(
+                f"{s['id']}  {s['status']:<9}  {s['completed_trials']}/{s['target_trials']}  "
+                f"{verdict:<14}  {s.get('title') or s['mode']}"
+            )
+    finally:
+        client.close()
+
+
+@eval_app.command("show")
+def eval_show(
+    eval_id: str = typer.Argument(..., help="Eval session ID (evl_…)."),
+    reveal: bool = typer.Option(False, "--reveal", help="Reveal results if still active."),
+) -> None:
+    """Show details and side-by-side summary for one evaluation session."""
+    from dreamscale.evals import format_eval_summary
+
+    client = _eval_client()
+    try:
+        session = client.reveal_session(eval_id) if reveal else client.get_session(eval_id)
+        for line in format_eval_summary(session):
+            typer.echo(line)
+    finally:
+        client.close()
+
+
+@eval_app.command("scoreboard")
+def eval_scoreboard(
+    policy: str = typer.Argument(..., help="Policy ref (<org>/<slug>, slug, or pol_… ID)."),
+) -> None:
+    """Print real-robot version metrics for a Policy."""
+    client = _eval_client()
+    try:
+        board = client.policy_scoreboard(policy)
+        typer.echo(f"Policy scoreboard: {board['slug']}")
+        for ver in board.get("versions") or []:
+            tag = " :live" if ver["is_live"] else (" :staging" if ver["is_staging"] else "")
+            sr = (
+                f"{ver['success_rate'] * 100:.1f}%"
+                if ver.get("success_rate") is not None
+                else "n/a"
+            )
+            tk = (
+                f"{ver['mean_takeovers']:.2f}/ep"
+                if ver.get("mean_takeovers") is not None
+                else "n/a"
+            )
+            cyc = (
+                f"{ver['mean_cycle_seconds']:.1f}s"
+                if ver.get("mean_cycle_seconds") is not None
+                else "n/a"
+            )
+            typer.echo(
+                f"  v{ver['version']}{tag:<9}  trials={ver['trials']:<4}  "
+                f"success={sr:<6}  takeovers={tk:<8}  cycle={cyc}"
+            )
+    finally:
+        client.close()
 
 
 if __name__ == "__main__":

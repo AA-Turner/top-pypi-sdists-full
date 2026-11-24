@@ -162,6 +162,8 @@ def test_flipped_translator_reproduces_golden(variant_key: str) -> None:
             model=payload["model"],
             messages=[UnifiedMessage(role="user", content=[TextContent(text="hi")])],
             **case["config"],
+            # A golden case is an agent's SAVED settings: see ``test_chat_param_golden.outbound_for_case``.
+            authored_settings=dict(case["config"]),
         )
         request = translator.build_request(config, profile)
         got = extract(request)

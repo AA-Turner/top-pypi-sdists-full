@@ -67,6 +67,9 @@ class TaskCreateRequest(BaseModel):
     )
     agent_task: AgentTaskCreate | None = None
     trigger: TriggerCreate | None = None
+    #: The machine the task runs on (``sch_task.metadata.machine_id``); the host's runner wakes
+    #: it as the task's owner. None = the host's default (no machine).
+    machine_id: str | None = Field(default=None, min_length=1, max_length=64)
     force: bool = Field(
         default=False,
         description=(
@@ -91,6 +94,8 @@ class TaskPatchRequest(BaseModel):
     enabled: bool | None = None
     expires_at: datetime | None = None
     tags: list[str] | None = None
+    #: Set, change (an id) or clear (explicit null) ``metadata.machine_id``; omitted = untouched.
+    machine_id: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class TaskResponse(BaseModel):

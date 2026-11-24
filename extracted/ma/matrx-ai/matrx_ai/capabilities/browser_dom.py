@@ -39,7 +39,9 @@ from matrx_ai.tools.specs import InlineToolSpec, RegisteredToolSpec, ToolSpec
 DesktopBridgeStatus = Literal["native", "http", "none"]
 SurfaceMode = Literal["assistant", "pilot"]
 PermissionMode = Literal["ask", "act"]
-TabStatus = Literal["loading", "complete"]
+# The extension sends every value of its own union (build-browser-dom-state.ts `tab_status`):
+# `closed` once the turn's tab is gone.
+TabStatus = Literal["loading", "complete", "closed"]
 
 
 class BrowserDomPayload(BaseModel):
@@ -106,6 +108,9 @@ class BrowserDomPayload(BaseModel):
 _MATRX_EXTEND_SURFACE = "matrx-extend.browser"
 _CHROME_EXTENSION_EXECUTOR = "chrome-extension"
 _NS_PREFIX = "matrx-extend:"
+# ``tool.definition.tags`` entry that puts a chrome-extension tool in every browser run from the
+# first turn. The knob for the core browsing kit; everything else loads by category.
+ALWAYS_ON_TAG = "always-on"
 
 
 # ---------------------------------------------------------------------------
@@ -180,12 +185,17 @@ def _inline_spec_from_registry(local_name: str) -> ToolSpec | None:
 def _build_auto_load_specs() -> tuple[ToolSpec, ...]:
     """Build the always-on tool specs for the ``browser-dom`` capability.
 
-    Per the two-input rule (common-docs/systems/agents/agent-tools/DECISIONS.md Part 1), the
-    "always-on browser tools" set is defined as **every tool with an active
-    binding to the ``chrome-extension`` executor**. The chrome-extension
-    IS the runtime that dispatches them; the binding asserts that capability.
-    No surface-defaults lookup is needed — surfaces shape *which* tools the
-    AGENT sees per-page; the capability bundle defines the universe.
+    The always-on set is the CORE browsing kit: every tool with an active
+    binding to the ``chrome-extension`` executor whose definition carries the
+    ``always-on`` tag (``tool.definition.tags``). The tag is the knob — an
+    admin adds or removes it on a tool row to change what every browser run
+    starts with. Every other chrome-extension tool is reached through
+    ``load_chrome_tools(category=…)``, which loads it for the rest of the
+    conversation.
+
+    Why not every bound tool (the rule until 2026-11-14): 80 tool schemas on
+    every turn cost tokens and worsen the model's tool choice; the model the
+    kit is tuned for expects about twenty.
 
     ``load_chrome_tools`` is always prepended as a ``RegisteredToolSpec``
     (it has a real server-side Python handler). The registry's canonical resolver
@@ -199,14 +209,16 @@ def _build_auto_load_specs() -> tuple[ToolSpec, ...]:
     from matrx_ai.tools.registry import ToolRegistry
 
     registry = ToolRegistry.get_instance()
-    # Collect tool names bound to chrome-extension (or any sub-executor).
+    bound_names: list[str] = []
     auto_load_names: list[str] = []
     for tool in registry.all_tools():
         if _is_chrome_extension_tool(tool):
-            auto_load_names.append(tool.name)
+            bound_names.append(tool.name)
+            if ALWAYS_ON_TAG in (tool.tags or []):
+                auto_load_names.append(tool.name)
     auto_load_names.sort()
 
-    if not auto_load_names:
+    if not bound_names:
         vcprint(
             {
                 "executor": _CHROME_EXTENSION_EXECUTOR,
@@ -219,6 +231,22 @@ def _build_auto_load_specs() -> tuple[ToolSpec, ...]:
             "[browser-dom] CRITICAL: no tools bound to executor "
             f"{_CHROME_EXTENSION_EXECUTOR!r}. Agent will boot without "
             "always-on browser tools. Almost certainly a startup config error.",
+            color="red",
+        )
+    elif not auto_load_names:
+        vcprint(
+            {
+                "executor": _CHROME_EXTENSION_EXECUTOR,
+                "bound_tools": len(bound_names),
+                "tag": ALWAYS_ON_TAG,
+                "hint": (
+                    f"Add the {ALWAYS_ON_TAG!r} tag to tool.definition.tags on the core "
+                    "browsing tools (computer, navigate, read_page, find, …)."
+                ),
+            },
+            f"[browser-dom] CRITICAL: {len(bound_names)} tools are bound to "
+            f"{_CHROME_EXTENSION_EXECUTOR!r} but NONE carries the {ALWAYS_ON_TAG!r} tag. "
+            "Every browser run starts with only load_chrome_tools.",
             color="red",
         )
 
@@ -254,9 +282,9 @@ def _build_auto_load_specs() -> tuple[ToolSpec, ...]:
 
     _specs_cache = tuple(specs)
     vcprint(
-        f"[browser-dom] Built always-on specs from chrome-extension bindings: "
-        f"{len(_specs_cache)} tool(s) "
-        f"({len(auto_load_names)} bound to chrome-extension + load_chrome_tools). "
+        f"[browser-dom] Built always-on specs: {len(_specs_cache)} tool(s) "
+        f"({len(auto_load_names)} tagged {ALWAYS_ON_TAG!r} of {len(bound_names)} bound to "
+        f"chrome-extension, + load_chrome_tools). "
         f"Cache will be reused for all future requests.",
         color="cyan",
     )

@@ -43,6 +43,17 @@ writes — this module invented none of them:
    database is running. Not a mandate key, but a named, findable Holder; a raw
    agent id is its own D20 fix-list row, tracked by the hardcoded-agent guards,
    not a runtime blind spot.
+5. A PERSON'S OWN PICK — no agent, and the run's witnessed origin is ``human``
+   (``matrx_connect.context.provenance.reconcile_origin``: a live HTTP request,
+   a real credential, the client's ``initiation="user"`` attestation). The law
+   (mandates STATE.md §9, D51): a person's own pick runs directly; only code
+   picking goes through a mandate. A person choosing a model in chat (the
+   ``/ai/chat`` door, the Android and iOS chat) is that pick. A helper the
+   platform launches inside the turn is ``child_agent`` by the same witness,
+   so it is never covered by this carrier. A witnessed ``api`` turn also counts
+   when the host's carrier-only predicate (``set_caller_pick_resolver``) says
+   it is the caller's own pick on a chat door: test accounts test as a user
+   would, so their unattested chat turns are a person's pick for this check.
 
 Anything else is a **mandate bypass**: intelligence running with no Holder.
 
@@ -85,6 +96,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, TypeVar
 
@@ -209,7 +221,7 @@ def carrier_for(
 ) -> tuple[str, str] | None:
     """The Holder carrier for this call, as ``(carrier_name, value)``, or None.
 
-    The four declared carriers, in precedence order — see the module docstring.
+    The five declared carriers, in precedence order — see the module docstring.
     """
     if isinstance(mandate_key, str) and mandate_key.strip():
         return ("mandate_key", mandate_key.strip())
@@ -218,6 +230,11 @@ def carrier_for(
         explicit = metadata.get(MANDATE_KEY_METADATA_KEY)
         if isinstance(explicit, str) and explicit.strip():
             return ("metadata.mandate_key", explicit.strip())
+
+    if isinstance(metadata, dict):
+        reason = metadata.get(TOOL_INTERNAL_METADATA_KEY)
+        if isinstance(reason, str) and reason.strip():
+            return (TOOL_INTERNAL_CARRIER, reason.strip())
 
     if ctx is None:
         ctx = _context()
@@ -247,7 +264,61 @@ def carrier_for(
         if isinstance(value, str) and value.strip():
             return (name, value.strip())
 
+    if _is_person_pick(ctx):
+        return (PERSON_PICK_CARRIER, "person")
+
     return None
+
+
+#: The carrier name for a person's own pick (carrier 5 in the module docstring).
+PERSON_PICK_CARRIER = "context.person_pick"
+
+#: Carrier 6 - a provider call made INSIDE a tool implementation (the tool layer's ``model_generation``
+#: adapter: image/video/speech). A tool's own provider call is not intelligence started by app code; the
+#: tool layer already records its cost and its reason (``tools.upkeep`` / ``tools.battle`` /
+#: ``tools.internal``, the cost-centre codes stamped as ``absorbed_reason``). The value is that reason.
+TOOL_INTERNAL_METADATA_KEY = "tool_internal_reason"
+TOOL_INTERNAL_CARRIER = "metadata.tool_internal_reason"
+
+
+#: The host's carrier-only "is this the caller's own pick on a person's chat door?" predicate
+#: (``set_caller_pick_resolver``). It answers for the MANDATE check alone: a test or agent account
+#: tests as a user would, so its own chat-door turn is a person's pick here, while billing keeps
+#: its own stricter person predicate. ``None`` (unconfigured) adds nothing to the witness.
+_CALLER_PICK_RESOLVER: Callable[[Any], bool] | None = None
+
+
+def set_caller_pick_resolver(resolver: Callable[[Any], bool] | None) -> None:
+    """Install (or clear, with ``None``) the host's carrier-only caller-pick predicate."""
+    global _CALLER_PICK_RESOLVER
+    _CALLER_PICK_RESOLVER = resolver
+
+
+def _is_person_pick(ctx: Any) -> bool:
+    """Did a person start this run themselves? Read from the provenance WITNESS, never a claim.
+
+    ``reconcile_origin`` rebuilds the class from platform-observed facts, so a caller cannot
+    declare its way in; anything that is not a real ``AppContext`` (or that the witness cannot
+    read) is not a person's pick. A witnessed ``api`` request also counts when the host's
+    carrier-only predicate says it is the caller's own pick on a chat door (a test account
+    standing in for a person); the host keeps MCP routes, server hops, ``initiation="auto"``,
+    triggers and leases out of it.
+    """
+    try:
+        from matrx_connect.context.app_context import AppContext
+        from matrx_connect.context.provenance import ORIGIN_CLASS_API as WITNESSED_API
+        from matrx_connect.context.provenance import ORIGIN_CLASS_HUMAN as WITNESSED_HUMAN
+        from matrx_connect.context.provenance import reconcile_origin
+
+        if not isinstance(ctx, AppContext):
+            return False
+        final, _witness = reconcile_origin(ctx, announce=False)
+        if final == WITNESSED_HUMAN:
+            return True
+        resolver = _CALLER_PICK_RESOLVER
+        return final == WITNESSED_API and resolver is not None and bool(resolver(ctx))
+    except Exception:  # noqa: BLE001 — an unreadable witness is "not proven", never a crash
+        return False
 
 
 def _record(

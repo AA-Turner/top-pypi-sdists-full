@@ -6,6 +6,7 @@ from typing import Any, Literal
 from matrx_utils.row_access import ShownToLiteral, publish_columns
 
 from matrx_ai.db._registry import get_base, get_model
+from matrx_ai.utils.carried_failure import FailureDict
 
 TasksBase = get_base("TasksBase")
 Tasks = get_model("Tasks")
@@ -95,6 +96,7 @@ _MUTABLE_FIELDS = frozenset(
         "status",
         "priority",
         "due_date",
+        "due_time",
         "project_id",
         "parent_task_id",
         "assignee_id",
@@ -122,14 +124,17 @@ def _ok(task: Tasks) -> dict[str, Any]:
 
 
 def _err(operation: str, task_id: str, error: Exception, **extra: Any) -> dict[str, Any]:
-    return {
-        "success": False,
-        "operation": operation,
-        "task_id": task_id,
-        "error_type": type(error).__name__,
-        "error": str(error),
-        **extra,
-    }
+    return FailureDict(
+        {
+            "success": False,
+            "operation": operation,
+            "task_id": task_id,
+            "error_type": type(error).__name__,
+            "error": str(error),
+            **extra,
+        },
+        exception=error,
+    )
 
 
 def _not_visible(operation: str, task_id: str) -> dict[str, Any]:
@@ -160,6 +165,26 @@ def _no_write_access(operation: str, task_id: str, **extra: Any) -> dict[str, An
 
 
 _RLS_REFUSAL_MARKERS = ("row-level security", "permission denied", "42501")
+
+
+def _summary(t: Any) -> dict[str, Any]:
+    """One task as a planner list row: what Today / Upcoming / a project view draw (id, title, status,
+    priority, due date and time, project, parent). Project NAMES are added by the caller (``project_names``)."""
+    def _s(v: Any) -> str | None:
+        return str(v) if v not in (None, "") else None
+
+    return {
+        "id": str(t.id),
+        "title": t.title,
+        "status": t.status,
+        "priority": getattr(t, "priority", None),
+        "project_id": _s(getattr(t, "project_id", None)),
+        "parent_task_id": _s(getattr(t, "parent_task_id", None)),
+        "due_date": _s(getattr(t, "due_date", None)),
+        "due_time": _s(getattr(t, "due_time", None)),
+        # When it was finished: the day's update (aidream ``updates.read``) says what was done today.
+        "completed_at": _s(getattr(t, "completed_at", None)),
+    }
 
 
 class TasksManager(TasksBase):
@@ -294,36 +319,29 @@ class TasksManager(TasksBase):
             tasks = await self._get_items(
                 order_by="-created_at", project_id=project_id, deleted_at__isnull=True
             )
-            summary = [
-                {
-                    "id": str(t.id),
-                    "title": t.title,
-                    "status": t.status,
-                    "priority": getattr(t, "priority", None),
-                }
-                for t in tasks
-                if t
-            ]
+            summary = [_summary(t) for t in tasks if t]
             return {"success": True, "project_id": project_id, "tasks": summary}
         except Exception as e:
-            return {
-                "success": False,
-                "operation": "list_tasks_for_project",
-                "project_id": project_id,
-                "error": str(e),
-            }
+            return FailureDict(
+                {
+                    "success": False,
+                    "operation": "list_tasks_for_project",
+                    "project_id": project_id,
+                    "error": str(e),
+                },
+                exception=e,
+            )
 
     async def list_tasks_for_user(
         self, user_id: str, organization_id: str | None = None
     ) -> dict[str, Any]:
         """
         Return a compact list of the live (not soft-deleted) tasks a person
-        created — id, title, status, priority, project_id — across ALL their
-        organizations.
+        created — id, title, status, priority, project_id.
 
-        ``organization_id`` is an explicit optional filter (None = every
-        organization); the selected organization never narrows a list
-        (access-belongs-to-the-person, 2026-09-25).
+        A list is a read: it spans every organization the person works in. The
+        active organization is never a list filter (access-ladder law); pass
+        ``organization_id`` only for an explicit, caller-chosen org filter.
         """
         filters: dict[str, Any] = {
             "created_by": user_id,
@@ -333,31 +351,23 @@ class TasksManager(TasksBase):
             filters["organization_id"] = organization_id
         try:
             tasks = await self._get_items(order_by="-created_at", **filters)
-            summary = [
-                {
-                    "id": str(t.id),
-                    "title": t.title,
-                    "status": t.status,
-                    "priority": getattr(t, "priority", None),
-                    "project_id": str(t.project_id) if getattr(t, "project_id", None) else None,
-                    "due_date": str(t.due_date) if getattr(t, "due_date", None) else None,
-                }
-                for t in tasks
-                if t
-            ]
+            summary = [_summary(t) for t in tasks if t]
             return {
                 "success": True,
                 "user_id": user_id,
-                "organization_id": organization_id or None,
+                "organization_id": organization_id,
                 "tasks": summary,
             }
         except Exception as e:
-            return {
-                "success": False,
-                "operation": "list_tasks_for_user",
-                "user_id": user_id,
-                "error": str(e),
-            }
+            return FailureDict(
+                {
+                    "success": False,
+                    "operation": "list_tasks_for_user",
+                    "user_id": user_id,
+                    "error": str(e),
+                },
+                exception=e,
+            )
 
     async def list_subtasks(self, parent_task_id: str) -> dict[str, Any]:
         """Return a compact list of all direct subtasks of a given task."""
@@ -365,24 +375,27 @@ class TasksManager(TasksBase):
             tasks = await self._get_items(
                 order_by="-created_at", parent_task_id=parent_task_id, deleted_at__isnull=True
             )
-            summary = [
-                {
-                    "id": str(t.id),
-                    "title": t.title,
-                    "status": t.status,
-                    "priority": getattr(t, "priority", None),
-                }
-                for t in tasks
-                if t
-            ]
+            summary = [_summary(t) for t in tasks if t]
             return {"success": True, "parent_task_id": parent_task_id, "subtasks": summary}
         except Exception as e:
-            return {
-                "success": False,
-                "operation": "list_subtasks",
-                "parent_task_id": parent_task_id,
-                "error": str(e),
-            }
+            return FailureDict(
+                {
+                    "success": False,
+                    "operation": "list_subtasks",
+                    "parent_task_id": parent_task_id,
+                    "error": str(e),
+                },
+                exception=e,
+            )
+
+    async def project_names(self, project_ids: list[str]) -> dict[str, str]:
+        """Names of the projects these ids point at, as the caller may see them (RLS); unseen ids are absent."""
+        ids = sorted({str(i) for i in project_ids if i})
+        if not ids:
+            return {}
+        Projects = get_model("Projects")
+        rows = await Projects.filter(id__in=ids, deleted_at__isnull=True).values("id", "name")
+        return {str(r["id"]): str(r.get("name") or "") for r in rows}
 
     # ------------------------------------------------------------------
     # Create
@@ -400,6 +413,7 @@ class TasksManager(TasksBase):
         status: TaskStatus = "incomplete",
         priority: TaskPriority | None = None,
         due_date: str | None = None,
+        due_time: str | None = None,
         assignee_id: str | None = None,
         published_to_web: bool = False,
         shown_to: ShownToLiteral | None = None,
@@ -442,13 +456,15 @@ class TasksManager(TasksBase):
                 payload["priority"] = priority
             if due_date:
                 payload["due_date"] = due_date
+            if due_time:
+                payload["due_time"] = due_time
             if assignee_id:
                 payload["assignee_id"] = assignee_id
 
             task = await self.create_item(**payload)
             return _ok(task)
         except Exception as e:
-            return {"success": False, "operation": "create_task", "error": str(e)}
+            return FailureDict({"success": False, "operation": "create_task", "error": str(e)}, exception=e)
 
     # ------------------------------------------------------------------
     # Update — one flexible method, immutable fields stripped automatically

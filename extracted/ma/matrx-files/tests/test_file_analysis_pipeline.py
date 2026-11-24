@@ -14,11 +14,9 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import pymupdf
-import pytest
 
 # Importing the PDF analyze package registers all detector factories.
 import matrx_files.specific_handlers.pdf.analyze  # noqa: F401
@@ -358,3 +356,31 @@ async def test_revoked_session_blocks_restore() -> None:
     # Substitute should NOT be replaced after revocation.
     assert "[SSN_001]" in restored
     assert "123-45-6789" not in restored
+
+
+async def test_page_info_is_read_off_the_event_loop(monkeypatch) -> None:
+    """PyMuPDF page reads are synchronous; on the loop they froze the whole server
+    (EventLoopStall ~1031 ms in ``_extract_page_info``, 2026-11-18)."""
+    import threading
+
+    from matrx_files.analysis import dispatcher
+
+    loop_thread = threading.get_ident()
+    seen: list[int] = []
+    real = dispatcher._extract_page_info
+
+    def spy(mime_type: str, pdf_bytes: bytes):
+        seen.append(threading.get_ident())
+        return real(mime_type, pdf_bytes)
+
+    monkeypatch.setattr(dispatcher, "_extract_page_info", spy)
+    await analyze_file(
+        file_id="file-loop",
+        owner_id="user-1",
+        mime_type="application/pdf",
+        bytes_in_memory=_pdf_with_duplicate_pages(),
+        persistence=StubPersistence(),
+        ocr_provider=NoopOcrProvider(),
+    )
+    assert seen, "the page pre-step must run for a PDF"
+    assert all(t != loop_thread for t in seen), "page info must be read in a worker thread"

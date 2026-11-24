@@ -1,9 +1,11 @@
 from chalk._gen.chalk.aggregate.v1 import service_pb2 as _service_pb2
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v1 import dataset_response_pb2 as _dataset_response_pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
 from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
+from chalk._gen.chalk.common.v1 import query_status_pb2 as _query_status_pb2
 from chalk._gen.chalk.server.v1 import dataplaneworkflows_pb2 as _dataplaneworkflows_pb2
 from chalk._gen.chalk.server.v1 import datasets_pb2 as _datasets_pb2
 from chalk._gen.chalk.server.v1 import performance_summary_pb2 as _performance_summary_pb2
@@ -241,6 +243,8 @@ class OfflineQueryMeta(_message.Message):
         "input_root_fqns",
         "referencing_workflow_execution_id",
         "referencing_workflow_execution_status",
+        "canceled_by_agent_id",
+        "cancellation_reason",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -286,6 +290,8 @@ class OfflineQueryMeta(_message.Message):
     INPUT_ROOT_FQNS_FIELD_NUMBER: _ClassVar[int]
     REFERENCING_WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
     REFERENCING_WORKFLOW_EXECUTION_STATUS_FIELD_NUMBER: _ClassVar[int]
+    CANCELED_BY_AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CANCELLATION_REASON_FIELD_NUMBER: _ClassVar[int]
     id: int
     operation_id: str
     environment_id: str
@@ -330,6 +336,8 @@ class OfflineQueryMeta(_message.Message):
     input_root_fqns: _containers.RepeatedScalarFieldContainer[str]
     referencing_workflow_execution_id: str
     referencing_workflow_execution_status: _dataplaneworkflows_pb2.WorkflowExecutionStatus
+    canceled_by_agent_id: str
+    cancellation_reason: _query_status_pb2.CancellationReason
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -378,6 +386,8 @@ class OfflineQueryMeta(_message.Message):
         referencing_workflow_execution_status: _Optional[
             _Union[_dataplaneworkflows_pb2.WorkflowExecutionStatus, str]
         ] = ...,
+        canceled_by_agent_id: _Optional[str] = ...,
+        cancellation_reason: _Optional[_Union[_query_status_pb2.CancellationReason, str]] = ...,
     ) -> None: ...
 
 class OfflineQueryStageTiming(_message.Message):

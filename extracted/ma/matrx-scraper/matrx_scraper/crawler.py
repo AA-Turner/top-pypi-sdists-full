@@ -106,7 +106,7 @@ from matrx_scraper.seo_audit import (
     use_js_shell_knobs,
 )
 from matrx_scraper.user_agents import normalize_user_agent
-from matrx_scraper.utils.url import normalize_url, public_http_client, validate_public_http_url
+from matrx_scraper.utils.url import is_action_url, normalize_url, public_http_client, validate_public_http_url
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
@@ -3149,6 +3149,9 @@ class SiteCrawler:
             return "external", "excluded", "outside_site_scope"
         if self.config.max_depth is not None and depth > self.config.max_depth:
             return "excluded", "excluded", "max_depth"
+        if is_action_url(url):
+            # A GET that DOES something (add to cart, log out) — never fetched.
+            return "excluded", "excluded", "action_url"
         path = urlparse(url).path or "/"
         if self._exclude and any(p.search(path) for p in self._exclude):
             return "excluded", "excluded", "exclude_pattern"

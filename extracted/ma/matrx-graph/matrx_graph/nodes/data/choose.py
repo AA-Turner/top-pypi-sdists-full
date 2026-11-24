@@ -43,6 +43,7 @@ from matrx_graph.nodes.data.filter import LeftOutEntry, left_out_label, step_id
 from matrx_graph.nodes.data.rules import Rule, RulesConfig, RuleThen, _decide, _write_fields
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.handle import HandleDirection, HandleSpec
+from matrx_graph.types.usl import field_extras
 from matrx_graph.types.node_spec import NodeSpec
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, success
@@ -106,10 +107,18 @@ class ChooseConfig(BaseModel):
         default_factory=list, description="Stage 3 (optional): sort keys, most important first (as on Sort)."
     )
     missing: Literal["last", "first"] = Field(
-        default="last", description="Where an item with no value for a sort key goes."
+        default="last",
+        description="Where an item with no value for a sort key goes.",
+        json_schema_extra=field_extras(enum_labels={"last": "Missing values last", "first": "Missing values first"}),
     )
     per_group: PerGroup | None = Field(default=None, description="Stage 4 (optional): at most N of each group.")
-    limit: int | None = Field(default=None, ge=0, le=100_000, description="Stage 5 (optional): at most this many.")
+    limit: int | None = Field(
+        default=None,
+        ge=0,
+        le=100_000,
+        title="At most",
+        description="Stage 5 (optional): at most this many.",
+    )
     round_robin: RoundRobin | None = Field(
         default=None,
         description="With `limit`: pick by turns across groups instead of from the top (as on Limit).",

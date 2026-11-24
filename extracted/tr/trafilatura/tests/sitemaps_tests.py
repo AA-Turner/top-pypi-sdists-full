@@ -2,18 +2,21 @@
 Unit tests for sitemaps parsing.
 """
 
+import gzip
 import logging
 import os
 import sys
-from unittest.mock import patch
+from configparser import ConfigParser
+from unittest.mock import call, patch
 
 import pytest
 from courlan import get_hostinfo
 
 import trafilatura
-from trafilatura import sitemaps
+from trafilatura import downloads, sitemaps
 from trafilatura.deduplication import is_similar_domain
-from trafilatura.utils import decode_file
+from trafilatura.settings import DEFAULT_CONFIG
+from trafilatura.utils import Response, decode_file
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
@@ -29,6 +32,325 @@ def test_search():
     assert not sitemaps.sitemap_search("12345.xml.gz")
     assert not sitemaps.sitemap_search("https://1.net/sitemap.xml.gz")
     assert not sitemaps.sitemap_search("https://bogusdomain.net/")
+
+
+@pytest.mark.parametrize(("nested", "plain_text"), [(False, False), (True, False), (False, True)])
+def test_search_returns_sorted_unique_urls(monkeypatch, nested, plain_text):
+    root = "https://example.org/sitemap.xml" if nested or not plain_text else "https://example.org/sitemap"
+    first = ["https://example.org/b", "https://example.org/a", "https://example.org/b"]
+    second = ["https://example.org/b", "https://example.org/c"]
+
+    def content(urls):
+        if plain_text:
+            return "\n".join(urls)
+        return "<urlset>" + "".join(f"<url><loc>{url}</loc></url>" for url in urls) + "</urlset>"
+
+    pages = {root: content(first)}
+    expected = ["https://example.org/a", "https://example.org/b"]
+    if nested:
+        first_url = "https://example.org/sitemap-a.xml"
+        second_url = "https://example.org/sitemap-b.xml"
+        pages = {
+            root: (
+                "<sitemapindex>"
+                f"<sitemap><loc>{first_url}</loc></sitemap>"
+                f"<sitemap><loc>{second_url}</loc></sitemap>"
+                "</sitemapindex>"
+            ),
+            first_url: content(first),
+            second_url: content(second),
+        }
+        expected.append("https://example.org/c")
+    monkeypatch.setattr(sitemaps, "fetch_url", lambda url, **kwargs: pages.get(url))
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda url, config: True)
+    monkeypatch.setattr(sitemaps, "sleep", lambda seconds: None)
+
+    assert sitemaps.sitemap_search(root) == expected
+
+
+@pytest.mark.parametrize(
+    ("size", "config_max", "expected"),
+    [
+        # within the sitemap size limit, above the general download cap
+        (7_500, None, 100),
+        # above the sitemap size limit: still rejected
+        (15_000, None, 0),
+        # a lower configured cap is raised to the sitemap limit
+        (7_500, 1_000, 100),
+        # a higher configured cap is kept
+        (15_000, 20_000, 100),
+    ],
+)
+def test_sitemap_size_limit(monkeypatch, size, config_max, expected):
+    """Sitemaps up to MAX_SITEMAP_SIZE uncompressed are read, larger ones are rejected."""
+    url = "https://example.org/sitemap.xml.gz"
+    # shrink the limits to a few KB so the test stays small and fast:
+    # general download cap (MAX_FILE_SIZE) 5 KB, sitemap limit 10 KB
+    monkeypatch.setattr(sitemaps, "MAX_SITEMAP_SIZE", 10_000)
+    config = ConfigParser()
+    config.read_dict(DEFAULT_CONFIG)
+    config.set("DEFAULT", "MAX_FILE_SIZE", str(config_max if config_max is not None else 5_000))
+    # 100 URLs padded to reach roughly the target uncompressed size
+    padding = max((size - 100 * 45) // 100, 0)
+    xml = (
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        + "".join(f"<url><loc>https://example.org/{i}-{'a' * padding}</loc></url>" for i in range(100))
+        + "</urlset>"
+    )
+    assert len(xml.encode()) >= size
+    payload = gzip.compress(xml.encode())
+    monkeypatch.setattr(downloads, "HAS_PYCURL", False)
+    monkeypatch.setattr(downloads, "_send_urllib_request", lambda u, no_ssl, cfg: Response(payload, 200, u))
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda u, config: True)
+    assert len(sitemaps.sitemap_search(url, config=config)) == expected
+    # the caller's config is never mutated by the raised limit
+    assert config.getint("DEFAULT", "MAX_FILE_SIZE") == (config_max if config_max is not None else 5_000)
+    assert DEFAULT_CONFIG.getint("DEFAULT", "MAX_FILE_SIZE") == 20000000
+
+
+@pytest.mark.parametrize("namespace", ["", ' xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'])
+@pytest.mark.parametrize("index", [False, True])
+def test_location_kind_comes_from_xml_structure(monkeypatch, namespace, index):
+    root = "https://example.org/sitemap.xml"
+    page = "https://example.org/article.xml"
+    nested = "https://example.org/custom-map"
+    page_map = f"<urlset{namespace}><url><loc>{page}</loc></url></urlset>"
+    if index:
+        pages = {
+            root: f"<sitemapindex{namespace}><sitemap><loc>{nested}</loc></sitemap></sitemapindex>",
+            nested: page_map,
+        }
+    else:
+        pages = {root: page_map}
+    fetched = []
+
+    def fetch(url, **kwargs):
+        fetched.append(url)
+        return pages.get(url)
+
+    monkeypatch.setattr(sitemaps, "fetch_url", fetch)
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda url, config: True)
+    monkeypatch.setattr(sitemaps, "sleep", lambda seconds: None)
+
+    assert sitemaps.sitemap_search(root) == [page]
+    assert fetched == ([root, nested] if index else [root])
+
+
+def test_parse_sitemap_without_fetching(monkeypatch):
+    def unexpected_request(*args, **kwargs):
+        pytest.fail("Parsing supplied sitemap text must not make network requests")
+
+    monkeypatch.setattr(sitemaps, "fetch_url", unexpected_request)
+    monkeypatch.setattr(sitemaps, "is_live_page", unexpected_request)
+    url = "https://example.org/sitemap.xml"
+    content = (
+        "\ufeff \n<urlset>"
+        "<url><loc>https://example.org/en/a</loc></url>"
+        "<url><loc>https://example.org/de/b</loc></url>"
+        "<url><loc>https://example.org/en/a</loc></url>"
+        "<url><loc>https://otherdomain.net/en/c</loc></url></urlset>"
+    )
+    assert sitemaps.parse_sitemap(content, url) == ["https://example.org/de/b", "https://example.org/en/a"]
+    assert sitemaps.parse_sitemap(content, url, target_lang="en", external=True) == [
+        "https://example.org/en/a",
+        "https://otherdomain.net/en/c",
+    ]
+    index = "<sitemapindex><sitemap><loc>https://example.org/part.xml</loc></sitemap></sitemapindex>"
+    assert sitemaps.parse_sitemap(index, url) == ["https://example.org/part.xml"]
+    assert sitemaps.parse_sitemap("https://example.org/a", "https://example.org/sitemap.txt") == ["https://example.org/a"]
+
+
+@pytest.mark.parametrize("prefix", ["\n", "  \r\n", "\ufeff", "\ufeff\n"])
+def test_leading_whitespace_before_sitemap(monkeypatch, prefix):
+    url = "https://example.org/sitemap.xml"
+    content = (
+        prefix
+        + '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.org/a</loc></url></urlset>'
+    )
+    assert sitemaps.is_plausible_sitemap(url, content) is True
+    assert sitemaps.is_plausible_sitemap(url, prefix + "<!DOCTYPE html><html><body/></html>") is False
+
+    monkeypatch.setattr(sitemaps, "fetch_url", lambda u, **kwargs: content if u == url else None)
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda u, config: True)
+    monkeypatch.setattr(sitemaps, "sleep", lambda seconds: None)
+    assert sitemaps.sitemap_search(url) == ["https://example.org/a"]
+
+
+def test_plain_text_sitemap_html_and_quotes():
+    # an HTML page whose <html> tag comes after a long comment is not a TXT sitemap
+    html = "<!DOCTYPE html>\n<!-- " + "x" * 150 + " -->\n<html><body><a href='https://example.org/page'>Page</a></body></html>"
+    assert sitemaps.is_plausible_sitemap("https://example.org/sitemap", html) is False
+    assert sitemaps.is_plausible_sitemap("https://example.org/sitemap", html.lower()) is False
+    assert sitemaps.parse_sitemap(html, "https://example.org/sitemap") == []
+    # closing single quotes are not part of the link, inner apostrophes are kept
+    url = "https://example.org/sitemap.txt"
+    assert sitemaps.parse_sitemap("'https://example.org/page'", url) == ["https://example.org/page"]
+    assert sitemaps.parse_sitemap("https://example.org/it's-here\n", url) == ["https://example.org/it%27s-here"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.org/sitemap.xml?page=1",
+        "https://example.org/sitemap.xml/",
+        "https://example.org/sitemap/index",
+        "https://example.org/sitemap.txt",
+    ],
+)
+def test_explicit_sitemap_urls(monkeypatch, url):
+    if url.endswith(".txt"):
+        content = "https://example.org/a\n"
+    else:
+        content = (
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.org/a</loc></url></urlset>'
+        )
+    monkeypatch.setattr(sitemaps, "fetch_url", lambda u, **kwargs: content if u == url else None)
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda u, config: True)
+    monkeypatch.setattr(sitemaps, "sleep", lambda seconds: None)
+    assert sitemaps.sitemap_search(url) == ["https://example.org/a"]
+
+
+def test_parse_sitemap_invalid_input():
+    url = "https://example.org/sitemap.xml"
+    with pytest.raises(TypeError, match="content must be a string"):
+        sitemaps.parse_sitemap(b"<urlset/>", url)
+    assert sitemaps.parse_sitemap("<urlset><url><loc>https://example.org/a</loc></url></urlset>", "invalid-url") == []
+    assert sitemaps.parse_sitemap("<urlset>\ud800</urlset>", url) == []
+
+
+HREFLANG_ENTRY = (
+    "<url><loc>https://example.org/en/a</loc>"
+    '<xhtml:link rel="alternate" hreflang="en" href="https://example.org/en/a"/>'
+    '<xhtml:link rel="alternate" hreflang="en-gb" href="https://example.org/en-gb/a"/>'
+    '<xhtml:link rel="alternate" hreflang="de" href="https://example.org/de/a"/>'
+    '<xhtml:link rel="alternate" hreflang="x-default" href="https://example.org/a"/>'
+    "</url>"
+)
+
+
+@pytest.mark.parametrize(
+    ("entries", "root", "target_lang", "expected"),
+    [
+        (
+            HREFLANG_ENTRY + "<url><loc>https://example.org/news/b</loc></url>",
+            "urlset",
+            "en",
+            ["https://example.org/en/a", "https://example.org/news/b"],
+        ),
+        (
+            HREFLANG_ENTRY + "<url><loc>https://example.org/news/b</loc></url>",
+            "urlset",
+            "de",
+            ["https://example.org/de/a", "https://example.org/news/b"],
+        ),
+        (
+            (
+                "<url><loc>https://example.org/c</loc>"
+                '<xhtml:link rel="alternate" hreflang="x-default" href="https://example.org/c"/>'
+                '<xhtml:link rel="alternate" hreflang="EN_GB" href="https://example.org/en-gb/c"/>'
+                "</url>"
+            ),
+            "urlset",
+            "en",
+            ["https://example.org/en-gb/c"],
+        ),
+        (
+            (
+                "<url><loc>https://example.org/fr/d</loc>"
+                '<xhtml:link rel="alternate" hreflang="fr" href="https://example.org/fr/d"/>'
+                '<xhtml:link rel="alternate" hreflang="x-default" href="https://example.org/d"/>'
+                "</url>"
+            ),
+            "urlset",
+            "en",
+            ["https://example.org/d"],
+        ),
+        (
+            (
+                "<sitemap><loc>https://example.org/sitemap-en.xml</loc>"
+                '<xhtml:link rel="alternate" hreflang="de" href="https://example.org/sitemap-de.xml"/>'
+                "</sitemap>"
+            ),
+            "sitemapindex",
+            "de",
+            ["https://example.org/sitemap-de.xml"],
+        ),
+    ],
+)
+def test_parse_sitemap_hreflang_one_link_per_entry(entries, root, target_lang, expected):
+    content = (
+        f'<{root} xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+        f"{entries}</{root}>"
+    )
+    assert sitemaps.parse_sitemap(content, "https://example.org/sitemap.xml", target_lang=target_lang) == expected
+
+
+@pytest.mark.parametrize(
+    ("entries", "target_lang", "expected"),
+    [
+        (
+            (
+                "<url><loc>https://example.org/a</loc>"
+                '<xhtml:link rel="alternate" hreflang="fr" href="https://other-site.fr/a"/>'
+                '<xhtml:link rel="alternate" hreflang="x-default" href="https://example.org/a"/>'
+                "</url>"
+            ),
+            "fr",
+            ["https://example.org/a"],
+        ),
+        (
+            (
+                "<url><loc>https://example.org/b</loc>"
+                '<xhtml:link rel="alternate" hreflang="fr" href="https://other-site.fr/b"/>'
+                '<xhtml:link rel="alternate" hreflang="x-default" href="https://third-site.net/b"/>'
+                "</url>"
+            ),
+            "fr",
+            ["https://example.org/b"],
+        ),
+        (
+            (
+                "<url><loc>https://example.org/en/c</loc>"
+                '<xhtml:link rel="alternate" hreflang="fr" href="https://example.org/de/c"/>'
+                '<xhtml:link rel="alternate" hreflang="x-default" href="https://example.org/c"/>'
+                "</url>"
+            ),
+            "fr",
+            ["https://example.org/c"],
+        ),
+        (
+            (
+                "<url><loc>https://open.example.org/track/1</loc>"
+                '<xhtml:link rel="alternate" hreflang="fr" href="https://open.example.org/intl-fr/track/1"/>'
+                '<xhtml:link rel="alternate" hreflang="x-default" href="https://open.example.org/track/1"/>'
+                "</url>"
+            ),
+            "fr",
+            ["https://open.example.org/intl-fr/track/1"],
+        ),
+        (
+            (
+                "<url><loc>https://example.org/en/e</loc>"
+                '<xhtml:link rel="alternate" hreflang="fr" href=""/>'
+                '<xhtml:link rel="alternate" hreflang="x-default" href="https://example.org/e"/>'
+                "</url>"
+            ),
+            "fr",
+            ["https://example.org/e"],
+        ),
+    ],
+)
+def test_parse_sitemap_hreflang_fallback(entries, target_lang, expected):
+    content = (
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+        f"{entries}</urlset>"
+    )
+    assert sitemaps.parse_sitemap(content, "https://example.org/sitemap.xml", target_lang=target_lang) == expected
+
+
+def test_parse_sitemap_loc_outside_entry():
+    content = "<urlset><loc>https://example.org/a</loc></urlset>"
+    assert sitemaps.parse_sitemap(content, "https://example.org/sitemap.xml") == ["https://example.org/a"]
 
 
 def test_extraction():
@@ -126,11 +448,6 @@ def test_extraction():
     sitemap.extract_sitemap_links()
     assert not sitemap.sitemap_urls
     assert len(sitemap.urls) == 84
-    # hreflang
-    sitemap.urls = []
-    sitemap.extract_sitemap_langlinks()
-    assert not sitemap.sitemap_urls
-    assert not sitemap.urls
 
     # nested sitemaps
     url, domain, baseurl = "http://www.example.com/sitemap.xml", "example.com", "http://www.example.com"
@@ -158,17 +475,18 @@ def test_extraction():
     with open(filepath, encoding="utf-8") as f:
         teststring = f.read()
     sitemap = sitemaps.SitemapObject(baseurl, domain, [], "de")
+    sitemap.current_url = url
     sitemap.content = teststring
-    sitemap.extract_sitemap_langlinks()
+    sitemap.process()
     assert sitemap.sitemap_urls == ["http://www.example.com/sitemap-de.xml.gz"]
     assert len(sitemap.urls) > 0
+    assert "http://www.example.com/english/page.html" not in sitemap.urls
 
-    # target_lang is escaped: a regex-hostile value stays inert
     sitemap = sitemaps.SitemapObject(baseurl, domain, [], "de)|(.")
+    sitemap.current_url = url
     sitemap.content = teststring
-    sitemap.extract_sitemap_langlinks()
-    assert not sitemap.sitemap_urls
-    assert not sitemap.urls
+    sitemap.process()
+    assert sitemap.sitemap_urls == ["http://www.example.com/sitemap2.xml.gz"]
 
     # GZ-compressed sitemaps
     url, domain, baseurl = "https://www.sitemaps.org/sitemap.xml", "sitemaps.org", "https://www.sitemaps.org"
@@ -227,6 +545,10 @@ def test_robotstxt():
     assert sitemaps.extract_robots_sitemaps("sitemap: http://[::1\nsitemap: /sitemap.xml", baseurl) == [
         "https://httpbun.com/sitemap.xml"
     ]
+    # robots.txt files above 10000 characters are still read
+    long_robots = "User-agent: *\n" + "Disallow: /private/\n" * 600 + "Sitemap: https://example.org/sitemap.xml\n"
+    assert len(long_robots) > 10000
+    assert sitemaps.extract_robots_sitemaps(long_robots, baseurl) == ["https://example.org/sitemap.xml"]
 
 
 def test_sitemap_index_with_target_lang():
@@ -265,6 +587,34 @@ def test_sitemap_index_with_target_lang():
         assert sorted(sitemaps.sitemap_search("https://example.org", target_lang="de")) == expected
 
 
+@pytest.mark.parametrize("search_url", ["https://example.org/blog", "http://example.org/blog", "https://www.example.org/blog"])
+@pytest.mark.parametrize("sitemap_host", ["https://example.org", "https://www.example.org", "http://www.example.org"])
+def test_subpage_filter_ignores_scheme_and_www(monkeypatch, search_url, sitemap_host):
+    "regression #1011: the subpage filter must not depend on how the sitemap spells scheme and host"
+    wanted = [f"{sitemap_host}/blog/a", f"{sitemap_host}/blog/sub/b"]
+    body = "<urlset>" + "".join(f"<url><loc>{u}</loc></url>" for u in [*wanted, f"{sitemap_host}/news/c"]) + "</urlset>"
+    # no robots.txt, the standard sitemap location is tried
+    monkeypatch.setattr(sitemaps, "fetch_url", lambda url, **kwargs: body if url.endswith("/sitemap.xml") else None)
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda url, config: True)
+    monkeypatch.setattr(sitemaps, "sleep", lambda seconds: None)
+    assert sitemaps.sitemap_search(search_url) == wanted
+
+
+def test_subpage_filter_keeps_other_hosts_out(monkeypatch):
+    "With external links allowed, only the requested host and path are kept."
+    urls = [
+        "https://www.example.org/blog/a",
+        "https://other.org/blog/b",
+        "https://notexample.org/blog/c",
+        "https://blog.example.org/blog/d",
+    ]
+    body = "<urlset>" + "".join(f"<url><loc>{u}</loc></url>" for u in urls) + "</urlset>"
+    monkeypatch.setattr(sitemaps, "fetch_url", lambda url, **kwargs: body if url.endswith("/sitemap.xml") else None)
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda url, config: True)
+    monkeypatch.setattr(sitemaps, "sleep", lambda seconds: None)
+    assert sitemaps.sitemap_search("https://example.org/blog", external=True) == ["https://www.example.org/blog/a"]
+
+
 def test_lang_filter_before_cleaning():
     "Language-root URLs with trailing slashes must be filtered even if cleaning strips the slash."
     sitemap = sitemaps.SitemapObject("https://www.sitemaps.org", "sitemaps.org", [], target_lang="de")
@@ -290,6 +640,51 @@ def test_guess_order():
         sitemaps.sitemap_search("https://example.org")
     assert fetched[0] == "https://example.org/robots.txt"
     assert fetched[1] == "https://example.org/sitemap.xml"
+
+
+@pytest.mark.parametrize(
+    ("start", "maps", "fetched", "expected"),
+    [
+        ("", {"sitemap.xml": ["a"], "sitemap.xml.gz": ["b"]}, ["sitemap.xml"], ["a"]),
+        ("", {"sitemap.xml.gz": ["b"]}, ["sitemap.xml", "sitemap.xml.gz"], ["b"]),
+        (
+            "",
+            {"sitemap.xml": ["part-a.xml", "part-b.xml"], "part-a.xml": ["a"], "part-b.xml": ["b"]},
+            ["sitemap.xml", "part-b.xml", "part-a.xml"],
+            ["a", "b"],
+        ),
+        (
+            "",
+            {"sitemap.xml": ["sitemap.xml.gz"], "sitemap": ["a"]},
+            ["sitemap.xml", "sitemap.xml.gz", "sitemap"],
+            ["a"],
+        ),
+        (
+            "/blog",
+            {"sitemap.xml": ["news/a"], "sitemap.xml.gz": ["blog/b"]},
+            ["sitemap.xml", "sitemap.xml.gz"],
+            ["blog/b"],
+        ),
+    ],
+)
+def test_stop_guessing_after_a_sitemap_yields_links(monkeypatch, start, maps, fetched, expected):
+    base = "https://example.org"
+
+    def fetch(url, **kwargs):
+        entries = maps.get(url.removeprefix(f"{base}/"))
+        if not entries:
+            return None
+        root, tag = ("sitemapindex", "sitemap") if entries[0].endswith((".xml", ".xml.gz")) else ("urlset", "url")
+        locations = "".join(f"<{tag}><loc>{base}/{entry}</loc></{tag}>" for entry in entries)
+        return f"<{root}>{locations}</{root}>"
+
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda url, config: True)
+    monkeypatch.setattr(sitemaps, "find_robots_sitemaps", lambda url, config: [])
+    with patch.object(sitemaps, "fetch_url", side_effect=fetch) as request, patch.object(sitemaps, "sleep") as wait:
+        assert sitemaps.sitemap_search(f"{base}{start}", sleep_time=0.25) == [f"{base}/{page}" for page in expected]
+
+    assert [args[0] for args, _ in request.call_args_list] == [f"{base}/{path}" for path in fetched]
+    assert wait.call_args_list == [call(0.25)] * (len(fetched) - 1)
 
 
 def test_whole():
@@ -336,6 +731,34 @@ def test_sitemap_namespace_scope():
     assert sitemap.urls == ["https://example.org/page"]
 
 
+@pytest.mark.parametrize(
+    "namespace",
+    [
+        "http://www.google.com/schemas/sitemap/0.84",
+        "https://www.sitemaps.org/schemas/sitemap/0.9",
+        "http://www.sitemaps.org/schemas/sitemap/0.9/",
+        "http://www.sitemaps.org/schemas/sitemap/0.90",
+    ],
+)
+@pytest.mark.parametrize("prefix", ["", "sm:"])
+@pytest.mark.parametrize("index", [False, True])
+def test_sitemap_namespace_variants(namespace, prefix, index):
+    """Legacy, https and trailing-slash sitemap namespaces are accepted, extension locations are not."""
+    root, child = ("sitemapindex", "sitemap") if index else ("urlset", "url")
+    url = "https://example.org/nested.xml" if index else "https://example.org/page"
+    sitemap = sitemaps.SitemapObject("https://example.org", "example.org", [])
+    sitemap.current_url = "https://example.org/sitemap.xml"
+    sitemap.content = (
+        f'<{prefix}{root} xmlns{":" + prefix[:-1] if prefix else ""}="{namespace}"'
+        ' xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">'
+        f"<{prefix}{child}><{prefix}loc>{url}</{prefix}loc>"
+        "<image:image><image:loc>https://example.org/image.jpg</image:loc></image:image>"
+        f"</{prefix}{child}></{prefix}{root}>"
+    )
+    sitemap.process()
+    assert (sitemap.sitemap_urls, sitemap.urls) == (([url], []) if index else ([], [url]))
+
+
 @pytest.mark.parametrize("location", ["&external;", "https://example.org/&external;", "https://example.org/<nested/>"])
 def test_sitemap_locations_do_not_expand_entities(location):
     """Location extraction does not resolve entities or concatenate child markup."""
@@ -347,6 +770,24 @@ def test_sitemap_locations_do_not_expand_entities(location):
     )
     sitemap.extract_sitemap_links()
     assert not sitemap.urls
+
+
+@pytest.mark.parametrize("index", [False, True])
+@pytest.mark.parametrize(
+    "location",
+    ["\n    {url}\n  ", " {url}", "{url}\t", "\n  <![CDATA[{url}]]>\n"],
+)
+def test_sitemap_locations_ignore_surrounding_whitespace(location, index):
+    """Pretty-printed locations are not dropped because of their indentation."""
+    root, child = ("sitemapindex", "sitemap") if index else ("urlset", "url")
+    url = "https://example.org/nested.xml" if index else "https://example.org/page"
+    sitemap = sitemaps.SitemapObject("https://example.org", "example.org", [])
+    sitemap.content = (
+        f'<{root} xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"<{child}><loc>{location.format(url=url)}</loc></{child}></{root}>"
+    )
+    sitemap.extract_sitemap_links()
+    assert (sitemap.sitemap_urls, sitemap.urls) == (([url], []) if index else ([], [url]))
 
 
 def test_sitemap_namespace_link_limit(monkeypatch):
@@ -370,3 +811,22 @@ def test_sitemap_xml_without_a_root_is_ignored(content):
     sitemap.extract_sitemap_links()
     assert sitemap.urls == []
     assert sitemap.sitemap_urls == []
+
+
+def test_sleep_time_defaults_to_config(monkeypatch):
+    """Without an explicit sleep_time, the wait comes from SLEEP_TIME in the config."""
+    config = ConfigParser()
+    config.read_dict(DEFAULT_CONFIG)
+    config.set("DEFAULT", "SLEEP_TIME", "10")
+    robots = ["https://example.org/a.xml", "https://example.org/b.xml"]
+    monkeypatch.setattr(sitemaps, "find_robots_sitemaps", lambda url, config: list(robots))
+    monkeypatch.setattr(sitemaps, "is_live_page", lambda url, config: True)
+    monkeypatch.setattr(sitemaps, "fetch_url", lambda url, **kwargs: None)
+
+    with patch.object(sitemaps, "sleep") as mock_sleep:
+        sitemaps.sitemap_search("https://example.org", config=config)
+    assert mock_sleep.call_args_list == [call(10.0)]
+
+    with patch.object(sitemaps, "sleep") as mock_sleep:
+        sitemaps.sitemap_search("https://example.org", sleep_time=0.5, config=config)
+    assert mock_sleep.call_args_list == [call(0.5)]

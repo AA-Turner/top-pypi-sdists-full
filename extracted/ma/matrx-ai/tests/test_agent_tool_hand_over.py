@@ -86,7 +86,7 @@ def harness(monkeypatch):
     monkeypatch.setattr(definition_mod.Agent, "from_agent", classmethod(fake_from_agent))
     monkeypatch.setattr(executor_mod, "run_agent", fake_run_agent)
     monkeypatch.setattr(ext, "get_agent_tool_handover_resolver", lambda: resolver)
-    token = set_app_context(AppContext(emitter=None, user_id="u1", metadata={"context_objects": CONDUCTOR_MANIFEST}))
+    token = set_app_context(AppContext(emitter=None, user_id="u1", organization_id="0a900000-0000-4000-8000-00000000a7a7", metadata={"context_objects": CONDUCTOR_MANIFEST}))
     yield captured
     clear_app_context(token)
 
@@ -169,7 +169,7 @@ async def test_a_child_run_never_inherits_the_callers_manifest(monkeypatch):
             raise RuntimeError("stop here")  # run_agent never raises; the result says failed
 
     token = set_app_context(AppContext(
-        emitter=None, user_id="u1",
+        emitter=None, user_id="u1", organization_id="0a900000-0000-4000-8000-00000000a7a7",
         metadata={"context_objects": CONDUCTOR_MANIFEST, "context_receipt": {"rows": []},
                   "context_excluded_keys": ["x"], "keep_me": 1},
     ))

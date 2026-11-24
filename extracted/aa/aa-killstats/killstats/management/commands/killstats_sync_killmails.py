@@ -7,18 +7,12 @@ import time
 from django.core.management.base import BaseCommand
 from django.db import IntegrityError
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
-
 # AA Killstats
-from killstats import __title__
 from killstats.app_settings import KILLSTATS_ESI_BUCKET
 from killstats.helpers.killmailbody import KillmailBody
 from killstats.models.killboard import Killmail
 from killstats.models.killstatsaudit import AlliancesAudit, CorporationsAudit
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
+from killstats.providers import logger
 
 
 class Command(BaseCommand):

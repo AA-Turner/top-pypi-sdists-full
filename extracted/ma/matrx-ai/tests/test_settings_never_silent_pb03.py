@@ -124,7 +124,7 @@ def test_gemini_thinking_keys_are_translated_not_raw() -> None:
     # raw budget is dropped WITH a record and the effort rides as the level (L4d, 2026-10-18).
     assert params["thinking_config"].get("thinking_level"), params["thinking_config"]
     assert "thinking_budget" not in params["thinking_config"]
-    assert by_key["thinking_budget"].action in {"dropped", "mapped"}
+    assert by_key["thinking_budget"].action in {"dropped", "mapped", "overridden"}  # overridden = specific-beats-general (law recorded)
     assert by_key["reasoning_effort"].action in {"mapped", "dropped", "overridden"}
     assert "include_thoughts" in by_key
 

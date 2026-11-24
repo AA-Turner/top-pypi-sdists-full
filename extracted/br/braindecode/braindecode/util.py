@@ -3,6 +3,7 @@
 #
 # License: BSD (3-clause)
 import glob
+import inspect
 import os
 import random
 import re
@@ -13,6 +14,16 @@ import mne
 import numpy as np
 import torch
 from torch import Tensor
+
+
+def _warn_orphaned_api(name):
+    """Warn that the public ``name`` has no user in braindecode."""
+    warn(
+        f"{name} is deprecated and will be removed in braindecode 2.2. It has "
+        "no user in braindecode: copy it into your code if you need it.",
+        FutureWarning,
+        stacklevel=3,
+    )
 
 
 def set_random_seeds(seed, cuda, cudnn_benchmark=None):
@@ -109,6 +120,9 @@ def corr(a, b):
 
     a and b.
 
+    .. deprecated:: 2.1
+        It has no user in braindecode and will be removed in 2.2.
+
     Parameters
     ----------
     a, b : 2darray, features x samples
@@ -117,10 +131,11 @@ def corr(a, b):
     -------
     Correlation between features in x and features in y
     """
+    _warn_orphaned_api("corr")
     # Difference to numpy:
     # Correlation only between terms of x and y
     # not between x and x or y and y
-    this_cov = cov(a, b)
+    this_cov = _cov(a, b)
     return _cov_to_corr(this_cov, a, b)
 
 
@@ -130,6 +145,9 @@ def cov(a, b):
 
     a and b.
 
+    .. deprecated:: 2.1
+        It has no user in braindecode and will be removed in 2.2.
+
     Parameters
     ----------
     a, b : 2darray, features x samples
@@ -138,10 +156,14 @@ def cov(a, b):
     -------
     Covariance between features in x and features in y
     """
+    _warn_orphaned_api("cov")
+    return _cov(a, b)
+
+
+def _cov(a, b):
     demeaned_a = a - np.mean(a, axis=1, keepdims=True)
     demeaned_b = b - np.mean(b, axis=1, keepdims=True)
-    this_cov = np.dot(demeaned_a, demeaned_b.T) / (b.shape[1] - 1)
-    return this_cov
+    return np.dot(demeaned_a, demeaned_b.T) / (b.shape[1] - 1)
 
 
 def _cov_to_corr(this_cov, a, b):
@@ -211,6 +233,9 @@ def get_balanced_batches(n_trials, rng, shuffle, n_batches=None, batch_size=None
     will not have the given batch size but rather the next largest batch size
     that allows to split the set into balanced batches (maximum size difference 1).
 
+    .. deprecated:: 2.1
+        It has no user in braindecode and will be removed in 2.2.
+
     Parameters
     ----------
     n_trials : int
@@ -226,6 +251,7 @@ def get_balanced_batches(n_trials, rng, shuffle, n_batches=None, batch_size=None
     batches : list of list of int
         Indices for each batch.
     """
+    _warn_orphaned_api("get_balanced_batches")
     assert batch_size is not None or n_batches is not None
     if n_batches is None:
         n_batches = int(np.round(n_trials / float(batch_size)))
@@ -339,48 +365,34 @@ def create_mne_dummy_raw(
     return raw, save_fname
 
 
-# MNE 1.13 renamed these standard montages and deprecated the legacy names,
-# which will raise in MNE 1.14 (mne-python#13903). As braindecode supports
-# ``mne>=1.11``, the spelling has to be resolved against the installed MNE
-# version instead of being hard-coded. The rename does not change electrode
-# positions: the new montage files are byte-identical to the legacy ones.
+# MNE 1.13 renamed these montages (mne-python#13903); the legacy names warn and
+# will raise in MNE 1.14. The positions are unchanged.
 _RENAMED_STANDARD_MONTAGES = {
     "standard_1005": "colin27_1005",
     "standard_1020": "colin27_1020",
+    "standard_alphabetic": "colin27_alphabetic",
+    "standard_postfixed": "colin27_postfixed",
+    "standard_prefixed": "colin27_prefixed",
+    "standard_primed": "colin27_primed",
 }
 
 
 def resolve_montage_name(name):
-    """Resolve an MNE standard montage name for the installed MNE version.
-
-    MNE 1.13 renamed the ``standard_1005`` and ``standard_1020`` montages to
-    ``colin27_1005`` and ``colin27_1020`` and deprecated the legacy names,
-    which will raise in MNE 1.14 [1]_. As braindecode supports ``mne>=1.11``,
-    this helper returns the spelling understood by the installed MNE version,
-    so that neither a ``FutureWarning`` (MNE >= 1.13) nor a ``ValueError``
-    (MNE < 1.13, new names unknown) can occur.
+    """Return the current MNE name for a standard montage.
 
     Parameters
     ----------
     name : str
-        Name of a standard montage, in either the legacy or the current
-        spelling.
+        A standard montage name. The legacy ``standard_*`` names that MNE
+        1.13 renamed to ``colin27_*`` are also accepted.
 
     Returns
     -------
     str
-        ``name`` itself, unless it is one of the renamed montages and the
-        installed MNE knows the new spelling, in which case the new spelling
-        is returned.
-
-    References
-    ----------
-    .. [1] https://github.com/mne-tools/mne-python/pull/13903
+        The corresponding MNE montage name, with the ``colin27_*`` name used
+        for each renamed montage.
     """
-    new_name = _RENAMED_STANDARD_MONTAGES.get(name)
-    if new_name is not None and new_name in mne.channels.get_builtin_montages():
-        return new_name
-    return name
+    return _RENAMED_STANDARD_MONTAGES.get(name, name)
 
 
 def _looks_like_channel_mask(tensor):
@@ -411,12 +423,55 @@ class ThrowAwayIndexLoader(object):
         self.loader = loader
         self.last_i = None
         self.is_regression = is_regression
+        self._forward_params = None
+
+    def _forward_kwargs(self, signal, extras):
+        """Name the signal and the extras of an extended batch for the forward.
+
+        The signal goes to the first ``forward`` parameter (``x`` on registered
+        models). ``pos`` and ``ch_mask`` go under these names only, and only to
+        a ``forward`` that takes them.
+        """
+        module = self.net.module_
+        if self._forward_params is None:
+            self._forward_params = inspect.signature(module.forward).parameters
+            # a channel_strategy wraps forward as (*args, **kwargs): name the
+            # signal after the class forward's first input
+            self._signal_name = next(
+                n
+                for n in inspect.signature(type(module).forward).parameters
+                if n != "self"
+            )
+        params, signal_name = self._forward_params, self._signal_name
+        any_kwarg = any(p.kind is p.VAR_KEYWORD for p in params.values())
+        hints = {
+            "ch_mask": "this model needs a constant channel count; do not use "
+            "pad_channels_collate",
+            "pos": "disable channel positions with set_return_ch_pos(False)",
+        }
+        for name in extras:
+            if not (any_kwarg or name in params):
+                raise ValueError(
+                    f"{type(module).__name__}.forward takes no {name}: {hints[name]}."
+                )
+        return {signal_name: signal, **extras}
+
+    def _cast_target(self, target):
+        """Float32 for regression and floating targets, int64 otherwise.
+
+        Floats stay floats here: ``EEGClassifier.get_loss`` tells class
+        probabilities from class indices stored as floats by their shape.
+        """
+        if self.is_regression or target.is_floating_point():
+            return target.float()
+        return target.long()
 
     def __iter__(
         self,
     ):
         normal_iter = self.loader.__iter__()
         for batch in normal_iter:
+            extras = {}
             if len(batch) == 3:
                 x, y, i = batch
                 # Store for scoring callbacks
@@ -425,43 +480,36 @@ class ThrowAwayIndexLoader(object):
                 # Extended batch produced by ``return_ch_pos`` /
                 # ``pad_channels_collate``:
                 #   (X, y, crop_inds, [ch_pos], [ch_mask]).
-                # Route the signal + extras to the module via a dict input;
-                # skorch then calls ``module_(**x)``. The forward must accept
-                # ``forward(self, x, pos=None, ch_mask=None, ...)``.
-                signal, y, i = batch[0], batch[1], batch[2]
+                # Routed to the module as a dict; skorch calls ``module_(**x)``.
+                x, y, i = batch[0], batch[1], batch[2]
                 self.net._last_window_inds_ = i
-                x = {"x": signal}
                 for extra in batch[3:]:
-                    if _looks_like_channel_mask(extra):
-                        x["ch_mask"] = extra
-                    else:
-                        x["pos"] = extra
+                    name = "ch_mask" if _looks_like_channel_mask(extra) else "pos"
+                    extras[name] = extra
             else:
                 x, y = batch
                 self.net._last_window_inds_ = None
 
             # TODO: should be on dataset side
             x, cast_target = _prepare_signal(x)
+            if extras:
+                x = self._forward_kwargs(x, extras)
             if cast_target:
-                target_dtype = torch.float32 if self.is_regression else torch.int64
                 if isinstance(y, (tuple, list)) and len(y) == 3:
                     y_a, y_b, lam = y
-                    y = (
-                        y_a.type(target_dtype),
-                        y_b.type(target_dtype),
-                        lam.type(torch.float32),
-                    )
-                elif hasattr(y, "type"):
-                    y = y.type(target_dtype)
+                    y = self._cast_target(y_a), self._cast_target(y_b), lam.float()
+                elif torch.is_tensor(y):
+                    y = self._cast_target(y)
             yield x, y
 
 
 def update_estimator_docstring(base_class, docstring):
-    base_doc = base_class.__doc__.replace(" : ", ": ")
-    idx = base_doc.find("callbacks:")
-    idx_end = idx + base_doc[idx:].find("\n\n")
-    # remove callback descripiton already included in braindecode docstring
-    filtered_doc = base_doc[:idx] + base_doc[idx_end + 6 :]
+    filtered_doc = base_class.__doc__.replace(" : ", ": ")
+    # remove the descriptions that the braindecode docstring gives instead
+    for name in ("callbacks:", "compile:"):
+        idx = filtered_doc.find(name)
+        idx_end = idx + filtered_doc[idx:].find("\n\n")
+        filtered_doc = filtered_doc[:idx] + filtered_doc[idx_end + 6 :]
     splitted = docstring.split("Parameters\n    ----------\n    ")
     out_docstring = (
         splitted[0]
@@ -504,9 +552,10 @@ def _update_moabb_docstring(base_class, docstring):
     base_doc = base_class.__doc__
     if base_doc is None:
         return docstring
-    base_doc = _clean_docstring_sections(
-        base_doc, remove_sections=("References", "Notes")
-    )
+    sections = ["References", "Notes"]
+    if "Parameters" in docstring:
+        sections.extend(["Parameters", "See Also", "Examples"])
+    base_doc = _clean_docstring_sections(base_doc, remove_sections=tuple(sections))
     # Strip dangling citation references (e.g. ``[1]_``) whose definitions
     # were in the removed References section.
     base_doc = re.sub(r"\s*\[\d+\]_", "", base_doc)
@@ -518,6 +567,9 @@ def read_all_file_names(directory, extension):
     """Read all files with specified extension from given path and sorts them.
 
     based on a given sorting key.
+
+    .. deprecated:: 2.1
+        It has no user in braindecode and will be removed in 2.2.
 
     Parameters
     ----------
@@ -531,6 +583,7 @@ def read_all_file_names(directory, extension):
     file_paths : list(str)
         List of all files found in (sub)directories of path.
     """
+    _warn_orphaned_api("read_all_file_names")
     assert extension.startswith(".")
     file_paths = glob.glob(directory + "**/*" + extension, recursive=True)
     assert len(file_paths) > 0, (

@@ -46,6 +46,27 @@ def is_cost_bearing(spec: Any) -> bool:
     return getattr(spec, "category", None) in COST_BEARING_CATEGORIES
 
 
+#: Node categories that never spend: reading/shaping data, control flow, in/out, information.
+#: Every OTHER category may (a called workflow, a pipe, a tool, a custom action) — a per-run
+#: spend reader is asked again only after one of those ran (``Scheduler(spend_check=...)``).
+NEVER_SPENDING_CATEGORIES: frozenset[NodeCategory] = frozenset(
+    {NodeCategory.DATA, NodeCategory.CONTROL, NodeCategory.IO, NodeCategory.INFO}
+)
+
+
+def may_spend(spec: Any) -> bool:
+    """True unless the step spends nothing: ``NodeSpec.spends`` when declared; undeclared, only a PURE
+    data / control / in-out / info step spends nothing (a category alone is no sign — search.decide is
+    DATA and runs an agent; an IDEMPOTENT tool may call a paid API)."""
+    declared = getattr(spec, "spends", None)
+    if declared is not None:
+        return bool(declared)
+    from matrx_graph.types.primitives import ActionTier
+
+    pure = getattr(spec, "determinism", None) == ActionTier.PURE
+    return not (pure and getattr(spec, "category", None) in NEVER_SPENDING_CATEGORIES)
+
+
 def _refused_exception(exc: BaseException | None, *, max_depth: int = 16) -> bool:
     seen: set[int] = set()
     stack: list[Any] = [exc]
@@ -134,8 +155,43 @@ def spend_gate() -> SpendGate | None:
     return _gate
 
 
+# ── refusals that HOLD the run (never an item failure) ─────────────────────────────────────────
+
+#: The error type of a held step its owner declined (NO / QUIET / NEVER): final, never retried; under
+#: ``on_item_failure='hole'`` it becomes the item's hole so the run completes without it.
+STOPPED_BY_OWNER = "StoppedByOwner"
+
+HoldRefusal = Callable[[Mapping[str, Any]], bool]
+
+_hold_refusal: HoldRefusal | None = None
+
+
+def configure_hold_refusal(predicate: HoldRefusal | None) -> None:
+    """Host wiring: which caller refusals HOLD the run (aidream: a budget gate's — Arman 2026-10-31, "I don't
+    want things to get rejected unless I've done that"). A held refusal is never handled as an item failure:
+    not a fan-out hole, not an ERROR route, not an optional step's skip — the run PARKS with the refused
+    invocations pending, and the host resumes exactly those when the hold is approved. None removes it (a
+    standalone install keeps today's routing)."""
+    global _hold_refusal
+    _hold_refusal = predicate
+
+
+def is_held_refusal(error: Mapping[str, Any] | None) -> bool:
+    """True when a recorded step failure is a refusal the host holds (see :func:`configure_hold_refusal`)."""
+    predicate = _hold_refusal
+    if predicate is None or not isinstance(error, Mapping) or not is_caller_refusal(error=error):
+        return False
+    try:
+        return bool(predicate(error))
+    except Exception:  # noqa: BLE001 — a broken predicate never strands a run: route as before
+        return False
+
+
 __all__ = [
     "CALLER_REFUSAL_KEY",
+    "STOPPED_BY_OWNER",
+    "configure_hold_refusal",
+    "is_held_refusal",
     "COST_BEARING_CATEGORIES",
     "SpendGate",
     "SpendQuery",
@@ -143,6 +199,7 @@ __all__ = [
     "configure_spend_gate",
     "is_caller_refusal",
     "is_cost_bearing",
+    "may_spend",
     "spend_gate",
 ]
 

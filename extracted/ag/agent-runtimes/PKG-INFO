@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: agent_runtimes
-Version: 1.8.2
+Version: 1.8.4
 Summary: Agent Runtimes
 Project-URL: Homepage, https://github.com/datalayer/agent-runtimes
 Project-URL: Documentation, https://agent-runtimes.datalayer.tech
@@ -22,7 +22,7 @@ Requires-Python: >=3.11
 Requires-Dist: agent-codemode>=1.1.0
 Requires-Dist: agent-skills>=1.5.0
 Requires-Dist: agent-teams<2,>=1.1.5
-Requires-Dist: agentspecs>=0.1.16
+Requires-Dist: agentspecs>=0.1.20
 Requires-Dist: code-sandboxes>=1.12.4
 Requires-Dist: croniter
 Requires-Dist: datalayer-agent-shield<0.3,>=0.2.18

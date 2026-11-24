@@ -86,7 +86,7 @@ class ProjectsMixin:
 
         ``kind`` is REQUIRED and declares what the project is for:
         ``training`` (weights move), ``evaluation`` (frozen weights — sweeps,
-        evals), ``research`` (papers, design, theory) or ``general``. It
+        evals) or ``general``. It
         structures the dashboard page; it never gates data. Machine paths with
         no intent-holder pass ``"general"``.
 

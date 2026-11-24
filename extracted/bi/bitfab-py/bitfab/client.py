@@ -38,6 +38,7 @@ from bitfab import (
     github_calls,
     google_calls,
     jev,
+    linear_calls,
     provider_calls,
     service_calls,
     slack_calls,
@@ -59,6 +60,7 @@ from bitfab.db_snapshot import DbSnapshotRef, build_snapshot_ref
 from bitfab.error_chain import describe_error
 from bitfab.experiment_id import resolve_experiment_id
 from bitfab.experiments import ExperimentsClient
+from bitfab.github_sandbox import READ_WHOLE_OBJECT as GITHUB_READ_WHOLE_OBJECT
 from bitfab.graders import GradersClient
 from bitfab.http import (
     ApiKeyInput,
@@ -84,6 +86,7 @@ from bitfab.mock_override import (
 )
 from bitfab.organization_members import OrganizationMembersClient
 from bitfab.payload_budget import MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES
+from bitfab.recorded_states import trace_finished
 from bitfab.replay import (  # noqa: F401 - re-export
     _CONCURRENCY_UNSET,
     AdaptContext,
@@ -158,8 +161,9 @@ MAX_CAPTURED_SUBTREE_SPANS_ENV = "BITFAB_MAX_CAPTURED_SUBTREE_SPANS"
 DISABLED_INTEGRATIONS_ENV = "BITFAB_DISABLED_INTEGRATIONS"
 ENABLED_INTEGRATIONS_ENV = "BITFAB_ENABLED_INTEGRATIONS"
 CONTENT_WITHHELD_KEY = "content_withheld_while_integration_off"
-OFF_BY_DEFAULT_INTEGRATIONS = frozenset({"gmail", "github", "slack"})
+OFF_BY_DEFAULT_INTEGRATIONS = frozenset({"gmail", "github", "linear", "slack"})
 KNOWN_INTEGRATIONS = provider_calls.INTEGRATION_NAMES | OFF_BY_DEFAULT_INTEGRATIONS
+RECORDING_MODES: dict[str, tuple[str, ...]] = {"github": (GITHUB_READ_WHOLE_OBJECT,)}
 _TRUE_ENV_VALUES = frozenset({"1", "true", "yes"})
 _FALSE_ENV_VALUES = frozenset({"0", "false", "no"})
 
@@ -190,7 +194,7 @@ def _integration_names_from_env(name: str, known: frozenset[str]) -> set[str]:
 
 
 def resolve_integrations(
-    integrations: Mapping[str, bool] | None,
+    integrations: Mapping[str, bool | str] | None,
 ) -> tuple[frozenset[str], frozenset[str]]:
     known = KNOWN_INTEGRATIONS
     in_code = dict(integrations or {})
@@ -200,6 +204,14 @@ def resolve_integrations(
             f"Bitfab(integrations=...) got {', '.join(unknown)}; "
             f"known integrations are {', '.join(sorted(known))}."
         )
+    for name, setting in in_code.items():
+        modes = RECORDING_MODES.get(name, ())
+        if isinstance(setting, str) and setting not in modes:
+            allowed = ", ".join(repr(mode) for mode in modes)
+            raise ValueError(
+                f"Bitfab(integrations={{{name!r}: ...}}) takes True, False"
+                f"{', or ' + allowed if modes else ''}; got {setting!r}."
+            )
     turned_off = _integration_names_from_env(DISABLED_INTEGRATIONS_ENV, known)
     turned_on = _integration_names_from_env(ENABLED_INTEGRATIONS_ENV, known)
     disabled: set[str] = set()
@@ -217,9 +229,19 @@ def resolve_integrations(
 
 
 def resolve_disabled_integrations(
-    integrations: Mapping[str, bool] | None,
+    integrations: Mapping[str, bool | str] | None,
 ) -> frozenset[str]:
     return resolve_integrations(integrations)[0]
+
+
+def resolve_integration_modes(
+    integrations: Mapping[str, bool | str] | None,
+) -> dict[str, str]:
+    return {
+        name: setting
+        for name, setting in (integrations or {}).items()
+        if isinstance(setting, str)
+    }
 
 
 def read_boolean_env(name: str) -> bool | None:
@@ -596,6 +618,7 @@ class SpanContext(TypedDict, total=False):
     declaredNode: bool
     isRoot: bool
     metadata: dict[str, str | int | float | bool]
+    sandboxAccess: dict[str, Any]
 
 
 class MixedTracingError(RuntimeError):
@@ -1271,6 +1294,26 @@ def get_current_replay_branch() -> ReplayBranch | None:
     return ReplayBranch(lease, trace_id, ctx)
 
 
+def postgres_sandbox_url(*, env_key: str = "DATABASE_URL") -> str | None:
+    """The connection string your database client should use right now.
+
+    Inside a replay item with the Postgres sandbox on
+    (``sandbox_modes={"postgres": True}`` or ``db_branch``), this is the
+    sandbox: a copy of your database as it stood when the original trace ran.
+    Everywhere else, in production and in a replay without the sandbox, it is
+    the environment variable named by ``env_key``::
+
+        engine = create_engine(postgres_sandbox_url())
+
+    Reading the sandbox's connection string records on the replay trace that
+    your code used the sandbox.
+    """
+    branch = get_current_replay_branch()
+    if branch is not None:
+        return branch.database_url
+    return os.environ.get(env_key)
+
+
 def get_current_trace() -> CurrentTrace | _NoOpCurrentTrace:
     """Get a handle to the current active trace.
 
@@ -1420,7 +1463,7 @@ class Bitfab:
         trace_across_threads: bool | None = None,
         max_captured_subtree_spans: int | None = None,
         simulation_plan: bool = True,
-        integrations: Mapping[str, bool] | None = None,
+        integrations: Mapping[str, bool | str] | None = None,
         enabled: bool | None = None,
     ):
         """Initialize the Bitfab client.
@@ -1487,7 +1530,15 @@ class Bitfab:
                 code; True records each call as a span named for its
                 operation (``github.contents.get``) and records the GitHub
                 snapshot (every branch and tag head) the first time a trace
-                calls a repo. Whatever this says, a Gmail or GitHub call made
+                calls a repo. ``"test-read-whole-object"`` for ``github``
+                records as True does, and the first time a traced run reads
+                any part of a pull request it also reads the whole pull
+                request and saves it, with the GitHub snapshot, as the
+                trace's GitHub sandbox state; every replay of the trace starts
+                from that state, so the GitHub sandbox's
+                ``"test-read-whole-object"`` mode answers any read of it
+                without reaching GitHub. It is a test mode and may change or
+                be removed. Whatever this says, a Gmail or GitHub call made
                 during a replay never reaches the service's live state: its
                 sandbox answers it. None
                 (default) or a name left out: off when
@@ -1520,6 +1571,7 @@ class Bitfab:
             self._disabled_integrations,
             self._integrations_off_by_default,
         ) = resolve_integrations(integrations)
+        self._integration_modes = resolve_integration_modes(integrations)
         self._patched_integrations = (
             provider_calls.INTEGRATION_NAMES - self._disabled_integrations
         )
@@ -1572,6 +1624,7 @@ class Bitfab:
         google_calls.install()
         github_calls.install()
         slack_calls.install()
+        linear_calls.install()
         start_commit_ref_resolution()
         self._simulation_plan.refresh()
 
@@ -2394,7 +2447,6 @@ class Bitfab:
         mock_override: Union[MockOverrideInput, list[MockOverrideInput]] | None = None,
         sandboxes: list[Sandbox] | None = None,
         sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
-        sandbox_store: str | None = None,
         experimental_selective_replay: SelectiveReplayOptions | None = None,
         adapt_inputs: Callable[
             [list[Any], dict[str, Any], AdaptContext], tuple[list[Any], dict[str, Any]]
@@ -2587,15 +2639,9 @@ class Bitfab:
                 default mode is ``"read-real-write-fake"``; a service left out
                 keeps the mode it runs in without this option (Gmail:
                 ``"recorded"``). A sandbox set here cannot also be passed in
-                ``sandboxes``.
-            sandbox_store: The name of a sandbox store to replay against
-                (see :attr:`sandbox_stores`). Each trace has its own state in
-                the store: a sandbox starts from the replayed trace's state
-                for it, else from the store's seed, else from the original
-                trace, and saves its state to the new replay trace after each
-                write and when the item finishes, so two replays of one trace
-                never share state. Replay traces are linked to the store. ``None`` (default)
-                keeps each sandbox's state to its item.
+                ``sandboxes``. ``{"postgres": True}`` turns on the Postgres
+                sandbox: each item runs against its own copy of your database
+                as it stood when the original trace ran.
             experimental_selective_replay: Opt-in must_run manifest. The
                 server protects required subtrees and ancestors, combining them
                 with each trace's assertions and recorded
@@ -2606,13 +2652,12 @@ class Bitfab:
                 current signature when the function's shape changed since the
                 traces were captured. Receives ``(args, kwargs, AdaptContext)``
                 and returns the ``(args, kwargs)`` passed to ``fn``.
-            db_branch: ``True`` to branch with the mirror project's own sizing,
-                or a :class:`DbBranchOptions` mapping to tune how each branch
-                is sized and warmed. ``False`` and omission leave branching
-                off. The server resolves a per-trace branch from each source
-                trace's ``db_snapshot_ref``; read it inside ``fn`` with
-                :func:`get_current_replay_branch` (the SDK releases each branch
-                after its item).
+            db_branch: Deprecated. Use the Postgres sandbox:
+                ``sandbox_modes={"postgres": True}``, or
+                ``sandboxes=[postgres_sandbox(min_cu=..., max_cu=...,
+                warmup_sql=...)]`` to size and warm it. ``True`` and a
+                :class:`DbBranchOptions` mapping still turn it on the same
+                way, and ``False`` and omission still leave it off.
             attempts: How many times each source trace is replayed in this
                 run (1 to 100, default 1). Superseded by ``concurrency``.
             concurrency: Optional :class:`ReplayConcurrency` carrying
@@ -2728,7 +2773,6 @@ class Bitfab:
             mock_override=mock_override,
             sandboxes=sandboxes,
             sandbox_modes=sandbox_modes,
-            sandbox_store=sandbox_store,
             experimental_selective_replay=experimental_selective_replay,
             adapt_inputs=adapt_inputs,
             db_branch=db_branch,
@@ -3133,6 +3177,9 @@ class Bitfab:
                     enclosing_trace = span_context.get("enclosingTrace")
                     if enclosing_trace is not None:
                         send_kwargs["enclosing_trace"] = enclosing_trace
+                    sandbox_access = span_context.get("sandboxAccess")
+                    if sandbox_access is not None:
+                        send_kwargs["sandbox_access"] = sandbox_access
                     self._send_span(
                         **send_kwargs, declared_node=mirror_in_enclosing_traces
                     )
@@ -3326,16 +3373,36 @@ class Bitfab:
                             "function instead of get_original_output()."
                         )
 
-                    answered = session.answer(
-                        sandbox,
-                        MockOverrideCtx(
-                            node=node,
-                            inputs=list(args),
-                            kwargs=dict(kwargs),
-                            get_original_output=no_original_output,
-                        ),
-                        _attach_to_trace_root,
-                    )
+                    def attach_access(access: dict[str, Any]) -> None:
+                        new_stack[-1]["sandboxAccess"] = access
+
+                    try:
+                        answered = session.answer(
+                            sandbox,
+                            MockOverrideCtx(
+                                node=node,
+                                inputs=list(args),
+                                kwargs=dict(kwargs),
+                                get_original_output=no_original_output,
+                            ),
+                            _attach_to_trace_root,
+                            attach_access,
+                        )
+                    except Exception as error:
+                        CurrentSpan(new_stack[-1]).add_context(
+                            {"sandbox": sandbox.name}
+                        )
+                        _safe_send_span(
+                            new_stack[-1],
+                            **base_params,
+                            result=None,
+                            error=str(error) or error.__class__.__name__,
+                            ended_at=_get_ended_at(),
+                            mocked=True,
+                            mock_target="output",
+                            mock_source="sandbox",
+                        )
+                        raise
                     CurrentSpan(new_stack[-1]).add_context({"sandbox": sandbox.name})
                     _safe_send_span(
                         new_stack[-1],
@@ -6075,6 +6142,7 @@ class Bitfab:
         mocked: bool = False,
         mock_target: MockTarget | None = None,
         mock_source: MockSource | None = None,
+        sandbox_access: dict[str, Any] | None = None,
         runtime: dict[str, Any] | None = None,
         function_id: str | None = None,
         function_file: str | None = None,
@@ -6102,6 +6170,8 @@ class Bitfab:
             mock_source: Where the substituted value came from: "recorded" for
                 the original trace's own, "override" for a caller-supplied one,
                 "sandbox" for a sandbox's answer.
+            sandbox_access: The read or write a sandbox answered this span
+                with, sent as its own field so the server keeps it on the span.
             runtime: Where the span executed: thread_id and thread_name always,
                 parent_thread_id when the parent span's thread is known, and
                 submit_thread_id/submit_thread_name when the
@@ -6232,6 +6302,9 @@ class Bitfab:
         if mock_source is not None:
             payload["mockSource"] = mock_source
 
+        if sandbox_access is not None:
+            payload["sandboxAccess"] = sandbox_access
+
         # If drop() was called on this trace, suppress the span PAYLOAD upload
         # for every span that completes after the flag was set. The trace
         # completion below still rides out with dropped: true, so the server
@@ -6306,6 +6379,7 @@ class Bitfab:
                 else None,
             )
             _active_trace_states.pop(trace_id, None)
+            trace_finished(trace_id)
             retire_trace_metadata(trace_id)
 
 

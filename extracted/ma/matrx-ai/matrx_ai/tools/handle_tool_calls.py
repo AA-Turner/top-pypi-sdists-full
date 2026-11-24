@@ -137,6 +137,22 @@ TOOL_SYSTEM_READY_TIMEOUT_S = 30.0
 _ready_lock: Any = None
 
 
+def _host_identity() -> dict[str, Any]:
+    import os
+    import sys
+
+    identity: dict[str, Any] = {"pid": os.getpid(), "argv0": (sys.argv[0] if sys.argv else "")[-120:]}
+    try:
+        from matrx_utils import get_runtime_env
+
+        env = get_runtime_env()
+        identity["stage"] = getattr(getattr(env, "stage", None), "value", None)
+        identity["role"] = getattr(getattr(env, "role", None), "value", None)
+    except Exception:  # noqa: BLE001 — identity is best-effort, never breaks a turn
+        pass
+    return identity
+
+
 def tool_system_ready() -> bool:
     registry = ToolRegistry.get_instance()
     return registry.loaded and registry.count > 0
@@ -198,6 +214,9 @@ async def ensure_tool_system_ready(
                     "loaded_on_demand": ready,
                     "registry_count": registry.count,
                     "timeout_s": timeout_s,
+                    # WHICH process skipped boot's load (feedback 0c117050: the rows named no host,
+                    # so the entrypoint missing initialize_tool_system could not be found).
+                    **_host_identity(),
                 },
             )
         except Exception as capture_exc:  # noqa: BLE001 — capture must never break a turn
@@ -277,6 +296,7 @@ async def handle_tool_calls_v2(
     message_id: str | None = None,
     assistant_checkpoint: Any = None,
     gate_context: Any = None,
+    running_modes: Any = None,
 ) -> tuple[list[dict[str, Any]], list[TokenUsage], list[str]]:
     """Execute tool calls using the current ExecutionContext.
 
@@ -302,6 +322,8 @@ async def handle_tool_calls_v2(
         cut by position. Passed straight through onto every ToolContext; the
         gate treats None (and an empty one) as "relevance is unanswerable" and
         keeps today's positional cut.
+    running_modes:
+        The turn's agent modes (``ToolContext.running_modes``); None when the agent has none.
 
     Returns
     -------
@@ -330,6 +352,7 @@ async def handle_tool_calls_v2(
         recursion_depth=recursion_depth,
         cost_budget_remaining=cost_budget_remaining,
         gate_context=gate_context,
+        running_modes=running_modes,
     )
 
     # ── Handoff batch policy — enforced BEFORE dispatch ─────────────────────
@@ -404,6 +427,7 @@ async def handle_tool_calls_v2(
                     blocked_result = ToolResult(
                         success=False,
                         error=ToolError(
+                            refusal=True,
                             error_type="handoff_policy",
                             message=policy_error,
                             is_retryable=True,
@@ -457,6 +481,20 @@ async def handle_tool_calls_v2(
         # Terminal handoff (the pre-dispatch policy guarantees at most one).
         if result.handoff_final and result.handoff is not None:
             handoff_outcome = result.handoff
+
+    # AN ANSWER THAT LANDED WHILE THIS BATCH RAN IS TAKEN HERE (RESUME-AND-RECOVERY 1a rule 4a, 1b rule P6).
+    # A call answered while this run was still busy (a slow sibling tool, the gap before a hold's claim, a
+    # wait already given up) was resolved by the plain compare-and-set. Its resolver's continuation cannot
+    # claim a run that is still RUNNING, and this run holds the claim: nobody else can continue it. So every
+    # batch with pending calls takes the rows already answered now, instead of parking on calls that are no
+    # longer open (one read per pending call; never raises, a failed read leaves the call pending).
+    if pending_call_ids:
+        from matrx_ai.tools.delegated_hold import answered_meanwhile
+
+        taken_late = await answered_meanwhile(getattr(ctx, "conversation_id", None), pending_call_ids)
+        for call_id, content in taken_late.items():
+            pending_call_ids.remove(call_id)
+            completed_content.append(content)
 
     completed_content.extend(blocked_handoff_content)
 

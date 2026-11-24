@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from matrx_connect.context.data_types import DataPayload
+from matrx_connect.context.graph_ops import GraphOpEvent
 from matrx_connect.context.operations import CompletionPayload, InitPayload
 from matrx_connect.context.phases import PhasePayload
 
@@ -48,6 +49,7 @@ class EventType(StrEnum):
     PROVIDER_RETRY = "provider_retry"
     CITATION = "citation"
     CONTROL_TOKEN = "control_token"
+    GRAPH_OP = "graph_op"
 
 
 VALID_EVENT_TYPES: frozenset[str] = frozenset(e.value for e in EventType)
@@ -107,20 +109,21 @@ class InfoPayload(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-#: The last resort — used ONLY when the server said nothing at all.
+#: The one generic person line: what `user_message` holds when no caller wrote one for a person.
 GENERIC_ERROR_MESSAGE = "Sorry. An error occurred."
 
 
-# 🚨 `user_message` never silently becomes a shrug. Every client prefers
-# `user_message` over `message` (correctly — it is the field named "what the
-# person reads"), so a blank one that defaulted to "Sorry. An error occurred."
-# SHADOWS the honest sentence the server already wrote in `message`. That is
-# exactly how a Masterwork upload told a person "Sorry. An error occurred."
-# while the server was saying "…isn't a kind of file we can read yet. Paste the
-# text instead." (2026-09-12). So: when nobody supplied a user-facing sentence,
-# `message` IS the sentence. A blunt technical line is honest; a generic apology
-# that hides the remedy is not. The apology survives only when the server said
-# nothing at all.
+# 🚨 `user_message` is what a person reads, so it holds ONLY a sentence someone
+# wrote for a person. Every client prefers `user_message` over `message`, so a
+# server that copied `message` into it handed exception text and refusal codes
+# to people as if written for them (2026-11-19, Matrx Study). So: a caller that
+# means a person sentence passes `user_message` explicitly; when it passes none
+# (or a blank one), `user_message` is the one generic person line below — never
+# `message`, which keeps the developer text for logs and a Details door.
+# The opposite failure (an apology SHADOWING an honest sentence, the Masterwork
+# upload of 2026-09-12) is closed at the callers: every refusal whose `message`
+# is a person sentence passes the same sentence as `user_message`.
+# Guard: packages/matrx-connect/tests/test_error_never_shrugs.py.
 class ErrorPayload(BaseModel):
     model_config = {"extra": "forbid"}
     error_type: str
@@ -130,13 +133,9 @@ class ErrorPayload(BaseModel):
     details: dict[str, Any] | None = None
 
     @model_validator(mode="after")
-    def _never_shrug(self) -> "ErrorPayload":
-        if "user_message" not in self.model_fields_set or not self.user_message.strip():
-            object.__setattr__(
-                self,
-                "user_message",
-                self.message.strip() or GENERIC_ERROR_MESSAGE,
-            )
+    def _only_a_person_sentence(self) -> ErrorPayload:
+        if not self.user_message.strip():
+            object.__setattr__(self, "user_message", GENERIC_ERROR_MESSAGE)
         return self
 
 
@@ -228,11 +227,18 @@ class HeartbeatPayload(BaseModel):
 END_REASON_COMPLETE = "complete"
 END_REASON_CANCELLED = "cancelled"
 END_REASON_ERROR = "error"
+#: Reader-local only (never journaled): the run parked (paused, interrupted, awaiting an answer,
+#: errored awaiting resume). The follower stops; the leg that resumes the run is followed afresh.
+END_REASON_WAITING_INPUT = "waiting_input"
 
 
 class EndPayload(BaseModel):
     model_config = {"extra": "forbid"}
+    #: ``complete`` | ``error`` | ``cancelled`` | ``waiting_input`` (reader-local, with ``run_status``).
     reason: str = END_REASON_COMPLETE
+    #: The workflow run's status when the rejoin reader ends at a park (``waiting_input``). Absent
+    #: (not ``null``) on every other end, so an existing end frame's bytes never change.
+    run_status: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class RenderBlockPayload(BaseModel):
@@ -791,6 +797,7 @@ PAYLOAD_REGISTRY: dict[EventType, type[BaseModel]] = {
     EventType.PROVIDER_RETRY: ProviderRetryPayload,
     EventType.CITATION: CitationPayload,
     EventType.CONTROL_TOKEN: ControlTokenPayload,
+    EventType.GRAPH_OP: GraphOpEvent,
 }
 
 

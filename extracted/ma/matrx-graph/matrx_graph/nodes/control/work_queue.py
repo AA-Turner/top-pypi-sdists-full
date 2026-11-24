@@ -3,7 +3,10 @@
 The processing half of the work-set pair (matrx_graph.workset; discovery is
 ``control.work_seed``). Each firing:
 
-1. Reclaims expired leases (crash recovery — dead workers' items return to
+1. Releases claims made under this firing's own identity (an execution of
+   it that died before its checkpoint — a deploy, a retry; the attempt is
+   given back) and reclaims
+   expired leases (crash recovery — dead workers' items return to
    pending, or dead-letter past their attempt budget).
 2. Claims up to ``batch_size`` pending items (atomic, lease-fenced) and Sends
    each to ``target_node_id`` — the item's id rides the Send, and the engine
@@ -42,7 +45,7 @@ from matrx_graph.types.node_spec import NodeSpec
 from matrx_graph.types.primitives import ActionTier, EdgeKind, NodeCategory
 from matrx_graph.types.result import NodeResult, success
 from matrx_graph.types.usl import field_extras
-from matrx_graph.workset import get_work_set_store
+from matrx_graph.workset import get_work_set_store, work_claim_holder
 
 
 class WorkQueueInput(BaseModel):
@@ -170,13 +173,26 @@ class WorkQueueExecutor:
         store = get_work_set_store()
         wave = inputs.wave + 1
 
+        # Claims made under THIS firing's identity (stable across retry and
+        # resume) come from an execution of it that never reached a
+        # checkpoint — the process died (a deploy) or the step is being
+        # retried. Those items were never dispatched from the durable
+        # frontier, so they return to pending (attempt given back) instead of
+        # idling under a live lease while this queue re-fires every
+        # super-step until max_steps (run 40a1144a, 2026-10-31). Another
+        # firing's claims — a second queue on the set, a fan-out sibling, a
+        # second delivery into ``in`` — are never this firing's to free.
+        firing_key = ctx.stable_idempotency_key
+        released = await store.release_firing_claims(
+            ctx.run_id, config.set_name, firing_key, legacy_wave=wave
+        )
         reclaimed = await store.reclaim_expired(ctx.run_id, config.set_name)
 
         claims = await store.claim(
             ctx.run_id,
             config.set_name,
             limit=config.batch_size,
-            holder=ctx.run_id,
+            holder=work_claim_holder(firing_key, ctx.outbound_dispatch_id()),
             lease_seconds=config.lease_seconds,
             wave=wave,
         )
@@ -241,6 +257,18 @@ class WorkQueueExecutor:
                 ctx.run_id[:8],
                 ctx.node_id,
                 exc_info=True,
+            )
+        if released:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "[wf:%s] work_queue '%s' released %d claim(s) an interrupted "
+                "execution of this wave made (set=%s) — the run resumed or the "
+                "step retried; the items are claimed again now",
+                ctx.run_id[:8],
+                ctx.node_id,
+                released,
+                config.set_name,
             )
         if reclaimed:
             import logging

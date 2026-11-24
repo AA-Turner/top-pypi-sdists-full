@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -41,6 +42,13 @@ class _Host:
         self.stored.append((fp, result))
 
 
+def _held(supplied: dict[str, Any]) -> dict[str, Any]:
+    """What the real host's compute rule does to an in-hand offer: each ``given`` value unwraps to itself."""
+    from matrx_ai.mandates import Offered
+
+    return {k: v.build(None) if isinstance(v, Offered) and v.in_hand else v for k, v in supplied.items()}
+
+
 @pytest.fixture()
 def step(monkeypatch: pytest.MonkeyPatch):
     runs: list[Any] = []
@@ -49,7 +57,7 @@ def step(monkeypatch: pytest.MonkeyPatch):
         # A Run Mandate step hands its state over and the binding picks (cd3a048b87): the doer's
         # ``facts`` arrive through the mandate's map, never fed by name.
         async def materialize(supplied: dict[str, Any]) -> dict[str, Any]:
-            return {"facts": supplied["facts"]}
+            return {"facts": _held(supplied)["facts"]}
 
         return StepAgent(agent_id="agent-1", is_version=False, config_overrides={"m": 1}, declared_output_kind=None,
                          materialize=materialize, consumption_map={"facts": [{"target": "facts"}]})
@@ -63,7 +71,10 @@ def step(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(ma, "resolve_step_agent_full", resolve)
     monkeypatch.setattr(ma, "resolve_step_iteration_limit", limit)
-    monkeypatch.setattr(ma, "build_agent_request", lambda *a, **k: {"req": True})
+    # The request the step would send, with what the key reads off it (variables after binding, settings).
+    monkeypatch.setattr(ma, "build_agent_request", lambda _ctx, inputs, resolved, **_k: SimpleNamespace(
+        variables=dict(inputs.model_extra or {}), config_overrides=dict(resolved.config_overrides or {}),
+        user_input=inputs.user_input))
     # The doer is reached through the ONE protected dispatch (``run_walled_step_agent``, 77016a930e),
     # which calls ``agent_action.run_step_agent`` — patch it where that dispatch looks it up.
     monkeypatch.setattr(aa, "run_step_agent", run)
@@ -86,8 +97,9 @@ def test_a_miss_runs_for_real_and_offers_the_result_back(step) -> None:
     mandate_taps.set_mandate_replay(host)
     assert _go().final_text == "real answer" and step == ["agent-1"]
     (door, key, run_id, fp), = host.looked
-    assert (door, key, run_id) == ("workflow_step", "brand_intake.we_think", "run-9")
-    assert fp["agent_id"] == "agent-1" and fp["config_overrides"] == {"m": 1} and fp["inputs"]["facts"] == "x"
+    # ONE door for every mandate answer (L-REPLAY): keyed on the Holder and the variables AFTER binding.
+    assert (door, key, run_id) == (mandate_taps.MANDATE_DOOR, "brand_intake.we_think", "run-9")
+    assert fp["agent_id"] == "agent-1" and fp["config_overrides"] == {"m": 1} and fp["variables"] == {"facts": "x"}
     (stored_fp, stored), = host.stored
     assert stored_fp == fp and stored["final_text"] == "real answer"
 
@@ -103,3 +115,23 @@ def test_a_hit_never_runs_the_doer(step) -> None:
 def test_a_broken_host_is_a_miss_not_a_failure(step) -> None:
     mandate_taps.set_mandate_replay(_Host(boom=True))
     assert _go().final_text == "real answer" and step == ["agent-1"]
+
+
+def test_an_explicit_host_refusal_never_runs_the_paid_doer(step) -> None:
+    host = _Host()
+    host.lookup = AsyncMock(side_effect=mandate_taps.MandateReplayRefused("Saved replies unavailable"))
+    mandate_taps.set_mandate_replay(host)
+    with pytest.raises(mandate_taps.MandateReplayRefused, match="Saved replies unavailable"):
+        _go()
+    assert not step and not host.stored
+
+
+def test_a_typed_stand_in_still_names_who_would_have_answered(step) -> None:
+    """A stand-in somebody typed carries no doer; the step names the resolved one, as the code path's row does.
+    A recorded answer keeps the doer it was recorded with. Red before L8c: the stand-in's result had no agent_id."""
+    mandate_taps.set_mandate_replay(_Host(answer=_result("typed stand-in").model_dump(mode="json")))
+    assert _go().metadata["agent_id"] == "agent-1" and step == []
+    recorded = _result("recorded").model_dump(mode="json")
+    recorded["metadata"] = {"agent_id": "agent-then"}
+    mandate_taps.set_mandate_replay(_Host(answer=recorded))
+    assert _go().metadata["agent_id"] == "agent-then"

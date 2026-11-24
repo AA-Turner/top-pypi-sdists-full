@@ -16,10 +16,13 @@ from __future__ import annotations
 
 __lazy_modules__ = (
     "asyncio",
+    "concurrent.futures",
+    "contextvars",
     "hashlib",
     "nab_index.atomic",
     "nab_index.client",
     "nab_index.local_index",
+    "nab_project._concurrency",
     "nab_project.lockfile",
     "nab_provider.errors",
     "pathlib",
@@ -31,20 +34,24 @@ import asyncio
 import hashlib
 import logging
 import posixpath
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, TypeVar
 from urllib.parse import urlsplit
 
 from nab_index.atomic import atomic_write
 from nab_index.client import AsyncSimpleClient
 from nab_index.local_index import parse_file_url
 from nab_provider.errors import HttpError
-from nab_provider.value import HashableRecord, Record
+from nab_provider.value import HashableRecord, Record, replace
 
+from ._concurrency import validate_max_concurrency
 from .lockfile import ArchivePin, IndexPin, LocalPin, LockInput, VcsPin
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Coroutine, Iterable
+    from typing import Any
 
     from nab_index.transport import AsyncHttpTransport
 
@@ -56,6 +63,7 @@ __all__ = [
     "DownloadResult",
     "download_lock",
     "iter_artifacts",
+    "run_download",
 ]
 
 
@@ -202,19 +210,23 @@ def _iter_index_pin(canonical: str, pin: IndexPin) -> Iterable[DownloadEntry]:
 
 
 def _coalesce_download_targets(
-    artefacts: list[DownloadEntry],
+    artefacts: Iterable[DownloadEntry], *, offline: bool = False
 ) -> list[DownloadEntry]:
     """Coalesce casefold-equivalent names sharing ``(hash_algo, digest)``.
 
-    The first filename wins. A different identity raises
+    Keep the first output filename, using a local copy when offline.
+    A different identity raises
     :class:`DownloadError`.
     """
     by_name: dict[str, DownloadEntry] = {}
-    unique: list[DownloadEntry] = []
     for entry in artefacts:
         key = entry.filename.casefold()
         prior = by_name.get(key)
-        if prior is not None and (prior.hash_algo, prior.digest) != (
+        if prior is None:
+            by_name[key] = entry
+            continue
+
+        if (prior.hash_algo, prior.digest) != (
             entry.hash_algo,
             entry.digest,
         ):
@@ -225,10 +237,35 @@ def _coalesce_download_targets(
                 " Download them to separate directories."
             )
             raise DownloadError(msg)
-        if prior is None:
-            by_name[key] = entry
-            unique.append(entry)
-    return unique
+        if offline and prior.local_path is None and entry.local_path is not None:
+            by_name[key] = replace(entry, filename=prior.filename)
+    return list(by_name.values())
+
+
+_Result = TypeVar("_Result")
+
+
+def run_download(operation: Callable[[], Coroutine[Any, Any, _Result]]) -> _Result:
+    """Complete an async download on a fresh event loop.
+
+    When the caller already has a running loop, a worker thread runs the
+    operation in a copy of the caller's context.
+    """
+
+    def run() -> _Result:
+        return asyncio.run(operation())
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    else:
+        # A running loop cannot drive a second loop on the same thread.
+        context = copy_context()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(lambda: context.run(run)).result()
+
+    return run()
 
 
 def download_lock(
@@ -241,6 +278,7 @@ def download_lock(
 ) -> DownloadResult:
     """Download every artefact in ``lock_input`` into ``output_dir``.
 
+    ``max_concurrency`` must allow at least one download.
     Already-present files whose digest matches the recorded
     algorithm are left alone so the command is idempotent.
     Mismatched files are re-fetched and overwritten.  HTTP failures
@@ -252,13 +290,16 @@ def download_lock(
     served.
     """
     try:
+        validate_max_concurrency(max_concurrency)
         output_dir.mkdir(parents=True, exist_ok=True)
-        artefacts = _coalesce_download_targets(list(iter_artifacts(lock_input)))
+        artefacts = _coalesce_download_targets(
+            iter_artifacts(lock_input), offline=offline
+        )
     except BaseException:
-        asyncio.run(transport.aclose())
+        run_download(transport.aclose)
         raise
-    return asyncio.run(
-        _run_downloads(
+    return run_download(
+        lambda: _run_downloads(
             artefacts, transport, output_dir, max_concurrency, offline=offline
         )
     )
@@ -276,13 +317,13 @@ async def _run_downloads(
 
     On failure, cancel unfinished entries and close the client before re-raising.
     """
-    sem = asyncio.Semaphore(max_concurrency)
+    concurrency_limit = asyncio.Semaphore(max_concurrency)
     client = AsyncSimpleClient(transport)
     written: list[Path] = []
     skipped: list[Path] = []
 
-    async def _one(entry: DownloadEntry) -> None:
-        async with sem:
+    async def _download_entry(entry: DownloadEntry) -> None:
+        async with concurrency_limit:
             # The filename comes from the index or an archive URL; reject
             # anything but a plain basename so a crafted name cannot escape
             # output_dir on write.
@@ -292,11 +333,13 @@ async def _run_downloads(
                     f" unsafe artefact filename: {entry.filename!r}"
                 )
                 raise DownloadError(msg)
+
             target = output_dir / entry.filename
             if _already_present(target, entry.hash_algo, entry.digest):
                 skipped.append(target)
                 logger.info("skip %s (%s matches)", entry.filename, entry.hash_algo)
                 return
+
             data = await _fetch_bytes(entry, client, offline=offline)
             actual = hashlib.new(entry.hash_algo, data).hexdigest()
             if actual != entry.digest:
@@ -306,21 +349,24 @@ async def _run_downloads(
                     f"  expected: {entry.digest}\n  actual:   {actual}"
                 )
                 raise DownloadError(msg)
+
             atomic_write(target, data)
             written.append(target)
             logger.info("wrote %s", target)
 
-    tasks = [asyncio.create_task(_one(a)) for a in artefacts]
+    tasks = [asyncio.create_task(_download_entry(entry)) for entry in artefacts]
     try:
         await asyncio.gather(*tasks)
     except BaseException:
-        for t in tasks:
-            if not t.done():
-                t.cancel()
+        # Let cancelled downloads unwind before their shared client closes.
+        for task in tasks:
+            if not task.done():
+                task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         raise
     finally:
         await client.aclose()
+
     return DownloadResult(written=tuple(written), skipped=tuple(skipped))
 
 

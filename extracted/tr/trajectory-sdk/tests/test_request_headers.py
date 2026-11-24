@@ -51,15 +51,15 @@ def test_api_version_is_sent_by_original_and_copied_clients_with_overrides() -> 
     # break this test.
     api_version = client.default_headers["Trajectory-API-Version"]
     assert api_version
-    client.agents.with_raw_response.list()
-    client.copy().agents.with_raw_response.list()
+    client.projects.with_raw_response.list()
+    client.copy().projects.with_raw_response.list()
     overridden = client.copy(default_headers={"trajectory-api-version": "test-version"})
-    overridden.agents.with_raw_response.list()
-    overridden.copy().agents.with_raw_response.list()
-    overridden.agents.with_raw_response.list(
+    overridden.projects.with_raw_response.list()
+    overridden.copy().projects.with_raw_response.list()
+    overridden.projects.with_raw_response.list(
       extra_headers={"Trajectory-API-Version": "request-version"}
     )
-    client.agents.with_raw_response.list()
+    client.projects.with_raw_response.list()
 
   assert [request.headers.get_list("Trajectory-API-Version") for request in requests] == [
     [api_version],
@@ -136,7 +136,7 @@ def test_client_and_device_login_send_the_published_api_version() -> None:
   with httpx2.Client(transport=httpx2.MockTransport(handle)) as http:
     DeviceAuth("https://api.trajectory.ai", http).whoami("tj_test")
   with client_for({}, 200) as (client, requests):
-    client.agents.with_raw_response.list()
+    client.projects.with_raw_response.list()
 
   assert sent == [published]
   assert requests[0].headers["Trajectory-API-Version"] == published

@@ -37,6 +37,7 @@ _PIECES = (
     "probe.mcp.tools.views.branches",
     "probe.mcp.tools.views.catalog",
     "probe.mcp.tools.views.code",
+    "probe.mcp.tools.views.decisions",
     "probe.mcp.tools.views.lineage",
     "probe.mcp.tools.views.notes",
     "probe.mcp.tools.views.overview",

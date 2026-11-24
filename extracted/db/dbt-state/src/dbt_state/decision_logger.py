@@ -113,6 +113,10 @@ class RunStartEntry:
 class DevCloneInfo:
     source_table_fqn: str
     target_table_fqn: str
+    # the node's resolved clone_incremental_in_dev; None in entries written before it was recorded
+    clone_incremental_in_dev: t.Optional[CloneIncrementalInDev] = None
+    # whether the clone replaced an existing table; None in entries written before it was recorded
+    replaced_existing_table: t.Optional[bool] = None
 
 
 @dataclass
@@ -188,7 +192,14 @@ class BaseDecisionLogger(ABC):
         ...
 
     @abstractmethod
-    def log_dev_clone(self, node_name: str, source_fqn: str, target_fqn: str) -> None:
+    def log_dev_clone(
+        self,
+        node_name: str,
+        source_fqn: str,
+        target_fqn: str,
+        clone_incremental_in_dev: t.Optional[CloneIncrementalInDev] = None,
+        replaced_existing_table: t.Optional[bool] = None,
+    ) -> None:
         """Log when a local dev clone occurred"""
         ...
 
@@ -293,10 +304,20 @@ class DecisionLogger(BaseDecisionLogger):
             ),
         )
 
-    def log_dev_clone(self, node_name: str, source_fqn: str, target_fqn: str) -> None:
+    def log_dev_clone(
+        self,
+        node_name: str,
+        source_fqn: str,
+        target_fqn: str,
+        clone_incremental_in_dev: t.Optional[CloneIncrementalInDev] = None,
+        replaced_existing_table: t.Optional[bool] = None,
+    ) -> None:
         if inflight := self._inflight.get(node_name):
             inflight.node_info.dev_clone = DevCloneInfo(
-                source_table_fqn=source_fqn, target_table_fqn=target_fqn
+                source_table_fqn=source_fqn,
+                target_table_fqn=target_fqn,
+                clone_incremental_in_dev=clone_incremental_in_dev,
+                replaced_existing_table=replaced_existing_table,
             )
 
     def log_deferral(self, node_name: str, relation_name: str, deferred_to_fqn: str) -> None:
@@ -352,7 +373,14 @@ class NoOpLogger(BaseDecisionLogger):
         """No-op: NoOpLogger does not write logs."""
         pass
 
-    def log_dev_clone(self, node_name: str, source_fqn: str, target_fqn: str) -> None:
+    def log_dev_clone(
+        self,
+        node_name: str,
+        source_fqn: str,
+        target_fqn: str,
+        clone_incremental_in_dev: t.Optional[CloneIncrementalInDev] = None,
+        replaced_existing_table: t.Optional[bool] = None,
+    ) -> None:
         """No-op: NoOpLogger does not write logs."""
         pass
 

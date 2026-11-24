@@ -34,9 +34,9 @@ def _run(code: str) -> subprocess.CompletedProcess[str]:
 
 def test_one_phone_link_flattens_without_crashing() -> None:
     r = _run(
-        "from selectolax.parser import HTMLParser\n"
+        "from selectolax.lexbor import LexborHTMLParser\n"
         "from matrx_scraper.clean_content import flatten_tel_links\n"
-        "t = HTMLParser('<p><a href=\"tel:1\">111</a></p>')\n"
+        "t = LexborHTMLParser('<p><a href=\"tel:1\">111</a></p>')\n"
         "flatten_tel_links(t)\n"
         "print(t.body.html)\n"
     )
@@ -63,11 +63,11 @@ def test_production_page_cleans_without_crashing() -> None:
 
 
 def test_each_live_node_visits_each_node_once_and_never_a_freed_one() -> None:
-    from selectolax.parser import HTMLParser
+    from selectolax.lexbor import LexborHTMLParser
 
     from matrx_scraper.html_nodes import decompose_all, each_live_node
 
-    tree = HTMLParser('<nav role="navigation"><nav id="inner"><a>x</a></nav></nav><p>keep</p>')
+    tree = LexborHTMLParser('<nav role="navigation"><nav id="inner"><a>x</a></nav></nav><p>keep</p>')
     nodes = tree.css("nav, [role=navigation], #inner")
     assert len(nodes) > len({n.mem_id for n in nodes})  # the group really lists one element twice
 
@@ -82,10 +82,10 @@ def test_each_live_node_visits_each_node_once_and_never_a_freed_one() -> None:
     assert seen == ["nav"]
     assert tree.body.html == "<body><p>keep</p></body>"
 
-    tree = HTMLParser('<header><nav><a>x</a></nav></header><footer><script>s</script></footer><p>keep</p>')
-    # Listed per selector: the inner <nav> comes first (removed), then <header> and <footer>; the <script> inside the
-    # removed footer is skipped, never touched.
-    assert decompose_all(tree.css("nav, header, footer, script")) == 3
+    tree = LexborHTMLParser('<header><nav><a>x</a></nav></header><footer><script>s</script></footer><p>keep</p>')
+    # Lexbor lists a selector group in document order: <header> first (its inner <nav> goes with it and is skipped),
+    # then <footer>; the <script> inside the removed footer is skipped, never touched. (Modest listed per selector.)
+    assert decompose_all(tree.css("nav, header, footer, script")) == 2
     assert tree.body.html == "<body><p>keep</p></body>"
 
 

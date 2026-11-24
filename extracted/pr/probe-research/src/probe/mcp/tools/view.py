@@ -56,6 +56,11 @@ class _ViewData:
     #: with no unique key. The chars/4 estimate undercounts uuid-heavy rows, so a filled page
     #: overflows into text fragments of its JSON.
     exact_fit: bool = False
+    #: Rows that are ONE route page walked by offset, for a route whose cursor is opaque (no row carries
+    #: it): `page_after` re-reads this page, `next_page_after` reads the page after it. Each goes back to
+    #: the view as `_Req.after`; without the second, a walk past the page re-read it forever (#5436).
+    page_after: str | None = None
+    next_page_after: str | None = None
 
 
 _VIEWS: dict[tuple[str, str], str] = {
@@ -144,6 +149,12 @@ _VIEWS: dict[tuple[str, str], str] = {
     # 300k characters each). Read-only; `probe pane push` writes. An experiment is served as a project.
     (EntityType.PROJECT, View.PANES): "_build_project_panes_view",
     (EntityType.EXPERIMENT, View.PANES): "_build_experiment_panes_view",
+    (EntityType.RUN, View.PANES): "_build_run_panes_view",
+    # Why the work changed (decisions reads): a project's own and its experiments'; on an experiment or run,
+    # those filed under it or naming it (a project's "start E" among them). Read-only; `probe decision add` writes.
+    (EntityType.PROJECT, View.DECISIONS): "_build_project_decisions_view",
+    (EntityType.EXPERIMENT, View.DECISIONS): "_build_experiment_decisions_view",
+    (EntityType.RUN, View.DECISIONS): "_build_run_decisions_view",
     (EntityType.GROUP, View.CARD): "_view_card",
     # One rollout as an entity (0135). NO `notes` view or card excerpt, unlike every other entity: a
     # Trial has no notes document. A rollout ran once and is immutable, so `description` holds what
@@ -263,6 +274,11 @@ _VIEW_OPTIONS: dict[tuple[str, str], set[str]] = {
     **{
         (kind, View.LINEAGE): {"links"}
         for kind in (EntityType.PROJECT, EntityType.EXPERIMENT)
+    },
+    # The decisions routes' own filters, sent as given: the server reads the dates and matches ANY word.
+    **{
+        (kind, View.DECISIONS): {"since", "until", "words"}
+        for kind in (EntityType.PROJECT, EntityType.EXPERIMENT, EntityType.RUN)
     },
     # GET /v1/provenance's own parameters: `direction`/`depth` shape the graph, `steps` asks for the methods view (`format=steps`).
     **{

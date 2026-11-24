@@ -18,10 +18,11 @@ from matrx_ai.providers.google.translator import GoogleTranslator
 from matrx_ai.testing.profile_factory import make_profile
 
 
-def _google_profile(variant_key: str):
+def _google_profile(variant_key: str, *, provider_model_id: str | None = None):
     payload = load_golden(variant_key)
     return make_profile(
         model_name=payload["model"],
+        provider_model_id=provider_model_id,
         wire_format=payload["wire_format"],
         rules=payload["rules"],
         value_orders=payload["value_orders"],
@@ -29,7 +30,9 @@ def _google_profile(variant_key: str):
 
 
 _GEMINI_3 = _google_profile("google_thinking_3__flash")
-_GEMINI_25 = _google_profile("google_thinking")
+# The legacy-mode golden is recorded on gemini-flash-lite-latest, which IS Gemini 3.5 (see
+# catalog/gemini_mode_truth.py); a real 2.5 id keeps "can't mix built-in + function tools" honest.
+_GEMINI_25 = _google_profile("google_thinking", provider_model_id="gemini-2.5-flash")
 
 _FAKE_FN = {
     "name": "ctx_get",
@@ -131,7 +134,8 @@ def test_grounded_json_uses_one_call_text_envelope_without_disabling_search(monk
     assert cfg.response_mime_type is None
     assert cfg.response_json_schema is None, "Google's broken schema switch must be withheld when grounded"
     assert "GROUNDED RESEARCH DIGEST" in cfg.system_instruction
-    assert "MATRX_JSON_BEGIN" in cfg.system_instruction
+    assert "MATRX_JSON" not in cfg.system_instruction, "no envelope markers: they were saved into the answer text (P-057)"
+    assert "fenced `json` object" in cfg.system_instruction
     assert '"required":["answer"]' in cfg.system_instruction, "the exact schema still reaches the model"
 
 

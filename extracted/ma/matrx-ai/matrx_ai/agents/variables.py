@@ -1,7 +1,9 @@
 from collections.abc import Collection, Mapping
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ValidationError, model_validator
+
+from matrx_graph.input_declaration import VariableDefinition, upgrade_agent_variable
 
 # ============================================================================
 # AGENT VARIABLE
@@ -12,32 +14,80 @@ from pydantic import BaseModel, ConfigDict
 MERGE_FIELD_BINDING_KIND = "merge_field"
 
 
+def _variant_of(binding: dict[str, Any]) -> str | None:
+    """The System item variant a binding asks for (``variant``), or None for the default."""
+    v = binding.get("variant")
+    return v.strip() if isinstance(v, str) and v.strip() else None
+
+
 class AgentVariable(BaseModel):
-    """Represents a variable in an agent/prompt"""
+    """One declared agent variable at run time: its declaration plus the run's value.
 
-    name: str
+    The declaration IS the one input declaration (``variable_definition``,
+    ``matrx_ai.agents.input_declaration``), stored here as the dict
+    ``upgrade_agent_variable`` returns, so a stored element of any age reads the same and an
+    unknown component type never drops a definition. Nothing here re-declares that shape:
+    ``name`` / ``default_value`` / ``required`` / ``help_text`` / ``custom_component`` /
+    ``binding`` / ``control`` are read-only views of it. ``value`` is the run's own value.
+    """
+
+    declaration: dict[str, Any]
     value: Any = None
-    default_value: Any = None
-    required: bool = False
-    help_text: str | None = None
-    # Frontend display/binding metadata (VariableCustomComponent). Carried verbatim so
-    # server-side resolution (e.g. picklist binding -> list_id) has an authoritative,
-    # client-unforgeable source. Display-only fields are otherwise ignored by the server.
-    custom_component: dict[str, Any] | None = None
-    # Binding. Two kinds: (1) no ``kind`` — a scope-context binding (below); (2)
-    # ``kind: "merge_field"`` — a merge-field declaration (``merge_field_binding``).
-    # Scope-context binding. When set, this variable is filled at run time from a scope
-    # context item (the active scope of `scope_type_id` supplies the value of `item_key`).
-    # Authored on the agent (client-unforgeable). Resolved by
-    # ``aidream.api.utils.scope_binding_resolution.resolve_scope_bindings``. Shape:
-    # ``{contextItemId, scopeTypeId, itemKey, onMissing}`` (camelCase from the FE).
-    binding: dict[str, Any] | None = None
-    # Control binding (controls as first-class variables). When set, this variable's
-    # resolved value is the value of the model control ``control["key"]`` for the run
-    # — see ``matrx_ai.agents.control_bindings``. Shape: ``{"key": "aspect_ratio"}``.
-    control: dict[str, Any] | None = None
 
-    model_config = ConfigDict(extra="allow")
+    @model_validator(mode="before")
+    @classmethod
+    def _upgrade(cls, data: Any) -> Any:
+        if isinstance(data, dict) and isinstance(data.get("declaration"), dict):
+            return {**data, "declaration": upgrade_agent_variable(data["declaration"])}
+        return data
+
+    @classmethod
+    def declare(cls, name: str, *, value: Any = None, **declared: Any) -> "AgentVariable":
+        """Build one from declaration keys (``defaultValue=``, ``customComponent=``, …).
+
+        Strict: the keys are validated against ``VariableDefinition``, so a key the declaration
+        does not have is refused here rather than carried. Stored rows go through ``from_dict``.
+        """
+        definition = VariableDefinition.model_validate({"name": name, **declared})
+        return cls(declaration=definition.model_dump(mode="json", exclude_none=True), value=value)
+
+    @property
+    def name(self) -> str:
+        return str(self.declaration.get("name") or "")
+
+    @property
+    def default_value(self) -> Any:
+        return self.declaration.get("defaultValue")
+
+    @property
+    def required(self) -> bool:
+        return bool(self.declaration.get("required"))
+
+    @property
+    def help_text(self) -> str | None:
+        return self.declaration.get("helpText")
+
+    @property
+    def custom_component(self) -> dict[str, Any] | None:
+        cc = self.declaration.get("customComponent")
+        return cc if isinstance(cc, dict) else None
+
+    @property
+    def binding(self) -> dict[str, Any] | None:
+        b = self.declaration.get("binding")
+        return b if isinstance(b, dict) else None
+
+    @property
+    def control(self) -> dict[str, Any] | None:
+        c = self.declaration.get("control")
+        return c if isinstance(c, dict) else None
+
+    def definition(self) -> VariableDefinition | None:
+        """The declaration as the generated model, or None when it does not validate (yet)."""
+        try:
+            return VariableDefinition.model_validate(self.declaration)
+        except ValidationError:
+            return None
 
     def get_value(self) -> Any:
         """Return an explicit value, then the saved Builder default, then empty."""
@@ -65,7 +115,8 @@ class AgentVariable(BaseModel):
     def picklist_binding(self) -> dict[str, Any] | None:
         """Return the authoritative picklist binding for this variable, or None.
 
-        Shape (when bound): ``{"list_id": str, "multiple": bool}``. Sourced from the
+        Shape (when bound): ``{"list_id": str, "multiple": bool}``, plus ``label_column`` /
+        ``deliver_column`` when the variable picks a row of any Table. Sourced from the
         agent definition (``customComponent.pick_list``, with read-only fallback to
         the legacy ``structured_list`` / ``picklist`` keys for historical defs), NOT from any
         client payload, so a client can only choose WHICH item — never which list.
@@ -80,12 +131,25 @@ class AgentVariable(BaseModel):
         list_id = pl.get("listId") or pl.get("list_id")
         if not isinstance(list_id, str) or not list_id:
             return None
-        return {"list_id": list_id, "multiple": bool(pl.get("multiple", False))}
+        binding: dict[str, Any] = {"list_id": list_id, "multiple": bool(pl.get("multiple", False))}
+        # A ROW OF ANY TABLE (``labelColumn``): ``list_id`` is that Table's id, the person sees
+        # ``labelColumn`` and the agent receives ``deliverColumn`` of the picked row (absent: the
+        # whole row), resolved live through a table_cell / table_row reference fence.
+        label_column = pl.get("labelColumn")
+        if isinstance(label_column, str) and label_column:
+            binding["label_column"] = label_column
+            deliver_column = pl.get("deliverColumn")
+            binding["deliver_column"] = (
+                deliver_column if isinstance(deliver_column, str) and deliver_column else None
+            )
+        return binding
 
     def scope_binding(self) -> dict[str, Any] | None:
         """Return the normalized scope-context binding for this variable, or None.
 
-        Shape (when bound): ``{"context_item_id", "scope_type_id", "item_key", "on_missing"}``.
+        Shape (when bound): ``{"context_item_id", "scope_type_id", "item_key", "on_missing",
+        "variant"}`` — ``variant`` names which of a System item's variants the variable reads
+        (None: the item's default).
         Sourced from the agent definition (``binding``), accepting both camelCase (FE) and
         snake_case keys. ``item_key`` is what the server resolves against the active scope's
         context items; ``on_missing`` is one of ``empty | skip | error`` (default ``empty``).
@@ -111,6 +175,7 @@ class AgentVariable(BaseModel):
             "scope_type_id": b.get("scopeTypeId") or b.get("scope_type_id"),
             "item_key": item_key if isinstance(item_key, str) else None,
             "on_missing": on_missing,
+            "variant": _variant_of(b),
         }
 
     def merge_field_binding(self) -> dict[str, Any] | None:
@@ -142,58 +207,26 @@ class AgentVariable(BaseModel):
 
     @classmethod
     def from_dict(cls, var_def: dict[str, Any]) -> "AgentVariable":
-        """
-        Create AgentVariable from dictionary.
-
-        Args:
-            var_def: Dictionary with keys: name, defaultValue, required, helpText,
-                customComponent (optional; carries picklist binding + display config)
-
-        Returns:
-            AgentVariable instance
-        """
-        return cls(
-            name=var_def["name"],
-            default_value=var_def.get("defaultValue", ""),
-            required=var_def.get("required", False),
-            help_text=var_def.get("helpText"),
-            custom_component=var_def.get("customComponent"),
-            binding=var_def.get("binding"),
-            control=var_def.get("control"),
-        )
+        """One stored ``variable_definitions`` element (any age) -> AgentVariable (tolerant)."""
+        return cls(declaration=var_def)
 
     @staticmethod
     def from_list(var_defs: list | None) -> dict[str, "AgentVariable"]:
+        """A stored ``variable_definitions`` list -> ``{name: AgentVariable}``.
+
+        Every element passes through the one tolerant door; an element with no name (or not an
+        object) is not a variable and is skipped.
         """
-        Parse list of variable definitions into dict of AgentVariables.
-
-        Args:
-            var_defs: List of variable definition dicts (from database)
-
-        Returns:
-            Dict mapping variable names to AgentVariable instances
-        """
-        if not var_defs:
-            return {}
-
-        return {
-            var_def["name"]: AgentVariable.from_dict(var_def) for var_def in var_defs
-        }
+        out: dict[str, AgentVariable] = {}
+        for var_def in var_defs or []:
+            if isinstance(var_def, dict) and var_def.get("name"):
+                variable = AgentVariable.from_dict(var_def)
+                out[variable.name] = variable
+        return out
 
     def to_dict(self) -> dict[str, Any]:
-        """
-        Convert the agent variables to a dictionary.
-        """
-        return {
-            "name": self.name,
-            "value": self.value,
-            "default_value": self.default_value,
-            "required": self.required,
-            "help_text": self.help_text,
-            "custom_component": self.custom_component,
-            "binding": self.binding,
-            "control": self.control,
-        }
+        """The declaration (the one input declaration's shape, with ``__kind``)."""
+        return dict(self.declaration)
 
 
 def picklist_bindings_from_variables(

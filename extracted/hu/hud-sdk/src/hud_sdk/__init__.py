@@ -30,6 +30,9 @@ def set_failure(*args, **kwargs):
 def set_context(*args, **kwargs):
     pass
 
+def set_feature_flag(*args, **kwargs):
+    pass
+
 
 def start_flow(*args, **kwargs):
     pass
@@ -129,6 +132,7 @@ __all__ = [
     "set_hook",
     "set_failure",
     "set_context",
+    "set_feature_flag",
     "start_flow",
     "end_flow",
     "sync_flow",

@@ -34,14 +34,14 @@ class GeminiSearchData(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     answer: str = Field(
-        description="The web-grounded answer as text. Populated whenever the provider has data for the entity."
+        description="The answer as text. Populated whenever the provider has data for the entity."
     )
     answer_markdown: str = Field(
         alias="answerMarkdown",
         description="The answer in Markdown when the engine returns a Markdown rendering, otherwise the same text as answer. Populated whenever the provider has data for the entity.",
     )
     citations: list[GeminiSearchCitation] = Field(
-        description="Sources cited by the answer. Populated whenever the provider has data for the entity."
+        description="Sources cited by the answer. Empty when Gemini answered without citing any pages."
     )
     prompt: str = Field(description="The prompt answered by Gemini.")
 
@@ -69,10 +69,10 @@ class GeminiNamespace:
     ) -> RunResult[GeminiSearchData]:
         """Gemini Search
 
-        Ask Gemini a web-grounded question and receive an answer with source
-        citations.
+        Ask Gemini a web-grounded question and receive its answer, with source
+        citations when Gemini cites pages.
 
-        Price: $0.0048 per request.
+        Price: $0.0025 per request.
 
         Example:
             res = client.gemini.search(prompt="What is AnyAPI at getanyapi.com, and what does it offer?")
@@ -97,10 +97,10 @@ class AsyncGeminiNamespace:
     ) -> RunResult[GeminiSearchData]:
         """Gemini Search
 
-        Ask Gemini a web-grounded question and receive an answer with source
-        citations.
+        Ask Gemini a web-grounded question and receive its answer, with source
+        citations when Gemini cites pages.
 
-        Price: $0.0048 per request.
+        Price: $0.0025 per request.
 
         Example:
             res = client.gemini.search(prompt="What is AnyAPI at getanyapi.com, and what does it offer?")

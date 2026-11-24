@@ -38,17 +38,17 @@ class CloudMixin:
         BaseHandler → CloudMixin → FileHandler → specific handlers
     """
 
-    _cloud: "BackendRouter | None" = None
+    _cloud: BackendRouter | None = None
 
     # ------------------------------------------------------------------
     # Router wiring — called by FileManager, not by app code
     # ------------------------------------------------------------------
 
-    def set_cloud_router(self, router: "BackendRouter") -> None:
+    def set_cloud_router(self, router: BackendRouter) -> None:
         """Attach the shared BackendRouter. Called by FileManager after construction."""
         self._cloud = router
 
-    def _require_cloud(self) -> "BackendRouter":
+    def _require_cloud(self) -> BackendRouter:
         if self._cloud is None:
             raise RuntimeError(
                 f"{self.__class__.__name__} has no cloud router attached. "
@@ -152,7 +152,7 @@ class CloudMixin:
     def get_for_llm(
         self,
         url: str,
-        mode: "LLMInputMode" = "base64",
+        mode: LLMInputMode = "base64",
         expires_in: int = 300,
     ) -> str | bytes:
         """Return a cloud file in the format an LLM provider needs.
@@ -167,7 +167,7 @@ class CloudMixin:
     async def get_for_llm_async(
         self,
         url: str,
-        mode: "LLMInputMode" = "base64",
+        mode: LLMInputMode = "base64",
         expires_in: int = 300,
     ) -> str | bytes:
         """Async version of get_for_llm()."""
@@ -178,7 +178,7 @@ class CloudMixin:
         self,
         data: str | bytes,
         dest_uri: str,
-        source_format: "LLMOutputFormat" = "base64",
+        source_format: LLMOutputFormat = "base64",
         **kwargs,
     ) -> bool:
         """Write LLM-generated content to cloud storage.
@@ -194,7 +194,7 @@ class CloudMixin:
         self,
         data: str | bytes,
         dest_uri: str,
-        source_format: "LLMOutputFormat" = "base64",
+        source_format: LLMOutputFormat = "base64",
         **kwargs,
     ) -> bool:
         """Async version of push_from_llm()."""

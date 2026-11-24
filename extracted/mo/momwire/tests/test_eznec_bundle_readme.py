@@ -52,20 +52,22 @@ def _resolved(stem: str) -> tuple[str, str]:
     return dialect, _serve.BASIS if suffix is None else suffix
 
 
-def test_the_bundle_ships_six_launchers_in_three_families():
-    """momwire#1583 dropped the three deprecated `momwire-eznec*` names and
-    momwire#2059 added the NEC-2 pair; the signing post-condition's "all N
-    executables" is this count plus one."""
+def test_the_bundle_ships_eight_launchers_in_four_families():
+    """momwire#1583 dropped the three deprecated `momwire-eznec*` names,
+    momwire#2059 added the NEC-2 pair and momwire#2138 the NEC-2D pair; the
+    signing post-condition's "all N executables" is this count plus one."""
     build = _build()
     stems = build.launcher_stems()
-    assert len(stems) == len(set(stems)) == 6
+    assert len(stems) == len(set(stems)) == 8
     assert set(build.NEC5_LAUNCHERS) == {"momwire-nec5", "momwire-nec5-razor2p"}
     assert set(build.NEC4_LAUNCHERS) == {"momwire-nec42", "momwire-nec42-sinusoidal"}
     assert set(build.NEC2_LAUNCHERS) == {"momwire-nec2c", "momwire-nec2c-sinusoidal"}
+    assert set(build.NEC2D_LAUNCHERS) == {"momwire-nec2d", "momwire-nec2d-sinusoidal"}
     assert set(stems) == {
         *build.NEC5_LAUNCHERS,
         *build.NEC4_LAUNCHERS,
         *build.NEC2_LAUNCHERS,
+        *build.NEC2D_LAUNCHERS,
     }
     assert not any("eznec" in stem for stem in stems)
     assert build.ENGINE_NAME == "momwire-engine"
@@ -92,6 +94,12 @@ def test_every_launcher_answers_the_slot_and_basis_its_family_claims():
         assert dialect_from_program_name(stem) == "nec2", stem
         suffix = basis_from_program_name(stem, "nec2c-")
         assert suffix is None or suffix in NEC2_BASES, stem
+    for stem in build.NEC2D_LAUNCHERS:
+        # The NEC-2D pair is the NEC-2 route too (momwire#2138), its basis
+        # read past `nec2d-`.
+        assert dialect_from_program_name(stem) == "nec2", stem
+        suffix = basis_from_program_name(stem, "nec2d-")
+        assert suffix is None or suffix in NEC2_BASES, stem
 
 
 def test_the_engine_name_selects_no_basis():
@@ -110,7 +118,7 @@ def test_the_primary_names_are_also_console_scripts():
     # The NEC-2 pair is the pip install's NEC-2 engine under the same names
     # (momwire#2059), so the bundle's copies answer as those scripts do.
     for stem in build.NEC2_LAUNCHERS:
-        assert scripts.get(stem) == "momwire.dropin.nec2c:main", stem
+        assert scripts.get(stem) == "momwire_serve_client:stock_main", stem
 
 
 def _site_known_bases() -> dict[str, set[str]]:
@@ -266,8 +274,12 @@ def test_the_first_run_note_reads_as_dan_worded_it():
 def test_4nec2_runs_the_launchers_from_their_own_folder():
     """momwire#1652 (Dan AC6LA): 4nec2 is set up like EZNEC and SimNEC, with
     the bundle in a folder of its own and 4nec2.bat naming a launcher there
-    by its full path, in both slots; nothing is copied into 4nec2's
-    folders."""
+    by its full path, in every slot. Tested in 4nec2 5.8.8 on 2026-11-23:
+    4nec2 runs every engine through 4nec2.bat and Manual select cannot name
+    a program, so every slot goes through the batch file, in a copy of the
+    4nec2 folder, with Wait in DOS box unticked (no pause). 4nec2's NEC-2
+    slot takes the momwire-nec2d pair (momwire#2138): its NEC-2 engines
+    write the NEC-2D layout, which is the one 4nec2 reads."""
     build = _build()
     text = build.readme_text("9.9.9", "SIGNING: unsigned.", ".exe")
     assert "which is the exception" not in text
@@ -277,10 +289,18 @@ def test_4nec2_runs_the_launchers_from_their_own_folder():
         assert f"rem C:\\momwire\\{name}.exe < nec2d.tmp" in lines, name
     assert "C:\\momwire\\momwire-nec5.exe < nec2d.tmp" in lines
     assert "C:\\momwire\\momwire-nec42.exe < nec2d.tmp" in lines
+    assert "Manual select cannot" in " ".join(text.split())
+    assert "Wait in DOS box unticked" in " ".join(text.split())
+    assert "COPY of the 4nec2" in " ".join(text.split())
+    assert "NEC-2 is not supported in 4nec2" not in " ".join(text.split())
+    for name in NEC2D_SLOT_LINES:
+        assert f"rem C:\\momwire\\{name}.exe < nec2d.tmp" in lines, name
+    assert "C:\\momwire\\momwire-nec2d.exe < nec2d.tmp" in lines
     head = text.split("\n\n", 1)[0]
     assert "SimNEC (its NEC-5, NEC-4.2 and NEC-2 engines)" in " ".join(head.split())
     assert "its NEC-4.2 engine" in " ".join(head.split())
 
 
 NEC5_SLOT_LINES = ("momwire-nec5", "momwire-nec5-razor2p")
+NEC2D_SLOT_LINES = ("momwire-nec2d", "momwire-nec2d-sinusoidal")
 NEC42_SLOT_LINES = ("momwire-nec42", "momwire-nec42-sinusoidal")

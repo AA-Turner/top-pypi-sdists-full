@@ -152,7 +152,7 @@ async def test_input_shape_refusal_routes_along_the_error_edge():
     assert strict.calls == 0, "the executor never ran — the refusal happened at the door"
     assert len(handler.seen) == 1
     delivered = handler.seen[0]
-    assert delivered.get("code") == "ValidationError"
+    assert delivered.get("code") == "NodeInputValidationError"
     assert "date" in str(delivered.get("message", ""))
 
 

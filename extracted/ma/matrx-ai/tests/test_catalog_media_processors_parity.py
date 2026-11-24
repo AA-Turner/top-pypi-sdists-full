@@ -97,7 +97,6 @@ def test_media_dims_size_default_only_on_generate():
 # Transcribed from TogetherImageGeneration._derive_wh (anchor-1024 short edge,
 # 16-multiples) + the explicit-wins branch of _build_kwargs.
 _ANCHOR1024_EXPECTED = {
-    None: (1024, 1024),
     "1:1": (1024, 1024),
     "16:9": (1824, 1024),
     "9:16": (1024, 1824),
@@ -116,6 +115,14 @@ def test_media_dims_wh_anchor1024(aspect, expected):
         {"aspect_ratio": aspect}, params, _ctx({"mode": "wh", "arithmetic": "anchor1024"})
     )
     assert (params["width"], params["height"]) == expected
+
+
+def test_media_dims_wh_anchor1024_unset():
+    params: dict[str, Any] = {}
+    media_dims(
+        {"aspect_ratio": None}, params, _ctx({"mode": "wh", "arithmetic": "anchor1024"})
+    )
+    assert params == {}
 
 
 def test_media_dims_wh_explicit_wins():

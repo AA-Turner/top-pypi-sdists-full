@@ -105,13 +105,14 @@ public:
 	this_t turnedBack() const noexcept { return {*img, p, back()}; }
 
 	/**
-	 * @brief stepToEdge advances cursor to one step behind the next (or n-th) edge.
+	 * @brief stepToEdge advances cursor to one step behind the next (or n-th) edge or outside the image/range.
 	 * @param nth number of edges to pass
 	 * @param range max number of steps to take
 	 * @param backup whether or not to backup one step so we land in front of the edge
-	 * @return number of steps taken or 0 if moved outside of range/image
+	 * @param acceptImageBorder whether or not to consider the image border as a valid edge
+	 * @return number of steps taken or 0 if moved outside of range
 	 */
-	int stepToEdge(int nth = 1, int range = 0, bool backup = false)
+	int stepToEdge(int nth = 1, int range = 0, bool backup = false, bool acceptImageBorder = true)
 	{
 		int steps = 0;
 		auto lv = testAt(p);
@@ -119,15 +120,13 @@ public:
 		while (nth && (!range || steps < range) && lv.isValid()) {
 			++steps;
 			auto v = testAt(p + steps * d);
-			if (lv != v) {
-				lv = v;
-				--nth;
-			}
+			nth -= lv != v;
+			lv = v;
 		}
-		if (backup)
+		if (backup && nth == 0)
 			--steps;
 		p += steps * d;
-		return steps * (nth == 0);
+		return steps * (nth == 0 && (acceptImageBorder || lv.isValid()));
 	}
 
 	bool stepAlongEdge(Direction dir, bool skipCorner = false)
@@ -178,6 +177,8 @@ public:
 		}
 		if (min && max) {
 			min -= Reduce(res);
+			if (min > 0)
+				res = {};
 			int steps = -1;
 			while (min > 0 && max && (steps = stepToEdge(2, max))) {
 				max -= steps;
@@ -208,6 +209,7 @@ class FastEdgeToEdgeCounter
 public:
 	FastEdgeToEdgeCounter(const BitMatrixCursorI& cur)
 	{
+		assert(cur.isIn());
 		stride = cur.d.y * cur.img->width() + cur.d.x;
 		p = cur.img->row(cur.p.y).begin() + cur.p.x;
 
@@ -220,6 +222,11 @@ public:
 	{
 		int maxSteps = std::min(stepsToBorder, range);
 		int steps = 0;
+
+		if (maxSteps < 0) // already outside the image
+			return 0;
+
+		// Move forward until we a) find a different pixel value or b) step outside the image or c) reach the range limit.
 		do {
 			if (++steps > maxSteps) {
 				if (maxSteps == stepsToBorder)

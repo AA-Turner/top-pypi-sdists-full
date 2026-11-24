@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypi-attestations
-Version: 0.0.31
+Version: 0.0.32
 Summary: A library to convert between Sigstore Bundles and PEP-740 Attestation objects
 Author-email: Trail of Bits <opensource@trailofbits.com>
 Maintainer-email: PyPI Admins <admin@pypi.org>
@@ -10,16 +10,16 @@ Project-URL: Documentation, https://pypi.github.io/pypi-attestations/
 Project-URL: Issues, https://github.com/pypi/pypi-attestations/issues
 Project-URL: Source, https://github.com/pypi/pypi-attestations
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography>=47.0.0
 Requires-Dist: packaging
 Requires-Dist: pydantic>=2.10.0
-Requires-Dist: requests
 Requires-Dist: rfc3986
-Requires-Dist: sigstore<5.0,>=4.5
+Requires-Dist: sigstore<5.0,>=4.6
 Requires-Dist: sigstore-models
+Requires-Dist: urllib3
 Provides-Extra: doc
 Requires-Dist: pdoc; extra == "doc"
 Provides-Extra: test
@@ -31,7 +31,6 @@ Provides-Extra: lint
 Requires-Dist: ruff~=0.9; extra == "lint"
 Requires-Dist: mypy>=1.0; extra == "lint"
 Requires-Dist: types-html5lib; extra == "lint"
-Requires-Dist: types-requests; extra == "lint"
 Requires-Dist: types-toml; extra == "lint"
 Requires-Dist: interrogate; extra == "lint"
 Requires-Dist: pypi-attestations[test]; extra == "lint"

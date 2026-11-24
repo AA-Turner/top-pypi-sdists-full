@@ -458,15 +458,25 @@ async def apply_backfill_plans(
         # ONE key written atomically in the database (jsonb_set) — never a
         # whole-object copy read earlier, which would erase a concurrent
         # writer's keys (run_configuration, last_request_context, ...).
-        await cxm.conversation.patch_jsonb_path(
-            plan.conversation_id,
-            "metadata",
-            [CONVERSATION_STEP_LABEL_KEY],
-            plan.step_label,
-        )
+        from matrx_orm import COORDINATOR_BYPASS_ACKNOWLEDGEMENT, allow_direct_coordinator_write
+
+        with allow_direct_coordinator_write(
+            cxm.conversation.model,
+            reason="title backfill: one atomic jsonb_set of the step label on an existing conversation, from a backfill pass outside any run",  # agent-context-text-ok: a coordinator-bypass reason, logged only, never sent to a model
+            acknowledgement=COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+        ):
+            await cxm.conversation.patch_jsonb_path(
+                plan.conversation_id,
+                "metadata",
+                [CONVERSATION_STEP_LABEL_KEY],
+                plan.step_label,
+            )
         await cxm.conversation.update_conversation(
             plan.conversation_id,
             title=plan.new_title,
+            # Declared automatic (chat.conversation.named_by, P-032): the DB keeps a
+            # person's own title over it.
+            named_by="auto_write",
         )
         updated += 1
     return updated

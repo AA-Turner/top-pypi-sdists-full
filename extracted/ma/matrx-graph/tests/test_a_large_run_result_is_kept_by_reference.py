@@ -291,3 +291,22 @@ def test_knob_zero_keeps_every_output_inline() -> None:
     output = _big_output()
     row, values = run_output_row(output, 0, 4096)
     assert row is output and not values
+
+
+async def test_sizing_a_big_run_output_never_runs_on_the_event_loop(wired, monkeypatch) -> None:
+    """Live (2026-11-02): a subgraph child's terminal write stalled the loop 4.5 s in
+    ``run_output_row`` (``_dumps``/``_intern`` over every step value). Red before: the plan ran inline."""
+    import threading
+
+    seen: list[int] = []
+    real = value_store.run_output_row
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        seen.append(threading.get_ident())
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(value_store, "run_output_row", spy)
+    _table, stored = wired
+    out = await value_store.output_by_reference(RUN, _big_output())
+    assert seen and threading.get_ident() not in seen, "run_output_row ran on the loop thread"
+    assert stored and out["brief"] == {"title": "Small step", "count": 3}

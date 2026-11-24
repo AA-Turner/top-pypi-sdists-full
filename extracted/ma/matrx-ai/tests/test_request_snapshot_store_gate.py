@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import ast
 from types import SimpleNamespace
+
+from matrx_connect.context.run_scope import RunScope
 from uuid import uuid4
 
 import pytest
@@ -56,7 +58,7 @@ async def test_write_request_snapshot_skips_when_store_false(monkeypatch):
         lambda **kwargs: queued.append(kwargs) or "op",
     )
 
-    exec_ctx = SimpleNamespace(
+    exec_ctx = SimpleNamespace(run=RunScope(), 
         store=False,
         conversation_id=str(uuid4()),
         request_id=str(uuid4()),
@@ -94,7 +96,7 @@ async def test_write_request_snapshot_queues_when_store_true(monkeypatch):
 
     conversation_id = str(uuid4())
     request_id = str(uuid4())
-    exec_ctx = SimpleNamespace(
+    exec_ctx = SimpleNamespace(run=RunScope(), 
         store=True,
         conversation_id=conversation_id,
         request_id=request_id,
@@ -131,7 +133,7 @@ async def test_write_request_snapshot_stamps_organization_from_request_metadata(
 
     organization_id = str(uuid4())
     await executor_mod._write_request_snapshot(
-        exec_ctx=SimpleNamespace(
+        exec_ctx=SimpleNamespace(run=RunScope(), 
             store=True,
             conversation_id=str(uuid4()),
             request_id=str(uuid4()),
@@ -163,7 +165,7 @@ async def test_write_request_snapshot_prefers_typed_request_organization(monkeyp
 
     organization_id = str(uuid4())
     await executor_mod._write_request_snapshot(
-        exec_ctx=SimpleNamespace(
+        exec_ctx=SimpleNamespace(run=RunScope(), 
             store=True,
             conversation_id=str(uuid4()),
             request_id=str(uuid4()),
@@ -236,7 +238,7 @@ async def _capture_queued(monkeypatch, **kwargs):
         lambda **kw: queued.append(kw) or "op",
     )
     await executor_mod._write_request_snapshot(
-        exec_ctx=SimpleNamespace(store=True, conversation_id=str(uuid4()), request_id=str(uuid4())),
+        exec_ctx=SimpleNamespace(run=RunScope(), store=True, conversation_id=str(uuid4()), request_id=str(uuid4())),
         iteration=1,
         request_payload={"messages": []},
         unified_payload=None,
@@ -313,7 +315,7 @@ async def test_out_of_lane_write_falls_back_to_direct_insert(monkeypatch):
     request_id = str(uuid4())
     user_id = str(uuid4())
     await executor_mod._write_request_snapshot(
-        exec_ctx=SimpleNamespace(
+        exec_ctx=SimpleNamespace(run=RunScope(), 
             store=True,
             conversation_id=conversation_id,
             request_id=request_id,
@@ -371,7 +373,7 @@ async def test_out_of_lane_session_report_reaches_structured_capture(monkeypatch
     )
 
     await executor_mod._write_request_snapshot(
-        exec_ctx=SimpleNamespace(
+        exec_ctx=SimpleNamespace(run=RunScope(), 
             store=True,
             conversation_id=str(uuid4()),
             request_id=str(uuid4()),
@@ -415,7 +417,7 @@ async def test_snapshot_failure_uses_canonical_system_error_kind(monkeypatch):
 async def test_out_of_lane_ephemeral_still_never_writes(monkeypatch):
     fake_model = _without_lane(monkeypatch)
     await executor_mod._write_request_snapshot(
-        exec_ctx=SimpleNamespace(
+        exec_ctx=SimpleNamespace(run=RunScope(), 
             store=False, conversation_id=str(uuid4()), request_id=str(uuid4())
         ),
         iteration=1,
@@ -437,7 +439,7 @@ async def test_out_of_lane_client_host_skips_direct_insert(monkeypatch):
     fake_model = _without_lane(monkeypatch)
     monkeypatch.setattr("matrx_ai.client_host.get_conversation_store", lambda: object())
     await executor_mod._write_request_snapshot(
-        exec_ctx=SimpleNamespace(store=True, conversation_id=str(uuid4()), request_id=str(uuid4())),
+        exec_ctx=SimpleNamespace(run=RunScope(), store=True, conversation_id=str(uuid4()), request_id=str(uuid4())),
         iteration=1,
         api_response=None,
         request_payload={"messages": []},
@@ -466,3 +468,75 @@ async def test_provider_resolves_from_the_catalog_when_nothing_stamped_it(monkey
     )
     queued = await _capture_queued(monkeypatch, api_response=api_response)
     assert queued[0]["provider"] == "together"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parent_known", [True, False])
+async def test_out_of_lane_snapshot_lives_in_its_parent_conversation_org(monkeypatch, parent_known):
+    """A workflow step in another organization (workflow.in_organization) carries the OUTER
+    run's metadata org; the out-of-lane insert stamped it and was refused org_foreign_to_parent
+    (7 rows, 2026-10-28..11-01). Known parent org wins; unknown → left to inherit_org_from_parent."""
+    from contextlib import asynccontextmanager, contextmanager
+
+    import matrx_orm
+
+    import matrx_ai.client_host as client_host
+    import matrx_ai.db.cx_managers as cx_managers
+    from matrx_ai.persistence import conversation_org
+
+    outer_org, target_org = str(uuid4()), str(uuid4())
+    conversation_id = str(uuid4())
+    created: list[dict] = []
+
+    class _Model:
+        async def create(self, **kwargs):
+            created.append(kwargs)
+
+    class _Session:
+        async def flush(self, **_kw):
+            return SimpleNamespace(error=None)
+
+    @asynccontextmanager
+    async def session():
+        yield _Session()
+
+    @contextmanager
+    def allow_direct(*_a, **_k):
+        yield
+
+    async def keep_swaps(*_a, **_k):
+        return None
+
+    monkeypatch.setattr("matrx_ai.persistence.queue_helpers.get_coordinator", lambda: None)
+    monkeypatch.setattr(client_host, "get_conversation_store", lambda: None)
+    monkeypatch.setattr(matrx_orm, "Session", session)
+    monkeypatch.setattr(matrx_orm, "allow_direct_coordinator_write", allow_direct)
+    monkeypatch.setattr(cx_managers, "cxm", SimpleNamespace(request_snapshot=SimpleNamespace(model=_Model())))
+    monkeypatch.setattr(executor_mod, "_keep_snapshot_swaps", keep_swaps)
+    conversation_org.reset_conversation_organizations()
+    if parent_known:
+        conversation_org.remember_conversation_organization(conversation_id, target_org)
+    try:
+        await executor_mod._write_request_snapshot(
+            exec_ctx=SimpleNamespace(run=RunScope(),
+                store=True,
+                conversation_id=conversation_id,
+                request_id=str(uuid4()),
+                metadata={"organization_id": outer_org},
+            ),
+            iteration=1,
+            api_response=None,
+            request_payload={"messages": [{"role": "user", "content": "hi"}]},
+            unified_payload=None,
+            trigger_position=0,
+            first_assistant_position=1,
+            state_snapshot=ExecutionState().snapshot(),
+            error_payload={"outcome": "error"},
+            provider="anthropic",
+            model="claude-sonnet-5",
+        )
+    finally:
+        conversation_org.reset_conversation_organizations()
+
+    assert len(created) == 1
+    assert created[0].get("organization_id") == (target_org if parent_known else None)

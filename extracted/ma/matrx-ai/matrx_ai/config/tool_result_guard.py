@@ -29,7 +29,11 @@ This module imports NOTHING from the rest of the config package, so any module
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 from matrx_utils import supervised_task, vcprint
@@ -77,6 +81,25 @@ async def capture_nonadjacent_tool_uses(
             "layer": layer,
             "dropped_count": len(dropped),
             "separated_count": separated_count,
+            # Each dropped call's id, tool, reason and the message positions of the call and its
+            # result(s) — the detail that names the writer that split the pair (feedback 7e1c088c).
+            "dropped": [
+                {
+                    key: d.get(key)
+                    for key in (
+                        "tool_use_id",
+                        "name",
+                        "reason",
+                        "use_index",
+                        "use_message_id",
+                        "result_indexes",
+                        "result_message_ids",
+                        "message_count",
+                    )
+                    if d.get(key) is not None
+                }
+                for d in dropped[:10]
+            ],
         },
     )
 
@@ -419,6 +442,62 @@ ORPHAN_TOOL_RESULT_TEXT = (
 )
 
 
+# AN OPEN QUESTION IS NOT AN ORPHAN (live error classes 2026-11-04, sec_05aa…: every row was `ask_person`). A
+# question parked on a person stays open when their next message does not answer it (aidream
+# ``action_requests.settle_answered_in_chat`` leaves the card up on purpose), so the next turn's history carries the
+# ask's tool_use with no result yet. That is the design, not a lost call: the model is told the TRUTH — the card is
+# still open — and nothing is filed as an error. ``ORPHAN_TOOL_RESULT_TEXT`` ("it is NOT known whether the action
+# ran … check whether its effect is already there") was wrong for it, and each such turn filed a red row.
+#
+# THE TOOLS THAT WAIT ON THE PERSON — one set, named once per language: the client's twin is tool-cards
+# ``grouping/foldAgentWork.ts`` ``PERSON_ASK_TOOLS``, kept equal by aidream
+# ``tests/package_host_contracts/test_person_ask_tools_agree.py``. ``user`` is the Chrome extension's ask/notify
+# tool (the Browser Agent's question to the person); without it a resumed turn's stored ``work_ms`` counted the
+# person's answering time. The registry has no field marking exactly this set (``tier = 'ask-user'`` also tags
+# email sends and ``update_plan``), so the list is the source.
+PERSON_ASK_TOOLS: frozenset[str] = frozenset({"ask_person", "ask_user", "interaction_ask", "ask", "user"})
+
+
+def is_person_notify_call(name: str | None, arguments: Any) -> bool:
+    """A NOTICE TO THE PERSON, not a question: the extension's ``user`` tool with ``type: "notify"``, alone or as
+    every batched question. It waits on nobody — it is device work like a click. The client's twin is tool-cards
+    ``grouping/foldAgentWork.ts`` ``isPersonNotifyCall`` (the same rule ``isTurnBookkeepingCall`` reads)."""
+    if not name:
+        return False
+    bare = name.rsplit(":", 1)[-1]
+    if bare != "user":
+        return False
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except ValueError:
+            return False
+    if not isinstance(arguments, dict):
+        return False
+    if arguments.get("type") == "notify":
+        return True
+    questions = arguments.get("questions")
+    if not isinstance(questions, list) or not questions:
+        return False
+    return all(isinstance(q, dict) and q.get("type") == "notify" for q in questions)
+
+
+def is_person_ask_call(name: str | None, arguments: Any) -> bool:
+    """Whether a tool call WAITS ON THE PERSON: a ``PERSON_ASK_TOOLS`` call that is not a notice
+    (``is_person_notify_call``). The one predicate every server reader uses — the orphan repair (an open ask is
+    told it is still waiting; a lost notice is an orphan), interim text (an ask ends a leg; a notice does not)
+    and the turn clock (an ask's span is waiting, a notice's is work). The client's twin is tool-cards
+    ``isPersonAskCall``; aidream ``tests/package_host_contracts/test_person_ask_tools_agree.py`` proves both
+    classify the same calls the same way."""
+    return bool(name) and name in PERSON_ASK_TOOLS and not is_person_notify_call(name, arguments)
+
+OPEN_ASK_RESULT_TEXT = (
+    "STILL WAITING [{name}]: the person has not answered this question yet. It stays open for them to answer, "
+    "and their newest message follows. Answer what they wrote now; do not ask the same question again unless "
+    "their message shows it still matters, and never assume an answer they did not give."
+)
+
+
 async def capture_orphan_tool_uses(
     *,
     layer: str,
@@ -433,8 +512,9 @@ async def capture_orphan_tool_uses(
     """
     from matrx_connect.streaming.error_capture import capture_error
 
+    names = sorted({str(r.get("name") or "?") for r in repaired})
     exc = RuntimeError(
-        f"{len(repaired)} tool call(s) never produced a result; "
+        f"{len(repaired)} tool call(s) never produced a result ({', '.join(names)}); "
         "the sanitizer synthesized error results so the model is told"
     )
     await capture_error(
@@ -448,7 +528,10 @@ async def capture_orphan_tool_uses(
         context={
             "layer": layer,
             "repaired_count": len(repaired),
-            "tool_names": sorted({str(r.get("name") or "?") for r in repaired}),
+            "tool_names": names,
+            # The call ids join to cx_tool_call (status, error_type, delegated surface): the
+            # one place that says whether the call was lost by a client, a restart or a stream drop.
+            "tool_use_ids": [str(r.get("tool_use_id")) for r in repaired][:20],
         },
     )
 
@@ -468,13 +551,32 @@ def _schedule_orphan_capture(
     )
 
 
+#: Set while a CACHE WARM reads a conversation (aidream ``warm_conversation``). A warm is a read that fills
+#: a cache, never a send: it can land mid-turn, while the conversation's own tool calls are still running, so
+#: their ``tool_use`` is stored and their result is not yet. The sanitizer still repairs the copy it built, but
+#: an in-flight call is not a call the platform failed to answer — no scream, no ``orphan_tool_use_repaired``
+#: row (live 2026-11-03/04: 9 rows from ``warm_fanout`` and ``/ai/warm``, every one a ``records`` call in flight).
+#: A real turn never runs under it, so a real orphan on a real send stays loud.
+_READING_FOR_WARM: ContextVar[bool] = ContextVar("matrx_ai_reading_for_warm", default=False)
+
+
+@contextmanager
+def reading_for_warm() -> Iterator[None]:
+    """Mark the enclosed conversation read as a cache warm (see ``_READING_FOR_WARM``)."""
+    token = _READING_FOR_WARM.set(True)
+    try:
+        yield
+    finally:
+        _READING_FOR_WARM.reset(token)
+
+
 def report_orphan_tool_uses_repaired(
     *,
     layer: str,
     repaired: list[dict[str, Any]],
 ) -> None:
     """Scream about tool calls that never produced a result, and were answered here."""
-    if not repaired:
+    if not repaired or _READING_FOR_WARM.get():
         return
 
     ctx = _current_context()

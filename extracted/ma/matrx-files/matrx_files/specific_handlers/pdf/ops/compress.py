@@ -52,6 +52,7 @@ from PIL import Image
 
 from ..concurrency import run_in_cpu_executor
 from ..internal import load_pymupdf
+from ..render_budget import bounded_render_dpi
 
 CompressStrategy = Literal["inplace", "raster"]
 
@@ -241,7 +242,7 @@ def _compress_by_rasterization(pdf_bytes: bytes, tier: CompressTier) -> bytes:
     try:
         for page in src:
             pix = page.get_pixmap(
-                dpi=tier.raster_dpi,
+                dpi=bounded_render_dpi(page.rect.width, page.rect.height, tier.raster_dpi),
                 alpha=False,
                 colorspace=pymupdf.csRGB,
             )

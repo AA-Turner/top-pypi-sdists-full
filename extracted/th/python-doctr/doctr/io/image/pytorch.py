@@ -7,10 +7,12 @@ from io import BytesIO
 
 import numpy as np
 import torch
-from PIL import Image, ImageOps
+from PIL import Image
 from torchvision.transforms.functional import to_tensor
 
 from doctr.utils.common_types import AbstractPath
+
+from .base import _pil_to_rgb_array
 
 __all__ = ["tensor_from_pil", "read_img_as_tensor", "decode_img_as_tensor", "tensor_from_numpy", "get_img_shape"]
 
@@ -47,9 +49,8 @@ def read_img_as_tensor(img_path: AbstractPath, dtype: torch.dtype = torch.float3
         raise ValueError("insupported value for dtype")
 
     with Image.open(img_path, mode="r") as pil_img:
-        # Apply the EXIF orientation before decoding, to stay consistent with `read_img_as_numpy`
-        # (OpenCV applies EXIF orientation automatically, PIL does not)
-        return tensor_from_pil(ImageOps.exif_transpose(pil_img).convert("RGB"), dtype)
+        # Apply the EXIF orientation and place transparent pixels on white, like `read_img_as_numpy`
+        return tensor_from_numpy(_pil_to_rgb_array(pil_img), dtype)
 
 
 def decode_img_as_tensor(img_content: bytes, dtype: torch.dtype = torch.float32) -> torch.Tensor:
@@ -66,26 +67,31 @@ def decode_img_as_tensor(img_content: bytes, dtype: torch.dtype = torch.float32)
         raise ValueError("insupported value for dtype")
 
     with Image.open(BytesIO(img_content), mode="r") as pil_img:
-        return tensor_from_pil(ImageOps.exif_transpose(pil_img).convert("RGB"), dtype)
+        return tensor_from_numpy(_pil_to_rgb_array(pil_img), dtype)
 
 
 def tensor_from_numpy(npy_img: np.ndarray, dtype: torch.dtype = torch.float32) -> torch.Tensor:
     """Read an image file as a PyTorch tensor
 
     Args:
-        npy_img: image encoded as a numpy array of shape (H, W, C) in np.uint8
+        npy_img: image encoded as a numpy array of shape (H, W) or (H, W, C) in np.uint8
         dtype: the desired data type of the output tensor. If it is float-related, values will be divided by 255.
 
     Returns:
-        same image as a tensor of shape (C, H, W)
+        same image as a tensor of shape (C, H, W), with C = 1 for a grayscale image
     """
     if dtype not in (torch.uint8, torch.float16, torch.float32):
         raise ValueError("insupported value for dtype")
 
+    # torch.from_numpy requires a writable buffer without negative strides (e.g. a flipped or rotated view)
+    if not npy_img.flags.writeable or any(stride < 0 for stride in npy_img.strides):
+        npy_img = npy_img.copy()
+
     if dtype == torch.float32:
         img = to_tensor(npy_img)
     else:
-        img = torch.from_numpy(npy_img)
+        # A grayscale image gets a channel axis, like `to_tensor` gives it for float32
+        img = torch.from_numpy(npy_img[..., None] if npy_img.ndim == 2 else npy_img)
         # put it from HWC to CHW format
         img = img.permute((2, 0, 1)).contiguous()
         if dtype == torch.float16:

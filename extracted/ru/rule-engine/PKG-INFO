@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rule-engine
-Version: 5.2.0
+Version: 5.2.1
 Summary: A lightweight, optionally typed expression language with a custom grammar for matching arbitrary Python objects.
 Author-email: Spencer McIntyre <zeroSteiner@gmail.com>
 Maintainer-email: Spencer McIntyre <zeroSteiner@gmail.com>
@@ -18,7 +18,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: python-dateutil~=2.7
+Requires-Dist: python-dateutil<5,>=2.7
 Dynamic: license-file
 
 Rule Engine

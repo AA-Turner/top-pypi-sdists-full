@@ -80,8 +80,15 @@ def test_every_unified_config_field_is_read_by_from_dict_unless_it_is_runtime_on
         "tool_authority_filter_applied_runtime",
         "tool_delegation_filter_applied_runtime",
         "model_turn_only_restore",
+        "tools_turn_only_restore",
+        "stored_route_baseline",
+        "model_swaps_this_turn",
         "supports_tools",
         "held_prompt",  # set by the resolver on a mandate-held turn, settled at the send boundary
+        "agent_mode_known",  # D17: read from conversation metadata on load, in memory only
+        "agent_mode_person_set",  # D17: the person's flip this turn, in memory only
+        "agent_mode_settled_request",  # D17: settled once per request, in memory only
+        "model_picked_by_person",  # set by the host from the person's own request, never stored
     }
     source = stable_source(UnifiedConfig.from_dict)
     forgotten = [

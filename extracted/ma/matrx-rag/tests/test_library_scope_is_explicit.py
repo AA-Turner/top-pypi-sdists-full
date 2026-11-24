@@ -32,7 +32,7 @@ def _install(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         @staticmethod
         def filter(**_kwargs: Any) -> Any:
             class _Q:
-                def limit(self, _n: int) -> "_Q":
+                def limit(self, _n: int) -> _Q:
                     return self
 
                 async def all(self) -> list[Any]:

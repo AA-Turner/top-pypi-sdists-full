@@ -29,6 +29,9 @@ message names the alias the author meant).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+from typing import Any
+
 #: "The entire upstream output", as one value bound to one target input.
 WHOLE_PAYLOAD = "$FULL_PAYLOAD"
 
@@ -77,9 +80,80 @@ def unknown_sigil_message(target_key: str, source_key: str, *, edge_id: str) -> 
     )
 
 
+def dotted_target_message(
+    target_key: str,
+    source_key: str,
+    *,
+    edge_id: str,
+    node_id: str | None = None,
+    takes: Iterable[str] | None = None,
+) -> str:
+    """The ONE sentence for a dotted TARGET key (``provision_values.policies``), at save and at run time.
+
+    A mapping's dot-paths read the SOURCE side only; a dotted target would become a literal input key named
+    ``"provision_values.policies"`` that no step takes (live 2026-11-17: Company Setup's first runs). The
+    sentence names the step, the key and what the step takes."""
+    head = str(target_key).split(".", 1)[0]
+    leaf = str(target_key).rsplit(".", 1)[-1]
+    step = f"step '{node_id}'" if node_id else "the step it feeds"
+    names = sorted(str(n) for n in (takes or ()))
+    takes_text = f" It takes: {', '.join(names)}." if names else ""
+    use = (
+        f"Hand the value to {head!r} as a whole (one object holding {leaf!r}), not into a place inside it."
+        if names and head in names
+        else f"Use e.g. {leaf!r} as the target key instead."
+    )
+    return (
+        f"edge '{edge_id}' mapping has a dotted TARGET key {target_key!r} (mapped from {source_key!r}) "
+        f"into {step}. Target keys must be plain top-level input field names — a dotted target creates a "
+        f"literal input key named {target_key!r}, not a nested field, so the run stops at this connection. "
+        f"Dot-notation is only supported on the SOURCE side of a mapping.{takes_text} {use}"
+    )
+
+
+def output_reads(edges: Iterable[Any]) -> tuple[str, ...] | None:
+    """The source paths a step's outgoing connections read out of its OUTPUT, or None
+    when the whole output is read.
+
+    Ruled 2026-11-02 (Arman): a called workflow hands back only what the caller's
+    connections read. ``edges`` are the step's outgoing compiled edges. None — the whole
+    output — when there are none (the step's output is the run's answer), or any
+    connection carries the whole payload (no mappings, ``$FULL_PAYLOAD``), tests the output
+    (a condition) or draws from anywhere in it (a kind filter). A CONTROL connection
+    carries nothing, an ERROR connection carries the failure record and a connection on a
+    named handle carries that emission: none of them read the output.
+    """
+    from matrx_graph.paths import source_paths
+    from matrx_graph.types.primitives import EdgeKind
+
+    reads: list[str] = []
+    seen_any = False
+    for edge in edges:
+        seen_any = True
+        if edge.kind in (EdgeKind.CONTROL, EdgeKind.ERROR) or edge.source_handle is not None:
+            continue
+        if edge.mappings is None or edge.condition or edge.kind_filter:
+            return None
+        for source in edge.mappings.values():
+            if not isinstance(source, str) or source == WHOLE_PAYLOAD:
+                return None
+            paths = source_paths(source)
+            if any(not p.strip() or p.strip() == CURRENT_ELEMENT for p in paths):
+                return None
+            reads.extend(paths)
+    if not seen_any:
+        return None
+    return tuple(dict.fromkeys(reads))
+
+
+#: ``@`` alone is the element itself — as a mapping source, the whole output.
+CURRENT_ELEMENT = "@"
+
+
 __all__ = [
     "MAPPING_SOURCE_SIGILS",
     "WHOLE_PAYLOAD",
+    "output_reads",
     "unknown_sigil",
     "unknown_sigil_message",
 ]

@@ -332,18 +332,21 @@ async def test_continuations_per_fire_are_bounded_and_exhaustion_is_a_loud_failu
     hydrated = _task(max_runtime_seconds=14400)
     _seed_task(fake_supabase, hydrated)
     now = datetime.now(UTC)
-    fake_supabase.rows["sch_run"].append(
-        _orphan(
-            now,
-            continuation={
-                "of_run_id": "first",
-                "fire_run_id": "first",
-                "index": 1,
-                "carried_units_done": 400,
-                "remaining_runtime_seconds": 14000,
-            },
-        )
+    orphan = _orphan(
+        now,
+        continuation={
+            "of_run_id": "first",
+            "fire_run_id": "first",
+            "index": 1,
+            "stalled": 1,
+            "carried_units_done": 400,
+            "remaining_runtime_seconds": 14000,
+        },
     )
+    # The budget counts only continuations that made NO progress (2026-11-12):
+    # this one committed nothing, and the one before it stalled too.
+    orphan["result_metadata"] = {"units_done": 0, "stopped_early": None}
+    fake_supabase.rows["sch_run"].append(orphan)
 
     assert await queries.sweep_expired_leases() == 1
 
@@ -352,3 +355,141 @@ async def test_continuations_per_fire_are_bounded_and_exhaustion_is_a_loud_failu
     assert "max_continuations_per_fire" in row["error_message"]
     assert not _runs(fake_supabase, "queued"), "the cap was ignored"
     assert sink.failures and sink.failures[0]["run_id"] == row["id"]
+
+
+# ── 3. Only a continuation that made NO progress spends the budget ──────────
+#
+# Live 2026-11-12 (task a7c1e2d3-…609, the mandate reference patrol): releases
+# restart the workers about every 30 minutes, so a long patrol was interrupted
+# on every leg. The cap counted EVERY interruption, so the fire was failed after
+# its 9th — even though the legs before it had landed real, durable work. A
+# continuation that committed new work is the system working; only one that
+# committed nothing is evidence the fire is stuck.
+
+
+async def _interrupt_with(
+    fake_supabase, *, run_id: str, marker: dict[str, Any] | None, result_metadata: dict[str, Any]
+) -> tuple[str, dict[str, Any] | None]:
+    """One interruption of the fire's current run. The first call seeds the fire's
+    first run; every later call claims the continuation the previous one queued
+    (in place, as the scanner does) and interrupts THAT."""
+    from matrx_scheduler.continuation import interrupt_run
+
+    now = datetime.now(UTC)
+    queued = _runs(fake_supabase, "queued")
+    if queued:
+        row = queued[-1]
+        run_id = row["id"]
+    else:
+        meta: dict[str, Any] = {"claim_protocol": 2}
+        if marker is not None:
+            meta["continuation"] = marker
+        row = {
+            "id": run_id,
+            "task_id": TASK,
+            "trigger_id": None,
+            "user_id": USER,
+            "organization_id": ORG,
+            "surface": "test",
+            "queue": None,
+            "due_at": now,
+            "result_metadata": None,
+            "metadata": meta,
+            "created_at": now,
+        }
+        fake_supabase.rows["sch_run"].append(row)
+    row.update(
+        status="running",
+        claimed_at=now - timedelta(minutes=30),
+        claim_token=f"tok-{run_id}",
+        claim_expires_at=now + timedelta(minutes=5),
+    )
+    verdict = await interrupt_run(
+        run_id=run_id,
+        claim_token=f"tok-{run_id}",
+        reason="the worker shut down mid-run (release)",
+        result_metadata=result_metadata,
+        max_runtime_seconds=3600,
+        now=now,
+    )
+    queued = _runs(fake_supabase, "queued")
+    return verdict, (queued[-1]["metadata"]["continuation"] if queued else None)
+
+
+@pytest.mark.asyncio
+async def test_nine_interruptions_that_each_made_progress_never_exhaust_the_budget(
+    fake_supabase,
+) -> None:
+    _configure(fake_supabase, tool_runner=None, lease_seconds=600, continuation_limit=8)
+    _seed_task(fake_supabase, _task(max_runtime_seconds=3600))
+    marker: dict[str, Any] | None = None
+    verdicts: list[str] = []
+    for i in range(9):
+        verdict, nxt = await _interrupt_with(
+            fake_supabase,
+            run_id=f"00000000-0000-4000-8000-00000000000{i}",
+            marker=marker,
+            result_metadata={"units_done": 3, "fresh_units_done": 1},
+        )
+        verdicts.append(verdict)
+        marker = nxt or marker
+    assert verdicts == ["continued"] * 9, verdicts
+    assert not _runs(fake_supabase, "failed"), "a fire making progress was failed"
+    assert marker is not None and marker["stalled"] == 0
+    assert marker["index"] == 9, "the total is still recorded, it just is not the budget"
+    assert marker["carried_units_done"] == 27
+
+
+@pytest.mark.asyncio
+async def test_re_counted_units_are_not_progress_when_the_handler_names_its_fresh_work(
+    fake_supabase,
+) -> None:
+    """The patrol re-verified 31 already-current repos on every continuation and
+    reported units_done=31 each time while its real work never landed. A handler
+    that declares ``fresh_units_done`` is judged by that, not by the re-count."""
+    _configure(fake_supabase, tool_runner=None, lease_seconds=600, continuation_limit=2)
+    _seed_task(fake_supabase, _task(max_runtime_seconds=3600))
+    marker: dict[str, Any] | None = None
+    verdicts = []
+    for i in range(3):
+        verdict, marker = await _interrupt_with(
+            fake_supabase,
+            run_id=f"00000000-0000-4000-8000-00000000001{i}",
+            marker=marker,
+            result_metadata={"units_done": 31, "fresh_units_done": 0},
+        )
+        verdicts.append(verdict)
+    assert verdicts == ["continued", "continued", "exhausted"], verdicts
+    failed = _runs(fake_supabase, "failed")
+    assert failed and "made no progress" in failed[0]["error_message"]
+
+
+@pytest.mark.asyncio
+async def test_progress_resets_the_stall_count(fake_supabase) -> None:
+    _configure(fake_supabase, tool_runner=None, lease_seconds=600, continuation_limit=2)
+    _seed_task(fake_supabase, _task(max_runtime_seconds=3600))
+    marker: dict[str, Any] | None = None
+    pattern = [0, 0, 5, 0, 0]  # two stalls, progress, two stalls: never past the cap of 2
+    for i, units in enumerate(pattern):
+        verdict, marker = await _interrupt_with(
+            fake_supabase,
+            run_id=f"00000000-0000-4000-8000-00000000002{i}",
+            marker=marker,
+            result_metadata={"units_done": units},
+        )
+        assert verdict == "continued", (i, verdict)
+    assert marker is not None and marker["stalled"] == 2
+
+
+@pytest.mark.asyncio
+async def test_the_lease_carries_fresh_units_onto_the_ledger_row(fake_supabase) -> None:
+    lease = lease_mod.RunLease(
+        run_id="r", task_id=TASK, claim_token="t", lease_seconds=60, max_runtime_seconds=60
+    )
+    await lease.progress(units_done=31)
+    assert "fresh_units_done" not in lease.snapshot_metadata()
+    await lease.progress(units_done=32, fresh_units=1)
+    snap = lease.snapshot_metadata()
+    assert snap["units_done"] == 32 and snap["fresh_units_done"] == 1
+    await lease.progress(units_done=33)  # a later call without it keeps the last value
+    assert lease.snapshot_metadata()["fresh_units_done"] == 1

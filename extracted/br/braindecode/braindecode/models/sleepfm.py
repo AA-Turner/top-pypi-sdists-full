@@ -9,15 +9,22 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Hashable, Sequence
-from pathlib import Path
 from typing import Dict, List, Optional
 
 import torch
 from torch import nn
 
-from braindecode.functional import patch_count, sinusoidal_positional_encoding
+from braindecode.functional import (
+    check_ch_mask,
+    patch_count,
+    sinusoidal_positional_encoding,
+)
 from braindecode.functional.patches import _check_on_non_divisible
-from braindecode.models.base import EEGModuleMixin, huggingface_hub
+from braindecode.models.base import (
+    EEGModuleMixin,
+    _warn_deprecated_argument,
+    deprecated_forward_kwargs,
+)
 from braindecode.models.util import warn_if_sfreq_differs
 from braindecode.modules import PatchTokenizer
 
@@ -81,8 +88,9 @@ class SleepFM(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
     The encoder was checked through :class:`SleepFMStager` only (SHHS sleep
     staging, see there); its pretraining was not reproduced.
 
-    ``channel_mask`` (``(batch, n_chans)``, ``True`` for missing channels)
-    keeps masked channels out of every output, and out of the tokenizer's
+    ``ch_mask`` (``(batch, n_chans)``, ``True`` for real channels, as in
+    every model and :func:`~braindecode.datasets.pad_channels_collate`)
+    keeps the other channels out of every output, and out of the tokenizer's
     batch normalization in training. The official pretraining code normalizes
     zero-padded channels with the real ones; both agree when no channel is
     masked, and always in eval mode.
@@ -112,6 +120,9 @@ class SleepFM(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
        *Nature Medicine*, 32, 752–762.
        https://doi.org/10.1038/s41591-025-04133-4
     """
+
+    _time_axis = "free"
+    _channel_axis = "free"
 
     # Configs and checkpoints saved before ``on_non_divisible`` existed cropped.
     _legacy_on_non_divisible = "crop"
@@ -163,6 +174,9 @@ class SleepFM(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
             max_seq_length,
             on_non_divisible,
         )
+        # Channels of any montage, padded by pad_channels_collate: a recording
+        # gets the output it gets alone. SleepFMStager's fixed modality slots
+        # keep the release's pooling.
         _add_context_layers(
             self,
             embed_dim,
@@ -171,11 +185,14 @@ class SleepFM(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
             pooling_heads,
             drop_prob,
             max_seq_length,
+            pad_invariant=True,
         )
         self.temporal_pooling = _SleepFMAttentionPooling(
             embed_dim, pooling_heads, drop_prob
         )
         self.final_layer = nn.Linear(embed_dim, self.n_outputs)
+        self._n_times_step = self.patch_size
+        self._min_n_times = 1 if self.on_non_divisible == "pad" else self.patch_size
 
     @classmethod
     def from_pretrained(cls, *args, **kwargs):
@@ -188,6 +205,7 @@ class SleepFM(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         self,
         x: torch.Tensor,
         channel_mask: torch.Tensor | None = None,
+        ch_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         r"""Return the pooled and the per-patch representations.
 
@@ -207,7 +225,11 @@ class SleepFM(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         x : torch.Tensor
             Input of shape ``(batch, n_chans, n_times)``.
         channel_mask : torch.Tensor | None
-            ``(batch, n_chans)`` mask, ``True`` for missing channels.
+            Deprecated, removed in 2.3: the braindecode 2.0 mask, ``True`` for
+            missing channels. Pass ``ch_mask=~channel_mask`` instead.
+        ch_mask : torch.Tensor | None
+            ``(batch, n_chans)`` mask with ``True`` for real
+            channels, see :func:`~braindecode.functional.check_ch_mask`.
 
         Returns
         -------
@@ -216,30 +238,56 @@ class SleepFM(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         contextual_tokens : torch.Tensor
             :math:`h`, shape ``(batch, n_patches, embed_dim)``.
         """
-        mask = _check_mask(channel_mask, x.shape[:2], x, "channel_mask")
+        if channel_mask is not None:  # the 2.0 positional mask, True for missing
+            if not torch.jit.is_scripting():
+                _warn_deprecated_argument(
+                    "SleepFM.encode",
+                    "channel_mask",
+                    "ch_mask",
+                    torch.logical_not,
+                    note=" From 2.3 its second positional argument is ch_mask.",
+                )
+            if ch_mask is not None:
+                raise TypeError(
+                    "SleepFM.encode got both 'channel_mask' (deprecated) and 'ch_mask'."
+                )
+            ch_mask = torch.logical_not(channel_mask)
+        real = check_ch_mask(ch_mask, x)
         patch_mask: Optional[torch.Tensor] = None
-        if mask is None:
+        if real is None:
             mask = torch.zeros(x.shape[:2], dtype=torch.bool, device=x.device)
         else:
+            mask = ~real  # (batch, n_chans), True for missing channels
+            # Every patch of a missing channel: (batch, n_chans, n_patches)
             patch_mask = mask.unsqueeze(2).expand(
                 -1, -1, self.patch_embedding.patchify.n_patches(x.shape[-1])
             )
+        # One token per channel and patch: (batch, n_chans, n_patches, embed_dim)
         tokens = self.patch_embedding(x, patch_mask)
+        # Pool the real channels of every patch: (batch, n_patches, embed_dim)
         tokens = self.spatial_pooling.per_patch(tokens, mask)
+        # Add the patch positions, then normalise: (batch, n_patches, embed_dim)
         tokens = self.layer_norm(
             tokens + self.positional_encoding[:, : tokens.shape[1]]
         )
+        # Model the patch sequence: (batch, n_patches, embed_dim)
         contextual_tokens = self.transformer_encoder(tokens)
+        # Pool the patches into one trial vector: (batch, embed_dim)
         return self.temporal_pooling(contextual_tokens), contextual_tokens
 
+    @deprecated_forward_kwargs(
+        channel_mask=("ch_mask", torch.logical_not),
+        old_positional=("channel_mask", "return_features"),
+    )
     def forward(
         self,
         x: torch.Tensor,
-        channel_mask: torch.Tensor | None = None,
         return_features: bool = False,
+        ch_mask: torch.Tensor | None = None,
     ) -> torch.Tensor | dict[str, torch.Tensor | None]:
-        """Return trial logits, or the pooled features."""
-        pooled, _ = self.encode(x, channel_mask)
+        """Return trial logits, or the pooled features; ``ch_mask`` (``True``
+        for real channels) is as in :meth:`encode`."""
+        pooled, _ = self.encode(x, ch_mask=ch_mask)
         if return_features:
             out: Dict[str, Optional[torch.Tensor]] = {
                 "features": pooled,
@@ -340,15 +388,15 @@ class SleepFMStager(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
     padded patches at the end of shorter recordings. As in the release they
     enter the head as zero embeddings masked out of its Transformer, but the
     LSTM still runs over them, so valid predictions depend on the amount of
-    padding (never on its content). ``channel_mask`` works as in
-    :class:`SleepFM`; a modality without a valid channel is masked.
+    padding (never on its content). ``ch_mask`` (``True`` for real channels)
+    works as in :class:`SleepFM`; a modality without a real channel is masked.
 
     .. important::
        **Pre-trained Weights Available**
 
        The released stager is mirrored at
        `braindecode/SleepFMStager <https://huggingface.co/braindecode/SleepFMStager>`_
-       (revision ``8681fbad``, CC BY-NC 4.0).
+       (revision ``e75a1832``, CC BY-NC 4.0).
 
        .. code-block:: python
 
@@ -372,6 +420,9 @@ class SleepFMStager(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
        *Nature Medicine*, 32, 752–762.
        https://doi.org/10.1038/s41591-025-04133-4
     """
+
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: _channel_order is sized by n_chans
 
     # Configs and checkpoints saved before ``on_non_divisible`` existed cropped.
     _legacy_on_non_divisible = "crop"
@@ -467,6 +518,8 @@ class SleepFMStager(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
             max_seq_length,
         )
         self.final_layer = nn.Linear(embed_dim, self.n_outputs)
+        self._n_times_step = self.patch_size
+        self._min_n_times = 1 if self.on_non_divisible == "pad" else self.patch_size
 
     @classmethod
     def from_pretrained(
@@ -495,21 +548,15 @@ class SleepFMStager(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
             )
         missing = model.__dict__.pop("_missing_encoder_keys", None)
         if missing:
-            from safetensors.torch import load_file
-
-            source = str(encoder_model_name_or_path or "braindecode/SleepFM")
-            path = Path(source) / "model.safetensors"
-            if not path.parent.is_dir():
-                path = huggingface_hub.hf_hub_download(
-                    source,
-                    "model.safetensors",
-                    revision=encoder_revision,
-                    cache_dir=kwargs.get("cache_dir"),
-                    local_files_only=kwargs.get("local_files_only", False),
-                    token=kwargs.get("token"),
-                )
-            state_dict = load_file(path)
-            model.load_state_dict({k: state_dict[k] for k in missing}, strict=False)
+            cls._load_supplementary_safetensors(
+                model,
+                encoder_model_name_or_path or "braindecode/SleepFM",
+                missing,
+                revision=encoder_revision,
+                cache_dir=kwargs.get("cache_dir"),
+                local_files_only=kwargs.get("local_files_only", False),
+                token=kwargs.get("token"),
+            )
         return model
 
     @classmethod
@@ -526,25 +573,37 @@ class SleepFMStager(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         model.load_state_dict(
             state_dict, strict=strict and not model._missing_encoder_keys
         )
+        model.eval()
         return model
 
+    @deprecated_forward_kwargs(
+        channel_mask=("ch_mask", torch.logical_not),
+        old_positional=("channel_mask", "return_features", "temporal_mask"),
+    )
     def forward(
         self,
         x: torch.Tensor,
-        channel_mask: torch.Tensor | None = None,
         return_features: bool = False,
         temporal_mask: torch.Tensor | None = None,
+        ch_mask: torch.Tensor | None = None,
     ) -> torch.Tensor | dict[str, torch.Tensor | None]:
-        """Return patch-wise logits, or the per-patch LSTM features."""
+        """Return patch-wise logits, or the per-patch LSTM features.
+
+        ``ch_mask`` (``True`` for real channels) is as in
+        :meth:`SleepFM.encode`; ``temporal_mask`` is
+        ``True`` for padded patches.
+        """
         # The count the tokenizer produces (padded patch included with "pad").
         n_patches = self.patch_embedding.patchify.n_patches(x.shape[-1])
         patch_mask = _check_mask(
             temporal_mask, [x.shape[0], n_patches], x, "temporal_mask"
         )
-        mask = _check_mask(channel_mask, x.shape[:2], x, "channel_mask")
-        mask_tokens = mask is not None or patch_mask is not None
-        if mask is None:
+        real = check_ch_mask(ch_mask, x)
+        mask_tokens = real is not None or patch_mask is not None
+        if real is None:
             mask = torch.zeros(x.shape[:2], dtype=torch.bool, device=x.device)
+        else:
+            mask = ~real  # (batch, n_chans), True for missing channels
 
         chunk = self.encoder_chunk_patches
         n_full = n_patches // chunk
@@ -693,11 +752,12 @@ class _SleepFMTokenizer(nn.Module):
             padded = padding_mask.reshape(-1, 1)  # (batch * chans * patch, 1)
             if self.training:
                 valid = ~padded[:, 0]
-                tokens = x.new_zeros((x.shape[0], self.embed_dim))
                 if bool(valid.any()):  # BatchNorm of an empty batch is NaN
-                    tokens = tokens.masked_scatter(
-                        padded.logical_not(), self.tokenizer(x[valid])
-                    )
+                    encoded = self.tokenizer(x[valid])
+                    tokens = encoded.new_zeros((x.shape[0], self.embed_dim))
+                    tokens = tokens.masked_scatter(~padded, encoded)
+                else:
+                    tokens = x.new_zeros((x.shape[0], self.embed_dim))
             else:
                 # Zero the input too, so a non-finite masked value cannot
                 # reach the gradients.
@@ -707,10 +767,21 @@ class _SleepFMTokenizer(nn.Module):
 
 
 class _SleepFMAttentionPooling(nn.Module):
-    """Self-attention, then a masked mean over an unordered set."""
+    """Self-attention, then a masked mean over an unordered set.
 
-    def __init__(self, input_dim, num_heads, drop_prob) -> None:
+    A set of one item skips the attention, as in the release. A set padded to one
+    real item runs it, as in the release, unless ``pad_invariant``: then it is
+    that item, so the padding does not change a sample's output. Input
+    ``(batch, items, emb)``, ``True`` in the optional ``(batch, items)`` mask for
+    padding; output ``(batch, emb)``.
+    """
+
+    pad_invariant = False  # braindecode 2.0.0 pickles predate the flag
+
+    def __init__(self, input_dim, num_heads, drop_prob, pad_invariant=False) -> None:
         super().__init__()
+        # SleepFMStager needs False: upstream attends over a padded set (logits differ).
+        self.pad_invariant = pad_invariant
         self.transformer_layer = nn.TransformerEncoderLayer(
             d_model=input_dim, nhead=num_heads, dropout=drop_prob, batch_first=True
         )
@@ -736,12 +807,18 @@ class _SleepFMAttentionPooling(nn.Module):
         else:
             output = self.transformer_layer(x, src_key_padding_mask=key_padding_mask)
             valid = (~key_padding_mask).unsqueeze(-1).to(output.dtype)
-            output = (output * valid).sum(dim=1) / valid.sum(dim=1)
+            n_valid = valid.sum(dim=1)
+            output = (output * valid).sum(dim=1) / n_valid
+            if self.pad_invariant:
+                output = torch.where(n_valid == 1, (x * valid).sum(dim=1), output)
         return output.masked_fill(all_masked, 0)
 
 
 class _SleepFMStagingHead(nn.Module):
-    """Modality attention pooling, Transformer and bidirectional LSTM per patch."""
+    """Modality pooling, positions, Transformer and bidirectional LSTM per patch.
+
+    ``(batch, modalities, patches, emb)`` -> ``(batch, patches, emb)``.
+    """
 
     def __init__(
         self, embed_dim, num_heads, num_layers, pooling_heads, drop_prob, max_seq_length
@@ -769,17 +846,21 @@ class _SleepFMStagingHead(nn.Module):
         self, tokens, modality_mask, temporal_mask: Optional[torch.Tensor] = None
     ):
         """Map ``(batch, modalities, patches, emb)`` to ``(batch, patches, emb)``."""
+        # Pool the real modalities of every patch: (batch, patches, emb)
         features = self.spatial_pooling.per_patch(tokens, modality_mask)
         if temporal_mask is None:  # the release always passes a padding mask
             temporal_mask = torch.zeros(
                 features.shape[:2], dtype=torch.bool, device=features.device
             )
+        # Add the patch positions, then normalise: (batch, patches, emb)
         features = self.layer_norm(
             features + self.positional_encoding[:, : features.shape[1]]
         )
+        # Transformer over the patches of the night: (batch, patches, emb)
         features = self.transformer_encoder(
             features, src_key_padding_mask=temporal_mask
         )
+        # Bidirectional LSTM over the same patches: (batch, patches, emb)
         features, _ = self.lstm(features)
         return features
 
@@ -798,7 +879,14 @@ def _check_mask(
 
 
 def _add_context_layers(
-    module, embed_dim, num_heads, num_layers, pooling_heads, drop_prob, n_positions
+    module,
+    embed_dim,
+    num_heads,
+    num_layers,
+    pooling_heads,
+    drop_prob,
+    n_positions,
+    pad_invariant=False,
 ):
     """Add the set pooling, positional table, LayerNorm and pre-norm Transformer.
 
@@ -807,7 +895,7 @@ def _add_context_layers(
     released one differs from a CPU recomputation in the last float32 bits.
     """
     module.spatial_pooling = _SleepFMAttentionPooling(
-        embed_dim, pooling_heads, drop_prob
+        embed_dim, pooling_heads, drop_prob, pad_invariant
     )
     module.register_buffer(
         "positional_encoding",

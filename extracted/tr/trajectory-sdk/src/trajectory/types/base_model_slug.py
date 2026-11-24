@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Literal, TypeAlias
 
 BaseModelSlug: TypeAlias = Literal[
+  "typesafe/jev-1.14",
   "thinkingmachines/Inkling-2-Small",
+  "thinkingmachines/Inkling-2-Mini",
   "deepseek-ai/DeepSeek-V4.1-Flash",
   "thinkingmachines/Inkling-Small",
   "Qwen/Qwen3.5-4B",

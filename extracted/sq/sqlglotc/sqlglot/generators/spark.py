@@ -70,6 +70,8 @@ class SparkGenerator(Spark2Generator):
     SUPPORTS_CONVERT_TIMEZONE = True
     SUPPORTS_MEDIAN = True
     SUPPORTS_UNIX_SECONDS = True
+    MERGE_SCHEMA_EVOLUTION_MIN_VERSION = (4, 0)
+    ORDERED_PERCENTILE_MIN_VERSIONS = dict.fromkeys(exp.PERCENTILES, (3, 3))
     SUPPORTS_DECODE_CASE = True
     SET_ASSIGNMENT_REQUIRES_VARIABLE_KEYWORD = True
 
@@ -182,6 +184,11 @@ class SparkGenerator(Spark2Generator):
 
     def anyvalue_sql(self, expression: exp.AnyValue) -> str:
         return self.function_fallback_sql(expression)
+
+    def extract_sql(self, expression: exp.Extract) -> str:
+        if expression.name.upper() == "ISODOW":
+            expression.set("this", exp.var("DOW_ISO"))
+        return super().extract_sql(expression)
 
     def datediff_sql(self, expression: exp.DateDiff) -> str:
         end = self.sql(expression, "this")

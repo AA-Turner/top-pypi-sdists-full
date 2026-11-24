@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from probe.generated.samples import TurnsSource
+from probe.sdk.catalog.environments import EnvironmentRef, RunEnvironments
 from probe.sdk.run.samples import to_sampling_settings
 from probe.sdk.run.samples.rollout import Decode, build_decoded_turns
 
@@ -36,6 +37,8 @@ SOURCES = {"system": "system", "user": "user", "assistant": "model", "tool": "to
 MAX_TOKEN_REWARDS = 256
 #: A scenario text value's cap (`records/samples/task.py`, `MAX_SCENARIO_TEXT_CHARS`).
 MAX_SCENARIO_TEXT = 256
+#: An environment name's cap (`records/samples/samples.py`, `MAX_NAME_CHARS`).
+MAX_ENVIRONMENT_CHARS = 256
 #: A row's grade: on a step-wise trajectory, every row carries its last row's (`trainer.py:1250-1254`).
 GRADE_FIELDS = ("reward", "error_reason", "error_message")
 
@@ -78,7 +81,8 @@ def render_prompt(prompt: Any) -> str:
 class OutputMapper:
     """GeneratorInput + GeneratorOutput -> `SamplePartIn`-shaped generator parts. ``decode`` turns token ids into
     text (the tokenizer's `decode`), ``tokens_to_text`` into one string per token; either may be None.
-    ``decode_turns`` decodes for step-wise turns (`rollout.decoded`); without it ``decode`` serves."""
+    ``decode_turns`` decodes for step-wise turns (`rollout.decoded`); without it ``decode`` serves.
+    ``environments`` registers each Gym env class once per run; without it the label is the bare name."""
 
     def __init__(
         self,
@@ -89,8 +93,10 @@ class OutputMapper:
         host: str | None = None,
         worker: str | None = None,
         decode_turns: Decode | None = None,
+        environments: RunEnvironments | None = None,
     ) -> None:
         self._decode = decode
+        self._environments = environments
         if decode_turns is None and decode is not None:
             decode_turns = lambda ids, keep_special: str(decode(list(ids)))  # noqa: E731 -- one decode for both
         self._decode_turns = decode_turns
@@ -105,6 +111,7 @@ class OutputMapper:
         prompts = list(inputs.get("prompts") or [])
         extras_in = list(inputs.get("env_extras") or [])
         trajectory_ids = inputs.get("trajectory_ids") or []
+        environments = list(inputs.get("env_classes") or [])
         metadata = inputs.get("batch_metadata")
         is_train = _get(metadata, "training_phase") != "eval"
         scheduled = scheduled_step if is_train and scheduled_step is not None else _get(metadata, "global_step")
@@ -122,6 +129,7 @@ class OutputMapper:
             }
             if isinstance(scheduled, int):
                 start["scheduled_step"] = scheduled
+            start.update(self._register_environment(environments, row, "train" if is_train else "eval"))
             if isinstance(version, int) and version >= 0:
                 start["weight_version"] = version
             starts.append(start)
@@ -142,6 +150,7 @@ class OutputMapper:
         is_step_wise = output.get("trajectory_ids") is not None
         prompts = list(inputs.get("prompts") or [])
         extras_in = list(inputs.get("env_extras") or [])
+        environments = list(inputs.get("env_classes") or [])
         segments = _get_segments(trajectory_ids, len(responses)) if is_step_wise else None
         input_index = _index_inputs(inputs.get("trajectory_ids") or [])
         metadata = inputs.get("batch_metadata")
@@ -156,6 +165,7 @@ class OutputMapper:
             env_extras = extras_in[source] if source < len(extras_in) and isinstance(extras_in[source], Mapping) else {}
             part = self._map_row(output, row, prompt=prompt, env_extras=env_extras, versions=versions,
                                  is_step_wise=is_step_wise)
+            part.update(self._register_environment(environments, source, split))
             rows.append((trajectory, source, part))
         if is_step_wise:
             _set_step_grades([part for _, _, part in rows], [get_identity(trajectory) for trajectory, _, _ in rows],
@@ -181,6 +191,18 @@ class OutputMapper:
         return parts
 
     # -- inside ------------------------------------------------------------------------------------------
+    def _register_environment(self, environments: Sequence[Any], row: int, role: str) -> dict:
+        """The row's environment (the Episodes tab's, D7): its SkyRL Gym env class (`env_classes`, the name
+        `skyrl_gym.make` builds it by), registered first (D9) and stamped with the answer, or as sent when that
+        failed; SkyRL names no version."""
+        name = environments[row] if row < len(environments) else None
+        if not (isinstance(name, str) and name):
+            return {}
+        name = name[:MAX_ENVIRONMENT_CHARS]
+        if self._environments is None:
+            return EnvironmentRef.as_sent(name).sample_labels()
+        return self._environments.register(name, role=role).sample_labels()
+
     def _map_row(self, output: Mapping[str, Any], row: int, *, prompt: Any, env_extras: Mapping[str, Any],
                  versions: CallVersions, is_step_wise: bool = False) -> dict:
         response_ids = _pick(output, "response_ids", row) or []
@@ -214,7 +236,7 @@ class OutputMapper:
             part["metrics"] = metrics
         if is_step_wise:  # the step's own reward rides its turn; the row is graded by its trajectory
             part["turns"] = [self._build_step_turn(response_ids, _pick(output, "loss_masks", row), reward,
-                                                   is_graded=stop != "error")]
+                                                   is_graded=stop != "error", prompt_ids=prompt_ids)]
             part["turns_source"] = TurnsSource.DECODED  # text Probe decoded from the step's tokens, not messages as sent
         elif token_rewards:
             part["extras"] = {"token_rewards": token_rewards}
@@ -236,16 +258,23 @@ class OutputMapper:
                 scenario[name] = env_extras[name]
         return {str(name): value for name, value in scenario.items() if _is_scenario_value(value)}
 
-    def _build_step_turn(self, response_ids: Sequence[int], mask: Any, reward: float | None, *, is_graded: bool) -> dict:
+    def _build_step_turn(self, response_ids: Sequence[int], mask: Any, reward: float | None, *, is_graded: bool,
+                         prompt_ids: Sequence[int] | None = None) -> dict:  # fmt: skip
         """A step-wise row as its one turn (`skyrl_gym_generator.py:571-590`): the model's tokens (loss mask 1) and
         the observation after them (0) read through the chat template (`rollout.decoded`), with the step's own
-        reward."""
+        reward and, for one model reply, its tokens (it read the step's prompt when its tokens open the response)."""
         bits = list(mask) if isinstance(mask, (list, tuple)) and len(mask) == len(response_ids) else None
         turns = build_decoded_turns(response_ids, bits, self._decode_turns)
         turn: dict[str, Any] = {"messages": [message for found in turns for message in found["messages"]]}
         calls = [call for found in turns for call in found.get("tool_calls", ())]
         if calls:
             turn["tool_calls"] = calls
+        usages = [found["usage"] for found in turns if "usage" in found]
+        model_runs = sum(1 for i, bit in enumerate(bits) if bit and (i == 0 or not bits[i - 1])) if bits else 1
+        if len(usages) == 1 and model_runs == 1:
+            turn["usage"] = dict(usages[0])
+            if prompt_ids is not None and (bits is None or (bits and bits[0])):
+                turn["usage"]["prompt_tokens"] = len(prompt_ids)
         if is_graded and reward is not None:
             turn["reward"] = reward
         return turn
@@ -307,6 +336,7 @@ def _join_trial(part: dict, trial: Any, segment: int) -> None:
     part["attempt_key"] = trial.key  # the try's live sample (`TrialResult.id`)
     part["task_key"] = trial.task_key
     part["scenario"] = dict(trial.scenario)
+    part.update(trial.environment)  # Harbor's part's own environment labels (its dataset@version), copied as stamped
     if trial.has_error and part.get("error_reason") is not None:
         part.pop("error_reason")
         part.pop("error_message", None)

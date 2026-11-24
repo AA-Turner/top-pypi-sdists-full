@@ -87,11 +87,12 @@ def test_both_refuse_an_unknown_field(old, new):
 
 
 def test_the_stored_surface_is_narrower_than_the_declared_one():
-    """15 keys are persisted against 78 declared field slots. If a future field
+    """15 keys are persisted against 79 declared field slots (79th: ImageContent.stored_mime_type,
+    CGU-10 AND-IMG15 — resolved state that only CHOOSES the stored ``mime_type``, never a new key). If a future field
     starts being stored, this is where the mismatch becomes visible instead of
     silently widening the wire contract."""
     declared = sum(len(dataclasses.fields(old)) for old, _ in PAIRS)
-    assert declared == 78
+    assert declared == 79
     assert len(STORED_KEYS) == 15
 
 

@@ -7,12 +7,33 @@ from urllib.parse import urlparse, parse_qs, urlencode, urljoin
 
 import tldextract
 from functools import lru_cache
+import logging
 import threading
+
+import httpx
 
 from matrx_utils import vcprint
 
 if TYPE_CHECKING:
     from matrx_files import FileManager
+
+
+def nearest_ancestor_named(element: Any, names: Any) -> Any:
+    """``element.find_parent(names)`` for a collection of tag names, without building
+    a bs4 SoupStrainer per call: the nearest ancestor whose name — or ``prefix:name``,
+    the other form bs4 matches — is in ``names``; None when there is none. The parse
+    asks this once per extracted element and per link, so the strainer construction
+    was most of its cost."""
+    parent = element.parent
+    while parent is not None:
+        name = parent.name
+        if name in names:
+            return parent
+        prefix = parent.prefix
+        if prefix and f"{prefix}:{name}" in names:
+            return parent
+        parent = parent.parent
+    return None
 
 
 def get_soup(soup: Any) -> BeautifulSoup:
@@ -208,7 +229,6 @@ def is_data_url(url):
     return True, is_base64
 
 
-import requests
 
 verbose = True
 
@@ -285,12 +305,18 @@ class AdblockConfigLoader:
 
     def load_config(self, list_key: str) -> str:
         """
-        Load and cache the adblock configuration for the given list key.
+        Load and cache the adblock configuration for the given list key — ONCE per
+        process (callers hold ``_DOMAIN_FILTER_INIT_LOCK``: :class:`DomainFilter`
+        and :func:`ensure_filter_lists`, the one shared step a host pre-warms at
+        startup and any parse that arrives first simply waits on).
 
-        On the FIRST load for this list_key:
-          - Always try to fetch from the official URL.
-          - If fetching fails, fall back to a local file.
-        On subsequent loads, return the previously cached content.
+        On that first load:
+          - fetch from the official URL (10 s cap) and save a copy;
+          - if fetching fails, use the saved copy on disk;
+          - if there is none, the list is empty: it blocks nothing.
+        Each step is announced, and an empty list is recorded in
+        :func:`filter_list_status` (the scraper server's ``/health/ready`` shows it
+        under ``degraded``). Subsequent loads return the cached content.
         """
         if list_key in self._configs:
             # Already loaded; return cached data
@@ -303,14 +329,20 @@ class AdblockConfigLoader:
         local_file = registry_entry["local"]
         url = registry_entry["url"]
 
+        vcprint(
+            f"[matrx_scraper] fetching ad-block list {list_key!r} from its official source (once per process)",
+            color="blue",
+            verbose=verbose,
+        )
         content = ""
         try:
             # Attempt to fetch from the web first.
-            response = requests.get(url, timeout=10)
+            response = httpx.get(url, timeout=10, follow_redirects=True)
             if response.status_code == 200:
                 content = response.text
                 # Save it to temp so there's a copy on disk if needed later.
                 self.file_manager.write_temp_text(local_file, content)
+                _FILTER_LIST_STATUS[list_key] = "fetched"
                 vcprint(
                     f"Fetched and saved '{local_file}' successfully from URL.",
                     color="green",
@@ -326,18 +358,23 @@ class AdblockConfigLoader:
             )
             if self.file_manager.file_exists(root="temp", path=local_file):
                 content = self.file_manager.read_temp_text(local_file)
+                _FILTER_LIST_STATUS[list_key] = f"saved copy (fetch failed: {e})"
                 vcprint(
                     f"Loaded local copy of '{local_file}'.",
                     color="green",
                     verbose=verbose,
                 )
             else:
-                vcprint(
-                    f"Local copy of '{local_file}' not found. No filters loaded.",
-                    color="red",
-                    verbose=verbose,
-                )
                 content = ""
+                _FILTER_LIST_STATUS[list_key] = (
+                    f"EMPTY — blocks no ad domains this process (fetch failed: {e}; no saved copy)"
+                )
+                message = (
+                    f"[matrx_scraper] ad-block list {list_key!r}: fetch failed ({e}) and no saved copy "
+                    f"({local_file}) — page parses in this process block no ad domains"
+                )
+                _log.warning(message)
+                vcprint(message, color="red", verbose=True)
 
         # Cache the result (even if empty), so subsequent loads skip the web/local steps
         self._configs[list_key] = content
@@ -348,6 +385,37 @@ class AdblockConfigLoader:
         for key in keys:
             results.append(self.load_config(key))
         return results
+
+
+_log = logging.getLogger(__name__)
+#: ``list_key -> how this process got it`` — set once, by the one load.
+_FILTER_LIST_STATUS: dict[str, str] = {}
+
+
+def filter_list_status() -> dict[str, str]:
+    """How each ad-block list this process loaded was obtained ("fetched", "saved copy
+    (...)", or "EMPTY — ..."). A host reports the EMPTY ones as a degraded dependency."""
+    return dict(_FILTER_LIST_STATUS)
+
+
+def ensure_filter_lists(list_keys: tuple[str, ...] = ("easylist",)) -> dict[str, str]:
+    """The ONE shared step that provides the ad-block lists, once per process.
+
+    Hosts call it at startup (off the event loop: :func:`prewarm_filter_lists`) so the
+    first page parse finds the lists ready; a parse that arrives earlier — or in a
+    process that never pre-warmed — builds the same :class:`DomainFilter` under the
+    same lock, so it waits for this step instead of running unfiltered, and never
+    triggers a second fetch. Returns :func:`filter_list_status`.
+    """
+    DomainFilter(list(list_keys))
+    return filter_list_status()
+
+
+async def prewarm_filter_lists(list_keys: tuple[str, ...] = ("easylist",)) -> dict[str, str]:
+    """:func:`ensure_filter_lists` in a worker thread — what a host's startup spawns."""
+    import asyncio
+
+    return await asyncio.to_thread(ensure_filter_lists, list_keys)
 
 
 #: One filter list load per process, however many threads parse at once.

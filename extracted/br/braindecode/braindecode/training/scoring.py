@@ -4,6 +4,7 @@
 #          Lukas Gemein <l.gemein@gmail.com>
 #          Mohammed Fattouh <mo.fattouh@gmail.com>
 #          Sarthak Tayal <sarthaktayal2@gmail.com>
+#          Aayushya Patel <67443596+ptlnextdoor@users.noreply.github.com>
 #
 # License: BSD-3
 
@@ -421,7 +422,8 @@ def predict_trials(
     Notes
     -----
     Collects :func:`iter_trial_predictions` and, unlike it, leaves the module in
-    eval mode.
+    eval mode. It keeps every trial in memory; for long trials, use
+    :func:`iter_trial_prediction_chunks`.
     """
     module.eval()
     trials = iter_trial_predictions(
@@ -527,10 +529,14 @@ def iter_trial_predictions(
     Parameters
     ----------
     module : torch.nn.Module
-        Model implementing forward. It runs in eval mode without gradients; the
-        mode of every submodule is restored on exhaustion, error or ``close()``.
+        Model implementing forward, for example the ``module_`` of a fitted
+        :class:`~braindecode.EEGClassifier` or :class:`~braindecode.EEGRegressor`.
+        It runs in eval mode without gradients; the mode of every submodule is
+        restored on exhaustion, error or ``close()``.
     dataset : torch.utils.data.Dataset
-        Chronological cropped windows with targets and window indices.
+        Chronological cropped windows with targets and window indices. Items
+        with channel positions raise a ``ValueError``; call
+        ``set_return_ch_pos(False)`` on the dataset first.
     return_targets : bool
         If True, yield ``(prediction, target)`` pairs.
     batch_size : int
@@ -540,21 +546,38 @@ def iter_trial_predictions(
     loader_kwargs : dict | None
         DataLoader overrides. Only ``batch_size``, ``num_workers``,
         ``pin_memory``, ``persistent_workers``, ``prefetch_factor``,
-        ``worker_init_fn`` and ``generator`` are accepted.
+        ``worker_init_fn`` and ``generator`` are accepted, and they replace the
+        arguments of the same name. Other keys, such as ``shuffle``,
+        ``sampler``, ``drop_last`` or ``collate_fn``, and ``batch_size=None``
+        raise a ``ValueError``, because the reconstruction needs batches of
+        windows in recording order.
 
     Yields
     ------
     prediction : np.ndarray or tuple of np.ndarray
         Float32 prediction of one trial, ``(n_outputs, n_predictions)``, or a
         pair with its float32 target: the first window's target for scalar and
-        vector targets, the overlap-reconstructed target for time targets.
+        vector targets, the overlap-reconstructed target for time targets
+        (two or more dimensions per window).
 
     Notes
     -----
+    The iterator is lazy. On the first ``next()``, it records the training flag
+    of every submodule and puts the module in eval mode. Exhaustion, an error
+    or ``close()`` shuts down the loader workers and restores the flags. Only
+    the forward runs under ``torch.no_grad``; the code that reads the items
+    keeps its own gradient mode. Do not train the module while the iterator is
+    suspended.
+
     Memory holds one trial, the loader batches and one window of lookahead, not
-    the completed trials; use :func:`iter_trial_prediction_chunks` to bound a
-    long trial. Close the iterator when stopping early. See
-    :ref:`cropped-inference`.
+    the completed trials. It still grows with the trial length; use
+    :func:`iter_trial_prediction_chunks` to bound a long trial. The bound holds
+    only if each item is dropped after use, and ``list()`` keeps them all.
+
+    A ``break`` does not close the iterator. Wrap an early exit in
+    :func:`contextlib.closing`, as in the example of
+    :func:`iter_trial_prediction_chunks`. The tutorial section
+    :ref:`cropped-inference` runs the three trial functions on a trained model.
     """
     return _iter_trial_outputs(
         module, dataset, None, return_targets, batch_size, num_workers, loader_kwargs
@@ -569,13 +592,14 @@ class TrialPredictionChunk(NamedTuple):
     trial_index : int
         Zero-based trial index.
     prediction_start : int
-        Offset of the chunk in the trial's reconstructed predictions, not an
-        EEG sample index.
+        Zero-based offset of the chunk in the trial's reconstructed predictions,
+        not an EEG sample index.
     prediction : np.ndarray
         Float32 array of shape ``(n_outputs, n_predictions_in_chunk)``.
     target : np.ndarray | None
-        The trial's scalar or vector target, this chunk of its time target, or
-        None when targets are not requested.
+        The trial's scalar or vector target (its first window's, repeated in
+        every chunk), this chunk of its time target, or None when targets are
+        not requested.
     """
 
     trial_index: int
@@ -599,8 +623,9 @@ def iter_trial_prediction_chunks(
     Takes the arguments of :func:`iter_trial_predictions` and has the same
     lifecycle. A chunk never spans two trials and overlap removal carries
     across chunks, so concatenating a trial's chunks along axis 1 gives its
-    :func:`iter_trial_predictions` output exactly. Memory depends on the chunk
-    size, not on the trial length.
+    :func:`iter_trial_predictions` output exactly, for the predictions and for
+    time targets. Memory holds one chunk, the loader batches and one window of
+    lookahead, so it does not depend on the trial length.
 
     Parameters
     ----------
@@ -612,6 +637,39 @@ def iter_trial_prediction_chunks(
     Yields
     ------
     chunk : TrialPredictionChunk
+
+    Examples
+    --------
+    Read the first chunk of a two-window trial and stop.
+    :func:`contextlib.closing` closes the iterator at the end of the block,
+    which gives the model back its training mode.
+
+    >>> import torch
+    >>> from contextlib import closing
+    >>> from braindecode.training import iter_trial_prediction_chunks
+    >>> model = torch.nn.Conv1d(1, 1, kernel_size=1, bias=False)
+    >>> _ = model.train()
+    >>> windows = [(torch.ones(1, 4), 7, (i, 4 * i, 4 * (i + 1))) for i in range(2)]
+    >>> with closing(
+    ...     iter_trial_prediction_chunks(
+    ...         model,
+    ...         windows,
+    ...         windows_per_chunk=1,
+    ...         return_targets=False,
+    ...     )
+    ... ) as chunks:
+    ...     chunk = next(chunks)
+    ...     print(
+    ...         chunk.trial_index,
+    ...         chunk.prediction_start,
+    ...         chunk.prediction.shape,
+    ...         chunk.target,
+    ...         model.training,
+    ...     )
+    ...
+    0 0 (1, 4) None False
+    >>> model.training
+    True
     """
     if windows_per_chunk is None:
         raise ValueError("windows_per_chunk must be a positive integer")
@@ -748,3 +806,149 @@ def f1_event(pred_events, gt_events, iou_threshold: float = 0.5) -> float:
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     return 2 * precision * recall / (precision + recall)
+
+
+def _szcore_events(events, name, max_event_duration, min_gap):
+    """Validate ``(onset, offset)`` rows, merge close events, split long ones."""
+    events = np.asarray(events, dtype=float)
+    if events.size == 0:
+        events = events.reshape(0, 2)
+    if events.ndim != 2 or events.shape[1] != 2:
+        raise ValueError(f"{name} must have shape (n_events, 2), got {events.shape}.")
+    if (events[:, 1] < events[:, 0]).any():
+        raise ValueError(f"{name} has an event whose offset is before its onset.")
+    merged = []
+    for onset, offset in sorted(events.tolist()):
+        if merged and onset - merged[-1][1] < min_gap:
+            merged[-1][1] = max(merged[-1][1], offset)
+        else:
+            merged.append([onset, offset])
+    split = []
+    for onset, offset in merged:
+        while offset - onset > max_event_duration:
+            split.append((onset, onset + max_event_duration))
+            onset += max_event_duration
+        split.append((onset, offset))
+    return split
+
+
+def szcore_event_scores(
+    reference,
+    hypothesis,
+    recording_duration: float,
+    *,
+    tolerance_start: float = 30.0,
+    tolerance_end: float = 60.0,
+    min_overlap: float = 0.0,
+    max_event_duration: float = 300.0,
+    min_duration_between_events: float = 90.0,
+) -> dict[str, float]:
+    """SzCORE event-based seizure scoring of one recording.
+
+    Events closer than ``min_duration_between_events`` are merged, then events
+    longer than ``max_event_duration`` are split into pieces that count as
+    separate events. A reference event is detected (true positive) when the
+    hypothesis overlaps it, extended by ``tolerance_start`` seconds before and
+    ``tolerance_end`` seconds after, by more than ``min_overlap`` of that
+    window. A hypothesis event that touches no detected window is a false
+    positive. The defaults are those of the SzCORE framework
+    :footcite:`Dan2025`, and the result matches ``timescoring`` 0.0.7, its
+    reference implementation, for sorted, non-overlapping events. Time is
+    sampled at 10 Hz.
+
+    Parameters
+    ----------
+    reference : array-like of shape (n_events, 2)
+        Annotated seizures as ``(onset, offset)`` in seconds. May be empty.
+    hypothesis : array-like of shape (n_events, 2)
+        Predicted seizures as ``(onset, offset)`` in seconds. May be empty.
+    recording_duration : float
+        Length of the recording in seconds, the time base of the false-alarm
+        rates. Events are clipped to it; a hypothesis event that starts after
+        it still counts as a false positive, as in ``timescoring``.
+    tolerance_start : float
+        Seconds before a reference event in which a detection still counts.
+    tolerance_end : float
+        Seconds after a reference event in which a detection still counts.
+    min_overlap : float
+        Fraction of the tolerance window the hypothesis must cover, in [0, 1).
+    max_event_duration : float
+        Events longer than this many seconds are split.
+    min_duration_between_events : float
+        Events less than this many seconds apart are merged.
+
+    Returns
+    -------
+    dict
+        ``n_ref_events``, ``tp`` and ``fp`` (integers, after merging and
+        splitting), ``sensitivity``, ``precision``, ``f1``, ``fp_per_hour`` and
+        ``fp_per_day``. ``sensitivity`` is NaN without reference events,
+        ``precision`` is NaN without any hypothesis event or detection, and
+        ``f1`` is NaN when there is neither a reference event nor a false
+        positive. To score a subject, sum ``tp``, ``n_ref_events``, ``fp`` and
+        the durations of its recordings; SzCORE reports a dataset as the mean
+        of its subjects' scores.
+
+    Examples
+    --------
+    Convert :class:`mne.Annotations` to events with
+    ``np.c_[ann.onset, ann.onset + ann.duration]``.
+
+    >>> from braindecode.training import szcore_event_scores
+    >>> scores = szcore_event_scores([(1800, 1860)], [(1790, 1800)], 3600)
+    >>> scores["tp"], scores["fp"]
+    (1, 0)
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    if recording_duration <= 0:
+        raise ValueError(
+            f"recording_duration must be positive, got {recording_duration}."
+        )
+    if max_event_duration <= 0:
+        raise ValueError(
+            f"max_event_duration must be positive, got {max_event_duration}."
+        )
+    fs = 10  # timescoring's time grid, in Hz
+    n = round(recording_duration * fs)
+    ref = _szcore_events(
+        reference, "reference", max_event_duration, min_duration_between_events
+    )
+    hyp = _szcore_events(
+        hypothesis, "hypothesis", max_event_duration, min_duration_between_events
+    )
+
+    def span(onset, offset):
+        return slice(max(0, round(onset * fs)), round(offset * fs))
+
+    # Merged gaps stay in the mask: a gap inside a tolerance window is a detection.
+    hyp_mask = np.zeros(n, dtype=bool)
+    for onset, offset in hyp:
+        hyp_mask[span(onset, offset)] = True
+    detected = np.zeros(n, dtype=bool)
+    tp = 0
+    for onset, offset in ref:
+        onset = max(0.0, onset - tolerance_start)
+        offset = min(n / fs, offset + tolerance_end)
+        window = span(onset, offset)
+        covered = hyp_mask[window].sum() / fs
+        # An empty window (event past the recording end) cannot be detected.
+        # The 1e-6 margin is timescoring's: min_overlap=0 needs a covered sample.
+        if offset > onset and covered / (offset - onset) > min_overlap + 1e-6:
+            tp += 1
+            detected[window] = True
+    fp = sum(not detected[span(onset, offset)].any() for onset, offset in hyp)
+    n_ref = len(ref)
+    nan = float("nan")
+    return {
+        "n_ref_events": n_ref,
+        "tp": tp,
+        "fp": fp,
+        "sensitivity": tp / n_ref if n_ref else nan,
+        "precision": tp / (tp + fp) if tp + fp else nan,
+        "f1": 2 * tp / (n_ref + tp + fp) if n_ref + fp else nan,
+        "fp_per_hour": fp / (n / fs / 3600),
+        "fp_per_day": fp / (n / fs / 86400),
+    }

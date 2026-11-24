@@ -149,9 +149,9 @@ GOLDEN: list[tuple[Any, ...]] = [
                    "updated_at": NOW}], KEY, ["name", "attrs", "updated_at"]),
     ("entities", [
         _sym("symbol_class_definition", "Box", "c-box", None, 10, 20),
-        _sym(FN, "open", "c-open2", "Crate", 30, 31),
         _sym(FN, "alpha", "c-alpha", None, 1, 3),
         _sym(FN, "beta", "c-beta", None, 4, 8),
+        _sym(FN, "open", "c-open2", "Crate", 30, 31),
         _sym("symbol_symbol", "lam", "c-anon", None, 40, 40),
     ], KEY, ["name", "attrs", "updated_at"]),
     ("edges", [
@@ -170,7 +170,7 @@ GOLDEN: list[tuple[Any, ...]] = [
     ("entities", [
         {"organization_id": ORG, "created_by": OWNER, "kind": "unresolved_symbol", "name": n,
          "canonical_id": f"unres:python:{n}", "attrs": {"language": "python"}, "updated_at": NOW}
-        for n in ("print", "beta")
+        for n in ("beta", "print")
     ], KEY, ["updated_at"]),
     ("edges", [
         _call(ALPHA_ID, BETA_ID, "c-alpha", "beta", 2, False),
@@ -233,3 +233,25 @@ async def test_a_missing_organization_is_refused_before_any_write(monkeypatch) -
             language="python", symbols=[], calls=[], imports=[{"module": "os"}],
         )
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_entity_upserts_are_sent_in_conflict_key_order(monkeypatch):
+    """Concurrent ingests sharing modules/callees must lock rows in one order: every multi-row entity
+    upsert arrives sorted by (kind, canonical_id), whatever order the file listed its symbols/imports."""
+    calls = _install(monkeypatch)
+    symbols = [{"chunk_id": f"c-{n}", "name": n, "kind": "function_definition"} for n in ("zeta", "alpha", "mid", "beta")]
+    calls_in = [
+        {"caller_chunk_id": "c-zeta", "callee_name": n, "callee_chunk_id": None, "line": 1}
+        for n in ("zz", "aa", "mm")
+    ]
+    imports = [{"module": m, "names": None, "line": 1} for m in ("sys", "abc", "os", "re")]
+    await save_code_map(
+        organization_id=ORG, created_by=OWNER, source_kind="code_file", source_id=SRC,
+        file_path="pkg/mod.py", language="python", symbols=symbols, calls=calls_in, imports=imports,
+    )
+    multi = [c[1] for c in calls if c[0] == "entities" and len(c[1]) > 1]
+    assert len(multi) == 3  # symbols, modules, unresolved callees
+    for rows in multi:
+        keys = [(r["kind"], r["canonical_id"]) for r in rows]
+        assert keys == sorted(keys)

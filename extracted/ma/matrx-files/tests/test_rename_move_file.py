@@ -457,34 +457,3 @@ def test_mutate_file_raises_instead_of_returning_200_with_errors() -> None:
     assert "move_file_async" in source and "rename_file_async" in source, (
         "mutate_file must write through the two RPC wrappers"
     )
-
-
-@pytest.mark.filterwarnings("ignore::pytest.PytestWarning")
-def test_every_censused_write_path_goes_through_the_rpc_wrappers() -> None:
-    """The executable form of 'exactly one rename path'.
-
-    This is the pytest twin of ``aidream/scripts/check_single_rename_path.py``.
-    It imports the guard and runs it over the real repository, so the package's
-    test run fails the moment a fifth path appears — the guard already found
-    three the spec's census of four had missed.
-    """
-    import importlib.util
-    from pathlib import Path
-
-    guard_path = (
-        Path(__file__).resolve().parents[3] / "scripts" / "check_single_rename_path.py"
-    )
-    if not guard_path.exists():
-        pytest.skip("aidream repository scripts unavailable in a standalone package install")
-
-    spec = importlib.util.spec_from_file_location("_single_rename_path_guard", guard_path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    # The guard must be able to fail, or its silence means nothing.
-    planted = module.scan_source(module._KNOWN_BAD, "synthetic/known_bad.py")
-    assert planted, "the guard cannot detect the shapes it exists to catch"
-
-    violations = module.collect_violations()
-    assert not violations, "second rename path(s):\n" + "\n".join(str(v) for v in violations)

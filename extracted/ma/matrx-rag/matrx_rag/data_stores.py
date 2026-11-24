@@ -32,6 +32,8 @@ from __future__ import annotations
 import logging
 import uuid
 from collections import Counter
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -185,6 +187,60 @@ async def delete_data_store(store_id: str) -> None:
 # Members
 # ---------------------------------------------------------------------------
 
+# Migration 1381's transaction-local switch: a NEW containment edge written in this transaction
+# records its container in platform.reachability_pending instead of refreshing it inline.
+REACHABILITY_DEFER_GUC = "platform.reachability_defer"
+# Containers settled per flush call: each one re-derives a whole store, so keep transactions short.
+REACHABILITY_FLUSH_BATCH = 5
+REACHABILITY_FLUSH_LOCK_RETRIES = 5
+
+
+@asynccontextmanager
+async def _reachability_deferred(database: str, defer: bool) -> AsyncIterator[None]:
+    """Open a transaction carrying the 1381 defer switch when ``defer``; pass through otherwise."""
+    if not defer:
+        yield
+        return
+    from matrx_orm.core.transaction import set_local_gucs, transaction
+
+    async with transaction(database=database):
+        await set_local_gucs({REACHABILITY_DEFER_GUC: "on"})
+        yield
+
+
+async def flush_deferred_reachability() -> int:
+    """Settle every container a bulk writer deferred (``platform.reachability_flush`` until 0).
+
+    Each batch is its own short call. A concurrent refresh of the same container (another writer
+    adding to the store) can collide on the advisory lock: the batch rolled back whole, so it is
+    simply re-run. Returns how many containers were settled; anything left stays in
+    ``platform.reachability_pending`` as visible debt for the next flush.
+    """
+    import asyncio
+
+    from matrx_orm import call_function
+    from matrx_orm.exceptions import LockContentionError, QueryTimeoutError
+
+    from matrx_rag.db import PACKAGE_DB_NAME
+
+    settled = 0
+    failures = 0
+    while True:
+        try:
+            n = await call_function(
+                PACKAGE_DB_NAME, "platform", "reachability_flush", REACHABILITY_FLUSH_BATCH
+            )
+        except (LockContentionError, QueryTimeoutError):
+            failures += 1
+            if failures > REACHABILITY_FLUSH_LOCK_RETRIES:
+                raise
+            await asyncio.sleep(min(2 * failures, 10))
+            continue
+        n = int(n or 0)
+        settled += n
+        if n < REACHABILITY_FLUSH_BATCH:
+            return settled
+
 
 async def add_member(
     *,
@@ -193,7 +249,19 @@ async def add_member(
     source_id: str,
     added_by: str,
     notes: str | None = None,
+    defer_reachability: bool = False,
 ) -> None:
+    """Add (or revive) one source in a data store.
+
+    ``defer_reachability`` is for BULK writers (a sync filing hundreds of sources into one
+    store). The membership's association trigger otherwise re-derives the whole store's
+    reachability inside this write, under the store's advisory lock — O(store size) per
+    member. On a 14k-member store that ran past the 5 s lock timeout and the 10 s statement
+    timeout (live 2026-11-15: 30 ``db_statement_canceled`` rows in 11 minutes from the
+    platform catalog sync). Deferred, the store is recorded in ``platform.reachability_pending``
+    (migration 1381) and the caller MUST settle it with :func:`flush_deferred_reachability`
+    once the batch is written; until then the new member conveys nothing (fails closed).
+    """
     # Decision 3 (Shared Knowledge Resources, settled 2026-07-23): adding a
     # file to a MATRX LIBRARY store moves the file to the library org under
     # the system owner (contributor kept as author in file metadata). This is
@@ -261,7 +329,7 @@ async def add_member(
     from matrx_rag.db import PACKAGE_DB_NAME
 
     DataStoreMembers = get_db_model("DataStoreMembers")
-    async with actor_named_for_write(PACKAGE_DB_NAME):
+    async with _reachability_deferred(PACKAGE_DB_NAME, defer_reachability), actor_named_for_write(PACKAGE_DB_NAME):
         await DataStoreMembers.upsert(
             {
                 # A membership is a component of its store: the store's organization.
@@ -461,6 +529,17 @@ async def list_data_stores(
     if not by_id:
         return []
 
+    # SHOWN MEANS USABLE (Arman, 2026-11-07): the legs above only gather CANDIDATES; what the person is
+    # shown is decided by the one answer the open path (get_data_store -> platform_access_check) asks,
+    # plus the open-organization and trash tests — so a store of an archived organization, or one whose
+    # share was revoked, is never listed and then refused. common-docs/systems/platform/access/SHOWN.md.
+    from matrx_orm import platform_shown_ids
+
+    shown = set(await platform_shown_ids(str(user_id), "data_store", list(by_id.keys())))
+    by_id = {sid: r for sid, r in by_id.items() if sid in shown}
+    if not by_id:
+        return []
+
     counts = Counter(str(r["data_store_id"]) for r in member_rows)
 
     # Mirror the old ORDER BY is_active DESC, name ASC (is_active is NOT NULL).
@@ -598,8 +677,9 @@ async def _enrich_member_labels(members: list[DataStoreMember]) -> list[DataStor
         if "cld_file" in by_kind:
             ids = [i for i in (m.source_id for m in by_kind["cld_file"]) if _is_uuid(i)]
             if ids:
-                Files = get_db_model("Files")
-                rows = await Files.filter(id__in=ids).values("id", "file_name")
+                from matrx_files.gated_reads import read_file_rows
+
+                rows = await read_file_rows(["file_name"], id__in=ids)
                 for r in rows:
                     enriched[("cld_file", str(r["id"]))] = r["file_name"]
         if "processed_document" in by_kind:

@@ -287,9 +287,8 @@ def build_live_config(
 ) -> types.LiveConnectConfig:
     """The ONE builder of a Live session's connect config.
 
-    The relay (``GoogleLiveSession``) and the token broker's ephemeral token
-    (``live_token``, which LOCKS this config server-side) both call it, so a
-    direct browser session runs exactly what the relayed one would.
+    ``GoogleLiveSession`` builds its connect config here, so a Live session
+    runs one config however it is opened.
     """
     vad = types.AutomaticActivityDetection(
         **{**DEFAULT_LIVE_VAD, **options.vad_config}
@@ -604,8 +603,14 @@ class GoogleEmbeddingRuntime:
         # out-of-credit alarm and LAYER 2 — for every caller of this runtime.
         # An embedding is a pure function of its input and bills only a
         # returned response: a refused batch is safe to send again.
+        from matrx_ai.providers.guardrail_gate import quote_tokens
+
         response = await UnifiedAIClient._dispatch_with_billing_net(
-            _embed, profile=self.profile, transient_retries=EMBEDDING_TRANSIENT_RETRIES
+            _embed,
+            profile=self.profile,
+            transient_retries=EMBEDDING_TRANSIENT_RETRIES,
+            # Tokens at most: one per 2 characters of what is sent (a token is ~4 characters of prose).
+            quote=quote_tokens(self.profile, max(1, len(str(contents)) // 2), 0),
         )
         vectors = [list(item.values or []) for item in (response.embeddings or [])]
         dimensions = len(vectors[0]) if vectors else int(output_dimensionality or 0)

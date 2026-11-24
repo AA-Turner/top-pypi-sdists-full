@@ -28,7 +28,7 @@ class StreamPlane:
     workers: WorkerInputRegistry = field(default_factory=WorkerInputRegistry)
 
     @classmethod
-    def build(cls, *, config: StreamingConfig, access: AccessResolver) -> "StreamPlane":
+    def build(cls, *, config: StreamingConfig, access: AccessResolver) -> StreamPlane:
         signer = TicketSigner(private_key_pem=config.require_signing_key())
         return cls(config=config, access=access, signer=signer)
 

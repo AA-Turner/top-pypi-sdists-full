@@ -19,7 +19,6 @@ from braindecode.functional import init_weights_, patch_count
 from braindecode.functional.patches import _check_on_non_divisible
 from braindecode.models.base import EEGModuleMixin
 from braindecode.models.labram import _Attention
-from braindecode.models.signal_jepa import _GroupNorm
 from braindecode.models.util import _in_model_resample
 from braindecode.modules import MLP, PatchTokenizer, PreNormBlock
 
@@ -198,6 +197,17 @@ def _modality(model, modality: str, resample: bool = False) -> dict:
     return preset
 
 
+def _check_channel_strategy(model, modality, channel_strategy, strategy_kwargs):
+    """The channel layer maps electrodes: ECG, EMG and PPG channels stay native."""
+    if modality in _MODALITIES and modality != "eeg":
+        if channel_strategy != "native" or strategy_kwargs:
+            raise ValueError(
+                f"{type(model).__name__} with modality={modality!r} takes "
+                f"{modality.upper()} channels, not electrodes the channel layer "
+                f"can map: only channel_strategy='native' is supported."
+            )
+
+
 def _channel_slots(
     model, channel_names, channels: tuple[str, ...], on_missing: str = "error"
 ):
@@ -243,7 +253,16 @@ def _stack_scales(x: Tensor, dropout: bool) -> bool:
 
 
 class _MultiScaleTemporalConv(nn.Module):
-    """Released four-branch patch embedding; ``kernels`` = (first, second) rows."""
+    """Released four-branch patch embedding; ``kernels`` = (first, second) rows.
+
+    ``forward`` stacks the patches ``(batch, n_chans, n_patches, patch_size)`` as
+    ``(batch, 1, n_chans * n_patches, patch_size)``. Each branch applies two stages,
+    a 2D convolution, a GroupNorm with 4 groups, the activation and an average
+    pooling over time (by 2, then by 4), giving
+    ``(batch, out_chans, n_chans * n_patches, patch_size // 8)``. ``forward``
+    returns one ``(batch, n_chans * n_patches, patch_size // 8 * out_chans)``
+    tensor per branch.
+    """
 
     def __init__(self, out_chans: int, activation: type[nn.Module], kernels):
         super().__init__()
@@ -253,7 +272,7 @@ class _MultiScaleTemporalConv(nn.Module):
                 f"conv1_{i}",
                 nn.Conv2d(1, out_chans, (1, kernel), padding=(0, kernel // 2)),
             )
-            setattr(self, f"norm1_{i}", _GroupNorm(4, out_chans))
+            setattr(self, f"norm1_{i}", nn.GroupNorm(4, out_chans))
             setattr(self, f"pool1_{i}", nn.AvgPool2d((1, 2)))
         for i, kernel in enumerate(kernels[1], start=1):
             setattr(
@@ -261,7 +280,7 @@ class _MultiScaleTemporalConv(nn.Module):
                 f"conv2_{i}",
                 nn.Conv2d(out_chans, out_chans, (1, kernel), padding=(0, kernel // 2)),
             )
-            setattr(self, f"norm2_{i}", _GroupNorm(4, out_chans))
+            setattr(self, f"norm2_{i}", nn.GroupNorm(4, out_chans))
             setattr(self, f"pool2_{i}", nn.AvgPool2d((1, 4)))
         self.gelu1 = activation()
         self.gelu2 = activation()
@@ -337,6 +356,15 @@ class NeuroRVQ(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
     r"""NeuroRVQ foundation model for EEG, ECG and EMG from Barmpas et al. [neurorvq]_.
 
     :bdg-success:`Convolution` :bdg-info:`Attention/Transformer` :bdg-danger:`Foundation Model` :bdg-dark-line:`Channel`
+
+    .. figure:: ../_static/model/neurorvq_arch.png
+       :align: center
+       :alt: NeuroRVQ architecture
+       :width: 1000px
+
+       The NeuroRVQ foundation model: multi-scale temporal encoder, Transformer
+       encoder and the frozen RVQ codebooks whose tokens it predicts, reproduced
+       from [neurorvq]_ (CC BY 4.0).
 
     The model combines four temporal convolution scales with a shared
     Transformer encoder and learned channel/time embeddings; this class adapts
@@ -444,6 +472,13 @@ class NeuroRVQ(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
     activation : type[nn.Module], default=nn.GELU
         Activation in the multi-scale temporal patch embedding. GELU reproduces
         the released model.
+    channel_strategy : str, default="native"
+        How another montage reaches the encoder; see
+        :class:`~braindecode.models.base.EEGModuleMixin`. EEG only: the channel
+        layer maps electrodes, so with another ``modality`` any value but
+        ``"native"`` raises a ``ValueError``.
+    channel_strategy_kwargs : dict or None, default=None
+        Options of ``channel_strategy``.
 
     Notes
     -----
@@ -463,6 +498,9 @@ class NeuroRVQ(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
        Tokenization for Generative Foundation Models. https://arxiv.org/abs/2510.13068
     .. [neurorvqcode] https://github.com/KonstantinosBarmpas/NeuroRVQ
     """
+
+    _time_axis = "fixed"  # fixed: fc_norm.bias
+    _channel_axis = "fixed"  # fixed: fc_norm.bias
 
     def __init__(
         self,
@@ -490,7 +528,12 @@ class NeuroRVQ(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         attn_drop_rate: float = 0.0,
         drop_path_rate: float = 0.0,
         activation: type[nn.Module] = nn.GELU,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
+        _check_channel_strategy(
+            self, modality, channel_strategy, channel_strategy_kwargs
+        )
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -498,6 +541,8 @@ class NeuroRVQ(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         if on_missing not in ("error", "drop"):
@@ -602,6 +647,11 @@ class NeuroRVQ(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
             head_dim *= len(slots) * self.num_patches
         self.fc_norm = nn.LayerNorm(head_dim)
         self.final_layer = nn.Linear(head_dim, self.n_outputs)
+        self._n_times_step = (
+            math.ceil(patch_size * int(in_sfreq) / preset["sfreq"])
+            if in_sfreq is not None and in_sfreq != preset["sfreq"]
+            else patch_size
+        )
         self._init_parameters()
 
     def _init_parameters(self):

@@ -15,6 +15,18 @@ class SampleSplit(StrEnum):
     SFT = "sft"
 
 
+#: An SFT eval example's key prefix (TRL's SFT recorder, `probe.integrations.trl.rows.make_sft_key`): its split is
+#: `eval` so reads count it with the eval pass, but it is a dataset example, not a rollout (D3).
+SFT_EVAL_KEY_PREFIX = "sft-eval:"
+
+
+def is_sft_example(split: SampleSplit | None, key: str) -> bool:
+    """Is a generator part with this split and key an SFT example (a training one, or an eval one by its key)? An
+    SFT run's examples never make it an RL run: `app/runs/samples/writer.py::holds_rollouts` and the run-type
+    backfill read this one rule."""
+    return split is SampleSplit.SFT or (split is SampleSplit.EVAL and key.startswith(SFT_EVAL_KEY_PREFIX))
+
+
 class SampleOutcome(StrEnum):
     """Never written by a producer: a read derives it (`derive_outcome`, DESIGN.md "Outcome")."""
 

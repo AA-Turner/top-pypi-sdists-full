@@ -34,6 +34,9 @@ from matrx_orm import db_constraint, db_sqlstate
 
 # The (owner_id, file_path) unique key: its current name and the legacy cld_-prefixed one.
 _PATH_UNIQUE_CONSTRAINTS = frozenset({"files_owner_id_file_path_key", "cld_files_owner_id_file_path_key"})
+_FOLDER_PATH_UNIQUE_CONSTRAINTS = frozenset(
+    {"folders_owner_org_path_key", "cld_folders_owner_id_folder_path_key"}
+)
 
 import asyncio
 import hashlib
@@ -55,7 +58,7 @@ from matrx_utils.row_access import (
 )
 
 from ..artifact_identity import artifact_identity_columns
-from ..user_visible import stamp_machine_artifact
+from ..placement import stamp_for_write
 from .config import CloudSyncConfig
 from .db import DatabaseClient
 from ..dedup import (
@@ -84,15 +87,23 @@ def row_access_insert_columns(
     """Row-access columns for a NEW file (access ladder T-13).
 
     ``published_to_web`` is the only anonymous lane (and decides the public bucket);
-    ``shown_to`` is a list filter only. A new file defaults to not published and shown
-    only to its creator in lists — what an upload with no stated audience always meant.
+    ``shown_to`` is a list filter only. A new file defaults to not published and to the
+    file type's "Shown to" knob (``access.shown_to_default/file``), the same default notes
+    and tasks get: stored NULL, which every list resolves through ``platform.shown_to_default``.
+    A writer that means "only me" states it; nothing writes that label by omission.
     """
-    # Unstated → "only me" (what an upload with no stated audience always meant);
-    # SHOWN_TO_TYPE_DEFAULT → NULL (follow the type's knob).
+    # Unstated (or SHOWN_TO_TYPE_DEFAULT) → NULL: follow the type's knob.
     return RowAccess(
         published_to_web=bool(published_to_web),
-        shown_to=shown_to if shown_to is not None else "only_me",
+        shown_to=shown_to if shown_to is not None else SHOWN_TO_TYPE_DEFAULT,
     ).columns(actor_id)
+
+
+def _is_stated_shown_to(shown_to: str | None) -> bool:
+    """True when the caller NAMED a ``shown_to`` label. ``None`` and the type-default marker mean "not stated":
+    the marker is a writer-side placeholder for NULL ("follow the type's knob") and is never an enum label, so it
+    must never reach an UPDATE of an existing row (``invalid input value for enum platform.shown_to``)."""
+    return shown_to is not None and shown_to != SHOWN_TO_TYPE_DEFAULT
 
 
 def row_access_update_columns(
@@ -474,24 +485,16 @@ class SyncEngine:
 
     @staticmethod
     def _content_disposition(file_name: str | None, disposition: str) -> str:
-        """Build an RFC 6266 Content-Disposition value with safe quoting.
+        """RFC 6266/5987 Content-Disposition via the ONE builder.
 
-        ``disposition`` is "inline" or "attachment". File names with
-        non-ASCII characters use the ``filename*=UTF-8''<pct-encoded>``
-        extended form.
+        ``disposition`` is "inline" or "attachment"; quotes, CTLs and
+        non-ASCII names are encoded by content_headers.build_content_disposition.
         """
-        from urllib.parse import quote as _quote
+        from ..content_headers import build_content_disposition
 
-        name = file_name or "download"
-        try:
-            name.encode("ascii")
-            return f'{disposition}; filename="{name}"'
-        except UnicodeEncodeError:
-            ascii_fallback = name.encode("ascii", "replace").decode("ascii")
-            return (
-                f'{disposition}; filename="{ascii_fallback}"; '
-                f"filename*=UTF-8''{_quote(name, safe='')}"
-            )
+        return build_content_disposition(
+            file_name or "download", force_attachment=disposition != "inline"
+        )
 
     def build_urls_for_record(self, record_or_synthetic: dict) -> dict:
         """Build the durable URL contract for a file. NEVER mints a signed URL.
@@ -832,6 +835,8 @@ class SyncEngine:
         try:
             result = self._db.create_folder(folder_data)
         except Exception as exc:
+            if not self._is_folder_path_unique_violation(exc):
+                raise
             # Another writer may have created this owner/path between our
             # read and insert. Re-read instead of using an upsert: an upsert
             # could silently MOVE that winner into this request's organization.
@@ -876,6 +881,8 @@ class SyncEngine:
         try:
             result = await self._db.create_folder_async(folder_data)
         except Exception as exc:
+            if not self._is_folder_path_unique_violation(exc):
+                raise
             # Never OVERWRITE the winner's organization scope — but reusing the
             # owner's own folder is not an overwrite.
             winner = await self._db.get_folder_by_path_async(user_id, folder_path, org_id)
@@ -932,6 +939,8 @@ class SyncEngine:
             try:
                 parent_id = (await self._db.create_folder_async(data))["id"]
             except Exception as exc:
+                if not self._is_folder_path_unique_violation(exc):
+                    raise
                 winner = await self._db.get_folder_by_path_async(owner_id, path, organization_id)
                 if not winner:
                     winner = await self._revive_trashed_folder_async(
@@ -1289,7 +1298,7 @@ class SyncEngine:
         row = existing_row
         if published_to_web is not None and bool(row.get("published_to_web")) != bool(published_to_web):
             raise ValueError("sync managed_write cannot move storage lanes; use managed_write_async")
-        if shown_to is not None and shown_to != row.get("shown_to"):
+        if _is_stated_shown_to(shown_to) and shown_to != row.get("shown_to"):
             self.permissions.require("file", row["id"], "write", uid)
             self._db.update_file(row["id"], {"shown_to": shown_to})
             row = self._db.get_file(row["id"]) or {**row, "shown_to": shown_to}
@@ -1316,7 +1325,7 @@ class SyncEngine:
             row = await self.set_published_to_web_async(row["id"], bool(published_to_web), user_id=uid)
             if row is None:
                 raise RuntimeError("winner vanished while moving storage lane")
-        if shown_to is not None and shown_to != row.get("shown_to"):
+        if _is_stated_shown_to(shown_to) and shown_to != row.get("shown_to"):
             await self.permissions.require_async("file", row["id"], "write", uid)
             await self._db.update_file_async(row["id"], {"shown_to": shown_to})
             row = await self._db.get_file_async(row["id"]) or row
@@ -1345,8 +1354,12 @@ class SyncEngine:
         change_summary: str | None = None,
         user_id: str | None = None,
         metadata: dict | None = None,
+        pathway: str | None = None,
     ) -> SyncResult:
         """Write a file to cloud with full metadata, versioning, and permissions.
+
+        ``pathway`` names the declared file pathway this write goes through (placement registry
+        § 4.2a): stamped on the row (``file_pathway``), it decides the system marker.
 
         Unlike the auto-sync methods, this returns a ``SyncResult`` and
         raises on errors rather than swallowing them.
@@ -1465,9 +1478,10 @@ class SyncEngine:
         effective_metadata = _stamp_request_id(
             metadata_dict or (existing.get("metadata", {}) if existing else {})
         )
-        # A machine's file carries the machine-artifact marker from its path, stamped here at the
-        # one door so no writer has to remember (matrx_files/user_visible.py § MACHINE-ARTIFACT).
-        effective_metadata = stamp_machine_artifact(file_path, effective_metadata)
+        # THE STAMP POINT (placement registry § 4.2a): the named pathway decides the system marker and
+        # is stamped on the row; with none, the path's machine-artifact marker applies (user_visible.py
+        # § MACHINE-ARTIFACT) and the writer is reported unregistered.
+        effective_metadata, pathway_key = stamp_for_write(pathway, file_path, effective_metadata)
 
         if existing:
             new_version = existing["current_version"] + 1
@@ -1485,6 +1499,7 @@ class SyncEngine:
                     "metadata": effective_metadata,
                     # See the async path above: the columns mirror the JSONB.
                     **artifact_identity_columns(effective_metadata),
+                    **({"file_pathway": pathway_key} if pathway_key else {}),
                 },
                 current=existing,
                 owner_id=uid,
@@ -1509,6 +1524,7 @@ class SyncEngine:
                 # See the async path: artifact_kind / provider_session_id are
                 # the filterable copy of the metadata identity.
                 **artifact_identity_columns(effective_metadata),
+                **({"file_pathway": pathway_key} if pathway_key else {}),
                 "organization_id": organization_id,
             }
             try:
@@ -1617,6 +1633,11 @@ class SyncEngine:
             token = str(link["token"])
             return result.model_copy(update={"share_token": token, "share_url": f"/share/{token}"})
         return result
+
+    @staticmethod
+    def _is_folder_path_unique_violation(exc: BaseException) -> bool:
+        """Recognize only a unique violation on the folder path key."""
+        return db_sqlstate(exc) == "23505" and db_constraint(exc) in _FOLDER_PATH_UNIQUE_CONSTRAINTS
 
     @staticmethod
     def _is_dedup_unique_violation(exc: BaseException) -> bool:
@@ -1864,6 +1885,7 @@ class SyncEngine:
         origin_device_id: str | None = None,
         client_modified_at: datetime | None = None,
         exact_folder_organization: bool = False,
+        pathway: str | None = None,
     ) -> SyncResult:
         """Async version of managed_write().
 
@@ -2016,6 +2038,15 @@ class SyncEngine:
             )
         if existing is not None:
             if create_only:
+                if duplicate_of_file_id is not None and checksum and existing.get("checksum") == checksum:
+                    # An alias of these same bytes already sits at this path, so the alias asked for
+                    # exists. Nothing is overwritten (a form re-sending one attachment, 2026-11-02).
+                    return await self._reconcile_existing_result_async(
+                        existing_row=existing, content_bytes=content_bytes, checksum=checksum,
+                        share_with=share_with, share_level=share_level, uid=uid,
+                        published_to_web=published_to_web, shown_to=shown_to,
+                        wants_anyone_link=wants_anyone_link,
+                    )
                 from matrx_files.dedup import FilePathConflictError
 
                 raise FilePathConflictError(file_path=file_path)
@@ -2123,9 +2154,10 @@ class SyncEngine:
         effective_metadata = _stamp_request_id(
             metadata or existing.get("metadata", {}) if existing else metadata
         )
-        # A machine's file carries the machine-artifact marker from its path, stamped here at the
-        # one door so no writer has to remember (matrx_files/user_visible.py § MACHINE-ARTIFACT).
-        effective_metadata = stamp_machine_artifact(file_path, effective_metadata)
+        # THE STAMP POINT (placement registry § 4.2a): the named pathway decides the system marker and
+        # is stamped on the row; with none, the path's machine-artifact marker applies (user_visible.py
+        # § MACHINE-ARTIFACT) and the writer is reported unregistered.
+        effective_metadata, pathway_key = stamp_for_write(pathway, file_path, effective_metadata)
 
         if existing:
             new_version = existing["current_version"] + 1
@@ -2147,6 +2179,7 @@ class SyncEngine:
                     # because the columns must never disagree with the JSONB
                     # they mirror.
                     **artifact_identity_columns(effective_metadata),
+                    **({"file_pathway": pathway_key} if pathway_key else {}),
                     # Device provenance (SPEC-SERVER §2.2). Written on EVERY
                     # write, including an update: the feed entry must say which
                     # device produced the version a replica is now looking at,
@@ -2179,6 +2212,7 @@ class SyncEngine:
                 # This is the ONE door, so the placement-alias rows a dedup'd
                 # upload creates (duplicate_of_file_id) are stamped here too.
                 **artifact_identity_columns(effective_metadata),
+                **({"file_pathway": pathway_key} if pathway_key else {}),
                 # K0-1: stamp the validated explicit org or personal-org default
                 # so every file participates in the Knowledge/Scope system.
                 "organization_id": org_id_for_dedup,
@@ -2576,6 +2610,20 @@ class SyncEngine:
     # PUBLISH TO THE WEB — moves the object between the public and private buckets
     # ==================================================================
 
+    @staticmethod
+    def _published_over_private(record: dict) -> bool:
+        """A row flagged published whose bytes are NOT in the public bucket (the generic row write — sharing's
+        ``makePublic`` — set the flag without the move). Re-publishing it repairs it (MAILCHIMP-DUPE K, 2026-11-13);
+        before, the unchanged-flag no-op left it broken forever."""
+        from .cdn import public_bucket_or_raise
+
+        uri = str(record.get("storage_uri") or "")
+        bucket = uri.split("://", 1)[-1].partition("/")[0]
+        try:
+            return bool(bucket) and bucket != public_bucket_or_raise("set_published_to_web")
+        except Exception:
+            return False
+
     async def set_published_to_web_async(
         self,
         file_id: str,
@@ -2608,7 +2656,7 @@ class SyncEngine:
                 f"system-managed immutable file cannot be published or unpublished: {file_id}"
             )
         was_published = bool(record.get("published_to_web"))
-        if was_published == bool(published):
+        if was_published == bool(published) and not (published and self._published_over_private(record)):
             return record
 
         uid = self._resolve_user_id(user_id) or None
@@ -2693,7 +2741,7 @@ class SyncEngine:
             record = await self.set_published_to_web_async(file_id, published, user_id=uid)
             if record is None:
                 return None
-        if shown_to is not None:
+        if _is_stated_shown_to(shown_to):
             await self._db.update_file_async(file_id, {"shown_to": shown_to})
             record = await self._db.get_file_async(file_id)
         if wants_anyone_link:
@@ -3050,6 +3098,24 @@ class SyncEngine:
             cursor_ts=cursor_ts,
             cursor_id=cursor_id,
             include_deleted=include_deleted,
+            include_system=include_system,
+            limit=limit,
+        )
+
+    async def list_sync_relocations_async(
+        self,
+        *,
+        after_ts: datetime | None,
+        after_id: str | None,
+        include_system: bool = False,
+        limit: int = 500,
+        user_id: str | None = None,
+    ) -> tuple[list[dict], tuple[datetime, str] | None]:
+        uid = self._resolve_user_id(user_id)
+        return await self._db.list_sync_relocations_async(
+            uid,
+            after_ts=after_ts,
+            after_id=after_id,
             include_system=include_system,
             limit=limit,
         )

@@ -32,6 +32,17 @@ std::string_view Name(BarcodeFormat format)
 	};
 }
 
+std::string_view EnumName(BarcodeFormat format)
+{
+	switch (format) {
+#define X(NAME, SYM, VAR, FLAGS, ZINT, ENABLED, HRI) \
+	case BarcodeFormat(ZX_BCF_ID(SYM, VAR)): return #NAME;
+		ZX_BCF_LIST(X)
+#undef X
+	default: return "Unknown";
+	};
+}
+
 BarcodeFormat BarcodeFormatFromString(std::string_view str)
 {
 	if (str.size() < 3)
@@ -141,15 +152,15 @@ BarcodeFormats BarcodeFormats::list(const BarcodeFormats& filter)
 		return res;
 	}
 	for (auto f : filter) {
-		// printf("Filter for: %s\n", IdStr(f).c_str());
+		// log_l("Filter for: %s", IdStr(f).c_str());
 #define X(NAME, SYM, VAR, FLAGS, ZINT, ENABLED, HRI) \
 	if (ENABLED && SYM != '*' \
 		&& (SymbologyKey(f) == '*' ? BarcodeFormat(ZX_BCF_ID(SYM, VAR)) & f \
 								   : SYM == SymbologyKey(f) && (VariantKey(f) == ' ' || VariantKey(f) == VAR))) \
-		res.push_back(BarcodeFormat(ZX_BCF_ID(SYM, VAR))); //, printf("adding: %c %c\n", SYM, VAR);
+		res.push_back(BarcodeFormat(ZX_BCF_ID(SYM, VAR))); //, log_l("adding: %c %c", SYM, VAR);
 		ZX_BCF_LIST(X)
 #undef X
-		// printf("N: %d\n", (int)res.size());
+		// log_l("N: %d", (int)res.size());
 	}
 	return res;
 }

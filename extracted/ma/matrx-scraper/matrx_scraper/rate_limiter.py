@@ -14,8 +14,8 @@ The reason they share a module rather than each lane keeping a private gate:
 **a 429 learned on one lane must throttle the other.** ``throttle_host`` records
 a per-host backoff FACTOR in a process-wide store (`_SHARED_THROTTLES`), and
 every ``HostRateLimiter`` — whatever its own baseline — multiplies its rate by
-that factor and divides its interval by it. So the crawler backing iopbm.com off
-to half rate also doubles the research scraper's gap on iopbm.com, and vice
+that factor and divides its interval by it. So the crawler backing a client site off
+to half rate also doubles the research scraper's gap on a client site, and vice
 versa. A factor is used rather than an absolute rps precisely because the lanes
 have different baselines (4 rps vs one request every 2s); the *lesson* is
 "this host wants half as much", not "this host wants 2 rps".

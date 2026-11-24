@@ -31,7 +31,6 @@ Holes documented here (details in each test):
 
 from __future__ import annotations
 
-import pytest
 from matrx_graph import RunStatus
 from matrx_graph.content_ir.accessor import resolve_path
 from matrx_graph.content_ir.subscriptions import KindSubscription, SubscriptionMatcher
@@ -48,29 +47,12 @@ from tests.test_kind_routing import (
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "HOLE H1: _child() falls through to hasattr/getattr for non-Mapping, "
-        "non-BaseModel containers, so a path into a str resolves builtin "
-        "methods. 'n.text.strip' yields a bound method with NO note; the API "
-        "layer's list[JsonValue] then blows up (500). A path into a scalar "
-        "should be an absence recorded in notes, never an attribute lookup."
-    ),
-)
 def test_a_path_into_a_scalar_is_an_absence_not_an_attribute_lookup() -> None:
     resolution = resolve_path({"text": "hello"}, "text.strip", unwrap_root=False)
-    assert resolution.values == []  # currently: [<built-in method strip>]
-    assert resolution.notes  # and currently silent — no note at all
+    assert resolution.values == []
+    assert resolution.notes
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "HOLE H1 (dunder variant): 'n.text.__class__' resolves to <class "
-        "'str'> — type objects offered as data values."
-    ),
-)
 def test_dunder_segments_do_not_resolve_to_type_objects() -> None:
     resolution = resolve_path({"text": "hello"}, "text.__class__", unwrap_root=False)
     assert resolution.values == []
@@ -81,18 +63,6 @@ def test_dunder_segments_do_not_resolve_to_type_objects() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "HOLE H2: occurrence identity is scope#kind@path where the scheduler "
-        "passes scope=node_id (no firing number) for non-fanned invocations. "
-        "A node re-fired in one run (loop, join_policy='any') that produces "
-        "an identical payload both times triggers subscribers ONCE — the "
-        "second real production is deduped as a pass-through. Contradicts the "
-        "subscriptions module's own dedupe contract. Fix: fold the firing "
-        "number into the observe() scope."
-    ),
-)
 def test_a_second_real_production_of_an_identical_value_fires_again() -> None:
     matcher = SubscriptionMatcher(
         [KindSubscription(subscriber_id="saver", kind="website", mode="all")]
@@ -103,8 +73,8 @@ def test_a_second_real_production_of_an_identical_value_fires_again() -> None:
     assert len(matcher.drain(1)) == 1
     # firing 2 of node "fetch", two super-steps later — a NEW production event
     new = matcher.observe(payload, source_node_id="fetch", step=3)
-    assert new == 1  # currently 0: swallowed
-    assert len(matcher.drain(3)) == 1  # currently 0: the trigger never fires
+    assert new == 1
+    assert len(matcher.drain(3)) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -112,18 +82,6 @@ def test_a_second_real_production_of_an_identical_value_fires_again() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "HOLE H3: the drive loop exits when the frontier drains; pending "
-        "debounce windows are never force-drained (and never parked, and "
-        "never noted). A trigger with debounce_steps longer than the run's "
-        "remaining super-steps NEVER fires even though its kind appeared — "
-        "the motivating persistence case silently writes zero rows. The "
-        "end-of-run path must flush (or at minimum loudly report) "
-        "SubscriptionMatcher.pending_count() before completing."
-    ),
-)
 async def test_an_open_debounce_window_still_fires_before_the_run_completes():
     registry, _source, sink = _registry(web=2)
     result = await _run(
@@ -132,7 +90,7 @@ async def test_an_open_debounce_window_still_fires_before_the_run_completes():
         "adv-debounce-drop",
     )
     assert result.status is RunStatus.COMPLETED
-    assert len(sink.calls) == 1  # currently 0: the firing is silently lost
+    assert len(sink.calls) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -140,18 +98,6 @@ async def test_an_open_debounce_window_still_fires_before_the_run_completes():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "HOLE H4: SubscriptionMatcher state is neither checkpointed nor "
-        "reconstructed on resume (scheduler.py uses _subscriptions only in "
-        "__init__/observe/drain). A fresh matcher — which is exactly what a "
-        "crash/park + resume in a new process builds — has an empty _spent "
-        "set, so trigger_fire_once fires AGAIN post-resume. This test models "
-        "the resume by rebuilding the matcher; durable fire-once must "
-        "survive it."
-    ),
-)
 def test_fire_once_survives_a_matcher_rebuild_as_on_resume() -> None:
     subscription = KindSubscription(subscriber_id="once", kind="website", fire_once=True)
     live = SubscriptionMatcher([subscription])
@@ -160,11 +106,61 @@ def test_fire_once_survives_a_matcher_rebuild_as_on_resume() -> None:
     )
     assert len(live.drain(1)) == 1  # fired, spent
 
-    resumed = SubscriptionMatcher([subscription])  # what resume() builds today
+    # What resume() builds: a fresh matcher seeded with the checkpoint's state.
+    resumed = SubscriptionMatcher([subscription], state=live.snapshot())
     resumed.observe(
         {"__kind": "website", "url": "https://b.com"}, source_node_id="b", step=5
     )
-    assert len(resumed.drain(5)) == 0  # currently 1: fire_once fires twice
+    assert len(resumed.drain(5)) == 0  # spent before the resume, spent after
+
+
+async def test_an_open_debounce_window_survives_a_resume_in_a_new_scheduler():
+    # source -> sink carries only news; `saver` (wired to nothing) waits on
+    # web_result with a long debounce. The checkpoint after step 0 has the
+    # window OPEN and sink still on the frontier. A brand-new scheduler and
+    # checkpointer resuming from that checkpoint alone (a crash, another
+    # process) must still fire saver once — the waiting occurrences ride the
+    # checkpoint, they are not rebuilt from memory.
+    from matrx_graph import MemoryCheckpointer, Scheduler, compile_graph
+    from matrx_graph.types.definition import Definition
+
+    from tests._fixtures import FakeEmitter, make_app_context
+
+    registry, _source, sink = _registry(web=2, news=1)
+    definition = Definition.model_validate(
+        {
+            "nodes": [
+                {"id": "source", "type": "test.kind_source", "position": {"x": 0, "y": 0},
+                 "data": {"config": {}}},
+                {"id": "sink", "type": "test.kind_sink", "position": {"x": 200, "y": 0},
+                 "data": {"config": {}}},
+                {"id": "saver", "type": "test.kind_sink", "position": {"x": 200, "y": 200},
+                 "data": {"config": {}, "trigger_kind": "web_result",
+                          "trigger_debounce_steps": 10}},
+            ],
+            "edges": [
+                {"id": "e1", "source": "source", "target": "sink",
+                 "data": {"kind_filter": "news_result"}},
+            ],
+        }
+    )
+    graph = compile_graph(definition, registry=registry)
+    first = MemoryCheckpointer()
+    live = Scheduler(graph, first, make_app_context(FakeEmitter()), registry=registry)
+    result = await live.run(run_id="adv-debounce-resume")
+    assert result.status is RunStatus.COMPLETED
+    step0 = next(cp for cp in await first.list_checkpoints("adv-debounce-resume") if cp.step == 0)
+    assert step0.subscription_state["pending"]  # the window was open there
+
+    sink.calls.clear()
+    second = MemoryCheckpointer()
+    await second.save_checkpoint(step0)
+    resumed = Scheduler(graph, second, make_app_context(FakeEmitter()), registry=registry)
+    after = await resumed.resume("adv-debounce-resume", step0.checkpoint_id)
+    assert after.status is RunStatus.COMPLETED
+    trigger_calls = [c for c in sink.calls if c.get("trigger_kind") == "web_result"]
+    assert len(trigger_calls) == 1
+    assert len(trigger_calls[0]["value"]) == 2
 
 
 # ---------------------------------------------------------------------------

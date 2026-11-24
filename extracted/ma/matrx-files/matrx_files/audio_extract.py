@@ -34,7 +34,7 @@ from pathlib import Path
 from tempfile import gettempdir
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from .asset_envelope import FileRef
 from .derivations import FileDerivationKind, inherit_derived_file_policy
@@ -275,6 +275,7 @@ async def extract_audio(
         file_path,
         audio_bytes,
         mime_type=plan.mime_type,
+        pathway="media.audio_extract",  # placement registry: the declared automated pathway
         published_to_web=access.published_to_web,
         shown_to=access.shown_to,
         change_summary=f"Extracted audio ({plan.mode}) from {source_name}",

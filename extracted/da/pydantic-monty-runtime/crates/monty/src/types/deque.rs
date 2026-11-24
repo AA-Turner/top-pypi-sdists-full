@@ -17,7 +17,7 @@ use crate::{
         check_estimated_size, check_repeat_size, check_value_buffer_growth, repeated_len, try_vec_with_capacity,
     },
     types::{
-        LazyHeapSet, Type,
+        LazyHeapSet, Type, TypeRef,
         list::repr_items_fmt,
         slice::{normalize_sequence_index, value_to_i64_bound},
     },
@@ -403,8 +403,8 @@ impl<'h> PyTrait<'h> for HeapObjectRead<'h, Deque> {
         Ok(Some(false))
     }
 
-    fn py_type(&self, _vm: &VM<'h>) -> Type {
-        Type::Deque
+    fn py_type(&self, _vm: &VM<'h>) -> TypeRef {
+        Type::Deque.into()
     }
 
     fn py_set_attr(&mut self, name: &EitherStr, value: Value, vm: &mut VM<'h>) -> RunResult<()> {
@@ -754,8 +754,8 @@ impl<'h> PyTrait<'h> for HeapObjectRead<'h, DequeIterator> {
         true
     }
 
-    fn py_type(&self, _: &VM<'h>) -> Type {
-        Type::DequeIterator
+    fn py_type(&self, _: &VM<'h>) -> TypeRef {
+        Type::DequeIterator.into()
     }
 
     fn py_len(&self, _: &VM<'h>) -> Option<usize> {
@@ -770,7 +770,7 @@ impl<'h> PyTrait<'h> for HeapObjectRead<'h, DequeIterator> {
         Ok(CallResult::Value(self.clone_value(vm.heap)))
     }
 
-    fn py_next(&mut self, vm: &mut VM<'h>) -> RunResult<Option<Value>> {
+    fn py_next(&mut self, vm: &mut VM<'h>) -> RunResult<Option<CallResult>> {
         let (deque_id, index, state) = {
             let iterator = self.get(vm.heap);
             (iterator.deque, iterator.index, iterator.state)
@@ -790,7 +790,7 @@ impl<'h> PyTrait<'h> for HeapObjectRead<'h, DequeIterator> {
         if item.is_some() {
             self.get_mut(vm.heap).index += 1;
         }
-        Ok(item)
+        Ok(item.map(CallResult::Value))
     }
 }
 

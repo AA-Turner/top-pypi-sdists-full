@@ -41,6 +41,7 @@ from ..hils.protocol import (
     format_address,
 )
 from ..entity_role import EntityRole
+from ..number_settings import check_port
 from .externally_driven import ExternallyDrivenEgo
 from .registry import find_vehicle_entity
 
@@ -113,14 +114,7 @@ class HilsEgoConfig:
                 f"hils.host must be a host name or address, got {host!r}; leave "
                 "it out (or null) for the default, localhost"
             )
-        if (
-            isinstance(self.port, bool)
-            or not isinstance(self.port, int)
-            or not 1 <= self.port <= 65535
-        ):
-            raise ValueError(
-                f"hils.port must be a whole number within 1-65535, got {self.port!r}"
-            )
+        check_port("hils.port", self.port)
         if self.on_stale not in ON_STALE_ACTIONS:
             raise ValueError(
                 f"hils.on_stale must be one of {', '.join(ON_STALE_ACTIONS)}, "
@@ -296,18 +290,9 @@ class HilsEgoEntity(ExternallyDrivenEgo):
     def on_tick(self, world: "carla.World", elapsed: float) -> None:
         """Take what the bridge sent, and apply the ECUs' command once ready."""
         actor = self.actor
-        reader = self._reader
-        if actor is None or reader is None or self.termination_requested:
+        if actor is None or self._reader is None or self.termination_requested:
             return
-        try:
-            self._handle(reader.read(timeout=0.0))
-        except (OSError, ValueError) as exc:
-            self._fail(f"The HILS bridge's link failed ({exc})")
-            return
-        if self.termination_requested:
-            return
-        if reader.closed:
-            self._fail("The HILS bridge closed the link")
+        if not self._drain():
             return
         if not self._ready:
             waited = time.monotonic() - self._start_sent
@@ -398,7 +383,40 @@ class HilsEgoEntity(ExternallyDrivenEgo):
     # The link
     # ------------------------------------------------------------------
 
-    def _handle(self, messages: Any) -> None:
+    def _drain(self) -> bool:
+        """Take what the bridge sent, without waiting: the run's one read of
+        the link while a scenario runs.
+
+        A command's age (``stale_s``) is measured from this read, the moment
+        the run learns of it, not from when it reached the socket: the runner
+        has no hook for an entity before ``world.tick()``, so a command that
+        arrived during the tick (or during the paced wait and the run's work
+        since the last read) counts as up to one tick younger than it is
+        (#2444; docs/hils.md).  A hook that read before the tick would only
+        narrow that by the run's work, not by the tick itself.
+
+        Returns:
+            Whether the link is still up (a failure ends the run).
+        """
+        reader = self._reader
+        if reader is None:
+            return False
+        try:
+            messages = reader.read(timeout=0.0)
+        except (OSError, ValueError) as exc:
+            self._fail(f"The HILS bridge's link failed ({exc})")
+            return False
+        self._handle(messages, time.monotonic())
+        if self.termination_requested:
+            return False
+        if reader.closed:
+            self._fail("The HILS bridge closed the link")
+            return False
+        return True
+
+    def _handle(self, messages: Any, read_at: Optional[float] = None) -> None:
+        """The bridge's *messages*, read at *read_at* (``time.monotonic()``;
+        now when ``None``), which dates the commands among them."""
         for message in messages:
             kind = message.get("type")
             if kind == "ready":
@@ -415,7 +433,7 @@ class HilsEgoEntity(ExternallyDrivenEgo):
                     logger.warning("The HILS bridge sent a %r command; ignored", mode)
                     continue
                 self._command = (mode, self._command_fields(message, fields))
-                self._command_at = time.monotonic()
+                self._command_at = time.monotonic() if read_at is None else read_at
             elif kind == "ended":
                 pass
             else:

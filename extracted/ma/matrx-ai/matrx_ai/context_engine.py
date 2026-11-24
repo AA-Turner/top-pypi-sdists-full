@@ -1,6 +1,6 @@
 """Agent context engine — resolves cascading context variables for AI agents.
 
-Calls the ``resolve_full_context`` Supabase RPC and splits results into two
+Calls the record store door ``custom.resolve_context`` (as the person) and splits results into two
 delivery tiers:
 
 - **Tier 1 (direct):** Small, always-present variables injected into the
@@ -19,6 +19,7 @@ no context instead of answering as though the user had selected nothing.
 from __future__ import annotations
 
 import copy
+import inspect
 import json
 import logging
 import time
@@ -139,13 +140,148 @@ TIMEZONE_AMBIENT_KEYS: frozenset[str] = frozenset(
 )
 
 
-def _ambient_providers(user_id: str | None, timezone: str = "UTC") -> dict[str, Callable[[], str]]:
+#: Host-computed ambient values (item key -> ``compute(variant)``), registered with
+#: :func:`configure_ambient_provider`. Like the built-ins they are called only for an item that
+#: was named; a host provider never replaces a built-in key.
+_host_ambient_providers: dict[str, Callable[[str | None], str]] = {}
+
+
+def _takes_variant(compute: Callable[..., str]) -> bool:
+    try:
+        params = inspect.signature(compute).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(
+        p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD, p.VAR_POSITIONAL) for p in params
+    )
+
+
+def configure_ambient_provider(
+    key: str, compute: Callable[[], str] | Callable[[str | None], str] | None
+) -> None:
+    """Register (or, with None, remove) the host's computed value for System item ``key``.
+
+    ``compute`` takes no argument, or one: the VARIANT asked for (a key the item declares in
+    ``feed_config.variants``; ``None`` when the item declares none). A zero-argument provider
+    answers every variant with its one value."""
+    if compute is None:
+        _host_ambient_providers.pop(key, None)
+    else:
+        _host_ambient_providers[key] = _variant_compute(compute)
+
+
+def _variant_compute(compute: Callable[..., str]) -> Callable[[str | None], str]:
+    """``compute`` as a one-argument provider: a zero-argument one answers every variant alike."""
+    if _takes_variant(compute):
+        return compute
+    return lambda _variant: compute()
+
+
+# ---------------------------------------------------------------------------
+# VARIANTS — one System item, several renderings (Arman, 2026-11-01: "each value has one name
+# but since this one has multiple formats or versions … another dimension to the data where you
+# can have different variations of it").
+#
+# A computed item declares its variants in ``feed_config``::
+#
+#     {"variants": [{"key": "wide", "label": "Wide", "description": "…"}, …],
+#      "default_variant": "wide"}
+#
+# A binding (variable or context policy) may carry ``variant``; the naming carries it here
+# (:class:`NamedSystemItem`). The item's cell keeps the DEFAULT variant as its ``value`` and
+# carries every named variant under ``variants`` — so one item named twice with two variants
+# delivers both, and each binding reads its own. The declarations are read through the host
+# (:func:`configure_system_item_variants`); the host owns the memo.
+# ---------------------------------------------------------------------------
+class SystemItemVariant(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    label: str = ""
+    description: str = ""
+
+
+class SystemItemVariants(BaseModel):
+    """What one System item declares: its variants and the one delivered when none is named."""
+
+    model_config = ConfigDict(frozen=True)
+
+    variants: tuple[SystemItemVariant, ...] = ()
+    default_variant: str | None = None
+
+    @classmethod
+    def from_feed_config(cls, feed_config: Any) -> SystemItemVariants:
+        """Tolerant read of ``feed_config``; anything that is not a variant is ignored, a default
+        that names no declared variant falls back to the first one (announced)."""
+        cfg = feed_config if isinstance(feed_config, dict) else {}
+        raw = cfg.get("variants") if isinstance(cfg.get("variants"), list) else []
+        variants: list[SystemItemVariant] = []
+        for v in raw:
+            if isinstance(v, dict) and isinstance(v.get("key"), str) and v["key"].strip():
+                k = v["key"].strip()
+                if all(x.key != k for x in variants):
+                    variants.append(
+                        SystemItemVariant(
+                            key=k,
+                            label=str(v.get("label") or k),
+                            description=str(v.get("description") or ""),
+                        )
+                    )
+        default = cfg.get("default_variant")
+        keys = [v.key for v in variants]
+        if variants and default not in keys:
+            if default:
+                logger.error(
+                    "[context_engine] a System item's default variant %r is not one it declares "
+                    "(%s); %r is delivered as its default until it is fixed.",
+                    default,
+                    keys,
+                    keys[0],
+                )
+            default = keys[0]
+        return cls(variants=tuple(variants), default_variant=default if variants else None)
+
+    def declares(self, variant: str) -> bool:
+        return any(v.key == variant for v in self.variants)
+
+
+_variants_reader: Callable[[str], Awaitable[Any]] | None = None
+
+
+def configure_system_item_variants(reader: Callable[[str], Awaitable[Any]] | None) -> None:
+    """Bind (or unbind) the host's async reader of one System item's ``feed_config`` (by key);
+    :class:`SystemItemVariants` reads the variants out of it. The host caches; this does not."""
+    global _variants_reader
+    _variants_reader = reader
+
+
+async def system_item_variants(key: str) -> SystemItemVariants:
+    """The variants System item ``key`` declares — none when no reader is bound or the read
+    fails (announced): the item then delivers its one value, exactly as before variants."""
+    if _variants_reader is None:
+        return SystemItemVariants()
+    try:
+        return SystemItemVariants.from_feed_config(await _variants_reader(key))
+    except Exception as exc:  # noqa: BLE001 — announced; the item's default rendering answers
+        logger.error(
+            "[context_engine] the variants of System item %r could not be read (%r); it is "
+            "delivered in its default rendering and any named variant falls back to it.",
+            key,
+            exc,
+        )
+        return SystemItemVariants()
+
+
+def _ambient_providers(
+    user_id: str | None, timezone: str = "UTC"
+) -> dict[str, Callable[..., str]]:
     now = datetime.now(UTC)
     try:
         local = now.astimezone(ZoneInfo(timezone))
     except (ZoneInfoNotFoundError, ValueError):
         timezone, local = "UTC", now
     return {
+        **_host_ambient_providers,
         "current_date": lambda: local.date().isoformat(),
         "current_datetime": lambda: local.isoformat(timespec="seconds"),
         "current_timezone": lambda: timezone,
@@ -237,7 +373,7 @@ async def _normalize_cell_values(raw_cells: dict[str, Any]) -> dict[str, list[di
         await capture_error(
             RuntimeError(message),
             kind=LEGACY_CONTEXT_CELL_SHAPE_ERROR_KIND,
-            route="resolve_full_context",
+            route="custom.resolve_context",
             error_type="LegacyContextCellShape",
             error_text=message,
             context={
@@ -265,7 +401,7 @@ async def _normalize_cell_values(raw_cells: dict[str, Any]) -> dict[str, list[di
 # ambient (computed) item is computed only when it survived. Organization / scope context is
 # untouched — only cells the resolver stamped ``source: "system"``.
 #
-# Who names an item: an agent's variable or context-slot binding to it (by id), the platform's
+# Who names an item: an agent's variable or context-item binding to it (by id), the platform's
 # declared default list below, or an explicit pick (the context inspector). Nothing else.
 # ---------------------------------------------------------------------------
 
@@ -342,12 +478,14 @@ async def platform_default_system_item_keys() -> tuple[str, ...]:
 
 
 class NamedSystemItem(BaseModel):
-    """One naming: ``ref`` is a System item's id or key, ``by`` says who named it."""
+    """One naming: ``ref`` is a System item's id or key, ``by`` says who named it, ``variant``
+    which of the item's variants it asked for (None: the item's default)."""
 
     model_config = ConfigDict(frozen=True)
 
     ref: str
     by: str
+    variant: str | None = None
 
 
 class SystemContextNames(BaseModel):
@@ -375,10 +513,11 @@ class SystemContextNames(BaseModel):
         when the naming is :meth:`resolved`, never frozen here."""
         return cls(with_platform_defaults=True)
 
-    def naming(self, refs: Any, *, by: str) -> SystemContextNames:
-        """This set plus ``refs`` (ids or keys), each named by ``by``."""
+    def naming(self, refs: Any, *, by: str, variant: str | None = None) -> SystemContextNames:
+        """This set plus ``refs`` (ids or keys), each named by ``by`` — for ``variant`` when given."""
+        v = str(variant).strip() if variant is not None and str(variant).strip() else None
         added = [
-            NamedSystemItem(ref=str(r).strip(), by=by)
+            NamedSystemItem(ref=str(r).strip(), by=by, variant=v)
             for r in (refs or [])
             if r is not None and str(r).strip()
         ]
@@ -434,6 +573,16 @@ class SystemContextNames(BaseModel):
 
     def admits(self, *, key: str | None, context_item_id: str | None) -> bool:
         return bool(self.named_by(key=key, context_item_id=context_item_id))
+
+    def variants_named(self, *, key: str | None, context_item_id: str | None) -> list[str]:
+        """Every variant of this System item somebody named, once each (the default is not
+        listed: a naming without a variant asks for it)."""
+        wanted = {str(v) for v in (key, context_item_id) if v}
+        out: list[str] = []
+        for item in self.items:
+            if item.ref in wanted and item.variant and item.variant not in out:
+                out.append(item.variant)
+        return out
 
 
 #: The naming in force for a resolution that was not handed one explicitly. Unset = the
@@ -651,6 +800,8 @@ def _apply_ambient(
     cell_values: dict[str, list[dict[str, Any]]],
     *,
     timezone: str = "UTC",
+    names: SystemContextNames | None = None,
+    declared: dict[str, SystemItemVariants] | None = None,
 ) -> None:
     """Override the value of any resolved System item whose key matches an ambient provider.
     Mutates the freshly-deserialized RPC dicts in place (variables keyed by key, each
@@ -660,7 +811,13 @@ def _apply_ambient(
     A provider is CALLED only for an ambient item that is still present — i.e. one that was
     named (:func:`_admit_named_system_items` runs first). An unnamed computed item is never
     evaluated. ``timezone`` is the person's (:func:`person_timezone`); the date and date-time
-    are rendered in it."""
+    are rendered in it.
+
+    VARIANTS: ``declared`` is what each item declares (:func:`system_item_variants`). A cell's
+    ``value`` is the item's default variant; every variant ``names`` asked for is computed once
+    and carried on the cell under ``variants`` (``{variant: value}``), so two bindings to one
+    item with two variants each read their own. A named variant the item does not declare is
+    announced and left out — the binding that asked for it reads the default and says so."""
     present = _present_system_keys(variables, cell_values)
     if not present:
         return
@@ -668,7 +825,74 @@ def _apply_ambient(
     for key, compute in providers.items():
         if key not in present:
             continue
-        value = compute()
+        decl = (declared or {}).get(key) or SystemItemVariants()
+        compute = _variant_compute(compute)
+        memo: dict[str | None, str] = {}
+
+        def _render(variant: str | None, _compute: Callable[[str | None], str] = compute) -> str:
+            if variant not in memo:
+                memo[variant] = _compute(variant)
+            return memo[variant]
+
+        try:
+            value = _render(decl.default_variant)
+        except Exception as exc:  # noqa: BLE001 — announced; a provider never breaks the turn
+            # The declared default is one the provider cannot render (an admin renamed it, or the
+            # provider failed): announced, then the provider's own default, then the stored value.
+            logger.error(
+                "[context_engine] System item %r cannot render its declared default variant %r "
+                "(%r); its provider's own default is delivered.",
+                key,
+                decl.default_variant,
+                exc,
+            )
+            try:
+                value = _render(None)
+            except Exception as again:  # noqa: BLE001 — announced; the stored value answers
+                logger.error(
+                    "[context_engine] System item %r's provider failed (%r); this turn carries the "
+                    "item's stored value.",
+                    key,
+                    again,
+                )
+                continue
+            memo[decl.default_variant] = value
+
+        def _stamp(cell: dict[str, Any], _key: str = key, _decl: SystemItemVariants = decl) -> None:
+            cell["value"] = value
+            if not _decl.variants:
+                return
+            cell["variant"] = _decl.default_variant
+            asked = (
+                names.variants_named(key=_key, context_item_id=cell.get("context_item_id"))
+                if names is not None
+                else []
+            )
+            rendered: dict[str, str] = {}
+            for variant in asked:
+                if not _decl.declares(variant):
+                    logger.error(
+                        "[context_engine] System item %r was named for variant %r, which it does "
+                        "not declare (%s); that naming reads the default %r.",
+                        _key,
+                        variant,
+                        [v.key for v in _decl.variants],
+                        _decl.default_variant,
+                    )
+                    continue
+                try:
+                    rendered[variant] = _render(variant)
+                except Exception as exc:  # noqa: BLE001 — announced; that naming reads the default
+                    logger.error(
+                        "[context_engine] System item %r declares variant %r but its provider "
+                        "cannot render it (%s); that naming reads the default.",
+                        _key,
+                        variant,
+                        exc,
+                    )
+            if rendered:
+                cell["variants"] = rendered
+
         # ONLY override System items (source == "system"). A user/org context item that
         # happens to share a reserved ambient key must NEVER be clobbered — guard on the
         # resolver-stamped source, not the key alone.
@@ -680,11 +904,38 @@ def _apply_ambient(
             # visible there.
             for cell in entry.get("cells") or []:
                 if isinstance(cell, dict) and cell.get("source") == "system":
-                    cell["value"] = value
+                    _stamp(cell)
         for cells in cell_values.values():
             for cell in cells:
                 if cell.get("key") == key and cell.get("source") == "system":
-                    cell["value"] = value
+                    _stamp(cell)
+
+
+def system_cell_for_variant(cell: dict[str, Any], variant: str | None) -> dict[str, Any]:
+    """The cell a binding that asked for ``variant`` reads: the same cell, its ``value`` the
+    variant's (:func:`_apply_ambient` carried it). No variant asked: the cell as it is. A variant
+    the cell does not carry is announced and the default is read."""
+    if not variant or not isinstance(cell, dict):
+        return cell
+    carried = cell.get("variants")
+    if isinstance(carried, dict) and variant in carried:
+        return {**cell, "value": carried[variant], "variant": variant}
+    logger.error(
+        "[context_engine] a binding asked System item %r for variant %r, which this resolution "
+        "did not produce; it reads the item's default (%r).",
+        cell.get("key"),
+        variant,
+        cell.get("variant"),
+    )
+    return cell
+
+
+async def _declared_variants(
+    variables: dict[str, Any], cell_values: dict[str, list[dict[str, Any]]]
+) -> dict[str, SystemItemVariants]:
+    """What each present HOST-computed item declares (built-ins declare none: never read)."""
+    keys = _present_system_keys(variables, cell_values) & set(_host_ambient_providers)
+    return {key: await system_item_variants(key) for key in sorted(keys)}
 
 
 # ---------------------------------------------------------------------------
@@ -805,28 +1056,29 @@ async def build_agent_context(
         _context_cache.move_to_end(cache_key)
         resolved: dict[str, Any] = copy.deepcopy(cached[1])
     else:
-        from matrx_orm import ArrayArg, call_function
+        from matrx_orm import ArrayArg, call_function_as
 
         database = _resolve_context_database()
-        # THE ONE PATH (SCOPES-DB-CLEANUP, 2026-10-09): context.resolve_full_context is the server's
-        # door to the record store's custom.resolve_context, asked as the person running the agent.
-        # The old two-path chooser (knob custom/agent_context_reads_the_copy) is retired.
-        # p_scope_ids uuid[] DEFAULT NULL::uuid[] — an empty/None scope_ids
-        # binds ArrayArg(None), matching the SQL default exactly (same as
-        # the old code's "omit the key" behavior via the PostgREST RPC).
+        # THE ONE PATH (SCOPES-DB-CLEANUP, 2026-10-09; repointed P7-DATA T5, 2026-11-14): the server asks
+        # the record store's door ``custom.resolve_context`` directly, AS the person running the agent
+        # (``call_function_as`` sets ``request.jwt.claims`` {sub, role: authenticated} for the one statement —
+        # exactly what the retired wrapper ``context.resolve_full_context`` did before it called the same door).
+        # The selection is passed as records, no active Table (``p_table_ids`` is the empty array, as the
+        # wrapper passed it). An empty/None scope_ids binds ArrayArg(None), the SQL default.
         resolved = (
-            await call_function(
+            await call_function_as(
+                str(user_id) if user_id else "",
                 database,
-                "context",
-                "resolve_full_context",
-                user_id,
+                "custom",
+                "resolve_context",
                 entity_type,
                 # No entity yet (a mandate Holder's inputs, resolved before any conversation
                 # exists) is NULL, never "": p_entity_id is a uuid and "" crashed every mandate
                 # door with a scope-bound Holder variable (live, 2026-10-19). NULL still
                 # resolves the caller's scope selection.
                 entity_id or None,
-                ArrayArg(scope_ids or None),
+                ArrayArg(scope_ids or None, "uuid"),
+                ArrayArg([], "uuid"),
                 # p_system_item_refs text[] — ALWAYS an explicit array: '{}' reads no System item,
                 # while NULL (an old caller that does not know the argument) is the knob's
                 # default list (chair ruling, cvn3). This caller always knows what it names.
@@ -842,7 +1094,7 @@ async def build_agent_context(
             # regression). NEVER json.loads it here as a fallback — that would
             # silently mask a driver-level failure affecting every jsonb read.
             raise TypeError(
-                f"[context_engine] resolve_full_context returned "
+                f"[context_engine] custom.resolve_context returned "
                 f"{type(resolved).__name__}, expected dict — the matrx-orm "
                 f"json/jsonb connection codec is missing or broken "
                 f"(matrx_orm.core.async_db_manager._init_connection_default). "
@@ -939,7 +1191,14 @@ async def agent_context_from_resolved(
     timezone = "UTC"
     if TIMEZONE_AMBIENT_KEYS & _present_system_keys(variables, cell_values):
         timezone = await person_timezone(user_id, context_scope.get("organization_id"))
-    _apply_ambient(user_id, variables, cell_values, timezone=timezone)
+    _apply_ambient(
+        user_id,
+        variables,
+        cell_values,
+        timezone=timezone,
+        names=names,
+        declared=await _declared_variants(variables, cell_values),
+    )
 
     # THE ONE PRODUCER (DYN-23). When a merge-field resolver is wired, every variable
     # and every context cell is resolved through it — one ladder, one memo, one

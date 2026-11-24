@@ -5,6 +5,7 @@
 #
 # License: BSD-3
 import inspect
+from typing import TYPE_CHECKING, Any
 
 import mne.channels
 import mne.io
@@ -12,6 +13,14 @@ import mne.preprocessing
 
 from braindecode.preprocessing.preprocess import Preprocessor
 from braindecode.util import _clean_docstring_sections
+
+if TYPE_CHECKING:
+
+    class _MNEPreprocessor(Preprocessor):
+        def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+
+    def __getattr__(name: str) -> type[_MNEPreprocessor]: ...
+
 
 # Standalone MNE functions that are safe to wrap as a *callable* preprocessor.
 #
@@ -71,7 +80,11 @@ def _wrap_annotation_return(func, also_bads=False):
         else:
             annot = result
             bads = []
-        raw.set_annotations(raw.annotations + annot)
+        existing = raw.annotations.copy()
+        if existing.orig_time is None:
+            # set_annotations interprets undated onsets relative to the first sample.
+            existing.onset -= raw.first_time
+        raw.set_annotations(existing + annot)
         if bads:
             raw.info["bads"] = list(set(raw.info["bads"] + bads))
         return raw

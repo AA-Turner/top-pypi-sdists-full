@@ -21,7 +21,9 @@ from typing import TYPE_CHECKING
 
 from chalk._lsp.error_builder import LSPErrorBuilder
 from chalk.features import Feature, FeatureNotFoundException
+from chalk.features.filter import Filter
 from chalk.parsed.ast_context import get_project_ast_context
+from chalk.parsed.duplicate_input_gql import DiagnosticSeverityGQL
 
 if TYPE_CHECKING:
     from chalk.features.feature_set import Features, FeaturesProtocol
@@ -52,6 +54,8 @@ def validate_all_from_registries(
     - Error[43]: Multi-namespace joins
     - Error[51]: Multiple primary features (versioned primary keys)
     - Error[135]: Unrecognized feature reference
+    - Warning[232]: Optional has-one on a primary key that does not declare `related_may_not_exist`
+    - Warning[233]: Optional relationship on a primary key that is inferred, so it cannot declare `related_may_not_exist`
 
     Parameters
     ----------
@@ -146,6 +150,15 @@ def validate_all_from_registries(
                     raise
 
             # ----------------------------------------------------------------
+            # Warning[232]: Optional has-one on a primary key without `related_may_not_exist`
+            # ----------------------------------------------------------------
+            try:
+                _warn_has_one_related_may_not_exist_unset(feature)
+            except Exception as e:
+                if not LSPErrorBuilder.promote_exception(e):
+                    raise
+
+            # ----------------------------------------------------------------
             # Error[24,25]: Feature and namespace name validation
             # ----------------------------------------------------------------
             try:
@@ -175,6 +188,94 @@ def validate_all_from_registries(
         except Exception as e:
             if not LSPErrorBuilder.promote_exception(e):
                 raise
+
+
+def _has_one_equality_pairs(join: Filter, local_namespace: str) -> list[tuple[Feature, Feature]] | None:
+    """Returns the (local, foreign) feature pairs of an equality join, or `None` for any other join shape."""
+    if join.operation == "and" and isinstance(join.lhs, Filter) and isinstance(join.rhs, Filter):
+        lhs_pairs = _has_one_equality_pairs(join.lhs, local_namespace)
+        rhs_pairs = _has_one_equality_pairs(join.rhs, local_namespace)
+        if lhs_pairs is None or rhs_pairs is None:
+            return None
+        return [*lhs_pairs, *rhs_pairs]
+    if join.operation == "==" and isinstance(join.lhs, Feature) and isinstance(join.rhs, Feature):
+        if join.lhs.namespace == local_namespace and join.rhs.namespace != local_namespace:
+            return [(join.lhs, join.rhs)]
+        if join.rhs.namespace == local_namespace and join.lhs.namespace != local_namespace:
+            return [(join.rhs, join.lhs)]
+    return None
+
+
+def _warn_has_one_related_may_not_exist_unset(feature: Feature) -> None:
+    """Asks the user to choose `related_may_not_exist` where the default is likely wrong.
+
+    For a has-one that matches the joined class's primary key, the engine treats every non-null
+    local join key as an existing joined row. If every local join key is non-nullable, an optional
+    annotation can then never produce `None`, which suggests the user expects missing rows that the
+    default semantics cannot express. A relationship declared with `has_one(...)` gets Warning[232];
+    one inferred from a foreign key has no `has_one(...)` call to take the argument, so it gets
+    Warning[233], which shows the explicit declaration. Neither blocks `chalk apply`.
+    """
+    if not feature.is_has_one or feature.path or feature.related_may_not_exist is not None:
+        return
+    if not feature.typ.is_nullable:
+        return
+    join = feature.join
+    joined_class = feature.joined_class
+    if join is None or joined_class is None:
+        return
+    pairs = _has_one_equality_pairs(join, feature.namespace)
+    if not pairs:
+        return
+    foreign_primary = joined_class.__chalk_primary__
+    if foreign_primary is None or all(foreign.name != foreign_primary.name for _, foreign in pairs):
+        return
+    if any(local.typ.is_nullable for local, _ in pairs):
+        return
+
+    assert feature.features_cls is not None
+    owner_name = feature.features_cls.__name__
+    attribute_name = feature.attribute_name or feature.name
+    local_names = ", ".join(f"'{owner_name}.{local.attribute_name or local.name}'" for local, _ in pairs)
+    joined_name = joined_class.__name__
+    foreign_primary_name = f"{joined_name}.{foreign_primary.attribute_name or foreign_primary.name}"
+    never_none = (
+        f"'{owner_name}.{attribute_name}' is optional, but it joins on '{foreign_primary_name}', the primary key "
+        f"of '{joined_name}', from {local_names}, which is never null. Chalk assumes that a '{joined_name}' exists "
+        f"for every '{owner_name}', so '{owner_name}.{attribute_name}' is never `None`."
+    )
+    present_only_when_returned = (
+        f"Chalk then treats the relationship as present only when a resolver returns the '{joined_name}' row."
+    )
+    if feature.is_declared_with_has_one:
+        message = (
+            f"The has-one {never_none} If a '{joined_name}' may not exist for every '{owner_name}', pass "
+            f"`related_may_not_exist=True` to `has_one`; {present_only_when_returned} Otherwise, pass "
+            f"`related_may_not_exist=False`, or remove `| None` from the annotation."
+        )
+        code = "232"
+    else:
+        join_conditions = [
+            f"{owner_name}.{local.attribute_name or local.name} == {joined_name}.{foreign.attribute_name or foreign.name}"
+            for local, foreign in pairs
+        ]
+        join_source = join_conditions[0] if len(join_conditions) == 1 else " & ".join(f"({c})" for c in join_conditions)
+        message = (
+            f"The relationship {never_none} It is inferred from a foreign key, which cannot express whether the "
+            f"'{joined_name}' may be missing. If a '{joined_name}' may not exist for every '{owner_name}', declare "
+            f"it as `{attribute_name}: {joined_name} | None = has_one(lambda: {join_source}, "
+            f"related_may_not_exist=True)`; {present_only_when_returned} Otherwise, declare it with "
+            f"`related_may_not_exist=False`, or remove `| None` from the annotation."
+        )
+        code = "233"
+    feature.lsp_error_builder.add_diagnostic(
+        message=message,
+        label="has-one may never be None",
+        code=code,
+        range=feature.lsp_error_builder.property_value_range(attribute_name)
+        or feature.lsp_error_builder.property_range(attribute_name),
+        severity=DiagnosticSeverityGQL.Warning,
+    )
 
 
 def _get_feature_definition_counts(

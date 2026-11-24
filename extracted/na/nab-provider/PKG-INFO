@@ -1,7 +1,7 @@
 Metadata-Version: 2.5
 Name: nab-provider
-Version: 0.0.30
-Summary: IO-free resolution core for nab
+Version: 0.0.31
+Summary: Python package rules and candidate selection for nab
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/
 Project-URL: Issues, https://github.com/notatallshaw/nab/issues
@@ -20,8 +20,9 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: nab-markersets==0.0.30
-Requires-Dist: nab-resolver==0.0.30
+Requires-Dist: nab-markersets==0.0.31
+Requires-Dist: nab-resolver==0.0.31
+Requires-Dist: packaging>=26.4
 Requires-Dist: typing-extensions>=4.6
 Description-Content-Type: text/markdown
 
@@ -43,6 +44,9 @@ implementation for tests.
 Use `nab-provider` to embed nab's resolution in a host that already owns its networking and caching,
 keeping [`nab-index`](https://pypi.org/project/nab-index/) out of the import graph. Most users want
 [`nab`](https://pypi.org/project/nab/) instead.
+
+Use `nab_provider.ranges.VersionRange` for root constraints and as the resolver's `range_type`. Pass
+`root_version="0"` and `format_range=provider.format_range` when constructing the resolver.
 
 The API is experimental. Pin an exact version when embedding it.
 

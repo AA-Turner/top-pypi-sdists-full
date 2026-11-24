@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "pathlib",
+    "tox.util.redact",
+]
+
 import sys
 from enum import Enum
 from pathlib import Path
@@ -69,7 +74,7 @@ class ExecuteRequest:
 
     @override
     def __repr__(self) -> str:
-        cmd: Final = redact_argv(self.cmd)
+        cmd: Final[list[str]] = redact_argv(self.cmd)
         return f"{self.__class__.__name__}(cmd={cmd!r}, cwd={self.cwd!r}, env=..., stdin={self.stdin!r})"
 
     @property

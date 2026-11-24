@@ -1021,6 +1021,139 @@ query ProductReleases($productId: String!, $pageSize: Int!) {
 }
 """
 
+# The Manage section's product details panel (docs/console-spec.md §4.30). Both are
+# read for ONE product, on demand, and both were checked against the live schema
+# (2026-11-20) rather than inferred from neighbouring queries (AGENTS.md rule 9).
+#
+# `pageToken` differs by field and is not interchangeable: a product's
+# `productReleases` takes a String, `entities` takes an Int.
+MANAGE_RELEASES_PAGE_SIZE = 50
+
+MANAGE_PRODUCT_RELEASES = """
+query ManageProductReleases($productId: String!, $pageSize: Int!, $pageToken: String) {
+    apollo {
+        productByProductIdV2(productId: $productId) {
+            productReleases(pageSize: $pageSize, pageToken: $pageToken) {
+                productReleases {
+                    mavenCoordinate
+                    created
+                    creationAttribution {
+                        user {
+                            username
+                            displayName
+                        }
+                    }
+                    recallStatus {
+                        __typename
+                    }
+                    releaseChannels {
+                        name
+                    }
+                }
+                nextPageToken
+            }
+        }
+    }
+}
+"""
+
+# 500 so one page holds every install in practice (the most-installed product had 307
+# on 2026-11-20, and Apollo accepts 1000). That matters: the page token is an OFFSET and
+# every sort field Apollo offers (LAST_UPDATED, HEALTH_STATUS, VERSION) can change
+# during a read, so a multi-page read can repeat one row and skip another.
+MANAGE_INSTALLS_PAGE_SIZE = 500
+
+# Every entity installed from one product, found through the product's PACKAGE rid
+# (`manage/details.py::package_rid` says how that rid is derived and why the result is
+# checked). Deliberately lean: no `declaredState` (cleartext secrets, console rule 3), no
+# module `variables` (same), and no plans, which cost ~0.3 s per entity; last-change
+# time is a separate, bounded read.
+MANAGE_PRODUCT_INSTALLS = """
+query ManageProductInstalls($packageRid: RID!, $pageSize: Int!, $pageToken: Int) {
+    apollo {
+        entities(
+            filter: {
+                filters: [{ package: { packageRids: [$packageRid] } }]
+                sortBy: { direction: DESCENDING, field: LAST_UPDATED }
+            }
+            pageSize: $pageSize
+            pageToken: $pageToken
+        ) {
+            entities {
+                id
+                entityLocator {
+                    ... on ApolloEntityLocator_ApolloEntity { entityName }
+                }
+                product {
+                    productId
+                }
+                environment {
+                    id
+                    name
+                    displayMetadataV2 {
+                        displayName
+                    }
+                }
+                reportedStatus {
+                    version
+                    healthStatus
+                    rolloutStatus
+                }
+                lifecycleStatus
+                installedByModuleV2 {
+                    moduleMavenCoordinate
+                }
+            }
+            nextPageToken
+        }
+    }
+}
+"""
+
+# How many installs get a "last change" time: the ones Apollo lists as most recently
+# updated. Plan history costs ~0.3 s per entity whatever its page size (measured
+# 2026-11-20; 111 s for all 307 installs of the most-installed product), so it is read
+# for a bounded few, never for every install.
+MANAGE_RECENT_CHANGES_LIMIT = 10
+
+# The same filter and sort as MANAGE_PRODUCT_INSTALLS, one page of
+# MANAGE_RECENT_CHANGES_LIMIT, with each entity's plan page. Selects the same four plan
+# fields as CONSOLE_ENTITY_PLANS and the same plan page size (CONSOLE_PLANS_PAGE_SIZE),
+# because `console/reads.py::_last_change_for` judges saturation against it.
+MANAGE_PRODUCT_RECENT_PLANS = """
+query ManageProductRecentPlans($packageRid: RID!, $pageSize: Int!) {
+    apollo {
+        entities(
+            filter: {
+                filters: [{ package: { packageRids: [$packageRid] } }]
+                sortBy: { direction: DESCENDING, field: LAST_UPDATED }
+            }
+            pageSize: $pageSize
+        ) {
+            entities {
+                id
+                entityLocator {
+                    ... on ApolloEntityLocator_ApolloEntity { entityName }
+                }
+                product {
+                    productId
+                }
+                environment {
+                    name
+                }
+                nonGenericPlans(pageSize: 20) {
+                    plans {
+                        startTime
+                        endTime
+                        status { type }
+                    }
+                }
+            }
+        }
+    }
+}
+"""
+
 # ---------------------------------------------------------------------------
 # Release channel queries
 # ---------------------------------------------------------------------------

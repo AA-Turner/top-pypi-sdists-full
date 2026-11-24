@@ -376,3 +376,51 @@ def test_to_frontend_payload_key_dotted_path():
     # An exact top-level key wins over path-walking (keys may contain dots).
     assert _pick(payload, "a.b") == 1
     assert _pick(payload, "report.missing.deeper") is None
+
+
+async def test_a_kind_declared_run_input_carries_its_fields_not_its_marker():
+    """A run started with a KIND instance as its input (a ``relation``: ``{__kind, token,
+    _record_id}``) seeds Collect Inputs with that instance. The top-level marker names the run's
+    input, not a field of the step's output (kind ``user_inputs``): carried through, it violated
+    the step's own kind and failed the run as "something went wrong on our side" (run a02a0b62,
+    2026-11-02). The fields route on (a field's own value is never touched)."""
+    registry = _registry()
+    definition = Definition.model_validate(
+        {
+            "nodes": [
+                {
+                    "id": "ask",
+                    "type": "io.user_input",
+                    "position": {"x": 0, "y": 0},
+                    "data": {
+                        "config": {
+                            "title": "The record",
+                            "fields": [
+                                {"key": "token", "label": "Type", "type": "text"},
+                                {"key": "_record_id", "label": "Record", "type": "text"},
+                            ],
+                        }
+                    },
+                },
+                {
+                    "id": "echo",
+                    "type": "data.transform",
+                    "position": {"x": 200, "y": 0},
+                    "data": {"config": {"expression": "inputs"}},
+                },
+            ],
+            "edges": [{"id": "e1", "source": "ask", "target": "echo"}],
+        }
+    )
+    graph = compile_graph(definition, registry=registry)
+    emitter = FakeEmitter()
+    scheduler = Scheduler(graph, MemoryCheckpointer(), make_app_context(emitter), registry=registry)
+    result = await scheduler.run(
+        run_id="run-kind-input",
+        node_inputs={"ask": {"__kind": "relation", "token": "project", "_record_id": "r1"}},
+    )
+    assert result.status is RunStatus.COMPLETED, result.error
+    completed = [e for e in _data_events(emitter) if e.get("node_id") == "ask" and e.get("event") == "node_completed"][0]
+    out = completed["output"]
+    assert out.get("__kind") in (None, "user_inputs"), out
+    assert out["token"] == "project" and out["_record_id"] == "r1"

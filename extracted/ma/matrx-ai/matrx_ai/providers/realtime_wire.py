@@ -42,6 +42,9 @@ async def open_realtime_wire(vendor: RealtimeVendor, model: str) -> AsyncIterato
     """
     import websockets  # noqa: PLC0415 — a measuring tool; the app never opens this
 
+    from matrx_ai.providers.meter_scope import note_send
+
+    note_send("realtime_wire.open_realtime_wire", provider=vendor, model=model)  # meter backstop: files, never blocks
     if vendor == "xai":
         url = f"{_XAI_REALTIME}?model={model}"
         headers = {"Authorization": f"Bearer {resolve_api_key('XAI_API_KEY', required=True)}"}
@@ -59,6 +62,9 @@ def synthesize_speech_pcm(
     text: str, *, model: str = "gpt-4o-mini-tts", voice: str = "alloy"
 ) -> bytes:
     """``text`` spoken as 24 kHz mono PCM16 (OpenAI speech), for a bench fixture."""
+    from matrx_ai.providers.meter_scope import note_send
+
+    note_send("realtime_wire.synthesize_speech_pcm", provider="openai", model=model)  # meter backstop: files, never blocks
     response = httpx.post(
         _OPENAI_SPEECH,
         headers={"Authorization": f"Bearer {resolve_api_key('OPENAI_API_KEY', required=True)}"},

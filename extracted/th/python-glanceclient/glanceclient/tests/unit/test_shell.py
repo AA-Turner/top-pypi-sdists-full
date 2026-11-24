@@ -132,13 +132,12 @@ class ShellTest(testutils.TestCase):
                                           headers=headers,
                                           json=V3_TOKEN)
 
-        global shell, _shell, assert_called, assert_called_anytime
+        global shell, _shell
         _shell = openstack_shell.OpenStackImagesShell()
         shell = lambda cmd: _shell.main(cmd.split())
 
     def tearDown(self):
         super(ShellTest, self).tearDown()
-        global _old_env
         os.environ = _old_env
 
     def shell(self, argstr, exitcodes=(0,)):

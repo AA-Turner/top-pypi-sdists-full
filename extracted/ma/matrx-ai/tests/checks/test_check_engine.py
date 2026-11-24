@@ -23,7 +23,6 @@ from matrx_ai.checks.engine import (
 from matrx_ai.checks.markers import markers_in, mint_markers, substitute_markers
 from matrx_ai.checks.models import (
     Bindings,
-    Check,
     CheckResult,
     Evidence,
     JudgeDecision,

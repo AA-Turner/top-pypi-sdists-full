@@ -51,7 +51,7 @@ class Event(Generic[P]):
     def __init__(self) -> None:
         """Event
 
-        Events are a powerful tool distribute information between different parts of your code,
+        Events are a powerful tool to distribute information between different parts of your code,
         especially from long-living objects like data models to the short-living UI.
 
         Handlers can be synchronous or asynchronous.
@@ -127,7 +127,7 @@ class Event(Generic[P]):
 
         def callback(*args: P.args, **kwargs: P.kwargs) -> None:  # pylint: disable=unused-argument
             if not future.done():
-                future.set_result(args[0] if len(args) == 1 else args if args else None)
+                future.set_result(args[0] if len(args) == 1 else args or None)
 
         def cancel() -> None:
             future.cancel()  # no-op for a done future, so an event that fired right before the deletion still wins

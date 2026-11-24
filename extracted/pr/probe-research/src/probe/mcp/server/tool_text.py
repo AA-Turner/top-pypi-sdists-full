@@ -12,7 +12,7 @@ from ..tools.view import VIEW_PURPOSE, _VIEWS, View, _supported_views
 # which is the one regression that pass introduced. The tags caveat especially:
 # a filter that a backend can silently ignore has to say so, or a caller reads an
 # unfiltered tree as a filtered one.
-_BR_STATUS_DOC = """Filter runs by status: `created` (never started), `running` (owner heartbeating), `completed` / `failed` (owner closed it with that verdict), `crashed` (heartbeats stopped, reaper closed it), `canceled`, `untracked` (nothing ever owned it, e.g. a mirrored W&B import)."""
+_BR_STATUS_DOC = """Filter runs by status: `created` (never started), `running` (owner heartbeating), `paused` (held by a pause, still heartbeating), `completed` / `failed` (owner closed it with that verdict), `crashed` (heartbeats stopped, reaper closed it), `canceled`, `untracked` (nothing ever owned it, e.g. a mirrored W&B import)."""
 
 _BR_TAGS_DOC = """Filter runs by tag; repeatable, and a run must carry ALL of them. An empty filtered result never proves absence - list without it to check what exists."""
 
@@ -22,7 +22,7 @@ _BR_DEPTH_DOC = """1 lists one level; 2 also expands children; higher is read as
 
 _BR_LIMIT_DOC = """projects: per level, not per response. Other modes: rows per page (max 50); `next_cursor` continues."""
 
-_BR_MODE_DOC = """What to list. `projects` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's. `datasets`: team datasets, plus run-logged dataset files not registered. `checkpoints`: every checkpoint team-wide. `sources`: external sources (Hub ids, buckets, URLs). `branches`: a workspace's lines of work, ranked per metric (needs `workspace_id`). `people`: the team's members with their user ids (pass one as `owner`). `sessions`: agent sessions team-wide, newest first, each with its title, whose it is, the agent, when it was last active and the projects and runs it touched."""
+_BR_MODE_DOC = """What to list. `projects` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's. `datasets`: team datasets, plus run-logged dataset files not registered. `checkpoints`: every checkpoint team-wide. `sources`: external sources (Hub ids, buckets, URLs). `branches`: a workspace's lines of work, ranked per metric (needs `workspace_id`). `people`: the team's members with their user ids (pass one as `owner`). `sessions`: agent sessions team-wide, newest first, each with its title, whose it is, the agent, when it was last active and the projects and runs it touched. `decisions`: the team's decisions, oldest first: the choice, why, who, when and what it touched (`name (id:<uuid>)`)."""
 
 _BR_BRANCH_DOC = """mode=branches: one branch in full, by its `ref` from a branches page."""
 
@@ -36,13 +36,13 @@ _BR_ORDER_DOC = """"recent": newest activity first, in every mode that lists wor
 # person and reads the dates. Not on workspaces, sources, branches or people.
 _BR_OWNER_DOC = """Only work this person made or worked on: a user id from browse(mode="people"), an email, a name (loose: "maya" finds Maya Lee) or "me". The page starts with `owner_matched`, who it matched: check it. Rows with no known person are left out and counted in `unowned_count`. Not mode=workspaces, sources, branches or people."""
 
-_BR_SINCE_DOC = """Only rows with activity on or after this time: an ISO date ("2026-11-01") or a span back from now ("24h", "7d", "2w"). Activity is the last thing that happened: a session's last message, a run's last write, a note's or file's last edit; datasets and checkpoints, when made."""
+_BR_SINCE_DOC = """Only rows with activity on or after this time: an ISO date ("2026-11-01") or a span back from now ("24h", "7d", "2w"). Activity is the last thing that happened: a session's last message, a run's last write, a note's or file's last edit; datasets and checkpoints, when made; a decision, when decided. A session is dated by its LAST message: for what happened on a day, set `since` to that day and leave `until` open; a session row's `first_seen_at` says when it began. A transcript shows a `── YYYY-MM-DD ──` line where each day starts (older sessions may not) and lists them in `days`: for what happened on a day, open the session with `start_line` at that day's line; what was decided that day is browse(mode="decisions", since=<day>, until=<next day>)."""
 
-_BR_UNTIL_DOC = """Only rows with activity before this time; the same forms as `since`."""
+_BR_UNTIL_DOC = """Only rows with activity before this time; the same forms as `since`. A session that went on past it is left out, however much of it came before: for one day, set `since` only."""
 
 _BR_LATEST_METRICS_DOC = """mode=runs only: metric keys (at most 50); each run row gains `latest_metrics` {key: {last, min, max, last_step}}, the values `metric.<key>` filters and sorts on. `latest_metrics_partial`: a W&B run whose values are not known here; `latest_metrics_locked`: past the plan's retention window."""
 
-_BR_QUERY_DOC = """mode=projects / runs / sessions / files / datasets / checkpoints / sources: matches names loosely (typos ok), best first, one page; `query_note` says when none matched. mode=notes: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note. mode=people: teammates it names by name or email (loosely, as `owner`), best first."""
+_BR_QUERY_DOC = """mode=projects / runs / sessions / files / datasets / checkpoints / sources: matches names loosely (typos ok), best first, one page; `query_note` says when none matched. mode=notes: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note. mode=people: teammates it names by name or email (loosely, as `owner`), best first. mode=decisions: words; a decision matches when ANY of them is in its title or reason (case-insensitive)."""
 
 # -- the data catalog modes' filters (the routes' own query parameters) --------
 _BR_PROJECT_DOC = """One project, by slug or uuid. mode=projects: its experiments, direct runs and its parts (projects linked `part_of` it). mode=runs / datasets / checkpoints: only its."""
@@ -129,7 +129,9 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
   runs           inherited on an experiment: true lists the source runs, not their files.
   version        summary_history on a project or experiment: read that one version's markdown instead of the list.
   branch         branches on a project or experiment: one branch in full, by its `ref`.
-  field          record: a dotted field ("metadata.summary"), or a path list."""
+  field          record: a dotted field ("metadata.summary"), or a path list.
+  since, until   decisions: decided on or after / before (a date or "7d").
+  words          decisions: ANY of these words in the title or reason."""
 
 _TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000; a value outside is capped), for the WHOLE response. The default fits a card or notes; start at 5000+ for a `trajectory`, `transcript` or `record` walk."""
 
@@ -241,9 +243,9 @@ _SK_SEMANTIC_DOC = """true (default): the exact channel plus the engine's semant
 
 _SK_OWNER_DOC = """Only results this person made or wrote: a user id from browse(mode="people"), an email, a name (loose: "maya" finds Maya Lee) or "me". `owner_matched` says who it matched: check it. `owner_note` names the corpora a person cannot filter; their results are left out."""
 
-_SK_SINCE_DOC = """Only results whose content was last written on or after this time: an ISO date ("2026-11-01") or a span back from now ("24h", "7d", "2w"). A rename or a new description alone does not count as written."""
+_SK_SINCE_DOC = """Only results whose content was last written on or after this time: an ISO date ("2026-11-01") or a span back from now ("24h", "7d", "2w"). A rename or a new description alone does not count as written. A session is dated by its LAST message: for what happened on a day, set `since` to that day and leave `until` open; a session row's `first_seen_at` says when it began. A transcript shows a `── YYYY-MM-DD ──` line where each day starts (older sessions may not) and lists them in `days`: for what happened on a day, open the session with `start_line` at that day's line; what was decided that day is browse(mode="decisions", since=<day>, until=<next day>)."""
 
-_SK_UNTIL_DOC = """Only results whose content was last written before this time; the same forms as `since`."""
+_SK_UNTIL_DOC = """Only results whose content was last written before this time; the same forms as `since`. A session that went on past it is left out, however much of it came before: for one day, set `since` only."""
 
 _SK_SORT_DOC = """`relevance` (default): best match first. `recent`: newest first among the matches. "What has Maya done lately": owner="maya", sort="recent", since="7d"."""
 

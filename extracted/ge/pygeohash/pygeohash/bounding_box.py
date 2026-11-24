@@ -8,7 +8,7 @@ related to geospatial regions.
 from __future__ import annotations
 
 import math
-from typing import Any, Iterable, List, NamedTuple, Type, TypeVar
+from typing import Any, Iterable, List, NamedTuple, Optional, Tuple, Type, TypeVar
 
 from pygeohash.geohash import decode_exactly, encode
 from pygeohash.logging import get_logger
@@ -16,6 +16,28 @@ from pygeohash.logging import get_logger
 logger = get_logger(__name__)
 
 _FIELD_ORDER = "BoundingBox fields are (min_lat, min_lon, max_lat, max_lon)"
+
+
+def _validate_point_coordinates(lat: float, lon: float) -> None:
+    """Validate coordinates supplied to point-containment operations."""
+    for name, value, lower, upper in (
+        ("latitude", lat, -90.0, 90.0),
+        ("longitude", lon, -180.0, 180.0),
+    ):
+        if isinstance(value, bool):
+            raise ValueError(f"{name} ({value}) must be a number, not a bool")
+        try:
+            is_finite = math.isfinite(value)
+        except TypeError:
+            is_finite = False
+        if not is_finite:
+            raise ValueError(f"{name} ({value}) must be a finite number")
+        try:
+            is_in_range = lower <= value <= upper
+        except TypeError:
+            is_in_range = False
+        if not is_in_range:
+            raise ValueError(f"{name} ({value}) must be between {lower:g} and {upper:g}")
 
 
 class _BoundingBoxFields(NamedTuple):
@@ -139,6 +161,10 @@ def is_point_in_box(lat: float, lon: float, bbox: BoundingBox) -> bool:
     Returns:
         bool: True if the point is within the bounding box, False otherwise.
 
+    Raises:
+        ValueError: If latitude or longitude is a boolean, non-numeric, non-finite,
+            or outside its geographic bounds.
+
     Example:
         >>> bbox = get_bounding_box("u4pruyd")
         >>> is_point_in_box(57.649, 10.407, bbox)
@@ -146,6 +172,7 @@ def is_point_in_box(lat: float, lon: float, bbox: BoundingBox) -> bool:
         >>> is_point_in_box(40.0, 10.0, bbox)
         False
     """
+    _validate_point_coordinates(lat, lon)
     logger.debug("Checking if point (lat=%f, lon=%f) is in box: %s", lat, lon, bbox)
     result = bbox.min_lat <= lat <= bbox.max_lat and bbox.min_lon <= lon <= bbox.max_lon
     logger.debug("Point is %s the box", "inside" if result else "outside")
@@ -162,6 +189,10 @@ def is_point_in_geohash(lat: float, lon: float, geohash: str) -> bool:
 
     Returns:
         bool: True if the point is within the geohash's bounding box, False otherwise.
+
+    Raises:
+        ValueError: If latitude or longitude is a boolean, non-numeric, non-finite,
+            or outside its geographic bounds, or if ``geohash`` is invalid.
 
     Example:
         >>> is_point_in_geohash(57.649, 10.407, "u4pruyd")
@@ -201,12 +232,63 @@ def do_boxes_intersect(bbox1: BoundingBox, bbox2: BoundingBox) -> bool:
     return result
 
 
-def geohashes_in_box(bbox: BoundingBox, precision: int = 6) -> List[str]:
+DEFAULT_MAX_CELLS: int = 5_000_000
+
+
+def _validate_max_cells(max_cells: Optional[int]) -> None:
+    if max_cells is None:
+        return
+    if isinstance(max_cells, bool) or not isinstance(max_cells, int):
+        raise ValueError("max_cells must be an integer or None, not a bool or other type")
+    if max_cells < 1:
+        raise ValueError("max_cells must be at least 1")
+
+
+def _check_cell_count(estimated: int, max_cells: Optional[int], precision: int) -> None:
+    if max_cells is not None and estimated > max_cells:
+        raise ValueError(
+            f"Region would enumerate about {estimated} candidate cells at precision {precision}, "
+            f"which exceeds max_cells={max_cells}. Lower the precision, use a smaller region, "
+            "or pass max_cells=None to disable the limit."
+        )
+
+
+def _box_lattice(bbox: BoundingBox, precision: int) -> Tuple[int, int, int, int, float, float, float, float]:
+    """Return ``(first_row, last_row, first_col, last_col, lat_step, lon_step, lat_err, lon_err)``."""
+    center_lat: float = (bbox.min_lat + bbox.max_lat) / 2
+    center_lon: float = (bbox.min_lon + bbox.max_lon) / 2
+    center_geohash: str = encode(center_lat, center_lon, precision)
+    logger.debug("Center geohash: %s at (lat=%f, lon=%f)", center_geohash, center_lat, center_lon)
+
+    _cell_lat, _cell_lon, lat_err, lon_err = decode_exactly(center_geohash)
+    lat_step: float = 2.0 * lat_err
+    lon_step: float = 2.0 * lon_err
+    lat_rows: int = 1 << ((5 * precision) // 2)
+    lon_cols: int = 1 << ((5 * precision + 1) // 2)
+    first_row: int = max(0, math.floor((bbox.min_lat + 90.0) / lat_step) - 1)
+    last_row: int = min(lat_rows - 1, math.floor((bbox.max_lat + 90.0) / lat_step) + 1)
+    first_col: int = max(0, math.floor((bbox.min_lon + 180.0) / lon_step) - 1)
+    last_col: int = min(lon_cols - 1, math.floor((bbox.max_lon + 180.0) / lon_step) + 1)
+    return first_row, last_row, first_col, last_col, lat_step, lon_step, lat_err, lon_err
+
+
+def _lattice_size(lattice: Tuple[int, int, int, int, float, float, float, float]) -> int:
+    first_row, last_row, first_col, last_col = lattice[:4]
+    return (last_row - first_row + 1) * (last_col - first_col + 1)
+
+
+def geohashes_in_box(
+    bbox: BoundingBox, precision: int = 6, *, max_cells: Optional[int] = DEFAULT_MAX_CELLS
+) -> List[str]:
     """Find geohashes that intersect with a given bounding box.
 
     Args:
         bbox (BoundingBox): The bounding box to find geohashes for.
         precision (int, optional): The precision of the geohashes to return. Defaults to 6.
+        max_cells (Optional[int]): Keyword-only upper bound on the number of grid
+            cells the enumeration may visit, estimated from the covering row and
+            column counts before any allocation. Defaults to 5,000,000; ``None``
+            disables the check.
 
     Returns:
         List[str]: A sorted list of geohashes that intersect with the bounding box.
@@ -216,6 +298,11 @@ def geohashes_in_box(bbox: BoundingBox, precision: int = 6) -> List[str]:
         >>> geohashes_in_box(box, precision=5)
         ['u4pru']
 
+    Raises:
+        ValueError: If ``precision`` or ``max_cells`` is invalid, or if the estimated
+            cell count exceeds ``max_cells``; lower the precision, shrink the box, or
+            pass ``max_cells=None``.
+
     Note:
         The number of geohashes returned depends on the size of the bounding box
         and the precision requested. Higher precision values will result in more
@@ -223,35 +310,14 @@ def geohashes_in_box(bbox: BoundingBox, precision: int = 6) -> List[str]:
         the geohash grid instead of sampling points, so the result is returned
         in a deterministically sorted order that is identical across processes.
     """
+    _validate_max_cells(max_cells)
     logger.debug("Finding geohashes in box %s with precision %d", bbox, precision)
 
-    # Encode the center first: this validates the precision argument exactly as
-    # the previous sampling implementation did, and anchors the enumeration.
-    center_lat: float = (bbox.min_lat + bbox.max_lat) / 2
-    center_lon: float = (bbox.min_lon + bbox.max_lon) / 2
-    center_geohash: str = encode(center_lat, center_lon, precision)
-    logger.debug("Center geohash: %s at (lat=%f, lon=%f)", center_geohash, center_lat, center_lon)
-
-    # Cell size at this precision. The C decoder refines intervals by exact
-    # halving, so the decoded error margins are exact half-cell sizes.
-    _cell_lat, _cell_lon, lat_err, lon_err = decode_exactly(center_geohash)
-    lat_step: float = 2.0 * lat_err
-    lon_step: float = 2.0 * lon_err
-    logger.debug("Geohash size at precision %d: lat_step=%f, lon_step=%f", precision, lat_step, lon_step)
-
-    # The geohash grid is uniform at a given precision: 2 ** (5p // 2) latitude
-    # rows and 2 ** ((5p + 1) // 2) longitude columns (bits alternate
-    # longitude/latitude per character, so odd and even precisions differ).
-    lat_rows: int = 1 << ((5 * precision) // 2)
-    lon_cols: int = 1 << ((5 * precision + 1) // 2)
-
-    # Covering index rectangle. The +/- 1 slack absorbs the rounding of the
-    # index division for coordinates that sit within a rounding error of a
-    # cell boundary; extra candidate rows and columns are filtered per cell.
-    first_row: int = max(0, math.floor((bbox.min_lat + 90.0) / lat_step) - 1)
-    last_row: int = min(lat_rows - 1, math.floor((bbox.max_lat + 90.0) / lat_step) + 1)
-    first_col: int = max(0, math.floor((bbox.min_lon + 180.0) / lon_step) - 1)
-    last_col: int = min(lon_cols - 1, math.floor((bbox.max_lon + 180.0) / lon_step) + 1)
+    # Building the lattice encodes the box center first, which validates the
+    # precision argument exactly as the previous sampling implementation did.
+    lattice = _box_lattice(bbox, precision)
+    _check_cell_count(_lattice_size(lattice), max_cells, precision)
+    first_row, last_row, first_col, last_col, lat_step, lon_step, lat_err, lon_err = lattice
 
     # A cell is classified interior (fully inside the box) or exterior (clear
     # of it) only when the decision clears this margin on both axes; anything
@@ -300,3 +366,108 @@ def geohashes_in_box(bbox: BoundingBox, precision: int = 6) -> List[str]:
 
     logger.debug("Found %d intersecting geohashes", len(result))
     return sorted(result)
+
+
+def _distance_to_box(latitude: float, longitude: float, bbox: BoundingBox) -> float:
+    """Return the spherical distance to the closest point in a cell."""
+    from pygeohash.types import EARTH_RADIUS
+
+    if latitude == 90.0:
+        return EARTH_RADIUS * math.radians(90.0 - bbox.max_lat)
+    if latitude == -90.0:
+        return EARTH_RADIUS * math.radians(bbox.min_lat + 90.0)
+
+    if bbox.min_lon <= longitude <= bbox.max_lon:
+        delta_lon = 0.0
+    else:
+        delta_lon = min(abs((edge - longitude + 180.0) % 360.0 - 180.0) for edge in (bbox.min_lon, bbox.max_lon))
+    phi = math.radians(latitude)
+    delta = math.radians(delta_lon)
+    closest_lat = math.degrees(math.atan2(math.sin(phi), math.cos(phi) * math.cos(delta)))
+    candidates = (bbox.min_lat, bbox.max_lat, max(bbox.min_lat, min(bbox.max_lat, closest_lat)))
+    distances = []
+    for lat in candidates:
+        target_phi = math.radians(lat)
+        a = math.sin((target_phi - phi) / 2.0) ** 2 + math.cos(phi) * math.cos(target_phi) * math.sin(delta / 2.0) ** 2
+        distances.append(2.0 * EARTH_RADIUS * math.asin(math.sqrt(max(0.0, min(1.0, a)))))
+    return min(distances)
+
+
+def geohashes_in_radius(
+    latitude: float,
+    longitude: float,
+    radius_m: float,
+    precision: int = 6,
+    *,
+    max_cells: Optional[int] = DEFAULT_MAX_CELLS,
+) -> List[str]:
+    """Find all geohash cells intersecting a spherical circle.
+
+    Args:
+        latitude (float): Center latitude in degrees, between -90 and 90.
+        longitude (float): Center longitude in degrees, between -180 and 180.
+        radius_m (float): Finite, positive radius in meters. Booleans are rejected.
+        precision (int): Cell precision from 1 to 12. Defaults to 6.
+        max_cells (Optional[int]): Keyword-only upper bound on the total number of
+            grid cells the enumeration may visit, summed over antimeridian
+            intervals and estimated before any allocation. Defaults to 5,000,000;
+            ``None`` disables the check.
+
+    Returns:
+        List[str]: Sorted, unique cells whose nearest point is within the radius,
+        including cells touching the circle. Antimeridian crossings and polar caps
+        are supported. Distances use the spherical ``EARTH_RADIUS`` constant.
+
+    Raises:
+        ValueError: If coordinates, radius, precision, or ``max_cells`` are invalid,
+            or if the estimated cell count exceeds ``max_cells``. A circle touching a
+            pole spans every longitude, so small radii at high precision can exceed
+            the limit; lower the precision or pass ``max_cells=None``.
+
+    Note:
+        These are candidate cells for proximity queries; filter individual records
+        by their distance afterwards. Output size grows with radius and precision;
+        large circles at high precision can require very large lists.
+    """
+    from pygeohash.types import EARTH_RADIUS
+
+    _validate_point_coordinates(latitude, longitude)
+    if isinstance(precision, bool) or not isinstance(precision, int):
+        raise ValueError("Precision must be an integer, not a bool")
+    if not 1 <= precision <= 12:
+        raise ValueError("Precision must be between 1 and 12")
+    if isinstance(radius_m, bool):
+        raise ValueError("radius_m must be a number, not a bool")
+    try:
+        finite_radius = math.isfinite(radius_m)
+    except TypeError:
+        finite_radius = False
+    if not finite_radius:
+        raise ValueError("radius_m must be a finite number")
+    if radius_m <= 0:
+        raise ValueError("radius_m must be positive")
+    _validate_max_cells(max_cells)
+
+    angular_radius = min(math.pi, radius_m / EARTH_RADIUS)
+    lat_span = math.degrees(angular_radius)
+    min_lat = max(-90.0, latitude - lat_span)
+    max_lat = min(90.0, latitude + lat_span)
+    if lat_span >= 90.0 - abs(latitude):
+        intervals = [(-180.0, 180.0)]
+    else:
+        lon_span = math.degrees(math.asin(min(1.0, math.sin(angular_radius) / math.cos(math.radians(latitude)))))
+        west, east = longitude - lon_span, longitude + lon_span
+        if west <= -180.0:
+            intervals = [(-180.0, east), (west + 360.0, 180.0)]
+        elif east >= 180.0:
+            intervals = [(west, 180.0), (-180.0, east - 360.0)]
+        else:
+            intervals = [(west, east)]
+    boxes = [BoundingBox._unvalidated(min_lat, west, max_lat, east) for west, east in intervals]
+    _check_cell_count(sum(_lattice_size(_box_lattice(box, precision)) for box in boxes), max_cells, precision)
+    candidates = set()
+    for box in boxes:
+        candidates.update(geohashes_in_box(box, precision, max_cells=None))
+    return sorted(
+        cell for cell in candidates if _distance_to_box(latitude, longitude, get_bounding_box(cell)) <= radius_m
+    )

@@ -29,7 +29,7 @@ class TokenValidationAlgorithm(Enum):
 
 
 class JwtPrincipalClaimsMappingItem(RootModel[str]):
-    root: Annotated[str, Field(pattern="^(username|email):[a-zA-Z0-9_-]+$")]
+    root: Annotated[str, Field(pattern="^(username|email):[^\\s]+$")]
 
 
 class ResponseType(Enum):

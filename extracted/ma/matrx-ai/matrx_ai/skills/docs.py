@@ -141,7 +141,7 @@ async def ingest_doc_set(
 ) -> dict[str, Any]:
     import asyncio
 
-    root = Path(docs_root).expanduser().resolve()
+    root = await asyncio.to_thread(lambda: Path(docs_root).expanduser().resolve())
 
     def _read() -> tuple[DocSet, list[ParsedSkill], list[str]]:
         ds = load_doc_set(manifest_path)

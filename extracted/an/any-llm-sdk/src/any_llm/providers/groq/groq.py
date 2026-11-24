@@ -129,18 +129,14 @@ class GroqProvider(AnyLLM):
     @override
     def _init_client(self, api_key: str | None = None, api_base: str | None = None, **kwargs: Any) -> None:
         self.api_key = api_key
+        base_url = kwargs.pop("base_url", None)
+        self.api_base = str(base_url or api_base or "https://api.groq.com").rstrip("/").removesuffix("/openai/v1")
         self.kwargs = kwargs
-        self.client = AsyncGroq(api_key=api_key, **kwargs)
+        self.client = AsyncGroq(api_key=api_key, base_url=self.api_base, **kwargs)
 
     async def _stream_async_completion(
         self, params: CompletionParams, **kwargs: Any
     ) -> AsyncIterator[ChatCompletionChunk]:
-        # Groq does not currently support streaming structured outputs.
-        # See https://console.groq.com/docs/structured-outputs
-        if params.stream and params.response_format:
-            msg = "stream and response_format"
-            raise UnsupportedParameterError(msg, self.PROVIDER_NAME)
-
         completion_kwargs = self._convert_completion_params(params, **kwargs)
         stream: GroqAsyncStream[GroqChatCompletionChunk] = await self.client.chat.completions.create(
             model=params.model_id,
@@ -198,7 +194,7 @@ class GroqProvider(AnyLLM):
             raise UnsupportedParameterError(parameter, self.PROVIDER_NAME)
 
         client = AsyncOpenAI(
-            base_url="https://api.groq.com/openai/v1",
+            base_url=f"{self.api_base}/openai/v1",
             api_key=self.api_key,
             **self.kwargs,
         )

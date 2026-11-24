@@ -12,10 +12,14 @@ must then:
 
 from __future__ import annotations
 
+import asyncio
 import json
+from collections.abc import Callable
+from contextlib import asynccontextmanager
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict
+import pytest
 
 from matrx_graph import (
     Definition,
@@ -37,6 +41,7 @@ from tests._fixtures import FakeEmitter, make_app_context
 
 STATE = {f"value_{i}": "z" * 2000 for i in range(200)}  # ~400 KB, a provision-sized state
 RECEIVED: dict[str, Any] = {}
+PREFLIGHT_RECEIVED: dict[str, Any] = {}
 
 
 class _In(BaseModel):
@@ -81,13 +86,17 @@ class _Step:
         RECEIVED[ctx.node_id] = inputs.provision_values
         return success(_Out(count=len(inputs.provision_values or {})))
 
+    async def sample_preflight(self, ctx: NodeExecutionContext, inputs: _In, config: _Cfg) -> dict[str, bool]:
+        PREFLIGHT_RECEIVED[ctx.node_id] = inputs.provision_values
+        return {"held_value_resolved": inputs.provision_values is not None}
 
-def _definition() -> Definition:
+
+def _definition(*, readers: tuple[str, ...] = ("agent_a", "agent_b")) -> Definition:
     nodes = [{"id": n, "type": "test.held_capture", "position": {"x": 0, "y": 0},
-              "data": {"config": {"capture": n == "point"}}} for n in ("point", "agent_a", "agent_b")]
+              "data": {"config": {"capture": n == "point"}}} for n in ("point", *readers)]
     edges = [{"id": f"e_point_{t}", "source": "point", "target": t,
               "data": {"kind": "data", "mappings": {"provision_values": "provision_values"}}}
-             for t in ("agent_a", "agent_b")]
+             for t in readers]
     return Definition.model_validate({"nodes": nodes, "edges": edges, "entry_nodes": ["point"]})
 
 
@@ -107,18 +116,41 @@ def _fake_store(monkeypatch) -> dict[str, Any]:
     return store
 
 
-async def _run(monkeypatch) -> tuple[list[dict[str, Any]], MemoryCheckpointer, dict[str, Any]]:
+async def _run(
+    monkeypatch,
+    *,
+    checkpointer: MemoryCheckpointer | None = None,
+    sampled_outputs: dict[str, Any] | None = None,
+    on_load: Callable[[], None] | None = None,
+    readers: tuple[str, ...] = ("agent_a", "agent_b"),
+    expected_status: RunStatus = RunStatus.COMPLETED,
+) -> tuple[list[dict[str, Any]], MemoryCheckpointer, dict[str, Any]]:
     RECEIVED.clear()
+    PREFLIGHT_RECEIVED.clear()
     store = _fake_store(monkeypatch)
+    if on_load is not None:
+        original_load = value_store.load_run_values
+
+        async def observed_load(run_id: str, hashes) -> dict[str, Any]:
+            on_load()
+            return await original_load(run_id, hashes)
+
+        monkeypatch.setattr(value_store, "load_run_values", observed_load)
     registry = NodeRegistry()
     register_builtin_nodes(registry)
     registry.register(_Step())
-    graph = compile_graph(_definition(), registry=registry)
+    graph = compile_graph(_definition(readers=readers), registry=registry)
     emitter = FakeEmitter()
-    checkpointer = MemoryCheckpointer()
-    scheduler = Scheduler(graph, checkpointer, make_app_context(emitter), registry=registry)
+    checkpointer = checkpointer or MemoryCheckpointer()
+    scheduler = Scheduler(
+        graph,
+        checkpointer,
+        make_app_context(emitter),
+        registry=registry,
+        sampled_outputs=sampled_outputs,
+    )
     result = await scheduler.run(run_id="mkt-167-held")
-    assert result.status is RunStatus.COMPLETED, result.error
+    assert result.status is expected_status, result.error
     events = [json.loads(json.dumps(p, default=str)) for name, p in emitter.events
               if name == "data" and isinstance(p, dict) and p.get("event")]
     return events, checkpointer, store
@@ -127,6 +159,147 @@ async def _run(monkeypatch) -> tuple[list[dict[str, Any]], MemoryCheckpointer, d
 async def test_every_downstream_step_receives_the_full_held_value(monkeypatch) -> None:
     await _run(monkeypatch)
     assert RECEIVED == {"agent_a": STATE, "agent_b": STATE}
+
+
+async def test_scheduler_scopes_held_reads_for_executor_and_sample_preflight(monkeypatch) -> None:
+    """Break: Scheduler resolves held inputs outside the owning checkpointer admission scope."""
+    events: list[str] = []
+    active_scopes = 0
+
+    @asynccontextmanager
+    async def admission(unit: str, run_id: str | None, checkpoint_id: str | None):
+        nonlocal active_scopes
+        assert (unit, run_id, checkpoint_id) == ("resolve_held_values", "mkt-167-held", None)
+        active_scopes += 1
+        events.append("enter")
+        try:
+            yield
+        finally:
+            events.append("exit")
+            active_scopes -= 1
+
+    checkpointer = MemoryCheckpointer()
+    checkpointer._read_scope_factory = admission  # type: ignore[attr-defined]  # optional host capability
+
+    def observe_load() -> None:
+        events.append("load")
+        assert active_scopes > 0, "held storage was read before Scheduler admitted this invocation"
+
+    await _run(
+        monkeypatch,
+        checkpointer=checkpointer,
+        sampled_outputs={"agent_a": {"count": 0}},
+        on_load=observe_load,
+    )
+    assert PREFLIGHT_RECEIVED == {"agent_a": STATE}
+    assert RECEIVED == {"agent_b": STATE}, "the sample replaces only the executor after its preflight"
+    assert events.count("enter") == events.count("load") == events.count("exit") == 2
+    assert active_scopes == 0
+
+
+async def test_custom_checkpointer_without_scope_keeps_ordinary_held_reads(monkeypatch) -> None:
+    """Break: optional admission assumes every custom checkpointer initialized the new capability."""
+
+    class _CustomMemoryCheckpointer(MemoryCheckpointer):
+        pass
+
+    await _run(monkeypatch, checkpointer=_CustomMemoryCheckpointer())
+    assert RECEIVED == {"agent_a": STATE, "agent_b": STATE}
+
+
+@pytest.mark.parametrize(
+    ("failure_name", "sampled"),
+    [
+        ("RecordingOperationRefused", False),
+        ("RecordingOperationRefused", True),
+        ("RecordingOperationUnavailable", False),
+        ("RecordingOperationUnavailable", True),
+    ],
+)
+async def test_actual_recording_worker_scope_refuses_held_reads_before_scheduler_body(
+    monkeypatch, failure_name: str, sampled: bool
+) -> None:
+    """The imported recording worker gate stops both real Scheduler read callers before a load or body."""
+    # Host-only integration must not make the standalone package require aidream.
+    recording_operation = pytest.importorskip("aidream.services.meet.recording_operation")
+    from matrx_graph.workers.queue import Job
+
+    failure = getattr(recording_operation, failure_name)
+    run_id = "mkt-167-held"
+    job = Job(job_id="held-read-host-proof", run_id=run_id, kind="start", claimed_by="worker")
+    source = recording_operation._Source(
+        "recording", "landing", run_id, "actor", "org", "uri", "nonce", "def", "version", "hash"
+    )
+    pending = recording_operation._Pending(job, source)
+    invocation_token = recording_operation._current.set(
+        (pending, recording_operation.WorkerInvocation(job, object()))
+    )
+    monkeypatch.setattr(recording_operation, "RECORDING_OPERATION_PROTOCOL", 1)
+    source_calls: list[tuple[object, ...]] = []
+    body_calls: list[str] = []
+    held_ref = "preexisting-held-ref"
+    cache_key = (id(asyncio.get_running_loop()), run_id, held_ref)
+    shared = asyncio.get_running_loop().create_future()
+    shared.set_result({held_ref: {"poison": True}})
+    value_store._HELD_LOADS[cache_key] = shared
+
+    @asynccontextmanager
+    async def transaction(**_kwargs):
+        yield object()
+
+    async def denied_source(*args, **_kwargs):
+        source_calls.append(args)
+        raise failure("host denied")
+
+    original_execute = _Step.execute
+    original_preflight = _Step.sample_preflight
+
+    async def execute_never(*args, **kwargs):
+        if args[1].node_id == "agent_a":
+            body_calls.append("executor")
+        return await original_execute(*args, **kwargs)
+
+    async def preflight_never(*args, **kwargs):
+        if args[1].node_id == "agent_a":
+            body_calls.append("preflight")
+        return await original_preflight(*args, **kwargs)
+
+    monkeypatch.setattr(recording_operation, "_fresh_transaction", transaction)
+    monkeypatch.setattr(recording_operation, "_source_and_job", denied_source)
+    monkeypatch.setattr(_Step, "execute", execute_never)
+    monkeypatch.setattr(_Step, "sample_preflight", preflight_never)
+    monkeypatch.setattr(value_store, "new_held_ref", lambda: held_ref)
+    loads: list[None] = []
+    cache_calls: list[tuple[str, str]] = []
+    original_shared_load = value_store._load_held_shared
+
+    async def observe_shared_load(actual_run_id: str, ref: str) -> dict[str, Any]:
+        cache_calls.append((actual_run_id, ref))
+        return await original_shared_load(actual_run_id, ref)
+
+    monkeypatch.setattr(value_store, "_load_held_shared", observe_shared_load)
+    checkpointer = MemoryCheckpointer()
+    checkpointer._read_scope_factory = recording_operation.worker_read_scope  # type: ignore[attr-defined]
+    try:
+        await _run(
+            monkeypatch,
+            checkpointer=checkpointer,
+            sampled_outputs={"agent_a": {"count": 0}} if sampled else None,
+            readers=("agent_a",),
+            expected_status=RunStatus.ERRORED,
+            on_load=lambda: loads.append(None),
+        )
+        assert len(source_calls) == 1
+        assert loads == [], "host refusal must precede held-store reads"
+        assert cache_calls == [], "host refusal must not consume a shared held-load future"
+        assert cache_key in value_store._HELD_LOADS and value_store._HELD_LOADS[cache_key] is shared
+        assert body_calls == [], "host refusal must precede executor and sampled-preflight bodies"
+    finally:
+        value_store._HELD_LOADS.pop(cache_key, None)
+        if not shared.done():
+            shared.cancel()
+        recording_operation._current.reset(invocation_token)
+        assert recording_operation.RECORDING_OPERATION_PROTOCOL == 1
 
 
 async def test_the_held_value_never_travels_inline(monkeypatch) -> None:

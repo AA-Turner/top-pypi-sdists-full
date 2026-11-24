@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trafilatura
-Version: 2.3.1
+Version: 2.4.0
 Summary: Python & Command-line tool to gather text and metadata on the Web: Crawling, scraping, extraction, output as CSV, JSON, HTML, MD, TXT, XML.
 Author: Adrien Barbaresi
 License-Expression: Apache-2.0
@@ -39,25 +39,25 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: certifi
-Requires-Dist: charset_normalizer>=3.5.2
-Requires-Dist: courlan>=1.4.0
+Requires-Dist: charset_normalizer>=3.5.3
+Requires-Dist: courlan>=1.5.0
 Requires-Dist: htmldate>=1.11.0
-Requires-Dist: justext>=3.0.2
 Requires-Dist: lxml>=6.1.3
 Requires-Dist: urllib3<3,>=2.8.0
 Provides-Extra: dev
-Requires-Dist: ruff==0.16.10; extra == "dev"
-Requires-Dist: mypy==2.4.0; extra == "dev"
-Requires-Dist: pytest==9.1.1; extra == "dev"
+Requires-Dist: ruff==0.17.6; extra == "dev"
+Requires-Dist: mypy==2.4.1; extra == "dev"
+Requires-Dist: pytest==9.2.0; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: types-lxml==2026.2.16; extra == "dev"
-Requires-Dist: types-pycurl==7.48.0.20260923; extra == "dev"
+Requires-Dist: types-pycurl==7.49.0.20261122; extra == "dev"
 Provides-Extra: all
 Requires-Dist: brotli>=1.2.0; extra == "all"
 Requires-Dist: faust-cchardet<3,>=2.2.1; extra == "all"
 Requires-Dist: htmldate[speed]>=1.11.0; extra == "all"
 Requires-Dist: py3langid>=0.4.0; extra == "all"
-Requires-Dist: pycurl>=7.48.0; extra == "all"
+Requires-Dist: pycurl>=7.49.0; extra == "all"
+Requires-Dist: tqdm>=4.67.1; extra == "all"
 Requires-Dist: urllib3[socks]>=2.8.0; extra == "all"
 Requires-Dist: backports.zstd>=1.7.0; python_version < "3.14" and extra == "all"
 Provides-Extra: eval
@@ -69,6 +69,7 @@ Requires-Dist: goose3==3.1.22; extra == "eval"
 Requires-Dist: html2text==2025.4.15; extra == "eval"
 Requires-Dist: html-text==0.7.1; extra == "eval"
 Requires-Dist: inscriptis==2.7.5; extra == "eval"
+Requires-Dist: justext==3.0.2; extra == "eval"
 Requires-Dist: magic-html==0.1.8; python_version >= "3.12" and extra == "eval"
 Requires-Dist: news-please==1.6.16; extra == "eval"
 Requires-Dist: nltk==3.10.3; extra == "eval"

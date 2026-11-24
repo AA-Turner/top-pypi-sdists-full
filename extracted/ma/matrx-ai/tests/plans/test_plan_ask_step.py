@@ -10,7 +10,6 @@ join whose other branch is an agent (the layer padding stays correct).
 
 from __future__ import annotations
 
-from typing import Any
 
 import pytest
 from pydantic import ValidationError

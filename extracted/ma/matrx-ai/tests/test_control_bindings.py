@@ -182,3 +182,91 @@ def test_a_boolean_controls_toggle_words_become_booleans():
     )
     resolve_control_bindings(agent.config, variables, {"web": "On"})
     assert agent.config.internal_web_search is True
+
+
+def test_a_structured_control_bound_as_json_text_resolves_to_its_value():
+    """A bound multi-speaker voice list travels as JSON text and must arrive as the
+    list — left as text it became one voice named '[{...}]' and every run failed."""
+    import json
+
+    speakers = [{"name": "Host", "voice": "achernar"}, {"name": "Guest", "voice": "zephyr"}]
+    assert coerce_control_value(json.dumps(speakers)) == speakers
+    assert coerce_control_value('{"moves": ["pan_left"]}') == {"moves": ["pan_left"]}
+    # Text that only looks structured stays text; scalars keep their old coercion.
+    assert coerce_control_value("[not json") == "[not json"
+    assert coerce_control_value("achernar") == "achernar"
+    assert coerce_control_value("0.5") == 0.5
+
+
+def test_a_placeholder_voice_is_refused_with_the_binding_door_named():
+    """Settings never fill {{variables}}; the refusal must teach the bind door."""
+    import pytest
+
+    from matrx_ai.catalog.resolve import CatalogRoutingError, resolve_tts_voice
+
+    class _Profile:
+        tts_voice_ids = ("achernar",)
+        tts_default_voice_id = "achernar"
+        model_name = "tts-model"
+        vendor = "google"
+
+    with pytest.raises(CatalogRoutingError, match="Make a run input"):
+        resolve_tts_voice(_Profile(), "{{speaker_1_voice}}")  # type: ignore[arg-type]
+    assert resolve_tts_voice(_Profile(), "achernar") == "achernar"  # type: ignore[arg-type]
+
+
+def test_a_rows_cast_bound_to_tts_voice_resolves_to_the_speaker_list():
+    """The `rows` run input (a speaker cast) reaches tts_voice as the list, whether the run page
+    sends the array it edits or the bound default's JSON text — and passes the voice check."""
+    import json
+
+    from matrx_ai.catalog.resolve import validate_tts_voices
+
+    cast = [
+        {"name": "Host", "voice": "achernar"},
+        {"name": "Guest", "voice": "zephyr"},
+        {"name": "Narrator", "voice": "kore"},
+    ]
+    definition = ExecutionAgentDefinition(
+        definition_id="00000000-0000-0000-0000-000000000002",
+        agent_id="00000000-0000-0000-0000-000000000002",
+        name="Cast reader",
+        model_id="gemini-2.5-flash-preview-tts",
+        messages=[{"role": "user", "content": [{"type": "text", "text": "Read: {{script}}"}]}],
+        settings={"multi_speaker": True},
+        variable_definitions=[
+            {"name": "script", "defaultValue": ""},
+            {
+                "name": "tts_voice",
+                "defaultValue": json.dumps(cast[:2]),
+                "customComponent": {
+                    "__kind": "variable_component",
+                    "type": "rows",
+                    "fields": [
+                        {"name": "name", "label": "Speaker", "type": "text"},
+                        {"name": "voice", "label": "Voice", "type": "select",
+                         "options": ["achernar", "zephyr", "kore"]},
+                    ],
+                    "minRows": 1,
+                },
+                "control": {"key": "tts_voice"},
+            },
+        ],
+    )
+
+    class _Profile:
+        tts_voice_ids = ("achernar", "zephyr", "kore")
+
+    for sent in (cast, json.dumps(cast)):
+        agent = definition_to_agent_config(definition)
+        result = resolve_control_bindings(agent.config, agent.variable_defaults, {"tts_voice": sent})
+        assert result.adjustments == []
+        assert result.applied == {"tts_voice": cast}
+        voices = [s["voice"] for s in agent.config.tts_voice]  # type: ignore[union-attr,index]
+        assert voices == ["achernar", "zephyr", "kore"]
+        validate_tts_voices(_Profile(), voices)  # type: ignore[arg-type]
+
+    # Nothing sent: the bound default (JSON text of two speakers) is the list.
+    agent = definition_to_agent_config(definition)
+    resolve_control_bindings(agent.config, agent.variable_defaults, {})
+    assert [s["name"] for s in agent.config.tts_voice] == ["Host", "Guest"]  # type: ignore[union-attr,index]

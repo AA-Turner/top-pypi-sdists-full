@@ -204,9 +204,12 @@ class AttendedTaskRunner:
         trace_images=False,
         hud=None,
         recorder=None,
+        episode_capture=None,
+        teleop_device=None,
         print_fn=print,
         lifecycle=None,
         while_compute_starts=None,
+        policy_watcher=None,
     ):
         if type(keep_warm) is not int or not 0 <= keep_warm <= 3600:
             raise ValueError("keep_warm must be 0–3600 seconds.")
@@ -268,6 +271,11 @@ class AttendedTaskRunner:
         self.hud = recorder if recorder is not None else hud
         # The last executed task's recording, awaiting the operator's grade.
         self.hud_episode = None
+        # Off-hot-path LeRobot v3.0 episode capture + background uploader (CaptureManager).
+        self.episode_capture = episode_capture
+        # Optional live teleoperation device for instant human clutch takeover (ControlArbiter).
+        self.teleop_device = teleop_device
+        self._active_arbiter = None
         self.print_fn = safe_printer(print_fn)
         self._operation = None
         self._cancel_requested = False
@@ -277,6 +285,29 @@ class AttendedTaskRunner:
         self._calibration = None
         self._fresh_compute = False
         self.policy = None
+        self.policy_watcher = policy_watcher
+        if self.policy_watcher is None:
+            from dreamscale.policy_alias import PolicyTargetWatcher, is_policy_alias_ref
+
+            alias_ref = next(
+                (
+                    ref
+                    for ref in (checkpoint, model)
+                    if isinstance(ref, str) and is_policy_alias_ref(ref)
+                ),
+                None,
+            )
+            if alias_ref is not None:
+                try:
+                    from dreamscale.config import load_config
+
+                    cfg = load_config()
+                    if cfg.api_key:
+                        self.policy_watcher = PolicyTargetWatcher(
+                            alias_ref, api_url=cfg.control_plane_url, api_key=cfg.api_key
+                        )
+                except Exception:  # noqa: BLE001 - best-effort watcher
+                    self.policy_watcher = None
         # Runs while a task's compute starts, cancelled once it's ready (YAM: what the arms
         # a previous run left holding are doing meanwhile, yam_hold.watch_resident_holds).
         self.while_compute_starts = while_compute_starts
@@ -292,6 +323,8 @@ class AttendedTaskRunner:
 
     def request_stop(self):
         self.lifecycle.request_stop()
+        if self._active_arbiter is not None:
+            self._active_arbiter.request_stop()
         if self._operation is not None and not self._cancel_requested:
             self._cancel_requested = True
             self._operation.cancel()
@@ -352,6 +385,7 @@ class AttendedTaskRunner:
     async def _work(self, instruction, max_actions, *, preview):
         trace = None
         episode = None
+        spool_episode = None
         failure = None
         conversion_count, adjustment_notified = 0, False
 
@@ -442,8 +476,32 @@ class AttendedTaskRunner:
                     )
 
                 self.rig.on_state = record_state
+            pending_target = None
+            if not preview and self.policy is not None and self.policy_watcher is not None:
+                try:
+                    pending_target = await asyncio.to_thread(
+                        self.policy_watcher.check_between_episodes
+                    )
+                except Exception:  # noqa: BLE001 - hot-swap check must never block a task
+                    pending_target = None
+                if pending_target is not None:
+                    label = (
+                        f"v{pending_target.version}"
+                        if pending_target.version is not None
+                        else pending_target.deployment_id
+                    )
+                    self.print_fn(f"Policy updated to {label}; reconnecting before next task.")
+                    await self._close_policy()
             if self.policy is None:
                 self.policy = await self._connect_policy(self.print_fn)
+                if self.policy_watcher is not None:
+                    if pending_target is not None:
+                        self.policy_watcher.mark_swapped(pending_target)
+                    else:
+                        dep = getattr(self.policy, "deployment", None)
+                        dep_id = getattr(dep, "id", None) if dep is not None else None
+                        if dep_id:
+                            self.policy_watcher.current_deployment_id = str(dep_id)
                 if self.end_effector_adapter is not None:
                     self.policy = self.end_effector_adapter.bind(self.policy, self.rig)
             if self.end_effector_adapter is not None:
@@ -495,6 +553,45 @@ class AttendedTaskRunner:
                     episode.measured(list(state.position))
 
                 self.rig.on_state = record_episode_state
+            latest_measured: list[float] | None = None
+            if self.episode_capture is not None:
+                policy_id: str | None = None
+                policy_version: int | None = None
+                if self.policy_watcher is not None:
+                    try:
+                        resolved_target = await asyncio.to_thread(
+                            self.policy_watcher.fetch_target
+                        )
+                    except Exception:  # noqa: BLE001 - best-effort target lookup
+                        resolved_target = None
+                    if resolved_target is not None:
+                        policy_id = resolved_target.policy_id
+                        policy_version = resolved_target.version
+                        if resolved_target.experience_dataset_id:
+                            self.episode_capture.bind_dataset(
+                                resolved_target.experience_dataset_id
+                            )
+                dep = getattr(self.policy, "deployment", None)
+                dep_id = getattr(dep, "id", None) if dep is not None else None
+                spool_episode = self.episode_capture.start_episode(
+                    task=instruction,
+                    fps=self.action_hz,
+                    policy_id=policy_id,
+                    policy_version=policy_version,
+                    deployment_id=str(dep_id) if dep_id else None,
+                    session_id=getattr(self.policy, "session_id", None),
+                    robot_id=self.embodiment.name,
+                    default_source_kind="autonomous",
+                )
+                capture_prev_state = self.rig.on_state
+
+                def record_capture_state(state):
+                    nonlocal latest_measured
+                    if capture_prev_state is not None:
+                        capture_prev_state(state)
+                    latest_measured = list(state.position)
+
+                self.rig.on_state = record_capture_state
             hooks = episode.hooks() if episode is not None else None
             if trace is not None:
                 hooks = trace.hooks(hooks)
@@ -510,12 +607,62 @@ class AttendedTaskRunner:
                 if not dispatched:
                     dispatched = True
                     self.print_fn("Executing model actions.")
+                if spool_episode is not None:
+                    state_vec = latest_measured
+                    if state_vec is None:
+                        try:
+                            state_vec = list(self.read_hold_action(ctx))
+                        except Exception:  # noqa: BLE001
+                            state_vec = [float(v) for v in action]
+                    frames = None
+                    if hasattr(self.rig, "latest_frames"):
+                        try:
+                            frames = self.rig.latest_frames()
+                        except Exception:  # noqa: BLE001
+                            frames = None
+                    spool_episode.record_step(
+                        state_vec,
+                        action,
+                        frames=frames,
+                        action_source="policy",
+                        intervention=False,
+                    )
                 return result
 
             # A camera codec that codes frames as they arrive gets each new frame now, not when
             # the observation is taken (t16_latency_v1 LP); None for every other session.
             feed = start_camera_feed(self.rig, self.policy)
+            if self.episode_capture is not None:
+                self.episode_capture.set_inference_active(True)
             try:
+                if self.teleop_device is not None:
+                    from dreamscale.teleop.arbiter import ControlArbiter
+
+                    arbiter = ControlArbiter(
+                        rig=self.rig,
+                        teleop=self.teleop_device,
+                        policy=self.policy,
+                        observe=self.observe,
+                        act=self.act,
+                        read_hold_action=self.read_hold_action,
+                        fps=self.action_hz,
+                        spool_episode=spool_episode,
+                        on_inference_active=(
+                            self.episode_capture.set_inference_active
+                            if self.episode_capture is not None
+                            else None
+                        ),
+                        print_fn=self.print_fn,
+                    )
+                    self._active_arbiter = arbiter
+                    try:
+                        arbiter_summary = await arbiter.run_episode(
+                            instruction=instruction,
+                            max_actions=max_actions,
+                        )
+                    finally:
+                        self._active_arbiter = None
+                    return arbiter_summary.run_result
                 if self.mode == "sync":
                     return await run_sync(
                         policy=self.policy, instruction=instruction, observe=self.observe,
@@ -534,6 +681,8 @@ class AttendedTaskRunner:
                     **({"hooks": hooks} if hooks is not None else {}),
                 )
             finally:
+                if self.episode_capture is not None:
+                    self.episode_capture.set_inference_active(False)
                 if feed is not None:
                     feed.stop()
         except BaseException as exc:
@@ -563,8 +712,34 @@ class AttendedTaskRunner:
             )
             if episode is not None:
                 await asyncio.to_thread(episode.stop_recording, failure)
-            if trace is not None or episode is not None:
+            if trace is not None or episode is not None or spool_episode is not None:
                 self.rig.on_state = previous_state_hook
+            if spool_episode is not None and self.episode_capture is not None:
+                try:
+                    ep_outcome = (
+                        "aborted"
+                        if (failure is not None or self._cancel_requested or self.rig.faulted)
+                        else None
+                    )
+                    summary = await asyncio.to_thread(
+                        self.episode_capture.finish_episode,
+                        spool_episode,
+                        outcome=ep_outcome,
+                    )
+                    if summary.status == "ready":
+                        self.print_fn(
+                            f"Episode {summary.client_episode_id} spooled "
+                            f"({summary.frame_count} frames); uploading in background."
+                        )
+                    elif summary.status == "local_only":
+                        self.print_fn(
+                            f"Episode {summary.client_episode_id} saved locally: "
+                            f"{summary.directory}"
+                        )
+                    if summary.writer_error:
+                        self.print_fn(f"Episode capture warning: {summary.writer_error}")
+                except Exception as exc:  # noqa: BLE001 - capture errors never break cleanup
+                    self.print_fn(f"Episode capture finalization failed: {type(exc).__name__}.")
             if not keep_session:
                 close_error = await self._close_policy()
                 cleanup_error = cleanup_error or close_error
@@ -683,6 +858,11 @@ class AttendedTaskRunner:
             and getattr(config, "rtc_contract", None) == DYNAMIC_FULL_HORIZON_RTC_CONTRACT_ID
         ):
             on_progress(TEST_TIME_RTC_NOTE)
+        if self.policy_watcher is not None:
+            dep = getattr(policy, "deployment", None)
+            dep_id = getattr(dep, "id", None) if dep is not None else None
+            if dep_id:
+                self.policy_watcher.current_deployment_id = str(dep_id)
         return policy
 
     def _record_prediction(self, observation, chunk, instruction):

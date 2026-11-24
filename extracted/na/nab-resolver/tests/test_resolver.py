@@ -3,9 +3,11 @@ and end-to-end resolution with a simple in-memory provider."""
 
 from __future__ import annotations
 
+import pickle
 import sys
 from collections import UserDict, defaultdict
 from collections.abc import ItemsView, Mapping
+from copy import deepcopy
 from typing import Any, ClassVar
 
 import pytest
@@ -13,6 +15,7 @@ import pytest
 from nab_resolver import incompat_index, propagate
 from nab_resolver._compat import override
 from nab_resolver.conflict import (
+    _prior_cause,
     apply_targeted_backtrack,
     conflict_resolution,
     find_most_recent_satisfier,
@@ -23,15 +26,12 @@ from nab_resolver.conflict import (
     update_culprit_counts,
 )
 from nab_resolver.errors import (
+    ResolutionInvariantError,
     ResolutionLimitError,
     ResolutionStalledError,
     ResolutionTerminatedError,
 )
-from nab_resolver.incompat_index import (
-    add_incompatibility,
-    dependency_merge_key,
-    maybe_merge_dependency,
-)
+from nab_resolver.incompat_index import add_incompatibility
 from nab_resolver.partial_solution import Assignment, PartialSolution
 from nab_resolver.propagate import classify_relation, term_relation
 from nab_resolver.ranges import Range
@@ -39,8 +39,6 @@ from nab_resolver.report import (
     explain_incompatibility,
     format_error,
     format_term,
-    prior_cause,
-    union_terms,
 )
 from nab_resolver.resolver import (
     DEFAULT_MAX_ITERATIONS,
@@ -61,75 +59,7 @@ from nab_resolver.types import (
     Term,
 )
 
-
-class DictProvider:
-    """In-memory provider for testing. Packages are strings, versions are ints."""
-
-    def __init__(self, packages: dict[str, dict[int, dict[str, Range]]]) -> None:
-        self._packages = packages
-
-    def _get_versions(self, package: str) -> list[int]:
-        if package not in self._packages:
-            return []
-        return sorted(self._packages[package].keys(), reverse=True)
-
-    def choose_version(
-        self, package: str, version_range: RangeProtocol[int]
-    ) -> int | None:
-        for version in self._get_versions(package):
-            if version in version_range:
-                return version
-        return None
-
-    def has_satisfying_version(
-        self, package: str, version_range: RangeProtocol[int]
-    ) -> bool:
-        return any(v in version_range for v in self._get_versions(package))
-
-    def get_dependencies(self, package: str, version: int) -> dict[str, Range]:
-        return self._packages.get(package, {}).get(version, {})
-
-    def begin_decision_scan(self) -> None:
-        """No-op: nothing in this stub moves under a scan."""
-
-    def prioritize(
-        self,
-        package: str,
-        version_range: RangeProtocol[int],
-        conflict_counts: Mapping[str, int],
-        culprit_counts: Mapping[str, int] | None = None,
-    ) -> object:
-        versions = self._get_versions(package)
-        return sum(1 for v in versions if v in version_range)
-
-    def is_ready(self, package: str) -> bool:
-        """All packages decidable immediately in tests."""
-        return True
-
-    def receive_partial_solution_hint(
-        self,
-        positive_ranges: Mapping[str, RangeProtocol[int]],
-        decisions: Mapping[str, int],
-    ) -> None:
-        """No-op: test provider does not use partial solution state."""
-
-    def consume_pending_clauses(self) -> list[Incompatibility[str, int]]:
-        """No queued clauses for this in-memory provider."""
-        return []
-
-    def consume_force_backtrack_targets(self) -> list[str]:
-        """No force-backtrack signal from this provider."""
-        return []
-
-    def widen_decision(self, package: str, version: int) -> RangeProtocol[int] | None:
-        """No widening: dependency clauses keep the exact decided version."""
-        return None
-
-    def narrow_for_display(
-        self, package: str, constraint: RangeProtocol[int]
-    ) -> RangeProtocol[int]:
-        """Identity: constraints render as stored."""
-        return constraint
+from .solver_fixtures import DictProvider, is_proven_conflict
 
 
 class PromotingProvider(DictProvider):
@@ -156,26 +86,34 @@ class PromotingProvider(DictProvider):
 
 
 class _PendingClauseProvider(DictProvider):
-    """DictProvider that pushes a pre-canned incompatibility on every
-    ``choose_version`` call by populating a queue drained via
-    ``consume_pending_clauses``."""
+    """Publish a fixed set of clauses when a particular package is queried."""
 
     def __init__(
         self,
         packages: dict[str, dict[int, dict[str, Range]]],
         clauses: list[Incompatibility[str, int]],
+        *,
+        discover_on: str | None = None,
     ) -> None:
         super().__init__(packages)
-        self._queued = list(clauses)
-        self._fired = False
+        self._queued = clauses
+        self._discover_on = discover_on
+
+    @override
+    def choose_version(
+        self, package: str, version_range: RangeProtocol[int]
+    ) -> int | None:
+        if package == self._discover_on:
+            self._discover_on = None
+        return super().choose_version(package, version_range)
 
     @override
     def consume_pending_clauses(self) -> list[Incompatibility[str, int]]:
-        """Return the queued clauses once, then nothing."""
-        if self._fired:
+        """Deliver the clauses once, after discovery."""
+        if self._discover_on is not None:
             return []
-        self._fired = True
-        return self._queued
+        queued, self._queued = self._queued, []
+        return queued
 
 
 class _NoCandidateProvider(DictProvider):
@@ -240,6 +178,35 @@ class TestPendingClausesHook:
         result = resolver.resolve({"root": Range.singleton(1)})
         assert result == {"root": 1, "foo": 1}
 
+    def test_clauses_about_earlier_choices_survive_backjump(self) -> None:
+        packages = {name: {1: {}, 2: {}} for name in ("a", "b", "c", "d", "last")}
+        # The conflict on c and d backjumps past the last decision but leaves
+        # a and b pinned. The other newly discovered clause still needs a check.
+        clauses: list[Incompatibility[str, int]] = [
+            Incompatibility(
+                [Term(left, Range.singleton(2)), Term(right, Range.singleton(2))],
+                cause=IncompatibilityCause.DEPENDENCY,
+            )
+            for left, right in (("c", "d"), ("a", "b"))
+        ]
+        provider = _PendingClauseProvider(packages, clauses, discover_on="last")
+        pins = Resolver(provider).resolve(dict.fromkeys(packages, Range.full()))
+
+        assert pins.keys() == packages.keys()
+        assert (pins["a"], pins["b"]) != (2, 2)
+        assert (pins["c"], pins["d"]) != (2, 2)
+
+    def test_empty_provider_clause_proves_a_conflict(self) -> None:
+        clause: Incompatibility[str, int] = Incompatibility(
+            [], cause=IncompatibilityCause.ROOT
+        )
+        provider = _PendingClauseProvider({"a": {1: {}}}, [clause])
+
+        with pytest.raises(ResolutionError) as caught:
+            Resolver(provider).solve({"a": Range.full()})
+
+        assert caught.value.incompatibility is clause
+
     def test_pending_clauses_replace_no_versions(self) -> None:
         """When choose_version returns None but pending clauses are queued,
         the resolver skips the default NO_VERSIONS clause and uses the
@@ -266,7 +233,7 @@ class TestPendingClausesHook:
         resolver = Resolver(provider)
         # Resolution fails because foo==2 can't be picked, but the failure
         # path goes through the queued clause rather than NO_VERSIONS.
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve({"root": Range.singleton(1)})
 
 
@@ -354,7 +321,7 @@ class TestConflictLearning:
             }
         )
         resolver = Resolver(provider)
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve({"root": Range.singleton(1)})
 
     def test_direct_conflict(self) -> None:
@@ -366,7 +333,7 @@ class TestConflictLearning:
             }
         )
         resolver = Resolver(provider)
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve(
                 {
                     "root": Range.singleton(1),
@@ -418,7 +385,7 @@ class TestMultiLevelConflict:
             }
         )
         resolver = Resolver(provider)
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve({"root": Range.singleton(1)})
 
 
@@ -505,7 +472,7 @@ class TestThreeWayConflict:
             }
         )
         resolver = Resolver(provider)
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve({"root": Range.singleton(1)})
 
 
@@ -532,7 +499,7 @@ class TestCircularDependencies:
             }
         )
         resolver = Resolver(provider)
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve({"root": Range.singleton(1)})
 
 
@@ -799,7 +766,7 @@ def stalled_solution(
     ``app``'s only assignment is a derivation whose cause is the clause under
     resolution and whose accumulated range is empty.  An empty range satisfies
     both polarities, so the clause is satisfied by the derivation it caused:
-    the loop resolves the clause with itself, :func:`prior_cause` returns the
+    the loop resolves the clause with itself, :func:`_prior_cause` returns the
     same term every time, and no trail depth is consumed.  ``padding``
     lengthens the trail without disturbing that fixed point.
     """
@@ -931,69 +898,7 @@ class TestObserver:
 class TestResolverInternals:
     """Unit tests for internal helper functions."""
 
-    def testunion_terms_both_positive(self) -> None:
-        a = Term("foo", Range.between(1, 3), positive=True)
-        b = Term("foo", Range.between(5, 7), positive=True)
-        result = union_terms(a, b)
-        assert result is not None
-        assert result.is_positive()
-        assert 2 in result.constraint
-        assert 6 in result.constraint
-
-    def testunion_terms_both_negative_universal(self) -> None:
-        """not({2}) union not({3}) = not({2} & {3}) = not(empty) = universal."""
-        a = Term("foo", Range.singleton(2), positive=False)
-        b = Term("foo", Range.singleton(3), positive=False)
-        result = union_terms(a, b)
-        assert result is None  # universal, every version is not-2 or not-3
-
-    def testunion_terms_both_negative_non_universal(self) -> None:
-        """not([1,3)) union not([2,5)) = not([2,3)) (the intersection)."""
-        a = Term("foo", Range.between(1, 3), positive=False)
-        b = Term("foo", Range.between(2, 5), positive=False)
-        result = union_terms(a, b)
-        assert result is not None
-        assert not result.is_positive()
-        # [1,3) & [2,5) = [2,3), so the result is not([2,3))
-        assert 2 in result.constraint
-        assert 1 not in result.constraint
-
-    def testunion_terms_positive_full_range_is_kept(self) -> None:
-        """A full-range positive union is not a tautology.
-
-        It still requires the package to be selected, so dropping it
-        from a resolvent would make the clause fire for solutions that
-        omit the package entirely.
-        """
-        a = Term("foo", Range.full(), positive=True)
-        b = Term("foo", Range.singleton(1), positive=True)
-        result = union_terms(a, b)
-        assert result is not None
-        assert result.is_positive()
-        assert (~result.constraint).is_empty
-
-    def testunion_terms_negative_empty_intersection_returns_none(self) -> None:
-        """Negative union where intersection is empty is universal."""
-        a = Term("foo", Range.less_than(3), positive=False)
-        b = Term("foo", Range.at_least(3), positive=False)
-        assert union_terms(a, b) is None
-
-    def testunion_terms_mixed_polarity(self) -> None:
-        """Positive union negative produces a negative remainder."""
-        a = Term("foo", Range.at_least(3), positive=True)
-        b = Term("foo", Range.at_least(2), positive=False)
-        result = union_terms(a, b)
-        # pos([3,+inf)) union neg([2,+inf)) = all versions >= 3 OR not >= 2
-        # = all versions >= 3 OR < 2 = everything except [2,3)
-        # As negative: not([2,3))
-        assert result is not None
-        assert (
-            1 in ~result.constraint
-            if result.is_positive()
-            else 1 not in result.constraint
-        )
-
-    def testprior_cause_basic(self) -> None:
+    def test_prior_cause_basic(self) -> None:
         """Resolve two incompatibilities sharing package bar."""
         inc1 = Incompatibility(
             [Term("foo", Range.singleton(2)), Term("bar", Range.singleton(1))],
@@ -1003,12 +908,12 @@ class TestResolverInternals:
             [Term("bar", Range.singleton(1)), Term("baz", Range.singleton(3))],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "bar")
+        result = _prior_cause(inc1, inc2, "bar")
         packages = {t.package for t in result}
         assert "foo" in packages
         assert "baz" in packages
 
-    def testprior_cause_shared_package_union_drops_tautology(self) -> None:
+    def test_prior_cause_shared_package_union_drops_tautology(self) -> None:
         """When the shared package's terms union to a tautology, it's dropped.
 
         Mixed polarity over the same range is the classic case: the
@@ -1027,14 +932,14 @@ class TestResolverInternals:
             ],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "bar")
+        result = _prior_cause(inc1, inc2, "bar")
         packages = {t.package for t in result}
         # The bar terms union to a tautology, so bar is dropped.
         assert "bar" not in packages
         assert "foo" in packages
         assert "baz" in packages
 
-    def testprior_cause_shared_package_kept_when_not_universal(self) -> None:
+    def test_prior_cause_shared_package_kept_when_not_universal(self) -> None:
         """Shared package kept when its union is not universal."""
         inc1 = Incompatibility(
             [Term("foo", Range.singleton(1)), Term("shared", Range.singleton(2))],
@@ -1044,14 +949,14 @@ class TestResolverInternals:
             [Term("shared", Range.singleton(3)), Term("baz", Range.singleton(4))],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "shared")
+        result = _prior_cause(inc1, inc2, "shared")
         packages = {t.package for t in result}
         # shared's union is {2}|{3} which is not universal, so kept
         assert "shared" in packages
         assert "foo" in packages
         assert "baz" in packages
 
-    def testprior_cause_other_packages_intersected(self) -> None:
+    def test_prior_cause_other_packages_intersected(self) -> None:
         """Terms for the same non-shared package get intersected."""
         inc1 = Incompatibility(
             [Term("shared", Range.singleton(1)), Term("foo", Range.at_least(2))],
@@ -1061,7 +966,7 @@ class TestResolverInternals:
             [Term("shared", Range.singleton(1)), Term("foo", Range.less_than(5))],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "shared")
+        result = _prior_cause(inc1, inc2, "shared")
         foo_terms = [t for t in result if t.package == "foo"]
         assert len(foo_terms) == 1
         assert 3 in foo_terms[0].constraint
@@ -1158,7 +1063,7 @@ class TestResolverInternals:
         x_mentions = [line for line in lines if "x" in line]
         assert len(x_mentions) == 1
 
-    def testprior_cause_shared_only_in_incompatibility(self) -> None:
+    def test_prior_cause_shared_only_in_incompatibility(self) -> None:
         """Shared package only appears in the first incompatibility."""
         inc1 = Incompatibility(
             [Term("shared", Range.singleton(1)), Term("foo", Range.singleton(2))],
@@ -1168,13 +1073,13 @@ class TestResolverInternals:
             [Term("baz", Range.singleton(3))],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "shared")
+        result = _prior_cause(inc1, inc2, "shared")
         packages = {t.package for t in result}
         assert "shared" in packages
         assert "foo" in packages
         assert "baz" in packages
 
-    def testprior_cause_shared_only_in_cause(self) -> None:
+    def test_prior_cause_shared_only_in_cause(self) -> None:
         """Shared package only appears in the second incompatibility."""
         inc1 = Incompatibility(
             [Term("foo", Range.singleton(2))],
@@ -1184,13 +1089,13 @@ class TestResolverInternals:
             [Term("shared", Range.singleton(1)), Term("baz", Range.singleton(3))],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "shared")
+        result = _prior_cause(inc1, inc2, "shared")
         packages = {t.package for t in result}
         assert "shared" in packages
         assert "foo" in packages
         assert "baz" in packages
 
-    def testprior_cause_non_shared_only_in_cause(self) -> None:
+    def test_prior_cause_non_shared_only_in_cause(self) -> None:
         """Non-shared package appears only in the cause side."""
         inc1 = Incompatibility(
             [Term("shared", Range.singleton(1))],
@@ -1203,11 +1108,11 @@ class TestResolverInternals:
             ],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "shared")
+        result = _prior_cause(inc1, inc2, "shared")
         packages = {t.package for t in result}
         assert "only_cause" in packages
 
-    def testprior_cause_other_package_intersection_empty(self) -> None:
+    def test_prior_cause_other_package_intersection_empty(self) -> None:
         """Non-shared terms that intersect to empty are dropped."""
         inc1 = Incompatibility(
             [Term("shared", Range.singleton(1)), Term("foo", Range.at_least(5))],
@@ -1217,7 +1122,7 @@ class TestResolverInternals:
             [Term("shared", Range.singleton(2)), Term("foo", Range.less_than(3))],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "shared")
+        result = _prior_cause(inc1, inc2, "shared")
         # foo terms: at_least(5) intersect less_than(3) = empty.
         # But Term.intersect returns a Term with empty constraint,
         # which is still appended. Check: both are positive, so
@@ -1228,7 +1133,7 @@ class TestResolverInternals:
         assert len(foo_terms) == 1
         assert foo_terms[0].constraint.is_empty
 
-    def testprior_cause_shared_in_neither(self) -> None:
+    def test_prior_cause_shared_in_neither(self) -> None:
         """Shared package appears in neither incompatibility."""
         inc1 = Incompatibility(
             [Term("foo", Range.singleton(1))],
@@ -1238,24 +1143,11 @@ class TestResolverInternals:
             [Term("bar", Range.singleton(2))],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        result = prior_cause(inc1, inc2, "missing")
+        result = _prior_cause(inc1, inc2, "missing")
         packages = {t.package for t in result}
         assert "foo" in packages
         assert "bar" in packages
         assert "missing" not in packages
-
-    def testunion_terms_mixed_returns_negative(self) -> None:
-        """Mixed polarity union that produces a negative term."""
-        # pos([3,5)) union neg([2,6)) = all versions in [3,5) OR not in [2,6)
-        # = everything except [2,3) and [5,6)
-        # As negative: not([2,3) | [5,6))
-        a = Term("foo", Range.between(3, 5), positive=True)
-        b = Term("foo", Range.between(2, 6), positive=False)
-        result = union_terms(a, b)
-        assert result is not None
-        # The remainder is neg.constraint & ~pos.constraint = [2,6) & ~[3,5)
-        # = [2,3) | [5,6), which is non-empty, so we get a negative term
-        assert not result.is_positive()
 
     def test_empty_incompatibility_is_terminal(self) -> None:
         """An incompatibility with no terms is terminal (always false)."""
@@ -1278,8 +1170,35 @@ class TestResolverInternals:
         )
         resolver = Resolver(DictProvider({}))
         resolver.solution = solution
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             conflict_resolution(resolver, conflict)
+
+    @pytest.mark.parametrize("terms", [[], [Term("absent", Range.singleton(1))]])
+    def test_missing_satisfier_reports_the_conflict(
+        self, terms: list[Term[str, int]]
+    ) -> None:
+        resolver = Resolver(DictProvider({}))
+        conflict = Incompatibility(terms, cause=IncompatibilityCause.DERIVED)
+        with pytest.raises(ResolutionInvariantError) as caught:
+            find_most_recent_satisfier(resolver.solution, conflict)
+        assert caught.value.incompatibility is conflict
+
+    def test_missing_derivation_cause_reports_the_trail_entry(self) -> None:
+        resolver = Resolver(DictProvider({}))
+        resolver.solution.decide("root", 1)
+        conflict = Incompatibility[str, int](
+            [Term("app", Range.singleton(1))], cause=IncompatibilityCause.DERIVED
+        )
+        resolver.solution.derive(
+            "app", Range.singleton(1), positive=True, cause=conflict
+        )
+        resolver.solution.assignments_for("app")[0].cause = None
+
+        with pytest.raises(
+            ResolutionInvariantError, match="derivation cause for 'app'"
+        ) as caught:
+            conflict_resolution(resolver, conflict)
+        assert caught.value.incompatibility is conflict
 
     def test_terminal_clause_raises_before_the_satisfier_search(self) -> None:
         """A clause holding only ROOT terms ends conflict resolution.
@@ -1304,7 +1223,7 @@ class TestResolverInternals:
         assignment = satisfier.assignments_for("x")[0]
         # Decisions have cause=None, so recompute should return as-is.
         term = Term("x", Range.singleton(1))
-        result = recompute_previous_level(resolver, assignment, term, 5)
+        result = recompute_previous_level(resolver.solution, assignment, term, 5)
         assert result == 5
 
     def test_recompute_previous_level_no_matching_cause_term(self) -> None:
@@ -1320,7 +1239,7 @@ class TestResolverInternals:
         solution.derive("x", Range.at_least(1), positive=True, cause=cause)
         assignment = solution.assignments_for("x")[0]
         term = Term("x", Range.at_least(1))
-        result = recompute_previous_level(resolver, assignment, term, 3)
+        result = recompute_previous_level(resolver.solution, assignment, term, 3)
         assert result == 3
 
     def test_recompute_previous_level_no_difference_satisfier(self) -> None:
@@ -1342,7 +1261,7 @@ class TestResolverInternals:
         term = Term("x", Range.between(1, 5))
         assignment = solution.assignments_for("x")[-1]
         resolver.solution = solution
-        result = recompute_previous_level(resolver, assignment, term, 7)
+        result = recompute_previous_level(resolver.solution, assignment, term, 7)
         assert result == 7
 
     def test_recompute_previous_level_partial_positive_satisfier(self) -> None:
@@ -1371,7 +1290,7 @@ class TestResolverInternals:
         resolver.solution = solution
         # The satisfier's own [3,9) leaves [7,9) outside the term; the
         # level-1 derivation [1,6) is what excludes it.
-        result = recompute_previous_level(resolver, assignment, term, 0)
+        result = recompute_previous_level(resolver.solution, assignment, term, 0)
         assert result == 1
 
     def test_recompute_previous_level_partial_negative_satisfier(self) -> None:
@@ -1398,7 +1317,7 @@ class TestResolverInternals:
         term = Term("x", Range.between(1, 5))
         assignment = solution.assignments_for("x")[-1]
         resolver.solution = solution
-        result = recompute_previous_level(resolver, assignment, term, 0)
+        result = recompute_previous_level(resolver.solution, assignment, term, 0)
         assert result == 1
 
     def test_recompute_previous_level_sole_satisfier(self) -> None:
@@ -1422,7 +1341,7 @@ class TestResolverInternals:
         term = Term("x", Range.between(2, 6))
         assignment = solution.assignments_for("x")[-1]
         resolver.solution = solution
-        result = recompute_previous_level(resolver, assignment, term, 0)
+        result = recompute_previous_level(resolver.solution, assignment, term, 0)
         assert result == 0
 
     def test_previous_level_includes_partial_satisfier_contribution(self) -> None:
@@ -1459,7 +1378,9 @@ class TestResolverInternals:
             [Term("r", Range.singleton(1)), Term("x", Range.between(3, 7))],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        satisfier, term, previous_level = find_most_recent_satisfier(resolver, conflict)
+        satisfier, term, previous_level = find_most_recent_satisfier(
+            resolver.solution, conflict
+        )
         assert satisfier.decision_level == 3
         assert term.package == "x"
         assert previous_level == 2
@@ -1553,7 +1474,7 @@ class TestBackjumpToRoot:
         must detect this and raise ResolutionError.
         """
         provider = DictProvider({"root": {1: {"foo": Range.full()}}, "foo": {}})
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             Resolver(provider).resolve({"root": Range.singleton(1)})
 
     def test_decision_satisfier_backjump_adjustment(self) -> None:
@@ -1577,7 +1498,7 @@ class TestBackjumpToRoot:
                 "c": {2: {}, 1: {}},
             }
         )
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             Resolver(provider).resolve({"root": Range.singleton(1)})
 
     def test_terminal_clause_reports_the_whole_derivation(self) -> None:
@@ -1990,7 +1911,7 @@ class TestDependencyMerge:
         resolver._reset(None)
         return resolver
 
-    def test_merge_key_skips_non_dependency_cause(self) -> None:
+    def test_non_dependency_clause_is_stored_without_a_merge_key(self) -> None:
         """A non-DEPENDENCY clause is never mergeable."""
         inc = Incompatibility(
             [
@@ -1999,7 +1920,10 @@ class TestDependencyMerge:
             ],
             cause=IncompatibilityCause.NO_VERSIONS,
         )
-        assert dependency_merge_key(inc) is None
+        resolver = self._resolver()
+        add_incompatibility(resolver, inc)
+        assert resolver.incompatibilities == [inc]
+        assert resolver.dependency_index == {}
 
     def test_merge_key_skips_negative_first_term(self) -> None:
         """A dependency clause whose first term is negative is unmergeable.
@@ -2016,10 +1940,9 @@ class TestDependencyMerge:
             ],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        assert dependency_merge_key(inc) is None
-        # ``maybe_merge_dependency`` short-circuits on the same key
-        # check, so an unmergeable clause never invokes the merge path.
-        assert not maybe_merge_dependency(r, inc)
+        add_incompatibility(r, inc)
+        assert r.incompatibilities == [inc]
+        assert r.dependency_index == {}
 
     def test_merge_unions_package_ranges(self) -> None:
         """Two clauses with the same dep term merge into one."""
@@ -2081,6 +2004,17 @@ class TestErrorMessages:
         with pytest.raises(ResolutionError) as exc_info:
             resolver.resolve({"root": Range.singleton(1)})
         assert exc_info.value.incompatibility is not None
+
+    def test_copied_proof_keeps_the_failure_report(self) -> None:
+        resolver = Resolver(DictProvider({}))
+        with pytest.raises(ResolutionError) as raised:
+            resolver.resolve({"missing": Range.full()})
+
+        proof = raised.value.incompatibility
+        assert proof is not None
+        expected = format_error(proof)
+        assert format_error(deepcopy(proof)) == expected
+        assert format_error(pickle.loads(pickle.dumps(proof))) == expected  # noqa: S301
 
     def test_error_message_contains_derived_explanation(self) -> None:
         """Error message traces through derived incompatibilities."""
@@ -2332,6 +2266,15 @@ class TestFormatRangeHook:
             == "because a SHOWN depends on b SHOWN"
         )
 
+    def test_constraint_line_requires_the_user_range(self) -> None:
+        incomplete = Incompatibility(
+            [Term("example", Range.at_least(1))], cause=IncompatibilityCause.CONSTRAINT
+        )
+        with pytest.raises(
+            ValueError, match="constraint for 'example'.*declared range"
+        ):
+            format_error(incomplete)
+
     def test_hook_renders_the_user_constraint_line(self) -> None:
         constrained = Incompatibility(
             [Term("a", Range.at_least(1), positive=True)],
@@ -2559,14 +2502,15 @@ class TestRootRequirements:
         """The caller's opaque origin is readable off the clause it produced."""
         provider = DictProvider({"pkg": {1: {}}})
         resolver = Resolver(provider)
-        resolver.resolve([RootRequirement("pkg", Range.full(), "pkg>=1 (line 3)")])
+        origin = {"requirement": "pkg>=1", "line": 3}
+        resolver.resolve([RootRequirement("pkg", Range.full(), origin)])
 
-        origins = [
+        (recorded,) = [
             incompatibility.origin
             for incompatibility in resolver.incompatibilities
             if incompatibility.cause is IncompatibilityCause.ROOT
         ]
-        assert origins == ["pkg>=1 (line 3)"]
+        assert recorded is origin
 
     def test_mapping_form_leaves_the_origin_unset(self) -> None:
         """A mapping caller keeps working and sets no origin."""
@@ -2972,7 +2916,7 @@ class TestRegressions:
             }
         )
         resolver = Resolver(provider)
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve({"root": Range.singleton(1)})
 
 
@@ -3010,7 +2954,7 @@ class TestHashOrderIndependence:
             [Term(p, Range.singleton(1)) for p in [shared, *packages[4:]]],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        terms = prior_cause(incompatibility, cause, shared)
+        terms = _prior_cause(incompatibility, cause, shared)
         return [term.package.name for term in terms]
 
     def test_prior_cause_term_order_ignores_package_hashes(self) -> None:
@@ -3397,7 +3341,7 @@ class TestSettledClauseSkip:
         auditor = StampAuditor(resolver)
         resolver.observer = auditor
 
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve({"a": Range.full()})
 
         assert auditor.stale == []
@@ -3413,11 +3357,11 @@ class TestSettledClauseSkip:
         setup_cause = Incompatibility(
             [Term("p", Range.at_least(5))], cause=IncompatibilityCause.NO_VERSIONS
         )
-        stamped = Incompatibility(
+        stamped: Incompatibility[str, int] = Incompatibility(
             [Term("x", Range.singleton(1)), Term("p", Range.at_least(10))],
             cause=IncompatibilityCause.DERIVED,
         )
-        empties_p = Incompatibility(
+        empties_p: Incompatibility[str, int] = Incompatibility(
             [Term("x", Range.singleton(1)), Term("p", Range.less_than(5))],
             cause=IncompatibilityCause.DERIVED,
         )
@@ -3451,7 +3395,7 @@ class TestSettledClauseSkip:
         resolver = Resolver(provider)
         assert resolver.resolve({"a": Range.full()}) == {"a": 2, "b": 2}
 
-        with pytest.raises(ResolutionError):
+        with pytest.raises(ResolutionError, check=is_proven_conflict):
             resolver.resolve({"c": Range.full()})
 
         assert len(resolver.clause_contradicted_at) == len(resolver.incompatibilities)
@@ -3483,7 +3427,7 @@ class TestResolverStats:
         stats.package_conflict_counts["a"] += 1
         assert other.package_conflict_counts == {}
 
-    def test_counters_can_be_supplied(self) -> None:
+    def test_pattern_matching_reads_the_supplied_counters_positionally(self) -> None:
         stats: ResolverStats[str] = ResolverStats(
             1,
             2,
@@ -3502,6 +3446,13 @@ class TestResolverStats:
         assert (stats.targeted_backtracks, stats.incompatibilities_learned) == (7, 8)
         assert stats.package_conflict_counts == {"a": 1}
         assert stats.package_culprit_counts == {"b": 2}
+
+        match stats:
+            case ResolverStats(1, 2, 3, 4, 5, 6, 7, 8, conflicts, culprits):
+                assert conflicts == {"a": 1}
+                assert culprits == {"b": 2}
+            case _:
+                pytest.fail("ResolverStats did not match positionally")
 
     def test_equality_covers_every_counter_and_declines_other_types(self) -> None:
         """Vary one counter at a time, so none can drop out of __eq__."""
@@ -3538,28 +3489,6 @@ class TestResolverStats:
 
         with pytest.raises(AttributeError):
             _ = stats.__dict__
-
-    def test_pattern_matching_reads_every_counter_positionally(self) -> None:
-        """Ten sub-patterns, in declaration order rather than slot order."""
-        stats: ResolverStats[str] = ResolverStats(rounds=2, conflicts=5)
-
-        match stats:
-            case ResolverStats(
-                rounds,
-                decisions,
-                conflicts,
-                derivations,
-                backjumps,
-                restarts,
-                targeted_backtracks,
-                learned,
-                conflict_counts,
-                culprit_counts,
-            ):
-                assert (rounds, decisions, conflicts) == (2, 0, 5)
-                assert (derivations, backjumps, restarts) == (0, 0, 0)
-                assert (targeted_backtracks, learned) == (0, 0)
-                assert (conflict_counts, culprit_counts) == ({}, {})
 
     def test_repr_names_the_class_and_every_counter(self) -> None:
         assert repr(ResolverStats(rounds=2)) == (

@@ -7,6 +7,7 @@ import pytest
 
 pytest.importorskip("playwright")
 
+from bokeh.models import SizeBar
 from bokeh.plotting import figure
 from playwright.sync_api import expect
 
@@ -15,12 +16,13 @@ from panel.custom import (
     AnyWidgetComponent, Child, Children, JSComponent, ReactComponent,
 )
 from panel.io.compile import compile_components
+from panel.io.document import hold
 from panel.layout import Column, Row
 from panel.layout.base import ListLike
 from panel.pane import Bokeh, Markdown
 from panel.tests.util import serve_component, wait_until
 
-pytestmark = pytest.mark.ui
+pytestmark = [pytest.mark.ui, pytest.mark.usefixtures('cache_remote_requests')]
 
 INIT = "A Markdown pane!"
 ALT = "A different Markdown pane!"
@@ -114,6 +116,468 @@ def test_update(page, component):
     example.text = "Foo!"
 
     expect(page.locator('h1')).to_have_text('Foo!')
+
+
+# The sizes of the element a component renders into and of its host.
+SIZES = """
+(el) => {
+  while (!(el.parentNode instanceof ShadowRoot)) {
+    el = el.parentElement
+  }
+  const container = el.getBoundingClientRect()
+  const host = el.getRootNode().host.getBoundingClientRect()
+  return {width: container.width, height: container.height, host_width: host.width}
+}
+"""
+
+
+def _sizes(page):
+    return page.locator('h1').evaluate(SIZES)
+
+
+@pytest.mark.parametrize('component', [JSUpdate, ReactUpdate, AnyWidgetUpdate])
+def test_resize_updates_container(page, component):
+    example = component(text='Hello World!', width=100)
+
+    serve_component(page, example)
+
+    expect(page.locator('h1')).to_have_text('Hello World!')
+    wait_until(lambda: _sizes(page)['width'] == 100, page)
+
+    example.width = 300
+
+    wait_until(lambda: _sizes(page)['width'] == 300, page)
+
+
+@pytest.mark.parametrize('component', [JSUpdate, ReactUpdate, AnyWidgetUpdate])
+def test_resize_updates_container_height(page, component):
+    example = component(text='Hello World!', width=200, height=50)
+
+    serve_component(page, example)
+
+    expect(page.locator('h1')).to_have_text('Hello World!')
+    wait_until(lambda: _sizes(page)['height'] == 50, page)
+
+    example.height = 150
+
+    wait_until(lambda: _sizes(page)['height'] == 150, page)
+
+
+@pytest.mark.parametrize('component', [JSUpdate, ReactUpdate, AnyWidgetUpdate])
+def test_resize_clears_unset_max_width(page, component):
+    example = component(text='Hello World!', sizing_mode='stretch_width')
+
+    serve_component(page, Column(example, width=600))
+
+    expect(page.locator('h1')).to_have_text('Hello World!')
+    wait_until(lambda: _sizes(page)['width'] == 600, page)
+
+    example.max_width = 250
+
+    wait_until(lambda: _sizes(page)['width'] == 250, page)
+
+    example.max_width = None
+
+    wait_until(lambda: _sizes(page)['width'] == 600, page)
+
+
+@pytest.mark.parametrize('component', [JSUpdate, ReactUpdate, AnyWidgetUpdate])
+def test_resize_min_width_resizes_host_and_container(page, component):
+    example = component(text='Hello World!', sizing_mode='stretch_width')
+
+    serve_component(page, Column(example, width=600))
+
+    expect(page.locator('h1')).to_have_text('Hello World!')
+    wait_until(lambda: _sizes(page)['width'] == 600, page)
+
+    example.min_width = 700
+
+    wait_until(lambda: (sizes := _sizes(page))['width'] == sizes['host_width'] == 700, page)
+
+    example.min_width = None
+
+    wait_until(lambda: (sizes := _sizes(page))['width'] == sizes['host_width'] == 600, page)
+
+
+class ReactToggle(ReactComponent):
+
+    child = Child()
+
+    mounted = param.Boolean(default=False)
+
+    text = param.String()
+
+    _esm = """
+    export function render({ model }) {
+      const [mounted] = model.useState("mounted")
+      const [text] = model.useState("text")
+      const child = model.get_child("child")
+      return <div><h2>{text}</h2>{mounted ? child : null}</div>
+    }
+    """
+
+
+def test_resize_unmounted_child_does_not_abort_patch(page):
+    child = ReactUpdate(text='Child', width=100)
+    parent = ReactToggle(child=child, text='Before')
+
+    serve_component(page, parent)
+
+    expect(page.locator('h2')).to_have_text('Before')
+    expect(page.locator('h1')).to_have_count(0)
+
+    # One patch, in which the size change reaches the child's view before it rendered
+    doc = next(iter(parent._documents))
+
+    def update():
+        with hold(doc):
+            child.width = 200
+            parent.text = 'After'
+
+    doc.add_next_tick_callback(update)
+
+    expect(page.locator('h2')).to_have_text('After')
+
+    parent.mounted = True
+
+    expect(page.locator('h1')).to_have_text('Child')
+    wait_until(lambda: _sizes(page)['width'] == 200, page)
+
+
+def test_resize_unmounted_no_shadow_dom_child_does_not_abort_patch(page):
+    child = ReactUpdate(text='Child', width=100, use_shadow_dom=False)
+    parent = ReactToggle(child=child, text='Before')
+
+    serve_component(page, parent)
+
+    expect(page.locator('h2')).to_have_text('Before')
+
+    doc = next(iter(parent._documents))
+
+    def update():
+        with hold(doc):
+            child.width = 200
+            parent.text = 'After'
+
+    doc.add_next_tick_callback(update)
+
+    expect(page.locator('h2')).to_have_text('After')
+
+    parent.mounted = True
+
+    expect(page.locator('h1')).to_have_text('Child')
+    wait_until(lambda: page.locator('h1').evaluate(
+        "(el) => el.parentElement.getBoundingClientRect().width"
+    ) == 200, page)
+
+
+def test_resize_unmounted_markdown_child_does_not_abort_patch(page):
+    child = Markdown('Child', width=100)
+    parent = ReactToggle(child=child, text='Before')
+
+    serve_component(page, parent)
+
+    expect(page.locator('h2')).to_have_text('Before')
+
+    doc = next(iter(parent._documents))
+
+    def update():
+        with hold(doc):
+            child.width = 200
+            parent.text = 'After'
+
+    doc.add_next_tick_callback(update)
+
+    expect(page.locator('h2')).to_have_text('After')
+
+    parent.mounted = True
+
+    expect(page.locator('.markdown')).to_have_text('Child')
+    wait_until(lambda: page.locator('.markdown').evaluate(
+        "(el) => el.getBoundingClientRect().width"
+    ) == 200, page)
+
+
+def test_restyle_unmounted_plotly_child_does_not_abort_patch(page):
+    go = pytest.importorskip('plotly.graph_objs')
+    from panel.pane import Plotly
+
+    fig = go.Figure([go.Scatter(x=[0, 1, 2], y=[1, 2, 3])])
+    parent = ReactToggle(child=Plotly(fig), text='Before')
+
+    serve_component(page, parent)
+
+    expect(page.locator('h2')).to_have_text('Before')
+
+    doc = next(iter(parent._documents))
+
+    def update():
+        with hold(doc):
+            fig.data[0].marker.color = 'red'
+            fig.layout.title = 'Relayout'
+            parent.text = 'After'
+
+    doc.add_next_tick_callback(update)
+
+    expect(page.locator('h2')).to_have_text('After')
+
+    parent.mounted = True
+
+    expect(page.locator('.js-plotly-plot')).to_have_count(1)
+    expect(page.locator('.js-plotly-plot .gtitle')).to_have_text('Relayout')
+
+
+def test_react_use_state_update_before_effect_not_reverted(page):
+    class ReactSlowUpdate(ReactComponent):
+        text = param.String()
+
+        # A render over React's 5ms time slice makes the scheduler yield
+        # between the commit and the passive effects.
+        _esm = """
+        export function render({ model }) {
+          const [text, setText ] = model.useState("text")
+          if (text === "first") {
+            const end = performance.now() + 20
+            while (performance.now() < end) {}
+          }
+          return <h1>{text}</h1>
+        }
+        """
+
+
+    example = ReactSlowUpdate(text='initial')
+    values = []
+    example.param.watch(lambda e: values.append(e.new), 'text')
+
+    serve_component(page, example)
+
+    expect(page.locator('h1')).to_have_text('initial')
+
+    # The MutationObserver fires after React commits the DOM but before its
+    # passive effects run.
+    update_between_render_and_effect_js = """() => {
+        const data = [...Bokeh.documents[0]._all_models.values()].find(
+            (m) => m.data && 'text' in m.data.properties
+        ).data
+        function find(root) {
+            const h1 = root.querySelector('h1')
+            if (h1) return h1
+            for (const el of root.querySelectorAll('*')) {
+                const found = el.shadowRoot && find(el.shadowRoot)
+                if (found) return found
+            }
+            return null
+        }
+        const h1 = find(document)
+        return new Promise((resolve) => {
+            const observer = new MutationObserver(() => {
+                observer.disconnect()
+                data.setv({text: 'second'})
+                resolve()
+            })
+            observer.observe(h1, {childList: true, subtree: true, characterData: true})
+            data.setv({text: 'first'})
+        })
+    }"""
+    page.evaluate(update_between_render_and_effect_js)
+
+    expect(page.locator('h1')).to_have_text('second')
+    wait_until(lambda: example.text == 'second', page)
+    page.wait_for_timeout(200)
+    # Client changes may be coalesced, but none may follow the newest value.
+    assert values[values.index('second'):] == ['second']
+
+
+def test_react_use_state_model_change_before_subscription(page):
+    class ReactMountUpdate(ReactComponent):
+        text = param.String()
+
+        # A layout effect runs after the first commit but before the passive
+        # effects in which subscriptions are registered.
+        _esm = """
+        export function render({ model }) {
+          const [text] = model.useState("text")
+          React.useLayoutEffect(() => {
+            model.text = "changed"
+          }, [])
+          return <h1>{text}</h1>
+        }
+        """
+
+    example = ReactMountUpdate(text='initial')
+
+    serve_component(page, example)
+
+    expect(page.locator('h1')).to_have_text('changed')
+    wait_until(lambda: example.text == 'changed', page)
+
+
+def test_react_use_state_set_value(page):
+    class ReactSetValue(ReactComponent):
+        count = param.Integer(default=0)
+
+        _esm = """
+        export function render({ model }) {
+          const [count, setCount] = model.useState("count")
+          return (
+            <div>
+              <h1>{count}</h1>
+              <button id="set" onClick={() => setCount(10)}>set</button>
+              <button id="increment" onClick={() => { setCount(c => c + 1); setCount(c => c + 1) }}>+2</button>
+            </div>
+          )
+        }
+        """
+
+    example = ReactSetValue()
+
+    serve_component(page, example)
+
+    expect(page.locator('h1')).to_have_text('0')
+
+    page.locator('#set').click()
+    expect(page.locator('h1')).to_have_text('10')
+    wait_until(lambda: example.count == 10, page)
+
+    page.locator('#increment').click()
+    expect(page.locator('h1')).to_have_text('12')
+    wait_until(lambda: example.count == 12, page)
+
+
+def test_react_use_state_shared_property(page):
+    class ReactSharedState(ReactComponent):
+        count = param.Integer(default=0)
+
+        _esm = """
+        function Counter({ model, id }) {
+          const [count, setCount] = model.useState("count")
+          return <button id={id} onClick={() => setCount(c => c + 1)}>{count}</button>
+        }
+
+        export function render({ model }) {
+          return <div><Counter model={model} id="a"/><Counter model={model} id="b"/></div>
+        }
+        """
+
+    example = ReactSharedState()
+
+    serve_component(page, example)
+
+    page.locator('#a').click()
+    expect(page.locator('#a')).to_have_text('1')
+    expect(page.locator('#b')).to_have_text('1')
+
+    page.locator('#b').click()
+    expect(page.locator('#a')).to_have_text('2')
+    expect(page.locator('#b')).to_have_text('2')
+    wait_until(lambda: example.count == 2, page)
+
+
+def test_react_use_state_unchanged_value_does_not_rerender(page):
+    class ReactRenderCount(ReactComponent):
+        text = param.String()
+
+        _esm = """
+        export function render({ model }) {
+          const [text, setText] = model.useState("text")
+          const commits = React.useRef(0)
+          const ref = React.useRef(null)
+          React.useLayoutEffect(() => {
+            commits.current += 1
+            ref.current.dataset.commits = String(commits.current)
+          })
+          return (
+            <div>
+              <h1 ref={ref}>{text}</h1>
+              <button id="set" onClick={() => setText("user")}>set</button>
+            </div>
+          )
+        }
+        """
+
+    example = ReactRenderCount(text='initial')
+
+    serve_component(page, example)
+
+    h1 = page.locator('h1')
+    expect(h1).to_have_text('initial')
+    expect(h1).to_have_attribute('data-commits', '1')
+
+    page.locator('#set').click()
+    expect(h1).to_have_text('user')
+    wait_until(lambda: example.text == 'user', page)
+    expect(h1).to_have_attribute('data-commits', '2')
+
+    page.locator('#set').click()
+    example.text = 'user'
+    page.wait_for_timeout(200)
+    expect(h1).to_have_attribute('data-commits', '2')
+
+    example.text = 'server'
+    expect(h1).to_have_text('server')
+    expect(h1).to_have_attribute('data-commits', '3')
+
+
+def test_react_use_state_model_change_after_set_value_not_reverted(page):
+    class ReactSlowSetValue(ReactComponent):
+        text = param.String()
+
+        # React flushes the effects of updates from discrete events like
+        # clicks synchronously, so the update is made from a timer. A render
+        # over React's 5ms time slice makes the scheduler yield between the
+        # commit and the passive effects.
+        _esm = """
+        export function render({ model }) {
+          const [text, setText] = model.useState("text")
+          if (text === "user") {
+            const end = performance.now() + 20
+            while (performance.now() < end) {}
+          }
+          return (
+            <div>
+              <h1>{text}</h1>
+              <button id="set" onClick={() => setTimeout(() => setText("user"))}>set</button>
+            </div>
+          )
+        }
+        """
+
+    example = ReactSlowSetValue(text='initial')
+    values = []
+    example.param.watch(lambda e: values.append(e.new), 'text')
+
+    serve_component(page, example)
+
+    expect(page.locator('h1')).to_have_text('initial')
+
+    # The MutationObserver fires after React commits the user value but
+    # before its passive effects run.
+    page.evaluate("""() => {
+        const data = [...Bokeh.documents[0]._all_models.values()].find(
+            (m) => m.data && 'text' in m.data.properties
+        ).data
+        function find(root) {
+            const h1 = root.querySelector('h1')
+            if (h1) return h1
+            for (const el of root.querySelectorAll('*')) {
+                const found = el.shadowRoot && find(el.shadowRoot)
+                if (found) return found
+            }
+            return null
+        }
+        const h1 = find(document)
+        const observer = new MutationObserver(() => {
+            observer.disconnect()
+            data.setv({text: 'model'})
+        })
+        observer.observe(h1, {childList: true, subtree: true, characterData: true})
+    }""")
+    page.locator('#set').click()
+
+    expect(page.locator('h1')).to_have_text('model')
+    wait_until(lambda: example.text == 'model', page)
+    page.wait_for_timeout(200)
+    assert values[values.index('model'):] == ['model']
 
 
 class JSEventUpdate(JSComponent):
@@ -510,6 +974,23 @@ def test_gather_input(page, component):
     inp.press('Enter')
 
     wait_until(lambda: example.text == 'Foo!', page)
+
+
+def test_react_use_state_controlled_input_keeps_caret(page):
+    example = ReactInput(text='Hello')
+
+    serve_component(page, example)
+
+    inp = page.locator('#input')
+    inp.click()
+    inp.press('End')
+    for _ in range(2):
+        inp.press('ArrowLeft')
+    inp.press_sequentially('XY')
+
+    expect(inp).to_have_value('HelXYlo')
+    assert inp.evaluate('(el) => el.selectionStart') == 5
+    wait_until(lambda: example.text == 'HelXYlo', page)
 
 
 class JSNestedInput(JSComponent):
@@ -936,6 +1417,81 @@ def test_children_bokeh_plot_laid_out_after_mount(page, component):
     assert canvas.bounding_box()['height'] == 200
 
 
+# Lays out the whole page right after an ESM component builds new children,
+# before it mounts them, as a resize landing in that window does.
+LAYOUT_BEFORE_MOUNT = """
+const timer = setInterval(() => {
+  let view_classes
+  try {
+    view_classes = ['panel.models.esm.ReactiveESM', 'panel.models.esm.ReactComponent'].map(
+      (name) => Bokeh.Models.get(name).prototype.default_view
+    )
+  } catch {
+    return
+  }
+  clearInterval(timer)
+  for (const view_cls of view_classes) {
+    const build_child_views = view_cls.prototype.build_child_views
+    view_cls.prototype.build_child_views = async function(...args) {
+      const created = await build_child_views.apply(this, args)
+      if (created.length) {
+        queueMicrotask(() => this.root.compute_layout())
+      }
+      return created
+    }
+  }
+}, 1)
+"""
+
+@pytest.mark.internet
+@pytest.mark.parametrize('component', [JSChildren, ReactChildren])
+def test_children_bokeh_plot_added_with_layout_before_mount(page, component):
+    page.add_init_script(LAYOUT_BEFORE_MOUNT)
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    example = component(objects=['<div class="item">A</div>'])
+
+    serve_component(page, example)
+    expect(page.locator('.item')).to_have_count(1)
+
+    plot = figure(width=300, height=200)
+    plot.line([0, 1], [0, 1])
+    example.append(Bokeh(plot))
+
+    canvas = page.locator('.bk-Canvas').first
+    expect(canvas).to_be_visible()
+    wait_until(lambda: (canvas.bounding_box() or {}).get('width') == 300, page)
+    assert errors == []
+
+
+@pytest.mark.internet
+@pytest.mark.parametrize('component', [JSChildren, ReactChildren])
+def test_children_bokeh_plot_with_size_bar(page, component):
+    errors, msgs = [], []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.on('console', lambda msg: msgs.append(msg))
+    plot = figure(height=300, sizing_mode='stretch_width')
+    renderer = plot.circle([1, 2, 3], [1, 2, 3], radius=[0.1, 0.2, 0.3])
+    plot.add_layout(SizeBar(renderer=renderer), 'right')
+    example = component(objects=[Bokeh(plot, sizing_mode='stretch_width')], sizing_mode='stretch_width')
+
+    page.set_viewport_size({'width': 900, 'height': 500})
+    serve_component(page, example)
+
+    size_bar = page.locator('.bk-SizeBar .bk-Canvas')
+    expect(size_bar).to_be_visible()
+    wait_until(lambda: (box := size_bar.bounding_box()) and box['width'] > 0 and box['height'] > 0, page)
+    x = size_bar.bounding_box()['x']
+
+    page.set_viewport_size({'width': 600, 'height': 500})
+
+    wait_until(lambda: size_bar.bounding_box()['x'] <= x - 250, page)
+    box = size_bar.bounding_box()
+    assert box['width'] > 0 and box['height'] > 0
+    assert errors == []
+    assert [msg for msg in msgs if msg.type == 'error' and 'favicon' not in msg.location['url']] == []
+
+
 JS_CODE_BEFORE = """
 export function render() {
   const h1 = document.createElement('h1')
@@ -1358,6 +1914,34 @@ class JS2(JSBase):
     pass
 
 
+def test_saved_inline_bundle_resolves_each_export_offline(page, tmp_path, monkeypatch):
+    from bokeh.embed.bundle import extension_dirs
+
+    bundle = tmp_path / 'shared.bundle.js'
+    bundle.write_text("""
+    function component(label) {
+      return {render: () => Object.assign(document.createElement('span'), {textContent: label})}
+    }
+    export default {First: component('First export'), Second: component('Second export')}
+    """)
+    # The temporary directory may be on a different drive from this module.
+    monkeypatch.setitem(extension_dirs, 'panel-test-ext', tmp_path)
+
+    class First(JSComponent):
+        _bundle = bundle
+
+    class Second(First):
+        pass
+
+    path = tmp_path / 'components.html'
+    with config.set(inline=True):
+        Row(First(), Second()).save(path, resources='inline')
+    page.context.set_offline(True)
+    page.goto(path.as_uri())
+    expect(page.get_by_text('First export', exact=True)).to_be_visible()
+    expect(page.get_by_text('Second export', exact=True)).to_be_visible()
+
+
 class AnyWidgetBase(AnyWidgetComponent):
 
     _bundle = 'anywidget.bundle.js'
@@ -1660,6 +2244,39 @@ def test_react_root_ready_after_children_append(page):
     """, timeout=10000)
 
 
+# Re-renders the React child of a JS parent and has it removed before it can
+# mount, in either order, the way a component re-rendering its children from
+# an async callback can race a change to its children.
+RERENDER_REMOVED_CHILD = """
+async (order) => {
+    const root = Object.values(Bokeh.index)[0]
+    const child_view = root.get_child_view(root.model.data.objects[0])
+    if (order === 'remove_first') {
+        root.model.data.objects = []
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        child_view.rerender_()
+    } else {
+        child_view.rerender_()
+        root.model.data.objects = []
+        await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+    const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), 2000))
+    const ready = root.ready.then(() => 'ready')
+    return [child_view.is_destroyed, await Promise.race([ready, timeout])]
+}
+"""
+
+@pytest.mark.internet
+@pytest.mark.parametrize('order', ['remove_first', 'rerender_first'])
+def test_react_child_rerendered_and_removed_before_mount_settles_root_ready(page, order):
+    example = JSChildren(objects=[ReactChildInner(text='child')])
+
+    serve_component(page, example)
+    expect(page.locator('.inner')).to_have_text('child')
+
+    assert page.evaluate(RERENDER_REMOVED_CHILD, order) == [True, 'ready']
+
+
 class ReactChildrenRace(ReactComponent):
 
     views = Children()
@@ -1780,6 +2397,23 @@ def test_react_children_shrink_from_end(page):
     # A list that only shrank has to drop the trailing wrapper too.
     expect(page.locator('#container > .child-wrapper')).to_have_count(1)
     expect(page.locator('.inner')).to_have_text('child-0')
+
+
+@pytest.mark.internet
+def test_react_children_swap(page):
+    example = ReactChildrenList(objects=[Markdown('A'), Markdown('B')])
+
+    serve_component(page, example)
+
+    expect(page.locator('.markdown')).to_have_text(['A', 'B'])
+
+    # Swapping item by item sends an intermediate list holding one child twice.
+    a, b = example
+    example[0] = b
+    expect(page.locator('.markdown')).to_have_text(['B'])
+    example[1] = a
+
+    expect(page.locator('.markdown')).to_have_text(['B', 'A'])
 
 
 class ReactChildrenWatcher(ListLike, ReactComponent):

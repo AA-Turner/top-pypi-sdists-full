@@ -4,9 +4,11 @@ import logging
 import re
 from bisect import bisect_left, bisect_right
 from collections import Counter
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, replace
 from functools import partial
+from heapq import heappop, heappush
+from itertools import accumulate
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from inspect_ai._util.content import Content
@@ -85,9 +87,10 @@ def steps_from_events(
     message_pool: Sequence[ChatMessage],
     *,
     sample_uuid: str,
-    eval_info: EvalInfo,
+    eval_info: EvalInfo | None,
     timeline: Timeline | None = None,
     human_approvers: Sequence[str] = (),
+    messages_from: Sequence[str] | None = None,
 ) -> list["ReplayStep"]:
     """The steps a sentinel was handed live, or would have been had it watched every stage, rebuilt from a sample's events.
 
@@ -114,7 +117,17 @@ def steps_from_events(
 
     Otherwise a call a sentinel modified that has no approval replay relies on keeps its tool steps, and its `tool_call` step is built from the proposed call, or an approver's change to it. The same holds for a call an approver modified before the sentinel did, whose step is built from the approver's call as the approval records it. The log does not record the call the sentinel was shown, which the tool's validation can have changed (`memory()` resolves a path, validation fills a Pydantic default).
 
-    The tool steps of an agent bridge's calls are not rebuilt, recorded or not: a call the bridged scaffold ran itself leaves no `ToolEvent`, and for a call a sandbox bridge ran on the host (`ToolEvent.metadata["bridge"]`) the log records neither which model call produced it (the bridge can hand over a response filter's output, or one of several generations under one call id) nor its result as the bridge's service delivered it (the error text a scaffold received, for one). Replay skips these steps until the log records which message made each call, and logs a warning naming the calls. A `human()` decision at a skipped step, and a person's approval of a host call, still reach the later steps of the conversation, as live. A bridge's tool checks are recorded in spans named `sentinel_bridge`, so a native call under an id a bridge also checked keeps its own checks. A native call's producer is the latest model call that proposed its id (in the call's own conversation, where model calls in several conversations proposed it), a bridge's generation included (a native loop in a bridge request filter generates under the bridge's routing), so a native call run under an id a bridge generation proposed before it is given that generation; bridge-issued ids are reserved against the history, so this needs a prefilled native call or a provider or filter reusing an id.
+    A native tool call is joined to the model call that proposed it by the id of the message its `ToolEvent` records (`call_message_id`, written since inspect_ai 0.3.290), and a call no model call proposed (a pre-filled message) to the message holding it, by the same id. Where the id names several model calls' output (a cached output reused), a native call's producer is the latest of those model calls before the call, in the call's own conversation where they are in several. Where the event records no proposing message (an older log), or the id names neither a model call's output nor a message holding the call, it is the latest model call that proposed the call's id before the call (in the call's own conversation, where model calls in several conversations proposed it), a bridge's generation included.
+
+    For an agent run through an agent bridge, replay shows each tool call as the model wrote it, and each result as the model next received it. The bridge's model calls are those that record the model its agent requested (`ModelEvent.requested_model`, since Inspect 0.3.277):
+
+    - `tool_call`: a call from such a model call's output, as written (no approver's or sentinel's modify, and a host tool under the name the model used) but under the id the agent received it under: the id the bridge recorded where it gave the call a new one (`ModelEvent.agent_tool_call_ids`, since Inspect 0.3.292), else the model's. Its step has that model call's input, tools and tool_choice, and its output message as the agent received it (`assistant_message`: where the bridge gave calls new ids, the message it handed over, with those call ids, its reasoning anchors renamed to match and its own message id), right after its `model_output` step.
+    - `tool_result`: the tool message under the id the agent received the call under in the first later bridged request of the same conversation that carries it, as that request's input has it (a rejection or placeholder included), right before that request's `model_input` step. In a log written before Inspect 0.3.292, a call the Google bridge handed over without a sentinel has no `tool_result` step: the bridge recorded its result under an id rebuilt from the call, which no call has. A call no later request answers has none, as a call in a response the agent discarded. A call the agent received under the model's id has none where the model calls of its conversation proposed another call under that id, as a provider that reuses one call id does (Mistral gives the id `"null"` to every call whose id the model omitted, including a call the bridge then handed over under a new id), as a retry the model cache answers does, or as two concurrent tool loops of one agent can: the log does not record which call a result under the id answers. A tool message the conversation's starting history holds (messages the agent started with) counts as a call proposed under its id. A call the bridge handed over under a new id has none where another call in the log is under that id, proposed under it by any model call or handed over under it, or where its conversation's starting history holds it: the bridge made the id for that call alone, so another call under it is one whose model reused the id, and that call's result can reach this conversation through history it takes up later. A log that does not record the ids the agent received is read by the model's ids. History a conversation takes up later is not counted: where an agent run without its own agent span continues the messages of one that had its own, after other bridged calls outside any agent span, a call under an id from those messages can take that id's earlier result.
+    - Both are named `<model call uuid>/<call id>`, by the model call whose output has the call: after a retried generate, its last attempt, where the model steps take the first attempt's `uuid`.
+
+    A bridge's recorded checks (in spans named `sentinel_bridge`), approvals and host `ToolEvent`s are not paired with these steps, so a check's recorded `human()` answers are not attached to them. A `human()` decision at such a check, and a person's approval, still reach the later steps of the conversation, as live; that includes the `tool_result` step of the checked result, which comes after its check. A call a native `ToolEvent` ran (a request filter's own agent generates under the bridge's request) keeps its native steps. Calls sharing an id in one bridged response are skipped, with a warning.
+
+    A transcript Scout imported from another source (`eval_info` is None) replays from its events where Scout records which model calls its messages come from (`messages_from`): its turns are inferred as for a log without origins, and its tool steps come from its messages, each assistant message joined by its id to the turn whose output it is, which gives the steps that turn's input, tools and conversation; a message no one turn made is placed after the last message before it that one did, with no input. A call under an id an earlier call in the messages has is skipped, with a warning, as step ids are unique in a sample. Its tool events are not read: importers record them without the model's call ids.
 
     Replay requires a log written by Inspect 0.3.100 or later. Earlier logs lack the `solvers` and `scorers` spans (and, before 0.3.94, native tool spans) and cannot be replayed reliably. A log whose samples have an earlier layout is refused whatever its header says, since a retried eval keeps its completed samples under a newer header: a `ToolEvent` that nests other events, a solver or scorer `StepEvent`, a top-level scorer span, or a top-level solver span in a sample that records no `solvers` span (where one is recorded, a top-level solver span is a chain `Task.cleanup` or a hook awaited, and its calls are setup's; a `scorers` span alone does not count, since rescoring adds one to an older sample). If the recorded version is unknown, completed native tool events without a matching tool span, including execution failures, are also refused as potentially older logs. Pending calls and spanless parsing, approval, or cancelled errors remain allowed. A completed spanless timeout is refused when the version is unknown.
 
@@ -123,25 +136,28 @@ def steps_from_events(
         events: The sample's events, with model inputs condensed (`input_refs` into `message_pool`), as the log stores them; inputs given expanded are condensed first. Attachments must be resolved (`resolve_attachments`), or monitors are handed `attachment://` references.
         message_pool: The sample's message pool (`EvalSample.events_data["messages"]`).
         sample_uuid: The sample's uuid: the conversation of calls made outside any agent span.
-        eval_info: What the log's header says about the eval (`EvalInfo.from_eval`).
+        eval_info: What the log's header says about the eval (`EvalInfo.from_eval`), or None for a transcript imported from another source, which has no header.
         timeline: A stored timeline for grouping replay steps into its conversations. For logs without origins, turn inference uses the event span tree, regardless of this timeline.
         human_approvers: The registry names of approvers that are people, whose `ApprovalEvent`s are `human_decisions` in a log from an eval that ran no sentinel and records inspect_ai 0.3.277 or later.
+        messages_from: For an imported transcript, the `uuid`s of the model events its messages are from (Scout's `TranscriptInfo.messages_from`). Ignored for an Inspect log.
 
     Returns:
-        The steps, in the order they ran live. A native tool step's id is its call id, as live records it (`step_id`), but for a later execution of a call id an earlier rebuilt execution already took (a retry after a tool error, a provider that repeats ids): that execution's steps are named by its `ToolEvent.execution_id`, which each of its live `SentinelEvent`s records; a person's decision there still reaches later steps' `human_decisions` under the call id, as live. A `ToolEvent` that records no `execution_id` keeps its call id.
+        The steps, in the order they ran live. A native tool step's id is its call id, as live records it (`step_id`), but for a later execution of a call id an earlier rebuilt execution already took (a retry after a tool error, a provider that repeats ids): that execution's steps are named by its `ToolEvent.execution_id`, which each of its live `SentinelEvent`s records; a person's decision there still reaches later steps' `human_decisions` under the call id, as live. A `ToolEvent` that records no `execution_id` keeps its call id. A bridged call's tool steps are named `<model call uuid>/<call id>`.
 
     Raises:
-        ValueError: `eval_info` is `None`, the log predates Inspect 0.3.100 or its samples have an earlier layout (or it has an unknown version and completed spanless native tool events), or the call an approval approved is not the call its `ToolEvent` records. Replay such transcripts from their messages instead.
+        ValueError: `eval_info` and `messages_from` are both `None`, the log predates Inspect 0.3.100 or its samples have an earlier layout (or it has an unknown version and completed spanless native tool events), or the call an approval approved is not the call its `ToolEvent` records. Replay such transcripts from their messages instead.
         MalformedLogError: Two generate steps of one stage have one step id, the span tree has a `parent_id` cycle, or a model input names rows outside the message pool.
         Unmatched recorded model_input checks are skipped with one warning per transcript.
     """
-    if eval_info is None:
+    if eval_info is None and messages_from is None:
         raise ValueError(
-            "steps_from_events replays an Inspect log, and needs its header "
-            "(EvalInfo.from_eval). Replay this transcript from its messages instead."
+            "steps_from_events replays an Inspect log, which needs its header "
+            "(EvalInfo.from_eval), or a transcript imported from another source, "
+            "which needs the model calls its messages are from (messages_from). "
+            "Replay this transcript from its messages instead."
         )
-    version = eval_info.inspect_ai_version
-    if (
+    version = eval_info.inspect_ai_version if eval_info is not None else None
+    if eval_info is not None and (
         _before_phase_spans(version)
         or _has_earlier_layout(events)
         or (
@@ -168,6 +184,7 @@ def steps_from_events(
         eval_info,
         conversations,
         human_approvers,
+        messages_from,
     ).steps()
 
 
@@ -345,6 +362,48 @@ class _PooledInput:
             else:
                 pointer = found
 
+    def last_held(self, rows: list[int]) -> int | None:
+        """The last position holding one of `rows` (sorted): each range, from the last, bisects `rows` with the rows it names."""
+        for start, (begin, end) in zip(
+            reversed(self.view.starts), reversed(self.view.refs)
+        ):
+            found = bisect_left(rows, end) - 1
+            if found >= 0 and rows[found] >= begin:
+                return start + rows[found] - begin
+        return None
+
+    def held_from(
+        self, rows: list[int], low: int, fewer_than: int
+    ) -> list[tuple[int, int, int]] | None:
+        """Where it holds `rows` (sorted) from `low` up, if fewer than `fewer_than` times: for each range holding some, from the last, its offset (position - row) and the slice of `rows` it names; None once it holds as many."""
+        found: list[tuple[int, int, int]] = []
+        count = 0
+        for start, (begin, end) in zip(
+            reversed(self.view.starts), reversed(self.view.refs)
+        ):
+            first = bisect_left(rows, max(begin, low))
+            last = bisect_left(rows, end)
+            if first < last:
+                count += last - first
+                if count >= fewer_than:
+                    return None
+                found.append((start - begin, first, last))
+        return found
+
+    def holds(self, row: int) -> bool:
+        """Whether a position holds the row's content: a row with it is in an interval of rows this input covers, found by bisecting with whichever is shorter, the rows with that content or the intervals."""
+        rows = self._keys.rows(self._keys.canonical(row))
+        _, _, (begins, ends) = self._index()
+        if len(rows) <= len(begins):
+            return any(
+                (at := bisect_right(begins, other) - 1) >= 0 and other < ends[at]
+                for other in rows
+            )
+        return any(
+            (at := bisect_left(rows, begin)) < len(rows) and rows[at] < end
+            for begin, end in zip(begins, ends)
+        )
+
     def _left(self, position: int) -> int:
         """Positions left in the range holding `position`."""
         return self._ends[bisect_right(self.view.starts, position) - 1] - position
@@ -406,6 +465,78 @@ class _PooledInput:
             self._points, self._covers, self._held = points, covers, (begins, ends)
         assert self._held is not None
         return self._points, self._covers, self._held
+
+
+class _ToolRows(NamedTuple):
+    """The pool rows of tool messages: by call id, and all of them in order with the call id of each."""
+
+    by_id: dict[str, list[int]]
+    rows: list[int]
+    ids: list[str]
+
+
+def _new_tool_results(
+    current: _PooledInput,
+    previous: _PooledInput | None,
+    awaiting: "dict[str, _BridgedCall]",
+    tool_rows: _ToolRows,
+    floor: int,
+) -> dict[str, int]:
+    """Each awaiting call id's result in `current`, in position order: the position of the last tool message under the id among the messages new against `previous` (`new_positions`).
+
+    The last tool message under each id in all of `current` is found first. Only rows from `floor`, the lowest row of an awaiting id, can be one. Where `current` holds fewer such rows than there are awaiting ids, as a request before each of several calls holds none, or only the results of the calls already run, they are read; otherwise each id's rows are looked up. If `previous` holds no message with the found message's content, it is new, so it is the last new one, and the rest of `current` is not read. Otherwise the new messages are read in order, as the result can be an earlier one.
+    """
+    held = current.held_from(tool_rows.rows, floor, len(awaiting))
+    candidates: Iterable[tuple[str, int | None]]
+    if held is None:
+        candidates = (
+            (call_id, current.last_held(tool_rows.by_id[call_id]))
+            for call_id in awaiting
+        )
+    else:
+        last: dict[str, int] = {}
+        for offset, first, end in held:
+            for at in range(first, end):
+                call_id = tool_rows.ids[at]
+                if call_id in awaiting:
+                    here = offset + tool_rows.rows[at]
+                    last[call_id] = max(last.get(call_id, here), here)
+        candidates = last.items()
+    results: dict[str, int] = {}
+    for call_id, position in candidates:
+        if position is None:
+            continue
+        if previous is not None and previous.holds(current.view.row(position)):
+            results = {}
+            for position in current.new_positions(previous):
+                message = current.message(position)
+                if (
+                    isinstance(message, ChatMessageTool)
+                    and message.tool_call_id in awaiting
+                ):
+                    results[message.tool_call_id] = position
+            break
+        results[call_id] = position
+    return dict(sorted(results.items(), key=lambda item: item[1]))
+
+
+def _with_agent_tool_call_ids(
+    message: ChatMessageAssistant, ids: Sequence[str]
+) -> ChatMessageAssistant:
+    """A bridged model call's output message as the agent received it, under the ids the bridge recorded (`ModelEvent.agent_tool_call_ids`), rebuilt as the bridge built it, without touching provider state."""
+    from inspect_ai.agent._bridge.util import with_agent_tool_call_ids
+
+    return with_agent_tool_call_ids(message, ids, keep_provider_state=False)
+
+
+def _history_ids(current: _PooledInput, tool_rows: _ToolRows) -> set[str]:
+    """The ids of the tool messages `current` holds, read from the tool rows its ranges hold (`held_from`).
+
+    A conversation's starting history counts each as one call proposed under its id (`_bridged_tool_steps`): its first bridged request, and its first request that proposed a call, as a side request with its own history can come first.
+    """
+    held = current.held_from(tool_rows.rows, 0, len(tool_rows.rows) + 1)
+    assert held is not None
+    return {tool_rows.ids[at] for _, first, end in held for at in range(first, end)}
 
 
 def _rows_within(rows: list[int], held: tuple[list[int], list[int]]) -> Iterator[int]:
@@ -480,6 +611,16 @@ class _Proposals:
         found = self._by_conversation.get((id, conversation))
         return found if found is not None else self._by_span.get((id, span_id))
 
+    def named(self, id: str, message_id: str | None, before: int) -> list[_Proposal]:
+        """The proposals of the call `id` in the output message `message_id` (`ToolEvent.call_message_id`) complete before the event at `before`: several only where one output was returned again (a cache hit), or holds the id twice."""
+        if message_id is None:
+            return []
+        return [
+            proposal
+            for proposal in self._by_message.get((id, message_id), [])
+            if proposal.position < before
+        ]
+
     def execution_owner(
         self,
         id: str,
@@ -488,23 +629,22 @@ class _Proposals:
         message_id: str | None,
         before: int,
     ) -> _Proposal | None:
-        """The proposal a native execution's call came from, by the rules of `owner` among the proposals complete before the execution's first recorded event (`before`).
+        """The proposal a native call came from, by the rules of `owner` among the proposals complete before the call's first recorded event (`before`).
 
         The proposal whose output message ran the call (`ToolEvent.call_message_id`)
         is exact; several share it only where one output was returned again
-        (a cache hit), which proposes the same call. Without one (a message
-        the agent edited or built), any proposal of the id before `before` is
-        taken. `before` is the completion of the execution's first approval,
-        which runs before its check, else the begin of its `tool_call` check
-        span (`_first_event_of`). A turn proposed while that check awaited
-        comes after it and is never taken; a turn proposed while an approval
-        awaited comes before the approval's completion, and can be.
+        (a cache hit), which proposes the same call. Without one (a log
+        written before the id, or a message that is neither a model call's
+        output nor in the sample's messages), any
+        proposal of the id before `before` is taken. For an execution
+        (`ToolEvent.execution_id`), `before` is the completion of its first
+        approval, which runs before its check, else the begin of its
+        `tool_call` check span (`_first_event_of`). A turn proposed while that
+        check awaited comes after it and is never taken; a turn proposed while
+        an approval awaited comes before the approval's completion, and can
+        be. For a call recorded without one, it is the call's `ToolEvent`.
         """
-        named = [
-            proposal
-            for proposal in self._by_message.get((id, message_id), [])
-            if proposal.position < before
-        ]
+        named = self.named(id, message_id, before)
         if named:
             return _owned(named, None, span_id, conversation)
         history = self._history.get(id, [])
@@ -580,6 +720,28 @@ class _Region(NamedTuple):
     """Whether a sentinel's span holds it."""
 
 
+class _BridgedCall(NamedTuple):
+    """A call in the output of a model call an agent bridge made for its agent (`_bridged_tool_steps`)."""
+
+    position: int
+    """The model call's event index."""
+
+    event: ModelEvent
+    message: ChatMessageAssistant
+    """The model call's output message as the agent received it: with the ids the bridge gave its calls (`ModelEvent.agent_tool_call_ids`), else the logged message."""
+
+    call: ToolCall
+    """The call under the id the agent received it under."""
+
+    seq: int
+    """The sequence of its `tool_call` step; its `tool_result` step's follows."""
+
+    @property
+    def step_id(self) -> str:
+        """Its steps' id: the model call's `uuid` (else its event index) and the call id, so it never takes a native call's id."""
+        return f"{self.event.uuid or self.position}/{self.call.id}"
+
+
 class _Action(NamedTuple):
     position: int
     # at one position: steps built before the event there (1), the event's own
@@ -603,14 +765,19 @@ class _Driver:
         events: list[Event],
         pool: Sequence[ChatMessage],
         sample_uuid: str,
-        eval_info: EvalInfo,
+        eval_info: EvalInfo | None,
         conversations: dict[object, str] | None,
         human_approvers: Sequence[str],
+        messages_from: Sequence[str] | None = None,
     ) -> None:
         self.messages = messages
         self.events = events
         self.pool = pool
         self.keys = _PoolKeys(pool)
+        # a transcript imported from another source has no header
+        self.imported = eval_info is None
+        self.messages_from = set(messages_from or ())
+        eval_info = eval_info or EvalInfo(inspect_ai_version=None, sentinel=False)
         self.eval_info = eval_info
         self.human_approvers = set(human_approvers)
         self.approval_log_reliable = _records_approval_decisions(
@@ -647,10 +814,13 @@ class _Driver:
         # for a call whose ToolEvent names no execution)
         self.call_steps: dict[str, str | None] = {}
         self.span_steps: dict[str, "Step"] = {}
-        # the ids of the calls whose tool steps replay skips
-        self.skipped: list[str] = []
+        # the sentinel span of the model_output step of each generate, by the
+        # event index of its last attempt (_bridged_tool_steps)
+        self.output_spans: dict[int, str | None] = {}
         # call id -> the indexes of the model events that proposed it
         self.proposed: dict[str, list[int]] = {}
+        # the ids of model calls' output messages
+        self.outputs: set[str] = set()
         # each model event's input view and producer, shared by its steps
         self._views: dict[int, PoolView] = {}
         self._producers: dict[int, Producer] = {}
@@ -660,6 +830,11 @@ class _Driver:
         ) = None
         # each assistant message and its text, by id() (`_text`)
         self._texts: dict[int, tuple[ChatMessageAssistant, str]] = {}
+        # each assistant message and its calls by call id, None for an id it
+        # holds more than once, by id() (`_calls_by_id`)
+        self._call_indexes: dict[
+            int, tuple[ChatMessageAssistant, dict[str, ToolCall | None]]
+        ] = {}
         self._messages_by_id: dict[str, list[ChatMessage]] | None = None
         # the origins of model calls the log records none for, by id()
         self._inferred: dict[int, str] | None = None
@@ -707,6 +882,8 @@ class _Driver:
         consumed_approvals: set[int] = set()
         calls: list[_Call] = []
         tool_spans = _tool_spans(self.events)
+        # the model calls an agent bridge made for its agent
+        bridged: list[tuple[int, ModelEvent]] = []
 
         # Every span first so origin inference sees later span declarations.
         for event in self.events:
@@ -723,8 +900,11 @@ class _Driver:
                 if self._in_sentinel_span(event.span_id):
                     continue
                 calls_made.add(event.uuid)
+                if event.requested_model is not None and not self.imported:
+                    bridged.append((index, event))
                 message_id = producing_message_id(event)
                 if message_id is not None:
+                    self.outputs.add(message_id)
                     message = event.output.choices[0].message
                     proposed_in = self._conversation(event)
                     for tool_call in message.tool_calls or []:
@@ -756,7 +936,7 @@ class _Driver:
                 if event.error is not None:
                     open_generates[attempt_key] = group
             elif isinstance(event, ApprovalEvent):
-                if self._in_sentinel_span(event.span_id):
+                if self.imported or self._in_sentinel_span(event.span_id):
                     continue
                 own = self._conversation(event)
                 owner = proposals.owner(event.call.id, event.span_id, own)
@@ -778,22 +958,30 @@ class _Driver:
                 conversation = self._conversation(event)
                 self._at(index, 2, partial(self._count_compaction, conversation))
             elif isinstance(event, ToolEvent):
-                if self._in_sentinel_span(event.span_id):
+                # an imported transcript's tool steps are its messages'
+                # (_imported_tool_steps)
+                if self.imported or self._in_sentinel_span(event.span_id):
                     continue
                 own = self._conversation(event)
-                owner = (
-                    proposals.execution_owner(
+                # a call no model call produced (a pre-filled message): the
+                # message holding it, by the id its event records
+                prefilled = None if _bridged(event) else self._prefilled_by_id(event)
+                if _bridged(event):
+                    owner = proposals.owner(event.id, event.span_id, own)
+                elif prefilled is not None:
+                    owner = None
+                else:
+                    owner = proposals.execution_owner(
                         event.id,
                         event.span_id,
                         own,
                         event.call_message_id,
-                        self._first_event_of(
+                        index
+                        if event.execution_id is None
+                        else self._first_event_of(
                             event.execution_id, index, first_approvals
                         ),
                     )
-                    if event.execution_id is not None and not _bridged(event)
-                    else proposals.owner(event.id, event.span_id, own)
-                )
                 producer: ModelEvent | None = None
                 produced_at = -1
                 assistant: ChatMessageAssistant | None
@@ -805,6 +993,8 @@ class _Driver:
                         owner.call,
                         owner.position,
                     )
+                elif prefilled is not None:
+                    assistant, proposal = prefilled
                 else:
                     assistant, proposal = self._assistant(
                         event.id, event.call_message_id
@@ -935,8 +1125,18 @@ class _Driver:
             )
         for group in generates:
             self._generate(group)
+        if self.imported:
+            self._imported_tool_steps(generates)
         for entry in calls:
             self._tool_call(entry)
+        self._bridged_tool_steps(
+            bridged,
+            {
+                (entry.produced_at, entry.event.id)
+                for entry in calls
+                if entry.producer is not None and not _bridged(entry.event)
+            },
+        )
         self._settle_unbuilt_checks()
 
         # the second pass: in log order, each step at its cut
@@ -1095,6 +1295,7 @@ class _Driver:
             self._cut(after_span, (last_index, 3)), group.seq + 1, build_after
         )
         self._settle_at_end(after_span)
+        self.output_spans[last_index] = after_span
 
     def _check_modified_approval(self, call: _Call) -> None:
         """Refuse an approval whose approved call its `ToolEvent` does not record.
@@ -1114,8 +1315,8 @@ class _Driver:
 
         A host call a sandbox bridge ran (`metadata["bridge"]`) has no paired
         approval, so is not checked: its approval may record the call under the
-        scaffold's name and its `ToolEvent` under the host tool's, and replay
-        builds no tool steps for it (`_tool_call`).
+        scaffold's name and its `ToolEvent` under the host tool's, and its tool
+        steps are rebuilt from the bridge's model calls (`_bridged_tool_steps`).
         """
         approval = call.approval
         event = call.event
@@ -1313,9 +1514,7 @@ class _Driver:
                 approval, call.conversation, (begin, 1), call.seq + 1
             )
         if _bridged(event):
-            # which model call produced a sandbox bridge's host call, and the
-            # result as its service delivered it, are not in the log
-            self.skipped.append(event.id)
+            # rebuilt from the bridge's model calls (_bridged_tool_steps)
             return
         before_span = call.before_span
         after_span = call.after_span
@@ -1474,6 +1673,366 @@ class _Driver:
         self._at_point(after_cut, call.seq + 2, build_after)
         self._settle_at_end(after_span)
 
+    def _bridged_tool_steps(
+        self, bridged: list[tuple[int, ModelEvent]], native: set[tuple[int, str]]
+    ) -> None:
+        """The tool steps of an agent bridge's calls: each call as the model wrote it, and each result as the model next received it (`steps_from_events`).
+
+        A call is taken from the output of a model call the bridge made for its agent, unless a native `ToolEvent` ran it (`native`, by the model call's event index and the call id). Its result is in the first later bridged request of its conversation whose new messages, against the conversation's previous bridged request (`_PooledInput.new_positions`), include a tool message under its id: the last such message, since a call's result follows every earlier message under its id (`_new_tool_results`). A call whose id no tool message in the log has, as in a log the Google bridge wrote without a sentinel before Inspect 0.3.292, never awaits one.
+
+        Each call is taken under the id the agent received it under: the id the bridge recorded for it where it gave the call a new one (`ModelEvent.agent_tool_call_ids`), else the model's. That id names its steps, its result is the tool message under it, and the step's message is the output message as the agent received it, rebuilt as the bridge built it (`with_agent_tool_call_ids`). A log written before Inspect recorded these ids is read by the model's ids. A model call whose recorded ids don't match its calls in number has its calls' steps skipped, with a warning.
+
+        A call the agent received under the model's id awaits a result only if the model calls of its conversation proposed no other call under that id, counted by the model's ids over all of them first, as a tool message under a shared id can answer any of its calls: the same call proposed again (a lost response's or its cached retry's, or a concurrent loop's), or a call the bridge handed over under a new id. Each tool message id of the conversation's starting history counts as one more call, as the bridge hands a call under such an id over under a new one (`_history_ids`). This is the count of a log without the recorded ids: for such a call the recorded id is the model's, so the record adds nothing to it, and a stricter count would withhold results it pairs.
+
+        A call the bridge handed over under a new id awaits a result only if no other call in the log is under that id, and its conversation's starting history doesn't hold it. Each model call's output in the log counts, by the model's ids, and each call the bridge handed over under the id. The bridge makes the id for that one call (`_fresh_call_ids`), so another call under it is one whose model reused the id: in this conversation, the same call proposed again, which the bridge hands over under the id again (`_Handouts.reused`), and in any other, a call whose result this conversation can take up later. Read without the recorded ids, such a call never takes its own result: it awaits one under the model's id, which the agent never answers under. History the conversation takes up later is not read (`steps_from_events`).
+
+        A request is compared with the conversation's previous bridged request, whichever history that continued. After a request with its own history, the next request shows the earlier results it carries as new. They go to no call, since their calls no longer await one.
+        """
+        made: dict[int, list[_BridgedCall]] = {}
+        repeated: list[str] = []
+        # the calls the model proposed under each id in each conversation, and
+        # the ids its starting history holds (`_history_ids`)
+        proposals: Counter[tuple[str, str]] = Counter()
+        # the calls the bridge handed over under a new id, by that id, then
+        # also each model call's proposal under such an id; and the calls made
+        # under such an id, by event index and id
+        fresh: Counter[str] = Counter()
+        renamed: set[tuple[int, str]] = set()
+        proposing: set[int] = set()
+        misaligned: list[str] = []
+        for index, event in bridged:
+            if producing_message_id(event) is None:
+                continue
+            output = event.output.choices[0].message
+            calls = output.tool_calls or []
+            ids = [call.id for call in calls]
+            recorded = event.agent_tool_call_ids
+            aligned = recorded is None or len(recorded) == len(calls)
+            if recorded is not None and aligned:
+                ids = recorded
+            conversation = self._conversation(event)
+            for call, id in zip(calls, ids):
+                proposals[(conversation, call.id)] += 1
+                if call.id != id:
+                    fresh[id] += 1
+            if calls:
+                proposing.add(index)
+            if not self._checks_calls_of(event):
+                continue
+            if not aligned:
+                misaligned.append(event.uuid or str(index))
+                continue
+            received = (
+                output
+                if recorded is None
+                else _with_agent_tool_call_ids(output, recorded)
+            )
+            counts = Counter(ids)
+            for model_call, call in zip(calls, received.tool_calls or []):
+                if counts[call.id] > 1:
+                    repeated.append(call.id)
+                elif (index, model_call.id) not in native:
+                    entry = _BridgedCall(
+                        index, event, received, call, self._next_seq(2)
+                    )
+                    made.setdefault(index, []).append(entry)
+                    if call.id != model_call.id:
+                        renamed.add((index, call.id))
+                    self._bridged_call(entry)
+
+        if renamed:
+            for logged in self.events:
+                if producing_message_id(logged) is not None:
+                    assert isinstance(logged, ModelEvent)
+                    for call in logged.output.choices[0].message.tool_calls or []:
+                        if call.id in fresh:
+                            fresh[call.id] += 1
+
+        tool_rows = _ToolRows({}, [], [])
+        for row, message in enumerate(self.keys.pool if made else []):
+            if (
+                isinstance(message, ChatMessageTool)
+                and message.tool_call_id is not None
+            ):
+                tool_rows.by_id.setdefault(message.tool_call_id, []).append(row)
+                tool_rows.rows.append(row)
+                tool_rows.ids.append(message.tool_call_id)
+        previous: dict[str, _PooledInput] = {}
+        # each conversation's call awaiting a result, by call id
+        awaiting: dict[str, dict[str, _BridgedCall]] = {}
+        # each conversation's awaiting ids by their lowest tool row, with ids
+        # no longer awaiting dropped when they reach the top
+        floors: dict[str, list[tuple[int, str]]] = {}
+        # each conversation's starting history ids, until it first proposes
+        history: dict[str, set[str]] = {}
+        for index, event in bridged:
+            conversation = self._conversation(event)
+            current = _PooledInput(self._input(event), self.keys)
+            if conversation not in awaiting or (
+                index in proposing and conversation in history
+            ):
+                held = history.setdefault(conversation, set())
+                for id in _history_ids(current, tool_rows) - held:
+                    held.add(id)
+                    proposals[(conversation, id)] += 1
+            if index in proposing:
+                history.pop(conversation, None)
+            waiting = awaiting.setdefault(conversation, {})
+            floor = floors.setdefault(conversation, [])
+            if waiting:
+                while floor[0][1] not in waiting:
+                    heappop(floor)
+                results = _new_tool_results(
+                    current, previous.get(conversation), waiting, tool_rows, floor[0][0]
+                )
+                for call_id, position in results.items():
+                    message = current.message(position)
+                    assert isinstance(message, ChatMessageTool)
+                    self._bridged_result(waiting.pop(call_id), index, event, message)
+            previous[conversation] = current
+            for entry in made.get(index, []):
+                count = proposals[(conversation, entry.call.id)]
+                if (entry.position, entry.call.id) in renamed:
+                    count += fresh[entry.call.id]
+                if count == 1 and entry.call.id in tool_rows.by_id:
+                    waiting[entry.call.id] = entry
+                    heappush(floor, (tool_rows.by_id[entry.call.id][0], entry.call.id))
+
+        if repeated:
+            logging.getLogger(__name__).warning(
+                "Replay skipped the tool steps of bridged call(s) %s: the model "
+                "response proposed several calls under each id.",
+                ", ".join(repr(id) for id in dict.fromkeys(repeated)),
+            )
+        if misaligned:
+            logging.getLogger(__name__).warning(
+                "Replay skipped the tool steps of the bridged calls of model "
+                "call(s) %s: each records a different number of agent tool call "
+                "ids (`agent_tool_call_ids`) than its output has tool calls.",
+                ", ".join(repr(id) for id in misaligned),
+            )
+
+    def _bridged_producer(self, entry: _BridgedCall) -> Producer | None:
+        """A bridged call's producer, with the message as the agent received it (`_BridgedCall.message`), as live's (`Produced.message`)."""
+        producer = self._producer(entry.event)
+        if producer is None or producer.message is entry.message:
+            return producer
+        return producer._replace(message=entry.message)
+
+    def _bridged_call(self, entry: _BridgedCall) -> None:
+        """A bridged call's `tool_call` step, right after its model call's `model_output` step, once that step settled (`_bridged_tool_steps`)."""
+        message = entry.message
+        conversation = self._conversation(entry.event)
+        producer = self._bridged_producer(entry)
+        text = self._text(message)
+        call = entry.call
+
+        def build() -> None:
+            step = before_tool_call(
+                conversation=conversation,
+                message=text,
+                message_id=message.id or "",
+                call=call,
+                view=ToolCallView(call=_default_view(call)),
+                producer=producer,
+                agent_messages=None,
+                record=self._record(conversation),
+            )
+            self._built(entry.step_id, "tool_call", step, None)
+
+        output_span = self.output_spans.get(entry.position)
+        if output_span is None:
+            at = (entry.position, 3)
+        elif output_span in self.ends:
+            at = (self.ends[output_span], 3)
+        else:
+            at = (self.begins[output_span][0], 1)
+        self._at_point(at, entry.seq, build)
+
+    def _bridged_result(
+        self,
+        entry: _BridgedCall,
+        index: int,
+        request: ModelEvent,
+        result: ChatMessageTool,
+    ) -> None:
+        """A bridged call's `tool_result` step, right before the `model_input` step of the request at `index` that carries its result (`_bridged_tool_steps`)."""
+        from inspect_ai.agent._bridge._sentinel import _output
+
+        message = entry.message
+        conversation = self._conversation(entry.event)
+        producer = self._bridged_producer(entry)
+        text = self._text(message)
+        call = entry.call
+
+        def build() -> None:
+            step = after_tool_call(
+                conversation=conversation,
+                message=text,
+                message_id=message.id or "",
+                call=call,
+                view=ToolCallView(call=_default_view(call)),
+                result=result,
+                output=_output(result),
+                truncated=None,
+                producer=producer,
+                agent_messages=None,
+                record=self._record(conversation),
+            )
+            self._built(entry.step_id, "tool_result", step, None)
+
+        input_span = (
+            self.step_spans.get(("model_input", request.uuid))
+            if request.uuid is not None
+            else None
+        )
+        at = (self.begins[input_span][0], 0) if input_span is not None else (index, 0)
+        self._at_point(at, entry.seq + 1, build)
+
+    def _imported_tool_steps(self, generates: list[_Generate]) -> None:
+        """An imported transcript's tool steps, from its messages, each placed after the turn that made it.
+
+        Its messages are one conversation, taken from the model calls
+        `messages_from` names, and keep one id per message across them and the
+        model calls' inputs and outputs (Scout's importers since #753). So
+        each assistant message is joined by its id to the turn whose output it
+        is: its tool steps follow that turn, with its input, tools,
+        conversation and record. A message no one turn made is placed after
+        the last message before it that one did, or before the first turn, in
+        that message's conversation, else the conversation of the calls
+        `messages_from` names, with no input: after the turn before the first
+        whose input is longer than its position in the messages, where that is
+        later. A call's result is the tool message answering its id before the
+        next assistant message with tool calls. A call no message holds (a
+        sub-agent's, or one in a turn the messages left out) has no tool
+        steps, and the transcript's tool events are not read. Step ids are
+        unique in a sample, so a call under an id an earlier call in the
+        messages has (a provider that reuses ids) is skipped, and a warning
+        names it.
+        """
+        made: dict[str, list[_Generate]] = {}
+        for group in generates:
+            output = group.attempts[-1][1].output
+            if output.choices and output.message.id is not None:
+                made.setdefault(output.message.id, []).append(group)
+        conversation = next(
+            (
+                self._conversation(event)
+                for event in self.events
+                if isinstance(event, ModelEvent) and event.uuid in self.messages_from
+            ),
+            self.spans.conversation(None),
+        )
+        place = (generates[0].attempts[0][0], 0) if generates else (len(self.events), 1)
+        # where no id places a message: its conversation's turns, and the
+        # longest input of each and those before it
+        turns = [g for g in generates if g.conversation == conversation]
+        longest = list(
+            accumulate((len(self._input(g.attempts[0][1])) for g in turns), max)
+        )
+        answers: dict[int, dict[str, ChatMessageTool]] = {}
+        current: dict[str, ChatMessageTool] | None = None
+        for position, message in enumerate(self.messages):
+            if isinstance(message, ChatMessageAssistant) and message.tool_calls:
+                current = answers[position] = {}
+            elif (
+                isinstance(message, ChatMessageTool)
+                and message.tool_call_id is not None
+                and current is not None
+            ):
+                current.setdefault(message.tool_call_id, message)
+        # step ids are unique in a sample: a call id an earlier call has
+        replayed: set[str] = set()
+        repeated: list[str] = []
+        for position, message in enumerate(self.messages):
+            if not isinstance(message, ChatMessageAssistant):
+                continue
+            makers = made.get(message.id) if message.id is not None else None
+            producer: ModelEvent | None = None
+            if makers is not None and len(makers) == 1:
+                index, producer = makers[0].attempts[-1]
+                place = (index, 3)
+                conversation = makers[0].conversation
+            else:
+                # after the turn before the first whose input is longer than
+                # the message's position, where the messages extend each
+                # turn's input, and never before a message placed earlier
+                later = bisect_right(longest, position)
+                if later > 0:
+                    place = max(place, (turns[later - 1].attempts[-1][0], 3))
+            for call in message.tool_calls or []:
+                if call.id in replayed:
+                    repeated.append(call.id)
+                    continue
+                replayed.add(call.id)
+                self._message_call(
+                    message,
+                    call,
+                    answers[position].get(call.id),
+                    conversation,
+                    place,
+                    producer,
+                )
+        if repeated:
+            logging.getLogger(__name__).warning(
+                "Replay skipped the tool steps of imported call(s) %s: an earlier "
+                "call in the messages has the same id, and step ids are unique in "
+                "a sample.",
+                ", ".join(repr(id) for id in dict.fromkeys(repeated)),
+            )
+
+    def _message_call(
+        self,
+        assistant: ChatMessageAssistant,
+        call: ToolCall,
+        result: ChatMessageTool | None,
+        conversation: str,
+        at: tuple[int, int],
+        made_by: ModelEvent | None,
+    ) -> None:
+        """A call's tool steps from the messages holding it and its answer (`_imported_tool_steps`)."""
+        view = ToolCallView(call=call.view)
+        message_id = assistant.id or ""
+        text = self._text(assistant)
+        producer = self._producer(made_by)
+        seq = self._next_seq(3)
+
+        def build_before() -> None:
+            step = before_tool_call(
+                conversation=conversation,
+                message=text,
+                message_id=message_id,
+                call=call,
+                view=view,
+                producer=producer,
+                agent_messages=None,
+                record=self._record(conversation),
+            )
+            self._built(call.id, "tool_call", step, None)
+
+        self._at_point(at, seq, build_before)
+        if result is None:
+            return
+        answer = result
+
+        def build_after() -> None:
+            step = after_tool_call(
+                conversation=conversation,
+                message=text,
+                message_id=message_id,
+                call=call,
+                view=view,
+                result=answer,
+                output=None,
+                truncated=None,
+                producer=producer,
+                agent_messages=None,
+                record=self._record(conversation),
+            )
+            self._built(call.id, "tool_result", step, None)
+
+        self._at_point(at, seq + 2, build_after)
+
     def _tool_span_of(
         self,
         key: tuple[SentinelStage, str],
@@ -1545,9 +2104,10 @@ class _Driver:
 
     def _settle_unbuilt_checks(self) -> None:
         """Settle the tool checks no step is built for, then warn once for each kind."""
-        for call_id, span in self.bridge_spans:
+        # a bridge's checks are not paired with its rebuilt steps
+        # (_bridged_tool_steps), but their decisions reach later steps
+        for _, span in self.bridge_spans:
             self._settle_at_end(span)
-            self.skipped.append(call_id)
         unmatched: list[str] = []
         for (_, call_id), spans in self.tool_spans.items():
             for span in spans:
@@ -1557,13 +2117,6 @@ class _Driver:
             for span in spans:
                 self._settle_at_end(span)
                 unmatched.append(self.span_events[span][0].step_id)
-        if self.skipped:
-            logging.getLogger(__name__).warning(
-                "Replay skipped the tool steps of calls an agent bridge checked or "
-                "ran (%s): the log does not record which model call made each of "
-                "them.",
-                ", ".join(dict.fromkeys(self.skipped)),
-            )
         if unmatched:
             logging.getLogger(__name__).warning(
                 "Replay found tool checks under call id(s) %s that match no tool "
@@ -1578,6 +2131,10 @@ class _Driver:
         """
         if producer is None:
             return not self._scoring(event)
+        return self._checks_calls_of(producer)
+
+    def _checks_calls_of(self, producer: ModelEvent) -> bool:
+        """Whether live checked the calls `producer` made, by the region it was made in (`_checks_tool_calls`)."""
         if producer.origin is not None:
             return producer.origin in _NON_FINAL
         return (
@@ -1789,7 +2346,10 @@ class _Driver:
         found = self._producers.get(id(event))
         if found is None:
             found = self._producers[id(event)] = Producer(
-                self._input(event), view(event.tools), event.tool_choice
+                self._input(event),
+                view(event.tools),
+                event.tool_choice,
+                event.output.message,
             )
         return found
 
@@ -1827,6 +2387,31 @@ class _Driver:
             function=event.function,
             error=event.error,
         )
+
+    def _prefilled_by_id(
+        self, event: ToolEvent
+    ) -> tuple[ChatMessageAssistant, ToolCall] | None:
+        """A call no model call produced (a pre-filled message): the message holding it, by the id its event records, and the call."""
+        message_id = event.call_message_id
+        if message_id is None or message_id in self.outputs:
+            return None
+        for message in self._messages_by_id_all().get(message_id, []):
+            if isinstance(message, ChatMessageAssistant):
+                proposed = self._calls_by_id(message).get(event.id)
+                if proposed is not None:
+                    return message, proposed
+        return None
+
+    def _calls_by_id(self, message: ChatMessageAssistant) -> dict[str, ToolCall | None]:
+        # a message's calls, read once for each of its tool events: by call
+        # id, None for an id it holds more than once
+        cached = self._call_indexes.get(id(message))
+        if cached is None or cached[0] is not message:
+            calls: dict[str, ToolCall | None] = {}
+            for call in message.tool_calls or []:
+                calls[call.id] = None if call.id in calls else call
+            cached = self._call_indexes[id(message)] = (message, calls)
+        return cached[1]
 
     def _messages_by_id_all(self) -> dict[str, list[ChatMessage]]:
         if self._messages_by_id is None:

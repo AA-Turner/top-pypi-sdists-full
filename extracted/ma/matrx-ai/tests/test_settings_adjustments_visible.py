@@ -92,7 +92,7 @@ async def test_adjustments_are_stored_and_streamed() -> None:
     assert (by_key["max_output_tokens"]["from"], by_key["max_output_tokens"]["to"]) == (400000, 65536)
     # flash-lite-latest is a Gemini 3.x model (gemini_3 mode, thinking_level): a raw budget is
     # dropped with a record, the effort rides as the level.
-    assert by_key["thinking_budget"]["action"] in {"translate", "drop"}
+    assert by_key["thinking_budget"]["action"] in {"translate", "drop", "override"}  # override = effort-beats-budget (gemini 3), law recorded
     assert params["thinking_config"].get("thinking_level")
     assert "thinking_config" in params
     for row in stored:

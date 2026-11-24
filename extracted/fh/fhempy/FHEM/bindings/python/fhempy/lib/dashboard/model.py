@@ -816,6 +816,8 @@ def build(infos, order=None, keep_on=None, measure=None, device_views=None):
             if measure and name in measure and item["kind"] in MEASURE_KINDS:
                 item["measure"] = True
                 item["keep_on"] = True
+        elif item["kind"] == "media" and keep_on and name in keep_on:
+            item["keep_on"] = True
         tiles[name] = item
         for room in device_rooms:
             rooms.setdefault(room, []).append(item)
@@ -1450,33 +1452,126 @@ ROUTINES = ("night", "away")
 UNDO_SECONDS = 10 * 60
 
 
-def routine_steps(tiles, mode, off_ids, close_ids):
+def door_open(tiles):
+    """a door contact is open: then good night / leaving home lock nothing"""
+    return any(
+        t["kind"] == "contact" and t.get("door") and t["state"].get("closed") is False
+        for t in tiles.values()
+    )
+
+
+def routine_steps(tiles, mode, off_ids, close_ids, lock_ids=(), heat=False):
     """what good night / leaving home does, and how to undo it:
     (steps, undo) with (device, action, value). Switches off the lights and
     switches the tablet sends (not those left on with 'All off'); at night
-    also closes the blinds it sends. Undo restores what was before."""
+    also closes the blinds it sends, when leaving only against the heat
+    (heat=True, chosen on the tablet). Locks it sends are locked when all
+    doors are closed, never unlocked again by undo.
+    Undo restores what was before."""
     steps, undo = [], []
     for device in off_ids:
         item = tiles.get(str(device))
-        if (
-            item is not None
-            and item["kind"] in SWITCHABLE
-            and item["state"].get("on")
-            and not item.get("keep_on")
-        ):
-            steps.append((item["id"], "off", None))
-            undo.append((item["id"], "on", None))
-    if mode == "night":
-        for device in close_ids:
-            item = tiles.get(str(device))
-            if item is None or item["kind"] != "blind":
-                continue
-            position = item["state"].get("position")
-            if position is None or position > 0:
-                steps.append((item["id"], "position", 0))
-                if position is not None:
-                    undo.append((item["id"], "position", position))
+        if item is not None:
+            _switch_off(item, steps, undo)
+    if mode == "night" or heat:
+        _close_blinds(tiles, close_ids, steps, undo)
+    if not door_open(tiles):
+        _lock(tiles, lock_ids, steps)
     return steps, undo
+
+
+def _switch_off(item, steps, undo):
+    if item["kind"] == "media":
+        _media_off(item, steps, undo)
+        return
+    _fan_off(item, steps, undo)
+    if (
+        item["kind"] in SWITCHABLE
+        and item["state"].get("on")
+        and not item.get("keep_on")
+    ):
+        steps.append((item["id"], "off", None))
+        undo.append((item["id"], "on", None))
+
+
+def _close_blinds(tiles, close_ids, steps, undo):
+    for device in close_ids:
+        item = tiles.get(str(device))
+        if item is None or item["kind"] != "blind":
+            continue
+        position = item["state"].get("position")
+        if position is None or position > 0:
+            steps.append((item["id"], "position", 0))
+            if position is not None:
+                undo.append((item["id"], "position", position))
+
+
+def _lock(tiles, lock_ids, steps):
+    """locks are never unlocked by undo"""
+    for device in lock_ids:
+        item = tiles.get(str(device))
+        if item is not None and item["kind"] == "lock" and item["state"].get("locked") is False:
+            steps.append((item["id"], "lock", None))
+
+
+# the alarm system mode of good night and leaving home
+ROUTINE_ALARM = {"night": "home", "away": "away"}
+
+
+def routine_alarm(system, mode):
+    """mode the alarm system is armed to with good night / leaving home,
+    None: no alarm system, it can't, it already is or it is triggered"""
+    if not system:
+        return None
+    wanted = ROUTINE_ALARM.get(mode)
+    if wanted not in system.get("modes", ()):
+        return None
+    if system.get("mode") in (wanted, "triggered"):
+        return None
+    return wanted
+
+
+def media_goes_off(item):
+    """music players, speakers and TVs good night / leaving home switches
+    off: those with on/off when they are on, the others when they play"""
+    if item["kind"] != "media" or item.get("keep_on"):
+        return False
+    state = item["state"]
+    if (item.get("media") or {}).get("power"):
+        return bool(state.get("on"))
+    return bool(state.get("playing"))
+
+
+def fan_percent(item):
+    """speed of a fan tile or of the fan of a ceiling light, 0: off"""
+    if not item.get("fan"):
+        return 0
+    state = item["state"] if item["kind"] == "fan" else item["state"].get("fan") or {}
+    return state.get("percent") or 0
+
+
+def _fan_off(item, steps, undo):
+    """fans and the fans of ceiling lights off, undo sets the speed again"""
+    percent = fan_percent(item)
+    if not percent or item.get("keep_on"):
+        return
+    if item["kind"] == "fan":
+        steps.append((item["id"], "off", None))
+    else:
+        steps.append((item["id"], "fan_percent", 0))
+    undo.append((item["id"], "fan_percent", percent))
+
+
+def _media_off(item, steps, undo):
+    """off where the device can be switched off, else pause what plays"""
+    if not media_goes_off(item):
+        return
+    if (item.get("media") or {}).get("power"):
+        steps.append((item["id"], "off", None))
+        undo.append((item["id"], "on", None))
+    else:
+        steps.append((item["id"], "pause", None))
+        undo.append((item["id"], "play", None))
 
 
 # --- energy ---
@@ -2168,6 +2263,39 @@ def format_appliances(appliances):
     return ",".join(f"{n}:{w}" for n, w in sorted(appliances.items()))
 
 
+def parse_done_by(value):
+    """attribute appliance_done_by 'Plug_A:Door_contact,Plug_B:Motion' ->
+    {plug: device which sets the done appliance to seen}"""
+    result = {}
+    for entry in re.split(r"[,\s]+", str(value or "")):
+        name, _, device = entry.partition(":")
+        if name and device:
+            result[name] = device
+    return result
+
+
+def format_done_by(done_by):
+    return ",".join(f"{n}:{d}" for n, d in sorted(done_by.items()) if d)
+
+
+# kinds offered first on the tablet as "done by": somebody at the appliance
+DONE_BY_KINDS = ("contact", "motion")
+
+
+def done_by_triggers(kind, before, after):
+    """a change of the "done by" device which means somebody is at the
+    appliance: motion detected, the door opened or closed, a button pressed
+    or any other change of the device"""
+    if kind == "motion":
+        return bool(after.get("occupied")) and not before.get("occupied")
+    if kind == "contact":
+        return "closed" in after and after.get("closed") != before.get("closed")
+    keys = set(before) | set(after)
+    keys.discard("since")
+    keys.discard("battery_low")
+    return any(before.get(k) != after.get(k) for k in keys)
+
+
 def typical_seconds(durations):
     """median of the last programs, None: none yet"""
     values = sorted(d for d in durations or [] if isinstance(d, (int, float)) and d > 0)
@@ -2197,6 +2325,7 @@ class ApplianceWatch:
         # last power and length of the last program
         self.power = 0
         self.seconds = 0
+        self.ended = None
         # the last finished program
         self.profile = None
         self._reset()
@@ -2432,8 +2561,12 @@ class ApplianceWatch:
             "bins": bins,
             "gaps": [g for g in self.gaps if g[0] + g[1] <= seconds],
         }
+        ended = self.last_active
         self._reset()
         self.seconds = seconds
+        # the last time with power: somebody at the appliance after this has
+        # seen it is done
+        self.ended = ended
         if seconds >= APPLIANCE_MIN_MINUTES * 60 and peak >= APPLIANCE_PEAK_W:
             self.profile = profile
             self.runs.append(profile)

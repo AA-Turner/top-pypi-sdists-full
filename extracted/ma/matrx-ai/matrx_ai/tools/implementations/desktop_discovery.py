@@ -51,6 +51,15 @@ _PLATFORM_GATED_TOOLS: dict[str, str] = {
 _category_names_cache: list[str] | None = None
 
 
+def _offered_categories() -> frozenset[str]:
+    """The categories the tool's own argument enum offers the model."""
+    from typing import get_args
+
+    from matrx_ai.tools._generated_declarations import LoadDesktopToolsArgs
+
+    return frozenset(get_args(LoadDesktopToolsArgs.model_fields["category"].annotation))
+
+
 def clear_caches() -> None:
     """Invalidate the lazy category cache (admin cache-bust after a
     migration edits the tool tables)."""
@@ -169,6 +178,42 @@ def _hard_excluded_tool_names() -> frozenset[str]:
     return hard_excluded_tool_names(try_get_app_context())
 
 
+def _filter_desktop_candidates(
+    candidates: list[ToolDefinition], *, platform: str, hard_excluded: frozenset[str]
+) -> tuple[list[ToolDefinition], list[str], list[str]]:
+    """THE ONE filter: ``(passed, skipped_platform, skipped_policy)`` — the loader and the ENVIRONMENT
+    block (``loadable_desktop_tools``) both call it."""
+    passed: list[ToolDefinition] = []
+    skipped_platform: list[str] = []
+    skipped_policy: list[str] = []
+    for tool in sorted(candidates, key=lambda t: t.name):
+        if tool.name in hard_excluded:
+            skipped_policy.append(tool.name)
+            continue
+        needed = _PLATFORM_GATED_TOOLS.get(tool.name)
+        if needed and platform and platform != needed:
+            skipped_platform.append(tool.name)
+            continue
+        passed.append(tool)
+    return passed, skipped_platform, skipped_policy
+
+
+def loadable_desktop_tools(state: dict[str, Any], *, held: frozenset[str] = frozenset()) -> dict[str, list[str]]:
+    """``{category: [tool, ...]}`` this request could really load with ``load_desktop_tools`` (same
+    candidates, same filter); tools already in ``held`` are left out."""
+    platform = str(state.get("platform") or "")
+    excluded = _hard_excluded_tool_names()
+    out: dict[str, list[str]] = {}
+    for category in get_category_names():
+        passed, _plat, _pol = _filter_desktop_candidates(
+            _registry_tools_for_category(category), platform=platform, hard_excluded=excluded
+        )
+        names = sorted(t.name for t in passed if t.name not in held)
+        if names:
+            out[category] = names
+    return out
+
+
 async def load_desktop_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Load the desktop mega-tools for ``category`` into the active toolset.
 
@@ -189,9 +234,30 @@ async def load_desktop_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResu
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="invalid_argument",
                 message="category is required",
                 suggested_action=f"Choose one of: {', '.join(category_names)}",
+            ),
+            started_at=started,
+            completed_at=time.time(),
+            tool_name="load_desktop_tools",
+            call_id=ctx.call_id,
+        )
+
+    if category not in category_names and category in _offered_categories():
+        # The contract offered this value but no active matrx-local tool sits in it: answer honestly,
+        # never refuse a value our own enum lists (live system_error 2026-11-16, 'desktop-web').
+        from matrx_ai.tools.kinds.tool_loading import DesktopToolsLoadResult
+
+        return ToolResult(
+            success=True,
+            output=DesktopToolsLoadResult(
+                category=category,
+                message=(
+                    f"Category {category!r} has no active tools right now; nothing was queued. "
+                    f"Categories with tools: {', '.join(category_names) or 'none'}."
+                ),
             ),
             started_at=started,
             completed_at=time.time(),
@@ -206,6 +272,7 @@ async def load_desktop_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResu
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="unknown_category",
                 message=f"Unknown category {category!r}." + (f" {hint}" if hint else ""),
                 suggested_action=f"Valid categories: {', '.join(category_names)}",
@@ -246,22 +313,12 @@ async def load_desktop_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResu
 
     candidates = _registry_tools_for_category(category)
 
-    discovered_specs: list[ToolSpec] = []
-    skipped_platform: list[str] = []
-    skipped_policy: list[str] = []
-    hard_excluded_tools = _hard_excluded_tool_names()
-    for tool in sorted(candidates, key=lambda t: t.name):
-        # Host authority policy is absolute. Filter here so the tool result
-        # truthfully reports what discovery queued; merge_request_tools applies
-        # the same policy again during the drain as an independent backstop.
-        if tool.name in hard_excluded_tools:
-            skipped_policy.append(tool.name)
-            continue
-        needed = _PLATFORM_GATED_TOOLS.get(tool.name)
-        if needed and platform and platform != needed:
-            skipped_platform.append(tool.name)
-            continue
-        discovered_specs.append(_discovered_spec(tool))
+    # Host authority policy is absolute. Filter here so the tool result truthfully reports what
+    # discovery queued; merge_request_tools applies the same policy again during the drain.
+    passed, skipped_platform, skipped_policy = _filter_desktop_candidates(
+        candidates, platform=platform, hard_excluded=_hard_excluded_tool_names()
+    )
+    discovered_specs: list[ToolSpec] = [_discovered_spec(t) for t in passed]
 
     # The loader STAYS (TOOL-SOURCES.md, bundles) — see browser_discovery.load_chrome_tools.
     ctx.queue_tool_changes(add=discovered_specs)

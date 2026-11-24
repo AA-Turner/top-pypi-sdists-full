@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from matrx_utils.http_client import shared_client
 
 CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets"
 REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
@@ -29,7 +30,7 @@ async def create_realtime_client_secret(
     output) — merged under the fixed ``type``/``model`` so a setting can never
     replace the approved model.
     """
-    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+    async with shared_client(timeout=timeout_seconds) as client:
         return await client.post(
             CLIENT_SECRETS_URL,
             json={

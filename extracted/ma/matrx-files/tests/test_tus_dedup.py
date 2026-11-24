@@ -248,19 +248,22 @@ async def test_duplicate_of_a_file_with_different_bytes_is_refused_and_cleaned(w
 # ---------------------------------------------------------------------------
 
 
-async def test_bucket_rejecting_full_object_sha256_uploads_with_null_checksum_and_no_dedup(
+async def test_bucket_rejecting_full_object_sha256_still_stores_the_rehashed_checksum(
     monkeypatch: pytest.MonkeyPatch,
 ):
+    # Finding 7 (2026-10-30): no FULL_OBJECT checksum from S3 used to land NULL.
+    # The assembled object is re-hashed; each path still gets its own row.
     world = build_world(monkeypatch, s3=FakeS3Client(reject_full_object_sha256=True))
     _, first = await upload_file(world, owner="user-a", path="docs/a.pdf", content=CONTENT)
     _, second = await upload_file(world, owner="user-a", path="docs/b.pdf", content=CONTENT)
 
-    assert first.checksum is None
+    sha = hashlib.sha256(CONTENT).hexdigest()
+    assert first.checksum == sha
     assert second.is_new is True
     assert second.file_id != first.file_id
     rows = world.live_files()
     assert len(rows) == 2
-    assert all(r["checksum"] is None for r in rows)
+    assert all(r["checksum"] == sha for r in rows)
     assert all(_stored(world, r) == CONTENT for r in rows)
 
 
@@ -274,12 +277,12 @@ async def test_unrelated_invalid_request_fails_create_without_retry_or_state(wor
     assert world.inflight.rows == {}
 
 
-async def test_garbled_s3_checksum_lands_null_and_never_dedups(monkeypatch: pytest.MonkeyPatch):
+async def test_garbled_s3_checksum_is_replaced_by_the_rehash(monkeypatch: pytest.MonkeyPatch):
     world = build_world(monkeypatch, s3=FakeS3Client(checksum_override="not-valid-base64!!!"))
     _, first = await upload_file(world, owner="user-a", path="docs/a.pdf", content=CONTENT)
     _, second = await upload_file(world, owner="user-a", path="docs/b.pdf", content=CONTENT)
 
-    assert first.checksum is None
+    assert first.checksum == hashlib.sha256(CONTENT).hexdigest()
     assert second.is_new is True
     assert len(world.live_files()) == 2
 

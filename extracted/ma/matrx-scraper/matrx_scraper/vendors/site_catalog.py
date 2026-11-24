@@ -131,7 +131,7 @@ CATALOG: tuple[CatalogEntry, ...] = (
        discover_options={"location": ("country", "keyword"), "place_id": ("place_id",), "cid": ("CID",)},
        name_search={"country": "US"}),
     # crawl_error "Sign in modal hides the Reviews" on every live call (2026-10-11).
-    _u("google_maps_reviews", "Google Maps reviews", "gd_luzfs1dn2oa0teb81", _GOOGLE, r"^/maps/place/",
+    _u("google_maps_reviews", "Google Maps reviews by link", "gd_luzfs1dn2oa0teb81", _GOOGLE, r"^/maps/place/",
        verified=False, key_field="review_id",
        known_issue="Reviews are hidden behind a sign-in wall right now, so this may return nothing."),
     _u("yelp_business", "Yelp business", "gd_lgugwl0519h1p14rwk", r"(^|\.)yelp\.[a-z.]+$", r"^/biz/",
@@ -203,7 +203,7 @@ CATALOG: tuple[CatalogEntry, ...] = (
        auto_route=True, key_field="review_id"),
     _u("google_play_app", "Google Play app", "gd_lsk382l8xei8vzm4u", r"^play\.google\.com$",
        r"^/store/apps/details", auto_route=True),
-    _u("google_play_reviews", "Google Play reviews", "gd_m6zagkt024uwvvwuyu", r"^play\.google\.com$",
+    _u("google_play_reviews", "Google Play reviews by link", "gd_m6zagkt024uwvvwuyu", r"^play\.google\.com$",
        r"^/store/apps/details", key_field="review_id"),
     _u("facebook_event", "Facebook event", "gd_m14sd0to1jz48ppm51", r"(^|\.)facebook\.com$", r"^/events/\d",
        auto_route=True),

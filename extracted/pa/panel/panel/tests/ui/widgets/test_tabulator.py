@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 import typing as t
 
 from contextlib import contextmanager
@@ -135,6 +136,44 @@ def wait_for_data_synced(page, widget):
         assert actual == expected
 
     wait_until(_synced, page)
+
+
+def apply_header_filter(page, widget, header, value):
+    # The server resends the data whenever the filters change, which matches
+    # the data the table holds and closes an editor opened before it arrives.
+    page.evaluate("""() => {
+      const view = Bokeh.index.query_one((view) => view.model.type.endsWith('DataTabulator'))
+      window.__data_changes = 0
+      view.model.source.properties.data.change.connect(() => { window.__data_changes += 1 })
+    }""")
+    header.click()
+    header.fill(value)
+    header.press('Enter')
+    wait_until(lambda: len(widget.filters) == 1, page)
+    wait_until(lambda: page.evaluate("""() => {
+      const view = Bokeh.index.query_one((view) => view.model.type.endsWith('DataTabulator'))
+      return window.__data_changes > 0 && !view._updating_data
+    }"""), page)
+    wait_for_data_synced(page, widget)
+
+
+def wait_for_table(page):
+    # Cells exist while the table is still hidden being built and styled, and
+    # once shown it is redrawn to fit, which rebuilds the cells and resets the
+    # scroll, so interacting earlier races with both.
+    wait_until(lambda: page.evaluate("""async () => {
+      const view = Bokeh.index.query_one((view) => view.model.type.endsWith('DataTabulator'))
+      const settled = () => (
+        view?.tabulator?.element.style.visibility === 'visible' && !view._initializing &&
+        !view.is_drawing && !view._resize_pending && view._resize_flush === null &&
+        view._pending_scroll_restores === 0
+      )
+      if (!settled()) {
+        return false
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      return settled()
+    }"""), page)
 
 
 def tabulator_column_values(page, col_name: str) -> list[str]:
@@ -357,13 +396,14 @@ def test_tabulator_buttons_display(page, df_mixed):
     cols = page.locator(".tabulator-col")
     expect(cols).to_have_count(expected_ncols)
     button_col_idx = expected_ncols - 2
+    # The table stays hidden until it is built, and hidden elements have no inner text.
+    expect(cols.nth(button_col_idx)).to_be_visible()
     assert not cols.nth(button_col_idx).get_attribute('tabulator-field')
     assert cols.nth(button_col_idx).inner_text() == '\xa0'
-    assert cols.nth(button_col_idx).is_visible()
 
     # Check the button column has the right content
     icons = page.locator(f'text="{icon_text}"')
-    assert icons.all_inner_texts() == [icon_text] * nrows
+    expect(icons).to_have_text([icon_text] * nrows, use_inner_text=True)
 
     # Check the buttons are centered
     for i in range(icons.count()):
@@ -1496,6 +1536,26 @@ def test_tabulator_frozen_rows(page):
     wait_until(_frozen_rows_unchanged, page)
 
 
+def test_tabulator_frozen_rows_patch_updates_styles(page):
+    df = pd.DataFrame({'v': np.arange(50)})
+    widget = Tabulator(df, frozen_rows=[0, 1], height=300)
+    widget.style.apply(
+        lambda s: ['background-color: red' if v % 3 == 0 else '' for v in s], subset=['v']
+    )
+
+    serve_component(page, widget)
+
+    frozen = page.locator('.tabulator-frozen-rows-holder .tabulator-cell[tabulator-field="v"]')
+    expect(frozen).to_have_count(2)
+    expect(frozen.first).to_have_css('background-color', 'rgb(255, 0, 0)')
+
+    widget.patch({'v': [(0, 1), (1, 3)]})
+
+    expect(frozen.first).to_have_text('1')
+    expect(frozen.first).not_to_have_css('background-color', 'rgb(255, 0, 0)')
+    expect(frozen.nth(1)).to_have_css('background-color', 'rgb(255, 0, 0)')
+
+
 def test_tabulator_patch_no_horizontal_rescroll(page, df_mixed):
     widths = 100
     width = int(((df_mixed.shape[1] + 1) * widths) / 2)
@@ -1504,7 +1564,7 @@ def test_tabulator_patch_no_horizontal_rescroll(page, df_mixed):
 
     serve_component(page, widget)
 
-    expect(page.locator('text="target"')).to_be_attached()
+    wait_for_table(page)
 
     # Scroll to the right
     table_holder = page.locator('.pnx-tabulator .tabulator-tableholder')
@@ -1529,6 +1589,29 @@ def test_tabulator_patch_no_horizontal_rescroll(page, df_mixed):
     wait_until(kept_position, page)
 
 
+def test_tabulator_scroll_during_resize_redraw_kept(page, df_mixed):
+    widths = 100
+    width = int(((df_mixed.shape[1] + 1) * widths) / 2)
+    widget = Tabulator(df_mixed, width=width, widths=widths)
+
+    serve_component(page, widget)
+
+    table_holder = page.locator('.pnx-tabulator .tabulator-tableholder')
+    wait_until(lambda: table_holder.evaluate("el => el.scrollWidth > el.clientWidth"), page)
+    page.evaluate("""() => {
+      const view = Object.values(Bokeh.index)[0]
+      view._resize_redraw()
+      const el = view.shadow_el.querySelector('.tabulator-tableholder')
+      el.scrollLeft = el.scrollWidth
+    }""")
+    page.evaluate("""async () => {
+      for (let i = 0; i < 20; i++) {
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+      }
+    }""")
+    assert table_holder.evaluate("el => el.scrollLeft") > 0
+
+
 def test_tabulator_patch_no_vertical_rescroll(page):
     size = 10
     arr = np.random.choice(list('abcd'), size=size)
@@ -1541,7 +1624,7 @@ def test_tabulator_patch_no_vertical_rescroll(page):
 
     serve_component(page, widget)
 
-    expect(page.locator(f'text="{target}"')).to_be_attached()
+    wait_for_table(page)
 
     table_holder = page.locator('.pnx-tabulator .tabulator-tableholder')
     table_holder.evaluate("el => { el.scrollTop = el.scrollHeight; }")
@@ -1575,15 +1658,15 @@ def test_tabulator_patch_with_filter_no_vertical_rescroll(page):
 
     serve_component(page, widget)
 
+    wait_for_table(page)
     tableholder = page.locator(".tabulator-tableholder")
-    expect(tableholder).to_be_attached()
 
-    # Scroll down inside the tableholder
-    tableholder.evaluate("el => el.scrollTop = 10000")
-    page.wait_for_timeout(400)
+    # Scrolling is a no-op until the rows have been laid out, so retry it
+    wait_until(lambda: tableholder.evaluate(
+        "el => { el.scrollTop = 10000; return el.scrollTop > 0 }"
+    ), page)
 
     scroll_top_before = tableholder.evaluate("el => el.scrollTop")
-    assert scroll_top_before > 0
 
     # Patch a visible (non-filtered) row
     widget.patch({"value": [(0, 999.0)]})
@@ -1665,13 +1748,13 @@ def test_tabulator_header_filter_no_horizontal_rescroll(page, df_mixed, paginati
 
     serve_component(page, widget)
 
+    wait_for_table(page)
     table_holder = page.locator('.pnx-tabulator .tabulator-tableholder')
-    expect(table_holder).to_have_count(1)
-    # Wait for the table to be laid out and overflowing before scrolling it,
-    # otherwise scrollLeft may be a no-op if it's set before layout settles.
-    wait_until(lambda: table_holder.evaluate("el => el.scrollWidth > el.clientWidth"), page)
-    table_holder.evaluate("el => { el.scrollLeft = el.scrollWidth; }")
-    wait_until(lambda: table_holder.evaluate("el => el.scrollLeft > 0"), page)
+    # Setting scrollLeft is a no-op before the layout settles and a redraw
+    # can reset it, so retry it.
+    wait_until(lambda: table_holder.evaluate(
+        "el => { el.scrollLeft = el.scrollWidth; return el.scrollLeft > 0 }"
+    ), page)
 
     header = page.locator(
         f'.tabulator-col[tabulator-field="{col_name}"] '
@@ -1903,6 +1986,17 @@ def test_tabulator_selection_selectable_disabled(page, df_mixed):
         assert 'tabulator-selected' not in rows.nth(i).get_attribute('class')
 
 
+def test_tabulator_selectable_disabled_rows_not_marked_selectable(page, df_mixed):
+    widget = Tabulator(df_mixed, selectable=False)
+
+    serve_component(page, widget)
+
+    rows = page.locator('.tabulator-row')
+    expect(rows.first).to_be_visible()
+    for i in range(rows.count()):
+        assert 'tabulator-selectable' not in rows.nth(i).get_attribute('class')
+
+
 def test_tabulator_selection_default_selection(page, df_mixed):
     selection = [0, 2]
     widget = Tabulator(df_mixed, selection=[0, 2])
@@ -1910,13 +2004,15 @@ def test_tabulator_selection_default_selection(page, df_mixed):
     serve_component(page, widget)
 
     rows = page.locator('.tabulator-row')
+    expect(rows).to_have_count(len(df_mixed))
 
-    # Check that the rows in the selection are selected in the front-end
-    for i in range(rows.count()):
+    # Check that the rows in the selection are selected in the front-end,
+    # the initial selection is only applied once the table is laid out.
+    for i in range(len(df_mixed)):
         if i in selection:
-            assert 'tabulator-selected' in rows.nth(i).get_attribute('class')
+            expect(rows.nth(i)).to_contain_class('tabulator-selected')
         else:
-            assert 'tabulator-selected' not in rows.nth(i).get_attribute('class')
+            expect(rows.nth(i)).not_to_contain_class('tabulator-selected')
     expected_selected = df_mixed.loc[['idx0', 'idx2'], :]
     assert widget.selected_dataframe.equals(expected_selected)
 
@@ -2381,6 +2477,21 @@ def test_tabulator_hierarchical(page, df_multiindex):
         expect(subgr).to_be_visible()
 
 
+def test_tabulator_groupby_patch_regroups(page):
+    df = pd.DataFrame({'g': ['a', 'b'] * 10, 'v': np.arange(20)})
+    widget = Tabulator(df, groupby=['g'], height=600)
+
+    serve_component(page, widget)
+
+    groups = page.locator('.pnx-tabulator .tabulator-group')
+    expect(groups).to_have_count(2)
+
+    widget.patch({'g': [(0, 'b'), (2, 'b')]})
+
+    expect(groups.filter(has_text='g: a')).to_contain_text('(8 items)')
+    expect(groups.filter(has_text='g: b')).to_contain_text('(12 items)')
+
+
 def test_tabulator_cell_click_event(page, df_mixed):
     widget = Tabulator(df_mixed)
 
@@ -2446,6 +2557,7 @@ def test_tabulator_edit_event_empty_to_nan(page, df_mixed):
 
     serve_component(page, widget)
 
+    wait_for_table(page)
     cell = page.locator('text="3.14"')
     cell.click()
     editable_cell = page.locator('input[type="number"]')
@@ -2456,6 +2568,23 @@ def test_tabulator_edit_event_empty_to_nan(page, df_mixed):
     assert values[0][:-1] == ('float', 0, 3.14)
     assert np.isnan(values[0][-1])
     assert page.query_selector('text="-"') is not None
+
+
+def test_tabulator_edit_masked_int_clear_cell_to_na(page):
+    df = pd.DataFrame({'A': pd.array([1, 2, 3], dtype='Int64')})
+    widget = Tabulator(df)
+
+    serve_component(page, widget)
+
+    cell = page.locator('.tabulator-cell[tabulator-field="A"]').nth(1)
+    cell.click()
+    editable_cell = page.locator('input[type="number"]')
+    editable_cell.fill('')
+    editable_cell.press('Enter')
+
+    wait_until(lambda: widget.value['A'].isna().tolist() == [False, True, False], page)
+    assert widget.value['A'].dtype == pd.Int64Dtype()
+    assert widget.value['A'].iloc[1] is pd.NA
 
 
 @pytest.mark.parametrize('pagination', ['remote', 'local'])
@@ -2988,6 +3117,58 @@ def test_tabulator_styling_init(page, df_mixed):
     expect(max_cell).to_have_css('background-color', _color_mapping['yellow'])
     expect(page.locator('text="false"')).to_have_css('color', _color_mapping['red'])
 
+def test_tabulator_styling_multi_index_columns(page):
+    df = pd.DataFrame(
+        [[1, 2], [3, 4]], columns=pd.MultiIndex.from_tuples([('a', 'b'), ('a', 'c')])
+    )
+    widget = Tabulator(df)
+    widget.style.map(lambda v: 'color: red', subset=[('a', 'c')])
+
+    serve_component(page, widget)
+
+    row = page.locator('.tabulator-row').first
+    expect(row.locator('.tabulator-cell[tabulator-field="a_c"]')).to_have_css('color', _color_mapping['red'])
+    expect(row.locator('.tabulator-cell[tabulator-field="a_b"]')).not_to_have_css('color', _color_mapping['red'])
+
+
+def test_tabulator_styling_bar_keeps_column_width(page):
+    df = pd.DataFrame({'A': [1., 2., 3.], 'B': [4, 5, 6]})
+    widget = Tabulator(df, show_index=False)
+    widget.style.bar(subset=['A'], color='#d65f5f')
+
+    serve_component(page, widget)
+
+    wait_for_table(page)
+    cell = page.locator('.tabulator-row').first.locator('.tabulator-cell[tabulator-field="A"]')
+    expect(cell).to_have_css('background-image', re.compile('linear-gradient'))
+    header = page.locator('.tabulator-col[tabulator-field="A"]')
+    cell_box, header_box = bounding_boxes(page, cell, header)
+    assert cell_box['width'] == header_box['width']
+
+
+@pytest.mark.parametrize('kwargs', [
+    {'groups': {'G1': ['A', 'C'], 'G2': ['B', 'D']}},
+    {'groups': {'G1': ['A', 'C'], 'G2': ['B', 'D']}, 'hidden_columns': ['A']},
+    {'groups': {'G1': ['A', 'C'], 'G2': ['B', 'D']}, 'frozen_columns': ['D']},
+    {'groups': {'G1': ['A', 'C'], 'G2': ['B', 'D']}, 'selectable': 'checkbox'},
+    {'groups': {'G1': ['A', 'C'], 'G2': ['B', 'D']}, 'row_content': lambda row: 'content'},
+], ids=['groups', 'hidden', 'frozen', 'checkbox', 'row_content'])
+def test_tabulator_styling_with_column_groups(page, kwargs):
+    df = pd.DataFrame({'A': [1, 2], 'B': [3, 4], 'C': [5, 6], 'D': [7, 8]})
+    widget = Tabulator(df, **kwargs)
+    widget.style.map(lambda v: 'color: red', subset='C')
+
+    serve_component(page, widget)
+
+    for field in 'ABCD':
+        cell = page.locator('.tabulator-row').first.locator(f'.tabulator-cell[tabulator-field="{field}"]')
+        if field in kwargs.get('hidden_columns', []):
+            continue
+        if field == 'C':
+            expect(cell).to_have_css('color', _color_mapping['red'])
+        else:
+            expect(cell).not_to_have_css('color', _color_mapping['red'])
+
 def test_tabulator_patching_and_styling(page, df_mixed):
     df_styled = df_mixed.style.apply(highlight_max, subset=['int'])
     widget = Tabulator(df_styled)
@@ -3308,11 +3489,7 @@ def test_tabulator_edit_event_and_header_filters_last_row(page):
 
     # Set a filter on col1
     str_header = page.locator('input[type="search"]')
-    str_header.click()
-    str_header.fill('D')
-    str_header.press('Enter')
-    wait_until(lambda: len(widget.filters) == 1, page)
-    wait_for_data_synced(page, widget)
+    apply_header_filter(page, widget, str_header, 'D')
 
     # Click on the last cell
     cell = page.locator('text="Z"')
@@ -3347,11 +3524,7 @@ def test_tabulator_edit_event_and_header_filters(page):
 
     # Set a filter on col1
     str_header = page.locator('input[type="search"]')
-    str_header.click()
-    str_header.fill('a')
-    str_header.press('Enter')
-    wait_until(lambda: len(widget.filters) == 1, page)
-    wait_for_data_synced(page, widget)
+    apply_header_filter(page, widget, str_header, 'a')
 
     # Change the cell that contains B to BB
     cell = page.locator('text="B"')
@@ -3389,11 +3562,7 @@ def test_tabulator_edit_event_and_header_filters_same_column(page, show_index, i
     serve_component(page, widget)
 
     header = page.locator('input[type="search"]')
-    header.click()
-    header.fill('B')
-    header.press('Enter')
-    wait_until(lambda: len(widget.filters) == 1, page)
-    wait_for_data_synced(page, widget)
+    apply_header_filter(page, widget, header, 'B')
 
     # Check the table has the right number of rows
     expect(page.locator('.tabulator-row')).to_have_count(2)
@@ -3468,11 +3637,7 @@ def test_tabulator_edit_event_and_header_filters_same_column_pagination(page, pa
     serve_component(page, widget)
 
     header = page.locator('input[type="search"]')
-    header.click()
-    header.fill('B')
-    header.press('Enter')
-    wait_until(lambda: len(widget.filters) == 1, page)
-    wait_for_data_synced(page, widget)
+    apply_header_filter(page, widget, header, 'B')
 
     wait_until(lambda: widget.current_view is not None and widget.current_view.equals(df[df['values'] == 'B']))
 
@@ -3801,6 +3966,8 @@ def test_tabulator_loading_no_horizontal_rescroll(page, df_mixed):
     serve_component(page, widget)
 
     cell = page.locator('text="target"').first
+    # A scroll made before the table has finished building is lost.
+    expect(page.locator('.pnx-tabulator.tabulator')).to_be_visible()
     # Scroll to the right
     page.wait_for_timeout(200)
 
@@ -3837,6 +4004,8 @@ def test_tabulator_loading_no_vertical_rescroll(page):
 
     # Scroll to the bottom, and give it a little extra time
     cell = page.locator('text="T"')
+    # A scroll made before the table has finished building is lost.
+    expect(page.locator('.pnx-tabulator.tabulator')).to_be_visible()
     page.wait_for_timeout(200)
 
     def _scroll_into_view():
@@ -4073,10 +4242,8 @@ def test_tabulator_sort_algorithm_by_type(page, col, vals):
     # Attempt at making this test more robust.
     page.wait_for_timeout(200)
 
-    client_index = [int(i) for i in tabulator_column_values(page, 'index')]
-
     def indexes_equal():
-        assert client_index == list(widget.current_view.index)
+        assert tabulator_column_values(page, 'index') == [str(i) for i in widget.current_view.index]
 
     wait_until(indexes_equal, page)
 
@@ -4132,8 +4299,7 @@ def test_tabulator_sorter_default_number(page):
     widget.value = df2
 
     def x_values():
-        table_values = [int(v) for v in tabulator_column_values(page, 'x')]
-        assert table_values == [116, 96, 0]
+        assert tabulator_column_values(page, 'x') == ['116', '96', '0']
 
     wait_until(x_values, page)
 
@@ -4169,6 +4335,40 @@ def test_tabulator_update_hidden_columns(page):
         assert title_box['x'] == cell_box['x']
         assert title_box['width'] == cell_box['width']
     wait_until(aligned, page)
+
+
+@pytest.mark.parametrize('layout', ['fit_columns', 'fit_data_stretch'])
+@pytest.mark.parametrize('start,target', [(['b'], []), ([], ['b'])])
+def test_tabulator_update_hidden_columns_layout(page, layout, start, target):
+    df = pd.DataFrame({'a': ['aaaa'] * 3, 'b': ['b' * 24] * 3, 'c': ['c'] * 3})
+    updated = Tabulator(df, hidden_columns=start, layout=layout, width=600)
+    fresh = Tabulator(df, hidden_columns=target, layout=layout, width=600)
+
+    serve_component(page, Column(updated, fresh, width=800))
+
+    tables = page.locator('.pnx-tabulator')
+    expect(tables.locator('.tabulator-row')).to_have_count(6)
+
+    updated.hidden_columns = target
+
+    measure = """(t) => {
+      const left = t.getBoundingClientRect().x;
+      const out = {};
+      for (const f of ['a', 'b', 'c']) {
+        const h = t.querySelector(`.tabulator-col[tabulator-field="${f}"]`);
+        const c = t.querySelector(`.tabulator-row .tabulator-cell[tabulator-field="${f}"]`);
+        if (h.offsetParent === null) continue;
+        out[f] = [
+          Math.round(h.getBoundingClientRect().x - left), h.offsetWidth,
+          Math.round(c.getBoundingClientRect().x - left), c.offsetWidth
+        ];
+      }
+      return out
+    }"""
+
+    def same_layout():
+        assert tables.nth(0).evaluate(measure) == tables.nth(1).evaluate(measure)
+    wait_until(same_layout, page)
 
 
 def test_tabulator_remote_pagination_auto_page_size_grow(page, df_mixed):
@@ -4851,6 +5051,29 @@ def test_tabulator_hierarchical_data_grouping(page, df, request):
     expect(employees.nth(1)).to_contain_text("Eve")
 
 
+def test_tabulator_hierarchical_no_aggregators_leaves_groups_blank(page):
+    df = pd.DataFrame(
+        {"v": [1, 2, 3, 4], "label": ["x", "y", "z", "w"]},
+        index=pd.MultiIndex.from_tuples(
+            [("A", 1), ("A", 2), ("B", 1), ("B", 2)], names=["grp", "sub"]
+        ),
+    )
+    widget = Tabulator(df, hierarchical=True)
+    serve_component(page, widget)
+
+    rows = page.locator(".tabulator-row.tabulator-tree-level-0")
+    expect(rows).to_have_count(2)
+    for i in range(2):
+        expect(rows.nth(i).locator(".tabulator-cell[tabulator-field='v']")).to_have_text("-")
+        expect(rows.nth(i).locator(".tabulator-cell[tabulator-field='label']")).to_have_text("")
+
+    rows.nth(0).locator(".tabulator-data-tree-control").click()
+    children = page.locator(".tabulator-row.tabulator-tree-level-1")
+    expect(children).to_have_count(2)
+    expect(children.nth(0).locator(".tabulator-cell[tabulator-field='v']")).to_have_text("1")
+    expect(children.nth(1).locator(".tabulator-cell[tabulator-field='label']")).to_have_text("y")
+
+
 @pytest.mark.internet
 @pytest.mark.parametrize("aggs", [
     {"region": "min", "gender": "max"},
@@ -4888,14 +5111,19 @@ def test_tabulator_aggregators_data_aggregation(page, df_agg, aggs):
     # region level
     rows = page.locator('.tabulator-row')
     expect(rows).to_have_count(2)
-    agged = {
-        "region1": rows.nth(0).inner_text().split("\n"),
-        "region2": rows.nth(1).inner_text().split("\n"),
-    }
-    region_agged = {
-        region: {col: agged[region][col_mapping[col] - 1] for col in col_mapping} for region in agged
-    }
-    assert region_agged == expected_results["region"]
+
+    # The aggregated cells are filled in after the rows are rendered
+    def check_region_agged():
+        agged = {
+            "region1": rows.nth(0).locator(".tabulator-cell").all_inner_texts(),
+            "region2": rows.nth(1).locator(".tabulator-cell").all_inner_texts(),
+        }
+        region_agged = {
+            region: {col: agged[region][col_mapping[col]] for col in col_mapping} for region in agged
+        }
+        assert region_agged == expected_results["region"]
+
+    wait_until(check_region_agged, page)
 
     regions = page.locator('.tabulator-tree-level-0 .tabulator-data-tree-control-expand')
     # expand all region groups and see the data there
@@ -4903,19 +5131,22 @@ def test_tabulator_aggregators_data_aggregation(page, df_agg, aggs):
     regions.nth(0).click()
     rows = page.locator(".tabulator-row.tabulator-tree-level-1")
     expect(rows).to_have_count(3)
-    # gender level
-    agged = {
-        "region1": {"Male": rows.nth(0).inner_text().split("\n")},
-        "region2": {
-            "Male": rows.nth(1).inner_text().split("\n"),
-            "Female": rows.nth(2).inner_text().split("\n"),
-        },
-    }
-    gender_agged = {
-        region: {
-            gender: {col: agged[region][gender][col_mapping[col] - 1] for col in col_mapping} for gender in agged[region]} for region in agged
-    }
-    assert gender_agged == expected_results["gender"]
+
+    def check_gender_agged():
+        agged = {
+            "region1": {"Male": rows.nth(0).locator(".tabulator-cell").all_inner_texts()},
+            "region2": {
+                "Male": rows.nth(1).locator(".tabulator-cell").all_inner_texts(),
+                "Female": rows.nth(2).locator(".tabulator-cell").all_inner_texts(),
+            },
+        }
+        gender_agged = {
+            region: {
+                gender: {col: agged[region][gender][col_mapping[col]] for col in col_mapping} for gender in agged[region]} for region in agged
+        }
+        assert gender_agged == expected_results["gender"]
+
+    wait_until(check_gender_agged, page)
 
 
 @pytest.mark.parametrize("aggs", [
@@ -4955,14 +5186,19 @@ def test_tabulator_aggregators_data_aggregation_numeric_column_names(page, df_ag
     # region level
     rows = page.locator('.tabulator-row')
     expect(rows).to_have_count(2)
-    agged = {
-        "region1": rows.nth(0).inner_text().split("\n"),
-        "region2": rows.nth(1).inner_text().split("\n"),
-    }
-    region_agged = {
-        region: {col: agged[region][col_mapping[col] - 1] for col in col_mapping} for region in agged
-    }
-    assert region_agged == expected_results["region"]
+
+    # The aggregated cells are filled in after the rows are rendered
+    def check_region_agged():
+        agged = {
+            "region1": rows.nth(0).locator(".tabulator-cell").all_inner_texts(),
+            "region2": rows.nth(1).locator(".tabulator-cell").all_inner_texts(),
+        }
+        region_agged = {
+            region: {col: agged[region][col_mapping[col]] for col in col_mapping} for region in agged
+        }
+        assert region_agged == expected_results["region"]
+
+    wait_until(check_region_agged, page)
 
     regions = page.locator('.tabulator-tree-level-0 .tabulator-data-tree-control-expand')
     # expand all region groups and see the data there
@@ -4970,19 +5206,22 @@ def test_tabulator_aggregators_data_aggregation_numeric_column_names(page, df_ag
     regions.nth(0).click()
     rows = page.locator(".tabulator-row.tabulator-tree-level-1")
     expect(rows).to_have_count(3)
-    # gender level
-    agged = {
-        "region1": {"Male": rows.nth(0).inner_text().split("\n")},
-        "region2": {
-            "Male": rows.nth(1).inner_text().split("\n"),
-            "Female": rows.nth(2).inner_text().split("\n"),
-        },
-    }
-    gender_agged = {
-        region: {
-            gender: {col: agged[region][gender][col_mapping[col] - 1] for col in col_mapping} for gender in agged[region]} for region in agged
-    }
-    assert gender_agged == expected_results["gender"]
+
+    def check_gender_agged():
+        agged = {
+            "region1": {"Male": rows.nth(0).locator(".tabulator-cell").all_inner_texts()},
+            "region2": {
+                "Male": rows.nth(1).locator(".tabulator-cell").all_inner_texts(),
+                "Female": rows.nth(2).locator(".tabulator-cell").all_inner_texts(),
+            },
+        }
+        gender_agged = {
+            region: {
+                gender: {col: agged[region][gender][col_mapping[col]] for col in col_mapping} for gender in agged[region]} for region in agged
+        }
+        assert gender_agged == expected_results["gender"]
+
+    wait_until(check_gender_agged, page)
 
 
 @pytest.mark.parametrize('show_index', [True, False])
@@ -4999,3 +5238,388 @@ def test_tabulator_show_index_toggle(page, show_index):
 
     page.locator('.bk-knob').first.click()
     expect(page.locator('text="index"')).to_have_count(int(show_index))
+
+
+def test_tabulator_jscallback_selection_fires_on_row_click(page, df_mixed):
+    widget = Tabulator(df_mixed)
+    widget.jscallback(selection="document.title = 'selected'")
+
+    serve_component(page, widget)
+
+    page.locator('text="idx0"').click()
+
+    wait_until(lambda: page.title() == 'selected', page)
+
+
+def test_tabulator_stream_appends_rows_in_place(page):
+    df = pd.DataFrame({'col': np.arange(30)})
+    widget = Tabulator(df, height=200, selection=[2, 3])
+
+    serve_component(page, widget)
+
+    expect(page.locator('.tabulator-row.tabulator-selected')).to_have_count(2)
+
+    # Tag a rendered row so a rebuild of the table can be detected
+    page.locator('.tabulator-row').first.evaluate("el => el.setAttribute('data-kept', '1')")
+    table = page.locator('.pnx-tabulator .tabulator-table')
+    height_before = table.evaluate("el => el.offsetHeight")
+
+    holder = page.locator('.pnx-tabulator .tabulator-tableholder')
+    holder.evaluate("el => { el.scrollTop = 50 }")
+    wait_until(lambda: holder.evaluate("el => el.scrollTop") > 0, page)
+    scroll_top = holder.evaluate("el => el.scrollTop")
+
+    widget.stream(pd.DataFrame({'col': np.arange(30, 35)}), follow=False)
+
+    wait_until(lambda: table.evaluate("el => el.offsetHeight") > height_before, page)
+
+    expect(page.locator('.tabulator-row[data-kept="1"]')).to_have_count(1)
+    expect(page.locator('.tabulator-row.tabulator-selected')).to_have_count(2)
+    assert widget.selection == [2, 3]
+    assert holder.evaluate("el => el.scrollTop") == scroll_top
+
+
+def test_tabulator_stream_pagination_appends_at_end(page):
+    df = pd.DataFrame({'col': [f'v{i}' for i in range(30)]})
+    widget = Tabulator(df, pagination='local', page_size=10)
+
+    serve_component(page, widget)
+
+    expect(page.locator('.tabulator-row')).to_have_count(10)
+
+    widget.stream(pd.DataFrame({'col': [f'v{i}' for i in range(30, 35)]}))
+
+    # The streamed rows are appended after the existing rows, not on the page shown
+    expect(page.locator('.tabulator-page.active')).to_have_text('4')
+    expect(page.locator('.tabulator-row')).to_have_count(5)
+    expect(page.locator('.tabulator-row')).to_contain_text([f'v{i}' for i in range(30, 35)])
+
+    widget.page = 1
+    expect(page.locator('.tabulator-row')).to_contain_text([f'v{i}' for i in range(10)])
+
+
+def _serve_paginated_stream_table(page, pagination, start_page):
+    widget = Tabulator(
+        pd.DataFrame({'col': [f'v{i}' for i in range(25)]}),
+        pagination=pagination, page_size=10
+    )
+    errors = []
+    page.on('pageerror', lambda e: errors.append(str(e)))
+    msgs, _ = serve_component(page, widget)
+    widget.page = start_page
+    expect(page.locator('.tabulator-page.active')).to_have_text(str(start_page))
+    return widget, msgs, errors
+
+
+def _assert_page(page, widget, number, values, msgs, errors):
+    expect(page.locator('.tabulator-page.active')).to_have_text(str(number))
+    expect(page.locator('[tabulator-field=col][role=gridcell]')).to_have_text(values)
+    assert widget.page == number
+    page.wait_for_timeout(200)
+    assert errors == []
+    assert [msg.text for msg in msgs if msg.type == 'error' and 'favicon' not in msg.location['url']] == []
+
+
+@pytest.mark.parametrize('pagination', ['local', 'remote'])
+@pytest.mark.parametrize('start_page', [1, 3])
+def test_tabulator_stream_follow_pagination_to_new_page(page, pagination, start_page):
+    widget, msgs, errors = _serve_paginated_stream_table(page, pagination, start_page)
+
+    widget.stream(pd.DataFrame({'col': [f'v{i}' for i in range(25, 33)]}))
+
+    _assert_page(page, widget, 4, ['v30', 'v31', 'v32'], msgs, errors)
+
+
+@pytest.mark.parametrize('pagination', ['local', 'remote'])
+def test_tabulator_stream_follow_pagination_onto_current_page(page, pagination):
+    widget, msgs, errors = _serve_paginated_stream_table(page, pagination, 3)
+
+    widget.stream(pd.DataFrame({'col': ['v25', 'v26', 'v27']}))
+
+    _assert_page(page, widget, 3, [f'v{i}' for i in range(20, 28)], msgs, errors)
+
+
+@pytest.mark.parametrize('pagination', ['local', 'remote'])
+@pytest.mark.parametrize('as_dict', [False, True])
+def test_tabulator_stream_no_follow_pagination_keeps_page(page, pagination, as_dict):
+    widget, msgs, errors = _serve_paginated_stream_table(page, pagination, 1)
+
+    value = {'col': [f'v{i}' for i in range(25, 33)]}
+    widget.stream(value if as_dict else pd.DataFrame(value), follow=False)
+
+    _assert_page(page, widget, 1, [f'v{i}' for i in range(10)], msgs, errors)
+
+    widget.page = 4
+    _assert_page(page, widget, 4, ['v30', 'v31', 'v32'], msgs, errors)
+
+
+@pytest.mark.parametrize('pagination', ['local', 'remote'])
+def test_tabulator_stream_no_follow_pagination_onto_current_page(page, pagination):
+    widget, msgs, errors = _serve_paginated_stream_table(page, pagination, 3)
+
+    widget.stream(pd.DataFrame({'col': [f'v{i}' for i in range(25, 33)]}), follow=False)
+
+    _assert_page(page, widget, 3, [f'v{i}' for i in range(20, 30)], msgs, errors)
+
+
+def test_tabulator_stream_rollover_rebuilds_rows(page):
+    df = pd.DataFrame({'col': [f'v{i}' for i in range(10)]})
+    widget = Tabulator(df, height=400)
+
+    serve_component(page, widget)
+
+    expect(page.locator('.tabulator-row')).to_have_count(10)
+
+    widget.stream(pd.DataFrame({'col': [f'v{i}' for i in range(10, 15)]}), rollover=12)
+
+    expect(page.locator('.tabulator-row')).to_have_count(12)
+    expect(page.locator('text="v3"')).to_have_count(1)
+    expect(page.locator('text="v2"')).to_have_count(0)
+    expect(page.locator('text="v14"')).to_have_count(1)
+    assert len(widget.value) == 12
+
+
+def test_tabulator_patch_updates_cell_in_place(page):
+    df = pd.DataFrame({'col': [f'v{i}' for i in range(30)]})
+    widget = Tabulator(df, height=200)
+
+    serve_component(page, widget)
+
+    wait_for_table(page)
+    cell = page.locator('.tabulator-cell', has=page.locator('text="v2"'))
+    cell.evaluate("el => el.setAttribute('data-kept', '1')")
+
+    widget.patch({'col': [(2, 'patched')]})
+
+    expect(page.locator('text="patched"')).to_have_count(1)
+    # The cell element was updated rather than the table rebuilt
+    expect(page.locator('.tabulator-cell[data-kept="1"]')).to_have_text('patched')
+    expect(page.locator('text="v2"')).to_have_count(0)
+
+
+def _filter_header(page, value):
+    header = page.locator('input[type="search"]')
+    header.fill(value)
+    header.press('Enter')
+
+
+def test_tabulator_patch_with_sorter_resorts_rows(page):
+    df = pd.DataFrame({'v': [3, 7, 1, 9, 5, 2, 8, 4, 6, 0]})
+    widget = Tabulator(df, sorters=[{'field': 'v', 'dir': 'desc'}], show_index=False)
+
+    serve_component(page, widget)
+
+    cells = page.locator('.tabulator-row .tabulator-cell[tabulator-field="v"]')
+    expect(cells).to_have_text([str(v) for v in range(9, -1, -1)])
+
+    widget.patch({'v': [(2, 10), (3, -1)]})
+
+    expect(cells).to_have_text(['10', '8', '7', '6', '5', '4', '3', '2', '0', '-1'])
+
+
+def test_tabulator_stream_with_sorter_resorts_rows(page):
+    df = pd.DataFrame({'v': [3, 7, 1, 9, 5]})
+    widget = Tabulator(df, sorters=[{'field': 'v', 'dir': 'asc'}], show_index=False)
+
+    serve_component(page, widget)
+
+    cells = page.locator('.tabulator-row .tabulator-cell[tabulator-field="v"]')
+    expect(cells).to_have_text(['1', '3', '5', '7', '9'])
+
+    widget.stream(pd.DataFrame({'v': [4, 0, 8]}), follow=False)
+
+    expect(cells).to_have_text(['0', '1', '3', '4', '5', '7', '8', '9'])
+
+
+def test_tabulator_patch_with_header_filter_refilters_rows(page):
+    df = pd.DataFrame({'s': [f'{"A" if i % 2 else "B"}{i}' for i in range(10)]})
+    widget = Tabulator(df, header_filters={'s': {'type': 'input', 'func': 'like'}}, show_index=False)
+
+    serve_component(page, widget)
+
+    _filter_header(page, 'A')
+    wait_until(lambda: len(widget.filters) == 1, page)
+
+    cells = page.locator('.tabulator-row .tabulator-cell[tabulator-field="s"]')
+    expect(cells).to_have_text(['A1', 'A3', 'A5', 'A7', 'A9'])
+
+    widget.patch({'s': [(0, 'A0'), (3, 'B3')]})
+
+    expect(cells).to_have_text(['A0', 'A1', 'A5', 'A7', 'A9'])
+
+
+def test_tabulator_stream_with_header_filter_filters_rows(page):
+    df = pd.DataFrame({'s': ['A0', 'B1', 'A2']})
+    widget = Tabulator(df, header_filters={'s': {'type': 'input', 'func': 'like'}}, show_index=False)
+
+    serve_component(page, widget)
+
+    _filter_header(page, 'A')
+    wait_until(lambda: len(widget.filters) == 1, page)
+
+    cells = page.locator('.tabulator-row .tabulator-cell[tabulator-field="s"]')
+    expect(cells).to_have_text(['A0', 'A2'])
+
+    widget.stream(pd.DataFrame({'s': ['B3', 'A4', 'B5']}), follow=False)
+
+    expect(cells).to_have_text(['A0', 'A2', 'A4'])
+
+
+def test_tabulator_selection_many_rows_scrolls_once(page):
+    df = pd.DataFrame({'col': np.arange(200)})
+    widget = Tabulator(df, height=200)
+
+    serve_component(page, widget)
+
+    wait_for_table(page)
+
+    page.evaluate("""() => {
+      const view = Bokeh.index.query_one((view) => view.model.type.endsWith('DataTabulator'))
+      const scrollToRow = view.tabulator.scrollToRow.bind(view.tabulator)
+      window.__scroll_calls = 0
+      view.tabulator.scrollToRow = (...args) => {
+        window.__scroll_calls += 1
+        return scrollToRow(...args)
+      }
+    }""")
+
+    widget.selection = list(range(50, 150))
+
+    # The last selected row is scrolled into view
+    expect(page.locator('.tabulator-row.tabulator-selected', has_text='149')).to_have_count(1)
+    assert page.evaluate("window.__scroll_calls") == 1
+
+
+def test_tabulator_sorters_kept_across_rerender(page):
+    df = pd.DataFrame({
+        'col1': [1, 2, 3, 4],
+        'col2': [1, 4, 3, 2],
+    })
+    sorters = [{'field': 'col1', 'dir': 'desc'}, {'field': 'col2', 'dir': 'asc'}]
+    widget = Tabulator(df, sorters=sorters)
+
+    serve_component(page, widget)
+
+    first_cell = page.locator('.tabulator-cell:visible').first
+    expect(first_cell).to_have_text('3')
+
+    page.locator('.pnx-tabulator').evaluate("el => el.setAttribute('data-old', '1')")
+
+    # Changing the layout re-renders the table, which must keep the sort order
+    widget.layout = 'fit_data_fill'
+
+    expect(page.locator('.pnx-tabulator[data-old="1"]')).to_have_count(0)
+    expect(page.locator('.tabulator-cell:visible').first).to_have_text('3')
+    assert widget.sorters == sorters
+
+
+def test_tabulator_edit_after_value_trigger_is_processed(page, df_mixed):
+    widget = Tabulator(df_mixed)
+
+    values = []
+    widget.on_edit(lambda e: values.append((e.column, e.row, e.old, e.value)))
+
+    serve_component(page, widget)
+
+    # Re-sending identical data must neither register as an edit nor
+    # swallow the edit that follows it.
+    widget.param.trigger('value')
+    page.wait_for_timeout(200)
+    assert values == []
+
+    cell = page.locator('text="A"')
+    cell.click()
+    editable_cell = page.locator('input[type="text"]')
+    editable_cell.fill("AA")
+    editable_cell.press('Enter')
+
+    wait_until(lambda: len(values) >= 1, page)
+    assert values == [('str', 0, 'A', 'AA')]
+    assert df_mixed.at['idx0', 'str'] == 'AA'
+    expect(page.locator('text="AA"')).to_have_count(1)
+
+    widget.param.trigger('value')
+    page.wait_for_timeout(200)
+    assert len(values) == 1
+    expect(page.locator('text="AA"')).to_have_count(1)
+
+
+def _header_width(page, field):
+    return page.locator(f'.tabulator-col[tabulator-field="{field}"]').evaluate('el => el.getBoundingClientRect().width')
+
+
+def test_tabulator_fit_data_fill_refits_on_cell_edit(page):
+    widget = Tabulator(pd.DataFrame({'A': ['x', 'y'], 'B': ['1', '2']}), layout='fit_data_fill', width=600)
+
+    serve_component(page, widget)
+
+    initial = _header_width(page, 'A')
+    cell = page.locator('.tabulator-cell[tabulator-field="A"]').first
+    cell.dblclick()
+    editor = page.locator('input[type="text"]')
+    editor.fill('a much much longer value in column A')
+    editor.press('Enter')
+
+    wait_until(lambda: widget.value.at[0, 'A'] == 'a much much longer value in column A', page)
+    wait_until(lambda: _header_width(page, 'A') > initial + 50, page)
+
+
+def test_tabulator_fit_data_fill_refits_on_value_replacement(page):
+    df = pd.DataFrame({'A': ['x', 'y'], 'B': ['1', '2']})
+    widget = Tabulator(df, layout='fit_data_fill', width=600)
+
+    serve_component(page, widget)
+
+    initial = _header_width(page, 'A')
+    widget.value = pd.DataFrame({'A': ['a much much longer value in column A', 'y'], 'B': ['1', '2']})
+
+    wait_until(lambda: _header_width(page, 'A') > initial + 50, page)
+
+
+def test_tabulator_fit_data_fill_keeps_manually_resized_columns(page):
+    widget = Tabulator(pd.DataFrame({'A': ['x', 'y'], 'B': ['1', '2']}), layout='fit_data_fill', width=600)
+
+    serve_component(page, widget)
+
+    header = page.locator('.tabulator-col[tabulator-field="A"]')
+    # The hidden table does not receive the mouse events of the drag.
+    expect(header).to_be_visible()
+    box = header.bounding_box()
+    edge = box['x'] + box['width'] + 1
+    y = box['y'] + box['height'] / 2
+    page.mouse.move(edge, y)
+    page.mouse.down()
+    page.mouse.move(edge + 120, y, steps=5)
+    page.mouse.up()
+    resized = _header_width(page, 'A')
+    assert resized > 100
+
+    widget.value = pd.DataFrame({'A': ['z', 'y'], 'B': ['1', '2']})
+
+    wait_until(lambda: widget.value.at[0, 'A'] == 'z', page)
+    page.wait_for_timeout(300)
+    assert _header_width(page, 'A') == resized
+
+
+def test_tabulator_fit_data_fill_refits_other_columns_after_manual_resize(page):
+    widget = Tabulator(pd.DataFrame({'A': ['x', 'y'], 'B': ['1', '2']}), layout='fit_data_fill', width=600)
+
+    serve_component(page, widget)
+
+    header = page.locator('.tabulator-col[tabulator-field="A"]')
+    # The hidden table does not receive the mouse events of the drag.
+    expect(header).to_be_visible()
+    box = header.bounding_box()
+    edge = box['x'] + box['width'] + 1
+    y = box['y'] + box['height'] / 2
+    page.mouse.move(edge, y)
+    page.mouse.down()
+    page.mouse.move(edge + 120, y, steps=5)
+    page.mouse.up()
+    resized = _header_width(page, 'A')
+    initial_b = _header_width(page, 'B')
+
+    widget.value = pd.DataFrame({'A': ['z', 'y'], 'B': ['a much much longer value in column B', '2']})
+
+    wait_until(lambda: _header_width(page, 'B') > initial_b + 50, page)
+    assert _header_width(page, 'A') == resized

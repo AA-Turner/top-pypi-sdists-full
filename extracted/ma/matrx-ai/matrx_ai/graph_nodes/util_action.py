@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from matrx_graph.actions import register_node
-from matrx_graph.types.context import NodeExecutionContext
+from matrx_graph.actions import ActionFailed, declare_action
+from typing import Any
+
 from matrx_graph.types.identity_inputs import identity_input
 from matrx_graph.types.primitives import ActionTier, NodeCategory
-from matrx_graph.types.result import NodeResult, failure, success
 from matrx_utils import vcprint
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -26,7 +26,7 @@ class ExtractSearchUrlsOutput(BaseModel):
     urls: list[str] = Field(default_factory=list)
 
 
-@register_node(
+@declare_action(
     name="ai.util.extract_search_urls",
     display_name="Get Links from Search",
     description="Collect the web links from a set of search results.",
@@ -37,10 +37,11 @@ class ExtractSearchUrlsOutput(BaseModel):
     output_kind="web_search_urls",
     icon="link",
     tags=("util", "data", "search"),
+    doors={"step"},
 )
 async def ai_util_extract_search_urls(
-    ctx: NodeExecutionContext, inputs: ExtractSearchUrlsInput
-) -> NodeResult[ExtractSearchUrlsOutput]:
+    app: Any, inputs: ExtractSearchUrlsInput
+) -> ExtractSearchUrlsOutput:
     urls = []
     for res in inputs.values:
         # If the search result has a pre-extracted 'urls' field, use it
@@ -56,7 +57,7 @@ async def ai_util_extract_search_urls(
                     urls.append(r.get("url"))
                     count += 1
 
-    return success(ExtractSearchUrlsOutput(urls=urls))
+    return ExtractSearchUrlsOutput(urls=urls)
 
 
 class FormatScrapedContentInput(BaseModel):
@@ -65,7 +66,31 @@ class FormatScrapedContentInput(BaseModel):
     values: list[dict[str, JsonValue]] = Field(
         default_factory=list, description="List of scraped pages gathered from channels."
     )
-    max_chars_per_page: int = Field(default=1500)
+    #: None = the organization's research page cap (knob ``agents.research_web/page_max_chars``,
+    #: 20,000 standalone) — the same cap ``research_web`` puts on a page before a model reads it.
+    #: The old default was 1,500: about one paragraph, so most of every page never reached the
+    #: model and nothing said so. A value given here still wins (an authored step keeps its own).
+    max_chars_per_page: int | None = Field(default=None, ge=1)
+
+
+class CombinedPageRecord(BaseModel):
+    """What happened to one page on its way into ``formatted_text`` (index-aligned with ``sources``).
+
+    The record survives any later text cut: a reader learns a page was capped from here, not only
+    from the marker line inside the text."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str = ""
+    #: Characters the scraper returned for the page.
+    chars_scraped: int = 0
+    #: Characters left after the research cleanup (image markup out, repeated links collapsed).
+    chars_after_cleanup: int = 0
+    #: Characters of page text that reached ``formatted_text`` (the cap marker line not counted).
+    chars_kept: int = 0
+    #: True when the page was cut to the cap; its block then ends with the
+    #: ``[Page capped: N of M characters kept]`` line.
+    capped: bool = False
 
 
 class FormatScrapedContentOutput(BaseModel):
@@ -82,9 +107,15 @@ class FormatScrapedContentOutput(BaseModel):
     #: threw it away, so "3 pages combined" and "3 pages, 2 of which failed"
     #: were indistinguishable downstream.
     failed_pages: int = 0
+    #: One record per included page, in block order: chars scraped / kept and whether it was capped.
+    pages: list[CombinedPageRecord] = Field(default_factory=list)
+    #: How many included pages were cut to the cap (0 = every page arrived whole).
+    capped_pages: int = 0
+    #: The per-page cap this run applied.
+    max_chars_per_page: int = 0
 
 
-@register_node(
+@declare_action(
     name="ai.util.format_scraped_content",
     display_name="Combine Web Pages",
     description="Combine the content of several web pages into one block of text.",
@@ -95,12 +126,21 @@ class FormatScrapedContentOutput(BaseModel):
     output_kind="combined_page_text",
     icon="align-left",
     tags=("util", "data", "scrape"),
+    doors={"step"},
 )
 async def ai_util_format_scraped_content(
-    ctx: NodeExecutionContext, inputs: FormatScrapedContentInput
-) -> NodeResult[FormatScrapedContentOutput]:
+    app: Any, inputs: FormatScrapedContentInput
+) -> FormatScrapedContentOutput:
+    from matrx_scraper.features.research_budget import cap_page_text, clean_page_text
+
+    limit = inputs.max_chars_per_page
+    if limit is None:
+        from matrx_ai.tools.implementations.web import research_budgets
+
+        limit = int((await research_budgets(getattr(app, "organization_id", None))).page_max_chars)
     blocks = []
     sources: list[str] = []
+    records: list[CombinedPageRecord] = []
     failed_pages = 0
     for page in inputs.values:
         # A page the scraper reported as failed carries no body — count it so
@@ -117,10 +157,24 @@ async def ai_util_format_scraped_content(
         # keeps working.
         content = page.get("text") or page.get("markdown") or page.get("content") or ""
         if isinstance(content, str) and content.strip():
-            blocks.append(content[: inputs.max_chars_per_page])
-            # Keep the block and its source index-aligned.
+            # The research page preparation (matrx_scraper research_budget): cleaned first, so
+            # the cap spends on words rather than image markup; a cut keeps the head and says so
+            # in the text AND in the page record — never a silent chop of the end.
+            cleaned = clean_page_text(content)
+            block, capped = cap_page_text(cleaned, limit)
+            blocks.append(block)
+            # Keep the block, its source and its record index-aligned.
             url = page.get("url") or page.get("response_url")
             sources.append(str(url) if isinstance(url, str) else "")
+            records.append(
+                CombinedPageRecord(
+                    url=sources[-1],
+                    chars_scraped=len(content),
+                    chars_after_cleanup=len(cleaned),
+                    chars_kept=min(len(cleaned), limit),
+                    capped=capped,
+                )
+            )
 
     if inputs.values and not blocks:
         # Never hand an empty string downstream: it validates fine here and
@@ -130,7 +184,7 @@ async def ai_util_format_scraped_content(
             if failed_pages == len(inputs.values)
             else "none of them carried any readable text"
         )
-        return failure(
+        raise ActionFailed(
             "no_readable_content",
             f"Got {len(inputs.values)} page(s) to combine, but {detail}.",
             details={"page_count": len(inputs.values), "failed_pages": failed_pages},
@@ -139,14 +193,15 @@ async def ai_util_format_scraped_content(
     # Newlines, not the literal characters \n — this was an escaped string, so
     # every joined block was separated by the visible text "\n---\n".
     formatted_text = "\n---\n".join(blocks)
-    return success(
-        FormatScrapedContentOutput(
+    return FormatScrapedContentOutput(
             formatted_text=formatted_text,
             sources=sources,
             page_count=len(blocks),
             failed_pages=failed_pages,
+            pages=records,
+            capped_pages=sum(1 for r in records if r.capped),
+            max_chars_per_page=limit,
         )
-    )
 
 
 class CostSummaryInput(BaseModel):
@@ -188,7 +243,7 @@ class CostSummaryOutput(BaseModel):
     providers: list[str] = Field(default_factory=list)
 
 
-@register_node(
+@declare_action(
     name="ai.util.cost_summary",
     display_name="Get AI Cost",
     description="Get the total AI cost for a conversation.",
@@ -199,14 +254,14 @@ class CostSummaryOutput(BaseModel):
     output_kind="ai_cost_summary",
     icon="dollar-sign",
     tags=("ai", "cost", "util"),
+    doors={"step"},
 )
 async def ai_util_cost_summary(
-    ctx: NodeExecutionContext, inputs: CostSummaryInput
-) -> NodeResult[CostSummaryOutput]:
-    conversation_id = inputs.conversation_id or getattr(ctx.app, "conversation_id", None)
+    app: Any, inputs: CostSummaryInput
+) -> CostSummaryOutput:
+    conversation_id = inputs.conversation_id or getattr(app, "conversation_id", None)
     if not conversation_id:
-        return success(
-            CostSummaryOutput(
+        return CostSummaryOutput(
                 request_count=0,
                 input_tokens=0,
                 output_tokens=0,
@@ -218,14 +273,12 @@ async def ai_util_cost_summary(
                 cached_tokens=0,
                 providers=[],
             )
-        )
 
     from matrx_ai.db.cx_managers import cxm
 
     summary = await cxm.get_conversation_cost_summary(conversation_id)
     model_ids = list(summary.models_used)
-    return success(
-        CostSummaryOutput(
+    return CostSummaryOutput(
             request_count=summary.request_count,
             input_tokens=summary.input_tokens,
             output_tokens=summary.output_tokens,
@@ -237,7 +290,6 @@ async def ai_util_cost_summary(
             cached_tokens=summary.cached_tokens,
             providers=list(summary.providers),
         )
-    )
 
 
 async def _resolve_model_names(model_ids: list[str]) -> list[str]:
@@ -311,7 +363,7 @@ class ParseLlmJsonOutput(BaseModel):
     )
 
 
-@register_node(
+@declare_action(
     name="ai.util.parse_llm_json",
     display_name="Read Data from AI Reply",
     description="Pull the structured data out of an AI's text reply.",
@@ -322,12 +374,12 @@ class ParseLlmJsonOutput(BaseModel):
     output_kind="parsed_json",
     icon="braces",
     tags=("ai", "util", "parse", "json"),
+    doors={"step"},
 )
 async def ai_util_parse_llm_json(
-    ctx: NodeExecutionContext, inputs: ParseLlmJsonInput
-) -> NodeResult[ParseLlmJsonOutput]:
-    _ = ctx
-    from matrx_graph.types.result import failure
+    app: Any, inputs: ParseLlmJsonInput
+) -> ParseLlmJsonOutput:
+    _ = app
 
     from matrx_ai.agents.response_parser import extract_json
 
@@ -337,9 +389,9 @@ async def ai_util_parse_llm_json(
         detailed=True,
     )
     if not result.success or result.data is None:
-        return failure(
+        raise ActionFailed(
             "parse_failed",
             f"no JSON found in the text: {result.reason}",
             details={"reason": str(result.reason)},
         )
-    return success(ParseLlmJsonOutput(value=result.data))
+    return ParseLlmJsonOutput(value=result.data)

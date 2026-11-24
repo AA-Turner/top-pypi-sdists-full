@@ -76,7 +76,9 @@ class Bokeh(Pane):
         and on_event callbacks in the notebook.""")
 
     theme = param.ClassSelector(default=None, class_=(Theme, str), doc="""
-        Bokeh theme to apply to the plot.""")
+        Bokeh theme to apply to the plot. The theme is set on the Bokeh
+        Document, so it applies to all Bokeh and HoloViews plots rendered
+        in the same Document and the theme set last takes effect.""")
 
     priority: t.ClassVar[float | bool | None] = 0.8
 
@@ -84,16 +86,21 @@ class Bokeh(Pane):
         'autodispatch': None, 'theme': None
     }
 
+    # The design styles the Panel wrapper and has no Bokeh model property.
+    _synced_layout_params: t.ClassVar[tuple[str, ...]] = tuple(
+        p for p in Layoutable.param if p != 'design'
+    )
+
     def __init__(self, object=None, **params):
         super().__init__(object, **params)
         self._syncing_props = False
         self._overrides = [
             p for p, v in params.items()
-            if p in Layoutable.param and v != self.param[p].default
+            if p in self._synced_layout_params and v != self.param[p].default
         ]
 
     def _param_change(self, *events: param.parameterized.Event) -> None:
-        self._track_overrides(*(e for e in events if e.name in Layoutable.param))
+        self._track_overrides(*(e for e in events if e.name in self._synced_layout_params))
         super()._param_change(*(e for e in events if e.name in self._overrides+['css_classes', 'visible']))
 
     @classmethod
@@ -150,7 +157,7 @@ class Bokeh(Pane):
         try:
             self.param.update({
                 p: v for p, v in self.object.properties_with_values().items()
-                if p not in self._overrides and p in Layoutable.param and
+                if p not in self._overrides and p in self._synced_layout_params and
                 p not in ('css_classes', 'name')
             })
             props = {
@@ -185,10 +192,21 @@ class Bokeh(Pane):
 
         self._models[ref] = (model, parent)
 
-        # Apply theme
+        # Bokeh re-applies the document theme to every model when it is
+        # attached, which discards themes applied per model.
         self._design.apply_bokeh_theme_to_model(model, self.theme)
+        if self.theme:
+            doc.theme = self.theme
 
         return model
+
+    @param.depends('theme', watch=True)
+    def _update_theme(self):
+        if not self.theme:
+            return
+        for (model, _) in self._models.values():
+            if model.document:
+                model.document.theme = self.theme
 
 _width_regex = re.compile(rb'width="[\d\.]+pt"')
 _height_regex = re.compile(rb'height="[\d\.]+pt"')
@@ -230,7 +248,10 @@ class Matplotlib(Image, IPyWidget):
         The format to render the plot as if the plot is not interactive.""")  # type: ignore[assignment, ty:invalid-assignment]
 
     high_dpi = param.Boolean(default=True, doc="""
-        Whether to optimize output for high-dpi displays.""")
+        Whether to optimize output for high-dpi displays. PNG output
+        is rendered at twice the dpi and displayed at the size given
+        by dpi, so it is sharp on displays with a device pixel ratio
+        of up to 2.""")
 
     interactive = param.Boolean(default=False, constant=True, doc="""
         Whether to render interactive matplotlib plot with ipympl.""")
@@ -305,9 +326,16 @@ class Matplotlib(Image, IPyWidget):
 
     def _imgshape(self, data):
         try:
-            return self._img_type._imgshape(data)
+            width, height = self._img_type._imgshape(data)
         except TypeError:
-            return self._img_type._imgshape(self, data)
+            width, height = self._img_type._imgshape(self, data)
+        if self._render_high_dpi:
+            return width // 2, height // 2
+        return width, height
+
+    @property
+    def _render_high_dpi(self) -> bool:
+        return self.high_dpi and self.format == 'png'
 
     def _format_html(
         self, src: str, width: str | None = None, height: str | None = None
@@ -380,7 +408,7 @@ class Matplotlib(Image, IPyWidget):
             format=self.format,
             facecolor=obj.get_facecolor(),
             edgecolor=obj.get_edgecolor(),
-            dpi=self.dpi,
+            dpi=self.dpi * 2 if self._render_high_dpi else self.dpi,
             bbox_inches=bbox_inches
         )
         value = b.getvalue()

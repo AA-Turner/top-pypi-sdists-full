@@ -49,7 +49,7 @@ class _FakeRunLogModel:
     def __init__(self) -> None:
         self.writes: list[dict[str, Any]] = []
 
-    def filter(self, **_kw: Any) -> "_FakeRunLogModel":
+    def filter(self, **_kw: Any) -> _FakeRunLogModel:
         return self
 
     async def count(self) -> int:
@@ -66,7 +66,7 @@ class _FakeRunLogModel:
 
 
 class _ExplodingRunLogModel:
-    def filter(self, **_kw: Any) -> "_ExplodingRunLogModel":
+    def filter(self, **_kw: Any) -> _ExplodingRunLogModel:
         return self
 
     async def count(self) -> int:
@@ -77,7 +77,7 @@ class _ExplodingRunLogModel:
 
 
 class _FakeRunModel:
-    def filter(self, **_kw: Any) -> "_FakeRunModel":
+    def filter(self, **_kw: Any) -> _FakeRunModel:
         return self
 
     async def values(self, *_a: Any) -> list[dict[str, Any]]:
@@ -90,7 +90,7 @@ class _FakeRunModel:
 
 
 class _OrglessRunModel:
-    def filter(self, **_kw: Any) -> "_OrglessRunModel":
+    def filter(self, **_kw: Any) -> _OrglessRunModel:
         return self
 
     async def values(self, *_a: Any) -> list[dict[str, Any]]:

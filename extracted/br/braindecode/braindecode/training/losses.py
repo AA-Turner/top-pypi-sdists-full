@@ -49,7 +49,14 @@ class TimeSeriesLoss(nn.Module):
     Assumes targets are in shape:
     n_batch size x n_classes x window_len (in time)
     If the targets contain NaNs, the NaNs will be masked out and the loss will be only computed for
-    predictions valid corresponding to valid target values."""
+    predictions valid corresponding to valid target values.
+
+    Notes
+    -----
+    :class:`~braindecode.models.NeuroPose`, :class:`~braindecode.models.VEMG2Pose`
+    and :class:`~braindecode.models.SensingDynamics` return ``(batch, time, joints)``,
+    with time before joints: their docstrings show how to train them with this loss.
+    """
 
     def __init__(self, loss_function):
         super().__init__()
@@ -90,7 +97,10 @@ def mixup_criterion(preds, target):
         For predictions without mixup, the targets as a tensor. If mixup has
         been applied, a tuple or list containing the targets of the two mixed
         samples and the mixing coefficients as tensors. A plain tensor is
-        always read as targets, whatever the batch size is.
+        always read as targets, whatever the batch size is. Targets can be
+        class indices or class probabilities, per trial or dense (one per
+        prediction in time); for dense targets, each trial's loss is averaged
+        over its predictions before the mixing coefficient weights it.
 
     Returns
     -------
@@ -111,11 +121,68 @@ def mixup_criterion(preds, target):
         # compute loss per sample
         loss_a = torch.nn.functional.cross_entropy(preds, y_a, reduction="none")
         loss_b = torch.nn.functional.cross_entropy(preds, y_b, reduction="none")
-        # compute weighted mean
-        ret = torch.mul(lam, loss_a) + torch.mul(1 - lam, loss_b)
-        return ret.mean()
-    else:
-        return torch.nn.functional.cross_entropy(preds, target)
+        # Each coefficient weights its trial, including all dense predictions.
+        if loss_a.ndim > 1:
+            loss_a = loss_a.flatten(start_dim=1).mean(dim=1)
+            loss_b = loss_b.flatten(start_dim=1).mean(dim=1)
+        return (lam * loss_a + (1 - lam) * loss_b).mean()
+    return torch.nn.functional.cross_entropy(preds, target)
+
+
+def info_nce(
+    z1: torch.Tensor, z2: torch.Tensor, temperature: float = 0.1
+) -> torch.Tensor:
+    r"""InfoNCE (NT-Xent) contrastive loss between two views of a batch [1]_.
+
+    Row ``i`` of ``z1`` and row ``i`` of ``z2`` embed two views of the same
+    sample. Each of the :math:`2N` rows of ``cat([z1, z2])`` is an anchor whose
+    positive is the other view of its sample and whose negatives are the other
+    :math:`2N - 2` rows:
+
+    .. math::
+
+        \ell_i = -\log \frac{\exp(\mathrm{sim}(z_i, z_{i^+}) / \tau)}
+        {\sum_{k \neq i} \exp(\mathrm{sim}(z_i, z_k) / \tau)}
+
+    with cosine similarity :math:`\mathrm{sim}` and temperature :math:`\tau`.
+    The loss is the mean of :math:`\ell_i` over the :math:`2N` anchors.
+
+    Parameters
+    ----------
+    z1, z2 : torch.Tensor
+        Embeddings of the two views, both of shape ``(batch, dim)``, for
+        example ``model(x, return_features=True)["embedding"]`` passed through
+        a projection head.
+    temperature : float
+        Temperature :math:`\tau` dividing the cosine similarities. Must be
+        positive.
+
+    Returns
+    -------
+    torch.Tensor
+        The scalar loss.
+
+    References
+    ----------
+    .. [1] Chen, T., Kornblith, S., Norouzi, M., Hinton, G. (2020).
+       A Simple Framework for Contrastive Learning of Visual Representations.
+       ICML. https://arxiv.org/abs/2002.05709
+    """
+    if z1.ndim != 2 or z1.shape != z2.shape:
+        raise ValueError(
+            "info_nce takes two (batch, dim) tensors of the same shape, got "
+            f"{tuple(z1.shape)} and {tuple(z2.shape)}."
+        )
+    if z1.shape[0] < 2:
+        raise ValueError("info_nce needs a batch size of at least 2.")
+    if temperature <= 0:
+        raise ValueError(f"temperature must be positive, got {temperature}.")
+    n = z1.shape[0]
+    z = torch.nn.functional.normalize(torch.cat([z1, z2]), dim=1)
+    logits = (z @ z.T / temperature).fill_diagonal_(float("-inf"))
+    # the positive of anchor i is the other view of the same sample
+    targets = torch.arange(2 * n, device=z.device).roll(n)
+    return torch.nn.functional.cross_entropy(logits, targets)
 
 
 class HungarianMatcher(nn.Module):
@@ -156,12 +223,11 @@ class HungarianMatcher(nn.Module):
             iou = pairwise_iou_1d(outputs["start"][bi], outputs["end"][bi], ts, te)
             loc_cost = 1.0 - iou  # (Q, n_targets)
             total = cls_cost + loc_cost  # IoU NOT weighted here
-            # detach() is defensive: the assignment is non-differentiable and
-            # the method is already under @torch.no_grad(), but detach keeps
-            # .numpy() safe if a caller ever drops the no_grad context.
-            cost_np = np.nan_to_num(
-                total.detach().cpu().numpy(), nan=1e6, posinf=1e6, neginf=1e6
+            # NumPy has no bfloat16 dtype for SciPy's assignment solver.
+            cost = total.detach().to(
+                device="cpu", dtype=torch.promote_types(total.dtype, torch.float32)
             )
+            cost_np = np.nan_to_num(cost.numpy(), nan=1e6, posinf=1e6, neginf=1e6)
             q_idx, t_idx = linear_sum_assignment(cost_np)
             for qi, ti in zip(q_idx, t_idx):
                 ms[bi, qi] = ts[ti]
@@ -226,17 +292,20 @@ class DanceLoss(nn.Module):
         cls = preds["class"]
         b, q, _ = cls.shape
         t = int(num_latents)
+        # The probability floor for uncovered tokens is smaller than float16 can hold.
+        probs = torch.softmax(
+            cls, dim=-1, dtype=torch.promote_types(cls.dtype, torch.float32)
+        )
         out = []
         for bi in range(b):
-            mask = torch.zeros(t, n_classes, device=cls.device, dtype=cls.dtype)
+            mask = probs.new_zeros((t, n_classes))
             for qi in range(q):
-                probs = torch.softmax(cls[bi, qi], dim=-1)
                 s = float(preds["start"][bi, qi])
                 e = float(preds["end"][bi, qi])
                 start = int(max(0, s * t))
                 end = int(min(t, e * t))
                 if start < end:
-                    mask[start:end] += probs
+                    mask[start:end] += probs[bi, qi]
             out.append(mask / (mask.sum(-1, keepdim=True) + 1e-8))
         return torch.stack(out)
 
@@ -276,7 +345,10 @@ class DanceLoss(nn.Module):
             dense_t = self._dense_target(targets, n_classes, device).reshape(-1)
         dense_term = self.weight_dense * self.ce(dense_logits, dense_t)
 
-        dense_probs = torch.softmax(detect_output["dense"], -1).clamp(min=1e-8)
+        dense = detect_output["dense"]
+        dense_probs = torch.softmax(
+            dense, dim=-1, dtype=torch.promote_types(dense.dtype, torch.float32)
+        ).clamp(min=1e-8)
         detr_probs = self._detr_to_dense_probs(
             detect_output, self.num_latents, n_classes
         ).clamp(min=1e-8)  # (B, num_latents, n_classes) == dense_probs

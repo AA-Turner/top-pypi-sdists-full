@@ -1,8 +1,8 @@
 """A deleted step's tombstone fires for the stored legacy ``action.`` spelling too.
 
 Stored definitions keep the old ``action.<type>`` spelling and are never rewritten. The tombstone lookup
-used the raw spelling, so ``action.ai.extract`` / ``action.ai.agent.tool_calling`` fell through to the
-generic "unknown node type" message instead of naming the replacement.
+used the raw spelling, so prefixed forms of ``ai.extract`` and ``ai.agent.tool_calling`` fell through
+to the generic "unknown node type" message instead of naming the replacement.
 """
 
 from __future__ import annotations

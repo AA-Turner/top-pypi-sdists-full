@@ -23,26 +23,8 @@ from matrx_ai.processing.blocks.source_islands import list_islands
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[4]
 _FIXTURE = _PACKAGE_ROOT / "tests" / "fixtures" / "html_root_vectors.json"
-_TS_SOURCE = (
-    _PACKAGE_ROOT.parents[1]
-    / "apps"
-    / "shared"
-    / "rich-content"
-    / "src"
-    / "display"
-    / "markdown-classification"
-    / "processors"
-    / "utils"
-    / "__tests__"
-    / "html-root-vectors.json"
-)
 _VECTORS = json.loads(_FIXTURE.read_text(encoding="utf-8"))
 
-
-def test_fixture_is_the_typescript_vectors() -> None:
-    if not _TS_SOURCE.exists():
-        pytest.skip("the rich-content source is not beside this package")
-    assert _FIXTURE.read_bytes() == _TS_SOURCE.read_bytes()
 
 
 def test_html_element_list_is_the_typescript_list() -> None:

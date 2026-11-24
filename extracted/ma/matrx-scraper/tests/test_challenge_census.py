@@ -29,19 +29,19 @@ WALLS = {
 
 @pytest.mark.parametrize("vendor", sorted(WALLS))
 def test_a_known_challenge_page_is_a_wall(vendor: str) -> None:
-    from selectolax.parser import HTMLParser
+    from selectolax.lexbor import LexborHTMLParser
 
-    soup = HTMLParser(WALLS[vendor])
+    soup = LexborHTMLParser(WALLS[vendor])
     title_node = soup.css_first("title")
     assert detect_challenge_reasons(soup=soup, title=title_node.text() if title_node else None), vendor
 
 
 def test_a_real_article_with_a_comment_captcha_is_not_a_wall() -> None:
-    from selectolax.parser import HTMLParser
+    from selectolax.lexbor import LexborHTMLParser
 
     article = "<p>" + ("Python's asyncio runs coroutines on an event loop. " * 80) + "</p>"
     html = f"<html><head><title>Asyncio: the complete guide</title></head><body>{article}<div class='g-recaptcha'></div></body></html>"
-    assert detect_challenge_reasons(soup=HTMLParser(html), title="Asyncio: the complete guide") == []
+    assert detect_challenge_reasons(soup=LexborHTMLParser(html), title="Asyncio: the complete guide") == []
 
 
 # ── the text-only census (coverage keeps an excerpt, not the DOM) ────────────

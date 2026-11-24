@@ -323,3 +323,24 @@ async def test_xai_reasoning_then_many_answer_chunks_is_one_bracket():
 async def test_xai_no_reasoning_emits_no_signal():
     em = await _run_xai([(NS(reasoning_content=""), NS(content="Hi."))])
     assert em.reasoning == []
+
+
+def _oa_summary_part_added(item_id: str, index: int):
+    return NS(type="response.reasoning_summary_part.added", item_id=item_id, summary_index=index)
+
+
+@pytest.mark.asyncio
+async def test_openai_summary_parts_never_glue_together():
+    # CGU-M3 W3 (P-062 walk V4): two summary parts of one reasoning item streamed back to back read
+    # "...counts.I'm requesting" in the live Thought process. A paragraph break now separates them.
+    em = await _run_openai([
+        _oa_reasoning_added("rs_1"),
+        _oa_summary_part_added("rs_1", 0),
+        _oa_reasoning_summary_delta("rs_1", "I'll pull the counts."),
+        _oa_summary_part_added("rs_1", 1),
+        _oa_reasoning_summary_delta("rs_1", "I'm requesting the data."),
+        _oa_reasoning_done("rs_1"),
+    ])
+    text = "".join(v for k, v in em.events if k == "chunk")
+    assert "counts.\n\nI'm requesting" in text
+    assert text.count("<reasoning>") == 1

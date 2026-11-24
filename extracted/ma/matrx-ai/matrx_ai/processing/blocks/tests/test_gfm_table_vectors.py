@@ -40,30 +40,9 @@ from matrx_ai.processing.blocks.parsers.table_parser import parse_table
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[4]
 _FIXTURE = _PACKAGE_ROOT / "tests" / "fixtures" / "gfm_table_vectors.json"
-# On this machine layout the TypeScript source sits in the sibling repo.
-_TS_SOURCE = (
-    _PACKAGE_ROOT.parents[2]
-    / "matrx-frontend"
-    / "components"
-    / "mardown-display"
-    / "markdown-classification"
-    / "processors"
-    / "utils"
-    / "__tests__"
-    / "gfm-table-vectors.json"
-)
 
 _VECTORS = json.loads(_FIXTURE.read_text(encoding="utf-8"))
 
-
-def test_fixture_is_the_typescript_rules_vectors() -> None:
-    if not _TS_SOURCE.exists():
-        pytest.skip("matrx-frontend is not beside this checkout")
-    assert _FIXTURE.read_bytes() == _TS_SOURCE.read_bytes(), (
-        "tests/fixtures/gfm_table_vectors.json drifted from the TypeScript rule's vectors — "
-        "copy matrx-frontend processors/utils/__tests__/gfm-table-vectors.json over it, "
-        "then make gfm_table_lines.py pass"
-    )
 
 
 @pytest.mark.parametrize("vector", _VECTORS["rows"], ids=[repr(v["line"]) for v in _VECTORS["rows"]])

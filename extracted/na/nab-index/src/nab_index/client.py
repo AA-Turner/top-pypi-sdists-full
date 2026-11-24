@@ -9,15 +9,17 @@ implementing the :class:`AsyncHttpTransport` protocol can be used.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
     "hashlib",
     "io",
     "nab_index._json_decode",
     "nab_index._pep503",
+    "nab_index._repository_version",
+    "nab_index._simple_media",
     "nab_index.transport",
     "nab_provider.errors",
     "nab_provider.records",
     "nab_provider.serialization",
+    "nab_resolver.diagnostics",
     "packaging.utils",
     "packaging.version",
     "shutil",
@@ -55,11 +57,13 @@ from nab_provider.records import (
     defer_hashes,
     rehydrated_wheel,
 )
-from nab_provider.serialization import SimpleSerialization, simple_accept_header
+from nab_provider.serialization import SimpleSerialization
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 
 from ._json_decode import decode_json
 from ._pep503 import json_listing
+from ._repository_version import check_repository_version
+from ._simple_media import is_html_listing, simple_accept_header
 from ._urljoin import join_url
 from .transport import IDENTITY_HEADERS, raise_unless_ok
 
@@ -158,12 +162,7 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
     declaring ``2.0.0`` in its filename comes back as ``"2.0.0"``,
     not ``"2"``.
 
-    Those rejections aside, this accepts what nab-provider's vendored
-    ``parse_wheel_filename`` accepts, but discards the ``frozenset[Tag]`` the
-    tag parser builds and nab does not use. The vendored copy is the one to
-    match, not the released ``packaging`` this package depends on, because the
-    vendored tag parser ranks whatever is admitted here; the two can differ on
-    an empty project name, which releases before 26.3 accept.
+    This accepts the wheel tags that packaging accepts without building a tag set.
 
     A build tag past that same digit limit is admitted rather than rejected:
     ``parse_wheel_filename`` raises ``ValueError`` out of ``int()`` on one, but
@@ -207,13 +206,10 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
 def _parse_sdist_filename(filename: str) -> tuple[NormalizedName, str] | None:
     """Parse a ``.tar.gz`` or ``.zip`` sdist filename to ``(canonical_name, version)``.
 
-    Accepts what nab-provider's vendored ``parse_sdist_filename`` accepts,
+    Accepts what packaging's ``parse_sdist_filename`` accepts,
     except filenames holding a NUL or with no UTF-8 form. Returns ``None`` for
     everything else, including a version digit run past CPython's int-from-string
-    limit, and never raises.  The vendored
-    copy is the one to match, not the released ``packaging`` this package
-    depends on; the two can differ on an empty project name, which releases
-    before 26.3 accept.
+    limit, and never raises.
 
     Legacy filenames with embedded build tags (e.g. ``cffi-1.0.2-2.tar.gz``)
     parse to a surprising ``(name="cffi-1-0-2", version="2")``, so callers
@@ -339,8 +335,8 @@ def zip_sdist_versions(data: object, package: str) -> frozenset[str]:
 def holds_only_yanked(data: object) -> bool:
     """Whether a Simple-API body served file entries and yanked every one.
 
-    :pep:`592` yanks are never admitted, so such a page parses to no files
-    and would otherwise read as a package no configured index carries.
+    Check the raw entries because the parser can discard a live file whose
+    format it cannot read.
     """
     if not isinstance(data, dict):
         return False
@@ -348,8 +344,14 @@ def holds_only_yanked(data: object) -> bool:
     if not isinstance(raw_files, list):
         return False
 
-    entries = [entry for entry in raw_files if isinstance(entry, dict)]
-    return bool(entries) and all(entry.get("yanked") for entry in entries)
+    saw_entry = False
+    for entry in raw_files:
+        if not isinstance(entry, dict):
+            continue
+        if not entry.get("yanked"):
+            return False
+        saw_entry = True
+    return saw_entry
 
 
 def is_readable_filename(filename: str) -> bool:
@@ -397,18 +399,6 @@ def _header(response: HttpResponse, key: str) -> str | None:
     return _OBS_FOLD.sub(" ", value)
 
 
-def _is_html_listing(content_type: str | None) -> bool:
-    """Return True when a Content-Type names an HTML Simple-API serialization.
-
-    Covers :pep:`503`'s ``text/html`` and :pep:`691`'s
-    ``application/vnd.pypi.simple.vN+html``.
-    """
-    if content_type is None:
-        return False
-    media_type = content_type.partition(";")[0].strip().lower()
-    return media_type == "text/html" or media_type.endswith("+html")
-
-
 def _listing_body(
     response: HttpResponse,
     index_url: str,
@@ -427,7 +417,7 @@ def _listing_body(
     """
     body = response.content
     content_type = _header(response, "content-type")
-    is_html = _is_html_listing(content_type)
+    is_html = is_html_listing(content_type)
 
     if serialization is not SimpleSerialization.NEGOTIATE and is_html != (
         serialization is SimpleSerialization.HTML
@@ -581,6 +571,10 @@ def _parse_files(
             f"{package!r}: body is {type(data).__name__}, expected a JSON object"
         )
         raise MalformedSimpleResponseError(msg)
+    meta = data.get("meta")
+    if isinstance(meta, dict):
+        check_repository_version(meta.get("api-version"), base_url)
+
     raw_files = data.get("files")
     if not isinstance(raw_files, list):
         msg = (
@@ -742,23 +736,16 @@ def _parse_file_entry(
         else None
     )
 
-    # ``requires-python`` has only a few dozen distinct values across
-    # all of PyPI (``>=3.7``, ``>=3.8`` etc.) but appears once per
-    # wheel.  Interning collapses the duplicates into one shared
-    # string per distinct specifier.
-    requires_python_raw = file_info.get("requires-python")
-    # PEP 691 mandates a string; a non-conformant index serving a number
-    # would otherwise crash SpecifierSet downstream. Treat it as absent.
+    # Ignore non-string fields before they reach the specifier or date parser.
+    # Intern Python specifiers because the same few strings recur on many files.
+    raw_requires_python = file_info.get("requires-python")
     requires_python = (
-        sys.intern(requires_python_raw)
-        if isinstance(requires_python_raw, str)
+        sys.intern(raw_requires_python)
+        if isinstance(raw_requires_python, str)
         else None
     )
-    # A non-conformant index may serve a non-string ``upload-time``
-    # (a JSON number or bool); drop it so the downstream datetime
-    # parse never crashes.
-    upload_time_raw = file_info.get("upload-time")
-    upload_time = upload_time_raw if isinstance(upload_time_raw, str) else None
+    raw_upload_time = file_info.get("upload-time")
+    upload_time = raw_upload_time if isinstance(raw_upload_time, str) else None
 
     raw_hashes = file_info.get("hashes")
 
@@ -767,6 +754,7 @@ def _parse_file_entry(
         parsed_name, version = wheel_parsed
         if parsed_name != expected:
             return None
+
         # PEP 714: ``core-metadata`` wins when present, so ``false`` there
         # means no sidecar even if a stale legacy entry lingers.  Its value is
         # ``true`` or the digest table, and both promise ``<file>.metadata``.
@@ -775,6 +763,7 @@ def _parse_file_entry(
             if "core-metadata" in file_info
             else file_info.get(_LEGACY_METADATA_KEY)
         )
+
         # Leave deferred integrity slots unwritten instead of clearing defaults.
         return rehydrated_wheel(
             filename=filename,
@@ -794,6 +783,7 @@ def _parse_file_entry(
     parsed_name, version = sdist_parsed
     if parsed_name != expected:
         return None
+
     sdist = SdistFile(
         filename=filename,
         url=file_url,

@@ -55,6 +55,14 @@ class _Stub(metaclass=_StubMeta):
             return None
         return _Stub()
 
+    # A stub has no fields either. Answering get_field with another _Stub made
+    # queue_helpers._is_uuid_field read every column as "not a uuid" once a
+    # stub was bound under chat.tool_call (by any earlier test in the run), so
+    # test_a_write_never_carries_an_empty_uuid passed alone and failed in the
+    # suite. ``None`` sends the caller to its own name rule.
+    def get_field(self, _name):
+        return None
+
     def __call__(self, *args, **kwargs):
         return _Stub()
 

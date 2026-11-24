@@ -18,7 +18,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { resolve, join } from 'node:path'
+import { resolve, join, relative } from 'node:path'
+import ts from 'typescript'
 
 const SRC = __dirname
 const WEB = resolve(__dirname, '..')
@@ -101,5 +102,34 @@ describe('the mock harness is internally consistent', () => {
     )
     const missing = [...new Set(called)].filter(n => n && !exported.has(n))
     expect(missing).toEqual([])
+  })
+
+  // The same blind spot, one level down: a file nothing typechecks can stop PARSING
+  // and still pass every gate. A merge into dev-main dropped one closing brace from a
+  // fixture, and `npm run preview:mock` would not start until someone opened it.
+  // The file is parsed rather than imported, because importing it from `src/` is
+  // exactly what the isolation test above forbids. This checks syntax only: the
+  // harness's type errors are not gated, so a fixture can still disagree with the
+  // types `src/` uses.
+  it('parses: the mock config and every file under mock/', () => {
+    const files = [
+      resolve(WEB, 'vite.mock.config.ts'),
+      ...sourceFiles(resolve(WEB, 'mock')),
+    ]
+    expect(files).toContain(resolve(WEB, 'mock/fixtures.ts'))
+
+    const errors = files.flatMap(file => {
+      const { diagnostics = [] } = ts.transpileModule(readFileSync(file, 'utf8'), {
+        fileName: file,
+        reportDiagnostics: true,
+        compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+      })
+      return diagnostics.map(d => {
+        const where = d.file && d.start !== undefined
+          ? `:${d.file.getLineAndCharacterOfPosition(d.start).line + 1}` : ''
+        return `${relative(WEB, file)}${where} ${ts.flattenDiagnosticMessageText(d.messageText, ' ')}`
+      })
+    })
+    expect(errors).toEqual([])
   })
 })

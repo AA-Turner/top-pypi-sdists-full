@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from trajectory._models import BaseModel
 from trajectory.types.async_failure import AsyncFailure
-from trajectory.types.training.training_run_lifecycle_status import TrainingRunLifecycleStatus
+from trajectory.types.rl.training_run_lifecycle_status import TrainingRunLifecycleStatus
 
 
 class TrainingProgressResponse(BaseModel):

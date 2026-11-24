@@ -13,15 +13,12 @@ from allianceauth.eveonline.models import (
     EveCharacter,
     EveCorporationInfo,
 )
-from allianceauth.services.hooks import get_extension_logger
 from esi.decorators import token_required
 
 # AA Killstats
-from killstats import __title__, __version__
+from killstats import __version__
 from killstats.models.killstatsaudit import AlliancesAudit, CorporationsAudit
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
+from killstats.providers import logger
 
 
 @login_required
@@ -37,8 +34,8 @@ def react_base(request, *args, **kwargs):  # pylint: disable=unused-argument
 
 
 @login_required
+@permission_required(["killstats.basic_access", "killstats.admin_access"])
 @token_required(scopes=("publicData"))
-@permission_required(["killstats.admin_access"])
 def add_corp(request, token):
     char = get_object_or_404(EveCharacter, character_id=token.character_id)
 
@@ -67,8 +64,8 @@ def add_corp(request, token):
 
 
 @login_required
+@permission_required(["killstats.basic_access", "killstats.admin_access"])
 @token_required(scopes=("publicData"))
-@permission_required(["killstats.admin_access"])
 def add_alliance(request, token):
     char = get_object_or_404(EveCharacter, character_id=token.character_id)
 

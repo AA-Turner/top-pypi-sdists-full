@@ -28,15 +28,24 @@ from matrx_ai.tools.streaming import ToolStreamManager
 
 
 def _fail(message: str, ctx: ToolContext, started_at: float, *, retryable: bool = False,
-          action: str | None = None) -> ToolResult:
+          action: str | None = None, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="execution", message=message, is_retryable=retryable, suggested_action=action),
+        error=ToolError.declared("execution", message, exc=exc, is_retryable=retryable, suggested_action=action),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="advanced_read",
         call_id=ctx.call_id,
     )
+
+
+def failed_item_reason(item: dict[str, Any]) -> str:
+    """The reader's own reason a page failed; when it gave none, say exactly that."""
+    message = str(item.get("message") or "").strip()
+    reader = item.get("reader")
+    if message:
+        return message
+    return f"The {reader} returned no reason." if reader else "The advanced reader returned no reason."
 
 
 async def advanced_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
@@ -59,25 +68,44 @@ async def advanced_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         code = getattr(exc, "code", "")
         return _fail(words, ctx, started_at,
                      action=("Do not retry. Tell the user their points are used up." if code == "usage_limit"
-                             else None))
+                             else None), exc=exc)
     budget = per_url_budget(len(items))
     pages: list[dict[str, Any]] = []
     for item in items:
         page = window_page_content(item.get("text") or "", url=item.get("url") or "", offset=0, chars=budget,
                                    per_url_budget=budget, success=bool(item.get("ok")),
-                                   error=None if item.get("ok") else (item.get("message") or "Not read."))
+                                   error=None if item.get("ok") else failed_item_reason(item))
         page.update({k: item.get(k) for k in ("reader", "seconds", "points", "message", "title", "record_count")
                      if item.get(k) is not None})
         pages.append(page)
+    points_total = sum(int(i.get("points") or 0) for i in items)
     output = enforce_result_budget(
         {
             "pages": pages,
             "count": len(pages),
             "succeeded": sum(1 for i in items if i.get("ok")),
             "failed": sum(1 for i in items if not i.get("ok")),
-            "points_total": sum(int(i.get("points") or 0) for i in items),
+            "points_total": points_total,
         },
         budget=RESULT_BUDGET_CHARS,
     )
+    if items and not any(i.get("ok") for i in items):
+        # Work that produced nothing is never success (VISION "Research tool results"). Billing is
+        # the host meter's, already settled per attempt: an attempt a reader charged for stays
+        # charged, and the failure SAYS how many points it cost rather than hiding them.
+        reasons = "; ".join(f"{i.get('url') or '(no url)'}: {failed_item_reason(i)}" for i in items)
+        spent = f" {points_total} points were still spent on the attempts." if points_total else " No points were spent."
+        return ToolResult(
+            success=False,
+            output=output,
+            error=ToolError.declared(
+                "all_pages_failed",
+                f"The advanced reader could not read any of the {len(items)} pages. {reasons}{spent}",
+                reported_failure="advanced reader",
+                suggested_action="Use another source for these pages.",
+            ),
+            started_at=started_at, completed_at=time.time(), tool_name="advanced_read",
+            call_id=ctx.call_id, output_self_capped=True,
+        )
     return ToolResult(success=True, output=output, started_at=started_at, completed_at=time.time(),
                       tool_name="advanced_read", call_id=ctx.call_id, output_self_capped=True)

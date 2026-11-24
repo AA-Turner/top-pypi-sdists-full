@@ -30,6 +30,9 @@ class BlockRow:
     source_ref: str | None = None
     bound_tool: str | None = None
     variants: tuple[VariantRow, ...] = ()
+    #: The row's own label and one-line description (an agent mode default reads them: name, description).
+    label: str = ""
+    description: str = ""
 
 
 @dataclass(frozen=True)

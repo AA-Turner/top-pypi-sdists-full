@@ -13,10 +13,12 @@ from matrx_graph.diagnostics.compile_validation import (
     config_extra_is_input_hint,
     scream_node_config_rejected,
 )
+from matrx_graph.errors import MatrxGraphError
 from matrx_graph.deprecations import deprecation_for, deprecation_message
 from matrx_graph.executor.registry import NodeRegistry, canonical_spec_type, default_registry
 from matrx_graph.mapping_sources import (
     WHOLE_PAYLOAD,
+    dotted_target_message,
     unknown_sigil,
     unknown_sigil_message,
 )
@@ -29,9 +31,11 @@ from matrx_graph.shape_probe import (
     item_schema_of,
     model_json_schema,
     path_problem,
+    resolve_ref,
     schema_at_path,
     template_item_paths,
 )
+from matrx_graph.text_inputs import text_only as _text_only_input
 from matrx_graph.types.definition import Definition, EdgeDef
 from matrx_graph.types.handle import (
     HandleDirection,
@@ -107,6 +111,8 @@ _COLLECTOR_NODE_TYPES: frozenset[str] = frozenset({"control.gather"})
 # Join-semantics NodeDef.data keys (ENGINE_SPEC §3.3/§3.4/§3.7).
 _JOIN_POLICIES = ("all", "any")
 _SKIP_POLICIES = ("propagate_empty", "block", "default_value")
+# §3.3b — what a step does when a step it reads from was skipped by its 'Only when'.
+_WHEN_INPUT_SKIPPED = ("skip", "run")
 # Node Result System — fan-out item-failure policy (data.on_item_failure).
 _ITEM_FAILURE_POLICIES = ("park", "hole")
 # The channel-reducer vocabulary sanctioned for arg_merge (§3.7) — a subset
@@ -249,6 +255,162 @@ def _schema_props(model: type[BaseModel]) -> tuple[set[str], bool]:
     return props, is_closed
 
 
+def _accepted_input_names(model: type[BaseModel]) -> set[str] | None:
+    """Every input name ``model`` accepts (field names and their aliases), or None when it takes any name.
+
+    Only a model that FORBIDS extra keys refuses a name: the default (``ignore``) drops it and ``allow``
+    keeps it, so neither can ever refuse a step for an unknown input."""
+    if (getattr(model, "model_config", None) or {}).get("extra") != "forbid":
+        return None
+    names: set[str] = set()
+    for name, field in model.model_fields.items():
+        names.add(name)
+        for alias in (field.alias, field.validation_alias):
+            names |= _alias_input_names(alias)
+    return names
+
+
+def _alias_input_names(alias: object) -> set[str]:
+    """The top-level input names one alias accepts: a plain name, every member of an ``AliasChoices``, and
+    the first key of an ``AliasPath`` (``AliasPath("a", 0)`` reads input ``a``)."""
+    from pydantic import AliasChoices, AliasPath
+
+    if isinstance(alias, str):
+        return {alias}
+    if isinstance(alias, AliasChoices):
+        return set().union(*(_alias_input_names(choice) for choice in alias.choices))
+    if isinstance(alias, AliasPath):
+        return {alias.path[0]} if alias.path and isinstance(alias.path[0], str) else set()
+    return set()
+
+
+def unaccepted_input_issues(
+    raw: dict[str, Any] | Definition, registry: NodeRegistry | None = None
+) -> list[ValidationIssue]:
+    """Steps handed an input name their action or node refuses — ERRORS, each naming the step and the field.
+
+    A step whose input model forbids extra keys refuses, at run time, every name it does not declare
+    (``spec.input_schema.model_validate(merged)``: extra_forbidden). Two places hand a step names: its
+    fixed inputs (``data.input``, else ``data.inputs``) and the target keys of its connections' field
+    links (``data.mappings``). A name the step does not take there fails EVERY run that reaches the step
+    (research triage 7f6f480b v11, 2026-11-10: ``log.record`` given ``category``, a setting, as an
+    input — each run errored there and the keyword read stopped). Publish refuses it instead.
+
+    A third place is a For each's per-item payload (``config.payload_template`` keys, a ``data.for_each``
+    step's ``as``): checked against the step it runs once per item. The check reads the graph the
+    engine runs (built-in step settings expanded, information nodes out), so a link into a step with
+    an 'Only when' reaches its gate, which hands the step only the names it takes.
+
+    Never refuses what a run accepts: an open model (``extra`` ``allow`` / ``ignore``), an unknown or
+    non-running step type and ``__``-prefixed markers are skipped; input names a step's settings
+    expose as connection points count as accepted, and so does the input a 'Run in another
+    organization' setting reads (``data.in_organization.input``: consumed before the check; Knowledge
+    buckets 6b86c945 v41's per-item ``organization_id``). A definition whose step settings do not expand is
+    left to the compile gate (no issues here)."""
+    from matrx_graph.in_organization import parse_in_organization
+    from matrx_graph.information import split_information
+    from matrx_graph.step_settings import StepSettingError, expand_step_settings
+
+    registry = registry or default_registry()
+    definition = raw if isinstance(raw, Definition) else Definition.model_validate(raw)
+    try:
+        definition = split_information(expand_step_settings(definition), registry).executable
+    except StepSettingError:
+        return []
+    accepted: dict[str, set[str]] = {}
+    issues: list[ValidationIssue] = []
+    for node in definition.nodes:
+        try:
+            spec = registry.get(node.spec_type).spec
+        except Exception:  # noqa: BLE001 — an unknown step type is the compile gate's refusal
+            continue
+        if not spec.executes or spec.is_source:
+            continue
+        names = _accepted_input_names(spec.input_schema)
+        if names is None:
+            continue
+        config = node.data.get("config") if isinstance(node.data.get("config"), dict) else {}
+        for field_name, field in spec.config_schema.model_fields.items():
+            extra = field.json_schema_extra
+            exposed = config.get(field_name)
+            if isinstance(extra, dict) and extra.get("workflow_input_handles") is True and isinstance(exposed, list):
+                names |= {n for n in exposed if isinstance(n, str)}
+        try:
+            policy = parse_in_organization(node.data.get("in_organization"))
+        except ValueError:  # a bad setting is the compile gate's refusal
+            policy = None
+        if policy is not None and policy.input:
+            # 'Run in another organization' reads this input and removes it before the step's inputs are
+            # checked when the step does not take it (in_organization.consume_setting_input).
+            names = names | {str(policy.input).split(".", 1)[0]}
+        accepted[node.id] = names
+        fixed = node.data.get("input") if isinstance(node.data.get("input"), dict) else node.data.get("inputs")
+        where = "input" if isinstance(node.data.get("input"), dict) else "inputs"
+        for key in fixed if isinstance(fixed, dict) else {}:
+            if str(key).startswith("__") or key in names:
+                continue
+            issues.append(
+                ValidationIssue(
+                    path=f"nodes[{node.id}].data.{where}.{key}",
+                    node_id=node.id,
+                    code="input_not_accepted",
+                    message=(
+                        f"Step '{node.id}' ({spec.node_type}) is given the fixed input '{key}', which it "
+                        f"does not take: every run would fail there. It takes {format_options(sorted(names), 12)}."
+                    ),
+                )
+            )
+    for node in definition.nodes:
+        config = node.data.get("config") if isinstance(node.data.get("config"), dict) else {}
+        target, template = config.get("target_node_id"), config.get("payload_template")
+        names = accepted.get(str(target or ""))
+        if names is None or not isinstance(template, dict):
+            continue
+        for key in template:
+            if str(key).startswith("__") or key in names:
+                continue
+            issues.append(
+                ValidationIssue(
+                    path=f"nodes[{node.id}].data.config.payload_template.{key}",
+                    node_id=str(target),
+                    code="input_not_accepted",
+                    message=(
+                        f"Step '{target}' ({definition_node_type(definition, str(target))}) is given the input "
+                        f"'{key}' for each item by '{node.id}', which it does not take: every run would fail "
+                        f"there. It takes {format_options(sorted(names), 12)}."
+                    ),
+                )
+            )
+    for edge in definition.edges:
+        names = accepted.get(edge.target)
+        mappings = edge.data.get("mappings")
+        if names is None or not isinstance(mappings, dict) or edge.kind is EdgeKind.STREAM:
+            continue
+        for key in mappings:
+            if str(key).startswith("__") or key in names:
+                continue
+            target_type = definition_node_type(definition, edge.target)
+            issues.append(
+                ValidationIssue(
+                    path=f"edges[{edge.id}].data.mappings.{key}",
+                    node_id=edge.target,
+                    edge_id=edge.id,
+                    code="input_not_accepted",
+                    message=(
+                        f"Step '{edge.target}' ({target_type}) is given the input '{key}' by connection "
+                        f"'{edge.id}' from '{edge.source}', which it does not take: every run would fail "
+                        f"there. It takes {format_options(sorted(names), 12)}."
+                    ),
+                )
+            )
+    return issues
+
+
+def definition_node_type(definition: Definition, node_id: str) -> str:
+    """The step type of ``node_id`` in ``definition`` ('' when absent)."""
+    return next((n.spec_type for n in definition.nodes if n.id == node_id), "")
+
+
 class ValidationIssue(BaseModel):
     """A single problem with a Definition. Rendered as a badge in the UI."""
 
@@ -257,11 +419,32 @@ class ValidationIssue(BaseModel):
     node_id: str | None = None
     edge_id: str | None = None
     severity: str = "error"
+    #: What kind of finding it is, when a reader orders or groups by it (``unknown_step_key``).
+    code: str | None = None
+    #: The settings/inputs a finding is about, by their stored names (``missing_input``: the required inputs
+    #: nothing supplies), so a host words the sentence without parsing ``message``.
+    fields: list[str] = []
 
 
 class ValidationResult(BaseModel):
     valid: bool
     issues: list[ValidationIssue] = []
+
+
+#: Warnings that are only notices — a key nothing reads. They sort after every error and every other
+#: warning, so a reader that shows "the first issue" (a compile sentence, a publish's open-plan list)
+#: never shows a notice ahead of what matters.
+NOTICE_CODES = frozenset({"unknown_step_key"})
+
+
+def ordered_issues(issues: list[ValidationIssue]) -> list[ValidationIssue]:
+    """Errors first, then warnings, then notices (:data:`NOTICE_CODES`); stable within each."""
+    def rank(issue: ValidationIssue) -> int:
+        if issue.severity == "error":
+            return 0
+        return 2 if issue.code in NOTICE_CODES else 1
+
+    return sorted(issues, key=rank)
 
 
 def _reads_run(value: Any) -> bool:
@@ -308,6 +491,47 @@ def _once_reads_run_issues(node_id: str, data: Any) -> list[ValidationIssue]:
             )
         )
     return found
+
+
+def _per_item_steps(definition: Definition) -> dict[str, bool]:
+    """Every step that runs once per item (a dispatcher's ``target_node_id``, a For each expanded to one,
+    an ``each`` connection's target) → whether its items have a known total (always True since 2026-11-19: a
+    paced ``until`` For each still knows its list's length, which ``{total}`` says)."""
+    out: dict[str, bool] = {}
+    for node in definition.nodes:
+        if node.spec_type not in DISPATCHER_NODE_TYPES:
+            continue
+        config = (node.data or {}).get("config") if isinstance(node.data, dict) else None
+        config = config if isinstance(config, dict) else {}
+        target = config.get("target_node_id")
+        if isinstance(target, str) and target and target != node.id:
+            out[target] = out.get(target, True)
+    for edge in definition.edges:
+        if isinstance(edge.data, dict) and edge.data.get("fan_out") == "each":
+            out.setdefault(edge.target, True)
+    return out
+
+
+def _says_issues(node_id: str, data: Any, per_item: dict[str, bool]) -> list[ValidationIssue]:
+    """``data.says`` (matrx_graph/says.py): a malformed row, and a placeholder that can never have a value for
+    its row type (F4: ``{result.x}`` on start, ``{error}`` outside the failure rows, counts and the per-item rows
+    on a step with no For each). An error: the definition saves and
+    keeps editing, publish refuses it with the sentence."""
+    if not isinstance(data, dict) or not data.get("says"):
+        return []
+    from matrx_graph.says import parse_says, row_problems
+
+    path = f"nodes[{node_id}].data.says"
+    try:
+        policy = parse_says(data.get("says"))
+    except ValueError as e:
+        return [ValidationIssue(path=path, node_id=node_id, code="says_invalid", message=f"What this step says: {e}.")]
+    if policy is None:
+        return []
+    return [
+        ValidationIssue(path=path, node_id=node_id, code="says_never_has_a_value", message=f"What this step says: {p}.")
+        for p in row_problems(policy, per_item=node_id in per_item)
+    ]
 
 
 def _review_mark_issues(
@@ -407,6 +631,30 @@ def _misspelled_edge_key_issues(definition: Definition) -> list[ValidationIssue]
     return found
 
 
+def _unknown_step_key_issues(definition: Definition) -> list[ValidationIssue]:
+    """SAY a step key nothing reads. A step's ``data`` is free-form (the canvas's JSON, kept verbatim), so a key
+    the engine does not have is accepted and ignored: ``on_failure: continue`` looked like error handling and
+    did nothing. Generic: any ``data`` key outside ``STEP_DATA_KEYS`` warns by name, and a step-data key written
+    on the step itself (beside ``data``) warns with where it belongs. A warning, never a refusal: a key only the
+    canvas uses must not stop a save."""
+    from matrx_graph.types.definition import STEP_DATA_KEYS
+
+    found: list[ValidationIssue] = []
+    for node in definition.nodes:
+        for key in sorted(set(node.data) - STEP_DATA_KEYS):
+            found.append(ValidationIssue(
+                path=f"nodes[{node.id}].data.{key}", node_id=node.id, severity="warning", code="unknown_step_key",
+                message=(f"Unknown step key '{key}': nothing reads it, so it does nothing. Remove it, or use the "
+                         "setting that does this (a step's inputs and settings are under 'input' and 'config').")))
+        # An empty key (the shared graph wire always carries width/height, null when unset) writes nothing to warn about.
+        for key in sorted({k for k, v in (node.model_extra or {}).items() if v is not None} & STEP_DATA_KEYS):
+            found.append(ValidationIssue(
+                path=f"nodes[{node.id}].{key}", node_id=node.id, severity="warning", code="unknown_step_key",
+                message=(f"'{key}' is written on the step itself, where nothing reads it. Move it under the "
+                         f"step's 'data' (data.{key}).")))
+    return found
+
+
 def validate_definition(
     raw: dict[str, Any] | Definition,
     registry: NodeRegistry | None = None,
@@ -446,6 +694,8 @@ def validate_definition(
                 )
             return ValidationResult(valid=False, issues=issues)
 
+    issues.extend(_unsaved_chat_issues(definition))
+
     # Built-in step settings (Only when / If skipped / Shape the result) are validated as the
     # real steps they become; every issue on a helper step is badged on the step the author
     # wrote (matrx_graph/step_settings.py).
@@ -456,10 +706,49 @@ def validate_definition(
     except StepSettingError as e:
         return ValidationResult(
             valid=False,
-            issues=[ValidationIssue(path=f"nodes[{e.node_id}].data", node_id=e.node_id, message=str(e))],
+            issues=[*issues, ValidationIssue(path=f"nodes[{e.node_id}].data", node_id=e.node_id, message=str(e))],
         )
+    # Information nodes (notes, frames, media, kinds, records) never run: check them on their own,
+    # then validate the executable graph without them (matrx_graph/information.py).
+    from matrx_graph.information import information_problems, split_information
+
+    for problem in information_problems(definition, registry):
+        issues.append(
+            ValidationIssue(path=problem.path, node_id=problem.node_id, edge_id=problem.edge_id, message=problem.message)
+        )
+    definition = split_information(definition, registry).executable
     result = _validate_expanded(definition, registry, issues, workflow_id=workflow_id, workflow_name=workflow_name)
     return _badge_helpers_on_their_step(result)
+
+
+def _unsaved_chat_issues(definition: Definition) -> list[ValidationIssue]:
+    """A person can always open the full chat of anything AI that runs (Arman, 2026-11-08: "A
+    user should always be able to see the full chat for anything that runs"). A step that sets
+    ``store: false`` (in its inputs or its per-item template) runs the agent and keeps no chat,
+    so nobody can ever see what it was asked or what it said. Only a dry run (a preview that
+    never calls the model) may skip saving. Read on the steps as written, before step settings
+    expand a per-item template. A warning: validation offers, never blocks."""
+    found: list[ValidationIssue] = []
+    for node in definition.nodes:
+        data = node.data if isinstance(node.data, dict) else {}
+        for_each = data.get("for_each") if isinstance(data.get("for_each"), dict) else {}
+        template = for_each.get("payload_template") if isinstance(for_each.get("payload_template"), dict) else {}
+        for where, values in (("inputs", data.get("inputs")), ("config", data.get("config")),
+                              ("for_each.payload_template", template)):
+            if not isinstance(values, dict) or values.get("store") is not False or values.get("dry_run") is True:
+                continue
+            found.append(
+                ValidationIssue(
+                    path=f"nodes[{node.id}].data.{where}.store",
+                    node_id=node.id,
+                    severity="warning",
+                    message=(
+                        "This step keeps no chat (store is off), so nobody can open what its agent "
+                        "was asked or answered. Remove store: false."
+                    ),
+                )
+            )
+    return found
 
 
 def _badge_helpers_on_their_step(result: ValidationResult) -> ValidationResult:
@@ -469,7 +758,7 @@ def _badge_helpers_on_their_step(result: ValidationResult) -> ValidationResult:
         issue.model_copy(update={"node_id": owner}) if (owner := owner_of(issue.node_id)) else issue
         for issue in result.issues
     ]
-    return result.model_copy(update={"issues": issues})
+    return result.model_copy(update={"issues": ordered_issues(issues)})
 
 
 def _validate_expanded(
@@ -484,6 +773,7 @@ def _validate_expanded(
 
     node_ids: set[str] = set()
     node_definitions = {node.id: node for node in definition.nodes}
+    per_item_steps = _per_item_steps(definition)
     # node_id → resolved NodeSpec, populated only for nodes whose type is
     # registered. Edge-level checks (handles, mappings) read it; an unknown
     # or removed type is skipped there (already reported as a node error).
@@ -646,6 +936,17 @@ def _validate_expanded(
                         message=message,
                     )
                 )
+        except MatrxGraphError as e:
+            # A config validator that raised the engine's own error instead of ValueError escapes
+            # pydantic; validation reports it on the step rather than crashing the caller (the
+            # /workflows/validate route answered 500 for a sandbox refusal, 2026-11-02).
+            issues.append(
+                ValidationIssue(
+                    path=f"nodes[{node.id}].data.config",
+                    node_id=node.id,
+                    message=str(e),
+                )
+            )
 
     # --- THE INPUT SURFACE (INPUT-SURFACE.md, 2026-08-27) ------------------
     # The compiled surface is the name-unique union of every io.user_input
@@ -653,8 +954,11 @@ def _validate_expanded(
     # ERRORS here (the compiler refuses them too — this is the authoring-time
     # badge), and {'$input': name} references must name a surface entry.
     surface_names: dict[str, str] = {}  # input name -> declaring owner (for messages)
+    from matrx_graph.nodes.io.user_input import INPUT_SOURCE_TYPES, TRIGGER_STEP_TYPE, input_source_label
+
+    issues.extend(_trigger_step_issues(definition, TRIGGER_STEP_TYPE))
     for node in definition.nodes:
-        if node.spec_type != "io.user_input":
+        if node.spec_type not in INPUT_SOURCE_TYPES:
             continue
         raw_fields = node.config.get("fields")
         if not isinstance(raw_fields, list):
@@ -662,10 +966,10 @@ def _validate_expanded(
         for fld in raw_fields:
             if not isinstance(fld, dict):
                 continue
-            key = fld.get("key")
+            key = fld.get("key") or fld.get("name")
             if not isinstance(key, str) or not key:
                 continue
-            owner = f"input node '{node.id}'"
+            owner = input_source_label(node.spec_type, node.id)
             if key in surface_names:
                 issues.append(
                     ValidationIssue(
@@ -695,6 +999,11 @@ def _validate_expanded(
             )
         else:
             surface_names[v.name] = "the workflow's declared variables"
+    # Workflow settings (workflow_settings.py): each always has a value that fits its plain type.
+    from matrx_graph.workflow_settings import definition_setting_problems
+
+    for name, problem in definition_setting_problems(list(definition.variables)):
+        issues.append(ValidationIssue(path=f"variables[{name}]", message=problem))
     # Settings read from run inputs ({"$input": name} in data.config) must name a surface entry.
     for node in definition.nodes:
         if not isinstance(node.config, dict):
@@ -953,6 +1262,19 @@ def _validate_expanded(
                 )
             )
 
+        raw_when_skipped = node.data.get("when_input_skipped")
+        if raw_when_skipped is not None and raw_when_skipped not in _WHEN_INPUT_SKIPPED:
+            issues.append(
+                ValidationIssue(
+                    path=f"nodes[{node.id}].data.when_input_skipped",
+                    node_id=node.id,
+                    message=(
+                        f"Invalid when_input_skipped {raw_when_skipped!r}. "
+                        f"Allowed: {', '.join(_WHEN_INPUT_SKIPPED)}."
+                    ),
+                )
+            )
+
         raw_item_failure = node.data.get("on_item_failure")
         if raw_item_failure is not None and raw_item_failure not in _ITEM_FAILURE_POLICIES:
             issues.append(
@@ -981,6 +1303,7 @@ def _validate_expanded(
             _review_mark_issues(node.data.get("review"), f"nodes[{node.id}].data.review", node_id=node.id)
         )
         issues.extend(_once_reads_run_issues(node.id, node.data))
+        issues.extend(_says_issues(node.id, node.data, per_item_steps))
 
         raw_concurrency = node.data.get("concurrency")
         if is_input_ref(raw_concurrency):
@@ -1313,6 +1636,34 @@ def _validate_expanded(
                     ),
                 )
             )
+        elif (
+            raw_mappings is None
+            and edge.kind is EdgeKind.DATA
+            and source_spec is not None
+            and target_spec is not None
+            and not source_spec.dynamic_output
+        ):
+            # A WHOLE-output connection into a CLOSED step hands it every field of the source's
+            # output: a field the step does not declare is refused at run time (extra_forbidden).
+            # Only when both schemas are closed is the field list certain (2026-11-09, L7e:
+            # search workflow 79c58b1f fed closed steps fields only another step read).
+            src_props, src_closed = _schema_props(source_spec.output_schema)
+            tgt_props, tgt_closed = _schema_props(target_spec.input_schema)
+            extra = sorted(src_props - tgt_props - {"__kind"}) if src_closed and tgt_closed else []
+            if extra:
+                issues.append(
+                    ValidationIssue(
+                        path=f"edges[{edge.id}]",
+                        edge_id=edge.id,
+                        severity="warning",
+                        message=(
+                            f"Connection '{edge.id}' hands '{edge.target}' the whole output of "
+                            f"'{edge.source}', including {format_options(extra, 6)}, which "
+                            f"'{edge.target}' does not take — it will refuse them when it runs. "
+                            "Map only the fields it takes (field links), or make it a control connection."
+                        ),
+                    )
+                )
         elif isinstance(raw_mappings, dict) and raw_mappings:
             # source dot-path top-level segment must plausibly exist on the
             # source's output (skipped for dynamic-output nodes, $FULL_PAYLOAD,
@@ -1338,6 +1689,27 @@ def _validate_expanded(
             )
             src_dynamic = bool(source_spec is not None and source_spec.dynamic_output)
             for target_key, source_key in raw_mappings.items():
+                # A dotted TARGET key can never run (live 2026-11-17, 'provision_values.policies'): said plainly at
+                # save and publish as a WARNING (Law 6: validation offers, never blocks a person); the run then
+                # fails loudly with the same sentence. An AGENT's save is refused by the host on this code.
+                if isinstance(target_key, str) and "." in target_key:
+                    issues.append(
+                        ValidationIssue(
+                            path=f"edges[{edge.id}].data.mappings.{target_key}",
+                            edge_id=edge.id,
+                            node_id=edge.target,
+                            code="dotted_target_key",
+                            severity="warning",
+                            message=dotted_target_message(
+                                target_key,
+                                str(source_key),
+                                edge_id=str(edge.id),
+                                node_id=edge.target,
+                                takes=sorted(tgt_props) if tgt_props else None,
+                            ),
+                        )
+                    )
+                    continue
                 # An unsupported '$' token is an ERROR, and the ONE mapping
                 # finding that needs no schema at all: no node emits a
                 # '$'-prefixed output key, so the run dies on it whatever the
@@ -1456,9 +1828,120 @@ def _validate_expanded(
     issues.extend(_template_path_issues(definition, node_specs))
     issues.extend(_half_fed_step_issues(definition, node_specs))
     issues.extend(_failure_joined_step_issues(definition, node_specs))
+    issues.extend(_skip_joined_step_issues(definition, node_specs))
     issues.extend(_visible_io_issues(definition, registry))
+    issues.extend(_whole_list_payload_issues(definition))
+    issues.extend(_text_input_fed_object_issues(definition, node_specs))
+    issues.extend(_unknown_step_key_issues(definition))
+    issues.extend(_accidental_loop_issues(definition))
 
     return ValidationResult(valid=not any(i.severity == "error" for i in issues), issues=issues)
+
+
+#: Steps built to be returned to: a loop through one of them is one the author declared.
+LOOP_NODE_TYPES: frozenset[str] = frozenset({"control.loop", "control.work_queue"})
+
+
+def _accidental_loop_issues(definition: Definition) -> list[ValidationIssue]:
+    """A loop no loop step declares, named at save and publish (2026-11-16).
+
+    Compile orients every reachable cycle by the SAME classifier the scheduler runs on
+    (``compile._detect_back_edges``) and treats the closing connection as a feedback edge: its
+    target re-fires once per delivery. An edit that wires a later step back into an earlier one
+    did exactly that to the research Read step (after the pick -> keywords -> judge -> pick), and
+    every run crashed while save and publish said nothing. A warning: validation offers, never blocks."""
+    from types import SimpleNamespace
+
+    from matrx_graph.compile import _ROUTABLE_KINDS, _detect_back_edges
+    from matrx_graph.content_ir.triggers import TriggerDeclarationError, parse_node_trigger
+    from matrx_graph.errors import CompilationError
+
+    nodes = {n.id: n for n in definition.nodes}
+    edges = {
+        e.id: SimpleNamespace(edge_id=e.id, kind=e.kind, source_node_id=e.source, target_node_id=e.target)
+        for e in definition.edges
+        if e.source in nodes and e.target in nodes
+    }
+    outgoing: dict[str, list[str]] = {}
+    has_inbound: set[str] = set()
+    for e in edges.values():
+        outgoing.setdefault(e.source_node_id, []).append(e.edge_id)
+        has_inbound.add(e.target_node_id)
+    if definition.entry_nodes:
+        entry = tuple(n for n in definition.entry_nodes if n in nodes)
+    else:  # the entry set compile derives: no inbound connection, not trigger-fired, not a dispatch target
+        dispatch_targets = {
+            target
+            for n in definition.nodes
+            if n.spec_type in DISPATCHER_NODE_TYPES
+            and isinstance(target := ((n.data or {}).get("config") or {}).get("target_node_id"), str)
+            and target != n.id
+        }
+
+        def _triggered(data: Any) -> bool:
+            try:
+                return parse_node_trigger(data) is not None
+            except TriggerDeclarationError:
+                return False
+
+        entry = tuple(
+            nid for nid, n in nodes.items()
+            if nid not in has_inbound and nid not in dispatch_targets and not _triggered(n.data)
+        )
+    try:
+        back = _detect_back_edges(entry, edges, outgoing, list(nodes))  # type: ignore[arg-type]
+    except CompilationError:
+        return []  # a loop no entry reaches: compile refuses it by name already
+
+    def _label(nid: str) -> str:
+        label = (nodes[nid].data or {}).get("label")
+        return str(label).strip() if isinstance(label, str) and label.strip() else nid
+
+    found: list[ValidationIssue] = []
+    for eid in [e.id for e in definition.edges if e.id in back]:
+        closing = edges[eid]
+        start, end = closing.target_node_id, closing.source_node_id
+        # The loop's steps: the shortest forward path from where the loop restarts to the step that closes it.
+        parent: dict[str, str | None] = {start: None}
+        frontier = [start]
+        while frontier and end not in parent:
+            nxt: list[str] = []
+            for nid in frontier:
+                for oid in outgoing.get(nid, ()):
+                    e = edges[oid]
+                    if oid == eid or e.kind not in _ROUTABLE_KINDS or e.target_node_id in parent:
+                        continue
+                    parent[e.target_node_id] = nid
+                    nxt.append(e.target_node_id)
+            frontier = nxt
+        path: list[str] = []
+        cur: str | None = end if end in parent else start
+        while cur is not None:
+            path.append(cur)
+            cur = parent[cur]
+        path.reverse()
+        if any(nodes[nid].spec_type in LOOP_NODE_TYPES for nid in path):
+            continue
+        from matrx_graph.step_settings import owner_of
+
+        # A built-in setting's helper (Only when, If skipped, Shape) is read as the step the author wrote.
+        shown = [owner_of(nid) or nid for nid in [*path, start]]
+        steps = " -> ".join(_label(nid) for i, nid in enumerate(shown) if nid in nodes and (i == 0 or nid != shown[i - 1]))
+        found.append(
+            ValidationIssue(
+                path=f"edges[{eid}]",
+                edge_id=eid,
+                node_id=start,
+                severity="warning",
+                code="accidental_loop",
+                message=(
+                    f"These steps form a loop: {steps}. The connection from {_label(end)} to {_label(start)} "
+                    f"closes it, so {_label(start)} runs again every time {_label(end)} delivers. Remove that "
+                    "connection, or use a Loop step if the repeat is meant."
+                ),
+            )
+        )
+    return found
 
 
 def _visible_io_issues(definition: Definition, registry: NodeRegistry) -> list[ValidationIssue]:
@@ -1477,6 +1960,190 @@ def _visible_io_issues(definition: Definition, registry: NodeRegistry) -> list[V
         )
         for f in visible_io_findings(definition, registry)
     ]
+
+
+def _whole_list_payload_issues(definition: Definition) -> list[ValidationIssue]:
+    """FX8 (run 424e086e, 2026-11-02): a per-item template that copies a per-item list WHOLE into
+    every item (``src: "$in.batches"`` beside ``$in.batches.[batch_id={$item…}]``) — N items x the
+    list, held, sent and saved once per item; it killed the worker four times. An ERROR when the list
+    is provably per item (read per item elsewhere in the template, or the list being iterated) — a
+    patch that introduces one is refused, and the message names the selector that fixes it; a
+    WARNING when the list is one another For each iterates (``matrx_graph.fan_out_payload``). Live
+    scanner: aidream ``scripts/check_fan_out_payloads.py``."""
+    from matrx_graph.fan_out_payload import whole_list_payload_findings
+    from matrx_graph.step_settings import FOR_EACH
+
+    issues: list[ValidationIssue] = []
+    for f in whole_list_payload_findings(definition, expanded=True):
+        holder = (
+            f"nodes[{f.step_id}].data.{FOR_EACH}.payload_template"
+            if f.step_id != f.node_id
+            else f"nodes[{f.node_id}].data.config.{'template' if f.node_type == 'data.map_template' else 'payload_template'}"
+        )
+        issues.append(ValidationIssue(
+            path=f"{holder}.{f.where}" if f.where else holder,
+            node_id=f.node_id,
+            message=f.message,
+            severity="error" if f.refused else "warning",
+        ))
+    return issues
+
+
+# --- A TEXT INPUT FED A WHOLE OBJECT (FIX-L6, 2026-11-03) ------------------
+# Live, release 36eaeafb684: Company Setup built "Send pickup reminders" with a For each whose
+# payload_template was ``{"prompt": "$item"}`` over ``table.row.list``'s ``rows`` — every item a
+# whole Row object (id, values, version …) landing on ``ai.llm.chat``'s TEXT ``prompt``. The save
+# said nothing; every run stopped at "Write the reminder" with ``string_type``. The
+# run now sends such a value as JSON text and notes it on the step (``matrx_graph.text_inputs``);
+# the save-time offer below is what lets the author pick fields instead. A WARNING (validation
+# offers, never blocks) wherever the declared shapes PROVE an object or list reaches an input that takes only text: a per-item template value (``$item`` / ``$item.<path>``)
+# and an edge mapping (``target <- source path``). Undescribed shapes stay silent.
+
+
+def _object_shape(schema: dict[str, Any] | None, root: dict[str, Any]) -> str | None:
+    """``"record"`` / ``"list"`` when a declared value is provably an object or a list, else None."""
+    if not isinstance(schema, dict):
+        return None
+    schema = resolve_ref(schema, root)
+    branches = schema.get("anyOf") or schema.get("oneOf")
+    if isinstance(branches, list):
+        real = [b for b in branches if isinstance(b, dict) and resolve_ref(b, root).get("type") != "null"]
+        shapes = {_object_shape(b, root) for b in real}
+        return shapes.pop() if real and len(shapes) == 1 and None not in shapes else None
+    kind = schema.get("type")
+    if kind == "object" or (kind is None and isinstance(schema.get("properties"), dict)):
+        return "record"
+    if kind == "array":
+        return "list"
+    return None
+
+
+def _text_fix_hint(ref: str, shape: str) -> str:
+    """How to hand a text input the object: all of it as JSON, or chosen fields."""
+    inner = ref[1:]
+    picks = f", or write text that picks its fields with {{{inner}.<field>}} placeholders" if shape == "record" else ""
+    return f"To choose, use {{\"$format\": \"{{{inner}}}\"}} (the whole {shape} as JSON){picks}."
+
+
+def _text_input_fed_object_issues(
+    definition: Definition,
+    node_specs: dict[str, NodeSpec],
+) -> list[ValidationIssue]:
+    """WARN where a text-only input is provably fed a whole object or list (see the block above)."""
+    issues: list[ValidationIssue] = []
+    edges_by_target: dict[str, list[Any]] = {}
+    for edge in definition.edges:
+        edges_by_target.setdefault(edge.target, []).append(edge)
+
+    def text_props(node_id: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        spec = node_specs.get(node_id)
+        if spec is None:
+            return None
+        root = model_json_schema(spec.input_schema)
+        props = root.get("properties")
+        return root, props if isinstance(props, dict) else {}
+
+    # 1. Per-item templates: control.map hands each item's payload to its target step.
+    for node in definition.nodes:
+        if node.spec_type != "control.map" or not isinstance(node.config, dict):
+            continue
+        template = node.config.get("payload_template")
+        target_id = node.config.get("target_node_id")
+        target = text_props(target_id) if isinstance(target_id, str) else None
+        if not isinstance(template, dict) or target is None:
+            continue
+        t_root, t_props = target
+        refs = {
+            k: v
+            for k, v in template.items()
+            if isinstance(v, str)
+            and (v == "$item" or v.startswith("$item."))
+            and _text_only_input(t_props.get(k), t_root)
+        }
+        if not refs:
+            continue
+        step = node.id[: -len("~each")] if node.id.endswith("~each") else node.id
+        for edge in edges_by_target.get(node.id, []):
+            source_spec = node_specs.get(edge.source)
+            if edge.kind is EdgeKind.ERROR or source_spec is None or source_spec.dynamic_output:
+                continue
+            mappings = edge.data.get("mappings")
+            source_path = mappings.get("items") if isinstance(mappings, dict) else "items"
+            if not isinstance(source_path, str) or source_path == _WHOLE_PAYLOAD_SOURCE:
+                continue
+            s_root = model_json_schema(source_spec.output_schema)
+            list_schema = schema_at_path(s_root, source_path)
+            element = item_schema_of(list_schema, s_root) if list_schema is not None else None
+            if element is None:
+                continue
+            for key, ref in refs.items():
+                value_schema = (
+                    element
+                    if ref == "$item"
+                    else schema_at_path(s_root, ref[len("$item."):], start=element)
+                )
+                shape = _object_shape(value_schema, s_root)
+                if shape is None:
+                    continue
+                fields = (
+                    declared_field_names(resolve_ref(value_schema, s_root)) if shape == "record" else []
+                )
+                issues.append(
+                    ValidationIssue(
+                        path=f"nodes[{node.id}].data.config.payload_template.{key}",
+                        node_id=step,
+                        edge_id=edge.id,
+                        severity="warning",
+                        message=(
+                            f"'{target_id}' takes text for '{key}', but '{ref}' is a whole {shape} "
+                            f"(one element of '{source_path}' on '{edge.source}'"
+                            + (f", fields {fields}" if fields else "")
+                            + "), so the run will send all of it as JSON text. "
+                            + _text_fix_hint(ref, shape)
+                        ),
+                    )
+                )
+
+    # 2. Edge mappings: `target_key <- source path` onto a text-only input.
+    for edge in definition.edges:
+        mappings = edge.data.get("mappings")
+        source_spec = node_specs.get(edge.source)
+        target = text_props(edge.target)
+        if (
+            edge.kind is EdgeKind.ERROR
+            or not isinstance(mappings, dict)
+            or source_spec is None
+            or source_spec.dynamic_output
+            or target is None
+        ):
+            continue
+        t_root, t_props = target
+        s_root = model_json_schema(source_spec.output_schema)
+        for target_key, source_key in mappings.items():
+            if (
+                not isinstance(target_key, str)
+                or not isinstance(source_key, str)
+                or source_key == _WHOLE_PAYLOAD_SOURCE
+                or not _text_only_input(t_props.get(target_key), t_root)
+            ):
+                continue
+            shape = _object_shape(schema_at_path(s_root, source_key), s_root)
+            if shape is None:
+                continue
+            issues.append(
+                ValidationIssue(
+                    path=f"edges[{edge.id}].data.mappings.{target_key}",
+                    edge_id=edge.id,
+                    node_id=edge.target,
+                    severity="warning",
+                    message=(
+                        f"'{edge.target}' takes text for '{target_key}', but '{source_key}' on "
+                        f"'{edge.source}' is a whole {shape}, so the run will send all of it as JSON "
+                        f"text. Map one of its text fields instead for a tighter input."
+                    ),
+                )
+            )
+    return issues
 
 
 # --- THE UNRENDERED-PLACEHOLDER GATE (W68, 2026-09-12) --------------------
@@ -1580,6 +2247,7 @@ def _unrendered_placeholder_issues(
                 ValidationIssue(
                     path=f"nodes[{node.id}].data.inputs.{input_path}",
                     node_id=node.id,
+                    code="unrendered_placeholder",
                     message=(
                         f"Input '{input_path}' on step '{node.id}' (type "
                         f"'{node.spec_type}') contains the placeholder "
@@ -1609,6 +2277,10 @@ _DYNAMIC_INPUT_NODE_TYPES: dict[str, str] = {
     "io.user_input": (
         "its values are the run form's answers, seeded by the scheduler from "
         "the compiled input surface"
+    ),
+    "io.trigger": (
+        "its values are a fire's (or the run form's) answers, seeded by the "
+        "scheduler from the compiled input surface"
     ),
 }
 
@@ -1757,6 +2429,8 @@ def _required_input_issues(
                     path=f"nodes[{node.id}].data.inputs",
                     node_id=node.id,
                     severity="warning",
+                    code="missing_input",
+                    fields=list(missing),
                     message=(
                         f"Step '{node.id}' (type '{node.spec_type}') starts the run "
                         f"and nothing in this workflow supplies its required "
@@ -1779,6 +2453,8 @@ def _required_input_issues(
             ValidationIssue(
                 path=f"nodes[{node.id}].data.inputs",
                 node_id=node.id,
+                code="missing_input",
+                fields=list(missing),
                 message=(
                     f"Step '{node.id}' (type '{node.spec_type}') has no source for "
                     f"required input{'s' if len(missing) > 1 else ''} "
@@ -2090,6 +2766,106 @@ def _failure_joined_step_issues(
     return issues
 
 
+# --- A STEP JOINED TO A SKIPPED STEP (2026-11-07, ENGINE_SPEC §3.3b) ----------
+# A step its 'Only when' said no to is SKIPPED, and what reads from it does not run on its
+# other inputs (it used to run with that input missing: research search, L7a). Say so at
+# save, so a definition that counted on the old behavior learns it now stops, and how to
+# keep it running.
+def skip_joined_steps(
+    definition: Definition, node_specs: dict[str, NodeSpec] | None = None
+) -> list[tuple[str, str, str]]:
+    """The scheduler's §3.3b rule, run statically on an EXPANDED definition, for each step
+    with an 'Only when': (stopped step, skipped step, another input that still arrives) for
+    every step its skip stops although another input still arrives — the steps that ran on
+    the other inputs alone before 2026-11-07."""
+    from matrx_graph.step_settings import when_gate_owner
+
+    node_specs = node_specs or {}
+    nodes = {n.id: n for n in definition.nodes}
+    payload_kinds = (EdgeKind.DATA, EdgeKind.CONDITIONAL)
+    in_edges: dict[str, list[EdgeDef]] = {}
+    for edge in definition.edges:
+        if edge.kind in payload_kinds or edge.kind is EdgeKind.CONTROL:
+            in_edges.setdefault(edge.target, []).append(edge)
+    skippable = sorted(
+        {e.target for e in definition.edges if e.kind is EdgeKind.CONDITIONAL and when_gate_owner(e.source) == e.target}
+    )
+
+    def policy(node_id: str) -> str:
+        spec = node_specs.get(node_id)
+        return nodes[node_id].data.get("join_policy") or getattr(spec, "default_join_policy", None) or "all"
+
+    def fields(edge: EdgeDef) -> set[str]:
+        return set(edge.mappings) if edge.mappings is not None else {"*"}
+
+    found: list[tuple[str, str, str]] = []
+    for skipped in skippable:
+        stopped: set[str] = set()
+        changed = True
+        while changed:
+            changed = False
+            for node_id, edges in in_edges.items():
+                node = nodes.get(node_id)
+                if node is None or node_id in stopped or node_id == skipped:
+                    continue
+                dead = stopped | {skipped}
+                marked = [e for e in edges if e.source in dead and e.kind in payload_kinds]
+                if not marked:
+                    continue
+                live = [e for e in edges if e.source not in dead]
+                if not live:
+                    stopped.add(node_id)  # every input gone: pruned before 2026-11-07 too
+                    changed = True
+                    continue
+                if (
+                    policy(node_id) == "any"
+                    or node.data.get("when_input_skipped") == "run"
+                    or node.spec_type in _COLLECTOR_NODE_TYPES
+                ):
+                    continue
+                arrived: set[str] = set()
+                for e in live:
+                    if e.kind is not EdgeKind.CONTROL:
+                        arrived |= fields(e)
+                if all(fields(e) <= arrived for e in marked):
+                    continue  # a rejoin: another connection brings the same input
+                stopped.add(node_id)
+                changed = True
+        for node_id in sorted(stopped):
+            live = sorted({e.source for e in in_edges.get(node_id, []) if e.source not in stopped | {skipped}})
+            if live:
+                found.append((node_id, skipped, live[0]))
+    return found
+
+
+def _skip_joined_step_issues(
+    definition: Definition, node_specs: dict[str, NodeSpec] | None = None
+) -> list[ValidationIssue]:
+    from matrx_graph.step_settings import owner_of
+
+    labels = {n.id: str((n.data or {}).get("label") or n.id) for n in definition.nodes}
+    issues: list[ValidationIssue] = []
+    warned: set[str] = set()
+    for node_id, skipped, other in skip_joined_steps(definition, node_specs):
+        shown = owner_of(node_id) or node_id
+        if shown in warned:
+            continue
+        warned.add(shown)
+        issues.append(
+            ValidationIssue(
+                path=f"nodes[{shown}]",
+                node_id=shown,
+                severity="warning",
+                message=(
+                    f"'{labels.get(shown, shown)}' does not run when '{labels.get(skipped, skipped)}' is "
+                    f"skipped, even though '{labels.get(owner_of(other) or other, other)}' still arrives. "
+                    f"To run it anyway, set its 'when_input_skipped' to 'run'."
+                ),
+            )
+        )
+    return issues
+
+
 def _kind_routing_issues(definition: Definition) -> list[ValidationIssue]:
     """Kind-filtered edges, fan-out modes, and kind-triggered nodes (§7.3/§7.4/§7.7c).
 
@@ -2217,14 +2993,18 @@ def declared_input_defaults(definition: Any) -> dict[str, Any]:
     """Each declared input's default (variables + io.user_input fields) — a setting's stand-in."""
     out: dict[str, Any] = {}
     for v in getattr(definition, "variables", None) or []:
-        if getattr(v, "default", None) is not None:
-            out[v.name] = v.default
+        if getattr(v, "defaultValue", None) is not None:
+            out[v.name] = v.defaultValue
     for node in getattr(definition, "nodes", None) or []:
-        if node.spec_type != "io.user_input" or not isinstance(node.config, dict):
+        if node.spec_type not in ("io.user_input", "io.trigger") or not isinstance(node.config, dict):
             continue
         for fld in node.config.get("fields") or []:
-            if isinstance(fld, dict) and isinstance(fld.get("key"), str) and fld.get("default") is not None:
-                out.setdefault(fld["key"], fld["default"])
+            if not isinstance(fld, dict):
+                continue
+            name = fld.get("key") or fld.get("name")  # old shape / the declaration
+            value = fld.get("default") if "default" in fld else fld.get("defaultValue")
+            if isinstance(name, str) and value is not None:
+                out.setdefault(name, value)
     return out
 
 
@@ -2288,6 +3068,9 @@ def _split_nested_number_refs(
     """One level down: a NUMBER inside a settings object may come from a run input too
     (``escalation.after_seconds`` — an organization-chosen wait). Recorded as the dotted
     path ``"<key>.<field>"``; the object's own checks (minimums) still apply to the value."""
+    import types as _types
+    from typing import Union, get_args, get_origin
+
     from matrx_graph.types.variables import is_input_ref
 
     inner = dict(value)
@@ -2295,7 +3078,12 @@ def _split_nested_number_refs(
         if not is_input_ref(sub_value):
             continue
         field = model.model_fields.get(sub)
-        if field is None or field.annotation not in (int, float):
+        annotation = field.annotation if field is not None else None
+        if get_origin(annotation) in (Union, _types.UnionType):
+            # An optional number (``int | None``) is still a number.
+            kinds = [a for a in get_args(annotation) if a is not type(None)]
+            annotation = kinds[0] if len(kinds) == 1 else None
+        if annotation not in (int, float):
             problems.append(
                 f"setting '{key}.{sub}' cannot come from a run input — inside '{key}' only a "
                 "number can"
@@ -2328,3 +3116,37 @@ def concurrency_cap(value: Any) -> int | None:
     if not isinstance(value, int):
         return None
     return value if value >= 1 else None
+
+
+def _trigger_step_issues(definition: Any, trigger_type: str) -> list[ValidationIssue]:
+    """AT MOST ONE TRIGGER STEP, ALWAYS A SOURCE: a workflow is started from outside through one
+    Trigger step (``io.trigger``), and nothing wires into it. Definitions without one are untouched."""
+    steps = [n for n in definition.nodes if n.spec_type == trigger_type]
+    if not steps:
+        return []
+    issues: list[ValidationIssue] = []
+    for extra in steps[1:]:
+        issues.append(
+            ValidationIssue(
+                path=f"nodes[{extra.id}]",
+                node_id=extra.id,
+                message=(
+                    f"A workflow has one Trigger step; '{steps[0].id}' already is it. Remove "
+                    f"'{extra.id}' or move its fields onto '{steps[0].id}'."
+                ),
+            )
+        )
+    ids = {n.id for n in steps}
+    for edge in definition.edges:
+        if edge.target in ids:
+            issues.append(
+                ValidationIssue(
+                    path=f"edges[{edge.id}]",
+                    node_id=edge.target,
+                    message=(
+                        f"The Trigger step '{edge.target}' starts the workflow; nothing connects into it. "
+                        f"Remove the connection from '{edge.source}'."
+                    ),
+                )
+            )
+    return issues

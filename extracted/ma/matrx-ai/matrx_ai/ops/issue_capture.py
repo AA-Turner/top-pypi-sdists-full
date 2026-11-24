@@ -28,6 +28,35 @@ async def _resolve_organization_id(
     return str(resolved)
 
 
+async def _already_recorded_today(
+    OpsIssueEvent: Any,
+    issue_class_id: Any,
+    model: str | None,
+    now: datetime,
+    day_key: tuple[str, ...] | None = None,
+) -> bool:
+    """True when today's (UTC) row for this class and model (and, when given, ``day_key``) already exists.
+
+    ``day_key`` rides in the stored event's ``detail["day_key"]`` (a list), so the match is exact.
+    A failed read files anyway."""
+    start_of_day = datetime.combine(now.date(), datetime.min.time(), tzinfo=UTC)
+    try:
+        if day_key is not None:
+            wanted = list(day_key)
+            rows = await OpsIssueEvent.get_many(
+                issue_class_id=issue_class_id, model=model, occurred_at__gte=start_of_day
+            )
+            return any((getattr(r, "detail", None) or {}).get("day_key") == wanted for r in rows)
+        return bool(
+            await OpsIssueEvent.exists(
+                issue_class_id=issue_class_id, model=model, occurred_at__gte=start_of_day
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - a failed dedupe read must not lose the finding
+        vcprint(f"[OpsIssueCapture] day-dedupe read failed ({exc}); filing anyway", color="yellow")
+        return False
+
+
 async def capture_issue(
     key: str,
     *,
@@ -44,16 +73,31 @@ async def capture_issue(
     request_id: str | None = None,
     detail: dict[str, Any] | None = None,
     severity: str = "medium",
+    once_per_day: bool = False,
+    day_key: tuple[str, ...] | None = None,
 ) -> None:
     """Record one issue event. ``severity`` applies when this call is the one
     that auto-registers the class (a class a person already triaged keeps its
-    own severity)."""
+    own severity). ``once_per_day`` makes a recovered capability FACT one row per
+    (class, model, UTC day) across every process — an in-process guard alone is
+    defeated by short-lived workers. ``day_key`` (only with ``once_per_day``) widens the natural
+    key to (class, model, day_key, UTC day) — e.g. the agent and schema a finding is about; it is
+    stored in ``detail["day_key"]``. Omitted, behaviour is unchanged."""
     try:
         from matrx_connect import try_get_app_context
 
         ctx = try_get_app_context()
     except Exception:
         ctx = None
+
+    if model:
+        # The column is read by people and grouped by model: a config holding the catalog
+        # model's ID (a client sent ``ai_model_id``) filed events under a UUID (live 2026-11-19,
+        # groq ``9f6c69bc-…`` = openai/gpt-oss-20b, google ``b32f2079-…`` = gemini-3.8-flash).
+        # THE naming door, shared with the swap trace; a ref it cannot name is kept as given.
+        from matrx_ai.config.unified_config import swap_model_name
+
+        model = swap_model_name(model)
 
     if ctx is not None:
         user_id = user_id or ctx.user_id or None
@@ -79,6 +123,8 @@ async def capture_issue(
             request_id=request_id,
             detail=detail or {},
             severity=severity,
+            once_per_day=once_per_day,
+            day_key=day_key,
         ),
         name=f"ops_issue_capture:{key}",
     )
@@ -100,6 +146,8 @@ async def _capture_impl(
     request_id: str | None,
     detail: dict[str, Any],
     severity: str = "medium",
+    once_per_day: bool = False,
+    day_key: tuple[str, ...] | None = None,
 ) -> None:
     # THE PROVIDER-OUTAGE ALARM hangs off this writer because this is the ONE
     # place every classified provider error is counted: hooking the executor
@@ -158,13 +206,23 @@ async def _capture_impl(
             if issue_class is None:
                 return
 
-        if not issue_class.get("is_active", True):
-            return
+        # A settled class never hides a recurrence: record the event AND reopen the class, through this
+        # package's own OpsIssueClass model (never a host import).
+        from matrx_ai.ops.issue_registry import reopen_settled_class
+
+        await reopen_settled_class(
+            issue_class,
+            message=str(detail.get("error") or detail.get("message") or error_type),
+        )
 
         issue_class_id = issue_class["id"]
 
         OpsIssueEvent = get_model("OpsIssueEvent")
         now = datetime.now(UTC)
+        if once_per_day and day_key is not None:
+            detail = {**detail, "day_key": list(day_key)}
+        if once_per_day and await _already_recorded_today(OpsIssueEvent, issue_class_id, model, now, day_key):
+            return
         organization_id = await _resolve_organization_id(user_id, organization_id)
 
         await OpsIssueEvent.create(

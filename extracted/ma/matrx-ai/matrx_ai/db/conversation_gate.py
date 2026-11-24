@@ -49,7 +49,9 @@ never creates conversations or user requests.
 from __future__ import annotations
 
 import asyncio
+import re
 import traceback
+import weakref
 from collections import OrderedDict
 from contextvars import ContextVar
 from typing import Any
@@ -178,6 +180,14 @@ class ConversationRunInFlightError(ConversationGateError):
     """
 
 
+class ConversationIdTakenError(ConversationGateError):
+    """The id is genuinely taken: owned by somebody else, already started, or lost the adoption race.
+
+    A SUBCLASS so every ``except ConversationGateError`` keeps working; callers map it to the
+    ``conversation_already_exists`` 409 (a resent first turn then follows the run), never a 500.
+    """
+
+
 def _is_valid_uuid(value: str | None) -> bool:
     if not value:
         return False
@@ -226,15 +236,47 @@ def _verify_system_anchor_owner(rows: list[Any], user_id: str | None) -> None:
         )
 
 
+def _require_create_organization(create_kwargs: dict[str, Any], conversation_id: str) -> None:
+    """Refuse a conversation INSERT that carries no organization, before it is queued.
+
+    ``chat.conversation.organization_id`` is NOT NULL and nothing may choose a tenant
+    for the row (context law: the organization is carried, never rebuilt). Without
+    this refusal the create was queued anyway and failed at flush, so the run went on
+    and everything it wrote was lost into ``system_write_failure`` (2026-10-24, a
+    ``server-door`` run whose context had no organization).
+    """
+    if create_kwargs.get("organization_id"):
+        # Filed where the database will file it (an administrator's trial run files every row in its
+        # filing organization): the create's organization — and so the child-row registry every later
+        # message, request and snapshot is stamped from — names the row's REAL home. Naming the step's
+        # organization here lost whole turns to org_foreign_to_parent (44 rows, 2026-11-20).
+        from matrx_ai.persistence.conversation_org import database_filing_organization
+
+        filed = database_filing_organization()
+        if filed:
+            create_kwargs["organization_id"] = filed
+        return
+    raise ConversationGateError(
+        f"Conversation {conversation_id} has no organization: the request context "
+        "carries none, so nothing was created. Every run must carry its organization "
+        "from the boundary (system_app_context(..., organization_id=...))."
+    )
+
+
 def _stamp_agent_refs(
     create_kwargs: dict[str, Any],
     ctx: Any,
     *,
     id_key: str,
     version_key: str,
+    refs: tuple[str | None, str | None] | None = None,
 ) -> None:
     """Stamp the request's agent attribution onto an outgoing INSERT — but only
     when each id is a real UUID.
+
+    ``refs`` is the pair :func:`_settled_agent_refs` returned for ``ctx`` (base
+    agent id, version id): an ``agent_id`` column always gets the agent.definition
+    id, never a version id (the FK refusal lost whole turns, 2026-11-19).
 
     Defense-in-depth (Layer 2) behind the route-boundary ``require_uuid`` guard
     (``aidream/api/utils/identifiers.py``). A malformed id that slips past the
@@ -248,8 +290,8 @@ def _stamp_agent_refs(
     """
     if not ctx:
         return
-    for attr, key in (("agent_id", id_key), ("agent_version_id", version_key)):
-        value = getattr(ctx, attr, None)
+    for index, (attr, key) in enumerate((("agent_id", id_key), ("agent_version_id", version_key))):
+        value = refs[index] if refs is not None else getattr(ctx, attr, None)
         if not value:
             continue
         if _is_valid_uuid(value):
@@ -272,6 +314,16 @@ def _stamp_agent_refs(
                 "================================================================",
                 color="red",
             )
+
+
+async def _settled_agent_refs(ctx: Any) -> tuple[str | None, str | None] | None:
+    """The (agent.definition id, version id) pair to stamp for ``ctx`` — a version id
+    found in ``ctx.agent_id`` is moved to the version slot and replaced by its base."""
+    if not ctx:
+        return None
+    from matrx_ai.db.persistence import settle_agent_refs
+
+    return await settle_agent_refs(getattr(ctx, "agent_id", None), getattr(ctx, "agent_version_id", None))
 
 
 def _resolve_conversation_type(ctx: Any, parent_conversation_id: str | None = None) -> str:
@@ -588,6 +640,9 @@ CONVERSATION_STEP_LABEL_KEY = "conversation_step_label"
 PARENT_REQUEST_ID_KEY = "parent_request_id"
 
 
+_SLUG_PREFIX = re.compile(r"[a-z][a-z0-9_]*")
+
+
 def resolve_step_label_for_title(label: str, agent_display_name: str | None = None) -> str:
     """Map a ``run_agent`` / ``child_agent_context`` label to a sidebar title.
 
@@ -600,6 +655,18 @@ def resolve_step_label_for_title(label: str, agent_display_name: str | None = No
 
     if not stripped:
         return agent or "Sub-agent"
+
+    # A technical ``slug:`` prefix (``agent_call:Chief of Staff``) names the agent after the colon, whatever that
+    # name holds: checked before the space test, which let every helper whose agent name has a space keep the raw
+    # label as its sidebar title ("Auto: agent_call:Chief of Staff", CGU-M3 W3).
+    head, sep, tail = stripped.partition(":")
+    if sep and _SLUG_PREFIX.fullmatch(head):
+        if agent:
+            return agent
+        name = tail.strip()
+        if _SLUG_PREFIX.fullmatch(name):
+            return name.replace("_", " ").title()
+        return name or "Sub-agent"
 
     if " " in stripped:
         return stripped
@@ -639,6 +706,14 @@ def _resolve_initial_conversation_title(
         return _format_initial_title(_humanize_source_feature(ctx.source_feature), ctx)
 
     return _format_initial_title("Conversation", ctx)
+
+
+def is_expected_missing_parent(ctx: Any, parent_id: str) -> bool:
+    """A workflow step's minted invocation id with no row is expected, never an incident."""
+    from matrx_connect.context.app_context import WORKFLOW_INVOCATION_CONVERSATION_KEY
+
+    metadata = getattr(ctx, "metadata", None) or {}
+    return bool(parent_id) and metadata.get(WORKFLOW_INVOCATION_CONVERSATION_KEY) == parent_id
 
 
 async def _capture_parent_lineage_failure(parent_id: str, child_id: str, exc: Exception | None = None) -> None:
@@ -710,6 +785,10 @@ async def resolve_parent_conversation_lineage(
         return None
     if rows:
         return parent_conversation_id
+    from matrx_connect import try_get_app_context
+
+    if is_expected_missing_parent(try_get_app_context(), parent_conversation_id):
+        return None
     await _capture_parent_lineage_failure(parent_conversation_id, child_conversation_id)
     vcprint(
         "\n"
@@ -856,6 +935,10 @@ _ADOPTION_RESET_TO_DEFAULT: dict[str, Any] = {
     "cache_state": {},
     "forked_from_id": None,
     "forked_at_position": None,
+    # A start title is the platform's, never a person's naming (P-032): the write-only
+    # declaration ``chat._named_by`` stores as "auto" — and a title the person already
+    # named stays theirs. Undeclared, the re-stamped title would be recorded as a rename.
+    "named_by": "auto_write",
 }
 
 # One column cannot be both kept and cleared; a merge that lands it in both maps
@@ -1064,13 +1147,13 @@ async def _adopt_unstarted_conversation(
     """
     owner = str(getattr(existing, "created_by", "") or "")
     if owner and owner != str(user_id):
-        raise ConversationGateError(
+        raise ConversationIdTakenError(
             f"Failed to create conversation {conversation_id}: duplicate key — "
             f"a conversation with this id already exists and belongs to another user"
         )
 
     if await _conversation_has_started(existing, conversation_id):
-        raise ConversationGateError(
+        raise ConversationIdTakenError(
             f"Failed to create conversation {conversation_id}: duplicate key — "
             f"a conversation with this id already exists and has already started"
         )
@@ -1098,7 +1181,7 @@ async def _adopt_unstarted_conversation(
     if blocking:
         # Cannot be made equivalent to a fresh create — refuse rather than
         # produce a hybrid. See _ADOPTION_BLOCKING_COLUMNS.
-        raise ConversationGateError(
+        raise ConversationIdTakenError(
             f"Failed to create conversation {conversation_id}: duplicate key — "
             f"a conversation with this id already exists and carries state a new "
             f"conversation cannot have ({', '.join(blocking)})"
@@ -1164,7 +1247,7 @@ async def _adopt_unstarted_conversation(
                     # tiebreak.
                     result = await _cxm().conversation.update_where(scope, **updates)
                     if getattr(result, "rows_affected", 0) == 0:
-                        raise ConversationGateError(
+                        raise ConversationIdTakenError(
                             f"Failed to create conversation {conversation_id}: "
                             f"duplicate key — a conversation with this id already "
                             f"exists and could not be adopted"
@@ -1179,7 +1262,7 @@ async def _adopt_unstarted_conversation(
         # OptimisticLockError / DoesNotExist => somebody else got there first,
         # or the row started between our check and our write. Either way this id
         # is taken NOW, which is the ordinary 409 the client already understands.
-        raise ConversationGateError(
+        raise ConversationIdTakenError(
             f"Failed to create conversation {conversation_id}: duplicate key — "
             f"a conversation with this id already exists (lost the adoption race: {exc})"
         ) from exc
@@ -1366,8 +1449,10 @@ async def create_new_conversation(
         ctx,
         id_key="initial_agent_id",
         version_key="initial_agent_version_id",
+        refs=await _settled_agent_refs(ctx),
     )
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
+    _require_create_organization(create_kwargs, conversation_id)
     if forked_from_id is not None:
         create_kwargs["forked_from_id"] = forked_from_id
     if forked_at_position is not None:
@@ -1484,6 +1569,17 @@ async def create_new_conversation(
         ) from exc
 
 
+def with_inherited_history(metadata: dict[str, Any], ctx: Any) -> dict[str, Any]:
+    """``metadata`` plus where the new conversation's borrowed history comes from, when its run
+    borrowed one (``agent_call`` history_mode='snapshot'). Read back by every later history load."""
+    from matrx_ai.agents.conversation_type import INHERITED_HISTORY_KEY
+
+    lineage = (getattr(ctx, "metadata", None) or {}).get(INHERITED_HISTORY_KEY) if ctx else None
+    if isinstance(lineage, dict) and lineage.get("conversation_id"):
+        return {**metadata, INHERITED_HISTORY_KEY: dict(lineage)}
+    return metadata
+
+
 async def ensure_conversation_exists(
     conversation_id: str,
     user_id: str,
@@ -1577,7 +1673,7 @@ async def ensure_conversation_exists(
         "message_count": 0,
         "config": {},
         "title": title,
-        "metadata": _with_mandate_attribution({}, ctx),
+        "metadata": with_inherited_history(_with_mandate_attribution({}, ctx), ctx),
         "variables": screen_stored_values(
             CONVERSATION_VARIABLES, conversation_id, ctx.initial_variables if ctx else {}, ctx
         ),
@@ -1594,8 +1690,10 @@ async def ensure_conversation_exists(
         ctx,
         id_key="initial_agent_id",
         version_key="initial_agent_version_id",
+        refs=await _settled_agent_refs(ctx),
     )
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
+    _require_create_organization(create_kwargs, conversation_id)
     verified_parent = await resolve_parent_conversation_lineage(
         parent_conversation_id,
         conversation_id,
@@ -1608,6 +1706,13 @@ async def ensure_conversation_exists(
         create_kwargs["conversation_type"], verified_parent
     )
     place_system_process_subject(create_kwargs, create_kwargs["conversation_type"])
+    # A helper's row is born RUNNING (P-014/P-022): the executor commits it
+    # early (``child_run_start_commit``), and the sidebar reads
+    # ``last_request_status`` for the helper's dot. The final commit sets the
+    # outcome (persistence.persist_completed_request).
+    if verified_parent and ctx is not None and getattr(ctx, "request_id", ""):
+        create_kwargs["last_request_id"] = str(ctx.request_id)
+        create_kwargs["last_request_status"] = CONVERSATION_START_CLAIM_STATUS
 
     # Route through the WriteCoordinator when a request scope is active
     # (the common path — every streaming request reaches here). The INSERT
@@ -1828,6 +1933,33 @@ async def update_conversation_status(
         )
 
 
+async def merge_conversation_override(conversation_id: str, key: str, value: Any) -> bool:
+    """Set ONE key of ``chat.conversation.overrides``, keeping every other key (an atomic jsonb merge).
+
+    The server's one writer of a conversation's overrides after creation (the person's own client writes
+    the rest); the ``set_mode`` tool uses it for ``agent_mode``. True when a row was written. Raises on a
+    write failure — the caller decides what the agent is told. Client host: False (the store owns the row).
+    """
+    from matrx_ai.client_host import get_conversation_store
+
+    if get_conversation_store() is not None or not _is_valid_uuid(conversation_id):
+        return False
+    from matrx_orm import (
+        COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+        JsonbMerge,
+        allow_direct_coordinator_write,
+    )
+
+    model = _cxm().conversation.model
+    with allow_direct_coordinator_write(
+        model,
+        reason="one-key merge of a conversation's overrides (a tool changed a conversation setting)",
+        acknowledgement=COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+    ):
+        written = await model.update_where({"id": str(conversation_id)}, overrides=JsonbMerge("overrides", {key: value}))
+    return bool(getattr(written, "rows_affected", 0))
+
+
 # =========================================================================
 # User request lifecycle
 # =========================================================================
@@ -1919,6 +2051,7 @@ async def create_pending_user_request(
         ctx,
         id_key="agent_id",
         version_key="agent_version_id",
+        refs=await _settled_agent_refs(ctx),
     )
     _stamp_launch_binding(create_kwargs, ctx)
     stamp_row_owner(create_kwargs, safe_user_id)
@@ -1927,6 +2060,8 @@ async def create_pending_user_request(
 
     try:
         await _cxm().user_request.create_user_request(**create_kwargs)
+        # Written directly (no queue): durable for any child that links to it.
+        _remember_request_org(request_id, create_kwargs.get("organization_id"))
         from matrx_ai.db.request_tracking_log import format_request_tracking_label
 
         vcprint(
@@ -1935,6 +2070,7 @@ async def create_pending_user_request(
             color="green",
         )
     except Exception as exc:
+        _forget_request_org(request_id)
         vcprint(
             f"[ConversationGate] Failed to create pending request "
             f"(legacy cx_user_request · runtime.global_request): {exc}",
@@ -1995,7 +2131,16 @@ def _coord_scope_key() -> object:
     coordinator's Session, so only the same coordinator may skip re-queuing it).
     """
     coord = _get_active_lane_coordinator()
-    return _ENSURED_DURABLE if coord is None else id(coord)
+    if coord is None:
+        return _ENSURED_DURABLE
+    # A weak reference, never ``id(coord)``: CPython reuses a collected
+    # coordinator's address for the next one, and an ``id`` memo then trusted a row
+    # queued into a coordinator that was gone (its row never landed). A dead weakref
+    # compares equal only to itself, so a dead scope can never match a live one.
+    try:
+        return weakref.ref(coord)
+    except TypeError:  # a test double without weakref support
+        return coord
 
 
 #: Request ids a HOST declared to have a durable record of their own (a spine
@@ -2039,6 +2184,12 @@ def request_has_record(request_id: str | None) -> bool:
 
 
 def _remember_ensured(request_id: str, scope: object) -> None:
+    from matrx_orm.core.transaction import get_active_connection
+
+    # A one-shot Session can have flushed to a savepoint in the caller's
+    # transaction. The process memo must not outlive that caller's rollback.
+    if scope is _ENSURED_DURABLE and get_active_connection() is not None:
+        return
     _ensured_request_ids[request_id] = scope
     _ensured_request_ids.move_to_end(request_id)
     while len(_ensured_request_ids) > _ENSURED_MEMO_MAX:
@@ -2193,15 +2344,73 @@ def _stamp_launch_binding(create_kwargs: dict[str, Any], ctx: Any) -> None:
 #: yet readable from the database).
 _request_org_memo: OrderedDict[str, str] = OrderedDict()
 
+#: WHERE each remembered request row is: ``_ENSURED_DURABLE`` (committed) or a weak
+#: reference to the coordinator it is only QUEUED in. A child that links to a queued
+#: parent must make that row durable first — the child commits through its own
+#: coordinator, usually before the parent's turn commits, and a link to a row that is
+#: not there yet dies on ``user_request_parent_request_id_fkey`` (live 2026-11-03).
+#: No entry means durable (a row read from the database, or a host's declaration).
+_request_org_scope: dict[str, object] = {}
 
-def _remember_request_org(request_id: str, organization_id: Any) -> None:
+
+def _remember_request_org(request_id: str, organization_id: Any, scope: object = None) -> None:
+    from matrx_orm.core.transaction import get_active_connection
+
     if not request_id or not organization_id:
+        return
+    # Lineage readers in other transactions must resolve the parent on disk
+    # until the outer write has committed.
+    if (scope is None or scope is _ENSURED_DURABLE) and get_active_connection() is not None:
         return
     rid = canonical_request_id(request_id)
     _request_org_memo[rid] = str(organization_id)
     _request_org_memo.move_to_end(rid)
+    if scope is None or scope is _ENSURED_DURABLE:
+        _request_org_scope.pop(rid, None)
+    else:
+        _request_org_scope[rid] = scope
     while len(_request_org_memo) > _ENSURED_MEMO_MAX:
-        _request_org_memo.popitem(last=False)
+        old, _ = _request_org_memo.popitem(last=False)
+        _request_org_scope.pop(old, None)
+
+
+def _forget_request_org(request_id: str) -> None:
+    """A row that did NOT land is never a parent a child may link to."""
+    rid = canonical_request_id(request_id)
+    _request_org_memo.pop(rid, None)
+    _request_org_scope.pop(rid, None)
+
+
+async def _parent_row_is_durable(parent: str, own: str) -> bool:
+    """Whether the remembered ``parent`` row can be named by an FK written now.
+
+    Durable → yes. Queued in the CURRENT coordinator → yes (both rows flush in one
+    session, the parent first). Queued in another coordinator → commit that
+    coordinator's queue now and wait for it (``Coordinator.commit_queued_now``);
+    when that cannot be done the link is not written (the root still is)."""
+    scope = _request_org_scope.get(parent)
+    if scope is None:
+        return True
+    coord = scope() if isinstance(scope, weakref.ref) else scope
+    if coord is None:
+        # Its coordinator is gone: whether the row landed is a database question.
+        return False
+    if coord is _get_active_lane_coordinator():
+        return True
+    commit_now = getattr(coord, "commit_queued_now", None)
+    landed = False
+    if callable(commit_now):
+        try:
+            landed = bool(await commit_now(reason="child_request_needs_parent_row"))
+        except Exception as exc:  # noqa: BLE001 — a parent commit never blocks the child row
+            vcprint(
+                f"[ConversationGate] could not commit parent request {parent} before child {own} "
+                f"({type(exc).__name__}: {exc})",
+                color="red",
+            )
+    if landed:
+        _request_org_scope.pop(parent, None)
+    return landed
 
 
 async def lineage_columns(
@@ -2232,6 +2441,10 @@ async def lineage_columns(
     if parent == own:
         return out
     parent_org = _request_org_memo.get(parent)
+    if parent_org is not None and not await _parent_row_is_durable(parent, own):
+        # Remembered, but only queued somewhere it could not be committed from here:
+        # trust only what the database holds.
+        parent_org = None
     if parent_org is None:
         try:
             rows = await _cxm().user_request.filter_user_requests(id=parent)
@@ -2300,7 +2513,9 @@ async def _stamp_lineage(create_kwargs: dict[str, Any], ctx: Any) -> None:
             organization_id=create_kwargs.get("organization_id"),
         )
     )
-    _remember_request_org(str(create_kwargs["id"]), create_kwargs.get("organization_id"))
+    _remember_request_org(
+        str(create_kwargs["id"]), create_kwargs.get("organization_id"), _coord_scope_key()
+    )
 
 
 class PlatformTenantRequestRefused(PermissionError):
@@ -2319,14 +2534,17 @@ def _refuse_person_request_in_platform_tenant(ctx: Any, user_id: str | None, org
     files a person's request there. Headless system work (origin ``system`` /
     ``scheduled``, minted by ``system_app_context``) is not a person and passes.
     """
-    from matrx_connect.context.provenance import ATTESTED_ORIGIN_CLASSES
+    from matrx_connect.context.provenance import ATTESTED_ORIGIN_CLASSES, gate_origin_class
     from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
 
     if str(organization_id or "").strip().lower() != SYSTEM_ORGANIZATION_ID:
         return
     if not str(user_id or "").strip():
         return
-    if getattr(ctx, "origin_class", None) not in ATTESTED_ORIGIN_CLASSES:
+    # A door that never ran the scope funnel leaves the class empty; empty is not "headless" (CASA 3.1.4, the
+    # class of 642c8949f6d8): the gate reading of the witness answers (an HTTP route is a person's request).
+    declared = getattr(ctx, "origin_class", None) or (gate_origin_class(ctx) if ctx is not None else "")
+    if declared not in ATTESTED_ORIGIN_CLASSES:
         return
     raise PlatformTenantRequestRefused(
         f"{PlatformTenantRequestRefused.error_type}: request {getattr(ctx, 'request_id', '?')} "
@@ -2340,15 +2558,30 @@ async def _create_user_request(
     *,
     request_id: str,
     user_id: str | None,
-) -> None:
+    status: str = "pending",
+    error: str | None = None,
+    extra_metadata: dict[str, Any] | None = None,
+    direct: bool = False,
+    conversation_id: str | None = None,
+) -> bool:
     """Create (or queue) a single cx_user_request row under ``request_id``.
+
+    ``extra_metadata`` is merged over the run's identity metadata; ``direct`` writes the row NOW (a one-shot Session)
+    even inside a request lane, for a row a reader must see before the lane drains (``record_stopped_before_run``).
+
+    Returns whether the row now exists or is queued. ``False`` means the INSERT
+    failed and was swallowed (fire-and-forget): callers must NEVER memoize the
+    request as ensured then — a memo that says "ensured" for a row that never
+    landed sent every later status UPDATE and child cx_request to the lost-write
+    recorder (``UPDATE matched no row`` / ``cx_request_user_request_id_fkey``,
+    live 2026-11-03 on refused ``rag.pdf_page_cleaner`` runs).
 
     Idempotent against the row's own existence — a no-op if a row with
     ``request_id`` is already present (DB read or pending-queue). The caller
     owns the per-request_id lock; this helper owns only the build + write.
 
-    The row carries NO conversation — request↔conversation lives on
-    ``cx_request``.
+    Request↔conversation lives on ``cx_request``; ``conversation_id`` is stamped only for a request
+    that makes no provider call (see ``ensure_user_request_exists``).
     """
     from datetime import UTC, datetime
 
@@ -2360,13 +2593,13 @@ async def _create_user_request(
         tracker = try_get_tracker()
         if tracker:
             tracker.register_existing("matrx", "user_request", request_id)
-        return
+        return True
 
     ctx = try_get_app_context()
 
     create_kwargs: dict[str, Any] = {
         "id": request_id,
-        "status": "pending",
+        "status": status,
         # Heartbeat seed — the lifecycle watchdog ages off last_activity_at,
         # so a request must start "fresh" or it would be abandoned before its
         # first turn ever commits. Refreshed each turn in persist_completed_request.
@@ -2378,10 +2611,12 @@ async def _create_user_request(
         "total_tokens": 0,
         "total_cost": 0,
         "total_tool_calls": 0,
-        "metadata": _run_identity_metadata(ctx),
+        "metadata": {**_run_identity_metadata(ctx), **(extra_metadata or {})},
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
     }
+    if conversation_id:
+        create_kwargs["conversation_id"] = conversation_id
     _stamp_origin(create_kwargs, ctx, with_witness=True)
     _stamp_attribution(create_kwargs, ctx)
     _stamp_agent_refs(
@@ -2389,8 +2624,13 @@ async def _create_user_request(
         ctx,
         id_key="agent_id",
         version_key="agent_version_id",
+        refs=await _settled_agent_refs(ctx),
     )
     _stamp_launch_binding(create_kwargs, ctx)
+    if error is not None or direct:
+        if error is not None:
+            create_kwargs["error"] = error
+        create_kwargs["completed_at"] = create_kwargs["last_activity_at"]
     create_kwargs["created_by"] = user_id
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
     await _stamp_lineage(create_kwargs, ctx)
@@ -2401,14 +2641,15 @@ async def _create_user_request(
     # persist_completed_request. Cancellation can no longer land the INSERT
     # but skip the UPDATE because BOTH live in the same end-of-stream
     # transaction.
-    if _get_active_lane_coordinator() is not None:
+    if not direct and _get_active_lane_coordinator() is not None:
         qk = dict(create_kwargs)
         qk.pop("id", None)
         _queue_user_request_create(id=request_id, **qk)
+        _remember_ensured(request_id, _coord_scope_key())
         tracker = try_get_tracker()
         if tracker:
             tracker.register_existing("matrx", "user_request", request_id)
-        return
+        return True
 
     try:
         # Out-of-request branch (no Coordinator) — open a one-shot Session so the
@@ -2435,6 +2676,7 @@ async def _create_user_request(
         ):
             async with Session():
                 await _cxm().user_request.create_user_request(**create_kwargs)
+            _remember_ensured(request_id, _ENSURED_DURABLE)
         from matrx_ai.db.request_tracking_log import format_request_tracking_label
 
         vcprint(
@@ -2444,13 +2686,17 @@ async def _create_user_request(
         tracker = try_get_tracker()
         if tracker:
             tracker.register_existing("matrx", "user_request", request_id)
+        return True
     except Exception as exc:
         recheck = await _cxm().user_request.filter_user_requests(id=request_id)
         if recheck:
             _verify_system_anchor_owner(recheck, user_id)
             # Cross-process race resolved — another worker beat us to the
             # insert.  Silently consume and let the caller proceed.
-            return
+            _remember_ensured(request_id, _ENSURED_DURABLE)
+            return True
+        # The row did not land: no child may link to it as a parent.
+        _forget_request_org(request_id)
         if user_id is None:
             raise ConversationGateError(
                 "Cannot establish organization system-run request anchor"
@@ -2460,6 +2706,7 @@ async def _create_user_request(
             f"(legacy cx_user_request · runtime.global_request): {exc}",
             color="yellow",
         )
+        return False
 
 
 async def ensure_user_request_exists(
@@ -2467,8 +2714,29 @@ async def ensure_user_request_exists(
     user_id: str,
     *,
     config: Any = None,
-) -> None:
+    spends_ai: bool = True,
+    conversation_id: str | None = None,
+) -> bool:
     """Ensure a cx_user_request row exists for the given request_id.
+
+    ``conversation_id`` — the conversation a request that makes NO provider call works on (so no
+    cx_request bridge will ever name it): stamped on the row it gives birth to, so a resume of an
+    ask it parked finds it (``try_claim_for_run``). The voice tool door passes its call's
+    conversation (``realtime_tools._execute_in_lane``); a turn-based request leaves it None.
+
+    ``spends_ai=False`` — this request is NOT the start of an AI turn: a tool run on its own (the
+    tool tester, a tool a workflow, an automation or an MCP client calls directly). Recording it never
+    asks the AI allowance, so a person over their limit is not refused work that spends no AI. A paid
+    AI call made inside such a request is still asked at the paid-call seam, which stays the authority.
+    Guard: ``tests/test_a_request_that_spends_no_ai_is_recorded_over_the_usage_limit.py``.
+
+    Returns ``True`` ONLY when THIS call gave birth to the row — no row on disk,
+    no other scope in this process had ensured it, and the create landed or was
+    queued. Every other outcome (already present, memo hit, sibling-coordinator
+    re-queue, client-host store, invalid id, swallowed failure) returns ``False``.
+    The answer tells a backstop caller that nobody upstream owns the request, so
+    the backstop must also CLOSE it — the row it opened never settles otherwise
+    (the ToolLogger direct-call class, ``chat.user_request`` stuck 'pending').
 
     ``config`` — the turn's EFFECTIVE config (the request's ``config_overrides`` merged over
     the conversation's stored config). Every turn path that holds one passes it: a turn served
@@ -2496,7 +2764,7 @@ async def ensure_user_request_exists(
     store's create_pending_user_request owns idempotency.
     """
     if await _store_pending_user_request(request_id, user_id):
-        return
+        return False
 
     if not _is_valid_uuid(request_id):
         vcprint(
@@ -2505,7 +2773,7 @@ async def ensure_user_request_exists(
             f"request_id is not a valid UUID: {request_id!r}",
             color="yellow",
         )
-        return
+        return False
 
     safe_user_id = _require_persistence_actor(user_id, "ensure_user_request_exists")
 
@@ -2529,7 +2797,7 @@ async def ensure_user_request_exists(
             tracker = try_get_tracker()
             if tracker:
                 tracker.register_existing("matrx", "user_request", request_id)
-            return
+            return False
 
         existing = await _cxm().user_request.filter_user_requests(id=request_id)
         if existing:
@@ -2541,7 +2809,7 @@ async def ensure_user_request_exists(
             tracker = try_get_tracker()
             if tracker:
                 tracker.register_existing("matrx", "user_request", request_id)
-            return
+            return False
 
         # A NEW user action is about to be recorded. A person whose CACHED usage
         # state is over (enforcement on) is refused HERE, during route prep and
@@ -2550,15 +2818,147 @@ async def ensure_user_request_exists(
         # never a database read; the paid-call seam stays the authority.
         # A turn served on the person's own computer costs 0 and is never refused
         # (``config`` = the turn's effective config; see the docstring).
-        from matrx_ai.providers.usage_gate import precheck_usage
+        if spends_ai:
+            from matrx_ai.providers.usage_gate import precheck_usage
 
-        precheck_usage(config)
+            precheck_usage(config)
 
-        await _create_user_request(
+        # Memoized ONLY when the row landed or was queued: a swallowed INSERT
+        # failure must leave the memo empty, or every later status UPDATE and
+        # child cx_request trusts a row that does not exist.
+        # Born HERE only when no scope in this process had ensured it before —
+        # a sibling coordinator re-queuing a parent another scope opened is not
+        # a birth (that scope's owner settles it).
+        born_here = memo_scope is None
+        if await _create_user_request(
             request_id=request_id,
             user_id=safe_user_id,
+            **({"conversation_id": conversation_id} if conversation_id else {}),
+        ):
+            _remember_ensured(request_id, _coord_scope_key())
+            return born_here
+        return False
+
+
+async def _user_request_was_recorded(request_id: str) -> bool:
+    """Whether a cx_user_request row exists (or is queued) for ``request_id``.
+
+    Ensured in this process (queued into a Session or committed) answers from the
+    memo; otherwise ONE read. A read that cannot answer says True — the write is
+    attempted and the lost-write recorder stays the alarm."""
+    scope_now = _coord_scope_key()
+    for key in (request_id, canonical_request_id(request_id)):
+        memo_scope = _ensured_request_ids.get(key)
+        # Trusted only when durable or queued into THIS live coordinator — a row
+        # queued into another (or a dead) coordinator may never have landed.
+        if memo_scope is not None and (memo_scope is _ENSURED_DURABLE or memo_scope == scope_now):
+            return True
+    try:
+        return bool(await _cxm().user_request.filter_user_requests(id=request_id))
+    except Exception as exc:  # noqa: BLE001 — unknown is never "absent"
+        vcprint(
+            f"[ConversationGate] could not check user_request {request_id} before a "
+            f"status update ({exc}); writing it anyway.",
+            color="yellow",
         )
-        _remember_ensured(request_id, _coord_scope_key())
+        return True
+
+
+async def record_failed_user_request(request_id: str, error: str | None) -> bool:
+    """Record a refused/dead run's user action as a ``failed`` request row. Never raises.
+
+    Called when the run stopped before its row was written. The row is stamped with
+    the organization the request CARRIES (``AppContext.organization_id``) — nothing
+    here chooses one (context-is-carried-never-rebuilt). Two cases write nothing,
+    loudly, because no lawful organization exists for the row: the context carries
+    none, or it carries the Matrx System platform tenant for a person (the
+    ``platform_tenant_not_for_people`` refusal — the refused org is never the
+    row's org). Those refusals are already recorded where they were raised
+    (system_error + the wire). Returns whether the row was written or queued.
+    """
+    from matrx_ai.context.app_context import try_get_app_context
+
+    if not _is_valid_uuid(request_id):
+        return False
+    ctx = try_get_app_context()
+    user_id = getattr(ctx, "user_id", None) if ctx is not None else None
+    organization_id = getattr(ctx, "organization_id", None) if ctx is not None else None
+    if not organization_id:
+        vcprint(
+            f"[ConversationGate] refused request {request_id} not recorded: its context "
+            f"carries no organization (nothing may choose one).",
+            color="yellow",
+        )
+        return False
+    try:
+        lock = await _get_user_request_lock(request_id)
+        async with lock:
+            return await _create_user_request(
+                request_id=request_id,
+                user_id=str(user_id) if user_id else None,
+                status="failed",
+                error=error,
+            )
+    except PlatformTenantRequestRefused as exc:
+        vcprint(
+            f"[ConversationGate] refused request {request_id} not recorded: the only "
+            f"organization it carries is the platform tenant ({exc}).",
+            color="yellow",
+        )
+    except Exception as exc:  # noqa: BLE001 — fire-and-forget like every status write
+        vcprint(
+            f"[ConversationGate] could not record refused request {request_id} as failed: {exc}",
+            color="yellow",
+        )
+    return False
+
+
+#: The ``chat.user_request.metadata`` key of a run a Stop ended while it was still preparing (aidream
+#: ``request_cancel.StoppedBeforeRun``): nothing of the turn was saved, no provider call was made. The take-back door
+#: reads it to answer "taken back, nothing kept" at once, never "no run found".
+STOPPED_BEFORE_RUN_KEY = "stopped_before_run"
+
+
+async def record_stopped_before_run(
+    request_id: str, *, where: str, conversation_id: str | None = None
+) -> bool:
+    """Record a run a Stop ended before its turn was saved: a ``cancelled`` request row, committed NOW.
+
+    The row is the run's durable answer to "what became of request X?": without it a stopped-while-preparing run
+    left no row at all, and the take-back door could not tell it from a run not saved YET (live 2026-11-16: Stop
+    0.2-0.6 s after Send answered 404 and the person was told "Not taken back" for words the server never kept).
+    Written directly (never queued in the request lane, which drains after the stream ends) so the door sees it
+    before the stopped stream closes. ``conversation_id``: the shell this run created, if any. Returns whether the
+    row exists now. Never raises."""
+    if not _is_valid_uuid(request_id):
+        return False
+    from matrx_ai.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    user_id = getattr(ctx, "user_id", None) if ctx is not None else None
+    mark = {"where": where, "conversation_id": conversation_id}
+    try:
+        lock = await _get_user_request_lock(request_id)
+        async with lock:
+            return await _create_user_request(
+                request_id=request_id,
+                user_id=str(user_id) if user_id else None,
+                status="cancelled",
+                extra_metadata={STOPPED_BEFORE_RUN_KEY: mark},
+                direct=True,
+            )
+    except Exception as exc:  # noqa: BLE001 — the stopped stream still ends cancelled
+        vcprint(
+            f"[ConversationGate] could not record request {request_id} as stopped before its run: {exc}",
+            color="red",
+        )
+        return False
+
+
+def pending_start_conversation_id() -> str | None:
+    """The conversation THIS request created and still holds the start claim on, if any."""
+    claim = _pending_start_claim.get()
+    return claim[0] if claim else None
 
 
 async def update_user_request_status(
@@ -2579,6 +2979,24 @@ async def update_user_request_status(
     if not _is_valid_uuid(request_id):
         return
 
+    if not await _user_request_was_recorded(request_id):
+        # The run was refused or died BEFORE its request row was written (a
+        # required-input refusal, a protected-account refusal, a workflow whose
+        # tracking open failed — all raise ahead of ensure_user_request_exists).
+        # Ruling (2026-11-02): a refused run IS a user action — it is recorded as a
+        # FAILED request carrying the refusal, never left absent and never settled by
+        # an UPDATE that matches nothing (the "UPDATE matched no row" lost writes).
+        if status == "failed":
+            await record_failed_user_request(request_id, error)
+            return
+        vcprint(
+            f"[ConversationGate] user_request {request_id} was never recorded "
+            f"(the run stopped before its request row was written); status "
+            f"{status!r} has no row to settle.",
+            color="yellow",
+        )
+        return
+
     update_kwargs: dict[str, Any] = {"status": status}
     if error is not None:
         update_kwargs["error"] = error
@@ -2588,34 +3006,112 @@ async def update_user_request_status(
         return
 
     try:
-        # Out-of-request branch (no Coordinator) — one-shot Session so the
-        # user_request UPDATE is governed (durable + strict-safe).
-        # cx_user_request is Coordinator-OWNED; same deliberate pre/post-lane
-        # acknowledgement as _create_user_request above, or this fires a false
-        # CoordinatorWriteViolation ownership alarm.
-        from matrx_orm import (
-            COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
-            Session,
-            allow_direct_coordinator_write,
+        await _direct_update_user_request(
+            request_id,
+            update_kwargs,
+            reason="out-of-lane cx_user_request status update — no Coordinator exists in this scope",
         )
-
-        with allow_direct_coordinator_write(
-            _cxm().user_request.model,
-            reason=(
-                "out-of-lane cx_user_request status update — no Coordinator exists in this scope"
-            ),
-            acknowledgement=COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
-        ):
-            async with Session():
-                await _cxm().user_request.update_user_request(
-                    request_id,
-                    **update_kwargs,
-                )
     except Exception as exc:
         vcprint(
             f"[ConversationGate] Failed to update user_request status to {status!r}: {exc}",
             color="yellow",
         )
+
+
+async def _direct_update_user_request(
+    request_id: str, update_kwargs: dict[str, Any], *, reason: str
+) -> None:
+    """ONE governed out-of-lane UPDATE of a ``chat.user_request`` row. Raises on failure.
+
+    A one-shot Session so the UPDATE is durable and strict-safe; cx_user_request is
+    Coordinator-OWNED, so the deliberate bypass is acknowledged (else a false
+    CoordinatorWriteViolation alarm). A confidential run's payload passes the same
+    sealed funnel the Coordinator applies (``seal_payload``): the
+    ``chat.refuse_sealed_content`` trigger refuses any ``error`` text or unnamed
+    metadata key on a sealed row, so an unsealed direct write was refused there.
+    """
+    from matrx_orm import (
+        COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+        Session,
+        allow_direct_coordinator_write,
+    )
+
+    from matrx_ai.context.app_context import try_get_app_context
+    from matrx_ai.persistence.sealed import seal_payload
+
+    sealed = seal_payload(
+        "chat.user_request", dict(update_kwargs), op_type="update", ctx=try_get_app_context()
+    )
+    if not sealed:
+        return
+    with allow_direct_coordinator_write(
+        _cxm().user_request.model,
+        reason=reason,
+        acknowledgement=COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+    ):
+        async with Session():
+            await _cxm().user_request.update_user_request(request_id, **sealed)
+
+
+async def settle_user_request_failed_after_barrier(request_id: str | None, error: str) -> bool:
+    """A request whose final commit FAILED still reaches ``failed`` — by its own small write.
+
+    The final commit carries the request's closing UPDATE inside the same batch as every
+    other row. When any part of it fails, the Coordinator is ERRORED and later queued
+    writes are captured, not written — so the request sat 'pending' until the lifecycle
+    watchdog abandoned it (2026-11-04, confidential turns 62e0d24e / 864c580e: the
+    closing UPDATE refused by ``chat.refuse_sealed_content``). This writes ONLY
+    ``status``, ``error`` and ``completed_at`` on a fresh Session, never through the
+    errored Coordinator, and never touches the metadata that may have been refused.
+    If the error text itself is refused, the status alone is written. Never raises;
+    returns whether the request is now ``failed``. Loud when it is not.
+    """
+    from datetime import UTC, datetime
+
+    from matrx_ai.client_host import get_conversation_store
+
+    if not request_id or not _is_valid_uuid(request_id) or get_conversation_store() is not None:
+        return False
+    now = datetime.now(UTC)
+    attempts: list[dict[str, Any]] = [
+        {"status": "failed", "error": (error or "final commit failed")[:500], "completed_at": now},
+        {"status": "failed", "completed_at": now},
+    ]
+    last_exc: BaseException | None = None
+    for payload in attempts:
+        try:
+            await _direct_update_user_request(
+                request_id,
+                payload,
+                reason="final commit failed — the request's terminal status lands on its own write",
+            )
+            vcprint(
+                f"[ConversationGate] final commit failed for request {request_id}; "
+                "request marked 'failed' by its own write.",
+                color="yellow",
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001 — try the smaller write, then report
+            last_exc = exc
+    vcprint(
+        f"[ConversationGate] request {request_id}: final commit failed AND the separate "
+        f"'failed' write failed ({type(last_exc).__name__}: {last_exc}); the row stays "
+        "'pending' until the lifecycle watchdog.",
+        color="red",
+    )
+    try:
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            last_exc or RuntimeError("user_request failed-status write failed"),
+            kind="user_request_failed_status_not_written",
+            request_id=request_id,
+            route="matrx_ai.db.conversation_gate.settle_user_request_failed_after_barrier",
+            error_type=type(last_exc).__name__ if last_exc else "RuntimeError",
+        )
+    except Exception:  # noqa: BLE001 — the red line above is the floor
+        pass
+    return False
 
 
 # =========================================================================

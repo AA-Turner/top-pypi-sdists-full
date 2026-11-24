@@ -10,7 +10,6 @@ from matrx_ai.memory import (
     ObservationConfig,
     ReflectionConfig,
 )
-from matrx_ai.memory.buffering_coordinator import BufferingCoordinator
 
 async def dummy_llm_call(*, mandate_key, messages, model=None, variables=None):
     """A dummy LLM that just returns a fixed XML structure. The task text is the
@@ -83,7 +82,7 @@ async def test_buffering():
     
     # Verify that a background task was created
     lock_key = om.buffering.get_lock_key(thread_id, resource_id)
-    obs_key = om.buffering.get_observation_buffer_key(lock_key)
+    om.buffering.get_observation_buffer_key(lock_key)
     
     # wait a bit for async tasks to run if they are pending
     await asyncio.sleep(0.1)

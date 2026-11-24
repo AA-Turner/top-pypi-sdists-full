@@ -10,6 +10,7 @@ import warnings
 from collections.abc import Callable as CallableABC
 from copy import deepcopy
 from functools import lru_cache, wraps
+from importlib.resources import files
 from pathlib import Path
 from types import SimpleNamespace
 from typing import (
@@ -20,6 +21,7 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Tuple,
     cast,
     get_args,
     get_origin,
@@ -34,6 +36,7 @@ from torch import nn
 from torchaudio.transforms import Resample
 
 from braindecode import modules as bd_modules
+from braindecode.functional import check_n_chans  # noqa: F401
 from braindecode.util import resolve_montage_name
 
 # Canonical MNE channel-type name for the electrode kinds braindecode models
@@ -93,10 +96,9 @@ def resolve_config_type(value):
     """
     if not isinstance(value, str):
         return value
-    try:
-        return _CONFIG_MODULE_TYPES[value]
-    except KeyError:
-        raise ValueError(f"Unsupported serialized module type: {value!r}") from None
+    if value not in _CONFIG_MODULE_TYPES:
+        raise ValueError(f"Unsupported serialized module type: {value!r}")
+    return _CONFIG_MODULE_TYPES[value]
 
 
 def _has_type_annotation(annotation):
@@ -108,9 +110,15 @@ def _has_type_annotation(annotation):
     )
 
 
-_EEG_PARAMS = frozenset(
-    {"n_outputs", "n_chans", "chs_info", "n_times", "input_window_seconds", "sfreq"}
-)
+SigArgName = Literal[
+    "n_outputs",
+    "n_chans",
+    "chs_info",
+    "n_times",
+    "input_window_seconds",
+    "sfreq",
+]
+_EEG_PARAMS = frozenset(get_args(SigArgName))
 
 _JSON_SAFE = (int, float, str, bool, type(None))
 _BATCH_NORM_MODULES = (
@@ -122,7 +130,11 @@ _BATCH_NORM_MODULES = (
 
 
 def _disable_batch_norm_training_if_batch_size_one(forward):
-    """Temporarily set BatchNorm layers to train(False) for batch size one."""
+    """Temporarily set BatchNorm layers to train(False) for batch size one.
+
+    TorchScript resolves the names of a wrapped forward in this module, hence
+    the imports of ``torch`` and ``check_n_chans`` at the top.
+    """
     forward_signature = inspect.signature(forward)
 
     @wraps(forward)
@@ -165,10 +177,24 @@ def track_model_init_kwargs(cls) -> None:
         return
 
     init_signature = inspect.signature(init)
+    accepts_channel_strategy = "channel_strategy" in init_signature.parameters or any(
+        p.kind is p.VAR_KEYWORD for p in init_signature.parameters.values()
+    )
 
     @wraps(init)
     def wrapped(self, *args, **kwargs):
+        # Reached through super(): the subclass already captured its own kwargs,
+        # and this parent sees only the ones the subclass forwards.
+        if type(self).__init__ is not wrapped:
+            return init(self, *args, **kwargs)
+        if "channel_strategy" in kwargs and not accepts_channel_strategy:
+            name = type(self).__name__
+            raise TypeError(
+                f"{name} takes no channel_strategy: it reads its input "
+                "natively (see the channel strategies page of the models documentation)."
+            )
         bound = init_signature.bind(self, *args, **kwargs)
+        explicit_keys = frozenset(bound.arguments.keys() - {"self"})
         bound.apply_defaults()
 
         captured_kwargs = {}
@@ -180,8 +206,11 @@ def track_model_init_kwargs(cls) -> None:
                 captured_kwargs.update(value)
             elif param.kind != param.VAR_POSITIONAL:
                 captured_kwargs[name] = value
+        self._braindecode_explicit_init_keys = explicit_keys
         self._braindecode_init_kwargs = captured_kwargs
-        return init(self, *args, **kwargs)
+        init(self, *args, **kwargs)
+        self._drop_headless_head()
+        self._apply_deprecated_init_flags()
 
     setattr(wrapped, "_braindecode_tracks_init_kwargs", True)
     cls.__init__ = wrapped
@@ -224,12 +253,22 @@ def build_model_config(model) -> dict:
             elif not _is_jsonable(val):
                 continue
             config[name] = val
-    layer = getattr(model, "channel_layer", None)  # save the input, not the target
+    adaptation = deepcopy(getattr(model, "_adapt_config", None) or {})
+    # Save the input montage, not the target; an adapted layer is saved apart.
+    layer = (
+        None
+        if "channel_strategy" in adaptation
+        else getattr(model, "channel_layer", None)
+    )
     chs_info = (
         layer.chs_info if layer is not None else getattr(model, "_chs_info", None)
     )
     if chs_info is not None:
         config["chs_info"] = model._serialize_chs_info(chs_info)
+    if adaptation.get("chs_info") is not None:
+        adaptation["chs_info"] = model._serialize_chs_info(adaptation["chs_info"])
+    if adaptation:
+        config["input_adaptation"] = adaptation
     return config
 
 
@@ -322,73 +361,24 @@ def _get_model_class(model_name: str):
     raise ValueError(f"Unknown model name {model_name!r}.")
 
 
-# Keep in sync with _EEG_PARAMS above.
-SigArgName = Literal[
-    "n_outputs",
-    "n_chans",
-    "chs_info",
-    "n_times",
-    "input_window_seconds",
-    "sfreq",
-]
-
-
-################################################################
-# Test cases for models
-#
-# This list should be updated whenever a new model is added to
-# braindecode (otherwise `test_completeness__models_test_cases`
-# will fail).
-# Each element in the list should be a tuple with structure
-# (model_class, required_params, signal_params), such that:
-#
-# model_name: str
-#   The name of the class of the model to be tested.
-# required_params: list[str]
-#   The signal-related parameters that are needed to initialize
-#   the model.
-# signal_params: dict | callable | None
-#   The characteristics of the signal that should be passed to
-#   the model tested in case the default_signal_params are not
-#   compatible with this model.  May also be a zero-argument
-#   callable returning a dict (used to defer imports that would
-#   create circular dependencies, or the fixture-montage load).
-#   The keys of this dictionary can only be among those of
-#   default_signal_params.
-################################################################
-
-_rng = np.random.default_rng(12)
-
-
 @lru_cache(maxsize=1)
 def _fixture_montage_chs() -> tuple[tuple[str, tuple[float, ...]], ...]:
-    """Channels of the montage that supplies the test fixtures' real positions.
+    """Read the distinct EEG positions of the 10-05 montage for model examples.
 
-    The montage is ``standard_1005``, spelled ``colin27_1005`` on MNE >= 1.13
-    (see :func:`braindecode.util.resolve_montage_name`; the positions are
-    identical). The positions are read back from ``info["chs"][i]["loc"]``
-    after :meth:`mne.Info.set_montage`, i.e. in the head frame and in metres,
-    exactly what a user gets from ``raw.set_montage(...)``. ``loc[3:]`` is set
-    to zeros rather than to MNE's ``[0, 0, 0, nan, ...]`` padding, like the
-    other canonical fixtures of this module (LaBraM, BENDR, BaRISTA): a NaN
-    would only add noise to models that check ``np.isfinite(loc).all()``.
+    Each entry pairs a channel name with a 12-value MNE location. The first
+    three values are head coordinates in metres, and the remaining values
+    are zero. The first name at each position takes precedence over its
+    legacy aliases (T3, T4, T5 and T6).
 
-    The four legacy 10-20 aliases that the montage lists at exactly the
-    position of their modern name (T3=T7, T4=T8, T5=P7, T6=P8) are dropped:
-    a channel is kept only if no channel listed before it has the same
-    position, so that no two channels share a position (339 channels remain).
-
-    Loading the montage costs about 5 ms once ``braindecode`` is imported
-    (about 0.2 s in a process where ``mne.channels`` is not imported yet). It
-    is deferred to the first call and cached, so that importing ``braindecode``
-    never reads the montage file nor risks a montage-name deprecation warning.
+    The montage is ``colin27_1005``, named ``standard_1005`` before MNE 1.13
+    (see :func:`braindecode.util.resolve_montage_name`). It is loaded on the
+    first call and cached, so that importing ``braindecode`` never reads the
+    montage file nor risks a montage-name deprecation warning.
 
     Returns
     -------
     tuple of (str, tuple of float)
-        ``(ch_name, loc)`` for every channel of the montage except the
-        dropped co-located legacy aliases (339 channels), ``loc`` having the
-        12 elements of MNE's format.
+        ``(ch_name, loc)`` for the 339 distinct channels of the montage.
     """
     montage = mne.channels.make_standard_montage(resolve_montage_name("standard_1005"))
     info = mne.create_info(montage.ch_names, 1.0, "eeg")
@@ -407,14 +397,7 @@ def _fixture_montage_chs() -> tuple[tuple[str, tuple[float, ...]], ...]:
 
 
 def _draw_chs_info(n_chans: int, rng: np.random.Generator) -> list[dict]:
-    """Draw ``n_chans`` distinct real EEG channels of the fixture montage.
-
-    "Distinct" holds for the names and for the positions (see
-    :func:`_fixture_montage_chs`).
-
-    Each channel keeps its real name together with its real head-frame
-    position, so that models that look channels up by name see the position
-    that goes with the name.
+    """Sample EEG channel names and their head positions without replacement.
 
     Parameters
     ----------
@@ -449,69 +432,30 @@ def _draw_chs_info(n_chans: int, rng: np.random.Generator) -> list[dict]:
     ]
 
 
-# Default 3-channel chs_info used by most model tests: the real 10-10 channels
-# C1, C2 and C3 of the montage of ``_fixture_montage_chs`` (head frame, metres).
-# They are inlined, as loading the montage here would slow ``import
-# braindecode`` down; ``test_chs_info_3ch_matches_the_montage`` checks them.
-_chs_info_3ch = [
-    {"ch_name": name, "kind": "eeg", "loc": np.array([x, y, z, *[0.0] * 9])}
-    for name, (x, y, z) in {
-        "C1": (-0.03793783, 0.02633745, 0.12977061),
-        "C2": (0.03589271, 0.02635814, 0.12841234),
-        "C3": (-0.06714873, 0.02335823, 0.10451068),
-    }.items()
-]
-# Draws of the former random locs (3 channels, then a removed 4-channel
-# fixture), kept so that the sEEG locs that the BaRISTA entry below still draws
-# from ``_rng`` are unchanged; BaRISTA is the only later reader of ``_rng``.
-_rng.random(3 * 12)
-_rng.random(4 * 12)
+def _canonical_example_channels(channels) -> list[dict]:
+    """Give canonical model channels the 12-value location used in the public examples."""
+    result = []
+    for ch in channels:
+        loc = np.zeros(12)
+        loc[:3] = ch["loc"][:3]
+        result.append(
+            {"ch_name": ch["ch_name"], "kind": ch["kind"], "loc": loc.tolist()}
+        )
+    return result
 
 
 def _get_labram_chs_info() -> list[dict]:
-    """Return the 128-channel canonical chs_info for LaBraM with 12-element locs.
-
-    Uses a lazy import from the ``labram`` module to avoid a circular import:
-    ``util.py`` is loaded by ``base.py`` before ``labram.py`` is fully
-    initialized.  The ``_LABRAM_TARGET_CHS_INFO`` entries store only a
-    3-element loc; this function zero-pads each to the 12-element MNE format
-    required by ``ChsInfoType``.
-    """
-    import numpy as np
-
+    # Import when the example is requested to avoid the model/base import cycle.
     from braindecode.models.labram import _LABRAM_TARGET_CHS_INFO
 
-    result = []
-    for ch in _LABRAM_TARGET_CHS_INFO:
-        loc3 = np.asarray(ch["loc"], dtype=float)
-        loc12 = np.zeros(12, dtype=float)
-        loc12[:3] = loc3[:3]
-        result.append(
-            {"ch_name": ch["ch_name"], "kind": ch["kind"], "loc": loc12.tolist()}
-        )
-    return result
+    return _canonical_example_channels(_LABRAM_TARGET_CHS_INFO)
 
 
 def _get_bendr_chs_info() -> list[dict]:
-    """Return the 20-channel canonical chs_info for BENDR with 12-element locs.
-
-    Same lazy-import rationale as :func:`_get_labram_chs_info`. The last entry
-    is the ``SCALE`` amplitude-statistic placeholder (see
-    ``braindecode.models.bendr``).
-    """
-    import numpy as np
-
+    # Lazy import for the same model/base import cycle as LaBraM.
     from braindecode.models.bendr import _BENDR_TARGET_CHS_INFO
 
-    result = []
-    for ch in _BENDR_TARGET_CHS_INFO:
-        loc3 = np.asarray(ch["loc"], dtype=float)
-        loc12 = np.zeros(12, dtype=float)
-        loc12[:3] = loc3[:3]
-        result.append(
-            {"ch_name": ch["ch_name"], "kind": ch["kind"], "loc": loc12.tolist()}
-        )
-    return result
+    return _canonical_example_channels(_BENDR_TARGET_CHS_INFO)
 
 
 # FreeSurfer's left-hemisphere Desikan-Killiany cortical gyri occupy the
@@ -599,19 +543,55 @@ def _dance_signal_params() -> dict[str, Any]:
         "input_window_seconds": 1.0,
         "n_outputs": 4,
         "chs_info": _draw_chs_info(19, np.random.default_rng(19)),
+        # 6 of 10 convolution blocks (dilation 97 is the first to skip taps
+        # that only read padding), 1 of 6 Perceiver and 1 of 4 decoder blocks
+        "conv_depth": 6,
+        "perceiver_depth": 1,
+        "decoder_depth": 1,
     }
 
 
-# (name, required signal parameters, test parameters). The test parameters are
-# signal parameters the default test signal does not fit, plus, for the
-# largest models, architecture arguments that keep the test instance small
-# (CI runners hold four of them at once; the released configurations are
-# covered by test_pretrained_compat).
+def _fnirs_chs_info(n_pairs: int, interleaved: bool = False) -> list[dict]:
+    """Stacked HbO then HbR channels of ``n_pairs`` source-detector pairs 3 cm
+    apart on an 8 cm ring (metres), named as MNE names them (``"S1_D1 hbo"``),
+    with the source and detector in ``loc[3:9]`` as MNE stores them;
+    ``interleaved=True`` gives MNE's ``[HbO_1, HbR_1, ...]`` order."""
+    chs = []
+    for kind in ("hbo", "hbr"):
+        for i in range(n_pairs):
+            src = np.array([0.08 * np.cos(i), 0.08 * np.sin(i), 0.05])
+            det = src + np.array([0.03, 0.0, 0.0])
+            loc = np.concatenate([(src + det) / 2, src, det, np.zeros(3)])
+            chs.append({"ch_name": f"S{i + 1}_D{i + 1} {kind}", "loc": loc})
+    if interleaved:
+        chs = [ch for pair in zip(chs[:n_pairs], chs[n_pairs:]) for ch in pair]
+    return chs
+
+
+_barista_rng = np.random.default_rng(12)
+
+# Braindecode exports these ordered triples. Config generation reads the name
+# and required signal arguments. The third field supplies example constructor
+# arguments for models that use different settings from the default example
+# (``default_signal_params`` in the test package); for the largest models it
+# also shrinks the architecture to keep CI small, so it is not the released
+# configuration (covered by ``test_pretrained_compat``).
 models_mandatory_parameters: list[
-    tuple[str, list[SigArgName], dict[str, Any] | None | Any]
+    tuple[str, list[SigArgName], dict[str, Any] | Callable[[], dict[str, Any]] | None]
 ] = [
     ("ATCNet", ["n_chans", "n_outputs", "n_times"], None),
-    ("AXON", ["chs_info", "n_outputs"], {"sfreq": 200.0, "n_times": 1000}),
+    # 2 of the 22 released blocks (118.6M -> 10.9M parameters), here and below:
+    # fewer identical blocks, every tensor keeps its released shape.
+    (
+        "AXON",
+        ["chs_info", "n_outputs"],
+        {"sfreq": 200.0, "n_times": 1000, "depth": 2},
+    ),
+    (
+        "Pratibha2",
+        ["chs_info", "n_outputs"],
+        {"sfreq": 200.0, "n_times": 1000, "depth": 2},  # 2 of 22 blocks
+    ),
     (
         "BaRISTA",
         ["chs_info", "n_outputs", "n_times"],
@@ -626,7 +606,7 @@ models_mandatory_parameters: list[
                     "ch_name": f"E{i + 1}",
                     "kind": "seeg",
                     "loc": np.concatenate(
-                        [0.06 * (2 * _rng.random(3) - 1), np.zeros(9)]
+                        [0.06 * (2 * _barista_rng.random(3) - 1), np.zeros(9)]
                     ),
                 }
                 for i in range(8)
@@ -699,8 +679,23 @@ models_mandatory_parameters: list[
     ("EEGSym", ["chs_info", "n_chans", "n_outputs", "n_times", "sfreq"], None),
     ("TSception", ["n_chans", "n_outputs", "n_times", "sfreq"], {"sfreq": 200.0}),
     ("EEGTCNet", ["n_chans", "n_outputs", "n_times"], None),
+    (
+        "TCCNet",
+        ["n_chans", "n_outputs"],
+        # NinaPro DB1: 10 channels at 100 Hz. TCCNet takes whole gestures of
+        # any length; 300 samples is only a test length.
+        {"n_chans": 10, "n_times": 300, "sfreq": 100.0},
+    ),
+    (
+        "CareSleepNet",
+        ["n_chans", "n_outputs", "n_times"],
+        # 20 sleep epochs of 300 samples (3 s at 100 Hz) keep the tests small;
+        # the reference uses 30 s epochs, n_times=60000. 1 EEG + 2 EOG channels.
+        {"n_times": 6000, "sfreq": 100.0},
+    ),
     ("SyncNet", ["n_chans", "n_outputs", "n_times"], None),
     ("MSVTNet", ["n_chans", "n_outputs", "n_times"], None),
+    ("NICE", ["n_chans", "n_outputs", "n_times"], None),
     ("EEGMiner", ["n_chans", "n_outputs", "n_times", "sfreq"], {"sfreq": 200.0}),
     ("CTNet", ["n_chans", "n_outputs", "n_times"], None),
     ("MSCFormer", ["n_chans", "n_outputs", "n_times"], None),
@@ -769,6 +764,21 @@ models_mandatory_parameters: list[
             "n_outputs": 20,
         },
     ),
+    (
+        "TinyMyo",
+        ["n_chans", "n_outputs", "n_times"],
+        {
+            # The pretraining windows: 1000 samples at 2000 Hz
+            "n_chans": 8,
+            "n_times": 1000,
+            "sfreq": 2000.0,
+            "input_window_seconds": 0.5,
+            # 2 of the 8 released blocks; 2 heads also split the
+            # embed_dim=128 of the embedding test into even widths
+            "depth": 2,
+            "num_heads": 2,
+        },
+    ),
     ("FBLightConvNet", ["n_chans", "n_outputs", "n_times", "sfreq"], {"sfreq": 200.0}),
     ("IFNet", ["n_chans", "n_outputs", "n_times", "sfreq"], {"sfreq": 200.0}),
     ("PBT", ["n_chans", "n_outputs", "n_times"], None),
@@ -807,7 +817,9 @@ models_mandatory_parameters: list[
             ],
         },
     ),
+    ("SAMBA", ["chs_info", "n_outputs"], {"n_times": 128, "sfreq": 128.0}),
     ("MEDFormer", ["n_chans", "n_outputs", "n_times"], None),
+    ("MEGGPT", ["n_chans", "n_outputs"], None),
     ("MIRepNet", ["n_chans", "n_outputs"], None),
     (
         "TFMTokenizer",
@@ -815,6 +827,13 @@ models_mandatory_parameters: list[
         {"sfreq": 200.0, "n_times": 1000},
     ),
     ("STEEGFormer", ["n_chans", "n_outputs", "n_times"], None),
+    # 1 s of the 128 Hz low-frequency stream
+    (
+        "CORTEG",
+        ["chs_info", "n_outputs", "n_times"],
+        # 2 of 8 blocks; the high-gamma stream merges at the last one
+        {"n_times": 128, "sfreq": 128.0, "depth": 2, "n_merge_blocks": 1},
+    ),
     (
         "MVPFormer",
         ["n_chans", "n_outputs", "n_times", "sfreq"],
@@ -827,11 +846,16 @@ models_mandatory_parameters: list[
             "sfreq": 200.0,
             "n_chans": 19,
             "n_times": 1_000,
+            "depth": 2,  # 2 of 22 blocks
             "chs_info": [{"ch_name": f"E{i + 1}", "kind": "eeg"} for i in range(19)],
         },
     ),
-    ("CBraMod", ["n_outputs"], None),
-    ("CSBrain", ["n_outputs"], None),
+    ("CBraMod", ["n_outputs"], {"n_chans": 3, "n_times": 1000}),
+    (
+        "CSBrain",
+        ["n_outputs"],
+        {"n_chans": 3, "n_times": 1000, "head_hidden_dim": 800},
+    ),
     (
         "CodeBrain",
         ["n_chans", "n_outputs", "n_times"],
@@ -841,7 +865,19 @@ models_mandatory_parameters: list[
     ("DGCNN", ["n_chans", "n_outputs", "n_times", "chs_info"], None),
     ("GCNsNet", ["n_chans", "n_outputs", "n_times"], None),
     ("BrainOmni", ["chs_info", "n_outputs", "n_times", "sfreq"], None),
+    # 0.5 s at 250 Hz, the pretraining window
+    (
+        "BBL",
+        ["n_chans", "n_outputs", "n_times", "sfreq"],
+        {"n_times": 125, "sfreq": 250.0},
+    ),
     ("BrainTokenizer", ["chs_info", "n_times", "sfreq"], None),
+    (
+        "MEGXL",
+        ["chs_info", "n_outputs", "n_times"],
+        # 10 s at the released 50 Hz (42 tokens); 2 of the 8 released blocks.
+        {"sfreq": 50.0, "n_times": 500, "num_layers": 2},
+    ),
     (
         "DIVER1",
         ["chs_info", "n_outputs", "n_times"],
@@ -867,6 +903,8 @@ models_mandatory_parameters: list[
             "n_chans": 3,
             "n_times": 200,
             "sfreq": 200.0,
+            "encoder_depth": 2,  # 2 of the 12 released encoder blocks
+            "decoder_depth": 2,  # 2 of the 3 released decoder blocks
             "chs_info": [
                 {"ch_name": name, "kind": "eeg"} for name in ("F3", "F4", "Cz")
             ],
@@ -896,39 +934,93 @@ models_mandatory_parameters: list[
         ["n_chans", "n_outputs", "n_times"],
         {
             "n_chans": 19,
-            "n_times": 1024,  # 4 s @ 256 Hz keeps the 38M-parameter model fast in CI
+            "n_times": 1024,  # 4 s @ 256 Hz
             "sfreq": 256.0,
+            "num_layers": 2,  # 2 of 8 Transformer layers
         },
     ),
+    (
+        "DeepSOZ",
+        ["n_chans", "n_outputs"],
+        # 10 one-second tokens of the released model's 19 channels at 256 Hz
+        {"n_chans": 19, "n_times": 2560, "sfreq": 256.0},
+    ),
     ("Guetschel2026", ["chs_info", "n_outputs", "n_times"], {"sfreq": 200.0}),
+    (
+        "FNIRSNet",
+        ["n_chans", "n_outputs", "n_times"],
+        {"n_chans": 4, "n_times": 60, "sfreq": 5.0},
+    ),
+    (
+        "FNIRSCNN1D",
+        ["n_chans", "n_outputs"],
+        {"n_chans": 4, "n_times": 60, "sfreq": 5.0},
+    ),
+    (
+        "FNIRS4D",
+        ["n_chans", "n_outputs", "n_times"],
+        lambda: {"chs_info": _fnirs_chs_info(2), "n_times": 60, "sfreq": 5.0},
+    ),
+    (
+        "FNIRST",
+        ["n_chans", "n_outputs", "n_times"],
+        # 5 pairs: the authors' spatial kernel spans 5 HbO/HbR pairs
+        lambda: {"chs_info": _fnirs_chs_info(5), "n_times": 60, "sfreq": 5.0},
+    ),
+    (
+        "FNIRSPreT",
+        ["n_chans", "n_outputs", "n_times"],
+        # 5 pairs: the authors' spatial kernel spans 5 HbO/HbR pairs
+        lambda: {"chs_info": _fnirs_chs_info(5), "n_times": 60, "sfreq": 5.0},
+    ),
+    (
+        "GeoNIRS",
+        ["chs_info", "n_outputs", "n_times"],
+        lambda: {"chs_info": _fnirs_chs_info(2), "n_times": 150, "sfreq": 5.0},
+    ),
+    (
+        "MtReNIRS",
+        ["chs_info", "n_outputs", "n_times"],
+        lambda: {"chs_info": _fnirs_chs_info(2), "n_times": 100, "sfreq": 10.0},
+    ),
+    (
+        "JungMAE",
+        ["n_chans", "n_outputs", "n_times"],
+        lambda: {"chs_info": _fnirs_chs_info(2), "n_times": 150, "sfreq": 5.0},
+    ),
 ]
 
-################################################################
-# List of models that are not meant for classification
-#
-# Their output shape may difer from the expected output shape
-# for classification models.
-################################################################
+
+def _modalities(cell: str) -> set[str]:
+    """The modalities of a ``summary.csv`` Modality cell, such as ``"EEG, iEEG"``."""
+    return {m.strip() for m in cell.split(",")}
 
 
-################################################################
 def get_summary_table(dir_name=None):
-    if dir_name is None:
-        dir_path = Path(__file__).parent
-    else:
-        dir_path = Path(dir_name) if not isinstance(dir_name, Path) else dir_name
-
-    path = dir_path / "summary.csv"
-
     import pandas as pd
 
-    df = pd.read_csv(
-        path,
-        header=0,
-        index_col="Model",
-        skipinitialspace=True,
+    # Package data rather than a file path, so a zip archive works too.
+    root = files(__package__) if dir_name is None else Path(dir_name)
+    with root.joinpath("summary.csv").open("rb") as table:
+        return pd.read_csv(table, index_col="Model", skipinitialspace=True)
+
+
+def _is_real_scalar(val: Any) -> bool:
+    return isinstance(val, (int, float, np.number)) and not isinstance(
+        val, (bool, np.bool_)
     )
-    return df
+
+
+def _extract_xyz_row(loc: Any) -> Optional[np.ndarray]:
+    if isinstance(loc, np.ndarray):
+        if loc.ndim == 1 and loc.size >= 3 and loc.dtype.kind in "iuf":
+            return np.asarray(loc[:3], dtype=np.float32)
+        return None
+    if isinstance(loc, (list, tuple)) and len(loc) >= 3:
+        head = loc[:3]
+        if all(_is_real_scalar(v) for v in head):
+            return np.asarray(head, dtype=np.float32)
+    return None
 
 
 def extract_channel_locations_from_chs_info(
@@ -996,13 +1088,9 @@ def extract_channel_locations_from_chs_info(
     for i in range(n_to_extract):
         ch_info = chs_info[i] if i < len(chs_info) else None
         loc = ch_info.get("loc") if isinstance(ch_info, dict) else None
-        try:
-            coordinates = np.asarray(loc, dtype=np.float32)
-        except (ValueError, TypeError):
-            coordinates = np.asarray(np.nan, dtype=np.float32)
-
-        if coordinates.ndim == 1 and coordinates.size >= 3:
-            coordinates = coordinates[:3]
+        row = _extract_xyz_row(loc)
+        if row is not None:
+            coordinates = row
         elif fill_missing:
             coordinates = np.full(3, np.nan, dtype=np.float32)
         else:
@@ -1183,12 +1271,17 @@ def has_valid_locations(chs_info) -> bool:
             and torch.isfinite(chs_info).all()
             and chs_info.abs().max().item() > 1e-8
         )
-    if chs_info is None:
+    if not isinstance(chs_info, (list, tuple)) or len(chs_info) == 0:
         return False
-    try:
-        xyz = np.array([ch["loc"][:3] for ch in chs_info], dtype=float)
-    except (KeyError, TypeError, ValueError):
-        return False
+    rows = []
+    for ch in chs_info:
+        if not isinstance(ch, dict):
+            return False
+        row = _extract_xyz_row(ch.get("loc"))
+        if row is None:
+            return False
+        rows.append(row.astype(float))
+    xyz = np.stack(rows, axis=0)
     if xyz.size == 0 or not np.isfinite(xyz).all():
         return False
     if np.allclose(xyz, 0.0):
@@ -1215,6 +1308,31 @@ def valid_location_mask(locations: torch.Tensor) -> torch.Tensor:
     return torch.isfinite(locations).all(dim=-1, keepdim=True) & (locations != 0).any(
         dim=-1, keepdim=True
     )
+
+
+def chs_info_positions(chs_info, model_name: str) -> Optional[torch.Tensor]:
+    """``(n_chans, 3)`` positions of ``chs_info``, or None when it has none.
+
+    A ``chs_info`` with positions for some channels only raises, naming the
+    others: a model must neither invent their positions nor ignore the given ones.
+    """
+    if chs_info is None:
+        return None
+    locations = torch.as_tensor(
+        extract_channel_locations_from_chs_info(chs_info, fill_missing=True),
+        dtype=torch.float32,
+    )
+    placed = valid_location_mask(locations)[:, 0].tolist()
+    if not any(placed):
+        return None
+    if not all(placed):
+        names = [ch["ch_name"] for ch, ok in zip(chs_info, placed) if not ok]
+        raise ValueError(
+            f"{model_name} needs the 3D position of each channel, but chs_info has "
+            f"none for {names}; drop these channels, or pass the positions at each "
+            "call."
+        )
+    return locations
 
 
 def warn_if_sfreq_differs(
@@ -1301,3 +1419,152 @@ def channel_types_from_chs_info(
         else:
             types.append("unknown")
     return types
+
+
+def fnirs_chromophores_from_chs_info(chs_info: Sequence[Dict[str, Any]]) -> list[str]:
+    """``"hbo"``, ``"hbr"`` or ``"unknown"`` per channel, from MNE's
+    ``coil_type`` (``FIFFV_COIL_FNIRS_HBO`` / ``_HBR``), else from the
+    ``" hbo"`` / ``" hbr"`` suffix of its name (MNE names them ``"S1_D1 hbo"``)."""
+    coils = {FIFF.FIFFV_COIL_FNIRS_HBO: "hbo", FIFF.FIFFV_COIL_FNIRS_HBR: "hbr"}
+    out = []
+    for ch in chs_info:
+        suffix = str(ch.get("ch_name", "")).lower().rsplit(" ", 1)[-1]
+        by_name = suffix if suffix in ("hbo", "hbr") else "unknown"
+        out.append(coils.get(int(ch.get("coil_type") or 0), by_name))
+    return out
+
+
+def fnirs_channel_order(
+    chs_info: Optional[Sequence[Dict[str, Any]]], channel_order: Optional[str] = None
+) -> str:
+    """HbO/HbR pair layout of an fNIRS montage: ``"stacked"``
+    (``[HbO_1..HbO_C, HbR_1..HbR_C]``) or ``"interleaved"`` (MNE's
+    ``[HbO_1, HbR_1, ...]``).
+
+    Without ``chs_info`` it returns ``channel_order``, or ``"stacked"``. With
+    ``chs_info`` every channel must be HbO or HbR, in equal numbers, and the
+    ``i``-th HbO and HbR channels must share their name up to the chromophore
+    suffix (``"S1_D1 hbo"`` / ``"S1_D1 hbr"``); the layout is read from it, and
+    an explicit ``channel_order`` must agree.
+
+    Raises ``ValueError`` for an unknown ``channel_order``, a ``chs_info``
+    that is not paired HbO/HbR, or a ``channel_order`` it contradicts.
+    """
+    if channel_order not in (None, "stacked", "interleaved"):
+        raise ValueError(
+            "channel_order must be 'stacked', 'interleaved' or None, "
+            f"got {channel_order!r}."
+        )
+    if not chs_info:
+        return channel_order or "stacked"
+    chromophores = fnirs_chromophores_from_chs_info(chs_info)
+    names = [str(ch.get("ch_name", "")).rsplit(" ", 1)[0] for ch in chs_info]
+    n = len(chs_info) // 2
+    layouts = {"stacked": (slice(0, n), slice(n, None))}
+    layouts["interleaved"] = (slice(0, None, 2), slice(1, None, 2))
+    found = [
+        order
+        for order, (hbo, hbr) in layouts.items()
+        if chromophores[hbo] == ["hbo"] * n
+        and chromophores[hbr] == ["hbr"] * n
+        and names[hbo] == names[hbr]
+    ]
+    if not found:
+        raise ValueError(
+            "chs_info must list paired HbO/HbR channels, stacked or interleaved, "
+            "with matching names (see mne's reorder_channels); got "
+            f"{list(zip(names, chromophores))}."
+        )
+    if channel_order is not None and channel_order not in found:
+        raise ValueError(
+            f"channel_order={channel_order!r} contradicts chs_info, which is "
+            f"{found[0]}."
+        )
+    return channel_order or found[0]
+
+
+def fnirs_split_hbo_hbr(
+    x: torch.Tensor, channel_order: str
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Split fNIRS channels into their HbO and HbR halves.
+
+    The one HbO/HbR split of the fNIRS models: ``x`` is
+    ``(batch, n_chans, ...)`` with an even ``n_chans`` in the ``channel_order``
+    given by :func:`fnirs_channel_order`. Returns ``(hbo, hbr)``, each
+    ``(batch, n_chans // 2, ...)``, where ``hbo[:, i]`` and ``hbr[:, i]`` are
+    the two chromophores of pair ``i``.
+    """
+    if channel_order == "interleaved":  # [HbO_1, HbR_1, HbO_2, HbR_2, ...]
+        return x[:, 0::2], x[:, 1::2]
+    if channel_order == "stacked":  # [HbO_1, ..., HbO_C, HbR_1, ..., HbR_C]
+        n_pairs = x.shape[1] // 2
+        return x[:, :n_pairs], x[:, n_pairs:]
+    raise ValueError("channel_order must be 'stacked' or 'interleaved'.")
+
+
+_SENSOR_CODE = {"eeg": 0, "mag": 1, "grad": 2}
+# FIFF coil names by value, so plain-int coil types (serialized chs_info) resolve.
+_COIL_NAMES = {
+    int(value): name for name, value in FIFF.items() if name.startswith("FIFFV_COIL_")
+}
+
+
+def _coil_name(ch) -> str:
+    return _COIL_NAMES.get(int(ch.get("coil_type", 0)), "")
+
+
+def sensor_type_of(chs_info, index: int) -> str:
+    """EEG, MAG or GRAD as released: an MEG coil is MAG iff its name has "MAG".
+
+    So CTF/KIT axial gradiometers are GRAD although MNE types them ``mag``.
+    """
+    ch = chs_info[index]
+    kind = ch.get("kind")
+    if kind is not None and not isinstance(kind, str):
+        if int(kind) == FIFF.FIFFV_EEG_CH:
+            return "eeg"
+        if int(kind) == FIFF.FIFFV_MEG_CH and "coil_type" in ch:
+            return "mag" if "MAG" in _coil_name(ch) else "grad"
+        return mne.channel_type({"chs": chs_info}, index)
+    resolved_type = ch.get("ch_type", kind)
+    if resolved_type is None:
+        resolved_type = mne.channel_type({"chs": chs_info}, index)
+    return str(resolved_type).lower()
+
+
+def geometry_from_chs_info(chs_info):
+    """``(pos (n_chans, 6) float32, sensor_type (n_chans,) int64)``, as released.
+
+    Positions are centred and scaled per modality (EEG, MEG); the orientation
+    is the coil x-axis for planar gradiometers, the coil normal for other MEG
+    coils and zero for EEG.
+    """
+    types = [sensor_type_of(chs_info, index) for index in range(len(chs_info))]
+    xyz = extract_channel_locations_from_chs_info(chs_info)
+    if xyz is None or len(xyz) != len(chs_info) or not np.isfinite(xyz).all():
+        raise ValueError(
+            "chs_info lacks finite sensor positions; call raw.set_montage(...)."
+        )
+    unsupported = set(types) - set(_SENSOR_CODE)
+    if unsupported:
+        raise ValueError(
+            f"Unsupported channel type(s) {sorted(unsupported)}; pass only EEG/MEG."
+        )
+    sensor_type = np.array([_SENSOR_CODE[t] for t in types], dtype=np.int64)
+
+    ori = np.zeros((len(chs_info), 3))
+    for index in np.flatnonzero(sensor_type > 0):
+        planar = "PLANAR" in _coil_name(chs_info[index])
+        axis = np.asarray(chs_info[index]["loc"], dtype=np.float64)
+        axis = axis[3:6] if sensor_type[index] == 2 and planar else axis[9:12]
+        if axis.shape != (3,) or not np.isfinite(axis).all():
+            raise ValueError("chs_info lacks a finite MEG coil orientation.")
+        ori[index] = axis
+
+    pos = np.concatenate([xyz, ori], axis=1).astype(np.float32)
+    for mask in (sensor_type == 0, sensor_type > 0):
+        if mask.any():
+            centred = pos[mask, :3] - pos[mask, :3].mean(axis=0, keepdims=True)
+            scale = np.sqrt(3 * np.mean(np.sum(centred**2, axis=1)))
+            pos[mask, :3] = centred / (scale if scale > 0 else 1.0)
+    return pos, sensor_type

@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import matrx_orm
+
 import matrx_rag.llm as llm_mod
 from matrx_rag.llm import page_is_cleaned
 
@@ -93,6 +94,7 @@ def test_degraded_page_is_not_persisted_and_files_a_system_error(monkeypatch):
     row = recorded[0]
     assert row["kind"] == "rag_page_clean_degraded"
     assert row["context"]["degraded_page_indexes"] == [1]
+    assert any("529" in r for r in row["context"]["failure_reasons"]), row["context"]
     assert row["context"]["processed_document_id"] == "d" * 36
     assert row["user_id"] == "u" * 36
 

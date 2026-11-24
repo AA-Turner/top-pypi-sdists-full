@@ -160,3 +160,19 @@ async def test_engine_without_the_contract_degrades_to_unscored(inject):
     assert res.success is True
     assert res.output["relevance_verdict"] == "unscored"
     assert res.output["relevance_floor"] is None
+
+
+async def test_a_timed_out_lane_is_said_in_one_sentence(inject):
+    resp = _Resp(hits=[_Hit()], total_candidates=9)
+    resp.recall_lane_errors = {"vector": "The vector recall lane timed out in the database; results come from the other lanes."}
+    inject(resp)
+    out = (await knowledge_search({"query": "parse_signal"}, _Ctx())).output
+    assert out["recall_lane_errors"] == resp.recall_lane_errors
+    assert "vector search lane timed out" in out["recall_lane_note"]
+    assert "incomplete" in out["recall_lane_note"] and "retrying" in out["recall_lane_note"]
+
+
+async def test_no_lane_error_adds_nothing(inject):
+    inject(_Resp(hits=[_Hit()], total_candidates=9))
+    out = (await knowledge_search({"query": "parse_signal"}, _Ctx())).output
+    assert "recall_lane_errors" not in out and "recall_lane_note" not in out

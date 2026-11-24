@@ -24,7 +24,7 @@ class Auth(BaseSDK):
 
         :param subject_token: The OIDC token your platform issued to this workload.
         :param subject_token_type: The subject token is a JWT.
-        :param audience: Your Autumn workload audience (https://api.useautumn.com/workload/<org_id>/<sandbox|live>). Required when the subject token's aud is your own application, as with Azure managed identities.
+        :param audience: Your Autumn workload audience, as shown in Settings → Workload Identity (https://api.useautumn.com/workload/ORG_ID/ENV, where ENV is sandbox or live). Required when the subject token's aud is your own application, as with Azure managed identities.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -138,7 +138,7 @@ class Auth(BaseSDK):
 
         :param subject_token: The OIDC token your platform issued to this workload.
         :param subject_token_type: The subject token is a JWT.
-        :param audience: Your Autumn workload audience (https://api.useautumn.com/workload/<org_id>/<sandbox|live>). Required when the subject token's aud is your own application, as with Azure managed identities.
+        :param audience: Your Autumn workload audience, as shown in Settings → Workload Identity (https://api.useautumn.com/workload/ORG_ID/ENV, where ENV is sandbox or live). Required when the subject token's aud is your own application, as with Azure managed identities.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds

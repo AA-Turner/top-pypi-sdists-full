@@ -306,12 +306,14 @@ class TestMergeIdempotence:
     def test_conflicting_inline_redeclaration_is_rejected(self) -> None:
         config = _make_config()
         ctx = _make_ctx()
-        ctx = merge_request_tools(config, ctx, [InlineToolSpec(name="weather", description="A")])
+        # A later call's different definition REPLACES the remembered one (inline tools are
+        # read fresh each turn: tests/test_inline_tool_fresh_each_turn.py); the real clash
+        # is two different definitions of one name inside the same request.
         with pytest.raises(ToolMergeError, match="Tool definition conflict"):
             merge_request_tools(
                 config,
                 ctx,
-                [InlineToolSpec(name="weather", description="B")],
+                [InlineToolSpec(name="weather", description="A"), InlineToolSpec(name="weather", description="B")],
             )
 
     def test_semantically_equivalent_inline_schema_order_dedupes(self) -> None:

@@ -29,7 +29,8 @@ from matrx_ai.config.served_via import ServedVia
 from matrx_ai.providers.device.device_api import DeviceChat
 from matrx_ai.testing.profile_factory import make_profile
 
-FIXTURE = Path(__file__).resolve().parents[3] / "apps/shared/desktop-protocol/fixtures/device-model-contract.json"
+# matrx-ai's copy of apps/shared/desktop-protocol's contract; tests/package_host_contracts keeps it byte-identical.
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "device" / "device-model-contract.json"
 DEVICE = "506e6752-13b3-4616-b99e-dab6f0e436ab"
 
 PROFILES = {

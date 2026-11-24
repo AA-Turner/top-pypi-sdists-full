@@ -58,7 +58,7 @@ class RedactionRegion(BaseModel):
     to False so text is removed — that's the redaction primary purpose."""
 
     @model_validator(mode="after")
-    def _validate_rect(self) -> "RedactionRegion":
+    def _validate_rect(self) -> RedactionRegion:
         if self.x1 <= self.x0 or self.y1 <= self.y0:
             raise ValueError(
                 f"Redaction rect must have x1>x0 and y1>y0; "

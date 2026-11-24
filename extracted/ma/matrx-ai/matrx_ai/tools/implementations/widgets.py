@@ -103,6 +103,7 @@ def _missing_context_error(tool_name: str, call_id: str, key: str) -> ToolResult
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="missing_context",
             message=(
                 f"Tool '{tool_name}' needs a mutable '{key}' context object, "
@@ -127,6 +128,7 @@ def _validation_error(tool_name: str, call_id: str, message: str) -> ToolResult:
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="validation",
             message=message,
             is_retryable=False,

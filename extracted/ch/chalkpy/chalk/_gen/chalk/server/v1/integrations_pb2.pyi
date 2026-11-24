@@ -40,6 +40,7 @@ class IntegrationKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INTEGRATION_KIND_TRINO: _ClassVar[IntegrationKind]
     INTEGRATION_KIND_MSSQL: _ClassVar[IntegrationKind]
     INTEGRATION_KIND_HUGGINGFACE: _ClassVar[IntegrationKind]
+    INTEGRATION_KIND_TURBOPUFFER: _ClassVar[IntegrationKind]
 
 class IntegrationWarningCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -68,6 +69,7 @@ INTEGRATION_KIND_SPANNER: IntegrationKind
 INTEGRATION_KIND_TRINO: IntegrationKind
 INTEGRATION_KIND_MSSQL: IntegrationKind
 INTEGRATION_KIND_HUGGINGFACE: IntegrationKind
+INTEGRATION_KIND_TURBOPUFFER: IntegrationKind
 INTEGRATION_WARNING_CODE_UNSPECIFIED: IntegrationWarningCode
 INTEGRATION_WARNING_CODE_SNOWFLAKE_UNLOAD_NOT_CONFIGURED: IntegrationWarningCode
 INTEGRATION_WARNING_CODE_SNOWFLAKE_PASSWORD_AUTHENTICATION: IntegrationWarningCode
@@ -151,8 +153,16 @@ class DatasourcePermissionTag(_message.Message):
     ) -> None: ...
 
 class ListIntegrationsRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("filters",)
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    filters: ListIntegrationsFilters
+    def __init__(self, filters: _Optional[_Union[ListIntegrationsFilters, _Mapping]] = ...) -> None: ...
+
+class ListIntegrationsFilters(_message.Message):
+    __slots__ = ("kinds",)
+    KINDS_FIELD_NUMBER: _ClassVar[int]
+    kinds: _containers.RepeatedScalarFieldContainer[IntegrationKind]
+    def __init__(self, kinds: _Optional[_Iterable[_Union[IntegrationKind, str]]] = ...) -> None: ...
 
 class ListIntegrationsResponse(_message.Message):
     __slots__ = ("integrations",)

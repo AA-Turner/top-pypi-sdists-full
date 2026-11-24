@@ -12,8 +12,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from matrx_scraper.cloud_browser.streaming.app import build_app  # noqa: E402
 from matrx_scraper.cloud_browser.streaming.config import STREAM_COOKIE_NAME  # noqa: E402
-from matrx_scraper.cloud_browser.streaming.control_plane import MintService  # noqa: E402
-from matrx_scraper.cloud_browser.streaming.gateway import StreamGateway  # noqa: E402
 
 from .harness import ORIGIN, make_harness  # noqa: E402
 

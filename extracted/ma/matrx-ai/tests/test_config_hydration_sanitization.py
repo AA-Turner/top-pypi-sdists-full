@@ -86,3 +86,53 @@ def test_hydration_defers_visibility_collapse_but_strict_mode_rejects_it() -> No
 
     with pytest.raises(MessageSanitizationError, match="emptying_pass=model_visibility"):
         messages.sanitize()
+
+
+def _capture_sanitize_warnings(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    import matrx_ai.config.message_config as message_config
+
+    seen: list[str] = []
+    real = message_config.vcprint
+
+    def _spy(data=None, *args, **kwargs):
+        if isinstance(data, str) and data.startswith("[MessageList.sanitize]"):
+            seen.append(data)
+        return real(data, *args, **kwargs)
+
+    monkeypatch.setattr(message_config, "vcprint", _spy)
+    return seen
+
+
+def test_hydrating_the_authored_blank_placeholder_logs_no_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2026-11-17: every export/preview of an agent with the stored blank user turn wrote two
+    false WARNINGs to app_log ("Dropped message…", "Deferred empty-conversation…"). The blank
+    placeholder is the documented legitimate case: quiet at hydration, still refused strictly."""
+    seen = _capture_sanitize_warnings(monkeypatch)
+
+    config = UnifiedConfig.from_dict(_agent_definition())
+    config.messages.sanitize(allow_empty=True)
+
+    assert seen == []
+    with pytest.raises(MessageSanitizationError, match="emptying_pass=empty_scrub"):
+        config.messages.sanitize()
+
+
+def test_hydration_still_warns_when_real_content_is_dropped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _capture_sanitize_warnings(monkeypatch)
+    messages = MessageList(
+        [
+            UnifiedMessage(
+                role="assistant",
+                content=[TextContent(text="failed output")],
+                is_visible_to_model=False,
+            )
+        ]
+    )
+
+    messages.sanitize(allow_empty=True)
+
+    assert any("Deferred empty-conversation failure" in line for line in seen)

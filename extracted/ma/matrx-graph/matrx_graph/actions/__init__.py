@@ -24,6 +24,7 @@ can list it and ``tool.call`` can resolve it by name). ``@action`` is the
 deprecated legacy decorator name — see docs/workflow/NOMENCLATURE.md.
 """
 
+from matrx_graph.actions.coalesce import Coalescer
 from matrx_graph.actions.decorator import (
     ActionSignatureError,
     action,
@@ -33,6 +34,7 @@ from matrx_graph.actions.decorator import (
     iter_registered_action_specs,
     register_node,
     resolve_action_executor,
+    run_as_step,
 )
 from matrx_graph.actions.doors import DOORS, ActionDoor, api_path_for, directive_noun_for, tool_name_for
 from matrx_graph.actions.engines import (
@@ -41,23 +43,50 @@ from matrx_graph.actions.engines import (
     ENGINES,
     Authority,
     caller_authority,
+    ActionCall,
+    current_action_call,
+    current_action_run_id,
     POLICY_DOORS,
     WRITING_ENGINES,
     ActionEngine,
     configure_action_ledger,
     configure_apply_gate,
+    ActionOnClient,
+    ActionQueued,
     ActionStarted,
     REPLAY_MESSAGE,
+    last_run_id,
     last_run_replayed,
+    ActionBodyWatch,
+    watch_action_body,
     dump_result,
+    restore_result,
+    store_result,
     register_engine,
     registered_engines,
     run_action,
 )
 from matrx_graph.actions.registry import ActionRegistry, ActionSource, default_action_registry
+from matrx_graph.actions.runs import (
+    INVERSE_OF_PARTS,
+    InverseStep,
+    RunRecord,
+    RunRecorder,
+    configure_run_recorder,
+    declare_inverse,
+    inverse_of,
+)
 from matrx_graph.actions.spec import ActionFailed, ActionSpec, build_action_node_spec
 
 __all__ = [
+    "INVERSE_OF_PARTS",
+    "InverseStep",
+    "RunRecord",
+    "RunRecorder",
+    "configure_run_recorder",
+    "declare_inverse",
+    "inverse_of",
+    "Coalescer",
     "ENGINES",
     "POLICY_DOORS",
     "configure_action_ledger",
@@ -69,12 +98,22 @@ __all__ = [
     "ActionSource",
     "api_path_for",
     "caller_authority",
+    "ActionCall",
+    "current_action_call",
+    "current_action_run_id",
     "ActionEngine",
+    "ActionOnClient",
+    "ActionQueued",
     "ActionStarted",
     "REPLAY_MESSAGE",
     "last_run_replayed",
+    "last_run_id",
+    "ActionBodyWatch",
+    "watch_action_body",
     "declare_engine_action",
     "dump_result",
+    "restore_result",
+    "store_result",
     "register_engine",
     "registered_engines",
     "run_action",
@@ -94,4 +133,5 @@ __all__ = [
     "iter_registered_action_specs",
     "register_node",
     "resolve_action_executor",
+    "run_as_step",
 ]

@@ -41,7 +41,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from matrx_orm import transaction
+from matrx_orm import SERVER_CEILING, locked_transaction, transaction  # noqa: F401 - tests patch stages.transaction
+from matrx_orm.exceptions import IntegrityError
 
 # Phase 2b — DocumentWriter injection seam.
 from matrx_rag._ext import (
@@ -51,7 +52,7 @@ from matrx_rag._ext import (
     get_db_model,
     get_document_writer,
 )
-from matrx_rag.chunking import CHUNKER_VERSION, Chunk
+from matrx_rag.chunking import CHUNKER_VERSION, Chunk, chunk_row_write_batches
 from matrx_rag.db import PACKAGE_DB_NAME
 from matrx_rag.embeddings import (
     default_text_model,
@@ -60,6 +61,8 @@ from matrx_rag.embeddings import (
     spec_for,
 )
 from matrx_rag.ingestion import (
+    EMBED_WRITE_BATCH_SIZE,
+    delete_chunks_in_lock_order,
     _embed_text_for,
     _format_vector,
     _merge_metadata,
@@ -296,6 +299,7 @@ async def _load_page_id_lookup(processed_document_id: str) -> dict[int, str]:
     return {int(r["page_index"]): str(r["id"]) for r in rows}
 
 
+# returns-temp-path(file): the caller unlinks it in a finally
 async def _fetch_cld_file_to_disk(cld_file_id: str) -> tuple[str, str | None, str | None]:
     """Pull the bytes of a cld_files row to a NamedTemporaryFile and return
     (local_path, file_name, storage_uri)."""
@@ -326,7 +330,12 @@ async def _fetch_cld_file_to_disk(cld_file_id: str) -> tuple[str, str | None, st
     b64 = getattr(resolved, "base64_data", None) if resolved else None
     pdf_bytes = _base64.b64decode(b64) if b64 else None
     if not pdf_bytes:
-        raise RuntimeError(f"cloud_sync read returned empty for cld_file_id={cld_file_id}")
+        # Name the resolver's own reason (access_denied, file_not_found, cloud_read_failed: …) — "empty"
+        # alone hid an access refusal for weeks (CGU-10 row 31).
+        why = getattr(resolved, "resolver_error", None) if resolved else "no resolution"
+        raise RuntimeError(
+            f"cloud_sync read returned empty for cld_file_id={cld_file_id} ({why or 'no reason given'})"
+        )
 
     suffix = Path(file_name or "doc").suffix or ".bin"
     tmp = tempfile.NamedTemporaryFile(prefix="rag_stage_", suffix=suffix, delete=False)
@@ -413,7 +422,9 @@ async def run_extract(
                 message="No pages found in PDF",
             )
         )
-        raise RuntimeError("no_pages_in_pdf")
+        from matrx_files.specific_handlers.pdf import PdfHasNoPagesError
+
+        raise PdfHasNoPagesError()
 
     pages = [_ExtractedPage.from_pdf_page_text(p) for p in full_pages]
     raw_total = sum(p.char_count for p in pages)
@@ -776,6 +787,15 @@ async def _run_clean_held(
 # ---------------------------------------------------------------------------
 
 
+class NoTextToChunkError(RuntimeError):
+    """Every page's text is blank (a photo with no writing, an image-only scan, an empty note).
+
+    Not a chunker defect: there is nothing to chunk. Still a ``RuntimeError("no_chunks_produced")``
+    for callers that only catch the old type; the content-processing orchestrator catches this
+    subclass and ends the run honestly instead of filing a system_error.
+    """
+
+
 @dataclass
 class ChunkResult:
     processed_document_id: str
@@ -856,10 +876,15 @@ async def run_chunk(
             if "segment" in portion_kinds
             else None
         )
-        chunks = chunk_portions(pages, cleaned_pages, portion_kinds, locators)
+        # Chunking tokenizes every portion (pure CPU, plus the tokenizer's one-time vocabulary
+        # fetch): off the loop, or a large Source freezes every request and step in the process
+        # (event_loop_stall 7a1d8edb, 2026-11-03..04: run_chunk -> count_tokens on the loop).
+        chunks = await asyncio.to_thread(chunk_portions, pages, cleaned_pages, portion_kinds, locators)
     else:
-        chunks = chunk_pdf_pages(pages, cleaned_pages)
+        chunks = await asyncio.to_thread(chunk_pdf_pages, pages, cleaned_pages)
     if not chunks:
+        if not any((c.text or "").strip() for c in cleaned_pages):
+            raise NoTextToChunkError("no_chunks_produced")
         raise RuntimeError("no_chunks_produced")
 
     parents = sum(1 for c in chunks if c.parent_chunk_id is None)
@@ -946,12 +971,21 @@ async def run_chunk(
     # preserved exactly like the old hand-rolled pool.acquire()+conn.transaction()
     # block. `field_id IS NOT DISTINCT FROM NULL` (always NULL here) is
     # `field_id__isnull=True`.
-    async with transaction(PACKAGE_DB_NAME):
+    #
+    # The delete alone does not serialize two runs of one document: when neither sees a prior row
+    # there is nothing to lock, both insert chunk 0, and the second hits kg_chunks_doc_position_uidx
+    # (system_error 96fae9ed, 2026-11-19: transcript re-driven twice 0.4 s apart). The source's
+    # advisory lock — the SAME key ``ingestion.upsert_chunks`` holds — makes the second run wait,
+    # then delete the first run's rows and write its own set.
+    async with locked_transaction(f"{chunk_source_kind}:{doc['source_id']}:", database=PACKAGE_DB_NAME):
         # hard-delete-ok: derived search chunks, rebuilt on re-ingest of their source
-        await KgChunks.delete_where(
-            source_kind=chunk_source_kind, source_id=doc["source_id"], field_id__isnull=True
+        await delete_chunks_in_lock_order(
+            KgChunks, source_kind=chunk_source_kind, source_id=doc["source_id"], field_id__isnull=True
         )
-        await KgChunks.bulk_create(chunk_rows)
+        # Bounded statements — one INSERT of a large document's every chunk
+        # outruns the statement timeout (see ``chunk_row_write_batches``).
+        for batch in chunk_row_write_batches(chunk_rows):
+            await KgChunks.bulk_create(batch)
 
     # Sample of the first 3 chunks so the FE can show "here's what your
     # content was split into" instead of just a chunk count.
@@ -1048,6 +1082,8 @@ class EmbedResult:
     chunks_embedded: int
     chunks_already_embedded: int
     model: str
+    # Chunks deleted (re-chunk / source removed) between chunking and this write.
+    chunks_skipped_gone: int = 0
 
 
 async def run_embed(
@@ -1122,7 +1158,12 @@ async def run_embed(
             "chunk_id"
         )
         embedded_ids = {str(r["chunk_id"]) for r in existing}
-    rows = [r for r in candidate_rows if str(r["id"]) not in embedded_ids]
+    # Ascending chunk_id: the one lock order every embedding writer uses (see
+    # ingestion._write_embedding_rows) — overlapping writers never deadlock.
+    rows = sorted(
+        (r for r in candidate_rows if str(r["id"]) not in embedded_ids),
+        key=lambda r: str(r["id"]),
+    )
 
     needed = len(rows)
     already = chunks_total - needed
@@ -1155,6 +1196,7 @@ async def run_embed(
     )
 
     embedded = 0
+    skipped_gone = 0
     for batch_start in range(0, needed, batch_size):
         batch = rows[batch_start : batch_start + batch_size]
         adapters = [
@@ -1179,24 +1221,90 @@ async def run_embed(
         finally:
             await _await_cancel(hb)
 
+        # A chunk can be deleted (re-chunk, source removed) while the provider call
+        # above ran; the embedding row's FK to kg_chunks would then refuse the WHOLE
+        # batch (system_error ebf2c4b6, content_processing.embed). Re-check what still
+        # exists, write those, and SAY what was skipped.
+        live = await KgChunks.filter(id__in=[r["id"] for r in batch]).values("id")
+        live_ids = {str(r["id"]) for r in live}
+        keep = [(r, v) for r, v in zip(batch, vectors, strict=True) if str(r["id"]) in live_ids]
+        gone = len(batch) - len(keep)
+        if gone:
+            skipped_gone += gone
+            logger.warning(
+                "[embed] %s: %s chunk(s) of document %s no longer exist (deleted mid-run); "
+                "skipped, not failed", embedding_model, gone, processed_document_id,
+            )
+            await on_progress(
+                StageEvent(
+                    stage="embed",
+                    phase="progress",
+                    message=f"Skipped {gone} chunk(s) deleted while embedding",
+                    current=embedded,
+                    total=needed,
+                    extra={"skipped_chunks_gone": skipped_gone},
+                )
+            )
+        if not keep:
+            continue
+
         # ON CONFLICT (chunk_id) DO UPDATE SET embedding = EXCLUDED.embedding
         # — exactly the old statement; embedded_at stays on its DB default,
         # as the raw INSERT left it. One multi-row INSERT per batch (same
         # per-batch atomicity as the old transaction-wrapped executemany).
-        await emb_model.bulk_upsert(
-            [
+        # An index-heavy write (every row is an HNSW insert reading index pages from disk): small
+        # statements, and the driver waits up to the server's own ceiling instead of the pool's 10 s
+        # command_timeout. One 73-row statement ran 10.0 s and dead-lettered a kept Source
+        # (2026-11-16 23:59Z, rag.embeddings_voyage_4_large_1024); ingestion._write_embedding_rows
+        # got the same treatment the day before. ``keep`` is already in ascending chunk_id order.
+        written_now = 0
+        for write_start in range(0, len(keep), EMBED_WRITE_BATCH_SIZE):
+            rows_out = [
                 {
                     "chunk_id": r["id"],
                     "organization_id": effective_org,
                     "owner_id": doc["created_by"],
                     "embedding": _format_vector(v),
                 }
-                for r, v in zip(batch, vectors, strict=True)
-            ],
-            conflict_fields=["chunk_id"],
-            update_fields=["embedding"],
-        )
-        embedded += len(batch)
+                for r, v in keep[write_start : write_start + EMBED_WRITE_BATCH_SIZE]
+            ]
+            try:
+                await emb_model.bulk_upsert(
+                    rows_out,
+                    conflict_fields=["chunk_id"],
+                    update_fields=["embedding"],
+                    statement_timeout=SERVER_CEILING,
+                )
+                written_now += len(rows_out)
+            except IntegrityError:
+                # A chunk was superseded (re-chunk / source removed) AFTER the re-check
+                # above and before this write. Ask the database which of these chunks
+                # still exist: the missing ones are superseded, so drop and COUNT them;
+                # if every chunk still exists the FK failure is something else and
+                # must fail loudly (re-raised).
+                live_now = await KgChunks.filter(
+                    id__in=[r["chunk_id"] for r in rows_out]
+                ).values("id")
+                live_now_ids = {str(r["id"]) for r in live_now}
+                survivors = [r for r in rows_out if str(r["chunk_id"]) in live_now_ids]
+                superseded = len(rows_out) - len(survivors)
+                if superseded == 0:
+                    raise
+                skipped_gone += superseded
+                logger.warning(
+                    "[embed] %s: %s chunk(s) of document %s superseded during the vector "
+                    "write; dropped, not failed", embedding_model, superseded,
+                    processed_document_id,
+                )
+                if survivors:
+                    await emb_model.bulk_upsert(
+                        survivors,
+                        conflict_fields=["chunk_id"],
+                        update_fields=["embedding"],
+                        statement_timeout=SERVER_CEILING,
+                    )
+                    written_now += len(survivors)
+        embedded += written_now
 
         await on_progress(
             StageEvent(
@@ -1215,7 +1323,8 @@ async def run_embed(
             message=f"Embedded {embedded} new vectors via {embedding_model}",
             current=needed,
             total=needed,
-            extra={"already_embedded": already, "newly_embedded": embedded},
+            extra={"already_embedded": already, "newly_embedded": embedded,
+                   "skipped_chunks_gone": skipped_gone},
         )
     )
     return EmbedResult(
@@ -1224,6 +1333,7 @@ async def run_embed(
         chunks_embedded=embedded,
         chunks_already_embedded=already,
         model=embedding_model,
+        chunks_skipped_gone=skipped_gone,
     )
 
 
@@ -1238,7 +1348,7 @@ class _RowAsChunk:
     metadata: dict[str, Any]
 
 
-def _coerce_metadata(value: Any) -> dict[str, Any]:
+def coerce_metadata(value: Any) -> dict[str, Any]:
     """Normalize a chunk's ``metadata`` to a dict.
 
     ``KgChunks.filter(...).values("metadata")`` returns the jsonb column as a
@@ -1257,6 +1367,9 @@ def _coerce_metadata(value: Any) -> dict[str, Any]:
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+_coerce_metadata = coerce_metadata
 
 
 # ---------------------------------------------------------------------------
@@ -1365,6 +1478,7 @@ __all__ = [
     "run_extract",
     "run_clean",
     "run_chunk",
+    "NoTextToChunkError",
     "run_embed",
     "run_all",
 ]

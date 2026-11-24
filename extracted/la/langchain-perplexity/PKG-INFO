@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-perplexity
-Version: 1.4.2
+Version: 1.5.0
 Summary: An integration package connecting Perplexity and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/perplexity
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_perplexity/
@@ -16,15 +16,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <4.0.0,>=3.10.0
+Requires-Python: <4.0.0,>=3.11.0
 Requires-Dist: langchain-core<2.0.0,>=1.6.12
-Requires-Dist: perplexityai<1.0.0,>=0.34.1
+Requires-Dist: perplexityai>=0.34.1
 Description-Content-Type: text/markdown
 
 # langchain-perplexity

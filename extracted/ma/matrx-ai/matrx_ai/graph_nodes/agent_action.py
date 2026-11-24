@@ -41,6 +41,7 @@ from matrx_connect.context.app_context import (
     get_app_context,
     set_app_context,
 )
+from matrx_connect.context.context_picks import CarriesContextPicks
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
@@ -66,7 +67,11 @@ from matrx_ai.graph_nodes.iteration_limit import (
     MAX_ITERATIONS_DESCRIPTION,
     resolve_step_iteration_limit,
 )
-from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
+from matrx_ai.graph_nodes.shared import (
+    UNUSABLE_ANSWER_RETRY,
+    AiExecutionResult,
+    normalize_completed_result,
+)
 from matrx_ai.mandates import Offer
 
 if TYPE_CHECKING:
@@ -168,7 +173,7 @@ def refuse_conversation_continuation(data: Any, *, node_label: str) -> Any:
     return {k: v for k, v in data.items() if k not in CONTINUATION_KEYS}
 
 
-class AgentRunCommonInput(BaseModel):
+class AgentRunCommonInput(CarriesContextPicks):
     """Everything an AI step needs to RUN, minus who runs it.
 
     Two step types share this lift and nothing else: **Run Agent**
@@ -566,6 +571,52 @@ def step_firewall(inputs: Any) -> RequestFirewall | None:
     )
 
 
+def step_firewall_key(inputs: Any) -> dict[str, Any]:
+    """The step's firewall settings as part of its replay key: a recorded answer is served only to a step
+    with the same firewall (the firewall itself still runs before it is served: :func:`firewall_before_replay`).
+    A step with no firewall adds nothing (empty), so it keys exactly like the code path, which has none."""
+    if step_firewall(inputs) is None:
+        return {}
+    return {"must_not_contain": list(getattr(inputs, "must_not_contain", None) or []),
+            "must_not_contain_match": getattr(inputs, "must_not_contain_match", "folded"),
+            "no_tools": bool(getattr(inputs, "no_tools", False)),
+            "no_auto_context": bool(getattr(inputs, "no_auto_context", False))}
+
+
+async def firewall_before_replay(
+    ctx: Any, request: Any, *, agent_id: str, firewall: RequestFirewall | None, node_type: str, job: str,
+    mandate_key: str | None, run_stamp: dict[str, Any] | None = None,
+) -> list[dict[str, Any]] | None:
+    """THE FIREWALL BEFORE A RECORDED ANSWER. A replayed or stand-in answer is served only after the step's
+    request firewall has checked the request this step WOULD send, exactly as a sampled step proves it
+    (:func:`run_sampled_firewall_check`, capture mode: nothing is sent, spent or stored). A refusal raises as
+    the live call would; a clean scan returns the records. No firewall -> None."""
+    import copy as _copy
+
+    async def body(capture_ctx: Any) -> list[dict[str, Any]] | None:
+        probe = _copy.deepcopy(request)
+        _done, records = await run_walled_step_agent(capture_ctx, agent_id, probe, node_type=node_type,
+                                                     firewall=firewall, mandate_key=mandate_key,
+                                                     run_stamp=run_stamp, capture=True)
+        return records
+
+    checked = await run_sampled_firewall_check(ctx, firewall, node_type=node_type, job=job, body=body)
+    return (checked or {}).get("request_firewall")
+
+
+async def record_served_answer(ctx: Any, *, mandate_key: str | None, run_stamp: dict[str, Any] | None,
+                               answer: dict[str, Any]) -> None:
+    """A step answered from a recording or a stand-in leaves the run record a live step leaves (the host's
+    ``mandate_step_replay_recorder``: Holder, version, rung, overrides, workflow run; stamped, zero cost). Only a
+    step that runs a mandate's job (a run stamp) records, as live. A record never changes the step's outcome."""
+    if not mandate_key or not run_stamp or not has_ext("mandate_step_replay_recorder"):
+        return
+    try:
+        await get_ext("mandate_step_replay_recorder")(ctx, mandate_key=mandate_key, stamp=run_stamp, answer=answer)
+    except Exception:  # noqa: BLE001 — a record never changes the step's outcome
+        logger.exception("[replay] %s: the served answer's run record could not be written", mandate_key)
+
+
 def mandate_key_field(*, required: bool) -> Any:
     """The Mandate selector, in the one place it is defined.
 
@@ -817,18 +868,27 @@ class StepOffer(Offer):
     runner's: typed, recorded on its own run row, then raised."""
 
 
-async def prepare_step_mandate(mandate_key: str, *, consumer: str, door: str = WORKFLOW_STEP_DOOR) -> Any:
+async def prepare_step_mandate(
+    mandate_key: str,
+    *,
+    consumer: str,
+    door: str = WORKFLOW_STEP_DOOR,
+    refusal_is_fatal: bool = True,
+) -> Any:
     """THE ONE WAY a workflow AI step resolves its mandate: through the runner port's ``prepare``
     (runner plan 25 step 9a), for the principal the step's carried request names. Returns the
     ``MandateResolution``; raises the runner's typed refusal (already recorded) or
-    ``MandateRunnerUnavailable`` when the host installed no runner — never a fallback."""
+    ``MandateRunnerUnavailable`` when the host installed no runner — never a fallback.
+
+    ``refusal_is_fatal=False`` (``hold_step`` only): the caller records the refusal itself, once, and runs
+    on — the runner raises it but writes no ``refused`` run row and no ``mandate_refused`` capture."""
     from matrx_ai.mandates import RunOptions, carried_principal, get_mandate_runner
 
     prepared = await get_mandate_runner().prepare(
         mandate_key,
         StepOffer(),
         who=carried_principal(),
-        opts=RunOptions(door=door, consumer=consumer),
+        opts=RunOptions(door=door, consumer=consumer, refusal_is_fatal=refusal_is_fatal),
     )
     resolution = getattr(prepared, "held", None)
     if resolution is None:
@@ -873,12 +933,26 @@ async def job_variable_binder(
     return bind
 
 
+async def ask_step_agent_gate(agent_id: str, is_version: bool, *, node_ctx: Any = None, consumer: str) -> None:
+    """THE STEP'S NAMED-AGENT DOOR: the host's ``step_agent_gate`` (``matrx_ai.configure(step_agent_gate=...)``)
+    raises when this workflow may not run ``agent_id``. A host without an access model installs none."""
+    if not has_ext("step_agent_gate"):
+        return
+    await get_ext("step_agent_gate")(
+        agent_id=agent_id,
+        is_version=is_version,
+        workflow_id=getattr(node_ctx, "workflow_id", None),
+        app=getattr(node_ctx, "app", None),
+        consumer=consumer,
+    )
+
+
 async def resolve_step_agent(
-    inputs: AgentRunCommonInput, *, consumer: str
+    inputs: AgentRunCommonInput, *, consumer: str, node_ctx: Any = None
 ) -> tuple[str, bool, dict[str, Any] | None]:
     """The three-value form of :func:`resolve_step_agent_full` (see it for the
     rules). Kept as the shape every existing agent step unpacks."""
-    resolved = await resolve_step_agent_full(inputs, consumer=consumer)
+    resolved = await resolve_step_agent_full(inputs, consumer=consumer, node_ctx=node_ctx)
     assert isinstance(resolved, StepAgent)  # allow_workflow_holder defaults False
     return resolved.agent_id, resolved.is_version, resolved.config_overrides
 
@@ -888,6 +962,7 @@ async def resolve_step_agent_full(
     *,
     consumer: str,
     allow_workflow_holder: bool = False,
+    node_ctx: Any = None,
 ) -> StepAgent | StepWorkflowMandate:
     """Decide WHAT this step runs: the mandate's Holder, or the named agent.
 
@@ -908,6 +983,12 @@ async def resolve_step_agent_full(
 
     ``consumer`` names the step for alarms and the durable failure record —
     every node type that runs an authored agent shares this one door.
+
+    🚨 A NAMED AGENT IS ASKED BEFORE IT RUNS (CASA 3.1.4, 2026-11-09). The
+    ``agent_id`` path runs that agent verbatim, its instructions and its tools,
+    so the host's ``step_agent_gate`` decides whether this workflow may run it
+    (aidream: the workflow's author or the person running it may view it).
+    ``node_ctx`` (the step's ``NodeExecutionContext``) names the workflow.
     """
     mandate_key = getattr(inputs, "mandate_key", None)
     agent_id = getattr(inputs, "agent_id", None)
@@ -966,6 +1047,9 @@ async def resolve_step_agent_full(
             ),
         )
     if agent_id:
+        await ask_step_agent_gate(
+            str(agent_id), bool(getattr(inputs, "is_version", False)), node_ctx=node_ctx, consumer=consumer
+        )
         return StepAgent(
             agent_id=agent_id,
             is_version=bool(getattr(inputs, "is_version", False)),
@@ -1045,7 +1129,9 @@ async def step_result_version(ctx: Any, inputs: Any, config: Any = None) -> str:
     import hashlib
     import json
 
-    resolved = await resolve_step_agent_full(inputs, consumer="once.result_version", allow_workflow_holder=True)
+    resolved = await resolve_step_agent_full(
+        inputs, consumer="once.result_version", allow_workflow_holder=True, node_ctx=ctx
+    )
     if isinstance(resolved, StepWorkflowMandate):
         parts: dict[str, Any] = {
             "holder": "workflow",
@@ -1180,6 +1266,11 @@ HOST_REQUEST_EXCLUDED_INPUTS: frozenset[str] = frozenset(
         # max_call_cost_usd opens the call spend cap around the run (``run_step_agent``).
         "max_output_tokens",
         "max_call_cost_usd",
+        # Run Mandate's "continue with the error" switch: read by the step itself, never a request field.
+        # Left out of this set, its default (False) rode into the host request, which forbids unknown
+        # fields, so EVERY Run Mandate step failed validation (caught before release, 2026-11-10, by
+        # ``test_the_replay_key_is_the_whole_request.py``, the first test to run the real builder).
+        "continue_on_failure",
     }
 )
 
@@ -1497,6 +1588,8 @@ async def run_walled_step_agent(
     provider request ends the run quietly with ``completed=None``."""
     from matrx_ai.providers.request_capture import ProviderRequestCaptured
 
+    if capture and hasattr(request, "store"):  # a capture check is never a recorded run (the one place)
+        request.store = False
     if mandate_key and not getattr(request, "_mandate_key", None):
         try:
             request._mandate_key = mandate_key
@@ -1751,6 +1844,7 @@ async def _run_workflow_held_mandate(
     icon="bot",
     tags=("ai", "agent", "llm"),
     result_version=step_result_version,
+    retry=UNUSABLE_ANSWER_RETRY,
 )
 async def agent_start(
     ctx: NodeExecutionContext,
@@ -1763,7 +1857,7 @@ async def agent_start(
     # doer is decided by the database is Run Mandate (`ai.mandate.start`), and
     # that is the node type that lifts a workflow-held mandate into a durable
     # child run.
-    resolved = await resolve_step_agent_full(inputs, consumer=f"ai.agent.start:{node_id}")
+    resolved = await resolve_step_agent_full(inputs, consumer=f"ai.agent.start:{node_id}", node_ctx=ctx)
     assert isinstance(resolved, StepAgent)  # no mandate field -> never a workflow Holder
     limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
     inputs.max_iterations = limit.value

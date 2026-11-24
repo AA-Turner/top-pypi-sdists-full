@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: yandexcloud
-Version: 0.416.0
+Version: 0.417.0
 Summary: The Yandex Cloud official SDK
 Author-email: Yandex LLC <cloud@support.yandex.ru>
 License: MIT
@@ -102,6 +102,7 @@ Check `examples` directory for more examples.
 | yandex.cloud.cdn                                                       | cdn                      |
 | yandex.cloud.certificatemanager.v1.certificate_content_service         | certificate-manager-data |
 | yandex.cloud.certificatemanager                                        | certificate-manager      |
+| yandex.cloud.cloudregistry                                             | cloud-registry           |
 | yandex.cloud.compute                                                   | compute                  |
 | yandex.cloud.containerregistry                                         | container-registry       |
 | yandex.cloud.dataproc.manager                                          | dataproc-manager         |

@@ -528,7 +528,7 @@ APPROVED_OPERATIONS = (
     ),
     # Business Data — local-listings intelligence (read-only). Approved matrix
     # entries use the same canonical operation names as this catalog; consumed by
-    # services/seo/local_listings.py to fill web.location_listing.observed.
+    # services/seo/local_listings.py to fill local.location_listing.observed.
     _op(
         DataForSeoOperationName.BUSINESS_LISTINGS_SEARCH,
         "business_data",

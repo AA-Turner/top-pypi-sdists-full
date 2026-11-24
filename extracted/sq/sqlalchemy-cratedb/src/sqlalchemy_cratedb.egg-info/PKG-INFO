@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-cratedb
-Version: 0.44.0
+Version: 0.45.0
 Summary: SQLAlchemy dialect for CrateDB.
 Author-email: "Crate.io" <office@crate.io>
 License: Apache License 2.0
@@ -62,12 +62,12 @@ License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: crate<3,>=2.2.1
 Requires-Dist: geojson<4,>=2.5
-Requires-Dist: sqlalchemy<2.2,>=1
+Requires-Dist: sqlalchemy<2.2,>=1.4
 Requires-Dist: verlib2<26.3
 Provides-Extra: all
 Requires-Dist: sqlalchemy-cratedb[vector]; extra == "all"
 Provides-Extra: develop
-Requires-Dist: mypy<2.4; extra == "develop"
+Requires-Dist: mypy<2.5; extra == "develop"
 Requires-Dist: poethepoet<1; extra == "develop"
 Requires-Dist: pyproject-fmt<3; extra == "develop"
 Requires-Dist: ruff<0.16; extra == "develop"

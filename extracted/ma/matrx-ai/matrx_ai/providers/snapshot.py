@@ -82,6 +82,27 @@ def recapture_final_payload(final_kwargs: Any) -> None:
         pass
 
 
+def _payload_shape(config_data: Any) -> dict[str, Any]:
+    """Counts and lengths of a provider payload, never its text."""
+    data: Any = config_data
+    if dataclasses.is_dataclass(data) and not isinstance(data, type):
+        data = dataclasses.asdict(data)
+    if not isinstance(data, dict):
+        return {"type": type(data).__name__}
+
+    def _size(value: Any) -> int:
+        return len(value) if isinstance(value, (str, list, tuple, dict)) else 0
+
+    shape: dict[str, Any] = {"model": str(data.get("model") or "")}
+    for key in ("messages", "input", "contents", "tools"):
+        if key in data:
+            shape[f"{key}_count"] = _size(data[key])
+    for key in ("system", "system_instruction", "instructions"):
+        if key in data:
+            shape[f"{key}_chars"] = _size(data[key])
+    return shape
+
+
 def capture_request_payload(
     config_data: Any,
     *,
@@ -124,6 +145,8 @@ def capture_request_payload(
     # )
     # _msgs_type = type(_msgs).__name__
     # vcprint(_msgs_type, "[CAPTURE REQUEST PAYLOAD] messages type", color="pink")
+    # The "request sent" stamp is NOT set here: it lives at the transport (``wire_sent.py``, pass 7 P7/P8), so an SDK's
+    # client-side validation after this snapshot is never charged and a path that skips it is never free.
     try:
         state = try_get_execution_state()
         if state is None:
@@ -179,10 +202,22 @@ def capture_request_payload(
         try:
             from matrx_ai.providers.debug_pretty_print import format_provider_payload
 
-            vcprint(
-                format_provider_payload(provider, config_data, wire_format=wire_format),
-                title=f"[DEBUG_PRETTY_PRINT] {provider}",
-                color="cyan",
-            )
+            from matrx_utils.fancy_prints.truncation import content_logging_enabled
+
+            if content_logging_enabled():
+                vcprint(
+                    format_provider_payload(provider, config_data, wire_format=wire_format),
+                    title=f"[DEBUG_PRETTY_PRINT] {provider}",
+                    color="cyan",
+                )
+            else:
+                # The rendering quotes every prompt and message verbatim. Production logs carry
+                # the shape only (CASA 6.5.1); the full payload stays in the access-controlled
+                # debug trace store.
+                vcprint(
+                    _payload_shape(config_data),
+                    title=f"[DEBUG_PRETTY_PRINT] {provider} (content omitted)",
+                    color="cyan",
+                )
         except Exception:
             pass

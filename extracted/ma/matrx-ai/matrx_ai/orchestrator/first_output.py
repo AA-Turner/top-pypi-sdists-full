@@ -54,11 +54,15 @@ class _FirstOutputWatcher:
     async def send_chunk(self, text: str) -> None:
         mark_provider_first_response("text_delta", self._inner)
         self._stamp(text)
+        if text and getattr(self._state, "answer_began_at", 0) is None:
+            self._state.answer_began_at = time.time()
         await self._inner.send_chunk(text)
 
     async def send_reasoning_chunk(self, text: str) -> None:
         mark_provider_first_response("reasoning_delta", self._inner)
         self._stamp(text)
+        if text:
+            _work_resumed(self._state)
         await self._inner.send_reasoning_chunk(text)
 
     async def send_reasoning_state(self, state: Any) -> None:
@@ -71,6 +75,8 @@ class _FirstOutputWatcher:
 
             async def _marked(*args: Any, **kwargs: Any) -> Any:
                 mark_provider_first_response(name.removeprefix("send_"), self._inner)
+                if name == "send_tool_event":
+                    _work_resumed(self._state)
                 return await attr(*args, **kwargs)
 
             return _marked
@@ -84,8 +90,10 @@ class _FirstOutputWatcher:
 def watching_first_output(state: Any) -> Iterator[None]:
     """Watch one provider call for this execution's first model output."""
     # Only an execution's own state carries the clock (``send_once`` is also
-    # driven by probes and replays that pass other state objects).
-    if not hasattr(state, "ttft_first_output_at") or state.ttft_first_output_at is not None:
+    # driven by probes and replays that pass other state objects). Every call of
+    # the turn is watched: the answer's start (``answer_began_at``) is the LAST
+    # call's, long after the first output.
+    if not hasattr(state, "ttft_first_output_at"):
         yield
         return
     from matrx_connect.context.app_context import set_app_context, try_get_app_context
@@ -107,6 +115,131 @@ def watching_first_output(state: Any) -> Iterator[None]:
     mark_provider_first_response("response_returned", inner)
     if state.ttft_first_output_at is None:
         state.ttft_first_output_at = time.time()
+
+
+def _work_resumed(state: Any) -> None:
+    """Work after answer text (thinking, a tool): that text was an aside, the answer starts later."""
+    if hasattr(state, "answer_began_at"):
+        state.answer_began_at = None
+
+
+def settle_answer_start(state: Any, response: Any) -> None:
+    """After a model call returned: a reply that calls a tool is still work; a text reply that
+    streamed nothing (a non-streaming provider) began its answer when it arrived."""
+    if not hasattr(state, "answer_began_at"):
+        return
+    from matrx_ai.config import TextContent, ToolCallContent
+
+    parts = [c for m in getattr(response, "messages", None) or () for c in (getattr(m, "content", None) or ())]
+    if any(isinstance(c, ToolCallContent) for c in parts):
+        state.answer_began_at = None
+    elif state.answer_began_at is None and any(isinstance(c, TextContent) and (c.text or "").strip() for c in parts):
+        state.answer_began_at = time.time()
+
+
+def turn_work_ms(state: Any, timing_history: Any) -> int | None:
+    """WORKED FOR: milliseconds from the person's send until the answer began, less the time the
+    turn waited on the person.
+
+    The origin is the request's arrival on this server (the request latency clock, the server's own
+    moment of the send), else the first iteration's start — or, on a run that CONTINUES a turn already
+    sent (``state.turn_sent_at``, loaded by ``load_turn_clock``: a resume after a device tool, an
+    answered ask, a held step, a reconnect), the person's send, whichever is earlier. A device tool's
+    run between two streams is work; a person-ask's wait (``state.person_waits``) never is. None when
+    the turn has no answer text (a tool-only or failed turn) — never a guessed number.
+    """
+    began = getattr(state, "answer_began_at", None) if state is not None else None
+    if not isinstance(began, float):
+        return None
+    from matrx_connect.context.app_context import try_get_app_context
+    from matrx_connect.request_latency import get_request_latency_clock
+
+    clock = get_request_latency_clock()
+    ctx = try_get_app_context()
+    # A sub-agent runs inside its caller's request: its clock starts at its own first call.
+    internal = getattr(ctx, "is_internal_agent", False) is True
+    origin: float | None = None
+    if clock is not None and not internal:
+        origin = clock.arrived_epoch_ms / 1000
+    else:
+        starts = [t.start_time for t in timing_history or () if isinstance(t.start_time, float)]
+        origin = min(starts) if starts else None
+    sent = getattr(state, "turn_sent_at", None)
+    if not internal and isinstance(sent, float) and (origin is None or sent < origin):
+        origin = sent
+    if origin is None or began < origin:
+        return None
+    waited = 0.0
+    for start, end in getattr(state, "person_waits", None) or ():
+        # An ask still open when the answer began waited until then (the client's clock treats it the same).
+        stop = began if end is None else min(end, began)
+        waited += max(0.0, stop - max(start, origin))
+    return int(max(0.0, began - origin - waited) * 1000)
+
+
+async def load_turn_clock(state: Any, user_request_id: str) -> None:
+    """Load the person's send and the turn's person-ask waits onto ``state`` for a run that continues a
+    turn already sent (the executor calls it when the run's trigger is a saved row, not a new message).
+    Reads ``chat.user_request`` / ``chat.tool_call`` through the host-injected managers. A failed read is
+    captured and the turn measures from this request's arrival — a display figure never fails a run."""
+    from matrx_ai.client_host import get_conversation_store
+    from matrx_ai.config.tool_result_guard import PERSON_ASK_TOOLS
+
+    # A CLIENT host persists through its conversation store and has no server tables to read: its
+    # "Worked for" stays measured from this request's arrival.
+    if get_conversation_store() is not None:
+        return
+    try:
+        from matrx_ai.db.cx_managers import cxm
+
+        sent, waits = await cxm.user_request.turn_clock(user_request_id, person_ask_tools=PERSON_ASK_TOOLS)
+    except Exception as exc:  # noqa: BLE001 — "Worked for" falls back to this request's arrival, loudly
+        from matrx_connect.streaming.error_capture import capture_error
+        from matrx_utils import vcprint
+
+        vcprint(f"[WORKED FOR] turn clock read failed for {user_request_id}: {type(exc).__name__}: {exc}", color="red")
+        await capture_error(exc, kind="turn_work_clock_read_failed", user_request_id=user_request_id)
+        return
+    if sent is None:
+        return
+    state.turn_sent_at = sent.timestamp()
+    state.person_waits = tuple((start.timestamp(), end.timestamp() if end is not None else None) for start, end in waits)
+
+
+async def ensure_turn_clock(state: Any) -> None:
+    """Read the turn clock for a continued turn ONLY when its answer began, and once per run.
+
+    A browser turn is one stream per device step (~100 per turn); a stream that only calls a tool stamps no
+    ``work_ms``, so it reads nothing. The executor marks the run (``state.turn_clock_request_id``) and calls
+    this right before it stamps a provider call's answers."""
+    request_id = getattr(state, "turn_clock_request_id", None)
+    if not request_id or getattr(state, "answer_began_at", None) is None:
+        return
+    state.turn_clock_request_id = None
+    await load_turn_clock(state, request_id)
+
+
+#: The reply row's metadata key (``chat.message.metadata``) carrying ``turn_work_ms``.
+WORK_MS_KEY = "work_ms"
+
+
+def stamp_work_ms(messages: Any, work_ms: int | None, *, result_start_position: int | None) -> bool:
+    """Put ``work_ms`` on the turn's reply: the last visible assistant message this turn produced."""
+    if work_ms is None:
+        return False
+    try:
+        window = list(messages)[max(result_start_position or 0, 0):]
+    except (AttributeError, TypeError):
+        return False
+    for message in reversed(window):
+        role = getattr(message, "role", None)
+        if (role.value if hasattr(role, "value") else role) != "assistant":
+            continue
+        if not getattr(message, "is_visible_to_model", True) or getattr(message, "status", "active") == "failed":
+            continue
+        message.metadata = {**(getattr(message, "metadata", None) or {}), WORK_MS_KEY: work_ms}
+        return True
+    return False
 
 
 def turn_ttft_ms(state: Any, timing_history: Any) -> int | None:

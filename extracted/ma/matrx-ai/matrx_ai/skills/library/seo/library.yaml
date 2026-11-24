@@ -9,7 +9,7 @@
 # Run: uv run python scripts/ingest_skills.py --library packages/matrx-ai/matrx_ai/skills/library/seo [--dry-run]
 #
 # The tool names follow the Wave 1 SEO tool contract (common-docs
-# projects/outside-skill-packs/OPENSEO-TOOLS-SPEC.md §3, frozen at common-docs c0a7a002d). When those tools ship, re-read
+# systems/agents/agent-skills/projects/outside-skill-packs/OPENSEO-TOOLS-SPEC.md §3, frozen at common-docs c0a7a002d). When those tools ship, re-read
 # each skill's opening note and remove the "arriving with" lines that are now live.
 
 set_id: ai-matrx-seo

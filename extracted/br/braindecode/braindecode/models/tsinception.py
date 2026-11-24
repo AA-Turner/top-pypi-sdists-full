@@ -64,6 +64,9 @@ class TSception(EEGModuleMixin, nn.Module):
         https://github.com/deepBrains/TSception/blob/master/Models.py
     """
 
+    _time_axis = "fixed"  # fixed: dense_layer.0.weight
+    _channel_axis = "fixed"  # fixed: dense_layer.0.weight
+
     def __init__(
         self,
         # Braindecode parameters
@@ -120,6 +123,11 @@ class TSception(EEGModuleMixin, nn.Module):
         for window in self.inception_windows:
             # 1. Calculate the temporal kernel size for this block
             kernel_size_t = int(window * self.sfreq)
+            if kernel_size_t < 1:
+                raise ValueError(
+                    "An inception window is shorter than one sample: too small "
+                    f"`n_times`/`input_window_seconds` for the input {self.input_shape}."
+                )
 
             # 2. Calculate the output length of the convolution
             conv_out_len = self.n_times - kernel_size_t + 1
@@ -212,33 +220,32 @@ class TSception(EEGModuleMixin, nn.Module):
         s_out = self.batch_spatial_lay(s_out)
 
         # Flatten and apply final layers
-        s_out = s_out.view(s_out.size(0), -1)
+        s_out = s_out.reshape(s_out.size(0), -1)
         output = self.dense_layer(s_out)
         output = self.final_layer(output)
         return output
 
     def _calculate_feature_size(self) -> int:
+        """Flattened size of the features after the convolution and pooling layers.
+
+        Each temporal block keeps ``n_times - kernel + 1`` samples and pools
+        them by its own non-overlapping window; the blocks are concatenated
+        in time. The two spatial blocks keep one row and ``n_chans // k`` rows
+        (``k = max(1, n_chans // 2)``, the kernel and stride of the second),
+        and both pool time by ``pool_size // 4``.
         """
-        Calculates the size of the features after convolution and pooling layers.
-
-        Returns
-        -------
-        int
-            Flattened size of the features after convolution and pooling layers.
-        """
-        with torch.no_grad():
-            dummy_input = torch.ones(1, 1, self.n_chans, self.n_times)
-            t_features = [layer(dummy_input) for layer in self.temporal_blocks]
-            t_out = torch.cat(t_features, dim=-1)
-            t_out = self.batch_temporal_lay(t_out)
-
-            s_out1 = self.spatial_block_1(t_out)
-            s_out2 = self.spatial_block_2(t_out)
-            s_out = torch.cat((s_out1, s_out2), dim=2)
-            s_out = self.batch_spatial_lay(s_out)
-
-            feature_size = s_out.view(1, -1).size(1)
-        return feature_size
+        n_time = 0
+        for window in self.inception_windows:
+            conv_len = self.n_times - int(window * self.sfreq) + 1
+            n_time += conv_len // max(1, min(self.pool_size, conv_len))
+        n_time //= self.pool_size // 4
+        if n_time < 1:
+            raise ValueError(
+                "The convolutions and poolings leave no time sample: too small "
+                f"`n_times`/`input_window_seconds` for the input {self.input_shape}."
+            )
+        n_rows = 1 + self.n_chans // max(1, self.n_chans // 2)
+        return self.number_filter_spat * n_rows * n_time
 
     @staticmethod
     def _conv_block(

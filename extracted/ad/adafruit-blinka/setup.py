@@ -57,6 +57,7 @@ setup(
         "adafruit_blinka": [
             "../board_imports.json",
             "../microcontroller_imports.json",
+            "platform_dependencies.json",
         ],
         "adafruit_blinka.microcontroller.bcm283x.pulseio": [
             "libgpiod_pulsein",
@@ -69,7 +70,7 @@ setup(
     },
     include_package_data=True,
     install_requires=[
-        "Adafruit-PlatformDetect>=3.90.0",
+        "Adafruit-PlatformDetect>=3.91.0",
         "Adafruit-PureIO>=1.1.7",
         "binho-host-adapter>=0.1.6",
         "pyftdi>=0.40.0",

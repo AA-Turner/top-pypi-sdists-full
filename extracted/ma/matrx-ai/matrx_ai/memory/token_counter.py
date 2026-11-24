@@ -10,10 +10,10 @@ Mirrors: packages/memory/src/processors/observational-memory/token-counter.ts
 
 from __future__ import annotations
 
+import asyncio
 import re
+import threading
 from functools import lru_cache
-from typing import Optional
-
 
 # ---------------------------------------------------------------------------
 # tiktoken-based counter (preferred, accurate)
@@ -41,9 +41,57 @@ def _get_encoding(model_or_encoding: str):
             return None
 
 
-def count_tokens_tiktoken(text: str, model: str = "gpt-4o") -> Optional[int]:
-    """Count tokens using tiktoken. Returns None if tiktoken is unavailable."""
-    enc = _get_encoding(model)
+# AN ENCODING NEVER LOADS ON THE EVENT LOOP (2026-11-11). tiktoken's first ``get_encoding`` downloads the BPE file
+# (o200k_base is ~3.6 MB from openaipublic) with a blocking ``requests.get`` and then parses it; in production that
+# ran inside the send boundary's token estimate and froze the whole server for 1.1-3.9s on every fresh container
+# (event_loop_stall aidream-api:698eecc767d01e9e). On a loop thread a not-yet-loaded encoding is loaded in a worker
+# thread instead and this call answers ``None`` (every caller then counts by its approximation); off the loop it loads
+# in place, as before.
+_loaded: set[str] = set()
+_loading: set[str] = set()
+_loading_lock = threading.Lock()
+
+
+def _on_event_loop_thread() -> bool:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
+
+
+def _load_in_background(model_or_encoding: str) -> None:
+    with _loading_lock:
+        if model_or_encoding in _loading or model_or_encoding in _loaded:
+            return
+        _loading.add(model_or_encoding)
+
+    def _load() -> None:
+        try:
+            _get_encoding(model_or_encoding)
+            _loaded.add(model_or_encoding)
+        finally:
+            with _loading_lock:
+                _loading.discard(model_or_encoding)
+
+    threading.Thread(target=_load, name=f"tiktoken-load-{model_or_encoding}", daemon=True).start()
+
+
+def _encoding_without_blocking_the_loop(model_or_encoding: str):
+    if model_or_encoding in _loaded:
+        return _get_encoding(model_or_encoding)
+    if _on_event_loop_thread():
+        _load_in_background(model_or_encoding)
+        return None
+    enc = _get_encoding(model_or_encoding)
+    _loaded.add(model_or_encoding)
+    return enc
+
+
+def count_tokens_tiktoken(text: str, model: str = "gpt-4o") -> int | None:
+    """Count tokens using tiktoken. Returns None if tiktoken is unavailable, or while the encoding is still loading
+    in a worker thread (a call on the event loop never loads it there)."""
+    enc = _encoding_without_blocking_the_loop(model)
     if enc is None:
         return None
     return len(enc.encode(text))

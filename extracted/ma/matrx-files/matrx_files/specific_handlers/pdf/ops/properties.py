@@ -11,7 +11,7 @@ from typing import Any
 
 from ..concurrency import run_in_cpu_executor
 from ..models import PdfBinaryResult
-from ._pike import inherited, is_signed, load_pikepdf, open_pdf, save_pdf
+from ._pike import inherited, is_signed, open_pdf, save_pdf
 
 #: field -> (Info key, XMP key, XMP value is a list)
 _FIELDS: dict[str, tuple[str, str, bool]] = {

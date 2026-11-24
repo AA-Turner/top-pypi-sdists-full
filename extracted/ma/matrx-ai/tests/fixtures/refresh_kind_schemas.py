@@ -22,14 +22,15 @@ import sys
 from datetime import date
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).parent / "kind_schemas_sample.json"
 
-sys.path.insert(0, str(REPO_ROOT / "packages" / "matrx-ai"))
+sys.path.insert(0, str(PACKAGE_ROOT))
 
 
 def _load_env() -> None:
-    env_path = REPO_ROOT / ".env"
+    # The .env of the checkout the script runs from (never a path above the package).
+    env_path = next((d / ".env" for d in (Path.cwd(), *Path.cwd().parents) if (d / ".env").is_file()), Path.cwd() / ".env")
     for line in env_path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:

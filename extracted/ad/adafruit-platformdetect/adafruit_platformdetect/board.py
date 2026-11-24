@@ -36,7 +36,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import boards, chips
 
-__version__ = "3.90.0"
+__version__ = "3.91.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -193,6 +193,8 @@ class Board:
             )
         elif chip_id == chips.A33:
             board_id = self._clockwork_pi_id()
+        elif chip_id == chips.T113:
+            board_id = self._phyx_id()
         elif chip_id == chips.K1:
             board_id = self._armbian_id() or self._spacemit_variants_id()
         elif chip_id == chips.RZV2N:
@@ -830,6 +832,12 @@ class Board:
             board = boards.CLOCKWORK_CPI3
         return board
 
+    def _phyx_id(self) -> Optional[str]:
+        """Check what type of Phyx board."""
+        if self.detector.check_dt_compatible_value("phyx,tess-t113"):
+            return boards.PHYX_TESS
+        return None
+
     def _udoo_id(self) -> Optional[str]:
         """Try to detect the id of udoo board."""
         board_asset_tag = self.detector.check_board_asset_tag_value()
@@ -1200,6 +1208,11 @@ class Board:
         return self.CLOCKWORK_CPI3
 
     @property
+    def any_phyx_board(self) -> bool:
+        """Check whether the current board is any Phyx board."""
+        return self.PHYX_TESS
+
+    @property
     def any_udoo_board(self) -> bool:
         """Check to see if the current board is an UDOO board"""
         return self.id in boards._UDOO_BOARD_IDS
@@ -1299,26 +1312,26 @@ class Board:
         """Check whether the current board is an OS environment variable special case."""
 
         def lazily_generate_conditions():
-            yield self.board.FTDI_FT232H
-            yield self.board.FTDI_FT2232H
-            yield self.board.FTDI_FT4232H
-            yield self.board.MICROCHIP_MCP2221
-            yield self.board.MICROCHIP_MCP2222
-            yield self.board.BINHO_NOVA
-            yield self.board.GREATFET_ONE
-            yield self.board.PICO_U2IF
-            yield self.board.FEATHER_U2IF
-            yield self.board.FEATHER_CAN_U2IF
-            yield self.board.FEATHER_EPD_U2IF
-            yield self.board.FEATHER_RFM_U2IF
-            yield self.board.ITSYBITY_U2IF
-            yield self.board.MACROPAD_U2IF
-            yield self.board.QTPY_U2IF
-            yield self.board.QT2040_TRINKEY_U2IF
-            yield self.board.KB2040_U2IF
-            yield self.board.RP2040_ONE_U2IF
-            yield self.board.RADXA_X4_U2IF
-            yield self.board.OS_AGNOSTIC_BOARD
+            yield self.FTDI_FT232H
+            yield self.FTDI_FT2232H
+            yield self.FTDI_FT4232H
+            yield self.MICROCHIP_MCP2221
+            yield self.MICROCHIP_MCP2222
+            yield self.BINHO_NOVA
+            yield self.GREATFET_ONE
+            yield self.PICO_U2IF
+            yield self.FEATHER_U2IF
+            yield self.FEATHER_CAN_U2IF
+            yield self.FEATHER_EPD_U2IF
+            yield self.FEATHER_RFM_U2IF
+            yield self.ITSYBITSY_U2IF
+            yield self.MACROPAD_U2IF
+            yield self.QTPY_U2IF
+            yield self.QT2040_TRINKEY_U2IF
+            yield self.KB2040_U2IF
+            yield self.RP2040_ONE_U2IF
+            yield self.RADXA_X4_U2IF
+            yield self.OS_AGNOSTIC_BOARD
 
         return any(condition for condition in lazily_generate_conditions())
 
@@ -1346,6 +1359,7 @@ class Board:
             yield self.any_pynq_board
             yield self.any_rock_pi_board
             yield self.any_clockwork_pi_board
+            yield self.any_phyx_board
             yield self.any_udoo_board
             yield self.any_seeed_board
             yield self.any_asus_tinker_board

@@ -29,6 +29,15 @@ class PopulationTransformer(EEGModuleMixin, nn.Module, license="mit"):
 
     :bdg-danger:`Foundation Model` :bdg-info:`Attention/Transformer`
 
+    .. figure:: ../_static/model/popt_arch.png
+       :align: center
+       :alt: PopulationTransformer architecture
+       :width: 1000px
+
+       PopT on frozen per-electrode temporal embeddings (a) with its
+       ensemble-wise (b) and channel-wise (c) discriminative pretraining
+       objectives, reproduced from [PopT2024]_ (CC BY 4.0).
+
     PopT is a self-supervised **population** model for intracranial recordings
     (sEEG/iEEG). It does not encode a raw time signal; instead each electrode is
     represented by a feature vector — typically the frozen embedding of a
@@ -131,6 +140,9 @@ class PopulationTransformer(EEGModuleMixin, nn.Module, license="mit"):
        Learning Population-level Representations of Neural Activity. arXiv
        preprint arXiv:2406.03044.
     """
+
+    _time_axis = "fixed"  # fixed: input_embedding.in_proj.weight is sized by n_times
+    _channel_axis = "fixed"  # fixed: electrode_coords is sized by n_chans
 
     def __init__(
         self,
@@ -256,6 +268,12 @@ class PopulationTransformer(EEGModuleMixin, nn.Module, license="mit"):
             device=old.device, dtype=old.dtype
         )
 
+    def _accepts_any_n_chans(self, args: tuple, kwargs: dict) -> bool:
+        if super()._accepts_any_n_chans(args, kwargs):
+            return True
+        coords = self._call_arg(args, kwargs, "coords")
+        return coords is not None
+
     def forward(
         self,
         x: torch.Tensor,
@@ -279,8 +297,10 @@ class PopulationTransformer(EEGModuleMixin, nn.Module, license="mit"):
             Integer sequence ids of shape ``(batch, n_chans)``. Defaults to zero
             (single population).
         return_features : bool
-            If ``True``, return ``{"features": cls, "cls_token": cls}`` (the
-            pooled ``CLS`` representation) instead of the class logits.
+            If ``True``, return ``{"features": cls, "cls_token": cls, "tokens":
+            tokens}`` instead of the class logits: the pooled ``CLS``
+            representation and the electrode tokens, one per channel, ``(batch,
+            n_chans, 1, hidden_dim)``, zero for padded channels.
         ch_mask : torch.Tensor, optional
             ``(batch, n_chans)`` mask of real channels, see
             :func:`~braindecode.functional.check_ch_mask`; the complement of upstream's
@@ -319,7 +339,10 @@ class PopulationTransformer(EEGModuleMixin, nn.Module, license="mit"):
             # Scripted forward stays monomorphic (same pattern as Brant).
             if torch.jit.is_scripting():
                 return logits
-            return {"features": cls_token, "cls_token": cls_token}
+            tokens = z[:, 1:].unsqueeze(2)
+            if mask is not None:
+                tokens = tokens.masked_fill(~mask[:, :, None, None], 0.0)
+            return {"features": cls_token, "cls_token": cls_token, "tokens": tokens}
         return logits
 
 

@@ -14,9 +14,10 @@ import { Enum } from "@bokehjs/core/kinds";
 import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import { isArray } from "@bokehjs/core/util/types";
 import { UIElementView } from "@bokehjs/models/ui/ui_element";
+import { Model } from "@bokehjs/model";
 import { serializeEvent } from "./event-to-object";
 import { DOMEvent } from "./html";
-import { HTMLBox, HTMLBoxView, rerender_view, set_size } from "./layout";
+import { HTMLBox, HTMLBoxView, prepare_nested_layouts, rerender_view, reset_size, set_size } from "./layout";
 import { resource_url, resources } from "./resources";
 import { convertUndefined, formatError } from "./util";
 import esm_css from "styles/models/esm.css";
@@ -281,11 +282,22 @@ export class ReactiveESMView extends HTMLBoxView {
     connect_signals() {
         super.connect_signals();
         const { esm, importmap, class_name } = this.model.properties;
+        const { width, height, min_width, max_width, min_height, max_height, sizing_mode } = this.model.properties;
+        // render() applies the current size and class to a fresh container
+        this.on_change([width, height, min_width, max_width, min_height, max_height, sizing_mode], () => {
+            if (this.container == null) {
+                return;
+            }
+            reset_size(this.container, this.model, false);
+        });
         this.on_change([esm, importmap], async () => {
             this.compiled_module = await this.model.compiled_module;
             this.invalidate_render();
         });
         this.on_change(class_name, () => {
+            if (this.container == null) {
+                return;
+            }
             this.container.className = this.model.class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
         });
         const child_props = this.model.children.map((child) => this.model.data.properties[child]);
@@ -334,6 +346,34 @@ export class ReactiveESMView extends HTMLBoxView {
             return true;
         }
         return child_view.el.isConnected;
+    }
+    /**
+     * A child view is built, and so listed in `child_views`, as soon as its
+     * model is added, but it is only rendered once the component mounts it,
+     * which for a React component is a later commit. Bokeh assumes a child it
+     * measures has run `update_layout` (a figure reads the panels of the
+     * layout built there), so a layout pass in between, e.g. from a resize
+     * or from another child mounting, would throw on the unmounted child and
+     * abort the pass for every other view. Layout passes therefore only visit
+     * mounted children; `update_layout` still visits all of them.
+     */
+    get layoutable_views() {
+        return super.layoutable_views.filter((view) => this._is_mountable(view) && view._was_built);
+    }
+    update_layout() {
+        this.update_style();
+        for (const child_view of this.child_views) {
+            child_view.parent_style.clear();
+        }
+        for (const child_view of this.child_views) {
+            if (child_view instanceof LayoutDOMView) {
+                if (!(child_view instanceof ReactiveESMView)) {
+                    prepare_nested_layouts(child_view);
+                }
+                child_view.update_layout();
+            }
+        }
+        this._update_layout();
     }
     notify_mount(child, id, remove = false) {
         if (!this._mounted.has(child)) {
@@ -400,7 +440,7 @@ export class ReactiveESMView extends HTMLBoxView {
     }
     render_error(error) {
         const error_div = div({ class: "error" });
-        error_div.innerHTML = formatError(error, this.model.esm);
+        error_div.innerHTML = formatError(error, this.model.esm_source);
         this.container.appendChild(error_div);
     }
     render() {
@@ -739,6 +779,12 @@ export class ReactiveESMView extends HTMLBoxView {
     }
 }
 export const RenderPolicy = Enum("manual", "children");
+export class ESMBundle extends Model {
+    static __module__ = "panel.models.esm";
+    static {
+        this.define(({ Str }) => ({ source: [Str, ""] }));
+    }
+}
 export class ReactiveESM extends HTMLBox {
     compiled = null;
     compiled_module = null;
@@ -961,13 +1007,16 @@ export class ReactiveESM extends HTMLBox {
         module.finally(() => URL.revokeObjectURL(url)).catch(() => { });
         return module;
     }
+    get esm_source() {
+        return typeof this.esm === "string" ? this.esm : this.esm.source;
+    }
     compile() {
         if (this.bundle != null) {
-            return this.esm;
+            return this.esm_source;
         }
         let compiled;
         try {
-            compiled = transform(this.esm, {
+            compiled = transform(this.esm_source, {
                 transforms: this.sucrase_transforms,
                 filePath: "render.tsx",
             }).code;
@@ -990,6 +1039,10 @@ export class ReactiveESM extends HTMLBox {
         return compiled;
     }
     get _module_cache_key() {
+        if (this.esm instanceof ESMBundle) {
+            // A rebuilt bundle can have the same path hash and different source.
+            return `${this.bundle}-${source_id(this.esm.source)}`;
+        }
         if (this.bundle === "url") {
             return this.esm;
         }
@@ -1029,7 +1082,7 @@ export class ReactiveESM extends HTMLBox {
                 MODULE_CACHE.set(cache_key, new Promise((res) => { resolve = res; }));
             }
             if (this.bundle === "url") {
-                esm_module = declared.then(() => resources.import_module(this.esm, this.external_resources?.shim));
+                esm_module = declared.then(() => resources.import_module(this.esm_source, this.external_resources?.shim));
             }
             else {
                 esm_module = declared.then(() => this._import_source(compiled));
@@ -1073,7 +1126,7 @@ export class ReactiveESM extends HTMLBox {
     static __module__ = "panel.models.esm";
     static {
         this.prototype.default_view = ReactiveESMView;
-        this.define(({ Any, Array, Bool, Nullable, Str }) => ({
+        this.define(({ Any, Array, Bool, Nullable, Or, Ref, Str }) => ({
             _defs: [Array(Any), []],
             css_bundle: [Nullable(Str), null],
             bundle: [Nullable(Str), null],
@@ -1081,7 +1134,7 @@ export class ReactiveESM extends HTMLBox {
             class_name: [Str, ""],
             data: [Any],
             dev: [Bool, false],
-            esm: [Str, ""],
+            esm: [Or(Str, Ref(ESMBundle)), ""],
             events: [Array(Str), []],
             importmap: [Any, {}],
             render_policy: [RenderPolicy, "children"],

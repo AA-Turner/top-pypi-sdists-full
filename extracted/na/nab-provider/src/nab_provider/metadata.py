@@ -2,40 +2,42 @@
 
 Extracts only the fields needed for dependency resolution from PEP
 566/643 METADATA files (RFC 822 format).  Lighter than
-:class:`packaging.metadata.Metadata` (no validation pass) and reuses
-:class:`packaging.requirements.Requirement` parsing through an
-LRU cache so repeated dep strings parse once.
+:class:`packaging.metadata.Metadata` (no general validation pass).
 """
 
 from __future__ import annotations
 
 __lazy_modules__ = (
     "contextlib",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.version",
+    "logging",
     "nab_provider.pep508",
+    "packaging.requirements",
+    "packaging.specifiers",
+    "packaging.version",
 )
 
+import logging
 import re
 from contextlib import suppress
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
-from nab_provider._vendor.packaging.specifiers import SpecifierSet
-from nab_provider._vendor.packaging.version import InvalidVersion, Version
-from nab_provider.pep508 import parse_requirement
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.version import InvalidVersion, Version
 
+from .pep508 import parse_requirement
 from .value import FACTORY, FactoryDefault, Record, factory_value
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from nab_provider._vendor.packaging.markers import Marker
-    from nab_provider._vendor.packaging.requirements import Requirement
+    from packaging.markers import Marker
 
 __all__ = [
     "DEPENDENCY_FIELDS",
     "WheelMetadata",
+    "check_metadata_version",
     "intern_version",
     "metadata_deps_are_static",
     "metadata_header_block",
@@ -99,12 +101,42 @@ DEPENDENCY_FIELDS = frozenset({"requires-dist", "provides-extra"})
 _MIN_STATIC_METADATA_VERSION = (2, 2)
 
 
+def check_metadata_version(value: str | None, name: str, version: str) -> None:
+    """Reject newer major Core Metadata formats and warn about newer minor versions."""
+    if value is None:
+        return
+
+    # Compare decimal components as text so even very long versions can be reported.
+    major, _, tail = value.strip().partition(".")
+    major = major.lstrip("0") or "0"
+    if major.isascii() and major.isdecimal() and major not in {"0", "1", "2"}:
+        msg = (
+            f"{name} {version} declares Metadata-Version {value!r}. "
+            "Nab supports Core Metadata through 2.6."
+        )
+        raise ValueError(msg)
+
+    minor = tail.partition(".")[0].lstrip("0") or "0"
+    if (
+        major == "2"
+        and minor.isascii()
+        and minor.isdecimal()
+        and minor not in {"0", "1", "2", "3", "4", "5", "6"}
+    ):
+        logging.getLogger(__name__).warning(
+            "%s %s declares Metadata-Version %r. "
+            "Nab supports Core Metadata through 2.6.",
+            name,
+            version,
+            value,
+        )
+
+
 def metadata_deps_are_static(metadata: WheelMetadata) -> bool:
     """Return True when a distribution's dependency fields are final.
 
-    Per :pep:`643` the values are trustworthy only at Metadata-Version
-    2.2 or later with no dependency field marked ``Dynamic``. Below 2.2
-    an sdist's declared dependencies may change when it is built.
+    :pep:`643` guarantees static dependencies for 2.x metadata from 2.2 onward
+    when no dependency field is marked ``Dynamic``.
     """
     if metadata.metadata_version is None:
         return False
@@ -112,7 +144,8 @@ def metadata_deps_are_static(metadata: WheelMetadata) -> bool:
         major, minor = (int(p) for p in metadata.metadata_version.split(".")[:2])
     except ValueError:
         return False
-    if (major, minor) < _MIN_STATIC_METADATA_VERSION:
+    supported_major, first_static_minor = _MIN_STATIC_METADATA_VERSION
+    if major != supported_major or minor < first_static_minor:
         return False
     return not (DEPENDENCY_FIELDS & metadata.dynamic)
 
@@ -131,37 +164,27 @@ def _intern_marker(marker: Marker) -> Marker:
 
 
 @lru_cache(maxsize=16384)
-def _parse_requirement_cached(req_str: str) -> Requirement:
-    """Cache ``parse_requirement(req_str)`` across wheel metadata.
-
-    The same dep strings (``numpy>=1.26``, ``pydantic<3``, etc.) recur
-    across many wheels in a dependency graph.  ``Requirement`` exposes
-    only read operations, so sharing parsed objects is safe.
-
-    Raises ``ValueError`` when the string does not parse or a clause
-    version will not convert.
-    """
-    req = parse_requirement(req_str)
+def _requirement_template(text: str) -> tuple[Requirement, str]:
+    """Parse recurring wheel dependencies once and keep the template private."""
+    req = parse_requirement(text)
     validate_specifier_versions(req.specifier)
     if req.marker is not None:
         req.marker = _intern_marker(req.marker)
+    return req, str(req.specifier)
+
+
+def _read_requirement(text: str) -> Requirement:
+    """Return a dependency whose extras and specifier clauses belong to this read."""
+    template, specifiers = _requirement_template(text)
+
+    # The parsed marker is read-only. Extras and specifier clauses are mutable.
+    req = Requirement.__new__(Requirement)
+    req.name = template.name
+    req.url = template.url
+    req.marker = template.marker
+    req.extras = template.extras.copy()
+    req.specifier = SpecifierSet(specifiers)
     return req
-
-
-@lru_cache(maxsize=4096)
-def _parse_requires_python_cached(value: str) -> SpecifierSet:
-    """Cache ``Requires-Python`` parsing across wheel metadata.
-
-    The same string recurs across a project's wheels the way dep strings do.
-    ``SpecifierSet.prereleases`` is settable, but nab never assigns to it and
-    passes ``prereleases`` per call instead, so sharing the object is safe.
-
-    Raises ``ValueError`` when the string does not parse or a clause
-    version will not convert.
-    """
-    specifier_set = SpecifierSet(value)
-    validate_specifier_versions(specifier_set)
-    return specifier_set
 
 
 @lru_cache(maxsize=65536)
@@ -374,11 +397,15 @@ def parse_metadata(data: str | bytes) -> WheelMetadata:
         err = "METADATA missing required Version field"
         raise ValueError(err)
 
+    metadata_version = _first(fields, "metadata-version")
+    check_metadata_version(metadata_version, name, version_str)
+
     requires_python_str = _first(fields, "requires-python")
     requires_python = None
     if requires_python_str:
         try:
-            requires_python = _parse_requires_python_cached(requires_python_str)
+            requires_python = SpecifierSet(requires_python_str)
+            validate_specifier_versions(requires_python)
         except ValueError as exc:
             # A malformed Requires-Python is invalid metadata; raise rather
             # than silently drop the field.
@@ -388,13 +415,10 @@ def parse_metadata(data: str | bytes) -> WheelMetadata:
             )
             raise ValueError(err) from exc
 
-    requires_dist = [
-        _parse_requirement_cached(r) for r in fields.get("requires-dist", ())
-    ]
+    requires_dist = [_read_requirement(r) for r in fields.get("requires-dist", ())]
 
     provides_extra = [e.strip() for e in fields.get("provides-extra", ())]
 
-    metadata_version = _first(fields, "metadata-version")
     # PEP 643 field names are case-insensitive, and RFC 822 makes surrounding
     # whitespace insignificant.
     dynamic = frozenset(d.strip().lower() for d in fields.get("dynamic", ()))

@@ -214,7 +214,13 @@ class _Harness:
         monkeypatch.setattr(replay, "_mark_recovered", mark)
         monkeypatch.setattr(replay, "_upgrade_legacy_chat_payloads", upgrade)
         monkeypatch.setattr(replay, "_op_already_satisfied", not_satisfied)
-        monkeypatch.setattr(replay, "_row_to_op", lambda r: r)
+        monkeypatch.setattr(replay, "_row_to_op", _op)
+
+        async def no_peer(rows_: Any) -> bool:
+            return False
+
+        monkeypatch.setattr(replay, "_rows_recovered_by_peer", no_peer)
+        monkeypatch.setattr(replay, "coalesce_ops", lambda ops: ops)
         monkeypatch.setattr(replay, "tier_ops", lambda ops: ops)
         monkeypatch.setattr(matrx_orm, "transaction", lambda *a, **k: _Txn())
         monkeypatch.setattr(orm_config, "get_all_database_project_names", lambda: ["test"])
@@ -492,3 +498,226 @@ async def test_record_failed_attempt_permanent_pins_retry_count_at_the_cap(monke
     assert gave_up == 0
     assert bumps == [["a", "b"]]
     assert updates == []
+
+
+# ── a unique collision with a landed write settles, never quarantines ────────
+#
+# Live evidence (2026-11-10, request dd82cc0c): a turn's chat.message insert
+# "timed out" but landed; three replay sweeps (one per server task) raced the
+# preserved group (the failed-turn message INSERT + its chat.user_request
+# UPDATE). One recovered it; the other two hit 23505, exact-verified EVERY op —
+# an UPDATE is never "satisfied" and the message's ``position`` -1 (append
+# sentinel) differed from the trigger's 49 — and quarantined a write that was
+# safely in the table.
+
+
+def _op(row: dict[str, Any]) -> Any:
+    from types import SimpleNamespace
+
+    pk = next(iter(row["primary_key"].values()))
+    return SimpleNamespace(
+        table=row["table_target"], pk_value=pk, op_type=row["op_type"], row_id=row["id"]
+    )
+
+
+def _collision_group() -> list[dict[str, Any]]:
+    insert = _row("msg", "builtins.RuntimeError: coordinator drop: queue_in_phase_errored")
+    update = _row("ur", "builtins.RuntimeError: coordinator drop: queue_in_phase_errored")
+    update.update(
+        table_target="chat.user_request",
+        op_type="update",
+        primary_key={"id": "request-1"},
+        payload={"status": "failed"},
+    )
+    return [insert, update]
+
+
+class _UniqueViolationError(RuntimeError):
+    sqlstate = "23505"
+
+
+@pytest.mark.asyncio
+async def test_unique_collision_with_a_landed_insert_recovers_and_reapplies_updates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    h = _Harness(monkeypatch, _collision_group())
+    monkeypatch.setattr(replay, "_row_to_op", _op)
+    landed = {"msg": False}
+
+    async def state(op: Any, *, verify_exact: bool = False) -> bool:
+        if op.op_type != "insert":
+            return False
+        if verify_exact:
+            # The pre-fix comparator: append sentinel -1 vs trigger-assigned 49.
+            raise replay.ImmutableReplayConflictError("immutable replay conflict: ['position']")
+        return landed[op.row_id]
+
+    calls: list[list[str]] = []
+
+    async def execute(tiers: Any) -> None:
+        calls.append([op.row_id for op in tiers])
+        if len(calls) == 1:
+            landed["msg"] = True  # a peer sweep landed the message first
+            raise _UniqueViolationError("duplicate key value [SQLSTATE 23505]")
+
+    async def not_peer(rows: Any) -> bool:
+        return False
+
+    monkeypatch.setattr(replay, "_op_already_satisfied", state)
+    monkeypatch.setattr(replay, "execute_tiers", execute)
+    monkeypatch.setattr(replay, "_rows_recovered_by_peer", not_peer)
+
+    report = await replay.replay_pending(
+        dry_run=False,
+        retry_errors=None,
+        max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS,
+    )
+
+    assert h.captured == [], "a landed write is not an incident"
+    assert h.attempts == [], "a landed write must never be quarantined"
+    assert calls == [["msg", "ur"], ["ur"]], "only the UPDATE is re-applied"
+    assert h.recovered == [["msg", "ur"]]
+    assert report.recovered_count == 2
+    assert report.quarantined_count == 0
+
+
+@pytest.mark.asyncio
+async def test_unique_collision_after_a_peer_recovered_the_group_writes_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    h = _Harness(monkeypatch, _collision_group())
+    monkeypatch.setattr(replay, "_row_to_op", _op)
+    calls: list[Any] = []
+
+    async def execute(tiers: Any) -> None:
+        calls.append(tiers)
+        raise _UniqueViolationError("duplicate key value [SQLSTATE 23505]")
+
+    async def peer(rows: Any) -> bool:
+        return True
+
+    monkeypatch.setattr(replay, "execute_tiers", execute)
+    monkeypatch.setattr(replay, "_rows_recovered_by_peer", peer)
+
+    report = await replay.replay_pending(
+        dry_run=False,
+        retry_errors=None,
+        max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS,
+    )
+
+    assert len(calls) == 1, "no second write once a peer settled the group"
+    assert h.captured == [] and h.attempts == []
+    assert h.recovered == [], "the peer's recovery receipt is kept, not overwritten"
+    assert report.by_request["request-1"] == "recovered (by a concurrent replay)"
+
+
+def test_append_position_sentinel_is_satisfied_by_the_assigned_position() -> None:
+    from matrx_orm import immutable_row_differences
+
+    import matrx_ai.db.message_positions  # noqa: F401 — declares the sentinel
+
+    landed = {"id": "m", "position": 49, "content": "x"}
+    intent = {"id": "m", "position": -1, "content": "x"}
+    assert immutable_row_differences(landed, intent, table="chat.message") == {}
+    # A real difference is still a conflict; an explicit position is still exact.
+    assert immutable_row_differences(landed, {**intent, "content": "y"}, table="chat.message")
+    assert immutable_row_differences(landed, {**intent, "position": 7}, table="chat.message")
+    # Undeclared tables compare exactly.
+    assert immutable_row_differences(landed, intent, table="chat.other") == {"position": {"expected": -1, "actual": 49}}
+
+
+class _LockNotAvailable(Exception):
+    sqlstate = "55P03"
+
+
+@pytest.mark.asyncio
+async def test_lock_contention_on_replay_is_a_peer_not_a_filed_failure(monkeypatch) -> None:
+    """Two sweeps reach one group together; the loser's lock timeout is counted, never filed.
+
+    2026-11-10: failure row c24828b1 drew two persistence_replay_failed rows (00:17:06, 00:17:07) from two
+    sweeps waiting on the row a third sweep landed at 00:17:07.68.
+    """
+    h = _Harness(monkeypatch, [_row("a", f"{DISK_SPILL_RECOVERED_MARKER}: QueryTimeoutError")])
+
+    async def contended(tiers: Any) -> None:
+        raise _LockNotAvailable("canceling statement due to lock timeout")
+
+    monkeypatch.setattr(replay, "execute_tiers", contended)
+
+    report = await replay.replay_pending(
+        dry_run=False,
+        retry_errors=replay.RECOVERABLE_RETRY_ERRORS,
+        max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS,
+    )
+
+    assert h.captured == [], "a lock wait lost to a concurrent writer files no system_error"
+    assert h.attempts == [
+        {"ids": ["a"], "max_attempts": replay.AUTO_REPLAY_MAX_ATTEMPTS, "permanent": False}
+    ], "the attempt still counts, so a row that never lands still reaches the quarantine"
+    assert report.quarantined_count == 0
+
+
+@pytest.mark.asyncio
+async def test_lock_contention_after_a_peer_landed_the_group_is_recovered(monkeypatch) -> None:
+    h = _Harness(monkeypatch, [_row("a", f"{DISK_SPILL_RECOVERED_MARKER}: QueryTimeoutError")])
+
+    async def contended(tiers: Any) -> None:
+        raise _LockNotAvailable("canceling statement due to lock timeout")
+
+    async def peer(rows: Any) -> bool:
+        return True
+
+    monkeypatch.setattr(replay, "execute_tiers", contended)
+    monkeypatch.setattr(replay, "_rows_recovered_by_peer", peer)
+
+    report = await replay.replay_pending(
+        dry_run=False, retry_errors=None, max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS
+    )
+
+    assert h.captured == [] and h.attempts == []
+    assert report.by_request["request-1"] == "recovered (by a concurrent replay)"
+
+
+@pytest.mark.asyncio
+async def test_lock_contention_that_exhausts_the_budget_is_quarantined_once(monkeypatch) -> None:
+    h = _Harness(monkeypatch, [_row("a", f"{DISK_SPILL_RECOVERED_MARKER}: QueryTimeoutError")])
+
+    async def contended(tiers: Any) -> None:
+        raise _LockNotAvailable("canceling statement due to lock timeout")
+
+    async def exhausted(rows_: Any, *, max_attempts: int | None, permanent: bool = False) -> int:
+        return len(rows_)
+
+    monkeypatch.setattr(replay, "execute_tiers", contended)
+    monkeypatch.setattr(replay, "_record_failed_attempt", exhausted)
+
+    report = await replay.replay_pending(
+        dry_run=False, retry_errors=None, max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS
+    )
+
+    assert [c["kind"] for c in h.captured] == ["persistence_replay_quarantined"]
+    assert report.quarantined_count == 1
+
+
+@pytest.mark.asyncio
+async def test_a_write_that_keeps_failing_files_one_system_error_not_one_per_attempt(monkeypatch) -> None:
+    """Live 2026-11-14: one orphan chat.tool_call insert (FK to a conversation that never landed) was retried
+    five times and each sweep filed its own persistence_replay_failed row. The first attempt files; the
+    sweeps that follow (retry_count 1..4) stay silent while still counting their attempt."""
+    fk = "asyncpg.exceptions.ForeignKeyViolationError: tool_call violates cx_tool_call_conversation_id_fkey [SQLSTATE 23503]"
+    filed = 0
+    for retry_count in range(replay.AUTO_REPLAY_MAX_ATTEMPTS):
+        h = _Harness(monkeypatch, [_row("a", f"{DISK_SPILL_RECOVERED_MARKER}: {fk}", retry_count=retry_count)])
+
+        async def orphan(tiers: Any) -> None:
+            raise RuntimeError("ForeignKeyViolationError: replay execution failed [SQLSTATE 23503]")
+
+        monkeypatch.setattr(replay, "execute_tiers", orphan)
+        await replay.replay_pending(
+            dry_run=False,
+            retry_errors=replay.RECOVERABLE_RETRY_ERRORS,
+            max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS,
+        )
+        assert len(h.attempts) == 1  # every attempt is still counted
+        filed += len(h.captured)
+    assert filed == 1

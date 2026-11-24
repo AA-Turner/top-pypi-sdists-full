@@ -56,6 +56,9 @@ class EvalRun(BaseModel):
   total_rollouts: int | None = None
   """Rollout total fixed at launch; null for legacy or diagnostic runs."""
 
+  created_by: str | None = None
+  """Who created this run: an email, or `api-key:<name>` for an API key."""
+
   created_at: datetime
   """Time when the evaluation run was created."""
 

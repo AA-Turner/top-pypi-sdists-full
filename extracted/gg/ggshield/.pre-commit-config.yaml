@@ -8,12 +8,12 @@ repos:
         exclude: snap_
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
+    rev: 7.5.0
     hooks:
       - id: flake8
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         # rust/hook/src/templates holds the ai-hook's message verbatim: a line
@@ -28,7 +28,7 @@ repos:
         exclude: .importlinter|rust/hook/src/templates/.*
 
   - repo: https://github.com/Woile/commitizen
-    rev: v4.1.0
+    rev: v4.19.3
     hooks:
       - id: commitizen
         # don't forget to run pre-commit install --hook-type commit-msg for this hook to run
@@ -41,7 +41,7 @@ repos:
         exclude: \.wxs$
 
   - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+    rev: 9.0.2
     hooks:
       - id: isort
 
@@ -55,7 +55,7 @@ repos:
         files: ^scripts/(install/.*\.sh|smoke-test-wheel)$
 
   - repo: https://github.com/thlorenz/doctoc
-    rev: v2.2.0
+    rev: v2.5.0
     hooks:
       - id: doctoc
         types: [markdown]
@@ -64,7 +64,7 @@ repos:
         files: '^README\.md$'
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.31.0
+    rev: 0.39.0
     hooks:
       - id: check-github-workflows
 
@@ -98,7 +98,7 @@ repos:
         stages: [pre-push]
 
   - repo: https://github.com/gitguardian/ggshield
-    rev: v1.55.0
+    rev: v1.56.1
     hooks:
       - id: ggshield
         language_version: python3

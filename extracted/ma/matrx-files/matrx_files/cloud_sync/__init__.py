@@ -24,6 +24,7 @@ Quick start::
     fm.write_json("base", "reports/q1.json", {"revenue": 1_000_000})
 
     # Managed write: full control over permissions and versioning
+    # only-me: not a write: a docstring example of a caller stating Only me
     result = fm.managed_write("reports/q1.json", data, shown_to="only_me",
                               share_with=["other-user-uuid"])
 

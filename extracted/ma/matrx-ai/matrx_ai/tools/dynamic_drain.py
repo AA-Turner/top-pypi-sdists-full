@@ -194,6 +194,11 @@ async def drain_tool_mutations(config, ctx):
             # In-loop additions requested by a tool the run already holds (TOOL-SOURCES
             # injectors table: dynamic_drain); bundle members are also tagged sticky below.
             source="in_loop",
+            # The agent's forbidden list holds mid-run too (TOOL-SOURCES.md rule U): a bundle,
+            # find_tools or load_tools never brings back a tool the agent forbids. A tool the
+            # person picked (user.add beats the list) is already on config.tools, so this only
+            # stops NEW additions.
+            excluded=list(getattr(config, "agent_excluded_tools", None) or ()),
             active_executors=active_tool_executors(ctx),
         )
         vcprint(
@@ -424,6 +429,37 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
     )
 
     consumed: list[ConsumedInjection] = []
+    host_batch: list[tuple[str, str, str, str, Any, bool]] = []
+
+    def _flush_host_batch() -> None:
+        if not host_batch:
+            return
+        _delivered = host_authored_user_turn(
+            "\n\n".join(item[2] for item in host_batch), reason=f"injection:{host_batch[0][1]}"
+        )
+        _sources = [item[3] for item in host_batch if item[3]]
+        if _sources:
+            _delivered.metadata["injection_source"] = _sources[0]
+        # neutral queue-item keys (never mark a person's words as the host's); the stamps are the
+        # ones the woken turn writes (inbox_driver.host_turn_stamps), so a chat draws both alike.
+        _delivered.metadata["injection_id"] = host_batch[0][0]
+        _delivered.metadata["inbox_injection_ids"] = [item[0] for item in host_batch]
+        _queued = [str(item[4]) for item in host_batch if item[4]]
+        if _queued:
+            _delivered.metadata["enqueued_by_request_id"] = _queued[0]
+        config.messages.append(_delivered)
+        for _id, _kind, _text, _src, _by, _vis in host_batch:
+            consumed.append(
+                ConsumedInjection(
+                    injection_id=_id,
+                    kind=_kind,
+                    text=_text,
+                    is_visible_to_user=False,
+                    position=len(config.messages) - 1,
+                )
+            )
+        host_batch.clear()
+
     for row in claimed:
         injection_id = str(_row_field(row, "id", ""))
         kind = _row_field(row, "kind", "user_message")
@@ -449,12 +485,12 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
         # message (the way tool results are delivered as a tool turn). The
         # Anthropic translator merges this with a preceding tool-result turn so
         # role alternation stays valid.
-        # NOTHING THE MODEL READS IS HIDDEN FROM THE OWNING PERSON (owner ruling 2026-10-23).
         # A host note (scheduled wake, deferred-tool result, background-run result, steer,
-        # agent_collab write-back, session-offer note) persists VISIBLE, flagged as the
-        # host's — ``metadata.authored_by = "host"`` with ``authored_reason`` and
-        # ``injection_source`` — so the chat labels it instead of quoting it as the person.
-        # The row's own ``is_visible_to_user`` no longer hides the delivered turn.
+        # agent_collab write-back, session-offer note) persists flagged as the host's —
+        # ``metadata.authored_by = "host"`` with ``authored_reason`` and ``injection_source`` —
+        # so the chat labels it instead of quoting it as the person. It carries
+        # ``is_visible_to_user=False`` (host_authored_user_turn: a server message is never
+        # listed as a message, Arman 2026-11-01); the model still reads it.
         source = str(_row_field(row, "source", "") or "")
         # 🚨 AUTHORSHIP IS STAMPED BY THE WRITER — no reader can infer it. Both
         # halves of this branch land as role="user"; only this code knows which
@@ -463,17 +499,31 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
         # so `user_content` is stamped EMPTY rather than left NULL (NULL means
         # "a row predating this contract", which makes every correct reader fall
         # back to `content` and quote the machine at her — matrx-frontend D327).
-        if kind == "user_message" and is_visible_to_user:
-            _delivered = UnifiedMessage(
-                role="user",
-                content=[TextContent(text=text)],
-                user_content=[TextContent(text=text)],
-                metadata={},
-            )
-        else:
-            _delivered = host_authored_user_turn(text, reason=f"injection:{kind}")
-            if source:
-                _delivered.metadata["injection_source"] = source
+        persons = kind == "user_message" and is_visible_to_user
+        _row_metadata = _row_field(row, "metadata", None)
+        _queued_by = (
+            _row_metadata.get("enqueued_by_request_id") if isinstance(_row_metadata, dict) else None
+        )
+        if not persons:
+            # ONE SHAPE FOR HOST NOTES (C135, PB-08 k=30): every host note a drain takes lands as ONE
+            # stored host message — the shape the woken turn (inbox_driver) already writes — never one
+            # message per row. Which path delivered a report (this boundary, or a woken turn) used to
+            # decide whether two helper reports were one message or two.
+            host_batch.append((injection_id, kind, text, source, _queued_by, is_visible_to_user))
+            continue
+        _flush_host_batch()
+        _delivered = UnifiedMessage(
+            role="user",
+            content=[TextContent(text=text)],
+            user_content=[TextContent(text=text)],
+            metadata={},
+        )
+        # THE STORED ROW NAMES ITS QUEUE ITEM (2026-11-05, conversation 6c9efe35...): a queued second send
+        # read as the server writing one message twice, because the row said nothing of where it came
+        # from. Neutral keys only — they never mark a person's words as the host's.
+        _delivered.metadata["injection_id"] = injection_id
+        if _queued_by:
+            _delivered.metadata["enqueued_by_request_id"] = str(_queued_by)
         config.messages.append(_delivered)
         # Echo the text + is_visible_to_user on the event so a client that didn't
         # originate the queue (reopened panel, other device) can render the
@@ -487,6 +537,7 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
                 position=len(config.messages) - 1,
             )
         )
+    _flush_host_batch()
 
     vcprint(
         f"[drain_pending_injections] conv={ctx.conversation_id} drained {len(consumed)} item(s)",
@@ -542,11 +593,138 @@ async def host_iteration_refresh(config, ctx):
     return new_ctx if new_ctx is not None else ctx
 
 
+#: How often the hold re-checks THIS process's registry (resume / Stop landed here). Not a limit:
+#: the cross-task timings (max hold, durable poll) are knobs, ``matrx_ai.db.turn_control``.
+_PAUSE_POLL_S = 0.25
+
+
+async def _spine_stop_while_held() -> str | None:
+    """The durable cross-task Stop (and tree budget / deadline) — the same host check the loop polls at
+    every iteration (``_ext.get_spine_control_check``). A Stop that reached ANOTHER server task lives
+    only there. None to keep holding; never raises."""
+    try:
+        from matrx_ai._ext import get_spine_control_check
+
+        check = get_spine_control_check()
+        return None if check is None else await check()
+    except Exception as exc:  # noqa: BLE001 - announced; a blip never ends a hold as a fake stop
+        from matrx_utils import vcprint
+
+        vcprint(f"[turn-control] the durable stop check failed while held (still held): {exc}", color="yellow")
+        return None
+
+
+async def apply_turn_controls(ctx) -> None:
+    """Apply the durable pause / resume items addressed to this run (Turn-Boundary Inbox, kind
+    ``turn_control``) to the in-process request tree. Delivery rides the DB, so it reaches the turn
+    whichever server task runs it. Never raises: a control that cannot be read is announced in the
+    log and the turn simply continues unpaused (a pause is never faked)."""
+    request_id = getattr(ctx, "request_id", None)
+    conversation_id = getattr(ctx, "conversation_id", None)
+    if not request_id or not conversation_id or not getattr(ctx, "store", True):
+        return
+    try:
+        from matrx_connect.request_controls import RequestControlRegistry
+
+        from matrx_ai.agents.conversation_type import STEERABLE_CHILD_KEY, is_internal_conversation
+        from matrx_ai.client_host import get_conversation_store
+
+        if get_conversation_store() is not None:
+            return
+        if is_internal_conversation(ctx) and not (getattr(ctx, "metadata", None) or {}).get(STEERABLE_CHILD_KEY):
+            return
+        from matrx_ai.db.cx_managers import cxm
+
+        registry = RequestControlRegistry.get_instance()
+        mine = {str(request_id), str(registry.root_of(request_id))}
+        for row in await cxm.pending_injection.claim_turn_controls(
+            str(conversation_id), request_ids=mine, request_id=str(request_id)
+        ):
+            op = str(_content_dict(_row_field(row, "content", {})).get("op") or "")
+            if op == "pause":
+                registry.pause(request_id)
+            elif op == "resume":
+                registry.resume(request_id)
+    except Exception as exc:  # noqa: BLE001 - announced, never silent; the turn must not die on a control read
+        from matrx_utils import vcprint
+
+        vcprint(f"[turn-control] could not read the durable pause/resume items: {exc}", color="yellow")
+
+
+async def hold_while_paused(ctx) -> None:
+    """Hold the running turn while its request tree is paused (``RequestControlRegistry.pause``).
+
+    A pause or resume sent to ANOTHER server task arrives as a durable inbox control item
+    (``apply_turn_controls``), read here at the boundary and while held. A Stop sent to another task
+    is the durable spine stamp, polled here on the same beat: it marks this process's registry
+    cancelled, so the loop's own cancel checks stop the turn at once. Ends on resume, on a stop, or
+    after ``agents.turn_control.pause_max_hold_seconds`` (announced). Emits ``info`` ``turn_paused``
+    / ``turn_resumed`` so the person sees the hold is real. Never raises.
+    """
+    import asyncio
+    import time
+
+    from matrx_connect.request_controls import RequestControlRegistry
+
+    from matrx_ai.db.turn_control import control_poll_seconds, pause_max_hold_seconds
+
+    request_id = getattr(ctx, "request_id", None)
+    if not request_id:
+        return
+    registry = RequestControlRegistry.get_instance()
+    await apply_turn_controls(ctx)
+    if not registry.is_paused(request_id):
+        return
+    emitter = getattr(ctx, "emitter", None)
+    from matrx_connect.context.events import InfoPayload
+
+    async def _say(code: str, message: str) -> None:
+        if emitter is None:
+            return
+        try:
+            await emitter.send_info(InfoPayload(code=code, system_message=message, user_message=message, metadata={"request_id": request_id}))
+        except Exception:  # noqa: BLE001 - the hold is real whether or not the note lands
+            return
+
+    await _say("turn_paused", "Paused at the next step. Resume to continue.")
+    max_hold = pause_max_hold_seconds()
+    poll_every = control_poll_seconds()
+    started = time.monotonic()
+    reason = "resumed"
+    last_poll = started
+    while registry.is_paused(request_id):
+        if time.monotonic() - last_poll >= poll_every:
+            last_poll = time.monotonic()
+            if await _spine_stop_while_held():
+                await registry.cancel(request_id)
+            else:
+                await apply_turn_controls(ctx)
+                if not registry.is_paused(request_id):
+                    break
+        if registry.is_cancelled(request_id):
+            reason = "stopped"
+            break
+        if time.monotonic() - started > max_hold:
+            registry.resume(request_id)
+            reason = "timed_out"
+            break
+        await asyncio.sleep(_PAUSE_POLL_S)
+    if reason == "stopped":
+        registry.resume(request_id)
+    elif reason == "resumed":
+        await _say("turn_resumed", "Resumed.")
+    elif reason == "timed_out":
+        await _say("turn_resumed", "Paused too long, so it continued on its own.")
+
+
 async def drain_pending(config, ctx):
     """Umbrella turn-boundary drain: in-memory tool mutations first, then the
     DB-backed inbox, then the host's iteration tool refresh. Three producers
     with different sources and idempotency models, unified at one call site so
     the orchestrator has a single drain point per iteration."""
+    # A paused turn holds HERE — the turn boundary — before anything is drained, so a
+    # steer or a person's edits sent while it waited reach this very next call.
+    await hold_while_paused(ctx)
     ctx = await drain_tool_mutations(config, ctx)
     ctx = await drain_pending_injections(config, ctx)
     ctx = await host_iteration_refresh(config, ctx)

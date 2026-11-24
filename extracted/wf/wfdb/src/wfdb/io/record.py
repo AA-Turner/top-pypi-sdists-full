@@ -4,13 +4,15 @@ import multiprocessing.dummy
 import os
 import posixpath
 import re
+import shutil
+import tempfile
+import warnings
 
-import fsspec
 import numpy as np
 import pandas as pd
 
 from wfdb.io import _header, _signal, _url, download, header, util
-from wfdb.io._coreio import CLOUD_PROTOCOLS, _join_path, _split_path
+from wfdb.io._coreio import CLOUD_PROTOCOLS, _fsspec_open, _join_path, _split_path
 from wfdb.io.archive import WFDBArchive, archive_for_writing, is_archive_path
 
 # -------------- WFDB Signal Calibration and Classification ---------- #
@@ -164,13 +166,15 @@ class BaseRecord:
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
     n_sig : int, optional
         Total number of signals.
     fs : int, float, optional
@@ -695,13 +699,15 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
     n_sig : int, optional
         Total number of signals.
     fs : float, optional
@@ -719,8 +725,10 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
     base_datetime : datetime.datetime, optional
         The date and time at the beginning of the record, equivalent to
         `datetime.combine(base_date, base_time)`.
-    file_name : str, optional
-        The name of the file used for analysis.
+    file_name : list, optional
+        The name of the signal file of each signal. The signals are written
+        to these files, which are not renamed when `record_name` is changed:
+        to save a copy of a record under a new name, set both.
     fmt : list, optional
         A list of strings giving the WFDB format of each file used to store each
         channel. Accepted formats are: '80','212','16','24', and '32'. There are
@@ -756,8 +764,9 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
 
     Examples
     --------
+    >>> import wfdb
     >>> record = wfdb.Record(record_name='r1', fs=250, n_sig=2, sig_len=1000,
-                         file_name=['r1.dat','r1.dat'])
+    ...                      file_name=['r1.dat', 'r1.dat'])
 
     """
 
@@ -827,6 +836,8 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         self.init_value = init_value
         self.checksum = checksum
         self.block_size = block_size
+        # The skew already applied to the signals when they were read, if any
+        self._applied_skew = None
 
     # Equal comparison operator for objects of this type
     def __eq__(self, other, verbose=False):
@@ -845,8 +856,9 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
             Determines if the objects are equal (True) or not equal (False).
 
         """
-        att1 = self.__dict__
-        att2 = other.__dict__
+        # How the signals were read does not affect whether records are equal
+        att1 = {k: v for k, v in self.__dict__.items() if k != "_applied_skew"}
+        att2 = {k: v for k, v in other.__dict__.items() if k != "_applied_skew"}
 
         if set(att1.keys()) != set(att2.keys()):
             if verbose:
@@ -883,6 +895,19 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
     def wrsamp(self, expanded=False, write_dir="", wfdb_archive=None):
         """Write a WFDB header file and any associated dat files from this object.
 
+        If the signals were read with their skew applied, they are already
+        aligned, so the header is written without skew. Read the record with
+        `ignore_skew=True` to write the signals and their skew as stored. The
+        `skew` attribute is not changed, and a value assigned to it after
+        reading is written to the header.
+
+        The header file is named after `record_name`, and the signal files are
+        named by `file_name`. A record that was read keeps the signal file
+        names of the original, so to save a copy under a new name, change
+        both, or the copy's signals are written to the original's files. A
+        warning is given when writing would replace an existing signal file
+        that is not listed by this record's own header in `write_dir`.
+
         Parameters
         ----------
         expanded : bool, optional
@@ -901,6 +926,17 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         -------
         N/A
 
+        Examples
+        --------
+        Save a copy of record 100 as record '100_copy':
+
+        >>> import wfdb
+        >>> record = wfdb.rdrecord('100', pn_dir='mitdb', sampto=1000,
+        ...                        physical=False)
+        >>> record.record_name = '100_copy'
+        >>> record.file_name = ['100_copy.dat'] * record.n_sig
+        >>> record.wrsamp()
+
         """
         converted = None
         if not expanded and self.d_signal is None and self.p_signal is not None:
@@ -909,6 +945,13 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         elif expanded and self.e_d_signal is None and self.e_p_signal is not None:
             self.e_d_signal = self.adc(expanded=True)
             converted = "e_d_signal"
+
+        # Signals that are already aligned must not be skewed again when read
+        # (a record pickled by an older version does not have _applied_skew)
+        skew = self.skew
+        applied_skew = getattr(self, "_applied_skew", None)
+        if applied_skew is not None and skew is not None and list(skew) == applied_skew:
+            self.skew = None
 
         try:
             # A record whose signals have no files, such as the layout header
@@ -933,9 +976,15 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
             if self.checksum is not None and has_signal_files:
                 checksums = self.calc_checksum(expanded=expanded)
                 for ch, old_val in enumerate(self.checksum):
-                    if old_val is None or (checksums[ch] - old_val) % 65536 == 0:
+                    if (
+                        old_val is None
+                        or (checksums[ch] - old_val) % _signal.CHECKSUM_MODULUS == 0
+                    ):
                         checksums[ch] = old_val
                 self.checksum = checksums
+
+            if wfdb_archive is None and has_signal_files and self.file_name:
+                self._warn_about_replacing_other_files(write_dir)
 
             with archive_for_writing(wfdb_archive, write_dir) as archive:
                 # Perform field validity and cohesion checks, and write the
@@ -950,8 +999,54 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
                         expanded=expanded, write_dir=write_dir, wfdb_archive=archive
                     )
         finally:
+            self.skew = skew
             if converted:
                 setattr(self, converted, None)
+
+    def _warn_about_replacing_other_files(self, write_dir):
+        """Warn if writing would replace signal files of another record.
+
+        A signal file that already exists is this record's own if the
+        record's header in `write_dir` lists it, as when a record is written
+        again. Otherwise it belongs to another record, as when a record that
+        was read is given a new `record_name` but keeps the original's
+        `file_name`.
+
+        Parameters
+        ----------
+        write_dir : str
+            The directory in which the files are to be written.
+
+        Returns
+        -------
+        N/A
+
+        """
+        record_name = self.record_name or ""
+        existing = [
+            file_name
+            for file_name in dict.fromkeys(self.file_name)
+            if file_name
+            and file_name != "~"
+            and os.path.exists(os.path.join(write_dir, file_name))
+        ]
+        if not existing:
+            return
+        try:
+            header = rdheader(os.path.join(write_dir, record_name))
+            own = set(getattr(header, "file_name", None) or [])
+        except Exception:
+            # No readable header of this record, so no file is its own yet
+            own = set()
+        others = [file_name for file_name in existing if file_name not in own]
+        if others:
+            warnings.warn(
+                f"Writing record {record_name!r} replaces existing signal files "
+                f"{', '.join(others)}, which are named by `file_name`, not "
+                "`record_name`. To write a copy of a record under a new name, "
+                "set `file_name` too.",
+                stacklevel=3,
+            )
 
     def _arrange_fields(self, channels, sampfrom, smooth_frames):
         """Arrange/edit object fields to reflect user channel and/or signal range input.
@@ -1047,6 +1142,50 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         return pd.DataFrame(data=data, index=index, columns=self.sig_name)
 
 
+def _move_files_into_place(source_dir, target_dir):
+    """Move every file in a directory into another directory, all or none.
+
+    A file that replaces an existing file gets that file's permissions. If a
+    move fails, the files that were already moved are removed and the files
+    they replaced are restored, before the error is raised again, so that
+    `target_dir` is left as it was.
+
+    Parameters
+    ----------
+    source_dir : str
+        The directory of the files to move. The files that are replaced are
+        kept in a folder in it until all the files have been moved.
+    target_dir : str
+        The directory to move the files into, on the same file system.
+
+    Returns
+    -------
+    N/A
+
+    """
+    names = sorted(os.listdir(source_dir))
+    replaced_dir = os.path.join(source_dir, ".replaced")
+    os.mkdir(replaced_dir)
+    moved = []
+    replaced = []
+    try:
+        for name in names:
+            new_file = os.path.join(source_dir, name)
+            target = os.path.join(target_dir, name)
+            if os.path.lexists(target):
+                shutil.copymode(target, new_file)
+                os.replace(target, os.path.join(replaced_dir, name))
+                replaced.append(name)
+            os.replace(new_file, target)
+            moved.append(name)
+    except BaseException:
+        for name in moved:
+            os.remove(os.path.join(target_dir, name))
+        for name in replaced:
+            os.replace(os.path.join(replaced_dir, name), os.path.join(target_dir, name))
+        raise
+
+
 class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
     """The class representing multi-segment WFDB records.
 
@@ -1077,13 +1216,15 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
     n_sig : int, optional
         Total number of signals.
     fs : int, float, optional
@@ -1114,16 +1255,10 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
 
     Examples
     --------
-    >>> record_m = wfdb.MultiRecord(record_name='rm', fs=50, n_sig=8,
-                                    sig_len=9999, seg_name=['rm_1', '~', rm_2'],
-                                    seg_len=[800, 200, 900])
-    >>> # Get a MultiRecord object
-    >>> record_s = wfdb.rdsamp('s00001-2896-10-10-00-31', m2s=False)
-    >>> # Turn it into a single record
-    >>> record_s = record_s.multi_to_single()
-
-    record_s initially stores a `MultiRecord` object, and is then converted into
-    a `Record` object.
+    >>> import wfdb
+    >>> record_m = wfdb.MultiRecord(record_name='rm', fs=50, n_sig=1,
+    ...                             sig_len=100, seg_name=['rm_1'],
+    ...                             seg_len=[100])
 
     """
 
@@ -1174,6 +1309,13 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
     def wrsamp(self, expanded=False, write_dir="", wfdb_archive=None):
         """Write a multi-segment header and the headers and dat files of its segments.
 
+        The files are written into a temporary folder in `write_dir`, and
+        moved into `write_dir` once every segment has been written. If an
+        error occurs, no files are left in `write_dir`, and any files that
+        were being replaced are restored. The files are moved one at a time,
+        so a program reading them meanwhile, or a crash while they are moved,
+        can still see a mix of old and new files.
+
         Parameters
         ----------
         expanded : bool, optional
@@ -1194,22 +1336,90 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
         N/A
 
         """
-        # Validate segment cohesion before writing anything.
+        # Validate the segments before writing anything.
         self._check_segment_cohesion()
+        self._check_segment_signals(expanded)
 
-        with archive_for_writing(wfdb_archive) as archive:
-            # Perform field validity and cohesion checks, and write the
-            # header file.
-            self.wrheader(write_dir=write_dir, wfdb_archive=archive)
-            # Perform record validity and cohesion checks, and write the
-            # associated segments. Empty segments ('~') have no files.
-            for seg in self.segments:
-                if seg is not None:
-                    seg.wrsamp(
-                        expanded=expanded,
-                        write_dir=write_dir,
-                        wfdb_archive=archive,
+        if wfdb_archive is not None:
+            # An archive opened from a path is discarded if writing fails
+            with archive_for_writing(wfdb_archive, write_dir) as archive:
+                self._write_segments(expanded, write_dir, archive)
+            return
+
+        # Write the files into a temporary directory first, and move them into
+        # write_dir only once every segment has been written, so that a segment
+        # that cannot be written leaves no partly written record behind.
+        # (in write_dir itself, so that the files can be moved, not copied)
+        with tempfile.TemporaryDirectory(
+            dir=write_dir or os.curdir, prefix=".wfdb-"
+        ) as staging:
+            self._write_segments(expanded, staging, None)
+            _move_files_into_place(staging, write_dir or os.curdir)
+
+    def _write_segments(self, expanded, write_dir, wfdb_archive):
+        """Write the multi-segment header, and the files of each segment.
+
+        Parameters
+        ----------
+        expanded : bool
+            Whether to write each segment's expanded signal.
+        write_dir : str
+            The directory in which to write the files.
+        wfdb_archive : WFDBArchive or None
+            The archive to write the files into, if any.
+
+        Returns
+        -------
+        N/A
+
+        """
+        # Perform field validity and cohesion checks, and write the header file.
+        self.wrheader(write_dir=write_dir, wfdb_archive=wfdb_archive)
+        # Perform record validity and cohesion checks, and write the associated
+        # segments. Empty segments ('~') have no files.
+        for seg in self.segments:
+            if seg is not None:
+                seg.wrsamp(
+                    expanded=expanded, write_dir=write_dir, wfdb_archive=wfdb_archive
+                )
+
+    def _check_segment_signals(self, expanded):
+        """Check that each segment has the signal that is to be written.
+
+        Parameters
+        ----------
+        expanded : bool
+            Whether each segment's expanded signal is to be written.
+
+        Returns
+        -------
+        N/A
+
+        """
+        for seg_num, segment in enumerate(self.segments):
+            # Empty segments, and the layout header of a variable layout
+            # record, have no signal files
+            if segment is None or (
+                segment.file_name is not None
+                and all(f == "~" for f in segment.file_name)
+            ):
+                continue
+            name = f"Segment {seg_num} ({segment.record_name})"
+            if expanded:
+                if segment.e_d_signal is None and segment.e_p_signal is None:
+                    raise ValueError(
+                        f"{name} has no expanded signal (e_d_signal or e_p_signal) "
+                        "to write with expanded=True"
                     )
+                if segment.samps_per_frame is None:
+                    raise ValueError(
+                        f"{name} has no samps_per_frame, which is needed to "
+                        "write its expanded signal"
+                    )
+            elif segment.d_signal is None and segment.p_signal is None:
+                raise ValueError(
+                    f"{name} has no signal (d_signal or p_signal) to write"
+                )
 
     def _check_segment_cohesion(self):
         """Check the cohesion of the segments field with the other fields.
@@ -1822,6 +2032,44 @@ def check_np_array(item, field_name, ndim, parent_class, channel_num=None):
 # ------------------------- Reading Records --------------------------- #
 
 
+def _resolve_pn_dir(record_name, pn_dir):
+    """Find the PhysioNet directory and name of a record to read.
+
+    Adds the latest version of the database to `pn_dir` if it has no version,
+    and moves any folders in `record_name` to the end of `pn_dir`, so that
+    reading "files/p1/100" with pn_dir="demo" reads "100" with
+    pn_dir="demo/<latest version>/files/p1".
+
+    Parameters
+    ----------
+    record_name : str
+        The name of the record, which may start with folders in the database.
+    pn_dir : str
+        The PhysioNet database, with an optional version and folders.
+
+    Returns
+    -------
+    record_name : str
+        The name of the record, without folders.
+    pn_dir : str
+        The PhysioNet directory that holds the record.
+
+    """
+    if any(pn_dir.startswith(proto) for proto in CLOUD_PROTOCOLS):
+        raise ValueError(
+            "Cloud paths should be passed under record_name, not under pn_dir"
+        )
+    if "." not in pn_dir:
+        dir_list = pn_dir.split("/")
+        pn_dir = posixpath.join(
+            dir_list[0], download.get_version(dir_list[0]), *dir_list[1:]
+        )
+    folders, record_name = posixpath.split(record_name)
+    if folders:
+        pn_dir = posixpath.join(pn_dir, folders)
+    return record_name, pn_dir
+
+
 def rdheader(record_name, pn_dir=None, rd_segments=False):
     """Read a WFDB header file and return a `Record` or `MultiRecord`.
 
@@ -1834,13 +2082,15 @@ def rdheader(record_name, pn_dir=None, rd_segments=False):
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
         To read the header from a local .wfdb archive, pass the path of
         the archive including the .wfdb extension.
     pn_dir : str, optional
@@ -1860,6 +2110,7 @@ def rdheader(record_name, pn_dir=None, rd_segments=False):
 
     Examples
     --------
+    >>> import wfdb
     >>> ecg_record = wfdb.rdheader('100', pn_dir='mitdb')
 
     """
@@ -1877,30 +2128,20 @@ def rdheader(record_name, pn_dir=None, rd_segments=False):
 
     # If this is a cloud path, use fsspec to open the file
     if any(dir_name.startswith(proto) for proto in CLOUD_PROTOCOLS):
-        with fsspec.open(_join_path(dir_name, file_name), mode="r") as f:
+        with _fsspec_open(_join_path(dir_name, file_name), mode="r") as f:
             header_content = f.read()
 
     # If the PhysioNet database path is provided, construct the download path using the
     # database version
     elif pn_dir is not None:
-        # check to make sure a cloud path isn't being passed under pn_dir
-        if any(pn_dir.startswith(proto) for proto in CLOUD_PROTOCOLS):
-            raise ValueError(
-                "Cloud paths should be passed under record_name, not under pn_dir"
-            )
-
-        if "." not in pn_dir:
-            dir_list = pn_dir.split("/")
-            pn_dir = posixpath.join(
-                dir_list[0], download.get_version(dir_list[0]), *dir_list[1:]
-            )
-
+        base_record_name, pn_dir = _resolve_pn_dir(record_name, pn_dir)
+        file_name = f"{base_record_name}.hea"
         header_content = download._stream_header(file_name, pn_dir)
 
     # If it isn't a cloud path or a PhysioNet path, we treat as a local file
     else:
         dir_name = os.path.abspath(dir_name)
-        with fsspec.open(
+        with _fsspec_open(
             os.path.join(dir_name, file_name),
             "r",
             encoding="ascii",
@@ -1943,6 +2184,8 @@ def _read_record_header(record_name, dir_name, pn_dir, wfdb_archive):
     """
     if wfdb_archive is not None:
         return _parse_header_content(wfdb_archive.read_header(record_name))
+    if pn_dir is not None:
+        return rdheader(record_name, pn_dir=pn_dir)
     return rdheader(_join_path(dir_name, record_name), pn_dir=pn_dir)
 
 
@@ -2065,13 +2308,15 @@ def rdrecord(
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
         To read a record from a local .wfdb archive, pass the path of
         the archive including the .wfdb extension.
     sampfrom : int, optional
@@ -2147,9 +2392,9 @@ def rdrecord(
 
     Examples
     --------
-    >>> record = wfdb.rdrecord('sample-data/test01_00s', sampfrom=800,
-                               channels=[1, 3])
-    >>> record = wfdb.rdrecord('100.wfdb')
+    >>> import wfdb
+    >>> record = wfdb.rdrecord('100', pn_dir='mitdb', sampfrom=800,
+    ...                        sampto=900, channels=[0, 1])
 
     """
     if is_archive_path(record_name):
@@ -2210,16 +2455,7 @@ def _rdrecord(
 
     # Read the header fields
     if pn_dir is not None:
-        # check to make sure a cloud path isn't being passed under pn_dir
-        if any(pn_dir.startswith(proto) for proto in CLOUD_PROTOCOLS):
-            raise ValueError(
-                "Cloud paths should be passed under record_name, not under pn_dir"
-            )
-        if "." not in pn_dir:
-            dir_list = pn_dir.split("/")
-            pn_dir = posixpath.join(
-                dir_list[0], download.get_version(dir_list[0]), *dir_list[1:]
-            )
+        record_name, pn_dir = _resolve_pn_dir(record_name, pn_dir)
 
     if wfdb_archive is not None:
         segment_name = None if is_archive_path(record_name) else record_name
@@ -2355,6 +2591,9 @@ def _rdrecord(
                 # Perform dac to get physical signal
                 record.dac(expanded=True, return_res=return_res, inplace=True)
 
+        if not ignore_skew and record.skew is not None and any(record.skew):
+            record._applied_skew = list(record.skew)
+
     # A multi segment record
     else:
         # Strategy:
@@ -2410,8 +2649,12 @@ def _rdrecord(
                     wfdb_archive=wfdb_archive,
                 )
             else:
+                # On PhysioNet, the segments are in pn_dir, not in dir_name
+                segment_name = record.seg_name[seg_num]
+                if pn_dir is None:
+                    segment_name = _join_path(dir_name, segment_name)
                 record.segments[seg_num] = rdrecord(
-                    _join_path(dir_name, record.seg_name[seg_num]),
+                    segment_name,
                     sampfrom=seg_ranges[i][0],
                     sampto=seg_ranges[i][1],
                     channels=seg_channels[i],
@@ -2467,13 +2710,15 @@ def rdsamp(
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
     sampfrom : int, optional
         The starting sample number to read for all channels.
     sampto : int, 'end', optional
@@ -2530,9 +2775,9 @@ def rdsamp(
 
     Examples
     --------
-    >>> signals, fields = wfdb.rdsamp('sample-data/test01_00s',
-                                      sampfrom=800,
-                                      channels=[1,3])
+    >>> import wfdb
+    >>> signals, fields = wfdb.rdsamp('100', pn_dir='mitdb', sampfrom=800,
+    ...                               sampto=900, channels=[0, 1])
 
     """
     if pn_dir is not None:
@@ -2587,13 +2832,15 @@ def sampfreq(record_name, pn_dir=None):
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
     pn_dir : str, optional
         Option used to stream data from Physionet. The Physionet
         database directory from which to find the required record files.
@@ -2606,11 +2853,14 @@ def sampfreq(record_name, pn_dir=None):
 
     Examples
     --------
-    >>> wfdb.sampfreq('sample-data/test01_00s')
-    >>> ECG 1    500
-    >>> ECG 2    500
-    >>> ECG 3    500
-    >>> ECG 4    500
+    >>> import wfdb
+    >>> from contextlib import redirect_stdout
+    >>> from io import StringIO
+    >>> output = StringIO()
+    >>> with redirect_stdout(output):
+    ...     wfdb.sampfreq('100', pn_dir='mitdb')
+    >>> [line.split() for line in output.getvalue().splitlines()]
+    [['MLII', '360'], ['V5', '360']]
 
     """
     if (pn_dir is not None) and ("." not in pn_dir):
@@ -2637,13 +2887,15 @@ def signame(record_name, pn_dir=None, sig_nums=[]):
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
     pn_dir : str, optional
         Option used to stream data from Physionet. The Physionet
         database directory from which to find the required record files.
@@ -2658,15 +2910,13 @@ def signame(record_name, pn_dir=None, sig_nums=[]):
 
     Examples
     --------
-    >>> wfdb.signame('sample-data/test01_00s')
-    >>> ECG 1
-    >>> ECG 2
-    >>> ECG 3
-    >>> ECG 4
+    >>> import wfdb
+    >>> wfdb.signame('100', pn_dir='mitdb')
+    MLII
+    V5
 
-    >>> wfdb.signame('sample-data/test01_00s', sig_nums=[1,3])
-    >>> ECG 2
-    >>> ECG 4
+    >>> wfdb.signame('100', pn_dir='mitdb', sig_nums=[1])
+    V5
 
     """
     if (pn_dir is not None) and ("." not in pn_dir):
@@ -2696,13 +2946,15 @@ def wfdbdesc(record_name, pn_dir=None):
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
     pn_dir : str, optional
         Option used to stream data from Physionet. The Physionet
         database directory from which to find the required record files.
@@ -2715,6 +2967,7 @@ def wfdbdesc(record_name, pn_dir=None):
 
     Examples
     --------
+    >>> import wfdb
     >>> wfdb.wfdbdesc('100', pn_dir='mitdb')
     Record 100
     Notes
@@ -2722,7 +2975,7 @@ def wfdbdesc(record_name, pn_dir=None):
      69 M 1085 1629 x1
      Aldomet, Inderal
     =====
-
+    <BLANKLINE>
     Starting time: not specified
     Length: 0:30:05.555556 (650000 sample intervals)
     Sampling frequency: 360 Hz
@@ -2830,13 +3083,15 @@ def wfdbtime(record_name, input_times, pn_dir=None):
         extensions. If the argument contains any path delimiter
         characters, the argument will be interpreted as PATH/BASE_RECORD.
         Both relative and absolute paths are accepted. If `pn_dir` is set,
-        `record_name` should contain just the base record name, and the
-        files will be searched for remotely on PhysioNet. Otherwise,
+        the files are read from PhysioNet, and folders in the database may be
+        given in `record_name`, in `pn_dir`, or split between them. Otherwise,
         files are searched for locally, or when `record_name` is a
         supported cloud URI, they are read directly from cloud storage
         via `fsspec`. Supported URIs: `s3://`, `gs://`, `az://`,
-        `azureml://`, `memory://`. Other than for `memory://`, install the
-        appropriate `fsspec` backend (e.g., `s3fs`, `gcsfs`, `adlfs`).
+        `azureml://`, `memory://`, `physionet://`. Other than for `memory://`
+        and `physionet://`, install the appropriate `fsspec` backend (e.g.,
+        `s3fs`, `gcsfs`, `adlfs`). `physionet://` URIs read from PhysioNet,
+        including restricted databases after `physionet login`.
     input_times : str, list
         The desired times (or samples) to be converted and displayed for the
         chosen record. This can either be a single string, or a list of
@@ -2860,31 +3115,39 @@ def wfdbtime(record_name, input_times, pn_dir=None):
 
     Examples
     --------
-    * Note, the use of a single string instead of a list.
-    >>> wfdb.wfdbtime('sample-data/100', 's250')
-        s250            00:00:00.694                    00:00:00.694
+    >>> import wfdb
 
-    * Note, the elapsed time and date fields are the same since no start time
-      or date was provided.
-    >>> wfdb.wfdbtime('sample-data/100', ['s10',':5:','2'])
-         s10            00:00:00.028                    00:00:00.028
-     s108000            00:05:00.000                    00:05:00.000
-        s720            00:00:02.000                    00:00:02.000
+    A single time can be given as a string instead of a list.
 
-    * Note, '01/01/0001' represents a start time was provided but not a date.
-    >>> wfdb.wfdbtime('sample-data/3000003_0003', ['s1','0:0:05','e'])
-          s1            00:00:00.008    [19:46:25.765000 01/01/0001]
-        s625            00:00:05.000    [19:46:30.757000 01/01/0001]
-       s1028            00:00:08.224    [19:46:33.981000 01/01/0001]
+    >>> wfdb.wfdbtime('100', 's250', pn_dir='mitdb')
+            s250            00:00:00.694                    00:00:00.694
 
-    * Note, the final argument results in the same date field as the argument
-      but a different value for the elapsed time.
-    >>> wfdb.wfdbtime('sample-data/3000003_0003',
-    ...               ['s1', '::5', 'e', '19:46:34.981 01/01/0001'])
-          s1            00:00:00.008    [19:46:25.765000 01/01/0001]
-        s625            00:00:05.000    [19:46:30.757000 01/01/0001]
-       s1028            00:00:08.224    [19:46:33.981000 01/01/0001]
-       s1153            00:00:09.224    [19:46:34.981000 01/01/0001]
+    The elapsed time and date fields are the same, since the record has no
+    start time or date.
+
+    >>> wfdb.wfdbtime('100', ['s10', ':5:', '2'], pn_dir='mitdb')
+             s10            00:00:00.028                    00:00:00.028
+         s108000            00:05:00.000                    00:05:00.000
+            s720            00:00:02.000                    00:00:02.000
+
+    A date of '01/01/0001' means that the record has a start time but no date.
+
+    >>> wfdb.wfdbtime('3000003_0003', ['s1', '0:0:05', 'e'],
+    ...               pn_dir='mimic3wdb/30/3000003')
+              s1            00:00:00.008    [19:46:25.765000 01/01/0001]
+            s625            00:00:05.000    [19:46:30.757000 01/01/0001]
+           s1028            00:00:08.224    [19:46:33.981000 01/01/0001]
+
+    The final argument gives the same date field as the argument, but a
+    different elapsed time.
+
+    >>> wfdb.wfdbtime('3000003_0003',
+    ...               ['s1', '::5', 'e', '19:46:34.981 01/01/0001'],
+    ...               pn_dir='mimic3wdb/30/3000003')
+              s1            00:00:00.008    [19:46:25.765000 01/01/0001]
+            s625            00:00:05.000    [19:46:30.757000 01/01/0001]
+           s1028            00:00:08.224    [19:46:33.981000 01/01/0001]
+           s1153            00:00:09.224    [19:46:34.981000 01/01/0001]
 
     """
     if (pn_dir is not None) and ("." not in pn_dir):
@@ -3148,16 +3411,18 @@ def wrsamp(
 
     Examples
     --------
+    >>> import wfdb
     >>> # Read part of a record from Physionet
-    >>> signals, fields = wfdb.rdsamp('a103l', sampfrom=50000, channels=[0,1],
-                                      pn_dir='challenge-2015/training')
+    >>> signals, fields = wfdb.rdsamp('a103l', sampfrom=50000,
+    ...                               sampto=51000, channels=[0, 1],
+    ...                               pn_dir='challenge-2015/training')
     >>> # Write a local WFDB record (manually inserting fields)
-    >>> wfdb.wrsamp('ecgrecord', fs = 250, units=['mV', 'mV'],
-                    sig_name=['I', 'II'], p_signal=signals, fmt=['16', '16'])
+    >>> wfdb.wrsamp('ecgrecord', fs=250, units=['mV', 'mV'],
+    ...             sig_name=['I', 'II'], p_signal=signals, fmt=['16', '16'])
     >>> # Write the same record into a .wfdb archive
-    >>> wfdb.wrsamp('ecgrecord', fs = 250, units=['mV', 'mV'],
-                    sig_name=['I', 'II'], p_signal=signals, fmt=['16', '16'],
-                    wfdb_archive='ecgrecord.wfdb')
+    >>> wfdb.wrsamp('ecgrecord', fs=250, units=['mV', 'mV'],
+    ...             sig_name=['I', 'II'], p_signal=signals, fmt=['16', '16'],
+    ...             wfdb_archive='ecgrecord.wfdb')
 
     """
     # Check for valid record name
@@ -3304,22 +3569,36 @@ def dl_database(
         as they are organized in PhysioNet (True), or to download all
         files into the same base directory (False).
     overwrite : bool, optional
-        If True, all files will be redownloaded regardless. If False,
-        existing files with the same name and relative subdirectory will
-        be checked. If the local file is the same size as the online
-        file, the download is skipped. If the local file is larger, it
-        will be deleted and the file will be redownloaded. If the local
-        file is smaller, the file will be assumed to be partially
-        downloaded and the remaining bytes will be downloaded and
-        appended.
+        If True, all files are downloaded again, and each saved file is only
+        replaced once its new copy is complete and checked. If False, a file
+        that is already saved with the right content (checked against the
+        database's checksum list) is skipped, a partly downloaded file is
+        completed, and any other saved file is downloaded again in its place,
+        which removes the saved file if the new download fails its checksum.
 
     Returns
     -------
     N/A
 
+    Notes
+    -----
+    Files are downloaded with the `physionet` package, two at a time, from the
+    AWS open data mirror for open databases, and from PhysioNet for restricted
+    ones, which can be downloaded after signing in with `physionet login`.
+    Each file is checked against the database's checksum list, and which
+    annotation files there are is found from that list. If the database index
+    URL has been set to another server with `set_db_index_url`, files are
+    downloaded from that server instead, comparing only their sizes when they
+    are already saved.
+
     Examples
     --------
-    >>> wfdb.dl_database('ahadb', os.getcwd())
+    >>> from contextlib import redirect_stdout
+    >>> from io import StringIO
+    >>> import wfdb
+    >>> with redirect_stdout(StringIO()):
+    ...     wfdb.dl_database('mitdb', './mitdb', records=['100'],
+    ...                      annotators=['atr'])
 
     """
     # Full url PhysioNet database
@@ -3338,6 +3617,9 @@ def dl_database(
     record_list = download.get_record_list(db_dir, records)
     # Get the annotator extensions
     annotators = download.get_annotators(db_dir, annotators)
+    # The files in the database, to check which annotation files there are
+    # (None if the database index URL is not PhysioNet's)
+    project_files = download._project_files(db_dir) if annotators else None
 
     # All files to download (relative to the database's home directory)
     all_files = []
@@ -3387,12 +3669,22 @@ def dl_database(
         if annotators is not None:
             for a in annotators:
                 ann_file = rec + "." + a
+                if project_files is not None:
+                    if ann_file in project_files:
+                        all_files.append(ann_file)
+                    continue
                 url = posixpath.join(download.config.db_index_url, db_dir, ann_file)
                 try:
                     _url.openurl(url, check_access=True)
                     all_files.append(ann_file)
                 except FileNotFoundError:
                     pass
+
+    if download._physionet_uri(db_dir, "") is not None:
+        print("Downloading files...")
+        download._download_files(db_dir, dl_dir, all_files, keep_subdirs, overwrite)
+        print("Finished downloading files")
+        return
 
     dl_inputs = [
         (

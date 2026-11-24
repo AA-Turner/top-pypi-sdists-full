@@ -1,7 +1,9 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import tag_filter_pb2 as _tag_filter_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.container.v1 import snapshot_compatibility_pb2 as _snapshot_compatibility_pb2
-from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
+from chalk._gen.chalk.volume.v2 import volume_pb2 as _volume_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -25,6 +27,17 @@ class SandboxSnapshotStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SANDBOX_SNAPSHOT_STATUS_COMPLETED: _ClassVar[SandboxSnapshotStatus]
     SANDBOX_SNAPSHOT_STATUS_FAILED: _ClassVar[SandboxSnapshotStatus]
 
+class SandboxSnapshotPhase(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SANDBOX_SNAPSHOT_PHASE_UNSPECIFIED: _ClassVar[SandboxSnapshotPhase]
+    SANDBOX_SNAPSHOT_PHASE_PENDING: _ClassVar[SandboxSnapshotPhase]
+    SANDBOX_SNAPSHOT_PHASE_CHECKPOINTING: _ClassVar[SandboxSnapshotPhase]
+    SANDBOX_SNAPSHOT_PHASE_UPLOADING: _ClassVar[SandboxSnapshotPhase]
+    SANDBOX_SNAPSHOT_PHASE_PUBLISHING: _ClassVar[SandboxSnapshotPhase]
+    SANDBOX_SNAPSHOT_PHASE_COMPLETED: _ClassVar[SandboxSnapshotPhase]
+    SANDBOX_SNAPSHOT_PHASE_FAILED: _ClassVar[SandboxSnapshotPhase]
+    SANDBOX_SNAPSHOT_PHASE_RECOVERY_REQUIRED: _ClassVar[SandboxSnapshotPhase]
+
 class SandboxSnapshotSortColumn(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SANDBOX_SNAPSHOT_SORT_COLUMN_UNSPECIFIED: _ClassVar[SandboxSnapshotSortColumn]
@@ -41,11 +54,37 @@ SANDBOX_SNAPSHOT_STATUS_PENDING: SandboxSnapshotStatus
 SANDBOX_SNAPSHOT_STATUS_IN_PROGRESS: SandboxSnapshotStatus
 SANDBOX_SNAPSHOT_STATUS_COMPLETED: SandboxSnapshotStatus
 SANDBOX_SNAPSHOT_STATUS_FAILED: SandboxSnapshotStatus
+SANDBOX_SNAPSHOT_PHASE_UNSPECIFIED: SandboxSnapshotPhase
+SANDBOX_SNAPSHOT_PHASE_PENDING: SandboxSnapshotPhase
+SANDBOX_SNAPSHOT_PHASE_CHECKPOINTING: SandboxSnapshotPhase
+SANDBOX_SNAPSHOT_PHASE_UPLOADING: SandboxSnapshotPhase
+SANDBOX_SNAPSHOT_PHASE_PUBLISHING: SandboxSnapshotPhase
+SANDBOX_SNAPSHOT_PHASE_COMPLETED: SandboxSnapshotPhase
+SANDBOX_SNAPSHOT_PHASE_FAILED: SandboxSnapshotPhase
+SANDBOX_SNAPSHOT_PHASE_RECOVERY_REQUIRED: SandboxSnapshotPhase
 SANDBOX_SNAPSHOT_SORT_COLUMN_UNSPECIFIED: SandboxSnapshotSortColumn
 SANDBOX_SNAPSHOT_SORT_COLUMN_CREATED_AT: SandboxSnapshotSortColumn
 SANDBOX_SNAPSHOT_SORT_ORDER_UNSPECIFIED: SandboxSnapshotSortOrder
 SANDBOX_SNAPSHOT_SORT_ORDER_DESC: SandboxSnapshotSortOrder
 SANDBOX_SNAPSHOT_SORT_ORDER_ASC: SandboxSnapshotSortOrder
+
+class SandboxSnapshotProgress(_message.Message):
+    __slots__ = ("phase", "bytes_completed", "bytes_total", "updated_at")
+    PHASE_FIELD_NUMBER: _ClassVar[int]
+    BYTES_COMPLETED_FIELD_NUMBER: _ClassVar[int]
+    BYTES_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    phase: SandboxSnapshotPhase
+    bytes_completed: int
+    bytes_total: int
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        phase: _Optional[_Union[SandboxSnapshotPhase, str]] = ...,
+        bytes_completed: _Optional[int] = ...,
+        bytes_total: _Optional[int] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
 
 class GKEPodSnapshot(_message.Message):
     __slots__ = ("storage_bucket", "storage_path")
@@ -93,6 +132,7 @@ class SandboxSnapshot(_message.Message):
         "created_at",
         "completed_at",
         "created_by",
+        "progress",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
@@ -103,6 +143,7 @@ class SandboxSnapshot(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     COMPLETED_AT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
     id: str
     sandbox_id: str
     spec: _service_pb2.ChalkContainerSpec
@@ -112,6 +153,7 @@ class SandboxSnapshot(_message.Message):
     created_at: _timestamp_pb2.Timestamp
     completed_at: _timestamp_pb2.Timestamp
     created_by: str
+    progress: SandboxSnapshotProgress
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -123,7 +165,22 @@ class SandboxSnapshot(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         completed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         created_by: _Optional[str] = ...,
+        progress: _Optional[_Union[SandboxSnapshotProgress, _Mapping]] = ...,
     ) -> None: ...
+
+class StartSandboxSnapshotRequest(_message.Message):
+    __slots__ = ("sandbox_id", "idempotency_key")
+    SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
+    sandbox_id: str
+    idempotency_key: str
+    def __init__(self, sandbox_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+
+class StartSandboxSnapshotResponse(_message.Message):
+    __slots__ = ("snapshot",)
+    SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
+    snapshot: SandboxSnapshot
+    def __init__(self, snapshot: _Optional[_Union[SandboxSnapshot, _Mapping]] = ...) -> None: ...
 
 class CreateSandboxSnapshotRequest(_message.Message):
     __slots__ = ("sandbox_id",)
@@ -150,13 +207,24 @@ class GetSandboxSnapshotResponse(_message.Message):
     def __init__(self, snapshot: _Optional[_Union[SandboxSnapshot, _Mapping]] = ...) -> None: ...
 
 class ListSandboxSnapshotsFilters(_message.Message):
-    __slots__ = ("sandbox_ids", "statuses")
+    __slots__ = ("sandbox_ids", "statuses", "status_values", "created_by", "tag_filter")
     SANDBOX_IDS_FIELD_NUMBER: _ClassVar[int]
     STATUSES_FIELD_NUMBER: _ClassVar[int]
+    STATUS_VALUES_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    TAG_FILTER_FIELD_NUMBER: _ClassVar[int]
     sandbox_ids: _containers.RepeatedScalarFieldContainer[str]
     statuses: _containers.RepeatedScalarFieldContainer[str]
+    status_values: _containers.RepeatedScalarFieldContainer[SandboxSnapshotStatus]
+    created_by: _containers.RepeatedScalarFieldContainer[str]
+    tag_filter: _tag_filter_pb2.TagFilter
     def __init__(
-        self, sandbox_ids: _Optional[_Iterable[str]] = ..., statuses: _Optional[_Iterable[str]] = ...
+        self,
+        sandbox_ids: _Optional[_Iterable[str]] = ...,
+        statuses: _Optional[_Iterable[str]] = ...,
+        status_values: _Optional[_Iterable[_Union[SandboxSnapshotStatus, str]]] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
+        tag_filter: _Optional[_Union[_tag_filter_pb2.TagFilter, _Mapping]] = ...,
     ) -> None: ...
 
 class ListSandboxSnapshotsRequest(_message.Message):
@@ -204,3 +272,28 @@ class DeleteSandboxSnapshotRequest(_message.Message):
 class DeleteSandboxSnapshotResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class GetSnapshotStoreCredentialsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetSnapshotStoreCredentialsResponse(_message.Message):
+    __slots__ = ("storage", "prefixes", "expires_at", "aws", "gcp")
+    STORAGE_FIELD_NUMBER: _ClassVar[int]
+    PREFIXES_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    AWS_FIELD_NUMBER: _ClassVar[int]
+    GCP_FIELD_NUMBER: _ClassVar[int]
+    storage: _volume_pb2.ObjectStoreConfig
+    prefixes: _containers.RepeatedScalarFieldContainer[str]
+    expires_at: _timestamp_pb2.Timestamp
+    aws: _volume_pb2.AwsSessionCredentials
+    gcp: _volume_pb2.GcpAccessToken
+    def __init__(
+        self,
+        storage: _Optional[_Union[_volume_pb2.ObjectStoreConfig, _Mapping]] = ...,
+        prefixes: _Optional[_Iterable[str]] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        aws: _Optional[_Union[_volume_pb2.AwsSessionCredentials, _Mapping]] = ...,
+        gcp: _Optional[_Union[_volume_pb2.GcpAccessToken, _Mapping]] = ...,
+    ) -> None: ...

@@ -3,6 +3,7 @@
 Exposes the most-used file endpoints:
 
     POST   /files/upload
+    POST   /files/import-url     (a web address fetched server-side, stored as /upload stores)
     GET    /files/sync/changes   (device-replica change feed, keyset cursor)
     GET    /files/sync/folders   (device-replica folder tree)
     GET    /files/{file_id}
@@ -19,12 +20,10 @@ surface: a new host can mount this and have a working file system.
 
 from __future__ import annotations
 
-import base64
 import json
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from typing import Any, Literal
-from urllib.parse import quote as _url_quote
 
 from fastapi import (
     APIRouter,
@@ -41,15 +40,28 @@ from fastapi import (
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..derivations import ClientPolicyMetadataError, assert_no_client_policy_metadata
+from ..content_headers import build_content_disposition, sniffed_content_type
+from ..derivations import (
+    ClientPolicyMetadataError,
+    assert_no_client_policy_metadata,
+    reserved_upload_metadata_keys,
+)
 from ..file_session_mint import FileSessionSourceResolver, mint_file_session_response
 from ..service import FileService
+from ..cloud_sync.sync_feed import (
+    decode_sync_cursor,
+    decode_sync_cursor_moves,
+    encode_sync_cursor,
+    read_sync_changes_page,
+)
 from ..path_safety import sanitize_logical_path
 from ..request_organization import admitted_organization_id
 from ..system_origins import relocate_under_system_origin
-from ..asset_envelope import AssetCombinedOpResponse
+from ..placement import client_upload_pathway
+from ..asset_envelope import AssetCombinedOpResponse, BulkOperationResponse
 from matrx_utils.row_access import (
     LegacyLevelInput,
+    SHOWN_TO_TYPE_DEFAULT,
     RowAccess,
     ShownToLiteral,
     legacy_level_echo,
@@ -67,7 +79,7 @@ from ..cloud_sync.preconditions import (
     normalize_expected_checksum,
     parse_if_match,
 )
-from .errors import map_exception
+from .errors import map_exception, refuse_malformed_path_ids
 from .read_by_access import file_read_decided_by_access
 from ..office_pdf import OfficePdfRequest, OfficePdfResult
 from ..pdf_pages import PdfPageSelectionRequest, PdfPageSelectionResult
@@ -87,6 +99,12 @@ class _UploadResponse(BaseModel):
     visibility: str | None = None  # T-13 transitional wire echo (derived from the two words)
     share_token: str | None = None
     share_url: str | None = None
+
+
+class _ImportUrlRequest(BaseModel):
+    """``POST /files/import-url`` — the web address to fetch server-side and store."""
+
+    url: str = Field(..., min_length=1, max_length=8192)
 
 
 class _ShareLinkRecord(BaseModel):
@@ -205,30 +223,11 @@ def _replay_upload_response(cached: dict) -> _UploadResponse:
     return _UploadResponse(**body)
 
 
-def _encode_sync_cursor(ts: datetime, row_id: str, include_deleted: bool) -> str:
-    payload = json.dumps(
-        {"v": 1, "ts": ts.isoformat(), "id": row_id, "d": bool(include_deleted)},
-        separators=(",", ":"),
-    )
-    return base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
-
-
-def _decode_sync_cursor(cursor: str) -> tuple[datetime, str, bool]:
-    """Decode an opaque sync cursor. Raises ValueError (→ 400) on garbage."""
-    try:
-        padded = cursor + "=" * (-len(cursor) % 4)
-        data = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
-        if not isinstance(data, dict):
-            raise ValueError("cursor payload is not an object")
-        if data.get("v") != 1:
-            raise ValueError(f"unknown cursor version {data.get('v')!r}")
-        return (
-            datetime.fromisoformat(data["ts"]),
-            str(data["id"]),
-            bool(data.get("d")),
-        )
-    except (ValueError, KeyError, TypeError, AttributeError, json.JSONDecodeError) as e:
-        raise ValueError(f"malformed sync cursor: {e}") from e
+# The device feed's codec and page reader live once, in cloud_sync/sync_feed.py (the
+# Cloud Computer bridge serves the same feed); these names stay for this module's callers.
+_encode_sync_cursor = encode_sync_cursor
+_decode_sync_cursor = decode_sync_cursor
+_decode_sync_cursor_moves = decode_sync_cursor_moves
 
 
 def _iso_or_none(value: Any) -> str | None:
@@ -320,13 +319,8 @@ def _parse_range_header(header: str | None, total_size: int) -> tuple[int, int] 
 
 
 def _content_disposition(file_name: str, *, attachment: bool) -> str:
-    disp = "attachment" if attachment else "inline"
-    try:
-        file_name.encode("ascii")
-        return f'{disp}; filename="{file_name}"'
-    except UnicodeEncodeError:
-        ascii_fallback = file_name.encode("ascii", "replace").decode("ascii")
-        return f"{disp}; filename=\"{ascii_fallback}\"; filename*=UTF-8''{_url_quote(file_name)}"
+    """RFC 6266/5987 header via the ONE builder (quotes, CTLs, non-ASCII safe)."""
+    return build_content_disposition(file_name, force_attachment=attachment)
 
 
 def build_file_router(
@@ -346,7 +340,12 @@ def build_file_router(
     ``user_id_dep`` the router will accept all requests with an
     anonymous user_id — fine for tests, dangerous in production.
     """
-    router = APIRouter(prefix=prefix, tags=tags or ["files"])
+    router = APIRouter(
+        prefix=prefix,
+        tags=tags or ["files"],
+        # a non-UUID *_id is a 404 ApiError before any handler (never ORM text)
+        dependencies=[Depends(refuse_malformed_path_ids)],
+    )
 
     if user_id_dep is None:
         # Test-mode default: every request is the same anonymous user.
@@ -450,6 +449,15 @@ def build_file_router(
                             ),
                         },
                     )
+                reserved = reserved_upload_metadata_keys(parsed_meta)
+                if reserved:  # same rule as TUS: `_` keys are server-stamped
+                    raise HTTPException(
+                        400,
+                        {
+                            "error": "invalid_metadata",
+                            "message": f"metadata_json keys are reserved (server-stamped): {reserved}",
+                        },
+                    )
                 try:
                     # Policy keys are server-stamped authorization inputs —
                     # never accepted from an upload client.
@@ -458,6 +466,11 @@ def build_file_router(
                     )
                 except ClientPolicyMetadataError as e:
                     raise HTTPException(403, {"error": "reserved_metadata_key", "message": str(e)})
+            # The person pathway the client named (``file_pathway``) — the same rule as TUS, so the
+            # buffered and resumable doors stamp a person's upload identically (placement § 4.2a).
+            # A path the registry places under an automated pathway gets that pathway (the server
+            # decides from the path; resolved on the final path below).
+            client_pathway = client_upload_pathway(parsed_meta, None)
             # Stamp request_id into metadata so the realtime row carries it
             # and the FE can deterministically dedup its own writes.
             if x_request_id:
@@ -469,13 +482,16 @@ def build_file_router(
                 published_to_web=effective_published_to_web,
                 shown_to=shown_to,
                 legacy_level=visibility,
-                default=RowAccess(shown_to="only_me"),
+                # Unstated → the file type's "Shown to" knob (stored NULL), never a hand-written label.
+                default=RowAccess(shown_to=SHOWN_TO_TYPE_DEFAULT),
                 boundary="POST /files/upload",
             )
             clean_path = relocate_under_system_origin(
                 clean_path,
                 parsed_meta.get("origin") if isinstance(parsed_meta.get("origin"), str) else None,
             )
+            if client_pathway is None:
+                client_pathway = client_upload_pathway(None, clean_path)
             # Validated BEFORE any bytes are written: a device id naming another
             # user's machine is refused, never stored, because that machine would
             # then skip a change it never made.
@@ -555,6 +571,7 @@ def build_file_router(
                     owner_id=user_id,
                     organization_id=request_organization_id,
                     metadata=parsed_meta or None,
+                    pathway=client_pathway,
                 )
                 result = intent_result.get("result")
                 if result is None:
@@ -583,8 +600,11 @@ def build_file_router(
                     metadata=parsed_meta or None,
                     origin_device_id=origin.device_id,
                     client_modified_at=origin.client_modified_at,
+                    pathway=client_pathway,
                 )
-                response_path = clean_path
+                # The row the write landed on, never the requested path: an implicit
+                # alias resolves to the canonical row (287 coding-session artifacts, 2026-09-17).
+                response_path = getattr(result, "file_path", None) or clean_path
             share_token = getattr(result, "share_token", None)
             share_url = getattr(result, "share_url", None)
             if access.wants_anyone_link:
@@ -644,6 +664,46 @@ def build_file_router(
             raise _map_exc(e, "file upload")
 
     # ------------------------------------------------------------------
+    # POST /import-url — a web address becomes the actor's file.
+    #
+    # The bytes are fetched SERVER-SIDE through the package's one safe external
+    # fetcher (public addresses only) and stored the way /upload stores; the
+    # client never fetches the address itself. Work lives in url_import.py.
+    # ------------------------------------------------------------------
+    @router.post("/import-url", response_model=_UploadResponse)
+    async def import_file_from_url(
+        body: _ImportUrlRequest,
+        user_id: str = Depends(user_id_dep),
+    ) -> _UploadResponse:
+        request_organization_id = admitted_organization_id()
+        try:
+            from ..url_import import import_url
+
+            imported = await import_url(
+                file_service,
+                url=body.url,
+                user_id=user_id,
+                organization_id=request_organization_id,
+            )
+            result = imported.result
+            published = getattr(result, "published_to_web", False)
+            shown_to = getattr(result, "shown_to", None)
+            return _UploadResponse(
+                file_id=result.file_id,
+                file_path=imported.file_path,
+                size_bytes=result.size_bytes,
+                checksum=result.checksum,
+                url=result.url,
+                cdn_url=result.cdn_url,
+                download_url=result.download_url,
+                published_to_web=published,
+                shown_to=shown_to,
+                visibility=legacy_level_echo({"published_to_web": published, "shown_to": shown_to}),
+            )
+        except Exception as e:
+            raise _map_exc(e, "import from web address")
+
+    # ------------------------------------------------------------------
     # GET /sync/changes — keyset-paginated change feed for device replicas
     # (desktop file sync). Registered BEFORE /{file_id} so the literal
     # segment can never be captured as a file id.
@@ -672,45 +732,17 @@ def build_file_router(
         user_id: str = Depends(user_id_dep),
     ) -> _SyncChangesResponse:
         try:
-            if cursor:
-                cursor_ts, cursor_id, include_deleted = _decode_sync_cursor(cursor)
-            elif since:
-                cursor_ts = datetime.fromisoformat(since.replace("Z", "+00:00"))
-                cursor_id, include_deleted = "", True
-            else:
-                cursor_ts, cursor_id, include_deleted = None, "", False
-
-            engine = file_service.file_manager.sync_engine
-            rows = await engine.list_sync_changes_async(
-                cursor_ts=cursor_ts,
-                cursor_id=cursor_id or None,
-                include_deleted=include_deleted,
-                include_system=include_system,
-                limit=limit,
+            page = await read_sync_changes_page(
+                file_service.file_manager.sync_engine,
                 user_id=user_id,
+                cursor=cursor,
+                since=since,
+                limit=limit,
+                include_system=include_system,
             )
         except Exception as e:
             raise _map_exc(e, "sync change feed")
-
-        has_more = len(rows) == limit
-        if rows:
-            last = rows[-1]
-            last_ts = last["updated_at"]
-            if not isinstance(last_ts, datetime):
-                last_ts = datetime.fromisoformat(str(last_ts))
-            # Once a feed position exists, future polls must see tombstones —
-            # the bootstrap-only alive filter applies just until it drains.
-            next_d = include_deleted or not has_more
-            next_cursor = _encode_sync_cursor(last_ts, str(last["id"]), next_d)
-        elif cursor_ts is not None:
-            # Empty page at a known position ⇒ the feed is drained here —
-            # the returned cursor is always tombstone-aware from this point
-            # (a bootstrap that ends on an empty page must still flip).
-            next_cursor = _encode_sync_cursor(cursor_ts, cursor_id, True)
-        else:
-            # Empty bootstrap (user has no files yet): anchor at epoch,
-            # tombstone-aware, so the same cursor protocol still applies.
-            next_cursor = _encode_sync_cursor(datetime(1970, 1, 1, tzinfo=UTC), "", True)
+        rows, next_cursor, has_more = page.rows, page.next_cursor, page.has_more
 
         return _SyncChangesResponse(
             files=[
@@ -918,7 +950,13 @@ def build_file_router(
             raise _map_exc(e, "file download")
 
         file_name = record.get("file_name") or record["file_path"].rsplit("/", 1)[-1]
-        media_type = record.get("mime_type") or "application/octet-stream"
+        # ONE policy (content_headers.sniffed_content_type): inline only for
+        # image/video/audio/PDF; active types (html/svg/xml/js) are coerced
+        # to octet-stream + attachment whatever the caller asked for.
+        media_type, force_attachment = sniffed_content_type(
+            {"mime_type": record.get("mime_type"), "file_name": file_name},
+            allow_inline=inline,
+        )
         checksum = record.get("checksum") or ""
         total_size = int(record.get("size_bytes") or 0)
 
@@ -941,7 +979,7 @@ def build_file_router(
             "Accept-Ranges": "bytes",
             "X-Content-Type-Options": "nosniff",
             "ETag": f'"{checksum}"',
-            "Content-Disposition": _content_disposition(file_name, attachment=not inline),
+            "Content-Disposition": _content_disposition(file_name, attachment=force_attachment),
         }
 
         # Range path (RFC 7233). Only S3-backed reads support streaming —
@@ -1130,7 +1168,7 @@ def build_file_router(
     # ------------------------------------------------------------------
     # POST /bulk — bulk discriminator (FE-team A.3).
     # ------------------------------------------------------------------
-    @router.post("/bulk")
+    @router.post("/bulk", response_model=BulkOperationResponse)
     async def bulk_files(
         body: _BulkBody,
         x_idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key"),
@@ -1218,6 +1256,19 @@ def build_file_router(
         except Exception as e:
             raise _map_exc(e, "share link creation")
         return _ShareLinkRecord.model_validate(row)
+
+    # DELETE /share-links/{token} — revoke a link (same contract as the aidream
+    # host's route; the standalone service lacked it — black-box finding 13).
+    @router.delete("/share-links/{token}")
+    async def deactivate_share_link(
+        token: str,
+        user_id: str = Depends(user_id_dep),
+    ) -> dict:
+        try:
+            deleted = await _permissions_for(user_id).deactivate_share_link_async(token)
+        except Exception as e:
+            raise _map_exc(e, "share link revoke")
+        return {"deleted": bool(deleted)}
 
     return router
 

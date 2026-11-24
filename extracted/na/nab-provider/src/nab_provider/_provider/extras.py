@@ -1,10 +1,9 @@
-"""Extras-of-extras expansion for the provider.
+"""Resolve optional dependencies such as ``foo[bar]``.
 
-The provider models extras as proxy packages: ``foo[bar]`` is a
-distinct package whose only candidates are the versions of ``foo``
-that declare ``bar`` in their ``Provides-Extra`` field.  This
-module owns the per-extra version chooser, the per-extra
-dependency lookup, and the missing-extra fallback.
+The resolver tracks ``foo[bar]`` as a separate package pinned to the same version
+as ``foo``. The provider reads that release's metadata to find the dependencies
+for ``bar``. If the release omits the extra, ``ExtrasMode`` determines whether
+to warn, report an error or try another release.
 """
 
 from __future__ import annotations
@@ -13,18 +12,18 @@ __lazy_modules__ = (
     "nab_provider._provider.listing_diagnosis",
     "nab_provider._provider.lookahead",
     "nab_provider._provider.metadata_resolver",
-    "nab_provider._vendor.packaging.ranges",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.errors",
     "nab_provider.extra_keys",
     "nab_provider.policy",
+    "packaging.ranges",
+    "packaging.utils",
 )
 
 import logging
 from typing import TYPE_CHECKING
 
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.utils import canonicalize_name
+from packaging.ranges import VersionRange
+from packaging.utils import canonicalize_name
 
 from ..errors import MetadataError, MissingExtraError
 from ..extra_keys import join_extra
@@ -34,7 +33,8 @@ from .lookahead import flush_pending_blocks
 from .metadata_resolver import refuse_url_dep
 
 if TYPE_CHECKING:
-    from nab_provider._vendor.packaging.version import Version
+    from packaging.version import Version
+
     from nab_resolver.types import RangeProtocol
 
     from ..provider import Provider
@@ -50,13 +50,10 @@ def choose_extra_version(
     extra: str,
     version_range: VersionRange,
 ) -> Version | None:
-    """Pick a version for an extras proxy package.
+    """Try releases in the base package's preferred order.
 
-    Delegates to the base package's version list. In BACKTRACK mode,
-    eagerly checks if the version provides the extra and skips it
-    if not.  The strategy decision (highest vs lowest) is keyed off
-    the *base* canonical name; an extras proxy never gets a different
-    answer than its underlying package.
+    BACKTRACK skips releases that omit a transitive extra. Direct requests use
+    ``_pick_for_user_extra`` to report a missing extra on the selected release.
     """
     _, _, normalized = provider.split_and_normalize(base)
     version_list = provider.fetch_versions(base)
@@ -345,11 +342,11 @@ def get_extra_dependencies(
     deferred = provider.deferred_url_extras.get(base_cache_key, {}).get(extra)
     if deferred:
         req, url = deferred[0]
-        refuse_url_dep(provider, req, url)
+        refuse_url_dep(provider, extra_key, req.name, url)
 
     extra_map = provider.extra_deps_map.get(base_cache_key, {})
     if extra not in extra_map:
-        return handle_missing_extra(provider, normalized, extra, version, cache_key)
+        return _handle_missing_extra(provider, normalized, extra, version, cache_key)
 
     deps = dict(extra_map[extra])
     # Pin the base, intersected with any bound the extra itself
@@ -363,7 +360,7 @@ def get_extra_dependencies(
     return deps
 
 
-def handle_missing_extra(
+def _handle_missing_extra(
     provider: Provider,
     normalized: str,
     extra: str,

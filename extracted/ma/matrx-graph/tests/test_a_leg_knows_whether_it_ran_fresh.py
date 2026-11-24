@@ -171,3 +171,34 @@ async def test_a_stored_failure_routed_to_the_write_is_remembered_too() -> None:
     await scheduler.run(run_id="visit-run-5")
     assert [s["replayed"] for s in SEEN] == [["intake"]], SEEN
 
+
+
+async def test_a_run_started_inside_another_runs_step_keeps_its_loop_round() -> None:
+    """Triggers PLAN Rule 9: a Mandate's child workflow (started in-process from a step) declared a
+    FRESH root (depth 1), so a trigger → run → Mandate child → write loop restarted its count at
+    every Mandate. Now a run started inside a declared chain is the SAME round as its caller."""
+    from matrx_orm.core.session_context import WorkflowChain, declaring_workflow_chain
+
+    SEEN.clear()
+    scheduler, _, _ = _graph(with_pause=False)
+    with declaring_workflow_chain(WorkflowChain(run_id="the-parent", root_run="the-first-run", depth=3)):
+        await scheduler.run(run_id="visit-run-6")
+    assert [s["chain"] for s in SEEN] == [("the-first-run", 3)], SEEN
+
+
+async def test_a_queued_first_leg_with_no_trigger_input_reads_its_round_from_the_host() -> None:
+    """A raw-table event fire queues its run with no ``trigger`` input; its first leg asks the host
+    (which reads the event row's chain) instead of starting a fresh root."""
+    from matrx_graph.executor.resume_chain import configure_resume_chain_resolver
+
+    async def from_event_row(run_id: str):
+        return {"run_id": "r0", "root_run": "the-first-run", "depth": 2}
+
+    SEEN.clear()
+    configure_resume_chain_resolver(from_event_row)
+    try:
+        scheduler, _, _ = _graph(with_pause=False)
+        await scheduler.run(run_id="visit-run-7")
+    finally:
+        configure_resume_chain_resolver(None)
+    assert [s["chain"] for s in SEEN] == [("the-first-run", 3)], SEEN

@@ -1,9 +1,10 @@
 import os
 import logging
 import asyncio
+import re
 import time
 import hashlib
-from typing import Any, ClassVar, final, Sequence, Union
+from typing import Any, AsyncIterator, ClassVar, final, Sequence, Union
 from dataclasses import dataclass
 import pipmaster as pm
 import configparser
@@ -24,12 +25,15 @@ from redis.exceptions import (  # type: ignore
 )
 from lightrag.utils import (
     logger,
+    get_env_value,
     get_pinyin_sort_key,
     _cooperative_yield,
     validate_workspace,
+    validate_workspace_override,
 )
 
 from lightrag.base import (
+    normalize_kv_create_time,
     CURSOR_END,
     CURSOR_START,
     CursorAfter,
@@ -66,19 +70,118 @@ from tenacity import (
     before_sleep_log,
 )
 
+# Storage-managed ``create_time`` is serialized as the FIRST key of every KV
+# value so it can be recovered with a bounded prefix read instead of pulling
+# the whole row back over the wire -- a ``full_docs`` row is an entire
+# document, and Redis has no way to read one JSON field. 64 bytes covers
+# ``{"create_time":`` plus a 19-digit integer and its comma.
+#
+# The separator is matched loosely on purpose: ``json.dumps`` writes
+# ``{"create_time": 1700000000,`` (a space after the colon) while a compact
+# dump or a hand-edited row writes it without one. A prefix that does not
+# match is not a failure -- it falls back to a full read -- but a needlessly
+# strict pattern would silently send EVERY update down that fallback and
+# quietly undo the optimization.
+_CREATE_TIME_PREFIX_BYTES = 64
+_CREATE_TIME_PREFIX_RE = re.compile(r'^\{\s*"create_time"\s*:\s*(-?\d+)\s*[,}]')
+
+# Lua counterpart of _CREATE_TIME_PREFIX_RE. Keep the two in step; the
+# integration suite pins them to the same verdict on the same prefixes.
+_CREATE_TIME_PREFIX_LUA_PATTERN = '^{%s*"create_time"%s*:%s*(%-?%d+)%s*[,}]'
+
+# The script that writes a KV row. Reading the previous ``create_time`` and
+# writing the new value must be ONE atomic step, or a concurrent ``delete()``
+# landing between them lets the row come back carrying the deleted
+# incarnation's timestamp -- and nothing would ever correct it, because every
+# later update preserves what it finds. Redis runs a script atomically, so the
+# decision happens next to the data:
+#
+#   * key absent            -> stamp ARGV[3] (the write's own clock). Two
+#     writers racing a first insert therefore cannot disagree: the second one
+#     to run finds the row and keeps the first one's timestamp. ``GETRANGE``
+#     answers ``''`` for a missing key AND for a key holding an empty string,
+#     so an ``EXISTS`` disambiguates them -- only on that branch, so the
+#     steady state still reads once. An empty row is a stored row with no
+#     usable timestamp, and the contract says such a row records ``0``; it
+#     must never be mistaken for a first creation and given this clock.
+#   * prefix carries an int -> keep it. This is the steady state, and it needs
+#     nothing from the caller: one round trip, no read amplification.
+#   * prefix does not match -> a row written before this layout existed, or by
+#     hand. The timestamp may sit anywhere in the value or be malformed, and
+#     normalizing it belongs to ``normalize_kv_create_time`` and not to a
+#     second implementation in Lua -- so the script WRITES NOTHING and answers
+#     ``needs_hint``. The caller reads the value, normalizes it, and calls
+#     again with ARGV[2] set; a non-empty hint always writes, so the exchange
+#     cannot loop.
+#
+# No ``cjson`` and no arithmetic: the timestamp travels as a string and the
+# value is spliced in front of the caller's payload, so a large row is never
+# decoded server-side and Lua's number formatting never enters the picture.
+_CREATE_TIME_UPSERT_LUA = f"""
+local prefix = redis.call('GETRANGE', KEYS[1], 0, tonumber(ARGV[4]) - 1)
+local outcome
+local create_time
+if prefix == '' and redis.call('EXISTS', KEYS[1]) == 0 then
+    create_time = ARGV[3]
+    outcome = 'created'
+else
+    local matched = string.match(prefix, '{_CREATE_TIME_PREFIX_LUA_PATTERN}')
+    if matched then
+        create_time = matched
+        outcome = 'kept'
+    elseif ARGV[2] == '' then
+        return {{'needs_hint', ''}}
+    else
+        create_time = ARGV[2]
+        outcome = 'hinted'
+    end
+end
+local rest = string.sub(ARGV[1], 2)
+if rest == '}}' or rest == '' then
+    redis.call('SET', KEYS[1], '{{"create_time":' .. create_time .. '}}')
+else
+    redis.call('SET', KEYS[1], '{{"create_time":' .. create_time .. ',' .. rest)
+end
+return {{outcome, create_time}}
+"""
+
+
+def _dumps_kv_payload(value: dict[str, Any]) -> str:
+    """Serialize a KV row WITHOUT ``create_time``, for the upsert script.
+
+    The script prepends the timestamp it decided on, which is what puts the
+    field first (see ``_CREATE_TIME_PREFIX_BYTES``) and what keeps the
+    decision atomic. Dropping the key here also means a caller-supplied
+    ``create_time`` cannot reach storage, as the ``BaseKVStorage.upsert``
+    contract requires.
+
+    The result always starts with ``{`` and normally carries at least
+    ``_id`` and ``update_time``; the script handles the empty-object case
+    anyway so the splice cannot produce invalid JSON.
+    """
+    return json.dumps({k: v for k, v in value.items() if k != "create_time"})
+
+
 config = configparser.ConfigParser()
 config.read("config.ini", "utf-8")
 
-# Constants for Redis connection pool with environment variable support
-MAX_CONNECTIONS = int(os.getenv("REDIS_MAX_CONNECTIONS", "200"))
-SOCKET_TIMEOUT = float(os.getenv("REDIS_SOCKET_TIMEOUT", "30.0"))
-SOCKET_CONNECT_TIMEOUT = float(os.getenv("REDIS_CONNECT_TIMEOUT", "10.0"))
-RETRY_ATTEMPTS = int(os.getenv("REDIS_RETRY_ATTEMPTS", "3"))
+# Constants for Redis connection pool with environment variable support.
+# Read through get_env_value like the LightRAG field defaults: these run at
+# import time, so a documented knob left present but empty in .env/Compose
+# would otherwise raise ValueError out of the storage module import.
+MAX_CONNECTIONS = get_env_value("REDIS_MAX_CONNECTIONS", 200, int)
+SOCKET_TIMEOUT = get_env_value("REDIS_SOCKET_TIMEOUT", 30.0, float)
+SOCKET_CONNECT_TIMEOUT = get_env_value("REDIS_CONNECT_TIMEOUT", 10.0, float)
+RETRY_ATTEMPTS = get_env_value("REDIS_RETRY_ATTEMPTS", 3, int)
 
 # Tenacity retry decorator for Redis operations
 redis_retry = retry(
     stop=stop_after_attempt(RETRY_ATTEMPTS),
     wait=wait_exponential(multiplier=1, min=1, max=8),
+    # Surface the last attempt's own exception rather than tenacity.RetryError,
+    # so callers can still catch redis.exceptions.RedisError / ConnectionError
+    # and error messages carry Redis's text.
+    reraise=True,
     retry=(
         retry_if_exception_type(ConnectionError)
         | retry_if_exception_type(TimeoutError)
@@ -87,8 +190,8 @@ redis_retry = retry(
     before_sleep=before_sleep_log(logger, logging.WARNING),
 )
 
-# One eviction-policy check per Redis URL per process: the answer is a server
-# property, not a per-storage one, and both storage classes share the pool.
+# Cache accepted eviction-policy checks per Redis URL per process: both storage
+# classes share the pool. Rejections must be checked again by later instances.
 _eviction_checked: set[str] = set()
 
 
@@ -133,7 +236,6 @@ async def _ensure_no_eviction_policy(redis, redis_url: str, workspace: str) -> N
             f"documents and scheduling state."
         )
         return
-    _eviction_checked.add(redis_url)
     policy = str((settings or {}).get("maxmemory-policy") or "").strip().lower()
     raw_maxmemory = str((settings or {}).get("maxmemory") or "0").strip()
     try:
@@ -141,8 +243,10 @@ async def _ensure_no_eviction_policy(redis, redis_url: str, workspace: str) -> N
     except ValueError:
         maxmemory = 0
     if maxmemory <= 0 or not policy.startswith("allkeys"):
+        _eviction_checked.add(redis_url)
         return
-    if os.getenv("REDIS_ALLOW_EVICTION_POLICY", "false").strip().lower() == "true":
+    if get_env_value("REDIS_ALLOW_EVICTION_POLICY", False, bool):
+        _eviction_checked.add(redis_url)
         logger.warning(
             f"[{workspace}] Redis is configured to EVICT (maxmemory-policy="
             f"'{policy}', maxmemory={maxmemory}) and REDIS_ALLOW_EVICTION_POLICY "
@@ -163,16 +267,19 @@ async def _ensure_no_eviction_policy(redis, redis_url: str, workspace: str) -> N
 
 
 class RedisConnectionManager:
-    """Shared Redis connection pool manager to avoid creating multiple pools for the same Redis URI"""
+    """Shared Redis connection pool manager to avoid creating multiple pools for the same Redis URI
+
+    A reference is taken by ``get_pool`` and given back by ``release_pool`` /
+    ``release_pool_ref``. Both sides run from ``initialize()`` / ``close()``,
+    never from a storage's ``__post_init__``: a constructor has no teardown
+    path, so a reference taken there outlives any construction that fails
+    afterwards (``LightRAG.__post_init__`` builds twelve storages and then
+    validates, with nothing to unwind the ones already built).
+    """
 
     _pools = {}
     _pool_refs = {}  # Track reference count for each pool
     _lock = threading.Lock()
-    # Strong references to background pool-close tasks scheduled from sync
-    # contexts (init-error path). Held until each task completes so the loop
-    # cannot GC an in-flight task, and so a failing aclose() does not surface
-    # as "Task exception was never retrieved".
-    _cleanup_tasks: set = set()
 
     @classmethod
     def get_pool(cls, redis_url: str) -> ConnectionPool:
@@ -204,9 +311,9 @@ class RedisConnectionManager:
         Decrements the reference count and, if it reaches zero, pops the pool
         from the registry and **returns it** so the caller can await its
         async ``aclose()``. The disconnect is intentionally NOT performed here
-        because ``ConnectionPool.aclose()`` / ``disconnect()`` are coroutines
-        and this method is called from both sync (init-error) and async
-        (close/finalize) contexts.
+        because ``ConnectionPool.aclose()`` / ``disconnect()`` are coroutines,
+        which keeps the refcount arithmetic callable from a synchronous
+        context; ``release_pool`` is the async wrapper that also disconnects.
 
         Returns the pool to disconnect, or ``None`` if the reference count is
         still positive (or the URL is unknown).
@@ -257,39 +364,6 @@ class RedisConnectionManager:
             except Exception as e:
                 logger.error(f"Error closing Redis pool for {url}: {e}")
 
-    @classmethod
-    async def _close_pool_safely(cls, pool: ConnectionPool, redis_url: str) -> None:
-        """Await ``pool.aclose()``, swallowing errors as best-effort cleanup."""
-        try:
-            await pool.aclose()
-            logger.info(
-                f"Closed Redis connection pool for {redis_url} (no more references)"
-            )
-        except Exception as e:
-            logger.error(f"Error closing Redis pool for {redis_url}: {e}")
-
-    @classmethod
-    def schedule_pool_close(cls, pool: ConnectionPool, redis_url: str) -> None:
-        """Schedule a background pool disconnect from a *synchronous* context.
-
-        Used by the ``__post_init__`` init-error path, which cannot ``await``.
-        If an event loop is running, the disconnect runs as a managed task
-        (strong-referenced until done, errors swallowed by
-        ``_close_pool_safely``). If no loop is running, this is a no-op: the
-        coroutine is never created, so no ``RuntimeError`` masks the original
-        init exception and no unawaited-coroutine warning is emitted. Skipping
-        is safe — the pool was just created (no I/O yet) if this instance is the
-        sole owner, and if it is shared the refcount is still positive so
-        ``release_pool_ref`` would not have returned the pool.
-        """
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return
-        task = loop.create_task(cls._close_pool_safely(pool, redis_url))
-        cls._cleanup_tasks.add(task)
-        task.add_done_callback(cls._cleanup_tasks.discard)
-
 
 @final
 @dataclass
@@ -303,7 +377,9 @@ class RedisKVStorage(BaseKVStorage):
         redis_workspace = os.environ.get("REDIS_WORKSPACE")
         if redis_workspace and redis_workspace.strip():
             # Use environment variable value, overriding the passed workspace parameter
-            effective_workspace = redis_workspace.strip()
+            effective_workspace = validate_workspace_override(
+                "REDIS_WORKSPACE", redis_workspace
+            )
             logger.info(
                 f"Using REDIS_WORKSPACE environment variable: '{effective_workspace}' (overriding '{self.workspace}/{self.namespace}')"
             )
@@ -331,27 +407,16 @@ class RedisKVStorage(BaseKVStorage):
         self._redis_url = os.environ.get(
             "REDIS_URI", config.get("redis", "uri", fallback="redis://localhost:6379")
         )
+        # The shared pool is acquired in initialize(), NOT here: see
+        # RedisConnectionManager's docstring — a reference taken in a
+        # constructor can never be given back if construction fails later.
         self._pool = None
         self._redis = None
         self._initialized = False
-
-        try:
-            # Use shared connection pool
-            self._pool = RedisConnectionManager.get_pool(self._redis_url)
-            self._redis = Redis(connection_pool=self._pool)
-            logger.info(
-                f"[{self.workspace}] Initialized Redis KV storage for {self.namespace} using shared connection pool"
-            )
-        except Exception as e:
-            # Clean up on initialization failure
-            if self._redis_url:
-                pool = RedisConnectionManager.release_pool_ref(self._redis_url)
-                if pool is not None:
-                    RedisConnectionManager.schedule_pool_close(pool, self._redis_url)
-            logger.error(
-                f"[{self.workspace}] Failed to initialize Redis KV storage: {e}"
-            )
-            raise
+        logger.debug(
+            f"[{self.workspace}] Configured Redis KV storage for {self.namespace} "
+            f"(connection deferred to initialize())"
+        )
 
     async def initialize(self):
         """Initialize Redis connection and migrate legacy cache structure if needed"""
@@ -359,8 +424,13 @@ class RedisKVStorage(BaseKVStorage):
             if self._initialized:
                 return
 
-            # Test connection
+            # Acquire the shared pool and test the connection
             try:
+                if self._redis is None:
+                    # Assign the pool before building the client: if Redis()
+                    # raises, close() below still sees the reference to release.
+                    self._pool = RedisConnectionManager.get_pool(self._redis_url)
+                    self._redis = Redis(connection_pool=self._pool)
                 async with self._get_redis_connection() as redis:
                     await redis.ping()
                     await _ensure_no_eviction_policy(
@@ -412,20 +482,31 @@ class RedisKVStorage(BaseKVStorage):
             raise
 
     async def close(self):
-        """Close the Redis connection and release pool reference to prevent resource leaks."""
+        """Close the Redis connection and release pool reference to prevent resource leaks.
+
+        Idempotent, and safe on an instance that was never initialized: the
+        pool reference is released only if this instance actually holds one
+        (``_pool``), so closing before ``initialize()`` releases nothing and
+        cannot drive a sibling's refcount below its true value.
+        """
         # Detach all instance state BEFORE the first await, so a concurrent /
         # re-entrant close() (or finalize-after-__aexit__) is a complete no-op
         # from the start and cannot release the shared pool a second time.
+        # ``_pool`` is the token: it is set only while a reference is held, so
+        # clearing it here makes every later close() a no-op. ``_redis_url`` is
+        # configuration rather than a resource and is deliberately kept, so a
+        # closed instance can be initialized again.
         redis = getattr(self, "_redis", None)
+        pool = getattr(self, "_pool", None)
         redis_url = getattr(self, "_redis_url", None)
         self._redis = None
-        self._redis_url = None
         self._pool = None
+        self._initialized = False
 
         # Close the client first, then release the pool reference. The pool
         # release lives in ``finally`` so that even if ``aclose()`` is cancelled
         # (CancelledError is a BaseException and escapes ``except Exception``),
-        # the reference is still released — otherwise redis_url is already gone
+        # the reference is still released — otherwise the token is already gone
         # and the refcount would leak permanently.
         try:
             if redis is not None:
@@ -441,7 +522,7 @@ class RedisKVStorage(BaseKVStorage):
                         f"[{self.workspace}] Error closing Redis connection: {e}"
                     )
         finally:
-            if redis_url:
+            if pool is not None and redis_url:
                 await RedisConnectionManager.release_pool(redis_url)
                 logger.debug(
                     f"[{self.workspace}] Released Redis connection pool reference for {self.namespace}"
@@ -527,8 +608,83 @@ class RedisKVStorage(BaseKVStorage):
             existing_ids = {keys_list[i] for i, exists in enumerate(results) if exists}
             return set(keys) - existing_ids
 
+    async def _read_legacy_create_times(self, redis, keys: list[str]) -> dict[str, int]:
+        """Full-read the ``create_time`` of rows the upsert script could not.
+
+        Only rows whose stored prefix does not carry the field reach this --
+        an older layout or a hand-edited value -- so the whole value has to
+        come back to find it. The upsert rewrites them ``create_time``-first,
+        which makes this a one-time cost per row.
+
+        A key absent from the result is genuinely gone -- only ``None``
+        counts, because a key holding an empty string is a stored row and
+        must record the documented ``0`` rather than borrow the caller's
+        clock. A decodable object with no ``create_time`` yields ``0`` too.
+        """
+        resolved: dict[str, int] = {}
+        if not keys:
+            return resolved
+
+        logger.debug(
+            f"[{self.workspace}] {self.namespace}: full read for {len(keys)} "
+            f"row(s) whose create_time is not in the value prefix"
+        )
+        pipe = redis.pipeline()
+        for i, k in enumerate(keys, start=1):
+            pipe.get(f"{self.final_namespace}:{k}")
+            await _cooperative_yield(i)
+        values = await pipe.execute()
+
+        for k, raw in zip(keys, values):
+            if raw is None:
+                # Deleted between the script's read and this one. An empty
+                # string is NOT this case -- it falls through to the decode
+                # below, which records 0 like any other unusable value.
+                continue
+            try:
+                stored = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                # Not a legacy shape but corruption: say so instead of
+                # silently recording an unknown.
+                logger.warning(
+                    f"[{self.workspace}] {self.namespace}: row '{k}' is not "
+                    f"decodable JSON; recording create_time=0 (unknown)"
+                )
+                resolved[k] = 0
+                continue
+            resolved[k] = normalize_kv_create_time(
+                stored.get("create_time") if isinstance(stored, dict) else None
+            )
+        return resolved
+
     @redis_retry
     async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
+        """Write KV rows, preserving each row's original ``create_time``.
+
+        ``create_time`` is the moment the row was FIRST created; only
+        ``update_time`` may move afterwards. Redis cannot read
+        one JSON field, so the value is written ``create_time``-first and the
+        previous timestamp is recovered from a bounded prefix.
+
+        The decision is made INSIDE ``_CREATE_TIME_UPSERT_LUA``, atomically
+        with the write. A client-side read-then-write would leave two holes
+        that no later write repairs, because every update preserves the
+        timestamp it finds:
+
+        * two writers that both saw the key absent would each stamp their own
+          clock, and the last ``SET`` would report a creation that never
+          happened;
+        * a ``delete()`` completing between one writer's read and its ``SET``
+          would let the row come back carrying the deleted incarnation's
+          timestamp.
+
+        The steady state is therefore ONE round trip. A second one happens
+        only for rows written before this layout existed: the script answers
+        ``needs_hint`` without writing, and this method reads those values,
+        normalizes them through ``normalize_kv_create_time`` (the single
+        authority for malformed shapes) and calls the script again. Their
+        rewrite puts the field first, so they take the fast path afterwards.
+        """
         if not data:
             return
 
@@ -536,36 +692,73 @@ class RedisKVStorage(BaseKVStorage):
 
         async with self._get_redis_connection() as redis:
             try:
-                # Check which keys already exist to determine create vs update
-                pipe = redis.pipeline()
-                for i, k in enumerate(data.keys(), start=1):
-                    pipe.exists(f"{self.final_namespace}:{k}")
-                    await _cooperative_yield(i)
-                exists_results = await pipe.execute()
-
-                # Add timestamps to data
+                keys = list(data.keys())
                 for i, (k, v) in enumerate(data.items(), start=1):
                     # For text_chunks namespace, ensure llm_cache_list field exists
                     if self.namespace.endswith("text_chunks"):
                         if "llm_cache_list" not in v:
                             v["llm_cache_list"] = []
 
-                    # Add timestamps based on whether key exists
-                    if exists_results[i - 1]:  # Key exists, only update update_time
-                        v["update_time"] = current_time
-                    else:  # New key, set both create_time and update_time
-                        v["create_time"] = current_time
-                        v["update_time"] = current_time
-
+                    v["update_time"] = current_time
+                    # Optimistic: right for an insert, and replaced below by
+                    # whatever the script decided. A caller-supplied value
+                    # never reaches storage -- _dumps_kv_payload drops the key
+                    # and the script writes its own.
+                    v["create_time"] = current_time
                     v["_id"] = k
                     await _cooperative_yield(i)
 
-                # Store the data
-                pipe = redis.pipeline()
-                for i, (k, v) in enumerate(data.items(), start=1):
-                    pipe.set(f"{self.final_namespace}:{k}", json.dumps(v))
-                    await _cooperative_yield(i)
-                await pipe.execute()
+                # register_script only hashes the source locally; the pipeline
+                # loads it server-side before executing (redis-py tracks it
+                # via ``pipe.scripts``) and retries on NOSCRIPT.
+                script = redis.register_script(_CREATE_TIME_UPSERT_LUA)
+
+                async def write_rows(
+                    row_keys: list[str], hints: dict[str, int]
+                ) -> list[Any]:
+                    pipe = redis.pipeline()
+                    for i, key in enumerate(row_keys, start=1):
+                        hint = hints.get(key)
+                        await script(
+                            keys=[f"{self.final_namespace}:{key}"],
+                            args=[
+                                _dumps_kv_payload(data[key]),
+                                "" if hint is None else hint,
+                                current_time,
+                                _CREATE_TIME_PREFIX_BYTES,
+                            ],
+                            client=pipe,
+                        )
+                        await _cooperative_yield(i)
+                    return await pipe.execute()
+
+                def adopt(row_keys: list[str], results: list[Any]) -> list[str]:
+                    """Record what the server decided; return the unwritten ids."""
+                    deferred: list[str] = []
+                    for key, result in zip(row_keys, results):
+                        outcome, value = result[0], result[1]
+                        if outcome == "needs_hint":
+                            deferred.append(key)
+                            continue
+                        data[key]["create_time"] = int(value)
+                    return deferred
+
+                needs_hint = adopt(keys, await write_rows(keys, {}))
+                if not needs_hint:
+                    return
+
+                # A non-empty hint always writes, so this cannot loop. Rows the
+                # read could not resolve (gone, or not a JSON object) fall back
+                # to this write's own clock.
+                legacy = await self._read_legacy_create_times(redis, needs_hint)
+                hints = {k: legacy.get(k, current_time) for k in needs_hint}
+                still_deferred = adopt(needs_hint, await write_rows(needs_hint, hints))
+                if still_deferred:
+                    raise RuntimeError(
+                        f"[{self.workspace}] {self.namespace}: upsert script "
+                        f"asked twice for a create_time hint on "
+                        f"{len(still_deferred)} row(s); refusing to loop"
+                    )
 
             except json.JSONDecodeError as e:
                 logger.error(f"[{self.workspace}] JSON decode error during upsert: {e}")
@@ -591,6 +784,35 @@ class RedisKVStorage(BaseKVStorage):
         except Exception as e:
             logger.error(f"[{self.workspace}] Error checking if storage is empty: {e}")
             return True
+
+    async def iter_rows(self, *, page_size: int = 200) -> AsyncIterator[dict[str, Any]]:
+        """Stream every row (base contract): SCAN the namespace prefix a page
+        of keys at a time and read each page through ``get_by_ids`` so the
+        rows come out exactly as a point read would shape them.
+
+        SCAN may return a key twice while the keyspace is rehashing; that is
+        the best-effort snapshot the base contract allows, and a caller that
+        needs uniqueness de-duplicates on ``_id``.
+        """
+        pattern = f"{self.final_namespace}:*"
+        prefix_len = len(self.final_namespace) + 1
+        page_size = max(1, int(page_size))
+        async with self._get_redis_connection() as redis:
+            cursor = 0
+            while True:
+                cursor, keys = await redis.scan(cursor, match=pattern, count=page_size)
+                if keys:
+                    ids = [
+                        (k.decode() if isinstance(k, bytes) else k)[prefix_len:]
+                        for k in keys
+                    ]
+                    for row_id, row in zip(ids, await self.get_by_ids(ids)):
+                        if row is None:
+                            continue
+                        row["_id"] = row_id
+                        yield row
+                if cursor == 0:
+                    break
 
     async def delete(self, ids: list[str]) -> None:
         """Delete specific records from storage by their IDs"""
@@ -807,7 +1029,9 @@ class RedisDocStatusStorage(DocStatusStorage):
         redis_workspace = os.environ.get("REDIS_WORKSPACE")
         if redis_workspace and redis_workspace.strip():
             # Use environment variable value, overriding the passed workspace parameter
-            effective_workspace = redis_workspace.strip()
+            effective_workspace = validate_workspace_override(
+                "REDIS_WORKSPACE", redis_workspace
+            )
             logger.info(
                 f"Using REDIS_WORKSPACE environment variable: '{effective_workspace}' (overriding '{self.workspace}/{self.namespace}')"
             )
@@ -837,27 +1061,16 @@ class RedisDocStatusStorage(DocStatusStorage):
         self._redis_url = os.environ.get(
             "REDIS_URI", config.get("redis", "uri", fallback="redis://localhost:6379")
         )
+        # The shared pool is acquired in initialize(), NOT here: see
+        # RedisConnectionManager's docstring — a reference taken in a
+        # constructor can never be given back if construction fails later.
         self._pool = None
         self._redis = None
         self._initialized = False
-
-        try:
-            # Use shared connection pool
-            self._pool = RedisConnectionManager.get_pool(self._redis_url)
-            self._redis = Redis(connection_pool=self._pool)
-            logger.info(
-                f"[{self.workspace}] Initialized Redis doc status storage for {self.namespace} using shared connection pool"
-            )
-        except Exception as e:
-            # Clean up on initialization failure
-            if self._redis_url:
-                pool = RedisConnectionManager.release_pool_ref(self._redis_url)
-                if pool is not None:
-                    RedisConnectionManager.schedule_pool_close(pool, self._redis_url)
-            logger.error(
-                f"[{self.workspace}] Failed to initialize Redis doc status storage: {e}"
-            )
-            raise
+        logger.debug(
+            f"[{self.workspace}] Configured Redis doc status storage for "
+            f"{self.namespace} (connection deferred to initialize())"
+        )
 
     async def initialize(self):
         """Initialize Redis connection"""
@@ -866,6 +1079,11 @@ class RedisDocStatusStorage(DocStatusStorage):
                 return
 
             try:
+                if self._redis is None:
+                    # Assign the pool before building the client: if Redis()
+                    # raises, close() below still sees the reference to release.
+                    self._pool = RedisConnectionManager.get_pool(self._redis_url)
+                    self._redis = Redis(connection_pool=self._pool)
                 async with self._get_redis_connection() as redis:
                     await redis.ping()
                     await _ensure_no_eviction_policy(
@@ -914,20 +1132,31 @@ class RedisDocStatusStorage(DocStatusStorage):
             raise
 
     async def close(self):
-        """Close the Redis connection and release pool reference to prevent resource leaks."""
+        """Close the Redis connection and release pool reference to prevent resource leaks.
+
+        Idempotent, and safe on an instance that was never initialized: the
+        pool reference is released only if this instance actually holds one
+        (``_pool``), so closing before ``initialize()`` releases nothing and
+        cannot drive a sibling's refcount below its true value.
+        """
         # Detach all instance state BEFORE the first await, so a concurrent /
         # re-entrant close() (or finalize-after-__aexit__) is a complete no-op
         # from the start and cannot release the shared pool a second time.
+        # ``_pool`` is the token: it is set only while a reference is held, so
+        # clearing it here makes every later close() a no-op. ``_redis_url`` is
+        # configuration rather than a resource and is deliberately kept, so a
+        # closed instance can be initialized again.
         redis = getattr(self, "_redis", None)
+        pool = getattr(self, "_pool", None)
         redis_url = getattr(self, "_redis_url", None)
         self._redis = None
-        self._redis_url = None
         self._pool = None
+        self._initialized = False
 
         # Close the client first, then release the pool reference. The pool
         # release lives in ``finally`` so that even if ``aclose()`` is cancelled
         # (CancelledError is a BaseException and escapes ``except Exception``),
-        # the reference is still released — otherwise redis_url is already gone
+        # the reference is still released — otherwise the token is already gone
         # and the refcount would leak permanently.
         try:
             if redis is not None:
@@ -943,7 +1172,7 @@ class RedisDocStatusStorage(DocStatusStorage):
                         f"[{self.workspace}] Error closing Redis connection: {e}"
                     )
         finally:
-            if redis_url:
+            if pool is not None and redis_url:
                 await RedisConnectionManager.release_pool(redis_url)
                 logger.debug(
                     f"[{self.workspace}] Released Redis connection pool reference for doc status {self.namespace}"
@@ -1008,40 +1237,24 @@ class RedisDocStatusStorage(DocStatusStorage):
         return ordered_results
 
     async def get_status_counts(self) -> dict[str, int]:
-        """Get counts of documents in each status"""
-        counts = {status.value: 0 for status in DocStatus}
+        """Count documents per status from the scheduling sidecar.
+
+        One ``ZCARD`` per ``DocStatus`` in a single round trip, so the cost
+        does not grow with the corpus. Every write maintains the per-status
+        ZSETs atomically with the row (see the class docstring), so the
+        result equals a full scan of the primary rows.
+
+        Errors propagate, as in the PostgreSQL and MongoDB backends: a failed
+        read must never be reported as zero documents.
+        """
+        self._require_sidecar_ready()
+        statuses = [status.value for status in DocStatus]
         async with self._get_redis_connection() as redis:
-            try:
-                # Use SCAN to iterate through all keys in the namespace
-                cursor = 0
-                while True:
-                    cursor, keys = await redis.scan(
-                        cursor, match=f"{self.final_namespace}:*", count=1000
-                    )
-                    if keys:
-                        # Get all values in batch
-                        pipe = redis.pipeline()
-                        for key in keys:
-                            pipe.get(key)
-                        values = await pipe.execute()
-
-                        # Count statuses
-                        for value in values:
-                            if value:
-                                try:
-                                    doc_data = json.loads(value)
-                                    status = doc_data.get("status")
-                                    if status in counts:
-                                        counts[status] += 1
-                                except json.JSONDecodeError:
-                                    continue
-
-                    if cursor == 0:
-                        break
-            except Exception as e:
-                logger.error(f"[{self.workspace}] Error getting status counts: {e}")
-
-        return counts
+            pipe = redis.pipeline()
+            for status in statuses:
+                pipe.zcard(self._zset_key(status))
+            cards = await pipe.execute()
+        return {status: int(card) for status, card in zip(statuses, cards)}
 
     @staticmethod
     def _redis_doc_processing_status_from_data(

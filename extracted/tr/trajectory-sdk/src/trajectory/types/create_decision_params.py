@@ -13,9 +13,14 @@ class DecisionChoiceInputParam(TypedDict, total=False):
 
 class DecisionQuestionInputParam(TypedDict, total=False):
   type: Required[Literal["choice"]]
+  """Only choice questions are supported; native predicate and score types are not."""
   name: Required[str]
   instructions: Required[str]
   choices: Required[Iterable[DecisionChoiceInputParam]]
+  """Provide 2–26 distinct, nonempty values; the renderer uses single-token A–Z labels.
+
+  Use yes/no choices for predicates, or rubric levels for application-computed scores.
+  """
 
 
 class ImagePartParam(TypedDict, total=False):
@@ -44,4 +49,9 @@ class TextPartParam(TypedDict, total=False):
 class CreateDecisionParams(TypedDict, total=False):
   model: Required[str]
   input: Required[str | Iterable[TextPartParam | ImagePartParam]]
+  """Text or ordered text/image parts; native input_json parts are not supported.
+
+  Serialize JSON evidence to text with json.dumps(data).
+  """
   questions: Required[Iterable[DecisionQuestionInputParam]]
+  """Exactly one choice question per request."""

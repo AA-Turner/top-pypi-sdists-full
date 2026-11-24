@@ -3158,6 +3158,21 @@ def _prune_under_combinator(
     return answer
 
 
+def _is_vacuous_placeholder(value: Any, *, _nested: bool = False) -> bool:
+    """An answer value that says nothing: ``""``, ``[]``, ``{}``, or a container of only
+    such values (``False`` / ``0`` / ``None`` count only INSIDE a container — at the
+    top they are real answers)."""
+    if isinstance(value, str):
+        return value == ""
+    if isinstance(value, dict):
+        return all(_is_vacuous_placeholder(v, _nested=True) for v in value.values())
+    if isinstance(value, list):
+        return all(_is_vacuous_placeholder(v, _nested=True) for v in value)
+    if _nested:
+        return value is None or value is False or (isinstance(value, (int, float)) and value == 0)
+    return False
+
+
 def _prune(answer: Any, schema: Any, root: Any, depth: int) -> Any:
     if not isinstance(schema, dict) or depth > _MAX_PRUNE_DEPTH or answer is None:
         return answer
@@ -3193,6 +3208,18 @@ def _prune(answer: Any, schema: Any, root: Any, depth: int) -> Any:
                     and isinstance(sub, dict)
                     and not admits_null_in(sub, root)
                 ):
+                    continue
+                if (
+                    isinstance(sub, dict)
+                    and _is_vacuous_placeholder(value)
+                    and admits_null_in(sub, root)
+                    and not _branch_validates(value, sub, root)
+                ):
+                    # The reader's half of `collapse_nullable_unions`: a nullable field narrowed
+                    # to non-null on the wire (whose copy lost minLength/minItems) is answered
+                    # with an empty placeholder. It carries nothing, fails the declared schema,
+                    # and the author allows null there — so it reads as that null.
+                    out_obj[key] = None
                     continue
                 if isinstance(sub, dict):
                     out_obj[key] = _prune(value, sub, root, depth + 1)
@@ -3264,6 +3291,100 @@ def prune_optional_nulls(answer: Any, schema: Any, *, root: Any = None) -> Any:
     return _prune(answer, schema, schema if root is None else root, 0)
 
 
+def _pinned_value(node: Any) -> tuple[bool, Any]:
+    if not isinstance(node, dict):
+        return False, None
+    if "const" in node:
+        return True, node["const"]
+    enum = node.get("enum")
+    if isinstance(enum, list) and len(enum) == 1:
+        return True, enum[0]
+    return False, None
+
+
+def _single_non_null_branch(node: dict[str, Any], root: Any) -> Any:
+    """The one branch of a nullable union (``anyOf: [X, {type: null}]``), else None.
+    A real union is never entered: picking its branch from the answer is a guess."""
+    for combinator in ("anyOf", "oneOf"):
+        branches = node.get(combinator)
+        if isinstance(branches, list) and branches:
+            real = [
+                b for b in branches if isinstance(b, dict) and _deref(b, root).get("type") != "null"
+            ]
+            return real[0] if len(real) == 1 else None
+    return None
+
+
+def _restore_kinds(answer: Any, schema: Any, root: Any, path: str, depth: int, notes: list[str]) -> Any:
+    if not isinstance(schema, dict) or depth > _MAX_PRUNE_DEPTH or answer is None:
+        return answer
+    schema = _deref(schema, root)
+    if not isinstance(schema, dict):
+        return answer
+    if "properties" not in schema and "items" not in schema:
+        branch = _single_non_null_branch(schema, root)
+        if branch is not None:
+            return _restore_kinds(answer, branch, root, path, depth + 1, notes)
+        return answer
+    if isinstance(answer, list):
+        items = schema.get("items")
+        if isinstance(items, dict):
+            return [
+                _restore_kinds(item, items, root, f"{path}.{index}", depth + 1, notes)
+                for index, item in enumerate(answer)
+            ]
+        return answer
+    if not isinstance(answer, dict):
+        return answer
+    props = schema.get("properties")
+    if not isinstance(props, dict):
+        return answer
+    out = dict(answer)
+    pinned, value = _pinned_value(_deref(props.get(KIND_KEY), root))
+    if pinned and isinstance(value, str) and value:
+        current = out.get(KIND_KEY, _ABSENT)
+        if current is _ABSENT:
+            if KIND_KEY in set(schema.get("required") or ()):
+                out = {KIND_KEY: value, **out}
+                notes.append(f"{path}.{KIND_KEY}: absent, restored to the declared {value!r}")
+        elif current != value:
+            out[KIND_KEY] = value
+            notes.append(f"{path}.{KIND_KEY}: {str(current)[:60]!r} restored to the declared {value!r}")
+    for key, sub in props.items():
+        if key != KIND_KEY and key in out and isinstance(sub, dict):
+            out[key] = _restore_kinds(out[key], sub, root, f"{path}.{key}", depth + 1, notes)
+    return out
+
+
+_ABSENT = object()
+
+
+def restore_declared_kinds(answer: Any, schema: Any) -> tuple[Any, list[str]]:
+    """Return ``(answer, notes)`` with every ``__kind`` the declared schema PINS to
+    one value set to that value, and the notes naming each slot it corrected.
+
+    A ``__kind`` whose schema is a ``const`` (or a one-member ``enum``) carries no
+    information from the model: exactly one value is legal there, and constrained
+    decoding would have written it. When the provider is NOT decoding against the
+    schema (a JSON text contract — Gemini with Search grounding), the model must
+    re-type that constant once per array item, and on long arrays it slips: the
+    live record (2026-11-07..10, ``structured_output.answer_off_contract``) is 13
+    answers out of 16 for one agent where ONE item of ~25 carried its own ``id``
+    UUID (or ``"source_authority_magic"``) in the ``__kind`` slot. Restoring the
+    pinned value loses nothing and fabricates nothing.
+
+    Walked only where the slot is unambiguous: ``properties``, array ``items``,
+    ``$ref``, and the single real branch of a nullable union. A true union is
+    never entered (choosing its branch from the answer would be a guess), and no
+    other field is touched — an item whose ``id`` the model also lost stays off
+    contract and the check reports it.
+    """
+    notes: list[str] = []
+    if not isinstance(schema, dict):
+        return answer, notes
+    return _restore_kinds(answer, schema, schema, "$", 0, notes), notes
+
+
 __all__ = [
     "admits_null",
     "admits_null_in",
@@ -3300,6 +3421,7 @@ __all__ = [
     "optional_nonnullable_properties",
     "pins_one_value",
     "prune_optional_nulls",
+    "restore_declared_kinds",
     "widen_to_nullable",
     "WideningBudget",
     "flatten_allof",

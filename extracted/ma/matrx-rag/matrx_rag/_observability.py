@@ -210,59 +210,17 @@ def _preview(text: str | None, *, limit: int | None = None) -> str:
     return f"{s[:cap]} …[+{len(s) - cap} more chars]"
 
 
-# ── Cost estimates ──────────────────────────────────────────────────────
-# These are operator-visible breadcrumbs, not invoiced amounts. Real
-# billing comes from the provider invoice. Update as price pages move.
-# Voyage text-embedding list prices: https://docs.voyageai.com/docs/pricing
-# (verified 2026-07-07). OpenAI: https://platform.openai.com/docs/pricing
-_EMBEDDING_PRICE_PER_M_TOKENS: dict[str, float] = {
-    # OpenAI text embeddings (USD per 1M tokens)
-    "text-embedding-3-small": 0.02,
-    "text-embedding-3-large": 0.13,
-    "text-embedding-ada-002": 0.10,
-    # Voyage 4 series (current defaults — voyage-4-large is prose default)
-    "voyage-4-large": 0.12,
-    "voyage-4": 0.06,
-    "voyage-4-lite": 0.02,
-    "voyage-context-3": 0.18,
-    "voyage-code-3": 0.18,
-    # Voyage domain / legacy text embeddings still reachable via explicit model
-    "voyage-finance-2": 0.12,
-    "voyage-law-2": 0.12,
-    "voyage-code-2": 0.12,
-    "voyage-3-large": 0.18,
-    "voyage-3.5": 0.06,
-    "voyage-3.5-lite": 0.02,
-    "voyage-3": 0.06,
-    "voyage-2": 0.10,
-    "voyage-large-2": 0.12,
-}
+# ── Cost: priced by the HOST's catalog, never a private table ───────────
+# The package keeps NO price list (cost adversary pass 4, 2026-11-17: a private
+# dict here priced any model it lacked at None, and that None reached the host's
+# spend door as "free"). Every dollar figure comes from the host-injected
+# ``model_token_cost`` seam (``configure(model_token_cost=...)``), which prices
+# against the platform catalog. No seam (a standalone host) or no catalog price
+# = None plus one red alarm per (kind, model); the spend sink still receives the
+# call with ``cost_usd=None``, and the host files it as unpriced spend.
 
-# Dedupe missing-price alarms: one red banner per (price_table, model) per process.
-# Subsequent missing-cost calls still record cost_is_exact=False and cost_usd=null/0.
+# Dedupe missing-price alarms: one red banner per (price_kind, model) per process.
 _MISSING_PRICE_ALARM_KEYS: set[tuple[str, str]] = set()
-
-_CHAT_INPUT_PRICE_PER_M_TOKENS: dict[str, float] = {
-    "gpt-5.4": 0.15,
-    "gpt-5-mini": 0.25,
-    "gpt-4.1-mini": 0.40,
-    "gpt-4o-mini": 0.15,
-    "gpt-4o": 2.50,
-    "claude-haiku-4.5": 1.00,
-    "claude-sonnet-4.6": 3.00,
-    "claude-opus-4.5": 15.00,
-}
-
-_CHAT_OUTPUT_PRICE_PER_M_TOKENS: dict[str, float] = {
-    "gpt-5.4": 0.60,
-    "gpt-5-mini": 2.00,
-    "gpt-4.1-mini": 1.60,
-    "gpt-4o-mini": 0.60,
-    "gpt-4o": 10.00,
-    "claude-haiku-4.5": 5.00,
-    "claude-sonnet-4.6": 15.00,
-    "claude-opus-4.5": 75.00,
-}
 
 # Extraction providers (Fastino GLiNER) are contract-priced, so there is no
 # per-call invoice figure to read back. Per Arman (2026-06-09) we model it at
@@ -288,34 +246,30 @@ def _alarm_missing_price(
     context: str,
     provider: str | None = None,
 ) -> None:
-    """Scream once per (price_table, model) when we cannot compute a dollar cost.
+    """Scream once per (price kind, model) when we cannot compute a dollar cost.
 
     Red blocks bypass ANNOUNCE_AI_CALLS — a missing price must never be silent."""
     key = (price_table, model)
     if key in _MISSING_PRICE_ALARM_KEYS:
         return
     _MISSING_PRICE_ALARM_KEYS.add(key)
-    map_name = {
-        "embedding": "_EMBEDDING_PRICE_PER_M_TOKENS",
-        "chat_input": "_CHAT_INPUT_PRICE_PER_M_TOKENS",
-        "chat_output": "_CHAT_OUTPUT_PRICE_PER_M_TOKENS",
-    }.get(price_table, f"_{price_table.upper()}_PRICE_PER_M_TOKENS")
+    from matrx_rag._ext import get_ext  # noqa: PLC0415
+
     fix_hint = (
-        "Add the model to the matching price map in "
-        "packages/matrx-rag/matrx_rag/_observability.py "
-        f"({map_name}). Verify against the provider's official pricing page before adding."
+        "Price the model in the platform catalog (the host's model_token_cost seam reads it)."
+        if get_ext("model_token_cost") is not None
+        else "No host pricing seam: call matrx_rag.configure(model_token_cost=...) at startup."
     )
     _vcprint(
         data={
-            "price_table": price_table,
+            "price_kind": price_table,
             "model": model,
             "provider": provider,
             "context": context,
             "fix": fix_hint,
             "note": (
-                "Cost telemetry for this model will show cost_usd=null and "
-                "cost_is_exact=false until the price map is updated. "
-                "Further alarms for this model are suppressed this process."
+                "This call's cost is None (unpriced, never free): the host's spend sink files it "
+                "as unpriced spend. Further alarms for this model are suppressed this process."
             ),
         },
         title="[matrx-rag] MISSING EMBEDDING/CHAT PRICE — cost cannot be computed",
@@ -324,62 +278,70 @@ def _alarm_missing_price(
     )
 
 
-def _embedding_price_per_m_tokens(model: str, *, context: str) -> float | None:
-    price = _EMBEDDING_PRICE_PER_M_TOKENS.get(model)
-    if price is None:
-        _alarm_missing_price(price_table="embedding", model=model, context=context)
-    return price
+def _bare_model(model: str) -> str:
+    # Callers sometimes pass the routed form ("openai:text-embedding-3-small").
+    return model.split(":", 1)[-1] if ":" in model else model
 
 
-def _chat_input_price_per_m_tokens(model: str, *, context: str) -> float | None:
-    price = _CHAT_INPUT_PRICE_PER_M_TOKENS.get(model)
-    if price is None:
-        _alarm_missing_price(price_table="chat_input", model=model, context=context)
-    return price
+def _token_cost(
+    model: str, *, input_tokens: int, output_tokens: int, price_kind: str, context: str
+) -> float | None:
+    """USD for a call of ``model`` at these token counts, from the host's catalog seam. None = unpriced."""
+    from matrx_rag._ext import get_ext  # noqa: PLC0415
 
-
-def _chat_output_price_per_m_tokens(model: str, *, context: str) -> float | None:
-    price = _CHAT_OUTPUT_PRICE_PER_M_TOKENS.get(model)
-    if price is None:
-        _alarm_missing_price(price_table="chat_output", model=model, context=context)
-    return price
+    seam = get_ext("model_token_cost")
+    cost = None
+    if seam is not None:
+        try:
+            cost = seam(
+                model=_bare_model(model),
+                input_tokens=max(0, int(input_tokens)),
+                output_tokens=max(0, int(output_tokens)),
+            )
+        except Exception as exc:  # noqa: BLE001 — a pricing failure is an unpriced call, loudly
+            _vcprint(
+                data={"model": model, "error": f"{type(exc).__name__}: {exc}", "context": context},
+                title="[matrx-rag] host model_token_cost FAILED — cost cannot be computed",
+                color="red",
+                pretty=True,
+            )
+            cost = None
+    if cost is None:
+        _alarm_missing_price(price_table=price_kind, model=model, context=context)
+        return None
+    return float(cost)
 
 
 def _embedding_cost_usd(model: str, total_chars: int, *, context: str) -> float | None:
     """ESTIMATE: cost from the char→token heuristic. Used only as a fallback
     when the provider response did not return a real token count."""
-    price = _embedding_price_per_m_tokens(model, context=context)
-    if price is None:
-        return None
-    tokens = _estimate_tokens(total_chars)
-    return (tokens / 1_000_000.0) * price
+    return _token_cost(
+        model, input_tokens=_estimate_tokens(total_chars), output_tokens=0,
+        price_kind="embedding", context=context,
+    )
 
 
 def _embedding_cost_from_tokens(model: str, actual_tokens: int, *, context: str) -> float | None:
-    """EXACT quantity: provider-reported token count × published list price.
+    """EXACT quantity: provider-reported token count priced by the platform catalog.
 
-    Exact barring private contract discounts. Returns None when list price
-    is missing from the map — caller must treat cost_is_exact as False."""
-    price = _embedding_price_per_m_tokens(model, context=context)
-    if price is None:
-        return None
-    return (max(0, actual_tokens) / 1_000_000.0) * price
+    Returns None when the catalog has no price — caller must treat cost_is_exact as False."""
+    return _token_cost(
+        model, input_tokens=actual_tokens, output_tokens=0, price_kind="embedding", context=context,
+    )
 
 
 def _chat_input_cost_usd(model: str, input_chars: int, *, context: str) -> float | None:
-    price = _chat_input_price_per_m_tokens(model, context=context)
-    if price is None:
-        return None
-    tokens = _estimate_tokens(input_chars)
-    return (tokens / 1_000_000.0) * price
+    return _token_cost(
+        model, input_tokens=_estimate_tokens(input_chars), output_tokens=0,
+        price_kind="chat_input", context=context,
+    )
 
 
 def _chat_output_cost_usd(model: str, output_chars: int, *, context: str) -> float | None:
-    price = _chat_output_price_per_m_tokens(model, context=context)
-    if price is None:
-        return None
-    tokens = _estimate_tokens(output_chars)
-    return (tokens / 1_000_000.0) * price
+    return _token_cost(
+        model, input_tokens=0, output_tokens=_estimate_tokens(output_chars),
+        price_kind="chat_output", context=context,
+    )
 
 
 def _extraction_cost_usd(input_chars: int) -> float:
@@ -422,6 +384,9 @@ class AICallTally:
         default_factory=lambda: defaultdict(_BucketStats)
     )
     _lock: threading.Lock = field(default_factory=threading.Lock)
+    # True for a per-run tally opened by ``scoped_tally()``: it only accumulates,
+    # never forwards (the process tally forwards each call to it exactly once).
+    _scoped: bool = False
 
     def record(
         self,
@@ -452,12 +417,28 @@ class AICallTally:
             # A bucket is "exact" only if EVERY call into it was exact.
             if not cost_is_exact:
                 bucket.cost_is_exact = False
-        _feed_run_collector(
-            kind=kind,
-            cost_usd=float(cost_usd or 0.0),
-            input_tokens=int(input_tokens or 0),
-            cost_is_exact=cost_is_exact,
-        )
+        if not self._scoped:
+            scoped = _run_tally.get()
+            if scoped is not None:
+                scoped.record(
+                    provider=provider,
+                    kind=kind,
+                    purpose=purpose,
+                    model=model,
+                    input_chars=input_chars,
+                    output_chars=output_chars,
+                    elapsed_ms=elapsed_ms,
+                    cost_usd=cost_usd,
+                    input_tokens=input_tokens,
+                    cost_is_exact=cost_is_exact,
+                    failed=failed,
+                )
+            _feed_run_collector(
+                kind=kind,
+                cost_usd=float(cost_usd or 0.0),
+                input_tokens=int(input_tokens or 0),
+                cost_is_exact=cost_is_exact,
+            )
 
     def record_cache_served(
         self,
@@ -485,12 +466,24 @@ class AICallTally:
             bucket.cache_hits += int(hits or 0)
             bucket.input_chars += int(input_chars or 0)
             bucket.cost_saved_usd += float(cost_saved_usd or 0.0)
-        _feed_run_collector(
-            kind=kind,
-            cost_usd=0.0,
-            cache_hits=int(hits or 0),
-            cost_saved_usd=float(cost_saved_usd or 0.0),
-        )
+        if not self._scoped:
+            scoped = _run_tally.get()
+            if scoped is not None:
+                scoped.record_cache_served(
+                    provider=provider,
+                    kind=kind,
+                    purpose=purpose,
+                    model=model,
+                    hits=hits,
+                    input_chars=input_chars,
+                    cost_saved_usd=cost_saved_usd,
+                )
+            _feed_run_collector(
+                kind=kind,
+                cost_usd=0.0,
+                cache_hits=int(hits or 0),
+                cost_saved_usd=float(cost_saved_usd or 0.0),
+            )
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -548,6 +541,28 @@ class AICallTally:
 
 
 _tally = AICallTally()
+
+# The process tally answers "what has this process spent", which is the wrong
+# question for ONE run when several run at once: a before/after diff of it
+# charges a run for every other run that overlapped it (2026-11-12: seven
+# files processed together each billed the others' page cleanups, ~4x the real
+# spend). ``scoped_tally()`` opens a per-run tally on a contextvar; every call
+# recorded inside that async context lands in it too, with the same buckets.
+_run_tally: ContextVar[AICallTally | None] = ContextVar("matrx_rag_run_tally", default=None)
+
+
+@contextmanager
+def scoped_tally() -> Iterator[AICallTally]:
+    """Tally only the AI calls made inside this context (contextvars follow
+    ``await``, ``asyncio.gather`` and ``create_task``). Snapshot the yielded
+    tally for this run's buckets; the process tally keeps counting as before.
+    An inner scope shadows the outer one for its duration."""
+    tally = AICallTally(_scoped=True)
+    token = _run_tally.set(tally)
+    try:
+        yield tally
+    finally:
+        _run_tally.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -778,10 +793,10 @@ def announce_embedding_call(
         pretty=True,
     )
 
-    # Caller MUST set state["vectors_returned"]; SHOULD set
-    # state["actual_tokens"] from the provider response usage so we cost
-    # the batch EXACTLY instead of via the char heuristic.
-    state: dict[str, object] = {"vectors_returned": 0, "actual_tokens": 0, "error": None}
+    # Caller MUST set state["provider_returned"] = True the moment the provider call returns (the call is billed from
+    # then on) and state["vectors_returned"]; SHOULD set state["actual_tokens"] from the provider response usage so we
+    # cost the batch EXACTLY instead of via the char heuristic.
+    state: dict[str, object] = {"vectors_returned": 0, "actual_tokens": 0, "error": None, "provider_returned": False}
     started = time.monotonic()
     try:
         yield state
@@ -795,24 +810,52 @@ def announce_embedding_call(
                 "batch_size": batch_size,
                 "elapsed_ms": elapsed_ms,
                 "error": state["error"],
+                "billed": bool(state.get("provider_returned")),
             },
             title=f"AI CALL → {provider} embeddings.create (FAILED)",
             color="red",
             pretty=True,
         )
-        _tally.record(
-            provider=provider,
-            kind="embedding",
-            purpose=input_type or "embedding",
-            model=model,
-            input_chars=total_chars,
-            output_chars=0,
-            elapsed_ms=elapsed_ms,
-            cost_usd=0.0,
-            failed=True,
-        )
+        if state.get("provider_returned"):
+            # The provider answered (and billed) before this error (an unreadable response, a bad vector): the spend
+            # is booked like a success before re-raising, never lost (cost adversary pass 7, embeddings residual).
+            _bill_embedding_call(
+                provider=provider, model=model, input_type=input_type, state=state, total_chars=total_chars,
+                estimated_tokens=estimated_tokens, batch_size=batch_size, elapsed_ms=elapsed_ms, failed=True,
+            )
+        else:
+            _tally.record(
+                provider=provider,
+                kind="embedding",
+                purpose=input_type or "embedding",
+                model=model,
+                input_chars=total_chars,
+                output_chars=0,
+                elapsed_ms=elapsed_ms,
+                cost_usd=0.0,
+                failed=True,
+            )
         raise
     elapsed_ms = int((time.monotonic() - started) * 1000)
+    _bill_embedding_call(
+        provider=provider, model=model, input_type=input_type, state=state, total_chars=total_chars,
+        estimated_tokens=estimated_tokens, batch_size=batch_size, elapsed_ms=elapsed_ms, failed=False,
+    )
+
+
+def _bill_embedding_call(
+    *,
+    provider: str,
+    model: str,
+    input_type: str | None,
+    state: dict[str, object],
+    total_chars: int,
+    estimated_tokens: int,
+    batch_size: int,
+    elapsed_ms: int,
+    failed: bool,
+) -> None:
+    """Cost one embeddings call the provider answered, record it in the tally, and hand it to the host's spend sink."""
     # Prefer provider-reported token count; fall back to char heuristic only
     # when the response carried no usage figure.
     actual_tokens = int(state.get("actual_tokens") or 0)
@@ -831,24 +874,25 @@ def announce_embedding_call(
     # cost_is_exact: provider token count AND a real list price — never True
     # when cost_usd is null (missing price map entry).
     cost_is_exact = final_cost is not None and tokens_source == "provider_usage"
-    _vcprint(
-        data={
-            "provider": provider,
-            "model": model,
-            "batch_size": batch_size,
-            "vectors_returned": state["vectors_returned"],
-            "total_chars": total_chars,
-            "billed_tokens": billed_tokens,
-            "tokens_source": tokens_source,
-            "cost_usd": final_cost,
-            "cost_is_exact": cost_is_exact,
-            "cost_pricing_missing": final_cost is None,
-            "elapsed_ms": elapsed_ms,
-        },
-        title=f"AI CALL → {provider} embeddings.create (DONE)",
-        color="green",
-        pretty=True,
-    )
+    if not failed:
+        _vcprint(
+            data={
+                "provider": provider,
+                "model": model,
+                "batch_size": batch_size,
+                "vectors_returned": state["vectors_returned"],
+                "total_chars": total_chars,
+                "billed_tokens": billed_tokens,
+                "tokens_source": tokens_source,
+                "cost_usd": final_cost,
+                "cost_is_exact": cost_is_exact,
+                "cost_pricing_missing": final_cost is None,
+                "elapsed_ms": elapsed_ms,
+            },
+            title=f"AI CALL → {provider} embeddings.create (DONE)",
+            color="green",
+            pretty=True,
+        )
     _tally.record(
         provider=provider,
         kind="embedding",
@@ -860,6 +904,7 @@ def announce_embedding_call(
         elapsed_ms=elapsed_ms,
         cost_usd=final_cost or 0.0,
         cost_is_exact=cost_is_exact,
+        failed=failed,
     )
     _report_embedding_spend(
         provider=provider,
@@ -1206,6 +1251,7 @@ __all__ = [
     "print_tally_summary",
     "record_chat_call",
     "record_secret_redaction",
+    "scoped_tally",
     "tally_reset",
     "tally_snapshot",
 ]

@@ -34,6 +34,28 @@ _METHOD_RE = re.compile(r"^[A-Z][A-Z0-9_-]*$")
 _MAX_OCCURRENCE = 10000
 _MAX_TIMEOUT_MS = 120000
 
+# HAR paths the playground still emits for mobile -> their network.capture.v1 location.
+_HAR_ALIASES: dict[str, tuple[str, ...]] = {
+    "serverIPAddress": ("connection.server_ip",),
+    "startedDateTime": ("started_at",),
+    "time": ("timings.total",),
+    "_resourceType": ("resource_type",),
+    "request.httpVersion": ("request.http_version",),
+    "request.queryString": ("request.query",),
+    "request.bodySize": ("request.body.size",),
+    "request.postData.text": ("request.body.json", "request.body.data"),
+    "request.postData.mimeType": ("request.body.mime_type",),
+    "response.httpVersion": ("response.http_version",),
+    "response.statusText": ("response.status_text",),
+    "response.redirectURL": ("response.redirect_url",),
+    "response.bodySize": ("response.body.size",),
+    "response.content.text": ("response.body.json", "response.body.data"),
+    "response.content.mimeType": ("response.body.mime_type",),
+    "response.content.size": ("response.body.size",),
+    "response.content.encoding": ("response.body.encoding",),
+}
+_HAR_ALIAS_ORDER = sorted(_HAR_ALIASES, key=len, reverse=True)
+
 
 # The exception classes live in the shared testmu_appium._errors so every
 # implementation raises the same classes (``except`` needs the real class).
@@ -559,7 +581,33 @@ _TOKEN = re.compile(r"^\s*(?:\{\{(?P<braced>.+?)\}\}|\$\{(?P<dollar>.+?)\})\s*$"
 _PART = re.compile(r"([^.[\]]+)|\[(\d+)\]")
 
 
+def _alias_candidates(sub_path: str) -> list[str]:
+    """v1 spellings of a HAR-shaped sub-path (everything after the variable name)."""
+    for har_prefix in _HAR_ALIAS_ORDER:
+        if sub_path == har_prefix or sub_path.startswith(har_prefix + "."):
+            rest = sub_path[len(har_prefix):]
+            return [target + rest for target in _HAR_ALIASES[har_prefix]]
+    return []
+
+
 def _lookup(path: str) -> tuple[Any, str | None]:
+    value, reason = _lookup_exact(path)
+    if reason != "path_unavailable":
+        return value, reason
+    variable, _, sub_path = path.partition(".")
+    resolved_to_none = False
+    for candidate in _alias_candidates(sub_path):
+        value, reason = _lookup_exact(f"{variable}.{candidate}")
+        if reason == "body_unavailable":
+            return None, reason
+        if reason is None and value is not None:
+            return value, None
+        if reason is None:
+            resolved_to_none = True
+    return (None, None) if resolved_to_none else (None, "path_unavailable")
+
+
+def _lookup_exact(path: str) -> tuple[Any, str | None]:
     parts: list[str | int] = []
     for index, match in enumerate(_PART.finditer(path)):
         token = match.group(1)

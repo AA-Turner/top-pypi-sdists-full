@@ -9,6 +9,7 @@ from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_reso
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
 from chalk._gen.chalk.lsp.v1 import range_pb2 as _range_pb2
 from chalk._gen.chalk.python.v1 import types_pb2 as _types_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor

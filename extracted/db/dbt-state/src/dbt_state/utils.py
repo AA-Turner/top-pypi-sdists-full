@@ -164,13 +164,70 @@ def find_tables(expression: Expr) -> t.Set[Table]:
     Returns:
         A set of all the tables.
     """
+    from query_cache_common.utils import expose_udtf_argument_subqueries, is_udtf_argument_query
+    from sqlglot import exp
     from sqlglot.optimizer.scope import traverse_scope
+
+    if any(is_udtf_argument_query(q) for q in expression.find_all(exp.Query)):
+        expression = expression.copy()
+        expose_udtf_argument_subqueries(expression)
 
     return {
         table
         for scope in traverse_scope(expression)
         for table in scope.tables
         if table.name and table.name not in scope.cte_sources
+    }
+
+
+def is_pure_generator(func: Expr, dialect: str) -> bool:
+    """True for table functions that only generate rows from their arguments, without reading any table."""
+    from sqlglot import exp
+
+    # The dialect may carry sqlglot settings, e.g. "redshift, normalization_strategy = lowercase"
+    base_dialect = dialect.split(",")[0].strip()
+
+    # Pure generator built-ins that sqlglot parses as exp.Anonymous, per dialect.
+    # Add to this when more are discovered
+    generator_names = {
+        "databricks": {"range", "inline_outer"},
+    }
+
+    if isinstance(func, exp.Anonymous):
+        return func.name.lower() in generator_names.get(base_dialect, frozenset())
+
+    # sqlglot parses these names into typed expressions on every dialect, so only trust them where they are built-ins
+    generator_types: t.Dict[str, t.Tuple[t.Type[Expr], ...]] = {
+        "databricks": (exp.Explode, exp.Inline, exp.Stack),
+        # Snowflake FLATTEN is parsed as exp.Explode
+        "snowflake": (exp.Explode, exp.Generator),
+        "postgres": (exp.GenerateSeries,),
+        "redshift": (exp.GenerateSeries,),
+    }
+    return isinstance(func, generator_types.get(base_dialect, ()))
+
+
+def _find_table_function_nodes(expression: Expr) -> t.List[Expr]:
+    """Finds `FROM f(...)` (exp.Table wrapping a function), Snowflake `TABLE(f(...))` (exp.TableFromRows)
+    and `LATERAL f(...)` / `LATERAL VIEW f(...)` (exp.Lateral)."""
+    from sqlglot import exp
+
+    return [
+        node
+        for node in expression.find_all(exp.Table, exp.TableFromRows, exp.Lateral)
+        if isinstance(node.this, (exp.Func, exp.Dot))
+    ]
+
+
+def find_table_functions(expression: Expr, dialect: str) -> t.Set[str]:
+    """
+    Find all table-valued functions in a query that may read tables dbt State cannot track,
+    returned as SQL text. Pure row generators (e.g. explode, range) are excluded.
+    """
+    return {
+        node.sql(dialect=dialect)
+        for node in _find_table_function_nodes(expression)
+        if not is_pure_generator(node.this, dialect)
     }
 
 

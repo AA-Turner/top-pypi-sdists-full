@@ -15,11 +15,15 @@ from typing import Any
 
 from probe.foundation.safe_warn import safe_warn as _diagnostics
 
+from probe.generated.records import RunType
+
+from probe.sdk.run import trainer_facts
+
 from .. import _rl_owner
 from .._live import LiveAttempts, refuse_commands
 from .callback import TrlCallback
 from .live import COMMAND_REFUSAL, LiveBatch
-from .recorders import pick_recorder
+from .recorders import is_sft_trainer, pick_recorder
 from .rows import CollatedRows, RowReader, ScenarioSpec, make_prompt_key, read_labeled_rows
 from .run_key import KEY_FILE, KEY_FOLDER, KEY_PREFIX, RunKey, find_legacy_parent, make_run_key
 from .runs import drop_wandb, get_config, get_identity, get_rewind_step, get_teacher_ref, read_resume_step
@@ -436,6 +440,8 @@ class TrlTracker:
     def _open(self, resume_step: int | None) -> None:
         start = get_rewind_step(resume_step) if resume_step is not None else None
         name, init_kwargs, callback = get_identity(self.trainer, self._init_kwargs)
+        if is_sft_trainer(self.trainer):
+            init_kwargs.setdefault("run_type", RunType.SFT.value)  # D3: not `rl`, the open's default
         key = self._make_run_key(init_kwargs, is_resume=start is not None)
         _finish_trained_runs()
         run, owns = _rl_owner.open_run(
@@ -507,6 +513,10 @@ class TrlTracker:
 
     def _begin(self, step: int) -> None:
         self.ensure_run(None)
+        if self.run is not None:
+            if is_sft_trainer(self.trainer):  # a run the script opened and this trainer adopted
+                trainer_facts.send_run_type(self.run, RunType.SFT.value)
+            trainer_facts.send_total_steps(self.run, getattr(getattr(self.trainer, "state", None), "max_steps", None))
         if self.samples is not None and self.recorder is not None:
             self.recorder.handle_train_begin(step)
 

@@ -52,10 +52,23 @@ __all__ = [
     "KindField",
     "KindFieldsRefused",
     "PLATFORM_KEYS",
+    "STORE_STRUCTURE_KEYS",
     "PROVISIONAL_LABELS",
     "SELF",
+    "ChildRelation",
+    "child_relations",
     "declarations_for",
     "fields_for_kind",
+    "output_kind_of",
+    "table_kind_binding_of",
+    "bound_kind_value",
+    "bound_link_ids",
+    "bound_through_reads",
+    "coerce_link_fields",
+    "LinkFieldRefused",
+    "LINKED_RECORD",
+    "record_kind_value",
+    "related_ids",
     "record_values_for",
     "title_field_for",
     "value_from_record",
@@ -87,7 +100,18 @@ PLATFORM_KEYS: tuple[str, ...] = (
     "output_turn",
     "output_kept_into",
     "output_leftover",
+    # The run that produced the row (its request id), stamped by the chain door: one run, one row.
+    "output_run",
 )
+
+#: Keys the record store READS as structure in every record's document, never as a column: ``parent_id`` is the
+#: record's containment parent (``custom.containment_parent`` casts it to uuid on every write). A kind property of
+#: that name (``content_plan_node.parent_id``, a plan's own node label) written under it either fails the whole write
+#: (22P02 — nothing stored) or, when it happens to be a uuid, silently moves the record inside another one. Such a
+#: property gets its own column under a free key (``parent_id_2``), mapped back by ``config.kind_key``.
+#: (``from``/``to``/``carrying`` are structure only on relation records; ``custom.record_carrying_edges`` casts them
+#: only there since 2026-11-17, so a kind's ``to`` stays ``to``.)
+STORE_STRUCTURE_KEYS: tuple[str, ...] = ("parent_id",)
 
 #: Screen strings, provisional until the chair's vocabulary approval (design §12).
 PROVISIONAL_LABELS: dict[str, str] = {
@@ -104,6 +128,7 @@ PROVISIONAL_LABELS: dict[str, str] = {
     "output_turn": "Turn",
     "output_kept_into": "Kept in",
     "output_leftover": "Unplaced values",
+    "output_run": "Run",
 }
 
 #: N-C1's values, verbatim (chairdoors2_i writes ``draft`` and ``superseded``).
@@ -253,6 +278,11 @@ def _value_field(root: Mapping[str, Any], shape: Mapping[str, Any]) -> dict[str,
 # --------------------------------------------------------------------------- the Fields
 
 
+def shared_choices_marker(key: str) -> str:
+    """The marker the store finds a platform choice column's one per-organization choices set by."""
+    return f"{AGENT_OUTPUT}.{key}"
+
+
 def _platform_fields() -> list[KindField]:
     agent = {"kept_by": AGENT_OUTPUT}
     specs: dict[str, dict[str, Any]] = {
@@ -269,17 +299,24 @@ def _platform_fields() -> list[KindField]:
         "output_turn": {"type": "number"},
         "output_kept_into": {"type": "text"},
         "output_leftover": {"type": "long_text"},
+        "output_run": {"type": "text"},
     }
     out: list[KindField] = []
     for i, key in enumerate(PLATFORM_KEYS):
         spec = specs[key]
+        config = dict(agent)
+        if spec.get("options"):
+            # #91: ONE choices set per organization for each platform choice column — the store's
+            # custom._options_table_shared_or_new finds or makes it by this marker, never a
+            # "State choices" / "Reason choices" table per output table.
+            config["shared_choices"] = shared_choices_marker(key)
         declaration = {
             "key": key,
             "label": PROVISIONAL_LABELS[key],
             "sort": 10_000 + 10 * i,
             "required": False,
             **spec,
-            "config": dict(agent),
+            "config": config,
         }
         out.append(KindField(declaration, child_kind=SELF if spec["type"] == "relation" else None))
     return out
@@ -322,7 +359,7 @@ def fields_for_kind(
     root = _resolve(schema, schema)
     properties = root.get("properties") if isinstance(root.get("properties"), Mapping) else {}
     by_field = _edges(edges)
-    taken: set[str] = set(PLATFORM_KEYS)
+    taken: set[str] = set(PLATFORM_KEYS) | set(STORE_STRUCTURE_KEYS)
     out: list[KindField] = []
 
     def claim(key: str) -> str:
@@ -513,4 +550,375 @@ def value_from_record(
     for name, items in grouped.items():
         ordered = [dict(c) for _, c in sorted(items, key=lambda pc: pc[0])]
         out[name] = ordered if many[name] else ordered[0]
+    return out
+
+
+# --------------------------------------------------------------------------- a record as its kind
+#
+# B2 of the kinds connection (common-docs ``systems/data/custom-data/projects/data-for-every-client/discovery/K-kinds-connection.md``
+# §7): a record id -> the kind value it stands for, as the viewer. The READS are the store's
+# (``matrx_records`` ``RecordStore.record_as_kind``, ``@ai-matrx/records`` ``recordAsKind``); what
+# is decided from what was read is here, PURE, and twinned byte-for-byte by ``@ai-matrx/records``
+# ``src/kind-fields.ts`` (golden ``tests/fixtures/record_as_kind_golden.json``). The access check
+# stays the store's: a value the read door masked is handed in as withheld and never shown.
+
+
+@dataclass(frozen=True)
+class ChildRelation:
+    """A relation Field of an output table that holds contained records of ``child_kind``."""
+
+    key: str
+    kind_key: str
+    child_kind: str
+    #: The child output table (the Field's ``relation_target``); ``None`` when the Field has none.
+    target_table_id: str | None
+    many: bool
+
+
+def output_kind_of(table_document: Mapping[str, Any] | None) -> str | None:
+    """The registry kind an OUTPUT table holds (``kept_for = agent_output`` + ``kind``), else None.
+
+    Read from the Table's own document (``custom.read_record`` of the Table record), the one
+    place ``land.py`` writes it. Any other table answers None: its records are ``table:<uuid>``.
+    """
+    if not isinstance(table_document, Mapping) or table_document.get("kept_for") != AGENT_OUTPUT:
+        return None
+    kind = table_document.get("kind")
+    return kind if isinstance(kind, str) and kind.strip() else None
+
+
+def table_kind_binding_of(facts: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """An ORDINARY table's bound kind (PF-4) from the facts door's ``kind_binding``, else None.
+
+    ``{kind, fields, required, problem}``: the registered kind an owner chose (``custom.table_kind_set``),
+    ``{<kind field>: <column key>}``, what the kind requires today (read live), and a plain sentence
+    when the kind is no longer registered or is turned off. The twin of TS ``tableKindBindingOf``.
+    """
+    raw = facts.get("kind_binding") if isinstance(facts, Mapping) else None
+    if not isinstance(raw, Mapping):
+        return None
+    kind = raw.get("kind").strip() if isinstance(raw.get("kind"), str) else ""
+    mapping = raw.get("fields")
+    if not kind or not isinstance(mapping, Mapping):
+        return None
+    fields = {
+        str(name): column
+        for name, column in mapping.items()
+        if isinstance(column, str) and column and name != _KIND_KEY and not str(name).startswith("_")
+    }
+    fact_fields = facts.get("fields") if isinstance(facts, Mapping) else None
+    through, record_id_fields = _followed_fields_of(mapping, fact_fields)
+    required_raw = raw.get("required")
+    required = (
+        [k for k in required_raw if isinstance(k, str) and k != _KIND_KEY] if isinstance(required_raw, list) else []
+    )
+    problem = raw.get("problem")
+    problem = problem if isinstance(problem, str) and problem.strip() else None
+    binding: dict[str, Any] = {"kind": kind, "fields": fields, "required": required, "problem": problem}
+    links = _link_columns_of(fields, fact_fields)
+    if links:
+        binding["links"] = links
+    if through:
+        binding["through"] = through
+    if record_id_fields:
+        binding["record_id_fields"] = record_id_fields
+    return binding
+
+
+def _followed_fields_of(mapping: Mapping[str, Any], fact_fields: Any) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """The kind fields bound to something other than one of the row's own columns (PF-GAUNTLET #98):
+
+    * ``{"link": <link column>, "field": <key>}`` — a field ON THE LINKED RECORD (``Door › Owner repair approval
+      limit``). Kept only when the link column is a record link of this table (a ``relation`` Field without
+      ``allowed_types``); ``table_id`` is the Table it points at (``relation_target``), ``None`` when unsaid.
+    * ``{"record_id": true}`` — the row's own record id.
+
+    Twin of TS ``followedFieldsOf``.
+    """
+    through: dict[str, dict[str, Any]] = {}
+    record_id_fields: list[str] = []
+    by_key = (
+        {str(f.get("key")): f for f in fact_fields if isinstance(f, Mapping)} if isinstance(fact_fields, list) else {}
+    )
+    for name, target in mapping.items():
+        name = str(name)
+        if not isinstance(target, Mapping) or name == _KIND_KEY or name.startswith("_"):
+            continue
+        if target.get("record_id") is True:
+            record_id_fields.append(name)
+            continue
+        link, field = target.get("link"), target.get("field")
+        if not (isinstance(link, str) and link and isinstance(field, str) and field):
+            continue
+        f = by_key.get(link)
+        if f is None or f.get("type") != "relation":
+            continue
+        allowed = _config(f).get("allowed_types")
+        if isinstance(allowed, list) and allowed:
+            continue
+        table_id = f.get("relation_target")
+        through[name] = {"link": link, "field": field, "table_id": table_id if isinstance(table_id, str) and table_id else None}
+    return through, record_id_fields
+
+
+#: What a linked cell reads when its words could not be read. Never the id. Twin of TS ``LINKED_RECORD``.
+LINKED_RECORD = "Linked record"
+
+
+def _link_columns_of(mapped: Mapping[str, str], fact_fields: Any) -> dict[str, str | None]:
+    """The mapped columns that are LINKS: ``{column: link Field id | None}`` (None = the relation door cannot say
+    the words, a link to a platform record). Twin of TS ``linkColumnsOf``."""
+    out: dict[str, str | None] = {}
+    if not isinstance(fact_fields, list):
+        return out
+    by_key = {str(f.get("key")): f for f in fact_fields if isinstance(f, Mapping)}
+    for column in dict.fromkeys(mapped.values()):
+        f = by_key.get(column)
+        if f is None or f.get("type") != "relation":
+            continue
+        allowed = _config(f).get("allowed_types")
+        fid = f.get("id")
+        out[column] = fid if isinstance(fid, str) and fid and not (isinstance(allowed, list) and allowed) else None
+    return out
+
+
+def _link_item_id(item: Any) -> str | None:
+    """The id one link item names: a bare id, an ``{id}`` pair, or a relation address (``_record_id`` / ``id``).
+    Twin of TS ``linkItemId``."""
+    if isinstance(item, str):
+        return item
+    if not isinstance(item, Mapping):
+        return None
+    i = item.get("_record_id")
+    if i is None:
+        i = item.get("id")
+    return i if isinstance(i, str) else None
+
+
+def _link_ids_of(value: Any) -> list[str]:
+    items = value if isinstance(value, list) else ([] if value is None or value == "" else [value])
+    ids: list[str] = []
+    for item in items:
+        i = _link_item_id(item)
+        if isinstance(i, str) and i.strip():
+            ids.append(i.strip())
+    return ids
+
+
+_RECORD_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+
+
+class LinkFieldRefused(ValueError):
+    """A value bound to a link column names no record; the message is the sentence the person reads."""
+
+
+def _shape_words(value: Any) -> str:
+    if isinstance(value, list):
+        return "a list holding something that is not a record"
+    if isinstance(value, Mapping):
+        return "an object that names no record"
+    if isinstance(value, str):
+        return f'"{value[:40]}…"' if len(value) > 40 else f'"{value}"'
+    if isinstance(value, bool):
+        return "a boolean"
+    if isinstance(value, int | float):
+        return "a number"
+    return f"a {type(value).__name__}"
+
+
+def coerce_link_fields(fields: Any, row: Mapping[str, Any]) -> dict[str, Any]:
+    """A row about to be written, with every value bound to a LINK column (a ``relation`` Field pointing at
+    records) turned into what the store's write door takes for a link: the record id, or a list of ids.
+
+    Accepted: a bare id, a list of ids, ``{id}`` pairs, a relation address (``{__kind: "relation", token:
+    "record", _record_id | id}``) and a source row's own link cell — the one link-cell reading
+    (:func:`bound_link_ids`). An empty value (None, "", []) stays as written. A value naming no record raises
+    :class:`LinkFieldRefused` with a sentence naming the field; nothing is guessed. Non-link columns and
+    entity-reference relations (``config.allowed_types``, which take ``{token, id}``) are left as given.
+    Twin of TS ``coerceLinkFields``.
+    """
+    out = dict(row)
+    if not isinstance(fields, list):
+        return out
+    for field in fields:
+        if not isinstance(field, Mapping):
+            continue
+        key = field.get("key")
+        if not isinstance(key, str) or not key or key not in row or field.get("type") != "relation":
+            continue
+        allowed = _config(field).get("allowed_types")
+        if isinstance(allowed, list) and allowed:
+            continue
+        value = row[key]
+        if value is None or value == "" or (isinstance(value, list) and not value):
+            continue
+        items = value if isinstance(value, list) else [value]
+        ids: list[str] = []
+        for item in items:
+            i = (_link_item_id(item) or "").strip()
+            if not _RECORD_ID.match(i):
+                label = field.get("label") if isinstance(field.get("label"), str) and field.get("label") else key
+                raise LinkFieldRefused(
+                    f"{label} links to a record, and it was given "
+                    f"{_shape_words(value if isinstance(value, list) else item)}, which is not a record. Nothing was saved."
+                )
+            ids.append(i)
+        out[key] = ids if isinstance(value, list) else ids[0]
+    return out
+
+
+def bound_link_ids(
+    binding: Mapping[str, Any], documents: Sequence[Mapping[str, Any]], withheld: Sequence[str] = ()
+) -> dict[str, list[str]]:
+    """Link Field id -> the linked record ids across these rows, de-duplicated: ONE batched ask per Field."""
+    out: dict[str, list[str]] = {}
+    links = binding.get("links") or {}
+    for column in (binding.get("fields") or {}).values():
+        field_id = links.get(column)
+        if not field_id or column in withheld:
+            continue
+        seen = dict.fromkeys(out.get(field_id, []))
+        for d in documents:
+            seen.update(dict.fromkeys(_link_ids_of(d.get(column))))
+        if seen:
+            out[field_id] = list(seen)
+    return out
+
+
+def bound_through_reads(
+    binding: Mapping[str, Any], documents: Sequence[Mapping[str, Any]], withheld: Sequence[str] = ()
+) -> dict[str, dict[str, Any]]:
+    """Link column -> ``{table_id, ids}``: the linked records these rows' followed fields read, de-duplicated —
+    ONE batched read per link column, through the store's read door as the reader. A withheld link column, or one
+    whose Table is unsaid, is never followed. Twin of TS ``boundThroughReads``."""
+    out: dict[str, dict[str, Any]] = {}
+    for spec in (binding.get("through") or {}).values():
+        column, table_id = spec.get("link"), spec.get("table_id")
+        if not column or not table_id or column in withheld or column in out:
+            continue
+        seen: dict[str, None] = {}
+        for d in documents:
+            seen.update(dict.fromkeys(_link_ids_of(d.get(column))))
+        if seen:
+            out[column] = {"table_id": table_id, "ids": list(seen)}
+    return out
+
+
+def bound_kind_value(
+    binding: Mapping[str, Any],
+    document: Mapping[str, Any],
+    withheld: Sequence[str] = (),
+    words: Mapping[str, Mapping[str, str]] | None = None,
+    linked: Mapping[str, Mapping[str, Mapping[str, Any]]] | None = None,
+    record_id: str | None = None,
+) -> dict[str, Any]:
+    """A row of a bound table as its kind value: ``{"value": {...}, "missing": [...]}`` (PF-4).
+
+    Only mapped fields are built, under ``__kind`` = the bound slug; an empty value (absent, None, "")
+    and a ``withheld`` column are left out; every required field left out is named in ``missing``.
+    A field bound to ``<link> › <field>`` reads that field of the linked record from ``linked``
+    (``{link column: {record id: the linked document as this reader read it}}``, see :func:`bound_through_reads`):
+    one link gives its value, several give the list of values; a withheld link, an unread record or an empty
+    value leaves it out. A field bound to the record id reads ``record_id``.
+    The twin of TS ``boundKindValue``.
+    """
+    hidden = set(withheld)
+    value: dict[str, Any] = {_KIND_KEY: binding["kind"]}
+    for name, column in (binding.get("fields") or {}).items():
+        if column in hidden:
+            continue
+        item = document.get(column)
+        if item is None or item == "":
+            continue
+        links = binding.get("links") or {}
+        if column in links:
+            # A LINK reads as the linked row's words (many join with ", "); unread words leave "Linked record", never the id.
+            ids = _link_ids_of(item)
+            if not ids:
+                continue
+            named = (words or {}).get(links[column] or "") or {}
+            value[name] = ", ".join(named.get(i) or LINKED_RECORD for i in ids)
+            continue
+        value[name] = item
+    for name, spec in (binding.get("through") or {}).items():
+        column = spec.get("link")
+        if not column or column in hidden:
+            continue
+        ids = _link_ids_of(document.get(column))
+        read = (linked or {}).get(column) or {}
+        found = [
+            v
+            for v in ((read.get(i) or {}).get(spec.get("field")) for i in ids)
+            if v is not None and v != "" and v != []
+        ]
+        if found:
+            value[name] = found[0] if len(ids) == 1 else found
+    if record_id:
+        for name in binding.get("record_id_fields") or []:
+            value[name] = record_id
+    missing = [k for k in binding.get("required") or [] if k not in value]
+    return {"value": value, "missing": missing}
+
+
+def child_relations(fields: Sequence[Mapping[str, Any]]) -> list[ChildRelation]:
+    """Every Field that holds contained records, in the table's Field order."""
+    out: list[ChildRelation] = []
+    for f in fields:
+        cfg = _config(f)
+        child = cfg.get("child_kind")
+        if cfg.get("kept_by") == AGENT_OUTPUT or not isinstance(child, str) or not child:
+            continue
+        target = f.get("relation_target")
+        out.append(
+            ChildRelation(
+                key=str(f.get("key")),
+                kind_key=str(cfg.get("kind_key") or f.get("key")),
+                child_kind=child,
+                target_table_id=str(target) if isinstance(target, str) and target else None,
+                many=cfg.get("kind_many") is True,
+            )
+        )
+    return out
+
+
+def related_ids(document: Mapping[str, Any], relation: ChildRelation) -> list[str]:
+    """The contained record ids a document's relation Field holds, in their stored order."""
+    raw = document.get(relation.key)
+    items = raw if isinstance(raw, list) else ([] if raw is None else [raw])
+    return [str(i) for i in items if isinstance(i, str) and i]
+
+
+def record_kind_value(
+    facts: Mapping[str, Any],
+    document: Mapping[str, Any],
+    *,
+    kind: str | None = None,
+    children: Sequence[tuple[str, int, Mapping[str, Any]]] = (),
+    withheld: Sequence[str] = (),
+) -> dict[str, Any]:
+    """The kind value one record stands for, from its Table's facts and its read document.
+
+    ``kind`` (an output table's registry kind, :func:`output_kind_of`) rebuilds the registry
+    value through :func:`value_from_record`; the relation Fields that hold contained records
+    are answered by ``children`` (each already a kind value), never by their ids. Without it the
+    record is a record of its Table: ``{"__kind": "table:<table id>", ...its values}``.
+    ``withheld`` are the keys the read door masked for this viewer: they are left out, never
+    shown as a value. Keys starting with ``_`` (the door's ``_hidden``, ``_values``…) are never values.
+    """
+    hidden = set(withheld)
+    fields = [f for f in facts.get("fields") or [] if isinstance(f, Mapping)]
+    if kind:
+        held_by_children = {r.key for r in child_relations(fields)}
+        values = {
+            k: v
+            for k, v in document.items()
+            if not k.startswith("_") and k not in hidden and k not in held_by_children
+        }
+        return value_from_record(values, children, fields, kind=kind)
+    from matrx_graph.table_kinds import table_kind_slug
+
+    out: dict[str, Any] = {_KIND_KEY: table_kind_slug(str(facts["table_id"]))}
+    for k, v in document.items():
+        if not k.startswith("_") and k not in hidden:
+            out[k] = v
     return out

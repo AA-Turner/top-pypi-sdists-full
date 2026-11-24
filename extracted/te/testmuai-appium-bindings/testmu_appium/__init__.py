@@ -101,6 +101,7 @@ from testmu_appium._errors import (  # shared: `except` needs the real classes
     NetworkCaptureNotFound,
     NetworkCaptureContractError,
     NetworkAssertionError,
+    LoopExhausted,
 )
 
 # `type` is routed like every other verb (see ROUTED_NAMES), so codegen's
@@ -156,4 +157,5 @@ __all__ = [
     "ViewportScriptRuntimeError", "ViewportResultTypeError",
     "NetworkCaptureError", "NetworkCaptureUnavailable", "NetworkCaptureTimeout",
     "NetworkCaptureNotFound", "NetworkCaptureContractError", "NetworkAssertionError",
+    "LoopExhausted",
 ]

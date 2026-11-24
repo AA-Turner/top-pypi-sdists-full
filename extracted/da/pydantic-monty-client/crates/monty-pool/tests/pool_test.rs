@@ -51,7 +51,10 @@ use tokio::{
     time::sleep,
 };
 
-use crate::{binary::monty_binary, common::wait_for_idle};
+use crate::{
+    binary::monty_binary,
+    common::{kill_pid, wait_for_idle},
+};
 
 /// Held by each test that allocates hundreds of MiB (oversize frames, oversize
 /// dumps), so the parallel test runner never holds two such buffers at once.
@@ -111,23 +114,6 @@ fn try_symlink_dir(original: &Path, link: &Path) -> io::Result<()> {
     return symlink(original, link);
     #[cfg(windows)]
     return symlink_dir(original, link);
-}
-
-/// Kills a process by pid with SIGKILL — simulates a hard crash.
-fn kill_pid(pid: u32) {
-    #[cfg(unix)]
-    {
-        let status = Command::new("kill").args(["-9", &pid.to_string()]).status().unwrap();
-        assert!(status.success());
-    }
-    #[cfg(windows)]
-    {
-        let status = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/F"])
-            .status()
-            .unwrap();
-        assert!(status.success());
-    }
 }
 
 /// Writes the executable stand-in for `monty` that a test drives, from a child shell rather than
@@ -1509,11 +1495,10 @@ async fn worker_killed_while_idle_is_replaced_transparently() {
     session.finish().await.unwrap();
 }
 
-/// A deep postfix spine (`a.x.x.x…`) currently overflows the worker's stack
-/// (recursive AST handling) — a REAL memory crash, exactly what subprocess
-/// isolation exists for. If monty core gains AST-depth protection this
-/// becomes a `Runtime`/`Crashed` either way; the invariant under test is
-/// that the client survives and the pool keeps serving.
+/// A deep postfix spine (`a.x.x.x…`) once overflowed the worker's stack
+/// (recursive AST handling) and is now rejected as a `SyntaxError`. Either
+/// outcome is accepted; the invariant under test is that the client survives
+/// and the pool keeps serving.
 #[tokio::test]
 async fn hard_worker_crash_does_not_harm_the_pool() {
     let pool = Pool::new(config()).await.unwrap();
@@ -2902,6 +2887,34 @@ async fn recycled_workers_are_replaced_in_the_background() {
     assert_eq!(seen.len(), 5);
 }
 
+/// `pre_warm` is a floor on idle workers, where `min_processes` is one on live
+/// ones: taking the ready worker starts its replacement.
+#[tokio::test]
+async fn pre_warm_keeps_idle_workers_ready_beyond_those_checked_out() {
+    let mut config = config();
+    config.min_processes = 1;
+    config.max_processes = 3;
+    let pool = Pool::new(config.clone()).await.unwrap();
+    let session = pool.checkout(&ReplConfig::default()).await.unwrap();
+    // `min_processes` is met by the worker checked out, so nothing is spawned
+    sleep(Duration::from_millis(200)).await;
+    assert_eq!(pool.idle_workers(), 0);
+    session.finish().await.unwrap();
+
+    config.pre_warm = 2;
+    let pool = Pool::new(config).await.unwrap();
+    assert_eq!(pool.idle_workers(), 2);
+    let first = pool.checkout(&ReplConfig::default()).await.unwrap();
+    wait_for_idle(&pool, 2).await;
+    // at `max_processes` the floor gives way to the cap
+    let second = pool.checkout(&ReplConfig::default()).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
+    assert_eq!(pool.idle_workers(), 1);
+    first.finish().await.unwrap();
+    second.finish().await.unwrap();
+    wait_for_idle(&pool, 3).await;
+}
+
 /// Workers lost to a crash or an abandoned checkout are replaced too.
 #[tokio::test]
 async fn crashed_and_dropped_workers_are_replaced() {
@@ -3030,6 +3043,35 @@ async fn typing_error_via_pool() {
     session.finish().await.unwrap();
 }
 
+/// `prewarm_type_checker` reaches the worker: its pre-built checker is charged to the
+/// worker baseline, so a type-checked session runs within a 2 MiB budget a cold
+/// worker's first check alone exceeds.
+#[tokio::test]
+async fn prewarm_type_checker_runs_type_checked_sessions_in_a_small_budget() {
+    let pool = Pool::new(PoolConfig {
+        prewarm_type_checker: true,
+        max_processes: 1,
+        ..config()
+    })
+    .await
+    .unwrap();
+    let repl_config = ReplConfig {
+        type_check: true,
+        limits: Some(ResourceLimits::default().max_memory(2 * 1024 * 1024)),
+        ..ReplConfig::default()
+    };
+    // the second checkout reuses the worker, whose checker was rebuilt after the reset
+    for _ in 0..2 {
+        let mut session = pool.checkout(&repl_config).await.unwrap();
+        let event = session
+            .feed("x = 'a b'.split()\nlen(x)", vec![], vec![], false, &mut no_print)
+            .await
+            .unwrap();
+        assert_eq!(expect_complete(event), MontyObject::int(2));
+        session.finish().await.unwrap();
+    }
+}
+
 /// Security-critical: a reused worker's type checker must not let one
 /// session's files (script or stubs) influence the next session's checks.
 /// The same pid is asserted so this cannot pass vacuously on a fresh worker —
@@ -3093,11 +3135,11 @@ async fn type_check_state_is_scrubbed_between_checkouts_on_the_same_worker() {
     };
     assert_eq!(
         probe("from a import SECRET").await,
-        "b.py:1:6: error[unresolved-import] Cannot resolve imported module `a`\n"
+        "b.py:1:6: error[import-not-found] Cannot resolve imported module `a`\n"
     );
     assert_eq!(
         probe("from repl_type_stubs import STUB_SECRET").await,
-        "b.py:1:6: error[unresolved-import] Cannot resolve imported module `repl_type_stubs`\n"
+        "b.py:1:6: error[import-not-found] Cannot resolve imported module `repl_type_stubs`\n"
     );
     assert_eq!(
         probe("x = STUB_SECRET").await,
@@ -3942,7 +3984,7 @@ async fn module_stubs_do_not_outlive_their_session_on_a_reused_worker() {
     let PoolError::Typing(diagnostics) = err else {
         panic!("expected Typing, got {err:?}");
     };
-    assert_snapshot!(diagnostics, @"main.py:1:8: error[unresolved-import] Cannot resolve imported module `tools`");
+    assert_snapshot!(diagnostics, @"main.py:1:8: error[import-not-found] Cannot resolve imported module `tools`");
     session.finish().await.unwrap();
 }
 

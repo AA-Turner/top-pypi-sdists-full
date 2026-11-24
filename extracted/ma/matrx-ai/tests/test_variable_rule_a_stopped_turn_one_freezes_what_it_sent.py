@@ -94,7 +94,6 @@ def harness(monkeypatch):
     async def _no_backfill(*a, **k):
         return []
 
-    monkeypatch.setattr(persistence_mod, "_hide_superseded_failed_turns", _nothing)
     monkeypatch.setattr(persistence_mod, "_refresh_cache_state", _nothing)
     monkeypatch.setattr(persistence_mod, "_emit_context_state", _nothing)
     monkeypatch.setattr(persistence_mod, "_backfill_tool_message", _no_backfill)

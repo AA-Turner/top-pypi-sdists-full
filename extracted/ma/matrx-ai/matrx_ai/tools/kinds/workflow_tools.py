@@ -35,7 +35,9 @@ from __future__ import annotations
 
 from matrx_graph.content_ir.model import KindModel, KindSubModel
 from matrx_graph.content_ir.sdk import kind
-from pydantic import JsonValue
+from pydantic import Field, JsonValue
+
+from matrx_ai.tools.kinds.bounded import SelfBoundedFields
 
 
 @kind(
@@ -59,14 +61,13 @@ from pydantic import JsonValue
     # definition_shape / list_models / list_workflows / get_workflow.
     maturity="placeholder",
 )
-class WorkflowCatalogResult(KindModel):
+class WorkflowCatalogResult(KindModel, SelfBoundedFields):
     #: ``list_node_types``.
     node_types: list[dict] | None = None
     total: int | None = None
     #: Dynamic list actions report the true total and whether their JSON-safe
     #: page was shortened before the universal result gate could damage it.
     returned: int | None = None
-    truncated: bool | None = None
     #: The offset that returns the NEXT page, or None when the list ended here.
     #: A capped page with no way to reach the rest hides capabilities from the
     #: only reader the catalog has: 2026-09-12 the node catalog answered with
@@ -136,6 +137,16 @@ class WorkflowAuthorResult(KindModel):
     #: folded into the prose hint.
     warnings: list[dict] | None = None
     hint: str | None = None
+    #: Review mode ("Ask me first", ``workflow.conductor.apply_mode = review``): the change was NOT saved; it waits
+    #: as a proposal for the person's approval. ``proposal_id`` names it (one-graph item 11, 2026-11-17).
+    pending_approval: bool | None = None
+    proposal_id: str | None = None
+    #: The GRAPH_OP batch the held proposal was drawn under (the call id): the Studio keeps that batch dashed.
+    batch_id: str | None = None
+    #: A refused write (409 version clash / 422 invalid): the write service's
+    #: own structured refusal detail, verbatim. Undeclared until 2026-11-13, so
+    #: every refused save lost its ``__kind`` stamp (tool_result_kind_missing).
+    refusal: dict | None = None
     #: The saved row's fresh concurrency token (ISO-8601), so a client that
     #: already holds the row can adopt it without a second read.
     updated_at: str | None = None
@@ -161,17 +172,21 @@ class WorkflowAuthorResult(KindModel):
     # NOT `workflow_run_result` (SubgraphCallOutput) — see the module docstring.
     maturity="placeholder",
 )
-class WorkflowRunStatus(KindModel):
+class WorkflowRunStatus(KindModel, SelfBoundedFields):
     run_id: str = ""
     #: pending/queued/running/completed/failed/cancelling/…
     status: str | None = None
     #: ``run`` receipt only.
     job_id: str | None = None
+    background: bool | None = Field(default=None, exclude_if=lambda value: value is None)
     steps_executed: int | None = None
     #: The settled run's terminal output / error, when waited for.
     output: JsonValue | None = None
     error: JsonValue | None = None
     hint: str | None = None
+    #: ``step_results`` only — each step's latest input, output and error in
+    #: execution order (a fanned-out step: its first items plus counts).
+    steps: list[dict[str, JsonValue]] | None = None
 
 
 @kind(
@@ -213,6 +228,11 @@ class WorkflowNodeResult(KindModel):
     source_agent_id: str | None = None
     version_id: str | None = None
     repointed: bool | None = None
+    #: Review mode ("Ask me first", ``workflow.conductor.apply_mode = review``): the step change was NOT saved; it
+    #: waits as a proposal for the person's approval (``applied`` is False). ``changes`` names what it would do.
+    pending_approval: bool | None = None
+    proposal_id: str | None = None
+    changes: list[str] | None = None
     hint: str | None = None
 
 

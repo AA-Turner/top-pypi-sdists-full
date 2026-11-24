@@ -12,7 +12,6 @@ does not open its own httpx connection. Two clients against one API is how the
 """
 
 import asyncio
-import os
 from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
@@ -22,6 +21,7 @@ from typing import Any, Literal, Protocol
 
 import httpx
 from matrx_utils import vcprint
+from matrx_utils.http_client import shared_client
 
 from matrx_scraper.search.rate_limiter import (
     RateLimiter,
@@ -399,7 +399,10 @@ class BraveSearchClient:
         the secrets battery); the missing-key error then fires at call time,
         where it can name the request, instead of at construction.
         """
-        self._api_key = api_key or os.getenv(BRAVE_KEY_ENV_VAR)
+        # An explicit key is used exactly as given; otherwise THE platform key is read on every
+        # request (`_api_key` below: the host's secret_source, else the environment), so a rotated
+        # key takes effect on the next search with no restart.
+        self._explicit_key = api_key or None
 
         if not self._api_key and not allow_missing_key:
             raise ValueError(
@@ -419,15 +422,28 @@ class BraveSearchClient:
         # at the PRO floor and re-tuned from `x-ratelimit-limit` on the first
         # response, so a caller's slower key self-corrects without a code edit.
         self._limiters: dict[str, RateLimiterLike] = {}
-        if self._api_key:
-            self._limiters[self._api_key] = brave_search_rate_limiter
+        if self._explicit_key:
+            self._limiters[self._explicit_key] = brave_search_rate_limiter
+
+    @property
+    def _api_key(self) -> str | None:
+        """The caller's own key, else the platform key read NOW (``provider_secret``)."""
+        if self._explicit_key:
+            return self._explicit_key
+        from matrx_scraper._ext import provider_secret
+
+        return provider_secret(BRAVE_KEY_ENV_VAR)
 
     @staticmethod
     def _default_client_factory() -> AbstractAsyncContextManager[_HttpClient]:
-        return httpx.AsyncClient()
+        # The shared TLS context: a fresh one per search froze the event loop for a second. httpx's own defaults otherwise.
+        return shared_client(timeout=5.0, follow_redirects=False)
 
     def _limiter_for(self, api_key: str) -> RateLimiterLike:
         limiter = self._limiters.get(api_key)
+        if limiter is None and not self._explicit_key and api_key == self._api_key:
+            # The platform key (whatever value it has now) paces on the shared module queue.
+            limiter = self._limiters[api_key] = brave_search_rate_limiter
         if limiter is None:
             # A key we have not seen before (a caller's own). Seed at the PRO
             # floor and let `_tune_limiter` correct it from the very first

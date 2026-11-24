@@ -8,7 +8,7 @@ import typing_extensions
 class PingSignalParams(typing_extensions.TypedDict):
     """
     Send ping signal to keep the WebSocket connection alive. The connection automatically
-    closes after one minute of inactivity.
+    closes after 60 seconds without any message. The server does not send a reply to a ping.
     """
 
     type: typing.Literal["ping"]

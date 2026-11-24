@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from scripts import check_source_rules
-from scripts._ci_lanes import FORMATTER_ENV, WORKFLOW, matrix_entries, read_lanes
+from scripts._ci_lanes import FORMATTER_ENV, WORKFLOW, WORKFLOWS, Lane, matrix_entries, read_lanes
 from tests.capabilities import needs
 from tests.conftest import TEST_DEFAULT_FORMATTER_ENV, assert_output
 
@@ -37,7 +37,7 @@ LANES: dict[str, str] = {
             strategy:
               matrix:
                 include:
-                  - tox_env: pydantic20,py312-black22-parallel,py312-isort6-parallel
+                  - tox_env: pydantic20,py312-black22-parallel,py312-isort6-parallel,heki
                     name: pinned
             runs-on: ubuntu-24.04
           check:
@@ -72,13 +72,25 @@ LANES: dict[str, str] = {
             pydantic20: pydantic==2.0.3
         commands =
             pytest tests/main/test_payload_validation.py::test_numeric_payload_sampling
+
+        [testenv:heki]
+        base_python = python3.14
+        commands =
+            pytest tests/test_heki.py tests/test_combined.py::TestHeki::test_listed
+        dependency_groups =
+            test
+            heki
     """,
     "pyproject.toml": """
+        [project]
+        dependencies = ["black>=19.10b0; python_version<'3.15'", "isort>=4.3.21,<9", "pydantic>=2,<3"]
+
         [dependency-groups]
         test = ["pytest", { include-group = "coverage" }]
         coverage = ["coverage", { include-group = "test" }]
         black22 = ["black==22.1; python_version<'3.15'"]
         isort6 = ["isort>=6,<7"]
+        heki = ["heki==0.2.4"]
     """,
     "uv.lock": """
         version = 1
@@ -104,11 +116,18 @@ LANES: dict[str, str] = {
         version = "2.14.1"
 
         [[package]]
+        name = "heki"
+        version = "0.2.4"
+
+        [[package]]
         name = "datamodel-code-generator"
         source = { editable = "." }
     """,
 }
-"""A CI matrix of five lanes: Python 3.12, 3.11 (Windows, external formatter), Pydantic 2.0, black 22 and isort 6."""
+"""A CI matrix of six lanes: Python 3.12, 3.11 (Windows, external formatter), Pydantic 2.0, black 22, isort 6 and heki.
+
+The package requires black, isort and Pydantic, so every lane has them; only the heki lane's group installs heki.
+"""
 TREES: dict[str, dict[str, str]] = {
     "hash-split": {
         f"{PACKAGE}/_json_pointer.py": """
@@ -789,7 +808,21 @@ TREES: dict[str, dict[str, str]] = {
                 "posix": (("platform!=win32",), "the test forks"),
                 "windows": (("platform==win32",), "the test reads the registry"),
                 "python-3.12": (("python>=3.12",), "type statements"),
+                "heki": (("heki>=0",), "the test runs heki, which only the heki lane installs"),
             }
+        """,
+        "tests/test_heki.py": """
+            import pytest
+
+            from tests.capabilities import needs
+
+            @needs("heki")
+            def test_in_the_listed_module():
+                pass
+
+            @pytest.mark.parametrize("value", [pytest.param(1, marks=needs("heki")), 2])
+            def test_param_in_the_listed_module(value):
+                pass
         """,
         "tests/test_combined.py": """
             import pytest
@@ -834,6 +867,19 @@ TREES: dict[str, dict[str, str]] = {
 
             @needs("posix", "python-3.12")
             def test_posix_on_3_12():
+                pass
+
+            class TestHeki:
+                @needs("heki")
+                def test_listed(self):
+                    pass
+
+                @needs("heki")
+                def test_unlisted(self):
+                    pass
+
+            @pytest.mark.parametrize("value", [pytest.param(1, marks=needs("heki")), 2])
+            def test_heki_param_of_an_unlisted_test(value):
                 pass
 
             def needs_nothing(needs):
@@ -1553,18 +1599,31 @@ def test_lanes_are_read_from_the_matrix_and_tox(tmp_path: Path) -> None:
     assert_output("".join(f"{lane.name}: {lane.facts}\n" for lane in lanes) + f"problems: {problems}\n")
 
 
+SHARD_AXES = frozenset({"shard", "shard_total"})
+"""The matrix keys of the workflows that number a shard of one lane's tests."""
+
+
 def _beyond_include(jobs: dict[str, dict[str, dict[str, dict[str, object]]]]) -> list[str]:
-    """Return ``job: key`` for every key of a job matrix but ``include``: neither reader expands axes or excludes."""
+    """Return ``job: key`` for every key but ``include``, a lone ``tox_env`` axis and the shard axes of a tox matrix.
+
+    Neither reader expands other axes, several axes or excludes; a matrix of no tox environment holds no lane. The shard
+    axes (``SHARD_AXES``) split the tests of each lane of the ``tox_env`` axis and change no lane, so they are skipped.
+    """
+    matrices = {name: job.get("strategy", {}).get("matrix", {}) for name, job in jobs.items()}
     return [
         f"{name}: {key}"
-        for name, job in jobs.items()
-        for key in job.get("strategy", {}).get("matrix", {})
-        if key != "include"
+        for name, matrix in matrices.items()
+        if "tox_env" in matrix or any("tox_env" in entry for entry in matrix.get("include", []))
+        for key in matrix
+        if key not in {"include", *SHARD_AXES} and (key != "tox_env" or len(set(matrix) - SHARD_AXES) > 1)
     ]
 
 
 def test_a_matrix_key_but_include_is_found() -> None:
-    """A plain axis or an ``exclude`` would drop lanes silently from both readers, so it is reported."""
+    """A plain axis or an ``exclude`` would drop lanes silently from both readers, so it is reported.
+
+    The shard axes only split the tests of each lane, so they are not.
+    """
     text = """
 jobs:
   axes:
@@ -1572,6 +1631,12 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
         tox_env: [py312-parallel]
+  sharded:
+    strategy:
+      matrix:
+        tox_env: [py312-parallel]
+        shard: [1, 2]
+        shard_total: [2]
   mixed:
     strategy:
       matrix:
@@ -1611,29 +1676,71 @@ jobs:
     assert_output("".join(f"{entry['job']}: {entry['selection']}\n" for entry in matrix_entries(text)))
 
 
-def test_the_line_reader_reads_the_matrix_a_yaml_parser_reads() -> None:
-    """The workflow's matrix entries read line by line equal those of a YAML parse, runner included.
+def test_joined_entries_keep_their_own_exclusions() -> None:
+    """A node one entry leaves out is not run because another entry selects a path that covers it.
 
-    Neither reader expands matrix axes or excludes, so no matrix has a key but ``include``.
+    A node runs where some test at or below it runs: leaving out one parameter still runs the test's others, and
+    selecting one parameter runs its test and module, not the module's other tests, unless the entry also leaves
+    that parameter out.
     """
-    root = Path(__file__).parents[1]
-    text = (root / WORKFLOW).read_text(encoding="utf-8")
-    jobs = yaml.load(text, Loader=yaml.BaseLoader)["jobs"]
+    first = Lane("lane", {}, ("tests/a.py",), ("tests/a.py::test_x", "tests/a.py::test_w[one]"))
+    second = Lane("lane", {}, ("tests/b.py", "tests/a.py::test_y[one]", "tests/d.py::test_v[one]"), ())
+    third = Lane("lane", {}, ("tests/e.py::test_t[one]", "tests/e.py::test_s[one]"), ("tests/e.py::test_t[one]",))
+    lane = first.joined(second).joined(third)
+    nodes = [
+        "tests/a.py::test_x",
+        "tests/a.py::test_z",
+        "tests/b.py::test_x",
+        "tests/a.py::test_y[one]",
+        "tests/c.py",
+        "tests/a.py::test_w",
+        "tests/a.py::test_w[one]",
+        "tests/d.py::test_v",
+        "tests/d.py",
+        "tests/d.py::test_u",
+        "tests/e.py::test_t",
+        "tests/e.py::test_s",
+        "tests/e.py",
+    ]
+
+    assert_output("".join(f"{node}: {lane.runs(node)}\n" for node in nodes))
+
+
+def test_the_line_reader_reads_the_matrix_a_yaml_parser_reads() -> None:
+    """The matrix entries of every workflow read line by line equal those of a YAML parse, runner included.
+
+    Neither reader expands other matrix axes or excludes, so no matrix has a key but ``include``, a lone ``tox_env``
+    axis and the shard axes.
+    """
+    workflows = sorted((Path(__file__).parents[1] / WORKFLOWS).glob("*.y*ml"))
+    texts = {workflow.name: workflow.read_text(encoding="utf-8") for workflow in workflows}
+    every = {f"{workflow}:{name}": job for workflow, text in texts.items() for name, job in _jobs(text).items()}
+    matrices = {name: job.get("strategy", {}).get("matrix", {}) for name, job in every.items()}
     parsed = sorted(
-        (name, entry["tox_env"], entry.get("os", job["runs-on"]))
-        for name, job in jobs.items()
-        for entry in job.get("strategy", {}).get("matrix", {}).get("include", [])
+        (name, entry["tox_env"], entry.get("os", every[name]["runs-on"]))
+        for name, matrix in matrices.items()
+        for entry in [*matrix.get("include", []), *({"tox_env": env} for env in matrix.get("tox_env", []))]
     )
-    read = sorted((entry["job"], entry["tox_env"], entry.get("os", entry["runs-on"])) for entry in matrix_entries(text))
+    read = sorted(
+        (f"{workflow}:{entry['job']}", entry["tox_env"], entry.get("os", entry["runs-on"]))
+        for workflow, text in texts.items()
+        for entry in matrix_entries(text)
+    )
+
     same_variable = FORMATTER_ENV == TEST_DEFAULT_FORMATTER_ENV
 
     assert_output(
         f"missed by the line reader: {sorted(set(parsed) - set(read))}\n"
         f"added by the line reader: {sorted(set(read) - set(parsed))}\n"
         f"entries equal: {parsed == read}\n"
-        f"matrix keys but include: {_beyond_include(jobs)}\n"
+        f"matrix keys but include: {_beyond_include(every)}\n"
         f"formatter variable equal to the suite's: {same_variable}\n"
     )
+
+
+def _jobs(text: str) -> dict[str, dict[str, dict[str, dict[str, object]]]]:
+    """Return the jobs of a workflow as a YAML parser reads them."""
+    return yaml.load(text, Loader=yaml.BaseLoader).get("jobs", {})
 
 
 def test_a_full_suite_command_with_the_tox_default_target_is_no_subset_lane(

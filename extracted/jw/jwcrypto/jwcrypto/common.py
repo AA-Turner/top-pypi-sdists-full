@@ -20,12 +20,17 @@ def base64url_encode(payload):
 def base64url_decode(payload):
     size = len(payload) % 4
     if size == 2:
-        payload += '=='
+        padded = payload + '=='
     elif size == 3:
-        payload += '='
-    elif size != 0:
+        padded = payload + '='
+    elif size == 0:
+        padded = payload
+    else:
         raise ValueError('Invalid base64 string')
-    return urlsafe_b64decode(payload.encode('utf-8'))
+    decoded = urlsafe_b64decode(padded.encode('utf-8'))
+    if base64url_encode(decoded) != payload:
+        raise ValueError('Encoding was not canonical')
+    return decoded
 
 
 # JSON encoding/decoding helpers with good defaults
@@ -82,6 +87,20 @@ class InvalidJWEData(JWException):
         if exception:
             msg += ' {%s}' % str(exception)
         super(InvalidJWEData, self).__init__(msg)
+
+
+class InvalidJWSEHeader(JWException):
+    """Invalid JWSE Header.
+
+    This exception is raised when a JWS or JWE Header is invalid and/or
+    improperly formatted.
+    """
+
+    def __init__(self, message=None, exception=None):
+        msg = message if message else 'Unknown Header Verification Failure'
+        if exception:
+            msg += ' {%s}' % str(exception)
+        super(InvalidJWSEHeader, self).__init__(msg)
 
 
 class InvalidJWEOperation(JWException):
@@ -222,3 +241,92 @@ class JWSEHeaderRegistry(MutableMapping):
 
     def __len__(self):
         return self._registry.__len__()
+
+
+def merge_headers(protected, *unprotected, registry=None):
+    """Merges protected and unprotected headers and checks for duplicates.
+
+    :param protected: A dict representing the protected header (or None).
+    :param unprotected: One or more dicts representing unprotected headers.
+    :param registry: Optional JWSEHeaderRegistry to enforce 'mustprotect'.
+
+    :raises InvalidJWSEHeader: If duplicate keys are found or an unprotected
+        header contains a parameter that must be protected.
+    :return: A dictionary with the merged headers.
+    """
+    merged = dict(protected) if protected is not None else {}
+
+    for uh in unprotected:
+        if uh is None:
+            continue
+        for h in list(uh.keys()):
+            if registry and h in registry and registry[h].mustprotect:
+                raise InvalidJWSEHeader('"%s" must be protected' % h)
+            if h in merged:
+                raise InvalidJWSEHeader('Duplicate header: "%s"' % h)
+            merged[h] = uh[h]
+
+    return merged
+
+
+def check_crit(merged, protected, registry=None):
+    """Validates the 'crit' header according to RFC 7515 / RFC 7516.
+
+    :param merged: A dict with the merged headers.
+    :param protected: The protected header dict (or None).
+    :param registry: Optional JWSEHeaderRegistry to check support.
+    """
+    if merged is None:
+        return
+
+    if 'crit' not in merged:
+        return
+    crit = merged['crit']
+
+    if not isinstance(crit, list) or len(crit) == 0:
+        raise InvalidJWSEHeader('"crit" header must be a non-empty list')
+
+    if protected is None or 'crit' not in protected:
+        raise InvalidJWSEHeader('"crit" must be protected')
+
+    for k in crit:
+        if not isinstance(k, str):
+            raise InvalidJWSEHeader('Critical header name must be a string')
+        if registry is not None:
+            if k not in registry:
+                raise InvalidJWSEHeader('Unknown critical header: "%s"' % k)
+            if not registry[k].supported:
+                raise InvalidJWSEHeader(
+                    'Unsupported critical header: "%s"' % k)
+        if k not in merged:
+            raise InvalidJWSEHeader('Missing critical header "%s"' % k)
+
+
+def validate_headers(merged, registry=None, target=None):
+    """Validates merged headers using registry check callbacks.
+
+    :param merged: A dict with the merged headers.
+    :param registry: Optional JWSEHeaderRegistry instance.
+    :param target: Optional target object (JWS or JWE instance) passed
+                   to check_header.
+    """
+    if merged is None:
+        return
+
+    if 'b64' in merged and not isinstance(merged['b64'], bool):
+        raise InvalidJWSEHeader('b64 header must be a boolean')
+
+    if registry is not None:
+        for hdr in merged:
+            if hdr in registry:
+                if not registry.check_header(hdr, target):
+                    raise InvalidJWSEHeader('Failed header check')
+
+
+def merge_and_check_headers(protected, *unprotected, registry=None,
+                            target=None):
+    """Merges headers and runs critical and registry validation."""
+    merged = merge_headers(protected, *unprotected, registry=registry)
+    check_crit(merged, protected=protected, registry=registry)
+    validate_headers(merged, registry=registry, target=target)
+    return merged

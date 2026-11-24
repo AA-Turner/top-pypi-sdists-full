@@ -167,8 +167,11 @@ extern "C"
    * Divide a raw TED output by this and the result has unit slope per symbol
    * of timing error, so a loop bandwidth means the same thing at every
    * roll-off, on either detector. Measured through a real matched cascade at
-   * the stable zero, it does: 0.99 to 1.00 for both, from beta 0.1 to 0.9
-   * (`validate_ratesync_scurve` phase 3).
+   * the stable zero (`validate_ratesync_scurve` phase 3, within its
+   * tolerance of 0.12): Gardner's worst is 0.9447 at beta 0.1, where the
+   * pulse's tails are truncated hardest, and DTTL reads 0.9998 to 1.0013
+   * from beta 0.1 to 0.9. `test_loop_detector_contract.py` reads the same
+   * slope through Python by the same method.
    *
    * @note This comment used to claim the opposite — "the shipped
    * normalisation's slope varies 10.6x between beta 0.1 and 0.9" — and that
@@ -434,7 +437,12 @@ extern "C"
    *
    * @param sps  Nominal input samples per symbol (default: 4).
    * @param bn  Loop noise bandwidth, normalized to the symbol rate
-   *            (default: 0.01).
+   *            (default: 0.01), of the closed loop given a unit-slope
+   *            detector (see LoopFilter). The detector is divided by a
+   *            running power average, not by its own slope, so the
+   *            delivered bandwidth is 0.54 times `bn` at roll-off 0.1 and
+   *            1.99 times at 0.9 for Gardner (doppler#3238), and DTTL's
+   *            slope goes as the inverse of the amplitude.
    * @param zeta  Loop damping factor (default: 0.707).
    * @param order  Enum index; 0=linear…2=cubic.
    * @param ted  Enum index; 0=gardner, 1=dttl (BPSK/QPSK only).
@@ -603,9 +611,10 @@ extern "C"
    * 2*(|on-time|^2-|mid|^2)/(|on-time|^2+|mid|^2): a per-look mean
    * (mean_lock_detect, from rolloff and the minimum operating Es/N0) drives
    * the classic N = variance*((Q^-1(pfa)-Q^-1(pd))/mean)^2 /
-   * threshold = Q^-1(pfa)*mean/(Q^-1(pfa)-Q^-1(pd)) derivation, implemented
-   * directly from a formula supplied by a doppler user (not re-derived
-   * against a primary source), with "variance" set from a direct
+   * threshold = Q^-1(pfa)*mean/(Q^-1(pfa)-Q^-1(pd)) derivation, computed by the
+   * detection module (dp_det_dwell_gauss() for avgs, dp_det_threshold_gauss()
+   * for the threshold) from a formula supplied by a doppler user (not
+   * re-derived against a primary source), with "variance" set from a direct
    * measurement of lock_signal's real per-look variance under noise
    * (~1.343, 5,000,000-sample Monte Carlo) rather than the placeholder
    * "8" this API originally shipped with -- see symsync_core.c's

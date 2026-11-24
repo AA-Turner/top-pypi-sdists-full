@@ -80,6 +80,12 @@ class JsonExtraction:
     success: bool
     reason: str
     all_matches: list[dict | list] = field(default_factory=list)
+    #: ``data`` came from the json-repair tier, not a strict parse.
+    repaired: bool = False
+    #: ``data`` is a repair that CLOSED a document the text left open (cut off at an output cap,
+    #: a RECITATION stop, or mid-object). Everything after the cut is lost: the value is offered so
+    #: the caller can report it, never so it can be treated as the complete answer.
+    truncated: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +123,59 @@ def find_degenerate_strings(data: Any, path: str = "$") -> list[str]:
         for index, value in enumerate(data):
             hits.extend(find_degenerate_strings(value, f"{path}[{index}]"))
     return hits
+
+
+# A FILLER ROW IS NOT A COLLAPSE. A list-producing agent sometimes writes ONE
+# row it has nothing for — ``{"field": "google_business_profile", "value": "",
+# "reason": "placeholder", ...}`` — between and after complete rows. That is a
+# finished answer carrying a "nothing found" row, not an abandoned generation
+# (live 2026-11-16, request a41a8b59, brand_basics: 24 complete facts, one
+# filler row, model stopped normally; 11 of 77 runs of that agent in 4 days,
+# every one a filler ROW inside ``facts``, never a top-level field). Refusing
+# the whole answer re-ran a 20-25 s paid call. The row is dropped (loudly, by
+# path) and the answer kept — but only while the filler rows are a small
+# minority of their list and at least one clean row remains; filler anywhere
+# else, or a list that is mostly filler, is still the collapse and refused.
+_MAX_FILLER_ROW_SHARE = 0.25
+
+
+def prune_degenerate_rows(data: Any, path: str = "$") -> tuple[Any, list[str]]:
+    """Drop list elements that carry literal filler, when they are a small minority.
+
+    Returns ``(data_without_filler_rows, pruned_paths)``. A list is pruned only
+    when its filler elements are ≤ ``_MAX_FILLER_ROW_SHARE`` of it and at least
+    one clean element remains; otherwise it is left untouched so
+    ``degenerate_output_error`` refuses it. Never mutates the input.
+    """
+    pruned: list[str] = []
+    if isinstance(data, dict):
+        out: dict[str, Any] = {}
+        for key, value in data.items():
+            out[key], sub = prune_degenerate_rows(value, f"{path}.{key}")
+            pruned.extend(sub)
+        return out, pruned
+    if isinstance(data, list):
+        children = [prune_degenerate_rows(v, f"{path}[{i}]") for i, v in enumerate(data)]
+        filler = [
+            i
+            for i, (value, _) in enumerate(children)
+            if isinstance(value, dict | list) and find_degenerate_strings(value)
+        ]
+        clean = len(data) - len(filler)
+        if filler and clean >= 1 and len(filler) <= _MAX_FILLER_ROW_SHARE * len(data):
+            drop = set(filler)
+            out_list = []
+            for i, (value, sub) in enumerate(children):
+                if i in drop:
+                    pruned.append(f"{path}[{i}]")
+                else:
+                    out_list.append(value)
+                    pruned.extend(sub)
+            return out_list, pruned
+        for _, sub in children:
+            pruned.extend(sub)
+        return [value for value, _ in children], pruned
+    return data, pruned
 
 
 def degenerate_output_error(data: Any) -> str | None:
@@ -369,13 +428,78 @@ def _repair_is_faithful(candidate: str, value: dict | list) -> bool:
     return isinstance(value, expected)
 
 
-def _collect_repaired_candidates(text: str) -> list[dict | list]:
-    """Repair-tier candidates, in the same discovery order as the strict tiers."""
+def parse_json_document(text: Any) -> dict | list | None:
+    """A string that IS one JSON object or array, read whole — or ``None``.
+
+    For a JSON value a model wrote INSIDE a tool argument (``payload: "{\\"questions\\": [...]"``):
+    the whole string is the document, so no fragment is ever carved out of it and no prose is
+    searched. Strict parse first; then the funnel's faithful repair (a dropped closing brace — the
+    live shape, 3 of 3 ask_person calls on 2026-11-06 — an unescaped quote, a trailing comma).
+    ``None`` means the text is not readable as one document: the caller refuses, it never guesses.
+    """
+    if not isinstance(text, str):
+        return None
+    stripped = text.strip()
+    if stripped[:1] not in ("{", "["):
+        return None
+    try:
+        value = json.loads(stripped)
+    except (json.JSONDecodeError, ValueError):
+        # Text cut off inside a string is a lost tail, not a near miss: repairing it would hand the
+        # person a half sentence as if the agent wrote it.
+        value = None if _ends_inside_string(stripped) else (_try_parse(stripped) or _try_parse_repaired(stripped))
+    return value if isinstance(value, (dict, list)) else None
+
+
+def _document_was_cut_off(candidate: str) -> bool:
+    """True when the FIRST JSON document in ``candidate`` never closes — the text ends inside a
+    string or with an opener still unclosed. A repair of such text closes it by invention: the
+    tail the model never finished is gone. Lossless repairs (a fence, a trailing comma, an
+    unescaped quote inside a closed document) leave the document balanced and are not cut off."""
+    starts = [i for i in (candidate.find("{"), candidate.find("[")) if i != -1]
+    if not starts:
+        return False
+    depth = 0
+    inside = escaped = False
+    for ch in candidate[min(starts):]:
+        if inside:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                inside = False
+        elif ch == '"':
+            inside = True
+        elif ch in "{[":
+            depth += 1
+        elif ch in "}]":
+            depth -= 1
+            if depth <= 0:
+                return False
+    return True
+
+
+def _ends_inside_string(text: str) -> bool:
+    inside = escaped = False
+    for ch in text:
+        if escaped:
+            escaped = False
+        elif ch == "\\":
+            escaped = True
+        elif ch == '"':
+            inside = not inside
+    return inside
+
+
+def _collect_repaired_candidates(text: str) -> list[tuple[dict | list, bool]]:
+    """Repair-tier candidates, in the same discovery order as the strict tiers, each paired with
+    whether the repair closed a cut-off document (:func:`_document_was_cut_off`)."""
     cleaned = _strip_thinking(text)
-    candidates: list[dict | list] = []
+    candidates: list[tuple[dict | list, bool]] = []
     seen: set[str] = set()
 
-    def _add(value: dict | list | None) -> None:
+    def _add(value: dict | list | None, source: str) -> None:
         if value is None:
             return
         try:
@@ -385,11 +509,11 @@ def _collect_repaired_candidates(text: str) -> list[dict | list]:
         if key in seen:
             return
         seen.add(key)
-        candidates.append(value)
+        candidates.append((value, _document_was_cut_off(source)))
 
     for match in _FENCE_RE.finditer(cleaned):
-        _add(_try_parse_repaired(match.group(1)))
-    _add(_try_parse_repaired(cleaned))
+        _add(_try_parse_repaired(match.group(1)), match.group(1))
+    _add(_try_parse_repaired(cleaned), cleaned)
     return candidates
 
 
@@ -485,14 +609,18 @@ def extract_json(
         vcprint(f"[ResponseParser] Candidate collection failed: {exc}", color="yellow")
         candidates = []
 
-    def _filter(cands: list[Any]) -> list[Any]:
+    # Each candidate carries (value, repaired, truncated) so the selected value's provenance
+    # reaches ``JsonExtraction`` — a cut-off document closed by repair must never pass as whole.
+    tagged: list[tuple[Any, bool, bool]] = [(c, False, False) for c in candidates]
+
+    def _filter(cands: list[tuple[Any, bool, bool]]) -> list[tuple[Any, bool, bool]]:
         if schema is None:
             return list(cands)
-        kept: list[Any] = []
-        for c in cands:
+        kept: list[tuple[Any, bool, bool]] = []
+        for c, was_repaired, was_cut in cands:
             adjusted = _try_normalize_to_schema(c, schema)
             if _candidate_matches_schema(adjusted, schema):
-                kept.append(adjusted)
+                kept.append((adjusted, was_repaired, was_cut))
         return kept
 
     # A WHOLE DOCUMENT WITH ONE TYPO IS STILL THE ANSWER. When the response is
@@ -512,9 +640,9 @@ def extract_json(
                 "syntax; recovered the whole document via json-repair instead of a fragment.",
                 color="yellow",
             )
-            candidates = [repaired_whole, *candidates]
+            tagged = [(repaired_whole, True, _document_was_cut_off(whole)), *tagged]
 
-    matches: list[Any] = _filter(candidates)
+    tagged_matches = _filter(tagged)
     empty_reason = (
         "no JSON candidate matched the supplied schema"
         if schema is not None
@@ -525,14 +653,14 @@ def extract_json(
     # Reached both when the text held no parseable JSON at all and when it held
     # parseable fragments (the brace-walker's inner arrays) that missed the
     # schema because the enclosing object was malformed.
-    if not matches:
+    if not tagged_matches:
         try:
             repaired = _collect_repaired_candidates(text)
         except Exception as exc:
             vcprint(f"[ResponseParser] Repair pass failed: {exc}", color="yellow")
             repaired = []
-        matches = _filter(repaired)
-        if matches:
+        tagged_matches = _filter([(value, True, cut) for value, cut in repaired])
+        if tagged_matches:
             # Loud on purpose: a model emitted malformed JSON and we recovered
             # it. The run survives, but the agent's output contract is slipping.
             vcprint(
@@ -543,6 +671,16 @@ def extract_json(
         else:
             empty_reason += " (json-repair recovered nothing faithful to the input)"
 
+    matches: list[Any] = [value for value, _, _ in tagged_matches]
+    first_repaired = bool(tagged_matches) and tagged_matches[0][1]
+    first_truncated = bool(tagged_matches) and tagged_matches[0][2]
+    if first_truncated:
+        vcprint(
+            "[ResponseParser] 🚨 The JSON was CUT OFF before it closed; json-repair closed it, so "
+            "everything after the cut is lost. The value is incomplete — never the whole answer.",
+            color="red",
+        )
+
     if return_all:
         if detailed:
             return JsonExtraction(
@@ -550,6 +688,8 @@ def extract_json(
                 success=bool(matches),
                 reason="" if matches else empty_reason,
                 all_matches=matches,
+                repaired=first_repaired,
+                truncated=first_truncated,
             )
         return matches
 
@@ -557,7 +697,11 @@ def extract_json(
         if 0 <= nth < len(matches):
             value = matches[nth]
             if detailed:
-                return JsonExtraction(data=value, success=True, reason="", all_matches=matches)
+                was_repaired, was_cut = tagged_matches[nth][1], tagged_matches[nth][2]
+                return JsonExtraction(
+                    data=value, success=True, reason="", all_matches=matches,
+                    repaired=was_repaired, truncated=was_cut,
+                )
             return value
         if detailed:
             return JsonExtraction(
@@ -571,7 +715,10 @@ def extract_json(
     if matches:
         value = matches[0]
         if detailed:
-            return JsonExtraction(data=value, success=True, reason="", all_matches=matches)
+            return JsonExtraction(
+                data=value, success=True, reason="", all_matches=matches,
+                repaired=first_repaired, truncated=first_truncated,
+            )
         return value
 
     if detailed:

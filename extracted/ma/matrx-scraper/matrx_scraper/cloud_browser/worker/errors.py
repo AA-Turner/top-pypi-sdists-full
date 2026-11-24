@@ -31,6 +31,8 @@ WorkerErrorCode = Literal[
     "not_bootstrapped",
     "bootstrap_in_progress",
     "already_bootstrapped",
+    # A Cloud Computer already hosts its ceiling of browsers (machine_browsers.py).
+    "machine_browsers_full",
     "run_mismatch",
     "profile_mismatch",
     "lease_expired",
@@ -82,6 +84,7 @@ _ERROR_META: dict[str, tuple[int, bool]] = {
     # in-flight bootstrap, produced an orphaned live worker (2026-09-13).
     "bootstrap_in_progress": (409, True),
     "already_bootstrapped": (409, False),
+    "machine_browsers_full": (409, False),
     "run_mismatch": (409, False),
     "profile_mismatch": (409, False),
     "lease_expired": (409, False),

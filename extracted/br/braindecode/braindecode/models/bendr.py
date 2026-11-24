@@ -160,7 +160,7 @@ class BENDR(EEGModuleMixin, nn.Module):
                repo_id="username/my-bendr-model", commit_message="Upload trained BENDR model"
            )
 
-       Requires installing ``braindecode[hug]`` for Hub integration.
+       Requires installing ``braindecode[hub]`` for Hub integration.
 
     Notes
     -----
@@ -254,6 +254,11 @@ class BENDR(EEGModuleMixin, nn.Module):
         ``4 * product(enc_downsample)`` samples (384 with default downsampling of 96x).
     """
 
+    _time_axis = "free"
+    _channel_axis = (
+        "fixed"  # fixed: encoder.conv_blocks.0.0.parametrizations.weight.original1
+    )
+
     _channel_target = BENDR_CHANNEL_ORDER
 
     def __init__(
@@ -301,10 +306,7 @@ class BENDR(EEGModuleMixin, nn.Module):
         # No chs_info (incl. from_pretrained) or the canonical order: no
         # tokenizer, so released checkpoints stay bit-identical. Any other
         # montage is projected onto the 20 canonical channels.
-        try:
-            _chs_info = self.chs_info
-        except ValueError:
-            _chs_info = None
+        _chs_info = self._signal_param("chs_info")
         self.channel_tokenizer = None
         backbone_n_chans = self.n_chans
         if _chs_info is not None:
@@ -353,6 +355,7 @@ class BENDR(EEGModuleMixin, nn.Module):
         self.final_layer = None
         if self.include_final_layer:
             self._build_head(self.n_outputs)
+        self._min_n_times = 1
 
     def _build_head(self, n_outputs):
         linear = nn.Linear(in_features=self._head_in_features, out_features=n_outputs)

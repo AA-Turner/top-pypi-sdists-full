@@ -99,9 +99,7 @@ def format_messages_for_observer(
             elif role == MessageRole.SYSTEM:
                 lines.append(f"System ({time_str}): {content}")
         elif isinstance(content, list):
-            import json
-
-            from .types import ImagePart, TextPart, ToolCallPart, ToolResultPart
+            from .types import ImagePart, TextPart, ToolCallPart, ToolResultPart, dumps_safe
 
             role_label = {
                 MessageRole.USER: "User",
@@ -118,13 +116,13 @@ def format_messages_for_observer(
                     if text_parts:
                         lines.append(f"{role_label} ({time_str}): {''.join(text_parts)}")
                         text_parts = []
-                    args_str = json.dumps(part.args, indent=2)
+                    args_str = dumps_safe(part.args, indent=2)
                     lines.append(f"Tool Call {part.tool_name} ({time_str}):")
                     lines.append(args_str)
                 elif isinstance(part, ToolResultPart):
                     result_str = (
-                        json.dumps(part.result, indent=2)
-                        if isinstance(part.result, (dict, list))
+                        dumps_safe(part.result, indent=2)
+                        if not isinstance(part.result, str)
                         else str(part.result)
                     )
                     # Truncate very long tool results

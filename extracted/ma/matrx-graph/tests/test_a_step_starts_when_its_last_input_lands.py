@@ -6,7 +6,7 @@ step's finished members), once, against the barrier's join state, so a join fed 
 launches, or by results that finished before the barrier advanced, waited for an unrelated slow
 step. ``Definition.metadata["start_when_ready"]`` re-routes every finished result the barrier has not routed
 yet, in step order, whenever a new fact arrives — and keeps every key, checkpoint and replay the
-barrier's.
+barrier's. It is the DEFAULT since 2026-11-02 (PF-WF); ``false`` opts one workflow out.
 
 Each timing test is red with the setting off (asserted in the same test).
 """
@@ -36,7 +36,8 @@ pytestmark = pytest.mark.skipif(not RUN_AHEAD_ENABLED, reason="run-ahead kill sw
 
 
 def _definition(raw: dict[str, Any], *, eager: bool) -> Definition:
-    metadata = {**raw.get("metadata", {}), START_WHEN_READY_KEY: True} if eager else raw.get("metadata", {})
+    # START WHEN READY is the default (PF-WF 2026-11-02); ``eager=False`` is the per-workflow opt-out.
+    metadata = {**raw.get("metadata", {}), START_WHEN_READY_KEY: eager}
     return Definition.model_validate({**raw, "metadata": metadata})
 
 
@@ -260,10 +261,12 @@ async def test_cancel_mid_flight_launches_nothing_more_and_leaves_nothing_runnin
     assert _engine_leftovers() == []
 
 
-def test_only_a_literal_true_opts_in():
+def test_it_is_the_default_and_only_a_literal_false_opts_out():
+    """START WHEN READY is the default (PF-WF 2026-11-02: Smart Add Identify's matching started at
+    135 s on the barrier, 24 s with it on). Only a literal ``false`` opts one workflow out."""
     raw = _two_launches_join()
-    assert _scheduler(_definition(raw, eager=True), _Sleeper())[0].graph.start_when_ready is True
+    assert _scheduler(Definition.model_validate(raw), _Sleeper())[0].graph.start_when_ready is True
     assert _scheduler(_definition(raw, eager=False), _Sleeper())[0].graph.start_when_ready is False
-    for value in ("true", 1, "yes", None, False):
-        opted = Definition.model_validate({**raw, "metadata": {START_WHEN_READY_KEY: value}})
-        assert _scheduler(opted, _Sleeper())[0].graph.start_when_ready is False, value
+    for value in ("false", 0, "no", None, True):
+        kept = Definition.model_validate({**raw, "metadata": {START_WHEN_READY_KEY: value}})
+        assert _scheduler(kept, _Sleeper())[0].graph.start_when_ready is True, value

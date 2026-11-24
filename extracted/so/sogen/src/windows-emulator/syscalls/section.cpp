@@ -2,6 +2,7 @@
 #include "../emulator_utils.hpp"
 #include "../syscall_utils.hpp"
 #include "../memory_manager.hpp"
+#include "../module/module_mapping.hpp"
 
 #include <utils/io.hpp>
 
@@ -361,6 +362,11 @@ namespace sogen
                 std::vector<std::byte> file_data;
                 if (c.win_emu.file_sys.read_file(s.file_name, &file_data))
                 {
+                    if (const auto status = check_image_layout(file_data); status != STATUS_SUCCESS)
+                    {
+                        return status;
+                    }
+
                     s.cache_image_info_from_filedata(file_data);
                 }
             }
@@ -457,11 +463,9 @@ namespace sogen
                                attributes.RootDirectory == KNOWN_DLLS_DIRECTORY ||
                                utils::string::starts_with_ignore_case(filename_sv, u"\\KnownDlls\\"sv);
 
-            if (!is_knowndll && attributes.RootDirectory != BASE_NAMED_OBJECTS_DIRECTORY)
+            if (!is_knowndll && !attributes.RootDirectory && !filename_sv.starts_with(u'\\'))
             {
-                c.win_emu.log.error("Unsupported section: %s\n", u16_to_u8(filename_sv).c_str());
-                c.emu.stop();
-                return STATUS_NOT_SUPPORTED;
+                return STATUS_OBJECT_PATH_SYNTAX_BAD;
             }
 
             if (is_knowndll)
@@ -490,6 +494,11 @@ namespace sogen
                 section->inherit = (attributes.Attributes & OBJ_INHERIT) != 0;
                 section_handle.write(c.proc.sections.store(std::move(*section)));
                 return STATUS_SUCCESS;
+            }
+
+            if (attributes.RootDirectory && attributes.RootDirectory != BASE_NAMED_OBJECTS_DIRECTORY)
+            {
+                return STATUS_OBJECT_NAME_NOT_FOUND;
             }
 
             for (auto& [handle, section] : c.proc.sections)

@@ -10,7 +10,7 @@
 
 # current version
 #==============================================================================
-VERSION = (1, 9, 'dev', 24)
+VERSION = (1, 9, 'dev', 25)
 
 
 # PEP440 Format
@@ -21,4 +21,5 @@ __version__ = '%d.%d.%s%d' % VERSION if len(VERSION) == 4 else \
 
 # all submodules
 #==============================================================================
-__all__ = ['card', 'engines', 'formula', 'integer', 'pb', 'process', 'solvers']
+__all__ = ['card', 'engines', 'formula', 'integer', 'pb', 'process', 'solvers',
+           'vector']

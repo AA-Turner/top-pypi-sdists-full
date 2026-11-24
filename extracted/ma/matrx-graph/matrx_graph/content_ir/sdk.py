@@ -227,6 +227,13 @@ class KindRegistration(BaseModel):
     #: TS twin: ``KindDefinition.discriminatorAliases``). Stored messages keep the old slug, so an
     #: alias is read forever; the publisher writes it to ``metadata.aliases``.
     aliases: tuple[str, ...] = ()
+    #: The kind's BLOCK PRESENTATION DESCRIPTION (block-wrapper plan § 1a): only the fields
+    #: that differ from the kind default — ``title_fallback`` ("none" | "type_label"),
+    #: ``full_screen`` (bool), ``menu_rows`` (subset of ``PRESENTATION_MENU_ROWS``, or None).
+    #: WHO WINS: declared here → this model owns ``metadata.presentation`` and every publish
+    #: writes it (a DB edit is overwritten); None → the DATABASE owns it and the publisher never
+    #: touches it (``presentation_sync``). See common-docs content-ir FEATURE.md.
+    presentation: dict[str, Any] | None = None
 
     def model_post_init(self, __context: Any) -> None:
         # Round-1 F12: the model enforces the tier vocabulary itself — the
@@ -252,6 +259,42 @@ class KindRegistration(BaseModel):
 
 _catalog: dict[str, KindRegistration] = {}
 
+#: The ⋯ rows a presentation description may list (rich-content GOVERNED_MENU_ROWS).
+PRESENTATION_MENU_ROWS: tuple[str, ...] = ("fullscreen", "window", "copy")
+
+
+def presentation_refusal(slug: str, value: Any) -> str | None:
+    """The sentence that refuses a declared presentation description, or None when valid."""
+    if not isinstance(value, Mapping) or not value:
+        return f"@kind({slug!r}): presentation must be a non-empty mapping of the fields that differ from the default."
+    unknown = sorted(set(value) - {"title_fallback", "full_screen", "menu_rows"})
+    if unknown:
+        return f"@kind({slug!r}): presentation has unknown field(s) {unknown!r}; it holds title_fallback, full_screen, menu_rows."
+    if "title_fallback" in value and value["title_fallback"] not in ("none", "type_label"):
+        return f"@kind({slug!r}): presentation.title_fallback must be 'none' or 'type_label'."
+    if "full_screen" in value and not isinstance(value["full_screen"], bool):
+        return f"@kind({slug!r}): presentation.full_screen must be a bool."
+    rows = value.get("menu_rows", [])
+    if rows is not None and (not isinstance(rows, (list, tuple)) or any(r not in PRESENTATION_MENU_ROWS for r in rows)):
+        return f"@kind({slug!r}): presentation.menu_rows must list ids from {PRESENTATION_MENU_ROWS!r}, or be None."
+    return None
+
+
+def presentation_sync(metadata: dict[str, Any], declared: Mapping[str, Any] | None) -> str | None:
+    """Apply the WHO-WINS rule to a row's metadata IN PLACE; return a note when it changed.
+
+    Declared on the model → the model owns ``metadata.presentation`` (written verbatim,
+    a database edit is overwritten). Not declared → the database owns it: untouched.
+    """
+    if declared is None:
+        return None
+    want = {k: (list(v) if isinstance(v, tuple) else v) for k, v in declared.items()}
+    if metadata.get("presentation") == want:
+        return None
+    before = metadata.get("presentation")
+    metadata["presentation"] = want
+    return "presentation set" if before is None else "presentation replaced (the @kind declaration owns it)"
+
 
 def kind(
     slug: str,
@@ -264,6 +307,7 @@ def kind(
     maturity: str = "placeholder",
     ai_view: Sequence[str] | None = None,
     aliases: Sequence[str] = (),
+    presentation: Mapping[str, Any] | None = None,
 ) -> Callable[[type[KindModel]], type[KindModel]]:
     """Declare a ``KindModel`` subclass as the kind ``slug``. See module doc.
 
@@ -308,6 +352,10 @@ def kind(
         unknown = [f for f in ai_view if not isinstance(f, str) or not f.strip()]
         if unknown:
             raise ValueError(f"@kind({slug!r}): ai_view entries must be field names, got {unknown!r}.")
+    if presentation is not None:
+        refusal = presentation_refusal(slug, presentation)
+        if refusal:
+            raise ValueError(refusal)
     aliases = tuple(aliases)
     if slug in aliases or any(not isinstance(a, str) or not a.strip() for a in aliases):
         raise ValueError(f"@kind({slug!r}): aliases must be other, non-empty slugs, got {aliases!r}.")
@@ -370,6 +418,7 @@ def kind(
             maturity=maturity,
             ai_view=ai_view,
             aliases=aliases,
+            presentation=dict(presentation) if presentation is not None else None,
         )
         return cls
 
@@ -589,9 +638,10 @@ def _json_value_equal(left: Any, right: Any) -> bool:
 
 
 def _structurally_equal(a: dict[str, Any], b: dict[str, Any]) -> bool:
-    return strip_optional_schema_kind_stamps(_normalize(a)) == strip_optional_schema_kind_stamps(
-        _normalize(b)
-    )
+    # Rule 31: a stored blank ``const ""`` marker is drift to REMOVE, never storage noise.
+    return strip_optional_schema_kind_stamps(
+        _normalize(a), keep_blank_const=True
+    ) == strip_optional_schema_kind_stamps(_normalize(b), keep_blank_const=True)
 
 
 def _drift_summary(model_schema: dict[str, Any], live: dict[str, Any]) -> str:
@@ -710,6 +760,89 @@ def _is_unconstrained_schema(
     return _is_unconstrained_schema(target, defs, _depth + 1, _seen | {ref})
 
 
+#: Leaf ASSERTION keywords (JSON Schema 2020-12 §6.2–6.4, §7, §8): each one
+#: can only reject values, never admit them, and none changes how any other
+#: keyword applies. Removing one is therefore always a pure widening.
+#: Applicators (``items``/``prefixItems``/``if``…) are deliberately absent:
+#: dropping ``prefixItems`` makes ``items`` cover every position, a narrowing.
+#:
+#: Why this exists: pydantic 2.14 stopped emitting the string ``pattern`` on
+#: a ``Decimal`` field (``anyOf: [number, string{pattern}]`` → ``[number,
+#: string]``). Every Decimal-carrying kind was reported INCOMPATIBLE for a
+#: change that only ACCEPTS more (CI run 41206349386, 2026-10-31).
+_LEAF_ASSERTION_KEYS = frozenset(
+    {
+        "pattern",
+        "format",
+        "minLength",
+        "maxLength",
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "multipleOf",
+        "minItems",
+        "maxItems",
+        "uniqueItems",
+        "minProperties",
+        "maxProperties",
+        "contentEncoding",
+        "contentMediaType",
+    }
+)
+
+
+#: Numeric leaf bounds: (key, True when a LARGER value admits more). Raising a
+#: ``maxItems``/``maxLength``/``maximum`` or lowering a ``minItems``/``minLength``/
+#: ``minimum`` only ACCEPTS more, so every payload the live schema admits still
+#: validates. (``choose_one.payload.options`` 8 -> 12 was refused as a type change,
+#: CI run 42238683106, 2026-11-06.)
+_NUMERIC_BOUNDS = {
+    "maxLength": True,
+    "maxItems": True,
+    "maxProperties": True,
+    "maximum": True,
+    "minLength": False,
+    "minItems": False,
+    "minProperties": False,
+    "minimum": False,
+}
+
+
+def _widened_bounds_as_live(model: Any, live: Any) -> Any:
+    """``model`` with every numeric bound that is only LOOSER than live's set to live's.
+
+    Everything else is untouched, so the literal comparison that follows still
+    refuses tightened bounds, changed types and added/dropped keywords.
+    """
+    if not (isinstance(model, dict) and isinstance(live, dict)):
+        return model
+    out = dict(model)
+    for key, upper in _NUMERIC_BOUNDS.items():
+        new, old = model.get(key), live.get(key)
+        if isinstance(new, (int, float)) and isinstance(old, (int, float)):
+            if (new > old) if upper else (new < old):
+                out[key] = old
+    return out
+
+
+def _drops_only_leaf_assertions(model: Any, live: Any) -> bool:
+    """The model schema is the live one minus some leaf assertions (a widening).
+
+    Every keyword the model keeps must equal the live one exactly, and every
+    keyword it dropped must be in ``_LEAF_ASSERTION_KEYS``. Anything else —
+    a changed ``type``, an added keyword, a dropped applicator — falls back to
+    the literal comparison and stays a hard failure.
+    """
+    if not (isinstance(model, dict) and isinstance(live, dict)):
+        return False
+    model, live = _compat_normalize(model), _compat_normalize(live)
+    dropped = set(live) - set(model)
+    if not dropped or set(model) - set(live) or not dropped <= _LEAF_ASSERTION_KEYS:
+        return False
+    return all(_json_value_equal(model[key], live[key]) for key in model)
+
+
 def _same_object_schema_ignoring_empty_properties(model: Any, live: Any) -> bool:
     """Compare object shells, treating only an empty/missing properties map alike."""
     if not (isinstance(model, dict) and isinstance(live, dict)):
@@ -774,6 +907,15 @@ def _forgive_nonidentity_marker(model: Any, live: Any) -> tuple[Any, Any]:
         return out
 
     return _without(model), _without(live) if isinstance(live_props, dict) else live
+
+
+def _mentions_ref(node: Any) -> bool:
+    """Whether a ``$ref`` sits anywhere inside this schema node."""
+    if isinstance(node, dict):
+        return "$ref" in node or any(_mentions_ref(value) for value in node.values())
+    if isinstance(node, list):
+        return any(_mentions_ref(value) for value in node)
+    return False
 
 
 def _field_compatible(
@@ -863,10 +1005,12 @@ def _field_compatible(
                     inner_live, (bool, dict)
                 ):
                     continue
-                contains_ref = any(
-                    isinstance(inner, dict) and "$ref" in inner
-                    for inner in (inner_model, inner_live)
-                )
+                # "$ref" anywhere below, not just on the child itself:
+                # ``list[dict[str, JsonValue]]`` hides it two levels down, so
+                # checking one level called the same open list a type change
+                # (found 2026-11-03: ``google_workspace_result`` refused when
+                # ``list[dict]`` fields became ``list[dict[str, JsonValue]]``).
+                contains_ref = _mentions_ref(inner_model) or _mentions_ref(inner_live)
                 same_open_schema = _is_unconstrained_schema(
                     inner_model, model_defs
                 ) and _is_unconstrained_schema(inner_live, live_defs)
@@ -882,6 +1026,7 @@ def _field_compatible(
                 # only schema-valued children were allowed to resolve.
                 model_rest = {k: v for k, v in model_field.items() if k not in resolved_containers}
                 live_rest = {k: v for k, v in live_field.items() if k not in resolved_containers}
+                model_rest = _widened_bounds_as_live(model_rest, live_rest)
                 return _same_object_schema_ignoring_empty_properties(model_rest, live_rest)
         # Enum ordering is not validation semantics.  A new enum is compatible
         # only when it retains every old value; this intentionally keeps a
@@ -908,8 +1053,17 @@ def _field_compatible(
         )
         if model_field in open_object_spellings and live_field in open_object_spellings:
             return True
-        # No indirection — literal equality is the whole question.
-        return _same_object_schema_ignoring_empty_properties(model_field, live_field)
+        if _drops_only_leaf_assertions(model_field, live_field):
+            return True
+        if _inline_object_only_grows_optional_fields(
+            model_field, live_field, model_defs, live_defs, _depth
+        ):
+            return True
+        # No indirection — literal equality is the whole question (a merely
+        # LOOSER numeric bound counts as equal: it only admits more).
+        return _same_object_schema_ignoring_empty_properties(
+            _widened_bounds_as_live(model_field, live_field), live_field
+        )
     if _depth >= _MAX_COMPAT_DEPTH:
         return False
 
@@ -994,6 +1148,40 @@ def _field_compatible(
         return False  # something became required — old payloads may lack it
     return all(
         _field_compatible(model_props[name], live_props[name], model_defs, live_defs, _depth + 1)
+        for name in live_props
+    )
+
+
+def _inline_object_only_grows_optional_fields(
+    model_field: Any,
+    live_field: Any,
+    model_defs: dict[str, Any],
+    live_defs: dict[str, Any],
+    depth: int,
+) -> bool:
+    """An inline (no ``$ref``) nested object that only ADDS optional properties.
+
+    The ``$ref`` path already accepts this; an inline object (the input
+    declaration's ``pick_list``) fell to literal equality and was refused as a
+    type change when ``labelColumn``/``deliverColumn`` were added. Old payloads
+    still validate: nothing is removed, nothing becomes required, the extra-key
+    contract and every other keyword are identical, shared fields stay compatible.
+    """
+    if not isinstance(model_field, dict) or not isinstance(live_field, dict):
+        return False
+    model_props = model_field.get("properties")
+    live_props = live_field.get("properties")
+    if not isinstance(model_props, dict) or not isinstance(live_props, dict):
+        return False
+    if set(live_props) - set(model_props):
+        return False
+    skip = {"properties", "description"}
+    if _compat_normalize({k: v for k, v in model_field.items() if k not in skip}) != _compat_normalize(
+        {k: v for k, v in live_field.items() if k not in skip}
+    ):
+        return False  # type, required, additionalProperties, bounds: all must be identical
+    return all(
+        _field_compatible(model_props[name], live_props[name], model_defs, live_defs, depth + 1)
         for name in live_props
     )
 

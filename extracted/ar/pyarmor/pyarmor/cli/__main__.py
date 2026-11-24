@@ -262,6 +262,13 @@ def cmd_reg(ctx, args):
         open_new_tab(ctx.cfg['pyarmor']['buyurl'])
         return
 
+    if args.machine:
+        regsvr = WebRegister(ctx)
+        regsvr.check_request_interval()
+        regsvr.request_machine_regfile(args.machine, args.regfile, args.device)
+        logger.info('The device regfile has been generated successfully')
+        return
+
     if args.device and not args.regfile:
         reg = Register(ctx)
         reg.generate_group_device(args.device)
@@ -321,6 +328,12 @@ def cmd_reg(ctx, args):
         reg = Register(ctx)
         logger.info('register "%s"', regfile)
         reg.register_regfile(regfile)
+        logger.info('This license registration information:\n\n%s', str(reg))
+
+    elif regfile.lower() == 'docker':
+        reg = Register(ctx)
+        logger.info('register docker container')
+        reg.register_docker()
         logger.info('This license registration information:\n\n%s', str(reg))
 
     else:
@@ -652,8 +665,12 @@ https://pyarmor.readthedocs.io/en/stable/reference/man.html#pyarmor-reg
         help='upgrade old Pyarmor license'
     )
     cparser.add_argument(
-        '-g', '--device', metavar='ID', type=int, choices=range(1, 101),
-        help='device id (1-100) in group license'
+        '-g', '--device', metavar='ID', type=int, choices=range(1, 201),
+        help='device id (1-200) in group license'
+    )
+    cparser.add_argument(
+        '-m', '--machine', metavar='FILENAME',
+        help='request device registration file (only for group license)'
     )
     cparser.add_argument(
         '--buy', action='store_true',

@@ -66,14 +66,15 @@ from __future__ import annotations
 from typing import Annotated, Any, ClassVar
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic.json_schema import SkipJsonSchema
 from pydantic.fields import FieldInfo
 
+from matrx_graph.content_ir.blank_kind import report_blank_kind_string
 from matrx_graph.content_ir.envelope import KIND_KEY
 
 __all__ = [
     "KindModel",
     "KindSubModel",
-    "NON_IDENTITY_KIND",
     "NoKindMarker",
     "no_kind_marker",
     "kind_of",
@@ -113,7 +114,7 @@ class KindModel(BaseModel):
     # The discriminator, as DATA. Redeclared in each subclass by
     # ``__init_subclass__`` with a ``Literal`` type and a default, which is
     # what makes pydantic tagged unions work on ``__kind`` for free.
-    kind_: str = Field(default="", alias=KIND_KEY, serialization_alias=KIND_KEY)
+    kind_: str = Field(alias=KIND_KEY, serialization_alias=KIND_KEY)  # no default: rule 31
 
     def __init_subclass__(cls, kind: str | None = None, **kwargs: Any) -> None:
         # Consume the ``kind=`` class keyword before pydantic's metaclass sees
@@ -141,7 +142,9 @@ class KindModel(BaseModel):
         states what the payload IS.
         """
         super().__pydantic_init_subclass__(**kwargs)
-        slug = cls.__dict__.get("kind_slug") or ""
+        # Generic specializations inherit their slug. Pydantic reconstructs
+        # their fields, so they need the same pin as a newly declared kind.
+        slug = cls.kind_slug
         if slug:
             pin_kind_discriminator(cls, slug)
 
@@ -172,37 +175,41 @@ class KindModel(BaseModel):
     # at all).
 
 
-#: The ``__kind`` value of a plain sub-structure: it has no kind of its own.
-#: Declared as ``const`` in every sub-structure schema so a model bound to the
-#: schema cannot invent one (``markers.normalize_nonidentity_markers``).
-NON_IDENTITY_KIND = ""
+def _drop_blank_sub_marker(value: Any) -> str | None:
+    """A nested non-kind carries NO ``__kind`` (rule 31).
+
+    * absent / ``None`` / ``""`` -> ``None``: the key is absent. A blank arriving
+      here (an old stored row, a provider) is accepted and dropped, never refused.
+    * a NAMED value -> kept exactly as written (rule 32: nothing destroys a kind
+      name). It round-trips on dump so the producer's claim stays visible.
+    """
+    if value is None or value == "":
+        return None
+    return value
 
 
-def _ignore_sub_marker(_value: Any) -> str:
-    """Accept-and-ignore: whatever a payload carries here, a sub-structure has
-    no identity, so the stored value is always ``NON_IDENTITY_KIND``."""
-    return NON_IDENTITY_KIND
+_SUB_MARKER_FIELD_DOC = "Not a kind: a nested non-kind carries no __kind (rule 31)."
 
 
-#: The ``__kind`` slot of a model that is NOT a kind (Content IR rule 28): any value
-#: an old row or a payload carries is read as ``NON_IDENTITY_KIND``, never refused.
-NoKindMarker = Annotated[str, BeforeValidator(_ignore_sub_marker)]
+#: The ``__kind`` slot of a model that is NOT a kind (Content IR rules 28 + 31): no
+#: schema property, nothing written when absent, a blank read as absent, a named
+#: value from an old row kept verbatim.
+NoKindMarker = Annotated[SkipJsonSchema[str | None], BeforeValidator(_drop_blank_sub_marker)]
 
 
 def no_kind_marker() -> Any:
     """The field for a ``NoKindMarker`` slot — ``kind: NoKindMarker = no_kind_marker()``.
 
-    For a model that used to stamp an invented ``__kind`` on itself: stored rows keep
-    parsing (accept-and-ignore), and nothing it writes claims a kind (excluded from
-    every dump), exactly like ``KindSubModel``'s own marker.
+    The schema declares nothing (rule 31: a non-kind carries no ``__kind``, never a
+    blank ``const``), a dump writes nothing unless a stored row carried a NAMED value
+    (kept, never erased: rule 32), and a blank arriving on read is dropped.
     """
     return Field(
-        default=NON_IDENTITY_KIND,
+        default=None,
         alias=KIND_KEY,
         serialization_alias=KIND_KEY,
-        exclude=True,
-        json_schema_extra={"const": NON_IDENTITY_KIND},
-        description="Not a kind: no kind of its own. Always empty.",
+        exclude_if=lambda v: v is None,
+        description=_SUB_MARKER_FIELD_DOC,
     )
 
 
@@ -214,34 +221,20 @@ class KindSubModel(BaseModel):
     row, and emits no ``__kind``. Giving every nested object a slug is how a
     family ends up with 100 kinds, which is the same as no kinds.
 
-    But it must still ACCEPT the marker. THE ``__kind`` LAW's consumer clause
-    (``KINDS_EVERYWHERE_PLAN.md`` §4.2a) is that a consumer which chokes on the
-    marker gets FIXED to accept-and-ignore — never fed stripped data. A plain
-    ``BaseModel`` with ``extra="forbid"`` chokes: one producer stamping
-    ``__kind`` on a sub-object turns into a validation fatal far from the cause.
+    RULE 31 (2026-11-02): a ``__kind`` is NAMED or ABSENT, never ``""``. A
+    sub-structure's schema therefore declares NO ``__kind`` property at all (it
+    used to declare ``const ""`` on 859 nested definitions across 345 live kinds,
+    and every one of them was a blank kind on a stored schema).
 
-    That is not hypothetical. The live registry rows already declare an
-    optional ``__kind`` on every nested ``$def`` (the schema-law campaign
-    patched them there), so a model whose sub-structures REFUSE it is strictly
-    stricter than the contract it claims to implement — and the compatibility
-    gate reads the missing property as "a field disappeared" and refuses the
-    whole distillation as breaking. Measured 2026-08-24 on the search family:
-    six kinds were refused for exactly this and nothing else.
+    Reading stays lenient, without ever blanking anything:
 
-    So: declared, optional, ignored, and ``exclude``-d from every dump, because
-    a sub-structure that is not a kind must never claim to be one.
+    * a payload carrying ``"__kind": ""`` (an old stored row) is accepted and the
+      blank is DROPPED;
+    * a payload carrying a NAMED ``__kind`` keeps it exactly as written and it
+      round-trips on dump (rule 32: nothing destroys a kind name; the producer's
+      claim stays visible to every checker downstream).
 
-    THE MARKER IS A CONST, NEVER A FREE STRING (2026-10-24). A sub-structure's
-    own declared kind name is EMPTY — it has no identity — so its schema says
-    exactly that: ``{"type": "string", "const": ""}``, optional, default
-    ``""``. It used to say ``{"type": "string"}``, and a free string in a
-    response schema is an invitation: agents bound to these schemas filled it
-    with junk (``"x"``, ``"grew_from"``, ``"option_flag"``,
-    ``"ElementOption_placeholder"``) on 859 nested definitions across 345 live
-    kinds. Reading stays accept-and-ignore: ANY value arriving here (an old
-    stored row, a provider that ignored the const) is normalized to ``""`` by
-    the before-validator, never refused. Guard:
-    ``tests/test_nested_kind_marker_const.py``.
+    Guard: ``tests/test_nested_kind_marker_absent.py``.
     """
 
     model_config = ConfigDict(
@@ -250,13 +243,12 @@ class KindSubModel(BaseModel):
         serialize_by_alias=True,
     )
 
-    kind_: Annotated[str, BeforeValidator(_ignore_sub_marker)] = Field(
-        default=NON_IDENTITY_KIND,
+    kind_: NoKindMarker = Field(
+        default=None,
         alias=KIND_KEY,
         serialization_alias=KIND_KEY,
-        exclude=True,
-        json_schema_extra={"const": NON_IDENTITY_KIND},
-        description="Plain sub-structure: no kind of its own. Always empty.",
+        exclude_if=lambda v: v is None,
+        description=_SUB_MARKER_FIELD_DOC,
     )
 
 
@@ -300,6 +292,7 @@ def kind_of(value: Any) -> str | None:
         return value.kind_slug or None
     if isinstance(value, dict):
         slug = value.get(KIND_KEY)
+        report_blank_kind_string("model.kind_of", slug)
         return slug if isinstance(slug, str) and slug else None
     return None
 

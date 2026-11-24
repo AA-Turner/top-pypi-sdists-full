@@ -48,7 +48,7 @@ def app_ctx():
     token = set_app_context(
         AppContext(
             emitter=ConsoleEmitter(),
-            user_id="22222222-2222-2222-2222-222222222222",
+            user_id="22222222-2222-2222-2222-222222222222", organization_id="0a900000-0000-4000-8000-00000000a7a7",
             request_id="33333333-3333-3333-3333-333333333333",
         )
     )
@@ -357,9 +357,9 @@ async def test_a_failed_agent_call_child_reports_its_usage_to_the_parent_log(
     tool-call log records the child's spend like it does on success."""
     import contextlib
 
-    import matrx_ai._ext as ext
     from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
 
+    import matrx_ai._ext as ext
     from matrx_ai.agents import executor as agents_executor
     from matrx_ai.agents.definition import Agent
     from matrx_ai.agents.executor import AgentRunResult
@@ -388,6 +388,9 @@ async def test_a_failed_agent_call_child_reports_its_usage_to_the_parent_log(
         name = "Judge"
         output_schema = None
 
+        async def run_first_turn_pass(self):  # the real pass: present on every Agent
+            return self
+
     monkeypatch.setattr(Agent, "from_agent", classmethod(lambda _cls, *a, **k: _value(_Child())))
     spent = [_billed_call()]
 
@@ -396,7 +399,7 @@ async def test_a_failed_agent_call_child_reports_its_usage_to_the_parent_log(
                               usage_history=spent)
 
     monkeypatch.setattr(agents_executor, "run_agent", fake_run_agent)
-    token = set_app_context(AppContext(emitter=None, user_id=user_id))
+    token = set_app_context(AppContext(emitter=None, user_id=user_id, organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         result = await agent_call({"agent_id": agent_id}, ToolContext(call_id="call-1"))
     finally:
@@ -512,9 +515,9 @@ async def test_an_incomplete_agent_call_child_reports_its_usage_to_the_parent_lo
     and its spend still reaches the parent's tool-call log."""
     import contextlib
 
-    import matrx_ai._ext as ext
     from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
 
+    import matrx_ai._ext as ext
     from matrx_ai.agents import executor as agents_executor
     from matrx_ai.agents.definition import Agent
     from matrx_ai.agents.executor import AgentRunResult
@@ -543,6 +546,9 @@ async def test_an_incomplete_agent_call_child_reports_its_usage_to_the_parent_lo
         name = "Judge"
         output_schema = None
 
+        async def run_first_turn_pass(self):  # the real pass: present on every Agent
+            return self
+
     monkeypatch.setattr(Agent, "from_agent", classmethod(lambda _cls, *a, **k: _value(_Child())))
 
     async def fake_run_agent(_agent: Any, **_kw: Any) -> AgentRunResult:
@@ -550,7 +556,7 @@ async def test_an_incomplete_agent_call_child_reports_its_usage_to_the_parent_lo
                               metadata={"status": "truncated"})
 
     monkeypatch.setattr(agents_executor, "run_agent", fake_run_agent)
-    token = set_app_context(AppContext(emitter=None, user_id=user_id))
+    token = set_app_context(AppContext(emitter=None, user_id=user_id, organization_id="0a900000-0000-4000-8000-00000000a7a7"))
     try:
         result = await agent_call({"agent_id": agent_id, "result_mode": "reference"},
                                   ToolContext(call_id="call-1"))

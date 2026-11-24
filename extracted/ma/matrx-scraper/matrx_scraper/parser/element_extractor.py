@@ -20,10 +20,14 @@ from .data_types import (
     Quote,
     BaseContent,
 )
-from .utils import DomainFilter, join_url, is_data_url
+from .utils import DomainFilter, join_url, is_data_url, nearest_ancestor_named
 from .flattener import HTMLFlattener
 
 print_in_extraction = False
+
+#: The content filter's wrapper tag, as the pipeline creates it and as a re-parse
+#: lowercases it.
+_FILTER_WRAPPER_NAMES = frozenset(("ContentFilter", "contentfilter"))
 
 
 class ElementExtractor:
@@ -46,7 +50,7 @@ class ElementExtractor:
 
     def _create_metadata(self, element: Tag | NavigableString) -> ElementMetadata:
         """Creates an ElementMetadata object from a BeautifulSoup element."""
-        filtered_parent = element.find_parent(["ContentFilter", "contentfilter"])
+        filtered_parent = nearest_ancestor_named(element, _FILTER_WRAPPER_NAMES)
         if filtered_parent:
             # Only call .get() on Tag objects, not NavigableString
             if isinstance(element, Tag):
@@ -101,6 +105,9 @@ class ElementExtractor:
         # Reset state for a new extraction
         self.url = url
         self.debug = debug
+        # The CURRENT shared filter, read at every extraction — an extractor never
+        # keeps a filter older than the process's lists (utils.ensure_filter_lists).
+        self.domain_filter = DomainFilter(list_keys="easylist")
         self.metadata = self._DEFAULT_METADATA()
         self.hashes = []
         self.organized_data = OrganizedData()

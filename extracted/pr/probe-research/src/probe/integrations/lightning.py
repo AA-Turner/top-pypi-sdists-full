@@ -14,7 +14,8 @@ What it does, by Lightning hook (verified against Lightning 2.6.6):
   only there, rank 0 broadcasts ``(run id, write epoch)`` to every rank, so
   every rank knows the run it belongs to (see "All ranks" below).
 * ``log_metrics`` -- rank 0 only, ``run.log(metrics, step=step)``, never raises
-  outside ``strict``.
+  outside ``strict``. After a fit, an eval (``trainer.test`` / ``validate``)
+  lands on the fit's last step, the weights it scores (``set_fitted_last_step``).
 * ``log_hyperparams`` -- rank 0 only: the module's ``save_hyperparameters()``
   values merged into the run's config with ``run.update_config`` (plan (c)
   coercion: Namespace, dataclasses, numpy/torch scalars, non-finite floats).
@@ -167,6 +168,13 @@ _SCRIPT_RUNS: set[str] = set()
 _ADOPT_IGNORES = ("project", "experiment", "name")
 
 
+def _is_same_value(first: Any, second: Any) -> bool:
+    """Equal, NaN equal to NaN (a NaN loss sent before a hold is not sent again)."""
+    if isinstance(first, float) and isinstance(second, float) and math.isnan(first) and math.isnan(second):
+        return True
+    return first == second
+
+
 class ProbeLogger(Logger):
     """Log a Lightning run to Probe. See the module docstring for the hooks.
 
@@ -249,6 +257,10 @@ class ProbeLogger(Logger):
         self._lock = threading.Lock()
         #: Given (validated above), else PROBE_CHECKPOINTS, else "reference".
         self._checkpoints = _checkpoints.resolve_mode(checkpoints, self._warn_once)
+        #: Outside a fit, the step that fit last logged at (`set_fitted_last_step`); None while fitting.
+        self._fitted_last_step: int | None = None
+        #: (step, row) `send_before_hold` sent; Lightning's own send of that row is then left out.
+        self._sent_before_hold: tuple[int, dict[str, Any]] | None = None
 
     # -- identity (Lightning reads these for checkpoint paths) ------------------
     @property
@@ -553,11 +565,44 @@ class ProbeLogger(Logger):
 
     @rank_zero_only
     def log_metrics(self, metrics: Mapping[str, float], step: int | None = None) -> None:
+        metrics = self._drop_sent_before_hold(metrics, step)
+        if not metrics:
+            return
         run = self._run_for_write()
         if run is None:
             return
         metrics = _add_prefix(metrics, self._prefix, PREFIX_SEPARATOR)
+        if step is not None and self._fitted_last_step is not None:
+            step = min(step, self._fitted_last_step)
         self._guarded("log_metrics", run.log, dict(metrics), step=step)
+
+    def send_before_hold(self, metrics: Mapping[str, float], step: int) -> None:
+        """`ProbeCommands`, before a pause holds at a batch end (rank 0): the batch's row, which Lightning sends only
+        after that hook, so the run page shows the step it holds at (D23); Lightning's send of it is left out."""
+        self.log_metrics(metrics, step)
+        self._sent_before_hold = (step, dict(metrics))
+
+    def _drop_sent_before_hold(self, metrics: Mapping[str, float], step: int | None) -> Mapping[str, float]:
+        """Lightning's own send of the row `send_before_hold` sent, without the values already sent. Only that row
+        ends the skip: another logger call at the step (a `DeviceStatsMonitor`'s) shares none of its keys."""
+        sent = self._sent_before_hold
+        if sent is None:
+            return metrics
+        if sent[0] != step:
+            self._sent_before_hold = None  # a later step: Lightning sent no row for the held one
+            return metrics
+        if not set(metrics) & set(sent[1]):
+            return metrics
+        self._sent_before_hold = None
+        return {key: value for key, value in metrics.items()
+                if key not in sent[1] or not _is_same_value(sent[1][key], value)}  # fmt: skip
+
+    def set_fitted_last_step(self, step: int | None) -> None:
+        """``ProbeCommands`` at a fit's end: the step its last point is logged at (None again at a fit's start).
+        Lightning logs an eval after ``fit()`` at the fit's count, one past its last step (0..count-1), so the eval
+        would sit past the weights it scores and past the run's ``total_steps``: until the next fit, steps are held
+        at this one."""
+        self._fitted_last_step = step
 
     @rank_zero_only
     def after_save_checkpoint(self, checkpoint_callback: Any) -> None:

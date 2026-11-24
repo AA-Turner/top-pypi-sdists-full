@@ -2,6 +2,8 @@
 
 # Standard Library
 import datetime
+import re
+from pathlib import Path
 from unittest.mock import patch
 
 # Django
@@ -10,7 +12,7 @@ from django.utils import timezone
 # AA Killstats
 from killstats.models.general import EveEntity, General
 from killstats.tests import AuthTestCase
-from killstats.tests.testdata.killstats import EveEntityFactory
+from killstats.tests.testdata.killstats import EveEntityFactory, UserMainFactory
 
 MODULE_PATH = "killstats.models.general"
 
@@ -25,6 +27,46 @@ class TestGeneralModel(AuthTestCase):
         self.assertIn("admin_access", permissions)
         self.assertEqual(General._meta.verbose_name, "AA-Killstats")
         self.assertFalse(General._meta.managed)
+
+    def test_has_basic_access_should_require_basic_access(self):
+        # Test Data
+        basic_user = UserMainFactory(permissions__=["killstats.basic_access"])
+        no_access = UserMainFactory(permissions__=[])
+
+        # Expected Result
+        self.assertTrue(General.objects.has_basic_access(basic_user))
+        self.assertFalse(General.objects.has_basic_access(no_access))
+        self.assertFalse(General.objects.has_basic_access(None))
+
+    def test_has_management_access_should_require_admin_access(self):
+        # Test Data
+        basic_user = UserMainFactory(permissions__=["killstats.basic_access"])
+        admin_user = UserMainFactory(permissions__=["killstats.admin_access"])
+
+        # Expected Result
+        self.assertFalse(General.objects.has_management_access(basic_user))
+        self.assertFalse(General.objects.has_management_access(None))
+        self.assertTrue(General.objects.has_management_access(admin_user))
+
+    def test_permission_strings_in_code_should_match_general_permissions(self):
+        # Test Data
+        defined = {f"killstats.{codename}" for codename, _ in General._meta.permissions}
+        package = Path(__file__).resolve().parents[2]
+        pattern = re.compile(
+            r"(?:has_perm|permission_required)\(\s*\[?\s*[\"']([\w.]+)[\"']"
+        )
+        used = set()
+
+        # Test Action
+        for path in package.rglob("*.py"):
+            relative = path.relative_to(package).parts
+            if "tests" in relative or "migrations" in relative:
+                continue
+            used.update(pattern.findall(path.read_text(encoding="utf-8")))
+
+        # Expected Result
+        self.assertTrue(used)
+        self.assertEqual(used - defined, set())
 
 
 class TestEveEntityModel(AuthTestCase):

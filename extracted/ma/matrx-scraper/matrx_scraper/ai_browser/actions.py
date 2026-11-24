@@ -20,6 +20,7 @@ import asyncio
 import base64
 import logging
 import re
+import time
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
@@ -30,6 +31,7 @@ from matrx_scraper.ai_browser.session import (
     get_browser_session_manager,
 )
 from matrx_scraper.ai_browser.humanize import HumanInput
+from matrx_scraper.ai_browser.page_read import SelectorNotFound, capture_png, element_text
 from matrx_scraper.ai_browser.readiness import (
     PROBE_TIMEOUT_MS as READINESS_PROBE_TIMEOUT_MS,
 )
@@ -196,6 +198,10 @@ class NavigateResult(_CappedResult):
     title: str | None = None
     http_status: int | None = None
     text_preview: str | None = None
+    # Said when the page loaded but a requested wait could not be met in full
+    # (networkidle on a page whose ads and trackers never go quiet).
+    notice: str | None = None
+
 
 
 class ClickResult(_CappedResult):
@@ -340,6 +346,18 @@ async def _resolve_session(
 # ── Actions ────────────────────────────────────────────────────────────────
 
 
+async def _best_effort_load_state(page: Any, state: str, timeout_ms: int) -> bool:
+    """Wait for ``state``; False when the wait timed out (the page is still usable). Any other
+    failure is real and raises."""
+    try:
+        await page.wait_for_load_state(state, timeout=timeout_ms)
+    except Exception as exc:  # noqa: BLE001 - only a timeout is expected here
+        if "timeout" not in type(exc).__name__.lower() and "Timeout" not in str(exc):
+            raise
+        return False
+    return True
+
+
 async def navigate(
     url: str,
     *,
@@ -350,8 +368,16 @@ async def navigate(
     user_agent: str | None = None,
     viewport: dict[str, int] | None = None,
     proxy: str | None = None,
+    networkidle_grace_ms: int | None = None,
     mgr: BrowserSessionManager | None = None,
 ) -> NavigateResult:
+    """The hard condition is that the page ARRIVES (``domcontentloaded``); ``load`` and
+    ``networkidle`` are best-effort waits after it. ``load`` gets what is left of ``timeout_ms``:
+    heavy apps (Gmail) keep fetching past 30 s, and as a hard goto condition it failed pages a
+    person could already use (tool_execution_failed, 2026-11-23). ``networkidle`` then gets
+    ``networkidle_grace_ms`` (``None``: the navigation timeout) to go quiet. Pages with ads,
+    analytics or live sockets never do (qz.com, 2026-11-06). A wait that runs out still returns
+    the page, and ``notice`` says so."""
     if not url:
         return NavigateResult(
             success=False, error_type="validation", error_message="url is required"
@@ -380,7 +406,26 @@ async def navigate(
             return NavigateResult(success=False, error_type="browser", error_message=str(exc))
 
     try:
-        resp = await session.page.goto(target, wait_until=wait_until, timeout=timeout_ms)
+        notice: str | None = None
+        started = time.monotonic()
+        resp = await session.page.goto(target, wait_until="domcontentloaded", timeout=timeout_ms)
+        if wait_until in ("load", "networkidle"):
+            load_ms = max(1, timeout_ms - int((time.monotonic() - started) * 1000))
+            if not await _best_effort_load_state(session.page, "load", load_ms):
+                notice = (
+                    f"The page arrived, but it had not finished loading within {timeout_ms // 1000}s "
+                    "(a heavy app still fetching); the page as it stands is returned."
+                )
+        if wait_until == "networkidle" and notice is None:
+            grace_ms = timeout_ms if networkidle_grace_ms is None else min(
+                max(0, networkidle_grace_ms), timeout_ms
+            )
+            if not await _best_effort_load_state(session.page, "networkidle", grace_ms):
+                notice = (
+                    f"The page loaded, but its network never went quiet within "
+                    f"{grace_ms // 1000}s (ads or live updates); "
+                    "the page as loaded is returned."
+                )
         # SSRF gate, part 2 — the browser follows redirects, so the page we
         # actually rendered may be an internal host reached via a public 302
         # (or a DNS rebind between validation and navigation). Re-validate the
@@ -400,6 +445,7 @@ async def navigate(
             url=session.page.url,
             title=await session.page.title(),
             http_status=resp.status if resp else None,
+            notice=notice,
         )
         if extract_text:
             result.text_preview, result.total_chars, result.truncated = await _body_preview(
@@ -822,18 +868,15 @@ async def screenshot(
     try:
         if width and height:
             await session.page.set_viewport_size({"width": width, "height": height})
-        if selector:
-            element = await session.page.query_selector(selector)
-            if element is None:
-                return ScreenshotResult(
-                    success=False,
-                    session_id=session_id,
-                    error_type="browser",
-                    error_message=f"selector not found: {selector}",
-                )
-            png = await element.screenshot(type="png")
-        else:
-            png = await session.page.screenshot(type="png", full_page=full_page)
+        try:
+            png = await capture_png(session.page, selector=selector, full_page=full_page)
+        except SelectorNotFound as missing:
+            return ScreenshotResult(
+                success=False,
+                session_id=session_id,
+                error_type="browser",
+                error_message=str(missing),
+            )
         result = ScreenshotResult(
             success=True,
             session_id=session_id,
@@ -957,7 +1000,7 @@ async def get_element(
         attrs_raw = await element.evaluate(
             "el => Object.fromEntries([...el.attributes].map(a => [a.name, a.value]))"
         )
-        text = await element.text_content() or ""
+        text = await element_text(element)
         capped_text, text_total, text_cut = _cap_text(text, ELEMENT_TEXT_CAP)
         result = GetElementResult(
             success=True,
@@ -1036,9 +1079,7 @@ async def query_selectors(
             for el in elements[:limit_per_selector]:
                 row: dict[str, Any] = {}
                 try:
-                    capped, row_total, row_cut = _cap_text(
-                        (await el.text_content()) or "", ROW_TEXT_CAP
-                    )
+                    capped, row_total, row_cut = _cap_text(await element_text(el), ROW_TEXT_CAP)
                     row["text"] = capped
                     total_chars += row_total
                     truncated = truncated or row_cut

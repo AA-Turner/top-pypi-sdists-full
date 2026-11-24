@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aa-killstats
-Version: 4.0.1
+Version: 5.0.0
 Summary: Killboard Stats shows Hall of Shame/Fame, Kills, Top Kills,Loss,etc.
 Project-URL: Changelog, https://github.com/Geuthur/aa-killstats/blob/master/CHANGELOG.md
 Project-URL: Discord, https://discord.gg/WrHzA4rnxA
@@ -693,14 +693,13 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Requires-Dist: allianceauth>=5
 Requires-Dist: dacite
 Requires-Dist: django-eveonline-sde
@@ -709,7 +708,7 @@ Provides-Extra: tests-allianceauth-latest
 Requires-Dist: aa-evesde-factory; extra == 'tests-allianceauth-latest'
 Requires-Dist: coverage; extra == 'tests-allianceauth-latest'
 Requires-Dist: factory-boy; extra == 'tests-allianceauth-latest'
-Requires-Dist: pook; extra == 'tests-allianceauth-latest'
+Requires-Dist: pookx; extra == 'tests-allianceauth-latest'
 Description-Content-Type: text/markdown
 
 # Killstats module for AllianceAuth.<a name="aa-killstats"></a>
@@ -872,6 +871,8 @@ The Following Settings can be setting up in the `local.py`
 [![Translations](https://weblate.geuthur.de/widget/allianceauth/aa-killstats/multi-auto.svg)](https://weblate.geuthur.de/engage/allianceauth/)
 
 Help us translate this app into your language or improve existing translations. Join our team!"
+
+The texts of the app live in the namespace `translation` (`frontend/i18n/<lng>/translation.json`). The shared frontend components (tables, modals, menu, loaders) come from the npm package [aa-geuthur-react](https://github.com/Geuthur/aa-geuthur-react); their texts live in the namespace `aa-geuthur-react`, which the package bundles and registers with i18next itself, so the app neither copies nor loads them. Both are translated on Weblate, the package in its own component. Only `en` holds the English text as value (the scanner maintains only that file); the other languages hold only real translations as Weblate writes them, and a missing key falls back to English at runtime (`fallbackLng: "en"`).
 
 ## Contributing <a name="contributing"></a>
 

@@ -44,6 +44,8 @@ itself does not auto-load it.
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 from typing import Any, Protocol, runtime_checkable
 
 from matrx_utils import vcprint
@@ -308,17 +310,9 @@ _CATALOG_FALLBACK_CHAT_RULES: dict[str, dict[str, Any]] = {
                 "default_max_tokens": 32768,
             },
         },
-        # Same as the anthropic_chat api cell: Anthropic's range is 0..1, and the SDK
-        # carries temperature only through extra_body (catalog/FEATURE.md §7).
-        "temperature": {
-            "clamp": {"min": 0, "max": 1},
-            "processor": "anthropic_temp_topp_exclusion",
-            "processor_config": {
-                "order": 200,
-                "consumes": ["top_p", "top_k"],
-                "wire_container": "extra_body",
-            },
-        },
+        # Same as the anthropic_chat api cell: API version 2026-10-21 (anthropic>=2.0) refuses
+        # every sampling parameter on every model with a 400.
+        **{key: {"supported": False} for key in ("temperature", "top_p", "top_k")},
         "max_output_tokens": {"provider_key": "max_tokens"},
     },
     "mock_chat": {
@@ -398,6 +392,12 @@ def _catalog_model_controls(model: CatalogModel, wire_format: str) -> Any:
     return _fallback_controls(wire_format)
 
 
+def _row_request_defaults(model: CatalogModel) -> dict[str, Any]:
+    """A host row's ``request_defaults`` (a deep copy, so no SDK can mutate the row); {} when it has none."""
+    raw = model.get("request_defaults")
+    return deepcopy(raw) if isinstance(raw, dict) else {}
+
+
 def build_catalog_call_profile(model: CatalogModel) -> Any:
     """Build a synthetic ``ResolvedCallProfile`` from a catalog model dict.
 
@@ -447,7 +447,11 @@ def build_catalog_call_profile(model: CatalogModel) -> Any:
         controls=_catalog_model_controls(model, wire_format).with_output_maximum(
             model.get("max_tokens")
         ),
-        request_defaults={},
+        # The host's own catalog row is trusted host config (never a caller control), so its structural
+        # body defaults reach the wire exactly as an ai.api row's do: a local llama-server streams its
+        # terminal usage block only when the row asks (stream_options.include_usage), and without usage
+        # the run's completion keys no model, so the answer cannot name the model that wrote it.
+        request_defaults=_row_request_defaults(model),
         pricing=model.get("pricing"),
         usage_basis=model.get("usage_basis"),
         token_billed=bool(model.get("token_billed", False)),

@@ -25,6 +25,7 @@ def test_edge_kind_values():
         "conditional",
         "error",
         "stream",
+        "relation",
     }
 
 
@@ -40,6 +41,7 @@ def test_node_category_values():
         "custom",
         "plan",
         "pipe",
+        "info",
     }
     assert {c.value for c in NodeCategory} == expected
 

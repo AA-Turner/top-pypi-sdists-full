@@ -6,7 +6,6 @@ Direct port of: packages/memory/src/processors/observational-memory/thresholds.t
 
 from __future__ import annotations
 
-import math
 from typing import Union
 
 from .types import BufferedObservationChunk, ThresholdRange

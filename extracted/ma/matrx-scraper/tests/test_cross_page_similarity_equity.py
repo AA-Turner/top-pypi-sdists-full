@@ -13,13 +13,13 @@ def _page(
     number: int,
     score: float | None,
     *,
-    target_keyword: str | None = None,
+    primary_keyword_id: str | None = None,
 ) -> PageFacts:
     return PageFacts(
         page_id=f"p{number}",
         url=f"https://example.com/{number}",
         link_score=score,
-        target_keyword=target_keyword,
+        primary_keyword_id=primary_keyword_id,
     )
 
 
@@ -33,7 +33,7 @@ def test_internal_link_equity_uses_inclusive_site_percentiles() -> None:
     # Prioritized pages are the only ones judged by rank (the catalog
     # contract). Unprioritized pages never open a finding — see the test below.
     pages = [
-        _page(n, n, target_keyword="kw" if n in (3, 15, 30) else None)
+        _page(n, n, primary_keyword_id="kw-id" if n in (3, 15, 30) else None)
         for n in range(1, _MIN_PAGES + 1)
     ]
     site = SiteAggregates()
@@ -67,7 +67,7 @@ def test_internal_link_equity_ties_share_one_rank_and_top_ties_are_healthy() -> 
 def test_internal_link_equity_applies_published_priority_penalty() -> None:
     # 30 pages (min-pages rule); scores 1..30; page 6 sits at the 20th percentile.
     pages = [
-        _page(i, float(i), target_keyword="commercial phrase" if i == 6 else None)
+        _page(i, float(i), primary_keyword_id="kw-commercial" if i == 6 else None)
         for i in range(1, _MIN_PAGES + 1)
     ]
     site = SiteAggregates()
@@ -80,11 +80,12 @@ def test_internal_link_equity_applies_published_priority_penalty() -> None:
     assert outcome.issue_count == 1
     assert outcome.evidence["prioritized"] is True
     assert outcome.evidence["priority_penalty_applied"] is True
-    assert "commercial phrase" in outcome.reasoning
+    assert outcome.evidence["primary_keyword_id"] == "kw-commercial"
+    assert "prioritized" in outcome.reasoning
 
 
 def test_internal_link_equity_below_min_pages_is_na() -> None:
-    pages = [_page(n, n, target_keyword="kw") for n in (1, 2, 3, 4)]
+    pages = [_page(n, n, primary_keyword_id="kw-id") for n in (1, 2, 3, 4)]
     site = SiteAggregates()
     index_page_facts(pages, site)
 

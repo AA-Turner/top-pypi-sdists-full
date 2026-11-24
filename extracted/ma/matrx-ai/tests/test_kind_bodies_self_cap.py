@@ -162,4 +162,11 @@ async def test_small_bodies_are_untouched(monkeypatch, module, tool, args) -> No
     _install(monkeypatch, module, schema, example)
     r = await getattr(module, tool)(args, _ctx())
     assert r.output.json_schema == schema and r.output.canonical_example == example
-    assert r.output.note is None
+    # No size note. kind_get also carries its completeness line (81641e7f1) — that
+    # line is about the kind's finish state, not the bodies, so it is allowed here.
+    lines = [ln for ln in (r.output.note or "").splitlines() if ln]
+    assert all(ln.startswith("Completeness:") for ln in lines), r.output.note
+    # A size note phrased as a "Completeness:" line must not slip through: the real size
+    # note (bound_kind_bodies) always carries one of these markers.
+    for marker in ("fetch_tool_result", "stand-in", "__truncated__", "retrievable", " chars"):
+        assert marker not in (r.output.note or ""), (marker, r.output.note)

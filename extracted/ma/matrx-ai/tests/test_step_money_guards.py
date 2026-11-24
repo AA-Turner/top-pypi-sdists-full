@@ -143,7 +143,7 @@ def _config(out: int | None, prompt_chars: int = 40_000) -> Any:
 def test_the_cap_refuses_a_call_estimated_over_it(monkeypatch: pytest.MonkeyPatch) -> None:
     _price(monkeypatch)
     with gg.call_spend_cap_scope(0.05, subject="Step qa"):
-        with pytest.raises(gg.GuardrailStopError, match=r"over its \$0\.05 cap") as refused:
+        with pytest.raises(gg.GuardrailStopError, match=r"over its 1,000 points cap") as refused:
             gg.admit_call_spend_cap(None, _config(20_000))  # 80k out alone = $0.08
     assert refused.value.kind == gg.CALL_SPEND_CAP and refused.value.is_caller_refusal
     assert refused.value.observed and refused.value.observed > 0.05
@@ -181,3 +181,18 @@ def test_every_paid_call_is_asked(monkeypatch: pytest.MonkeyPatch) -> None:
     with gg.call_spend_cap_scope(0.01, subject="Step qa"):
         with pytest.raises(gg.GuardrailStopError, match="cap per AI call"):
             gg.admit_guardrails(None, _config(20_000))
+
+
+def test_a_person_reads_the_call_cap_stop_in_points_never_dollars() -> None:
+    """Law 14: the stop a person is shown names points; the host's formatter decides the words."""
+    from decimal import Decimal
+
+    from matrx_ai import cost_text
+
+    assert cost_text.person_cost_text(0.05) == "1,000 points"
+    assert "$" not in cost_text.person_cost_text(Decimal("0.0001"))
+    cost_text.configure_cost_text(lambda usd: f"{usd} host-units")
+    try:
+        assert cost_text.person_cost_text(0.05) == "0.05 host-units"
+    finally:
+        cost_text.configure_cost_text(None)

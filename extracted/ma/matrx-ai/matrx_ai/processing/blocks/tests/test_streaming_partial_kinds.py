@@ -18,21 +18,28 @@ from matrx_ai.processing.blocks.envelope import IR_ENVELOPE_KEY
 from matrx_ai.processing.blocks.models.base import BlockStatus
 from matrx_ai.processing.blocks.stream_processor import StreamBlockProcessor
 from matrx_graph.content_ir.partial import (
-    IR_PARTIAL_KEY,
     PARTIAL_STATES,
     read_partial_event,
 )
 
+#: The quiz_set kind's own shape (flexible_data ``quiz_set`` / ``quiz_question``), ``__kind``
+#: first at both levels, the way a kind-bound agent writes it. The pre-kind
+#: ``{quiz_title, multiple_choice}`` root key is no longer read (LEGACY-5).
 QUIZ = {
-    "quiz_title": "Space Basics",
-    "multiple_choice": [
+    "__kind": "quiz_set",
+    "title": "Space Basics",
+    "questions": [
         {
+            "__kind": "quiz_question",
+            "type": "multiple_choice",
             "question": "Closest star to Earth?",
             "options": ["The Sun", "Sirius", "Alpha Centauri"],
             "correct_answer": "The Sun",
             "explanation": "About 150 million km away — far closer than any other star.",
         },
         {
+            "__kind": "quiz_question",
+            "type": "multiple_choice",
             "question": "Which planet is red?",
             "options": ["Mars", "Venus"],
             "correct_answer": "Mars",
@@ -115,16 +122,16 @@ def test_partial_values_only_ever_grow_toward_the_finished_quiz():
     counts = []
     for event in channel:
         value = event["root"]["value"]
-        questions = value.get("questions") or value.get("multiple_choice") or []
+        questions = value.get("questions") or []
         counts.append(len(questions))
         for i, question in enumerate(questions):
-            truth = QUIZ["multiple_choice"][i]
+            truth = QUIZ["questions"][i]
             text = question.get("question") or ""
             assert truth["question"].startswith(text), (
                 f"partial question {text!r} is not a prefix of {truth['question']!r}"
             )
     assert counts == sorted(counts), "the question list shrank mid-stream"
-    assert counts[-1] == len(QUIZ["multiple_choice"])
+    assert counts[-1] == len(QUIZ["questions"])
 
 
 def test_no_partial_is_ever_stamped_where_the_verified_envelope_lives():
@@ -157,36 +164,35 @@ def test_prose_and_code_get_no_partial_at_all():
 # ---------------------------------------------------------------------------
 
 
-def test_a_wrong_detection_is_retracted_and_names_what_it_became():
-    """A region that stops being the detected kind must say so explicitly.
+def test_a_nested_kind_inside_a_streaming_kind_is_never_its_own_block():
+    """One region, one announcement. A quiz_set's finished ``quiz_question``
+    (itself ``__kind``-first) used to open a phantom block mid-stream that was
+    then retracted. The unclosed root owns its descendants (twin of the TS
+    ``malformedKindOwnerEnd``), fenced or bare.
 
-    This is a REAL retraction produced by the production detector: a bare JSON
-    object with a quiz root key is recognized as a quiz while it streams, and
-    then prose continues on the same line, so the final split reads the whole
-    region as text.
+    The old real-detector retraction (a ``quiz_title`` root key followed by
+    prose on the same line) cannot happen any more: root keys are not read, and
+    a ``__kind`` object followed by prose is lifted whole with the prose after
+    it as text. Retraction stays covered by the drain tests below.
     """
-    document = '{"quiz_title": "X", "multiple_choice": [1]} and then I kept talking inline.\n'
-    channel = partial_events(drive(document, chunk=4))
-    states = [event["state"] for _, event in channel]
-
-    assert "partial" in states, "detection never fired — this fixture proves nothing"
-    assert states[-1] == "retracted"
-    retraction = channel[-1][1]
-    assert retraction["reason"], "a retraction with no reason is a silent swap"
-    # 'became something else' and 'completed' are structurally distinguishable.
-    assert "becameKind" in retraction and "becameBlockType" in retraction
-    assert retraction["becameBlockType"] == "text"
-    assert "kindState" not in retraction  # never confusable with a partial
+    bare = json.dumps(QUIZ, indent=2) + "\n"
+    for document in (QUIZ_DOC, bare):
+        for chunk in (1, 4, 7):
+            channel = partial_events(drive(document, chunk=chunk))
+            states = [event["state"] for _, event in channel]
+            assert "retracted" not in states, (chunk, states)
+            assert len({event.block_id for event, _ in channel}) == 1, chunk
+            assert {e["kind"] for _, e in channel if e["state"] != "partial"} == {"quiz_set"}
 
 
 @pytest.mark.parametrize(
     "document",
     [
         QUIZ_DOC,
-        '{"quiz_title": "X", "multiple_choice": [1]} and then I kept talking inline.\n',
-        '{"quiz_title": "X", "multiple_choice": [array of questions]}\n',
-        "```json\n{\"quiz_title\": \"Y\", \"multiple_choice\": []}\n```\n",
-        "```flashcards\nQ: a\nA: b\n",  # a fence that never closes
+        '{"__kind": "quiz_set", "title": "X", "questions": [1]} and then I kept talking inline.\n',
+        '{"__kind": "quiz_set", "title": "X", "questions": [array of questions]}\n',
+        "```json\n{\"__kind\": \"quiz_set\", \"title\": \"Y\", \"questions\": []}\n```\n",
+        "```json\n{\"__kind\": \"flashcard_set\", \"cards\": [\n",  # a fence that never closes
         "text\n\n| One | Two |\n|---|---|\n| a | b |\n",
         "Just prose, nothing structured at all.\n",
     ],
@@ -197,6 +203,8 @@ def test_every_announced_partial_ends_in_exactly_one_terminal(document):
     Asserted per block over a corpus that includes a clean finish, two real
     retractions, an unterminated fence, a re-absorbed phantom, and pure prose —
     the shapes that each break a different half of the bookkeeping.
+    (The two former root-key retractions are now ``__kind`` objects that
+    supersede; the drain tests below carry retraction.)
     """
     per_block: dict[str, list[str]] = {}
     for event, parsed in partial_events(drive(document, chunk=4)):
@@ -364,6 +372,6 @@ def test_a_late_or_absent_kind_key_announces_nothing():
 
 def test_a_declared_fence_still_wins_over_a_body_level_kind_key():
     """Two declarations for one region is the bug; the detector's type wins."""
-    doc = "```json\n" + json.dumps({"__kind": "quiz_set", "quiz_title": "X", "multiple_choice": []}) + "\n```\n"
+    doc = "```json\n" + json.dumps({"__kind": "quiz_set", "title": "X", "questions": []}) + "\n```\n"
     kinds = {e["root"]["kind"] for _, e in partial_events(drive(doc, chunk=5)) if e["state"] == "partial"}
     assert kinds <= {"quiz_set"}

@@ -3,6 +3,8 @@ import { Tabs as BkTabs, TabsView as BkTabsView } from "@bokehjs/models/layouts/
 import type { UIElementView } from "@bokehjs/models/ui/ui_element";
 export declare class TabsView extends BkTabsView {
     model: Tabs;
+    private _children_update;
+    update_children(): Promise<void>;
     connect_signals(): void;
     update_active(): void;
     protected _active_child_view(): UIElementView | undefined;

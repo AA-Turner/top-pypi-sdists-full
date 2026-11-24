@@ -210,3 +210,55 @@ async def test_the_provider_receives_the_holders_turn_with_the_values(monkeypatc
     assert "user_variables=<" in user and '"dish": "shakshuka"' in user and '"servings": 4' in user
     assert "**dish**" not in user
     assert f"user_prompt=<{labeler.NONE_PROVIDED}>" in user
+
+
+def _spend_cap_stop():
+    from matrx_ai.providers.guardrail_gate import GuardrailStopError
+
+    return GuardrailStopError(
+        kind="limit",
+        subject_kind="system_process",
+        subject_id="conversation.name",
+        limit=1,
+        observed=27,
+        message="Stopped: limit — daily spend cap reached (27 points of 1 point).",
+        pauses=True,
+    )
+
+
+@pytest.mark.parametrize("wrapping", ["ai_turn", "chained", "bare"])
+async def test_a_spend_cap_hold_is_a_refusal_never_a_labeler_failure(monkeypatch, wrapping) -> None:
+    """Live 2026-11-14: "daily spend cap reached" filed conversation_labeler_failed. The gate already
+    recorded the hold with its own human path; the labeler records a refusal with the code and reason."""
+    from matrx_ai.graph_nodes.shared import AiTurnFailedError
+
+    captured: list = []
+    stop = _spend_cap_stop()
+
+    async def _hold(mandate_key, **_kwargs):
+        return SimpleNamespace(mandate_key=mandate_key, model="holder-model")
+
+    async def _run(held, **kwargs):
+        if wrapping == "bare":
+            raise stop
+        if wrapping == "chained":
+            raise RuntimeError(f"GuardrailStopError: {stop}") from stop
+        raise AiTurnFailedError(
+            f"AI turn ended with status 'failed' (automation_guardrail): {stop}",
+            person_message=str(stop),
+            refusal_code="automation_guardrail",
+        )
+
+    async def _capture(exc, *, kind, **fields):
+        captured.append(kind)
+
+    monkeypatch.setattr(mandates, "hold_code_call", _hold)
+    monkeypatch.setattr(mandates, "run_held_call", _run)
+    monkeypatch.setattr("matrx_connect.streaming.error_capture.capture_error", _capture)
+
+    result = await labeler.label_chat_conversation("User:\nhi", recent_titles="")
+
+    assert result.success is False
+    assert captured == [], "a spend-cap hold must not be filed as a system error"
+    assert result.error.startswith("held (automation_guardrail): ")
+    assert "daily spend cap reached" in result.error

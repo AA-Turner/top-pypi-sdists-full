@@ -76,6 +76,13 @@ def test_http_app_exposes_health_and_all_worker_operations() -> None:
         "chrome_downgrade": None,
         # Heartbeats may ask this image for a liveness probe.
         "browser_liveness": True,
+        # A fleet worker: no save-path capabilities, one browser per process.
+        "capabilities": [],
+        "multi_browser": False,
+        "max_browsers": 1,
+        "browsers": [],
+        # The heartbeat may carry the register-owned worker timings (cloud_browser.worker_tuning).
+        "worker_tuning": True,
     }
     paths = {route.path for route in client.app.routes}
     assert {

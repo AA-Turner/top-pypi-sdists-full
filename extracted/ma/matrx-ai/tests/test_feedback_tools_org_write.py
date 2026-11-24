@@ -117,6 +117,7 @@ async def test_report_trace_incident_carries_organization_id(monkeypatch):
     assert result.success, result.error
     assert _FakeUserFeedback.last_create_kwargs is not None
     assert _FakeUserFeedback.last_create_kwargs.get("organization_id") == org_id
+    assert _FakeUserFeedback.last_create_kwargs.get("created_by") == _FakeUserFeedback.last_create_kwargs.get("user_id")
 
 
 @pytest.mark.asyncio

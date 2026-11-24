@@ -20,6 +20,11 @@ generation row; the video-side gate is ``media/video_reference_roles.py``):
     asset                keep this subject/object/character in the clip
     style                (shared) take its look only
 
+A ``mask`` image's pixels have ONE meaning on the platform (CGU-10 AND-IMG, 2026-11-10): the picture's own size,
+the area that may change TRANSPARENT BLACK (0,0,0,0), everything kept OPAQUE WHITE. One image then says the same
+area to both provider conventions: OpenAI's edits change where the mask is transparent, Ideogram's (Replicate) where
+it is black. Clients that paint a selection (the Android editor's ``MaskPng``) write exactly this.
+
 The role rides on the image part itself (``ImageContent.role`` /
 ``ImageMediaPart.role``). Absent role = today's behavior: a plain image the
 model sees.

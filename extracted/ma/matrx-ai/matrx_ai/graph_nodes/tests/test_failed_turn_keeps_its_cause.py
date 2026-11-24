@@ -43,7 +43,9 @@ async def test_the_step_failure_carries_the_real_exception_and_its_traceback(mon
 
     exc = _raise_from_adapter()
     info = classify(exc)
-    assert info.user_message.startswith("An unexpected")  # the person sentence stays generic
+    # The person sentence stays generic and never names the provider (Arman, 2026-11-18);
+    # the cause rides the step failure below.
+    assert info.user_message == "Something went wrong. Please try again."
 
     async def _failed(*_a: Any, **_k: Any) -> Any:
         return _FailedTurn(

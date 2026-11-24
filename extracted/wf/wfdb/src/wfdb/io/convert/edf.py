@@ -8,7 +8,9 @@ import struct
 import numpy as np
 import pandas as pd
 
-from wfdb.io import _url, download
+from wfdb.io import download
+from wfdb.io._coreio import _open_input_file, _split_path
+from wfdb.io._signal import _checksum
 from wfdb.io.annotation import Annotation, format_ann_from_df, wrann
 from wfdb.io.record import SIG_UNITS, Record, rdrecord
 
@@ -42,7 +44,11 @@ def read_edf(
     Parameters
     ----------
     record_name : str
-        The name of the input EDF record to be read.
+        The path of the input EDF file to be read, including its
+        extension. This can also be a cloud URI, such as
+        'physionet://chbmit/1.0.0/chb01/chb01_01.edf' or 's3://...', which
+        is read without saving a copy of the file. With `header_only`,
+        only the header is read.
     pn_dir : str, optional
         Option used to stream data from Physionet. The Physionet
         database directory from which to find the required record files.
@@ -124,6 +130,7 @@ def read_edf(
 
     Examples
     --------
+    >>> from wfdb.io.convert import read_edf
     >>> record = read_edf('x001_FAROS.edf',
     ...                    pn_dir='simultaneous-measurements/raw_data')
 
@@ -135,14 +142,13 @@ def read_edf(
                 dir_list[0], download.get_version(dir_list[0]), *dir_list[1:]
             )
 
-        file_url = posixpath.join(download.PN_INDEX_URL, pn_dir, record_name)
         # Currently must download file for MNE to read it though can give the
         # user the option to delete it immediately afterwards
-        with _url.openurl(file_url, "rb") as f:
+        with download._open_pn_file(pn_dir, record_name) as f:
             open(record_name, "wb").write(f.read())
 
     # Open the desired file
-    edf_file = open(record_name, mode="rb")
+    edf_file = _open_input_file(record_name)
 
     # Version of this data format (8 bytes)
     version = struct.unpack("<8s", edf_file.read(8))[0].decode(encoding)
@@ -323,9 +329,7 @@ def read_edf(
         struct.unpack("<32s", edf_file.read(32))[0].decode(encoding)
 
     # Pre-process the acquired data before creating the record
-    record_name_out = (
-        record_name.split(os.sep)[-1].replace("-", "_").replace(".edf", "")
-    )
+    record_name_out = _split_path(record_name)[1].replace("-", "_").replace(".edf", "")
     sample_rate = [int(i / block_duration) for i in samps_per_block]
     fs = functools.reduce(math.gcd, sample_rate)
     samps_per_frame = [int(s / min(samps_per_block)) for s in samps_per_block]
@@ -374,6 +378,7 @@ def read_edf(
     )
 
     if header_only:
+        edf_file.close()
         return {
             "fs": fs,
             "sig_len": sig_len,
@@ -386,7 +391,9 @@ def read_edf(
         }
 
     sig_data = np.empty((sig_len, n_sig))
-    temp_sig_data = np.fromfile(edf_file, dtype=np.int16)
+    # Read the rest of the file, ignoring a final odd byte
+    data = edf_file.read()
+    temp_sig_data = np.frombuffer(data, dtype=np.int16, count=len(data) // 2)
     temp_sig_data = temp_sig_data.reshape((-1, sum(samps_per_block)))
     temp_all_sigs = np.hsplit(temp_sig_data, np.cumsum(samps_per_block)[:-1])
 
@@ -425,8 +432,10 @@ def read_edf(
     #        [  -5.004123,   43.546991,  -99.481966,   51.64255 ,  -43.079939],...
 
     init_value = [int(s[0, 0]) for s in temp_all_sigs]
+    # Sum each channel separately: sig_data holds floats, so the order of the
+    # additions can change the result
     checksum = [
-        int(np.sum(v) % 65536) for v in np.transpose(sig_data)
+        _checksum(channel) for channel in np.transpose(sig_data)
     ]  # not all values correct?
 
     edf_file.close()
@@ -567,7 +576,11 @@ def wfdb_to_edf(
 
     Examples
     --------
-    >>> wfdb.wfdb_to_edf('100', pn_dir='pwave')
+    >>> from contextlib import redirect_stdout
+    >>> from io import StringIO
+    >>> from wfdb.io.convert import wfdb_to_edf
+    >>> with redirect_stdout(StringIO()):
+    ...     wfdb_to_edf('100', pn_dir='mitdb', sampto=1000)
 
     The output file name is '100.edf'
 
@@ -580,7 +593,7 @@ def wfdb_to_edf(
         smooth_frames=False,
         channels=channels,
     )
-    record_name_out = record_name.split(os.sep)[-1].replace("-", "_")
+    record_name_out = _split_path(record_name)[1].replace("-", "_")
 
     # Maximum data block length, in bytes
     edf_max_block = 61440
@@ -1002,7 +1015,10 @@ def rdedfann(
     Parameters
     ----------
     record_name : str
-        The name of the input EDF record to be read.
+        The path of the input EDF file to be read, including its
+        extension. This can also be a cloud URI, such as
+        'physionet://chbmit/1.0.0/chb01/chb01_01.edf' or 's3://...', which
+        is read without saving a copy of the file.
     pn_dir : str, optional
         Option used to stream data from Physionet. The Physionet
         database directory from which to find the required record files.
@@ -1073,7 +1089,11 @@ def rdedfann(
 
     Examples
     --------
-    >>> ann_info = wfdb.rdedfann('sample-data/test_edfann.edf')
+    Read annotations from a published EDF+ file on PhysioNet:
+
+    >>> from wfdb.io.convert import rdedfann
+    >>> ann_info = rdedfann('test_edfann.edf',
+    ...                     pn_dir='wfdb-python/4.1.0/sample-data')
 
     """
     # Some preliminary checks
@@ -1154,7 +1174,7 @@ def rdedfann(
         )
         df_out = format_ann_from_df(df_in)
         # Remove extension from input file name
-        record_name = record_name.split(os.sep)[-1].split(".")[0]
+        record_name = _split_path(record_name)[1].split(".")[0]
         extension = "atr"
         fs = rec.fs
         sample = (df_out["onset"].to_numpy() * fs).astype(np.int64)

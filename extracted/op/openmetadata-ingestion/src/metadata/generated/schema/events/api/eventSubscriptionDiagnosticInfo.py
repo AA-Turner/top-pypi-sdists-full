@@ -15,21 +15,32 @@ class EventSubscriptionDiagnosticInfo(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    enabled: Annotated[
+        bool | None,
+        Field(
+            description="Whether the alert is enabled. A disabled alert is not running: it reads and sends no events until it is enabled again, and then it starts from the latest event."
+        ),
+    ] = None
     latestOffset: Annotated[
         Any | None, Field(description="The latest offset of the event in the system.")
     ] = None
     currentOffset: Annotated[
-        Any | None, Field(description="The current offset of the event subscription.")
+        Any | None,
+        Field(
+            description="The offset the event subscription has read up to, as stored. A disabled alert keeps the offset where it stopped; it does not read from there when enabled again."
+        ),
     ] = None
     startingOffset: Annotated[
         Any | None,
         Field(
-            description="The initial offset of the event subscription when it started processing."
+            description="The initial offset of the event subscription when it started processing, as stored."
         ),
     ] = None
     hasProcessedAllEvents: Annotated[
         bool | None,
-        Field(description="Indicates whether all events have been processed."),
+        Field(
+            description="Whether no events are left that the alert will still process. Always true for a disabled alert."
+        ),
     ] = None
     successfulEventsCount: Annotated[
         Any | None, Field(description="Count of successful events for specific alert.")
@@ -40,7 +51,7 @@ class EventSubscriptionDiagnosticInfo(BaseModel):
     relevantUnprocessedEventsCount: Annotated[
         Any | None,
         Field(
-            description="The number of relevant unprocessed events based on the alert's filtering rules for specific alert."
+            description="The number of unprocessed events the alert will still process and its filtering rules let through. Always 0 for a disabled alert."
         ),
     ] = None
     relevantUnprocessedEventsCountIsLowerBound: Annotated[
@@ -50,15 +61,20 @@ class EventSubscriptionDiagnosticInfo(BaseModel):
         ),
     ] = False
     totalUnprocessedEventsCount: Annotated[
-        Any | None, Field(description="The total number of unprocessed events.")
+        Any | None,
+        Field(
+            description="The total number of unprocessed events the alert will still read. Always 0 for a disabled alert."
+        ),
     ] = None
     relevantUnprocessedEventsList: Annotated[
         list[changeEvent.ChangeEvent] | None,
         Field(
-            description="A list of relevant unprocessed events based on the alert's filtering criteria."
+            description="A list of relevant unprocessed events based on the alert's filtering criteria. Empty for a disabled alert."
         ),
     ] = None
     totalUnprocessedEventsList: Annotated[
         list[changeEvent.ChangeEvent] | None,
-        Field(description="A list of all unprocessed events."),
+        Field(
+            description="A list of all unprocessed events. Empty for a disabled alert."
+        ),
     ] = None

@@ -85,6 +85,9 @@ _VALID_VALUES: frozenset[str] = frozenset(t.value for t in ConversationType)
 # an explicit type was not set (legacy / unmigrated callers). Explicitly-set
 # types always win. Unmapped features fall through to STANDARD (and then to the
 # is_internal_agent / parent-lineage signals in derive_conversation_type).
+#: ``source_feature`` of every mandate run (``mandate:<key>``): a system process, hidden from every list.
+MANDATE_SOURCE_PREFIX = "mandate:"
+
 SOURCE_FEATURE_TO_TYPE: dict[str, str] = {
     # standard (user-facing)
     "chat": ConversationType.STANDARD,
@@ -131,6 +134,13 @@ SOURCE_FEATURE_TO_TYPE: dict[str, str] = {
 #: marker is the one exception. Never inherited: ``agent_call`` strips it from
 #: every child it builds unless the host passes it again.
 STEERABLE_CHILD_KEY = "steerable_child"
+
+#: Where a child's borrowed history comes from: ``{"conversation_id", "up_to_position"}``. ``agent_call``
+#: puts it on the child's context when it borrows a conversation (``history_mode='snapshot'``); the
+#: conversation gate writes it into the child conversation's ``metadata`` on creation, and every later
+#: read of that conversation's history (a continued child, a child of the child) puts the borrowed
+#: history first. A borrowed history is never copied into the child's own rows. Never inherited.
+INHERITED_HISTORY_KEY = "inherited_history"
 
 #: AppContext.metadata key a host stamps on the context a SYSTEM PROCESS's AI call runs in (the
 #: labeler; aidream ``services/system_processes/identity.platform_scope``). Its value is the
@@ -254,6 +264,10 @@ def derive_conversation_type(
         mapped = SOURCE_FEATURE_TO_TYPE.get(source_feature)
         if mapped and mapped != ConversationType.STANDARD.value:
             return mapped
+        if source_feature.startswith(MANDATE_SOURCE_PREFIX):
+            # A MANDATE RUN no person opened is never in a chat list (lane SRVFIX 2026-11-08: a mandate's runs
+            # showed as "mandate:<key>" chats in the person's own list). Every mandate, whichever Holder runs it.
+            return ConversationType.SYSTEM_PROCESS.value
 
     if is_internal_agent:
         return ConversationType.AUTO.value

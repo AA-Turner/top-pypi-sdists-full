@@ -23,9 +23,9 @@ from param.reactive import bind
 from ..config import config
 from ..io import state, unlocked
 from ..layout import (
-    Column, HSpacer, Row, WidgetBox,
+    Column, HSpacer, ListLike, Row, WidgetBox,
 )
-from ..viewable import Layoutable, Viewable
+from ..viewable import Layoutable, Viewable, _added_subtrees
 from ..widgets import (
     DatetimeInput, DiscreteSlider, EditableFloatSlider, EditableIntSlider,
     FloatSlider, IntSlider, Player, Select, WidgetBase,
@@ -139,9 +139,9 @@ class HoloViews(Pane):
         The layout of the plot and the widgets. The value refers to the
         position of the widgets relative to the plot.""")  # type: ignore[assignment, ty:invalid-assignment]
 
-    widget_layout: t.Any = param.Selector(
-        objects=[WidgetBox, Row, Column], constant=True, default=WidgetBox, doc="""
-        The layout object to display the widgets in.""")  # type: ignore[assignment, ty:invalid-assignment]
+    widget_layout = param.ClassSelector(
+        class_=ListLike, constant=True, is_instance=False, default=WidgetBox, doc="""
+        The layout object to display the widgets in.""")
 
     widget_type: t.Literal['individual', 'scrubber'] = param.Selector(
         default='individual',
@@ -184,12 +184,16 @@ class HoloViews(Pane):
 
     _rerender_params = ['object', 'backend', 'format']
 
+    # Lets the linking hooks skip walking the model tree in apps without HoloViews panes
+    _instantiated: t.ClassVar[bool] = False
+
     _skip_layoutable = (
         'css_classes', 'margin', 'name', 'sizing_mode',
         'width', 'height', 'max_width', 'max_height'
     )
 
     def __init__(self, object=None, **params):
+        HoloViews._instantiated = True
         self._initialized = False
         self._height_responsive = None
         self._width_responsive = None
@@ -533,7 +537,7 @@ class HoloViews(Pane):
             del kwargs['width']
         if self.sizing_mode and (self.sizing_mode.endswith('height') or self.sizing_mode.endswith('both')):
             del kwargs['height']
-        child_pane = self._get_pane(backend, state, **kwargs)
+        child_pane = self._get_pane(backend, state, plot.renderer, **kwargs)
         self._update_plot(plot, child_pane)
         model = child_pane._get_model(doc, root, parent, comm)
         if ref in self._plots:
@@ -544,12 +548,13 @@ class HoloViews(Pane):
         self._models[ref] = (model, parent)
         return model
 
-    def _get_pane(self, backend, state, **kwargs):
+    def _get_pane(self, backend, state, renderer, **kwargs):
         pane_type = self._panes.get(backend, panel)
         if isinstance(pane_type, type):
             if issubclass(pane_type, Matplotlib):
                 kwargs['tight'] = True
                 kwargs['format'] = self.format
+                kwargs['dpi'] = renderer.dpi
             if issubclass(pane_type, Bokeh):
                 kwargs['autodispatch'] = False
         return pane_type(state, **kwargs)
@@ -647,7 +652,8 @@ class HoloViews(Pane):
         from ..theme.base import resolve_component
         if default_widgets is None:
             default_widgets = {}
-        overridden = key in default_widgets
+        # Instances pass a copy of the class defaults unless the user set them
+        overridden = key in default_widgets and default_widgets != cls.default_widgets
         widget_type = default_widgets.get(key, cls.default_widgets.get(key, None))
         if widget_type is None:
             raise ValueError("No valid {key} widget type found.")
@@ -752,6 +758,8 @@ class HoloViews(Pane):
                 if len(vals) > 1 and all(isnumeric(v) or isinstance(v, datetime_types) for v in vals):
                     vals = sorted(vals)
                     labels = [str(dim.pprint_value(v)) for v in vals]
+                    if len(set(labels)) < len(labels):
+                        labels = [str(v) for v in vals]
                     options = dict(zip(labels, vals))
                     widget_type = widget_type or cls._resolve_widget('discrete_numeric', dynamic, default_widgets)
                 elif len(vals) == 1:
@@ -839,7 +847,8 @@ class Interactive(Pane):
             return self.get_root(doc, comm)
         if self._layout_panel is None:
             model = _BkSpacer(**{
-                p: getattr(self, p) for p in Layoutable.param if p != 'name'
+                p: getattr(self, p) for p in Layoutable.param
+                if p not in ('name', 'design')
             })
         else:
             model = self._layout_panel._get_model(doc, root, parent, comm)
@@ -884,12 +893,26 @@ def generate_panel_bokeh_map(root_model, panel_views):
     return map_hve_bk
 
 
-def find_links(root_view, root_model):
+def _linkable_panes(root_view, root_model, changed=None, old_models=None):
+    """
+    Returns all HoloViews panes in the tree if the change added any, since
+    a new plot may have to be linked to plots elsewhere in the tree, and
+    an empty list otherwise.
+    """
+    if not HoloViews._instantiated:
+        return []
+    subtrees = _added_subtrees(root_view, changed, root_model.ref['id'], old_models)
+    if subtrees == [root_view] or any(obj.select(HoloViews) for obj in subtrees):
+        return root_view.select(HoloViews)
+    return []
+
+
+def find_links(root_view, root_model, changed=None, old_models=None):
     """
     Traverses the supplied Viewable searching for Links between any
     HoloViews based panes.
     """
-    hv_views = root_view.select(HoloViews)
+    hv_views = _linkable_panes(root_view, root_model, changed, old_models)
     root_plots = [plot for view in hv_views for plot, _ in view._plots.values()
                   if getattr(plot, 'root', None) is root_model]
 
@@ -938,12 +961,12 @@ def find_links(root_view, root_model):
     return callbacks
 
 
-def link_axes(root_view, root_model):
+def link_axes(root_view, root_model, changed=None, old_models=None):
     """
     Pre-processing hook to allow linking axes across HoloViews bokeh
     plots.
     """
-    panes = root_view.select(HoloViews)
+    panes = _linkable_panes(root_view, root_model, changed, old_models)
 
     if not panes:
         return

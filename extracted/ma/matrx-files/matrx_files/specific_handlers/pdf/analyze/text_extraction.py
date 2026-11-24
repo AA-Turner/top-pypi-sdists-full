@@ -27,6 +27,7 @@ from ....analysis import (
 from ....analysis.ocr_router import _TesseractProvider, select_pages_for_ocr
 from ....analysis.text_sanitize import sanitize_text
 from ..concurrency import _ocr_worker_count, run_in_cpu_executor, run_in_ocr_executor
+from ..render_budget import bounded_render_dpi
 from ..extract.text import native_page_text
 from ..internal import load_pymupdf
 
@@ -150,7 +151,8 @@ class TextExtractionNativeDetector(Detector):
 
 
 def _render_page_png(page) -> bytes:
-    pix = page.get_pixmap(dpi=200, alpha=False)
+    rect = page.rect
+    pix = page.get_pixmap(dpi=bounded_render_dpi(rect.width, rect.height, 200), alpha=False)
     return bytes(pix.tobytes("png"))
 
 

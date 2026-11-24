@@ -54,6 +54,8 @@ check then decides); and an ``$optional`` default applies only to a MISSING valu
 
 from __future__ import annotations
 
+import matrx_graph.information as _information
+
 import ast
 import copy
 import json
@@ -68,7 +70,7 @@ __all__ = ["Fold", "Kept", "fold_reshape_steps"]
 _OWN_BEHAVIOR = (
     "review", "once", "one_at_a_time", "when", "if_skipped", "shape", "output_kind", "input_kind",
     "deliverable", "is_primary", "join_policy", "on_skipped_upstream", "skip_defaults", "arg_merge",
-    "retry", "timeout_seconds", "on_error",
+    "when_input_skipped", "retry", "timeout_seconds", "on_error",
 )
 _PLAIN_KEY = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
 
@@ -518,7 +520,7 @@ def _one_per_item_fold(defn: dict[str, Any], kept: dict[str, Kept]) -> Fold | No
                for n in defn["nodes"] if n["id"] != eid):
             keep("another step also dispatches to its per-item step")
             continue
-        if any(body_data.get(k) for k in ("join_policy", "on_skipped_upstream", "skip_defaults", "arg_merge")):
+        if any(body_data.get(k) for k in ("join_policy", "on_skipped_upstream", "skip_defaults", "arg_merge", "when_input_skipped")):
             keep("its per-item step has its own join settings")
             continue
         if any(set(e.get("data") or {}) - {"kind", "mappings"} for e in ins + body_out):
@@ -527,7 +529,8 @@ def _one_per_item_fold(defn: dict[str, Any], kept: dict[str, Kept]) -> Fold | No
         if items_from is not None and not _same_list_beside(ins, beside, items_from):
             keep("its Gather names its items from a list that is not the one the For Each fans out")
             continue
-        extra = set(config) - {"target_node_id", "payload_template", "payload_key", "include_index", "max_dispatches"}
+        extra = set(config) - {"target_node_id", "payload_template", "payload_key", "include_index", "max_dispatches",
+                               "until", "wave_size"}
         if extra:
             keep(f"the For Each's {sorted(extra)} setting has no step-setting twin")
             continue
@@ -535,7 +538,7 @@ def _one_per_item_fold(defn: dict[str, Any], kept: dict[str, Kept]) -> Fold | No
         if template is None:
             template = {config.get("payload_key", "value"): "$item"}
         setting: dict[str, Any] = {"payload_template": template}
-        for key in ("include_index", "max_dispatches"):
+        for key in ("include_index", "max_dispatches", "until", "wave_size"):
             if key in config:
                 setting[key] = config[key]
         if items_from is not None:
@@ -1038,8 +1041,25 @@ def _one_choose_fold(defn: dict[str, Any], kept: dict[str, Kept]) -> Fold | None
     return None
 
 
+def _carry_information_forward(whole: dict[str, Any], folded: dict[str, Any]) -> None:
+    """Notes, frames and their relations are not steps: folding keeps them, dropping only a
+    relation whose step was folded away."""
+    steps = _information.executable_of(whole)
+    info_nodes = [n for n in whole.get("nodes", []) if n not in steps["nodes"]]
+    if not info_nodes:
+        return
+    kept_ids = {n["id"] for n in folded["nodes"]} | {n["id"] for n in info_nodes}
+    folded["nodes"].extend(copy.deepcopy(n) for n in info_nodes)
+    folded["edges"].extend(
+        copy.deepcopy(e) for e in whole.get("edges", [])
+        if e not in steps["edges"] and e.get("source") in kept_ids and e.get("target") in kept_ids
+    )
+
+
 def fold_reshape_steps(definition: dict[str, Any]) -> tuple[dict[str, Any], list[Fold], list[Kept]]:
     """Fold every reshape-only step into its connections (repeatedly, so chains fold too)."""
+    whole = definition
+    definition = _information.executable_of(definition)  # a note is not a step
     defn = copy.deepcopy(definition)
     folds: list[Fold] = []
     kept: dict[str, Kept] = {}
@@ -1048,4 +1068,5 @@ def fold_reshape_steps(definition: dict[str, Any]) -> tuple[dict[str, Any], list
         folds.append(fold)
     # A For Each folded into "Run once per item" is not a reason it stayed.
     folded = {f.step_id for f in folds}
+    _carry_information_forward(whole, defn)
     return defn, folds, [k for key, k in kept.items() if k.step_id not in folded]

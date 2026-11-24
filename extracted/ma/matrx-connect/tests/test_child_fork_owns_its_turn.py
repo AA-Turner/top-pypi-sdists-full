@@ -122,3 +122,19 @@ def test_stop_on_the_parent_reaches_a_helper_and_retry_now_is_consumed_once() ->
     assert asyncio.run(registry.consume_retry_now(child.request_id)) is False
     asyncio.run(registry.interrupt(ROOT))
     assert registry.is_interrupted(child.request_id)
+
+
+def test_a_child_never_starts_with_the_callers_request_records() -> None:
+    # Conversation 2fb3ac31, 2026-11-08: the fork's shallow metadata copy shared the caller's
+    # ``fit_by_iteration`` dict, so the research condenser child's iteration-1 fit overwrote the
+    # caller's and landed on the caller's turn-1 ``chat.request`` row.
+    from matrx_connect.context.app_context import PER_REQUEST_RECORD_KEYS
+
+    parent_fits = {1: {"fits": True, "estimated": 32_000}}
+    parent = _top(metadata={"fit_by_iteration": parent_fits, "last_fit": {"fits": True},
+                            "trim_reports_by_iteration": {1: {}}, "kept": "yes"})
+    child = parent.fork_for_child_agent("33333333-3333-4333-8333-333333333333")
+    assert not (set(child.metadata) & PER_REQUEST_RECORD_KEYS)
+    child.metadata.setdefault("fit_by_iteration", {})[1] = {"fits": False, "estimated": 245_303}
+    assert parent.metadata["fit_by_iteration"] == {1: {"fits": True, "estimated": 32_000}}
+    assert child.metadata["kept"] == "yes"

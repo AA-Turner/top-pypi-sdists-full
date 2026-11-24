@@ -138,7 +138,8 @@ def _init_disabled(kw: dict, *, bind: bool = True) -> "Run":
     from ..run.disabled import DisabledRun
 
     run = DisabledRun(
-        name=kw.get("name"), config=kw.get("config"), tags=kw.get("tags"), run_type=kw.get("run_type")
+        name=kw.get("name"), config=kw.get("config"), tags=kw.get("tags"), run_type=kw.get("run_type"),
+        total_steps=kw.get("total_steps"),
     )
     from ..capture.logs import early as _early
 

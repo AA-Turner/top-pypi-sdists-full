@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from bitfab.github_sandbox import GITHUB_SANDBOX_NAME, github_sandbox
+from bitfab.github_sandbox import READ_WHOLE_OBJECT as GITHUB_READ_WHOLE_OBJECT
 from bitfab.gmail_live import (
     READ_REAL_WRITE_FAKE,
     GmailCredentials,
@@ -20,11 +21,21 @@ from bitfab.gmail_sandbox import (
     is_gmail_call,
     mailbox_from_recorded_calls,
 )
+from bitfab.linear_calls import install as install_linear_interception
+from bitfab.linear_sandbox import (
+    LINEAR_MODES,
+    LINEAR_SANDBOX_NAME,
+    build_linear_sandbox,
+)
+from bitfab.linear_sandbox import READ_WHOLE_OBJECT as LINEAR_READ_WHOLE_OBJECT
+from bitfab.linear_sandbox import Transport as LinearTransport
 from bitfab.mock_override import MockOverrideCtx
 from bitfab.sandbox import (
+    POSTGRES_SANDBOX_NAME,
     Sandbox,
     SandboxStartCtx,
     combine_sandboxes,
+    is_sandbox_off,
     without_sandbox,
 )
 from bitfab.slack_calls import install as install_slack_interception
@@ -148,6 +159,7 @@ def gmail_sandbox(
             mode=READ_REAL_WRITE_FAKE,
             load=_load_live,
             is_write=is_gmail_write,
+            accessed_object=gmail_accessed_object,
         )
     if mode != RECORDED:
         raise ValueError(
@@ -169,6 +181,7 @@ def gmail_sandbox(
         mode=RECORDED,
         load=_load_recorded,
         is_write=is_gmail_write,
+        accessed_object=gmail_accessed_object,
     )
 
 
@@ -176,8 +189,25 @@ GMAIL_MODES = (READ_REAL_WRITE_FAKE, RECORDED)
 GMAIL_READ_VERBS = frozenset({"get", "list", "getProfile"})
 
 
+GMAIL_USERS_PREFIX = "gmail.users."
+
+
 def is_gmail_write(call: MockOverrideCtx) -> bool:
     return call.node.trace_function_key.rsplit(".", 1)[-1] not in GMAIL_READ_VERBS
+
+
+def gmail_accessed_object(call: MockOverrideCtx) -> str | None:
+    parts = call.node.trace_function_key[len(GMAIL_USERS_PREFIX) :].split(".")
+    verb = parts.pop()
+    if not parts:
+        return "profile" if verb == "getProfile" else None
+    params = call.kwargs
+    object_id = params.get("id", params.get("sendAsEmail"))
+    message_id = params.get("messageId")
+    if isinstance(message_id, str) and isinstance(object_id, str):
+        return f"messages/{message_id}/attachments/{object_id}"
+    resource = "/".join(parts)
+    return f"{resource}/{object_id}" if isinstance(object_id, str) else resource
 
 
 def slack_sandbox(
@@ -245,6 +275,72 @@ def slack_sandbox(
     )
 
 
+def linear_sandbox(
+    mode: str = LINEAR_READ_WHOLE_OBJECT,
+    token: str | None = None,
+    start: Callable[[SandboxStartCtx], Any] | None = None,
+    _transport: LinearTransport | None = None,
+) -> Sandbox:
+    """The Linear sandbox: answers Linear GraphQL calls during replay, never sending a write to Linear.
+
+    It answers GraphQL requests to ``api.linear.app/graphql`` made with
+    ``requests`` (and clients built on it, such as ``gql``'s requests
+    transport) or ``httpx``, sync or async. Any other client that reaches
+    ``api.linear.app`` while it is on is refused and fails the replay item.
+
+    Whenever a request reads any part of an issue, the sandbox holds the
+    whole issue: every field Linear has for it, every list on it to the end
+    (comments, sub-issues, relations, attachments, labels, history and the
+    rest), and each user, team, state, project or other record those point
+    to. With the ``linear`` integration on, the original run records each
+    issue it reads whole, once per trace, in as many queries as that takes;
+    the replay starts from those
+    whole issues and every other Linear read the trace recorded, so a later
+    read of a part the original run never touched is still answered.
+
+    Issue creates, updates, label changes, archives and deletes, and comment
+    creates, edits and deletes stay in the sandbox and show on later reads.
+    A mutation it does not know is refused. It is on by default; turn it off
+    with ``replay(sandbox_modes={"linear": False})``.
+
+    Args:
+        mode: ``"test-read-whole-object"`` (default) reads an issue the trace did
+            not record whole from Linear, once per replay item, and sends any
+            other query it cannot answer to Linear as it is asked; only
+            reads ever go to Linear. Each read that went to Linear is listed
+            as ``liveReads`` on the replay trace. ``"recorded"`` never
+            reaches Linear and fails the replay item on a read the trace has
+            nothing for.
+        token: ``"test-read-whole-object"`` mode only. The Linear API key or
+            OAuth token (sent as the ``Authorization`` header) that reads
+            from Linear. ``None`` uses the ``BITFAB_LINEAR_TOKEN``
+            environment variable, and without that the header each replayed
+            call was made with. It is never written to a span, the sandbox's
+            state, or the replay trace.
+        start: Builds the workspace for one replay item from a
+            ``SandboxStartCtx``, in place of the recording. Return
+            ``{"viewer": {...}, "teams": [...], "workflowStates": [...],
+            "issues": [...], "comments": [...], "users": [...],
+            "projects": [...], "issueLabels": [...]}``, each a list of
+            objects shaped as Linear's GraphQL API returns them; a nested
+            object with an ``id``, such as an issue's ``team``, links to that
+            entity, and each issue counts as whole. State seeded for Linear
+            in a sandbox store takes the same shape.
+    """
+    if mode not in LINEAR_MODES:
+        raise ValueError(
+            f"The Linear sandbox has no mode {mode!r}. Its modes are "
+            f"{', '.join(repr(m) for m in LINEAR_MODES)}."
+        )
+    if mode == RECORDED and token is not None:
+        raise ValueError(
+            f'linear_sandbox(token=...) is for mode="{LINEAR_READ_WHOLE_OBJECT}"; '
+            f'mode="{RECORDED}" never reads from Linear.'
+        )
+    install_linear_interception()
+    return build_linear_sandbox(start, mode, token, _transport)
+
+
 @dataclass(frozen=True)
 class ServiceModes:
     sandbox_name: str
@@ -264,7 +360,20 @@ SERVICE_MODES: dict[str, ServiceModes] = {
     "github": ServiceModes(
         sandbox_name=GITHUB_SANDBOX_NAME,
         default_mode=READ_REAL_WRITE_FAKE,
-        modes={READ_REAL_WRITE_FAKE: github_sandbox},
+        modes={
+            READ_REAL_WRITE_FAKE: github_sandbox,
+            GITHUB_READ_WHOLE_OBJECT: lambda: github_sandbox(
+                mode=GITHUB_READ_WHOLE_OBJECT
+            ),
+        },
+    ),
+    "linear": ServiceModes(
+        sandbox_name=LINEAR_SANDBOX_NAME,
+        default_mode=LINEAR_READ_WHOLE_OBJECT,
+        modes={
+            LINEAR_READ_WHOLE_OBJECT: linear_sandbox,
+            RECORDED: lambda: linear_sandbox(mode=RECORDED),
+        },
     ),
     "slack": ServiceModes(
         sandbox_name=SLACK_SANDBOX_NAME,
@@ -277,8 +386,120 @@ SERVICE_MODES: dict[str, ServiceModes] = {
 }
 
 
+NEON_BRANCH = "neon-branch"
+# TODO: add a Postgres sandbox mode for an Ardent branch, beside "neon-branch".
+
+
+@dataclass(frozen=True)
+class _PostgresSandbox(Sandbox):
+    options: Mapping[str, Any] = field(default_factory=dict)
+
+
+def _answers_nothing(_node: Any) -> bool:
+    return False
+
+
+def _no_answer(_state: Any, _call: MockOverrideCtx) -> None:
+    return None
+
+
+def postgres_sandbox(
+    *,
+    min_cu: float | None = None,
+    max_cu: float | None = None,
+    warmup_sql: str | None = None,
+) -> Sandbox:
+    """The Postgres sandbox: each replay item runs against its own copy of
+    your database as it stood when the original trace ran.
+
+    Pass it in ``sandboxes`` to turn it on with settings::
+
+        client.replay(fn, sandboxes=[postgres_sandbox(min_cu=4, max_cu=4)])
+
+    With no settings, ``sandbox_modes={"postgres": True}`` does the same.
+    Inside the replayed function, build your database client from
+    :func:`bitfab.postgres_sandbox_url`.
+
+    Args:
+        min_cu: Autoscaling floor for the copy's compute, in Neon Compute
+            Units (0.25 to 56). Raise it when the copy is provisioned smaller
+            than the database it stands in for.
+        max_cu: Autoscaling ceiling for the copy's compute. Set it equal to
+            ``min_cu`` to pin the size, which keeps items comparable.
+        warmup_sql: SQL that warms the copy's cache. It runs before your
+            function sees the copy, so its time is not charged to the replayed
+            call. Invalid SQL fails the item.
+    """
+    options = {
+        key: value
+        for key, value in (
+            ("min_cu", min_cu),
+            ("max_cu", max_cu),
+            ("warmup_sql", warmup_sql),
+        )
+        if value is not None
+    }
+    return _PostgresSandbox(
+        name=POSTGRES_SANDBOX_NAME,
+        match=_answers_nothing,
+        handle=_no_answer,
+        mode=NEON_BRANCH,
+        options=options,
+    )
+
+
+def _owns_postgres_name(sandbox: Sandbox) -> bool:
+    return isinstance(sandbox, _PostgresSandbox) or (
+        sandbox.name == POSTGRES_SANDBOX_NAME and is_sandbox_off(sandbox)
+    )
+
+
+def postgres_sandbox_request(
+    sandboxes: Sequence[Sandbox] | None,
+    sandbox_modes: Mapping[str, SandboxModeSetting] | None,
+) -> tuple[bool, Mapping[str, Any]] | None:
+    passed = [s for s in sandboxes or [] if _owns_postgres_name(s)]
+    from_modes = postgres_sandbox_setting(sandbox_modes)
+    if len(passed) > 1:
+        raise ValueError(
+            f"sandboxes has more than one sandbox named {POSTGRES_SANDBOX_NAME}."
+        )
+    if not passed:
+        return None if from_modes is None else (from_modes, {})
+    if from_modes is not None:
+        raise ValueError(
+            f"The {POSTGRES_SANDBOX_NAME} sandbox is set in both sandboxes and "
+            "sandbox_modes; set it in one of them."
+        )
+    sandbox = passed[0]
+    if is_sandbox_off(sandbox):
+        return (False, {})
+    return (True, sandbox.options if isinstance(sandbox, _PostgresSandbox) else {})
+
+
+def postgres_sandbox_setting(
+    sandbox_modes: Mapping[str, SandboxModeSetting] | None,
+) -> bool | None:
+    if not sandbox_modes or POSTGRES_SANDBOX_NAME not in sandbox_modes:
+        return None
+    setting: Any = sandbox_modes[POSTGRES_SANDBOX_NAME]
+    if setting is True or setting == NEON_BRANCH:
+        return True
+    if setting is False:
+        return False
+    if not isinstance(setting, str):
+        raise TypeError(
+            f"sandbox_modes[{POSTGRES_SANDBOX_NAME!r}] must be True, False, or a "
+            f"mode name, not {type(setting).__name__}."
+        )
+    raise ValueError(
+        f"The {POSTGRES_SANDBOX_NAME} sandbox has no mode {setting!r}. Its modes "
+        f"are {NEON_BRANCH!r}."
+    )
+
+
 def default_sandboxes() -> list[Sandbox]:
-    return [gmail_sandbox(), github_sandbox()]
+    return [gmail_sandbox(), github_sandbox(), linear_sandbox()]
 
 
 def _configured(service: str, setting: Any) -> Sandbox:
@@ -286,7 +507,7 @@ def _configured(service: str, setting: Any) -> Sandbox:
     if found is None:
         raise ValueError(
             f"sandbox_modes has no service {service!r}. Its services are "
-            f"{', '.join(repr(s) for s in SERVICE_MODES)}."
+            f"{', '.join(repr(s) for s in [*SERVICE_MODES, POSTGRES_SANDBOX_NAME])}."
         )
     if setting is False:
         return without_sandbox(found.sandbox_name)
@@ -310,9 +531,11 @@ def resolve_sandboxes(
     sandboxes: Sequence[Sandbox] | None,
     sandbox_modes: Mapping[str, SandboxModeSetting] | None,
 ) -> list[Sandbox]:
+    sandboxes = [s for s in sandboxes or [] if not _owns_postgres_name(s)]
     configured = [
         _configured(service, setting)
         for service, setting in (sandbox_modes or {}).items()
+        if service != POSTGRES_SANDBOX_NAME
     ]
     passed = {sandbox.name for sandbox in sandboxes or []}
     both = sorted(passed & {sandbox.name for sandbox in configured})

@@ -32,7 +32,12 @@ from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
 )
-from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage, failed_turn_failure
+from matrx_ai.graph_nodes.shared import (
+    AiUsage,
+    _extract_usage,
+    failed_turn_failure,
+    no_media_reason,
+)
 
 
 class TextToSpeechInput(BaseModel):
@@ -42,7 +47,7 @@ class TextToSpeechInput(BaseModel):
         min_length=1,
         description=(
             "TTS model id. Example: 'eleven_v3', "
-            "'playai-tts' (Groq), 'gemini-2.5-flash-preview-tts' (Google)."
+            "'playai-tts' (Groq), 'gemini-3.8-flash-tts' (Google)."
         ),
         json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
     )
@@ -253,7 +258,7 @@ async def ai_text_to_speech(
     _ = ctx
 
     try:
-        from matrx_files import is_durable_media_url
+        from matrx_files import is_durable_media_url, is_public_media_url
 
         from matrx_ai.config import UnifiedConfig
         from matrx_ai.orchestrator.executor import execute_ai_request
@@ -313,12 +318,15 @@ async def ai_text_to_speech(
         if not (refs.file_id or refs.path or refs.url or refs.b64):
             # Paid call with no artifact — fail with the billed usage in
             # details so the scheduler's cost settlement records the spend.
+            reason, why = no_media_reason(completed, requested_model=inputs.model)
             return failure(
                 "tts_failed",
-                f"ai.text_to_speech: provider returned no audio for model '{inputs.model}'.",
+                f"ai.text_to_speech: provider returned no audio for model '{inputs.model}'"
+                + (f": {reason}." if reason else "."),
                 details={
                     "model": inputs.model,
                     "usage": _extract_usage(usage_raw).model_dump(mode="json"),
+                    **why,
                 },
             )
 
@@ -331,7 +339,7 @@ async def ai_text_to_speech(
                 # one is dropped, not labeled. One classifier (matrx_files)
                 # decides; file_id is what a consumer re-mints from.
                 audio_url=refs.url if is_durable_media_url(refs.url) else None,
-                audio_cdn_url=refs.url if is_durable_media_url(refs.url) else None,
+                audio_cdn_url=refs.url if is_public_media_url(refs.url) else None,
                 audio_b64=refs.b64,
                 mime_type=refs.mime,
                 duration_seconds=duration,

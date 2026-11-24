@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 from typing import ClassVar
 
-import pytest
 from matrx_graph import (
     Definition,
     MemoryCheckpointer,

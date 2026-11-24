@@ -205,3 +205,36 @@ def test_every_vocabulary_interaction_mode_resolves():
             capabilities={"input": ["audio"], "output": ["text"], "features": [], "interaction": mode},
         )
         assert resolve_model_capabilities(model).interaction == mode
+
+
+def test_an_unknown_capability_value_files_one_grouped_system_error(monkeypatch):
+    # 2026-11-18: rerank-v4.0-pro was written (a migration applied through the Supabase MCP) with an
+    # interaction no vocabulary named. The server read it as "turn" and said nothing; only frontend
+    # pages filed errors. The resolver is the scan every catalog load runs: it files ONE grouped row
+    # per model, and only for values nobody has a word for.
+    from matrx_ai import _ext
+    from matrx_ai.providers import resolved_capabilities as rc
+
+    captured: list[dict] = []
+
+    def record_error(error, **fields):
+        captured.append({"error": str(error), **fields})
+
+    monkeypatch.setattr(_ext, "has_ext", lambda name: name == "record_error")
+    monkeypatch.setattr(_ext, "get_ext", lambda name: record_error)
+    monkeypatch.setattr(rc, "_reported_drift", set())
+
+    bad = _model("probe-unknown", capabilities={"input": ["text"], "output": [], "features": [],
+                                                "interaction": "teleport", "multilingual": False})
+    alias = _model("probe-alias", capabilities={"input": ["text"], "output": ["text"], "features": [],
+                                                "interaction": "chat", "multilingual": False})
+    for _ in range(3):
+        resolve_model_capabilities(bad)
+        resolve_model_capabilities(alias)
+
+    assert len(captured) == 1, captured
+    row = captured[0]
+    assert row["group_open"] is True
+    assert row["kind"] == "ai_model_capability_drift"
+    assert row["route"].endswith("/probe-unknown")
+    assert "teleport" in row["error"]

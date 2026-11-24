@@ -58,13 +58,21 @@ def is_archived_row(row: dict[str, Any], col: str) -> bool:
 async def archive_where(model: Any, filters: dict[str, Any]) -> int:
     """Archive every LIVE row of ``model`` matching ``filters``; returns rows archived.
 
-    Goes through the ORM's own ``update_where`` (RLS-scoped exactly like any
-    other write on the caller's connection). Rows already archived are left
+    A platform entity (a model with ``archive_where``) archives ``deleted_at`` through
+    the entity's own archive, which works as the person on every table; anything else goes through the ORM's
+    own ``update_where`` on the caller's connection. Rows already archived are left
     untouched, so their original archive time survives. Raises ValueError when
     the model has no soft-delete column — the caller decides, loudly, what to do.
     """
     col = soft_delete_column(model)
     if col is None:
         raise ValueError(f"{getattr(model, '__name__', model)!r} has no soft-delete column {SOFT_DELETE_COLUMNS}.")
+    entity_archive = getattr(model, "archive_where", None)
+    if col == "deleted_at" and callable(entity_archive):
+        # A platform entity archives through its own archive_where: as the person (a tool's RLS
+        # session) a table whose SELECT policy hides archived rows refuses an UPDATE of deleted_at
+        # and the refusal aborts the whole transaction; archive_where falls back to
+        # platform.entity_soft_delete there (matrx_orm.core.archive).
+        return int(await entity_archive(filters))
     result = await model.update_where({**filters, **live_filter(col)}, **{col: archived_value(col)})
     return int(getattr(result, "rows_affected", 0) or 0)

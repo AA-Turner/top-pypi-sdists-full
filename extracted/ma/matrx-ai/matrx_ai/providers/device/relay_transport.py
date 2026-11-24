@@ -31,6 +31,7 @@ Unbound → every device call is refused ``device_offline`` ("not wired"), never
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import logging
 import re
@@ -203,8 +204,10 @@ def _refuse(cls_name: str, message: str, **details: Any) -> Exception:
     return make_device_error(getattr(errors, cls_name), message, details=details or None)
 
 
-class _GuardedSseStream(httpx.AsyncByteStream):
-    """The relay body, read under the idle deadline, ending loudly when it was cut short."""
+class _GuardedSseStream:
+    """The relay body, read under the idle deadline, ending loudly when it was cut short.
+
+    Mixed onto the SDK's own ``AsyncByteStream`` by :func:`relay_stream_transport`."""
 
     def __init__(self, upstream: httpx.Response, *, idle_s: float, is_sse: bool) -> None:
         self._upstream = upstream
@@ -257,8 +260,16 @@ class _GuardedSseStream(httpx.AsyncByteStream):
         await self._upstream.aclose()
 
 
-class RelayStreamTransport(httpx.AsyncBaseTransport):
-    """httpx transport for ``DeviceChat``'s ``AsyncOpenAI``: every request goes to the relay."""
+class RelayStreamTransport:
+    """Transport for ``DeviceChat``'s ``AsyncOpenAI``: every request goes to the relay.
+
+    Built on the SDK's own httpx flavor by :func:`relay_stream_transport` — openai>=3 runs on
+    httpx2, whose client refuses an ``httpx`` stream. The hop to the relay stays on our ``httpx``
+    client (``_seam.http_transport``), so only what the SDK sees changes flavor.
+    """
+
+    _flavor: Any = httpx
+    _stream_cls: Any = None
 
     def __init__(self) -> None:
         self._hop: httpx.AsyncClient | None = None
@@ -343,7 +354,7 @@ class RelayStreamTransport(httpx.AsyncBaseTransport):
             # raises APIStatusError with this body; classify.py types it.
             content = await upstream.aread()
             await upstream.aclose()
-            return httpx.Response(
+            return self._flavor.Response(
                 upstream.status_code,
                 headers={"content-type": upstream.headers.get("content-type", "application/json")},
                 content=content,
@@ -356,10 +367,10 @@ class RelayStreamTransport(httpx.AsyncBaseTransport):
             vcprint(
                 f"[DEVICE CHAT] device {target.device_id} answers: {result[:200]}", color="cyan"
             )
-        return httpx.Response(
+        return self._flavor.Response(
             200,
             headers={"content-type": content_type or "text/event-stream"},
-            stream=_GuardedSseStream(
+            stream=self._stream_cls(
                 upstream,
                 idle_s=idle_timeout_ms() / 1000 + _HOP_HEADROOM_S,
                 is_sse=content_type.lower().startswith("text/event-stream"),
@@ -373,6 +384,23 @@ class RelayStreamTransport(httpx.AsyncBaseTransport):
             self._hop = None
 
 
+@functools.cache
+def _transport_class(flavor: Any) -> type:
+    stream = type("_GuardedSseStream", (_GuardedSseStream, flavor.AsyncByteStream), {})
+    return type(
+        "RelayStreamTransport",
+        (RelayStreamTransport, flavor.AsyncBaseTransport),
+        {"_flavor": flavor, "_stream_cls": stream},
+    )
+
+
+def relay_stream_transport(sdk: Any) -> Any:
+    """A relay transport on ``sdk``'s own httpx flavor (``outbound_capture.resolve_sdk_httpx``)."""
+    from matrx_ai.providers.outbound_capture import resolve_sdk_httpx
+
+    return _transport_class(resolve_sdk_httpx(sdk))()
+
+
 __all__ = [
     "FIRST_BYTE_TIMEOUT_MS_MIRROR",
     "IDLE_TIMEOUT_MS_MIRROR",
@@ -383,6 +411,7 @@ __all__ = [
     "RELAY_PROTOCOL_VERSION",
     "DeviceCallTarget",
     "RelayStreamTransport",
+    "relay_stream_transport",
     "configure_device_relay",
     "device_relay_seam",
     "relay_stream_envelope",

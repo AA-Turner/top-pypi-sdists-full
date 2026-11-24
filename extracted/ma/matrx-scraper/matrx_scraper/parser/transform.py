@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from matrx_scraper.media_embed import video_embed_provider
 
@@ -144,6 +144,14 @@ class HtmlTransformer:
     # Selective fixers
     def _transform_bsp_carousel(self, soup: BeautifulSoup):
         """Transform BSP carousels into simple lists"""
+        # Almost no page has one: a name scan says so without a soupsieve pass over
+        # the whole tree (loose — any name containing it — so it never skips a match).
+        if not any(
+            el.name and "bsp-carousel" in el.name.lower()
+            for el in soup.descendants
+            if isinstance(el, Tag)
+        ):
+            return
         for carousel in soup.select("bsp-carousel"):
             container = soup.new_tag("div")
             container["class"] = "transformed-carousel"

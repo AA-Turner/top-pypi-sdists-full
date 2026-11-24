@@ -161,10 +161,14 @@ def _accepted_pool(controls: CompiledControlsMap, families: SettingFamilies, key
     # A DEGREE never converts into an OFF ("show thoughts" must not become
     # reasoning_summary="never"): off values are not conversion targets.
     offs = {str(v) for v in D.OFF_VALUES.get(key, ())}
-    candidates = [str(v) for v in (pool or table) if str(v) in table and str(v) not in offs]
-    if pool is None and not candidates:
-        candidates = [v for v in table if v not in offs]
-    return candidates
+    # A target that DECLARES no values (no accepts / ui_values / value_map) is no
+    # conversion target: its vocabulary is the provider's, not the family scale's, so
+    # a converted value is a guess the provider may refuse — reasoning_effort=low at
+    # Veo 3.1 on Replicate became resolution="480p" and every video failed with 422
+    # (CGU-10 row 203). Unconverted, the provider's own default applies.
+    if pool is None:
+        return []
+    return [str(v) for v in pool if str(v) in table and str(v) not in offs]
 
 
 def _word_position(families: SettingFamilies, source: str, word: str) -> float | None:

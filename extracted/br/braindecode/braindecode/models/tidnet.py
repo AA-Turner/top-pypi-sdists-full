@@ -68,6 +68,9 @@ class TIDNet(EEGModuleMixin, nn.Module):
         doi: 10.1088/1741-2552/abb7a7.
     """
 
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: dscnn.spatial.channel_collapse.conv.weight
+
     def __init__(
         self,
         n_chans=None,
@@ -113,6 +116,7 @@ class TIDNet(EEGModuleMixin, nn.Module):
             summary=summary,
             activation=activation,
         )
+        self._min_n_times = max(1, pooling)
 
         self._num_features = self.dscnn.num_features
 
@@ -307,11 +311,15 @@ class _TemporalFilter(nn.Module):
         self.residual_style = str(residual)
         net = list()
 
+        is_dense = self.residual_style.lower() == "dense"
         for i in range(depth):
             dil = depth - i
+            in_ch = (
+                n_chans + i * filters if is_dense else (n_chans if i == 0 else filters)
+            )
             conv = weight_norm(
                 _TemporalConv(
-                    n_chans if i == 0 else filters,
+                    in_ch,
                     filters,
                     kernel_size=(1, temp_len),
                     dilation=dil,
@@ -321,11 +329,9 @@ class _TemporalFilter(nn.Module):
             net.append(
                 nn.Sequential(conv, activation(), nn.Dropout2d(p=float(drop_prob)))
             )
+        self.net = nn.Sequential(*net)
         if self.residual_style.lower() == "netwise":
-            self.net = nn.Sequential(*net)
             self.residual = nn.Conv2d(n_chans, filters, (1, 1))
-        elif residual.lower() == "dense":
-            self.net = net
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         style = self.residual_style.lower()

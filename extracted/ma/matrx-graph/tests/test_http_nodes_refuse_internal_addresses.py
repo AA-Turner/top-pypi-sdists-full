@@ -230,3 +230,113 @@ def test_fake_network_resolves_like_the_real_one() -> None:
     assert net.getaddrinfo("hooks.harbordentalcare.com", 443)[0][4][0] == "151.101.65.140"
     with pytest.raises(socket.gaierror):
         net.getaddrinfo("no-such-host.harbordentalcare.com", 443)
+
+
+@pytest.mark.parametrize("node", ["get", "post", "custom"])
+@pytest.mark.parametrize("redirect_status", [307, 308])
+@pytest.mark.parametrize("allow_redirect", [False, True])
+async def test_redirect_hop_must_pass_destination_policy(
+    monkeypatch: pytest.MonkeyPatch, node: str, redirect_status: int, allow_redirect: bool
+) -> None:
+    from matrx_graph.nodes.http import _shared
+
+    target = "https://scheduling.harbordentalcare.com/v1/visits?private=marker"
+    checked: list[str] = []
+
+    async def guard(url: str) -> str | None:
+        checked.append(url)
+        return None if allow_redirect or "scheduling." not in url else "refused private marker"
+
+    monkeypatch.setattr(_shared, "_destination_guard", guard)
+
+    def responder(req: httpcore.Request) -> httpcore.Response:
+        if req.url.host == b"151.101.65.140":
+            return httpcore.Response(redirect_status, headers=[(b"location", target.encode())])
+        return httpcore.Response(200, content=b"accepted")
+
+    net = _FakeNetwork(responder).install(monkeypatch)
+    url = "https://hooks.harbordentalcare.com/new-patient"
+    if node == "get":
+        out = await HttpGetExecutor().execute(None, HttpGetInput(url=url), HttpGetConfig())
+    elif node == "post":
+        out = await HttpPostExecutor().execute(None, HttpPostInput(url=url, text="intake"), HttpPostConfig())
+    else:
+        out = await CustomApiExecutor().execute(
+            None, CustomApiInput(url=url, method="POST", text="intake"),
+            CustomApiConfig(max_retries=3, backoff_base_s=0.0, max_backoff_s=0.1),
+        )
+    assert checked[0] == url
+    if allow_redirect:
+        assert out.status == "success"
+        assert out.result.text == "accepted"
+        assert net.hosts() == ["151.101.65.140", "151.101.1.140"]
+    else:
+        assert out.status == "error"
+        assert out.error.code == "destination_not_allowed"
+        assert "marker" not in str(out)
+        assert net.hosts() == ["151.101.65.140"]
+
+
+async def test_redirect_guard_error_refuses_without_exposing_details(monkeypatch: pytest.MonkeyPatch) -> None:
+    from matrx_graph.nodes.http import _shared
+
+    async def guard(url: str) -> str | None:
+        if "scheduling." in url:
+            raise RuntimeError("private marker")
+        return None
+
+    monkeypatch.setattr(_shared, "_destination_guard", guard)
+    net = _FakeNetwork(lambda _req: httpcore.Response(
+        307, headers=[(b"location", b"https://scheduling.harbordentalcare.com/?private=marker")]
+    )).install(monkeypatch)
+    out = await HttpGetExecutor().execute(
+        None, HttpGetInput(url="https://hooks.harbordentalcare.com/new-patient"), HttpGetConfig()
+    )
+    assert out.status == "error"
+    assert out.error.code == "destination_not_allowed"
+    assert "marker" not in str(out)
+    assert net.hosts() == ["151.101.65.140"]
+
+
+async def test_redirect_disabled_returns_original_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    from matrx_graph.nodes.http import _shared
+
+    async def guard(url: str) -> str | None:
+        return "denied" if "scheduling." in url else None
+
+    monkeypatch.setattr(_shared, "_destination_guard", guard)
+    net = _FakeNetwork(lambda _req: httpcore.Response(
+        307, headers=[(b"location", b"https://scheduling.harbordentalcare.com/")]
+    )).install(monkeypatch)
+    out = await HttpGetExecutor().execute(
+        None, HttpGetInput(url="https://hooks.harbordentalcare.com/new-patient"),
+        HttpGetConfig(follow_redirects=False),
+    )
+    assert out.status == "success"
+    assert out.result.status == 307
+    assert net.hosts() == ["151.101.65.140"]
+
+
+@pytest.mark.parametrize("raises", [False, True])
+async def test_initial_policy_refusal_omits_url_and_exception(
+    monkeypatch: pytest.MonkeyPatch, raises: bool
+) -> None:
+    from matrx_graph.nodes.http import _shared
+
+    async def guard(url: str) -> str | None:
+        if raises:
+            raise RuntimeError("private marker")
+        return "Destination refused by policy."
+
+    monkeypatch.setattr(_shared, "_destination_guard", guard)
+    net = _FakeNetwork().install(monkeypatch)
+    out = await HttpPostExecutor().execute(
+        None, HttpPostInput(url="https://hooks.harbordentalcare.com/?private=marker", text="intake"),
+        HttpPostConfig(),
+    )
+    assert out.status == "error"
+    assert out.error.code == "destination_not_allowed"
+    assert "marker" not in str(out)
+    assert net.sent == []
+    if not raises:
+        assert out.error.message == "Destination refused by policy."

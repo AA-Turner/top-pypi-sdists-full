@@ -18,7 +18,7 @@ import bs4
 import httpx
 from dotenv import load_dotenv
 from httpx import Timeout
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser
 
 from matrx_utils.outbound_guard import (
     NUMERIC_HOST_SENTENCE,
@@ -689,7 +689,7 @@ def extract_publication_dates_from_html(html: str) -> tuple[str | None, str | No
     if not html:
         return None, None
     try:
-        soup = HTMLParser(html)
+        soup = LexborHTMLParser(html)
     except Exception:
         return None, None
     meta_tags: dict[str, Any] = {}
@@ -780,7 +780,7 @@ class Response:
     cms_other: list[CMS] = field(default_factory=list)
     firewall: Firewall = Firewall.NONE
     other_extensions: list[str] = field(default_factory=list)
-    selectolax_soup: HTMLParser | None = None
+    selectolax_soup: LexborHTMLParser | None = None
     soup: bs4.BeautifulSoup | None = None
     title: str | None = None
     # Multi-hop redirect chain captured from response.history. Each entry
@@ -1051,9 +1051,9 @@ async def fetch(
                     http_client = httpx.AsyncClient(**client_kwargs)
                 else:
                     # Direct: every hop checked AND pinned to the checked IP.
-                    from matrx_utils.outbound_guard import public_only_client
+                    from matrx_utils.http_client import shared_client
 
-                    http_client = public_only_client(allow_http=True, **client_kwargs)
+                    http_client = shared_client(public_only=True, allow_http=True, **client_kwargs)
 
                 async with http_client as client:
                     # Sent as a STREAM purely to time the first byte: `send`
@@ -1157,7 +1157,7 @@ async def fetch(
     json_ld = []
     if is_html:
         try:
-            selectolax_soup = HTMLParser(content)
+            selectolax_soup = LexborHTMLParser(content)
             if title is None:
                 title_tag = selectolax_soup.css_first("title")
                 title = title_tag.text(strip=True) if title_tag else ""
@@ -1306,7 +1306,8 @@ def direct_fallback_enabled() -> bool:
     is fine, because it ANNOUNCES it. So the absolute is now an announced
     policy — every rescued response carries `proxy_bypassed=True` and the
     result says so in plain English — and an operator who must keep the host
-    IP off the wire sets `SCRAPER_DIRECT_FALLBACK=0`.
+    IP off the wire turns the host's ``direct_fallback`` setting off
+    (`escalation.set_fetch_policy_source`; aidream: knob `scraper.fetch.direct_fallback`).
 
     Default ON because the alternative is what shipped: on 2026-09-17 our own
     proxy vendor's CONNECT-403 made SEC EDGAR, OSHA, the FDA, the IRS, eCFR,
@@ -1314,8 +1315,9 @@ def direct_fallback_enabled() -> bool:
     `docs.stripe.com` all report as unreachable when every one of them was
     perfectly reachable from a plain connection.
     """
-    raw = (os.getenv("SCRAPER_DIRECT_FALLBACK") or "").strip().lower()
-    return raw not in {"0", "false", "no", "off"}
+    from matrx_scraper.escalation import fetch_policy
+
+    return fetch_policy()["direct_fallback"]
 
 
 def _configured_proxies() -> list[str]:
@@ -1342,6 +1344,20 @@ def _is_retryable_failure(response: Response) -> bool:
 
 
 async def fetch_normally_with_proxy(
+    url: str, use_random_proxy: bool = True, user_agent: str | None = None
+) -> Response:
+    """The page's HTTP answer — live, or replayed when the host records/replays page answers
+    (``matrx_scraper.page_replay``: a side-by-side proof serves side B exactly what side A was answered)."""
+    from matrx_scraper.page_replay import answer_response, replayed, response_answer
+
+    key = url if not user_agent else f"{url} ua={user_agent}"
+    return await replayed(
+        "http", key, lambda: _fetch_normally_with_proxy_live(url, use_random_proxy, user_agent),
+        to_answer=response_answer, from_answer=answer_response,
+    )
+
+
+async def _fetch_normally_with_proxy_live(
     url: str, use_random_proxy: bool = True, user_agent: str | None = None
 ) -> Response:
     """Fetch through the datacenter proxy pool, falling back to a DIRECT
@@ -1455,18 +1471,26 @@ async def fetch_normally_with_proxy(
     # pages are all rescued directly still reports itself (system_error
     # 586170ad, 2026-10-01: a healthy pool — 51/72 proxied successes — was
     # reported "exhausted" because one city site refused proxy AND direct).
-    pool_exhausted = all_proxy_errors and not proxy_health.pool_carried_recently()
+    if all_proxy_errors:
+        # Remembered whether or not a direct attempt follows: the exhaustion count below reads it.
+        proxy_health.record_proxy_refusal(
+            url, response.failed_primary_reason.value if response.failed_primary_reason else None
+        )
+    # And only once the pool refuses more than ONE destination: a cold process whose first proxied request
+    # is a host the vendor always declines has proven nothing about the pool (system_error 9e8a0ef6).
+    pool_exhausted = (
+        all_proxy_errors
+        and not proxy_health.pool_carried_recently()
+        and proxy_health.refused_hosts_recently(including=url) >= proxy_health.POOL_EXHAUSTED_MIN_HOSTS
+    )
     direct_rescued: bool | None = None
     if all_proxy_errors and direct_fallback_enabled():
         # EVERY configured proxy refused to carry this request. That is our
         # vendor declining the destination, not the destination declining us —
         # so the page is very probably reachable on a direct connection, and
         # returning `proxy_error` without trying is us reporting our own
-        # outage as the web's hostility. Remember the host so the next request
-        # for it skips straight to direct.
-        proxy_health.record_proxy_refusal(
-            url, response.failed_primary_reason.value if response.failed_primary_reason else None
-        )
+        # outage as the web's hostility. The host is remembered (above) so the next
+        # request for it skips straight to direct.
         vcprint(
             f"[PROXY] Whole pool refused {redact_url_secrets(url)}; retrying DIRECT",
             color="yellow",
@@ -1487,7 +1511,15 @@ async def fetch_normally_with_proxy(
         # put up.
         response = direct
 
-    if pool_exhausted and not _proxy_pool_exhausted:
+    if pool_exhausted and direct_rescued:
+        # The page was delivered. A pool the vendor refuses is pool-health telemetry (already counted by
+        # `proxy_health.record_direct_fallback` and published on `/health/ready`), not a system_error:
+        # the fetch succeeded. A later fetch the direct fallback also fails still captures below.
+        logger.warning(
+            "scraper proxy pool refused %s; direct connection rescued it (pool-health telemetry, not an error)",
+            redact_url_secrets(url),
+        )
+    elif pool_exhausted and not _proxy_pool_exhausted:
         # A pool outage affects every URL in flight. Capture its transition once,
         # then re-arm only after a proxy returns a non-proxy outcome.
         _proxy_pool_exhausted = True

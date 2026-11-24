@@ -7,10 +7,18 @@ from datetime import datetime, timedelta, timezone, tzinfo
 from typing import TYPE_CHECKING
 
 import pytest
+from packaging.markers import Marker
+from packaging.pylock import Package, PackageWheel, Pylock
+from packaging.specifiers import (
+    InvalidSpecifier,
+    Specifier,
+    SpecifierSet,
+)
 
 from nab_project import toml_io, toml_writer
 from nab_project._lockfile import pylock
 from nab_project._lockfile.coverage import CoverageError
+from nab_project.lock_validation import content_digest
 from nab_project.lockfile import (
     ArchivePin,
     IndexPin,
@@ -23,13 +31,6 @@ from nab_project.lockfile import (
     TargetLock,
     VcsPin,
     WheelArtifact,
-)
-from nab_provider._vendor.packaging.markers import Marker
-from nab_provider._vendor.packaging.pylock import Package, PackageWheel, Pylock
-from nab_provider._vendor.packaging.specifiers import (
-    InvalidSpecifier,
-    Specifier,
-    SpecifierSet,
 )
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget, environment_declaration
@@ -359,6 +360,27 @@ class BlockProvenance(Provenance):
 
     def to_block(self) -> dict[str, object]:
         return self.block
+
+
+@pytest.mark.parametrize("local", [False, True], ids=["index", "local"])
+def test_validation_extends_the_serialized_provenance(
+    tmp_path: Path, *, local: bool
+) -> None:
+    pin = LocalPin("demo", "1", str(tmp_path)) if local else index_pin()
+    block: dict[str, object] = {"label": CopyText("original", "copied")}
+    value = replace(
+        lock_input(pin),
+        provenance=BlockProvenance(block),
+        validation_inputs={"local": {}, "roots": {}},
+    )
+    path = tmp_path / "pylock.toml"
+    pylock.write_lock(value, output_path=path)
+
+    document = toml_io.load_path(path)
+    nab = document["tool"]["nab"]
+    assert nab["label"] == "copied"
+    assert nab["validation"]["contents-sha256"] == content_digest(document)
+    assert list(block) == ["label"]
 
 
 @pytest.mark.parametrize("field", ["index", "url", "hash", "provenance"])

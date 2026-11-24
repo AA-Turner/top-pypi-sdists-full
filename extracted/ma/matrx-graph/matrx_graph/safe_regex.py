@@ -99,10 +99,31 @@ class _Info:
     zero_width: bool = False
     #: The top-level pieces of a sequence (empty for a single piece), for the round-end rule.
     parts: tuple[_Info, ...] = ()
+    #: The shortest and longest text it can take (``max_len`` None: no limit — it GROWS).
+    min_len: int = 1
+    max_len: int | None = 1
+
+    @property
+    def grows(self) -> bool:
+        return self.max_len is None
+
+    @property
+    def spread(self) -> int:
+        """How many different lengths it can take (only meaningful when it does not grow)."""
+        return 1 if self.max_len is None else self.max_len - self.min_len + 1
 
 
 _EMPTY: frozenset[str] = frozenset()
-_ZERO = _Info(_EMPTY, _EMPTY, _EMPTY, True, False, zero_width=True)
+_ZERO = _Info(_EMPTY, _EMPTY, _EMPTY, True, False, zero_width=True, min_len=0, max_len=0)
+
+#: Strict: a run of side-by-side pieces of LIMITED length that can take the same characters may split one
+#: stretch of text at most this many ways (``a?a?a?…`` is refused; ``-?[-/]?`` and ``(-us)?($|[-/])`` are
+#: not — each splits a stretch a handful of ways, whatever the text's length).
+_BOUNDED_SPLITS = 64
+
+
+def _add(a: int | None, b: int | None) -> int | None:
+    return None if a is None or b is None else a + b
 
 
 def _pattern_chars(items: Iterable) -> set[str]:
@@ -187,11 +208,29 @@ class _Judge:
         infos = [self.node(op, av, in_repeat) for op, av in items]
         solid = [i for i in infos if not i.zero_width]
         if self.strict:
+            # A run of side-by-side pieces that can take the same characters: the engine may split one
+            # stretch of text between them in many ways. Two that GROW (no length limit) make that
+            # polynomial in the text; pieces of limited length only multiply a constant, so they are
+            # refused only when that constant gets large (``a?`` repeated, ``\d{1,99}\d{1,99}``).
+            growers, splits, linked = 0, 1, False
             for a, b in zip(solid, solid[1:], strict=False):
-                if a.elastic and b.elastic and a.last & b.first:
+                if not (a.elastic and b.elastic and a.last & b.first):
+                    linked = False
+                    continue
+                if not linked:
+                    growers, splits = int(a.grows), a.spread
+                growers += int(b.grows)
+                splits *= b.spread
+                linked = True
+                if growers >= 2:
                     raise self.refuse(
                         "two growing pieces side by side can take the same characters (like \\w+\\w* "
                         "or .*\\d+) — make the edge between them a character only one of them takes"
+                    )
+                if splits > _BOUNDED_SPLITS:
+                    raise self.refuse(
+                        "too many optional pieces side by side can take the same characters (like a?a?a?a?… "
+                        "or \\d{1,99}\\d{1,99}) — make the edge between them a character only one of them takes"
                     )
         first: set[str] = set()
         for i in solid:
@@ -204,9 +243,14 @@ class _Judge:
             if not i.nullable:
                 break
         chars: set[str] = set()
+        min_len: int = 0
+        max_len: int | None = 0
         for i in solid:
             chars |= i.chars
+            min_len += i.min_len
+            max_len = _add(max_len, i.max_len)
         return _Info(
+            min_len=min_len, max_len=max_len,
             first=frozenset(first), last=frozenset(last), chars=frozenset(chars),
             nullable=all(i.nullable for i in solid),
             elastic=any(i.elastic for i in solid),
@@ -242,6 +286,10 @@ class _Judge:
             return bool(swallowing & end.chars)
         return False
 
+    @staticmethod
+    def _repeat_max(hi: int, body: _Info) -> int | None:
+        return None if hi == _c.MAXREPEAT or body.max_len is None else hi * body.max_len
+
     def node(self, op, av, in_repeat: bool) -> _Info:
         name = str(op)
         if name in ("LITERAL", "NOT_LITERAL", "ANY", "IN"):
@@ -263,7 +311,8 @@ class _Judge:
             return self.seq(av[-1], in_repeat)
         if name == "ATOMIC_GROUP":
             info = self.seq(av, False)  # an atomic group never backtracks into itself
-            return _Info(info.first, info.last, info.chars, info.nullable, info.elastic)
+            return _Info(info.first, info.last, info.chars, info.nullable, info.elastic,
+                         min_len=info.min_len, max_len=info.max_len)
         if name == "BRANCH":
             branches = [self.seq(b, in_repeat) for b in av[1]]
             if in_repeat:
@@ -275,11 +324,14 @@ class _Judge:
                                 "(?:aa|a)+) — give each alternative a different first character"
                             )
             union = frozenset().union
+            maxes = [b.max_len for b in branches]
             return _Info(
                 union(*(b.first for b in branches)), union(*(b.last for b in branches)),
                 union(*(b.chars for b in branches)),
                 any(b.nullable for b in branches),
                 any(b.elastic for b in branches) or len({b.nullable for b in branches}) > 1,
+                min_len=min(b.min_len for b in branches),
+                max_len=None if None in maxes else max(m for m in maxes if m is not None),
             )
         if name in ("MAX_REPEAT", "MIN_REPEAT", "POSSESSIVE_REPEAT"):
             lo, hi, body_items = av
@@ -287,7 +339,8 @@ class _Judge:
             repeats = hi > 1 or hi == _c.MAXREPEAT
             if name == "POSSESSIVE_REPEAT":
                 body = self.seq(body_items, False)  # possessive: never gives back, no ambiguity
-                return _Info(body.first, body.last, body.chars, lo == 0 or body.nullable, varies or body.elastic)
+                return _Info(body.first, body.last, body.chars, lo == 0 or body.nullable, varies or body.elastic,
+                             min_len=lo * body.min_len, max_len=self._repeat_max(hi, body))
             body = self.seq(body_items, in_repeat or repeats)
             if (
                 hi == _c.MAXREPEAT and not body.elastic and body.first == body.chars
@@ -302,12 +355,13 @@ class _Judge:
                     "(\\d\\d?)*, (\\w+\\s?)* or (?:\\w+x)+) — end each round with a character "
                     "nothing else in the round can take"
                 )
-            return _Info(body.first, body.last, body.chars, lo == 0 or body.nullable, varies or body.elastic)
+            return _Info(body.first, body.last, body.chars, lo == 0 or body.nullable, varies or body.elastic,
+                         min_len=lo * body.min_len, max_len=self._repeat_max(hi, body))
         if name in ("GROUPREF", "GROUPREF_EXISTS", "GROUPREF_IGNORE"):
             if self.strict:
                 raise UnsafePatternError(f"Pattern '{self.pattern[:80]}': back-references (\\1) are not allowed.")
             s = self.everything  # it repeats earlier text: any length, any characters
-            return _Info(s, s, s, True, True)
+            return _Info(s, s, s, True, True, min_len=0, max_len=None)
         raise UnsafePatternError(f"Pattern '{self.pattern[:80]}': '{name}' is not supported here.")
 
 

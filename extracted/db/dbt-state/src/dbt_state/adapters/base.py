@@ -36,7 +36,7 @@ from dbt_state.adapters.common import (
     map_future_payload,
 )
 from dbt_state.errors import AdapterExtensionError
-from dbt_state.utils import find_tables
+from dbt_state.utils import find_table_functions, find_tables
 
 if t.TYPE_CHECKING:
     from dbt.contracts.graph.manifest import SourceDefinition
@@ -701,24 +701,27 @@ class BaseAdapterExtension(abc.ABC):
         """
         if isinstance(sql_or_tables, str):
             sql_or_tables = parse_one(sql_or_tables, dialect=self.dialect)
-        tables = (
-            find_tables(sql_or_tables)
-            if isinstance(sql_or_tables, exp.Expression)
-            else sql_or_tables
-        )
+        unsupported_references: t.Set[str] = set()
+        if isinstance(sql_or_tables, exp.Expression):
+            tables = find_tables(sql_or_tables)
+            unsupported_references = find_table_functions(sql_or_tables, self.dialect)
+        else:
+            tables = set(sql_or_tables)
 
         if not tables:
             return ViewTraversalResult(
-                view_definitions={}, seen_tables=set(), unresolvable_tables=set()
+                view_definitions={},
+                seen_tables=set(),
+                unresolvable_tables=set(),
+                unsupported_references=unsupported_references,
             )
 
-        queue = deque(set(tables))
+        queue = deque(tables)
         visited: t.Set[str] = set()
         futures: t.Dict[Future[ViewFetchResult], t.Collection[exp.Table]] = {}
         terminal_fqns = terminal_fqns or set()
         view_definitions: t.Dict[str, ViewDefinition] = {}
         unresolvable: t.Set[str] = set()
-        unsupported_references: t.Set[str] = set()
 
         def _fetch_view_definitions_with_connection(
             index: int, table_batch: t.Collection[exp.Table]
@@ -826,6 +829,9 @@ class BaseAdapterExtension(abc.ABC):
 
                     # Add found views to our overall list of definitions to return
                     view_definitions.update(fetched_definitions)
+
+                    for d in fetched_definitions.values():
+                        unsupported_references.update(d.extract_table_functions())
 
                     # Add any new tables referenced within the found views to the processing queue
                     queue.extend(

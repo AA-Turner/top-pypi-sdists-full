@@ -112,7 +112,7 @@ def test_normalize_kind_slug_matches_publisher_normalization() -> None:
     assert normalize_kind_slug("Invoice Summary") == "invoice_summary"
     assert normalize_kind_slug("  Q3 -- Sales!! Report ") == "q3_sales_report"
     assert normalize_kind_slug("already_snake") == "already_snake"
-    assert normalize_kind_slug("***") == "unnamed"
+    assert normalize_kind_slug("***") == ""  # never a made-up stand-in name
 
 
 def test_normalize_kind_slug_agrees_with_contract_kinds() -> None:
@@ -282,6 +282,14 @@ def test_component_source_lint_accepts_aliased_lucide_constructor_name() -> None
         }
     """
     assert component_source_lint(source) is None
+
+
+def test_component_source_lint_refuses_a_lucide_icon_that_does_not_exist() -> None:
+    bad = 'import { Star, GuitarPick } from "lucide-react";\nexport default function C({ data }) { return <GuitarPick />; }'
+    refusal = component_source_lint(bad)
+    assert refusal is not None and "GuitarPick" in refusal and "Star`" not in refusal
+    ok = 'import { Star, AudioWaveform, Linkedin } from "lucide-react";\nexport default function C({ data }) { return <Star />; }'
+    assert component_source_lint(ok) is None
 
 
 @pytest.mark.asyncio
@@ -717,11 +725,14 @@ async def test_kind_get_denies_non_viewer_content_free(
     _patch_resolve(monkeypatch, kind_authoring, row)
 
     result = await kind_authoring.kind_get({"kind": str(row.id)}, make_ctx())
-    assert result.success is False
-    assert result.error is not None and result.error.error_type == "not_found"
+    # "Does it exist?" is answered, never an error — and the answer for a kind the
+    # caller cannot see is the same as for one that does not exist.
+    assert result.success is True
+    assert result.output.found is False
     # content-free: no row attribute (slug or id) is echoed back to a prober.
-    assert row.kind not in result.error.message
-    assert str(row.id) not in result.error.message
+    dumped = result.output.model_dump_json()
+    assert row.kind not in dumped
+    assert str(row.id) not in dumped
 
 
 @pytest.mark.asyncio
@@ -787,7 +798,7 @@ async def test_kindcomp_get_context_viewer_sees_no_incidents(
 async def test_kind_create_requires_schema_or_sample() -> None:
     from matrx_ai.tools.implementations.kind_authoring import kind_create
 
-    result = await kind_create({"name": "x", "label": "X"}, make_ctx())
+    result = await kind_create({"name": "x", "label": "X", "disposition": "record"}, make_ctx())
     assert result.success is False
     assert result.error is not None and result.error.error_type == "validation"
 
@@ -1025,24 +1036,30 @@ def test_component_import_lint_allows_and_refuses() -> None:
     assert refusal is not None and "axios" in refusal
 
 
+# The real-esbuild proof of tsx_compile_check needs the host's JS workspace:
+# tests/package_host_contracts/test_matrx_ai_tsx_compile_check.py.
+
+
 @pytest.mark.asyncio
-async def test_tsx_compile_check_flags_syntax_errors_when_esbuild_present() -> None:
-    import shutil as _shutil
+async def test_missing_esbuild_is_loud_once_per_boot(monkeypatch) -> None:
+    from matrx_ai.tools.implementations import kind_shared
 
-    from matrx_ai.tools.implementations.kind_shared import tsx_compile_check
+    calls: list[str] = []
 
-    if not _shutil.which("esbuild"):
-        errors, checked = await tsx_compile_check("const x = <div>ok</div>;")
+    async def fake_capture(exc, *, kind, **kw):
+        calls.append(kind)
+
+    import matrx_utils
+
+    monkeypatch.setattr(matrx_utils, "capture_error", fake_capture)
+    monkeypatch.setattr(kind_shared, "_configured_esbuild", None)
+    monkeypatch.setattr(kind_shared, "_missing_esbuild_reported", False)
+    monkeypatch.setattr(kind_shared.shutil, "which", lambda _n: None)
+    monkeypatch.delenv("MATRX_ESBUILD_BIN", raising=False)
+    for _ in range(3):
+        errors, checked = await kind_shared.tsx_compile_check("const x = 1;")
         assert checked is False and errors == []
-        pytest.skip("esbuild not installed on this host")
-    ok_errors, ok_checked = await tsx_compile_check(
-        "export default function C({ data }: any) { return <div>{data?.x}</div>; }"
-    )
-    assert ok_checked is True and ok_errors == []
-    bad_errors, bad_checked = await tsx_compile_check(
-        "export default function C({ data }) { return <div>{data.x</div>; }"
-    )
-    assert bad_checked is True and bad_errors
+    assert calls == ["kind_component_esbuild_missing"]
 
 
 def test_infer_schema_merges_heterogeneous_list_items() -> None:
@@ -1298,7 +1315,12 @@ def test_kind_create_args_declare_platform_kind_default_false() -> None:
 
     field = KindCreateArgs.model_fields["platform_kind"]
     assert field.default is False
-    assert KindCreateArgs.model_validate({"name": "x", "label": "X"}).platform_kind is False
+    assert (
+        KindCreateArgs.model_validate(
+            {"name": "x", "label": "X", "disposition": "record"}
+        ).platform_kind
+        is False
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1454,20 +1476,12 @@ async def test_kind_create_refuses_a_kind_without_a_disposition(
         args.pop("disposition")
     else:
         args["disposition"] = bad
-    if bad is None:
-        result = await kind_authoring.kind_create(args, make_ctx())
-    else:
-        from pydantic import ValidationError
+    from pydantic import ValidationError
 
-        # Outside the closed set never reaches the tool body: the contract is
-        # Literal[KIND_DISPOSITIONS] itself.
-        with pytest.raises(ValidationError):
-            await kind_authoring.kind_create(args, make_ctx())
-        assert all(not rows for rows in created.values())
-        return
-    assert result.success is False
-    assert result.error is not None and result.error.error_type == "validation"
-    assert "does not say what its output is" in result.error.message
+    # Missing or outside the closed set never reaches the tool body: the contract
+    # REQUIRES disposition and is Literal[KIND_DISPOSITIONS] itself.
+    with pytest.raises(ValidationError):
+        await kind_authoring.kind_create(args, make_ctx())
     assert all(not rows for rows in created.values()), created
 
 
@@ -1486,7 +1500,8 @@ async def test_kind_create_refuses_a_new_nested_kind_without_a_disposition(
     assert result.success is False
     assert result.error is not None
     assert "'b6_platform_card'" in result.error.message
-    assert "without saying what their output is" in result.error.message
+    assert "do not say what their output is" in result.error.message
+    assert "Nothing was saved" in result.error.message
     assert all(not rows for rows in created.values()), created
 
 
@@ -1515,6 +1530,8 @@ def test_kind_create_literals_are_the_sdk_disposition_set() -> None:
     from matrx_graph.content_ir.sdk import KIND_DISPOSITIONS
 
     def literal_values(annotation: Any) -> tuple[str, ...]:
+        if get_args(annotation) and all(isinstance(v, str) for v in get_args(annotation)):
+            return get_args(annotation)
         for arg in get_args(annotation):
             if get_args(arg) and all(isinstance(v, str) for v in get_args(arg)):
                 return get_args(arg)

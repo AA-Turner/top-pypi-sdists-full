@@ -41,7 +41,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ def run_extractor(html: str, extractor: Extractor) -> Any:
 
 
 def _run_css(html: str, e: Extractor) -> Any:
-    tree = HTMLParser(html)
+    tree = LexborHTMLParser(html)
     nodes = tree.css(e.expression)
     if not nodes:
         return None
@@ -148,7 +148,7 @@ def _run_json_ld(html: str, e: Extractor) -> Any:
     `expression` is a dot-separated key path: e.g. "datePublished",
     "offers.price", "aggregateRating.ratingValue".
     """
-    tree = HTMLParser(html)
+    tree = LexborHTMLParser(html)
     blocks: list[dict[str, Any]] = []
     for s in tree.css('script[type="application/ld+json"]'):
         raw = (s.text(deep=True) or "").strip()

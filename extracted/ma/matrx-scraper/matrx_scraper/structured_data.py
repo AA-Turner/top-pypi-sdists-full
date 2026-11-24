@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser
 
 try:
     import extruct
@@ -96,7 +96,7 @@ def extract_structured_payload(html: str, url: str) -> StructuredDataExtraction:
     json_ld_raw: list[str] = []
     parse_errors: list[dict[str, Any]] = []
     try:
-        tree = HTMLParser(html)
+        tree = LexborHTMLParser(html)
         scripts = tree.css('script[type="application/ld+json"]')
     except Exception as exc:
         return StructuredDataExtraction(

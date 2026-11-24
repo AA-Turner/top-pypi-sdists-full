@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    Adds the ``--detail`` option to the ``glance import-info`` command. It
+    requests ``/v2/info/import/detail`` and displays the configured image
+    import plugins and their supported configuration details.

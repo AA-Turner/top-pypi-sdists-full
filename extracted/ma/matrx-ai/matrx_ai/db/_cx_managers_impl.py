@@ -14,6 +14,8 @@ from matrx_ai.config.unified_config import UnifiedConfig
 from matrx_ai.db._registry import get_base, get_model
 from matrx_ai.reports.cost_analysis import ConversationCostSummary, UserRequestCostRollup
 
+from matrx_ai.db.turn_control import TURN_CONTROL_KIND
+
 CxAgentMemoryBase = get_base("AgentMemoryBase")
 CxObservationalMemoryBase = get_base("ObservationalMemoryBase")
 CxObservationalMemoryEventBase = get_base("ObservationalMemoryEventBase")
@@ -33,6 +35,29 @@ CxToolTrace = get_model("ToolTrace")
 CxMedia = get_model("Media")
 CxUserRequest = get_model("UserRequest")
 CxRequest = get_model("Request")
+
+
+def _as_datetime(value: Any) -> datetime | None:
+    """A timestamp column as an aware datetime, whether the driver handed back a datetime or ISO text."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    if isinstance(value, str) and value:
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+    return None
+
+
+def request_boundary_ms(row: Any) -> int:
+    """The request boundary a first-iteration row carries (``metadata.boundary_duration_ms``): part of the user
+    request's total, never of the iteration's own (CGU-10 AND-IMG19 F4)."""
+    meta = getattr(row, "metadata", None) if not isinstance(row, dict) else row.get("metadata")
+    try:
+        return max(0, int((meta or {}).get("boundary_duration_ms") or 0)) if isinstance(meta, dict) else 0
+    except (TypeError, ValueError):
+        return 0
 CxRequestSnapshot = get_model("RequestSnapshot")
 CxAgentMemory = get_model("AgentMemory")
 CxObservationalMemory = get_model("ObservationalMemory")
@@ -57,6 +82,15 @@ def _is_incomplete_request(row: Any) -> bool:
         if isinstance(metadata, dict) and (
             metadata.get("watchdog_at") or metadata.get("watchdog_reason")
         ):
+            return False
+        # A turn that reached its completed_at stamp (it paused, or parked a tool
+        # call) and was LATER closed on purpose — a paused request abandoned after
+        # persistence.paused_request_abandon_days, a parked call closed, a newer turn
+        # superseding it — committed everything it had. Those closers write no
+        # watchdog stamp, so every reload of such a conversation re-filed a false
+        # "committed turn may be missing" (class conversation_integrity_incomplete_request,
+        # 2026-11-04: 406 such rows live). Same rule as a failed row WITH completed_at.
+        if getattr(row, "completed_at", None) is not None:
             return False
         return True
     return status == "failed" and getattr(row, "completed_at", None) is None
@@ -196,6 +230,38 @@ class CxUserRequestManager(CxUserRequestBase):
     async def _initialize_runtime_data(self, item: CxUserRequest) -> None:
         pass
 
+    async def turn_clock(
+        self, user_request_id: str, *, person_ask_tools: frozenset[str]
+    ) -> tuple[datetime | None, list[tuple[datetime, datetime | None]]]:
+        """When the person sent this user request (its ``created_at``), and the turn's person-ask calls'
+        (started, completed-or-None) spans — the two facts "Worked for" needs on a run that continues the
+        turn on a new request (orchestrator/first_output.load_turn_clock). (None, []) when no row exists.
+        A call by an ask tool's name that is a NOTICE (``tool_result_guard.is_person_ask_call``: the
+        extension's ``user`` with type notify) waits on nobody, so its span stays work."""
+        from matrx_ai.config.tool_result_guard import is_person_ask_call
+
+        rows = await CxUserRequest.filter(id=user_request_id).values("created_at")
+        sent = _as_datetime(rows[0].get("created_at")) if rows else None
+        if sent is None:
+            return None, []
+        asks = await CxToolCall.filter(
+            user_request_id=user_request_id,
+            tool_name__in=sorted(person_ask_tools),
+            deleted_at__isnull=True,
+        ).values("tool_name", "arguments", "started_at", "completed_at", "resolved_at")
+        waits: list[tuple[datetime, datetime | None]] = []
+        for ask in asks:
+            if not is_person_ask_call(ask.get("tool_name"), ask.get("arguments")):
+                continue
+            start = _as_datetime(ask.get("started_at"))
+            if start is None:
+                continue
+            # A parked ask's row has completed_at == started_at (still waiting: None); an answered one ends
+            # at resolved_at (the person's answer), else completed_at.
+            end = _as_datetime(ask.get("resolved_at")) or _as_datetime(ask.get("completed_at"))
+            waits.append((start, end if end is not None and end > start else None))
+        return sent, waits
+
     async def try_claim_for_run(
         self,
         request_id: str,
@@ -218,11 +284,13 @@ class CxUserRequestManager(CxUserRequestBase):
         conversation, producing duplicate message positions and repeated
         identical tool calls. (2026-06-09 incident.)
 
-        ``conversation_id`` is NOT a column on cx_user_request (a request spans
-        many conversations now). When supplied it is enforced through the
-        cx_request bridge: the request must have actually touched that
-        conversation, otherwise there is nothing of this conversation to
-        resume and we report ``claimed=False, status=None`` (the 404 path).
+        ``conversation_id`` scopes the claim to a request that actually touched
+        that conversation: through the cx_request bridge (a provider call ran
+        there) OR the request's own ``conversation_id`` (a request that made no
+        provider call — a voice tool door's request parked an ask on the call's
+        conversation, and its answer must find it). Otherwise there is nothing
+        of this conversation to resume and we report ``claimed=False,
+        status=None`` (the 404 path).
         """
         from datetime import timedelta
 
@@ -233,9 +301,12 @@ class CxUserRequestManager(CxUserRequestBase):
         # the conversation it paused on (the pause happens after a provider
         # call returns a tool_use), so this never false-negatives a genuine
         # resume.
-        if conversation_id and not await CxRequest.exists(
-            user_request_id=request_id,
-            conversation_id=conversation_id,
+        if conversation_id and not (
+            await CxRequest.exists(
+                user_request_id=request_id,
+                conversation_id=conversation_id,
+            )
+            or await CxUserRequest.exists(id=request_id, conversation_id=conversation_id)
         ):
             return RunClaimResult(claimed=False, status=None)
 
@@ -398,7 +469,7 @@ class CxRequestManager(CxRequestBase):
             total_tokens += int(r.total_tokens or 0)
             api_duration_ms += int(r.api_duration_ms or 0)
             tool_duration_ms += int(r.tool_duration_ms or 0)
-            total_duration_ms += int(r.total_duration_ms or 0)
+            total_duration_ms += int(r.total_duration_ms or 0) + request_boundary_ms(r)
             total_tool_calls += int(r.tool_calls_count or 0)
             if r.cost is not None:
                 total_cost += Decimal(str(r.cost))
@@ -571,6 +642,17 @@ def _row_seq(row: Any) -> int:
     return int(val or 0)
 
 
+#: Host hook: extra metadata every NEW inbox row carries, read from the ambient request. The host uses it to
+#: write the requester's test stamp onto the row, so the worker that later wakes the conversation declares it.
+_enqueue_metadata_provider: Any = None
+
+
+def set_pending_injection_metadata_provider(provider: Any) -> None:
+    """Host injection (``None`` clears): ``provider() -> dict`` merged UNDER a row's own metadata keys."""
+    global _enqueue_metadata_provider
+    _enqueue_metadata_provider = provider
+
+
 class CxPendingInjectionManager(CxPendingInjectionBase):
     """The Turn-Boundary Inbox manager. Producers (the enqueue endpoint, and
     later the reactive-injection system) write rows; the orchestrator loop
@@ -629,6 +711,10 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
                     "carries no organization)."
                 )
             organization_id = rows[0]["organization_id"]
+        # THE SHARED SERVER-SEND PATH: anything but the person's own queued words is a server message, and a server
+        # message is never visible to the user (Arman, 2026-11-01) — whatever a caller passed.
+        if kind != "user_message":
+            is_visible_to_user = False
         return await self.create_item(
             id=injection_id,
             conversation_id=conversation_id,
@@ -641,11 +727,11 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
             delivery=delivery,
             is_visible_to_user=is_visible_to_user,
             is_visible_to_model=is_visible_to_model,
-            metadata=metadata or {},
+            metadata={**((_enqueue_metadata_provider() if _enqueue_metadata_provider else None) or {}), **(metadata or {})},
         )
 
     async def has_pending(self, conversation_id: str) -> bool:
-        return await self.count(conversation_id=conversation_id, status="pending") > 0
+        return await self.count(conversation_id=conversation_id, status="pending", kind__ne=TURN_CONTROL_KIND) > 0
 
     async def claim_pending(
         self, conversation_id: str, *, request_id: str | None = None
@@ -663,6 +749,7 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
                 "conversation_id": conversation_id,
                 "status": "pending",
                 "delivery": "next_boundary",
+                "kind__ne": TURN_CONTROL_KIND,
             },
             status="consumed",
             consumed_at=datetime.now(UTC),
@@ -670,6 +757,35 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         )
         rows = result.updated_rows or []
         return sorted(rows, key=_row_seq)
+
+    async def claim_turn_controls(
+        self, conversation_id: str, *, request_ids: set[str], request_id: str | None = None
+    ) -> list[CxPendingInjection]:
+        """Atomically claim the pause / resume items addressed to THIS run (``content.request_id``
+        in ``request_ids``), FIFO. Items for another run stay pending for it; items older than the
+        knob ``agents.turn_control.control_stale_seconds`` are consumed unapplied (a control for a turn that already ended
+        must never pause the next one)."""
+        from matrx_ai.db.turn_control import claim_turn_control_rows
+
+        return await claim_turn_control_rows(
+            self, conversation_id, request_ids=request_ids, request_id=request_id
+        )
+
+    async def _waiting_turn_end_rows(self, conversation_id: str) -> list[CxPendingInjection]:
+        """The QUEUE rows still waiting (``pending`` or ``failed``) — ONE narrow read.
+
+        Runs at every tool-loop boundary (this table was polled ~5.2M times with ``SELECT *``,
+        2026-11-03). Only the columns the claim decides on are loaded (never ``content``); the
+        claim's ``UPDATE … RETURNING`` hands back the full row for the rows actually taken."""
+        return list(
+            await self.model.filter(
+                conversation_id=conversation_id,
+                status__in=["pending", "failed"],
+                delivery="turn_end",
+            )
+            .only("id", "status", "kind", "source", "enqueued_seq", "metadata")
+            .all()
+        )
 
     async def claim_next_turn_end(
         self, conversation_id: str, *, request_id: str | None = None
@@ -688,15 +804,7 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         # row (AD256), and a broken promise must ride the person's next turn
         # exactly like an answer would. Leaving it out would mean the only way
         # anyone ever heard about it was a worker paying for a turn of its own.
-        candidates: list[CxPendingInjection] = []
-        for state in ("pending", "failed"):
-            candidates.extend(
-                await self.filter_items(
-                    conversation_id=conversation_id,
-                    status=state,
-                    delivery="turn_end",
-                )
-            )
+        candidates = await self._waiting_turn_end_rows(conversation_id)
         # A run NEVER delivers a turn_end item it enqueued itself (matched via
         # metadata.enqueued_by_request_id, stamped by every producer). Without
         # this, an in-run producer (agent_call's remember write-back to the
@@ -749,13 +857,7 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         """
         from datetime import UTC, datetime
 
-        candidates: list[CxPendingInjection] = []
-        for state in ("pending", "failed"):
-            candidates.extend(
-                await self.filter_items(
-                    conversation_id=conversation_id, status=state, delivery="turn_end"
-                )
-            )
+        candidates = await self._waiting_turn_end_rows(conversation_id)
         take = [
             r
             for r in sorted(candidates, key=lambda r: int(r.enqueued_seq or 0))
@@ -783,7 +885,7 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         """Items the user has in a conversation's inbox, FIFO. Ownership-scoped
         by created_by (only the conversation owner ever enqueues)."""
         rows = await self.filter_items(
-            conversation_id=conversation_id, created_by=created_by, status=status
+            conversation_id=conversation_id, created_by=created_by, status=status, kind__ne=TURN_CONTROL_KIND
         )
         return sorted(rows, key=lambda r: int(r.enqueued_seq or 0))
 
@@ -870,9 +972,12 @@ class CxManagers:
         self.pending_injection: CxPendingInjectionManager = cx_pending_injection_manager_instance
 
     async def get_conversation_data(self, conversation_id: str) -> dict[str, Any]:
-        item, all_related = await self.conversation.get_conversation_with_all_related(
-            conversation_id
-        )
+        # The authoritative read of the row a turn is built from. The person's client writes the row's
+        # overrides directly and a turn patches its metadata in the database, so a remembered copy can hold
+        # a mode (or the mode the agent last knew) from an earlier turn; ``use_cache=False`` also refreshes
+        # the remembered copy for every other reader.
+        item = await self.conversation.load_item(use_cache=False, id=str(conversation_id))
+        all_related = await item.fetch_all_related()
         # vcprint(item, "[CX MANAGERS] Item", color="green")
         # vcprint(all_related, "[CX MANAGERS] All Related", color="cyan")
         conversation = item
@@ -1034,8 +1139,22 @@ class CxManagers:
             config_dict["system_instruction"] = conversation.system_instruction
             config_dict["system_prompt_frozen"] = True
         config_dict["messages"] = messages_rebuilt
+        # THE CONVERSATION'S MODE lives in its overrides (the person's chip and the agent's ``set_mode`` both
+        # write it there at once; ``config`` only learns it when a turn finishes). A key present in the
+        # overrides wins over the config's copy, null included (= the agent's first mode); a request's own
+        # ``config_overrides.agent_mode`` is applied after this and wins over both.
+        stored_overrides = getattr(conversation, "overrides", None)
+        if isinstance(stored_overrides, dict) and "agent_mode" in stored_overrides:
+            config_dict["agent_mode"] = stored_overrides["agent_mode"]
 
-        return UnifiedConfig.from_dict(config_dict)
+        config = UnifiedConfig.from_dict(config_dict)
+        # The mode the agent last knew (D17): the person-set line compares the turn's mode with it.
+        from matrx_ai.config.agent_modes import KNOWN_MODE_KEY
+
+        stored_meta = getattr(conversation, "metadata", None)
+        if isinstance(stored_meta, dict) and isinstance(stored_meta.get(KNOWN_MODE_KEY), str):
+            config.agent_mode_known = stored_meta[KNOWN_MODE_KEY]
+        return config
 
     async def get_rebuilt_conversation_messages(
         self, conversation_id: str

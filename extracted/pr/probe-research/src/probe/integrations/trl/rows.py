@@ -13,7 +13,7 @@ from collections import OrderedDict, deque
 from collections.abc import Callable, Collection, Iterable, Mapping, MutableMapping, Sequence
 from typing import Any, NamedTuple
 
-from probe.generated.samples import CaptureField, TurnsSource
+from probe.generated.samples import SFT_EVAL_KEY_PREFIX, CaptureField, TurnsSource
 from probe.sdk.run.samples.rollout import REASONING_KEYS, to_tool_call
 
 from ..task_label import TASK_DESCRIPTION_FIELD, TASK_ID_FIELD, TASK_NAME_FIELD, get_task_label
@@ -418,8 +418,9 @@ def _to_finite(value: Any) -> float | None:
 IGNORED_LABEL = -100
 
 
-#: An SFT eval example's key prefix: its own sample, apart from the same tokens trained on (`sft:`).
-SFT_EVAL_PREFIX = "sft-eval:"
+#: An SFT eval example's key prefix: its own sample, apart from the same tokens trained on (`sft:`). The contract's,
+#: so the server reads it as an SFT example, not a rollout (`is_sft_example`).
+SFT_EVAL_PREFIX = SFT_EVAL_KEY_PREFIX
 
 
 def make_sft_key(ids: Sequence[int], *, is_eval: bool = False) -> str:

@@ -15,6 +15,8 @@ if typing.TYPE_CHECKING:
     from .chat.client import AsyncChatClient, ChatClient
     from .chat_completion.client import AsyncChatCompletionClient, ChatCompletionClient
     from .decisions.client import AsyncDecisionsClient, DecisionsClient
+    from .dictate.client import AsyncDictateClient, DictateClient
+    from .dictate_streaming.client import AsyncDictateStreamingClient, DictateStreamingClient
     from .doc_ai.client import AsyncDocAiClient, DocAiClient
     from .document_intelligence.client import AsyncDocumentIntelligenceClient, DocumentIntelligenceClient
     from .document_translation.client import AsyncDocumentTranslationClient, DocumentTranslationClient
@@ -125,9 +127,11 @@ class SarvamAI:
         self._responses: typing.Optional[ResponsesClient] = None
         self._chat_completion: typing.Optional[ChatCompletionClient] = None
         self._decisions: typing.Optional[DecisionsClient] = None
+        self._dictate: typing.Optional[DictateClient] = None
         self._speech_to_text_streaming: typing.Optional[SpeechToTextStreamingClient] = None
         self._speech_to_text_translate_streaming: typing.Optional[SpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[SpeechToTextRealtimeStreamingClient] = None
+        self._dictate_streaming: typing.Optional[DictateStreamingClient] = None
         self._text_to_speech_streaming: typing.Optional[TextToSpeechStreamingClient] = None
         self._voice_cloning_streaming: typing.Optional[VoiceCloningStreamingClient] = None
 
@@ -252,6 +256,14 @@ class SarvamAI:
         return self._decisions
 
     @property
+    def dictate(self):
+        if self._dictate is None:
+            from .dictate.client import DictateClient  # noqa: E402
+
+            self._dictate = DictateClient(client_wrapper=self._client_wrapper)
+        return self._dictate
+
+    @property
     def speech_to_text_streaming(self):
         if self._speech_to_text_streaming is None:
             from .speech_to_text_streaming.client import SpeechToTextStreamingClient  # noqa: E402
@@ -278,6 +290,14 @@ class SarvamAI:
                 client_wrapper=self._client_wrapper
             )
         return self._speech_to_text_realtime_streaming
+
+    @property
+    def dictate_streaming(self):
+        if self._dictate_streaming is None:
+            from .dictate_streaming.client import DictateStreamingClient  # noqa: E402
+
+            self._dictate_streaming = DictateStreamingClient(client_wrapper=self._client_wrapper)
+        return self._dictate_streaming
 
     @property
     def text_to_speech_streaming(self):
@@ -381,9 +401,11 @@ class AsyncSarvamAI:
         self._responses: typing.Optional[AsyncResponsesClient] = None
         self._chat_completion: typing.Optional[AsyncChatCompletionClient] = None
         self._decisions: typing.Optional[AsyncDecisionsClient] = None
+        self._dictate: typing.Optional[AsyncDictateClient] = None
         self._speech_to_text_streaming: typing.Optional[AsyncSpeechToTextStreamingClient] = None
         self._speech_to_text_translate_streaming: typing.Optional[AsyncSpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[AsyncSpeechToTextRealtimeStreamingClient] = None
+        self._dictate_streaming: typing.Optional[AsyncDictateStreamingClient] = None
         self._text_to_speech_streaming: typing.Optional[AsyncTextToSpeechStreamingClient] = None
         self._voice_cloning_streaming: typing.Optional[AsyncVoiceCloningStreamingClient] = None
 
@@ -510,6 +532,14 @@ class AsyncSarvamAI:
         return self._decisions
 
     @property
+    def dictate(self):
+        if self._dictate is None:
+            from .dictate.client import AsyncDictateClient  # noqa: E402
+
+            self._dictate = AsyncDictateClient(client_wrapper=self._client_wrapper)
+        return self._dictate
+
+    @property
     def speech_to_text_streaming(self):
         if self._speech_to_text_streaming is None:
             from .speech_to_text_streaming.client import AsyncSpeechToTextStreamingClient  # noqa: E402
@@ -538,6 +568,14 @@ class AsyncSarvamAI:
                 client_wrapper=self._client_wrapper
             )
         return self._speech_to_text_realtime_streaming
+
+    @property
+    def dictate_streaming(self):
+        if self._dictate_streaming is None:
+            from .dictate_streaming.client import AsyncDictateStreamingClient  # noqa: E402
+
+            self._dictate_streaming = AsyncDictateStreamingClient(client_wrapper=self._client_wrapper)
+        return self._dictate_streaming
 
     @property
     def text_to_speech_streaming(self):

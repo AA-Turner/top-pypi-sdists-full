@@ -353,7 +353,7 @@ class PrivateScheduleSDK(BaseSDK):
             cloud_deployment=cloud_deployment,
         )
 
-    def _convert_api_model_to_head_nodes(
+    def _convert_api_model_to_head_node_options(
         self, api_model: Any
     ) -> Optional[List[HeadNodeOptionConfig]]:
         """Convert a head with head_options to its HeadNodeOptionConfig list, or None without any."""
@@ -482,7 +482,7 @@ class PrivateScheduleSDK(BaseSDK):
             if max_gpus:
                 max_resources["GPU"] = max_gpus
 
-        head_nodes = self._convert_api_model_to_head_nodes(dc.head_node_type)
+        head_node_options = self._convert_api_model_to_head_node_options(dc.head_node_type)
         return ComputeConfig(
             cloud=cloud_name,
             cloud_resource=getattr(dc, "cloud_deployment", None),
@@ -490,9 +490,9 @@ class PrivateScheduleSDK(BaseSDK):
             advanced_instance_config=getattr(dc, "advanced_configurations_json", None) or None,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
             head_node=None
-            if head_nodes
+            if head_node_options
             else self._convert_api_model_to_head_node_config(dc.head_node_type),
-            head_nodes=head_nodes,
+            head_node_options=head_node_options,
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,
@@ -563,16 +563,18 @@ class PrivateScheduleSDK(BaseSDK):
             )
         advanced_instance_config = advanced_instance_config or None
 
-        head_nodes = self._convert_api_model_to_head_nodes(full_config.head_node_type)
+        head_node_options = self._convert_api_model_to_head_node_options(
+            full_config.head_node_type
+        )
         return ComputeConfig(
             cloud=cloud_name,
             zones=zones,
             advanced_instance_config=advanced_instance_config,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
             head_node=None
-            if head_nodes
+            if head_node_options
             else self._convert_api_model_to_head_node_config(full_config.head_node_type),
-            head_nodes=head_nodes,
+            head_node_options=head_node_options,
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,

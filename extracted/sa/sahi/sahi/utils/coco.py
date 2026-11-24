@@ -3,7 +3,7 @@
 import copy
 import os
 import random
-import threading
+import warnings
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from multiprocessing import Pool
@@ -12,6 +12,7 @@ from threading import Lock, Thread
 from typing import Any, Literal, TypeVar, cast
 
 import numpy as np
+import shapely
 from tqdm import tqdm
 
 from sahi.logger import logger
@@ -868,7 +869,8 @@ class Coco:
         """
         for coco_category in coco_category_list:
             if self.remapping_dict is not None:
-                coco_category["id"] = self.remapping_dict.get(coco_category["id"], coco_category["id"])
+                category_id = self.remapping_dict.get(coco_category["id"], coco_category["id"])
+                coco_category = {**coco_category, "id": category_id}
 
             self.add_category(CocoCategory.from_coco_category(coco_category))
 
@@ -1097,7 +1099,7 @@ class Coco:
                         # apply category remapping (id:id)
                         category_id = _coco.remapping_dict[coco_annotation_dict["category_id"]]
                         # update category id
-                        coco_annotation_dict["category_id"] = category_id
+                        coco_annotation_dict = {**coco_annotation_dict, "category_id": category_id}
                     else:
                         category_id = coco_annotation_dict["category_id"]
                     # get category name (id:name)
@@ -1108,24 +1110,20 @@ class Coco:
                     coco_image.add_annotation(coco_annotation)
                 _coco.add_image(coco_image)
 
-        chunk_size = dict_size / num_threads
-
         if use_threads is True:
+            threads = []
             for i in range(num_threads):
-                start = int(i * chunk_size)
-                finish = int(start + chunk_size)
-                if finish > dict_size:
-                    finish = dict_size
+                start = i * dict_size // num_threads
+                finish = (i + 1) * dict_size // num_threads
                 t = Thread(
                     target=fill_image_id_set,
                     args=(start, finish, coco_dict["images"], image_id_set, image_id_to_annotation_list, coco, lock),
                 )
                 t.start()
+                threads.append(t)
 
-            main_thread = threading.current_thread()
-            for t in threading.enumerate():
-                if t is not main_thread:
-                    t.join()
+            for t in threads:
+                t.join()
 
         else:
             for coco_image_dict in tqdm(coco_dict["images"], "Loading coco annotations"):
@@ -1148,7 +1146,7 @@ class Coco:
                         # apply category remapping (id:id)
                         category_id = coco.remapping_dict[coco_annotation_dict["category_id"]]
                         # update category id
-                        coco_annotation_dict["category_id"] = category_id
+                        coco_annotation_dict = {**coco_annotation_dict, "category_id": category_id}
                     else:
                         category_id = coco_annotation_dict["category_id"]
                     # get category name (id:name)
@@ -1566,6 +1564,7 @@ class Coco:
                     shapely_ann = coco_ann.get_sliced_coco_annotation(img_dims)
                     bbox = ShapelyAnnotation.to_xywh(shapely_ann._shapely_annotation)
                     coco_ann_from_shapely = CocoAnnotation(
+                        segmentation=shapely_ann.segmentation if coco_ann.segmentation else None,
                         bbox=[int(x) for x in bbox],  # type: ignore[list-item]
                         category_id=coco_ann.category_id,
                         category_name=coco_ann.category_name,
@@ -1603,10 +1602,12 @@ def export_yolo_images_and_txts_from_coco_object(
         logger.warning("symlink is not supported in colab, disabling it...")
         disable_symlink = True
     image_dir = coco.image_dir or ""
+    # yolo class ids are the positions of the categories in the data yaml `names` list
+    category_id_to_yolo_id = {category_id: ind for ind, category_id in enumerate(coco.category_mapping)}
     if mp:
         with Pool(processes=48) as pool:
             args = [
-                (coco_image, image_dir, output_dir, ignore_negative_samples, disable_symlink)
+                (coco_image, image_dir, output_dir, ignore_negative_samples, disable_symlink, category_id_to_yolo_id)
                 for coco_image in coco.images
             ]
             pool.starmap(
@@ -1616,7 +1617,7 @@ def export_yolo_images_and_txts_from_coco_object(
     else:
         for coco_image in tqdm(coco.images):
             export_single_yolo_image_and_corresponding_txt(
-                coco_image, image_dir, output_dir, ignore_negative_samples, disable_symlink
+                coco_image, image_dir, output_dir, ignore_negative_samples, disable_symlink, category_id_to_yolo_id
             )
 
 
@@ -1626,6 +1627,7 @@ def export_single_yolo_image_and_corresponding_txt(
     output_dir: str,
     ignore_negative_samples: bool = False,
     disable_symlink: bool = False,
+    category_id_to_yolo_id: dict[int, int] | None = None,
 ) -> None:
     """Generate YOLO formatted image symlink and annotation txt file.
 
@@ -1635,6 +1637,8 @@ def export_single_yolo_image_and_corresponding_txt(
         output_dir: Export directory.
         ignore_negative_samples: If True, ignores images without annotations.
         disable_symlink: If True, copies images instead of creating symlinks.
+        category_id_to_yolo_id: Maps each COCO category id to its YOLO class id. If None, category ids are
+            written unchanged.
     """
     # if coco_image contains any invalid annotations, skip it
     contains_invalid_annotations = False
@@ -1676,12 +1680,17 @@ def export_single_yolo_image_and_corresponding_txt(
         yolo_image_path = str(parent_dir / (filename + filesuffix))
         name_increment += 1
     # create a symbolic link pointing to coco_image_path named yolo_image_path
-    if disable_symlink:
-        import shutil
+    import shutil
 
+    if disable_symlink:
         shutil.copy(coco_image_path, yolo_image_path)
     else:
-        os.symlink(coco_image_path, yolo_image_path)
+        try:
+            os.symlink(coco_image_path, yolo_image_path)
+        except OSError:
+            # creating symlinks needs a privilege most Windows accounts don't have
+            warnings.warn("symlinks can't be created here, copying images instead", stacklevel=2)
+            shutil.copy(coco_image_path, yolo_image_path)
     # calculate annotation normalization ratios
     width = coco_image.width
     height = coco_image.height
@@ -1703,6 +1712,8 @@ def export_single_yolo_image_and_corresponding_txt(
             bbox_width = bbox_width * dw
             bbox_height = bbox_height * dh
             category_id = annotation.category_id
+            if category_id_to_yolo_id is not None:
+                category_id = category_id_to_yolo_id[category_id]
             yolo_bbox = (x_center, y_center, bbox_width, bbox_height)
             # save yolo annotation
             outfile.write(str(category_id) + " " + " ".join([str(value) for value in yolo_bbox]) + "\n")
@@ -1946,6 +1957,7 @@ def create_coco_dict(
     image_index = 1
     annotation_id = 1
     coco_dict = dict(images=[], annotations=[], categories=categories)
+    exported_images = []
     for coco_image in images:
         # get coco annotations
         coco_annotations = coco_image.annotations
@@ -1972,22 +1984,39 @@ def create_coco_dict(
                 "file_name": coco_image.file_name,
             }
             coco_dict["images"].append(out_image)
+            exported_images.append((image_id, coco_annotations))
 
-            # do the same for image annotations
-            for coco_annotation in coco_annotations:
-                # create coco annotation object
-                out_annotation = {
-                    "iscrowd": coco_annotation.iscrowd,
-                    "image_id": image_id,
-                    "bbox": coco_annotation.bbox,
-                    "segmentation": coco_annotation.segmentation,
-                    "category_id": coco_annotation.category_id,
-                    "id": annotation_id,
-                    "area": coco_annotation.area,
-                }
-                coco_dict["annotations"].append(out_annotation)
-                # increment annotation id
-                annotation_id += 1
+    # compute [xmin, ymin, width, height] of all annotation geometries with vectorised shapely/numpy calls
+    annotation_xywh = shapely.bounds(
+        [
+            getattr(getattr(coco_annotation, "_shapely_annotation", None), "multipolygon", None)
+            for _, coco_annotations in exported_images
+            for coco_annotation in coco_annotations
+        ]
+    ).reshape(-1, 4)
+    annotation_xywh[:, 2:] -= annotation_xywh[:, :2]
+    annotation_xywh = annotation_xywh.tolist()
+
+    # do the same for image annotations
+    for image_id, coco_annotations in exported_images:
+        for coco_annotation in coco_annotations:
+            if type(coco_annotation).bbox is CocoAnnotation.bbox:
+                bbox = coco_annotation._shapely_annotation._finalize_xywh(annotation_xywh[annotation_id - 1])
+            else:
+                bbox = coco_annotation.bbox
+            # create coco annotation object
+            out_annotation = {
+                "iscrowd": coco_annotation.iscrowd,
+                "image_id": image_id,
+                "bbox": bbox,
+                "segmentation": coco_annotation.segmentation,
+                "category_id": coco_annotation.category_id,
+                "id": annotation_id,
+                "area": coco_annotation.area,
+            }
+            coco_dict["annotations"].append(out_annotation)
+            # increment annotation id
+            annotation_id += 1
 
     # return coco dict
     return coco_dict
@@ -2181,7 +2210,8 @@ class CocoVid:
         """
         for coco_category in coco_category_list:
             if self.remapping_dict is not None:
-                coco_category["id"] = self.remapping_dict.get(coco_category["id"], coco_category["id"])
+                category_id = self.remapping_dict.get(coco_category["id"], coco_category["id"])
+                coco_category = {**coco_category, "id": category_id}
 
             self.add_category(CocoCategory.from_coco_category(coco_category))
 

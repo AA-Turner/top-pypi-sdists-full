@@ -4,7 +4,7 @@ from typing import Literal
 from elevenlabs import stream as play_stream
 from matrx_ai.providers.eleven_labs.client import get_elevenlabs_client
 import asyncio
-from matrx_utils import vcprint, clear_terminal
+from matrx_utils import clear_terminal
 
 from matrx_ai._ext import get_ext
 

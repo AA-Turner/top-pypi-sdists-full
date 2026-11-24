@@ -31,10 +31,10 @@ optional-dependencies.dev = [
   "lit<24",
   "marimo>=0.25.2,<0.26",
   "prek~=0.5.5",
-  "pytest<9.2",
+  "pytest<9.3",
   "pytest-asyncio",
   "pytest-cov",
-  "ruff==0.17.4",
+  "ruff==0.17.5",
   "sympy==1.14",
   "textual-dev==1.8",
   "toml<0.11",
@@ -94,9 +94,6 @@ lint.ignore = [
   "PT006",  # https://beta.ruff.rs/docs/rules/pytest-parametrize-names-wrong-type/
   "PT012",  # https://beta.ruff.rs/docs/rules/pytest-raises-with-multiple-statements/
   "PYI041", # https://docs.astral.sh/ruff/rules/redundant-numeric-union
-  # Help welcome removing ignores below
-  # https://github.com/xdslproject/xdsl/issues/5927
-  "RUF002", # https://docs.astral.sh/ruff/rules/ambiguous-unicode-character-docstring
 ]
 lint.per-file-ignores."**/filecheck/*" = [ "E501", "F811", "F841" ]
 lint.per-file-ignores."__init__.py" = [ "F403" ]
@@ -185,6 +182,7 @@ reportAssertAlwaysTrue = true
 reportImportCycles = false
 # Allow importing from irdl files
 reportMissingModuleSource = false
+reportPrivateLocalImportUsage = true
 reportUnnecessaryCast = true
 reportUnnecessaryIsInstance = true
 reportUnnecessaryTypeIgnoreComment = true

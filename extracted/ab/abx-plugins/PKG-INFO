@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abx-plugins
-Version: 1.13.848
+Version: 1.13.868
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://plugins.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
 Requires-Dist: abxbus==2.5.96
-Requires-Dist: abxpkg==1.13.105
+Requires-Dist: abxpkg==1.13.106
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: imagesize>=2.0.0
 Requires-Dist: psutil!=7.2.2,>=7.2.1
@@ -215,6 +215,7 @@ background services, models, or migrations. Both stop polling in hidden tabs.
 | `get_cli_commands(host)` | Native Click commands mounted at `archivebox plugin <plugin> <command>`. |
 | `get_services(host, config)` | Service dictionaries described below. |
 | `register_eventbus(bus, config)` | `None`; register handlers, services or middleware on the supplied native `abxbus.EventBus`. |
+| `wrap_asgi(application, config)` | ASGI callable; wrap the complete host application, or return it unchanged when disabled. |
 | `read_snapshot_inventory(snapshot_dir, *, verify=False)` | `None` when absent, otherwise `{path: {size, hash, is_dir}}`; invalid inventories raise `ValueError`. |
 
 `app.py` may export `AppConfig`, a native Django `AppConfig` subclass with a unique
@@ -253,6 +254,16 @@ Use `load_config(..., global_config=config, environ={})` to preserve host-resolv
 settings. Registration errors fail the operation; the host owns bus teardown.
 Process-wide initialization must tolerate multiple bus registrations.
 
+An `app_module` may export synchronous `wrap_asgi(application, config)`. ArchiveBox
+calls it once per HTTP worker after Django setup, with resolved machine/collection
+configuration. Wrappers compose in catalog order (first plugin outermost), around
+HTTP and WebSocket dispatch, including request-body reads, response streaming and
+disconnect cleanup. A wrapper must preserve the ASGI protocol and propagate
+exceptions/cancellation, with cleanup in `finally`. Plugins own enable checks;
+disabled plugins return the original callable before importing optional runtime
+dependencies. Registration errors fail startup. This hook does not wrap individual
+views or create a second Django middleware stack.
+
 ArchiveBox's `services.runner.create_bus(config=..., **bus_options)` registers
 apps immediately; crawl runners defer registration until their config is loaded.
 Standalone abx-dl does not call these application hooks. No separate EventBus
@@ -285,9 +296,12 @@ models and `request` when supplied by the view.
 A search provider registers `search` and `flush` in `config.json > commands`.
 It can also register `"search_candidates": ["search.py", "search_candidates"]`
 to evaluate content predicates against an authorized page of snapshot IDs.
-Disk-scanning hosts should send an absolute `archive_root` alongside `candidates`
-and lexical candidate paths beneath that directory. The scanner opens each path
-component relative to the trusted root and rejects symlinks and parent references.
+For indexed providers ArchiveBox sends snapshot IDs. A provider declaring
+`search_scan: true` is eligible only when the collection has no enabled index.
+The host uses its candidate command exclusively, including for legacy contents
+URLs. Each candidate includes its authorized snapshot path under `archive_root`.
+File, byte and wall-clock budgets are shared across the query. A scanner must
+treat an incomplete read as unknown, including in a connected stream.
 
 An indexed provider's optional `app_module.search_word_hits(word, *, environ, timeout)`
 can return a bounded, ranked iterable of confirmed snapshot IDs for a lowercase
@@ -297,12 +311,18 @@ file reads. Missing IDs are unknown. Hosts check permissions, scope and the full
 Boolean expression before displaying any hit. Providers without this adapter use
 the standalone commands.
 
+An index can additionally expose `search_word_pages(word, *, environ, timeout)`.
+Yield successive pages of ranked positive IDs and finish only at end of postings.
+Raise on interruption or backend failure. Each fetch observes the socket timeout.
+Exhausting this iterator establishes all index positives for the word. It does
+not certify coverage of an individual document or prove a negation.
+
 Input is one JSON object on stdin. A provider flushes at most one JSON object per
 candidate to stdout, in the order evidence becomes available. It may omit
 unresolved candidates. Each operand in a request must have a unique key.
 
 ```json
-{"candidates":[{"id":"snap-1","path":"/archive/snap-1"}],"terms":[{"key":"t0","mode":"literal","value":"Solar panel"}],"limits":{"seconds":2,"files":8,"entries":64,"bytes":131072,"per_file":65536}}
+{"candidates":[{"id":"snap-1"}],"terms":[{"key":"t0","mode":"literal","value":"Solar panel"}],"limits":{"seconds":2,"files":8,"entries":64,"bytes":131072,"per_file":65536}}
 ```
 
 ```json
@@ -310,23 +330,21 @@ unresolved candidates. Each operand in a request must have a unique key.
 ```
 
 - `word` requests the provider's term search. `literal` requests a contiguous
-  substring. `deep` requests a literal in archived files from a `search_scan`
-  provider. Each operand determines its own case mode. An uppercase letter in
+  substring in indexed text. Each operand determines its own case mode. An uppercase letter in
   its value requires matching case. Only original text can establish such a
   match when a provider's token index discards case.
 - `matches` contains confirmed booleans keyed by the request's opaque term
   keys. Omit a key or candidate when it is unsupported, unindexed, unreadable,
   capped or otherwise unresolved. A negative requires complete evidence.
   Optional `scores` rank confirmed matches, with larger finite values first.
-- Hosts supply candidate IDs and trusted absolute snapshot directories.
-  Indexed providers can omit use of paths. Each page admits up to 64 candidates
+- Hosts supply candidate IDs. Each page admits up to 64 candidates
   and 128 terms. Limits apply across the page. The shared command caps work at
   8 seconds, 96 file attempts, 512 directory entries, 4 MiB of source bytes
   and 512 KiB per file. `usage` gives the increment for each emitted row so
   callers can charge subsequent pages against one query budget. Hosts also
   enforce a subprocess timeout for blocked filesystem or network reads.
 
-Connected clients may send `"streaming": true` to continue beyond the preview limits. The bundled file and SQLite scanners keep a cursor and match across chunk boundaries. For this mode the file, entry and byte allowances renew in one-second windows, and `per_file` limits an individual read. While processing a long candidate, providers may flush `{"progress":true}` to renew the inactivity timeout without reporting a match. Consumers must terminate their subprocess when the client disconnects. An unavailable source still supplies no evidence for negation.
+Connected clients may send `"streaming": true` to continue beyond the preview limits. The SQLite provider keeps a cursor and matches across chunk boundaries. For this mode the file, entry and byte allowances renew in one-second windows, and `per_file` limits an individual read. While processing a long candidate, providers may flush `{"progress":true}` to renew the inactivity timeout without reporting a match. Consumers must terminate their subprocess when the client disconnects. An unavailable source still supplies no evidence for negation.
 
 ### Configuration field templates
 

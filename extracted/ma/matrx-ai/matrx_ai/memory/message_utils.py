@@ -11,7 +11,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from .types import Message, MessagePart
+from .types import Message
 
 
 def find_last_completed_observation_boundary(message: Message) -> int:

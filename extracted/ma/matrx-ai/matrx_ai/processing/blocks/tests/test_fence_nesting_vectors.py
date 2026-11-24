@@ -32,8 +32,6 @@ from matrx_ai.processing.blocks.fence_nesting import (
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[4]
 _FIXTURE = _PACKAGE_ROOT / "tests" / "fixtures" / "fence_nesting_vectors.json"
-# In the aidream monorepo the TypeScript source of the vectors sits beside us.
-_TS_SOURCE = _PACKAGE_ROOT.parents[1] / "apps" / "shared" / "content-ir-core" / "__tests__" / "fence-nesting-vectors.json"
 
 _VECTORS = json.loads(_FIXTURE.read_text(encoding="utf-8"))
 
@@ -52,15 +50,6 @@ def test_opener_parse_matches_the_rule(vector: dict) -> None:
     expected = vector["parsed"]
     assert (None if parsed is None else {"ticks": parsed[0], "lang": parsed[1]}) == expected
 
-
-def test_fixture_is_the_generated_typescript_corpus() -> None:
-    if not _TS_SOURCE.exists():
-        pytest.skip("standalone install: the TypeScript corpus is not beside this package")
-    assert _FIXTURE.read_bytes() == _TS_SOURCE.read_bytes(), (
-        "tests/fixtures/fence_nesting_vectors.json drifted from the TypeScript rule's "
-        "generated corpus — copy apps/shared/content-ir-core/__tests__/fence-nesting-vectors.json "
-        "over it, then make fence_nesting.py pass"
-    )
 
 
 @pytest.mark.parametrize(

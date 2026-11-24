@@ -3,16 +3,27 @@ from __future__ import annotations
 import asyncio
 import bisect
 import dataclasses
+import functools
 import inspect
 import logging
-from collections.abc import Sequence
+import math
+import sys
+import threading
+import time
+from collections import OrderedDict
+from collections.abc import Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
-from matrx_orm.core.session_context import declaring_workflow_chain, workflow_chain_for_run
+from matrx_orm.core.session_context import (
+    WorkflowChain,
+    current_workflow_chain,
+    declaring_workflow_chain,
+    workflow_chain_for_run,
+)
 from matrx_utils import raw_capture
 from matrx_utils.ctx import public_media_scope
 from pydantic import BaseModel
@@ -24,15 +35,21 @@ from matrx_graph.checkpoint.protocol import (
     NodeOutcome,
     PendingBinding,
     PendingEdgeBinding,
+    read_scope_factory_for,
 )
+from matrx_graph.checkpoint.values import check_delivered_unchanged, delivered_fingerprint
+from matrx_graph.says import ItemTally, SaidLine, SaysOn, render_lines
 from matrx_graph.decisions import (
     DECISION_KEY,
     DecisionAuthority,
     DecisionProvenance,
     sanitize_decision_value,
     stamp_decision,
+    with_wait_deadline,
 )
 from matrx_graph.errors import (
+    ChildRunPaused,
+    ChildRunStopped,
     ChannelError,
     EdgeRoutingError,
     ExecutionError,
@@ -46,10 +63,12 @@ from matrx_graph.errors import (
 )
 from matrx_graph.mapping_sources import (
     WHOLE_PAYLOAD,
+    dotted_target_message,
     unknown_sigil,
     unknown_sigil_message,
 )
 from matrx_graph.failure import (
+    OUR_GATE_CAUSES,
     TECHNICAL_TEXT_LIMIT,
     Cause,
     RunFailure,
@@ -69,6 +88,9 @@ from matrx_graph.executor.json_dump import model_dump_json
 from matrx_graph.executor.registry import NodeRegistry, default_registry
 from matrx_graph.executor.review_flags import ReviewFlag, ReviewFlagger, occurrence_key
 from matrx_graph.executor.once_step import OnceSlot
+from matrx_graph.executor.paced_dispatch import ADMIT as PACE_ADMIT
+from matrx_graph.executor.paced_dispatch import HELD as PACE_HELD
+from matrx_graph.executor.paced_dispatch import PacedDispatch, settled_status
 from matrx_graph.executor.once_step import decide as once_decide
 from matrx_graph.executor.once_step import finish as once_finish
 from matrx_graph.executor.once_step import not_saved_reason as once_not_saved_reason
@@ -99,6 +121,7 @@ from matrx_graph.types.context import ChannelView, NodeExecutionContext, ResumeA
 from matrx_graph.types.identity_inputs import identity_input_fields
 from matrx_graph.types.events import (
     CheckpointSavedEvent,
+    ItemSettledEvent,
     NodeCompletedEvent,
     NodeFailedEvent,
     NodeRetryScheduledEvent,
@@ -128,12 +151,16 @@ from matrx_graph.types.result import Failure, FieldProblem, NodeError, Success
 from matrx_graph.spend_gate import (
     InterruptedAttempt,
     close_invocation_spend,
+    CALLER_REFUSAL_KEY,
     is_caller_refusal,
+    is_held_refusal,
     is_cost_bearing,
+    may_spend,
     open_invocation_spend,
     tally_totals,
 )
 from matrx_graph.types.send import Send
+from matrx_graph.saved_records import close_saved_records, open_saved_records
 from matrx_graph.step_settings import when_gate_owner
 
 if TYPE_CHECKING:
@@ -152,7 +179,26 @@ _DEPRECATION_CAPTURED: set[tuple[str, str]] = set()
 # should_retry sites (live failure + crash-replay walk-forward).
 # TurnNotTaken: a step that ended its wait for its turn (cancelled, max wait, self-wait) —
 # retrying would only wait again (data.one_at_a_time).
-_NON_RETRYABLE_ERROR_TYPES: frozenset[str] = frozenset({"KindContractViolation", "TurnNotTaken"})
+_NON_RETRYABLE_ERROR_TYPES: frozenset[str] = frozenset({"KindContractViolation", "TurnNotTaken", "StoppedByOwner"})
+
+
+def step_task_name(run_id: object, node_id: str) -> str:
+    """The asyncio task name of one step invocation — what the loop watchdog files as the task
+    holding a frozen loop, so a stall names the STEP (``workflow_step:voice:run=f2bf5df1``)."""
+    return f"workflow_step:{node_id}:run={str(run_id)[:8]}"
+
+
+class _LatchedSpendRefusal(Exception):
+    """The run's spend refusal latched between this launch's gate check and its paid call.
+
+    Carries the refusal out of the attempt's ``try`` so it ends exactly once. Ended inside that
+    ``try``, the park it raises was caught as a second failure and recorded over the refusal: the
+    stored ``NodeFailureError`` no longer read as a budget stop, so a hold's OK never re-dispatched
+    the item and a step set to skip failed items skipped it."""
+
+    def __init__(self, refusal: Any) -> None:
+        super().__init__(str(getattr(refusal, "code", "spend_refusal")))
+        self.refusal = refusal
 
 
 class _NodeGate:
@@ -171,6 +217,10 @@ class _NodeGate:
         self._ramped = self.first_wave >= self.cap
         self.live = 0
         self.peak = 0
+
+    def would_wait(self) -> bool:
+        """True when the next invocation must queue for its turn (every permit is taken)."""
+        return self._sem.locked()
 
     async def __aenter__(self) -> None:
         await self._sem.acquire()
@@ -398,6 +448,11 @@ class Invocation:
     # Run once per key: ignore any stored result for this invocation's key (the person
     # asked for a fresh result). See NextInvocation.bypass_once.
     bypass_once: bool = False
+    # PACED DISPATCH (G3): the pace its dispatcher's Send carried; see NextInvocation.pace.
+    pace: dict[str, Any] | None = None
+    # Set in this leg only (never persisted): the item must not run — its For each's ``until``
+    # was met before its turn. It is recorded as a skip with this reason, like a pre-emptive skip.
+    skip_reason: str | None = None
 
 
 def _record_escaped_fault(task: asyncio.Task[None], result: _StepResult, *, run_stopping: bool = False) -> None:
@@ -429,7 +484,12 @@ def _record_escaped_fault(task: asyncio.Task[None], result: _StepResult, *, run_
             )
             err.__cause__ = exc
             result.error = err
-        logger.error("[wf node=%s] invocation task raised outside its step: %r", result.invocation.node_id, exc)
+        logger.error(
+            "[wf node=%s] invocation task raised outside its step: %r",
+            result.invocation.node_id,
+            exc,
+            exc_info=exc,  # the frame that raised, so the next report names the None access
+        )
 
 
 @dataclass(slots=True)
@@ -468,6 +528,25 @@ class _StepResult:
     # RUN-AHEAD: True once this result was offered to ``_expand_run_ahead``
     # (whether or not anything launched) — it is expanded at most once.
     expanded: bool = False
+    # STOP MID-WAVE (G1, 2026-11-01): True when a Stop or Pause latched before this invocation
+    # got its turn. It never started, recorded nothing, and runs when the run resumes.
+    held: bool = False
+    # True once the invocation passed its gate and its work began (a stopping run lets a
+    # started paid launch land instead of cancelling it).
+    started: bool = False
+    # RUN-AHEAD: the attempt this launch STARTED at — the firing's identity. The launch's own
+    # retry loop bumps ``invocation.attempt`` in place (attempt 1 failed, attempt 2 ran), so
+    # the run-ahead invariant compares THIS against the barrier's schedule, never the attempt
+    # the launch ended on (live run 7a8fd24c, 2026-11-14: a retried early launch failed the run).
+    launched_attempt: int | None = None
+    # True when the outcome was replayed from a recorded one (nothing ran in this leg).
+    replayed: bool = False
+    # FINISHING (P8-RUNS, 2026-11-15): True from the moment this attempt's executor RETURNED until
+    # the invocation ends — the paid work is done and only its settle + outcome write remain. A
+    # stopping run never cancels a finishing member: it waits (bounded by
+    # ``Scheduler.finishing_grace_s``) for the outcome to land, so a resume replays it instead of
+    # paying for it again (``_stop_members``). Reset before every attempt's executor call.
+    finishing: bool = False
 
 
 @dataclass
@@ -518,24 +597,39 @@ def _stamp_mock_dump(dump: dict[str, Any], output_kind: str | None) -> dict[str,
 _INPUT_SCHEMA_JSON_CACHE: dict[type, dict[str, Any]] = {}
 
 
-def _kind_contract_inputs(spec: Any, inputs: Any) -> Any:
+def _kind_contract_inputs(spec: Any, inputs: Any, kind_schema: dict[str, Any] | None = None) -> Any:
     """The part of a step's inputs its declared input kind governs.
 
-    A step whose input model allows extra values (``data.filter`` / ``data.check_items``: every value delivered
-    beside the list is the predicate's ``$in`` namespace) declares its kind over its DECLARED fields; the extras are
-    the step's documented free namespace and never part of the kind's closed contract. Every other step is checked
-    whole, as before. The declared fields are still checked."""
+    A field the step's own input model declares and the kind does NOT have is the step's own setting beside its
+    payload (``data.batch``'s ``size`` beside its ``items`` list): it is left out, and the input model still checks
+    it. Live 2026-11-10: every budgeted research recipe was refused with "'size' was unexpected" by the closed
+    ``items`` kind. A field the kind has is always kept and checked. A step whose input model allows extra values
+    (``data.filter`` / ``data.check_items``: every value delivered beside the list is the predicate's ``$in``
+    namespace) also leaves out every undeclared value. Any other undeclared value stays, so a closed kind still
+    refuses it. With no kind schema known here, only the extra-values rule applies.
+    Proof: ``tests/test_a_steps_own_inputs_are_not_its_kinds_payload.py``."""
     schema = getattr(spec, "input_schema", None)
     if not isinstance(inputs, dict) or schema is None or not schema.model_fields:
-        return inputs
-    if schema.model_config.get("extra") != "allow":
         return inputs
     declared = {"__kind"}
     for name, info in schema.model_fields.items():
         declared.add(name)
         if info.alias:
             declared.add(info.alias)
-    return {k: v for k, v in inputs.items() if k in declared}
+    props = kind_schema.get("properties") if isinstance(kind_schema, dict) else None
+    kind_fields = set(props) | {"__kind"} if isinstance(props, dict) else None
+    open_extras = schema.model_config.get("extra") == "allow"
+    if kind_fields is None and not open_extras:
+        return inputs
+    kept: dict[str, Any] = {}
+    for key, value in inputs.items():
+        if key in declared:
+            if kind_fields is not None and key not in kind_fields:
+                continue
+        elif open_extras:
+            continue
+        kept[key] = value
+    return kept
 
 
 def _input_schema_json(model_cls: type[BaseModel]) -> dict[str, Any]:
@@ -551,6 +645,243 @@ def _input_schema_json(model_cls: type[BaseModel]) -> dict[str, Any]:
     return cached
 
 
+def ingest_step_inputs(model_cls: type[BaseModel], value: Any) -> Any:
+    """A step's merged arguments through THE ingestion gate (door 3): the marker is dropped only
+    where the step's closed legacy input model would fatally reject it. Public so a pre-run check
+    (``definition_run.step_arguments``) builds the arguments exactly as the scheduler does, never
+    with its own reducer."""
+    from matrx_graph.content_ir.markers import reduce_for_ingestion
+
+    return reduce_for_ingestion(value, _input_schema_json(model_cls))
+
+
+def _gate_step_inputs(
+    merged_inputs: dict[str, Any], schema_json: dict[str, Any]
+) -> tuple[dict[str, Any], list[tuple[str, str]]]:
+    """THE ingestion gate then the text-input render, as one pure unit (``run_pure_off_loop``).
+
+    ``reduce_for_ingestion`` rebuilds every dict and list it walks: that copy is what keeps a
+    step that mutates its arguments from changing the stored channel values, so it always runs."""
+    from matrx_graph.content_ir.markers import reduce_for_ingestion
+    from matrx_graph.text_inputs import render_whole_values_as_text
+
+    return render_whole_values_as_text(reduce_for_ingestion(merged_inputs, schema_json), schema_json)
+
+
+def _parse_step_inputs(
+    model_cls: type[BaseModel], merged_inputs: dict[str, Any], context: str, delivered: dict[str, Any] | None = None
+) -> tuple[BaseModel | None, Exception | None, dict[str, Any]]:
+    """Parse a step's arguments and build its node_started dump, as one pure unit.
+
+    A parse failure is RETURNED (the caller re-raises it inside the routable try). Only a
+    concurrent-mutation ``RuntimeError`` escapes, so ``run_pure_off_loop`` reruns on the loop."""
+    inputs_model: BaseModel | None
+    parse_error: Exception | None = None
+    try:
+        inputs_model = model_cls.model_validate(merged_inputs)
+    except RuntimeError as e:
+        if not isinstance(e, RecursionError) and "changed size during iteration" in str(e):
+            raise
+        inputs_model, parse_error = None, e
+    except Exception as e:  # noqa: BLE001
+        inputs_model, parse_error = None, e
+    try:
+        started_inputs = (
+            _started_dump(inputs_model, delivered, context) if inputs_model is not None else dict(merged_inputs)
+        )
+    except Exception:  # noqa: BLE001 — never let serialization kill a run
+        started_inputs = dict(merged_inputs)
+    return inputs_model, parse_error, _share_delivered(started_inputs, delivered)
+
+
+def _typed_input_error(node_id: str, exc: Exception) -> Exception:
+    """A step whose arguments fail its input model fails as a typed, plain-words ``NodeInputValidationError`` naming
+    the field, never the raw pydantic dump ("2 validation errors for AddressesEnsureInput ..."). Anything that is
+    not a pydantic validation failure is returned unchanged."""
+    from pydantic import ValidationError
+
+    if not isinstance(exc, ValidationError):
+        return exc
+    lines: list[str] = []
+    for item in exc.errors():
+        field = ".".join(str(part) for part in item.get("loc") or ()) or "(value)"
+        kind = item.get("type")
+        if kind == "missing":
+            lines.append(f"{field}: is required and was not given")
+        elif kind == "extra_forbidden":
+            lines.append(f"{field}: is not an input this step accepts")
+        else:
+            lines.append(f"{field}: {item.get('msg')}")
+    return NodeInputValidationError(
+        f"The step '{node_id}' did not get the input it needs:\n  - " + "\n  - ".join(lines),
+        node_id=node_id,
+        field_errors=lines,
+    )
+
+
+def _started_dump(model: BaseModel, delivered: dict[str, Any] | None, context: str) -> dict[str, Any]:
+    """The node_started record of a parsed step's arguments, never serializing what was delivered unchanged.
+
+    An argument whose parsed value equals (``==``, same type) the delivered object is recorded AS the delivered
+    object (what :func:`_share_delivered` would make it after a dump) and left out of the dump: dumping a 900 KB
+    list just to compare it and throw the copy away was most of every step's parse (L-SPEED 6e part 2)."""
+    shared: dict[str, Any] = {}
+    if delivered and not _custom_serialized(type(model)):
+        fields = type(model).model_fields
+        extra = getattr(model, "__pydantic_extra__", None) or {}
+        for key, original in delivered.items():
+            if not isinstance(original, (dict, list)):
+                continue
+            if key in fields:
+                if _field_dumps_differently(type(model), key):
+                    continue  # excluded or custom-serialized: the dump decides, as before
+                value = getattr(model, key, None)
+            elif key in extra:
+                value = extra[key]
+            else:
+                continue
+            if type(value) is not type(original):
+                continue
+            try:
+                same = value is original or value == original
+            except Exception:  # noqa: BLE001 — an uncomparable value is dumped as before
+                same = False
+            # Only a JSON-native value dumps to itself: a datetime, a tuple or a NaN leaf would dump to an ISO
+            # string, a list or null, so the old record never held the delivered object (review 6h, M1).
+            if same and _json_native(original):
+                shared[key] = original
+    if not shared:
+        return model_dump_json(model, context=context)
+    try:
+        rest = model.model_dump(mode="json", exclude=set(shared))
+    except Exception:  # noqa: BLE001 — the full dump names the raw-bytes paths (and raises)
+        return model_dump_json(model, context=context)
+    order = [*type(model).model_fields, *(getattr(model, "__pydantic_extra__", None) or {})]
+    out = {key: shared[key] if key in shared else rest[key] for key in order if key in shared or key in rest}
+    out.update({key: value for key, value in rest.items() if key not in out})
+    return out
+
+
+#: id(value) -> (value, len, JSON-native?, bytes it pins). A delivered value goes to every step that reads it and
+#: is never edited in place, so it is walked once per process (``len`` re-checked on every hit, like the intern
+#: cache). Each entry PINS its live value, so the cache is bounded by the bytes it pins as well as by count: by
+#: count alone it kept 512 delivered values alive for the life of the process whatever their size — a research
+#: read's held pages (the parse + raw HTML, MBs each), ~100 MB per 92-page keyword, never released (lane M1,
+#: 2026-11-17). A value over the byte bound is answered and not remembered.
+_JSON_NATIVE: OrderedDict[int, tuple[Any, int, bool, int]] = OrderedDict()
+_JSON_NATIVE_MAX = 512  # protocol-constant: memory bound on an in-process json-native type cache, not an admin behavior
+#: Most bytes (string lengths + a fixed cost per item, measured by the same walk) the cache keeps alive.
+JSON_NATIVE_CACHE_MAX_BYTES = 16 * 1024 * 1024
+_JSON_NATIVE_ITEM_BYTES = 16
+_json_native_bytes = 0
+_json_native_lock = threading.Lock()
+_JSON_LEAF_TYPES = (str, int, bool, type(None))
+
+
+def _json_native(value: Any) -> bool:
+    """True when ``value`` is built only of dict (str keys) / list / str / int / bool / None / finite float —
+    exactly what ``model_dump(mode="json")`` returns unchanged."""
+    global _json_native_bytes
+    hit = _JSON_NATIVE.get(id(value))
+    if hit is not None and hit[0] is value and hit[1] == len(value):
+        with _json_native_lock:
+            if id(value) in _JSON_NATIVE:
+                _JSON_NATIVE.move_to_end(id(value))
+        return hit[2]
+    ok = True
+    pins = 0
+    stack: list[Any] = [value]
+    while stack:
+        item = stack.pop()
+        kind = type(item)
+        pins += _JSON_NATIVE_ITEM_BYTES
+        if kind is dict:
+            for k, v in item.items():
+                if type(k) is not str:
+                    ok = False
+                    break
+                pins += len(k)
+                stack.append(v)
+            if not ok:
+                break
+        elif kind is list:
+            stack.extend(item)
+        elif kind is str:
+            pins += len(item)
+        elif kind is float:
+            if not math.isfinite(item):
+                ok = False
+                break
+        elif kind not in _JSON_LEAF_TYPES:
+            ok = False
+            break
+    if pins > JSON_NATIVE_CACHE_MAX_BYTES:
+        return ok
+    with _json_native_lock:
+        old = _JSON_NATIVE.pop(id(value), None)
+        if old is not None:
+            _json_native_bytes -= old[3]
+        _JSON_NATIVE[id(value)] = (value, len(value), ok, pins)
+        _json_native_bytes += pins
+        while _JSON_NATIVE and (len(_JSON_NATIVE) > _JSON_NATIVE_MAX or _json_native_bytes > JSON_NATIVE_CACHE_MAX_BYTES):
+            _key, dropped = _JSON_NATIVE.popitem(last=False)
+            _json_native_bytes -= dropped[3]
+    return ok
+
+
+@functools.lru_cache(maxsize=2048)
+def _custom_serialized(model_cls: type[BaseModel]) -> bool:
+    """A model with its own serializer: its dump is not its field values, so nothing is shared."""
+    decorators = getattr(model_cls, "__pydantic_decorators__", None)
+    return bool(decorators is not None and decorators.model_serializers)
+
+
+@functools.lru_cache(maxsize=8192)
+def _field_dumps_differently(model_cls: type[BaseModel], key: str) -> bool:
+    """True when ``key``'s dump is not its value: ``Field(exclude=True)`` (left out of the dump), a
+    ``@field_serializer`` naming it, or a ``PlainSerializer``/``WrapSerializer`` in its annotation."""
+    info = model_cls.model_fields.get(key)
+    if info is None:
+        return False
+    if info.exclude:
+        return True
+    if any("Serializer" in type(meta).__name__ for meta in info.metadata):
+        return True
+    decorators = getattr(model_cls, "__pydantic_decorators__", None)
+    if decorators is not None:
+        for dec in decorators.field_serializers.values():
+            if key in dec.info.fields or "*" in dec.info.fields:
+                return True
+    return False
+
+
+def _share_delivered(started_inputs: Any, delivered: dict[str, Any] | None) -> Any:
+    """The node_started / outcome record of a step's arguments, each argument that came through unchanged
+    being the DELIVERED object itself (the upstream step's settled output), not the dump's fresh copy.
+
+    The record is interned into the run's value store by live object (``checkpoint.values`` § ONE INTERNING
+    PER VALUE): a fresh copy per consuming step was a stranger to the cache, so a 597-source list read by
+    nine steps was walked and hashed again for each (L-SPEED round 4, 2026-11-09: two thirds of the Brand
+    pick's interning CPU). Equal by ``==`` (C speed) and of the same type is the test; the record is only
+    ever read, never edited, so sharing the delivered object is safe."""
+    if not delivered or not isinstance(started_inputs, dict):
+        return started_inputs
+    out = started_inputs
+    for key, value in started_inputs.items():
+        original = delivered.get(key)
+        if original is value or not isinstance(value, (dict, list)) or type(original) is not type(value):
+            continue
+        try:
+            same = original == value
+        except Exception:  # noqa: BLE001 — an uncomparable value keeps its own copy
+            same = False
+        if same:
+            if out is started_inputs:
+                out = dict(started_inputs)
+            out[key] = original
+    return out
+
+
 def _coerce_replayed_output(model_cls: type[BaseModel], value: Any) -> BaseModel:
     """Use the canonical ingestion gate for saved outputs, retaining the caller's tagged dump.
 
@@ -562,6 +893,43 @@ def _coerce_replayed_output(model_cls: type[BaseModel], value: Any) -> BaseModel
     if isinstance(value, dict):
         value = reduce_for_ingestion(value, _input_schema_json(model_cls))
     return model_cls.model_validate(value)
+
+
+
+def step_reruns_safely(node: Any, registry: Any) -> bool:
+    """True when running ``node`` again changes nothing and costs nothing: a PURE or IDEMPOTENT step
+    (``CHAIN_TIERS``, or one whose only effect is a stream emission) that spends nothing and is no
+    agent/LLM call, run-once or one-at-a-time step. Such a step's outcome need not be durable before
+    the next one: a resume rebuilds it by running it again (chains; inline children)."""
+    if node is None or node.once is not None or node.one_at_a_time is not None:
+        return False
+    try:
+        spec = registry.get(node.spec_type).spec
+    except Exception:  # noqa: BLE001 — the step itself reports an unknown type
+        return False
+    rerunnable = spec.determinism in CHAIN_TIERS or bool(getattr(spec, "emits_only", False))
+    # Only a step that spends nothing (the same answer the spend reader uses).
+    return rerunnable and not may_spend(spec) and spec.category not in (NodeCategory.AGENT, NodeCategory.LLM)
+
+async def _settle_dropped_waits(waits: list[Any], node_id: str) -> None:
+    """Await the writes a step held before it raised; a failed one is logged (the step's own error wins)."""
+    if not waits:
+        return
+    for value in await asyncio.shield(asyncio.gather(*waits, return_exceptions=True)):
+        if isinstance(value, BaseException):
+            logger.error("[node=%s] a write the step held failed: %r", node_id, value)
+
+
+def rerun_returns_saved_result(executor: Any) -> bool:
+    """True when running this step again after a crash hands back what its first run made instead of doing the
+    work again — a Run Workflow step whose host names each child by a deterministic id and reattaches a finished
+    one (``set_subgraph_resolver(..., reruns_by_reattach=True)``). Such a step's outcome rides the next checkpoint
+    like a pure step's: a resume runs the step again and it answers from the saved child (P8-RUNS)."""
+    declared = getattr(executor, "rerun_returns_saved_result", None)
+    try:
+        return bool(declared()) if callable(declared) else False
+    except Exception:  # noqa: BLE001 — undecidable is "no": the outcome is written at once
+        return False
 
 
 class Scheduler:
@@ -603,6 +971,9 @@ class Scheduler:
         control_check: Any = None,
         control_check_reads_own_row: bool = False,
         fresh_history: bool = False,
+        spend_check: Any = None,
+        durability: str | None = None,
+        poll_first_boundary: bool = False,
         skip_edge_ids: set[str] | None = None,
         step_concurrency: int | None = None,
         definition_version_id: str | None = None,
@@ -610,6 +981,10 @@ class Scheduler:
         surface_inputs: dict[str, Any] | None = None,
         input_provenance: dict[str, str] | None = None,
         sampled_outputs: dict[str, Any] | None = None,
+        invocation_namespace: str = "",
+        *,
+        execution_job_id: str | None = None,
+        execution_job_kind: str | None = None,
     ) -> None:
         """
         sampled_outputs: a TEST run's answered steps — node_id → that step's declared sample
@@ -651,9 +1026,17 @@ class Scheduler:
             reads anything else (a called workflow's check also reads its
             PARENT's cancel) is called at every boundary, or a parent's Cancel
             never reaches a running child.
+        spend_check: optional async ``() -> bool`` — the host's per-run spend limit reader (True:
+            the run reached its limit and stops the same graceful way as a Cancel). Asked at a
+            super-step boundary ONLY when a step that may spend (``spend_gate.may_spend``)
+            launched since the last ask — a stretch of data/control steps never walks a ledger.
+            A reader that raises never stops the run; it is logged loudly.
+        durability: ``"every_step"`` or ``"boundaries"`` (module § DURABILITY LEVELS); None reads
+            the workflow's own ``metadata.durability``, else ``"every_step"``.
         fresh_history: True when the host KNOWS this run has no recorded node
             outcomes — it created the run row moments ago in this process and
             this is the run's first and only leg. A fresh ``run()`` then skips
+            the first boundary's status read (unless ``poll_first_boundary``) and
             the per-invocation idempotency lookup (always empty for such a run;
             a database read before every node starts). Every other leg — resume,
             a queued worker that may be re-delivering a crashed start — leaves
@@ -690,7 +1073,13 @@ class Scheduler:
             the caller that loaded the row passes it here. None only when the
             graph genuinely has no definition row (an in-code graph).
         """
+        from matrx_graph.information import assert_graph_is_executable
+
+        assert_graph_is_executable(graph)  # information nodes and relation edges never run
         self.graph = graph
+        self.definition_version_id = definition_version_id
+        self.execution_job_id = execution_job_id
+        self.execution_job_kind = execution_job_kind
         self.checkpointer = checkpointer
         # WHICH WORKFLOW — explicit from the caller, else whatever the graph's
         # source metadata carries (empty in practice: see the docstring).
@@ -701,9 +1090,12 @@ class Scheduler:
         )
         # One stamp, at the top of the run — forks inherit it via
         # dataclasses.replace, so nothing downstream has to thread it through.
-        if definition_version_id and hasattr(app_context, "workflow_definition_version_id"):
+        if definition_version_id and hasattr(app_context, "run"):
             app_context = dataclasses.replace(
-                app_context, workflow_definition_version_id=str(definition_version_id)
+                app_context,
+                run=dataclasses.replace(
+                    app_context.run, workflow_definition_version_id=str(definition_version_id)
+                ),
             )
         self.app = app_context
         self.registry = registry or default_registry()
@@ -713,11 +1105,33 @@ class Scheduler:
         self._control_check = control_check
         self._control_check_reads_own_row = bool(control_check_reads_own_row)
         self._fresh_history = bool(fresh_history)
+        self._spend_check_fn = spend_check
+        # An inline child (``nodes/subgraph/inline.py``) runs under its caller's run id: every identity an
+        # executor derives from ``ctx.dispatch_id`` (child runs, idempotency keys, request conversations) is
+        # prefixed with this, so two inline children of one run never share one.
+        self._invocation_namespace = invocation_namespace
+        declared = str(getattr(graph, "durability", "") or "") if durability is None else durability
+        if declared and declared not in DURABILITY_LEVELS:
+            logger.warning("unknown durability %r — every step is checkpointed (%s)", declared, DURABILITY_LEVELS)
+        self._durability = declared if declared in DURABILITY_LEVELS else "every_step"
+        # A step that may spend launched since the spend reader was last asked.
+        self._spent_since_check = False
+        # A fresh leg whose row someone else can stop before it starts (a called workflow: its
+        # caller's Cancel cascades onto the row) still reads its status at the first boundary.
+        self._poll_first_boundary = bool(poll_first_boundary)
         # Set for the duration of a fresh ``run()`` leg only (never resume).
         self._history_known_empty = False
         # The run status the last main-loop checkpoint save read (pop_run_status),
         # consumed by the next boundary poll; None = read it at the boundary.
         self._status_at_boundary: str | None = None
+        # When the run's controls were last read (monotonic). Inside a chain of pure steps a
+        # boundary reads them again only after CHAIN_CONTROL_POLL_SECONDS (_reads_controls_now).
+        self._controls_read_at = 0.0
+        # What the engine's own awaits cost this leg (L-SPEED 6c, part 2): seconds per hook,
+        # logged once when the leg ends (``_log_leg_overhead``) beside GC and loop-lag time.
+        self._spent: dict[str, float] = {}
+        for _hook in _TIMED_HOOKS:
+            setattr(self, _hook, _timed_hook(getattr(self, _hook), self._spent, _hook))
         self._skip_node_ids: set[str] = set(skip_node_ids or ())
         self._sampled_outputs: dict[str, Any] = dict(sampled_outputs or {})
         self._skip_edge_ids: set[str] = set(skip_edge_ids or ())
@@ -779,6 +1193,20 @@ class Scheduler:
         # The step the drive loop is running (its barrier not yet passed); a launch keyed later is
         # a run-ahead launch.
         self._loop_step: int | None = None
+        # A CHAIN of pure steps (PF-WF 2026-11-02): their checkpoints (with each step's held outcomes and
+        # completion events) wait here and land in ONE transaction when the chain ends
+        # (``_save_checkpoint(chain_ok=...)``, ``_flush_chain``). Every boundary inside a chain still
+        # polls pause/cancel like any other (a pure step can take seconds).
+        self._chain_queue: list[tuple[Checkpoint, list[tuple[Any, Any]]]] = []
+        # A boundary's checkpoint written BESIDE the next step (PF-WF E8, 2026-11-14): every outcome it
+        # points at is already safe (a non-pure step's was recorded when it finished; a pure step reruns),
+        # so the next step starts while the row is written. Writes stay in order (each awaits the one
+        # before). At most ONE write is in flight: the next boundary reaps a failed one (raising it there)
+        # and a still-running one is awaited before the next is started; every other save, park and the
+        # run's stop wait for it too (``_settle_writes``).
+        self._write_task: asyncio.Task[None] | None = None
+        # The ``workflow.checkpoint_write`` ``write_beside_next_step`` knob, read once per leg (``_drive``).
+        self._beside_next_on: bool = True
         self._run_ahead_step_limit: int = 0
         # Invocations run-ahead may still launch this drive — the remainder of
         # max_total_invocations, refreshed at every step boundary.
@@ -803,15 +1231,22 @@ class Scheduler:
         # with the same inputs (``_verify_run_ahead_at_barrier`` checks it).
         self._partial_routing: bool = False
         # PURE-STEP OUTCOMES RIDE THE CHECKPOINT (2026-10-29). While a super-step whose every
-        # member is PURE runs, each successful outcome (and its node_completed event) waits
-        # here instead of paying its own transaction; the step's checkpoint save lands them
-        # in ITS transaction, then emits the events (``_save_checkpoint``). A pure step was
+        # member is PURE runs, each successful outcome ROW waits here instead of paying its
+        # own transaction; the step's checkpoint save lands them in ITS transaction
+        # (``_save_checkpoint``). The node_completed event is emitted at once (feed order =
+        # what happened); an entry's event slot is None once it was emitted. A pure step was
         # ~9 database round trips (outcome: 4, checkpoint: 5); now ~6.
         # Steps that hold a non-PURE member: nothing of theirs waits (a run-ahead launch can
         # finish before its step's members are all known, so the test is made per step at
         # its start and anything already held for it is written then).
         self._no_defer_steps: set[int] = set()
-        self._deferred_outcomes: list[tuple[NodeOutcome, NodeCompletedEvent]] = []
+        self._deferred_outcomes: list[tuple[NodeOutcome, NodeCompletedEvent | None]] = []
+        # Durable writes a step handed over (``NodeExecutionContext.hold_outcome_until``): every outcome or
+        # checkpoint write of this run waits for them first, so what they write lands before it (P8-RUNS lever 2).
+        self._outcome_waits: list[tuple[str, Any]] = []
+        self._held_last_outputs: dict[str, Any] = {}
+        # ``id()`` of the held outcomes whose step re-runs by reattaching (``rerun_returns_saved_result``).
+        self._reattaching_outcomes: set[int] = set()
         # REVIEW FLAGS (0117): author marks (data.review) + engine auto-flags. One awaited
         # run_log write each, never raising; edge flags queue during canonical routing.
         self._review = ReviewFlagger(
@@ -836,6 +1271,9 @@ class Scheduler:
         # Joins a FAILED upstream stopped this routing pass: (step id, failed step id),
         # reported as node_skipped once the pass is accepted (_report_failure_blocked).
         self._failure_blocked: list[tuple[str, str]] = []
+        # Joins a step its 'Only when' said no to stopped this routing pass (§3.3b):
+        # (step id, skipped step id), reported with the failure-blocked ones.
+        self._skip_blocked: list[tuple[str, str]] = []
         # Join accumulator (ENGINE_SPEC §3.8): partial inbound bindings per
         # target node, buffered ACROSS super-steps and persisted on every
         # checkpoint. A target fires only when its required inbound-edge set
@@ -852,10 +1290,23 @@ class Scheduler:
         # fanned invocations). This is what tells a fan-in edge group that
         # ALL items of its dispatch have resolved.
         self._dispatch_expected: dict[tuple[str, str], int] = {}
+        # PACED DISPATCH (G3): (dispatch_id, target_node_id) → its waves and ``until``.
+        self._paced: dict[tuple[str, str], PacedDispatch] = {}
+        # WHAT A STEP SAYS (matrx_graph/says.py): (dispatch_id, node_id) → the engine's count of that
+        # dispatch's items ({done} {failed} {total}); rebuilt from recorded outcomes on a resume leg.
+        self._item_tallies: dict[tuple[str, str], ItemTally] = {}
+        # (node_id, placeholder) already flagged ``engine.says_failed`` this run: recorded once.
+        self._says_failed: set[tuple[str, str]] = set()
+        # ``engine.says_failed`` flags rendered but not yet written: written AFTER the line's event is sent
+        # (``_raise_says_flags``), so a database write never holds a progress line back.
+        self._says_flags_due: list[tuple[str, Invocation, int, int, str, str]] = []
         # Per-node concurrency caps (ENGINE_SPEC §4.6): node_id → semaphore,
         # created lazily from CompiledNode.concurrency. Nested INSIDE the
         # run-level step semaphore.
         self._node_sems: dict[str, _NodeGate] = {}
+        # One lock per node while its gate is first built (``_node_gate``): every invocation then
+        # queues on the gate in the order its task was created — a For each's index order.
+        self._node_gate_locks: dict[str, asyncio.Lock] = {}
         # The ``workflow.fan_out`` bounds, read once per drive (lazily, at the first bounded launch).
         self._fan_out_policy: Any = None
         # The host's spend refusal (matrx_graph.spend_gate), latched for the rest of the drive:
@@ -929,6 +1380,10 @@ class Scheduler:
                 },
             )
             merged = reduce_for_ingestion(merged, _input_schema_json(spec.input_schema))
+            # the same text rendering the live gate applies (matrx_graph.text_inputs)
+            from matrx_graph.text_inputs import render_whole_values_as_text
+
+            merged, _ = render_whole_values_as_text(merged, _input_schema_json(spec.input_schema))
             try:
                 current = model_dump_json(
                     spec.input_schema.model_validate(merged),
@@ -1109,8 +1564,11 @@ class Scheduler:
             )
             # Fresh run — no buffered joins yet (resume() loads them instead).
             self._pending_bindings = {}
+            self._subscriptions = SubscriptionMatcher(self._subscriptions.subscriptions)
             self._firing_seq = {}
             self._dispatch_expected = {}
+            self._paced = {}
+            self._item_tallies = {}
             self._node_sems = {}
             self._spend_refusal = None
             self._back_edge_fires = []
@@ -1130,10 +1588,20 @@ class Scheduler:
             # THE WORKFLOW CHAIN (lane CHAIR-RECORD-CHANGED): every store write a step makes
             # carries this run id — one level below the record change that started the run,
             # when one did — so a record-changed consumer can cap a chain and see a loop.
-            chain = workflow_chain_for_run(
-                run_id, ((inputs or {}).get("trigger") or {}).get("chain")
-                if isinstance((inputs or {}).get("trigger"), dict) else None
-            )
+            #
+            # THE ONE LOOP COUNTER (Triggers PLAN Rule 9): a run started INSIDE another run's step
+            # (a Mandate's child workflow, a sub-run) is the SAME round as its caller — it inherits
+            # the declared chain, never a fresh root that would reset the count. A queued run with no
+            # trigger input (a raw-table event fire) asks the host, which reads the event row.
+            trigger_input = (inputs or {}).get("trigger")
+            if isinstance(trigger_input, dict) and "chain" in trigger_input:
+                chain = workflow_chain_for_run(run_id, trigger_input.get("chain"))
+            elif (caller := current_workflow_chain()) is not None:
+                chain = WorkflowChain(run_id=str(run_id), root_run=caller.root_run, depth=caller.depth)
+            else:
+                from matrx_graph.executor.resume_chain import resumed_chain_cause
+
+                chain = workflow_chain_for_run(run_id, await resumed_chain_cause(run_id))
             from matrx_graph.executor.execution import Execution, executing
 
             self._history_known_empty = self._fresh_history
@@ -1141,7 +1609,8 @@ class Scheduler:
                 # THE LEG IN MEMORY (lane 11 round 5): a FRESH leg on THIS compiled graph.
                 with declaring_workflow_chain(chain), executing(
                     Execution(run_id=run_id, definition_hash=str(self.graph.definition_hash),
-                              graph=self.graph, fresh=True)
+                              graph=self.graph, fresh=True, history_known_empty=self._fresh_history,
+                              stopping=self._stop_requested)
                 ):
                     result = await self._drive(
                         run_id=run_id,
@@ -1184,11 +1653,16 @@ class Scheduler:
         ``max_pages`` — read by later steps — were copied into it; the Studio form
         (``initial_variables``) worked. A name that is NOT a declared variable keeps
         today's behaviour (broadcast), so a strict step still refuses a typo.
+
+        An input step's FIELD names (``io.user_input``, origin ``"field"``) are declared run
+        inputs too. Live defect 2026-11-16 (lane H10b): "search and save one keyword" v39 had
+        a clock (``datetime.now``, closed) no connection reached, so it was an entry step. A
+        Studio start addresses field values to the input step (``node_inputs``) and the clock
+        ran; a call by another workflow (inline child, durable child, API/MCP ``inputs``)
+        broadcast every field to every entry step, the clock refused ``topic_id``, and every
+        keyword's save errored. Both start forms now hand an entry step the same thing.
         """
-        declared = {
-            name for name, s in self.graph.input_surface.items()
-            if getattr(s, "origin", None) == "variable"
-        } | set(self.graph.variables)
+        declared = set(self.graph.input_surface) | set(self.graph.variables)
         if not inputs or not declared.intersection(inputs):
             return inputs
         try:
@@ -1238,6 +1712,26 @@ class Scheduler:
         if reads is None:
             return None
         return set(getattr(schema, "model_fields", {}) or {}) | reads
+
+    def _gate_delivery(self, source_id: str, target: str, fragment: Any) -> Any:
+        """What an 'Only when' gate hands ITS step: only the names the step takes, at any position.
+
+        The gate gathers everything its condition reads (the step's connections, the step's
+        authored inputs, run inputs) and forwards its whole output. A closed step (``extra="forbid"``)
+        refused the names only the condition read — live 2026-11-09, search workflow 79c58b1f: the
+        reserve step got ``on``, the YouTube calls got ``granted`` / ``ids`` → extra_forbidden.
+        ``_entry_broadcast`` trimmed this only for a gate at the START of the run. An open step
+        (``_entry_takes`` None) gets everything, as before."""
+        if when_gate_owner(source_id) != target or not isinstance(fragment, dict) or not fragment:
+            return fragment
+        try:
+            schema = self.registry.get(self.graph.nodes[target].spec_type).spec.input_schema
+        except Exception:  # noqa: BLE001 — unknown type fails loudly at dispatch, not here
+            return fragment
+        takes = self._entry_takes(target, schema)
+        if takes is None:
+            return fragment
+        return {k: v for k, v in fragment.items() if k in takes}
 
     def _only_when_view(self, source_id: str, payload: Any) -> Any:
         """What an 'Only when' condition reads: the step's inputs, over the run's inputs.
@@ -1298,7 +1792,14 @@ class Scheduler:
         """Each declared variable naming a structured kind whose landed value misses it, with
         the problems (``kinds.input_kind_problems``). A plain-valued kind is never judged here."""
         from matrx_graph.kinds import input_kind_problems, structured_kind_schema
-        from matrx_graph.types.input_surface import missing_value, structured_input_kind
+        from matrx_graph.types.input_surface import (
+            input_multiple,
+            input_type,
+            missing_value,
+            structured_input_kind,
+        )
+
+        from matrx_graph.workflow_settings import is_setting, setting_value_problem
 
         declared = self.graph.variables
         wrong: list[tuple[Any, list[str]]] = []
@@ -1306,7 +1807,18 @@ class Scheduler:
             var = declared.get(name)
             if spec.origin != "variable" or var is None:
                 continue
-            slug = structured_input_kind(var.kind, var.effective_type())
+            if is_setting(var):
+                # A workflow setting a run overrides must fit its type (workflow_settings.py).
+                given = next(
+                    (v for v in (self._run_inputs.get(name), self._run_variables.get(name), (inputs or {}).get(name))
+                     if not missing_value(v)),
+                    None,
+                )
+                problem = None if given is None else setting_value_problem(var, given)
+                if problem:
+                    wrong.append((spec, [problem]))
+                continue
+            slug = structured_input_kind(var.valueKind, input_type(var))
             if slug is None:
                 continue
             value = next(
@@ -1319,7 +1831,7 @@ class Scheduler:
             )
             if value is None or await structured_kind_schema(slug) is None:
                 continue
-            problems = await input_kind_problems(name, value, slug, multiple=var.multiple)
+            problems = await input_kind_problems(name, value, slug, multiple=input_multiple(var))
             if problems:
                 wrong.append((spec, problems))
         return wrong
@@ -1484,8 +1996,13 @@ class Scheduler:
         decision: DecisionProvenance | None = None,
         restarted_after: Literal["server_restart"] | None = None,
         interrupted_attempts: Sequence[InterruptedAttempt] = (),
+        *,
+        checkpoint_snapshot: Checkpoint | None = None,
     ) -> RunResult:
         """Resume a run from a previous checkpoint.
+
+        A host that checked the checkpoint under its run admission lock can
+        pass that snapshot to avoid fetching the initial payload again.
 
         ``restarted_after`` (the host's recovery lane only): the server running this leg
         stopped mid-step, so the steps at the checkpoint's frontier were cut off and start
@@ -1519,8 +2036,10 @@ class Scheduler:
         # workflow_io enforcement is ON) — without this, a parked run that
         # resumes would bypass fatal binding admission entirely.
         await self._enforce_kind_admission(run_id)
-        checkpoint = await self.checkpointer.load_checkpoint(checkpoint_id)
+        checkpoint = checkpoint_snapshot
         if checkpoint is None:
+            checkpoint = await self.checkpointer.load_checkpoint(checkpoint_id)
+        if checkpoint is None or checkpoint.checkpoint_id != checkpoint_id:
             raise ExecutionError(f"Checkpoint '{checkpoint_id}' not found for resume.")
         if checkpoint.run_id != run_id:
             raise ExecutionError(
@@ -1620,6 +2139,12 @@ class Scheduler:
         self._node_sems = {}
         self._spend_refusal = None
         self._back_edge_fires = []
+        # Kind subscriptions (§7.7c, hole H4): the matcher resumes from the
+        # checkpoint's state, so a fire_once trigger that already fired stays
+        # spent and occurrences waiting in a debounce window still fire.
+        self._subscriptions = SubscriptionMatcher(
+            self._subscriptions.subscriptions, state=checkpoint.subscription_state
+        )
 
         # Rebuild the fan-out dispatch registry (§4.4) from durable state:
         # (a) a partially-delivered fan-in group persisted its expected count
@@ -1629,6 +2154,8 @@ class Scheduler:
         # the end-of-run join-deadlock guard screams rather than completing
         # silently (§12.8).
         self._dispatch_expected = {}
+        self._paced = {}
+        self._item_tallies = {}
         for binding in checkpoint.pending_bindings.values():
             if not binding.expected_items:
                 continue
@@ -1768,6 +2295,7 @@ class Scheduler:
                     work_item_id=ni.work_item_id,
                     step=ni.step if ni.step is not None else checkpoint.step,
                     bypass_once=ni.bypass_once,
+                    pace=ni.pace,
                 )
             )
         # On interrupt-resume, the recorded outcome lives at the SAME step as
@@ -1847,9 +2375,15 @@ class Scheduler:
                 # a fresh root, which reset the loop depth (lane 11 round 5). And the leg is
                 # recorded in memory as NOT fresh: it was loaded from a checkpoint.
                 caused_by = await resumed_chain_cause(run_id)
-                with declaring_workflow_chain(workflow_chain_for_run(run_id, caused_by)), executing(
+                caller = current_workflow_chain()
+                leg_chain = (
+                    WorkflowChain(run_id=str(run_id), root_run=caller.root_run, depth=caller.depth)
+                    if caused_by is None and caller is not None
+                    else workflow_chain_for_run(run_id, caused_by)
+                )
+                with declaring_workflow_chain(leg_chain), executing(
                     Execution(run_id=run_id, definition_hash=str(self.graph.definition_hash),
-                              graph=self.graph, fresh=False)
+                              graph=self.graph, fresh=False, stopping=self._stop_requested)
                 ):
                     result = await self._drive(
                         run_id=run_id,
@@ -1957,6 +2491,14 @@ class Scheduler:
             self._pause_latched = False
             self._cancel_latched = False
             self._last_stop_poll = float("-inf")
+            from matrx_graph.knobs import leg_overhead_warn_seconds
+
+            # Read before the leg (never in the finally below, where a cancelled leg could not await it).
+            leg_warn_seconds = await leg_overhead_warn_seconds()
+            from matrx_graph.knobs import write_beside_next_step
+
+            self._beside_next_on = await write_beside_next_step()
+            leg_started = _leg_clock()
             try:
                 return await self._drive_inner(
                     run_id,
@@ -1976,8 +2518,24 @@ class Scheduler:
                 # make the stop wait for it. Whatever finished is recorded and
                 # replays when the step runs; the rest runs then.
                 await self._cancel_run_ahead(run_id)
-                if self._deferred_outcomes:
-                    await self._flush_deferred_outcomes()
+                # An immediate stop stays a stop: a write error here must not replace the CancelledError.
+                stopping = isinstance(sys.exc_info()[1], asyncio.CancelledError)
+                try:
+                    if self._write_task is not None or self._chain_queue:
+                        await self._flush_chain()
+                    if self._deferred_outcomes:
+                        await self._flush_deferred_outcomes()
+                    # A held write no later write waited for still lands before the run ends.
+                    await self._settle_outcome_waits()
+                except Exception:
+                    if not stopping:
+                        raise
+                    logger.warning(
+                        "[wf:%s] a checkpoint write failed while the run was being stopped — the stop stands",
+                        run_id[:8],
+                        exc_info=True,
+                    )
+                _log_leg_overhead(run_id, leg_started, self._spent, leg_warn_seconds)
 
     async def _drive_inner(
         self,
@@ -1994,6 +2552,8 @@ class Scheduler:
     ) -> RunResult:
         step = start_step
         last_outputs: dict[str, Any] = {}
+        # A held write that fails takes its step's answer back out of the run's result (``_settle_outcome_waits``).
+        self._held_last_outputs = last_outputs
         # Width guard: max_steps bounds DEPTH (super-steps) only — one map of
         # 10k items is a single step. This counter bounds total node
         # invocations across the drive segment so a Send-amplifying graph
@@ -2009,6 +2569,8 @@ class Scheduler:
                         f"Run '{run_id}' exceeded max_steps={max_steps}. "
                         f"Suspected infinite loop in graph."
                     )
+                # A beside-write that already failed stops the run HERE (as the plain write did), never later.
+                self._reap_failed_write()
                 total_invocations += len(pending)
                 self._run_ahead_budget = max_total_invocations - total_invocations
                 if total_invocations > max_total_invocations:
@@ -2047,8 +2609,13 @@ class Scheduler:
                 # so there is no earlier pause/cancel to find — the first node
                 # starts without a status read. (Every later boundary polls; an
                 # immediate stop cancels the task outright.)
-                if self._history_known_empty and step == start_step:
+                if self._history_known_empty and step == start_step and not self._poll_first_boundary:
                     pause_now, cancel_now = False, False
+                    self._controls_read_at = time.monotonic()
+                elif not self._reads_controls_now():
+                    # Inside a chain of pure steps (the boundary's checkpoint was queued, not
+                    # written): no status read between back-to-back steps (L-SPEED 6c).
+                    pause_now, cancel_now = self._pause_latched, self._cancel_latched
                 else:
                     # The checkpoint saved at the end of the previous super-step
                     # read the run's status in its own statement; that answer is
@@ -2157,9 +2724,59 @@ class Scheduler:
                 if not self._step_defers_outcomes(to_run):
                     self._no_defer_steps.add(step)
                     if self._deferred_outcomes:
-                        await self._flush_deferred_outcomes()
+                        await self._flush_deferred_outcomes(keep_reattaching=True)
                 self._loop_step = step
                 results, interrupt = await self._run_step(run_id, thread_id, step, to_run)
+                # STOP MID-WAVE (G1): a Stop or Pause landed while items still waited for their
+                # turn. Those never started; every item that did start finished (and saved) inside
+                # the step. The run stops HERE with the whole step frontier saved, so a resume runs
+                # the waiting items and replays the finished ones — never pays for one twice.
+                held_back = [r for r in results if r.held]
+                if held_back and (
+                    self._cancel_latched or not any(r.error is not None for r in results)
+                ):
+                    logger.info(
+                        "[wf:%s step=%d] %s mid-step: %d of %d invocation(s) never started; "
+                        "%d finished",
+                        run_id[:8],
+                        step,
+                        "paused" if self._pause_latched else "stopped",
+                        len(held_back),
+                        len(results),
+                        len(results) - len(held_back),
+                    )
+                    if self._pause_latched:
+                        return await self._park_paused(
+                            run_id=run_id,
+                            thread_id=thread_id,
+                            step=step,
+                            start_step=start_step,
+                            parent_checkpoint_id=parent_checkpoint_id,
+                            pending=pending,
+                            last_outputs=last_outputs,
+                        )
+                    await self._save_checkpoint(
+                        run_id=run_id,
+                        thread_id=thread_id,
+                        step=step,
+                        parent_checkpoint_id=parent_checkpoint_id,
+                        next_invocations=_as_next_invocations(pending, step),
+                    )
+                    await self._emit(
+                        RunCancelledEvent(
+                            run_id=run_id,
+                            steps_executed=step - start_step,
+                            reason="graceful",
+                        )
+                    )
+                    return RunResult(
+                        run_id=run_id,
+                        thread_id=thread_id,
+                        status=RunStatus.CANCELLED,
+                        steps_executed=step - start_step,
+                        channel_values=self.channels.snapshot(),
+                        last_outputs=last_outputs,
+                    )
                 # A fan-out whose EVERY item failed fails loudly (parks below), never a
                 # silent prune that ends the run "completed" (2026-10-22, run 87452569).
                 self._escalate_all_failed_fan_outs(results)
@@ -2354,6 +2971,18 @@ class Scheduler:
                         *_as_next_invocations(routed, step + 1),
                     ]
                     frontier[0] = frontier[0].model_copy(update={"is_interrupted": True})
+                    # EVERY WAIT ON A PERSON HAS A DEADLINE. Frozen here, at the one
+                    # place a run parks, so the checkpoint, the event and the run row
+                    # all carry the same instant and no asking step can forget it. A
+                    # timer park is waiting on the clock, not on anyone.
+                    from matrx_graph.nodes.flow.sleep import SLEEP_MARKER
+
+                    if not isinstance(interrupt.payload.get(SLEEP_MARKER), dict):
+                        interrupt.payload = await with_wait_deadline(
+                            interrupt.payload,
+                            organization_id=str(getattr(self.app, "organization_id", "") or "") or None,
+                            user_id=str(getattr(self.app, "user_id", "") or "") or None,
+                        )
                     cp_id = await self._save_checkpoint(
                         run_id=run_id,
                         thread_id=thread_id,
@@ -2446,6 +3075,18 @@ class Scheduler:
                     # last-writer-wins merge.
                     if deferred:
                         next_pending = self._merge_frontier(next_pending, deferred)
+                    # End of run (§7.7c, hole H3): the frontier drained, so no
+                    # further occurrence can arrive — close every still-open
+                    # debounce window NOW instead of completing with the kind
+                    # seen and its trigger never fired. A flushed trigger can
+                    # itself produce kinds, so this repeats each time the
+                    # frontier drains until nothing is waiting.
+                    if (
+                        not next_pending
+                        and not self._partial_routing
+                        and self._subscriptions.pending_count()
+                    ):
+                        next_pending = self._trigger_invocations(step, flush=True)
                 except EdgeRoutingError as re_err:
                     self._pending_bindings = pre_route_bindings
                     self._review.discard_pending()
@@ -2477,16 +3118,42 @@ class Scheduler:
                 # next step's key must be exactly what this routing schedules.
                 self._verify_run_ahead_at_barrier(step, next_pending)
 
-                # Save checkpoint BEFORE running next step
+                # Save checkpoint BEFORE running next step — or, inside a chain of pure
+                # steps (this step and the next are pure, no step mode), queue it for the
+                # chain's one transaction.
                 cp_id = await self._save_checkpoint(
                     run_id=run_id,
                     thread_id=thread_id,
                     step=step,
                     parent_checkpoint_id=parent_checkpoint_id,
                     next_invocations=_as_next_invocations(next_pending, step + 1),
+                    chain_ok=(
+                        stop_after_steps is None
+                        and select_node_ids is None
+                        # A queued checkpoint is serialized when the chain lands: no channels,
+                        # whose reducers could move the state it names before then.
+                        and not self.graph.channels
+                        and step not in self._no_defer_steps
+                        and bool(next_pending)
+                        and self._step_defers_outcomes(next_pending)
+                    ),
+                    # Not in step mode ("run this and stop" keeps the plain barrier), not with
+                    # channels (their reducers move state), and never the run's last boundary.
+                    beside_next=(
+                        self._beside_next_on
+                        and stop_after_steps is None
+                        and select_node_ids is None
+                        and not self.graph.channels
+                        and bool(next_pending)
+                    ),
                 )
-                pop_status = getattr(self.checkpointer, "pop_run_status", None)
-                self._status_at_boundary = pop_status(run_id) if pop_status is not None else None
+                if self._write_task is not None:
+                    # The save is still in flight: its status read is not this boundary's — the
+                    # next boundary reads the controls itself (a Cancel still stops there).
+                    self._status_at_boundary = None
+                else:
+                    pop_status = getattr(self.checkpointer, "pop_run_status", None)
+                    self._status_at_boundary = pop_status(run_id) if pop_status is not None else None
                 parent_checkpoint_id = cp_id
                 step += 1
                 pending = next_pending
@@ -2724,6 +3391,7 @@ class Scheduler:
         # which restores the per-task isolation asyncio's ContextVar already
         # promises but a shared object silently breaks.
         invocation_counts = _invocation_counts(pending)
+        await self._open_item_tallies(run_id, step, pending)
         # RUN-AHEAD: a node this step's routing would schedule here may already
         # be running (or done) — launched early, under THIS step's key, while
         # an earlier step waited on a slow sibling. Adopt those FIRST: a broken
@@ -2746,7 +3414,8 @@ class Scheduler:
                         result=result,
                         snapshot=snapshot,
                         invocation_count=invocation_counts[inv.node_id],
-                    )
+                    ),
+                    name=step_task_name(run_id, inv.node_id),
                 )
             results.append(result)
             tasks[task] = result
@@ -2757,9 +3426,7 @@ class Scheduler:
         try:
             await self._await_step(run_id, thread_id, step, tasks)
         except BaseException:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            await self._stop_members(run_id, tasks)
             raise
 
         # Surface the first interrupt (if any). Per-node errors are NO
@@ -2769,6 +3436,36 @@ class Scheduler:
         # already been recorded in `_execute_invocation_body`'s except
         # clause, so retry/skip/manual-result can find it.
         return results, _first_interrupt(results)
+
+    async def _stop_members(
+        self, run_id: str, tasks: Mapping[asyncio.Task[None], _StepResult]
+    ) -> None:
+        """The run is stopping mid-step: cancel every member still WORKING, let every FINISHING one land.
+
+        A finishing member's executor already returned (its call was made and paid); what is left is
+        its settle and its outcome write. Canceling it drops a result a resume would then pay for again
+        (P8-RUNS, run 7f560f36: two of four fanned agent calls finished, one outcome row landed, the
+        resume ran three). So it is awaited — ``asyncio.wait``, which never cancels what it waits on —
+        for at most ``finishing_grace_s``, then canceled like the rest."""
+        finishing = [t for t, r in tasks.items() if r.finishing and not t.done()]
+        for task in tasks:
+            if task not in finishing:
+                task.cancel()
+        if finishing:
+            logger.warning(
+                "[wf:%s] run stopping mid-step — letting %d finished member(s) record their outcome "
+                "(at most %.0fs) so a resume replays them instead of paying again",
+                run_id[:8],
+                len(finishing),
+                self.finishing_grace_s,
+            )
+            try:
+                await asyncio.wait(finishing, timeout=self.finishing_grace_s)
+            finally:
+                for task in finishing:
+                    if not task.done():
+                        task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _await_step(
         self,
@@ -2884,11 +3581,23 @@ class Scheduler:
                 _deliver(task, result, ahead_step)
         self._run_ahead_deliver = _deliver
         fresh = True
+        # The step's first recomputation follows the boundary's own pause/cancel poll by
+        # microseconds: only its latched answer counts there. A second status read would also
+        # spend the throttled poll's window, so a Cancel that lands while the first member
+        # works would let the next launch start unasked (PF-WF 2026-11-02, the cancel test
+        # with START WHEN READY the default).
+        at_step_start = True
         try:
             while open_members:
                 if fresh:
                     fresh = False
-                    if await self._stop_requested():
+                    stop = (
+                        self._pause_latched or self._cancel_latched
+                        if at_step_start
+                        else await self._stop_requested()
+                    )
+                    at_step_start = False
+                    if stop:
                         self._run_ahead_on = False
                         break
                     self._expand_eager(run_id, thread_id, step, tasks)
@@ -2970,7 +3679,7 @@ class Scheduler:
             ):
                 continue
             self._run_ahead_budget -= 1
-            ahead = _StepResult(invocation=inv, output=None)
+            ahead = _StepResult(invocation=inv, output=None, launched_attempt=inv.attempt)
             task = asyncio.create_task(
                 self._run_invocation(
                     run_id=run_id,
@@ -2979,7 +3688,8 @@ class Scheduler:
                     result=ahead,
                     snapshot=snapshot,
                     invocation_count=1,
-                )
+                ),
+                name=step_task_name(run_id, inv.node_id),
             )
             self._run_ahead[key] = (task, ahead)
             self._run_ahead_unexpanded[task] = (ahead, next_step)
@@ -3091,7 +3801,7 @@ class Scheduler:
             ):
                 continue
             self._run_ahead_budget -= 1
-            ahead = _StepResult(invocation=inv, output=None)
+            ahead = _StepResult(invocation=inv, output=None, launched_attempt=inv.attempt)
             task = asyncio.create_task(
                 self._run_invocation(
                     run_id=run_id,
@@ -3100,7 +3810,8 @@ class Scheduler:
                     result=ahead,
                     snapshot=snapshot,
                     invocation_count=1,
-                )
+                ),
+                name=step_task_name(run_id, inv.node_id),
             )
             self._run_ahead[key] = (task, ahead)
             self._run_ahead_unexpanded[task] = (ahead, next_step)
@@ -3126,11 +3837,12 @@ class Scheduler:
                 continue
             self._run_ahead_unexpanded.pop(entry[0], None)
             ran = entry[1].invocation
-            if mismatch is None and (ran.inputs != inv.inputs or ran.attempt != inv.attempt):
+            ran_attempt = _launched_attempt(entry[1])
+            if mismatch is None and (ran.inputs != inv.inputs or ran_attempt != inv.attempt):
                 mismatch = (
                     f"run-ahead invariant broken at step {step}: node '{inv.node_id}' was "
                     f"launched early with inputs {sorted(ran.inputs)} (attempt "
-                    f"{ran.attempt}) but the step scheduled it with inputs "
+                    f"{ran_attempt}) but the step scheduled it with inputs "
                     f"{sorted(inv.inputs)} (attempt {inv.attempt}). Its outcome at this "
                     "key cannot be trusted — the run stops instead of replaying it."
                 )
@@ -3176,10 +3888,10 @@ class Scheduler:
                     f"node '{key[1]}' was launched early for step {key[0]} but the barrier "
                     f"after step {step} does not schedule it there"
                 )
-            elif ran.inputs != inv.inputs or ran.attempt != inv.attempt:
+            elif ran.inputs != inv.inputs or _launched_attempt(ahead) != inv.attempt:
                 problems.append(
                     f"node '{key[1]}' was launched early with inputs {sorted(ran.inputs)} "
-                    f"(attempt {ran.attempt}) but the barrier schedules it with inputs "
+                    f"(attempt {_launched_attempt(ahead)}) but the barrier schedules it with inputs "
                     f"{sorted(inv.inputs)} (attempt {inv.attempt})"
                 )
         for key, inv in scheduled.items():
@@ -3200,19 +3912,46 @@ class Scheduler:
         """Cancel every run-ahead launch no step adopted; wait only for the
         cancellations to land. A launch that already finished recorded its
         outcome (its step replays it); one cut off runs again at its step."""
-        pending = [task for task, _ in self._run_ahead.values() if not task.done()]
+        live = [(task, result) for task, result in self._run_ahead.values() if not task.done()]
+        pending = [task for task, _ in live]
         self._run_ahead = {}
         self._run_ahead_unexpanded = {}
         if not pending:
             return
+        # A person's Stop or Pause (G1): a PAID launch whose call already started lands — it
+        # finishes and records its outcome (a resume replays it), never cut off mid-call. Every
+        # other launch is canceled as before; one not yet started is held by the latch anyway.
+        current = asyncio.current_task()
+        person_stop = (self._pause_latched or self._cancel_latched) and not (
+            current is not None and current.cancelling()
+        )
+        landing = {
+            task for task, result in live
+            if person_stop and result.started and self._is_paid(result.invocation.node_id)
+        }
+        # A launch whose executor already returned lands on ANY stop (P8-RUNS): only its outcome
+        # write is left, and canceling it would make a resume pay for the same call again.
+        landing |= {task for task, result in live if result.finishing}
         logger.info(
-            "[wf:%s] canceling %d run-ahead invocation(s) — the run stopped before their step",
+            "[wf:%s] canceling %d run-ahead invocation(s) — the run stopped before their step"
+            "%s",
             run_id[:8],
-            len(pending),
+            len(pending) - len(landing),
+            f"; letting {len(landing)} started paid call(s) land" if landing else "",
         )
         for task in pending:
-            task.cancel()
+            if task not in landing:
+                task.cancel()
         await asyncio.gather(*pending, return_exceptions=True)
+
+    def _is_paid(self, node_id: str) -> bool:
+        node = self.graph.nodes.get(node_id)
+        if node is None:
+            return False
+        try:
+            return bool(is_cost_bearing(self.registry.get(node.spec_type).spec))
+        except Exception:  # noqa: BLE001 — an unknown step is not treated as paid
+            return False
 
     def _snapshot_routing_state(
         self,
@@ -3233,6 +3972,16 @@ class Scheduler:
         self._firing_seq = firing_seq
         self._dispatch_expected = dispatch_expected
 
+    def _pace_for(self, inv: Invocation) -> PacedDispatch | None:
+        """The paced dispatch an item belongs to (G3), built from the first of its items seen."""
+        if not inv.pace or not inv.dispatch_id:
+            return None
+        key = (inv.dispatch_id, inv.node_id)
+        paced = self._paced.get(key)
+        if paced is None:
+            paced = self._paced[key] = PacedDispatch(inv.node_id, inv.pace)
+        return paced
+
     async def _run_invocation(
         self,
         *,
@@ -3243,6 +3992,44 @@ class Scheduler:
         snapshot: dict[str, Any],
         invocation_count: int,
     ) -> None:
+        """Run ONE invocation; an item of a paced For each first waits for its wave (G3)."""
+        inv = result.invocation
+        paced = self._pace_for(inv)
+        if paced is None:
+            await self._run_unpaced_invocation(
+                run_id=run_id, thread_id=thread_id, step=step, result=result,
+                snapshot=snapshot, invocation_count=invocation_count,
+            )
+            return
+        try:
+            verdict = await paced.admit(inv.item_index, self._held_by_stop)
+            if verdict == PACE_HELD:
+                result.held = True
+                return
+            if verdict != PACE_ADMIT:
+                inv.skip_reason = paced.reason
+            await self._run_unpaced_invocation(
+                run_id=run_id, thread_id=thread_id, step=step, result=result,
+                snapshot=snapshot, invocation_count=invocation_count, paced=paced,
+            )
+        except ExecutionError as e:
+            if result.error is None:
+                result.error = e
+        finally:
+            status, value = settled_status(result)
+            paced.settle(inv.item_index, status, value)
+
+    async def _run_unpaced_invocation(
+        self,
+        *,
+        run_id: str,
+        thread_id: str,
+        step: int,
+        result: _StepResult,
+        snapshot: dict[str, Any],
+        invocation_count: int,
+        paced: PacedDispatch | None = None,
+    ) -> None:
         """Run ONE invocation into ``result`` (a super-step member, or a
         run-ahead launch keyed to the step it belongs to).
 
@@ -3252,7 +4039,7 @@ class Scheduler:
         inv = result.invocation
         invocation_app_ctx = self.app.fork_for_workflow_step(
             _workflow_invocation_conversation_id(
-                run_id=run_id,
+                run_id=run_id + self._invocation_namespace,
                 step=step,
                 invocation=inv,
             )
@@ -3330,6 +4117,11 @@ class Scheduler:
             # THE INVOCATION SPEND TALLY (matrx_graph.spend_gate): every paid request row this
             # step writes is noted here, so its cost settles however the step ends.
             _tally, _tally_token = open_invocation_spend()
+            # WHAT THIS STEP SAVED (matrx_graph.saved_records, G4): every save inside the step —
+            # a called workflow's included — notes its rows here; a fanned item's settle event
+            # carries them.
+            _saved, _saved_token = open_saved_records()
+            settled = False
             try:
                 await self._execute_invocation(
                     run_id=run_id,
@@ -3341,11 +4133,33 @@ class Scheduler:
                     step_app_ctx=invocation_app_ctx,
                     invocation_count=invocation_count,
                 )
+                settled = True
             except GraphInterrupt as gi:
                 result.interrupt = gi
+            except ChildRunPaused as paused:
+                # The child this step waits on is PAUSED: the caller pauses too, at this step. Held, the
+                # step never settles (no outcome, no failure); the held-back park below saves the whole
+                # step frontier paused, and Resume runs this step again — the host reattaches the paused
+                # child and continues it. Latching the pause also holds back siblings not yet started.
+                logger.info("[wf:%s step=%d node=%s] child run %s is paused — this run pauses with it",
+                            run_id[:8], step, inv.node_id, paused.child_run_id[:8])
+                result.held = True
+                self._pause_latched = True
+            except ChildRunStopped as stopped:
+                # The child this step waits on was STOPPED (ended cancelled): the caller stops too, at this
+                # step. Held like a paused child (no outcome, no failure); latching the cancel means nothing
+                # new starts, every sibling already working finishes, and the held-back stop below ends the
+                # run cancelled with the frontier saved (H12b: it parked errored, "child run ended cancelled").
+                logger.info("[wf:%s step=%d node=%s] child run %s was stopped — this run stops with it",
+                            run_id[:8], step, inv.node_id, stopped.child_run_id[:8])
+                result.held = True
+                self._cancel_latched = True
             except Exception as e:
-                result.error = e
+                if not await self._hole_for_escaped_fault(run_id, step, result, e, invocation_count):
+                    result.error = e
+                settled = True
             finally:
+                close_saved_records(_saved, _saved_token)
                 close_invocation_spend(_tally_token)
                 # Shielded: a cancelled step still settles what it already paid for.
                 await asyncio.shield(self._settle_invocation_spend(run_id, step, inv, _tally))
@@ -3354,6 +4168,10 @@ class Scheduler:
                     _scope.target["attempt"] = inv.attempt
                     raw_capture.deliver(_scope)
                 _reset_app_context(_ctx_token)
+            if settled and inv.dispatch_id:
+                await self._emit_item_settled(run_id, step, result, _saved)
+            elif inv.dispatch_id and result.replayed:
+                self._tally_replayed(result)
 
         # Per-node concurrency cap (ENGINE_SPEC §4.6): at most
         # NodeDef.data.concurrency live invocations of THIS node inside
@@ -3371,21 +4189,252 @@ class Scheduler:
             result.error.__cause__ = e
             return
 
-        async def _invoke_bounded(node_sem: _NodeGate | None = node_sem) -> None:
+        async def _invoke_when_not_stopped(waited: bool) -> None:
+            # STOP MID-WAVE (G1): an invocation that queued for its turn asks whether a Stop or
+            # Pause landed meanwhile; if so it never starts (nothing new dispatches) and runs when
+            # the run resumes. One already working is never interrupted — it finishes, saves and
+            # lands its paid call.
+            if await self._held_by_stop(waited):
+                result.held = True
+                return
+            if paced is not None:
+                # G3: read ``until`` at the item's turn, over every result that landed meanwhile.
+                if inv.skip_reason is None and paced.until_met():
+                    inv.skip_reason = paced.reason
+                if inv.skip_reason is None:
+                    paced.start(inv.item_index)
+            result.started = True
+            await _invoke()
+            if paced is not None:
+                # Settled while the item still holds its turn, so the next item reads it.
+                status, value = settled_status(result)
+                paced.settle(inv.item_index, status, value)
+
+        async def _invoke_bounded(node_sem: _NodeGate | None = node_sem, waited: bool = False) -> None:
             if node_sem is not None:
+                waited = waited or node_sem.would_wait()
                 async with node_sem:
-                    await _invoke()
+                    await _invoke_when_not_stopped(waited)
             else:
-                await _invoke()
+                await _invoke_when_not_stopped(waited)
 
         if self._step_sem is not None:
             # Bounded step parallelism (BS-6): the semaphore wraps the
             # WHOLE invocation (including retries/timeouts) so at most
             # step_concurrency nodes are live at once.
+            waited_step = self._step_sem.locked()
             async with self._step_sem:
-                await _invoke_bounded()
+                await _invoke_bounded(waited=waited_step)
         else:
             await _invoke_bounded()
+
+    async def _emit_item_settled(
+        self, run_id: str, step: int, result: _StepResult, saved: dict[str, list[str]]
+    ) -> None:
+        """``item_settled`` for one fanned item that finished in THIS leg (G4). An item still asking
+        a question has not settled; a replayed one had its event in the leg that ran it. Never
+        raises: progress is best-effort, never load-bearing."""
+        if result.interrupt is not None or result.replayed or result.held:
+            return
+        if result.error is not None or result.failure is not None:
+            outcome = "failed"
+        elif result.user_skipped:
+            outcome = "skipped"
+        elif result.reused:
+            outcome = "reused"
+        elif result.output is not None:
+            outcome = "succeeded"
+        else:
+            return
+        inv = result.invocation
+        try:
+            message: str | None = None
+            if result.failure is not None:
+                message = str(getattr(result.failure, "message", "") or "") or None
+            elif result.error is not None:
+                message = str(result.error) or type(result.error).__name__
+            tally = self._item_tally(inv)
+            tally.settle(inv.item_index, outcome)
+            counts = tally.scope()
+            said: list[SaidLine] | None = None
+            if outcome in ("succeeded", "reused", "failed"):
+                said = await self._says(
+                    run_id, step, inv, "item_failed" if outcome == "failed" else "each_item",
+                    {
+                        "inputs": inv.inputs,
+                        "item": inv.inputs,
+                        "result": result.settled_dump if result.settled_dump is not None else result.output,
+                        "error": message,
+                        **counts,
+                    },
+                )
+            await self._emit(
+                ItemSettledEvent(
+                    run_id=run_id,
+                    step=step,
+                    node_id=inv.node_id,
+                    dispatch_id=inv.dispatch_id,
+                    item_index=inv.item_index,
+                    attempt=inv.attempt,
+                    outcome=outcome,
+                    saved={table: list(ids) for table, ids in saved.items()},
+                    error_message=message,
+                    done=counts["done"],
+                    failed=counts["failed"],
+                    total=counts["total"],
+                    says=said,
+                )
+            )
+            await self._raise_says_flags()
+        except Exception:  # noqa: BLE001 — a lost progress event never touches the run
+            logger.warning(
+                "[wf:%s step=%d node=%s item=%d] item_settled event not sent",
+                run_id[:8], step, inv.node_id, inv.item_index, exc_info=True,
+            )
+
+    async def _open_item_tallies(self, run_id: str, step: int, pending: list[Invocation]) -> None:
+        """Open the item count of every dispatch pass this step runs items of (``{done}`` ``{failed}``
+        ``{total}``, matrx_graph/says.py). A pass is the step its items run at: the same dispatch id
+        on a later step (a For each in a cycle — an ``each`` edge's id has no lap in it) is a NEW
+        pass and counts from zero. A resumed leg rebuilds each new count from THAT pass's recorded
+        outcomes BEFORE any item runs, so a live item never says a count missing the items an
+        earlier leg settled (a replayed item sends no ``item_settled``) nor one carrying an earlier
+        lap's. Never raises."""
+        fresh: list[tuple[str, str, int]] = []
+        for inv in pending:
+            if not inv.dispatch_id:
+                continue
+            key = (inv.dispatch_id, inv.node_id)
+            at = _scheduled_step(inv, step)
+            held = self._item_tallies.get(key)
+            if held is None or held.step != at:
+                self._item_tallies[key] = ItemTally(self._items_total(inv), step=at)
+                fresh.append((inv.dispatch_id, inv.node_id, at))
+        if not fresh or self._history_known_empty:
+            return
+        reader = getattr(self.checkpointer, "item_outcomes", None)
+        if reader is None:
+            return
+        for dispatch_id, node_id, at in fresh:
+            try:
+                recorded = await reader(run_id, node_id, dispatch_id, step=at)
+            except Exception:  # noqa: BLE001 — a count is progress, never load-bearing
+                logger.warning(
+                    "[wf:%s node=%s] earlier items' outcomes not read — this leg counts only its own",
+                    run_id[:8], node_id, exc_info=True,
+                )
+                continue
+            tally = self._item_tallies[(dispatch_id, node_id)]
+            for item_index, outcome in recorded.items():
+                tally.settle(item_index, outcome)
+
+    def _items_total(self, inv: Invocation) -> int | None:
+        """The For each's list length (``{total}``). A paced dispatch knows it too: its pace carries the
+        list's length even when an ``until`` condition may stop it early (the line says how many items the
+        list holds, so "N remaining" counts down from a known number)."""
+        expected = self._dispatch_expected.get((inv.dispatch_id, inv.node_id))
+        if expected:
+            return int(expected)
+        if inv.pace and inv.pace.get("total"):
+            return int(inv.pace["total"])
+        return None
+
+    def _item_tally(self, inv: Invocation) -> ItemTally:
+        key = (inv.dispatch_id, inv.node_id)
+        tally = self._item_tallies.get(key)
+        if tally is None:
+            tally = self._item_tallies[key] = ItemTally(
+                self._items_total(inv), step=inv.step if inv.step is not None else self._loop_step
+            )
+        return tally
+
+    def _tally_replayed(self, result: _StepResult) -> None:
+        """A replayed item counts as what it was (its event was sent by the leg that ran it)."""
+        if result.interrupt is not None or result.held:
+            return
+        if result.error is not None or result.failure is not None:
+            outcome = "failed"
+        elif result.user_skipped:
+            outcome = "skipped"
+        elif result.reused:
+            outcome = "reused"
+        elif result.output is not None:
+            outcome = "succeeded"
+        else:
+            return
+        self._item_tally(result.invocation).settle(result.invocation.item_index, outcome)
+
+    async def _says(
+        self,
+        run_id: str,
+        step: int,
+        invocation: Invocation,
+        on: SaysOn,
+        scope: dict[str, Any],
+        attempt: int | None = None,
+    ) -> list[SaidLine] | None:
+        """The lines ``invocation``'s step says ``on`` this moment (``data.says``), rendered over
+        ``scope``; None when it says nothing. A placeholder with no value renders empty and queues
+        ONE ``engine.says_failed`` review flag per (step, placeholder) per run, written by
+        ``_raise_says_flags`` AFTER the caller sent its event: no await sits between a count and the
+        line that carries it, so "2 of 10" can never overtake "1 of 10". Never raises."""
+        try:
+            node = self.graph.nodes.get(invocation.node_id)
+            policy = getattr(node, "says", None)
+            if policy is None:
+                return None
+            if invocation.dispatch_id and "done" not in scope:
+                scope = {**scope, **self._item_tally(invocation).scope()}
+            said, missing = render_lines(policy, on, scope)
+            for name in missing:
+                key = (invocation.node_id, name)
+                if key in self._says_failed:
+                    continue
+                self._says_failed.add(key)
+                self._says_flags_due.append(
+                    (run_id, invocation, step, attempt if attempt is not None else invocation.attempt, on, name)
+                )
+            return said
+        except Exception:  # noqa: BLE001 — a progress line never touches the run
+            logger.warning(
+                "[wf:%s step=%d node=%s] says lines not rendered", run_id[:8], step, invocation.node_id,
+                exc_info=True,
+            )
+            return None
+
+    async def _raise_says_flags(self) -> None:
+        """Write the ``engine.says_failed`` flags ``_says`` queued (after their lines were sent). Never raises."""
+        while self._says_flags_due:
+            run_id, invocation, step, attempt, on, name = self._says_flags_due.pop(0)
+            try:
+                await self._raise_review(
+                    run_id,
+                    invocation,
+                    step=step,
+                    attempt=attempt,
+                    label="engine.says_failed",
+                    message=f"A progress line of this step had no value for {{{name}}} and showed it empty.",
+                    category="other",
+                    payload={"placeholder": name, "on": on},
+                )
+            except Exception:  # noqa: BLE001 — a progress flag never touches the run
+                logger.warning(
+                    "[wf:%s step=%d node=%s] says flag not written", run_id[:8], step, invocation.node_id,
+                    exc_info=True,
+                )
+
+    async def _held_by_stop(self, waited: bool) -> bool:
+        """True when this invocation must not start because the run is being stopped or paused.
+
+        A latched answer is free. An invocation that waited for its turn (a For each item queued
+        behind the fan-out bound, a step queued behind the step bound) polls the run's controls
+        first — throttled like run-ahead's poll — because the Stop may have landed while it
+        waited. One that starts with the step was covered by the step boundary's own poll."""
+        if self._pause_latched or self._cancel_latched:
+            return True
+        if not waited:
+            return False
+        return await self._stop_requested()
 
     def _note_cost_emitted(self, invocation: Invocation, event: NodeCostEvent) -> None:
         key = (invocation.node_id, invocation.dispatch_id, invocation.item_index, invocation.firing)
@@ -3507,6 +4556,21 @@ class Scheduler:
         gate = self._node_sems.get(inv.node_id)
         if gate is not None:
             return gate
+        # IN ORDER (2026-11-01): building the gate reads the fan-out knob. Without this lock every
+        # item of a For each read it at once and queued on the gate in the order those reads came
+        # back — live run 8f6beac9 started items 2, 7, 0, 1. Under the lock the first item builds
+        # it and the rest (FIFO) find it, so items take their turns in index order — what a For
+        # each that stops on its results so far (G3 ``until`` / waves) builds on.
+        lock = self._node_gate_locks.setdefault(inv.node_id, asyncio.Lock())
+        async with lock:
+            gate = self._node_sems.get(inv.node_id)
+            if gate is not None:
+                return gate
+            return await self._build_node_gate(inv, node, declared, fanned)
+
+    async def _build_node_gate(
+        self, inv: Invocation, node: CompiledNode, declared: int | None, fanned: bool
+    ) -> _NodeGate:
         if node.concurrency_input_ref:
             declared = self._concurrency_from_inputs(inv.node_id, node.concurrency_input_ref)
         if not fanned:
@@ -3678,13 +4742,14 @@ class Scheduler:
         node = self.graph.nodes[invocation.node_id]
         executor = self.registry.get(node.spec_type)
         spec = executor.spec
+        durable_action = getattr(executor, "durable_action_spec", None)
 
         # Pre-emptive skip: caller requested this node be short-circuited for
         # the run (e.g. "skip the slow LLM step while I'm iterating on the
         # rest of the graph"). Synthesize an empty output, record a
         # user_skip outcome, emit NodeSkippedEvent, return. Downstream edges
         # see an empty payload.
-        if invocation.node_id in self._skip_node_ids:
+        if invocation.node_id in self._skip_node_ids or invocation.skip_reason:
             try:
                 skipped_output = spec.output_schema.model_validate({})
             except Exception:  # noqa: BLE001
@@ -3739,7 +4804,7 @@ class Scheduler:
                         context=f"[wf:{run_id[:8]} node={invocation.node_id}] node_skipped",
                     ),
                     source="user_skip",
-                    reason=self._not_ready.get(invocation.node_id),
+                    reason=invocation.skip_reason or self._not_ready.get(invocation.node_id),
                 )
             )
             return
@@ -3937,6 +5002,7 @@ class Scheduler:
             # fresh on every resume (timestamps, rate-limited calls mid-
             # backoff, notification side-effects, etc).
             prior = None
+            durable_replay = False
             # A fresh leg the host vouched for (``fresh_history``) has no
             # recorded outcome to find — skip the read before the node starts.
             if not spec.re_execute_on_resume and not self._history_known_empty:
@@ -3952,7 +5018,8 @@ class Scheduler:
                     dispatch_id=invocation.dispatch_id,
                     item_index=invocation.item_index,
                 )
-                if prior is not None and self._replay_is_stale(prior, node, spec, invocation):
+                durable_replay = durable_action is not None and prior is not None and prior.error is None
+                if prior is not None and not durable_replay and self._replay_is_stale(prior, node, spec, invocation):
                     # Same key, different arguments: an upstream re-ran
                     # ("re-run from this step") and this node must see its
                     # NEW output — replaying the old one would be stale.
@@ -3974,7 +5041,7 @@ class Scheduler:
 
                 note_replayed(run_id, invocation.node_id)
 
-            if prior is not None and prior.error is None:
+            if prior is not None and prior.error is None and not durable_replay:
                 # Successful replay — short-circuit without invoking executor.
                 # Round-1 F3: recorded outcomes are SETTLED dumps — station 1
                 # stamped ``__kind`` into them, and a closed legacy model
@@ -4047,6 +5114,7 @@ class Scheduler:
                 # propagate just because the run was parked and resumed.
                 result.user_skipped = prior.source == "user_skip"
                 result.reused = prior.source == "reused"
+                result.replayed = True
                 # ENGINE_SPEC §5: restore the recorded ctx.emit payloads so
                 # handle-keyed edge routing is byte-identical on replay. The
                 # old "prior outcomes don't carry emissions" hole silently
@@ -4128,7 +5196,7 @@ class Scheduler:
                         error=dict(prior.error),
                     )
                 )
-                if self._failure_is_routable(node, invocation):
+                if self._failure_is_routable(node, invocation, dict(prior.error)):
                     result.failure = NodeError(
                         code=str(prior.error.get("code", err_type)),
                         message=client_error_text(err_message),
@@ -4170,7 +5238,7 @@ class Scheduler:
                 attempt=attempt,
                 channels=view,
                 checkpointer=self.checkpointer,
-                dispatch_id=invocation.dispatch_id,
+                dispatch_id=self._invocation_namespace + invocation.dispatch_id,
                 item_index=invocation.item_index,
                 firing=invocation.firing,
                 registry=self.registry,
@@ -4181,6 +5249,11 @@ class Scheduler:
                 # computed against — one declaration, not two.
                 output_kind=node.output_kind,
                 workflow_id=self.definition_id or None,
+                execution_job_id=self.execution_job_id,
+                execution_job_kind=self.execution_job_kind,
+                definition_version_id=self.definition_version_id,
+                definition_hash=self.graph.definition_hash,
+                output_reads=self.graph.output_reads(invocation.node_id),
                 # A relayed question's answer, handed once to the step that relayed it.
                 resume_answer=self._forwarded_answers.pop(
                     (invocation.node_id, invocation.dispatch_id, invocation.item_index), None
@@ -4209,7 +5282,16 @@ class Scheduler:
             held_refs = {k: v for k, v in merged_inputs.items() if held_hash(v)}
             if held_refs:
 
-                merged_inputs = {**merged_inputs, **(await resolve_step_inputs(run_id, held_refs))}
+                merged_inputs = {
+                    **merged_inputs,
+                    **(
+                        await resolve_step_inputs(
+                            run_id,
+                            held_refs,
+                            read_scope=read_scope_factory_for(self.checkpointer),
+                        )
+                    ),
+                }
             # THE INGESTION GATE (plan §4, workflow design station 3 — the
             # audit's hard problem 2). Upstream payloads are self-described
             # (__kind in the data, by declaration or settlement propagation).
@@ -4222,11 +5304,35 @@ class Scheduler:
             # (validation stripped, coercion did not) is closed by
             # construction and the marker can never fatal a run at the next
             # node's door.
-            from matrx_graph.content_ir.markers import reduce_for_ingestion
+            # FIX-L6 (2026-11-03): a whole record or list handed to a text-only input is sent as
+            # JSON text (what {"$format": "{item}"} sends) instead of failing the run, and the step
+            # says so — never silent. Save-time twin: validation._text_input_fed_object_issues.
+            # OFF THE LOOP (event_loop_stall 347cbb62, up to 4 s): the gate walks and rebuilds
+            # every argument — the rebuild IS the copy that keeps a step from mutating stored
+            # channel values, so it always runs; a large value runs it in a worker thread.
+            from matrx_graph.checkpoint.values import run_pure_off_loop
+            from matrx_graph.text_inputs import RENDERED_NOTE
 
-            merged_inputs = reduce_for_ingestion(
-                merged_inputs, _input_schema_json(spec.input_schema)
+            # What the step was handed before the gate's copy: an edge payload or a run input ({"$input": …})
+            # that parses unchanged is recorded as THAT object, never dumped again (_started_dump).
+            handed_inputs = {**invocation.inputs, **merged_inputs}
+            merged_inputs, rendered_as_text = await run_pure_off_loop(
+                _gate_step_inputs,
+                merged_inputs,
+                _input_schema_json(spec.input_schema),
+                values=(merged_inputs,),
             )
+            for text_field, text_shape in rendered_as_text:
+                await self._raise_review(
+                    run_id,
+                    invocation,
+                    step=step,
+                    attempt=attempt,
+                    label=f"engine.sent_whole_value_as_text.{text_field}",
+                    message=RENDERED_NOTE.format(shape=text_shape, field=text_field),
+                    category="fallback",
+                    payload={"field": text_field, "shape": text_shape},
+                )
             # 2026-09-11 (expert-book challenge W28): this parse used to sit
             # OUTSIDE the routable-failure try below, so a node fed a value
             # its input schema refuses (an empty date, a text where named
@@ -4256,12 +5362,35 @@ class Scheduler:
                 except Exception as e:  # noqa: BLE001 — re-raised inside the routable try
                     input_gate_error = e
                 merged_inputs = consume_setting_input(node.in_organization, merged_inputs, spec.input_schema)
+            # Parse + the node_started dump, off the loop for a large value (same stall class).
+            # A start input declared as text given a lossless scalar is written as its text BEFORE the
+            # step's inputs are parsed, so the step receives the text (validation offers, never blocks).
+            if spec.is_source and node.effective_output_schema is not None:
+                from matrx_graph.text_inputs import SCALAR_NOTE, text_scalars_as_text
+
+                merged_inputs, as_text = text_scalars_as_text(merged_inputs, node.effective_output_schema)
+                for text_field, text_shape, text_value in as_text:
+                    await self._raise_review(
+                        run_id,
+                        invocation,
+                        step=step,
+                        attempt=attempt,
+                        label=f"engine.sent_scalar_as_text.{text_field}",
+                        message=SCALAR_NOTE.format(shape=text_shape, text=text_value, field=text_field),
+                        category="fallback",
+                        payload={"field": text_field, "shape": text_shape, "text": text_value},
+                    )
             inputs_model: BaseModel | None
-            try:
-                inputs_model = spec.input_schema.model_validate(merged_inputs)
-            except Exception as e:  # noqa: BLE001 — re-raised inside the routable try
-                inputs_model = None
-                input_gate_error = input_gate_error or e
+            inputs_model, parse_error, started_inputs = await run_pure_off_loop(
+                _parse_step_inputs,
+                spec.input_schema,
+                merged_inputs,
+                f"[wf:{run_id[:8]} node={invocation.node_id}] node_started inputs",
+                handed_inputs,
+                values=(merged_inputs,),
+            )
+            if parse_error is not None:  # re-raised inside the routable try
+                input_gate_error = input_gate_error or _typed_input_error(invocation.node_id, parse_error)
             # Phase 5.3 — apply a one-shot config_override (set by the
             # "Retry without saving" recovery path) over the authored
             # config. Override values are merged on top of the compiled
@@ -4330,19 +5459,50 @@ class Scheduler:
             # inspector's Run panel looked empty for nodes whose arguments
             # came from their own config. ``model_dump`` mirrors exactly
             # what the node was called with (defaults applied, types coerced).
-            try:
-                started_inputs = (
-                    model_dump_json(
-                        inputs_model,
-                        context=f"[wf:{run_id[:8]} node={invocation.node_id}] node_started inputs",
-                    )
-                    if inputs_model is not None
-                    else dict(merged_inputs)
-                )
-            except Exception:  # noqa: BLE001 — never let serialization kill a run
-                started_inputs = dict(merged_inputs)
+            # (started_inputs is built by _parse_step_inputs above, off the loop when large.)
             if held_refs:
                 started_inputs = {**started_inputs, **held_refs}
+            if durable_replay and durable_action is not None:
+                from matrx_graph.actions.decorator import step_idempotency_key
+                from matrx_graph.actions.engines import _run_action
+                from matrx_graph.actions.spec import ActionFailed
+                from matrx_graph.content_ir.model import kind_of
+
+                if (
+                    input_gate_error is not None or inputs_model is None
+                    or (in_org_target is not None and in_org_target != ctx.app.organization_id)
+                ):
+                    raise NodeFailureError(
+                        invocation.node_id,
+                        NodeError(
+                            code="action_claim_unavailable",
+                            message="The saved Action invocation could not be verified.",
+                        ),
+                    )
+                try:
+                    output = await _run_action(
+                        durable_action, inputs_model, app=ctx.app, step_run_id=run_id,
+                        idempotency_key=step_idempotency_key(ctx), receipt_only=True,
+                    )
+                except ActionFailed as exc:
+                    raise NodeFailureError(
+                        invocation.node_id, NodeError(code=exc.code, message=exc.message, details=exc.details),
+                    ) from exc
+                dump = model_dump_json(output, context=f"[wf:{run_id[:8]} node={invocation.node_id}] Action receipt")
+                if prior is not None and prior.output_kind_ok is not False:
+                    stamp_kind_marker(dump, node.output_kind or kind_of(dump))
+                result.output = output
+                result.settled_dump = dump
+                result.replayed = True
+                await self._emit(
+                    NodeSkippedEvent(
+                        run_id=run_id, step=step, node_id=invocation.node_id, spec_type=spec.node_type,
+                        attempt=attempt, dispatch_id=invocation.dispatch_id, item_index=invocation.item_index,
+                        invocation_count=invocation_count, output=dump, source="reused",
+                    )
+                )
+                invocation.attempt = attempt
+                return
             if (
                 node.once is not None
                 and not once_slot.decided
@@ -4414,6 +5574,8 @@ class Scheduler:
                     exc=None,
                 )
 
+            if self._spend_check_fn is not None and may_spend(spec):
+                self._spent_since_check = True
             spend_refusal = await self._spend_check(
                 run_id=run_id, invocation=invocation, spec=spec, app_ctx=step_app_ctx
             )
@@ -4438,8 +5600,14 @@ class Scheduler:
                     # Announced at start so the UI shows the kind's loading
                     # silhouette while the node streams.
                     output_kind=node.output_kind,
+                    says=await self._says(
+                        run_id, step, invocation, "start",
+                        {"inputs": started_inputs, "item": started_inputs if invocation.dispatch_id else None},
+                        attempt,
+                    ),
                 )
             )
+            await self._raise_says_flags()
             step_mark = getattr(node, "review", None)
             if step_mark is not None:
                 # Author mark "review if this runs": one flag per attempt that STARTS
@@ -4543,7 +5711,12 @@ class Scheduler:
                     # carry one. A payload that DOES carry a marker is
                     # validated as-is — a wrong self-identification must
                     # still fail loudly.
-                    kind_inputs = _kind_contract_inputs(spec, merged_inputs)
+                    from matrx_graph.kinds import resolve_kind
+
+                    kind_entry, _kind_reason = await resolve_kind(node.input_kind)
+                    kind_inputs = _kind_contract_inputs(
+                        spec, merged_inputs, kind_entry.json_schema if kind_entry is not None else None
+                    )
                     if isinstance(kind_inputs, dict) and "__kind" not in kind_inputs:
                         kind_inputs = {"__kind": node.input_kind, **kind_inputs}
                     kind_check = await check_against_kind(kind_inputs, node.input_kind)
@@ -4582,7 +5755,9 @@ class Scheduler:
                 from matrx_graph.knobs import step_timeout_seconds
 
                 clock_seconds, clock_source = await step_timeout_seconds(
-                    spec.timeout_ms, node_clock=node.step_clock
+                    spec.timeout_ms, node_clock=node.step_clock, timeout_knob=spec.timeout_knob,
+                    # org-filter: doing-path the clock is the setting of the organization this step runs in
+                    organization_id=in_org_target or getattr(ctx.app, "organization_id", None),
                 )
                 # THE LATCH HOLDS TO THE LAST INSTANT (matrx_graph.spend_gate): this launch was
                 # admitted above, but every await since (started event, review flag, input
@@ -4591,26 +5766,48 @@ class Scheduler:
                 # await between it and the call. (CI run 40455895731: two items admitted before
                 # the refusal started their paid call after it.)
                 if self._spend_refusal is not None and is_cost_bearing(spec):
-                    await _end_as_spend_refusal(
-                        self._spend_refusal,
-                        int((datetime.now(UTC) - started).total_seconds() * 1000),
-                        attempt,
-                    )
-                    return
+                    raise _LatchedSpendRefusal(self._spend_refusal)
                 try:
+                    # ONLY the step's own deadline is a NodeTimeoutError. A TimeoutError
+                    # raised INSIDE the step (a 10 s database driver timeout, an HTTP
+                    # client's read timeout) is that call's failure and propagates as
+                    # itself, classified by its real type — never relabelled "stopped
+                    # after 600s" (2026-11-01: a 10 s count_items timeout in
+                    # platform.items.find read as the 600 s step clock).
+                    step_clock = asyncio.timeout(clock_seconds)
+                    # The proof behind interning each value once (checkpoint.values § ONE INTERNING PER
+                    # VALUE): with VERIFY_INTERNED_VALUES on (the test suites), a step that edits the
+                    # inputs it was delivered in place fails here, naming itself.
+                    delivered = delivered_fingerprint(invocation.inputs)
+                    result.finishing = False
                     try:
-                        output = await asyncio.wait_for(
-                            _execute_in_organization(
-                                executor, ctx, inputs_model, config_model, in_org_target
-                            ),
-                            timeout=clock_seconds,
-                        )
+                        ctx._outcome_waits_honored = True  # this scheduler awaits what the step holds
+                        try:
+                            async with step_clock:
+                                output = await _execute_in_organization(
+                                    executor, ctx, inputs_model, config_model, in_org_target
+                                )
+                        except BaseException:
+                            # The step did not answer: what it handed over lands now, before its failure,
+                            # retry or park is recorded (a retry never races its own first attempt's write).
+                            await _settle_dropped_waits(ctx.drain_outcome_waits(), invocation.node_id)
+                            raise
+                        else:
+                            # A write the step handed over (``ctx.hold_outcome_until``) is the run's to await
+                            # before its next outcome / checkpoint lands.
+                            self._outcome_waits.extend((invocation.node_id, w) for w in ctx.drain_outcome_waits())
+                        # The paid work is done: from here a stopping run lets this member land.
+                        result.finishing = True
+                        check_delivered_unchanged(delivered, invocation.inputs, invocation.node_id)
                     except TimeoutError:
+                        if not step_clock.expired():
+                            raise
                         raise NodeTimeoutError(
                             invocation.node_id,
                             int(clock_seconds * 1000),
                             attempt,
                             source=clock_source,
+                            knob=spec.timeout_knob if clock_source == "engine" else None,
                         ) from None
                 except Exception:
                     # Raised, timed out, or interrupted: whatever the node
@@ -4626,6 +5823,27 @@ class Scheduler:
                 record_exception(node_span, gi)
                 invocation.attempt = attempt
                 raise
+            except ChildRunPaused:
+                # A run this step waits on was paused by a person: never a failure, never retried —
+                # the caller parks paused at this step (``_run_unpaced_invocation``).
+                set_attributes(node_span, **{"workflow.node.outcome": "paused"})
+                invocation.attempt = attempt
+                raise
+            except ChildRunStopped:
+                # A run this step waits on was stopped: never a failure, never retried — the caller
+                # stops at this step (``_run_unpaced_invocation``).
+                set_attributes(node_span, **{"workflow.node.outcome": "stopped"})
+                invocation.attempt = attempt
+                raise
+            except _LatchedSpendRefusal as latched:
+                # Ended here, beside ``except Exception`` and never under it: parking raises, and
+                # that handler would take the raise for a new failure and record it over the refusal.
+                await _end_as_spend_refusal(
+                    latched.refusal,
+                    int((datetime.now(UTC) - started).total_seconds() * 1000),
+                    attempt,
+                )
+                return
             except Exception as e:
                 elapsed_ms = int((datetime.now(UTC) - started).total_seconds() * 1000)
                 # Node Result System: a raised exception is synthesized into
@@ -4803,9 +6021,17 @@ class Scheduler:
                     "workflow.node.channels_written": len(result.channel_writes),
                 },
             )
-            output_dump = model_dump_json(
+            # A large output is dumped in a thread (event_loop_stall 7925f60e9d325ec2, 099e931506207bd1).
+            from functools import partial
+
+            from matrx_graph.checkpoint.values import run_pure_off_loop
+
+            output_dump = await run_pure_off_loop(
+                partial(
+                    model_dump_json,
+                    context=f"[wf:{run_id[:8]} node={invocation.node_id}] node_completed",
+                ),
                 output,
-                context=f"[wf:{run_id[:8]} node={invocation.node_id}] node_completed",
             )
             # Shape-verification truth (Content-IR Studio spec §5) — computed
             # once, carried on BOTH the node_completed event and the persisted
@@ -4852,6 +6078,7 @@ class Scheduler:
                 from matrx_graph.kinds import (
                     check_against_kind,
                     degraded_escalation,
+                    describe_kind_mismatch,
                     kind_enforcement_enabled,
                 )
 
@@ -4884,6 +6111,50 @@ class Scheduler:
                 ):
                     check_value = {**check_value, "__kind": effective_output_kind}
                 kind_check = await check_against_kind(check_value, effective_output_kind)
+                if (
+                    output_kind_declared
+                    and kind_check.checked
+                    and kind_check.errors
+                    and not node.output_channel
+                ):
+                    # A DECLARED kind that arrives ONE level down under a single
+                    # wrapper key ({"result": <the kind's fields>} — a display
+                    # step passing through what its edge mapped, run 62b1427a)
+                    # IS the kind: settle the inner value. Only when the inner
+                    # value passes on its own and the node's output schema
+                    # accepts it; anything else keeps the failed verdict.
+                    from matrx_graph.kinds import single_wrapped_value
+
+                    wrapped = single_wrapped_value(check_value)
+                    if wrapped is not None:
+                        wrapper_key, inner = wrapped
+                        inner_check = await check_against_kind(
+                            inner if "__kind" in inner else {**inner, "__kind": effective_output_kind},
+                            effective_output_kind,
+                        )
+                        unwrapped_output: Any = None
+                        if inner_check.checked and not inner_check.errors:
+                            try:
+                                unwrapped_output = spec.output_schema.model_validate(inner)
+                            except Exception:  # noqa: BLE001 — not this schema's shape: keep the verdict
+                                unwrapped_output = None
+                        if unwrapped_output is not None:
+                            logger.info(
+                                "[wf:%s step=%d node=%s] output carried its kind '%s' "
+                                "under '%s' — settling the inner value",
+                                run_id[:8],
+                                step,
+                                invocation.node_id,
+                                effective_output_kind,
+                                wrapper_key,
+                            )
+                            output = unwrapped_output
+                            result.output = unwrapped_output
+                            output_dump = model_dump_json(
+                                unwrapped_output,
+                                context=(f"[wf:{run_id[:8]} node={invocation.node_id}] node_completed"),
+                            )
+                            kind_check = inner_check
                 if (
                     not output_kind_declared
                     and kind_check.degraded_reason is not None
@@ -4994,6 +6265,8 @@ class Scheduler:
                             f"{kind_word} kind '{effective_output_kind}' and "
                             f"workflow_io kind enforcement is ON:\n  - "
                             + "\n  - ".join(kind_check.errors)
+                            + "\n"
+                            + describe_kind_mismatch(invocation.node_id, output_dump)
                         )
                     elif (
                         kind_check.degraded_reason is not None
@@ -5095,11 +6368,11 @@ class Scheduler:
                 # slug is present by construction.
                 try:
                     from matrx_graph.content_ir.envelope import (
-                        ir_metadata_for_verified_output,
+                        ir_metadata_for_verified_output_async,
                     )
 
-                    output_ir_metadata = ir_metadata_for_verified_output(
-                        output_dump, effective_output_kind
+                    output_ir_metadata = await ir_metadata_for_verified_output_async(
+                        output_dump, effective_output_kind, frame_interns_output=True
                     )
                 except Exception:  # noqa: BLE001 — never load-bearing (law 3)
                     logger.error(
@@ -5218,25 +6491,51 @@ class Scheduler:
                     output_kind_degraded=output_kind_degraded,
                     metadata=output_ir_metadata,
                     wrapper=outcome_wrapper,
+                    says=await self._says(
+                        run_id, step, invocation, "done",
+                        {
+                            "inputs": started_inputs,
+                            "item": started_inputs if invocation.dispatch_id else None,
+                            "result": output_dump,
+                        },
+                        attempt,
+                    ),
             )
             if (
                 DEFER_PURE_STEP_OUTCOMES
-                and step not in self._no_defer_steps
-                # START WHEN READY: a launch for a LATER step writes at once — held for the
-                # current step's checkpoint it would sit behind the slow member it overtook.
-                and not (self._eager_ahead and self._loop_step is not None and step > self._loop_step)
                 and getattr(self.checkpointer, "save_checkpoint_with_outcomes", None) is not None
-                and spec.determinism == ActionTier.PURE
-                and spec.category not in (NodeCategory.AGENT, NodeCategory.LLM)
+                and (
+                    # A step whose re-run answers from what it saved (a reattaching Run Workflow) needs no
+                    # outcome write of its own, whatever its siblings or when it launched: a crash before the
+                    # checkpoint that carries it re-runs it, and it reattaches (P8-RUNS lever 1).
+                    rerun_returns_saved_result(executor)
+                    or (
+                        step not in self._no_defer_steps
+                        # START WHEN READY: a launch for a LATER step writes at once — held for the
+                        # current step's checkpoint it would sit behind the slow member it overtook.
+                        and not (self._eager_ahead and self._loop_step is not None and step > self._loop_step)
+                        and spec.determinism == ActionTier.PURE
+                        and spec.category not in (NodeCategory.AGENT, NodeCategory.LLM)
+                    )
+                )
                 and once_slot.claim is None
                 and turn_slot.claim is None
                 and not invocation.work_item_id
             ):
-                # Lands with the step's checkpoint (``_save_checkpoint``), event after it.
-                self._deferred_outcomes.append((completed_outcome, completed_event))
+                # The ROW lands with the step's checkpoint (``_save_checkpoint``); the announcement
+                # goes now, so the live feed reads in the order things happened (a later step's start
+                # or failure never precedes this completion — benchmark ladder, 2026-11-12). A pure
+                # step lost to a crash before its checkpoint simply runs again on resume.
+                await self._emit(completed_event)
+                await self._raise_says_flags()
+                self._deferred_outcomes.append((completed_outcome, None))
+                if rerun_returns_saved_result(executor):
+                    self._reattaching_outcomes.add(id(completed_outcome))
             else:
+                await self._settle_outcome_waits()
                 await self.checkpointer.record_outcome(completed_outcome)
                 await self._emit(completed_event)
+                await self._raise_says_flags()
             # Cost settlement (the live spend ticker). An AGENT/LLM node whose
             # output carries the canonical AI usage block (the
             # AiExecutionResult ``usage`` shape) settles its billed cost as a
@@ -5290,7 +6589,9 @@ class Scheduler:
             invocation.attempt = attempt
             return
 
-    def _failure_is_routable(self, node: Any, invocation: Invocation) -> bool:
+    def _failure_is_routable(
+        self, node: Any, invocation: Invocation, error: Mapping[str, Any] | None = None
+    ) -> bool:
         """Whether an exhausted node failure is handled by topology instead of
         parking the run (Node Result System).
 
@@ -5302,7 +6603,12 @@ class Scheduler:
         dispatch_id, so ERROR edges MUST work for them too: a loop body's
         ERROR back-edge is the retry-topology case). No hole, no ERROR edge
         → park, today's behavior.
+
+        A refusal the host HOLDS (``spend_gate.is_held_refusal`` — a budget stop) is never routed: the
+        run parks with it pending so approving the hold resumes exactly that invocation (2026-11-01).
         """
+        if error is not None and is_held_refusal(error):
+            return False
         if invocation.dispatch_id and node.on_item_failure == "hole":
             return True
         # A fail-soft step (data.optional): the failure is recorded on the step, its normal
@@ -5310,6 +6616,74 @@ class Scheduler:
         if getattr(node, "optional", False):
             return True
         return any(self.graph.edges[eid].kind is EdgeKind.ERROR for eid in node.outgoing_edge_ids)
+
+    async def _hole_for_escaped_fault(
+        self, run_id: str, step: int, result: _StepResult, exc: Exception, invocation_count: int
+    ) -> bool:
+        """OUR OWN WRITE FAILING NEVER ENDS A FAN-OUT (2026-11-01, run 188426a6).
+
+        An exception that escapes a fanned item OUTSIDE its attempt's failure ladder — the engine's
+        own write around the step (the success outcome row, a run-once store) refused by a busy
+        database — used to become the step's parking error, so one item's lock timeout stopped a
+        5,000-item drain whose author said "a failed item is a hole". When the item IS a hole
+        (``on_item_failure='hole'``) and the fault is OUR transient database failure
+        (``OUR_GATE_CAUSES``: busy / could not save — nothing of it committed, running it again is
+        safe), it takes the same ladder a raised executor failure takes: failed outcome,
+        ``node_failed``, an ``engine.item_skipped`` flag, and a hole the gather receives. Its work
+        item settles failed, so the work set's own attempts re-run it. Any other escaped fault, or
+        a step that is not a hole, still parks the run. Returns whether the fault became a hole."""
+        inv = result.invocation
+        node = self.graph.nodes.get(inv.node_id)
+        if node is None or not inv.dispatch_id or node.on_item_failure != "hole":
+            return False
+        try:
+            failure = self._failure_for(exc, inv.node_id)
+            if failure.cause not in OUR_GATE_CAUSES:
+                return False
+            from matrx_graph.types.primitives import RetryPolicy
+
+            # Whatever the item had produced before its own write failed is not delivered.
+            result.output = None
+            result.settled_dump = None
+            result.channel_writes = []
+            result.sends = []
+            result.emissions = {}
+            result.reused = False
+            disposition = await self._fail_attempt(
+                run_id=run_id,
+                step=step,
+                invocation=inv,
+                node=node,
+                spec=self.registry.get(node.spec_type).spec,
+                policy=RetryPolicy(max_attempts=1),
+                attempt=inv.attempt,
+                elapsed_ms=0,
+                err_type=type(exc).__name__,
+                node_error=NodeError(
+                    code=type(exc).__name__,
+                    message=client_message_for_exception(exc, step_label=self._step_label(inv.node_id)),
+                    details={"technical_message": client_error_text(str(exc), limit=TECHNICAL_TEXT_LIMIT)},
+                ),
+                result=result,
+                node_span=None,
+                invocation_count=invocation_count,
+                exc=exc,
+            )
+        except Exception:  # noqa: BLE001 — the fault then parks the run exactly as before
+            logger.exception(
+                "[wf:%s step=%d node=%s#%d] escaped fault could not be recorded as a hole — parking",
+                run_id[:8], step, inv.node_id, inv.item_index,
+            )
+            result.failure = None
+            return False
+        if disposition != "handled" or result.failure is None:
+            return False
+        logger.warning(
+            "[wf:%s step=%d node=%s#%d] our own write failed (%s) after the item ran — recorded as a "
+            "hole, the run goes on",
+            run_id[:8], step, inv.node_id, inv.item_index, type(exc).__name__,
+        )
+        return True
 
     def _escalate_all_failed_fan_outs(self, results: list[_StepResult]) -> None:
         """Turn an optional fan-out whose EVERY item failed into a parking error (2026-10-22).
@@ -5452,12 +6826,16 @@ class Scheduler:
             attempt=invocation.attempt,
             channels=ChannelView(_values=dict(channel_snapshot), _pending_writes=[]),
             checkpointer=self.checkpointer,
-            dispatch_id=invocation.dispatch_id,
+            dispatch_id=self._invocation_namespace + invocation.dispatch_id,
             item_index=invocation.item_index,
             firing=invocation.firing,
             registry=self.registry,
             output_kind=node.output_kind,
             workflow_id=self.definition_id or None,
+            execution_job_id=self.execution_job_id,
+            execution_job_kind=self.execution_job_kind,
+            definition_version_id=self.definition_version_id,
+            definition_hash=self.graph.definition_hash,
         )
         merged = resolve_invocation_inputs(
             node,
@@ -5470,8 +6848,20 @@ class Scheduler:
         )
         held = {k: v for k, v in merged.items() if held_hash(v)}
         if held:
-            merged = {**merged, **(await resolve_step_inputs(run_id, held))}
+            merged = {
+                **merged,
+                **(
+                    await resolve_step_inputs(
+                        run_id,
+                        held,
+                        read_scope=read_scope_factory_for(self.checkpointer),
+                    )
+                ),
+            }
         merged = reduce_for_ingestion(merged, _input_schema_json(spec.input_schema))
+        from matrx_graph.text_inputs import render_whole_values_as_text
+
+        merged, _ = render_whole_values_as_text(merged, _input_schema_json(spec.input_schema))
         inputs_model = spec.input_schema.model_validate(merged)
         return await executor.sample_preflight(ctx, inputs_model, node.config)
 
@@ -5707,8 +7097,18 @@ class Scheduler:
                 error_message=node_error.message,
                 error=error_dict,
                 wrapper=failure_wrapper,
+                says=await self._says(
+                    run_id, step, invocation, "failed",
+                    {
+                        "inputs": invocation.inputs,
+                        "item": invocation.inputs if invocation.dispatch_id else None,
+                        "error": node_error.message,
+                    },
+                    attempt,
+                ),
             )
         )
+        await self._raise_says_flags()
         # Cost settlement survives failure (Node Result System): a paid call
         # that failed carries its billed usage under NodeError.details.usage
         # (documented convention) — settle it exactly like the success path.
@@ -5737,7 +7137,9 @@ class Scheduler:
                 await self._emit(cost_event)
                 self._note_cost_emitted(invocation, cost_event)
 
-        if self._failure_is_routable(node, invocation):
+        if self._failure_is_routable(
+            node, invocation, {**node_error.to_column(), **({CALLER_REFUSAL_KEY: True} if refused else {})}
+        ):
             result.failure = node_error
             await self._flag_handled_failure(
                 run_id, invocation, node, step=step, attempt=attempt, node_error=node_error,
@@ -6061,6 +7463,7 @@ class Scheduler:
                 # interrupt's recorded value lives there).
                 step=inv.step,
                 bypass_once=inv.bypass_once,
+                pace=inv.pace,
             )
         for inv in routed:
             key = (inv.node_id, inv.dispatch_id, inv.item_index)
@@ -6080,6 +7483,7 @@ class Scheduler:
                     work_item_id=inv.work_item_id or existing.work_item_id,
                     step=existing.step,
                     bypass_once=inv.bypass_once or existing.bypass_once,
+                    pace=inv.pace or existing.pace,
                 )
             else:
                 raise EdgeRoutingError(
@@ -6141,21 +7545,39 @@ class Scheduler:
         for r in relevant:
             if r.interrupt is not None:
                 continue
+            # The claiming queue execution's dispatch id — the claim token
+            # (workset.work_claim_holder). A worker whose claim was released
+            # is refused instead of overwriting the live claim's outcome.
+            claim_token = r.invocation.dispatch_id
             try:
                 if r.failure is not None:
-                    await store.fail(
+                    settled = await store.fail(
                         r.invocation.work_item_id,
                         run_id=run_id,
                         error=r.failure.model_dump(mode="json"),
+                        claim_token=claim_token,
                     )
                 elif r.error is not None:
-                    await store.fail(
+                    settled = await store.fail(
                         r.invocation.work_item_id,
                         run_id=run_id,
                         error={"code": type(r.error).__name__, "message": str(r.error)},
+                        claim_token=claim_token,
                     )
                 else:
-                    await store.complete(r.invocation.work_item_id, run_id=run_id)
+                    settled = await store.complete(
+                        r.invocation.work_item_id, run_id=run_id, claim_token=claim_token
+                    )
+                if not settled and claim_token:
+                    logger.warning(
+                        "[wf:%s node=%s] work item %s was not settled — this "
+                        "invocation's claim was released or re-claimed (its "
+                        "queue wave re-ran after a resume or retry); the live "
+                        "claim settles it",
+                        run_id[:8],
+                        r.invocation.node_id,
+                        r.invocation.work_item_id,
+                    )
             except Exception:  # noqa: BLE001 — reclaim covers; never kill the run
                 logger.warning(
                     "[wf:%s node=%s] work-item settle failed (item=%s) — "
@@ -6190,6 +7612,7 @@ class Scheduler:
         self._back_edge_fires = []
         if not self._partial_routing:
             self._failure_blocked = []
+            self._skip_blocked = []
         self._edge_fanout_sends = []
         self._edge_fanout_loop_stacks = {}
 
@@ -6253,6 +7676,7 @@ class Scheduler:
                 source_item_index=r.invocation.item_index,
                 source_loop_stack=r.invocation.loop_stack,
                 source_reused=r.reused,
+                continues=any(s.target_node_id == r.invocation.node_id for s in r.sends),
             )
 
         # Register this pass's dispatches BEFORE draining joins: same-step
@@ -6380,6 +7804,7 @@ class Scheduler:
                         item_index=send.item_index,
                         loop_stack=self._send_loop_stack(r, send),
                         work_item_id=send.work_item_id,
+                        pace=send.pace,
                     )
                 )
 
@@ -6418,7 +7843,7 @@ class Scheduler:
 
         return next_invs
 
-    def _trigger_invocations(self, step: int) -> list[Invocation]:
+    def _trigger_invocations(self, step: int, *, flush: bool = False) -> list[Invocation]:
         """Turn drained kind-subscription firings into node invocations.
 
         Only ``node_trigger`` firings become invocations here. A ``directive``
@@ -6429,7 +7854,7 @@ class Scheduler:
         """
         invocations: list[Invocation] = []
         by_subscription: dict[str, list[Any]] = {}
-        for firing in self._subscriptions.drain(step):
+        for firing in self._subscriptions.drain(step, flush=flush):
             if firing.subscription.purpose != "node_trigger":
                 continue
             by_subscription.setdefault(
@@ -6514,9 +7939,19 @@ class Scheduler:
         source_reused: bool = False,
         failed_upstream: str = "",
         absent_from: str = "",
+        skipped_upstream: str = "",
+        continues: bool = False,
     ) -> None:
         """Resolve every joinable outgoing edge of a completed (or pruned)
         source firing into its target's binding accumulator.
+
+        ``continues``: this firing Sent ITSELF a continuation (a
+        ``control.work_queue`` wave that has not drained). It has not
+        finished, so a handle it did not emit — or a CONDITIONAL edge whose
+        predicate is false on this wave — is NOT a branch not taken: that
+        edge stays UNRESOLVED until the firing that does not continue
+        (ENGINE_SPEC §3.3a). Pruning it per wave released every join behind
+        ``done`` after wave 1 (knowledge buckets run 40a1144a, 2026-10-31).
 
         Each edge lands as DELIVERED (with its mapped payload fragment) or
         PRUNED (skip_edge_ids, CONDITIONAL predicate false, handle not
@@ -6566,6 +8001,7 @@ class Scheduler:
                     source_loop_stack=source_loop_stack,
                     failed_upstream=failed_upstream,
                     absent_from=absent_from,
+                    skipped_upstream=skipped_upstream,
                 )
         for edge_id in source.outgoing_edge_ids:
             edge = self.graph.edges[edge_id]
@@ -6626,6 +8062,7 @@ class Scheduler:
                         empty_dispatch=empty_dispatch,
                         failed_upstream=failed_upstream,
                         absent_from=absent_from,
+                        skipped_upstream=skipped_upstream,
                     ),
                     touched,
                 )
@@ -6677,6 +8114,12 @@ class Scheduler:
                         node_id=source_id,
                         edge_id=edge_id,
                     ) from e
+                if not passed and continues:
+                    # A self-continuing firing (a draining work queue) has not
+                    # finished: a false predicate on THIS wave is "not yet",
+                    # never "not taken" — the edge stays unresolved for the
+                    # firing that does not continue (ENGINE_SPEC §3.3a).
+                    continue
                 if not passed:
                     self._record_edge_resolution(
                         edge,
@@ -6686,12 +8129,24 @@ class Scheduler:
                             source_step=step,
                             dispatch_id=source_dispatch_id,
                             item_index=source_item_index,
+                            # The step's own 'Only when' said no: the step is SKIPPED, and
+                            # what reads from it is stopped too (§3.3b). Any other
+                            # condition that says no is a branch not taken.
+                            skipped_upstream=(
+                                edge.target_node_id
+                                if when_gate_owner(source_id) == edge.target_node_id
+                                else ""
+                            ),
                         ),
                         touched,
                     )
                     continue
 
             if edge.source_handle is not None and edge.source_handle not in emissions:
+                if continues:
+                    # The node fires again (self-Send continuation): its
+                    # un-emitted handle is "not yet", never "not taken".
+                    continue
                 # Handle-specific edge the node didn't emit on — the branch
                 # was not taken: PRUNE (§2).
                 self._record_binding(
@@ -7184,6 +8639,9 @@ class Scheduler:
         edge_id = edge.edge_id
         if not isinstance(payload, dict):
             return {"value": payload}
+        if when_gate_owner(source_id) == edge.target_node_id:
+            # An 'Only when' gate hands its step only what the step takes (``_gate_delivery``).
+            payload = self._gate_delivery(source_id, edge.target_node_id, payload)
         if edge.mappings is None:
             # Default behavior: pass entire output payload — MINUS the target's
             # identity inputs, which never bind from a broadcast (see
@@ -7199,16 +8657,12 @@ class Scheduler:
             # and then silently do nothing. Reject it loudly.
             if "." in target_key:
                 raise EdgeRoutingError(
-                    f"edge '{edge_id}' mapping has a dotted "
-                    f"TARGET key {target_key!r} (mapped from "
-                    f"{source_key!r}). Target keys must be "
-                    f"plain top-level input field names — a "
-                    f"dotted target creates a literal input "
-                    f"key named {target_key!r}, not a nested "
-                    f"field. Dot-notation is only supported "
-                    f"on the SOURCE side of a mapping; use "
-                    f"e.g. {target_key.rsplit('.', 1)[-1]!r} "
-                    f"as the target key instead.",
+                    dotted_target_message(
+                        target_key,
+                        source_key,
+                        edge_id=str(edge_id),
+                        node_id=str(edge.target_node_id),
+                    ),
                     node_id=source_id,
                     edge_id=edge_id,
                 )
@@ -7709,6 +9163,18 @@ class Scheduler:
                 if not self._partial_routing:
                     self._failure_blocked.append((target_id, failed_upstream))
 
+            # A step SKIPPED by its 'Only when' is not a branch not taken either (§3.3b): a
+            # join whose input it was — no other connection delivered those fields — does
+            # not run on its other inputs, unless it declares it handles that input missing.
+            skipped_from = (
+                self._skipped_input(target_id, entry) if fire and node.join_policy != "any" else ""
+            )
+            if skipped_from:
+                fire = False
+                prune = True
+                if not self._partial_routing:
+                    self._skip_blocked.append((target_id, skipped_from))
+
             if fire:
                 inputs = self._merge_join_payload(target_id, entry)
                 ready.append(
@@ -7780,6 +9246,15 @@ class Scheduler:
                     failed_upstream=failed_upstream,
                     absent_from=next(
                         (b.absent_from for b in entry.edges.values() if b.absent_from), ""
+                    ),
+                    skipped_upstream=skipped_from
+                    or next(
+                        (
+                            b.skipped_upstream
+                            for b in entry.edges.values()
+                            if b.state == "pruned" and b.skipped_upstream
+                        ),
+                        "",
                     ),
                 )
                 worklist.extend(pruned_touched)
@@ -7943,9 +9418,55 @@ class Scheduler:
             for b in entry.edges.values()
         )
 
+    def _skipped_input(self, target_id: str, entry: PendingBinding) -> str:
+        """The step whose 'Only when' said no and left one of this join's inputs MISSING, or ""
+        (ENGINE_SPEC §3.3b). An input is missing when a connection pruned with the skip mark and
+        no connection that delivered brings the same fields — a rejoin (an if / else whose two
+        sides bring the same input, 'If skipped' standing in for the step) is not missing. A
+        step that declares ``when_input_skipped = "run"`` runs anyway; For Each holes are the
+        Gather's business (fanned groups are never read here)."""
+        node = self.graph.nodes[target_id]
+        if getattr(node, "when_input_skipped", "skip") == "run":
+            return ""
+        plain, _groups = self._split_edge_entries(entry)
+
+        def fields(edge: Any) -> set[str]:
+            return set(edge.mappings) if edge.mappings is not None else {"*"}
+
+        delivered: set[str] = set()
+        for edge_id, binding in plain.items():
+            edge = self.graph.edges.get(edge_id)
+            if binding.state == "delivered" and edge is not None and edge.kind is not EdgeKind.CONTROL:
+                delivered |= fields(edge)
+        for edge_id in sorted(plain):
+            binding = plain[edge_id]
+            if binding.state != "pruned" or not binding.skipped_upstream:
+                continue
+            edge = self.graph.edges.get(edge_id)
+            if edge is None or edge.kind not in (EdgeKind.DATA, EdgeKind.CONDITIONAL):
+                continue
+            if not fields(edge) <= delivered:
+                return binding.skipped_upstream
+        return ""
+
     async def _report_failure_blocked(self, run_id: str, step: int) -> None:
         """Say why each join a failed upstream stopped did not run (Law 4): a
-        ``node_skipped`` with the reason, never a silent absence."""
+        ``node_skipped`` with the reason, never a silent absence. Joins a skipped
+        step stopped (§3.3b) are reported the same way."""
+        skipped, self._skip_blocked = self._skip_blocked, []
+        for node_id, skipped_id in skipped:
+            reason = f"'{self._step_label(skipped_id) or skipped_id}' was skipped, so this step did not run"
+            logger.info("[wf:%s step=%d] '%s' not run — %s", run_id[:8], step, node_id, reason)
+            await self._emit(
+                NodeSkippedEvent(
+                    run_id=run_id,
+                    step=step,
+                    node_id=node_id,
+                    spec_type=self.graph.nodes[node_id].spec_type,
+                    attempt=1,
+                    reason=reason[:500],
+                )
+            )
         blocked, self._failure_blocked = self._failure_blocked, []
         for node_id, failed_id in blocked:
             failed_label = self._step_label(failed_id) or failed_id
@@ -8155,7 +9676,9 @@ class Scheduler:
         # are shared, not deep-copied once per checkpoint. A fan-in of nine
         # targets over one 300 KB value used to copy it nine times per step. A
         # checkpointer that KEEPS the object (MemoryCheckpointer) snapshots it
-        # itself; Postgres serializes it before the next step runs.
+        # itself; Postgres serializes it when it saves — before the next step runs, or, inside a
+        # chain of pure steps, when the chain lands (payloads are never edited in place, so a
+        # queued checkpoint still names the state of its own step).
         return {
             node_id: binding.model_copy(
                 update={
@@ -8315,8 +9838,18 @@ class Scheduler:
         next_invocations: list[NextInvocation],
         interrupt_payload: dict[str, Any] | None = None,
         channel_values_override: dict[str, Any] | None = None,
+        chain_ok: bool = False,
+        beside_next: bool = False,
     ) -> str:
         """Save a checkpoint.
+
+        ``beside_next``: a main-loop boundary that may write BESIDE the next step (PF-WF E8): the
+        write is started and the next step starts with it; the next save, park or stop waits for it.
+
+        ``chain_ok``: this boundary sits inside a chain of pure steps — the checkpoint (one
+        row per step, as always) is queued and lands with the chain in ONE transaction at the
+        first save that is not ``chain_ok`` (or ``CHAIN_MAX_STEPS``, or the run's stop:
+        ``_flush_chain``). Completion and checkpoint events follow the write, in order.
 
         ``channel_values_override`` lets the errored-state save use a
         pre-step snapshot instead of the current (post-step) snapshot.
@@ -8346,8 +9879,65 @@ class Scheduler:
             pending_bindings=self._snapshot_bindings(),
             next_invocations=next_invocations,
             interrupt_payload=interrupt_payload,
+            subscription_state=self._subscriptions.snapshot(),
         )
         deferred, self._deferred_outcomes = self._deferred_outcomes, []
+        self._reattaching_outcomes.clear()
+        chain = getattr(self.checkpointer, "save_checkpoint_chain", None)
+        if chain is not None and chain_ok and len(self._chain_queue) < CHAIN_MAX_STEPS - 1:
+            self._chain_queue.append((checkpoint, deferred))
+            return checkpoint_id
+        items: list[tuple[Checkpoint, list[tuple[Any, Any]]]] | None = None
+        if self._chain_queue:
+            items, self._chain_queue = [*self._chain_queue, (checkpoint, deferred)], []
+        if beside_next:
+            # Backpressure: one write in flight. The previous one is awaited (raising what it raised)
+            # before the next starts, so a slow database never queues a backlog of held checkpoints.
+            await self._settle_writes()
+            self._write_task = asyncio.create_task(
+                self._write_beside(run_id, checkpoint, deferred, items),
+                name=f"wf-checkpoint:{run_id[:8]}:{step}",
+            )
+            return checkpoint_id
+        await self._settle_writes()
+        if items is not None:
+            await self._write_chain(items)
+            return checkpoint_id
+        await self._write_one(checkpoint, deferred)
+        return checkpoint_id
+
+    async def _write_beside(
+        self,
+        run_id: str,
+        checkpoint: Checkpoint,
+        deferred: list[tuple[Any, Any]],
+        items: list[tuple[Checkpoint, list[tuple[Any, Any]]]] | None,
+    ) -> None:
+        """One boundary's write (the one before it was settled before this started: rows land in step order)."""
+        if items is not None:
+            await self._write_chain(items)
+        else:
+            await self._write_one(checkpoint, deferred)
+        pop_status = getattr(self.checkpointer, "pop_run_status", None)
+        if pop_status is not None:
+            pop_status(run_id)  # read mid-step: never a later boundary's answer
+
+    def _reap_failed_write(self) -> None:
+        """At a boundary: a beside-write that already finished FAILED raises here (no waiting)."""
+        task = self._write_task
+        if task is not None and task.done():
+            self._write_task = None
+            task.result()
+
+    async def _settle_writes(self) -> None:
+        """Wait for the checkpoint written beside the step (raises what that write raised)."""
+        task, self._write_task = self._write_task, None
+        if task is not None:
+            await task
+
+    async def _write_one(self, checkpoint: Checkpoint, deferred: list[tuple[Any, Any]]) -> None:
+        run_id, step = checkpoint.run_id, checkpoint.step
+        await self._settle_outcome_waits()
         together = getattr(self.checkpointer, "save_checkpoint_with_outcomes", None)
         if deferred and together is not None:
             try:
@@ -8369,42 +9959,94 @@ class Scheduler:
                 await self.checkpointer.record_outcome(outcome)
             await self.checkpointer.save_checkpoint(checkpoint)
         for _, completed in deferred:
-            await self._emit(completed)
+            if completed is not None:
+                await self._emit(completed)
         await self._emit(
             CheckpointSavedEvent(
                 run_id=run_id,
-                checkpoint_id=checkpoint_id,
+                checkpoint_id=checkpoint.checkpoint_id,
                 step=step,
-                parent_checkpoint_id=parent_checkpoint_id,
+                parent_checkpoint_id=checkpoint.parent_checkpoint_id,
             )
         )
-        return checkpoint_id
+
+    async def _flush_chain(self) -> None:
+        """Write the queued chain of pure steps (after any write in flight)."""
+        await self._settle_writes()
+        items, self._chain_queue = self._chain_queue, []
+        if items:
+            await self._write_chain(items)
+
+    async def _write_chain(self, items: list[tuple[Checkpoint, list[tuple[Any, Any]]]]) -> None:
+        """Write a chain of pure steps' checkpoints (the last one ends it) in ONE
+        transaction, then emit each step's completions and its ``checkpoint_saved`` in order.
+        If the one transaction fails, each checkpoint is written on its own (loud) — a chain
+        never loses a row its steps would have written one by one."""
+        await self._settle_outcome_waits()
+        if self._durability == "boundaries" and len(items) > 1:
+            # Only the chain's last checkpoint is written; it carries every outcome of the
+            # chain and points at the checkpoint before the chain (the one a resume uses).
+            first_cp = items[0][0]
+            last_cp, _ = items[-1]
+            held_all = [pair for _cp, held in items for pair in held]
+            items = [(last_cp.model_copy(update={"parent_checkpoint_id": first_cp.parent_checkpoint_id}), held_all)]
+        try:
+            await self.checkpointer.save_checkpoint_chain(
+                [(cp, [outcome for outcome, _ in held]) for cp, held in items]
+            )
+        except Exception:  # noqa: BLE001 — the rows still land, one save each
+            logger.warning(
+                "[wf:%s] saving a chain of %d pure-step checkpoint(s) in one transaction failed — "
+                "writing each on its own",
+                items[0][0].run_id[:8],
+                len(items),
+                exc_info=True,
+            )
+            # The single-save path's own step-down: each outcome on its own, then the
+            # checkpoint — so one bad outcome never takes its neighbours' rows with it.
+            for cp, held in items:
+                for outcome, _ in held:
+                    await self.checkpointer.record_outcome(outcome)
+                await self.checkpointer.save_checkpoint(cp)
+        for cp, held in items:
+            for _, completed in held:
+                if completed is not None:
+                    await self._emit(completed)
+            await self._emit(
+                CheckpointSavedEvent(
+                    run_id=cp.run_id,
+                    checkpoint_id=cp.checkpoint_id,
+                    step=cp.step,
+                    parent_checkpoint_id=cp.parent_checkpoint_id,
+                )
+            )
 
     def _step_defers_outcomes(self, to_run: list[Invocation]) -> bool:
         """Whether this super-step's outcomes wait for its checkpoint: every member is a PURE
-        step (milliseconds of work), so holding a completion event until the barrier never
-        hides a finished step behind a slow sibling, and the checkpointer can write both
-        in one transaction."""
+        or IDEMPOTENT step that spends nothing (``CHAIN_TIERS``) — safe to run again on a
+        resume, so a crash before the chain's one transaction loses nothing a re-run cannot
+        rebuild — and the checkpointer can write the chain's rows in one transaction."""
         if not DEFER_PURE_STEP_OUTCOMES or not to_run:
             return False
         if getattr(self.checkpointer, "save_checkpoint_with_outcomes", None) is None:
             return False
-        for inv in to_run:
-            node = self.graph.nodes.get(inv.node_id)
-            if node is None or node.once is not None or node.one_at_a_time is not None:
-                return False
-            try:
-                spec = self.registry.get(node.spec_type).spec
-            except Exception:  # noqa: BLE001 — the step itself reports an unknown type
-                return False
-            if spec.determinism != ActionTier.PURE or spec.category in (NodeCategory.AGENT, NodeCategory.LLM):
-                return False
-        return True
+        return all(step_reruns_safely(self.graph.nodes.get(inv.node_id), self.registry) for inv in to_run)
 
-    async def _flush_deferred_outcomes(self) -> None:
+    async def _flush_deferred_outcomes(self, *, keep_reattaching: bool = False) -> None:
         """Write any held pure-step outcomes on their own (a run that stops without the step's
-        checkpoint) and emit their completion events — never lost, never silent."""
+        checkpoint) and emit their completion events — never lost, never silent.
+        ``keep_reattaching`` (before a step that does not re-run safely): an outcome whose step re-runs by
+        reattaching stays held for the next checkpoint — a re-run of it costs nothing, so it never needs a
+        write of its own ahead of that step."""
         deferred, self._deferred_outcomes = self._deferred_outcomes, []
+        if keep_reattaching:
+            kept = [pair for pair in deferred if id(pair[0]) in self._reattaching_outcomes]
+            deferred = [pair for pair in deferred if id(pair[0]) not in self._reattaching_outcomes]
+            self._deferred_outcomes = kept
+        for outcome, _ in deferred:
+            self._reattaching_outcomes.discard(id(outcome))
+        if deferred:
+            await self._settle_outcome_waits()
         for outcome, completed in deferred:
             try:
                 await self.checkpointer.record_outcome(outcome)
@@ -8417,9 +10059,55 @@ class Scheduler:
                     exc_info=True,
                 )
                 continue
-            await self._emit(completed)
+            if completed is not None:
+                await self._emit(completed)
+
+    async def _settle_outcome_waits(self) -> None:
+        """Wait for every durable write a step handed over (``ctx.hold_outcome_until``) — so it lands before the
+        outcome or checkpoint written next — raising the first that failed (loud, never dropped). Shielded: a
+        stopping run never cancels a write it owes."""
+        waits, self._outcome_waits = self._outcome_waits, []
+        if not waits:
+            return
+        settled = await asyncio.shield(asyncio.gather(*(w for _node, w in waits), return_exceptions=True))
+        failed = [(node_id, value) for (node_id, _w), value in zip(waits, settled) if isinstance(value, BaseException)]
+        for node_id, _value in failed:
+            # The step's answer stands on a write that did not land: never handed on as the run's result.
+            self._held_last_outputs.pop(node_id, None)
+        if failed:
+            raise failed[0][1]
+
+    def _reads_controls_now(self) -> bool:
+        """Whether this boundary reads the run's controls. Every boundary does, except one inside
+        a chain of pure steps (its checkpoint was queued, not written) when the controls were read
+        under ``CHAIN_CONTROL_POLL_SECONDS`` ago and no step that may spend launched since: a pure
+        step costs milliseconds, and a status read between two of them was the chain's only round
+        trip (L-SPEED 6c). A Stop still lands within that interval; a latched one at once. Only under
+        ``durability="boundaries"`` (the run is observed at its boundaries, not inside a chain); the
+        default ``every_step`` keeps a read at every boundary, so a Cancel stops at the next one."""
+        if self._durability != "boundaries" or not self._chain_queue:
+            return True
+        if self._spend_check_fn is not None and self._spent_since_check:
+            return True
+        return time.monotonic() - self._controls_read_at >= CHAIN_CONTROL_POLL_SECONDS
 
     async def _poll_controls(self, known_status: str | None = None) -> tuple[bool, bool]:
+        """``(pause, cancel)`` at a super-step boundary: the run's controls, then — only when a
+        step that may spend launched since the last ask — the host's spend reader."""
+        pause, cancel = await self._poll_run_controls(known_status)
+        if pause or cancel or self._spend_check_fn is None or not self._spent_since_check:
+            return pause, cancel
+        self._spent_since_check = False
+        try:
+            reached = bool(await self._spend_check_fn())
+        except Exception:  # noqa: BLE001 — an unreadable spend never stops work; it is loud
+            logger.warning("spend_check failed — the run's spend limit is not checked this boundary", exc_info=True)
+            return pause, cancel
+        if reached:
+            self._cancel_latched = True
+        return pause, self._cancel_latched
+
+    async def _poll_run_controls(self, known_status: str | None = None) -> tuple[bool, bool]:
         """``(pause, cancel)`` at a super-step boundary.
 
         With a host ``control_check`` (one read of the run's status) BOTH
@@ -8430,6 +10118,7 @@ class Scheduler:
         so the boundary costs no round trip at all; any other check is called. Without a
         ``control_check``, the separate checks run exactly as before: pause
         first, cancel only when not pausing."""
+        self._controls_read_at = time.monotonic()
         if self._control_check is None or self._pause_latched or self._cancel_latched:
             if await self._should_pause():
                 return True, False
@@ -8497,6 +10186,10 @@ class Scheduler:
     #: ``runtime.workflow_live_wire_settle_ms``, capped at 15 s), which must stay
     #: below this ceiling.
     node_emitter_settle_timeout_s: float = 20.0
+    # How long a stopping run waits for a FINISHING member (executor returned, outcome not yet
+    # written) to record its outcome before canceling it (``_stop_members``). Covers the settle
+    # above plus the outcome write.
+    finishing_grace_s: float = 30.0
 
     async def _settle_node_emitter(
         self, app_ctx: AppContext, run_id: str, invocation: Invocation
@@ -8553,9 +10246,16 @@ class Scheduler:
         that need a dict do ``model_dump_json(...)`` (see
         ``matrx_graph.executor.json_dump``) themselves.
         """
+        if (self._chain_queue or self._write_task is not None) and isinstance(event, _RUN_STOP_EVENTS):
+            # A queued chain of pure steps and a write in flight land (and say so) before the run
+            # says it stopped.
+            await self._flush_chain()
         if self._deferred_outcomes and isinstance(event, _RUN_STOP_EVENTS):
             # A held pure-step outcome lands (and says so) before the run says it stopped.
             await self._flush_deferred_outcomes()
+        if self._outcome_waits and isinstance(event, _RUN_STOP_EVENTS):
+            # A write a step handed over lands before the run says it stopped.
+            await self._settle_outcome_waits()
         emitter = getattr(self.app, "emitter", None)
         if emitter is None:
             return
@@ -8587,6 +10287,101 @@ def _first_interrupt(results: list[_StepResult]) -> GraphInterrupt | None:
 # often (seconds). An engine pacing constant, not an organization's choice.
 RUN_AHEAD_STOP_POLL_SECONDS = 1.0
 
+# A chain of pure steps lands in one transaction at most this many checkpoints at a time
+# (PF-WF 2026-11-02). An engine pacing constant (how much a crash may re-run: milliseconds
+# of pure work), not an organization's choice.
+CHAIN_MAX_STEPS = 16
+
+#: The engine's awaited hooks whose time each leg reports (``_log_leg_overhead``).
+_TIMED_HOOKS = ("_emit", "_save_checkpoint", "_flush_chain", "_poll_controls", "_settle_node_emitter")
+
+
+def _timed_hook(hook: Any, spent: dict[str, float], name: str) -> Any:
+    async def timed(*args: Any, **kwargs: Any) -> Any:
+        started = time.perf_counter()
+        try:
+            return await hook(*args, **kwargs)
+        finally:
+            spent[name] = spent.get(name, 0.0) + time.perf_counter() - started
+            spent[f"{name}#"] = spent.get(f"{name}#", 0) + 1
+
+    return timed
+
+
+def _leg_clock() -> tuple[float, ...]:
+    """(wall, GC s, GC n, loop-lag s, pool-acquire wait s, acquires, thread-queue wait s, hops,
+    thread work s, intern-cache hits, large values walked, uncommitted misses, changed misses) now — read
+    again at the leg's end."""
+    from matrx_utils.diagnostics import gc_pause_totals, loop_lag_seconds
+
+    from matrx_graph.checkpoint.values import INTERN_CACHE_TOTALS, OFF_LOOP_BY_FN, OFF_LOOP_TOTALS
+
+    try:
+        from matrx_orm.core.async_db_manager import pool_acquire_totals
+
+        acquire_seconds, acquires = pool_acquire_totals()
+    except ImportError:  # a DB-free install
+        acquire_seconds, acquires = 0.0, 0
+    gc_seconds, gc_count = gc_pause_totals()
+    return (
+        time.perf_counter(), gc_seconds, gc_count, loop_lag_seconds(), acquire_seconds, acquires,
+        OFF_LOOP_TOTALS[0], OFF_LOOP_TOTALS[1], OFF_LOOP_TOTALS[2], *INTERN_CACHE_TOTALS,
+        {name: tuple(entry) for name, entry in OFF_LOOP_BY_FN.items()},
+    )
+
+
+def _log_leg_overhead(
+    run_id: str, started: tuple[float, ...], spent: dict[str, float], warn_seconds: float = 0
+) -> None:
+    """One line per leg: wall time, what the engine's awaited hooks took (overlapping across
+    parallel steps), and what the process spent in GC and in loop lag meanwhile — time the loop
+    was held by other work. Hook time that is mostly lag was CPU; the rest was I/O waits."""
+    try:
+        now = _leg_clock()
+        d = [b - a for a, b in zip(started[:-1], now[:-1], strict=True)]
+        by_fn_then, by_fn_now = started[-1], now[-1]
+        thread_fns = sorted(
+            (
+                (seconds - by_fn_then.get(name, (0, 0.0))[1], int(hops - by_fn_then.get(name, (0, 0.0))[0]), name)
+                for name, (hops, seconds) in by_fn_now.items()
+            ),
+            reverse=True,
+        )[:3]
+        top = ",".join(f"{name}={seconds:.2f}/{hops}" for seconds, hops, name in thread_fns if hops)
+        hooks = " ".join(
+            f"{name.strip('_')}={seconds:.3f}/{int(spent.get(name + '#', 0))}"
+            for name, seconds in sorted(spent.items())
+            if not name.endswith("#")
+        )
+        # Process-wide over the leg (other runs share them): GC, loop lag, waiting for a pooled
+        # connection, waiting for a worker thread (and the thread work itself).
+        process = (
+            f"gc={d[1]:.3f}s/{int(d[2])} loop_lag={d[3]:.3f}s pool_wait={d[4]:.3f}s/{int(d[5])} "
+            f"thread_wait={d[6]:.3f}s/{int(d[7])} thread_work={d[8]:.3f}s [{top}] "
+            # The interned-value cache (checkpoint.values): hits, large values walked and hashed, and why a
+            # remembered value missed (its digest not committed for the run / it changed size).
+            f"intern=hit:{int(d[9])},walked:{int(d[10])},uncommitted:{int(d[11])},changed:{int(d[12])}"
+        )
+        # A leg at least ``warn_seconds`` long (the workflow.leg_overhead.warn_seconds knob; 0 = never)
+        # reaches production logs as a WARNING (INFO is not shipped there): the step-gap measurement.
+        level = logging.WARNING if warn_seconds > 0 and d[0] >= warn_seconds else logging.INFO
+        logger.log(
+            level,
+            "[wf:%s] leg overhead: wall=%.3fs %s %s",
+            run_id[:8],
+            d[0],
+            hooks,
+            process,
+        )
+    except Exception:  # noqa: BLE001 — a report never fails a run
+        logger.debug("leg overhead report failed", exc_info=True)
+
+
+# Inside a chain of pure steps the run's controls (Stop / Pause) are read at most this often
+# (L-SPEED 6c): an engine pacing constant bounding how late a Stop lands between back-to-back
+# milliseconds-long steps, not an organization's choice.
+CHAIN_CONTROL_POLL_SECONDS = 1.0  # protocol-constant: internal control-poll tick, a latency/CPU trade-off with no admin-facing meaning
+
 
 def _scheduled_step(inv: Invocation, loop_step: int) -> int:
     """The step ``inv`` runs (and is keyed) at: its checkpoint-scheduled step
@@ -8607,6 +10402,14 @@ def _routable_ahead(result: _StepResult) -> bool:
     )
 
 
+def _launched_attempt(result: _StepResult) -> int:
+    """The attempt a run-ahead launch started at — its firing's identity. Its own retry loop
+    may since have bumped ``result.invocation.attempt``; that is still the same firing."""
+    if result.launched_attempt is not None:
+        return result.launched_attempt
+    return result.invocation.attempt
+
+
 def _run_ahead_key(step: int, inv: Invocation) -> tuple[int, str, str, int]:
     """The correlation key (ENGINE_SPEC §4.1) a run-ahead launch is filed under."""
     return (step, inv.node_id, inv.dispatch_id, inv.item_index)
@@ -8618,6 +10421,20 @@ RUN_AHEAD_ENABLED = True
 # A super-step of only PURE members lands its outcomes in its checkpoint's transaction
 # (``Scheduler._step_defers_outcomes``). Off = one transaction per outcome, as before.
 DEFER_PURE_STEP_OUTCOMES = True
+
+# The determinism tiers that may join a chain: steps a resume may simply run again (ActionTier
+# docs: PURE replays freely, IDEMPOTENT may be re-invoked safely). A read step (find records, read
+# a function's rows) no longer breaks a chain of transforms into one transaction per step.
+CHAIN_TIERS: frozenset[ActionTier] = frozenset({ActionTier.PURE, ActionTier.IDEMPOTENT})
+
+# DURABILITY LEVELS (Arman 2026-11-09: "in the end it's just Python running code").
+#   "every_step" (default) — every super-step's checkpoint is written, as always.
+#   "boundaries" — declared by a workflow (``Definition.metadata["durability"]``) or a caller
+#   (``Scheduler(durability=...)``): inside a chain of re-runnable steps only the chain's LAST
+#   checkpoint is written (with every outcome of the chain, so the per-step record stays whole).
+#   A crash mid-chain resumes from the checkpoint before the chain and re-runs it. What the
+#   workflow gives up: "Re-run from" / "Fork from" a step INSIDE a chain (no checkpoint there).
+DURABILITY_LEVELS = ("every_step", "boundaries")
 
 # Events after which no held outcome may still be waiting (``Scheduler._emit``).
 _RUN_STOP_EVENTS = (
@@ -8694,6 +10511,7 @@ def _as_next_invocations(pending: list[Invocation], step: int) -> list[NextInvoc
             work_item_id=inv.work_item_id,
             step=inv.step if inv.step is not None else step,
             bypass_once=inv.bypass_once,
+            pace=inv.pace,
         )
         for inv in pending
     ]
@@ -8800,6 +10618,8 @@ def _awaiting_input_result(
 ) -> RunResult:
     """A start parked ``awaiting_input`` on ``gaps`` (PARK-NOT-DIE, INPUT-SURFACE.md); an entry
     whose landed value missed its kind carries ``problems``."""
+    from matrx_graph.types.input_surface import input_hint, input_options
+
     missing: list[dict[str, Any]] = []
     for g in gaps:
         entry: dict[str, Any] = {
@@ -8807,11 +10627,12 @@ def _awaiting_input_result(
             "kind": g.kind,
             "sourcing": g.sourcing,
             "variant": g.variant,
-            "label": g.label,
-            "help": g.help,
-            "placeholder": g.placeholder,
-            "options": list(g.options),
+            "label": g.declaration.label or (g.name if g.origin == "field" else ""),
+            "help": g.declaration.helpText or "",
+            "placeholder": input_hint(g.declaration, "placeholder"),
+            "options": input_options(g.declaration),
             "json_schema": dict(g.json_schema),
+            "declaration": g.declaration.model_dump(mode="json", exclude_none=True),
         }
         if problems and g.name in problems:
             entry["problems"] = list(problems[g.name])

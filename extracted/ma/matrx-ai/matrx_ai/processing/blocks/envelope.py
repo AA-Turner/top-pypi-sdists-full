@@ -55,6 +55,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from matrx_graph.content_ir.blank_kind import report_blank_kind_string
+
 # Shared Content IR primitives live in matrx-graph (matrx-ai depends on
 # matrx-graph, never the reverse) so the workflow scheduler's producer
 # (matrx_graph.content_ir.envelope) and this
@@ -83,6 +85,9 @@ class BlockEnvelopeContractFailure:
     kind: str
     reason: str
     errors: tuple[str, ...] = ()
+    # Path + keyword + what the schema expected, one line per violation, built
+    # from schema-side names only (``describe_violations``) — never a rejected value.
+    violations: tuple[str, ...] = ()
 
 
 def _safe_schema_diagnostics(errors: list[str]) -> tuple[str, ...]:
@@ -112,6 +117,36 @@ def _safe_schema_diagnostics(errors: list[str]) -> tuple[str, ...]:
     return tuple(sorted(codes))
 
 
+#: ``BlockEnvelopeContractFailure.reason`` for a blank ``__kind`` anywhere in a block.
+#: Reported, never a rejection: the block's own verdict is unchanged (rule 31).
+BLANK_KIND_REASON = "blank_kind"
+
+
+def _blank_kind_paths(value: Any, path: str = "", *, limit: int = 10) -> list[str]:
+    """Every position in ``value`` whose ``__kind`` is exactly ``""`` (content-ir rule 31).
+
+    A kind is NAMED or the key is ABSENT. Paths are structure (keys and indexes), never
+    a value. Capped so a pathological answer cannot grow a report without bound.
+    """
+    found: list[str] = []
+
+    def _walk(node: Any, at: str) -> None:
+        if len(found) >= limit:
+            return
+        if isinstance(node, dict):
+            if node.get(KIND_KEY) == "" and KIND_KEY in node:
+                found.append(f"{at}.{KIND_KEY}" if at else KIND_KEY)
+            for key, child in node.items():
+                if key != KIND_KEY:
+                    _walk(child, f"{at}.{key}" if at else str(key))
+        elif isinstance(node, list):
+            for index, child in enumerate(node):
+                _walk(child, f"{at}[{index}]")
+
+    _walk(value, path)
+    return found
+
+
 # ---------------------------------------------------------------------------
 # Block type -> kind slug. A SMALL, REVIEWED TABLE — never a guess.
 # ---------------------------------------------------------------------------
@@ -121,31 +156,18 @@ def _safe_schema_diagnostics(errors: list[str]) -> tuple[str, ...]:
 # ``content_ir.kind_definition.emitted_json_schema`` (Draft 2020-12, recursive,
 # ``additionalProperties: false`` at every level).
 #
-# Legacy parser vocabularies are converted by ``adapt_block_data`` below. The
-# adapter is deliberately outside the parser: provider/client payloads keep
-# their established shape, while the Content IR boundary gets canonical data.
+# A parser vocabulary is converted by ``adapt_block_data`` below. The adapter is
+# deliberately outside the parser: provider/client payloads keep their
+# established shape, while the Content IR boundary gets canonical data.
 # Original keys are retained and therefore travel in residue (law 3).
 #
 BLOCK_KIND_MAP: dict[str, str] = {
-    "transcript": "transcript",
-    "tasks": "task_list",
-    "timeline": "timeline",
-    "cooking_recipe": "cooking_recipe",
-    "troubleshooting": "troubleshooting_guide",
-    "research": "research_report",
-    "decision_tree": "decision_tree",
-    "comparison_table": "comparison_set",
-    "diagram": "diagram_spec",
-    "flashcards": "flashcard_set",
-    "quiz": "quiz_set",
+    # The pre-kind display formats (18 legacy block types: transcript, tasks, timeline,
+    # cooking_recipe, troubleshooting, research, decision_tree, comparison_table, diagram,
+    # flashcards, quiz, progress_tracker, presentation, resources, math_problem,
+    # item_presentation, questionnaire, structured_info) were deleted in legacy-shapes
+    # step 5 (LEGACY-5): a kind arrives as a ``__kind`` instance (the ``kind`` block).
     "mermaid": "mermaid_diagram",
-    "progress_tracker": "progress_tracker",
-    "presentation": "presentation_deck",
-    "resources": "resource_collection",
-    "math_problem": "math_problem",
-    "item_presentation": "item_presentation",
-    "questionnaire": "questionnaire",
-    "structured_info": "structured_info",
 }
 
 
@@ -167,17 +189,9 @@ NON_ENVELOPE_BLOCK_TYPES: dict[str, str] = {
     "thinking": "protocol — model reasoning channel",
     "reasoning": "protocol — model reasoning channel",
     "consolidated_reasoning": "protocol — merged reasoning channel",
-    "info": "protocol — inline notice channel",
-    "task": "protocol — task/agent control channel",
-    "database": "protocol — DB operation notice channel",
-    "private": "protocol — hidden-from-user channel",
-    "plan": "protocol — planning channel",
-    "event": "protocol — event notice channel",
-    "tool": "protocol — tool-call notice channel",
     "matrx": "protocol — pre-framed matrx envelope (carries its own typing)",
     "decision": "protocol — interactive decision block (attribute-XML framed)",
     "artifact": "protocol — artifact framing; the artifact CONTENT is typed separately",
-    "schema_proposal": "protocol — output-schema authoring proposal, not display content",
     "editor_error": "protocol — editor diagnostic reference",
     "editor_code_snippet": "protocol — editor selection reference",
     "audiocite": "protocol — timestamped audio citation reference",
@@ -212,32 +226,8 @@ NON_ENVELOPE_BLOCK_TYPES: dict[str, str] = {
 }
 
 
-def _json_string(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
-
-
-def _alias(source: dict[str, Any], *names: str, default: Any = None) -> Any:
-    """First present key among ``names`` — the parsers' own alias discipline.
-
-    ``adapt_block_data`` promises "a lossless canonical view", and on the final
-    path it is always handed PARSER output (camelCase by ``by_alias=True``), so
-    reading only the camel spelling was invisibly fine. It is not fine for any
-    caller handing it SOURCE-shaped data: the snake spelling the model actually
-    wrote silently produced an EMPTY canonical field — a value that looks
-    populated and renders blank. The parsers already accept both spellings
-    (``quiz_parser._get``); the adapter now does too. Camel wins first, so the
-    final path is bit-for-bit unchanged.
-    """
-    for name in names:
-        if name in source:
-            return source[name]
-    return default
-
-
 def adapt_block_data(block_type: str, data: dict[str, Any]) -> dict[str, Any]:
-    """Return a lossless canonical view of a legacy parser result.
+    """Return a lossless canonical view of a parser result (today: mermaid only).
 
     The input is never mutated. Renamed/wrapped source fields remain alongside
     their canonical equivalents and are routed into envelope residue by the
@@ -246,154 +236,8 @@ def adapt_block_data(block_type: str, data: dict[str, Any]) -> dict[str, Any]:
     """
     adapted = copy.deepcopy(data)
 
-    if block_type == "flashcards":
-        # The set's own ``Title:`` line when the text carried one. Otherwise
-        # the PLACEHOLDER the kind's required ``title`` needs — never a name:
-        # whatever names a record from this value replaces it (the frontend's
-        # ``deriveFlashcardDeckName``). ``or`` rather than ``setdefault`` so an
-        # explicit ``None``/empty title can never reach a ``type: string``.
-        adapted["title"] = adapted.get("title") or "Flashcards"
-
-    elif block_type == "quiz":
-        adapted.setdefault(
-            "title", str(_alias(data, "quizTitle", "quiz_title") or "Quiz")
-        )
-        questions: list[dict[str, Any]] = []
-        for source in _alias(data, "multipleChoice", "multiple_choice") or []:
-            if not isinstance(source, dict):
-                continue
-            options = source.get("options") or []
-            answer = _alias(source, "correctAnswer", "correct_answer", default="")
-            if isinstance(answer, int) and 0 <= answer < len(options):
-                answer = options[answer]
-            questions.append(
-                {
-                    "type": "multiple_choice",
-                    "question": str(source.get("question") or ""),
-                    "options": options,
-                    "correct_answer": str(answer),
-                    "explanation": source.get("explanation"),
-                }
-            )
-        adapted.setdefault("questions", questions)
-
-    elif block_type == "mermaid":
+    if block_type == "mermaid":
         adapted.setdefault("code", str(data.get("source") or ""))
-
-    elif block_type == "progress_tracker":
-        root_aliases = {
-            "overallProgress": "overall_progress",
-            "totalItems": "total_items",
-            "completedItems": "completed_items",
-        }
-        for old, new in root_aliases.items():
-            if old in data:
-                adapted.setdefault(new, data[old])
-        phases: list[dict[str, Any]] = []
-        for category in data.get("categories") or []:
-            if not isinstance(category, dict):
-                continue
-            phase = {
-                "id": category.get("id"),
-                "name": category.get("name") or "Phase",
-                "description": category.get("description"),
-                "color": category.get("color"),
-                "completion_percentage": _alias(
-                    category, "completionPercentage", "completion_percentage"
-                ),
-                "steps": [],
-            }
-            for item in category.get("items") or []:
-                if not isinstance(item, dict):
-                    continue
-                phase["steps"].append(
-                    {
-                        "id": item.get("id"),
-                        "text": item.get("text") or item.get("name") or "",
-                        "completed": bool(item.get("completed", False)),
-                        "priority": item.get("priority"),
-                        "estimated_hours": _alias(
-                            item, "estimatedHours", "estimated_hours"
-                        ),
-                        "optional": item.get("optional"),
-                        "category": item.get("category"),
-                    }
-                )
-            phases.append(phase)
-        adapted.setdefault("phases", phases)
-
-    elif block_type == "presentation":
-        slides: list[dict[str, Any]] = []
-        for original in data.get("slides") or []:
-            if not isinstance(original, dict):
-                continue
-            slide = copy.deepcopy(original)
-            extra = slide.get("extra")
-            if isinstance(extra, dict):
-                slide["extra"] = {key: _json_string(value) for key, value in extra.items()}
-                slide["legacyExtra"] = extra
-            slides.append(slide)
-        adapted["slides"] = slides
-
-    elif block_type == "resources":
-        allowed_types = {
-            "documentation",
-            "tool",
-            "video",
-            "article",
-            "course",
-            "book",
-            "tutorial",
-            "other",
-        }
-        categories: list[dict[str, Any]] = []
-        for original in data.get("categories") or []:
-            if not isinstance(original, dict):
-                continue
-            category = copy.deepcopy(original)
-            resources = copy.deepcopy(original.get("items") or [])
-            for resource in resources:
-                if isinstance(resource, dict) and resource.get("type") not in allowed_types:
-                    resource["type"] = "other"
-            category.setdefault("resources", resources)
-            categories.append(category)
-        adapted["categories"] = categories
-
-    elif block_type == "math_problem":
-        inner = data.get("math_problem")
-        if isinstance(inner, dict):
-            aliases = {
-                "courseName": "course_name",
-                "topicName": "topic_name",
-                "moduleName": "module_name",
-                "introText": "intro_text",
-                "finalStatement": "final_statement",
-                "problemStatement": "problem_statement",
-            }
-            for key, value in inner.items():
-                adapted.setdefault(aliases.get(key, key), copy.deepcopy(value))
-
-    elif block_type == "questionnaire":
-        questions: list[dict[str, Any]] = []
-        for index, section in enumerate(data.get("sections") or []):
-            if not isinstance(section, dict):
-                continue
-            items = section.get("items") or []
-            question: dict[str, Any] = {
-                "id": f"question-{index + 1}",
-                "type": "radio" if items else "text",
-                "question": section.get("title") or f"Question {index + 1}",
-                "description": section.get("content") or None,
-            }
-            if items:
-                question["options"] = [
-                    {"name": str(item.get("name") or "")}
-                    for item in items
-                    if isinstance(item, dict)
-                ]
-            questions.append(question)
-        adapted.setdefault("title", "Questionnaire")
-        adapted.setdefault("questions", questions)
 
     return adapted
 
@@ -401,18 +245,11 @@ def adapt_block_data(block_type: str, data: dict[str, Any]) -> dict[str, Any]:
 def discriminator_for_block(block_type: str, language: str | None) -> dict[str, Any]:
     """Which wire syntax established this block's kind (provenance only).
 
-    Derived from the detector's OWN registries, not guessed. A fence language
-    wins over an XML tag because ``cooking_recipe`` is registered in both and
-    a detected fence language proves which one actually arrived.
-
-    CAVEAT (contract gap, reported): the FE's ``IrDiscriminator`` json variant
-    is hard-typed ``{format: "json", key: "__kind"}``. Our JSON blocks resolve
-    their kind from a legacy root WRAPPER key (``decision_tree``, ``comparison``,
-    ``diagram``) — there is no ``__kind`` in the source. ``format: "json"``
-    correctly names the wire format; ``key`` is the only value the type allows.
+    Derived from the detector's OWN registries, not guessed: a promoted fence
+    language (```mermaid) is a fence; a ``kind`` block declares its kind in
+    ``__kind``.
     """
     from matrx_ai.processing.blocks.block_detector import (
-        JSON_BLOCK_PATTERNS,
         KIND_BLOCK_TYPE,
         SPECIAL_CODE_LANGUAGES,
         XML_TAG_BLOCKS,
@@ -422,10 +259,7 @@ def discriminator_for_block(block_type: str, language: str | None) -> dict[str, 
         return {"format": "fence", "language": language}
     if block_type in XML_TAG_BLOCKS:
         return {"format": "xml", "tag": block_type}
-    if block_type == KIND_BLOCK_TYPE or block_type in JSON_BLOCK_PATTERNS:
-        # For a `kind` block this is not a caveat but the literal truth: the body really
-        # does declare its kind in ``__kind``. The CAVEAT above applies only to the legacy
-        # wrapper-key families.
+    if block_type == KIND_BLOCK_TYPE:
         return {"format": "json", "key": KIND_KEY}
     return {"format": "fence", "language": block_type}
 
@@ -578,6 +412,26 @@ def _partition(
     """
     ref_name = _ref_name(schema)
     resolved = _resolve_ref(schema, root)
+
+    branches = resolved.get("anyOf")
+    if isinstance(branches, list) and value is not None:
+        # ``Optional[Model]`` is ``anyOf: [{$ref: Model}, {type: null}]`` in every
+        # Pydantic-generated kind schema. Without this the node was never partitioned:
+        # one key the schema does not declare (a stray nested ``__kind``) stayed in
+        # ``clean`` and failed the whole block, where the same key one level up rides
+        # residue (data_table.source, 2026-11-02). Same branch choice as
+        # ``_stamp_declared_markers``: the first object branch whose required keys fit.
+        for branch in branches:
+            if not isinstance(branch, dict):
+                continue
+            target = _resolve_ref(branch, root)
+            if (
+                target.get("type") == "object"
+                and isinstance(value, dict)
+                and _branch_fits(value, target)
+            ) or (target.get("type") == "array" and isinstance(value, list)):
+                return _partition(value, branch, root, path, node_index, collapses)
+        return value
 
     if resolved.get("type") == "array" and isinstance(value, list):
         items = resolved.get("items")
@@ -846,8 +700,23 @@ def envelope_for_block(
     # exactly one kind in code, and that stays true.
     from matrx_ai.processing.blocks.block_detector import KIND_BLOCK_TYPE
 
+    # RULE 31 — NO BLANK KINDS: a "" marker at ANY depth is screamed as its own class,
+    # naming the kind and every path. It is a report, not a verdict: whether this block
+    # stamps is decided below exactly as before, so valid content around it still lands.
+    blank_paths = _blank_kind_paths(data) if isinstance(data, dict) else []
+    if blank_paths and on_contract_failure is not None:
+        named = data.get(KIND_KEY) if isinstance(data, dict) else None
+        on_contract_failure(BlockEnvelopeContractFailure(
+            block_type=block_type,
+            kind=named if isinstance(named, str) and named else BLOCK_KIND_MAP.get(block_type, ""),
+            reason=BLANK_KIND_REASON,
+            errors=("value:blank_kind",),
+            violations=tuple(blank_paths),
+        ))
+
     if block_type == KIND_BLOCK_TYPE:
         slug = data.get(KIND_KEY) if isinstance(data, dict) else None
+        report_blank_kind_string("blocks.envelope.kind_block_complete", slug)
         if not isinstance(slug, str) or not slug:
             # The detector only claims this type once it has READ a slug, so arriving
             # here without one means the body changed between detection and completion.
@@ -914,25 +783,25 @@ def envelope_for_block(
             ))
         return None
 
-    from matrx_graph.executor.schema_validation import validate_instance
-
+    from matrx_graph.executor.schema_validation import describe_violations, validate_instance
 
     errors = validate_instance(schema, clean)
     if errors:
         diagnostics = _safe_schema_diagnostics(errors)
+        violations = tuple(describe_violations(schema, clean))
         _log_once(
             f"invalid:{slug}",
-            f"block envelope: '{block_type}' parser output does not satisfy kind "
+            f"block envelope: '{block_type}' output does not satisfy kind "
             f"'{slug}' emitted_json_schema even after residue partition — NO __ir "
             f"envelope stamped (the block still renders via the frontend parser). "
-            f"This is a parser/kind contract drift, not user input. "
-            f"diagnostics={diagnostics}",
+            f"violations={violations}",
         )
         if on_contract_failure is not None:
             on_contract_failure(BlockEnvelopeContractFailure(
                 block_type=block_type, kind=slug,
                 reason="emitted_schema_validation_failed",
                 errors=diagnostics,
+                violations=violations,
             ))
         return None
 
@@ -982,6 +851,7 @@ def envelope_for_artifact_content(
     if not isinstance(value, dict):
         return None
     slug = value.get(KIND_KEY)
+    report_blank_kind_string("blocks.envelope.kind_slug_of_value", slug)
     if not isinstance(slug, str) or not slug:
         return None
     from matrx_ai.processing.blocks.block_detector import KIND_BLOCK_TYPE

@@ -518,3 +518,28 @@ def test_only_deep_research_agents_ride_the_research_translator() -> None:
     assert gra.is_google_research_agent("deep-research-max-preview-04-2026")
     assert not gra.is_google_research_agent("antigravity-preview-05-2026")
     assert not gra.is_google_research_agent(None)
+
+
+@pytest.mark.parametrize("fail_delivery", [False, True])
+def test_image_notification_preserves_response_when_delivery_fails(fail_delivery, monkeypatch):
+    from matrx_ai.config import ImageContent, UnifiedMessage, UnifiedResponse
+
+    image = ImageContent(file_id="11111111-1111-4111-8111-111111111111", mime_type="image/png")
+    response = UnifiedResponse(messages=[UnifiedMessage(role="assistant", content=[image])])
+    original = response.to_dict()
+    delivered = []
+    logs = []
+
+    class ImageEmitter:
+        async def send_data(self, payload):
+            delivered.append(payload)
+            if fail_delivery:
+                raise RuntimeError("image wire unavailable")
+
+    monkeypatch.setattr(gra, "vcprint", lambda message, **kwargs: logs.append(message))
+    asyncio.run(gra.GoogleDeepResearchAgent._emit_images(response, ImageEmitter()))
+    assert len(delivered) == 1
+    assert response.to_dict() == original
+    assert bool(logs) == fail_delivery
+    if fail_delivery:
+        assert "image wire unavailable" in logs[0]

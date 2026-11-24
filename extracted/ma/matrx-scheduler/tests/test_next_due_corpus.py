@@ -15,7 +15,9 @@ import pytest
 
 from matrx_scheduler.next_due import compute_next_due_at
 
-CORPUS = Path(__file__).resolve().parents[3] / "apps/shared/data/src/scheduler/next-due.corpus.json"
+# The package's copy of apps/shared/data/src/scheduler/next-due.corpus.json;
+# tests/package_host_contracts/test_matrx_scheduler_host.py keeps it byte-identical.
+CORPUS = Path(__file__).resolve().parent / "fixtures" / "next-due.corpus.json"
 
 
 def _cases() -> list[dict]:

@@ -1,4 +1,5 @@
 from chalk._gen.chalk.kubernetes.v1 import routes_pb2 as _routes_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message

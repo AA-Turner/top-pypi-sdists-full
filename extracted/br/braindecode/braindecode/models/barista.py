@@ -206,6 +206,9 @@ class BaRISTA(EEGModuleMixin, nn.Module, license="other"):
        Systems 38. https://arxiv.org/abs/2512.12135
     """
 
+    _time_axis = "fixed"  # fixed: token_pooling.weight
+    _channel_axis = "fixed"  # fixed: token_pooling.weight
+
     # Configs and checkpoints saved before ``on_non_divisible`` existed cropped.
     _legacy_on_non_divisible = "crop"
 
@@ -345,7 +348,20 @@ class BaRISTA(EEGModuleMixin, nn.Module, license="other"):
             nn.Linear(self.n_tokens, 1, bias=False) if pooling == "learned" else None
         )
         self.final_layer = nn.Linear(d_model, self.n_outputs)
+        self._n_times_step = patch_size
+        if pooling == "mean":
+            self._time_axis = "free"
+            self._min_n_times = 1 if on_non_divisible == "pad" else patch_size
         self._init_parameters()
+
+    def _accepts_any_n_chans(self, args: tuple, kwargs: dict) -> bool:
+        if super()._accepts_any_n_chans(args, kwargs):
+            return True
+        if self.token_pooling is not None:
+            return False
+        spatial = self._call_arg(args, kwargs, "spatial_indices")
+        ch_mask = self._call_arg(args, kwargs, "ch_mask")
+        return spatial is not None or (ch_mask is not None and self.spatial_emb is None)
 
     def _init_parameters(self) -> None:
         """Model-specific initialization (see ``reset_parameters``)."""
@@ -449,7 +465,9 @@ class BaRISTA(EEGModuleMixin, nn.Module, license="other"):
         -------
         torch.Tensor or dict
             Logits of shape ``(batch, n_outputs)``, or a dictionary containing
-            ``features`` of shape ``(batch, d_model)`` and ``cls_token=None``.
+            ``features`` of shape ``(batch, d_model)``, ``cls_token=None`` and
+            ``tokens``, the backbone output ``(batch, n_chans, n_patches,
+            d_model)``, zero for padded channels.
         """
         if x.ndim != 3:
             raise ValueError("Expected input of shape (batch, n_chans, n_times).")
@@ -506,7 +524,11 @@ class BaRISTA(EEGModuleMixin, nn.Module, license="other"):
         else:
             features = masked_mean(latents, token_mask, [1])
         if not torch.jit.is_scripting() and return_features:
-            return {"features": features, "cls_token": None}  # nosec B105
+            # Patch-major tokens -> (batch, n_chans, n_patches, d_model).
+            tokens = latents.unflatten(1, (n_patches, n_chans)).transpose(1, 2)
+            if mask is not None:
+                tokens = tokens.masked_fill(~mask[:, :, None, None], 0.0)
+            return {"features": features, "cls_token": None, "tokens": tokens}
         return self.final_layer(features)
 
 
@@ -541,6 +563,8 @@ class _SpatialEmbedding(nn.Module):
 
         Per-sample indices give ``(batch, n_chans, d_model)``, one montage per sample.
         """
+        # The default indices were range-checked at construction.
+        given = indices is not None
         if indices is None:
             default = self.default_indices
             if default is None:
@@ -560,16 +584,17 @@ class _SpatialEmbedding(nn.Module):
                 "(batch, n_chans, 3) for coordinates and (n_chans,) or "
                 "(batch, n_chans) for region scales."
             )
-        grid = grid.to(self.tables[0].weight.device)
         # Value check only in eager mode: it branches on tensor data, which
         # TorchScript, torch.export and torch.compile graphs cannot express.
+        # Before the move, so indices passed on the CPU are read on the CPU.
         if not torch.jit.is_scripting():
-            if not torch.compiler.is_compiling():
+            if given and not torch.compiler.is_compiling():
                 n_slots = self.tables[0].num_embeddings
                 if bool((grid < 0).any()) or bool((grid >= n_slots).any()):
                     raise ValueError(
                         f"spatial_indices must contain integers in [0, {n_slots})."
                     )
+        grid = grid.to(self.tables[0].weight.device)
         return torch.stack(
             [table(grid[..., dim]) for dim, table in enumerate(self.tables)]
         ).sum(dim=0)

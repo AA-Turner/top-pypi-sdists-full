@@ -7,12 +7,48 @@ from numpy.typing import NDArray
 
 @final
 class LoopFilter:
-    """Create a loop_filter instance, validating its arguments.
+    """A second-order loop filter whose closed loop has noise bandwidth `bn`,
+    for a loop whose rest has unit gain.
+
+    The contract. The closed loop's noise bandwidth is `bn` cycles per
+    sample, a fixed function of `kp` and `ki`, provided the rest of the
+    loop has unit gain. The filter cannot see the rest of the loop, so each
+    of these is the caller's to deliver, and each is checkable:
+
+    1. The error detector's slope at lock is 1 per unit of the filter's
+       error input, open loop and noise free. The filter takes the error in
+       the unit the control is applied in, per update: the product of the
+       detector's slope and the actuator's gain, in the units they are
+       given, is 1. A detector that returns radians and an oscillator that
+       takes cycles need the factor of 2*pi once, after the filter (as
+       Costas converts the control to cycles per sample), never inside the
+       loop gain and never twice.
+    2. The actuator applies the control with unit gain, once per update,
+       `t` samples apart.
+    3. The loop is tracking, inside the detector's linear region.
+    4. The error reaches the filter and the control reaches the actuator
+       within the same update: no extra delay (every update of delay widens
+       the loop).
+
+    A loop gain K other than 1 (the detector's slope times the actuator's
+    gain) scales the natural frequency and the damping each by the square
+    root of K, so the noise bandwidth becomes (4*K*zeta^2 + 1) / (4*zeta^2
+    + 1) times `bn`: 5/3 at K = 2 and 3 at K = 4 for zeta = 0.707, and 2/3
+    at K = 0.5. A detector whose slope is 2 is an instance:
+    doppler#3224. A detector whose slope is not 1, or rides on signal
+    level or SNR, is scaled to unit slope before the filter, by dividing by
+    its own slope; a slope that rides on level makes the bandwidth ride on
+    level.
+
+    Held by native/validation/loop_filter_noise_bw.c (the promise),
+    test_loop_filter_contract.py (the gain formula, and these sentences on
+    every face) and test_loop_detector_contract.py (the callers' side).
 
     Parameters
     ----------
     bn : float, default 0.01
-        Loop noise bandwidth, normalized cycles/sample; >= 0 and finite
+        Loop noise bandwidth, normalized cycles/sample, of the closed loop
+        given a unit-slope detector (see the contract); >= 0 and finite
         (default 0.01).
     zeta : float, default 0.707
         Damping factor; > 0 and finite (default 0.707).
@@ -314,13 +350,45 @@ class LoopFilter:
 
 @final
 class StateFilter:
-    """Create a state filter, validating its arguments: the one constructor the
-    Python class `StateFilter` calls.
+    """A third-order state filter whose closed loop has noise bandwidth `bn`,
+    for a loop whose rest has unit gain.
+
+    The contract. The closed loop's noise bandwidth is `bn` cycles per
+    sample, a fixed function of `kp`, `ki` and `kr`, provided the rest of
+    the loop has unit gain. The filter cannot see the rest of the loop, so
+    each of these is the caller's to deliver, and each is checkable:
+
+    1. The error detector's slope at lock is 1 per unit of the filter's
+       error input, open loop and noise free, in the unit the control is
+       applied in per update; the radians-to-cycles factor, where the
+       oscillator takes cycles, is applied once after the filter, never
+       inside the loop gain.
+    2. The actuator applies the control with unit gain, once per update,
+       `t` samples apart.
+    3. The loop is tracking, inside the detector's linear region.
+    4. The error reaches the filter and the control reaches the actuator
+       within the same update: the delivered bandwidth is the one asked for
+       at a delay of zero.
+
+    A loop gain K other than 1 changes the delivered bandwidth, and this
+    third-order loop is also stable only for K above a lower edge near
+    1/(a*b) of nominal and below an upper edge that falls with the delay
+    (docs/design/loop-filter.md section 12), so a detector slope below that
+    edge breaks the loop with no error reported. The second-order closed
+    form (4*K*zeta^2 + 1) / (4*zeta^2 + 1) does not apply to it. A detector
+    whose slope is not 1, or rides on signal level or SNR, is scaled to
+    unit slope before the filter; a slope that rides on level makes the
+    bandwidth ride on level.
+
+    Held by the state filter's own tests for the promise,
+    test_loop_filter_contract.py for these sentences on every face, and the
+    test_loop_detector_contract.py for the callers' side.
 
     Parameters
     ----------
     bn : float, default 0.01
-        Loop noise bandwidth, normalized cycles/sample; >= 0 (default 0.01).
+        Loop noise bandwidth, normalized cycles/sample, of the closed loop
+        given a unit-slope detector (see the contract); >= 0 (default 0.01).
         `bn = 0` is a deliberately frozen loop.
     t : float, default 1.0
         Update period in samples; > 0 (default 1.0).
@@ -1086,7 +1154,10 @@ class Costas:
     Parameters
     ----------
     bn : float, default 0.05
-        bn constructor parameter.
+        Loop noise bandwidth, of the closed loop given a unit-slope detector
+        (see LoopFilter). The detector's slope is 1 per radian at every signal
+        level and falls below 1 as the SNR per symbol falls (about 0.6 at 0 dB
+        for BPSK), so the delivered loop is narrower at low SNR.
     zeta : float, default 0.707
         zeta constructor parameter.
     init_norm_freq : float, default 0.0
@@ -1619,7 +1690,26 @@ class Dll:
     init_chip : float, default 0.0
         Seed code phase, chips (default 0.0).
     bn : float, default 0.01
-        Loop noise bandwidth (default 0.01).
+        Loop noise bandwidth (default 0.01), of the closed loop given a
+        unit-slope detector (see LoopFilter). At `segments` 1 and spacing 0.5
+        the delivered bandwidth is `bn` times (4 zeta^2 Kd + 1) / (4 zeta^2 +
+        1), whatever the code length, where Kd is the discriminator's slope per
+        chip: 1.31 at 4 samples per chip (1.02 at 2). The slope is 0 at a
+        spacing of one chip or more. TRACKING: the perfect integrator holds the
+        code rate, so a constant code-rate offset is followed with zero
+        steady-state error; the offset tracked is not bounded by `bn` or the
+        natural frequency wn = 8 zeta bn / (4 zeta^2 + 1). ACQUISITION: what is
+        bounded is the transient of an unseeded loop handed a rate step. The
+        phase error peaks near (rate step) / wn before the integrator has
+        wound, and the discriminator is not periodic (a carrier loop's is), so
+        once the peak leaves the correlation triangle there is no slip to
+        recover through. An offset `delta` is a ramp of `delta * sf` chips per
+        period; measured at bn 0.005 (wn 0.0094, so a ramp of 7e-5 at 127 chips
+        and 9e-6 at 1023 is 1 wn) the unseeded step is held to twice wn,
+        erratic from 2.2 to 2.6 times it and lost from 2.8
+        (examples/dll_demo.py, dsss/tests/test_despreader.py). Past that, seed
+        the rate (the rate aid, dp_dll_set_rate_aid()) or widen `bn` for
+        acquisition.
     zeta : float, default 0.707
         Damping factor (default 0.707).
     spacing : float, default 0.5
@@ -1649,11 +1739,12 @@ class Dll:
     >>> rng = np.random.default_rng(1)
     >>> code = rng.integers(0, 2, 31).astype(np.uint8)  # a 31-chip PN code
     >>> chip = np.where(code & 1, -1.0, 1.0)    # BPSK spreading code
-    >>> x = np.tile(np.repeat(chip, 2), 60).astype(np.complex64)
+    >>> one = np.repeat(chip, 2)                # one period: 31 chips x 2
+    >>> x = np.concatenate([np.tile(one, 60), one[:31]])  # 60.5 periods
     >>> d = Dll(code=code, sps=2)               # 2 samples/chip loop
-    >>> sym = d.steps(x)                        # one prompt per period
-    >>> sym.shape                               # 60 despread symbols
-    (60,)
+    >>> sym = d.steps(x.astype(np.complex64))   # one prompt per period
+    >>> len(sym)                                # the half period ends mid-period
+    60
     >>> round(float(np.mean(sym.real[-10:])), 1)  # despread to a clean +1
     1.0
     >>> round(d.code_rate, 3)                   # code NCO at nominal rate
@@ -1742,9 +1833,12 @@ class Dll:
         >>> rng = np.random.default_rng(1)
         >>> code = rng.integers(0, 2, 31).astype(np.uint8)
         >>> chip = np.where(code & 1, -1.0, 1.0)    # BPSK spreading code
-        >>> x = np.tile(np.repeat(chip, 2), 40).astype(np.complex64)
+        >>> one = np.repeat(chip, 2)                # one period: 31 chips x 2
+        >>> x = np.concatenate([np.tile(one, 40), one[:31]])  # 40.5 periods
         >>> d = Dll(code=code, sps=2)
-        >>> sym = d.steps(x)                        # one prompt per period
+        >>> sym = d.steps(x.astype(np.complex64))   # one prompt per period
+        >>> len(sym)                                # the half period ends mid-period
+        40
         >>> sym.dtype
         dtype('complex64')
         >>> round(float(np.mean(sym.real[-10:])), 1)  # despread to a clean +1
@@ -1773,7 +1867,7 @@ class Dll:
         decim: int = 1,
     ) -> None:
         """Attach (or detach) a telemetry context and register the code loop's
-        probes on it. Registers five probes, emitted once per code epoch
+        probes on it. Registers seven probes, emitted once per code epoch
         (period) and further thinned by decim: "<prefix>.e" (the
         early-minus-late envelope discriminator — the loop stress),
         "<prefix>.rate" (the tracked code rate, chips advanced per nominal
@@ -1786,10 +1880,20 @@ class Dll:
         "<prefix>.nco" (what the code NCO is commanded: the complete
         loop-filter output, the integrator, the proportional term and the
         carrier aid, as chips per nominal chip, at the NCO's resolution of one
-        phase-increment step; a held loop's held command). Passing NULL
-        detaches. Setup path, never hot: call before the producer thread starts
-        stepping; the context is borrowed and must outlive the attachment (SPSC
-        rules in dp_tlm/dp_tlm_core.h).
+        phase-increment step; a held loop's held command), and the two terms
+        the lock statistic is formed from, for its decomposition (#3134):
+        "<prefix>.prompt_amp" (the epoch's last look's prompt magnitude |P|,
+        the signal term) and "<prefix>.offset_pwr" (that look's offset (noise)
+        tap power |O|^2, the noise reference's input, of which R's denominator
+        E|O|^2 is the running mean). Both are in the units the statistic is
+        formed in -- the look's normalized correlation. They are ONE look's
+        terms -- the epoch's last look -- not the epoch's sum: with segments >
+        1 an epoch holds several looks, and R sums |P|^2 over n_looks of them,
+        so R = sqrt(2 sum |P|^2 / E|O|^2) is rebuilt from these only as their
+        moments (n_looks E|P|^2 over E|O|^2), never from one epoch's pair.
+        Passing NULL detaches. Setup path, never hot: call before the producer
+        thread starts stepping; the context is borrowed and must outlive the
+        attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
 
         Parameters
         ----------
@@ -1816,12 +1920,65 @@ class Dll:
         >>> d = Dll(code=code, sps=2)
         >>> d.set_telemetry(tlm, "code")
         >>> sorted(tlm.probe_names)
-        ['code.e', 'code.lock', 'code.locked', 'code.nco', 'code.rate']
-        >>> x = np.ones(31 * 2 * 50, dtype=np.complex64)
+        ['code.e', 'code.lock', 'code.locked', 'code.nco', 'code.offset_pwr', 'code.prompt_amp', 'code.rate']
+        >>> x = np.ones(31 * 2 * 50 + 31, dtype=np.complex64)  # 50.5 periods
         >>> _ = d.steps(x)
-        >>> recs = tlm.read()   # five records per code epoch
-        >>> len(recs) > 0 and len(recs) % 5 == 0
+        >>> recs = tlm.read()   # seven records per code epoch
+        >>> len(recs) > 0 and len(recs) % 7 == 0
         True
+
+        """
+
+    def set_steer_telemetry(
+        self,
+        tlm: object | None,
+        prefix: str,
+        decim: int = 1,
+    ) -> None:
+        """Attach (or detach) the per-steer telemetry set: the loop filter's
+        outputs at each steer of the symbol-period aid.
+
+        dp_dll_set_telemetry()'s probes flush once a code epoch, but with the
+        symbol-period aid on (dp_dll_set_symbol_period()) the loop steers once
+        a symbol window, so those probes hold the last steer. This set is
+        emitted at the steer itself, in aid_look(): "<prefix>.e" (the
+        discriminator), ".prop" (kp * e), ".integ" (the filter's integrator),
+        ".ctrl" (what the steer adds to the nominal code rate, code periods a
+        sample, the rate aid excluded) and ".aid" (the rate aid,
+        dp_dll_set_rate_aid()). A held loop (dp_dll_set_coast()) still emits:
+        its discriminator reads, and its filter outputs are the held ones. With
+        the aid off nothing is emitted: the steer is the epoch's, and the epoch
+        set shows it. Its own context, so a composer that does not ask for it
+        (the despreader) registers and emits nothing more. Observation only: no
+        decision reads it.
+
+        Parameters
+        ----------
+        tlm : object | None
+            Telemetry context, or NULL to detach this set.
+        prefix : str
+            Probe-name prefix, e.g. "rx.code.steer".
+        decim : int, default 1
+            Emit every decim-th steer; >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``set_steer_telemetry failed``, with the return code appended
+            (gh-869).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import Dll
+        >>> from doppler.telemetry import Telemetry
+        >>> code = np.random.default_rng(1).integers(0, 2, 31).astype(np.uint8)
+        >>> tlm = Telemetry(1 << 12)
+        >>> d = Dll(code=code, sps=2)
+        >>> d.set_steer_telemetry(tlm, "code.steer")
+        >>> sorted(n.split(".")[-1] for n in tlm.probe_names)
+        ['aid', 'ctrl', 'e', 'integ', 'prop']
 
         """
 
@@ -1869,23 +2026,29 @@ class Dll:
         on top of the loop's own control. For physically-coupled Doppler, pass
         carrier_offset_hz / carrier_freq_hz so the code NCO rides the code-rate
         dilation the discriminator alone can't pull in at low SNR. Applied
-        continuously across the epoch (not a phase pulse), and nudges the
-        current phase_inc so the aid takes effect before the first period
-        update. code_rate stays the loop's own observable and is unaffected.
+        continuously across the epoch (not a phase pulse). The call only stores
+        the aid: it reaches phase_inc at the next steer (a period boundary),
+        and until then the NCO runs the increment it already has (the last
+        steer's, or the nominal one on a fresh or seeded loop). code_rate stays
+        the loop's own observable and is unaffected.
 
         A fixed fractional rate bias summed into the sample-and-hold
         `phase_inc` on top of the loop's own control every epoch -- for
         physically-coupled Doppler, `carrier_offset_hz / carrier_freq_hz`, so
         the code NCO rides the code-rate dilation the discriminator alone can't
         pull in at low SNR. Applied continuously across the epoch (via
-        `phase_inc`), not as a phase pulse. Also nudges the current `phase_inc`
-        so the aid takes effect before the first period update. `code_rate`
-        stays the loop's own observable and is unaffected. A HELD loop
-        (dp_dll_set_coast()) takes the new aid at once: nothing steers a
-        coasting loop's `phase_inc`, so it is recomputed here from the held
-        filter and the new aid -- a holder that refreshes the Doppler it holds
-        (a searcher-timed receiver's fold) sees the code rate follow. Before
-        this, a coasting loop kept the aid it was held with.
+        `phase_inc`), not as a phase pulse. The call only stores the aid: it
+        reaches `phase_inc` at the next steer (a period boundary), and until
+        then the NCO runs the increment it already has -- the last steer's on a
+        loop that has been running, the nominal `1 / (sf * sps)` on a fresh or
+        seeded one. Calling it every period, as a carrier-aided receiver does,
+        therefore leads the NCO by one update. `code_rate` stays the loop's own
+        observable and is unaffected. A HELD loop (dp_dll_set_coast()) takes
+        the new aid at its next period boundary, where the held rate is
+        converted with the aid in it: a holder that refreshes the Doppler it
+        holds (a searcher-timed receiver's fold) sees the code rate follow, and
+        refreshing it any number of times within a period changes nothing a
+        conversion carries.
 
         Parameters
         ----------
@@ -1902,11 +2065,11 @@ class Dll:
         >>> idx = (np.arange(63 * 4 * 300) * (1 + delta) / 4).astype(
         ...     np.int64) % 63
         >>> x = np.where(code[idx] & 1, -1.0, 1.0).astype(np.complex64)
-        >>> plain = Dll(code, sps=4, bn=0.005)
-        >>> _ = plain.steps(x)
+        >>> plain = Dll(code, sps=4, bn=0.05)  # wn 0.09 per period: a ramp of
+        >>> _ = plain.steps(x)                 # 0.03 chip/period stays in range
         >>> round(plain.code_rate, 4)      # loop had to pull the whole Doppler
         1.0005
-        >>> aided = Dll(code, sps=4, bn=0.005)
+        >>> aided = Dll(code, sps=4, bn=0.05)
         >>> aided.set_rate_aid(delta)      # feed the Doppler forward instead
         >>> _ = aided.steps(x)
         >>> round(aided.code_rate, 4)      # loop integrator stays at nominal
@@ -1934,10 +2097,10 @@ class Dll:
         >>> from doppler.track import Dll
         >>> rng = np.random.default_rng(3)
         >>> code = rng.integers(0, 2, 63).astype(np.uint8)
-        >>> idx = (np.arange(63 * 4 * 200) // 4) % 63
+        >>> idx = (np.arange(63 * 4 * 200 + 126) // 4) % 63
         >>> x = np.where(code[idx] & 1, -1.0, 1.0).astype(np.complex64)
         >>> d = Dll(code, sps=4, init_chip=0.15, bn=0.005)   # 0.15 chip off
-        >>> _ = d.steps(x)                        # 200 epochs: the loop pulls in
+        >>> _ = d.steps(x)                        # 200.5 periods: the loop pulls in
         >>> m = d.take_error_mean()               # the 200 steers' mean
         >>> 0.0 < abs(m) < 0.5                    # the pull-in's transient
         True
@@ -2280,7 +2443,9 @@ class Dll:
         >>> # >= 7 chips gives a usable lock statistic
         >>> code = rng.integers(0, 2, 63).astype(np.uint8)
         >>> chip = np.where(code & 1, -1.0, 1.0)
-        >>> x = np.tile(np.repeat(chip, 4), 400).astype(np.complex64)
+        >>> one = np.repeat(chip, 4)                # one period: 63 chips x 4
+        >>> x = np.concatenate([np.tile(one, 400), one[:126]])  # 400.5 periods
+        >>> x = x.astype(np.complex64)
         >>> d = Dll(code, sps=4, bn=0.005)
         >>> # raw geometry: declare at R>3, drop at R<2.5, 8-look,
         >>> # 2-of-2 hysteresis
@@ -2489,7 +2654,12 @@ class SymbolSync:
     sps : int, default 4
         Nominal input samples per symbol (default: 4).
     bn : float, default 0.01
-        Loop noise bandwidth, normalized to the symbol rate (default: 0.01).
+        Loop noise bandwidth, normalized to the symbol rate (default: 0.01), of
+        the closed loop given a unit-slope detector (see LoopFilter). The
+        detector is divided by a running power average, not by its own slope,
+        so the delivered bandwidth is 0.54 times `bn` at roll-off 0.1 and 1.99
+        times at 0.9 for Gardner (doppler#3238), and DTTL's slope goes as the
+        inverse of the amplitude.
     zeta : float, default 0.707
         Loop damping factor (default: 0.707).
     order : Literal["linear", "parabolic", "cubic"], default "cubic"
@@ -2701,18 +2871,19 @@ class SymbolSync:
         2*(|on-time|^2-|mid|^2)/(|on-time|^2+|mid|^2): a per-look mean
         (mean_lock_detect, from rolloff and the minimum operating Es/N0) drives
         the classic N = variance*((Q^-1(pfa)-Q^-1(pd))/mean)^2 / threshold =
-        Q^-1(pfa)*mean/(Q^-1(pfa)-Q^-1(pd)) derivation, implemented directly
-        from a formula supplied by a doppler user (not re-derived against a
-        primary source), with "variance" set from a direct measurement of
-        lock_signal's real per-look variance under noise (~1.343,
-        5,000,000-sample Monte Carlo) rather than the placeholder "8" this API
-        originally shipped with -- see symsync_core.c's
-        SYMSYNC_LOCK_STAT_VARIANCE comment for the full derivation (a
-        factor-of-2 correction for the erfcinv-vs-Q^-1 convention applies on
-        top of the measured variance; the two hypotheses were empirically
-        compared before picking one). Empirically validated at the default
-        operating point (avgs=133, threshold=0.311): 429 false declares over
-        500,000 independent noise-only blocks against a nominal pfa=1e-3
+        Q^-1(pfa)*mean/(Q^-1(pfa)-Q^-1(pd)) derivation, computed by the
+        detection module (dp_det_dwell_gauss() for avgs,
+        dp_det_threshold_gauss() for the threshold) from a formula supplied by
+        a doppler user (not re-derived against a primary source), with
+        "variance" set from a direct measurement of lock_signal's real per-look
+        variance under noise (~1.343, 5,000,000-sample Monte Carlo) rather than
+        the placeholder "8" this API originally shipped with -- see
+        symsync_core.c's SYMSYNC_LOCK_STAT_VARIANCE comment for the full
+        derivation (a factor-of-2 correction for the erfcinv-vs-Q^-1 convention
+        applies on top of the measured variance; the two hypotheses were
+        empirically compared before picking one). Empirically validated at the
+        default operating point (avgs=133, threshold=0.311): 429 false declares
+        over 500,000 independent noise-only blocks against a nominal pfa=1e-3
         (8.58e-4, correctly sized with safe margin, not accidentally
         oversized); 2000/2000 true declares at the esno_min design SNR against
         a nominal pd=0.9 -- see native/validation/symsync_lock.c for the
@@ -3006,7 +3177,12 @@ class RateSync:
         Matched-filter arms; a power of two. Sets the fractional-timing
         resolution to 1/num_phases of an output period.
     bn : float, default 0.01
-        Loop noise bandwidth, normalised to the symbol rate.
+        Loop noise bandwidth, normalised to the symbol rate, of the closed loop
+        given a unit-slope detector (see LoopFilter). The detector is
+        normalised by its own slope against the pulse, which makes the slope 1
+        at UNIT symbol amplitude only: Gardner's goes as the amplitude squared
+        and DTTL's as the amplitude, so a quarter-amplitude stream runs a
+        Gardner loop at 1/16 of `bn`.
     zeta : float, default 0.707
         Damping factor (1.0 = critical; 0.707 usual).
     ted : Literal["gardner", "dttl"], default "gardner"
@@ -3449,7 +3625,11 @@ class CarrierMpsk:
     Parameters
     ----------
     bn : float, default 0.05
-        Loop noise bandwidth (default 0.05).
+        Loop noise bandwidth (default 0.05), of the closed loop given a
+        unit-slope detector (see LoopFilter). The detector's slope is 1 per
+        radian at every signal level and falls below 1 as the SNR per symbol
+        falls (about 0.6 at 0 dB for BPSK, and near 0 at 6 dB for 8-PSK), so
+        the delivered loop is narrower at low SNR.
     zeta : float, default 0.707
         Damping factor (default 0.707).
     init_norm_freq : float, default 0.0
@@ -3800,7 +3980,11 @@ class CarrierNda:
     Parameters
     ----------
     bn : float, default 0.01
-        Loop noise bandwidth (default 0.01).
+        Loop noise bandwidth (default 0.01), of the closed loop given a
+        unit-slope detector (see LoopFilter). The detector's slope is 2 per
+        radian at every M and level (doppler#3224), so the delivered bandwidth
+        is 5/3 of `bn` at damping 0.707 until that is fixed; it also falls with
+        the SNR per arm.
     zeta : float, default 0.707
         Damping factor (default 0.707).
     init_norm_freq : float, default 0.0
@@ -3873,7 +4057,9 @@ class CarrierNda:
         Returns
         -------
         NDArray[np.complex64]
-            Number of de-rotated samples written to out (equals x_len).
+            Number of de-rotated samples written to out (equals x_len); 0, with
+            nothing written, when an update period other than 1 is set
+            (dp_carrier_nda_set_update_period()).
 
         Examples
         --------
@@ -3914,12 +4100,13 @@ class CarrierNda:
         decim: int = 1,
     ) -> None:
         """Attach (or detach) a telemetry context and register the carrier
-        loop's probes on it. Registers four probes, emitted once per input
+        loop's probes on it. Registers five probes, emitted once per input
         sample (this is a sample-rate loop — use decim to thin the stream):
-        "<prefix>.lock" (the lock-signal EMA, ~1 when phase-locked),
-        "<prefix>.e" (the M-th-power phase discriminator — the loop stress),
-        "<prefix>.freq" (the tracked carrier frequency, cycles/sample) and
-        "<prefix>.locked" (the verify-counted lockdet decision, 0/1). Passing
+        "<prefix>.lock" (the lock statistic: the EMA, ~1 when phase-locked, or
+        the last block's R), "<prefix>.e" (the M-th-power phase discriminator —
+        the loop stress), "<prefix>.freq" (the tracked carrier frequency,
+        cycles/sample), "<prefix>.locked" (the verify-counted lockdet decision,
+        0/1) and "<prefix>.nco" (the full NCO command, cycles/sample). Passing
         NULL detaches. Setup path, never hot: call before the producer thread
         starts stepping; the context is borrowed and must outlive the
         attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
@@ -3948,7 +4135,7 @@ class CarrierNda:
         >>> c = CarrierNda(bn=0.01, sps=8, n=4, m=4)
         >>> c.set_telemetry(tlm, "car", decim=8)
         >>> sorted(tlm.probe_names)
-        ['car.e', 'car.freq', 'car.lock', 'car.locked']
+        ['car.e', 'car.freq', 'car.lock', 'car.locked', 'car.nco']
         >>> x = np.exp(2j * np.pi * 0.005 * np.arange(4096)).astype(
         ...     np.complex64)
         >>> _ = c.steps(x)
@@ -3993,7 +4180,10 @@ class CarrierNda:
         input found real false locks at n_up=8; n_up=64 was the smallest verify
         count that reliably eliminated them -- see carrier_nda_core.c's
         CARRIER_NDA_LOCK_DEFAULT_* comment for the exact trial data). A live
-        lock survives the re-tune; the in-flight verify run restarts.
+        lock survives the re-tune; the in-flight verify run restarts. It
+        re-tunes the EMA's rule: with a block lock set
+        (dp_carrier_nda_set_block_lock()), it returns to the EMA first, so
+        block_thresh and the rule in force never disagree.
 
         Parameters
         ----------
@@ -4013,6 +4203,153 @@ class CarrierNda:
         >>> c.locked
         False
         >>> c.configure_lock(0.6, 0.5, 16, 64)   # tighter declare, slower drop
+
+        """
+
+    def set_update_period(self, t_upd: float) -> None:
+        """Set the loop's update period: t_upd samples a loop update.
+
+        For a composer that updates the loop once a block (carrier_nda_update()
+        once a sum, carrier_nda_wipeoff() once a sample). The loop is designed
+        per update: `bn` becomes the noise bandwidth times the update period
+        (`B_L * t_upd / fs`), and the filter's output, a frequency in cycles an
+        update, is spread over the update's samples (carrier_nda_steer()). The
+        frequency readouts follow. The configured `bn` and `zeta` are kept. On
+        a running loop the integrator, which holds cycles an update, is
+        rescaled by the new period over the old, so the tracked frequency
+        (cycles a sample) and the command held for the next sample are
+        unchanged by the call; the NCO and the lock are not touched.
+
+        dp_carrier_nda_steps() runs the loop once a sample, so it is defined at
+        the default 1 only: at any other period it writes nothing and returns
+        0.
+
+        Parameters
+        ----------
+        t_upd : float
+            Samples an update, finite and >= 1 (it may be fractional: a code
+            period of 2,750.4 samples).
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``CarrierNda: the update period must be finite and >= 1``, with the
+            return code appended (gh-869).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import CarrierNda
+        >>> c = CarrierNda(bn=0.012, sps=8, n=1, m=2)
+        >>> c.set_update_period(3500.0)   # once a code period of 3,500 samples
+        >>> len(c.steps(np.ones(8, dtype=np.complex64)))   # steps() is per sample
+        0
+
+        """
+
+    def set_denominator(
+        self,
+        alpha: float = 1.0,
+        gamma_d: float = 0.0,
+    ) -> None:
+        """Choose what divides the phase error: the update's power averaged
+        with weight alpha, less the caller's noise power when gamma_d is set.
+
+        One parametrization covers the three forms:
+
+        - `alpha = 1, gamma_d = 0`: one update's own `|z|^2`, the limiter (the
+          default; carrier_nda_disc()'s arithmetic, exactly);
+        - `alpha < 1, gamma_d = 0`: the average, the averaged form;
+        - `gamma_d > 0`: the average less the noise, clamped between the design
+          point's signal share, `avg * gamma_d/(gamma_d + 1)`, and the average
+          itself, the unit form.
+
+        At update SNR `gamma` the limiter's gain falls with the SNR, the
+        averaged form's is `gamma/(gamma + 1)`, and the unit form's is 1 while
+        the caller's noise power holds (carrier_nda_update()). The clamp keeps
+        the unit form's gain at most the design point's 1, and its sign the
+        average's, at boot or when the noise estimate is off.
+
+        Every form but the limiter is derived at M = 2 only and refused at M =
+        4 and 8. Setting a form clears the running average; the loop's other
+        state is untouched.
+
+        Parameters
+        ----------
+        alpha : float, default 1.0
+            The average's EMA weight an update, in (0, 1]: 1/256 at the
+            415.1-B-1 point, 1 for the limiter.
+        gamma_d : float, default 0.0
+            The design update SNR, linear: > 0 for the unit form, 0 otherwise.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``CarrierNda: the denominator needs alpha in (0, 1] and a finite
+            gamma_d >= 0, and any form but the limiter (alpha 1, gamma_d 0)
+            needs m = 2``, with the return code appended (gh-869).
+
+        Examples
+        --------
+        >>> from doppler.track import CarrierNda
+        >>> c = CarrierNda(bn=0.01, sps=8, n=1, m=2)
+        >>> c.set_denominator(1.0 / 256.0, 2.4)   # the unit form, gamma_d 3.8 dB
+        >>> c.set_denominator(1.0, 0.0)           # back to the limiter
+
+        """
+
+    def set_block_lock(
+        self,
+        len: int,
+        pfa: float = 1e-3,
+        n_up: int = 2,
+        n_down: int = 3,
+    ) -> None:
+        """Decide the lock on a block: the ratio of sums over len updates,
+        against the exact threshold at pfa.
+
+        `R = sum(I^2 - Q^2) / sum(I^2 + Q^2)` over a block of updates, dumped
+        once a block. On noise alone `(R + 1)/2` is exactly `Beta(len/2,
+        len/2)`: the block's own total power is the noise reference, so the
+        threshold needs no noise estimate. It is that law's upper pfa point,
+        through dp_det_threshold_f() (`R > r` is `X/Y > (1 + r)/(1 - r)` for
+        `X, Y` chi-square on len degrees). The decision takes n_up blocks above
+        it to declare and n_down below it to drop (one threshold, time
+        hysteresis only). `lock` then reads the last block's R.
+
+        len 0 returns to the per-sample EMA and its default rule
+        (dp_carrier_nda_configure_lock()'s). M = 2 only. Either way the lock
+        decision restarts unlocked, and the block in progress is cleared.
+
+        Parameters
+        ----------
+        len : int
+            Updates a block, 2 to CARRIER_NDA_BLOCK_MAX_LEN; or 0 for the EMA.
+        pfa : float, default 1e-3
+            The false-alarm rate a block, in (0, 1/2): at 1/2 or more the
+            threshold is at or under 0 and the lock declares on noise as often
+            as not.
+        n_up : int, default 2
+            Blocks above the threshold to declare; clamped >= 1.
+        n_down : int, default 3
+            Blocks below it to drop; clamped >= 1.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``CarrierNda: the block lock needs m = 2, len 0 or >= 2 and pfa in
+            (0, 1)``, with the return code appended (gh-869).
+
+        Examples
+        --------
+        >>> from doppler.track import CarrierNda
+        >>> c = CarrierNda(bn=0.012, sps=8, n=1, m=2)
+        >>> c.set_block_lock(31, 1e-3, 2, 3)
+        >>> round(c.block_thresh, 3)   # the Beta(15.5, 15.5) upper 1e-3 point
+        0.518
 
         """
 
@@ -4107,7 +4444,8 @@ class CarrierNda:
     @property
     def norm_freq(self) -> float:
         """Tracked carrier frequency: the NCO centre plus the loop's integrated
-        correction (integrator only, smoothed).
+        correction (integrator only, smoothed), spread over the update
+        period.
         """
     @norm_freq.setter
     def norm_freq(self, value: float) -> None: ...
@@ -4126,7 +4464,7 @@ class CarrierNda:
 
     @property
     def last_error(self) -> float:
-        """Last phase error from the M-th-power discriminator."""
+        """Last phase error from the M-th-power discriminator, raw."""
 
     @property
     def bn(self) -> float:
@@ -4142,6 +4480,10 @@ class CarrierNda:
         """
     @bn.setter
     def bn(self, value: float) -> None: ...
+    @property
+    def block_thresh(self) -> float:
+        """The block lock's threshold on R (0 when the EMA decides)."""
+
     @property
     def m(self) -> int:
         """Constellation order the discriminator strips."""

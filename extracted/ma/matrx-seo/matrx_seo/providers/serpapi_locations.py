@@ -27,6 +27,7 @@ from time import monotonic
 from typing import Any, Protocol
 
 import httpx
+from matrx_utils.http_client import shared_client
 from pydantic import BaseModel, ConfigDict
 
 LOCATIONS_ENDPOINT = "https://serpapi.com/locations.json"
@@ -167,7 +168,7 @@ class HttpxSerpApiLocationTransport:
 
     async def search(self, query: str, limit: int) -> list[dict[str, Any]]:
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with shared_client(timeout=self.timeout) as client:
                 response = await client.get(LOCATIONS_ENDPOINT, params={"q": query, "limit": limit})
         except httpx.HTTPError as exc:
             raise SerpApiLocationCatalogUnavailable(

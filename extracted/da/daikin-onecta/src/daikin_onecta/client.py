@@ -67,7 +67,7 @@ class OnectaClient:
                 headers=headers,
                 json=json_data,
             ) as response:
-                self.rate_limit = RateLimit.from_headers(response.headers)
+                self.rate_limit = RateLimit.from_headers(response.headers, self.rate_limit)
                 if response.status in (401, 403):
                     raise OnectaAuthenticationError(response.status, method=method, path=path)
 

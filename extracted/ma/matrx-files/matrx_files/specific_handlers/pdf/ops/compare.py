@@ -13,6 +13,7 @@ import io
 from typing import Any
 
 from ..concurrency import run_in_cpu_executor
+from ..render_budget import bounded_render_dpi
 from ._pike import open_pdf
 
 #: Pages compared per call (each is rendered twice).
@@ -51,7 +52,8 @@ def text_changes(before: list[str], after: list[str]) -> list[dict[str, str]]:
 def _render(doc: Any, i: int):
     from PIL import Image  # noqa: F401  (pypdfium2 returns PIL images)
 
-    return doc[i].render(scale=_RENDER_SCALE).to_pil().convert("L")
+    scale = bounded_render_dpi(*doc[i].get_size(), _RENDER_SCALE * 72) / 72
+    return doc[i].render(scale=scale).to_pil().convert("L")
 
 
 def changed_regions(img_a: Any, img_b: Any) -> tuple[list[dict[str, float]], float]:

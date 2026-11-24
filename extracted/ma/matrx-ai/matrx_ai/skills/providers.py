@@ -236,6 +236,56 @@ class SkillProvider(Protocol):
 # ---------------------------------------------------------------------------
 
 
+_meaning_failure_announced = False
+
+
+async def _search_by_meaning(query: str, hints: list[SkillHint], limit: int) -> list[SkillHint] | None:
+    """The host's ``skill_search`` seam over ``hints``; ``None`` when unwired or failing (keywords answer).
+
+    An exact skill id still comes first, as in the keyword scoring. Ids the seam returns that are not in
+    ``hints`` are dropped: the seam ranks, it never adds."""
+    global _meaning_failure_announced
+    from matrx_ai._ext import get_ext, has_ext
+
+    if not has_ext("skill_search") or not hints:
+        return None
+    try:
+        ranked_ids = await get_ext("skill_search")(query, hints, limit=limit)
+    except Exception as exc:  # noqa: BLE001 — search degrades to keywords; captured to the errors surface
+        if not _meaning_failure_announced:
+            _meaning_failure_announced = True
+            vcprint(
+                f"[skills] 🚨 skill search by meaning failed ({type(exc).__name__}: {exc}) — "
+                "answering from keywords. This message prints once per process.",
+                color="red",
+            )
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(exc, kind="skill_search_by_meaning_failed", route="matrx_ai.skills.providers.search")
+        return None
+    by_id = {str(h.id): h for h in hints}
+    ordered = [by_id[i] for i in dict.fromkeys(str(x) for x in ranked_ids) if i in by_id]
+    exact = next((h for h in hints if (h.skill_id or "").lower() == query.lower()), None)
+    if exact is not None:
+        ordered = [exact, *(h for h in ordered if h.id != exact.id)]
+    return ordered[:limit]
+
+
+#: ``config.ingested_from`` of generated coverage rows (``matrx_ai.skills.coverage``).
+_GENERATED_SOURCES = frozenset({"skill_coverage"})
+
+
+def counts_in_overview(row: Any) -> bool:
+    """False for a generated skill: a coverage row (``config.ingested_from``), or a generated shape
+    skill created with ``metadata.in_skill_overview = False``. Such rows never move the preamble's
+    "You have access to N skills" line (chat-agent-skills lane F)."""
+    cfg = getattr(row, "config", None)
+    if isinstance(cfg, dict) and cfg.get("ingested_from") in _GENERATED_SOURCES:
+        return False
+    meta = getattr(row, "metadata", None)
+    return not (isinstance(meta, dict) and meta.get("in_skill_overview") is False)
+
+
 def _row_to_hint(row: Any, category_path: list[str]) -> SkillHint:
     from matrx_ai.skills.models import SkillHint
 
@@ -474,16 +524,6 @@ class DbSkillProvider:
         """Public door to ``_readable_ids`` — the ONE skill-readability answer for every caller."""
         return await self._readable_ids(user_id)
 
-    async def is_editable(self, row: Any, user_id: UUID | str | None) -> bool:
-        """Whether this person may edit this skill row: ``iam.accessible_entity_ids('skill','editor')``
-        (ownership, organization lanes, shares, grants). Floor when unaskable: the creator."""
-        if user_id is None:
-            return False
-        editable = await self._readable_ids(user_id, "editor")
-        if editable is not None:
-            return str(row.id) in editable
-        return str(getattr(row, "created_by", "") or "") == str(user_id)
-
     async def is_readable(self, row: Any, user_id: UUID | str | None) -> bool:
         """Whether this person may read this skill row (the one rule; floor when unaskable)."""
         if user_id is None:
@@ -633,14 +673,30 @@ class DbSkillProvider:
         if not q:
             return hints[:limit]
 
+        # By meaning first, through the host's seam (stored vectors compared in the database). It ranks only
+        # ``hints`` — the skills this caller may read — so it can never surface one they cannot open.
+        by_meaning = await _search_by_meaning(query.strip(), hints, limit)
+        if by_meaning:
+            return by_meaning
+
         # Score: label match > description match > body match (body fetched lazily
         # to keep list_hints lightweight). v1 is keyword + token containment;
         # semantic mode can ride the same signature later.
+        # A skill is found by its own name: the skill_id every skill link carries
+        # ("dashboards-and-kpis") matches exactly, and its words ("dashboards and
+        # kpis") count like the label's — a hyphenated id never split on spaces.
         scored: list[tuple[int, SkillHint]] = []
         for h in hints:
             score = 0
             label_lower = h.label.lower()
             desc_lower = h.description.lower()
+            sid_lower = (h.skill_id or "").lower()
+            if q == sid_lower:
+                score += 100
+            elif q in sid_lower:
+                score += 10
+            elif any(tok in sid_lower.replace("-", " ").split() for tok in q.replace("-", " ").split()):
+                score += 2
             if q in label_lower:
                 score += 10
             if q in desc_lower:
@@ -675,9 +731,15 @@ class DbSkillProvider:
         top.sort(key=lambda c: (getattr(c, "position", 0) or 0, c.name))
 
         hints = await self.list_hints(user_id=user_id, limit=10_000)
+        # Generated rows (one per tool, bundle, shape) are reached by search, get and list with a
+        # category, never counted here: this overview is rendered into the cached preamble of every
+        # agent with skills, so a count that moves when a tool registers breaks its bytes.
+        uncounted = {str(r.id) for r in await self._get_all_active_rows() if not counts_in_overview(r)}
         # Bucket counts by the *first* segment of category_path.
         counts: dict[str, int] = {}
         for h in hints:
+            if str(h.id) in uncounted:
+                continue
             if h.category_path:
                 counts[h.category_path[0]] = counts.get(h.category_path[0], 0) + 1
 

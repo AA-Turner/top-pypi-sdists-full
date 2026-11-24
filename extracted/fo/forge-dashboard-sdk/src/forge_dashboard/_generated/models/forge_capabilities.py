@@ -50,6 +50,9 @@ class ForgeCapabilities:
                 none. A client links to it from the rate limit explanation and shows no link when it is empty.
             issue_ref_syntax (str): The forms the forge's text uses to reference an issue. Open-ended; today
                 `hash_or_gh_prefix` (a hash sign or a `GH-` prefix before the number) and `hash` (the hash sign only).
+            pull_request_path_segment (str): The path segment the forge's web address puts between a repository and a pull
+                request's number, such as `pull` on GitHub and `pulls` on Forgejo. A client swaps it for an issue's `issues`
+                segment to reach the pull request behind a reference.
             label (str): The forge's name as a person reads it, such as `GitHub`.
             image_hosts (list[str]): The fixed public hosts an image embedded in the forge's text may come from, each
                 matched by its exact name, over https on the default port. Empty means the forge's own saved instance. See `GET
@@ -74,6 +77,7 @@ class ForgeCapabilities:
     rate_limit_model: str
     rate_limit_docs_url: str
     issue_ref_syntax: str
+    pull_request_path_segment: str
     label: str
     image_hosts: list[str]
     avatar_hosts: list[str]
@@ -111,6 +115,8 @@ class ForgeCapabilities:
 
         issue_ref_syntax = self.issue_ref_syntax
 
+        pull_request_path_segment = self.pull_request_path_segment
+
         label = self.label
 
         image_hosts = self.image_hosts
@@ -140,6 +146,7 @@ class ForgeCapabilities:
             "rateLimitModel": rate_limit_model,
             "rateLimitDocsUrl": rate_limit_docs_url,
             "issueRefSyntax": issue_ref_syntax,
+            "pullRequestPathSegment": pull_request_path_segment,
             "label": label,
             "imageHosts": image_hosts,
             "avatarHosts": avatar_hosts,
@@ -179,6 +186,8 @@ class ForgeCapabilities:
 
         issue_ref_syntax = d.pop("issueRefSyntax")
 
+        pull_request_path_segment = d.pop("pullRequestPathSegment")
+
         label = d.pop("label")
 
         image_hosts = cast(list[str], d.pop("imageHosts"))
@@ -203,6 +212,7 @@ class ForgeCapabilities:
             rate_limit_model=rate_limit_model,
             rate_limit_docs_url=rate_limit_docs_url,
             issue_ref_syntax=issue_ref_syntax,
+            pull_request_path_segment=pull_request_path_segment,
             label=label,
             image_hosts=image_hosts,
             avatar_hosts=avatar_hosts,

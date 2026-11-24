@@ -31,6 +31,7 @@ def load_all() -> None:
     import sys
 
     import matrx_ai.tools.vfs.commands as command_modules
+    from matrx_utils.module_loading import load_declared_module
     from matrx_ai.tools.vfs.commands import registry
 
     rebuild = registry.take_cleared()
@@ -47,7 +48,7 @@ def load_all() -> None:
             if rebuild and already_imported is not None:
                 importlib.reload(already_imported)
             else:
-                importlib.import_module(f"matrx_ai.tools.vfs.commands.{module_info.name}")
+                load_declared_module(name)
         except ImportError:
             pass
 

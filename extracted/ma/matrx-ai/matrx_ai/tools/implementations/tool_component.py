@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 import re
 import traceback
 from datetime import UTC
@@ -36,12 +37,14 @@ from matrx_ai.tools.kinds.tool_components import (
     ToolComponentUpdateResult,
 )
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
-from matrx_ai.tools.person_session import acts_as_the_person
+from matrx_ai.tools.person_session import acts_as_the_person, as_the_person
 from matrx_ai.tools.surface_write import (
     attach_sections_surface_write,
     attach_structured_write,
     attach_surface_write,
 )
+
+logger = logging.getLogger(__name__)
 
 # ── Render surfaces (ui_surface.name) ──────────────────────────────────────
 # tool_ui.surface_name is NOT NULL (FK → ui_surface.name) with no DB default,
@@ -86,10 +89,39 @@ def _as_the_person(tool_name: str):
     return wrap
 
 
+def _stores_css(fn):
+    """After a successful toolcomp code write, hand the saved renderer's code to the host, which stores its CSS
+    before anyone opens it (project stored-code-styling). Never fails the save."""
+
+    @functools.wraps(fn)
+    async def then_store(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        from matrx_ai.tools.stored_code_saved import (
+            ROW_TOOL_UI,
+            saved_component_id,
+            stored_code_saved,
+        )
+
+        result = await fn(args, ctx)
+        component_id = saved_component_id(result, args)
+        if component_id:
+            try:
+                # After the write's session committed; re-read as the person (never the privileged connection).
+                async with as_the_person():
+                    row = await get_db_model("ToolUi").get_or_none(use_cache=False, id=component_id)
+            except Exception as exc:  # noqa: BLE001 — the save stands; the reader's on-demand compile styles it
+                logger.error("[stored-code-styling] saved tool.ui %s could not be re-read: %r", component_id, exc)
+                return result
+            await stored_code_saved(ROW_TOOL_UI, row, row_id=component_id)
+        return result
+
+    return then_store
+
+
 def _not_visible(noun: str, row_id: str) -> ToolResult:
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="not_found",
             message=f"{noun} {row_id} was not found, or you do not have access to it.",
         ),
@@ -104,6 +136,7 @@ async def _refused_write(model: Any, noun: str, row_id: str) -> ToolResult:
     return ToolResult(
         success=False,
         error=ToolError(
+            refusal=True,
             error_type="no_access",
             message=f"You can view {noun.lower()} {row_id} but you do not have permission to change it.",
         ),
@@ -416,6 +449,7 @@ async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="Provide component_id, tool_name, or tool_id.",
                 suggested_action=(
@@ -443,6 +477,7 @@ async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="not_found",
                         message=f"No component found with id '{component_id}'.",
                     ),
@@ -466,7 +501,7 @@ async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             if not tool:
                 return ToolResult(
                     success=False,
-                    error=ToolError(error_type="not_found", message=f"Tool {tool_id} was not found, or you do not have access to it."),
+                    error=ToolError(refusal=True, error_type="not_found", message=f"Tool {tool_id} was not found, or you do not have access to it."),
                 )
             resolved_tool_name = tool["name"]
             components = await _fetch_components_by_tool_id(tool_id, surface_name=surface_name)
@@ -477,6 +512,7 @@ async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="not_found",
                         message=(
                             f"No component found for tool_name '{tool_name}' "
@@ -510,6 +546,7 @@ async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                     return ToolResult(
                         success=False,
                         error=ToolError(
+                            refusal=True,
                             error_type="not_found",
                             message=f"No tool or workflow component found with name '{tool_name}'.",
                             suggested_action=(
@@ -527,6 +564,7 @@ async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    reported_failure="the tool/component context lookup",
                     error_type="execution",
                     message="Failed to resolve tool/component context.",
                 ),
@@ -619,6 +657,7 @@ async def toolcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="component_id is required.",
                 suggested_action="Get the component_id from toolcomp_get_context first.",
@@ -637,6 +676,7 @@ async def toolcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"Invalid sections: {invalid}. Valid: {sorted(valid_sections)}",
             ),
@@ -660,6 +700,7 @@ async def toolcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResul
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="not_found", message=f"Component {component_id} was not found, or you do not have access to it."
                 ),
             )
@@ -715,6 +756,7 @@ async def toolcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         )
 
 
+@_stores_css
 @_as_the_person("toolcomp_update_code")
 async def toolcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
@@ -738,7 +780,7 @@ async def toolcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
     if not component_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="component_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="component_id is required."),
         )
 
     valid_code_fields = {
@@ -753,6 +795,7 @@ async def toolcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"Invalid update keys: {invalid}. Only code sections are allowed: {sorted(valid_code_fields)}",
                 suggested_action="To update settings (version, notes, etc.) use toolcomp_update_settings.",
@@ -763,6 +806,7 @@ async def toolcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation", message="No code sections provided in updates."
             ),
         )
@@ -842,7 +886,7 @@ async def toolcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
     if not component_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="component_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="component_id is required."),
         )
 
     valid_settings = {
@@ -868,6 +912,7 @@ async def toolcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"Code fields not allowed here: {rejected_code}. Use toolcomp_update_code instead.",
             ),
@@ -877,6 +922,7 @@ async def toolcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"Unknown settings keys: {invalid}. Valid: {sorted(valid_settings)}",
             ),
@@ -885,7 +931,7 @@ async def toolcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
     if not settings:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="No settings provided."),
+            error=ToolError(refusal=True, error_type="validation", message="No settings provided."),
         )
 
     try:
@@ -948,7 +994,7 @@ async def toolcomp_get_sample_detail(args: dict[str, Any], ctx: ToolContext) -> 
     if not sample_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="sample_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="sample_id is required."),
         )
 
     try:
@@ -958,7 +1004,7 @@ async def toolcomp_get_sample_detail(args: dict[str, Any], ctx: ToolContext) -> 
         if not sample_row:
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="not_found", message=f"Sample {sample_id} was not found, or you do not have access to it."),
+                error=ToolError(refusal=True, error_type="not_found", message=f"Sample {sample_id} was not found, or you do not have access to it."),
             )
 
         sample = _row_dict(sample_row)
@@ -1040,7 +1086,7 @@ async def toolcomp_get_incident_detail(args: dict[str, Any], ctx: ToolContext) -
     if not incident_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="incident_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="incident_id is required."),
         )
 
     try:
@@ -1051,6 +1097,7 @@ async def toolcomp_get_incident_detail(args: dict[str, Any], ctx: ToolContext) -
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="not_found", message=f"Incident {incident_id} was not found, or you do not have access to it."
                 ),
             )
@@ -1104,7 +1151,7 @@ async def toolcomp_resolve_incident(args: dict[str, Any], ctx: ToolContext) -> T
     if not incident_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="incident_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="incident_id is required."),
         )
 
     try:
@@ -1191,6 +1238,7 @@ async def toolcomp_list_tools(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"Invalid group_by '{group_by}'. Valid values: 'prefix', 'category', 'source_kind'.",
             ),
@@ -1317,6 +1365,7 @@ async def toolcomp_list_tools(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         )
 
 
+@_stores_css
 @_as_the_person("toolcomp_create_component")
 async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
@@ -1356,6 +1405,7 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message="display_name and inline_code are required.",
             ),
@@ -1365,6 +1415,7 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=(
                     "Provide tool_id (a real tool_def row — tool_name is derived) "
@@ -1390,13 +1441,14 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
             if not def_row:
                 return ToolResult(
                     success=False,
-                    error=ToolError(error_type="not_found", message=f"Tool {tool_id} was not found, or you do not have access to it."),
+                    error=ToolError(refusal=True, error_type="not_found", message=f"Tool {tool_id} was not found, or you do not have access to it."),
                 )
             derived_name = def_row.name
             if tool_name and tool_name != derived_name:
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="validation",
                         message=(
                             f"tool_name '{tool_name}' does not match the name of "
@@ -1433,6 +1485,7 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=(
                         f"A component already exists for tool_name '{tool_name}' on "
@@ -1460,6 +1513,7 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=(
                         "This request carries no active organization, and "
@@ -1615,6 +1669,7 @@ def _apply_patch(code: str, old_str: str, new_str: str) -> tuple[str, str]:
     raise ValueError(f"No match found in any round.\nold_string preview: {old_str[:200]!r}")
 
 
+@_stores_css
 @_as_the_person("toolcomp_patch_code")
 async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
@@ -1656,13 +1711,14 @@ async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
     if not component_id:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="component_id is required."),
+            error=ToolError(refusal=True, error_type="validation", message="component_id is required."),
         )
 
     if section not in valid_sections:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation",
                 message=f"Invalid section '{section}'. Valid: {sorted(valid_sections)}",
             ),
@@ -1671,7 +1727,7 @@ async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
     if not patches:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="patches list is empty."),
+            error=ToolError(refusal=True, error_type="validation", message="patches list is empty."),
         )
 
     for i, p in enumerate(patches):
@@ -1679,6 +1735,7 @@ async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Patch {i} is missing 'old_string' or 'new_string'.",
                 ),
@@ -1692,6 +1749,7 @@ async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="not_found", message=f"Component {component_id} was not found, or you do not have access to it."
                 ),
             )
@@ -1703,6 +1761,7 @@ async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Section '{section}' is empty. Nothing to patch.",
                     suggested_action="Use toolcomp_update_code to write the initial code first.",

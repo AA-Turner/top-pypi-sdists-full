@@ -76,3 +76,37 @@ async def test_candidate_read_is_one_statement_on_the_caller_connection(
     assert {"content_text", "priority", "importance_sum", "source_name", "page_section_title"} <= set(reads[0][1])
     assert rows["chunk-1"]["source_name"] == "Doc"
     assert await search_module._hydrate_candidates(expected_connection, []) == {}
+
+
+def test_no_lease_is_held_while_awaiting_anything_but_its_own_statement() -> None:
+    """Hold-and-wait guard: inside a ``search()`` lease, every await passes the leased
+    connection. The recall doors take their own pool checkout, so awaiting them (or a
+    gather of them) under a lease held one idle connection per search while the doors
+    queued for more from the same pool — five concurrent searches in one Knowledge
+    request filled the 10-slot pool (database_pool_saturation, 2026-11-03)."""
+    tree = ast.parse(textwrap.dedent(stable_source(search_module.search)))
+    offenders: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.AsyncWith):
+            continue
+        for item in node.items:
+            call = item.context_expr
+            if not (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Name)
+                and call.func.id == "acquire_connection"
+                and isinstance(item.optional_vars, ast.Name)
+            ):
+                continue
+            leased = item.optional_vars.id
+            for stmt in node.body:
+                for awaited in ast.walk(stmt):
+                    if not isinstance(awaited, ast.Await) or not isinstance(awaited.value, ast.Call):
+                        continue
+                    passed = {
+                        n.id for arg in [*awaited.value.args, *(k.value for k in awaited.value.keywords)]
+                        for n in ast.walk(arg) if isinstance(n, ast.Name)
+                    }
+                    if leased not in passed:
+                        offenders.append(f"line {awaited.lineno}: {ast.unparse(awaited.value)[:80]}")
+    assert offenders == [], f"a lease is held across awaits that do not use it: {offenders}"

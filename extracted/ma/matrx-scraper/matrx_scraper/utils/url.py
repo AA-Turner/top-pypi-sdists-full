@@ -8,7 +8,7 @@ import re
 import socket
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, parse_qs, urlencode, urlparse, urlunparse
 
 import tldextract
 from pydantic import BaseModel
@@ -101,6 +101,31 @@ def normalize_url(url: str) -> str:
     if path != "/" and path.endswith("/"):
         path = path.rstrip("/")
     return urlunparse((scheme, netloc, path, parsed.params, parsed.query, ""))
+
+
+#: Query keys that make a GET do something (add to a cart, log out, post a
+#: reply) rather than show a page. A crawler following them changes the live
+#: site — 2026-10-30: `?add-to-cart=80269` URLs were crawled and judged as pages.
+ACTION_QUERY_KEYS = frozenset(
+    {
+        "add-to-cart", "add_to_cart", "add-to-wishlist", "add_to_wishlist",
+        "remove_item", "remove-item", "undo_item", "empty-cart", "empty_cart",
+        "replytocom", "wc-ajax", "logout", "log_out",
+        "unsubscribe", "delete", "share",
+    }
+)  # fmt: skip
+#: Only the LAST path segment(s) — /help/logout-guide or /blog/logout/tips stay crawlable.
+_ACTION_PATH_RE = re.compile(r"/(?:wp-login\.php|logout|log-out|signout|sign-out|cart/add|cart/clear)/?$", re.I)
+
+
+def is_action_url(url: str) -> bool:
+    """True when fetching this URL performs an action instead of showing a page."""
+
+    parts = urlparse(url)
+    if _ACTION_PATH_RE.search(parts.path or ""):
+        return True
+    keys = {k.lower() for k, _v in parse_qsl(parts.query, keep_blank_values=True)}
+    return bool(keys & ACTION_QUERY_KEYS)
 
 
 def url_hash(url: str) -> str:
@@ -311,9 +336,9 @@ def public_http_client(**client_kwargs: Any) -> httpx.AsyncClient:
     (``matrx_utils.outbound_guard``). Plain http stays allowed — crawling http
     sites is this package's job — and is passed explicitly, never inferred.
     """
-    from matrx_utils.outbound_guard import public_only_client
+    from matrx_utils.http_client import shared_client
 
-    return public_only_client(allow_http=True, **client_kwargs)
+    return shared_client(public_only=True, allow_http=True, **client_kwargs)
 
 
 async def validate_public_http_url(url: str) -> str:

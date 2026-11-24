@@ -1010,14 +1010,14 @@ class TestCPythonABI:
         if gettotalrefcount:
             monkeypatch.setattr(sys, "gettotalrefcount", 1, raising=False)
         expected = ["cp37d" if result else "cp37"]
-        assert tags._cpython_abis((3, 7)) == expected
+        assert list(tags._cpython_abis((3, 7))) == expected
 
     def test_debug_file_extension(self, monkeypatch: pytest.MonkeyPatch) -> None:
         config = {"Py_DEBUG": None}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         monkeypatch.delattr(sys, "gettotalrefcount", raising=False)
         monkeypatch.setattr(tags, "EXTENSION_SUFFIXES", {"_d.pyd"})
-        assert tags._cpython_abis((3, 8)) == ["cp38d", "cp38"]
+        assert list(tags._cpython_abis((3, 8))) == ["cp38d", "cp38"]
 
     @pytest.mark.parametrize(
         ("debug", "expected"), [(True, ["cp38d", "cp38"]), (False, ["cp38"])]
@@ -1027,7 +1027,7 @@ class TestCPythonABI:
     ) -> None:
         config = {"Py_DEBUG": debug}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        assert tags._cpython_abis((3, 8)) == expected
+        assert list(tags._cpython_abis((3, 8))) == expected
 
     @pytest.mark.parametrize(
         ("pymalloc", "version", "result"),
@@ -1049,7 +1049,7 @@ class TestCPythonABI:
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         base_abi = f"cp{version[0]}{version[1]}"
         expected = [base_abi + "m" if result else base_abi]
-        assert tags._cpython_abis(version) == expected
+        assert list(tags._cpython_abis(version)) == expected
 
     @pytest.mark.parametrize(
         ("unicode_size", "maxunicode", "version", "result"),
@@ -1074,7 +1074,7 @@ class TestCPythonABI:
         monkeypatch.setattr(sys, "maxunicode", maxunicode)
         base_abi = "cp" + tags._version_nodot(version)
         expected = [base_abi + "u" if result else base_abi]
-        assert tags._cpython_abis(version) == expected
+        assert list(tags._cpython_abis(version)) == expected
 
 
 class TestCPythonTags:
@@ -1261,9 +1261,12 @@ class TestCPythonTags:
         result = list(tags.cpython_tags((3, 16), ["cp316"], ["platform"]))
         assert all(t.abi in ("cp316", "none", "abi3") for t in result)
 
-    def test_no_abi3_in_threaded_interpreter(self) -> None:
-        result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
-        assert all(t.abi in ("cp316t", "none", "abi3t") for t in result)
+    @pytest.mark.parametrize("abis", [["cp316t"], ["none", "cp316t"], ["abi3t"]])
+    def test_no_abi3_in_threaded_interpreter(self, abis: list[str]) -> None:
+        result = list(tags.cpython_tags((3, 16), abis, ["platform"]))
+        assert all(t.abi in {"cp316t", "none", "abi3t"} for t in result)
+        assert tags.Tag("cp315", "abi3t", "platform") in result
+        assert tags.Tag("cp316", "abi3t", "platform") in result
 
     def test_python_version_defaults(self) -> None:
         tag = next(tags.cpython_tags(abis=["abi3"], platforms=["any"]))
@@ -1297,6 +1300,9 @@ class TestCPythonTags:
         monkeypatch.setattr(tags, "platform_tags", lambda: ["plat1"])
         result = list(tags.cpython_tags((3, 11), abis=["whatever"]))
         assert tags.Tag("cp311", "whatever", "plat1") in result
+
+    def test_empty_platforms(self) -> None:
+        assert list(tags.cpython_tags((3, 11), abis=["whatever"], platforms=[])) == []
 
     def test_platform_name_space_normalization(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1360,7 +1366,7 @@ class TestGenericTags:
             sysconfig, "get_config_var", lambda _: ".cpython-37m-darwin.so"
         )
         monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
-        assert tags._generic_abi() == ["cp37m"]
+        assert list(tags._generic_abi()) == ["cp37m"]
 
     def test__generic_abi_linux_cpython(self, monkeypatch: pytest.MonkeyPatch) -> None:
         config = {
@@ -1371,18 +1377,18 @@ class TestGenericTags:
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
         # They are identical
-        assert tags._cpython_abis((3, 7)) == ["cp37m"]
-        assert tags._generic_abi() == ["cp37m"]
+        assert list(tags._cpython_abis((3, 7))) == ["cp37m"]
+        assert list(tags._generic_abi()) == ["cp37m"]
 
     def test__generic_abi_jp(self, monkeypatch: pytest.MonkeyPatch) -> None:
         config = {"EXT_SUFFIX": ".return_exactly_this.so"}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        assert tags._generic_abi() == ["return_exactly_this"]
+        assert list(tags._generic_abi()) == ["return_exactly_this"]
 
     def test__generic_abi_graal(self, monkeypatch: pytest.MonkeyPatch) -> None:
         config = {"EXT_SUFFIX": ".graalpy-38-native-x86_64-darwin.so"}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        assert tags._generic_abi() == ["graalpy_38_native"]
+        assert list(tags._generic_abi()) == ["graalpy_38_native"]
 
     def test__generic_abi_disable_gil(self, monkeypatch: pytest.MonkeyPatch) -> None:
         config = {
@@ -1392,13 +1398,13 @@ class TestGenericTags:
             "Py_GIL_DISABLED": 1,
         }
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        assert tags._generic_abi() == ["cp313t"]
-        assert tags._generic_abi() == tags._cpython_abis((3, 13))
+        assert list(tags._generic_abi()) == ["cp313t"]
+        assert list(tags._generic_abi()) == list(tags._cpython_abis((3, 13)))
 
     def test__generic_abi_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
         config = {"EXT_SUFFIX": "..so"}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        assert tags._generic_abi() == []
+        assert list(tags._generic_abi()) == []
 
     @pytest.mark.parametrize("ext_suffix", ["invalid", "", None])
     def test__generic_abi_error(
@@ -1407,7 +1413,7 @@ class TestGenericTags:
         config = {"EXT_SUFFIX": ext_suffix}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         with pytest.raises(SystemError) as e:
-            tags._generic_abi()
+            list(tags._generic_abi())
         assert "EXT_SUFFIX" in str(e.value)
 
     # ".cpython.so" has no version component at all (would raise IndexError);
@@ -1421,7 +1427,7 @@ class TestGenericTags:
         config = {"EXT_SUFFIX": ext_suffix}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         with pytest.raises(SystemError) as e:
-            tags._generic_abi()
+            list(tags._generic_abi())
         assert "EXT_SUFFIX" in str(e.value)
 
     def test__generic_abi_linux_pypy(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1432,7 +1438,7 @@ class TestGenericTags:
         }
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
-        assert tags._generic_abi() == ["pypy39_pp73"]
+        assert list(tags._generic_abi()) == ["pypy39_pp73"]
 
     def test__generic_abi_old_windows(self, monkeypatch: pytest.MonkeyPatch) -> None:
         config = {
@@ -1442,19 +1448,23 @@ class TestGenericTags:
             "Py_GIL_DISABLED": 0,
         }
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])
+        assert list(tags._generic_abi()) == list(
+            tags._cpython_abis(sys.version_info[:2])
+        )
 
     def test__generic_abi_windows(self, monkeypatch: pytest.MonkeyPatch) -> None:
         config = {
             "EXT_SUFFIX": ".cp310-win_amd64.pyd",
         }
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
-        assert tags._generic_abi() == ["cp310"]
+        assert list(tags._generic_abi()) == ["cp310"]
 
     @pytest.mark.skipif(sys.implementation.name != "cpython", reason="CPython-only")
     def test__generic_abi_agree(self) -> None:
         """Test that the two methods of finding the abi tag agree"""
-        assert tags._generic_abi() == tags._cpython_abis(sys.version_info[:2])
+        assert list(tags._generic_abi()) == list(
+            tags._cpython_abis(sys.version_info[:2])
+        )
 
     def test_generic_platforms(self) -> None:
         platform = sysconfig.get_platform().replace("-", "_")
@@ -1507,6 +1517,10 @@ class TestGenericTags:
         monkeypatch.setattr(tags, "platform_tags", lambda: ["plat"])
         result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
         assert result == [tags.Tag("sillywalk", "none", "plat")]
+
+    def test_empty_platforms(self) -> None:
+        result = list(tags.generic_tags("sillywalk", ["abi"], []))
+        assert result == []
 
 
 class TestPurePythonTags:
@@ -1564,6 +1578,13 @@ class TestCompatibleTags:
             tags.Tag("py32", "none", "any"),
             tags.Tag("py31", "none", "any"),
             tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_empty_platforms(self) -> None:
+        result = list(tags.compatible_tags((3,), "cp3", []))
+        assert result == [
+            tags.Tag("cp3", "none", "any"),
+            tags.Tag("py3", "none", "any"),
         ]
 
     def test_all_args_needs_underscore(self) -> None:
@@ -1725,7 +1746,7 @@ class TestSysTags:
         if platform.system() != "Darwin":
             monkeypatch.setattr(platform, "system", lambda: "Darwin")
             monkeypatch.setattr(tags, "mac_platforms", lambda: ["macosx_10_5_x86_64"])
-        abis = tags._cpython_abis(sys.version_info[:2])
+        abis = list(tags._cpython_abis(sys.version_info[:2]))
         platforms = list(tags.mac_platforms())
         result = list(tags.sys_tags())
         assert len(abis) == 1
@@ -2168,3 +2189,19 @@ def test_create_compatible_tags_selector(
 
     selector = tags.create_compatible_tags_selector([t_to_tag(t) for t in supported])
     assert list(selector([(t, t_to_tags(t)) for t in things])) == expected
+
+
+def test_interpreter_abi(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tags, "interpreter_name", lambda: "pp")
+    monkeypatch.setattr(
+        sysconfig,
+        "get_config_var",
+        {"EXT_SUFFIX": ".pypy39-pp73-x86_64-linux-gnu.so"}.get,
+    )
+    assert tags.interpreter_abi() == "pypy39_pp73"
+
+    monkeypatch.setattr(sysconfig, "get_config_var", {"Py_DEBUG": 0}.get)
+    monkeypatch.setattr(tags, "interpreter_name", lambda: "cp")
+    assert (
+        tags.interpreter_abi() == f"cp{sys.version_info.major}{sys.version_info.minor}"
+    )

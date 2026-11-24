@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -326,6 +327,8 @@ class FunctionCallInfo(_message.Message):
         "attempt_count",
         "max_attempts",
         "last_attempt_at",
+        "queue_duration",
+        "call_duration",
     )
     CALL_ID_FIELD_NUMBER: _ClassVar[int]
     FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -336,6 +339,8 @@ class FunctionCallInfo(_message.Message):
     ATTEMPT_COUNT_FIELD_NUMBER: _ClassVar[int]
     MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
     LAST_ATTEMPT_AT_FIELD_NUMBER: _ClassVar[int]
+    QUEUE_DURATION_FIELD_NUMBER: _ClassVar[int]
+    CALL_DURATION_FIELD_NUMBER: _ClassVar[int]
     call_id: str
     function_name: str
     enqueued_at: _timestamp_pb2.Timestamp
@@ -345,6 +350,8 @@ class FunctionCallInfo(_message.Message):
     attempt_count: int
     max_attempts: int
     last_attempt_at: _timestamp_pb2.Timestamp
+    queue_duration: _duration_pb2.Duration
+    call_duration: _duration_pb2.Duration
     def __init__(
         self,
         call_id: _Optional[str] = ...,
@@ -356,6 +363,8 @@ class FunctionCallInfo(_message.Message):
         attempt_count: _Optional[int] = ...,
         max_attempts: _Optional[int] = ...,
         last_attempt_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        queue_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        call_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class GetRecentCallsRequest(_message.Message):

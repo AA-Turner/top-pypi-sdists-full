@@ -10,7 +10,6 @@ from __future__ import annotations
 __lazy_modules__ = (
     "nab.env",
     "sys",
-    "threading",
 )
 
 import enum
@@ -18,6 +17,7 @@ import logging
 import sys
 import threading
 import time
+from contextlib import ExitStack, contextmanager
 from typing import IO, TYPE_CHECKING
 
 from nab_provider.value import Record
@@ -25,13 +25,14 @@ from nab_provider.value import Record
 from ._compat import override
 from .env import (
     NAB_VERBOSITY,
-    color_enabled,
+    color_for_stream,
     progress_suppressed,
+    stream_isatty,
     verbosity_name,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Generator, Mapping
 
     from nab_resolver.diagnostics import DiagnosticMessage
 
@@ -43,6 +44,7 @@ __all__ = [
     "ProgressReporter",
     "Verbosity",
     "begin",
+    "command_output",
     "install_log_handler",
     "logging_level_for",
     "options_from_flags",
@@ -86,12 +88,6 @@ class ColorChoice(enum.Enum):
     NEVER = "never"
 
 
-def _isatty(stream: IO[str]) -> bool:
-    """Whether ``stream`` is a terminal, tolerant of streams without ``isatty``."""
-    isatty = getattr(stream, "isatty", None)
-    return bool(isatty()) if isatty is not None else False
-
-
 def should_color(
     choice: ColorChoice, stream: IO[str], env: Mapping[str, str] | None = None
 ) -> bool:
@@ -105,8 +101,7 @@ def should_color(
     ``always`` and ``never`` decide without the stream, so a stream that
     cannot answer ``isatty()`` is never asked.
     """
-    tty = choice is ColorChoice.AUTO and _isatty(stream)
-    return color_enabled(choice.value, isatty=tty, environ=env)
+    return color_for_stream(choice.value, stream, env)
 
 
 # Standard ANSI SGR codes; the terminal theme remaps these, so we never
@@ -179,7 +174,7 @@ class Printer:
             progress
             and not progress_suppressed(env)
             and verbosity is Verbosity.NORMAL
-            and _isatty(self._err)
+            and stream_isatty(self._err)
         )
         self._err_lock = threading.Lock()
         self._progress_drawn = False
@@ -419,7 +414,9 @@ class _LevelFormatter(logging.Formatter):
 
 
 def _remove_nab_handlers(logger: logging.Logger) -> None:
-    logger.handlers = [h for h in logger.handlers if not isinstance(h, _NabLogHandler)]
+    for handler in tuple(logger.handlers):
+        if isinstance(handler, _NabLogHandler):
+            logger.removeHandler(handler)
 
 
 def install_log_handler(printer: Printer) -> None:
@@ -630,3 +627,56 @@ def begin(options: OutputOptions) -> Printer:
     )
     install_log_handler(_printer)
     return _printer
+
+
+class _SavedOutput:
+    """The printer and logger settings in effect before a command started."""
+
+    def __init__(self) -> None:
+        self.printer = _printer
+        self.finished = False
+        self.loggers: list[tuple[logging.Logger, int, list[_NabLogHandler]]] = []
+        for name in _NAB_LOGGERS:
+            logger = logging.getLogger(name)
+            handlers = [h for h in logger.handlers if isinstance(h, _NabLogHandler)]
+            self.loggers.append((logger, logger.level, handlers))
+
+    def restore(self, installed_level: int) -> None:
+        global _printer  # noqa: PLW0603 - restore the process-wide printer
+        _printer = self.printer
+        for logger, level, handlers in self.loggers:
+            _remove_nab_handlers(logger)
+            for handler in handlers:
+                logger.addHandler(handler)
+            if logger.level == installed_level:
+                logger.setLevel(level)
+
+
+_output_lock = threading.RLock()
+_command_scopes: list[_SavedOutput] = []
+
+
+def _finish_command(scope: _SavedOutput, installed_level: int) -> None:
+    with _output_lock:
+        scope.finished = True
+        if _command_scopes[-1] is scope:
+            previous = _command_scopes.pop()
+            # Overlapping calls can finish out of order. Restore the state
+            # before all finished calls, so an exited command is never resumed.
+            while _command_scopes and _command_scopes[-1].finished:
+                previous = _command_scopes.pop()
+            previous.restore(installed_level)
+
+
+@contextmanager
+def command_output(options: OutputOptions) -> Generator[None, None, None]:
+    """Use a command's output settings until it returns or raises."""
+    with ExitStack() as cleanup:
+        with _output_lock:
+            scope = _SavedOutput()
+            _command_scopes.append(scope)
+            cleanup.callback(
+                _finish_command, scope, logging_level_for(options.verbosity)
+            )
+            begin(options)
+        yield

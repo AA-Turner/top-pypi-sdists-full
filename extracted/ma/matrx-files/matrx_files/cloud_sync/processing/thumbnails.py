@@ -5,7 +5,10 @@ Designed for two call sites:
   1. **Fire-and-forget after upload** (TUS finalize, legacy /files/upload,
      anywhere a file lands in cld_files without going through POST /assets):
 
-        asyncio.create_task(generate_thumbnail_for_file(fm, file_id))
+        supervised_task(generate_thumbnail_for_file(fm, file_id), kind="file_thumbnail_generation_failed")
+
+     (``matrx_utils.supervised_task`` — never a raw ``asyncio.create_task``,
+     whose task the garbage collector can destroy mid-run.)
 
   2. **Backfill** — apply the full Phase 1 / 1c / 1d.1 treatment to every
      existing cld_files row that pre-dates these phases. Idempotent, so
@@ -46,7 +49,7 @@ from matrx_utils import vcprint
 # processing). Objects at/above this threshold are NEVER read whole into
 # Python memory: they are streamed to a NamedTemporaryFile via the backend's
 # streaming download (boto3 ``download_file``) and probed/rendered BY PATH
-# (OpenCV / pydub-ffmpeg read from disk). Below it, the in-memory fast path
+# (OpenCV / ffmpeg read from disk). Below it, the in-memory fast path
 # is kept — a single read, no disk round-trip.
 LARGE_MEDIA_THRESHOLD_BYTES: int = 64 * 1024 * 1024  # 64 MiB
 
@@ -369,12 +372,11 @@ async def _process_source(
 
     if probed:
         col_updates: dict = {}
-        if probed.get("width") is not None and record.get("width") is None:
-            col_updates["width"] = probed["width"]
-        if probed.get("height") is not None and record.get("height") is None:
-            col_updates["height"] = probed["height"]
-        if probed.get("duration_ms") is not None and record.get("duration_ms") is None:
-            col_updates["duration_ms"] = probed["duration_ms"]
+        # The probe reads the CURRENT bytes, so it wins whenever it differs: a picture replaced in place
+        # kept the old picture's size when these were written only if empty (AND-V IMG17 b).
+        for column in ("width", "height", "duration_ms"):
+            if probed.get(column) is not None and record.get(column) != probed[column]:
+                col_updates[column] = probed[column]
         if probed.get("page_count") is not None:
             base_meta = record.get("metadata") or {}
             if base_meta.get("page_count") != probed["page_count"]:

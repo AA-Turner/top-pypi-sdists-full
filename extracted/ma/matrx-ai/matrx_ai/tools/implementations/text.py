@@ -137,7 +137,7 @@ async def text_regex_extract(args: dict[str, Any], ctx: ToolContext) -> ToolResu
     except re.error as exc:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type="regex",
                 message=f"Invalid regex pattern: {exc}",
                 suggested_action="Check the regex syntax and try again.",

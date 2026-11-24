@@ -169,3 +169,38 @@ async def test_every_bad_answer_raises_rather_than_guessing(patch_httpx, respons
         await source("podcast.deep_research")
 
 
+
+
+ORG = "1bde62fd-7fe3-4cb8-b2e8-bfedc6059ae6"
+
+
+@pytest.mark.asyncio
+async def test_the_carried_organization_rides_the_resolution_request(patch_httpx) -> None:
+    """Live 2026-11-06 (system_error mandate_refused, code no_organization): a client asked for a
+    resolution with no organization, so the server refused a signed-in person whose run carried one."""
+    from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
+    from matrx_connect.emitters import SilentEmitter
+
+    captured = patch_httpx(_FakeResponse(200, _ok_payload()))
+    source = ServerMandateSource("https://server.example.com", lambda: "jwt-token")
+    token = set_app_context(AppContext(emitter=SilentEmitter(), user_id="u-1", organization_id=ORG))
+    try:
+        await source("podcast.deep_research")
+    finally:
+        clear_app_context(token)
+    assert captured["headers"]["X-Organization-Id"] == ORG
+
+
+@pytest.mark.asyncio
+async def test_no_organization_is_invented_when_the_run_carries_none(patch_httpx) -> None:
+    from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
+    from matrx_connect.emitters import SilentEmitter
+
+    captured = patch_httpx(_FakeResponse(200, _ok_payload()))
+    source = ServerMandateSource("https://server.example.com", lambda: "jwt-token")
+    token = set_app_context(AppContext(emitter=SilentEmitter(), user_id="u-1", organization_id=None))
+    try:
+        await source("podcast.deep_research")
+    finally:
+        clear_app_context(token)
+    assert "X-Organization-Id" not in captured["headers"]

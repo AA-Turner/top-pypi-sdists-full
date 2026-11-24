@@ -15,6 +15,7 @@ from ..types.dubbing_language import DubbingLanguage
 from ..types.dubbing_live_status_response import DubbingLiveStatusResponse
 from ..types.dubbing_pace_preset import DubbingPacePreset
 from ..types.dubbing_register import DubbingRegister
+from ..types.dubbing_source_language import DubbingSourceLanguage
 from ..types.dubbing_start_response import DubbingStartResponse
 from .raw_client import AsyncRawDubbingClient, RawDubbingClient
 
@@ -50,7 +51,7 @@ class DubbingClient:
     def create(
         self,
         *,
-        source_language_code: DubbingLanguage,
+        source_language_code: DubbingSourceLanguage,
         target_language_codes: typing.Sequence[DubbingLanguage],
         export_options: typing.Optional[typing.Sequence[DubbingExportOption]] = OMIT,
         voice_cloning: typing.Optional[bool] = OMIT,
@@ -79,14 +80,14 @@ class DubbingClient:
 
         Parameters
         ----------
-        source_language_code : DubbingLanguage
-            Source language of the input media (BCP-47).
+        source_language_code : DubbingSourceLanguage
+            Source language of the input media (BCP-47), or `auto` to detect it. Pass the language when you know it: detection is not always accurate. See [Specify Language Codes](/api/api-guides-tutorials/dubbing/how-to/specify-language-codes).
 
         target_language_codes : typing.Sequence[DubbingLanguage]
             One or more target languages to dub into. A single job dubs into all of them.
 
         export_options : typing.Optional[typing.Sequence[DubbingExportOption]]
-            Which formats to auto-produce per target language.
+            Which formats to auto-produce per target language. When provided, only the listed formats are auto-exported. Accepted values: `video` (dubbed MP4), `audio` (dubbed voice over the background, `.wav`), `audio_vocals` (dubbed voice alone, `.wav`), `srt` and `vtt` (subtitles of the dubbed text). When omitted, only the dubbed video (MP4) is produced; request audio and subtitles explicitly. Audio-only sources cannot produce a video, so `video` resolves to `audio` for them.
 
         voice_cloning : typing.Optional[bool]
             Clone the original speaker's voice. Set `false` to use a preset `voice_id` instead.
@@ -107,7 +108,7 @@ class DubbingClient:
             Translation-style / tone register.
 
         editor_flow : typing.Optional[bool]
-            Keep `false` for API integrations so exports fire automatically once TTS finishes. When `true`, auto-export is suppressed: the pipeline completes but `export-status` stays empty.
+            Keep `false` for API integrations so exports fire automatically once TTS finishes. When `true`, auto-export is suppressed: the pipeline completes but `export-status` stays empty until exports are triggered manually in Creator Studio. **Billing:** `true` charges the editor-flow rate (₹80/min on Starter — double the default API rate). See Pricing for plan-specific rates.
 
         job_name : typing.Optional[str]
             Human-readable label to identify the job later. Recommended (e.g. the source file's name).
@@ -370,7 +371,7 @@ class AsyncDubbingClient:
     async def create(
         self,
         *,
-        source_language_code: DubbingLanguage,
+        source_language_code: DubbingSourceLanguage,
         target_language_codes: typing.Sequence[DubbingLanguage],
         export_options: typing.Optional[typing.Sequence[DubbingExportOption]] = OMIT,
         voice_cloning: typing.Optional[bool] = OMIT,
@@ -399,14 +400,14 @@ class AsyncDubbingClient:
 
         Parameters
         ----------
-        source_language_code : DubbingLanguage
-            Source language of the input media (BCP-47).
+        source_language_code : DubbingSourceLanguage
+            Source language of the input media (BCP-47), or `auto` to detect it. Pass the language when you know it: detection is not always accurate. See [Specify Language Codes](/api/api-guides-tutorials/dubbing/how-to/specify-language-codes).
 
         target_language_codes : typing.Sequence[DubbingLanguage]
             One or more target languages to dub into. A single job dubs into all of them.
 
         export_options : typing.Optional[typing.Sequence[DubbingExportOption]]
-            Which formats to auto-produce per target language.
+            Which formats to auto-produce per target language. When provided, only the listed formats are auto-exported. Accepted values: `video` (dubbed MP4), `audio` (dubbed voice over the background, `.wav`), `audio_vocals` (dubbed voice alone, `.wav`), `srt` and `vtt` (subtitles of the dubbed text). When omitted, only the dubbed video (MP4) is produced; request audio and subtitles explicitly. Audio-only sources cannot produce a video, so `video` resolves to `audio` for them.
 
         voice_cloning : typing.Optional[bool]
             Clone the original speaker's voice. Set `false` to use a preset `voice_id` instead.
@@ -427,7 +428,7 @@ class AsyncDubbingClient:
             Translation-style / tone register.
 
         editor_flow : typing.Optional[bool]
-            Keep `false` for API integrations so exports fire automatically once TTS finishes. When `true`, auto-export is suppressed: the pipeline completes but `export-status` stays empty.
+            Keep `false` for API integrations so exports fire automatically once TTS finishes. When `true`, auto-export is suppressed: the pipeline completes but `export-status` stays empty until exports are triggered manually in Creator Studio. **Billing:** `true` charges the editor-flow rate (₹80/min on Starter — double the default API rate). See Pricing for plan-specific rates.
 
         job_name : typing.Optional[str]
             Human-readable label to identify the job later. Recommended (e.g. the source file's name).

@@ -20,7 +20,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, TypeGuard
@@ -151,6 +151,12 @@ which refuses any other) and `exit`, `warning` and `message` for the other kinds
 SELECTOR_KEYS = frozenset({"input", "backends", "options", "input_file_type", "aspects", "match"})
 EVERY = "*"
 """A selector's `backends` or `options` that names every output model type or option set of its inputs' cells."""
+FIXTURE_SPACE = "fixture"
+PAYLOAD_SPACE, PROJECT_SPACE, FAMILY_SPACE, COMPOSITION_SPACE = "payload:", "project:", "family:", "composition:"
+LABEL_SPACES = (PAYLOAD_SPACE, PROJECT_SPACE, FAMILY_SPACE, COMPOSITION_SPACE)
+"""The prefixes of the cell labels that name no path of the head tree, each a label space of its own: payload cases,
+the projects tier's jobs, family shapes and the random tier's compositions. Every other label is a path of the head
+tree, in `FIXTURE_SPACE`."""
 AFFECTS_KEYS = ("output_model_types", "input_file_types", "options", "python_api", "templates", "experimental")
 GUIDE_TEXT_KEYS = ("title", "summary", "before", "after", "migrate", "reverts")
 RECORD_TEXT_KEYS = ("extends",)
@@ -218,7 +224,9 @@ class CellSelector:
     """One `[[change.cells]]` table: the comparator cells a record names.
 
     `input`: globs over the head tree's paths (`*` within a path part, `**` across parts), each naming input files or
-    directories; `backends`: output model types, None for every one (`"*"`); `options`: option sets, None for every
+    directories, or globs over the labels of one other label space (`LABEL_SPACES`, with an `input_file_type`): a
+    selector names the cells of one space, which the runs that build that space judge; `backends`: output model types,
+    None for every one (`"*"`); `options`: option sets, None for every
     option set the run has for the inputs (`"*"`), each in the spelling the runs use (`split_options`);
     `input_file_type`: the input type the cells run with, None for the folder under `tests/data/` (a cell that runs
     its input with another type needs it named); `aspects` and `match`: what every change line of a covered cell must
@@ -231,6 +239,16 @@ class CellSelector:
     input_file_type: str | None = None
     aspects: tuple[str, ...] | None = None
     match: str | None = None
+
+    @property
+    def spaces(self) -> frozenset[str]:
+        """The label spaces its input globs name (`label_space`); a valid selector names one."""
+        return frozenset(map(label_space, self.input))
+
+
+def label_space(label: str) -> str:
+    """Return the label space of a cell label or a selector's glob: its prefix of `LABEL_SPACES`, else a path's."""
+    return next((prefix for prefix in LABEL_SPACES if label.startswith(prefix)), FIXTURE_SPACE)
 
 
 @dataclass(frozen=True)
@@ -441,6 +459,11 @@ OWNERS: tuple[tuple[str, str, Owner], ...] = (
     ("tests/test_package_metadata.py::*", "*", Owner.LISTING),
     ("tests/test_input_model.py::test_input_model_config_class*", "*", Owner.LISTING),
     ("tests/parser/test_builtin_formatter_contract.py::*", "*", Owner.LISTING),
+    (
+        "tests/main/test_payload_validation.py::test_payload_validation_cases_cover_discovered_schema_files",
+        "*",
+        Owner.LISTING,
+    ),
     ("tests/main/test_public_api_signature_baseline.py::*", "*", Owner.API),
     ("tests/parser/test_pipeline.py::*", "*", Owner.INTERNAL),
     ("tests/parser/test_generation_store_usage.py::*", "*", Owner.INTERNAL),
@@ -453,12 +476,14 @@ OWNERS: tuple[tuple[str, str, Owner], ...] = (
     ("tests/test_source_model.py::*", "*", Owner.INTERNAL),
     ("tests/test_*_script.py::*", "*", Owner.INTERNAL),
     ("tests/cli_doc/test_cli_options_sync.py::*", "*", Owner.INTERNAL),
+    ("tests/test_capabilities.py::*", "*", Owner.INTERNAL),
     ("tests/test_assert_helper_usage.py::*", "*", Owner.INTERNAL),
     ("tests/test_change_records.py::*", "*", Owner.INTERNAL),
     ("tests/test_ci_workflow.py::*", "*", Owner.INTERNAL),
     ("tests/test_conftest_helpers.py::*", "*", Owner.INTERNAL),
     ("tests/test_docs_python_blocks.py::*", "*", Owner.INTERNAL),
     ("tests/test_legacy_rows.py::*", "*", Owner.INTERNAL),
+    ("tests/test_pre_commit_hooks.py::*", "*", Owner.INTERNAL),
     ("tests/test_release_draft_workflow.py::*", "*", Owner.INTERNAL),
     ("tests/test_repository_transfer.py::*", "*", Owner.INTERNAL),
     ("*", "payloads/*", Owner.MODELS),
@@ -580,8 +605,15 @@ def _selector_problems(where: str, cell: Mapping[str, object]) -> list[str]:
     """Return why a `[[change.cells]]` table is not a selector: its keys, input globs, backends, options and match."""
     problems = [f"{where}: unknown key {key}" for key in sorted(set(cell) - SELECTOR_KEYS)]
     problems += [f"{where}: missing {key}" for key in ("input", "backends", "options") if key not in cell]
-    if "input" in cell and not (_strings(globs := cell["input"]) and globs):
+    globs = cell.get("input")
+    if "input" in cell and not (_strings(globs) and globs):
         problems.append(f"{where}: input is not a non-empty list of path globs")
+    elif _strings(globs):
+        spaces = sorted(set(map(label_space, globs)))
+        if len(spaces) > 1:
+            problems.append(f"{where}: input names cells of {' and '.join(spaces)}; a selector names one label space")
+        elif spaces != [FIXTURE_SPACE] and "input_file_type" not in cell:
+            problems.append(f"{where}: input names {spaces[0]} cells, which need input_file_type")
     if _strings(backends := cell.get("backends", EVERY)) and backends:
         problems += [
             f"{where}: backend {name!r} is not one of {', '.join(DEFAULT_TYPES)}"
@@ -712,7 +744,29 @@ def _decision_needed(record: Record, facts: Facts | None) -> bool:
     return True
 
 
-def rule_problems(record: Record, *, fragment: bool, facts: Facts | None = None, added: bool = False) -> list[str]:
+def resolved_record(record: Record, records: Mapping[str, Record]) -> tuple[Record | None, list[str]]:
+    """Return the record a rule or a judge reads for one record, and why there is none.
+
+    A record takes the category of the record it extends: that record with the extending record's own id, covers and
+    cells. That record must be an unreleased record of its own with a category, so a chain of extends and an extended
+    derived entry are refused. Any other record is its own.
+    """
+    if record.extends is None:
+        return record, []
+    target = records.get(record.extends)
+    if target is None or target.extends is not None or target.derived or target.category is None:
+        return None, [f"entry {record.id}: extends {record.extends}, which is not an unreleased record of its own"]
+    return replace(target, id=record.id, covers=record.covers, cells=record.cells), []
+
+
+def rule_problems(
+    record: Record,
+    *,
+    fragment: bool,
+    facts: Facts | None = None,
+    added: bool = False,
+    records: Mapping[str, Record] | None = None,
+) -> list[str]:
     """Return how a record breaks the rule of its category; `fragment` for an unreleased fragment.
 
     Every fragment has a category except one that extends a derived entry (it only adds text to the registry's entry)
@@ -720,12 +774,20 @@ def rule_problems(record: Record, *, fragment: bool, facts: Facts | None = None,
     guide entries that need `refs`; no released entry names cells, as the stamp drops them. The facts, when given,
     check the features, surface items and scheduled removals the record names, and that its cells name no surface the
     latest release lacks. `added` for a record the change adds: a category whose cells are required needs them.
+    `records`, the fragments by id, resolve an extending record (`resolved_record`): the rule of the category it takes
+    then applies to its own covers and cells.
     """
     where = f"entry {record.id}"
     if record.cells and not fragment:
         return [f"{where}: a released entry names no cells; the stamp drops them"]
     if record.extends is not None or record.derived or record.category is None:
-        return _uncategorized_problems(record, fragment=fragment, facts=facts)
+        problems = _uncategorized_problems(record, fragment=fragment, facts=facts)
+        if record.extends is None or records is None:
+            return problems
+        resolved, found = resolved_record(record, records)
+        if resolved is not None:
+            found = rule_problems(resolved, fragment=fragment, added=added)  # its facts are its target's own
+        return [*problems, *found]
     rule = RULES[record.category]
     problems = [f"{where} has no {name}" for name in sorted(rule.requires - {"decision"}) if not _filled(record, name)]
     problems += _cells_problems(record, rule.cells, added=added)
@@ -966,10 +1028,16 @@ def read_records(data: Path) -> list[Record]:
 __all__ = [
     "AFFECTS_KEYS",
     "ASPECTS",
+    "COMPOSITION_SPACE",
     "EVERY",
+    "FAMILY_SPACE",
+    "FIXTURE_SPACE",
+    "LABEL_SPACES",
     "OWNERS",
+    "PAYLOAD_SPACE",
     "PRESET_OPTION",
     "PRESET_SURFACE",
+    "PROJECT_SPACE",
     "RULES",
     "Action",
     "Category",
@@ -989,9 +1057,11 @@ __all__ = [
     "covers_block",
     "covers_written",
     "guide_problems",
+    "label_space",
     "owner_of",
     "parse_entry",
     "read_records",
+    "resolved_record",
     "rule_problems",
     "selector_surface",
     "split_options",

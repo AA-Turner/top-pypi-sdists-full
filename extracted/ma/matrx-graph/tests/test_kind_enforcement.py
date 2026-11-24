@@ -48,7 +48,7 @@ from matrx_graph.types.node_spec import NodeSpec
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, success
 from matrx_graph.content_ir.model import KindModel
-from pydantic import BaseModel, ConfigDict, Field, RootModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from tests._fixtures import FakeEmitter, make_app_context
 

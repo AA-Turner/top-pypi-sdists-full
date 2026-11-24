@@ -1,7 +1,11 @@
 """PDF extraction: text, OCR, tables, chunking."""
 
 from .text import (
+    BlankPageTest,
+    page_ink_ppm,
+    PdfHasNoPagesError,
     PdfPageRangeError,
+    PdfPagesMissingError,
     resolve_page_range,
     extract_text_from_bytes_sync,
     extract_text_from_image_bytes,
@@ -36,10 +40,14 @@ from .bbox import (
 
 
 __all__ = [
+    "BlankPageTest",
+    "page_ink_ppm",
     "extract_text_pages",
     "extract_text_pages_async",
     "extract_text_pages_stream",
+    "PdfHasNoPagesError",
     "PdfPageRangeError",
+    "PdfPagesMissingError",
     "resolve_page_range",
     "extract_text_pages_from_bytes",
     "extract_text_pages_from_bytes_async",

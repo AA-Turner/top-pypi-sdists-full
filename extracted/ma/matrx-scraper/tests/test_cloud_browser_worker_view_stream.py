@@ -106,6 +106,14 @@ class _ReturningWorker:
     worker_id = "worker-a"
     health = "healthy"
     chrome_downgrade = None
+    # The rest of the surface http_app reads off any host (no defaults hide a gap).
+    multi_browser = False
+    max_browsers = 1
+    human_control_live = False
+    token_verifier = None
+
+    def browsers(self) -> list[dict[str, object]]:
+        return []
 
     def __init__(self, *, watched: bool) -> None:
         self.view_stream_live = watched

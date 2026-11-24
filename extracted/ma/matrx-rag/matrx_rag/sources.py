@@ -38,6 +38,7 @@ job enqueue and pickup" as a benign no-op.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import hashlib
@@ -74,6 +75,20 @@ logger = logging.getLogger(__name__)
 # than importing the host's model modules — the standard host-read pattern
 # used throughout this package. Every access below goes through matrx-orm;
 # SQL fragments and driver pools are not part of this module's persistence surface.
+
+
+class NoTextByRule(Exception):
+    """The source exists and the caller may read it, but by a platform rule it has no text to read.
+
+    A chat the person did not author (an agent / workflow / automation run, a fork), or a chat with
+    nothing the person typed. Distinct from "not found" (``None``: missing, deleted, or not
+    the caller's to read). :func:`resolve` keeps its contract and returns ``None`` for it; a reader
+    that must tell an empty-by-rule item from a real failure calls :func:`resolve_explained`.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 class UnsupportedMimeError(Exception):
@@ -139,6 +154,9 @@ SourceKind = Literal[
     # through the host's ``univer_text_renderer`` seam.
     "workbook",
     "udt_document",
+    # ``workbench.presentation`` (slide decks), resolved by ``_resolve_udt`` too: the deck is JSON on
+    # the row itself (no snapshot table), rendered by the host seam with kind ``deck``.
+    "deck",
     # canvas.canvas_items (token ``canvas_item``): title + description + the content's strings.
     "canvas_item",
 ]
@@ -239,8 +257,14 @@ async def resolve(
     field_id: str | None = None,
     *,
     user_id: str | None = None,
+    system_organization_id: str | None = None,
 ) -> ResolvedSource | None:
     """Resolve a source body, with the platform secret guard applied.
+
+    ``system_organization_id`` is set ONLY by an automatic ingest the host runs in that
+    organization's own system context (never for a person's request): a ``code_file`` that
+    belongs to that organization is then indexed even when its creator has left it, because
+    the organization's file must keep being ingested without depending on one member.
 
     This is the ONE door every source kind comes through, so it is where the
     content-level secret guard lives (2026-09-13 incident: a note containing a
@@ -251,10 +275,43 @@ async def resolve(
     count + credential NAMES on ``metadata`` and screams in the log. Ingestion
     is never blocked — the source is indexed minus its credentials.
     """
-    resolved = await _resolve_dispatch(source_kind, source_id, field_id, user_id=user_id)
+    resolved, _reason = await resolve_explained(
+        source_kind, source_id, field_id, user_id=user_id, system_organization_id=system_organization_id
+    )
+    return resolved
+
+
+async def resolve_explained(
+    source_kind: SourceKind,
+    source_id: str,
+    field_id: str | None = None,
+    *,
+    user_id: str | None = None,
+    system_organization_id: str | None = None,
+) -> tuple[ResolvedSource | None, str | None]:
+    """:func:`resolve`, plus WHY nothing came back when the source is readable but has no text by rule.
+
+    Returns ``(resolved, None)`` on content, ``(None, reason)`` for a :class:`NoTextByRule` source
+    (exists, the caller may read it, nothing to read: a chat the person did not write), and
+    ``(None, None)`` for a real miss (not found, deleted, not the caller's). ``UnsupportedMimeError``
+    still propagates: the caller decides whether an unreadable type is a failure.
+    """
+    try:
+        resolved = await _resolve_dispatch(
+            source_kind, source_id, field_id, user_id=user_id, system_organization_id=system_organization_id
+        )
+    except NoTextByRule as exc:
+        return None, exc.reason
+    return await _guarded(resolved, source_kind), None
+
+
+async def _guarded(resolved: ResolvedSource | None, source_kind: str) -> ResolvedSource | None:
     if resolved is None or not resolved.text:
         return resolved
-    clean, count, names = guard_text(
+    # The scan runs every detector regex over the whole body (pure CPU): off the loop, or a large
+    # source freezes the process (event_loop_stall f4c375ed, 2026-11-07: 1-7 s per ingest step).
+    clean, count, names = await asyncio.to_thread(
+        guard_text,
         resolved.text,
         source_kind=str(source_kind),
         source_id=resolved.source_id,
@@ -273,6 +330,7 @@ async def _resolve_dispatch(
     field_id: str | None = None,
     *,
     user_id: str | None = None,
+    system_organization_id: str | None = None,
 ) -> ResolvedSource | None:
     """Dispatch resolver by ``source_kind``.
 
@@ -286,11 +344,15 @@ async def _resolve_dispatch(
     if source_kind == "note":
         if not user_id:
             return None
-        return await _resolve_note(source_id, user_id=user_id)
+        return await _resolve_note(
+            source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     if source_kind == "code_file":
         if not user_id:
             return None
-        return await _resolve_code_file(source_id, user_id=user_id)
+        return await _resolve_code_file(
+            source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     if source_kind == "cld_file":
         if not user_id:
             return None
@@ -300,7 +362,9 @@ async def _resolve_dispatch(
     if source_kind == "transcript":
         if not user_id:
             return None
-        return await _resolve_transcript(source_id, user_id=user_id)
+        return await _resolve_transcript(
+            source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     if source_kind == "scraped":
         if not user_id:
             return None
@@ -308,15 +372,21 @@ async def _resolve_dispatch(
     if source_kind == "repository":
         if not user_id:
             return None
-        return await _resolve_repository(source_id, user_id=user_id)
+        return await _resolve_repository(
+            source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     if source_kind == "task":
         if not user_id:
             return None
-        return await _resolve_task(source_id, user_id=user_id)
+        return await _resolve_task(
+            source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     if source_kind == "project":
         if not user_id:
             return None
-        return await _resolve_project(source_id, user_id=user_id)
+        return await _resolve_project(
+            source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     if source_kind == "cx_message":
         if not user_id:
             return None
@@ -328,25 +398,64 @@ async def _resolve_dispatch(
     if source_kind == "document":
         if not user_id:
             return None
-        return await _resolve_document(source_id, user_id=user_id)
+        return await _resolve_document(
+            source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     if source_kind == "canvas_item":
         if not user_id:
             return None
-        return await _resolve_canvas_item(source_id, user_id=user_id)
+        return await _resolve_canvas_item(
+            source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     if source_kind in _UDT_KINDS:
         if not user_id:
             return None
-        return await _resolve_udt(source_kind, source_id, user_id=user_id)
+        return await _resolve_udt(
+            source_kind, source_id, user_id=user_id, system_organization_id=system_organization_id
+        )
     raise ValueError(f"Unknown source_kind: {source_kind!r}")
 
 
-async def _resolve_note(note_id: str, *, user_id: str) -> ResolvedSource | None:
-    """ACL: ``workbench.notes.created_by`` must match the caller — fail-closed so a
-    row we do NOT own is indistinguishable from one that doesn't exist (P0-11
-    cross-tenant exfiltration fix)."""
+async def _may_read(
+    user_id: str,
+    token: str,
+    entity_id: str,
+    *,
+    system_organization_id: str | None,
+    model: str,
+    schema: str | None = None,
+) -> bool:
+    """ONE answer — ``iam.has_access_for(user, token, id, 'viewer')`` — plus the narrow escape every source kind shares.
+
+    The escape: an automatic ingest the host runs in an organization's own system context
+    (``system_organization_id`` set, never for a person's request) may index a row that belongs to THAT
+    organization even when its creator has left it or the person has no grant: the run IS the organization.
+    The row's own ``organization_id`` must equal the passed organization, explicitly; a row of any other
+    organization, or with none, is refused.
+    """
+    from matrx_orm import platform_access_check
+
+    if await platform_access_check(str(user_id), token, str(entity_id), "viewer"):
+        return True
+    if not system_organization_id:
+        return False
+    Model = get_db_model(model, schema=schema) if schema else get_db_model(model)
+    owned = await Model.filter(id=entity_id).values("organization_id")
+    return bool(owned) and str(owned[0]["organization_id"] or "") == str(system_organization_id)
+
+
+async def _resolve_note(
+    note_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
+    """ACL: ONE answer — ``iam.has_access_for(user, 'note', id, 'viewer')``; a row the
+    person cannot reach is indistinguishable from one that doesn't exist (P0-11). Never
+    ``created_by == user``: a note shared with a collaborator is theirs to index."""
+
+    if not await _may_read(user_id, "note", note_id, system_organization_id=system_organization_id, model="Notes"):
+        return None
     Notes = get_db_model("Notes")
     rows = await Notes.filter(
-        id=note_id, created_by=user_id, deleted_at__isnull=True
+        id=note_id, deleted_at__isnull=True
     ).values("id", "created_by", "organization_id", "label", "content", "home_scope_id", "tags", "metadata")
     row = rows[0] if rows else None
     if row is None:
@@ -490,22 +599,26 @@ async def _target_title(target: dict[str, str]) -> str:
     return ""
 
 
-async def _resolve_document(document_id: str, *, user_id: str) -> ResolvedSource | None:
+async def _resolve_document(
+    document_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
     """A ``content.document`` row of ANY type — Spaces pages, Markdown Studio
     annotations, notes and every other document type.
 
-    ACL: ``created_by`` must match the caller (fail-closed, exactly like ``note``);
-    soft-deleted and archived rows resolve to ``None``. Who may READ the chunks is
-    decided at search time by the kernel on the row itself
-    (``iam.has_access_for(person, 'document', id)``), so a Spaces page shared with
-    an organization is found by its members and a personal one only by its owner.
+    ACL: ONE answer — ``iam.has_access_for(user, 'document', id, 'viewer')`` (never
+    ``created_by == user``); soft-deleted and archived rows resolve to ``None``. The same
+    answer decides who READS the chunks at search time, so a Spaces page shared with
+    an organization is indexed and found by its members and a personal one only by its owner.
     """
+
+    if not await _may_read(user_id, "document", document_id, system_organization_id=system_organization_id, model="Document", schema="content"):
+        return None
     Document = get_db_model("Document", schema="content")
     rows = await Document.filter(
-        id=document_id, created_by=user_id, deleted_at__isnull=True, archived_at__isnull=True
+        id=document_id, deleted_at__isnull=True, archived_at__isnull=True
     ).values(
         "id", "created_by", "organization_id", "document_type_id", "title", "format", "body",
-        "content_version", "visibility", "metadata",
+        "content_version", "published_to_web", "shown_to", "metadata",
     )
     row = rows[0] if rows else None
     if row is None:
@@ -531,7 +644,7 @@ async def _resolve_document(document_id: str, *, user_id: str) -> ResolvedSource
     text = "\n\n".join(p for p in (f"# {title}" if title else "", body.strip()) if p).strip()
     if not text:
         return None
-    visibility = row["visibility"]
+    shown_to = row["shown_to"]
     return ResolvedSource(
         source_kind="document",
         source_id=str(row["id"]),
@@ -547,7 +660,8 @@ async def _resolve_document(document_id: str, *, user_id: str) -> ResolvedSource
             "document_type": slug,
             "format": fmt,
             "content_version": row["content_version"],
-            "visibility": getattr(visibility, "value", visibility),
+            "published_to_web": bool(row["published_to_web"]),
+            "shown_to": getattr(shown_to, "value", shown_to),
             "row_metadata": _coerce_jsonb(row["metadata"]),
             **extra,
         },
@@ -559,33 +673,47 @@ async def _resolve_document(document_id: str, *, user_id: str) -> ResolvedSource
 _UDT_KINDS: dict[str, tuple[str, str, str, str]] = {
     "workbook": ("UdtWorkbooks", "workbook_name", "UdtWorkbookSnapshots", "workbook_id"),
     "udt_document": ("UdtDocuments", "document_name", "UdtDocumentSnapshots", "document_id"),
+    "deck": ("Presentation", "name", "", ""),
 }
 
 
-async def _resolve_udt(source_kind: str, source_id: str, *, user_id: str) -> ResolvedSource | None:
+async def _resolve_udt(
+    source_kind: str, source_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
     """A workbook (``workbook``) or Univer cloud document (``udt_document``).
 
-    ACL: ``created_by`` must match the caller (fail-closed, exactly like ``note`` and
-    ``document``); soft-deleted rows resolve to ``None``. Who may READ the chunks is
+    ACL: ONE answer — ``iam.has_access_for(user, '<token>', id, 'viewer')`` (never
+    ``created_by == user``); soft-deleted rows resolve to ``None``. Who may READ the chunks is
     decided at search time by the kernel on the row (``iam.has_access_for(person,
     '<token>', id)``). The body is the LATEST snapshot, rendered by the host's
     ``univer_text_renderer`` seam (the same renderer the workbook/document tools use).
     """
     row_model, title_col, snap_model, fk_col = _UDT_KINDS[source_kind]
+
+    token = "presentation" if source_kind == "deck" else source_kind
+    if not await _may_read(user_id, token, source_id, system_organization_id=system_organization_id, model=row_model, schema="workbench"):
+        return None
     Row = get_db_model(row_model, schema="workbench")
-    rows = await Row.filter(id=source_id, created_by=user_id, deleted_at__isnull=True).values(
-        "id", "created_by", "organization_id", title_col, "description", "visibility", "metadata"
+    rows = await Row.filter(id=source_id, deleted_at__isnull=True).values(
+        "id", "created_by", "organization_id", title_col, "description", "published_to_web", "shown_to",
+        "metadata",
     )
     row = rows[0] if rows else None
     if row is None:
         return None
-    Snap = get_db_model(snap_model, schema="workbench")
-    snaps = await Snap.filter(**{fk_col: source_id}).order_by("-created_at").limit(1).values("id", "snapshot")
-    snapshot = _coerce_jsonb(snaps[0]["snapshot"]) if snaps else {}
+    if source_kind == "deck":
+        # A deck is the row's own ``deck`` JSON — there is no snapshot table.
+        deck_rows = await Row.filter(id=source_id).values("deck")
+        snaps = []
+        snapshot = _coerce_jsonb(deck_rows[0]["deck"]) if deck_rows else {}
+    else:
+        Snap = get_db_model(snap_model, schema="workbench")
+        snaps = await Snap.filter(**{fk_col: source_id}).order_by("-created_at").limit(1).values("id", "snapshot")
+        snapshot = _coerce_jsonb(snaps[0]["snapshot"]) if snaps else {}
     # A record people are co-editing holds more than its last save: index what they see now.
     collab: dict[str, Any] | None = None
     current_reader = get_univer_current_reader()
-    if current_reader is not None:
+    if current_reader is not None and source_kind != "deck":
         live = await current_reader(source_kind, source_id, user_id)
         if live is not None:
             snapshot, collab = (live[0] or {}), live[1]
@@ -595,7 +723,7 @@ async def _resolve_udt(source_kind: str, source_id: str, *, user_id: str) -> Res
     text = "\n\n".join(p for p in (f"# {title}" if title else "", description, body) if p).strip()
     if not body and not description:
         return None
-    visibility = row["visibility"]
+    shown_to = row["shown_to"]
     return ResolvedSource(
         source_kind=source_kind,  # type: ignore[arg-type]
         source_id=str(row["id"]),
@@ -609,20 +737,31 @@ async def _resolve_udt(source_kind: str, source_id: str, *, user_id: str) -> Res
         metadata={
             "title": title,
             "snapshot_id": str(snaps[0]["id"]) if snaps else "",
-            "visibility": getattr(visibility, "value", visibility),
+            "published_to_web": bool(row["published_to_web"]),
+            "shown_to": getattr(shown_to, "value", shown_to),
             "row_metadata": _coerce_jsonb(row["metadata"]),
             **({"collab": collab} if collab else {}),
         },
     )
 
 
-async def _resolve_code_file(file_id: str, *, user_id: str) -> ResolvedSource | None:
-    """ACL: ``code.code_files.created_by`` must match the caller — fail-closed
-    so a row we do NOT own is indistinguishable from one that doesn't exist
-    (P0-11 cross-tenant exfiltration fix)."""
+async def _resolve_code_file(
+    file_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
+    """ACL: ONE answer — ``iam.has_access_for(user, 'code_file', id, 'viewer')``
+    (``matrx_orm.platform_access_check``). A row the person cannot reach is
+    indistinguishable from one that doesn't exist (P0-11 fail-closed). Never
+    ``created_by == user``: a collaborator who may edit a repository's files
+    must be able to index them; the row's creator stays the stamped owner."""
     CodeFiles = get_db_model("CodeFiles")
+    # The organization's own system run (auto-ingest on a file change) keeps indexing the organization's file
+    # after its creator left: the run IS the organization, not that person (the escape every source kind shares).
+    if not await _may_read(
+        user_id, "code_file", file_id, system_organization_id=system_organization_id, model="CodeFiles"
+    ):
+        return None
     rows = await CodeFiles.filter(
-        id=file_id, created_by=user_id, deleted_at__isnull=True
+        id=file_id, deleted_at__isnull=True
     ).values("id", "created_by", "organization_id", "path", "name", "content", "language", "tags", "metadata")
     row = rows[0] if rows else None
     if row is None:
@@ -740,19 +879,26 @@ async def _resolve_cld_file(
     already-checked server-side byte read when this resolver runs in a
     background worker without a request context.
     """
-    Files = get_db_model("Files")
-    rows = await Files.filter(id=file_id, deleted_at__isnull=True).values(
-        "id",
-        "created_by",
-        "organization_id",
-        "file_path",
-        "file_name",
-        "mime_type",
-        "storage_uri",
-        "metadata",
-        "published_to_web",
-        "parent_folder_id",
-    )
+    from matrx_files.gated_reads import read_file_rows
+
+    # The row ACL (_file_row_accessible) decides for the caller right below; this
+    # declared read only fetches the row that ACL then judges.
+    with system_file_access("rag-source-resolve-file-row"):
+        rows = await read_file_rows(
+            [
+                "created_by",
+                "organization_id",
+                "file_path",
+                "file_name",
+                "mime_type",
+                "storage_uri",
+                "metadata",
+                "published_to_web",
+                "parent_folder_id",
+            ],
+            live_only=True,
+            id=file_id,
+        )
     row = rows[0] if rows else None
     if row is None:
         return None
@@ -922,7 +1068,9 @@ async def _resolve_library_doc(doc_id: str) -> ResolvedSource | None:
     )
 
 
-async def _resolve_transcript(transcript_id: str, *, user_id: str) -> ResolvedSource | None:
+async def _resolve_transcript(
+    transcript_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
     """Flatten a transcript's segments into one searchable document.
 
     ACL: ONE answer — ``iam.has_access_for(user, 'transcript', id, 'viewer')``
@@ -934,15 +1082,13 @@ async def _resolve_transcript(transcript_id: str, *, user_id: str) -> ResolvedSo
     Body shape: ``title\n\n[description?]\n\n[speaker?] text…`` joined per
     segment. Segments without ``text`` are skipped.
     """
-    from matrx_orm import platform_access_check
 
-    if not await platform_access_check(str(user_id), "transcript", str(transcript_id), "viewer"):
+    if not await _may_read(user_id, "transcript", transcript_id, system_organization_id=system_organization_id, model="Transcripts"):
         return None
     Transcripts = get_db_model("Transcripts")
     rows = await (
         Transcripts.filter(id=transcript_id)
         .filter(deleted_at__isnull=True)
-        .filter(Q(is_draft=False) | Q(is_draft__isnull=True))
         .values(
             "id",
             "created_by",
@@ -959,6 +1105,9 @@ async def _resolve_transcript(transcript_id: str, *, user_id: str) -> ResolvedSo
     row = rows[0] if rows else None
     if row is None:
         return None
+    # A draft is read like any transcript: "draft" is the recorder's state until the person presses Finalize, which
+    # almost nobody does (2026-11-20: 1,471 of 1,477 live audio recordings were drafts, each with its words). Leaving
+    # drafts out left a person's own recordings out of everything that reads them.
     row = {
         **row,
         "title": row["title"] or "",
@@ -1024,6 +1173,7 @@ async def _resolve_scraped(page_id: str, *, user_id: str) -> ResolvedSource | No
     """A single scraped page (``scraper.scrape_parsed_page``).
 
     ACL: a scraped page belongs to a person only when it is shown to that person
+    # only-me: not a write: a read filter
     alone (``shown_to = 'only_me'``) and its ``created_by`` is ``user_id``. Any
     other row (the organization's, system-scraped) has no owner
     and is intentionally NOT returned here; the ingestion path runs per-user
@@ -1038,6 +1188,7 @@ async def _resolve_scraped(page_id: str, *, user_id: str) -> ResolvedSource | No
     """
     ScrapeParsedPage = get_db_model("ScrapeParsedPage")
     rows = await ScrapeParsedPage.filter(
+        # only-me: not a write: a read filter
         id=page_id, created_by=user_id, shown_to="only_me"
     ).values(
         "id", "created_by", "url", "domain", "page_name", "content", "content_type", "scraped_at"
@@ -1108,9 +1259,9 @@ async def _resolve_research(source_id: str, *, user_id: str) -> ResolvedSource |
         version (``is_current = true``) and take ``content`` (LLM/cleaned) falling
         back to ``original_content`` (raw scrape).
 
-    ACL: fail-closed on ``rs_topic.created_by = user_id`` so a source whose topic
-    we do NOT own is indistinguishable from one that doesn't exist (P0-11
-    cross-tenant exfiltration fix). A source whose topic has a NULL ``created_by``
+    ACL: ONE answer — ``iam.has_access_for(user, 'research_topic', topic_id, 'viewer')``
+    so a source whose topic the person cannot reach is indistinguishable from one that
+    doesn't exist (P0-11); never ``created_by == user``. A source whose topic has a NULL ``created_by``
     is never returned (it cannot satisfy the ownership contract).
 
     Body: ``title``/``description`` header + the scraped body. A source with no
@@ -1133,7 +1284,11 @@ async def _resolve_research(source_id: str, *, user_id: str) -> ResolvedSource |
     # ``t.created_by = $2`` was originally applied as a JOIN condition — a
     # topic with a NULL created_by (or one owned by someone else) simply
     # fails to match, exactly like this filtered fetch returning no topic.
-    topics = await RsTopic.filter(id=source["topic_id"], created_by=user_id).values("created_by")
+    from matrx_orm import platform_access_check
+
+    if not await platform_access_check(str(user_id), "research_topic", str(source["topic_id"]), "viewer"):
+        return None
+    topics = await RsTopic.filter(id=source["topic_id"]).values("created_by")
     topic = topics[0] if topics else None
     if topic is None:
         return None
@@ -1191,7 +1346,9 @@ async def _resolve_research(source_id: str, *, user_id: str) -> ResolvedSource |
     )
 
 
-async def _resolve_repository(repo_id: str, *, user_id: str) -> ResolvedSource | None:
+async def _resolve_repository(
+    repo_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
     """A code-repository manifest (``code.code_repositories``).
 
     The repo's *files* are ingested as their own ``code_file`` rows; this
@@ -1199,7 +1356,8 @@ async def _resolve_repository(repo_id: str, *, user_id: str) -> ResolvedSource |
     status so a search for "the foo repo" surfaces a hit for the repo
     itself, not just one of its files.
 
-    ACL: filter on ``created_by`` so a repo we don't own is invisible.
+    ACL: ONE answer — ``iam.has_access_for(user, 'code_repository', id, 'viewer')``; a repo
+    the person cannot reach is invisible. Never ``created_by == user``.
 
     NOTE (schema-drift fix): the raw SQL this replaced filtered on a
     ``code.code_repositories.user_id`` column that does not exist on the live
@@ -1209,8 +1367,11 @@ async def _resolve_repository(repo_id: str, *, user_id: str) -> ResolvedSource |
     ``UndefinedColumnError`` the first time this branch actually executed;
     the ORM conversion fixes the drift as part of the port.
     """
+
+    if not await _may_read(user_id, "code_repository", repo_id, system_organization_id=system_organization_id, model="CodeRepositories"):
+        return None
     CodeRepositories = get_db_model("CodeRepositories")
-    rows = await CodeRepositories.filter(id=repo_id, created_by=user_id, is_active=True).values(
+    rows = await CodeRepositories.filter(id=repo_id, is_active=True).values(
         "id",
         "created_by",
         "organization_id",
@@ -1266,19 +1427,23 @@ async def _resolve_repository(repo_id: str, *, user_id: str) -> ResolvedSource |
     )
 
 
-async def _resolve_task(task_id: str, *, user_id: str) -> ResolvedSource | None:
+async def _resolve_task(
+    task_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
     """A single task row (``projects.tasks``).
 
-    Ownership is ``projects.tasks.created_by`` — we filter on it inside the SQL
-    so a task we do NOT own is indistinguishable from one that doesn't exist
-    (fail-closed, no cross-tenant leak). The ingestable body is composed
+    Access is ONE answer — ``iam.has_access_for(user, 'task', id, 'viewer')`` — so a task
+    the person cannot reach is indistinguishable from one that doesn't exist (fail-closed). The ingestable body is composed
     from the meaningful text columns: ``title`` (always present) +
     ``description`` (optional). ``status`` / ``priority`` are recorded in
     metadata for search filters but are NOT part of the embedded body —
     they carry no semantic content a user would search by.
     """
+
+    if not await _may_read(user_id, "task", task_id, system_organization_id=system_organization_id, model="Tasks"):
+        return None
     Tasks = get_db_model("Tasks")
-    rows = await Tasks.filter(id=task_id, created_by=user_id, deleted_at__isnull=True).values(
+    rows = await Tasks.filter(id=task_id, deleted_at__isnull=True).values(
         "id", "created_by", "organization_id", "project_id", "title", "description", "status", "priority", "due_date"
     )
     row = rows[0] if rows else None
@@ -1319,18 +1484,22 @@ async def _resolve_task(task_id: str, *, user_id: str) -> ResolvedSource | None:
     )
 
 
-async def _resolve_project(project_id: str, *, user_id: str) -> ResolvedSource | None:
+async def _resolve_project(
+    project_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
     """A single project row (``projects.projects``).
 
-    NOTE: ``projects.projects`` has NO ``user_id`` column — ownership is the
-    ``created_by`` column. We filter on it inside the SQL so a project we
-    did NOT create is invisible (fail-closed). The ingestable body is
+    ACCESS: ONE answer — ``iam.has_access_for(user, 'project', id, 'viewer')``; a project
+    the person cannot reach is invisible (fail-closed). ``created_by`` is only the stamped owner. The ingestable body is
     ``name`` (NOT NULL) + ``description`` (optional). ``owner_id`` on the
     ResolvedSource is stamped from ``created_by`` so the kg_chunks ACL is
     consistent with every other source kind (owner == the creating user).
     """
+
+    if not await _may_read(user_id, "project", project_id, system_organization_id=system_organization_id, model="Projects"):
+        return None
     Projects = get_db_model("Projects")
-    rows = await Projects.filter(id=project_id, created_by=user_id).values(
+    rows = await Projects.filter(id=project_id).values(
         "id", "created_by", "organization_id", "name", "description", "slug"
     )
     row = rows[0] if rows else None
@@ -1403,15 +1572,29 @@ def _human_authored_message_text(row: dict) -> str:
 TYPED_FIELD = "typed"
 
 
-async def _person_turns(Message: Any, conversation_id: str) -> list[str]:
-    """The person's own messages in one conversation, in order (D327 projection, model-visible
-    rows only). Assistant, system and tool rows are never read."""
+def _owner_rows(rows: list[dict], owner_id: str) -> list[dict]:
+    """Only the chat owner's own turns. A turn another participant wrote in a shared chat never enters the
+    owner's index. A turn with no author stamp (rows that predate stamping) counts as the owner's only while
+    no other author has written in the chat — it can't be proved to be theirs once someone else has."""
+    owner = str(owner_id)
+    shared = any(r.get("updated_by") is not None and str(r["updated_by"]) != owner for r in rows)
+    return [
+        r
+        for r in rows
+        if (r.get("updated_by") is not None and str(r["updated_by"]) == owner) or (r.get("updated_by") is None and not shared)
+    ]
+
+
+async def _person_turns(Message: Any, conversation_id: str, owner_id: str) -> list[str]:
+    """The chat owner's own live messages in one conversation, in order (D327 projection, model-visible
+    rows only). Assistant, system and tool rows are never read; a deleted turn leaves the index; another
+    participant's turn never enters it (:func:`_owner_rows`)."""
     rows = await (
-        Message.filter(conversation_id=conversation_id, is_visible_to_model=True, role="user")
+        Message.filter(conversation_id=conversation_id, is_visible_to_model=True, role="user", deleted_at__isnull=True)
         .order_by("created_at")
-        .values("role", "content", "user_content")
+        .values("role", "content", "user_content", "updated_by")
     )
-    return [t for t in (_human_authored_message_text(r) for r in rows) if t]
+    return [t for t in (_human_authored_message_text(r) for r in _owner_rows(rows, owner_id)) if t]
 
 
 async def _agent_defaults(agent_id: Any) -> dict[str, str]:
@@ -1444,7 +1627,7 @@ async def _other_runs(
         lines: set[str] = set()
         for _name, value in variable_values(c["variables"]):
             lines.update(lines_of(value))
-        for turn in await _person_turns(Message, str(c["id"])):
+        for turn in await _person_turns(Message, str(c["id"]), user_id):
             lines.update(lines_of(turn))
         out.append(lines)
     return out
@@ -1480,24 +1663,33 @@ async def _resolve_cx_message(source_id: str, *, user_id: str) -> ResolvedSource
     Conversation = get_db_model("Conversation")
     Message = get_db_model("Message")
     columns = (*CONVERSATION_AUTHORSHIP_COLUMNS, "created_by", "organization_id", "variables", "initial_agent_id")
-    convs = await Conversation.filter(id=source_id, created_by=user_id, deleted_at__isnull=True).values(*columns)
+    from matrx_orm import platform_access_check
+
+    async def _reachable(conversation_id: str) -> list[dict[str, Any]]:
+        # ONE answer: iam.has_access_for. A conversation the person cannot reach is
+        # indistinguishable from one that does not exist.
+        if not await platform_access_check(str(user_id), "conversation", str(conversation_id), "viewer"):
+            return []
+        return await Conversation.filter(id=conversation_id, deleted_at__isnull=True).values(*columns)
+
+    convs = await _reachable(source_id)
     if not convs:
         msgs = await Message.filter(id=source_id).values("conversation_id")
         if not msgs:
             return None
-        convs = await Conversation.filter(
-            id=msgs[0]["conversation_id"], created_by=user_id, deleted_at__isnull=True
-        ).values(*columns)
+        convs = await _reachable(msgs[0]["conversation_id"])
         if not convs:
             return None
     conv = convs[0]
     policy = await get_typed_chat_policy()
-    if conversation_skip_reason(conv, policy) is not None:
-        return None
+    skip = conversation_skip_reason(conv, policy)
+    if skip is not None:
+        # Readable, but not a chat the person wrote (an agent / workflow / automation run, a fork…).
+        raise NoTextByRule(f"not_typed_by_the_person:{skip}")
     conv_id = str(conv["id"])
     agent_id = conv.get("initial_agent_id")
     kept, dropped = typed_parts(
-        turns=await _person_turns(Message, conv_id),
+        turns=await _person_turns(Message, conv_id, str(conv["created_by"])),
         variables=conv.get("variables"),
         defaults=await _agent_defaults(agent_id),
         other_runs=await _other_runs(
@@ -1509,10 +1701,12 @@ async def _resolve_cx_message(source_id: str, *, user_id: str) -> ResolvedSource
             limit=policy.template_scan_runs,
         ),
         repeat_runs=policy.template_repeat_runs,
+        max_message_chars=policy.max_message_chars,
+        max_conversation_chars=policy.max_conversation_chars,
     )
     full_text = "\n".join(kept).strip()
     if not full_text:
-        return None
+        raise NoTextByRule("nothing_typed")
     title = (conv.get("title") or "").strip() or "Conversation"
     return ResolvedSource(
         source_kind="cx_message",
@@ -1529,6 +1723,8 @@ async def _resolve_cx_message(source_id: str, *, user_id: str) -> ResolvedSource
             "typed_lines": len(kept),
             "dropped_default_values": dropped["default_value"],
             "dropped_template_lines": dropped["template_line"],
+            "dropped_oversize_messages": dropped["oversize_message"],
+            "dropped_over_conversation_cap": dropped["conversation_cap"],
         },
     )
 
@@ -1551,12 +1747,18 @@ def _canvas_strings(value: object, out: list[str], depth: int = 0) -> None:
             _canvas_strings(v, out, depth + 1)
 
 
-async def _resolve_canvas_item(canvas_id: str, *, user_id: str) -> ResolvedSource | None:
+async def _resolve_canvas_item(
+    canvas_id: str, *, user_id: str, system_organization_id: str | None = None
+) -> ResolvedSource | None:
     """One canvas item (``canvas.canvas_items``): title + description + every string its
-    ``content`` carries (tables, cards, diagrams' text). Owner-only (``created_by``), live rows
-    only. Chunks of this kind have no kernel token in search, so they reach their creator only."""
+    ``content`` carries (tables, cards, diagrams' text). Access is ONE answer —
+    ``iam.has_access_for(user, 'canvas_item', id, 'viewer')`` — live rows only. (Search still
+    shows these chunks to their creator only; indexing follows the access check.)"""
+
+    if not await _may_read(user_id, "canvas_item", canvas_id, system_organization_id=system_organization_id, model="CanvasItems"):
+        return None
     CanvasItems = get_db_model("CanvasItems")
-    rows = await CanvasItems.filter(id=canvas_id, created_by=user_id, deleted_at__isnull=True).values(
+    rows = await CanvasItems.filter(id=canvas_id, deleted_at__isnull=True).values(
         "id", "created_by", "organization_id", "title", "description", "type", "content",
         "conversation_id", "source_type",
     )
@@ -1648,6 +1850,8 @@ __all__ = [
     "SourceKind",
     "TEXT_MIMES",
     "normalize_mime",
+    "NoTextByRule",
     "UnsupportedMimeError",
     "resolve",
+    "resolve_explained",
 ]

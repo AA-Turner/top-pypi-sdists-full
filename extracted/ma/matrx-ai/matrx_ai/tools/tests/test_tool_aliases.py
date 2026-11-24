@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from matrx_connect.emitters.silent_emitter import SilentEmitter
 
 from matrx_ai.tools.tool_aliases import (

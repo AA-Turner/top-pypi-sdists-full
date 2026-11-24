@@ -15,13 +15,13 @@ from matrx_ai.config import (
     UnifiedConfig,
     UnifiedMessage,
     UnifiedResponse,
-    YouTubeVideoContent,
     openai_compatible_usage_counts,
     serialize_provider_usage,
 )
 from matrx_ai.config.media_config import ImageContent
-from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.providers.base_translator import BaseTranslator, append_structured_input_text, finish_message_text, record_unsupported_media_drop
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
+from matrx_ai.providers.final_outbound_snapshot import SHAPE_CHAT, SealLocator
 from matrx_ai.providers.reasoning import openai_compatible_reasoning_text
 
 # ============================================================================
@@ -59,7 +59,12 @@ class TogetherTranslator(BaseTranslator):
             messages.append({"role": "system", "content": system_text})
 
         # Convert messages to OpenAI-style format
-        for msg in self.messages_for_wire(config, profile):
+        # THE STATIC SEAL LINE: stamped in THIS wire list for the final outbound snapshot
+        # (``providers/final_outbound_snapshot.py``). Observes only.
+        wire_list = self.messages_for_wire(config, profile)
+        seal = SealLocator(SHAPE_CHAT, wire_list)
+        for position, msg in enumerate(wire_list):
+            seal.before(position, messages)
             if msg.role == "tool":
                 # Image-bearing tool results surface their images as a
                 # follow-up user message (Chat Completions role=tool only
@@ -83,6 +88,8 @@ class TogetherTranslator(BaseTranslator):
                 for content in msg.content:
                     if isinstance(content, TextContent):
                         text_parts.append(content.text)
+                    elif append_structured_input_text(text_parts, content):
+                        pass  # input_remarks / input_notes / ...: rendered in place
                     elif isinstance(content, ImageContent):
                         image_part = content.to_openai_chat()
                         if image_part is not None:
@@ -98,23 +105,18 @@ class TogetherTranslator(BaseTranslator):
                                 },
                             }
                         )
-                    elif isinstance(content, YouTubeVideoContent):
-                        # YouTube URLs not supported by Together - show warning
-                        vcprint(
-                            f"YouTube URL '{content.youtube_url}' is not supported by Together models and will be skipped.",
-                            "YouTube URL Warning",
-                            color="yellow",
-                        )
+                    elif record_unsupported_media_drop(content, "together"):
+                        pass  # document / audio / video / YouTube: recorded, never silent
 
                 if image_parts:
-                    combined_text = "".join(text_parts)
+                    combined_text = finish_message_text(text_parts)
                     parts: list[dict[str, Any]] = []
                     if combined_text:
                         parts.append({"type": "text", "text": combined_text})
                     parts.extend(image_parts)
                     message_dict["content"] = parts
                 elif text_parts:
-                    message_dict["content"] = "".join(text_parts)
+                    message_dict["content"] = finish_message_text(text_parts)
                 elif tool_calls:
                     message_dict["content"] = None
                 else:
@@ -131,6 +133,8 @@ class TogetherTranslator(BaseTranslator):
         # (together_api.py). Omitting reasoning_effort makes the PROVIDER default
         # to "max" — we never do that. ThinkingConfig.to_together_reasoning_params
         # always sends an explicit effort (OUR default = "high").
+
+        seal.finish(messages)
 
         # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
         # block (live clock, selection, values) plus the tail channel
@@ -160,9 +164,8 @@ class TogetherTranslator(BaseTranslator):
         if config.stream:
             together_request["stream"] = True
             # Together's OpenAI-compatible endpoint omits usage from streaming
-            # chunks unless explicitly requested.  The v2 SDK does not expose
-            # stream_options as a typed argument, so pass it through its
-            # documented escape hatch rather than sacrificing token streaming.
+            # chunks unless explicitly requested.  It rides extra_body so the
+            # request never loses token streaming to a typed-argument change.
             together_request["extra_body"] = {
                 "stream_options": {"include_usage": True}
             }
@@ -183,9 +186,9 @@ class TogetherTranslator(BaseTranslator):
     def from_together(self, response: Any) -> UnifiedResponse:
         """Convert Together API response to unified format.
 
-        No citation capture: the Together SDK ChoiceMessage carries nothing
+        No citation capture: a Together choice message carries nothing
         citation-like (content/role/function_call/reasoning/tool_calls only —
-        verified against the together SDK 2026-08-08).
+        verified against the together SDK 2026-08-08, before we dropped it).
         """
         messages = []
 

@@ -6,8 +6,9 @@ This module is never called by ordinary construction or deserialization.
 import json
 import re
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
 from uuid import UUID
+
+import datacache
 
 from .assembly import check_accession, records_for_selector
 from .ensembl_versions import normalize_release
@@ -22,14 +23,16 @@ _DATASET_PATH = re.compile(
 )
 
 
-def _get_json(path):
-    request = Request(METADATA_API + path, headers={"Accept": "application/json"})
-    with urlopen(request, timeout=30) as response:
-        # Metadata should be small. A proxy HTML page or unbounded response is
-        # not a dataset; do not download annotation files through this client.
-        payload = response.read(2 * 1024 * 1024 + 1)
-    if len(payload) > 2 * 1024 * 1024:
-        raise ValueError("Ensembl metadata response exceeds 2 MiB")
+def fetch_metadata_json(path):
+    """Fetch and parse a bounded JSON payload from the Ensembl metadata API."""
+    # Metadata should be small. A proxy HTML page or unbounded response is
+    # not a dataset; do not download annotation files through this client.
+    try:
+        payload = datacache.fetch_bytes(
+            METADATA_API + path, timeout=30, max_bytes=2 * 1024 * 1024,
+        )
+    except ValueError as error:
+        raise ValueError("Ensembl metadata response exceeds 2 MiB") from error
     try:
         return json.loads(payload)
     except (ValueError, UnicodeError) as error:
@@ -55,7 +58,7 @@ def resolve_genome(identifier):
     accession = None
     if identifier.startswith(("GCA_", "GCF_")):
         accession = check_accession(identifier)
-        explained = _get_json("/genome/%s/explain" % accession)
+        explained = fetch_metadata_json("/genome/%s/explain" % accession)
         if not isinstance(explained, dict) or explained.get("is_suppressed"):
             raise ValueError("Ensembl assembly is unavailable or suppressed")
         if not isinstance(explained.get("assembly"), dict) or (
@@ -67,8 +70,8 @@ def resolve_genome(identifier):
         genome_id = str(UUID(identifier))
     except (ValueError, TypeError, AttributeError) as error:
         raise ValueError("Expected a valid Ensembl genome UUID") from error
-    details = _get_json("/genome/%s/details" % genome_id)
-    links = _get_json("/genome/%s/ftplinks" % genome_id)
+    details = fetch_metadata_json("/genome/%s/details" % genome_id)
+    links = fetch_metadata_json("/genome/%s/ftplinks" % genome_id)
     if not isinstance(details, dict) or details.get("genome_id") != genome_id:
         raise ValueError("Ensembl API returned a different genome UUID")
     if details.get("is_suppressed"):

@@ -24,10 +24,10 @@ EXT_PLAN = "comparison_chat_plan"
 EXT_STATUS = "comparison_chat_status"
 
 
-def _fail(message: str, ctx: ToolContext, started_at: float) -> ToolResult:
+def _fail(message: str, ctx: ToolContext, started_at: float, *, exc: BaseException | None = None) -> ToolResult:
     return ToolResult(
         success=False,
-        error=ToolError(error_type="execution", message=message, is_retryable=False),
+        error=ToolError.declared("execution", message, exc=exc, is_retryable=False),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="compare",
@@ -56,6 +56,6 @@ async def compare(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         words = getattr(exc, "user_message", None)
         if not words:
             raise
-        return _fail(words, ctx, started_at)
+        return _fail(words, ctx, started_at, exc=exc)
     return ToolResult(success=True, output=output, started_at=started_at, completed_at=time.time(),
                       tool_name="compare", call_id=ctx.call_id)

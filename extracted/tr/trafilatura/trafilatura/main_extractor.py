@@ -28,11 +28,12 @@ from .settings import (
     TAG_CATALOG,
     Extractor,
 )
-from .utils import FORMATTING_PROTECTED, SPACING_PROTECTED, image_src, text_chars_test, trim
-from .xml import delete_element, separates_inline
+from .utils import FORMATTING_PROTECTED, SPACING_PROTECTED, image_src, sanitize_tree, text_chars_test, trim
+from .xml import _strip_block_whitespace, delete_element, separates_inline
 from .xpaths import (
     BODY_XPATH,
     COMMENTS_DISCARD_XPATH,
+    COMMENTS_DIV_TEXT_XPATH,
     COMMENTS_XPATH,
     DISCARD_IMAGE_ELEMENTS,
     OVERALL_DISCARD_XPATH,
@@ -47,9 +48,15 @@ TABLE_ELEMS = {"td", "th"}
 # meaningful internal attributes to carry onto a rewired sub-element (drop stray class/style/width/etc.)
 KEEP_ATTRS = {"rend", "role", "target", "src", "alt", "title"}
 CODES_QUOTES = {"code", "quote"}
+# a code language hint as it may appear on a markdown fence line
+CODE_LANGUAGE = re.compile(r"[\w+#.-]+")
 # blocks rebuilt as new elements by handle_textelem(), which leaves the source tail behind
 REBUILT_BLOCKS = CODES_QUOTES | {"list", "table"}
 NOT_AT_THE_END = {"head", "ref"}
+# marks a list recovered after a colon paragraph (#431): left out of the length that gates the
+# later rescues when the rest is long enough on its own, counted once the cascade has chosen
+# (trafilatura_sequence)
+DEFERRED_ATTR = "deferred"
 # tags allowed inside a blockquote paragraph
 _QUOTE_TAGS = set(TAG_CATALOG) | {"ref", "graphic"}
 
@@ -68,7 +75,7 @@ def _wraps_inline(element: _Element) -> bool:
     return len(element) > 0 and (element.tag == "ref" or any(c.tag in INLINE_CARRIED for c in element))
 
 
-def _log_event(msg: str, tag: object, text: bytes | str | None) -> None:
+def _log_event(msg: str, tag: object, text: str | None) -> None:
     "Format extraction event for debugging purposes."
     LOGGER.debug("%s: %s %s", msg, tag, trim(text or "") or "None")
 
@@ -83,6 +90,10 @@ def handle_titles(element: _Element, options: Extractor) -> _Element | None:
         strip_elements(title, "done")
         for child in element.iterdescendants("*"):
             child.tag = "done"
+        for graphic in title.iter("graphic"):
+            if (image := handle_image(graphic, options)) is not None:
+                graphic.attrib.clear()
+                graphic.attrib.update(image.attrib)
     return title if is_text_element(title) else None
 
 
@@ -211,21 +222,41 @@ def is_code_block_element(element: _Element) -> bool:
     # pip
     if element.get("lang") or element.tag == "code":
         return True
-    # GitHub
+    # GitHub, Pygments, and Python-Markdown's codehilite
     parent = element.getparent()
-    if parent is not None and "highlight" in parent.get("class", ""):
+    if parent is not None and any(name in parent.get("class", "") for name in ("highlight", "codehilite")):
         return True
     # highlightjs
     code = element.find("code")
     return code is not None and len(element) == 1 and not (element.text or "").strip() and not (code.tail or "").strip()
 
 
+def code_block_language(element: _Element) -> str | None:
+    "Find an explicit language hint: a language-* class, else a lang attribute."
+    candidates = [candidate for candidate in (element, element.find(".//code")) if candidate is not None]
+    hints = [
+        token[len("language-") :]
+        for candidate in candidates
+        for token in (candidate.get("class") or "").split()
+        if token.startswith("language-")
+    ]
+    # lang usually names a natural language, it only counts if no class names the code language
+    hints.extend(candidate.get("lang") or "" for candidate in candidates)
+    return next((hint for hint in hints if CODE_LANGUAGE.fullmatch(hint)), None)
+
+
 def handle_code_blocks(element: _Element) -> _Element:
     "Turn element into a properly tagged code block."
+    language = code_block_language(element)
     processed_element = deepcopy(element)
     for child in element.iter("*"):
         child.tag = "done"
     processed_element.tag = "code"
+    # every code element keeps the checked hint and no page attribute, the serializer may render a nested one
+    for code in processed_element.iter("code"):
+        code.attrib.clear()
+        if language:
+            code.set("rend", language)
     return processed_element
 
 
@@ -235,6 +266,7 @@ def handle_quotes(element: _Element, options: Extractor) -> _Element | None:
         return handle_code_blocks(element)
 
     processed_element = Element(element.tag)
+    update_elem_rendition(element, processed_element)
     process_nested_elements(element, processed_element, options)
     if is_text_element(processed_element):
         # avoid double/nested tags
@@ -252,6 +284,12 @@ def handle_other_elements(element: _Element, potential_tags: set[str], options: 
     if element.tag != "div" or "div" not in potential_tags:
         if element.tag != "done":
             _log_event("discarding element", element.tag, element.text)
+        return None
+
+    # a wrapper div with children and no text of its own is discarded right
+    # after anyway; letting it reach handle_textnode() would let the dedup
+    # check count its children's text as a duplicate of the paragraph (#1146)
+    if len(element) > 0 and not text_chars_test(element.text):
         return None
 
     processed_element = handle_textnode(element, options, comments_fix=False, preserve_spaces=True)
@@ -320,7 +358,7 @@ def handle_paragraphs(element: _Element, potential_tags: set[str], options: Extr
     # and, sitting between two copies of a paragraph, also defeated the adjacent dedup
     if text_chars_test(processed_element.text):
         return processed_element
-    _log_event("discarding element:", "p", tostring(processed_element))
+    _log_event("discarding element:", "p", tostring(processed_element, encoding="unicode"))
     return None
 
 
@@ -553,11 +591,16 @@ def recover_wild_text(
     LOGGER.debug("Recovering wild text elements")
     # copy: the recall branch below mutates potential_tags, must not leak back to the caller
     potential_tags = set(TAG_CATALOG if potential_tags is None else potential_tags)
-    # blockquote/pre/q are already renamed to quote/code by convert_tags before this tree is built
+    # blockquote/pre are already renamed to quote/code by convert_tags before this tree is built
     search_expr = ".//code|.//p|.//quote|.//table|.//div[contains(@class, 'w3-code')]"
     if options.focus == "recall":
         potential_tags.update(["div", "lb"])
         search_expr += "|.//div|.//lb|.//list"
+    elif options.focus == "balanced":
+        # a list introduced by a paragraph ending in a colon continues that paragraph (#431)
+        search_expr += (
+            "|.//list[preceding-sibling::*[1][self::p][substring(normalize-space(), string-length(normalize-space()))=':']]"
+        )
     # prune; in fast mode (no external comparator to defer to) keep teaser-class blocks, some of
     # which are real content — this is the last-resort path after the confident extractor failed
     search_tree = prune_unwanted_sections(tree, potential_tags, options, keep_teasers=options.fast)
@@ -593,6 +636,9 @@ def recover_wild_text(
             or (under_cap and ((len(text) > MIN_DUPLICATE_LENGTH and text in existing) or (fragment and fragment in existing)))
         ):
             continue
+        # in the default mode only the colon rule above adds lists here
+        if options.focus == "balanced" and processed.tag == "list":
+            processed.set(DEFERRED_ATTR, "1")
         result_body.append(processed)
         if under_cap:
             existing += "\n" + (fragment or text)
@@ -644,6 +690,18 @@ def prune_unwanted_sections(
     return tree
 
 
+def _has_enough_paragraph_text(tree: _Element, minimum: int) -> bool:
+    "Test the length of all paragraph text in the document, stop once it reaches the minimum."
+    length = 0
+    for paragraph in tree.getroottree().iter("p"):
+        if next(paragraph.iterancestors("p"), None) is None:
+            for text in paragraph.itertext():
+                length += len(text)
+                if length >= minimum:
+                    return True
+    return False
+
+
 def _extract(tree: HtmlElement, options: Extractor) -> tuple[_Element, str, set[str]]:
     # init
     potential_tags = set(TAG_CATALOG)
@@ -666,9 +724,8 @@ def _extract(tree: HtmlElement, options: Extractor) -> tuple[_Element, str, set[
         if len(subtree) == 0:
             continue
         # no paragraphs containing text, or not enough
-        ptest = subtree.xpath("//p//text()")
         factor = 1 if options.focus == "precision" else 3
-        if not ptest or len("".join(ptest)) < options.min_extracted_size * factor:
+        if not _has_enough_paragraph_text(subtree, options.min_extracted_size * factor):
             potential_tags.add("div")
         LOGGER.debug(sorted(potential_tags))
 
@@ -739,6 +796,18 @@ def extract_content(cleaned_tree: HtmlElement, options: Extractor) -> tuple[_Ele
         consumed: set[_Element] = {twin for elem, twin in zip(order, backup_tree.iter(), strict=True) if elem.tag == "done"}
         result_body = recover_wild_text(backup_tree, result_body, options, potential_tags, consumed)
         temp_text = " ".join(result_body.itertext()).strip()
+        # the recovered lists are left out of the rescue lengths only if the rest is long enough on its own
+        deferred = result_body.findall(f"list[@{DEFERRED_ATTR}]")
+        if deferred:
+            gated = deepcopy(result_body)
+            for elem in gated.findall(f"list[@{DEFERRED_ATTR}]"):
+                delete_element(elem, keep_tail=False)
+            gated_text = " ".join(gated.itertext()).strip()
+            if len(gated_text) >= options.min_extracted_size:
+                temp_text = gated_text
+            else:
+                for elem in deferred:
+                    del elem.attrib[DEFERRED_ATTR]
     # drop substantial elements repeating the previous one (overlapping-candidate / recovery artifact);
     # length-gated so short genuine repeats stay for the dedup (#778) and tree-size guards
     previous = None
@@ -779,8 +848,19 @@ def extract_comments(tree: HtmlElement, options: Extractor) -> tuple[_Element, s
         subtree = prune_unwanted_nodes(subtree, COMMENTS_DISCARD_XPATH)
         # todo: unified stripping function, taking include_links into account
         strip_tags(subtree, "ref", "span")
+        for elem in COMMENTS_DIV_TEXT_XPATH(subtree):
+            elem.tag = "p"
         for elem in subtree.xpath(".//*"):
-            if elem.tag in potential_tags and (processed := handle_textnode(elem, options, comments_fix=True)) is not None:
+            # Descendants of an appended block already belong to the output.
+            if elem.tag not in potential_tags or comments_body in elem.iterancestors():
+                continue
+            if elem.tag == "p" and len(elem) > 0:
+                processed = handle_paragraphs(elem, potential_tags, options)
+                if processed is not None:
+                    processed.tail = elem.tail
+            else:
+                processed = handle_textnode(elem, options, comments_fix=True)
+            if processed is not None:
                 processed.attrib.clear()
                 comments_body.append(processed)
         # control
@@ -789,4 +869,6 @@ def extract_comments(tree: HtmlElement, options: Extractor) -> tuple[_Element, s
             # remove corresponding subtree
             delete_element(subtree, keep_tail=False)
             break
+    comments_body = sanitize_tree(comments_body)
+    _strip_block_whitespace(comments_body)
     return comments_body, " ".join(comments_body.itertext()).strip(), tree

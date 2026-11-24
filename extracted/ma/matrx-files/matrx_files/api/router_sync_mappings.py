@@ -28,7 +28,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .errors import map_exception
+from .errors import map_exception, refuse_malformed_path_ids
 
 #: `state` is the daemon's; `desired_state` is the user's. Enforced in the DB too.
 DAEMON_OWNED_COLUMNS = (
@@ -202,7 +202,12 @@ def build_sync_mappings_router(
     user id. Without one the router serves an anonymous user — fine for tests,
     dangerous in production, same posture as ``build_file_router``.
     """
-    router = APIRouter(prefix=prefix, tags=tags or ["files", "sync"])
+    router = APIRouter(
+        prefix=prefix,
+        tags=tags or ["files", "sync"],
+        # a non-UUID *_id is a 404 ApiError before any handler (never ORM text)
+        dependencies=[Depends(refuse_malformed_path_ids)],
+    )
 
     if user_id_dep is None:
 

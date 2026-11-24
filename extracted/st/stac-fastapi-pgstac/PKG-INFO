@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: stac-fastapi-pgstac
-Version: 7.3.0
+Version: 7.4.0
 Summary: An implementation of STAC API based on the FastAPI framework and using the pgstac backend.
 Project-URL: Homepage, https://github.com/stac-utils/stac-fastapi-pgstac
 Author-email: David Bitner <david@developmentseed.org>
@@ -120,6 +120,10 @@ When a catalog or collection has multiple parents, the API exposes the catalog h
 To prevent information leakage about other tenants in multi-tenant deployments, set `HIDE_ALTERNATE_PARENTS=TRUE` to suppress `rel="related"` and `rel="duplicate"` links. When enabled, only the contextual `rel="parent"` link is advertised.
 
 **Note:** The link relation names for poly-hierarchy navigation are subject to change as the OGC and STAC communities continue to standardize on terminology. These names may be updated in future releases to align with emerging standards.
+
+#### Catalog-Scoped Item Search
+
+When the catalogs extension is enabled, `GET` and `POST /catalogs/{catalog_id}/search` perform a STAC item search bounded to the catalog's descendant tree (sub-catalogs included recursively, across poly-hierarchies). The endpoints accept the same parameters as `/search`, so enabled search extensions (filter, sort, fields, free text, pagination) apply to scoped searches as well. A `collections` filter is intersected with the catalog's scope: results never include items outside the catalog, and a request that resolves to no in-scope collections returns an empty `ItemCollection`.
 
 ### Migrations
 

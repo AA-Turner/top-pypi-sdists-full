@@ -20,6 +20,8 @@ These tests lock both gates so the "send it and let the API reject" regression
 
 from __future__ import annotations
 
+import pytest
+
 from matrx_ai.config import TextContent, UnifiedConfig, UnifiedMessage
 from matrx_ai.providers.anthropic.translator import AnthropicTranslator
 from matrx_ai.providers.openai.translator import OpenAITranslator
@@ -92,37 +94,22 @@ def _anthropic_profile():
     )
 
 
-def test_anthropic_no_thinking_keeps_temperature():
-    cfg = _config(temperature=0.25)
-    req = AnthropicTranslator().to_anthropic(cfg, _anthropic_profile())
-    assert "thinking" not in req
-    # ai_076: the catalog declares wire_container="extra_body" — the anthropic
-    # 1.x SDK no longer takes the sampling kwargs, the API still does.
-    assert "temperature" not in req
-    assert req["extra_body"]["temperature"] == 0.25
-
-
-def test_anthropic_thinking_drops_incompatible_sampling_params():
-    cfg = _config(temperature=0.25, top_k=40, top_p=0.5, reasoning_effort="high")
-    req = AnthropicTranslator().to_anthropic(cfg, _anthropic_profile())
-    assert "thinking" in req, "high reasoning_effort should enable a thinking block"
-    assert "extra_body" not in req, "every sampling knob dropped — no empty container on the wire"
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"temperature": 0.25},
+        {"temperature": 1, "reasoning_effort": "high"},
+        {"top_p": 0.97, "reasoning_effort": "high"},
+        {"temperature": 0.25, "top_k": 40, "top_p": 0.5, "reasoning_effort": "high"},
+    ],
+    ids=["temperature", "temperature_1_thinking", "top_p_thinking", "all_with_thinking"],
+)
+def test_anthropic_never_sends_a_sampling_parameter(settings):
+    # API 2026-10-21 (anthropic>=2.0) refuses temperature/top_p/top_k on EVERY model; the
+    # catalog marks them supported:false, so none reaches the request, top-level or extra_body.
+    req = AnthropicTranslator().to_anthropic(_config(**settings), _anthropic_profile())
+    assert "extra_body" not in req, "no sampling knob is sent — no empty container on the wire"
     for key in ("temperature", "top_k", "top_p"):
         assert key not in req
-
-
-def test_anthropic_thinking_keeps_temperature_1():
-    cfg = _config(temperature=1, reasoning_effort="high")
-    req = AnthropicTranslator().to_anthropic(cfg, _anthropic_profile())
-    assert "thinking" in req
-    assert req["extra_body"]["temperature"] == 1
-    assert "temperature" not in req
-
-
-def test_anthropic_thinking_keeps_in_range_top_p():
-    # top_p only (no temperature, so the mutual-exclusion guard leaves it).
-    cfg = _config(top_p=0.97, reasoning_effort="high")
-    req = AnthropicTranslator().to_anthropic(cfg, _anthropic_profile())
-    assert "thinking" in req
-    assert req["extra_body"]["top_p"] == 0.97
-    assert "top_p" not in req
+    if settings.get("reasoning_effort") == "high":
+        assert "thinking" in req, "high reasoning_effort still enables a thinking block"

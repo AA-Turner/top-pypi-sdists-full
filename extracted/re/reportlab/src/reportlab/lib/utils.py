@@ -523,14 +523,12 @@ def rlUrlRead(url, headers=None):
             from reportlab.rl_config import trustedHosts, trustedSchemes
             key = keyval(trustedHosts),keyval(trustedSchemes)
             if key not in _tHaS:
-                if trustedHosts:
-                    tHosts = re.compile(''.join(('^(?:',
-                                            '|'.join(map(xre,trustedHosts)),
+                tHosts = re.compile(''.join(('^(?:',
+                                            '|'.join(map(xre,trustedHosts or ())),
                                             ')\\Z')))
                 _tHaS.clear()
                 _tHaS[key] = (tHosts,trustedSchemes)
             tHosts, tSchemes =_tHaS[key]
-            if not tHosts: raise ValueError
             netloc = urlparse(url)
             scheme = netloc.scheme
             netloc = netloc.netloc.lower()

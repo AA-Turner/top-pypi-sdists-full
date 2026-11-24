@@ -71,7 +71,8 @@ class WeatherDaySummary(KindSubModel):
     """The whole-day summary for the requested date, in local time."""
 
     date: str = Field(
-        description="The date this summary covers, ISO-8601 (YYYY-MM-DD), local to the place."
+        description="The date this summary covers, ISO-8601 (YYYY-MM-DD), local to the place.",
+        json_schema_extra={"format": "date"},
     )
     weather_code: int | None = Field(
         default=None, description="WMO 4677 present-weather code for the day."
@@ -222,7 +223,7 @@ class WeatherHistoryReading(KindModel):
     place: WeatherPlace = Field(
         description="The place the reading is for, as resolved — not as typed."
     )
-    date: str = Field(description="The date the reading covers, ISO-8601 (YYYY-MM-DD).")
+    date: str = Field(description="The date the reading covers, ISO-8601 (YYYY-MM-DD).", json_schema_extra={"format": "date"})
     daily: WeatherDaySummary = Field(description="Whole-day summary for that date.")
     hourly: list[WeatherHourReading] = Field(
         default_factory=list,

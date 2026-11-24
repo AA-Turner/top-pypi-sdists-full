@@ -2,6 +2,22 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "contextlib",
+    "io",
+    "pathlib",
+    "python_discovery",
+    "tox.config.loader.str_convert",
+    "tox.execute.local_sub_process",
+    "tox.report",
+    "tox.tox_env.errors",
+    "tox.tox_env.python.pip.pip_install",
+    "virtualenv",
+    "virtualenv.discovery",
+    "virtualenv.discovery.py_spec",
+    f"{__spec__.parent}.subprocess_adapter",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 import os
 import sys
 from abc import ABC
@@ -233,7 +249,10 @@ class VirtualEnv(Python, ABC):
 
     def _create_imported_session(self, env: dict[str, str]) -> Session:
         # virtualenv splits list environment variables on comma and os.pathsep, then rotates the first Python candidate.
-        args: Final = [str(self.env_dir), *(f"--python={spec}" for spec in self.conf.get("base_python", list[str]))]
+        args: Final[list[str]] = [
+            str(self.env_dir),
+            *(f"--python={spec}" for spec in self.conf.get("base_python", list[str])),
+        ]
         try:
             with redirect_stderr(StringIO()):
                 return session_via_cli(args, options=None, setup_logging=False, env=env)

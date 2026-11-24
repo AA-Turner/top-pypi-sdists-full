@@ -152,3 +152,14 @@ def test_trailing_slash_on_an_entry_is_ignored() -> None:
 def test_an_uncompilable_entry_raises_instead_of_degrading_to_a_prefix() -> None:
     with pytest.raises(ValueError):
         compile_organization_exempt_pattern("/mandates/{unclosed/references")
+
+
+def test_a_required_route_is_never_exempt_under_an_exempt_prefix() -> None:
+    """``organization_required_routes`` carves ONE exact route out of an exempt prefix
+    (``/admin/rag/search-lab/diagnose/stream``, 2026-11-16): a streamed run must be filed
+    in an organization. Exact, never a prefix — its siblings and children stay exempt."""
+    required = ("/admin/rag/search-lab/diagnose/stream",)
+    assert not is_organization_exempt_path("/admin/rag/search-lab/diagnose/stream", PREFIXES, ROUTES, required)
+    assert is_organization_exempt_path("/admin/rag/search-lab/diagnose", PREFIXES, ROUTES, required)
+    assert is_organization_exempt_path("/admin/rag/search-lab/diagnose/stream/x", PREFIXES, ROUTES, required)
+    assert is_organization_exempt_path("/admin/rag/search-lab/diagnose/stream", PREFIXES, ROUTES)

@@ -21,6 +21,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation", message="'introduction' must be a string."
             ),
         )
@@ -30,6 +31,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="validation", message="'questions' must be a non-empty list."
             ),
         )
@@ -39,6 +41,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Question at index {idx} must be an object.",
                 ),
@@ -49,6 +52,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="validation",
                         message=f"Question {idx}: '{field}' must be a string.",
                     ),
@@ -58,6 +62,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Question {idx}: 'component_type' must be one of {VALID_COMPONENT_TYPES}.",
                 ),
@@ -68,6 +73,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="validation",
                         message=f"Question {idx}: 'options' must be a list.",
                     ),
@@ -79,6 +85,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 return ToolResult(
                     success=False,
                     error=ToolError(
+                        refusal=True,
                         error_type="validation",
                         message=f"Question {idx}: 'options' cannot be empty for {q['component_type']}.",
                     ),
@@ -88,6 +95,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     return ToolResult(
                         success=False,
                         error=ToolError(
+                            refusal=True,
                             error_type="validation",
                             message=f"Question {idx}: option {opt_idx} must be a string.",
                         ),
@@ -97,6 +105,7 @@ async def interaction_ask(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="validation",
                     message=f"Question {idx}: 'allow_other' must be a boolean.",
                 ),

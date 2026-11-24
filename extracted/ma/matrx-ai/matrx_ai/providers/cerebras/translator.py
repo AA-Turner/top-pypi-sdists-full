@@ -15,13 +15,13 @@ from matrx_ai.config import (
     UnifiedConfig,
     UnifiedMessage,
     UnifiedResponse,
-    YouTubeVideoContent,
     openai_compatible_usage_counts,
     serialize_provider_usage,
 )
 from matrx_ai.config.media_config import ImageContent
-from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.providers.base_translator import BaseTranslator, append_structured_input_text, finish_message_text, record_unsupported_media_drop
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
+from matrx_ai.providers.final_outbound_snapshot import SHAPE_CHAT, SealLocator
 
 # ============================================================================
 # CEREBRAS TRANSLATOR
@@ -59,7 +59,12 @@ class CerebrasTranslator(BaseTranslator):
             messages.append({"role": "system", "content": system_text})
 
         # Convert messages to OpenAI-style format
-        for msg in self.messages_for_wire(config, profile):
+        # THE STATIC SEAL LINE: stamped in THIS wire list for the final outbound snapshot
+        # (``providers/final_outbound_snapshot.py``). Observes only.
+        wire_list = self.messages_for_wire(config, profile)
+        seal = SealLocator(SHAPE_CHAT, wire_list)
+        for position, msg in enumerate(wire_list):
+            seal.before(position, messages)
             # Cerebras uses OpenAI-style messages with role and content
             if msg.role == "tool":
                 # Tool results go as role="tool". Image-bearing tool results
@@ -86,6 +91,8 @@ class CerebrasTranslator(BaseTranslator):
                 for content in msg.content:
                     if isinstance(content, TextContent):
                         text_parts.append(content.text)
+                    elif append_structured_input_text(text_parts, content):
+                        pass  # input_remarks / input_notes / ...: rendered in place
                     elif isinstance(content, ImageContent):
                         image_part = content.to_openai_chat()
                         if image_part is not None:
@@ -101,23 +108,18 @@ class CerebrasTranslator(BaseTranslator):
                                 },
                             }
                         )
-                    elif isinstance(content, YouTubeVideoContent):
-                        # YouTube URLs not supported by Cerebras - show warning
-                        vcprint(
-                            f"YouTube URL '{content.youtube_url}' is not supported by Cerebras models and will be skipped.",
-                            "YouTube URL Warning",
-                            color="yellow",
-                        )
+                    elif record_unsupported_media_drop(content, "cerebras"):
+                        pass  # document / audio / video / YouTube: recorded, never silent
 
                 if image_parts:
-                    combined_text = "".join(text_parts)
+                    combined_text = finish_message_text(text_parts)
                     parts: list[dict[str, Any]] = []
                     if combined_text:
                         parts.append({"type": "text", "text": combined_text})
                     parts.extend(image_parts)
                     message_dict["content"] = parts
                 elif text_parts:
-                    message_dict["content"] = "".join(text_parts)
+                    message_dict["content"] = finish_message_text(text_parts)
                 elif tool_calls:
                     # Tool-call-only assistant turn: OpenAI-compatible chat
                     # templates (Llama/Qwen/gpt-oss on Cerebras) expect
@@ -136,6 +138,8 @@ class CerebrasTranslator(BaseTranslator):
 
                 if message_dict["content"] or tool_calls:
                     messages.append(message_dict)
+
+        seal.finish(messages)
 
         # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
         # block (live clock, selection, values) plus the tail channel

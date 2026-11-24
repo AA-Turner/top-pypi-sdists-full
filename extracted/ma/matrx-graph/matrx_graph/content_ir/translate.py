@@ -76,6 +76,9 @@ def is_relative_age(value: str | None) -> bool:
 
 
 _TAG_RE = re.compile(r"<[^>]+>")
+# A line break or block boundary separates words; dropping it glues them
+# ("China (powdered tea)<br>Japan" read "China (powdered tea)Japan").
+_BREAK_RE = re.compile(r"<br\s*/?>|</?(?:p|div|li|ul|ol|tr|td|th|h[1-6])\b[^>]*>", re.IGNORECASE)
 _HREF_RE = re.compile(r"""href=['"]([^'"]+)['"]""")
 
 
@@ -84,7 +87,8 @@ def strip_html(value: str | None) -> tuple[str, list[str]]:
     if not value:
         return "", []
     links = _HREF_RE.findall(value)
-    text = _TAG_RE.sub("", value)
+    text = _BREAK_RE.sub(" ", value)
+    text = _TAG_RE.sub("", text)
     text = html_lib.unescape(text)
     return re.sub(r"\s+", " ", text).strip(), links
 

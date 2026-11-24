@@ -687,10 +687,10 @@ class _PgVectorStoreDelegate:
         # (verified against matrx_orm.query.executor._build_condition).
         KgChunks = get_db_model("KgChunks")
         # hard-delete-ok: derived search chunks, rebuilt on re-ingest of their source
-        return await KgChunks.delete_where(
-            source_kind=source_kind,
-            source_id=source_id,
-            field_id=field_id,
+        from matrx_rag.ingestion import delete_chunks_in_lock_order
+
+        return await delete_chunks_in_lock_order(
+            KgChunks, source_kind=source_kind, source_id=source_id, field_id=field_id
         )
 
 
@@ -718,6 +718,16 @@ def _default_embedding_provider() -> Any:
 
         _default_embedding_provider_singleton = DefaultOpenAIVoyageProvider()
     return _default_embedding_provider_singleton
+
+
+class LLMInputRefused(RuntimeError):
+    """The provider refused THIS input: it could not read it (an image it cannot process) or cut
+    the answer off on its own content filter (recitation, safety).
+
+    A host ``llm_provider`` raises it so matrx-rag records the refusal against the one input (a
+    file's ingestion result) instead of as a platform failure. Never raised for a cap, a timeout or
+    a provider outage: those stay ordinary errors.
+    """
 
 
 class LLMProviderNotConfigured(RuntimeError):
@@ -1048,6 +1058,60 @@ async def get_typed_chat_policy() -> Any:
     return await provider()
 
 
+async def get_recall_vector_timeout_seconds() -> float | None:
+    """The host's time limit (seconds) for one ``rag.recall_vector`` call, read fresh per call.
+
+    ``None`` when the host injected none: the call keeps the pool's own ``command_timeout`` (the
+    standalone posture). Aidream binds the ``knowledge.search_vector_recall_timeout_s`` knob, because
+    a cold vector index can need longer than the pool default and a canceled call silently drops the
+    meaning lane from the search."""
+    provider = _registry.get("recall_vector_timeout_seconds")
+    if provider is None:
+        return None
+    value = await provider()
+    return None if value is None else float(value)
+
+
+async def get_clean_min_page_chars() -> int:
+    """The host's short-page threshold for the page cleaner, read once per clean run.
+
+    A page with fewer characters than this is kept verbatim (``matrx_rag.llm.short_page_verbatim``)
+    and never sent to the cleaner. ``0`` when the host injected none: every page is cleaned, the
+    standalone posture. Aidream binds the ``knowledge.page_clean_min_chars`` knob."""
+    provider = _registry.get("clean_min_page_chars")
+    if provider is None:
+        return 0
+    value = await provider()
+    return 0 if value is None else max(0, int(value))
+
+
+#: The standalone (no host) size of the document context one chunk is situated against.
+CONTEXT_WINDOW_CHARS_DEFAULT = 60_000
+
+
+async def get_context_window_chars() -> int:
+    """The host's limit on the document text sent with one chunk to the contextualizer, read per call.
+
+    A longer document is sent as its head plus the chunk's own neighbourhood, marked
+    (``matrx_rag.llm.situating_window``). ``CONTEXT_WINDOW_CHARS_DEFAULT`` when the host injected
+    none. Aidream binds the ``knowledge.contextualize_window_chars`` knob."""
+    provider = _registry.get("context_window_chars")
+    if provider is None:
+        return CONTEXT_WINDOW_CHARS_DEFAULT
+    value = await provider()
+    return CONTEXT_WINDOW_CHARS_DEFAULT if value is None else max(1_000, int(value))
+
+
+def provider_secret(name: str) -> str | None:
+    """The package's own provider key ``name``, read NOW: the host's ``secret_source`` when one
+    was injected (its answer is final), else this process's environment. ``None`` = not set."""
+    import os  # noqa: PLC0415
+
+    source = _registry.get("secret_source")
+    value = source(name) if source is not None else os.environ.get(name)
+    return value or None
+
+
 def configure(
     *,
     document_writer: DocumentWriter | None = None,
@@ -1074,11 +1138,22 @@ def configure(
     db_models: dict[str, Any] | None = None,
     scope_access: Any | None = None,
     embedding_spend_sink: Any | None = None,
+    model_token_cost: Any | None = None,
     clean_single_flight: Any | None = None,
     clean_follow: Any | None = None,
     clean_fence: Any | None = None,
+    recall_vector_timeout_seconds: Any | None = None,
+    clean_min_page_chars: Any | None = None,
+    context_window_chars: Any | None = None,
+    secret_source: Callable[[str], str | None] | None = None,
 ) -> None:
     """Wire host-supplied seams. Call once at app startup.
+
+    ``secret_source`` — ``(name) -> str | None``, SYNC: where the package's own provider keys
+    (``VOYAGE_API_KEY``) come from instead of this process's environment. Asked on every use
+    (:func:`provider_secret`), so a rotated key takes effect on the next call with no restart;
+    its answer is final (empty = not configured). Omit it and the package reads ``os.environ``
+    exactly as before.
 
     ``scope_access`` — ``async (scope_ids, user_id) -> [scope ids the person may open]``. The
     host answers from its record store (a scope is a Record there); this package owns no scope
@@ -1130,6 +1205,15 @@ def configure(
             workbook (``kind="workbook"``) or cloud document
             (``kind="udt_document"``) Univer snapshot to text. Aidream injects
             its udt_content renderer; without it those kinds cannot resolve.
+        recall_vector_timeout_seconds: ``async () -> float`` — the time limit, in seconds, for
+            one ``rag.recall_vector`` call (the driver's per-statement timeout). Read on every
+            vector recall; omit it and the pool's own ``command_timeout`` applies.
+        clean_min_page_chars: ``async () -> int`` — a page with fewer characters than this is
+            kept verbatim (``section_kind='short_page_verbatim'``) and never sent to the page
+            cleaner. Read once per clean run; omit it and every page is cleaned.
+        context_window_chars: ``async () -> int`` — the most document text sent with one chunk to
+            the contextualizer; a longer document is sent as its head plus the chunk's own
+            neighbourhood, marked. Omit it and ``CONTEXT_WINDOW_CHARS_DEFAULT`` (60,000) applies.
         univer_current_reader: ``async (kind, source_id, user_id) ->
             (snapshot, staleness) | None`` — the content of a record people are
             co-editing now (its room folded to head); ``None`` = no live room.
@@ -1199,12 +1283,26 @@ def configure(
         _registry["univer_current_reader"] = univer_current_reader
     if scope_access is not None:
         _registry["scope_access"] = scope_access
+    if recall_vector_timeout_seconds is not None:
+        _registry["recall_vector_timeout_seconds"] = recall_vector_timeout_seconds
+    if clean_min_page_chars is not None:
+        _registry["clean_min_page_chars"] = clean_min_page_chars
+    if context_window_chars is not None:
+        _registry["context_window_chars"] = context_window_chars
+    if secret_source is not None:
+        _registry["secret_source"] = secret_source
     if embedding_spend_sink is not None:
         # ``(provider, model, tokens, cost_usd, cost_is_exact, input_type, batch_size) -> None``,
         # SYNC, called once per successful embeddings call with its measured cost. The package's
         # direct OpenAI / Voyage calls spend outside any host billing seam; this is how the host
         # bills the person and organization the call served. Must never raise into the call.
         _registry["embedding_spend_sink"] = embedding_spend_sink
+    if model_token_cost is not None:
+        # ``(*, model, input_tokens, output_tokens) -> float | None``, SYNC: the USD the host's
+        # platform catalog charges for one call of ``model`` (None = the catalog has no price).
+        # THE ONE price source for every dollar figure the package computes; the package keeps
+        # no price list of its own.
+        _registry["model_token_cost"] = model_token_cost
     if clean_single_flight is not None:
         _registry["clean_single_flight"] = clean_single_flight
     if clean_follow is not None:

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "matrx-graph"
-version = "0.2.373"
+version = "0.2.374"
 description = "Channel-based, super-step workflow orchestration engine for the Matrx ecosystem"
 readme = "README.md"
 license = { text = "MIT" }
@@ -33,10 +33,10 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
     "pydantic>=2.12",
-    "matrx-connect>=0.1.257",
+    "matrx-connect>=0.1.258",
     # workers/queue.py imports compute_backoff_ms and validation.py imports
     # format_options/suggestion_line; all were first exported by 1.1.0.
-    "matrx-utils>=2.0.108",
+    "matrx-utils>=2.0.114",
     # Cron expression parsing for wf_trigger (Phase 5b)
     "croniter>=2.0",
     # Async HTTP client for the http.* node pack
@@ -50,7 +50,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = [
-    "matrx-orm>=3.1.275",
+    "matrx-orm>=3.1.285",
 ]
 otel = [
     "opentelemetry-api>=1.25",

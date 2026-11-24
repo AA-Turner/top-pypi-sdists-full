@@ -219,7 +219,10 @@ def test_no_finding_writer_hardcodes_recovery_before_the_call_runs() -> None:
     """THE CENSUS, so this is fixed as a class. A ``was_recovered=True`` literal is
     only honest where the provider call has already returned — which, across
     ``matrx-ai``'s structured-output writers, is exactly one place: Anthropic's
-    grammar ladder, after ``send(payload)`` returned. Anywhere else a literal
+    grammar ladder, after ``send(payload)`` returned — and the answer check in
+    ``schema/answer_contract.py``, which writes ``True`` only after the answer was
+    read, its pinned ``__kind`` slots restored, and the re-verify found no problem
+    left (a measured outcome on the ANSWER, not a claim). Anywhere else a literal
     ``True`` is a claim made too early; the value is held (``None``) and the
     dispatch seam writes it.
     """
@@ -245,7 +248,10 @@ def test_no_finding_writer_hardcodes_recovery_before_the_call_runs() -> None:
                         offenders.append(f"{path.relative_to(root)}:{node.lineno}")
     # Pinned by FILE and count, not line number: an unrelated edit above the one
     # known writer must not read as a new offender.
-    assert [o.rsplit(":", 1)[0] for o in offenders] == ["providers/anthropic/anthropic_api.py"], (
+    assert sorted(o.rsplit(":", 1)[0] for o in offenders) == [
+        "providers/anthropic/anthropic_api.py",
+        "schema/answer_contract.py",
+    ], (
         "a structured-output finding writer hardcodes was_recovered=True. Hold it with "
         f"was_recovered=None and let the dispatch seam write the real outcome: {offenders}"
     )

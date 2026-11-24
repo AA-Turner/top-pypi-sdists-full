@@ -14,6 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.common.v1 import tag_filter_pb2 as chalk_dot_common_dot_v1_dot_tag__filter__pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as chalk_dot_container_dot_v1_dot_service__pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as chalk_dot_flags_dot_v1_dot_flags__pb2
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
@@ -21,7 +22,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1e\x63halk/sandbox/v2/service.proto\x12\x10\x63halk.sandbox.v2\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/container/v1/service.proto\x1a\x1a\x63halk/flags/v1/flags.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xc5\x04\n\x0bSandboxInfo\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x37\n\x06status\x18\x03 \x01(\x0e\x32\x1f.chalk.sandbox.v2.SandboxStatusR\x06status\x12*\n\x0estatus_message\x18\x04 \x01(\tH\x00R\rstatusMessage\x88\x01\x01\x12:\n\x04spec\x18\x05 \x01(\x0b\x32&.chalk.container.v1.ChalkContainerSpecR\x04spec\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12@\n\x0b\x66inished_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\nfinishedAt\x88\x01\x01\x12\x1c\n\x07web_url\x18\x08 \x01(\tH\x02R\x06webUrl\x88\x01\x01\x12\x16\n\x06region\x18\t \x01(\tR\x06region\x12"\n\ncreated_by\x18\n \x01(\tH\x03R\tcreatedBy\x88\x01\x01\x12*\n\x0estatus_details\x18\x0b \x01(\tH\x04R\rstatusDetails\x88\x01\x01\x12\x1d\n\ncluster_id\x18\x0c \x01(\tR\tclusterIdB\x11\n\x0f_status_messageB\x0e\n\x0c_finished_atB\n\n\x08_web_urlB\r\n\x0b_created_byB\x11\n\x0f_status_details"\x81\x01\n\x14\x43reateSandboxRequest\x12<\n\x04spec\x18\x01 \x01(\x0b\x32&.chalk.container.v1.ChalkContainerSpecH\x00R\x04spec\x12!\n\x0bsnapshot_id\x18\x02 \x01(\tH\x00R\nsnapshotIdB\x08\n\x06source"P\n\x15\x43reateSandboxResponse\x12\x37\n\x07sandbox\x18\x01 \x01(\x0b\x32\x1d.chalk.sandbox.v2.SandboxInfoR\x07sandbox"#\n\x11GetSandboxRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"M\n\x12GetSandboxResponse\x12\x37\n\x07sandbox\x18\x01 \x01(\x0b\x32\x1d.chalk.sandbox.v2.SandboxInfoR\x07sandbox"\xa3\x02\n\x14ListSandboxesFilters\x12\x18\n\x05names\x18\x01 \x03(\tB\x02\x18\x01R\x05names\x12;\n\x08statuses\x18\x02 \x03(\x0e\x32\x1f.chalk.sandbox.v2.SandboxStatusR\x08statuses\x12\x16\n\x06images\x18\x03 \x03(\tR\x06images\x12\x1d\n\ncreated_by\x18\x04 \x03(\tR\tcreatedBy\x12\x44\n\x04tags\x18\x05 \x03(\x0b\x32\x30.chalk.sandbox.v2.ListSandboxesFilters.TagsEntryR\x04tags\x1a\x37\n\tTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xc6\x02\n\x14ListSandboxesRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x16\n\x06search\x18\x03 \x01(\tR\x06search\x12@\n\x07\x66ilters\x18\x04 \x01(\x0b\x32&.chalk.sandbox.v2.ListSandboxesFiltersR\x07\x66ilters\x12\x44\n\x0bsort_column\x18\x05 \x01(\x0e\x32#.chalk.sandbox.v2.SandboxSortColumnR\nsortColumn\x12\x41\n\nsort_order\x18\x06 \x01(\x0e\x32".chalk.sandbox.v2.SandboxSortOrderR\tsortOrderB\x08\n\x06_limitB\t\n\x07_cursor"\x8a\x01\n\x15ListSandboxesResponse\x12;\n\tsandboxes\x18\x01 \x03(\x0b\x32\x1d.chalk.sandbox.v2.SandboxInfoR\tsandboxes\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\'\n\x15SuspendSandboxRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\x18\n\x16SuspendSandboxResponse"&\n\x14ResumeSandboxRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\x17\n\x15ResumeSandboxResponse"}\n\x17TerminateSandboxRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x41\n\x0cgrace_period\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00R\x0bgracePeriod\x88\x01\x01\x42\x0f\n\r_grace_period"\x1a\n\x18TerminateSandboxResponse"\xb3\x02\n\x0fSandboxResource\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nsandbox_id\x18\x02 \x01(\tR\tsandboxId\x12\x39\n\x04kind\x18\x03 \x01(\x0e\x32%.chalk.sandbox.v2.SandboxResourceKindR\x04kind\x12\x1f\n\x0bresource_id\x18\x04 \x01(\tR\nresourceId\x12\x1d\n\nversion_id\x18\x05 \x01(\tR\tversionId\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x19\n\x08\x61gent_id\x18\x07 \x01(\tR\x07\x61gentId\x12\x17\n\x04name\x18\x08 \x01(\tH\x00R\x04name\x88\x01\x01\x42\x07\n\x05_name"\x81\x02\n\x1bListSandboxResourcesFilters\x12;\n\x05kinds\x18\x01 \x03(\x0e\x32%.chalk.sandbox.v2.SandboxResourceKindR\x05kinds\x12!\n\x0cresource_ids\x18\x02 \x03(\tR\x0bresourceIds\x12?\n\rcreated_after\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0c\x63reatedAfter\x12\x41\n\x0e\x63reated_before\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\rcreatedBefore"\xc1\x01\n\x1bListSandboxResourcesRequest\x12\x1d\n\nsandbox_id\x18\x01 \x01(\tR\tsandboxId\x12G\n\x07\x66ilters\x18\x02 \x01(\x0b\x32-.chalk.sandbox.v2.ListSandboxResourcesFiltersR\x07\x66ilters\x12\x1b\n\tpage_size\x18\x03 \x01(\x05R\x08pageSize\x12\x1d\n\npage_token\x18\x04 \x01(\tR\tpageToken"\x87\x01\n\x1cListSandboxResourcesResponse\x12?\n\tresources\x18\x01 \x03(\x0b\x32!.chalk.sandbox.v2.SandboxResourceR\tresources\x12&\n\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken"\xad\x01\n\x1cRecordSandboxResourceRequest\x12\x39\n\x04kind\x18\x01 \x01(\x0e\x32%.chalk.sandbox.v2.SandboxResourceKindR\x04kind\x12\x1f\n\x0bresource_id\x18\x02 \x01(\tR\nresourceId\x12\x1d\n\nversion_id\x18\x03 \x01(\tR\tversionId\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name"\x1f\n\x1dRecordSandboxResourceResponse*\x93\x02\n\rSandboxStatus\x12\x1e\n\x1aSANDBOX_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n\x16SANDBOX_STATUS_PENDING\x10\x01\x12\x1a\n\x16SANDBOX_STATUS_RUNNING\x10\x02\x12\x1c\n\x18SANDBOX_STATUS_SUCCEEDED\x10\x03\x12\x19\n\x15SANDBOX_STATUS_FAILED\x10\x04\x12\x1d\n\x19SANDBOX_STATUS_TERMINATED\x10\x05\x12\x18\n\x14SANDBOX_STATUS_ERROR\x10\x06\x12\x1a\n\x16SANDBOX_STATUS_UNKNOWN\x10\x07\x12\x1c\n\x18SANDBOX_STATUS_SUSPENDED\x10\x08*\\\n\x11SandboxSortColumn\x12#\n\x1fSANDBOX_SORT_COLUMN_UNSPECIFIED\x10\x00\x12"\n\x1eSANDBOX_SORT_COLUMN_CREATED_AT\x10\x01*o\n\x10SandboxSortOrder\x12"\n\x1eSANDBOX_SORT_ORDER_UNSPECIFIED\x10\x00\x12\x1b\n\x17SANDBOX_SORT_ORDER_DESC\x10\x01\x12\x1a\n\x16SANDBOX_SORT_ORDER_ASC\x10\x02*\xd7\x02\n\x13SandboxResourceKind\x12%\n!SANDBOX_RESOURCE_KIND_UNSPECIFIED\x10\x00\x12"\n\x1eSANDBOX_RESOURCE_KIND_NOTEBOOK\x10\x01\x12/\n+SANDBOX_RESOURCE_KIND_CHALKCOMPUTE_FUNCTION\x10\x02\x12&\n"SANDBOX_RESOURCE_KIND_ONLINE_QUERY\x10\x03\x12\'\n#SANDBOX_RESOURCE_KIND_OFFLINE_QUERY\x10\x04\x12#\n\x1fSANDBOX_RESOURCE_KIND_SQL_QUERY\x10\x05\x12)\n%SANDBOX_RESOURCE_KIND_STORED_ARTIFACT\x10\x06\x12#\n\x1fSANDBOX_RESOURCE_KIND_GITHUB_PR\x10\x07\x32\xb2\x06\n\x0eSandboxService\x12\xbc\x01\n\rCreateSandbox\x12&.chalk.sandbox.v2.CreateSandboxRequest\x1a\'.chalk.sandbox.v2.CreateSandboxResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16scaling_groups_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12\\\n\nGetSandbox\x12#.chalk.sandbox.v2.GetSandboxRequest\x1a$.chalk.sandbox.v2.GetSandboxResponse"\x03\x80}\x0b\x12\x65\n\rListSandboxes\x12&.chalk.sandbox.v2.ListSandboxesRequest\x1a\'.chalk.sandbox.v2.ListSandboxesResponse"\x03\x80}\x0b\x12\xc4\x01\n\x0eSuspendSandbox\x12\'.chalk.sandbox.v2.SuspendSandboxRequest\x1a(.chalk.sandbox.v2.SuspendSandboxResponse"_\x80}\x0c\x92\xd3\x0eX\n\x1b\x63ontainer_snapshots_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12\x65\n\rResumeSandbox\x12&.chalk.sandbox.v2.ResumeSandboxRequest\x1a\'.chalk.sandbox.v2.ResumeSandboxResponse"\x03\x80}\x0c\x12n\n\x10TerminateSandbox\x12).chalk.sandbox.v2.TerminateSandboxRequest\x1a*.chalk.sandbox.v2.TerminateSandboxResponse"\x03\x80}\x0c\x32\x93\x02\n\x16SandboxResourceService\x12z\n\x14ListSandboxResources\x12-.chalk.sandbox.v2.ListSandboxResourcesRequest\x1a..chalk.sandbox.v2.ListSandboxResourcesResponse"\x03\x80}\x0b\x12}\n\x15RecordSandboxResource\x12..chalk.sandbox.v2.RecordSandboxResourceRequest\x1a/.chalk.sandbox.v2.RecordSandboxResourceResponse"\x03\x80}\x0c\x42\x9c\x01\n\x14\x63om.chalk.sandbox.v2B\x0cServiceProtoP\x01Z\x14sandbox/v2;sandboxv2\xa2\x02\x03\x43SX\xaa\x02\x10\x43halk.Sandbox.V2\xca\x02\x10\x43halk\\Sandbox\\V2\xe2\x02\x1c\x43halk\\Sandbox\\V2\\GPBMetadata\xea\x02\x12\x43halk::Sandbox::V2b\x06proto3'
+    b'\n\x1e\x63halk/sandbox/v2/service.proto\x12\x10\x63halk.sandbox.v2\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/common/v1/tag_filter.proto\x1a chalk/container/v1/service.proto\x1a\x1a\x63halk/flags/v1/flags.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xef\x05\n\x0bSandboxInfo\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x37\n\x06status\x18\x03 \x01(\x0e\x32\x1f.chalk.sandbox.v2.SandboxStatusR\x06status\x12*\n\x0estatus_message\x18\x04 \x01(\tH\x00R\rstatusMessage\x88\x01\x01\x12:\n\x04spec\x18\x05 \x01(\x0b\x32&.chalk.container.v1.ChalkContainerSpecR\x04spec\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12@\n\x0b\x66inished_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\nfinishedAt\x88\x01\x01\x12\x1c\n\x07web_url\x18\x08 \x01(\tH\x02R\x06webUrl\x88\x01\x01\x12\x16\n\x06region\x18\t \x01(\tR\x06region\x12"\n\ncreated_by\x18\n \x01(\tH\x03R\tcreatedBy\x88\x01\x01\x12*\n\x0estatus_details\x18\x0b \x01(\tH\x04R\rstatusDetails\x88\x01\x01\x12\x1d\n\ncluster_id\x18\x0c \x01(\tR\tclusterId\x12<\n\x18\x63reated_from_snapshot_id\x18\r \x01(\tH\x05R\x15\x63reatedFromSnapshotId\x88\x01\x01\x12>\n\nstarted_at\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x06R\tstartedAt\x88\x01\x01\x42\x11\n\x0f_status_messageB\x0e\n\x0c_finished_atB\n\n\x08_web_urlB\r\n\x0b_created_byB\x11\n\x0f_status_detailsB\x1b\n\x19_created_from_snapshot_idB\r\n\x0b_started_at"\x81\x01\n\x14\x43reateSandboxRequest\x12<\n\x04spec\x18\x01 \x01(\x0b\x32&.chalk.container.v1.ChalkContainerSpecH\x00R\x04spec\x12!\n\x0bsnapshot_id\x18\x02 \x01(\tH\x00R\nsnapshotIdB\x08\n\x06source"P\n\x15\x43reateSandboxResponse\x12\x37\n\x07sandbox\x18\x01 \x01(\x0b\x32\x1d.chalk.sandbox.v2.SandboxInfoR\x07sandbox"#\n\x11GetSandboxRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"M\n\x12GetSandboxResponse\x12\x37\n\x07sandbox\x18\x01 \x01(\x0b\x32\x1d.chalk.sandbox.v2.SandboxInfoR\x07sandbox"\xe1\x03\n\x14ListSandboxesFilters\x12\x18\n\x05names\x18\x01 \x03(\tB\x02\x18\x01R\x05names\x12;\n\x08statuses\x18\x02 \x03(\x0e\x32\x1f.chalk.sandbox.v2.SandboxStatusR\x08statuses\x12\x16\n\x06images\x18\x03 \x03(\tR\x06images\x12\x1d\n\ncreated_by\x18\x04 \x03(\tR\tcreatedBy\x12H\n\x04tags\x18\x05 \x03(\x0b\x32\x30.chalk.sandbox.v2.ListSandboxesFilters.TagsEntryB\x02\x18\x01R\x04tags\x12\x39\n\x19restore_from_snapshot_ids\x18\x06 \x03(\tR\x16restoreFromSnapshotIds\x12>\n\ntag_filter\x18\x07 \x01(\x0b\x32\x1a.chalk.common.v1.TagFilterH\x00R\ttagFilter\x88\x01\x01\x12.\n\x13source_snapshot_ids\x18\x08 \x03(\tR\x11sourceSnapshotIds\x1a\x37\n\tTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\r\n\x0b_tag_filter"\xc6\x02\n\x14ListSandboxesRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x16\n\x06search\x18\x03 \x01(\tR\x06search\x12@\n\x07\x66ilters\x18\x04 \x01(\x0b\x32&.chalk.sandbox.v2.ListSandboxesFiltersR\x07\x66ilters\x12\x44\n\x0bsort_column\x18\x05 \x01(\x0e\x32#.chalk.sandbox.v2.SandboxSortColumnR\nsortColumn\x12\x41\n\nsort_order\x18\x06 \x01(\x0e\x32".chalk.sandbox.v2.SandboxSortOrderR\tsortOrderB\x08\n\x06_limitB\t\n\x07_cursor"\x8a\x01\n\x15ListSandboxesResponse\x12;\n\tsandboxes\x18\x01 \x03(\x0b\x32\x1d.chalk.sandbox.v2.SandboxInfoR\tsandboxes\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\'\n\x15SuspendSandboxRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\x18\n\x16SuspendSandboxResponse"&\n\x14ResumeSandboxRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\x17\n\x15ResumeSandboxResponse"\x93\x01\n\x17TerminateSandboxRequest\x12\x12\n\x02id\x18\x01 \x01(\tB\x02\x18\x01R\x02id\x12\x41\n\x0cgrace_period\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00R\x0bgracePeriod\x88\x01\x01\x12\x10\n\x03ids\x18\x03 \x03(\tR\x03idsB\x0f\n\r_grace_period"\x1a\n\x18TerminateSandboxResponse"\xb3\x02\n\x0fSandboxResource\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nsandbox_id\x18\x02 \x01(\tR\tsandboxId\x12\x39\n\x04kind\x18\x03 \x01(\x0e\x32%.chalk.sandbox.v2.SandboxResourceKindR\x04kind\x12\x1f\n\x0bresource_id\x18\x04 \x01(\tR\nresourceId\x12\x1d\n\nversion_id\x18\x05 \x01(\tR\tversionId\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x19\n\x08\x61gent_id\x18\x07 \x01(\tR\x07\x61gentId\x12\x17\n\x04name\x18\x08 \x01(\tH\x00R\x04name\x88\x01\x01\x42\x07\n\x05_name"\x81\x02\n\x1bListSandboxResourcesFilters\x12;\n\x05kinds\x18\x01 \x03(\x0e\x32%.chalk.sandbox.v2.SandboxResourceKindR\x05kinds\x12!\n\x0cresource_ids\x18\x02 \x03(\tR\x0bresourceIds\x12?\n\rcreated_after\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0c\x63reatedAfter\x12\x41\n\x0e\x63reated_before\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\rcreatedBefore"\xc1\x01\n\x1bListSandboxResourcesRequest\x12\x1d\n\nsandbox_id\x18\x01 \x01(\tR\tsandboxId\x12G\n\x07\x66ilters\x18\x02 \x01(\x0b\x32-.chalk.sandbox.v2.ListSandboxResourcesFiltersR\x07\x66ilters\x12\x1b\n\tpage_size\x18\x03 \x01(\x05R\x08pageSize\x12\x1d\n\npage_token\x18\x04 \x01(\tR\tpageToken"\x87\x01\n\x1cListSandboxResourcesResponse\x12?\n\tresources\x18\x01 \x03(\x0b\x32!.chalk.sandbox.v2.SandboxResourceR\tresources\x12&\n\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken"\xad\x01\n\x1cRecordSandboxResourceRequest\x12\x39\n\x04kind\x18\x01 \x01(\x0e\x32%.chalk.sandbox.v2.SandboxResourceKindR\x04kind\x12\x1f\n\x0bresource_id\x18\x02 \x01(\tR\nresourceId\x12\x1d\n\nversion_id\x18\x03 \x01(\tR\tversionId\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name"\x1f\n\x1dRecordSandboxResourceResponse*\x93\x02\n\rSandboxStatus\x12\x1e\n\x1aSANDBOX_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n\x16SANDBOX_STATUS_PENDING\x10\x01\x12\x1a\n\x16SANDBOX_STATUS_RUNNING\x10\x02\x12\x1c\n\x18SANDBOX_STATUS_SUCCEEDED\x10\x03\x12\x19\n\x15SANDBOX_STATUS_FAILED\x10\x04\x12\x1d\n\x19SANDBOX_STATUS_TERMINATED\x10\x05\x12\x18\n\x14SANDBOX_STATUS_ERROR\x10\x06\x12\x1a\n\x16SANDBOX_STATUS_UNKNOWN\x10\x07\x12\x1c\n\x18SANDBOX_STATUS_SUSPENDED\x10\x08*\\\n\x11SandboxSortColumn\x12#\n\x1fSANDBOX_SORT_COLUMN_UNSPECIFIED\x10\x00\x12"\n\x1eSANDBOX_SORT_COLUMN_CREATED_AT\x10\x01*o\n\x10SandboxSortOrder\x12"\n\x1eSANDBOX_SORT_ORDER_UNSPECIFIED\x10\x00\x12\x1b\n\x17SANDBOX_SORT_ORDER_DESC\x10\x01\x12\x1a\n\x16SANDBOX_SORT_ORDER_ASC\x10\x02*\xd7\x02\n\x13SandboxResourceKind\x12%\n!SANDBOX_RESOURCE_KIND_UNSPECIFIED\x10\x00\x12"\n\x1eSANDBOX_RESOURCE_KIND_NOTEBOOK\x10\x01\x12/\n+SANDBOX_RESOURCE_KIND_CHALKCOMPUTE_FUNCTION\x10\x02\x12&\n"SANDBOX_RESOURCE_KIND_ONLINE_QUERY\x10\x03\x12\'\n#SANDBOX_RESOURCE_KIND_OFFLINE_QUERY\x10\x04\x12#\n\x1fSANDBOX_RESOURCE_KIND_SQL_QUERY\x10\x05\x12)\n%SANDBOX_RESOURCE_KIND_STORED_ARTIFACT\x10\x06\x12#\n\x1fSANDBOX_RESOURCE_KIND_GITHUB_PR\x10\x07\x32\xed\x05\n\x0eSandboxService\x12\xc0\x01\n\rCreateSandbox\x12&.chalk.sandbox.v2.CreateSandboxRequest\x1a\'.chalk.sandbox.v2.CreateSandboxResponse"^\x80}<\x92}\x01\x0c\x92\xd3\x0eS\n\x16scaling_groups_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12`\n\nGetSandbox\x12#.chalk.sandbox.v2.GetSandboxRequest\x1a$.chalk.sandbox.v2.GetSandboxResponse"\x07\x80};\x92}\x01\x0b\x12i\n\rListSandboxes\x12&.chalk.sandbox.v2.ListSandboxesRequest\x1a\'.chalk.sandbox.v2.ListSandboxesResponse"\x07\x80};\x92}\x01\x0b\x12l\n\x0eSuspendSandbox\x12\'.chalk.sandbox.v2.SuspendSandboxRequest\x1a(.chalk.sandbox.v2.SuspendSandboxResponse"\x07\x80}<\x92}\x01\x0c\x12i\n\rResumeSandbox\x12&.chalk.sandbox.v2.ResumeSandboxRequest\x1a\'.chalk.sandbox.v2.ResumeSandboxResponse"\x07\x80}<\x92}\x01\x0c\x12r\n\x10TerminateSandbox\x12).chalk.sandbox.v2.TerminateSandboxRequest\x1a*.chalk.sandbox.v2.TerminateSandboxResponse"\x07\x80}<\x92}\x01\x0c\x32\x9c\x02\n\x16SandboxResourceService\x12~\n\x14ListSandboxResources\x12-.chalk.sandbox.v2.ListSandboxResourcesRequest\x1a..chalk.sandbox.v2.ListSandboxResourcesResponse"\x07\x80};\x92}\x01\x0b\x12\x81\x01\n\x15RecordSandboxResource\x12..chalk.sandbox.v2.RecordSandboxResourceRequest\x1a/.chalk.sandbox.v2.RecordSandboxResourceResponse"\x07\x80}<\x92}\x01\x0c\x42\x9c\x01\n\x14\x63om.chalk.sandbox.v2B\x0cServiceProtoP\x01Z\x14sandbox/v2;sandboxv2\xa2\x02\x03\x43SX\xaa\x02\x10\x43halk.Sandbox.V2\xca\x02\x10\x43halk\\Sandbox\\V2\xe2\x02\x1c\x43halk\\Sandbox\\V2\\GPBMetadata\xea\x02\x12\x43halk::Sandbox::V2b\x06proto3'
 )
 
 _globals = globals()
@@ -36,78 +37,84 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_LISTSANDBOXESFILTERS_TAGSENTRY"]._serialized_options = b"8\001"
     _globals["_LISTSANDBOXESFILTERS"].fields_by_name["names"]._options = None
     _globals["_LISTSANDBOXESFILTERS"].fields_by_name["names"]._serialized_options = b"\030\001"
+    _globals["_LISTSANDBOXESFILTERS"].fields_by_name["tags"]._options = None
+    _globals["_LISTSANDBOXESFILTERS"].fields_by_name["tags"]._serialized_options = b"\030\001"
+    _globals["_TERMINATESANDBOXREQUEST"].fields_by_name["id"]._options = None
+    _globals["_TERMINATESANDBOXREQUEST"].fields_by_name["id"]._serialized_options = b"\030\001"
     _globals["_SANDBOXSERVICE"].methods_by_name["CreateSandbox"]._options = None
     _globals["_SANDBOXSERVICE"].methods_by_name[
         "CreateSandbox"
-    ]._serialized_options = b"\200}\014\222\323\016S\n\026scaling_groups_enabled\0229This action is not enabled. Please contact Chalk Support."
+    ]._serialized_options = b"\200}<\222}\001\014\222\323\016S\n\026scaling_groups_enabled\0229This action is not enabled. Please contact Chalk Support."
     _globals["_SANDBOXSERVICE"].methods_by_name["GetSandbox"]._options = None
-    _globals["_SANDBOXSERVICE"].methods_by_name["GetSandbox"]._serialized_options = b"\200}\013"
+    _globals["_SANDBOXSERVICE"].methods_by_name["GetSandbox"]._serialized_options = b"\200};\222}\001\013"
     _globals["_SANDBOXSERVICE"].methods_by_name["ListSandboxes"]._options = None
-    _globals["_SANDBOXSERVICE"].methods_by_name["ListSandboxes"]._serialized_options = b"\200}\013"
+    _globals["_SANDBOXSERVICE"].methods_by_name["ListSandboxes"]._serialized_options = b"\200};\222}\001\013"
     _globals["_SANDBOXSERVICE"].methods_by_name["SuspendSandbox"]._options = None
-    _globals["_SANDBOXSERVICE"].methods_by_name[
-        "SuspendSandbox"
-    ]._serialized_options = b"\200}\014\222\323\016X\n\033container_snapshots_enabled\0229This action is not enabled. Please contact Chalk Support."
+    _globals["_SANDBOXSERVICE"].methods_by_name["SuspendSandbox"]._serialized_options = b"\200}<\222}\001\014"
     _globals["_SANDBOXSERVICE"].methods_by_name["ResumeSandbox"]._options = None
-    _globals["_SANDBOXSERVICE"].methods_by_name["ResumeSandbox"]._serialized_options = b"\200}\014"
+    _globals["_SANDBOXSERVICE"].methods_by_name["ResumeSandbox"]._serialized_options = b"\200}<\222}\001\014"
     _globals["_SANDBOXSERVICE"].methods_by_name["TerminateSandbox"]._options = None
-    _globals["_SANDBOXSERVICE"].methods_by_name["TerminateSandbox"]._serialized_options = b"\200}\014"
+    _globals["_SANDBOXSERVICE"].methods_by_name["TerminateSandbox"]._serialized_options = b"\200}<\222}\001\014"
     _globals["_SANDBOXRESOURCESERVICE"].methods_by_name["ListSandboxResources"]._options = None
-    _globals["_SANDBOXRESOURCESERVICE"].methods_by_name["ListSandboxResources"]._serialized_options = b"\200}\013"
+    _globals["_SANDBOXRESOURCESERVICE"].methods_by_name[
+        "ListSandboxResources"
+    ]._serialized_options = b"\200};\222}\001\013"
     _globals["_SANDBOXRESOURCESERVICE"].methods_by_name["RecordSandboxResource"]._options = None
-    _globals["_SANDBOXRESOURCESERVICE"].methods_by_name["RecordSandboxResource"]._serialized_options = b"\200}\014"
-    _globals["_SANDBOXSTATUS"]._serialized_start = 3291
-    _globals["_SANDBOXSTATUS"]._serialized_end = 3566
-    _globals["_SANDBOXSORTCOLUMN"]._serialized_start = 3568
-    _globals["_SANDBOXSORTCOLUMN"]._serialized_end = 3660
-    _globals["_SANDBOXSORTORDER"]._serialized_start = 3662
-    _globals["_SANDBOXSORTORDER"]._serialized_end = 3773
-    _globals["_SANDBOXRESOURCEKIND"]._serialized_start = 3776
-    _globals["_SANDBOXRESOURCEKIND"]._serialized_end = 4119
-    _globals["_SANDBOXINFO"]._serialized_start = 213
-    _globals["_SANDBOXINFO"]._serialized_end = 794
-    _globals["_CREATESANDBOXREQUEST"]._serialized_start = 797
-    _globals["_CREATESANDBOXREQUEST"]._serialized_end = 926
-    _globals["_CREATESANDBOXRESPONSE"]._serialized_start = 928
-    _globals["_CREATESANDBOXRESPONSE"]._serialized_end = 1008
-    _globals["_GETSANDBOXREQUEST"]._serialized_start = 1010
-    _globals["_GETSANDBOXREQUEST"]._serialized_end = 1045
-    _globals["_GETSANDBOXRESPONSE"]._serialized_start = 1047
-    _globals["_GETSANDBOXRESPONSE"]._serialized_end = 1124
-    _globals["_LISTSANDBOXESFILTERS"]._serialized_start = 1127
-    _globals["_LISTSANDBOXESFILTERS"]._serialized_end = 1418
-    _globals["_LISTSANDBOXESFILTERS_TAGSENTRY"]._serialized_start = 1363
-    _globals["_LISTSANDBOXESFILTERS_TAGSENTRY"]._serialized_end = 1418
-    _globals["_LISTSANDBOXESREQUEST"]._serialized_start = 1421
-    _globals["_LISTSANDBOXESREQUEST"]._serialized_end = 1747
-    _globals["_LISTSANDBOXESRESPONSE"]._serialized_start = 1750
-    _globals["_LISTSANDBOXESRESPONSE"]._serialized_end = 1888
-    _globals["_SUSPENDSANDBOXREQUEST"]._serialized_start = 1890
-    _globals["_SUSPENDSANDBOXREQUEST"]._serialized_end = 1929
-    _globals["_SUSPENDSANDBOXRESPONSE"]._serialized_start = 1931
-    _globals["_SUSPENDSANDBOXRESPONSE"]._serialized_end = 1955
-    _globals["_RESUMESANDBOXREQUEST"]._serialized_start = 1957
-    _globals["_RESUMESANDBOXREQUEST"]._serialized_end = 1995
-    _globals["_RESUMESANDBOXRESPONSE"]._serialized_start = 1997
-    _globals["_RESUMESANDBOXRESPONSE"]._serialized_end = 2020
-    _globals["_TERMINATESANDBOXREQUEST"]._serialized_start = 2022
-    _globals["_TERMINATESANDBOXREQUEST"]._serialized_end = 2147
-    _globals["_TERMINATESANDBOXRESPONSE"]._serialized_start = 2149
-    _globals["_TERMINATESANDBOXRESPONSE"]._serialized_end = 2175
-    _globals["_SANDBOXRESOURCE"]._serialized_start = 2178
-    _globals["_SANDBOXRESOURCE"]._serialized_end = 2485
-    _globals["_LISTSANDBOXRESOURCESFILTERS"]._serialized_start = 2488
-    _globals["_LISTSANDBOXRESOURCESFILTERS"]._serialized_end = 2745
-    _globals["_LISTSANDBOXRESOURCESREQUEST"]._serialized_start = 2748
-    _globals["_LISTSANDBOXRESOURCESREQUEST"]._serialized_end = 2941
-    _globals["_LISTSANDBOXRESOURCESRESPONSE"]._serialized_start = 2944
-    _globals["_LISTSANDBOXRESOURCESRESPONSE"]._serialized_end = 3079
-    _globals["_RECORDSANDBOXRESOURCEREQUEST"]._serialized_start = 3082
-    _globals["_RECORDSANDBOXRESOURCEREQUEST"]._serialized_end = 3255
-    _globals["_RECORDSANDBOXRESOURCERESPONSE"]._serialized_start = 3257
-    _globals["_RECORDSANDBOXRESOURCERESPONSE"]._serialized_end = 3288
-    _globals["_SANDBOXSERVICE"]._serialized_start = 4122
-    _globals["_SANDBOXSERVICE"]._serialized_end = 4940
-    _globals["_SANDBOXRESOURCESERVICE"]._serialized_start = 4943
-    _globals["_SANDBOXRESOURCESERVICE"]._serialized_end = 5218
+    _globals["_SANDBOXRESOURCESERVICE"].methods_by_name[
+        "RecordSandboxResource"
+    ]._serialized_options = b"\200}<\222}\001\014"
+    _globals["_SANDBOXSTATUS"]._serialized_start = 3708
+    _globals["_SANDBOXSTATUS"]._serialized_end = 3983
+    _globals["_SANDBOXSORTCOLUMN"]._serialized_start = 3985
+    _globals["_SANDBOXSORTCOLUMN"]._serialized_end = 4077
+    _globals["_SANDBOXSORTORDER"]._serialized_start = 4079
+    _globals["_SANDBOXSORTORDER"]._serialized_end = 4190
+    _globals["_SANDBOXRESOURCEKIND"]._serialized_start = 4193
+    _globals["_SANDBOXRESOURCEKIND"]._serialized_end = 4536
+    _globals["_SANDBOXINFO"]._serialized_start = 247
+    _globals["_SANDBOXINFO"]._serialized_end = 998
+    _globals["_CREATESANDBOXREQUEST"]._serialized_start = 1001
+    _globals["_CREATESANDBOXREQUEST"]._serialized_end = 1130
+    _globals["_CREATESANDBOXRESPONSE"]._serialized_start = 1132
+    _globals["_CREATESANDBOXRESPONSE"]._serialized_end = 1212
+    _globals["_GETSANDBOXREQUEST"]._serialized_start = 1214
+    _globals["_GETSANDBOXREQUEST"]._serialized_end = 1249
+    _globals["_GETSANDBOXRESPONSE"]._serialized_start = 1251
+    _globals["_GETSANDBOXRESPONSE"]._serialized_end = 1328
+    _globals["_LISTSANDBOXESFILTERS"]._serialized_start = 1331
+    _globals["_LISTSANDBOXESFILTERS"]._serialized_end = 1812
+    _globals["_LISTSANDBOXESFILTERS_TAGSENTRY"]._serialized_start = 1742
+    _globals["_LISTSANDBOXESFILTERS_TAGSENTRY"]._serialized_end = 1797
+    _globals["_LISTSANDBOXESREQUEST"]._serialized_start = 1815
+    _globals["_LISTSANDBOXESREQUEST"]._serialized_end = 2141
+    _globals["_LISTSANDBOXESRESPONSE"]._serialized_start = 2144
+    _globals["_LISTSANDBOXESRESPONSE"]._serialized_end = 2282
+    _globals["_SUSPENDSANDBOXREQUEST"]._serialized_start = 2284
+    _globals["_SUSPENDSANDBOXREQUEST"]._serialized_end = 2323
+    _globals["_SUSPENDSANDBOXRESPONSE"]._serialized_start = 2325
+    _globals["_SUSPENDSANDBOXRESPONSE"]._serialized_end = 2349
+    _globals["_RESUMESANDBOXREQUEST"]._serialized_start = 2351
+    _globals["_RESUMESANDBOXREQUEST"]._serialized_end = 2389
+    _globals["_RESUMESANDBOXRESPONSE"]._serialized_start = 2391
+    _globals["_RESUMESANDBOXRESPONSE"]._serialized_end = 2414
+    _globals["_TERMINATESANDBOXREQUEST"]._serialized_start = 2417
+    _globals["_TERMINATESANDBOXREQUEST"]._serialized_end = 2564
+    _globals["_TERMINATESANDBOXRESPONSE"]._serialized_start = 2566
+    _globals["_TERMINATESANDBOXRESPONSE"]._serialized_end = 2592
+    _globals["_SANDBOXRESOURCE"]._serialized_start = 2595
+    _globals["_SANDBOXRESOURCE"]._serialized_end = 2902
+    _globals["_LISTSANDBOXRESOURCESFILTERS"]._serialized_start = 2905
+    _globals["_LISTSANDBOXRESOURCESFILTERS"]._serialized_end = 3162
+    _globals["_LISTSANDBOXRESOURCESREQUEST"]._serialized_start = 3165
+    _globals["_LISTSANDBOXRESOURCESREQUEST"]._serialized_end = 3358
+    _globals["_LISTSANDBOXRESOURCESRESPONSE"]._serialized_start = 3361
+    _globals["_LISTSANDBOXRESOURCESRESPONSE"]._serialized_end = 3496
+    _globals["_RECORDSANDBOXRESOURCEREQUEST"]._serialized_start = 3499
+    _globals["_RECORDSANDBOXRESOURCEREQUEST"]._serialized_end = 3672
+    _globals["_RECORDSANDBOXRESOURCERESPONSE"]._serialized_start = 3674
+    _globals["_RECORDSANDBOXRESOURCERESPONSE"]._serialized_end = 3705
+    _globals["_SANDBOXSERVICE"]._serialized_start = 4539
+    _globals["_SANDBOXSERVICE"]._serialized_end = 5288
+    _globals["_SANDBOXRESOURCESERVICE"]._serialized_start = 5291
+    _globals["_SANDBOXRESOURCESERVICE"]._serialized_end = 5575
 # @@protoc_insertion_point(module_scope)

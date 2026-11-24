@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from hypothesis import settings
@@ -85,9 +86,11 @@ def pep440_versions(
     *,
     include_local: bool = True,
     min_segments: int = 1,
+    epoch: int | None = None,
 ) -> Version:
     """Generate a random PEP 440 version."""
-    epoch = draw(st.sampled_from([None, 0, 1, 2, 3]))
+    if epoch is None:
+        epoch = draw(st.sampled_from([None, 0, 1, 2, 3]))
     num_segments = draw(st.integers(min_value=min_segments, max_value=4))
     release = tuple(draw(small_ints) for _ in range(num_segments))
 
@@ -151,6 +154,15 @@ def multi_segment_versions(draw: st.DrawFn) -> Version:
     """Generate a version with at least 2 release segments (for ~=)."""
     v: Version = draw(pep440_versions(include_local=False, min_segments=2))
     return v
+
+
+@st.composite
+def compatible_release_version_pairs(draw: st.DrawFn) -> tuple[Version, Version]:
+    """Generate compatible-release examples whose versions share an epoch."""
+    epoch = draw(st.integers(min_value=0, max_value=3))
+    spec_ver = draw(pep440_versions(include_local=False, min_segments=2, epoch=epoch))
+    candidate = draw(pep440_versions(epoch=epoch))
+    return spec_ver, candidate
 
 
 @st.composite
@@ -313,7 +325,7 @@ _ADJACENCY_LEADS = [
 def _next_adjacent(version: Version) -> Version:
     """The immediate successor of *version* and its local family.
 
-    Independent of the production ``least_version_above`` so the strategy does
+    Independent of the production ``first_version_after_locals`` so the strategy does
     not validate the encoder against itself: a dev release steps its dev; any
     other release steps to its next post at ``.dev0`` (``.post0.dev0`` for a
     final release, ``.post(N+1).dev0`` for a ``.postN`` release).
@@ -343,3 +355,62 @@ def adjacency_exclusion_sets(draw: st.DrawFn) -> SpecifierSet:
     parts = ([lead] if lead else []) + [f"!={point}" for point in points]
     prereleases = draw(st.sampled_from([None, True, False]))
     return SpecifierSet(",".join(parts), prereleases=prereleases)
+
+
+@dataclass
+class LiteralCase:
+    """Related bounds, one named prerelease and equivalent input forms."""
+
+    bounds: SpecifierSet
+    literal: str
+    versions: list[str | Version]
+
+
+@st.composite
+def literal_cases(draw: st.DrawFn, *, vary_prereleases: bool = False) -> LiteralCase:
+    """Keep a named prerelease inside ordinary bounds while varying its text."""
+    major = draw(st.integers(min_value=1, max_value=12))
+    suffix = draw(st.sampled_from(["a", "b", "rc", ".dev", ".post1.dev"]))
+    number = draw(st.integers(min_value=0, max_value=5))
+    stem = f"{major}.5{suffix}"
+    canonical = f"{stem}{number}"
+    forms = [
+        canonical,
+        f"{stem}0{number}",
+        f"v{canonical}",
+        f"0!{canonical}",
+        f"{major}.5.0{suffix}{number}",
+    ]
+    literal = draw(st.sampled_from(forms))
+    values = st.one_of(
+        st.sampled_from(forms), st.sampled_from([Version(v) for v in forms])
+    )
+    versions = draw(st.lists(values, max_size=8))
+    versions.append(literal)
+    if draw(st.booleans()):
+        versions.append(f"{major}.6")
+    policy = draw(st.sampled_from([None, False, True])) if vary_prereleases else None
+    return LiteralCase(
+        SpecifierSet(f">={major - 1},<{major + 1}", prereleases=policy),
+        literal,
+        versions,
+    )
+
+
+@st.composite
+def literal_ranges(draw: st.DrawFn, *, vary_prereleases: bool = False) -> VersionRange:
+    """Compose a literal with overlapping bounds or restore its exclusion."""
+    case = draw(literal_cases(vary_prereleases=vary_prereleases))
+    bounds = case.bounds.to_range()
+    named = SpecifierSet(
+        f"==={case.literal}", prereleases=case.bounds.prereleases
+    ).to_range()
+    operation = draw(st.sampled_from(["union", "exclude", "restore", "complement"]))
+    if operation == "union":
+        return bounds | named
+    excluded = bounds - named
+    if operation == "exclude":
+        return excluded
+    if operation == "restore":
+        return excluded | bounds
+    return ~excluded

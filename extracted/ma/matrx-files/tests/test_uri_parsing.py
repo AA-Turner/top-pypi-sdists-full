@@ -153,3 +153,14 @@ def test_s3_delete_many_survives_a_failing_chunk() -> None:
     assert deleted == 0
     assert {u for u, _ in errors} == {"bkt/a", "bkt/b"}
     assert all("SlowDown" in e for _, e in errors)
+
+
+def test_an_object_key_keeps_every_character_urls_reserve():
+    """A storage URI is not a URL: ``#``, ``?`` and ``;`` are ordinary key characters in S3. ``urlparse`` cut the key
+    at ``#`` (a "fragment"), so every continuation chunk of a large account export (``workflow.run#00001~…``)
+    wrote to ONE truncated object ``workflow.run`` and overwrote the last (live 2026-11-13)."""
+    from matrx_files.backends.router import parse_uri
+
+    for key in ("parts/workflow.run#00001~220.ndjson.gz", "a/b?c=1.txt", "a/b;v=2.txt", "a/b#c?d;e"):
+        assert parse_uri(f"s3://bucket/{key}") == ("s3", f"bucket/{key}"), key
+    assert parse_uri("server://uploads/x#1.txt") == ("server", "uploads/x#1.txt")

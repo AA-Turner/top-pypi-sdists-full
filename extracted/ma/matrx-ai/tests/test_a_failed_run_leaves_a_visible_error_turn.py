@@ -26,8 +26,13 @@ REFUSAL = {
 }
 
 
-def _failed(*, with_reply: bool) -> CompletedRequest:
+def _failed(*, with_reply: bool, after_tools: bool = False) -> CompletedRequest:
     messages = [UnifiedMessage(role="user", content=[TextContent(text="judge this answer")])]
+    if after_tools:
+        from matrx_ai.config import ToolCallContent, ToolResultContent
+
+        messages.append(UnifiedMessage(role="assistant", content=[ToolCallContent(id="call_1", name="records", arguments={})]))
+        messages.append(UnifiedMessage(role="tool", content=[ToolResultContent(tool_use_id="call_1", name="records", content="12 rows")]))
     if with_reply:
         messages.append(UnifiedMessage(role="assistant", content=[TextContent(text="partial")]))
     cfg = UnifiedConfig(model="test-model", messages=MessageList(_messages=messages))
@@ -51,7 +56,7 @@ def _assistant_rows(calls):
 
 
 @pytest.mark.asyncio
-async def test_a_refused_run_writes_one_visible_error_turn(system_run_harness):
+async def test_a_refused_run_writes_one_visible_error_turn(system_run_harness):  # noqa: F811 — imported fixture, used by name
     persistence_mod, calls = system_run_harness
     result = await persistence_mod.persist_completed_request(_failed(with_reply=False), conversation_id=CONVERSATION_ID)
 
@@ -68,7 +73,7 @@ async def test_a_refused_run_writes_one_visible_error_turn(system_run_harness):
 
 
 @pytest.mark.asyncio
-async def test_a_failed_run_that_answered_gets_no_second_turn(system_run_harness):
+async def test_a_failed_run_that_answered_gets_no_second_turn(system_run_harness):  # noqa: F811 — imported fixture, used by name
     persistence_mod, calls = system_run_harness
     await persistence_mod.persist_completed_request(_failed(with_reply=True), conversation_id=CONVERSATION_ID)
     failed = [kw for kw in calls["message_create"] if kw.get("status") == "failed"]
@@ -76,9 +81,23 @@ async def test_a_failed_run_that_answered_gets_no_second_turn(system_run_harness
 
 
 @pytest.mark.asyncio
-async def test_a_mid_run_flush_writes_no_error_turn(system_run_harness):
+async def test_a_mid_run_flush_writes_no_error_turn(system_run_harness):  # noqa: F811 — imported fixture, used by name
     persistence_mod, calls = system_run_harness
     await persistence_mod.persist_completed_request(
         _failed(with_reply=False), conversation_id=CONVERSATION_ID, is_final=False
     )
     assert [kw for kw in calls["message_create"] if kw.get("status") == "failed"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_run_stopped_after_its_tool_work_still_says_why(system_run_harness):  # noqa: F811 — imported fixture, used by name
+    """Halcyon Setup chat (request 77773164, 2026-11-12): a run stopped by a limit AFTER tool calls
+    ended on tool rows; an assistant row existed, so no error turn was written and the screen said
+    "This run finished without writing an answer" forever. Answered = the turn ENDS on an answer."""
+    persistence_mod, calls = system_run_harness
+    await persistence_mod.persist_completed_request(
+        _failed(with_reply=False, after_tools=True), conversation_id=CONVERSATION_ID
+    )
+    failed = [kw for kw in calls["message_create"] if kw.get("status") == "failed"]
+    assert len(failed) == 1, calls["message_create"]
+    assert failed[0]["content"] == [{"type": "text", "text": REFUSAL["message"]}]

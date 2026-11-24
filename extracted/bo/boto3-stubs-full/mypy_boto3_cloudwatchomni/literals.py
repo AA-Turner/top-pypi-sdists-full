@@ -101,7 +101,9 @@ GetContextGraphPaginatorName = Literal["get_context_graph"]
 GetTelemetryQueryResultsPaginatorName = Literal["get_telemetry_query_results"]
 IdentityProviderType = Literal["IAM", "IDC"]
 IntegrationStatusType = Literal["ACTIVE", "DELETED", "ERROR", "FAILED", "PENDING", "PENDING_OAUTH"]
-IntegrationTypeType = Literal["AWS_CONFIG_SLREC", "AWS_INTEGRATION", "EXTERNAL_AGENT", "SLACK"]
+IntegrationTypeType = Literal[
+    "AWS_CONFIG_AZURE_SLREC", "AWS_CONFIG_SLREC", "AWS_INTEGRATION", "EXTERNAL_AGENT", "SLACK"
+]
 ListAccessGrantsPaginatorName = Literal["list_access_grants"]
 ListAccessProfilesPaginatorName = Literal["list_access_profiles"]
 ListAlertsPaginatorName = Literal["list_alerts"]

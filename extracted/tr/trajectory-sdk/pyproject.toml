@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trajectory-sdk"
-version = "0.10.25"
+version = "0.11.0"
 description = "Generated Trajectory API client and high-level workflows"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,6 +25,7 @@ trajectory = "trajectory.lib.cli.main:main"
 tui = ["textual>=6.0,<7"]
 
 [project.urls]
+Homepage = "https://www.trajectory.ai/"
 Documentation = "https://docs.trajectory.ai"
 Cookbook = "https://github.com/Trajectorylabs/trajectory-cookbook"
 

@@ -1,6 +1,6 @@
 [project]
 name = "commitizen"
-version = "4.20.0"
+version = "4.20.1"
 description = "Python commitizen client tool"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -19,7 +19,7 @@ dependencies = [
     "argcomplete >=1.12.1,<3.8",
     "typing-extensions (>=4.0.1,<5.0.0) ; python_version < '3.11'",
     "charset-normalizer (>=2.1.0,<4)",
-    "deprecated (>=1.2.13, <2)",
+    "deprecated (>=1.2.13, <4)",
     "importlib-metadata >=8.0.0,<8.7.0 ; python_version < '3.10'",
 ]
 keywords = [

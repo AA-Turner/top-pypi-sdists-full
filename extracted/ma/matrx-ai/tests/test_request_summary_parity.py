@@ -14,7 +14,7 @@ from matrx_ai.config.usage_config import TokenUsage
 from matrx_ai.orchestrator.requests import CompletedRequest
 
 
-def _cr(status: str | None = None, error=None, error_type: str | None = None) -> CompletedRequest:
+def _cr(status: str | None = None, error=None, error_type: str | None = None, **extra) -> CompletedRequest:
     """A minimal CompletedRequest — build_request_summary only reads request identity,
     usage_history (empty ⇒ zero cost), and metadata, so a stub request suffices."""
     req = types.SimpleNamespace(
@@ -27,6 +27,7 @@ def _cr(status: str | None = None, error=None, error_type: str | None = None) ->
         cr.metadata["error"] = error
     if error_type is not None:
         cr.metadata["error_type"] = error_type
+    cr.metadata.update(extra)
     return cr
 
 
@@ -77,28 +78,32 @@ def test_cancelled_status_maps_to_cancelled():
 
 
 def test_every_resumable_suspend_maps_to_paused():
-    # A run WAITING on the client/user is 'paused' — never a silent 'completed'.
+    # A run WAITING on a client-run tool or a person is 'paused' — never a silent 'completed'.
     for raw in CompletedRequest.RESUMABLE_SUSPEND_STATUSES:
         assert _cr(status=raw).build_request_summary()["status"] == "paused", raw
 
 
-def test_truncated_is_resumable_and_maps_to_paused_with_error_preserved():
-    # "truncated" = the model hit its output-token limit (executor.py sets
-    # metadata error + error_type="truncated_response"). It is limit-hit +
-    # RESUMABLE → 'paused', NEVER 'completed' (the old else-branch mapping
-    # recorded a real limit-hit as a clean success). The structured error
-    # detail must survive onto the summary.
-    assert "truncated" in CompletedRequest.RESUMABLE_SUSPEND_STATUSES
-    s = _cr(
-        status="truncated",
-        error="Response truncated: model hit the output token limit (model=m, max_output_tokens=100)",
-        error_type="truncated_response",
-    ).build_request_summary()
-    assert s["status"] == "paused"
-    assert s["error"] == {
-        "error_type": "truncated_response",
-        "message": "Response truncated: model hit the output token limit (model=m, max_output_tokens=100)",
-    }
+def test_a_reply_cut_at_its_length_limit_finishes_the_run_marked():
+    """Q-15 X3 (2026-11-18, execution 975f9e08): a reply cut at its output-token limit was
+    saved 'paused' and the spine parked at WAITING_INPUT, yet nothing resumes it (/resume
+    refuses it; "continue" is a new turn) — the conversation stayed paused and the send
+    button spun. It FINISHES: 'completed', the structured error kept, the stop named."""
+    assert "truncated" not in CompletedRequest.RESUMABLE_SUSPEND_STATUSES
+    assert "truncated" in CompletedRequest.FINISHED_WITH_STOP_STATUSES
+    for sub_agent in (False, True):
+        extra = {CompletedRequest.CALLER_RESUMES_KEY: True} if sub_agent else {}
+        s = _cr(
+            status="truncated",
+            error="Response truncated: model hit the output token limit (model=m, max_output_tokens=100)",
+            error_type="truncated_response",
+            **extra,
+        ).build_request_summary()
+        assert s["status"] == "completed"
+        assert s["error"] == {
+            "error_type": "truncated_response",
+            "message": "Response truncated: model hit the output token limit (model=m, max_output_tokens=100)",
+        }
+        assert s["metadata"]["stop_status"] == "truncated", "a reload must still say it was cut off"
 
 
 def test_paused_without_error_carries_no_error_field():
@@ -131,3 +136,22 @@ def test_storage_dict_delegates_to_the_one_builder(monkeypatch):
     cr.request.timing_history = []
     cr.request.tool_call_history = []
     assert cr.to_storage_dict()["user_request"] is sentinel
+
+
+def test_a_paused_or_stopped_turn_saves_which_stop_it_was():
+    """A reload must say WHY a turn stopped. The loop guard and the step limit both save
+    ``error_type = tool_loop_stalled`` and both read ``paused``; without the stop's own name on the
+    saved row a reloaded chat can only say "Stopped before finishing" for either (2026-11-18)."""
+    for stop in CompletedRequest.RESUMABLE_SUSPEND_STATUSES:
+        summary = _cr(stop).build_request_summary()
+        assert summary["status"] == "paused"
+        assert summary["metadata"]["stop_status"] == stop, f"{stop}: the saved row does not name its stop"
+    for stop in CompletedRequest.FINISHED_WITH_STOP_STATUSES:
+        summary = _cr(stop).build_request_summary()
+        assert summary["status"] == "completed", f"{stop}: nothing resumes it, so the run ends"
+        assert summary["metadata"]["stop_status"] == stop, f"{stop}: the saved row does not name its stop"
+
+
+def test_a_finished_or_failed_turn_saves_no_stop_name():
+    for status in (None, "failed", "cancelled", "completed_with_warning"):
+        assert "stop_status" not in _cr(status).build_request_summary()["metadata"]

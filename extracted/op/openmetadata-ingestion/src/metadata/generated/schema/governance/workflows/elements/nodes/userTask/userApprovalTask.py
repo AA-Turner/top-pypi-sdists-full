@@ -48,6 +48,12 @@ class Assignees(BaseModel):
             description="Resolve owners from the asset’s domains at execution time. For a domain, use its own owners."
         ),
     ] = None
+    cascadeOwners: Annotated[
+        bool | None,
+        Field(
+            description="When no reviewer or owner of the asset resolves, assign its service's owners, and when those resolve to no one, its domains' owners. Runs before emptyAssigneeStrategy."
+        ),
+    ] = None
 
 
 class LifecycleMove(BaseModel):

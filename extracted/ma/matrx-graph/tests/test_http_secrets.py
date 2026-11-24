@@ -130,7 +130,7 @@ async def test_header_secret_is_sent_but_never_echoed(caplog):
     out = result.last_outputs["n"]
     assert out["status"] == 200
     assert "[secret]" in out["body"]["headers"]["authorization"]
-    assert out["headers"]["x-echo-auth"] == "[secret]"
+    assert "x-echo-auth" not in out["headers"]  # response headers are allowlisted at the step-output boundary
     left_behind = _everything(result, emitter, checkpointer) + caplog.text
     assert TOKEN not in left_behind
     assert KEY not in left_behind
@@ -214,7 +214,7 @@ async def test_a_formatted_secret_is_sent_wrapped_and_redacted_whole(caplog):
     assert result.status is RunStatus.COMPLETED, result
     assert seen[-1].headers["authorization"] == f"Bearer {TOKEN}"
     out = result.last_outputs["n"]
-    assert out["headers"]["x-echo-auth"] == "Bearer [secret]"
+    assert "x-echo-auth" not in out["headers"]
     assert TOKEN not in _everything(result, emitter, checkpointer) + caplog.text
 
 

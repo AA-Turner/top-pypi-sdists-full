@@ -23,21 +23,26 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+permissions: {}
+
 env:
   UV_VERSION: 0.10.8
   DEFAULT_PYTHON_VERSION: '3.9'
+  PRE_COMMIT_PYTHON_VERSION: '3.12'
 
 jobs:
   lint:
     name: Lint package
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
@@ -49,10 +54,10 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+          key: pre-commit|${{ env.PRE_COMMIT_PYTHON_VERSION }}|${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Install pre-commit hooks
-        run: uv run pre-commit install --install-hooks
+        run: uv run --isolated --only-group dev --python "$PRE_COMMIT_PYTHON_VERSION" pre-commit install --install-hooks
 
       - name: Skip ggshield hooks when running from a fork
         # See note about steps requiring the GITGUARDIAN_API at the top of this file
@@ -62,7 +67,7 @@ jobs:
 
       - name: Run pre-commit checks
         run: |
-          uv run pre-commit run --show-diff-on-failure --all-files
+          uv run --isolated --only-group dev --python "$PRE_COMMIT_PYTHON_VERSION" pre-commit run --show-diff-on-failure --all-files
         env:
           GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
 
@@ -81,11 +86,22 @@ jobs:
   build:
     name: Build and Test
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-15-intel, windows-2022]
+        os: [ubuntu-22.04, macos-26, windows-2022]
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        exclude: >-
+          ${{ github.event_name == 'pull_request' && fromJSON('[
+          {"os": "macos-26", "python-version": "3.10"},
+          {"os": "macos-26", "python-version": "3.11"},
+          {"os": "macos-26", "python-version": "3.12"},
+          {"os": "windows-2022", "python-version": "3.10"},
+          {"os": "windows-2022", "python-version": "3.11"},
+          {"os": "windows-2022", "python-version": "3.12"}
+          ]') || fromJSON('[]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -93,7 +109,7 @@ jobs:
           fetch-depth: 10
 
       - name: Install uv and set the Python version
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ matrix.python-version }}
@@ -146,6 +162,8 @@ jobs:
     # See note about steps requiring the GITGUARDIAN_API at the top of this file
     if: ${{ !github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -153,7 +171,7 @@ jobs:
           fetch-depth: 10
 
       - name: Install uv and set the Python version
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
@@ -173,7 +191,6 @@ jobs:
           TEST_KNOWN_SECRET: ${{ secrets.TEST_KNOWN_SECRET }}
           TEST_GG_VALID_TOKEN: ${{ secrets.TEST_GG_VALID_TOKEN }}
           TEST_GG_VALID_TOKEN_IGNORE_SHA: ${{ secrets.TEST_GG_VALID_TOKEN_IGNORE_SHA }}
-          TEST_UNKNOWN_SECRET: ${{ secrets.TEST_UNKNOWN_SECRET }}
 
   ai_hook_equivalence:
     name: AI hook equivalence (Rust/Python)
@@ -201,11 +218,13 @@ jobs:
     # failure mode is a silent false negative, so the job just always runs.
     # A few minutes of CI is the cheaper side of that trade.
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv and set the Python version
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
@@ -272,53 +291,13 @@ jobs:
         run: |
           python3 rust/tests/equivalence.py
 
-  rust:
-    name: Rust (${{ matrix.os }})
-    # The equivalence job above only runs cargo on ubuntu, so the platform-
-    # specific code -- the three keychain readers and the Windows config dir --
-    # is never clippy'd or tested. This job builds and tests the workspace on
-    # each OS so that code cannot rot silently.
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-14, windows-2022]
-    defaults:
-      run:
-        working-directory: rust
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Cache cargo
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust/target
-          key: cargo-rustjob|${{ runner.os }}|${{ hashFiles('rust/Cargo.lock', 'rust/rust-toolchain.toml') }}
-
-      - name: Lint
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Test
-        run: cargo test --workspace
-
-  build_os_packages:
-    uses: ./.github/workflows/build_release_assets.yml
-    secrets:
-      GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
-      GITGUARDIAN_API_URL: ${{ secrets.GITGUARDIAN_API_URL }}
-      TEST_KNOWN_SECRET: ${{ secrets.TEST_KNOWN_SECRET }}
-      TEST_UNKNOWN_SECRET: ${{ secrets.TEST_UNKNOWN_SECRET }}
-      TEST_GG_VALID_TOKEN: ${{ secrets.TEST_GG_VALID_TOKEN }}
-      TEST_GG_VALID_TOKEN_IGNORE_SHA: ${{ secrets.TEST_GG_VALID_TOKEN_IGNORE_SHA }}
-
   test_github_secret_scan_action:
     name: Test GitHub action for `secret scan`
     # See note about steps requiring the GITGUARDIAN_API at the top of this file
     if: ${{ !github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -337,6 +316,9 @@ jobs:
     runs-on: ubuntu-22.04
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: unstable
+    permissions:
+      contents: read
+      packages: write
     needs:
       - lint
       - build
@@ -344,13 +326,13 @@ jobs:
       - test_github_secret_scan_action
     steps:
       - name: Login to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}

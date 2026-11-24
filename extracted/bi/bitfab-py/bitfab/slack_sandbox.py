@@ -236,6 +236,27 @@ def _is_after(ts: Any, bound: str) -> bool:
     return isinstance(ts, str) and _micros_of(ts) > _micros_of(bound)
 
 
+SLACK_OBJECT_KEYS = ("channel", "user", "file", "name")
+SLACK_MESSAGE_KEYS = ("ts", "thread_ts", "timestamp")
+
+
+def _first_string(params: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    for key in keys:
+        value = params.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def slack_accessed_object(call: MockOverrideCtx) -> str | None:
+    params = dict(call.kwargs)
+    owner = _first_string(params, SLACK_OBJECT_KEYS)
+    if owner is None:
+        return None
+    message = _first_string(params, SLACK_MESSAGE_KEYS)
+    return owner if message is None else f"{owner}/{message}"
+
+
 def is_slack_write(call: MockOverrideCtx) -> bool:
     return not _is_read(call.node.trace_function_key[len(SLACK_SPAN_PREFIX) :])
 
@@ -1202,4 +1223,5 @@ def build_slack_sandbox(
         mode=mode,
         load=load,
         is_write=is_slack_write,
+        accessed_object=slack_accessed_object,
     )

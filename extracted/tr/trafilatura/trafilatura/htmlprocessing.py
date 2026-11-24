@@ -4,9 +4,12 @@ Functions to process nodes in HTML code.
 """
 
 import logging
+from collections.abc import Callable, Sequence
 from copy import deepcopy
+from itertools import chain
+from typing import Any
 
-from lxml.etree import Element, SubElement, XPath, _Element, strip_tags, tostring
+from lxml.etree import Element, SubElement, XPath, _Element, strip_elements, strip_tags, tostring
 from lxml.html import HtmlElement
 
 from .deduplication import duplicate_test
@@ -17,8 +20,8 @@ from .settings import (
     Document,
     Extractor,
 )
-from .utils import LINK_FARM_RATIO, image_src, safe_base_url, safe_relative_url, textfilter, trim
-from .xml import delete_element, meta_items, separates_inline
+from .utils import LINK_FARM_RATIO, image_src, safe_relative_url, textfilter, trim
+from .xml import delete_element, meta_items, remove_empty_elements, separates_inline
 
 LOGGER = logging.getLogger(__name__)
 
@@ -78,45 +81,89 @@ def _handle_forms(tree: HtmlElement) -> None:
             delete_element(form)
 
 
+# fallback or embedded copies: paragraphs inside them neither count as removed nor as surviving content
+ALTERNATE_CONTENT = {"noscript", "fencedframe"}
+UNDO_MAX_WORDS = 50
+
+
 def tree_cleaning(tree: HtmlElement, options: Extractor) -> HtmlElement:
     "Prune the tree by discarding unwanted elements."
     # salvage formulas before <math> is discarded along with its subtree
     recover_math(tree)
-    # determine cleaning strategy, use lists to keep it deterministic
-    cleaning_list, stripping_list = MANUALLY_CLEANED.copy(), MANUALLY_STRIPPED.copy()
+    # determine cleaning strategy
+    cleaning_list, stripping_list = set(MANUALLY_CLEANED), set(MANUALLY_STRIPPED)
     # forms are handled separately below, once the rest of the noise is gone. MANUALLY_CLEANED is
     # public API users mutate in place, so honour a removed "form" instead of assuming it is there.
     clean_forms = "form" in cleaning_list
-    if clean_forms:
-        cleaning_list.remove("form")
+    cleaning_list.discard("form")
     if not options.tables:
-        cleaning_list.extend(["table", "td", "th", "tr"])
+        cleaning_list |= {"table", "td", "th", "tr"}
     else:
         # figures holding a table (#301) and ARIA layout tables (role=presentation/none)
         for elem in tree.iter("figure", "table"):
             if elem.find(".//table") is not None if elem.tag == "figure" else elem.get("role") in ("presentation", "none"):
                 elem.tag = "div"
+        # a footer row group may come before the body in the markup but is shown below it, so it is
+        # moved last before <tfoot> is stripped: a "Total" row stays under the rows it sums
+        for tfoot in list(tree.iter("tfoot")):
+            parent = tfoot.getparent()
+            if parent is not None and parent.tag == "table":
+                parent.append(tfoot)
+        # the cells of a head row group are header cells even when written as <td>,
+        # which can no longer be told once <thead> is stripped
+        for cell in tree.iterfind(".//thead/tr/td"):
+            cell.tag = "th"
     if options.images:
         # Many websites have <img> inside <figure> or <picture> or <source> tag
-        cleaning_list = [e for e in cleaning_list if e not in PRESERVE_IMG_CLEANING]
-        stripping_list.remove("img")
+        cleaning_list -= PRESERVE_IMG_CLEANING
+        stripping_list.discard("img")
+        # <noscript> is removed below: keep its images (the fallback of lazy loading), except
+        # tracking pixels and copies of an image already in the same parent
+        if "noscript" in cleaning_list:
+            # images of each parent, collected once: wrapped lazy-loaded images count too,
+            # and pages with many <noscript> copies in one parent stay linear
+            seen: dict[Any, set[str | None]] = {}
+            for noscript in list(tree.iter("noscript")):
+                parent = noscript.getparent()
+                if parent not in seen:
+                    others = parent.iter("img") if parent is not None else ()
+                    seen[parent] = {image_src(i) for i in others if next(i.iterancestors("noscript"), None) is None}
+                present = seen[parent]
+                for img in list(noscript.iter("img")):
+                    src = image_src(img)
+                    if src and src not in present and img.get("width") != "1":
+                        img.tail = None
+                        noscript.addprevious(img)
+                        present.add(src)
+
+    # a <template> is inert markup a script may clone and is never shown as it is, unless it is a
+    # declarative shadow root, which the browser renders in place (and which stays stripped below)
+    for template in [t for t in tree.iter("template") if t.get("shadowrootmode", t.get("shadowroot")) is None]:
+        delete_element(template)
 
     # strip targeted elements
-    strip_tags(tree, stripping_list)
+    strip_tags(tree, *stripping_list)
 
-    # recall: undo the deletions if they remove every paragraph (copy only if none can survive)
+    # undo the deletions if they remove every paragraph and leave almost no text, e.g. a page swallowed
+    # by an unclosed <aside> or <button> (copy only if none can survive)
     tcopy = None
-    if (
-        options.focus == "recall"
-        and tree.find(".//p") is not None
-        and ("p" in cleaning_list or not any(next(p.iterancestors(cleaning_list), tree) is tree for p in tree.iter("p")))
-    ):
+    survives = (
+        "p" not in cleaning_list and next(p.iterancestors(cleaning_list), None) is None
+        for p in tree.iter("p")
+        if next(p.iterancestors(ALTERNATE_CONTENT), None) is None
+    )
+    if next(survives, True) is False and not any(survives):
         tcopy = deepcopy(tree)
-    for expression in cleaning_list:
-        for element in tree.iter(expression):
-            delete_element(element)
-    if tcopy is not None and tree.find(".//p") is None:
+    strip_elements(tree, *cleaning_list, with_tail=False)
+    if tcopy is not None and (options.focus == "recall" or len(" ".join(tree.itertext()).split()) < UNDO_MAX_WORDS):
         tree = tcopy
+        # honour tables=False, recall keeps them as before
+        if not options.tables and options.focus != "recall":
+            strip_tags(tree, "table", "tr", "td", "th")
+
+    # prefixed tags like Word's <o:p> or <fb:like> are not valid element names in the output, keep their text
+    if prefixed := {tag for tag in {elem.tag for elem in tree.iter("*")} if isinstance(tag, str) and ":" in tag}:
+        strip_tags(tree, *prefixed)
 
     if clean_forms:
         _handle_forms(tree)
@@ -132,7 +179,9 @@ def prune_html(tree: HtmlElement, focus: str = "balanced") -> HtmlElement:
     return tree
 
 
-def prune_unwanted_nodes(tree: HtmlElement, nodelist: list[XPath], with_backup: bool = False) -> HtmlElement:
+def prune_unwanted_nodes(
+    tree: HtmlElement, nodelist: Sequence[Callable[[HtmlElement], Any]], with_backup: bool = False
+) -> HtmlElement:
     "Prune the HTML tree by removing unwanted sections."
     if not with_backup:
         for expression in nodelist:
@@ -165,18 +214,18 @@ def is_paragraph_listing(links_xpath: list[HtmlElement]) -> bool:
     "Tell a document listing (every link alone in its paragraph) from a farm (links running together)"
     for link in links_xpath:
         parent = link.getparent()
-        if parent is None or parent.tag != "p" or len(parent.findall(".//ref")) > 1:
+        if parent is None or parent.tag != "p" or len(list(parent.iterdescendants("ref"))) > 1:
             return False
     return True
 
 
 def link_density_test(element: HtmlElement, favor_precision: bool = False) -> tuple[bool, bool]:
     "Remove sections which are rich in links (probably boilerplate), flag short linked ones."
-    links_xpath = element.findall(".//ref")
+    links_xpath = list(element.iterdescendants("ref"))
     if not links_xpath:
         return False, False
     # preserve image containers
-    if element.find(".//graphic") is not None:
+    if next(element.iterdescendants("graphic"), None) is not None:
         return False, False
     text = trim(element.text_content())
     # shortcut
@@ -203,7 +252,7 @@ def link_density_test(element: HtmlElement, favor_precision: bool = False) -> tu
             shortelems,
             elemnum,
         )
-        return linklen > elemlen * 0.8 or (elemnum > 1 and shortelems / elemnum > 0.8), True
+        return linklen > elemlen * 0.8 or (elemnum > 1 and shortelems / elemnum > 0.8 and linklen > elemlen * 0.02), True
     # large near-total-link farms ("latest news" sidebars) at/above limitlen, which the size gate
     # above never tests (#584); small farms are already caught there at the plain 0.8 ratio.
     # >4: a farm is MANY links -- a handful of long sentence-links is editorial (knowtechie realworld test)
@@ -217,7 +266,7 @@ def link_density_test(element: HtmlElement, favor_precision: bool = False) -> tu
 
 def link_density_test_tables(element: HtmlElement) -> bool:
     "Remove tables which are rich in links (probably boilerplate)."
-    links_xpath = element.findall(".//ref")
+    links_xpath = list(element.iterdescendants("ref"))
 
     if not links_xpath:
         return False
@@ -283,7 +332,7 @@ def handle_textnode(
     # lb bypass
     if not comments_fix and elem.tag == "lb":
         if not preserve_spaces:
-            elem.tail = trim(elem.tail) or None
+            elem.tail = trim(elem.tail or "") or None
         # no textfilter/dedup for lb, unlike process_node: the two probes are not interchangeable
         return elem
 
@@ -296,7 +345,7 @@ def handle_textnode(
 
     # trim
     if not preserve_spaces:
-        elem.text = trim(elem.text) or None
+        elem.text = trim(elem.text or "") or None
         if elem.tail:
             elem.tail = trim(elem.tail) or None
 
@@ -312,7 +361,7 @@ def process_node(elem: _Element, options: Extractor) -> _Element | None:
         return None
 
     # trim
-    elem.text, elem.tail = trim(elem.text) or None, trim(elem.tail) or None
+    elem.text, elem.tail = trim(elem.text or "") or None, trim(elem.tail or "") or None
 
     # adapt content string
     if elem.tag != "lb" and not elem.text and elem.tail and len(elem) == 0:
@@ -344,6 +393,9 @@ def convert_lists(elem: _Element) -> None:
 
 def convert_quotes(elem: _Element) -> None:
     "Convert quoted elements while accounting for nested structures."
+    # lang on a blockquote names a natural language (embedded tweets): no code marker or code language
+    if elem.tag == "blockquote":
+        elem.attrib.pop("lang", None)
     # a pre is code if it wraps a single span, carries highlight.js spans or code-like text
     hljs = elem.xpath(".//span[starts-with(@class,'hljs')]") if elem.tag == "pre" else []
     for subelem in hljs:
@@ -351,7 +403,21 @@ def convert_quotes(elem: _Element) -> None:
     is_code = elem.tag == "pre" and (
         (len(elem) == 1 and elem[0].tag == "span") or bool(hljs) or any(i in (elem.text or "") for i in CODE_INDICATORS)
     )
+    # a quote from a <pre> is preformatted text, not a quotation: keep its origin
+    if elem.tag == "pre" and not is_code:
+        elem.set("rend", "pre")
     elem.tag = "code" if is_code else "quote"
+
+
+PERMALINK_CLASSES = frozenset({"headerlink", "doc-anchor"})
+
+
+def _is_permalink_anchor(element: _Element) -> bool:
+    "Whether an <a> inside a heading is a documentation permalink (Sphinx ¶, rustdoc §)."
+    target = element.get("href") or ""
+    return (
+        target.startswith("#") and len(target) > 1 and not PERMALINK_CLASSES.isdisjoint((element.get("class") or "").split())
+    )
 
 
 def convert_headings(elem: _Element) -> None:
@@ -383,7 +449,7 @@ CONVERSIONS = {
     **dict.fromkeys(("dl", "ol", "ul"), convert_lists),
     **dict.fromkeys(("h1", "h2", "h3", "h4", "h5", "h6"), convert_headings),
     **dict.fromkeys(("br", "hr"), convert_line_breaks),
-    **dict.fromkeys(("blockquote", "pre", "q"), convert_quotes),
+    **dict.fromkeys(("blockquote", "pre"), convert_quotes),
     **dict.fromkeys(("del", "s", "strike"), convert_deletions),
     "details": convert_details,
 }
@@ -403,6 +469,21 @@ def convert_link(elem: HtmlElement, base_url: str | None) -> None:
 
 def convert_tags(tree: HtmlElement, options: Extractor, url: str | None = None) -> HtmlElement:
     "Simplify markup and convert relevant HTML tags to an XML standard."
+    # Documentation permalinks (Sphinx headerlink ¶, rustdoc doc-anchor §) are decoration,
+    # not content: drop them before the <a> pass, while their classes still exist. Only
+    # same-page fragments qualify, so anchors with an empty or cross-page target stay in
+    # place and keep behaving like the empty-anchor case (#1024).
+    for elem in tree.iter("h1", "h2", "h3", "h4", "h5", "h6"):
+        for subelem in list(elem.iter("a")):
+            if _is_permalink_anchor(subelem):
+                parent = subelem.getparent()
+                delete_element(subelem)
+                # an emptied formatting wrapper must not survive and swallow its tail
+                while parent is not None and parent is not elem and not parent.text and len(parent) == 0:
+                    wrapper = parent
+                    parent = wrapper.getparent()
+                    delete_element(wrapper)
+
     # delete links for faster processing
     if not options.links:
         containers = ("div", "li", "p", "table") if options.tables else ("div", "li", "p")
@@ -413,10 +494,8 @@ def convert_tags(tree: HtmlElement, options: Extractor, url: str | None = None) 
         # strip the rest
         strip_tags(tree, "a")
     else:
-        # get base URL for converting relative URLs
-        base_url = url and safe_base_url(url)
         for elem in tree.iter("a", "ref"):
-            convert_link(elem, base_url)
+            convert_link(elem, url)
 
     # Yoast FAQ blocks: question headers are bold but act as titles (#471)
     for elem in tree.iter("strong"):
@@ -440,20 +519,37 @@ def convert_tags(tree: HtmlElement, options: Extractor, url: str | None = None) 
     else:
         strip_tags(tree, *REND_TAG_MAPPING.keys())
 
+    # <q> is an inline quotation: unwrapped, it stays in its sentence
+    strip_tags(tree, "q")
+
     # iterate over all concerned elements
     for elem in tree.iter(CONVERSIONS.keys()):
         CONVERSIONS[elem.tag](elem)  # type: ignore[index]
     # images
     if options.images:
         for elem in tree.iter("img"):
+            # <picture>: lxml nests the <img> in the <source> holding the image URLs,
+            # or makes it a sibling when the <source /> is closed
+            sources = chain(elem.iterancestors("source"), elem.itersiblings("source", preceding=True))
+            if image_src(elem) is None and (source := next(sources, None)) is not None:
+                for attr in ("srcset", "data-srcset"):
+                    if source.get(attr):
+                        elem.set(attr, source.get(attr))
             elem.tag = "graphic"
         # move images out of links to prevent duplication/loss
         if options.links:
             for ref in list(tree.iter("ref")):
                 graphics = list(ref.iter("graphic"))
-                # iterate in reverse so addnext preserves original order
-                for graphic in reversed(graphics):
-                    ref.addnext(graphic)
+                # addnext() would land after the tail text of the link
+                for graphic in graphics:
+                    if graphic.tail:  # keep the text where the image was
+                        prev, parent = graphic.getprevious(), graphic.getparent()
+                        if prev is not None:
+                            prev.tail = (prev.tail or "") + graphic.tail
+                        elif parent is not None:
+                            parent.text = (parent.text or "") + graphic.tail
+                        graphic.tail = None
+                    ref.addprevious(graphic)
                 # remove ref if it only contained images (no text),
                 # its leftover children (picture, source) would
                 # otherwise trigger justext fallback and lose images
@@ -464,7 +560,7 @@ def convert_tags(tree: HtmlElement, options: Extractor, url: str | None = None) 
 
 
 HTML_CONVERSIONS = {
-    "list": "ul",
+    "list": lambda elem: "ol" if elem.get("rend") == "ol" else "ul",
     "item": "li",
     "code": "pre",
     "quote": "blockquote",
@@ -496,7 +592,13 @@ def convert_to_html(tree: _Element) -> _Element:
 
 def build_html_output(document: Document, with_metadata: bool = False) -> str:
     "Convert the document to HTML and return a string."
-    html_tree = convert_to_html(document.body)
+    body = remove_empty_elements(deepcopy(document.body))
+    comments = remove_empty_elements(deepcopy(document.commentsbody))
+    if len(comments) or (comments.text or "").strip():
+        comments.tag = "section"
+        comments.set("class", "comments")
+        body.append(comments)
+    html_tree = convert_to_html(body)
 
     if with_metadata:
         head = Element("head")

@@ -57,7 +57,7 @@ TOOL_ALIASES_KEY = "tool_aliases"
 
 
 def add_aliases(
-    ctx: "AppContext",
+    ctx: AppContext,
     aliases: dict[str, str],
     *,
     overwrite: bool = False,
@@ -114,7 +114,7 @@ def add_aliases(
 
 
 def add_identity_aliases(
-    ctx: "AppContext", canonical_names: Iterable[str]
+    ctx: AppContext, canonical_names: Iterable[str]
 ) -> None:
     """Convenience: register ``{name: name}`` for every canonical name.
 
@@ -167,7 +167,7 @@ def get_alias_map() -> dict[str, str]:
     return dict(aliases)
 
 
-def clear_aliases(ctx: "AppContext") -> None:
+def clear_aliases(ctx: AppContext) -> None:
     """Drop the alias map entirely. Used when a request needs to reset
     its loaded toolset (rare — the natural lifetime is the streaming
     task scope, after which AppContext is cleared anyway)."""
@@ -176,7 +176,7 @@ def clear_aliases(ctx: "AppContext") -> None:
     ctx.metadata.pop(TOOL_ALIASES_KEY, None)
 
 
-def remove_aliases(ctx: "AppContext", exposed_names: Iterable[str]) -> int:
+def remove_aliases(ctx: AppContext, exposed_names: Iterable[str]) -> int:
     """Remove specific exposed-name entries from the map. Returns the
     count of entries actually removed. Used when a bundle is unloaded
     mid-loop (e.g. a discovery handler queues a removal).

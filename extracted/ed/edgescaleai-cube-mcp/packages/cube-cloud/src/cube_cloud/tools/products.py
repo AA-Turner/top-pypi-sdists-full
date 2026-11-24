@@ -6,6 +6,33 @@ from cube_common.apollo_client import ApolloClient, ApolloError
 from cube_common import apollo_queries as Q
 
 
+# TEMPORARY (remove when product-owner tags are enforced): customer products that
+# `list_products` hides from anyone outside EdgeScale, so a new customer browsing the
+# catalog does not stumble on another customer's software. The ABB products carry
+# that customer's IP and live in our own `com.edgescaleai-cube` group, so they are
+# matched on the name after the `:`, case-insensitively.
+#
+# This HIDES names in one listing; it is NOT access control. `get_product_releases`,
+# `install_entity` and `compare_product_versions` still accept an id the caller
+# already knows, and `acr_get_token` returns an Apollo bearer that reads the whole
+# catalog directly (every principal in the space holds `product:viewer` at the
+# products root). The real fix is enforcing the owner tags the rbac-service holds
+# (docs/console-spec.md §4.30); delete this filter, its constant and its tests then.
+HIDDEN_PRODUCT_NAME_PREFIXES = ("abb-",)
+# Callers whose key belongs to an address at this domain see hidden products. The
+# domain is stored on the key at creation (`api_keys.derive_email_identity`,
+# lowercased); a key with no address on file (bot/CLI) does not see them.
+EDGESCALE_EMAIL_DOMAIN = "edgescaleai.com"
+
+
+def _hidden_from(product_id: str, user_domain: str | None) -> bool:
+    """True when `list_products` should leave this product out for the caller."""
+    if (user_domain or "").strip().lower() == EDGESCALE_EMAIL_DOMAIN:
+        return False
+    name = product_id.rsplit(":", 1)[-1].strip().lower()
+    return name.startswith(HIDDEN_PRODUCT_NAME_PREFIXES)
+
+
 def _version_from_coordinate(coordinate: str) -> str:
     """Extract version from a maven coordinate (group:name:version)."""
     parts = coordinate.split(":")
@@ -13,8 +40,13 @@ def _version_from_coordinate(coordinate: str) -> str:
 
 
 async def list_products(
-    client: ApolloClient, search: str | None = None, page_size: int = 50
+    client: ApolloClient,
+    search: str | None = None,
+    page_size: int = 50,
+    user_domain: str | None = None,
 ) -> str:
+    """List Apollo products. `user_domain` is the caller's key's email domain; see
+    `HIDDEN_PRODUCT_NAME_PREFIXES` for what it decides (a temporary filter)."""
     page_size = min(max(page_size, 1), 200)
     products: list[dict] = []
     page_token: str | None = None
@@ -32,6 +64,8 @@ async def list_products(
         page_token = page_data.get("nextPageToken")
         if not page_token:
             break
+
+    products = [p for p in products if not _hidden_from(p.get("productId", ""), user_domain)]
 
     if search:
         search_lower = search.lower()

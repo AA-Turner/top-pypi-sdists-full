@@ -1,5 +1,7 @@
 from chalk._gen.chalk.auth.v1 import featurepermission_pb2 as _featurepermission_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import team_pb2 as _team_pb2
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -71,7 +73,15 @@ class TeamPermissions(_message.Message):
     def __init__(self, permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...) -> None: ...
 
 class UserAgent(_message.Message):
-    __slots__ = ("client_id", "user_id", "team_id", "permissions_by_environment", "impersonated", "team_permissions")
+    __slots__ = (
+        "team_type",
+        "client_id",
+        "user_id",
+        "team_id",
+        "permissions_by_environment",
+        "impersonated",
+        "team_permissions",
+    )
     class PermissionsByEnvironmentEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -82,12 +92,14 @@ class UserAgent(_message.Message):
             self, key: _Optional[str] = ..., value: _Optional[_Union[EnvironmentPermissions, _Mapping]] = ...
         ) -> None: ...
 
+    TEAM_TYPE_FIELD_NUMBER: _ClassVar[int]
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
     PERMISSIONS_BY_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     IMPERSONATED_FIELD_NUMBER: _ClassVar[int]
     TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    team_type: _team_pb2.TeamCreationType
     client_id: str
     user_id: str
     team_id: str
@@ -96,6 +108,7 @@ class UserAgent(_message.Message):
     team_permissions: TeamPermissions
     def __init__(
         self,
+        team_type: _Optional[_Union[_team_pb2.TeamCreationType, str]] = ...,
         client_id: _Optional[str] = ...,
         user_id: _Optional[str] = ...,
         team_id: _Optional[str] = ...,
@@ -114,6 +127,7 @@ class CustomClaim(_message.Message):
 
 class ServiceTokenAgent(_message.Message):
     __slots__ = (
+        "team_type",
         "id",
         "client_id",
         "team_id",
@@ -124,6 +138,7 @@ class ServiceTokenAgent(_message.Message):
         "feature_permissions",
         "team_permissions",
     )
+    TEAM_TYPE_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
@@ -133,6 +148,7 @@ class ServiceTokenAgent(_message.Message):
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    team_type: _team_pb2.TeamCreationType
     id: str
     client_id: str
     team_id: str
@@ -144,6 +160,7 @@ class ServiceTokenAgent(_message.Message):
     team_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     def __init__(
         self,
+        team_type: _Optional[_Union[_team_pb2.TeamCreationType, str]] = ...,
         id: _Optional[str] = ...,
         client_id: _Optional[str] = ...,
         team_id: _Optional[str] = ...,
@@ -156,12 +173,14 @@ class ServiceTokenAgent(_message.Message):
     ) -> None: ...
 
 class EngineAgent(_message.Message):
-    __slots__ = ("id", "team_id", "project_id", "environment_id", "impersonated")
+    __slots__ = ("team_type", "id", "team_id", "project_id", "environment_id", "impersonated")
+    TEAM_TYPE_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
     PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     IMPERSONATED_FIELD_NUMBER: _ClassVar[int]
+    team_type: _team_pb2.TeamCreationType
     id: str
     team_id: str
     project_id: str
@@ -169,6 +188,7 @@ class EngineAgent(_message.Message):
     impersonated: bool
     def __init__(
         self,
+        team_type: _Optional[_Union[_team_pb2.TeamCreationType, str]] = ...,
         id: _Optional[str] = ...,
         team_id: _Optional[str] = ...,
         project_id: _Optional[str] = ...,
@@ -181,17 +201,26 @@ class MetadataServiceAgent(_message.Message):
     def __init__(self) -> None: ...
 
 class ExchangeTokenDetails(_message.Message):
-    __slots__ = ("requestable_permissions", "generation_number", "subject", "environment_id", "kind")
+    __slots__ = (
+        "requestable_permissions",
+        "generation_number",
+        "subject",
+        "environment_id",
+        "kind",
+        "max_working_token_lifetime",
+    )
     REQUESTABLE_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     GENERATION_NUMBER_FIELD_NUMBER: _ClassVar[int]
     SUBJECT_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
+    MAX_WORKING_TOKEN_LIFETIME_FIELD_NUMBER: _ClassVar[int]
     requestable_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     generation_number: int
     subject: str
     environment_id: str
     kind: ExchangeTokenKind
+    max_working_token_lifetime: _duration_pb2.Duration
     def __init__(
         self,
         requestable_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
@@ -199,15 +228,18 @@ class ExchangeTokenDetails(_message.Message):
         subject: _Optional[str] = ...,
         environment_id: _Optional[str] = ...,
         kind: _Optional[_Union[ExchangeTokenKind, str]] = ...,
+        max_working_token_lifetime: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class TenantAgent(_message.Message):
-    __slots__ = ("team_id", "permissions", "environment_id", "exchange_token_details", "cluster_id")
+    __slots__ = ("team_type", "team_id", "permissions", "environment_id", "exchange_token_details", "cluster_id")
+    TEAM_TYPE_FIELD_NUMBER: _ClassVar[int]
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
     PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     EXCHANGE_TOKEN_DETAILS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    team_type: _team_pb2.TeamCreationType
     team_id: str
     permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     environment_id: str
@@ -215,6 +247,7 @@ class TenantAgent(_message.Message):
     cluster_id: str
     def __init__(
         self,
+        team_type: _Optional[_Union[_team_pb2.TeamCreationType, str]] = ...,
         team_id: _Optional[str] = ...,
         permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
         environment_id: _Optional[str] = ...,
@@ -274,27 +307,50 @@ class SandboxPrincipal(_message.Message):
     def __init__(self, id: _Optional[str] = ..., group_id: _Optional[str] = ...) -> None: ...
 
 class WorkloadAgent(_message.Message):
-    __slots__ = ("team_id", "environment_id", "permissions", "sandbox", "feature_permissions", "customer_claims")
+    __slots__ = (
+        "team_type",
+        "team_id",
+        "environment_id",
+        "permissions",
+        "sandbox",
+        "feature_permissions",
+        "customer_claims",
+        "user_provided_claims",
+    )
+    class UserProvidedClaimsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    TEAM_TYPE_FIELD_NUMBER: _ClassVar[int]
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     SANDBOX_FIELD_NUMBER: _ClassVar[int]
     FEATURE_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
+    USER_PROVIDED_CLAIMS_FIELD_NUMBER: _ClassVar[int]
+    team_type: _team_pb2.TeamCreationType
     team_id: str
     environment_id: str
     permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     sandbox: SandboxPrincipal
     feature_permissions: _featurepermission_pb2.FeaturePermissions
     customer_claims: _containers.RepeatedCompositeFieldContainer[CustomClaim]
+    user_provided_claims: _containers.ScalarMap[str, str]
     def __init__(
         self,
+        team_type: _Optional[_Union[_team_pb2.TeamCreationType, str]] = ...,
         team_id: _Optional[str] = ...,
         environment_id: _Optional[str] = ...,
         permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
         sandbox: _Optional[_Union[SandboxPrincipal, _Mapping]] = ...,
         feature_permissions: _Optional[_Union[_featurepermission_pb2.FeaturePermissions, _Mapping]] = ...,
         customer_claims: _Optional[_Iterable[_Union[CustomClaim, _Mapping]]] = ...,
+        user_provided_claims: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class Agent(_message.Message):

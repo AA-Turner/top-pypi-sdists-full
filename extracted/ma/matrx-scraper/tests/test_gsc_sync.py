@@ -11,7 +11,6 @@ import pytest
 from matrx_scraper.web_crawl.contracts import GscSyncSummary
 from matrx_scraper.web_crawl.gsc_sync import (
     GscDailyPageRow,
-    build_gsc_client,
     compute_sync_window,
     fetch_search_analytics_rows,
     parse_gsc_binding,
@@ -188,7 +187,7 @@ async def test_fetch_search_analytics_rows_paginates_fully(
     page_two = {"rows": [{"keys": ["2026-07-02", "https://example.com/a"], "clicks": 3}]}
     fake = _FakeHttp([_response(200, page_one), _response(200, page_two)])
     monkeypatch.setattr(
-        "matrx_scraper.web_crawl.gsc_sync.httpx.AsyncClient",
+        "httpx.AsyncClient",
         lambda **kwargs: fake,
     )
     rows = await fetch_search_analytics_rows(
@@ -210,7 +209,7 @@ async def test_fetch_search_analytics_rows_raises_on_http_error(
 ) -> None:
     fake = _FakeHttp([_response(403, {"error": {"status": "PERMISSION_DENIED"}})])
     monkeypatch.setattr(
-        "matrx_scraper.web_crawl.gsc_sync.httpx.AsyncClient",
+        "httpx.AsyncClient",
         lambda **kwargs: fake,
     )
     with pytest.raises(RuntimeError, match="HTTP 403"):
@@ -357,7 +356,7 @@ async def test_injected_resolver_wins_and_needs_no_aidream_env(
     monkeypatch.delenv("AIDREAM_URL", raising=False)
     monkeypatch.delenv("AIDREAM_SERVICE_TOKEN", raising=False)
     monkeypatch.setattr(
-        "matrx_scraper.web_crawl.gsc_sync.httpx.AsyncClient",
+        "httpx.AsyncClient",
         lambda **kwargs: pytest.fail("injected resolver must not fall back to HTTP"),
     )
 
@@ -456,7 +455,7 @@ async def test_resolve_google_credential_refuses_without_an_organization(
     def _never(**_kwargs: object) -> object:  # pragma: no cover - must not run
         raise AssertionError("an organization-less credential call reached the wire")
 
-    monkeypatch.setattr("matrx_scraper.web_crawl.gsc_sync.httpx.AsyncClient", _never)
+    monkeypatch.setattr("httpx.AsyncClient", _never)
 
     with pytest.raises(RuntimeError, match="X-Organization-Id"):
         await resolve_google_credential(

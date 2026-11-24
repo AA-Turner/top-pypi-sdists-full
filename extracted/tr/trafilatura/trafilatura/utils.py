@@ -9,10 +9,11 @@ import re
 import sys
 import zlib
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from functools import lru_cache
-from itertools import islice
+from copy import copy
+from itertools import chain, islice
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 from unicodedata import normalize
+from urllib.parse import urlsplit
 
 # response compression
 try:
@@ -54,15 +55,33 @@ except ImportError:
     cchardet_detect = None  # type: ignore[assignment]
 
 from charset_normalizer import from_bytes
-from courlan import fix_relative_urls, get_base_url
-from lxml.etree import _Element
-from lxml.html import HtmlElement, HTMLParser, fromstring
+from courlan import fix_relative_urls
+from lxml.etree import Comment, ElementDefaultClassLookup, ProcessingInstruction, _Element, strip_tags
+from lxml.html import HtmlComment, HtmlElement, HtmlEntity, HTMLParser, HtmlProcessingInstruction, fromstring
 
 # response types
 from urllib3.response import HTTPResponse
 
 if TYPE_CHECKING:  # pragma: no cover
+    from typing import ParamSpec, Protocol, TypeVar
+
     from .settings import Document, Extractor
+
+    _P = ParamSpec("_P")
+    _R = TypeVar("_R")
+    _R_co = TypeVar("_R_co", covariant=True)
+
+    class _CachedFunction(Protocol[_P, _R_co]):
+        "Function wrapped by lru_cache, keeping its signature for type checkers."
+
+        def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R_co: ...
+
+        def cache_clear(self) -> None: ...
+
+    # functools.lru_cache hides the signature of the decorated function
+    def lru_cache(maxsize: int | None = 128, typed: bool = False) -> Callable[[Callable[_P, _R]], _CachedFunction[_P, _R]]: ...
+else:
+    from functools import lru_cache
 
 
 class Response:
@@ -109,18 +128,34 @@ DOCTYPE_TAG = re.compile("^< ?! ?DOCTYPE[^>]*/[^<>]*>", re.IGNORECASE)
 FAULTY_HTML = re.compile(r"(<html.*?)\s*/>", re.IGNORECASE)
 HTML_STRIP_TAGS = re.compile(r"(<!--.*?-->|<[^>]*>)")
 # control characters
-INVALID_XML_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+_INVALID_XML_BYTES = bytes(range(9)) + b"\x0b\x0c" + bytes(range(14, 32))
+_INVALID_XML_NONASCII = "\ufffe\uffff"
+INVALID_XML_CHARS = re.compile(f"[{re.escape(_INVALID_XML_BYTES.decode() + _INVALID_XML_NONASCII)}]")
+# numeric character references to the same characters (&#1;, &#x1F;, &#65535;...), which libxml2
+# decodes and lxml then refuses to store; the closing semicolon is optional for libxml2
+INVALID_XML_CHARREFS = re.compile(
+    r"&#(?:0*(?:[0-8]|1[124-9]|2[0-9]|3[01]|6553[45])(?![0-9])"
+    r"|[xX]0*(?:[0-8bBcCeEfF]|1[0-9a-fA-F]|[fF]{3}[eEfF])(?![0-9a-fA-F]));?"
+)
+_INVALID_XML_CHARREFS_BYTES = re.compile(INVALID_XML_CHARREFS.pattern.encode())
+
 
 # note: htmldate could use HTML comments
 # huge_tree=True, remove_blank_text=True
-HTML_PARSER = HTMLParser(collect_ids=False, default_doctype=False, encoding="utf-8", remove_comments=True, remove_pis=True)
+def get_html_parser() -> HTMLParser:
+    "Return a new HTML parser: a parser shared across threads makes concurrent extractions crash (#925)."
+    parser = HTMLParser(collect_ids=False, default_doctype=False, encoding="utf-8", remove_comments=True, remove_pis=True)
+    # one element class instead of the per-tag lxml.html lookup
+    parser.set_element_class_lookup(
+        ElementDefaultClassLookup(element=HtmlElement, comment=HtmlComment, pi=HtmlProcessingInstruction, entity=HtmlEntity)
+    )
+    return parser
 
-LINES_TRIMMING = re.compile(r"(?<![p{P}>])\n", flags=re.UNICODE | re.MULTILINE)
 
 URL_BLACKLIST_REGEX = re.compile(r"^https?://|/+$")
 
 # Regex to check image file extensions
-IMAGE_EXTENSION = re.compile(r"[^\s]+\.(avif|bmp|gif|hei[cf]|jpe?g|png|webp)(\b|$)", re.IGNORECASE)
+IMAGE_EXTENSION = re.compile(r"\S\.(avif|bmp|gif|hei[cf]|jpe?g|png|webp)(\b|$)", re.IGNORECASE)
 
 FORMATTING_PROTECTED = {"cell", "head", "hi", "item", "p", "quote", "ref", "td"}
 SPACING_PROTECTED = {"code", "pre"}
@@ -291,7 +326,13 @@ def is_dubious_html(beginning: str) -> bool:
 
 def repair_faulty_html(htmlstring: str, beginning: str) -> str:
     "Repair faulty HTML strings to make then palatable for libxml2."
-    htmlstring = INVALID_XML_CHARS.sub("", htmlstring)
+    # the invalid characters and char refs are ASCII, "replace" keeps their positions
+    data = htmlstring.encode("ascii", "replace")
+    if len(data.translate(None, _INVALID_XML_BYTES)) != len(data) or any(c in htmlstring for c in _INVALID_XML_NONASCII):
+        htmlstring = INVALID_XML_CHARS.sub("", htmlstring)
+        data = htmlstring.encode("ascii", "replace")
+    if _INVALID_XML_CHARREFS_BYTES.search(data):
+        htmlstring = INVALID_XML_CHARREFS.sub("", htmlstring)
     # libxml2/LXML issue: https://bugs.launchpad.net/lxml/+bug/1955915
     if "doctype" in beginning:
         firstline, _, rest = htmlstring.partition("\n")
@@ -307,10 +348,45 @@ def repair_faulty_html(htmlstring: str, beginning: str) -> str:
 def fromstring_bytes(htmlobject: str) -> HtmlElement | None:
     "Try to pass bytes to LXML parser."
     try:
-        return fromstring(htmlobject.encode("utf8", "surrogatepass"), parser=HTML_PARSER)
+        return fromstring(htmlobject.encode("utf8", "surrogatepass"), parser=get_html_parser())
     except Exception as err:
         LOGGER.error("lxml parser bytestring %s", err)
     return None
+
+
+# elements that legitimately live in <head>: HTML metadata content and the
+# containers a parser may leave there; any other element child of <head> is
+# flow content that belongs in <body>
+HEAD_CONTENT_TAGS = {"base", "link", "meta", "noscript", "script", "style", "template", "title"}
+
+
+def _relocate_head_content(tree: HtmlElement) -> None:
+    """Move flow content mis-nested in <head> to the front of <body>.
+
+    libxml2 keeps the implied head open across HTML5 semantic sectioning
+    elements (main, header, article, ...), so a document omitting the
+    explicit <head> tag can parse with its article inside <head> -- which
+    tree_cleaning then deletes wholesale. Element children of <head> that
+    are not head content move, in document order and with their subtrees
+    and tails, to the front of <body> (created if absent). Text that
+    libxml2 2.14+ makes the body's leading text followed those elements
+    in the source, so it goes after them.
+    """
+    head = tree.find("head")
+    if head is None:
+        return
+    moved = [child for child in head if isinstance(child.tag, str) and child.tag not in HEAD_CONTENT_TAGS]
+    if not moved:
+        return
+    body = tree.find("body")
+    if body is None:
+        body = tree.makeelement("body")
+        tree.append(body)
+    if body.text:
+        moved[-1].tail = (moved[-1].tail or "") + body.text
+        body.text = None
+    for index, child in enumerate(moved):
+        body.insert(index, child)
 
 
 def load_html(htmlobject: HtmlInput, max_size: int | None = None) -> HtmlElement | None:
@@ -320,6 +396,9 @@ def load_html(htmlobject: HtmlInput, max_size: int | None = None) -> HtmlElement
     Expects a full document: the dubious-HTML check below rejects a single-block
     fragment (e.g. "<p>x</p>" alone has one child and is treated as not-quite-HTML).
     Wrap bare fragments in an extra element (e.g. f"<div>{fragment}</div>") first.
+
+    Parsed elements are plain HtmlElement objects, without lxml.html's form helpers
+    (FormElement, InputElement...). Use lxml.html.fromstring() if they are needed.
     """
     # use tree directly
     if isinstance(htmlobject, HtmlElement):
@@ -342,7 +421,7 @@ def load_html(htmlobject: HtmlInput, max_size: int | None = None) -> HtmlElement
     # first pass: use Unicode string
     fallback_parse = False
     try:
-        tree = fromstring(htmlobject, parser=HTML_PARSER)
+        tree = fromstring(htmlobject, parser=get_html_parser())
     except ValueError:
         # "Unicode strings with encoding declaration are not supported."
         tree = fromstring_bytes(htmlobject)
@@ -357,15 +436,25 @@ def load_html(htmlobject: HtmlInput, max_size: int | None = None) -> HtmlElement
     if tree is not None and check_flag is True and len(tree) < 2:
         LOGGER.error("parsed tree length: %s, wrong data type or not valid HTML", len(tree))
         tree = None
+    # repair a mis-nested implied head (flow content parsed into <head>)
+    if tree is not None:
+        _relocate_head_content(tree)
     return tree
 
 
-def safe_base_url(url: str) -> str:
-    "Get the base URL, empty string if malformed."
-    try:
-        return get_base_url(url)
-    except ValueError:
-        return ""
+def copy_clean_tree(tree: HtmlElement) -> HtmlElement:
+    """Copy a tree given by the caller and clean it like load_html() does for a string:
+    comments, processing instructions and invalid XML characters are removed (#1144)."""
+    tree = copy(tree)
+    strip_tags(tree, Comment, ProcessingInstruction)  # tails are kept
+    # one check on the whole text, the characters are rare
+    if INVALID_XML_CHARS.search("".join(tree.itertext())):
+        for elem in tree.iter():
+            if elem.text:
+                elem.text = INVALID_XML_CHARS.sub("", elem.text)
+            if elem.tail:
+                elem.tail = INVALID_XML_CHARS.sub("", elem.tail)
+    return tree
 
 
 def safe_relative_url(baseurl: str, url: str) -> str:
@@ -376,16 +465,33 @@ def safe_relative_url(baseurl: str, url: str) -> str:
         return ""
 
 
+def document_base_url(tree: HtmlElement, url: str | None) -> str | None:
+    "URL to resolve relative links against: the first <base href> joined with the page URL, else the page URL."
+    for elem in tree.iter("base"):
+        href = elem.get("href")
+        if href is not None:
+            base = safe_relative_url(url, href.strip()) if url else href.strip()
+            parts = urlsplit(base)
+            return base if parts.scheme in ("http", "https") and parts.netloc else url
+    return url
+
+
+# zero-width non-joiner and joiner: needed for Persian, Urdu and Indic
+# spelling and emoji sequences, although str.isprintable() rejects them
+ZERO_WIDTH_JOINERS = "\u200c\u200d"
+ZERO_WIDTH_TABLE = str.maketrans("", "", ZERO_WIDTH_JOINERS)
+
+
 @lru_cache(maxsize=2**14)  # sys.maxunicode = 1114111
 def return_printables_and_spaces(char: str) -> str:
     "Return a character if it belongs to certain classes"
-    return char if char.isprintable() or char.isspace() else ""
+    return char if char.isprintable() or char.isspace() or char in ZERO_WIDTH_JOINERS else ""
 
 
 def remove_control_characters(string: str) -> str:
     """Prevent non-printable and XML invalid character errors"""
     # in case most strings are already clean
-    if string.isprintable():
+    if string.isprintable() or "".join(string.split()).isprintable():
         return string
     return "".join(map(return_printables_and_spaces, string))
 
@@ -401,18 +507,23 @@ def line_processing(line: str, preserve_space: bool = False, trailing_space: boo
     and invalid XML characters on line level"""
     # spacing HTML entities: https://www.w3.org/MarkUp/html-spec/html-spec_13.html
     # unique code spaces
-    new_line = remove_control_characters(line.replace("&#13;", "\r").replace("&#10;", "\n").replace("&nbsp;", "\u00a0"))
+    cleaned = remove_control_characters(line.replace("&#13;", "\r").replace("&#10;", "\n").replace("&nbsp;", "\u00a0"))
+    new_line: str | None = cleaned
     if not preserve_space:
-        # remove newlines that are not related to punctuation or markup
-        # remove non-printable chars and normalize space characters (including Unicode spaces)
-        new_line = trim(LINES_TRIMMING.sub(r" ", new_line))
+        # normalize space characters (including newlines and Unicode spaces)
+        new_line = trim(cleaned)
         # prune empty lines
-        if all(map(str.isspace, new_line)):
-            new_line = None  # type: ignore[assignment]
+        if not new_line:
+            new_line = None
         elif trailing_space:
             space_before = " " if line[0].isspace() else ""
             space_after = " " if line[-1].isspace() else ""
             new_line = f"{space_before}{new_line}{space_after}"
+    # drop text made only of zero-width characters (invisible lines in TXT/XML)
+    # (only checked when a joiner is present, to keep the common path fast)
+    if new_line is not None and ("\u200c" in new_line or "\u200d" in new_line):
+        if not new_line.translate(ZERO_WIDTH_TABLE).strip():
+            new_line = None
     return new_line
 
 
@@ -459,8 +570,7 @@ def sanitize_tree(tree: _Element) -> _Element:
 def trim(string: str) -> str:
     "Remove unnecessary spaces within a text string."
     try:
-        # remove newlines that are not related to punctuation or markup + proper trimming
-        return " ".join(string.split()).strip()
+        return " ".join(string.split())
     except (AttributeError, TypeError):
         return ""
 
@@ -472,13 +582,30 @@ def as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else [value]
 
 
+PLACEHOLDER_IMAGES = ("blank", "dummy", "spacer", "placeholder", "pixel", "1x1", "transparent")
+
+
 def image_src(element: _Element) -> str | None:
-    "Image source of an element: src, data-src, or the first data-src* attribute pointing to an image file."
-    for attr in ("data-src", "src"):
-        src = element.get(attr, "")
+    """Image source of an element: lazy-loading attributes, src, the first data-src* attribute
+    pointing to an image file, then the first image URL of a srcset attribute. A placeholder
+    src (blank.gif, spacer.png...) is only used if nothing else is found."""
+    placeholder = None
+    for attr in ("data-src", "data-lazy-src", "data-original", "src"):
+        src = element.get(attr, "").strip()
         if is_image_file(src):
+            # the file name, not the path: "track-spacer.jpg" is a real image
+            if attr == "src" and src.split("?")[0].rsplit("/", 1)[-1].lower().startswith(PLACEHOLDER_IMAGES):
+                placeholder = src
+                continue
             return src
-    return next((v for a, v in element.attrib.items() if a.startswith("data-src") and is_image_file(v)), None)
+    data_srcs = (v for a, v in element.attrib.items() if a.startswith("data-src") and "srcset" not in a)
+    # data-srcset and srcset first, then variants such as data-srcset-webp
+    srcset_attrs = ["data-srcset", "srcset"] + [
+        a for a in element.attrib if "srcset" in a and a not in ("data-srcset", "srcset")
+    ]
+    # srcset URLs can contain commas (e.g. CDN paths), candidates are separated by whitespace
+    srcsets = (url.rstrip(",") for attr in srcset_attrs for url in element.get(attr, "").split())
+    return next((v for v in chain(data_srcs, srcsets) if is_image_file(v)), placeholder)
 
 
 def is_image_file(imagesrc: str | None) -> bool:
@@ -497,13 +624,14 @@ def make_chunks(iterable: Iterable[str], n: int) -> Iterator[tuple[str, ...]]:
         yield batch
 
 
-def is_acceptable_length(my_len: int, options: "Extractor") -> bool:
+def is_acceptable_length(my_len: int, options: "Extractor", url: str | None = None) -> bool:
     "Check if the document length is within acceptable boundaries."
+    url = url or options.url
     if my_len < options.min_file_size:
-        LOGGER.error("too small/incorrect for URL %s", options.url)
+        LOGGER.error("too small/incorrect for URL %s", url)
         return False
     if my_len > options.max_file_size:
-        LOGGER.error("too large: length %s for URL %s", my_len, options.url)
+        LOGGER.error("too large: length %s for URL %s", my_len, url)
         return False
     return True
 
@@ -532,6 +660,17 @@ def check_html_lang(tree: HtmlElement, target_language: str, strict: bool = Fals
     return True
 
 
+def language_code(value: Any) -> str | None:
+    "First ISO 639-1 code in a declared language such as 'en-US', 'fr_FR' or 'de, en', None for 'utf-8' or 'eng'."
+    if not isinstance(value, str):
+        return None
+    for part in re.split(r"[\s,;]+", value):
+        code = re.split(r"[-_]", part, maxsplit=1)[0].lower()
+        if len(code) == 2 and code.isascii() and code.isalpha():
+            return code
+    return None
+
+
 def language_classifier(temp_text: str, temp_comments: str) -> str | None:
     """Run external component (if installed) for language identification"""
     if LANGID_FLAG is True:
@@ -541,14 +680,27 @@ def language_classifier(temp_text: str, temp_comments: str) -> str | None:
     return None  # pragma: no cover
 
 
+def detectable_languages() -> set[str] | None:
+    """Return the language codes the language detector can output, None if it is not installed"""
+    if LANGID_FLAG is True:
+        return {lang for lang, _ in py3langid.rank("")}
+    return None
+
+
 def language_filter(temp_text: str, temp_comments: str, target_language: str, docmeta: "Document") -> tuple[bool, "Document"]:
     """Filter text based on language detection and store relevant information"""
     # todo: run and pass info along anyway?
     if target_language is not None:
-        # more thorough: detection on actual text content
-        docmeta.language = language_classifier(temp_text, temp_comments)
-        # HTML lang check? sometimes contradicted by detection above
-        if docmeta.language is not None and docmeta.language != target_language:
+        # more thorough: detection on actual text content, the markup value stays if there is none
+        detected = language_classifier(temp_text, temp_comments)
+        docmeta.language = detected or docmeta.language
+        # the detector can never return this language, so do not filter (as documented)
+        available = detectable_languages()
+        if available is not None and target_language not in available:
+            LOGGER.warning("target language not available in the detector, skipping filter: %s", target_language)
+            return False, docmeta
+        # filter on the detected language only, HTML tags don't always match the content (#224)
+        if detected is not None and detected != target_language:
             LOGGER.warning("wrong language: %s %s", docmeta.language, docmeta.url)
             return True, docmeta
     return False, docmeta
@@ -563,4 +715,7 @@ def textfilter(element: _Element) -> bool:
 
 def text_chars_test(string: str | None) -> bool:
     """Determine if a string is only composed of spaces and/or control characters"""
+    # zero-width joiners alone are invisible — treat like empty for TXT/XML pruning
+    if string and ("\u200c" in string or "\u200d" in string):
+        string = string.translate(ZERO_WIDTH_TABLE)
     return bool(string and not string.isspace())

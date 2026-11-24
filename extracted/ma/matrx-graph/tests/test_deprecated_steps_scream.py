@@ -166,6 +166,7 @@ def test_usages_are_found_in_raw_and_legacy_prefixed_nodes(fixture_list: None) -
     nodes = [
         _node("a", "data.transform"),
         {"id": "b", "type": "data", "data": {"spec_type": FIXTURE_TYPE}},
+        # action-namespace-ok: legacy stored spelling is the fixture; proves old definitions still scream
         _node("c", f"action.{FIXTURE_TYPE}"),
     ]
     found = deprecations.find_deprecated_usages(nodes, workflow_id="wf-1", workflow_name="X")

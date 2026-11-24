@@ -11,7 +11,11 @@ from collections.abc import Mapping
 from typing import Any
 
 from probe.foundation.safe_warn import safe_warn as _diagnostics
+from probe.sdk.catalog.environments import RunEnvironments
+from probe.sdk.catalog.vocab import Provider
 from probe.sdk.run.samples.points import TrainingGuard
+
+from probe.sdk.run import trainer_facts
 
 from .. import _rl_owner
 from .._live import refuse_commands
@@ -23,7 +27,7 @@ from .runs import (
     get_resume_folder, get_external_id, get_names, get_rewind_step, get_run_config, get_run_name, read_resume_step,
 )
 from .training import EvalPoints, build_training_plan
-from .trainers import FAMILIES, RollouterFamily, TrainerFamily, TrainerWraps, build_mapper
+from .trainers import FAMILIES, RollouterFamily, TrainerFamily, TrainerWraps, build_mapper, count_environment_tasks
 
 #: The producer the verl training process writes samples as.
 PRODUCER = "verl"
@@ -51,6 +55,8 @@ class VerlSession:
         self.guard = _rl_owner.HookGuard("verl")
         self.samples = run.samples.as_producer(ROLLOUTER_PRODUCER if is_rollouter else PRODUCER)
         self.recorder = VerlRecorder(self.samples, floor=floor, is_eval_only=is_rollouter)
+        #: Each `data_source` the rows name, registered once per run as a `verl` environment (D9).
+        self.environments = RunEnvironments(run, provider=Provider.VERL)
         self.phases = None if is_rollouter else PhaseClock()
         self.wraps = TrainerWraps(get_active_session)
         #: Each validation pass's per-sample eval values (`training/driver.py`).
@@ -67,8 +73,11 @@ class VerlSession:
         if id(trainer) in self._trainers:
             return
         self._trainers.add(id(trainer))
-        self.recorder.set_mapper(build_mapper(trainer))
-        self.recorder.plan_steps(family.get_total_steps(trainer))
+        self.environments.set_task_source(lambda: count_environment_tasks(trainer))
+        self.recorder.set_mapper(build_mapper(trainer, environments=self.environments))
+        total_steps = family.get_total_steps(trainer)
+        self.recorder.plan_steps(total_steps)
+        trainer_facts.send_total_steps(self.run, total_steps)
         if not self._is_rollouter:  # what the worker ranks send per sample, and what they cannot (T3)
             self.samples.plan(training=build_training_plan(getattr(trainer, "config", None),
                                                            family.get_unsupported(trainer)))  # fmt: skip
@@ -128,6 +137,7 @@ class VerlSession:
         if _ACTIVE is self:
             _ACTIVE = None  # the wraps stop recording; a later `probe` Tracking starts a new session
         final_step = self.recorder.close()
+        self.environments.close()  # the last registrations land before the run closes
         if self.is_owner:
             _rl_owner.close_run(self.run, self.samples, final_step=final_step, should_finish=True, status=status)
         else:
@@ -170,6 +180,7 @@ def start_session(project_name: Any, experiment_name: Any, config: Any) -> VerlS
                 resume_from=get_resume_folder(config, resume), should_stamp_checkpoints=True,
             )
         session = VerlSession(run, is_owner=is_owner, floor=floor)
+        _rl_owner.setup_pause(run, session.guard)  # the fit loop's metrics row ends each step (`log_metrics`)
         session.samples.plan(producers=[PRODUCER])
         refuse_commands(session.samples, COMMAND_REFUSAL)
         session.wraps.install()

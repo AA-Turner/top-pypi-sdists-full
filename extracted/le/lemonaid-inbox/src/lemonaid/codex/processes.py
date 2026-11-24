@@ -5,15 +5,21 @@ process still runs when `ps` shows the same pid started at the same moment. When
 process has run several threads, as after `/clear`, the thread it reported last is the one
 it runs. A process under the shared app-server daemon serves every terminal at once, so it
 names none of them.
+
+A caller that polls, such as each of the scout host's Codex scouts, which all check their
+threads at once, may pass a *max_age* to share one answer with the other callers in its
+process. A caller about to act on where a lemon runs lists afresh.
 """
 
 import json
 import os
 import subprocess
+import threading
 import time
 import typing as ty
 from pathlib import Path
 
+from .. import process_table
 from ..launch.restart import process, state
 from ..log import get_logger
 
@@ -25,6 +31,8 @@ class Running(ty.NamedTuple):
     thread: str
     tty: str  # "" under the shared daemon
     executable: str
+    pid: int
+    started: str  # as `ps` writes it
 
 
 class _Live(ty.NamedTuple):
@@ -33,28 +41,32 @@ class _Live(ty.NamedTuple):
     argv: list[str]
 
 
+class _Answer(ty.NamedTuple):
+    at: float  # monotonic, when its listing started
+    running: list[Running] | None
+    count: int  # shared answers so far, this one included
+
+
+_answer_lock = threading.Lock()
+_latest = _Answer(float("-inf"), None, 0)
+
+
 def _live() -> dict[int, _Live] | None:
-    """Every running Codex process by pid; None if `ps` fails."""
+    """Every running Codex process by pid; None if `ps` fails or can't run here."""
+    if process_table.sandboxed():
+        return None
+
     try:
-        result = subprocess.run(
-            ["ps", "-A", "-ww", "-o", "pid=,stat=,tty=,lstart=,args="],  # -ww: whole args
-            capture_output=True,
-            text=True,
-            timeout=_TIMEOUT,
-        )
+        found = process_table.listing("pid", "stat", "tty", "lstart", "args", timeout=_TIMEOUT)
     except (OSError, subprocess.SubprocessError) as error:
         _log.debug("could not list Codex processes: %s", error)
         return None
 
-    if result.returncode:
-        return None
-
-    live = {}
-    for fields in (line.split() for line in result.stdout.splitlines()):
-        if len(fields) < 9 or fields[1].startswith("Z") or Path(fields[8]).name != "codex":
-            continue
-        live[int(fields[0])] = _Live(" ".join(fields[3:8]), fields[2], fields[8:])
-    return live
+    return {
+        int(pid): _Live(started, tty, args.split())
+        for pid, stat, tty, started, args in found
+        if not stat.startswith("Z") and Path(args.split()[0]).name == "codex"
+    }
 
 
 def _resumed(argv: list[str]) -> str:
@@ -92,7 +104,7 @@ def _epoch(started: str) -> float:
         return 0.0
 
 
-def running() -> list[Running] | None:
+def _running() -> list[Running] | None:
     """Every thread a live Codex process runs; None if the processes couldn't be listed.
 
     A terminal's process runs the thread it reported last, and the shared daemon every
@@ -117,19 +129,56 @@ def running() -> list[Running] | None:
         threads = reported.get(pid) or [(_resumed(found.argv), found.argv[0])]
         for thread, executable in threads if daemon else threads[-1:]:
             if thread:
-                result.append(Running(thread, "" if daemon else found.tty, executable))
+                result.append(
+                    Running(thread, "" if daemon else found.tty, executable, pid, found.started)
+                )
     return result
 
 
-def open_threads() -> set[str] | None:
+def running(max_age: float = 0.0) -> list[Running] | None:
+    """`_running`, or with *max_age*, an answer shared with other callers in this process:
+    one under *max_age* seconds old, or the one another caller was getting while this one
+    waited, however long that took.
+    """
+    global _latest
+    if not max_age:
+        return _running()
+
+    seen = _latest.count
+    with _answer_lock:
+        if _latest.count == seen and time.monotonic() - _latest.at >= max_age:
+            _latest = _Answer(time.monotonic(), _running(), seen + 1)
+        return _latest.running
+
+
+def owner(thread: str, max_age: float = 0.0) -> Running | None:
+    """The process running *thread*; None when none does or the processes couldn't be listed."""
+    return next((each for each in running(max_age) or [] if each.thread == thread), None)
+
+
+def switched(found: Running) -> bool:
+    """Whether the terminal process *found* has since reported another thread, as `/clear`
+    makes it, from what its hooks recorded; it runs no `ps`."""
+    if not found.tty:  # the shared daemon runs every thread it reported
+        return False
+
+    reported = [
+        (when, thread)
+        for when, thread, identity in _recorded(_epoch(found.started))
+        if (identity.pid, identity.started) == (found.pid, found.started)
+    ]
+    return bool(reported) and max(reported)[1] != found.thread
+
+
+def open_threads(max_age: float = 0.0) -> set[str] | None:
     """Threads a live Codex process runs, the shared daemon included."""
-    found = running()
+    found = running(max_age)
     return None if found is None else {each.thread for each in found}
 
 
-def thread_ttys() -> dict[str, set[str]] | None:
+def thread_ttys(max_age: float = 0.0) -> dict[str, set[str]] | None:
     """The terminal each thread's Codex process runs in; the shared daemon names none."""
-    found = running()
+    found = running(max_age)
     if found is None:
         return None
 
@@ -140,7 +189,7 @@ def thread_ttys() -> dict[str, set[str]] | None:
     return ttys
 
 
-def executable(thread: str) -> str:
+def executable(thread: str, max_age: float = 0.0) -> str:
     """The executable of the Codex process running *thread*, or "".
 
     Running `codex queue` with it works even where `codex` on PATH does not.
@@ -148,7 +197,7 @@ def executable(thread: str) -> str:
     return next(
         (
             each.executable
-            for each in running() or []
+            for each in running(max_age) or []
             if each.thread == thread and os.path.isabs(each.executable)
         ),
         "",

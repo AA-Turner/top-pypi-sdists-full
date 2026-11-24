@@ -31,6 +31,7 @@ from probe.mcp.tools.view import _VIEWS, _VIEW_OPTIONS, _views_offered
 from probe.mcp.tools.views.branches import BranchesViewsMixin
 from probe.mcp.tools.views.catalog import CatalogViewsMixin
 from probe.mcp.tools.views.code import CodeViewsMixin
+from probe.mcp.tools.views.decisions import DecisionsViewsMixin
 from probe.mcp.tools.views.files import FileViewsMixin
 from probe.mcp.tools.views.lineage import LineageViewsMixin
 from probe.mcp.tools.views.notes import NotesViewsMixin
@@ -107,6 +108,7 @@ class ResearchReadService(
     LineageViewsMixin,
     SessionsViewsMixin,
     CatalogViewsMixin,
+    DecisionsViewsMixin,
     ContextMixin,
     SqlMixin,
     CompareMixin,

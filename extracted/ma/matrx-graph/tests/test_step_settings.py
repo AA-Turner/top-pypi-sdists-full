@@ -8,6 +8,8 @@ list. Here it is ONE pause step, and both paths run on the real engine.
 
 from __future__ import annotations
 
+import pytest
+
 from typing import Any
 
 from matrx_graph import (
@@ -105,9 +107,14 @@ async def test_when_says_yes_the_person_edits_lines_and_the_shaped_list_flows_on
     assert resumed.last_outputs["result"] == {"keywords": ["alpha", "delta"], "reviewed": True}
 
 
-async def test_only_when_without_if_skipped_prunes_like_a_connection_not_taken() -> None:
+@pytest.mark.parametrize("declared", [False, True], ids=["stops what reads it", "reader runs without it"])
+async def test_only_when_without_if_skipped_skips_the_step_and_what_reads_it(declared: bool) -> None:
+    """Since 2026-11-07 (ENGINE_SPEC §3.3b) a skipped step stops the step that reads it, unless that
+    step declares it handles the input missing (``when_input_skipped: "run"``)."""
     defn = _definition(review=False, when="inputs['review']")
     defn["nodes"][2] = _transform("result", "{'n': len(inputs['all']), 'edited': 'answer' in inputs}")
+    if declared:
+        defn["nodes"][2]["data"]["when_input_skipped"] = "run"
     defn["edges"] = [
         defn["edges"][0],
         {"id": "e_edit_result", "source": "edit", "target": "result",
@@ -116,9 +123,12 @@ async def test_only_when_without_if_skipped_prunes_like_a_connection_not_taken()
          "data": {"kind": "data", "mappings": {"all": "keywords"}}},
     ]
     scheduler, _ = _scheduler(defn)
-    result = await scheduler.run(run_id="settings-prune")
+    result = await scheduler.run(run_id=f"settings-prune-{declared}")
     assert result.status is RunStatus.COMPLETED, result.error
-    assert result.last_outputs["result"] == {"n": 3, "edited": False}
+    if declared:
+        assert result.last_outputs["result"] == {"n": 3, "edited": False}
+    else:
+        assert "result" not in result.last_outputs
 
 
 def test_the_authored_definition_keeps_one_card() -> None:

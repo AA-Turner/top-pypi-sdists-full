@@ -79,7 +79,14 @@ def _condenser_offered(scraped_content: str, ctx: ToolContext | None) -> dict[st
 def _to_agent_result(run: AgentRunResult, label: str) -> AgentResult:
     if not run.success:
         vcprint(f"{label} failed: {run.error}", color="red")
-        return AgentResult(success=False, output=f"Agent failed: {run.error}")
+        # The real reason travels: research_web names it in its run facts (problem 16).
+        reason = str(run.error) if run.error else f"{label} finished without success and gave no reason"
+        return AgentResult(
+            success=False,
+            error=reason,
+            exception=run.error if isinstance(run.error, BaseException) else None,
+            usage_history=list(run.usage_history or []),
+        )
     vcprint(run.usage, title=f"[{label}] Usage", color="pink")
     return AgentResult(
         success=True,

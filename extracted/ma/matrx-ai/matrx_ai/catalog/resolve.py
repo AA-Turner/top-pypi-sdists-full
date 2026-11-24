@@ -197,7 +197,7 @@ async def _resolve_device_profile(
     lifecycle) come from the model definition; the host's placement check
     (``catalog/device_placement.py``) refuses a model that is not installed on that device.
     """
-    from matrx_ai.catalog.device_placement import assert_model_on_device
+    from matrx_ai.catalog.device_placement import DeviceCatalogModel, assert_model_on_device
     from matrx_ai.catalog.host_catalog import CatalogModel, _fallback_controls
     from matrx_ai.providers.device.device_api import device_model_key
     from matrx_ai.providers.device.errors import DevicePinUnsupportedError
@@ -237,9 +237,17 @@ async def _resolve_device_profile(
         raise DevicePinUnsupportedError(
             f"model {model_name!r} is not a chat model (interaction="
             f"{capabilities.interaction!r}); a device runs chat turns only",
-            user_message=f"{model_name} can't run on your computer from here.",
+            user_message="This model can't run on your computer from here.",
         )
-    await assert_model_on_device(served_via, model_id=model_id, model_name=model_name)
+    held = await assert_model_on_device(served_via, model_id=model_id, model_name=model_name)
+    device_facts: dict[str, Any] = {}
+    if isinstance(held, DeviceCatalogModel):
+        # Vision is true only when the device reports the projector file it needs: a catalog row
+        # that says "image" for a model installed without its mmproj would send an image
+        # llama-server refuses. Downgrade only, announced in the facts; never upgrade.
+        device_facts["vision"] = {"value": held.vision_projector, "source": "device_reported"}
+        if capabilities.supports_vision and not held.vision_projector:
+            capabilities = capabilities.model_copy(update={"supports_vision": False})
 
     device_ref = f"device:{served_via.app_instance_id}"
     return ResolvedCallProfile(
@@ -273,6 +281,7 @@ async def _resolve_device_profile(
         ).with_output_maximum(fact("max_tokens")),
         pricing=None,
         token_billed=False,
+        offering_metadata={"device_facts": device_facts} if device_facts else {},
         model_is_deprecated=bool(model_state.get("is_deprecated", False)),
         model_is_primary=bool(model_state.get("is_primary", False)),
         model_retired_at=(
@@ -540,6 +549,20 @@ async def resolve_call_profile(
         )
 
     if not offerings and offering_id is None:
+        # A DEPRECATED model nobody serves any more is the caller's stale pick: a typed
+        # caller refusal naming the replacement, never a catalog-defect crash.
+        _states = manager.model_states()
+        if (_states.get(model_id) or {}).get("is_deprecated"):
+            from matrx_ai.catalog.lifecycle import (
+                DeprecatedModelUnservedError,
+                describe_replacement,
+            )
+
+            raise DeprecatedModelUnservedError(
+                model_id=model_id,
+                model_name=str(getattr(model, "name", "") or model_id),
+                replacement=describe_replacement(model_id, _states),
+            )
         # (A pinned call diagnoses an empty list itself, naming the class.)
         vcprint(
             f"Model '{model.name}' ({model_id}) exists in ai.model_definition but has "
@@ -779,6 +802,12 @@ def resolve_tts_voice(profile: ResolvedCallProfile, requested: str | None) -> st
     voice = (requested or "").strip()
     if voice and voice in profile.tts_voice_ids:
         return voice
+    if voice and "{{" in voice:
+        raise CatalogRoutingError(
+            f"TTS voice {voice!r} is a placeholder: settings never fill {{{{variables}}}}. "
+            "To make a setting a run input, bind it to a variable (the setting's "
+            "'Make a run input' button, which declares control: {key} on the variable)."
+        )
     if voice:
         raise CatalogRoutingError(
             f"TTS voice {voice!r} is not available for model {profile.model_name!r} "

@@ -4,6 +4,7 @@ from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import displayagent_pb2 as _displayagent_pb2
 from chalk._gen.chalk.auth.v1 import featurepermission_pb2 as _featurepermission_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import team_pb2 as _team_pb2
 from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
 from chalk._gen.chalk.utils.v1 import field_change_pb2 as _field_change_pb2
 from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
@@ -24,15 +25,15 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class TeamCreationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+class TeamAccountType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    TEAM_CREATION_TYPE_UNSPECIFIED: _ClassVar[TeamCreationType]
-    TEAM_CREATION_TYPE_CHALK_MANAGED: _ClassVar[TeamCreationType]
-    TEAM_CREATION_TYPE_SELF_SERVICE: _ClassVar[TeamCreationType]
+    TEAM_ACCOUNT_TYPE_UNSPECIFIED: _ClassVar[TeamAccountType]
+    TEAM_ACCOUNT_TYPE_INDIVIDUAL: _ClassVar[TeamAccountType]
+    TEAM_ACCOUNT_TYPE_BUSINESS: _ClassVar[TeamAccountType]
 
-TEAM_CREATION_TYPE_UNSPECIFIED: TeamCreationType
-TEAM_CREATION_TYPE_CHALK_MANAGED: TeamCreationType
-TEAM_CREATION_TYPE_SELF_SERVICE: TeamCreationType
+TEAM_ACCOUNT_TYPE_UNSPECIFIED: TeamAccountType
+TEAM_ACCOUNT_TYPE_INDIVIDUAL: TeamAccountType
+TEAM_ACCOUNT_TYPE_BUSINESS: TeamAccountType
 
 class GetEnvRequest(_message.Message):
     __slots__ = ()
@@ -102,6 +103,8 @@ class Team(_message.Message):
         "internal_metadata",
         "customer_metadata",
         "team_creation_type",
+        "company_name",
+        "account_type",
     )
     class SpecConfigJsonEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -143,6 +146,8 @@ class Team(_message.Message):
     INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     TEAM_CREATION_TYPE_FIELD_NUMBER: _ClassVar[int]
+    COMPANY_NAME_FIELD_NUMBER: _ClassVar[int]
+    ACCOUNT_TYPE_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     slug: str
@@ -152,7 +157,9 @@ class Team(_message.Message):
     spec_config_json: _containers.MessageMap[str, _struct_pb2.Value]
     internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
-    team_creation_type: TeamCreationType
+    team_creation_type: _team_pb2.TeamCreationType
+    company_name: str
+    account_type: TeamAccountType
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -164,7 +171,9 @@ class Team(_message.Message):
         spec_config_json: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
-        team_creation_type: _Optional[_Union[TeamCreationType, str]] = ...,
+        team_creation_type: _Optional[_Union[_team_pb2.TeamCreationType, str]] = ...,
+        company_name: _Optional[str] = ...,
+        account_type: _Optional[_Union[TeamAccountType, str]] = ...,
     ) -> None: ...
 
 class Project(_message.Message):
@@ -1093,35 +1102,6 @@ class ArchiveEnvironmentResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
-class DeleteSelfSignupTeamRequest(_message.Message):
-    __slots__ = ("team_id",)
-    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
-    team_id: str
-    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
-
-class DeleteSelfSignupTeamResponse(_message.Message):
-    __slots__ = (
-        "archived_environment_ids",
-        "archived_project_ids",
-        "deleted_user_count",
-        "deleted_role_assignment_count",
-    )
-    ARCHIVED_ENVIRONMENT_IDS_FIELD_NUMBER: _ClassVar[int]
-    ARCHIVED_PROJECT_IDS_FIELD_NUMBER: _ClassVar[int]
-    DELETED_USER_COUNT_FIELD_NUMBER: _ClassVar[int]
-    DELETED_ROLE_ASSIGNMENT_COUNT_FIELD_NUMBER: _ClassVar[int]
-    archived_environment_ids: _containers.RepeatedScalarFieldContainer[str]
-    archived_project_ids: _containers.RepeatedScalarFieldContainer[str]
-    deleted_user_count: int
-    deleted_role_assignment_count: int
-    def __init__(
-        self,
-        archived_environment_ids: _Optional[_Iterable[str]] = ...,
-        archived_project_ids: _Optional[_Iterable[str]] = ...,
-        deleted_user_count: _Optional[int] = ...,
-        deleted_role_assignment_count: _Optional[int] = ...,
-    ) -> None: ...
-
 class DeactivateUserRequest(_message.Message):
     __slots__ = ("user_id",)
     USER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1195,6 +1175,73 @@ class DeleteScimGroupUsersRequest(_message.Message):
     def __init__(self, group_id: _Optional[str] = ...) -> None: ...
 
 class DeleteScimGroupUsersResponse(_message.Message):
+    __slots__ = ("scim_group",)
+    SCIM_GROUP_FIELD_NUMBER: _ClassVar[int]
+    scim_group: ScimGroup
+    def __init__(self, scim_group: _Optional[_Union[ScimGroup, _Mapping]] = ...) -> None: ...
+
+class CreateScimGroupRequest(_message.Message):
+    __slots__ = ("display",)
+    DISPLAY_FIELD_NUMBER: _ClassVar[int]
+    display: str
+    def __init__(self, display: _Optional[str] = ...) -> None: ...
+
+class CreateScimGroupResponse(_message.Message):
+    __slots__ = ("scim_group",)
+    SCIM_GROUP_FIELD_NUMBER: _ClassVar[int]
+    scim_group: ScimGroup
+    def __init__(self, scim_group: _Optional[_Union[ScimGroup, _Mapping]] = ...) -> None: ...
+
+class AddScimGroupMembersRequest(_message.Message):
+    __slots__ = ("group_id", "user_ids")
+    GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    USER_IDS_FIELD_NUMBER: _ClassVar[int]
+    group_id: str
+    user_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, group_id: _Optional[str] = ..., user_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class AddScimGroupMembersResponse(_message.Message):
+    __slots__ = ("scim_group",)
+    SCIM_GROUP_FIELD_NUMBER: _ClassVar[int]
+    scim_group: ScimGroup
+    def __init__(self, scim_group: _Optional[_Union[ScimGroup, _Mapping]] = ...) -> None: ...
+
+class RemoveScimGroupMembersRequest(_message.Message):
+    __slots__ = ("group_id", "user_ids")
+    GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    USER_IDS_FIELD_NUMBER: _ClassVar[int]
+    group_id: str
+    user_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, group_id: _Optional[str] = ..., user_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class RemoveScimGroupMembersResponse(_message.Message):
+    __slots__ = ("scim_group",)
+    SCIM_GROUP_FIELD_NUMBER: _ClassVar[int]
+    scim_group: ScimGroup
+    def __init__(self, scim_group: _Optional[_Union[ScimGroup, _Mapping]] = ...) -> None: ...
+
+class UpdateScimGroupOperation(_message.Message):
+    __slots__ = ("display",)
+    DISPLAY_FIELD_NUMBER: _ClassVar[int]
+    display: str
+    def __init__(self, display: _Optional[str] = ...) -> None: ...
+
+class UpdateScimGroupRequest(_message.Message):
+    __slots__ = ("group_id", "update", "update_mask")
+    GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    group_id: str
+    update: UpdateScimGroupOperation
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        group_id: _Optional[str] = ...,
+        update: _Optional[_Union[UpdateScimGroupOperation, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateScimGroupResponse(_message.Message):
     __slots__ = ("scim_group",)
     SCIM_GROUP_FIELD_NUMBER: _ClassVar[int]
     scim_group: ScimGroup

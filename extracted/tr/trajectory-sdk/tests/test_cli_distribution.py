@@ -113,7 +113,7 @@ def test_cli_schema_is_machine_readable_without_authentication(tmp_path: Path) -
 
 @pytest.mark.parametrize(
   ("topic", "expected_content"),
-  [("onboarding", "tj benchmarks push"), ("skill", "tj whoami --json")],
+  [("onboarding", "tj specs push"), ("skill", "tj whoami --json")],
 )
 def test_cli_reads_bundled_guides_without_network(
   tmp_path: Path, topic: str, expected_content: str

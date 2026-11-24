@@ -13,7 +13,14 @@ from matrx_graph.nodes.datetime_.ops import (
     DatetimeParseExecutor,
 )
 
+from matrx_graph.nodes.datetime_.local_day import (  # noqa: E402 — importing declares the step
+    configure_organization_time_zone,
+    datetime_local_day,
+)
+
 __all__ = [
+    "configure_organization_time_zone",
+    "datetime_local_day",
     "DatetimeAddExecutor",
     "DatetimeFormatExecutor",
     "DatetimeNowExecutor",

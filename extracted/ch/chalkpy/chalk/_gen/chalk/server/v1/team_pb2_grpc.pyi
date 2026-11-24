@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.team_pb2 import (
+    AddScimGroupMembersRequest,
+    AddScimGroupMembersResponse,
     ArchiveEnvironmentRequest,
     ArchiveEnvironmentResponse,
     ArchiveProjectRequest,
@@ -24,6 +26,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateEnvironmentResponse,
     CreateProjectRequest,
     CreateProjectResponse,
+    CreateScimGroupRequest,
+    CreateScimGroupResponse,
     CreateServiceTokenRequest,
     CreateServiceTokenResponse,
     CreateServiceTokenTeamScopedRequest,
@@ -40,8 +44,6 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     DeleteScimGroupResponse,
     DeleteScimGroupUsersRequest,
     DeleteScimGroupUsersResponse,
-    DeleteSelfSignupTeamRequest,
-    DeleteSelfSignupTeamResponse,
     DeleteServiceTokenRequest,
     DeleteServiceTokenResponse,
     DeleteServiceTokenTeamScopedRequest,
@@ -82,12 +84,16 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ListTeamMembersResponse,
     ReactivateUserRequest,
     ReactivateUserResponse,
+    RemoveScimGroupMembersRequest,
+    RemoveScimGroupMembersResponse,
     UpdateCustomRoleRequest,
     UpdateCustomRoleResponse,
     UpdateEnvironmentRequest,
     UpdateEnvironmentResponse,
     UpdateProjectRequest,
     UpdateProjectResponse,
+    UpdateScimGroupRequest,
+    UpdateScimGroupResponse,
     UpdateScimGroupSettingsRequest,
     UpdateScimGroupSettingsResponse,
     UpdateServiceTokenRequest,
@@ -239,17 +245,6 @@ class TeamServiceStub:
         ArchiveEnvironmentRequest,
         ArchiveEnvironmentResponse,
     ]
-    DeleteSelfSignupTeam: UnaryUnaryMultiCallable[
-        DeleteSelfSignupTeamRequest,
-        DeleteSelfSignupTeamResponse,
-    ]
-    """Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
-    only for an @chalk.ai address, and no role grants it, so a customer cannot
-    reach this even as the owner of their own team. A service token can only
-    carry it if a Chalk employee deliberately minted one with it --
-    CreateServiceToken requires the permission to be a subset of the caller's
-    own, and GetAvailablePermissions does not offer it in the UI.
-    """
     DeactivateUser: UnaryUnaryMultiCallable[
         DeactivateUserRequest,
         DeactivateUserResponse,
@@ -273,14 +268,45 @@ class TeamServiceStub:
         AssignScimGroupEnvironmentRoleResponse,
     ]
     """Assigns an environment-scoped role to a SCIM group."""
+    UpdateScimGroup: UnaryUnaryMultiCallable[
+        UpdateScimGroupRequest,
+        UpdateScimGroupResponse,
+    ]
+    """Renames a group on a team that does not provision groups through SCIM.
+    Same preconditions as CreateScimGroup, including team-scoped team.admin.
+    """
     DeleteScimGroup: UnaryUnaryMultiCallable[
         DeleteScimGroupRequest,
         DeleteScimGroupResponse,
     ]
+    """Deletes a hand-managed group with its members and role assignments. Same
+    preconditions as CreateScimGroup; an identity provider deletes the groups it
+    provisions through the SCIM protocol endpoint instead.
+    """
     DeleteScimGroupUsers: UnaryUnaryMultiCallable[
         DeleteScimGroupUsersRequest,
         DeleteScimGroupUsersResponse,
     ]
+    """Removes every member of a hand-managed group. Same preconditions as CreateScimGroup."""
+    CreateScimGroup: UnaryUnaryMultiCallable[
+        CreateScimGroupRequest,
+        CreateScimGroupResponse,
+    ]
+    """Creates a group by hand on a team that does not provision groups through
+    SCIM. Requires the manual_scim_groups_enabled team flag. A group can hold roles
+    in any of the team's environments, so these RPCs need team-scoped team.admin:
+    an admin of one environment must not join a group that grants roles in another.
+    """
+    AddScimGroupMembers: UnaryUnaryMultiCallable[
+        AddScimGroupMembersRequest,
+        AddScimGroupMembersResponse,
+    ]
+    """Adds team members to a group by hand. Same preconditions as CreateScimGroup."""
+    RemoveScimGroupMembers: UnaryUnaryMultiCallable[
+        RemoveScimGroupMembersRequest,
+        RemoveScimGroupMembersResponse,
+    ]
+    """Removes members from a group by hand. Same preconditions as CreateScimGroup."""
     CreateCustomRole: UnaryUnaryMultiCallable[
         CreateCustomRoleRequest,
         CreateCustomRoleResponse,
@@ -497,19 +523,6 @@ class TeamServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ArchiveEnvironmentResponse: ...
     @abstractmethod
-    def DeleteSelfSignupTeam(
-        self,
-        request: DeleteSelfSignupTeamRequest,
-        context: ServicerContext,
-    ) -> DeleteSelfSignupTeamResponse:
-        """Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
-        only for an @chalk.ai address, and no role grants it, so a customer cannot
-        reach this even as the owner of their own team. A service token can only
-        carry it if a Chalk employee deliberately minted one with it --
-        CreateServiceToken requires the permission to be a subset of the caller's
-        own, and GetAvailablePermissions does not offer it in the UI.
-        """
-    @abstractmethod
     def DeactivateUser(
         self,
         request: DeactivateUserRequest,
@@ -543,17 +556,56 @@ class TeamServiceServicer(metaclass=ABCMeta):
     ) -> AssignScimGroupEnvironmentRoleResponse:
         """Assigns an environment-scoped role to a SCIM group."""
     @abstractmethod
+    def UpdateScimGroup(
+        self,
+        request: UpdateScimGroupRequest,
+        context: ServicerContext,
+    ) -> UpdateScimGroupResponse:
+        """Renames a group on a team that does not provision groups through SCIM.
+        Same preconditions as CreateScimGroup, including team-scoped team.admin.
+        """
+    @abstractmethod
     def DeleteScimGroup(
         self,
         request: DeleteScimGroupRequest,
         context: ServicerContext,
-    ) -> DeleteScimGroupResponse: ...
+    ) -> DeleteScimGroupResponse:
+        """Deletes a hand-managed group with its members and role assignments. Same
+        preconditions as CreateScimGroup; an identity provider deletes the groups it
+        provisions through the SCIM protocol endpoint instead.
+        """
     @abstractmethod
     def DeleteScimGroupUsers(
         self,
         request: DeleteScimGroupUsersRequest,
         context: ServicerContext,
-    ) -> DeleteScimGroupUsersResponse: ...
+    ) -> DeleteScimGroupUsersResponse:
+        """Removes every member of a hand-managed group. Same preconditions as CreateScimGroup."""
+    @abstractmethod
+    def CreateScimGroup(
+        self,
+        request: CreateScimGroupRequest,
+        context: ServicerContext,
+    ) -> CreateScimGroupResponse:
+        """Creates a group by hand on a team that does not provision groups through
+        SCIM. Requires the manual_scim_groups_enabled team flag. A group can hold roles
+        in any of the team's environments, so these RPCs need team-scoped team.admin:
+        an admin of one environment must not join a group that grants roles in another.
+        """
+    @abstractmethod
+    def AddScimGroupMembers(
+        self,
+        request: AddScimGroupMembersRequest,
+        context: ServicerContext,
+    ) -> AddScimGroupMembersResponse:
+        """Adds team members to a group by hand. Same preconditions as CreateScimGroup."""
+    @abstractmethod
+    def RemoveScimGroupMembers(
+        self,
+        request: RemoveScimGroupMembersRequest,
+        context: ServicerContext,
+    ) -> RemoveScimGroupMembersResponse:
+        """Removes members from a group by hand. Same preconditions as CreateScimGroup."""
     @abstractmethod
     def CreateCustomRole(
         self,

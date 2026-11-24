@@ -65,7 +65,7 @@ _CONTENT = ("group_key", "segment", "segment_count", "split", "scheduled_step", 
             "tokens", "events")
 #: The turns: the generator's, else a Harbor trial's read from its folder after Harbor's secret scrub (T27), else a
 #: later reread's. `turns`, `turns_blob` and `turns_source` merge as one conversation (`CONVERSATION_FIELDS`).
-_TURNS = ("turns", "turns_blob", "turns_source", "turn_count", "tool_call_count")
+_TURNS = ("turns", "turns_blob", "turns_source", "turn_count", "tool_call_count", "tools")
 _CONSUMPTION = ("consumed_step", "consumed_until_step", "consumed_version", "trainer_rank", "is_misaligned",
                 "occurrence", "trainer_tokens")
 
@@ -87,6 +87,11 @@ FIELD_OWNERS: dict[str, tuple[PartRole, ...]] = {
     **dict.fromkeys(("environment", "trace_span_id"), (_HARBOR, _GENERATOR)),
     **dict.fromkeys(("heartbeat_at", "last_command_at", "attempt_kind", *ATTEMPT_KIND_FIELDS.values()), (_ATTEMPT,)),
     "attempt_key": (_GENERATOR, _ATTEMPT),
+    #: The episode labels a live attempt can name before its sample lands; the rest are the generator's (D7). A Harbor
+    #: trial names its dataset as the environment, also where a trainer's generator part holds the content.
+    **dict.fromkeys(("episode_key", "agent"), (_GENERATOR, _ATTEMPT)),
+    **dict.fromkeys(("environment_name", "environment_version"), (_GENERATOR, _HARBOR, _ATTEMPT)),
+    **dict.fromkeys(("is_trained", "branch_started_by", "parent_branch", "parent_turn"), (_GENERATOR,)),
     "duration_s": (_GENERATOR,),
     **dict.fromkeys(("metrics", "extras"), (_GENERATOR, _TRAINER, _SCORER, _HARBOR, _ATTEMPT)),
 }

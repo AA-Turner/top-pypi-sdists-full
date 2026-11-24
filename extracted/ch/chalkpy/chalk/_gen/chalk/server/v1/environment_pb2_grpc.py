@@ -15,6 +15,11 @@ class EnvironmentServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.SelfServiceCreateTeamAndEnvironment = channel.unary_unary(
+            "/chalk.server.v1.EnvironmentService/SelfServiceCreateTeamAndEnvironment",
+            request_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.SelfServiceCreateTeamAndEnvironmentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.SelfServiceCreateTeamAndEnvironmentResponse.FromString,
+        )
         self.CreateEnvironmentV2 = channel.unary_unary(
             "/chalk.server.v1.EnvironmentService/CreateEnvironmentV2",
             request_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.CreateEnvironmentV2Request.SerializeToString,
@@ -30,6 +35,11 @@ class EnvironmentServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.DeleteEnvironmentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.DeleteEnvironmentResponse.FromString,
         )
+        self.DeleteSelfSignupTeam = channel.unary_unary(
+            "/chalk.server.v1.EnvironmentService/DeleteSelfSignupTeam",
+            request_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.DeleteSelfSignupTeamRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.DeleteSelfSignupTeamResponse.FromString,
+        )
         self.SetDefaultEnvironment = channel.unary_unary(
             "/chalk.server.v1.EnvironmentService/SetDefaultEnvironment",
             request_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.SetDefaultEnvironmentRequest.SerializeToString,
@@ -44,6 +54,12 @@ class EnvironmentServiceStub(object):
 
 class EnvironmentServiceServicer(object):
     """Note that the RPCs in this service supersede those in the team service for environments."""
+
+    def SelfServiceCreateTeamAndEnvironment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def CreateEnvironmentV2(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -63,6 +79,21 @@ class EnvironmentServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteSelfSignupTeam(self, request, context):
+        """Deletes every active environment of the caller's self-signup team the way
+        DeleteEnvironment does, then archives its projects and deletes its users.
+
+        Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
+        only for an @chalk.ai address, and no role grants it, so a customer cannot
+        reach this even as the owner of their own team. A service token can only
+        carry it if a Chalk employee deliberately minted one with it --
+        CreateServiceToken requires the permission to be a subset of the caller's
+        own, and GetAvailablePermissions does not offer it in the UI.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def SetDefaultEnvironment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -78,6 +109,11 @@ class EnvironmentServiceServicer(object):
 
 def add_EnvironmentServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "SelfServiceCreateTeamAndEnvironment": grpc.unary_unary_rpc_method_handler(
+            servicer.SelfServiceCreateTeamAndEnvironment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.SelfServiceCreateTeamAndEnvironmentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.SelfServiceCreateTeamAndEnvironmentResponse.SerializeToString,
+        ),
         "CreateEnvironmentV2": grpc.unary_unary_rpc_method_handler(
             servicer.CreateEnvironmentV2,
             request_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.CreateEnvironmentV2Request.FromString,
@@ -92,6 +128,11 @@ def add_EnvironmentServiceServicer_to_server(servicer, server):
             servicer.DeleteEnvironment,
             request_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.DeleteEnvironmentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.DeleteEnvironmentResponse.SerializeToString,
+        ),
+        "DeleteSelfSignupTeam": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteSelfSignupTeam,
+            request_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.DeleteSelfSignupTeamRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.DeleteSelfSignupTeamResponse.SerializeToString,
         ),
         "SetDefaultEnvironment": grpc.unary_unary_rpc_method_handler(
             servicer.SetDefaultEnvironment,
@@ -111,6 +152,35 @@ def add_EnvironmentServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class EnvironmentService(object):
     """Note that the RPCs in this service supersede those in the team service for environments."""
+
+    @staticmethod
+    def SelfServiceCreateTeamAndEnvironment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.EnvironmentService/SelfServiceCreateTeamAndEnvironment",
+            chalk_dot_server_dot_v1_dot_environment__pb2.SelfServiceCreateTeamAndEnvironmentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_environment__pb2.SelfServiceCreateTeamAndEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def CreateEnvironmentV2(
@@ -189,6 +259,35 @@ class EnvironmentService(object):
             "/chalk.server.v1.EnvironmentService/DeleteEnvironment",
             chalk_dot_server_dot_v1_dot_environment__pb2.DeleteEnvironmentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_environment__pb2.DeleteEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteSelfSignupTeam(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.EnvironmentService/DeleteSelfSignupTeam",
+            chalk_dot_server_dot_v1_dot_environment__pb2.DeleteSelfSignupTeamRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_environment__pb2.DeleteSelfSignupTeamResponse.FromString,
             options,
             channel_credentials,
             insecure,

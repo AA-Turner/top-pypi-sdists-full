@@ -45,6 +45,7 @@ from matrx_ai.providers.outbound_capture import (
     emit_explicit_context_analysis,
     get_call_meta,
     make_capture_http_client,
+    resolve_sdk_httpx,
     set_call_meta,
     stamp_call_meta,
 )
@@ -92,6 +93,9 @@ def _install_ctx(*, snapshot: bool, emitter: Any | None = None) -> AppContext:
         request_id="req-abc",
         conversation_id="conv-xyz",
         snapshot=snapshot,
+        # The capture streams only on a watched run (AI WATCH GATE in
+        # outbound_capture._is_snapshot_enabled); these tests drive that run.
+        ai_watch=True,
     )
     token = set_app_context(ctx)
     _install_ctx._token = token  # type: ignore[attr-defined]
@@ -127,12 +131,15 @@ class _Wire:
     def __init__(self) -> None:
         self.requests: list[httpx.Request] = []
 
-    def transport(self, response: httpx.Response | None = None) -> httpx.MockTransport:
-        def _handle(request: httpx.Request) -> httpx.Response:
-            self.requests.append(request)
-            return response if response is not None else httpx.Response(200, json={"ok": True})
+    def transport(self, response: Any = None, *, flavor: Any = httpx) -> Any:
+        """A mock transport of ``flavor`` (``httpx``, or the ``httpx2`` an SDK
+        vendors — openai>=3 rejects a plain-httpx transport)."""
 
-        return httpx.MockTransport(_handle)
+        def _handle(request: Any) -> Any:
+            self.requests.append(request)
+            return response if response is not None else flavor.Response(200, json={"ok": True})
+
+        return flavor.MockTransport(_handle)
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +161,8 @@ def _reset_ctx_between_tests():
 
 # ---------------------------------------------------------------------------
 # Fast-path: snapshot=False
+# (The unwatched case, ai_watch=False -> nothing streamed, hook and explicit emit, is pinned by
+# tests/test_ai_watch_wire_capture.py; these drive a watched run.)
 # ---------------------------------------------------------------------------
 
 
@@ -399,6 +408,7 @@ async def test_every_credential_header_is_redacted_in_the_event_and_untouched_on
         "anthropic-api-key": "ant-live",
     }
     wire = _Wire()
+    flavor = resolve_sdk_httpx(openai)
     sdk = openai.AsyncOpenAI(
         api_key="sk-live-not-real",
         organization="org-live-not-real",
@@ -415,7 +425,8 @@ async def test_every_credential_header_is_redacted_in_the_event_and_untouched_on
         http_client=make_capture_http_client(
             sdk=openai,
             transport=wire.transport(
-                httpx.Response(400, json={"error": {"message": "stop", "type": "invalid_request_error"}})
+                flavor.Response(400, json={"error": {"message": "stop", "type": "invalid_request_error"}}),
+                flavor=flavor,
             ),
         ),
     )

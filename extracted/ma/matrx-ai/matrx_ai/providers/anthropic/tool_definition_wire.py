@@ -77,6 +77,8 @@ class ToolCallTrial:
     tool_input: dict[str, Any] | None
     input_tokens: int
     output_tokens: int
+    #: The assistant turn's content blocks, so a caller can answer the call and continue (a help round trip).
+    content: tuple[dict[str, Any], ...] = ()
 
 
 def tool_call_trial(
@@ -89,16 +91,20 @@ def tool_call_trial(
     max_tokens: int = 2048,
     max_retries: int = 8,
     timeout: float = 120.0,
+    messages: list[dict[str, Any]] | None = None,
 ) -> ToolCallTrial:
-    """One paid Messages call over a raw tool definition; returns the first ``tool_use`` input."""
+    """One paid Messages call over a raw tool definition; returns the first ``tool_use`` input.
+
+    ``messages`` (when given) is the whole conversation so far, replacing the one ``prompt`` turn."""
     body = {
         "model": model,
         "max_tokens": max_tokens,
         "system": system,
         "tools": tools,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": messages or [{"role": "user", "content": prompt}],
     }
     payload = _post(MESSAGES_URL, api_key, body, max_retries=max_retries, timeout=timeout)
     call = next((b.get("input") for b in payload.get("content") or [] if b.get("type") == "tool_use"), None)
     usage = payload.get("usage") or {}
-    return ToolCallTrial(call, int(usage.get("input_tokens") or 0), int(usage.get("output_tokens") or 0))
+    return ToolCallTrial(call, int(usage.get("input_tokens") or 0), int(usage.get("output_tokens") or 0),
+                         tuple(payload.get("content") or ()))

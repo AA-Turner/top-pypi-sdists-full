@@ -2,10 +2,13 @@
 
 from matrx_connect.context import (
     AppContext,
+    RunScope,
     admin_lane_active,
     admin_surface_active,
     admin_tool_authorized,
     admin_tool_level,
+    admin_tool_refusal_message,
+    ADMIN_TIER_NOTE_KEY,
     OrganizationFreeAppContext,
     TenantAppContext,
     BufferedErrorEmitter,
@@ -59,6 +62,8 @@ from matrx_connect.credentials import (
     CredentialResolver,
 )
 from matrx_connect.dependencies import (
+    admin_refusal_message,
+    configure_admin_refusal_hint,
     context_dep,
     authenticated_resource_bootstrap,
     require_admin,
@@ -89,6 +94,7 @@ __all__ = [
     "MACHINE_ORIGIN_CLASSES",
     "ORIGIN_CLASSES",
     "AppContext",
+    "RunScope",
     "OrganizationFreeAppContext",
     "TenantAppContext",
     "build_origin_witness",
@@ -132,6 +138,8 @@ __all__ = [
     "admin_surface_active",
     "admin_tool_authorized",
     "admin_tool_level",
+    "admin_tool_refusal_message",
+    "ADMIN_TIER_NOTE_KEY",
     "organization_free_context",
     "require_tenant_context",
     "tenant_resource_context",
@@ -143,6 +151,8 @@ __all__ = [
     "authenticated_resource_routes",
     "iter_api_routes",
     "mounted_api_paths",
+    "admin_refusal_message",
+    "configure_admin_refusal_hint",
     "require_admin",
     "require_authenticated",
     "require_organization_context",

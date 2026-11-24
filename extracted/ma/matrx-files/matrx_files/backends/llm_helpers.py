@@ -162,7 +162,6 @@ async def push_from_llm_async(
     **write_kwargs,
 ) -> bool:
     """Async version of push_from_llm()."""
-    import asyncio
 
     raw: bytes
 
@@ -174,9 +173,9 @@ async def push_from_llm_async(
         if not isinstance(data, str):
             raise TypeError(f"source_format='url' requires a str URL, got {type(data)}")
         # The URL came from a model: never an address inside our network.
-        from matrx_utils.outbound_guard import public_only_client
+        from matrx_utils.http_client import shared_client
 
-        async with public_only_client(timeout=60, follow_redirects=True) as client:
+        async with shared_client(public_only=True, timeout=60, follow_redirects=True) as client:
             response = await client.get(data)
             response.raise_for_status()
             raw = response.content

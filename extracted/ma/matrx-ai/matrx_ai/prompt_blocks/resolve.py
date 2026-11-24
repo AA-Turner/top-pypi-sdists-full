@@ -94,7 +94,12 @@ async def resolve_declared_blocks(
 ) -> list[ResolvedBlock]:
     """Fill ``config.prompt_block_texts`` / ``prompt_block_report`` / ``prompt_block_tool_ids``.
 
-    Idempotent: a config already resolved is left as it is (frozen with the conversation)."""
+    Idempotent: a config already resolved is left as it is (frozen with the conversation).
+    The agent's default modes (``agent_modes`` entries with a ``source``) are platform rows too and are filled here,
+    at the same once-per-conversation moment (``config/agent_modes.resolve_agent_modes``, D12/D14)."""
+    from matrx_ai.config.agent_modes import resolve_agent_modes
+
+    await resolve_agent_modes(config, organization_id=organization_id, source=source)
     names = declared_names(getattr(config, "prompt_blocks", None))
     if getattr(config, "prompt_block_texts", None) is not None:
         return []

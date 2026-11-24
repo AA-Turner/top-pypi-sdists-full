@@ -67,6 +67,8 @@ class GroqSTT:
         )
         if request.timestamp_granularities and request.response_format == "verbose_json":
             params["timestamp_granularities"] = request.timestamp_granularities
+        if request.prompt:
+            params["prompt"] = request.prompt
         # Every blind dict forward into an SDK method goes through the drift
         # guard: a Groq SDK bump that drops a parameter would otherwise be a
         # client-side TypeError on a paid call. A no-op when nothing drifted;

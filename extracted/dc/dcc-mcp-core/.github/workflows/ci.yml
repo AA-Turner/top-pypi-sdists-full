@@ -138,7 +138,10 @@ jobs:
 
   admin-ui-bundle:
     name: Admin UI bundle
-    runs-on: ubuntu-latest
+    # Playwright's Chromium dependency installer does not support the
+    # ubuntu-26.04 image behind ubuntu-latest; keep the browser gate on a
+    # Playwright-supported release.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: loonghao/vx@v0.9.34
@@ -341,6 +344,15 @@ jobs:
             --no-tests fail --success-output immediate --no-output-indent --color never \
             2>&1 | tee "$evidence"
           grep -Fx 'host-install-consent-gate exercised baseline=missing' "$evidence"
+      # Requires the corrected 2852 probe semantics: 2862 is rebased onto
+      # 2852 before this exact CLI-process contract is run in CI.
+      - name: Install verify core compatibility evidence
+        if: matrix.rust-validation == 'full'
+        shell: bash
+        run: |
+          set -euo pipefail
+          vx cargo test -p dcc-mcp-cli --test cli_verify_e2e -- \
+            --ignored verify_reports_incompatible_target_core_after_combined_slice --exact
       - name: Upload Rust test diagnostics
         if: always() && matrix.rust-validation == 'full'
         uses: actions/upload-artifact@v4
@@ -377,6 +389,18 @@ jobs:
       - name: Windows process-tree runtime regression
         if: matrix.os == 'windows-latest'
         run: vx cargo test -p dcc-mcp-cli --lib infra::github_issues::tests::bounded_child_timeout_terminates_descendants_that_inherit_pipes -- --exact
+      - name: Windows adapter probe inherited-writer regression
+        if: matrix.os == 'windows-latest'
+        run: vx cargo test -p dcc-mcp-cli --lib application::adapter_import::tests::probe_timeout_terminates_inherited_writer -- --exact
+      - name: Windows adapter probe parent-exit inherited-writer regression
+        if: matrix.os == 'windows-latest'
+        run: vx cargo test -p dcc-mcp-cli --lib application::adapter_import::tests::probe_normal_parent_exit_drains_inherited_writer -- --exact
+      - name: macOS adapter probe inherited-writer regressions
+        if: matrix.os == 'macos-latest'
+        run: >-
+          vx cargo test -p dcc-mcp-cli --lib
+          application::adapter_import::tests::probe_
+          -- --nocapture
       - name: Tracy feature compile smoke
         run: vx cargo check -p dcc-mcp-server --no-default-features --features gateway-daemon,tracy
       # Verify the composition binary still builds in its slim variants
@@ -704,7 +728,10 @@ jobs:
       matrix:
         include:
           # Ubuntu — cover every supported Python version (cheapest runner).
-          - { os: ubuntu-latest,  python-version: "3.8",  wheel_os: ubuntu-latest }
+          # actions/setup-python has no Python 3.8 build for Ubuntu 26.04
+          # (ubuntu-latest); keep this lane on 24.04 but still reuse the
+          # shared wheel-ubuntu-latest artifact via wheel_os.
+          - { os: ubuntu-24.04,   python-version: "3.8",  wheel_os: ubuntu-latest }
           - { os: ubuntu-latest,  python-version: "3.10", wheel_os: ubuntu-latest }
           - { os: ubuntu-latest,  python-version: "3.13", wheel_os: ubuntu-latest }
           - { os: ubuntu-latest,  python-version: "3.14", wheel_os: ubuntu-latest }

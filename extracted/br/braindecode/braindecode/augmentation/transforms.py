@@ -16,7 +16,7 @@ from mne.channels import make_standard_montage
 
 from braindecode.util import resolve_montage_name
 
-from .base import Transform
+from .base import Transform, _SignalTransform
 from .functional import (
     _max_float_dtype,
     amplitude_scale,
@@ -41,7 +41,7 @@ from .functional import (
 )
 
 
-class TimeReverse(Transform):
+class TimeReverse(_SignalTransform):
     """Flip the time axis of each input with a given probability.
 
     Parameters
@@ -67,7 +67,7 @@ class TimeReverse(Transform):
         )
 
 
-class SignFlip(Transform):
+class SignFlip(_SignalTransform):
     """Flip the sign axis of each input with a given probability.
 
     Parameters
@@ -86,7 +86,7 @@ class SignFlip(Transform):
         super().__init__(probability=probability, random_state=random_state)
 
 
-class FTSurrogate(Transform):
+class FTSurrogate(_SignalTransform):
     """FT surrogate augmentation of a single EEG channel, as proposed in [1]_.
 
     Parameters
@@ -163,7 +163,7 @@ class FTSurrogate(Transform):
         }
 
 
-class ChannelsDropout(Transform):
+class ChannelsDropout(_SignalTransform):
     """Randomly set channels to flat signal.
 
     Part of the CMSAugment policy proposed in [1]_
@@ -220,7 +220,7 @@ class ChannelsDropout(Transform):
         }
 
 
-class ChannelsShuffle(Transform):
+class ChannelsShuffle(_SignalTransform):
     """Randomly shuffle channels in EEG data matrix.
 
     Part of the CMSAugment policy proposed in [1]_
@@ -278,7 +278,7 @@ class ChannelsShuffle(Transform):
         }
 
 
-class GaussianNoise(Transform):
+class GaussianNoise(_SignalTransform):
     """Randomly add white noise to all channels.
 
     Suggested e.g. in [1]_, [2]_ and [3]_
@@ -342,7 +342,7 @@ class GaussianNoise(Transform):
         }
 
 
-class ChannelsSymmetry(Transform):
+class ChannelsSymmetry(_SignalTransform):
     """Permute EEG channels inverting left and right-side sensors.
 
     Suggested e.g. in [1]_
@@ -417,7 +417,7 @@ class ChannelsSymmetry(Transform):
         return {"permutation": self.permutation}
 
 
-class SmoothTimeMask(Transform):
+class SmoothTimeMask(_SignalTransform):
     """Smoothly replace a randomly chosen contiguous part of all channels by.
 
     zeros.
@@ -504,7 +504,7 @@ class SmoothTimeMask(Transform):
         }
 
 
-class BandstopFilter(Transform):
+class BandstopFilter(_SignalTransform):
     """Apply a band-stop filter with desired bandwidth at a randomly selected.
 
     frequency position between 0 and ``max_freq``.
@@ -621,7 +621,7 @@ class BandstopFilter(Transform):
         }
 
 
-class FrequencyShift(Transform):
+class FrequencyShift(_SignalTransform):
     """Add a random shift in the frequency domain to all channels.
 
     Note that here, the shift is the same for all channels of a single example.
@@ -722,10 +722,10 @@ def _get_standard_10_20_positions(raw_or_epoch=None, ordered_ch_names=None):
     return np.stack(list(positions_subdict.values())).T
 
 
-class SensorsRotation(Transform):
+class SensorsRotation(_SignalTransform):
     """Interpolates EEG signals over sensors rotated around the desired axis.
 
-    with an angle sampled uniformly between ``-max_degree`` and ``max_degree``.
+    with an angle sampled uniformly between ``-max_degrees`` and ``max_degrees``.
 
     Suggested in [1]_
 
@@ -740,14 +740,14 @@ class SensorsRotation(Transform):
         `mne` through::
 
          >>> ten_twenty_montage = mne.channels.make_standard_montage(
-         ...    'standard_1020'  # 'colin27_1020' on MNE >= 1.13
+         ...    'colin27_1020'
          ... ).get_positions()['ch_pos']
 
     axis : 'x' | 'y' | 'z', optional
         Axis around which to rotate. Defaults to 'z'.
-    max_degree : float, optional
+    max_degrees : float, optional
         Maximum rotation. Rotation angles will be sampled between
-        ``-max_degree`` and ``max_degree``. Defaults to 15 degrees.
+        ``-max_degrees`` and ``max_degrees``. Defaults to 15 degrees.
     spherical_splines : bool, optional
         Whether to use spherical splines for the interpolation or not. When
         ``False``, standard scipy.interpolate.Rbf (with quadratic kernel) will
@@ -856,7 +856,7 @@ class SensorsRotation(Transform):
 class SensorsZRotation(SensorsRotation):
     """Interpolates EEG signals over sensors rotated around the Z axis.
 
-    with an angle sampled uniformly between ``-max_degree`` and ``max_degree``.
+    with an angle sampled uniformly between ``-max_degrees`` and ``max_degrees``.
 
     Suggested in [1]_
 
@@ -870,9 +870,9 @@ class SensorsZRotation(SensorsRotation):
         the order of channels in the input matrices that will be fed to the
         transform. This channel will be used to compute approximate sensors
         positions from a standard 10-20 montage.
-    max_degree : float, optional
+    max_degrees : float, optional
         Maximum rotation. Rotation angles will be sampled between
-        ``-max_degree`` and ``max_degree``. Defaults to 15 degrees.
+        ``-max_degrees`` and ``max_degrees``. Defaults to 15 degrees.
     spherical_splines : bool, optional
         Whether to use spherical splines for the interpolation or not. When
         ``False``, standard scipy.interpolate.Rbf (with quadratic kernel) will
@@ -913,7 +913,7 @@ class SensorsZRotation(SensorsRotation):
 class SensorsYRotation(SensorsRotation):
     """Interpolates EEG signals over sensors rotated around the Y axis.
 
-    with an angle sampled uniformly between ``-max_degree`` and ``max_degree``.
+    with an angle sampled uniformly between ``-max_degrees`` and ``max_degrees``.
 
     Suggested in [1]_
 
@@ -927,9 +927,9 @@ class SensorsYRotation(SensorsRotation):
         the order of channels in the input matrices that will be fed to the
         transform. This channel will be used to compute approximate sensors
         positions from a standard 10-20 montage.
-    max_degree : float, optional
+    max_degrees : float, optional
         Maximum rotation. Rotation angles will be sampled between
-        ``-max_degree`` and ``max_degree``. Defaults to 15 degrees.
+        ``-max_degrees`` and ``max_degrees``. Defaults to 15 degrees.
     spherical_splines : bool, optional
         Whether to use spherical splines for the interpolation or not. When
         ``False``, standard scipy.interpolate.Rbf (with quadratic kernel) will
@@ -970,7 +970,7 @@ class SensorsYRotation(SensorsRotation):
 class SensorsXRotation(SensorsRotation):
     """Interpolates EEG signals over sensors rotated around the X axis.
 
-    with an angle sampled uniformly between ``-max_degree`` and ``max_degree``.
+    with an angle sampled uniformly between ``-max_degrees`` and ``max_degrees``.
 
     Suggested in [1]_
 
@@ -984,9 +984,9 @@ class SensorsXRotation(SensorsRotation):
         the order of channels in the input matrices that will be fed to the
         transform. This channel will be used to compute approximate sensors
         positions from a standard 10-20 montage.
-    max_degree : float, optional
+    max_degrees : float, optional
         Maximum rotation. Rotation angles will be sampled between
-        ``-max_degree`` and ``max_degree``. Defaults to 15 degrees.
+        ``-max_degrees`` and ``max_degrees``. Defaults to 15 degrees.
     spherical_splines : bool, optional
         Whether to use spherical splines for the interpolation or not. When
         ``False``, standard scipy.interpolate.Rbf (with quadratic kernel) will
@@ -1315,21 +1315,19 @@ class SegmentationReconstruction(Transform):
             if X.shape[0] != y.shape[0]:
                 raise ValueError("Number of samples in X and y must be the same.")
 
-        if self.n_segments is None:
-            self.n_segments = int(X.shape[2])
-            n_segments_list = []
-            for i in range(1, int(self.n_segments**0.5) + 1):
-                if self.n_segments % i == 0:
-                    n_segments_list.append(i)
-            self.n_segments = n_segments_list[-1]
-
+        n_segments = self.n_segments
+        if n_segments is None:
+            # Not stored on self: a later batch may have another window length.
+            n_times = int(X.shape[2])
+            n_segments = max(
+                i for i in range(1, int(n_times**0.5) + 1) if n_times % i == 0
+            )
         elif not (
-            isinstance(self.n_segments, (int, float))
-            and 1 <= self.n_segments <= X.shape[2]
+            isinstance(n_segments, (int, float)) and 1 <= n_segments <= X.shape[2]
         ):
             raise ValueError(
                 f"Number of segments must be a positive integer less than "
-                f"(or equal) the window size. Got {self.n_segments}"
+                f"(or equal) the window size. Got {n_segments}"
             )
 
         if y is None:
@@ -1343,21 +1341,19 @@ class SegmentationReconstruction(Transform):
         rand_indices = dict()
         for label, X_class in data_classes:
             n_trials = X_class.shape[0]
-            rand_indices[label] = self.rng.randint(
-                0, n_trials, (n_trials, self.n_segments)
-            )
+            rand_indices[label] = self.rng.randint(0, n_trials, (n_trials, n_segments))
 
         idx_shuffle = self.rng.permutation(X.shape[0])
 
         return {
-            "n_segments": self.n_segments,
+            "n_segments": n_segments,
             "data_classes": data_classes,
             "rand_indices": rand_indices,
             "idx_shuffle": idx_shuffle,
         }
 
 
-class MaskEncoding(Transform):
+class MaskEncoding(_SignalTransform):
     """MaskEncoding from [1]_.
 
     Replaces randomly chosen contiguous part (or parts) of all channels by
@@ -1448,7 +1444,7 @@ class MaskEncoding(Transform):
         }
 
 
-class ChannelsReref(Transform):
+class ChannelsReref(_SignalTransform):
     """Randomly re-reference channels in EEG data matrix.
 
     Part of the augmentations proposed in [1]_
@@ -1483,7 +1479,7 @@ class ChannelsReref(Transform):
         }
 
 
-class AmplitudeScale(Transform):
+class AmplitudeScale(_SignalTransform):
     """Rescale amplitude based on a random sampled scaling value.
 
     Part of the augmentations proposed in [1]_
@@ -1517,7 +1513,7 @@ class AmplitudeScale(Transform):
         return {"random_state": self.rng, "scale": self.scale}
 
 
-class BandRotation(Transform):
+class BandRotation(_SignalTransform):
     """Per-band electrode rotation + inter-band temporal jitter.
 
     Models small wristband rotation between sessions and relative timing
@@ -1613,7 +1609,7 @@ class BandRotation(Transform):
         }
 
 
-class TrivialAugment(Transform):
+class TrivialAugment(_SignalTransform):
     """Apply one randomly sampled label-preserving augmentation per example.
 
     For every example, independently samples one transform from the pool

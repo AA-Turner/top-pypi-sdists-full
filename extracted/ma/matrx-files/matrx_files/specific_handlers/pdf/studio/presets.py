@@ -281,7 +281,7 @@ _EXTRACT: list[PdfStudioPreset] = [
     {
         "id": "extract-tables-csv",
         "name": "Extract tables → CSV",
-        "usage": "Pull tabular data from every page (requires Java + tabula-py).",
+        "usage": "Pull tabular data from every page.",
         "operation": "extract_tables",
         "params": {"output_format": "csv"},
         "output_kind": "csv",

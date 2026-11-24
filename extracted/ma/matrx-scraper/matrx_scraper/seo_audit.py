@@ -54,7 +54,7 @@ from typing import Any, Literal
 from urllib.parse import parse_qsl, urljoin, urlparse, urlsplit
 
 from pydantic import BaseModel, Field, JsonValue
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser
 
 from matrx_scraper.app_shell import (
     NON_VISIBLE_TAGS,
@@ -231,7 +231,7 @@ def audit_html(html: str, base_url: str) -> SeoAuditResult:
     """
     if not html:
         return _empty_result(base_url)
-    tree = HTMLParser(html)
+    tree = LexborHTMLParser(html)
     return _audit_tree(tree, base_url)
 
 
@@ -329,7 +329,7 @@ def _without_fragment(url: str) -> str:
     return f"{parts.scheme.lower()}://{parts.netloc.lower()}{path}{query}"
 
 
-def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
+def _audit_tree(tree: LexborHTMLParser, base_url: str) -> SeoAuditResult:
     body = tree.body
 
     # Title — both <title> text and <html lang>
@@ -341,7 +341,8 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
         title = re.sub(r"\s+", " ", title_node.text(deep=True, separator="")).strip()
 
     html_node = tree.css_first("html")
-    lang = html_node.attributes.get("lang") if html_node else None
+    # Lexbor reports a present-but-empty attribute as ""; the audit (and its matrx-extend twin) read it as absent.
+    lang = (html_node.attributes.get("lang") or None) if html_node else None
 
     # Meta tags
     meta_description: str | None = None
@@ -810,7 +811,7 @@ def _is_script_lazy(attrs: dict[str, Any]) -> bool:
 
 
 def _extract_page_resources(
-    tree: HTMLParser,
+    tree: LexborHTMLParser,
     base_url: str,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     images: list[dict[str, Any]] = []
@@ -889,7 +890,7 @@ def _extract_page_resources(
             "picture_formats": _picture_source_formats(img, base_url),
             "picture_sources": _picture_source_urls(img, base_url),
             "sizes": attrs.get("sizes"),
-            # selectolax reports `alt=""` as None; presence of the attribute is the signal.
+            # Presence of the attribute is the signal.
             "alt": (attrs.get("alt") or "") if "alt" in attrs else None,
             "width": _number_attribute(attrs.get("width")),
             "height": _number_attribute(attrs.get("height")),
@@ -1180,7 +1181,7 @@ def _find_schema_value(node: Any, key: str) -> Any:
 
 
 def _extract_page_identity(
-    tree: HTMLParser,
+    tree: LexborHTMLParser,
     base_url: str,
     *,
     og: dict[str, str],
@@ -1335,7 +1336,7 @@ def _extract_page_identity(
         "page_types": page_types,
         "theme_color": meta.get("theme-color"),
         "html_lang": (
-            tree.css_first("html").attributes.get("lang")
+            (tree.css_first("html").attributes.get("lang") or None)
             if tree.css_first("html") is not None
             else None
         ),
@@ -2690,7 +2691,7 @@ def is_bot_wall(*, html: str | None = None, soup: Any = None, title: str | None 
     text is passed on, so `challenge_text_reason`'s own length guard applies too.
     """
     if soup is None and html:
-        soup = HTMLParser(html)
+        soup = LexborHTMLParser(html)
     text = _visible_body_text(soup)
     if len(text) > SHORT_PAGE_CHARS:
         return False
@@ -4767,7 +4768,7 @@ LOCAL_BUSINESS_SUBTYPES: frozenset[str] = frozenset(
         "TelevisionStation",
         "TouristInformationCenter",
         "TravelAgency",
-        # Second-level subtypes seen on real client sites (iopbm.com declares
+        # Second-level subtypes seen on real client sites (a client site declares
         # `MedicalClinic`, which sits under MedicalBusiness) — a whitelist of
         # first-level children alone told those sites they had no business markup.
         "AccountingService",

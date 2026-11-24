@@ -3,6 +3,7 @@ from typing import Any
 
 from matrx_utils import capture_error, vcprint
 
+from matrx_scraper.public_routes import fetch_with_public_routes
 from matrx_scraper.scraper import fetch_normally_with_proxy, ContentType
 from matrx_scraper.parser.core import parse_html
 from matrx_scraper.extractors import (
@@ -14,6 +15,14 @@ from matrx_scraper.features.extensions import get_condenser_1
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 LOCAL_DEBUG = False
+
+def fit_for_condenser(content: str) -> str:
+    """The page text a condenser is sent: cleaned, then held to the ONE condense budget research_web uses
+    (``research_budget.CONDENSE_MAX_CHARS``), the head kept and the cap said in the text."""
+    from matrx_scraper.features.research_budget import CONDENSE_MAX_CHARS, cap_page_text, clean_page_text
+
+    text, _capped = cap_page_text(clean_page_text(content), CONDENSE_MAX_CHARS)
+    return text
 
 
 class ReadPageFetchError(RuntimeError):
@@ -140,7 +149,7 @@ async def _read_page_http_judged(url: str) -> tuple[dict[str, Any], Any]:
     """Our scraper's read plus ``judge_read``'s verdict on it (``None`` = not judgeable, e.g. a video)."""
     from matrx_scraper.read_judge import judge_read
 
-    response = await fetch_normally_with_proxy(url)
+    response = await fetch_with_public_routes(url, fetch_normally_with_proxy)
     status = int(getattr(response, "status_code", 0) or 0) or None
     title = getattr(response, "title", None)
 
@@ -149,7 +158,7 @@ async def _read_page_http_judged(url: str) -> tuple[dict[str, Any], Any]:
         await _report_fetch_failure(response, url=url, operation="read_page_mcp_quick")
         reason = getattr(getattr(response, "failed_primary_reason", None), "value", None) or "empty_content"
         verdict = judge_read(status=status, text="", html=response.content or None, title=title,
-                             fetch_failure=reason)
+                             fetch_failure=reason, headers=getattr(response, "response_headers", None))
         return {"status": "error", "result": "Sorry could not access this page.", "text": ""}, verdict
 
     extracted_text = ""
@@ -181,7 +190,8 @@ async def _read_page_http_judged(url: str) -> tuple[dict[str, Any], Any]:
             "status": "error",
             "result": "Sorry could not extract content from this page.",
             "text": "",
-        }, judge_read(status=status, text="", html=html, title=title)
+        }, judge_read(status=status, text="", html=html, title=title,
+                              headers=getattr(response, "response_headers", None))
 
     # Legacy wrapped string for older callers; prefer ``text`` (raw extract).
     full_content = (
@@ -236,7 +246,8 @@ async def _read_page_http_judged(url: str) -> tuple[dict[str, Any], Any]:
             "engine": "http",
             "raw_html": html,
         },
-    }, judge_read(status=status, text=extracted_text, html=html, title=title)
+    }, judge_read(status=status, text=extracted_text, html=html, title=title,
+                          headers=getattr(response, "response_headers", None))
 
 
 async def read_page_mcp_summarized(
@@ -269,7 +280,7 @@ async def read_page_mcp_summarized(
     if stream_handler:
         await _emit_progress(stream_handler, f"Browsing {url}", call_id=call_id)
 
-    response = await fetch_normally_with_proxy(url)
+    response = await fetch_with_public_routes(url, fetch_normally_with_proxy)
     has_content = response.content or response.content_bytes
     if response.failed or not has_content:
         await _report_fetch_failure(response, url=url, operation="read_page_mcp_summarized")
@@ -311,7 +322,7 @@ async def read_page_mcp_summarized(
 
     result = await condenser(
         instructions=instructions,
-        scraped_content=content,
+        scraped_content=fit_for_condenser(content),
         queries=queries,
         search_results=search_results,
         ctx=ctx,

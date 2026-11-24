@@ -12,6 +12,7 @@ step (there is no vision fallback for a textual heal).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from dataclasses import dataclass
@@ -19,6 +20,8 @@ from dataclasses import dataclass
 import aiohttp
 
 from testmu._v4._helpers._dom_structured import capture_structured_dom
+from testmu._v4._helpers.autoheal_ax import _build_frame_chain
+from testmu._v4._helpers.ax_tree import resolve_session_for_frame
 from testmu._v4._helpers._http import create_session
 from testmu._v4._helpers._locator_enrichment import enrich_element_locator
 from testmu._v4._helpers.textual_analyzer.extractor import (
@@ -113,6 +116,25 @@ async def run_heal(
     return None
 
 
+async def _framed_locator(page, structured, frame_id: str, backend_id: int) -> str | None:
+    """Locator for a node inside an iframe: enriched on its own frame's session,
+    behind the frame chain (``<iframe> >> internal:control=enter-frame >> ...``,
+    the form a recorded framed read carries). None when either part fails."""
+    cdp = await resolve_session_for_frame(page, frame_id)
+    try:
+        enriched = await enrich_element_locator(cdp, {"backend_dom_node_id": backend_id}, page=page)
+    finally:
+        with contextlib.suppress(Exception):
+            await cdp.detach()
+    loc = (enriched or {}).get("locator")
+    if not loc:
+        return None
+    chain = await _build_frame_chain(page, structured.frame_captures, frame_id)
+    if not chain:
+        return None
+    return " >> internal:control=enter-frame >> ".join([c["locator"] for c in chain] + [loc])
+
+
 async def _attempt_heal(
     page, query: str, expected_value: str | None, needs_unit_conversion: bool,
     condition: str | None = None, previous_code: str | None = None,
@@ -133,14 +155,17 @@ async def _attempt_heal(
 
     handles = []
     healed_locators: list[str] = []
-    cdp = await page.context.new_cdp_session(page)
-    try:
+    from testmu._v4._helpers._perception import perception_for
+    async with perception_for(page) as perception:
         for i in indices:
             bid = structured.index_to_backend_id.get(i)
             if bid is None:
                 return None
-            enriched = await enrich_element_locator(cdp, {"backend_dom_node_id": bid}, page=page)
-            loc = (enriched or {}).get("locator")
+            if bid in structured.frame_nodes:
+                loc = await _framed_locator(page, structured, *structured.frame_nodes[bid])
+            else:
+                enriched = await perception.enrich_locator({"backend_dom_node_id": bid})
+                loc = (enriched or {}).get("locator")
             if not loc:
                 return None
             handle = await page.locator(loc).first.element_handle()
@@ -148,8 +173,6 @@ async def _attempt_heal(
                 return None
             handles.append(handle)
             healed_locators.append(loc)
-    finally:
-        await cdp.detach()
 
     wrapped = wrap_extractor_code(code, indices)
     try:

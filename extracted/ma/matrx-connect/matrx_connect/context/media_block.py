@@ -142,7 +142,7 @@ class MediaBlockShared(BaseModel, Generic[MediaOrigin]):
         return data
 
     @model_validator(mode="after")
-    def _enforce_origin_contract(self) -> "MediaBlockShared":
+    def _enforce_origin_contract(self) -> MediaBlockShared:
         # During streaming we may not yet have a file_id (the master row is
         # written after the final byte chunk arrives). Only enforce the
         # file_id requirement for complete-state matrx blocks.

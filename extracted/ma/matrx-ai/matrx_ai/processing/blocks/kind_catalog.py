@@ -95,6 +95,11 @@ def is_registered_kind(slug: str) -> bool:
     return slug in _known_versions
 
 
+def registered_kind_version(slug: str) -> int | None:
+    """Sync: the registered version of a live kind, or None (unknown, cold, or held table kind)."""
+    return _known_versions.get(slug)
+
+
 def registered_kind_schema(slug: str) -> dict[str, Any] | None:
     """Sync: the kind's schema as the envelope validates it, or None (unknown, cold, schemaless).
 

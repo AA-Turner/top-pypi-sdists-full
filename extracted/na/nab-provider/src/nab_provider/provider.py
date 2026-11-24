@@ -8,15 +8,10 @@ into nab-resolver Range types.
 from __future__ import annotations
 
 __lazy_modules__ = (
-    "nab_resolver.diagnostics",
     "bisect",
     "collections",
     "itertools",
     "nab_provider._provider.candidate_views",
-    "nab_provider._vendor.packaging.markers",
-    "nab_provider._vendor.packaging.ranges",
-    "nab_provider._vendor.packaging.specifiers",
-    "nab_provider._vendor.packaging.utils",
     "nab_provider.conflict_kind",
     "nab_provider.declarations",
     "nab_provider.environment",
@@ -24,25 +19,34 @@ __lazy_modules__ = (
     "nab_provider.extra_keys",
     "nab_provider.fetch_port",
     "nab_provider.metadata",
+    "nab_provider.ranges",
     "nab_provider.records",
     "nab_provider.vcs_admission",
+    "nab_resolver.diagnostics",
+    "packaging.markers",
+    "packaging.specifiers",
+    "packaging.utils",
 )
 
 import bisect
 import logging
 import operator
 from collections import defaultdict, deque
+from contextlib import contextmanager, nullcontext
+from contextvars import ContextVar
+from enum import Enum
 from itertools import chain
+from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeVar, cast
 
-from nab_provider._vendor.packaging.markers import prepare_environment
-from nab_provider._vendor.packaging.ranges import VersionRange
-from nab_provider._vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
-from nab_provider._vendor.packaging.utils import canonicalize_name
+from packaging.markers import prepare_environment
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
+
+from nab_resolver import priority as decision_priority
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
 from nab_resolver.types import IncompatibilityCause
 
-from . import priority as decision_priority
 from ._provider import extras as _extras
 from ._provider import listing as _listing
 from ._provider import listing_diagnosis as _diagnosis
@@ -93,9 +97,7 @@ from .policy import (
     SourceRequest,
     VcsSource,
 )
-from .policy import (
-    ResolveMode as ResolveMode,  # noqa: PLC0414  (re-export, importable from here)
-)
+from .ranges import VersionRange, narrow_over_listing, require_version_range
 from .records import DistFile, SdistFile, WheelFile
 from .value import Record, field_names
 from .vcs_admission import (
@@ -105,18 +107,29 @@ from .vcs_admission import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+    from collections.abc import (
+        Callable,
+        Generator,
+        Iterable,
+        Iterator,
+        Mapping,
+        Sequence,
+    )
+    from contextlib import AbstractContextManager
     from datetime import datetime
     from pathlib import Path
 
-    from nab_provider._vendor.packaging.markers import Marker
-    from nab_provider._vendor.packaging.requirements import Requirement
-    from nab_provider._vendor.packaging.version import Version
+    from packaging.markers import Marker
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+
     from nab_resolver.types import Incompatibility, RangeProtocol
 
     from .diagnostics import Diagnostic
     from .fetch_port import FetchPort, Waitable
     from .overrides import IndexOverride, PackageOverride
+    from .ranges import DisplayNarrowing
+    from .store import WheelMetadataContext
     from .tags import TagSet
     from .target import ResolveTarget
 
@@ -152,7 +165,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-_PreparedT = TypeVar("_PreparedT")
+_PolicyValue = TypeVar("_PolicyValue")
 
 
 class ProviderStats(Record):
@@ -323,6 +336,39 @@ class _ReleaseSnapshot:
                 self.releases.setdefault(version, []).append(dist)
 
 
+class _ListingFilters:
+    """Prepared data for one package page and the index that supplied it."""
+
+    __slots__ = (
+        "diagnosed",
+        "files",
+        "filtered",
+        "index_name",
+        "prepared",
+        "releases",
+        "tagged",
+    )
+
+    def __init__(
+        self, files: Sequence[DistFile] | None = None, index_name: str | None = None
+    ) -> None:
+        self.files = files
+        self.index_name = index_name
+        self.filtered: dict[
+            str | None, tuple[list[tuple[Version, DistFile]], tuple[int, ...]]
+        ] = {}
+        self.prepared: tuple[_listing.SharedListing, tuple[int, ...]] | None = None
+        self.diagnosed: dict[str | None, _diagnosis.BaseListingDiagnosis] = {}
+        self.tagged: dict[str | None, CandidatePreparation] = {}
+        self.releases: _ReleaseSnapshot | None = None
+
+
+# A nested read or a second thread can publish another page before tag ranking.
+_listing_read: ContextVar[tuple[Provider, str, _ListingFilters] | None] = ContextVar(
+    "listing_read", default=None
+)
+
+
 class ListingFilterCache:
     """Base listing-filter results shared across the targets of one resolve.
 
@@ -360,24 +406,47 @@ class ListingFilterCache:
         self._pythons = pythons
         self._target_count = target_count
 
-        self._entries: dict[
-            tuple[str, str | None],
-            tuple[list[tuple[Version, DistFile]], tuple[int, ...]],
-        ] = {}
-        self._prepared: dict[str, tuple[object, tuple[int, ...]]] = {}
-        self._diagnosed: dict[tuple[str, str | None], object] = {}
-        self._tagged: dict[str, dict[str | None, CandidatePreparation]] = {}
-        self._release_snapshots: dict[str, _ReleaseSnapshot] = {}
+        self._pages: dict[str, _ListingFilters] = {}
+
+    @contextmanager
+    def reading(
+        self, provider: Provider, package: str, files: Sequence[DistFile]
+    ) -> Generator[None, None, None]:
+        """Use one page's data for every filter until the read finishes."""
+        index_name = provider.coordinator.index.get_listing_index(package)
+        page = self._pages.get(package)
+        if page is None or page.files is not files or page.index_name != index_name:
+            page = self._pages[package] = _ListingFilters(files, index_name)
+
+        token = _listing_read.set((provider, package, page))
+        try:
+            yield
+        finally:
+            _listing_read.reset(token)
+
+    def _page(self, package: str) -> _ListingFilters:
+        active = _listing_read.get()
+        if active is not None:
+            provider, name, bound = active
+            if name == package and provider.listing_filter_cache is self:
+                return bound
+
+        # The cache methods can also be called directly, outside a provider read.
+        page = self._pages.get(package)
+        if page is None:
+            page = self._pages[package] = _ListingFilters()
+        return page
 
     def selected_release(
         self, package: str, files: Sequence[DistFile], version: Version
     ) -> tuple[Sequence[DistFile], ListingFilterCache]:
         """Return a complete release and a filter bound to this exact snapshot."""
         # Replacing a listing invalidates its release groups and prepared views.
-        snapshot = self._release_snapshots.get(package)
+        page = self._page(package)
+        snapshot = page.releases
         if snapshot is None or snapshot.files is not files:
             snapshot = _ReleaseSnapshot(files)
-            self._release_snapshots[package] = snapshot
+            page.releases = snapshot
 
         # Restricted preparation must stay separate from ordinary search.
         cache = snapshot.filters.get(version)
@@ -399,7 +468,8 @@ class ListingFilterCache:
         A memo hit replays the counters the filter raised onto ``stats``, so
         every target still reports the files it would have walked.
         """
-        entry = self._entries.get((package, python_version))
+        entries = self._page(package).filtered
+        entry = entries.get(python_version)
         if entry is not None:
             result, delta = entry
             _replay(stats, delta)
@@ -408,17 +478,18 @@ class ListingFilterCache:
         before = _counters(stats)
         result = compute()
 
-        self._entries[(package, python_version)] = (list(result), _since(before, stats))
+        entries[python_version] = (list(result), _since(before, stats))
         return result
 
     def tagged(
         self, package: str, python_version: str | None, tags: TagSet
     ) -> CandidateView:
         """Project the cache-owned base snapshot through this target's tags."""
-        by_python = self._tagged.setdefault(package, {})
+        page = self._page(package)
+        by_python = page.tagged
         prepared = by_python.get(python_version)
         if prepared is None:
-            records = self._entries[(package, python_version)][0]
+            records = page.filtered[python_version][0]
             previous = next(reversed(by_python.values()), None)
             prepared = (
                 previous
@@ -432,8 +503,8 @@ class ListingFilterCache:
         self,
         package: str,
         stats: ProviderStats,
-        compute: Callable[[], _PreparedT],
-    ) -> _PreparedT:
+        compute: Callable[[], _listing.SharedListing],
+    ) -> _listing.SharedListing:
         """Return the Python-invariant filter half, running ``compute`` once.
 
         Keyed by package alone, so every Python of a matrix shares one
@@ -441,24 +512,25 @@ class ListingFilterCache:
         :meth:`filtered` does, and the caller must treat the result as
         read-only, since the other Pythons hold it too.
         """
-        entry = self._prepared.get(package)
+        page = self._page(package)
+        entry = page.prepared
         if entry is not None:
             result, delta = entry
             _replay(stats, delta)
-            return cast("_PreparedT", result)
+            return result
 
         before = _counters(stats)
         result = compute()
 
-        self._prepared[package] = (result, _since(before, stats))
+        page.prepared = (result, _since(before, stats))
         return result
 
     def diagnosed(
         self,
         package: str,
         python_version: str | None,
-        compute: Callable[[], _PreparedT],
-    ) -> _PreparedT:
+        compute: Callable[[], _diagnosis.BaseListingDiagnosis],
+    ) -> _diagnosis.BaseListingDiagnosis:
         """Return the diagnosis walk's base pass, running ``compute`` once.
 
         Keyed the way :meth:`filtered` is, because the rungs the walk shares
@@ -472,58 +544,128 @@ class ListingFilterCache:
         same totals behind.  The result is held by every target that shares
         the memo, so callers must treat it as read-only.
         """
-        key = (package, python_version)
-        entry = self._diagnosed.get(key)
+        entries = self._page(package).diagnosed
+        entry = entries.get(python_version)
         if entry is None:
             entry = compute()
-            self._diagnosed[key] = entry
-        return cast("_PreparedT", entry)
+            entries[python_version] = entry
+        return entry
+
+
+class _PreferredReleaseTrial:
+    """Select the listing and cache to use while checking a saved model."""
+
+    __slots__ = ("cache", "releases", "unchanged_only", "unrestricted_packages")
+
+    def __init__(
+        self,
+        releases: dict[str, Version],
+        cache: ListingFilterCache,
+        *,
+        unchanged_only: bool,
+    ) -> None:
+        self.releases = releases
+        self.cache = cache
+        self.unchanged_only = unchanged_only
+        self.unrestricted_packages: set[str] = set()
+
+    def select(
+        self,
+        provider: Provider,
+        package: str,
+        files: Sequence[DistFile],
+        *,
+        has_withdrawals: bool,
+    ) -> tuple[Sequence[DistFile], ListingFilterCache | None]:
+        """Keep alternatives available when a withdrawal or a forced change matters."""
+        preferred = self.releases.get(package)
+        withdrawals_matter = has_withdrawals and (
+            not self.unchanged_only or (package, preferred) in provider.yanked_versions
+        )
+        if withdrawals_matter and not provider.has_overrides:
+            required = provider.root_requirements.get(package)
+            if (
+                required is not None
+                and preferred is not None
+                and required.contains(preferred, prereleases=True)
+            ):
+                # Historical withdrawals outside the root cannot affect admission.
+                withdrawals_matter = any(
+                    name == package and required.contains(version, prereleases=True)
+                    for name, version in provider.yanked_versions
+                )
+        if withdrawals_matter or package in self.unrestricted_packages:
+            return files, self.cache
+        if preferred is None:
+            # A complete preferred model cannot introduce an unknown package.
+            return (), None
+
+        release, restricted = self.cache.selected_release(package, files, preferred)
+        if self.unchanged_only and any(file.yanked for file in release):
+            return files, self.cache
+        return release, restricted
 
 
 # Sentinel for "this override does not set the field".  Distinct from
 # ``None``, which is a real value (a disabled upload-time cutoff).
-_UNSET = object()
+class _Unset(Enum):
+    FIELD = "unset"
 
 
-def _unset_if_none(value: object) -> object:
-    """Map ``None`` to ``_UNSET``, retaining other values."""
+def _unset_if_none(value: _PolicyValue | None) -> _PolicyValue | _Unset:
+    """Map ``None`` to ``_Unset.FIELD``, retaining other values."""
     if value is None:
-        return _UNSET
+        return _Unset.FIELD
     return value
 
 
-def _uploaded_prior_to_value(override: PackageOverride | IndexOverride) -> object:
-    """Upload-time value: a datetime, ``None`` (disabled), or ``_UNSET``."""
+def _uploaded_prior_to_value(
+    override: PackageOverride | IndexOverride,
+) -> datetime | _Unset | None:
+    """Upload-time value: a datetime, ``None`` (disabled), or ``_Unset.FIELD``."""
     if override.uploaded_prior_to is not None:
         return override.uploaded_prior_to
     if override.uploaded_prior_to_disabled:
         return None
-    return _UNSET
+    return _Unset.FIELD
 
 
-def _dist_policy_value(override: PackageOverride | IndexOverride) -> object:
-    """Dist-policy value: a :class:`DistPolicy`, or ``_UNSET`` when unset."""
+def _build_policy_value(
+    override: PackageOverride | IndexOverride,
+) -> BuildPolicy | _Unset:
+    """Read the build setting shared by index and package overrides."""
+    return _unset_if_none(override.build_policy)
+
+
+def _dist_policy_value(
+    override: PackageOverride | IndexOverride,
+) -> DistPolicy | _Unset:
+    """Dist-policy value: a :class:`DistPolicy`, or ``_Unset.FIELD`` when unset."""
     return _unset_if_none(override.dist_policy)
 
 
-def _metadata_policy_value(override: PackageOverride | IndexOverride) -> object:
+def _metadata_policy_value(
+    override: PackageOverride | IndexOverride,
+) -> MetadataPolicy | _Unset:
     """Metadata policy value, retaining an explicitly selected default."""
     return _unset_if_none(override.metadata_policy)
 
 
-def _allow_zip_sdists_value(override: PackageOverride | IndexOverride) -> object:
+def _allow_zip_sdists_value(override: PackageOverride | IndexOverride) -> bool | _Unset:
     """ZIP admission value, preserving an explicit refusal."""
     return _unset_if_none(override.allow_zip_sdists)
 
 
-def _assume_universal_deps_value(override: PackageOverride | IndexOverride) -> object:
+def _assume_universal_deps_value(
+    override: PackageOverride | IndexOverride,
+) -> bool | _Unset:
     """Read the cross-target assertion, preserving an explicit refusal."""
     return _unset_if_none(override.assume_universal_deps)
 
 
 def _assume_consistent_metadata_value(
     override: PackageOverride | IndexOverride,
-) -> object:
+) -> bool | _Unset:
     """Read the release-wide metadata assumption, preserving an explicit refusal."""
     return _unset_if_none(override.assume_consistent_metadata)
 
@@ -537,23 +679,8 @@ _SOURCE_VALUES: dict[str, Callable[[PackageOverride | IndexOverride], object]] =
     "allow-zip-sdists": _allow_zip_sdists_value,
     "assume-universal-deps": _assume_universal_deps_value,
     "assume-consistent-metadata": _assume_consistent_metadata_value,
-    "build-policy": lambda override: _unset_if_none(override.build_policy),
+    "build-policy": _build_policy_value,
 }
-
-
-# The markers an extras proxy records, which read the proxy's own name
-# rather than a listing the base package's filter emptied.
-_EXTRA_KINDS = frozenset(
-    {
-        _diagnosis.ReasonKind.EXTRA_UNDECLARED,
-        _diagnosis.ReasonKind.EXTRA_METADATA,
-        _diagnosis.ReasonKind.EXTRA_NARROWED,
-    }
-)
-
-
-# Past this many exclusions the requirement reads worse than the range it states.
-_MAX_EXCLUSIONS = 3
 
 
 def _declared_ranges(
@@ -565,54 +692,6 @@ def _declared_ranges(
     not; a group that recorded no range falls back to its union.
     """
     return recorded.declared or (recorded.union,)
-
-
-def _requirement_over_listing(
-    constraint: VersionRange,
-    universe: Sequence[Version],
-    selected: Sequence[Version],
-) -> VersionRange | None:
-    """Return the requirement admitting exactly ``selected`` out of ``universe``.
-
-    Bounds ``selected`` on each side ``constraint`` is bounded, then excludes
-    by name every other listed version those bounds admit.  Built out of
-    specifiers, so it has a text form to render.
-
-    ``None`` when a bound carries a local segment, which an ordering specifier
-    does not accept, when the span holds more than ``_MAX_EXCLUSIONS`` versions
-    to exclude, or when excluding one by name would take a selected version
-    with it.
-    """
-    clauses: list[str] = []
-    if not VersionRange.from_bounds(None, selected[0]).is_subset(constraint):
-        clauses.append(f">={selected[0]}")
-    if not VersionRange.from_bounds(selected[-1], None).is_subset(constraint):
-        clauses.append(f"<={selected[-1]}")
-
-    try:
-        bounded = SpecifierSet(",".join(clauses)).to_range()
-    except InvalidSpecifier:
-        return None
-
-    chosen = set(selected)
-    holes: list[Version] = []
-    for version in universe:
-        if version in bounded and version not in chosen:
-            holes.append(version)
-            if len(holes) > _MAX_EXCLUSIONS:
-                return None
-
-    if not holes:
-        return bounded
-
-    clauses.extend(f"!={hole}" for hole in holes)
-    stated = SpecifierSet(",".join(clauses)).to_range()
-
-    # ``!=1.0`` also excludes ``1.0+cu118``: PEP 440 ignores a candidate's
-    # local label when the specifier carries none.
-    if any(version not in stated for version in selected):
-        return None
-    return stated
 
 
 class Provider:
@@ -705,9 +784,11 @@ class Provider:
     CONFLICT_THRESHOLD = decision_priority.CONFLICT_THRESHOLD
     CULPRIT_DEMOTE_THRESHOLD = decision_priority.CULPRIT_DEMOTE_THRESHOLD
 
-    # Deferred admission retains withdrawn candidates but still guards preparation.
-    yank_admissions: frozenset[tuple[str, Version]] = frozenset()
-    yank_admission_sources: dict[str, tuple[str, ...]] | None = None
+    # A preparation provider can read the candidate before its admitting pin is known.
+    # The final provider records the declarations for each selected release.
+    yank_admissions: Mapping[tuple[str, Version], tuple[str, ...]] = MappingProxyType(
+        {}
+    )
     yanked_versions: frozenset[tuple[str, Version]] = frozenset()
 
     def __init__(  # noqa: PLR0913, PLR0915, PLR0917 - resolver config is wide; bundling all flags into one bag is worse for callers
@@ -735,6 +816,7 @@ class Provider:
         listing_filter_cache: ListingFilterCache | None = None,
         *,
         constraints: Mapping[str, VersionRange] | None = None,
+        defer_sdist_python_to_install: bool = False,
         trust_unverified_sdist_deps: bool = False,
         assume_universal_deps: bool = False,
         assume_consistent_metadata: bool = False,
@@ -768,11 +850,7 @@ class Provider:
         # targets of this resolve.  ``None`` computes it here instead.
         self.listing_filter_cache = listing_filter_cache
 
-        # Preferred trials retain their own release-selection context.
-        self._preferred_releases: dict[str, Version] | None = None
-        self._unchanged_preferred_model = False
-        self._unrestricted_preferred_packages: set[str] = set()
-        self._full_listing_filter_cache = listing_filter_cache
+        self._preferred_trial: _PreferredReleaseTrial | None = None
 
         self.release_refused_wheels = release_refused_wheels
         self.defer_yanked = defer_yanked
@@ -782,6 +860,8 @@ class Provider:
         self.dist_policy = dist_policy
         self.metadata_policy = metadata_policy
         self.build_policy = build_policy
+        # Build environments check the built wheel before installation.
+        self.defer_sdist_python_to_install = defer_sdist_python_to_install
         # Opt-out: trust a pre-2.2 sdist's PKG-INFO deps as final instead of
         # routing through the dynamic path. Off by default (strict PEP 643).
         self.trust_unverified_sdist_deps = trust_unverified_sdist_deps
@@ -789,7 +869,7 @@ class Provider:
         self.assume_consistent_metadata = assume_consistent_metadata
 
         # Keep listing-context tracking off the default path.
-        self.consistent_metadata_declared = (
+        consistency_declared = (
             assume_consistent_metadata
             or any(
                 rule.assume_consistent_metadata is not None
@@ -803,9 +883,9 @@ class Provider:
                 )
             )
         )
-        self.consistent_metadata_contexts: dict[str, object | None] | None = (
-            {} if self.consistent_metadata_declared else None
-        )
+        self.consistent_metadata_contexts: (
+            dict[str, WheelMetadataContext | None] | None
+        ) = {} if consistency_declared else None
 
         self.allow_zip_sdists = allow_zip_sdists
         self._resolution_strategy = resolution_strategy
@@ -837,7 +917,7 @@ class Provider:
         )
 
         self.vcs_config = vcs_config or VcsConfig()
-        self.local_sources = _sources.index_local_sources(self, local_sources or [])
+        self.local_sources = _sources.index_local_sources(local_sources or [])
         self.vcs_cache_dir = vcs_cache_dir
         self.vcs_pins: dict[str, str] = {}
         self.vcs_sources = _sources.index_vcs_sources(self, vcs_sources or [])
@@ -927,7 +1007,7 @@ class Provider:
 
         # Nested matching cache: prioritize is called many times per resolve
         # so the per-call (normalized, range) tuple alloc is worth avoiding.
-        self.matching_cache: dict[str, dict[RangeProtocol[Version], int]] = {}
+        self.matching_cache: dict[str, dict[VersionRange, int]] = {}
         # Stable scans retain fatal conflicts until deterministic selection.
         self.priority_override_errors: dict[str, str] = {}
 
@@ -967,7 +1047,7 @@ class Provider:
         # priority) per package string.  Range identity is sound because
         # solution.get returns the same object until it changes.
         self.priority_cache: dict[
-            str, tuple[RangeProtocol[Version], str, int, tuple[int, int, bool]]
+            str, tuple[VersionRange, str, int, tuple[int, int, bool]]
         ] = {}
 
         # What the speculative prefetch has already seen: the names it
@@ -988,6 +1068,7 @@ class Provider:
         # name, the span-widened parent range per decided (name, version),
         # and the pure neighbor-gap range per (name, version).
         self._ascending_versions_cache: dict[str, list[Version]] = {}
+        self._narrowed_ranges: dict[tuple[str, VersionRange], DisplayNarrowing] = {}
         self._widened_ranges: dict[tuple[str, Version], VersionRange] = {}
         self._gap_widened_ranges: dict[tuple[str, Version], VersionRange] = {}
 
@@ -1198,6 +1279,11 @@ class Provider:
         package's listing came from; ``None`` before any listing resolves
         or for synthetic (local / VCS / archive) sources.
         """
+        active = _listing_read.get()
+        if active is not None:
+            provider, name, page = active
+            if provider is self and name == canonical_name:
+                return page.index_name
         return self.coordinator.index.get_listing_index(canonical_name)
 
     def effective_build_policy(
@@ -1213,12 +1299,13 @@ class Provider:
         for ``index_name`` that both set ``build-policy`` are a conflict
         (raises :class:`~nab_provider.errors.OverrideConflictError`).
         """
-        result = self._effective_field(
+        result: BuildPolicy = self._effective_field(
             canonical_name,
             version,
             index_name,
             field="build-policy",
-            value=lambda o: _unset_if_none(o.build_policy),
+            value=_build_policy_value,
+            default=self.build_policy,
         )
         if (
             self.target is not None
@@ -1228,9 +1315,6 @@ class Provider:
             )
         ):
             return BuildPolicy.NEVER
-        if result is _UNSET:
-            return self.build_policy
-        assert isinstance(result, BuildPolicy)
         return result
 
     def effective_build_policy_for_source(self, canonical_name: str) -> BuildPolicy:
@@ -1275,17 +1359,14 @@ class Provider:
         if not self.has_overrides:
             return self.dist_policy
 
-        result = self._effective_field(
+        return self._effective_field(
             canonical_name,
             version,
             index_name,
             field="dist-policy",
             value=_dist_policy_value,
+            default=self.dist_policy,
         )
-        if result is _UNSET:
-            return self.dist_policy
-        assert isinstance(result, DistPolicy)
-        return result
 
     def effective_metadata_policy(
         self,
@@ -1296,17 +1377,14 @@ class Provider:
         """Return the metadata source policy for this indexed release."""
         if not self.has_overrides:
             return self.metadata_policy
-        result = self._effective_field(
+        return self._effective_field(
             canonical_name,
             version,
             index_name,
             field="metadata-policy",
             value=_metadata_policy_value,
+            default=self.metadata_policy,
         )
-        if result is _UNSET:
-            return self.metadata_policy
-        assert isinstance(result, MetadataPolicy)
-        return result
 
     def effective_allow_zip_sdists(
         self,
@@ -1317,17 +1395,14 @@ class Provider:
         """Return whether this indexed release may use legacy ZIP sdists."""
         if not self.has_overrides:
             return self.allow_zip_sdists
-        result = self._effective_field(
+        return self._effective_field(
             canonical_name,
             version,
             index_name,
             field="allow-zip-sdists",
             value=_allow_zip_sdists_value,
+            default=self.allow_zip_sdists,
         )
-        if result is _UNSET:
-            return self.allow_zip_sdists
-        assert isinstance(result, bool)
-        return result
 
     def effective_uploaded_prior_to(
         self,
@@ -1343,18 +1418,14 @@ class Provider:
         field.  A per-package (range-matching) and a per-index override
         that both set the field are a conflict.
         """
-        result = self._effective_field(
+        return self._effective_field(
             canonical_name,
             version,
             index_name,
             field="uploaded-prior-to",
             value=_uploaded_prior_to_value,
+            default=self.uploaded_prior_to,
         )
-        if result is _UNSET:
-            return self.uploaded_prior_to
-        # ``_uploaded_prior_to_value`` yields only ``None`` (a disabled
-        # cutoff) or a datetime.
-        return cast("datetime | None", result)
 
     def effective_trust_unverified(
         self,
@@ -1363,17 +1434,14 @@ class Provider:
         index_name: str | None = None,
     ) -> bool:
         """Return the sdist-trust flag for ``canonical_name==version``."""
-        result = self._effective_field(
+        return self._effective_field(
             canonical_name,
             version,
             index_name,
             field="dist-policy.trust-unverified-deps",
             value=lambda o: _unset_if_none(o.dist_trust_unverified_deps),
+            default=self.trust_unverified_sdist_deps,
         )
-        if result is _UNSET:
-            return self.trust_unverified_sdist_deps
-        assert isinstance(result, bool)
-        return result
 
     def effective_assume_universal_deps(
         self,
@@ -1382,17 +1450,14 @@ class Provider:
         index_name: str | None = None,
     ) -> bool:
         """Whether this release's dependency metadata may be reused across targets."""
-        result = self._effective_field(
+        return self._effective_field(
             canonical_name,
             version,
             index_name,
             field="assume-universal-deps",
             value=_assume_universal_deps_value,
+            default=self.assume_universal_deps,
         )
-        if result is _UNSET:
-            return self.assume_universal_deps
-        assert isinstance(result, bool)
-        return result
 
     def effective_assume_consistent_metadata(
         self,
@@ -1404,18 +1469,14 @@ class Provider:
         if not self._package_overrides and not self._index_overrides:
             return self.assume_consistent_metadata
 
-        result = self._effective_field(
+        return self._effective_field(
             canonical_name,
             version,
             index_name,
             field="assume-consistent-metadata",
             value=_assume_consistent_metadata_value,
+            default=self.assume_consistent_metadata,
         )
-        if result is _UNSET:
-            return self.assume_consistent_metadata
-
-        assert isinstance(result, bool)
-        return result
 
     def effective_dependencies(
         self, canonical_name: str, version: Version
@@ -1545,7 +1606,7 @@ class Provider:
                 continue
             if version not in override.version_range:
                 continue
-            if sets_field(override) is not _UNSET:
+            if sets_field(override) is not _Unset.FIELD:
                 return override
         return None
 
@@ -1556,21 +1617,22 @@ class Provider:
         index_name: str | None,
         *,
         field: str,
-        value: Callable[[PackageOverride | IndexOverride], object],
-    ) -> object:
+        value: Callable[[PackageOverride | IndexOverride], _PolicyValue | _Unset],
+        default: _PolicyValue,
+    ) -> _PolicyValue:
         """Resolve a field from matching package and serving index overrides.
 
         Raise :class:`~nab_provider.errors.OverrideConflictError` if both set it.
-        Return ``_UNSET`` for the caller's global default if neither sets it.
+        Use the global default if neither override sets the field.
 
-        ``value`` accepts either override type; ``_UNSET`` marks an absent field.
+        ``value`` accepts either override type; ``_Unset.FIELD`` marks an absent field.
         ``None`` is a set value, as with a disabled upload-time cutoff.
         """
         pkg = self._matching_package_override(canonical_name, version, value)
         idx = self._index_overrides.get(index_name) if index_name is not None else None
-        idx_value = value(idx) if idx is not None else _UNSET
+        idx_value = value(idx) if idx is not None else _Unset.FIELD
 
-        if pkg is not None and idx_value is not _UNSET:
+        if pkg is not None and idx_value is not _Unset.FIELD:
             report = DiagnosticMessage(
                 (
                     f"override conflict for {canonical_name}=={version} served from "
@@ -1588,9 +1650,8 @@ class Provider:
             )
             raise OverrideConflictError(report)
 
-        if pkg is not None:
-            return value(pkg)
-        return idx_value
+        selected = value(pkg) if pkg is not None else idx_value
+        return default if selected is _Unset.FIELD else selected
 
     def force_backtrack_count(self, canonical_name: str) -> int:
         """How many times this package has triggered force-backtrack."""
@@ -1637,15 +1698,10 @@ class Provider:
         )
 
         try:
-            event = self.coordinator.request_source_listing(request)
+            materialized = self.coordinator.materialize_source(request)
         except SourceBuildPolicyError:
             self.stats.excluded_by_build_policy += 1
             raise
-        event.wait()
-
-        # The port raises on failure, so a request that returned left a result.
-        materialized = self.coordinator.index.get_source(normalized)
-        assert materialized is not None
 
         if materialized.commit_sha is not None:
             self.vcs_pins[normalized] = materialized.commit_sha
@@ -1774,14 +1830,15 @@ class Provider:
             or self.metadata_cache
             or self.pending_clauses
             or self.solution_decisions
-            or self._preferred_releases is not None
+            or self._preferred_trial is not None
         ):
             msg = "preferred release preparation requires a fresh provider"
             raise ValueError(msg)
 
         # Cutoff errors and prerelease admission can depend on other releases.
+        cache = self.listing_filter_cache
         if (
-            self._full_listing_filter_cache is None
+            cache is None
             or self.uploaded_prior_to is not None
             or any(version.is_prerelease for version in preferred.values())
         ):
@@ -1797,8 +1854,18 @@ class Provider:
                 raise ValueError(msg)
             releases[normalized] = version
 
-        self._preferred_releases = releases
-        self._unchanged_preferred_model = unchanged_only
+        self._preferred_trial = _PreferredReleaseTrial(
+            releases, cache, unchanged_only=unchanged_only
+        )
+
+    def reading_listing(
+        self, normalized: str, files: Sequence[DistFile]
+    ) -> AbstractContextManager[None]:
+        """Bind shared filters to the files and index used for this read."""
+        cache = self.listing_filter_cache
+        return (
+            nullcontext() if cache is None else cache.reading(self, normalized, files)
+        )
 
     def filter_distributions(
         self, normalized: str, files: Sequence[WheelFile | SdistFile]
@@ -1813,7 +1880,6 @@ class Provider:
                 self.coordinator.index.consistent_metadata_context(normalized, files)
             )
 
-        original_cache = self.listing_filter_cache
         self.prepared_listings.pop(normalized, None)
 
         if raw_versions := getattr(files, "withdrawn_versions", ()):
@@ -1823,53 +1889,15 @@ class Provider:
                 if (version := _listing.parsed_version(raw)) is not None
             }
 
-        # Scope release-only preparation to this trial's filter.
-        if self._preferred_releases is not None:
-            cache = self._full_listing_filter_cache
-            preferred = self._preferred_releases.get(normalized)
-
-            withdrawals_matter = raw_versions and (
-                not self._unchanged_preferred_model
-                or (normalized, preferred) in self.yanked_versions
-            )
-            if withdrawals_matter and not self.has_overrides:
-                required = self.root_requirements.get(normalized)
-                if (
-                    required is not None
-                    and preferred is not None
-                    and required.contains(preferred, prereleases=True)
-                ):
-                    # Historical withdrawals outside the root cannot affect admission.
-                    withdrawals_matter = any(
-                        name == normalized
-                        and required.contains(version, prereleases=True)
-                        for name, version in self.yanked_versions
-                    )
-            # A withdrawn hinted release or a forced change needs all alternatives.
-            if (
-                withdrawals_matter
-                or normalized in self._unrestricted_preferred_packages
-            ):
-                self.listing_filter_cache = cache
-            elif preferred is None:
-                # A complete preferred model cannot introduce an unknown package.
-                files = ()
-                self.listing_filter_cache = None
-            else:
-                assert cache is not None
-                release, restricted = cache.selected_release(
-                    normalized, files, preferred
+        with self.reading_listing(normalized, files):
+            cache = self.listing_filter_cache
+            if self._preferred_trial is not None:
+                files, cache = self._preferred_trial.select(
+                    self, normalized, files, has_withdrawals=bool(raw_versions)
                 )
-                if self._unchanged_preferred_model and any(
-                    file.yanked for file in release
-                ):
-                    self.listing_filter_cache = cache
-                else:
-                    files, self.listing_filter_cache = release, restricted
 
-        try:
             if not self.defer_yanked:
-                files = [
+                admitted = [
                     file
                     for file in files
                     if not file.yanked
@@ -1877,10 +1905,12 @@ class Provider:
                     in self.yank_admissions
                 ]
 
-            return _listing.filter_distributions(self, normalized, files)
-        finally:
-            # Restore the shared context even when target admission fails.
-            self.listing_filter_cache = original_cache
+                # Withdrawals can have different admissions on another target.
+                if len(admitted) != len(files):
+                    cache = None
+                files = admitted
+
+            return _listing.filter_distributions(self, normalized, files, cache)
 
     def pick_best_candidate(
         self,
@@ -1898,17 +1928,14 @@ class Provider:
         A preference another resolve decided wins when it is in range and
         usable here; otherwise the strategy picks.
         """
-        assert isinstance(version_range, VersionRange)
+        version_range = require_version_range(package, version_range)
         self.stats.choose_version_calls += 1
 
         base, extra, normalized = self.split_and_normalize(package)
 
         # A forced version change needs alternatives before a view is cached.
-        if (
-            self._preferred_releases is not None
-            and normalized not in self.versions_cache
-        ):
-            expected = self._preferred_releases.get(normalized)
+        if self._preferred_trial is not None and normalized not in self.versions_cache:
+            expected = self._preferred_trial.releases.get(normalized)
             required = version_range
 
             # Extras also obey the base package's current solution range.
@@ -1918,7 +1945,7 @@ class Provider:
                     required = required & base_range
 
             if expected is not None and expected not in required:
-                self._unrestricted_preferred_packages.add(normalized)
+                self._preferred_trial.unrestricted_packages.add(normalized)
 
         priority_error = self.priority_override_errors.get(normalized)
         if priority_error is not None:
@@ -2041,40 +2068,40 @@ class Provider:
             if base_range is not None:
                 admit_range = version_range & base_range
 
-        if not self._admits_preference(
+        listed = self._listed_preference(
             normalized, version_list, admit_range, preferred
-        ):
+        )
+        if listed is None:
             return None
 
         usable = (
-            _extras.version_provides_extra(self, base, extra, preferred)
+            _extras.version_provides_extra(self, base, extra, listed)
             if extra is not None
-            else self._look_ahead_ok(normalized, preferred, check_decisions=True)
+            else self._look_ahead_ok(normalized, listed, check_decisions=True)
         )
-        return preferred if usable else None
+        return listed if usable else None
 
-    def _admits_preference(
+    def _listed_preference(
         self,
         normalized: str,
         version_list: list[tuple[Version, DistFile]],
         admit_range: VersionRange,
         preferred: Version,
-    ) -> bool:
-        """Report whether ``preferred`` is one of the listing's in-range versions.
-
-        A final release is answered by ``contains`` on the range plus a lookup
-        in the listing's picked-dist view.  A pre-release needs the ``filter``
-        walk instead: ``contains`` reads only the configured pre-release policy,
-        while ``filter`` also applies the PEP 440 buffering and the range's
-        opt-in region.
-        """
+    ) -> Version | None:
+        """Find the current release matching the preference and the requested range."""
         if preferred.is_prerelease:
-            all_versions = self.versions_only(normalized, version_list)
-            in_range = admit_range.filter(all_versions)
-            return preferred in in_range
-        return preferred in admit_range and preferred in self._wheel_by_version(
-            normalized, version_list
-        )
+            # The complete listing determines whether a fallback prerelease is admitted.
+            versions = self.versions_only(normalized, version_list)
+            admitted = admit_range.filter(versions)
+            return next((listed for listed in admitted if listed == preferred), None)
+
+        start = _metadata_resolver.release_start(version_list, preferred)
+        if start < len(version_list):
+            # Equal versions can have different text under a literal requirement.
+            listed = version_list[start][0]
+            if listed == preferred and listed in admit_range:
+                return listed
+        return None
 
     def has_satisfying_version(
         self, package: str, version_range: RangeProtocol[Version]
@@ -2408,7 +2435,7 @@ class Provider:
     def record_extra_no_versions(
         self,
         package: str,
-        kind: _diagnosis.Kind,
+        kind: _diagnosis.ExtraKind,
         *,
         metadata: tuple[_diagnosis.MetadataBlock, ...] = (),
         version_range: VersionRange | None = None,
@@ -2421,7 +2448,13 @@ class Provider:
         report with nothing to say and the tree names a package the
         ``Diagnostics:`` section cannot.
         """
-        self._no_versions_reasons[package] = _diagnosis.NoVersionsReason(
+        base, extra, _ = self.split_and_normalize(package)
+        if extra is None:
+            msg = f"Cannot record an extra failure for {package!r} without an extra."
+            raise ValueError(msg)
+        self._no_versions_reasons[package] = _diagnosis.ExtraFailure(
+            base,
+            extra,
             kind,
             metadata=metadata,
             version_range=version_range,
@@ -2429,13 +2462,9 @@ class Provider:
         )
 
     def record_extra_base_empty(self, package: str) -> None:
-        """Record that ``package``'s base has no version to offer at all.
-
-        Which listing-level situation the base is in is left to the render.
-        This runs during the resolve, where an ask that finds nothing is
-        ordinary backtracking rather than a failure.
-        """
-        self._no_versions_reasons[package] = _diagnosis.EXTRA_BASE_EMPTY
+        """Keep the base listing's reason when an extras proxy has no candidates."""
+        _, _, normalized = self.split_and_normalize(package)
+        self._no_versions_reasons[package] = self._empty_listing_marker(normalized)
 
     def _empty_listing_marker(self, normalized: str) -> _diagnosis.NoVersionsReason:
         """Classify a package the filter left with nothing, without walking it.
@@ -2481,8 +2510,9 @@ class Provider:
         A pin routes the ask to one index, so missing there is not missing
         from the configured set.
         """
-        if self.coordinator.index.is_pinned_listing(normalized):
-            return _diagnosis.PINNED_ABSENT
+        index_name = self.coordinator.index.pinned_listing_index(normalized)
+        if index_name is not None:
+            return _diagnosis.PinnedIndexMiss(index_name)
         return _diagnosis.ABSENT
 
     def _capture_lookahead_blockers(
@@ -2684,11 +2714,14 @@ class Provider:
             in (
                 _diagnosis.ReasonKind.NO_MATCH,
                 _diagnosis.ReasonKind.FILTERED_EMPTY,
-                _diagnosis.ReasonKind.EXTRA_BASE_EMPTY,
             )
         ):
             versions = self.versions_cache.get(normalized)
             if versions is not None:
+                # A no-versions clause can cover more than the user's constraint.
+                constraint = self.constraints.get(normalized)
+                if constraint is not None:
+                    listing_range &= constraint
                 # A reporting query must not retain another requirement's domain.
                 recorded = (
                     self._listing_no_versions_reason(package, listing_range)
@@ -2718,52 +2751,15 @@ class Provider:
             return _diagnosis.blockers_diagnostic(
                 self, normalized, recorded.blockers, recorded.metadata
             )
-        if recorded.kind == _diagnosis.ReasonKind.PINNED_ABSENT:
-            return self._render_pinned_absent_reason(package)
-        if recorded.kind == _diagnosis.ReasonKind.EXTRA_BASE_EMPTY:
-            return self._render_extra_base_reason(package)
-        if recorded.kind in _EXTRA_KINDS:
-            return self._render_extra_reason(package, recorded)
+        if isinstance(recorded, _diagnosis.PinnedIndexMiss):
+            return _diagnosis.pinned_index_diagnostic(recorded.index_name)
+        if isinstance(recorded, _diagnosis.ExtraFailure):
+            searched = recorded.version_range
+            return _diagnosis.extra_diagnostic(
+                recorded,
+                "" if searched is None else self._format_blocker_range(searched),
+            )
         return self._render_listing_reason(package, recorded)
-
-    def _render_pinned_absent_reason(self, package: str) -> Diagnostic:
-        """Render a package routed to an index that does not carry it.
-
-        The name is read back from the store, which recorded it in the call
-        that marked the pin, so the marker carries nothing and the record
-        path stays allocation-free.
-        """
-        _, _, normalized = self.split_and_normalize(package)
-        index_name = self.serving_index(normalized)
-        assert index_name is not None
-        return _diagnosis.pinned_index_diagnostic(index_name)
-
-    def _render_extra_base_reason(self, package: str) -> Diagnostic:
-        """Render an extras proxy whose base package ran out of versions.
-
-        The extra plays no part: nothing read a ``Provides-Extra`` before
-        the base came back empty.  So the entry is the base package's own,
-        remedy included, since ``packages."foo"`` is the entry a user edits
-        to admit files for ``foo[bar]``.
-        """
-        _, _, normalized = self.split_and_normalize(package)
-        return self._render_no_versions_reason(
-            package, self._empty_listing_marker(normalized)
-        )
-
-    def _render_extra_reason(
-        self, package: str, recorded: _diagnosis.NoVersionsReason
-    ) -> Diagnostic:
-        """Render an extras proxy left with no version of its base package."""
-        base, extra, _ = self.split_and_normalize(package)
-        assert extra is not None
-        searched = recorded.version_range
-        return _diagnosis.extra_diagnostic(
-            base,
-            extra,
-            recorded,
-            "" if searched is None else self._format_blocker_range(searched),
-        )
 
     def _render_listing_reason(
         self, package: str, recorded: _diagnosis.NoVersionsReason
@@ -2777,40 +2773,25 @@ class Provider:
         index never published.
         """
         _, _, normalized = self.split_and_normalize(package)
-        diagnosis = (
-            self.diagnose_listing(normalized)
-            if self._walk_would_be_read(normalized, recorded)
-            else None
-        )
+        in_range = None
+        if recorded.kind != _diagnosis.ReasonKind.FILTERED_EMPTY:
+            # A version the index never published needs no per-file explanation.
+            in_range = recorded.version_range
+            if in_range is None or not _listing.dropped_release_in_range(
+                self, normalized, in_range
+            ):
+                return _diagnosis.NO_MATCH
+
+        diagnosis = self.diagnose_listing(normalized)
         if diagnosis is None:
             return _diagnosis.NO_MATCH
-        if recorded.kind == _diagnosis.ReasonKind.FILTERED_EMPTY:
+        if in_range is None:
             return _diagnosis.empty_listing_diagnostic(
                 self, normalized, diagnosis, recorded.version_range
             )
-
-        # The screen passed, so the marker carries the range it screened.
-        assert recorded.version_range is not None
-        filtered = _diagnosis.in_range_diagnostic(
-            self, normalized, recorded.version_range, diagnosis
-        )
-        return filtered if filtered is not None else _diagnosis.NO_MATCH
-
-    def _walk_would_be_read(
-        self, normalized: str, recorded: _diagnosis.NoVersionsReason
-    ) -> bool:
-        """Whether the walk's detail would reach ``recorded``'s sentence.
-
-        The walk records one refusal per file the filter dropped, and the
-        in-range lead throws every one of them away unless the filter
-        dropped a release inside the range that was asked.  A requirement
-        naming a version the index never published is the ordinary way to
-        reach that, so the cheap question runs first.
-        """
-        if recorded.kind == _diagnosis.ReasonKind.FILTERED_EMPTY:
-            return True
-        return recorded.version_range is not None and _listing.dropped_release_in_range(
-            self, normalized, recorded.version_range
+        return (
+            _diagnosis.in_range_diagnostic(self, normalized, in_range, diagnosis)
+            or _diagnosis.NO_MATCH
         )
 
     def diagnose_listing(self, normalized: str) -> _diagnosis.ListingDiagnosis | None:
@@ -2821,14 +2802,23 @@ class Provider:
         :attr:`stats` and to the per-version tag tally is taken back before
         the answer is returned.
         """
-        cached = self.listing_diagnoses.get(normalized, _UNSET)
-        if cached is not _UNSET:
-            return cast("_diagnosis.ListingDiagnosis | None", cached)
+        cached = self.listing_diagnoses.get(normalized, _Unset.FIELD)
+        if cached is not _Unset.FIELD:
+            return cached
+
+        files = self.coordinator.index.get_listing(normalized)
+        if files is None:
+            # A pending request can still publish the files that explain this failure.
+            return None
+        if not files:
+            self.listing_diagnoses[normalized] = None
+            return None
 
         before = _counters(self.stats)
         tag_counts = dict(self.tag_excluded_wheels_by_version)
         try:
-            diagnosis = _diagnosis.walk_listing(self, normalized)
+            with self.reading_listing(normalized, files):
+                diagnosis = _diagnosis.walk_listing(self, normalized, files)
         finally:
             _restore(self.stats, before)
             self.tag_excluded_wheels_by_version.clear()
@@ -2849,9 +2839,8 @@ class Provider:
         name a rung.
         """
         diagnosis = self.diagnose_listing(normalized)
-        # The ladder marks only after reading an sdist out of the raw
-        # listing, so the walk had files to partition.
-        assert diagnosis is not None
+        if diagnosis is None:
+            return None
         return _diagnosis.filtered_sdist_diagnostic(
             self, normalized, version, diagnosis
         )
@@ -2878,7 +2867,7 @@ class Provider:
 
         if index_name is not None:
             index = self._index_overrides.get(index_name)
-            if index is not None and value(index) is not _UNSET:
+            if index is not None and value(index) is not _Unset.FIELD:
                 return _diagnosis.Remedy(
                     field,
                     _diagnosis.OverrideLayer.INDEX,
@@ -2944,7 +2933,7 @@ class Provider:
         scoped = [
             override
             for override in self._package_overrides
-            if override.name == canonical_name and value(override) is not _UNSET
+            if override.name == canonical_name and value(override) is not _Unset.FIELD
         ]
         if not scoped:
             return None
@@ -3060,10 +3049,8 @@ class Provider:
 
         The reversed ``versions_only`` view of the post-filter listing, so
         pre-release, dev, post, and local versions all fence widening.
-        Yanked files are dropped at nab-index parse time and can never be
-        selected; if that ever moves into a provider-level filter, this
-        universe must be sourced below it, or widened ranges would span
-        selectable yanked versions.
+        A withdrawn version retained for admission also bounds the gap
+        around its neighbors.
         """
         cached = self._ascending_versions_cache.get(normalized)
         if cached is None:
@@ -3196,28 +3183,26 @@ class Provider:
 
         Render-time only and cache-only: the ROOT sentinel (a non-str
         package) and packages whose listing is not cached return
-        ``constraint`` unchanged, and nothing is ever fetched.
+        ``constraint`` unchanged, as do other range backends. Nothing is fetched.
         """
-        if not isinstance(package, str):
+        if not isinstance(package, str) or not isinstance(constraint, VersionRange):
             return constraint
         _, _, normalized = self.split_and_normalize(package)
         version_list = self.versions_cache.get(normalized)
         if version_list is None:
             return constraint
-        assert isinstance(constraint, VersionRange)
 
-        universe = self._ascending_versions(normalized, version_list)
-        selected = [version for version in universe if version in constraint]
-        if not selected:
-            return constraint
-        if len(selected) == len(universe):
-            return VersionRange.full(admit_arbitrary=False)
+        # Conflict reports ask for the same ranges many times.
+        key = (normalized, constraint)
+        narrowed = self._narrowed_ranges.get(key)
+        if narrowed is None or (
+            narrowed.source is not None and narrowed.source is not constraint
+        ):
+            universe = self._ascending_versions(normalized, version_list)
+            narrowed = narrow_over_listing(constraint, universe)
+            self._narrowed_ranges[key] = narrowed
 
-        spelled = _requirement_over_listing(constraint, universe, selected)
-        if spelled is not None:
-            return spelled
-        has_spelling = constraint.to_specifier_set() is not None
-        return constraint if has_spelling else constraint.snap_bounds(universe)
+        return constraint if narrowed.result is None else narrowed.result
 
     def format_range(self, constraint: RangeProtocol[Version]) -> str:
         """Render ``constraint`` for a failure report.
@@ -3230,9 +3215,11 @@ class Provider:
         An unconstrained range renders as nothing, leaving the package name to
         carry the line, and the empty range gets a phrase rather than the
         ``<0`` from a specifier set. A range without a specifier-set
-        form, such as a disjunction, keeps the range's own rendering.
+        form, such as a disjunction, keeps the range's own rendering. Other
+        backends also supply their own rendering.
         """
-        assert isinstance(constraint, VersionRange)
+        if not isinstance(constraint, VersionRange):
+            return str(constraint)
         if constraint.is_empty:
             return "no version"
         if (~constraint).is_empty:
@@ -3265,10 +3252,6 @@ class Provider:
             _metadata_resolver.require_yank_admission(
                 self, self.fetch_versions(base), normalized, version
             )
-
-        # Before the cache check: a queued prefetch lands in deps_cache only
-        # when this decodes it.
-        _listing.parse_prefetched_metadata(self, cache_key)
 
         if cache_key in self.deps_cache:
             return self.deps_cache[cache_key]
@@ -3314,31 +3297,47 @@ class Provider:
             self.prefetch_new_deps(self.deps_cache[cache_key])
             return self.deps_cache[cache_key]
 
-        # Preserve the ordinary path when no consistency policy was declared.
-        read_metadata = (
-            _metadata_resolver.resolve_consistent_metadata
-            if self.consistent_metadata_declared
-            else _metadata_resolver.resolve_metadata
-        )
-        metadata_text, from_sdist = read_metadata(self, versions, package, version)
+        # A queued sidecar and a direct read must pass the same sibling check.
+        _listing.parse_prefetched_metadata(self, cache_key)
+        if cache_key in self.deps_cache:
+            return self._checked_index_dependencies(cache_key, versions)
 
+        metadata_text, from_sdist = _metadata_resolver.resolve_metadata(
+            self, versions, package, version
+        )
         self._parse_and_cache_metadata_guarded(
             cache_key, metadata_text, from_sdist=from_sdist
         )
 
+        deps = self._checked_index_dependencies(cache_key, versions)
+        self.stats.metadata_fetched += 1
+        self.prefetch_new_deps(deps)
+        return deps
+
+    def _checked_index_dependencies(
+        self, cache_key: tuple[str, Version], versions: list[tuple[Version, DistFile]]
+    ) -> dict[str, VersionRange]:
+        """Return parsed dependencies after checking the resident wheels."""
+        package, version = cache_key
         if (
-            not self.consistent_metadata_declared
-            or not self.effective_assume_consistent_metadata(
-                normalized, version, self.serving_index(normalized)
+            self.consistent_metadata_contexts is not None
+            and self.effective_assume_consistent_metadata(
+                package, version, self.serving_index(package)
             )
         ):
+            return self.deps_cache[cache_key]
+
+        try:
             _metadata_resolver.check_sibling_metadata_divergence(
                 self, versions, package, version
             )
-
-        self.stats.metadata_fetched += 1
-        self.prefetch_new_deps(self.deps_cache[cache_key])
-
+        except Exception:
+            # A failed candidate probe can be followed by a real dependency read.
+            del self.deps_cache[cache_key]
+            del self._extra_deps[cache_key]
+            del self.deferred_url_extras[cache_key]
+            del self.metadata_cache[cache_key]
+            raise
         return self.deps_cache[cache_key]
 
     def _parse_and_cache_metadata_guarded(
@@ -3405,7 +3404,7 @@ class Provider:
         """See :func:`._provider.metadata_resolver.parse_and_cache_metadata`."""
         parse_metadata = (
             _metadata_resolver.parse_consistent_metadata
-            if self.consistent_metadata_declared
+            if self.consistent_metadata_contexts is not None
             else _metadata_resolver.parse_and_cache_metadata
         )
         parse_metadata(self, cache_key, metadata_text, from_sdist=from_sdist)
@@ -3547,20 +3546,29 @@ class Provider:
         return self.vcs_pins.get(canonicalize_name(canonical_name))
 
     def has_withdrawn_alternative(self) -> bool:
-        """Whether an attempted live release also offers a withdrawn artifact."""
-        return any(
-            file.yanked
-            and (
-                (package, version) in self.metadata_cache
-                or self.invalid_metadata_reason(package, version) is not None
-                or any(
-                    other_version == version and other.version != str(version)
-                    for other_version, other in versions
-                )
-            )
-            for package, versions in self.versions_cache.items()
-            for version, file in versions
-        )
+        """Check whether metadata or a version alias warrants a withdrawn-file trial."""
+        for package, versions in self.versions_cache.items():
+            checked_version_text = None
+            for version, file in versions:
+                if not file.yanked:
+                    continue
+                if (
+                    package,
+                    version,
+                ) in self.metadata_cache or self.invalid_metadata_reason(
+                    package, version
+                ) is not None:
+                    return True
+
+                # Equal releases are adjacent, but 1 and 1.0 have different text.
+                version_text = str(version)
+                if version_text == checked_version_text:
+                    continue
+                checked_version_text = version_text
+                siblings = _metadata_resolver.dists_at_version(versions, version)
+                if any(sibling.version != version_text for sibling in siblings):
+                    return True
+        return False
 
     def dist_files_for(self, canonical_name: str, version: Version) -> list[DistFile]:
         """Return every distribution file the resolver saw at ``version``.

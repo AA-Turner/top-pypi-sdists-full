@@ -10,11 +10,18 @@ import pytest
 
 from matrx_ai.db import conversation_gate as gate
 
+_ORG = "44444444-4444-4444-8444-444444444444"
+
 
 @pytest.fixture(autouse=True)
 def _clean_memo(monkeypatch):
     gate._known_conversation_ids.clear()
     monkeypatch.setattr(gate, "try_get_tracker", lambda: None)
+    # Every conversation carries its organization from the boundary; the gate refuses
+    # a create without one (test_conversation_without_organization_is_refused.py).
+    monkeypatch.setattr(
+        gate, "stamp_org_id", lambda row, _org: row.setdefault("organization_id", _ORG)
+    )
     yield
     gate._known_conversation_ids.clear()
 
@@ -78,7 +85,6 @@ async def test_new_conversation_is_published_before_streaming(monkeypatch):
         "_queue_conversation_create",
         lambda **_kwargs: events.append("queued"),
     )
-    monkeypatch.setattr(gate, "stamp_org_id", lambda *_args, **_kwargs: None)
 
     await gate.create_new_conversation(conversation_id, user_id)
 
@@ -106,7 +112,6 @@ async def test_new_conversation_publish_failure_is_fatal(monkeypatch):
     monkeypatch.setattr(gate, "_get_coordinator", lambda: _Coordinator())
     monkeypatch.setattr(gate, "_cxm", lambda: SimpleNamespace(conversation=_Conversation()))
     monkeypatch.setattr(gate, "_queue_conversation_create", lambda **_kwargs: None)
-    monkeypatch.setattr(gate, "stamp_org_id", lambda *_args, **_kwargs: None)
 
     with pytest.raises(gate.ConversationGateError, match="before streaming"):
         await gate.create_new_conversation(conversation_id, user_id)

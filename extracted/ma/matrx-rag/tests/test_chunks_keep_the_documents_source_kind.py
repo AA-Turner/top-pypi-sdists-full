@@ -26,6 +26,15 @@ class _FakeKgChunks:
         self.deleted: list[dict[str, Any]] = []
         self.created: list[dict[str, Any]] = []
 
+    def filter(self, **kw: Any) -> _FakeKgChunks:
+        return self
+
+    def including_archived(self):  # the ORM's include-archived door
+        return self
+
+    async def values(self, *fields: str) -> list[dict[str, Any]]:
+        return []  # nothing to pre-lock
+
     async def delete_where(self, **kw: Any) -> int:
         self.deleted.append(kw)
         return 0
@@ -86,8 +95,20 @@ async def test_run_chunk_keys_chunks_on_the_documents_kind(monkeypatch: pytest.M
             return None
 
     monkeypatch.setattr(stages, "transaction", lambda *_a, **_k: _Async())
+    monkeypatch.setattr(stages, "locked_transaction", lambda *_a, **_k: _Async())
+    monkeypatch.setattr(ingestion, "transaction", lambda *_a, **_k: _Async())
+    lock_keys: list[tuple[Any, ...]] = []
+
+    def _locked(*keys: Any, **_k: Any) -> _Async:
+        lock_keys.append(keys)
+        return _Async()
+
+    monkeypatch.setattr(stages, "locked_transaction", _locked)
 
     await stages.run_chunk(processed_document_id="d1", owner_id="u1")
+    # Two runs of one document serialize on the source's lock (the key upsert_chunks holds), so
+    # neither inserts chunk 0 beside the other's (kg_chunks_doc_position_uidx, 2026-11-19).
+    assert lock_keys == [(f"{kind}:s1:",)]
     assert fake.created, "the chunker produced no rows"
     assert {r["source_kind"] for r in fake.created} == {kind}
     assert fake.deleted == [{"source_kind": kind, "source_id": "s1", "field_id__isnull": True}]
@@ -139,6 +160,8 @@ async def test_portions_are_chunked_once_each(monkeypatch: pytest.MonkeyPatch) -
         monkeypatch.setattr(stages, name, fn)
     monkeypatch.setattr(stages, "get_db_model", lambda name: fake)
     monkeypatch.setattr(stages, "transaction", lambda *_a, **_k: _Async())
+    monkeypatch.setattr(stages, "locked_transaction", lambda *_a, **_k: _Async())
+    monkeypatch.setattr(ingestion, "transaction", lambda *_a, **_k: _Async())
     monkeypatch.setattr(ingestion, "resolve_effective_org", org)
 
     await stages.run_chunk(processed_document_id="d1", owner_id="u1")

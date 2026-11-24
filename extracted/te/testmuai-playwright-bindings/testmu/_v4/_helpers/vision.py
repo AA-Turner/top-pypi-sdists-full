@@ -331,12 +331,10 @@ async def textual_query(page, description: str, return_type: str, selected_attri
     from testmu._v4._vars import var
     description = str(var(description))
 
-    cdp = await page.context.new_cdp_session(page)
+    from testmu._v4._helpers._perception import perception_for
+    perception = perception_for(page)
     try:
-        await cdp.send("DOM.enable")
-
-        a11y_resp = await cdp.send("Accessibility.getFullAXTree")
-        flat_dom = _build_flat_dom(a11y_resp.get("nodes", []))
+        flat_dom = await perception.flat_dom()
 
         screenshot_bytes = await take_screenshot(page)
         screenshot_b64 = base64.b64encode(screenshot_bytes).decode("utf-8")
@@ -364,7 +362,7 @@ async def textual_query(page, description: str, return_type: str, selected_attri
                     f"Element at dom_index={dom_index} not found or missing backend_dom_node_id"
                 )
 
-            snapshot = await _get_element_snapshot(cdp, target["backend_dom_node_id"])
+            snapshot = await perception.element_snapshot(target["backend_dom_node_id"])
 
             extract_body: dict = {
                 "type": "dom",
@@ -381,7 +379,7 @@ async def textual_query(page, description: str, return_type: str, selected_attri
         return extracted
 
     finally:
-        await cdp.detach()
+        await perception.close()
 
 
 async def vision_wait(page, description: str, timeout_ms: int = 30000):
@@ -723,6 +721,13 @@ _V3_STR_FIELDS = (
 
 
 async def _capture_screenshot_b64(page) -> str:
+    """Base64 PNG of the page via the page's perception backend
+    (``_capture_screenshot_b64_cdp`` on Chromium, ``page.screenshot`` on Firefox)."""
+    from testmu._v4._helpers._perception import perception_for
+    return await perception_for(page).screenshot_b64()
+
+
+async def _capture_screenshot_b64_cdp(page) -> str:
     """Capture a viewport screenshot as a base64 PNG via the Chrome DevTools
     Protocol, bypassing Playwright's high-level ``page.screenshot()``.
 
@@ -743,6 +748,13 @@ async def _capture_screenshot_b64(page) -> str:
 
 
 async def _capture_full_page_screenshot_b64(page) -> str:
+    """Base64 PNG of the page (full page) via the page's perception backend
+    (``_capture_full_page_screenshot_b64_cdp`` on Chromium, ``page.screenshot`` on Firefox)."""
+    from testmu._v4._helpers._perception import perception_for
+    return await perception_for(page).screenshot_b64(full_page=True)
+
+
+async def _capture_full_page_screenshot_b64_cdp(page) -> str:
     """Capture a FULL-PAGE screenshot as base64 PNG via the Chrome DevTools
     Protocol, bypassing Playwright's high-level ``page.screenshot(full_page=True)``.
 

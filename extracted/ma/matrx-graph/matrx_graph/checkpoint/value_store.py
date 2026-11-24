@@ -14,7 +14,10 @@ server reader (a failed-step assist, a summary) calls through
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
+import weakref
 from typing import Any
 
 from matrx_graph.checkpoint.values import (
@@ -23,7 +26,9 @@ from matrx_graph.checkpoint.values import (
     event_payload_row,
     referenced_hashes,
     resolve_values,
+    run_pure_off_loop,
 )
+from matrx_graph.checkpoint.protocol import ReadScopeFactory
 from matrx_graph.db._registry import get_model
 
 logger = logging.getLogger(__name__)
@@ -41,11 +46,9 @@ async def store_run_values(
 ) -> set[str]:
     """Persist ``values`` (hash → value) for ``run_id``; already-stored hashes are skipped.
 
-    Returns the hashes this call wrote. ``remember=False`` is for a caller writing INSIDE a
-    transaction: a hash is remembered as stored only once it is COMMITTED, so the caller
-    calls :func:`remember_stored_values` after its commit. Remembered before the commit, a
-    concurrent sibling with the same value writes only a reference — to a value that a
-    rollback never stores (and its row becomes visible before the value does)."""
+    Returns the hashes this call wrote. Writes inside an ORM transaction are not
+    memoized here. The caller can call :func:`remember_stored_values` after commit.
+    Remembering earlier can cause a retry to skip a rolled-back value."""
     if not values:
         return set()
     from matrx_graph.checkpoint.postgres import (
@@ -74,7 +77,10 @@ async def store_run_values(
         on_conflict=["run_id", "value_hash"],
     )
     if remember:
-        remember_stored_values(run_id, fresh)
+        from matrx_orm.core.transaction import get_active_connection
+
+        if get_active_connection() is None:
+            remember_stored_values(run_id, fresh)
     return set(fresh)
 
 
@@ -101,10 +107,23 @@ async def intern_event_payload(run_id: str, payload: dict[str, Any]) -> dict[str
         return payload
     try:
         limit = await event_inline_value_max_bytes()
-        out, values = event_payload_row(payload, limit)
-        if values:
-            await store_run_values(run_id, values)
-        return out
+        from matrx_graph.checkpoint.values import EVENT_VALUE_FIELDS, is_large_value
+
+        turns = _value_turns(run_id, payload, EVENT_VALUE_FIELDS, is_large_value)
+        if not turns:
+            return await _intern_and_store_event(run_id, payload, limit)
+        # ONE INTERNING PER VALUE AT A TIME (L-SPEED 6e, narrowed in 6h): steps that start together emit
+        # their node_started events at once, usually naming one shared input. Interned side by side, each
+        # found the value remembered by the next event but not yet committed (its store write still in
+        # flight) and walked + hashed + re-sent it. The turn is per large VALUE (its live object, the
+        # identity the interned-value cache keys on), never per run: events that share a value take turns
+        # and the second finds the first's digest committed; events of DIFFERENT values (For each over
+        # large items) intern in parallel. Locks are taken in one global order, so two events never wait
+        # on each other.
+        async with contextlib.AsyncExitStack() as stack:
+            for lock in turns:
+                await stack.enter_async_context(lock)
+            return await _intern_and_store_event(run_id, payload, limit)
     except Exception:  # noqa: BLE001 — the event must still land
         logger.exception(
             "[wf:%s] event value store write FAILED (event=%s) — event stored INLINE",
@@ -112,6 +131,49 @@ async def intern_event_payload(run_id: str, payload: dict[str, Any]) -> dict[str
             payload.get("event"),
         )
         return payload
+
+
+#: (run id, id(value)) -> the turn the events naming that live value intern in (dropped when no event holds it).
+_VALUE_TURNS: weakref.WeakValueDictionary[tuple[str, int], asyncio.Lock] = weakref.WeakValueDictionary()
+
+
+def _value_turns(run_id: str, payload: dict[str, Any], fields: tuple[str, ...], is_large: Any) -> list[asyncio.Lock]:
+    """The turns ``payload``'s large values intern in, in one global order (sorted by identity).
+
+    A large field's large CHILDREN are the shared values (a step's ``inputs`` dict is built per step, the
+    big input inside it is the one object every parallel step was handed); the field itself is a turn when
+    none of its children is large. The payload holds every keyed object alive while its locks are held, so
+    an id cannot be reused by another object under a held lock (a stale entry only costs a needless wait).
+    """
+    keys: set[int] = set()
+    for field in fields:
+        value = payload.get(field)
+        if value is None or not is_large(value):
+            continue
+        children = [child for child in value.values() if is_large(child)] if isinstance(value, dict) else []
+        if children:
+            keys.update(id(child) for child in children)
+        else:
+            keys.add(id(value))
+    turns: list[asyncio.Lock] = []
+    for key in sorted(keys):
+        lock = _VALUE_TURNS.get((run_id, key))
+        if lock is None:
+            lock = asyncio.Lock()
+            _VALUE_TURNS[(run_id, key)] = lock
+        turns.append(lock)
+    return turns
+
+
+async def _intern_and_store_event(run_id: str, payload: dict[str, Any], limit: int) -> dict[str, Any]:
+    from matrx_graph.checkpoint.postgres import _stored_value_hashes
+
+    # Read inside the turn: an event that waited sees what the one before it committed.
+    committed = _stored_value_hashes.get(run_id) or frozenset()
+    out, values = await run_pure_off_loop(event_payload_row, payload, limit, committed, values=(payload,))
+    if values:
+        await store_run_values(run_id, values)
+    return out
 
 
 async def fetch_stored_values(run_id: str, hashes: set[str] | list[str]) -> dict[str, Any]:
@@ -214,19 +276,72 @@ async def hold_on_server(run_id: str, value: Any, *, organization_id: str | None
     return {HELD_KEY: ref}
 
 
-async def resolve_step_inputs(run_id: str, held: dict[str, Any]) -> dict[str, Any]:
-    """Each held argument (``name → {HELD_KEY: hash}``) as its full value — what the executor receives."""
+#: (event loop, run id, held reference) -> the one load of that held value in flight. Steps that start together and
+#: read the same held value (a held page read by a landing step and a gallery step) share ONE read and ONE decoded
+#: copy instead of each decoding its own (research 90-page read, lane M2 2026-11-19: a ~3 MB page decoded per step).
+#: Sharing is safe because the scheduler's ingestion gate rebuilds every argument before a step sees it (the copy
+#: that keeps a step from mutating a stored value). The entry is dropped the moment the load finishes, so nothing is
+#: kept alive past the steps that asked for it.
+_HELD_LOADS: dict[tuple[int, str, str], asyncio.Future[dict[str, Any]]] = {}
+
+
+def _held_load_done(key: tuple[int, str, str], done: asyncio.Future[dict[str, Any]]) -> None:
+    if _HELD_LOADS.get(key) is done:
+        _HELD_LOADS.pop(key, None)
+    if not done.cancelled():
+        done.exception()  # retrieved here: every waiter that is still there raises it itself
+
+
+async def _load_held_shared(run_id: str, ref: str) -> dict[str, Any]:
+    key = (id(asyncio.get_running_loop()), run_id, ref)
+    task = _HELD_LOADS.get(key)
+    if task is None:
+        task = asyncio.ensure_future(load_run_values(run_id, [ref]))
+        _HELD_LOADS[key] = task
+        task.add_done_callback(lambda done, key=key: _held_load_done(key, done))
+    # Shielded: one step cancelled while waiting never cancels the read another step is waiting on.
+    return await asyncio.shield(task)
+
+
+async def resolve_step_inputs(
+    run_id: str,
+    held: dict[str, Any],
+    *,
+    read_scope: ReadScopeFactory | None = None,
+) -> dict[str, Any]:
+    """Each held argument (``name → {HELD_KEY: hash}``) as its full value — what the executor receives.
+
+    With no admission scope, concurrent steps share one read per held value
+    (:func:`_load_held_shared`). A host-supplied scope instead owns this invocation's
+    complete, sequential read: it must never inherit another invocation's cache or task."""
     from matrx_graph.checkpoint.values import MissingCheckpointValueError
 
-    hashes = {h for h in (held_hash(v) for v in held.values()) if h}
-    store = await load_run_values(run_id, hashes)
-    out: dict[str, Any] = {}
-    for name, marker in held.items():
-        digest = held_hash(marker)
-        if digest not in store:
-            raise MissingCheckpointValueError(f"held value {str(digest)[:12]}… for {name!r} is not stored for this run")
-        out[name] = store[digest]
-    return out
+    hashes = sorted({h for h in (held_hash(v) for v in held.values()) if h})
+    if not held:
+        return {}
+
+    def materialize(store: dict[str, Any]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for name, marker in held.items():
+            digest = held_hash(marker)
+            if digest not in store:
+                raise MissingCheckpointValueError(
+                    f"held value {str(digest)[:12]}… for {name!r} is not stored for this run"
+                )
+            out[name] = store[digest]
+        return out
+
+    if read_scope is not None and hashes:
+        from matrx_graph.checkpoint.protocol import read_scope as enter_read_scope
+
+        async with enter_read_scope(read_scope, "resolve_held_values", run_id, None):
+            store = await _load_all(run_id, set(hashes))
+            return materialize(store)
+
+    store: dict[str, Any] = {}
+    for found in await asyncio.gather(*(_load_held_shared(run_id, h) for h in hashes)):
+        store.update(found)
+    return materialize(store)
 
 
 def _strip_held(value: Any) -> Any:
@@ -511,21 +626,73 @@ async def screen_views(
     its whole life) is a :data:`EMITTED_KEY` marker on its ``node_completed``.
     """
     seen = {} if seen is None else seen
+    # Every walk below is pure CPU over payloads that reach megabytes (measuring a withheld value serializes it):
+    # on the loop it froze the whole API for 1-3 s on GET /runs/{id}/events (event_loop_stall
+    # aidream-api:9ab9718b5356cd2c, 2026-11-10). A worker thread keeps the process serving.
+    trimmed, hashes = await asyncio.to_thread(_screen_trim_all, payloads)
+    store: dict[str, Any] = {}
+    if hashes:
+        ordered = sorted(hashes)
+        for i in range(0, len(ordered), MAX_HASHES_PER_READ):
+            store |= await load_run_values(run_id, ordered[i : i + MAX_HASHES_PER_READ])
+    from matrx_graph.knobs import withheld_list_max
+
+    cap = await withheld_list_max()
+    return await asyncio.to_thread(_screen_finish, trimmed, store if hashes else None, cap, seen)
+
+
+def _screen_trim_all(payloads: list[dict[str, Any]]) -> tuple[list[Any], set[str]]:
     trimmed = [_screen_trim(p) if isinstance(p, dict) else p for p in payloads]
     hashes: set[str] = set()
     for item in trimmed:
         hashes |= referenced_hashes(item)
-    if hashes:
-        store: dict[str, Any] = {}
-        ordered = sorted(hashes)
-        for i in range(0, len(ordered), MAX_HASHES_PER_READ):
-            store |= await load_run_values(run_id, ordered[i : i + MAX_HASHES_PER_READ])
-        trimmed = [_fill_event(item, store) for item in trimmed]
-    from matrx_graph.knobs import withheld_list_max
+    return trimmed, hashes
 
-    cap = await withheld_list_max()
+
+def _screen_finish(
+    trimmed: list[Any], store: dict[str, Any] | None, cap: int, seen: dict[str, dict[str, str]]
+) -> list[dict[str, Any]]:
+    if store is not None:
+        trimmed = [_fill_event(item, store) for item in trimmed]
     trimmed = [_cap_withheld(item, cap) for item in trimmed]
     return [mark_emitted(item, seen) for item in trimmed]
+
+
+MISSING_VALUE_KEY = "__matrx_missing_value__"
+
+
+def _resolve_everything(value: Any, store: dict[str, Any]) -> Any:
+    ref = value.get(REF_KEY) if isinstance(value, dict) and len(value) == 1 else None
+    ref = ref if isinstance(ref, str) else held_hash(value)
+    if ref is not None:
+        # A value the run never stored stays visible as what it is, never as a silent gap.
+        return _resolve_everything(store[ref], store) if ref in store else {MISSING_VALUE_KEY: ref}
+    if isinstance(value, dict):
+        return {k: _resolve_everything(v, store) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_resolve_everything(v, store) for v in value]
+    return value
+
+
+async def full_views(run_id: str, payloads: list[Any]) -> list[Any]:
+    """``payloads`` exactly as recorded, with every by-reference AND held value resolved inline — nothing screened,
+    trimmed or withheld. The full view: the Workflow Studio, where a workflow is being built (Arman, 2026-11-01:
+    "the studio is for building so we cannot hide things"), and an admin in debug mode. A stored value the run
+    no longer has reads ``{MISSING_VALUE_KEY: <ref>}``."""
+    store: dict[str, Any] = {}
+    pending = [*payloads]
+    for _ in range(64):  # a stored value may itself name stored values; each pass loads one level
+        hashes: set[str] = set()
+        for item in pending:
+            hashes |= referenced_hashes(item) | _held_hashes(item)
+        hashes -= store.keys()
+        if not hashes:
+            break
+        found = await _load_all(run_id, hashes)
+        store |= found
+        pending = list(found.values())
+    # Resolving every stored value inline is pure CPU over megabytes; off the loop (see screen_views).
+    return await asyncio.to_thread(lambda: [_resolve_everything(item, store) for item in payloads])
 
 
 def _cap_withheld(item: Any, limit: int) -> Any:
@@ -682,18 +849,19 @@ async def _load_all(run_id: str, hashes: set[str]) -> dict[str, Any]:
 RUN_OUTPUT_STORE_BATCH_BYTES = 2_097_152
 
 
-def _step_by_reference(step: Any, store: dict[str, Any], piece: int, limit: int) -> Any:
+def _step_by_reference(step: Any, store: dict[str, Any], piece: int, limit: int, memo: Any = None) -> Any:
     """One step's output with its large values by reference. An object keeps its keys (what a reader sees at a
     glance: ``__kind``, ``content``, ``count``) when that alone brings it under ``limit``; otherwise the
     whole output is one reference. Values are interned at ``piece`` bytes, the checkpoint's grain, so the
-    same subtrees a checkpoint already stored for this run are the same rows."""
+    same subtrees a checkpoint already stored for this run are the same rows. ``memo``: the plan's
+    (``values.InternMemo`` at ``piece``) — a subtree the plan's sizing walk interned is not walked again."""
     from matrx_graph.checkpoint.values import _leaf_bytes, intern_values
 
     if isinstance(step, dict) and held_hash(step) is None and not _is_ref(step):
-        kept = {k: intern_values(v, store, piece) for k, v in step.items()}
+        kept = {k: intern_values(v, store, piece, memo) for k, v in step.items()}
         if _leaf_bytes(kept) <= limit:
             return kept
-    return intern_values(step, store, piece)
+    return intern_values(step, store, piece, memo)
 
 
 def _is_ref(value: Any) -> bool:
@@ -702,18 +870,44 @@ def _is_ref(value: Any) -> bool:
     return is_ref(value)
 
 
-def run_output_row(output: Any, limit: int, piece: int) -> tuple[Any, dict[str, Any]]:
+def _closure(hashes: set[str], store: dict[str, Any]) -> dict[str, Any]:
+    """Every value of ``store`` that ``hashes`` name, with the values those name in turn."""
+    from matrx_graph.checkpoint.values import referenced_hashes
+
+    out: dict[str, Any] = {}
+    stack = list(hashes)
+    while stack:
+        digest = stack.pop()
+        if digest in out or digest not in store:
+            continue  # not in the store: already committed to the run (an interned-value cache hit)
+        out[digest] = store[digest]
+        stack.extend(referenced_hashes(store[digest]))
+    return out
+
+
+def run_output_row(
+    output: Any, limit: int, piece: int, committed: set[str] | frozenset[str] | None = None
+) -> tuple[Any, dict[str, Any]]:
     """``workflow.run.output`` (``{step: output}``) as the row stores it, plus the values it references (pure).
 
     Every step output over ``limit`` goes by reference; while the whole row is still over ``limit``, the
-    largest remaining steps follow. Step ids always stay readable. ``limit <= 0`` changes nothing."""
-    from matrx_graph.checkpoint.values import _REF_BYTES, _leaf_bytes
+    largest remaining steps follow. Step ids always stay readable. ``limit <= 0`` changes nothing.
 
-    store: dict[str, Any] = {}
-    if limit <= 0 or not isinstance(output, dict) or _leaf_bytes(output) <= limit:
-        return output, store
+    Each step is sized by ONE interning walk at ``piece`` (``values._intern_raw``), never dumped whole just to
+    measure it; with ``committed`` (the run's committed hashes) a step output the run's checkpoints already
+    stored is its reference with no walk at all (``values.InternMemo``) — the terminal write of a run whose
+    outputs are many MB re-walked and re-hashed every one of them (L-SPEED round 3, 2026-11-09)."""
+    from matrx_graph.checkpoint.values import _REF_BYTES, InternMemo, _intern_raw, _leaf_bytes, referenced_hashes
+
+    if limit <= 0 or not isinstance(output, dict):
+        return output, {}
     piece = piece if 0 < piece < limit else limit
-    sized = sorted(((_leaf_bytes(v), k) for k, v in output.items()), reverse=True)
+    memo = InternMemo(committed)
+    walk: dict[str, Any] = memo.store
+    raw = {key: _intern_raw(value, walk, piece, memo)[2] for key, value in output.items()}
+    if 2 + sum(len(str(k).encode()) + 4 + r for k, r in raw.items()) <= limit:
+        return output, {}
+    sized = sorted(((r, k) for k, r in raw.items()), reverse=True)
     out = dict(output)
     total = sum(size for size, _ in sized)
     for size, key in sized:
@@ -721,9 +915,24 @@ def run_output_row(output: Any, limit: int, piece: int) -> tuple[Any, dict[str, 
             break
         if size <= _REF_BYTES * 2:
             break
-        out[key] = _step_by_reference(output[key], store, piece, limit)
+        out[key] = _step_by_reference(output[key], walk, piece, limit, memo)
         total -= size - _leaf_bytes(out[key])
-    return out, store
+    named: set[str] = set()
+    for key in output:
+        if out[key] is not output[key]:
+            named |= referenced_hashes(out[key])
+    # Only what the row names: the sizing walk also interned the steps that stay inline.
+    return out, _closure(named, walk)
+
+
+def _run_output_plan(
+    output: Any, limit: int, piece: int, committed: set[str] | frozenset[str] | None = None
+) -> tuple[Any, dict[str, Any], dict[str, int]]:
+    """:func:`run_output_row` plus the serialized size of every value it stores (pure; runs in a thread)."""
+    from matrx_graph.checkpoint.values import _leaf_bytes
+
+    row, values = run_output_row(output, limit, piece, committed)
+    return row, values, {digest: _leaf_bytes(value) for digest, value in values.items()}
 
 
 async def run_output_limit() -> int:
@@ -753,26 +962,35 @@ async def output_by_reference(
     Stored BEFORE the row is written, so no reader sees a reference whose value is missing. Raises when the
     store write fails: the caller's terminal write then ends the run ``final_write_failed`` (loud), never a
     row that silently lost a value. Without a value store (a DB-less install) the output stays inline."""
-    from matrx_graph.knobs import checkpoint_write_policy
 
     if not isinstance(output, dict) or not output:
         return output
     limit = await run_output_limit()
     if limit <= 0:
         return output
-    piece = (await checkpoint_write_policy()).inline_value_max_bytes
+    from matrx_graph.knobs import interning_grain
+
+    piece = await interning_grain()  # THE ONE GRAIN: the same digests the run's events and checkpoints stored
     earlier = existing if isinstance(existing, dict) else {}
     merged = {**earlier, **output}
-    row, values = run_output_row(merged, limit, piece)
-    if not values:
-        return output
-    from matrx_graph.checkpoint.values import _leaf_bytes
+    # Off the loop: sizing and interning a many-MB run output serializes every step value (``_dumps``/``_intern``)
+    # — 4.5 s on the loop thread when a subgraph child finished (event_loop_stall 2026-11-02, the watchdog stack
+    # named run_output_row). The plan is pure, so a worker thread computes it and every value's size.
+    from matrx_graph.checkpoint.postgres import _stored_value_hashes
+
+    committed = _stored_value_hashes.get(run_id) or frozenset()
+    row, values, sizes = await asyncio.to_thread(_run_output_plan, merged, limit, piece, committed)
+    if row is merged:
+        return output  # nothing over the limit: the row keeps every step inline
+    # ``values`` may be EMPTY while the row still changed: a step the run's checkpoints already stored is its
+    # reference with no new value to write. Returning ``output`` then wrote it inline (L-SPEED 6l: a 9.8 MB row,
+    # its 17 MB gather step, on PBW keyword_synthesis run 89948813).
 
     batch: dict[str, Any] = {}
     size = 0
     for digest, value in values.items():
         batch[digest] = value
-        size += _leaf_bytes(value)
+        size += sizes[digest]
         if size >= RUN_OUTPUT_STORE_BATCH_BYTES:
             await store_run_values(run_id, batch, organization_id=organization_id)
             batch, size = {}, 0
@@ -871,6 +1089,8 @@ __all__ = [
     "screen_run_output",
     "screen_value",
     "screen_views",
+    "full_views",
+    "MISSING_VALUE_KEY",
     "intern_event_payload",
     "load_run_values",
     "resolve_run_values",

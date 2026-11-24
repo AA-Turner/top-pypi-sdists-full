@@ -213,7 +213,7 @@ class TakeoverMixin:
           the other seven arrive here to find it live. That is success, not a
           race to lose; treating it as an error would kill every rank but one
           at import and leave a run that looks tracked because rank 0 attached.
-        * 'created', 'untracked' or 'crashed' inside the age window -- reopen.
+        * 'created', 'pending', 'untracked' or 'crashed' inside the age window -- reopen.
           A queued job reaching its run after the sweep rejoins instead of
           beating into a silent no-op forever, and a requeued one continues the
           run its killed attempt left `crashed`. So is a 'failed' that the
@@ -226,7 +226,7 @@ class TakeoverMixin:
           the live row, same reasoning as the first case.
         """
         status = data.get("status")
-        if status == "running":
+        if status in self._LIVE_RUN_STATUSES:
             return data
         run_id = data["id"]
         if status not in self._REOPENABLE_ON_ATTACH and not self._ended_by_preemption(data):
@@ -245,8 +245,8 @@ class TakeoverMixin:
                 "A run id this old in the environment is far more likely to be "
                 "stale than intended; clear PROBE_RUN_ID or reopen explicitly."
             )
-        if status == "created":
-            # 'created' is not a DEAD run, so /reopen refuses it (its reopenable
+        if status in self._UNSTARTED_ON_ATTACH:
+            # 'created' / 'pending' is not a DEAD run, so /reopen refuses it (its reopenable
             # set is the four terminal verdicts). It was never started -- the
             # honest transition is a plain status PATCH, and it needs no epoch
             # bump because no earlier attempt wrote anything to supersede.
@@ -259,7 +259,7 @@ class TakeoverMixin:
             # now -- re-read and use it rather than dying on a door someone else
             # already opened.
             fresh = self.get_run(run_id)
-            if fresh.get("status") == "running":
+            if fresh.get("status") in self._LIVE_RUN_STATUSES:
                 return fresh
             raise
         row = receipt.get("run") or receipt

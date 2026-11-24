@@ -85,6 +85,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentStepsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentStepsResponse.FromString,
         )
+        self.GetMaterializedAggregateDiff = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetMaterializedAggregateDiff",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetMaterializedAggregateDiffRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetMaterializedAggregateDiffResponse.FromString,
+        )
         self.GetDeploymentLogs = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetDeploymentLogs",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentLogsRequest.SerializeToString,
@@ -124,6 +129,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/GetClusterGateway",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayResponse.FromString,
+        )
+        self.DiffClusterGateway = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DiffClusterGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DiffClusterGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DiffClusterGatewayResponse.FromString,
         )
         self.ListClusterGateways = channel.unary_unary(
             "/chalk.server.v1.BuilderService/ListClusterGateways",
@@ -259,6 +269,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/GetNodepools",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.FromString,
+        )
+        self.GetServiceProbeDefaults = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetServiceProbeDefaults",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetServiceProbeDefaultsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetServiceProbeDefaultsResponse.FromString,
         )
         self.GetAvailableChalkMachineTypes = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetAvailableChalkMachineTypes",
@@ -529,6 +544,14 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetMaterializedAggregateDiff(self, request, context):
+        """The materialized aggregate diff a build's diff step computed (UploadSourceRequest.plan_only,
+        or the mat_agg_diff_after_build flag).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetDeploymentLogs(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -575,6 +598,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DiffClusterGateway(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -744,6 +773,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetNodepools(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetServiceProbeDefaults(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -1032,6 +1067,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentStepsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentStepsResponse.SerializeToString,
         ),
+        "GetMaterializedAggregateDiff": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMaterializedAggregateDiff,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetMaterializedAggregateDiffRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetMaterializedAggregateDiffResponse.SerializeToString,
+        ),
         "GetDeploymentLogs": grpc.unary_unary_rpc_method_handler(
             servicer.GetDeploymentLogs,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentLogsRequest.FromString,
@@ -1071,6 +1111,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.GetClusterGateway,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayResponse.SerializeToString,
+        ),
+        "DiffClusterGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.DiffClusterGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DiffClusterGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DiffClusterGatewayResponse.SerializeToString,
         ),
         "ListClusterGateways": grpc.unary_unary_rpc_method_handler(
             servicer.ListClusterGateways,
@@ -1206,6 +1251,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.GetNodepools,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.SerializeToString,
+        ),
+        "GetServiceProbeDefaults": grpc.unary_unary_rpc_method_handler(
+            servicer.GetServiceProbeDefaults,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetServiceProbeDefaultsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetServiceProbeDefaultsResponse.SerializeToString,
         ),
         "GetAvailableChalkMachineTypes": grpc.unary_unary_rpc_method_handler(
             servicer.GetAvailableChalkMachineTypes,
@@ -1793,6 +1843,35 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def GetMaterializedAggregateDiff(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetMaterializedAggregateDiff",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetMaterializedAggregateDiffRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetMaterializedAggregateDiffResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetDeploymentLogs(
         request,
         target,
@@ -2014,6 +2093,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/GetClusterGateway",
             chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DiffClusterGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DiffClusterGateway",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DiffClusterGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DiffClusterGatewayResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2797,6 +2905,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/GetNodepools",
             chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetServiceProbeDefaults(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetServiceProbeDefaults",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetServiceProbeDefaultsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetServiceProbeDefaultsResponse.FromString,
             options,
             channel_credentials,
             insecure,

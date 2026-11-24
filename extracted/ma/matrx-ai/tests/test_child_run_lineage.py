@@ -187,12 +187,15 @@ def test_a_child_that_has_not_spent_reads_its_roots_budget(monkeypatch: pytest.M
 
 
 @pytest.mark.asyncio
-async def test_fan_out_siblings_are_admitted_once_by_their_tree() -> None:
+async def test_fan_out_siblings_are_admitted_once_by_their_tree(monkeypatch) -> None:
+    from matrx_connect.context import provenance
     from matrx_connect.context.app_context import set_app_context
 
     from matrx_ai.providers import usage_gate
     from matrx_ai.providers.usage_gate import UsageVerdict
 
+    # The host's person-request seam reads this chat request as the person's own; nothing is stamped.
+    monkeypatch.setattr(provenance, "_person_request_resolver", lambda _ctx: True)
     asked: list[str] = []
 
     def _resolver(user_id: str) -> UsageVerdict:
@@ -202,9 +205,9 @@ async def test_fan_out_siblings_are_admitted_once_by_their_tree() -> None:
     usage_gate.reset_usage_gate_state()
     usage_gate.set_usage_verdict_resolver(_resolver)
     try:
-        root = _ctx(conversation_id="66666666-6666-4666-8666-666666666666", origin_class="human")
-        first = root.fork_for_child_agent("77777777-7777-4777-8777-777777777777").with_overrides(origin_class="human")
-        second = root.fork_for_child_agent("88888888-8888-4888-8888-888888888888").with_overrides(origin_class="human")
+        root = _ctx(conversation_id="66666666-6666-4666-8666-666666666666", route="/ai/chat", auth_type="token")
+        first = root.fork_for_child_agent("77777777-7777-4777-8777-777777777777")
+        second = root.fork_for_child_agent("88888888-8888-4888-8888-888888888888")
         set_app_context(first)
         await usage_gate.admit_paid_call()  # the tree's first paid call is in a child
         # The person crosses the line mid-action: a sibling is still never judged afresh.
@@ -217,7 +220,7 @@ async def test_fan_out_siblings_are_admitted_once_by_their_tree() -> None:
         usage_gate.reset_usage_gate_state()
 
 
-def test_run_approval_admits_a_tree_once() -> None:
+def test_run_approval_asks_at_every_child_launch_of_a_tree() -> None:
     from matrx_connect.context.app_context import set_app_context
 
     from matrx_ai.providers import run_approval_gate
@@ -238,7 +241,8 @@ def test_run_approval_admits_a_tree_once() -> None:
         run_approval_gate.admit_run_approval()
         set_app_context(second)
         run_approval_gate.admit_run_approval()
-        assert calls == [first.request_id]
+        # Never "once per tree": a hold or decline placed mid-run must stop the next launch (2026-11-10).
+        assert calls == [first.request_id, second.request_id]
     finally:
         run_approval_gate.set_run_approval_resolver(None)
         run_approval_gate.reset_run_approval_gate_state()

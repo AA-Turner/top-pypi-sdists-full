@@ -15,7 +15,7 @@ from torchvision.transforms import transforms as T
 
 from doctr.utils import Sample
 
-from ..functional import random_shadow
+from ..functional import perspective_sample, random_glare, random_lighting, random_shadow
 
 __all__ = [
     "Resize",
@@ -24,7 +24,11 @@ __all__ = [
     "RandomHorizontalFlip",
     "RandomShadow",
     "RandomResize",
+    "RandomPad",
     "GaussianBlur",
+    "RandomGlare",
+    "RandomLighting",
+    "RandomPerspective",
 ]
 
 
@@ -278,11 +282,11 @@ class GaussianBlur(torch.nn.Module):
         # Sample a random sigma value within the specified range
         sigma = torch.empty(1).uniform_(*self.sigma_range).item()
 
-        # Apply Gaussian blur along spatial dimensions only
+        # Apply Gaussian blur along spatial dimensions only (a zero sigma leaves the leading channel axis untouched)
         blurred = torch.tensor(
             gaussian_filter(
                 sample.image.numpy(),
-                sigma=sigma,
+                sigma=(0.0,) * (sample.image.ndim - 2) + (sigma, sigma),
                 mode="reflect",
                 truncate=4.0,
             ),
@@ -430,7 +434,11 @@ class RandomResize(torch.nn.Module):
         if torch.rand(1) < self.p:
             scale_h = np.random.uniform(*self.scale_range)
             scale_w = np.random.uniform(*self.scale_range)
-            new_size = (int(sample.image.shape[-2] * scale_h), int(sample.image.shape[-1] * scale_w))
+            # A side scaled below one pixel is kept at one pixel, as an image can not be resized to zero pixels
+            new_size = (
+                max(1, int(sample.image.shape[-2] * scale_h)),
+                max(1, int(sample.image.shape[-1] * scale_w)),
+            )
 
             res = self._resize(
                 new_size,
@@ -446,3 +454,176 @@ class RandomResize(torch.nn.Module):
 
     def extra_repr(self) -> str:
         return f"scale_range={self.scale_range}, preserve_aspect_ratio={self.preserve_aspect_ratio}, symmetric_pad={self.symmetric_pad}, p={self.p}"  # noqa: E501
+
+
+class RandomPad(torch.nn.Module):
+    """Randomly pad the input image with its background color and align the corresponding targets
+
+    Each side gets an independent padding, filled with the background color of the image (the median color of its
+    border pixels: white for a rendered document, the paper color for a photo). Used for instance to teach a model to
+    read the crops of layout regions with their margins.
+
+    >>> import torch
+    >>> from doctr.transforms import RandomPad
+    >>> from doctr.utils import Sample
+    >>> transfo = RandomPad(max_ratio=0.5, p=0.5)
+    >>> out = transfo(Sample(image=torch.rand((3, 64, 256))))
+
+    Args:
+        max_ratio: maximum padding of each side, relative to the image height
+        p: probability to apply the transformation
+    """
+
+    def __init__(self, max_ratio: float = 0.5, p: float = 0.5) -> None:
+        super().__init__()
+        if max_ratio < 0:
+            raise ValueError("`max_ratio` must be non-negative")
+        self.max_ratio = max_ratio
+        self.p = p
+
+    @staticmethod
+    def _pad_target(target: np.ndarray, offset: tuple[int, int], size: tuple[int, int], new_size: tuple[int, int]):
+        """Map relative boxes (N, 4) or polygons (N, 4, 2) of the image to the padded image"""
+        if not ((target.ndim == 2 and target.shape[1] == 4) or (target.ndim == 3 and target.shape[1:] == (4, 2))):
+            raise ValueError(f"expected relative boxes (N, 4) or polygons (N, 4, 2), got shape {target.shape}")
+        (left, top), (h, w), (new_h, new_w) = offset, size, new_size
+        out = target.astype(np.float32, copy=True)
+        xs, ys = (out[..., [0, 2]], out[..., [1, 3]]) if out.ndim == 2 else (out[..., 0], out[..., 1])
+        new_xs, new_ys = (left + xs * w) / new_w, (top + ys * h) / new_h
+        if out.ndim == 2:
+            out[..., [0, 2]], out[..., [1, 3]] = new_xs, new_ys
+        else:
+            out[..., 0], out[..., 1] = new_xs, new_ys
+        return out
+
+    def forward(self, sample: Sample) -> Sample:
+        if torch.rand(1) >= self.p:
+            return sample
+        img = sample.image  # (C, H, W)
+        _, h, w = img.shape
+        top, bottom, left, right = (torch.rand(4) * self.max_ratio * h).long().tolist()
+        new_h, new_w = top + h + bottom, left + w + right
+        # Background color: the median color of the border pixels
+        border = torch.cat([img[:, 0], img[:, -1], img[:, :, 0], img[:, :, -1]], dim=1)
+        background = border.median(dim=1).values
+        out = background[:, None, None].repeat(1, new_h, new_w)
+        out[:, top : top + h, left : left + w] = img
+
+        target = sample.target
+        if isinstance(target, np.ndarray):
+            target = self._pad_target(target, (left, top), (h, w), (new_h, new_w))
+        elif isinstance(target, dict):
+            target = {
+                key: self._pad_target(value, (left, top), (h, w), (new_h, new_w))
+                if isinstance(value, np.ndarray)
+                else value
+                for key, value in target.items()
+            }
+        # The padded areas are not valid image content
+        mask = None if sample.mask is None else pad(sample.mask, (left, right, top, bottom), value=False)
+        return sample.replace(image=out, target=target, mask=mask)
+
+    def extra_repr(self) -> str:
+        return f"max_ratio={self.max_ratio}, p={self.p}"
+
+
+def _apply_float_photometric(sample: Sample, fn) -> Sample:
+    """Run a photometric function expecting a float image in [0, 1] on a float or uint8 sample."""
+    if sample.image.dtype == torch.uint8:
+        out = (255 * fn(sample.image.to(dtype=torch.float32) / 255)).round().clip(0, 255).to(dtype=torch.uint8)
+    else:
+        out = fn(sample.image).clip(0, 1)
+    return sample.replace(image=out)
+
+
+class RandomGlare(torch.nn.Module):
+    """Adds soft bright reflections to the image, like a light source mirrored on a photographed screen or a
+    glossy sheet
+
+    >>> import torch
+    >>> from doctr.transforms import RandomGlare
+    >>> from doctr.utils import Sample
+    >>> transfo = RandomGlare((0.2, 0.7))
+    >>> out = transfo(Sample(image=torch.rand((3, 64, 64))))
+
+    Args:
+        opacity_range: minimum and maximum strength of the reflections
+        num_spots: minimum and maximum number of reflections
+    """
+
+    def __init__(self, opacity_range: tuple[float, float] | None = None, num_spots: tuple[int, int] = (1, 3)) -> None:
+        super().__init__()
+        self.opacity_range = opacity_range if isinstance(opacity_range, tuple) else (0.2, 0.7)
+        self.num_spots = num_spots
+
+    def __call__(self, sample: Sample) -> Sample:
+        return _apply_float_photometric(sample, lambda img: random_glare(img, self.opacity_range, self.num_spots))
+
+    def extra_repr(self) -> str:
+        return f"opacity_range={self.opacity_range}, num_spots={self.num_spots}"
+
+
+class RandomLighting(torch.nn.Module):
+    """Multiplies the image by a smooth low-frequency brightness field: uneven lighting, the shading of a crumpled
+    or curved sheet, vignetting
+
+    >>> import torch
+    >>> from doctr.transforms import RandomLighting
+    >>> from doctr.utils import Sample
+    >>> transfo = RandomLighting((0.1, 0.4))
+    >>> out = transfo(Sample(image=torch.rand((3, 64, 64))))
+
+    Args:
+        strength_range: minimum and maximum amplitude of the field (0.3 = brightness between 0.7 and 1.3)
+    """
+
+    def __init__(self, strength_range: tuple[float, float] | None = None) -> None:
+        super().__init__()
+        self.strength_range = strength_range if isinstance(strength_range, tuple) else (0.1, 0.4)
+
+    def __call__(self, sample: Sample) -> Sample:
+        return _apply_float_photometric(sample, lambda img: random_lighting(img, self.strength_range))
+
+    def extra_repr(self) -> str:
+        return f"strength_range={self.strength_range}"
+
+
+class RandomPerspective(torch.nn.Module):
+    """Warps the image and its boxes with a random perspective, as if the page were photographed at an angle
+
+    >>> import numpy as np
+    >>> import torch
+    >>> from doctr.transforms import RandomPerspective
+    >>> from doctr.utils import Sample
+    >>> transfo = RandomPerspective(distortion=0.2)
+    >>> out = transfo(Sample(image=torch.rand((3, 64, 64)), target=np.array([[0.1, 0.1, 0.5, 0.5]])))
+
+    Args:
+        distortion: maximum relative displacement of every image corner (0.2 = up to 20% of the width / height)
+    """
+
+    def __init__(self, distortion: float = 0.2) -> None:
+        super().__init__()
+        self.distortion = distortion
+
+    def __call__(self, sample: Sample) -> Sample:
+        img, target, mask = sample.image, sample.target, sample.mask
+        if target is None:
+            w_img, _, w_mask = perspective_sample(img, np.zeros((0, 4), dtype=np.float32), self.distortion, mask)
+            return sample.replace(image=w_img, mask=w_mask)
+        if isinstance(target, dict):
+            # Same random warp for every class: the corners are drawn from numpy's RNG, so restoring its state
+            # before every class reproduces the same transformation for the image and each geometry array
+            state = np.random.get_state()
+            out_target: dict[str, np.ndarray] = {}
+            w_img, w_mask = img, mask
+            for cls_name, arr in target.items():
+                np.random.set_state(state)
+                w_img, w_arr, w_mask = perspective_sample(img, arr, self.distortion, mask)
+                out_target[cls_name] = w_arr
+            return sample.replace(image=w_img, mask=w_mask, target=out_target)
+        w_img, w_target, w_mask = perspective_sample(img, target, self.distortion, mask)
+        return sample.replace(image=w_img, mask=w_mask, target=w_target)
+
+    def extra_repr(self) -> str:
+        return f"distortion={self.distortion}"

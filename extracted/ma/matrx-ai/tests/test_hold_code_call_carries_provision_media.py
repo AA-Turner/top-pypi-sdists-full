@@ -86,7 +86,7 @@ BLOCK = {"type": "image", "file_id": "f-1", "mime_type": "image/png"}
 
 
 async def test_a_media_provision_hands_its_blocks_to_the_held_call(monkeypatch, records) -> None:
-    agent = _Agent({"body": AgentVariable(name="body")})
+    agent = _Agent({"body": AgentVariable(declaration={"name": "body"})})
 
     async def _materialize_media(supplied: dict[str, Any]):
         return {"body": supplied["text"]}, [dict(BLOCK)]
@@ -105,7 +105,7 @@ async def test_a_media_provision_hands_its_blocks_to_the_held_call(monkeypatch, 
 
 
 async def test_a_mandate_without_media_carries_none(monkeypatch, records) -> None:
-    agent = _Agent({"body": AgentVariable(name="body")})
+    agent = _Agent({"body": AgentVariable(declaration={"name": "body"})})
 
     async def _materialize(supplied: dict[str, Any]) -> dict[str, Any]:
         return {"body": supplied["text"]}

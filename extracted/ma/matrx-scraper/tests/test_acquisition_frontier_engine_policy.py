@@ -61,9 +61,9 @@ class _Pool:
 @pytest.fixture(autouse=True)
 def _isolate(monkeypatch: pytest.MonkeyPatch):
     proxy_health.reset_for_tests()
-    monkeypatch.delenv("SCRAPER_BROWSER_ESCALATION", raising=False)
-    monkeypatch.delenv("SCRAPER_DIRECT_FALLBACK", raising=False)
+    escalation.set_fetch_policy_source(None)
     yield
+    escalation.set_fetch_policy_source(None)
     proxy_health.reset_for_tests()
 
 
@@ -140,7 +140,7 @@ async def test_escalation_can_be_turned_off_by_setting(
 ) -> None:
     _patch_http(monkeypatch, _result(success=False, failure_reason="bad_status"))
     pool = _Pool()
-    monkeypatch.setenv("SCRAPER_BROWSER_ESCALATION", "0")
+    escalation.set_fetch_policy_source(lambda: {"browser_escalation": False})
 
     got = await orchestrator.scrape(
         "https://example.com/page", use_proxy=False, browser_pool=pool
@@ -350,7 +350,7 @@ async def test_direct_fallback_can_be_turned_off(monkeypatch: pytest.MonkeyPatch
         return _failed(scraper.FailureReason.PROXY_ERROR)
 
     monkeypatch.setenv("DATACENTER_PROXIES", "http://p1")
-    monkeypatch.setenv("SCRAPER_DIRECT_FALLBACK", "0")
+    escalation.set_fetch_policy_source(lambda: {"direct_fallback": False})
     monkeypatch.setattr(scraper, "fetch", fake_fetch)
     monkeypatch.setattr(scraper.random, "choice", lambda values: values[0])
     monkeypatch.setattr("matrx_utils.vcprint", lambda *a, **k: None)
@@ -487,3 +487,20 @@ async def test_the_browser_leg_still_uses_the_proxy_when_the_pool_is_healthy() -
         os.environ.pop("DATACENTER_PROXIES", None)
 
     assert seen == ["http://p1"]
+
+
+def test_the_retired_env_vars_no_longer_change_the_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCRAPER_DIRECT_FALLBACK / SCRAPER_BROWSER_ESCALATION moved to the host's settings (2026-11-20)."""
+    monkeypatch.setenv("SCRAPER_DIRECT_FALLBACK", "0")
+    monkeypatch.setenv("SCRAPER_BROWSER_ESCALATION", "0")
+    assert scraper.direct_fallback_enabled() is True
+    assert escalation.EscalationPolicy.current().enabled is True
+
+
+def test_a_broken_policy_reader_keeps_the_defaults_and_says_so(capsys: pytest.CaptureFixture[str]) -> None:
+    def broken() -> dict[str, bool]:
+        raise RuntimeError("not primed")
+
+    escalation.set_fetch_policy_source(broken)
+    assert escalation.fetch_policy() == {"direct_fallback": True, "browser_escalation": True}
+    assert "fetch-policy switches could not be read" in capsys.readouterr().err

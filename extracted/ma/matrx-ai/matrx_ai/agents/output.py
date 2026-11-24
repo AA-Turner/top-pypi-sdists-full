@@ -17,7 +17,12 @@ from typing import Any
 from matrx_graph.content_ir.markers import normalize_nonidentity_markers
 from matrx_utils import vcprint
 
-from matrx_ai.agents.response_parser import JsonExtraction, degenerate_output_error, extract_json
+from matrx_ai.agents.response_parser import (
+    JsonExtraction,
+    degenerate_output_error,
+    extract_json,
+    prune_degenerate_rows,
+)
 
 __all__ = ["parse_agent_output", "resolve_output_schema"]
 
@@ -124,6 +129,30 @@ def parse_agent_output(
             all_matches=matches,
         )
     if extraction.success:
+        # A filler ROW in a list is a "nothing found" row, not a collapse: drop it
+        # by path (loudly) and keep the finished answer; filler anywhere else, or
+        # a list that is mostly filler, still fails the verdict below.
+        pruned_pairs = [prune_degenerate_rows(m) for m in extraction.all_matches]
+        pruned_matches = [m for m, _ in pruned_pairs]
+        pruned_paths = [p for _, paths in pruned_pairs for p in paths]
+        if return_all:
+            pruned_data: Any = pruned_matches
+        else:
+            pruned_data, data_paths = prune_degenerate_rows(extraction.data)
+            pruned_paths = data_paths
+        if pruned_paths:
+            vcprint(
+                f"[parse_agent_output] dropped {len(pruned_paths)} filler row(s) "
+                f"({', '.join(pruned_paths[:8])}) — literal placeholder in a list "
+                "element; the rest of the answer is kept",
+                color="yellow",
+            )
+            extraction = JsonExtraction(
+                data=pruned_data,
+                success=True,
+                reason=f"{extraction.reason}; dropped filler rows: {', '.join(pruned_paths[:8])}",
+                all_matches=pruned_matches,
+            )
         degenerate = degenerate_output_error(extraction.data)
         if degenerate:
             vcprint(

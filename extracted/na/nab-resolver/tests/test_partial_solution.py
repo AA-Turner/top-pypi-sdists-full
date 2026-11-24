@@ -6,11 +6,13 @@ import gc
 from collections import UserDict
 from collections.abc import Iterator
 from typing import Any
+from weakref import ref
 
 import pytest
 
 from nab_resolver import partial_solution
 from nab_resolver._compat import override
+from nab_resolver.errors import ResolutionInvariantError
 from nab_resolver.partial_solution import Assignment, PartialSolution
 from nab_resolver.ranges import Range
 from nab_resolver.types import Incompatibility, IncompatibilityCause, Term
@@ -42,6 +44,28 @@ class TestAssignments:
         ps = PartialSolution()
         assert ps.decision_level == 0
         assert ps.get("foo") is None
+
+    def test_lookup_releases_an_unassigned_package(self) -> None:
+        class Package:
+            pass
+
+        solution: PartialSolution[Package, int] = PartialSolution()
+        package = Package()
+        reference = ref(package)
+        assert solution.get(package) is None
+
+        del package
+        gc.collect()
+        assert reference() is None
+
+    def test_missing_trail_ranges_report_the_assignment(self) -> None:
+        solution: PartialSolution[str, int] = PartialSolution()
+        solution.decide("app", 1)
+        assignment = solution.assignments_for("app")[0]
+        assignment.cum_positive = None
+
+        with pytest.raises(ResolutionInvariantError, match="assignment 0 for 'app'"):
+            solution.satisfier(Term("app", Range.empty(), positive=False))
 
     def test_trail_length_counts_assignments(self) -> None:
         ps = PartialSolution()
@@ -799,7 +823,7 @@ class TestAssignmentEntries:
 
     def test_pattern_matching_reads_every_field_positionally(self) -> None:
         """Ten sub-patterns, in declaration order rather than slot order."""
-        match self._entry():
+        match self._entry(decision_level=3, cum_positive=Range.at_least(1)):
             case Assignment(
                 package,
                 accumulated_range,
@@ -815,7 +839,7 @@ class TestAssignmentEntries:
                 assert (package, accumulated_range, decision_level) == (
                     "foo",
                     Range.at_least(2),
-                    1,
+                    3,
                 )
                 assert (is_decision, trail_index, version, cause) == (
                     False,
@@ -825,6 +849,8 @@ class TestAssignmentEntries:
                 )
                 assert (positive, cum_positive, cum_negative) == (
                     True,
-                    Range.at_least(2),
+                    Range.at_least(1),
                     Range.full(),
                 )
+            case _:
+                pytest.fail("Assignment did not match positionally")

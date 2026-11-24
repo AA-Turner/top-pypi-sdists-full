@@ -14,13 +14,15 @@ the module loads fine when it's absent. The other two use ``httpx`` (a core dep)
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
 import shutil
 import time
 from typing import Any
 
 import httpx
-from matrx_utils.outbound_guard import OutboundUrlRefused, public_only_client
+from matrx_utils.http_client import shared_client
+from matrx_utils.outbound_guard import OutboundUrlRefused
 
 from matrx_ai.tools._sandbox_proxy import get_active_sandbox
 from matrx_ai.tools.arg_models.code_ingest_args import (
@@ -47,6 +49,12 @@ _GIT_INGEST_SOURCE_CHARS = 2_000
 _GIT_INGEST_SUMMARY_CHARS = 4_000
 _GIT_INGEST_TREE_CHARS = 12_000
 _GIT_INGEST_CONTENT_CHARS = 28_000
+#: The most file bytes one git_ingest reads. gitingest's own ceiling is 500 MB (and 10,000 files),
+#: and it reads, joins and tokenizes ALL of it on the server for an answer capped at ~44k chars:
+#: archestra-ai/archestra (370 MB) ran past the 120 s dispatch ceiling twice on 2026-11-08 and
+#: left 4 calls unanswered (system_error sec_a5cf6424, sec_c867987b). gitingest takes no per-call
+#: total, so its module ceiling is lowered for each call (only this tool uses gitingest).
+_GIT_INGEST_MAX_TOTAL_BYTES = 16 * 1024 * 1024
 
 
 def _looks_remote(source: str) -> bool:
@@ -72,9 +80,106 @@ def _names_a_repository(source: str) -> bool:
 
 def _ingest(source: str, **kwargs: Any) -> tuple[str, str, str]:
     """gitingest's ingest, looked up at call time (tests and the optional extra both rely on it)."""
+    import gitingest.entrypoint as entry
+    import gitingest.ingestion as walk
+    import gitingest.utils.query_parser_utils as parse
     from gitingest import ingest
 
+    walk.MAX_TOTAL_SIZE_BYTES = _GIT_INGEST_MAX_TOTAL_BYTES
+    entry.resolve_token = _caller_token_only
+    parse._validate_host = _validate_any_git_host
+    walk._should_exclude = _should_exclude
+    walk._should_include = _should_include
     return ingest(source, **kwargs)
+
+
+#: What git prints when the host wants a login it was not given (prompts are off on the server).
+_GIT_CREDENTIALS_NEEDED = (
+    "could not read username",
+    "could not read password",
+    "terminal prompts disabled",
+    "authentication failed",
+    "repository not found",
+    "invalid username or password",
+)
+
+
+def _needs_credentials(exc: BaseException) -> bool:
+    """True when a clone/ls-remote failed because the host asked for credentials."""
+    text = str(exc).lower()
+    return any(marker in text for marker in _GIT_CREDENTIALS_NEEDED)
+
+
+def _validate_any_git_host(host: str) -> None:
+    """gitingest's ``_validate_host`` without its six-host allow-list.
+
+    Upstream refuses every host that is not github/gitlab/bitbucket/gitea/codeberg or a ``git.`` /
+    ``gitlab.`` / ``github.`` subdomain, BEFORE asking the host anything: a public gitee.com repo
+    failed as ``Unknown domain 'gitee.com' in URL`` (system_error 62740547, 2026-11-13). Whether a
+    host serves a repository is the clone's answer (gitingest's ``check_repo_exists`` asks it next),
+    so any host name is accepted here; only an empty or dotless one is refused.
+    """
+    name = host.lower().rsplit("@", 1)[-1].split(":", 1)[0]
+    if not name or "." not in name:
+        raise ValueError(f"Unknown domain '{host}' in URL")
+
+
+def _caller_token_only(token: str | None) -> str | None:
+    """gitingest's ``resolve_token`` without its ``GITHUB_TOKEN`` environment fallback.
+
+    The tool runs on the SERVER for whoever called it: the token is the caller's ``token`` arg or
+    none. Upstream falls back to the server's own ``GITHUB_TOKEN`` when the arg is empty, which
+    hands the server's credential to any caller's clone and fails even a local-folder walk when
+    that variable is not in GitHub's PAT format.
+    """
+    from gitingest.utils.git_utils import validate_github_token
+
+    if token:
+        validate_github_token(token)
+    return token or None
+
+
+@functools.lru_cache(maxsize=32)
+def _compiled_spec(patterns: frozenset[str]) -> Any:
+    from pathspec import PathSpec
+
+    return PathSpec.from_lines("gitwildmatch", patterns)
+
+
+def _should_exclude(path: Any, base_path: Any, ignore_patterns: set[str]) -> bool:
+    """gitingest's ``_should_exclude`` with the pattern set compiled ONCE, not once per path.
+
+    gitingest 0.3.1 (the latest) rebuilds its ~260-pattern ignore PathSpec for every file and
+    folder it visits: archestra-ai/archestra (11.5k paths) compiled 3M patterns, 68 of its 76 s.
+    Same answer, from a cached spec.
+    """
+    from gitingest.utils.ingestion_utils import _relative_or_none
+
+    rel_path = _relative_or_none(path, base_path)
+    if rel_path is None:  # outside the repository: already excluded
+        return True
+    return _compiled_spec(frozenset(ignore_patterns)).match_file(str(rel_path))
+
+
+def _should_include(path: Any, base_path: Any, include_patterns: set[str]) -> bool:
+    """gitingest's ``_should_include`` with the pattern set compiled once (see ``_should_exclude``)."""
+    from gitingest.utils.ingestion_utils import _relative_or_none
+
+    rel_path = _relative_or_none(path, base_path)
+    if rel_path is None:  # outside the repository: not included
+        return False
+    if path.is_dir():  # folders stay, so their files are visited
+        return True
+    return _compiled_spec(frozenset(include_patterns)).match_file(str(rel_path))
+
+
+def _reached_read_ceiling(content: str, max_file_size: int) -> bool:
+    """True when the walk read up to the byte ceiling, so files past it were skipped.
+
+    gitingest stops adding a file once it would cross the ceiling, so a walk that stopped holds
+    more than ``ceiling - max_file_size`` bytes; one that read everything holds less.
+    """
+    return len(content) > _GIT_INGEST_MAX_TOTAL_BYTES - max_file_size
 
 
 async def git_ingest(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
@@ -89,6 +194,7 @@ async def git_ingest(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="local_path_on_bound_box",
                 message=(
                     f"git_ingest runs on the server and cannot see {parsed.source!r} on the attached "
@@ -110,6 +216,7 @@ async def git_ingest(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return ToolResult(
             success=False,
             error=ToolError(
+                refusal=True,
                 error_type="unavailable",
                 message=(
                     "The `git` CLI is required to ingest a remote repository and was "
@@ -166,6 +273,13 @@ async def git_ingest(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             "summary": summary,
             "summary_chars": summary_cap.model_dump(),
         }
+        if _reached_read_ceiling(content, parsed.max_file_size):
+            ceiling_mb = _GIT_INGEST_MAX_TOTAL_BYTES // (1024 * 1024)
+            out["read_ceiling_reached"] = (
+                f"The read stopped at its {ceiling_mb} MB ceiling, so files past it are missing from "
+                "the summary counts, the tree and the content. Narrow it with include/exclude globs "
+                "or a subdirectory URL to see the rest."
+            )
         if parsed.mode in ("tree", "digest"):
             bounded_tree, tree_cap = cap_text(tree, limit=_GIT_INGEST_TREE_CHARS)
             out["tree"] = bounded_tree
@@ -196,6 +310,31 @@ async def git_ingest(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             output_self_capped=True,
         )
     except Exception as exc:
+        if remote and _needs_credentials(exc):
+            # The host asked for a login: the repository is private (or absent) and this call
+            # carried no token that can read it. The caller's input, answered with the fix —
+            # never an operational failure (filed as tool_execution_failed until 2026-11-21,
+            # 752f1b71: a private repository read without a token).
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    refusal=True,
+                    error_type="auth_required",
+                    message=(
+                        f"{parsed.source!r} could not be read: the git host asked for a login, so it "
+                        "is private or does not exist"
+                        + (" and the token passed cannot read it." if parsed.token else ".")
+                    ),
+                    suggested_action=(
+                        "Check the URL. For a private repository pass a `token` that can read it, "
+                        "or ask the person for access."
+                    ),
+                ),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="git_ingest",
+                call_id=ctx.call_id,
+            )
         return ToolResult(
             success=False,
             error=ToolError.from_exception(
@@ -273,13 +412,14 @@ async def llms_txt_fetch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     # redirect hop too) and connects to the IP it checked.
     try:
         await stream.progress(f"Fetching {target}")
-        async with public_only_client(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
+        async with shared_client(public_only=True, timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
             resp = await client.get(target, headers={"User-Agent": _USER_AGENT})
 
         if resp.status_code == 404:
             return ToolResult(
                 success=False,
                 error=ToolError(
+                    refusal=True,
                     error_type="not_found",
                     message=f"No LLM-docs file at {target} (HTTP 404).",
                     suggested_action=(
@@ -342,7 +482,7 @@ async def llms_txt_fetch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except httpx.HTTPError as exc:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type="execution",
                 message=f"llms_txt_fetch failed: {exc}",
                 is_retryable=True,
@@ -418,7 +558,7 @@ async def package_info(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     try:
         await stream.progress(f"Looking up {parsed.ecosystem}:{parsed.name}")
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
+        async with shared_client(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
             if parsed.ecosystem == "pypi":
                 out = await _fetch_pypi(
                     client, parsed.name, parsed.include_readme, parsed.max_chars
@@ -438,7 +578,7 @@ async def package_info(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         not_found = exc.response is not None and exc.response.status_code == 404
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type="not_found" if not_found else "execution",
                 message=(
                     f"No {parsed.ecosystem} package named '{parsed.name}'."
@@ -460,7 +600,7 @@ async def package_info(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except httpx.HTTPError as exc:
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.declared(exc=exc, 
                 error_type="execution",
                 message=f"package_info failed: {exc}",
                 is_retryable=True,

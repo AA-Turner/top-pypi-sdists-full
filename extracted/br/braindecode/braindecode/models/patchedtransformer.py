@@ -12,8 +12,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from braindecode.functional import init_weights_, scaled_dot_product_attention
-from braindecode.models.base import EEGModuleMixin
+from braindecode.functional import (
+    init_weights_,
+    scaled_dot_product_attention,
+)
+from braindecode.models.base import EEGModuleMixin, deprecated_forward_kwargs
 
 # Weight initialization of the reference implementation.
 _init_weights = partial(
@@ -164,6 +167,7 @@ class PBT(EEGModuleMixin, nn.Module):
     ----------
     d_input : int, optional
         Size (in samples) of each patch (token) extracted along the time axis.
+        Each channel must contain at least one complete patch.
     embed_dim : int, optional
         Transformer embedding dimensionality.
     num_layers : int, optional
@@ -178,6 +182,11 @@ class PBT(EEGModuleMixin, nn.Module):
         Whether to use bias in Transformer linear layers.
     activation : nn.Module, optional
         Activation function class to use in Transformer feed-forward layers.
+    channel_strategy : str
+        How another montage reaches the encoder; see
+        :class:`~braindecode.models.base.EEGModuleMixin`.
+    channel_strategy_kwargs : dict or None
+        Options of ``channel_strategy``.
 
     References
     ----------
@@ -197,6 +206,9 @@ class PBT(EEGModuleMixin, nn.Module):
         impacting performance. arXiv preprint arXiv:2107.02027.
     """
 
+    _time_axis = "free"
+    _channel_axis = "fixed"  # fixed: pos_embedding.weight
+
     def __init__(
         self,
         # Signal related parameters
@@ -215,6 +227,8 @@ class PBT(EEGModuleMixin, nn.Module):
         learnable_cls=True,
         bias_transformer=False,
         activation: type[nn.Module] = nn.GELU,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ) -> None:
         super().__init__(
             n_outputs=n_outputs,
@@ -223,8 +237,15 @@ class PBT(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
+        if not 0 < d_input <= self.n_times:
+            raise ValueError(
+                f"PBT requires 0 < d_input <= n_times to form a patch per channel, "
+                f"got d_input={d_input} and n_times={self.n_times}."
+            )
         # Store hyperparameters
         self.d_input = d_input
         self.embed_dim = embed_dim
@@ -232,7 +253,7 @@ class PBT(EEGModuleMixin, nn.Module):
         self.num_heads = num_heads
         self.drop_prob = drop_prob
 
-        # number of distinct positional indices (per-channel tokens + cls)
+        # Retain the size of the positional table in released checkpoints.
         self.num_embeddings = (self.n_chans * self.n_times) // self.d_input
 
         # Classification token (learnable or fixed zero)
@@ -276,6 +297,7 @@ class PBT(EEGModuleMixin, nn.Module):
         self.final_layer = nn.Linear(
             in_features=embed_dim, out_features=self.n_outputs, bias=True
         )
+        self._min_n_times = self.d_input
 
         # initialize weights
         self._init_parameters()
@@ -284,29 +306,26 @@ class PBT(EEGModuleMixin, nn.Module):
         """Model-specific initialization (see ``reset_parameters``)."""
         self.apply(_init_weights)
 
-    def forward(self, X: torch.Tensor) -> torch.Tensor:
-        """The implementation follows the original code logic
-
-        - split input into windows of size `(num_embeddings - 1) * d_input`
-        - for each window: reshape into tokens, map positional indices to embeddings,
-          add cls token, run Transformer encoder and collect CLS outputs
-        - aggregate CLS outputs across windows (if >1) and pass through `final_layer`
+    @deprecated_forward_kwargs(X="x")
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Classify a window from the transformer output of its class token.
 
         Parameters
         ----------
-        X : torch.Tensor
-            Input tensor with shape (batch_size, n_chans, n_times)
+        x : torch.Tensor
+            Input tensor with shape (batch_size, n_chans, n_times). Each
+            channel contributes its complete patches within the configured window.
 
         Returns
         -------
         torch.Tensor
             Output logits with shape (batch_size, n_outputs).
         """
-        X, int_pos = self.patch_signal(X)
+        x, int_pos = self.patch_signal(x)
 
-        tokens = self.patching_projection(X)
+        tokens = self.patching_projection(x)
 
-        cls_token = self.cls_token.expand(X.size(0), 1, -1)
+        cls_token = self.cls_token.expand(x.size(0), 1, -1)
 
         tokens = torch.cat([cls_token, tokens], dim=1)
         pos_emb = self.pos_embedding(int_pos)
@@ -622,7 +641,7 @@ class _Patcher(nn.Module):
     def __init__(self, n_chans=2, n_times=1000, d_input=64) -> None:
         super().__init__()
         self.d_input = d_input
-        self.num_tokens = (n_chans * n_times) // d_input
+        self.num_tokens = n_chans * (n_times // d_input)
 
     def forward(self, X: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Returns patched input together with positional indices
@@ -635,16 +654,23 @@ class _Patcher(nn.Module):
 
         Returns
         -------
-        x_patched: torch.LongTensor
-            Tensor of shape (B, (C*T)//d_input, d_input) containing positional token indices.
+        x_patched: torch.Tensor
+            Tensor of shape (B, C*(T//d_input), d_input) containing the patches. Each
+            patch lies within one channel; trailing samples that do not fill a patch
+            are dropped.
 
         position: torch.LongTensor
-            Tensor of shape ((C*T)//d_input + 1) containing positional token indices.
+            Tensor of shape (C*(T//d_input) + 1) containing positional token indices.
         """
 
-        X_flat = X.view(X.size(0), -1)
-        x_patched = X_flat[:, : self.num_tokens * self.d_input].view(
-            X.size(0), self.num_tokens, self.d_input
+        # Old pickles store floor(C*T/D) in num_tokens. Integer division by C
+        # gives floor(T/D) for both that count and the current C*floor(T/D).
+        n_chans = X.size(1)
+        n_patches = min(X.size(-1) // self.d_input, self.num_tokens // n_chans)
+        if n_patches == 0:
+            raise ValueError("PBT requires at least one complete patch per channel.")
+        x_patched = X[..., : n_patches * self.d_input].reshape(
+            X.size(0), n_chans * n_patches, self.d_input
         )
 
         position = torch.arange(x_patched.size(1) + 1, device=X.device)

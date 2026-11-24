@@ -10,6 +10,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#if defined(__GNUC__) || defined(__clang__)
+#define ZXING_DEPRECATED(msg) __attribute__((deprecated(msg)))
+#elif defined(_MSC_VER)
+#define ZXING_DEPRECATED(msg) __declspec(deprecated(msg))
+#else
+#define ZXING_DEPRECATED(msg)
+#endif
+
 #ifdef __cplusplus
 
 #include "ZXingCpp.h"
@@ -147,7 +155,8 @@ uint8_t* ZXing_Barcode_bytesECI(const ZXing_Barcode* barcode, int* len);
 char* ZXing_Barcode_text(const ZXing_Barcode* barcode);
 char* ZXing_Barcode_symbologyIdentifier(const ZXing_Barcode* barcode);
 ZXing_Position ZXing_Barcode_position(const ZXing_Barcode* barcode);
-int ZXing_Barcode_orientation(const ZXing_Barcode* barcode);
+int ZXing_Barcode_rotation(const ZXing_Barcode* barcode);
+ZXING_DEPRECATED("Use ZXing_Barcode_rotation instead") int ZXing_Barcode_orientation(const ZXing_Barcode* barcode);
 bool ZXing_Barcode_hasECI(const ZXing_Barcode* barcode);
 bool ZXing_Barcode_isInverted(const ZXing_Barcode* barcode);
 bool ZXing_Barcode_isMirrored(const ZXing_Barcode* barcode);
@@ -200,9 +209,7 @@ void ZXing_ReaderOptions_setTryHarder(ZXing_ReaderOptions* opts, bool tryHarder)
 void ZXing_ReaderOptions_setTryRotate(ZXing_ReaderOptions* opts, bool tryRotate);
 void ZXing_ReaderOptions_setTryInvert(ZXing_ReaderOptions* opts, bool tryInvert);
 void ZXing_ReaderOptions_setTryDownscale(ZXing_ReaderOptions* opts, bool tryDownscale);
-#ifdef ZXING_EXPERIMENTAL_API
-	void ZXing_ReaderOptions_setTryDenoise(ZXing_ReaderOptions* opts, bool tryDenoise);
-#endif
+void ZXing_ReaderOptions_setTryDenoise(ZXing_ReaderOptions* opts, bool tryDenoise);
 void ZXing_ReaderOptions_setIsPure(ZXing_ReaderOptions* opts, bool isPure);
 void ZXing_ReaderOptions_setValidateOptionalChecksum(ZXing_ReaderOptions* opts, bool validateOptionalChecksum);
 void ZXing_ReaderOptions_setReturnErrors(ZXing_ReaderOptions* opts, bool returnErrors);
@@ -217,9 +224,7 @@ bool ZXing_ReaderOptions_getTryHarder(const ZXing_ReaderOptions* opts);
 bool ZXing_ReaderOptions_getTryRotate(const ZXing_ReaderOptions* opts);
 bool ZXing_ReaderOptions_getTryInvert(const ZXing_ReaderOptions* opts);
 bool ZXing_ReaderOptions_getTryDownscale(const ZXing_ReaderOptions* opts);
-#ifdef ZXING_EXPERIMENTAL_API
-	bool ZXing_ReaderOptions_getTryDenoise(const ZXing_ReaderOptions* opts);
-#endif
+bool ZXing_ReaderOptions_getTryDenoise(const ZXing_ReaderOptions* opts);
 bool ZXing_ReaderOptions_getIsPure(const ZXing_ReaderOptions* opts);
 bool ZXing_ReaderOptions_getValidateOptionalChecksum(const ZXing_ReaderOptions* opts);
 bool ZXing_ReaderOptions_getReturnErrors(const ZXing_ReaderOptions* opts);

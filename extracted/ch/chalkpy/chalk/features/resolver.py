@@ -3323,6 +3323,7 @@ class StreamResolver(Resolver[P, T]):
         resource_group: str | None = None,
         deduplication: Deduplication | None = None,
         customer_metrics_tags: list[str] | None = None,
+        exactly_once: bool = False,
     ):
         super().__init__(
             function_definition=function_definition,
@@ -3397,6 +3398,7 @@ class StreamResolver(Resolver[P, T]):
         self.include_message_envelope = include_message_envelope
         self.message_header_filters = message_header_filters
         self.deduplication = deduplication
+        self.exactly_once = exactly_once
         if customer_metrics_tags is not None:
             if not isinstance(customer_metrics_tags, list):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise TypeError(
@@ -4369,6 +4371,7 @@ def make_stream_resolver(
     resource_group: Optional[str] = None,
     deduplication: Optional[Deduplication] = None,
     customer_metrics_tags: list[str] | None = None,
+    exactly_once: bool = False,
 ) -> StreamResolver:
     """Constructs a streaming resolver that, instead of a Python function,
     defines its output features as column projections on an input message.
@@ -4674,6 +4677,7 @@ def make_stream_resolver(
         resource_group=resource_group,
         deduplication=deduplication,
         customer_metrics_tags=customer_metrics_tags,
+        exactly_once=exactly_once,
     )
     resolver.add_to_registry(override=False)
     return resolver

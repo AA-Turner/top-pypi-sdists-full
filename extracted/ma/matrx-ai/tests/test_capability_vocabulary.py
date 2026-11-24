@@ -293,3 +293,28 @@ def test_audio_and_moderation_features_the_client_and_live_table_carry_are_canon
         result = normalize_capabilities(caps, label=f"model-{feature}")
         assert result.ok, result.rejections
         assert feature in result.value["features"]
+
+
+# ── image_sizing (live 2026-11-12: written on every Claude row before the vocabulary had it) ──
+
+_SIZING = {"overhead": 3, "patch_px": 28, "long_edge": 2576, "label_scale": 1.35, "max_patches": 4784}
+
+
+def test_image_sizing_the_catalog_writes_is_canonical() -> None:
+    from matrx_ai.providers.capability_vocabulary import normalize_capabilities
+
+    result = normalize_capabilities(
+        {"input": ["text", "image"], "output": ["text"], "features": [], "interaction": "turn", "image_sizing": _SIZING}
+    )
+    assert result.ok, result.rejections
+    assert result.value["image_sizing"] == _SIZING
+
+
+def test_image_sizing_refuses_a_field_or_number_it_has_no_word_for() -> None:
+    from matrx_ai.providers.capability_vocabulary import normalize_capabilities
+
+    base = {"input": ["text"], "output": ["text"], "features": [], "interaction": "turn"}
+    assert not normalize_capabilities({**base, "image_sizing": {"tile_px": 28}}).ok
+    assert not normalize_capabilities({**base, "image_sizing": {"long_edge": 0}}).ok
+    assert not normalize_capabilities({**base, "image_sizing": {"long_edge": True}}).ok
+    assert not normalize_capabilities({**base, "image_sizing": [1, 2]}).ok

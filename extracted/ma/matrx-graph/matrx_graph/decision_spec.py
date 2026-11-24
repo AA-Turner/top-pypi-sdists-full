@@ -91,7 +91,7 @@ class DecisionSubject(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    entity_type: str = Field(description="platform.entity_types token, e.g. 'web_brand'.")
+    entity_type: str = Field(description="platform.entity_types token, e.g. 'brand'.")
     id: str = Field(description="The record id. '{dot.path}' interpolates from the node's inputs.")
     level: Literal["editor", "admin", "owner"] = "editor"
 

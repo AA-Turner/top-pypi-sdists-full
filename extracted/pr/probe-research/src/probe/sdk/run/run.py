@@ -114,6 +114,8 @@ class Run(
         # the attributes recently sent per step (the server replaces a step
         # record whole, so a repeat write sends the union). One lock for both.
         self._pending_rows: dict[str, _PendingRow] = {}
+        #: Rows of every kind but hardware written so far (`MetricsMixin._run_commands_after_write`).
+        self._rows_written = 0
         self._step_records_sent: dict[int, tuple[str | None, dict[str, Any]]] = {}
         self._pending_lock = threading.Lock()
         self._commit_after_finish_warned = False

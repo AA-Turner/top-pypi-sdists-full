@@ -13,8 +13,11 @@ if typing.TYPE_CHECKING:
     from .forbidden_error import ForbiddenError
     from .gateway_timeout_error import GatewayTimeoutError
     from .internal_server_error import InternalServerError
+    from .length_required_error import LengthRequiredError
+    from .method_not_allowed_error import MethodNotAllowedError
     from .not_found_error import NotFoundError
     from .payment_required_error import PaymentRequiredError
+    from .request_timeout_error import RequestTimeoutError
     from .service_unavailable_error import ServiceUnavailableError
     from .too_many_requests_error import TooManyRequestsError
     from .unauthorized_error import UnauthorizedError
@@ -27,8 +30,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ForbiddenError": ".forbidden_error",
     "GatewayTimeoutError": ".gateway_timeout_error",
     "InternalServerError": ".internal_server_error",
+    "LengthRequiredError": ".length_required_error",
+    "MethodNotAllowedError": ".method_not_allowed_error",
     "NotFoundError": ".not_found_error",
     "PaymentRequiredError": ".payment_required_error",
+    "RequestTimeoutError": ".request_timeout_error",
     "ServiceUnavailableError": ".service_unavailable_error",
     "TooManyRequestsError": ".too_many_requests_error",
     "UnauthorizedError": ".unauthorized_error",
@@ -65,8 +71,11 @@ __all__ = [
     "ForbiddenError",
     "GatewayTimeoutError",
     "InternalServerError",
+    "LengthRequiredError",
+    "MethodNotAllowedError",
     "NotFoundError",
     "PaymentRequiredError",
+    "RequestTimeoutError",
     "ServiceUnavailableError",
     "TooManyRequestsError",
     "UnauthorizedError",

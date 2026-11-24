@@ -21,7 +21,12 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from bitfab.mock_override import MockOverrideCtx, SpanNodeMeta
-from bitfab.sandbox import Sandbox, SandboxStartCtx, recorded_state, sandbox_now
+from bitfab.sandbox import (
+    Sandbox,
+    SandboxStartCtx,
+    recorded_state,
+    sandbox_now,
+)
 
 GITHUB_SANDBOX_NAME = "GitHub"
 API_URL = "https://api.github.com"
@@ -40,6 +45,15 @@ SEARCH_MAX_FILE_BYTES = 384 * 1024
 DIFF_MAX_BLOB_BYTES = 256 * 1024
 JSON_TYPE = "application/json; charset=utf-8"
 JSON_ACCEPT = "application/vnd.github+json"
+DIFF_ACCEPT = "application/vnd.github.diff"
+DIFF_TYPE = "text/plain; charset=utf-8"
+WHOLE_PER_PAGE = 100
+WHOLE_MAX_PAGES = 30
+READ_REAL_WRITE_FAKE = "read-real-write-fake"
+READ_WHOLE_OBJECT = "test-read-whole-object"
+GITHUB_MODES = (READ_REAL_WRITE_FAKE, READ_WHOLE_OBJECT)
+GITHUB_SPAN_PREFIX = "github."
+MISSING = object()
 USER_AGENT = "bitfab-github-sandbox"
 ARCHIVE_TYPES = {"tarball": "application/x-gzip", "zipball": "application/zip"}
 ARCHIVE_SUFFIXES = {"tarball": "tar.gz", "zipball": "zip"}
@@ -68,6 +82,14 @@ _archive_lock = threading.Lock()
 class Upstream:
     reader: Reader
     cache_dir: Path
+    whole_objects: bool = False
+
+
+@dataclass(frozen=True)
+class PullSource:
+    upstream: Upstream
+    name: str
+    base: str
 
 
 @dataclass(frozen=True)
@@ -322,6 +344,7 @@ def state_from_snapshot(snapshot: Any) -> dict[str, Any]:
         "capturedAt": given.get("capturedAt"),
         "repos": repos,
         "writes": {**empty_writes(), **(given.get("writes") or {})},
+        "wholePulls": dict(given.get("wholePulls") or {}),
         "served": {"trees": {}, "blobs": {}, **(given.get("served") or {})},
         "resolvedHeads": dict(given.get("resolvedHeads") or {}),
         "notes": notes,
@@ -1291,17 +1314,299 @@ def _feedback_group(kind: str, sub: str) -> str | None:
     return None
 
 
+@dataclass(frozen=True)
+class PullPart:
+    name: str
+    path: Callable[[str, str], str]
+    rows: str | None = None
+    query: dict[str, str] | None = None
+    accept: str | None = None
+    single: bool = False
+
+
+PULL_PARTS: tuple[PullPart, ...] = (
+    PullPart("diff", lambda n, _s: f"/pulls/{n}", accept=DIFF_ACCEPT, single=True),
+    PullPart("issue", lambda n, _s: f"/issues/{n}", single=True),
+    PullPart("files", lambda n, _s: f"/pulls/{n}/files"),
+    PullPart("commits", lambda n, _s: f"/pulls/{n}/commits"),
+    PullPart("reviewComments", lambda n, _s: f"/pulls/{n}/comments"),
+    PullPart("reviews", lambda n, _s: f"/pulls/{n}/reviews"),
+    PullPart("comments", lambda n, _s: f"/issues/{n}/comments"),
+    PullPart("statuses", lambda _n, sha: f"/commits/{sha}/statuses"),
+    PullPart("status", lambda _n, sha: f"/commits/{sha}/status", rows="statuses"),
+    PullPart(
+        "checkRuns",
+        lambda _n, sha: f"/commits/{sha}/check-runs",
+        rows="check_runs",
+        query={"filter": "all"},
+    ),
+)
+PULL_SUBS = {
+    "/files": "files",
+    "/commits": "commits",
+    "/comments": "reviewComments",
+    "/reviews": "reviews",
+}
+COMMIT_SUBS = {"statuses": "statuses", "status": "status", "check-runs": "checkRuns"}
+PULL_PART_PATH = re.compile(r"^/(pulls|issues)/(\d+)(/[a-z_-]+)?$")
+COMMIT_PART_PATH = re.compile(r"^/commits/([0-9a-f]{40})/(statuses|status|check-runs)$")
+
+
+def _is_json_accept(accept: str) -> bool:
+    return accept == JSON_ACCEPT or "json" in accept or accept == "*/*"
+
+
+def pull_target(rest: str, accept: str) -> tuple[str | None, str | None, str] | None:
+    commit = COMMIT_PART_PATH.match(rest)
+    if commit:
+        return None, commit.group(1), COMMIT_SUBS[commit.group(2)]
+    found = PULL_PART_PATH.match(rest)
+    if found is None:
+        return None
+    kind, number, sub = found.groups()
+    if kind == "issues":
+        if sub is None:
+            return number, None, "issue"
+        return (number, None, "comments") if sub == "/comments" else None
+    if sub is not None:
+        part = PULL_SUBS.get(sub)
+        return None if part is None else (number, None, part)
+    if accept == DIFF_ACCEPT:
+        return number, None, "diff"
+    return (number, None, "pull") if _is_json_accept(accept) else None
+
+
+def _read_all_pages(req: PullSource, path: str, part: PullPart) -> Any:
+    rows: list[Any] = []
+    first: Any = None
+    for page in range(1, WHOLE_MAX_PAGES + 1):
+        query = {
+            **(part.query or {}),
+            "page": str(page),
+            "per_page": str(WHOLE_PER_PAGE),
+        }
+        status, headers, raw, _ = _fetch(
+            req.upstream,
+            req.name,
+            f"{req.base}{path}?{_query_string(query)}",
+            keep=False,
+        )
+        if status != 200:
+            return MISSING
+        body = _decoded(raw)
+        if first is None:
+            first = body
+        listed = body.get(part.rows) if part.rows and isinstance(body, dict) else body
+        rows.extend(item for item in listed or [] if isinstance(item, dict))
+        if _is_last_page(headers):
+            break
+    if part.rows:
+        return {**(first if isinstance(first, dict) else {}), part.rows: rows}
+    return rows
+
+
+def _read_pull_part(req: PullSource, part: PullPart, number: str, head_sha: str) -> Any:
+    path = part.path(number, head_sha)
+    if not part.single:
+        if not head_sha and path.startswith("/commits/"):
+            return MISSING
+        return _read_all_pages(req, path, part)
+    status, _, raw, _ = _fetch(
+        req.upstream,
+        req.name,
+        f"{req.base}{path}",
+        keep=False,
+        accept=part.accept or JSON_ACCEPT,
+    )
+    if status != 200:
+        return MISSING
+    if part.accept == DIFF_ACCEPT:
+        return raw.decode("utf-8", "replace")
+    return _decoded(raw)
+
+
+def read_whole_pull(req: PullSource, number: str) -> Any:
+    status, _, raw, _ = _fetch(
+        req.upstream, req.name, f"{req.base}/pulls/{number}", keep=False
+    )
+    if status == 404:
+        return None
+    if status != 200:
+        raise RuntimeError(f"GitHub answered {status} for pull request {number}.")
+    pull = _decoded(raw)
+    head = pull.get("head") if isinstance(pull.get("head"), dict) else {}
+    head_sha = str(head.get("sha") or "")
+    parts: dict[str, Any] = {"pull": pull}
+    for part in PULL_PARTS:
+        found = _read_pull_part(req, part, number, head_sha)
+        if found is not MISSING:
+            parts[part.name] = found
+    return {"readAt": now_iso(), "headSha": head_sha, "parts": parts}
+
+
+def _saved_pulls(req: GitHubRequest) -> dict[str, Any]:
+    return (req.state.get("wholePulls") or {}).get(req.name) or {}
+
+
+def _whole_pull(req: GitHubRequest, number: str) -> Any:
+    return _saved_pulls(req).get(number)
+
+
+def _pull_at_head(req: GitHubRequest, sha: str) -> str | None:
+    for number, pull in _saved_pulls(req).items():
+        if pull is not None and pull.get("headSha") == sha:
+            return number
+    return None
+
+
+def read_pull_at_head(source: PullSource, sha: str) -> str | None:
+    status, _, raw, _ = _fetch(
+        source.upstream, source.name, f"{source.base}/commits/{sha}/pulls", keep=False
+    )
+    if status != 200:
+        return None
+    numbers = sorted(
+        int(pull["number"])
+        for pull in _decoded(raw) or []
+        if isinstance(pull, dict)
+        and isinstance(pull.get("head"), dict)
+        and pull["head"].get("sha") == sha
+    )
+    return str(numbers[0]) if numbers else None
+
+
+def _since_filter(query: dict[str, Any], rows: list[Any]) -> list[Any]:
+    since = _query_value(query, "since")
+    try:
+        moment = parse_time(since) if since else None
+    except ValueError:
+        moment = None
+    if moment is None:
+        return rows
+    return [
+        row
+        for row in rows
+        if parse_time(str(row.get("updated_at") or row.get("created_at"))) >= moment
+    ]
+
+
+def _check_run_filter(query: dict[str, Any], rows: list[Any]) -> list[Any]:
+    wanted_name = _query_value(query, "check_name")
+    wanted_status = _query_value(query, "status")
+    found = [
+        check
+        for check in rows
+        if (wanted_name is None or check.get("name") == wanted_name)
+        and (wanted_status is None or check.get("status") == wanted_status)
+    ]
+    if _query_value(query, "filter") == "all":
+        return found
+    latest: dict[Any, Any] = {}
+    for check in found:
+        seen = latest.get(check.get("name"))
+        if seen is None or int(check.get("id") or 0) > int(seen.get("id") or 0):
+            latest[check.get("name")] = check
+    return [check for check in found if latest.get(check.get("name")) is check]
+
+
+def _page_links(req: GitHubRequest, rest: str, total: int) -> dict[str, str]:
+    per_page = min(int(_query_value(req.query, "per_page") or "30"), 100)
+    page = int(_query_value(req.query, "page") or "1")
+    last = max(1, -(-total // per_page))
+    if page >= last:
+        return {}
+
+    def link(to: int) -> str:
+        query = _query_string({**req.query, "page": str(to)})
+        return f"<{API_URL}{req.base}{rest}?{query}>"
+
+    return {"Link": f'{link(page + 1)}; rel="next", {link(last)}; rel="last"'}
+
+
+Fetched = tuple[int, dict[str, str], bytes, str]
+
+
+def _saved_fetched(body: Any, headers: dict[str, str] | None = None) -> Fetched:
+    return (
+        200,
+        {"Content-Type": JSON_TYPE, **(headers or {})},
+        json.dumps(body).encode(),
+        "saved",
+    )
+
+
+def _answer_from_pull(
+    req: GitHubRequest, rest: str, part: str, pull: dict[str, Any]
+) -> Fetched | None:
+    parts = pull.get("parts") or {}
+    if part not in parts:
+        return None
+    saved = parts[part]
+    if part == "diff":
+        return 200, {"Content-Type": DIFF_TYPE}, str(saved).encode(), "saved"
+    if part in ("pull", "issue"):
+        return _saved_fetched(saved)
+    if part in ("status", "checkRuns"):
+        key = "statuses" if part == "status" else "check_runs"
+        every = list(saved.get(key) or [])
+        rows = _check_run_filter(req.query, every) if part == "checkRuns" else every
+        body = {**saved, "total_count": len(rows), key: _page(req.query, rows)}
+        return _saved_fetched(body, _page_links(req, rest, len(rows)))
+    rows = _since_filter(req.query, list(saved or []))
+    return _saved_fetched(_page(req.query, rows), _page_links(req, rest, len(rows)))
+
+
+def _saved_pull_answer(req: GitHubRequest, rest: str, accept: str) -> Fetched | None:
+    target = pull_target(rest, accept)
+    if target is None:
+        return None
+    number, sha, part = target
+    if number is None:
+        number = _pull_at_head(req, sha or "")
+    if number is None:
+        return None
+    pull = _whole_pull(req, number)
+    if not isinstance(pull, dict) or (sha is not None and pull.get("headSha") != sha):
+        return None
+    return _answer_from_pull(req, rest, part, pull)
+
+
+def _fetch_pull_path(
+    req: GitHubRequest, rest: str, accept: str = JSON_ACCEPT
+) -> Fetched:
+    if req.upstream.whole_objects:
+        saved = _saved_pull_answer(req, rest, accept)
+        if saved is not None:
+            return saved
+    query = f"?{_query_string(req.query)}" if req.query else ""
+    return _fetch(
+        req.upstream, req.name, f"{req.base}{rest}{query}", keep=False, accept=accept
+    )
+
+
+def _saved_by_id(req: GitHubRequest, parts: tuple[str, ...], item_id: str) -> Any:
+    if not req.upstream.whole_objects:
+        return None
+    for pull in (req.state.get("wholePulls", {}).get(req.name) or {}).values():
+        if pull is None:
+            continue
+        for part in parts:
+            saved = (pull.get("parts") or {}).get(part)
+            rows = saved.get("check_runs") if isinstance(saved, dict) else saved
+            for row in rows or []:
+                if isinstance(row, dict) and str(row.get("id")) == item_id:
+                    return row
+    return None
+
+
 def _read_feedback(
     req: GitHubRequest, kind: str, number: str, group: str, own_pull: bool
 ) -> dict[str, Any]:
     kept = _kept(req.state, group, req.name, number)
     if own_pull:
         return _result(200, _page(req.query, kept), "replay-writes")
-    query = f"?{_query_string(req.query)}" if req.query else ""
     sub = "comments" if group != "reviews" else "reviews"
-    status, headers, raw, source = _fetch(
-        req.upstream, req.name, f"{req.base}/{kind}/{number}/{sub}{query}", keep=False
-    )
+    status, headers, raw, source = _fetch_pull_path(req, f"/{kind}/{number}/{sub}")
     if status != 200:
         return _forwarded(status, headers, raw, "outside-git-approximate", source)
     listed = json.loads(raw)
@@ -1335,10 +1640,7 @@ def _real_for_commit(
 ) -> tuple[int, dict[str, str], bytes, str] | None:
     if sha in _writes(req.state)["commits"]:
         return None
-    query = f"?{_query_string(req.query)}" if req.query else ""
-    return _fetch(
-        req.upstream, req.name, f"{req.base}/commits/{sha}/{sub}{query}", keep=False
-    )
+    return _fetch_pull_path(req, f"/commits/{sha}/{sub}")
 
 
 def _read_statuses(req: GitHubRequest, ref: str) -> dict[str, Any]:
@@ -1472,6 +1774,9 @@ def _read_check_run(req: GitHubRequest, check_id: str) -> dict[str, Any]:
         for check in checks:
             if str(check["id"]) == check_id:
                 return _result(200, check, "replay-writes")
+    saved = _saved_by_id(req, ("checkRuns",), check_id)
+    if saved is not None:
+        return _result(200, saved, "outside-git-approximate", "saved")
     status, headers, raw, source = _fetch(
         req.upstream, req.name, f"{req.base}/check-runs/{check_id}", keep=False
     )
@@ -1487,12 +1792,8 @@ def _read_pull_or_issue(
         return _read_feedback(req, kind, number, group, own is not None)
     if own is not None and not sub:
         return _result(200, own, "replay-writes")
-    status, headers, raw, source = _fetch(
-        req.upstream,
-        req.name,
-        f"{req.base}/{kind}/{number}{sub or ''}",
-        keep=False,
-        accept=req.accept,
+    status, headers, raw, source = _fetch_pull_path(
+        req, f"/{kind}/{number}{sub or ''}", req.accept
     )
     return _forwarded(status, headers, raw, "outside-git-approximate", source)
 
@@ -1510,6 +1811,10 @@ def _read_issue_comment(req: GitHubRequest, comment_id: str) -> dict[str, Any]:
     own = _own_comment(req.state, req.name, comment_id)
     if own is not None:
         return _result(200, own, "replay-writes")
+    saved = _saved_by_id(req, ("comments",), comment_id)
+    if saved is not None:
+        found = _with_edits(req.state, req.name, saved)
+        return _result(200, found, "outside-git-approximate", "saved")
     status, headers, raw, source = _fetch(
         req.upstream, req.name, f"{req.base}/issues/comments/{comment_id}", keep=False
     )
@@ -1782,6 +2087,8 @@ def _comment(
 def _issue_exists(req: GitHubRequest, number: str) -> bool:
     if number in (_writes(req.state)["pulls"].get(req.name) or {}):
         return True
+    if req.upstream.whole_objects and isinstance(_whole_pull(req, number), dict):
+        return True
     status, _, _, _ = _fetch(
         req.upstream, req.name, f"{req.base}/issues/{number}", keep=True
     )
@@ -1878,6 +2185,16 @@ def _write_review(req: GitHubRequest, number: str) -> dict[str, Any]:
     return _result(200, review, "replay-writes")
 
 
+def _comment_to_edit(req: GitHubRequest, comment_id: str) -> Any:
+    saved = _saved_by_id(req, ("comments",), comment_id)
+    if saved is not None:
+        return saved
+    status, _, raw, _ = _fetch(
+        req.upstream, req.name, f"{req.base}/issues/comments/{comment_id}", keep=True
+    )
+    return json.loads(raw) if status == 200 else None
+
+
 def _write_comment_edit(req: GitHubRequest, comment_id: str) -> dict[str, Any]:
     if "body" not in req.body:
         return _result(
@@ -1888,13 +2205,11 @@ def _write_comment_edit(req: GitHubRequest, comment_id: str) -> dict[str, Any]:
     if own is not None:
         own.update(edit)
         return _result(200, own, "replay-writes")
-    status, _, raw, _ = _fetch(
-        req.upstream, req.name, f"{req.base}/issues/comments/{comment_id}", keep=True
-    )
-    if status != 200:
+    original = _comment_to_edit(req, comment_id)
+    if original is None:
         return _not_found("replay-writes", f"Comment {comment_id} not found")
     _writes(req.state)["commentEdits"].setdefault(req.name, {})[comment_id] = edit
-    return _result(200, {**json.loads(raw), **edit}, "replay-writes")
+    return _result(200, {**original, **edit}, "replay-writes")
 
 
 def _write_status(req: GitHubRequest, sha: str) -> dict[str, Any]:
@@ -2217,6 +2532,11 @@ def is_github_write(call: MockOverrideCtx) -> bool:
     return str(call.kwargs.get("method") or "GET").upper() not in GITHUB_READ_VERBS
 
 
+def github_accessed_object(call: MockOverrideCtx) -> str | None:
+    path = call.kwargs.get("path")
+    return path if isinstance(path, str) and path else None
+
+
 def answer_github_call(
     state: dict[str, Any], call: MockOverrideCtx, upstream: Upstream
 ) -> dict[str, Any]:
@@ -2227,16 +2547,20 @@ def answer_github_call(
 
 
 def is_github_call(node: SpanNodeMeta) -> bool:
-    return node.trace_function_key.startswith("github.")
+    return node.trace_function_key.startswith(GITHUB_SPAN_PREFIX)
 
 
 def make_upstream(
-    token: str | None, cache_dir: str | os.PathLike[str] | None, reader: Reader | None
+    token: str | None,
+    cache_dir: str | os.PathLike[str] | None,
+    reader: Reader | None,
+    whole_objects: bool = False,
 ) -> Upstream:
     chosen_dir = cache_dir or os.environ.get(CACHE_DIR_ENV) or DEFAULT_CACHE_DIR
     return Upstream(
         reader=reader or url_reader(token or os.environ.get(TOKEN_ENV)),
         cache_dir=Path(chosen_dir).expanduser(),
+        whole_objects=whole_objects,
     )
 
 
@@ -2244,6 +2568,7 @@ def github_sandbox(
     start: Callable[[SandboxStartCtx], Any] | None = None,
     token: str | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
+    mode: str = READ_REAL_WRITE_FAKE,
     _reader: Reader | None = None,
 ) -> Sandbox:
     """The GitHub sandbox: answers GitHub REST calls during replay as of the trace's time.
@@ -2256,7 +2581,7 @@ def github_sandbox(
     trees, commits, file updates, pull requests) stay in the sandbox for the
     rest of the replay item and never reach GitHub. Reads at a fixed commit
     are fetched from GitHub once and kept on disk. It is on by default; pass
-    it only to change its snapshot, token, or cache.
+    it only to change its mode, snapshot, token, or cache.
 
     Args:
         start: Builds the starting state for one replay item from a
@@ -2270,15 +2595,37 @@ def github_sandbox(
             one, which works only for public repos.
         cache_dir: Where those reads are kept. ``None`` uses
             ``BITFAB_GITHUB_CACHE_DIR``, then ``~/.cache/bitfab/github``.
+        mode: ``"read-real-write-fake"`` (default) reads pull requests,
+            issues, comments, reviews, statuses and check runs from GitHub on
+            every read, leaving out those created after the original trace
+            started. ``"test-read-whole-object"`` answers every read of a
+            pull request in the state saved for the trace (the original run
+            saves each pull request it reads whole when it records with
+            ``Bitfab(integrations={"github": "test-read-whole-object"})``)
+            from that state, without reaching GitHub, including parts the
+            original run never read; a pull request the state does not hold
+            is read as in ``"read-real-write-fake"``. Writes stay in the sandbox in
+            both modes. The test mode may change or be removed.
+
+    Raises:
+        ValueError: When ``mode`` is not one of the sandbox's modes.
     """
-    upstream = make_upstream(token, cache_dir, _reader)
+    if mode not in GITHUB_MODES:
+        raise ValueError(
+            f"The GitHub sandbox has no mode {mode!r}. Its modes are "
+            f"{', '.join(repr(m) for m in GITHUB_MODES)}."
+        )
+    upstream = make_upstream(token, cache_dir, _reader, mode == READ_WHOLE_OBJECT)
     chosen = start or recorded_state
+
     return Sandbox(
         name=GITHUB_SANDBOX_NAME,
         match=is_github_call,
         handle=lambda state, call: answer_github_call(state, call, upstream),
         is_write=is_github_write,
+        accessed_object=github_accessed_object,
         start=lambda ctx: state_from_snapshot(chosen(ctx)),
         integration="github",
+        mode=mode,
         load=lambda _ctx, value: state_from_snapshot(value),
     )

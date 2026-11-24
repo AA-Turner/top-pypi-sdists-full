@@ -18,10 +18,13 @@ import torchaudio.transforms as ta_transforms
 from torch import nn
 
 from braindecode.functional import spectral_input
-from braindecode.models.base import EEGModuleMixin
+from braindecode.models.base import EEGModuleMixin, deprecated_init_flags
 from braindecode.modules import TDSConvEncoder
 
 
+@deprecated_init_flags(
+    return_feature=("logits", "features"),
+)
 class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
     r"""Decoder mapping surface electromyography (sEMG) to keystrokes
     (emg2qwerty) [emg2qwerty2024]_.
@@ -179,6 +182,7 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         Probability of running SpecAugment on a given training batch
         (Bernoulli gate before sampling mask counts). Defaults to ``1.0``.
     return_feature : bool
+        Deprecated, removed in 2.3: call ``model(x, return_features=True)`` instead.
         If ``True``, ``forward`` returns a tuple
         ``(emissions, features)`` instead of just ``emissions`` —
         :class:`braindecode.models.BIOT`-style legacy feature path. Lets
@@ -236,6 +240,10 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         Proc. Interspeech, 2613-2617.
     """
 
+    _time_axis = "free"
+    _dense_conversion = True
+    _channel_axis = "fixed"  # fixed: model.0.batch_norm.weight
+
     mapping = {
         "model.4.weight": "final_layer.weight",
         "model.4.bias": "final_layer.bias",
@@ -265,8 +273,8 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         n_freq_masks: int = 2,
         freq_mask_param: int = 4,
         spec_augment_prob: float = 1.0,
-        return_feature: bool = False,
         # Standard braindecode args
+        return_feature: bool = False,
         n_times: int | None = None,
         input_window_seconds: float | None = None,
         chs_info: list | None = None,
@@ -308,7 +316,6 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         self.hop_length = hop_length
         self.kernel_width = kernel_width
         self.log_softmax = log_softmax
-        self.return_feature = return_feature
 
         n_freq_bins = n_fft // 2 + 1
         in_features = electrodes_per_band * n_freq_bins
@@ -363,16 +370,14 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         )
 
         self.final_layer = nn.Linear(num_features, self.n_outputs)
-
         self._n_conv_blocks = len(block_channels)
+        self._min_n_times = (
+            self.n_fft + self._n_conv_blocks * (self.kernel_width - 1) * self.hop_length
+        )
 
     def forward(
         self, x: torch.Tensor, return_features: bool = False
-    ) -> (
-        torch.Tensor
-        | dict[str, torch.Tensor | None]
-        | tuple[torch.Tensor, torch.Tensor]
-    ):
+    ) -> torch.Tensor | dict[str, torch.Tensor | None]:
         """Run the full pipeline.
 
         Parameters
@@ -389,14 +394,12 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
             when they apply their own probe/aggregation. Matches the
             BIOT / signal-JEPA convention so the same neuroai
             ``DownstreamWrapperModel(model_output_key="features")``
-            can consume it. Wins over the constructor-time
-            ``return_feature`` flag when set.
+            can consume it.
 
         Returns
         -------
-        torch.Tensor or dict or tuple
-            Default (``return_features=False``, init
-            ``return_feature=False``): ``torch.Tensor`` of shape
+        torch.Tensor or dict
+            Default (``return_features=False``): ``torch.Tensor`` of shape
             ``(batch, T_out, n_outputs)``. Log-probabilities if
             ``log_softmax=True``, otherwise logits.
 
@@ -405,29 +408,10 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
             where ``num_features = num_bands * mlp_features[-1]``) and
             ``"cls_token"`` (always ``None`` — TDS-Conv has no
             ``[CLS]``).
-
-            If init ``return_feature=True`` and runtime
-            ``return_features=False``: tuple ``(emissions, features)``
-            where ``features`` has shape ``(batch, T_out,
-            num_features)``. Same layout BIOT exposes for
-            configuration-driven feature extraction (e.g. neuroai's
-            ``model_output_key=1``).
         """
-        if x.ndim != 3 or x.shape[-2] != self.n_chans:
+        if x.ndim != 3:
             raise ValueError(
                 f"expected (batch, {self.n_chans}, T) input; got shape {x.shape}."
-            )
-        min_n_times = (
-            self.n_fft + self._n_conv_blocks * (self.kernel_width - 1) * self.hop_length
-        )
-        if x.shape[-1] < min_n_times:
-            raise ValueError(
-                f"n_times={x.shape[-1]} is shorter than the encoder's "
-                f"receptive field ({min_n_times} samples = n_fft + "
-                f"n_conv_blocks * (kernel_width - 1) * hop_length, with "
-                f"n_fft={self.n_fft}, hop_length={self.hop_length}, "
-                f"n_conv_blocks={self._n_conv_blocks}, "
-                f"kernel_width={self.kernel_width})."
             )
         spectrogram = self.spectrogram(x)
         spectrogram = self.spec_augment(spectrogram)
@@ -436,17 +420,16 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         # batch-first features tensor in the branches that actually return
         # it, so the default emissions-only path skips the extra transpose
         # + contiguous copy on every forward.
-        if return_features:
-            return {
-                "features": encoded.transpose(0, 1).contiguous(),
-                "cls_token": None,
-            }
         emissions = self.final_layer(encoded)
         if self.log_softmax:
             emissions = F.log_softmax(emissions, dim=-1)
         emissions = emissions.transpose(0, 1).contiguous()
-        if self.return_feature:
-            return emissions, encoded.transpose(0, 1).contiguous()
+        if return_features:
+            return {
+                "features": encoded.transpose(0, 1).contiguous(),
+                "cls_token": None,
+                "logits": emissions,
+            }
         return emissions
 
     def reset_head(self, n_outputs: int) -> None:
@@ -483,22 +466,17 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         return (spec_len - self._n_conv_blocks * (self.kernel_width - 1)).clamp_min(0)
 
     def get_output_shape(self) -> tuple[int, ...]:
-        """Shape of ``forward`` output for a batch of size 1.
+        """Shape of the ``forward`` output for one window, ``(1, T_out, n_outputs)``.
 
-        Uses the user-supplied ``n_times`` so this method's reported
-        shape is consistent with what ``forward()`` accepts. If the
-        configured ``n_times`` is below the encoder's receptive field,
-        ``forward()`` would raise; we mirror that here. Falls back to
-        the receptive-field minimum only when ``n_times`` was not set
-        at construction time.
+        ``T_out`` is :meth:`compute_output_lengths` of ``n_times``; without a
+        configured ``n_times``, of the encoder's receptive field.
         """
+        # Receptive field: one STFT frame, plus the frames each convolution
+        # block consumes (kernel_width - 1 of them, hop_length samples apart)
         min_n_times = (
             self.n_fft + self._n_conv_blocks * (self.kernel_width - 1) * self.hop_length
         )
-        try:
-            n_times = self.n_times
-        except ValueError:
-            n_times = min_n_times
+        n_times = self._signal_param("n_times") or min_n_times
         if n_times < min_n_times:
             raise ValueError(
                 f"n_times={n_times} is shorter than the encoder's receptive "
@@ -506,19 +484,8 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
                 f"this input. Increase n_times or override n_fft / hop_length "
                 f"/ kernel_width."
             )
-        with torch.inference_mode():
-            dtype = next(self.parameters()).dtype
-            device = next(self.parameters()).device
-            dummy_input = torch.zeros(
-                1, self.n_chans, n_times, dtype=dtype, device=device
-            )
-            # ``return_features=False`` keeps the dict path off; the init
-            # ``return_feature`` flag may still produce a tuple, so unpack
-            # the emissions explicitly to report the public output shape.
-            out = self.forward(dummy_input, return_features=False)
-            emissions = out[0] if isinstance(out, tuple) else out
-            assert isinstance(emissions, torch.Tensor)
-            return tuple(emissions.shape)
+        n_emissions = int(self.compute_output_lengths(torch.tensor([n_times]))[0])
+        return (1, n_emissions, self.final_layer.out_features)
 
 
 class _LogSpectrogram(nn.Module):
@@ -750,10 +717,16 @@ class _RotationInvariantMLP(nn.Module):
         self.offsets = tuple(offsets) if len(offsets) > 0 else (0,)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        # Gaudi eager mode rolls a non-contiguous tensor wrongly.
+        # Gaudi eager mode rolls a non-contiguous tensor wrongly. Offset 0 is the
+        # input itself: no copy, and no roll by 0 in the backward (of a slice of
+        # the stack's gradient, which Gaudi also rolls wrongly).
         inputs = inputs.contiguous()
         rolled = torch.stack(
-            [inputs.roll(offset, dims=2) for offset in self.offsets], dim=2
+            [
+                inputs.roll(offset, dims=2) if offset else inputs
+                for offset in self.offsets
+            ],
+            dim=2,
         )
         per_roll_features = self.mlp(rolled.flatten(start_dim=3))
         if self.pooling == "max":

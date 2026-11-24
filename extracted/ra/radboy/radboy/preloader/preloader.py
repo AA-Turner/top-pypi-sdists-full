@@ -248,6 +248,11 @@ preloader={
             'desc':"Get The Time for your break; keep track of your breaks"
             	},
     f'{uuid1()}':{
+            'cmds':['ctdn',"count down",],
+            'exec':countdown,
+            'desc':"count down until shift end"
+                },
+    f'{uuid1()}':{
             'cmds':['qty=(dist*trips)/mpg',"qdtm",],
             'exec':QTY_eq_distanceXtrip_over_mpg,
             'desc':"(QTY=Distance*Trips)/MPG[economy]"

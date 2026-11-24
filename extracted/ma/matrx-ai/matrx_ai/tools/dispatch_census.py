@@ -49,6 +49,7 @@ def register_registry_dispatch(tool: str, module: str, fn: str, attr: str, fixed
 #: Tools with a str field named like a dispatcher that is NOT one — with why.
 NOT_A_DISPATCHER: dict[str, str] = {
     "shell_execute": "`command` is the shell command line itself, not an action name",
+    "table_import_run_record": "`action` is the name of the tables call whose result the report records (data), not a dispatcher",
 }
 
 UNDERIVABLE = "<underivable: its str dispatch field is compared to no constant>"

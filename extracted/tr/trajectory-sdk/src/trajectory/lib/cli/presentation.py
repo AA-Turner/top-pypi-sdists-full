@@ -19,6 +19,9 @@ class Presenter:
         or value.get("organization_key", "your organization")
       )
       lines = [f"Signed in to {name}."]
+      key = organization.get("key") or value.get("organization_key")
+      if key:
+        lines.append(f"Organization key: {key}")
       if value.get("profile"):
         lines.append(f"Profile: {value['profile']}")
       if command == "whoami":

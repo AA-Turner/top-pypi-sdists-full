@@ -15,6 +15,11 @@ class SandboxSnapshotServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.StartSandboxSnapshot = channel.unary_unary(
+            "/chalk.sandbox.v2.SandboxSnapshotService/StartSandboxSnapshot",
+            request_serializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.StartSandboxSnapshotRequest.SerializeToString,
+            response_deserializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.StartSandboxSnapshotResponse.FromString,
+        )
         self.CreateSandboxSnapshot = channel.unary_unary(
             "/chalk.sandbox.v2.SandboxSnapshotService/CreateSandboxSnapshot",
             request_serializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.CreateSandboxSnapshotRequest.SerializeToString,
@@ -35,10 +40,23 @@ class SandboxSnapshotServiceStub(object):
             request_serializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.DeleteSandboxSnapshotRequest.SerializeToString,
             response_deserializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.DeleteSandboxSnapshotResponse.FromString,
         )
+        self.GetSnapshotStoreCredentials = channel.unary_unary(
+            "/chalk.sandbox.v2.SandboxSnapshotService/GetSnapshotStoreCredentials",
+            request_serializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.GetSnapshotStoreCredentialsRequest.SerializeToString,
+            response_deserializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.GetSnapshotStoreCredentialsResponse.FromString,
+        )
 
 
 class SandboxSnapshotServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def StartSandboxSnapshot(self, request, context):
+        """Additive async entry point. Older servers reject this method as unimplemented
+        rather than silently ignoring an async option on the synchronous method.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def CreateSandboxSnapshot(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -64,9 +82,20 @@ class SandboxSnapshotServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetSnapshotStoreCredentials(self, request, context):
+        """Served by the dataplane API server for the authenticated environment."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_SandboxSnapshotServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "StartSandboxSnapshot": grpc.unary_unary_rpc_method_handler(
+            servicer.StartSandboxSnapshot,
+            request_deserializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.StartSandboxSnapshotRequest.FromString,
+            response_serializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.StartSandboxSnapshotResponse.SerializeToString,
+        ),
         "CreateSandboxSnapshot": grpc.unary_unary_rpc_method_handler(
             servicer.CreateSandboxSnapshot,
             request_deserializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.CreateSandboxSnapshotRequest.FromString,
@@ -87,6 +116,11 @@ def add_SandboxSnapshotServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.DeleteSandboxSnapshotRequest.FromString,
             response_serializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.DeleteSandboxSnapshotResponse.SerializeToString,
         ),
+        "GetSnapshotStoreCredentials": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSnapshotStoreCredentials,
+            request_deserializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.GetSnapshotStoreCredentialsRequest.FromString,
+            response_serializer=chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.GetSnapshotStoreCredentialsResponse.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
         "chalk.sandbox.v2.SandboxSnapshotService", rpc_method_handlers
@@ -97,6 +131,35 @@ def add_SandboxSnapshotServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class SandboxSnapshotService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def StartSandboxSnapshot(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.sandbox.v2.SandboxSnapshotService/StartSandboxSnapshot",
+            chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.StartSandboxSnapshotRequest.SerializeToString,
+            chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.StartSandboxSnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def CreateSandboxSnapshot(
@@ -204,6 +267,35 @@ class SandboxSnapshotService(object):
             "/chalk.sandbox.v2.SandboxSnapshotService/DeleteSandboxSnapshot",
             chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.DeleteSandboxSnapshotRequest.SerializeToString,
             chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.DeleteSandboxSnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSnapshotStoreCredentials(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.sandbox.v2.SandboxSnapshotService/GetSnapshotStoreCredentials",
+            chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.GetSnapshotStoreCredentialsRequest.SerializeToString,
+            chalk_dot_sandbox_dot_v2_dot_snapshot__service__pb2.GetSnapshotStoreCredentialsResponse.FromString,
             options,
             channel_credentials,
             insecure,

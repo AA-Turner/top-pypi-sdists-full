@@ -69,10 +69,38 @@ class ExecutionState:
     # the first iteration's ``TimingUsage.start_time``.
     ttft_first_output_at: float | None = None
 
+    # WORKED FOR — the time from send until the answer began (orchestrator/first_output.py).
+    # ``time.time()`` of the first answer text delta after the turn's last work (a reasoning
+    # delta, a provider tool event, or a model call that called a tool clears it), stamped on
+    # the reply row as ``chat.message.metadata.work_ms`` by finalize.
+    answer_began_at: float | None = None
+
+    # WORKED FOR ACROSS STREAMS — a run that continues a turn already sent (a resume after a device
+    # tool, an answered ask, a held step, a reconnect) is a NEW HTTP request on the SAME user request.
+    # ``turn_sent_at``: the person's send (``chat.user_request.created_at``, epoch seconds), the origin
+    # ``turn_work_ms`` measures from instead of this request's arrival. ``person_waits``: the turn's
+    # person-ask calls as (started, completed-or-None) epoch seconds — time waiting on the person is
+    # never work (``first_output.load_turn_clock``).
+    turn_sent_at: float | None = None
+    person_waits: tuple[tuple[float, float | None], ...] = ()
+    # The user request whose turn clock is still to read: set when the run continues a saved turn, read
+    # LAZILY by ``first_output.ensure_turn_clock`` only when an answer is about to be stamped, then cleared
+    # (one read per run; a device-step stream that only calls a tool reads nothing).
+    turn_clock_request_id: str | None = None
+
+    # BLOCKS V1 SHADOW (CGU-14 P2) — the turn's summary, filled by ``send_once`` through
+    # ``processing/blocks/blocks_shadow.py`` and saved as ``chat.user_request.metadata.blocks_shadow``.
+    blocks_shadow: dict[str, Any] | None = None
+
     # Reserved cx_message.id keyed by message position.  Populated by the
     # executor before the user/assistant rows are touched so the frontend
     # has stable anchors and persistence can do UPDATE-by-id later.
     reserved_message_ids: dict[int, str] = field(default_factory=dict)
+
+    # LIVE BLOCKS (P1-CHAT T1): the row id minted when a later iteration's answer STARTS streaming to a
+    # ``blocks-v1`` client (``processing/blocks/live_blocks.live_message_id``), keyed by position. The
+    # save's fresh-row path takes it instead of minting another, so live events and the row share one id.
+    streamed_message_ids: dict[int, str] = field(default_factory=dict)
 
     # Reserved cx_request.id keyed by iteration number.  The duplicate-key
     # bug that drove this redesign came from this dict being shared across
@@ -85,6 +113,12 @@ class ExecutionState:
     # names its run on the REQUEST (a held code call, a NamedAgent, a raw mandate agent) is seen
     # as that run before its conversation row is created, never only on the context.
     request_metadata: dict[str, Any] | None = None
+
+    # What this run's answer is, when it runs under a structured contract (PF-1 D3b): a
+    # ``saved_blocks.ReplyContract`` (registered kind, schema name). Set once at entry; the save
+    # funnel (``queue_helpers._with_saved_blocks``) reads it so a whole-JSON reply saves as one
+    # ``kind`` / ``data`` block. None = no contract; the splitter alone decides.
+    reply_contract: Any | None = None
 
     # The provider's final SDK-ready request dict for the most recent
     # iteration.  Set by ``capture_request_payload`` (in
@@ -101,6 +135,11 @@ class ExecutionState:
     # opt-in (2 rows/day), a corrupt `provider` column on every row once
     # capture went always-on (D-33). Popped with the payload.
     snapshot_provider: str | None = None
+
+    # sha256 of a picture's bytes -> the stored file those bytes ARE ({file_id, vision_class}), recorded by
+    # the media pass (``UnifiedAIClient``) as it reads each picture. The snapshot writer references these
+    # instead of uploading the same bytes again as a new file every turn (AND-IMG17).
+    snapshot_media_blobs: dict[str, dict[str, str]] = field(default_factory=dict)
 
     # Every setting this turn's outbound seams dropped, clamped or translated —
     # ``outbound_params.publish_settings_adjustments`` appends, the executor pops
@@ -212,6 +251,8 @@ class ExecutionState:
     # exactly one iteration past the ceiling for it. ``ceiling_warned`` makes the
     # "few rounds left" notice fire at most once.
     ceiling_wrap_up: bool = False
+    #: The wrap-up turn is the per-run BUDGET's (only one more call fits), not the iteration ceiling's.
+    budget_wrap_up: bool = False
     ceiling_warned: bool = False
 
     # THE CEILINGS IN FORCE FOR THIS RUN. Resolved once, from the org's
@@ -250,7 +291,7 @@ class ExecutionState:
     # flag — a second miss is terminal (chat: paused_required_member_skipped;
     # workflow step: failed). ``required_member_forced_pending`` marks that the
     # NEXT provider turn runs restricted; the loop restores the saved toolset
-    # (``required_member_saved_tools`` = (tools, custom_tools, tool_choice))
+    # (``required_member_saved_tools`` = (tools, custom_tools, tool_choice, opened_snapshot))
     # before dispatching that turn's tool calls.
     required_member_intervened: bool = False
     required_member_forced_pending: bool = False
@@ -274,10 +315,27 @@ class ExecutionState:
     # asks for the answer before the run is failed. One-shot per run.
     empty_reply_continuations: int = 0
 
+    # THINKING NEVER STARVES THE ANSWER (``_turn_reasoning_off_for_retry``). A
+    # reasoning model that spends its WHOLE output limit thinking (live
+    # 2026-11-04, Claude Haiku 5.5 at a 1,500-token cap, 1,500 thinking tokens,
+    # no text) gets ONE retry of the same call with reasoning off, so the
+    # visible answer has the entire limit. One-shot per run.
+    empty_reply_reasoning_off_retries: int = 0
+    # Settings for the NEXT send only (``send_once`` takes them; ``prepare_for_send(one_call=...)``
+    # puts them on the wire copy). Never written onto the canonical config, which the chat stores.
+    one_call_settings: dict[str, Any] | None = None
+
     # A TOOL CALL WRITTEN AS TEXT (``orchestrator/text_tool_calls.py``). A turn
     # whose text carried tool-call markup and made no real call is re-asked ONCE
     # with a host notice; a second time ends with the markup removed and a note.
     text_tool_call_reasks: int = 0
+
+    # ALWAYS-WARM IS DECIDED ONCE PER LOOP (``providers/prompt_warm.profile_for``). The first round's
+    # answer for each agent id (a profile, a pending one, or None) is kept for every later round, so a
+    # profile that finishes loading — or refreshes — mid-loop never re-lays the system channel out
+    # between rounds (live 2026-11-18: round 1 unwarmed while loading, round 2 warm, the whole
+    # 37k-42k prefix re-written at the 1h price and ``prompt_cache_prefix_drift: system changed``).
+    warm_profile_pins: dict[str, Any] = field(default_factory=dict)
 
     def snapshot(self) -> ExecutionStateSnapshot:
         """Return a frozen copy safe to hand to a background task."""
@@ -318,6 +376,38 @@ def get_execution_state() -> ExecutionState:
 
 def try_get_execution_state() -> ExecutionState | None:
     return _execution_state.get(None)
+
+
+def turn_person_words() -> str | None:
+    """What the person TYPED in the message that started the running turn, while it is not stored yet.
+
+    The ONE reader for a tool that must hear her answer this turn (``chat.message`` rows of a turn land
+    with its first reply). Read from the carried trigger message, never rebuilt: her own display
+    projection (``user_content``) first, else her typed blocks (template data), else the message's
+    text — always with every registered platform part (the ``<turn_context>`` block, identity, date…)
+    removed, since those ride on her turn but are not her words (live d50c348d: the whole text began
+    with the platform's turn block, so her "Yes, open it there." was not heard). None outside a run,
+    for a message already stored (it was loaded with a position), or for anything but a user message.
+    """
+    from matrx_ai.config.platform_parts import without_platform_parts
+    from matrx_ai.config.typed_text_last import _split, typed_words_of
+
+    state = try_get_execution_state()
+    msg = getattr(state, "trigger_message", None)
+    if msg is None or getattr(msg, "position", None) is not None:
+        return None
+    role = getattr(msg, "role", None)
+    if str(getattr(role, "value", role) or "").lower() != "user":
+        return None
+    content = getattr(msg, "user_content", None) or getattr(msg, "content", None) or []
+    typed: list[Any] = []
+    if isinstance(content, list):
+        try:
+            typed = _split(content)[2]
+        except Exception:  # an unexpected block shape: read the whole message below
+            typed = []
+    words = without_platform_parts(typed_words_of(typed or content)).strip()
+    return words or None
 
 
 def clear_execution_state(token: Token) -> None:

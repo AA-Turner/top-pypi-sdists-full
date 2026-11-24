@@ -48,6 +48,46 @@ if typing.TYPE_CHECKING:
     from .criteria import CriteriaParams
     from .diarized_entry import DiarizedEntryParams
     from .diarized_transcript import DiarizedTranscriptParams
+    from .dictate_audio_input import DictateAudioInputParams
+    from .dictate_callback import DictateCallbackParams
+    from .dictate_config_update import DictateConfigUpdateParams
+    from .dictate_config_updated import DictateConfigUpdatedParams
+    from .dictate_context import DictateContextParams
+    from .dictate_correction import DictateCorrectionParams
+    from .dictate_dictation_final import DictateDictationFinalParams
+    from .dictate_end import DictateEndParams
+    from .dictate_error import DictateErrorParams
+    from .dictate_flush import DictateFlushParams
+    from .dictate_job import DictateJobParams
+    from .dictate_job_create_response import DictateJobCreateResponseParams
+    from .dictate_job_error import DictateJobErrorParams
+    from .dictate_job_result import DictateJobResultParams
+    from .dictate_output import DictateOutputParams
+    from .dictate_output_final import DictateOutputFinalParams
+    from .dictate_output_final_usage import DictateOutputFinalUsageParams
+    from .dictate_output_usage import DictateOutputUsageParams
+    from .dictate_ping import DictatePingParams
+    from .dictate_pong import DictatePongParams
+    from .dictate_response import DictateResponseParams
+    from .dictate_section import DictateSectionParams
+    from .dictate_segment import DictateSegmentParams
+    from .dictate_session_begin import DictateSessionBeginParams
+    from .dictate_session_end import DictateSessionEndParams
+    from .dictate_speech_end import DictateSpeechEndParams
+    from .dictate_speech_start import DictateSpeechStartParams
+    from .dictate_streaming_context import DictateStreamingContextParams
+    from .dictate_streaming_correction import DictateStreamingCorrectionParams
+    from .dictate_streaming_style import DictateStreamingStyleParams
+    from .dictate_streaming_usage import DictateStreamingUsageParams
+    from .dictate_streaming_vocabulary_entry import DictateStreamingVocabularyEntryParams
+    from .dictate_style import DictateStyleParams
+    from .dictate_transcript_final import DictateTranscriptFinalParams
+    from .dictate_transcript_partial import DictateTranscriptPartialParams
+    from .dictate_usage import DictateUsageParams
+    from .dictate_vad_speech_end import DictateVadSpeechEndParams
+    from .dictate_vad_speech_start import DictateVadSpeechStartParams
+    from .dictate_vocabulary import DictateVocabularyParams
+    from .dictate_vocabulary_entry import DictateVocabularyEntryParams
     from .doc_ai_batch_document import DocAiBatchDocumentParams
     from .doc_ai_capabilities_response import DocAiCapabilitiesResponseParams
     from .doc_ai_capability_limits import DocAiCapabilityLimitsParams
@@ -293,6 +333,46 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CriteriaParams": ".criteria",
     "DiarizedEntryParams": ".diarized_entry",
     "DiarizedTranscriptParams": ".diarized_transcript",
+    "DictateAudioInputParams": ".dictate_audio_input",
+    "DictateCallbackParams": ".dictate_callback",
+    "DictateConfigUpdateParams": ".dictate_config_update",
+    "DictateConfigUpdatedParams": ".dictate_config_updated",
+    "DictateContextParams": ".dictate_context",
+    "DictateCorrectionParams": ".dictate_correction",
+    "DictateDictationFinalParams": ".dictate_dictation_final",
+    "DictateEndParams": ".dictate_end",
+    "DictateErrorParams": ".dictate_error",
+    "DictateFlushParams": ".dictate_flush",
+    "DictateJobCreateResponseParams": ".dictate_job_create_response",
+    "DictateJobErrorParams": ".dictate_job_error",
+    "DictateJobParams": ".dictate_job",
+    "DictateJobResultParams": ".dictate_job_result",
+    "DictateOutputFinalParams": ".dictate_output_final",
+    "DictateOutputFinalUsageParams": ".dictate_output_final_usage",
+    "DictateOutputParams": ".dictate_output",
+    "DictateOutputUsageParams": ".dictate_output_usage",
+    "DictatePingParams": ".dictate_ping",
+    "DictatePongParams": ".dictate_pong",
+    "DictateResponseParams": ".dictate_response",
+    "DictateSectionParams": ".dictate_section",
+    "DictateSegmentParams": ".dictate_segment",
+    "DictateSessionBeginParams": ".dictate_session_begin",
+    "DictateSessionEndParams": ".dictate_session_end",
+    "DictateSpeechEndParams": ".dictate_speech_end",
+    "DictateSpeechStartParams": ".dictate_speech_start",
+    "DictateStreamingContextParams": ".dictate_streaming_context",
+    "DictateStreamingCorrectionParams": ".dictate_streaming_correction",
+    "DictateStreamingStyleParams": ".dictate_streaming_style",
+    "DictateStreamingUsageParams": ".dictate_streaming_usage",
+    "DictateStreamingVocabularyEntryParams": ".dictate_streaming_vocabulary_entry",
+    "DictateStyleParams": ".dictate_style",
+    "DictateTranscriptFinalParams": ".dictate_transcript_final",
+    "DictateTranscriptPartialParams": ".dictate_transcript_partial",
+    "DictateUsageParams": ".dictate_usage",
+    "DictateVadSpeechEndParams": ".dictate_vad_speech_end",
+    "DictateVadSpeechStartParams": ".dictate_vad_speech_start",
+    "DictateVocabularyEntryParams": ".dictate_vocabulary_entry",
+    "DictateVocabularyParams": ".dictate_vocabulary",
     "DocAiBatchDocumentParams": ".doc_ai_batch_document",
     "DocAiCapabilitiesResponseParams": ".doc_ai_capabilities_response",
     "DocAiCapabilityLimitsParams": ".doc_ai_capability_limits",
@@ -556,6 +636,46 @@ __all__ = [
     "CriteriaParams",
     "DiarizedEntryParams",
     "DiarizedTranscriptParams",
+    "DictateAudioInputParams",
+    "DictateCallbackParams",
+    "DictateConfigUpdateParams",
+    "DictateConfigUpdatedParams",
+    "DictateContextParams",
+    "DictateCorrectionParams",
+    "DictateDictationFinalParams",
+    "DictateEndParams",
+    "DictateErrorParams",
+    "DictateFlushParams",
+    "DictateJobCreateResponseParams",
+    "DictateJobErrorParams",
+    "DictateJobParams",
+    "DictateJobResultParams",
+    "DictateOutputFinalParams",
+    "DictateOutputFinalUsageParams",
+    "DictateOutputParams",
+    "DictateOutputUsageParams",
+    "DictatePingParams",
+    "DictatePongParams",
+    "DictateResponseParams",
+    "DictateSectionParams",
+    "DictateSegmentParams",
+    "DictateSessionBeginParams",
+    "DictateSessionEndParams",
+    "DictateSpeechEndParams",
+    "DictateSpeechStartParams",
+    "DictateStreamingContextParams",
+    "DictateStreamingCorrectionParams",
+    "DictateStreamingStyleParams",
+    "DictateStreamingUsageParams",
+    "DictateStreamingVocabularyEntryParams",
+    "DictateStyleParams",
+    "DictateTranscriptFinalParams",
+    "DictateTranscriptPartialParams",
+    "DictateUsageParams",
+    "DictateVadSpeechEndParams",
+    "DictateVadSpeechStartParams",
+    "DictateVocabularyEntryParams",
+    "DictateVocabularyParams",
     "DocAiBatchDocumentParams",
     "DocAiCapabilitiesResponseParams",
     "DocAiCapabilityLimitsParams",

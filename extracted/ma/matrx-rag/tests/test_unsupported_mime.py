@@ -86,6 +86,15 @@ def _install_stub_pool(monkeypatch, row: dict[str, Any] | None) -> None:
 
     monkeypatch.setattr(sources_mod, "get_db_model", _fake_get_db_model)
 
+    # Both readers fetch the file row through the gate's door (read_file_rows),
+    # which needs a live database; state the row it would return instead.
+    async def _fake_read_file_rows(columns, **_filters):
+        return list(stub_files_model._rows)
+
+    import matrx_files.gated_reads as gated_reads
+
+    monkeypatch.setattr(gated_reads, "read_file_rows", _fake_read_file_rows)
+
 
 def test_resolve_cld_file_raises_unsupported_mime(monkeypatch):
     """A cld_file with a MIME outside TEXT_MIMES (and not a PDF/image

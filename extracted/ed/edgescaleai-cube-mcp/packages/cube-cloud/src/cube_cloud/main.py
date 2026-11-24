@@ -250,7 +250,9 @@ async def _dispatch(client: ApolloClient, name: str, args: dict) -> str:
         # --- Product management ---
         case "list_products":
             return await products.list_products(
-                client, args.get("search"), args.get("page_size", 50)
+                client, args.get("search"), args.get("page_size", 50),
+                # Temporary ABB filter (products.HIDDEN_PRODUCT_NAME_PREFIXES).
+                user_domain=getattr(current_request.get().state, "user_domain", None),
             )
         case "compare_product_versions":
             return await products.compare_product_versions(
@@ -561,6 +563,20 @@ async def console_manage_products(request: Request):
     return await _console_or_proxy(request, console_routes.manage_products)
 
 
+# One product's details (releases, installs), read when a person opens it. Staff only,
+# like the list; a GET above the deep-link catch-all (AGENTS.md console rule 4).
+@app.get("/console/api/manage/products/details")
+async def console_manage_product_details(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_product_details)
+
+
+# The details panel's second request: last change and inventory company, filled in
+# after the panel draws. Staff only; a GET above the deep-link catch-all (rule 4).
+@app.get("/console/api/manage/products/install-facts")
+async def console_manage_install_facts(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_install_facts)
+
+
 # Whether to offer Manage and its tag edits, as the rbac-service answers: asked by the
 # page after the session, never inside it, so no page waits on the service.
 @app.get("/console/api/manage/access")
@@ -817,6 +833,13 @@ async def console_manage_share(request: Request):
 @app.post("/console/api/manage/products/unshare")
 async def console_manage_unshare(request: Request):
     return await _console_or_proxy(request, console_routes.manage_unshare)
+
+
+# One of those edits on several products at once (§4.30 "Bulk edits"): the same
+# operations, product by product, gated and checked once for the request.
+@app.post("/console/api/manage/products/bulk")
+async def console_manage_bulk_edit(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_bulk_edit)
 
 
 # Non-GET under the console prefix. Registered after the GET routes (so it never

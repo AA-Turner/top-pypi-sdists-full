@@ -5,6 +5,6 @@
   the screen mid-run without stopping the workflow.
 """
 
-from matrx_graph.nodes.io.user_input import UserInputExecutor
+from matrx_graph.nodes.io.user_input import TriggerStepExecutor, UserInputExecutor
 
-__all__ = ["UserInputExecutor"]
+__all__ = ["TriggerStepExecutor", "UserInputExecutor"]

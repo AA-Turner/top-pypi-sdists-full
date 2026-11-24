@@ -31,9 +31,10 @@ from datetime import UTC, datetime, timedelta
 from typing import BinaryIO, TYPE_CHECKING, Any
 
 from matrx_utils import supervised_task
-from matrx_utils.row_access import RowAccess
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT, RowAccess
 
 from ...artifact_identity import artifact_identity_columns
+from ...placement import client_person_pathway, client_upload_pathway, stamp_for_write
 from ...user_visible import stamp_machine_artifact
 from ...derivations import resolve_file_lineage
 from ..db import _models, _row, _vals
@@ -93,6 +94,17 @@ TUS_READY_LEASE = timedelta(minutes=5)
 # ---------------------------------------------------------------------------
 # Result + row dataclasses. Typed so callers don't pass dicts around.
 # ---------------------------------------------------------------------------
+
+
+def _person_pathway_or_none(metadata: dict | None) -> str | None:
+    """The person pathway a resumable upload named (an automated or undeclared name is dropped)."""
+    return client_person_pathway(metadata)
+
+
+def _client_pathway_or_none(metadata: dict | None, file_path: str | None) -> str | None:
+    """The pathway a resumable upload is stamped with — the one rule both client doors share
+    (:func:`placement.client_upload_pathway`)."""
+    return client_upload_pathway(metadata, file_path)
 
 
 @dataclass(frozen=True)
@@ -242,7 +254,7 @@ def _row_to_session(row: dict[str, Any]) -> TUSSessionRow:
         upload_length=int(row["upload_length"]),
         upload_offset=int(row["upload_offset"]),
         published_to_web=bool((row.get("metadata") or {}).get("_row_access_published_to_web")),
-        shown_to=(row.get("metadata") or {}).get("_row_access_shown_to", "only_me"),
+        shown_to=(row.get("metadata") or {}).get("_row_access_shown_to", SHOWN_TO_TYPE_DEFAULT),
         mime_type=row.get("mime_type"),
         file_name=row.get("file_name") or "",
         metadata=dict(row.get("metadata") or {}),
@@ -337,7 +349,7 @@ class TUSSessionManager:
         upload_length: int,
         mime_type: str | None = None,
         published_to_web: bool = False,
-        shown_to: str | None = "only_me",
+        shown_to: str | None = SHOWN_TO_TYPE_DEFAULT,
         metadata: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
         declared_sha256: str | None = None,
@@ -970,6 +982,24 @@ class TUSSessionManager:
                 ),
             )
 
+        # ---- every non-empty upload carries its SHA-256 ---------------------
+        # Live (2026-10-30): production S3 returns no FULL_OBJECT checksum, so
+        # every TUS row landed with checksum NULL — out of the dedup index and
+        # unmatchable by expected_checksum. A non-empty object is re-hashed
+        # (streamed, never buffered) when S3 did not supply one. Zero-byte
+        # uploads keep NULL on purpose: the empty SHA-256 is one constant for
+        # every caller and would alias unrelated empty files (managed_write
+        # applies the same rule).
+        if checksum is None and session.upload_length > 0:
+            checksum = await self._streamed_sha256_async(session)
+            if checksum is None:
+                logger.error(
+                    "tus.finalize: upload %s (%d bytes) has no SHA-256 — S3 returned none "
+                    "and the streamed re-hash failed; the row lands with checksum NULL",
+                    session.upload_id,
+                    session.upload_length,
+                )
+
         # ---- §5: the client-declared SHA-256 -------------------------------
         # The very uploads a sync client uses for large files are the ones most
         # likely to arrive unverifiable, because S3 only returns a FULL_OBJECT
@@ -1144,9 +1174,15 @@ class TUSSessionManager:
         # the same derivation is applied here — a resumable upload of a coding
         # artifact must be as findable as a simple one.
         # See matrx_files/artifact_identity.py.
-        # The machine-artifact marker, from the path — the same stamp SyncEngine's door applies
-        # (matrx_files/user_visible.py § MACHINE-ARTIFACT).
-        new_row["metadata"] = stamp_machine_artifact(file_path, new_row["metadata"])
+        # THE STAMP POINT (placement registry § 4.2a), the same one SyncEngine's door calls. A resumable
+        # upload is a person's (JWT) upload: it may name only a PERSON pathway (TUS metadata
+        # ``file_pathway``); an automated or undeclared name is dropped, loudly, never stamped. A path
+        # the registry places under an automated pathway is stamped with it (the server decides).
+        new_row["metadata"], tus_pathway = stamp_for_write(
+            _client_pathway_or_none(new_row["metadata"], file_path), file_path, new_row["metadata"]
+        )
+        if tus_pathway:
+            new_row["file_pathway"] = tus_pathway
         new_row.update(artifact_identity_columns(new_row["metadata"]))
         if parent_file_id is not None:
             new_row["parent_file_id"] = parent_file_id
@@ -1246,6 +1282,9 @@ class TUSSessionManager:
             supervised_task(
                 generate_thumbnail_for_file(self._engine.fm, session.file_id),
                 kind="file_thumbnail_generation_failed",
+                # The variants are THIS upload's own rows: a test run's file and its variants
+                # are stamped (and archived) together (CGU-10 AND-IMG13 #6).
+                carry_test_run=True,
                 name=f"thumbnail:{session.file_id}",
                 context={"file_id": session.file_id, "upload_id": upload_id},
             )

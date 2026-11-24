@@ -75,9 +75,56 @@ async def test_retry_never_downgrades_existing_cloud_raw_payload() -> None:
     )
 
 
-@pytest.mark.asyncio
-async def test_search_performance_persists_as_one_bulk_write(monkeypatch) -> None:
-    repository = OrmSeoRepository()
+class _FakeDailyTable:
+    """In-memory daily-fact table keyed UNIQUE on ``dedup_key``: ``filter(...).values(...)``
+    and ``bulk_upsert(..., on_conflict=["dedup_key"])``."""
+
+    def __init__(self) -> None:
+        self.rows: dict[str, dict[str, Any]] = {}
+        self.statement_sizes: list[int] = []
+        self.timeouts_left = 0
+
+    def filter(self, **kwargs: Any) -> Any:
+        keys = list(kwargs["dedup_key__in"])
+        table = self
+
+        class _Query:
+            async def values(self, *_fields: str) -> list[dict[str, str]]:
+                return [
+                    {"id": table.rows[key]["id"], "dedup_key": key}
+                    for key in keys
+                    if key in table.rows
+                ]
+
+        return _Query()
+
+    async def bulk_upsert(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        on_conflict: list[str],
+        update_fields: list[str],
+        returning: list[str],
+    ) -> list[dict[str, Any]]:
+        from matrx_orm.exceptions import QueryTimeoutError
+
+        assert on_conflict == ["dedup_key"]
+        self.statement_sizes.append(len(rows))
+        if self.timeouts_left:
+            self.timeouts_left -= 1
+            raise QueryTimeoutError(operation="execute_query", query="INSERT INTO seo.x")
+        keys = [row["dedup_key"] for row in rows]
+        assert len(keys) == len(set(keys)), "ON CONFLICT DO UPDATE cannot touch a row twice"
+        for row in rows:
+            existing = self.rows.get(row["dedup_key"])
+            if existing is None:
+                self.rows[row["dedup_key"]] = dict(row)
+            else:
+                existing.update({field: row[field] for field in update_fields})
+        return [{"id": self.rows[key]["id"], "dedup_key": key} for key in keys]
+
+
+def _gsc_run(run_id: str, idempotency_key: str) -> tuple[CollectionRun, RawPayloadReceipt]:
     request = CollectionRequest(
         organization_id="org-1",
         created_by="user-1",
@@ -87,38 +134,34 @@ async def test_search_performance_persists_as_one_bulk_write(monkeypatch) -> Non
         observation_period="test",
     )
     run = CollectionRun(
-        id="run-1",
+        id=run_id,
         provider="gsc",
         request=request,
         settings_hash="settings",
-        idempotency_key="key",
+        idempotency_key=idempotency_key,
         status="processing",
         created=False,
         claimed=True,
         lease_owner="owner",
     )
     raw = RawPayloadReceipt(
-        id="raw-1",
-        run_id="run-1",
-        checksum="checksum",
-        size_bytes=1,
-        created=True,
+        id=f"raw-{run_id}", run_id=run_id, checksum="c", size_bytes=1, created=True
     )
+    return run, raw
+
+
+@pytest.mark.asyncio
+async def test_search_performance_persists_as_bulk_upsert(monkeypatch) -> None:
+    repository = OrmSeoRepository()
+    run, raw = _gsc_run("run-1", "key")
     observations = [
         SearchPerformanceObservation(
-            site_id="site-1",
-            date=date(2026, 7, 19),
-            query="first",
-            clicks=1,
+            site_id="site-1", date=date(2026, 7, 19), query="first", clicks=1
         ),
         SearchPerformanceObservation(
-            site_id="site-1",
-            date=date(2026, 7, 19),
-            query="second",
-            clicks=2,
+            site_id="site-1", date=date(2026, 7, 19), query="second", clicks=2
         ),
     ]
-    captured: list[dict[str, Any]] = []
     loop_thread = threading.get_ident()
     preparation_thread: int | None = None
     original_prepare = orm_repository._prepare_search_performance_rows
@@ -128,50 +171,56 @@ async def test_search_performance_persists_as_one_bulk_write(monkeypatch) -> Non
         preparation_thread = threading.get_ident()
         return original_prepare(*args)
 
-    async def fake_bulk_insert_ignore(
-        _model: Any,
-        rows: list[dict[str, Any]],
-        **_kwargs: Any,
-    ) -> int:
-        captured.extend(rows)
-        return 2
-
-    class FakeQuery:
-        async def values(self, *_fields: str) -> list[dict[str, str]]:
-            return [
-                {"id": f"id-{index}", "dedup_key": row["dedup_key"]}
-                for index, row in enumerate(captured)
-            ]
-
+    table = _FakeDailyTable()
     monkeypatch.setattr(
-        "matrx_seo.orm_repository.bulk_insert_ignore",
-        fake_bulk_insert_ignore,
+        "matrx_seo.orm_repository._prepare_search_performance_rows", tracked_prepare
     )
-    monkeypatch.setattr(
-        "matrx_seo.orm_repository._prepare_search_performance_rows",
-        tracked_prepare,
-    )
-    monkeypatch.setattr(
-        "matrx_seo.orm_repository.m.SearchPerformanceDaily.filter",
-        lambda **_kwargs: FakeQuery(),
-    )
+    monkeypatch.setattr("matrx_seo.orm_repository.m.SearchPerformanceDaily", table)
 
-    receipt = await repository._persist_search_performance_batch(
-        run,
-        raw,
-        observations,
-    )
+    receipt = await repository._persist_search_performance_batch(run, raw, observations)
 
-    assert len(captured) == 2
-    assert [row["query"] for row in captured] == ["first", "second"]
+    assert sorted(row["query"] for row in table.rows.values()) == ["first", "second"]
     assert receipt.created == 2
     assert receipt.existing == 0
-    assert receipt.observation_ids == ["id-0", "id-1"]
+    assert len(set(receipt.observation_ids)) == 2
     assert preparation_thread is not None
     assert preparation_thread != loop_thread
 
 
-def test_observation_dedup_is_retry_stable_but_fresh_run_distinct() -> None:
+@pytest.mark.asyncio
+async def test_overlapping_daily_runs_keep_one_row_per_day_with_newest_numbers(
+    monkeypatch,
+) -> None:
+    """2026-10-31: the daily GSC schedule re-fetches a 7-day window, and a
+    run-scoped key stored the same day once per run (up to 7 copies), so every
+    sum overcounted. A day is ONE row; a later run updates its numbers."""
+    repository = OrmSeoRepository()
+    table = _FakeDailyTable()
+    monkeypatch.setattr("matrx_seo.orm_repository.m.SearchPerformanceDaily", table)
+
+    def day(clicks: int) -> SearchPerformanceObservation:
+        return SearchPerformanceObservation(
+            site_id="site-1",
+            page_id="page-1",
+            date=date(2026, 9, 28),
+            dimension_profile="page",
+            clicks=clicks,
+            impressions=100 + clicks,
+        )
+
+    first_run, first_raw = _gsc_run("run-1", "window-2026-09-22")
+    second_run, second_raw = _gsc_run("run-2", "window-2026-09-23")
+    first = await repository._persist_search_performance_batch(first_run, first_raw, [day(1)])
+    second = await repository._persist_search_performance_batch(second_run, second_raw, [day(3)])
+
+    assert len(table.rows) == 1
+    (row,) = table.rows.values()
+    assert (row["clicks"], row["impressions"], row["run_id"]) == (3, 103, "run-2")
+    assert (first.created, second.created, second.existing) == (1, 0, 1)
+    assert first.observation_ids == second.observation_ids
+
+
+def test_daily_fact_dedup_is_the_day_not_the_run() -> None:
     observation = SearchPerformanceObservation(
         site_id="site-1",
         date=date(2026, 7, 19),
@@ -180,11 +229,42 @@ def test_observation_dedup_is_retry_stable_but_fresh_run_distinct() -> None:
     )
 
     first = _observation_dedup_key("collection-1", "org-1", "gsc", observation)
-    retry = _observation_dedup_key("collection-1", "org-1", "gsc", observation)
-    fresh = _observation_dedup_key("collection-2", "org-1", "gsc", observation)
+    fresh_run = _observation_dedup_key("collection-2", "org-1", "gsc", observation)
+    other_query = _observation_dedup_key(
+        "collection-1", "org-1", "gsc", observation.model_copy(update={"query": "other"})
+    )
 
-    assert first == retry
-    assert fresh != first
+    assert first == fresh_run
+    assert other_query != first
+
+
+def test_daily_fact_key_matches_its_sql_twin() -> None:
+    """The dedupe migration rebuilds stored keys in SQL as
+    sha256(concat_ws(chr(31), coalesce(part, '')...)); pin the Python side to it."""
+    import hashlib
+
+    observation = SearchPerformanceObservation(
+        site_id="site-1",
+        page_id="page-1",
+        date=date(2026, 9, 28),
+        dimension_profile="page",
+    )
+    parts = [
+        "search_performance:v2",
+        "org-1",
+        "gsc",
+        "site-1",
+        "page-1",
+        "2026-09-28",
+        "",
+        "",
+        "",
+        "page",
+        "",
+    ]
+    expected = hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
+
+    assert _observation_dedup_key("any-run", "org-1", "gsc", observation) == expected
 
 
 @pytest.mark.asyncio
@@ -263,9 +343,7 @@ async def test_search_performance_write_is_bounded_and_heals_a_command_timeout(
     ONE ~1,500-row INSERT into seo.search_performance_daily blew the pool's
     10 s command_timeout and failed the whole nightly window. Statements are
     now bounded, and a statement that times out is re-issued — safe because
-    every write is ON CONFLICT (dedup_key) DO NOTHING."""
-    from matrx_orm.exceptions import QueryTimeoutError
-
+    every write is an upsert on the run-independent day key."""
     monkeypatch.setattr("matrx_orm.core.resilience.asyncio.sleep", _no_sleep)
     repository = OrmSeoRepository()
     request = CollectionRequest(
@@ -295,35 +373,10 @@ async def test_search_performance_write_is_bounded_and_heals_a_command_timeout(
         )
         for index in range(total)
     ]
-    landed: dict[str, dict[str, Any]] = {}
-    statement_sizes: list[int] = []
-    timeouts_left = 1
-
-    async def fake_bulk_insert_ignore(_model: Any, rows: list[dict[str, Any]], **_: Any) -> int:
-        nonlocal timeouts_left
-        statement_sizes.append(len(rows))
-        if timeouts_left:
-            timeouts_left -= 1
-            raise QueryTimeoutError(operation="execute_query", query="INSERT INTO seo.x")
-        fresh = [row for row in rows if row["dedup_key"] not in landed]
-        for row in fresh:
-            landed[row["dedup_key"]] = row
-        return len(fresh)
-
-    class FakeQuery:
-        def __init__(self, keys: list[str]) -> None:
-            self.keys = keys
-
-        async def values(self, *_fields: str) -> list[dict[str, str]]:
-            return [
-                {"id": f"id-{key}", "dedup_key": key} for key in self.keys if key in landed
-            ]
-
-    monkeypatch.setattr("matrx_seo.orm_repository.bulk_insert_ignore", fake_bulk_insert_ignore)
-    monkeypatch.setattr(
-        "matrx_seo.orm_repository.m.SearchPerformanceDaily.filter",
-        lambda **kwargs: FakeQuery(list(kwargs["dedup_key__in"])),
-    )
+    table = _FakeDailyTable()
+    table.timeouts_left = 1
+    statement_sizes = table.statement_sizes
+    monkeypatch.setattr("matrx_seo.orm_repository.m.SearchPerformanceDaily", table)
 
     receipt = await repository._persist_search_performance_batch(run, raw, observations)
 

@@ -6,6 +6,19 @@ from bs4 import BeautifulSoup, Tag, Comment
 from .utils import join_url, is_data_url
 
 
+def _replace_children(element, new_children) -> None:
+    """Make ``new_children`` the element's children. When they ARE its children,
+    in order (nothing joined, nothing dropped), the element is left as it is —
+    the same tree that clearing and re-appending every child rebuilds, without
+    detaching and re-linking each one."""
+    contents = element.contents
+    if len(new_children) == len(contents) and all(a is b for a, b in zip(new_children, contents)):
+        return
+    element.clear()
+    for new_child in new_children:
+        element.append(new_child)
+
+
 class HTMLFlattener:
     """
     Converts Nested Structures to something sane
@@ -328,9 +341,7 @@ class HTMLFlattener:
         if buffer:
             self._append_flattened_span(new_children, buffer, fmt_buffer)
 
-        element.clear()
-        for new_child in new_children:
-            element.append(new_child)
+        _replace_children(element, new_children)
 
     def _append_flattened_span(self, new_children, buffer, fmt_buffer):
         """Helper method to create and append a span with flattened text and fmt-txt attribute."""
@@ -418,9 +429,7 @@ class HTMLFlattener:
         if buffer:
             self._append_flattened_span(new_children, buffer, fmt_buffer)
 
-        element.clear()
-        for new_child in new_children:
-            element.append(new_child)
+        _replace_children(element, new_children)
 
     def _convert_to_block(self, element):
         """Convert an inline element to a block element if it contains block children."""

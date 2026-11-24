@@ -115,6 +115,48 @@ def _quarantine(
     )
 
 
+class AliasNameCollision(RuntimeError):
+    """An ``ai.model_alias`` names the same string as a live model row, pointing elsewhere."""
+
+
+_alias_collisions_announced: set[tuple[str, str, str]] = set()
+
+
+def announce_alias_name_collision(alias: str, *, live_model_id: str, alias_model_id: str) -> None:
+    """Said on stderr and filed ONCE per distinct collision as an ``ai_catalog_alias_name_collision``
+    system error (when a loop runs and a host sink exists). The live row keeps the name: an alias
+    redirecting a live model's name would reroute a working model."""
+    mark = (alias, live_model_id, alias_model_id)
+    if mark in _alias_collisions_announced:
+        return
+    _alias_collisions_announced.add(mark)
+    message = (
+        f"ai.model_alias '{alias}' -> model {alias_model_id} collides with the LIVE model row named "
+        f"'{alias}' ({live_model_id}); the live row keeps the name (fix: delete or rename the alias, or "
+        "deprecate the row so the alias may redirect it)"
+    )
+    import sys
+
+    print(f"[matrx_ai] 🚨 AI CATALOG ALIAS COLLISION: {message}", file=sys.stderr)
+    try:
+        import asyncio
+
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    from matrx_utils.error_capture import capture_error, supervised_task
+
+    supervised_task(
+        capture_error(
+            AliasNameCollision(message),
+            kind="ai_catalog_alias_name_collision",
+            context={"alias": alias, "live_model_id": live_model_id, "alias_model_id": alias_model_id},
+        ),
+        kind="ai_catalog_alias_name_collision",
+        name=f"ai_catalog_alias_name_collision:{alias}",
+    )
+
+
 # ── K5 copy-mode reader (settings-translation item C1) ──────────────────────
 # The compiled view ``ai.offering_rules_compiled`` is read through the ORM
 # registry key below. Until lane CB creates the view AND registers this key in
@@ -132,7 +174,11 @@ def _announce_rules_source_once(source: str, detail: str, *, color: str) -> None
     if source in _rules_source_announced:
         return
     _rules_source_announced.add(source)
-    vcprint(f"[catalog] translation rules source: {detail}", color=color)
+    # stdout=True: vcprint sends red/yellow ONLY to the logger, so the COPY MODE notices
+    # (view unreadable / empty) reached no console — a guard run served the legacy columns,
+    # which carry no ``off``, and 85 off choices read as "not set" with nothing said
+    # (release 2026-11-12, check settings-unset-differs-from-off).
+    vcprint(f"[catalog] translation rules source: {detail}", color=color, stdout=True)
 
 
 # K7 setting families: ai.setting.family -> platform.categories (this dimension).
@@ -331,7 +377,12 @@ class AiCatalogManager:
             )
             return None
         try:
-            rows = await view.filter().all()
+            try:
+                rows = await view.filter().all()
+            except Exception:  # noqa: BLE001 — one retry: a transient pooler/timeout error must
+                # not drop a whole process into copy mode (every declared ``off`` lost) until
+                # the next reload.
+                rows = await view.filter().all()
         except Exception as exc:  # noqa: BLE001 — the catalog keeps serving from the columns
             _announce_rules_source_once(
                 "unreadable",
@@ -735,7 +786,11 @@ class AiCatalogManager:
             # and the ORM loader still finds the row by name, so un-aliased
             # deprecated models behave exactly as before.
             if mid and mname and not m.get("is_deprecated"):
-                model_names[mname] = mid
+                # Two live rows with one name: never last-in-dict-order (CGU-10 IMG8 #9). The row
+                # with an available offering wins, then the lowest id — the same row every load.
+                held = model_names.get(mname)
+                if held is None or _name_slot_rank(mid, by_model) < _name_slot_rank(held, by_model):
+                    model_names[mname] = mid
 
         alias_map: dict[str, str] = {}
         for raw in aliases or []:
@@ -750,6 +805,11 @@ class AiCatalogManager:
                 )
                 continue
             alias_map[alias] = model_id
+            live_holder = model_names.get(alias)
+            if live_holder is not None and live_holder != model_id:
+                # CGU-10 IMG9 #8: a live row's name outranks an alias (an alias must never reroute a
+                # working model), but the two disagree about where that name goes. Never silent.
+                announce_alias_name_collision(alias, live_model_id=live_holder, alias_model_id=model_id)
             # An alias is a name a person can be shown too — it resolves to a
             # model whose `common_name` is that model's name.
             target = display_names.get(model_id)
@@ -856,6 +916,36 @@ class AiCatalogManager:
     def model_state(self, model_id: str) -> dict[str, Any]:
         return dict(self._model_state.get(str(model_id), {}))
 
+    def _model_facts(self, model_ref: str | None) -> dict[str, Any] | None:
+        """The model ROW a ref names, for reading its facts (window, inputs, maker, offerings).
+
+        🚨 FACTS ARE NOT ROUTING (CGU-10 IMG7 #9, the same class as cold walk 17 defect C): a DEPRECATED
+        row surrenders its NAME slot in the routing map so an alias can redirect traffic. With no alias
+        the name falls through unchanged and the run still goes out on that row — but every memory-only
+        fact reader found no state for it: gpt-5.5 (deprecated, un-aliased, live) ran with no context
+        window measured, no picture input known and no wire format, so its request row recorded no
+        ``context_window`` limit. Routing first; then the row by its own name."""
+        if not model_ref:
+            return None
+        ref = str(model_ref).strip()
+        state = self._model_state.get(self.resolve_model_ref(ref))
+        if state:
+            return state
+        # DETERMINISTIC (CGU-10 IMG8 #9): routing missed, so every row is deprecated or un-routed.
+        # Never the first row in dict order: a live (non-deprecated) row before a deprecated one,
+        # then the one a person can still run (has an available offering), then the lowest id.
+        same_name = [row for row in self._model_state.values() if row.get("name") == ref]
+        if not same_name:
+            return None
+        return min(
+            same_name,
+            key=lambda row: (
+                bool(row.get("is_deprecated")),
+                not self._routable(str(row.get("id") or "")),
+                str(row.get("id") or ""),
+            ),
+        )
+
     def context_window(self, model_ref: str | None) -> int | None:
         """The declared context window for a model NAME, id or alias.
 
@@ -866,11 +956,68 @@ class AiCatalogManager:
         """
         if not model_ref:
             return None
-        state = self._model_state.get(self.resolve_model_ref(str(model_ref)))
+        state = self._model_facts(model_ref)
         if not state:
             return None
         window = state.get("context_window")
         return int(window) if isinstance(window, int) and window > 0 else None
+
+    def reads_images(self, model_ref: str | None) -> bool | None:
+        """Whether the model row declares picture input (``capabilities.input`` holds ``image``).
+        ``None`` when the catalog is not loaded or the ref does not resolve; never a guess. Sync and
+        memory-only, for the prompt estimator (a text-only model is never charged for pictures)."""
+        if not model_ref:
+            return None
+        state = self._model_facts(model_ref)
+        if not state:
+            return None
+        declared = (state.get("capabilities") or {}).get("input")
+        if not isinstance(declared, (list, tuple, set)):
+            return None
+        return "image" in {str(item).lower() for item in declared}
+
+    def model_image_sizing(self, model_ref: str | None) -> dict[str, Any] | None:
+        """How the model counts a picture (``capabilities.image_sizing``: long_edge, max_patches, patch_px,
+        overhead, label_scale). ``None`` when the catalog is not loaded, the ref does not resolve or the row
+        declares none. Sync and memory-only, for the prompt estimator (CGU-10 AND-IMG18 N2)."""
+        if not model_ref:
+            return None
+        state = self._model_facts(model_ref)
+        sizing = ((state or {}).get("capabilities") or {}).get("image_sizing")
+        return dict(sizing) if isinstance(sizing, dict) and sizing else None
+
+    def model_outputs(self, model_ref: str | None) -> frozenset[str] | None:
+        """What the model row declares it produces (``capabilities.output``, lower-cased). ``None``
+        when the catalog is not loaded, the ref does not resolve or the row declares nothing. Sync and
+        memory-only — the vision class reads it (a picture-MAKING Gemini counts a picture like 2.5)."""
+        if not model_ref:
+            return None
+        state = self._model_facts(model_ref)
+        declared = ((state or {}).get("capabilities") or {}).get("output")
+        if not isinstance(declared, (list, tuple, set)) or not declared:
+            return None
+        return frozenset(str(item).lower() for item in declared)
+
+    def model_features(self, model_ref: str | None) -> frozenset[str] | None:
+        """What the model row declares it can do (``capabilities.features``, lower-cased). ``None`` when
+        the catalog is not loaded, the ref does not resolve or the row declares nothing. Sync and
+        memory-only — the vision class reads it (a 2.x computer-use Gemini TILES a picture)."""
+        if not model_ref:
+            return None
+        state = self._model_facts(model_ref)
+        declared = ((state or {}).get("capabilities") or {}).get("features")
+        if not isinstance(declared, (list, tuple, set)) or not declared:
+            return None
+        return frozenset(str(item).lower() for item in declared)
+
+    def canonical_model_name(self, model_ref: str | None) -> str | None:
+        """The NAME of the row a ref routes to (an alias of any kind resolves to its model's name).
+        ``None`` when the catalog cannot say."""
+        if not model_ref:
+            return None
+        state = self._model_facts(model_ref)
+        name = (state or {}).get("name")
+        return str(name) if name else None
 
     def wire_format_for(self, model_ref: str | None, offering_id: str | None = None) -> str | None:
         """The ``ai.api.translator_key`` a call for ``model_ref`` is sent with — the pinned
@@ -879,7 +1026,8 @@ class AiCatalogManager:
         a guess. Sync and memory-only, for readers on the send path (the prompt estimator)."""
         if not model_ref:
             return None
-        model_id = self.resolve_model_ref(str(model_ref))
+        facts = self._model_facts(model_ref)
+        model_id = str(facts.get("id")) if facts else self.resolve_model_ref(str(model_ref))
         offering = self._offerings.get(str(offering_id)) if offering_id else None
         if offering is None or str(offering.model_id) != model_id:
             available = self.offerings_for(model_id)
@@ -954,6 +1102,12 @@ class AiCatalogManager:
                 continue
             if not offering.is_available:
                 continue
+            # A deprecated or retired model is never the tier's pick (the host-catalog branch of
+            # resolve_tts_call_profile already skips it): 2026-11-16 the ``high_quality`` tag on the
+            # deprecated gemini-2.5-pro-preview-tts rerouted every saved podcast off its live pin.
+            state = self._model_state.get(str(offering.model_id), {})
+            if state.get("is_deprecated") or state.get("retired_at"):
+                continue
             tts = offering.metadata.get("tts")
             if not isinstance(tts, dict):
                 continue
@@ -980,6 +1134,19 @@ class AiCatalogManager:
                 matched.append(voice)
         return tuple(matched)
 
+    def tts_voice_ids_for_model(self, model_name: str) -> frozenset[str]:
+        """Every enabled voice id linked to ``model_name`` (``ai.voices.metadata.models``), any
+        vendor. Empty = the model has no linked voices, so it cannot voice a script."""
+        found: set[str] = set()
+        for voices in self._voices_by_provider.values():
+            for voice in voices:
+                models = voice.metadata.get("models", ())
+                if isinstance(models, str):
+                    models = (models,)
+                if model_name in models or "*" in models:
+                    found.add(voice.provider_voice_id)
+        return frozenset(found)
+
     def setting(self, key: str) -> CatalogSetting | None:
         return self._settings.get(key)
 
@@ -999,7 +1166,7 @@ class AiCatalogManager:
         names no provider — never guessed from the model's name."""
         if not model_ref:
             return None
-        state = self._model_state.get(self.resolve_model_ref(str(model_ref).strip()))
+        state = self._model_facts(model_ref)
         if not state:
             return None
         name = (self.provider_name(state.get("provider_id")) or "").strip()
@@ -1103,6 +1270,11 @@ class AiCatalogManager:
                 }
             )
         return classes
+
+
+def _name_slot_rank(model_id: str, by_model: dict[str, list[Any]]) -> tuple[bool, str]:
+    available = any(getattr(o, "is_available", False) for o in by_model.get(model_id, []))
+    return (not available, model_id)
 
 
 ai_catalog_manager = AiCatalogManager()

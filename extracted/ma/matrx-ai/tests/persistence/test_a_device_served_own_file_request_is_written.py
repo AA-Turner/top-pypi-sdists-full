@@ -72,3 +72,37 @@ async def test_an_own_file_request_row_is_written_with_no_model(persist_harness,
             assert data["metadata"]["device_served"] is True
     else:
         assert rows == [] and skipped and set(skipped) == {"cx_request_model_unresolvable"}
+
+
+@pytest.mark.asyncio
+async def test_a_device_call_that_failed_before_any_usage_still_writes_its_row(persist_harness, monkeypatch) -> None:  # noqa: F811
+    """system_error b7fcf117 (2026-11-10): a Matrx 2 own-file chat whose relay answered 502 came back with
+    no usage, so the request rows carried no ``served_via`` and the persist path skipped them as
+    "model unresolvable" — the failed run left no history. The config's ``served_via`` is the call's one
+    route; the real ``to_storage_dict`` now carries it, and the row is written (ai_model_id NULL)."""
+    from matrx_ai.config.served_via import ServedVia
+
+    persistence_mod, _creates, _updates = persist_harness
+    completed = _build_tool_loop_completed()
+    served_via = ServedVia(provider="device", app_instance_id=SERVED_VIA["app_instance_id"],
+                           local_model_id=SERVED_VIA["local_model_id"])
+    object.__setattr__(completed.request.config, "served_via", served_via)
+    rows: list[dict[str, Any]] = []
+    skipped: list[str] = []
+    monkeypatch.setattr(persistence_mod, "ai_model_manager_instance", _NoModel())
+    monkeypatch.setattr(persistence_mod, "_queue_request_create", lambda **kw: rows.append(kw) or "")
+
+    async def _skip(stage, detail, **kw):
+        skipped.append(stage)
+
+    monkeypatch.setattr(persistence_mod, "surface_skipped_write", _skip)
+    storage = completed.to_storage_dict()
+    assert all("served_via" in (r.get("metadata") or {}) for r in storage["requests"])
+    await persistence_mod.persist_completed_request(completed, conversation_id=CONVERSATION_ID)
+    assert skipped == [], skipped
+    assert rows, "the failed device request row was skipped"
+    for row in rows:
+        data = row.get("data", row)
+        assert data["ai_model_id"] is None
+        assert data["metadata"]["served_via"]["local_model_id"] == SERVED_VIA["local_model_id"]
+        assert data["metadata"]["device_served"] is True

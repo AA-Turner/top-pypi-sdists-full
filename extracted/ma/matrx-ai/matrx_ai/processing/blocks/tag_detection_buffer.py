@@ -1,10 +1,10 @@
 """
 Tag Detection Buffer — prevents text flicker when XML block tags arrive token-by-token.
 
-When the LLM streams `<timeli`, we don't yet know if this becomes `<timeline>`
-(a block tag) or `<timelier approach>` (plain text).  Without buffering, the
-processor would emit a text block with `<timeli`, then replace it with a
-timeline block once the full tag arrives — causing visible flicker in React.
+When the LLM streams `<thinki`, we don't yet know if this becomes `<thinking>`
+(a block tag) or `<thinkingly>` (plain text).  Without buffering, the
+processor would emit a text block with `<thinki`, then replace it with a
+thinking block once the full tag arrives — causing visible flicker in React.
 
 This module detects potential partial XML tags at the tail of the stream buffer
 and signals the processor to suppress emission until the tag resolves.
@@ -33,19 +33,19 @@ def _build_tag_sets() -> tuple[set[str], set[str]]:
     """Build two sets from known XML block tags.
 
     Returns:
-        tag_names: Complete tag names (e.g. "timeline", "think", "thinking")
+        tag_names: Complete tag names (e.g. "thinking", "think", "reasoning")
         proper_prefixes: Substrings that are a prefix of some tag name but
-            shorter than the full name.  For "timeline" this is
-            {"t", "ti", "tim", "time", "timel", "timeli", "timelin"}.
-            "timeline" itself is NOT in this set.
+            shorter than the full name.  For "thinking" this is
+            {"t", "th", "thi", "thin", "think", "thinki", "thinkin"}.
+            "thinking" itself is NOT in this set.
 
     Suppression logic uses both sets:
-        - `<timeli` — "timeli" is a proper prefix → suppress (could become <timeline>)
+        - `<thinki` — "thinki" is a proper prefix → suppress (could become <thinking>)
         - `<think`  — "think" is a full tag name AND also a proper prefix of
           "thinking" → suppress (could become <thinking>)
-        - `<timeline` — "timeline" is a full tag name, `>` hasn't arrived yet
+        - `<thinking` — "thinking" is a full tag name, `>` hasn't arrived yet
           → suppress (wait for closing `>`)
-        - `<timeline>` — has `>`, so the regex `<(\\w+)$` won't match → not suppressed
+        - `<thinking>` — has `>`, so the regex `<(\\w+)$` won't match → not suppressed
         - `<zebra` — neither a tag name nor a proper prefix → don't suppress
     """
     tag_names: set[str] = set()
@@ -88,14 +88,14 @@ class TagDetectionBuffer:
         """Return True if the buffer tail looks like a partial known XML tag.
 
         Checks the last 30 characters of the buffer for a pattern like
-        ``<timeline`` (no closing ``>``) where the tag name could still
+        ``<thinking`` (no closing ``>``) where the tag name could still
         become a known XML block tag with more characters.
 
         Cases:
-        - ``<timeli``  → proper prefix of "timeline" → suppress
+        - ``<thinki``  → proper prefix of "thinking" → suppress
         - ``<think``   → exact tag name AND proper prefix of "thinking" → suppress
-        - ``<timeline`` → exact tag name (``>`` not yet arrived) → suppress
-        - ``<timeline>`` → complete (has ``>``, regex won't match) → don't suppress
+        - ``<thinking`` → exact tag name (``>`` not yet arrived) → suppress
+        - ``<thinking>`` → complete (has ``>``, regex won't match) → don't suppress
         - ``<zebra``   → not a prefix of any known tag → don't suppress
         """
         tail = buffer[-30:] if len(buffer) > 30 else buffer

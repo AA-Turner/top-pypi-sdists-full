@@ -1,23 +1,30 @@
 import asyncio
 import datetime as dt
+import gzip
 import json
 import logging
 import os
 import pathlib
+import re
+import signal
 import socket
+import subprocess
 import sys
 import threading
 import time
 import weakref
 
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
 import param
 import pytest
 import requests
 
+from bokeh.client import pull_session
 from bokeh.events import ButtonClick
 from packaging.version import Version
+from tornado.ioloop import IOLoop
 
 from panel.config import config
 from panel.io import state
@@ -26,20 +33,20 @@ from panel.io.compile import check_cli_tool
 from panel.io.resources import DIST_DIR, JS_VERSION
 from panel.io.server import (
     _MAX_APP_PATH_CHARS, _MAX_ROUTE_PARAM_VALUE_CHARS, INDEX_HTML, RootHandler,
-    _normalize_app_path, _path_template_to_tornado_route, get_server,
-    set_curdoc,
+    _normalize_app_path, _path_template_to_tornado_route, async_execute,
+    get_server, set_curdoc,
 )
 from panel.layout import Row
 from panel.models import HTML as BkHTML
-from panel.models.tabulator import TableEditEvent
-from panel.pane import Markdown
+from panel.models.tabulator import TABULATOR_VERSION, TableEditEvent
+from panel.pane import Bokeh, Markdown
 from panel.param import ParamFunction
 from panel.reactive import ReactiveHTML
 from panel.template import BootstrapTemplate
 from panel.tests import util as test_util
 from panel.tests.util import (
     get_open_ports, reverse_proxy as reverse_proxy_ctx, serve_and_request,
-    serve_and_wait, wait_until,
+    serve_and_wait, unix_only, wait_for_server, wait_until,
 )
 from panel.widgets import (
     Button, Tabulator, Terminal, TextInput,
@@ -134,6 +141,55 @@ def test_server_static_dirs():
     with open(__file__, encoding='utf-8') as f:
         assert f.read() == r.content.decode('utf-8').replace('\r\n', '\n')
 
+def test_server_non_ascii_route():
+    r = serve_and_request({'/儀表板': Markdown('# Title')}, suffix='/%E5%84%80%E8%A1%A8%E6%9D%BF')
+
+    assert r.status_code == 200
+
+
+def test_server_non_ascii_route_index_link(port):
+    r = serve_and_request(
+        {'/儀表板': Markdown('# Title'), '/plain': Markdown('# Plain')},
+        port=port, use_index=True, index=INDEX_HTML, redirect_root=False, suffix='/'
+    )
+
+    assert 'href="./%E5%84%80%E8%A1%A8%E6%9D%BF"' in r.content.decode('utf-8')
+
+
+def test_server_static_dirs_etag_updates_when_file_changes(tmp_path):
+    target = tmp_path / 'app.js'
+    target.write_bytes(b'console.log(1)\n')
+
+    port = serve_and_wait(Markdown('# Title'), static_dirs={'assets': str(tmp_path)})
+    url = f'http://127.0.0.1:{port}/assets/app.js'
+
+    r1 = requests.get(url, timeout=30)
+    assert r1.status_code == 200
+    etag = r1.headers['Etag']
+    assert requests.get(url, headers={'If-None-Match': etag}, timeout=30).status_code == 304
+
+    # A different size changes the ETag even where mtimes are coarse
+    target.write_bytes(b'console.log("changed")\n')
+
+    r2 = requests.get(url, headers={'If-None-Match': etag}, timeout=30)
+    assert r2.status_code == 200
+    assert r2.text == 'console.log("changed")\n'
+    assert r2.headers['Etag'] != etag
+
+
+def test_server_non_ascii_route_index_display(port):
+    r = serve_and_request(
+        {'/naïve': Markdown('# Title'), '/plain': Markdown('# Plain')},
+        port=port, use_index=True, index=INDEX_HTML, redirect_root=False, suffix='/'
+    )
+
+    content = r.content.decode('utf-8')
+    assert 'href="./na%C3%AFve"' in content
+    assert 'data-search="naïve /naïve"' in content
+    assert '<h2 class="pn-card-title">naïve</h2>' in content
+    assert '<span class="pn-card-path">/naïve</span>' in content
+    assert 'na%c3%afve /na%c3%afve' not in content
+
 def test_server_prefix_root_redirect():
     html = Markdown('# Title')
 
@@ -147,6 +203,32 @@ def test_server_prefix_root_redirect():
     assert response.status_code == 200
     assert response.url.endswith('/foo/')
 
+@pytest.mark.parametrize('prefix', ['', '/sub'])
+def test_server_wsgi_app_mounted_on_subpath(prefix, monkeypatch):
+    import types
+
+    # Flask is not a test dependency so a minimal WSGI app stands in for it
+    class Flask:
+        def __call__(self, environ, start_response):
+            body = f"{environ['SCRIPT_NAME']}|{environ['PATH_INFO']}".encode()
+            start_response('200 OK', [('Content-Type', 'text/plain')])
+            return [body]
+
+    monkeypatch.setitem(sys.modules, 'flask', types.SimpleNamespace(Flask=Flask))
+
+    port = serve_and_wait({'/flask': Flask(), 'app': Markdown('# Title')}, prefix=prefix)
+    base = f'http://127.0.0.1:{port}{prefix}'
+
+    r = requests.get(f'{base}/flask/app', timeout=30)
+    assert r.status_code == 200
+    assert r.text == f'{prefix}/flask|/app'
+
+    r = requests.get(f'{base}/flask/a/b?x=1', timeout=30)
+    assert r.text == f'{prefix}/flask|/a/b'
+
+    r = requests.get(f'{base}/flask/', timeout=30)
+    assert r.text == f'{prefix}/flask|/'
+
 def test_server_doc_page_is_not_cached():
     # The document page embeds a short-lived Bokeh session token, so it must
     # not be cached by the browser (a stale token breaks the WebSocket).
@@ -156,6 +238,46 @@ def test_server_doc_page_is_not_cached():
 
     assert r.status_code == 200
     assert r.headers.get('Cache-Control') == 'no-store'
+
+def test_warn_if_ws_token_too_large():
+    from unittest.mock import patch
+
+    from panel.io import server as _server
+
+    _server._ws_token_size_warned.clear()
+    path = "/big-token-app"
+    small = "x" * 100
+    big = "x" * (_server.WS_TOKEN_SIZE_WARNING_THRESHOLD + 1)
+
+    try:
+        with patch.object(_server, "logger") as mock_logger:
+            # A small token does not warn.
+            _server._warn_if_ws_token_too_large(path, small)
+            assert mock_logger.warning.call_count == 0
+
+            # A large token warns once.
+            _server._warn_if_ws_token_too_large(path, big)
+            assert mock_logger.warning.call_count == 1
+
+            # The same app path does not warn again.
+            _server._warn_if_ws_token_too_large(path, big)
+            assert mock_logger.warning.call_count == 1
+    finally:
+        _server._ws_token_size_warned.clear()
+
+
+def test_guest_endpoint_serves_static_asset_before_login(port):
+    # A login template may reference assets from a --static-dirs directory, so
+    # that directory has to be reachable before the user is authenticated.
+    static = {'tests': os.path.dirname(INDEX_HTML)}
+    serve_and_wait(
+        Markdown('# Title'), port=port, basic_auth="secret-password",
+        cookie_secret="cookie-secret", oauth_guest_endpoints=['/tests/*'],
+        static_dirs=static,
+    )
+    r = requests.get(f"http://127.0.0.1:{port}/tests/index.html", allow_redirects=False)
+    assert r.status_code == 200
+
 
 def test_unauthenticated_websocket_returns_403(port):
     # An unauthenticated WebSocket upgrade cannot be redirected to a login page,
@@ -379,6 +501,129 @@ def test_server_template_static_resources_with_subpath_and_prefix_relative_url()
     r = serve_and_request({'/subpath/template': template}, prefix='/prefix', suffix="/prefix/subpath/template")
 
     assert f'href="../static/extensions/panel/bundled/bootstraptemplate/bootstrap.css?v={JS_VERSION}"' in r.content.decode('utf-8')
+
+
+def test_server_bokeh_pane_servable_with_global_template():
+    from bokeh.plotting import figure
+
+    panes = []
+
+    def app():
+        pane = Bokeh(figure())
+        panes.append(pane)
+        pane.servable()
+
+    with config.set(template='fast'):
+        serve_and_request(app)
+
+    wait_until(lambda: len(panes) == 1 and bool(panes[0]._models))
+
+
+def test_server_template_resources_not_duplicated():
+    from panel.template import FastListTemplate, MaterialTemplate
+    apps = {
+        'fast': lambda: FastListTemplate(title='Fast', main=[Markdown('# Title')]),
+        'material': lambda: MaterialTemplate(title='Material', main=[Markdown('# Title')]),
+    }
+    port = serve_and_wait(apps)
+    for app in apps:
+        html = requests.get(f"http://127.0.0.1:{port}/{app}", timeout=30).text
+        urls = re.findall(r'<(?:script|link)[^>]*(?:src|href)="([^"]+)"', html)
+        assert urls
+        assert len(urls) == len(set(urls)), f"Duplicated resources in {app}: {urls}"
+
+
+def test_server_compresses_responses():
+    port = serve_and_wait(Markdown('# Title'))
+    base = f"http://127.0.0.1:{port}"
+
+    page = requests.get(base, headers={'Accept-Encoding': 'gzip'}, timeout=30)
+    assert page.headers['Content-Encoding'] == 'gzip'
+    assert '<h1>Title</h1>' not in page.text and 'Bokeh' in page.text
+
+    url = f"{base}/static/extensions/panel/panel.min.js"
+    with requests.get(url, headers={'Accept-Encoding': 'gzip'}, stream=True, timeout=30) as js:
+        assert js.headers['Content-Encoding'] == 'gzip'
+        compressed = b''.join(js.raw.stream(65536, decode_content=False))
+    identity = requests.get(url, headers={'Accept-Encoding': 'identity'}, timeout=30)
+    assert 'Content-Encoding' not in identity.headers
+    assert identity.content == (DIST_DIR / 'panel.min.js').read_bytes()
+    assert len(compressed) < len(identity.content) / 2
+
+
+def test_server_compress_disabled():
+    port = serve_and_wait(Markdown('# Title'), compress=False)
+    page = requests.get(f"http://127.0.0.1:{port}", headers={'Accept-Encoding': 'gzip'}, timeout=30)
+    assert 'Content-Encoding' not in page.headers
+
+
+def test_server_static_etag_and_range_with_compression():
+    port = serve_and_wait(Markdown('# Title'))
+    url = f"http://127.0.0.1:{port}/static/extensions/panel/panel.min.js"
+
+    r = requests.get(url, headers={'Accept-Encoding': 'gzip'}, timeout=30)
+    assert r.status_code == 200
+    etag = r.headers['ETag']
+    cached = requests.get(url, headers={'Accept-Encoding': 'gzip', 'If-None-Match': etag}, timeout=30)
+    assert cached.status_code == 304
+
+    partial = requests.get(url, headers={'Range': 'bytes=0-99', 'Accept-Encoding': 'identity'}, timeout=30)
+    assert partial.status_code == 206
+    assert partial.headers['Content-Range'].startswith('bytes 0-99/')
+    assert partial.content == (DIST_DIR / 'panel.min.js').read_bytes()[:100]
+
+
+def test_server_caches_versioned_resources():
+    static = {'tests': os.path.dirname(__file__)}
+    port = serve_and_wait(Markdown('# Title'), static_dirs=static)
+    base = f"http://127.0.0.1:{port}"
+
+    def cache_control(path):
+        r = requests.get(f"{base}/{path}", timeout=30)
+        assert r.ok, path
+        return r.headers.get('Cache-Control')
+
+    long_lived = f'max-age={10*365*86400}'
+    # A ?v= cache buster and an exact package version in the path both pin the content
+    assert cache_control(f'static/extensions/panel/css/markdown.css?v={JS_VERSION}') == long_lived
+    assert cache_control(
+        f'static/extensions/panel/bundled/datatabulator/tabulator-tables@{TABULATOR_VERSION}/dist/js/tabulator.min.js'
+    ) == long_lived
+    # A path that may change its contents on upgrade is revalidated by ETag
+    assert cache_control('static/extensions/panel/bundled/datatabulator/luxon/build/global/luxon.min.js') is None
+    assert cache_control('static/extensions/panel/panel.min.js') is None
+    # User resources are not versioned
+    assert cache_control('tests/test_server.py') is None
+
+
+@pytest.mark.parametrize('path', [
+    'bundled/datatabulator/tabulator-tables@6.4.0/dist/js/tabulator.min.js',
+    'bundled\\datatabulator\\tabulator-tables@6.4.0\\dist\\js\\tabulator.min.js',
+])
+def test_versioned_path_matches_native_separators(path):
+    from panel.io.server import _VERSIONED_PATH_RE
+    assert _VERSIONED_PATH_RE.search(path)
+
+
+def test_server_serves_static_files_precompressed():
+    from panel.io.server import _GZIP_CACHE
+    port = serve_and_wait(Markdown('# Title'))
+    url = f"http://127.0.0.1:{port}/static/extensions/panel/panel.min.js"
+    plain = requests.get(url, headers={'Accept-Encoding': 'identity'}, timeout=30)
+    assert 'Content-Encoding' not in plain.headers
+
+    r = requests.get(url, headers={'Accept-Encoding': 'gzip'}, stream=True, timeout=30)
+    body = r.raw.read(decode_content=False)
+    assert r.headers['Content-Encoding'] == 'gzip'
+    assert int(r.headers['Content-Length']) == len(body)
+    assert gzip.decompress(body) == plain.content
+    assert any(key[0].endswith('panel.min.js') for key in _GZIP_CACHE)
+
+    etag = r.headers['Etag']
+    assert requests.get(url, headers={'Accept-Encoding': 'gzip', 'If-None-Match': etag}, timeout=30).status_code == 304
+    partial = requests.get(url, headers={'Accept-Encoding': 'gzip', 'Range': 'bytes=0-99'}, timeout=30)
+    assert partial.status_code == 206
+    assert partial.content == plain.content[:100]
 
 
 def test_server_extensions_on_root(server_implementation):
@@ -709,13 +954,17 @@ def test_server_schedule_at(server_implementation):
         state.cache['at'] = dt.datetime.now()
 
     scheduled = []
+    served = []
 
     def app():
-        scheduled.append(dt.datetime.now() + dt.timedelta(seconds=0.57))
-        state.schedule_task('periodic', periodic_cb, at=scheduled[0])
+        served.append(None)
+        if len(served) > 1:
+            scheduled.append(dt.datetime.now() + dt.timedelta(seconds=0.57))
+            state.schedule_task('periodic', periodic_cb, at=scheduled[0])
         return '# state.schedule test'
 
-    serve_and_request(app)
+    # A cold first request delays the callback on slow runners
+    serve_and_request(app, n=2)
 
     # Check callback was executed within small margin of error
     wait_until(lambda: 'at' in state.cache)
@@ -735,15 +984,20 @@ def test_server_schedule_at_iterator(server_implementation):
     def schedule():
         yield from scheduled
 
+    served = []
+
     def app():
-        scheduled.extend([
-            dt.datetime.now() + dt.timedelta(seconds=0.57),
-            dt.datetime.now() + dt.timedelta(seconds=0.86)
-        ])
-        state.schedule_task('periodic', periodic_cb, at=schedule())
+        served.append(None)
+        if len(served) > 1:
+            scheduled.extend([
+                dt.datetime.now() + dt.timedelta(seconds=0.57),
+                dt.datetime.now() + dt.timedelta(seconds=0.86)
+            ])
+            state.schedule_task('periodic', periodic_cb, at=schedule())
         return '# state.schedule test'
 
-    serve_and_request(app)
+    # A cold first request delays the callback on slow runners
+    serve_and_request(app, n=2)
 
     # Check callbacks were executed within small margin of error
     wait_until(lambda: len(state.cache['at']) == 2)
@@ -762,15 +1016,20 @@ def test_server_schedule_at_callable(server_implementation):
     def schedule(siter, utcnow):
         return next(siter)
 
+    served = []
+
     def app():
-        scheduled[:] = [
-            dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=s)
-            for s in (0.57, 0.86)
-        ]
-        state.schedule_task('periodic', periodic_cb, at=partial(schedule, iter(scheduled)))
+        served.append(None)
+        if len(served) > 1:
+            scheduled[:] = [
+                dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=s)
+                for s in (0.57, 0.86)
+            ]
+            state.schedule_task('periodic', periodic_cb, at=partial(schedule, iter(scheduled)))
         return '# state.schedule test'
 
-    serve_and_request(app)
+    # A cold first request delays the callback on slow runners
+    serve_and_request(app, n=2)
 
     # Check callbacks were executed within small margin of error
     wait_until(lambda: len(state.cache['at']) == 2)
@@ -780,6 +1039,31 @@ def test_server_schedule_at_callable(server_implementation):
     assert abs(state.cache['at'][0] - converted[0]) < dt.timedelta(seconds=0.2)
     assert abs(state.cache['at'][1] - converted[1]) < dt.timedelta(seconds=0.2)
     wait_until(lambda: 'periodic' not in {k.split('_', 1)[-1] for k in state._scheduled})
+
+
+def test_server_schedule_from_thread_while_loop_idle(server_implementation):
+    state.cache['at'] = []
+    def periodic_cb():
+        state.cache['at'].append(dt.datetime.now())
+
+    scheduled = []
+
+    def app():
+        doc = state.curdoc
+
+        def schedule():
+            time.sleep(0.5)
+            with set_curdoc(doc):
+                scheduled.append(dt.datetime.now() + dt.timedelta(seconds=0.3))
+                state.schedule_task('periodic', periodic_cb, at=scheduled[0])
+
+        threading.Thread(target=schedule, daemon=True).start()
+        return '# state.schedule test'
+
+    serve_and_request(app)
+
+    wait_until(lambda: len(state.cache['at']) == 1)
+    assert abs(state.cache['at'][0] - scheduled[0]) < dt.timedelta(seconds=0.2)
 
 
 @pytest.mark.xdist_group(name="server")
@@ -1197,6 +1481,67 @@ def test_kill_all_servers(html_server_session, markdown_server_session):
     assert server_2._stopped
 
 
+def test_serve_start_false_preserves_sigint_handler(asyncio_loop):
+    handler = lambda *args: None
+    previous = signal.signal(signal.SIGINT, handler)
+    try:
+        server = get_server(Markdown('foo'), port=0, address='127.0.0.1', show=False, start=False)
+        try:
+            assert signal.getsignal(signal.SIGINT) is handler
+        finally:
+            server.stop()
+    finally:
+        signal.signal(signal.SIGINT, previous)
+
+
+def test_async_execute_without_running_loop_reuses_thread_loop():
+    loops = []
+
+    async def cb():
+        loops.append(asyncio.get_running_loop())
+
+    def run():
+        async_execute(cb)
+        async_execute(cb)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join()
+
+    assert len(loops) == 2
+    assert loops[0] is loops[1]
+    assert loops[0] not in getattr(IOLoop, '_ioloop_for_asyncio', {})
+
+
+def test_async_execute_without_running_loop_survives_asyncio_run(monkeypatch):
+    import gc
+
+    unraisable = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+    loops = []
+
+    async def cb():
+        loops.append(asyncio.get_running_loop())
+
+    def run():
+        async_execute(cb)
+        # asyncio.run resets the thread's current loop to None on exit
+        asyncio.run(asyncio.sleep(0))
+        gc.collect()
+        async_execute(cb)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join()
+    del thread
+    gc.collect()
+
+    assert len(loops) == 2
+    assert loops[0] is loops[1]
+    assert loops[0].is_closed()
+    assert not unraisable
+
+
 def test_threaded_server_stop_does_not_leave_unstarted_tasks(monkeypatch):
     import gc
     import sys
@@ -1222,6 +1567,16 @@ def test_threaded_server_stop_does_not_leave_unstarted_tasks(monkeypatch):
     gc.collect()
 
     assert [u.object for u in unraisable] == []
+
+
+def test_threaded_server_stop_closes_tornado_loop():
+    serve_and_wait(Markdown('# Title'))
+    server_id = next(iter(state._threads))
+    io_loop = state._servers[server_id][0].io_loop
+
+    state.kill_all_servers()
+
+    assert io_loop.closing
 
 
 @pytest.mark.xdist_group(name="server")
@@ -1874,6 +2229,24 @@ def test_server_exception_handler_bokeh_event(threads, handler, request):
     wait_until(lambda: len(exceptions) == 1)
 
 
+def test_server_busy_cleanup_starts_from_locked_callback():
+    button = Button()
+
+    def app():
+        state.curdoc.add_next_tick_callback(
+            lambda: button._comm_event(state.curdoc, ButtonClick(model=None))
+        )
+        return button
+
+    serve_and_request(app)
+
+    wait_until(lambda: button.clicks == 1)
+    wait_until(lambda: (
+        type(state)._busy_cleanup_scheduled is not None and
+        type(state)._busy_cleanup_scheduled._cb is not None
+    ))
+
+
 @pytest.mark.parametrize(
     'threads, handler', [
         ('threads', synchronous_handler),
@@ -2056,3 +2429,53 @@ def test_reverse_proxy_picks_another_port_when_taken(monkeypatch):
             socket.create_connection(('127.0.0.1', proxy_port), timeout=5).close()
     finally:
         taken.close()
+
+
+@unix_only
+@pytest.mark.parametrize('num_procs', [1, 3])
+def test_serve_show_opens_single_tab(num_procs):
+    script = (
+        "import os\n"
+        "import panel as pn\n"
+        "from bokeh.server.server import Server\n"
+        "Server.show = lambda self, *a, **k: print(f'SHOW {os.getpid()}', flush=True)\n"
+        f"server = pn.serve(lambda: pn.panel('x'), num_procs={num_procs}, show=True,\n"
+        "                  port=0, start=False, verbose=False)\n"
+        "server.io_loop.call_later(1, server.io_loop.stop)\n"
+        "server.io_loop.start()\n"
+        "os._exit(0)\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
+    ).stdout
+    assert out.count('SHOW') == 1
+
+
+def test_serve_threaded_after_main_thread_finishes():
+    # https://github.com/holoviz/panel/issues/9044
+    port = get_open_ports()[0]
+    script = (
+        "import panel as pn\n"
+        f"pn.serve(lambda: pn.panel('x'), port={port}, show=False, threaded=True,\n"
+        "         liveness=True)\n"
+    )
+    process = subprocess.Popen([sys.executable, "-c", script])
+    try:
+        # The script's main thread finishes before the server responds
+        wait_for_server(port, timeout=60)
+        response = requests.get(f"http://127.0.0.1:{port}/", timeout=10)
+        # Session replies are handed to a separate thread pool; a broken
+        # pool leaves the client waiting forever, hence the timeout
+        def pull_roots():
+            with pull_session(url=f"http://127.0.0.1:{port}/") as session:
+                return session.document.roots
+        executor = ThreadPoolExecutor(max_workers=1)
+        try:
+            roots = executor.submit(pull_roots).result(timeout=30)
+        finally:
+            executor.shutdown(wait=False)
+    finally:
+        process.kill()
+        process.wait()
+    assert response.status_code == 200
+    assert roots

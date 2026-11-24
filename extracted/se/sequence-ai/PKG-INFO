@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.66.2
+Version: 0.66.3
 Summary: SequenceLink is an open-source framework for serving robot policies from remote GPUs over wide-area networks (WANs).
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -199,7 +199,7 @@ replica per GPU.
 
 **A robot pauses, and Linux restarts its connection.** A robot executes a chunk between requests, and Linux restarts a
 TCP connection's congestion window after an idle period. The upload after a pause then takes one extra round trip, at
-RTTs from 12 to 101 ms. `window`, `ping` and `connect` keep the window open.
+every RTT measured from 12 ms up but the longest. `window`, `ping` and `connect` keep the window open.
 
 **A request carries more round trips and bytes than it needs.** A response split across writes can wait a round trip
 behind a tunnel, and a camera frame is 50 to 100 KB. `one_write` sends each response in one write, `connect()` sends each
@@ -233,7 +233,8 @@ table_user = slack.measure(forward_of_user, sizes=[1, 2, 4])       # forward_of_
 play_user = slack.playback(hz=20, valid_len=15, replan_at=8)       # 15 valid steps, the next requested at the 8th
 seating_user = slack.Seating(table_user, play_user["buffer_s"] * 1000, sizes=[1, 2, 4],
                              cycle_ms=(play_user["play_s"] - play_user["buffer_s"]) * 1000)
-seats_user, over_user = seating_user.seat([("near", 30.0), ("far", 200.0)])     # (robot, its RTT in ms)
+seats_user, over_user = seating_user.seat([("near-1", 30.0), ("near-2", 30.0), ("near-3", 30.0), ("near-4", 30.0),
+                                           ("far", 60.0)])                        # (robot, its RTT in ms)
 ```
 
 - **`optimize`** tries `cuda_graphs` on every module that repeats and `whole_graph` on a run's whole call, keeps
@@ -314,9 +315,8 @@ result_user = sequence_ai.chat("qwen/qwen3-next-80b-a3b-instruct", [{"role": "us
 
 ## Results
 
-Across thirteen model and network configurations, the time a request spends outside the model ranges from 13 to
-137 ms, and its share of the latency from 4 to 32%. A remote GPU is therefore close to an on-board GPU of the same
-type, and inference time is the main lever.
+Across thirteen model and network configurations, the time a request spends outside the model is 4 to 32% of its
+latency. A remote GPU is therefore close to an on-board GPU of the same type, and inference time is the main lever.
 
 Inference layer:
 
@@ -332,11 +332,11 @@ Network layer:
 
 | Component | Result | Measured on |
 |---|---|---|
-| `window`, `ping` | an upload after a pause in 1.0 round trips, not 2.0 | a 24 KB upload, RTTs of 12 to 101 ms |
+| `window`, `ping` | an upload after a pause in 1.0 round trips, not 2.0 | a 24 KB upload, every RTT measured from 12 ms up but the longest |
 | `window`: BBR | no extra round trip after a pause, also with 1% loss | a 24 KB upload, RTT about 21 ms |
 | `ping`, the server's | 1.1 to 1.25 round trips, not 3.0 | 100 KB to 1 MB after 500 ms of silence |
-| `window.Warm`, the robot's ping | under 1 ms, not 303.6 ms, for an upload to arrive | 162 KB uploads 3 s apart, RTT 226 ms |
-| `one_write` | 106.7 ms, not 189.7, for a response | a GET through a tunnel |
+| `window.Warm`, the robot's ping | an upload arrived in under 1 ms, not in over a round trip | 162 KB uploads 3 s apart, a long RTT |
+| `one_write` | a response in about one round trip, not two | a GET through a tunnel |
 | `sequence_ai.Video` | about 2.5 KB a frame, not 921,600 bytes as an array | a 640×480 camera, a textured background and three moving discs |
 
 [Measurements](https://github.com/General-Sequences/sequence-ai/blob/main/docs/measurements.md) lists the network layer's commands, and [`bench/`](https://github.com/General-Sequences/sequence-ai/tree/main/bench/) measures your own link.

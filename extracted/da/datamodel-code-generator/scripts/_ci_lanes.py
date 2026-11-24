@@ -1,24 +1,29 @@
 """Read the lanes of the CI test matrix and the environment facts each lane runs the tests with.
 
-A lane is one tox environment of an ``include`` entry of a job matrix in ``.github/workflows/test.yaml`` (an entry
-that lists several, comma-separated, runs each), on the entry's ``os`` or the job's ``runs-on``; shards of one
-environment are one lane. Its facts are those of `tests/units.py` (`FACTS`), read without running tox:
+A lane is one tox environment of a job matrix of a workflow in ``.github/workflows``: of an ``include`` entry (an
+entry that lists several, comma-separated, runs each) or of a ``tox_env`` axis, on the entry's ``os`` or the job's
+``runs-on``; shards of one environment are one lane, and the same environment on the same runner in two workflows
+too. A job that names its tox environment in a step, outside a matrix, runs no lane. Its facts are those of
+`tests/units.py` (`FACTS`), read without running tox:
 
 - ``python``: the environment's ``py3NN`` factor, else its ``base_python``;
 - ``platform``: the runner (``ubuntu-*`` is ``linux``, ``macos-*`` ``darwin``, ``windows-*`` ``win32``);
 - ``formatter``: ``builtin`` where its ``set_env`` sets `FORMATTER_ENV` to ``builtin``, else ``external``;
-- ``black``, ``isort``, ``pydantic``: a ``deps`` pin (``pydantic==2.0.3``), else the requirement of a dependency group
-  the environment installs (``black==22.1``, ``isort>=6,<7``), resolved to the newest version of ``uv.lock`` that
-  satisfies it; with neither, the newest locked version.
+- ``black``, ``isort``, ``pydantic``, ``heki``: a ``deps`` pin (``pydantic==2.0.3``), else the requirement of a
+  dependency group the environment installs (``black==22.1``, ``isort>=6,<7``, ``heki==0.2.4``), resolved to the
+  newest version of ``uv.lock`` that satisfies it; with neither, the newest locked version where the package requires
+  the tool (``[project].dependencies``, unless the environment skips installing the package), else empty: a tool only
+  a group installs (heki) is not installed in an environment without that group.
 
 tox settings are read as tox reads them for one environment: the section whose name expands (``{a,b}``) to it, else
 ``[testenv]``; ``{[section]key}`` substitutions; and factor-conditional lines (``py312-!nocov: value``). Environment
 markers of requirements are not read, and an environment that tox installs without the lock (``uv-venv-runner``)
 gets the locked version of an unpinned tool, though it may resolve a newer one. A lane is a subset lane (a fixed
 list of tests, not the suite) when each of its entries lists test paths in its job or its tox environment runs no
-``tests`` target. A lane whose Python or platform cannot
-be read is a problem, never a lane with guessed facts. The workflow is read line by line (the checks that read it run
-without a YAML parser); `tests/test_source_rules.py` compares the lanes with a YAML parse of the real workflow.
+``tests`` target; those paths are the tests it selects, and the ``exclude_tests`` every entry of it names are the
+tests it leaves out (`Lane.runs`). A lane whose Python or platform cannot
+be read is a problem, never a lane with guessed facts. The workflows are read line by line (the checks that read them
+run without a YAML parser); `tests/test_source_rules.py` compares the entries with a YAML parse of the real ones.
 """
 
 from __future__ import annotations
@@ -36,16 +41,20 @@ import tomllib
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tests.units import ORDERS, release
 
-WORKFLOW = ".github/workflows/test.yaml"
+WORKFLOWS = ".github/workflows"
+WORKFLOW = f"{WORKFLOWS}/test.yaml"
 TOX = "tox.ini"
 PYPROJECT = "pyproject.toml"
 LOCK = "uv.lock"
 FORMATTER_ENV = "DATAMODEL_CODE_GENERATOR_TEST_DEFAULT_FORMATTER"
-"""The variable that makes the tests use the built-in formatter (``tests.conftest.TEST_DEFAULT_FORMATTER_ENV``)."""
+"""The variable that makes the tests use the built-in formatter (``tests.capabilities.TEST_DEFAULT_FORMATTER_ENV``)."""
 RUNNERS = (("ubuntu", "linux"), ("macos", "darwin"), ("windows", "win32"))
 _JOB = re.compile(r"^  (?P<name>[A-Za-z0-9_-]+):\s*$")
 _RUNS_ON = re.compile(r"^    runs-on:\s*(?P<value>.+?)\s*$")
+_MATRIX = re.compile(r"^(?P<indent>\s+)matrix:\s*$")
 _INCLUDE = re.compile(r"^(?P<indent>\s+)include:\s*$")
+_AXIS = re.compile(r"^(?P<indent>\s+)tox_env:\s*$")
+_ITEM = re.compile(r"^(?P<indent>\s+)- (?P<value>[^\s:]+)\s*$")
 _ENTRY = re.compile(r"^(?P<indent>\s+)- (?P<key>[A-Za-z_]+):\s*(?P<value>.*?)\s*$")
 _KEY = re.compile(r"^(?P<indent>\s+)(?P<key>[A-Za-z_]+):\s*(?P<value>.*?)\s*$")
 _TEST_PATH = re.compile(r"^\s+tests/\S*(?: \\)?$")
@@ -64,8 +73,56 @@ class Lane:
 
     name: str
     facts: dict[str, str]
-    subset: bool = False
-    """The lane runs a fixed list of tests, not the suite: a skip no listed test reaches never fires there."""
+    tests: tuple[str, ...] | None = None
+    """The test paths the lane selects (``tests/x.py``, ``tests/x.py::test_y``, a directory); None for the suite."""
+    excluded: tuple[str, ...] = ()
+    """The test paths the lane leaves out of what it selects."""
+    entries: tuple[tuple[tuple[str, ...] | None, tuple[str, ...]], ...] = ()
+    """The (selection, exclusions) pair of each workflow entry that runs the lane; empty for a lane of one entry."""
+
+    @property
+    def subset(self) -> bool:
+        """The lane runs a fixed list of tests, not the suite: a skip no listed test reaches never fires there."""
+        return self.tests is not None
+
+    def runs(self, node: str) -> bool:
+        """Return whether some entry of the lane runs a test at or below a node (``tests/x.py::test_y``, a module).
+
+        An entry runs it where it selects the node, something that holds it or something below it (one parameter of
+        the test), and leaves out nothing that holds the deeper of the two: leaving out one parameter still runs the
+        others, and leaving out the one parameter it selects runs nothing.
+        """
+        return any(
+            any(
+                not any(_within(deeper, path) for path in excluded)
+                for deeper in ((node,) if tests is None else _deeper(node, tests))
+            )
+            for tests, excluded in self._entries
+        )
+
+    @property
+    def _entries(self) -> tuple[tuple[tuple[str, ...] | None, tuple[str, ...]], ...]:
+        return self.entries or ((self.tests, self.excluded),)
+
+    def joined(self, other: Lane) -> Lane:
+        """Return the lane as two entries of its environment run it: each keeps its own selection and exclusions."""
+        tests = None if self.tests is None or other.tests is None else tuple(sorted({*self.tests, *other.tests}))
+        return replace(
+            self,
+            tests=tests,
+            excluded=tuple(sorted(set(self.excluded) & set(other.excluded))),
+            entries=(*self._entries, *other._entries),
+        )
+
+
+def _deeper(node: str, tests: tuple[str, ...]) -> tuple[str, ...]:
+    """Return, for each selected path that holds a node or lies below it, the deeper of the two."""
+    return tuple(node if _within(node, path) else path for path in tests if _within(node, path) or _within(path, node))
+
+
+def _within(node: str, path: str) -> bool:
+    """Return whether a test path holds a node: the node itself, its directory, module, class or test of a parameter."""
+    return node == path or node.startswith((f"{path}/", f"{path}::", f"{path}["))
 
 
 def _value(text: str) -> str:
@@ -75,34 +132,46 @@ def _value(text: str) -> str:
 
 
 def matrix_entries(text: str) -> list[dict[str, str]]:
-    """Return every ``include`` entry of every job matrix of a workflow, with its ``job`` and the job's ``runs-on``.
+    """Return every entry of every job matrix of a workflow, with its ``job`` and the job's ``runs-on``.
 
-    ``selection`` is ``listed`` for a job whose steps list test paths, one per line (a fixed list of tests), else
-    ``all``.
+    An entry is an ``include`` entry, or one item of a ``tox_env`` axis (as ``{"tox_env": item}``). ``selection`` is
+    ``listed`` for a job whose steps list test paths, one per line (a fixed list of tests), else ``all``; ``tests``
+    holds those paths, separated by spaces.
     """
     found: list[dict[str, str]] = []
     runs_on: dict[str, str] = {}
-    listed: set[str] = set()
-    job, include, entry, entry_indent = "", -1, None, -1
+    listed: dict[str, list[str]] = {}
+    job, matrix, include, axis, entry, entry_indent = "", -1, -1, -1, None, -1
     for line in text.splitlines():
         indent = len(line) - len(line.lstrip())
         if _TEST_PATH.match(line):
-            listed.add(job)
+            listed.setdefault(job, []).append(line.strip().removesuffix("\\").strip())
         if match := _JOB.match(line):
-            job, include, entry = match["name"], -1, None
+            job, matrix, include, axis, entry = match["name"], -1, -1, -1, None
         elif match := _RUNS_ON.match(line):
             runs_on[job] = _value(match["value"])
+        elif _MATRIX.match(line):
+            matrix = indent
         elif match := _INCLUDE.match(line):
             include = indent
+        elif matrix >= 0 and _AXIS.match(line) and indent == matrix + 2:
+            axis = indent
+        elif axis >= 0 and (match := _ITEM.match(line)) and indent > axis:
+            found.append({"job": job, "tox_env": _value(match["value"])})
         elif include >= 0 and (match := _ENTRY.match(line)) and indent > include:
             entry, entry_indent = {"job": job, match["key"]: _value(match["value"])}, indent
             found.append(entry)
         elif entry is not None and (match := _KEY.match(line)) and indent == entry_indent + 2:
             entry[match["key"]] = _value(match["value"])
-        elif line.strip() and not line.lstrip().startswith("#") and indent <= include:
-            include, entry = -1, None
+        elif line.strip() and not line.lstrip().startswith("#") and indent <= max(include, axis):
+            include, axis, entry = -1, -1, None
     return [
-        {**entry, "runs-on": runs_on.get(entry["job"], ""), "selection": "listed" if entry["job"] in listed else "all"}
+        {
+            **entry,
+            "runs-on": runs_on.get(entry["job"], ""),
+            "selection": "listed" if entry["job"] in listed else "all",
+            "tests": " ".join(listed.get(entry["job"], [])),
+        }
         for entry in found
     ]
 
@@ -185,11 +254,14 @@ class Environments:
         tox = root / TOX
         self.tox = ToxConfig(tox.read_text(encoding="utf-8") if tox.is_file() else "")
         pyproject = root / PYPROJECT
-        self.groups = (
-            tomllib.loads(pyproject.read_text(encoding="utf-8")).get("dependency-groups", {})
-            if pyproject.is_file()
-            else {}
-        )
+        project = tomllib.loads(pyproject.read_text(encoding="utf-8")) if pyproject.is_file() else {}
+        self.groups = project.get("dependency-groups", {})
+        self.package_requires = {
+            match["name"].lower()
+            for requirement in project.get("project", {}).get("dependencies", [])
+            if (match := _REQUIREMENT.match(requirement))
+        }
+        """The names of the tools the package requires, which every environment that installs it has."""
         lock = root / LOCK
         packages = tomllib.loads(lock.read_text(encoding="utf-8")).get("package", []) if lock.is_file() else []
         self.locked: dict[str, list[str]] = {}
@@ -218,6 +290,8 @@ class Environments:
             for requirement in requirements
             if (match := _REQUIREMENT.match(requirement)) and match["name"].lower() == tool
         ]
+        if not specs and (tool not in self.package_requires or self.tox.lines(env, "skip_install") == ["true"]):
+            return ""
         spec = specs[-1] if specs else ""
         if (pin := re.fullmatch(r"==\s*([\w.+-]+)", spec)) is not None:
             return pin[1]
@@ -228,6 +302,13 @@ class Environments:
         """Return whether ``env`` runs the whole suite: no commands is read as the default, else a ``tests`` target."""
         lines = self.tox.lines(env, "commands")
         return not lines or any(_is_suite_target(word) for line in lines for word in line.split())
+
+    def tests(self, env: str) -> tuple[str, ...] | None:
+        """Return the test paths ``env`` selects: None for the suite, else the ``tests/`` words of its commands."""
+        if self.runs_suite(env):
+            return None
+        words = (word.strip("\"'") for line in self.tox.lines(env, "commands") for word in line.split())
+        return tuple(word for word in words if word.startswith("tests/"))
 
     def facts(self, env: str, runner: str) -> dict[str, str]:
         """Return the facts of ``env`` on ``runner``; a fact that cannot be read is empty."""
@@ -249,29 +330,30 @@ class Environments:
             "isort": self._tool(env, "isort"),
             "platform": next((platform for prefix, platform in RUNNERS if runner.startswith(prefix)), ""),
             "pydantic": self._tool(env, "pydantic"),
+            "heki": self._tool(env, "heki"),
         }
 
 
 def read_lanes(root: Path) -> tuple[list[Lane], list[str]]:
-    """Return the lanes of the matrix of the checkout at ``root`` and the lanes whose facts cannot be read.
+    """Return the lanes of the workflows of the checkout at ``root`` and the lanes whose facts cannot be read.
 
-    A checkout without the workflow has no lanes.
+    A checkout without workflows has no lanes.
     """
-    workflow = root / WORKFLOW
-    if not workflow.is_file():
-        return [], []
+    directory = root / WORKFLOWS
+    workflows = sorted(directory.glob("*.y*ml")) if directory.is_dir() else []
     environments = Environments(root)
     lanes: dict[str, Lane] = {}
     problems: list[str] = []
-    for entry in matrix_entries(workflow.read_text(encoding="utf-8")):
+    for entry in (entry for workflow in workflows for entry in matrix_entries(workflow.read_text(encoding="utf-8"))):
         runner = entry.get("os") or entry.get("runs-on", "")
         for env in filter(None, (item.strip() for item in entry.get("tox_env", "").split(","))):
             name = f"{env} on {runner}"
-            subset = entry["selection"] == "listed" or not environments.runs_suite(env)
+            tests = tuple(entry["tests"].split()) if entry["selection"] == "listed" else environments.tests(env)
+            excluded = tuple(entry.get("exclude_tests", "").split())
             if name in lanes:
-                lanes[name] = replace(lanes[name], subset=lanes[name].subset and subset)
+                lanes[name] = lanes[name].joined(Lane(name, lanes[name].facts, tests, excluded))
                 continue
             facts = environments.facts(env, runner)
-            lanes[name] = Lane(name, facts, subset)
+            lanes[name] = Lane(name, facts, tests, excluded)
             problems += [f"{name}: no {fact} can be read" for fact in ("python", "platform") if not facts[fact]]
     return list(lanes.values()), sorted(set(problems))

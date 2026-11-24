@@ -18,17 +18,20 @@ from matrx_rag import search
 _USER = "11111111-1111-4111-8111-111111111111"
 
 
-def test_the_kinds_asked_follow_the_narrowing_and_never_include_files():
+def test_the_kinds_asked_follow_the_narrowing_and_include_files():
     assert search.readable_source_kinds_for(None) == search.READABLE_SOURCE_KINDS
     assert search.readable_source_kinds_for([]) == search.READABLE_SOURCE_KINDS
     assert search.readable_source_kinds_for(["note"]) == ("note",)
     assert search.readable_source_kinds_for(["document", "task", "cld_file"]) == (
         "task",
+        "cld_file",
         "document",
     )
-    # cld_file keeps the doors' per-row check (its set costs ~5 s; its Source-less passages are rare).
-    assert search.readable_source_kinds_for(["cld_file"]) == ()
-    assert "cld_file" not in search.READABLE_SOURCE_KINDS
+    # 2026-11-04: Source-less file passages are common (20k rows); the per-row kernel check on each
+    # of them timed knowledge_search out, so files are decided by the once-per-search set too.
+    assert search.readable_source_kinds_for(["cld_file"]) == ("cld_file",)
+    # Every kind rag._recall_predicate_sql would otherwise decide per row is carried as a set.
+    assert set(search.READABLE_SOURCE_KINDS) == {"note", "task", "project", "cld_file", "library_doc", "document"}
 
 
 async def test_the_sources_set_is_asked_as_the_person_beside_the_documents_set(monkeypatch):
@@ -41,11 +44,13 @@ async def test_the_sources_set_is_asked_as_the_person_beside_the_documents_set(m
         calls.append(("docs", user_id, token))
         return ["d1"]
 
+    answers = {"note": ["n1", "n2"], "task": [], "cld_file": ["f1"]}
+
     async def fake_as(actor, database, schema, function, *args, mode="scalar", **_kw):
         calls.append(
             ("as", actor, f"{schema}.{function}", args[0].value, args[0].element_type, mode)
         )
-        return {"note": ["n1", "n2"], "task": []}
+        return {k: answers[k] for k in args[0].value}
 
     monkeypatch.setattr(matrx_orm, "platform_accessible_ids", fake_ids)
     monkeypatch.setattr(db_function, "call_function_as", fake_as)
@@ -53,13 +58,37 @@ async def test_the_sources_set_is_asked_as_the_person_beside_the_documents_set(m
         _USER, source_kinds=("note", "task", "cld_file", "note")
     )
     assert readable.processed_document_ids == ("d1",)
-    assert readable.source_ids == {"note": ("n1", "n2"), "task": ()}
-    assert ("as", _USER, "rag.readable_sources", ["note", "task"], "text", "scalar") in calls
+    assert readable.source_ids == {"note": ("n1", "n2"), "task": (), "cld_file": ("f1",)}
+    assert ("as", _USER, "rag.readable_sources", ["note", "task", "cld_file"], "text", "scalar") in calls
 
     # No kinds: the documents set alone, exactly as before.
     calls.clear()
     plain = await search.resolve_readable_documents(_USER)
     assert plain.source_ids == {} and [c[0] for c in calls] == ["docs"]
+
+
+async def test_the_sources_ask_runs_to_the_server_ceiling_not_the_pool_timeout(monkeypatch):
+    """2026-11-17 (knowledge_search: QueryTimeoutError during call_function_as:rag.readable_sources,
+    10,084 ms): the ask is bounded (candidates first) but a 3-4 s statement warm for a member of
+    hundreds of organizations; under load it crossed the pool's 10 s driver timeout while Postgres
+    still allowed 30 s. It must carry ``timeout=SERVER_CEILING`` so the server's own ceiling decides."""
+    import matrx_orm
+    from matrx_orm import SERVER_CEILING
+    from matrx_orm.core import db_function
+
+    seen: list = []
+
+    async def fake_ids(user_id, token, level):
+        return []
+
+    async def fake_as(actor, database, schema, function, *args, mode="scalar", **kw):
+        seen.append(kw.get("timeout"))
+        return {k: [] for k in args[0].value}
+
+    monkeypatch.setattr(matrx_orm, "platform_accessible_ids", fake_ids)
+    monkeypatch.setattr(db_function, "call_function_as", fake_as)
+    await search.resolve_readable_documents(_USER, source_kinds=("note", "cld_file"))
+    assert seen == [SERVER_CEILING]
 
 
 async def test_an_incomplete_sources_answer_fails_the_search_never_narrows_it(monkeypatch):
@@ -81,7 +110,7 @@ async def test_an_incomplete_sources_answer_fails_the_search_never_narrows_it(mo
 async def test_every_recall_door_carries_the_sources_set(monkeypatch):
     calls: list = []
 
-    async def fake_door(function, *args):
+    async def fake_door(function, *args, timeout=None):
         calls.append((function, args))
         if function == "recall_entities":
             return [

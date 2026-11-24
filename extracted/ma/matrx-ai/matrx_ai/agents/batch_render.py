@@ -108,7 +108,9 @@ async def render_agent_provider_request(agent: Any) -> RenderedAgentRequest:
     # replace ``response_format``), so a translator that drops enforcement for
     # this model marks it here too, and the contract read back after the build is
     # the one the live path would have judged the answer against.
-    contract_token = bind_declared_output_contract(getattr(agent.config, "response_format", None))
+    contract_token = bind_declared_output_contract(
+        getattr(agent.config, "response_format", None), profile.capabilities
+    )
     try:
         payload = await UnifiedAIClient().translate_request(request, batch=True)
         contract = declared_output_contract()
@@ -400,6 +402,7 @@ async def conform_batch_answer(item: Any, *, record_findings: bool = True) -> li
                 provider=provider,
                 model=getattr(item, "model", None),
                 identity={k: v for k, v in identity.items() if v is not None},
+                conformed=changes,
             )
         return [*changes, *problems]
     finally:

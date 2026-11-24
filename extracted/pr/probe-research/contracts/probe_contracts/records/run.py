@@ -13,23 +13,36 @@ from .records import Record
 
 class RunStatus(StrEnum):
     CREATED = "created"
+    #: D23: its job waits in a cluster queue (Slurm, Kubernetes, SkyPilot) that a node daemon reads; set only by
+    #: that read (app/compute/queues), left at the job's first attach. Old clients get 'created' (presentation.py).
+    PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
     CRASHED = "crashed"
     CANCELED = "canceled"
+    # 0519 (D23): held at a step boundary by a `pause` command, process and GPUs kept, beating; `resume` goes on.
+    # Live like `running` (LIVE_RUN_STATUSES); old clients get 'running' (app/runs/presentation.py).
+    PAUSED = "paused"
     # 0106: never owned (no heartbeat ever), so nothing is known to have failed. Terminal like 'crashed';
     # old clients get 'crashed' (app/runs/service.py presentable_run_status). DESIGN.md (run.py).
     UNTRACKED = "untracked"
 
 
+#: The statuses of a run whose process is there: it beats, takes commands, and is ended by the same doors (D23).
+LIVE_RUN_STATUSES = frozenset({RunStatus.RUNNING, RunStatus.PAUSED})
+
+
 class RunType(StrEnum):
     """What a run is, as its creator declares it. Training and evaluation are phases inside a run, not types.
-    The RL views (RL workspace, Rollouts, Compute timeline, Trials) follow `rl`."""
+    The RL views (Rollouts summaries, Compute timeline, Trials) follow `rl`; recorded samples show on any type.
+    Never guessed from metric names: an undeclared run reads `general` ("Other")."""
 
-    # 0495; DESIGN.md (run.py).
+    # 0495, `sft` 0515; DESIGN.md (run.py).
 
     GENERAL = "general"
+    #: Supervised fine-tuning on fixed examples: TRL's SFTTrainer, or a script that says so.
+    SFT = "sft"
     #: Rollouts in an environment scored by a reward: an RL trainer's run, or a Harbor agent eval.
     RL = "rl"
 

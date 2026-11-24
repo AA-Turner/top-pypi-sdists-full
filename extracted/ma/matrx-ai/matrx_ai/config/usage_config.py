@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import math
 import time
 from dataclasses import asdict, dataclass, field
@@ -75,6 +76,24 @@ def _json_safe_usage_value(value: Any) -> Any:
         return [_json_safe_usage_value(item) for item in value]
     nested = _safe_to_dict(value)
     return nested.get("_raw") if set(nested) == {"_raw"} else nested
+
+
+COST_SOURCE_PROVIDER_USAGE = "catalog_from_provider_usage"
+COST_SOURCE_ESTIMATED_USAGE = "catalog_from_estimated_usage"
+
+
+def catalog_cost_source(usages: Any) -> str:
+    """The ledger ``cost_source`` for a charge priced from these usages.
+
+    The amount is always the catalog price; this names where the TOKEN COUNTS came from. Any usage
+    stamped ``usage_estimated`` (a stopped call billed its counted prompt, ``providers/stopped_usage.py``)
+    makes the whole charge ``catalog_from_estimated_usage``; otherwise the provider reported them."""
+    items = usages if isinstance(usages, (list, tuple)) else [usages]
+    for item in items:
+        metadata = getattr(item, "metadata", None)
+        if isinstance(metadata, dict) and metadata.get("usage_estimated"):
+            return COST_SOURCE_ESTIMATED_USAGE
+    return COST_SOURCE_PROVIDER_USAGE
 
 
 def serialize_provider_usage(obj: Any) -> dict[str, Any]:
@@ -346,7 +365,36 @@ PROVIDER_SERVICE_COMPONENTS: dict[tuple[str, str], str] = {
     # Search per search request ($14 per 1,000 on Gemini 3.x -> 14000); counted by
     # matrx_ai/providers/google/google_research_agent.research_usage.
     ("google_interactions", "web_search"): "service.google_search",
+    # xAI server-side tools bill per call (web search $5/1,000 -> 5000; code execution
+    # $5/1,000 -> 5000), counted from ``usage.server_side_tools_used`` by
+    # ``xai_server_side_tool_components``.
+    ("xai_chat", "web_search"): "service.web_search",
+    ("xai_chat", "code_execution"): "service.code_execution",
 }
+
+#: xAI ``usage.server_side_tools_used`` enum -> canonical component, for the tools whose
+#: per-call price the catalog expresses. X search (priced per post/profile), view_image,
+#: view_x_video, mcp, image_search and image_generation are NOT counted: a counted unit with
+#: no price would NULL the whole call's cost, and a per-call count cannot express them.
+XAI_SERVER_SIDE_TOOL_COMPONENTS: dict[str, str] = {
+    "SERVER_SIDE_TOOL_WEB_SEARCH": "service.web_search",
+    "SERVER_SIDE_TOOL_CODE_EXECUTION": "service.code_execution",
+    "SERVER_SIDE_TOOL_ATTACHMENT_SEARCH": "service.attachment_search",
+    "SERVER_SIDE_TOOL_COLLECTIONS_SEARCH": "service.collections_search",
+}
+
+
+def xai_server_side_tool_components(raw_usage: Any) -> dict[str, int]:
+    """xAI usage (proto, or the dict ``serialize_provider_usage`` made of it) ->
+    ``{"service.web_search": 28, …}``, one unit per repeated ``server_side_tools_used`` entry."""
+    raw = _safe_to_dict(raw_usage)
+    out: dict[str, int] = {}
+    for tool in raw.get("server_side_tools_used") or []:
+        name = getattr(tool, "name", None) or str(tool)
+        component = XAI_SERVER_SIDE_TOOL_COMPONENTS.get(name)
+        if component:
+            out[component] = out.get(component, 0) + 1
+    return out
 
 
 # ADVISORY modality counts. A provider that reports its usage split by modality (Gemini's
@@ -1072,9 +1120,16 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
         ambiguous_wire: set[str] = set()
         orphan_models: list[str] = []
         parked_models: list[str] = []
+        pending_models: list[str] = []
         invalid: dict[str, str] = {}
         for model in models:
             offerings = ai_catalog_manager.offerings_for(str(model.id))
+            if not offerings and _routes_on_device(ai_catalog_manager, str(model.id)):
+                # A DEVICE-ONLY model (served on the person's own computer through the device
+                # relay) has a real, routable offering — offerings_for() lists cloud routes only,
+                # by design. It is free (no provider bills it), so there is nothing to price and
+                # it is not an orphan (feedback 361bd36e: 40 device LLMs filed every warm).
+                continue
             if not offerings:
                 # Deprecated/retired + unroutable is an expected state — never an orphan.
                 # But a deprecated model WITH offerings still ROUTES (ruled 2026-09-09),
@@ -1092,6 +1147,11 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
                     # offering at all is a dead row.
                     if ai_catalog_manager.parked_offerings_for(str(model.id)):
                         parked_models.append(label)
+                    elif _is_just_catalogued(model):
+                        # A model is catalogued in two writes (definition, then offering); a warm
+                        # that lands between them is not an orphan. 2026-11-18: rerank-v4.0-pro's
+                        # offering followed its definition by seconds and 16 warms filed it.
+                        pending_models.append(label)
                     else:
                         orphan_models.append(label)
                 continue
@@ -1139,6 +1199,13 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
                 f"[Pricing] {len(parked_models)} model(s) parked — offering deliberately "
                 f"unavailable (reason in ai.offering.notes): {', '.join(parked_models)}",
                 color="cyan",
+            )
+        if pending_models:
+            vcprint(
+                f"[Pricing] {len(pending_models)} model(s) catalogued under "
+                f"{_orphan_grace_seconds() // 60} min ago with no offering yet (filed as orphans "
+                f"if still bare after that): {', '.join(pending_models)}",
+                color="yellow",
             )
         if orphan_models:
             detail = "\n".join(f"    ● {name}" for name in orphan_models)
@@ -1215,6 +1282,41 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
         return _pricing_lookup_cache or {}
 
 
+def _orphan_grace_seconds() -> int:
+    """How long a fresh model definition may wait for its offering before it is an orphan
+    (knob ``agents.model_catalog.orphan_grace_seconds``)."""
+    from matrx_ai.catalog.knobs import catalog_knob
+
+    return int(catalog_knob("orphan_grace_seconds", 600))  # KNOB MIRROR: agents.model_catalog.orphan_grace_seconds
+
+
+def _is_just_catalogued(model: Any) -> bool:
+    """True when the definition row was created inside the orphan grace window."""
+    from datetime import UTC, datetime
+
+    created = getattr(model, "created_at", None)  # orm-getattr-ok: generated model row
+    if isinstance(created, str):
+        try:
+            created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if not isinstance(created, datetime):
+        return False
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - created).total_seconds() < _orphan_grace_seconds()
+
+
+def _routes_on_device(catalog: Any, model_id: str) -> bool:
+    finder = getattr(catalog, "device_offering_for", None)
+    if finder is None:
+        return False
+    try:
+        return finder(model_id) is not None
+    except Exception:  # noqa: BLE001 — unknown is not "routable"; the orphan check stays loud
+        return False
+
+
 class CatalogOrphanModelsError(RuntimeError):
     """Active model definitions exist without a routable catalog offering."""
 
@@ -1231,18 +1333,44 @@ async def _capture_orphan_models(orphan_models: list[str]) -> None:
 
     if not has_ext("record_error"):
         return
-    error = CatalogOrphanModelsError(
-        f"{len(orphan_models)} active model definition(s) have no available offering: "
-        + ", ".join(orphan_models)
-    )
+    # An offering the catalog QUARANTINED (its api's translator is unknown to this build, a bad
+    # rule) leaves its model looking orphaned. Name those so the row says the real cause — live
+    # 2026-11-18: rerank-v4.0-pro's offering existed, but its api 'cohere_rerank' was quarantined
+    # until the code naming that translator deployed, and the row told people to INSERT an offering.
     try:
-        await get_ext("record_error")(
-            error,
-            kind="ai_catalog_orphan_models",
-            route="matrx_ai.config.usage_config.warm_pricing_lookup",
-            error_type=type(error).__name__,
-            payload={"orphan_models": orphan_models, "orphan_count": len(orphan_models)},
+        from matrx_ai.catalog.manager import QUARANTINED_ROWS
+
+        quarantined = sorted(
+            {f"{r.kind} {r.name}: {'; '.join(r.errors)[:200]}" for r in QUARANTINED_ROWS if r.kind in ("api", "offering")}
         )
+    except Exception:  # noqa: BLE001 — the cause hint never blocks the capture
+        quarantined = []
+    message = f"{len(orphan_models)} active model definition(s) have no available offering: " + ", ".join(
+        orphan_models
+    )
+    if quarantined:
+        message += f" (quarantined catalog rows this load, a likely cause: {' | '.join(quarantined)[:600]})"
+    error = CatalogOrphanModelsError(message)
+    fields = {
+        "kind": "ai_catalog_orphan_models",
+        "route": "matrx_ai.config.usage_config.warm_pricing_lookup",
+        "error_type": type(error).__name__,
+        "payload": {
+            "orphan_models": orphan_models,
+            "orphan_count": len(orphan_models),
+            "quarantined_rows": quarantined,
+        },
+    }
+    try:
+        # Every server process warms on the same catalog reload: ONE open row, every sighting
+        # counted on it (live 2026-11-18: 16, then 25 rows within seconds for one model).
+        record_error = get_ext("record_error")
+        try:
+            pending = record_error(error, group_open=True, **fields)
+        except TypeError:
+            pending = record_error(error, **fields)
+        if inspect.isawaitable(pending):
+            await pending
     except Exception as capture_exc:  # noqa: BLE001 — diagnostics never break pricing warm
         vcprint(
             f"[Pricing] structured orphan-model capture failed: {capture_exc!r}",
@@ -1464,6 +1592,10 @@ class TokenUsage:
     raw_usage: dict[str, Any] | None = None
     billing_components: dict[str, int] = field(default_factory=dict)
     provider_charge: ProviderCharge | None = None
+    # 5-minute cache-WRITE tokens known WITHOUT a provider usage block (a stopped call's estimate,
+    # ``providers/stopped_usage.py``). Like Anthropic's, ``input_tokens`` stays INCLUSIVE of them; the
+    # cost breakdown prices them at the write rate when no raw usage carries the split.
+    cache_write_5m_tokens: int = 0
 
     def __post_init__(self) -> None:
         # Provider-specific adapters may supply a richer charge (for example
@@ -1488,9 +1620,9 @@ class TokenUsage:
             details = raw.get("input_tokens_details")
             value = details.get("cache_write_tokens") if isinstance(details, dict) else None
         try:
-            return max(0, int(value or 0))
+            return max(0, int(value or 0)) or max(0, int(self.cache_write_5m_tokens or 0))
         except (TypeError, ValueError):
-            return 0
+            return max(0, int(self.cache_write_5m_tokens or 0))
 
     def calculate_cost(
         self, pricing_lookup: dict[str, ModelPricing] | None = None, at: datetime | None = None
@@ -1673,6 +1805,10 @@ class TokenUsage:
         cached_input_tokens = self.cached_input_tokens
         cache_write_5m_tokens = 0
         cache_write_1h_tokens = 0
+        if self.cache_write_5m_tokens > 0 and not isinstance(self.raw_usage, dict):
+            # An estimate's write tokens (no provider block): input is inclusive of them.
+            cache_write_5m_tokens = self.cache_write_5m_tokens
+            input_tokens = max(0, self.input_tokens - cache_write_5m_tokens)
         if self.api == "anthropic" and isinstance(self.raw_usage, dict):
             raw_input = int(self.raw_usage.get("input_tokens") or 0)
             raw_cache_read = int(self.raw_usage.get("cache_read_input_tokens") or 0)
@@ -1841,6 +1977,7 @@ class TokenUsage:
                 self.provider_charge, other.provider_charge
             ),
             billing_components=components,
+            cache_write_5m_tokens=self.cache_write_5m_tokens + other.cache_write_5m_tokens,
         )
 
     @classmethod
@@ -2509,6 +2646,9 @@ def cost_meters_from_usage(usage: Any, *, label: str = "", **extra: Any) -> dict
         attribution["model"] = model_name
     if api:
         attribution["provider"] = api
+    call_id = str(getattr(usage, "response_id", "") or "")
+    if call_id:  # the provider call this meter prices: one call, one meter
+        attribution["provider_call_id"] = call_id
     cost = usage.calculate_cost()
     if cost is None:
         vcprint(
